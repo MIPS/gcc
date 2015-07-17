@@ -12568,6 +12568,10 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
+        case OMP_CLAUSE_DEVICE_TYPE:
+	  pc = &OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+	  continue;
+
 	case OMP_CLAUSE_INBRANCH:
 	case OMP_CLAUSE_NOTINBRANCH:
 	  if (branch_seen)

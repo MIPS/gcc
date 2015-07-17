@@ -1,4 +1,5 @@
-/* { dg-do compile } */
+/* { dg-do compile { xfail *-*-* } } */
+/* { dg-prune-output "sorry, unimplemented: device_type clause is not supported yet" } */
 
 float b;
 #pragma acc declare link (b)
@@ -14,15 +15,15 @@ main (int argc, char **argv)
   {
   }
 
-#pragma acc parallel device_type (acc_device_nvidia) num_gangs (1)
+#pragma acc parallel device_type (nvidia) num_gangs (1)
   {
   }
 
-#pragma acc parallel device_type (acc_device_host, acc_device_nvidia) num_gangs (1)
+#pragma acc parallel device_type (host, nvidia) num_gangs (1)
   {
   }
 
-#pragma acc parallel device_type (acc_device_host) num_gangs (1)
+#pragma acc parallel device_type (host) num_gangs (1)
   {
   }
 

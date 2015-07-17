@@ -5951,6 +5951,7 @@ finish_omp_clauses (tree clauses, bool oacc)
 	case OMP_CLAUSE_BIND:
 	case OMP_CLAUSE_NOHOST:
 	case OMP_CLAUSE_TILE:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
 	case OMP_CLAUSE_INBRANCH:

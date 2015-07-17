@@ -12439,10 +12439,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
   c_parser_skip_to_pragma_eol (parser);
 
   if (finish_p)
-    {
-      clauses = c_oacc_filter_device_types (clauses);
-      return c_finish_omp_clauses (clauses, true);
-    }
+    return c_finish_omp_clauses (clauses, true);
 
   return clauses;
 }

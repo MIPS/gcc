@@ -1,3 +1,13 @@
+2015-07-17  Julian Brown  <julian@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	OMP_CLAUSE_DEVICE_TYPE.
+	(gimplify_adjust_omp_clauses): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	(expand_omp_target): Add "sorry" for device_type support.
+	* tree-pretty-print.c (dump_omp_clause): Add device_type support.
+	* tree.c (walk_tree_1): Likewise.
+
 2015-07-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_gen_wcast): Fix typo accessing reg's

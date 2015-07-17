@@ -1,3 +1,19 @@
+2015-07-17  Julian Brown  <julian@codesourcery.com>
+
+	* gfortran.h (gfc_omp_clauses): Change "dtype" int field to
+	"device_types" gfc_expr_list.
+	* openmp.c (gfc_match_omp_clauses): Remove scan_dtype variable (add
+	OMP_CLAUSE_DEVICE_TYPE directly to appropriate bitmasks). Parse all
+	device_type clauses without filtering.
+	(OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK)
+	(OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK): Add OMP_CLAUSE_DEVICE_TYPE.
+	* trans-openmp.c (gfc_trans_omp_clauses): Translate device_type
+	clauses, and split old body into...
+	(gfc_trans_omp_clauses_1): New function.
+
 2015-07-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* openmp.c (OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK): Remove

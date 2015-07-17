@@ -798,6 +798,15 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 			 spc, flags, false);
       pp_right_paren (pp);
       break;
+    case OMP_CLAUSE_DEVICE_TYPE:
+      pp_string (pp, "device_type(");
+      dump_generic_node (pp, OMP_CLAUSE_DEVICE_TYPE_DEVICES (clause),
+			 spc, flags, false);
+      pp_string (pp, ") [");
+      dump_omp_clauses (pp, OMP_CLAUSE_DEVICE_TYPE_CLAUSES (clause),
+			spc, flags);
+      pp_string (pp, " ]");
+      break;
 
     default:
       /* Should never happen.  */

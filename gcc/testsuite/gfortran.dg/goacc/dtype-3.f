@@ -1,4 +1,5 @@
 ! { dg-do compile }
+! { dg-prune-output "sorry, unimplemented: device_type clause is not supported yet" }
 
       IMPLICIT NONE
 

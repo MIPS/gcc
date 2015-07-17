@@ -29879,10 +29879,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
 
   if (finish_p)
-    {
-      clauses = c_oacc_filter_device_types (clauses);
-      return finish_omp_clauses (clauses, true);
-    }
+    return finish_omp_clauses (clauses, true);
 
   return clauses;
 }

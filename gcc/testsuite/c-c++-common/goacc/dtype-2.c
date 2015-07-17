@@ -1,4 +1,5 @@
 /* { dg-do compile } */
+/* { dg-prune-output "sorry, unimplemented: device_type clause is not supported yet" } */
 
 void
 test ()
@@ -7,7 +8,7 @@ test ()
 
   /* ACC PARALLEL DEVICE_TYPE: */
 
-#pragma acc parallel dtype (nVidia) async (1) num_gangs (100) num_workers (100) vector_length (32) wait (1) copy (i1) /* { dg-error "not valid" } */
+#pragma acc parallel dtype (nvidia) async (1) num_gangs (100) num_workers (100) vector_length (32) wait (1) copy (i1) /* { dg-error "not valid" } */
   {
   }
 
@@ -20,7 +21,7 @@ test ()
   /* ACC LOOP DEVICE_TYPE: */
 
 #pragma acc parallel
-#pragma acc loop device_type (nVidia) gang tile (1) private (i2) /* { dg-error "not valid" } */
+#pragma acc loop device_type (nvidia) gang tile (1) private (i2) /* { dg-error "not valid" } */
   for (i1 = 1; i1 < 10; i1++)
     {
     }

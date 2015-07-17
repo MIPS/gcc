@@ -1730,8 +1730,8 @@ gfc_convert_expr_to_tree (stmtblock_t *block, gfc_expr *expr)
 }
 
 static tree
-gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
-		       locus where, bool declare_simd = false)
+gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
+			 locus where, bool declare_simd = false)
 {
   tree omp_clauses = NULL_TREE, chunk_size, c;
   int list;
@@ -2659,6 +2659,45 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
     }
 
   return nreverse (omp_clauses);
+}
+
+static tree
+gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
+		       locus where, bool declare_simd = false)
+{
+  tree omp_clauses = gfc_trans_omp_clauses_1 (block, clauses, where,
+					      declare_simd);
+
+  for (; clauses->device_types; clauses = clauses->dtype_clauses)
+    {
+      tree c, following_clauses = NULL_TREE, dev_list = NULL_TREE;
+
+      if (clauses->dtype_clauses)
+        {
+	  gfc_expr_list *p;
+
+          following_clauses
+	    = gfc_trans_omp_clauses_1 (block, clauses->dtype_clauses,
+				       where, declare_simd);
+
+	  for (p = clauses->device_types; p; p = p->next)
+	    {
+	      tree dev = gfc_conv_constant_to_tree (p->expr);
+	      dev = get_identifier (TREE_STRING_POINTER (dev));
+	      if (dev_list)
+		dev_list = chainon (dev_list, dev);
+	      else
+	        dev_list = dev;
+	    }
+
+	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_DEVICE_TYPE);
+	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c) = following_clauses;
+	  OMP_CLAUSE_DEVICE_TYPE_DEVICES (c) = dev_list;
+	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+	}
+    }
+
+  return omp_clauses;
 }
 
 /* Like gfc_trans_code, but force creation of a BIND_EXPR around it.  */

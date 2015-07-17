@@ -507,7 +507,6 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 {
   gfc_omp_clauses *base_clauses, *c = gfc_get_omp_clauses ();
   locus old_loc;
-  bool scan_dtype = false;
 
   base_clauses = c;
 
@@ -1154,39 +1153,50 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
       if ((mask & OMP_CLAUSE_DEVICE) && c->device == NULL
 	  && gfc_match ("device ( %e )", &c->device) == MATCH_YES)
 	continue;
-      if (((mask & OMP_CLAUSE_DEVICE_TYPE) || scan_dtype)
+      if ((mask & OMP_CLAUSE_DEVICE_TYPE)
 	  && (gfc_match ("device_type ( ") == MATCH_YES
 	      || gfc_match ("dtype ( ") == MATCH_YES))
 	{
-	  int device = GOMP_DEVICE_NONE;
 	  gfc_omp_clauses *t = gfc_get_omp_clauses ();
+	  gfc_expr_list *p = NULL, *head, *tail;
 
-	  c->dtype_clauses = t;
-	  c = t;
+	  head = tail = NULL;
 
 	  if (gfc_match (" * ") == MATCH_YES)
-	    device = GOMP_DEVICE_DEFAULT;
+	    {
+	      head = p = gfc_get_expr_list ();
+	      p->expr
+	        = gfc_get_character_expr (gfc_default_character_kind,
+					  &gfc_current_locus, "*", 1);
+	    }
 	  else
 	    {
 	      char n[GFC_MAX_SYMBOL_LEN + 1];
 
-	      do {
-		if (gfc_match (" %n ", n) == MATCH_YES)
-		  {
-		    if (!strcasecmp ("nvidia", n))
-		      device = GOMP_DEVICE_NVIDIA_PTX;
-		    else
-		      {
-			/* The OpenACC technical committee advises compilers
-			   to silently ignore unknown devices.  */
-		      }
-		  }
-		else
-		  {
-		    gfc_error ("missing device_type argument");
-		    continue;
-		  }
-	      } while (gfc_match (" , ") == MATCH_YES);
+	      do
+		{
+		  p = gfc_get_expr_list ();
+
+		  if (head == NULL)
+	            head = tail = p;
+		  else
+	            {
+		      tail->next = p;
+		      tail = p;
+		    }
+
+		  if (gfc_match (" %n ", n) == MATCH_YES)
+		    p->expr
+		      = gfc_get_character_expr (gfc_default_character_kind,
+						&gfc_current_locus, n,
+						strlen (n));
+		  else
+		    {
+		      gfc_error ("missing device_type argument");
+		      continue;
+		    }
+		}
+	      while (gfc_match (" , ") == MATCH_YES);
 	    }
 
 	  /* Consume the trailing ')'.  */
@@ -1196,9 +1206,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	      continue;
 	    }
 
-	  c->dtype = device;
+	  /* Move to chained pointer for parsing remaining clauses.  */
+	  c->device_types = head;
+	  c->dtype_clauses = t;
+	  c = t;
+
 	  mask = dtype_mask;
-	  scan_dtype = true;
 	  continue;
 	}
       if ((mask & OMP_CLAUSE_THREAD_LIMIT) && c->thread_limit == NULL
@@ -1257,69 +1270,6 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	}
       gfc_free_omp_clauses (base_clauses);
       return MATCH_ERROR;
-    }
-
-  /* Filter out the device_type clauses.  */
-  if (base_clauses->dtype_clauses)
-    {
-      gfc_omp_clauses *t;
-      gfc_omp_clauses *seen_default = NULL;
-      gfc_omp_clauses *seen_nvidia = NULL;
-
-      /* Scan for device_type clauses.  */
-      c = base_clauses->dtype_clauses;
-      while (c)
-	{
-	  if (c->dtype == GOMP_DEVICE_DEFAULT)
-	    {
-	      if (seen_default)
-		gfc_error ("duplicate device_type (*)");
-	      else
-		seen_default = c;
-	    }
-	  else if (c->dtype == GOMP_DEVICE_NVIDIA_PTX)
-	    {
-	      if (seen_nvidia)
-		gfc_error ("duplicate device_type (nvidia)");
-	      else
-		seen_nvidia = c;
-	    }
-	  c = c->dtype_clauses;
-	}
-
-      /* Update the clauses in the original set of clauses.  */
-      c = seen_nvidia ? seen_nvidia : seen_default;
-      if (c)
-	{
-#define acc_clause0(mask) do if (c->mask) { base_clauses->mask = 1; } while (0)
-#define acc_clause1(mask, expr, type) do if (c->mask) { type t; \
-	      base_clauses->mask = 1; t = base_clauses->expr; \
-	      base_clauses->expr = c->expr; c->expr = t; } while (0)
-
-	  acc_clause1 (acc_collapse, collapse, int);
-	  acc_clause1 (gang, gang_expr, gfc_expr *);
-	  acc_clause1 (worker, worker_expr, gfc_expr *);
-	  acc_clause1 (vector, vector_expr, gfc_expr *);
-	  acc_clause0 (par_auto);
-	  acc_clause0 (independent);
-	  acc_clause0 (seq);
-	  acc_clause1 (tile, tile_list, gfc_expr_list *);
-	  acc_clause1 (async, async_expr, gfc_expr *);
-	  acc_clause1 (wait, wait_list, gfc_expr_list *);
-	  acc_clause1 (num_gangs, num_gangs_expr, gfc_expr *);
-	  acc_clause1 (num_workers, num_workers_expr, gfc_expr *);
-	  acc_clause1 (vector_length, vector_length_expr, gfc_expr *);
-	  acc_clause1 (bind, routine_bind, gfc_symbol *);
-	}
-
-      /* Remove the device_type clauses.  */
-      c = base_clauses->dtype_clauses;
-      while (c)
-	{
-	  t = c->dtype_clauses;
-	  gfc_free_omp_clauses (c);
-	  c = t;
-	}      
     }
 
   *cp = base_clauses;
@@ -1384,17 +1334,18 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 
 #define OACC_LOOP_CLAUSE_DEVICE_TYPE_MASK \
   (OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER		    \
-   | OMP_CLAUSE_VECTOR | OMP_CLAUSE_AUTO | OMP_CLAUSE_SEQ | OMP_CLAUSE_TILE)
+   | OMP_CLAUSE_VECTOR | OMP_CLAUSE_AUTO | OMP_CLAUSE_SEQ | OMP_CLAUSE_TILE \
+   | OMP_CLAUSE_DEVICE_TYPE)
 #define OACC_KERNELS_CLAUSE_DEVICE_TYPE_MASK \
-  (OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT)
+  (OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_DEVICE_TYPE)
 #define OACC_PARALLEL_CLAUSE_DEVICE_TYPE_MASK				   \
   (OMP_CLAUSE_ASYNC | OMP_CLAUSE_NUM_GANGS | OMP_CLAUSE_NUM_WORKERS	   \
-   | OMP_CLAUSE_VECTOR_LENGTH | OMP_CLAUSE_WAIT)
+   | OMP_CLAUSE_VECTOR_LENGTH | OMP_CLAUSE_WAIT | OMP_CLAUSE_DEVICE_TYPE)
 #define OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK				   \
    (OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER | OMP_CLAUSE_VECTOR		   \
-    | OMP_CLAUSE_SEQ | OMP_CLAUSE_BIND)
+    | OMP_CLAUSE_SEQ | OMP_CLAUSE_BIND | OMP_CLAUSE_DEVICE_TYPE)
 #define OACC_UPDATE_CLAUSE_DEVICE_TYPE_MASK				   \
-   (OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT)
+   (OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_DEVICE_TYPE)
 
 
 match

@@ -1267,7 +1267,7 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *num_workers_expr;
   struct gfc_expr *vector_length_expr;
   struct gfc_symbol *routine_bind;
-  int dtype;
+  gfc_expr_list *device_types;
   struct gfc_omp_clauses *dtype_clauses;
   gfc_expr_list *wait_list;
   gfc_expr_list *tile_list;

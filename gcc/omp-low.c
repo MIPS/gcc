@@ -2028,6 +2028,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_TILE:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -2163,6 +2164,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_TILE:
+	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 
 	case OMP_CLAUSE_DEVICE_RESIDENT:
@@ -9773,6 +9775,10 @@ expand_omp_target (struct omp_region *region)
       {
 	tree t_async;
 	int t_wait_idx;
+
+	c = find_omp_clause (clauses, OMP_CLAUSE_DEVICE_TYPE);
+	if (c)
+	  sorry ("device_type clause is not supported yet");
 
 	/* Default values for t_async.  */
 	t_async = fold_convert_loc (gimple_location (entry_stmt),

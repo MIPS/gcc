@@ -1,3 +1,9 @@
+2015-07-17  Julian Brown  <julian@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): Don't call
+	c_oacc_filter_device_types.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_DEVICE_TYPE.
+
 2015-06-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_all_clauses): Call
