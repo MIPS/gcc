@@ -303,7 +303,7 @@ process (FILE *in, FILE *out)
   fprintf (out, "}\n");
   fprintf (out, "#endif\n");
 
-  fprintf (out, "extern void *__OFFLOAD_TABLE__[];\n\n");
+  fprintf (out, "extern const void *const __OFFLOAD_TABLE__[];\n\n");
   fprintf (out, "static __attribute__((constructor)) void init (void)\n{\n");
   fprintf (out, "  GOMP_offload_register (__OFFLOAD_TABLE__, %d,\n",
 	   GOMP_DEVICE_NVIDIA_PTX);
