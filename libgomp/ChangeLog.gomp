@@ -1,5 +1,10 @@
 2015-07-17  Tom de Vries  <tom@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-1.c (test): Change
+	return type to void.
+
+2015-07-17  Tom de Vries  <tom@codesourcery.com>
+
 	* testsuite/libgomp.oacc-c-c++-common/vec-partn-3.c (main): Add missing
 	parentheses.
 

@@ -2,7 +2,8 @@
 
 #define N 100
 
-int test(int *a, int *b, int sarg)
+void
+test (int *a, int *b, int sarg)
 {
   int i;
 
