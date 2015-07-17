@@ -70,6 +70,8 @@
    UNSPECV_FORKED
    UNSPECV_JOINING
    UNSPECV_JOIN
+
+   UNSPECV_SHFL_DOWN
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -1415,6 +1417,39 @@
 		  UNSPEC_BROADCAST))]
   ""
   "%.\\tshfl.idx.b32\\t%0, %1, 0, 31;")
+
+(define_insn "thread_shuffle_down<mode>"
+  [(set (match_operand:BITS 0 "nvptx_register_operand" "")
+	(unspec_volatile:BITS [(match_operand:SI 1 "nvptx_register_operand" "")
+			       (match_operand:SI 2 "nvptx_nonmemory_operand" "")]
+			      UNSPECV_SHFL_DOWN))]
+  ""
+  "%.\\tshfl.down.b32\\t%0, %1, %2, 31;")
+
+(define_expand "thread_shuffle_downdi"
+  [(set (match_operand:DI 0 "nvptx_register_operand" "")
+	(unspec_volatile:DI [(match_operand:DI 1 "nvptx_register_operand" "")
+			     (match_operand:SI 2 "nvptx_nonmemory_operand" "")]
+			    UNSPECV_SHFL_DOWN))]
+  ""
+{
+  rtx t = gen_reg_rtx (DImode);
+  emit_insn (gen_lshrdi3 (t, operands[1], GEN_INT (32)));
+  rtx op0 = force_reg (SImode, gen_lowpart (SImode, t));
+  rtx op1 = force_reg (SImode, gen_lowpart (SImode, operands[1]));
+  rtx targ0 = gen_reg_rtx (SImode);
+  rtx targ1 = gen_reg_rtx (SImode);
+  emit_insn (gen_thread_shuffle_downsi (targ0, op0, operands[2]));
+  emit_insn (gen_thread_shuffle_downsi (targ1, op1, operands[2]));
+  rtx t2 = gen_reg_rtx (DImode);
+  rtx t3 = gen_reg_rtx (DImode);
+  emit_insn (gen_extendsidi2 (t2, targ0));
+  emit_insn (gen_extendsidi2 (t3, targ1));
+  rtx t4 = gen_reg_rtx (DImode);
+  emit_insn (gen_ashldi3 (t4, t2, GEN_INT (32)));
+  emit_insn (gen_iordi3 (operands[0], t3, t4));
+  DONE;
+})
 
 ;; extract parts of a 64 bit object into 2 32-bit ints
 (define_insn "unpack<mode>si2"

@@ -1,3 +1,17 @@
+2015-07-17  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* config/nvptx/nvptx.c (enum nvptx_builtins,
+	struct builtin_description): New.
+	(nvptx_builtin_decls, bdesc_2arg): New static variables.
+	(def_builtin): New macro.
+	(nvptx_builtin_decl, nvptx_init_builtins, nvptx_expand_binop_builtin,
+	nvptx_expand_builtin): New static functions.
+	(TARGET_INIT_BUILTINS, TARGET_EXPAND_BUILTIN, TARGET_BUILTIN_DECL):
+	Define.
+	* config/nvptx/nvptx.md (UNSPECV_SHFL_DOWN): New constant.
+	(thread_shuffle_down<mode>): New pattern.
+	(thread_shuffle_downdi): New expander.
+
 2015-07-17  Julian Brown  <julian@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Handle
