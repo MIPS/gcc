@@ -16,7 +16,6 @@ main()
   for (i = 0; i < n; i++)
     b[i] = -1;
 
-  #pragma omp parallel for firstprivate (a)
   #pragma acc parallel num_gangs (n) firstprivate (a)
   #pragma acc loop gang
   for (i = 0; i < n; i++)

@@ -1,3 +1,8 @@
+2015-07-17  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-2.c: Remove
+	omp pragma.
+
 2015-07-17  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/gang-static-1.c (test): Change
