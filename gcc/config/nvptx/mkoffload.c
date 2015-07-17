@@ -277,7 +277,7 @@ process (FILE *in, FILE *out)
   fprintf (out, "};\n\n");
 
   fprintf (out,
-	   "static struct nvptx_tdata {\n"
+	   "static const struct nvptx_tdata {\n"
 	   "  const char *ptx_src;\n"
 	   "  __SIZE_TYPE__ ptx_len;\n"
 	   "  const char *const *var_names;\n"
@@ -296,7 +296,8 @@ process (FILE *in, FILE *out)
   fprintf (out, "extern \"C\" {\n");
   fprintf (out, "#endif\n");
 
-  fprintf (out, "extern void GOMP_offload_register (const void *, int, void *);\n");
+  fprintf (out, "extern void GOMP_offload_register"
+	   " (const void *, int, const void *);\n");
 
   fprintf (out, "#ifdef __cplusplus\n");
   fprintf (out, "}\n");

@@ -1,3 +1,10 @@
+2015-07-17  Nathan Sidwell  <nathan@codesourcery.com>
+	Ilya Verbin <iverbin@gmail.com>
+
+	* plugin/libgomp-plugin-intelmic.cpp (ImgDevAddrMap): Constify.
+	(offload_image, GOMP_OFFLOAD_load_image,
+	OMP_OFFLOAD_unload_image): Constify target data.
+
 2014-12-22  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* plugin/libgomp-plugin-intelmic.cpp (GOMP_OFFLOAD_get_name)
@@ -8,3 +15,8 @@ Copyright (C) 2014-2015 Free Software Foundation, Inc.
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:
