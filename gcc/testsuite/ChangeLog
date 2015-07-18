@@ -1,3 +1,4 @@
+<<<<<<< current
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	* gcc.dg/autopar/uns-outer-4.c: Remove xfail on scan for parallelizing
@@ -182,6 +183,8 @@
 	PR c++/66572
 	* g++.dg/warn/Wlogical-op-2.C: New test.
 
+=======
+>>>>>>> patched
 2015-07-23  Alexandre Oliva <aoliva@redhat.com>
 
 	PR rtl-optimization/64164
