@@ -702,8 +702,7 @@ build_dynamic_cast (tree type, tree expr)
     {
       expr = build_min (DYNAMIC_CAST_EXPR, type, expr);
       TREE_SIDE_EFFECTS (expr) = 1;
-
-      return expr;
+      return convert_from_reference (expr);
     }
 
   return convert_from_reference (build_dynamic_cast_1 (type, expr));
@@ -1137,6 +1136,10 @@ create_pseudo_type_info (int tk, const char *real_name, ...)
   ti->type = cp_build_qualified_type (pseudo_type, TYPE_QUAL_CONST);
   ti->name = get_identifier (real_name);
   ti->vtable = NULL_TREE;
+
+  /* Pretend this is public so determine_visibility doesn't give vtables
+     internal linkage.  */
+  TREE_PUBLIC (TYPE_MAIN_DECL (ti->type)) = 1;
 
   va_end (ap);
 }

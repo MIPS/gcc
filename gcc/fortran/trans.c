@@ -387,9 +387,11 @@ gfc_trans_runtime_check (tree cond, const char * msgid, stmtblock_t * pblock,
   else
     {
       /* Tell the compiler that this isn't likely.  */
+      cond = fold_convert (long_integer_type_node, cond);
       tmp = gfc_chainon_list (NULL_TREE, cond);
-      tmp = gfc_chainon_list (tmp, integer_zero_node);
+      tmp = gfc_chainon_list (tmp, build_int_cst (long_integer_type_node, 0));
       cond = gfc_build_function_call (built_in_decls[BUILT_IN_EXPECT], tmp);
+      cond = fold_convert (boolean_type_node, cond);
 
       tmp = build3_v (COND_EXPR, cond, body, build_empty_stmt ());
       gfc_add_expr_to_block (pblock, tmp);
@@ -639,6 +641,23 @@ gfc_trans_code (gfc_code * code)
 
 	case EXEC_DT_END:
 	  res = gfc_trans_dt_end (code);
+	  break;
+
+	case EXEC_OMP_ATOMIC:
+	case EXEC_OMP_BARRIER:
+	case EXEC_OMP_CRITICAL:
+	case EXEC_OMP_DO:
+	case EXEC_OMP_FLUSH:
+	case EXEC_OMP_MASTER:
+	case EXEC_OMP_ORDERED:
+	case EXEC_OMP_PARALLEL:
+	case EXEC_OMP_PARALLEL_DO:
+	case EXEC_OMP_PARALLEL_SECTIONS:
+	case EXEC_OMP_PARALLEL_WORKSHARE:
+	case EXEC_OMP_SECTIONS:
+	case EXEC_OMP_SINGLE:
+	case EXEC_OMP_WORKSHARE:
+	  res = gfc_trans_omp_directive (code);
 	  break;
 
 	default:

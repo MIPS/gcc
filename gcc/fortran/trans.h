@@ -326,6 +326,8 @@ tree gfc_conv_string_tmp (gfc_se *, tree, tree);
 tree gfc_get_expr_charlen (gfc_expr *);
 /* Initialize a string length variable.  */
 void gfc_trans_init_string_length (gfc_charlen *, stmtblock_t *);
+/* Ensure type sizes can be gimplified.  */
+void gfc_trans_vla_type_sizes (gfc_symbol *, stmtblock_t *);
 
 /* Add an expression to the end of a block.  */
 void gfc_add_expr_to_block (stmtblock_t *, tree);
@@ -451,6 +453,17 @@ tree getdecls (void);
 tree gfc_truthvalue_conversion (tree);
 tree builtin_function (const char *, tree, int, enum built_in_class,
 		       const char *, tree);
+struct array_descr_info;
+bool gfc_get_array_descr_info (tree, struct array_descr_info *);
+
+/* In trans-openmp.c */
+bool gfc_omp_privatize_by_reference (tree);
+enum omp_clause_default_kind gfc_omp_predetermined_sharing (tree);
+tree gfc_omp_clause_default_ctor (tree, tree);
+bool gfc_omp_disregard_value_expr (tree, bool);
+bool gfc_omp_private_debug_clause (tree, bool);
+struct gimplify_omp_ctx;
+void gfc_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *, tree);
 
 /* Runtime library function decls.  */
 extern GTY(()) tree gfor_fndecl_internal_malloc;
@@ -530,10 +543,19 @@ extern GTY(()) tree gfor_fndecl_sr_kind;
 
 /* G95-specific declaration information.  */
 
+enum gfc_array_kind
+{
+  GFC_ARRAY_UNKNOWN,
+  GFC_ARRAY_ASSUMED_SHAPE,
+  GFC_ARRAY_ALLOCATABLE,
+  GFC_ARRAY_POINTER
+};
+
 /* Array types only.  */
 struct lang_type		GTY(())
 {
   int rank;
+  enum gfc_array_kind akind;
   tree lbound[GFC_MAX_DIMENSIONS];
   tree ubound[GFC_MAX_DIMENSIONS];
   tree stride[GFC_MAX_DIMENSIONS];
@@ -563,11 +585,16 @@ struct lang_decl		GTY(())
 #define GFC_DECL_PACKED_ARRAY(node) DECL_LANG_FLAG_0(node)
 #define GFC_DECL_PARTIAL_PACKED_ARRAY(node) DECL_LANG_FLAG_1(node)
 #define GFC_DECL_ASSIGN(node) DECL_LANG_FLAG_2(node)
+#define GFC_DECL_COMMON_OR_EQUIV(node) DECL_LANG_FLAG_3(node)
+#define GFC_DECL_CRAY_POINTEE(node) DECL_LANG_FLAG_4(node)
+#define GFC_DECL_RESULT(node) DECL_LANG_FLAG_5(node)
 
 /* An array descriptor.  */
 #define GFC_DESCRIPTOR_TYPE_P(node) TYPE_LANG_FLAG_1(node)
 /* An array without a descriptor.  */
 #define GFC_ARRAY_TYPE_P(node) TYPE_LANG_FLAG_2(node)
+/* Fortran POINTER type.  */
+#define GFC_POINTER_TYPE_P(node) TYPE_LANG_FLAG_3(node)
 /* The GFC_TYPE_ARRAY_* members are present in both descriptor and
    descriptorless array types.  */
 #define GFC_TYPE_ARRAY_LBOUND(node, dim) \
@@ -579,7 +606,8 @@ struct lang_decl		GTY(())
 #define GFC_TYPE_ARRAY_RANK(node) (TYPE_LANG_SPECIFIC(node)->rank)
 #define GFC_TYPE_ARRAY_SIZE(node) (TYPE_LANG_SPECIFIC(node)->size)
 #define GFC_TYPE_ARRAY_OFFSET(node) (TYPE_LANG_SPECIFIC(node)->offset)
-/* Code should use gfc_get_dtype instead of accesig this directly.  It may
+#define GFC_TYPE_ARRAY_AKIND(node) (TYPE_LANG_SPECIFIC(node)->akind)
+/* Code should use gfc_get_dtype instead of accesing this directly.  It may
    not be known when the type is created.  */
 #define GFC_TYPE_ARRAY_DTYPE(node) (TYPE_LANG_SPECIFIC(node)->dtype)
 #define GFC_TYPE_ARRAY_DATAPTR_TYPE(node) \
@@ -595,6 +623,8 @@ struct lang_decl		GTY(())
                                           arg1, arg2)
 #define build3_v(code, arg1, arg2, arg3) build3(code, void_type_node, \
                                                 arg1, arg2, arg3)
+#define build4_v(code, arg1, arg2, arg3, arg4) build4(code, void_type_node, \
+						      arg1, arg2, arg3, arg4)
 
 /* This group of functions allows a caller to evaluate an expression from
    the callee's interface.  It establishes a mapping between the interface's

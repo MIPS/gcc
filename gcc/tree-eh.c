@@ -1503,6 +1503,10 @@ lower_eh_filter (struct leh_state *state, tree *tp)
 					 EH_FILTER_TYPES (inner));
   this_state = *state;
   this_state.cur_region = this_region;
+  /* For must not throw regions any cleanup regions inside it
+     can't reach outer catch regions.  */
+  if (EH_FILTER_MUST_NOT_THROW (inner))
+    this_state.prev_try = NULL;
 
   lower_eh_constructs_1 (&this_state, &TREE_OPERAND (*tp, 0));
 
@@ -2073,3 +2077,25 @@ maybe_clean_or_replace_eh_stmt (tree old_stmt, tree new_stmt)
 
   return false;
 }
+
+#ifdef ENABLE_CHECKING
+static int
+verify_eh_throw_stmt_node (void **slot, void *data ATTRIBUTE_UNUSED)
+{
+  struct throw_stmt_node *node = (struct throw_stmt_node *)*slot;
+
+  gcc_assert (node->stmt->common.ann == NULL);
+  return 1;
+}
+
+void
+verify_eh_throw_table_statements (void)
+{
+  if (!get_eh_throw_stmt_table (cfun))
+    return;
+  htab_traverse (get_eh_throw_stmt_table (cfun),
+		 verify_eh_throw_stmt_node,
+		 NULL);
+}
+
+#endif

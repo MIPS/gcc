@@ -46,7 +46,7 @@ USA.  */
 int
 shift_up (int fd, off_t begin, off_t amount, struct zipentry *ze)
 {
-  extern off_t end_of_entries;
+  extern ub4 end_of_entries;
   int len, moved = 0;
   ub1 buffer[BUFFER_SIZE];
   off_t where, end, save;
@@ -114,7 +114,7 @@ shift_up (int fd, off_t begin, off_t amount, struct zipentry *ze)
 int
 shift_down (int fd, off_t begin, off_t amount, struct zipentry *ze)
 {
-  extern off_t end_of_entries;
+  extern ub4 end_of_entries;
   int off, len, moved = 0;
   ub1 buffer[BUFFER_SIZE];
   off_t where, save;

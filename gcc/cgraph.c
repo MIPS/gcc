@@ -113,6 +113,11 @@ struct cgraph_node *cgraph_nodes;
 /* Queue of cgraph nodes scheduled to be lowered.  */
 struct cgraph_node *cgraph_nodes_queue;
 
+/* Queue of cgraph nodes scheduled to be expanded.  This is a
+   secondary queue used during optimization to accomodate passes that
+   may generate new functions that need to be optimized and expanded.  */
+struct cgraph_node *cgraph_expand_queue;
+
 /* Number of nodes in existence.  */
 int cgraph_n_nodes;
 
@@ -478,6 +483,14 @@ cgraph_remove_node (struct cgraph_node *node)
 	      && (TREE_ASM_WRITTEN (n->decl) || DECL_EXTERNAL (n->decl))))
 	kill_body = true;
     }
+
+  /* We don't release the body of abstract functions, because they may
+     be needed when emitting debugging information.  In particular
+     this will happen for C++ constructors/destructors.  FIXME:
+     Ideally we would check to see whether there are any reachable
+     functions whose DECL_ABSTRACT_ORIGIN points to this decl.  */
+  if (DECL_ABSTRACT (node->decl))
+    kill_body = false;
 
   if (kill_body && !dump_enabled_p (TDI_tree_all) && flag_unit_at_a_time)
     {
@@ -856,7 +869,7 @@ cgraph_varpool_finalize_decl (tree decl)
      if this function has already run.  */
   if (node->finalized)
     {
-      if (cgraph_global_info_ready || !flag_unit_at_a_time)
+      if (cgraph_global_info_ready || (!flag_unit_at_a_time && !flag_openmp))
 	cgraph_varpool_assemble_pending_decls ();
       return;
     }
@@ -871,7 +884,7 @@ cgraph_varpool_finalize_decl (tree decl)
      there.  */
   else if (TREE_PUBLIC (decl) && !DECL_COMDAT (decl) && !DECL_EXTERNAL (decl))
     cgraph_varpool_mark_needed_node (node);
-  if (cgraph_global_info_ready || !flag_unit_at_a_time)
+  if (cgraph_global_info_ready || (!flag_unit_at_a_time && !flag_openmp))
     cgraph_varpool_assemble_pending_decls ();
 }
 
@@ -1045,6 +1058,26 @@ cgraph_variable_initializer_availability (struct cgraph_varpool_node *node)
   if (!(*targetm.binds_local_p) (node->decl) && !DECL_COMDAT (node->decl))
     return AVAIL_OVERWRITABLE;
   return AVAIL_AVAILABLE;
+}
+
+
+/* Add the function FNDECL to the call graph.  FNDECL is assumed to be
+   in low GIMPLE form and ready to be processed by cgraph_finalize_function.
+
+   When operating in unit-at-a-time, a new callgraph node is added to
+   CGRAPH_EXPAND_QUEUE, which is processed after all the original
+   functions in the call graph .
+
+   When not in unit-at-a-time, the new callgraph node is added to
+   CGRAPH_NODES_QUEUE for cgraph_assemble_pending_functions to
+   process.  */
+
+void
+cgraph_add_new_function (tree fndecl)
+{
+  struct cgraph_node *n = cgraph_node (fndecl);
+  n->next_needed = cgraph_expand_queue;
+  cgraph_expand_queue = n;
 }
 
 #include "gt-cgraph.h"

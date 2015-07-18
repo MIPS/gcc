@@ -294,6 +294,16 @@ build_base_path (enum tree_code code,
   /* Do we need to look in the vtable for the real offset?  */
   virtual_access = (v_binfo && fixed_type_p <= 0);
 
+  /* Don't bother with the calculations inside sizeof; they'll ICE if the
+     source type is incomplete and the pointer value doesn't matter.  */
+  if (skip_evaluation)
+    {
+      expr = build_nop (build_pointer_type (target_type), expr);
+      if (!want_pointer)
+	expr = build_indirect_ref (expr, NULL);
+      return expr;
+    }
+
   /* Do we need to check for a null pointer?  */
   if (want_pointer && !nonnull)
     {
@@ -303,7 +313,18 @@ build_base_path (enum tree_code code,
 	 field, because other parts of the compiler know that such
 	 expressions are always non-NULL.  */
       if (!virtual_access && integer_zerop (offset))
-	return build_nop (build_pointer_type (target_type), expr);
+	{
+	  tree class_type;
+	  /* TARGET_TYPE has been extracted from BINFO, and, is
+	     therefore always cv-unqualified.  Extract the
+	     cv-qualifiers from EXPR so that the expression returned
+	     matches the input.  */
+	  class_type = TREE_TYPE (TREE_TYPE (expr));
+	  target_type
+	    = cp_build_qualified_type (target_type,
+				       cp_type_quals (class_type));
+	  return build_nop (build_pointer_type (target_type), expr);
+	}
       null_test = error_mark_node;
     }
 
@@ -5053,6 +5074,9 @@ finish_struct_1 (tree t)
 	retrofit_lang_decl (TYPE_MAIN_DECL (t));
       DECL_SORTED_FIELDS (TYPE_MAIN_DECL (t)) = field_vec;
     }
+
+  /* Complain if one of the field types requires lower visibility.  */
+  constrain_class_visibility (t);
 
   /* Make the rtl for any new vtables we have created, and unmark
      the base types we marked.  */

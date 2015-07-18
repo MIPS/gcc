@@ -1397,6 +1397,30 @@ decl_namespace_context (tree decl)
     }
 }
 
+/* Returns true if decl is within an anonymous namespace, however deeply
+   nested, or false otherwise.  */
+
+bool
+decl_anon_ns_mem_p (tree decl)
+{
+  while (1)
+    {
+      if (decl == NULL_TREE)
+	return false;
+      if (TREE_CODE (decl) == NAMESPACE_DECL
+	  && DECL_NAME (decl) == NULL_TREE)
+	return true;
+      /* Classes and namespaces inside anonymous namespaces have
+         TREE_PUBLIC == 0, so we can shortcut the search.  */
+      else if (TYPE_P (decl))
+	return (TREE_PUBLIC (TYPE_NAME (decl)) == 0);
+      else if (TREE_CODE (decl) == NAMESPACE_DECL)
+	return (TREE_PUBLIC (decl) == 0);
+      else
+	decl = DECL_CONTEXT (decl);
+    }
+}
+
 /* Return truthvalue of whether T1 is the same tree structure as T2.
    Return 1 if they are the same. Return 0 if they are different.  */
 
@@ -1441,6 +1465,10 @@ cp_tree_equal (tree t1, tree t2)
       return TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)
 	&& !memcmp (TREE_STRING_POINTER (t1), TREE_STRING_POINTER (t2),
 		    TREE_STRING_LENGTH (t1));
+
+    case COMPLEX_CST:
+      return cp_tree_equal (TREE_REALPART (t1), TREE_REALPART (t2))
+	&& cp_tree_equal (TREE_IMAGPART (t1), TREE_IMAGPART (t2));
 
     case CONSTRUCTOR:
       /* We need to do this when determining whether or not two
@@ -1924,7 +1952,27 @@ cp_build_type_attribute_variant (tree type, tree attributes)
 	  != TYPE_RAISES_EXCEPTIONS (type)))
     new_type = build_exception_variant (new_type,
 					TYPE_RAISES_EXCEPTIONS (type));
+
+  /* Making a new main variant of a class type is broken.  */
+  gcc_assert (!CLASS_TYPE_P (type) || new_type == type);
+    
   return new_type;
+}
+
+/* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
+   Called only after doing all language independent checks.  Only
+   to check TYPE_RAISES_EXCEPTIONS for FUNCTION_TYPE, the rest is already
+   compared in type_hash_eq.  */
+
+bool
+cxx_type_hash_eq (tree typea, tree typeb)
+{
+  if (TREE_CODE (typea) != FUNCTION_TYPE
+      || TYPE_RAISES_EXCEPTIONS (typea) == TYPE_RAISES_EXCEPTIONS (typeb))
+    return true;
+
+  return comp_except_specs (TYPE_RAISES_EXCEPTIONS (typea),
+			    TYPE_RAISES_EXCEPTIONS (typeb), 1);
 }
 
 /* Apply FUNC to all language-specific sub-trees of TP in a pre-order
@@ -2046,12 +2094,6 @@ cp_cannot_inline_tree_fn (tree* fnp)
       return 1;
     }
 
-  if (varargs_function_p (fn))
-    {
-      DECL_UNINLINABLE (fn) = 1;
-      return 1;
-    }
-
   if (! function_attribute_inlinable_p (fn))
     {
       DECL_UNINLINABLE (fn) = 1;
@@ -2164,7 +2206,10 @@ decl_linkage (tree decl)
   /* Things that are TREE_PUBLIC have external linkage.  */
   if (TREE_PUBLIC (decl))
     return lk_external;
-  
+
+  if (TREE_CODE (decl) == NAMESPACE_DECL)
+    return lk_external;
+
   /* Linkage of a CONST_DECL depends on the linkage of the enumeration 
      type.  */
   if (TREE_CODE (decl) == CONST_DECL)
@@ -2175,13 +2220,30 @@ decl_linkage (tree decl)
      template instantiations have internal linkage (in the object
      file), but the symbols should still be treated as having external
      linkage from the point of view of the language.  */
-  if (TREE_CODE (decl) != TYPE_DECL && DECL_LANG_SPECIFIC (decl) && DECL_COMDAT (decl))
+  if (TREE_CODE (decl) != TYPE_DECL && DECL_LANG_SPECIFIC (decl)
+      && DECL_COMDAT (decl))
     return lk_external;
 
   /* Things in local scope do not have linkage, if they don't have
      TREE_PUBLIC set.  */
   if (decl_function_context (decl))
     return lk_none;
+
+  /* Members of the anonymous namespace also have TREE_PUBLIC unset, but
+     are considered to have external linkage for language purposes.  DECLs
+     really meant to have internal linkage have DECL_THIS_STATIC set.  */
+  if (TREE_CODE (decl) == TYPE_DECL)
+    return lk_external;
+  if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
+    {
+      if (!DECL_THIS_STATIC (decl))
+	return lk_external;
+
+      /* Static data members and static member functions from classes
+	 in anonymous namespace also don't have TREE_PUBLIC set.  */
+      if (DECL_CLASS_CONTEXT (decl))
+	return lk_external;
+    }
 
   /* Everything else has internal linkage.  */
   return lk_internal;

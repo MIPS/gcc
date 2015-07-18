@@ -227,6 +227,7 @@ commonparms (tree p1, tree p2)
 tree
 original_type (tree t)
 {
+  int quals = cp_type_quals (t);
   while (t != error_mark_node
 	 && TYPE_NAME (t) != NULL_TREE)
     {
@@ -238,7 +239,7 @@ original_type (tree t)
 	break;
       t = x;
     }
-  return t;
+  return cp_build_qualified_type (t, quals);
 }
 
 /* T1 and T2 are arithmetic or enumeration types.  Return the type
@@ -729,7 +730,13 @@ merge_types (tree t1, tree t2)
 
     default:;
     }
-  return cp_build_type_attribute_variant (t1, attributes);
+
+  if (attribute_list_equal (TYPE_ATTRIBUTES (t1), attributes))
+    return t1;
+  else if (attribute_list_equal (TYPE_ATTRIBUTES (t2), attributes))
+    return t2;
+  else
+    return cp_build_type_attribute_variant (t1, attributes);
 }
 
 /* Return the common type of two types.
@@ -2474,7 +2481,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function)
 	e2 = build1 (NOP_EXPR, TREE_TYPE (e2),
 		     build_unary_op (ADDR_EXPR, e2, /*noconvert=*/1));
 
-      TREE_TYPE (e2) = TREE_TYPE (e3);
+      e2 = fold_convert (TREE_TYPE (e3), e2);
       e1 = build_conditional_expr (e1, e2, e3);
 
       /* Make sure this doesn't get evaluated first inside one of the
@@ -5094,7 +5101,7 @@ build_reinterpret_cast_1 (tree type, tree expr, bool c_cast_p,
     }
   else if (TREE_CODE (type) == VECTOR_TYPE)
     return fold_if_not_in_template (convert_to_vector (type, expr));
-  else if (TREE_CODE (intype) == VECTOR_TYPE)
+  else if (TREE_CODE (intype) == VECTOR_TYPE && INTEGRAL_TYPE_P (type))
     return fold_if_not_in_template (convert_to_integer (type, expr));
   else
     {
@@ -5449,6 +5456,12 @@ build_modify_expr (tree lhs, enum tree_code modifycode, tree rhs)
 	   so the code to compute it is only emitted once.  */
 	tree cond;
 	tree preeval = NULL_TREE;
+
+	if (VOID_TYPE_P (TREE_TYPE (rhs)))
+	  {
+	    error ("void value not ignored as it ought to be");
+	    return error_mark_node;
+	  }
 
 	rhs = stabilize_expr (rhs, &preeval);
 
@@ -6433,6 +6446,7 @@ check_return_expr (tree retval, bool *no_warning)
 	  && TREE_CODE (retval) == VAR_DECL
 	  && DECL_CONTEXT (retval) == current_function_decl
 	  && ! TREE_STATIC (retval)
+	  && ! DECL_HAS_VALUE_EXPR_P (retval)
 	  && (DECL_ALIGN (retval)
 	      >= DECL_ALIGN (DECL_RESULT (current_function_decl)))
 	  && same_type_p ((TYPE_MAIN_VARIANT
@@ -6626,6 +6640,16 @@ cp_type_quals (tree type)
   if (type == error_mark_node)
     return TYPE_UNQUALIFIED;
   return TYPE_QUALS (type);
+}
+
+/* Returns nonzero if the TYPE is const from a C++ perspective: look inside
+   arrays.  */
+
+bool
+cp_type_readonly (tree type)
+{
+  type = strip_array_types (type);
+  return TYPE_READONLY (type);
 }
 
 /* Returns nonzero if the TYPE contains a mutable member.  */

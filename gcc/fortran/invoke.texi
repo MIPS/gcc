@@ -5,7 +5,7 @@
 
 @ignore
 @c man begin COPYRIGHT
-Copyright @copyright{} 2004, 2005
+Copyright @copyright{} 2004, 2005, 2006
 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
@@ -122,7 +122,7 @@ by type.  Explanations are in the following sections.
 -ffixed-line-length-@var{n}  -ffixed-line-length-none @gol
 -ffree-line-length-@var{n}  -ffree-line-length-none @gol
 -fdefault-double-8  -fdefault-integer-8  -fdefault-real-8 @gol
--fcray-pointer  -frange-check }
+-fcray-pointer  -fopenmp  -frange-check }
 
 @item Warning Options
 @xref{Warning Options,,Options to Request or Suppress Warnings}.
@@ -196,7 +196,7 @@ older Fortran programs.
 @cindex option, -fd-lines-as-comments
 @cindex -fd-lines-as-comments, option
 @item -fd-lines-as-code
-@item -fd-lines-as-comment
+@item -fd-lines-as-comments
 Enables special treating for lines with @samp{d} or @samp{D} in fixed
 form sources.  If the @option{-fd-lines-as-code} option is given
 they are treated as if the first column contained a blank.  If the
@@ -290,6 +290,16 @@ Specify that no implicit typing is allowed, unless overridden by explicit
 @cindex options, -fcray-pointer
 @item -fcray-pointer
 Enables the Cray pointer extension, which provides a C-like pointer.
+
+@cindex -fopenmp
+@cindex options, -fopenmp
+@item -fopenmp
+Enables handling of OpenMP @code{!$omp} directives in free form
+and @code{c$omp}, @code{*$omp} and @code{!$omp} directives in fixed form,
+enables @code{!$} conditional compilation sentinels in free form
+and @code{c$}, @code{*$} and @code{!$} sentinels in fixed form
+and when linking arranges for the OpenMP runtime library to be linked
+in.
 
 @cindex -frange-check
 @cindex options, -frange-check

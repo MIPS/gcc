@@ -2,6 +2,11 @@
 
 	* GCC 4.1.2 released.
 
+2006-06-30  Jason Merrill  <jason@redhat.com>
+
+	* objcp-decl.c (objcp_start_struct): Pass null attributes argument
+	to begin_class_definition.
+
 2006-05-24  Release Manager
 
 	* GCC 4.1.1 released.

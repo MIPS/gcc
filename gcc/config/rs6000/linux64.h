@@ -58,9 +58,9 @@ extern int dot_symbols;
 #endif
 
 #undef  PROCESSOR_DEFAULT
-#define PROCESSOR_DEFAULT PROCESSOR_POWER4
+#define PROCESSOR_DEFAULT PROCESSOR_POWER6
 #undef  PROCESSOR_DEFAULT64
-#define PROCESSOR_DEFAULT64 PROCESSOR_POWER4
+#define PROCESSOR_DEFAULT64 PROCESSOR_POWER6
 
 /* We don't need to generate entries in .fixup, except when
    -mrelocatable or -mrelocatable-lib is given.  */
@@ -337,11 +337,11 @@ extern int dot_symbols;
 #undef	LINK_OS_DEFAULT_SPEC
 #define LINK_OS_DEFAULT_SPEC "%(link_os_linux)"
 
-#define LINK_OS_LINUX_SPEC32 "-m elf32ppclinux %{!shared: %{!static: \
+#define LINK_OS_LINUX_SPEC32 "-m elf32ppclinux --hash-style=gnu %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}}}"
 
-#define LINK_OS_LINUX_SPEC64 "-m elf64ppc %{!shared: %{!static: \
+#define LINK_OS_LINUX_SPEC64 "-m elf64ppc --hash-style=gnu %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   %{!dynamic-linker:-dynamic-linker /lib64/ld64.so.1}}}"
 
@@ -570,3 +570,8 @@ while (0)
 #endif
 
 #define POWERPC_LINUX
+
+/* ppc{32,64} linux has 128-bit long double support in glibc 2.4 and later.  */
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+#define RS6000_DEFAULT_LONG_DOUBLE_SIZE 128
+#endif

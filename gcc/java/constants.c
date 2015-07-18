@@ -313,8 +313,7 @@ write_constant_pool (CPool *cpool, unsigned char *buffer, int length)
 	}
     }
 
-  if (ptr != buffer + length)
-    abort ();
+  gcc_assert (ptr == buffer + length);
 }
 
 static GTY(()) tree tag_nodes[13];
@@ -459,8 +458,29 @@ build_ref_from_constant_pool (int index)
 {
   tree d = build_constant_data_ref ();
   tree i = build_int_cst (NULL_TREE, index);
-  return build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (d)), d, i,
+  if (flag_indirect_classes)
+    {
+      tree decl = build_class_ref (output_class);
+      tree klass = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (decl)),
+			   decl);
+      tree constants = build3 (COMPONENT_REF, 
+			       TREE_TYPE (constants_field_decl_node), klass,
+			       constants_field_decl_node,
+			       NULL_TREE);
+      tree data = build3 (COMPONENT_REF, 
+			  TREE_TYPE (constants_data_field_decl_node), 
+			  constants,
+			  constants_data_field_decl_node,
+			  NULL_TREE);
+      data = fold_convert (build_pointer_type (TREE_TYPE (d)), data);
+      d = build1 (INDIRECT_REF, TREE_TYPE (d), data);
+      /* FIXME: These should be cached.  */
+      TREE_INVARIANT (d) = 1;
+    }
+  d = build4 (ARRAY_REF, TREE_TYPE (TREE_TYPE (d)), d, i,
 		 NULL_TREE, NULL_TREE);
+  TREE_INVARIANT (d) = 1;
+  return d;
 }
 
 /* Build an initializer for the constants field of the current constant pool.
@@ -483,8 +503,11 @@ build_constants_constructor (void)
 	{
 	  unsigned HOST_WIDE_INT temp = outgoing_cpool->data[i].w;
 
-	  /* Make sure that on a 64-bit big-endian machine this 32-bit
-	     jint appears in the first word.  */
+	  /* Make sure that on a 64-bit big-endian machine this
+	     32-bit jint appears in the first word.  
+	     FIXME: This is a kludge.  The field we're initializing is
+	     not a scalar but a union, and that's how we should
+	     represent it in the compiler.  We should fix this.  */
 	  if (BYTES_BIG_ENDIAN && BITS_PER_WORD > 32)
 	    temp <<= BITS_PER_WORD - 32;
 

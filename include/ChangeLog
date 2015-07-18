@@ -1,6 +1,16 @@
+2007-05-04  Mark Mitchell  <mark@codesourcery.com>
+
+	* demangle.h: Change license to LGPL + exception.
+
 2007-02-13  Release Manager
 
 	* GCC 4.1.2 released.
+
+2005-12-10  Terry Laurenzo  <tlaurenzo@gmail.com>
+
+	PR java/9861
+	* demangle.h : Add DMGL_RET_POSTFIX define to enable alternative
+	output format for return types
 
 2006-05-24  Release Manager
 

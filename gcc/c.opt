@@ -532,6 +532,10 @@ fgnu-runtime
 ObjC ObjC++
 Generate code for GNU runtime environment
 
+fgnu89-inline
+C Var(flag_gnu89_inline) Init(-1)
+Use traditional GNU semantics for inline functions
+
 fguiding-decls
 C++ ObjC++
 
@@ -616,6 +620,10 @@ Enable garbage collection (GC) in Objective-C/Objective-C++ programs
 fobjc-sjlj-exceptions
 ObjC ObjC++ Var(flag_objc_sjlj_exceptions) Init(-1)
 Enable Objective-C setjmp exception handling runtime
+
+fopenmp
+C ObjC C++ ObjC++ Var(flag_openmp)
+Enable OpenMP
 
 foperator-names
 C++ ObjC++

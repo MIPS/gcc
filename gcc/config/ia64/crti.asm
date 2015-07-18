@@ -64,3 +64,7 @@ _fini:
 	.body
 
 # end of crti.asm
+
+#ifdef __linux__
+.section .note.GNU-stack; .previous
+#endif

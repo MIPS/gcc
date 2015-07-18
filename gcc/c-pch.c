@@ -371,6 +371,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   if (f == NULL)
     {
       cpp_errno (pfile, CPP_DL_ERROR, "calling fdopen");
+      close (fd);
       return;
     }
 
@@ -379,6 +380,7 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   if (fread (&h, sizeof (h), 1, f) != 1)
     {
       cpp_errno (pfile, CPP_DL_ERROR, "reading");
+      fclose (f);
       return;
     }
 
@@ -412,7 +414,10 @@ c_common_read_pch (cpp_reader *pfile, const char *name,
   gt_pch_restore (f);
 
   if (cpp_read_state (pfile, name, f, smd) != 0)
-    return;
+    {
+      fclose (f);
+      return;
+    }
 
   fclose (f);
   
@@ -441,17 +446,9 @@ c_common_no_more_pch (void)
 #endif
 
 void
-c_common_pch_pragma (cpp_reader *pfile)
+c_common_pch_pragma (cpp_reader *pfile, const char *name)
 {
-  tree name_t;
-  const char *name;
   int fd;
-
-  if (c_lex (&name_t) != CPP_STRING)
-    {
-      error ("malformed #pragma GCC pch_preprocess, ignored");
-      return;
-    }
 
   if (!cpp_get_options (pfile)->preprocessed)
     {
@@ -460,8 +457,6 @@ c_common_pch_pragma (cpp_reader *pfile)
       return;
     }
 
-  name = TREE_STRING_POINTER (name_t);
-  
   fd = open (name, O_RDONLY | O_BINARY, 0666);
   if (fd == -1)
     fatal_error ("%s: couldn%'t open PCH file: %m", name);

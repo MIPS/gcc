@@ -82,6 +82,7 @@ static tree prune_vars_needing_no_initialization (tree *);
 static void write_out_vars (tree);
 static void import_export_class (tree);
 static tree get_guard_bits (tree);
+static void determine_visibility_from_class (tree, tree);
 
 /* A list of static class variables.  This is needed, because a
    static class variable can be declared inside the class without
@@ -740,14 +741,6 @@ note_vague_linkage_fn (tree decl)
     }
 }
 
-/* Like note_vague_linkage_fn but for variables.  */
-
-static void
-note_vague_linkage_var (tree var)
-{
-  VEC_safe_push (tree, gc, pending_statics, var);
-}
-
 /* We have just processed the DECL, which is a static data member.
    The other parameters are as for cp_finish_decl.  */
 
@@ -757,8 +750,6 @@ finish_static_data_member_decl (tree decl,
 				tree asmspec_tree,
 				int flags)
 {
-  gcc_assert (TREE_PUBLIC (decl));
-
   DECL_CONTEXT (decl) = current_class_type;
 
   /* We cannot call pushdecl here, because that would fill in the
@@ -769,7 +760,7 @@ finish_static_data_member_decl (tree decl,
     DECL_INITIAL (decl) = error_mark_node;
 
   if (! processing_template_decl)
-    note_vague_linkage_var (decl);
+    VEC_safe_push (tree, gc, pending_statics, decl);
 
   if (LOCAL_CLASS_P (current_class_type))
     pedwarn ("local class %q#T shall not have static data member %q#D",
@@ -1571,22 +1562,166 @@ maybe_emit_vtables (tree ctype)
   return true;
 }
 
+/* A special return value from type_visibility meaning internal
+   linkage.  */
+
+enum { VISIBILITY_ANON = VISIBILITY_INTERNAL+1 };
+
+/* walk_tree helper function for type_visibility.  */
+
+static tree
+min_vis_r (tree *tp, int *walk_subtrees, void *data)
+{
+  int *vis_p = (int *)data;
+  if (! TYPE_P (*tp))
+    {
+      *walk_subtrees = 0;
+    }
+  else if (CLASS_TYPE_P (*tp))
+    {
+      if (!TREE_PUBLIC (TYPE_MAIN_DECL (*tp)))
+	{
+	  *vis_p = VISIBILITY_ANON;
+	  return *tp;
+	}
+      else if (CLASSTYPE_VISIBILITY (*tp) > *vis_p)
+	*vis_p = CLASSTYPE_VISIBILITY (*tp);
+    }
+  return NULL;
+}
+
+/* Returns the visibility of TYPE, which is the minimum visibility of its
+   component types.  */
+
+static int
+type_visibility (tree type)
+{
+  int vis = VISIBILITY_DEFAULT;
+  walk_tree_without_duplicates (&type, min_vis_r, &vis);
+  return vis;
+}
+
+/* Limit the visibility of DECL to VISIBILITY, if not explicitly
+   specified (or if VISIBILITY is static).  */
+
+static bool
+constrain_visibility (tree decl, int visibility)
+{
+  if (visibility == VISIBILITY_ANON)
+    {
+      /* extern "C" declarations aren't affected by the anonymous
+	 namespace.  */
+      if (!DECL_EXTERN_C_P (decl))
+	{
+	  TREE_PUBLIC (decl) = 0;
+	  DECL_INTERFACE_KNOWN (decl) = 1;
+	  if (DECL_LANG_SPECIFIC (decl))
+	    DECL_NOT_REALLY_EXTERN (decl) = 1;
+	}
+    }
+  else if (visibility > DECL_VISIBILITY (decl)
+	   && !DECL_VISIBILITY_SPECIFIED (decl))
+    {
+      DECL_VISIBILITY (decl) = visibility;
+      return true;
+    }
+  return false;
+}
+
+/* Constrain the visibility of DECL based on the visbility of its template
+   arguments.  */
+
+static void
+constrain_visibility_for_template (tree decl, tree targs)
+{
+  /* If this is a template instantiation, check the innermost
+     template args for visibility constraints.  The outer template
+     args are covered by the class check.  */
+  tree args = INNERMOST_TEMPLATE_ARGS (targs);
+  int i;
+  for (i = TREE_VEC_LENGTH (args); i > 0; --i)
+    {
+      int vis = 0;
+
+      tree arg = TREE_VEC_ELT (args, i-1);
+      if (TYPE_P (arg))
+	vis = type_visibility (arg);
+      else if (TREE_TYPE (arg) && POINTER_TYPE_P (TREE_TYPE (arg)))
+	{
+	  STRIP_NOPS (arg);
+	  if (TREE_CODE (arg) == ADDR_EXPR)
+	    arg = TREE_OPERAND (arg, 0);
+	  if (TREE_CODE (arg) == VAR_DECL
+	      || TREE_CODE (arg) == FUNCTION_DECL)
+	    {
+	      if (! TREE_PUBLIC (arg))
+		vis = VISIBILITY_ANON;
+	      else
+		vis = DECL_VISIBILITY (arg);
+	    }
+	}
+      if (vis)
+	constrain_visibility (decl, vis);
+    }
+}
+
 /* Like c_determine_visibility, but with additional C++-specific
-   behavior.  */
+   behavior.
+
+   Function-scope entities can rely on the function's visibility because
+   it is set in start_preparsed_function.
+
+   Class-scope entities cannot rely on the class's visibility until the end
+   of the enclosing class definition.
+
+   Note that because namespaces have multiple independent definitions,
+   namespace visibility is handled elsewhere using the #pragma visibility
+   machinery rather than by decorating the namespace declaration.
+
+   The goal is for constraints from the type to give a diagnostic, and
+   other constraints to be applied silently.  */
 
 void
 determine_visibility (tree decl)
 {
-  tree class_type;
+  tree class_type = NULL_TREE;
+  bool use_template;
+
+  /* Remember that all decls get VISIBILITY_DEFAULT when built.  */
+
+  /* Only relevant for names with external linkage.  */
+  if (!TREE_PUBLIC (decl))
+    return;
 
   /* Cloned constructors and destructors get the same visibility as
      the underlying function.  That should be set up in
      maybe_clone_body.  */
   gcc_assert (!DECL_CLONED_FUNCTION_P (decl));
 
-  /* Give the common code a chance to make a determination.  */
-  if (c_determine_visibility (decl))
-    return;
+  if (TREE_CODE (decl) == TYPE_DECL)
+    {
+      if (CLASS_TYPE_P (TREE_TYPE (decl)))
+	use_template = CLASSTYPE_USE_TEMPLATE (TREE_TYPE (decl));
+      else if (TYPE_TEMPLATE_INFO (TREE_TYPE (decl)))
+	use_template = 1;
+      else
+	use_template = 0;
+    }
+  else if (DECL_LANG_SPECIFIC (decl))
+    use_template = DECL_USE_TEMPLATE (decl);
+  else
+    use_template = 0;
+
+  /* Anything that is exported must have default visibility.  */
+  if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
+      && lookup_attribute ("dllexport",
+			   TREE_CODE (decl) == TYPE_DECL
+			   ? TYPE_ATTRIBUTES (TREE_TYPE (decl))
+			   : DECL_ATTRIBUTES (decl)))
+    {
+      DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
+      DECL_VISIBILITY_SPECIFIED (decl) = 1;
+    }
 
   /* If DECL is a member of a class, visibility specifiers on the
      class can influence the visibility of the DECL.  */
@@ -1598,46 +1733,171 @@ determine_visibility (tree decl)
     class_type = TREE_TYPE (DECL_NAME (decl));
   else
     {
+      /* Not a class member.  */
+
       /* Virtual tables have DECL_CONTEXT set to their associated class,
 	 so they are automatically handled above.  */
       gcc_assert (TREE_CODE (decl) != VAR_DECL
 		  || !DECL_VTABLE_OR_VTT_P (decl));
-      /* Entities not associated with any class just get the
-	 visibility specified by their attributes.  */
-      return;
+
+      if (DECL_FUNCTION_SCOPE_P (decl))
+	{
+	  /* Local statics and classes get the visibility of their
+	     containing function.  */
+	  tree fn = DECL_CONTEXT (decl);
+	  DECL_VISIBILITY (decl) = DECL_VISIBILITY (fn);
+	  DECL_VISIBILITY_SPECIFIED (decl) = DECL_VISIBILITY_SPECIFIED (fn);
+
+	  /* Local classes in templates have CLASSTYPE_USE_TEMPLATE set,
+	     but have no TEMPLATE_INFO, so don't try to check it.  */
+	  use_template = 0;
+	}
+      else if (TREE_CODE (decl) == VAR_DECL && DECL_TINFO_P (decl))
+	{
+	  /* tinfo visibility is based on the type it's for.  */
+	  constrain_visibility
+	    (decl, type_visibility (TREE_TYPE (DECL_NAME (decl))));
+	}
+      else if (use_template)
+	/* Template instantiations and specializations get visibility based
+	   on their template unless they override it with an attribute.  */;
+      else if (! DECL_VISIBILITY_SPECIFIED (decl))
+	{
+	  /* Set default visibility to whatever the user supplied with
+	     #pragma GCC visibility or a namespace visibility attribute.  */
+	  DECL_VISIBILITY (decl) = default_visibility;
+	  DECL_VISIBILITY_SPECIFIED (decl) = visibility_options.inpragma;
+	}
     }
 
-  /* By default, static data members and function members receive
-     the visibility of their containing class.  */
-  if (class_type)
+  if (use_template)
     {
-      if (TARGET_DLLIMPORT_DECL_ATTRIBUTES
-	  && lookup_attribute ("dllexport", TYPE_ATTRIBUTES (class_type)))
+      /* If the specialization doesn't specify visibility, use the
+	 visibility from the template.  */
+      tree tinfo = (TREE_CODE (decl) == TYPE_DECL
+		    ? TYPE_TEMPLATE_INFO (TREE_TYPE (decl))
+		    : DECL_TEMPLATE_INFO (decl));
+      tree args = TI_ARGS (tinfo);
+      int depth = TMPL_ARGS_DEPTH (args);
+      tree pattern = DECL_TEMPLATE_RESULT (TI_TEMPLATE (tinfo));
+
+      if (!DECL_VISIBILITY_SPECIFIED (decl))
 	{
-	  DECL_VISIBILITY (decl) = VISIBILITY_DEFAULT;
-	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
+	  DECL_VISIBILITY (decl) = DECL_VISIBILITY (pattern);
+	  DECL_VISIBILITY_SPECIFIED (decl)
+	    = DECL_VISIBILITY_SPECIFIED (pattern);
 	}
-      else if (TREE_CODE (decl) == FUNCTION_DECL
-	       && DECL_DECLARED_INLINE_P (decl)
-	       && visibility_options.inlines_hidden)
-	{
-	  /* Don't change it if it has been set explicitly by user.  */
-	  if (!DECL_VISIBILITY_SPECIFIED (decl))
-	    {
-	      DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
-	      DECL_VISIBILITY_SPECIFIED (decl) = 1;
-	    }
-	}
-      else if (CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
-	{
-	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
-	  DECL_VISIBILITY_SPECIFIED (decl) = 1;
-	}
-      else if (!DECL_VISIBILITY_SPECIFIED (decl))
-	{
-	  DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
-	  DECL_VISIBILITY_SPECIFIED (decl) = 0;
-	}
+
+      /* FIXME should TMPL_ARGS_DEPTH really return 1 for null input? */
+      if (args && depth > template_class_depth (class_type))
+	/* Limit visibility based on its template arguments.  */
+	constrain_visibility_for_template (decl, args);
+    }
+
+  if (class_type)
+    determine_visibility_from_class (decl, class_type);
+
+  /* Don't let it have more visibility than its type.  */
+  if (TREE_CODE (decl) != TYPE_DECL)
+    if (constrain_visibility (decl, type_visibility (TREE_TYPE (decl))))
+      warning (OPT_Wattributes, "\
+lowering visibility of %q+D to match its type",
+	       decl);
+
+  if (decl_anon_ns_mem_p (decl))
+    /* Names in an anonymous namespace get internal linkage.
+       This might change once we implement export.  */
+    constrain_visibility (decl, VISIBILITY_ANON);
+}
+
+/* By default, static data members and function members receive
+   the visibility of their containing class.  */
+
+static void
+determine_visibility_from_class (tree decl, tree class_type)
+{
+  if (visibility_options.inlines_hidden
+      /* Don't do this for inline templates; specializations might not be
+	 inline, and we don't want them to inherit the hidden
+	 visibility.  We'll set it here for all inline instantiations.  */
+      && !processing_template_decl
+      && ! DECL_VISIBILITY_SPECIFIED (decl)
+      && TREE_CODE (decl) == FUNCTION_DECL
+      && DECL_DECLARED_INLINE_P (decl))
+    DECL_VISIBILITY (decl) = VISIBILITY_HIDDEN;
+  else if (!DECL_VISIBILITY_SPECIFIED (decl))
+    {
+      /* Default to the class visibility.  */
+      DECL_VISIBILITY (decl) = CLASSTYPE_VISIBILITY (class_type);
+      DECL_VISIBILITY_SPECIFIED (decl)
+	= CLASSTYPE_VISIBILITY_SPECIFIED (class_type);
+    }
+
+  /* Give the target a chance to override the visibility associated
+     with DECL.  */
+  if (TREE_CODE (decl) == VAR_DECL
+      && (DECL_TINFO_P (decl)
+	  || (DECL_VTABLE_OR_VTT_P (decl)
+	      /* Construction virtual tables are not exported because
+		 they cannot be referred to from other object files;
+		 their name is not standardized by the ABI.  */
+	      && !DECL_CONSTRUCTION_VTABLE_P (decl)))
+      && TREE_PUBLIC (decl)
+      && !DECL_REALLY_EXTERN (decl)
+      && !DECL_VISIBILITY_SPECIFIED (decl)
+      && !CLASSTYPE_VISIBILITY_SPECIFIED (class_type))
+    targetm.cxx.determine_class_data_visibility (decl);
+}
+
+/* Constrain the visibility of a class TYPE based on the visibility of its
+   field types.  Warn if any fields require lesser visibility.  */
+
+void
+constrain_class_visibility (tree type)
+{
+  tree binfo;
+  tree t;
+  int i;
+
+  int vis = type_visibility (type);
+
+  if (vis == VISIBILITY_ANON)
+    return;
+
+  /* Don't warn about visibility if the class has explicit visibility.  */
+  if (CLASSTYPE_VISIBILITY_SPECIFIED (type))
+    vis = VISIBILITY_INTERNAL;
+
+  for (t = TYPE_FIELDS (type); t; t = TREE_CHAIN (t))
+    if (TREE_CODE (t) == FIELD_DECL && TREE_TYPE (t) != error_mark_node)
+      {
+	int subvis = type_visibility (TREE_TYPE (t));
+
+	if (subvis == VISIBILITY_ANON)
+	  warning (0, "\
+%qT has a field %qD whose type uses the anonymous namespace",
+		   type, t);
+	else if (vis < VISIBILITY_HIDDEN
+		 && subvis >= VISIBILITY_HIDDEN)
+	  warning (OPT_Wattributes, "\
+%qT declared with greater visibility than the type of its field %qD",
+		   type, t);
+      }
+
+  binfo = TYPE_BINFO (type);
+  for (i = 0; BINFO_BASE_ITERATE (binfo, i, t); ++i)
+    {
+      int subvis = type_visibility (TREE_TYPE (t));
+
+      if (subvis == VISIBILITY_ANON)
+	warning (0, "\
+%qT has a base %qT whose type uses the anonymous namespace",
+		 type, TREE_TYPE (t));
+      else if (vis < VISIBILITY_HIDDEN
+	       && subvis >= VISIBILITY_HIDDEN)
+	warning (OPT_Wattributes, "\
+%qT declared with greater visibility than its base %qT",
+		 type, TREE_TYPE (t));
     }
 }
 
@@ -1851,7 +2111,8 @@ import_export_decl (tree decl)
     {
       /* DECL is an implicit instantiation of a function or static
 	 data member.  */
-      if (flag_implicit_templates
+      if ((flag_implicit_templates
+	   && !flag_use_repository)
 	  || (flag_implicit_inline_templates
 	      && TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_DECLARED_INLINE_P (decl)))
@@ -1904,21 +2165,6 @@ import_export_decl (tree decl)
 	 this point.  */
       comdat_linkage (decl);
     }
-
-  /* Give the target a chance to override the visibility associated
-     with DECL.  */
-  if (TREE_CODE (decl) == VAR_DECL
-      && (DECL_TINFO_P (decl)
-	  || (DECL_VTABLE_OR_VTT_P (decl)
-	      /* Construction virtual tables are not exported because
-		 they cannot be referred to from other object files;
-		 their name is not standardized by the ABI.  */
-	      && !DECL_CONSTRUCTION_VTABLE_P (decl)))
-      && TREE_PUBLIC (decl)
-      && !DECL_REALLY_EXTERN (decl)
-      && DECL_VISIBILITY_SPECIFIED (decl)
-      && (!class_type || !CLASSTYPE_VISIBILITY_SPECIFIED (class_type)))
-    targetm.cxx.determine_class_data_visibility (decl);
 
   DECL_INTERFACE_KNOWN (decl) = 1;
 }
@@ -3181,9 +3427,9 @@ build_offset_ref_call_from_tree (tree fn, tree args)
 	 parameter.  That must be done before the FN is transformed
 	 because we depend on the form of FN.  */
       args = build_non_dependent_args (args);
+      object = build_non_dependent_expr (object);
       if (TREE_CODE (fn) == DOTSTAR_EXPR)
 	object = build_unary_op (ADDR_EXPR, object, 0);
-      object = build_non_dependent_expr (object);
       args = tree_cons (NULL_TREE, object, args);
       /* Now that the arguments are done, transform FN.  */
       fn = build_non_dependent_expr (fn);

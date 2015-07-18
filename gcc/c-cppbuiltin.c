@@ -262,13 +262,13 @@ define__GNUC__ (void)
 {
   /* The format of the version string, enforced below, is
      ([^0-9]*-)?[0-9]+[.][0-9]+([.][0-9]+)?([- ].*)?  */
-  const char *q, *v = version_string;
+  const char *q, *v = version_string, *vstart, *vend;
 
   while (*v && !ISDIGIT (*v))
     v++;
   gcc_assert (*v && (v <= version_string || v[-1] == '-'));
 
-  q = v;
+  vstart = q = v;
   while (ISDIGIT (*v))
     v++;
   builtin_define_with_value_n ("__GNUC__", q, v - q);
@@ -294,6 +294,27 @@ define__GNUC__ (void)
     builtin_define_with_value_n ("__GNUC_PATCHLEVEL__", "0", 1);
 
   gcc_assert (!*v || *v == ' ' || *v == '-');
+
+  vend = v;
+  v = strchr (v, '(');
+  if (v != NULL && strncmp (v + 1, "Red Hat ", 8) == 0)
+    {
+      v += 9;
+      if (strncmp (v, "Linux ", 6) == 0)
+	v += 6;
+
+      gcc_assert (strncmp (v, vstart, vend - vstart) == 0);
+      gcc_assert (v[vend - vstart] == '-');
+
+      v += vend - vstart + 1;
+      q = v;
+      gcc_assert (ISDIGIT (*v));
+      while (ISDIGIT (*v))
+	v++;
+      builtin_define_with_value_n ("__GNUC_RH_RELEASE__", q, v - q);
+
+      gcc_assert (!*v || *v == ')' || *v == '.');
+    }
 }
 
 /* Define macros used by <stdint.h>.  Currently only defines limits
@@ -393,6 +414,8 @@ c_cpp_builtins (cpp_reader *pfile)
   /* Misc.  */
   builtin_define_with_value ("__VERSION__", version_string, 1);
 
+  cpp_define (pfile, "__GNUC_GNU_INLINE__");
+
   /* Definitions for LP64 model.  */
   if (TYPE_PRECISION (long_integer_type_node) == 64
       && POINTER_SIZE == 64
@@ -447,6 +470,9 @@ c_cpp_builtins (cpp_reader *pfile)
     cpp_define (pfile, "__SSP_ALL__=2");
   else if (flag_stack_protect == 1)
     cpp_define (pfile, "__SSP__=1");
+
+  if (flag_openmp)
+    cpp_define (pfile, "_OPENMP=200505");
 
   /* A straightforward target hook doesn't work, because of problems
      linking that hook's body when part of non-C front ends.  */

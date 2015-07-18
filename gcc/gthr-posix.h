@@ -1,6 +1,6 @@
 /* Threads compatibility routines for libgcc2 and libobjc.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+/* Copyright (C) 1997, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007
    Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -47,6 +47,11 @@ typedef pthread_key_t __gthread_key_t;
 typedef pthread_once_t __gthread_once_t;
 typedef pthread_mutex_t __gthread_mutex_t;
 typedef pthread_mutex_t __gthread_recursive_mutex_t;
+typedef pthread_cond_t __gthread_cond_t;
+
+/* POSIX like conditional variables are supported.  Please look at comments
+   in gthr.h for details. */
+#define __GTHREAD_HAS_COND	1	
 
 #define __GTHREAD_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
 #define __GTHREAD_ONCE_INIT PTHREAD_ONCE_INIT
@@ -57,10 +62,15 @@ typedef pthread_mutex_t __gthread_recursive_mutex_t;
 #else
 #define __GTHREAD_RECURSIVE_MUTEX_INIT_FUNCTION __gthread_recursive_mutex_init_function
 #endif
+#define __GTHREAD_COND_INIT PTHREAD_COND_INITIALIZER
 
 #if SUPPORTS_WEAK && GTHREAD_USE_WEAK
+# ifndef __gthrw_pragma
+#  define __gthrw_pragma(pragma)
+# endif
 # define __gthrw2(name,name2,type) \
-  extern __typeof(type) name __attribute__ ((__weakref__(#name2)));
+  extern __typeof(type) name __attribute__ ((__weakref__(#name2))); \
+  __gthrw_pragma(weak type)
 # define __gthrw_(name) __gthrw_ ## name
 #else
 # define __gthrw2(name,name2,type)
@@ -84,6 +94,8 @@ __gthrw3(pthread_mutex_lock)
 __gthrw3(pthread_mutex_trylock)
 __gthrw3(pthread_mutex_unlock)
 __gthrw3(pthread_mutex_init)
+__gthrw3(pthread_cond_broadcast)
+__gthrw3(pthread_cond_wait)
 #else
 __gthrw(pthread_once)
 __gthrw(pthread_getspecific)
@@ -94,6 +106,8 @@ __gthrw(pthread_mutex_lock)
 __gthrw(pthread_mutex_trylock)
 __gthrw(pthread_mutex_unlock)
 __gthrw(pthread_mutex_init)
+__gthrw(pthread_cond_broadcast)
+__gthrw(pthread_cond_wait)
 #endif
 
 __gthrw(pthread_key_create)
@@ -106,20 +120,16 @@ __gthrw(pthread_mutexattr_destroy)
 #if defined(_LIBOBJC) || defined(_LIBOBJC_WEAK)
 /* Objective-C.  */
 #if defined(__osf__) && defined(_PTHREAD_USE_MANGLED_NAMES_)
-__gthrw3(pthread_cond_broadcast)
 __gthrw3(pthread_cond_destroy)
 __gthrw3(pthread_cond_init)
 __gthrw3(pthread_cond_signal)
-__gthrw3(pthread_cond_wait)
 __gthrw3(pthread_exit)
 __gthrw3(pthread_mutex_destroy)
 __gthrw3(pthread_self)
 #else
-__gthrw(pthread_cond_broadcast)
 __gthrw(pthread_cond_destroy)
 __gthrw(pthread_cond_init)
 __gthrw(pthread_cond_signal)
-__gthrw(pthread_cond_wait)
 __gthrw(pthread_exit)
 __gthrw(pthread_mutex_destroy)
 __gthrw(pthread_self)
@@ -607,6 +617,25 @@ static inline int
 __gthread_recursive_mutex_unlock (__gthread_recursive_mutex_t *mutex)
 {
   return __gthread_mutex_unlock (mutex);
+}
+
+static inline int
+__gthread_cond_broadcast (__gthread_cond_t *cond)
+{
+  return __gthrw_(pthread_cond_broadcast) (cond);
+}
+
+static inline int
+__gthread_cond_wait (__gthread_cond_t *cond, __gthread_mutex_t *mutex)
+{
+  return __gthrw_(pthread_cond_wait) (cond, mutex);
+}
+
+static inline int
+__gthread_cond_wait_recursive (__gthread_cond_t *cond,
+			       __gthread_recursive_mutex_t *mutex)
+{
+  return __gthread_cond_wait (cond, mutex);
 }
 
 #endif /* _LIBOBJC */

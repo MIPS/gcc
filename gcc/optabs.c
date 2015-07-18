@@ -3673,12 +3673,16 @@ emit_cmp_and_jump_insns (rtx x, rtx y, enum rtx_code comparison, rtx size,
   /* Swap operands and condition to ensure canonical RTL.  */
   if (swap_commutative_operands_p (x, y))
     {
-      /* If we're not emitting a branch, this means some caller
-         is out of sync.  */
-      gcc_assert (label);
+      enum rtx_code swapped_comparison = swap_condition (comparison);
+
+      /* If we're not emitting a branch, callers are required to pass
+	 operands in an order conforming to canonical RTL.  We relax this
+	 for commutative comparsions so callers using EQ don't need to do
+	 swapping by hand.  */
+      gcc_assert (label || swapped_comparison == comparison);
 
       op0 = y, op1 = x;
-      comparison = swap_condition (comparison);
+      comparison = swapped_comparison;
     }
 
 #ifdef HAVE_cc0

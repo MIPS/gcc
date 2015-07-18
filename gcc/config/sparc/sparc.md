@@ -69,6 +69,10 @@
    (UNSPECV_FLUSH		4)
    (UNSPECV_SETJMP		5)
    (UNSPECV_SAVEW		6)
+   (UNSPECV_MEMBAR		7)
+   (UNSPECV_CAS			8)
+   (UNSPECV_SWAP		9)
+   (UNSPECV_LDSTUB		10)
   ])
 
 ;; The upper 32 fp regs on the v9 can't hold SFmode values.  To deal with this
@@ -90,7 +94,8 @@
    sparclet,tsc701,
    v9,
    ultrasparc,
-   ultrasparc3"
+   ultrasparc3,
+   niagara"
   (const (symbol_ref "sparc_cpu_attr")))
 
 ;; Attribute for the instruction set.
@@ -311,6 +316,7 @@
 (include "sparclet.md")
 (include "ultra1_2.md")
 (include "ultra3.md")
+(include "niagara.md")
 
 
 ;; Operand and operator predicates.
@@ -8486,3 +8492,5 @@
   "pdist\t%1, %2, %0"
   [(set_attr "type" "fga")
    (set_attr "fptype" "double")])
+
+(include "sync.md")

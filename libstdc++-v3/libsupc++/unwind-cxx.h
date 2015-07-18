@@ -39,14 +39,15 @@
 #include <exception>
 #include <cstddef>
 #include "unwind.h"
+#include <bits/atomic_word.h>
 
 #pragma GCC visibility push(default)
 
 namespace __cxxabiv1
 {
 
-// A C++ exception object consists of a header, which is a wrapper around
-// an unwind object header with additional C++ specific information,
+// A primary C++ exception object consists of a header, which is a wrapper
+// around an unwind object header with additional C++ specific information,
 // followed by the exception object itself.
 
 struct __cxa_exception
@@ -54,6 +55,55 @@ struct __cxa_exception
   // Manage the exception object itself.
   std::type_info *exceptionType;
   void (*exceptionDestructor)(void *); 
+
+  // The C++ standard has entertaining rules wrt calling set_terminate
+  // and set_unexpected in the middle of the exception cleanup process.
+  std::unexpected_handler unexpectedHandler;
+  std::terminate_handler terminateHandler;
+
+  // The caught exception stack threads through here.
+  __cxa_exception *nextException;
+
+  // How many nested handlers have caught this exception.  A negated
+  // value is a signal that this object has been rethrown.
+  int handlerCount;
+
+#ifdef __ARM_EABI_UNWINDER__
+  // Stack of exceptions in cleanups.
+  __cxa_exception* nextPropagatingException;
+
+  // The nuber of active cleanup handlers for this exception.
+  int propagationCount;
+#else
+  // Cache parsed handler data from the personality routine Phase 1
+  // for Phase 2 and __cxa_call_unexpected.
+  int handlerSwitchValue;
+  const unsigned char *actionRecord;
+  const unsigned char *languageSpecificData;
+  _Unwind_Ptr catchTemp;
+  void *adjustedPtr;
+#endif
+
+  // The generic exception header.  Must be last.
+  _Unwind_Exception unwindHeader;
+};
+
+struct __cxa_refcounted_exception
+{
+  // Manage this header.
+  _Atomic_word referenceCount;
+  // __cxa_exception must be last, and no padding can be after it.
+  __cxa_exception exc;
+};
+
+// A dependent C++ exception object consists of a wrapper around an unwind
+// object header with additional C++ specific information, containing a pointer
+// to a primary exception object.
+
+struct __cxa_dependent_exception
+{
+  // The primary exception this thing depends on.
+  void *primaryException;
 
   // The C++ standard has entertaining rules wrt calling set_terminate
   // and set_unexpected in the middle of the exception cleanup process.
@@ -173,6 +223,27 @@ __get_exception_header_from_ue (_Unwind_Exception *exc)
   return reinterpret_cast<__cxa_exception *>(exc + 1) - 1;
 }
 
+// Acquire the C++ refcounted exception header from the C++ object.
+static inline __cxa_refcounted_exception *
+__get_refcounted_exception_header_from_obj (void *ptr)
+{
+  return reinterpret_cast<__cxa_refcounted_exception *>(ptr) - 1;
+}
+
+// Acquire the C++ refcounted exception header from the generic exception
+// header.
+static inline __cxa_refcounted_exception *
+__get_refcounted_exception_header_from_ue (_Unwind_Exception *exc)
+{
+  return reinterpret_cast<__cxa_refcounted_exception *>(exc + 1) - 1;
+}
+
+static inline __cxa_dependent_exception *
+__get_dependent_exception_from_ue (_Unwind_Exception *exc)
+{
+  return reinterpret_cast<__cxa_dependent_exception *>(exc + 1) - 1;
+}
+
 #ifdef __ARM_EABI_UNWINDER__
 static inline bool
 __is_gxx_exception_class(_Unwind_Exception_Class c)
@@ -185,11 +256,19 @@ __is_gxx_exception_class(_Unwind_Exception_Class c)
 	 && c[4] == 'C'
 	 && c[5] == '+'
 	 && c[6] == '+'
-	 && c[7] == '\0';
+	 && (c[7] == '\0' || c[7] == '\x01');
+}
+
+// Only checks for primary or dependent, but not that it is a C++ exception at
+// all.
+static inline bool
+__is_dependent_exception(_Unwind_Exception_Class c)
+{
+  return c[7] == '\x01';
 }
 
 static inline void
-__GXX_INIT_EXCEPTION_CLASS(_Unwind_Exception_Class c)
+__GXX_INIT_PRIMARY_EXCEPTION_CLASS(_Unwind_Exception_Class c)
 {
   c[0] = 'G';
   c[1] = 'N';
@@ -201,6 +280,19 @@ __GXX_INIT_EXCEPTION_CLASS(_Unwind_Exception_Class c)
   c[7] = '\0';
 }
 
+static inline void
+__GXX_INIT_DEPENDENT_EXCEPTION_CLASS(_Unwind_Exception_Class c)
+{
+  c[0] = 'G';
+  c[1] = 'N';
+  c[2] = 'U';
+  c[3] = 'C';
+  c[4] = 'C';
+  c[5] = '+';
+  c[6] = '+';
+  c[7] = '\x01';
+}
+
 static inline void*
 __gxx_caught_object(_Unwind_Exception* eo)
 {
@@ -208,7 +300,7 @@ __gxx_caught_object(_Unwind_Exception* eo)
 }
 #else // !__ARM_EABI_UNWINDER__
 // This is the exception class we report -- "GNUCC++\0".
-const _Unwind_Exception_Class __gxx_exception_class
+const _Unwind_Exception_Class __gxx_primary_exception_class
 = ((((((((_Unwind_Exception_Class) 'G' 
 	 << 8 | (_Unwind_Exception_Class) 'N')
 	<< 8 | (_Unwind_Exception_Class) 'U')
@@ -218,13 +310,36 @@ const _Unwind_Exception_Class __gxx_exception_class
     << 8 | (_Unwind_Exception_Class) '+')
    << 8 | (_Unwind_Exception_Class) '\0');
 
+// This is the dependent (from std::rethrow_exception) exception class we report
+// "GNUCC++\x01"
+const _Unwind_Exception_Class __gxx_dependent_exception_class
+= ((((((((_Unwind_Exception_Class) 'G' 
+	 << 8 | (_Unwind_Exception_Class) 'N')
+	<< 8 | (_Unwind_Exception_Class) 'U')
+       << 8 | (_Unwind_Exception_Class) 'C')
+      << 8 | (_Unwind_Exception_Class) 'C')
+     << 8 | (_Unwind_Exception_Class) '+')
+    << 8 | (_Unwind_Exception_Class) '+')
+   << 8 | (_Unwind_Exception_Class) '\x01');
+
 static inline bool
 __is_gxx_exception_class(_Unwind_Exception_Class c)
 {
-  return c == __gxx_exception_class;
+  return c == __gxx_primary_exception_class
+      || c == __gxx_dependent_exception_class;
 }
 
-#define __GXX_INIT_EXCEPTION_CLASS(c) c = __gxx_exception_class
+// Only checks for primary or dependent, but not that it is a C++ exception at
+// all.
+static inline bool
+__is_dependent_exception(_Unwind_Exception_Class c)
+{
+  return (c & 1);
+}
+
+#define __GXX_INIT_PRIMARY_EXCEPTION_CLASS(c) c = __gxx_primary_exception_class
+#define __GXX_INIT_DEPENDENT_EXCEPTION_CLASS(c) \
+  c = __gxx_dependent_exception_class
 
 // GNU C++ personality routine, Version 0.
 extern "C" _Unwind_Reason_Code __gxx_personality_v0
@@ -239,10 +354,26 @@ extern "C" _Unwind_Reason_Code __gxx_personality_sj0
 static inline void*
 __gxx_caught_object(_Unwind_Exception* eo)
 {
+  // Bad as it looks, this actually works for dependent exceptions too.
   __cxa_exception* header = __get_exception_header_from_ue (eo);
   return header->adjustedPtr;
 }
 #endif // !__ARM_EABI_UNWINDER__
+
+static inline void*
+__get_object_from_ue(_Unwind_Exception* eo) throw()
+{
+  return __is_dependent_exception (eo->exception_class) ?
+    __get_dependent_exception_from_ue (eo)->primaryException :
+    eo + 1;
+}
+
+static inline void *
+__get_object_from_ambiguous_exception(__cxa_exception *p_or_d) throw()
+{
+	return __get_object_from_ue (&p_or_d->unwindHeader);
+}
+
 
 } /* namespace __cxxabiv1 */
 

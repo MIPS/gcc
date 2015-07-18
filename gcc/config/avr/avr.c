@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for ATMEL AVR micro controllers
-   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005
+   Copyright (C) 1998, 1999, 2000, 2001, 2002, 2004, 2005, 2007
    Free Software Foundation, Inc.
    Contributed by Denis Chertykov (denisc@overta.ru)
 
@@ -62,6 +62,7 @@ static RTX_CODE compare_condition (rtx insn);
 static int compare_sign_p (rtx insn);
 static tree avr_handle_progmem_attribute (tree *, tree, tree, int, bool *);
 static tree avr_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
+static tree avr_handle_fntype_attribute (tree *, tree, tree, int, bool *);
 const struct attribute_spec avr_attribute_table[];
 static bool avr_assemble_integer (rtx, unsigned int, int);
 static void avr_file_start (void);
@@ -269,6 +270,8 @@ avr_override_options (void)
   const struct mcu_type_s *t;
   const struct base_arch_s *base;
 
+  flag_delete_null_pointer_checks = 0;
+
   for (t = avr_mcu_types; t->name; t++)
     if (strcmp (t->name, avr_mcu_name) == 0)
       break;
@@ -359,7 +362,7 @@ avr_naked_function_p (tree func)
 
   gcc_assert (TREE_CODE (func) == FUNCTION_DECL);
   
-  a = lookup_attribute ("naked", DECL_ATTRIBUTES (func));
+  a = lookup_attribute ("naked", TYPE_ATTRIBUTES (TREE_TYPE (func)));
   return a != NULL_TREE;
 }
 
@@ -1006,7 +1009,7 @@ ptrreg_to_str (int regno)
     case REG_Y: return "Y";
     case REG_Z: return "Z";
     default:
-      gcc_unreachable ();
+      output_operand_lossage ("address operand requires constraint for X, Y, or Z register");
     }
   return NULL;
 }
@@ -4615,7 +4618,7 @@ const struct attribute_spec avr_attribute_table[] =
   { "progmem",   0, 0, false, false, false,  avr_handle_progmem_attribute },
   { "signal",    0, 0, true,  false, false,  avr_handle_fndecl_attribute },
   { "interrupt", 0, 0, true,  false, false,  avr_handle_fndecl_attribute },
-  { "naked",     0, 0, true,  false, false,  avr_handle_fndecl_attribute },
+  { "naked",     0, 0, false, true,  true,   avr_handle_fntype_attribute },
   { NULL,        0, 0, false, false, false, NULL }
 };
 
@@ -4679,7 +4682,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
     }
   else
     {
-      const char *func_name = IDENTIFIER_POINTER (DECL_NAME (*node));
+      const char *func_name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (*node));
       const char *attr = IDENTIFIER_POINTER (name);
 
       /* If the function has the 'signal' or 'interrupt' attribute, test to
@@ -4702,6 +4705,22 @@ avr_handle_fndecl_attribute (tree *node, tree name,
                        func_name);
             }
         }
+    }
+
+  return NULL_TREE;
+}
+
+static tree
+avr_handle_fntype_attribute (tree *node, tree name,
+                             tree args ATTRIBUTE_UNUSED,
+                             int flags ATTRIBUTE_UNUSED,
+                             bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_TYPE)
+    {
+      warning (OPT_Wattributes, "%qs attribute only applies to functions",
+	       IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
     }
 
   return NULL_TREE;
@@ -5050,6 +5069,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
 	  else
 	    return false;
+	  break;
 
 	case HImode:
 	  if (AVR_ENHANCED)
@@ -5058,6 +5078,7 @@ avr_rtx_costs (rtx x, int code, int outer_code, int *total)
 	    *total = COSTS_N_INSNS (AVR_MEGA ? 2 : 1);
 	  else
 	    return false;
+	  break;
 
 	default:
 	  return false;

@@ -4146,6 +4146,7 @@ static tree member_declared_type (tree);
 static const char *decl_start_label (tree);
 #endif
 static void gen_array_type_die (tree, dw_die_ref);
+static void gen_descr_array_type_die (tree, struct array_descr_info *, dw_die_ref);
 #if 0
 static void gen_entry_point_die (tree, dw_die_ref);
 #endif
@@ -4444,8 +4445,6 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_namelist";
     case DW_TAG_namelist_item:
       return "DW_TAG_namelist_item";
-    case DW_TAG_namespace:
-      return "DW_TAG_namespace";
     case DW_TAG_packed_type:
       return "DW_TAG_packed_type";
     case DW_TAG_subprogram:
@@ -4464,8 +4463,26 @@ dwarf_tag_name (unsigned int tag)
       return "DW_TAG_variable";
     case DW_TAG_volatile_type:
       return "DW_TAG_volatile_type";
+    case DW_TAG_dwarf_procedure:
+      return "DW_TAG_dwarf_procedure";
+    case DW_TAG_restrict_type:
+      return "DW_TAG_restrict_type";
+    case DW_TAG_interface_type:
+      return "DW_TAG_interface_type";
+    case DW_TAG_namespace:
+      return "DW_TAG_namespace";
     case DW_TAG_imported_module:
       return "DW_TAG_imported_module";
+    case DW_TAG_unspecified_type:
+      return "DW_TAG_unspecified_type";
+    case DW_TAG_partial_unit:
+      return "DW_TAG_partial_unit";
+    case DW_TAG_imported_unit:
+      return "DW_TAG_imported_unit";
+    case DW_TAG_condition:
+      return "DW_TAG_condition";
+    case DW_TAG_shared_type:
+      return "DW_TAG_shared_type";
     case DW_TAG_MIPS_loop:
       return "DW_TAG_MIPS_loop";
     case DW_TAG_format_label:
@@ -4552,8 +4569,8 @@ dwarf_attr_name (unsigned int attr)
       return "DW_AT_return_addr";
     case DW_AT_start_scope:
       return "DW_AT_start_scope";
-    case DW_AT_stride_size:
-      return "DW_AT_stride_size";
+    case DW_AT_bit_stride:
+      return "DW_AT_bit_stride";
     case DW_AT_upper_bound:
       return "DW_AT_upper_bound";
     case DW_AT_abstract_origin:
@@ -4621,8 +4638,8 @@ dwarf_attr_name (unsigned int attr)
       return "DW_AT_associated";
     case DW_AT_data_location:
       return "DW_AT_data_location";
-    case DW_AT_stride:
-      return "DW_AT_stride";
+    case DW_AT_byte_stride:
+      return "DW_AT_byte_stride";
     case DW_AT_entry_pc:
       return "DW_AT_entry_pc";
     case DW_AT_use_UTF8:
@@ -6180,6 +6197,7 @@ is_type_die (dw_die_ref die)
     {
     case DW_TAG_array_type:
     case DW_TAG_class_type:
+    case DW_TAG_interface_type:
     case DW_TAG_enumeration_type:
     case DW_TAG_pointer_type:
     case DW_TAG_reference_type:
@@ -8407,7 +8425,10 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	      mod_type_die = lookup_type_die (qualified_type);
 	    }
 	  else if (is_const_type < TYPE_READONLY (dtype)
-		   || is_volatile_type < TYPE_VOLATILE (dtype))
+		   || is_volatile_type < TYPE_VOLATILE (dtype)
+		   || (is_const_type <= TYPE_READONLY (dtype)
+		       && is_volatile_type <= TYPE_VOLATILE (dtype)
+		       && DECL_ORIGINAL_TYPE (type_name) != type))
 	    /* cv-unqualified version of named type.  Just use the unnamed
 	       type to which it refers.  */
 	    mod_type_die
@@ -8466,7 +8487,13 @@ modified_type_die (tree type, int is_const_type, int is_volatile_type,
 	     that copy might have a different TYPE_UID from the original
 	     ..._TYPE node.  */
 	  if (TREE_CODE (type) != VECTOR_TYPE)
-	    mod_type_die = lookup_type_die (type_main_variant (type));
+	    {
+	      mod_type_die = lookup_type_die (type_main_variant (type));
+	      if (mod_type_die == NULL
+		  && lang_hooks.types.get_array_descr_info
+		  && TREE_ASM_WRITTEN (type))
+		mod_type_die = lookup_type_die (type);
+	    }
 	  else
 	    /* Vectors have the debugging information in the type,
 	       not the main variant.  */
@@ -9036,7 +9063,6 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 {
   dw_loc_descr_ref ret, ret1;
   int have_address = 0;
-  int unsignedp = TYPE_UNSIGNED (TREE_TYPE (loc));
   enum dwarf_location_atom op;
 
   /* ??? Most of the time we do not take proper care for sign/zero
@@ -9181,6 +9207,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
 	HOST_WIDE_INT bitsize, bitpos, bytepos;
 	enum machine_mode mode;
 	int volatilep;
+	int unsignedp = TYPE_UNSIGNED (TREE_TYPE (loc));
 
 	obj = get_inner_reference (loc, &bitsize, &bitpos, &offset, &mode,
 				   &unsignedp, &volatilep, false);
@@ -9279,7 +9306,7 @@ loc_descriptor_from_tree_1 (tree loc, int want_address)
       goto do_binop;
 
     case RSHIFT_EXPR:
-      op = (unsignedp ? DW_OP_shr : DW_OP_shra);
+      op = (TYPE_UNSIGNED (TREE_TYPE (loc)) ? DW_OP_shr : DW_OP_shra);
       goto do_binop;
 
     case PLUS_EXPR:
@@ -10982,6 +11009,8 @@ class_or_namespace_scope_p (dw_die_ref context_die)
 {
   return (context_die
 	  && (context_die->die_tag == DW_TAG_structure_type
+	      || context_die->die_tag == DW_TAG_class_type
+	      || context_die->die_tag == DW_TAG_interface_type
 	      || context_die->die_tag == DW_TAG_union_type
 	      || context_die->die_tag == DW_TAG_namespace));
 }
@@ -11129,6 +11158,12 @@ gen_array_type_die (tree type, dw_die_ref context_die)
       add_AT_flag (array_die, DW_AT_GNU_vector, 1);
     }
 
+  /* For Fortran multidimensional arrays use DW_ORD_col_major ordering.  */
+  if (is_fortran ()
+      && TREE_CODE (type) == ARRAY_TYPE
+      && TREE_CODE (TREE_TYPE (type)) == ARRAY_TYPE)
+    add_AT_unsigned (array_die, DW_AT_ordering, DW_ORD_col_major);
+
 #if 0
   /* We default the array ordering.  SDB will probably do
      the right things even if DW_AT_ordering is not present.  It's not even
@@ -11164,6 +11199,164 @@ gen_array_type_die (tree type, dw_die_ref context_die)
 #endif
 
   add_type_attribute (array_die, element_type, 0, 0, context_die);
+}
+
+static dw_loc_descr_ref
+descr_info_loc (tree val, tree base_decl)
+{
+  HOST_WIDE_INT size;
+  dw_loc_descr_ref loc, loc2;
+  enum dwarf_location_atom op;
+
+  if (val == base_decl)
+    return new_loc_descr (DW_OP_push_object_address, 0, 0);
+
+  switch (TREE_CODE (val))
+    {
+    case NOP_EXPR:
+    case CONVERT_EXPR:
+      return descr_info_loc (TREE_OPERAND (val, 0), base_decl);
+    case INTEGER_CST:
+      if (host_integerp (val, 0))
+	return int_loc_descriptor (tree_low_cst (val, 0));
+      break;
+    case INDIRECT_REF:
+      size = int_size_in_bytes (TREE_TYPE (val));
+      if (size < 0)
+	break;
+      loc = descr_info_loc (TREE_OPERAND (val, 0), base_decl);
+      if (!loc)
+	break;
+      if (size == DWARF2_ADDR_SIZE)
+	add_loc_descr (&loc, new_loc_descr (DW_OP_deref, 0, 0));
+      else
+	add_loc_descr (&loc, new_loc_descr (DW_OP_deref_size, size, 0));
+      return loc;
+    case PLUS_EXPR:
+      if (host_integerp (TREE_OPERAND (val, 1), 1)
+	  && (unsigned HOST_WIDE_INT) tree_low_cst (TREE_OPERAND (val, 1), 1)
+	     < 16384)
+	{
+	  loc = descr_info_loc (TREE_OPERAND (val, 0), base_decl);
+	  if (!loc)
+	    break;
+	  add_loc_descr (&loc,
+			 new_loc_descr (DW_OP_plus_uconst,
+					tree_low_cst (TREE_OPERAND (val, 1),
+						      1), 0));
+	}
+      else
+	{
+	  op = DW_OP_plus;
+	do_binop:
+	  loc = descr_info_loc (TREE_OPERAND (val, 0), base_decl);
+	  if (!loc)
+	    break;
+	  loc2 = descr_info_loc (TREE_OPERAND (val, 1), base_decl);
+	  if (!loc2)
+	    break;
+	  add_loc_descr (&loc, loc2);
+	  add_loc_descr (&loc2, new_loc_descr (op, 0, 0));
+	}
+      return loc;
+    case MINUS_EXPR:
+      op = DW_OP_minus;
+      goto do_binop;
+    case MULT_EXPR:
+      op = DW_OP_mul;
+      goto do_binop;
+    case EQ_EXPR:
+      op = DW_OP_eq;
+      goto do_binop;
+    case NE_EXPR:
+      op = DW_OP_ne;
+      goto do_binop;
+    default:
+      break;
+    }
+  return NULL;
+}
+
+static void
+add_descr_info_field (dw_die_ref die, enum dwarf_attribute attr,
+		      tree val, tree base_decl)
+{
+  dw_loc_descr_ref loc;
+
+  if (host_integerp (val, 0))
+    {
+      add_AT_unsigned (die, attr, tree_low_cst (val, 0));
+      return;
+    }
+
+  loc = descr_info_loc (val, base_decl);
+  if (!loc)
+    return;
+
+  add_AT_loc (die, attr, loc);
+}
+
+/* This routine generates DIE for array with hidden descriptor, details
+   are filled into *info by a langhook.  */
+
+static void
+gen_descr_array_type_die (tree type, struct array_descr_info *info,
+			  dw_die_ref context_die)
+{
+  dw_die_ref scope_die = scope_die_for (type, context_die);
+  dw_die_ref array_die;
+  int dim;
+
+  array_die = new_die (DW_TAG_array_type, scope_die, type);
+  add_name_attribute (array_die, type_tag (type));
+  equate_type_number_to_die (type, array_die);
+
+  /* For Fortran multidimensional arrays use DW_ORD_col_major ordering.  */
+  if (is_fortran ()
+      && info->ndimensions >= 2)
+    add_AT_unsigned (array_die, DW_AT_ordering, DW_ORD_col_major);
+
+  if (info->data_location)
+    add_descr_info_field (array_die, DW_AT_data_location, info->data_location,
+			  info->base_decl);
+  if (info->associated)
+    add_descr_info_field (array_die, DW_AT_associated, info->associated,
+			  info->base_decl);
+  if (info->allocated)
+    add_descr_info_field (array_die, DW_AT_allocated, info->allocated,
+			  info->base_decl);
+
+  for (dim = 0; dim < info->ndimensions; dim++)
+    {
+      dw_die_ref subrange_die
+	= new_die (DW_TAG_subrange_type, array_die, NULL);
+
+      if (info->dimen[dim].lower_bound)
+	{
+	  /* If it is the default value, omit it.  */
+	  if ((is_c_family () || is_java ())
+	      && integer_zerop (info->dimen[dim].lower_bound))
+	    ;
+	  else if (is_fortran ()
+		   && integer_onep (info->dimen[dim].lower_bound))
+	    ;
+	  else
+	    add_descr_info_field (subrange_die, DW_AT_lower_bound,
+				  info->dimen[dim].lower_bound,
+				  info->base_decl);
+	}
+      if (info->dimen[dim].upper_bound)
+	add_descr_info_field (subrange_die, DW_AT_upper_bound,
+			      info->dimen[dim].upper_bound,
+			      info->base_decl);
+      if (info->dimen[dim].stride)
+	add_descr_info_field (subrange_die, DW_AT_byte_stride,
+			      info->dimen[dim].stride,
+			      info->base_decl);
+    }
+
+  gen_type_die (info->element_type, context_die);
+  add_type_attribute (array_die, info->element_type, 0, 0, context_die);
 }
 
 #if 0
@@ -11213,12 +11406,36 @@ gen_inlined_enumeration_type_die (tree type, dw_die_ref context_die)
   add_abstract_origin_attribute (type_die, type);
 }
 
+/* Determine what tag to use for a record type.  */
+
+static enum dwarf_tag
+record_type_tag (tree type)
+{
+  if (! lang_hooks.types.classify_record)
+    return DW_TAG_structure_type;
+
+  switch (lang_hooks.types.classify_record (type))
+    {
+    case RECORD_IS_STRUCT:
+      return DW_TAG_structure_type;
+
+    case RECORD_IS_CLASS:
+      return DW_TAG_class_type;
+
+    case RECORD_IS_INTERFACE:
+      return DW_TAG_interface_type;
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Generate a DIE to represent an inlined instance of a structure type.  */
 
 static void
 gen_inlined_structure_type_die (tree type, dw_die_ref context_die)
 {
-  dw_die_ref type_die = new_die (DW_TAG_structure_type, context_die, type);
+  dw_die_ref type_die = new_die (record_type_tag (type), context_die, type);
 
   /* We do not check for TREE_ASM_WRITTEN (type) being set, as the type may
      be incomplete and such types are not marked.  */
@@ -11330,8 +11547,11 @@ gen_formal_parameter_die (tree node, dw_die_ref context_die)
 	add_abstract_origin_attribute (parm_die, origin);
       else
 	{
+	  tree type = TREE_TYPE (node);
 	  add_name_and_src_coords_attributes (parm_die, node);
-	  add_type_attribute (parm_die, TREE_TYPE (node),
+	  if (DECL_BY_REFERENCE (node))
+	    type = TREE_TYPE (type);
+	  add_type_attribute (parm_die, type,
 			      TREE_READONLY (node),
 			      TREE_THIS_VOLATILE (node),
 			      context_die);
@@ -11664,6 +11884,10 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
             add_AT_unsigned (subr_die, DW_AT_inline, DW_INL_not_inlined);
 	}
 
+      if (DECL_DECLARED_INLINE_P (decl)
+	  && lookup_attribute ("artificial", DECL_ATTRIBUTES (decl)))
+	add_AT_flag (subr_die, DW_AT_artificial, 1);
+
       equate_decl_number_to_die (decl, subr_die);
     }
   else if (!DECL_EXTERNAL (decl))
@@ -11901,8 +12125,14 @@ gen_variable_die (tree decl, dw_die_ref context_die)
     }
   else
     {
+      tree type = TREE_TYPE (decl);
+      if ((TREE_CODE (decl) == PARM_DECL
+	   || TREE_CODE (decl) == RESULT_DECL)
+	  && DECL_BY_REFERENCE (decl))
+	type = TREE_TYPE (type);
+
       add_name_and_src_coords_attributes (var_die, decl);
-      add_type_attribute (var_die, TREE_TYPE (decl), TREE_READONLY (decl),
+      add_type_attribute (var_die, type, TREE_READONLY (decl),
 			  TREE_THIS_VOLATILE (decl), context_die);
 
       if (TREE_PUBLIC (decl))
@@ -12349,7 +12579,7 @@ gen_struct_or_union_type_die (tree type, dw_die_ref context_die)
       dw_die_ref old_die = type_die;
 
       type_die = new_die (TREE_CODE (type) == RECORD_TYPE
-			  ? DW_TAG_structure_type : DW_TAG_union_type,
+			  ? record_type_tag (type) : DW_TAG_union_type,
 			  scope_die, type);
       equate_type_number_to_die (type, type_die);
       if (old_die)
@@ -12462,6 +12692,7 @@ static void
 gen_type_die (tree type, dw_die_ref context_die)
 {
   int need_pop;
+  struct array_descr_info info;
 
   if (type == NULL_TREE || type == error_mark_node)
     return;
@@ -12477,6 +12708,16 @@ gen_type_die (tree type, dw_die_ref context_die)
 
       TREE_ASM_WRITTEN (type) = 1;
       gen_decl_die (TYPE_NAME (type), context_die);
+      return;
+    }
+
+  /* If this is an array type with hidden descriptor, handle it first.  */
+  if (!TREE_ASM_WRITTEN (type)
+      && lang_hooks.types.get_array_descr_info
+      && lang_hooks.types.get_array_descr_info (type, &info))
+    {
+      gen_descr_array_type_die (type, &info, context_die);
+      TREE_ASM_WRITTEN (type) = 1;
       return;
     }
 
@@ -12572,6 +12813,15 @@ gen_type_die (tree type, dw_die_ref context_die)
 	  push_decl_scope (TYPE_CONTEXT (type));
 	  context_die = lookup_type_die (TYPE_CONTEXT (type));
 	  need_pop = 1;
+	}
+      else if (TYPE_CONTEXT (type) != NULL_TREE
+	       && (TREE_CODE (TYPE_CONTEXT (type)) == FUNCTION_DECL))
+	{
+	  /* If this type is local to a function that hasn't been written
+	     out yet, use a NULL context for now; it will be fixed up in
+	     decls_for_scope.  */
+	  context_die = lookup_decl_die (TYPE_CONTEXT (type));
+	  need_pop = 0;
 	}
       else
 	{
@@ -12890,7 +13140,8 @@ force_decl_die (tree decl)
   return decl_die;
 }
 
-/* Returns the DIE for TYPE.  A DIE is always returned.  */
+/* Returns the DIE for TYPE, that must not be a base type.  A DIE is
+   always returned.  */
 
 static dw_die_ref
 force_type_die (tree type)
@@ -13117,7 +13368,10 @@ gen_decl_die (tree decl, dw_die_ref context_die)
 
       /* Output any DIEs that are needed to specify the type of this data
 	 object.  */
-      gen_type_die (TREE_TYPE (decl), context_die);
+      if (TREE_CODE (decl) == RESULT_DECL && DECL_BY_REFERENCE (decl))
+	gen_type_die (TREE_TYPE (TREE_TYPE (decl)), context_die);
+      else
+	gen_type_die (TREE_TYPE (decl), context_die);
 
       /* And its containing type.  */
       origin = decl_class_context (decl);
@@ -13151,7 +13405,10 @@ gen_decl_die (tree decl, dw_die_ref context_die)
       break;
 
     case PARM_DECL:
-      gen_type_die (TREE_TYPE (decl), context_die);
+      if (DECL_BY_REFERENCE (decl))
+	gen_type_die (TREE_TYPE (TREE_TYPE (decl)), context_die);
+      else
+	gen_type_die (TREE_TYPE (decl), context_die);
       gen_formal_parameter_die (decl, context_die);
       break;
 
@@ -13241,7 +13498,12 @@ dwarf2out_imported_module_or_decl (tree decl, tree context)
 
   /* For TYPE_DECL or CONST_DECL, lookup TREE_TYPE.  */
   if (TREE_CODE (decl) == TYPE_DECL || TREE_CODE (decl) == CONST_DECL)
-    at_import_die = force_type_die (TREE_TYPE (decl));
+    {
+      if (is_base_type (TREE_TYPE (decl)))
+	at_import_die = base_type_die (TREE_TYPE (decl));
+      else
+	at_import_die = force_type_die (TREE_TYPE (decl));
+    }
   else
     {
       at_import_die = lookup_decl_die (decl);
@@ -13979,6 +14241,7 @@ prune_unused_types_walk (dw_die_ref die)
   case DW_TAG_structure_type:
   case DW_TAG_union_type:
   case DW_TAG_class_type:
+  case DW_TAG_interface_type:
   case DW_TAG_friend:
   case DW_TAG_variant_part:
   case DW_TAG_enumeration_type:
@@ -14142,7 +14405,9 @@ dwarf2out_finish (const char *filename)
 	      else if (TYPE_P (node->created_for))
 		context = TYPE_CONTEXT (node->created_for);
 
-	      gcc_assert (context && TREE_CODE (context) == FUNCTION_DECL);
+	      gcc_assert (context
+			  && (TREE_CODE (context) == FUNCTION_DECL
+			      || TREE_CODE (context) == NAMESPACE_DECL));
 
 	      origin = lookup_decl_die (context);
 	      if (origin)

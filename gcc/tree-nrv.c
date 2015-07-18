@@ -163,6 +163,14 @@ tree_nrv (void)
 						     result_type))
 		return;
 	    }
+	  else if (TREE_CODE (stmt) == MODIFY_EXPR)
+	    {
+	      tree addr = get_base_address (TREE_OPERAND (stmt, 0));
+	       /* If there's any MODIFY of component of RESULT, 
+		  then bail out.  */
+	      if (addr && addr == result)
+		return;
+	    }
 	}
     }
 
@@ -200,7 +208,7 @@ tree_nrv (void)
 	  if (TREE_CODE (*tp) == MODIFY_EXPR
 	      && TREE_OPERAND (*tp, 0) == result
 	      && TREE_OPERAND (*tp, 1) == found)
-	    bsi_remove (&bsi);
+	    bsi_remove (&bsi, true);
 	  else
 	    {
 	      walk_tree (tp, finalize_nrv_r, &data, 0);

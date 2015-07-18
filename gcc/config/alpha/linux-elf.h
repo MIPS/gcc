@@ -29,7 +29,7 @@ Boston, MA 02110-1301, USA.  */
 
 #define ELF_DYNAMIC_LINKER	"/lib/ld-linux.so.2"
 
-#define LINK_SPEC "-m elf64alpha %{G*} %{relax:-relax}		\
+#define LINK_SPEC "-m elf64alpha --hash-style=gnu %{G*} %{relax:-relax}	\
   %{O*:-O3} %{!O*:-O1}						\
   %{shared:-shared}						\
   %{!shared:							\

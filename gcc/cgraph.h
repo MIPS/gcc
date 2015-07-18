@@ -150,15 +150,13 @@ struct cgraph_node GTY((chain_next ("%h.next"), chain_prev ("%h.previous")))
   /* Set when function is reachable by call from other function
      that is either reachable or needed.  */
   bool reachable;
-  /* Set once the function is lowered (ie it's CFG is built).  */
+  /* Set once the function is lowered (i.e. its CFG is built).  */
   bool lowered;
   /* Set once the function has been instantiated and its callee
      lists created.  */
   bool analyzed;
   /* Set when function is scheduled to be assembled.  */
   bool output;
-  /* Set when function is visible by other units.  */
-  bool externally_visible;
   /* Set for aliases once they got through assemble_alias.  */
   bool alias;
 };
@@ -218,6 +216,7 @@ extern GTY(()) int cgraph_max_uid;
 extern bool cgraph_global_info_ready;
 extern bool cgraph_function_flags_ready;
 extern GTY(()) struct cgraph_node *cgraph_nodes_queue;
+extern GTY(()) struct cgraph_node *cgraph_expand_queue;
 
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_first_unanalyzed_node;
 extern GTY(()) struct cgraph_varpool_node *cgraph_varpool_nodes_queue;
@@ -263,12 +262,12 @@ enum availability cgraph_function_body_availability (struct cgraph_node *);
 enum availability cgraph_variable_initializer_availability (struct cgraph_varpool_node *);
 bool cgraph_is_master_clone (struct cgraph_node *);
 struct cgraph_node *cgraph_master_clone (struct cgraph_node *);
+void cgraph_add_new_function (tree);
 
 /* In cgraphunit.c  */
 bool cgraph_assemble_pending_functions (void);
 bool cgraph_varpool_assemble_pending_decls (void);
 void cgraph_finalize_function (tree, bool);
-void cgraph_lower_function (struct cgraph_node *);
 void cgraph_finalize_compilation_unit (void);
 void cgraph_optimize (void);
 void cgraph_mark_needed_node (struct cgraph_node *);
@@ -282,6 +281,7 @@ void cgraph_reset_static_var_maps (void);
 void init_cgraph (void);
 struct cgraph_node *cgraph_function_versioning (struct cgraph_node *,
                                                 varray_type, varray_type);
+void cgraph_analyze_function (struct cgraph_node *);
 
 /* In ipa.c  */
 bool cgraph_remove_unreachable_nodes (bool, FILE *);

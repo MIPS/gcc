@@ -58,15 +58,16 @@ extern enum debug_info_level debug_info_level;
    debugging information.  */
 extern bool use_gnu_debug_info_extensions;
 
-/* Enumerate visibility settings.  */
+/* Enumerate visibility settings.  This is deliberately ordered from most
+   to least visibility.  */
 #ifndef SYMBOL_VISIBILITY_DEFINED
 #define SYMBOL_VISIBILITY_DEFINED
 enum symbol_visibility
 {
   VISIBILITY_DEFAULT,
-  VISIBILITY_INTERNAL,
+  VISIBILITY_PROTECTED,
   VISIBILITY_HIDDEN,
-  VISIBILITY_PROTECTED
+  VISIBILITY_INTERNAL
 };
 #endif
 
@@ -249,11 +250,6 @@ extern int flag_var_tracking;
 /* True if flag_speculative_prefetching was set by user.  Used to suppress
    warning message in case flag was set by -fprofile-{generate,use}.  */
 extern bool flag_speculative_prefetching_set;
-
-/* A string that's used when a random name is required.  NULL means
-   to make it really random.  */
-
-extern const char *flag_random_seed;
 
 /* Returns TRUE if generated code should match ABI version N or
    greater is in use.  */

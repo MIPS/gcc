@@ -196,6 +196,30 @@ struct processor_costs ultrasparc3_costs = {
   0, /* shift penalty */
 };
 
+static const
+struct processor_costs niagara_costs = {
+  COSTS_N_INSNS (3), /* int load */
+  COSTS_N_INSNS (3), /* int signed load */
+  COSTS_N_INSNS (3), /* int zeroed load */
+  COSTS_N_INSNS (9), /* float load */
+  COSTS_N_INSNS (8), /* fmov, fneg, fabs */
+  COSTS_N_INSNS (8), /* fadd, fsub */
+  COSTS_N_INSNS (26), /* fcmp */
+  COSTS_N_INSNS (8), /* fmov, fmovr */
+  COSTS_N_INSNS (29), /* fmul */
+  COSTS_N_INSNS (54), /* fdivs */
+  COSTS_N_INSNS (83), /* fdivd */
+  COSTS_N_INSNS (100), /* fsqrts - not implemented in hardware */
+  COSTS_N_INSNS (100), /* fsqrtd - not implemented in hardware */
+  COSTS_N_INSNS (11), /* imul */
+  COSTS_N_INSNS (11), /* imulX */
+  0, /* imul bit factor */
+  COSTS_N_INSNS (72), /* idiv */
+  COSTS_N_INSNS (72), /* idivX */
+  COSTS_N_INSNS (1), /* movcc/movr */
+  0, /* shift penalty */
+};
+
 const struct processor_costs *sparc_costs = &cypress_costs;
 
 #ifdef HAVE_AS_RELAX_OPTION
@@ -596,6 +620,7 @@ sparc_override_options (void)
     { TARGET_CPU_v9, "v9" },
     { TARGET_CPU_ultrasparc, "ultrasparc" },
     { TARGET_CPU_ultrasparc3, "ultrasparc3" },
+    { TARGET_CPU_niagara, "niagara" },
     { 0, 0 }
   };
   const struct cpu_default *def;
@@ -631,6 +656,8 @@ sparc_override_options (void)
     /* TI ultrasparc III */
     /* ??? Check if %y issue still holds true in ultra3.  */
     { "ultrasparc3", PROCESSOR_ULTRASPARC3, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
+    /* UltraSPARC T1 */
+    { "niagara", PROCESSOR_NIAGARA, MASK_ISA, MASK_V9|MASK_DEPRECATED_V8_INSNS},
     { 0, 0, 0, 0 }
   };
   const struct cpu_table *cpu;
@@ -675,7 +702,7 @@ sparc_override_options (void)
 	error ("-mcmodel= is not supported on 32 bit systems");
     }
 
-  fpu = TARGET_FPU; /* save current -mfpu status */
+  fpu = target_flags & MASK_FPU; /* save current -mfpu status */
 
   /* Set the default CPU.  */
   for (def = &cpu_default[0]; def->name; ++def)
@@ -740,7 +767,8 @@ sparc_override_options (void)
   /* Supply a default value for align_functions.  */
   if (align_functions == 0
       && (sparc_cpu == PROCESSOR_ULTRASPARC
-	  || sparc_cpu == PROCESSOR_ULTRASPARC3))
+	  || sparc_cpu == PROCESSOR_ULTRASPARC3
+	  || sparc_cpu == PROCESSOR_NIAGARA))
     align_functions = 32;
 
   /* Validate PCC_STRUCT_RETURN.  */
@@ -789,7 +817,15 @@ sparc_override_options (void)
     case PROCESSOR_ULTRASPARC3:
       sparc_costs = &ultrasparc3_costs;
       break;
+    case PROCESSOR_NIAGARA:
+      sparc_costs = &niagara_costs;
+      break;
     };
+
+#ifdef TARGET_DEFAULT_LONG_DOUBLE_128
+  if (!(target_flags_explicit & MASK_LONG_DOUBLE_128))
+    target_flags |= MASK_LONG_DOUBLE_128;
+#endif
 }
 
 #ifdef SUBTARGET_ATTRIBUTE_TABLE
@@ -3709,7 +3745,10 @@ sparc_output_scratch_registers (FILE *file ATTRIBUTE_UNUSED)
 	  && ! sparc_hard_reg_printed [i])
 	{
 	  sparc_hard_reg_printed [i] = 1;
-	  fprintf (file, "\t.register\t%%g%d, #scratch\n", i);
+	  /* %g7 is used as TLS base register, use #ignore
+	     for it instead of #scratch.  */
+	  fprintf (file, "\t.register\t%%g%d, #%s\n", i,
+		   i == 7 ? "ignore" : "scratch");
 	}
       if (i == 3) i = 5;
     }
@@ -7091,7 +7130,8 @@ sparc_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
      aligned on a 16 byte boundary so one flush clears it all.  */
   emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode, tramp))));
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flush (validize_mem (gen_rtx_MEM (SImode,
 						     plus_constant (tramp, 8)))));
 
@@ -7133,7 +7173,8 @@ sparc64_initialize_trampoline (rtx tramp, rtx fnaddr, rtx cxt)
   emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, tramp))));
 
   if (sparc_cpu != PROCESSOR_ULTRASPARC
-      && sparc_cpu != PROCESSOR_ULTRASPARC3)
+      && sparc_cpu != PROCESSOR_ULTRASPARC3
+      && sparc_cpu != PROCESSOR_NIAGARA)
     emit_insn (gen_flushdi (validize_mem (gen_rtx_MEM (DImode, plus_constant (tramp, 8)))));
 
   /* Call __enable_execute_stack after writing onto the stack to make sure
@@ -7313,6 +7354,8 @@ sparc_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 static int
 sparc_use_sched_lookahead (void)
 {
+  if (sparc_cpu == PROCESSOR_NIAGARA)
+    return 0;
   if (sparc_cpu == PROCESSOR_ULTRASPARC
       || sparc_cpu == PROCESSOR_ULTRASPARC3)
     return 4;
@@ -7328,6 +7371,7 @@ sparc_issue_rate (void)
 {
   switch (sparc_cpu)
     {
+    case PROCESSOR_NIAGARA:
     default:
       return 1;
     case PROCESSOR_V9:
@@ -8730,6 +8774,109 @@ sparc_file_end (void)
 
   if (NEED_INDICATE_EXEC_STACK)
     file_end_indicate_exec_stack ();
+}
+
+/* Expand code to perform a 8 or 16-bit compare and swap by doing 32-bit
+   compare and swap on the word containing the byte or half-word.  */
+
+void
+sparc_expand_compare_and_swap_12 (rtx result, rtx mem, rtx oldval, rtx newval)
+{
+  rtx addr1 = force_reg (Pmode, XEXP (mem, 0));
+  rtx addr = gen_reg_rtx (Pmode);
+  rtx off = gen_reg_rtx (SImode);
+  rtx oldv = gen_reg_rtx (SImode);
+  rtx newv = gen_reg_rtx (SImode);
+  rtx oldvalue = gen_reg_rtx (SImode);
+  rtx newvalue = gen_reg_rtx (SImode);
+  rtx res = gen_reg_rtx (SImode);
+  rtx resv = gen_reg_rtx (SImode);
+  rtx memsi, val, mask, end_label, loop_label, cc;
+
+  emit_insn (gen_rtx_SET (VOIDmode, addr,
+			  gen_rtx_AND (Pmode, addr1, GEN_INT (-4))));
+
+  if (Pmode != SImode)
+    addr1 = gen_lowpart (SImode, addr1);
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_AND (SImode, addr1, GEN_INT (3))));
+
+  memsi = gen_rtx_MEM (SImode, addr);
+  set_mem_alias_set (memsi, ALIAS_SET_MEMORY_BARRIER);
+  MEM_VOLATILE_P (memsi) = MEM_VOLATILE_P (mem);
+
+  val = force_reg (SImode, memsi);
+
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_XOR (SImode, off,
+				       GEN_INT (GET_MODE (mem) == QImode
+						? 3 : 2))));
+
+  emit_insn (gen_rtx_SET (VOIDmode, off,
+			  gen_rtx_ASHIFT (SImode, off, GEN_INT (3))));
+
+  if (GET_MODE (mem) == QImode)
+    mask = force_reg (SImode, GEN_INT (0xff));
+  else
+    mask = force_reg (SImode, GEN_INT (0xffff));
+
+  emit_insn (gen_rtx_SET (VOIDmode, mask,
+			  gen_rtx_ASHIFT (SImode, mask, off)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, val,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       val)));
+
+  oldval = gen_lowpart (SImode, oldval);
+  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+			  gen_rtx_ASHIFT (SImode, oldval, off)));
+
+  newval = gen_lowpart_common (SImode, newval);
+  emit_insn (gen_rtx_SET (VOIDmode, newv,
+			  gen_rtx_ASHIFT (SImode, newval, off)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldv,
+			  gen_rtx_AND (SImode, oldv, mask)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, newv,
+			  gen_rtx_AND (SImode, newv, mask)));
+
+  end_label = gen_label_rtx ();
+  loop_label = gen_label_rtx ();
+  emit_label (loop_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, oldvalue,
+			  gen_rtx_IOR (SImode, oldv, val)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, newvalue,
+			  gen_rtx_IOR (SImode, newv, val)));
+
+  emit_insn (gen_sync_compare_and_swapsi (res, memsi, oldvalue, newvalue));
+
+  emit_cmp_and_jump_insns (res, oldvalue, EQ, NULL, SImode, 0, end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, resv,
+			  gen_rtx_AND (SImode, gen_rtx_NOT (SImode, mask),
+				       res)));
+
+  cc = gen_compare_reg (NE, resv, val);
+
+  emit_insn (gen_rtx_SET (VOIDmode, val, resv));
+
+  sparc_compare_op0 = resv;
+  sparc_compare_op1 = val;
+  sparc_compare_emitted = cc;
+  emit_jump_insn (gen_bne (loop_label));
+
+  emit_label (end_label);
+
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_AND (SImode, res, mask)));
+
+  emit_insn (gen_rtx_SET (VOIDmode, res,
+			  gen_rtx_LSHIFTRT (SImode, res, off)));
+
+  emit_move_insn (result, gen_lowpart (GET_MODE (result), res));
 }
 
 #ifdef TARGET_ALTERNATE_LONG_DOUBLE_MANGLING

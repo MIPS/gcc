@@ -1,3 +1,52 @@
+2008-01-21  John David Anglin  <dave.anglin@nrc-cnrc.gc.ca>
+
+	PR libfortran/34699
+	Backport:
+	2007-09-21  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/26253
+	* intrinsics/c99_functions.c (scalbn): Use ldexp if appopriate.
+
+2007-07-21  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/32678
+	* io/transfer.c (formatted_transfer_scalar): Fix off by one error in
+	calculation of pos and skips. Don't allow pending_spaces to go
+	negative.
+
+2007-05-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31964
+	Backport from trunk.
+	* intrinsics/ishftc.c (ishftc4, ishftc8, ishftc16): Fix mask to handle
+	shift of bit-size number of bits.
+
+2007-05-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31409
+	* io/transfer.c (read_block_direct): Backport from 4.3 trunk.
+
+2007-05-10  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/31880
+	* io/unix.c (fd_alloc_r_at): Fix calculation of physical offset.
+
+2007-03-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* io/unix.c (regular_file): For ACTION_UNSPECIFIED retry with
+	O_RDONLY even if errno is EROFS.
+
+2007-02-24  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30918
+	* io/listread.c (namelist_read): Eat comment line.
+
+2007-02-23  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/30910
+	* io/write.c (output_float): Add condition of format F only for
+	special case rounding with zero precision.
+
 2007-02-13  Release Manager
 
 	* GCC 4.1.2 released.
@@ -613,6 +662,16 @@
 	* io/unix.c (fd_seek): Revert change from 25949.
 	(fd_read): Same.
 	(fd_write): Same.
+
+2005-12-13  Richard Sandiford  <richard@codesourcery.com>
+	    Victor Leikehman  <LEI@il.ibm.com>
+
+	* m4/matmul.m4: Use a different order in the special case of a
+	transposed first argument.
+	* generated/matmul_c4.c, generated/matmul_c8.c, generated/matmul_c10.c,
+	* generated/matmul_c16.c, generated/matmul_i4.c, generated/matmul_i8.c,
+	* generated/matmul_i10.c, generated/matmul_r4.c, generated/matmul_r8.c
+	* generated/matmul_r10.c, generated/matmul_r16.c: Regenerated.
 
 2006-02-28  Release Manager
 

@@ -1039,7 +1039,7 @@ extern int fixuplabelno;
 
 #define LINK_START_LINUX_SPEC ""
 
-#define LINK_OS_LINUX_SPEC "-m elf32ppclinux %{!shared: %{!static: \
+#define LINK_OS_LINUX_SPEC "-m elf32ppclinux --hash-style=gnu %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   %{!dynamic-linker:-dynamic-linker /lib/ld.so.1}}}"
 

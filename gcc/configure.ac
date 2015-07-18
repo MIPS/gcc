@@ -833,7 +833,7 @@ MISSING="${CONFIG_SHELL-/bin/sh} $srcdir/../missing"
 # that we can use it.
 gcc_AC_CHECK_PROG_VER(MAKEINFO, makeinfo, --version,
   [GNU texinfo.* \([0-9][0-9.]*\)],
-  [4.[2-9]*])
+  [4.[2-9]*|4.[1-9][0-9]*|[5-9]*|[1-9][0-9]*])
 if test $gcc_cv_prog_makeinfo_modern = no; then
   MAKEINFO="$MISSING makeinfo"
   AC_MSG_WARN([
@@ -1994,9 +1994,7 @@ else
   if echo "$ld_ver" | grep GNU > /dev/null; then
 changequote(,)dnl
     ld_vers=`echo $ld_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$,\1,p' \
+	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[	 ].*$,\1,p' \
 	-e 's,^.*[ 	 ]\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)[ 	].*$,\1,p' \
@@ -2809,6 +2807,21 @@ foo:	nop
 	  [Define if your assembler supports fprnd.])])
 
     case $target in
+      *-*-aix*) conftest_s='	.machine "pwr6"
+	.csect .text[[PR]]
+	mffgpr 1,3';;
+      *) conftest_s='	.machine power6
+	.text
+	mffgpr 1,3';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([move fp gpr support],
+      gcc_cv_as_powerpc_mfpgpr, [9,99,0],,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_MFPGPR, 1,
+	  [Define if your assembler supports mffgpr and mftgpr.])])
+
+    case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
 LCF..0:
 	addis 11,30,_GLOBAL_OFFSET_TABLE_-LCF..0@ha';;
@@ -3065,6 +3078,23 @@ EOF
       AC_DEFINE(HAVE_LD_NO_DOT_SYMS, 1,
     [Define if your PowerPC64 linker only needs function descriptor syms.])
     fi
+    AC_CACHE_CHECK(linker support for overlapping .opd entries,
+    gcc_cv_ld_overlapping_opd,
+    [gcc_cv_ld_overlapping_opd=no
+    if test $in_tree_ld = yes ; then
+      if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 16 -o "$gcc_cv_gld_major_version" -gt 2; then
+        gcc_cv_ld_overlapping_opd=yes
+      fi
+    elif test x$gcc_cv_ld != x ; then
+      if $gcc_cv_ld -melf64ppc --help 2>/dev/null | grep non-overlapping-opd > /dev/null; then
+        gcc_cv_ld_overlapping_opd=yes
+      fi
+    fi
+    ])
+    if test x"$gcc_cv_ld_overlapping_opd" = xyes; then
+      AC_DEFINE(HAVE_LD_OVERLAPPING_OPD, 1,
+    [Define if your PowerPC64 linker handles overlapping .opd entries.])
+    fi
     ;;
 esac
 
@@ -3128,6 +3158,39 @@ esac
 if test x$gcc_cv_libc_provides_ssp = xyes; then
   AC_DEFINE(TARGET_LIBC_PROVIDES_SSP, 1,
 	    [Define if your target C library provides stack protector support])
+fi
+
+# Check if TFmode long double should be used by default or not.
+# Some glibc targets used DFmode long double, but with glibc 2.4
+# and later they can use TFmode.
+case "$target" in
+  powerpc*-*-*gnu* | \
+  sparc*-*-linux* | \
+  s390*-*-linux* | \
+  alpha*-*-linux*)
+    AC_ARG_WITH(long-double-128,
+[  --with-long-double-128  Use 128-bit long double by default.],
+      gcc_cv_target_ldbl128="$with_long_double_128",
+      [gcc_cv_target_ldbl128=no
+      if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+	if test "x$with_sysroot" = x; then
+	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-include"
+	elif test "x$with_sysroot" = xyes; then
+	  glibc_header_dir="${exec_prefix}/${target_noncanonical}/sys-root/usr/include"
+	else
+	  glibc_header_dir="${with_sysroot}/usr/include"
+	fi
+      else
+	glibc_header_dir=/usr/include
+      fi
+      grep '^[ 	]*#[ 	]*define[ 	][ 	]*__LONG_DOUBLE_MATH_OPTIONAL' \
+        $glibc_header_dir/bits/wordsize.h > /dev/null 2>&1 \
+      && gcc_cv_target_ldbl128=yes])
+    ;;
+esac
+if test x$gcc_cv_target_ldbl128 = xyes; then
+  AC_DEFINE(TARGET_DEFAULT_LONG_DOUBLE_128, 1,
+	    [Define if TFmode long double should be the default])
 fi
 
 # Find out what GC implementation we want, or may, use.

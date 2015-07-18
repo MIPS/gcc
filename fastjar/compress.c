@@ -115,7 +115,7 @@
 int write_data (int, void *, size_t, struct zipentry *);
 
 extern int seekable;
-extern off_t end_of_entries;
+extern ub4 end_of_entries;
 
 static z_stream zs;
 

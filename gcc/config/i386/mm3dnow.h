@@ -1,4 +1,4 @@
-/* Copyright (C) 2004 Free Software Foundation, Inc.
+/* Copyright (C) 2004, 2007 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -172,13 +172,17 @@ _m_prefetchw (void *__P)
 static __inline __m64
 _m_from_float (float __A)
 {
-  return (__m64)(__v2sf){ __A, 0 };
+  union { __v2sf v; float a[2]; } __tmp;
+  __tmp.a[0] = __A;
+  __tmp.a[1] = 0;
+  return (__m64)__tmp.v;
 }
 
 static __inline float
 _m_to_float (__m64 __A)
 {
-  union { __v2sf v; float a[2]; } __tmp = { (__v2sf)__A };
+  union { __v2sf v; float a[2]; } __tmp;
+  __tmp.v = (__v2sf)__A;
   return __tmp.a[0];
 }
 

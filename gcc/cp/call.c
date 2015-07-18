@@ -171,7 +171,7 @@ static struct z_candidate *add_function_candidate
 	(struct z_candidate **, tree, tree, tree, tree, tree, int);
 static conversion *implicit_conversion (tree, tree, tree, bool, int);
 static conversion *standard_conversion (tree, tree, tree, bool, int);
-static conversion *reference_binding (tree, tree, tree, int);
+static conversion *reference_binding (tree, tree, tree, bool, int);
 static conversion *build_conv (conversion_kind, tree, conversion *);
 static bool is_subseq (conversion *, conversion *);
 static tree maybe_handle_ref_bind (conversion **);
@@ -714,19 +714,7 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 		  that necessitates this conversion is ill-formed.
 		  Therefore, we use DERIVED_FROM_P, and do not check
 		  access or uniqueness.  */
-	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from))
-	       /* If FROM is not yet complete, then we must be parsing
-		  the body of a class.  We know what's derived from
-		  what, but we can't actually perform a
-		  derived-to-base conversion.  For example, in:
-
-		     struct D : public B { 
-                       static const int i = sizeof((B*)(D*)0);
-                     };
-
-                  the D*-to-B* conversion is a reinterpret_cast, not a
-		  static_cast.  */
-	       && COMPLETE_TYPE_P (TREE_TYPE (from)))
+	       && DERIVED_FROM_P (TREE_TYPE (to), TREE_TYPE (from)))
 	{
 	  from =
 	    cp_build_qualified_type (TREE_TYPE (to),
@@ -1072,10 +1060,11 @@ direct_reference_binding (tree type, conversion *conv)
    purposes of reference binding.  For lvalue binding, either pass a
    reference type to FROM or an lvalue expression to EXPR.  If the
    reference will be bound to a temporary, NEED_TEMPORARY_P is set for
-   the conversion returned.  */
+   the conversion returned.  If C_CAST_P is true, this
+   conversion is coming from a C-style cast.  */
 
 static conversion *
-reference_binding (tree rto, tree rfrom, tree expr, int flags)
+reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags)
 {
   conversion *conv = NULL;
   tree to = TREE_TYPE (rto);
@@ -1105,6 +1094,11 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
      reference compatible.  We have do do this after stripping
      references from FROM.  */
   related_p = reference_related_p (to, from);
+  /* If this is a C cast, first convert to an appropriately qualified
+     type, so that we can later do a const_cast to the desired type.  */
+  if (related_p && c_cast_p
+      && !at_least_as_qualified_p (to, from))
+    to = build_qualified_type (to, cp_type_quals (from));
   compatible_p = reference_compatible_p (to, from);
 
   if (lvalue_p && compatible_p)
@@ -1214,7 +1208,7 @@ reference_binding (tree rto, tree rfrom, tree expr, int flags)
   if (related_p && !at_least_as_qualified_p (to, from))
     return NULL;
 
-  conv = implicit_conversion (to, from, expr, /*c_cast_p=*/false, 
+  conv = implicit_conversion (to, from, expr, c_cast_p,
 			      flags);
   if (!conv)
     return NULL;
@@ -1244,7 +1238,7 @@ implicit_conversion (tree to, tree from, tree expr, bool c_cast_p,
     return NULL;
 
   if (TREE_CODE (to) == REFERENCE_TYPE)
-    conv = reference_binding (to, from, expr, flags);
+    conv = reference_binding (to, from, expr, c_cast_p, flags);
   else
     conv = standard_conversion (to, from, expr, c_cast_p, flags);
 
@@ -2504,6 +2498,19 @@ merge_conversion_sequences (conversion *user_seq, conversion *std_seq)
   return std_seq;
 }
 
+/* ggc_free all the TREE_LIST nodes in LIST.  */
+
+static void
+ggc_free_list (tree list)
+{
+  tree next;
+  for (; list; list = next)
+    {
+      next = TREE_CHAIN (list);
+      ggc_free (list);
+    }
+}
+
 /* Returns the best overload candidate to perform the requested
    conversion.  This function is used for three the overloading situations
    described in [over.match.copy], [over.match.conv], and [over.match.ref].
@@ -2518,7 +2525,8 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
   tree ctors = NULL_TREE;
   tree conv_fns = NULL_TREE;
   conversion *conv = NULL;
-  tree args = NULL_TREE;
+  tree ctorargs = NULL_TREE;
+  tree convargs = NULL_TREE;
   bool any_viable_p;
 
   /* We represent conversion within a hierarchy using RVALUE_CONV and
@@ -2528,7 +2536,9 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 	      || !DERIVED_FROM_P (totype, fromtype));
 
   if (IS_AGGR_TYPE (totype))
-    ctors = lookup_fnfields (totype, complete_ctor_identifier, 0);
+    /* Use lookup_fnfields_slot instead of lookup_fnfields to avoid
+       creating a garbage BASELINK; constructors can't be inherited.  */
+    ctors = lookup_fnfields_slot (totype, complete_ctor_identifier);
 
   if (IS_AGGR_TYPE (fromtype))
     conv_fns = lookup_conversions (fromtype);
@@ -2540,15 +2550,13 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
     {
       tree t;
 
-      ctors = BASELINK_FUNCTIONS (ctors);
-
       t = build_int_cst (build_pointer_type (totype), 0);
-      args = build_tree_list (NULL_TREE, expr);
+      ctorargs = build_tree_list (NULL_TREE, expr);
       /* We should never try to call the abstract or base constructor
 	 from here.  */
       gcc_assert (!DECL_HAS_IN_CHARGE_PARM_P (OVL_CURRENT (ctors))
 		  && !DECL_HAS_VTT_PARM_P (OVL_CURRENT (ctors)));
-      args = tree_cons (NULL_TREE, t, args);
+      ctorargs = tree_cons (NULL_TREE, t, ctorargs);
     }
   for (; ctors; ctors = OVL_NEXT (ctors))
     {
@@ -2558,14 +2566,14 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
       if (TREE_CODE (ctor) == TEMPLATE_DECL)
 	cand = add_template_candidate (&candidates, ctor, totype,
-				       NULL_TREE, args, NULL_TREE,
+				       NULL_TREE, ctorargs, NULL_TREE,
 				       TYPE_BINFO (totype),
 				       TYPE_BINFO (totype),
 				       flags,
 				       DEDUCE_CALL);
       else
 	cand = add_function_candidate (&candidates, ctor, totype,
-				       args, TYPE_BINFO (totype),
+				       ctorargs, TYPE_BINFO (totype),
 				       TYPE_BINFO (totype),
 				       flags);
 
@@ -2574,7 +2582,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
     }
 
   if (conv_fns)
-    args = build_tree_list (NULL_TREE, build_this (expr));
+    convargs = build_tree_list (NULL_TREE, build_this (expr));
 
   for (; conv_fns; conv_fns = TREE_CHAIN (conv_fns))
     {
@@ -2603,14 +2611,14 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 	  if (TREE_CODE (fn) == TEMPLATE_DECL)
 	    cand = add_template_candidate (&candidates, fn, fromtype,
 					   NULL_TREE,
-					   args, totype,
+					   convargs, totype,
 					   TYPE_BINFO (fromtype),
 					   conversion_path,
 					   flags,
 					   DEDUCE_CONV);
 	  else
 	    cand = add_function_candidate (&candidates, fn, fromtype,
-					   args,
+					   convargs,
 					   TYPE_BINFO (fromtype),
 					   conversion_path,
 					   flags);
@@ -2635,7 +2643,11 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags)
 
   candidates = splice_viable (candidates, pedantic, &any_viable_p);
   if (!any_viable_p)
-    return 0;
+    {
+      ggc_free_list (ctorargs);
+      ggc_free_list (convargs);
+      return 0;
+    }
 
   cand = tourney (candidates);
   if (cand == 0)
@@ -3815,7 +3827,10 @@ build_new_op (enum tree_code code, int flags, tree arg1, tree arg2, tree arg3,
 	  if (overloaded_p)
 	    *overloaded_p = true;
 
-	  result = build_over_call (cand, LOOKUP_NORMAL);
+	  if (resolve_args (arglist) == error_mark_node)
+	    result = error_mark_node;
+	  else
+	    result = build_over_call (cand, LOOKUP_NORMAL);
 	}
       else
 	{
@@ -4831,7 +4846,8 @@ build_over_call (struct z_candidate *cand, int flags)
 
       /* Don't make a copy here if build_call is going to.  */
       if (conv->kind == ck_rvalue
-	  && !TREE_ADDRESSABLE (complete_type (type)))
+	  && COMPLETE_TYPE_P (complete_type (type))
+	  && !TREE_ADDRESSABLE (type))
 	conv = conv->u.next;
 
       val = convert_like_with_context
@@ -5481,6 +5497,20 @@ build_new_method_call (tree instance, tree fns, tree args,
 		  && TREE_SIDE_EFFECTS (instance_ptr))
 		call = build2 (COMPOUND_EXPR, TREE_TYPE (call),
 			       instance_ptr, call);
+	      else if (call != error_mark_node
+		       && DECL_DESTRUCTOR_P (cand->fn)
+		       && !VOID_TYPE_P (TREE_TYPE (call)))
+		/* An explicit call of the form "x->~X()" has type
+		   "void".  However, on platforms where destructors
+		   return "this" (i.e., those where
+		   targetm.cxx.cdtor_returns_this is true), such calls
+		   will appear to have a return value of pointer type
+		   to the low-level call machinery.  We do not want to
+		   change the low-level machinery, since we want to be
+		   able to optimize "delete f()" on such platforms as
+		   "operator delete(~X(f()))" (rather than generating
+		   "t = f(), ~X(t), operator delete (t)").  */
+		call = build_nop (void_type_node, call);
 	    }
 	}
     }
@@ -6514,7 +6544,8 @@ initialize_reference (tree type, tree expr, tree decl, tree *cleanup)
   /* Get the high-water mark for the CONVERSION_OBSTACK.  */
   p = conversion_obstack_alloc (0);
 
-  conv = reference_binding (type, TREE_TYPE (expr), expr, LOOKUP_NORMAL);
+  conv = reference_binding (type, TREE_TYPE (expr), expr, /*c_cast_p=*/false,
+			    LOOKUP_NORMAL);
   if (!conv || conv->bad_p)
     {
       if (!(TYPE_QUALS (TREE_TYPE (type)) & TYPE_QUAL_CONST)

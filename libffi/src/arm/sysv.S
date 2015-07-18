@@ -207,3 +207,6 @@ LSYM(Lepilogue):
 .ffi_call_SYSV_end:
         .size    CNAME(ffi_call_SYSV),.ffi_call_SYSV_end-CNAME(ffi_call_SYSV)
 
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
+#endif

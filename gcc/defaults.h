@@ -114,6 +114,18 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #endif
 #endif
 
+#if defined (HAVE_AS_TLS) && !defined (ASM_OUTPUT_TLS_COMMON)
+#define ASM_OUTPUT_TLS_COMMON(FILE, DECL, NAME, SIZE)			\
+  do									\
+    {									\
+      fprintf ((FILE), "\t.tls_common\t");				\
+      assemble_name ((FILE), (NAME));					\
+      fprintf ((FILE), ","HOST_WIDE_INT_PRINT_UNSIGNED",%u\n",		\
+	       (SIZE), DECL_ALIGN (DECL) / BITS_PER_UNIT);		\
+    }									\
+  while (0)
+#endif
+
 /* Decide whether to defer emitting the assembler output for an equate
    of two values.  The default is to not defer output.  */
 #ifndef TARGET_DEFERRED_OUTPUT_DEFS
@@ -771,6 +783,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
    is present in the runtime library.  */
 #ifndef TARGET_C99_FUNCTIONS
 #define TARGET_C99_FUNCTIONS 0
+#endif
+
+#ifndef TARGET_INDEX_OPERAND_FIRST
+#define TARGET_INDEX_OPERAND_FIRST 0
 #endif
 
 /* Indicate that CLZ and CTZ are undefined at zero.  */

@@ -20,11 +20,11 @@
 ; 02110-1301, USA.
 
 m31
-Target Report RejectNegative InverseMask(64BIT)
+Target Report RejectNegative Negative(m64) InverseMask(64BIT)
 31 bit ABI
 
 m64
-Target Report RejectNegative Mask(64BIT)
+Target Report RejectNegative Negative(m31) Mask(64BIT)
 64 bit ABI
 
 march=
@@ -40,7 +40,7 @@ Target Report Mask(DEBUG_ARG)
 Additional debug prints
 
 mesa
-Target Report RejectNegative InverseMask(ZARCH)
+Target Report RejectNegative Negative(mzarch) InverseMask(ZARCH)
 ESA/390 architecture
 
 mfused-madd
@@ -48,15 +48,15 @@ Target Report Mask(FUSED_MADD)
 Enable fused multiply/add instructions
 
 mhard-float
-Target Report RejectNegative Mask(HARD_FLOAT)
+Target Report RejectNegative Negative(msoft-float) Mask(HARD_FLOAT)
 Use hardware fp
 
 mlong-double-128
-Target Report RejectNegative Mask(LONG_DOUBLE_128)
+Target Report RejectNegative Negative(mlong-double-64) Mask(LONG_DOUBLE_128)
 Use 128-bit long double
 
 mlong-double-64
-Target Report RejectNegative InverseMask(LONG_DOUBLE_128)
+Target Report RejectNegative Negative(mlong-double-128) InverseMask(LONG_DOUBLE_128)
 Use 64-bit long double
 
 mpacked-stack
@@ -68,7 +68,7 @@ Target Report Mask(SMALL_EXEC)
 Use bras for executable < 64k
 
 msoft-float
-Target Report RejectNegative InverseMask(HARD_FLOAT, SOFT_FLOAT)
+Target Report RejectNegative Negative(mhard-float) InverseMask(HARD_FLOAT, SOFT_FLOAT)
 Don't use hardware fp
 
 mstack-guard=
@@ -96,5 +96,5 @@ Target RejectNegative Joined
 Warn if a single function's framesize exceeds the given framesize
 
 mzarch
-Target Report RejectNegative Mask(ZARCH)
+Target Report RejectNegative Negative(mesa) Mask(ZARCH)
 z/Architecture

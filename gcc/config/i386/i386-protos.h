@@ -48,6 +48,10 @@ extern bool x86_extended_QIreg_mentioned_p (rtx);
 extern bool x86_extended_reg_mentioned_p (rtx);
 extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 
+extern bool ix86_sse5_valid_op_p (rtx [], rtx, int, bool, int);
+extern void ix86_expand_sse5_multiple_memory (rtx [], int,
+					      enum machine_mode mode);
+
 extern int ix86_expand_movmem (rtx, rtx, rtx, rtx);
 extern int ix86_expand_clrmem (rtx, rtx, rtx);
 extern int ix86_expand_strlen (rtx, rtx, rtx, rtx);

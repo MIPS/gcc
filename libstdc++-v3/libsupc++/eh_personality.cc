@@ -363,8 +363,9 @@ PERSONALITY_FUNCTION (int version,
   const unsigned char *p;
   _Unwind_Ptr landing_pad, ip;
   int handler_switch_value;
-  void* thrown_ptr = ue_header + 1;
+  void* thrown_ptr = 0;
   bool foreign_exception;
+  int ip_before_insn = 0;
 
 #ifdef __ARM_EABI_UNWINDER__
   _Unwind_Action actions;
@@ -431,7 +432,9 @@ PERSONALITY_FUNCTION (int version,
   // Parse the LSDA header.
   p = parse_lsda_header (context, language_specific_data, &info);
   info.ttype_base = base_of_encoded_value (info.ttype_encoding, context);
-  ip = _Unwind_GetIP (context) - 1;
+  ip = _Unwind_GetIPInfo (context, &ip_before_insn);
+  if (! ip_before_insn)
+    --ip;
   landing_pad = 0;
   action_record = 0;
   handler_switch_value = 0;
@@ -529,11 +532,17 @@ PERSONALITY_FUNCTION (int version,
 	  || foreign_exception)
 	throw_type = 0;
       else
+	{
+	  thrown_ptr = __get_object_from_ue (ue_header);
 #ifdef __ARM_EABI_UNWINDER__
-	throw_type = ue_header;
+	  // ??? How does this work - more importantly, how does it interact with
+	  // dependent exceptions?
+	  throw_type = ue_header;
 #else
-	throw_type = xh->exceptionType;
+	  throw_type = __get_exception_header_from_obj
+	    (thrown_ptr)->exceptionType;
 #endif
+	}
 
       while (1)
 	{
@@ -722,13 +731,14 @@ __cxa_call_unexpected (void *exc_obj_in)
 
       __cxa_eh_globals *globals = __cxa_get_globals_fast ();
       __cxa_exception *new_xh = globals->caughtExceptions;
-      void *new_ptr = new_xh + 1;
+      void *new_ptr = __get_object_from_ambiguous_exception (new_xh);
 
       // We don't quite have enough stuff cached; re-parse the LSDA.
       parse_lsda_header (0, xh_lsda, &info);
 
       // If this new exception meets the exception spec, allow it.
-      if (check_exception_spec (&info, new_xh->exceptionType,
+      if (check_exception_spec (&info, __get_exception_header_from_obj
+                                  (new_ptr)->exceptionType,
 				new_ptr, xh_switch_value))
 	__throw_exception_again;
 

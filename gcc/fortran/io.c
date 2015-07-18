@@ -1072,8 +1072,11 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
       /* If e's rank is zero and e is not an element of an array, it should be
 	 of integer or character type.  The integer variable should be
 	 ASSIGNED.  */
-      if (e->symtree == NULL || e->symtree->n.sym->as == NULL
-		|| e->symtree->n.sym->as->rank == 0)
+      if (e->rank == 0
+	  && (e->expr_type != EXPR_VARIABLE
+	      || e->symtree == NULL
+	      || e->symtree->n.sym->as == NULL
+	      || e->symtree->n.sym->as->rank == 0))
 	{
 	  if (e->ts.type != BT_CHARACTER && e->ts.type != BT_INTEGER)
 	    {
@@ -1109,19 +1112,35 @@ resolve_tag (const io_tag * tag, gfc_expr * e)
 	  /* if rank is nonzero, we allow the type to be character under
 	     GFC_STD_GNU and other type under GFC_STD_LEGACY. It may be
 	     assigned an Hollerith constant.  */
-	  if (e->ts.type == BT_CHARACTER)
-	    {
-	      if (gfc_notify_std (GFC_STD_GNU,
-			"Extension: Character array in FORMAT tag at %L",
-			&e->where) == FAILURE)
-		return FAILURE;
-	    }
-	  else
+	  if (e->ts.type != BT_CHARACTER)
 	    {
 	      if (gfc_notify_std (GFC_STD_LEGACY,
 			"Extension: Non-character in FORMAT tag at %L",
 			&e->where) == FAILURE)
 		return FAILURE;
+
+	      if (e->rank == 0
+		  && e->symtree->n.sym->as->type == AS_ASSUMED_SHAPE)
+		{
+		  gfc_error ("Non-character assumed shape array element in FORMAT"
+			     " tag at %L", &e->where);
+		  return FAILURE;
+		}
+
+	      if (e->rank == 0
+		  && e->symtree->n.sym->as->type == AS_ASSUMED_SIZE)
+		{
+		  gfc_error ("Non-character assumed size array element in FORMAT"
+			     " tag at %L", &e->where);
+		  return FAILURE;
+		}
+
+	      if (e->rank == 0 && e->symtree->n.sym->attr.pointer)
+		{
+		  gfc_error ("Non-character pointer array element in FORMAT tag at %L",
+			     &e->where);
+		  return FAILURE;
+		}
 	    }
 	  return SUCCESS;
 	}

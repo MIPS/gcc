@@ -55,7 +55,8 @@ static bool java_post_options (const char **);
 static int java_handle_option (size_t scode, const char *arg, int value);
 static void put_decl_string (const char *, int);
 static void put_decl_node (tree);
-static void java_print_error_function (diagnostic_context *, const char *);
+static void java_print_error_function (diagnostic_context *, const char *,
+				       diagnostic_info *);
 static tree java_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
 					      void *, struct pointer_set_t *);
 static int merge_init_test_initialization (void * *, void *);
@@ -66,6 +67,8 @@ static void dump_compound_expr (dump_info_p, tree);
 static bool java_decl_ok_for_sibcall (tree);
 static tree java_get_callee_fndecl (tree);
 static void java_clear_binding_stack (void);
+
+static enum classify_record java_classify_record (tree type);
 
 #ifndef TARGET_OBJECT_SUFFIX
 # define TARGET_OBJECT_SUFFIX ".o"
@@ -190,6 +193,8 @@ struct language_function GTY(())
 #define LANG_HOOKS_TYPE_FOR_MODE java_type_for_mode
 #undef LANG_HOOKS_TYPE_FOR_SIZE
 #define LANG_HOOKS_TYPE_FOR_SIZE java_type_for_size
+#undef LANG_HOOKS_CLASSIFY_RECORD
+#define LANG_HOOKS_CLASSIFY_RECORD java_classify_record
 #undef LANG_HOOKS_SIGNED_TYPE
 #define LANG_HOOKS_SIGNED_TYPE java_signed_type
 #undef LANG_HOOKS_UNSIGNED_TYPE
@@ -346,7 +351,7 @@ java_handle_option (size_t scode, const char *arg, int value)
     default:
       if (cl_options[code].flags & CL_Java)
 	break;
-      abort();
+      gcc_unreachable ();
     }
 
   return 1;
@@ -367,6 +372,9 @@ java_init (void)
      init optimization.  */
   if (flag_indirect_dispatch)
     always_initialize_class_p = true;
+
+  if (!flag_indirect_dispatch)
+    flag_indirect_classes = false;
 
   /* Force minimum function alignment if g++ uses the least significant
      bit of function pointers to store the virtual bit. This is required
@@ -412,7 +420,7 @@ put_decl_string (const char *str, int len)
       if (decl_buf == NULL)
 	{
 	  decl_buflen = len + 100;
-	  decl_buf = xmalloc (decl_buflen);
+	  decl_buf = XNEWVEC (char, decl_buflen);
 	}
       else
 	{
@@ -518,7 +526,8 @@ static GTY(()) tree last_error_function_context;
 static GTY(()) tree last_error_function;
 static void
 java_print_error_function (diagnostic_context *context ATTRIBUTE_UNUSED,
-			   const char *file)
+			   const char *file,
+			   diagnostic_info *diagnostic ATTRIBUTE_UNUSED)
 {
   /* Don't print error messages with bogus function prototypes.  */
   if (inhibit_error_function_printing)
@@ -615,6 +624,15 @@ java_post_options (const char **pfilename)
   if (! flag_indirect_dispatch)
     flag_verify_invocations = true;
 
+  if (flag_reduced_reflection)
+    {
+      if (flag_indirect_dispatch)
+        error ("-findirect-dispatch is incompatible "
+               "with -freduced-reflection");
+      if (flag_jni)
+        error ("-fjni is incompatible with -freduced-reflection");
+    }
+
   /* Open input file.  */
 
   if (filename == 0 || !strcmp (filename, "-"))
@@ -642,7 +660,7 @@ java_post_options (const char **pfilename)
 		error ("couldn't determine target name for dependency tracking");
 	      else
 		{
-		  char *buf = xmalloc (dot - filename +
+		  char *buf = XNEWVEC (char, dot - filename +
 				       3 + sizeof (TARGET_OBJECT_SUFFIX));
 		  strncpy (buf, filename, dot - filename);
 
@@ -788,8 +806,7 @@ merge_init_test_initialization (void **entry, void *x)
   /* See if we have remapped this declaration.  If we haven't there's
      a bug in the inliner.  */
   n = splay_tree_lookup (decl_map, (splay_tree_key) ite->value);
-  if (! n)
-    abort ();
+  gcc_assert (n);
 
   /* Create a new entry for the class and its remapped boolean
      variable.  If we already have a mapping for this class we've
@@ -1038,6 +1055,18 @@ java_clear_binding_stack (void)
 {
   while (!global_bindings_p ())
     poplevel (0, 0, 0);
+}
+
+static enum classify_record
+java_classify_record (tree type)
+{
+  if (! CLASS_P (type))
+    return RECORD_IS_STRUCT;
+
+  if (0 && CLASS_INTERFACE (TYPE_NAME (type)))
+    return RECORD_IS_INTERFACE;
+
+  return RECORD_IS_CLASS;
 }
 
 #include "gt-java-lang.h"

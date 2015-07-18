@@ -24,9 +24,17 @@ Boston, MA 02110-1301, USA.  */
 /* This file should be #include-d after tree.h.  */
 
 struct diagnostic_context;
+struct diagnostic_info;
+
+struct gimplify_omp_ctx;
+
+struct array_descr_info;
 
 /* A print hook for print_tree ().  */
 typedef void (*lang_print_tree_hook) (FILE *, tree, int indent);
+
+enum classify_record
+  { RECORD_IS_STRUCT, RECORD_IS_CLASS, RECORD_IS_INTERFACE };
 
 /* The following hooks are documented in langhooks.c.  Must not be
    NULL.  */
@@ -97,6 +105,11 @@ struct lang_hooks_for_types
      language-specific processing is required.  */
   tree (*make_type) (enum tree_code);
 
+  /* Return what kind of RECORD_TYPE this is, mainly for purposes of
+     debug information.  If not defined, record types are assumed to
+     be structures.  */
+  enum classify_record (*classify_record) (tree);
+
   /* Given MODE and UNSIGNEDP, return a suitable type-tree with that
      mode.  */
   tree (*type_for_mode) (enum machine_mode, int);
@@ -142,6 +155,18 @@ struct lang_hooks_for_types
      for a type.  */
   tree (*max_size) (tree);
 
+  /* Register language specific type size variables as potentially OpenMP
+     firstprivate variables.  */
+  void (*omp_firstprivatize_type_sizes) (struct gimplify_omp_ctx *, tree);
+
+  /* Return TRUE if TYPE1 and TYPE2 are identical for type hashing purposes.
+     Called only after doing all language independent checks.  */
+  bool (*type_hash_eq) (tree, tree);
+
+  /* Return TRUE if TYPE uses a hidden descriptor and fills in information
+     for the debugger about the array bounds, strides, etc.  */
+  bool (*get_array_descr_info) (tree, struct array_descr_info *);
+
   /* Nonzero if types that are identical are to be hashed so that only
      one copy is kept.  If a language requires unique types for each
      user-specified type, such as Ada, this should be set to TRUE.  */
@@ -170,12 +195,6 @@ struct lang_hooks_for_decls
   /* Returns the chain of decls so far in the current scope level.  */
   tree (*getdecls) (void);
 
-/* Look up NAME in the current scope and its superiors
-   in the namespace of variables, functions and typedefs.
-   Return a ..._DECL node of some kind representing its definition,
-   or return 0 if it is undefined.  */
-  tree (*lookup_name) (tree);
-
   /* Returns true when we should warn for an unused global DECL.
      We will already have checked that it has static binding.  */
   bool (*warn_unused_global) (tree);
@@ -198,6 +217,38 @@ struct lang_hooks_for_decls
      value will be the string already stored in an
      IDENTIFIER_NODE.)  */
   const char * (*comdat_group) (tree);
+
+  /* True if OpenMP should privatize what this DECL points to rather
+     than the DECL itself.  */
+  bool (*omp_privatize_by_reference) (tree);
+
+  /* Return sharing kind if OpenMP sharing attribute of DECL is
+     predetermined, OMP_CLAUSE_DEFAULT_UNSPECIFIED otherwise.  */
+  enum omp_clause_default_kind (*omp_predetermined_sharing) (tree);
+
+  /* Return true if DECL's DECL_VALUE_EXPR (if any) should be
+     disregarded in OpenMP construct, because it is going to be
+     remapped during OpenMP lowering.  SHARED is true if DECL
+     is going to be shared, false if it is going to be privatized.  */
+  bool (*omp_disregard_value_expr) (tree, bool);
+
+  /* Return true if DECL that is shared iff SHARED is true should
+     be put into OMP_CLAUSE_PRIVATE_DEBUG.  */
+  bool (*omp_private_debug_clause) (tree, bool);
+
+  /* Build and return code for a default constructor for DECL in
+     response to CLAUSE.  Return NULL if nothing to be done.  */
+  tree (*omp_clause_default_ctor) (tree clause, tree decl);
+
+  /* Build and return code for a copy constructor from SRC to DST.  */
+  tree (*omp_clause_copy_ctor) (tree clause, tree dst, tree src);
+
+  /* Similarly, except use an assignment operator instead.  */
+  tree (*omp_clause_assign_op) (tree clause, tree dst, tree src);
+
+  /* Build and return code destructing DECL.  Return NULL if nothing
+     to be done.  */
+  tree (*omp_clause_dtor) (tree clause, tree decl);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */
@@ -359,7 +410,8 @@ struct lang_hooks
   tree (*lang_get_callee_fndecl) (tree);
 
   /* Called by report_error_function to print out function name.  */
-  void (*print_error_function) (struct diagnostic_context *, const char *);
+  void (*print_error_function) (struct diagnostic_context *, const char *,
+				struct diagnostic_info *);
 
   /* Called from expr_size to calculate the size of the value of an
      expression in a language-dependent way.  Returns a tree for the size

@@ -246,6 +246,8 @@ static void ia64_hpux_add_extern_decl (tree decl)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_file_end (void)
      ATTRIBUTE_UNUSED;
+static void ia64_linux_file_end (void)
+     ATTRIBUTE_UNUSED;
 static void ia64_init_libfuncs (void)
      ATTRIBUTE_UNUSED;
 static void ia64_hpux_init_libfuncs (void)
@@ -2421,7 +2423,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       current_frame_info.reg_save_b0 = find_gr_spill (1);
       if (current_frame_info.reg_save_b0 == 0)
 	{
-	  spill_size += 8;
+	  extra_spill_size += 8;
 	  n_spilled += 1;
 	}
 
@@ -2450,7 +2452,7 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
       if (regs_ever_live[BR_REG (0)] && ! call_used_regs[BR_REG (0)])
 	{
 	  SET_HARD_REG_BIT (mask, BR_REG (0));
-	  spill_size += 8;
+	  extra_spill_size += 8;
 	  n_spilled += 1;
 	}
 
@@ -2536,6 +2538,9 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
   else
     pretend_args_size = current_function_pretend_args_size;
 
+  if (FRAME_GROWS_DOWNWARD)
+    size = IA64_STACK_ALIGN (size);
+
   total_size = (spill_size + extra_spill_size + size + pretend_args_size
 		+ current_function_outgoing_args_size);
   total_size = IA64_STACK_ALIGN (total_size);
@@ -2560,32 +2565,19 @@ ia64_compute_frame_size (HOST_WIDE_INT size)
 HOST_WIDE_INT
 ia64_initial_elimination_offset (int from, int to)
 {
-  HOST_WIDE_INT offset;
+  HOST_WIDE_INT offset, size = get_frame_size ();
 
-  ia64_compute_frame_size (get_frame_size ());
+  ia64_compute_frame_size (size);
   switch (from)
     {
     case FRAME_POINTER_REGNUM:
-      switch (to)
-	{
-	case HARD_FRAME_POINTER_REGNUM:
-	  if (current_function_is_leaf)
-	    offset = -current_frame_info.total_size;
-	  else
-	    offset = -(current_frame_info.total_size
-		       - current_function_outgoing_args_size - 16);
-	  break;
-
-	case STACK_POINTER_REGNUM:
-	  if (current_function_is_leaf)
-	    offset = 0;
-	  else
-	    offset = 16 + current_function_outgoing_args_size;
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
+      offset = FRAME_GROWS_DOWNWARD ? IA64_STACK_ALIGN (size) : 0;
+      if (!current_function_is_leaf)
+	offset += 16 + current_function_outgoing_args_size;
+      if (to == HARD_FRAME_POINTER_REGNUM)
+	offset -= current_frame_info.total_size;
+      else
+	gcc_assert (to == STACK_POINTER_REGNUM);
       break;
 
     case ARG_POINTER_REGNUM:
@@ -3140,6 +3132,31 @@ ia64_expand_prologue (void)
 	}
     }
 
+  /* Save the return pointer.  */
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
+    {
+      reg = gen_rtx_REG (DImode, BR_REG (0));
+      if (current_frame_info.reg_save_b0 != 0)
+	{
+	  alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+	  insn = emit_move_insn (alt_reg, reg);
+	  RTX_FRAME_RELATED_P (insn) = 1;
+
+	  /* Even if we're not going to generate an epilogue, we still
+	     need to save the register so that EH works.  */
+	  if (! epilogue_p)
+	    emit_insn (gen_prologue_use (alt_reg));
+	}
+      else
+	{
+	  alt_regno = next_scratch_gr_reg ();
+	  alt_reg = gen_rtx_REG (DImode, alt_regno);
+	  emit_move_insn (alt_reg, reg);
+	  do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
+	  cfa_off -= 8;
+	}
+    }
+
   if (current_frame_info.reg_save_gp)
     {
       insn = emit_move_insn (gen_rtx_REG (DImode,
@@ -3165,32 +3182,6 @@ ia64_expand_prologue (void)
 	do_spill (gen_gr_spill, reg, cfa_off, reg);
 	cfa_off -= 8;
       }
-
-  /* Handle BR0 specially -- it may be getting stored permanently in
-     some GR register.  */
-  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
-    {
-      reg = gen_rtx_REG (DImode, BR_REG (0));
-      if (current_frame_info.reg_save_b0 != 0)
-	{
-	  alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
-	  insn = emit_move_insn (alt_reg, reg);
-	  RTX_FRAME_RELATED_P (insn) = 1;
-
-	  /* Even if we're not going to generate an epilogue, we still
-	     need to save the register so that EH works.  */
-	  if (! epilogue_p)
-	    emit_insn (gen_prologue_use (alt_reg));
-	}
-      else
-	{
-	  alt_regno = next_scratch_gr_reg ();
-	  alt_reg = gen_rtx_REG (DImode, alt_regno);
-	  emit_move_insn (alt_reg, reg);
-	  do_spill (gen_movdi_x, alt_reg, cfa_off, reg);
-	  cfa_off -= 8;
-	}
-    }
 
   /* Spill the rest of the BR registers.  */
   for (regno = BR_REG (1); regno <= BR_REG (7); ++regno)
@@ -3325,6 +3316,22 @@ ia64_expand_epilogue (int sibcall_p)
       emit_move_insn (reg, alt_reg);
     }
 
+  /* Restore the return pointer.  */
+  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
+    {
+      if (current_frame_info.reg_save_b0 != 0)
+	alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
+      else
+	{
+	  alt_regno = next_scratch_gr_reg ();
+	  alt_reg = gen_rtx_REG (DImode, alt_regno);
+	  do_restore (gen_movdi_x, alt_reg, cfa_off);
+	  cfa_off -= 8;
+	}
+      reg = gen_rtx_REG (DImode, BR_REG (0));
+      emit_move_insn (reg, alt_reg);
+    }
+
   /* We should now be at the base of the gr/br/fr spill area.  */
   gcc_assert (cfa_off == (current_frame_info.spill_cfa_off
 			  + current_frame_info.spill_size));
@@ -3343,23 +3350,7 @@ ia64_expand_epilogue (int sibcall_p)
 	cfa_off -= 8;
       }
 
-  /* Restore the branch registers.  Handle B0 specially, as it may
-     have gotten stored in some GR register.  */
-  if (TEST_HARD_REG_BIT (current_frame_info.mask, BR_REG (0)))
-    {
-      if (current_frame_info.reg_save_b0 != 0)
-	alt_reg = gen_rtx_REG (DImode, current_frame_info.reg_save_b0);
-      else
-	{
-	  alt_regno = next_scratch_gr_reg ();
-	  alt_reg = gen_rtx_REG (DImode, alt_regno);
-	  do_restore (gen_movdi_x, alt_reg, cfa_off);
-	  cfa_off -= 8;
-	}
-      reg = gen_rtx_REG (DImode, BR_REG (0));
-      emit_move_insn (reg, alt_reg);
-    }
-
+  /* Restore the branch registers.  */
   for (regno = BR_REG (1); regno <= BR_REG (7); ++regno)
     if (TEST_HARD_REG_BIT (current_frame_info.mask, regno))
       {
@@ -9105,6 +9096,15 @@ ia64_invalid_binary_op (int op ATTRIBUTE_UNUSED, tree type1, tree type2)
   if (TYPE_MODE (type1) == RFmode || TYPE_MODE (type2) == RFmode)
     return N_("invalid operation on %<__fpreg%>");
   return NULL;
+}
+
+static void
+ia64_linux_file_end (void)
+{
+  int saved_trampolines_created = trampolines_created;
+  trampolines_created = 0;
+  file_end_indicate_exec_stack ();
+  trampolines_created = saved_trampolines_created;
 }
 
 #include "gt-ia64.h"

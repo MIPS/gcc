@@ -5,6 +5,8 @@
 
 #define TARGET_VERSION fprintf (stderr, " (IA-64) Linux");
 
+#define TARGET_ASM_FILE_END ia64_linux_file_end
+
 /* This is for -profile to use -lc_p instead of -lc.  */
 #undef CC1_SPEC
 #define CC1_SPEC "%{profile:-p} %{G*}"
@@ -38,7 +40,7 @@ do {						\
    linux.h file.  */
 
 #undef LINK_SPEC
-#define LINK_SPEC "\
+#define LINK_SPEC "--hash-style=gnu \
   %{shared:-shared} \
   %{!shared: \
     %{!static: \
@@ -57,3 +59,8 @@ do {						\
 #define LINK_EH_SPEC ""
 
 #define MD_UNWIND_SUPPORT "config/ia64/linux-unwind.h"
+
+#ifdef TARGET_LIBC_PROVIDES_SSP
+/* IA-64 glibc provides __stack_chk_guard in [r13-8].  */
+#define TARGET_THREAD_SSP_OFFSET	-8
+#endif

@@ -607,6 +607,8 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
   /* Labels need special handling.  */
   if (pic_label_operand (orig, mode))
     {
+      rtx insn;
+
       /* We do not want to go through the movXX expanders here since that
 	 would create recursion.
 
@@ -617,7 +619,24 @@ legitimize_pic_address (rtx orig, enum machine_mode mode, rtx reg)
 	 So instead we just emit the raw set, which avoids the movXX
 	 expanders completely.  */
       mark_reg_pointer (reg, BITS_PER_UNIT);
-      emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
+      insn = emit_insn (gen_rtx_SET (VOIDmode, reg, orig));
+
+      /* Put a REG_EQUAL note on this insn, so that it can be optimized.  */
+      REG_NOTES (insn) = gen_rtx_EXPR_LIST (REG_EQUAL, orig, REG_NOTES (insn));
+
+      /* During and after reload, we need to generate a REG_LABEL note and
+	 update LABEL_NUSES because this is not done automatically.  */
+      if (reload_in_progress || reload_completed)
+	{
+	  /* Extract LABEL_REF.  */
+	  if (GET_CODE (orig) == CONST)
+	    orig = XEXP (XEXP (orig, 0), 0);
+	  /* Extract CODE_LABEL.  */
+	  orig = XEXP (orig, 0);
+	  REG_NOTES (insn) = gen_rtx_INSN_LIST (REG_LABEL, orig,
+						REG_NOTES (insn));
+	  LABEL_NUSES (orig)++;
+	}
       current_function_uses_pic_offset_table = 1;
       return reg;
     }
@@ -712,7 +731,10 @@ legitimize_tls_address (rtx addr)
     {
       case TLS_MODEL_GLOBAL_DYNAMIC:
 	tmp = gen_reg_rtx (Pmode);
-	emit_insn (gen_tgd_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tgd_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tgd_load (tmp, addr));
 	ret = hppa_tls_call (tmp);
 	break;
 
@@ -720,7 +742,10 @@ legitimize_tls_address (rtx addr)
 	ret = gen_reg_rtx (Pmode);
 	tmp = gen_reg_rtx (Pmode);
 	start_sequence ();
-	emit_insn (gen_tld_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tld_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tld_load (tmp, addr));
 	t1 = hppa_tls_call (tmp);
 	insn = get_insns ();
 	end_sequence ();
@@ -736,7 +761,10 @@ legitimize_tls_address (rtx addr)
 	tmp = gen_reg_rtx (Pmode);
 	ret = gen_reg_rtx (Pmode);
 	emit_insn (gen_tp_load (tp));
-	emit_insn (gen_tie_load (tmp, addr));
+	if (flag_pic)
+	  emit_insn (gen_tie_load_pic (tmp, addr));
+	else
+	  emit_insn (gen_tie_load (tmp, addr));
 	emit_move_insn (ret, gen_rtx_PLUS (Pmode, tp, tmp));
 	break;
 
@@ -7074,7 +7102,8 @@ attr_length_call (rtx insn, int sibcall)
   /* long pc-relative branch sequence.  */
   else if ((TARGET_SOM && TARGET_LONG_PIC_SDIFF_CALL)
 	   || (TARGET_64BIT && !TARGET_GAS)
-	   || (TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
+	   || (TARGET_GAS && !TARGET_SOM
+	       && (TARGET_LONG_PIC_PCREL_CALL || local_call)))
     {
       length += 20;
 
@@ -7185,7 +7214,8 @@ output_call (rtx insn, rtx call_dest, int sibcall)
              they don't allow an instruction in the delay slot.  */
 	  if (!((TARGET_LONG_ABS_CALL || local_call) && !flag_pic)
 	      && !(TARGET_SOM && TARGET_LONG_PIC_SDIFF_CALL)
-	      && !(TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+	      && !(TARGET_GAS && !TARGET_SOM
+		   && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 	      && !TARGET_64BIT)
 	    indirect_call = 1;
 
@@ -7245,7 +7275,8 @@ output_call (rtx insn, rtx call_dest, int sibcall)
 					     CODE_LABEL_NUMBER (xoperands[1]));
 		  output_asm_insn ("ldo R'%0-%l1(%%r1),%%r1", xoperands);
 		}
-	      else if (TARGET_GAS && (TARGET_LONG_PIC_PCREL_CALL || local_call))
+	      else if (TARGET_GAS && !TARGET_SOM
+		       && (TARGET_LONG_PIC_PCREL_CALL || local_call))
 		{
 		  /*  GAS currently can't generate the relocations that
 		      are needed for the SOM linker under HP-UX using this
@@ -7533,6 +7564,12 @@ hppa_encode_label (rtx sym)
 static void
 pa_encode_section_info (tree decl, rtx rtl, int first)
 {
+  int old_referenced = 0;
+
+  if (!first && MEM_P (rtl) && GET_CODE (XEXP (rtl, 0)) == SYMBOL_REF)
+    old_referenced
+      = SYMBOL_REF_FLAGS (XEXP (rtl, 0)) & SYMBOL_FLAG_REFERENCED;
+
   default_encode_section_info (decl, rtl, first);
 
   if (first && TEXT_SPACE_P (decl))
@@ -7541,6 +7578,8 @@ pa_encode_section_info (tree decl, rtx rtl, int first)
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	hppa_encode_label (XEXP (rtl, 0));
     }
+  else if (old_referenced)
+    SYMBOL_REF_FLAGS (XEXP (rtl, 0)) |= old_referenced;
 }
 
 /* This is sort of inverse to pa_encode_section_info.  */

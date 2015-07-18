@@ -36,6 +36,7 @@ Boston, MA 02110-1301, USA.  */
 
 enum c_language_kind c_language = clk_cxx;
 static void cp_init_ts (void);
+static enum classify_record cp_classify_record (tree type);
 
 /* Lang hooks common to C++ and ObjC++ are declared in cp/cp-objcp-common.h;
    consequently, there should be very few hooks below.  */
@@ -44,6 +45,8 @@ static void cp_init_ts (void);
 #define LANG_HOOKS_NAME "GNU C++"
 #undef LANG_HOOKS_INIT
 #define LANG_HOOKS_INIT cxx_init
+#undef LANG_HOOKS_CLASSIFY_RECORD
+#define LANG_HOOKS_CLASSIFY_RECORD cp_classify_record
 #undef LANG_HOOKS_DECL_PRINTABLE_NAME
 #define LANG_HOOKS_DECL_PRINTABLE_NAME	cxx_printable_name
 #undef LANG_HOOKS_FOLD_OBJ_TYPE_REF
@@ -136,6 +139,15 @@ cp_init_ts (void)
 
   init_shadowed_var_for_decl ();
 
+}
+
+static enum classify_record
+cp_classify_record (tree type)
+{
+  if (TYPE_LANG_SPECIFIC (type) && CLASSTYPE_DECLARED_CLASS (type))
+    return RECORD_IS_CLASS;
+
+  return RECORD_IS_STRUCT;
 }
 
 void

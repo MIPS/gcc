@@ -121,6 +121,8 @@ L(done_return_value):
 L(fp_return_value):
 	bf	28,L(float_return_value)
 	stfd	%f1,0(%r30)
+	bf	27,L(done_return_value)
+	stfd	%f2,8(%r30)
 	b	L(done_return_value)
 L(float_return_value):
 	stfs	%f1,0(%r30)
@@ -214,4 +216,8 @@ END(ffi_call_SYSV)
       .uleb128  0x1c
       .align 2
 .LEFDE1:
+#endif
+
+#if defined __ELF__ && defined __linux__
+	.section	.note.GNU-stack,"",@progbits
 #endif

@@ -34,6 +34,9 @@
 #include <bits/c++config.h>
 #include <bits/gthr.h>
 #include <bits/atomicity.h>
+#if defined(__GTHREAD_HAS_COND) && !defined(__GTHREAD_COND_INIT)
+#undef __GTHREAD_HAS_COND
+#endif
 
 // The IA64/generic ABI uses the first byte of the guard variable.
 // The ARM EABI uses the least significant bit.
@@ -46,7 +49,7 @@ namespace
   // This is a static class--the need for a static initialization function
   // to pass to __gthread_once precludes creating multiple instances, though
   // I suppose you could achieve the same effect with a template.
-  class static_mutex
+  struct static_mutex
   {
     static __gthread_recursive_mutex_t mutex;
 
@@ -85,7 +88,29 @@ namespace
   {
     __gthread_recursive_mutex_unlock (&mutex);
   }
+
+  // Simple wrapper for exception safety.
+  struct mutex_wrapper
+  {
+    bool unlock;
+    mutex_wrapper() : unlock(true)
+    { static_mutex::lock(); }
+
+    ~mutex_wrapper()
+    {
+      if (unlock)
+	static_mutex::unlock();
+    }
+  };
 }
+
+#ifdef __GTHREAD_HAS_COND
+namespace
+{
+  // A single conditional variable controlling all static initializations.
+  static __gthread_cond_t static_cond = __GTHREAD_COND_INIT;
+}
+#endif
 
 #ifndef _GLIBCXX_GUARD_TEST_AND_ACQUIRE
 inline bool
@@ -135,19 +160,43 @@ namespace __gnu_cxx
   recursive_init::~recursive_init() throw() { }
 }
 
+//
+// Here are C++ run-time routines for guarded initiailization of static
+// variables. There are 4 scenarios under which these routines are called:
+//
+//   1. Threads not supported (__GTHREADS not defined)
+//   2. Threads are supported but not enabled at run-time.
+//   3. Threads enabled at run-time but __gthreads_* are not fully POSIX.
+//   4. Threads enabled at run-time and __gthreads_* support all POSIX threads
+//      primitives we need here.
+//
+// The old code supported scenarios 1-3 but was broken since it used a global
+// mutex for all threads and had the mutex locked during the whole duration of
+// initlization of a guarded static variable. The following created a dead-lock
+// with the old code.
+//
+//	Thread 1 acquires the global mutex.
+//	Thread 1 starts initializing static variable.
+//	Thread 1 creates thread 2 during initialization.
+//	Thread 2 attempts to acuqire mutex to initialize another variable.
+//	Thread 2 blocks since thread 1 is locking the mutex.
+//	Thread 1 waits for result from thread 2 and also blocks. A deadlock.
+//
+// The new code here can handle this situation and thus is more robust. Howere,
+// we need to use the POSIX thread conditional variable, which is not supported
+// in all platforms, notably older versions of Microsoft Windows. The gthr*.h
+// headers define a symbol __GTHREAD_HAS_COND for platforms that support POSIX
+// like conditional variables. For platforms that do not support conditional
+// variables, we need to fall back to the old code.
 namespace __cxxabiv1 
 {
   static inline int
-  recursion_push (__guard* g)
-  {
-    return ((char *)g)[1]++;
-  }
+  init_in_progress_flag(__guard* g)
+  { return ((char *)g)[1]; }
 
   static inline void
-  recursion_pop (__guard* g)
-  {
-    --((char *)g)[1];
-  }
+  set_init_in_progress_flag(__guard* g, int v)
+  { ((char *)g)[1] = v; }
 
   static int
   acquire_1 (__guard *g)
@@ -155,7 +204,7 @@ namespace __cxxabiv1
     if (_GLIBCXX_GUARD_TEST (g))
       return 0;
 
-    if (recursion_push (g))
+    if (init_in_progress_flag (g))
       {
 #ifdef __EXCEPTIONS
 	throw __gnu_cxx::recursive_init();
@@ -164,6 +213,7 @@ namespace __cxxabiv1
 	__builtin_trap ();
 #endif
       }
+    set_init_in_progress_flag(g, 1);
     return 1;
   }
 
@@ -179,28 +229,40 @@ namespace __cxxabiv1
 
     if (__gthread_active_p ())
       {
-	// Simple wrapper for exception safety.
-	struct mutex_wrapper
-	{
-	  bool unlock;
-	  mutex_wrapper (): unlock(true)
-	  {
-	    static_mutex::lock ();
-	  }
-	  ~mutex_wrapper ()
-	  {
-	    if (unlock)
-	      static_mutex::unlock ();
-	  }
-	} mw;
+	mutex_wrapper mw;
 
-	if (acquire_1 (g))
-	  {
-	    mw.unlock = false;
-	    return 1;
-	  }
+	while (1)	// When this loop is executing, mutex is locked.
+  	  {
+#ifdef __GTHREAD_HAS_COND
+	    // The static is allready initialized.
+	    if (_GLIBCXX_GUARD_TEST(g))
+	      return 0;	// The mutex will be unlocked via wrapper
 
-	return 0;
+	    if (init_in_progress_flag(g))
+	      {
+		// The guarded static is currently being initialized by
+		// another thread, so we release mutex and wait for the
+		// conditional variable. We will lock the mutex again after
+		// this.
+		__gthread_cond_wait_recursive(&static_cond,
+					      &static_mutex::mutex);
+	      }
+	    else
+	      {
+		set_init_in_progress_flag(g, 1);
+		return 1; // The mutex will be unlocked via wrapper.
+	      }
+#else
+	    // This provides compatibility with older systems not supporting
+	    // POSIX like conditional variables.
+	    if (acquire_1 (g))
+	      {
+		mw.unlock = false;
+		return 1; // The mutex still locked.
+	      }
+	    return 0; // The mutex will be unlocked via wrapper.
+#endif
+	  }
       }
 #endif
 
@@ -210,8 +272,24 @@ namespace __cxxabiv1
   extern "C"
   void __cxa_guard_abort (__guard *g)
   {
-    recursion_pop (g);
-#ifdef __GTHREADS
+#ifdef __GTHREAD_HAS_COND
+    if (__gthread_active_p())
+      {	
+	mutex_wrapper mw;
+
+	set_init_in_progress_flag(g, 0);
+
+	// If we abort, we still need to wake up all other threads waiting for
+	// the conditional variable.
+	__gthread_cond_broadcast(&static_cond);
+	return;
+      }	
+#endif
+
+    set_init_in_progress_flag(g, 0);
+#if defined(__GTHREADS) && !defined(__GTHREAD_HAS_COND)
+    // This provides compatibility with older systems not supporting POSIX like
+    // conditional variables.
     if (__gthread_active_p ())
       static_mutex::unlock ();
 #endif
@@ -220,11 +298,27 @@ namespace __cxxabiv1
   extern "C"
   void __cxa_guard_release (__guard *g)
   {
-    recursion_pop (g);
+#ifdef __GTHREAD_HAS_COND
+    if (__gthread_active_p())
+      {
+	mutex_wrapper mw;
+
+	set_init_in_progress_flag(g, 0);
+	_GLIBCXX_GUARD_SET_AND_RELEASE(g);
+
+	__gthread_cond_broadcast(&static_cond);
+	return;
+      }      
+#endif       
+
+    set_init_in_progress_flag(g, 0);
     _GLIBCXX_GUARD_SET_AND_RELEASE (g);
-#ifdef __GTHREADS
-    if (__gthread_active_p ())
-      static_mutex::unlock ();
+
+#if defined(__GTHREADS) && !defined(__GTHREAD_HAS_COND)
+    // This provides compatibility with older systems not supporting POSIX like
+    // conditional variables.
+    if (__gthread_active_p())
+      static_mutex::unlock();
 #endif
   }
 }

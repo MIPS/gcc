@@ -52,6 +52,51 @@
 #define UNW_FLAG_UHANDLER(x)	((x) & 0x0000000200000000L)
 #define UNW_LENGTH(x)		((x) & 0x00000000ffffffffL)
 
+#if defined (USE_SYMVER_GLOBAL) && defined (SHARED)
+extern _Unwind_Reason_Code __symverglobal_Unwind_Backtrace
+  (_Unwind_Trace_Fn, void *);
+extern void __symverglobal_Unwind_DeleteException
+  (struct _Unwind_Exception *);
+extern void * __symverglobal_Unwind_FindEnclosingFunction (void *);
+extern _Unwind_Reason_Code __symverglobal_Unwind_ForcedUnwind
+  (struct _Unwind_Exception *, _Unwind_Stop_Fn, void *);
+extern _Unwind_Word __symverglobal_Unwind_GetCFA
+  (struct _Unwind_Context *);
+extern _Unwind_Word __symverglobal_Unwind_GetBSP
+  (struct _Unwind_Context *);
+extern _Unwind_Word __symverglobal_Unwind_GetGR
+  (struct _Unwind_Context *, int );
+extern _Unwind_Ptr __symverglobal_Unwind_GetIP (struct _Unwind_Context *);
+extern void *__symverglobal_Unwind_GetLanguageSpecificData
+  (struct _Unwind_Context *);
+extern _Unwind_Ptr __symverglobal_Unwind_GetRegionStart
+  (struct _Unwind_Context *);
+extern _Unwind_Reason_Code __symverglobal_Unwind_RaiseException
+  (struct _Unwind_Exception *);
+extern void __symverglobal_Unwind_Resume (struct _Unwind_Exception *);
+extern _Unwind_Reason_Code __symverglobal_Unwind_Resume_or_Rethrow
+   (struct _Unwind_Exception *);
+extern void __symverglobal_Unwind_SetGR
+  (struct _Unwind_Context *, int, _Unwind_Word);
+extern void __symverglobal_Unwind_SetIP
+  (struct _Unwind_Context *, _Unwind_Ptr);
+#define _Unwind_Backtrace __symverglobal_Unwind_Backtrace
+#define _Unwind_DeleteException __symverglobal_Unwind_DeleteException
+#define _Unwind_FindEnclosingFunction __symverglobal_Unwind_FindEnclosingFunction
+#define _Unwind_ForcedUnwind __symverglobal_Unwind_ForcedUnwind
+#define _Unwind_GetBSP __symverglobal_Unwind_GetBSP
+#define _Unwind_GetCFA __symverglobal_Unwind_GetCFA
+#define _Unwind_GetGR __symverglobal_Unwind_GetGR
+#define _Unwind_GetIP __symverglobal_Unwind_GetIP
+#define _Unwind_GetLanguageSpecificData __symverglobal_Unwind_GetLanguageSpecificData
+#define _Unwind_GetRegionStart __symverglobal_Unwind_GetRegionStart
+#define _Unwind_RaiseException __symverglobal_Unwind_RaiseException
+#define _Unwind_Resume __symverglobal_Unwind_Resume
+#define _Unwind_Resume_or_Rethrow __symverglobal_Unwind_Resume_or_Rethrow
+#define _Unwind_SetGR __symverglobal_Unwind_SetGR
+#define _Unwind_SetIP __symverglobal_Unwind_SetIP
+#endif
+
 enum unw_application_register
 {
   UNW_AR_BSP,
@@ -1704,6 +1749,13 @@ _Unwind_GetIP (struct _Unwind_Context *context)
   return context->rp;
 }
 
+inline _Unwind_Ptr
+_Unwind_GetIPInfo (struct _Unwind_Context *context, int *ip_before_insn)
+{
+  *ip_before_insn = 0;
+  return context->rp;
+}
+
 /* Overwrite the return address for CONTEXT with VAL.  */
 
 inline void
@@ -2407,6 +2459,46 @@ alias (_Unwind_Resume);
 alias (_Unwind_Resume_or_Rethrow);
 alias (_Unwind_SetGR);
 alias (_Unwind_SetIP);
+#endif
+
+#if defined (USE_SYMVER_GLOBAL) && defined (SHARED)
+#undef alias
+#define symverglobal(name, version) \
+__typeof (__symverglobal##name) __symverlocal##name		\
+  __attribute__ ((alias ("__symverglobal" #name)));		\
+__asm__ (".symver __symverglobal" #name"," #name "@@GCC_3.4.2");\
+__asm__ (".symver __symverlocal" #name"," #name "@" #version)
+
+#undef _Unwind_Backtrace
+#undef _Unwind_DeleteException
+#undef _Unwind_FindEnclosingFunction
+#undef _Unwind_ForcedUnwind
+#undef _Unwind_GetBSP
+#undef _Unwind_GetCFA
+#undef _Unwind_GetGR
+#undef _Unwind_GetIP
+#undef _Unwind_GetLanguageSpecificData
+#undef _Unwind_GetRegionStart
+#undef _Unwind_RaiseException
+#undef _Unwind_Resume
+#undef _Unwind_Resume_or_Rethrow
+#undef _Unwind_SetGR
+#undef _Unwind_SetIP
+symverglobal (_Unwind_Backtrace, GCC_3.3);
+symverglobal (_Unwind_DeleteException, GCC_3.0);
+symverglobal (_Unwind_FindEnclosingFunction, GCC_3.3);
+symverglobal (_Unwind_ForcedUnwind, GCC_3.0);
+symverglobal (_Unwind_GetBSP, GCC_3.3.2);
+symverglobal (_Unwind_GetCFA, GCC_3.3);
+symverglobal (_Unwind_GetGR, GCC_3.0);
+symverglobal (_Unwind_GetIP, GCC_3.0);
+symverglobal (_Unwind_GetLanguageSpecificData, GCC_3.0);
+symverglobal (_Unwind_GetRegionStart, GCC_3.0);
+symverglobal (_Unwind_RaiseException, GCC_3.0);
+symverglobal (_Unwind_Resume, GCC_3.0);
+symverglobal (_Unwind_Resume_or_Rethrow, GCC_3.3);
+symverglobal (_Unwind_SetGR, GCC_3.0);
+symverglobal (_Unwind_SetIP, GCC_3.0);
 #endif
 
 #endif

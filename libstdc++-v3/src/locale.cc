@@ -41,6 +41,21 @@ namespace __gnu_internal
   static __glibcxx_mutex_define_initialized(locale_cache_mutex);
 }
 
+// XXX GLIBCXX_ABI Deprecated
+#ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
+# define _GLIBCXX_LOC_ID(mangled) extern std::locale::id mangled
+_GLIBCXX_LOC_ID (_ZNSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+# ifdef _GLIBCXX_USE_WCHAR_T
+_GLIBCXX_LOC_ID (_ZNSt7num_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt7num_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+_GLIBCXX_LOC_ID (_ZNSt9money_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+# endif
+#endif
+
 namespace std 
 {
   // Definitions for static const data members of locale.
@@ -397,9 +412,29 @@ namespace std
   locale::id::_M_id() const
   {
     if (!_M_index)
-      _M_index = 1 + __gnu_cxx::__exchange_and_add(&_S_refcount, 1);
+      {
+	// XXX GLIBCXX_ABI Deprecated
+#ifdef _GLIBCXX_LONG_DOUBLE_COMPAT
+	locale::id *f = 0;
+# define _GLIBCXX_SYNC_ID(facet, mangled) \
+	if (this == &::mangled)				\
+	  f = &facet::id
+	_GLIBCXX_SYNC_ID (num_get<char>, _ZNSt7num_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+	_GLIBCXX_SYNC_ID (num_put<char>, _ZNSt7num_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+	_GLIBCXX_SYNC_ID (money_get<char>, _ZNSt9money_getIcSt19istreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+	_GLIBCXX_SYNC_ID (money_put<char>, _ZNSt9money_putIcSt19ostreambuf_iteratorIcSt11char_traitsIcEEE2idE);
+# ifdef _GLIBCXX_USE_WCHAR_T
+	_GLIBCXX_SYNC_ID (num_get<wchar_t>, _ZNSt7num_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+	_GLIBCXX_SYNC_ID (num_put<wchar_t>, _ZNSt7num_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+	_GLIBCXX_SYNC_ID (money_get<wchar_t>, _ZNSt9money_getIwSt19istreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+	_GLIBCXX_SYNC_ID (money_put<wchar_t>, _ZNSt9money_putIwSt19ostreambuf_iteratorIwSt11char_traitsIwEEE2idE);
+# endif
+	if (f)
+	  _M_index = 1 + f->_M_id();
+	else
+#endif
+	  _M_index = 1 + __gnu_cxx::__exchange_and_add(&_S_refcount, 1);
+      }
     return _M_index - 1;
   }
 } // namespace std
-
-

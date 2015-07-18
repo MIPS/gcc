@@ -228,7 +228,16 @@ typedef enum
   ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WRITE,
   ST_ASSIGNMENT, ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE,
   ST_SIMPLE_IF, ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT,
-  ST_ENUM, ST_ENUMERATOR, ST_END_ENUM, ST_NONE
+  ST_ENUM, ST_ENUMERATOR, ST_END_ENUM,
+  ST_OMP_ATOMIC, ST_OMP_BARRIER, ST_OMP_CRITICAL, ST_OMP_END_CRITICAL,
+  ST_OMP_END_DO, ST_OMP_END_MASTER, ST_OMP_END_ORDERED, ST_OMP_END_PARALLEL,
+  ST_OMP_END_PARALLEL_DO, ST_OMP_END_PARALLEL_SECTIONS,
+  ST_OMP_END_PARALLEL_WORKSHARE, ST_OMP_END_SECTIONS, ST_OMP_END_SINGLE,
+  ST_OMP_END_WORKSHARE, ST_OMP_DO, ST_OMP_FLUSH, ST_OMP_MASTER, ST_OMP_ORDERED,
+  ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
+  ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
+  ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE,
+  ST_NONE
 }
 gfc_statement;
 
@@ -368,6 +377,8 @@ enum gfc_generic_isym_id
   GFC_ISYM_IERRNO,
   GFC_ISYM_INDEX,
   GFC_ISYM_INT,
+  GFC_ISYM_INT2,
+  GFC_ISYM_INT8,
   GFC_ISYM_IOR,
   GFC_ISYM_IRAND,
   GFC_ISYM_ISATTY,
@@ -382,10 +393,11 @@ enum gfc_generic_isym_id
   GFC_ISYM_LGT,
   GFC_ISYM_LLE,
   GFC_ISYM_LLT,
-  GFC_ISYM_LOG,
   GFC_ISYM_LOC,
+  GFC_ISYM_LOG,
   GFC_ISYM_LOG10,
   GFC_ISYM_LOGICAL,
+  GFC_ISYM_LONG,
   GFC_ISYM_MALLOC,
   GFC_ISYM_MATMUL,
   GFC_ISYM_MAX,
@@ -456,7 +468,7 @@ typedef struct
   /* Variable attributes.  */
   unsigned allocatable:1, dimension:1, external:1, intrinsic:1,
     optional:1, pointer:1, save:1, target:1,
-    dummy:1, result:1, assign:1;
+    dummy:1, result:1, assign:1, threadprivate:1;
 
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     use_assoc:1;		/* Symbol has been use-associated.  */
@@ -683,6 +695,60 @@ gfc_namelist;
 
 #define gfc_get_namelist() gfc_getmem(sizeof(gfc_namelist))
 
+enum
+{
+  OMP_LIST_PRIVATE,
+  OMP_LIST_FIRSTPRIVATE,
+  OMP_LIST_LASTPRIVATE,
+  OMP_LIST_COPYPRIVATE,
+  OMP_LIST_SHARED,
+  OMP_LIST_COPYIN,
+  OMP_LIST_PLUS,
+  OMP_LIST_REDUCTION_FIRST = OMP_LIST_PLUS,
+  OMP_LIST_MULT,
+  OMP_LIST_SUB,
+  OMP_LIST_AND,
+  OMP_LIST_OR,
+  OMP_LIST_EQV,
+  OMP_LIST_NEQV,
+  OMP_LIST_MAX,
+  OMP_LIST_MIN,
+  OMP_LIST_IAND,
+  OMP_LIST_IOR,
+  OMP_LIST_IEOR,
+  OMP_LIST_REDUCTION_LAST = OMP_LIST_IEOR,
+  OMP_LIST_NUM
+};
+
+/* Because a symbol can belong to multiple namelists, they must be
+   linked externally to the symbol itself.  */
+typedef struct gfc_omp_clauses
+{
+  struct gfc_expr *if_expr;
+  struct gfc_expr *num_threads;
+  gfc_namelist *lists[OMP_LIST_NUM];
+  enum
+    {
+      OMP_SCHED_NONE,
+      OMP_SCHED_STATIC,
+      OMP_SCHED_DYNAMIC,
+      OMP_SCHED_GUIDED,
+      OMP_SCHED_RUNTIME
+    } sched_kind;
+  struct gfc_expr *chunk_size;
+  enum
+    {
+      OMP_DEFAULT_UNKNOWN,
+      OMP_DEFAULT_NONE,
+      OMP_DEFAULT_PRIVATE,
+      OMP_DEFAULT_SHARED
+    } default_sharing;
+  bool nowait, ordered;
+}
+gfc_omp_clauses;
+
+#define gfc_get_omp_clauses() gfc_getmem(sizeof(gfc_omp_clauses))
+
 
 /* The gfc_st_label structure is a doubly linked list attached to a
    namespace that records the usage of statement labels within that
@@ -801,7 +867,7 @@ gfc_symbol;
 typedef struct gfc_common_head
 {
   locus where;
-  int use_assoc, saved;
+  char use_assoc, saved, threadprivate;
   char name[GFC_MAX_SYMBOL_LEN + 1];
   struct gfc_symbol *head;
 }
@@ -1164,6 +1230,9 @@ typedef struct gfc_expr
 
   /* True if it is converted from Hollerith constant.  */
   unsigned int from_H : 1;
+  /* True if the expression is a call to a function that returns an array,
+     and if we have decided not to allocate temporary data for that array.  */
+  unsigned int inline_noncopying_intrinsic : 1;
 
   union
   {
@@ -1426,7 +1495,13 @@ typedef enum
   EXEC_ALLOCATE, EXEC_DEALLOCATE,
   EXEC_OPEN, EXEC_CLOSE,
   EXEC_READ, EXEC_WRITE, EXEC_IOLENGTH, EXEC_TRANSFER, EXEC_DT_END,
-  EXEC_BACKSPACE, EXEC_ENDFILE, EXEC_INQUIRE, EXEC_REWIND, EXEC_FLUSH
+  EXEC_BACKSPACE, EXEC_ENDFILE, EXEC_INQUIRE, EXEC_REWIND, EXEC_FLUSH,
+  EXEC_OMP_CRITICAL, EXEC_OMP_DO, EXEC_OMP_FLUSH, EXEC_OMP_MASTER,
+  EXEC_OMP_ORDERED, EXEC_OMP_PARALLEL, EXEC_OMP_PARALLEL_DO,
+  EXEC_OMP_PARALLEL_SECTIONS, EXEC_OMP_PARALLEL_WORKSHARE,
+  EXEC_OMP_SECTIONS, EXEC_OMP_SINGLE, EXEC_OMP_WORKSHARE,
+  EXEC_OMP_ATOMIC, EXEC_OMP_BARRIER, EXEC_OMP_END_NOWAIT,
+  EXEC_OMP_END_SINGLE
 }
 gfc_exec_op;
 
@@ -1460,6 +1535,10 @@ typedef struct gfc_code
     struct gfc_code *whichloop;
     int stop_code;
     gfc_entry_list *entry;
+    gfc_omp_clauses *omp_clauses;
+    const char *omp_name;
+    gfc_namelist *omp_namelist;
+    bool omp_bool;
   }
   ext;		/* Points to additional structures required by statement */
 
@@ -1554,6 +1633,7 @@ typedef struct
   int flag_backslash;
   int flag_cray_pointer;
   int flag_d_lines;
+  int flag_openmp;
 
   int q_kind;
 
@@ -1750,6 +1830,7 @@ try gfc_add_cray_pointee (symbol_attribute *, locus *);
 try gfc_mod_pointee_as (gfc_array_spec *as);
 try gfc_add_result (symbol_attribute *, const char *, locus *);
 try gfc_add_save (symbol_attribute *, const char *, locus *);
+try gfc_add_threadprivate (symbol_attribute *, const char *, locus *);
 try gfc_add_saved_common (symbol_attribute *, locus *);
 try gfc_add_target (symbol_attribute *, locus *);
 try gfc_add_dummy (symbol_attribute *, const char *, locus *);
@@ -1863,6 +1944,13 @@ void gfc_free_case_list (gfc_case *);
 /* matchexp.c -- FIXME too?  */
 gfc_expr *gfc_get_parentheses (gfc_expr *);
 
+/* openmp.c */
+void gfc_free_omp_clauses (gfc_omp_clauses *);
+void gfc_resolve_omp_directive (gfc_code *, gfc_namespace *);
+void gfc_resolve_do_iterator (gfc_code *, gfc_symbol *);
+void gfc_resolve_omp_parallel_blocks (gfc_code *, gfc_namespace *);
+void gfc_resolve_omp_do_blocks (gfc_code *, gfc_namespace *);
+
 /* expr.c */
 void gfc_free_actual_arglist (gfc_actual_arglist *);
 gfc_actual_arglist *gfc_copy_actual_arglist (gfc_actual_arglist *);
@@ -1911,6 +1999,7 @@ void gfc_free_statements (gfc_code *);
 /* resolve.c */
 try gfc_resolve_expr (gfc_expr *);
 void gfc_resolve (gfc_namespace *);
+void gfc_resolve_blocks (gfc_code *, gfc_namespace *);
 int gfc_impure_variable (gfc_symbol *);
 int gfc_pure (gfc_symbol *);
 int gfc_elemental (gfc_symbol *);

@@ -828,6 +828,27 @@ pop_scope (void)
 	      TREE_CHAIN (p) = BLOCK_VARS (block);
 	      BLOCK_VARS (block) = p;
 	    }
+	  else if (VAR_OR_FUNCTION_DECL_P (p))
+	    {
+	      /* For block local externs add a special
+		 DECL_EXTERNAL decl for debug info generation.  */
+	      tree extp = copy_node (p);
+
+	      DECL_EXTERNAL (extp) = 1;
+	      TREE_STATIC (extp) = 0;
+	      TREE_PUBLIC (extp) = 1;
+	      DECL_INITIAL (extp) = NULL_TREE;
+	      DECL_LANG_SPECIFIC (extp) = NULL;
+	      DECL_CONTEXT (extp) = current_function_decl;
+	      if (TREE_CODE (p) == FUNCTION_DECL)
+		{
+		  DECL_RESULT (extp) = NULL_TREE;
+		  DECL_SAVED_TREE (extp) = NULL_TREE;
+		  DECL_STRUCT_FUNCTION (extp) = NULL;
+		}
+	      TREE_CHAIN (extp) = BLOCK_VARS (block);
+	      BLOCK_VARS (block) = extp;
+	    }
 	  /* If this is the file scope, and we are processing more
 	     than one translation unit in this compilation, set
 	     DECL_CONTEXT of each decl to the TRANSLATION_UNIT_DECL.
@@ -1385,7 +1406,14 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
     {
       /* Only variables can be thread-local, and all declarations must
 	 agree on this property.  */
-      if (DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl))
+      if (C_DECL_THREADPRIVATE_P (olddecl) && !DECL_THREAD_LOCAL_P (newdecl))
+	{
+	  /* Nothing to check.  Since OLDDECL is marked threadprivate
+	     and NEWDECL does not have a thread-local attribute, we
+	     will merge the threadprivate attribute into NEWDECL.  */
+	  ;
+	}
+      else if (DECL_THREAD_LOCAL_P (newdecl) != DECL_THREAD_LOCAL_P (olddecl))
 	{
 	  if (DECL_THREAD_LOCAL_P (newdecl))
 	    error ("thread-local declaration of %q+D follows "
@@ -1644,6 +1672,9 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 	  }
     }
 
+  /* Keep the old rtl since we can safely use it.  */
+  if (HAS_RTL_P (olddecl))
+    COPY_DECL_RTL (olddecl, newdecl);
 
   /* Merge the type qualifiers.  */
   if (TREE_READONLY (newdecl))
@@ -1671,6 +1702,13 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
   /* Merge the initialization information.  */
    if (DECL_INITIAL (newdecl) == 0)
     DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
+
+  /* Merge the threadprivate attribute.  */
+  if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
+    {
+      DECL_TLS_MODEL (newdecl) = DECL_TLS_MODEL (olddecl);
+      C_DECL_THREADPRIVATE_P (newdecl) = 1;
+    }
 
    if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
      {
@@ -3276,6 +3314,23 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   return tem;
 }
 
+/* Initialize EH if not initialized yet and exceptions are enabled.  */
+
+void
+c_maybe_initialize_eh (void)
+{
+  if (!flag_exceptions || c_eh_initialized_p)
+    return;
+
+  c_eh_initialized_p = true;
+  eh_personality_libfunc
+    = init_one_libfunc (USING_SJLJ_EXCEPTIONS
+			? "__gcc_personality_sj0"
+			: "__gcc_personality_v0");
+  default_init_unwind_resume_libfunc ();
+  using_eh_for_cleanups ();
+}
+
 /* Finish processing of a declaration;
    install its initial value.
    If the length of an array type is not known before,
@@ -3284,7 +3339,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 void
 finish_decl (tree decl, tree init, tree asmspec_tree)
 {
-  tree type = TREE_TYPE (decl);
+  tree type;
   int was_incomplete = (DECL_SIZE (decl) == 0);
   const char *asmspec = 0;
 
@@ -3310,6 +3365,8 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 			    || TREE_CODE (decl) == FUNCTION_DECL
 			    || TREE_CODE (decl) == FIELD_DECL))
     objc_check_decl (decl);
+
+  type = TREE_TYPE (decl);
 
   /* Deduce size of array from initialization, if not already known.  */
   if (TREE_CODE (type) == ARRAY_TYPE
@@ -3434,18 +3491,16 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
   /* If #pragma weak was used, mark the decl weak now.  */
   maybe_apply_pragma_weak (decl);
 
-  /* If this is a variable definition, determine its ELF visibility.  */
-  if (TREE_CODE (decl) == VAR_DECL 
-      && TREE_STATIC (decl) 
-      && !DECL_EXTERNAL (decl))
-    c_determine_visibility (decl);
-
   /* Output the assembler code and/or RTL code for variables and functions,
      unless the type is an undefined structure or union.
      If not, it will get done when the type is completed.  */
 
   if (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == FUNCTION_DECL)
     {
+      /* Determine the ELF visibility.  */
+      if (TREE_PUBLIC (decl))
+	c_determine_visibility (decl);
+
       /* This is a no-op in c-lang.c or something real in objc-act.c.  */
       if (c_dialect_objc ())
 	objc_check_decl (decl);
@@ -3569,16 +3624,7 @@ finish_decl (tree decl, tree init, tree asmspec_tree)
 	  TREE_USED (cleanup_decl) = 1;
 
 	  /* Initialize EH, if we've been told to do so.  */
-	  if (flag_exceptions && !c_eh_initialized_p)
-	    {
-	      c_eh_initialized_p = true;
-	      eh_personality_libfunc
-		= init_one_libfunc (USING_SJLJ_EXCEPTIONS
-				    ? "__gcc_personality_sj0"
-				    : "__gcc_personality_v0");
-	      default_init_unwind_resume_libfunc ();
-	      using_eh_for_cleanups ();
-	    }
+	  c_maybe_initialize_eh ();
 
 	  push_cleanup (decl, cleanup, false);
 	}
@@ -6503,21 +6549,25 @@ store_parm_decls (void)
   cfun->x_dont_save_pending_sizes_p = 1;
 }
 
-/* Handle attribute((warn_unused_result)) on FNDECL and all its nested
-   functions.  */
+/* Emit diagnostics that require gimple input for detection.  Operate on
+   FNDECL and all its nested functions.  */
 
 static void
-c_warn_unused_result_recursively (tree fndecl)
+c_gimple_diagnostics_recursively (tree fndecl)
 {
   struct cgraph_node *cgn;
 
   /* Handle attribute((warn_unused_result)).  Relies on gimple input.  */
   c_warn_unused_result (&DECL_SAVED_TREE (fndecl));
 
+  /* Notice when OpenMP structured block constraints are violated.  */
+  if (flag_openmp)
+    diagnose_omp_structured_block_errors (fndecl);
+
   /* Finalize all nested functions now.  */
   cgn = cgraph_node (fndecl);
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
-    c_warn_unused_result_recursively (cgn->decl);
+    c_gimple_diagnostics_recursively (cgn->decl);
 }
 
 /* Finish up a function declaration and compile that function
@@ -6645,7 +6695,7 @@ finish_function (void)
       if (!decl_function_context (fndecl))
         {
           c_genericize (fndecl);
-          c_warn_unused_result_recursively (fndecl);
+          c_gimple_diagnostics_recursively (fndecl);
 
 	  /* ??? Objc emits functions after finalizing the compilation unit.
 	     This should be cleaned up later and this conditional removed.  */
@@ -6699,11 +6749,15 @@ c_expand_body (tree fndecl)
 }
 
 /* Check the declarations given in a for-loop for satisfying the C99
-   constraints.  */
-void
+   constraints.  If exactly one such decl is found, return it.  */
+
+tree
 check_for_loop_decls (void)
 {
   struct c_binding *b;
+  tree one_decl = NULL_TREE;
+  int n_decls = 0;
+
 
   if (!flag_isoc99)
     {
@@ -6711,7 +6765,7 @@ check_for_loop_decls (void)
 	 the C99 for loop scope.  This doesn't make much sense, so don't
 	 allow it.  */
       error ("%<for%> loop initial declaration used outside C99 mode");
-      return;
+      return NULL_TREE;
     }
   /* C99 subclause 6.8.5 paragraph 3:
 
@@ -6762,7 +6816,12 @@ check_for_loop_decls (void)
 	  error ("declaration of non-variable %q+D in %<for%> loop "
 		 "initial declaration", decl);
 	}
+
+      n_decls++;
+      one_decl = decl;
     }
+
+  return n_decls == 1 ? one_decl : NULL_TREE;
 }
 
 /* Save and reinitialize the variables

@@ -22,8 +22,10 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 
 bool gfc_ref_needs_temporary_p (gfc_ref *);
-int gfc_check_fncall_dependency (gfc_expr *, gfc_expr *);
-int gfc_check_dependency (gfc_expr *, gfc_expr *, gfc_expr **, int);
+gfc_expr *gfc_get_noncopying_intrinsic_argument (gfc_expr *);
+int gfc_check_fncall_dependency (gfc_expr *, sym_intent, gfc_symbol *,
+				 gfc_actual_arglist *);
+int gfc_check_dependency (gfc_expr *, gfc_expr *, bool);
 int gfc_is_same_range (gfc_array_ref *, gfc_array_ref *, int, int);
 int gfc_expr_is_one (gfc_expr *, int);
 

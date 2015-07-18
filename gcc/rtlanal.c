@@ -2890,9 +2890,9 @@ commutative_operand_precedence (rtx op)
   
   /* Constants always come the second operand.  Prefer "nice" constants.  */
   if (code == CONST_INT)
-    return -7;
+    return -10;
   if (code == CONST_DOUBLE)
-    return -6;
+    return -9;
   op = avoid_constant_pool_reference (op);
   code = GET_CODE (op);
 
@@ -2900,26 +2900,31 @@ commutative_operand_precedence (rtx op)
     {
     case RTX_CONST_OBJ:
       if (code == CONST_INT)
-        return -5;
+	return -8;
       if (code == CONST_DOUBLE)
-        return -4;
-      return -3;
+	return -7;
+      return -6;
 
     case RTX_EXTRA:
       /* SUBREGs of objects should come second.  */
       if (code == SUBREG && OBJECT_P (SUBREG_REG (op)))
-        return -2;
+	return -5;
 
       if (!CONSTANT_P (op))
         return 0;
       else
 	/* As for RTX_CONST_OBJ.  */
-	return -3;
+	return -6;
 
     case RTX_OBJ:
       /* Complex expressions should be the first, so decrease priority
          of objects.  */
-      return -1;
+      if (!TARGET_INDEX_OPERAND_FIRST)
+	return -1;
+      if (REG_P (op))
+	return (REG_POINTER (op)) ? -1 : -3;
+      else
+	return (MEM_P (op) && MEM_POINTER (op)) ? -2 : -4;
 
     case RTX_COMM_ARITH:
       /* Prefer operands that are themselves commutative to be first.
@@ -2949,8 +2954,16 @@ commutative_operand_precedence (rtx op)
 int
 swap_commutative_operands_p (rtx x, rtx y)
 {
-  return (commutative_operand_precedence (x)
-	  < commutative_operand_precedence (y));
+  int result = (commutative_operand_precedence (x)
+		- commutative_operand_precedence (y));
+  if (!TARGET_INDEX_OPERAND_FIRST || result)
+    return result < 0;
+
+  /* Group together equal REGs to do more simplification.  */
+  if (REG_P (x) && REG_P (y))
+    return REGNO (x) > REGNO (y);
+
+  return 0;
 }
 
 /* Return 1 if X is an autoincrement side effect and the register is

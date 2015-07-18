@@ -60,7 +60,7 @@ g++spec.o: $(srcdir)/cp/g++spec.c $(SYSTEM_H) coretypes.h $(TM_H) $(GCC_H) $(CON
 		$(INCLUDES) $(srcdir)/cp/g++spec.c)
 
 # Create the compiler driver for g++.
-GXX_OBJS = gcc.o g++spec.o intl.o prefix.o version.o
+GXX_OBJS = $(GCC_OBJS) g++spec.o intl.o prefix.o version.o
 g++$(exeext): $(GXX_OBJS) $(EXTRA_GCC_OBJS) $(LIBDEPS)
 	$(CC) $(ALL_CFLAGS) $(LDFLAGS) -o $@ \
 	  $(GXX_OBJS) $(EXTRA_GCC_OBJS) $(LIBS)
@@ -75,7 +75,7 @@ g++-cross$(exeext): g++$(exeext)
 CXX_C_OBJS = attribs.o c-common.o c-format.o c-pragma.o c-semantics.o c-lex.o \
 	c-dump.o $(CXX_TARGET_OBJS) c-pretty-print.o c-opts.o c-pch.o \
 	c-incpath.o cppdefault.o c-ppoutput.o c-cppbuiltin.o prefix.o \
-	c-gimplify.o tree-inline.o
+	c-gimplify.o c-omp.o tree-inline.o
 
 # Language-specific object files for C++ and Objective C++.
 CXX_AND_OBJCXX_OBJS = cp/call.o cp/decl.o cp/expr.o cp/pt.o cp/typeck2.o \

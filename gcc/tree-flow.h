@@ -476,7 +476,7 @@ static inline void bsi_prev (block_stmt_iterator *);
 static inline tree bsi_stmt (block_stmt_iterator);
 static inline tree * bsi_stmt_ptr (block_stmt_iterator);
 
-extern void bsi_remove (block_stmt_iterator *);
+extern void bsi_remove (block_stmt_iterator *, bool);
 extern void bsi_move_before (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_after (block_stmt_iterator *, block_stmt_iterator *);
 extern void bsi_move_to_bb_end (block_stmt_iterator *, basic_block);
@@ -498,6 +498,54 @@ extern void bsi_insert_after (block_stmt_iterator *, tree,
 			      enum bsi_iterator_update);
 
 extern void bsi_replace (const block_stmt_iterator *, tree, bool);
+
+/*---------------------------------------------------------------------------
+			      OpenMP Region Tree
+---------------------------------------------------------------------------*/
+
+/* Parallel region information.  Every parallel and workshare
+   directive is enclosed between two markers, the OMP_* directive
+   and a corresponding OMP_RETURN statement.  */
+
+struct omp_region
+{
+  /* The enclosing region.  */
+  struct omp_region *outer;
+
+  /* First child region.  */
+  struct omp_region *inner;
+
+  /* Next peer region.  */
+  struct omp_region *next;
+
+  /* Block containing the omp directive as its last stmt.  */
+  basic_block entry;
+
+  /* Block containing the OMP_RETURN as its last stmt.  */
+  basic_block exit;
+
+  /* Block containing the OMP_CONTINUE as its last stmt.  */
+  basic_block cont;
+
+  /* If this is a combined parallel+workshare region, this is a list
+     of additional arguments needed by the combined parallel+workshare
+     library call.  */
+  tree ws_args;
+
+  /* The code for the omp directive of this region.  */
+  enum tree_code type;
+
+  /* Schedule kind, only used for OMP_FOR type regions.  */
+  enum omp_clause_schedule_kind sched_kind;
+
+  /* True if this is a combined parallel+workshare region.  */
+  bool is_combined_parallel;
+};
+
+extern struct omp_region *root_omp_region;
+extern struct omp_region *new_omp_region (basic_block, enum tree_code,
+					  struct omp_region *);
+extern void free_omp_regions (void);
 
 /*---------------------------------------------------------------------------
 			      Function prototypes
@@ -560,6 +608,8 @@ extern void fold_cond_expr_cond (void);
 extern void replace_uses_by (tree, tree);
 extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
+extern basic_block move_sese_region_to_fn (struct function *, basic_block,
+				           basic_block);
 
 /* In tree-cfgcleanup.c  */
 extern bool cleanup_tree_cfg (void);
@@ -596,8 +646,9 @@ extern void remove_phi_node (tree, tree);
 extern tree phi_reverse (tree);
 
 /* In gimple-low.c  */
+extern void record_vars_into (tree, tree);
 extern void record_vars (tree);
-extern bool block_may_fallthru (tree block);
+extern bool block_may_fallthru (tree);
 
 /* In tree-ssa-alias.c  */
 extern void dump_may_aliases_for (FILE *, tree);
@@ -610,6 +661,7 @@ extern void dump_points_to_info_for (FILE *, tree);
 extern void debug_points_to_info_for (tree);
 extern bool may_be_aliased (tree);
 extern bool is_aliased_with (tree, tree);
+extern bool may_aliases_intersect (tree, tree);
 extern struct ptr_info_def *get_ptr_info (tree);
 extern void add_type_alias (tree, tree);
 extern void new_type_alias (tree, tree);
@@ -881,6 +933,7 @@ tree create_mem_ref (block_stmt_iterator *, tree,
 rtx addr_for_mem_ref (struct mem_address *, bool);
 void get_address_description (tree, struct mem_address *);
 tree maybe_fold_tmr (tree);
+
 /* This structure is simply used during pushing fields onto the fieldstack
    to track the offset of the field, since bitpos_of_field gives it relative
    to its immediate containing type, and we want it relative to the ultimate
@@ -903,5 +956,7 @@ void init_alias_heapvars (void);
 void delete_alias_heapvars (void);
 
 #include "tree-flow-inline.h"
+
+void swap_tree_operands (tree, tree *, tree *);
 
 #endif /* _TREE_FLOW_H  */

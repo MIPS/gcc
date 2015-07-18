@@ -149,6 +149,7 @@ struct dump_file_info
 #define PROP_no_crit_edges      (1 << 7)
 #define PROP_rtl		(1 << 8)
 #define PROP_alias		(1 << 9)
+#define PROP_gimple_lomp	(1 << 10)	/* lowered OpenMP directives */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh)
@@ -254,6 +255,8 @@ extern struct tree_opt_pass pass_lower_complex_O0;
 extern struct tree_opt_pass pass_lower_complex;
 extern struct tree_opt_pass pass_lower_vector;
 extern struct tree_opt_pass pass_lower_vector_ssa;
+extern struct tree_opt_pass pass_lower_omp;
+extern struct tree_opt_pass pass_expand_omp;
 extern struct tree_opt_pass pass_object_sizes;
 extern struct tree_opt_pass pass_fold_builtins;
 extern struct tree_opt_pass pass_stdarg;
@@ -334,7 +337,6 @@ extern struct tree_opt_pass pass_cse2;
 extern struct tree_opt_pass pass_life;
 extern struct tree_opt_pass pass_combine;
 extern struct tree_opt_pass pass_if_after_combine;
-extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_partition_blocks;
 extern struct tree_opt_pass pass_regmove;
 extern struct tree_opt_pass pass_split_all_insns;

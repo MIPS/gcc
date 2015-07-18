@@ -204,6 +204,10 @@ pp_cxx_unqualified_id (cxx_pretty_printer *pp, tree t)
       pp_cxx_unqualified_id (pp, TEMPLATE_PARM_DECL (t));
       break;
 
+    case UNBOUND_CLASS_TEMPLATE:
+      pp_cxx_unqualified_id (pp, TYPE_NAME (t));
+      break;
+
     default:
       pp_unsupported_tree (pp, t);
       break;
@@ -350,6 +354,10 @@ pp_cxx_primary_expression (cxx_pretty_printer *pp, tree t)
       pp_cxx_left_paren (pp);
       pp_cxx_statement (pp, STMT_EXPR_STMT (t));
       pp_cxx_right_paren (pp);
+      break;
+
+    case OFFSETOF_EXPR:
+      pp_cxx_offsetof_expression (pp, t);
       break;
 
     default:
@@ -693,7 +701,10 @@ pp_cxx_pm_expression (cxx_pretty_printer *pp, tree t)
     case MEMBER_REF:
     case DOTSTAR_EXPR:
       pp_cxx_pm_expression (pp, TREE_OPERAND (t, 0));
-      pp_cxx_dot (pp);
+      if (TREE_CODE (t) == MEMBER_REF)
+	pp_cxx_arrow (pp);
+      else
+	pp_cxx_dot (pp);
       pp_star(pp);
       pp_cxx_cast_expression (pp, TREE_OPERAND (t, 1));
       break;
@@ -1939,6 +1950,49 @@ pp_cxx_declaration (cxx_pretty_printer *pp, tree t)
 typedef c_pretty_print_fn pp_fun;
 
 /* Initialization of a C++ pretty-printer object.  */
+
+static bool
+pp_cxx_offsetof_expression_1 (cxx_pretty_printer *pp, tree t)
+{
+  switch (TREE_CODE (t))
+    {
+    case ARROW_EXPR:
+      if (TREE_CODE (TREE_OPERAND (t, 0)) == STATIC_CAST_EXPR
+	  && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (t, 0))))
+	{
+	  pp_cxx_type_id (pp, TREE_TYPE (TREE_TYPE (TREE_OPERAND (t, 0))));
+	  pp_cxx_separate_with (pp, ',');
+	  return true;
+	}
+      return false;
+    case COMPONENT_REF:
+      if (!pp_cxx_offsetof_expression_1 (pp, TREE_OPERAND (t, 0)))
+	return false;
+      if (TREE_CODE (TREE_OPERAND (t, 0)) != ARROW_EXPR)
+	pp_cxx_dot (pp);
+      pp_cxx_expression (pp, TREE_OPERAND (t, 1));
+      return true;
+    case ARRAY_REF:
+      if (!pp_cxx_offsetof_expression_1 (pp, TREE_OPERAND (t, 0)))
+	return false;
+      pp_left_bracket (pp);
+      pp_cxx_expression (pp, TREE_OPERAND (t, 1));
+      pp_right_bracket (pp);
+      return true;
+    default:
+      return false;
+    }
+}
+
+void
+pp_cxx_offsetof_expression (cxx_pretty_printer *pp, tree t)
+{
+  pp_cxx_identifier (pp, "offsetof");
+  pp_cxx_left_paren (pp);
+  if (!pp_cxx_offsetof_expression_1 (pp, TREE_OPERAND (t, 0)))
+    pp_cxx_expression (pp, TREE_OPERAND (t, 0));
+  pp_cxx_right_paren (pp);
+}
 
 void
 pp_cxx_pretty_printer_init (cxx_pretty_printer *pp)

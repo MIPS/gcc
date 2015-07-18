@@ -171,7 +171,6 @@ static void cgraph_expand_all_functions (void);
 static void cgraph_mark_functions_to_output (void);
 static void cgraph_expand_function (struct cgraph_node *);
 static tree record_reference (tree *, int *, void *);
-static void cgraph_analyze_function (struct cgraph_node *node);
 
 /* Local static variables needs to be passed to debug info after the function
    bodies are compiled.  */
@@ -360,8 +359,22 @@ cgraph_assemble_pending_functions (void)
 	}
     }
 
+  /* Process CGRAPH_EXPAND_QUEUE, these are functions created during
+     the expansion process.  Note that this queue may grow as its
+     being processed, as the new functions may generate new ones.  */
+  while (cgraph_expand_queue)
+    {
+      struct cgraph_node *n = cgraph_expand_queue;
+      cgraph_expand_queue = cgraph_expand_queue->next_needed;
+      n->next_needed = NULL;
+      cgraph_finalize_function (n->decl, false);
+      output = true;
+    }
+
   return output;
 }
+
+
 /* As an GCC extension we allow redefinition of the function.  The
    semantics when both copies of bodies differ is not well defined.
    We replace the old body with new body so in unit at a time mode
@@ -414,6 +427,15 @@ cgraph_reset_node (struct cgraph_node *node)
       if (!n)
 	node->reachable = 0;
     }
+}
+
+static void
+cgraph_lower_function (struct cgraph_node *node)
+{
+  if (node->lowered)
+    return;
+  tree_lowering_passes (node->decl);
+  node->lowered = true;
 }
 
 /* DECL has been parsed.  Take it, queue it, compile it at the whim of the
@@ -469,15 +491,6 @@ cgraph_finalize_function (tree decl, bool nested)
   /* Possibly warn about unused parameters.  */
   if (warn_unused_parameter)
     do_warn_unused_parameter (decl);
-}
-
-void
-cgraph_lower_function (struct cgraph_node *node)
-{
-  if (node->lowered)
-    return;
-  tree_lowering_passes (node->decl);
-  node->lowered = true;
 }
 
 /* Walk tree and record all calls.  Called via walk_tree.  */
@@ -864,7 +877,7 @@ cgraph_varpool_assemble_pending_decls (void)
 }
 
 /* Analyze the function scheduled to be output.  */
-static void
+void
 cgraph_analyze_function (struct cgraph_node *node)
 {
   tree decl = node->decl;
@@ -934,9 +947,16 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 	}
       if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
 	{
-	  if (node->local.finalized)
-	    cgraph_mark_needed_node (node);
-	  node->externally_visible = true;
+	  if (! TREE_PUBLIC (node->decl))
+	    warning (OPT_Wattributes,
+		     "%J%<externally_visible%> attribute have effect only on public objects",
+		     node->decl);
+	  else
+	    {
+	      if (node->local.finalized)
+		cgraph_mark_needed_node (node);
+	      node->local.externally_visible = true;
+	    }
 	}
     }
   for (vnode = cgraph_varpool_nodes; vnode != first_var; vnode = vnode->next)
@@ -950,9 +970,16 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 	}
       if (lookup_attribute ("externally_visible", DECL_ATTRIBUTES (decl)))
 	{
-	  if (vnode->finalized)
-	    cgraph_varpool_mark_needed_node (vnode);
-	  vnode->externally_visible = true;
+	  if (! TREE_PUBLIC (vnode->decl))
+	    warning (OPT_Wattributes,
+		     "%J%<externally_visible%> attribute have effect only on public objects",
+		     vnode->decl);
+	  else
+	    {
+	      if (vnode->finalized)
+		cgraph_varpool_mark_needed_node (vnode);
+	      vnode->externally_visible = true;
+	    }
 	}
     }
 }
@@ -966,6 +993,7 @@ cgraph_finalize_compilation_unit (void)
   /* Keep track of already processed nodes when called multiple times for
      intermodule optimization.  */
   static struct cgraph_node *first_analyzed;
+  struct cgraph_node *first_processed = first_analyzed;
   static struct cgraph_varpool_node *first_analyzed_var;
 
   if (errorcount || sorrycount)
@@ -986,7 +1014,10 @@ cgraph_finalize_compilation_unit (void)
     }
 
   timevar_push (TV_CGRAPH);
-  process_function_and_variable_attributes (first_analyzed, first_analyzed_var);
+  process_function_and_variable_attributes (first_processed,
+					    first_analyzed_var);
+  first_processed = cgraph_nodes;
+  first_analyzed_var = cgraph_varpool_nodes;
   cgraph_varpool_analyze_pending_decls ();
   if (cgraph_dump_file)
     {
@@ -1028,11 +1059,16 @@ cgraph_finalize_compilation_unit (void)
 	if (!edge->callee->reachable)
 	  cgraph_mark_reachable_node (edge->callee);
 
+      /* We finalize local static variables during constructing callgraph
+         edges.  Process their attributes too.  */
+      process_function_and_variable_attributes (first_processed,
+						first_analyzed_var);
+      first_processed = cgraph_nodes;
+      first_analyzed_var = cgraph_varpool_nodes;
       cgraph_varpool_analyze_pending_decls ();
     }
 
   /* Collect entry points to the unit.  */
-
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Unit entry points:");
@@ -1071,7 +1107,6 @@ cgraph_finalize_compilation_unit (void)
       dump_cgraph (cgraph_dump_file);
     }
   first_analyzed = cgraph_nodes;
-  first_analyzed_var = cgraph_varpool_nodes;
   ggc_collect ();
   timevar_pop (TV_CGRAPH);
 }
@@ -1207,7 +1242,21 @@ cgraph_expand_all_functions (void)
 	  cgraph_expand_function (node);
 	}
     }
+
   free (order);
+
+  /* Process CGRAPH_EXPAND_QUEUE, these are functions created during
+     the expansion process.  Note that this queue may grow as its
+     being processed, as the new functions may generate new ones.  */
+  while (cgraph_expand_queue)
+    {
+      node = cgraph_expand_queue;
+      cgraph_expand_queue = cgraph_expand_queue->next_needed;
+      node->next_needed = NULL;
+      node->output = 0;
+      node->lowered = DECL_STRUCT_FUNCTION (node->decl)->cfg != NULL;
+      cgraph_expand_function (node);
+    }
 }
 
 /* Mark visibility of all functions.
@@ -1391,7 +1440,10 @@ cgraph_optimize (void)
       for (node = cgraph_nodes; node; node = node->next)
 	if (node->analyzed
 	    && (node->global.inlined_to
-	        || DECL_SAVED_TREE (node->decl)))
+		|| DECL_SAVED_TREE (node->decl))
+	    /* Abstract functions are needed to output debug info,
+	       so don't complain about them if they are still around.  */
+	    && !DECL_ABSTRACT (node->decl))
 	  {
 	    error_found = true;
 	    dump_cgraph_node (stderr, node);

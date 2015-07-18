@@ -854,6 +854,42 @@ gfc_resolve_int (gfc_expr * f, gfc_expr * a, gfc_expr * kind)
 
 
 void
+gfc_resolve_int2 (gfc_expr * f, gfc_expr * a)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 2;
+
+  f->value.function.name =
+    gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
+		    a->ts.kind);
+}
+
+
+void
+gfc_resolve_int8 (gfc_expr * f, gfc_expr * a)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 8;
+
+  f->value.function.name =
+    gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
+		    a->ts.kind);
+}
+
+
+void
+gfc_resolve_long (gfc_expr * f, gfc_expr * a)
+{
+  f->ts.type = BT_INTEGER;
+  f->ts.kind = 4;
+
+  f->value.function.name =
+    gfc_get_string ("__int_%d_%c%d", f->ts.kind, gfc_type_letter (a->ts.type),
+		    a->ts.kind);
+}
+
+
+void
 gfc_resolve_isatty (gfc_expr * f, gfc_expr * u)
 {
   gfc_typespec ts;

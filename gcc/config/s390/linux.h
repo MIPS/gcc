@@ -79,7 +79,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 
 #undef  LINK_SPEC
 #define LINK_SPEC \
-  "%{m31:-m elf_s390}%{m64:-m elf64_s390} \
+  "%{m31:-m elf_s390}%{m64:-m elf64_s390} --hash-style=gnu \
    %{shared:-shared} \
    %{!shared: \
       %{static:-static} \

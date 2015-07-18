@@ -445,6 +445,7 @@ init_optimization_passes (void)
   p = &all_lowering_passes;
   NEXT_PASS (pass_remove_useless_stmts);
   NEXT_PASS (pass_mudflap_1);
+  NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_eh);
   NEXT_PASS (pass_build_cfg);
@@ -463,6 +464,7 @@ init_optimization_passes (void)
   p = &all_passes;
   NEXT_PASS (pass_fixup_cfg);
   NEXT_PASS (pass_init_datastructures);
+  NEXT_PASS (pass_expand_omp);
   NEXT_PASS (pass_all_optimizations);
   NEXT_PASS (pass_warn_function_noreturn);
   NEXT_PASS (pass_mudflap_2);
@@ -521,6 +523,7 @@ init_optimization_passes (void)
      propagate away the degenerate PHI nodes.  */
   NEXT_PASS (pass_phi_only_copy_prop);
 
+  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dce);
   NEXT_PASS (pass_dse);
   NEXT_PASS (pass_may_alias);
@@ -535,11 +538,11 @@ init_optimization_passes (void)
      which can create arbitrary GIMPLE.  */
   NEXT_PASS (pass_may_alias);
   NEXT_PASS (pass_split_crit_edges);
-  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_pre);
   NEXT_PASS (pass_sink_code);
   NEXT_PASS (pass_tree_loop);
   NEXT_PASS (pass_cse_reciprocals);
+  NEXT_PASS (pass_reassoc);
   NEXT_PASS (pass_dominator);
 
   /* The only copy propagation opportunities left after DOM
@@ -847,6 +850,9 @@ execute_one_pass (struct tree_opt_pass *pass)
       dump_end (pass->static_pass_number, dump_file);
       dump_file = NULL;
     }
+
+  /* Reset in_gimple_form to not break non-unit-at-a-time mode.  */
+  in_gimple_form = false;
 
   return true;
 }

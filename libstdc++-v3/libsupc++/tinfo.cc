@@ -426,7 +426,17 @@ __do_dyncast (ptrdiff_t src2dst,
       return false;
     }
 
+  // If src_type is a unique non-virtual base of dst_type, we have a good
+  // guess at the address we want, so in the first pass try skipping any
+  // bases which don't contain that address.
+  const void *dst_cand = NULL;
+  if (src2dst >= 0)
+    dst_cand = adjust_pointer<void>(src_ptr, -src2dst);
+  bool first_pass = true;
+  bool skipped = false;
+
   bool result_ambig = false;
+ again:
   for (std::size_t i = __base_count; i--;)
     {
       __dyncast_result result2 (result.whole_details);
@@ -438,6 +448,20 @@ __do_dyncast (ptrdiff_t src2dst,
       if (is_virtual)
         base_access = __sub_kind (base_access | __contained_virtual_mask);
       base = convert_to_base (base, is_virtual, offset);
+
+      if (dst_cand)
+	{
+	  bool skip_on_first_pass = base > dst_cand;
+	  if (skip_on_first_pass == first_pass)
+	    {
+	      // We aren't interested in this base on this pass: either
+	      // we're on the first pass and this base doesn't contain the
+	      // likely address, or we're on the second pass and we checked
+	      // this base on the first pass.
+	      skipped = true;
+	      continue;
+	    }
+	}
 
       if (!__base_info[i].__is_public_p ())
         {
@@ -585,6 +609,14 @@ __do_dyncast (ptrdiff_t src2dst,
         return result_ambig;
     }
 
+  if (skipped && first_pass)
+    {
+      // We didn't find dst where we expected it, so let's go back and try
+      // the bases we skipped (if any).
+      first_pass = false;
+      goto again;
+    }
+
   return result_ambig;
 }
 
@@ -699,12 +731,26 @@ __do_upcast (const __class_type_info *dst, const void *obj_ptr,
 }
 
 // this is the external interface to the dynamic cast machinery
+/* sub: source address to be adjusted; nonnull, and since the
+ *      source object is polymorphic, *(void**)sub is a virtual pointer.
+ * src: static type of the source object.
+ * dst: destination type (the "T" in "dynamic_cast<T>(v)").
+ * src2dst_offset: a static hint about the location of the
+ *    source subobject with respect to the complete object;
+ *    special negative values are:
+ *       -1: no hint
+ *       -2: src is not a public base of dst
+ *       -3: src is a multiple public base type but never a
+ *           virtual base type
+ *    otherwise, the src type is a unique public nonvirtual
+ *    base type of dst at offset src2dst_offset from the
+ *    origin of dst.  */
 extern "C" void *
 __dynamic_cast (const void *src_ptr,    // object started from
                 const __class_type_info *src_type, // type of the starting object
                 const __class_type_info *dst_type, // desired target type
                 ptrdiff_t src2dst) // how src and dst are related
-{
+  {
   const void *vtable = *static_cast <const void *const *> (src_ptr);
   const vtable_prefix *prefix =
       adjust_pointer <vtable_prefix> (vtable, 

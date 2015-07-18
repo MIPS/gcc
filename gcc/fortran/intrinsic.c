@@ -1532,6 +1532,26 @@ add_functions (void)
 
   make_generic ("int", GFC_ISYM_INT, GFC_STD_F77);
 
+  add_sym_1 ("int2", 1, 0, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_intconv, gfc_simplify_int2, gfc_resolve_int2,
+	     a, BT_REAL, dr, REQUIRED);
+
+  make_alias ("short", GFC_STD_GNU);
+
+  make_generic ("int2", GFC_ISYM_INT2, GFC_STD_GNU);
+
+  add_sym_1 ("int8", 1, 0, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_intconv, gfc_simplify_int8, gfc_resolve_int8,
+	     a, BT_REAL, dr, REQUIRED);
+
+  make_generic ("int8", GFC_ISYM_INT8, GFC_STD_GNU);
+
+  add_sym_1 ("long", 1, 0, BT_INTEGER, di, GFC_STD_GNU,
+	     gfc_check_intconv, gfc_simplify_long, gfc_resolve_long,
+	     a, BT_REAL, dr, REQUIRED);
+
+  make_generic ("long", GFC_ISYM_LONG, GFC_STD_GNU);
+
   add_sym_2 ("ior", 1, 1, BT_INTEGER, di, GFC_STD_F95,
 	     gfc_check_ior, gfc_simplify_ior, gfc_resolve_ior,
 	     i, BT_INTEGER, di, REQUIRED, j, BT_INTEGER, di, REQUIRED);
@@ -3269,8 +3289,7 @@ got_specific:
   /* TODO: We should probably only allow elemental functions here.  */
   flag |= (expr->ts.type != BT_INTEGER && expr->ts.type != BT_CHARACTER);
 
-  if (pedantic && gfc_init_expr
-      && flag && gfc_init_expr_extensions (specific))
+  if (gfc_init_expr && flag && gfc_init_expr_extensions (specific))
     {
       if (gfc_notify_std (GFC_STD_GNU, "Extension: Evaluation of "
 	    "nonstandard initialization expression at %L", &expr->where)

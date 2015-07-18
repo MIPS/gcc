@@ -2547,6 +2547,8 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	  rtx newdest = i2dest;
 	  enum rtx_code split_code = GET_CODE (*split);
 	  enum machine_mode split_mode = GET_MODE (*split);
+	  bool subst_done = false;
+	  newi2pat = NULL_RTX;
 
 	  /* Get NEWDEST as a register in the proper mode.  We have already
 	     validated that we can do this.  */
@@ -2592,8 +2594,69 @@ try_combine (rtx i3, rtx i2, rtx i1, int *new_direct_jump_p)
 	    }
 #endif
 
-	  newi2pat = gen_rtx_SET (VOIDmode, newdest, *split);
-	  SUBST (*split, newdest);
+	  /* Attempt to split binary operators using arithmetic identities.  */
+	  if (BINARY_P (SET_SRC (newpat))
+	      && split_mode == GET_MODE (SET_SRC (newpat))
+	      && ! side_effects_p (SET_SRC (newpat)))
+	    {
+	      rtx setsrc = SET_SRC (newpat);
+	      enum machine_mode mode = GET_MODE (setsrc);
+	      enum rtx_code code = GET_CODE (setsrc);
+	      rtx src_op0 = XEXP (setsrc, 0);
+	      rtx src_op1 = XEXP (setsrc, 1);
+
+	      /* Split "X = Y op Y" as "Z = Y; X = Z op Z".  */
+	      if (rtx_equal_p (src_op0, src_op1))
+		{
+		  newi2pat = gen_rtx_SET (VOIDmode, newdest, src_op0);
+		  SUBST (XEXP (setsrc, 0), newdest);
+		  SUBST (XEXP (setsrc, 1), newdest);
+		  subst_done = true;
+		}
+	      /* Split "((P op Q) op R) op S" where op is PLUS or MULT.  */
+	      else if ((code == PLUS || code == MULT)
+		       && GET_CODE (src_op0) == code
+		       && GET_CODE (XEXP (src_op0, 0)) == code
+		       && (INTEGRAL_MODE_P (mode)
+			   || (FLOAT_MODE_P (mode)
+			       && flag_unsafe_math_optimizations)))
+		{
+		  rtx p = XEXP (XEXP (src_op0, 0), 0);
+		  rtx q = XEXP (XEXP (src_op0, 0), 1);
+		  rtx r = XEXP (src_op0, 1);
+		  rtx s = src_op1;
+
+		  /* Split both "((X op Y) op X) op Y" and
+		     "((X op Y) op Y) op X" as "T op T" where T is
+		     "X op Y".  */
+		  if ((rtx_equal_p (p,r) && rtx_equal_p (q,s))
+		       || (rtx_equal_p (p,s) && rtx_equal_p (q,r)))
+		    {
+		      newi2pat = gen_rtx_SET (VOIDmode, newdest,
+					      XEXP (src_op0, 0));
+		      SUBST (XEXP (setsrc, 0), newdest);
+		      SUBST (XEXP (setsrc, 1), newdest);
+		      subst_done = true;
+		    }
+		  /* Split "((X op X) op Y) op Y)" as "T op T" where
+		     T is "X op Y".  */
+		  else if (rtx_equal_p (p,q) && rtx_equal_p (r,s))
+		    {
+		      rtx tmp = simplify_gen_binary (code, mode, p, r);
+		      newi2pat = gen_rtx_SET (VOIDmode, newdest, tmp);
+		      SUBST (XEXP (setsrc, 0), newdest);
+		      SUBST (XEXP (setsrc, 1), newdest);
+		      subst_done = true;
+		    }
+		}
+	    }
+
+	  if (!subst_done)
+	    {
+	      newi2pat = gen_rtx_SET (VOIDmode, newdest, *split);
+	      SUBST (*split, newdest);
+	    }
+
 	  i2_code_number = recog_for_combine (&newi2pat, i2, &new_i2_notes);
 
 	  /* recog_for_combine might have added CLOBBERs to newi2pat.
@@ -5067,9 +5130,10 @@ simplify_if_then_else (rtx x)
   /* Look for cases where we have (abs x) or (neg (abs X)).  */
 
   if (GET_MODE_CLASS (mode) == MODE_INT
+      && comparison_p
+      && XEXP (cond, 1) == const0_rtx
       && GET_CODE (false_rtx) == NEG
       && rtx_equal_p (true_rtx, XEXP (false_rtx, 0))
-      && comparison_p
       && rtx_equal_p (true_rtx, XEXP (cond, 0))
       && ! side_effects_p (true_rtx))
     switch (true_code)
@@ -5440,14 +5504,14 @@ simplify_set (rtx x)
 	}
       else if (GET_MODE (op0) == compare_mode && op1 == const0_rtx)
 	{
-	  SUBST(SET_SRC (x), op0);
+	  SUBST (SET_SRC (x), op0);
 	  src = SET_SRC (x);
-        }
-      else
+	}
+      /* Otherwise, update the COMPARE if needed.  */
+      else if (XEXP (src, 0) != op0 || XEXP (src, 1) != op1)
 	{
-	  /* Otherwise, update the COMPARE if needed.  */
-	  SUBST (XEXP (src, 0), op0);
-	  SUBST (XEXP (src, 1), op1);
+	  SUBST (SET_SRC (x), gen_rtx_COMPARE (compare_mode, op0, op1));
+	  src = SET_SRC (x);
 	}
     }
   else

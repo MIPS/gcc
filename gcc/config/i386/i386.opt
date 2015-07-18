@@ -24,7 +24,7 @@ Target RejectNegative Report Mask(128BIT_LONG_DOUBLE)
 sizeof(long double) is 16
 
 m32
-Target RejectNegative Report InverseMask(64BIT)
+Target RejectNegative Negative(m64) Report InverseMask(64BIT)
 Generate 32bit i386 code
 
 m386
@@ -40,7 +40,7 @@ Target RejectNegative Undocumented
 ;; Deprecated
 
 m64
-Target RejectNegative Report Mask(64BIT)
+Target RejectNegative Negative(m32) Report Mask(64BIT)
 Generate 64bit x86-64 code
 
 m80387
@@ -197,6 +197,34 @@ msse3
 Target Report Mask(SSE3)
 Support MMX, SSE, SSE2 and SSE3 built-in functions and code generation
 
+mssse3
+Target Report Mask(SSSE3)
+Support MMX, SSE, SSE2, SSE3 and SSSE3 built-in functions and code generation
+
+mmni
+Target Undocumented Mask(SSSE3) MaskExists
+Support MMX, SSE, SSE2, SSE3 and SSSE3 built-in functions and code generation
+
+msse4a
+Target Report Mask(SSE4A)
+Support MMX, SSE, SSE2, SSE3 and SSE4A built-in functions and code generation
+
+msse5
+Target Report Mask(SSE5)
+Support SSE5 built-in functions and code generation
+
+mpopcnt
+Target Report Mask(POPCNT)
+Support code generation of popcount instruction for popcount built-ins 
+namely __builtin_popcount, __builtin_popcountl and __builtin_popcountll
+
+mabm
+Target Report Mask(ABM)
+Support code generation of Advanced Bit Manipulation (ABM) instructions,
+which include popcnt and lzcnt instructions, for popcount and clz built-ins
+namely __builtin_popcount, __builtin_popcountl, __builtin_popcountll and
+__builtin_clz, __builtin_clzl, __builtin_clzll
+
 msseregparm
 Target RejectNegative Mask(SSEREGPARM)
 Use SSE register passing conventions for SF and DF mode
@@ -223,3 +251,9 @@ Schedule code for given CPU
 
 ;; Support Athlon 3Dnow builtins
 Mask(3DNOW_A)
+
+mfused-madd
+Target Report Var(x86_fused_muladd) Init(1)
+Enable automatic generation of fused floating point multiply-add instructions
+if the ISA supports such instructions.  The -mfused-madd option is on by
+default.

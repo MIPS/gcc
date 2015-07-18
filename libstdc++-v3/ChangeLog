@@ -1,3 +1,41 @@
+2008-04-08  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	Backport:
+	2006-03-24  Mark Mitchell  <mark@codesourcery.com>
+	            Joseph S. Myers  <joseph@codesourcery.com>
+
+	PR libstdc++/20448
+	PR libstdc++/20451
+	* scripts/testsuite_flags.in (--cxxflags): Don't define LOCALEDIR.
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Always define
+	LOCALEDIR to ".".
+	(v3-build_support): Build MO files.
+
+2008-02-14  Kaveh R. Ghazi  <ghazi@caip.rutgers.edu>
+
+	* testsuite/27_io/fpos/14320-1.cc: Check for "long long" and
+	remove XFAIL.
+
+2007-01-24   Steve LoBasso <slobasso@yahoo.com>
+	     Paolo Carlini  <pcarlini@suse.de>
+
+	* include/bits/deque.tcc (deque<>::erase(iterator, iterator)):
+	Fix condition.
+	* testsuite/23_containers/deque/modifiers/erase/3.cc: New.
+
+2007-04-23  Matthias Klose  <doko@debian.org>
+
+	Backport from mainline:
+	2007-02-27  Richard Guenther  <rguenther@suse.de>
+
+	* acinclude.m4: Adjust regular expression for ld version extraction.
+	* configure: Regenerate.
+
+2007-02-21  Mark Mitchell  <mark@codesourcery.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++_init): Compile testglue
+	with -fexceptions.
+
 2007-02-13  Release Manager
 
 	* GCC 4.1.2 released.
@@ -327,9 +365,33 @@
 	* testsuite/tr1/6_containers/array/specialized_algorithms/swap.cc:
 	Likewise.
 
+2006-02-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR other/26208
+	* libsupc++/eh_personality.cc (PERSONALITY_FUNCTION): Use
+	_Unwind_GetIPInfo instead of _Unwind_GetIP.
+
 2006-02-28  Release Manager
 
 	* GCC 4.1.0 released.
+
+2006-01-15  Paolo Carlini  <pcarlini@suse.de>
+	    Gabriel Dos Reis  <gdr@integrable-solutions.net>
+
+	PR libstdc++/25626
+	* include/std/std_valarray.h (valarray(const slice_array<>&),
+	valarray(const gslice_array<>&), valarray(const mask_array<>&),
+	valarray(const indirect_array<>&), valarray(const _Expr<>&)):
+	Forward to __valarray_copy_construct, not __valarray_copy.
+	* include/bits/valarray_array.h
+	(__valarray_copy_construct(_Array<>, _Array<>, _Array<>, size_t),
+	__valarray_copy_construct(_Array<>, size_t, size_t, _Array<>)):
+	New.
+
+2006-01-30  Paolo Carlini  <pcarlini@suse.de>
+
+	* include/std/std_bitset.h (bitset<>::_M_copy_to_string):
+	Call the internal _Unchecked_set(size_t) instead of set.
 
 2006-02-22  Paolo Carlini  <pcarlini@suse.de>
 
@@ -351,6 +413,64 @@
 	* docs/html/ext/pb_assoc/tree_assoc_cntnr_const_node_iterator.html:
 	Likewise.
 	* docs/html/ext/pb_assoc/tree_assoc_cntnr_node_iterator.html: Likewise.
+
+2006-02-07  Jakub Jelinek  <jakub@redhat.com>
+	    Benjamin Kosnik  <bkoz@redhat.com>
+
+	PR target/25864
+	* configure.ac (_GLIBCXX_LONG_DOUBLE_COMPAT): New check.
+	If true, set also port_specific_symbol_files and create
+	as_symver_specs.
+	(GLIBCXX_LDBL_COMPAT): New GLIBCXX_CONDITIONAL.
+	* configure: Rebuilt.
+	* config.h.in: Rebuilt.
+	* config/os/gnu-linux/ldbl-extra.ver: New file.
+	* config/linker-map.gnu: Make sure no __float128 symbols are
+	exported.
+	* include/bits/c++config (_GLIBCXX_LONG_DOUBLE_COMPAT,
+	_GLIBCXX_LDBL_NAMESPACE, _GLIBCXX_BEGIN_LDBL_NAMESPACE,
+	_GLIBCXX_END_LDBL_NAMESPACE): Define.
+	* include/bits/localefwd.h: Use them to conditionally scope facets.
+	* include/bits/locale_facets.h: Surround std::{money,num}_{get,put}
+	with _GLIBCXX_BEGIN_LDBL_NAMESPACE and _GLIBCXX_END_LDBL_NAMESPACE.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::money_get): Add __do_get method.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::money_put): Add __do_put method.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::num_get): Add __do_get method.
+	[_GLIBCXX_LONG_DOUBLE_COMPAT] (std::num_put): Add __do_put method.
+	* include/bits/locale_facets.tcc: Surround std::{money,num}_{get,put}
+	with _GLIBCXX_BEGIN_LDBL_NAMESPACE and _GLIBCXX_END_LDBL_NAMESPACE.
+	(std::money_get::__do_get, std::money_put::__do_put,
+	std::num_get::__do_get, std::num_put::__do_put): New
+	specializations.
+	* include/Makefile.am: Conditionally define
+	_GLIBCXX_LONG_DOUBLE_COMPAT in c++config.
+	* include/Makefile.in: Regenerate.
+	* src/locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT] (_GLIBCXX_LOC_ID,
+	_GLIBCXX_SYNC_ID): Define, use them.
+	* src/compatibility-ldbl.cc: New file.
+	* src/complex_io.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Add compatibility
+	symbols.
+	* src/limits.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/locale-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.	
+	* src/locale-misc-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/istream-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/ostream-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/wlocale-inst.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* src/compatibility.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]: Likewise.
+	* config/locale/generic/c_locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]:
+	Likewise.
+	* config/locale/gnu/c_locale.cc [_GLIBCXX_LONG_DOUBLE_COMPAT]:
+	Likewise.
+	* src/Makefile.am (libstdc++-symbol.ver): Append instead of
+	insert in the middle if port specific symbol file requests it.
+	(ldbl_compat_sources): New variable.
+	(sources): Use it.
+	(compatibility-ldbl.lo, compatibility-ldbl.o): New rules.
+	* src/Makefile.in: Rebuilt.
+	* testsuite/testsuite_abi.cc: Recognize GLIBCXX_LDBL_3.4,
+	GLIBCXX_LDBL_3.4.7, CXXABI_LDBL_1.3.	
 
 2006-02-07  Paolo Carlini  <pcarlini@suse.de>	
 

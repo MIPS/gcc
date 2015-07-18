@@ -566,6 +566,11 @@
   (and (match_code "const_int")
        (match_test "INTVAL (op) >= 0 && INTVAL (op) <= 15")))
 
+;; Match 0 to 31.
+(define_predicate "const_0_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 31)")))
+
 ;; Match 0 to 63.
 (define_predicate "const_0_to_63_operand"
   (and (match_code "const_int")
@@ -622,7 +627,7 @@
 {
   /* On Pentium4, the inc and dec operations causes extra dependency on flag
      registers, since carry flag is not set.  */
-  if ((TARGET_PENTIUM4 || TARGET_NOCONA) && !optimize_size)
+  if (!TARGET_USE_INCDEC && !optimize_size)
     return 0;
   return op == const1_rtx || op == constm1_rtx;
 })
@@ -701,6 +706,11 @@
   if (GET_CODE (op) != MEM)
     return 1;
 
+  /* All patterns using aligned_operand on memory operands ends up
+     in promoting memory operand to 64bit and thus causing memory mismatch.  */
+  if (TARGET_MEMORY_MISMATCH_STALL && !optimize_size)
+    return 0;
+
   /* Don't even try to do any aligned optimizations with volatiles.  */
   if (MEM_VOLATILE_P (op))
     return 0;
@@ -753,6 +763,34 @@
   return parts.disp != NULL_RTX;
 })
 
+;; Returns 1 if OP is memory operand which will need zero or
+;; one register at most, not counting stack pointer or frame pointer.
+(define_predicate "cmpxchg8b_pic_memory_operand"
+  (match_operand 0 "memory_operand")
+{
+  struct ix86_address parts;
+  int ok;
+
+  ok = ix86_decompose_address (XEXP (op, 0), &parts);
+  gcc_assert (ok);
+  if (parts.base == NULL_RTX
+      || parts.base == arg_pointer_rtx
+      || parts.base == frame_pointer_rtx
+      || parts.base == hard_frame_pointer_rtx
+      || parts.base == stack_pointer_rtx)
+    return 1;
+
+  if (parts.index == NULL_RTX
+      || parts.index == arg_pointer_rtx
+      || parts.index == frame_pointer_rtx
+      || parts.index == hard_frame_pointer_rtx
+      || parts.index == stack_pointer_rtx)
+    return 1;
+
+  return 0;
+})
+
+
 ;; Returns 1 if OP is memory operand that cannot be represented
 ;; by the modRM array.
 (define_predicate "long_memory_operand"
@@ -800,6 +838,18 @@
 
 (define_special_predicate "sse_comparison_operator"
   (match_code "eq,lt,le,unordered,ne,unge,ungt,ordered"))
+
+;; Return 1 if OP is a comparison operator that can be issued by sse predicate
+;; generation instructions
+(define_predicate "sse5_comparison_float_operator"
+  (and (match_test "TARGET_SSE5")
+       (match_code "ne,eq,ge,gt,le,lt,unordered,ordered,uneq,unge,ungt,unle,unlt,ltgt")))
+
+(define_predicate "ix86_comparison_int_operator"
+  (match_code "ne,eq,ge,gt,le,lt"))
+
+(define_predicate "ix86_comparison_uns_operator"
+  (match_code "ne,eq,geu,gtu,leu,ltu"))
 
 ;; Return 1 if OP is a valid comparison operator in valid mode.
 (define_predicate "ix86_comparison_operator"

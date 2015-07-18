@@ -96,7 +96,8 @@ static const char * const tree_node_kind_names[] = {
   "constructors",
   "random kinds",
   "lang_decl kinds",
-  "lang_type kinds"
+  "lang_type kinds",
+  "omp clauses"
 };
 #endif /* GATHER_STATISTICS */
 
@@ -135,10 +136,10 @@ static GTY ((if_marked ("ggc_marked_p"), param_is (union tree_node)))
 /* General tree->tree mapping  structure for use in hash tables.  */
 
 
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+static GTY ((if_marked ("tree_decl_map_marked_p"), param_is (struct tree_decl_map)))
      htab_t debug_expr_for_decl;
 
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+static GTY ((if_marked ("tree_decl_map_marked_p"), param_is (struct tree_decl_map)))
      htab_t value_expr_for_decl;
 
 static GTY ((if_marked ("tree_int_map_marked_p"), param_is (struct tree_int_map)))
@@ -171,22 +172,58 @@ tree global_trees[TI_MAX];
 tree integer_types[itk_none];
 
 unsigned char tree_contains_struct[256][64];
+
+/* Number of operands for each OpenMP clause.  */
+unsigned const char omp_clause_num_ops[] =
+{
+  0, /* OMP_CLAUSE_ERROR  */
+  1, /* OMP_CLAUSE_PRIVATE  */
+  1, /* OMP_CLAUSE_SHARED  */
+  1, /* OMP_CLAUSE_FIRSTPRIVATE  */
+  1, /* OMP_CLAUSE_LASTPRIVATE  */
+  4, /* OMP_CLAUSE_REDUCTION  */
+  1, /* OMP_CLAUSE_COPYIN  */
+  1, /* OMP_CLAUSE_COPYPRIVATE  */
+  1, /* OMP_CLAUSE_IF  */
+  1, /* OMP_CLAUSE_NUM_THREADS  */
+  1, /* OMP_CLAUSE_SCHEDULE  */
+  0, /* OMP_CLAUSE_NOWAIT  */
+  0, /* OMP_CLAUSE_ORDERED  */
+  0  /* OMP_CLAUSE_DEFAULT  */
+};
+
+const char * const omp_clause_code_name[] =
+{
+  "error_clause",
+  "private",
+  "shared",
+  "firstprivate",
+  "lastprivate",
+  "reduction",
+  "copyin",
+  "copyprivate",
+  "if",
+  "num_threads",
+  "schedule",
+  "nowait",
+  "ordered",
+  "default"
+};
 
 /* Init tree.c.  */
 
 void
 init_ttree (void)
 {
-
   /* Initialize the hash table of types.  */
   type_hash_table = htab_create_ggc (TYPE_HASH_INITIAL_SIZE, type_hash_hash,
 				     type_hash_eq, 0);
 
-  debug_expr_for_decl = htab_create_ggc (512, tree_map_hash,
-					 tree_map_eq, 0);
+  debug_expr_for_decl = htab_create_ggc (512, tree_decl_map_hash,
+					 tree_decl_map_eq, 0);
 
-  value_expr_for_decl = htab_create_ggc (512, tree_map_hash,
-					 tree_map_eq, 0);
+  value_expr_for_decl = htab_create_ggc (512, tree_decl_map_hash,
+					 tree_decl_map_eq, 0);
   init_priority_for_decl = htab_create_ggc (512, tree_int_map_hash,
 					    tree_int_map_eq, 0);
   restrict_base_for_decl = htab_create_ggc (256, tree_map_hash,
@@ -326,6 +363,7 @@ tree_code_size (enum tree_code code)
 	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
 
 	case TREE_VEC:
+	case OMP_CLAUSE:
 	case PHI_NODE:		gcc_unreachable ();
 
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
@@ -367,6 +405,11 @@ tree_size (tree node)
     case STRING_CST:
       return sizeof (struct tree_string) + TREE_STRING_LENGTH (node) - 1;
 
+    case OMP_CLAUSE:
+      return (sizeof (struct tree_omp_clause)
+	      + (omp_clause_num_ops[OMP_CLAUSE_CODE (node)] - 1)
+	        * sizeof (tree));
+
     default:
       return tree_code_size (code);
     }
@@ -374,8 +417,9 @@ tree_size (tree node)
 
 /* Return a newly allocated node of code CODE.  For decl and type
    nodes, some other fields are initialized.  The rest of the node is
-   initialized to zero.  This function cannot be used for PHI_NODE or
-   TREE_VEC nodes, which is enforced by asserts in tree_code_size.
+   initialized to zero.  This function cannot be used for PHI_NODE,
+   TREE_VEC or OMP_CLAUSE nodes, which is enforced by asserts in
+   tree_code_size.
 
    Achoo!  I got a code in the node.  */
 
@@ -2017,6 +2061,7 @@ tree_node_structure (tree t)
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;
     case VALUE_HANDLE:		return TS_VALUE_HANDLE;
+    case OMP_CLAUSE:		return TS_OMP_CLAUSE;
 
     default:
       gcc_unreachable ();
@@ -2133,6 +2178,8 @@ type_contains_placeholder_1 (tree type)
     case ARRAY_TYPE:
       /* We're already checked the component type (TREE_TYPE), so just check
 	 the index type.  */
+      if (TYPE_DOMAIN (type) == NULL_TREE)
+	return false;
       return type_contains_placeholder_p (TYPE_DOMAIN (type));
 
     case RECORD_TYPE:
@@ -2928,6 +2975,34 @@ build4_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 }
 
 tree
+build5_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
+	     tree arg2, tree arg3, tree arg4 MEM_STAT_DECL)
+{
+  bool constant, read_only, side_effects, invariant;
+  tree t;
+
+  gcc_assert (TREE_CODE_LENGTH (code) == 5);
+
+  t = make_node_stat (code PASS_MEM_STAT);
+  TREE_TYPE (t) = tt;
+
+  side_effects = TREE_SIDE_EFFECTS (t);
+
+  PROCESS_ARG(0);
+  PROCESS_ARG(1);
+  PROCESS_ARG(2);
+  PROCESS_ARG(3);
+  PROCESS_ARG(4);
+
+  TREE_SIDE_EFFECTS (t) = side_effects;
+  TREE_THIS_VOLATILE (t)
+    = (TREE_CODE_CLASS (code) == tcc_reference
+       && arg0 && TREE_THIS_VOLATILE (arg0));
+
+  return t;
+}
+
+tree
 build7_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 	     tree arg2, tree arg3, tree arg4, tree arg5,
 	     tree arg6 MEM_STAT_DECL)
@@ -3061,14 +3136,6 @@ build_decl_stat (enum tree_code code, tree name, tree type MEM_STAT_DECL)
     layout_decl (t, 0);
   else if (code == FUNCTION_DECL)
     DECL_MODE (t) = FUNCTION_MODE;
-
-  if (CODE_CONTAINS_STRUCT (code, TS_DECL_WITH_VIS))
-    {
-      /* Set default visibility to whatever the user supplied with
-	 visibility_specified depending on #pragma GCC visibility.  */
-      DECL_VISIBILITY (t) = default_visibility;
-      DECL_VISIBILITY_SPECIFIED (t) = visibility_options.inpragma;
-    }
 
   return t;
 }
@@ -3288,8 +3355,9 @@ build_type_attribute_qual_variant (tree ttype, tree attribute, int quals)
 	  hashcode = type_hash_list (TYPE_ARG_TYPES (ntype), hashcode);
 	  break;
 	case ARRAY_TYPE:
-	  hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
-					    hashcode);
+	  if (TYPE_DOMAIN (ntype))
+	    hashcode = iterative_hash_object (TYPE_HASH (TYPE_DOMAIN (ntype)),
+					      hashcode);
 	  break;
 	case INTEGER_TYPE:
 	  hashcode = iterative_hash_object
@@ -3407,6 +3475,28 @@ lookup_attribute (const char *attr_name, tree list)
   return NULL_TREE;
 }
 
+/* Remove any instances of attribute ATTR_NAME in LIST and return the
+   modified list.  */
+
+tree
+remove_attribute (const char *attr_name, tree list)
+{
+  tree *p;
+  size_t attr_len = strlen (attr_name);
+
+  for (p = &list; *p; )
+    {
+      tree l = *p;
+      gcc_assert (TREE_CODE (TREE_PURPOSE (l)) == IDENTIFIER_NODE);
+      if (is_attribute_with_length_p (attr_name, attr_len, TREE_PURPOSE (l)))
+	*p = TREE_CHAIN (l);
+      else
+	p = &TREE_CHAIN (l);
+    }
+
+  return list;
+}
+
 /* Return an attribute list that is the union of a1 and a2.  */
 
 tree
@@ -3441,7 +3531,17 @@ merge_attributes (tree a1, tree a2)
 		   a = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (a2)),
 					 TREE_CHAIN (a)))
 		{
-		  if (simple_cst_equal (TREE_VALUE (a), TREE_VALUE (a2)) == 1)
+		  if (TREE_VALUE (a) != NULL
+		      && TREE_CODE (TREE_VALUE (a)) == TREE_LIST
+		      && TREE_VALUE (a2) != NULL
+		      && TREE_CODE (TREE_VALUE (a2)) == TREE_LIST)
+		    {
+		      if (simple_cst_list_equal (TREE_VALUE (a),
+						 TREE_VALUE (a2)) == 1)
+			break;
+		    }
+		  else if (simple_cst_equal (TREE_VALUE (a),
+					     TREE_VALUE (a2)) == 1)
 		    break;
 		}
 	      if (a == NULL_TREE)
@@ -3785,6 +3885,35 @@ tree_map_marked_p (const void *p)
   return ggc_marked_p (from);
 }
 
+/* Return true if the from tree in both tree decl maps are equal.  */
+
+int
+tree_decl_map_eq (const void *va, const void *vb)
+{
+  const struct tree_decl_map *a = va, *b = vb;
+  return (a->from == b->from);
+}
+
+/* Hash a from tree in a tree_decl_map.  */
+
+unsigned int
+tree_decl_map_hash (const void *item)
+{
+  return DECL_UID (((const struct tree_decl_map *) item)->from);
+}
+
+/* Return true if this tree map structure is marked for garbage collection
+   purposes.  We simply return true if the from tree is marked, so that this
+   structure goes away when the from tree goes away.  */
+
+int
+tree_decl_map_marked_p (const void *p)
+{
+  tree from = ((struct tree_decl_map *) p)->from;
+
+  return ggc_marked_p (from);
+}
+
 /* Return true if the trees in the tree_int_map *'s VA and VB are equal.  */
 
 static int
@@ -3915,10 +4044,10 @@ print_restrict_base_statistics (void)
 tree 
 decl_debug_expr_lookup (tree from)
 {
-  struct tree_map *h, in;
+  struct tree_decl_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (debug_expr_for_decl, &in, htab_hash_pointer (from));
+  h = htab_find_with_hash (debug_expr_for_decl, &in, DECL_UID (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -3929,15 +4058,15 @@ decl_debug_expr_lookup (tree from)
 void
 decl_debug_expr_insert (tree from, tree to)
 {
-  struct tree_map *h;
+  struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
-  h->hash = htab_hash_pointer (from);
+  h = ggc_alloc (sizeof (struct tree_decl_map));
   h->from = from;
   h->to = to;
-  loc = htab_find_slot_with_hash (debug_expr_for_decl, h, h->hash, INSERT);
-  *(struct tree_map **) loc = h;
+  loc = htab_find_slot_with_hash (debug_expr_for_decl, h, DECL_UID (from),
+				  INSERT);
+  *(struct tree_decl_map **) loc = h;
 }  
 
 /* Lookup a value expression for FROM, and return it if we find one.  */
@@ -3945,10 +4074,10 @@ decl_debug_expr_insert (tree from, tree to)
 tree 
 decl_value_expr_lookup (tree from)
 {
-  struct tree_map *h, in;
+  struct tree_decl_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (value_expr_for_decl, &in, htab_hash_pointer (from));
+  h = htab_find_with_hash (value_expr_for_decl, &in, DECL_UID (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -3959,15 +4088,15 @@ decl_value_expr_lookup (tree from)
 void
 decl_value_expr_insert (tree from, tree to)
 {
-  struct tree_map *h;
+  struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
-  h->hash = htab_hash_pointer (from);
+  h = ggc_alloc (sizeof (struct tree_decl_map));
   h->from = from;
   h->to = to;
-  loc = htab_find_slot_with_hash (value_expr_for_decl, h, h->hash, INSERT);
-  *(struct tree_map **) loc = h;
+  loc = htab_find_slot_with_hash (value_expr_for_decl, h, DECL_UID (from),
+				  INSERT);
+  *(struct tree_decl_map **) loc = h;
 }
 
 /* Hashing of types so that we don't make duplicates.
@@ -4071,17 +4200,21 @@ type_hash_eq (const void *va, const void *vb)
 				      TYPE_FIELDS (b->type))));
 
     case FUNCTION_TYPE:
-      return (TYPE_ARG_TYPES (a->type) == TYPE_ARG_TYPES (b->type)
-	      || (TYPE_ARG_TYPES (a->type)
-		  && TREE_CODE (TYPE_ARG_TYPES (a->type)) == TREE_LIST
-		  && TYPE_ARG_TYPES (b->type)
-		  && TREE_CODE (TYPE_ARG_TYPES (b->type)) == TREE_LIST
-		  && type_list_equal (TYPE_ARG_TYPES (a->type),
-				      TYPE_ARG_TYPES (b->type))));
+      if (TYPE_ARG_TYPES (a->type) == TYPE_ARG_TYPES (b->type)
+	  || (TYPE_ARG_TYPES (a->type)
+	      && TREE_CODE (TYPE_ARG_TYPES (a->type)) == TREE_LIST
+	      && TYPE_ARG_TYPES (b->type)
+	      && TREE_CODE (TYPE_ARG_TYPES (b->type)) == TREE_LIST
+	      && type_list_equal (TYPE_ARG_TYPES (a->type),
+				  TYPE_ARG_TYPES (b->type))))
+	break;
+      return 0;
 
     default:
       return 0;
     }
+
+  return lang_hooks.types.type_hash_eq (a->type, b->type);
 }
 
 /* Return the cached hash value.  */
@@ -4253,14 +4386,20 @@ attribute_list_contained (tree l1, tree l2)
 	   attr = lookup_attribute (IDENTIFIER_POINTER (TREE_PURPOSE (t2)),
 				    TREE_CHAIN (attr)))
 	{
-	  if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) == 1)
+	  if (TREE_VALUE (t2) != NULL
+	      && TREE_CODE (TREE_VALUE (t2)) == TREE_LIST
+	      && TREE_VALUE (attr) != NULL
+	      && TREE_CODE (TREE_VALUE (attr)) == TREE_LIST)
+	    {
+	      if (simple_cst_list_equal (TREE_VALUE (t2),
+					 TREE_VALUE (attr)) == 1)
+		break;
+	    }
+	  else if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) == 1)
 	    break;
 	}
 
       if (attr == 0)
-	return 0;
-
-      if (simple_cst_equal (TREE_VALUE (t2), TREE_VALUE (attr)) != 1)
 	return 0;
     }
 
@@ -5781,6 +5920,9 @@ get_callee_fndecl (tree call)
 {
   tree addr;
 
+  if (call == error_mark_node)
+    return call;
+
   /* It's invalid to call this function with anything but a
      CALL_EXPR.  */
   gcc_assert (TREE_CODE (call) == CALL_EXPR);
@@ -5940,7 +6082,7 @@ get_file_function_name_long (const char *type)
       clean_symbol_name (q);
 
       sprintf (q + len, "_%08X_%08X", crc32_string (0, name),
-	       crc32_string (0, flag_random_seed));
+	       crc32_string (0, get_random_seed (false)));
 
       p = q;
     }
@@ -6065,6 +6207,88 @@ tree_class_check_failed (const tree node, const enum tree_code_class cl,
      TREE_CODE_CLASS_STRING (TREE_CODE_CLASS (TREE_CODE (node))),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
+
+/* Similar to tree_check_failed, except that instead of specifying a
+   dozen codes, use the knowledge that they're all sequential.  */
+
+void
+tree_range_check_failed (const tree node, const char *file, int line,
+			 const char *function, enum tree_code c1,
+			 enum tree_code c2)
+{
+  char *buffer;
+  unsigned length = 0;
+  enum tree_code c;
+
+  for (c = c1; c <= c2; ++c)
+    length += 4 + strlen (tree_code_name[c]);
+
+  length += strlen ("expected ");
+  buffer = alloca (length);
+  length = 0;
+
+  for (c = c1; c <= c2; ++c)
+    {
+      const char *prefix = length ? " or " : "expected ";
+
+      strcpy (buffer + length, prefix);
+      length += strlen (prefix);
+      strcpy (buffer + length, tree_code_name[c]);
+      length += strlen (tree_code_name[c]);
+    }
+
+  internal_error ("tree check: %s, have %s in %s, at %s:%d",
+		  buffer, tree_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
+}
+
+
+/* Similar to tree_check_failed but applied to OMP_CLAUSE codes.  */
+
+void
+omp_clause_check_failed (const tree node, const char *file, int line,
+                         const char *function, enum omp_clause_code code)
+{
+  internal_error ("tree check: expected omp_clause %s, have %s in %s, at %s:%d",
+		  omp_clause_code_name[code], tree_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
+}
+
+
+/* Similar to tree_range_check_failed but applied to OMP_CLAUSE codes.  */
+
+void
+omp_clause_range_check_failed (const tree node, const char *file, int line,
+			       const char *function, enum omp_clause_code c1,
+			       enum omp_clause_code c2)
+{
+  char *buffer;
+  unsigned length = 0;
+  enum omp_clause_code c;
+
+  for (c = c1; c <= c2; ++c)
+    length += 4 + strlen (omp_clause_code_name[c]);
+
+  length += strlen ("expected ");
+  buffer = alloca (length);
+  length = 0;
+
+  for (c = c1; c <= c2; ++c)
+    {
+      const char *prefix = length ? " or " : "expected ";
+
+      strcpy (buffer + length, prefix);
+      length += strlen (prefix);
+      strcpy (buffer + length, omp_clause_code_name[c]);
+      length += strlen (omp_clause_code_name[c]);
+    }
+
+  internal_error ("tree check: %s, have %s in %s, at %s:%d",
+		  buffer, omp_clause_code_name[TREE_CODE (node)],
+		  function, trim_filename (file), line);
+}
+
+
 #undef DEFTREESTRUCT
 #define DEFTREESTRUCT(VAL, NAME) NAME,
 
@@ -6126,6 +6350,20 @@ tree_operand_check_failed (int idx, enum tree_code code, const char *file,
     ("tree check: accessed operand %d of %s with %d operands in %s, at %s:%d",
      idx + 1, tree_code_name[code], TREE_CODE_LENGTH (code),
      function, trim_filename (file), line);
+}
+
+/* Similar to above, except that the check is for the number of
+   operands of an OMP_CLAUSE node.  */
+
+void
+omp_clause_operand_check_failed (int idx, tree t, const char *file,
+			         int line, const char *function)
+{
+  internal_error
+    ("tree check: accessed operand %d of omp_clause %s with %d operands "
+     "in %s, at %s:%d", idx + 1, omp_clause_code_name[OMP_CLAUSE_CODE (t)],
+     omp_clause_num_ops [OMP_CLAUSE_CODE (t)], function,
+     trim_filename (file), line);
 }
 #endif /* ENABLE_TREE_CHECKING */
 
@@ -6675,6 +6913,31 @@ build_empty_stmt (void)
 }
 
 
+/* Build an OpenMP clause with code CODE.  */
+
+tree
+build_omp_clause (enum omp_clause_code code)
+{
+  tree t;
+  int size, length;
+
+  length = omp_clause_num_ops[code];
+  size = (sizeof (struct tree_omp_clause) + (length - 1) * sizeof (tree));
+
+  t = ggc_alloc (size);
+  memset (t, 0, size);
+  TREE_SET_CODE (t, OMP_CLAUSE);
+  OMP_CLAUSE_SET_CODE (t, code);
+
+#ifdef GATHER_STATISTICS
+  tree_node_counts[(int) omp_clause_kind]++;
+  tree_node_sizes[(int) omp_clause_kind] += size;
+#endif
+  
+  return t;
+}
+
+
 /* Returns true if it is possible to prove that the index of
    an array access REF (an ARRAY_REF expression) falls into the
    array bounds.  */
@@ -6831,7 +7094,7 @@ tree
 unsigned_type_for (tree type)
 {
   if (POINTER_TYPE_P (type))
-    return size_type_node;
+    return lang_hooks.types.unsigned_type (size_type_node);
   return lang_hooks.types.unsigned_type (type);
 }
 
@@ -6840,6 +7103,8 @@ unsigned_type_for (tree type)
 tree
 signed_type_for (tree type)
 {
+  if (POINTER_TYPE_P (type))
+    return lang_hooks.types.signed_type (size_type_node);
   return lang_hooks.types.signed_type (type);
 }
 
@@ -7147,9 +7412,11 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
      interesting below this point in the tree.  */
   if (!walk_subtrees)
     {
+      /* But we still need to check our siblings.  */
       if (code == TREE_LIST)
-	/* But we still need to check our siblings.  */
 	WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
+      else if (code == OMP_CLAUSE)
+	WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
       else
 	return NULL_TREE;
     }
@@ -7159,190 +7426,207 @@ walk_tree (tree *tp, walk_tree_fn func, void *data, struct pointer_set_t *pset)
   if (result || ! walk_subtrees)
     return result;
 
-  /* If this is a DECL_EXPR, walk into various fields of the type that it's
-     defining.  We only want to walk into these fields of a type in this
-     case.  Note that decls get walked as part of the processing of a
-     BIND_EXPR.
-
-     ??? Precisely which fields of types that we are supposed to walk in
-     this case vs. the normal case aren't well defined.  */
-  if (code == DECL_EXPR
-      && TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL
-      && TREE_CODE (TREE_TYPE (DECL_EXPR_DECL (*tp))) != ERROR_MARK)
+  switch (code)
     {
-      tree *type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
+    case ERROR_MARK:
+    case IDENTIFIER_NODE:
+    case INTEGER_CST:
+    case REAL_CST:
+    case VECTOR_CST:
+    case STRING_CST:
+    case BLOCK:
+    case PLACEHOLDER_EXPR:
+    case SSA_NAME:
+    case FIELD_DECL:
+    case RESULT_DECL:
+      /* None of these have subtrees other than those already walked
+	 above.  */
+      break;
 
-      /* Call the function for the type.  See if it returns anything or
-	 doesn't want us to continue.  If we are to continue, walk both
-	 the normal fields and those for the declaration case.  */
-      result = (*func) (type_p, &walk_subtrees, data);
-      if (result || !walk_subtrees)
-	return NULL_TREE;
+    case TREE_LIST:
+      WALK_SUBTREE (TREE_VALUE (*tp));
+      WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
+      break;
 
-      result = walk_type_fields (*type_p, func, data, pset);
-      if (result)
-	return result;
+    case TREE_VEC:
+      {
+	int len = TREE_VEC_LENGTH (*tp);
 
-      WALK_SUBTREE (TYPE_SIZE (*type_p));
-      WALK_SUBTREE (TYPE_SIZE_UNIT (*type_p));
+	if (len == 0)
+	  break;
 
-      /* If this is a record type, also walk the fields.  */
-      if (TREE_CODE (*type_p) == RECORD_TYPE
-	  || TREE_CODE (*type_p) == UNION_TYPE
-	  || TREE_CODE (*type_p) == QUAL_UNION_TYPE)
+	/* Walk all elements but the first.  */
+	while (--len)
+	  WALK_SUBTREE (TREE_VEC_ELT (*tp, len));
+
+	/* Now walk the first one as a tail call.  */
+	WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
+      }
+
+    case COMPLEX_CST:
+      WALK_SUBTREE (TREE_REALPART (*tp));
+      WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
+
+    case CONSTRUCTOR:
+      {
+	unsigned HOST_WIDE_INT idx;
+	constructor_elt *ce;
+
+	for (idx = 0;
+	     VEC_iterate(constructor_elt, CONSTRUCTOR_ELTS (*tp), idx, ce);
+	     idx++)
+	  WALK_SUBTREE (ce->value);
+      }
+      break;
+
+    case SAVE_EXPR:
+      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
+
+    case BIND_EXPR:
+      {
+	tree decl;
+	for (decl = BIND_EXPR_VARS (*tp); decl; decl = TREE_CHAIN (decl))
+	  {
+	    /* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
+	       into declarations that are just mentioned, rather than
+	       declared; they don't really belong to this part of the tree.
+	       And, we can see cycles: the initializer for a declaration
+	       can refer to the declaration itself.  */
+	    WALK_SUBTREE (DECL_INITIAL (decl));
+	    WALK_SUBTREE (DECL_SIZE (decl));
+	    WALK_SUBTREE (DECL_SIZE_UNIT (decl));
+	  }
+	WALK_SUBTREE_TAIL (BIND_EXPR_BODY (*tp));
+      }
+
+    case STATEMENT_LIST:
+      {
+	tree_stmt_iterator i;
+	for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
+	  WALK_SUBTREE (*tsi_stmt_ptr (i));
+      }
+      break;
+
+    case OMP_CLAUSE:
+      switch (OMP_CLAUSE_CODE (*tp))
 	{
-	  tree field;
+	case OMP_CLAUSE_PRIVATE:
+	case OMP_CLAUSE_SHARED:
+	case OMP_CLAUSE_FIRSTPRIVATE:
+	case OMP_CLAUSE_LASTPRIVATE:
+	case OMP_CLAUSE_COPYIN:
+	case OMP_CLAUSE_COPYPRIVATE:
+	case OMP_CLAUSE_IF:
+	case OMP_CLAUSE_NUM_THREADS:
+	case OMP_CLAUSE_SCHEDULE:
+	  WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, 0));
+	  /* FALLTHRU */
 
-	  for (field = TYPE_FIELDS (*type_p); field;
-	       field = TREE_CHAIN (field))
-	    {
-	      /* We'd like to look at the type of the field, but we can easily
-		 get infinite recursion.  So assume it's pointed to elsewhere
-		 in the tree.  Also, ignore things that aren't fields.  */
-	      if (TREE_CODE (field) != FIELD_DECL)
-		continue;
+	case OMP_CLAUSE_NOWAIT:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_DEFAULT:
+	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
-	      WALK_SUBTREE (DECL_FIELD_OFFSET (field));
-	      WALK_SUBTREE (DECL_SIZE (field));
-	      WALK_SUBTREE (DECL_SIZE_UNIT (field));
-	      if (TREE_CODE (*type_p) == QUAL_UNION_TYPE)
-		WALK_SUBTREE (DECL_QUALIFIER (field));
-	    }
-	}
-    }
-
-  else if (code != SAVE_EXPR
-	   && code != BIND_EXPR
-	   && IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
-    {
-      int i, len;
-
-      /* Walk over all the sub-trees of this operand.  */
-      len = TREE_CODE_LENGTH (code);
-      /* TARGET_EXPRs are peculiar: operands 1 and 3 can be the same.
-	 But, we only want to walk once.  */
-      if (code == TARGET_EXPR
-	  && TREE_OPERAND (*tp, 3) == TREE_OPERAND (*tp, 1))
-	--len;
-
-      /* Go through the subtrees.  We need to do this in forward order so
-         that the scope of a FOR_EXPR is handled properly.  */
-#ifdef DEBUG_WALK_TREE
-      for (i = 0; i < len; ++i)
-	WALK_SUBTREE (TREE_OPERAND (*tp, i));
-#else
-      for (i = 0; i < len - 1; ++i)
-	WALK_SUBTREE (TREE_OPERAND (*tp, i));
-
-      if (len)
-	{
-	  /* The common case is that we may tail recurse here.  */
-	  if (code != BIND_EXPR
-	      && !TREE_CHAIN (*tp))
-	    WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
-	  else
-	    WALK_SUBTREE (TREE_OPERAND (*tp, len - 1));
-	}
-#endif
-    }
-
-  /* If this is a type, walk the needed fields in the type.  */
-  else if (TYPE_P (*tp))
-    {
-      result = walk_type_fields (*tp, func, data, pset);
-      if (result)
-	return result;
-    }
-  else
-    {
-      /* Not one of the easy cases.  We must explicitly go through the
-	 children.  */
-      switch (code)
-	{
-	case ERROR_MARK:
-	case IDENTIFIER_NODE:
-	case INTEGER_CST:
-	case REAL_CST:
-	case VECTOR_CST:
-	case STRING_CST:
-	case BLOCK:
-	case PLACEHOLDER_EXPR:
-	case SSA_NAME:
-	case FIELD_DECL:
-	case RESULT_DECL:
-	  /* None of these have subtrees other than those already walked
-	     above.  */
-	  break;
-
-	case TREE_LIST:
-	  WALK_SUBTREE (TREE_VALUE (*tp));
-	  WALK_SUBTREE_TAIL (TREE_CHAIN (*tp));
-	  break;
-
-	case TREE_VEC:
+	case OMP_CLAUSE_REDUCTION:
 	  {
-	    int len = TREE_VEC_LENGTH (*tp);
-
-	    if (len == 0)
-	      break;
-
-	    /* Walk all elements but the first.  */
-	    while (--len)
-	      WALK_SUBTREE (TREE_VEC_ELT (*tp, len));
-
-	    /* Now walk the first one as a tail call.  */
-	    WALK_SUBTREE_TAIL (TREE_VEC_ELT (*tp, 0));
+	    int i;
+	    for (i = 0; i < 4; i++)
+	      WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, i));
+	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 	  }
-
-	case COMPLEX_CST:
-	  WALK_SUBTREE (TREE_REALPART (*tp));
-	  WALK_SUBTREE_TAIL (TREE_IMAGPART (*tp));
-
-	case CONSTRUCTOR:
-	  {
-	    unsigned HOST_WIDE_INT idx;
-	    constructor_elt *ce;
-
-	    for (idx = 0;
-		 VEC_iterate(constructor_elt, CONSTRUCTOR_ELTS (*tp), idx, ce);
-		 idx++)
-	      WALK_SUBTREE (ce->value);
-	  }
-	  break;
-
-	case SAVE_EXPR:
-	  WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, 0));
-
-	case BIND_EXPR:
-	  {
-	    tree decl;
-	    for (decl = BIND_EXPR_VARS (*tp); decl; decl = TREE_CHAIN (decl))
-	      {
-		/* Walk the DECL_INITIAL and DECL_SIZE.  We don't want to walk
-		   into declarations that are just mentioned, rather than
-		   declared; they don't really belong to this part of the tree.
-		   And, we can see cycles: the initializer for a declaration
-		   can refer to the declaration itself.  */
-		WALK_SUBTREE (DECL_INITIAL (decl));
-		WALK_SUBTREE (DECL_SIZE (decl));
-		WALK_SUBTREE (DECL_SIZE_UNIT (decl));
-	      }
-	    WALK_SUBTREE_TAIL (BIND_EXPR_BODY (*tp));
-	  }
-
-	case STATEMENT_LIST:
-	  {
-	    tree_stmt_iterator i;
-	    for (i = tsi_start (*tp); !tsi_end_p (i); tsi_next (&i))
-	      WALK_SUBTREE (*tsi_stmt_ptr (i));
-	  }
-	  break;
 
 	default:
-	  /* ??? This could be a language-defined node.  We really should make
-	     a hook for it, but right now just ignore it.  */
-	  break;
+	  gcc_unreachable ();
 	}
+      break;
+
+    case TARGET_EXPR:
+      {
+	int i, len;
+
+	/* TARGET_EXPRs are peculiar: operands 1 and 3 can be the same.
+	   But, we only want to walk once.  */
+	len = (TREE_OPERAND (*tp, 3) == TREE_OPERAND (*tp, 1)) ? 2 : 3;
+	for (i = 0; i < len; ++i)
+	  WALK_SUBTREE (TREE_OPERAND (*tp, i));
+	WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len));
+      }
+
+    case DECL_EXPR:
+      /* Walk into various fields of the type that it's defining.  We only
+	 want to walk into these fields of a type in this case.  Note that
+	 decls get walked as part of the processing of a BIND_EXPR.
+
+	 ??? Precisely which fields of types that we are supposed to walk in
+	 this case vs. the normal case aren't well defined.  */
+      if (TREE_CODE (DECL_EXPR_DECL (*tp)) == TYPE_DECL
+	  && TREE_CODE (TREE_TYPE (DECL_EXPR_DECL (*tp))) != ERROR_MARK)
+	{
+	  tree *type_p = &TREE_TYPE (DECL_EXPR_DECL (*tp));
+
+	  /* Call the function for the type.  See if it returns anything or
+	     doesn't want us to continue.  If we are to continue, walk both
+	     the normal fields and those for the declaration case.  */
+	  result = (*func) (type_p, &walk_subtrees, data);
+	  if (result || !walk_subtrees)
+	    return NULL_TREE;
+
+	  result = walk_type_fields (*type_p, func, data, pset);
+	  if (result)
+	    return result;
+
+	  /* If this is a record type, also walk the fields.  */
+	  if (TREE_CODE (*type_p) == RECORD_TYPE
+	      || TREE_CODE (*type_p) == UNION_TYPE
+	      || TREE_CODE (*type_p) == QUAL_UNION_TYPE)
+	    {
+	      tree field;
+
+	      for (field = TYPE_FIELDS (*type_p); field;
+		   field = TREE_CHAIN (field))
+		{
+		  /* We'd like to look at the type of the field, but we can
+		     easily get infinite recursion.  So assume it's pointed
+		     to elsewhere in the tree.  Also, ignore things that
+		     aren't fields.  */
+		  if (TREE_CODE (field) != FIELD_DECL)
+		    continue;
+
+		  WALK_SUBTREE (DECL_FIELD_OFFSET (field));
+		  WALK_SUBTREE (DECL_SIZE (field));
+		  WALK_SUBTREE (DECL_SIZE_UNIT (field));
+		  if (TREE_CODE (*type_p) == QUAL_UNION_TYPE)
+		    WALK_SUBTREE (DECL_QUALIFIER (field));
+		}
+	    }
+
+	  WALK_SUBTREE (TYPE_SIZE (*type_p));
+	  WALK_SUBTREE_TAIL (TYPE_SIZE_UNIT (*type_p));
+	}
+      /* FALLTHRU */
+
+    default:
+      if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+	{
+	  int i, len;
+
+	  /* Walk over all the sub-trees of this operand.  */
+	  len = TREE_CODE_LENGTH (code);
+
+	  /* Go through the subtrees.  We need to do this in forward order so
+	     that the scope of a FOR_EXPR is handled properly.  */
+	  if (len)
+	    {
+	      for (i = 0; i < len - 1; ++i)
+		WALK_SUBTREE (TREE_OPERAND (*tp, i));
+	      WALK_SUBTREE_TAIL (TREE_OPERAND (*tp, len - 1));
+	    }
+	}
+
+      /* If this is a type, walk the needed fields in the type.  */
+      else if (TYPE_P (*tp))
+	return walk_type_fields (*tp, func, data, pset);
+      break;
     }
 
   /* We didn't find what we were looking for.  */
@@ -7364,6 +7648,68 @@ walk_tree_without_duplicates (tree *tp, walk_tree_fn func, void *data)
   result = walk_tree (tp, func, data, pset);
   pointer_set_destroy (pset);
   return result;
+}
+
+
+/* Return true if STMT is an empty statement or contains nothing but
+   empty statements.  */
+
+bool
+empty_body_p (tree stmt)
+{
+  tree_stmt_iterator i;
+  tree body;
+
+  if (IS_EMPTY_STMT (stmt))
+    return true;
+  else if (TREE_CODE (stmt) == BIND_EXPR)
+    body = BIND_EXPR_BODY (stmt);
+  else if (TREE_CODE (stmt) == STATEMENT_LIST)
+    body = stmt;
+  else
+    return false;
+
+  for (i = tsi_start (body); !tsi_end_p (i); tsi_next (&i))
+    if (!empty_body_p (tsi_stmt (i)))
+      return false;
+
+  return true;
+}
+
+/* If BLOCK is inlined from an __attribute__((__artificial__))
+   routine, return pointer to location from where it has been
+   called.  */
+location_t *
+block_nonartificial_location (tree block)
+{
+  location_t *ret = NULL;
+
+  while (block && TREE_CODE (block) == BLOCK
+	 && BLOCK_ABSTRACT_ORIGIN (block))
+    {
+      tree ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+      while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+	ao = BLOCK_ABSTRACT_ORIGIN (ao);
+
+      if (TREE_CODE (ao) == FUNCTION_DECL)
+	{
+	  /* If AO is an artificial inline, point RET to the
+	     call site locus at which it has been inlined and continue
+	     the loop, in case AO's caller is also an artificial
+	     inline.  */
+	  if (DECL_DECLARED_INLINE_P (ao)
+	      && lookup_attribute ("artificial", DECL_ATTRIBUTES (ao)))
+	    ret = &BLOCK_SOURCE_LOCATION (block);
+	  else
+	    break;
+	}
+      else if (TREE_CODE (ao) != BLOCK)
+	break;
+
+      block = BLOCK_SUPERCONTEXT (block);
+    }
+  return ret;
 }
 
 #include "gt-tree.h"

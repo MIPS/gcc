@@ -113,7 +113,7 @@ Boston, MA 02110-1301, USA.  */
   { "dynamic_linker", DYNAMIC_LINKER }
 
 #undef	LINK_SPEC
-#define LINK_SPEC "-m %(link_emulation) %{shared:-shared} \
+#define LINK_SPEC "-m %(link_emulation) --hash-style=gnu %{shared:-shared} \
   %{!shared: \
     %{!ibcs: \
       %{!static: \

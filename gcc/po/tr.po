@@ -6951,7 +6951,7 @@ msgstr "INTERFACE gövdesinde umulmadık %s deyimi (%C'de)"
 #: fortran/parse.c:1604
 #, no-c-format
 msgid "%s statement must appear in a MODULE"
-msgstr "%S deyimi bir MODULE'de görünmemeli"
+msgstr "%s deyimi bir MODULE'de görünmemeli"
 
 #: fortran/parse.c:1611
 #, no-c-format

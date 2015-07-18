@@ -3371,7 +3371,7 @@ intra_create_variable_infos (void)
 /* Set bits in INTO corresponding to the variable uids in solution set
    FROM  */
 
-static void
+static bool
 set_uids_in_ptset (bitmap into, bitmap from)
 {
   unsigned int i;
@@ -3405,7 +3405,8 @@ set_uids_in_ptset (bitmap into, bitmap from)
 	    bitmap_set_bit (into, DECL_UID (sv->var));
 	}
       else if (TREE_CODE (vi->decl) == VAR_DECL 
-	       || TREE_CODE (vi->decl) == PARM_DECL)
+	       || TREE_CODE (vi->decl) == PARM_DECL
+	       || TREE_CODE (vi->decl) == RESULT_DECL)
 	{
 	  if (found_anyoffset
 	      && var_can_have_subvars (vi->decl)
@@ -3424,6 +3425,8 @@ set_uids_in_ptset (bitmap into, bitmap from)
 	      /* If VI->DECL is an aggregate for which we created
 		 SFTs, add the SFT corresponding to VI->OFFSET.  */
 	      tree sft = get_subvar_at (vi->decl, vi->offset);
+	      if (sft == NULL)
+		return false;
 	      bitmap_set_bit (into, DECL_UID (sft));
 	    }
 	  else
@@ -3433,6 +3436,7 @@ set_uids_in_ptset (bitmap into, bitmap from)
 	    }
 	}
     }
+  return true;
 }
 
 
@@ -3506,7 +3510,12 @@ find_what_p_points_to (tree p)
 	  if (!pi->pt_vars)
 	    pi->pt_vars = BITMAP_GGC_ALLOC ();
 
-	  set_uids_in_ptset (pi->pt_vars, vi->solution);
+	  if (!set_uids_in_ptset (pi->pt_vars, vi->solution))
+	    {
+	      pi->pt_anything = 1;
+	      pi->pt_vars = NULL;
+	      return false;
+	    }
 
 	  if (bitmap_empty_p (pi->pt_vars))
 	    pi->pt_vars = NULL;

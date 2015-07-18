@@ -55,7 +55,7 @@ Boston, MA 02110-1301, USA.  */
    done.  */
 
 #undef	LINK_SPEC
-#define LINK_SPEC "%{!m32:-m elf_x86_64} %{m32:-m elf_i386} \
+#define LINK_SPEC "%{!m32:-m elf_x86_64} %{m32:-m elf_i386} --hash-style=gnu \
   %{shared:-shared} \
   %{!shared: \
     %{!static: \

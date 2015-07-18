@@ -163,6 +163,9 @@ make_thunk (tree function, bool this_adjusting,
   DECL_DECLARED_INLINE_P (thunk) = 0;
   /* Nor has it been deferred.  */
   DECL_DEFERRED_FN (thunk) = 0;
+  /* Nor is it a template instantiation.  */
+  DECL_USE_TEMPLATE (thunk) = 0;
+  DECL_TEMPLATE_INFO (thunk) = NULL;
 
   /* Add it to the list of thunks associated with FUNCTION.  */
   TREE_CHAIN (thunk) = DECL_THUNKS (function);
@@ -867,6 +870,8 @@ synthesize_exception_spec (tree type, tree (*extractor) (tree, void*),
 static tree
 locate_dtor (tree type, void *client ATTRIBUTE_UNUSED)
 {
+  if (CLASSTYPE_LAZY_DESTRUCTOR (type))
+    lazily_declare_fn (sfk_destructor, type);
   return CLASSTYPE_DESTRUCTORS (type);
 }
 

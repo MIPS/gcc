@@ -1979,7 +1979,7 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 		gfc_conv_aliased_arg (&parmse, e, f,
 			fsym ? fsym->attr.intent : INTENT_INOUT);
 	      else
-	        gfc_conv_array_parameter (&parmse, e, argss, f);
+	        gfc_conv_array_parameter (&parmse, e, argss, f, NULL);
 	    } 
 	}
 
@@ -2154,17 +2154,23 @@ gfc_conv_function_call (gfc_se * se, gfc_symbol * sym,
 
   /* Generate the actual call.  */
   gfc_conv_function_val (se, sym);
+
   /* If there are alternate return labels, function type should be
      integer.  Can't modify the type in place though, since it can be shared
-     with other functions.  */
+     with other functions.  For dummy arguments, the typing is done to
+     this result, even if it has to be repeated for each call.  */
   if (has_alternate_specifier
       && TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) != integer_type_node)
     {
-      gcc_assert (! sym->attr.dummy);
-      TREE_TYPE (sym->backend_decl)
-        = build_function_type (integer_type_node,
-                               TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
-      se->expr = gfc_build_addr_expr (NULL, sym->backend_decl);
+      if (!sym->attr.dummy)
+	{      
+	  TREE_TYPE (sym->backend_decl)
+	    = build_function_type (integer_type_node,
+			     TYPE_ARG_TYPES (TREE_TYPE (sym->backend_decl)));
+	  se->expr = gfc_build_addr_expr (NULL, sym->backend_decl);
+	}
+      else
+	TREE_TYPE (TREE_TYPE (TREE_TYPE (se->expr))) = integer_type_node;
     }
 
   fntype = TREE_TYPE (TREE_TYPE (se->expr));
@@ -2815,7 +2821,7 @@ gfc_conv_expr_lhs (gfc_se * se, gfc_expr * expr)
 }
 
 /* Like gfc_conv_expr, but the POST block is guaranteed to be empty for
-   numeric expressions.  Used for scalar values whee inserting cleanup code
+   numeric expressions.  Used for scalar values where inserting cleanup code
    is inconvenient.  */
 void
 gfc_conv_expr_val (gfc_se * se, gfc_expr * expr)
@@ -3092,7 +3098,9 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
     }
 
   /* Check for a dependency.  */
-  if (gfc_check_fncall_dependency (expr1, expr2))
+  if (gfc_check_fncall_dependency (expr1, INTENT_OUT,
+				   expr2->value.function.esym,
+				   expr2->value.function.actual))
     return NULL;
 
   /* The frontend doesn't seem to bother filling in expr->symtree for intrinsic
@@ -3107,7 +3115,7 @@ gfc_trans_arrayfunc_assign (gfc_expr * expr1, gfc_expr * expr2)
   gfc_start_block (&se.pre);
   se.want_pointer = 1;
 
-  gfc_conv_array_parameter (&se, expr1, ss, 0);
+  gfc_conv_array_parameter (&se, expr1, ss, 0, NULL);
 
   se.direct_byref = 1;
   se.ss = gfc_walk_expr (expr2);

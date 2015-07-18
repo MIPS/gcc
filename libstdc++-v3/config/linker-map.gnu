@@ -1,6 +1,6 @@
 ## Linker script for GNU ld 2.13.91+ only.
 ##
-## Copyright (C) 2002, 2003, 2004, 2005 Free Software Foundation, Inc.
+## Copyright (C) 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ##
@@ -44,7 +44,10 @@ GLIBCXX_3.4 {
       std::basic_[j-n]*;
       std::basic_o[a-e]*;
 #     std::basic_ofstream;
-      std::basic_o[g-z]*;
+#     std::basic_o[g-z]*;
+      std::basic_o[g-r]*;
+      std::basic_ostr[a-d]*;
+      std::basic_ostr[f-z]*;
       std::basic_[p-r]*;
       std::basic_streambuf*;
 #     std::basic_string
@@ -88,7 +91,14 @@ GLIBCXX_3.4 {
       std::locale::_[J-Ra-z]*;
       std::locale::_S_normalize_category*;
       std::locale::_[T-Za-z]*;
-      std::[A-Zm-r]*;
+#     std::[A-Zm-r]*;
+      std::[A-Zmp-r]*;
+      std::n[^u]*;
+      std::nu[^m]*;
+      std::num[^e]*;
+      std::ostrstream*;
+      std::out_of_range*;
+      std::overflow_error*;
       std::set_new_handler*;
       std::set_terminate*;
       std::set_unexpected*;
@@ -256,7 +266,7 @@ GLIBCXX_3.4 {
     _ZNSi[0-9][a-h]*;
     _ZNSi[0-9][j-z]*;
     _ZNSi6ignoreE[il][il];
-    _ZNSirsE*;
+    _ZNSirsE*[^g];
 
     # std::basic_istream<wchar_t>
     _ZNSt13basic_istreamIwSt11char_traitsIwEEC*;
@@ -265,7 +275,7 @@ GLIBCXX_3.4 {
     _ZNSt13basic_istreamIwSt11char_traitsIwEE[0-9][a-h]*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEE[0-9][j-z]*;
     _ZNSt13basic_istreamIwSt11char_traitsIwEE6ignoreE[il][ijlm];
-    _ZNSt13basic_istreamIwSt11char_traitsIwEErsE*;
+    _ZNSt13basic_istreamIwSt11char_traitsIwEErsE*[^g];
 
     # std::istream operators and inserters
     _ZSt7getlineI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_istream*;
@@ -276,6 +286,37 @@ GLIBCXX_3.4 {
     _ZStrsId[cw]St11char_traitsI[cw]EERSt13basic_istream*;
     _ZStrsIe[cw]St11char_traitsI[cw]EERSt13basic_istream*;
     _ZStrsIf[cw]St11char_traitsI[cw]EERSt13basic_istream*;
+
+    # std::basic_ostream<char>
+    _ZNSoC*;
+    _ZNSoD*;
+    _ZNKSo6sentrycvbEv;
+    _ZNSo8_M_write*;
+    _ZNSo[0-9][a-z]*;
+    _ZNSolsE*[^g];
+
+    # std::basic_ostream<wchar_t>
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEEC*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEED*;
+    _ZNKSt13basic_ostreamIwSt11char_traitsIwEE[0-9][a-z]*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE3putEw;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE5flushEv;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE5seekpE*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE5tellpEv;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE5writeEPKw*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE6sentry*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEE8_M_write*;
+    _ZNSt13basic_ostreamIwSt11char_traitsIwEElsE*[^g];
+
+    # std::ostream operators and inserters
+    _ZSt4end[ls]I[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
+    _ZSt5flushI[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
+    _ZStlsI[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
+    _ZStlsI[cw]St11char_traitsI[cw]ESaI[cw]EERSt13basic_ostream*;
+    _ZStlsISt11char_traitsI[cw]EERSt13basic_ostream*;
+    _ZStlsId[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
+    _ZStlsIe[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
+    _ZStlsIf[cw]St11char_traitsI[cw]EERSt13basic_ostream*;
 
     # std::locale destructors
     _ZNSt6localeD*;
@@ -292,13 +333,22 @@ GLIBCXX_3.4 {
     _ZNSt8ios_base4InitD*;
 
     # bool std::has_facet 
-    _ZSt9has_facet*;
+    _ZSt9has_facetIS*;
 
     # std::num_get
     _ZNKSt7num_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
 
+    # std::num_put
+    _ZNKSt7num_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+
     # std::money_get
     _ZNKSt9money_getI[cw]St19istreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+
+    # std::money_put
+    _ZNKSt9money_putI[cw]St19ostreambuf_iteratorI[cw]St11char_traitsI[cw]EEE*;
+
+    # std::numeric_limits
+    _ZNSt14numeric_limitsI[^g]*;
 
     # std::_Rb_tree
     _ZSt18_Rb_tree_decrementPKSt18_Rb_tree_node_base;
@@ -327,7 +377,7 @@ GLIBCXX_3.4 {
     _ZNSt12__basic_fileIcED*;
 
     # std::__convert_to_v
-    _ZSt14__convert_to_v*;
+    _ZSt14__convert_to_vI[^g]*;
 
     # __gnu_cxx::stdio_sync_filebuf
     _ZTVN9__gnu_cxx18stdio_sync_filebufI[cw]St11char_traitsI[cw]EEE;
@@ -399,7 +449,8 @@ GLIBCXX_3.4 {
     _ZTSN9__gnu_cxx13stdio_filebufI[cw]St11char_traitsI[cw]EEE;
 
     # function-scope static objects requires a guard variable.
-    _ZGVNSt*;
+    _ZGVNSt[^1]*;
+    _ZGVNSt1[^7]*;
 
     # virtual function thunks
     _ZThn8_NS*;
@@ -665,9 +716,9 @@ CXXABI_1.3 {
     _ZTVN10__cxxabiv121__vmi_class_type_infoE;
 
     # typeinfo structure (and some names)
-    _ZTI[a-z];
-    _ZTIP[a-z];
-    _ZTIPK[a-z];
+    _ZTI[a-fh-z];
+    _ZTIP[a-fh-z];
+    _ZTIPK[a-fh-z];
     _ZTIN10__cxxabiv117__array_type_infoE;
     _ZTIN10__cxxabiv117__class_type_infoE;
     _ZTIN10__cxxabiv116__enum_type_infoE;
@@ -680,9 +731,9 @@ CXXABI_1.3 {
     _ZTIN10__cxxabiv121__vmi_class_type_infoE;
 
     # typeinfo name
-    _ZTS[a-z];
-    _ZTSP[a-z];
-    _ZTSPK[a-z];
+    _ZTS[a-fh-z];
+    _ZTSP[a-fh-z];
+    _ZTSPK[a-fh-z];
     _ZTSN10__cxxabiv117__array_type_infoE;
     _ZTSN10__cxxabiv117__class_type_infoE;
     _ZTSN10__cxxabiv116__enum_type_infoE;

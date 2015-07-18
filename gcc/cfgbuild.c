@@ -476,7 +476,28 @@ find_basic_blocks_1 (rtx f)
 		if (bb_note == NULL_RTX)
 		  bb_note = insn;
 		else
-		  next = delete_insn (insn);
+		  {
+		    /* The block associated with this note is not going to be
+		       threaded onto the chain.  However, it may still have
+		       pointers into the chain.  And this block may still
+		       be GC-reachable via GC-reachable deleted insns.
+
+		       If this block's prev_bb ultimately points to the last
+		       block in the chain, we will get a fault in the GC
+		       walkers which assume they can safely do
+		       bb->prev_bb->next_bb.  
+
+		       Just wipe the next_bb/prev_bb pointers.  We do not
+		       want or need to do anything else here with the dropped
+		       block structure.  */
+		    basic_block bb = NOTE_BASIC_BLOCK (insn);
+		    if (bb)
+		      {
+			bb->next_bb = NULL;
+			bb->prev_bb = NULL;
+		      }
+		    next = delete_insn (insn);
+		  }
 	      }
 	    break;
 	  }
@@ -496,7 +517,17 @@ find_basic_blocks_1 (rtx f)
   if (head != NULL_RTX)
     create_basic_block_structure (head, end, bb_note, prev);
   else if (bb_note)
-    delete_insn (bb_note);
+    {
+      /* Like above, we're not threading this block onto the chain, which
+	 presents the same problems.  Take the same corrective action.  */
+      basic_block bb = NOTE_BASIC_BLOCK (bb_note);
+      if (bb)
+	{
+	  bb->next_bb = NULL;
+	  bb->prev_bb = NULL;
+	}
+      delete_insn (bb_note);
+    }
 
   gcc_assert (last_basic_block == n_basic_blocks);
 

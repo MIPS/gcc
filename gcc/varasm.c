@@ -1707,11 +1707,22 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
   if (! DECL_USER_ALIGN (decl))
     {
 #ifdef DATA_ALIGNMENT
-      align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
+      unsigned int data_align = DATA_ALIGNMENT (TREE_TYPE (decl), align);
+      /* Don't increase alignment too much for TLS variables - TLS space
+	 is too precious.  */
+      if (! DECL_THREAD_LOCAL_P (decl) || data_align <= BITS_PER_WORD)
+	align = data_align;
 #endif
 #ifdef CONSTANT_ALIGNMENT
       if (DECL_INITIAL (decl) != 0 && DECL_INITIAL (decl) != error_mark_node)
-	align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl), align);
+	{
+	  unsigned int const_align = CONSTANT_ALIGNMENT (DECL_INITIAL (decl),
+							 align);
+	  /* Don't increase alignment too much for TLS variables - TLS space
+	     is too precious.  */
+	  if (! DECL_THREAD_LOCAL_P (decl) || const_align <= BITS_PER_WORD)
+	    align = const_align;
+	}
 #endif
     }
 
@@ -1732,11 +1743,20 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
      isn't common, and shouldn't be handled as such.  */
   if (DECL_SECTION_NAME (decl) || dont_output_data)
     ;
-  /* We don't implement common thread-local data at present.  */
   else if (DECL_THREAD_LOCAL_P (decl))
     {
       if (DECL_COMMON (decl))
-	sorry ("thread-local COMMON data not implemented");
+	{
+#ifdef ASM_OUTPUT_TLS_COMMON
+	  unsigned HOST_WIDE_INT size;
+
+	  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+	  ASM_OUTPUT_TLS_COMMON (asm_out_file, decl, name, size);
+	  return;
+#else
+	  sorry ("thread-local COMMON data not implemented");
+#endif
+	}
     }
   else if (DECL_INITIAL (decl) == 0
 	   || DECL_INITIAL (decl) == error_mark_node
@@ -4950,7 +4970,7 @@ void
 default_assemble_visibility (tree decl, int vis)
 {
   static const char * const visibility_types[] = {
-    NULL, "internal", "hidden", "protected"
+    NULL, "protected", "hidden", "internal"
   };
 
   const char *name, *type;
@@ -5662,9 +5682,10 @@ default_binds_local_p_1 (tree exp, int shlib)
   else if (DECL_VISIBILITY (exp) != VISIBILITY_DEFAULT)
     local_p = true;
   /* If PIC, then assume that any global name can be overridden by
-     symbols resolved from other modules.  */
+     symbols resolved from other modules, unless we are compiling with
+     -fwhole-program, which assumes that names are local.  */
   else if (shlib)
-    local_p = false;
+    local_p = flag_whole_program;
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
   else if (DECL_COMMON (exp)

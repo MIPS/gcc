@@ -428,6 +428,22 @@ namespace std
       _Tp* const __restrict__ _M_data;
     };
 
+
+  // Copy-construct plain array __b[<__n>] from indexed array __a[__i[<__n>]]
+  template<typename _Tp>
+    inline void
+    __valarray_copy_construct(_Array<_Tp> __a, _Array<size_t> __i,
+			      _Array<_Tp> __b, size_t __n)
+    { std::__valarray_copy_construct(__a._M_data, __i._M_data,
+				     __b._M_data, __n); }
+
+  // Copy-construct plain array __b[<__n>] from strided array __a[<__n : __s>]
+  template<typename _Tp>
+    inline void
+    __valarray_copy_construct(_Array<_Tp> __a, size_t __n, size_t __s,
+			      _Array<_Tp> __b)
+    { std::__valarray_copy_construct(__a._M_data, __n, __s, __b._M_data); }
+
   template<typename _Tp>
     inline void
     __valarray_fill (_Array<_Tp> __a, size_t __n, const _Tp& __t)

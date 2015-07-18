@@ -1950,6 +1950,11 @@ build_new_1 (tree exp)
 		    (alloc_decl,
 		     build_tree_list (NULL_TREE, class_addr)));
     }
+  else if (TYPE_FOR_JAVA (elt_type) && IS_AGGR_TYPE (elt_type))
+    {
+      error ("Java class %q#T object allocated using placement new", elt_type);
+      return error_mark_node;
+    }
   else
     {
       tree fnname;

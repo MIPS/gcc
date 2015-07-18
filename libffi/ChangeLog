@@ -1,3 +1,16 @@
+2007-04-20  Richard Henderson  <rth@redhat.com>
+
+	* configure.ac (alpha*-*-*): Define HAVE_LONG_DOUBLE.
+	* configure: Regenerate.
+	* include/ffi.h.in (ffi_type_longdouble): Define as ffi_type_double
+	if HAVE_LONG_DOUBLE is false.
+	* src/alpha/ffi.c (ffi_prep_cif_machdep): Support the 128-bit
+	long double type.
+	(ffi_call_osf, ffi_closure_osf): Likewise.
+	* src/alpha/osf.S (ffi_call_osf, ffi_closure_osf): Mark hidden.
+	* src/types.c (ffi_type_longdouble): For alpha, always generate
+	for the 128-bit long double type.
+
 2007-02-13  Release Manager
 
 	* GCC 4.1.2 released.
@@ -90,6 +103,22 @@
 	endianness bugs.
 	(ffi_prep_closure): Improve trampoline instruction scheduling.
 	(ffi_closure_mips_inner_O32): Fix endianness bugs.
+
+2005-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* src/alpha/osf.S: Add .note.GNU-stack on Linux.
+	* src/s390/sysv.S: Likewise.
+	* src/powerpc/linux64.S: Likewise.
+	* src/powerpc/linux64_closure.S: Likewise.
+	* src/powerpc/ppc_closure.S: Likewise.
+	* src/powerpc/sysv.S: Likewise.
+	* src/x86/unix64.S: Likewise.
+	* src/x86/sysv.S: Likewise.
+	* src/sparc/v8.S: Likewise.
+	* src/sparc/v9.S: Likewise.
+	* src/m68k/sysv.S: Likewise.
+	* src/ia64/unix.S: Likewise.
+	* src/arm/sysv.S: Likewise.
 
 2005-09-30  Geoffrey Keating  <geoffk@apple.com>
 

@@ -25,6 +25,7 @@ Boston, MA 02110-1301, USA.  */
 #include "hooks.h"
 
 struct diagnostic_context;
+struct diagnostic_info;
 
 /* Provide a hook routine for alias sets that always returns 1.  This is
    used by languages that haven't deal with alias sets yet.  */
@@ -57,7 +58,7 @@ extern int lhd_types_compatible_p (tree, tree);
 extern rtx lhd_expand_expr (tree, rtx, enum machine_mode, int, rtx *);
 extern int lhd_expand_decl (tree);
 extern void lhd_print_error_function (struct diagnostic_context *,
-				      const char *);
+				      const char *, struct diagnostic_info *);
 extern void lhd_set_decl_assembler_name (tree);
 extern bool lhd_can_use_bit_fields_p (void);
 extern bool lhd_warn_unused_global_decl (tree);
@@ -70,6 +71,7 @@ extern tree lhd_expr_size (tree);
 extern size_t lhd_tree_size (enum tree_code);
 extern HOST_WIDE_INT lhd_to_target_charset (HOST_WIDE_INT);
 extern tree lhd_expr_to_decl (tree, bool *, bool *, bool *);
+extern bool lhd_type_hash_eq (tree, tree);
 
 /* Declarations of default tree inlining hooks.  */
 extern tree lhd_tree_inlining_walk_subtrees (tree *, int *, walk_tree_fn,
@@ -88,6 +90,11 @@ extern tree lhd_callgraph_analyze_expr (tree *, int *, tree);
 
 /* Declarations for tree gimplification hooks.  */
 extern int lhd_gimplify_expr (tree *, tree *, tree *);
+extern enum omp_clause_default_kind lhd_omp_predetermined_sharing (tree);
+extern tree lhd_omp_assignment (tree, tree, tree);
+struct gimplify_omp_ctx;
+extern void lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *,
+					       tree);
 
 #define LANG_HOOKS_NAME			"GNU unknown"
 #define LANG_HOOKS_IDENTIFIER_SIZE	sizeof (struct lang_identifier)
@@ -209,14 +216,20 @@ extern tree lhd_make_node (enum tree_code);
 /* Types hooks.  There are no reasonable defaults for most of them,
    so we create a compile-time error instead.  */
 #define LANG_HOOKS_MAKE_TYPE lhd_make_node
+#define LANG_HOOKS_CLASSIFY_RECORD	NULL
 #define LANG_HOOKS_INCOMPLETE_TYPE_ERROR lhd_incomplete_type_error
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
 #define LANG_HOOKS_TYPE_MAX_SIZE	lhd_return_null_tree
+#define LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES \
+  lhd_omp_firstprivatize_type_sizes
+#define LANG_HOOKS_TYPE_HASH_EQ		lhd_type_hash_eq
+#define LANG_HOOKS_GET_ARRAY_DESCR_INFO	NULL
 #define LANG_HOOKS_HASH_TYPES		true
 
 #define LANG_HOOKS_FOR_TYPES_INITIALIZER { \
   LANG_HOOKS_MAKE_TYPE, \
+  LANG_HOOKS_CLASSIFY_RECORD, \
   LANG_HOOKS_TYPE_FOR_MODE, \
   LANG_HOOKS_TYPE_FOR_SIZE, \
   LANG_HOOKS_UNSIGNED_TYPE, \
@@ -226,6 +239,9 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_REGISTER_BUILTIN_TYPE, \
   LANG_HOOKS_INCOMPLETE_TYPE_ERROR, \
   LANG_HOOKS_TYPE_MAX_SIZE, \
+  LANG_HOOKS_OMP_FIRSTPRIVATIZE_TYPE_SIZES, \
+  LANG_HOOKS_TYPE_HASH_EQ, \
+  LANG_HOOKS_GET_ARRAY_DESCR_INFO, \
   LANG_HOOKS_HASH_TYPES \
 }
 
@@ -234,24 +250,38 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_INSERT_BLOCK	insert_block
 #define LANG_HOOKS_PUSHDECL	pushdecl
 #define LANG_HOOKS_GETDECLS	getdecls
-#define LANG_HOOKS_LOOKUP_NAME	lhd_return_null_tree
 #define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL lhd_warn_unused_global_decl
 #define LANG_HOOKS_WRITE_GLOBALS write_global_declarations
 #define LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE NULL
 #define LANG_HOOKS_DECL_OK_FOR_SIBCALL	lhd_decl_ok_for_sibcall
 #define LANG_HOOKS_COMDAT_GROUP lhd_comdat_group
+#define LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE hook_bool_tree_false
+#define LANG_HOOKS_OMP_PREDETERMINED_SHARING lhd_omp_predetermined_sharing
+#define LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR hook_bool_tree_bool_false
+#define LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE hook_bool_tree_bool_false
+#define LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR hook_tree_tree_tree_null
+#define LANG_HOOKS_OMP_CLAUSE_COPY_CTOR lhd_omp_assignment
+#define LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP lhd_omp_assignment
+#define LANG_HOOKS_OMP_CLAUSE_DTOR hook_tree_tree_tree_null
 
 #define LANG_HOOKS_DECLS { \
   LANG_HOOKS_GLOBAL_BINDINGS_P, \
   LANG_HOOKS_INSERT_BLOCK, \
   LANG_HOOKS_PUSHDECL, \
   LANG_HOOKS_GETDECLS, \
-  LANG_HOOKS_LOOKUP_NAME, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
   LANG_HOOKS_WRITE_GLOBALS, \
   LANG_HOOKS_PREPARE_ASSEMBLE_VARIABLE, \
   LANG_HOOKS_DECL_OK_FOR_SIBCALL, \
-  LANG_HOOKS_COMDAT_GROUP \
+  LANG_HOOKS_COMDAT_GROUP, \
+  LANG_HOOKS_OMP_PRIVATIZE_BY_REFERENCE, \
+  LANG_HOOKS_OMP_PREDETERMINED_SHARING, \
+  LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR, \
+  LANG_HOOKS_OMP_PRIVATE_DEBUG_CLAUSE, \
+  LANG_HOOKS_OMP_CLAUSE_DEFAULT_CTOR, \
+  LANG_HOOKS_OMP_CLAUSE_COPY_CTOR, \
+  LANG_HOOKS_OMP_CLAUSE_ASSIGN_OP, \
+  LANG_HOOKS_OMP_CLAUSE_DTOR \
 }
 
 /* The whole thing.  The structure is defined in langhooks.h.  */

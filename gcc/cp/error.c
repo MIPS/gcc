@@ -895,6 +895,10 @@ dump_decl (tree t, int flags)
 	pp_type_id (cxx_pp, t);
       break;
 
+    case UNBOUND_CLASS_TEMPLATE:
+      dump_type (t, flags);
+      break;
+
     default:
       pp_unsupported_tree (cxx_pp, t);
       /* Fall through to error.  */
@@ -1287,10 +1291,14 @@ static tree
 resolve_virtual_fun_from_obj_type_ref (tree ref)
 {
   tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
-  int index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
   tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
-    while (index--)
+  while (index)
+    {
       fun = TREE_CHAIN (fun);
+      index -= (TARGET_VTABLE_USES_DESCRIPTORS
+		? TARGET_VTABLE_USES_DESCRIPTORS : 1);
+    }
 
   return BV_FN (fun);
 }
@@ -1413,13 +1421,13 @@ dump_expr (tree t, int flags)
 	    if (TREE_CODE (ob) == ADDR_EXPR)
 	      {
 		dump_expr (TREE_OPERAND (ob, 0), flags | TFF_EXPR_IN_PARENS);
-		pp_dot (cxx_pp);
+		pp_cxx_dot (cxx_pp);
 	      }
 	    else if (TREE_CODE (ob) != PARM_DECL
 		     || strcmp (IDENTIFIER_POINTER (DECL_NAME (ob)), "this"))
 	      {
 		dump_expr (ob, flags | TFF_EXPR_IN_PARENS);
-		pp_arrow (cxx_pp);
+		pp_cxx_arrow (cxx_pp);
 	      }
 	    args = TREE_CHAIN (args);
 	  }
@@ -1749,6 +1757,7 @@ dump_expr (tree t, int flags)
       break;
 
     case SCOPE_REF:
+    case ABS_EXPR:
       pp_expression (cxx_pp, t);
       break;
 
@@ -1877,6 +1886,19 @@ dump_expr (tree t, int flags)
 
     case NON_DEPENDENT_EXPR:
       dump_expr (TREE_OPERAND (t, 0), flags);
+      break;
+
+    case OFFSETOF_EXPR:
+      pp_cxx_offsetof_expression (cxx_pp, t);
+      break;
+
+    case MEMBER_REF:
+    case DOTSTAR_EXPR:
+      pp_multiplicative_expression (cxx_pp, t);
+      break;
+
+    case OBJ_TYPE_REF:
+      dump_expr (resolve_virtual_fun_from_obj_type_ref (t), flags);
       break;
 
       /*  This list is incomplete, but should suffice for now.
@@ -2142,9 +2164,10 @@ cv_to_string (tree p, int v)
 
 /* Langhook for print_error_function.  */
 void
-cxx_print_error_function (diagnostic_context *context, const char *file)
+cxx_print_error_function (diagnostic_context *context, const char *file,
+			  diagnostic_info *diagnostic)
 {
-  lhd_print_error_function (context, file);
+  lhd_print_error_function (context, file, diagnostic);
   pp_base_set_prefix (context->printer, file);
   maybe_print_instantiation_context (context);
 }
@@ -2172,23 +2195,105 @@ static void
 cp_print_error_function (diagnostic_context *context,
 			 diagnostic_info *diagnostic)
 {
-  if (diagnostic_last_function_changed (context))
+  if (diagnostic_last_function_changed (context, diagnostic))
     {
       const char *old_prefix = context->printer->prefix;
       const char *file = LOCATION_FILE (diagnostic->location);
-      char *new_prefix = file ? file_name_as_prefix (file) : NULL;
+      tree abstract_origin = diagnostic->abstract_origin;
+      char *new_prefix = (file && abstract_origin == NULL)
+			 ? file_name_as_prefix (file) : NULL;
 
       pp_base_set_prefix (context->printer, new_prefix);
 
       if (current_function_decl == NULL)
 	pp_base_string (context->printer, "At global scope:");
       else
-	pp_printf (context->printer, "In %s %qs:",
-		   function_category (current_function_decl),
-		   cxx_printable_name (current_function_decl, 2));
+	{
+	  tree fndecl, ao;
+
+	  if (abstract_origin)
+	    {
+	      ao = BLOCK_ABSTRACT_ORIGIN (abstract_origin);
+	      while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		ao = BLOCK_ABSTRACT_ORIGIN (ao);
+	      gcc_assert (TREE_CODE (ao) == FUNCTION_DECL);
+	      fndecl = ao;
+	    }
+	  else
+	    fndecl = current_function_decl;
+
+	  pp_printf (context->printer, "In %s %qs",
+		     function_category (fndecl),
+		     cxx_printable_name (fndecl, 2));
+
+	  while (abstract_origin)
+	    {
+	      location_t *locus;
+	      tree block = abstract_origin;
+
+	      locus = &BLOCK_SOURCE_LOCATION (block);
+	      fndecl = NULL;
+	      block = BLOCK_SUPERCONTEXT (block);
+	      while (block && TREE_CODE (block) == BLOCK
+		     && BLOCK_ABSTRACT_ORIGIN (block))
+		{
+		  ao = BLOCK_ABSTRACT_ORIGIN (block);
+
+		  while (TREE_CODE (ao) == BLOCK && BLOCK_ABSTRACT_ORIGIN (ao))
+		    ao = BLOCK_ABSTRACT_ORIGIN (ao);
+
+		  if (TREE_CODE (ao) == FUNCTION_DECL)
+		    {
+		      fndecl = ao;
+		      break;
+		    }
+		  else if (TREE_CODE (ao) != BLOCK)
+		    break;
+
+		  block = BLOCK_SUPERCONTEXT (block);
+		}
+	      if (fndecl)
+		abstract_origin = block;
+	      else
+		{
+		  while (block && TREE_CODE (block) == BLOCK)
+		    block = BLOCK_SUPERCONTEXT (block);
+
+		  if (TREE_CODE (block) == FUNCTION_DECL)
+		    fndecl = block;
+		  abstract_origin = NULL;
+		}
+	      if (fndecl)
+		{
+		  expanded_location s = expand_location (*locus);
+		  pp_base_character (context->printer, ',');
+		  pp_base_newline (context->printer);
+		  if (s.file != NULL)
+		    {
+#ifdef USE_MAPPED_LOCATION
+		      if (flag_show_column && s.column != 0)
+			pp_printf (context->printer,
+				   "    inlined from %qs at %s:%d:%d",
+				   cxx_printable_name (fndecl, 2),
+				   s.file, s.line, s.column);
+		      else
+#endif
+			pp_printf (context->printer,
+				   "    inlined from %qs at %s:%d",
+				   cxx_printable_name (fndecl, 2),
+				   s.file, s.line);
+
+		    }
+		  else
+		    pp_printf (context->printer, "    inlined from %qs",
+			       cxx_printable_name (fndecl, 2));
+		}
+	    }
+	  pp_base_character (context->printer, ':');
+	}
       pp_base_newline (context->printer);
 
-      diagnostic_set_last_function (context);
+      diagnostic_set_last_function (context, diagnostic);
       pp_base_destroy_prefix (context->printer);
       context->printer->prefix = old_prefix;
     }

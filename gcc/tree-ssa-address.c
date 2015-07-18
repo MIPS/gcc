@@ -124,7 +124,9 @@ gen_addr_rtx (rtx symbol, rtx base, rtx index, rtx step, rtx offset,
   if (base)
     {
       if (*addr)
-	*addr = gen_rtx_PLUS (Pmode, *addr, base);
+	*addr = (TARGET_INDEX_OPERAND_FIRST
+		 ? simplify_gen_binary (PLUS, Pmode, base, *addr)
+		 : gen_rtx_PLUS (Pmode, *addr, base));
       else
 	*addr = base;
     }

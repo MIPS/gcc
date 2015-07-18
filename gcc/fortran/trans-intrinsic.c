@@ -2937,7 +2937,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
   if (ss == gfc_ss_terminator)
     gfc_conv_expr_reference (&argse, arg->expr);
   else
-    gfc_conv_array_parameter (&argse, arg->expr, ss, 1);
+    gfc_conv_array_parameter (&argse, arg->expr, ss, 1, NULL);
   gfc_add_block_to_block (&se->pre, &argse.pre);
   gfc_add_block_to_block (&se->post, &argse.post);
   ptr = argse.expr;
@@ -3515,7 +3515,7 @@ gfc_conv_intrinsic_loc(gfc_se * se, gfc_expr * expr)
   if (ss == gfc_ss_terminator)
     gfc_conv_expr_reference (se, arg_expr);
   else
-    gfc_conv_array_parameter (se, arg_expr, ss, 1); 
+    gfc_conv_array_parameter (se, arg_expr, ss, 1, NULL); 
   se->expr= convert (gfc_unsigned_type (long_integer_type_node), 
 		     se->expr);
    
@@ -3542,7 +3542,7 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
   name = &expr->value.function.name[2];
 
-  if (expr->rank > 0)
+  if (expr->rank > 0 && !expr->inline_noncopying_intrinsic)
     {
       lib = gfc_is_intrinsic_libcall (expr);
       if (lib != 0)
@@ -3658,6 +3658,9 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       /* Integer conversions are handled separately to make sure we get the
          correct rounding mode.  */
     case GFC_ISYM_INT:
+    case GFC_ISYM_INT2:
+    case GFC_ISYM_INT8:
+    case GFC_ISYM_LONG:
       gfc_conv_intrinsic_int (se, expr, FIX_TRUNC_EXPR);
       break;
 
@@ -3769,6 +3772,16 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
 
     case GFC_ISYM_LBOUND:
       gfc_conv_intrinsic_bound (se, expr, 0);
+      break;
+
+    case GFC_ISYM_TRANSPOSE:
+      if (se->ss && se->ss->useflags)
+	{
+	  gfc_conv_tmp_array_ref (se);
+	  gfc_advance_se_ss_chain (se);
+	}
+      else
+	gfc_conv_array_transpose (se, expr->value.function.actual->expr);
       break;
 
     case GFC_ISYM_LEN:

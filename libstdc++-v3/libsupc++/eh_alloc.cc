@@ -112,7 +112,7 @@ __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
 {
   void *ret;
 
-  thrown_size += sizeof (__cxa_exception);
+  thrown_size += sizeof (__cxa_refcounted_exception);
   ret = malloc (thrown_size);
 
   if (! ret)
@@ -154,9 +154,9 @@ __cxxabiv1::__cxa_allocate_exception(std::size_t thrown_size) throw()
   __cxa_eh_globals *globals = __cxa_get_globals ();
   globals->uncaughtExceptions += 1;
 
-  memset (ret, 0, sizeof (__cxa_exception));
+  memset (ret, 0, sizeof (__cxa_refcounted_exception));
 
-  return (void *)((char *)ret + sizeof (__cxa_exception));
+  return (void *)((char *)ret + sizeof (__cxa_refcounted_exception));
 }
 
 
@@ -179,5 +179,5 @@ __cxxabiv1::__cxa_free_exception(void *vptr) throw()
 #endif
     }
   else
-    free (ptr - sizeof (__cxa_exception));
+    free (ptr - sizeof (__cxa_refcounted_exception));
 }

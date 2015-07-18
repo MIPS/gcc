@@ -203,7 +203,7 @@ has_c_linkage (tree decl)
   return DECL_EXTERN_C_P (decl);
 }
 
-static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map))) 
+static GTY ((if_marked ("tree_decl_map_marked_p"), param_is (struct tree_decl_map)))
      htab_t shadowed_var_for_decl;
 
 /* Lookup a shadowed var for FROM, and return it if we find one.  */
@@ -211,11 +211,10 @@ static GTY ((if_marked ("tree_map_marked_p"), param_is (struct tree_map)))
 tree 
 decl_shadowed_for_var_lookup (tree from)
 {
-  struct tree_map *h, in;
+  struct tree_decl_map *h, in;
   in.from = from;
 
-  h = htab_find_with_hash (shadowed_var_for_decl, &in, 
-			   htab_hash_pointer (from));
+  h = htab_find_with_hash (shadowed_var_for_decl, &in, DECL_UID (from));
   if (h)
     return h->to;
   return NULL_TREE;
@@ -226,22 +225,22 @@ decl_shadowed_for_var_lookup (tree from)
 void
 decl_shadowed_for_var_insert (tree from, tree to)
 {
-  struct tree_map *h;
+  struct tree_decl_map *h;
   void **loc;
 
-  h = ggc_alloc (sizeof (struct tree_map));
-  h->hash = htab_hash_pointer (from);
+  h = ggc_alloc (sizeof (struct tree_decl_map));
   h->from = from;
   h->to = to;
-  loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, h->hash, INSERT);
-  *(struct tree_map **) loc = h;
+  loc = htab_find_slot_with_hash (shadowed_var_for_decl, h, DECL_UID (from),
+				  INSERT);
+  *(struct tree_decl_map **) loc = h;
 }
 
 void
 init_shadowed_var_for_decl (void)
 {
-  shadowed_var_for_decl = htab_create_ggc (512, tree_map_hash,
-					   tree_map_eq, 0);
+  shadowed_var_for_decl = htab_create_ggc (512, tree_decl_map_hash,
+					   tree_decl_map_eq, 0);
 }
 
 

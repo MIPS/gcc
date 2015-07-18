@@ -140,7 +140,8 @@ prefer_and_bit_test (enum machine_mode mode, int bitnum)
     }
 
   /* Fill in the integers.  */
-  XEXP (and_test, 1) = GEN_INT ((unsigned HOST_WIDE_INT) 1 << bitnum);
+  XEXP (and_test, 1)
+    = immed_double_const ((unsigned HOST_WIDE_INT) 1 << bitnum, 0, mode);
   XEXP (XEXP (shift_test, 0), 1) = GEN_INT (bitnum);
 
   return (rtx_cost (and_test, IF_THEN_ELSE)
@@ -250,10 +251,15 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 		  && prefer_and_bit_test (TYPE_MODE (argtype),
 					  TREE_INT_CST_LOW (shift)))
 		{
-		  HOST_WIDE_INT mask = (HOST_WIDE_INT) 1
-				       << TREE_INT_CST_LOW (shift);
-		  do_jump (build2 (BIT_AND_EXPR, argtype, arg,
-				   build_int_cst_type (argtype, mask)),
+		  unsigned HOST_WIDE_INT mask
+		    = (unsigned HOST_WIDE_INT) 1 << TREE_INT_CST_LOW (shift);
+		  tree maskt;
+
+		  if (TYPE_PRECISION (argtype) <= HOST_BITS_PER_WIDE_INT)
+		    maskt = build_int_cst_type (argtype, mask);
+		  else
+		    maskt = build_int_cstu (argtype, mask);
+		  do_jump (build2 (BIT_AND_EXPR, argtype, arg, maskt),
 			   clr_label, set_label);
 		  break;
 		}
@@ -306,8 +312,6 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
 	break;
       }
 
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_ORIF_EXPR:
     case COMPOUND_EXPR:
       /* Lowered by gimplify.c.  */
       gcc_unreachable ();
@@ -517,6 +521,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       if (BRANCH_COST >= 4 || TREE_SIDE_EFFECTS (TREE_OPERAND (exp, 1)))
 	goto normal;
 
+    case TRUTH_ANDIF_EXPR:
       if (if_false_label == NULL_RTX)
         {
 	  drop_through_label = gen_label_rtx ();
@@ -537,6 +542,7 @@ do_jump (tree exp, rtx if_false_label, rtx if_true_label)
       if (BRANCH_COST >= 4 || TREE_SIDE_EFFECTS (TREE_OPERAND (exp, 1)))
 	goto normal;
 
+    case TRUTH_ORIF_EXPR:
       if (if_true_label == NULL_RTX)
 	{
           drop_through_label = gen_label_rtx ();

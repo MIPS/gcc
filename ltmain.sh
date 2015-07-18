@@ -2589,7 +2589,7 @@ EOF
 
 	# Check that each of the things are valid numbers.
 	case $current in
-	0 | [1-9] | [1-9][0-9] | [1-9][0-9][0-9]) ;;
+	0 | [1-9] | [1-9][0-9] | [1-9][0-9][0-9] | [1-9]rh | [1-9][0-9]rh) ;;
 	*)
 	  $echo "$modename: CURRENT \`$current' is not a nonnegative integer" 1>&2
 	  $echo "$modename: \`$vinfo' is not valid version information" 1>&2
@@ -2615,7 +2615,7 @@ EOF
 	  ;;
 	esac
 
-	if test $age -gt $current; then
+	if test $age != 0 && test $age -gt $current; then
 	  $echo "$modename: AGE \`$age' is greater than the current interface number \`$current'" 1>&2
 	  $echo "$modename: \`$vinfo' is not valid version information" 1>&2
 	  exit 1
@@ -2666,7 +2666,11 @@ EOF
 	  ;;
 
 	linux)
-	  major=.`expr $current - $age`
+	  if test $age = 0; then
+	    major=.$current
+	  else
+	    major=.`expr $current - $age`
+	  fi
 	  versuffix="$major.$age.$revision"
 	  ;;
 

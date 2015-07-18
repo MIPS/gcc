@@ -1,3 +1,22 @@
+2006-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/28709
+	* macro.c (paste_tokens): Do error reporting here, use BUF with the
+	spelled LHS token as opposed to spelling it again.
+	(paste_all_tokens): Don't report errors here, just break on failure.
+
+2007-04-23  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30468:
+	* mkdeps.c (apply_vpath): Strip successive '/'s if we stripped
+	'./'.
+
+2006-12-28  Tom Tromey  <tromey@redhat.com>
+
+	PR preprocessor/30001:
+	* charset.c (_cpp_convert_input): Check that to.len is greater
+	than zero.
+
 2007-02-13  Release Manager
 
 	* GCC 4.1.2 released.
@@ -7,6 +26,21 @@
 	PR preprocessor/29612
 	* directives.c (do_linemarker): Set pfile->buffer->sysp always, not
 	only when new_sysp is non-zero.
+
+2006-06-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR preprocessor/27746
+	* directives.c (do_pragma): Handle pragma with valid namespace
+	and invalid name coming from macro expansion.
+	* directives.c (destringize_and_run): Initialize next field in
+	context.
+
+	PR c/27747
+	PR c++/27748
+	* directives.c (destringize_and_run): Set NO_EXPAND on the
+	tokens.
+
+	* macro.c (_cpp_backup_tokens): Fix comment typo.
 
 2006-05-24  Release Manager
 

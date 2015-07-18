@@ -93,11 +93,7 @@ extern const struct processor_costs *ix86_cost;
 /* configure can arrange to make this 2, to force a 486.  */
 
 #ifndef TARGET_CPU_DEFAULT
-#ifdef TARGET_64BIT_DEFAULT
-#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_k8
-#else
-#define TARGET_CPU_DEFAULT 0
-#endif
+#define TARGET_CPU_DEFAULT TARGET_CPU_DEFAULT_generic
 #endif
 
 #ifndef TARGET_FPMATH_DEFAULT
@@ -134,12 +130,20 @@ extern const struct processor_costs *ix86_cost;
 #define TARGET_486 (ix86_tune == PROCESSOR_I486)
 #define TARGET_PENTIUM (ix86_tune == PROCESSOR_PENTIUM)
 #define TARGET_PENTIUMPRO (ix86_tune == PROCESSOR_PENTIUMPRO)
+#define TARGET_GEODE (ix86_tune == PROCESSOR_GEODE)
 #define TARGET_K6 (ix86_tune == PROCESSOR_K6)
 #define TARGET_ATHLON (ix86_tune == PROCESSOR_ATHLON)
 #define TARGET_PENTIUM4 (ix86_tune == PROCESSOR_PENTIUM4)
 #define TARGET_K8 (ix86_tune == PROCESSOR_K8)
 #define TARGET_ATHLON_K8 (TARGET_K8 || TARGET_ATHLON)
 #define TARGET_NOCONA (ix86_tune == PROCESSOR_NOCONA)
+#define TARGET_CORE2 (ix86_tune == PROCESSOR_CORE2)
+#define TARGET_GENERIC32 (ix86_tune == PROCESSOR_GENERIC32)
+#define TARGET_GENERIC64 (ix86_tune == PROCESSOR_GENERIC64)
+#define TARGET_GENERIC (TARGET_GENERIC32 || TARGET_GENERIC64)
+#define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
+
+#define TARGET_ROUND TARGET_SSE5
 
 #define TUNEMASK (1 << ix86_tune)
 extern const int x86_use_leave, x86_push_memory, x86_zero_extend_with_and;
@@ -158,12 +162,16 @@ extern const int x86_accumulate_outgoing_args, x86_prologue_using_move;
 extern const int x86_epilogue_using_move, x86_decompose_lea;
 extern const int x86_arch_always_fancy_math_387, x86_shift1;
 extern const int x86_sse_partial_reg_dependency, x86_sse_split_regs;
+extern const int x86_sse_unaligned_move_optimal;
 extern const int x86_sse_typeless_stores, x86_sse_load0_by_pxor;
 extern const int x86_use_ffreep;
 extern const int x86_inter_unit_moves, x86_schedule;
 extern const int x86_use_bt;
-extern const int x86_cmpxchg, x86_xadd;
-extern int x86_prefetch_sse;
+extern const int x86_cmpxchg, x86_cmpxchg8b, x86_xadd;
+extern const int x86_use_incdec;
+extern const int x86_pad_returns;
+extern const int x86_partial_flag_reg_stall;
+extern int x86_prefetch_sse, x86_cmpxchg16b;
 
 #define TARGET_USE_LEAVE (x86_use_leave & TUNEMASK)
 #define TARGET_PUSH_MEMORY (x86_push_memory & TUNEMASK)
@@ -181,6 +189,7 @@ extern int x86_prefetch_sse;
 #define TARGET_USE_SAHF ((x86_use_sahf & TUNEMASK) && !TARGET_64BIT)
 #define TARGET_MOVX (x86_movx & TUNEMASK)
 #define TARGET_PARTIAL_REG_STALL (x86_partial_reg_stall & TUNEMASK)
+#define TARGET_PARTIAL_FLAG_REG_STALL (x86_partial_flag_reg_stall & TUNEMASK)
 #define TARGET_USE_HIMODE_FIOP (x86_use_himode_fiop & TUNEMASK)
 #define TARGET_USE_SIMODE_FIOP (x86_use_simode_fiop & TUNEMASK)
 #define TARGET_USE_MOV0 (x86_use_mov0 & TUNEMASK)
@@ -203,13 +212,14 @@ extern int x86_prefetch_sse;
 #define TARGET_PARTIAL_REG_DEPENDENCY (x86_partial_reg_dependency & TUNEMASK)
 #define TARGET_SSE_PARTIAL_REG_DEPENDENCY \
 				      (x86_sse_partial_reg_dependency & TUNEMASK)
+#define TARGET_SSE_UNALIGNED_MOVE_OPTIMAL \
+				      (x86_sse_unaligned_move_optimal & TUNEMASK)
 #define TARGET_SSE_SPLIT_REGS (x86_sse_split_regs & TUNEMASK)
 #define TARGET_SSE_TYPELESS_STORES (x86_sse_typeless_stores & TUNEMASK)
 #define TARGET_SSE_LOAD0_BY_PXOR (x86_sse_load0_by_pxor & TUNEMASK)
 #define TARGET_MEMORY_MISMATCH_STALL (x86_memory_mismatch_stall & TUNEMASK)
 #define TARGET_PROLOGUE_USING_MOVE (x86_prologue_using_move & TUNEMASK)
 #define TARGET_EPILOGUE_USING_MOVE (x86_epilogue_using_move & TUNEMASK)
-#define TARGET_DECOMPOSE_LEA (x86_decompose_lea & TUNEMASK)
 #define TARGET_PREFETCH_SSE (x86_prefetch_sse)
 #define TARGET_SHIFT1 (x86_shift1 & TUNEMASK)
 #define TARGET_USE_FFREEP (x86_use_ffreep & TUNEMASK)
@@ -218,6 +228,9 @@ extern int x86_prefetch_sse;
 #define TARGET_FOUR_JUMP_LIMIT (x86_four_jump_limit & TUNEMASK)
 #define TARGET_SCHEDULE (x86_schedule & TUNEMASK)
 #define TARGET_USE_BT (x86_use_bt & TUNEMASK)
+#define TARGET_USE_INCDEC (x86_use_incdec & TUNEMASK)
+#define TARGET_PAD_RETURNS (x86_pad_returns & TUNEMASK)
+#define TARGET_FUSED_MADD x86_fused_muladd
 
 #define ASSEMBLER_DIALECT (ix86_asm_dialect)
 
@@ -229,6 +242,8 @@ extern int x86_prefetch_sse;
 #define TARGET_SUN_TLS (ix86_tls_dialect == TLS_DIALECT_SUN)
 
 #define TARGET_CMPXCHG (x86_cmpxchg & (1 << ix86_arch))
+#define TARGET_CMPXCHG8B (x86_cmpxchg8b & (1 << ix86_arch))
+#define TARGET_CMPXCHG16B (x86_cmpxchg16b)
 #define TARGET_XADD (x86_xadd & (1 << ix86_arch))
 
 #ifndef TARGET_64BIT_DEFAULT
@@ -347,6 +362,10 @@ extern int x86_prefetch_sse;
 	      break;						\
 	    }							\
 	}							\
+      else if (TARGET_GEODE)					\
+	{							\
+	  builtin_define ("__tune_geode__");			\
+	}							\
       else if (TARGET_K6)					\
 	{							\
 	  builtin_define ("__tune_k6__");			\
@@ -364,10 +383,14 @@ extern int x86_prefetch_sse;
 	}							\
       else if (TARGET_K8)					\
 	builtin_define ("__tune_k8__");				\
+      else if (TARGET_AMDFAM10)					\
+	builtin_define ("__tune_amdfam10__");			\
       else if (TARGET_PENTIUM4)					\
 	builtin_define ("__tune_pentium4__");			\
       else if (TARGET_NOCONA)					\
 	builtin_define ("__tune_nocona__");			\
+      else if (TARGET_CORE2)					\
+	builtin_define ("__tune_core2__");			\
 								\
       if (TARGET_MMX)						\
 	builtin_define ("__MMX__");				\
@@ -381,6 +404,15 @@ extern int x86_prefetch_sse;
 	builtin_define ("__SSE2__");				\
       if (TARGET_SSE3)						\
 	builtin_define ("__SSE3__");				\
+      if (TARGET_SSSE3)						\
+	{							\
+	  builtin_define ("__SSSE3__");				\
+	  builtin_define ("__MNI__");				\
+	}							\
+      if (TARGET_SSE4A)						\
+	builtin_define ("__SSE4A__");		                \
+      if (TARGET_SSE5)						\
+	builtin_define ("__SSE5__");				\
       if (TARGET_SSE_MATH && TARGET_SSE)			\
 	builtin_define ("__SSE_MATH__");			\
       if (TARGET_SSE_MATH && TARGET_SSE2)			\
@@ -408,6 +440,11 @@ extern int x86_prefetch_sse;
 	  builtin_define ("__pentiumpro");			\
 	  builtin_define ("__pentiumpro__");			\
 	}							\
+      else if (ix86_arch == PROCESSOR_GEODE)			\
+	{							\
+	  builtin_define ("__geode");				\
+	  builtin_define ("__geode__");				\
+	}							\
       else if (ix86_arch == PROCESSOR_K6)			\
 	{							\
 								\
@@ -431,6 +468,11 @@ extern int x86_prefetch_sse;
 	  builtin_define ("__k8");				\
 	  builtin_define ("__k8__");				\
 	}							\
+      else if (ix86_arch == PROCESSOR_AMDFAM10)			\
+	{							\
+	  builtin_define ("__amdfam10");			\
+	  builtin_define ("__amdfam10__");			\
+	}							\
       else if (ix86_arch == PROCESSOR_PENTIUM4)			\
 	{							\
 	  builtin_define ("__pentium4");			\
@@ -440,6 +482,11 @@ extern int x86_prefetch_sse;
 	{							\
 	  builtin_define ("__nocona");				\
 	  builtin_define ("__nocona__");			\
+	}							\
+      else if (ix86_arch == PROCESSOR_CORE2)			\
+	{							\
+	  builtin_define ("__core2");				\
+	  builtin_define ("__core2__");				\
 	}							\
     }								\
   while (0)
@@ -452,21 +499,26 @@ extern int x86_prefetch_sse;
 #define TARGET_CPU_DEFAULT_pentium2 5
 #define TARGET_CPU_DEFAULT_pentium3 6
 #define TARGET_CPU_DEFAULT_pentium4 7
-#define TARGET_CPU_DEFAULT_k6 8
-#define TARGET_CPU_DEFAULT_k6_2 9
-#define TARGET_CPU_DEFAULT_k6_3 10
-#define TARGET_CPU_DEFAULT_athlon 11
-#define TARGET_CPU_DEFAULT_athlon_sse 12
-#define TARGET_CPU_DEFAULT_k8 13
-#define TARGET_CPU_DEFAULT_pentium_m 14
-#define TARGET_CPU_DEFAULT_prescott 15
-#define TARGET_CPU_DEFAULT_nocona 16
+#define TARGET_CPU_DEFAULT_geode 8
+#define TARGET_CPU_DEFAULT_k6 9
+#define TARGET_CPU_DEFAULT_k6_2 10
+#define TARGET_CPU_DEFAULT_k6_3 11
+#define TARGET_CPU_DEFAULT_athlon 12
+#define TARGET_CPU_DEFAULT_athlon_sse 13
+#define TARGET_CPU_DEFAULT_k8 14
+#define TARGET_CPU_DEFAULT_pentium_m 15
+#define TARGET_CPU_DEFAULT_prescott 16
+#define TARGET_CPU_DEFAULT_nocona 17
+#define TARGET_CPU_DEFAULT_core2 18
+#define TARGET_CPU_DEFAULT_generic 19
+#define TARGET_CPU_DEFAULT_amdfam10 20
 
 #define TARGET_CPU_DEFAULT_NAMES {"i386", "i486", "pentium", "pentium-mmx",\
 				  "pentiumpro", "pentium2", "pentium3", \
-				  "pentium4", "k6", "k6-2", "k6-3",\
+				  "pentium4", "geode", "k6", "k6-2", "k6-3", \
 				  "athlon", "athlon-4", "k8", \
-				  "pentium-m", "prescott", "nocona"}
+				  "pentium-m", "prescott", "nocona", \
+				  "core2", "generic", "amdfam10"}
 
 #ifndef CC1_SPEC
 #define CC1_SPEC "%(cc1_cpu) "
@@ -2120,11 +2172,16 @@ enum processor_type
   PROCESSOR_I486,			/* 80486DX, 80486SX, 80486DX[24] */
   PROCESSOR_PENTIUM,
   PROCESSOR_PENTIUMPRO,
+  PROCESSOR_GEODE,
   PROCESSOR_K6,
   PROCESSOR_ATHLON,
   PROCESSOR_PENTIUM4,
   PROCESSOR_K8,
   PROCESSOR_NOCONA,
+  PROCESSOR_CORE2,
+  PROCESSOR_GENERIC32,
+  PROCESSOR_GENERIC64,
+  PROCESSOR_AMDFAM10,
   PROCESSOR_max
 };
 
@@ -2206,7 +2263,8 @@ enum ix86_entity
 
 enum ix86_stack_slot 
 {
-  SLOT_TEMP = 0,
+  SLOT_VIRTUAL = 0,
+  SLOT_TEMP,
   SLOT_CW_STORED,
   SLOT_CW_TRUNC,
   SLOT_CW_FLOOR,
