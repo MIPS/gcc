@@ -530,37 +530,6 @@ GOACC_enter_exit_data (int device, size_t mapnum,
   acc_dev->openacc.async_set_async_func (acc_async_sync);
 }
 
-void
-GOACC_kernels (int device, void (*fn) (void *),
-	       size_t mapnum, void **hostaddrs, size_t *sizes,
-	       unsigned short *kinds,
-	       int num_gangs, int num_workers, int vector_length,
-	       size_t shared_size, int async, int num_waits, ...)
-{
-#ifdef HAVE_INTTYPES_H
-  gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p\n",
-	      __FUNCTION__, (uint64_t) mapnum, hostaddrs, sizes, kinds);
-#else
-  gomp_debug (0, "%s: mapnum=%lu, hostaddrs=%p, sizes=%p, kinds=%p\n",
-	      __FUNCTION__, (unsigned long) mapnum, hostaddrs, sizes, kinds);
-#endif
-
-  va_list ap;
-
-  goacc_lazy_initialize ();
-
-  va_start (ap, num_waits);
-
-  if (num_waits > 0)
-    goacc_wait (async, num_waits, ap);
-
-  va_end (ap);
-
-  GOACC_parallel (device, fn, mapnum, hostaddrs, sizes, kinds,
-		  num_gangs, num_workers, vector_length, shared_size,
-		  async, 0);
-}
-
 static void
 goacc_wait (int async, int num_waits, va_list ap)
 {

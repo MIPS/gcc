@@ -9339,14 +9339,15 @@ expand_omp_target (struct omp_region *region)
 	  /* Don't emit the library call.  We've already done that.  */
 	  do_emit_library_call = false;
 	  /* Transform BUILT_IN_GOACC_KERNELS_INTERNAL into
-	     BUILT_IN_GOACC_KERNELS_INTERNAL.  Now that the function body will be
-	     split off, we can no longer regard the omp_data_array reference as
-	     non-escaping.  */
+	     BUILT_IN_GOACC_PARALLELL.  Now that the function
+	     body will be split off, we can no longer regard the
+	     omp_data_array reference as non-escaping.  */
 	  gsi = gsi_last_bb (entry_bb);
 	  gsi_prev (&gsi);
 	  gcall *call = as_a <gcall *> (gsi_stmt (gsi));
-	  gcc_assert (gimple_call_builtin_p (call, BUILT_IN_GOACC_KERNELS_INTERNAL));
-	  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_KERNELS);
+	  gcc_assert (gimple_call_builtin_p
+		      (call, BUILT_IN_GOACC_KERNELS_INTERNAL));
+	  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_PARALLEL);
 	  gimple_call_set_fndecl (call, fndecl);
 	  gimple_call_set_fntype (call, TREE_TYPE (fndecl));
 	  gimple_call_reset_alias_info (call);
@@ -9723,7 +9724,6 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_DATA_START:
     case BUILT_IN_GOACC_DECLARE:
     case BUILT_IN_GOACC_ENTER_EXIT_DATA:
-    case BUILT_IN_GOACC_KERNELS:
     case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
     case BUILT_IN_GOACC_UPDATE:
@@ -9743,7 +9743,6 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOMP_TARGET_DATA:
     case BUILT_IN_GOMP_TARGET_UPDATE:
       break;
-    case BUILT_IN_GOACC_KERNELS:
     case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
       {

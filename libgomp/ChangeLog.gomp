@@ -1,3 +1,9 @@
+2015-07-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_kernels): Delete.
+	* libgomp.map: Remove GOACC_kernels.
+	* libgomp_g.h (GOACC_kernels): Remove.
+
 2015-07-17  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.c (GOMP_offload_register): Use int for device type arg.
