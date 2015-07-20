@@ -2254,8 +2254,9 @@ cxx_eval_vec_init (const constexpr_ctx *ctx, tree t,
 static tree
 cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 {
-  tree sub = op0, subtype;
+  tree sub, subtype;
 
+  sub = op0;
   STRIP_NOPS (sub);
   subtype = TREE_TYPE (sub);
   if (!POINTER_TYPE_P (subtype))
@@ -3414,15 +3415,7 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	/* Don't re-process a constant CONSTRUCTOR, but do fold it to
 	   VECTOR_CST if applicable.  */
 	return fold (t);
-      /* See this can happen for case like g++.dg/init/static2.C testcase.  */
-      if (!ctx || !ctx->ctor || (lval && !ctx->object)
-	  || !same_type_ignoring_top_level_qualifiers_p
-	       (TREE_TYPE (t), TREE_TYPE (ctx->ctor))
-	  || CONSTRUCTOR_NELTS (ctx->ctor) != 0)
-	{
-	  *non_constant_p = true;
-	  break;
-	}
+
       r = cxx_eval_bare_aggregate (ctx, t, lval,
 				   non_constant_p, overflow_p);
       break;
@@ -4198,6 +4191,9 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	    else
 	      return false;
           }
+	/* Builtins might be constant in result.  */
+	if (is_builtin_fn (fun))
+	  return true;
         for (; i < nargs; ++i)
           {
             tree x = get_nth_callarg (t, i);
@@ -4205,7 +4201,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	       REFERENCE_TYPE and we might not even know if the parameter
 	       is a reference, so accept lvalue constants too.  */
 	    bool rv = processing_template_decl ? any : rval;
-	    if (!RECUR (x, rv) && !is_builtin_fn (fun))
+	    if (!RECUR (x, rv))
 	      return false;
           }
         return true;
