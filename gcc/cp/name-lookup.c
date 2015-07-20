@@ -415,9 +415,7 @@ strip_using_decl (tree decl)
   if (decl == NULL_TREE)
     return NULL_TREE;
 
-  while (TREE_CODE (decl) == USING_DECL
-	 && !DECL_DEPENDENT_P (decl)
-	 && !uses_template_parms (USING_DECL_SCOPE (decl)))
+  while (TREE_CODE (decl) == USING_DECL && !DECL_DEPENDENT_P (decl))
     decl = USING_DECL_DECLS (decl);
 
   if (TREE_CODE (decl) == USING_DECL && DECL_DEPENDENT_P (decl)
