@@ -2211,6 +2211,15 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	}
       break;
 
+    case CONSTRUCTOR:
+      {
+	unsigned i;
+	constructor_elt *p;
+	vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (x);
+	FOR_EACH_VEC_SAFE_ELT (elts, i, p)
+	  p->value = cp_fold (p->value, fold_hash);
+	break;
+      }
     case TREE_VEC:
       {
 	bool changed = false;
