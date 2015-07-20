@@ -1,3 +1,9 @@
+2015-07-20  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (create_parallel_loop): Update comments for removal of
+	GOACC_kernels.  Rename goacc_kernels variable into
+	goacc_kernels_internal.
+
 2015-07-19  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (expand_omp_target): Convert to
