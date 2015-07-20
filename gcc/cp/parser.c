@@ -12235,7 +12235,9 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
                                    /*allow_non_constant_p=*/true,
                                    /*non_constant_p=*/&dummy);
 
-  /* Make sure we folded it completely before doing trying to get
+  /* Reduce condition early.  We need to reduce builtins within
+     static_asserts, so that testcase like pr62024.C getting
+     resolved always proper.  */
      constant value.  */
   condition = fold_non_dependent_expr (condition);
 
