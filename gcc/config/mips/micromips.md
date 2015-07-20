@@ -24,7 +24,7 @@
   "TARGET_MICROMIPS
    && umips_save_restore_pattern_p (true, operands[0])"
   { return umips_output_save_restore (true, operands[0]); }
-  [(set_attr "type" "store")
+  [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
@@ -35,7 +35,7 @@
   "TARGET_MICROMIPS
    && umips_save_restore_pattern_p (false, operands[0])"
   { return umips_output_save_restore (false, operands[0]); }
-  [(set_attr "type" "load")
+  [(set_attr "type" "multimem")
    (set_attr "mode" "SI")
    (set_attr "can_delay" "no")])
 
