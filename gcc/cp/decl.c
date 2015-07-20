@@ -6383,6 +6383,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
   int was_readonly = 0;
   bool var_definition_p = false;
   tree auto_node;
+  tree init_cst = init;
 
   if (decl == error_mark_node)
     return;
@@ -6482,12 +6483,13 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 
   if (init && VAR_P (decl))
     {
+      init_cst = cp_fully_fold (init);
       DECL_NONTRIVIALLY_INITIALIZED_P (decl) = 1;
       /* If DECL is a reference, then we want to know whether init is a
 	 reference constant; init_const_expr_p as passed tells us whether
 	 it's an rvalue constant.  */
       if (TREE_CODE (type) == REFERENCE_TYPE)
-	init_const_expr_p = potential_constant_expression (init);
+	init_const_expr_p = potential_constant_expression (init_cst);
       if (init_const_expr_p)
 	{
 	  /* Set these flags now for templates.  We'll update the flags in
@@ -6548,10 +6550,11 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	      && !MAYBE_CLASS_TYPE_P (type))
 	    init = build_x_compound_expr_from_list (init, ELK_INIT,
 						    tf_warning_or_error);
+	  init_cst = init;
 	}
 
       if (init)
-	DECL_INITIAL (decl) = init;
+	DECL_INITIAL (decl) = init_cst;
       return;
     }
 
