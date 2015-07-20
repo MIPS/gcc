@@ -566,8 +566,12 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	      {
 		dump_generic_node (pp, TREE_VALUE (t), spc, flags, false);
 		if (TREE_PURPOSE (t) != integer_zero_node)
-		  dump_generic_node (pp, TREE_PURPOSE (t), spc, flags,
-				     false);
+		  {
+		    if (!wi::neg_p (TREE_PURPOSE (t)))
+		      pp_plus (pp);
+		    dump_generic_node (pp, TREE_PURPOSE (t), spc, flags,
+				       false);
+		  }
 		if (TREE_CHAIN (t))
 		  pp_comma (pp);
 	      }
