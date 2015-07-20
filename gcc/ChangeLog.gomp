@@ -1,7 +1,20 @@
+2015-07-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_builtins): Delete enum.
+	(nvptx_types): New enum.
+	(builtin_description): Add type and num_args fields.
+	(builtins): New array describing builtins.
+	(NVPTX_BUILTIN_MAX): Define.
+	(def_builtin): Delete.
+	(nvptx_init_builtins): Reimplement using builtins array.
+	(nvptx_expand_binop_builtin): Delete.
+	(bdesc_2arg): Delete.
+	(nvptx_expand_builtin): Reimplement using builtins array.
+
 2015-07-20  Tom de Vries  <tom@codesourcery.com>
 
-	* tree-parloops.c (create_parallel_loop): Update comments for removal of
-	GOACC_kernels.  Rename goacc_kernels variable into
+	* tree-parloops.c (create_parallel_loop): Update comments for
+	removal of GOACC_kernels.  Rename goacc_kernels variable into
 	goacc_kernels_internal.
 
 2015-07-19  Nathan Sidwell  <nathan@codesourcery.com>

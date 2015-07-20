@@ -3058,16 +3058,34 @@ nvptx_file_end (void)
     }
 }
 
-/* Codes for all the NVPTX builtins.  */
-enum nvptx_builtins
-{
-  NVPTX_BUILTIN_SHUFFLE_DOWN,
-  NVPTX_BUILTIN_SHUFFLE_DOWNF,
-  NVPTX_BUILTIN_SHUFFLE_DOWNLL,
+enum nvptx_types
+  {
+    NT_UINT_UINT_INT,
+    NT_ULL_ULL_INT,
+    NT_FLT_FLT_INT,
 
-  NVPTX_BUILTIN_MAX
+    NT_MAX
+  };
+
+struct builtin_description
+{
+  const char *name;
+  enum insn_code icode;
+  unsigned short type;
+  unsigned short num_args;
 };
 
+static const struct builtin_description builtins[] =
+{
+  {"__builtin_nvptx_shuffle_down", CODE_FOR_thread_shuffle_downsi,
+   NT_UINT_UINT_INT, 2},
+  {"__builtin_nvptx_shuffle_downf", CODE_FOR_thread_shuffle_downsf,
+   NT_FLT_FLT_INT, 2},
+  { "__builtin_nvptx_shuffle_downll", CODE_FOR_thread_shuffle_downdi,
+    NT_ULL_ULL_INT, 2},
+};
+
+#define NVPTX_BUILTIN_MAX (sizeof (builtins) / sizeof (builtins[0]))
 
 static GTY(()) tree nvptx_builtin_decls[NVPTX_BUILTIN_MAX];
 
@@ -3081,91 +3099,29 @@ nvptx_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
   return nvptx_builtin_decls[code];
 }
 
-#define def_builtin(NAME, TYPE, CODE)					\
-do {									\
-  tree bdecl;								\
-  bdecl = add_builtin_function ((NAME), (TYPE), (CODE), BUILT_IN_MD,	\
-				NULL, NULL_TREE);			\
-  nvptx_builtin_decls[CODE] = bdecl;					\
-} while (0)
-
 /* Set up all builtin functions for this target.  */
 static void
 nvptx_init_builtins (void)
-{ 
-  tree uint_ftype_uint_int
+{
+  tree types[NT_MAX];
+  unsigned ix;
+
+  types[NT_UINT_UINT_INT]
     = build_function_type_list (unsigned_type_node, unsigned_type_node,
 				integer_type_node, NULL_TREE);
-  tree ull_ftype_ull_int
+  types[NT_ULL_ULL_INT]
     = build_function_type_list (long_long_unsigned_type_node,
 				long_long_unsigned_type_node,
 				integer_type_node, NULL_TREE);
-  tree float_ftype_float_int
+  types[NT_FLT_FLT_INT]
     = build_function_type_list (float_type_node, float_type_node,
 				integer_type_node, NULL_TREE);
-  def_builtin ("__builtin_nvptx_shuffle_down", uint_ftype_uint_int,
-	       NVPTX_BUILTIN_SHUFFLE_DOWN);
-  def_builtin ("__builtin_nvptx_shuffle_downf", float_ftype_float_int,
-	       NVPTX_BUILTIN_SHUFFLE_DOWNF);
-  def_builtin ("__builtin_nvptx_shuffle_downll", ull_ftype_ull_int,
-	       NVPTX_BUILTIN_SHUFFLE_DOWNLL);
+
+  for (ix = 0; ix != NVPTX_BUILTIN_MAX; ix++)
+    nvptx_builtin_decls[ix]
+      =  add_builtin_function (builtins[ix].name, types[builtins[ix].type],
+			       ix, BUILT_IN_MD, NULL, NULL_TREE);
 }
-
-/* Subroutine of nvptx_expand_builtin to take care of binop insns.  MACFLAG is -1
-   if this is a normal binary op, or one of the MACFLAG_xxx constants.  */
-
-static rtx
-nvptx_expand_binop_builtin (enum insn_code icode, tree exp, rtx target)
-{
-  rtx pat;
-  tree arg0 = CALL_EXPR_ARG (exp, 0);
-  tree arg1 = CALL_EXPR_ARG (exp, 1);
-  rtx op0 = expand_expr (arg0, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-  rtx op1 = expand_expr (arg1, NULL_RTX, VOIDmode, EXPAND_NORMAL);
-  machine_mode op0mode = GET_MODE (op0);
-  machine_mode op1mode = GET_MODE (op1);
-  machine_mode tmode = insn_data[icode].operand[0].mode;
-  machine_mode mode0 = insn_data[icode].operand[1].mode;
-  machine_mode mode1 = insn_data[icode].operand[2].mode;
-  rtx ret = target;
-
-  if (! target
-      || GET_MODE (target) != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    target = gen_reg_rtx (tmode);
-
-  gcc_assert ((op0mode == mode0 || op0mode == VOIDmode)
-	      && (op1mode == mode1 || op1mode == VOIDmode));
-
-  if (! (*insn_data[icode].operand[1].predicate) (op0, mode0))
-    op0 = copy_to_mode_reg (mode0, op0);
-  if (! (*insn_data[icode].operand[2].predicate) (op1, mode1))
-    op1 = copy_to_mode_reg (mode1, op1);
-
-  pat = GEN_FCN (icode) (target, op0, op1);
-
-  if (! pat)
-    return 0;
-
-  emit_insn (pat);
-
-  return ret;
-}
-
-
-struct builtin_description
-{
-  const enum insn_code icode;
-  const char *const name;
-  const enum nvptx_builtins code;
-};
-
-static const struct builtin_description bdesc_2arg[] =
-{
-  { CODE_FOR_thread_shuffle_downsi, "__builtin_nvptx_shuffle_down", NVPTX_BUILTIN_SHUFFLE_DOWN },
-  { CODE_FOR_thread_shuffle_downsf, "__builtin_nvptx_shuffle_downf", NVPTX_BUILTIN_SHUFFLE_DOWNF },
-  { CODE_FOR_thread_shuffle_downdi, "__builtin_nvptx_shuffle_downll", NVPTX_BUILTIN_SHUFFLE_DOWNLL }
-};
 
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
@@ -3174,21 +3130,41 @@ static const struct builtin_description bdesc_2arg[] =
    IGNORE is nonzero if the value is to be ignored.  */
 
 static rtx
-nvptx_expand_builtin (tree exp, rtx target ATTRIBUTE_UNUSED,
+nvptx_expand_builtin (tree exp, rtx target,
 		     rtx subtarget ATTRIBUTE_UNUSED,
-		     machine_mode mode ATTRIBUTE_UNUSED,
-		     int ignore ATTRIBUTE_UNUSED)
+		     machine_mode mode,
+		     int ignore)
 {
-  size_t i;
-  const struct builtin_description *d;
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  unsigned int fcode = DECL_FUNCTION_CODE (fndecl);
+  const struct builtin_description *d = &builtins[DECL_FUNCTION_CODE (fndecl)];
+  unsigned icode = d->icode;
+  rtx operands[2]; /* maxium operands */
+  unsigned ix;
+  machine_mode tmode = insn_data[icode].operand[0].mode;
 
-  for (i = 0, d = bdesc_2arg; i < ARRAY_SIZE (bdesc_2arg); i++, d++)
-    if (d->code == fcode)
-      return nvptx_expand_binop_builtin (d->icode, exp, target);
+  if (ignore)
+    return target;
+  
+  if (! target
+      || mode != tmode
+      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
+    target = gen_reg_rtx (tmode);
 
-  gcc_unreachable ();
+  for (ix = d->num_args; ix--;)
+    {
+      machine_mode m = insn_data[icode].operand[ix + 1].mode;
+      rtx op = expand_expr (CALL_EXPR_ARG (exp, ix),
+			    NULL_RTX, VOIDmode, EXPAND_NORMAL);
+      if (! (*insn_data[icode].operand[ix + 1].predicate) (op, m))
+	op = copy_to_mode_reg (m, op);
+      operands[ix] = op;
+    }
+
+  rtx pat = GEN_FCN (icode) (target, operands[0], operands[1]);
+  if (pat)
+    emit_insn (pat);
+
+  return target;
 }
 
 #undef TARGET_OPTION_OVERRIDE
