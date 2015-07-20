@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "dominance.h"
 #include "cfg.h"
+#include "cfghooks.h"
 #include "function.h"
 #include "predict.h"
 #include "basic-block.h"

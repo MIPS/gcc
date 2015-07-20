@@ -20,11 +20,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "attribs.h"
@@ -33,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
@@ -41,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
-#include "function.h"
 #include "recog.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -52,36 +52,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "cgraph.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "cfgloop.h"
 #include "dwarf2.h"
-#include "df.h"
 #include "tm-constrs.h"
 #include "params.h"
 #include "cselib.h"
 #include "debug.h"
 #include "sched-int.h"
-#include "sbitmap.h"
 #include "fibheap.h"
 #include "opts.h"
 #include "diagnostic.h"
@@ -430,7 +421,7 @@ static const
 struct processor_costs iamcu_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
-  COSTS_N_INSNS (4),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* variable shift costs */
   COSTS_N_INSNS (1),			/* constant shift costs */
   {COSTS_N_INSNS (11),			/* cost of starting multiply for QI */
    COSTS_N_INSNS (11),			/*				 HI */
@@ -5076,7 +5067,7 @@ ix86_valid_target_attribute_tree (tree args,
 
   /* If the changed options are different from the default, rerun
      ix86_option_override_internal, and then save the options away.
-     The string options are are attribute options, and will be undone
+     The string options are attribute options, and will be undone
      when we copy the save structure.  */
   if (opts->x_ix86_isa_flags != def->x_ix86_isa_flags
       || opts->x_target_flags != def->x_target_flags
@@ -5638,12 +5629,16 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
       if (!decl
 	  || (TARGET_DLLIMPORT_DECL_ATTRIBUTES && DECL_DLLIMPORT_P (decl)))
 	{
-	  if (ix86_function_regparm (type, NULL) >= 3)
-	    {
-	      /* ??? Need to count the actual number of registers to be used,
-		 not the possible number of registers.  Fix later.  */
-	      return false;
-	    }
+	  /* Check if regparm >= 3 since arg_reg_available is set to
+	     false if regparm == 0.  If regparm is 1 or 2, there is
+	     always a call-clobbered register available.
+
+	     ??? The symbol indirect call doesn't need a call-clobbered
+	     register.  But we don't know if this is a symbol indirect
+	     call or not here.  */
+	  if (ix86_function_regparm (type, NULL) >= 3
+	      && !cfun->machine->arg_reg_available)
+	    return false;
 	}
     }
 
@@ -6619,6 +6614,10 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
       if (stdarg_p (fntype))
 	{
 	  cum->nregs = 0;
+	  /* Since in 32-bit, variable arguments are always passed on
+	     stack, there is scratch register available for indirect
+	     sibcall.  */
+	  cfun->machine->arg_reg_available = true;
 	  cum->sse_nregs = 0;
 	  cum->mmx_nregs = 0;
 	  cum->warn_avx512f = false;
@@ -6651,6 +6650,8 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	 and DFmode arguments.  Warn for mismatching ABI.  */
       cum->float_in_sse = ix86_function_sseregparm (fntype, fndecl, true);
     }
+
+  cfun->machine->arg_reg_available = (cum->nregs > 0);
 }
 
 /* Return the "natural" mode for TYPE.  In most cases, this is just TYPE_MODE.
@@ -6695,7 +6696,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 	    if (GET_MODE_NUNITS (mode) == TYPE_VECTOR_SUBPARTS (type)
 		&& GET_MODE_INNER (mode) == innermode)
 	      {
-		if (size == 64 && !TARGET_AVX512F)
+		if (size == 64 && !TARGET_AVX512F && !TARGET_IAMCU)
 		  {
 		    static bool warnedavx512f;
 		    static bool warnedavx512f_ret;
@@ -6715,7 +6716,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 
 		    return TYPE_MODE (type);
 		  }
-		else if (size == 32 && !TARGET_AVX)
+		else if (size == 32 && !TARGET_AVX && !TARGET_IAMCU)
 		  {
 		    static bool warnedavx;
 		    static bool warnedavx_ret;
@@ -6736,7 +6737,8 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		    return TYPE_MODE (type);
 		  }
 		else if (((size == 8 && TARGET_64BIT) || size == 16)
-			 && !TARGET_SSE)
+			 && !TARGET_SSE
+			 && !TARGET_IAMCU)
 		  {
 		    static bool warnedsse;
 		    static bool warnedsse_ret;
@@ -6754,7 +6756,9 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 			  warnedsse_ret = true;
 		      }
 		  }
-		else if ((size == 8 && !TARGET_64BIT) && !TARGET_MMX)
+		else if ((size == 8 && !TARGET_64BIT)
+			 && !TARGET_MMX
+			 && !TARGET_IAMCU)
 		  {
 		    static bool warnedmmx;
 		    static bool warnedmmx_ret;
@@ -7562,7 +7566,7 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
     {
       /* Intel MCU psABI passes scalars and aggregates no larger than 8
 	 bytes in registers.  */
-      if (bytes <= 8)
+      if (!VECTOR_MODE_P (mode) && bytes <= 8)
 	goto pass_in_reg;
       return res;
     }
@@ -7590,6 +7594,7 @@ pass_in_reg:
       if (cum->nregs <= 0)
 	{
 	  cum->nregs = 0;
+	  cfun->machine->arg_reg_available = false;
 	  cum->regno = 0;
 	}
       break;
@@ -7819,7 +7824,7 @@ function_arg_32 (CUMULATIVE_ARGS *cum, machine_mode mode,
     {
       /* Intel MCU psABI passes scalars and aggregates no larger than 8
 	 bytes in registers.  */
-      if (bytes <= 8)
+      if (!VECTOR_MODE_P (mode) && bytes <= 8)
 	goto pass_in_reg;
       return NULL_RTX;
     }
@@ -8689,7 +8694,7 @@ ix86_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       /* Intel MCU psABI returns scalars and aggregates no larger than 8
 	 bytes in registers.  */
       if (TARGET_IAMCU)
-	return size > 8;
+	return VECTOR_MODE_P (mode) || size < 0 || size > 8;
 
       if (mode == BLKmode)
 	return true;
@@ -11490,6 +11495,7 @@ ix86_expand_prologue (void)
   HOST_WIDE_INT allocate;
   bool int_registers_saved;
   bool sse_registers_saved;
+  rtx static_chain = NULL_RTX;
 
   ix86_finalize_stack_realign_flags ();
 
@@ -11588,7 +11594,8 @@ ix86_expand_prologue (void)
      call.  This insn will be skipped by the trampoline.  */
   else if (ix86_static_chain_on_stack)
     {
-      insn = emit_insn (gen_push (ix86_static_chain (cfun->decl, false)));
+      static_chain = ix86_static_chain (cfun->decl, false);
+      insn = emit_insn (gen_push (static_chain));
       emit_insn (gen_blockage ());
 
       /* We don't want to interpret this push insn as a register save,
@@ -11640,6 +11647,15 @@ ix86_expand_prologue (void)
 	 we've started over with a new frame.  */
       m->fs.sp_offset = INCOMING_FRAME_SP_OFFSET;
       m->fs.realigned = true;
+
+      if (static_chain)
+	{
+	  /* Replicate static chain on the stack so that static chain
+	     can be reached via (argp - 2) slot.  This is needed for
+	     nested function with stack realignment.  */
+	  insn = emit_insn (gen_push (static_chain));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	}
     }
 
   int_registers_saved = (frame.nregs == 0);
@@ -42251,13 +42267,12 @@ ix86_set_reg_reg_cost (machine_mode mode)
    scanned.  In either case, *TOTAL contains the cost result.  */
 
 static bool
-ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
-		bool speed)
+ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
+		int *total, bool speed)
 {
   rtx mask;
-  enum rtx_code code = (enum rtx_code) code_i;
+  enum rtx_code code = GET_CODE (x);
   enum rtx_code outer_code = (enum rtx_code) outer_code_i;
-  machine_mode mode = GET_MODE (x);
   const struct processor_costs *cost = speed ? ix86_cost : &ix86_size_cost;
 
   switch (code)
@@ -42388,7 +42403,7 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 		  if (CONSTANT_P (XEXP (x, 1)))
 		    {
 		      *total = (cost->fabs
-				+ rtx_cost (XEXP (x, 0), code, 0, speed)
+				+ rtx_cost (XEXP (x, 0), mode, code, 0, speed)
 				+ (speed ? 2 : COSTS_N_BYTES (16)));
 		      return true;
 		    }
@@ -42444,18 +42459,18 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
         /* ??? SSE scalar/vector cost should be used here.  */
         /* ??? Bald assumption that fma has the same cost as fmul.  */
         *total = cost->fmul;
-	*total += rtx_cost (XEXP (x, 1), FMA, 1, speed);
+	*total += rtx_cost (XEXP (x, 1), mode, FMA, 1, speed);
 
         /* Negate in op0 or op2 is free: FMS, FNMA, FNMS.  */
 	sub = XEXP (x, 0);
 	if (GET_CODE (sub) == NEG)
 	  sub = XEXP (sub, 0);
-	*total += rtx_cost (sub, FMA, 0, speed);
+	*total += rtx_cost (sub, mode, FMA, 0, speed);
 
 	sub = XEXP (x, 2);
 	if (GET_CODE (sub) == NEG)
 	  sub = XEXP (sub, 0);
-	*total += rtx_cost (sub, FMA, 2, speed);
+	*total += rtx_cost (sub, mode, FMA, 2, speed);
 	return true;
       }
 
@@ -42545,8 +42560,8 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 
   	  *total = (cost->mult_init[MODE_INDEX (mode)]
 		    + nbits * cost->mult_bit
-	            + rtx_cost (op0, outer_code, opno, speed)
-		    + rtx_cost (op1, outer_code, opno, speed));
+	            + rtx_cost (op0, mode, outer_code, opno, speed)
+		    + rtx_cost (op1, mode, outer_code, opno, speed));
 
           return true;
 	}
@@ -42580,11 +42595,12 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 	      if (val == 2 || val == 4 || val == 8)
 		{
 		  *total = cost->lea;
-		  *total += rtx_cost (XEXP (XEXP (x, 0), 1),
+		  *total += rtx_cost (XEXP (XEXP (x, 0), 1), mode,
 				      outer_code, opno, speed);
-		  *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0),
+		  *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0), mode,
 				      outer_code, opno, speed);
-		  *total += rtx_cost (XEXP (x, 1), outer_code, opno, speed);
+		  *total += rtx_cost (XEXP (x, 1), mode,
+				      outer_code, opno, speed);
 		  return true;
 		}
 	    }
@@ -42595,20 +42611,22 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 	      if (val == 2 || val == 4 || val == 8)
 		{
 		  *total = cost->lea;
-		  *total += rtx_cost (XEXP (XEXP (x, 0), 0),
+		  *total += rtx_cost (XEXP (XEXP (x, 0), 0), mode,
 				      outer_code, opno, speed);
-		  *total += rtx_cost (XEXP (x, 1), outer_code, opno, speed);
+		  *total += rtx_cost (XEXP (x, 1), mode,
+				      outer_code, opno, speed);
 		  return true;
 		}
 	    }
 	  else if (GET_CODE (XEXP (x, 0)) == PLUS)
 	    {
 	      *total = cost->lea;
-	      *total += rtx_cost (XEXP (XEXP (x, 0), 0),
+	      *total += rtx_cost (XEXP (XEXP (x, 0), 0), mode,
 				  outer_code, opno, speed);
-	      *total += rtx_cost (XEXP (XEXP (x, 0), 1),
+	      *total += rtx_cost (XEXP (XEXP (x, 0), 1), mode,
 				  outer_code, opno, speed);
-	      *total += rtx_cost (XEXP (x, 1), outer_code, opno, speed);
+	      *total += rtx_cost (XEXP (x, 1), mode,
+				  outer_code, opno, speed);
 	      return true;
 	    }
 	}
@@ -42641,9 +42659,9 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 	  && GET_MODE_SIZE (mode) > UNITS_PER_WORD)
 	{
 	  *total = (cost->add * 2
-		    + (rtx_cost (XEXP (x, 0), outer_code, opno, speed)
+		    + (rtx_cost (XEXP (x, 0), mode, outer_code, opno, speed)
 		       << (GET_MODE (XEXP (x, 0)) != DImode))
-		    + (rtx_cost (XEXP (x, 1), outer_code, opno, speed)
+		    + (rtx_cost (XEXP (x, 1), mode, outer_code, opno, speed)
 	               << (GET_MODE (XEXP (x, 1)) != DImode)));
 	  return true;
 	}
@@ -42691,9 +42709,11 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
 	{
 	  /* This kind of construct is implemented using test[bwl].
 	     Treat it as if we had an AND.  */
+	  mode = GET_MODE (XEXP (XEXP (x, 0), 0));
 	  *total = (cost->add
-		    + rtx_cost (XEXP (XEXP (x, 0), 0), outer_code, opno, speed)
-		    + rtx_cost (const1_rtx, outer_code, opno, speed));
+		    + rtx_cost (XEXP (XEXP (x, 0), 0), mode, outer_code,
+				opno, speed)
+		    + rtx_cost (const1_rtx, mode, outer_code, opno, speed));
 	  return true;
 	}
 
@@ -42749,7 +42769,7 @@ ix86_rtx_costs (rtx x, int code_i, int outer_code_i, int opno, int *total,
       /* This is masked instruction, assume the same cost,
 	 as nonmasked variant.  */
       if (TARGET_AVX512F && register_operand (mask, GET_MODE (mask)))
-	*total = rtx_cost (XEXP (x, 0), outer_code, opno, speed);
+	*total = rtx_cost (XEXP (x, 0), mode, outer_code, opno, speed);
       else
 	*total = cost->fabs;
       return true;
@@ -45845,7 +45865,17 @@ ix86_md_asm_adjust (vec<rtx> &outputs, vec<rtx> &/*inputs*/,
 	{
 	  rtx destqi = gen_reg_rtx (QImode);
 	  emit_insn (gen_rtx_SET (destqi, x));
-	  x = gen_rtx_ZERO_EXTEND (dest_mode, destqi);
+
+	  if (TARGET_ZERO_EXTEND_WITH_AND
+	      && optimize_function_for_speed_p (cfun))
+	    {
+	      x = force_reg (dest_mode, const0_rtx);
+
+	      emit_insn (gen_movstrictqi
+			 (gen_lowpart (QImode, x), destqi));
+	    }
+	  else
+	    x = gen_rtx_ZERO_EXTEND (dest_mode, destqi);
 	}
       emit_insn (gen_rtx_SET (dest, x));
     }
@@ -50490,6 +50520,109 @@ ix86_expand_sse2_abs (rtx target, rtx input)
     emit_move_insn (target, x);
 }
 
+/* Expand an extract from a vector register through pextr insn.
+   Return true if successful.  */
+
+bool
+ix86_expand_pextr (rtx *operands)
+{
+  rtx dst = operands[0];
+  rtx src = operands[1];
+
+  unsigned int size = INTVAL (operands[2]);
+  unsigned int pos = INTVAL (operands[3]);
+
+  if (GET_CODE (dst) == SUBREG)
+    {
+      /* Reject non-lowpart subregs.  */
+      if (SUBREG_BYTE (dst) > 0)
+	return false;
+      dst = SUBREG_REG (dst);
+    }
+	
+  if (GET_CODE (src) == SUBREG)
+    {
+      pos += SUBREG_BYTE (src) * BITS_PER_UNIT;
+      src = SUBREG_REG (src);
+    }
+
+  switch (GET_MODE (src))
+    {
+    case V16QImode:
+    case V8HImode:
+    case V4SImode:
+    case V2DImode:
+    case V1TImode:
+    case TImode:
+      {
+	machine_mode srcmode, dstmode;
+	rtx d, pat;
+
+	dstmode = mode_for_size (size, MODE_INT, 0);
+
+	switch (dstmode)
+	  {
+	  case QImode:
+	    if (!TARGET_SSE4_1)
+	      return false;
+	    srcmode = V16QImode;
+	    break;
+
+	  case HImode:
+	    if (!TARGET_SSE2)
+	      return false;
+	    srcmode = V8HImode;
+	    break;
+
+	  case SImode:
+	    if (!TARGET_SSE4_1)
+	      return false;
+	    srcmode = V4SImode;
+	    break;
+
+	  case DImode:
+	    gcc_assert (TARGET_64BIT);
+	    if (!TARGET_SSE4_1)
+	      return false;
+	    srcmode = V2DImode;
+	    break;
+
+	  default:
+	    return false;
+	  }
+
+	/* Reject extractions from misaligned positions.  */
+	if (pos & (size-1))
+	  return false;
+
+	if (GET_MODE (dst) == dstmode)
+	  d = dst;
+	else
+	  d = gen_reg_rtx (dstmode);
+
+	/* Construct insn pattern.  */
+	pat = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (1, GEN_INT (pos / size)));
+	pat = gen_rtx_VEC_SELECT (dstmode, gen_lowpart (srcmode, src), pat);
+
+	/* Let the rtl optimizers know about the zero extension performed.  */
+	if (dstmode == QImode || dstmode == HImode)
+	  {
+	    pat = gen_rtx_ZERO_EXTEND (SImode, pat);
+	    d = gen_lowpart (SImode, d);
+	  }
+
+	emit_insn (gen_rtx_SET (d, pat));
+
+	if (d != dst)
+	  emit_move_insn (dst, gen_lowpart (GET_MODE (dst), d));
+	return true;
+      }
+
+    default:
+      return false;
+    }
+}
+
 /* Expand an insert into a vector register through pinsr insn.
    Return true if successful.  */
 
@@ -50508,18 +50641,18 @@ ix86_expand_pinsr (rtx *operands)
       dst = SUBREG_REG (dst);
     }
 
-  if (GET_CODE (src) == SUBREG)
-    src = SUBREG_REG (src);
-
   switch (GET_MODE (dst))
     {
     case V16QImode:
     case V8HImode:
     case V4SImode:
     case V2DImode:
+    case V1TImode:
+    case TImode:
       {
 	machine_mode srcmode, dstmode;
 	rtx (*pinsr)(rtx, rtx, rtx, rtx);
+	rtx d;
 
 	srcmode = mode_for_size (size, MODE_INT, 0);
 
@@ -50558,15 +50691,40 @@ ix86_expand_pinsr (rtx *operands)
 	    return false;
 	  }
 
-	rtx d = dst;
-	if (GET_MODE (dst) != dstmode)
+	/* Reject insertions to misaligned positions.  */
+	if (pos & (size-1))
+	  return false;
+
+	if (GET_CODE (src) == SUBREG)
+	  {
+	    unsigned int srcpos = SUBREG_BYTE (src);
+
+	    if (srcpos > 0)
+	      {
+		rtx extr_ops[4];
+
+		extr_ops[0] = gen_reg_rtx (srcmode);
+		extr_ops[1] = gen_lowpart (srcmode, SUBREG_REG (src));
+		extr_ops[2] = GEN_INT (size);
+		extr_ops[3] = GEN_INT (srcpos * BITS_PER_UNIT);
+
+		if (!ix86_expand_pextr (extr_ops))
+		  return false;
+
+		src = extr_ops[0];
+	      }
+	    else
+	      src = gen_lowpart (srcmode, SUBREG_REG (src));
+	  }
+
+	if (GET_MODE (dst) == dstmode)
+	  d = dst;
+	else
 	  d = gen_reg_rtx (dstmode);
-	src = gen_lowpart (srcmode, src);
 
-	pos /= size;
-
-	emit_insn (pinsr (d, gen_lowpart (dstmode, dst), src,
-			  GEN_INT (1 << pos)));
+	emit_insn (pinsr (d, gen_lowpart (dstmode, dst),
+			  gen_lowpart (srcmode, src),
+			  GEN_INT (1 << (pos / size))));
 	if (d != dst)
 	  emit_move_insn (dst, gen_lowpart (GET_MODE (dst), d));
 	return true;

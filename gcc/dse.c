@@ -25,29 +25,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "regset.h"
 #include "flags.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "cselib.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "insn-config.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -62,10 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "target.h"
 #include "params.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
 #include "cfgcleanup.h"
@@ -83,7 +75,7 @@ along with GCC; see the file COPYING3.  If not see
    frame_pointer.
 
    * The third technique, (which is only done after register allocation)
-   processes the spill spill slots.  This differs from the second
+   processes the spill slots.  This differs from the second
    technique because it takes advantage of the fact that spilling is
    completely free from the effects of aliasing.
 
@@ -316,10 +308,10 @@ lowpart_bitmask (int n)
 }
 
 typedef struct store_info *store_info_t;
-static pool_allocator<store_info> cse_store_info_pool ("cse_store_info_pool",
+static object_allocator<store_info> cse_store_info_pool ("cse_store_info_pool",
 						       100);
 
-static pool_allocator<store_info> rtx_store_info_pool ("rtx_store_info_pool",
+static object_allocator<store_info> rtx_store_info_pool ("rtx_store_info_pool",
 						       100);
 
 /* This structure holds information about a load.  These are only
@@ -342,25 +334,11 @@ struct read_info_type
 
   /* The next read_info for this insn.  */
   struct read_info_type *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((read_info_type *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<read_info_type> pool;
 };
 typedef struct read_info_type *read_info_t;
 
-pool_allocator<read_info_type> read_info_type::pool ("read_info_pool", 100);
+static object_allocator<read_info_type> read_info_type_pool
+  ("read_info_pool", 100);
 
 /* One of these records is created for each insn.  */
 
@@ -446,25 +424,11 @@ struct insn_info_type
      time it is guaranteed to be correct is when the traversal starts
      at active_local_stores.  */
   struct insn_info_type * next_local_store;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((insn_info_type *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<insn_info_type> pool;
 };
 typedef struct insn_info_type *insn_info_t;
 
-pool_allocator<insn_info_type> insn_info_type::pool ("insn_info_pool", 100);
+static object_allocator<insn_info_type> insn_info_type_pool
+  ("insn_info_pool", 100);
 
 /* The linked list of stores that are under consideration in this
    basic block.  */
@@ -526,25 +490,12 @@ struct dse_bb_info_type
      to assure that shift and/or add sequences that are inserted do not
      accidentally clobber live hard regs.  */
   bitmap regs_live;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((dse_bb_info_type *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<dse_bb_info_type> pool;
 };
 
 typedef struct dse_bb_info_type *bb_info_t;
-pool_allocator<dse_bb_info_type> dse_bb_info_type::pool ("bb_info_pool", 100);
+
+static object_allocator<dse_bb_info_type> dse_bb_info_type_pool
+  ("bb_info_pool", 100);
 
 /* Table to hold all bb_infos.  */
 static bb_info_t *bb_table;
@@ -612,26 +563,12 @@ struct group_info
      care about.  */
   int *offset_map_n, *offset_map_p;
   int offset_map_size_n, offset_map_size_p;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((group_info *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<group_info> pool;
 };
 typedef struct group_info *group_info_t;
 typedef const struct group_info *const_group_info_t;
 
-pool_allocator<group_info> group_info::pool ("rtx_group_info_pool", 100);
+static object_allocator<group_info> group_info_pool
+  ("rtx_group_info_pool", 100);
 
 /* Index into the rtx_group_vec.  */
 static int rtx_group_next_id;
@@ -652,26 +589,11 @@ struct deferred_change
   rtx reg;
 
   struct deferred_change *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((deferred_change *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<deferred_change> pool;
 };
 
 typedef struct deferred_change *deferred_change_t;
 
-pool_allocator<deferred_change> deferred_change::pool
+static object_allocator<deferred_change> deferred_change_pool
   ("deferred_change_pool", 10);
 
 static deferred_change_t deferred_change_list = NULL;
@@ -777,7 +699,7 @@ get_group_info (rtx base)
     {
       if (!clear_alias_group)
 	{
-	  clear_alias_group = gi = new group_info;
+	  clear_alias_group = gi = group_info_pool.allocate ();
 	  memset (gi, 0, sizeof (struct group_info));
 	  gi->id = rtx_group_next_id++;
 	  gi->store1_n = BITMAP_ALLOC (&dse_bitmap_obstack);
@@ -799,7 +721,7 @@ get_group_info (rtx base)
 
   if (gi == NULL)
     {
-      *slot = gi = new group_info;
+      *slot = gi = group_info_pool.allocate ();
       gi->rtx_base = base;
       gi->id = rtx_group_next_id++;
       gi->base_mem = gen_rtx_MEM (BLKmode, base);
@@ -1035,7 +957,7 @@ delete_dead_store_insn (insn_info_t insn_info)
   while (read_info)
     {
       read_info_t next = read_info->next;
-      delete read_info;
+      read_info_type_pool.remove (read_info);
       read_info = next;
     }
   insn_info->read_rec = NULL;
@@ -1159,7 +1081,7 @@ free_read_records (bb_info_t bb_info)
       read_info_t next = (*ptr)->next;
       if ((*ptr)->alias_set == 0)
         {
-	  delete *ptr;
+	  read_info_type_pool.remove (*ptr);
           *ptr = next;
         }
       else
@@ -1841,7 +1763,8 @@ find_shift_sequence (int access_size,
 		  byte = subreg_lowpart_offset (read_mode, new_mode);
 		  ret = simplify_subreg (read_mode, ret, new_mode, byte);
 		  if (ret && CONSTANT_P (ret)
-		      && set_src_cost (ret, speed) <= COSTS_N_INSNS (1))
+		      && (set_src_cost (ret, read_mode, speed)
+			  <= COSTS_N_INSNS (1)))
 		    return ret;
 		}
 	    }
@@ -2106,7 +2029,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
 
   if (validate_change (read_insn->insn, loc, read_reg, 0))
     {
-      deferred_change_t change = new deferred_change;
+      deferred_change_t change = deferred_change_pool.allocate ();
 
       /* Insert this right before the store insn where it will be safe
 	 from later insns that might change it before the read.  */
@@ -2144,7 +2067,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
       /* Get rid of the read_info, from the point of view of the
 	 rest of dse, play like this read never happened.  */
       read_insn->read_rec = read_info->next;
-      delete read_info;
+      read_info_type_pool.remove (read_info);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, " -- replaced the loaded MEM with ");
@@ -2210,7 +2133,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
   else
     width = GET_MODE_SIZE (GET_MODE (mem));
 
-  read_info = new read_info_type;
+  read_info = read_info_type_pool.allocate ();
   read_info->group_id = group_id;
   read_info->mem = mem;
   read_info->alias_set = spill_alias_set;
@@ -2526,7 +2449,7 @@ static void
 scan_insn (bb_info_t bb_info, rtx_insn *insn)
 {
   rtx body;
-  insn_info_type *insn_info = new insn_info_type;
+  insn_info_type *insn_info = insn_info_type_pool.allocate ();
   int mems_found = 0;
   memset (insn_info, 0, sizeof (struct insn_info_type));
 
@@ -2785,7 +2708,7 @@ dse_step1 (void)
   FOR_ALL_BB_FN (bb, cfun)
     {
       insn_info_t ptr;
-      bb_info_t bb_info = new dse_bb_info_type;
+      bb_info_t bb_info = dse_bb_info_type_pool.allocate ();
 
       memset (bb_info, 0, sizeof (dse_bb_info_type));
       bitmap_set_bit (all_blocks, bb->index);
@@ -2862,7 +2785,7 @@ dse_step1 (void)
 	      /* There is no reason to validate this change.  That was
 		 done earlier.  */
 	      *deferred_change_list->loc = deferred_change_list->reg;
-	      delete deferred_change_list;
+	      deferred_change_pool.remove (deferred_change_list);
 	      deferred_change_list = next;
 	    }
 
@@ -3747,11 +3670,11 @@ dse_step7 (void)
   BITMAP_FREE (scratch);
 
   rtx_store_info_pool.release ();
-  read_info_type::pool.release ();
-  insn_info_type::pool.release ();
-  dse_bb_info_type::pool.release ();
-  group_info::pool.release ();
-  deferred_change::pool.release ();
+  read_info_type_pool.release ();
+  insn_info_type_pool.release ();
+  dse_bb_info_type_pool.release ();
+  group_info_pool.release ();
+  deferred_change_pool.release ();
 }
 
 

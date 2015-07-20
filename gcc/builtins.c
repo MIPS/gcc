@@ -20,11 +20,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -32,15 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tree-object-size.h"
 #include "realmpfr.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "flags.h"
 #include "regs.h"
 #include "except.h"
@@ -67,7 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "asan.h"
 #include "cilk.h"
-#include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
@@ -5697,7 +5690,7 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
       type_align = TYPE_ALIGN (ttype);
     }
 
-  /* If the object has smaller alignment, the the lock free routines cannot
+  /* If the object has smaller alignment, the lock free routines cannot
      be used.  */
   if (type_align < mode_align)
     return boolean_false_node;

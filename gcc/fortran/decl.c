@@ -24,10 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include "flags.h"
+#include "options.h"
 #include "constructor.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stringpool.h"
 
@@ -6450,6 +6449,11 @@ gfc_match_end (gfc_statement *st)
 
   if (block_name == NULL)
     goto syntax;
+
+  /* We have to pick out the declared submodule name from the composite
+     required by F2008:11.2.3 para 2, which ends in the declared name.  */
+  if (state == COMP_SUBMODULE)
+    block_name = strchr (block_name, '.') + 1;
 
   if (strcmp (name, block_name) != 0 && strcmp (block_name, "ppr@") != 0)
     {

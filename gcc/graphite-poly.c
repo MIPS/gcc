@@ -41,38 +41,20 @@ extern "C" {
 #if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
-#endif
 
 #include "system.h"
 #include "coretypes.h"
+#include "backend.h"
 #include "diagnostic-core.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
-#include "dumpfile.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
-#include "tree-scalar-evolution.h"
-#include "sese.h"
-
-#ifdef HAVE_isl
 #include "graphite-poly.h"
 
 #define OPENSCOP_MAX_STRING 256
@@ -288,7 +270,7 @@ apply_poly_transforms (scop_p scop)
 void
 new_poly_dr (poly_bb_p pbb, int dr_base_object_set,
 	     enum poly_dr_type type, void *cdr, graphite_dim_t nb_subscripts,
-	     isl_map *acc, isl_set *extent)
+	     isl_map *acc, isl_set *subscript_sizes)
 {
   static int id = 0;
   poly_dr_p pdr = XNEW (struct poly_dr);
@@ -298,7 +280,7 @@ new_poly_dr (poly_bb_p pbb, int dr_base_object_set,
   PDR_NB_REFS (pdr) = 1;
   PDR_PBB (pdr) = pbb;
   pdr->accesses = acc;
-  pdr->extent = extent;
+  pdr->subscript_sizes = subscript_sizes;
   PDR_TYPE (pdr) = type;
   PDR_CDR (pdr) = cdr;
   PDR_NB_SUBSCRIPTS (pdr) = nb_subscripts;
@@ -311,7 +293,7 @@ void
 free_poly_dr (poly_dr_p pdr)
 {
   isl_map_free (pdr->accesses);
-  isl_set_free (pdr->extent);
+  isl_set_free (pdr->subscript_sizes);
   XDELETE (pdr);
 }
 
@@ -1213,5 +1195,5 @@ reverse_loop_for_pbbs (scop_p scop, vec<poly_bb_p> pbbs, int depth)
 }
 
 
-#endif
+#endif  /* HAVE_isl */
 

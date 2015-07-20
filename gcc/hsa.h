@@ -110,7 +110,6 @@ class hsa_op_immed : public hsa_op_with_type
 {
 public:
   hsa_op_immed (tree tree_val);
-  void *operator new (size_t);
 
   /* Value as represented by middle end.  */
   tree value;
@@ -139,7 +138,6 @@ class hsa_op_reg : public hsa_op_with_type
 {
 public:
   hsa_op_reg (BrigType16_t t);
-  void *operator new (size_t);
 
   /* Verify register operand.  */
   void verify ();
@@ -194,7 +192,6 @@ class hsa_op_address : public hsa_op_base
 {
 public:
   hsa_op_address (hsa_symbol *sym, hsa_op_reg *reg, HOST_WIDE_INT offset);
-  void *operator new (size_t);
 
   /* Symbol base of the address.  Can be NULL if there is none.  */
   hsa_symbol *symbol;
@@ -250,7 +247,6 @@ class hsa_op_code_list: public hsa_op_base
 {
 public:
   hsa_op_code_list (unsigned elements);
-  void *operator new (size_t);
 
   /* Offset to variable-sized array in hsa_data section, where
      are offsets to entries in the hsa_code section.  */
@@ -291,7 +287,6 @@ class hsa_insn_basic
 public:
   hsa_insn_basic (unsigned nops, int opc);
   hsa_insn_basic (unsigned nops, int opc, BrigType16_t t);
-  void *operator new (size_t);
 
   /* The previous and next instruction in the basic block.  */
   hsa_insn_basic *prev, *next;
@@ -329,7 +324,6 @@ class hsa_insn_phi : public hsa_insn_basic
 {
 public:
   hsa_insn_phi (unsigned nops);
-  void *operator new (size_t);
 
   /* Destination.  */
   hsa_op_reg *dest;
@@ -359,7 +353,6 @@ class hsa_insn_br : public hsa_insn_basic
 {
 public:
   hsa_insn_br (hsa_op_reg *ctrl);
-  void *operator new (size_t);
 
   /* Width as described in HSA documentation.  */
   BrigWidth8_t width;
@@ -388,7 +381,6 @@ class hsa_insn_cmp : public hsa_insn_basic
 {
 public:
   hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t);
-  void *operator new (size_t);
 
   /* Source type should be derived from operand types.  */
 
@@ -421,7 +413,6 @@ class hsa_insn_mem : public hsa_insn_basic
 {
 public:
   hsa_insn_mem (int opc, BrigType16_t t);
-  void *operator new (size_t);
 
   /* The segment is of the memory access is either the segment of the symbol in
      the address operand or flat address is there is no symbol there.  */
@@ -464,7 +455,6 @@ class hsa_insn_atomic : public hsa_insn_mem
 {
 public:
   hsa_insn_atomic (int opc, enum BrigAtomicOperation aop, BrigType16_t t);
-  void *operator new (size_t);
 
   /* The operation itself.  */
   enum BrigAtomicOperation atomicop;
@@ -494,7 +484,6 @@ class hsa_insn_seg : public hsa_insn_basic
 public:
   hsa_insn_seg (int opc, BrigType16_t destt, BrigType16_t srct,
 		BrigSegment8_t seg);
-  void *operator new (size_t);
 
   /* Source type.  Depends on the source addressing/segment.  */
   BrigType16_t src_type;
@@ -525,7 +514,6 @@ class hsa_insn_call : public hsa_insn_basic
 {
 public:
   hsa_insn_call (tree callee);
-  void *operator new (size_t);
 
   /* Called function */
   tree called_function;
@@ -581,7 +569,6 @@ class hsa_insn_arg_block : public hsa_insn_basic
 {
 public:
   hsa_insn_arg_block (BrigKind brig_kind, hsa_insn_call * call);
-  void *operator new (size_t);
 
   /* Kind of argument block.  */
   BrigKind kind;
@@ -612,7 +599,6 @@ public:
   hsa_bb (basic_block cfg_bb);
   hsa_bb (basic_block cfg_bb, int idx);
   ~hsa_bb ();
-  void *operator new (size_t);
 
   /* The real CFG BB that this HBB belongs to.  */
   basic_block bb;

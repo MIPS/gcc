@@ -1598,7 +1598,7 @@ FP_ASM_SPEC "\
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
-#define WORD_REGISTER_OPERATIONS
+#define WORD_REGISTER_OPERATIONS 1
 
 /* When in 64-bit mode, move insns will sign extend SImode and CCmode
    moves.  All other references are zero extended.  */
@@ -1626,7 +1626,7 @@ FP_ASM_SPEC "\
 #define POINTERS_EXTEND_UNSIGNED false
 
 /* Define if loading short immediate values into registers sign extends.  */
-#define SHORT_IMMEDIATES_SIGN_EXTEND
+#define SHORT_IMMEDIATES_SIGN_EXTEND 1
 
 /* The [d]clz instructions have the natural values at 0.  */
 
@@ -1807,8 +1807,13 @@ FP_ASM_SPEC "\
 /* Request Interrupt Priority Level is from bit 10 to bit 15 of
    the cause register for the EIC interrupt mode.  */
 #define CAUSE_IPL	10
+/* COP1 Enable is at bit 29 of the status register.  */
+#define SR_COP1         29
 /* Interrupt Priority Level is from bit 10 to bit 15 of the status register.  */
 #define SR_IPL		10
+/* Interrupt masks start with IM0 at bit 8 to IM7 at bit 15 of the status
+   register.  */
+#define SR_IM0		8
 /* Exception Level is at bit 1 of the status register.  */
 #define SR_EXL		1
 /* Interrupt Enable is at bit 0 of the status register.  */

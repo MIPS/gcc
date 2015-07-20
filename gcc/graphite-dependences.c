@@ -30,37 +30,21 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/union_map.h>
 #include <isl/flow.h>
 #include <isl/constraint.h>
-#endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
-#include "tree-scalar-evolution.h"
-#include "sese.h"
-
-#ifdef HAVE_isl
 #include "graphite-poly.h"
+
 
 isl_union_map *
 scop_get_dependences (scop_p scop)
@@ -104,13 +88,13 @@ constrain_domain (isl_map *map, isl_set *s)
   return isl_map_intersect_domain (map, s);
 }
 
-/* Constrain pdr->accesses with pdr->extent and pbb->domain.  */
+/* Constrain pdr->accesses with pdr->subscript_sizes and pbb->domain.  */
 
 static isl_map *
 add_pdr_constraints (poly_dr_p pdr, poly_bb_p pbb)
 {
   isl_map *x = isl_map_intersect_range (isl_map_copy (pdr->accesses),
-					isl_set_copy (pdr->extent));
+					isl_set_copy (pdr->subscript_sizes));
   x = constrain_domain (x, isl_set_copy (pbb->domain));
   return x;
 }
@@ -639,4 +623,4 @@ graphite_legal_transform (scop_p scop)
   return res;
 }
 
-#endif
+#endif /* HAVE_isl */

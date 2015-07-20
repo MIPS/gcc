@@ -144,7 +144,7 @@
 ;; Instruction types and attributes
 ;; -------------------------------------------------------------------
 
-; The "type" attribute is is included here from AArch32 backend to be able
+; The "type" attribute is included here from AArch32 backend to be able
 ; to share pipeline descriptions.
 (include "../arm/types.md")
 
@@ -2982,7 +2982,7 @@
         (plus:GPI (match_operand 2 "aarch64_comparison_operation" "")
                   (match_operand:GPI 1 "register_operand" "r")))]
   ""
-  "csinc\\t%<w>0, %<w>1, %<w>1, %M2"
+  "cinc\\t%<w>0, %<w>1, %m2"
   [(set_attr "type" "csel")]
 )
 

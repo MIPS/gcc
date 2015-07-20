@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_GRAPHITE_POLY_H
 #define GCC_GRAPHITE_POLY_H
 
+#include "sese.h"
+
 typedef struct poly_dr *poly_dr_p;
 
 typedef struct poly_bb *poly_bb_p;
@@ -175,7 +177,7 @@ struct poly_dr
 
      In the example, the vector "R C O I L P" is "7 7 3 2 0 1".  */
   isl_map *accesses;
-  isl_set *extent;
+  isl_set *subscript_sizes;
 
   /* Data reference's base object set number, we must assure 2 pdrs are in the
      same base object set before dependency checking.  */

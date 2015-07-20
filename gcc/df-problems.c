@@ -24,26 +24,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "flags.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "sbitmap.h"
-#include "bitmap.h"
 #include "target.h"
 #include "timevar.h"
-#include "df.h"
 #include "except.h"
 #include "dce.h"
 #include "valtrack.h"
@@ -2005,7 +1997,7 @@ static void
 df_chain_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   df_chain_remove_problem ();
-  df_chain->block_pool = new pool_allocator<df_link> ("df_chain_block pool",
+  df_chain->block_pool = new object_allocator<df_link> ("df_chain_block pool",
 						      50);
   df_chain->optional_p = true;
 }

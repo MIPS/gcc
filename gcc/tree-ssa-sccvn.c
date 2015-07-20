@@ -21,34 +21,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -273,8 +260,8 @@ typedef struct vn_tables_s
   vn_phi_table_type *phis;
   vn_reference_table_type *references;
   struct obstack nary_obstack;
-  pool_allocator<vn_phi_s> *phis_pool;
-  pool_allocator<vn_reference_s> *references_pool;
+  object_allocator<vn_phi_s> *phis_pool;
+  object_allocator<vn_reference_s> *references_pool;
 } *vn_tables_t;
 
 
@@ -4138,9 +4125,9 @@ allocate_vn_table (vn_tables_t table)
   table->references = new vn_reference_table_type (23);
 
   gcc_obstack_init (&table->nary_obstack);
-  table->phis_pool = new pool_allocator<vn_phi_s> ("VN phis", 30);
-  table->references_pool = new pool_allocator<vn_reference_s> ("VN references",
-							       30);
+  table->phis_pool = new object_allocator<vn_phi_s> ("VN phis", 30);
+  table->references_pool = new object_allocator<vn_reference_s>
+    ("VN references", 30);
 }
 
 /* Free a value number table.  */

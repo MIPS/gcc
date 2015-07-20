@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -658,6 +657,12 @@ begin_template_parm_list (void)
   ++processing_template_decl;
   ++processing_template_parmlist;
   note_template_header (0);
+
+  /* Add a dummy parameter level while we process the parameter list.  */
+  current_template_parms
+    = tree_cons (size_int (processing_template_decl),
+		 make_tree_vec (0),
+		 current_template_parms);
 }
 
 /* This routine is called when a specialization is declared.  If it is
@@ -3246,6 +3251,13 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
 			ppd, ppd->visited);
 	  *walk_subtrees = 0;
 	}
+      else if (variable_template_specialization_p (t))
+	{
+	  cp_walk_tree (&DECL_TI_ARGS (t),
+			find_parameter_packs_r,
+			ppd, ppd->visited);
+	  *walk_subtrees = 0;
+	}
       break;
 
     case BASES:
@@ -3649,8 +3661,13 @@ check_template_shadow (tree decl)
   if (DECL_SELF_REFERENCE_P (decl))
     return false;
 
-  error ("declaration of %q+#D", decl);
-  error (" shadows template parm %q+#D", olddecl);
+  if (DECL_TEMPLATE_PARM_P (decl))
+    error ("declaration of template parameter %q+D shadows "
+	   "template parameter", decl);
+  else
+    error ("declaration of %q+#D shadows template parameter", decl);
+  inform (DECL_SOURCE_LOCATION (olddecl),
+	  "template parameter %qD declared here", olddecl);
   return false;
 }
 
@@ -3882,6 +3899,9 @@ end_template_parm_list (tree parms)
   tree parm, next;
   tree saved_parmlist = make_tree_vec (list_length (parms));
 
+  /* Pop the dummy parameter level and add the real one.  */
+  current_template_parms = TREE_CHAIN (current_template_parms);
+
   current_template_parms
     = tree_cons (size_int (processing_template_decl),
 		 saved_parmlist, current_template_parms);
@@ -4017,21 +4037,6 @@ template_parms_to_args (tree parms)
 	args = a;
     }
 
-    if (length > 1 && TREE_VEC_ELT (args, 0) == NULL_TREE)
-      /* This can happen for template parms of a template template
-	 parameter, e.g:
-
-	 template<template<class T, class U> class TT> struct S;
-
-	 Consider the level of the parms of TT; T and U both have
-	 level 2; TT has no template parm of level 1. So in this case
-	 the first element of full_template_args is NULL_TREE. If we
-	 leave it like this TMPL_ARGS_DEPTH on args returns 1 instead
-	 of 2. This will make tsubst wrongly consider that T and U
-	 have level 1. Instead, let's create a dummy vector as the
-	 first element of full_template_args so that TMPL_ARGS_DEPTH
-	 returns the correct depth for args.  */
-      TREE_VEC_ELT (args, 0) = make_tree_vec (1);
   return args;
 }
 
@@ -5297,6 +5302,14 @@ redeclare_class_template (tree type, tree parms)
 	/* Update the new parameters, too; they'll be used as the
 	   parameters for any members.  */
 	TREE_PURPOSE (TREE_VEC_ELT (parms, i)) = tmpl_default;
+
+      /* Give each template template parm in this redeclaration a
+	 DECL_CONTEXT of the template for which they are a parameter.  */
+      if (TREE_CODE (parm) == TEMPLATE_DECL)
+	{
+	  gcc_assert (DECL_CONTEXT (parm) == NULL_TREE);
+	  DECL_CONTEXT (parm) = tmpl;
+	}
     }
 
     return true;
@@ -5350,6 +5363,17 @@ tree
 instantiate_non_dependent_expr (tree expr)
 {
   return instantiate_non_dependent_expr_sfinae (expr, tf_error);
+}
+
+/* True iff T is a specialization of a variable template.  */
+
+bool
+variable_template_specialization_p (tree t)
+{
+  if (!VAR_P (t) || !DECL_LANG_SPECIFIC (t) || !DECL_TEMPLATE_INFO (t))
+    return false;
+  tree tmpl = DECL_TI_TEMPLATE (t);
+  return variable_template_p (tmpl);
 }
 
 /* Return TRUE iff T is a type alias, a TEMPLATE_DECL for an alias
@@ -7738,9 +7762,20 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       if (outer)
 	outer = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (outer)));
       else if (current_template_parms)
-	/* This is an argument of the current template, so we haven't set
-	   DECL_CONTEXT yet.  */
-	outer = current_template_args ();
+	{
+	  /* This is an argument of the current template, so we haven't set
+	     DECL_CONTEXT yet.  */
+	  tree relevant_template_parms;
+
+	  /* Parameter levels that are greater than the level of the given
+	     template template parm are irrelevant.  */
+	  relevant_template_parms = current_template_parms;
+	  while (TMPL_PARMS_DEPTH (relevant_template_parms)
+		 != TEMPLATE_TYPE_LEVEL (TREE_TYPE (templ)))
+	    relevant_template_parms = TREE_CHAIN (relevant_template_parms);
+
+	  outer = template_parms_to_args (relevant_template_parms);
+	}
 
       if (outer)
 	arglist = add_to_template_args (outer, arglist);
@@ -9072,7 +9107,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 	    {
 	      *p = TREE_CHAIN (t);
 	      TREE_CHAIN (t) = NULL_TREE;
-	      if ((flag_openmp || flag_cilkplus)
+	      if ((flag_openmp || flag_openmp_simd || flag_cilkplus)
 		  && is_attribute_p ("omp declare simd",
 				     get_attribute_name (t))
 		  && TREE_VALUE (t))
@@ -12056,7 +12091,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	template_parm_level_and_index (t, &level, &idx); 
 
 	levels = TMPL_ARGS_DEPTH (args);
-	if (level <= levels)
+	if (level <= levels
+	    && TREE_VEC_LENGTH (TMPL_ARGS_LEVEL (args, level)) > 0)
 	  {
 	    arg = TMPL_ARG (args, level, idx);
 
@@ -20132,7 +20168,7 @@ template_for_substitution (tree decl)
 }
 
 /* Returns true if we need to instantiate this template instance even if we
-   know we aren't going to emit it..  */
+   know we aren't going to emit it.  */
 
 bool
 always_instantiate_p (tree decl)
@@ -20984,6 +21020,11 @@ invalid_nontype_parm_type_p (tree type, tsubst_flags_t complain)
     return 0;
   else if (TREE_CODE (type) == NULLPTR_TYPE)
     return 0;
+  /* A bound template template parm could later be instantiated to have a valid
+     nontype parm type via an alias template.  */
+  else if (cxx_dialect >= cxx11
+	   && TREE_CODE (type) == BOUND_TEMPLATE_TEMPLATE_PARM)
+    return 0;
 
   if (complain & tf_error)
     {
@@ -21685,9 +21726,7 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
       }
 
     case TRAIT_EXPR:
-      if (dependent_type_p (TRAIT_EXPR_TYPE1 (*tp))
-	  || (TRAIT_EXPR_TYPE2 (*tp)
-	      && dependent_type_p (TRAIT_EXPR_TYPE2 (*tp))))
+      if (value_dependent_expression_p (*tp))
 	return *tp;
       *walk_subtrees = false;
       return NULL_TREE;
@@ -22425,11 +22464,6 @@ splice_late_return_type (tree type, tree late_return_type)
     return type;
   argvec = make_tree_vec (1);
   TREE_VEC_ELT (argvec, 0) = late_return_type;
-  if (processing_template_parmlist)
-    /* For a late-specified return type in a template type-parameter, we
-       need to add a dummy argument level for its parmlist.  */
-    argvec = add_to_template_args
-      (make_tree_vec (processing_template_parmlist), argvec);
   if (current_template_parms)
     argvec = add_to_template_args (current_template_args (), argvec);
   return tsubst (type, argvec, tf_warning_or_error, NULL_TREE);

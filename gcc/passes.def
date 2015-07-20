@@ -213,6 +213,7 @@ along with GCC; see the file COPYING3.  If not see
 	 form if possible.  */
       NEXT_PASS (pass_cse_sincos);
       NEXT_PASS (pass_optimize_bswap);
+      NEXT_PASS (pass_laddress);
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_sink_code);
@@ -232,7 +233,6 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_tree_unswitch);
 	  NEXT_PASS (pass_scev_cprop);
 	  NEXT_PASS (pass_record_bounds);
-	  NEXT_PASS (pass_check_data_deps);
 	  NEXT_PASS (pass_loop_distribution);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_graphite);

@@ -20,21 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "flags.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "except.h"
-#include "function.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "expmed.h"
@@ -56,21 +56,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm_p.h"
 #include "tree-iterator.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
 #include "cgraph.h"
-#include "tree-ssanames.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "timevar.h"
-#include "df.h"
 #include "diagnostic.h"
 #include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
@@ -3642,9 +3632,9 @@ compress_float_constant (rtx x, rtx y)
   REAL_VALUE_FROM_CONST_DOUBLE (r, y);
 
   if (targetm.legitimate_constant_p (dstmode, y))
-    oldcost = set_src_cost (y, speed);
+    oldcost = set_src_cost (y, orig_srcmode, speed);
   else
-    oldcost = set_src_cost (force_const_mem (dstmode, y), speed);
+    oldcost = set_src_cost (force_const_mem (dstmode, y), dstmode, speed);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
        srcmode != orig_srcmode;
@@ -3673,7 +3663,7 @@ compress_float_constant (rtx x, rtx y)
 	    continue;
 	  /* This is valid, but may not be cheaper than the original. */
 	  newcost = set_src_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y),
-				  speed);
+				  dstmode, speed);
 	  if (oldcost < newcost)
 	    continue;
 	}
@@ -3682,7 +3672,7 @@ compress_float_constant (rtx x, rtx y)
 	  trunc_y = force_const_mem (srcmode, trunc_y);
 	  /* This is valid, but may not be cheaper than the original. */
 	  newcost = set_src_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y),
-				  speed);
+				  dstmode, speed);
 	  if (oldcost < newcost)
 	    continue;
 	  trunc_y = validize_mem (trunc_y);
@@ -5990,9 +5980,7 @@ static void
 store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 {
   tree type = TREE_TYPE (exp);
-#ifdef WORD_REGISTER_OPERATIONS
   HOST_WIDE_INT exp_size = int_size_in_bytes (type);
-#endif
 
   switch (TREE_CODE (type))
     {
@@ -6105,13 +6093,13 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					 highest_pow2_factor (offset));
 	      }
 
-#ifdef WORD_REGISTER_OPERATIONS
 	    /* If this initializes a field that is smaller than a
 	       word, at the start of a word, try to widen it to a full
 	       word.  This special case allows us to output C++ member
 	       function initializations in a form that the optimizers
 	       can understand.  */
-	    if (REG_P (target)
+	    if (WORD_REGISTER_OPERATIONS
+		&& REG_P (target)
 		&& bitsize < BITS_PER_WORD
 		&& bitpos % BITS_PER_WORD == 0
 		&& GET_MODE_CLASS (mode) == MODE_INT
@@ -6136,7 +6124,6 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		bitsize = BITS_PER_WORD;
 		mode = word_mode;
 	      }
-#endif
 
 	    if (MEM_P (to_rtx) && !MEM_KEEP_ALIAS_SET_P (to_rtx)
 		&& DECL_NONADDRESSABLE_P (field))
@@ -7911,9 +7898,9 @@ expand_expr_real (tree exp, rtx target, machine_mode tmode,
 }
 
 /* Try to expand the conditional expression which is represented by
-   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If succeseds
-   return the rtl reg which repsents the result.  Otherwise return
-   NULL_RTL.  */
+   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If it succeeds
+   return the rtl reg which represents the result.  Otherwise return
+   NULL_RTX.  */
 
 static rtx
 expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,

@@ -385,7 +385,7 @@ Objective-C and Objective-C++ Dialects}.
 -fauto-inc-dec -fbranch-probabilities @gol
 -fbranch-target-load-optimize -fbranch-target-load-optimize2 @gol
 -fbtr-bb-exclusive -fcaller-saves @gol
--fcheck-data-deps -fcombine-stack-adjustments -fconserve-stack @gol
+-fcombine-stack-adjustments -fconserve-stack @gol
 -fcompare-elim -fcprop-registers -fcrossjumping @gol
 -fcse-follow-jumps -fcse-skip-blocks -fcx-fortran-rules @gol
 -fcx-limited-range @gol
@@ -857,7 +857,8 @@ Objective-C and Objective-C++ Dialects}.
 -mhw-mul -mno-hw-mul -mhw-mulx -mno-hw-mulx -mno-hw-div -mhw-div @gol
 -mcustom-@var{insn}=@var{N} -mno-custom-@var{insn} @gol
 -mcustom-fpu-cfg=@var{name} @gol
--mhal -msmallc -msys-crt0=@var{name} -msys-lib=@var{name}}
+-mhal -msmallc -msys-crt0=@var{name} -msys-lib=@var{name} @gol
+-march=@var{arch} -mbmx -mno-bmx -mcdx -mno-cdx}
 
 @emph{Nvidia PTX Options}
 @gccoptlist{-m32 -m64 -mmainkernel}
@@ -8811,11 +8812,6 @@ be parallelized.  Parallelize all the loops that can be analyzed to
 not contain loop carried dependences without checking that it is
 profitable to parallelize the loops.
 
-@item -fcheck-data-deps
-@opindex fcheck-data-deps
-Compare the results of several data dependence analyzers.  This option
-is used for debugging the data dependence analyzers.
-
 @item -ftree-loop-if-convert
 @opindex ftree-loop-if-convert
 Attempt to transform conditional jumps in the innermost loops to
@@ -10473,34 +10469,6 @@ Large expressions slow the analyzer.
 @item scev-max-expr-complexity
 Bound on the complexity of the expressions in the scalar evolutions analyzer.
 Complex expressions slow the analyzer.
-
-@item omega-max-vars
-The maximum number of variables in an Omega constraint system.
-The default value is 128.
-
-@item omega-max-geqs
-The maximum number of inequalities in an Omega constraint system.
-The default value is 256.
-
-@item omega-max-eqs
-The maximum number of equalities in an Omega constraint system.
-The default value is 128.
-
-@item omega-max-wild-cards
-The maximum number of wildcard variables that the Omega solver is
-able to insert.  The default value is 18.
-
-@item omega-hash-table-size
-The size of the hash table in the Omega solver.  The default value is
-550.
-
-@item omega-max-keys
-The maximal number of keys used by the Omega solver.  The default
-value is 500.
-
-@item omega-eliminate-redundant-constraints
-When set to 1, use expensive methods to eliminate all redundant
-constraints.  The default value is 0.
 
 @item vect-max-version-for-alignment-checks
 The maximum number of run-time checks that can be performed when
@@ -14033,7 +14001,7 @@ If @var{device} is not a device but only a core architecture like
 The device / architecture belongs to the XMEGA family of devices.
 
 @item __AVR_HAVE_ELPM__
-The device has the the @code{ELPM} instruction.
+The device has the @code{ELPM} instruction.
 
 @item __AVR_HAVE_ELPMX__
 The device has the @code{ELPM R@var{n},Z} and @code{ELPM
@@ -18500,6 +18468,15 @@ small data section.
 Generate little-endian (default) or big-endian (experimental) code,
 respectively.
 
+@item -march=@var{arch}
+@opindex march
+This specifies the name of the target Nios II architecture.  GCC uses this
+name to determine what kind of instructions it can emit when generating
+assembly code.  Permissible names are: @samp{r1}, @samp{r2}.
+
+The preprocessor macro @code{__nios2_arch__} is available to programs,
+with value 1 or 2, indicating the targeted ISA level.
+
 @item -mbypass-cache
 @itemx -mno-bypass-cache
 @opindex mno-bypass-cache
@@ -18537,6 +18514,15 @@ is to use the fast divide at @option{-O3} and above.
 Enable or disable emitting @code{mul}, @code{mulx} and @code{div} family of 
 instructions by the compiler. The default is to emit @code{mul}
 and not emit @code{div} and @code{mulx}.
+
+@item -mbmx
+@itemx -mno-bmx
+@itemx -mcdx
+@itemx -mno-cdx
+Enable or disable generation of Nios II R2 BMX (bit manipulation) and
+CDX (code density) instructions.  Enabling these instructions also
+requires @option{-march=r2}.  Since these instructions are optional
+extensions to the R2 architecture, the default is not to emit them.
 
 @item -mcustom-@var{insn}=@var{N}
 @itemx -mno-custom-@var{insn}

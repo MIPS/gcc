@@ -37,40 +37,26 @@ extern "C" {
 #if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
-#endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "params.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
-#include "sese.h"
+#include "graphite-poly.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-scalar-evolution.h"
 #include "gimple-ssa.h"
 #include "tree-into-ssa.h"
 #include <map>
-
-#ifdef HAVE_isl
-#include "graphite-poly.h"
 #include "graphite-isl-ast-to-gimple.h"
 
 /* This flag is set when an error occurred during the translation of
@@ -1101,4 +1087,4 @@ graphite_regenerate_ast_isl (scop_p scop)
 
   return !graphite_regenerate_error;
 }
-#endif
+#endif  /* HAVE_isl */
