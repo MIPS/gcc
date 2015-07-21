@@ -1,5 +1,6 @@
 /* See PR 52154 for the xfail.  */
 /* { dg-do run { xfail { mips_eabi && { hard_float && ilp32 } } } } */
+/* { dg-options "(REQUIRES_STDLIB)" } */
 
 #include <stdarg.h>
 

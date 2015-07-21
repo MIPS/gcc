@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-mpaired-single" } */
+/* { dg-options "-mpaired-single (REQUIRES_STDLIB)" } */
 
 /* Test v2sf calculations */
 #include <stdlib.h>

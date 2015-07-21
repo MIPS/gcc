@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-mpaired-single" } */
+/* { dg-options "-mpaired-single (REQUIRES_STDLIB)" } */
 
 /* Test MIPS paired-single builtin functions */
 #include <stdlib.h>

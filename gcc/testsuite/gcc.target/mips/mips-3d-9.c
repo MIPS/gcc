@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-mips3d" } */
+/* { dg-options "-mips3d (REQUIRES_STDLIB)" } */
 
 /* Matrix Multiplications */
 #include <stdlib.h>

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-mips3d" } */
+/* { dg-options "-mips3d (REQUIRES_STDLIB)" } */
 
 /* Test MIPS-3D absolute-compare & branch-if-any-four builtin functions */
 #include <stdlib.h>

@@ -254,6 +254,7 @@ set mips_option_groups {
     madd "HAS_MADD"
     maddps "HAS_MADDPS"
     lsa "(|!)HAS_LSA"
+    stdlib "REQUIRES_STDLIB"
     section_start "-Wl,--section-start=.*"
 }
 
@@ -1388,6 +1389,21 @@ proc mips-dg-options { args } {
 	    append extra_tool_flags " " $options(option,$group)
 	}
     }
+
+    # If the test is marked as requiring standard libraries check
+    # that the sysroot has support for the current set of test options.
+    if { [mips_have_test_option_p options "REQUIRES_STDLIB"] } {
+	mips_push_test_options saved_options $extra_tool_flags
+	set output [mips_preprocess "" {
+	      #include <stdlib.h>
+	}]
+	mips_pop_test_options saved_options
+
+	# If the stdlib.h file is not found mark the test as unsupported.
+	if { [regexp "stdlib.h: No such file or directory" $output] } {
+	    set do_what [lreplace $do_what 1 1 "N"]
+	}
+     }
 
     # If the test is MIPS16-compatible, provide a counterpart to the
     # NOMIPS16 convenience macro.
