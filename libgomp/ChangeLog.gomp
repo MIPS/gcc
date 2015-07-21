@@ -1,5 +1,14 @@
 2015-07-21  James Norris  <jnorris@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/asyncwait-1.c: Additional tests.
+	* testsuite/libgomp.oacc-c-c++-common/if-1.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/asyncwait-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/asyncwait-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/asyncwait-3.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/if-1.f90: Likewise.
+
+2015-07-21  James Norris  <jnorris@codesourcery.com>
+
 	* oacc-init.c (acc_shutdown_1): Replace use of gomp_free_memmap with
 	gomp_unmap_vars.
 	* target-init.c (gomp_load_image_to_device): Fix initialization.
