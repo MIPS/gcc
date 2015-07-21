@@ -254,6 +254,7 @@ set mips_option_groups {
     madd "HAS_MADD"
     maddps "HAS_MADDPS"
     lsa "(|!)HAS_LSA"
+    stdlib "REQUIRES_STDLIB"
     section_start "-Wl,--section-start=.*"
 }
 
@@ -406,14 +407,19 @@ proc mips_same_option_p { option1 option2 } {
 
 # Preprocess CODE using target_compile options OPTIONS.  Return the
 # compiler output.
-proc mips_preprocess { options code } {
+proc mips_preprocess { options code ignore_output } {
     global tool
 
     set src dummy[pid].c
     set f [open $src "w"]
     puts $f $code
     close $f
-    set output [${tool}_target_compile $src "" preprocess $options]
+    if { $ignore_output } {
+	set output [${tool}_target_compile $src dummy[pid].i preprocess $options]
+	file delete dummy[pid].i
+    } else {
+	set output [${tool}_target_compile $src "" preprocess $options]
+    }
     file delete $src
 
     return $output
@@ -463,7 +469,7 @@ proc mips_arch_info { arch prop } {
 	    #else
 	    int isa_rev = 0;
 	    #endif
-	}]
+	} 0]
 	foreach lhs { isa isa_rev } {
 	    regsub ".*$lhs = (\[^;\]*).*" $output {\1} rhs
 	    verbose -log "Architecture $arch has $lhs $rhs"
@@ -816,7 +822,7 @@ proc mips-dg-init {} {
 
 	    0
 	};
-    }]
+    } 0]
     foreach line [split $output "\r\n"] {
 	# Poor man's string concatenation.
 	regsub -all {" "} $line "" line
@@ -1389,6 +1395,22 @@ proc mips-dg-options { args } {
 	    append extra_tool_flags " " $options(option,$group)
 	}
     }
+
+    # If the test is marked as requiring standard libraries check
+    # that the sysroot has support for the current set of test options.
+    if { [mips_have_test_option_p options "REQUIRES_STDLIB"] } {
+	mips_push_test_options saved_options $extra_tool_flags
+	set output [mips_preprocess "" {
+	      #include <stdlib.h>
+	} 1]
+	mips_pop_test_options saved_options
+
+	# If the preprocessing of the stdlib.h file produced errors mark
+	# the test as unsupported.
+	if { ![string equal $output ""] } {
+	    set do_what [lreplace $do_what 1 1 "N"]
+	}
+     }
 
     # If the test is MIPS16-compatible, provide a counterpart to the
     # NOMIPS16 convenience macro.
