@@ -1,3 +1,7 @@
+2015-07-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (process): Add destructor call.
+
 2015-07-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-parloops.c (create_parallel_loop): Typo fix.
@@ -82,8 +86,8 @@
 	* tree-ssa-loop-ch.c (pass_ch::pass_ch (pass_data, gcc::context)): New
 	constructor.
 	(pass_ch_oacc_kernels): Derive from pass_ch.
-	(pass_ch_oacc_kernels::pass_ch_oacc_kernels(gcc::context)): Call pass_ch
-	constructor.
+	(pass_ch_oacc_kernels::pass_ch_oacc_kernels(gcc::context)): Call
+	pass_ch constructor.
 	(pass_ch_oacc_kernels::execute): Remove.
 	(pass_ch_oacc_kernels::process_loop_p): Rewrite using
 	pass_ch::process_loop_p.
