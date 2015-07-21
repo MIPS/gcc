@@ -1,3 +1,7 @@
+2015-07-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-parloops.c (create_parallel_loop): Typo fix.
+
 2015-07-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_builtins): Delete enum.

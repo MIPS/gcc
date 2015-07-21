@@ -1,3 +1,7 @@
+2015-07-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp_g.h (GOACC_kernels): Remove.
+
 2015-07-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_parallel): Move variadic handling into
@@ -21,7 +25,6 @@
 
 	* oacc-parallel.c (GOACC_kernels): Delete.
 	* libgomp.map: Remove GOACC_kernels.
-	* libgomp_g.h (GOACC_kernels): Remove.
 
 2015-07-17  Nathan Sidwell  <nathan@codesourcery.com>
 

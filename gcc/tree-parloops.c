@@ -2046,7 +2046,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   else
     {
       /* Create oacc parallel pragma based on oacc kernels pragma and
-	 GOAC_kernels_internal call.  */
+	 GOACC_kernels_internal call.  */
       gomp_target *kernels = as_a <gomp_target *> (gsi_stmt (gsi));
 
       gsi_prev (&gsi);
