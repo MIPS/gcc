@@ -1175,14 +1175,17 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
     }
 
   /* Insert host-target address mapping into splay tree.  */
-  struct target_mem_desc *tgt = gomp_malloc (sizeof (*tgt));
+  struct target_mem_desc *tgt =
+	  gomp_malloc (sizeof (*tgt)
+		       + sizeof (tgt->list[0])
+		       * (num_funcs + num_vars) * sizeof (*tgt->array));
   tgt->array = gomp_malloc ((num_funcs + num_vars) * sizeof (*tgt->array));
   tgt->refcount = REFCOUNT_INFINITY;
   tgt->tgt_start = 0;
   tgt->tgt_end = 0;
   tgt->to_free = NULL;
   tgt->prev = NULL;
-  tgt->list_count = 0;
+  tgt->list_count = num_funcs + num_vars;
   tgt->device_descr = devicep;
   splay_tree_node array = tgt->array;
 
@@ -1195,6 +1198,8 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt_offset = target_table[i].start;
       k->refcount = REFCOUNT_INFINITY;
       k->link_key = NULL;
+      tgt->list[i].key = k;
+      tgt->refcount++;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -1227,6 +1232,8 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt_offset = target_var->start;
       k->refcount = target_size & link_bit ? REFCOUNT_LINK : REFCOUNT_INFINITY;
       k->link_key = NULL;
+      tgt->list[i].key = k;
+      tgt->refcount++;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -1452,22 +1459,6 @@ gomp_unload_device (struct gomp_device_descr *devicep)
 					   image->host_table,
 					   image->target_data);
 	}
-    }
-}
-
-/* Free address mapping tables.  MM must be locked on entry, and remains locked
-   on return.  */
-
-attribute_hidden void
-gomp_free_memmap (struct splay_tree_s *mem_map)
-{
-  while (mem_map->root)
-    {
-      struct target_mem_desc *tgt = mem_map->root->key.tgt;
-
-      splay_tree_remove (mem_map, &mem_map->root->key);
-      free (tgt->array);
-      free (tgt);
     }
 }
 
