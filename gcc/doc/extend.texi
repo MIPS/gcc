@@ -5061,6 +5061,45 @@ On x86-32 targets, the @code{stdcall} attribute causes the compiler to
 assume that the called function pops off the stack space used to
 pass arguments, unless it takes a variable number of arguments.
 
+@item interrupt
+@cindex @code{interrupt} function attribute, x86
+Use this attribute to indicate that the specified void function without
+arguments is an interrupt handler.  The compiler generates function
+entry and exit sequences suitable for use in an interrupt handler when
+this attribute is present.  The @code{IRET} instruction, instead of the
+@code{RET} instruction, is used to return from interrupt handlers.  All
+registers, except for the EFLAGS register which is restored by the
+@code{IRET} instruction, are preserved by the compiler.  The red zone
+isn't supported in an interrupt handler; that is an interrupt handler
+can't access stack beyond the current stack pointer.
+
+You can use the builtin @code{__builtin_ia32_interrupt_data} function to
+access data pushed onto the stack by processor:
+
+@smallexample
+void
+f () __attribute__ ((interrupt))
+@{
+  void *p = __builtin_ia32_interrupt_data ();
+  ...
+@}
+@end smallexample
+
+@item exception
+@cindex @code{exception} function attribute, x86
+Use @code{exception} instead of @code{interrupt} for handlers intended
+to be used for @code{exception} (i.e.@: those that must pop
+@code{ERROR_CODE} off the stack before the @code{IRET} instruction):
+
+@smallexample
+void
+f () __attribute__ ((exception))
+@{
+  void *p = __builtin_ia32_interrupt_data ();
+  ...
+@}
+@end smallexample
+
 @item target (@var{options})
 @cindex @code{target} function attribute
 As discussed in @ref{Common Function Attributes}, this attribute 
