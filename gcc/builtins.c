@@ -6218,6 +6218,16 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
     case BUILT_IN_CONSTANT_P:
       return const0_rtx;
 
+    case BUILT_IN_STACK_TOP:
+      if (targetm.calls.stack_top_rtx)
+	{
+	  cfun->stack_top_taken = true;
+	  return targetm.calls.stack_top_rtx ();
+	}
+      else
+	sorry ("%<__builtin_stack_top%> not supported on this target");
+      break;
+
     case BUILT_IN_FRAME_ADDRESS:
     case BUILT_IN_RETURN_ADDRESS:
       return expand_builtin_frame_address (fndecl, exp);
@@ -12407,6 +12417,7 @@ is_simple_builtin (tree decl)
       case BUILT_IN_RETURN:
       case BUILT_IN_AGGREGATE_INCOMING_ADDRESS:
       case BUILT_IN_FRAME_ADDRESS:
+      case BUILT_IN_STACK_TOP:
       case BUILT_IN_VA_END:
       case BUILT_IN_STACK_SAVE:
       case BUILT_IN_STACK_RESTORE:

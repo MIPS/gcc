@@ -11613,6 +11613,12 @@ ix86_expand_prologue (void)
     {
       int align_bytes = crtl->stack_alignment_needed / BITS_PER_UNIT;
 
+      /* Can't use DRAP if the stack address has been taken.  */
+      if (cfun->stack_top_taken)
+	sorry ("%<__builtin_stack_top%> not supported with stack"
+	       " realignment.  This may be worked around by adding"
+	       " -maccumulate-outgoing-arg.");
+
       /* Only need to push parameter pointer reg if it is caller saved.  */
       if (!call_used_regs[REGNO (crtl->drap_reg)])
 	{
@@ -52610,6 +52616,8 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 #define TARGET_UPDATE_STACK_BOUNDARY ix86_update_stack_boundary
 #undef TARGET_GET_DRAP_RTX
 #define TARGET_GET_DRAP_RTX ix86_get_drap_rtx
+#undef TARGET_STACK_TOP_RTX
+#define TARGET_STACK_TOP_RTX default_stack_top_rtx
 #undef TARGET_STRICT_ARGUMENT_NAMING
 #define TARGET_STRICT_ARGUMENT_NAMING hook_bool_CUMULATIVE_ARGS_true
 #undef TARGET_STATIC_CHAIN

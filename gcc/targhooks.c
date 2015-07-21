@@ -1926,4 +1926,13 @@ can_use_doloop_if_innermost (const widest_int &, const widest_int &,
   return loop_depth == 1;
 }
 
+/* Get the stack address when the function is called.  After the
+   prologue, stack top is at -WORD(AP) in the current frame.  */
+
+rtx
+default_stack_top_rtx (void)
+{
+  return plus_constant (Pmode, arg_pointer_rtx, -UNITS_PER_WORD);
+}
+
 #include "gt-targhooks.h"

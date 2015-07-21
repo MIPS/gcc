@@ -240,4 +240,7 @@ extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE
 						  tree type ATTRIBUTE_UNUSED,
 						  int *pretend_arg_size ATTRIBUTE_UNUSED,
 						  int second_time ATTRIBUTE_UNUSED);
+
+extern rtx default_stack_top_rtx (void);
+
 #endif /* GCC_TARGHOOKS_H */

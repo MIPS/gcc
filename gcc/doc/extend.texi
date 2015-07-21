@@ -8695,6 +8695,13 @@ This function should only be used with a nonzero argument for debugging
 purposes.
 @end deftypefn
 
+@deftypefn {Built-in Function} {void *} __builtin_stack_top (void)
+This function is similar to calling @code{__builtin_frame_address}
+with a value of @code{0}, but it returns the stack address when the
+function is called.  Unlike @code{__builtin_frame_address}, the frame
+pointer register is kept only when necessary.
+@end deftypefn
+
 @node Vector Extensions
 @section Using Vector Instructions through Built-in Functions
 

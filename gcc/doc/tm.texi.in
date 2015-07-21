@@ -8181,6 +8181,8 @@ and the associated definitions of those functions.
 
 @hook TARGET_GET_DRAP_RTX
 
+@hook TARGET_STACK_TOP_RTX
+
 @hook TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS
 
 @hook TARGET_CONST_ANCHOR

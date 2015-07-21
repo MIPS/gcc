@@ -480,6 +480,7 @@ special_builtin_state (enum pure_const_state_e *state, bool *looping,
 	case BUILT_IN_CXA_END_CLEANUP:
 	case BUILT_IN_EH_COPY_VALUES:
 	case BUILT_IN_FRAME_ADDRESS:
+	case BUILT_IN_STACK_TOP:
 	case BUILT_IN_APPLY:
 	case BUILT_IN_APPLY_ARGS:
 	  *looping = false;

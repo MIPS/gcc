@@ -11483,6 +11483,11 @@ argument list due to stack realignment.  Return @code{NULL} if no DRAP
 is needed.
 @end deftypefn
 
+@deftypefn {Target Hook} rtx TARGET_STACK_TOP_RTX (void)
+This hook should return an rtx for the stack address when the function
+is called.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_ALLOCATE_STACK_SLOTS_FOR_ARGS (void)
 When optimization is disabled, this hook indicates whether or not
 arguments should be allocated to stack slots.  Normally, GCC allocates

@@ -4525,6 +4525,13 @@ argument list due to stack realignment.  Return @code{NULL} if no DRAP\n\
 is needed.",
  rtx, (void), NULL)
 
+/* Get the stack address when the function is called.  */
+DEFHOOK
+(stack_top_rtx,
+ "This hook should return an rtx for the stack address when the function\n\
+is called.",
+ rtx, (void), NULL)
+
 /* Return true if all function parameters should be spilled to the
    stack.  */
 DEFHOOK
