@@ -1,3 +1,10 @@
+2015-07-21  James Norris  <jnorris@codesourcery.com>
+
+	* oacc-init.c (acc_shutdown_1): Replace use of gomp_free_memmap with
+	gomp_unmap_vars.
+	* target-init.c (gomp_load_image_to_device): Fix initialization.
+	(gomp_free_memmap): Remove.
+
 2015-07-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.c (gomp_offload_image_to_device): Rename to ...

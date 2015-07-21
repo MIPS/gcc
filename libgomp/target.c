@@ -680,14 +680,17 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep,
     }
 
   /* Insert host-target address mapping into splay tree.  */
-  struct target_mem_desc *tgt = gomp_malloc (sizeof (*tgt));
+  struct target_mem_desc *tgt =
+	  gomp_malloc (sizeof (*tgt)
+		       + sizeof (tgt->list[0])
+		       * (num_funcs + num_vars) * sizeof (*tgt->array));
   tgt->array = gomp_malloc ((num_funcs + num_vars) * sizeof (*tgt->array));
   tgt->refcount = 1;
   tgt->tgt_start = 0;
   tgt->tgt_end = 0;
   tgt->to_free = NULL;
   tgt->prev = NULL;
-  tgt->list_count = 0;
+  tgt->list_count = num_funcs + num_vars;
   tgt->device_descr = devicep;
   splay_tree_node array = tgt->array;
 
@@ -702,6 +705,8 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep,
       k->async_refcount = 0;
       k->copy_from = false;
       k->dealloc_host = false;
+      tgt->list[i] = k;
+      tgt->refcount++;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -729,6 +734,8 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep,
       k->async_refcount = 0;
       k->copy_from = false;
       k->dealloc_host = false;
+      tgt->list[i] = k;
+      tgt->refcount++;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);
@@ -895,22 +902,6 @@ gomp_unload_device (struct gomp_device_descr *devicep)
 	    gomp_unload_image_from_device (devicep, image->host_table,
 					   image->target_data);
 	}
-    }
-}
-
-/* Free address mapping tables.  MM must be locked on entry, and remains locked
-   on return.  */
-
-attribute_hidden void
-gomp_free_memmap (struct splay_tree_s *mem_map)
-{
-  while (mem_map->root)
-    {
-      struct target_mem_desc *tgt = mem_map->root->key.tgt;
-
-      splay_tree_remove (mem_map, &mem_map->root->key);
-      free (tgt->array);
-      free (tgt);
     }
 }
 

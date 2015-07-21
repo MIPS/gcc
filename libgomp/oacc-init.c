@@ -293,9 +293,12 @@ acc_shutdown_1 (acc_device_t d)
 
       if (walk->dev)
 	{
-	  gomp_mutex_lock (&walk->dev->lock);
-	  gomp_free_memmap (&walk->dev->mem_map);
-	  gomp_mutex_unlock (&walk->dev->lock);
+	  while (walk->dev->mem_map.root)
+	    {
+	      struct target_mem_desc *tgt = walk->dev->mem_map.root->key.tgt;
+
+	      gomp_unmap_vars (tgt, false);
+	    }
 
 	  walk->dev = NULL;
 	  walk->base_dev = NULL;
