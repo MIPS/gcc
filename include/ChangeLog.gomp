@@ -1,3 +1,7 @@
+2015-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (enum gomp_map_kind): Add GOMP_MAP_FIRSTPRIVATE.
+
 2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* gomp-constants.h (GOMP_MAP_ALWAYS_TO_P,

@@ -1930,6 +1930,10 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      else if (!global)
 		install_var_field (decl, by_ref, 3, ctx);
 	    }
+	  else if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		    || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_IS_DEVICE_PTR)
+		   && is_gimple_omp_offloaded (ctx->stmt))
+	    install_var_field (decl, !is_reference (decl), 3, ctx);
 	  install_var_local (decl, ctx);
 	  if (is_gimple_omp_oacc (ctx->stmt)
 	      && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
@@ -12929,6 +12933,21 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    DECL_HAS_VALUE_EXPR_P (new_var) = 1;
 	  }
 	map_cnt++;
+	break;
+
+      case OMP_CLAUSE_FIRSTPRIVATE:
+      case OMP_CLAUSE_IS_DEVICE_PTR:
+	map_cnt++;
+	var = OMP_CLAUSE_DECL (c);
+	if (!is_reference (var)
+	    && !is_gimple_reg_type (TREE_TYPE (var)))
+	  {
+	    x = build_receiver_ref (var, true, ctx);
+	    tree new_var = lookup_decl (var, ctx);
+	    SET_DECL_VALUE_EXPR (new_var, x);
+	    DECL_HAS_VALUE_EXPR_P (new_var) = 1;
+	  }
+	break;
       }
 
   if (offloaded)
@@ -12994,7 +13013,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
 	switch (OMP_CLAUSE_CODE (c))
 	  {
-	    tree ovar, nc;
+	    tree ovar, nc, s, purpose, var, x;
+	    unsigned int talign;
 
 	  default:
 	    break;
@@ -13037,13 +13057,13 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  continue;
 	      }
 
-	    unsigned int talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
+	    talign = TYPE_ALIGN_UNIT (TREE_TYPE (ovar));
 	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
 	      talign = DECL_ALIGN_UNIT (ovar);
 	    if (nc)
 	      {
-		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
-		tree x = build_sender_ref (ovar, ctx);
+		var = lookup_decl_in_outer_ctx (ovar, ctx);
+		x = build_sender_ref (ovar, ctx);
 		if (maybe_lookup_oacc_reduction (var, ctx))
 		  {
 		    gcc_checking_assert (offloaded
@@ -13092,11 +13112,11 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    gimplify_assign (x, var, &ilist);
 		  }
 	      }
-	    tree s = OMP_CLAUSE_SIZE (c);
+	    s = OMP_CLAUSE_SIZE (c);
 	    if (s == NULL_TREE)
 	      s = TYPE_SIZE_UNIT (TREE_TYPE (ovar));
 	    s = fold_convert (size_type_node, s);
-	    tree purpose = size_int (map_idx++);
+	    purpose = size_int (map_idx++);
 	    CONSTRUCTOR_APPEND_ELT (vsize, purpose, s);
 	    if (TREE_CODE (s) != INTEGER_CST)
 	      TREE_STATIC (TREE_VEC_ELT (t, 1)) = 0;
@@ -13126,6 +13146,52 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 				    build_int_cstu (tkind_type, tkind));
 	    if (nc && nc != c)
 	      c = nc;
+	    break;
+
+	  case OMP_CLAUSE_FIRSTPRIVATE:
+	  case OMP_CLAUSE_IS_DEVICE_PTR:
+	    ovar = OMP_CLAUSE_DECL (c);
+	    if (is_reference (ovar))
+	      talign = TYPE_ALIGN_UNIT (TREE_TYPE (TREE_TYPE (ovar)));
+	    else
+	      talign = DECL_ALIGN_UNIT (ovar);
+	    var = lookup_decl_in_outer_ctx (ovar, ctx);
+	    x = build_sender_ref (ovar, ctx);
+	    if (is_reference (var))
+	      gimplify_assign (x, var, &ilist);
+	    else if (is_gimple_reg (var))
+	      {
+		tree avar = create_tmp_var (TREE_TYPE (var));
+		mark_addressable (avar);
+		gimplify_assign (avar, var, &ilist);
+		avar = build_fold_addr_expr (avar);
+		gimplify_assign (x, avar, &ilist);
+	      }
+	    else
+	      {
+		var = build_fold_addr_expr (var);
+		gimplify_assign (x, var, &ilist);
+	      }
+	    if (is_reference (var))
+	      s = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (ovar)));
+	    else
+	      s = TYPE_SIZE_UNIT (TREE_TYPE (ovar));
+	    s = fold_convert (size_type_node, s);
+	    purpose = size_int (map_idx++);
+	    CONSTRUCTOR_APPEND_ELT (vsize, purpose, s);
+	    if (TREE_CODE (s) != INTEGER_CST)
+	      TREE_STATIC (TREE_VEC_ELT (t, 1)) = 0;
+
+	    tkind = GOMP_MAP_FIRSTPRIVATE;
+	    gcc_checking_assert (tkind
+				 < (HOST_WIDE_INT_C (1U) << talign_shift));
+	    talign = ceil_log2 (talign);
+	    tkind |= talign << talign_shift;
+	    gcc_checking_assert (tkind
+				 <= tree_to_uhwi (TYPE_MAX_VALUE (tkind_type)));
+	    CONSTRUCTOR_APPEND_ELT (vkind, purpose,
+				    build_int_cstu (tkind_type, tkind));
+	    break;
 	  }
 
       gcc_assert (map_idx == map_cnt);
@@ -13173,6 +13239,57 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   if (offloaded)
     {
+      for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
+	switch (OMP_CLAUSE_CODE (c))
+	  {
+	    tree var;
+	  default:
+	    break;
+	  case OMP_CLAUSE_FIRSTPRIVATE:
+	  case OMP_CLAUSE_IS_DEVICE_PTR:
+	    var = OMP_CLAUSE_DECL (c);
+	    if (is_reference (var)
+		|| is_gimple_reg_type (TREE_TYPE (var)))
+	      {
+		tree new_var = lookup_decl (var, ctx);
+		tree x = build_receiver_ref (var, !is_reference (var), ctx);
+		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
+		gimple_seq_add_stmt (&new_body,
+				     gimple_build_assign (new_var, x));
+	      }
+	    break;
+	  case OMP_CLAUSE_PRIVATE:
+	    var = OMP_CLAUSE_DECL (c);
+	    if (is_reference (var))
+	      {
+		location_t clause_loc = OMP_CLAUSE_LOCATION (c);
+		tree new_var = lookup_decl (var, ctx);
+		tree x = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (new_var)));
+		if (TREE_CONSTANT (x))
+		  {
+		    const char *name = NULL;
+		    if (DECL_NAME (var))
+		      name = IDENTIFIER_POINTER (DECL_NAME (new_var));
+
+		    x = create_tmp_var_raw (TREE_TYPE (TREE_TYPE (new_var)),
+					    name);
+		    gimple_add_tmp_var (x);
+		    TREE_ADDRESSABLE (x) = 1;
+		    x = build_fold_addr_expr_loc (clause_loc, x);
+		  }
+		else
+		  {
+		    tree atmp = builtin_decl_explicit (BUILT_IN_ALLOCA);
+		    x = build_call_expr_loc (clause_loc, atmp, 1, x);
+		  }
+
+		x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
+		gimplify_expr (&x, &new_body, NULL, is_gimple_val, fb_rvalue);
+		gimple_seq_add_stmt (&new_body,
+				     gimple_build_assign (new_var, x));
+	      }
+	    break;
+	  }
       gimple_seq_add_seq (&new_body, tgt_body);
       new_body = maybe_catch_exception (new_body);
     }

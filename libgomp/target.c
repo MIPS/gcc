@@ -243,6 +243,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	       bool short_mapkind, bool is_target)
 {
   size_t i, tgt_align, tgt_size, not_found_cnt = 0;
+  bool has_firstprivate = false;
   const int rshift = short_mapkind ? 8 : 3;
   const int typemask = short_mapkind ? 0xff : 0x7;
   struct splay_tree_s *mem_map = &devicep->mem_map;
@@ -280,6 +281,18 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	cur_node.host_end = cur_node.host_start + sizes[i];
       else
 	cur_node.host_end = cur_node.host_start + sizeof (void *);
+      if ((kind & typemask) == GOMP_MAP_FIRSTPRIVATE)
+	{
+	  tgt->list[i].key = NULL;
+
+	  size_t align = (size_t) 1 << (kind >> rshift);
+	  if (tgt_align < align)
+	    tgt_align = align;
+	  tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	  tgt_size += cur_node.host_end - cur_node.host_start;
+	  has_firstprivate = true;
+	  continue;
+	}
       splay_tree_key n = splay_tree_lookup (mem_map, &cur_node);
       if (n)
 	gomp_map_vars_existing (devicep, n, &cur_node, &tgt->list[i],
@@ -348,9 +361,10 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
     tgt_size = mapnum * sizeof (void *);
 
   tgt->array = NULL;
-  if (not_found_cnt)
+  if (not_found_cnt || has_firstprivate)
     {
-      tgt->array = gomp_malloc (not_found_cnt * sizeof (*tgt->array));
+      if (not_found_cnt)
+	tgt->array = gomp_malloc (not_found_cnt * sizeof (*tgt->array));
       splay_tree_node array = tgt->array;
       size_t j;
 
@@ -360,6 +374,18 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	    int kind = get_kind (short_mapkind, kinds, i);
 	    if (hostaddrs[i] == NULL)
 	      continue;
+	    if ((kind & typemask) == GOMP_MAP_FIRSTPRIVATE)
+	      {
+		size_t align = (size_t) 1 << (kind >> rshift);
+		tgt_size = (tgt_size + align - 1) & ~(align - 1);
+		tgt->list[i].offset = tgt_size;
+		size_t len = sizes[i];
+		devicep->host2dev_func (devicep->target_id,
+					(void *) (tgt->tgt_start + tgt_size),
+					(void *) hostaddrs[i], len);
+		tgt_size += len;
+		continue;
+	      }
 	    splay_tree_key k = &array->key;
 	    k->host_start = (uintptr_t) hostaddrs[i];
 	    if (!GOMP_MAP_POINTER_P (kind & typemask))
@@ -491,7 +517,13 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       for (i = 0; i < mapnum; i++)
 	{
 	  if (tgt->list[i].key == NULL)
-	    cur_node.tgt_offset = (uintptr_t) NULL;
+	    {
+	      if (hostaddrs[i] == NULL)
+		cur_node.tgt_offset = (uintptr_t) NULL;
+	      else
+		cur_node.tgt_offset = tgt->tgt_start
+				      + tgt->list[i].offset;
+	    }
 	  else
 	    cur_node.tgt_offset = tgt->list[i].key->tgt->tgt_start
 				  + tgt->list[i].key->tgt_offset;

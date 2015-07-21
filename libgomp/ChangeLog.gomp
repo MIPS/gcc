@@ -1,3 +1,11 @@
+2015-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_map_vars): Handle GOMP_MAP_FIRSTPRIVATE.
+	* testsuite/libgomp.c/target-13.c: New test.
+	* testsuite/libgomp.c/target-14.c: New test.
+	* testsuite/libgomp.c++/target-5.C: New test.
+	* testsuite/libgomp.c++/target-6.C: New test.
+
 2015-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/linear-2.c (verify): New function.

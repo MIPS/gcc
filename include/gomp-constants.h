@@ -72,6 +72,8 @@ enum gomp_map_kind
     /* Is a device pointer.  OMP_CLAUSE_SIZE for these is unused; is implicitly
        POINTER_SIZE_UNITS.  */
     GOMP_MAP_FORCE_DEVICEPTR =		(GOMP_MAP_FLAG_SPECIAL_1 | 0),
+    /* Do not map, copy bits for firstprivate instead.  */
+    GOMP_MAP_FIRSTPRIVATE =		(GOMP_MAP_FLAG_SPECIAL | 0),
     /* Allocate.  */
     GOMP_MAP_FORCE_ALLOC =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_ALLOC),
     /* ..., and copy to device.  */

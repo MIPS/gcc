@@ -1,3 +1,10 @@
+2015-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_sharing_clauses): Handle firstprivate
+	and is_device_ptr clauses on target region.
+	(lower_omp_target): Handle OMP_CLAUSE_FIRSTPRIVATE,
+	OMP_CLAUSE_IS_DEVICE_PTR and OMP_CLAUSE_PRIVATE.
+
 2015-07-20  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-pretty-print.c (dump_omp_clause): Print '+' for positive
