@@ -8288,6 +8288,7 @@ expand_omp_for (struct omp_region *region, gimple inner_stmt)
 	{
 	  struct loop *loop = region->cont->loop_father; 
 	  loop->marked_independent = true;
+	  loop->safelen = INT_MAX;
 	}
     }
   else if (gimple_omp_for_kind (fd.for_stmt) & GF_OMP_FOR_SIMD)
