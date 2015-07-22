@@ -1,3 +1,12 @@
+2015-07-22  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_option_override): Initialize worker
+	buffer alignment here.
+	(nvptx_wsync): Generate pattern, not emit instruction.
+	(nvptx_single): Insert barrier after read.
+	(nvptx_process_pars): Adjust nvptx_wsync use.
+	(nvptx_file_end): No need to apply default alignment here.
+
 2015-07-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/mkoffload.c (process): Add destructor call.

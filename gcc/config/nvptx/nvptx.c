@@ -124,6 +124,7 @@ nvptx_option_override (void)
     = hash_table<declared_libfunc_hasher>::create_ggc (17);
 
   worker_bcast_sym = gen_rtx_SYMBOL_REF (Pmode, worker_bcast_name);
+  worker_bcast_align = GET_MODE_SIZE (SImode);
 }
 
 /* Return the mode to be used when declaring a ptx object for OBJ.
@@ -2627,12 +2628,13 @@ nvptx_wpropagate (bool pre_p, basic_block block, rtx_insn *insn)
     }
 }
 
-/* Emit a worker-level synchronization barrier.  */
+/* Emit a worker-level synchronization barrier.  We use different
+   markers for before and after synchronizations.  */
 
-static void
-nvptx_wsync (bool tail_p, rtx_insn *insn)
+static rtx
+nvptx_wsync (bool after)
 {
-  emit_insn_after (gen_nvptx_barsync (GEN_INT (tail_p)), insn);
+  return gen_nvptx_barsync (GEN_INT (after));
 }
 
 /* Single neutering according to MASK.  FROM is the incoming block and
@@ -2750,7 +2752,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	}
       else
 	{
-	  /* Includes worker mode, do spill & fill.  by construction
+	  /* Includes worker mode, do spill & fill.  By construction
 	     we should never have worker mode only. */
 	  wcast_data_t data;
 
@@ -2763,10 +2765,14 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  data.offset = 0;
 	  emit_insn_before (nvptx_gen_wcast (pvar, PM_read, 0, &data),
 			    before);
-	  emit_insn_before (gen_nvptx_barsync (GEN_INT (2)), tail);
+	  /* Barrier so other workers can see the write.  */
+	  emit_insn_before (nvptx_wsync (false), tail);
 	  data.offset = 0;
-	  emit_insn_before (nvptx_gen_wcast (pvar, PM_write, 0, &data),
-			    tail);
+	  emit_insn_before (nvptx_gen_wcast (pvar, PM_write, 0, &data), tail);
+	  /* This barrier is needed to avoid worker zero clobbering
+	     the broadcast buffer before all the other workers have
+	     had a chance to read this instance of it.  */
+	  emit_insn_before (nvptx_wsync (true), tail);
 	}
 
       extract_insn (tail);
@@ -2824,8 +2830,8 @@ nvptx_process_pars (parallel *par)
 			  par->forked_insn);
 	nvptx_wpropagate (true, par->forked_block, par->fork_insn);
 	/* Insert begin and end synchronizations.  */
-	nvptx_wsync (false, par->forked_insn);
-	nvptx_wsync (true, par->joining_insn);
+	emit_insn_after (nvptx_wsync (false), par->forked_insn);
+	emit_insn_before (nvptx_wsync (true), par->joining_insn);
       }
       break;
 
@@ -3046,8 +3052,6 @@ nvptx_file_end (void)
     {
       /* Define the broadcast buffer.  */
 
-      if (worker_bcast_align < GET_MODE_SIZE (SImode))
-	worker_bcast_align = GET_MODE_SIZE (SImode);
       worker_bcast_hwm = (worker_bcast_hwm + worker_bcast_align - 1)
 	& ~(worker_bcast_align - 1);
       
