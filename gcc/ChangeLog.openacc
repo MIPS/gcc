@@ -1,3 +1,8 @@
+2015-07-22  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-expand.c (expand_omp_for): Set loop->safelen to INT_MAX if
+	marked_independent.
+
 2015-07-14  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* cfgloop.h (struct loop): Add 'bool marked_independent' field.
