@@ -5532,6 +5532,45 @@ finish_omp_declare_simd_methods (tree t)
     }
 }
 
+/* Adjust sink depend clause to take into account pointer offsets.
+
+   Return TRUE if there was a problem processing the offset, and the
+   whole clause should be removed.  */
+
+static bool
+cp_finish_omp_clause_depend_sink (tree sink_clause)
+{
+  tree t = OMP_CLAUSE_DECL (sink_clause);
+  gcc_assert (TREE_CODE (t) == TREE_LIST);
+
+  /* Make sure we don't adjust things twice for templates.  */
+  if (processing_template_decl)
+    return false;
+
+  for (; t; t = TREE_CHAIN (t))
+    {
+      tree decl = TREE_VALUE (t);
+      if (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE)
+	{
+	  tree offset = TREE_PURPOSE (t);
+	  bool neg = wi::neg_p ((wide_int) offset);
+	  offset = fold_unary (ABS_EXPR, TREE_TYPE (offset), offset);
+	  decl = mark_rvalue_use (decl);
+	  decl = convert_from_reference (decl);
+	  tree t2 = pointer_int_sum (OMP_CLAUSE_LOCATION (sink_clause),
+				     neg ? MINUS_EXPR : PLUS_EXPR,
+				     decl, offset);
+	  t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (sink_clause),
+				MINUS_EXPR, sizetype, t2,
+				decl);
+	  if (t2 == error_mark_node)
+	    return true;
+	  TREE_PURPOSE (t) = t2;
+	}
+    }
+  return false;
+}
+
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
@@ -6150,7 +6189,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    }
 	  if (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
 	    {
-	      gcc_assert (TREE_CODE (t) == TREE_LIST);
+	      if (cp_finish_omp_clause_depend_sink (c))
+		remove = true;
 	      break;
 	    }
 	  if (TREE_CODE (t) == TREE_LIST)

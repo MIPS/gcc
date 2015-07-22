@@ -1,3 +1,8 @@
+2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Adjust pointer offsets for
+	OMP_CLAUSE_DEPEND_SINK.
+
 2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_depend_sink): Handle multiple

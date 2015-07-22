@@ -1,3 +1,8 @@
+2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* semantics.c (cp_finish_omp_clause_depend_sink): New.
+	(finish_omp_clauses): Call cp_finish_omp_clause_depend_sink.
+
 2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_depend_sink): Handle multiple

@@ -1,3 +1,8 @@
+2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-pretty-print.c (dump_omp_clause): Pass TYPE_SIGN to
+	wi::neg_p.
+
 2015-07-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (scan_sharing_clauses): Handle firstprivate
