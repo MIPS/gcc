@@ -12238,7 +12238,6 @@ cp_parser_static_assert(cp_parser *parser, bool member_p)
   /* Reduce condition early.  We need to reduce builtins within
      static_asserts, so that testcase like pr62024.C getting
      resolved always proper.  */
-     constant value.  */
   condition = fold_non_dependent_expr (condition);
 
   if (cp_lexer_peek_token (parser->lexer)->type == CPP_CLOSE_PAREN)
