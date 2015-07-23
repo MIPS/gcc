@@ -25478,6 +25478,36 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking linker for indirect branch relocation" >&5
+$as_echo_n "checking linker for indirect branch relocation... " >&6; }
+if test "${gcc_cv_ld_ix86_indirect_branch+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_ld_ix86_indirect_branch=no
+       if test $in_tree_ld = yes ; then
+	 if grep R_386_LOAD_GOT32 $srcdir/../include/elf/i386.h > /dev/null 2>&1; then
+	   gcc_cv_ld_ix86_indirect_branch=yes
+	 fi
+       elif test x$gcc_cv_as != x -a x$gcc_cv_readelf != x; then
+	 cat > conftest.s <<EOF
+	 jmp *foo@GOT
+EOF
+	 if $gcc_cv_as --32 -o conftest.o conftest.s > /dev/null 2>&1; then
+	   if $gcc_cv_readelf --relocs --wide conftest.o 2>&1 \
+	      | grep R_386_LOAD_GOT32 > /dev/null 2>&1; then
+	     gcc_cv_ld_ix86_indirect_branch=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_ix86_indirect_branch" >&5
+$as_echo "$gcc_cv_ld_ix86_indirect_branch" >&6; }
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_LD_IX86_INDBR_RELOC `if test x"$gcc_cv_ld_ix86_indirect_branch" = xyes; then echo 1; else echo 0; fi`
+_ACEOF
+
     ;;
 
   ia64*-*-*)
