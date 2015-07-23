@@ -563,6 +563,31 @@ plugin_build_pointer_type (cc1_plugin::connection *,
   return convert_out (build_pointer_type (convert_in (base_type)));
 }
 
+gcc_type
+plugin_build_reference_type (cc1_plugin::connection *,
+			     gcc_type base_type_in,
+			     enum gcc_cp_ref_qualifiers rquals)
+{
+  bool rval;
+
+  switch (rquals)
+    {
+    case GCC_CP_REF_QUAL_LVALUE:
+      rval = false;
+      break;
+    case GCC_CP_REF_QUAL_RVALUE:
+      rval = true;
+      break;
+    case GCC_CP_REF_QUAL_NONE:
+    default:
+      gcc_unreachable ();
+    }
+
+  tree rtype = cp_build_reference_type (convert_in (base_type_in), rval);
+
+  return convert_out (rtype);
+}
+
 // TYPE_NAME needs to be a valid pointer, even if there is no name available.
 
 static tree
@@ -781,6 +806,32 @@ plugin_build_function_type (cc1_plugin::connection *self,
 }
 
 gcc_type
+plugin_build_exception_spec_variant (cc1_plugin::connection *self,
+				     gcc_type function_type_in,
+				     const struct gcc_type_array *except_types_in)
+{
+  tree function_type = convert_in (function_type_in);
+  tree except_types = NULL_TREE;
+
+  if (!except_types_in)
+    except_types = noexcept_false_spec;
+  else if (!except_types_in->n_elements)
+    except_types = empty_except_spec;
+  else
+    for (int i = 0; i < except_types_in->n_elements; i++)
+      except_types = add_exception_specifier (except_types,
+					      convert_in
+					      (except_types_in->elements[i]),
+					      0);
+
+  function_type = build_exception_variant (function_type,
+					   except_types);
+
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  return convert_out (ctx->preserve (function_type));
+}
+
+gcc_type
 plugin_build_method_type (cc1_plugin::connection *self,
 			  gcc_type class_type_in,
 			  gcc_type func_type_in,
@@ -813,10 +864,26 @@ plugin_build_method_type (cc1_plugin::connection *self,
       gcc_unreachable ();
     }
   
-  tree method_type = build_memfn_type (func_type, class_type, quals, rquals);
+  tree method_type = class_type
+    ? build_memfn_type (func_type, class_type, quals, rquals)
+    : apply_memfn_quals (func_type, quals, rquals);
   
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (method_type));
+}
+
+gcc_type
+plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+				     gcc_type class_type_in,
+				     gcc_type member_type_in)
+{
+  tree class_type = convert_in (class_type_in);
+  tree member_type = convert_in (member_type_in);
+
+  tree memptr_type = build_ptrmem_type (class_type, member_type);
+
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  return convert_out (ctx->preserve (memptr_type));
 }
 
 gcc_type
