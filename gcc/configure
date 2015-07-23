@@ -25779,6 +25779,67 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking linker for R_386_GOT32X relocation" >&5
+$as_echo_n "checking linker for R_386_GOT32X relocation... " >&6; }
+if test "${gcc_cv_ld_r_386_got32x+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_ld_r_386_got32x=no
+       if test $in_tree_ld = yes ; then
+	 if grep R_386_GOT32X $srcdir/../include/elf/i386.h > /dev/null 2>&1; then
+	   gcc_cv_ld_r_386_got32x=yes
+	 fi
+       elif test x$gcc_cv_as != x -a x$gcc_cv_readelf != x; then
+	 cat > conftest.s <<EOF
+	 jmp *foo@GOT
+EOF
+	 if $gcc_cv_as --32 -o conftest.o conftest.s > /dev/null 2>&1; then
+	   if $gcc_cv_readelf --relocs --wide conftest.o 2>&1 \
+	      | grep R_386_GOT32X > /dev/null 2>&1; then
+	     gcc_cv_ld_r_386_got32x=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_r_386_got32x" >&5
+$as_echo "$gcc_cv_ld_r_386_got32x" >&6; }
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_LD_R_386_GOT32X `if test x"$gcc_cv_ld_r_386_got32x" = xyes; then echo 1; else echo 0; fi`
+_ACEOF
+
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking linker for R_X86_64_GOTPCRELX relocation" >&5
+$as_echo_n "checking linker for R_X86_64_GOTPCRELX relocation... " >&6; }
+if test "${gcc_cv_ld_r_x86_64_gotpcrelx+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_ld_r_x86_64_gotpcrelx=no
+       if test $in_tree_ld = yes ; then
+	 if grep R_X86_64_GOTPCRELX $srcdir/../include/elf/i386.h > /dev/null 2>&1; then
+	   gcc_cv_ld_r_x86_64_gotpcrelx=yes
+	 fi
+       elif test x$gcc_cv_as != x -a x$gcc_cv_readelf != x; then
+	 cat > conftest.s <<EOF
+	 jmp *foo@GOTPCREL(%rip)
+EOF
+	 if $gcc_cv_as --64 -o conftest.o conftest.s > /dev/null 2>&1; then
+	   if $gcc_cv_readelf --relocs --wide conftest.o 2>&1 \
+	      | grep R_X86_64_GOTPCRELX > /dev/null 2>&1; then
+	     gcc_cv_ld_r_x86_64_gotpcrelx=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_r_x86_64_gotpcrelx" >&5
+$as_echo "$gcc_cv_ld_r_x86_64_gotpcrelx" >&6; }
+
+cat >>confdefs.h <<_ACEOF
+#define HAVE_LD_R_X86_64_GOTPCRELX `if test x"$gcc_cv_ld_r_x86_64_gotpcrelx" = xyes; then echo 1; else echo 0; fi`
+_ACEOF
+
     ;;
 
   ia64*-*-*)

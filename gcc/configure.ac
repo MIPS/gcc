@@ -4137,6 +4137,51 @@ value:'
       [`if test $gcc_cv_as_ix86_tlsldm = yes; then echo 1; else echo 0; fi`],
       [Define to 1 if your assembler and linker support @tlsldm.])
 
+    AC_CACHE_CHECK([linker for R_386_GOT32X relocation],
+      [gcc_cv_ld_r_386_got32x],
+      [gcc_cv_ld_r_386_got32x=no
+       if test $in_tree_ld = yes ; then
+	 if grep R_386_GOT32X $srcdir/../include/elf/i386.h > /dev/null 2>&1; then
+	   gcc_cv_ld_r_386_got32x=yes
+	 fi
+       elif test x$gcc_cv_as != x -a x$gcc_cv_readelf != x; then
+	 cat > conftest.s <<EOF
+	 jmp *foo@GOT
+EOF
+	 if $gcc_cv_as --32 -o conftest.o conftest.s > /dev/null 2>&1; then
+	   if $gcc_cv_readelf --relocs --wide conftest.o 2>&1 \
+	      | grep R_386_GOT32X > /dev/null 2>&1; then
+	     gcc_cv_ld_r_386_got32x=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o])
+    AC_DEFINE_UNQUOTED(HAVE_LD_R_386_GOT32X,
+      [`if test x"$gcc_cv_ld_r_386_got32x" = xyes; then echo 1; else echo 0; fi`],
+      [Define 0/1 if Define if your linker supports R_386_GOT32X relocation.])
+
+    AC_CACHE_CHECK([linker for R_X86_64_GOTPCRELX relocation],
+      [gcc_cv_ld_r_x86_64_gotpcrelx],
+      [gcc_cv_ld_r_x86_64_gotpcrelx=no
+       if test $in_tree_ld = yes ; then
+	 if grep R_X86_64_GOTPCRELX $srcdir/../include/elf/i386.h > /dev/null 2>&1; then
+	   gcc_cv_ld_r_x86_64_gotpcrelx=yes
+	 fi
+       elif test x$gcc_cv_as != x -a x$gcc_cv_readelf != x; then
+	 cat > conftest.s <<EOF
+	 jmp *foo@GOTPCREL(%rip)
+EOF
+	 if $gcc_cv_as --64 -o conftest.o conftest.s > /dev/null 2>&1; then
+	   if $gcc_cv_readelf --relocs --wide conftest.o 2>&1 \
+	      | grep R_X86_64_GOTPCRELX > /dev/null 2>&1; then
+	     gcc_cv_ld_r_x86_64_gotpcrelx=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o])
+    AC_DEFINE_UNQUOTED(HAVE_LD_R_X86_64_GOTPCRELX,
+      [`if test x"$gcc_cv_ld_r_x86_64_gotpcrelx" = xyes; then echo 1; else echo 0; fi`],
+      [Define 0/1 if Define if your linker supports R_X86_64_GOTPCRELX relocation.])
     ;;
 
   ia64*-*-*)

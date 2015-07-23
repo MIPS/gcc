@@ -1507,6 +1507,19 @@
 #endif
 
 
+/* Define 0/1 if Define if your linker supports R_386_GOT32X relocation. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_R_386_GOT32X
+#endif
+
+
+/* Define 0/1 if Define if your linker supports R_X86_64_GOTPCRELX relocation.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_R_X86_64_GOTPCRELX
+#endif
+
+
 /* Define if your linker supports the *_sol2 emulations. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_SOL2_EMULATION
