@@ -1499,6 +1499,8 @@ tsubst_conjunction (tree t, tree args,
 tree
 tsubst_constraint (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 {
+  if (t == NULL_TREE)
+    return t;
   if (TREE_CODE (t) == CONJ_CONSTR)
     return tsubst_conjunction (t, args, complain, in_decl);
   else if (TREE_CODE (t) == PRED_CONSTR)

@@ -1,3 +1,7 @@
+2015-07-23  Jason Merrill  <jason@redhat.com>
+
+	* gcc/cp/constraint.cc (tsubst_constraint): Handle null T.
+
 2015-07-20  Jason Merrill  <jason@redhat.com>
 
 	* pt.c (do_auto_deduction): Use the deduced type, not substituted.
