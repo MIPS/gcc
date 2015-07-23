@@ -144,10 +144,18 @@ cc1_plugin::unmarshall_array_elmts (connection *conn, size_t n_bytes,
 cc1_plugin::status
 cc1_plugin::marshall (connection *conn, const gcc_type_array *a)
 {
-  size_t len = a->n_elements;
+  size_t len;
+
+  if (a)
+    len = a->n_elements;
+  else
+    len = (size_t)-1;
 
   if (!marshall_array_start (conn, 'a', len))
     return FAIL;
+
+  if (!a)
+    return OK;
 
   return marshall_array_elmts (conn, len * sizeof (a->elements[0]),
 			       a->elements);
@@ -160,6 +168,12 @@ cc1_plugin::unmarshall (connection *conn, gcc_type_array **result)
 
   if (!unmarshall_array_start (conn, 'a', &len))
     return FAIL;
+
+  if (len == (size_t)-1)
+    {
+      *result = NULL;
+      return OK;
+    }
 
   *result = new gcc_type_array;
 
