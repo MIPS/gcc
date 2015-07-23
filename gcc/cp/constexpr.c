@@ -1295,7 +1295,7 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
   tree result = NULL_TREE;
 
   constexpr_call *entry = NULL;
-  if (!non_constant_args)
+  if (depth_ok && !non_constant_args)
     {
       new_call.hash = iterative_hash_template_arg
 	(new_call.bindings, constexpr_fundef_hasher::hash (new_call.fundef));
@@ -4102,6 +4102,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
       /* We can see a FIELD_DECL in a pointer-to-member expression.  */
     case FIELD_DECL:
     case PARM_DECL:
+    case RESULT_DECL:
     case USING_DECL:
     case USING_STMT:
     case PLACEHOLDER_EXPR:
