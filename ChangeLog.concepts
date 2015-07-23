@@ -1,5 +1,9 @@
 2015-07-23  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66758
+	* cxx-pretty-print.c (pp_cxx_parameterized_constraint): Constraint
+	vars aren't a TREE_LIST anymore.
+
 	* gcc/cp/constraint.cc (tsubst_constraint): Handle null T.
 
 2015-07-20  Jason Merrill  <jason@redhat.com>

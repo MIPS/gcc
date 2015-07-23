@@ -2677,8 +2677,8 @@ pp_cxx_parameterized_constraint (cxx_pretty_printer *pp, tree t)
   pp_string (pp, "forall");
   if (tree parms = PARM_CONSTR_PARMS (t))
     {
-      if (TREE_VALUE (parms) != void_type_node)
-          pp_cxx_parameter_declaration_clause (pp, parms);
+      if (parms)
+	pp_cxx_parameter_declaration_clause (pp, parms);
       pp_cxx_whitespace (pp);
     }
   pp_cxx_constraint (pp, PARM_CONSTR_OPERAND (t));
