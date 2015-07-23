@@ -4096,6 +4096,28 @@ value:'
       [`if test $gcc_cv_as_ix86_tlsldm = yes; then echo 1; else echo 0; fi`],
       [Define to 1 if your assembler and linker support @tlsldm.])
 
+    AC_CACHE_CHECK([linker for indirect branch relocation],
+      [gcc_cv_ld_ix86_indirect_branch],
+      [gcc_cv_ld_ix86_indirect_branch=no
+       if test $in_tree_ld = yes ; then
+	 if grep R_386_LOAD_GOT32 $srcdir/../include/elf/i386.h > /dev/null 2>&1; then
+	   gcc_cv_ld_ix86_indirect_branch=yes
+	 fi
+       elif test x$gcc_cv_as != x -a x$gcc_cv_readelf != x; then
+	 cat > conftest.s <<EOF
+	 jmp *foo@GOT
+EOF
+	 if $gcc_cv_as --32 -o conftest.o conftest.s > /dev/null 2>&1; then
+	   if $gcc_cv_readelf --relocs --wide conftest.o 2>&1 \
+	      | grep R_386_LOAD_GOT32 > /dev/null 2>&1; then
+	     gcc_cv_ld_ix86_indirect_branch=yes
+	   fi
+	 fi
+       fi
+       rm -f conftest.s conftest.o])
+    AC_DEFINE_UNQUOTED(HAVE_LD_IX86_INDBR_RELOC,
+      [`if test x"$gcc_cv_ld_ix86_indirect_branch" = xyes; then echo 1; else echo 0; fi`],
+      [Define 0/1 if Define if your linker supports indirect branch relocation.])
     ;;
 
   ia64*-*-*)

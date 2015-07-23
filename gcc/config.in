@@ -1435,6 +1435,12 @@
 #endif
 
 
+/* Define 0/1 if Define if your linker supports indirect branch relocation. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_IX86_INDBR_RELOC
+#endif
+
+
 /* Define if your PowerPC64 linker supports a large TOC. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_LARGE_TOC
