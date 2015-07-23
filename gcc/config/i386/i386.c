@@ -26904,7 +26904,8 @@ static bool
 ix86_nopic_noplt_attribute_p (rtx call_op)
 {
   if (flag_pic || ix86_cmodel == CM_LARGE
-      || !TARGET_64BIT || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
+      || (!TARGET_64BIT && HAVE_LD_R_386_GOT32X == 0)
+      || TARGET_MACHO || TARGET_SEH || TARGET_PECOFF
       || SYMBOL_REF_LOCAL_P (call_op))
     return false;
 
@@ -26929,8 +26930,14 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 
   if (SIBLING_CALL_P (insn))
     {
+      /* ix86_nopic_noplt_attribute_p returns false for PIC.  */
       if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
-	xasm = "%!jmp\t*%p0@GOTPCREL(%%rip)";
+	{
+	  if (TARGET_64BIT)
+	    xasm = "%!jmp\t*%p0@GOTPCREL(%%rip)";
+	  else
+	    xasm = "%!jmp\t*%p0@GOT";
+	}
       else if (direct_p)
 	xasm = "%!jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
@@ -26974,8 +26981,14 @@ ix86_output_call_insn (rtx_insn *insn, rtx call_op)
 	seh_nop_p = true;
     }
 
+  /* ix86_nopic_noplt_attribute_p returns false for PIC.  */
   if (direct_p && ix86_nopic_noplt_attribute_p (call_op))
-    xasm = "%!call\t*%p0@GOTPCREL(%%rip)";
+    {
+      if (TARGET_64BIT)
+	xasm = "%!call\t*%p0@GOTPCREL(%%rip)";
+      else
+	xasm = "%!call\t*%p0@GOT";
+    }
   else if (direct_p)
     xasm = "%!call\t%P0";
   else
