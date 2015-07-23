@@ -12758,6 +12758,14 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		   complain | (code == TEMPLATE_TYPE_PARM
 			       ? tf_ignore_bad_quals : 0));
 	      }
+	    else if (TREE_CODE (t) == TEMPLATE_TYPE_PARM
+		     && DECL_SIZE_UNIT (TYPE_NAME (t))
+		     && (r = (TEMPLATE_PARM_DESCENDANTS
+			      (TEMPLATE_TYPE_PARM_INDEX (t))))
+		     && (r = TREE_TYPE (r))
+		     && !DECL_SIZE_UNIT (TYPE_NAME (r)))
+	      /* Break infinite recursion when substituting the constraints
+		 of a constrained placeholder.  */;
 	    else
 	      {
 		r = copy_type (t);
@@ -12768,12 +12776,6 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		TYPE_MAIN_VARIANT (r) = r;
 		TYPE_POINTER_TO (r) = NULL_TREE;
 		TYPE_REFERENCE_TO (r) = NULL_TREE;
-
-		/* Propagate constraints on placeholders.  FIXME we should
-		   substitute here, but that causes infinite recursion.	 */
-                if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
-                  if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (t)))
-                    DECL_SIZE_UNIT (TYPE_NAME (r)) = constr;
 
 		if (TREE_CODE (r) == TEMPLATE_TEMPLATE_PARM)
 		  /* We have reduced the level of the template
@@ -12788,6 +12790,12 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 		  SET_TYPE_STRUCTURAL_EQUALITY (r);
 		else
 		  TYPE_CANONICAL (r) = canonical_type_parameter (r);
+
+		/* Propagate constraints on placeholders.  */
+                if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
+                  if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (t)))
+		    DECL_SIZE_UNIT (TYPE_NAME (r))
+		      = tsubst_constraint (constr, args, complain, in_decl);
 
 		if (code == BOUND_TEMPLATE_TEMPLATE_PARM)
 		  {
@@ -23059,20 +23067,12 @@ do_auto_deduction (tree type, tree init, tree auto_node,
   if (context != adc_requirement)
     TREE_TYPE (auto_node) = TREE_VEC_ELT (targs, 0);
 
-  if (processing_template_decl)
-    targs = add_to_template_args (current_template_args (), targs);
-  tree deduced = tsubst (type, targs, complain, NULL_TREE);
-  if (deduced == error_mark_node)
-    return error_mark_node;
-
   /* Check any placeholder constraints against the deduced type. */
   if (flag_concepts && !processing_template_decl)
     if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (auto_node)))
       {
         /* Use the deduced type to check the associated constraints. */
-        tree cargs = make_tree_vec (1);
-        TREE_VEC_ELT (cargs, 0) = deduced;
-        if (!constraints_satisfied_p (constr, cargs))
+        if (!constraints_satisfied_p (constr, targs))
           {
             if (complain & tf_warning_or_error)
               {
@@ -23100,7 +23100,9 @@ do_auto_deduction (tree type, tree init, tree auto_node,
           }
       }
 
-  return deduced;
+  if (processing_template_decl)
+    targs = add_to_template_args (current_template_args (), targs);
+  return tsubst (type, targs, complain, NULL_TREE);
 }
 
 /* Substitutes LATE_RETURN_TYPE for 'auto' in TYPE and returns the

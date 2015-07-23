@@ -1598,12 +1598,6 @@ tsubst_compound_requirement (tree t, tree args,
   ++processing_template_decl;
   tree expr = tsubst_expr (TREE_OPERAND (t, 0), args, complain, in_decl, false);
   tree type = tsubst (TREE_OPERAND (t, 1), args, complain, in_decl);
-  if (type && TREE_CODE (type) == TEMPLATE_TYPE_PARM)
-    /* Substitute the constraints for an argument deduction constraint.  FIXME
-       this should happen in tsubst to handle more complex deductions.  */
-    if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (type)))
-      DECL_SIZE_UNIT (TYPE_NAME (type))
-	= tsubst_constraint (constr, args, complain, in_decl);
   --processing_template_decl;
   bool noexcept_p = COMPOUND_REQ_NOEXCEPT_P (t);
   return finish_compound_requirement (expr, type, noexcept_p);

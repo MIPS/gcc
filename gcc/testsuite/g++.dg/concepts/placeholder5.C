@@ -1,13 +1,13 @@
-// PR c++/66218
 // { dg-options "-std=c++1z" }
 
 template <class T, class U>
 concept bool Same = __is_same_as(T, U);
 
+const int i = 0;
 template <class T>
 concept bool C =
   requires {
-    { 0 } -> Same<T>;
+    { &i } -> const Same<T>*;
   };
 
 template <C c>
