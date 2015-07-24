@@ -45,6 +45,16 @@ const int melt_is_plugin = 0;
 /* since 4.7, we have a GCCPLUGIN_VERSION in plugin-version.h. */
 #if defined(GCCPLUGIN_VERSION) && (GCCPLUGIN_VERSION != MELT_GCC_VERSION)
 #error MELT Gcc version and GCC plugin version does not match
+#if GCCPLUGIN_VERSION==5005
+/** See e.g. https://lists.debian.org/debian-gcc/2015/07/msg00167.html
+   and https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=793478 
+   or the bug report
+   https://gcc.gnu.org/bugzilla/show_bug.cgi?id=66991 which is a wrong
+   report, since specific to Debian.  **/
+
+#warning some GCC 5.x installations have an incorrect plugin/include/plugin-version.h file; consider patching that file. See comment above
+#endif /*GCCPLUGIN_VERSION 5005*/
+
 #endif /*GCCPLUGIN_VERSION != MELT_GCC_VERSION */
 
 /* the MELT branch has a BUILDING_GCC_VERSION. */

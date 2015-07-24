@@ -1,4 +1,9 @@
 
+2015-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: Check against GCC 4.9 or GCC 5.x for MELT
+	1.2
+
 2015-01-21   Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Able to make upgrade-melt as a

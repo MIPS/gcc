@@ -55,9 +55,9 @@ AWK?= gawk
 MELTGCC_VERSION := $(shell env LANG=C LC_ALL=C $(MELTGCC) -v < /dev/null 2>&1 | $(AWK) '/^gcc version/{print $$3}')
 $(info building MELT: GCC version $(MELTGCC_VERSION))
 
-## check that we have a 4.8 or 4.9 or 5.0
-ifeq ($(filter 4.8.% 4.9.% 5.0.%, $(MELTGCC_VERSION)),)
-$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.8 or 4.9 or 5.0)
+## check that we have a 4.9 or 5.
+ifeq ($(filter 4.9.% 5.%, $(MELTGCC_VERSION)),)
+$(error building MELT: bad version of MELT GCC $(MELTGCC_VERSION). Needs GCC 4.9 or 5.*)
 endif
 ## You may want to set MELTGCC_NO_CHECK_RUNTIME environment variable
 ## when cross-compiling (since you cannot compile melt-runtime.cc with

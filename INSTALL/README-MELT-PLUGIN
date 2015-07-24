@@ -1,5 +1,5 @@
 Short installation instructions for MELT as a plugin to an installed
-gcc-4.7 or gcc-4.8 (or gcc-4.9) enabled for plugins.
+gcc-4.9 or 5.x enabled for plugins.
 
 See also http://gcc-melt.org/
 
@@ -10,26 +10,26 @@ matching and enabling functional/applicative/reflective programming
 styles, to ease development of GCC extensions.  MELT is translated to
 C code (and the MELT translator is implemented in MELT).
 
-If installing MELT as plugin to some existing gcc-4.7 installation
-tree, with the support of plugins enabled (or replace 4.7 by 4.8 if
+If installing MELT as plugin to some existing gcc-4.9 installation
+tree, with the support of plugins enabled (or replace 4.9 by 5.x if
 relevant):
 
 
 ################ quick steps for Debian/Unstable or Ubuntu or derived distributions ####
 
 ## Run as root (e.g. with sudo):
-  apt-get install gcc-4.8 g++-4.8 build-essential make \
+  apt-get install gcc-4.9 g++-4.9 build-essential make \
            texinfo texi2html autogen gawk unifdef astyle
-  apt-get build-dep gcc-4.8
-  apt-get install libppl-dev libppl-c-dev gcc-4.8-plugin-dev 
+  apt-get build-dep gcc-4.9
+  apt-get install libppl-dev libppl-c-dev gcc-4.9-plugin-dev 
 
 ## then retrieve the MELT plugin release, and cd into it, then
   make all
   make install DESTDIR=/tmp/meltinstall
 
 ## You might explicit the compiler you want to extend and to use:
-  make all CC=/usr/bin/gcc-4.8 CXX=/usr/bin/g++-4.8
-  make install CC=/usr/bin/gcc-4.8 CXX=/usr/bin/g++-4.8 DESTDIR=/tmp/meltinstall
+  make all CC=/usr/bin/gcc-4.9 CXX=/usr/bin/g++-4.9
+  make install CC=/usr/bin/gcc-4.9 CXX=/usr/bin/g++-4.9 DESTDIR=/tmp/meltinstall
 
 ## The first "make all" needs 15 minutes, less than 1Gb disk, 4Gb RAM, and
 ## *cannot be* a parallel "make -j all"
@@ -41,7 +41,7 @@ relevant):
 ## dependencies even to run it..
 
 ## You need to rebuild & reinstall MELT even for minor GCC release
-##   upgrades (ie. from GCC 4.8.2 to 4.8.3).
+##   upgrades (ie. from GCC 4.9.2 to 4.9.3).
 
 
 #########################################################################
@@ -49,34 +49,44 @@ relevant):
 
 ################ step 1
 
-First, ensure that 4.7 or 4.8 is correctly installed and has been built
-with plugins enabled, for example (on a Debian Unstable, package gcc-4.8):
+First, ensure that GCC 4.9 or 5.x is correctly installed and has been
+built with plugins enabled, for example (on a Debian Unstable, package
+gcc-4.9 or gcc-5):
 
- % gcc-4.8 -v
-Using built-in specs.
-COLLECT_GCC=gcc
-COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/4.8/lto-wrapper
+ % gcc-4.9 -v
+COLLECT_GCC=gcc-4.9
+COLLECT_LTO_WRAPPER=/usr/lib/gcc/x86_64-linux-gnu/4.9/lto-wrapper
 Target: x86_64-linux-gnu
-Configured with: ../src/configure -v --with-pkgversion='Debian 4.8.1-3' --with-bugurl=file:///usr/share/doc/gcc-4.8/README.Bugs --enable-languages=c,c++,java,go,d,fortran,objc,obj-c++ --prefix=/usr --program-suffix=-4.8 --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --with-gxx-include-dir=/usr/include/c++/4.8 --libdir=/usr/lib --enable-nls --with-sysroot=/ --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-gnu-unique-object --enable-plugin --with-system-zlib --disable-browser-plugin --enable-java-awt=gtk --enable-gtk-cairo --with-java-home=/usr/lib/jvm/java-1.5.0-gcj-4.8-amd64/jre --enable-java-home --with-jvm-root-dir=/usr/lib/jvm/java-1.5.0-gcj-4.8-amd64 --with-jvm-jar-dir=/usr/lib/jvm-exports/java-1.5.0-gcj-4.8-amd64 --with-arch-directory=amd64 --with-ecj-jar=/usr/share/java/eclipse-ecj.jar --enable-objc-gc --enable-multiarch --with-arch-32=i586 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --with-tune=generic --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
+Configured with: ../src/configure -v --with-pkgversion='Debian 4.9.3-3' --with-bugurl=file:///usr/share/doc/gcc-4.9/README.Bugs --enable-languages=c,c++,java,go,d,fortran,objc,obj-c++ --prefix=/usr --program-suffix=-4.9 --enable-shared --enable-linker-build-id --libexecdir=/usr/lib --without-included-gettext --enable-threads=posix --with-gxx-include-dir=/usr/include/c++/4.9 --libdir=/usr/lib --enable-nls --with-sysroot=/ --enable-clocale=gnu --enable-libstdcxx-debug --enable-libstdcxx-time=yes --enable-gnu-unique-object --disable-vtable-verify --enable-plugin --with-system-zlib --disable-browser-plugin --enable-java-awt=gtk --enable-gtk-cairo --with-java-home=/usr/lib/jvm/java-1.5.0-gcj-4.9-amd64/jre --enable-java-home --with-jvm-root-dir=/usr/lib/jvm/java-1.5.0-gcj-4.9-amd64 --with-jvm-jar-dir=/usr/lib/jvm-exports/java-1.5.0-gcj-4.9-amd64 --with-arch-directory=amd64 --with-ecj-jar=/usr/share/java/eclipse-ecj.jar --enable-objc-gc --enable-multiarch --with-arch-32=i586 --with-abi=m64 --with-multilib-list=m32,m64,mx32 --enable-multilib --with-tune=generic --enable-checking=release --build=x86_64-linux-gnu --host=x86_64-linux-gnu --target=x86_64-linux-gnu
 Thread model: posix
-gcc version 4.8.1 (Debian 4.8.1-3) 
+gcc version 4.9.3 (Debian 4.9.3-3) 
+
 
 Be sure that you have all the development packages for all libraries
 used by GCC (e.g. run 'apt-get build-dep gcc' on Debian). In
-particular, you'll need the headers of CLOOG, PPL, MPC, MPFR, GMP
-libraries.
+particular, you'll need the headers of CLOOG, PPL or ISL, MPC, MPFR,
+GMP libraries.
 
 Ensure that your system have recent autogen, GNU make, gawk (GNU awk), texinfo,
 texi2html, unifdef, astyle utilities
 
+On some versions of GCC-5 on some Debian related OSes, the installed
+$(gcc-5 -print-file-name=plugin)/include/plugin-version.h header file
+is wrong; see Debian bug
+https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=793478
+
+You may need to patch that file with your editor, or wait for that
+Debian specific bug to be fixed, or build your pristine GCC 5.2 from
+FSF source code.
+
 ################ step 2
 
 Then, be sure that the GCC plugin development support has been
-installed. (On Debian, you'll need e.g. the gcc-4.8-plugin-dev package).
+installed. (On Debian, you'll need e.g. the gcc-4.9-plugin-dev package).
 
 So you should have something like
-% gcc-4.8 -print-file-name=plugin 
-/usr/lib/gcc/x86_64-linux-gnu/4.8/plugin
+% gcc-4.9 -print-file-name=plugin 
+/usr/lib/gcc/x86_64-linux-gnu/4.9/plugin
 
 Be sure that this plugin subdirectory is populated correctly since it
 contains an include directory and probably a gengtype executable (and
@@ -84,46 +94,48 @@ perhaps more, e.g. your previous installation of MELT). The output of
 the above command should give an absolute path (if not, install the
 appropriate GCC plugin development package or kit).
 
-% ls -l $(gcc-4.8 -print-file-name=plugin)
--rwxr-xr-x 1 root     root      172160 Sep  5 00:01 gengtype
--rw-r--r-- 1 root     root      554675 Sep  4 23:47 gtype.state
-drwxr-xr-x 9 root     root       20480 Sep 11 09:24 include
+% ls -l $(gcc-4.9 -print-file-name=plugin)
+total 1152
+-rwxr-xr-x 1 root root 178656 Jul 24 06:45 gengtype
+-rw-r--r-- 1 root root 965318 Jul 24 06:11 gtype.state
+drwxr-xr-x 9 root root  24576 Jul 24 13:14 include
+
 
 
 Nota Bene: the gtype.state and gengtype files might perhaps be elsewhere.
 
 Be sure that this include subdirectory contains meaningful files for
 GCC, like those for GIMPLE
-% ls -l $(gcc-4.8 -print-file-name=plugin)/include/gimple.* 
--rw-r--r-- 1 root root  14409 Sep  4 23:48 /usr/lib/gcc/x86_64-linux-gnu/4.8/plugin/include/gimple.def
--rw-r--r-- 1 root root 134641 Sep  4 23:48 /usr/lib/gcc/x86_64-linux-gnu/4.8/plugin/include/gimple.h
--rw-r--r-- 1 root root   1368 Sep  4 23:48 /usr/lib/gcc/x86_64-linux-gnu/4.8/plugin/include/gimple-pretty-print.h
+% ls -l $(gcc-4.9 -print-file-name=plugin)/include/gimple.*
+-rw-r--r-- 1 root root  15625 Jul 24 06:11 /usr/lib/gcc/x86_64-linux-gnu/4.9/plugin/include/gimple.def
+-rw-r--r-- 1 root root 140732 Jul 24 06:11 /usr/lib/gcc/x86_64-linux-gnu/4.9/plugin/include/gimple.h
+
 
 
 Be sure that the gengtype executable and its gtype.state textual data
 file is available somewhere. On Debian/Sid the package
-gcc-4.8-plugin-dev provides them
+gcc-4.9-plugin-dev provides them
 
 If you have some previous MELT related files and directories it is
 preferable but not necessary to remove them. You might have two different
 releases of MELT for the same compiler but we don't recommend doing that.
 
-rm -rf $(gcc-4.8 -print-file-name=plugin)/*melt*
+rm -rf $(gcc-4.9 -print-file-name=plugin)/*melt*
 
 
 Look with an editor, or just with the head command, that this gtype.state
-file is indeed the one related to your gcc-4.8:
-% head /usr/lib/gcc/x86_64-linux-gnu/4.8/plugin/gtype.state
+file is indeed the one related to your gcc-4.9:
+% head /usr/lib/gcc/x86_64-linux-gnu/4.9/plugin/gtype.state
 ;;;;@@@@ GCC gengtype state
 ;;; DON'T EDIT THIS FILE, since generated by GCC's gengtype
 ;;; The format of this file is tied to a particular version of GCC.
 ;;; Don't parse this file wihout knowing GCC gengtype internals.
 ;;; This file should be parsed by the same gengtype which wrote it.
 
-(!version  "4.8.1")
-
+(!version  "4.9.3")
 (!srcdir  "../../src/gcc")
-
+(!languages 10 ada c cp d fortran go java lto objc objcp)
+(!fileslist 200
 
 
 
@@ -155,8 +167,8 @@ so that could have been
 #### uninstallation
 
 Since all MELT related files are installed under 
-$(gcc-4.8 -print-file-name=plugin) you can just do as root
-   rm -v -r -f $(gcc-4.8 -print-file-name=plugin)/*melt*
+$(gcc-4.9 -print-file-name=plugin) you can just do as root
+   rm -v -r -f $(gcc-4.9 -print-file-name=plugin)/*melt*
 
 to uninstall MELT
 
@@ -164,7 +176,7 @@ to uninstall MELT
 ########## For packagers
 Notice that the MELT plugin should be entirely rebuilt
 even for small changes of the compiler (e.g. when upgrading gcc from
-4.8.1 to 4.8.2).
+4.9.1 to 4.9.2).
 
 
 
@@ -195,12 +207,33 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 
+################################################################
+NEWS for 1.2 MELT plugin for GCC 4.9 and 5.x
+[[july 24th, 2015]]
+
+   Bug fixes
+   =========
+
+   More verbose messages about quote with more than one argument.
+
+   Language features
+   =================
+
+The _MELT_FILE_ and _MELT_LINE_ identifiers are not symbols, but
+expanded to the file name and line number; this is probably a
+discutable feature, better use (this_file) and (this_line) macros...
+
+
+   Runtime features
+   ================
+
+Ported to GCC 4.9 & GCC 5.x types.
 
 ################################################################
 NEWS for 1.1.3 MELT plugin for GCC 4.8 & 4.9
 [[november 13th, 2014]]
 
-Bug-fix & feature-increse with significant improvements release
+Bug-fix & feature-increase with significant improvements release
 w.r.t. to MELT plugin 1.1.2.
 
    Bug fixes

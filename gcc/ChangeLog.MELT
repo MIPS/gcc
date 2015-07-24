@@ -1,4 +1,10 @@
 
+2015-07-24   Basile Starynkevitch  <basile@starynkevitch.net>
+	{{ MELT 1.2.0 for GCC 4.9 & GCC 5.x release }}
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.2.0
+	* melt-runtime.cc: Issue a warning against Debian bug#793478
+
 2015-06-12   Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
