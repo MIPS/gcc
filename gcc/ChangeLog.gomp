@@ -1,3 +1,9 @@
+2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gimplify.c (omp_default_clause): New function.  Reorganize flow
+	for clarity. Broken out of ...
+	(omp_notice_variable): ... here.
+
 2015-07-24  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* tree-cfg.c (struct replace_decls_d): New struct.
