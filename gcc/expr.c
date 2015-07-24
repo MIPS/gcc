@@ -10408,6 +10408,16 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	{
 	  if (GET_CODE (op0) == SUBREG)
 	    op0 = force_reg (GET_MODE (op0), op0);
+	  /* We don't want to change the mode of the MEM for vectors by
+	     the call to gen_lowpart so introduce an extra move with
+	     the input mode and then let use gen_lowpart.  */
+	  if (MEM_P (op0)
+	      && VECTOR_TYPE_P (type) && VECTOR_TYPE_P (TREE_TYPE (treeop0)))
+	    {
+	      temp = gen_reg_rtx (GET_MODE (op0));
+	      emit_move_insn(temp, op0);
+	      op0 = temp;
+	    }
 	  temp = gen_lowpart_common (mode, op0);
 	  if (temp)
 	    op0 = temp;
