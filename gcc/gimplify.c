@@ -5885,6 +5885,100 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
   return flags;
 }
 
+/* Return true if global var DECL is device resident.  */
+
+static bool
+device_resident_p (tree decl)
+{
+  tree attr = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
+
+  if (!attr)
+    return false;
+  
+  for (tree t = TREE_VALUE (attr); t; t = TREE_PURPOSE (t))
+    {
+      tree c = TREE_VALUE (t);
+      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_DEVICE_RESIDENT)
+	return true;
+    }
+
+  return false;
+}
+
+/* Determine outer default flags for DECL mentioned in an OACC region
+   but not declared in an enclosing clause.  */
+
+static unsigned
+oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
+		     bool in_code, unsigned flags)
+{
+  switch (ctx->default_kind)
+    {
+    default: gcc_unreachable ();
+      
+    case OMP_CLAUSE_DEFAULT_NONE:
+      {
+	const char *rkind;
+
+	switch (ctx->acc_region_kind)
+	  {
+	  case ARK_PARALLEL: rkind = "parallel"; break;
+	  case ARK_KERNELS: rkind = "kernels"; break;
+	  default: gcc_unreachable ();
+	  }
+	error ("%qE not specified in enclosing OpenACC %s construct",
+	       DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rkind);
+	error_at (ctx->location, "enclosing OpenACC %s construct", rkind);
+      }
+    break;
+
+    case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
+      {
+	if (struct gimplify_omp_ctx *octx = ctx->outer_context)
+	  {
+	    omp_notice_variable (octx, decl, in_code);
+	
+	    for (; octx; octx = octx->outer_context)
+	      {
+		if (octx->region_type & ORT_HOST_DATA)
+		  continue;
+		if (!(octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)))
+		  break;
+		if (splay_tree_lookup (octx->variables, (splay_tree_key) decl))
+		  goto found_outer;
+	      }
+	  }
+
+	{
+	  tree type = TREE_TYPE (decl);
+	  /*  Should this  be REFERENCE_TYPE_P? */
+	  if (POINTER_TYPE_P (type))
+	    type = TREE_TYPE (type);
+	
+	  /* For OpenACC regions, array and aggregate variables
+	     default to present_or_copy, while scalar variables
+	     by default are firstprivate (gang-local) in parallel.  */
+	  if (!AGGREGATE_TYPE_P (type))
+	    {
+	      if (is_global_var (decl) && device_resident_p (decl))
+		flags |= GOVD_MAP_TO_ONLY;
+	      else if (ctx->acc_region_kind == ARK_PARALLEL)
+		flags |= (GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY);
+	      /* Scalars under kernels are default 'copy'.  */
+	      else if (ctx->acc_region_kind == ARK_KERNELS)
+		flags |= GOVD_FORCE_MAP;
+	      else
+		gcc_unreachable ();
+	    }
+	  }
+      found_outer:;
+      }
+      break;
+    }
+  
+  return flags;
+}
+
 /* Record the fact that DECL was used within the OMP context CTX.
    IN_CODE is true when real code uses DECL, and false when we should
    merely emit default(none) errors.  Return true if DECL is going to
@@ -5897,25 +5991,9 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   splay_tree_node n;
   unsigned flags = in_code ? GOVD_SEEN : 0;
   bool ret = false, shared;
-  bool device_resident = false;
 
   if (error_operand_p (decl))
     return false;
-
-  if (flag_openacc && is_global_var (decl))
-    {
-      tree attr = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
-      if (attr)
-	{
-	  tree t, c;
-	  for (t = TREE_VALUE (attr); t; t = TREE_PURPOSE (t))
-	    {
-	      c = TREE_VALUE (t);
-	      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_DEVICE_RESIDENT)
-		device_resident = true;
-	    }
-	}
-    }
 
   /* Threadprivate variables are predetermined.  */
   if (is_global_var (decl))
@@ -5938,84 +6016,19 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
       if (n == NULL)
 	{
-	  if (ctx->region_kind == ORK_OACC)
-	    {
-	      enum omp_clause_default_kind default_kind;
-	      default_kind = ctx->default_kind;
-	      if (default_kind == OMP_CLAUSE_DEFAULT_NONE)
-		{
-		  if (ctx->acc_region_kind == ARK_PARALLEL)
-		    {
-		      error ("%qE not specified in enclosing "
-			     "OpenACC parallel construct",
-			     DECL_NAME (lang_hooks.decls.omp_report_decl
-					(decl)));
-		      error_at (ctx->location,
-				"enclosing OpenACC parallel construct");
-		    }
-		  else if (ctx->acc_region_kind == ARK_KERNELS)
-		    {
-		      error ("%qE not specified in enclosing "
-			     "OpenACC kernels construct",
-			     DECL_NAME (lang_hooks.decls.omp_report_decl
-					(decl)));
-		      error_at (ctx->location,
-				"enclosing OpenACC kernels construct");
-		    }
-		  else
-		    gcc_unreachable ();
-		}
-	      else if (default_kind == OMP_CLAUSE_DEFAULT_UNSPECIFIED)
-		{
-		  if (ctx->outer_context)
-		    omp_notice_variable (ctx->outer_context, decl, in_code);
-		  splay_tree_node n2 = NULL;
-		  for (struct gimplify_omp_ctx *octx = ctx->outer_context; octx;
-		       octx = octx->outer_context)
-		    {
-		      if (octx->region_type & ORT_HOST_DATA)
-			continue;
-		      if ((octx->region_type & (ORT_TARGET_DATA | ORT_TARGET))
-			  == 0)
-			break;
-		      n2 = splay_tree_lookup (octx->variables,
-					      (splay_tree_key) decl);
-		      if (n2)
-			break;
-		    }
+	  bool is_oacc = ctx->region_kind == ORK_OACC;
 
-		  tree type = TREE_TYPE (decl);
-		  if (POINTER_TYPE_P (type))
-		    type = TREE_TYPE (type);
+	  if (is_oacc)
+	    flags = oacc_default_clause (ctx, decl, in_code, flags);
+	  flags |= GOVD_MAP;
 
-		  /* For OpenACC regions, array and aggregate variables
-		     default to present_or_copy, while scalar variables
-		     by default are firstprivate (gang-local) in parallel.  */
-		  if (!n2 && !AGGREGATE_TYPE_P (type))
-		    {
-		      if (device_resident)
-			flags |= GOVD_MAP_TO_ONLY;
-		      else if (ctx->acc_region_kind == ARK_PARALLEL)
-			flags |= (GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY);
-		      /* Scalars under kernels are default 'copy'.  */
-		      else if (ctx->acc_region_kind == ARK_KERNELS)
-			flags |= GOVD_FORCE_MAP;
-		      else
-			gcc_unreachable ();
-		    }
-		}
-	    }
-
-	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl),
-						   ctx->region_kind
-						   == ORK_OACC))
+	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl), is_oacc))
 	    {
 	      error ("%qD referenced in target region does not have "
 		     "a mappable type", decl);
-	      omp_add_variable (ctx, decl, GOVD_MAP | GOVD_EXPLICIT | flags);
+	      flags |= GOVD_EXPLICIT;
 	    }
-	  else
-	    omp_add_variable (ctx, decl, GOVD_MAP | flags);
+	  omp_add_variable (ctx, decl, flags);
 	}
       else
 	{
