@@ -1,5 +1,15 @@
 2015-07-24  James Norris  <jnorris@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/routine-3.c: New test.
+	* testsuite/libgomp.oacc-c-c++-common/routine-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/routine-5.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/routine-5.f90: Update test.
+	* testsuite/libgomp.oacc-fortran/routine-6.f90: New test.
+	* testsuite/libgomp.oacc-fortran/routine-7.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/routine-8.f90: Likewise.
+
+2015-07-24  James Norris  <jnorris@codesourcery.com>
+
 	* target.c (gomp_load_plugin_for_device): Fix variable initialization.
 
 2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>

@@ -15,7 +15,7 @@ program main
 contains
 
     function func (n) result (rc)
-    !$acc routine gang worker vector seq nohost
+    !$acc routine
     integer, intent (in) :: n
     integer :: rc
 
