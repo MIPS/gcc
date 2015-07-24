@@ -1,3 +1,10 @@
+2015-07-24  Cesar Philippidis  <cesar@codesourcery.com>
+	    Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lto-cgraph.c (input_overwrite_node): Change the assertion to an
+	error for missing symbols.
+	(input_varpool_node): Likewise.
+
 2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Prune firstprivate
