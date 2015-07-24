@@ -1,3 +1,7 @@
+2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* target.c (GOMP_offload_register_2): Add missing const.
+
 2015-07-24  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.c/pr66714.c: New test.

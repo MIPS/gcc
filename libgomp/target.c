@@ -823,7 +823,7 @@ gomp_unload_image_from_device (unsigned version,
    the target, and TARGET_DATA needed by target plugin.  */
 
 void
-GOMP_offload_register_2 (unsigned version, void *host_table,
+GOMP_offload_register_2 (unsigned version, const void *host_table,
 			 int target_type, const void *target_data)
 {
   int i;
