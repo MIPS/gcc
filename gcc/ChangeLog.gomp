@@ -4,6 +4,11 @@
 	(replace_block_vars_by_duplicates_1): New function.
 	(replace_block_vars_by_duplicates): Use it to replace the decls
 	in the value exprs by duplicates.
+	* lto-cgraph.c (input_overwrite_node): Gracefully error on missing
+	symbols with flag_openacc.
+	* tree-nested.c (convert_nonlocal_omp_clauses): Handle OMP_CLAUSE_GANG,
+	OMP_CLAUSE_WORKER, OMP_CLAUSE_VECTOR, and OMP_CLAUSE_SEQ.
+	(convert_local_omp_clauses): Likewise.
 
 2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
 

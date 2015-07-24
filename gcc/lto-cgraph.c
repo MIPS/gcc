@@ -1219,9 +1219,23 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 				     LDPR_NUM_KNOWN);
   node->instrumentation_clone = bp_unpack_value (bp, 1);
   node->split_part = bp_unpack_value (bp, 1);
-  gcc_assert (flag_ltrans
-	      || (!node->in_other_partition
-		  && !node->used_from_other_partition));
+
+  int success = flag_ltrans || (!node->in_other_partition
+				&& !node->used_from_other_partition);
+
+  if (!success)
+    {
+      if (flag_openacc)
+	{
+	  if (TREE_CODE (node->decl) == FUNCTION_DECL)
+	    error ("Missing routine function %<%s%>", node->name ());
+	  else
+	    error ("Missing declared variable %<%s%>", node->name ());
+	}
+
+      else
+	gcc_unreachable ();
+    }
 }
 
 /* Return string alias is alias of.  */
