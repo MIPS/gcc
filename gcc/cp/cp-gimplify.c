@@ -46,6 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 /* Forward declarations.  */
 
 static tree cp_genericize_r (tree *, int *, void *);
+static tree cp_fold_r (tree *, int *, void *);
+static tree cp_genericize_fold_r (tree *, int *, void *);
 static void cp_genericize_tree (tree*);
 static tree cp_fold (tree, hash_map<tree, tree> *);
 
@@ -217,9 +219,9 @@ genericize_cp_loop (tree *stmt_p, location_t start_locus, tree cond, tree body,
   if (incr && EXPR_P (incr))
     SET_EXPR_LOCATION (incr, start_locus);
 
-  cp_walk_tree (&cond, cp_genericize_r, data, NULL);
-  cp_walk_tree (&body, cp_genericize_r, data, NULL);
-  cp_walk_tree (&incr, cp_genericize_r, data, NULL);
+  cp_walk_tree (&cond, cp_genericize_fold_r, data, NULL);
+  cp_walk_tree (&body, cp_genericize_fold_r, data, NULL);
+  cp_walk_tree (&incr, cp_genericize_fold_r, data, NULL);
   *walk_subtrees = 0;
 
   if (cond && TREE_CODE (cond) != INTEGER_CST)
@@ -278,7 +280,7 @@ genericize_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
 
   if (init)
     {
-      cp_walk_tree (&init, cp_genericize_r, data, NULL);
+      cp_walk_tree (&init, cp_genericize_fold_r, data, NULL);
       append_to_statement_list (init, &expr);
     }
 
@@ -327,9 +329,9 @@ genericize_switch_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   cond = SWITCH_STMT_COND (stmt);
   type = SWITCH_STMT_TYPE (stmt);
 
-  cp_walk_tree (&body, cp_genericize_r, data, NULL);
-  cp_walk_tree (&cond, cp_genericize_r, data, NULL);
-  cp_walk_tree (&type, cp_genericize_r, data, NULL);
+  cp_walk_tree (&body, cp_genericize_fold_r, data, NULL);
+  cp_walk_tree (&cond, cp_genericize_fold_r, data, NULL);
+  cp_walk_tree (&type, cp_genericize_fold_r, data, NULL);
   *walk_subtrees = 0;
 
   *stmt_p = build3_loc (stmt_locus, SWITCH_EXPR, type, cond, body, NULL_TREE);
@@ -371,17 +373,17 @@ genericize_omp_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   tree clab = begin_bc_block (bc_continue, locus);
   tree x;
 
-  cp_walk_tree (&OMP_FOR_BODY (stmt), cp_genericize_r, data, NULL);
-  cp_walk_tree (&OMP_FOR_CLAUSES (stmt), cp_genericize_r, data, NULL);
-  cp_walk_tree (&OMP_FOR_INIT (stmt), cp_genericize_r, data, NULL);
+  cp_walk_tree (&OMP_FOR_BODY (stmt), cp_genericize_fold_r, data, NULL);
+  cp_walk_tree (&OMP_FOR_CLAUSES (stmt), cp_genericize_fold_r, data, NULL);
+  cp_walk_tree (&OMP_FOR_INIT (stmt), cp_genericize_fold_r, data, NULL);
   /* We can't call folding on OMP_FOR_COND directly, due it might alter
      conditional-code, which will confuses OMP code.
      Nevertheless we need to make sure that operands getting simplified.  */
   x = OMP_FOR_COND (stmt);
   if (x && TREE_CODE_CLASS (TREE_CODE (x)) == tcc_comparison)
     {
-      cp_walk_tree (&TREE_OPERAND (x, 0), cp_genericize_r, data, NULL);
-      cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_r, data, NULL);
+      cp_walk_tree (&TREE_OPERAND (x, 0), cp_genericize_fold_r, data, NULL);
+      cp_walk_tree (&TREE_OPERAND (x, 1), cp_genericize_fold_r, data, NULL);
     }
   else if (x && TREE_CODE (x) == TREE_VEC)
     {
@@ -390,7 +392,7 @@ genericize_omp_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
 	{
 	  tree o = TREE_VEC_ELT (x, i);
 	  if (o && TREE_CODE_CLASS (TREE_CODE (o)) == tcc_comparison)
-	    cp_walk_tree (&TREE_OPERAND (o, 1), cp_genericize_r, data, NULL);
+	    cp_walk_tree (&TREE_OPERAND (o, 1), cp_genericize_fold_r, data, NULL);
 	}
     }
   /* We don't call cp_walk_tree for OMP_FOR_INCR here due this can lead
@@ -409,12 +411,12 @@ genericize_omp_for_stmt (tree *stmt_p, int *walk_subtrees, void *data)
   if (o && (TREE_CODE (o) == PLUS_EXPR || TREE_CODE (o) == MINUS_EXPR
       || TREE_CODE (o) == POINTER_PLUS_EXPR))
     {
-      cp_walk_tree (&TREE_OPERAND (o, 0), cp_genericize_r, data, NULL);
-      cp_walk_tree (&TREE_OPERAND (o, 1), cp_genericize_r, data, NULL);
+      cp_walk_tree (&TREE_OPERAND (o, 0), cp_genericize_fold_r, data, NULL);
+      cp_walk_tree (&TREE_OPERAND (o, 1), cp_genericize_fold_r, data, NULL);
     }
 	}
     }
-  cp_walk_tree (&OMP_FOR_PRE_BODY (stmt), cp_genericize_r, data, NULL);
+  cp_walk_tree (&OMP_FOR_PRE_BODY (stmt), cp_genericize_fold_r, data, NULL);
   *walk_subtrees = 0;
 
   finish_bc_block (&OMP_FOR_BODY (stmt), bc_continue, clab);
@@ -956,17 +958,33 @@ struct cp_genericize_data
   bool no_sanitize_p;
 };
 
+static tree
+cp_genericize_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
+{
+  struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
+  *stmt_p = cp_fold (*stmt_p, wtd->fold_hash);
+  return cp_genericize_r (stmt_p, walk_subtrees, data);
+}
+
+static tree
+cp_fold_r (tree *stmt_p, int *walk_subtrees  ATTRIBUTE_UNUSED, void *data)
+{
+  struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
+
+  *stmt_p = cp_fold (*stmt_p, wtd->fold_hash);
+
+  return NULL;
+}
+
 /* Perform any pre-gimplification lowering of C++ front end trees to
    GENERIC.  */
 
 static tree
 cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
-  tree stmt;
+  tree stmt = *stmt_p;
   struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
   hash_set<tree> *p_set = wtd->p_set;
-
-  *stmt_p = stmt = cp_fold (*stmt_p, wtd->fold_hash);
 
   /* If in an OpenMP context, note var uses.  */
   if (__builtin_expect (wtd->omp_ctx != NULL, 0)
@@ -1035,7 +1053,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	    *walk_subtrees = 0;
 	    if (OMP_CLAUSE_LASTPRIVATE_STMT (stmt))
 	      cp_walk_tree (&OMP_CLAUSE_LASTPRIVATE_STMT (stmt),
-			    cp_genericize_r, data, NULL);
+			    cp_genericize_fold_r, data, NULL);
 	  }
 	break;
       case OMP_CLAUSE_PRIVATE:
@@ -1049,7 +1067,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	       omp_cxx_notice_variable for it.  */
 	    struct cp_genericize_omp_taskreg *old = wtd->omp_ctx;
 	    wtd->omp_ctx = NULL;
-	    cp_walk_tree (&OMP_CLAUSE_DECL (stmt), cp_genericize_r,
+	    cp_walk_tree (&OMP_CLAUSE_DECL (stmt), cp_genericize_fold_r,
 			  data, NULL);
 	    wtd->omp_ctx = old;
 	    *walk_subtrees = 0;
@@ -1072,10 +1090,10 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	    *walk_subtrees = 0;
 	    if (OMP_CLAUSE_REDUCTION_INIT (stmt))
 	      cp_walk_tree (&OMP_CLAUSE_REDUCTION_INIT (stmt),
-			    cp_genericize_r, data, NULL);
+			    cp_genericize_fold_r, data, NULL);
 	    if (OMP_CLAUSE_REDUCTION_MERGE (stmt))
 	      cp_walk_tree (&OMP_CLAUSE_REDUCTION_MERGE (stmt),
-			    cp_genericize_r, data, NULL);
+			    cp_genericize_fold_r, data, NULL);
 	  }
 	break;
       default:
@@ -1099,7 +1117,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
     {
       genericize_if_stmt (stmt_p, wtd->fold_hash);
       /* *stmt_p has changed, tail recurse to handle it again.  */
-      return cp_genericize_r (stmt_p, walk_subtrees, data);
+      return cp_genericize_fold_r (stmt_p, walk_subtrees, data);
     }
 
   /* COND_EXPR might have incompatible types in branches if one or both
@@ -1167,12 +1185,12 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	    if (VAR_P (decl)
 		&& TREE_STATIC (decl)
 		&& DECL_INITIAL (decl))
-	      cp_walk_tree (&DECL_INITIAL (decl), cp_genericize_r, data, NULL);
+	      cp_walk_tree (&DECL_INITIAL (decl), cp_genericize_fold_r, data, NULL);
 	  wtd->no_sanitize_p = no_sanitize_p;
 	}
       wtd->bind_expr_stack.safe_push (stmt);
       cp_walk_tree (&BIND_EXPR_BODY (stmt),
-		    cp_genericize_r, data, NULL);
+		    cp_genericize_fold_r, data, NULL);
       wtd->bind_expr_stack.pop ();
     }
 
@@ -1228,7 +1246,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       splay_tree_node n;
 
       *walk_subtrees = 0;
-      cp_walk_tree (&OMP_CLAUSES (stmt), cp_genericize_r, data, NULL);
+      cp_walk_tree (&OMP_CLAUSES (stmt), cp_genericize_fold_r, data, NULL);
       omp_ctx.is_parallel = TREE_CODE (stmt) == OMP_PARALLEL;
       omp_ctx.default_shared = omp_ctx.is_parallel;
       omp_ctx.outer = wtd->omp_ctx;
@@ -1261,7 +1279,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	  default:
 	    break;
 	  }
-      cp_walk_tree (&OMP_BODY (stmt), cp_genericize_r, data, NULL);
+      cp_walk_tree (&OMP_BODY (stmt), cp_genericize_fold_r, data, NULL);
       wtd->omp_ctx = omp_ctx.outer;
       splay_tree_delete (omp_ctx.variables);
     }
@@ -1270,9 +1288,9 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       *walk_subtrees = 0;
       tree try_block = wtd->try_block;
       wtd->try_block = stmt;
-      cp_walk_tree (&TRY_STMTS (stmt), cp_genericize_r, data, NULL);
+      cp_walk_tree (&TRY_STMTS (stmt), cp_genericize_fold_r, data, NULL);
       wtd->try_block = try_block;
-      cp_walk_tree (&TRY_HANDLERS (stmt), cp_genericize_r, data, NULL);
+      cp_walk_tree (&TRY_HANDLERS (stmt), cp_genericize_fold_r, data, NULL);
     }
   else if (TREE_CODE (stmt) == MUST_NOT_THROW_EXPR)
     {
@@ -1282,7 +1300,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	  *walk_subtrees = 0;
 	  tree try_block = wtd->try_block;
 	  wtd->try_block = stmt;
-	  cp_walk_tree (&TREE_OPERAND (stmt, 0), cp_genericize_r, data, NULL);
+	  cp_walk_tree (&TREE_OPERAND (stmt, 0), cp_genericize_fold_r, data, NULL);
 	  wtd->try_block = try_block;
 	}
     }
@@ -1395,6 +1413,7 @@ cp_genericize_tree (tree* t_p)
   wtd.try_block = NULL_TREE;
   wtd.no_sanitize_p = false;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
+  cp_walk_tree (t_p, cp_fold_r, &wtd, NULL);
   delete wtd.fold_hash;
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();
@@ -2173,7 +2192,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	   Due issues in maybe_constant_value for CALL_EXPR with
 	   arguments passed by reference, it is disabled.  */
 	if (callee && DECL_DECLARED_CONSTEXPR_P (callee))
-          r = /* maybe_constant_value */ (x);
+          r = maybe_constant_value (x);
 	optimize = sv;
 
         if (TREE_CODE (r) != CALL_EXPR)
