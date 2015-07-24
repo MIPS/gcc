@@ -2553,9 +2553,9 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
   tree result = build_x_unary_op (loc, code, expr, complain);
   tree result_ovl =  result;
 
-  expr_ovl = fold_simple_on_cst (expr_ovl);
+  expr_ovl = fold_simple (expr_ovl);
   STRIP_NOPS (expr_ovl);
-  result_ovl = fold_simple_on_cst (result);
+  result_ovl = fold_simple (result);
  
   if ((complain & tf_warning)
       && TREE_OVERFLOW_P (result_ovl) && !TREE_OVERFLOW_P (expr_ovl))
@@ -4364,9 +4364,9 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     length = mark_rvalue_use (length);
   /* We need to reduce to real constant-values for checks below.  */
   if (length)
-    length = fold_simple_on_cst (length);
+    length = fold_simple (length);
   if (low_bound)
-    low_bound = fold_simple_on_cst (low_bound);
+    low_bound = fold_simple (low_bound);
   if (low_bound
       && TREE_CODE (low_bound) == INTEGER_CST
       && TYPE_PRECISION (TREE_TYPE (low_bound))
@@ -6361,7 +6361,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
 		  if (TREE_CODE (rhs) == MINUS_EXPR)
 		    {
 		      incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
-		      incr = fold_simple_on_cst (incr);
+		      incr = fold_simple (incr);
 		    }
 
 		  if (TREE_CODE (incr) != INTEGER_CST

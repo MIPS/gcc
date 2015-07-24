@@ -13059,7 +13059,7 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
     STRIP_TYPE_NOPS (value);
 
   if (value)
-    value = fold_simple_on_cst (value);
+    value = fold_simple (value);
 
   if (! processing_template_decl)
     {

@@ -1533,7 +1533,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   tree conv = NULL_TREE;
   tree winner = NULL_TREE;
   /* Want to see if EXPR is a constant.  See below checks for null_node.  */
-  tree expr_folded = fold_simple_on_cst (expr);
+  tree expr_folded = fold_simple (expr);
 
   STRIP_NOPS (expr_folded);
   if (expr_folded == null_node

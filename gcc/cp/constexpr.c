@@ -3731,14 +3731,14 @@ cxx_constant_value (tree t, tree decl)
   return cxx_eval_outermost_constant_expr (t, false, true, decl);
 }
 
-/* Helper routine for fold_simple_on_cst function.  Either return simplified
+/* Helper routine for fold_simplet function.  Either return simplified
    expression T, otherwise NULL_TREE.
    In contrast to cp_fully_fold, and to maybe_constant_value, we try to fold
    even if we are within template-declaration.  So be careful on call, as in
    such case types can be undefined.  */
 
 static tree
-fold_simple_on_cst_1 (tree t)
+fold_simple_1 (tree t)
 {
   tree op1, op2, op3;
   enum tree_code code = TREE_CODE (t);
@@ -3778,7 +3778,7 @@ fold_simple_on_cst_1 (tree t)
     case VIEW_CONVERT_EXPR:
     case CONVERT_EXPR:
 
-      op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
+      op1 = fold_simple_1 (TREE_OPERAND (t, 0));
       if (!op1 || (code == NOP_EXPR && TREE_OVERFLOW (op1)))
 	return NULL_TREE;
 
@@ -3822,8 +3822,8 @@ fold_simple_on_cst_1 (tree t)
     case UNGT_EXPR: case UNGE_EXPR:
     case UNEQ_EXPR: case LTGT_EXPR:
 
-      op1 = fold_simple_on_cst_1 (TREE_OPERAND (t, 0));
-      op2 = fold_simple_on_cst_1 (TREE_OPERAND (t, 1));
+      op1 = fold_simple_1 (TREE_OPERAND (t, 0));
+      op2 = fold_simple_1 (TREE_OPERAND (t, 1));
 
       if (!op1)
 	op1 = TREE_OPERAND (t, 0);
@@ -3841,7 +3841,7 @@ fold_simple_on_cst_1 (tree t)
 	return NULL_TREE;
 
       op1 = TREE_OPERAND (t, 0);
-      op1 = fold_simple_on_cst_1 (op1);
+      op1 = fold_simple_1 (op1);
       op2 = TREE_OPERAND (t, 1);
       op3 = TREE_OPERAND (t, 2);
       if (!op1)
@@ -3851,7 +3851,7 @@ fold_simple_on_cst_1 (tree t)
       /* We need to recurse into result, if CODE isn't
          a COND-expression.  */
       if (TREE_CODE (op1) != code)
-	return fold_simple_on_cst_1 (op1);
+	return fold_simple_1 (op1);
       return NULL_TREE;
 
     default:
@@ -3882,9 +3882,9 @@ fold_simple_on_cst_1 (tree t)
    try to simplify constexpressions.  */
 
 tree
-fold_simple_on_cst (tree t)
+fold_simple (tree t)
 {
-  tree r = fold_simple_on_cst_1 (t);
+  tree r = fold_simple_1 (t);
   if (!r)
     r = t;
   return r;

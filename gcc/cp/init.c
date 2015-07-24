@@ -3451,7 +3451,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
-  maxindex = fold_simple_on_cst (maxindex);
+  maxindex = fold_simple (maxindex);
   if (explicit_value_init_p)
     gcc_assert (!init);
 
@@ -3493,7 +3493,7 @@ build_vec_init (tree base, tree maxindex, tree init,
     }
 
   maxindex = cp_convert (ptrdiff_type_node, maxindex, complain);
-  maxindex = fold_simple_on_cst (maxindex);
+  maxindex = fold_simple (maxindex);
 
   if (TREE_CODE (atype) == ARRAY_TYPE)
     {

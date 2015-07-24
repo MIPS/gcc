@@ -4966,7 +4966,7 @@ cp_build_binary_op (location_t location,
       if (short_compare)
 	{
 	  /* We call shorten_compare only for diagnostic-reason.  */
-	  tree xop0 = fold_simple_on_cst (op0), xop1 = fold_simple_on_cst (op1),
+	  tree xop0 = fold_simple (op0), xop1 = fold_simple (op1),
 	       xresult_type = result_type;
 	  enum tree_code xresultcode = resultcode;
 	  shorten_compare (location, &xop0, &xop1, &xresult_type,

@@ -6585,7 +6585,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
      constant integeral values.
      Also we meed to fold for negative constants so that diagnostic in
      c-family/c-common.c doesn't fail for array-bounds.  */
-  index = fold_simple_on_cst (index);
+  index = fold_simple (index);
   parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
 
   /* Look for the closing `]'.  */
@@ -28886,7 +28886,7 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
   if (colon)
     {
       alignment = cp_parser_constant_expression (parser);
-      alignment = fold_simple_on_cst (alignment);
+      alignment = fold_simple (alignment);
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
@@ -33032,7 +33032,7 @@ cp_parser_cilk_grainsize (cp_parser *parser, cp_token *pragma_tok)
 
       /* Make sure the next token is _Cilk_for, it is invalid otherwise.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_CILK_FOR))
-	cp_parser_cilk_for (parser, fold_simple_on_cst (exp));
+	cp_parser_cilk_for (parser, fold_simple (exp));
       else
 	warning_at (cp_lexer_peek_token (parser->lexer)->location, 0,
 		    "%<#pragma cilk grainsize%> is not followed by "
