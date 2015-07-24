@@ -56,6 +56,7 @@ static gomp_mutex_t register_lock;
    It contains type of the target device, pointer to host table descriptor, and
    pointer to target data.  */
 struct offload_image_descr {
+  unsigned version;
   enum offload_target_type type;
   const void *host_table;
   const void *target_data;
@@ -651,7 +652,8 @@ gomp_update (struct gomp_device_descr *devicep, size_t mapnum, void **hostaddrs,
    emitting variable and functions in the same order.  */
 
 static void
-gomp_load_image_to_device (struct gomp_device_descr *devicep,
+gomp_load_image_to_device (unsigned version,
+			   struct gomp_device_descr *devicep,
 			   const void *host_table, const void *target_data,
 			   bool is_register_lock)
 {
@@ -667,16 +669,28 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep,
 
   /* Load image to device and get target addresses for the image.  */
   struct addr_pair *target_table = NULL;
-  int i, num_target_entries
-    = devicep->load_image_func (devicep->target_id, target_data,
-				&target_table);
+  int i, num_target_entries;
+
+  if (devicep->load_image_2_func)
+    num_target_entries
+      = devicep->load_image_2_func (version, devicep->target_id,
+				    target_data, &target_table);
+  else if (GOMP_VERSION_DEV (version))
+    gomp_fatal ("Plugin too old for offload data (0 < %u)",
+		GOMP_VERSION_DEV (version));
+  else
+    num_target_entries
+      = devicep->load_image_func (devicep->target_id,
+				  target_data, &target_table);
 
   if (num_target_entries != num_funcs + num_vars)
     {
       gomp_mutex_unlock (&devicep->lock);
       if (is_register_lock)
 	gomp_mutex_unlock (&register_lock);
-      gomp_fatal ("Can't map target functions or variables");
+      gomp_fatal ("Cannot map target functions or variables"
+		  " (expected %u, have %u)", num_funcs + num_vars,
+		  num_target_entries);
     }
 
   /* Insert host-target address mapping into splay tree.  */
@@ -749,7 +763,8 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep,
    The device must be locked.   */
 
 static void
-gomp_unload_image_from_device (struct gomp_device_descr *devicep,
+gomp_unload_image_from_device (unsigned version,
+			       struct gomp_device_descr *devicep,
 			       const void *host_table, const void *target_data)
 {
   void **host_func_table = ((void ***) host_table)[0];
@@ -774,8 +789,12 @@ gomp_unload_image_from_device (struct gomp_device_descr *devicep,
       k.host_end = k.host_start + 1;
       node = splay_tree_lookup (&devicep->mem_map, &k);
     }
-  
-  devicep->unload_image_func (devicep->target_id, target_data);
+
+  if (devicep->unload_image_2_func)
+    devicep->unload_image_2_func (version,
+				  devicep->target_id, target_data);
+  else
+    devicep->unload_image_func (devicep->target_id, target_data);
 
   /* Remove mappings from splay tree.  */
   for (j = 0; j < num_funcs; j++)
@@ -804,10 +823,15 @@ gomp_unload_image_from_device (struct gomp_device_descr *devicep,
    the target, and TARGET_DATA needed by target plugin.  */
 
 void
-GOMP_offload_register (void *host_table, int target_type,
-		       const void *target_data)
+GOMP_offload_register_2 (unsigned version, void *host_table,
+			 int target_type, const void *target_data)
 {
   int i;
+
+  if (GOMP_VERSION_LIB (version) > GOMP_VERSION)
+    gomp_fatal ("Library too old for offload (version %u < %u)",
+		GOMP_VERSION, GOMP_VERSION_LIB (version));
+  
   gomp_mutex_lock (&register_lock);
 
   /* Load image to all initialized devices.  */
@@ -816,7 +840,8 @@ GOMP_offload_register (void *host_table, int target_type,
       struct gomp_device_descr *devicep = &devices[i];
       gomp_mutex_lock (&devicep->lock);
       if (devicep->type == target_type && devicep->is_initialized)
-	gomp_load_image_to_device (devicep, host_table, target_data, true);
+	gomp_load_image_to_device (version, devicep,
+				   host_table, target_data, true);
       gomp_mutex_unlock (&devicep->lock);
     }
 
@@ -825,6 +850,7 @@ GOMP_offload_register (void *host_table, int target_type,
     = gomp_realloc_unlock (offload_images,
 			   (num_offload_images + 1)
 			   * sizeof (struct offload_image_descr));
+  offload_images[num_offload_images].version = version;
   offload_images[num_offload_images].type = target_type;
   offload_images[num_offload_images].host_table = host_table;
   offload_images[num_offload_images].target_data = target_data;
@@ -833,13 +859,20 @@ GOMP_offload_register (void *host_table, int target_type,
   gomp_mutex_unlock (&register_lock);
 }
 
+void
+GOMP_offload_register (const void *host_table, int target_type,
+		       const void *target_data)
+{
+  GOMP_offload_register_2 (0, host_table, target_type, target_data);
+}
+
 /* This function should be called from every offload image while unloading.
    It gets the descriptor of the host func and var tables HOST_TABLE, TYPE of
    the target, and TARGET_DATA needed by target plugin.  */
 
 void
-GOMP_offload_unregister (const void *host_table, int target_type,
-			 const void *target_data)
+GOMP_offload_unregister_2 (unsigned version, const void *host_table,
+			   int target_type, const void *target_data)
 {
   int i;
 
@@ -851,7 +884,8 @@ GOMP_offload_unregister (const void *host_table, int target_type,
       struct gomp_device_descr *devicep = &devices[i];
       gomp_mutex_lock (&devicep->lock);
       if (devicep->type == target_type && devicep->is_initialized)
-	gomp_unload_image_from_device (devicep, host_table, target_data);
+	gomp_unload_image_from_device (version, devicep,
+				       host_table, target_data);
       gomp_mutex_unlock (&devicep->lock);
     }
 
@@ -864,6 +898,13 @@ GOMP_offload_unregister (const void *host_table, int target_type,
       }
 
   gomp_mutex_unlock (&register_lock);
+}
+
+void
+GOMP_offload_unregister (const void *host_table, int target_type,
+			 const void *target_data)
+{
+  GOMP_offload_unregister_2 (0, host_table, target_type, target_data);
 }
 
 /* This function initializes the target device, specified by DEVICEP.  DEVICEP
@@ -880,8 +921,9 @@ gomp_init_device (struct gomp_device_descr *devicep)
     {
       struct offload_image_descr *image = &offload_images[i];
       if (image->type == devicep->type)
-	gomp_load_image_to_device (devicep, image->host_table,
-				   image->target_data, false);
+	gomp_load_image_to_device (image->version, devicep,
+				   image->host_table, image->target_data,
+				   false);
     }
 
   devicep->is_initialized = true;
@@ -899,7 +941,8 @@ gomp_unload_device (struct gomp_device_descr *devicep)
 	{
 	  struct offload_image_descr *image = &offload_images[i];
 	  if (image->type == devicep->type)
-	    gomp_unload_image_from_device (devicep, image->host_table,
+	    gomp_unload_image_from_device (image->version, devicep,
+					   image->host_table,
 					   image->target_data);
 	}
     }
@@ -1137,6 +1180,8 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (free);
   DLSYM (dev2host);
   DLSYM (host2dev);
+  DLSYM_OPT (load_image_2, load_image_2);
+  DLSYM_OPT (unload_image_2, unload_image_2);
   device->capabilities = device->get_caps_func ();
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
     DLSYM (run);

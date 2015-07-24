@@ -1,3 +1,28 @@
+2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* plugin/plugin-nvptx.c: Include gomp-constants.h.
+	(GOMP_OFFLOAD_load_image): Replace with stub function.  Move bulk
+	to ....
+	(GOMP_OFFLOAD_load_image_2): ... here.  Add version argument and
+	check it.
+	(GOMP_OFFLOAD_unload_image): Replace with stub function.  Move bulk
+	to ....
+	(GOMP_OFFLOAD_unload_image_2): ... here.  Add version argument and
+	check it.
+	* libgomp.map: Add 4.0.2 version.
+	* target.c (offload_image_descr): Add versionn field.
+	(gomp_offload_image_to_device): Add version argument.  Forward to
+	load_image_func_2 if available.  Improve load mismatch diagnostic.
+	(GOMP_offload_regster): Make stub function, move bulk to ...
+	(GOMP_offload_register_2): ... here.  Process version argument.
+	(GOMP_offload_unregister): Make stub function, move bulk to ...
+	(GOMP_offload_unregister_2): ... here.  Process version argument.
+	(gomp_init_device): Process version field.
+	(gomp_load_plugin_for_device): Search for load_image_2 and
+	unload_image_2 entry points.
+	* libgomp.h (gomp_device_descr) Add load_image_2 and
+	unload_image_2 fields.
+
 2015-07-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/c++.exp: Run ttests with

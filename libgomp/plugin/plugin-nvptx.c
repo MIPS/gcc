@@ -35,6 +35,7 @@
 #include "config.h"
 #include "libgomp-plugin.h"
 #include "oacc-plugin.h"
+#include "gomp-constants.h"
 
 #include <pthread.h>
 #include <cuda.h>
@@ -1618,8 +1619,8 @@ typedef struct nvptx_tdata
    number ORD.  Allocate and return TARGET_TABLE.  */
 
 int
-GOMP_OFFLOAD_load_image (int ord, const void *target_data,
-			 struct addr_pair **target_table)
+GOMP_OFFLOAD_load_image_2 (unsigned version, int ord, const void *target_data,
+			   struct addr_pair **target_table)
 {
   CUmodule module;
   const char *const *fn_names, *const *var_names;
@@ -1631,6 +1632,11 @@ GOMP_OFFLOAD_load_image (int ord, const void *target_data,
   struct ptx_image_data *new_image;
   struct ptx_device *dev;
 
+  if (GOMP_VERSION_DEV (version) != GOMP_VERSION_NVIDIA_PTX)
+    GOMP_PLUGIN_fatal ("Offload data incompatible with PTX plugin"
+		       " (version %u ! %u)",
+		       GOMP_VERSION_NVIDIA_PTX, GOMP_VERSION_DEV (version));
+  
   GOMP_OFFLOAD_init_device (ord);
 
   dev = ptx_devices[ord];
@@ -1696,15 +1702,26 @@ GOMP_OFFLOAD_load_image (int ord, const void *target_data,
   return fn_entries + var_entries;
 }
 
+int
+GOMP_OFFLOAD_load_image (int device,
+			 const void *target_image, struct addr_pair **result)
+{
+  return GOMP_OFFLOAD_load_image_2 (0, device, target_image, result);
+}
+
 /* Unload the program described by TARGET_DATA.  DEV_DATA is the
    function descriptors allocated by G_O_load_image.  */
 
 void
-GOMP_OFFLOAD_unload_image (int ord, const void *target_data)
+GOMP_OFFLOAD_unload_image_2 (unsigned version, int ord,
+			     const void *target_data)
 {
   struct ptx_image_data *image, **prev_p;
   struct ptx_device *dev = ptx_devices[ord];
 
+  if (GOMP_VERSION_DEV (version) != GOMP_VERSION_NVIDIA_PTX)
+    return;
+  
   pthread_mutex_lock (&dev->image_lock);
   for (prev_p = &dev->images; (image = *prev_p) != 0; prev_p = &image->next)
     if (image->target_data == target_data)
@@ -1716,6 +1733,12 @@ GOMP_OFFLOAD_unload_image (int ord, const void *target_data)
 	break;
       }
   pthread_mutex_unlock (&dev->image_lock);
+}
+
+void
+GOMP_OFFLOAD_unload_image (int ord, const void *target_data)
+{
+  GOMP_OFFLOAD_unload_image_2 (0, ord, target_data);
 }
 
 void *
