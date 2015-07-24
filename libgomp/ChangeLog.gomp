@@ -1,3 +1,7 @@
+2015-07-24  James Norris  <jnorris@codesourcery.com>
+
+	* target.c (gomp_load_plugin_for_device): Fix variable initialization.
+
 2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.c (GOMP_offload_register_2): Add missing const.

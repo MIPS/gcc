@@ -1130,7 +1130,7 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
 			     const char *plugin_name)
 {
   const char *err = NULL, *last_missing = NULL;
-  int optional_present, optional_total;
+  int optional_present = 0, optional_total = 0;
 
   /* Clear any existing error.  */
   dlerror ();
