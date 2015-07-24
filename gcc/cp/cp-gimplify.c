@@ -1901,17 +1901,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
   /* Don't even try to hash on DECLs or constants.  */
   if (DECL_P (x) || CONSTANT_CLASS_P (x))
-    {
-      r = x;
-/*
-      if (TREE_CODE (x) == VAR_DECL
-	  || TREE_CODE (x) == CONST_DECL)
-        r = maybe_constant_value (x);
-*/
-      if (x != r && TREE_CONSTANT (r))
-	x = r;
-      return x;
-    }
+    return x;
 
   slot = fold_hash->get (x);
   if (slot && *slot)
