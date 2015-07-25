@@ -1,3 +1,9 @@
+2015-07-24  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_pts.h (GUPCR_ONE): Define as unsigned constant,
+	to avoid overflow warnings.
+	* portals4/gupcr_pts.h (GUPCR_ONE): Ditto.
+
 2015-07-03  Nenad Vukicevic  <nenad@intrepid.com>
 
 	* portals4/gupcr_nb.upc (upc_memset_nb, upc_memset_nbi): Complete
