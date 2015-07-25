@@ -90,7 +90,7 @@ main(void)
   lvresult = 0;
 
   /* '&&' reductions.  */
-#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc parallel num_gangs (ng) copy (lresult)
 #pragma acc loop reduction (&&:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult && (result > array[i]);
@@ -109,7 +109,7 @@ main(void)
   lvresult = 0;
 
   /* '||' reductions.  */
-#pragma acc parallel num_gangs (ng) copy (result)
+#pragma acc parallel num_gangs (ng) copy (lresult)
 #pragma acc loop reduction (||:lresult) gang
   for (i = 0; i < n; i++)
     lresult = lresult || (result > array[i]);

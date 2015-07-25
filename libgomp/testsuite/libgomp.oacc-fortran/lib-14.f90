@@ -46,7 +46,7 @@ program main
 
   if (acc_is_present (h) .neqv. .TRUE.) call abort
 
-  !$acc parallel loop
+  !$acc parallel loop present (h)
     do i = 1, N
       h(i) = i
     end do
