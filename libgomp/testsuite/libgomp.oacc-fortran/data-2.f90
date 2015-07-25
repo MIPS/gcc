@@ -19,7 +19,7 @@ program test
 
   !$acc enter data copyin (a(1:N,1:N), b(1:N,1:N))
 
-  !$acc parallel
+  !$acc parallel present (a(1:N,1:N), b(1:N,1:N))
   do i = 1, n
     do j = 1, n
       b(j,i) = a (j,i)
@@ -45,7 +45,7 @@ program test
   !$acc enter data copyin (c(1:N)) create (d(1:N)) async
   !$acc wait
   
-  !$acc parallel 
+  !$acc parallel present (c(1:N), d(1:N))
     do i = 1, N
       d(i) = c(i) + 1
     end do
@@ -65,7 +65,7 @@ program test
   !$acc enter data create (d(1:N)) wait
   !$acc wait
 
-  !$acc parallel 
+  !$acc parallel present (c(1:N), d(1:N))
     do i = 1, N
       d(i) = c(i) + 1
     end do
@@ -128,7 +128,7 @@ program test
   if (acc_is_present (c) .eqv. .FALSE.) call abort
   if (acc_is_present (d) .eqv. .FALSE.) call abort
 
-  !$acc parallel
+  !$acc parallel present (c(0:N), d(0:N))
     do i = 1, N
       c(i) = 1.0;
       d(i) = 2.0;
