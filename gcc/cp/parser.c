@@ -24617,6 +24617,10 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   cp_token *token = cp_lexer_peek_token (parser->lexer);
   tree concept_name = cp_parser_identifier (parser);
 
+  /* Look up the concept for which we will be matching
+     template parameters.  */
+  tree tmpl_decl = cp_parser_lookup_name_simple (parser, concept_name,
+						 token->location);
   parser->scope = saved_scope;
   parser->object_scope = saved_object_scope;
   parser->qualifying_scope = saved_qualifying_scope;
@@ -24648,10 +24652,6 @@ cp_parser_template_introduction (cp_parser* parser, bool member_p)
   if (!cp_parser_require (parser, CPP_CLOSE_BRACE, RT_CLOSE_BRACE))
     return true;
 
-  /* Look up the concept for which we will be matching
-     template parameters.  */
-  tree tmpl_decl = cp_parser_lookup_name_simple (parser, concept_name,
-						 token->location);
   if (tmpl_decl == error_mark_node)
     {
       cp_parser_name_lookup_error (parser, concept_name, tmpl_decl, NLE_NULL,

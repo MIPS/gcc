@@ -1,5 +1,9 @@
 2015-07-24  Jason Merrill  <jason@redhat.com>
 
+	PR c++/67003
+	* parser.c (cp_parser_template_introduction): Look up the concept
+	in the explicit scope.
+
 	PR c++/66988
 	* constraint.cc (satisfy_type_constraint): Use error_operand_p.
 
