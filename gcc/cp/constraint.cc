@@ -1810,7 +1810,7 @@ satisfy_type_constraint (tree t, tree args,
 {
   tree type = TYPE_CONSTR_TYPE (t);
   tree check = tsubst (type, args, complain, in_decl);
-  if (check == error_mark_node)
+  if (error_operand_p (check))
     return boolean_false_node;
 
   /* Check any deferred access checks now, and if any fail,

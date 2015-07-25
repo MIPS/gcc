@@ -1,3 +1,8 @@
+2015-07-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66988
+	* constraint.cc (satisfy_type_constraint): Use error_operand_p.
+
 2015-07-23  Jason Merrill  <jason@redhat.com>
 
 	PR c++/66758
