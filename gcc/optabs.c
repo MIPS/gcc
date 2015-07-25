@@ -21,7 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
 #include "diagnostic-core.h"
 
 /* Include insn-config.h before expr.h so that HAVE_conditional_move
@@ -29,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "tree-hasher.h"
 #include "stor-layout.h"
@@ -37,8 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "except.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -52,10 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "libfuncs.h"
 #include "recog.h"
 #include "reload.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "target.h"
 
 struct target_optabs default_target_optabs;
@@ -1368,8 +1362,8 @@ avoid_expensive_constant (machine_mode mode, optab binoptab,
   if (mode != VOIDmode
       && optimize
       && CONSTANT_P (x)
-      && (rtx_cost (x, optab_to_code (binoptab), opn, speed)
-	  > set_src_cost (x, speed)))
+      && (rtx_cost (x, mode, optab_to_code (binoptab), opn, speed)
+	  > set_src_cost (x, mode, speed)))
     {
       if (CONST_INT_P (x))
 	{
@@ -4050,12 +4044,12 @@ prepare_cmp_insn (rtx x, rtx y, enum rtx_code comparison, rtx size,
 
   /* If we are optimizing, force expensive constants into a register.  */
   if (CONSTANT_P (x) && optimize
-      && (rtx_cost (x, COMPARE, 0, optimize_insn_for_speed_p ())
+      && (rtx_cost (x, mode, COMPARE, 0, optimize_insn_for_speed_p ())
           > COSTS_N_INSNS (1)))
     x = force_reg (mode, x);
 
   if (CONSTANT_P (y) && optimize
-      && (rtx_cost (y, COMPARE, 1, optimize_insn_for_speed_p ())
+      && (rtx_cost (y, mode, COMPARE, 1, optimize_insn_for_speed_p ())
           > COSTS_N_INSNS (1)))
     y = force_reg (mode, y);
 
@@ -8627,7 +8621,7 @@ lshift_cheap_p (bool speed_p)
     {
       rtx reg = gen_raw_REG (word_mode, 10000);
       int cost = set_src_cost (gen_rtx_ASHIFT (word_mode, const1_rtx, reg),
-			       speed_p);
+			       word_mode, speed_p);
       cheap[speed_p] = cost < COSTS_N_INSNS (3);
       init[speed_p] = true;
     }

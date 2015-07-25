@@ -23,9 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
-#include "symtab.h"
 #include "tree.h"
+#include "alias.h"
 #include "tree-upc.h"
 
 struct tm_block_factor_hasher : ggc_cache_ptr_hash<tree_map>

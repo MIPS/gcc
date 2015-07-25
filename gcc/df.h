@@ -25,13 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_DF_H
 #define GCC_DF_H
 
-#include "bitmap.h"
 #include "regset.h"
-#include "sbitmap.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "alloc-pool.h"
 #include "timevar.h"
 
@@ -300,7 +294,7 @@ struct dataflow
   unsigned int block_info_size;
 
   /* The pool to allocate the block_info from. */
-  pool_allocator<df_link> *block_pool;
+  object_allocator<df_link> *block_pool;
 
   /* The lr and live problems have their transfer functions recomputed
      only if necessary.  This is possible for them because, the

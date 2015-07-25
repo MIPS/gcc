@@ -1,3 +1,67 @@
+2015-07-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit-playback.c (invoke_driver): Convert local "argvec"
+	to an auto_argvec, so that it owns copies of the strings,
+	rather than borrows them, updating ADD_ARG to use xstrdup
+	and special-casing the NULL terminator to avoid
+	xstrdup (NULL).  Call add_multilib_driver_arguments at the front
+	of the arguments.
+	(MULTILIB_DEFAULTS): Provide a default definition.
+	(multilib_defaults_raw): New constant array.
+	(gcc::jit::playback::context::add_multilib_driver_arguments): New
+	method.
+	* jit-playback.h
+	(gcc::jit::playback::context::add_multilib_driver_arguments): New
+	method.
+	* docs/internals/test-hello-world.exe.log.txt: Update.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2015-07-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* docs/internals/index.rst (Overview of code structure): Add note
+	that the implementation is in C++, despite the .c extension.
+	(Submitting patches): New subsection.
+	* docs/_build/texinfo/libgccjit.texi: Regenerate.
+
+2015-07-09  Andrew MacLeod  <amacleod@redhat.com>
+
+	* dummy-frontend.c: Adjust includes for flags.h changes.
+	* jit-common.h: Likewise.
+	* jit-playback.c: Likewise.
+
+2015-07-08  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66783
+	* libgccjit.c (gcc_jit_context_new_field): Show name of field in
+	"unknown size" error message.
+	(gcc_jit_struct_set_fields): Show name of struct in error message.
+	(gcc_jit_context_new_global): Show name of global in
+	"unknown size" error message.
+	(gcc_jit_function_new_local): Likewise for local.
+
+2015-07-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* dummy-frontend.c: Adjust includes.
+	* jit-common.h: Likewise.
+	* jit-playback.c: Likewise.
+
+2015-07-07  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66783
+	* jit-recording.h: Within namespace gcc:jit::recording...
+	(type::has_known_size): New virtual function.
+	(struct_has_known_size): New function.
+	* libgccjit.c (gcc_jit_context_new_field): Verify that the type
+	has a known size.
+	(gcc_jit_context_new_global): Likewise.
+	(gcc_jit_function_new_local): Likewise.
+
+2015-07-07  David Malcolm  <dmalcolm@redhat.com>
+
+	PR jit/66779
+	* dummy-frontend.c (jit_langhook_type_for_mode): Ensure that we
+	handle modes QI, HI, SI, DI, TI.
+
 2015-07-01  David Malcolm  <dmalcolm@redhat.com>
 
 	PR jit/66700

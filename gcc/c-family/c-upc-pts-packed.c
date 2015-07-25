@@ -23,9 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
-#include "symtab.h"
 #include "tree.h"
+#include "alias.h"
 #include "tree-upc.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -360,16 +359,13 @@ upc_pts_packed_build_sum (location_t loc, tree exp)
 	  else
 	    {
 	      /* tincr = old_thread + index; */
-	      tincr =
-		build_binary_op (loc, PLUS_EXPR, old_thread, index, 0);
+	      tincr = build_binary_op (loc, PLUS_EXPR, old_thread, index, 0);
 	      tincr = save_expr (tincr);
 	      /* floor_divmod (tincr, n_threads, &t1, &t2);  */
 	      if (TYPE_UNSIGNED (TREE_TYPE (tincr)))
 		tincr = convert (integer_type_node, tincr);
-	      t1 =
-		build_binary_op (loc, FLOOR_DIV_EXPR, tincr, n_threads, 0);
-	      t2 =
-		build_binary_op (loc, FLOOR_MOD_EXPR, tincr, n_threads, 0);
+	      t1 = build_binary_op (loc, FLOOR_DIV_EXPR, tincr, n_threads, 0);
+	      t2 = build_binary_op (loc, FLOOR_MOD_EXPR, tincr, n_threads, 0);
 	      /* vaddr = old_vaddr + t1 * elem_size; */
 	      vaddr = build_binary_op (loc, PLUS_EXPR, old_vaddr,
 				       build_binary_op (loc, MULT_EXPR,

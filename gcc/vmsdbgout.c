@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifdef VMS_DEBUGGING_INFO
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "varasm.h"
 #include "version.h"
@@ -36,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "vmsdbg.h"
 #include "debug.h"
 #include "langhooks.h"
-#include "hard-reg-set.h"
 #include "function.h"
 #include "target.h"
 
@@ -165,7 +163,7 @@ static void vmsdbgout_end_function (unsigned int);
 static void vmsdbgout_begin_epilogue (unsigned int, const char *);
 static void vmsdbgout_end_epilogue (unsigned int, const char *);
 static void vmsdbgout_begin_function (tree);
-static void vmsdbgout_decl (tree);
+static void vmsdbgout_function_decl (tree);
 static void vmsdbgout_early_global_decl (tree);
 static void vmsdbgout_late_global_decl (tree);
 static void vmsdbgout_type_decl (tree, int);

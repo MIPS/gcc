@@ -21,20 +21,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "function.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "expmed.h"
@@ -46,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "target.h"
-#include "predict.h"
 
 /* Simplification and canonicalization of RTL.  */
 
@@ -677,9 +674,7 @@ simplify_truncation (machine_mode mode, rtx op,
      the truncation, i.e. simplify (truncate:QI (op:SI (x:SI) (y:SI))) into
      (op:QI (truncate:QI (x:SI)) (truncate:QI (y:SI))).  */
   if (1
-#ifdef WORD_REGISTER_OPERATIONS
-      && precision >= BITS_PER_WORD
-#endif
+      && (!WORD_REGISTER_OPERATIONS || precision >= BITS_PER_WORD)
       && (GET_CODE (op) == PLUS
 	  || GET_CODE (op) == MINUS
 	  || GET_CODE (op) == MULT))
@@ -961,6 +956,32 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
       /* (neg (neg X)) == X.  */
       if (GET_CODE (op) == NEG)
 	return XEXP (op, 0);
+
+      /* (neg (x ? (neg y) : y)) == !x ? (neg y) : y.
+	 If comparison is not reversible use
+	 x ? y : (neg y).  */
+      if (GET_CODE (op) == IF_THEN_ELSE)
+	{
+	  rtx cond = XEXP (op, 0);
+	  rtx true_rtx = XEXP (op, 1);
+	  rtx false_rtx = XEXP (op, 2);
+
+	  if ((GET_CODE (true_rtx) == NEG
+	       && rtx_equal_p (XEXP (true_rtx, 0), false_rtx))
+	       || (GET_CODE (false_rtx) == NEG
+		   && rtx_equal_p (XEXP (false_rtx, 0), true_rtx)))
+	    {
+	      if (reversed_comparison_code (cond, NULL_RTX) != UNKNOWN)
+		temp = reversed_comparison (cond, mode);
+	      else
+		{
+		  temp = cond;
+		  std::swap (true_rtx, false_rtx);
+		}
+	      return simplify_gen_ternary (IF_THEN_ELSE, mode,
+					    mode, temp, true_rtx, false_rtx);
+	    }
+	}
 
       /* (neg (plus X 1)) can become (not X).  */
       if (GET_CODE (op) == PLUS
@@ -2090,8 +2111,8 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	      coeff = immed_wide_int_const (coeff0 + coeff1, mode);
 
 	      tem = simplify_gen_binary (MULT, mode, lhs, coeff);
-	      return set_src_cost (tem, speed) <= set_src_cost (orig, speed)
-		? tem : 0;
+	      return (set_src_cost (tem, mode, speed)
+		      <= set_src_cost (orig, mode, speed) ? tem : 0);
 	    }
 	}
 
@@ -2265,8 +2286,8 @@ simplify_binary_operation_1 (enum rtx_code code, machine_mode mode,
 	      coeff = immed_wide_int_const (coeff0 + negcoeff1, mode);
 
 	      tem = simplify_gen_binary (MULT, mode, lhs, coeff);
-	      return set_src_cost (tem, speed) <= set_src_cost (orig, speed)
-		? tem : 0;
+	      return (set_src_cost (tem, mode, speed)
+		      <= set_src_cost (orig, mode, speed) ? tem : 0);
 	    }
 	}
 
@@ -4930,7 +4951,8 @@ simplify_const_relational_operation (enum rtx_code code,
 
   /* Optimize comparisons with upper and lower bounds.  */
   if (HWI_COMPUTABLE_MODE_P (mode)
-      && CONST_INT_P (trueop1))
+      && CONST_INT_P (trueop1)
+      && !side_effects_p (trueop0))
     {
       int sign;
       unsigned HOST_WIDE_INT nonzero = nonzero_bits (trueop0, mode);
@@ -5043,7 +5065,7 @@ simplify_const_relational_operation (enum rtx_code code,
     }
 
   /* Optimize integer comparisons with zero.  */
-  if (trueop1 == const0_rtx)
+  if (trueop1 == const0_rtx && !side_effects_p (trueop0))
     {
       /* Some addresses are known to be nonzero.  We don't know
 	 their sign, but equality comparisons are known.  */
@@ -5094,7 +5116,7 @@ simplify_const_relational_operation (enum rtx_code code,
     }
 
   /* Optimize comparison of ABS with zero.  */
-  if (trueop1 == CONST0_RTX (mode)
+  if (trueop1 == CONST0_RTX (mode) && !side_effects_p (trueop0)
       && (GET_CODE (trueop0) == ABS
 	  || (GET_CODE (trueop0) == FLOAT_EXTEND
 	      && GET_CODE (XEXP (trueop0, 0)) == ABS)))
@@ -5250,6 +5272,32 @@ simplify_ternary_operation (enum rtx_code code, machine_mode mode,
 	      || (rtx_equal_p (XEXP (op0, 0), op2)
 		  && rtx_equal_p (XEXP (op0, 1), op1))))
 	return op2;
+
+      /* Convert (!c) != {0,...,0} ? a : b into
+         c != {0,...,0} ? b : a for vector modes.  */
+      if (VECTOR_MODE_P (GET_MODE (op1))
+	  && GET_CODE (op0) == NE
+	  && GET_CODE (XEXP (op0, 0)) == NOT
+	  && GET_CODE (XEXP (op0, 1)) == CONST_VECTOR)
+	{
+	  rtx cv = XEXP (op0, 1);
+	  int nunits = CONST_VECTOR_NUNITS (cv);
+	  bool ok = true;
+	  for (int i = 0; i < nunits; ++i)
+	    if (CONST_VECTOR_ELT (cv, i) != const0_rtx)
+	      {
+		ok = false;
+		break;
+	      }
+	  if (ok)
+	    {
+	      rtx new_op0 = gen_rtx_NE (GET_MODE (op0),
+					XEXP (XEXP (op0, 0), 0),
+					XEXP (op0, 1));
+	      rtx retval = gen_rtx_IF_THEN_ELSE (mode, new_op0, op2, op1);
+	      return retval;
+	    }
+	}
 
       if (COMPARISON_P (op0) && ! side_effects_p (op0))
 	{

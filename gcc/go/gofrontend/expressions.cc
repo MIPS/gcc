@@ -133,7 +133,7 @@ Expression::determine_type_no_context()
 // assignment.
 
 Expression*
-Expression::convert_for_assignment(Gogo* gogo, Type* lhs_type,
+Expression::convert_for_assignment(Gogo*, Type* lhs_type,
 				   Expression* rhs, Location location)
 {
   Type* rhs_type = rhs->type();
@@ -177,17 +177,6 @@ Expression::convert_for_assignment(Gogo* gogo, Type* lhs_type,
            || (lhs_type->array_type() != NULL
                && rhs_type->array_type() != NULL))
     {
-      // Avoid confusion from zero sized variables which may be
-      // represented as non-zero-sized.
-      // TODO(cmang): This check is for a GCC-specific issue, and should be
-      // removed from the frontend.  FIXME.
-      int64_t lhs_size =
-	gogo->backend()->type_size(lhs_type->get_backend(gogo));
-      int64_t rhs_size =
-	gogo->backend()->type_size(rhs_type->get_backend(gogo));
-      if (rhs_size == 0 || lhs_size == 0)
-	return rhs;
-
       // This conversion must be permitted by Go, or we wouldn't have
       // gotten here.
       return Expression::make_unsafe_cast(lhs_type, rhs, location);
@@ -2475,7 +2464,7 @@ Complex_expression::do_get_backend(Translate_context* context)
     }
   else
     {
-      // If we still have an abstract type here, this this is being
+      // If we still have an abstract type here, this is being
       // used in a constant expression which didn't get reduced.  We
       // just use complex128 and hope for the best.
       resolved_type = Type::lookup_complex_type("complex128");
@@ -3391,52 +3380,7 @@ Expression::make_cast(Type* type, Expression* val, Location location)
   return new Type_conversion_expression(type, val, location);
 }
 
-// An unsafe type conversion, used to pass values to builtin functions.
-
-class Unsafe_type_conversion_expression : public Expression
-{
- public:
-  Unsafe_type_conversion_expression(Type* type, Expression* expr,
-				    Location location)
-    : Expression(EXPRESSION_UNSAFE_CONVERSION, location),
-      type_(type), expr_(expr)
-  { }
-
- protected:
-  int
-  do_traverse(Traverse* traverse);
-
-  bool
-  do_is_immutable() const;
-
-  Type*
-  do_type()
-  { return this->type_; }
-
-  void
-  do_determine_type(const Type_context*)
-  { this->expr_->determine_type_no_context(); }
-
-  Expression*
-  do_copy()
-  {
-    return new Unsafe_type_conversion_expression(this->type_,
-						 this->expr_->copy(),
-						 this->location());
-  }
-
-  Bexpression*
-  do_get_backend(Translate_context*);
-
-  void
-  do_dump_expression(Ast_dump_context*) const;
-
- private:
-  // The type to convert to.
-  Type* type_;
-  // The expression to convert.
-  Expression* expr_;
-};
+// Class Unsafe_type_conversion_expression.
 
 // Traversal.
 
@@ -4011,6 +3955,8 @@ Unary_expression::do_check_types(Gogo*)
       // Indirecting through a pointer.
       if (type->points_to() == NULL)
 	this->report_error(_("expected pointer"));
+      if (type->points_to()->is_error())
+	this->set_is_error();
       break;
 
     default:

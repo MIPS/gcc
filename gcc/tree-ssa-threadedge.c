@@ -21,32 +21,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "basic-block.h"
 #include "cfgloop.h"
 #include "timevar.h"
 #include "dumpfile.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-threadupdate.h"
 #include "langhooks.h"
@@ -55,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-threadedge.h"
 #include "tree-ssa-loop.h"
 #include "builtins.h"
-#include "cfg.h"
 #include "cfganal.h"
 
 /* To avoid code explosion due to jump threading, we limit the
@@ -564,6 +553,16 @@ simplify_control_stmt_condition (edge e,
           || !is_gimple_min_invariant (cached_lhs))
         cached_lhs = (*simplify) (dummy_cond, stmt);
 
+      /* If we were just testing that an integral type was != 0, and that
+	 failed, just return the first operand.  This gives the FSM code a
+	 chance to optimize the path.  */
+      if (cached_lhs == NULL
+	  && cond_code == NE_EXPR
+	  && INTEGRAL_TYPE_P (TREE_TYPE (op0))
+	  && TREE_CODE (op0) == SSA_NAME
+	  && integer_zerop (op1))
+	return op0;
+
       return cached_lhs;
     }
 
@@ -984,6 +983,21 @@ fsm_find_control_statement_thread_paths (tree expr,
 	  vec_free (next_path);
 	  return;
 	}
+
+      /* Make sure we haven't already visited any of the nodes in
+ 	 NEXT_PATH.  Don't add them here to avoid pollution.  */
+      for (unsigned int i = 0; i < next_path->length () - 1; i++)
+	{
+	  if (visited_bbs->contains ((*next_path)[i]))
+	    {
+	      vec_free (next_path);
+	      return;
+	    }
+	}
+
+      /* Now add the nodes to VISISTED_BBS.  */
+      for (unsigned int i = 0; i < next_path->length () - 1; i++)
+	visited_bbs->add ((*next_path)[i]);
 
       /* Append all the nodes from NEXT_PATH to PATH.  */
       vec_safe_splice (path, next_path);

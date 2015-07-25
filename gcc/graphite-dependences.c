@@ -22,42 +22,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 
 #ifdef HAVE_isl
+/* Workaround for GMP 5.1.3 bug, see PR56019.  */
+#include <stddef.h>
+
+#include <isl/constraint.h>
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/flow.h>
 #include <isl/constraint.h>
-#endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
-#include "tree-scalar-evolution.h"
-#include "sese.h"
-
-#ifdef HAVE_isl
 #include "graphite-poly.h"
+
 
 isl_union_map *
 scop_get_dependences (scop_p scop)
@@ -101,13 +89,13 @@ constrain_domain (isl_map *map, isl_set *s)
   return isl_map_intersect_domain (map, s);
 }
 
-/* Constrain pdr->accesses with pdr->extent and pbb->domain.  */
+/* Constrain pdr->accesses with pdr->subscript_sizes and pbb->domain.  */
 
 static isl_map *
 add_pdr_constraints (poly_dr_p pdr, poly_bb_p pbb)
 {
   isl_map *x = isl_map_intersect_range (isl_map_copy (pdr->accesses),
-					isl_set_copy (pdr->extent));
+					isl_set_copy (pdr->subscript_sizes));
   x = constrain_domain (x, isl_set_copy (pbb->domain));
   return x;
 }
@@ -218,7 +206,7 @@ scop_get_transformed_schedule (scop_p scop, vec<poly_bb_p> pbbs)
 /* Helper function used on each MAP of a isl_union_map.  Computes the
    maximal output dimension.  */
 
-static int
+static isl_stat
 max_number_of_out_dimensions (__isl_take isl_map *map, void *user)
 {
   int global_max = *((int *) user);
@@ -230,7 +218,7 @@ max_number_of_out_dimensions (__isl_take isl_map *map, void *user)
 
   isl_map_free (map);
   isl_space_free (space);
-  return 0;
+  return isl_stat_ok;
 }
 
 /* Extends the output dimension of MAP to MAX dimensions.  */
@@ -254,12 +242,12 @@ struct extend_schedule_str {
 
 /* Helper function for extend_schedule.  */
 
-static int
+static isl_stat
 extend_schedule_1 (__isl_take isl_map *map, void *user)
 {
   struct extend_schedule_str *str = (struct extend_schedule_str *) user;
   str->umap = isl_union_map_add_map (str->umap, extend_map (map, str->max));
-  return 0;
+  return isl_stat_ok;
 }
 
 /* Return a relation that has uniform output dimensions.  */
@@ -268,16 +256,16 @@ __isl_give isl_union_map *
 extend_schedule (__isl_take isl_union_map *x)
 {
   int max = 0;
-  int res;
+  isl_stat res;
   struct extend_schedule_str str;
 
   res = isl_union_map_foreach_map (x, max_number_of_out_dimensions, (void *) &max);
-  gcc_assert (res == 0);
+  gcc_assert (res == isl_stat_ok);
 
   str.max = max;
   str.umap = isl_union_map_empty (isl_union_map_get_space (x));
   res = isl_union_map_foreach_map (x, extend_schedule_1, (void *) &str);
-  gcc_assert (res == 0);
+  gcc_assert (res == isl_stat_ok);
 
   isl_union_map_free (x);
   return str.umap;
@@ -636,4 +624,4 @@ graphite_legal_transform (scop_p scop)
   return res;
 }
 
-#endif
+#endif /* HAVE_isl */

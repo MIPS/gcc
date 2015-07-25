@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -63,7 +62,7 @@ static void casts_away_constness_r (tree *, tree *, tsubst_flags_t);
 static bool casts_away_constness (tree, tree, tsubst_flags_t);
 static bool maybe_warn_about_returning_address_of_local (tree);
 static tree lookup_destructor (tree, tree, tree, tsubst_flags_t);
-static void warn_args_num (location_t, tree, bool);
+static void error_args_num (location_t, tree, bool);
 static int convert_arguments (tree, vec<tree, va_gc> **, tree, int,
                               tsubst_flags_t);
 
@@ -3560,10 +3559,10 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 }
 
 /* Subroutine of convert_arguments.
-   Warn about wrong number of args are genereted. */
+   Print an error message about a wrong number of arguments.  */
 
 static void
-warn_args_num (location_t loc, tree fndecl, bool too_many_p)
+error_args_num (location_t loc, tree fndecl, bool too_many_p)
 {
   if (fndecl)
     {
@@ -3646,7 +3645,7 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 	{
           if (complain & tf_error)
             {
-	      warn_args_num (input_location, fndecl, /*too_many_p=*/true);
+	      error_args_num (input_location, fndecl, /*too_many_p=*/true);
               return i;
             }
           else
@@ -3750,7 +3749,7 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
       else
 	{
           if (complain & tf_error)
-	    warn_args_num (input_location, fndecl, /*too_many_p=*/false);
+	    error_args_num (input_location, fndecl, /*too_many_p=*/false);
 	  return -1;
 	}
     }
@@ -4351,6 +4350,9 @@ cp_build_binary_op (location_t location,
 		    warning (OPT_Wshift_count_overflow,
 			     "left shift count >= width of type");
 		}
+	      else if (TREE_CODE (const_op0) == INTEGER_CST
+		       && (complain & tf_warning))
+		maybe_warn_shift_overflow (location, const_op0, const_op1);
 	    }
 	  /* Avoid converting op1 to result_type later.  */
 	  converted = 1;

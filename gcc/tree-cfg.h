@@ -31,7 +31,6 @@ extern void gt_pch_nx (edge_def *e, gt_pointer_operator, void *);
 
 extern void init_empty_tree_cfg_for_function (struct function *);
 extern void init_empty_tree_cfg (void);
-extern void fold_cond_expr_cond (void);
 extern void start_recording_case_labels (void);
 extern void end_recording_case_labels (void);
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -59,6 +58,7 @@ extern bool simple_goto_p (gimple);
 extern bool stmt_ends_bb_p (gimple);
 extern bool assert_unreachable_fallthru_edge_p (edge);
 extern void delete_tree_cfg_annotations (void);
+extern gphi *get_virtual_phi (basic_block);
 extern gimple first_stmt (basic_block);
 extern gimple last_stmt (basic_block);
 extern gimple last_and_only_stmt (basic_block);

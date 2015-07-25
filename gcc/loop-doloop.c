@@ -21,14 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "rtl.h"
 #include "flags.h"
-#include "symtab.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "alias.h"
 #include "tree.h"
+#include "alias.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -40,12 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgloop.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "params.h"
 #include "target.h"
 #include "dumpfile.h"
@@ -648,7 +642,7 @@ doloop_optimize (struct loop *loop)
 
   max_cost
     = COSTS_N_INSNS (PARAM_VALUE (PARAM_MAX_ITERATIONS_COMPUTATION_COST));
-  if (set_src_cost (desc->niter_expr, optimize_loop_for_speed_p (loop))
+  if (set_src_cost (desc->niter_expr, mode, optimize_loop_for_speed_p (loop))
       > max_cost)
     {
       if (dump_file)

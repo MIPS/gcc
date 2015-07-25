@@ -22,26 +22,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
 #include "langhooks.h"
-#include "gimple.h"
 #include "stringpool.h"
+#include "gimple-ssa.h"
 #include "gimplify.h"
 #include "stor-layout.h"
 #include "demangle.h"
-#include "gimple-ssa.h"
 
 /* ----- Type related -----  */
 
@@ -393,45 +387,6 @@ copy_var_decl (tree var, tree name, tree type)
   DECL_ATTRIBUTES (copy) = DECL_ATTRIBUTES (var);
 
   return copy;
-}
-
-/* Given SSA_NAMEs NAME1 and NAME2, return true if they are candidates for
-   coalescing together, false otherwise.
-
-   This must stay consistent with var_map_base_init in tree-ssa-live.c.  */
-
-bool
-gimple_can_coalesce_p (tree name1, tree name2)
-{
-  /* First check the SSA_NAME's associated DECL.  We only want to
-     coalesce if they have the same DECL or both have no associated DECL.  */
-  tree var1 = SSA_NAME_VAR (name1);
-  tree var2 = SSA_NAME_VAR (name2);
-  var1 = (var1 && (!VAR_P (var1) || !DECL_IGNORED_P (var1))) ? var1 : NULL_TREE;
-  var2 = (var2 && (!VAR_P (var2) || !DECL_IGNORED_P (var2))) ? var2 : NULL_TREE;
-  if (var1 != var2)
-    return false;
-
-  /* Now check the types.  If the types are the same, then we should
-     try to coalesce V1 and V2.  */
-  tree t1 = TREE_TYPE (name1);
-  tree t2 = TREE_TYPE (name2);
-  if (t1 == t2)
-    return true;
-
-  /* If the types are not the same, check for a canonical type match.  This
-     (for example) allows coalescing when the types are fundamentally the
-     same, but just have different names. 
-
-     Note pointer types with different address spaces may have the same
-     canonical type.  Those are rejected for coalescing by the
-     types_compatible_p check.  */
-  if (TYPE_CANONICAL (t1)
-      && TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2)
-      && types_compatible_p (t1, t2))
-    return true;
-
-  return false;
 }
 
 /* Strip off a legitimate source ending from the input string NAME of

@@ -75,35 +75,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alloc-pool.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
-#include "tree.h"
-#include "fold-const.h"
+#include "backend.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "stor-layout.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "bitmap.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -284,28 +271,13 @@ struct access
   /* Set when we discover that this pointer is not safe to dereference in the
      caller.  */
   unsigned grp_not_necessarilly_dereferenced : 1;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((access *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<access> pool;
 };
 
 typedef struct access *access_p;
 
 
 /* Alloc pool for allocating access structures.  */
-pool_allocator<struct access> access::pool ("SRA accesses", 16);
+static object_allocator<struct access> access_pool ("SRA accesses", 16);
 
 /* A structure linking lhs and rhs accesses from an aggregate assignment.  They
    are used to propagate subaccesses from rhs to lhs as long as they don't
@@ -314,25 +286,10 @@ struct assign_link
 {
   struct access *lacc, *racc;
   struct assign_link *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((assign_link *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<assign_link> pool;
 };
 
 /* Alloc pool for allocating assign link structures.  */
-pool_allocator<assign_link> assign_link::pool ("SRA links", 16);
+static object_allocator<assign_link> assign_link_pool ("SRA links", 16);
 
 /* Base (tree) -> Vector (vec<access_p> *) map.  */
 static hash_map<tree, auto_vec<access_p> > *base_access_vec;
@@ -719,8 +676,8 @@ sra_deinitialize (void)
   candidates = NULL;
   BITMAP_FREE (should_scalarize_away_bitmap);
   BITMAP_FREE (cannot_scalarize_away_bitmap);
-  access::pool.release ();
-  assign_link::pool.release ();
+  access_pool.release ();
+  assign_link_pool.release ();
   obstack_free (&name_obstack, NULL);
 
   delete base_access_vec;
@@ -872,7 +829,7 @@ mark_parm_dereference (tree base, HOST_WIDE_INT dist, gimple stmt)
 static struct access *
 create_access_1 (tree base, HOST_WIDE_INT offset, HOST_WIDE_INT size)
 {
-  struct access *access = new struct access ();
+  struct access *access = access_pool.allocate ();
 
   memset (access, 0, sizeof (struct access));
   access->base = base;
@@ -1024,7 +981,7 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset,
 }
 
 /* Create total_scalarization accesses for all scalar type fields in VAR and
-   for VAR a a whole.  VAR must be of a RECORD_TYPE conforming to
+   for VAR as a whole.  VAR must be of a RECORD_TYPE conforming to
    type_consists_of_records_p.   */
 
 static void
@@ -1248,7 +1205,7 @@ build_accesses_from_assign (gimple stmt)
     {
       struct assign_link *link;
 
-      link = new assign_link;
+      link = assign_link_pool.allocate ();
       memset (link, 0, sizeof (struct assign_link));
 
       link->lacc = lacc;
@@ -2407,7 +2364,7 @@ create_artificial_child_access (struct access *parent, struct access *model,
 
   gcc_assert (!model->grp_unscalarizable_region);
 
-  struct access *access = new struct access ();
+  struct access *access = access_pool.allocate ();
   memset (access, 0, sizeof (struct access));
   if (!build_user_friendly_ref_for_offset (&expr, TREE_TYPE (expr), new_offset,
 					   model->type))

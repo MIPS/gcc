@@ -842,7 +842,6 @@ process (FILE *in, FILE *out)
 {
   const char *input = read_file (in);
   Token *tok = tokenize (input);
-  unsigned int nvars = 0, nfuncs = 0;
 
   do
     tok = parse_file (tok);
@@ -853,28 +852,57 @@ process (FILE *in, FILE *out)
   write_stmts (out, rev_stmts (vars));
   write_stmts (out, rev_stmts (fns));
   fprintf (out, ";\n\n");
-  fprintf (out, "static const char *var_mappings[] = {\n");
-  for (id_map *id = var_ids; id; id = id->next, nvars++)
+
+  fprintf (out, "static const char *const var_mappings[] = {\n");
+  for (id_map *id = var_ids; id; id = id->next)
     fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
   fprintf (out, "};\n\n");
-  fprintf (out, "static const char *func_mappings[] = {\n");
-  for (id_map *id = func_ids; id; id = id->next, nfuncs++)
+  fprintf (out, "static const char *const func_mappings[] = {\n");
+  for (id_map *id = func_ids; id; id = id->next)
     fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
   fprintf (out, "};\n\n");
 
-  fprintf (out, "static const void *target_data[] = {\n");
-  fprintf (out, "  ptx_code, (void*) %u, var_mappings, (void*) %u, "
-		"func_mappings\n", nvars, nfuncs);
-  fprintf (out, "};\n\n");
+  fprintf (out,
+	   "static const struct nvptx_tdata {\n"
+	   "  const char *ptx_src;\n"
+	   "  const char *const *var_names;\n"
+	   "  __SIZE_TYPE__ var_num;\n"
+	   "  const char *const *fn_names;\n"
+	   "  __SIZE_TYPE__ fn_num;\n"
+	   "} target_data = {\n"
+	   "  ptx_code,\n"
+	   "  var_mappings,"
+	   "  sizeof (var_mappings) / sizeof (var_mappings[0]),\n"
+	   "  func_mappings,"
+	   "  sizeof (func_mappings) / sizeof (func_mappings[0])\n"
+	   "};\n\n");
 
-  fprintf (out, "extern void GOMP_offload_register (const void *, int, void *);\n");
+  fprintf (out, "#ifdef __cplusplus\n"
+	   "extern \"C\" {\n"
+	   "#endif\n");
 
-  fprintf (out, "extern void *__OFFLOAD_TABLE__[];\n\n");
-  fprintf (out, "static __attribute__((constructor)) void init (void)\n{\n");
-  fprintf (out, "  GOMP_offload_register (__OFFLOAD_TABLE__, %d,\n",
-	   GOMP_DEVICE_NVIDIA_PTX);
-  fprintf (out, "                         &target_data);\n");
-  fprintf (out, "};\n");
+  fprintf (out, "extern void GOMP_offload_register"
+	   " (const void *, int, const void *);\n");
+  fprintf (out, "extern void GOMP_offload_unregister"
+	   " (const void *, int, const void *);\n");
+
+  fprintf (out, "#ifdef __cplusplus\n"
+	   "}\n"
+	   "#endif\n");
+
+  fprintf (out, "extern const void *const __OFFLOAD_TABLE__[];\n\n");
+
+  fprintf (out, "static __attribute__((constructor)) void init (void)\n"
+	   "{\n"
+	   "  GOMP_offload_register (__OFFLOAD_TABLE__, %d/*NVIDIA_PTX*/,\n"
+	   "                         &target_data);\n"
+	   "};\n", GOMP_DEVICE_NVIDIA_PTX);
+
+  fprintf (out, "static __attribute__((destructor)) void fini (void)\n"
+	   "{\n"
+	   "  GOMP_offload_unregister (__OFFLOAD_TABLE__, %d/*NVIDIA_PTX*/,\n"
+	   "                           &target_data);\n"
+	   "};\n", GOMP_DEVICE_NVIDIA_PTX);
 }
 
 static void
@@ -993,37 +1021,43 @@ main (int argc, char **argv)
 	obstack_ptr_grow (&argv_obstack, argv[ix]);
     }
 
-  ptx_name = make_temp_file (".mkoffload");
-  obstack_ptr_grow (&argv_obstack, "-o");
-  obstack_ptr_grow (&argv_obstack, ptx_name);
-  obstack_ptr_grow (&argv_obstack, NULL);
-  const char **new_argv = XOBFINISH (&argv_obstack, const char **);
-
-  char *execpath = getenv ("GCC_EXEC_PREFIX");
-  char *cpath = getenv ("COMPILER_PATH");
-  char *lpath = getenv ("LIBRARY_PATH");
-  unsetenv ("GCC_EXEC_PREFIX");
-  unsetenv ("COMPILER_PATH");
-  unsetenv ("LIBRARY_PATH");
-
-  fork_execute (new_argv[0], CONST_CAST (char **, new_argv), true);
-  obstack_free (&argv_obstack, NULL);
-
-  xputenv (concat ("GCC_EXEC_PREFIX=", execpath, NULL));
-  xputenv (concat ("COMPILER_PATH=", cpath, NULL));
-  xputenv (concat ("LIBRARY_PATH=", lpath, NULL));
-
-  in = fopen (ptx_name, "r");
-  if (!in)
-    fatal_error (input_location, "cannot open intermediate ptx file");
-
   ptx_cfile_name = make_temp_file (".c");
 
   out = fopen (ptx_cfile_name, "w");
   if (!out)
     fatal_error (input_location, "cannot open '%s'", ptx_cfile_name);
 
-  process (in, out);
+  /* PR libgomp/65099: Currently, we only support offloading in 64-bit
+     configurations.  */
+  if (!target_ilp32)
+    {
+      ptx_name = make_temp_file (".mkoffload");
+      obstack_ptr_grow (&argv_obstack, "-o");
+      obstack_ptr_grow (&argv_obstack, ptx_name);
+      obstack_ptr_grow (&argv_obstack, NULL);
+      const char **new_argv = XOBFINISH (&argv_obstack, const char **);
+
+      char *execpath = getenv ("GCC_EXEC_PREFIX");
+      char *cpath = getenv ("COMPILER_PATH");
+      char *lpath = getenv ("LIBRARY_PATH");
+      unsetenv ("GCC_EXEC_PREFIX");
+      unsetenv ("COMPILER_PATH");
+      unsetenv ("LIBRARY_PATH");
+
+      fork_execute (new_argv[0], CONST_CAST (char **, new_argv), true);
+      obstack_free (&argv_obstack, NULL);
+
+      xputenv (concat ("GCC_EXEC_PREFIX=", execpath, NULL));
+      xputenv (concat ("COMPILER_PATH=", cpath, NULL));
+      xputenv (concat ("LIBRARY_PATH=", lpath, NULL));
+
+      in = fopen (ptx_name, "r");
+      if (!in)
+	fatal_error (input_location, "cannot open intermediate ptx file");
+
+      process (in, out);
+    }
+
   fclose (out);
 
   compile_native (ptx_cfile_name, outname, collect_gcc);

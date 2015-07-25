@@ -23,22 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "rtl.h"
+#include "options.h"
+#include "fold-const.h"
+#include "cfganal.h"
+#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "calls.h"
@@ -52,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "asan.h"
 #include "gimple-pretty-print.h"
 #include "target.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -356,24 +348,9 @@ struct asan_mem_ref
 
   /* The size of the access.  */
   HOST_WIDE_INT access_size;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((asan_mem_ref *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<asan_mem_ref> pool;
 };
 
-pool_allocator<asan_mem_ref> asan_mem_ref::pool ("asan_mem_ref", 10);
+object_allocator <asan_mem_ref> asan_mem_ref_pool ("asan_mem_ref", 10);
 
 /* Initializes an instance of asan_mem_ref.  */
 
@@ -393,7 +370,7 @@ asan_mem_ref_init (asan_mem_ref *ref, tree start, HOST_WIDE_INT access_size)
 static asan_mem_ref*
 asan_mem_ref_new (tree start, HOST_WIDE_INT access_size)
 {
-  asan_mem_ref *ref = new asan_mem_ref;
+  asan_mem_ref *ref = asan_mem_ref_pool.allocate ();
 
   asan_mem_ref_init (ref, start, access_size);
   return ref;
@@ -481,7 +458,7 @@ free_mem_ref_resources ()
   delete asan_mem_ref_ht;
   asan_mem_ref_ht = NULL;
 
-  asan_mem_ref::pool.release ();
+  asan_mem_ref_pool.release ();
 }
 
 /* Return true iff the memory reference REF has been instrumented.  */

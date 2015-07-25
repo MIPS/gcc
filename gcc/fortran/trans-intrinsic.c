@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"		/* For UNITS_PER_WORD.  */
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -8805,7 +8804,7 @@ conv_co_collective (gfc_code *code)
 	}
       opr_flags = build_int_cst (integer_type_node, opr_flag_int);
       gfc_conv_expr (&argse, opr_expr);
-      opr = gfc_build_addr_expr (NULL_TREE, argse.expr);
+      opr = argse.expr;
       fndecl = build_call_expr_loc (input_location, fndecl, 8, array, opr, opr_flags,
 				    image_index, stat, errmsg, strlen, errmsg_len);
     }

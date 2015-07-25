@@ -22,16 +22,18 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "function.h"
+#include "cfghooks.h"
+#include "basic-block.h"
+#include "cfg.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "calls.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -47,21 +49,14 @@
 #include "diagnostic-core.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 
 #define v8qi_UP  V8QImode
@@ -119,7 +114,9 @@ enum aarch64_type_qualifiers
   /* Polynomial types.  */
   qualifier_poly = 0x100,
   /* Lane indices - must be in range, and flipped for bigendian.  */
-  qualifier_lane_index = 0x200
+  qualifier_lane_index = 0x200,
+  /* Lane indices for single lane structure loads and stores.  */
+  qualifier_struct_load_store_lane_index = 0x400
 };
 
 typedef struct
@@ -221,7 +218,7 @@ aarch64_types_load1_qualifiers[SIMD_MAX_BUILTIN_ARGS]
 static enum aarch64_type_qualifiers
 aarch64_types_loadstruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_none, qualifier_const_pointer_map_mode,
-      qualifier_none, qualifier_none };
+      qualifier_none, qualifier_struct_load_store_lane_index };
 #define TYPES_LOADSTRUCT_LANE (aarch64_types_loadstruct_lane_qualifiers)
 
 static enum aarch64_type_qualifiers
@@ -253,7 +250,7 @@ aarch64_types_store1_qualifiers[SIMD_MAX_BUILTIN_ARGS]
 static enum aarch64_type_qualifiers
 aarch64_types_storestruct_lane_qualifiers[SIMD_MAX_BUILTIN_ARGS]
   = { qualifier_void, qualifier_pointer_map_mode,
-      qualifier_none, qualifier_none };
+      qualifier_none, qualifier_struct_load_store_lane_index };
 #define TYPES_STORESTRUCT_LANE (aarch64_types_storestruct_lane_qualifiers)
 
 #define CF0(N, X) CODE_FOR_aarch64_##N##X
@@ -869,12 +866,14 @@ typedef enum
   SIMD_ARG_COPY_TO_REG,
   SIMD_ARG_CONSTANT,
   SIMD_ARG_LANE_INDEX,
+  SIMD_ARG_STRUCT_LOAD_STORE_LANE_INDEX,
   SIMD_ARG_STOP
 } builtin_simd_arg;
 
 static rtx
 aarch64_simd_expand_args (rtx target, int icode, int have_retval,
-			  tree exp, builtin_simd_arg *args)
+			  tree exp, builtin_simd_arg *args,
+			  enum machine_mode builtin_mode)
 {
   rtx pat;
   rtx op[SIMD_MAX_BUILTIN_ARGS + 1]; /* First element for result operand.  */
@@ -913,6 +912,19 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 		op[opc] = copy_to_mode_reg (mode, op[opc]);
 	      break;
 
+	    case SIMD_ARG_STRUCT_LOAD_STORE_LANE_INDEX:
+	      gcc_assert (opc > 1);
+	      if (CONST_INT_P (op[opc]))
+		{
+		  aarch64_simd_lane_bounds (op[opc], 0,
+					    GET_MODE_NUNITS (builtin_mode),
+					    exp);
+		  /* Keep to GCC-vector-extension lane indices in the RTL.  */
+		  op[opc] =
+		    GEN_INT (ENDIAN_LANE_N (builtin_mode, INTVAL (op[opc])));
+		}
+	      goto constant_arg;
+
 	    case SIMD_ARG_LANE_INDEX:
 	      /* Must be a previous operand into which this is an index.  */
 	      gcc_assert (opc > 0);
@@ -927,6 +939,7 @@ aarch64_simd_expand_args (rtx target, int icode, int have_retval,
 	      /* Fall through - if the lane index isn't a constant then
 		 the next case will error.  */
 	    case SIMD_ARG_CONSTANT:
+constant_arg:
 	      if (!(*insn_data[icode].operand[opc].predicate)
 		  (op[opc], mode))
 	      {
@@ -1035,6 +1048,8 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
 
       if (d->qualifiers[qualifiers_k] & qualifier_lane_index)
 	args[k] = SIMD_ARG_LANE_INDEX;
+      else if (d->qualifiers[qualifiers_k] & qualifier_struct_load_store_lane_index)
+	args[k] = SIMD_ARG_STRUCT_LOAD_STORE_LANE_INDEX;
       else if (d->qualifiers[qualifiers_k] & qualifier_immediate)
 	args[k] = SIMD_ARG_CONSTANT;
       else if (d->qualifiers[qualifiers_k] & qualifier_maybe_immediate)
@@ -1058,7 +1073,7 @@ aarch64_simd_expand_builtin (int fcode, tree exp, rtx target)
   /* The interface to aarch64_simd_expand_args expects a 0 if
      the function is void, and a 1 if it is not.  */
   return aarch64_simd_expand_args
-	  (target, icode, !is_void, exp, &args[1]);
+	  (target, icode, !is_void, exp, &args[1], d->mode);
 }
 
 rtx

@@ -26,9 +26,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
-#include "symtab.h"
 #include "tree.h"
+#include "alias.h"
 #include "c-upc-pts-ops.h"
 
 /* UPC_PTS is a table of functions that implement various

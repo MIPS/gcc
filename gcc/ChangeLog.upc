@@ -1,3 +1,19 @@
+2015-07-24  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 226170 into gupc branch.
+
+2015-07-20  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 225993 into gupc branch.
+
+2015-07-13  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 225729 into gupc branch.
+
+	* c/c-upc-lang.c, c-family/c-upc-low.c, c-family/c-upc-pts-ops.c,
+	c-family/c-upc-pts-packed.c, c-family/c-upc-pts-struct.c:
+	Remove symtab.h from include list.  Adjust includes.
+
 2015-07-06  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 225446 into gupc branch.

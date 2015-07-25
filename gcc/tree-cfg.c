@@ -21,44 +21,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "trans-mem.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -83,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "tree-cfgcleanup.h"
 #include "wide-int-print.h"
+#include "gimplify.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -120,6 +109,13 @@ struct cfg_stats_d
 };
 
 static struct cfg_stats_d cfg_stats;
+
+/* Data to pass to replace_block_vars_by_duplicates_1.  */
+struct replace_decls_d
+{
+  hash_map<tree, tree> *vars_map;
+  tree to_context;
+};
 
 /* Hash table to store last discriminator assigned for each locus.  */
 struct locus_discrim_map
@@ -618,48 +614,6 @@ create_bb (void *h, void *e, basic_block after)
 				 Edge creation
 ---------------------------------------------------------------------------*/
 
-/* Fold COND_EXPR_COND of each COND_EXPR.  */
-
-void
-fold_cond_expr_cond (void)
-{
-  basic_block bb;
-
-  FOR_EACH_BB_FN (bb, cfun)
-    {
-      gimple stmt = last_stmt (bb);
-
-      if (stmt && gimple_code (stmt) == GIMPLE_COND)
-	{
-	  gcond *cond_stmt = as_a <gcond *> (stmt);
-	  location_t loc = gimple_location (stmt);
-	  tree cond;
-	  bool zerop, onep;
-
-	  fold_defer_overflow_warnings ();
-	  cond = fold_binary_loc (loc, gimple_cond_code (cond_stmt),
-				  boolean_type_node,
-				  gimple_cond_lhs (cond_stmt),
-				  gimple_cond_rhs (cond_stmt));
-	  if (cond)
-	    {
-	      zerop = integer_zerop (cond);
-	      onep = integer_onep (cond);
-	    }
-	  else
-	    zerop = onep = false;
-
-	  fold_undefer_overflow_warnings (zerop || onep,
-					  stmt,
-					  WARN_STRICT_OVERFLOW_CONDITIONAL);
-	  if (zerop)
-	    gimple_cond_make_false (cond_stmt);
-	  else if (onep)
-	    gimple_cond_make_true (cond_stmt);
-	}
-    }
-}
-
 /* If basic block BB has an abnormal edge to a basic block
    containing IFN_ABNORMAL_DISPATCHER internal call, return
    that the dispatcher's basic block, otherwise return NULL.  */
@@ -1012,9 +966,6 @@ make_edges (void)
   XDELETE (bb_to_omp_idx);
 
   free_omp_regions ();
-
-  /* Fold COND_EXPR_COND of each COND_EXPR.  */
-  fold_cond_expr_cond ();
 }
 
 /* Add SEQ after GSI.  Start new bb after GSI, and created further bbs as
@@ -2623,6 +2574,23 @@ delete_tree_cfg_annotations (void)
   vec_free (label_to_block_map_for_fn (cfun));
 }
 
+/* Return the virtual phi in BB.  */
+
+gphi *
+get_virtual_phi (basic_block bb)
+{
+  for (gphi_iterator gsi = gsi_start_phis (bb);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      gphi *phi = gsi.phi ();
+
+      if (virtual_operand_p (PHI_RESULT (phi)))
+	return phi;
+    }
+
+  return NULL;
+}
 
 /* Return the first statement in basic block BB.  */
 
@@ -6893,6 +6861,31 @@ new_label_mapper (tree decl, void *data)
   return m->to;
 }
 
+/* Tree walker to replace the decls used inside value expressions by
+   duplicates.  */
+
+static tree
+replace_block_vars_by_duplicates_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  struct replace_decls_d *rd = (struct replace_decls_d *)data;
+
+  switch (TREE_CODE (*tp))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+      replace_by_duplicate_decl (tp, rd->vars_map, rd->to_context);
+      break;
+    default:
+      break;
+    }
+
+  if (IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = false;
+
+  return NULL;
+}
+
 /* Change DECL_CONTEXT of all BLOCK_VARS in block, including
    subblocks.  */
 
@@ -6912,7 +6905,11 @@ replace_block_vars_by_duplicates (tree block, hash_map<tree, tree> *vars_map,
 	{
 	  if (TREE_CODE (*tp) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (*tp))
 	    {
-	      SET_DECL_VALUE_EXPR (t, DECL_VALUE_EXPR (*tp));
+	      tree x = DECL_VALUE_EXPR (*tp);
+	      struct replace_decls_d rd = { vars_map, to_context };
+	      unshare_expr (x);
+	      walk_tree (&x, replace_block_vars_by_duplicates_1, &rd, NULL);
+	      SET_DECL_VALUE_EXPR (t, x);
 	      DECL_HAS_VALUE_EXPR_P (t) = 1;
 	    }
 	  DECL_CHAIN (t) = DECL_CHAIN (*tp);

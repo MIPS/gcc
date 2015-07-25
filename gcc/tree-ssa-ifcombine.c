@@ -21,35 +21,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
 /* rtl is needed only because arm back-end requires it for
    BRANCH_COST.  */
-#include "rtl.h"
 #include "tm_p.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "tree-pass.h"
 
 #ifndef LOGICAL_OP_NON_SHORT_CIRCUIT
@@ -775,7 +765,22 @@ pass_tree_ifcombine::execute (function *fun)
 
       if (stmt
 	  && gimple_code (stmt) == GIMPLE_COND)
-	cfg_changed |= tree_ssa_ifcombine_bb (bb);
+	if (tree_ssa_ifcombine_bb (bb))
+	  {
+	    /* Clear range info from all stmts in BB which is now executed
+	       conditional on a always true/false condition.  */
+	    for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+		 !gsi_end_p (gsi); gsi_next (&gsi))
+	      {
+		gimple stmt = gsi_stmt (gsi);
+		ssa_op_iter i;
+		tree op;
+		FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_DEF)
+		  reset_flow_sensitive_info (op);
+	      }
+
+	    cfg_changed |= true;
+	  }
     }
 
   free (bbs);

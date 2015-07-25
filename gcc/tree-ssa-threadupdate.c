@@ -21,29 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "flags.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
 #include "tree-ssa.h"
 #include "tree-ssa-threadupdate.h"
-#include "ssa-iterators.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "dbgcnt.h"
@@ -1375,8 +1366,8 @@ ssa_redirect_edges (struct redirection_data **slot,
   struct redirection_data *rd = *slot;
   struct el *next, *el;
 
-  /* Walk over all the incoming edges associated associated with this
-     hash table entry.  */
+  /* Walk over all the incoming edges associated with this hash table
+     entry.  */
   for (el = rd->incoming_edges; el; el = next)
     {
       edge e = el->e;
@@ -2489,6 +2480,12 @@ duplicate_thread_path (edge entry, edge exit,
 
   /* Remove the last branch in the jump thread path.  */
   remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
+
+  /* And fixup the flags on the single remaining edge.  */
+  edge fix_e = find_edge (region_copy[n_region - 1], exit->dest);
+  fix_e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
+  fix_e->flags |= EDGE_FALLTHRU;
+
   edge e = make_edge (region_copy[n_region - 1], exit->dest, EDGE_FALLTHRU);
 
   if (e) {
