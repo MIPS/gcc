@@ -84,9 +84,9 @@ language extensions for shared-memory parallel programming in C.
 * Configuring Libgupc::        How to configure the UPC runtime library.
 * Runtime Library Routines::   The UPC runtime application programming 
                                interface.
+* The libgupc ABI::            Notes on the external ABI presented by libgupc.
 * Environment Variables::      Influencing runtime behavior with environment 
                                variables.
-* The libgupc ABI::            Notes on the external ABI presented by libgupc.
 * Reporting Bugs::             How to report bugs in GNU UPC.
 * Copying::                    GNU general public license says
                                how you can copy and share libgupc.
