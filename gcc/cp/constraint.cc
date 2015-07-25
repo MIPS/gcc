@@ -1334,7 +1334,9 @@ process_introduction_parm (tree parameter_list, tree src_parm)
   else if (TREE_CODE (src_parm) == TEMPLATE_DECL)
     {
       is_non_type = false;
+      begin_template_parm_list ();
       current_template_parms = DECL_TEMPLATE_PARMS (src_parm);
+      end_template_parm_list ();
       parm = finish_template_template_parm (class_type_node, ident);
     }
   else

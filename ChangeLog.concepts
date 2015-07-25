@@ -1,5 +1,9 @@
 2015-07-24  Jason Merrill  <jason@redhat.com>
 
+	PR c++/66985
+	* constraint.cc (process_introduction_parm): Call
+	begin/end_template_parm_list.
+
 	PR c++/67003
 	* parser.c (cp_parser_template_introduction): Look up the concept
 	in the explicit scope.
