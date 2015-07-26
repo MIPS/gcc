@@ -1,3 +1,10 @@
+2015-07-26  Ilmir Usmanov  <me@ilmir.us>
+
+	PR/63858
+	Fix mix of OpenACC and OpenMP sentinels in continuation.
+	* gfortran.dg/goacc/omp.f95: Add test case for free form.
+	* gfortran.dg/goacc/omp-fixed.f: New test for fixed form.
+
 2015-07-17  Tom de Vries  <tom@codesourcery.com>
 
 	* c-c++-common/goacc/private-reduction-1.c (reduction): Add missing

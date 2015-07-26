@@ -1,3 +1,13 @@
+2015-07-26  Ilmir Usmanov  <me@ilmir.us>
+
+	PR/63858
+	Fix mix of OpenACC and OpenMP sentinels in continuation.
+	* scanner.c (skip_omp_attribute_fixed, skip_oacc_attribute_fixed): New
+	functions.
+	(skip_fixed_comments): Fix mix of OpenACC and OpenMP sentinels in
+	continuation.
+	(gfc_next_char_literal): Likewise.
+
 2015-07-17  Julian Brown  <julian@codesourcery.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses): Add NULL check for
