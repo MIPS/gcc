@@ -1,3 +1,8 @@
+2015-07-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gimplify.c (oacc_default_clause): Fallthrough to unspecified
+	handling.  Propagate mapping from outer scope.
+
 2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (device_resident_p): New function, broken out of

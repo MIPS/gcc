@@ -5930,7 +5930,7 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 	       DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rkind);
 	error_at (ctx->location, "enclosing OpenACC %s construct", rkind);
       }
-    break;
+      /* FALLTHRU.  */
 
     case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
       {
@@ -5944,33 +5944,39 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 		  continue;
 		if (!(octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)))
 		  break;
-		if (splay_tree_lookup (octx->variables, (splay_tree_key) decl))
+	      splay_tree_node n2
+		= splay_tree_lookup (octx->variables, (splay_tree_key) decl);
+	      if (n2)
+		{
+		  flags |= n2->value & GOVD_MAP;
 		  goto found_outer;
+		}
 	      }
 	  }
 
-	{
-	  tree type = TREE_TYPE (decl);
-	  /*  Should this  be REFERENCE_TYPE_P? */
-	  if (POINTER_TYPE_P (type))
-	    type = TREE_TYPE (type);
+	if (is_global_var (decl) && device_resident_p (decl))
+	  flags |= GOVD_MAP_TO_ONLY | GOVD_MAP;
+	/* Scalars under kernels are default 'copy'.  */
+	else if (ctx->acc_region_kind == ARK_KERNELS)
+	  flags |= GOVD_FORCE_MAP | GOVD_MAP;
+	else if (ctx->acc_region_kind == ARK_PARALLEL)
+	  {
+	    tree type = TREE_TYPE (decl);
+
+	    /*  Should this  be REFERENCE_TYPE_P? */
+	    if (POINTER_TYPE_P (type))
+	      type = TREE_TYPE (type);
 	
-	  /* For OpenACC regions, array and aggregate variables
-	     default to present_or_copy, while scalar variables
-	     by default are firstprivate (gang-local) in parallel.  */
-	  if (!AGGREGATE_TYPE_P (type))
-	    {
-	      if (is_global_var (decl) && device_resident_p (decl))
-		flags |= GOVD_MAP_TO_ONLY;
-	      else if (ctx->acc_region_kind == ARK_PARALLEL)
-		flags |= (GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY);
-	      /* Scalars under kernels are default 'copy'.  */
-	      else if (ctx->acc_region_kind == ARK_KERNELS)
-		flags |= GOVD_FORCE_MAP;
-	      else
-		gcc_unreachable ();
-	    }
+	    if (AGGREGATE_TYPE_P (type))
+	      /* Aggregates default to 'copy'.  This should really
+		 include GOVD_FORCE_MAP.  */
+	      flags |= GOVD_MAP;
+	    else
+	      /* Scalars default tp 'firstprivate'.  */
+	      flags |= GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY | GOVD_MAP;
 	  }
+	else
+	  gcc_unreachable ();
       found_outer:;
       }
       break;
@@ -6020,7 +6026,8 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
 	  if (is_oacc)
 	    flags = oacc_default_clause (ctx, decl, in_code, flags);
-	  flags |= GOVD_MAP;
+	  else
+	    flags |= GOVD_MAP;
 
 	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl), is_oacc))
 	    {
