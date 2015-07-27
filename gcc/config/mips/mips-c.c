@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-pragma.h"
 #include "ggc.h"
 #include "target.h"
-#include "target-def.h"
 #include "cpplib.h"
 
 #define preprocessing_asm_p() (cpp_get_options (parse_in)->lang == CLK_ASM)
