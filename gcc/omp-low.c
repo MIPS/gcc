@@ -14395,4 +14395,76 @@ make_pass_late_lower_omp (gcc::context *ctxt)
   return new pass_late_lower_omp (ctxt);
 }
 
+/* Main entry point for oacc transformations which run on the device
+   compiler.  */
+
+static unsigned int
+execute_oacc_transform ()
+{
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+
+  if (!lookup_attribute ("oacc function",
+			 DECL_ATTRIBUTES (current_function_decl)))
+    return 0;
+
+
+  FOR_ALL_BB_FN (bb, cfun)
+    {
+      gsi = gsi_start_bb (bb);
+
+      while (!gsi_end_p (gsi))
+	{
+	  stmt = gsi_stmt (gsi);
+	  gsi_next (&gsi);
+	}
+    }
+
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_oacc_transform =
+{
+  GIMPLE_PASS, /* type */
+  "fold_oacc_transform", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0 /* Possibly PROP_gimple_eomp.  */, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_update_ssa, /* todo_flags_finish */
+};
+
+class pass_oacc_transform : public gimple_opt_pass
+{
+public:
+  pass_oacc_transform (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_oacc_transform, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual unsigned int execute (function *)
+    {
+      bool gate = (flag_openacc != 0 && !seen_error ());
+
+      if (!gate)
+	return 0;
+
+      return execute_oacc_transform ();
+    }
+
+}; // class pass_oacc_transform
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_oacc_transform (gcc::context *ctxt)
+{
+  return new pass_oacc_transform (ctxt);
+}
+
 #include "gt-omp-low.h"

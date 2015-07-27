@@ -1,3 +1,11 @@
+2015-07-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (execute_oacc_transform): New function.
+	(class pass_oacc_transform): New function.
+	(make_pass_oacc_transform): New function.
+	* passes.def: Add pass_oacc_transform to all_passes.
+	* tree-pass.h (make_pass_oacc_transform): Declare.
+
 2015-07-27  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/mkoffload.c (process): Rename _2 functions to _ver.
