@@ -1,5 +1,17 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	2015-07-14  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.c (greater_than_spec_func): Declare forward.
+	(LINK_COMMAND_SPEC, GOMP_SELF_SPECS): Use gt to ignore
+	-ftree-parallelize-loops={0,1}.
+	(static_spec_functions): Add greater_than_spec_func function with name
+	"gt".
+	(greater_than_spec_func): New function.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	PR tree-optimization/66846
 	* omp-low.c (expand_omp_taskreg) [ENABLE_CHECKING]: Call
 	verify_loop_structure for child_cfun if !LOOPS_NEED_FIXUP.
