@@ -13103,7 +13103,6 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
 	  if (value != NULL_TREE)
 	    {
 	      value = cxx_constant_value (value);
-	      STRIP_NOPS (value);
 
 	      if (TREE_CODE (value) != INTEGER_CST
 		  || ! INTEGRAL_OR_ENUMERATION_TYPE_P (TREE_TYPE (value)))
