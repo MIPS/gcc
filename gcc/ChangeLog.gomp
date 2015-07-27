@@ -1,5 +1,10 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	* graphite-sese-to-poly.c (is_reduction_operation_p): Allow operations
+	that do not overflow.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	* tree.c (no_overflow_tree_code): New function.
 	* tree.h (no_overflow_tree_code): Declare.
 	* tree-vect-loop.c (vect_is_simple_reduction_1): Use
