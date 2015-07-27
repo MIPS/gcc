@@ -2612,7 +2612,8 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
 			"reduction: unsafe fp math optimization: ");
       return NULL;
     }
-  else if (INTEGRAL_TYPE_P (type) && check_reduction)
+  else if (INTEGRAL_TYPE_P (type) && check_reduction
+	   && !no_overflow_tree_code (code, type))
     {
       if (TYPE_OVERFLOW_TRAPS (type))
 	{

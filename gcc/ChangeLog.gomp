@@ -1,5 +1,12 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	* tree.c (no_overflow_tree_code): New function.
+	* tree.h (no_overflow_tree_code): Declare.
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Use
+	no_overflow_tree_code.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	PR tree-optimization/46193
 	* omp-low.c (omp_reduction_init): Handle pointer type for min or max
 	clause.

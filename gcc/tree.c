@@ -7550,6 +7550,30 @@ associative_tree_code (enum tree_code code)
   return false;
 }
 
+/* Return true if CODE represents an tree code that cannot overflow, given
+   operand type OP_TYPE.  Otherwise return false.  */
+bool
+no_overflow_tree_code (enum tree_code code, tree op_type)
+{
+  /* For now, just handle associative tree codes.  */
+  switch (code)
+    {
+    case BIT_IOR_EXPR:
+    case BIT_AND_EXPR:
+    case BIT_XOR_EXPR:
+      return true;
+
+    case MIN_EXPR:
+    case MAX_EXPR:
+      return (ANY_INTEGRAL_TYPE_P (op_type)
+	      && TREE_CODE (op_type) != COMPLEX_TYPE);
+
+    default:
+      break;
+    }
+  return false;
+}
+
 /* Return true if CODE represents a commutative tree code.  Otherwise
    return false.  */
 bool

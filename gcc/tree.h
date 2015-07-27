@@ -4370,6 +4370,7 @@ extern tree get_file_function_name (const char *);
 extern tree get_callee_fndecl (const_tree);
 extern int type_num_arguments (const_tree);
 extern bool associative_tree_code (enum tree_code);
+extern bool no_overflow_tree_code (enum tree_code, tree);
 extern bool commutative_tree_code (enum tree_code);
 extern bool commutative_ternary_tree_code (enum tree_code);
 extern tree upper_bound_in_type (tree, tree);
