@@ -3825,6 +3825,8 @@ fold_simple_1 (tree t)
       op1 = fold_simple_1 (TREE_OPERAND (t, 0));
       op2 = fold_simple_1 (TREE_OPERAND (t, 1));
 
+      if (!op1 && !op2)
+	return NULL_TREE;
       if (!op1)
 	op1 = TREE_OPERAND (t, 0);
       if (!op2)
