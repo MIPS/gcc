@@ -1,3 +1,29 @@
+2015-07-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libgomp.map: Rename GOMP_offload_{,un}register_2 to
+	GOMP_offload_{,un}register_ver.
+	* target.c (gomp_load_image_to_device): Check version function to
+	determine interface to plugin.
+	(gomp_unload_image_from_device): Likewise.
+	(GOMP_offload_register_2): Rename to ...
+	(GOMP_offload_register_ver): ... here.
+	(GOMP_offload_unregister_2): Rename to ...
+	(GOMP_offload_unregister_ver): ... here.
+	(GOMP_offload_register, GOMP_offload_unregister): Adjust
+	forwarding.
+	(gomp_load_plugin_for_device): Reimplement DLSYM & DLSYM_OPT
+	macros.  Look for versioning function and check it.  Fetch
+	versioning loader and unloader if available.
+	* libgomp.h (gomp_device_descr): Add version function field.  Put
+	loader and unloader fields in unions.
+	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_version): New.
+	(GOMP_OFFLOAD_load_image_2): Renamed to ...
+	(GOMP_OFFLOAD_load_image_ver): ... here.
+	(GOMP_OFFLOAD_unload_image_2): Renamed to ...
+	(GOMP_OFFLOAD_unload_image_ver): ... here.
+	(GOMP_OFFLOAD_load_image, GOMP_OFFLOAD_unload_image): Delete.
+	* oacc-host.c (host_dispatch): Adjust.
+
 2015-07-25  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-2.c: Copy lresult,

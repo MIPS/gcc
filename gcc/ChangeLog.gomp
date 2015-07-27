@@ -1,3 +1,7 @@
+2015-07-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (process): Rename _2 functions to _ver.
+
 2015-07-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (oacc_default_clause): Fallthrough to unspecified

@@ -1,3 +1,7 @@
+2015-07-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gomp-constants.h (GOMP_VERSION_NVIDIA_PTX): Restore to zero.
+
 2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gomp-constants.h (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX): New.

@@ -296,9 +296,9 @@ process (FILE *in, FILE *out)
 	   "extern \"C\" {\n"
 	   "#endif\n");
 
-  fprintf (out, "extern void GOMP_offload_register_2"
+  fprintf (out, "extern void GOMP_offload_register_ver"
 	   " (unsigned, const void *, int, const void *);\n");
-  fprintf (out, "extern void GOMP_offload_unregister_2"
+  fprintf (out, "extern void GOMP_offload_unregister_ver"
 	   " (unsigned, const void *, int, const void *);\n");
 
   fprintf (out, "#ifdef __cplusplus\n"
@@ -309,7 +309,7 @@ process (FILE *in, FILE *out)
 
   fprintf (out, "static __attribute__((constructor)) void init (void)\n"
 	   "{\n"
-	   "  GOMP_offload_register_2 (%#x, __OFFLOAD_TABLE__,"
+	   "  GOMP_offload_register_ver (%#x, __OFFLOAD_TABLE__,"
 	   "%d/*NVIDIA_PTX*/, &target_data);\n"
 	   "};\n",
 	   GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),
@@ -317,7 +317,7 @@ process (FILE *in, FILE *out)
 
   fprintf (out, "static __attribute__((destructor)) void fini (void)\n"
 	   "{\n"
-	   "  GOMP_offload_unregister_2 (%#x, __OFFLOAD_TABLE__,"
+	   "  GOMP_offload_unregister_ver (%#x, __OFFLOAD_TABLE__,"
 	   "%d/*NVIDIA_PTX*/, &target_data);\n"
 	   "};\n",
 	   GOMP_VERSION_PACK (GOMP_VERSION, GOMP_VERSION_NVIDIA_PTX),

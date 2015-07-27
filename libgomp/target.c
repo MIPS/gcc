@@ -671,17 +671,17 @@ gomp_load_image_to_device (unsigned version,
   struct addr_pair *target_table = NULL;
   int i, num_target_entries;
 
-  if (devicep->load_image_2_func)
+  if (devicep->version_func)
     num_target_entries
-      = devicep->load_image_2_func (version, devicep->target_id,
-				    target_data, &target_table);
+      = devicep->load_image.ver_func (version, devicep->target_id,
+					target_data, &target_table);
   else if (GOMP_VERSION_DEV (version))
     gomp_fatal ("Plugin too old for offload data (0 < %u)",
 		GOMP_VERSION_DEV (version));
   else
     num_target_entries
-      = devicep->load_image_func (devicep->target_id,
-				  target_data, &target_table);
+      = devicep->load_image.unver_func (devicep->target_id,
+					target_data, &target_table);
 
   if (num_target_entries != num_funcs + num_vars)
     {
@@ -790,11 +790,11 @@ gomp_unload_image_from_device (unsigned version,
       node = splay_tree_lookup (&devicep->mem_map, &k);
     }
 
-  if (devicep->unload_image_2_func)
-    devicep->unload_image_2_func (version,
-				  devicep->target_id, target_data);
+  if (devicep->version_func)
+    devicep->unload_image.ver_func (version,
+				    devicep->target_id, target_data);
   else
-    devicep->unload_image_func (devicep->target_id, target_data);
+    devicep->unload_image.unver_func (devicep->target_id, target_data);
 
   /* Remove mappings from splay tree.  */
   for (j = 0; j < num_funcs; j++)
@@ -823,8 +823,8 @@ gomp_unload_image_from_device (unsigned version,
    the target, and TARGET_DATA needed by target plugin.  */
 
 void
-GOMP_offload_register_2 (unsigned version, const void *host_table,
-			 int target_type, const void *target_data)
+GOMP_offload_register_ver (unsigned version, const void *host_table,
+			   int target_type, const void *target_data)
 {
   int i;
 
@@ -863,7 +863,7 @@ void
 GOMP_offload_register (const void *host_table, int target_type,
 		       const void *target_data)
 {
-  GOMP_offload_register_2 (0, host_table, target_type, target_data);
+  GOMP_offload_register_ver (0, host_table, target_type, target_data);
 }
 
 /* This function should be called from every offload image while unloading.
@@ -871,8 +871,8 @@ GOMP_offload_register (const void *host_table, int target_type,
    the target, and TARGET_DATA needed by target plugin.  */
 
 void
-GOMP_offload_unregister_2 (unsigned version, const void *host_table,
-			   int target_type, const void *target_data)
+GOMP_offload_unregister_ver (unsigned version, const void *host_table,
+			     int target_type, const void *target_data)
 {
   int i;
 
@@ -904,7 +904,7 @@ void
 GOMP_offload_unregister (const void *host_table, int target_type,
 			 const void *target_data)
 {
-  GOMP_offload_unregister_2 (0, host_table, target_type, target_data);
+  GOMP_offload_unregister_ver (0, host_table, target_type, target_data);
 }
 
 /* This function initializes the target device, specified by DEVICEP.  DEVICEP
@@ -1130,43 +1130,41 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
 			     const char *plugin_name)
 {
   const char *err = NULL, *last_missing = NULL;
-  int optional_present = 0, optional_total = 0;
-
-  /* Clear any existing error.  */
-  dlerror ();
 
   void *plugin_handle = dlopen (plugin_name, RTLD_LAZY);
   if (!plugin_handle)
-    {
-      err = dlerror ();
-      goto out;
-    }
+    goto dl_fail;
 
   /* Check if all required functions are available in the plugin and store
-     their handlers.  */
+     their handlers.  None of the symbols can legitimately be NULL,
+     so we don't need to check dlerror all the time.  */
 #define DLSYM(f)							\
-  do									\
-    {									\
-      device->f##_func = dlsym (plugin_handle, "GOMP_OFFLOAD_" #f);	\
-      err = dlerror ();							\
-      if (err != NULL)							\
-	goto out;							\
-    }									\
-  while (0)
-  /* Similar, but missing functions are not an error.  */
-#define DLSYM_OPT(f, n)						\
-  do									\
-    {									\
-      const char *tmp_err;							\
-      device->f##_func = dlsym (plugin_handle, "GOMP_OFFLOAD_" #n);	\
-      tmp_err = dlerror ();						\
-      if (tmp_err == NULL)						\
-        optional_present++;						\
-      else								\
-        last_missing = #n;						\
-      optional_total++;							\
-    }									\
-  while (0)
+  if (!(device->f##_func = dlsym (plugin_handle, "GOMP_OFFLOAD_" #f)))	\
+    goto dl_fail
+  /* Similar, but missing functions are not an error.  Return false if
+     failed, true otherwise.  */
+#define DLSYM_OPT(f, n)							\
+  ((device->f##_func = dlsym (plugin_handle, "GOMP_OFFLOAD_" #n))	\
+   || (last_missing = #n, 0))
+
+  if (DLSYM_OPT (version, version))
+    {
+      unsigned v = device->version_func ();
+      if (v != GOMP_VERSION)
+	{
+	  err = "plugin version mismatch";
+	  goto fail;
+	}
+      if (!DLSYM_OPT (load_image.ver, load_image_ver)
+	  || !DLSYM_OPT (unload_image.ver, unload_image_ver))
+	goto  dl_fail;
+    }
+  else
+    {
+      if (!DLSYM_OPT (load_image.unver, load_image)
+	  || !DLSYM_OPT (unload_image.unver, unload_image))
+	goto dl_fail;
+    }
 
   DLSYM (get_name);
   DLSYM (get_caps);
@@ -1174,66 +1172,67 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (get_num_devices);
   DLSYM (init_device);
   DLSYM (fini_device);
-  DLSYM (load_image);
-  DLSYM (unload_image);
   DLSYM (alloc);
   DLSYM (free);
   DLSYM (dev2host);
   DLSYM (host2dev);
-  DLSYM_OPT (load_image_2, load_image_2);
-  DLSYM_OPT (unload_image_2, unload_image_2);
   device->capabilities = device->get_caps_func ();
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
     DLSYM (run);
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENACC_200)
     {
-      optional_present = optional_total = 0;
-      DLSYM_OPT (openacc.exec, openacc_parallel);
-      DLSYM_OPT (openacc.register_async_cleanup,
-		 openacc_register_async_cleanup);
-      DLSYM_OPT (openacc.async_test, openacc_async_test);
-      DLSYM_OPT (openacc.async_test_all, openacc_async_test_all);
-      DLSYM_OPT (openacc.async_wait, openacc_async_wait);
-      DLSYM_OPT (openacc.async_wait_async, openacc_async_wait_async);
-      DLSYM_OPT (openacc.async_wait_all, openacc_async_wait_all);
-      DLSYM_OPT (openacc.async_wait_all_async, openacc_async_wait_all_async);
-      DLSYM_OPT (openacc.async_set_async, openacc_async_set_async);
-      DLSYM_OPT (openacc.create_thread_data, openacc_create_thread_data);
-      DLSYM_OPT (openacc.destroy_thread_data, openacc_destroy_thread_data);
-      /* Require all the OpenACC handlers if we have
-	 GOMP_OFFLOAD_CAP_OPENACC_200.  */
-      if (optional_present != optional_total)
+      if (!DLSYM_OPT (openacc.exec, openacc_parallel)
+	  || !DLSYM_OPT (openacc.register_async_cleanup,
+			 openacc_register_async_cleanup)
+	  || !DLSYM_OPT (openacc.async_test, openacc_async_test)
+	  || !DLSYM_OPT (openacc.async_test_all, openacc_async_test_all)
+	  || !DLSYM_OPT (openacc.async_wait, openacc_async_wait)
+	  || !DLSYM_OPT (openacc.async_wait_async, openacc_async_wait_async)
+	  || !DLSYM_OPT (openacc.async_wait_all, openacc_async_wait_all)
+	  || !DLSYM_OPT (openacc.async_wait_all_async,
+			 openacc_async_wait_all_async)
+	  || !DLSYM_OPT (openacc.async_set_async, openacc_async_set_async)
+	  || !DLSYM_OPT (openacc.create_thread_data,
+			 openacc_create_thread_data)
+	  || !DLSYM_OPT (openacc.destroy_thread_data,
+			 openacc_destroy_thread_data))
 	{
+	  /* Require all the OpenACC handlers if we have
+	     GOMP_OFFLOAD_CAP_OPENACC_200.  */
 	  err = "plugin missing OpenACC handler function";
-	  goto out;
+	  goto fail;
 	}
-      optional_present = optional_total = 0;
-      DLSYM_OPT (openacc.cuda.get_current_device,
-		 openacc_get_current_cuda_device);
-      DLSYM_OPT (openacc.cuda.get_current_context,
-		 openacc_get_current_cuda_context);
-      DLSYM_OPT (openacc.cuda.get_stream, openacc_get_cuda_stream);
-      DLSYM_OPT (openacc.cuda.set_stream, openacc_set_cuda_stream);
-      /* Make sure all the CUDA functions are there if any of them are.  */
-      if (optional_present && optional_present != optional_total)
+
+      unsigned cuda = 0;
+      cuda += DLSYM_OPT (openacc.cuda.get_current_device,
+			 openacc_get_current_cuda_device);
+      cuda += DLSYM_OPT (openacc.cuda.get_current_context,
+			 openacc_get_current_cuda_context);
+      cuda += DLSYM_OPT (openacc.cuda.get_stream, openacc_get_cuda_stream);
+      cuda += DLSYM_OPT (openacc.cuda.set_stream, openacc_set_cuda_stream);
+      if (cuda && cuda != 4)
 	{
+	  /* Make sure all the CUDA functions are there if any of them are.  */
 	  err = "plugin missing OpenACC CUDA handler function";
-	  goto out;
+	  goto fail;
 	}
     }
 #undef DLSYM
 #undef DLSYM_OPT
 
- out:
-  if (err != NULL)
-    {
-      gomp_error ("while loading %s: %s", plugin_name, err);
-      if (last_missing)
-        gomp_error ("missing function was %s", last_missing);
-      if (plugin_handle)
-	dlclose (plugin_handle);
-    }
-  return err == NULL;
+
+  return 1;
+
+ dl_fail:
+  err = dlerror ();
+ fail:
+  gomp_error ("while loading %s: %s", plugin_name, err);
+  if (last_missing)
+    gomp_error ("missing function was %s", last_missing);
+  if (plugin_handle)
+    dlclose (plugin_handle);
+
+  return 0;
 }
 
 /* This function initializes the runtime needed for offloading.

@@ -1615,12 +1615,22 @@ typedef struct nvptx_tdata
   size_t fn_num;
 } nvptx_tdata_t;
 
+/* Return the libgomp version number we're compatible with.  There is
+   no requirement for cross-version compatibility.  */
+
+unsigned
+GOMP_OFFLOAD_version (void)
+{
+  return GOMP_VERSION;
+}
+
 /* Load the (partial) program described by TARGET_DATA to device
    number ORD.  Allocate and return TARGET_TABLE.  */
 
 int
-GOMP_OFFLOAD_load_image_2 (unsigned version, int ord, const void *target_data,
-			   struct addr_pair **target_table)
+GOMP_OFFLOAD_load_image_ver (unsigned version, int ord,
+			     const void *target_data,
+			     struct addr_pair **target_table)
 {
   CUmodule module;
   const char *const *fn_names, *const *var_names;
@@ -1702,19 +1712,12 @@ GOMP_OFFLOAD_load_image_2 (unsigned version, int ord, const void *target_data,
   return fn_entries + var_entries;
 }
 
-int
-GOMP_OFFLOAD_load_image (int device,
-			 const void *target_image, struct addr_pair **result)
-{
-  return GOMP_OFFLOAD_load_image_2 (0, device, target_image, result);
-}
-
 /* Unload the program described by TARGET_DATA.  DEV_DATA is the
    function descriptors allocated by G_O_load_image.  */
 
 void
-GOMP_OFFLOAD_unload_image_2 (unsigned version, int ord,
-			     const void *target_data)
+GOMP_OFFLOAD_unload_image_ver (unsigned version, int ord,
+			       const void *target_data)
 {
   struct ptx_image_data *image, **prev_p;
   struct ptx_device *dev = ptx_devices[ord];
@@ -1733,12 +1736,6 @@ GOMP_OFFLOAD_unload_image_2 (unsigned version, int ord,
 	break;
       }
   pthread_mutex_unlock (&dev->image_lock);
-}
-
-void
-GOMP_OFFLOAD_unload_image (int ord, const void *target_data)
-{
-  GOMP_OFFLOAD_unload_image_2 (0, ord, target_data);
 }
 
 void *

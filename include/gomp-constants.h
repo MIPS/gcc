@@ -124,7 +124,7 @@ enum gomp_map_kind
 
 /* Versions of libgomp and device-specific plugins.  */
 #define GOMP_VERSION	0
-#define GOMP_VERSION_NVIDIA_PTX 1
+#define GOMP_VERSION_NVIDIA_PTX 0
 
 #define GOMP_VERSION_PACK(LIB, DEV) (((LIB) << 16) | (DEV))
 #define GOMP_VERSION_LIB(PACK) (((PACK) >> 16) & 0xffff)
