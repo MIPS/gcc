@@ -969,9 +969,57 @@ cp_genericize_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 static tree
 cp_fold_r (tree *stmt_p, int *walk_subtrees  ATTRIBUTE_UNUSED, void *data)
 {
+  tree stmt;
   struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
+  enum tree_code code;
 
-  *stmt_p = cp_fold (*stmt_p, wtd->fold_hash);
+  *stmt_p = stmt = cp_fold (*stmt_p, wtd->fold_hash);
+
+  code = TREE_CODE (stmt);
+  if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE)
+    {
+      tree x;
+      int i, n;
+
+      cp_walk_tree (&OMP_FOR_BODY (stmt), cp_fold_r, data, NULL);
+      cp_walk_tree (&OMP_FOR_CLAUSES (stmt), cp_fold_r, data, NULL);
+      cp_walk_tree (&OMP_FOR_INIT (stmt), cp_fold_r, data, NULL);
+      x = OMP_FOR_COND (stmt);
+      if (x && TREE_CODE_CLASS (TREE_CODE (x)) == tcc_comparison)
+	{
+	  cp_walk_tree (&TREE_OPERAND (x, 0), cp_fold_r, data, NULL);
+	  cp_walk_tree (&TREE_OPERAND (x, 1), cp_fold_r, data, NULL);
+	} 
+      else if (x && TREE_CODE (x) == TREE_VEC)
+	{
+	  n = TREE_VEC_LENGTH (x);
+	  for (i = 0; i < n; i++)
+	    {
+	      tree o = TREE_VEC_ELT (x, i);
+	      if (o && TREE_CODE_CLASS (TREE_CODE (o)) == tcc_comparison)
+		cp_walk_tree (&TREE_OPERAND (o, 1), cp_fold_r, data, NULL);
+	    }
+	}
+      x = OMP_FOR_INCR (stmt);
+      if (x && TREE_CODE (x) == TREE_VEC)
+	{
+	  n = TREE_VEC_LENGTH (x);
+	  for (i = 0; i < n; i++)
+	    {
+	      tree o = TREE_VEC_ELT (x, i);
+	      if (o && TREE_CODE (o) == MODIFY_EXPR)
+		o = TREE_OPERAND (o, 1);
+	      if (o && (TREE_CODE (o) == PLUS_EXPR || TREE_CODE (o) == MINUS_EXPR
+			|| TREE_CODE (o) == POINTER_PLUS_EXPR))
+		{
+		  cp_walk_tree (&TREE_OPERAND (o, 0), cp_fold_r, data, NULL);
+		  cp_walk_tree (&TREE_OPERAND (o, 1), cp_fold_r, data, NULL);
+		}
+	    }
+	}
+      cp_walk_tree (&OMP_FOR_PRE_BODY (stmt), cp_fold_r, data, NULL);
+      *walk_subtrees = 0;
+    }
 
   return NULL;
 }
