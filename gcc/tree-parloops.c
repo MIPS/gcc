@@ -2151,7 +2151,14 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 
   guard = make_edge (for_bb, ex_bb, 0);
   single_succ_edge (loop->latch)->flags = 0;
+
+  /* After creating this edge, the latch has two successors, so
+     LOOPS_HAVE_SIMPLE_LATCHES is no longer valid.  We'll update the loop state
+     as such at the end of the pass, since it's not needed earlier, and doing it
+     earlier will invalidate info for loops we still need to process.  */
   end = make_edge (loop->latch, ex_bb, EDGE_FALLTHRU);
+  rescan_loop_exit (end, true, false);
+
   for (gphi_iterator gpi = gsi_start_phis (ex_bb);
        !gsi_end_p (gpi); gsi_next (&gpi))
     {
@@ -2413,10 +2420,6 @@ gen_parallel_loop (struct loop *loop,
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 
   scev_reset ();
-
-  /* Cancel the loop (it is simpler to do it here rather than to teach the
-     expander to do it).  */
-  cancel_loop_tree (loop);
 
   /* Free loop bound estimations that could contain references to
      removed statements.  */
@@ -2709,6 +2712,7 @@ parallelize_loops (bool oacc_kernels_p)
   unsigned n_threads = flag_tree_parallelize_loops;
   bool changed = false;
   struct loop *loop;
+  struct loop *skip_loop = NULL;
   struct tree_niter_desc niter_desc;
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
@@ -2729,6 +2733,19 @@ parallelize_loops (bool oacc_kernels_p)
 
   FOR_EACH_LOOP (loop, 0)
     {
+      if (loop == skip_loop)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "Skipping loop %d as inner loop of parallelized loop\n",
+		     loop->num);
+
+	  skip_loop = loop->inner;
+	  continue;
+	}
+      else
+	skip_loop = NULL;
+
       reduction_list.empty ();
 
       if (oacc_kernels_p)
@@ -2818,6 +2835,7 @@ parallelize_loops (bool oacc_kernels_p)
 	}
 
       changed = true;
+      skip_loop = loop->inner;
       if (dump_file && (dump_flags & TDF_DETAILS))
       {
 	if (loop->inner)
@@ -2885,6 +2903,12 @@ pass_parallelize_loops::execute (function *fun)
   if (parallelize_loops (false))
     {
       fun->curr_properties &= ~(PROP_gimple_eomp);
+
+      loops_state_clear (LOOPS_HAVE_SIMPLE_LATCHES);
+#ifdef ENABLE_CHECKING
+      verify_loop_structure ();
+#endif
+
       return TODO_update_ssa;
     }
 
