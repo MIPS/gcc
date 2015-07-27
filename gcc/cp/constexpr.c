@@ -1283,6 +1283,16 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
       ctx->values->put (new_ctx.object, ctor);
       ctx = &new_ctx;
     }
+  else if (DECL_BY_REFERENCE (DECL_RESULT (fun)) && !ctx->object
+	   && TREE_CODE (t) != AGGR_INIT_EXPR)
+    {
+      /* We don't have a target for return by invisible reference.  Maybe
+	 convert_to_void stripped our AGGR_INIT_EXPR, in which case we don't
+	 care about a constant value.  */
+      gcc_assert (ctx->quiet);
+      *non_constant_p = true;
+      return t;
+    }
 
   bool non_constant_args = false;
   cxx_bind_parameters_in_call (ctx, t, &new_call,
