@@ -2466,7 +2466,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   rtx basex, basey;
   bool moffsetx_known_p, moffsety_known_p;
   HOST_WIDE_INT moffsetx = 0, moffsety = 0;
-  HOST_WIDE_INT offsetx = 0, offsety = 0, sizex, sizey, tem;
+  HOST_WIDE_INT offsetx = 0, offsety = 0, sizex, sizey;
 
   /* Unless both have exprs, we can't tell anything.  */
   if (exprx == 0 || expry == 0)
@@ -2506,19 +2506,6 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
 
   if (! DECL_P (exprx) || ! DECL_P (expry))
     return 0;
-
-  /* If we refer to different gimple registers, or one gimple register
-     and one non-gimple-register, we know they can't overlap.  First,
-     gimple registers don't have their addresses taken.  Now, there
-     could be more than one stack slot for (different versions of) the
-     same gimple register, but we can presumably tell they don't
-     overlap based on offsets from stack base addresses elsewhere.
-     It's important that we don't proceed to DECL_RTL, because gimple
-     registers may not pass DECL_RTL_SET_P, and make_decl_rtl won't be
-     able to do anything about them since no SSA information will have
-     remained to guide it.  */
-  if (is_gimple_reg (exprx) || is_gimple_reg (expry))
-    return exprx != expry;
 
   /* With invalid code we can end up storing into the constant pool.
      Bail out to avoid ICEing when creating RTL for this.
@@ -2596,8 +2583,8 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   /* Put the values of the memref with the lower offset in X's values.  */
   if (offsetx > offsety)
     {
-      tem = offsetx, offsetx = offsety, offsety = tem;
-      tem = sizex, sizex = sizey, sizey = tem;
+      std::swap (offsetx, offsety);
+      std::swap (sizex, sizey);
     }
 
   /* If we don't know the size of the lower-offset value, we can't tell

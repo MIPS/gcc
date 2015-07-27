@@ -6180,7 +6180,7 @@ ix86_legitimate_combined_insn (rtx_insn *insn)
 	  if (UNARY_P (op))
 	    op = XEXP (op, 0);
 
-	  if (GET_CODE (op) == SUBREG)
+	  if (SUBREG_P (op))
 	    {
 	      if (REG_P (SUBREG_REG (op))
 		  && REGNO (SUBREG_REG (op)) < FIRST_PSEUDO_REGISTER)
@@ -6316,43 +6316,51 @@ ix86_reg_parm_stack_space (const_tree fndecl)
   return 0;
 }
 
-/* Returns value SYSV_ABI, MS_ABI dependent on fntype, specifying the
-   call abi used.  */
-enum calling_abi
-ix86_function_type_abi (const_tree fntype)
-{
-  if (fntype != NULL_TREE && TYPE_ATTRIBUTES (fntype) != NULL_TREE)
-    {
-      enum calling_abi abi = ix86_abi;
-      if (abi == SYSV_ABI)
-	{
-	  if (lookup_attribute ("ms_abi", TYPE_ATTRIBUTES (fntype)))
-	    {
-	      if (TARGET_X32)
-		{
-		  static bool warned = false;
-		  if (!warned)
-		    {
-		      error ("X32 does not support ms_abi attribute");
-		      warned = true;
-		    }
-		}
-	      abi = MS_ABI;
-	    }
-	}
-      else if (lookup_attribute ("sysv_abi", TYPE_ATTRIBUTES (fntype)))
-	abi = SYSV_ABI;
-      return abi;
-    }
-  return ix86_abi;
-}
-
 /* We add this as a workaround in order to use libc_has_function
    hook in i386.md.  */
 bool
 ix86_libc_has_function (enum function_class fn_class)
 {
   return targetm.libc_has_function (fn_class);
+}
+
+/* Returns value SYSV_ABI, MS_ABI dependent on fntype,
+   specifying the call abi used.  */
+enum calling_abi
+ix86_function_type_abi (const_tree fntype)
+{
+  enum calling_abi abi = ix86_abi;
+
+  if (fntype == NULL_TREE || TYPE_ATTRIBUTES (fntype) == NULL_TREE)
+    return abi;
+
+  if (abi == SYSV_ABI
+      && lookup_attribute ("ms_abi", TYPE_ATTRIBUTES (fntype)))
+    {
+      if (TARGET_X32)
+	error ("X32 does not support ms_abi attribute");
+
+      abi = MS_ABI;
+    }
+  else if (abi == MS_ABI
+	   && lookup_attribute ("sysv_abi", TYPE_ATTRIBUTES (fntype)))
+    abi = SYSV_ABI;
+
+  return abi;
+}
+
+static enum calling_abi
+ix86_function_abi (const_tree fndecl)
+{
+  return fndecl ? ix86_function_type_abi (TREE_TYPE (fndecl)) : ix86_abi;
+}
+
+/* Returns value SYSV_ABI, MS_ABI dependent on cfun,
+   specifying the call abi used.  */
+enum calling_abi
+ix86_cfun_abi (void)
+{
+  return cfun ? cfun->machine->call_abi : ix86_abi;
 }
 
 static bool
@@ -6367,24 +6375,6 @@ ix86_function_ms_hook_prologue (const_tree fn)
         return true;
     }
   return false;
-}
-
-static enum calling_abi
-ix86_function_abi (const_tree fndecl)
-{
-  if (! fndecl)
-    return ix86_abi;
-  return ix86_function_type_abi (TREE_TYPE (fndecl));
-}
-
-/* Returns value SYSV_ABI, MS_ABI dependent on cfun, specifying the
-   call abi used.  */
-enum calling_abi
-ix86_cfun_abi (void)
-{
-  if (! cfun)
-    return ix86_abi;
-  return cfun->machine->call_abi;
 }
 
 /* Write the extra assembler code needed to declare a function properly.  */
@@ -6439,10 +6429,7 @@ extern void init_regs (void);
 void
 ix86_call_abi_override (const_tree fndecl)
 {
-  if (fndecl == NULL_TREE)
-    cfun->machine->call_abi = ix86_abi;
-  else
-    cfun->machine->call_abi = ix86_function_type_abi (TREE_TYPE (fndecl));
+  cfun->machine->call_abi = ix86_function_abi (fndecl);
 }
 
 /* 64-bit MS and SYSV ABI have different set of call used registers.  Avoid
@@ -9095,7 +9082,7 @@ ix86_va_start (tree valist, rtx nextarg)
     }
 
   /* Only 64bit target needs something special.  */
-  if (!TARGET_64BIT || is_va_list_char_pointer (TREE_TYPE (valist)))
+  if (is_va_list_char_pointer (TREE_TYPE (valist)))
     {
       if (cfun->machine->split_stack_varargs_pointer == NULL_RTX)
 	std_expand_builtin_va_start (valist, nextarg);
@@ -9216,7 +9203,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   unsigned int arg_boundary;
 
   /* Only 64bit target needs something special.  */
-  if (!TARGET_64BIT || is_va_list_char_pointer (TREE_TYPE (valist)))
+  if (is_va_list_char_pointer (TREE_TYPE (valist)))
     return std_gimplify_va_arg_expr (valist, type, pre_p, post_p);
 
   f_gpr = TYPE_FIELDS (TREE_TYPE (sysv_va_list_type_node));
@@ -9505,7 +9492,7 @@ ix86_check_movabs (rtx insn, int opnum)
     set = XVECEXP (set, 0, 0);
   gcc_assert (GET_CODE (set) == SET);
   mem = XEXP (set, opnum);
-  while (GET_CODE (mem) == SUBREG)
+  while (SUBREG_P (mem))
     mem = SUBREG_REG (mem);
   gcc_assert (MEM_P (mem));
   return volatile_ok || !MEM_VOLATILE_P (mem);
@@ -12923,7 +12910,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
      they will be emitted with addr32 prefix.  */
   if (TARGET_64BIT && GET_MODE (addr) == SImode)
     {
-      if (GET_CODE (addr) == SUBREG
+      if (SUBREG_P (addr)
 	  && GET_MODE (SUBREG_REG (addr)) == DImode)
 	{
 	  addr = SUBREG_REG (addr);
@@ -12934,7 +12921,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 
   if (REG_P (addr))
     base = addr;
-  else if (GET_CODE (addr) == SUBREG)
+  else if (SUBREG_P (addr))
     {
       if (REG_P (SUBREG_REG (addr)))
 	base = addr;
@@ -13052,7 +13039,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
     {
       if (REG_P (index))
 	;
-      else if (GET_CODE (index) == SUBREG
+      else if (SUBREG_P (index)
 	       && REG_P (SUBREG_REG (index)))
 	;
       else
@@ -13067,8 +13054,8 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
       scale = INTVAL (scale_rtx);
     }
 
-  base_reg = base && GET_CODE (base) == SUBREG ? SUBREG_REG (base) : base;
-  index_reg = index && GET_CODE (index) == SUBREG ? SUBREG_REG (index) : index;
+  base_reg = base && SUBREG_P (base) ? SUBREG_REG (base) : base;
+  index_reg = index && SUBREG_P (index) ? SUBREG_REG (index) : index;
 
   /* Avoid useless 0 displacement.  */
   if (disp == const0_rtx && (base || index))
@@ -13136,9 +13123,9 @@ ix86_address_cost (rtx x, machine_mode, addr_space_t, bool)
 
   gcc_assert (ok);
 
-  if (parts.base && GET_CODE (parts.base) == SUBREG)
+  if (parts.base && SUBREG_P (parts.base))
     parts.base = SUBREG_REG (parts.base);
-  if (parts.index && GET_CODE (parts.index) == SUBREG)
+  if (parts.index && SUBREG_P (parts.index))
     parts.index = SUBREG_REG (parts.index);
 
   /* Attempt to minimize number of registers in the address by increasing
@@ -13543,7 +13530,7 @@ ix86_validate_address_register (rtx op)
 
   if (REG_P (op))
     return op;
-  else if (GET_CODE (op) == SUBREG)
+  else if (SUBREG_P (op))
     {
       rtx reg = SUBREG_REG (op);
 
@@ -16755,7 +16742,7 @@ output_387_binary_op (rtx insn, rtx *operands)
 static bool
 ix86_check_avx256_register (const_rtx exp)
 {
-  if (GET_CODE (exp) == SUBREG)
+  if (SUBREG_P (exp))
     exp = SUBREG_REG (exp);
 
   return (REG_P (exp)
@@ -17583,7 +17570,7 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
   if (can_create_pseudo_p ()
       && register_operand (op0, mode)
       && (CONSTANT_P (op1)
-	  || (GET_CODE (op1) == SUBREG
+	  || (SUBREG_P (op1)
 	      && CONSTANT_P (SUBREG_REG (op1))))
       && !standard_sse_constant_p (op1))
     op1 = validize_mem (force_const_mem (mode, op1));
@@ -17599,7 +17586,7 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
 
       /* ix86_expand_vector_move_misalign() does not like constants ... */
       if (CONSTANT_P (op1)
-	  || (GET_CODE (op1) == SUBREG
+	  || (SUBREG_P (op1)
 	      && CONSTANT_P (SUBREG_REG (op1))))
 	op1 = validize_mem (force_const_mem (mode, op1));
 
@@ -18157,12 +18144,12 @@ ix86_expand_vector_logical_operator (enum rtx_code code, machine_mode mode,
 				     rtx operands[])
 {
   rtx op1 = NULL_RTX, op2 = NULL_RTX;
-  if (GET_CODE (operands[1]) == SUBREG)
+  if (SUBREG_P (operands[1]))
     {
       op1 = operands[1];
       op2 = operands[2];
     }
-  else if (GET_CODE (operands[2]) == SUBREG)
+  else if (SUBREG_P (operands[2]))
     {
       op1 = operands[2];
       op2 = operands[1];
@@ -18174,7 +18161,7 @@ ix86_expand_vector_logical_operator (enum rtx_code code, machine_mode mode,
      to cast them temporarily to integer vectors.  */
   if (op1
       && !TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL
-      && ((GET_CODE (op2) == SUBREG || GET_CODE (op2) == CONST_VECTOR))
+      && (SUBREG_P (op2) || GET_CODE (op2) == CONST_VECTOR)
       && GET_MODE_CLASS (GET_MODE (SUBREG_REG (op1))) == MODE_VECTOR_FLOAT
       && GET_MODE_SIZE (GET_MODE (SUBREG_REG (op1))) == GET_MODE_SIZE (mode)
       && SUBREG_BYTE (op1) == 0
@@ -25141,7 +25128,8 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
       dst = change_address (dst, BLKmode, destreg);
       set_mem_align (dst, desired_align * BITS_PER_UNIT);
       epilogue_size_needed = 0;
-      if (need_zero_guard && !min_size)
+      if (need_zero_guard
+	  && min_size < (unsigned HOST_WIDE_INT) size_needed)
 	{
 	  /* It is possible that we copied enough so the main loop will not
 	     execute.  */
@@ -25273,7 +25261,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	  max_size -= align_bytes;
 	}
       if (need_zero_guard
-	  && !min_size
+	  && min_size < (unsigned HOST_WIDE_INT) size_needed
 	  && (count < (unsigned HOST_WIDE_INT) size_needed
 	      || (align_bytes == 0
 		  && count < ((unsigned HOST_WIDE_INT) size_needed
@@ -25999,9 +25987,9 @@ memory_address_length (rtx addr, bool lea)
   index = parts.index;
   disp = parts.disp;
 
-  if (base && GET_CODE (base) == SUBREG)
+  if (base && SUBREG_P (base))
     base = SUBREG_REG (base);
-  if (index && GET_CODE (index) == SUBREG)
+  if (index && SUBREG_P (index))
     index = SUBREG_REG (index);
 
   gcc_assert (base == NULL_RTX || REG_P (base));
@@ -41644,7 +41632,7 @@ ix86_secondary_reload (bool in_p, rtx x, reg_class_t rclass,
       else
 	regno = -1;
 
-      if (regno >= FIRST_PSEUDO_REGISTER || GET_CODE (x) == SUBREG)
+      if (regno >= FIRST_PSEUDO_REGISTER || SUBREG_P (x))
 	regno = true_regnum (x);
 
       /* Return Q_REGS if the operand is in memory.  */
@@ -42431,7 +42419,7 @@ ix86_rtx_costs (rtx x, machine_mode mode, int outer_code_i, int opno,
 	{
 	  if (CONST_INT_P (XEXP (x, 1)))
 	    *total = cost->shift_const;
-	  else if (GET_CODE (XEXP (x, 1)) == SUBREG
+	  else if (SUBREG_P (XEXP (x, 1))
 		   && GET_CODE (XEXP (XEXP (x, 1), 0)) == AND)
 	    {
 	      /* Return the cost after shift-and truncation.  */
@@ -50539,7 +50527,7 @@ ix86_expand_pextr (rtx *operands)
   unsigned int size = INTVAL (operands[2]);
   unsigned int pos = INTVAL (operands[3]);
 
-  if (GET_CODE (dst) == SUBREG)
+  if (SUBREG_P (dst))
     {
       /* Reject non-lowpart subregs.  */
       if (SUBREG_BYTE (dst) > 0)
@@ -50547,7 +50535,7 @@ ix86_expand_pextr (rtx *operands)
       dst = SUBREG_REG (dst);
     }
 	
-  if (GET_CODE (src) == SUBREG)
+  if (SUBREG_P (src))
     {
       pos += SUBREG_BYTE (src) * BITS_PER_UNIT;
       src = SUBREG_REG (src);
@@ -50642,7 +50630,7 @@ ix86_expand_pinsr (rtx *operands)
   unsigned int size = INTVAL (operands[1]);
   unsigned int pos = INTVAL (operands[2]);
 
-  if (GET_CODE (dst) == SUBREG)
+  if (SUBREG_P (dst))
     {
       pos += SUBREG_BYTE (dst) * BITS_PER_UNIT;
       dst = SUBREG_REG (dst);
@@ -50702,7 +50690,7 @@ ix86_expand_pinsr (rtx *operands)
 	if (pos & (size-1))
 	  return false;
 
-	if (GET_CODE (src) == SUBREG)
+	if (SUBREG_P (src))
 	  {
 	    unsigned int srcpos = SUBREG_BYTE (src);
 

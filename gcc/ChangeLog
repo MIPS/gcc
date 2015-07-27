@@ -1,3 +1,227 @@
+2015-07-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/alpha/alpha.c: Use SUBREG_P predicate.
+	* config/alpha/predicates.md: Ditto.
+
+2015-07-25  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config.host (s390*-*-*): Include driver-native.c only when
+	building with s390* as host *and* target.
+
+2015-07-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/66930
+	* config/sh/sh.c (sh_split_movrt_negc_to_movt_xor): Add missing
+	T bit register modified_between_p check.
+
+2015-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c: Use SUBREG_P predicate.
+	* config/i386/i386.md: Ditto.
+	* config/i386/sse.md: Ditto.
+	* config/i386/predicates.md: Ditto.
+
+2015-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67004
+	* config/i386/i386.h (ADJUST_INSN_LENGTH): Use NONDEBUG_INSN_P (INSN)
+	predicate and INSN_CODE (INSN) >= 0 to check for valid instruction.
+
+2015-07-25  Sebastian Pop  <s.pop@samsung.com>
+
+	* Makefile.in: Remove use of TREEBROWSER.
+	* config.in: Regenerated.
+	* configure: Regenerated.
+	* configure.ac: Remove definition of TREEBROWSER.
+	* tree-browser.c: Removed.
+	* tree-browser.def: Removed.
+
+2015-07-25  Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-scop-detection.c: Include gimple-pretty-print.h.
+	(stmt_simple_for_scop_p): Print when a stmt is not handled in
+	Graphite.
+	(scopdet_basic_block_info): Print when a loop or bb cannot be
+	represented in Graphite.
+
+2015-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66648
+	* config/i386/i386.c (ix86_expand_set_or_movmem): Emit main loop
+	execution guard when min_size is less than size_needed.
+
+2015-07-25  Sebastian Pop  <s.pop@samsung.com>
+
+	* doc/install.texi: Document supported versions of ISL.
+
+2015-07-25  Jeff Law  <law@redhat.com>
+
+	Revert:
+	PR lto/66752
+	* tree-ssa-threadedge.c (simplify_conrol_stmt_condition): If we are
+	unable to find X NE 0 in the tables, return X as the simplified
+	condition.
+	(fsm_find_control_statement_thread_paths): If nodes in NEXT_PATH are
+	in VISISTED_BBS, then return failure.  Else add nodes from NEXT_PATH
+	to VISISTED_BBS.  */
+	* tree-ssa-threadupdate.c (duplicate_thread_path): Fix up edge flags
+	after removing the control flow statement and unnecessary edges.
+
+2015-07-25  David Edelsohn  <dje.gcc@gmail.com>
+
+	Revert:
+	2015-07-23  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	* Makefile.in (OBJS): Drop tree-ssa-copyrename.o.
+	* tree-ssa-copyrename.c: Removed.
+	* opts.c (default_options_table): Drop -ftree-copyrename.  Add
+	-ftree-coalesce-vars.
+	* passes.def: Drop all occurrences of pass_rename_ssa_copies.
+	* common.opt (ftree-copyrename): Ignore.
+	(ftree-coalesce-inlined-vars): Likewise.
+	* doc/invoke.texi: Remove the ignored options above.
+	* gimple-expr.h (gimple_can_coalesce_p): Move declaration
+	* tree-ssa-coalesce.h: ... here.
+	* tree-ssa-uncprop.c: Include tree-ssa-coalesce.h and other
+	headers required by it.
+	* gimple-expr.c (gimple_can_coalesce_p): Allow coalescing
+	across variables when flag_tree_coalesce_vars.  Check register
+	use and promoted modes to allow coalescing.  Moved to
+	tree-ssa-coalesce.c.
+	* tree-ssa-live.c (struct tree_int_map_hasher): Move along
+	with its member functions to tree-ssa-coalesce.c.
+	(var_map_base_init): Likewise.  Renamed to
+	compute_samebase_partition_bases.
+	(partition_view_normal): Drop want_bases parameter.
+	(partition_view_bitmap): Likewise.
+	* tree-ssa-live.h: Adjust declarations.
+	* tree-ssa-coalesce.c: Include explow.h.
+	(build_ssa_conflict_graph): Process PARM_ and RESULT_DECLs's
+	default defs at the entry point.
+	(dump_part_var_map): New.
+	(compute_optimized_partition_bases): New, called by...
+	(coalesce_ssa_name): ... when flag_tree_coalesce_vars, instead
+	of compute_samebase_partition_bases.  Adjust.
+	* alias.c (nonoverlapping_memrefs_p): Disregard gimple-regs.
+	* cfgexpand.c (leader_merge): New.
+	(get_rtl_for_parm_ssa_default_def): New.
+	(set_rtl): Merge exprs and attrs, even for MEMs and non-SSA
+	vars.  Update DECL_RTL for PARM_DECLs and RESULT_DECLs too.
+	(expand_one_stack_var_at): Handle anonymous SSA_NAMEs.  Drop
+	redundant MEM attr setting.
+	(expand_one_stack_var_1): Handle anonymous SSA_NAMEs.  Renamed
+	from...
+	(expand_one_stack_var): ... this.  New wrapper to check and
+	skip already expanded SSA partitions.
+	(record_alignment_for_reg_var): New, factored out of...
+	(expand_one_var): ... this.
+	(expand_one_ssa_partition): New.
+	(adjust_one_expanded_partition_var): New.
+	(expand_one_register_var): Check and skip already expanded SSA
+	partitions.
+	(expand_used_vars): Don't create DECLs for anonymous SSA
+	names.  Expand all SSA partitions, then adjust all SSA names.
+	(pass::execute): Replace the loops that set
+	SA.partition_to_pseudo from partition leaders and cleared
+	DECL_RTL for multi-location variables, and that which used to
+	rename vars and set attrs, with one that clears DECL_RTL and
+	checks that PARMs and RESULTs default_defs match DECL_RTL.
+	* cfgexpand.h (get_rtl_for_parm_ssa_default_def): Declare.
+	* emit-rtl.c (set_reg_attrs_for_parm): Handle NULL decl.
+	* explow.c (promote_ssa_mode): New.
+	* explow.h (promote_ssa_mode): Declare.
+	* expr.c (expand_expr_real_1): Handle anonymous SSA_NAMEs.
+	* function.c: Include cfgexpand.h.
+	(use_register_for_decl): Handle SSA_NAMEs, anonymous or not.
+	(use_register_for_parm_decl): Wrapper for the above to
+	special-case the result_ptr.
+	(rtl_for_parm): Ditto for get_rtl_for_parm_ssa_default_def.
+	(split_complex_args): Take assign_parm_data_all argument.
+	Pass it to rtl_for_parm.  Set up rtl and context for split
+	args.
+	(assign_parms_augmented_arg_list): Adjust.
+	(maybe_reset_rtl_for_parm): Reset DECL_RTL of parms with
+	multiple locations.  Recognize split complex args.
+	(assign_parm_adjust_stack_rtl): Add all and parm arguments,
+	for rtl_for_parm.  For SSA-assigned parms, zero stack_parm.
+	(assign_parm_setup_block): Prefer SSA-assigned location.
+	(assign_parm_setup_reg): Likewise.  Use entry_parm for equiv
+	if stack_parm is NULL.
+	(assign_parm_setup_stack): Prefer SSA-assigned location.
+	(assign_parms): Maybe reset DECL_RTL of params.  Adjust stack
+	rtl before testing for pointer bounds.  Special-case result_ptr.
+	(expand_function_start): Maybe reset DECL_RTL of result.
+	Prefer SSA-assigned location for result and static chain.
+	Factor out DECL_RESULT and SET_DECL_RTL.
+	* tree-outof-ssa.c (insert_value_copy_on_edge): Handle
+	anonymous SSA names.  Use promote_ssa_mode.
+	(get_temp_reg): Likewise.
+	(remove_ssa_form): Adjust.
+	* stor-layout.c (layout_decl): Don't set mem attributes of
+	non-MEMs.
+	* var-tracking.c (dataflow_set_clear_at_call): Take call_insn
+	and get its reg_usage for reg invalidation.
+	(compute_bb_dataflow): Pass it insn.
+	(emit_notes_in_bb): Likewise.
+
+2015-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_va_start): Remove
+	unneeded !TARGET_64BIT check.
+	(ix86_gimplify_va_arg): Ditto.
+
+2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* graphite-sese-to-poly.c (build_poly_scop): Always call
+	rewrite_commutative_reductions_out_of_ssa.
+
+2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* graphite-sese-to-poly.c (is_reduction_operation_p): Limit
+	flag_associative_math to FLOAT_TYPE_P.  Honour
+	TYPE_OVERFLOW_WRAPS for INTEGRAL_TYPE_P. Don't allow any other types.
+
+2015-07-24  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/64079
+	* toplev.c (check_global_declaration): Use DECL_SOURCE_LOCATION
+	and "%qD" in warning_at instead of "%q+D" in warning.
+
+2015-07-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_call_abi_override): Call ix86_function_abi.
+	(ix86_function_abi): Cleanup.
+
+2015-07-24  Michael Darling  <darlingm@gmail.com>
+
+	PR other/66259
+	* acinclude.m4: Reflects renaming of configure.in to configure.ac
+	* configure: Likewise
+	* configure.ac: Likewise
+	* doc/install.texi: Likewise
+	* doc/tm.texi: Likewise
+	* doc/tm.texi.in: Likewise
+
+2015-07-24  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* alias.c (nonoverlapping_memrefs_p): Use std::swap instead of
+	manually swapping values.
+	* cse.c (fold_rtx): Likewise.
+	* lra-eliminations.c (form_sum): Likewise.
+
+2015-07-24  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/64003
+	* config/i386/i386.h (ADJUST_INSN_LENGTH): New define.
+	* config/i386/i386.md (maybe_prefix_bnd): New attribute.
+	(*jcc_1, *jcc_2, jump, simple_return_internal)
+	(simple_return_pop_internal): Set attribute maybe_prefix_bnd.
+	Set length_nobnd attribute instead of length attribute.
+	(indirect_jump, *tablejump_1): Set attribute maybe_prefix_bnd.
+	(length_nobnd): Remove attribute.
+	(length): Remove length_nobnd processing.
+
 2015-07-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (omp_default_clause): New function.  Reorganize flow
@@ -8,7 +232,7 @@
 
 	PR middle-end/66984
 	* fold-const.c (fold_binary_loc): Call fold_convert on arguments to
-        fold_build2 for CEIL_DIV_EXPR and FLOOR_DIV_EXPR optimization.
+	fold_build2 for CEIL_DIV_EXPR and FLOOR_DIV_EXPR optimization.
 
 2015-07-24  Tom de Vries  <tom@codesourcery.com>
 
@@ -149,8 +373,8 @@
 
 2015-07-24  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
-         PR middle-end/25529
-         * match.pd (trunc_div (mult @0 integer_pow2p@1) @1) : New simplifier.
+	PR middle-end/25529
+	* match.pd (trunc_div (mult @0 integer_pow2p@1) @1) : New simplifier.
 
 2015-07-23  Kugan Vivekanandarajah  <kuganv@linaro.org>
 
@@ -508,7 +732,7 @@
 	(aarch64_st4_lane<mode>): Ditto.
 	* config/aarch64/arm_neon.h (__LD2_LANE_FUNC): Rename mode parameter
 	to qmode. Add new mode parameter. Update uses.
-       	(__LD3_LANE_FUNC): Ditto.
+	(__LD3_LANE_FUNC): Ditto.
 	(__LD4_LANE_FUNC): Ditto.
 	(__ST2_LANE_FUNC): Ditto.
 	(__ST3_LANE_FUNC): Ditto.
