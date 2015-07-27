@@ -3,6 +3,14 @@
 	backport from trunk:
 	2015-07-16  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-parloops.c (create_parallel_loop): Handle case that exit phi does
+	not have a corresponding loop header phi.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-07-16  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-parloops.c (create_loads_for_reductions): Handle case that
 	reduction is unused.
 
