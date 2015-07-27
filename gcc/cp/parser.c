@@ -28887,7 +28887,7 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
   if (colon)
     {
       alignment = cp_parser_constant_expression (parser);
-      alignment = fold_simple (alignment);
+      alignment = alignment;
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
@@ -28968,7 +28968,7 @@ cp_parser_omp_clause_safelen (cp_parser *parser, tree list,
   check_no_duplicate_clause (list, OMP_CLAUSE_SAFELEN, "safelen", location);
 
   c = build_omp_clause (location, OMP_CLAUSE_SAFELEN);
-  OMP_CLAUSE_SAFELEN_EXPR (c) = cp_fully_fold (t);
+  OMP_CLAUSE_SAFELEN_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
   return c;
@@ -28997,7 +28997,7 @@ cp_parser_omp_clause_simdlen (cp_parser *parser, tree list,
   check_no_duplicate_clause (list, OMP_CLAUSE_SIMDLEN, "simdlen", location);
 
   c = build_omp_clause (location, OMP_CLAUSE_SIMDLEN);
-  OMP_CLAUSE_SIMDLEN_EXPR (c) = cp_fully_fold (t);
+  OMP_CLAUSE_SIMDLEN_EXPR (c) = t;
   OMP_CLAUSE_CHAIN (c) = list;
 
   return c;
