@@ -1,7 +1,9 @@
 
 /* { dg-do run } */
+/* { dg-warning "TODO" "implicit" { xfail *-*-* } 17 } */
+/* { dg-warning "TODO" "implicit" { xfail *-*-* } 27 } */
+/* { dg-xfail-if "unresolved symbol" { *-*-* } } */
 
-#include <stdio.h>
 #include <stdlib.h>
 
 #pragma acc routine bind (foo)

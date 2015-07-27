@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-xfail-if "not found" { openacc_host_selected } }
 
 program main
   integer :: a, n
@@ -25,4 +26,3 @@ end function
 
 end program main
 
-! { dg-output "not found" { target openacc_host_selected } }

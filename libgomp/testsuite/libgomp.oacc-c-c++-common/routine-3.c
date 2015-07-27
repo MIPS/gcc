@@ -1,5 +1,6 @@
 
 /* { dg-do run } */
+/* { dg-xfail-if "foo not found" { openacc_host_selected } } */
 
 #include <stdlib.h>
 
@@ -28,5 +29,3 @@ main()
 
   return 0;
 }
-
-/* { dg-output "foo not found" { target openacc_host_selected } } */

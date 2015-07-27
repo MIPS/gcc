@@ -1,5 +1,6 @@
 
 ! { dg-do run } 
+! { dg-error "Invalid" "TODO" { xfail *-*-* } 51 }
 
 program main
   integer, parameter :: n = 10
