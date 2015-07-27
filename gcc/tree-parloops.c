@@ -2375,7 +2375,15 @@ gen_parallel_loop (struct loop *loop,
      increment) and immediately follows the loop exit test.  Attempt to move the
      entry of the loop directly before the exit check and increase the number of
      iterations of the loop by one.  */
-  if (!try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+  if (try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+    {
+      if (dump_file
+	  && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "alternative exit-first loop transform succeeded"
+		 " for loop %d\n", loop->num);
+    }
+  else
     {
       if (oacc_kernels_p)
 	n_threads = 1;

@@ -1,6 +1,14 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:
+	2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (gen_parallel_loop): Add debug print for alternative
+	exit-first loop transform.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
 	2015-07-23  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (gather_scalar_reductions): Add arg to call to
