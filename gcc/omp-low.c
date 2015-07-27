@@ -3623,6 +3623,8 @@ omp_reduction_init (tree clause, tree type)
 	    real_maxval (&min, 1, TYPE_MODE (type));
 	  return build_real (type, min);
 	}
+      else if (POINTER_TYPE_P (type))
+	return lower_bound_in_type (type, type);
       else
 	{
 	  gcc_assert (INTEGRAL_TYPE_P (type));
@@ -3639,6 +3641,8 @@ omp_reduction_init (tree clause, tree type)
 	    real_maxval (&max, 0, TYPE_MODE (type));
 	  return build_real (type, max);
 	}
+      else if (POINTER_TYPE_P (type))
+	return upper_bound_in_type (type, type);
       else
 	{
 	  gcc_assert (INTEGRAL_TYPE_P (type));

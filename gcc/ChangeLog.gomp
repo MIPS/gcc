@@ -1,5 +1,11 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	PR tree-optimization/46193
+	* omp-low.c (omp_reduction_init): Handle pointer type for min or max
+	clause.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-07-24  Tom de Vries  <tom@codesourcery.com>
 

@@ -1,5 +1,10 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	PR tree-optimization/46193
+	* gcc.dg/autopar/pr46193.c: New test.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-07-25  Tom de Vries  <tom@codesourcery.com>
 
