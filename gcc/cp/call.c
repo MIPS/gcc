@@ -5649,6 +5649,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 	      ^ (code_orig_arg2 == BOOLEAN_TYPE)))
 	maybe_warn_bool_compare (loc, code, fold (arg1),
 				 fold (arg2));
+      if (complain & tf_warning && warn_tautological_compare)
+	warn_tautological_cmp (loc, code, arg1, arg2);
       /* Fall through.  */
     case PLUS_EXPR:
     case MINUS_EXPR:
