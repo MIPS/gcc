@@ -1,6 +1,13 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:
+	2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/uns-outer-4.c: Remove loopfn xfail.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
 	2015-07-23  Tom de Vries  <tom@codesourcery.com>
 
 	* gcc.dg/autopar/outer-4.c: Add xfail.
