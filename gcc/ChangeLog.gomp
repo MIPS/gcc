@@ -1,3 +1,11 @@
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	revert:
+	2015-07-12  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (gen_parallel_loop): Add LOOPS_NEED_FIXUP to loop
+	state.
+
 2015-07-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (execute_oacc_transform): New function.

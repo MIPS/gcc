@@ -2417,7 +2417,6 @@ gen_parallel_loop (struct loop *loop,
   /* Cancel the loop (it is simpler to do it here rather than to teach the
      expander to do it).  */
   cancel_loop_tree (loop);
-  loops_state_set (LOOPS_NEED_FIXUP);
 
   /* Free loop bound estimations that could contain references to
      removed statements.  */
