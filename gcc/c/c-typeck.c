@@ -12569,7 +12569,9 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 	  continue;
 
         case OMP_CLAUSE_DEVICE_TYPE:
-	  pc = &OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c);
+	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
+	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), oacc);
+	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
 	case OMP_CLAUSE_INBRANCH:

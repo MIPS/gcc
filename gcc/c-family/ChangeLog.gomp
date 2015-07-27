@@ -1,3 +1,8 @@
+2015-07-27  Julian Brown  <julian@codesourcery.com>
+
+	* c-omp.c (c_oacc_extract_device_id, identifier_hasher)
+	(c_oacc_filter_device_types): Remove dead code.
+
 2015-06-15  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-common.h (c_oacc_split_loop_clauses): Declare.

@@ -1,3 +1,8 @@
+2015-07-27  Julian Brown  <julian@codesourcery.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Add scanning for sub-clauses
+	of device_type clause.
+
 2015-07-17  Julian Brown  <julian@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_all_clauses): Don't call
