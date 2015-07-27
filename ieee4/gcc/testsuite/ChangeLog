@@ -1,3 +1,30 @@
+2015-07-28  Luis Felipe Strano Moraes  <luis.strano@gmail.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gcc.dg/parm-incomplete-1.c: Update.
+	* gcc.dg/pr18809-1.c: Update.
+	* gcc.dg/pr27953.c: Update.
+	* gcc.dg/vla-11.c: Update.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wtautological-compare-2.c: Remove unused line.
+
+2015-07-27  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/outer-4.c (parloop): Remove superfluous noinline
+	attribute.  Update comment.
+	(main): Remove.
+	Add scan for not parallelizing inner loop.
+	* gcc.dg/autopar/uns-outer-4.c (parloop): Remove superfluous noinline
+	attribute.
+	(main): Remove.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR bootstrap/67030
+	* c-c++-common/Wtautological-compare-2.c: New test.
+
 2015-07-27  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/66232
