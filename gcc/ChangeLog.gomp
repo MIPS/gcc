@@ -1,6 +1,14 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:
+	2015-07-16  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (create_loads_for_reductions): Handle case that
+	reduction is unused.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
 	2015-07-14  Tom de Vries  <tom@codesourcery.com>
 
 	* gcc.c (greater_than_spec_func): Declare forward.
