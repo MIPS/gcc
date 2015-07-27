@@ -714,7 +714,7 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 
       nested_cycle = (loop != LOOP_VINFO_LOOP (loop_vinfo));
       reduc_stmt = vect_force_simple_reduction (loop_vinfo, phi, !nested_cycle,
-						&double_reduc);
+						&double_reduc, false);
       if (reduc_stmt)
         {
           if (double_reduc)
@@ -2338,7 +2338,7 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple phi, gimple first_stmt)
 static gimple
 vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
 			    bool check_reduction, bool *double_reduc,
-			    bool modify)
+			    bool modify, bool need_wrapping_integral_overflow)
 {
   struct loop *loop = (gimple_bb (phi))->loop_father;
   struct loop *vect_loop = LOOP_VINFO_LOOP (loop_info);
@@ -2612,14 +2612,26 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
 			"reduction: unsafe fp math optimization: ");
       return NULL;
     }
-  else if (INTEGRAL_TYPE_P (type) && TYPE_OVERFLOW_TRAPS (type)
-	   && check_reduction)
+  else if (INTEGRAL_TYPE_P (type) && check_reduction)
     {
-      /* Changing the order of operations changes the semantics.  */
-      if (dump_enabled_p ())
-	report_vect_op (MSG_MISSED_OPTIMIZATION, def_stmt,
-			"reduction: unsafe int math optimization: ");
-      return NULL;
+      if (TYPE_OVERFLOW_TRAPS (type))
+	{
+	  /* Changing the order of operations changes the semantics.  */
+	  if (dump_enabled_p ())
+	    report_vect_op (MSG_MISSED_OPTIMIZATION, def_stmt,
+			    "reduction: unsafe int math optimization"
+			    " (overflow traps): ");
+	  return NULL;
+	}
+      if (need_wrapping_integral_overflow && !TYPE_OVERFLOW_WRAPS (type))
+	{
+	  /* Changing the order of operations changes the semantics.  */
+	  if (dump_enabled_p ())
+	    report_vect_op (MSG_MISSED_OPTIMIZATION, def_stmt,
+			    "reduction: unsafe int math optimization"
+			    " (overflow doesn't wrap): ");
+	  return NULL;
+	}
     }
   else if (SAT_FIXED_POINT_TYPE_P (type) && check_reduction)
     {
@@ -2748,10 +2760,12 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
 
 static gimple
 vect_is_simple_reduction (loop_vec_info loop_info, gimple phi,
-                          bool check_reduction, bool *double_reduc)
+			  bool check_reduction, bool *double_reduc,
+			  bool need_wrapping_integral_overflow)
 {
   return vect_is_simple_reduction_1 (loop_info, phi, check_reduction,
-				     double_reduc, false);
+				     double_reduc, false,
+				     need_wrapping_integral_overflow);
 }
 
 /* Wrapper around vect_is_simple_reduction_1, which will modify code
@@ -2760,10 +2774,12 @@ vect_is_simple_reduction (loop_vec_info loop_info, gimple phi,
 
 gimple
 vect_force_simple_reduction (loop_vec_info loop_info, gimple phi,
-                          bool check_reduction, bool *double_reduc)
+			     bool check_reduction, bool *double_reduc,
+			     bool need_wrapping_integral_overflow)
 {
   return vect_is_simple_reduction_1 (loop_info, phi, check_reduction,
-				     double_reduc, true);
+				     double_reduc, true,
+				     need_wrapping_integral_overflow);
 }
 
 /* Calculate cost of peeling the loop PEEL_ITERS_PROLOGUE times.  */
@@ -5073,7 +5089,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
     }
 
   gimple tmp = vect_is_simple_reduction (loop_vinfo, reduc_def_stmt,
-					 !nested_cycle, &dummy);
+					 !nested_cycle, &dummy, false);
   if (orig_stmt)
     gcc_assert (tmp == orig_stmt
 		|| GROUP_FIRST_ELEMENT (vinfo_for_stmt (tmp)) == orig_stmt);
