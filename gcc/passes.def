@@ -96,6 +96,8 @@ along with GCC; see the file COPYING3.  If not see
 	      NEXT_PASS (pass_tree_loop_init);
 	      NEXT_PASS (pass_lim);
 	      NEXT_PASS (pass_copy_prop);
+	      NEXT_PASS (pass_lim);
+	      NEXT_PASS (pass_copy_prop);
 	      NEXT_PASS (pass_scev_cprop);
       	      NEXT_PASS (pass_parallelize_loops_oacc_kernels);
 	      NEXT_PASS (pass_expand_omp_ssa);

@@ -1,5 +1,9 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-double-reduction.c: New test.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	* g++.dg/ipa/devirt-37.C: Update for removal of pass_fre.
 	* g++.dg/ipa/devirt-40.C: Same.
 	* g++.dg/tree-ssa/pr61034.C: Same.

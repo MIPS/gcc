@@ -1,5 +1,10 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Repeat pass_lim and pass_copy_prop in oacc kernels pass
+	group.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	* passes.def: Replace pass_fre with pass_copy_prop in oacc kernels pass
 	group.
 
