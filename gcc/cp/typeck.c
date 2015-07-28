@@ -5051,10 +5051,8 @@ cp_build_binary_op (location_t location,
   result = build2 (resultcode, build_type, op0, op1);
   if (final_type != 0)
     result = cp_convert (final_type, result, complain);
-  op0 = fold_non_dependent_expr (op0);
-  op1 = fold_non_dependent_expr (op1);
-  STRIP_NOPS (op0);
-  STRIP_NOPS (op1);
+  op0 = fold_simple (op0);
+  op1 = fold_simple (op1);
   result_ovl = fold_build2 (resultcode, build_type, op0, op1);
   if (TREE_OVERFLOW_P (result_ovl)
       && !TREE_OVERFLOW_P (op0) 
