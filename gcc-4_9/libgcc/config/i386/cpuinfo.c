@@ -102,6 +102,9 @@ enum processor_features
   FEATURE_FMA
 };
 
+#if !defined(SHARED)
+  __attribute__ ((visibility("hidden")))
+#endif
 struct __processor_model
 {
   unsigned int __cpu_vendor;
