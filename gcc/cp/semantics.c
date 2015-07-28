@@ -2554,7 +2554,6 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
   tree result_ovl =  result;
 
   expr_ovl = fold_simple (expr_ovl);
-  STRIP_NOPS (expr_ovl);
   result_ovl = fold_simple (result);
  
   if ((complain & tf_warning)
