@@ -1,5 +1,14 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	* g++.dg/ipa/devirt-37.C: Update for removal of pass_fre.
+	* g++.dg/ipa/devirt-40.C: Same.
+	* g++.dg/tree-ssa/pr61034.C: Same.
+	* gcc.dg/ipa/ipa-pta-13.c: Same.
+	* gcc.dg/ipa/ipa-pta-3.c: Same.
+	* gcc.dg/ipa/ipa-pta-4.c: Same.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-07-28  Tom de Vries  <tom@codesourcery.com>
 

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-O2 -fipa-pta -fdump-ipa-pta-details -fdump-tree-fre3-details" } */
+/* { dg-options "-O2 -fipa-pta -fdump-ipa-pta-details -fdump-tree-fre2-details" } */
 
 static int __attribute__((noinline,noclone))
 foo (int *p, int *q)
@@ -23,4 +23,4 @@ int main()
 
 /* { dg-final { scan-ipa-dump "foo.arg0 = &a" "pta" } } */
 /* { dg-final { scan-ipa-dump "foo.arg1 = &b" "pta" } } */
-/* { dg-final { scan-tree-dump "Replaced \\\*p_2\\\(D\\\) with 1" "fre3" } } */
+/* { dg-final { scan-tree-dump "Replaced \\\*p_2\\\(D\\\) with 1" "fre2" } } */
