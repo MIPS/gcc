@@ -1,5 +1,13 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	2015-07-27  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (gather_scalar_reductions): Simplify function
+	structure.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	* graphite-sese-to-poly.c (is_reduction_operation_p): Allow operations
 	that do not overflow.
 
