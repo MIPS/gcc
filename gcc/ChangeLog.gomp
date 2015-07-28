@@ -1,3 +1,8 @@
+2015-07-28  Nathan Sidwell  <nathan@acm.org>
+
+	* gimplify.c (oacc_default_clause): Always set GOVD_MAP if found
+	in outer scope.
+
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	* passes.def: Repeat pass_lim and pass_copy_prop in oacc kernels pass

@@ -5948,7 +5948,7 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 		= splay_tree_lookup (octx->variables, (splay_tree_key) decl);
 	      if (n2)
 		{
-		  flags |= n2->value & GOVD_MAP;
+		  flags |= GOVD_MAP;
 		  goto found_outer;
 		}
 	      }
