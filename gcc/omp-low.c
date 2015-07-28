@@ -492,9 +492,7 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	  gcc_assert (gimple_omp_for_kind (for_stmt)
 		      == GF_OMP_FOR_KIND_CILKSIMD
 		      || (gimple_omp_for_kind (for_stmt)
-			  == GF_OMP_FOR_KIND_CILKFOR)
-		      || (gimple_omp_for_kind (for_stmt)
-			  == GF_OMP_FOR_KIND_FOR));
+			  == GF_OMP_FOR_KIND_CILKFOR));
 	  break;
 	case LE_EXPR:
 	  if (POINTER_TYPE_P (TREE_TYPE (loop->n2)))
