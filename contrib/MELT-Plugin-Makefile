@@ -144,6 +144,9 @@ INSTALL_PROGRAM= $(INSTALL_DRIVER) $(INSTALL) -b -p -m 755
 mkinstalldirs= $(INSTALL_DRIVER) mkdir -p
 ## 
 ## the existing GCC plugin directory
+## you might change that to install MELT outside of GCC plugin directory,
+## e.g. MELTGCC_PLUGIN_DIR:= $(shell echo $$HOME/my-melt-plugin/)
+## to get MELT installed in ~/my-melt-plugin/
 MELTGCC_PLUGIN_DIR:= $(shell $(MELTGCC) -print-file-name=plugin)
 
 ### distribution makers might want to override these....

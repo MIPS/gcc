@@ -1,4 +1,8 @@
 
+2015-07-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* MELT-Plugin-Makefile: Comment about MELTGCC_PLUGIN_DIR.
+
 2015-07-24  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Check against GCC 4.9 or GCC 5.x for MELT
