@@ -606,10 +606,7 @@ cp_fold_convert (tree type, tree expr)
     }
   else
     {
-      if (TREE_CODE (expr) == INTEGER_CST)
-        conv = fold_convert (type, expr);
-      else
-        conv = convert (type, expr);
+      conv = fold_convert (type, expr);
       conv = ignore_overflows (conv, expr);
     }
 
