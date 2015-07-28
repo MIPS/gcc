@@ -1075,7 +1075,7 @@ void
 nvptx_expand_oacc_fork (rtx mode)
 {
   /* Emit fork for worker level.  */
-  if (UINTVAL (mode) == OACC_worker)
+  if (UINTVAL (mode) == GOMP_DIM_WORKER)
     emit_insn (gen_nvptx_fork (mode));
 }
 
@@ -2169,8 +2169,6 @@ nvptx_reorg_subreg ()
    a NULL loop.  We should be able to extend this to represent
    superblocks.  */
 
-#define OACC_null OACC_HWM
-
 struct parallel
 {
   /* Parent parallel.  */
@@ -2369,7 +2367,7 @@ typedef auto_vec<bb_par_t> bb_par_vec_t;
 static parallel *
 nvptx_discover_pars (bb_insn_map_t *map)
 {
-  parallel *outer_par = new parallel (0, OACC_null);
+  parallel *outer_par = new parallel (0, GOMP_DIM_MAX);
   bb_par_vec_t worklist;
   basic_block block;
 
@@ -2413,7 +2411,7 @@ nvptx_discover_pars (bb_insn_map_t *map)
 		l = new parallel (l, mode);
 		l->forked_block = block;
 		l->forked_insn = end;
-		if (mode == OACC_worker)
+		if (mode == GOMP_DIM_WORKER)
 		  l->fork_insn
 		    = nvptx_discover_pre (block, CODE_FOR_nvptx_fork);
 	      }
@@ -2428,7 +2426,7 @@ nvptx_discover_pars (bb_insn_map_t *map)
 		gcc_assert (l->mode == mode);
 		l->join_block = block;
 		l->join_insn = end;
-		if (mode == OACC_worker)
+		if (mode == GOMP_DIM_WORKER)
 		  l->joining_insn
 		    = nvptx_discover_pre (block, CODE_FOR_nvptx_joining);
 		l = l->parent;
@@ -2706,7 +2704,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	{
 	  /* If we're only doing vector single, there's no need to
 	     emit skip code because we'll not insert anything.  */
-	  if (!(mask & OACC_LOOP_MASK (OACC_vector)))
+	  if (!(mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR)))
 	    skip_mask = 0;
 	}
       else if (tail_branch)
@@ -2717,8 +2715,8 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
   /* Insert the vector test inside the worker test.  */
   unsigned mode;
   rtx_insn *before = tail;
-  for (mode = OACC_worker; mode <= OACC_vector; mode++)
-    if (OACC_LOOP_MASK (mode) & skip_mask)
+  for (mode = GOMP_DIM_WORKER; mode <= GOMP_DIM_VECTOR; mode++)
+    if (GOMP_DIM_MASK (mode) & skip_mask)
       {
 	rtx id = gen_reg_rtx (SImode);
 	rtx pred = gen_reg_rtx (BImode);
@@ -2728,7 +2726,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	rtx cond = gen_rtx_SET (pred, gen_rtx_NE (BImode, id, const0_rtx));
 	emit_insn_before (cond, head);
 	rtx br;
-	if (mode == OACC_vector)
+	if (mode == GOMP_DIM_VECTOR)
 	  br = gen_br_true (pred, label);
 	else
 	  br = gen_br_true_uni (pred, label);
@@ -2746,7 +2744,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
     {
       rtx pvar = XEXP (XEXP (cond_branch, 0), 0);
 
-      if (OACC_LOOP_MASK (OACC_vector) == mask)
+      if (GOMP_DIM_MASK (GOMP_DIM_VECTOR) == mask)
 	{
 	  /* Vector mode only, do a shuffle.  */
 	  emit_insn_before (nvptx_gen_vcast (pvar), tail);
@@ -2806,7 +2804,7 @@ nvptx_skip_par (unsigned mask, parallel *par)
 static unsigned
 nvptx_process_pars (parallel *par)
 {
-  unsigned inner_mask = OACC_LOOP_MASK (par->mode);
+  unsigned inner_mask = GOMP_DIM_MASK (par->mode);
   
   /* Do the inner parallels first.  */
   if (par->inner)
@@ -2817,15 +2815,15 @@ nvptx_process_pars (parallel *par)
   
   switch (par->mode)
     {
-    case OACC_null:
+    case GOMP_DIM_MAX:
       /* Dummy parallel.  */
       break;
 
-    case OACC_vector:
+    case GOMP_DIM_VECTOR:
       nvptx_vpropagate (par->forked_block, par->forked_insn);
       break;
       
-    case OACC_worker:
+    case GOMP_DIM_WORKER:
       {
 	nvptx_wpropagate (false, par->forked_block,
 			  par->forked_insn);
@@ -2836,7 +2834,7 @@ nvptx_process_pars (parallel *par)
       }
       break;
 
-    case OACC_gang:
+    case GOMP_DIM_GANG:
       break;
 
     default:gcc_unreachable ();
@@ -2855,30 +2853,30 @@ nvptx_process_pars (parallel *par)
 static void
 nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 {
-  unsigned me = (OACC_LOOP_MASK (par->mode)
-		 & (OACC_LOOP_MASK (OACC_worker)
-		    | OACC_LOOP_MASK (OACC_vector)));
+  unsigned me = (GOMP_DIM_MASK (par->mode)
+		 & (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+		    | GOMP_DIM_MASK (GOMP_DIM_VECTOR)));
   unsigned  skip_mask = 0, neuter_mask = 0;
   
   if (par->inner)
     nvptx_neuter_pars (par->inner, modes, outer | me);
 
-  for (unsigned mode = OACC_worker; mode <= OACC_vector; mode++)
+  for (unsigned mode = GOMP_DIM_WORKER; mode <= GOMP_DIM_VECTOR; mode++)
     {
-      if ((outer | me) & OACC_LOOP_MASK (mode))
+      if ((outer | me) & GOMP_DIM_MASK (mode))
 	{ /* Mode is partitioned: no neutering.  */ }
-      else if (!(modes & OACC_LOOP_MASK (mode)))
+      else if (!(modes & GOMP_DIM_MASK (mode)))
 	{ /* Mode  is not used: nothing to do.  */ }
-      else if (par->inner_mask & OACC_LOOP_MASK (mode)
+      else if (par->inner_mask & GOMP_DIM_MASK (mode)
 	       || !par->forked_insn)
 	/* Partitioned in inner parallels, or we're not a partitioned
 	   at all: neuter individual blocks.  */
-	neuter_mask |= OACC_LOOP_MASK (mode);
+	neuter_mask |= GOMP_DIM_MASK (mode);
       else if (!par->parent || !par->parent->forked_insn
-	       || par->parent->inner_mask & OACC_LOOP_MASK (mode))
+	       || par->parent->inner_mask & GOMP_DIM_MASK (mode))
 	/* Parent isn't a parallel or contains this paralleling: skip
 	   parallel at this level.  */
-	skip_mask |= OACC_LOOP_MASK (mode);
+	skip_mask |= GOMP_DIM_MASK (mode);
       else
 	{ /* Parent will skip this parallel itself.  */ }
     }
@@ -2936,8 +2934,8 @@ nvptx_reorg (void)
   parallel *pars = nvptx_discover_pars (&bb_insn_map);
 
   nvptx_process_pars (pars);
-  nvptx_neuter_pars (pars, (OACC_LOOP_MASK (OACC_vector)
-			    | OACC_LOOP_MASK (OACC_worker)), 0);
+  nvptx_neuter_pars (pars, (GOMP_DIM_MASK (GOMP_DIM_VECTOR)
+			    | GOMP_DIM_MASK (GOMP_DIM_WORKER)), 0);
 
   delete pars;
 

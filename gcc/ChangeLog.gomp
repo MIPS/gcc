@@ -1,5 +1,13 @@
 2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.h (enum oacc_loop_levels): Delete.
+	(OACC_LOOP_MASK): Delete.
+	* omp-low.c: Change all OACC_x to GOMP_DIM_x
+	* config/nvptx/nvptx.c: Change all OACC_x to GOMP_DIM_x
+	* builtins.c (expand_oacc_id): Change OACC_HWM to GOMP_DIM_MAX.
+
+2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* tree.h (OMP_CLAUSE_EXPR): New.
 	* omp-low.c (creste_omp_child_function): Do not set oacc function
 	attribute here.

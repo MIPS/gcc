@@ -5929,10 +5929,11 @@ expand_oacc_id (enum built_in_function fcode, tree exp, rtx target)
   rtx arg;
 
   arg = expand_normal (arg0);
-  if (GET_CODE (arg) != CONST_INT || UINTVAL (arg) >= OACC_HWM)
+
+  if (GET_CODE (arg) != CONST_INT || UINTVAL (arg) >= GOMP_DIM_MAX)
     {
       error ("argument to %D must be constant in range 0 to %d",
-	     get_callee_fndecl (exp), OACC_HWM - 1);
+	     get_callee_fndecl (exp), GOMP_DIM_MAX - 1);
       return result;
     }
 

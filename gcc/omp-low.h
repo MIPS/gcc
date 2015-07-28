@@ -20,17 +20,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_OMP_LOW_H
 #define GCC_OMP_LOW_H
 
-/* Levels of parallelism as defined by OpenACC.  Increasing numbers
-   correspond to deeper loop nesting levels.  */
-enum oacc_loop_levels
-  {
-    OACC_gang,
-    OACC_worker,
-    OACC_vector,
-    OACC_HWM
-  };
-#define OACC_LOOP_MASK(X) (1 << (X))
-
 struct omp_region;
 
 extern tree find_omp_clause (tree, enum omp_clause_code);

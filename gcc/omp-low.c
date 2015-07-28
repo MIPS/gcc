@@ -2678,17 +2678,17 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 	  int val;
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG)
 	    {
-	      val = OACC_LOOP_MASK (OACC_gang);
+	      val = GOMP_DIM_MASK (GOMP_DIM_GANG);
 	      gwv_clause = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WORKER)
 	    {
-	      val = OACC_LOOP_MASK (OACC_worker);
+	      val = GOMP_DIM_MASK (GOMP_DIM_WORKER);
 	      gwv_clause = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR)
 	    {
-	      val = OACC_LOOP_MASK (OACC_vector);
+	      val = GOMP_DIM_MASK (GOMP_DIM_VECTOR);
 	      gwv_clause = true;
 	    }
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SEQ)
@@ -2833,11 +2833,11 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
       for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
 	{
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_GANGS)
-	    ctx->gwv_this |= OACC_LOOP_MASK (OACC_gang);
+	    ctx->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_GANG);
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_WORKERS)
-	    ctx->gwv_this |= OACC_LOOP_MASK (OACC_worker);
+	    ctx->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR_LENGTH)
-	    ctx->gwv_this |= OACC_LOOP_MASK (OACC_vector);
+	    ctx->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
 	}
     }
 
@@ -3472,8 +3472,8 @@ gen_oacc_fork (gimple_seq *seq, unsigned mask)
 {
   unsigned level;
 
-  for (level = OACC_gang; level != OACC_HWM; level++)
-    if (mask & OACC_LOOP_MASK (level))
+  for (level = GOMP_DIM_GANG; level != GOMP_DIM_MAX; level++)
+    if (mask & GOMP_DIM_MASK (level))
       {
 	tree arg = build_int_cst (unsigned_type_node, level);
 	gcall *call = gimple_build_call_internal (IFN_GOACC_FORK, 1, arg);
@@ -3488,8 +3488,8 @@ gen_oacc_join (gimple_seq *seq, unsigned mask)
 {
   unsigned level;
 
-  for (level = OACC_HWM; level-- != OACC_gang; )
-    if (mask & OACC_LOOP_MASK (level))
+  for (level = GOMP_DIM_MAX; level-- != GOMP_DIM_GANG; )
+    if (mask & GOMP_DIM_MASK (level))
       {
 	tree arg = build_int_cst (unsigned_type_node, level);
 	gcall *call = gimple_build_call_internal (IFN_GOACC_JOIN, 1, arg);
@@ -4681,8 +4681,8 @@ expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
   tree  decl = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   unsigned ix;
 
-  for (ix = OACC_gang; ix != OACC_HWM; ix++)
-    if (OACC_LOOP_MASK(ix) & gwv_bits)
+  for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
+    if (GOMP_DIM_MASK(ix) & gwv_bits)
       {
 	tree arg = build_int_cst (unsigned_type_node, ix);
 	tree count = create_tmp_var (unsigned_type_node);
@@ -4709,8 +4709,8 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
   unsigned ix;
 
   /* Start at gang level, and examine relevant dimension indices.  */
-  for (ix = OACC_gang; ix != OACC_HWM; ix++)
-    if (OACC_LOOP_MASK (ix) & gwv_bits)
+  for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
+    if (GOMP_DIM_MASK (ix) & gwv_bits)
       {
 	tree arg = build_int_cst (unsigned_type_node, ix);
 
@@ -10047,11 +10047,11 @@ find_omp_for_region_gwv (gimple stmt)
 
   tree clauses = gimple_omp_for_clauses (stmt);
   if (find_omp_clause (clauses, OMP_CLAUSE_GANG))
-    tmp |= OACC_LOOP_MASK (OACC_gang);
+    tmp |= GOMP_DIM_MASK (GOMP_DIM_GANG);
   if (find_omp_clause (clauses, OMP_CLAUSE_WORKER))
-    tmp |= OACC_LOOP_MASK (OACC_worker);
+    tmp |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR))
-    tmp |= OACC_LOOP_MASK (OACC_vector);
+    tmp |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
 
   return tmp;
 }
@@ -10096,11 +10096,11 @@ find_omp_target_region_data (struct omp_region *region,
 
   tree clauses = gimple_omp_target_clauses (stmt);
   if (find_omp_clause (clauses, OMP_CLAUSE_NUM_GANGS))
-    region->gwv_this |= OACC_LOOP_MASK (OACC_gang);
+    region->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_GANG);
   if (find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS))
-    region->gwv_this |= OACC_LOOP_MASK (OACC_worker);
+    region->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
   if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH))
-    region->gwv_this |= OACC_LOOP_MASK (OACC_vector);
+    region->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
   region->kind = gimple_omp_target_kind (stmt);
 }
 
@@ -11665,9 +11665,9 @@ oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
   tree getnid = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   tree worker_var, worker_count;
   
-  if (ctx->gwv_this & OACC_LOOP_MASK (OACC_worker))
+  if (ctx->gwv_this & GOMP_DIM_MASK (GOMP_DIM_WORKER))
     {
-      tree arg = build_int_cst (unsigned_type_node, OACC_worker);
+      tree arg = build_int_cst (unsigned_type_node, GOMP_DIM_WORKER);
       
       worker_var = create_tmp_var (unsigned_type_node, ".worker");
       worker_count = create_tmp_var (unsigned_type_node, ".workercount");
