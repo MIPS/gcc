@@ -1,5 +1,12 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.c/uns-outer-4.c: New test.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
 	PR tree-optimization/46193
 	* testsuite/libgomp.c/pr46193.c: New test.
 

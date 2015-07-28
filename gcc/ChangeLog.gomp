@@ -1,6 +1,18 @@
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:
+	2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (reduc_stmt_res): New function.
+	(initialize_reductions, add_field_for_reduction)
+	(create_phi_for_local_result, create_loads_for_reductions)
+	(create_stores_for_reduction, build_new_reduction): Handle case that
+	reduc_stmt is a phi.
+	(gather_scalar_reductions): Allow double_reduc reductions.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
 	2015-07-27  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (gather_scalar_reductions): Simplify function
