@@ -3753,8 +3753,7 @@ fold_simple_1 (tree t)
   tree op1, op2, op3;
   enum tree_code code = TREE_CODE (t);
 
-  if (code == VAR_DECL
-      || processing_template_decl)
+  if (code == VAR_DECL)
     return NULL_TREE;
 
   switch (code)
@@ -3896,9 +3895,14 @@ fold_simple_1 (tree t)
 tree
 fold_simple (tree t)
 {
-  tree r = fold_simple_1 (t);
+  tree r = NULL_TREE;
+  if (processing_template_decl)
+    return t;
+
+  r = fold_simple_1 (t);
   if (!r)
     r = t;
+
   return r;
 }
 
