@@ -171,15 +171,12 @@ goacc_deallocate_static (acc_device_t d)
   alloc_done = false;
 }
 
-static void goacc_wait (int async, int num_waits, va_list ap);
+static void goacc_wait (int async, int num_waits, va_list *ap);
 
 void
-GOACC_parallel (int device, void (*fn) (void *),
-		size_t mapnum, void **hostaddrs, size_t *sizes,
-		unsigned short *kinds,
-		int num_gangs, int num_workers, int vector_length,
-		size_t shared_size,
-		int async, int num_waits, ...)
+GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
+		      void **hostaddrs, size_t *sizes, unsigned short *kinds,
+		      size_t shared_size, ...)
 {
   bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   va_list ap;
@@ -191,17 +188,21 @@ GOACC_parallel (int device, void (*fn) (void *),
   struct splay_tree_key_s k;
   splay_tree_key tgt_fn_key;
   void (*tgt_fn);
+  int async = GOMP_ASYNC_SYNC;
+  unsigned dims[3];
+  unsigned tag;
 
+  memset (dims, 0, sizeof (dims));
 #ifdef HAVE_INTTYPES_H
   gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p, "
-	      "shared_size=%"PRIu64", async = %d\n",
+	      "shared_size=%"PRIu64"\n",
 	      __FUNCTION__, (uint64_t) mapnum, hostaddrs, sizes, kinds,
-	      (uint64_t) shared_size, async);
+	      (uint64_t) shared_size);
 #else
   gomp_debug (0, "%s: mapnum=%lu, hostaddrs=%p, sizes=%p, kinds=%p, "
-	      "shared_size=%lu, async=%d\n",
+	      "shared_size=%lu\n",
 	      __FUNCTION__, (unsigned long) mapnum, hostaddrs, sizes, kinds,
-	      (unsigned long) shared_size, async);
+	      (unsigned long) shared_size);
 #endif
 
   alloc_ganglocal_addrs (mapnum, hostaddrs, sizes, kinds);
@@ -249,12 +250,36 @@ GOACC_parallel (int device, void (*fn) (void *),
   if (acc_device_type (acc_dev->type) == acc_device_host_nonshm)
     alloc_host_shared_mem (shared_size);
 
-  if (num_waits)
+  va_start (ap, shared_size);
+  /* TODO: This will need amending when device_type is implemented.  */
+  while (GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0)
+	 != (tag = va_arg (ap, unsigned)))
     {
-      va_start (ap, num_waits);
-      goacc_wait (async, num_waits, ap);
-      va_end (ap);
+      assert (!GOMP_LAUNCH_DEVICE (tag));
+      switch (GOMP_LAUNCH_CODE (tag))
+	{
+	case GOMP_LAUNCH_DIM:
+	  {
+	    unsigned mask = GOMP_LAUNCH_OP (tag);
+
+	    for (i = 0; i != 3; i++)
+	      if (mask & (1 << i)) /* FIXME: move to gomp-constants. */
+		dims[i] = va_arg (ap, unsigned);
+	  }
+	  break;
+
+	case GOMP_LAUNCH_ASYNC_WAIT:
+	  {
+	    unsigned num_waits = GOMP_LAUNCH_OP (tag);
+
+	    async = va_arg (ap, unsigned);
+	    if (num_waits)
+	      goacc_wait (async, num_waits, &ap);
+	    break;
+	  }
+	}
     }
+  va_end (ap);
   
   acc_dev->openacc.async_set_async_func (async);
 
@@ -287,9 +312,8 @@ GOACC_parallel (int device, void (*fn) (void *),
 	devaddrs[i] = NULL;
     }
 
-  acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs, sizes, kinds,
-			      num_gangs, num_workers, vector_length, async,
-			      shared_size, tgt);
+  acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs,
+			      shared_size, async, dims, tgt);
 
   /* If running synchronously, unmap immediately.  */
   if (async < acc_async_noval)
@@ -304,6 +328,39 @@ GOACC_parallel (int device, void (*fn) (void *),
 
   if (acc_device_type (acc_dev->type) == acc_device_host_nonshm)
     free_host_shared_mem ();
+}
+
+/* Legacy entry point.   */
+
+void
+GOACC_parallel (int device, void (*fn) (void *), size_t mapnum,
+		void **hostaddrs, size_t *sizes, unsigned short *kinds,
+		int num_gangs, int num_workers, int vector_length,
+		size_t shared_size,
+		int async, int num_waits, ...)
+{
+  int waits[9];
+  unsigned ix;
+  va_list ap;
+
+  if (num_waits > 8)
+    gomp_fatal ("too many waits for legacy interface");
+
+  va_start (ap, num_waits);
+  for (ix = 0; ix != num_waits; ix++)
+    waits[ix] = va_arg (ap, int);
+  va_end (ap);
+  waits[ix] = GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0);
+  
+  GOACC_parallel_keyed (device, fn, mapnum, hostaddrs, sizes, kinds,
+			shared_size,
+			GOMP_LAUNCH_PACK (GOMP_LAUNCH_DIM, 0,
+					  GOMP_DIM_MASK (GOMP_DIM_MAX) - 1),
+			num_gangs, num_workers, vector_length,
+			GOMP_LAUNCH_PACK (GOMP_LAUNCH_ASYNC_WAIT,
+					  0, num_waits),
+			async, waits[0], waits[1], waits[2], waits[3],
+			waits[4], waits[5], waits[6], waits[7], waits[8]);
 }
 
 void
@@ -399,7 +456,7 @@ GOACC_enter_exit_data (int device, size_t mapnum,
       va_list ap;
 
       va_start (ap, num_waits);
-      goacc_wait (async, num_waits, ap);
+      goacc_wait (async, num_waits, &ap);
       va_end (ap);
     }
 
@@ -529,15 +586,15 @@ GOACC_enter_exit_data (int device, size_t mapnum,
 }
 
 static void
-goacc_wait (int async, int num_waits, va_list ap)
+goacc_wait (int async, int num_waits, va_list *ap)
 {
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
   while (num_waits--)
     {
-      int qid = va_arg (ap, int);
-
+      int qid = va_arg (*ap, int);
+      
       if (acc_async_test (qid))
 	continue;
 
@@ -574,7 +631,7 @@ GOACC_update (int device, size_t mapnum,
       va_list ap;
 
       va_start (ap, num_waits);
-      goacc_wait (async, num_waits, ap);
+      goacc_wait (async, num_waits, &ap);
       va_end (ap);
     }
 
@@ -616,7 +673,7 @@ GOACC_wait (int async, int num_waits, ...)
       va_list ap;
 
       va_start (ap, num_waits);
-      goacc_wait (async, num_waits, ap);
+      goacc_wait (async, num_waits, &ap);
       va_end (ap);
     }
   else if (async == acc_async_sync)

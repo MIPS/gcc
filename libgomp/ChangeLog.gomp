@@ -1,3 +1,23 @@
+2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libgomp.map: Add GOACC_parallel_keyed.
+	* libgomp.h (struct acc_dispatch_t): Change exec_func parameters.
+	* libgomp_g.h (GOACC_parallel): Replace with ...
+	(GOACC_parallel_keyed): ... this.
+	* oacc-parallel.c (goacc_wait): Take pointer to va_list.  Adjust
+	all callers.
+	(GOACC_parallel_keyed): Use varadic keyed interface for optional
+	parameters.  Renamed from ...
+	(GOACC_parallel): ... here.  Replace with forwarding fn.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_openacc_parallel): Adjust
+	parameters.
+	* plugin/plugin-nvptx.c (struct targ_fn_launch): New structure.
+	(targ_fn_descriptor): Point to targ_fn_launch instance.
+	(nvptx_exec): Adjust parameters.  Process compute dimensions.
+	(struct nvptx_tdata): Adjust type.
+	(GOMP_OFFLOAD_load_image_ver): Adjust function handling.
+	(GOMP_OFFLOAD_openacc_parallel): Adjust.
+
 2015-07-28  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:

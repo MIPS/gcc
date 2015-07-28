@@ -59,6 +59,7 @@
 #include "dominance.h"
 #include "cfg.h"
 #include "omp-low.h"
+#include "gomp-constants.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -3015,9 +3016,49 @@ nvptx_cannot_copy_insn_p (rtx_insn *insn)
 static void
 nvptx_record_offload_symbol (tree decl)
 {
-  fprintf (asm_out_file, "//:%s_MAP %s\n",
-	   TREE_CODE (decl) == VAR_DECL ? "VAR" : "FUNC",
-	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  switch (TREE_CODE (decl))
+    {
+    case VAR_DECL:
+      fprintf (asm_out_file, "//:VAR_MAP \"%s\"\n",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+      break;
+
+    case FUNCTION_DECL:
+      {
+	tree attr = get_oacc_fn_attrib (decl);
+	tree dims = NULL_TREE;
+	unsigned ix;
+	
+	if (attr)
+	  dims = TREE_VALUE (attr);
+	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
+		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+
+	for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+	  {
+	    unsigned HOST_WIDE_INT dim = 0;
+	    if (dims)
+	      {
+		tree cst = TREE_VALUE (dims);
+
+		/* When device_type support is added an ealier pass
+		   should have massaged the attribute to be
+		   ptx-specific.  */
+		gcc_assert (TREE_CODE (cst) == INTEGER_CST);
+
+		dim = TREE_INT_CST_LOW (cst);
+		dims = TREE_CHAIN (dims);
+	      }
+	    fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_HEX, dim);
+	  }
+	
+	fprintf (asm_out_file, "\n");
+      }
+      break;
+  
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Implement TARGET_ASM_FILE_START.  Write the kinds of things ptxas expects

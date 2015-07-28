@@ -2302,12 +2302,6 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
       = tree_cons (get_identifier ("omp target entrypoint"),
                    NULL_TREE, DECL_ATTRIBUTES (decl));
 
-  if (is_gimple_omp_oacc (ctx->stmt)
-      && !lookup_attribute ("omp function", DECL_ATTRIBUTES (decl)))
-    DECL_ATTRIBUTES (decl)
-      = tree_cons (get_identifier ("oacc function"), NULL_TREE,
-		   DECL_ATTRIBUTES (decl));
-
   t = build_decl (DECL_SOURCE_LOCATION (decl),
 		  RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (t) = 1;
@@ -9277,6 +9271,92 @@ loop_get_oacc_kernels_region_entry (struct loop *loop)
     }
 }
 
+/* Encode an oacc launch argument.  This matches the GOMP_LAUNCH_PACK
+   macro on gomp-constants.h.  We do not check for overflow.  */
+
+static tree
+oacc_launch_pack (unsigned code, tree device, unsigned op)
+{
+  tree res;
+  
+  res = build_int_cst (unsigned_type_node, GOMP_LAUNCH_PACK (code, 0, op));
+  if (device)
+    {
+      device = fold_build2 (LSHIFT_EXPR, unsigned_type_node,
+			    device, build_int_cst (unsigned_type_node,
+						   GOMP_LAUNCH_DEVICE_SHIFT));
+      res = fold_build2 (BIT_IOR_EXPR, unsigned_type_node, res, device);
+    }
+  return res;
+}
+
+/* Look for compute grid dimension clauses and convert to an attribute
+   attached to FN.  This permits the target-side code to (a) massage
+   the dimensions, (b) emit that data and (c) optimize.  Non-constant
+   dimensions are pushed onto ARGS.
+
+   The attribute value is a TREE_LIST.  A set of dimensions is
+   represented as a list of INTEGER_CST.  Those that are runtime
+   expres are represented as an INTEGER_CST of zero.
+
+   TOOO. Normally the attribute will just contain a single such list.  If
+   however it contains a list of lists, this will represent the use of
+   device_type.  Each member of the outer list is an assoc list of
+   dimensions, keyed by the device type.  The first entry will be the
+   default.  Well, that's the plan.  */
+
+#define OACC_FN_ATTRIB "oacc function"
+
+static void
+set_oacc_fn_attrib (tree clauses, tree fn, vec<tree> *args)
+{
+  /* Must match GOMP_DIM ordering.  */
+  static const omp_clause_code ids[] = 
+    {OMP_CLAUSE_NUM_GANGS, OMP_CLAUSE_NUM_WORKERS, OMP_CLAUSE_VECTOR_LENGTH};
+  unsigned ix;
+  tree dims[GOMP_DIM_MAX];
+  tree attr = NULL_TREE;
+  unsigned non_const = 0;
+
+  for (ix = GOMP_DIM_MAX; ix--;)
+    {
+      tree clause = find_omp_clause (clauses, ids[ix]);
+      tree dim;
+
+      if (!clause)
+	dim = integer_one_node;
+      else
+	dim = OMP_CLAUSE_EXPR (clause, ids[ix]);
+      dims[ix] = dim;
+      if (TREE_CODE (dim) != INTEGER_CST)
+	{
+	  dim = integer_zero_node;
+	  non_const |= GOMP_DIM_MASK (ix);
+	}
+      attr = tree_cons (NULL_TREE, dim, attr);
+    }
+
+  /* Add the attributes.  */
+  DECL_ATTRIBUTES (fn) =
+    tree_cons (get_identifier (OACC_FN_ATTRIB), attr, DECL_ATTRIBUTES (fn));
+
+  if (non_const)
+    {
+      /* Push a dynamic argument set.  */
+      args->safe_push (oacc_launch_pack (GOMP_LAUNCH_DIM,
+					 NULL_TREE, non_const));
+      for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)
+	if (non_const & GOMP_DIM_MASK (ix))
+	  args->safe_push (dims[ix]);
+    }
+}
+
+tree
+get_oacc_fn_attrib (tree fn)
+{
+  return lookup_attribute (OACC_FN_ATTRIB, DECL_ATTRIBUTES (fn));
+}
+
 /* Expand the GIMPLE_OMP_TARGET starting at REGION.  */
 
 static void
@@ -9728,6 +9808,7 @@ expand_omp_target (struct omp_region *region)
     }
 
   gimple g;
+  bool tagging = false;
   /* The maximum number used by any start_ix, without varargs.  */
   auto_vec<tree, 12> args;
   args.quick_push (device);
@@ -9767,45 +9848,20 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
       {
-	tree t_num_gangs, t_num_workers, t_vector_length;
-
-	/* Default values for num_gangs, num_workers, and vector_length.  */
-	t_num_gangs = t_num_workers = t_vector_length
-	  = fold_convert_loc (gimple_location (entry_stmt),
-			      integer_type_node, integer_one_node);
-	/* ..., but if present, use the value specified by the respective
-	   clause.  */
-	c = find_omp_clause (clauses, OMP_CLAUSE_NUM_GANGS);
-	if (c)
-	  t_num_gangs = OMP_CLAUSE_NUM_GANGS_EXPR (c);
-	c = find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS);
-	if (c)
-	  t_num_workers = OMP_CLAUSE_NUM_WORKERS_EXPR (c);
-	c = find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH);
-	if (c)
-	  t_vector_length = OMP_CLAUSE_VECTOR_LENGTH_EXPR (c);
-	 
-	args.quick_push (t_num_gangs);
-	args.quick_push (t_num_workers);
-	args.quick_push (t_vector_length);
 	args.quick_push (gimple_omp_target_ganglocal_size (entry_stmt));
+	set_oacc_fn_attrib (clauses, child_fn, &args);
+	tagging = true;
       }
       /* FALLTHRU */
     case BUILT_IN_GOACC_ENTER_EXIT_DATA:
     case BUILT_IN_GOACC_UPDATE:
       {
-	tree t_async;
-	int t_wait_idx;
+	tree t_async = NULL_TREE;
 
 	c = find_omp_clause (clauses, OMP_CLAUSE_DEVICE_TYPE);
 	if (c)
 	  sorry ("device_type clause is not supported yet");
 
-	/* Default values for t_async.  */
-	t_async = fold_convert_loc (gimple_location (entry_stmt),
-				    integer_type_node,
-				    build_int_cst (integer_type_node,
-						   GOMP_ASYNC_SYNC));
 	/* ..., but if present, use the value specified by the respective
 	   clause, making sure that is of the correct type.  */
 	c = find_omp_clause (clauses, OMP_CLAUSE_ASYNC);
@@ -9813,42 +9869,59 @@ expand_omp_target (struct omp_region *region)
 	  t_async = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
 				      integer_type_node,
 				      OMP_CLAUSE_ASYNC_EXPR (c));
-
-	args.quick_push (t_async);
-	/* Save the index, and... */
-	t_wait_idx = args.length ();
-	/* ... push a default value.  */
-	args.quick_push (fold_convert_loc (gimple_location (entry_stmt),
-					   integer_type_node,
-					   integer_zero_node));
-	c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
-	if (c)
+	else if (!tagging)
+	  /* Default values for t_async.  */
+	  t_async = fold_convert_loc (gimple_location (entry_stmt),
+				      integer_type_node,
+				      build_int_cst (integer_type_node,
+						     GOMP_ASYNC_SYNC));
+	if (t_async && !tagging)
 	  {
-	    int n = 0;
+	    args.safe_push (t_async);
+	    t_async = NULL_TREE;
+	  }
 
-	    for (; c; c = OMP_CLAUSE_CHAIN (c))
-	      {
-		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WAIT)
-		  {
-		    args.safe_push (fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-						      integer_type_node,
-						      OMP_CLAUSE_WAIT_EXPR (c)));
-		    n++;
-		  }
-	      }
+	/* Save the argument index, and... */
+	unsigned t_wait_idx = args.length ();
+	unsigned num_waits = 0;
+	c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
+	if (!tagging || c || t_async)
+	  /* ... push a placeholder.  */
+	  args.safe_push (integer_zero_node);
 
-	    /* Now that we know the number, replace the default value.  */
-	    args.ordered_remove (t_wait_idx);
-	    args.quick_insert (t_wait_idx,
-			       fold_convert_loc (gimple_location (entry_stmt),
-						 integer_type_node,
-						 build_int_cst (integer_type_node, n)));
+	if (tagging && t_async)
+	  args.safe_push (t_async);
+	
+	for (; c; c = OMP_CLAUSE_CHAIN (c))
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WAIT)
+	    {
+	      args.safe_push (fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+						integer_type_node,
+						OMP_CLAUSE_WAIT_EXPR (c)));
+	      num_waits++;
+	    }
+
+	if (!tagging || num_waits || t_async)
+	  {
+	    tree len;
+
+	    /* Now that we know the number, update the placeholder.  */
+	    if (tagging)
+	      len = oacc_launch_pack (GOMP_LAUNCH_ASYNC_WAIT,
+				      NULL_TREE, num_waits);
+	    else
+	      len = build_int_cst (integer_type_node, num_waits);
+	    len = fold_convert_loc (gimple_location (entry_stmt),
+				    unsigned_type_node, len);
+	    args[t_wait_idx] = len;
 	  }
       }
       break;
     default:
       gcc_unreachable ();
     }
+  if (tagging)
+    args.safe_push (oacc_launch_pack (GOMP_LAUNCH_END, NULL_TREE, 0));
 
   g = gimple_build_call_vec (builtin_decl_explicit (start_ix), args);
   gimple_set_location (g, gimple_location (entry_stmt));

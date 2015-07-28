@@ -1,3 +1,9 @@
+2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_12): Delete.
+	* types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_SIZE_INT_INT_VAR): Replace with ...
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_SIZE_INT_INT_VAR): ... this.
+
 2015-07-26  Ilmir Usmanov  <me@ilmir.us>
 
 	PR/63858
@@ -654,3 +660,8 @@ Copyright (C) 2013-2015 Free Software Foundation, Inc.
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:

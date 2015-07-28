@@ -227,6 +227,8 @@ process (FILE *in, FILE *out)
 {
   size_t len;
   const char *input = read_file (in, &len);
+  const char *comma;
+  id_map const *id;
 
   fprintf (out, "static const char ptx_code[] = \n \"");
   for (size_t i = 0; i < len; i++)
@@ -267,14 +269,18 @@ process (FILE *in, FILE *out)
     }
   fprintf (out, "\";\n\n");
 
-  fprintf (out, "static const char *const var_mappings[] = {\n");
-  for (id_map *id = var_ids; id; id = id->next)
-    fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
-  fprintf (out, "};\n\n");
-  fprintf (out, "static const char *const func_mappings[] = {\n");
-  for (id_map *id = func_ids; id; id = id->next)
-    fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
-  fprintf (out, "};\n\n");
+  fprintf (out, "static const char *const var_mappings[] = {");
+  for (comma = "", id = var_ids; id; comma = ",", id = id->next)
+    fprintf (out, "%s\n\t%s", comma, id->ptx_name);
+  fprintf (out, "\n};\n\n");
+
+  fprintf (out, "static const struct nvptx_fn {\n"
+	   "  const char *name;\n"
+	   "  unsigned short dim[%d];\n"
+	   "} func_mappings[] = {\n", GOMP_DIM_MAX);
+  for (comma = "", id = func_ids; id; comma = ",", id = id->next)
+    fprintf (out, "%s\n\t{%s}", comma, id->ptx_name);
+  fprintf (out, "\n};\n\n");
 
   fprintf (out,
 	   "static const struct nvptx_tdata {\n"
@@ -282,7 +288,7 @@ process (FILE *in, FILE *out)
 	   "  __SIZE_TYPE__ ptx_len;\n"
 	   "  const char *const *var_names;\n"
 	   "  __SIZE_TYPE__ var_num;\n"
-	   "  const char *const *fn_names;\n"
+	   "  const struct nvptx_fn *fn_names;\n"
 	   "  __SIZE_TYPE__ fn_num;\n"
 	   "} target_data = {\n"
 	   "  ptx_code, sizeof (ptx_code),\n"

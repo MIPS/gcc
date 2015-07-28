@@ -1,3 +1,15 @@
+2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gomp-constants.h (GOMP_DIM_GANG, GOMP_DIM_WORKER,
+	GOMP_DIM_VECTOR): New.
+	(GOMP_DIM_MAX, GOMP_DIM_MASK): New.
+	(GOMP_LAUNCH_END, GOMP_LAUNCH_DIM, GOMP_LAUNCH_ASYNC_WAIT): New.
+	(GOMP_LAUNCH_CODE_SHIFT, GOMP_LAUCNH_DEVICE_SHIFT,
+	GOMP_LAUNCH_OP_SHIFT): New.
+	(GOMP_LAUNCH_PACK, GOMP_LAUNCH_CODE, GOMP_LAUNCH_DEVICE,
+	GOMP_LAUNCH_OP): New.
+	(GOMP_VERSION_NVIDIA_PTX): Increment to 1.
+
 2015-07-27  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gomp-constants.h (GOMP_VERSION_NVIDIA_PTX): Restore to zero.

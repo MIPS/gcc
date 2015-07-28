@@ -1,4 +1,29 @@
-2015-07-28  Nathan Sidwell  <nathan@acm.org>
+2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* tree.h (OMP_CLAUSE_EXPR): New.
+	* omp-low.c (creste_omp_child_function): Do not set oacc function
+	attribute here.
+	(oacc_launch_pack): New.
+	(OACC_FN_ATTRIB): New define.
+	(set_oacc_fn_attrib): New.
+	(get_oacc_fn_attrib): New.
+	(expand_omp_target): Reimplement openacc launch parameters.
+	* omp-low.h (get_oacc_fn_attrib): Declare.
+	* omp-builtins.def (BUILT_IN_GOACC_KERNELS_INTERNAL): Change type.
+	(BUILT_IN_GOACC_PARALLEL): Change type and target name.
+	* builtin-types.def
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_INT_INT_INT_SIZE_INT_INT_VAR): Replace with ...
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_SIZE_VAR): ... this.
+	* tree-parloops.c (create_parallel_loop): Adjust index of
+	shared_size arg.
+	* except.c: Include omp-low.h
+	(finish_eh_generation): Call get_oacc_fn_attrib.
+	* config/nvptx/mkoffload.c (process): Accumulate compute grid
+	dimensions and emit them.
+	* config/nvptx/nvptx.c: Include gomp-constants.h
+	(nvptx_record_offload_symbol): Emit compute grid dimensions.
+
+2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (oacc_default_clause): Always set GOVD_MAP if found
 	in outer scope.
