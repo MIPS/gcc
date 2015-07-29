@@ -6583,7 +6583,7 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
 
   /* For offsetof and declaration of types we need
      constant integeral values.
-     Also we meed to fold for negative constants so that diagnostic in
+     Also we need to fold for negative constants so that diagnostic in
      c-family/c-common.c doesn't fail for array-bounds.  */
   index = fold_simple (index);
   parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
