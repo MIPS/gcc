@@ -562,23 +562,6 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
   switch (code)
     {
-    case SIZEOF_EXPR:
-      if (SIZEOF_EXPR_TYPE_P (*expr_p))
-	*expr_p = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (*expr_p,
-								       0)),
-					      SIZEOF_EXPR, false);
-      else if (TYPE_P (TREE_OPERAND (*expr_p, 0)))
-	*expr_p = cxx_sizeof_or_alignof_type (TREE_OPERAND (*expr_p, 0),
-					      SIZEOF_EXPR, false);
-      else
-	*expr_p = cxx_sizeof_or_alignof_expr (TREE_OPERAND (*expr_p, 0),
-					      SIZEOF_EXPR, false);
-      if (*expr_p == error_mark_node)
-	*expr_p = size_one_node;
-
-      *expr_p = maybe_constant_value (*expr_p);
-      ret = GS_OK;
-      break;
     case PTRMEM_CST:
       *expr_p = cplus_expand_constant (*expr_p);
       ret = GS_OK;
