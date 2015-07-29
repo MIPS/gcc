@@ -1,3 +1,47 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct target_var_desc): Fix up comments
+	about offset and length fields.
+	* target.c (gomp_map_lookup): New function.
+	(gomp_map_pointer): Use it.
+	(gomp_map_vars): Handle GOMP_MAP_FIRSTPRIVATE_INT,
+	GOMP_MAP_USE_DEVICE_PTR and GOMP_MAP_ZERO_LEN_ARRAY_SECTION.
+	Add tgt->list[i].offset for mappings with non-NULL
+	tgt->list[i].key.
+	(GOMP_target_41): Handle GOMP_MAP_FIRSTPRIVATE even
+	for host fallback.
+	(omp_target_is_present): Use gomp_map_lookup.
+	(omp_target_associate_ptr): Likewise.
+	(omp_target_disassociate_ptr): Likewise.
+	* testsuite/libgomp.c++/target-2.C (fn2): Add map(tofrom: s).
+	* testsuite/libgomp.c++/target-7.C: New test.
+	* testsuite/libgomp.c++/target-8.C: New test.
+	* testsuite/libgomp.c++/target-9.C: New test.
+	* testsuite/libgomp.c/target-1.c (fn2, fn3, fn4): Add
+	map(tofrom:s).
+	* testsuite/libgomp.c/target-2.c (fn2, fn3, fn4): Likewise.
+	* testsuite/libgomp.c/target-7.c (foo): Add map(h) where needed.
+	* testsuite/libgomp.c/target-15.c: New test.
+	* testsuite/libgomp.c/target-16.c: New test.
+	* testsuite/libgomp.c/target-17.c: New test.
+	* testsuite/libgomp.c/target-18.c: New test.
+	* testsuite/libgomp.c/target-19.c: New test.
+	* testsuite/libgomp.c/examples-4/e.51.3.c (gramSchmidt): Add
+	map(tofrom:tmp).
+	* testsuite/libgomp.c/examples-4/e.53.1.c (fib_wrapper): Add
+	map(from:x).
+	* testsuite/libgomp.c/examples-4/e.53.4.c (accum): Add
+	map(tofrom:tmp).
+	* testsuite/libgomp.c/examples-4/e.53.5.c (accum): Likewise.
+	* testsuite/libgomp.c/examples-4/e.54.2.c (dotprod): Add
+	map(tofrom: sum).
+	* testsuite/libgomp.c/examples-4/e.54.3.c (dotprod): Likewise.
+	* testsuite/libgomp.c/examples-4/e.54.4.c (dotprod): Likewise.
+	* testsuite/libgomp.c/examples-4/e.57.1.c (main): Add
+	map(from: c) and map(from: b, d) where needed.
+	* testsuite/libgomp.c/examples-4/e.57.3.c (main): Add
+	map(from: res).
+
 2015-07-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* target.c (gomp_map_vars): Handle GOMP_MAP_FIRSTPRIVATE.

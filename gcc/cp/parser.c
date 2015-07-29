@@ -32276,27 +32276,28 @@ cp_parser_omp_target_data (cp_parser *parser, cp_token *pragma_tok)
   for (tree *pc = &clauses; *pc;)
     {
       if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
-       switch (OMP_CLAUSE_MAP_KIND (*pc))
-	 {
-	 case GOMP_MAP_TO:
-	 case GOMP_MAP_ALWAYS_TO:
-	 case GOMP_MAP_FROM:
-	 case GOMP_MAP_ALWAYS_FROM:
-	 case GOMP_MAP_TOFROM:
-	 case GOMP_MAP_ALWAYS_TOFROM:
-	 case GOMP_MAP_ALLOC:
-	 case GOMP_MAP_POINTER:
-	   map_seen = 3;
-	   break;
-	 default:
-	   map_seen |= 1;
-	   error_at (OMP_CLAUSE_LOCATION (*pc),
-		     "%<#pragma omp target data%> with map-type other "
-		     "than %<to%>, %<from%>, %<tofrom%> or %<alloc%> "
-		     "on %<map%> clause");
-	   *pc = OMP_CLAUSE_CHAIN (*pc);
-	   continue;
-	 }
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
+	  {
+	  case GOMP_MAP_TO:
+	  case GOMP_MAP_ALWAYS_TO:
+	  case GOMP_MAP_FROM:
+	  case GOMP_MAP_ALWAYS_FROM:
+	  case GOMP_MAP_TOFROM:
+	  case GOMP_MAP_ALWAYS_TOFROM:
+	  case GOMP_MAP_ALLOC:
+	    map_seen = 3;
+	    break;
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	    break;
+	  default:
+	    map_seen |= 1;
+	    error_at (OMP_CLAUSE_LOCATION (*pc),
+		      "%<#pragma omp target data%> with map-type other "
+		      "than %<to%>, %<from%>, %<tofrom%> or %<alloc%> "
+		      "on %<map%> clause");
+	    *pc = OMP_CLAUSE_CHAIN (*pc);
+	    continue;
+	  }
       pc = &OMP_CLAUSE_CHAIN (*pc);
     }
 
@@ -32370,22 +32371,23 @@ cp_parser_omp_target_enter_data (cp_parser *parser, cp_token *pragma_tok,
   for (tree *pc = &clauses; *pc;)
     {
       if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
-       switch (OMP_CLAUSE_MAP_KIND (*pc))
-	 {
-	 case GOMP_MAP_TO:
-	 case GOMP_MAP_ALWAYS_TO:
-	 case GOMP_MAP_ALLOC:
-	 case GOMP_MAP_POINTER:
-	   map_seen = 3;
-	   break;
-	 default:
-	   map_seen |= 1;
-	   error_at (OMP_CLAUSE_LOCATION (*pc),
-		     "%<#pragma omp target enter data%> with map-type other "
-		     "than %<to%> or %<alloc%> on %<map%> clause");
-	   *pc = OMP_CLAUSE_CHAIN (*pc);
-	   continue;
-	 }
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
+	  {
+	  case GOMP_MAP_TO:
+	  case GOMP_MAP_ALWAYS_TO:
+	  case GOMP_MAP_ALLOC:
+	    map_seen = 3;
+	    break;
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	    break;
+	  default:
+	    map_seen |= 1;
+	    error_at (OMP_CLAUSE_LOCATION (*pc),
+		      "%<#pragma omp target enter data%> with map-type other "
+		      "than %<to%> or %<alloc%> on %<map%> clause");
+	    *pc = OMP_CLAUSE_CHAIN (*pc);
+	    continue;
+	  }
       pc = &OMP_CLAUSE_CHAIN (*pc);
     }
 
@@ -32455,24 +32457,25 @@ cp_parser_omp_target_exit_data (cp_parser *parser, cp_token *pragma_tok,
   for (tree *pc = &clauses; *pc;)
     {
       if (OMP_CLAUSE_CODE (*pc) == OMP_CLAUSE_MAP)
-       switch (OMP_CLAUSE_MAP_KIND (*pc))
-	 {
-	 case GOMP_MAP_FROM:
-	 case GOMP_MAP_ALWAYS_FROM:
-	 case GOMP_MAP_RELEASE:
-	 case GOMP_MAP_DELETE:
-	 case GOMP_MAP_POINTER:
-	   map_seen = 3;
-	   break;
-	 default:
-	   map_seen |= 1;
-	   error_at (OMP_CLAUSE_LOCATION (*pc),
-		     "%<#pragma omp target exit data%> with map-type other "
-		     "than %<from%>, %<release%> or %<delete%> on %<map%>"
-		     " clause");
-	   *pc = OMP_CLAUSE_CHAIN (*pc);
-	   continue;
-	 }
+	switch (OMP_CLAUSE_MAP_KIND (*pc))
+	  {
+	  case GOMP_MAP_FROM:
+	  case GOMP_MAP_ALWAYS_FROM:
+	  case GOMP_MAP_RELEASE:
+	  case GOMP_MAP_DELETE:
+	    map_seen = 3;
+	    break;
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	    break;
+	  default:
+	    map_seen |= 1;
+	    error_at (OMP_CLAUSE_LOCATION (*pc),
+		      "%<#pragma omp target exit data%> with map-type other "
+		      "than %<from%>, %<release%> or %<delete%> on %<map%>"
+		      " clause");
+	    *pc = OMP_CLAUSE_CHAIN (*pc);
+	    continue;
+	  }
       pc = &OMP_CLAUSE_CHAIN (*pc);
     }
 
@@ -32637,6 +32640,7 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	  TREE_TYPE (stmt) = void_type_node;
 	  OMP_TARGET_CLAUSES (stmt) = cclauses[C_OMP_CLAUSE_SPLIT_TARGET];
 	  OMP_TARGET_BODY (stmt) = body;
+	  OMP_TARGET_COMBINED (stmt) = 1;
 	  add_stmt (stmt);
 	  pc = &OMP_TARGET_CLAUSES (stmt);
 	  goto check_clauses;
@@ -32697,7 +32701,7 @@ check_clauses:
 	  case GOMP_MAP_TOFROM:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_ALLOC:
-	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	    break;
 	  default:
 	    error_at (OMP_CLAUSE_LOCATION (*pc),

@@ -74,6 +74,17 @@ enum gomp_map_kind
     GOMP_MAP_FORCE_DEVICEPTR =		(GOMP_MAP_FLAG_SPECIAL_1 | 0),
     /* Do not map, copy bits for firstprivate instead.  */
     GOMP_MAP_FIRSTPRIVATE =		(GOMP_MAP_FLAG_SPECIAL | 0),
+    /* Similarly, but store the value in the pointer rather than
+       pointed by the pointer.  */
+    GOMP_MAP_FIRSTPRIVATE_INT =		(GOMP_MAP_FLAG_SPECIAL | 1),
+    /* Pointer translate host address into device address and copy that
+       back to host.  */
+    GOMP_MAP_USE_DEVICE_PTR =		(GOMP_MAP_FLAG_SPECIAL | 2),
+    /* Allocate a zero length array section.  Prefer next non-zero length
+       mapping over previous non-zero length mapping over zero length mapping
+       at the address.  If not already mapped, do nothing (and pointer translate
+       to NULL).  */
+    GOMP_MAP_ZERO_LEN_ARRAY_SECTION = 	(GOMP_MAP_FLAG_SPECIAL | 3),
     /* Allocate.  */
     GOMP_MAP_FORCE_ALLOC =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_ALLOC),
     /* ..., and copy to device.  */
@@ -95,7 +106,11 @@ enum gomp_map_kind
     GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
     /* Decrement usage count and deallocate if zero.  */
     GOMP_MAP_RELEASE =			(GOMP_MAP_FLAG_ALWAYS
-					 | GOMP_MAP_FORCE_DEALLOC)
+					 | GOMP_MAP_FORCE_DEALLOC),
+
+    /* Internal to GCC, not used in libgomp.  */
+    /* Do not map, but pointer assign a pointer instead.  */
+    GOMP_MAP_FIRSTPRIVATE_POINTER =	(GOMP_MAP_LAST | 1)
   };
 
 #define GOMP_MAP_COPY_TO_P(X) \

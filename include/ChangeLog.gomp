@@ -1,3 +1,10 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (enum gomp_map_kind): Add
+	GOMP_MAP_FIRSTPRIVATE_INT, GOMP_MAP_USE_DEVICE_PTR,
+	GOMP_MAP_ZERO_LEN_ARRAY_SECTION and
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+
 2015-07-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* gomp-constants.h (enum gomp_map_kind): Add GOMP_MAP_FIRSTPRIVATE.

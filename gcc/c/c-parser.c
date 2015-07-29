@@ -12435,7 +12435,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
   c_parser_skip_to_pragma_eol (parser);
 
   if (finish_p)
-    return c_finish_omp_clauses (clauses);
+    return c_finish_omp_clauses (clauses, false);
 
   return clauses;
 }
@@ -12720,8 +12720,8 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
   if (finish_p)
     {
       if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
-	return c_finish_omp_clauses (clauses, true);
-      return c_finish_omp_clauses (clauses);
+	return c_finish_omp_clauses (clauses, true, true);
+      return c_finish_omp_clauses (clauses, true);
     }
 
   return clauses;
@@ -12755,7 +12755,7 @@ c_parser_oacc_cache (location_t loc, c_parser *parser)
   tree stmt, clauses;
 
   clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE__CACHE_, NULL);
-  clauses = c_finish_omp_clauses (clauses);
+  clauses = c_finish_omp_clauses (clauses, false);
 
   c_parser_skip_to_pragma_eol (parser);
 
@@ -13902,7 +13902,7 @@ omp_split_clauses (location_t loc, enum tree_code code,
   c_omp_split_clauses (loc, code, mask, clauses, cclauses);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
-      cclauses[i] = c_finish_omp_clauses (cclauses[i]);
+      cclauses[i] = c_finish_omp_clauses (cclauses[i], true);
 }
 
 /* OpenMP 4.0:
@@ -14668,8 +14668,9 @@ c_parser_omp_target_data (location_t loc, c_parser *parser)
 	  case GOMP_MAP_TOFROM:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_ALLOC:
-	  case GOMP_MAP_POINTER:
 	    map_seen = 3;
+	    break;
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -14800,8 +14801,9 @@ c_parser_omp_target_enter_data (location_t loc, c_parser *parser,
 	  case GOMP_MAP_TO:
 	  case GOMP_MAP_ALWAYS_TO:
 	  case GOMP_MAP_ALLOC:
-	  case GOMP_MAP_POINTER:
 	    map_seen = 3;
+	    break;
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -14885,8 +14887,9 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
 	  case GOMP_MAP_ALWAYS_FROM:
 	  case GOMP_MAP_RELEASE:
 	  case GOMP_MAP_DELETE:
-	  case GOMP_MAP_POINTER:
 	    map_seen = 3;
+	    break;
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -15016,6 +15019,7 @@ c_parser_omp_target (c_parser *parser, enum pragma_context context)
 	  TREE_TYPE (stmt) = void_type_node;
 	  OMP_TARGET_CLAUSES (stmt) = cclauses[C_OMP_CLAUSE_SPLIT_TARGET];
 	  OMP_TARGET_BODY (stmt) = block;
+	  OMP_TARGET_COMBINED (stmt) = 1;
 	  add_stmt (stmt);
 	  pc = &OMP_TARGET_CLAUSES (stmt);
 	  goto check_clauses;
@@ -15078,7 +15082,7 @@ check_clauses:
 	  case GOMP_MAP_TOFROM:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_ALLOC:
-	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	    break;
 	  default:
 	    error_at (OMP_CLAUSE_LOCATION (*pc),
@@ -16379,7 +16383,7 @@ c_parser_cilk_for (c_parser *parser, tree grain)
   tree clauses = build_omp_clause (EXPR_LOCATION (grain), OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (clauses) = OMP_CLAUSE_SCHEDULE_CILKFOR;
   OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses) = grain;
-  clauses = c_finish_omp_clauses (clauses);
+  clauses = c_finish_omp_clauses (clauses, false);
 
   tree block = c_begin_compound_stmt (true);
   tree sb = push_stmt_list ();
@@ -16444,7 +16448,7 @@ c_parser_cilk_for (c_parser *parser, tree grain)
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par) = c_finish_omp_clauses (c);
+      OMP_PARALLEL_CLAUSES (omp_par) = c_finish_omp_clauses (c, true);
       add_stmt (omp_par);
     }
 

@@ -1,3 +1,22 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-tree.h (c_finish_omp_clauses): Add is_omp argument.
+	* c-parser.c (c_parser_oacc_all_clauses, c_parser_omp_all_clauses,
+	c_parser_oacc_cache, omp_split_clauses, c_parser_cilk_for): Adjust
+	c_finish_omp_clauses callers.
+	(c_parser_omp_target_data, c_parser_omp_target_enter_data,
+	c_parser_omp_target_exit_data): Disallow GOMP_MAP_POINTER, allow
+	GOMP_MAP_FIRSTPRIVATE_POINTER but don't set map_seen for it.
+	(c_parser_omp_target): Set OMP_TARGET_COMBINED if combined.
+	Disallow GOMP_MAP_POINTER, allow GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* c-typeck.c (handle_omp_array_sections): Add is_omp argument.
+	Set OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION if needed.
+	Use GOMP_MAP_FIRSTPRIVATE_POINTER instead of GOMP_MAP_POINTER
+	if is_omp.
+	(c_finish_omp_clauses): Add is_omp argument, pass it down to
+	handle_omp_array_sections.  Handle GOMP_MAP_FIRSTPRIVATE_POINTER.
+	For is_device_ptr/use_device_ptr clauses allow ARRAY_TYPE.
+
 2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Adjust pointer offsets for

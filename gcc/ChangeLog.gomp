@@ -1,3 +1,72 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_TARGET_COMBINED): Define.
+	(OMP_CLAUSE_SET_MAP_KIND): Cast to unsigned int rather than unsigned
+	char.
+	(OMP_CLAUSE_MAP_PRIVATE,
+	OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION): Define.
+	* tree-core.h (struct tree_omp_clause): Change type of map_kind
+	from unsigned char to unsigned int.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_0LEN_ARRAY.
+	(enum omp_region_type): Add ORT_COMBINED_TARGET.
+	(struct gimplify_omp_ctx): Add target_map_scalars_firstprivate,
+	target_map_pointers_as_0len_arrays and
+	target_firstprivatize_array_bases fields.
+	(maybe_fold_stmt): Adjust check for ORT_TARGET for the addition of
+	ORT_COMBINED_TARGET.
+	(omp_notice_threadprivate_variable): Likewise.
+	(omp_firstprivatize_variable): Likewise. 
+	If ctx->target_map_scalars_firstprivate is set, firstprivatize
+	as GOVD_FIRSTPRIVATE.
+	(omp_add_variable): Allow map clause together with data sharing
+	clauses.  For data sharing clause with VLA decl
+	on omp target/target data don't add firstprivate for the pointer.
+	(omp_notice_variable): Adjust check for ORT_TARGET for the addition
+	of ORT_COMBINED_TARGET.  Handle implicit mapping of pointers
+	as zero length array sections and
+	ctx->target_map_scalars_firstprivate mapping of scalars as
+	firstprivate data sharing.
+	(gimplify_scan_omp_clauses): Initialize
+	ctx->target_map_scalars_firstprivate,
+	ctx->target_firstprivatize_array_bases and
+	ctx->target_map_pointers_as_0len_arrays.  Add firstprivate for
+	linear clause even to target region if combined.  Remove
+	map clauses with GOMP_MAP_FIRSTPRIVATE_POINTER kind from
+	OMP_TARGET_{,ENTER_,EXIT_}DATA.  For GOMP_MAP_FIRSTPRIVATE_POINTER
+	map kind with non-INTEGER_CST OMP_CLAUSE_SIZE firstprivatize
+	the bias.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_MAP_0LEN_ARRAY.
+	If gimplify_omp_ctxp->target_firstprivatize_array_bases, use
+	GOMP_MAP_FIRSTPRIVATE_POINTER map kind instead of
+	GOMP_MAP_POINTER.
+	(gimplify_adjust_omp_clauses): Adjust check for ORT_TARGET for the
+	addition of ORT_COMBINED_TARGET.  Use
+	GOMP_MAP_FIRSTPRIVATE_POINTER instead of GOMP_MAP_POINTER if
+	ctx->target_firstprivatize_array_bases for VLAs.  Set
+	OMP_CLAUSE_MAP_PRIVATE if both data sharing and map clause
+	appear together.
+	(gimplify_omp_workshare): Adjust check for ORT_TARGET for the
+	addition of ORT_COMBINED_TARGET.  Use ORT_COMBINED_TARGET if
+	OMP_TARGET_COMBINED.
+	* omp-low.c (lookup_sfield): Change first argument to
+	splay_tree_key, add overload with tree first argument.
+	(maybe_lookup_field): Likewise.
+	(build_sender_ref): Likewise.
+	(scan_sharing_clauses): Handle VLAs in target firstprivate and
+	is_device_ptr clauses.  Fix up variable shadowing.  Handle
+	OMP_CLAUSE_USE_DEVICE_PTR.  Handle OMP_CLAUSE_MAP_PRIVATE.  Handle
+	GOMP_MAP_FIRSTPRIVATE_POINTER map kind.
+	(handle_simd_reference): Use get_name.
+	(lower_rec_input_clauses): Likewise.  Use BUILT_IN_ALLOCA_WITH_ALIGN
+	instead of BUILT_IN_ALLOCA.
+	(lower_send_clauses): Use new lookup_sfield overload.
+	(lower_omp_target): Handle GOMP_MAP_FIRSTPRIVATE_POINTER map kind.
+	Handle OMP_CLAUSE_PRIVATE VLAs.  Handle OMP_CLAUSE_USE_DEVICE_PTR,
+	handle arrays and references to arrays in OMP_CLAUSE_IS_DEVICE_PTR
+	clause.  Handle OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+
 2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
 
 	* tree-pretty-print.c (dump_omp_clause): Pass TYPE_SIGN to

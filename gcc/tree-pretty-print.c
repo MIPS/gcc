@@ -640,6 +640,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case GOMP_MAP_RELEASE:
 	  pp_string (pp, "release");
 	  break;
+	case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  pp_string (pp, "firstprivate");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -650,7 +653,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       if (OMP_CLAUSE_SIZE (clause))
 	{
 	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
-	      && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_POINTER)
+	      && (OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_POINTER
+		  || OMP_CLAUSE_MAP_KIND (clause)
+		     == GOMP_MAP_FIRSTPRIVATE_POINTER))
 	    pp_string (pp, " [pointer assign, bias: ");
 	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
 		   && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_TO_PSET)

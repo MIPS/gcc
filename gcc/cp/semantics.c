@@ -4650,7 +4650,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 /* Handle array sections for clause C.  */
 
 static bool
-handle_omp_array_sections (tree c)
+handle_omp_array_sections (tree c, bool is_omp)
 {
   bool maybe_zero_len = false;
   unsigned int first_non_one = 0;
@@ -4826,10 +4826,26 @@ handle_omp_array_sections (tree c)
 	  OMP_CLAUSE_SIZE (c) = size;
 	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 	    return false;
+	  if (is_omp)
+	    switch (OMP_CLAUSE_MAP_KIND (c))
+	      {
+	      case GOMP_MAP_ALLOC:
+	      case GOMP_MAP_TO:
+	      case GOMP_MAP_FROM:
+	      case GOMP_MAP_TOFROM:
+	      case GOMP_MAP_ALWAYS_TO:
+	      case GOMP_MAP_ALWAYS_FROM:
+	      case GOMP_MAP_ALWAYS_TOFROM:
+		OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
+		break;
+	      default:
+		break;
+	      }
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
-	  if (!cxx_mark_addressable (t))
+	  OMP_CLAUSE_SET_MAP_KIND (c2, is_omp ? GOMP_MAP_FIRSTPRIVATE_POINTER
+					      : GOMP_MAP_POINTER);
+	  if (!is_omp && !cxx_mark_addressable (t))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
 	  t = build_fold_addr_expr (first);
@@ -4847,7 +4863,8 @@ handle_omp_array_sections (tree c)
 	  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
 	  OMP_CLAUSE_CHAIN (c) = c2;
 	  ptr = OMP_CLAUSE_DECL (c2);
-	  if (TREE_CODE (TREE_TYPE (ptr)) == REFERENCE_TYPE
+	  if (!is_omp
+	      && TREE_CODE (TREE_TYPE (ptr)) == REFERENCE_TYPE
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (ptr))))
 	    {
 	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
@@ -5608,7 +5625,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c))
+	      if (handle_omp_array_sections (c, allow_fields))
 		{
 		  remove = true;
 		  break;
@@ -6195,7 +6212,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c))
+	      if (handle_omp_array_sections (c, allow_fields))
 		remove = true;
 	      break;
 	    }
@@ -6229,7 +6246,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c))
+	      if (handle_omp_array_sections (c, allow_fields))
 		remove = true;
 	      else
 		{
@@ -6282,7 +6299,9 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		   && !cxx_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
+		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
+			 || (OMP_CLAUSE_MAP_KIND (c)
+			     == GOMP_MAP_FIRSTPRIVATE_POINTER)))
 		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
@@ -6468,12 +6487,14 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    {
 	      tree type = TREE_TYPE (t);
 	      if (TREE_CODE (type) != POINTER_TYPE
+		  && TREE_CODE (type) != ARRAY_TYPE
 		  && (TREE_CODE (type) != REFERENCE_TYPE
-		      || TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE))
+		      || (TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+			  && TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
-			    "%qs variable is not a pointer or reference "
-			    "to pointer",
+			    "%qs variable is neither a pointer, nor an array"
+			    "nor reference to pointer or array",
 			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 		  remove = true;
 		}

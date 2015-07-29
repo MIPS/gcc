@@ -1,3 +1,19 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_target_data, cp_parser_omp_target_enter_data,
+	cp_parser_omp_target_exit_data): Formatting fixes.  Disallow
+	GOMP_MAP_POINTER, allow GOMP_MAP_FIRSTPRIVATE_POINTER but don't set
+	map_seen for it.
+	(cp_parser_omp_target): Set OMP_TARGET_COMBINED if combined.
+	Disallow GOMP_MAP_POINTER, allow GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* semantics.c (handle_omp_array_sections): Add is_omp argument.
+	Set OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION if needed.
+	Use GOMP_MAP_FIRSTPRIVATE_POINTER instead of GOMP_MAP_POINTER
+	if is_omp.
+	(finish_omp_clauses): Handle GOMP_MAP_FIRSTPRIVATE_POINTER.
+	For is_device_ptr/use_device_ptr clauses allow ARRAY_TYPE
+	and REFERENCE_TYPE to ARRAY_TYPE.
+
 2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
 
 	* semantics.c (cp_finish_omp_clause_depend_sink): New.

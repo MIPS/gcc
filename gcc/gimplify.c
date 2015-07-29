@@ -90,6 +90,8 @@ enum gimplify_omp_var_data
   /* Flag for GOVD_LINEAR or GOVD_LASTPRIVATE: no outer reference.  */
   GOVD_LINEAR_LASTPRIVATE_NO_OUTER = 16384,
 
+  GOVD_MAP_0LEN_ARRAY = 32768,
+
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -110,6 +112,7 @@ enum omp_region_type
   ORT_TARGET_DATA = 16,
   /* Data region with offloading.  */
   ORT_TARGET = 32,
+  ORT_COMBINED_TARGET = 33,
   /* Dummy OpenMP region, used to disable expansion of
      DECL_VALUE_EXPRs in taskloop pre body.  */
   ORT_NONE = 64
@@ -156,6 +159,9 @@ struct gimplify_omp_ctx
   enum omp_region_type region_type;
   bool combined_loop;
   bool distribute;
+  bool target_map_scalars_firstprivate;
+  bool target_map_pointers_as_0len_arrays;
+  bool target_firstprivatize_array_bases;
 };
 
 static struct gimplify_ctx *gimplify_ctxp;
@@ -2260,7 +2266,7 @@ maybe_fold_stmt (gimple_stmt_iterator *gsi)
 {
   struct gimplify_omp_ctx *ctx;
   for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-    if (ctx->region_type == ORT_TARGET)
+    if ((ctx->region_type & ORT_TARGET) != 0)
       return false;
   return fold_stmt (gsi);
 }
@@ -5561,8 +5567,13 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	  else
 	    return;
 	}
-      else if (ctx->region_type == ORT_TARGET)
-	omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
+      else if ((ctx->region_type & ORT_TARGET) != 0)
+	{
+	  if (ctx->target_map_scalars_firstprivate)
+	    omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
+	  else
+	    omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
+	}
       else if (ctx->region_type != ORT_WORKSHARE
 	       && ctx->region_type != ORT_SIMD
 	       && ctx->region_type != ORT_TARGET_DATA)
@@ -5648,7 +5659,7 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
     flags |= GOVD_SEEN;
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-  if (n != NULL && n->value != GOVD_ALIGNED)
+  if (n != NULL && (n->value & GOVD_DATA_SHARE_CLASS) != 0)
     {
       /* We shouldn't be re-adding the decl with the same data
 	 sharing class.  */
@@ -5678,6 +5689,9 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	    nflags = GOVD_MAP | GOVD_MAP_TO_ONLY | GOVD_EXPLICIT;
 	  else if (flags & GOVD_PRIVATE)
 	    nflags = GOVD_PRIVATE;
+	  else if ((ctx->region_type & (ORT_TARGET | ORT_TARGET_DATA)) != 0
+		   && (flags & GOVD_FIRSTPRIVATE))
+	    nflags = GOVD_PRIVATE | GOVD_EXPLICIT;
 	  else
 	    nflags = GOVD_FIRSTPRIVATE;
 	  nflags |= flags & GOVD_SEEN;
@@ -5746,7 +5760,7 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
   struct gimplify_omp_ctx *octx;
 
   for (octx = ctx; octx; octx = octx->outer_context)
-    if (octx->region_type == ORT_TARGET)
+    if ((octx->region_type & ORT_TARGET) != 0)
       {
 	n = splay_tree_lookup (octx->variables, (splay_tree_key)decl);
 	if (n == NULL)
@@ -5810,19 +5824,66 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
     }
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-  if (ctx->region_type == ORT_TARGET)
+  if ((ctx->region_type & ORT_TARGET) != 0)
     {
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
       if (n == NULL)
 	{
-	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl)))
+	  unsigned nflags = flags;
+	  if (ctx->target_map_pointers_as_0len_arrays
+	      || ctx->target_map_scalars_firstprivate)
+	    {
+	      bool is_declare_target = false;
+	      bool is_scalar = false;
+	      if (is_global_var (decl)
+		  && varpool_node::get_create (decl)->offloadable)
+		{
+		  struct gimplify_omp_ctx *octx;
+		  for (octx = ctx->outer_context;
+		       octx; octx = octx->outer_context)
+		    {
+		      n = splay_tree_lookup (octx->variables,
+					     (splay_tree_key)decl);
+		      if (n
+			  && (n->value & GOVD_DATA_SHARE_CLASS) != GOVD_SHARED
+			  && (n->value & GOVD_DATA_SHARE_CLASS) != 0)
+			break;
+		    }
+		  is_declare_target = octx == NULL;
+		}
+	      if (!is_declare_target && ctx->target_map_scalars_firstprivate)
+		{
+		  tree type = TREE_TYPE (decl);
+		  if (TREE_CODE (type) == REFERENCE_TYPE)
+		    type = TREE_TYPE (type);
+		  if (TREE_CODE (type) == COMPLEX_TYPE)
+		    type = TREE_TYPE (type);
+		  if (INTEGRAL_TYPE_P (type)
+		      || SCALAR_FLOAT_TYPE_P (type)
+		      || TREE_CODE (type) == POINTER_TYPE)
+		    is_scalar = true;
+		}
+	      if (is_declare_target)
+		;
+	      else if (ctx->target_map_pointers_as_0len_arrays
+		       && (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE
+			   || (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE
+			       && TREE_CODE (TREE_TYPE (TREE_TYPE (decl)))
+				  == POINTER_TYPE)))
+		nflags |= GOVD_MAP | GOVD_MAP_0LEN_ARRAY;
+	      else if (is_scalar)
+		nflags |= GOVD_FIRSTPRIVATE;
+	    }
+	  if (nflags == flags
+	      && !lang_hooks.types.omp_mappable_type (TREE_TYPE (decl)))
 	    {
 	      error ("%qD referenced in target region does not have "
 		     "a mappable type", decl);
-	      omp_add_variable (ctx, decl, GOVD_MAP | GOVD_EXPLICIT | flags);
+	      nflags |= GOVD_MAP | GOVD_EXPLICIT;
 	    }
-	  else
-	    omp_add_variable (ctx, decl, GOVD_MAP | flags);
+	  else if (nflags == flags)
+	    nflags |= GOVD_MAP;
+	  omp_add_variable (ctx, decl, nflags);
 	}
       else
 	{
@@ -6144,6 +6205,24 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 
   ctx = new_omp_context (region_type);
   outer_ctx = ctx->outer_context;
+  if (code == OMP_TARGET && !lang_GNU_Fortran ())
+    {
+      ctx->target_map_pointers_as_0len_arrays = true;
+      /* FIXME: For Fortran we want to set this too, when
+	 the Fortran FE is updated to OpenMP 4.1.  */
+      ctx->target_map_scalars_firstprivate = true;
+    }
+  if (!lang_GNU_Fortran ())
+    switch (code)
+      {
+      case OMP_TARGET:
+      case OMP_TARGET_DATA:
+      case OMP_TARGET_ENTER_DATA:
+      case OMP_TARGET_EXIT_DATA:
+	ctx->target_firstprivatize_array_bases = true;
+      default:
+	break;
+      }
 
   while ((c = *list_p) != NULL)
     {
@@ -6290,11 +6369,18 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			   && ctx->region_type == ORT_WORKSHARE
 			   && octx == outer_ctx)
 		    flags = GOVD_SEEN | GOVD_SHARED;
+		  else if (octx
+			   && octx->region_type == ORT_COMBINED_TARGET)
+		    flags &= ~GOVD_LASTPRIVATE;
 		  else
 		    break;
-		  gcc_checking_assert (splay_tree_lookup (octx->variables,
-							  (splay_tree_key)
-							  decl) == NULL);
+		  splay_tree_node on
+		    = splay_tree_lookup (octx->variables,
+					 (splay_tree_key) decl);
+		  gcc_assert (on == NULL
+			      || (octx->region_type == ORT_COMBINED_TARGET
+				  && (on->value
+				      & GOVD_DATA_SHARE_CLASS) == 0));
 		  omp_add_variable (octx, decl, flags);
 		  if (octx->outer_context == NULL)
 		    break;
@@ -6319,10 +6405,24 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_MAP:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (error_operand_p (decl))
+	    remove = true;
+	  switch (code)
 	    {
-	      remove = true;
+	    case OMP_TARGET:
+	      break;
+	    case OMP_TARGET_DATA:
+	    case OMP_TARGET_ENTER_DATA:
+	    case OMP_TARGET_EXIT_DATA:
+	      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+		/* For target {,enter ,exit }data only the array slice is
+		   mapped, but not the pointer to it.  */
+		remove = true;
+	      break;
+	    default:
 	      break;
 	    }
+	  if (remove)
+	    break;
 	  if (OMP_CLAUSE_SIZE (c) == NULL_TREE)
 	    OMP_CLAUSE_SIZE (c) = DECL_P (decl) ? DECL_SIZE_UNIT (decl)
 				  : TYPE_SIZE_UNIT (TREE_TYPE (decl));
@@ -6331,6 +6431,14 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    {
 	      remove = true;
 	      break;
+	    }
+	  else if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
+		   && TREE_CODE (OMP_CLAUSE_SIZE (c)) != INTEGER_CST)
+	    {
+	      OMP_CLAUSE_SIZE (c)
+		= get_initialized_tmp_var (OMP_CLAUSE_SIZE (c), pre_p, NULL);
+	      omp_add_variable (ctx, OMP_CLAUSE_SIZE (c),
+				GOVD_FIRSTPRIVATE | GOVD_SEEN);
 	    }
 	  if (!DECL_P (decl))
 	    {
@@ -6643,7 +6751,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
+	  break;
+
 	case OMP_CLAUSE_DEFAULTMAP:
+	  ctx->target_map_scalars_firstprivate = false;
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -6759,6 +6870,30 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     OMP_CLAUSE_PRIVATE_DEBUG (clause) = 1;
   else if (code == OMP_CLAUSE_PRIVATE && (flags & GOVD_PRIVATE_OUTER_REF))
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
+  else if (code == OMP_CLAUSE_MAP && (flags & GOVD_MAP_0LEN_ARRAY) != 0)
+    {
+      tree nc = build_omp_clause (input_location, OMP_CLAUSE_MAP);
+      OMP_CLAUSE_DECL (nc) = decl;
+      if (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE
+	  && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == POINTER_TYPE)
+	OMP_CLAUSE_DECL (clause)
+	  = build_simple_mem_ref_loc (input_location, decl);
+      OMP_CLAUSE_DECL (clause)
+	= build2 (MEM_REF, char_type_node, OMP_CLAUSE_DECL (clause),
+		  build_int_cst (build_pointer_type (char_type_node), 0));
+      OMP_CLAUSE_SIZE (clause) = size_zero_node;
+      OMP_CLAUSE_SIZE (nc) = size_zero_node;
+      OMP_CLAUSE_SET_MAP_KIND (clause, GOMP_MAP_ALLOC);
+      OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (clause) = 1;
+      OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_FIRSTPRIVATE_POINTER);
+      OMP_CLAUSE_CHAIN (nc) = *list_p;
+      OMP_CLAUSE_CHAIN (clause) = nc;
+      struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
+      gimplify_omp_ctxp = ctx->outer_context;
+      gimplify_expr (&TREE_OPERAND (OMP_CLAUSE_DECL (clause), 0),
+		     pre_p, NULL, is_gimple_val, fb_rvalue);
+      gimplify_omp_ctxp = ctx;
+    }
   else if (code == OMP_CLAUSE_MAP)
     {
       OMP_CLAUSE_SET_MAP_KIND (clause,
@@ -6785,7 +6920,10 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 				      OMP_CLAUSE_MAP);
 	  OMP_CLAUSE_DECL (nc) = decl;
 	  OMP_CLAUSE_SIZE (nc) = size_zero_node;
-	  OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_POINTER);
+	  if (gimplify_omp_ctxp->target_firstprivatize_array_bases)
+	    OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_FIRSTPRIVATE_POINTER);
+	  else
+	    OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_POINTER);
 	  OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (clause);
 	  OMP_CLAUSE_CHAIN (clause) = nc;
 	}
@@ -6910,12 +7048,14 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	  if (!DECL_P (decl))
 	    break;
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN)
+	  if ((ctx->region_type & ORT_TARGET) != 0
+	      && !(n->value & GOVD_SEEN)
 	      && !(OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS))
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
-		   && OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_POINTER)
+		   && OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_POINTER
+		   && OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER)
 	    {
 	      /* For GOMP_MAP_FORCE_DEVICEPTR, we'll never enter here, because
 		 for these, TREE_CODE (DECL_SIZE (decl)) will always be
@@ -6935,17 +7075,33 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 		  omp_notice_variable (ctx->outer_context,
 				       OMP_CLAUSE_SIZE (c), true);
 		}
-	      tree nc = build_omp_clause (OMP_CLAUSE_LOCATION (c),
-					  OMP_CLAUSE_MAP);
-	      OMP_CLAUSE_DECL (nc) = decl;
-	      OMP_CLAUSE_SIZE (nc) = size_zero_node;
-	      OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_POINTER);
-	      OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (c);
-	      OMP_CLAUSE_CHAIN (c) = nc;
-	      c = nc;
+	      if (((ctx->region_type & ORT_TARGET) != 0
+		   || !ctx->target_firstprivatize_array_bases)
+		  && ((n->value & GOVD_SEEN) == 0
+		      || (n->value & (GOVD_PRIVATE | GOVD_FIRSTPRIVATE)) == 0))
+		{
+		  tree nc = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+					      OMP_CLAUSE_MAP);
+		  OMP_CLAUSE_DECL (nc) = decl;
+		  OMP_CLAUSE_SIZE (nc) = size_zero_node;
+		  if (ctx->target_firstprivatize_array_bases)
+		    OMP_CLAUSE_SET_MAP_KIND (nc,
+					     GOMP_MAP_FIRSTPRIVATE_POINTER);
+		  else
+		    OMP_CLAUSE_SET_MAP_KIND (nc, GOMP_MAP_POINTER);
+		  OMP_CLAUSE_CHAIN (nc) = OMP_CLAUSE_CHAIN (c);
+		  OMP_CLAUSE_CHAIN (c) = nc;
+		  c = nc;
+		}
 	    }
-	  else if (OMP_CLAUSE_SIZE (c) == NULL_TREE)
-	    OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
+	  else
+	    {
+	      if (OMP_CLAUSE_SIZE (c) == NULL_TREE)
+		OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
+	      if ((n->value & GOVD_SEEN)
+		  && (n->value & (GOVD_PRIVATE | GOVD_FIRSTPRIVATE)))
+		OMP_CLAUSE_MAP_PRIVATE (c) = 1;
+	    }
 	  break;
 
 	case OMP_CLAUSE_TO:
@@ -7888,9 +8044,11 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     case OMP_SINGLE:
       ort = ORT_WORKSHARE;
       break;
+    case OMP_TARGET:
+      ort = OMP_TARGET_COMBINED (expr) ? ORT_COMBINED_TARGET : ORT_TARGET;
+      break;
     case OACC_KERNELS:
     case OACC_PARALLEL:
-    case OMP_TARGET:
       ort = ORT_TARGET;
       break;
     case OACC_DATA:
@@ -7905,7 +8063,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort,
 			     TREE_CODE (expr));
-  if (ort == ORT_TARGET || ort == ORT_TARGET_DATA)
+  if ((ort & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
     {
       push_gimplify_context ();
       gimple g = gimplify_and_return_first (OMP_BODY (expr), &body);

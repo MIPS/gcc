@@ -1354,7 +1354,7 @@ struct GTY(()) tree_omp_clause {
     enum omp_clause_schedule_kind  schedule_kind;
     enum omp_clause_depend_kind    depend_kind;
     /* See include/gomp-constants.h for enum gomp_map_kind's values.  */
-    unsigned char		   map_kind;
+    unsigned int		   map_kind;
     enum omp_clause_proc_bind_kind proc_bind_kind;
     enum tree_code                 reduction_code;
     enum omp_clause_linear_kind    linear_kind;
