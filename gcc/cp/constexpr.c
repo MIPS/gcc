@@ -1050,9 +1050,6 @@ adjust_temp_type (tree type, tree temp)
 {
   if (TREE_TYPE (temp) == type)
     return temp;
-  STRIP_NOPS (temp);
-  if (TREE_TYPE (temp) == type)
-    return temp;
   /* Avoid wrapping an aggregate value in a NOP_EXPR.  */
   if (TREE_CODE (temp) == CONSTRUCTOR)
     return build_constructor (type, CONSTRUCTOR_ELTS (temp));
@@ -1092,7 +1089,7 @@ cxx_bind_parameters_in_call (const constexpr_ctx *ctx, tree t,
 	  if (x)
 	    x = cp_build_addr_expr (x, tf_warning_or_error);
 	  else
-	    x = get_nth_callarg (t, i);
+	    gcc_unreachable ();
 	}
       bool lval = false;
       arg = cxx_eval_constant_expression (ctx, x, lval,
