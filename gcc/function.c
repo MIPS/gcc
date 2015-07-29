@@ -2322,11 +2322,10 @@ split_complex_args (struct assign_parm_data_all *all, vec<tree> *args)
 	  if (currently_expanding_to_rtl)
 	    {
 	      rtx rtl = rtl_for_parm (all, cparm);
-	      gcc_assert (!rtl || GET_CODE (rtl) == CONCAT);
 	      if (rtl)
 		{
-		  SET_DECL_RTL (p, XEXP (rtl, 0));
-		  SET_DECL_RTL (decl, XEXP (rtl, 1));
+		  SET_DECL_RTL (p, read_complex_part (rtl, false));
+		  SET_DECL_RTL (decl, read_complex_part (rtl, true));
 
 		  DECL_CONTEXT (p) = cparm;
 		  DECL_CONTEXT (decl) = cparm;
@@ -3104,10 +3103,11 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
   rtx from_expand = rtl_for_parm (all, parm);
 
-  if (from_expand && !data->passed_pointer)
+  if (from_expand)
     {
+      gcc_assert (data->passed_pointer
+		  || GET_MODE (from_expand) == promoted_nominal_mode);
       parmreg = from_expand;
-      gcc_assert (GET_MODE (parmreg) == promoted_nominal_mode);
     }
   else
     {
@@ -3118,7 +3118,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
   /* If this was an item that we received a pointer to,
      set DECL_RTL appropriately.  */
-  if (data->passed_pointer)
+  if (!from_expand && data->passed_pointer)
     {
       rtx x = gen_rtx_MEM (TYPE_MODE (TREE_TYPE (data->passed_type)), parmreg);
       set_mem_attributes (x, parm, 1);
@@ -3139,7 +3139,8 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
   need_conversion = (data->nominal_mode != data->passed_mode
 		     || promoted_nominal_mode != data->promoted_mode);
-  moved = false;
+  gcc_assert (!(need_conversion && data->passed_pointer));
+  moved = from_expand && data->passed_pointer;
 
   if (need_conversion
       && GET_MODE_CLASS (data->nominal_mode) == MODE_INT
@@ -3278,12 +3279,15 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
   if (data->passed_pointer
       && (from_expand || TYPE_MODE (TREE_TYPE (parm)) != BLKmode))
     {
+      rtx src = DECL_RTL (parm);
+
       /* We can't use nominal_mode, because it will have been set to
 	 Pmode above.  We must use the actual mode of the parm.  */
       if (from_expand)
 	{
-	  parmreg = from_expand;
 	  gcc_assert (GET_MODE (parmreg) == TYPE_MODE (TREE_TYPE (parm)));
+	  src = gen_rtx_MEM (GET_MODE (parmreg), validated_mem);
+	  set_mem_attributes (src, parm, 1);
 	}
       else if (use_register_for_decl (parm))
 	{
@@ -3302,14 +3306,14 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 	  set_mem_attributes (parmreg, parm, 1);
 	}
 
-      if (GET_MODE (parmreg) != GET_MODE (DECL_RTL (parm)))
+      if (GET_MODE (parmreg) != GET_MODE (src))
 	{
-	  rtx tempreg = gen_reg_rtx (GET_MODE (DECL_RTL (parm)));
+	  rtx tempreg = gen_reg_rtx (GET_MODE (src));
 	  int unsigned_p = TYPE_UNSIGNED (TREE_TYPE (parm));
 
 	  push_to_sequence2 (all->first_conversion_insn,
 			     all->last_conversion_insn);
-	  emit_move_insn (tempreg, DECL_RTL (parm));
+	  emit_move_insn (tempreg, src);
 	  tempreg = convert_to_mode (GET_MODE (parmreg), tempreg, unsigned_p);
 	  emit_move_insn (parmreg, tempreg);
 	  all->first_conversion_insn = get_insns ();
@@ -3318,8 +3322,21 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
 
 	  did_conversion = true;
 	}
+      else if (GET_MODE (parmreg) == BLKmode)
+	{
+	  push_to_sequence2 (all->first_conversion_insn,
+			     all->last_conversion_insn);
+	  gcc_assert (TREE_CODE (data->passed_type) == POINTER_TYPE);
+	  gcc_assert (TREE_TYPE (data->passed_type) == TREE_TYPE (parm));
+	  emit_block_move (parmreg, src,
+			   GEN_INT (int_size_in_bytes (TREE_TYPE (parm))),
+			   BLOCK_OP_NORMAL);;
+	  all->first_conversion_insn = get_insns ();
+	  all->last_conversion_insn = get_last_insn ();
+	  end_sequence ();
+	}
       else
-	emit_move_insn (parmreg, DECL_RTL (parm));
+	emit_move_insn (parmreg, src);
 
       SET_DECL_RTL (parm, parmreg);
 
@@ -3521,6 +3538,11 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
 	      all->last_conversion_insn = get_last_insn ();
 	      end_sequence ();
 	    }
+	  else if (MEM_P (real) && MEM_P (imag)
+		   && rtx_equal_p (real,
+				   adjust_address_nv (imag, inner,
+						      -GET_MODE_SIZE (inner))))
+	    tmp = adjust_address_nv (real, DECL_MODE (parm), 0);
 	  else
 	    tmp = gen_rtx_CONCAT (DECL_MODE (parm), real, imag);
 	  SET_DECL_RTL (parm, tmp);
@@ -3645,7 +3667,7 @@ assign_bounds (vec<bounds_parm_data> &bndargs,
 	  assign_parm_setup_block (&all, pbdata->bounds_parm,
 				   &pbdata->parm_data);
 	else if (pbdata->parm_data.passed_pointer
-		 || use_register_for_decl (pbdata->bounds_parm))
+		 || use_register_for_parm_decl (&all, pbdata->bounds_parm))
 	  assign_parm_setup_reg (&all, pbdata->bounds_parm,
 				 &pbdata->parm_data);
 	else
@@ -5206,6 +5228,10 @@ expand_function_start (tree subr)
       set_decl_incoming_rtl (parm, chain, false);
       SET_DECL_RTL (parm, local);
       mark_reg_pointer (local, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (parm))));
+
+      if (GET_MODE (local) != Pmode)
+	local = convert_to_mode (Pmode, local,
+				 TYPE_UNSIGNED (TREE_TYPE (parm)));
 
       insn = emit_move_insn (local, chain);
 

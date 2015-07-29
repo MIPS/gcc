@@ -97,6 +97,8 @@ gimple currently_expanding_gimple_stmt;
 
 static rtx expand_debug_expr (tree);
 
+static bool defer_stack_allocation (tree, bool);
+
 /* Return an expression tree corresponding to the RHS of GIMPLE
    statement STMT.  */
 
@@ -253,7 +255,7 @@ set_rtl (tree t, rtx x)
 	{
 	  if (SA.partition_to_pseudo[part])
 	    gcc_assert (SA.partition_to_pseudo[part] == x);
-	  else
+	  else if (x != pc_rtx)
 	    SA.partition_to_pseudo[part] = x;
 	}
       /* For the benefit of debug information at -O0 (where
@@ -348,8 +350,15 @@ static bool has_short_buffer;
 static unsigned int
 align_local_variable (tree decl)
 {
-  unsigned int align = LOCAL_DECL_ALIGNMENT (decl);
-  DECL_ALIGN (decl) = align;
+  unsigned int align;
+
+  if (TREE_CODE (decl) == SSA_NAME)
+    align = TYPE_ALIGN (TREE_TYPE (decl));
+  else
+    {
+      align = LOCAL_DECL_ALIGNMENT (decl);
+      DECL_ALIGN (decl) = align;
+    }
   return align / BITS_PER_UNIT;
 }
 
@@ -415,12 +424,15 @@ add_stack_var (tree decl)
   decl_to_stack_part->put (decl, stack_vars_num);
 
   v->decl = decl;
-  v->size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (decl)));
+  tree size = TREE_CODE (decl) == SSA_NAME
+    ? TYPE_SIZE_UNIT (TREE_TYPE (decl))
+    : DECL_SIZE_UNIT (decl);
+  v->size = tree_to_uhwi (size);
   /* Ensure that all variables have size, so that &a != &b for any two
      variables that are simultaneously live.  */
   if (v->size == 0)
     v->size = 1;
-  v->alignb = align_local_variable (SSAVAR (decl));
+  v->alignb = align_local_variable (decl);
   /* An alignment of zero can mightily confuse us later.  */
   gcc_assert (v->alignb != 0);
 
@@ -1051,9 +1063,9 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
 	  /* Skip variables that have already had rtl assigned.  See also
 	     add_stack_var where we perpetrate this pc_rtx hack.  */
 	  decl = stack_vars[i].decl;
-	  if ((TREE_CODE (decl) == SSA_NAME
-	      ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)]
-	      : DECL_RTL (decl)) != pc_rtx)
+	  if (TREE_CODE (decl) == SSA_NAME
+	      ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)] != NULL_RTX
+	      : DECL_RTL (decl) != pc_rtx)
 	    continue;
 
 	  large_size += alignb - 1;
@@ -1082,9 +1094,9 @@ expand_stack_vars (bool (*pred) (size_t), struct stack_vars_data *data)
       /* Skip variables that have already had rtl assigned.  See also
 	 add_stack_var where we perpetrate this pc_rtx hack.  */
       decl = stack_vars[i].decl;
-      if ((TREE_CODE (decl) == SSA_NAME
-	   ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)]
-	   : DECL_RTL (decl)) != pc_rtx)
+      if (TREE_CODE (decl) == SSA_NAME
+	  ? SA.partition_to_pseudo[var_to_partition (SA.map, decl)] != NULL_RTX
+	  : DECL_RTL (decl) != pc_rtx)
 	continue;
 
       /* Check the predicate to see whether this variable should be
@@ -1290,12 +1302,6 @@ expand_one_ssa_partition (tree var)
   if (SA.partition_to_pseudo[part])
     return;
 
-  if (!use_register_for_decl (var))
-    {
-      expand_one_stack_var_1 (var);
-      return;
-    }
-
   unsigned int align = MINIMUM_ALIGNMENT (TREE_TYPE (var),
 					  TYPE_MODE (TREE_TYPE (var)),
 					  TYPE_ALIGN (TREE_TYPE (var)));
@@ -1306,6 +1312,15 @@ expand_one_ssa_partition (tree var)
     align = POINTER_SIZE;
 
   record_alignment_for_reg_var (align);
+
+  if (!use_register_for_decl (var))
+    {
+      if (defer_stack_allocation (var, true))
+	add_stack_var (var);
+      else
+	expand_one_stack_var_1 (var);
+      return;
+    }
 
   machine_mode reg_mode = promote_ssa_mode (var, NULL);
 
@@ -1330,6 +1345,13 @@ adjust_one_expanded_partition_var (tree var)
     return;
 
   rtx x = SA.partition_to_pseudo[part];
+
+  if (!x)
+    {
+      /* This var will get a stack slot later.  */
+      gcc_assert (defer_stack_allocation (var, true));
+      return;
+    }
 
   set_rtl (var, x);
 
@@ -1409,10 +1431,14 @@ expand_one_error_var (tree var)
 static bool
 defer_stack_allocation (tree var, bool toplevel)
 {
+  tree size_unit = TREE_CODE (var) == SSA_NAME
+    ? TYPE_SIZE_UNIT (TREE_TYPE (var))
+    : DECL_SIZE_UNIT (var);
+
   /* Whether the variable is small enough for immediate allocation not to be
      a problem with regard to the frame size.  */
   bool smallish
-    = ((HOST_WIDE_INT) tree_to_uhwi (DECL_SIZE_UNIT (var))
+    = ((HOST_WIDE_INT) tree_to_uhwi (size_unit)
        < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING));
 
   /* If stack protection is enabled, *all* stack variables must be deferred,
@@ -1421,16 +1447,24 @@ defer_stack_allocation (tree var, bool toplevel)
   if (flag_stack_protect || ((flag_sanitize & SANITIZE_ADDRESS) && ASAN_STACK))
     return true;
 
+  unsigned int align = TREE_CODE (var) == SSA_NAME
+    ? TYPE_ALIGN (TREE_TYPE (var))
+    : DECL_ALIGN (var);
+
   /* We handle "large" alignment via dynamic allocation.  We want to handle
      this extra complication in only one place, so defer them.  */
-  if (DECL_ALIGN (var) > MAX_SUPPORTED_STACK_ALIGNMENT)
+  if (align > MAX_SUPPORTED_STACK_ALIGNMENT)
     return true;
+
+  bool ignored = TREE_CODE (var) == SSA_NAME
+    ? !SSAVAR (var) || DECL_IGNORED_P (SSA_NAME_VAR (var))
+    : DECL_IGNORED_P (var);
 
   /* When optimization is enabled, DECL_IGNORED_P variables originally scoped
      might be detached from their block and appear at toplevel when we reach
      here.  We want to coalesce them with variables from other blocks when
      the immediate contribution to the frame size would be noticeable.  */
-  if (toplevel && optimize > 0 && DECL_IGNORED_P (var) && !smallish)
+  if (toplevel && optimize > 0 && ignored && !smallish)
     return true;
 
   /* Variables declared in the outermost scope automatically conflict
@@ -6135,7 +6169,8 @@ pass_expand::execute (function *fun)
       if (part == NO_PARTITION)
 	continue;
 
-      gcc_assert (SA.partition_to_pseudo[part]);
+      gcc_assert (SA.partition_to_pseudo[part]
+		  || defer_stack_allocation (name, true));
 
       /* If this decl was marked as living in multiple places, reset
 	 this now to NULL.  */

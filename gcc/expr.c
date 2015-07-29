@@ -3022,7 +3022,7 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 /* Extract one of the components of the complex value CPLX.  Extract the
    real part if IMAG_P is false, and the imaginary part if it's true.  */
 
-static rtx
+rtx
 read_complex_part (rtx cplx, bool imag_p)
 {
   machine_mode cmode, imode;
