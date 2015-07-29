@@ -9875,23 +9875,35 @@ expand_omp_target (struct omp_region *region)
 				      integer_type_node,
 				      build_int_cst (integer_type_node,
 						     GOMP_ASYNC_SYNC));
-	if (t_async && !tagging)
+	if (tagging && t_async)
 	  {
-	    args.safe_push (t_async);
-	    t_async = NULL_TREE;
+	    unsigned HOST_WIDE_INT i_async;
+
+	    if (TREE_CODE (t_async) == INTEGER_CST)
+	      {
+		/* See if we can pack the async arg in to the tag's
+		   operand.  */
+		i_async = TREE_INT_CST_LOW (t_async);
+
+		if (i_async < GOMP_LAUNCH_OP_MAX)
+		  t_async = NULL_TREE;
+	      }
+	    if (t_async)
+	      i_async = GOMP_LAUNCH_OP_MAX;
+	    args.safe_push (oacc_launch_pack
+			    (GOMP_LAUNCH_ASYNC, NULL_TREE, i_async));
 	  }
+	if (t_async)
+	  args.safe_push (t_async);
 
 	/* Save the argument index, and... */
 	unsigned t_wait_idx = args.length ();
 	unsigned num_waits = 0;
 	c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
-	if (!tagging || c || t_async)
+	if (!tagging || c)
 	  /* ... push a placeholder.  */
 	  args.safe_push (integer_zero_node);
 
-	if (tagging && t_async)
-	  args.safe_push (t_async);
-	
 	for (; c; c = OMP_CLAUSE_CHAIN (c))
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WAIT)
 	    {
@@ -9901,13 +9913,13 @@ expand_omp_target (struct omp_region *region)
 	      num_waits++;
 	    }
 
-	if (!tagging || num_waits || t_async)
+	if (!tagging || num_waits)
 	  {
 	    tree len;
 
 	    /* Now that we know the number, update the placeholder.  */
 	    if (tagging)
-	      len = oacc_launch_pack (GOMP_LAUNCH_ASYNC_WAIT,
+	      len = oacc_launch_pack (GOMP_LAUNCH_WAIT,
 				      NULL_TREE, num_waits);
 	    else
 	      len = build_int_cst (integer_type_node, num_waits);

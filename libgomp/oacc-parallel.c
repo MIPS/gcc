@@ -268,11 +268,20 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 	  }
 	  break;
 
-	case GOMP_LAUNCH_ASYNC_WAIT:
+	case GOMP_LAUNCH_ASYNC:
+	  {
+	    /* Small constant values are encoded in the operand.  */
+	    async = GOMP_LAUNCH_OP (tag);
+
+	    if (async == GOMP_LAUNCH_OP_MAX)
+	      async = va_arg (ap, unsigned);
+	    break;
+	  }
+
+	case GOMP_LAUNCH_WAIT:
 	  {
 	    unsigned num_waits = GOMP_LAUNCH_OP (tag);
 
-	    async = va_arg (ap, unsigned);
 	    if (num_waits)
 	      goacc_wait (async, num_waits, &ap);
 	    break;
@@ -357,8 +366,9 @@ GOACC_parallel (int device, void (*fn) (void *), size_t mapnum,
 			GOMP_LAUNCH_PACK (GOMP_LAUNCH_DIM, 0,
 					  GOMP_DIM_MASK (GOMP_DIM_MAX) - 1),
 			num_gangs, num_workers, vector_length,
-			GOMP_LAUNCH_PACK (GOMP_LAUNCH_ASYNC_WAIT,
-					  0, num_waits),
+			GOMP_LAUNCH_PACK (GOMP_LAUNCH_ASYNC, 0,
+					  GOMP_LAUNCH_OP_MAX), async,
+			GOMP_LAUNCH_PACK (GOMP_LAUNCH_WAIT, 0, num_waits),
 			async, waits[0], waits[1], waits[2], waits[3],
 			waits[4], waits[5], waits[6], waits[7], waits[8]);
 }

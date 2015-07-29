@@ -1346,6 +1346,8 @@ nvptx_wait (int async)
   if (!s)
     GOMP_PLUGIN_fatal ("unknown async %d", async);
 
+  GOMP_PLUGIN_debug (0, "  %s: waiting on async=%d\n", __FUNCTION__, async);
+
   r = cuStreamSynchronize (s->stream);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuStreamSynchronize error: %s", cuda_error (r));

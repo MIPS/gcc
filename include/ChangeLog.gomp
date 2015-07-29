@@ -1,3 +1,9 @@
+2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gomp-constants.h (GOMP_LAUNCH_ASYNC_WAIT): Replace with ...
+	(GOMP_LAUNCH_ASYNC, GOMP_LAUNCH_WAIT): ... these.
+	(GOMP_LAUNCH_OP_MAX): New.
+
 2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gomp-constants.h (GOMP_DIM_GANG, GOMP_DIM_WORKER,

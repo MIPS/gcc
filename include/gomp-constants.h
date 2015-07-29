@@ -131,7 +131,8 @@ enum gomp_map_kind
 /* Varadic launch arguments.  */
 #define GOMP_LAUNCH_END 	0  /* End of args, no dev or op */
 #define GOMP_LAUNCH_DIM		1  /* Launch dimensions, op = mask */
-#define GOMP_LAUNCH_ASYNC_WAIT	2  /* Async & Waits, op = num waits.  */
+#define GOMP_LAUNCH_ASYNC	2  /* Async, op = cst val if not MAX  */
+#define GOMP_LAUNCH_WAIT	3  /* Waits, op = num waits.  */
 #define GOMP_LAUNCH_CODE_SHIFT	28
 #define GOMP_LAUNCH_DEVICE_SHIFT 16
 #define GOMP_LAUNCH_OP_SHIFT 0
@@ -142,6 +143,7 @@ enum gomp_map_kind
 #define GOMP_LAUNCH_CODE(X) (((X) >> GOMP_LAUNCH_CODE_SHIFT) & 0xf)
 #define GOMP_LAUNCH_DEVICE(X) (((X) >> GOMP_LAUNCH_DEVICE_SHIFT) & 0xfff)
 #define GOMP_LAUNCH_OP(X) (((X) >> GOMP_LAUNCH_OP_SHIFT) & 0xffff)
+#define GOMP_LAUNCH_OP_MAX 0xffff
 
 /* Versions of libgomp and device-specific plugins.  */
 #define GOMP_VERSION	0
