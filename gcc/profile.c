@@ -880,7 +880,7 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
   gcov_type *aact_count;
   struct cgraph_node *node;
 
-  for (t = 0; t < (unsigned) GCOV_N_VALUE_COUNTERS; t++)
+  for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     n_histogram_counters[t] = 0;
 
   for (i = 0; i < values.length (); i++)
@@ -890,7 +890,7 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
     }
 
   any = 0;
-  for (t = 0; t < (unsigned) GCOV_N_VALUE_COUNTERS; t++)
+  for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     {
       if (!n_histogram_counters[t])
 	{
@@ -942,7 +942,7 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
         }
     }
 
-  for (t = 0; t < (unsigned) GCOV_N_VALUE_COUNTERS; t++)
+  for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     free (histogram_counts[t]);
 }
 

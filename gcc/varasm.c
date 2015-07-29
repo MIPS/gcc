@@ -2732,7 +2732,7 @@ default_assemble_integer (rtx x ATTRIBUTE_UNUSED,
   const char *op = integer_asm_op (size, aligned_p);
   /* Avoid GAS bugs for large values.  Specifically negative values whose
      absolute value fits in a bfd_vma, but not in a bfd_signed_vma.  */
-  if (size > (unsigned) UNITS_PER_WORD && size > (unsigned) POINTER_SIZE_UNITS)
+  if (size > UNITS_PER_WORD && size > POINTER_SIZE_UNITS)
     return false;
   return op && (assemble_integer_with_op (op, x), true);
 }
