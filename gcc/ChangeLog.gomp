@@ -1,5 +1,12 @@
 2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gimplify.c (oacc_default_clause): Outer scope searching moved to
+	omp_notice_variable.
+	(omp_notice_variable): For OpenACC search enclosing scopes before
+	applying default.
+
+2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/mkoffload.c (process): Reimplement emission of ptx
 	objects to set of arrays.
 

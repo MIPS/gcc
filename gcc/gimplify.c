@@ -5934,30 +5934,10 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 
     case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
       {
-	if (struct gimplify_omp_ctx *octx = ctx->outer_context)
-	  {
-	    omp_notice_variable (octx, decl, in_code);
-	
-	    for (; octx; octx = octx->outer_context)
-	      {
-		if (octx->region_type & ORT_HOST_DATA)
-		  continue;
-		if (!(octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)))
-		  break;
-	      splay_tree_node n2
-		= splay_tree_lookup (octx->variables, (splay_tree_key) decl);
-	      if (n2)
-		{
-		  flags |= GOVD_MAP;
-		  goto found_outer;
-		}
-	      }
-	  }
-
 	if (is_global_var (decl) && device_resident_p (decl))
 	  flags |= GOVD_MAP_TO_ONLY | GOVD_MAP;
-	/* Scalars under kernels are default 'copy'.  */
 	else if (ctx->acc_region_kind == ARK_KERNELS)
+	  /* Scalars under kernels are default 'copy'.  */
 	  flags |= GOVD_FORCE_MAP | GOVD_MAP;
 	else if (ctx->acc_region_kind == ARK_PARALLEL)
 	  {
@@ -5968,16 +5948,14 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 	      type = TREE_TYPE (type);
 	
 	    if (AGGREGATE_TYPE_P (type))
-	      /* Aggregates default to 'copy'.  This should really
-		 include GOVD_FORCE_MAP.  */
+	      /* Aggregates default to 'present_or_copy'.  */
 	      flags |= GOVD_MAP;
 	    else
-	      /* Scalars default tp 'firstprivate'.  */
+	      /* Scalars default to 'firstprivate'.  */
 	      flags |= GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY | GOVD_MAP;
 	  }
 	else
 	  gcc_unreachable ();
-      found_outer:;
       }
       break;
     }
@@ -6020,21 +5998,49 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   if (ctx->region_type == ORT_TARGET)
     {
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
-      if (n == NULL)
+      bool is_oacc = ctx->region_kind == ORK_OACC;
+
+      if (!n)
 	{
-	  bool is_oacc = ctx->region_kind == ORK_OACC;
+	  struct gimplify_omp_ctx *octx = ctx->outer_context;
+
+	  /*  OpenMP doesn't look in outer contexts to find an
+	      enclosing data clause.  */
+	  if (is_oacc && octx)
+	    {
+	      omp_notice_variable (octx, decl, in_code);
+	      
+	      for (; octx; octx = octx->outer_context)
+		{
+		  if (octx->region_type & ORT_HOST_DATA)
+		    continue;
+		  if (!(octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)))
+		    break;
+		  splay_tree_node n2
+		    = splay_tree_lookup (octx->variables,
+					 (splay_tree_key) decl);
+		  if (n2)
+		    {
+		      flags |= GOVD_MAP;
+		      goto found_outer;
+		    }
+		}
+	    }
+
+	  if (!lang_hooks.types.omp_mappable_type
+	      (TREE_TYPE (decl), ctx->region_kind == ORK_OACC))
+	    {
+	      error ("%qD referenced in target region does not have "
+		     "a mappable type", decl);
+	      flags |= GOVD_EXPLICIT;
+	    }
 
 	  if (is_oacc)
 	    flags = oacc_default_clause (ctx, decl, in_code, flags);
 	  else
 	    flags |= GOVD_MAP;
 
-	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl), is_oacc))
-	    {
-	      error ("%qD referenced in target region does not have "
-		     "a mappable type", decl);
-	      flags |= GOVD_EXPLICIT;
-	    }
+	found_outer:;
 	  omp_add_variable (ctx, decl, flags);
 	}
       else
