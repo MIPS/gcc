@@ -939,7 +939,8 @@ See RS/6000 and PowerPC Options.
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm @gol
 -mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
--mupper-regs -mno-upper-regs}
+-mupper-regs -mno-upper-regs @gol
+-mfloat128-software -mfloat128-none}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -19390,6 +19391,20 @@ floating point register set, depending on the model of the machine.
 
 If the @option{-mno-upper-regs} option is used, it turns off both
 @option{-mupper-regs-sf} and @option{-mupper-regs-df} options.
+
+@item -mfloat128-software
+@opindex mfloat128-software
+Enable the @var{__float128} keyword for IEEE 128-bit floating point
+and use software emulation for IEEE 128-bit floating point.
+@option{-mfloat128-software} option is enabled by default with either
+of the the @option{-mcpu=power7} or @option{-mcpu=power8} options.
+
+The VSX instruction set must be enabled to use the
+@option{-mfloat128-software} option.
+
+@item -mfloat128-none
+@opindex mfloat128-none
+Disable the use of the @var{__float128} keyword.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
