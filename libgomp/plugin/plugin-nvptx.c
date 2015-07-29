@@ -290,6 +290,28 @@ struct targ_fn_launch
   unsigned short dim[GOMP_DIM_MAX];
 };
 
+/* Target PTX object information.  */
+
+struct targ_ptx_obj
+{
+  const char *code;
+  size_t size;
+};
+
+/* Target data image information.  */
+
+typedef struct nvptx_tdata
+{
+  const struct targ_ptx_obj *ptx_objs;
+  unsigned ptx_num;
+
+  const char *const *var_names;
+  unsigned var_num;
+
+  const struct targ_fn_launch *fn_descs;
+  unsigned fn_num;
+} nvptx_tdata_t;
+
 /* Descriptor of a loaded function.  */
 
 struct targ_fn_descriptor
@@ -824,7 +846,8 @@ nvptx_get_num_devices (void)
 
 
 static void
-link_ptx (CUmodule *module, char const *ptx_code, size_t length)
+link_ptx (CUmodule *module, const struct targ_ptx_obj *ptx_objs,
+	  unsigned num_objs)
 {
   CUjit_option opts[7];
   void *optvals[7];
@@ -837,8 +860,6 @@ link_ptx (CUmodule *module, char const *ptx_code, size_t length)
   CUresult r;
   void *linkout;
   size_t linkoutsize __attribute__ ((unused));
-
-  GOMP_PLUGIN_debug (0, "attempting to load:\n---\n%s\n---\n", ptx_code);
 
   opts[0] = CU_JIT_WALL_TIME;
   optvals[0] = &elapsed;
@@ -865,25 +886,22 @@ link_ptx (CUmodule *module, char const *ptx_code, size_t length)
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLinkCreate error: %s", cuda_error (r));
 
-  size_t off = 0;
-  while (off < length)
+  for (; num_objs--; ptx_objs++)
     {
-      int l = strlen (ptx_code + off);
       /* cuLinkAddData's 'data' argument erroneously omits the const
 	 qualifier.  */
-      r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, (char*)ptx_code + off, l + 1,
-			 0, 0, 0, 0);
+      GOMP_PLUGIN_debug (0, "Loading:\n---\n%s\n---\n", ptx_objs->code);
+      r = cuLinkAddData (linkstate, CU_JIT_INPUT_PTX, (char*)ptx_objs->code,
+			 ptx_objs->size, 0, 0, 0, 0);
       if (r != CUDA_SUCCESS)
 	{
 	  GOMP_PLUGIN_error ("Link error log %s\n", &elog[0]);
-	  GOMP_PLUGIN_fatal ("cuLinkAddData (ptx_code) error: %s", cuda_error (r));
+	  GOMP_PLUGIN_fatal ("cuLinkAddData (ptx_code) error: %s",
+			     cuda_error (r));
 	}
-
-      off += l;
-      while (off < length && ptx_code[off] == '\0')
-	off++;
     }
 
+  GOMP_PLUGIN_debug (0, "Linking\n");
   r = cuLinkComplete (linkstate, &linkout, &linkoutsize);
 
   GOMP_PLUGIN_debug (0, "Link complete: %fms\n", elapsed);
@@ -1619,18 +1637,6 @@ GOMP_OFFLOAD_fini_device (int n)
   pthread_mutex_unlock (&ptx_dev_lock);
 }
 
-typedef struct nvptx_tdata
-{
-  const char *ptx_src;
-  size_t ptx_len;
-
-  const char *const *var_names;
-  size_t var_num;
-
-  const struct targ_fn_launch *fn_descs;
-  size_t fn_num;
-} nvptx_tdata_t;
-
 /* Return the libgomp version number we're compatible with.  There is
    no requirement for cross-version compatibility.  */
 
@@ -1670,7 +1676,7 @@ GOMP_OFFLOAD_load_image_ver (unsigned version, int ord,
   
   nvptx_attach_host_thread_to_device (ord);
 
-  link_ptx (&module, img_header->ptx_src, img_header->ptx_len);
+  link_ptx (&module, img_header->ptx_objs, img_header->ptx_num);
 
   /* The mkoffload utility emits a struct of pointers/integers at the
      start of each offload image.  The array of kernel names and the

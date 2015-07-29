@@ -229,51 +229,68 @@ process (FILE *in, FILE *out)
   const char *input = read_file (in, &len);
   const char *comma;
   id_map const *id;
+  unsigned obj_count = 0;
+  size_t i;
 
-  fprintf (out, "static const char ptx_code[] = \n \"");
-  for (size_t i = 0; i < len; i++)
+  /* Dump out char arrays for each PTX object file.  These are
+     terminated by a NUL.  */
+  for (i = 0; i != len;)
     {
-      char c = input[i];
-      bool nl = false;
-      switch (c)
+      char c;
+      
+      fprintf (out, "static const char ptx_code_%u[] =\n\t\"", obj_count++);
+      while ((c = input[i++]))
 	{
-	case '\0':
-	  putc ('\\', out);
-	  c = '0';
-	  break;
-	case '\r':
-	  continue;
-	case '\n':
-	  putc ('\\', out);
-	  c = 'n';
-	  nl = true;
-	  break;
-	case '"':
-	case '\\':
-	  putc ('\\', out);
-	  break;
+	  switch (c)
+	    {
+	    case '\r':
+	      continue;
+	    case '\n':
+	      fprintf (out, "\\n\"\n\t\"");
+	      /* Look for mappings on subsequent lines.  */
+	      while (strncmp (input + i, "//:", 3) == 0)
+		{
+		  i += 3;
 
-	case '/':
-	  if (strncmp (input + i, "//:VAR_MAP ", 11) == 0)
-	    record_id (input + i + 11, &vars_tail);
-	  if (strncmp (input + i, "//:FUNC_MAP ", 12) == 0)
-	    record_id (input + i + 12, &funcs_tail);
-	  break;
-
-	default:
-	  break;
+		  if (strncmp (input + i, "VAR_MAP ", 8) == 0)
+		    record_id (input + i + 8, &vars_tail);
+		  else if (strncmp (input + i, "FUNC_MAP ", 9) == 0)
+		    record_id (input + i + 9, &funcs_tail);
+		  else
+		    abort ();
+		  /* Skip to next line. */
+		  while (input[i++] != '\n')
+		    continue;
+		}
+	      continue;
+	    case '"':
+	    case '\\':
+	      putc ('\\', out);
+	      break;
+	    default:
+	      break;
+	    }
+	  putc (c, out);
 	}
-      putc (c, out);
-      if (nl)
-	fputs ("\"\n\t\"", out);
+      fprintf (out, "\";\n\n");
     }
-  fprintf (out, "\";\n\n");
 
+  /* Dump out array of pointers to ptx object strings.  */
+  fprintf (out, "static const struct ptx_obj {\n"
+	   "  const char *code;\n"
+	   "  __SIZE_TYPE__ size;\n"
+	   "} ptx_objs[] = {");
+  for (comma = "", i = 0; i != obj_count; comma = ",", i++)
+    fprintf (out, "%s\n\t{ptx_code_%u, sizeof (ptx_code_%u)}", comma, i, i);
+  fprintf (out, "\n};\n\n");
+
+  /* Dump out variable idents.  */
   fprintf (out, "static const char *const var_mappings[] = {");
   for (comma = "", id = var_ids; id; comma = ",", id = id->next)
     fprintf (out, "%s\n\t%s", comma, id->ptx_name);
   fprintf (out, "\n};\n\n");
 
+  /* Dump out function idents.  */
   fprintf (out, "static const struct nvptx_fn {\n"
 	   "  const char *name;\n"
 	   "  unsigned short dim[%d];\n"
@@ -284,14 +301,14 @@ process (FILE *in, FILE *out)
 
   fprintf (out,
 	   "static const struct nvptx_tdata {\n"
-	   "  const char *ptx_src;\n"
-	   "  __SIZE_TYPE__ ptx_len;\n"
+	   "  const struct ptx_obj *ptx_objs;\n"
+	   "  unsigned ptx_num;\n"
 	   "  const char *const *var_names;\n"
-	   "  __SIZE_TYPE__ var_num;\n"
+	   "  unsigned var_num;\n"
 	   "  const struct nvptx_fn *fn_names;\n"
-	   "  __SIZE_TYPE__ fn_num;\n"
+	   "  unsigned fn_num;\n"
 	   "} target_data = {\n"
-	   "  ptx_code, sizeof (ptx_code),\n"
+	   "  ptx_objs, sizeof (ptx_objs) / sizeof (ptx_objs[0]),\n"
 	   "  var_mappings,"
 	   "  sizeof (var_mappings) / sizeof (var_mappings[0]),\n"
 	   "  func_mappings,"

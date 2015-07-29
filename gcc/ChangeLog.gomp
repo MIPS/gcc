@@ -1,5 +1,10 @@
 2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* config/nvptx/mkoffload.c (process): Reimplement emission of ptx
+	objects to set of arrays.
+
+2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c (expand_omp_target): Emit separate ASYNC and WAIT tags.
 
 2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>

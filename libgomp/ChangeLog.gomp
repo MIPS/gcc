@@ -1,5 +1,12 @@
 2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* plugin/plugin-nvptx.c (struct targ_ptx_obj): New.
+	(struct nvptx_tdata): Move earlier, adjust.
+	(link_ptx): Take targ_ptx_obj array and adjust.
+	(GOMP_OFFLOAD_load_image_ver): Adjust link_ptx call.
+	
+2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* plugin/plugin-nvptx.c (nvptx_wait): Add debug print.
 	* oacc-parallel.c (GOACC_parallel_keyed): Process separate ASYNC
 	and WAIT tags.
