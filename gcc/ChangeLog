@@ -1,3 +1,318 @@
+2015-07-30  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (verbose): New global.
+	(warning_at): Add overload with source_location.
+	(capture_info::capture_info): Add bool whether generating gimple
+	or generic.  Add gimple member.
+	(capture_info::cinfo): Add capture member.
+	(capture_info::walk_match): Record capture.  Warn on
+	non-captured leafs.
+	(capture_info::walk_c_expr): Add more fragments captures cannot
+	escape through.  Warn on escaped captures.
+	(dt_simplify::gen_1): Warn on operands we force to have no
+	side-effects.
+	(main): Initialize verbose.
+	* match.pd: Add integer_nonzerop and HONOR_NANS predicates.
+
+2015-07-30  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67053
+	* match.pd: Allow both operands to independently have conversion
+	when simplifying compares of addresses.
+
+2015-07-29  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/66217
+	PR target/67045
+	* config/rs6000/rs6000.md (and<mode>3): Put a CONST_INT_P check
+	around those cases that need one.
+
+2015-07-29  Aditya Kumar  <hiraditya@msn.com>
+
+	* params.def (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS): Default to 3.
+
+2015-07-29  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/iamcu.h (TARGET_ASM_FILE_START_FILE_DIRECTIVE):
+	New.  Copied from config/i386/gnu-user.h.
+	(ASM_COMMENT_START): Likewise.
+	(DBX_REGISTER_NUMBER): Likewise.
+
+2015-07-29  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (fold_gimple_cond): Remove.
+	(fold_stmt_1): Do not call it.
+
+2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64-builtins.c (aarch64_fp16_type_node): New.
+	(aarch64_init_builtins): Make aarch64_fp16_type_node, use for __fp16.
+
+	* config/aarch64/aarch64-modes.def: Add HFmode.
+
+	* config/aarch64/aarch64.h (TARGET_CPU_CPP_BUILTINS): Define
+	__ARM_FP16_FORMAT_IEEE and __ARM_FP16_ARGS. Set bit 1 of __ARM_FP.
+
+	* config/aarch64/aarch64.c (aarch64_init_libfuncs,
+	aarch64_promoted_type): New.
+
+	(aarch64_float_const_representable_p): Disable HFmode.
+	(aarch64_mangle_type): Mangle half-precision floats to "Dh".
+	(TARGET_PROMOTED_TYPE): Define to aarch64_promoted_type.
+	(TARGET_INIT_LIBFUNCS): Define to aarch64_init_libfuncs.
+
+	* config/aarch64/aarch64.md (mov<mode>): Include HFmode using GPF_F16.
+	(movhf_aarch64, extendhfsf2, extendhfdf2, truncsfhf2, truncdfhf2): New.
+
+	* config/aarch64/iterators.md (GPF_F16): New.
+
+2015-07-29  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Merge address comparison patterns and make them
+	handle some more cases.
+
+2015-07-29  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (c_expr::gen_transform): Error on unknown captures.
+	(parser::parse_capture): Add bool argument on whether to reject
+	unknown captures.
+	(parser::parse_expr): Adjust.
+	(parser::parse_op): Likewise.
+	(parser::parse_pattern): Likewise.
+
+2015-07-29  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (has_use_on_stmt): New function.
+	(replace_stmt_with_simplification): Use it to allow
+	abnormals originally referenced in the stmt.
+	(fold_stmt_1): Canonicalize operand order.
+
+2015-07-28  David Sherwood  <david.sherwood@arm.com>
+
+	* config/arm/arm.c (neon_element_bits, neon_valid_immediate): Call
+	GET_MODE_INNER unconditionally.
+	* config/spu/spu.c (arith_immediate_p): Likewise.
+	* config/i386/i386.c (ix86_build_signbit_mask): Likewise.
+	* expmed.c (synth_mult): Remove check for VOIDmode result from
+	GET_MODE_INNER.
+	(expand_mult_const): Likewise.
+	* fold-const.c (fold_binary_loc): Replace call to element_precision
+	with call to GET_MODE_PRECISION.
+	* genmodes.c (emit_mode_inner_inline): Replace void_mode->name with
+	m->name.
+	(emit_mode_inner): Likewise.
+	* lto-streamer-out.c (lto_write_mode_table): Update GET_MODE_INNER
+	result check.
+	* machmode.h (GET_MODE_UNIT_SIZE): Simplify.
+	(GET_MODE_UNIT_PRECISION): Likewise.
+	* rtlanal.c (subreg_get_info): Call GET_MODE_INNER unconditionally.
+	* simplify-rtx.c (simplify_immed_subreg): Likewise.
+	* stor-layout.c (bitwise_type_for_mode): Update assert.
+	(element_precision): Remove.
+
+2015-07-28  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (reload_load_address): New targetm instruction
+	pattern.
+	* reload1.c (gen_reload): Use it instead of HAVE_*/gen_* interface.
+
+2015-07-28  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (atomic_test_and_set): New targetm instruction
+	pattern.
+	* optabs.c (maybe_emit_atomic_test_and_set): Use it instead of
+	HAVE_*/gen_* interface.
+
+2015-07-28  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (can_extend, ptr_extend): New targetm instruction
+	patterns.
+	* optabs.c (can_extend_p): Use them instead of HAVE_*/gen_* interface.
+	* simplify-rtx.c (simplify_unary_operation_1): Likewise.
+	* emit-rtl.c (set_reg_attrs_from_value): Likewise.
+	* rtlanal.c (nonzero_bits1): Likewise.
+	(num_sign_bit_copies1): Likewise.
+
+2015-07-28  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (eh_return): New targetm instruction pattern.
+	* except.c (expand_eh_return): Use it instead of HAVE_*/gen_*
+	interface.
+	* function.c (thread_prologue_and_epilogue_insns): Remove
+	preprocessor condition.
+
+2015-07-28  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* target-insns.def (indirect_jump): New targetm instruction pattern.
+	* optabs.c (emit_indirect_jump): Use it instead of HAVE_*/gen_*
+	interface.
+
+2015-07-28  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* config/fr30/fr30.md (indirect_jump): Use pmode_register_operand
+	instead of nonimmediate_operand.  Remove C condiition.
+
+2015-07-28  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Add more simplification of address comparisons.
+
+2015-07-28  Richard Biener  <rguenther@suse.de>
+
+	* match.pd: Re-order two cases in comparison with max/min
+	value simplification to make it apply for bools.
+
+2015-07-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_rtx_arith_op_extract_p):
+	Handle simple SIGN_EXTEND or ZERO_EXTEND.
+	(aarch64_rtx_costs): Properly strip extend or extract before
+	passing down to rtx costs again.
+
+2015-07-28  Nick Clifton  <nickc@redhat.com>
+
+	* config/rl78/rl78.c (rl78_addsi3_internal): New function.
+	Optimizes the case where -mes0 is active and a constant symbolic
+	address is used.
+	* config/rl78/rl78-protos.h: Prototype the new function.
+	* config/rl78/rl78.md (addsi3_internal_real): Call new function.
+
+2015-07-28  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (reduc_stmt_res): New function.
+	(initialize_reductions, add_field_for_reduction)
+	(create_phi_for_local_result, create_loads_for_reductions)
+	(create_stores_for_reduction, build_new_reduction): Handle case that
+	reduc_stmt is a phi.
+	(gather_scalar_reductions): Allow double_reduc reductions.
+
+2015-07-28  Richard Biener  <rguenther@suse.de>
+
+	* fold-const.c (fold_comparison): Remove equality folding
+	of decl addresses ...
+	* match.pd: ... here and merge with existing pattern.
+
+2015-07-28  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/66828
+	* tree-ssa-math-opts.c (perform_symbolic_merge): Change type of inc
+	from int64_t to uint64_t.
+
+2015-07-28  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* opts-common.c (read_cmdline_option): List DriverOnly enum values
+	as valid only in the error message of the driver, not in the
+	messages of the language compilers.
+
+2015-07-27  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (gather_scalar_reductions): Simplify function
+	structure.
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	* ipa-devirt.c (types_same_for_odr): Fix typo.
+
+2015-07-27  Jason Merrill  <jason@redhat.com>
+
+	PR debug/66468
+	* dwarf2out.c (gen_inlined_subroutine_die): Check
+	cgraph_function_possibly_inlined_p.
+
+2015-07-27  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* gcc/config/aarch64/aarch64.md (aarch64_lshr_sisd_or_int_<mode>3):
+	Place integer variant first.
+	(aarch64_ashr_sisd_or_int_<mode>3): Likewise.
+
+2015-07-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR/63870
+	* config/arm/arm-builtins.c (enum arm_builtins):
+	Add ARM_BUILTIN_NEON_BASE and ARM_BUILTIN_NEON_LANE_CHECK.
+	(ARM_BUILTIN_NEON_BASE): Rename macro to....
+	(ARM_BUILTIN_NEON_PATTERN_START): ...this.
+	(arm_init_neon_builtins): Register __builtin_arm_lane_check.
+	(arm_expand_neon_builtin): Handle ARM_BUILTIN_NEON_LANE_CHECK.
+
+2015-07-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR/63870
+	* config/arm/arm-builtins.c (enum arm_type_qualifiers):
+	Add qualifier_lane_index.
+	(arm_binop_imm_qualifiers, BINOP_IMM_QUALIFIERS): New.
+	(arm_getlane_qualifiers): Use qualifier_lane_index.
+	(arm_lanemac_qualifiers): Rename to...
+	(arm_mac_n_qualifiers): ...this.
+	(LANEMAC_QUALIFIERS): Rename to...
+	(MAC_N_QUALIFIERS): ...this.
+	(arm_mac_lane_qualifiers, MAC_LANE_QUALIFIERS): New.
+	(arm_setlane_qualifiers): Use qualifier_lane_index.
+	(arm_ternop_imm_qualifiers, TERNOP_IMM_QUALIFIERS): New.
+	(enum builtin_arg): Add NEON_ARG_LANE_INDEX.
+	(arm_expand_neon_args): Handle NEON_ARG_LANE_INDEX.
+	(arm_expand_neon_builtin): Handle qualifier_lane_index.
+
+	* config/arm/arm-protos.h (neon_lane_bounds): Add const_tree parameter.
+	* config/arm/arm.c (bounds_check): Likewise, improve error message.
+	(neon_lane_bounds, neon_const_bounds): Add arguments to bounds_check.
+	* config/arm/arm_neon_builtins.def (vshrs_n, vshru_n, vrshrs_n,
+	vrshru_n, vshrn_n, vrshrn_n, vqshrns_n, vqshrnu_n, vqrshrns_n,
+	vqrshrnu_n, vqshrun_n, vqrshrun_n, vshl_n, vqshl_s_n, vqshl_u_n,
+	vqshlu_n, vshlls_n, vshllu_n): Change qualifiers to BINOP_IMM.
+	(vsras_n, vsrau_n, vrsras_n, vrsrau_n, vsri_n, vsli_n): Change
+	qualifiers to TERNOP_IMM.
+	(vdup_lane): Change qualifiers to GETLANE.
+	(vmla_lane, vmlals_lane, vmlalu_lane, vqdmlal_lane, vmls_lane,
+	vmlsls_lane, vmlslu_lane, vqdmlsl_lane): Change qualifiers to MAC_LANE.
+	(vmla_n, vmlals_n, vmlalu_n, vqdmlal_n, vmls_n, vmlsls_n, vmlslu_n,
+	vqdmlsl_n): Change qualifiers to MAC_N.
+
+	* config/arm/neon.md (neon_vget_lane<mode>, neon_vget_laneu<mode>,
+	neon_vget_lanedi, neon_vget_lanev2di, neon_vset_lane<mode>,
+	neon_vset_lanedi, neon_vdup_lane<mode>, neon_vdup_lanedi,
+	neon_vdup_lanev2di, neon_vmul_lane<mode>, neon_vmul_lane<mode>,
+	neon_vmull<sup>_lane<mode>, neon_vqdmull_lane<mode>,
+	neon_vq<r>dmulh_lane<mode>, neon_vq<r>dmulh_lane<mode>,
+	neon_vmla_lane<mode>, neon_vmla_lane<mode>, neon_vmlal<sup>_lane<mode>,
+	neon_vqdmlal_lane<mode>, neon_vmls_lane<mode>, neon_vmls_lane<mode>,
+	neon_vmlsl<sup>_lane<mode>, neon_vqdmlsl_lane<mode>):
+	Remove call to neon_lane_bounds.
+
+2015-07-27  Wilco Dijkstra  <wdijkstr@arm.com>
+
+	* config/aarch64/aarch64.md (aarch64_ashl_sisd_or_int_<mode>3):
+	Place integer variant first.
+
+2015-07-27  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm-arches.def: Add "armv6kz". Replace 6ZK with 6KZ
+	and FL_FOR_ARCH6ZK with FL_FOR_ARCH6KZ.
+	* config/arm/arm-c.c (arm_cpu_builtins): Emit "__ARM_ARCH_6ZK__"
+	for armv6kz targets.
+	* config/arm/arm-cores.def: Replace 6ZK with 6KZ.
+	* config/arm/arm-protos.h (FL_ARCH6KZ): New.
+	(FL_FOR_ARCH6ZK): Remove.
+	(FL_FOR_ARCH6KZ): New.
+	(arm_arch6zk): New declaration.
+	* config/arm/arm-tables.opt: Regenerate.
+	* config/arm/arm.c (arm_arch6kz): New.
+	(arm_option_override): Set arm_arch6kz.
+	* config/arm/arm.h (BASE_ARCH_6ZK): Rename to BASE_ARCH_6KZ.
+	* config/arm/driver-arm.c: Add comment to "armv6zk" entry.
+        * doc/invoke.texi: Replace "armv6zk" with "armv6kz".
+
+2015-07-27  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/66555
+	PR c/54979
+	* doc/invoke.texi: Document -Wtautological-compare.
+
+2015-07-27  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (decision_tree::gen_gimple): Split out large
+	subtrees into separate functions.
+	(decision_tree::gen_generic): Likewise.
+
 2015-07-26  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/alpha/alpha.c: Use SUBREG_P predicate.

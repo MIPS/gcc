@@ -1,3 +1,32 @@
+2015-07-29  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/66829
+	* testsuite/lib/libstdc++.exp (v3-build_support): Compile
+	testsuite_shared.cc with -std=gnu++98.
+
+2015-07-29  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	* include/bits/range_access.h: Change class to typename in every
+	template.
+	(size, empty, data): New functions from N4280.
+	* testsuite/24_iterators/container_access.cc: New.
+
+	PR libstdc++/60970
+	* include/bits/functional_hash.h (__hash_enum): New.
+	(hash): Derive from __hash_enum.
+	* testsuite/20_util/hash/60970.cc: New.
+
+2015-07-29  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/67015
+	* include/bits/regex_compiler.h (_Compiler<>::_M_expression_term,
+	_BracketMatcher<>::_M_add_collating_element): Change signature
+	to make checking the and of bracket expression easier.
+	* include/bits/regex_compiler.tcc (_Compiler<>::_M_expression_term):
+	Treat '-' as a valid literal if it's at the end of bracket expression.
+	* testsuite/28_regex/algorithms/regex_match/cstring_bracket_01.cc:
+	New testcases.
+
 2015-07-24  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/atomic_futex.h [_GLIBCXX_HAVE_LINUX_FUTEX]

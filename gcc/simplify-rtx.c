@@ -1431,7 +1431,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	    }
 	}
 
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
+#if defined(POINTERS_EXTEND_UNSIGNED)
       /* As we do not know which address space the pointer is referring to,
 	 we can do this only if the target does not support different pointer
 	 or address modes depending on the address space.  */
@@ -1442,7 +1442,8 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	      || (GET_CODE (op) == SUBREG
 		  && REG_P (SUBREG_REG (op))
 		  && REG_POINTER (SUBREG_REG (op))
-		  && GET_MODE (SUBREG_REG (op)) == Pmode)))
+		  && GET_MODE (SUBREG_REG (op)) == Pmode))
+	  && !targetm.have_ptr_extend ())
 	return convert_memory_address (Pmode, op);
 #endif
       break;
@@ -1552,7 +1553,7 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 				     GET_MODE (SUBREG_REG (op)));
 	}
 
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
+#if defined(POINTERS_EXTEND_UNSIGNED)
       /* As we do not know which address space the pointer is referring to,
 	 we can do this only if the target does not support different pointer
 	 or address modes depending on the address space.  */
@@ -1563,7 +1564,8 @@ simplify_unary_operation_1 (enum rtx_code code, machine_mode mode, rtx op)
 	      || (GET_CODE (op) == SUBREG
 		  && REG_P (SUBREG_REG (op))
 		  && REG_POINTER (SUBREG_REG (op))
-		  && GET_MODE (SUBREG_REG (op)) == Pmode)))
+		  && GET_MODE (SUBREG_REG (op)) == Pmode))
+	  && !targetm.have_ptr_extend ())
 	return convert_memory_address (Pmode, op);
 #endif
       break;
@@ -5648,21 +5650,17 @@ simplify_immed_subreg (machine_mode outermode, rtx op,
   value_start = byte * (BITS_PER_UNIT / value_bit);
 
   /* Re-pack the value.  */
+  num_elem = GET_MODE_NUNITS (outermode);
 
   if (VECTOR_MODE_P (outermode))
     {
-      num_elem = GET_MODE_NUNITS (outermode);
       result_v = rtvec_alloc (num_elem);
       elems = &RTVEC_ELT (result_v, 0);
-      outer_submode = GET_MODE_INNER (outermode);
     }
   else
-    {
-      num_elem = 1;
-      elems = &result_s;
-      outer_submode = outermode;
-    }
+    elems = &result_s;
 
+  outer_submode = GET_MODE_INNER (outermode);
   outer_class = GET_MODE_CLASS (outer_submode);
   elem_bitsize = GET_MODE_BITSIZE (outer_submode);
 
