@@ -8369,6 +8369,9 @@ grokvardecl (tree type,
         }
       else
         DECL_DECLARED_CONCEPT_P (decl) = true;
+      if (!same_type_ignoring_top_level_qualifiers_p (type, boolean_type_node))
+	error_at (declspecs->locations[ds_type_spec],
+		  "concept must have type %<bool%>");
     }
 
   // Handle explicit specializations and instantiations of variable templates.

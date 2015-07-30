@@ -1,5 +1,7 @@
 2015-07-30  Jason Merrill  <jason@redhat.com>
 
+	* decl.c (grokvardecl): Complain about non-bool concept.
+
 	PR c++/67007
 	* constraint.cc (normalize_predicate_constraint): Set
 	processing_template_decl.
