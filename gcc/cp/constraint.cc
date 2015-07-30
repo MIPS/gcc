@@ -2010,6 +2010,12 @@ satisfy_constraint (tree t, tree args)
   /* Turn off template processing. Constraint satisfaction only applies
      to non-dependent terms, so we want full checking here.  */
   processing_template_decl_sentinel sentinel (true);
+  /* Avoid early exit in tsubst and tsubst_copy from null args; since earlier
+     substitution was done with processing_template_decl forced on, there will
+     be expressions that still need semantic processing, possibly buried in
+     decltype or a template argument.  */
+  if (args == NULL_TREE)
+    args = make_tree_vec (1);
   return satisfy_constraint_1 (t, args, tf_none, NULL_TREE);
 }
 

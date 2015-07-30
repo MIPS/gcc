@@ -1,5 +1,8 @@
 2015-07-29  Jason Merrill  <jason@redhat.com>
 
+	PR c++/67038
+	* constraint.cc (satisfy_constraint): Use dummy args if null.
+
 	* constraint.cc (satisfy_predicate_constraint): Don't call
 	fold_non_dependent_expr.
 
