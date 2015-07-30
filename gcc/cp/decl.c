@@ -13076,9 +13076,6 @@ build_enumerator (tree name, tree value, tree enumtype, tree attributes,
   if (value)
     STRIP_TYPE_NOPS (value);
 
-  if (value)
-    value = fold_simple (value);
-
   if (! processing_template_decl)
     {
       /* Validate and default VALUE.  */
