@@ -64,6 +64,11 @@
 /* This file should be included last.  */
 #include "target-def.h"
 
+#define SHUFFLE_UP 0
+#define SHUFFLE_DOWN 1
+#define SHUFFLE_BFLY 2
+#define SHUFFLE_IDX 3
+
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
 static std::stringstream func_decls;
@@ -1132,17 +1137,17 @@ nvptx_gen_pack (rtx dst, rtx src0, rtx src1)
    across the vectors of a single warp.  */
 
 static rtx
-nvptx_gen_vcast (rtx reg)
+nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, unsigned kind)
 {
   rtx res;
 
-  switch (GET_MODE (reg))
+  switch (GET_MODE (dst))
     {
     case SImode:
-      res = gen_nvptx_broadcastsi (reg, reg);
+      res = gen_nvptx_shufflesi (dst, src, idx, GEN_INT (kind));
       break;
     case SFmode:
-      res = gen_nvptx_broadcastsf (reg, reg);
+      res = gen_nvptx_shufflesf (dst, src, idx, GEN_INT (kind));
       break;
     case DImode:
     case DFmode:
@@ -1151,10 +1156,10 @@ nvptx_gen_vcast (rtx reg)
 	rtx tmp1 = gen_reg_rtx (SImode);
 
 	start_sequence ();
-	emit_insn (nvptx_gen_unpack (tmp0, tmp1, reg));
-	emit_insn (nvptx_gen_vcast (tmp0));
-	emit_insn (nvptx_gen_vcast (tmp1));
-	emit_insn (nvptx_gen_pack (reg, tmp0, tmp1));
+	emit_insn (nvptx_gen_unpack (tmp0, tmp1, src));
+	emit_insn (nvptx_gen_shuffle (tmp0, tmp0, idx, kind));
+	emit_insn (nvptx_gen_shuffle (tmp1, tmp1, idx, kind));
+	emit_insn (nvptx_gen_pack (dst, tmp0, tmp1));
 	res = get_insns ();
 	end_sequence ();
       }
@@ -1164,19 +1169,27 @@ nvptx_gen_vcast (rtx reg)
 	rtx tmp = gen_reg_rtx (SImode);
 	
 	start_sequence ();
-	emit_insn (gen_sel_truesi (tmp, reg, GEN_INT (1), const0_rtx));
-	emit_insn (nvptx_gen_vcast (tmp));
-	emit_insn (gen_rtx_SET (reg, gen_rtx_NE (BImode, tmp, const0_rtx)));
+	emit_insn (gen_sel_truesi (tmp, src, GEN_INT (1), const0_rtx));
+	emit_insn (nvptx_gen_shuffle (tmp, tmp, idx, kind));
+	emit_insn (gen_rtx_SET (dst, gen_rtx_NE (BImode, tmp, const0_rtx)));
 	res = get_insns ();
 	end_sequence ();
       }
       break;
       
-    case HImode:
-    case QImode:
-    default:debug_rtx (reg);gcc_unreachable ();
+    default:
+      gcc_unreachable ();
     }
   return res;
+}
+
+/* Generate an instruction or sequence to broadcast register REG
+   across the vectors of a single warp.  */
+
+static rtx
+nvptx_gen_vcast (rtx reg)
+{
+  return nvptx_gen_shuffle (reg, reg, const0_rtx, SHUFFLE_IDX);
 }
 
 /* Structure used when generating a worker-level spill or fill.  */
@@ -1862,6 +1875,7 @@ nvptx_print_operand_address (FILE *file, rtx addr)
    A -- print an address space identifier for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
    f -- print a full reg even for something that must always be split
+   S -- print a shuffle kind
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
    u -- print a type opcode suffix without promotions.  */
@@ -1913,6 +1927,15 @@ nvptx_print_operand (FILE *file, rtx x, int code)
       fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, false));
       break;
 
+    case 'S':
+      {
+	unsigned kind = UINTVAL (x);
+	static const char *const kinds[] = 
+	  {"up", "down", "bfly", "idx"};
+	fprintf (file, "%s", kinds[kind]);
+      }
+      break;
+      
     case 'T':
       fprintf (file, "%d", GET_MODE_BITSIZE (GET_MODE (x)));
       break;
@@ -2996,8 +3019,8 @@ nvptx_cannot_copy_insn_p (rtx_insn *insn)
 {
   switch (recog_memoized (insn))
     {
-    case CODE_FOR_nvptx_broadcastsi:
-    case CODE_FOR_nvptx_broadcastsf:
+    case CODE_FOR_nvptx_shufflesi:
+    case CODE_FOR_nvptx_shufflesf:
     case CODE_FOR_nvptx_barsync:
     case CODE_FOR_nvptx_fork:
     case CODE_FOR_nvptx_forked:
@@ -3101,11 +3124,39 @@ nvptx_file_end (void)
     }
 }
 
+/* Expander for the shuffle down builtins.  */
+static rtx
+nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
+{
+  if (ignore)
+    return target;
+  
+  if (! target)
+    target = gen_reg_rtx (mode);
+
+  rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
+			NULL_RTX, mode, EXPAND_NORMAL);
+  if (!REG_P (src))
+    src = copy_to_mode_reg (mode, src);
+
+  rtx idx = expand_expr (CALL_EXPR_ARG (exp, 1),
+			NULL_RTX, SImode, EXPAND_NORMAL);
+  if (!REG_P (idx) && GET_CODE (idx) != CONST_INT)
+    idx = copy_to_mode_reg (SImode, idx);
+
+  rtx pat = nvptx_gen_shuffle (target, src, idx, SHUFFLE_DOWN);
+  if (pat)
+    emit_insn (pat);
+
+  return target;
+}
+
 enum nvptx_types
   {
     NT_UINT_UINT_INT,
     NT_ULL_ULL_INT,
     NT_FLT_FLT_INT,
+    NT_DBL_DBL_INT,
 
     NT_MAX
   };
@@ -3113,19 +3164,20 @@ enum nvptx_types
 struct builtin_description
 {
   const char *name;
-  enum insn_code icode;
   unsigned short type;
-  unsigned short num_args;
+  rtx (*expander) (tree, rtx, machine_mode, int);
 };
 
 static const struct builtin_description builtins[] =
 {
-  {"__builtin_nvptx_shuffle_down", CODE_FOR_thread_shuffle_downsi,
-   NT_UINT_UINT_INT, 2},
-  {"__builtin_nvptx_shuffle_downf", CODE_FOR_thread_shuffle_downsf,
-   NT_FLT_FLT_INT, 2},
-  { "__builtin_nvptx_shuffle_downll", CODE_FOR_thread_shuffle_downdi,
-    NT_ULL_ULL_INT, 2},
+  {"__builtin_nvptx_shuffle_down", NT_UINT_UINT_INT,
+   nvptx_expand_shuffle_down},
+  {"__builtin_nvptx_shuffle_downll", NT_ULL_ULL_INT,
+   nvptx_expand_shuffle_down},
+  {"__builtin_nvptx_shuffle_downf", NT_FLT_FLT_INT,
+   nvptx_expand_shuffle_down},
+  {"__builtin_nvptx_shuffle_downd", NT_DBL_DBL_INT,
+   nvptx_expand_shuffle_down},
 };
 
 #define NVPTX_BUILTIN_MAX (sizeof (builtins) / sizeof (builtins[0]))
@@ -3159,6 +3211,9 @@ nvptx_init_builtins (void)
   types[NT_FLT_FLT_INT]
     = build_function_type_list (float_type_node, float_type_node,
 				integer_type_node, NULL_TREE);
+  types[NT_DBL_DBL_INT]
+    = build_function_type_list (double_type_node, double_type_node,
+				integer_type_node, NULL_TREE);
 
   for (ix = 0; ix != NVPTX_BUILTIN_MAX; ix++)
     nvptx_builtin_decls[ix]
@@ -3180,34 +3235,8 @@ nvptx_expand_builtin (tree exp, rtx target,
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   const struct builtin_description *d = &builtins[DECL_FUNCTION_CODE (fndecl)];
-  unsigned icode = d->icode;
-  rtx operands[2]; /* maxium operands */
-  unsigned ix;
-  machine_mode tmode = insn_data[icode].operand[0].mode;
 
-  if (ignore)
-    return target;
-  
-  if (! target
-      || mode != tmode
-      || ! (*insn_data[icode].operand[0].predicate) (target, tmode))
-    target = gen_reg_rtx (tmode);
-
-  for (ix = d->num_args; ix--;)
-    {
-      machine_mode m = insn_data[icode].operand[ix + 1].mode;
-      rtx op = expand_expr (CALL_EXPR_ARG (exp, ix),
-			    NULL_RTX, VOIDmode, EXPAND_NORMAL);
-      if (! (*insn_data[icode].operand[ix + 1].predicate) (op, m))
-	op = copy_to_mode_reg (m, op);
-      operands[ix] = op;
-    }
-
-  rtx pat = GEN_FCN (icode) (target, operands[0], operands[1]);
-  if (pat)
-    emit_insn (pat);
-
-  return target;
+  return d->expander (exp, target, mode, ignore);
 }
 
 #undef TARGET_OPTION_OVERRIDE

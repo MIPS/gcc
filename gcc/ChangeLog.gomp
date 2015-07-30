@@ -1,3 +1,25 @@
+2015-07-30  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.mc (UNSPEC_BROADCAST, UNSPEC_SHFL_DOWN):
+	Replace with ...
+	(UNSPEC_SHUFFLE): ... this.
+	(nvptx_broadcast<mode>): Replace with ...
+	(nvptx_shuffle<mode>): ... this.
+	(thread_shuffle_down<mode>,  thread_shiffle_downdi): Delete.
+	* config/nvptx/nvptx.c (SHUFFLE_UP, SHUFFLE_DOWN, SHUFFLE_BFLY,
+	SHUFFLE_IDX): New defines.
+	(nvptx_gen_shuffle): Break out of nvptx_gen_vcast and generalize.
+	(nvptx_gen_vcast): Use nvptx_gen_shuffle.
+	(nvptx_print_operand): Add 'S' case.
+	(nvptx_cannot_copy_insn_p): Adjust.
+	(nvptx_expand_shuffle_down): New builtin expander for shuffles.
+	(enum nvptx_types): Add NT_DBL_DBL_INT case.
+	(struct builtin_descriptor): Use ptr to fn for expander.  Remove
+	icode and num_args.
+	(builtins): Adjust.
+	(nvptx_init_builtins): Adjust.
+	(nvptx_expand_builtin): Invoke builtin-specific expander function.
+
 2015-07-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (oacc_default_clause): Outer scope searching moved to
