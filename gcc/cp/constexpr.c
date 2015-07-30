@@ -3451,19 +3451,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	enum tree_code tcode = TREE_CODE (t);
 	tree oldop = TREE_OPERAND (t, 0);
 
-	if (tcode == NOP_EXPR
-	    && TREE_TYPE (t) == TREE_TYPE (oldop) && TREE_OVERFLOW_P (oldop))
-	  {
-	    if (!ctx->quiet)
-	      permerror (input_location, "overflow in constant expression");
-	    /* If we're being permissive (and are in an enforcing
-		context), ignore the overflow.  */
-	    if (!flag_permissive)
-	      *overflow_p = true;
-	    *non_constant_p = true;
-
-	    return t;
-	  }
 	tree op = cxx_eval_constant_expression (ctx, oldop,
 						lval,
 						non_constant_p, overflow_p);
