@@ -1530,11 +1530,8 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
   tree basetype = TREE_TYPE (expr);
   tree conv = NULL_TREE;
   tree winner = NULL_TREE;
-  /* Want to see if EXPR is a constant.  See below checks for null_node.  */
-  tree expr_folded = fold_simple (expr);
 
-  STRIP_NOPS (expr_folded);
-  if (expr_folded == null_node
+  if (expr == null_node
       && (desires & WANT_INT)
       && !(desires & WANT_NULL))
     {
@@ -1552,7 +1549,7 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
     switch (TREE_CODE (basetype))
       {
       case INTEGER_TYPE:
-	if ((desires & WANT_NULL) && null_ptr_cst_p (expr_folded))
+	if ((desires & WANT_NULL) && null_ptr_cst_p (expr))
 	  return expr;
 	/* else fall through...  */
 
