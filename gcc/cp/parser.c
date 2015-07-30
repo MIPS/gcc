@@ -15723,7 +15723,7 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
      /* Otherwise, we're in a context where the constrained
         type name is deduced and the constraint applies
         after deduction. */
-      return make_constrained_auto(conc, args);
+      return make_constrained_auto (conc, args);
     }
 
   return NULL_TREE;
