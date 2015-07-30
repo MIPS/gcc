@@ -1,6 +1,29 @@
-2015-07-30  Nathan Sidwell  <nathan@acm.org>
+2015-07-30  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* config/nvptx/nvptx.mc (UNSPEC_BROADCAST, UNSPEC_SHFL_DOWN):
+	* config/nvptx/nvptx.md (UNSPECV_UNLOCK): New.
+	(nvptx_shuffle<mode>): Add constraints.
+	(nvptx_unpack<mode>, nvptx_pack<mode>): Likewise.
+	(nvptx_spinlock, nvptx_spinunlock):  New.
+	* config/nvptx/nvptx.c (LOCK_GLOBAL, LOCK_SHARED, LOC_MAS): New
+	defines.
+	(lock_names, lock_regions, lock_space, lock_syms, loc_used): New.
+	(nvptx_option_override): Set worker_bcast_align
+	correctly. Initialize lock_sums.
+	(nvptx_print_operand): Add 'R'.
+	(nvptx_file_end): Emit lock vars if needed.
+	(struct  builtin_description): Move earlier, add object pointer to
+	callback.
+	(nvptx_expand_shuffle_down): Adjust.
+	(nvptx_expand_lock_unlock): New expander.
+	(nvptx_expand_lock, nvptx_expand_unlock): New.
+	(enum nvptx_types): Add NT_VOID_UINT.
+	(builtins): Add lock/unlock builtins.
+	(nvptx_init_bultins): Create new tupe.
+	(nvptx_expand_builtin): Adjust.
+
+2015-07-30  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (UNSPEC_BROADCAST, UNSPEC_SHFL_DOWN):
 	Replace with ...
 	(UNSPEC_SHUFFLE): ... this.
 	(nvptx_broadcast<mode>): Replace with ...

@@ -101,6 +101,21 @@ static unsigned worker_bcast_align;
 #define worker_bcast_name "__worker_bcast"
 static GTY(()) rtx worker_bcast_sym;
 
+/* Global and shared lock variables.  Allocated at end of compilation,
+   if used.  Again, PTX lacks common blocks, so we can't share across
+   compilations.  */
+#define LOCK_GLOBAL 0
+#define LOCK_SHARED 1
+#define LOCK_MAX    2
+static const char *const lock_names[] = 
+  {"__global_lock", "__shared_lock"};
+static const char *const lock_regions[] = 
+  {"global", "shared"};
+static unsigned lock_space[] =
+  {ADDR_SPACE_GLOBAL, ADDR_SPACE_SHARED};
+static GTY(()) rtx lock_syms[LOCK_MAX];
+static bool lock_used[LOCK_MAX];
+
 /* Allocate a new, cleared machine_function structure.  */
 
 static struct machine_function *
@@ -130,7 +145,10 @@ nvptx_option_override (void)
     = hash_table<declared_libfunc_hasher>::create_ggc (17);
 
   worker_bcast_sym = gen_rtx_SYMBOL_REF (Pmode, worker_bcast_name);
-  worker_bcast_align = GET_MODE_SIZE (SImode);
+  worker_bcast_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
+
+  for (unsigned ix = LOCK_MAX; ix--;)
+    lock_syms[ix] = gen_rtx_SYMBOL_REF (Pmode, lock_names[ix]);
 }
 
 /* Return the mode to be used when declaring a ptx object for OBJ.
@@ -1875,7 +1893,8 @@ nvptx_print_operand_address (FILE *file, rtx addr)
    A -- print an address space identifier for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
    f -- print a full reg even for something that must always be split
-   S -- print a shuffle kind
+   R -- print an address space specified by CONST_INT
+   S -- print a shuffle kind specified by CONST_INT
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
    u -- print a type opcode suffix without promotions.  */
@@ -1925,6 +1944,13 @@ nvptx_print_operand (FILE *file, rtx x, int code)
     case 'u':
       op_mode = nvptx_underlying_object_mode (x);
       fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, false));
+      break;
+
+    case 'R':
+      {
+	addr_space_t as = UINTVAL (x);
+	fputs (nvptx_section_from_addr_space (as), file);
+      }
       break;
 
     case 'S':
@@ -3118,15 +3144,36 @@ nvptx_file_end (void)
 	& ~(worker_bcast_align - 1);
       
       fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_bcast_name);
-      fprintf (asm_out_file, ".shared.align %d .u8 %s[%d];\n",
+      fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_bcast_align,
 	       worker_bcast_name, worker_bcast_hwm);
     }
+
+  /* Emit lock variables.  */
+  for (unsigned ix = LOCK_MAX; ix--;)
+    if (lock_used[ix])
+      {
+	fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", lock_names[ix]);
+	fprintf (asm_out_file, ".%s .u32 %s;\n",
+		 lock_regions[ix], lock_names[ix]);
+      }
 }
 
+/* Descriptor for a builtin.  */
+
+struct builtin_description
+{
+  const char *name;
+  unsigned short type;
+  rtx (*expander) (const struct builtin_description *, tree,
+		   rtx, machine_mode, int);
+};
+
+
 /* Expander for the shuffle down builtins.  */
 static rtx
-nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
+nvptx_expand_shuffle_down (const struct builtin_description *ARG_UNUSED (desc),
+			   tree exp, rtx target, machine_mode mode, int ignore)
 {
   if (ignore)
     return target;
@@ -3135,7 +3182,7 @@ nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
     target = gen_reg_rtx (mode);
 
   rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
-			NULL_RTX, mode, EXPAND_NORMAL);
+			 NULL_RTX, mode, EXPAND_NORMAL);
   if (!REG_P (src))
     src = copy_to_mode_reg (mode, src);
 
@@ -3151,22 +3198,65 @@ nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
   return target;
 }
 
+/* Expander for locking and unlocking.  */
+static rtx
+nvptx_expand_lock_unlock (const struct builtin_description *desc,
+			   tree exp, bool lock)
+{
+  rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
+			 NULL_RTX, SImode, EXPAND_NORMAL);
+  unsigned HOST_WIDE_INT kind;
+  rtx pat;
+  
+  kind = GET_CODE (src) == CONST_INT ? INTVAL  (src) : LOCK_MAX;
+  if (kind >= LOCK_MAX)
+    error ("builtin %<%s%> requires constant argument less than %u",
+	   desc->name, LOCK_MAX);
+  lock_used[kind] = true;
+
+  rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
+  rtx space = GEN_INT (lock_space[kind]);
+  
+  if (lock)
+    pat = gen_nvptx_spinlock (mem, space,
+			      gen_reg_rtx (SImode), gen_reg_rtx (BImode));
+  else
+    pat = gen_nvptx_spinunlock (mem, space);
+  if (pat)
+    emit_insn (pat);
+  return const0_rtx;
+}
+
+/* Lock expander.  */
+
+static rtx
+nvptx_expand_lock (const struct builtin_description *desc,
+		   tree exp, rtx ARG_UNUSED (target),
+		   machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
+{
+  return nvptx_expand_lock_unlock (desc, exp, true);
+}
+
+/* Unlock expander.  */
+
+static rtx
+nvptx_expand_unlock (const struct builtin_description *desc,
+		   tree exp, rtx ARG_UNUSED (target),
+		   machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
+{
+  return nvptx_expand_lock_unlock (desc, exp, false);
+}
+
 enum nvptx_types
   {
     NT_UINT_UINT_INT,
     NT_ULL_ULL_INT,
     NT_FLT_FLT_INT,
     NT_DBL_DBL_INT,
+    NT_VOID_UINT,
 
     NT_MAX
   };
-
-struct builtin_description
-{
-  const char *name;
-  unsigned short type;
-  rtx (*expander) (tree, rtx, machine_mode, int);
-};
 
 static const struct builtin_description builtins[] =
 {
@@ -3178,6 +3268,8 @@ static const struct builtin_description builtins[] =
    nvptx_expand_shuffle_down},
   {"__builtin_nvptx_shuffle_downd", NT_DBL_DBL_INT,
    nvptx_expand_shuffle_down},
+  {"__builtin_nvptx_lock", NT_VOID_UINT, nvptx_expand_lock},
+  {"__builtin_nvptx_unlock", NT_VOID_UINT, nvptx_expand_unlock},
 };
 
 #define NVPTX_BUILTIN_MAX (sizeof (builtins) / sizeof (builtins[0]))
@@ -3214,6 +3306,8 @@ nvptx_init_builtins (void)
   types[NT_DBL_DBL_INT]
     = build_function_type_list (double_type_node, double_type_node,
 				integer_type_node, NULL_TREE);
+  types[NT_VOID_UINT]
+    = build_function_type_list (void_type_node, unsigned_type_node, NULL_TREE);
 
   for (ix = 0; ix != NVPTX_BUILTIN_MAX; ix++)
     nvptx_builtin_decls[ix]
@@ -3236,7 +3330,7 @@ nvptx_expand_builtin (tree exp, rtx target,
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   const struct builtin_description *d = &builtins[DECL_FUNCTION_CODE (fndecl)];
 
-  return d->expander (exp, target, mode, ignore);
+  return d->expander (d, exp, target, mode, ignore);
 }
 
 #undef TARGET_OPTION_OVERRIDE

@@ -61,6 +61,7 @@
 
 (define_c_enum "unspecv" [
    UNSPECV_LOCK
+   UNSPECV_UNLOCK
    UNSPECV_CAS
    UNSPECV_XCHG
    UNSPECV_BARSYNC
@@ -1409,30 +1410,30 @@
 
 ;; only 32-bit shuffles exist.
 (define_insn "nvptx_shuffle<mode>"
-  [(set (match_operand:BITS 0 "nvptx_register_operand" "")
+  [(set (match_operand:BITS 0 "nvptx_register_operand" "=R")
 	(unspec:BITS
-		[(match_operand:BITS 1 "nvptx_register_operand" "")
-		 (match_operand:SI 2 "nvptx_nonmemory_operand" "")
-		 (match_operand:SI 3 "const_int_operand" "")]
+		[(match_operand:BITS 1 "nvptx_register_operand" "R")
+		 (match_operand:SI 2 "nvptx_nonmemory_operand" "Ri")
+		 (match_operand:SI 3 "const_int_operand" "n")]
 		  UNSPEC_SHUFFLE))]
   ""
   "%.\\tshfl.%S3.b32\\t%0, %1, %2, 31;")
 
 ;; extract parts of a 64 bit object into 2 32-bit ints
 (define_insn "unpack<mode>si2"
-  [(set (match_operand:SI 0 "nvptx_register_operand" "")
-        (unspec:SI [(match_operand:BITD 2 "nvptx_register_operand" "")
+  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
+        (unspec:SI [(match_operand:BITD 2 "nvptx_register_operand" "R")
 		    (const_int 0)] UNSPEC_BIT_CONV))
-   (set (match_operand:SI 1 "nvptx_register_operand" "")
+   (set (match_operand:SI 1 "nvptx_register_operand" "=R")
         (unspec:SI [(match_dup 2) (const_int 1)] UNSPEC_BIT_CONV))]
   ""
   "%.\\tmov.b64 {%0,%1}, %2;")
 
 ;; pack 2 32-bit ints into a 64 bit object
 (define_insn "packsi<mode>2"
-  [(set (match_operand:BITD 0 "nvptx_register_operand" "")
-        (unspec:BITD [(match_operand:SI 1 "nvptx_register_operand" "")
-		      (match_operand:SI 2 "nvptx_register_operand" "")]
+  [(set (match_operand:BITD 0 "nvptx_register_operand" "=R")
+        (unspec:BITD [(match_operand:SI 1 "nvptx_register_operand" "R")
+		      (match_operand:SI 2 "nvptx_register_operand" "R")]
 		    UNSPEC_BIT_CONV))]
   ""
   "%.\\tmov.b64 %0, {%1,%2};")
@@ -1561,3 +1562,22 @@
 		    UNSPECV_BARSYNC)]
   ""
   "bar.sync\\t%0;")
+
+
+;; spinlock and unlock
+(define_insn "nvptx_spinlock"
+   [(parallel
+     [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
+			(match_operand:SI 1 "const_int_operand" "i")]
+		       UNSPECV_UNLOCK)
+      (match_operand:SI 2 "register_operand" "=R")
+      (match_operand:BI 3 "register_operand" "=R")])]
+   ""
+   "1:\\t.atom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni 1b;")
+
+(define_insn "nvptx_spinunlock"
+   [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
+		      (match_operand:SI 1 "const_int_operand" "i")]
+		      UNSPECV_UNLOCK)]
+   ""
+   ".atom%R1.cas.b32 %0,1,0;")
