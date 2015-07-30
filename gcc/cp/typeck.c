@@ -3655,10 +3655,6 @@ convert_arguments (tree typelist, vec<tree, va_gc> **values, tree fndecl,
 	  && (type == 0 || TREE_CODE (type) != REFERENCE_TYPE))
 	val = TREE_OPERAND (val, 0);
 
-      /* For BUILT_IN_NORMAL we want to fold constants.  */
-      if (fndecl && DECL_BUILT_IN (fndecl)
-	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-	val = fold (val);
       if (type == 0 || TREE_CODE (type) != REFERENCE_TYPE)
 	{
 	  if (TREE_CODE (TREE_TYPE (val)) == ARRAY_TYPE
