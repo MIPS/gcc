@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-Wall -werror" }  */
+/* { dg-options "-Wall -Werror" }  */
 
 extern int fl;
 extern int arr[];
