@@ -435,7 +435,7 @@ build_aggr_init_expr (tree type, tree init)
   else if (TREE_CODE (init) == AGGR_INIT_EXPR)
     fn = AGGR_INIT_EXPR_FN (init);
   else
-    return fold (convert (type, init));
+    return convert (type, init);
 
   is_ctor = (TREE_CODE (fn) == ADDR_EXPR
 	     && TREE_CODE (TREE_OPERAND (fn, 0)) == FUNCTION_DECL
