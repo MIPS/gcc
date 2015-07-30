@@ -1,3 +1,10 @@
+2015-07-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67007
+	* constraint.cc (normalize_predicate_constraint): Set
+	processing_template_decl.
+	(make_constrained_auto): Don't normalize here.
+
 2015-07-29  Jason Merrill  <jason@redhat.com>
 
 	PR c++/67038

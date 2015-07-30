@@ -951,9 +951,11 @@ normalize_disjunction (tree t)
 tree
 normalize_predicate_constraint (tree t)
 {
+  ++processing_template_decl;
   tree expr = PRED_CONSTR_EXPR (t);
   tree lifted = lift_expression (expr);
   tree constr = transform_expression (lifted);
+  --processing_template_decl;
   return constr;
 }
 
@@ -1435,9 +1437,7 @@ make_constrained_auto (tree con, tree args)
   else
     expr = build_concept_check (build_overload (tmpl, NULL_TREE), type, args);
 
-  ++processing_template_decl;
-  tree constr = transform_expression (lift_expression (expr));
-  --processing_template_decl;
+  tree constr = make_predicate_constraint (expr);
 
   /* Attach the constraint to the type declaration. */
   tree decl = TYPE_NAME (type);
