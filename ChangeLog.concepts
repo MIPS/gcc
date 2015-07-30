@@ -1,3 +1,8 @@
+2015-07-29  Jason Merrill  <jason@redhat.com>
+
+	* constraint.cc (satisfy_predicate_constraint): Don't call
+	fold_non_dependent_expr.
+
 2015-07-28  Jason Merrill  <jason@redhat.com>
 
 	PR c++/67018

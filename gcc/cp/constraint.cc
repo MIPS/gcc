@@ -1761,23 +1761,19 @@ satisfy_predicate_constraint (tree t, tree args,
   if (expr == error_mark_node)
     return boolean_false_node;
 
-  tree result = fold_non_dependent_expr (expr);
-  if (result == error_mark_node)
-    return boolean_false_node;
-
   /* A predicate constraint shall have type bool. In some
      cases, substitution gives us const-qualified bool, which
      is also acceptable.  */
-  tree type = cv_unqualified (TREE_TYPE (result));
+  tree type = cv_unqualified (TREE_TYPE (expr));
   if (!same_type_p (type, boolean_type_node))
     {
       error_at (EXPR_LOC_OR_LOC (t, input_location),
                 "constraint %qE does not have type %qT",
-                result, boolean_type_node);
+                expr, boolean_type_node);
       return boolean_false_node;
     }
 
-  tree value = cxx_constant_value (result);
+  tree value = cxx_constant_value (expr);
   return value;
 }
 
