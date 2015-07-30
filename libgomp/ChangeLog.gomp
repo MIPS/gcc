@@ -1,3 +1,11 @@
+2015-07-30  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_offload_device_nonshared_as): New.
+	* testsuite/libgomp.c++/examples-4/e.53.2.C: Replace offload_device with
+	offload_device_nonshared_as.
+	* testsuite/libgomp.c/target-11.c: Ditto.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (struct target_var_desc): Fix up comments
