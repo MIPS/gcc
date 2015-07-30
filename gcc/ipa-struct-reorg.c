@@ -752,7 +752,11 @@ print_struct_symbol_vec ()
 	
       FOR_EACH_VEC_ELT (symbols->new_types, k, new_type)
 	{
-	  dump_struct_type (new_type, 2, 0);
+	  if (TREE_CODE (new_type) == RECORD_TYPE)
+	    dump_struct_type (new_type, 2, 0);
+	  else
+	    print_generic_expr (dump_file, new_type, 0);
+	  
 	  fprintf (dump_file, "\n");
 	}      
     }
@@ -1645,7 +1649,7 @@ build_basic_struct (tree fields, tree name, tree orig_struct)
 
 static tree
 create_fields (struct field_cluster * cluster,
-	       struct field_entry * fields, int num_fields)
+	       struct field_entry * fields, int num_fields, bool one_field)
 {
   int i;
   tree new_types = NULL_TREE;
@@ -1655,8 +1659,11 @@ create_fields (struct field_cluster * cluster,
     if (bitmap_bit_p (cluster->fields_in_cluster, i))
       {
 	tree new_decl = NULL_TREE;
-		
-	new_decl = copy_node (fields[i].decl);
+	
+	if (!one_field)
+	  new_decl = copy_node (fields[i].decl);
+	else
+	  new_decl = copy_node (TREE_TYPE(fields[i].decl));
 	
 	if (!new_types)
 	  new_types = new_decl;
@@ -1674,7 +1681,11 @@ create_fields (struct field_cluster * cluster,
 /* This function creates a cluster name. The name is based on
    the original structure name, if it is present. It has a form:
 
-   <original_struct_name>_sub.<CLUST_NUM>
+   <original_struct_name>_a_b_c
+
+   where a is a first letter of the name of first field in cluster,
+   where b is a first letter of the name of second field in cluster,
+   where c is a first letter of the name of third field in cluster, etc.
 
    The original structure name is taken from the type of DECL.
    If an original structure name is not present, it's generated to be:
@@ -1684,25 +1695,41 @@ create_fields (struct field_cluster * cluster,
    The function returns identifier of the new cluster name.  */
 
 static inline tree
-gen_cluster_name (tree decl, int clust_num, int str_num)
+gen_cluster_name (struct_symbols str, struct field_cluster *cluster, int str_num)
 {
-  const char * orig_name = get_type_name (decl);
+  const char * orig_name = get_type_name (str->struct_decl);
   char * tmp_name = NULL;
-  char * prefix;
-  char * new_name;
+  char * prefix, *curr;
   size_t len;
+  int count = 0;
 
   if (!orig_name)
     ASM_FORMAT_PRIVATE_NAME(tmp_name, "struct", str_num);
+  
+  
+  for (int i = 0; i < str->num_fields; i++)
+    if (bitmap_bit_p (cluster->fields_in_cluster, i))
+      count++;
+      
+  
+  len = strlen (orig_name? orig_name : tmp_name) + (count * 2);
 
-  len = strlen (tmp_name ? tmp_name : orig_name) + strlen ("_sub");
   prefix = XALLOCAVEC (char, len + 1);
-  memcpy (prefix, tmp_name ? tmp_name : orig_name,
-	  strlen (tmp_name ? tmp_name : orig_name));
-  strcpy (prefix + strlen (tmp_name ? tmp_name : orig_name), "_sub");
+  memcpy (prefix, orig_name? orig_name : tmp_name, 
+	  strlen (orig_name? orig_name: tmp_name));
+  curr = prefix + strlen (orig_name? orig_name:tmp_name);
+  for (int i = 0; i < str->num_fields; i++)
+    if (bitmap_bit_p (cluster->fields_in_cluster, i))
+      {
+	tree field = str->fields[i].decl;
+	const char *name = IDENTIFIER_POINTER (DECL_NAME (field));
+	memcpy (curr, "_", strlen("_"));
+	memcpy (curr + strlen("_"), name, 1);
+	curr += strlen ("_") + 1;
+      }
 
-  ASM_FORMAT_PRIVATE_NAME (new_name, prefix, clust_num);
-  return get_identifier (new_name);
+  strcpy (curr, "");
+  return get_identifier (prefix);
 }
 
 /* This function copies type qualities from ORIG_TYPE to NEW_TYPE.  */
@@ -1711,9 +1738,12 @@ static void
 copy_type_quals (tree new_type, tree orig_type)
 {
       /* Copy original type qualities.  */
-      TYPE_VOLATILE (new_type) = TYPE_VOLATILE (orig_type);
-      TYPE_ATOMIC (new_type) = TYPE_ATOMIC (orig_type);
-      TYPE_RESTRICT (new_type) = TYPE_RESTRICT (orig_type);
+      TYPE_VOLATILE (new_type) 
+	= TYPE_VOLATILE (orig_type);
+      TYPE_ATOMIC (new_type) 
+	= TYPE_ATOMIC (orig_type);
+      TYPE_RESTRICT (new_type) 
+	= TYPE_RESTRICT (orig_type);
       TYPE_READONLY (new_type) = TYPE_READONLY (orig_type);
 }
 
@@ -1726,7 +1756,6 @@ copy_type_quals (tree new_type, tree orig_type)
 static void
 create_new_type (struct_symbols str, int *str_num)
 {
-  int cluster_num = 0;
 
   struct field_cluster *cluster = str->struct_clustering;
   while (cluster)
@@ -1734,13 +1763,22 @@ create_new_type (struct_symbols str, int *str_num)
       tree  name;
       tree fields;
       tree new_type;
-      cluster_num++;
       
-      name = gen_cluster_name (str->struct_decl, cluster_num,
-				     *str_num);      
-      fields = create_fields (cluster, str->fields,
-			      str->num_fields);
-      new_type = build_basic_struct (fields, name, str->struct_decl);
+      name = gen_cluster_name (str, cluster, *str_num); 
+      /* If there is only one field in struct, remove structure frame.  */
+      if (bitmap_first_set_bit (cluster->fields_in_cluster) 
+	  != bitmap_last_set_bit (cluster->fields_in_cluster))
+	{
+	  fields = create_fields (cluster, str->fields,
+				  str->num_fields, false);
+	  new_type = build_basic_struct (fields, name, str->struct_decl);
+	}
+      else
+	{
+	  new_type = create_fields (cluster, str->fields,
+				  str->num_fields, true);
+	  TYPE_NAME(new_type) = name;
+	}
       copy_type_quals (new_type, str->struct_decl);
       update_fields_mapping (cluster, new_type,
 			     str->fields, str->num_fields);
@@ -2395,6 +2433,7 @@ gen_struct_type (tree decl, tree new_str_type)
   tree new_type = new_str_type;
   vec<type_wrapper_t> wrapper;
   type_wrapper_t wr;
+  //int pointers_count = 0;
 
   wrapper.create (10); 
   while (POINTER_TYPE_P (type_orig)
@@ -2402,6 +2441,7 @@ gen_struct_type (tree decl, tree new_str_type)
     {
       if (POINTER_TYPE_P (type_orig))
 	{
+	  //pointers_count++;
 	  wr.wrap = 0;
 	  wr.domain = NULL_TREE;
 	}
@@ -2412,7 +2452,6 @@ gen_struct_type (tree decl, tree new_str_type)
 	  wr.domain = TYPE_DOMAIN (type_orig);
 	}
       wrapper.safe_push (wr);
-	// VEC_safe_push (type_wrapper_t, heap, wrapper, &wr);
       type_orig = TREE_TYPE (type_orig);
     }
 
@@ -2421,10 +2460,19 @@ gen_struct_type (tree decl, tree new_str_type)
       wr = wrapper.last ();
 
       if (wr.wrap) /* Array.  */
-	new_type = build_array_type (new_type, wr.domain);
+	{
+	  new_type = build_array_type (new_type, wr.domain);
+	}
       else /* Pointer.  */
-	new_type = build_pointer_type (new_type);
-
+	{
+	  if (TREE_CODE (new_str_type) == RECORD_TYPE)
+	    new_type = build_pointer_type (new_type);
+	  else
+	    {	      
+	      //if (--pointers_count)
+		new_type = build_pointer_type (new_type);
+	    }
+	}
       wrapper.pop ();
     }
 
@@ -4518,6 +4566,48 @@ build_comp_ref (tree base, tree field_id, tree type,
     return build3 (COMPONENT_REF, TREE_TYPE (field), base, field, NULL_TREE);
 }
 
+/* This function returns component_ref with the BASE and
+   field named FIELD_ID from structure TYPE.  */
+
+static inline tree
+build_mem_ref (tree base, tree type, struct field_access_site *acc)
+{
+  tree mem_ref;
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nnew_type is ");
+      print_generic_expr (dump_file, type, 0);
+    }
+
+  if (TREE_TYPE (base) == type)
+    return base;
+  else if (acc->insn_offset 
+	   && TREE_CODE (acc->insn_offset) == INTEGER_CST && acc->insn_num)
+    {
+      tree new_offset;
+      HOST_WIDE_INT new_off;
+
+      new_off = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (type)) * 
+	TREE_INT_CST_LOW (acc->insn_num);
+      
+      new_offset = build_int_cst (TREE_TYPE (base), new_off);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nnew_type is");
+	  print_generic_expr (dump_file, type, 0);
+	  fprintf (dump_file, "\nbase type is ");
+	  print_generic_expr (dump_file, TREE_TYPE (base), 0);
+	  fprintf (dump_file, "\nbase  is ");
+	  print_generic_expr (dump_file, base, 0);
+	  fprintf (dump_file, "\nnew_offset type is ");
+	  print_generic_expr (dump_file, TREE_TYPE (new_offset), 0);
+	}
+      return mem_ref = fold_build2 (MEM_REF, /*TREE_TYPE (base)*/type, base, new_offset);
+    }
+  else 
+    return mem_ref = fold_build2 (MEM_REF, /*TREE_TYPE (base)*/type, base, NULL_TREE);
+}
+
 /* This function replace field access ACC by the new
    field access of structure type NEW_TYPE.  */
 
@@ -4557,7 +4647,7 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
 	{
 	  wr.wrap = 1;
 	  wr.domain = TREE_OPERAND (ref_var, 1);
-	}
+	}                 
       wrapper.safe_push (wr);
       ref_var = TREE_OPERAND (ref_var, 0);
       if (dump_file)
@@ -4571,7 +4661,7 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
   //finalize_global_creation (new_ref);
   if (dump_file)
     {
-      fprintf (dump_file, "\nnew_ref is before wraping");
+      fprintf (dump_file, "\nnew_ref is before wrapping");
       print_generic_expr (dump_file, new_ref, 0);
     }
 
@@ -4594,7 +4684,12 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
       print_generic_expr (dump_file, new_ref, 0);
     }
 
-  new_acc = build_comp_ref (new_ref, field_id, new_type, acc);
+  //debug_tree (new_ref);
+  if (TREE_CODE (new_type) != RECORD_TYPE)
+    new_acc = build_mem_ref (new_ref, new_type, acc);
+  else
+    new_acc = build_comp_ref (new_ref, field_id, new_type, acc);
+
   wrapper.release ();
   
   if (dump_file)
@@ -4975,6 +5070,8 @@ create_general_new_stmt (struct access_site *acc, tree new_type)
       if (is_gimple_assign (new_stmt))
 	{
 	  lhs = gimple_assign_lhs (new_stmt);
+	  // TEMP
+	  // debug_tree (gimple_assign_rhs1 (new_stmt));
 
 	  if (TREE_CODE (lhs) == SSA_NAME)
 	    if (SSA_NAME_VAR (lhs))
