@@ -1,3 +1,52 @@
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (brig_emit_string): Add new argument.
+	(brig_init): Sanitize module names.
+	(emit_memory_insn): Make emission more flexible in case of number
+	of operands.
+	(emit_atomic_insn): Likewise.
+	(emit_addr_insn): Likewise.
+	(emit_signal_insn): New function.
+	(emit_segment_insn): Fix comment coding style.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_call_insn): Likewise.
+	(emit_comment_insn): New function.
+	(emit_queue_insn): Likewise.
+	(emit_basic_insn): Fix comment coding style.
+	(emit_insn): Add handling of newly added insn types.
+	(perhaps_emit_branch): Fix comment coding style.
+	(hsa_output_kernel_mapping): Serialize kernel dependencies.
+	* hsa-dump.c (dump_hsa_imm_or_reg): Remove.
+	(dump_hsa_operand): New function.
+	(dump_hsa_operands): Likewise.
+	(dump_hsa_insn): Add dump support of hsa_insn_comment.
+	(debug_hsa_insn): Fix segfault.
+	* hsa-gen.c (struct hsa_kernel_dispatch): New structure.
+	(struct hsa_queue_packet): Likewise.
+	(struct hsa_queue): Likewise.
+	(set_reg_def): More forward in the source file.
+	(hsa_append_insn): Likewise.
+	(hsa_function_representation::hsa_function_representation): Add
+	shadow register.
+	(hsa_function_representation::get_shadow_reg): New function.
+	(hsa_init_data_for_cfun): Allocate new memory pools.
+	(hsa_deinit_data_for_cfun): Release newly added memory pools.
+	(hsa_insn_basic::hsa_insn_basic): Enhance ctor.
+	(hsa_insn_mem::hsa_insn_mem): Likewise.
+	(hsa_insn_atomic::hsa_insn_atomic): Make ctor more generic.
+	(hsa_insn_comment::hsa_insn_comment): New function.
+	(hsa_insn_comment::release_string): Likewise.
+	(get_unsigned_type_by_bytes): New function.
+	(gen_hsa_memory_copy): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_insns_for_call): Use changed ctors.
+	(gen_function_def_parameters): Add support for shadow arguments.
+	* hsa-regalloc.c (hsa_num_def_ops): Fix indentation.
+	* hsa.c (hsa_add_kernel_dependency): New function.
+	(hsa_sanitize_name): Sanitize another character.
+	(hsa_brig_function_name): New function.
+
 2015-06-30  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (hsa_output_kernel_mapping): Remove assert.

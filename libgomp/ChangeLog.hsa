@@ -1,3 +1,22 @@
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-traits.h: New file.
+	* plugin/plugin-hsa.c (struct brig_image_desc): Add support for kernel
+	dependencies.
+	(struct kernel_info): Likewise.
+	(struct module_info): Likewise.
+	(get_kernel_in_module): New function.
+	(GOMP_OFFLOAD_load_image): Assign a kernel to a module.
+	(create_kernel_dispatch): New function.
+	(release_kernel_dispatch): New function.
+	(init_kernel): Fix GNU coding style.
+	(indent_stream): New function.
+	(print_kernel_dispatch): New function.
+	(create_kernel_dispatch_recursive): New function.
+	(GOMP_OFFLOAD_run): Handle kernel dependencies in a kernel dispatch
+	operation.
+	(destroy_module): Fix GNU coding style.
+
 2015-06-26  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (__hsa_launch_kernel): Added extra debug dumping.

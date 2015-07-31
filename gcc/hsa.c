@@ -91,6 +91,10 @@ struct GTY(()) hsa_decl_kernel_map_element
 
 static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping;
 
+/* Mapping between decls and corresponding HSA kernels
+   called by the function.  */
+hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
+
 /* Hash function to lookup a symbol for a decl.  */
 hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 
@@ -360,14 +364,51 @@ hsa_free_decl_kernel_mapping (void)
   ggc_free (hsa_decl_kernel_mapping);
 }
 
+/* Add new kernel dependency.  */
+
+void
+hsa_add_kernel_dependency (tree caller, char *called_function)
+{
+  if (hsa_decl_kernel_dependencies == NULL)
+    hsa_decl_kernel_dependencies = new hash_map<tree, vec<char *> *> ();
+
+  vec <char *> *s = NULL;
+  vec <char *> **slot = hsa_decl_kernel_dependencies->get (caller);
+  if (slot == NULL)
+    {
+      s = new vec <char *> ();
+      hsa_decl_kernel_dependencies->put (caller, s);
+    }
+  else
+    s = *slot;
+
+  s->safe_push (called_function);
+}
+
 /* Modify the name P in-place so that it is a valid HSA identifier.  */
 
 void
 hsa_sanitize_name (char *p)
 {
   for (; *p; p++)
-    if (*p == '.')
+    if (*p == '.' || *p == '-')
       *p = '_';
+}
+
+/* Clone the name P, set trailing ampersand and sanitize the name.  */
+
+char *
+hsa_brig_function_name (const char *p)
+{
+  unsigned len = strlen (p);
+  char *buf = XNEWVEC (char, len + 2);
+
+  buf[0] = '&';
+  buf[len + 1] = '\0';
+  memcpy (buf + 1, p, len);
+
+  hsa_sanitize_name (buf);
+  return buf;
 }
 
 /* Return declaration name if exists.  */
