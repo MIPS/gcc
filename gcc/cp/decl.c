@@ -14229,17 +14229,22 @@ find_oacc_return (tree *tp, int *, void *)
 }
 
 static void
-finish_oacc_declare (tree fndecl, tree decls)
+finish_oacc_declare (tree fndecl)
 {
-  tree t, stmt, list, c, ret_clauses, clauses;
+  tree t, stmt, list, c, ret_clauses, clauses, decls;
   location_t loc;
   tree_stmt_iterator i;
 
+  if (DECL_USE_TEMPLATE (fndecl))
+    return;
+
   list = cur_stmt_list;
+
+  decls = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
 
   if (lookup_attribute ("oacc function", DECL_ATTRIBUTES (fndecl)))
     {
-      if (lookup_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl)))
+      if (decls)
 	{
 	  location_t loc = DECL_SOURCE_LOCATION (fndecl);
 	  error_at (loc, "%<#pragma acc declare%> not allowed in %qE", fndecl);
@@ -14463,8 +14468,7 @@ finish_function (int flags)
   gcc_assert (!defer_mark_used_calls);
   defer_mark_used_calls = true;
 
-  tree decls = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (fndecl));
-  finish_oacc_declare (fndecl, decls);
+  finish_oacc_declare (fndecl);
 
   record_key_method_defined (fndecl);
 
