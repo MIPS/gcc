@@ -11975,6 +11975,219 @@ lower_omp_taskgroup (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 }
 
 
+/* Fold the OMP_ORDERED_CLAUSES for the OMP_ORDERED in STMT if possible.  */
+
+static void
+lower_omp_ordered_clauses (gomp_ordered *ord_stmt, omp_context *ctx)
+{
+  struct omp_for_data fd;
+  if (!ctx->outer || gimple_code (ctx->outer->stmt) != GIMPLE_OMP_FOR)
+    return;
+
+  unsigned int len = gimple_omp_for_collapse (ctx->outer->stmt);
+  if (!len)
+    return;
+  struct omp_for_data_loop *loops
+    = (struct omp_for_data_loop *)
+    alloca (len * sizeof (struct omp_for_data_loop));
+  extract_omp_for_data (as_a <gomp_for *> (ctx->outer->stmt), &fd, loops);
+  if (!fd.ordered)
+    return;
+
+  /* Canonicalize sink dependence clauses into one folded clause if
+     possible.
+
+     The basic algorithm is to create a sink vector whose first
+     element is the GCD of all the first elements, and whose remaining
+     elements are the minimum of the subsequent columns.
+
+     We ignore dependence vectors whose first element is zero because
+     such dependencies are known to be executed by the same thread.
+
+     We take into account the direction of the loop, so a minimum
+     becomes a maximum if the loop is iterating backwards.  We also
+     ignore sink clauses where the loop direction is unknown, or where
+     the offsets are clearly invalid because they are not a multiple
+     of the loop increment.
+
+     For example:
+
+	#pragma omp for ordered(2)
+	for (i=0; i < N; ++i)
+	  for (j=0; j < M; ++j)
+	    {
+	      #pragma omp ordered \
+		depend(sink:i-8,j-1) \
+		depend(sink:i,j-2) \	// Completely ignored because i+0.
+		depend(sink:i-4,j+3) \
+		depend(sink:i-6,j+2)
+	      #pragma omp ordered depend(source)
+	    }
+
+     Folded clause is:
+
+	depend(sink:-gcd(8,4,6),min(-1,3,2))
+	  -or-
+	depend(sink:-2,-1)
+  */
+
+  /* FIXME: Computing GCD's where the first element is zero is
+     non-trivial in the presence of collapsed loops.  Do this later.  */
+  gcc_assert (fd.collapse <= 1);
+
+  vec<wide_int> folded_deps;
+  folded_deps.create (len);
+  folded_deps.quick_grow_cleared (len);
+  /* Bitmap representing dimensions in the final dependency vector that
+     have been set.  */
+  sbitmap folded_deps_used = sbitmap_alloc (len);
+  bitmap_clear (folded_deps_used);
+  /* TRUE if the first dimension's offset is negative.  */
+  bool neg_offset_p = false;
+
+  /* ?? We need to save the original iteration variables stored in the
+     depend clauses, because those in fd.loops[].v have already been
+     gimplified.  Perhaps we should use the gimplified versions. ??  */
+  tree *iter_vars = (tree *) alloca (sizeof (tree) * len);
+  memset (iter_vars, 0, sizeof (tree) * len);
+
+  tree *list_p = gimple_omp_ordered_clauses_ptr (ord_stmt);
+  tree c;
+  unsigned int i;
+  while ((c = *list_p) != NULL)
+    {
+      bool remove = false;
+
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
+	  || OMP_CLAUSE_DEPEND_KIND (c) != OMP_CLAUSE_DEPEND_SINK)
+	goto next_ordered_clause;
+
+      tree decls;
+      for (decls = OMP_CLAUSE_DECL (c), i = 0;
+	   decls && TREE_CODE (decls) == TREE_LIST;
+	   decls = TREE_CHAIN (decls), ++i)
+	{
+	  gcc_assert (i < len);
+
+	  /* extract_omp_for_data has canonicalized the condition.  */
+	  gcc_assert (fd.loops[i].cond_code == LT_EXPR
+		      || fd.loops[i].cond_code == LE_EXPR
+		      || fd.loops[i].cond_code == GT_EXPR
+		      || fd.loops[i].cond_code == GE_EXPR);
+	  bool forward = fd.loops[i].cond_code == LT_EXPR
+	    || fd.loops[i].cond_code == LE_EXPR;
+
+	  /* While the committee makes up its mind, bail if we have any
+	     non-constant steps.  */
+	  if (TREE_CODE (fd.loops[i].step) != INTEGER_CST)
+	    goto lower_omp_ordered_ret;
+
+	  wide_int offset = TREE_PURPOSE (decls);
+	  if (!iter_vars[i])
+	    iter_vars[i] = TREE_VALUE (decls);
+
+	  /* Ignore invalid offsets that are not multiples of the step.  */
+	  if (!wi::multiple_of_p
+	      (wi::abs (offset), wi::abs ((wide_int) fd.loops[i].step),
+	       UNSIGNED))
+	    {
+	      warning_at (OMP_CLAUSE_LOCATION (c), 0,
+			  "ignoring sink clause with offset that is not "
+			  "a multiple of the loop step");
+	      remove = true;
+	      goto next_ordered_clause;
+	    }
+
+	  /* Calculate the first dimension.  The first dimension of
+	     the folded dependency vector is the GCD of the first
+	     elements, while ignoring any first elements whose offset
+	     is 0.  */
+	  if (i == 0)
+	    {
+	      /* Ignore dependence vectors whose first dimension is 0.  */
+	      if (offset == 0)
+		{
+		  remove = true;
+		  goto next_ordered_clause;
+		}
+	      else
+		{
+		  neg_offset_p =
+		    wi::neg_p (offset,
+			       TYPE_SIGN (TREE_TYPE (TREE_PURPOSE (decls))));
+		  if ((forward && !neg_offset_p)
+		      || (!forward && neg_offset_p))
+		    {
+		      error_at (OMP_CLAUSE_LOCATION (c),
+				"first offset must be in opposite direction "
+				"of loop iterations");
+		      goto lower_omp_ordered_ret;
+		    }
+		  /* Initialize the first time around.  */
+		  if (!bitmap_bit_p (folded_deps_used, 0))
+		    {
+		      bitmap_set_bit (folded_deps_used, 0);
+		      folded_deps[0] = wi::abs (offset);
+		    }
+		  else
+		    folded_deps[i] = wi::gcd (folded_deps[0], offset, UNSIGNED);
+		}
+	    }
+	  /* Calculate minimum for the remaining dimensions.  */
+	  else
+	    {
+	      if (!bitmap_bit_p (folded_deps_used, i))
+		{
+		  bitmap_set_bit (folded_deps_used, i);
+		  folded_deps[i] = offset;
+		}
+	      else if ((forward && wi::lts_p (offset, folded_deps[i]))
+		       || (!forward && wi::gts_p (offset, folded_deps[i])))
+		folded_deps[i] = offset;
+	    }
+	}
+
+      remove = true;
+
+    next_ordered_clause:
+      if (remove)
+	*list_p = OMP_CLAUSE_CHAIN (c);
+      else
+	list_p = &OMP_CLAUSE_CHAIN (c);
+    }
+
+  for (i = 0; i < len; ++i)
+    if (!bitmap_bit_p (folded_deps_used, i))
+      break;
+  if (i == len)
+    {
+      if (neg_offset_p)
+	folded_deps[0] = -folded_deps[0];
+
+      tree vec = NULL;
+      i = len;
+      do
+	{
+	  i--;
+	  vec = tree_cons (wide_int_to_tree (TREE_TYPE (fd.loops[i].v),
+					     folded_deps[i]),
+			   iter_vars[i], vec);
+	}
+      while (i);
+
+      c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_DEPEND);
+      OMP_CLAUSE_DEPEND_KIND (c) = OMP_CLAUSE_DEPEND_SINK;
+      OMP_CLAUSE_DECL (c) = vec;
+      OMP_CLAUSE_CHAIN (c) = gimple_omp_ordered_clauses (ord_stmt);
+      *gimple_omp_ordered_clauses_ptr (ord_stmt) = c;
+    }
+
+ lower_omp_ordered_ret:
+  sbitmap_free (folded_deps_used);
+  folded_deps.release ();
+}
+
+
 /* Expand code for an OpenMP ordered directive.  */
 
 static void
@@ -11984,6 +12197,8 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple stmt = gsi_stmt (*gsi_p);
   gcall *x;
   gbind *bind;
+
+  lower_omp_ordered_clauses (as_a <gomp_ordered *> (stmt), ctx);
 
   push_gimplify_context ();
 

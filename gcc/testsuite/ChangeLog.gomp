@@ -1,3 +1,12 @@
+2015-07-31  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/gomp/sink-fold-1.c: New.
+	* gcc.dg/gomp/sink-fold-2.c: New.
+	* gcc.dg/gomp/sink-fold-3.c: New.
+	* c-c++-common/gomp/sink-4.c: Look in omplower dump file instead.
+	* g++.dg/gomp/sink-3.C: Have sink offset be in the opposite
+	direction.  Make variables more readable.
+
 2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-c++-common/gomp/sink-3.c: New test.

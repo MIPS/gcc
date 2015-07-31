@@ -12,6 +12,7 @@ void baz ()
       {
 #pragma omp ordered depend(sink:i-3,j)
 	bar (i, j, 0);
+#pragma omp ordered depend(source)
       }
 }
 

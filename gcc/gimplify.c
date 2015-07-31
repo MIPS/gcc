@@ -153,7 +153,7 @@ struct gimplify_omp_ctx
   splay_tree variables;
   hash_set<tree> *privatized_types;
   /* Iteration variables in an OMP_FOR.  */
-  vec<tree> iter_vars;
+  vec<tree> loop_iter_var;
   location_t location;
   enum omp_clause_default_kind default_kind;
   enum omp_region_type region_type;
@@ -392,7 +392,7 @@ delete_omp_context (struct gimplify_omp_ctx *c)
 {
   splay_tree_delete (c->variables);
   delete c->privatized_types;
-  c->iter_vars.release ();
+  c->loop_iter_var.release ();
   XDELETE (c);
 }
 
@@ -7620,8 +7620,15 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      == TREE_VEC_LENGTH (OMP_FOR_COND (for_stmt)));
   gcc_assert (TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt))
 	      == TREE_VEC_LENGTH (OMP_FOR_INCR (for_stmt)));
-  gimplify_omp_ctxp->iter_vars.create (TREE_VEC_LENGTH
-				       (OMP_FOR_INIT (for_stmt)));
+
+  tree c = find_omp_clause (OMP_FOR_CLAUSES (for_stmt), OMP_CLAUSE_ORDERED);
+  bool is_doacross = false;
+  if (c && OMP_CLAUSE_ORDERED_EXPR (c))
+    {
+      is_doacross = true;
+      gimplify_omp_ctxp->loop_iter_var.create (TREE_VEC_LENGTH
+					       (OMP_FOR_INIT (for_stmt)));
+    }
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
       t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
@@ -7630,11 +7637,14 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       gcc_assert (DECL_P (decl));
       gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))
 		  || POINTER_TYPE_P (TREE_TYPE (decl)));
-      if (TREE_CODE (for_stmt) == OMP_FOR && OMP_FOR_ORIG_DECLS (for_stmt))
-	gimplify_omp_ctxp->iter_vars.quick_push
-	  (TREE_VEC_ELT (OMP_FOR_ORIG_DECLS (for_stmt), i));
-      else
-	gimplify_omp_ctxp->iter_vars.quick_push (decl);
+      if (is_doacross)
+	{
+	  if (TREE_CODE (for_stmt) == OMP_FOR && OMP_FOR_ORIG_DECLS (for_stmt))
+	    gimplify_omp_ctxp->loop_iter_var.quick_push
+	      (TREE_VEC_ELT (OMP_FOR_ORIG_DECLS (for_stmt), i));
+	  else
+	    gimplify_omp_ctxp->loop_iter_var.quick_push (decl);
+	}
 
       /* Make sure the iteration variable is private.  */
       tree c = NULL_TREE;
@@ -8517,6 +8527,56 @@ gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
   return GS_ALL_DONE;
 }
 
+/* Gimplify an OMP_ORDERED construct.  EXPR is the tree version.  BODY
+   is the OMP_BODY of the original EXPR (which has already been
+   gimplified so it's not present in the EXPR).
+
+   Return the gimplified GIMPLE_OMP_ORDERED tuple.  */
+
+static gimple
+gimplify_omp_ordered (tree expr, gimple_seq body)
+{
+  tree c, decls;
+  int failures = 0;
+  unsigned int i;
+
+  if (gimplify_omp_ctxp)
+    for (c = OMP_ORDERED_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
+      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	  && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
+	{
+	  bool fail = false;
+	  for (decls = OMP_CLAUSE_DECL (c), i = 0;
+	       decls && TREE_CODE (decls) == TREE_LIST;
+	       decls = TREE_CHAIN (decls), ++i)
+	    if (i < gimplify_omp_ctxp->loop_iter_var.length ()
+		&& TREE_VALUE (decls) != gimplify_omp_ctxp->loop_iter_var[i])
+	      {
+		error_at (OMP_CLAUSE_LOCATION (c),
+			  "variable %qE is not an iteration "
+			  "of outermost loop %d, expected %qE",
+			  TREE_VALUE (decls), i + 1,
+			  gimplify_omp_ctxp->loop_iter_var[i]);
+		fail = true;
+		failures++;
+	      }
+	  /* Avoid being too redundant.  */
+	  if (!fail && i != gimplify_omp_ctxp->loop_iter_var.length ())
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"number of variables in depend(sink) "
+			"clause does not match number of "
+			"iteration variables");
+	      fail = true;
+	      failures++;
+	    }
+	}
+
+  if (failures)
+    return gimple_build_nop ();
+  return gimple_build_omp_ordered (body, OMP_ORDERED_CLAUSES (expr));
+}
+
 /* Convert the GENERIC expression tree *EXPR_P to GIMPLE.  If the
    expression produces a value to be used as an operand inside a GIMPLE
    statement, the value will be stored back in *EXPR_P.  This value will
@@ -9330,38 +9390,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		}
 		break;
 	      case OMP_ORDERED:
-		if (gimplify_omp_ctxp)
-		  for (tree c = OMP_ORDERED_CLAUSES (*expr_p);
-		       c; c = OMP_CLAUSE_CHAIN (c))
-		    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
-			&& OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
-		      {
-			unsigned int n = 0;
-			bool fail = false;
-			for (tree decls = OMP_CLAUSE_DECL (c);
-			     decls && TREE_CODE (decls) == TREE_LIST;
-			     decls = TREE_CHAIN (decls), ++n)
-			  if (n < gimplify_omp_ctxp->iter_vars.length ()
-			      && TREE_VALUE (decls)
-			      != gimplify_omp_ctxp->iter_vars[n])
-			    {
-			      error_at (OMP_CLAUSE_LOCATION (c),
-					"variable %qE is not an iteration "
-					"of outermost loop %d, expected %qE",
-					TREE_VALUE (decls), n + 1,
-					gimplify_omp_ctxp->iter_vars[n]);
-			      fail = true;
-			    }
-			/* Avoid being too redundant.  */
-			if (!fail
-			    && n != gimplify_omp_ctxp->iter_vars.length ())
-			  error_at (OMP_CLAUSE_LOCATION (c),
-			     "number of variables in depend(sink) clause "
-			     "does not match number of iteration variables");
-		      }
-
-		g = gimple_build_omp_ordered (body,
-					      OMP_ORDERED_CLAUSES (*expr_p));
+		g = gimplify_omp_ordered (*expr_p, body);
 		break;
 	      case OMP_CRITICAL:
 		gimplify_scan_omp_clauses (&OMP_CRITICAL_CLAUSES (*expr_p),

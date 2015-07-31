@@ -8,7 +8,7 @@ typedef struct {
     char stuff[400];
 } foo;
 
-foo *p, *q, *r;
+foo *end, *begin, *p;
 
 template<int N>
 void
@@ -16,7 +16,7 @@ funk ()
 {
   int i,j;
 #pragma omp parallel for ordered(1)
-  for (p=q; p < q; p--)
+  for (p=end; p > begin; p--)
     {
 #pragma omp ordered depend(sink:p+1)
       void bar ();

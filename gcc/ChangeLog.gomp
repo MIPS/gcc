@@ -1,3 +1,14 @@
+2015-07-31  Aldy Hernandez  <aldyh@redhat.com>
+
+	* wide-int.h (wi::gcd): New.
+	* gimplify.c (struct gimplify_omp_ctx): Rename iter_vars to
+	loop_iter_var.
+	(delete_omp_context): Same.
+	(gimplify_expr): Move code handling OMP_ORDERED into...
+	(gimplify_omp_ordered): ...here.  New.
+	* omp-low.c (lower_omp_ordered_clauses): New.
+	(lower_omp_ordered): Call lower_omp_ordered_clauses.
+
 2015-07-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (fixup_child_record_type): Const qualify *.omp_data_i.
