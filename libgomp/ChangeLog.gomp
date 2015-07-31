@@ -1,3 +1,31 @@
+2015-07-31  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (enum gomp_map_vars_kind): New.
+	(gomp_map_vars): Change type of the argument from bool to enum
+	gomp_map_vars_kind.
+	* oacc-mem.c (acc_map_data, present_create_copy,
+	gomp_acc_insert_pointer): Pass GOMP_MAP_VARS_OPENACC instead of false to
+	gomp_map_vars.
+	* oacc-parallel.c (GOACC_parallel, GOACC_data_start): Likewise.
+	* target.c (gomp_map_vars_existing): Fix target address for 'always to'
+	array sections.
+	(gomp_map_vars): Change type of the argument from bool to enum
+	gomp_map_vars_kind, fixup its usage.  Set tgt->refcount to 0 if called
+	from GOMP_target_enter_exit_data.  Free tgt if called from
+	GOMP_target_enter_exit_data and nothing has been mapped.
+	(gomp_unmap_vars): Decrement k->refcount when it is 1 and
+	k->async_refcount is 0.
+	(gomp_offload_image_to_device): Set tgt's refcount to infinity.
+	(GOMP_target, GOMP_target_41): Pass GOMP_MAP_VARS_TARGET instead of true
+	to gomp_map_vars.
+	(gomp_target_data_fallback, GOMP_target_data, GOMP_target_data_41): Pass
+	GOMP_MAP_VARS_DATA instead of false to gomp_map_vars.
+	(gomp_exit_data): New static function.
+	(GOMP_target_enter_exit_data): Support mapping/unmapping.
+	* testsuite/libgomp.c/target-11.c: Extend for testing 'always to' array
+	sections.
+	* testsuite/libgomp.c/target-20.c: New test.
+
 2015-07-30  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* testsuite/lib/libgomp.exp

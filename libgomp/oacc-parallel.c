@@ -131,7 +131,7 @@ GOACC_parallel (int device, void (*fn) (void *),
     tgt_fn = (void (*)) fn;
 
   tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
-		       false);
+		       GOMP_MAP_VARS_OPENACC);
 
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
@@ -178,7 +178,8 @@ GOACC_data_start (int device, size_t mapnum,
   if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
       || host_fallback)
     {
-      tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true, false);
+      tgt = gomp_map_vars (NULL, 0, NULL, NULL, NULL, NULL, true,
+			   GOMP_MAP_VARS_OPENACC);
       tgt->prev = thr->mapped_data;
       thr->mapped_data = tgt;
 
@@ -187,7 +188,7 @@ GOACC_data_start (int device, size_t mapnum,
 
   gomp_debug (0, "  %s: prepare mappings\n", __FUNCTION__);
   tgt = gomp_map_vars (acc_dev, mapnum, hostaddrs, NULL, sizes, kinds, true,
-		       false);
+		       GOMP_MAP_VARS_OPENACC);
   gomp_debug (0, "  %s: mappings prepared\n", __FUNCTION__);
   tgt->prev = thr->mapped_data;
   thr->mapped_data = tgt;

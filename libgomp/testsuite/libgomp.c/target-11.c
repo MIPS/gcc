@@ -9,6 +9,17 @@ void test_array_section (int *p)
 {
   #pragma omp target data map(alloc: p[0:N])
     {
+      int ok = 1;
+      for (int i = 10; i < 10 + 4; i++)
+	p[i] = 997 * i;
+
+      #pragma omp target map(always to:p[10:4]) map(tofrom: ok)
+	for (int i = 10; i < 10 + 4; i++)
+	  if (p[i] != 997 * i)
+	    ok = 0;
+
+      assert (ok);
+
       #pragma omp target map(always from:p[7:9])
 	for (int i = 0; i < N; i++)
 	  p[i] = i;
