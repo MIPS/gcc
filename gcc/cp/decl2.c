@@ -1128,7 +1128,7 @@ grokbitfield (const cp_declarator *declarator,
 	       TREE_TYPE (width));
       /* We need to make sure that WIDTH gets reduced to CST,
          if possible.  */
-      DECL_INITIAL (value) = fold_simple (width);
+      DECL_INITIAL (value) = width;
       SET_DECL_C_BIT_FIELD (value);
     }
 
