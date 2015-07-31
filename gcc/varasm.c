@@ -5070,7 +5070,6 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
   while (TREE_CODE (local->val) == VIEW_CONVERT_EXPR
 	 || TREE_CODE (local->val) == NON_LVALUE_EXPR)
     local->val = TREE_OPERAND (local->val, 0);
-  local->val = fold (local->val);
 
   if (TREE_CODE (local->val) != INTEGER_CST
       && TREE_CODE (local->val) != CONSTRUCTOR)
