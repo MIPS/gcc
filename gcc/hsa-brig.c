@@ -1461,6 +1461,8 @@ static void
 emit_comment_insn (hsa_insn_comment *insn)
 {
   struct BrigDirectiveComment repr;
+  memset (&repr, 0, sizeof (repr));
+
   repr.base.byteCount = htole16 (sizeof (repr));
   repr.base.kind = htole16 (insn->opcode);
   repr.name = brig_emit_string (insn->comment, '\0', false);
@@ -1474,6 +1476,8 @@ static void
 emit_queue_insn (hsa_insn_queue *insn)
 {
   BrigInstQueue repr;
+  memset (&repr, 0, sizeof (repr));
+
   auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS>
     operand_offsets;
   uint32_t byteCount, operand_count = insn->operands.length ();

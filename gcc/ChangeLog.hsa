@@ -1,5 +1,10 @@
 2015-07-31  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_comment_insn): Memset to zero.
+	(emit_queue_insn): Likewise.
+
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (set_reg_def): Remove.
 	(hsa_append_insn): Likewise.
 	(hsa_op_reg::set_definition): New function.
