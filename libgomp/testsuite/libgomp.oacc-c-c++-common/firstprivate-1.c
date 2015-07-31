@@ -1,6 +1,5 @@
 /* { dg-do run } */
 /* { dg-xfail-run-if "TODO" { openacc_host_selected } { "*" } { "" } } */
-/* { dg-xfail-run-if "TODO" { openacc_host_nonshm_selected } { "*" } { "" } } */
 
 #include <stdlib.h>
 

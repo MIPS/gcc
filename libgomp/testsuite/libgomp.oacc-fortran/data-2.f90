@@ -79,7 +79,7 @@ program test
     if (d(i) .ne. 4.0) call abort
   end do
 
-#if !ACC_MEM_SHARED && !ACC_DEVICE_TYPE_host_nonshm
+#if !ACC_MEM_SHARED
 
   c(:) = 3.0
   d(:) = 0.0

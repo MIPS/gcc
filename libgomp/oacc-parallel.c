@@ -247,9 +247,6 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
       return;
     }
   
-  if (acc_device_type (acc_dev->type) == acc_device_host_nonshm)
-    alloc_host_shared_mem (shared_size);
-
   va_start (ap, shared_size);
   /* TODO: This will need amending when device_type is implemented.  */
   while (GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0)
@@ -334,9 +331,6 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
     }
 
   acc_dev->openacc.async_set_async_func (acc_async_sync);
-
-  if (acc_device_type (acc_dev->type) == acc_device_host_nonshm)
-    free_host_shared_mem ();
 }
 
 /* Legacy entry point.   */

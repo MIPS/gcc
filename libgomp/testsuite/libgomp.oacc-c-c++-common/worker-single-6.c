@@ -1,6 +1,6 @@
 #include <assert.h>
 
-#if defined(ACC_DEVICE_TYPE_host) || defined(ACC_DEVICE_TYPE_host_nonshm)
+#if defined(ACC_DEVICE_TYPE_host)
 #define ACTUAL_GANGS 1
 #else
 #define ACTUAL_GANGS 8
