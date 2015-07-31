@@ -142,6 +142,9 @@ public:
   /* Verify register operand.  */
   void verify ();
 
+  /* Set difinition where the register is defined.  */
+  void set_definition (hsa_insn_basic *insn);
+
   /* If NON-NULL, gimple SSA that we come from.  NULL if none.  */
   tree gimple_ssa;
 
@@ -415,9 +418,7 @@ is_a_helper <hsa_insn_cmp *>::test (hsa_insn_basic *p)
 class hsa_insn_mem : public hsa_insn_basic
 {
 public:
-  hsa_insn_mem (int opc, BrigType16_t t,
-		hsa_op_base *arg0 = NULL,
-		hsa_op_base *arg1 = NULL);
+  hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0, hsa_op_base *arg1);
 
   /* The segment is of the memory access is either the segment of the symbol in
      the address operand or flat address is there is no symbol there.  */
@@ -678,6 +679,9 @@ public:
   hsa_bb (basic_block cfg_bb);
   hsa_bb (basic_block cfg_bb, int idx);
   ~hsa_bb ();
+
+  /* Append an instruction INSN into the basic block.  */
+  void append_insn (hsa_insn_basic *insn);
 
   /* The real CFG BB that this HBB belongs to.  */
   basic_block bb;

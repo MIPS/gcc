@@ -1,5 +1,33 @@
 2015-07-31  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (set_reg_def): Remove.
+	(hsa_append_insn): Likewise.
+	(hsa_op_reg::set_definition): New function.
+	(hsa_bb::append_insn): Likewise.
+	(hsa_function_representation::get_shadow_reg): Use new functions.
+	(hsa_reg_for_gimple_ssa_reqtype): Likewise.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_function_def_parameters): Likewise.
+	* hsa.h (hsa_op_reg::set_definition): New function.
+
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (brig_emit_string): Add new argument.
 	(brig_init): Sanitize module names.
 	(emit_memory_insn): Make emission more flexible in case of number
