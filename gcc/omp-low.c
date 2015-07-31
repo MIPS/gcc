@@ -1824,6 +1824,11 @@ fixup_child_record_type (omp_context *ctx)
       layout_type (type);
     }
 
+  /* In a target region we never modify any of the pointers in *.omp_data_i,
+     so attempt to help the optimizers.  */
+  if (is_gimple_omp_offloaded (ctx->stmt))
+    type = build_qualified_type (type, TYPE_QUAL_CONST);
+
   TREE_TYPE (ctx->receiver_decl)
     = build_qualified_type (build_reference_type (type), TYPE_QUAL_RESTRICT);
 }
@@ -2521,6 +2526,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   DECL_ARG_TYPE (t) = ptr_type_node;
   DECL_CONTEXT (t) = current_function_decl;
   TREE_USED (t) = 1;
+  TREE_READONLY (t) = 1;
   if (cilk_for_count)
     DECL_CHAIN (t) = DECL_ARGUMENTS (decl);
   DECL_ARGUMENTS (decl) = t;

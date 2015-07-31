@@ -1,5 +1,8 @@
 2015-07-31  Jakub Jelinek  <jakub@redhat.com>
 
+	* omp-low.c (fixup_child_record_type): Const qualify *.omp_data_i.
+	(create_omp_child_function): Set TREE_READONLY on .omp_data_i.
+
 	* gimplify.c (gimplify_scan_omp_clauses): Handle
 	map clauses with COMPONENT_REF.
 	* omp-low.c (lower_omp_target): Handle GOMP_MAP_STRUCT.
