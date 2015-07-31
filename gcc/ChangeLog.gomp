@@ -1,3 +1,12 @@
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	map clauses with COMPONENT_REF.
+	* omp-low.c (lower_omp_target): Handle GOMP_MAP_STRUCT.
+	Handle GOMP_MAP_RELEASE for zero-length array sections.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	GOMP_MAP_STRUCT.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_TARGET_COMBINED): Define.

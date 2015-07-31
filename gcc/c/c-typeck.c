@@ -12040,6 +12040,7 @@ handle_omp_array_sections (tree c, bool is_omp)
 	  case GOMP_MAP_ALWAYS_TO:
 	  case GOMP_MAP_ALWAYS_FROM:
 	  case GOMP_MAP_ALWAYS_TOFROM:
+	  case GOMP_MAP_RELEASE:
 	    OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
 	    break;
 	  default:
@@ -12117,7 +12118,7 @@ tree
 c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, map_head;
+  bitmap_head aligned_head, map_head, map_field_head;
   tree c, t, type, *pc;
   tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
@@ -12130,6 +12131,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
   bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&map_head, &bitmap_default_obstack);
+  bitmap_initialize (&map_field_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -12574,8 +12576,49 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 	      break;
 	    }
 	  if (t == error_mark_node)
-	    remove = true;
-	  else if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+	    {
+	      remove = true;
+	      break;
+	    }
+	  if (TREE_CODE (t) == COMPONENT_REF
+	      && is_omp
+	      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE__CACHE_)
+	    {
+	      if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "bit-field %qE in %qs clause",
+			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  remove = true;
+		}
+	      else if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE does not have a mappable type in %qs clause",
+			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  remove = true;
+		}
+	      while (TREE_CODE (t) == COMPONENT_REF)
+		{
+		  if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0)))
+		      == UNION_TYPE)
+		    {
+		      error_at (OMP_CLAUSE_LOCATION (c),
+				"%qE is a member of a union", t);
+		      remove = true;
+		      break;
+		    }
+		  t = TREE_OPERAND (t, 0);
+		}
+	      if (remove)
+		break;
+	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
+		{
+		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
+		    break;
+		}
+	    }
+	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qE is not a variable in %qs clause", t,
@@ -12597,6 +12640,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 			     == GOMP_MAP_FIRSTPRIVATE_POINTER)
 			 || (OMP_CLAUSE_MAP_KIND (c)
 			     == GOMP_MAP_FORCE_DEVICEPTR)))
+		   && t == OMP_CLAUSE_DECL (c)
 		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
@@ -12613,7 +12657,12 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&map_head, DECL_UID (t));
+	    {
+	      bitmap_set_bit (&map_head, DECL_UID (t));
+	      if (t != OMP_CLAUSE_DECL (c)
+		  && TREE_CODE (OMP_CLAUSE_DECL (c)) == COMPONENT_REF)
+		bitmap_set_bit (&map_field_head, DECL_UID (t));
+	    }
 	  break;
 
 	case OMP_CLAUSE_TO_DECLARE:

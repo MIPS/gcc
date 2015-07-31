@@ -1,3 +1,12 @@
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_variable_list): Parse struct
+	elements in map/to/from clauses.
+	* c-typeck.c (handle_omp_array_sections): Handle
+	GOMP_MAP_RELEASE for zero-length array sections.
+	(c_finish_omp_clauses): Handle struct elements in
+	map/to/from OpenMP clauses.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-tree.h (c_finish_omp_clauses): Add is_omp argument.

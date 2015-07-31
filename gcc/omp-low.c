@@ -12954,6 +12954,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_ALWAYS_FROM:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_STRUCT:
 	    break;
 	  case GOMP_MAP_FORCE_ALLOC:
 	  case GOMP_MAP_FORCE_TO:
@@ -13303,6 +13304,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    case GOMP_MAP_ALWAYS_TO:
 		    case GOMP_MAP_ALWAYS_FROM:
 		    case GOMP_MAP_ALWAYS_TOFROM:
+		    case GOMP_MAP_RELEASE:
 		      tkind_zero = GOMP_MAP_ZERO_LEN_ARRAY_SECTION;
 		      break;
 		    default:

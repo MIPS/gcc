@@ -245,6 +245,66 @@ gomp_map_pointer (struct target_mem_desc *tgt, uintptr_t host_ptr,
 			  sizeof (void *));
 }
 
+static void
+gomp_map_fields_existing (struct target_mem_desc *tgt, splay_tree_key n,
+			  size_t first, size_t i, void **hostaddrs,
+			  size_t *sizes, void *kinds)
+{
+  struct gomp_device_descr *devicep = tgt->device_descr;
+  struct splay_tree_s *mem_map = &devicep->mem_map;
+  struct splay_tree_key_s cur_node;
+  int kind;
+  const bool short_mapkind = true;
+  const int typemask = short_mapkind ? 0xff : 0x7;
+
+  cur_node.host_start = (uintptr_t) hostaddrs[i];
+  cur_node.host_end = cur_node.host_start + sizes[i];
+  splay_tree_key n2 = splay_tree_lookup (mem_map, &cur_node);
+  kind = get_kind (short_mapkind, kinds, i);
+  if (n2
+      && n2->tgt == n->tgt
+      && n2->host_start - n->host_start == n2->tgt_offset - n->tgt_offset)
+    {
+      gomp_map_vars_existing (devicep, n2, &cur_node,
+			      &tgt->list[i], kind & typemask);
+      return;
+    }
+  if (sizes[i] == 0)
+    {
+      if (cur_node.host_start > (uintptr_t) hostaddrs[first - 1])
+	{
+	  cur_node.host_start--;
+	  n2 = splay_tree_lookup (mem_map, &cur_node);
+	  cur_node.host_start++;
+	  if (n2
+	      && n2->tgt == n->tgt
+	      && n2->host_start - n->host_start
+		 == n2->tgt_offset - n->tgt_offset)
+	    {
+	      gomp_map_vars_existing (devicep, n2, &cur_node, &tgt->list[i],
+				      kind & typemask);
+	      return;
+	    }
+	}
+      cur_node.host_end++;
+      n2 = splay_tree_lookup (mem_map, &cur_node);
+      cur_node.host_end--;
+      if (n2
+	  && n2->tgt == n->tgt
+	  && n2->host_start - n->host_start == n2->tgt_offset - n->tgt_offset)
+	{
+	  gomp_map_vars_existing (devicep, n2, &cur_node, &tgt->list[i],
+				  kind & typemask);
+	  return;
+	}
+    }
+  gomp_mutex_unlock (&devicep->lock);
+  gomp_fatal ("Trying to map into device [%p..%p) structure element when "
+	      "other mapped elements from the same structure weren't mapped "
+	      "together with it", (void *) cur_node.host_start,
+	      (void *) cur_node.host_end);
+}
+
 attribute_hidden struct target_mem_desc *
 gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	       void **hostaddrs, void **devaddrs, size_t *sizes, void *kinds,
@@ -302,6 +362,37 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 			+ cur_node.host_start);
 	  tgt->list[i].key = NULL;
 	  tgt->list[i].offset = ~(uintptr_t) 0;
+	  continue;
+	}
+      else if ((kind & typemask) == GOMP_MAP_STRUCT)
+	{
+	  size_t first = i + 1;
+	  size_t last = i + sizes[i];
+	  cur_node.host_start = (uintptr_t) hostaddrs[i];
+	  cur_node.host_end = (uintptr_t) hostaddrs[last]
+			      + sizes[last];
+	  tgt->list[i].key = NULL;
+	  tgt->list[i].offset = ~(uintptr_t) 2;
+	  splay_tree_key n = splay_tree_lookup (mem_map, &cur_node);
+	  if (n == NULL)
+	    {
+	      size_t align = (size_t) 1 << (kind >> rshift);
+	      if (tgt_align < align)
+		tgt_align = align;
+	      tgt_size -= (uintptr_t) hostaddrs[first]
+			  - (uintptr_t) hostaddrs[i];
+	      tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	      tgt_size += cur_node.host_end - (uintptr_t) hostaddrs[i];
+	      not_found_cnt += last - i;
+	      for (i = first; i <= last; i++)
+		tgt->list[i].key = NULL;
+	      i--;
+	      continue;
+	    }
+	  for (i = first; i <= last; i++)
+	    gomp_map_fields_existing (tgt, n, first, i, hostaddrs,
+				      sizes, kinds);
+	  i--;
 	  continue;
 	}
       cur_node.host_start = (uintptr_t) hostaddrs[i];
@@ -406,7 +497,8 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       if (not_found_cnt)
 	tgt->array = gomp_malloc (not_found_cnt * sizeof (*tgt->array));
       splay_tree_node array = tgt->array;
-      size_t j;
+      size_t j, field_tgt_offset = 0, field_tgt_clear = ~(size_t) 0;
+      uintptr_t field_tgt_base = 0;
 
       for (i = 0; i < mapnum; i++)
 	if (tgt->list[i].key == NULL)
@@ -414,23 +506,52 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	    int kind = get_kind (short_mapkind, kinds, i);
 	    if (hostaddrs[i] == NULL)
 	      continue;
-	    if ((kind & typemask) == GOMP_MAP_FIRSTPRIVATE)
+	    switch (kind & typemask)
 	      {
-		size_t align = (size_t) 1 << (kind >> rshift);
+		size_t align, len, first, last;
+		splay_tree_key n;
+	      case GOMP_MAP_FIRSTPRIVATE:
+		align = (size_t) 1 << (kind >> rshift);
 		tgt_size = (tgt_size + align - 1) & ~(align - 1);
 		tgt->list[i].offset = tgt_size;
-		size_t len = sizes[i];
+		len = sizes[i];
 		devicep->host2dev_func (devicep->target_id,
 					(void *) (tgt->tgt_start + tgt_size),
 					(void *) hostaddrs[i], len);
 		tgt_size += len;
 		continue;
-	      }
-	    switch (kind & typemask)
-	      {
 	      case GOMP_MAP_FIRSTPRIVATE_INT:
 	      case GOMP_MAP_USE_DEVICE_PTR:
 	      case GOMP_MAP_ZERO_LEN_ARRAY_SECTION:
+		continue;
+	      case GOMP_MAP_STRUCT:
+		first = i + 1;
+		last = i + sizes[i];
+		cur_node.host_start = (uintptr_t) hostaddrs[i];
+		cur_node.host_end = (uintptr_t) hostaddrs[last]
+				    + sizes[last];
+		if (tgt->list[first].key != NULL)
+		  continue;
+		n = splay_tree_lookup (mem_map, &cur_node);
+		if (n == NULL)
+		  {
+		    size_t align = (size_t) 1 << (kind >> rshift);
+		    tgt_size -= (uintptr_t) hostaddrs[first]
+				- (uintptr_t) hostaddrs[i];
+		    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+		    tgt_size += (uintptr_t) hostaddrs[first]
+				- (uintptr_t) hostaddrs[i];
+		    field_tgt_base = (uintptr_t) hostaddrs[first];
+		    field_tgt_offset = tgt_size;
+		    field_tgt_clear = last;
+		    tgt_size += cur_node.host_end
+				- (uintptr_t) hostaddrs[first];
+		    continue;
+		  }
+		for (i = first; i <= last; i++)
+		  gomp_map_fields_existing (tgt, n, first, i, hostaddrs,
+					    sizes, kinds);
+		i--;
 		continue;
 	      default:
 		break;
@@ -449,10 +570,20 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	      {
 		size_t align = (size_t) 1 << (kind >> rshift);
 		tgt->list[i].key = k;
-		tgt_size = (tgt_size + align - 1) & ~(align - 1);
 		k->tgt = tgt;
-		k->tgt_offset = tgt_size;
-		tgt_size += k->host_end - k->host_start;
+		if (field_tgt_clear != ~(size_t) 0)
+		  {
+		    k->tgt_offset = k->host_start - field_tgt_base
+				    + field_tgt_offset;
+		    if (i == field_tgt_clear)
+		      field_tgt_clear = ~(size_t) 0;
+		  }
+		else
+		  {
+		    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+		    k->tgt_offset = tgt_size;
+		    tgt_size += k->host_end - k->host_start;
+		  }
 		tgt->list[i].copy_from = GOMP_MAP_COPY_FROM_P (kind & typemask);
 		tgt->list[i].always_copy_from
 		  = GOMP_MAP_ALWAYS_FROM_P (kind & typemask);
@@ -571,6 +702,12 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		cur_node.tgt_offset = (uintptr_t) hostaddrs[i];
 	      else if (tgt->list[i].offset == ~(uintptr_t) 1)
 		cur_node.tgt_offset = 0;
+	      else if (tgt->list[i].offset == ~(uintptr_t) 2)
+		cur_node.tgt_offset = tgt->list[i + 1].key->tgt->tgt_start
+				      + tgt->list[i + 1].key->tgt_offset
+				      + tgt->list[i + 1].offset
+				      + (uintptr_t) hostaddrs[i]
+				      - (uintptr_t) hostaddrs[i + 1];
 	      else
 		cur_node.tgt_offset = tgt->tgt_start
 				      + tgt->list[i].offset;

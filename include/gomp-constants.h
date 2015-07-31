@@ -102,6 +102,14 @@ enum gomp_map_kind
     /* If not already present, allocate.  And unconditionally copy to and from
        device.  */
     GOMP_MAP_ALWAYS_TOFROM =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_TOFROM),
+    /* Map a sparse struct; the address is the base of the structure, alignment
+       it's required alignment, and size is the number of adjacent entries
+       that belong to the struct.  The adjacent entries should be sorted by
+       increasing address, so it is easy to determine lowest needed address
+       (address of the first adjacent entry) and highest needed address
+       (address of the last adjacent entry plus its size).  */
+    GOMP_MAP_STRUCT =			(GOMP_MAP_FLAG_ALWAYS
+					 | GOMP_MAP_FLAG_SPECIAL | 0),
     /* OpenMP 4.1 alias for forced deallocation.  */
     GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
     /* Decrement usage count and deallocate if zero.  */

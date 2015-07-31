@@ -643,6 +643,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case GOMP_MAP_FIRSTPRIVATE_POINTER:
 	  pp_string (pp, "firstprivate");
 	  break;
+	case GOMP_MAP_STRUCT:
+	  pp_string (pp, "struct");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}

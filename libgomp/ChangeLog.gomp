@@ -1,3 +1,9 @@
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_map_fields_existing): New function.
+	(gomp_map_vars): Handle GOMP_MAP_STRUCT.
+	* testsuite/libgomp.c/target-21.c: New test.
+
 2015-07-31  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.h (enum gomp_map_vars_kind): New.

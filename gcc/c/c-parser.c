@@ -10190,10 +10190,25 @@ c_parser_omp_variable_list (c_parser *parser,
 		  t = error_mark_node;
 		  break;
 		}
-	      /* FALL THROUGH.  */
+	      /* FALLTHROUGH  */
 	    case OMP_CLAUSE_MAP:
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
+	      while (c_parser_next_token_is (parser, CPP_DOT))
+		{
+		  location_t op_loc = c_parser_peek_token (parser)->location;
+		  c_parser_consume_token (parser);
+		  if (!c_parser_next_token_is (parser, CPP_NAME))
+		    {
+		      c_parser_error (parser, "expected identifier");
+		      t = error_mark_node;
+		      break;
+		    }
+		  tree ident = c_parser_peek_token (parser)->value;
+		  c_parser_consume_token (parser);
+		  t = build_component_ref (op_loc, t, ident);
+		}
+	      /* FALLTHROUGH  */
 	    case OMP_CLAUSE_DEPEND:
 	    case OMP_CLAUSE_REDUCTION:
 	      while (c_parser_next_token_is (parser, CPP_OPEN_SQUARE))

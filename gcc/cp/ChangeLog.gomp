@@ -1,3 +1,8 @@
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_array_sections): Handle
+	GOMP_MAP_RELEASE for zero-length array sections.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_target_data, cp_parser_omp_target_enter_data,
