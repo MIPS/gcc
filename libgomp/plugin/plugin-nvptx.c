@@ -1650,9 +1650,9 @@ GOMP_OFFLOAD_version (void)
    number ORD.  Allocate and return TARGET_TABLE.  */
 
 int
-GOMP_OFFLOAD_load_image_ver (unsigned version, int ord,
-			     const void *target_data,
-			     struct addr_pair **target_table)
+GOMP_OFFLOAD_load_image (int ord, unsigned version,
+			 const void *target_data,
+			 struct addr_pair **target_table)
 {
   CUmodule module;
   const char *const *var_names;
@@ -1665,9 +1665,9 @@ GOMP_OFFLOAD_load_image_ver (unsigned version, int ord,
   struct ptx_image_data *new_image;
   struct ptx_device *dev;
 
-  if (GOMP_VERSION_DEV (version) != GOMP_VERSION_NVIDIA_PTX)
+  if (GOMP_VERSION_DEV (version) > GOMP_VERSION_NVIDIA_PTX)
     GOMP_PLUGIN_fatal ("Offload data incompatible with PTX plugin"
-		       " (version %u ! %u)",
+		       " (expected %u, received %u)",
 		       GOMP_VERSION_NVIDIA_PTX, GOMP_VERSION_DEV (version));
   
   GOMP_OFFLOAD_init_device (ord);
@@ -1739,13 +1739,12 @@ GOMP_OFFLOAD_load_image_ver (unsigned version, int ord,
    function descriptors allocated by G_O_load_image.  */
 
 void
-GOMP_OFFLOAD_unload_image_ver (unsigned version, int ord,
-			       const void *target_data)
+GOMP_OFFLOAD_unload_image (int ord, unsigned version, const void *target_data)
 {
   struct ptx_image_data *image, **prev_p;
   struct ptx_device *dev = ptx_devices[ord];
 
-  if (GOMP_VERSION_DEV (version) != GOMP_VERSION_NVIDIA_PTX)
+  if (GOMP_VERSION_DEV (version) > GOMP_VERSION_NVIDIA_PTX)
     return;
   
   pthread_mutex_lock (&dev->image_lock);

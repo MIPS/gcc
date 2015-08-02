@@ -1,3 +1,7 @@
+2015-08-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gomp-constants.h (GOMP_VERSION_INTEL_MIC): New.
+
 2015-07-31  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gomp-constants.h (GOMP_DEVICE_HOST_NONSHM): Remove.

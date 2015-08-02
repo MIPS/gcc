@@ -2980,14 +2980,36 @@ nvptx_reorg (void)
     if (REG_N_SETS (i) == 0 && REG_N_REFS (i) == 0)
       regno_reg_rtx[i] = const0_rtx;
 
-  parallel *pars = nvptx_discover_pars (&bb_insn_map);
+  /* Determine launch dimensions of the function.  If it is not an
+     offloaded function  (i.e. this is a regular compiler), the
+     function has no neutering.  */
+  tree attr = get_oacc_fn_attrib (current_function_decl);
+  if (attr)
+    {
+      unsigned mask = 0;
+      tree dims = TREE_VALUE (attr);
+      unsigned ix;
 
-  nvptx_process_pars (pars);
-  nvptx_neuter_pars (pars, (GOMP_DIM_MASK (GOMP_DIM_VECTOR)
-			    | GOMP_DIM_MASK (GOMP_DIM_WORKER)), 0);
+      gcc_assert (dims);
+      for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
+	{
+	  tree cst = TREE_VALUE (dims);
 
-  delete pars;
+	  unsigned HOST_WIDE_INT dim = TREE_INT_CST_LOW (cst);
+	  if (dim != 1)
+	    mask |= GOMP_DIM_MASK (ix);
+	}
+      /* If there is worker neutering, there must be vector
+	 neutering.  Otherwise the hardware will fail.  */
+      gcc_assert ((mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))
+		  || !(mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)));
 
+      parallel *pars = nvptx_discover_pars (&bb_insn_map);
+      nvptx_process_pars (pars);
+      nvptx_neuter_pars (pars, mask, 0);
+      delete pars;
+    }
+  
   nvptx_reorg_subreg ();
   
   regstat_free_n_sets_and_refs ();
@@ -3073,29 +3095,21 @@ nvptx_record_offload_symbol (tree decl)
     case FUNCTION_DECL:
       {
 	tree attr = get_oacc_fn_attrib (decl);
-	tree dims = NULL_TREE;
+	tree dims = TREE_VALUE (attr);
 	unsigned ix;
 	
-	if (attr)
-	  dims = TREE_VALUE (attr);
 	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 
-	for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+	for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
 	  {
-	    unsigned HOST_WIDE_INT dim = 0;
-	    if (dims)
-	      {
-		tree cst = TREE_VALUE (dims);
+	    tree cst = TREE_VALUE (dims);
 
-		/* When device_type support is added an ealier pass
-		   should have massaged the attribute to be
-		   ptx-specific.  */
-		gcc_assert (TREE_CODE (cst) == INTEGER_CST);
-
-		dim = TREE_INT_CST_LOW (cst);
-		dims = TREE_CHAIN (dims);
-	      }
+	    /* When device_type support is added an ealier pass
+	       should have massaged the attribute to be
+	       ptx-specific.  */
+	    gcc_assert (TREE_CODE (cst) == INTEGER_CST);
+	    unsigned HOST_WIDE_INT dim = TREE_INT_CST_LOW (cst);
 	    fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_HEX, dim);
 	  }
 	

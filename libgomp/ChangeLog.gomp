@@ -1,3 +1,22 @@
+2015-08-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_load_image_ver): Rename to ...
+	(GOMP_OFFLOAD_load_image): ... here.  Swap version and ord args.
+	Adjust version check and mesage.
+	(GOMP_OFFLOAD_unload_image_ver): Rename to ...
+	(GOMP_OFFLOAD_unload_image): ... here.  Swap version and ord args.
+	* oacc-host.c: Include gomp-constants.h.
+	(host_version): New.
+	(host_load_image, host_unload_image): Add version arg.
+	(host_dispatch): Adjust.
+	* target.c (gomp_load_image_to_device): Swap version and devicep
+	args. Adjust plugin load calling.  Adjust all callers.
+	* target.c (gomp_unload_image_from_device): Swap version and devicep
+	args. Adjust plugin unload calling. Adjust all callers.
+	(load_plugin_for_device): Always look for version function and
+	check it.  Adjust load and unload call lookup.
+	* libgomp.h: Adjustt load and unload plugin fields.
+
 2015-07-31  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp-plugin.h (enum offload_target_type): Remove

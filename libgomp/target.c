@@ -652,8 +652,7 @@ gomp_update (struct gomp_device_descr *devicep, size_t mapnum, void **hostaddrs,
    emitting variable and functions in the same order.  */
 
 static void
-gomp_load_image_to_device (unsigned version,
-			   struct gomp_device_descr *devicep,
+gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
 			   const void *host_table, const void *target_data,
 			   bool is_register_lock)
 {
@@ -671,17 +670,9 @@ gomp_load_image_to_device (unsigned version,
   struct addr_pair *target_table = NULL;
   int i, num_target_entries;
 
-  if (devicep->version_func)
-    num_target_entries
-      = devicep->load_image.ver_func (version, devicep->target_id,
-					target_data, &target_table);
-  else if (GOMP_VERSION_DEV (version))
-    gomp_fatal ("Plugin too old for offload data (0 < %u)",
-		GOMP_VERSION_DEV (version));
-  else
-    num_target_entries
-      = devicep->load_image.unver_func (devicep->target_id,
-					target_data, &target_table);
+  num_target_entries
+    = devicep->load_image_func (devicep->target_id, version,
+				target_data, &target_table);
 
   if (num_target_entries != num_funcs + num_vars)
     {
@@ -763,8 +754,8 @@ gomp_load_image_to_device (unsigned version,
    The device must be locked.   */
 
 static void
-gomp_unload_image_from_device (unsigned version,
-			       struct gomp_device_descr *devicep,
+gomp_unload_image_from_device (struct gomp_device_descr *devicep,
+			       unsigned version,
 			       const void *host_table, const void *target_data)
 {
   void **host_func_table = ((void ***) host_table)[0];
@@ -790,11 +781,7 @@ gomp_unload_image_from_device (unsigned version,
       node = splay_tree_lookup (&devicep->mem_map, &k);
     }
 
-  if (devicep->version_func)
-    devicep->unload_image.ver_func (version,
-				    devicep->target_id, target_data);
-  else
-    devicep->unload_image.unver_func (devicep->target_id, target_data);
+  devicep->unload_image_func (devicep->target_id, version, target_data);
 
   /* Remove mappings from splay tree.  */
   for (j = 0; j < num_funcs; j++)
@@ -840,7 +827,7 @@ GOMP_offload_register_ver (unsigned version, const void *host_table,
       struct gomp_device_descr *devicep = &devices[i];
       gomp_mutex_lock (&devicep->lock);
       if (devicep->type == target_type && devicep->is_initialized)
-	gomp_load_image_to_device (version, devicep,
+	gomp_load_image_to_device (devicep, version,
 				   host_table, target_data, true);
       gomp_mutex_unlock (&devicep->lock);
     }
@@ -884,7 +871,7 @@ GOMP_offload_unregister_ver (unsigned version, const void *host_table,
       struct gomp_device_descr *devicep = &devices[i];
       gomp_mutex_lock (&devicep->lock);
       if (devicep->type == target_type && devicep->is_initialized)
-	gomp_unload_image_from_device (version, devicep,
+	gomp_unload_image_from_device (devicep, version,
 				       host_table, target_data);
       gomp_mutex_unlock (&devicep->lock);
     }
@@ -921,7 +908,7 @@ gomp_init_device (struct gomp_device_descr *devicep)
     {
       struct offload_image_descr *image = &offload_images[i];
       if (image->type == devicep->type)
-	gomp_load_image_to_device (image->version, devicep,
+	gomp_load_image_to_device (devicep, image->version,
 				   image->host_table, image->target_data,
 				   false);
     }
@@ -941,7 +928,7 @@ gomp_unload_device (struct gomp_device_descr *devicep)
 	{
 	  struct offload_image_descr *image = &offload_images[i];
 	  if (image->type == devicep->type)
-	    gomp_unload_image_from_device (image->version, devicep,
+	    gomp_unload_image_from_device (devicep, image->version,
 					   image->host_table,
 					   image->target_data);
 	}
@@ -1147,23 +1134,11 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   ((device->f##_func = dlsym (plugin_handle, "GOMP_OFFLOAD_" #n))	\
    || (last_missing = #n, 0))
 
-  if (DLSYM_OPT (version, version))
+  DLSYM (version);
+  if (device->version_func () != GOMP_VERSION)
     {
-      unsigned v = device->version_func ();
-      if (v != GOMP_VERSION)
-	{
-	  err = "plugin version mismatch";
-	  goto fail;
-	}
-      if (!DLSYM_OPT (load_image.ver, load_image_ver)
-	  || !DLSYM_OPT (unload_image.ver, unload_image_ver))
-	goto  dl_fail;
-    }
-  else
-    {
-      if (!DLSYM_OPT (load_image.unver, load_image)
-	  || !DLSYM_OPT (unload_image.unver, unload_image))
-	goto dl_fail;
+      err = "plugin version mismatch";
+      goto fail;
     }
 
   DLSYM (get_name);
@@ -1172,6 +1147,8 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (get_num_devices);
   DLSYM (init_device);
   DLSYM (fini_device);
+  DLSYM (load_image);
+  DLSYM (unload_image);
   DLSYM (alloc);
   DLSYM (free);
   DLSYM (dev2host);
