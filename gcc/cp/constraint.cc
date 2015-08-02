@@ -223,7 +223,8 @@ resolve_constraint_check (tree call)
   /* This is a function call of a variable concept... ill-formed. */
   if (TREE_CODE (ovl) == TEMPLATE_DECL)
     {
-      error ("function call of variable concept %qE", call);
+      error_at (location_of (call),
+		"function call of variable concept %qE", call);
       return error_mark_node;
     }
 
@@ -1767,7 +1768,7 @@ satisfy_predicate_constraint (tree t, tree args,
   tree type = cv_unqualified (TREE_TYPE (expr));
   if (!same_type_p (type, boolean_type_node))
     {
-      error_at (EXPR_LOC_OR_LOC (t, input_location),
+      error_at (EXPR_LOC_OR_LOC (expr, input_location),
                 "constraint %qE does not have type %qT",
                 expr, boolean_type_node);
       return boolean_false_node;

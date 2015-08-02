@@ -1,5 +1,8 @@
 2015-08-01  Jason Merrill  <jason@redhat.com>
 
+	* constraint.cc (resolve_constraint_check): Improve error location.
+	(satisfy_predicate_constraint): Likewise.
+
 	* constraint.cc (satisfy_type_constraint): Use
 	deferring_access_check_sentinel.
 
