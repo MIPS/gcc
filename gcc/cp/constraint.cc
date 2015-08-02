@@ -2055,8 +2055,8 @@ evaluate_constraints (tree constr, tree args)
   return satisfy_constraint (normalize_constraint (constr), args);
 }
 
-/* Evaluate the function concept FN by substituting ARGS into its
-   definition and evaluating that as the result. Returns
+/* Evaluate the function concept FN by substituting its own args
+   into its definition and evaluating that as the result. Returns
    boolean_true_node if the constraints are satisfied and
    boolean_false_node otherwise.  */
 
@@ -2064,12 +2064,17 @@ tree
 evaluate_function_concept (tree fn, tree args)
 {
   ++processing_template_decl;
-  tree constr = transform_expression (lift_function_definition (fn, args));
+  /* We lift using DECL_TI_ARGS because we want to delay producing
+     non-dependent expressions until we're doing satisfaction.  We can't just
+     go without any substitution because we need to lower the level of 'auto's
+     in type deduction constraints.  */
+  tree constr = transform_expression (lift_function_definition
+				      (fn, DECL_TI_ARGS (fn)));
   --processing_template_decl;
   return satisfy_constraint (constr, args);
 }
 
-/* Evaluate the variable concept VAR by substituting ARGS into
+/* Evaluate the variable concept VAR by substituting its own args into
    its initializer and checking the resulting constraint. Returns
    boolean_true_node if the constraints are satisfied and
    boolean_false_node otherwise.  */
@@ -2078,7 +2083,8 @@ tree
 evaluate_variable_concept (tree decl, tree args)
 {
   ++processing_template_decl;
-  tree constr = transform_expression (lift_variable_initializer (decl, args));
+  tree constr = transform_expression (lift_variable_initializer
+				      (decl, DECL_TI_ARGS (decl)));
   --processing_template_decl;
   return satisfy_constraint (constr, args);
 }
