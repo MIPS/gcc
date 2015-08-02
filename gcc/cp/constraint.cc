@@ -495,22 +495,6 @@ lift_template_id (tree t)
   return t;
 }
 
-/* If the variable declaration is a specialization of a concept
-   declaration, then inline its initializer. */
-tree
-lift_variable (tree t)
-{
-  if (tree ti = DECL_TEMPLATE_INFO (t))
-    {
-      tree tmpl = TI_TEMPLATE (ti);
-      tree args = TI_ARGS (ti);
-      tree decl = DECL_TEMPLATE_RESULT (tmpl);
-      if (DECL_DECLARED_CONCEPT_P (decl))
-        return lift_variable_initializer (decl, args);
-    }
-  return t;
-}
-
 /* Lift any constraints appearing in a nested requirement of
    a requires-expression. */
 tree
@@ -551,9 +535,6 @@ lift_expression (tree t)
 
     case TEMPLATE_ID_EXPR:
       return lift_template_id (t);
-
-    case VAR_DECL:
-      return lift_variable (t);
 
     case REQUIRES_EXPR:
       return lift_requires_expression (t);

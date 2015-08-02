@@ -8620,6 +8620,16 @@ finish_template_variable (tree var)
   tree templ = TREE_OPERAND (var, 0);
 
   tree arglist = TREE_OPERAND (var, 1);
+
+  /* We never want to return a VAR_DECL for a variable concept, since they
+     aren't instantiated.  In a template, leave the TEMPLATE_ID_EXPR alone.  */
+  bool concept_p = flag_concepts && variable_concept_p (templ);
+  if (concept_p && processing_template_decl)
+    {
+      TREE_TYPE (var) = boolean_type_node;
+      return var;
+    }
+
   tree tmpl_args = DECL_TI_ARGS (DECL_TEMPLATE_RESULT (templ));
   arglist = add_outermost_template_args (tmpl_args, arglist);
 
@@ -8636,12 +8646,11 @@ finish_template_variable (tree var)
 
      NOTE: This is an extension of Concepts Lite TS that
      allows constraints to be used in expressions. */
-  if (flag_concepts && !processing_template_decl)
-    if (variable_concept_p (templ) && !uses_template_parms (arglist))
-      {
-        tree decl = DECL_TEMPLATE_RESULT (templ);
-        return evaluate_variable_concept (decl, arglist);
-      }
+  if (concept_p)
+    {
+      tree decl = DECL_TEMPLATE_RESULT (templ);
+      return evaluate_variable_concept (decl, arglist);
+    }
 
   return instantiate_template (templ, arglist, complain);
 }
@@ -22006,7 +22015,8 @@ value_dependent_expression_p (tree expression)
     case TEMPLATE_ID_EXPR:
       /* If a TEMPLATE_ID_EXPR involves a dependent name, it will be
 	 type-dependent.  */
-      return type_dependent_expression_p (expression);
+      return type_dependent_expression_p (expression)
+	|| variable_concept_p (TREE_OPERAND (expression, 0));
 
     case CONSTRUCTOR:
       {
@@ -22353,6 +22363,13 @@ instantiation_dependent_r (tree *tp, int *walk_subtrees,
       /* Treat calls to function concepts as dependent. */
       if (function_concept_check_p (*tp))
         return *tp;
+      break;
+
+    case TEMPLATE_ID_EXPR:
+      /* And variable concepts.  */
+      if (variable_concept_p (TREE_OPERAND (*tp, 0)))
+	return *tp;
+      break;
 
     default:
       break;

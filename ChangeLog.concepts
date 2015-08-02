@@ -1,5 +1,9 @@
 2015-08-01  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (finish_template_variable): Never return a concept VAR_DECL.
+	* constraint.cc (lift_variable): Remove.
+	(lift_expression): Remove VAR_DECL case.
+
 	* constraint.cc (resolve_constraint_check): Improve error location.
 	(satisfy_predicate_constraint): Likewise.
 
