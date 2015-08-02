@@ -1806,18 +1806,13 @@ inline tree
 satisfy_type_constraint (tree t, tree args,
                          tsubst_flags_t complain, tree in_decl)
 {
+  deferring_access_check_sentinel deferring;
   tree type = TYPE_CONSTR_TYPE (t);
   tree check = tsubst (type, args, complain, in_decl);
   if (error_operand_p (check))
     return boolean_false_node;
-
-  /* Check any deferred access checks now, and if any fail,
-     pop them so they aren't diagnosed later.  */
-  if (!perform_deferred_access_checks (tf_none))
-    {
-      pop_deferring_access_checks ();
-      return boolean_false_node;
-    }
+  if (!perform_deferred_access_checks (complain))
+    return boolean_false_node;
 
   return boolean_true_node;
 }

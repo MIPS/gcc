@@ -1,5 +1,8 @@
 2015-08-01  Jason Merrill  <jason@redhat.com>
 
+	* constraint.cc (satisfy_type_constraint): Use
+	deferring_access_check_sentinel.
+
 	* constraint.cc (evaluate_function_concept): Lift using the
 	pattern's own arguments.
 	(evaluate_variable_concept): Likewise.
