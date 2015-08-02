@@ -53,6 +53,7 @@ typedef enum acc_device_t
     acc_device_none = 0,
     acc_device_default = 1,
     acc_device_host = 2,
+    /* 3 obsoleted.  */
     acc_device_not_host = 4,
     acc_device_nvidia = 5,
     _ACC_device_hwm
