@@ -821,6 +821,11 @@ public:
 
   /* Number of kernel dispatched which take place in the function.  */
   unsigned kernel_dispatch_count;
+
+  /* If the function representation contains a kernel dispatch,
+     OMP data size is necessary memory that is used for copying before
+     a kernel dispatch.  */
+  unsigned maximum_omp_data_size;
 };
 
 /* in hsa.c */
@@ -837,10 +842,11 @@ unsigned hsa_type_bit_size (BrigType16_t t);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 bool hsa_type_float_p (BrigType16_t type);
 void hsa_destroy_insn (hsa_insn_basic *insn);
-void hsa_add_kern_decl_mapping (tree decl, char *name);
+void hsa_add_kern_decl_mapping (tree decl, char *name, unsigned);
 unsigned hsa_get_number_decl_kernel_mappings (void);
 tree hsa_get_decl_kernel_mapping_decl (unsigned i);
 char *hsa_get_decl_kernel_mapping_name (unsigned i);
+unsigned hsa_get_decl_kernel_mapping_omp_size (unsigned i);
 void hsa_free_decl_kernel_mapping (void);
 void hsa_add_kernel_dependency (tree caller, char *called_function);
 void hsa_sanitize_name (char *p);

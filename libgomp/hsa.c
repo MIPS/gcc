@@ -39,10 +39,19 @@ struct hsa_program_info
   hsa_executable_t executable;
 };
 
+struct hsa_kernel_description
+{
+  const char *name;
+  uint32_t omp_data_size;
+  uint32_t kernel_dependencies_count;
+  const char **kernel_dependencies;
+};
+
 struct hsa_image_desc
 {
   hsa_ext_module_t module;
-  const char *names;
+  const uint32_t kernel_count;
+  struct hsa_kernel_description *kernel_infos;
 };
 
 struct hsa_kernel_info
@@ -238,26 +247,16 @@ init_hsa_image (struct hsa_image_info *ii)
   struct hsa_one_image *img = ii->first_image;
   while (img)
     {
-      const char *p;
-      int count = 0;
+      int count = img->image_descriptor->kernel_count;
       struct hsa_kernel_info *kernel;
 
       status = hsa_ext_program_add_module (hsa_program.handle,
 					   img->image_descriptor->module);
+
       if (status != HSA_STATUS_SUCCESS)
 	gomp_fatal ("Could not add a module to the HSA program");
       if (debug)
 	fprintf (stderr, "Added a module to the HSA program\n");
-
-      p = img->image_descriptor->names;
-      while (*p)
-	{
-	  count++;
-	  do
-	    p++;
-	  while (*p);
-	  p++;
-	}
 
       if (debug)
 	fprintf (stderr, "Encountered %d kernels an image\n", count);
@@ -266,17 +265,13 @@ init_hsa_image (struct hsa_image_info *ii)
       if (!img->kernels)
 	gomp_fatal ("Could not allocate memory for HSA kertnel descriptors");
 
-      p = img->image_descriptor->names;
       kernel = img->kernels;
-      while (*p)
+      for (unsigned i = 0; i < count; i++)
 	{
-	  kernel->name = p;
+	  kernel->name = img->image_descriptor->kernel_infos[i].name;
 	  kernel++;
-	  do
-	    p++;
-	  while (*p);
-	  p++;
 	}
+
       img = img->next;
     }
 

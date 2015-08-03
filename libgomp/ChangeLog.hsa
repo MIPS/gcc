@@ -1,3 +1,15 @@
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct hsa_kernel_description): New structure.
+	(struct brig_image_desc): Use it.
+	(struct kernel_info): Add omp_data_size member.
+	(struct module_info): Remove unused field.
+	(GOMP_OFFLOAD_load_image): Load the newly added format.
+	(create_kernel_dispatch): Allocate exactly ammount of memory needed
+	for OMP data passing.
+	(init_single_kernel): Print the OMP memory.
+	hsa.c (init_hsa_image): Use new structure.
+
 2015-07-31  Martin Liska  <mliska@suse.cz>
 
 	* hsa-traits.h: New file.

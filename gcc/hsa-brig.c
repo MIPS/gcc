@@ -1757,7 +1757,7 @@ hsa_output_kernel_mapping (tree brig_decl)
   unsigned map_count = hsa_get_number_decl_kernel_mappings ();
 
   tree int_num_of_kernels;
-  int_num_of_kernels = build_int_cst (integer_type_node, (int) map_count);
+  int_num_of_kernels = build_int_cst (uint32_type_node, map_count);
   tree kernel_num_index_type = build_index_type (int_num_of_kernels);
   tree host_functions_array_type = build_array_type (ptr_type_node,
 						     kernel_num_index_type);
@@ -1772,7 +1772,7 @@ hsa_output_kernel_mapping (tree brig_decl)
   tree host_functions_ctor = build_constructor (host_functions_array_type,
 						host_functions_vec);
   char tmp_name[64];
-  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "hsa_host_functions", 1);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_host_functions", 1);
   tree hsa_host_func_table = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 					 get_identifier (tmp_name),
 					 host_functions_array_type);
@@ -1786,115 +1786,161 @@ hsa_output_kernel_mapping (tree brig_decl)
   DECL_INITIAL (hsa_host_func_table) = host_functions_ctor;
   varpool_node::finalize_decl (hsa_host_func_table);
 
-  int len = 0;
+  /* Following code emits list of kernel_info structures.  */
+
+  tree kernel_info_type = make_node (RECORD_TYPE);
+  tree id_f1 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("name"), ptr_type_node);
+  DECL_CHAIN (id_f1) = NULL_TREE;
+  tree id_f2 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("omp_data_size"),
+			   unsigned_type_node);
+  DECL_CHAIN (id_f2) = id_f1;
+  tree id_f3 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("kernel_dependencies_count"),
+			   unsigned_type_node);
+  DECL_CHAIN (id_f3) = id_f2;
+  tree id_f4 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("kernel_dependencies"),
+			   build_pointer_type (build_pointer_type
+					       (char_type_node)));
+  DECL_CHAIN (id_f4) = id_f3;
+  finish_builtin_struct (kernel_info_type, "__hsa_kernel_info", id_f4,
+			 NULL_TREE);
+
+  int_num_of_kernels = build_int_cstu (uint32_type_node, map_count);
+  tree kernel_info_vector_type = build_array_type
+    (kernel_info_type, build_index_type (int_num_of_kernels));
+
+  vec<constructor_elt, va_gc> *kernel_info_vector_vec = NULL;
+  tree kernel_dependencies_vector_type = NULL;
+
   for (unsigned i = 0; i < map_count; ++i)
     {
+      tree kernel = hsa_get_decl_kernel_mapping_decl (i);
       char *name = hsa_get_decl_kernel_mapping_name (i);
-      /* We add 1 for the terminating zero and 1 for an ampersand prefix.  */
-      len = len + strlen (name) + 2;
-    }
-  len++;
+      unsigned len = strlen (name);
+      char *copy = XNEWVEC (char, len + 2);
+      copy[0] = '&';
+      memcpy (copy + 1, name, len);
+      copy[len + 1] = '\0';
+      len++;
 
-  /* Kernel mapping is a list of string names terminated by '\0'.  */
-  char *buf = XNEWVEC (char, len);
-  char *p = buf;
-  for (unsigned i = 0; i < map_count; ++i)
-    {
-      char *name = hsa_get_decl_kernel_mapping_name (i);
-      int ll = strlen (name);
-      gcc_assert (ll > 0);
-      *p = '&';
-      p++;
-      memcpy (p, name, ll);
-      p += ll;
-      *p = '\0';
-      p++;
-    }
-  *p = '\0';
-  tree kern_names = build_string (len, buf);
-  TREE_TYPE (kern_names) = build_array_type (char_type_node,
-					     build_index_type (size_int (len)));
-  free (buf);
+      tree kern_name = build_string (len, copy);
+      TREE_TYPE (kern_name) = build_array_type
+	(char_type_node, build_index_type (size_int (len)));
+      free (copy);
 
-  /* Kernel dependencies is a list of lists, where for a given kernel A all
-     direct kernel dispatches to A1, A2, .., An are organized are joined by '.'
-     character and each entry in the list is separated by '\0'.  */
+      unsigned omp_size = hsa_get_decl_kernel_mapping_omp_size (i);
+      tree omp_data_size = build_int_cstu (uint32_type_node, omp_size);
+      unsigned count = 0;
 
-  len = 0;
-  for (unsigned i = 0; i < map_count; ++i)
-    {
-      tree caller = hsa_get_decl_kernel_mapping_decl (i);
+      kernel_dependencies_vector_type = build_array_type
+	(build_pointer_type (char_type_node),
+	 build_index_type (size_int (0)));
 
+      vec<constructor_elt, va_gc> *kernel_dependencies_vec = NULL;
       if (hsa_decl_kernel_dependencies)
 	{
-	  vec<char *> **slot = hsa_decl_kernel_dependencies->get (caller);
+	  vec<char *> **slot = hsa_decl_kernel_dependencies->get (kernel);
 	  if (slot)
 	    {
-	      vec<char *> *s = *slot;
-	      for (unsigned i = 0; i < s->length (); i++)
-		len += (strlen ((*s)[i]) + 1);
+	      vec <char *> *dependencies = *slot;
+	      count = dependencies->length ();
 
-	      /* Add N-1 dot characters.  */
-	      len += 2 * (s->length () - 1);
-	    }
-	}
+	      kernel_dependencies_vector_type = build_array_type
+		(build_pointer_type (char_type_node),
+		 build_index_type (size_int (count)));
 
-      /* Zero termination character.  */
-      ++len;
-    }
-
-  buf = XNEWVEC (char, len);
-  p = buf;
-  for (unsigned i = 0; i < map_count; ++i)
-    {
-      tree caller = hsa_get_decl_kernel_mapping_decl (i);
-
-      if (hsa_decl_kernel_dependencies)
-	{
-	  vec<char *> **slot = hsa_decl_kernel_dependencies->get (caller);
-	  if (slot)
-	    {
-	      vec<char *> *s = *slot;
-	      unsigned k, j = 0;
-	      for (k = 0; k < s->length (); k++)
+	      for (unsigned j = 0; j < count; j++)
 		{
-		  unsigned ll = strlen ((*s)[k]);
-		  gcc_assert (ll > 0);
-		  memcpy (p, (*s)[k], ll);
-		  p += ll;
-		  *p = '\0';
-		  p++;
+		  char *d = (*dependencies)[j];
+		  len = strlen (d);
+		  tree dependency_name = build_string (len, d);
+		  TREE_TYPE (dependency_name) = build_array_type
+		    (char_type_node, build_index_type (size_int (len)));
 
-		  /* If it is not a last elements, append '.' string.  */
-		  if (j != s->length () - 1)
-		    {
-		      *p++ = '.';
-		      *p++ = '\0';
-		    }
-
-		  j++;
+		  CONSTRUCTOR_APPEND_ELT
+		    (kernel_dependencies_vec, NULL_TREE,
+		     build1 (ADDR_EXPR,
+			     build_pointer_type (TREE_TYPE (dependency_name)),
+			     dependency_name));
 		}
 	    }
 	}
 
-      /* Zero termination character.  */
-      *p++ = '\0';
+      tree dependencies_count = build_int_cstu (uint32_type_node, count);
+
+      vec<constructor_elt, va_gc> *kernel_info_vec = NULL;
+      CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE,
+			      build1 (ADDR_EXPR,
+				      build_pointer_type (TREE_TYPE
+							  (kern_name)),
+				      kern_name));
+      CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE, omp_data_size);
+      CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE, dependencies_count);
+
+      tree kernel_info_ctor = build_constructor (kernel_info_type,
+						 kernel_info_vec);
+
+      if (count > 0)
+	{
+	  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_dependencies_list", i);
+	  tree dependencies_list = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+					       get_identifier (tmp_name),
+					       kernel_dependencies_vector_type);
+
+	  TREE_STATIC (dependencies_list) = 1;
+	  TREE_READONLY (dependencies_list) = 1;
+	  TREE_PUBLIC (dependencies_list) = 0;
+	  DECL_ARTIFICIAL (dependencies_list) = 1;
+	  DECL_IGNORED_P (dependencies_list) = 1;
+	  DECL_EXTERNAL (dependencies_list) = 0;
+	  TREE_CONSTANT (dependencies_list) = 1;
+	  DECL_INITIAL (dependencies_list) = build_constructor
+	    (kernel_dependencies_vector_type, kernel_dependencies_vec);
+	  varpool_node::finalize_decl (dependencies_list);
+
+	  CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE,
+				  build1 (ADDR_EXPR,
+					  build_pointer_type
+					    (TREE_TYPE (dependencies_list)),
+					  dependencies_list));
+	}
+      else
+	CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE, null_pointer_node);
+
+      CONSTRUCTOR_APPEND_ELT (kernel_info_vector_vec, NULL_TREE,
+			      kernel_info_ctor);
     }
 
-  tree kern_dependencies = build_string (len, buf);
-  TREE_TYPE (kern_dependencies) = build_array_type
-    (char_type_node, build_index_type (size_int (len)));
-  free (buf);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_kernels", 1);
+  tree hsa_kernels = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+				 get_identifier (tmp_name),
+				 kernel_info_vector_type);
+
+  TREE_STATIC (hsa_kernels) = 1;
+  TREE_READONLY (hsa_kernels) = 1;
+  TREE_PUBLIC (hsa_kernels) = 0;
+  DECL_ARTIFICIAL (hsa_kernels) = 1;
+  DECL_IGNORED_P (hsa_kernels) = 1;
+  DECL_EXTERNAL (hsa_kernels) = 0;
+  TREE_CONSTANT (hsa_kernels) = 1;
+  DECL_INITIAL (hsa_kernels) = build_constructor (kernel_info_vector_type,
+						  kernel_info_vector_vec);
+  varpool_node::finalize_decl (hsa_kernels);
 
   tree hsa_image_desc_type = make_node (RECORD_TYPE);
-  tree id_f1 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+  id_f1 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
 			   get_identifier ("brig_module"), ptr_type_node);
   DECL_CHAIN (id_f1) = NULL_TREE;
-  tree id_f2 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-			   get_identifier ("kern_names"), ptr_type_node);
+  id_f2 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("kernel_count"),
+			   unsigned_type_node);
+
   DECL_CHAIN (id_f2) = id_f1;
-  tree id_f3 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-			   get_identifier ("kern_dependencies"),
+  id_f3 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("hsa_kernel_infos"),
 			   ptr_type_node);
   DECL_CHAIN (id_f3) = id_f2;
   finish_builtin_struct (hsa_image_desc_type, "__hsa_image_desc", id_f3,
@@ -1904,19 +1950,16 @@ hsa_output_kernel_mapping (tree brig_decl)
   CONSTRUCTOR_APPEND_ELT (img_desc_vec, NULL_TREE,
 			  build_fold_addr_expr (brig_decl));
   CONSTRUCTOR_APPEND_ELT (img_desc_vec, NULL_TREE,
-			  build1 (ADDR_EXPR,
-				  build_pointer_type (TREE_TYPE (kern_names)),
-				  kern_names));
+			  build_int_cstu (unsigned_type_node, map_count));
   CONSTRUCTOR_APPEND_ELT (img_desc_vec, NULL_TREE,
 			  build1 (ADDR_EXPR,
 				  build_pointer_type (TREE_TYPE
-						      (kern_dependencies)),
-				  kern_dependencies));
-
+						      (hsa_kernels)),
+				  hsa_kernels));
 
   tree img_desc_ctor = build_constructor (hsa_image_desc_type, img_desc_vec);
 
-  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "hsa_img_descriptor", 1);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_img_descriptor", 1);
   tree hsa_img_descriptor = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 					get_identifier (tmp_name),
 					hsa_image_desc_type);
@@ -1952,7 +1995,7 @@ hsa_output_kernel_mapping (tree brig_decl)
   CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE, null_pointer_node);
   tree libgomp_host_table_ctor = build_constructor (libgomp_host_table_type,
 						    libgomp_host_table_vec);
-  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "hsa_libgomp_host_table", 1);
+  ASM_GENERATE_INTERNAL_LABEL (tmp_name, "__hsa_libgomp_host_table", 1);
   tree hsa_libgomp_host_table = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 					    get_identifier (tmp_name),
 					    libgomp_host_table_type);

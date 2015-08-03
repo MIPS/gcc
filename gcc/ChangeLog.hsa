@@ -1,3 +1,15 @@
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_output_kernel_mapping): Serialize new data structure.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Add new field.
+	(gen_hsa_insns_for_kernel_call): Calculate maximum amount of memory
+	needed for OMP data.
+	(generate_hsa): Likewise.
+	* hsa.c (hsa_add_kern_decl_mapping): New function.
+	(hsa_get_decl_kernel_mapping_omp_size): Likewise.
+	* hsa.h: Add declaration of these functions.
+
 2015-07-31  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (emit_comment_insn): Memset to zero.

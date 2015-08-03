@@ -186,6 +186,7 @@ hsa_function_representation::hsa_function_representation ()
   called_functions = vNULL;
   shadow_reg = NULL;
   kernel_dispatch_count = 0;
+  maximum_omp_data_size = 0;
 }
 
 /* Destructor of class holding function/kernel-wide informaton and state.  */
@@ -2572,6 +2573,14 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   tree argument = gimple_call_arg (call, 1);
   gcc_assert (TREE_CODE (argument) == ADDR_EXPR);
+  tree d = TREE_TYPE (TREE_OPERAND (argument, 0));
+  unsigned omp_data_size = tree_to_uhwi
+    (TYPE_SIZE_UNIT (d));
+  gcc_checking_assert (omp_data_size > 0);
+
+  if (omp_data_size > hsa_cfun->maximum_omp_data_size)
+    hsa_cfun->maximum_omp_data_size = omp_data_size;
+
   hsa_symbol *var_decl = get_symbol_for_decl (TREE_OPERAND (argument, 0));
 
   hbb->append_insn (new (hsa_allocp_inst_comment)
@@ -3201,15 +3210,16 @@ generate_hsa (bool kernel)
     = xstrdup (get_declaration_name (current_function_decl));
   hsa_sanitize_name (hsa_cfun->name);
 
-  if (hsa_cfun->kern_p)
-    hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->name);
-
   gen_function_def_parameters (hsa_cfun, &ssa_map);
   if (seen_error ())
     goto fail;
   gen_body_from_gimple (&ssa_map);
   if (seen_error ())
     goto fail;
+
+  if (hsa_cfun->kern_p)
+    hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->name,
+			       hsa_cfun->maximum_omp_data_size);
 
 #ifdef ENABLE_CHECKING
   for (unsigned i = 0; i < ssa_map.length (); i++)

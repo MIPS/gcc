@@ -84,6 +84,8 @@ struct GTY(()) hsa_decl_kernel_map_element
   tree decl;
   /* Name of the HSA kernel in BRIG.  */
   char * GTY((skip)) name;
+  /* Size of OMP data, if the kernel contains a kernel dispatch.  */
+  unsigned omp_data_size;
 };
 
 /* Mapping between decls and corresponding HSA kernels in this compilation
@@ -319,11 +321,12 @@ hsa_destroy_insn (hsa_insn_basic *insn)
 /* Create a mapping between the original function DECL and kernel name NAME.  */
 
 void
-hsa_add_kern_decl_mapping (tree decl, char *name)
+hsa_add_kern_decl_mapping (tree decl, char *name, unsigned omp_data_size)
 {
   hsa_decl_kernel_map_element dkm;
   dkm.decl = decl;
   dkm.name = name;
+  dkm.omp_data_size = omp_data_size;
   vec_safe_push (hsa_decl_kernel_mapping, dkm);
 }
 
@@ -349,6 +352,14 @@ char *
 hsa_get_decl_kernel_mapping_name (unsigned i)
 {
   return (*hsa_decl_kernel_mapping)[i].name;
+}
+
+/* Return maximum OMP size for kernel decl name mapping.  */
+
+unsigned
+hsa_get_decl_kernel_mapping_omp_size (unsigned i)
+{
+  return (*hsa_decl_kernel_mapping)[i].omp_data_size;
 }
 
 /* Free the mapping between original decls and kernel names.  */

@@ -60,14 +60,22 @@ hsa_fatal (const char *str, hsa_status_t status)
   GOMP_PLUGIN_fatal ("HSA fatal error: %s (%s)", str, hsa_error);
 }
 
+struct hsa_kernel_description
+{
+  const char *name;
+  unsigned omp_data_size;
+  unsigned kernel_dependencies_count;
+  const char **kernel_dependencies;
+};
+
 /* Data passed by the static initializer of a compilation unit containing BRIG
    to GOMP_offload_register.  */
 
 struct brig_image_desc
 {
   hsa_ext_module_t brig_module;
-  const char *names;
-  const char *kernel_dependencies;
+  const unsigned kernel_count;
+  struct hsa_kernel_description *kernel_infos;
 };
 
 struct agent_info;
@@ -78,6 +86,8 @@ struct kernel_info
 {
   /* Name of the kernel, required to locate it within the brig module.  */
   const char *name;
+  /* Size of memory space for OMP data.  */
+  unsigned omp_data_size;
   /* The specific agent the kernel has been or will be finalized for and run
      on.  */
   struct agent_info *agent;
@@ -115,8 +125,6 @@ struct module_info
 
   /* Number of kernels in this module.  */
   int kernel_count;
-  /* Number of kernel from kernel dispatches.  */
-  unsigned kernel_dispatch_count;
   /* An array of kernel_info structures describing each kernel in this
      module.  */
   struct kernel_info kernels[];
@@ -442,8 +450,7 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
   struct addr_pair *pair;
   struct module_info *module;
   struct kernel_info *kernel;
-  int kernel_count = 0;
-  const char *p;
+  int kernel_count = image_desc->kernel_count;
 
   agent = get_agent_info (ord);
   if (pthread_rwlock_wrlock (&agent->modules_rwlock))
@@ -451,15 +458,6 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
   if (agent->prog_finalized)
     destroy_hsa_program (agent);
 
-  p = image_desc->names;
-  while (*p)
-    {
-      kernel_count++;
-      do
-	p++;
-      while (*p);
-      p++;
-    }
   if (kernel_count == 0)
     GOMP_PLUGIN_fatal ("No kernels encountered in a brig module description");
   if (debug)
@@ -472,84 +470,27 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
   module->image_desc = image_desc;
   module->kernel_count = kernel_count;
 
-  p = image_desc->names;
   kernel = &module->kernels[0];
-
-  /* Parse all kernels.  */
-  while (*p)
-    {
-      pair->start = (uintptr_t) kernel;
-      pair->end = (uintptr_t) (kernel + 1);
-      kernel->name = p;
-      kernel->agent = agent;
-      kernel->module = module;
-      if (pthread_mutex_init (&kernel->init_mutex, NULL))
-	GOMP_PLUGIN_fatal ("Failed to initialize an HSA kernel mutex");
-      kernel++;
-      pair++;
-      do
-	p++;
-      while (*p);
-      p++;
-    }
-
-  /* Load length of kernel dependencies.  */
-  p = image_desc->kernel_dependencies;
-  unsigned i = 0;
-  do
-    {
-      while (*p != 0)
-	{
-	  if (*p == '.')
-	    p += 2;
-	  else
-	    {
-	      module->kernels[i].dependencies_count++;
-	      module->kernel_dispatch_count++;
-
-	      do
-		p++;
-	      while (*p);
-	      p++;
-	    }
-	}
-
-      i++;
-      p++;
-    }
-  while (i <= kernel_count - 1);
 
   /* Allocate memory for kernel dependencies.  */
   for (unsigned i = 0; i < kernel_count; i++)
-    module->kernels[i].dependencies = GOMP_PLUGIN_malloc
-      (sizeof (char *) * module->kernels[i].dependencies_count);
-
-  /* Parse all kernel dependencies.  */
-  p = image_desc->kernel_dependencies;
-  i = 0;
-
-  do
     {
-      int j = 0;
-      while (*p != 0)
-	{
-	  if (*p == '.')
-	    p += 2;
-	  else
-	    {
-	      module->kernels[i].dependencies[j++] = p;
+      pair->start = (uintptr_t) kernel;
+      pair->end = (uintptr_t) (kernel + 1);
 
-	      do
-		p++;
-	      while (*p);
-	      p++;
-	    }
-	}
+      struct hsa_kernel_description *d = &image_desc->kernel_infos[i];
+      kernel->agent = agent;
+      kernel->module = module;
+      kernel->name = d->name;
+      kernel->omp_data_size = d->omp_data_size;
+      kernel->dependencies_count = d->kernel_dependencies_count;
+      kernel->dependencies = d->kernel_dependencies;
+      if (pthread_mutex_init (&kernel->init_mutex, NULL))
+	GOMP_PLUGIN_fatal ("Failed to initialize an HSA kernel mutex");
 
-      i++;
-      p++;
+      kernel++;
+      pair++;
     }
-  while (i <= kernel_count - 1);
 
   add_module_to_agent (agent, module);
   if (pthread_rwlock_unlock (&agent->modules_rwlock))
@@ -641,7 +582,7 @@ create_kernel_dispatch (struct kernel_info *kernel)
   shadow->queue = agent->command_q;
 
   /* Compute right size needed for memory allocation.  */
-  shadow->omp_data_memory = GOMP_PLUGIN_malloc (100);
+  shadow->omp_data_memory = GOMP_PLUGIN_malloc (kernel->omp_data_size);
 
   unsigned dispatch_count = kernel->dependencies_count;
   shadow->kernel_dispatch_count = dispatch_count;
@@ -738,6 +679,8 @@ init_single_kernel (struct kernel_info *kernel)
 	       (unsigned) kernel->private_segment_size);
       fprintf (stderr, "  kernarg_segment_size: %u\n",
 	       (unsigned) kernel->kernarg_segment_size);
+      fprintf (stderr, "  omp_data_size: %u\n",
+	       kernel->omp_data_size);
     }
 }
 
