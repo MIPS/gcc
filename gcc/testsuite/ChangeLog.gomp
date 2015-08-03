@@ -1,3 +1,33 @@
+2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/restrict-2.c: Update for new pass_lim.
+	* c-c++-common/restrict-4.c: Same.
+	* g++.dg/tree-ssa/pr33615.C: Same.
+	* g++.dg/tree-ssa/restrict1.C: Same.
+	* gcc.dg/tm/pub-safety-1.c: Same.
+	* gcc.dg/tm/reg-promotion.c: Same.
+	* gcc.dg/tree-ssa/20050314-1.c: Same.
+	* gcc.dg/tree-ssa/loop-32.c: Same.
+	* gcc.dg/tree-ssa/loop-33.c: Same.
+	* gcc.dg/tree-ssa/loop-34.c: Same.
+	* gcc.dg/tree-ssa/loop-35.c: Same.
+	* gcc.dg/tree-ssa/loop-7.c: Same.
+	* gcc.dg/tree-ssa/pr23109.c: Same.
+	* gcc.dg/tree-ssa/restrict-3.c: Same.
+	* gcc.dg/tree-ssa/restrict-5.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-1.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-10.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-11.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-12.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-2.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-3.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-6.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-7.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-8.c: Same.
+	* gcc.dg/tree-ssa/ssa-lim-9.c: Same.
+	* gcc.dg/tree-ssa/structopt-1.c: Same.
+	* gfortran.dg/pr32921.f: Same.
+
 2015-07-31  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR libgomp/65742
