@@ -1,3 +1,7 @@
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testuite/libgomp.oacc-c-c++-common/gang-static-2.c: Use asm insert.
+
 2015-08-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* openacc.h (acc_on_device): Take int and explain why.

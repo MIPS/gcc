@@ -49,7 +49,7 @@
 
    UNSPEC_ALLOCA
 
-   UNSPEC_NID
+   UNSPEC_DIM_SIZE
 
    UNSPEC_SHARED_DATA
 
@@ -65,7 +65,7 @@
    UNSPECV_CAS
    UNSPECV_XCHG
    UNSPECV_BARSYNC
-   UNSPECV_ID
+   UNSPECV_DIM_POS
 
    UNSPECV_FORK
    UNSPECV_FORKED
@@ -1335,9 +1335,10 @@
   DONE;
 })
 
-(define_insn "oacc_nid"
+(define_insn "oacc_dim_size"
   [(set (match_operand:SI 0 "nvptx_register_operand" "")
-	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")] UNSPEC_NID))]
+	(unspec:SI [(match_operand:SI 1 "const_int_operand" "")]
+		   UNSPEC_DIM_SIZE))]
   ""
 {
   static const char *const asms[] =
@@ -1349,10 +1350,10 @@
   return asms[INTVAL (operands[1])];
 })
 
-(define_insn "oacc_id"
+(define_insn "oacc_dim_pos"
   [(set (match_operand:SI 0 "nvptx_register_operand" "")
 	(unspec_volatile:SI [(match_operand:SI 1 "const_int_operand" "")]
-			UNSPECV_ID))]
+			    UNSPECV_DIM_POS))]
   ""
 {
   static const char *const asms[] =

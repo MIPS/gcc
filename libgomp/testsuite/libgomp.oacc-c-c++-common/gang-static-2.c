@@ -1,8 +1,16 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
+/* { dg-additional-options "-O2" } */
 
 #include <assert.h>
+#include <openacc.h>
 
 #define N 100
+
+#define GANG_ID(I)						\
+  (acc_on_device (acc_device_nvidia)				\
+   ? ({unsigned __r;						\
+       __asm__ volatile ("mov.u32 %0,%%ctaid.x;" : "=r" (__r));	\
+       __r; }) : (I))
 
 int
 test_static(int *a, int num_gangs, int sarg)
@@ -35,38 +43,38 @@ main ()
 
 #pragma acc parallel loop gang (static:*) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_id (0);
+    a[i] = GANG_ID (i);
 
   test_nonstatic (a, 10);
 
 #pragma acc parallel loop gang (static:1) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_id (0);
+    a[i] = GANG_ID (i);
 
   test_static (a, 10, 1);
 
 #pragma acc parallel loop gang (static:2) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_id (0);
+    a[i] = GANG_ID (i);
 
   test_static (a, 10, 2);
 
 #pragma acc parallel loop gang (static:5) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_id (0);
+    a[i] = GANG_ID (i);
 
   test_static (a, 10, 5);
 
 #pragma acc parallel loop gang (static:20) num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_id (0);
+    a[i] = GANG_ID (i);
 
   test_static (a, 10, 20);
 
   /* Non-static gang.  */
 #pragma acc parallel loop gang num_gangs (10)
   for (i = 0; i < 100; i++)
-    a[i] = __builtin_GOACC_id (0);
+    a[i] = GANG_ID (i);
 
   test_nonstatic (a, 10);
 

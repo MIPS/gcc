@@ -5921,59 +5921,6 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   return target;
 }
 
-/* Expand a thread-id/thread-count builtin for OpenACC.  */
-
-static rtx
-expand_oacc_id (enum built_in_function fcode, tree exp, rtx target)
-{
-  tree arg0 = CALL_EXPR_ARG (exp, 0);
-  rtx result = const0_rtx;
-  rtx arg;
-
-  arg = expand_normal (arg0);
-
-  if (GET_CODE (arg) != CONST_INT || UINTVAL (arg) >= GOMP_DIM_MAX)
-    {
-      error ("argument to %D must be constant in range 0 to %d",
-	     get_callee_fndecl (exp), GOMP_DIM_MAX - 1);
-      return result;
-    }
-
-  enum insn_code icode = CODE_FOR_nothing;
-  switch (fcode)
-    {
-    case BUILT_IN_GOACC_NID:
-#ifdef HAVE_oacc_nid
-      icode = CODE_FOR_oacc_nid;
-#endif
-      result = const1_rtx;
-      break;
-    case BUILT_IN_GOACC_ID:
-#ifdef HAVE_oacc_id
-      icode = CODE_FOR_oacc_id;
-#endif
-      break;
-    default:
-      gcc_unreachable ();
-      break;
-    }
-
-  if (icode != CODE_FOR_nothing)
-    {
-      machine_mode mode = insn_data[icode].operand[0].mode;
-      rtx tmp = target;
-      if (!REG_P (tmp) || GET_MODE (tmp) != mode)
-	tmp = gen_reg_rtx (mode);
-      rtx insn = GEN_FCN (icode) (tmp, arg);
-      if (insn != NULL_RTX)
-	{
-	  emit_insn (insn);
-	  return tmp;
-	}
-    }
-  return result;
-}
-
 static rtx
 expand_oacc_ganglocal_ptr (rtx target ATTRIBUTE_UNUSED)
 {
@@ -7134,10 +7081,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
       if (target)
 	return target;
       break;
-
-    case BUILT_IN_GOACC_ID:
-    case BUILT_IN_GOACC_NID:
-      return expand_oacc_id (fcode, exp, target);
 
     case BUILT_IN_GOACC_GET_GANGLOCAL_PTR:
       target = expand_oacc_ganglocal_ptr (target);
@@ -12497,8 +12440,6 @@ is_simple_builtin (tree decl)
       case BUILT_IN_EH_FILTER:
       case BUILT_IN_EH_POINTER:
       case BUILT_IN_EH_COPY_VALUES:
-	/* Just a special register read.  */
-      case BUILT_IN_GOACC_NID:
 	return true;
 
       default:

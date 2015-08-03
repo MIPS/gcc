@@ -1,5 +1,21 @@
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* internal-fn.def (GOACC_DIM_SIZE, GOACC_DFIM_POS): New.
+	* internal-fn.c (expand_GOACC_DIM_SIZE, expand_GOACC_DIM_POS): New.
+	* config/nvptx.md (UNSPEC_NID, UNSPEC_ID): Rename to ...
+	(UNSPEC_DIM_SIZE, UNSPEC_DIM_POS): ... here.
+	(oacc_nid, oacc_id): Rename to ...
+	(oacc_dim_size, oacc_dim_pos): ... here. Adjust.
+	* config/nvptx.c (nvptx_single): Adjust.
+	* omp-low.c (expand_oacc_get_num_threads,
+	expand_oacc_get_thread_num, oacc_init_count_vars): Use new
+	internal builtins.
+	* omp-builtins.def (BUILT_IN_GOACC_ID, BUILT_IN_GOACC_NID): Delete.
+	* builtins.c (expand_oacc_id): Delete.
+	(expand_builtin, is_simpe_biltin): Adjust.
+
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/mkoffload.c (process): Avoid printf formatting
 	warning.
 
@@ -52,7 +68,7 @@
 	(nvptx_shuffle<mode>): Add constraints.
 	(nvptx_unpack<mode>, nvptx_pack<mode>): Likewise.
 	(nvptx_spinlock, nvptx_spinunlock):  New.
-	* config/nvptx/nvptx.c (LOCK_GLOBAL, LOCK_SHARED, LOC_MAS): New
+	* config/nvptx/nvptx.c (LOCK_GLOBAL, LOCK_SHARED, LOCK_MAX): New
 	defines.
 	(lock_names, lock_regions, lock_space, lock_syms, loc_used): New.
 	(nvptx_option_override): Set worker_bcast_align

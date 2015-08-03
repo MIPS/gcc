@@ -4676,7 +4676,6 @@ static tree
 expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
 {
   tree res = build_int_cst (unsigned_type_node, 1);
-  tree  decl = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   unsigned ix;
 
   for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
@@ -4684,7 +4683,7 @@ expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
       {
 	tree arg = build_int_cst (unsigned_type_node, ix);
 	tree count = create_tmp_var (unsigned_type_node);
-	gimple call = gimple_build_call (decl, 1, arg);
+	gimple call = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
 	
 	gimple_call_set_lhs (call, count);
 	gimple_seq_add_stmt (seq, call);
@@ -4702,8 +4701,6 @@ static tree
 expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
 {
   tree res = NULL_TREE;
-  tree id_decl = builtin_decl_explicit (BUILT_IN_GOACC_ID);
-  tree nid_decl = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   unsigned ix;
 
   /* Start at gang level, and examine relevant dimension indices.  */
@@ -4717,7 +4714,8 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
 	    /* We had an outer index, so scale that by the size of
 	       this dimension.  */
 	    tree n = create_tmp_var (unsigned_type_node);
-	    gimple call = gimple_build_call (nid_decl, 1, arg);
+	    gimple call
+	      = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
 	    
 	    gimple_call_set_lhs (call, n);
 	    gimple_seq_add_stmt (seq, call);
@@ -4726,7 +4724,7 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
 
 	/* Determine index in this dimension.  */
 	tree id = create_tmp_var (unsigned_type_node);
-	gimple call = gimple_build_call (id_decl, 1, arg);
+	gimple call = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
 	
 	gimple_call_set_lhs (call, id);
 	gimple_seq_add_stmt (seq, call);
@@ -11671,8 +11669,6 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
 {
-  tree getid = builtin_decl_explicit (BUILT_IN_GOACC_ID);
-  tree getnid = builtin_decl_explicit (BUILT_IN_GOACC_NID);
   tree worker_var, worker_count;
   
   if (ctx->gwv_this & GOMP_DIM_MASK (GOMP_DIM_WORKER))
@@ -11682,11 +11678,11 @@ oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
       worker_var = create_tmp_var (unsigned_type_node, ".worker");
       worker_count = create_tmp_var (unsigned_type_node, ".workercount");
       
-      gimple call1 = gimple_build_call (getid, 1, arg);
+      gimple call1 = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
       gimple_call_set_lhs (call1, worker_var);
       gimple_seq_add_stmt (&ctx->ganglocal_init, call1);
 
-      gimple call2 = gimple_build_call (getnid, 1, arg);
+      gimple call2 = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
       gimple_call_set_lhs (call2, worker_count);
       gimple_seq_add_stmt (&ctx->ganglocal_init, call2);
     }

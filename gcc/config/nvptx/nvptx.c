@@ -2771,7 +2771,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	rtx pred = gen_reg_rtx (BImode);
 	rtx_code_label *label = gen_label_rtx ();
 
-	emit_insn_before (gen_oacc_id (id, GEN_INT (mode)), head);
+	emit_insn_before (gen_oacc_dim_pos (id, GEN_INT (mode)), head);
 	rtx cond = gen_rtx_SET (pred, gen_rtx_NE (BImode, id, const0_rtx));
 	emit_insn_before (cond, head);
 	rtx br;
