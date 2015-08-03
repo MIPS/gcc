@@ -5725,6 +5725,10 @@ expand_omp_taskreg (struct omp_region *region)
 	}
       if (gimple_in_ssa_p (cfun))
 	update_ssa (TODO_update_ssa);
+#ifdef ENABLE_CHECKING
+      if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	verify_loop_structure ();
+#endif
       pop_cfun ();
     }
 
@@ -6656,7 +6660,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   body_bb = single_succ (seq_start_bb);
   if (!broken_loop)
     {
-      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb);
+      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb
+		  || single_succ (BRANCH_EDGE (cont_bb)->dest) == body_bb);
       gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
     }
   exit_bb = region->exit;
@@ -6966,8 +6971,13 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (!broken_loop)
     {
       ep = find_edge (cont_bb, body_bb);
+      if (ep == NULL)
+	{
+	  ep = BRANCH_EDGE (cont_bb);
+	  gcc_assert (single_succ (ep->dest) == body_bb);
+	}
       if (gimple_omp_for_combined_p (fd->for_stmt)
-	  || region->kernelize)
+      	  || region->kernelize)
 	{
 	  remove_edge (ep);
 	  ep = NULL;
@@ -6997,11 +7007,21 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   set_immediate_dominator (CDI_DOMINATORS, fin_bb,
 			   recompute_dominator (CDI_DOMINATORS, fin_bb));
 
-  if (!broken_loop
-      && !region->kernelize
-      && !gimple_omp_for_combined_p (fd->for_stmt))
+  struct loop *loop = body_bb->loop_father;
+  if (loop != entry_bb->loop_father)
     {
-      struct loop *loop = alloc_loop ();
+      gcc_assert (loop->header == body_bb);
+      gcc_assert (broken_loop
+		  || loop->latch == region->cont
+		  || single_pred (loop->latch) == region->cont);
+      return;
+    }
+
+  if (!broken_loop
+     && !region->kernelize
+     && !gimple_omp_for_combined_p (fd->for_stmt))
+    {
+      loop = alloc_loop ();
       loop->header = body_bb;
       if (collapse_bb == NULL)
 	loop->latch = cont_bb;
@@ -9149,6 +9169,10 @@ expand_omp_target (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
+#ifdef ENABLE_CHECKING
+      if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	verify_loop_structure ();
+#endif
       pop_cfun ();
     }
 
@@ -9784,6 +9808,10 @@ execute_expand_omp (void)
 
   expand_omp (root_omp_region, false);
 
+#ifdef ENABLE_CHECKING
+  if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+    verify_loop_structure ();
+#endif
   cleanup_tree_cfg ();
 
   free_omp_regions ();
