@@ -1,3 +1,11 @@
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_reorg): Check get_oacc_fn_attrib for
+	launch dimensions and only do parallel processing when present.
+	Check dimensions to determine neutering requirements.
+	(nvptx_record_offload_symbol): Launch dimension attribute must be
+	present on offloaded functions.
+
 2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* builtins.c (expand_builtin_on_device): Don't expect to be
