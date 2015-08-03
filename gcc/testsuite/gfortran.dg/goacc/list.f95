@@ -5,7 +5,7 @@ program test
   implicit none
 
   integer :: i, j, k, l, a(10)
-  common /b/ j, k
+  common /b/ k
   real, pointer :: p1 => NULL()
   complex :: c, d(10)
 
@@ -64,8 +64,8 @@ program test
 
   !$acc parallel firstprivate(10) ! { dg-error "Syntax error" }
 
-  !$acc parallel firstprivate (/b/, /b/) ! { dg-error "Syntax error" }
-  !$acc end parallel ! { dg-error "Unexpected" }
+  !$acc parallel firstprivate (/b/, /b/) ! { dg-error "present on multiple clauses" }
+  !$acc end parallel
 
   !$acc parallel firstprivate (i, j, i) ! { dg-error "present on multiple clauses" }
   !$acc end parallel

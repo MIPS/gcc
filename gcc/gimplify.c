@@ -94,9 +94,6 @@ enum gimplify_omp_var_data
 
   GOVD_FORCE_MAP = 1 << 16,
 
-  /* Gang-local OpenACC variable.  */
-  GOVD_GANGLOCAL = 1 << 17,
-
   /* OpenACC deviceptr clause.  */
   GOVD_USE_DEVPTR = 1 << 18,
 
@@ -5936,14 +5933,13 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 	if (is_global_var (decl) && device_resident_p (decl))
 	  flags |= GOVD_MAP_TO_ONLY | GOVD_MAP;
 	else if (ctx->acc_region_kind == ARK_KERNELS)
-	  /* Scalars under kernels are default 'copy'.  */
+	  /* Everything under kernels are default 'copy'.  */
 	  flags |= GOVD_FORCE_MAP | GOVD_MAP;
 	else if (ctx->acc_region_kind == ARK_PARALLEL)
 	  {
 	    tree type = TREE_TYPE (decl);
 
-	    /*  Should this  be REFERENCE_TYPE_P? */
-	    if (POINTER_TYPE_P (type))
+	    if (TREE_CODE (type) == REFERENCE_TYPE)
 	      type = TREE_TYPE (type);
 	
 	    if (AGGREGATE_TYPE_P (type))
@@ -5951,12 +5947,12 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 	      flags |= GOVD_MAP;
 	    else
 	      /* Scalars default to 'firstprivate'.  */
-	      flags |= GOVD_GANGLOCAL | GOVD_MAP_TO_ONLY | GOVD_MAP;
+	      flags |= GOVD_FIRSTPRIVATE;
 	  }
 	else
 	  gcc_unreachable ();
       }
-      break;
+    break;
     }
   
   return flags;
@@ -6811,10 +6807,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (code == OMP_CLAUSE_MAP)
     {
       OMP_CLAUSE_SET_MAP_KIND (clause,
-			       flags & GOVD_MAP_TO_ONLY
-			       ? (flags & GOVD_GANGLOCAL
-				  ? GOMP_MAP_FORCE_TO_GANGLOCAL
-				  : GOMP_MAP_TO)
+			       flags & GOVD_MAP_TO_ONLY ? GOMP_MAP_TO
 			       : (flags & GOVD_FORCE_MAP
 				  ? GOMP_MAP_FORCE_TOFROM
 				  : GOMP_MAP_TOFROM));
@@ -7541,11 +7534,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       else if (omp_is_private (gimplify_omp_ctxp, decl, 0))
 	omp_notice_variable (gimplify_omp_ctxp, decl, true);
       else
-	{
-	  if (ork == ORK_OACC && gimplify_omp_ctxp->outer_context)
-	    omp_notice_variable (gimplify_omp_ctxp->outer_context, decl, true);
-	  omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
-	}
+	omp_add_variable (gimplify_omp_ctxp, decl, GOVD_PRIVATE | GOVD_SEEN);
 
       /* If DECL is not a gimple register, create a temporary variable to act
 	 as an iteration counter.  This is valid, since DECL cannot be

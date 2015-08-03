@@ -1,3 +1,11 @@
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gfortran.dg/goacc/parallel-tree.f95: Remove ganglocal
+	expectation.
+	* gfortran.dg/goacc/list.f95: Stop expected firstprivate to be a
+	data clause.
+	* c-c++-common/goacc/firstprivate.c: Likewise.
+
 2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/acc_on_device-2-off.c (acc_on_device): Change

@@ -586,22 +586,12 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 					  &c->lists[OMP_LIST_PRIVATE], true)
 	     == MATCH_YES)
 	continue;
-      if (mask & OMP_CLAUSE_FIRSTPRIVATE)
-	{
-	  if (openacc)
-	    {
-	      if (gfc_match ("firstprivate ( ") == MATCH_YES
-		  && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
-					       OMP_MAP_GANGLOCAL, false))
-		continue;
-	    }
-	  else if (gfc_match_omp_variable_list ("firstprivate (",
+      if ((mask & OMP_CLAUSE_FIRSTPRIVATE)
+	  && gfc_match_omp_variable_list ("firstprivate (",
 					  &c->lists[OMP_LIST_FIRSTPRIVATE],
-						true)
-		   == MATCH_YES)
-	    continue;
-
-	}
+					  true)
+	      == MATCH_YES)
+	continue;
       if ((mask & OMP_CLAUSE_LASTPRIVATE)
 	  && gfc_match_omp_variable_list ("lastprivate (",
 					  &c->lists[OMP_LIST_LASTPRIVATE],

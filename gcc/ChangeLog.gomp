@@ -1,5 +1,17 @@
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gimplify.c (GOVD_GANGLOCAL): Delete.
+	(oacc_default_clause): Only derereference reference types. Mark
+	firstprivate as GOVD_FIRSTPRIVATE.
+	(gimplify_adjust_omp_clauses_1): Remove GANGLOCALL handling.
+	(gimplify_omp_for): Remove bogus OpenACC outer context lookup.
+	* omp-low.c (build_outer_var_ref): Simplify openacc outer ref
+	lookup.
+	(scan_sharing_clauses): Handle openacc firstprivate.
+	(lower_omp_target): Handle openacc firstprivate.
+
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_reorg): Check get_oacc_fn_attrib for
 	launch dimensions and only do parallel processing when present.
 	Check dimensions to determine neutering requirements.

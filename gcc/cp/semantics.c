@@ -5838,10 +5838,6 @@ finish_omp_clauses (tree clauses, bool oacc)
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		  && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FORCE_TO_GANGLOCAL))
-		error_at (OMP_CLAUSE_LOCATION (c),
-			  "subarrays are not permitted in firstprivate");
 	      if (handle_omp_array_sections (c))
 		remove = true;
 	      else

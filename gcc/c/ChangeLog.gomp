@@ -1,3 +1,11 @@
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_data_clause): Remove firstprivate
+	handling.
+	(c_parser_oac_all_clauses): Firstpribsste is a firstprivate
+	clause.
+	* c-typeck.c (c_finish_omp_clauses): Remove GANGLOCAL handling.
+
 2015-07-27  Julian Brown  <julian@codesourcery.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Add scanning for sub-clauses
@@ -650,3 +658,8 @@ Copyright (C) 2013-2015 Free Software Foundation, Inc.
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:

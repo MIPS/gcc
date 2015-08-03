@@ -1,3 +1,12 @@
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Remove GANGLOCAL
+	handling.
+	* gfortran.h (OMP_MAP_GANGLOCAL): Delete.
+	(OMP_MAP_FORCE_TO_GANGLOCAL):  Likewise.
+	* openmp.c (gfc_match_omp_clauses): Remove openacc specific
+	firstprivate handling.
+
 2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_12): Delete.

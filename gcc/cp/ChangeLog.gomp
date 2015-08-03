@@ -1,3 +1,10 @@
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* semantics.c (finish_omp_clauses): Remove OpenACC-specific
+	firstprivate handling.
+	* parser.c (cp_parser_oacc_data_clause): Remove firstprivate here.
+	(cp_parser_oacc_all_clauses): First private is a firstprivate clause.
+
 2015-07-31  James Norris  <jnorris@codesourcery.com>
 
 	* decl.c (finish_oacc_declare): Remove argument, add constraint.
@@ -772,3 +779,8 @@ Copyright (C) 2013-2015 Free Software Foundation, Inc.
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:

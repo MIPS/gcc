@@ -1172,14 +1172,12 @@ build_outer_var_ref (tree var, omp_context *ctx)
       if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
 	  && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
 	{
-	  for (ctx = ctx->outer; ctx && !maybe_lookup_decl (var, ctx);
-	       ctx = ctx->outer)
-	    ;
-
-	  if (ctx == NULL)
-	    gcc_unreachable ();
-
-	  x = lookup_decl (var, ctx);
+	  do
+	    {
+	      ctx = ctx->outer;
+	      x = maybe_lookup_decl (var, ctx);
+	    }
+	  while(!x);
 	}
       else
 	x = lookup_decl (var, ctx->outer);
@@ -1848,10 +1846,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	  if (is_gimple_omp_oacc (ctx->stmt))
-	    /* Clause represented by a gang-local map under OpenACC.  */
-	    gcc_unreachable ();
-	  /* FALLTHRU */
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_LINEAR:
 	  decl = OMP_CLAUSE_DECL (c);
@@ -1879,10 +1873,20 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      else if (!global)
 		install_var_field (decl, by_ref, 3, ctx);
 	    }
-	  /* The gimplifier always includes a OMP_CLAUSE_MAP with each parallel
-	     reduction variable.  So don't install a local variable here.  */
+
 	  if (!is_oacc_parallel (ctx))
 	    install_var_local (decl, ctx);
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+	    {
+	      install_var_field (decl, (TREE_CODE (TREE_TYPE (decl))
+					!= REFERENCE_TYPE), 3, ctx);
+	      install_var_local (decl, ctx);
+	    }
+	  else
+	    /* The gimplifier always includes a OMP_CLAUSE_MAP with
+	       each parallel reduction variable.  So don't install a
+	       local variable here.  */
+	    gcc_assert (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION);
 	  break;
 
 	case OMP_CLAUSE__LOOPTEMP_:
@@ -2063,12 +2067,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  /* FALLTHRU */
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	  if (is_gimple_omp_oacc (ctx->stmt))
-	    {
-	      sorry ("clause not supported yet");
-	      break;
-	    }
-	  /* FALLTHRU */
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_REDUCTION:
 	case OMP_CLAUSE_LINEAR:
@@ -11712,7 +11710,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree child_fn, t, c;
   gomp_target *stmt = as_a <gomp_target *> (gsi_stmt (*gsi_p));
   gbind *tgt_bind, *bind;
-  gimple_seq tgt_body, olist, ilist, orlist, irlist, new_body;
+  gimple_seq tgt_body, olist, ilist, orlist, irlist, fplist, new_body;
   location_t loc = gimple_location (stmt);
   bool offloaded, data_region, has_reduction;
   unsigned int map_cnt = 0;
@@ -11764,6 +11762,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   child_fn = ctx->cb.dst_fn;
 
   push_gimplify_context ();
+  fplist = NULL;
 
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     switch (OMP_CLAUSE_CODE (c))
@@ -11772,6 +11771,11 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
       default:
 	break;
+      case OMP_CLAUSE_FIRSTPRIVATE:
+	if (is_oacc_parallel (ctx))
+	  goto first_private;
+	break;
+	
       case OMP_CLAUSE_MAP:
 #ifdef ENABLE_CHECKING
 	/* First check what we're prepared to handle in the following.  */
@@ -11803,6 +11807,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  /* FALLTHRU */
       case OMP_CLAUSE_TO:
       case OMP_CLAUSE_FROM:
+      first_private:
+	
 	var = OMP_CLAUSE_DECL (c);
 	if (!DECL_P (var))
 	  {
@@ -11829,11 +11835,26 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  {
 	    x = build_receiver_ref (var, true, ctx);
 	    tree new_var = lookup_decl (var, ctx);
-	    if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		&& OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 		&& !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 		&& TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
 	      x = build_simple_mem_ref (x);
-	    if (DECL_P (new_var))
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+	      {
+		if (TREE_CODE (TREE_TYPE (new_var)) == REFERENCE_TYPE)
+		  {
+		    /* Create a local object to hold the instance
+		       value.  */
+		    tree inst = create_tmp_var
+		      (TREE_TYPE (TREE_TYPE (new_var)),
+		       IDENTIFIER_POINTER (DECL_NAME (new_var)));
+		    gimplify_assign (inst, fold_indirect_ref (x), &fplist);
+		    x = build_fold_addr_expr (inst);
+		  }
+		gimplify_assign (new_var, x, &fplist);
+	      }
+	    else if (DECL_P (new_var))
 	      {
 		SET_DECL_VALUE_EXPR (new_var, x);
 		DECL_HAS_VALUE_EXPR_P (new_var) = 1;
@@ -11856,6 +11877,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      }
 	  }
 	map_cnt++;
+	break;
       }
 
   if (offloaded)
@@ -11945,6 +11967,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
 	  default:
 	    break;
+	  case OMP_CLAUSE_FIRSTPRIVATE:
+	    if (!is_oacc_parallel (ctx))
+	      break;
+	    /* FALLTHROUGH */
 	  case OMP_CLAUSE_MAP:
 	  case OMP_CLAUSE_TO:
 	  case OMP_CLAUSE_FROM:
@@ -12011,6 +12037,14 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
 		  }
+		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
+		  {
+		    if (TREE_CODE (TREE_TYPE (var)) != REFERENCE_TYPE)
+		      var = build_fold_addr_expr (var);
+		    else
+		      talign = TYPE_ALIGN_UNIT (TREE_TYPE (TREE_TYPE (ovar)));
+		    gimplify_assign (x, var, &ilist);
+		  }
 		else if (is_gimple_reg (var))
 		  {
 		    gcc_assert (offloaded);
@@ -12039,7 +12073,16 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    gimplify_assign (x, var, &ilist);
 		  }
 	      }
-	    tree s = OMP_CLAUSE_SIZE (c);
+	    tree s = NULL_TREE;
+	    if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_FIRSTPRIVATE)
+	      s = OMP_CLAUSE_SIZE (c);
+	    else
+	      {
+		s = TREE_TYPE (ovar);
+		if (TREE_CODE (s) == REFERENCE_TYPE)
+		  s = TREE_TYPE (s);
+		s = TYPE_SIZE_UNIT (s);
+	      }
 	    if (s == NULL_TREE)
 	      s = TYPE_SIZE_UNIT (TREE_TYPE (ovar));
 	    s = fold_convert (size_type_node, s);
@@ -12053,6 +12096,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 	      case OMP_CLAUSE_MAP:
 		tkind = OMP_CLAUSE_MAP_KIND (c);
+		break;
+	      case OMP_CLAUSE_FIRSTPRIVATE:
+		tkind = GOMP_MAP_TO;
 		break;
 	      case OMP_CLAUSE_TO:
 		tkind = GOMP_MAP_TO;
@@ -12118,6 +12164,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  		   gimple_build_assign (ctx->receiver_decl, t));
     }
   gimple_seq_add_seq (&new_body, ctx->ganglocal_init);
+  gimple_seq_add_seq (&new_body, fplist);
 
   if (offloaded)
     {

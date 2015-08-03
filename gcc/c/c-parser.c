@@ -10719,9 +10719,6 @@ c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
     case PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT:
       kind = GOMP_MAP_DEVICE_RESIDENT;
       break;
-    case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
-      kind = GOMP_MAP_FORCE_TO_GANGLOCAL;
-      break;
     case PRAGMA_OACC_CLAUSE_HOST:
       kind = GOMP_MAP_FORCE_FROM;
       break;
@@ -12316,7 +12313,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "deviceptr";
 	  break;
 	case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
-	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  clauses = c_parser_omp_clause_firstprivate (parser, clauses);
 	  c_name = "firstprivate";
 	  break;
 	case PRAGMA_OACC_CLAUSE_GANG:

@@ -2125,9 +2125,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		case OMP_MAP_FROM:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FROM);
 		  break;
-		case OMP_MAP_GANGLOCAL:
-		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_TO_GANGLOCAL);
-		  break;
 		case OMP_MAP_TOFROM:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_TOFROM);
 		  break;
@@ -2151,9 +2148,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  break;
 		case OMP_MAP_FORCE_DEVICEPTR:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_DEVICEPTR);
-		  break;
-		case OMP_MAP_FORCE_TO_GANGLOCAL:
-		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_TO_GANGLOCAL);
 		  break;
 		case OMP_MAP_DEVICE_RESIDENT:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_DEVICE_RESIDENT);
