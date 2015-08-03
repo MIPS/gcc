@@ -22,11 +22,6 @@
 	* builtins.c (expand_builtin_on_device): Only expect to be
 	expanded on host compiler.
 
-2015-07-31  James Norris  <jnorris@codesourcery.com>
-
-	* cp/decl.c (finish_oacc_declare): Remove argument, add constraint.
-	(finish_function): Update finish_oacc_declare call.
-
 2015-07-31  Thomas Schwinge  <thomas@codesourcery.com>
 
 	PR libgomp/65742
