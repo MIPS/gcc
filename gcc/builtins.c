@@ -5880,43 +5880,39 @@ expand_stack_save (void)
 }
 
 
-/* Expand OpenACC acc_on_device.
-
-   This has to happen late (that is, not in early folding; expand_builtin_*,
-   rather than fold_builtin_*), as we have to act differently for host and
-   acceleration device (ACCEL_COMPILER conditional).  */
+/* Expand OpenACC acc_on_device.  This is expanded in the openacc
+   transform pass, but if the user has this outside of an offloaded
+   region, we'll find it here.  In that case we must be host or none.  */
 
 static rtx
 expand_builtin_acc_on_device (tree exp, rtx target)
 {
+#ifdef ACCEL_COMPILER
+  gcc_unreachable ();
+#else
+  gcc_assert (!get_oacc_fn_attrib (current_function_decl));
+  
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
   tree arg = CALL_EXPR_ARG (exp, 0);
-
-  /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
-  machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
-  rtx v = expand_normal (arg), v1, v2;
-#ifdef ACCEL_COMPILER
-  v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
-  v2 = GEN_INT (ACCEL_COMPILER_acc_device);
-#else
-  v1 = GEN_INT (GOMP_DEVICE_NONE);
-  v2 = GEN_INT (GOMP_DEVICE_HOST);
-#endif
+  rtx val = expand_normal (arg);
   machine_mode target_mode = TYPE_MODE (integer_type_node);
   if (!target || !register_operand (target, target_mode))
     target = gen_reg_rtx (target_mode);
   emit_move_insn (target, const1_rtx);
   rtx_code_label *done_label = gen_label_rtx ();
-  do_compare_rtx_and_jump (v, v1, EQ, false, v_mode, NULL_RTX,
+  do_compare_rtx_and_jump (val, GEN_INT (GOMP_DEVICE_HOST), EQ,
+			   false, GET_MODE (val), NULL_RTX,
 			   NULL, done_label, PROB_EVEN);
-  do_compare_rtx_and_jump (v, v2, EQ, false, v_mode, NULL_RTX,
+  do_compare_rtx_and_jump (val, GEN_INT (GOMP_DEVICE_NONE), EQ,
+			   false, GET_MODE (val), NULL_RTX,
 			   NULL, done_label, PROB_EVEN);
   emit_move_insn (target, const0_rtx);
   emit_label (done_label);
 
   return target;
+#endif
 }
 
 /* Expand a thread-id/thread-count builtin for OpenACC.  */

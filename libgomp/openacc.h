@@ -79,7 +79,11 @@ void acc_wait_all (void) __GOACC_NOTHROW;
 void acc_wait_all_async (int) __GOACC_NOTHROW;
 void acc_init (acc_device_t) __GOACC_NOTHROW;
 void acc_shutdown (acc_device_t) __GOACC_NOTHROW;
-int acc_on_device (acc_device_t) __GOACC_NOTHROW;
+/* Library function declaration.  Although it should take an
+   acc_device_t argument, that causes problems with matching the
+   builtin, which takes an int (to avoid declaring the enumeration
+   inside the compiler).  */
+int acc_on_device (int) __GOACC_NOTHROW;
 void *acc_malloc (size_t) __GOACC_NOTHROW;
 void acc_free (void *) __GOACC_NOTHROW;
 /* Some of these would be more correct with const qualifiers, but

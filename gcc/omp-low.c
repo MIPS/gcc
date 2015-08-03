@@ -14510,29 +14510,65 @@ make_pass_late_lower_omp (gcc::context *ctxt)
   return new pass_late_lower_omp (ctxt);
 }
 
+/* Transform an acc_on_device call.  The std requires this folded at
+   compile time for constant operands.  We always fold it.  In an
+   offloaded function we're never 'none'.  We cannot detect
+   host_nonshm here, as that's a dynamic feature of the runtime.
+   However, users shouldn't be using host_nonshm anyway, only the
+   test harness.  */
+
+static void
+oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)
+{
+  tree arg = gimple_call_arg (stmt, 0);
+  unsigned val = GOMP_DEVICE_HOST;
+	      
+#ifdef ACCEL_COMPILER
+  val = GOMP_DEVICE_NOT_HOST;
+#endif
+  tree result = build2 (EQ_EXPR, boolean_type_node, arg,
+			build_int_cst (integer_type_node, val));
+#ifdef ACCEL_COMPILER
+  {
+    tree dev  = build2 (EQ_EXPR, boolean_type_node, arg,
+			build_int_cst (integer_type_node,
+				       ACCEL_COMPILER_acc_device));
+    result = build2 (TRUTH_OR_EXPR, boolean_type_node, result, dev);
+  }
+#endif
+  result = fold_convert (integer_type_node, result);
+  tree lhs = gimple_call_lhs (stmt);
+  gimple_seq replace = NULL;
+
+  push_gimplify_context (true);
+  gimplify_assign (lhs, result, &replace);
+  pop_gimplify_context (NULL);
+  gsi_replace_with_seq (gsi, replace, false);
+}
+
 /* Main entry point for oacc transformations which run on the device
-   compiler.  */
+   compilerafter LTO, so we know what the target device is at this
+   point (including the host fallback).  */
 
 static unsigned int
 execute_oacc_transform ()
 {
   basic_block bb;
-  gimple_stmt_iterator gsi;
-  gimple stmt;
 
-  if (!lookup_attribute ("oacc function",
-			 DECL_ATTRIBUTES (current_function_decl)))
+  if (!get_oacc_fn_attrib (current_function_decl))
     return 0;
-
 
   FOR_ALL_BB_FN (bb, cfun)
     {
-      gsi = gsi_start_bb (bb);
-
-      while (!gsi_end_p (gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	   !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  stmt = gsi_stmt (gsi);
-	  gsi_next (&gsi);
+	  gimple stmt = gsi_stmt (gsi);
+
+	  /* acc_on_device must be evaluated at compile time for
+	     constant arguments.  */
+	  if (gimple_call_builtin_p (stmt, BUILT_IN_ACC_ON_DEVICE))
+	    oacc_xform_on_device (&gsi, stmt);
 	}
     }
 

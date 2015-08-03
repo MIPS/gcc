@@ -632,10 +632,14 @@ acc_set_device_num (int ord, acc_device_t d)
 
 ialias (acc_set_device_num)
 
+/* The compiler always attempts to expand acc_on_device, but if the
+   user disables the builtin, or calls it via a pointer, we have this
+   version.  */
+
 int
-acc_on_device (acc_device_t dev)
+acc_on_device (int dev)
 {
-  /* Just rely on the compiler builtin.  */
+  /* It is safe to use the compiler builtin, as we're the host.  */
   return __builtin_acc_on_device (dev);
 }
 

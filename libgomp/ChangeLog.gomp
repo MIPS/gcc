@@ -1,5 +1,10 @@
 2015-08-01  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* openacc.h (acc_on_device): Take int and explain why.
+	* oacc-init.c (acc_on_device): Likewise.
+
+2015-08-01  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* openacc.h: Note why device 3 is missing.
 	* openacc.f90: Likewise.
 	* openacc_lib.h: Likewise.
