@@ -1,5 +1,8 @@
 2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* builtins.c (expand_builtin_on_device): Don't expect to be
+	expanded on host compiler.
+
 	* gimplify.c (oacc_default_clause): Remove in_code formal
 	parameter.  Adjust all users.
 

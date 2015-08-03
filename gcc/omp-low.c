@@ -14510,12 +14510,9 @@ make_pass_late_lower_omp (gcc::context *ctxt)
   return new pass_late_lower_omp (ctxt);
 }
 
-/* Transform an acc_on_device call.  The std requires this folded at
+/* Transform an acc_on_device call.  OpenACC 2.0a requires this folded at
    compile time for constant operands.  We always fold it.  In an
-   offloaded function we're never 'none'.  We cannot detect
-   host_nonshm here, as that's a dynamic feature of the runtime.
-   However, users shouldn't be using host_nonshm anyway, only the
-   test harness.  */
+   offloaded function we're never 'none'.  */
 
 static void
 oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)

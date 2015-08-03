@@ -639,7 +639,7 @@ ialias (acc_set_device_num)
 int
 acc_on_device (int dev)
 {
-  /* It is safe to use the compiler builtin, as we're the host.  */
+  /* Just rely on the compiler builtin.  */
   return __builtin_acc_on_device (dev);
 }
 

@@ -1,14 +1,12 @@
-#include "gomp-constants.h"
+/* The compiler always attempts to expand acc_on_device, but if the
+   user disables the builtin, or calls it via a pointer, we have this
+   version.  */
 
-/* For when the builtin is explicitly disabled.  */
-int acc_on_device (int d)
+int
+acc_on_device (int dev)
 {
-  /* We can't use the builtin itself here, because that only expands
-     to device-like things inside offloaded compute regions, which
-     this isn't.  Even though it'll be executed on the device --
-     unless someone builds a host-side PTX compiler, which would be
-     very strange.  */
-  return d == GOMP_DEVICE_NOT_HOST || d == GOMP_DEVICE_NVIDIA_PTX;
+  /* Just rely on the compiler builtin.  */
+  return __builtin_acc_on_device (dev);
 }
 
 int acc_on_device_h_(int *d)

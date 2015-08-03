@@ -1,6 +1,12 @@
-2015-07-17  Nathan Sidwell  <nathan@codesourcery.com>
+2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
 
-	* config/nvptx/comp-acc_on_device.c: Include gomp-constants.h.
+	* config/nvptx/gomp-acc_on_device.c: Don't include
+	"gomp-constants.h".
+	(acc_on_device): Don't code directly here.
+
+2015-08-02  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/gomp-acc_on_device.c: Include gomp-constants.h.
 	(acc_on_device): Code directly here.
 
 2015-07-17  Nathan Sidwell  <nathan@codesourcery.com>
