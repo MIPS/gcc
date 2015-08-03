@@ -5909,8 +5909,7 @@ device_resident_p (tree decl)
    but not declared in an enclosing clause.  */
 
 static unsigned
-oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
-		     bool in_code, unsigned flags)
+oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 {
   switch (ctx->default_kind)
     {
@@ -6036,7 +6035,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	    }
 
 	  if (is_oacc)
-	    flags = oacc_default_clause (ctx, decl, in_code, flags);
+	    flags = oacc_default_clause (ctx, decl, flags);
 	  else
 	    flags |= GOVD_MAP;
 
