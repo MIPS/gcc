@@ -573,17 +573,15 @@ create_and_finalize_hsa_program (struct agent_info *agent)
 /* Create kernel dispatch data structure for given KERNEL.  */
 
 static struct hsa_kernel_dispatch *
-create_kernel_dispatch (struct kernel_info *kernel)
+create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
 {
   struct agent_info *agent = kernel->agent;
   struct hsa_kernel_dispatch *shadow = GOMP_PLUGIN_malloc_cleared
     (sizeof (struct hsa_kernel_dispatch));
 
   shadow->queue = agent->command_q;
-
-  /* Compute right size needed for memory allocation.  */
-  shadow->omp_data_memory = GOMP_PLUGIN_malloc (kernel->omp_data_size);
-
+  shadow->omp_data_memory = omp_data_size > 0
+    ? GOMP_PLUGIN_malloc (omp_data_size) : NULL;
   unsigned dispatch_count = kernel->dependencies_count;
   shadow->kernel_dispatch_count = dispatch_count;
 
@@ -634,10 +632,11 @@ release_kernel_dispatch (struct hsa_kernel_dispatch *shadow)
   free (shadow);
 }
 
-/* Initialize a KERNEL without its dependencies.  */
+/* Initialize a KERNEL without its dependencies.  MAX_OMP_DATA_SIZE is used
+   to calculate maximum necessary memory for OMP data allocation.  */
 
 static void
-init_single_kernel (struct kernel_info *kernel)
+init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
 {
   hsa_status_t status;
   struct agent_info *agent = kernel->agent;
@@ -683,13 +682,16 @@ init_single_kernel (struct kernel_info *kernel)
 	       kernel->omp_data_size);
     }
 
+  if (kernel->omp_data_size > *max_omp_data_size)
+    *max_omp_data_size = kernel->omp_data_size;
+
   /* FIXME: do not consider all kernels to live in a same module.  */
   struct module_info *module = kernel->agent->first_module;
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
     {
       struct kernel_info *dependency = get_kernel_in_module
 	(module, kernel->dependencies[i]);
-      init_single_kernel (dependency);
+      init_single_kernel (dependency, max_omp_data_size);
     }
 }
 
@@ -738,11 +740,14 @@ print_kernel_dispatch (struct hsa_kernel_dispatch *dispatch, unsigned indent)
    dependencies.  */
 
 static struct hsa_kernel_dispatch *
-create_kernel_dispatch_recursive (struct kernel_info *kernel)
+create_kernel_dispatch_recursive (struct kernel_info *kernel,
+				  unsigned omp_data_size)
 {
   // TODO: find correct module
   struct module_info *module = kernel->agent->first_module;
-  struct hsa_kernel_dispatch *shadow = create_kernel_dispatch (kernel);
+
+  struct hsa_kernel_dispatch *shadow = create_kernel_dispatch (kernel,
+							       omp_data_size);
   shadow->debug = 0;
 
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
@@ -750,7 +755,7 @@ create_kernel_dispatch_recursive (struct kernel_info *kernel)
       struct kernel_info *dependency = get_kernel_in_module
 	(module, kernel->dependencies[i]);
       shadow->children_dispatches[i] = create_kernel_dispatch_recursive
-	(dependency);
+	(dependency, omp_data_size);
     }
 
   return shadow;
@@ -760,7 +765,7 @@ create_kernel_dispatch_recursive (struct kernel_info *kernel)
    The function assumes the program has been created, finalized and frozen by
    create_and_finalize_hsa_program.  */
 
-void
+unsigned
 init_kernel (struct kernel_info *kernel)
 {
   if (pthread_mutex_lock (&kernel->init_mutex))
@@ -770,10 +775,11 @@ init_kernel (struct kernel_info *kernel)
       if (pthread_mutex_unlock (&kernel->init_mutex))
 	GOMP_PLUGIN_fatal ("Could not unlock an HSA kernel initialization "
 			   "mutex");
-      return;
+      return 0;
     }
 
-  init_single_kernel (kernel);
+  unsigned max_omp_data_size = 0;
+  init_single_kernel (kernel, &max_omp_data_size);
 
   if (debug)
     fprintf (stderr, "\n");
@@ -782,6 +788,8 @@ init_kernel (struct kernel_info *kernel)
   if (pthread_mutex_unlock (&kernel->init_mutex))
     GOMP_PLUGIN_fatal ("Could not unlock an HSA kernel initialization "
 		       "mutex");
+
+  return max_omp_data_size;
 }
 
 /* Part of the libgomp plugin interface.  Run a kernel on a device N and pass
@@ -797,9 +805,9 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars)
     GOMP_PLUGIN_fatal ("Unable to read-lock an HSA agent rwlock");
 
   create_and_finalize_hsa_program (agent);
-  init_kernel (kernel);
+  unsigned max_omp_data_size = init_kernel (kernel) ;
   struct hsa_kernel_dispatch *shadow = create_kernel_dispatch_recursive
-    (kernel);
+    (kernel, max_omp_data_size);
 
   if (debug)
     {

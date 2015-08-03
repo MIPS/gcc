@@ -1,5 +1,15 @@
 2015-08-03  Martin Liska  <mliska@suse.cz>
 
+	* plugin/plugin-hsa.c (create_kernel_dispatch): Calculate maximum
+	memory necessary for OMP data.
+	(init_single_kernel): Likewise.
+	(create_kernel_dispatch_recursive): Pass new argument with maximum
+	OMP data size.
+	(init_kernel): Likewise.
+	(GOMP_OFFLOAD_run): Likewise.
+
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
 	* plugin/plugin-hsa.c (init_single_kernel): Initialize recursively
 	all dependent kernels.
 	(init_kernel): Moved from this location.
