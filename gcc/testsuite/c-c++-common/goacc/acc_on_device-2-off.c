@@ -1,12 +1,14 @@
 /* Have to enable optimizations, as otherwise builtins won't be expanded.  */
 /* { dg-additional-options "-O -fdump-rtl-expand -fno-openacc" } */
 
+/* Duplicate parts of libgomp/openacc.h, because we can't include it here.  */
+
 #if __cplusplus
 extern "C" {
 #endif
 
 typedef enum acc_device_t { acc_device_X = 123 } acc_device_t;
-extern int acc_on_device (acc_device_t);
+extern int acc_on_device (int);
 
 #if __cplusplus
 }

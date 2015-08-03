@@ -1,5 +1,9 @@
 2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/acc_on_device-2-off.c (acc_on_device): Change
+	formal parameter to int.
+	* c-c++-common/goacc/acc_on_device-2.c (acc_on_device): Likewise.
+
 	* c-c++-common/restrict-2.c: Update for new pass_lim.
 	* c-c++-common/restrict-4.c: Same.
 	* g++.dg/tree-ssa/pr33615.C: Same.
