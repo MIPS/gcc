@@ -682,6 +682,15 @@ init_single_kernel (struct kernel_info *kernel)
       fprintf (stderr, "  omp_data_size: %u\n",
 	       kernel->omp_data_size);
     }
+
+  /* FIXME: do not consider all kernels to live in a same module.  */
+  struct module_info *module = kernel->agent->first_module;
+  for (unsigned i = 0; i < kernel->dependencies_count; i++)
+    {
+      struct kernel_info *dependency = get_kernel_in_module
+	(module, kernel->dependencies[i]);
+      init_single_kernel (dependency);
+    }
 }
 
 /* Indent stream F by INDENT spaces.  */
@@ -765,16 +774,6 @@ init_kernel (struct kernel_info *kernel)
     }
 
   init_single_kernel (kernel);
-
-  struct agent_info *agent = kernel->agent;
-  struct module_info *module = agent->first_module;
-
-  for (unsigned i = 0; i < kernel->dependencies_count; i++)
-    {
-      struct kernel_info *dependency = get_kernel_in_module
-	(module, kernel->dependencies[i]);
-      init_single_kernel (dependency);
-    }
 
   if (debug)
     fprintf (stderr, "\n");

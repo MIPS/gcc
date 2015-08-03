@@ -1,5 +1,11 @@
 2015-08-03  Martin Liska  <mliska@suse.cz>
 
+	* plugin/plugin-hsa.c (init_single_kernel): Initialize recursively
+	all dependent kernels.
+	(init_kernel): Moved from this location.
+
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
 	* plugin/plugin-hsa.c (struct hsa_kernel_description): New structure.
 	(struct brig_image_desc): Use it.
 	(struct kernel_info): Add omp_data_size member.
