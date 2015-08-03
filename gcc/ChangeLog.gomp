@@ -1,5 +1,10 @@
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* config/nvptx/mkoffload.c (process): Avoid printf formatting
+	warning.
+
+2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* gimplify.c (GOVD_GANGLOCAL): Delete.
 	(oacc_default_clause): Only derereference reference types. Mark
 	firstprivate as GOVD_FIRSTPRIVATE.

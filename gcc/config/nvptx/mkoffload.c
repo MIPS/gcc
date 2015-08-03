@@ -225,16 +225,16 @@ access_check (const char *name, int mode)
 static void
 process (FILE *in, FILE *out)
 {
-  size_t len;
+  size_t len = 0;
   const char *input = read_file (in, &len);
   const char *comma;
   id_map const *id;
   unsigned obj_count = 0;
-  size_t i;
+  unsigned ix;
 
   /* Dump out char arrays for each PTX object file.  These are
      terminated by a NUL.  */
-  for (i = 0; i != len;)
+  for (size_t i = 0; i != len;)
     {
       char c;
       
@@ -280,8 +280,8 @@ process (FILE *in, FILE *out)
 	   "  const char *code;\n"
 	   "  __SIZE_TYPE__ size;\n"
 	   "} ptx_objs[] = {");
-  for (comma = "", i = 0; i != obj_count; comma = ",", i++)
-    fprintf (out, "%s\n\t{ptx_code_%u, sizeof (ptx_code_%u)}", comma, i, i);
+  for (comma = "", ix = 0; ix != obj_count; comma = ",", ix++)
+    fprintf (out, "%s\n\t{ptx_code_%u, sizeof (ptx_code_%u)}", comma, ix, ix);
   fprintf (out, "\n};\n\n");
 
   /* Dump out variable idents.  */
