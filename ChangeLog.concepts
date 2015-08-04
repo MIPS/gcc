@@ -1,5 +1,11 @@
 2015-08-03  Jason Merrill  <jason@redhat.com>
 
+	PR c++/67084
+	* pt.c (spec_hasher::equal): Compare constraints.
+	(check_explicit_specialization): Don't register partial specs.
+	(process_partial_specialization): Register them here.
+	(lookup_template_class_1): Clear elt.spec.
+
 	* pt.c (maybe_new_partial_specialization): An existing
 	specialization only matches if both args and constraints match.
 

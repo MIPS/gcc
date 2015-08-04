@@ -1684,8 +1684,7 @@ register_specialization (tree spec, tree tmpl, tree args, bool is_friend,
   return spec;
 }
 
-/* Returns true iff two spec_entry nodes are equivalent.  Only compares the
-   TMPL and ARGS members, ignores SPEC.  */
+/* Returns true iff two spec_entry nodes are equivalent.  */
 
 int comparing_specializations;
 
@@ -1697,6 +1696,16 @@ spec_hasher::equal (spec_entry *e1, spec_entry *e2)
   ++comparing_specializations;
   equal = (e1->tmpl == e2->tmpl
 	   && comp_template_args (e1->args, e2->args));
+  if (equal && flag_concepts
+      && VAR_P (DECL_TEMPLATE_RESULT (e1->tmpl))
+      && uses_template_parms (e1->args))
+    {
+      /* Partial specializations of a variable template can be distinguished by
+	 constraints.  */
+      tree c1 = e1->spec ? get_constraints (e1->spec) : NULL_TREE;
+      tree c2 = e2->spec ? get_constraints (e2->spec) : NULL_TREE;
+      equal = equivalent_constraints (c1, c2);
+    }
   --comparing_specializations;
 
   return equal;
@@ -3138,9 +3147,12 @@ check_explicit_specialization (tree declarator,
 	  else if (VAR_P (decl))
 	    DECL_COMDAT (decl) = false;
 
-	  /* Register this specialization so that we can find it
-	     again.  */
-	  decl = register_specialization (decl, gen_tmpl, targs, is_friend, 0);
+	  /* If this is a full specialization, register it so that we can find
+	     it again.  Partial specializations will be registered in
+	     process_partial_specialization.  */
+	  if (!processing_template_decl)
+	    decl = register_specialization (decl, gen_tmpl, targs,
+					    is_friend, 0);
 
 	  /* A 'structor should already have clones.  */
 	  gcc_assert (decl == error_mark_node
@@ -4730,6 +4742,11 @@ process_partial_specialization (tree decl)
   DECL_TEMPLATE_INFO (tmpl) = build_template_info (maintmpl, specargs);
   DECL_PRIMARY_TEMPLATE (tmpl) = maintmpl;
   set_constraints (tmpl, tmpl_constr);
+
+  if (VAR_P (decl))
+    /* We didn't register this in check_explicit_specialization so we could
+       wait until the constraints were set.  */
+    decl = register_specialization (decl, maintmpl, specargs, false, 0);
 
   DECL_TEMPLATE_SPECIALIZATIONS (maintmpl)
     = tree_cons (specargs, tmpl,
@@ -8285,6 +8302,7 @@ lookup_template_class_1 (tree d1, tree arglist, tree in_decl, tree context,
       /* If we already have this specialization, return it.  */
       elt.tmpl = gen_tmpl;
       elt.args = arglist;
+      elt.spec = NULL_TREE;
       hash = spec_hasher::hash (&elt);
       entry = type_specializations->find_with_hash (&elt, hash);
 
