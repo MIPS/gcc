@@ -1,3 +1,7 @@
+2015-08-04  Jason Merrill  <jason@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Define __cpp_concepts.
+
 2015-08-03  Jason Merrill  <jason@redhat.com>
 
 	PR c++/67084
