@@ -65,6 +65,7 @@
    UNSPECV_CAS
    UNSPECV_XCHG
    UNSPECV_BARSYNC
+   UNSPECV_MEMBAR
    UNSPECV_DIM_POS
 
    UNSPECV_FORK
@@ -1564,6 +1565,11 @@
   ""
   "bar.sync\\t%0;")
 
+(define_insn "nvptx_membar"
+  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
+		    UNSPECV_MEMBAR)]
+  ""
+  "membar%M0;")
 
 ;; spinlock and unlock
 (define_insn "nvptx_spinlock"

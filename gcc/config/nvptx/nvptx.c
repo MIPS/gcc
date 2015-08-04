@@ -69,6 +69,11 @@
 #define SHUFFLE_BFLY 2
 #define SHUFFLE_IDX 3
 
+/* Memory barrier levels.  */
+#define BARRIER_SHARED 0
+#define BARRIER_GLOBAL 1
+#define BARRIER_SYS 2
+
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
 static std::stringstream func_decls;
@@ -107,14 +112,46 @@ static GTY(()) rtx worker_bcast_sym;
 #define LOCK_GLOBAL 0
 #define LOCK_SHARED 1
 #define LOCK_MAX    2
-static const char *const lock_names[] = 
-  {"__global_lock", "__shared_lock"};
-static const char *const lock_regions[] = 
-  {"global", "shared"};
-static unsigned lock_space[] =
-  {ADDR_SPACE_GLOBAL, ADDR_SPACE_SHARED};
+static const char *const lock_names[] = {"__global_lock", "__shared_lock"};
+static const unsigned lock_space[] = {ADDR_SPACE_GLOBAL, ADDR_SPACE_SHARED};
+static const unsigned lock_level[] = {BARRIER_GLOBAL, BARRIER_SHARED};
 static GTY(()) rtx lock_syms[LOCK_MAX];
 static bool lock_used[LOCK_MAX];
+
+/* Size of buffer needed for worker reductions.  This has to be
+   disjoing from the worker broadcast array, as both may be live
+   concurrently.  */
+static unsigned worker_red_hwm;
+static unsigned worker_red_align;
+#define worker_red_name "__worker_red"
+static GTY(()) rtx worker_red_sym;
+
+/* To process worker-level reductions we need a buffer in CTA local
+   (.shared) memory.  As the number of loops per function and number
+   of reductions per loop are likely to be small numbers, we use
+   simple unsorted vectors to hold the mappings.  */
+
+/* Mapping from a reduction to an offset within the worker reduction
+   array.  */
+typedef std::pair<unsigned, unsigned> var_red_t;
+
+/* Mapping from loops within a function to lists of reductions on that
+   loop.  */
+struct loop_red
+{
+  unsigned id;  /* Loop ID.  */
+  unsigned hwm;  /* Allocated worker buffer for this loop.  */
+  auto_vec<var_red_t> vars;   /* Reduction variables of the loop.  */
+
+  loop_red (unsigned id_)
+  :id (id_), hwm (0) 
+  {
+  }
+};
+
+/* It would be nice to put this intp machine_function, but auto_vec
+   pulls in too much other stuff.   */
+static auto_vec<loop_red> loop_reds;
 
 /* Allocate a new, cleared machine_function structure.  */
 
@@ -146,6 +183,9 @@ nvptx_option_override (void)
 
   worker_bcast_sym = gen_rtx_SYMBOL_REF (Pmode, worker_bcast_name);
   worker_bcast_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
+
+  worker_red_sym = gen_rtx_SYMBOL_REF (Pmode, worker_red_name);
+  worker_red_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
 
   for (unsigned ix = LOCK_MAX; ix--;)
     lock_syms[ix] = gen_rtx_SYMBOL_REF (Pmode, lock_names[ix]);
@@ -1893,6 +1933,7 @@ nvptx_print_operand_address (FILE *file, rtx addr)
    A -- print an address space identifier for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
    f -- print a full reg even for something that must always be split
+   B -- print a memory barrier level specified by CONST_INT
    R -- print an address space specified by CONST_INT
    S -- print a shuffle kind specified by CONST_INT
    t -- print a type opcode suffix, promoting QImode to 32 bits
@@ -1936,6 +1977,15 @@ nvptx_print_operand (FILE *file, rtx x, int code)
       }
       break;
 
+    case 'B':
+      {
+	unsigned kind = UINTVAL (x);
+	static const char *const kinds[] = 
+	  {"cta", "gl", "sys"};
+	fprintf (file, ".%s", kinds[kind]);
+      }
+      break;
+      
     case 't':
       op_mode = nvptx_underlying_object_mode (x);
       fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, true));
@@ -2945,6 +2995,19 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
     nvptx_neuter_pars (par->next, modes, outer);
 }
 
+static void
+nvptx_reorg_reductions (void)
+{
+  unsigned ix;
+
+  for (ix = loop_reds.length (); ix--;)
+    {
+      if (loop_reds[ix].hwm > worker_red_hwm)
+	worker_red_hwm = loop_reds[ix].hwm;
+      loop_reds.pop ();
+    }
+}
+
 /* NVPTX machine dependent reorg.
    Insert vector and worker single neutering code and state
    propagation when entering partioned mode.  Fixup subregs.  */
@@ -2952,6 +3015,8 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 static void
 nvptx_reorg (void)
 {
+  nvptx_reorg_reductions ();
+  
   /* We are freeing block_for_insn in the toplev to keep compatibility
      with old MDEP_REORGS that are not CFG based.  Recompute it now.  */
   compute_bb_for_insn ();
@@ -3171,13 +3236,27 @@ nvptx_file_end (void)
 	       worker_bcast_name, worker_bcast_hwm);
     }
 
+  if (worker_red_hwm)
+    {
+      /* Define the reduction buffer.  */
+
+      worker_red_hwm = (worker_red_hwm + worker_red_align - 1)
+	& ~(worker_red_align - 1);
+      
+      fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_red_name);
+      fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
+	       worker_red_align,
+	       worker_red_name, worker_red_hwm);
+    }
+
   /* Emit lock variables.  */
   for (unsigned ix = LOCK_MAX; ix--;)
     if (lock_used[ix])
       {
 	fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", lock_names[ix]);
-	fprintf (asm_out_file, ".%s .u32 %s;\n",
-		 lock_regions[ix], lock_names[ix]);
+	fprintf (asm_out_file, "%s .u32 %s;\n",
+		 nvptx_section_from_addr_space (lock_space[ix]),
+		 lock_names[ix]);
       }
 }
 
@@ -3187,15 +3266,12 @@ struct builtin_description
 {
   const char *name;
   unsigned short type;
-  rtx (*expander) (const struct builtin_description *, tree,
-		   rtx, machine_mode, int);
+  rtx (*expander) (tree, rtx, machine_mode, int);
 };
-
 
 /* Expander for the shuffle down builtins.  */
 static rtx
-nvptx_expand_shuffle_down (const struct builtin_description *ARG_UNUSED (desc),
-			   tree exp, rtx target, machine_mode mode, int ignore)
+nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
 {
   if (ignore)
     return target;
@@ -3222,8 +3298,7 @@ nvptx_expand_shuffle_down (const struct builtin_description *ARG_UNUSED (desc),
 
 /* Expander for locking and unlocking.  */
 static rtx
-nvptx_expand_lock_unlock (const struct builtin_description *desc,
-			   tree exp, bool lock)
+nvptx_expand_lock_unlock (tree exp, bool lock)
 {
   rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
 			 NULL_RTX, SImode, EXPAND_NORMAL);
@@ -3232,41 +3307,103 @@ nvptx_expand_lock_unlock (const struct builtin_description *desc,
   
   kind = GET_CODE (src) == CONST_INT ? INTVAL  (src) : LOCK_MAX;
   if (kind >= LOCK_MAX)
-    error ("builtin %<%s%> requires constant argument less than %u",
-	   desc->name, LOCK_MAX);
+    error ("builtin %D requires constant argument less than %u",
+	   get_callee_fndecl (exp), LOCK_MAX);
   lock_used[kind] = true;
 
   rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
   rtx space = GEN_INT (lock_space[kind]);
-  
+  rtx barrier = gen_nvptx_membar (GEN_INT (lock_level[kind]));
+
+  if (!lock)
+    emit_insn (barrier);
   if (lock)
     pat = gen_nvptx_spinlock (mem, space,
 			      gen_reg_rtx (SImode), gen_reg_rtx (BImode));
   else
     pat = gen_nvptx_spinunlock (mem, space);
-  if (pat)
-    emit_insn (pat);
+  emit_insn (pat);
+  if (lock)
+    emit_insn (barrier);
   return const0_rtx;
 }
 
 /* Lock expander.  */
 
 static rtx
-nvptx_expand_lock (const struct builtin_description *desc,
-		   tree exp, rtx ARG_UNUSED (target),
+nvptx_expand_lock (tree exp, rtx ARG_UNUSED (target),
 		   machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
 {
-  return nvptx_expand_lock_unlock (desc, exp, true);
+  return nvptx_expand_lock_unlock (exp, true);
 }
 
 /* Unlock expander.  */
 
 static rtx
-nvptx_expand_unlock (const struct builtin_description *desc,
-		   tree exp, rtx ARG_UNUSED (target),
-		   machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
+nvptx_expand_unlock (tree exp, rtx ARG_UNUSED (target),
+		     machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
 {
-  return nvptx_expand_lock_unlock (desc, exp, false);
+  return nvptx_expand_lock_unlock (exp, false);
+}
+
+/* Worker reduction address expander.  */
+static rtx
+nvptx_expand_work_red_addr (tree exp, rtx target,
+			    machine_mode ARG_UNUSED (mode),
+			    int ignore)
+{
+  if (ignore)
+    return target;
+  
+  rtx loop_id = expand_expr (CALL_EXPR_ARG (exp, 0),
+			     NULL_RTX, mode, EXPAND_NORMAL);
+  rtx red_id = expand_expr (CALL_EXPR_ARG (exp, 1),
+			     NULL_RTX, mode, EXPAND_NORMAL);
+  gcc_assert (GET_CODE (loop_id) == CONST_INT
+	      && GET_CODE (red_id) == CONST_INT);
+  gcc_assert (REG_P (target));
+
+  unsigned lid = (unsigned)UINTVAL (loop_id);
+  unsigned rid = (unsigned)UINTVAL (red_id);
+
+  unsigned ix;
+
+  for (ix = 0; ix != loop_reds.length (); ix++)
+    if (loop_reds[ix].id == lid)
+      goto found_lid;
+  /* Allocate a new loop.  */
+  loop_reds.safe_push (loop_red (lid));
+ found_lid:
+  loop_red &loop = loop_reds[ix];
+  for (ix = 0; ix != loop.vars.length (); ix++)
+    if (loop.vars[ix].first == rid)
+      goto found_rid;
+
+  /* Allocate a new var. */
+  {
+    tree type = TREE_TYPE (TREE_TYPE (exp));
+    enum machine_mode mode = TYPE_MODE (type);
+    unsigned align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
+    unsigned off = loop.hwm;
+
+    if (align > worker_red_align)
+      worker_red_align = align;
+    off = (off + align - 1) & ~(align -1);
+    loop.hwm = off + GET_MODE_SIZE (mode);
+    loop.vars.safe_push (var_red_t (rid, off));
+  }
+ found_rid:
+
+  /* Return offset into worker reduction array.  */
+  unsigned offset = loop.vars[ix].second;
+  
+  rtx addr = gen_reg_rtx (Pmode);
+  emit_move_insn (addr,
+		  gen_rtx_PLUS (Pmode, worker_red_sym, GEN_INT (offset)));
+  emit_insn (gen_rtx_SET (target,
+			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr),
+					  UNSPEC_FROM_SHARED)));
+  return target;
 }
 
 enum nvptx_types
@@ -3276,7 +3413,10 @@ enum nvptx_types
     NT_FLT_FLT_INT,
     NT_DBL_DBL_INT,
     NT_VOID_UINT,
-
+    NT_UINTPTR_UINT_UINT,
+    NT_ULLPTR_UINT_UINT,
+    NT_FLTPTR_UINT_UINT,
+    NT_DBLPTR_UINT_UINT,
     NT_MAX
   };
 
@@ -3292,6 +3432,14 @@ static const struct builtin_description builtins[] =
    nvptx_expand_shuffle_down},
   {"__builtin_nvptx_lock", NT_VOID_UINT, nvptx_expand_lock},
   {"__builtin_nvptx_unlock", NT_VOID_UINT, nvptx_expand_unlock},
+  {"__builtin_nvptx_work_red_addr", NT_UINTPTR_UINT_UINT,
+   nvptx_expand_work_red_addr},
+  {"__builtin_nvptx_work_red_addrll", NT_ULLPTR_UINT_UINT,
+   nvptx_expand_work_red_addr},
+  {"__builtin_nvptx_work_red_addrf", NT_FLTPTR_UINT_UINT,
+   nvptx_expand_work_red_addr},
+  {"__builtin_nvptx_work_red_addrd", NT_DBLPTR_UINT_UINT,
+   nvptx_expand_work_red_addr},
 };
 
 #define NVPTX_BUILTIN_MAX (sizeof (builtins) / sizeof (builtins[0]))
@@ -3331,10 +3479,31 @@ nvptx_init_builtins (void)
   types[NT_VOID_UINT]
     = build_function_type_list (void_type_node, unsigned_type_node, NULL_TREE);
 
+  types[NT_UINTPTR_UINT_UINT]
+    = build_function_type_list (build_pointer_type (unsigned_type_node),
+				unsigned_type_node, unsigned_type_node,
+				NULL_TREE);
+
+  types[NT_ULLPTR_UINT_UINT]
+    = build_function_type_list (build_pointer_type
+				(long_long_unsigned_type_node),
+				unsigned_type_node, unsigned_type_node,
+				NULL_TREE);
+
+  types[NT_FLTPTR_UINT_UINT]
+    = build_function_type_list (build_pointer_type (float_type_node),
+				unsigned_type_node, unsigned_type_node,
+				NULL_TREE);
+
+  types[NT_DBLPTR_UINT_UINT]
+    = build_function_type_list (build_pointer_type (double_type_node),
+				unsigned_type_node, unsigned_type_node,
+				NULL_TREE);
+
   for (ix = 0; ix != NVPTX_BUILTIN_MAX; ix++)
     nvptx_builtin_decls[ix]
-      =  add_builtin_function (builtins[ix].name, types[builtins[ix].type],
-			       ix, BUILT_IN_MD, NULL, NULL_TREE);
+      = add_builtin_function (builtins[ix].name, types[builtins[ix].type],
+			      ix, BUILT_IN_MD, NULL, NULL);
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -3352,7 +3521,7 @@ nvptx_expand_builtin (tree exp, rtx target,
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
   const struct builtin_description *d = &builtins[DECL_FUNCTION_CODE (fndecl)];
 
-  return d->expander (d, exp, target, mode, ignore);
+  return d->expander (exp, target, mode, ignore);
 }
 
 #undef TARGET_OPTION_OVERRIDE

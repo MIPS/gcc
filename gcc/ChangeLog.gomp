@@ -1,3 +1,31 @@
+2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (UNSPECV_MEMBAR): New.
+	(nvptx_membar): New insn.
+	* config/nvptx/nvptx.c (BARRIER_SHARED, BARRIER_GLOBAL,
+	BARRIER_SYS): New.
+	(lock_names, lock_space): Constify.
+	(lock_level): New.
+	(worker_red_hwm, worker_red_align, worker_red_name,
+	worker_red_sym): New.
+	(var_red_t, struct loop_red): New types.
+	(loop_red): New.
+	(nvptx_print_operand): Add 'B' case.
+	(nvptx_reorg_reductions): New.
+	(nvptx_reorg): Call it.
+	(nvptx_file_end): Emit worker reduction array.
+	(struct builtin_descriptor):  Remove builtin pointer from
+	expander.
+	(nvptx_expand_shuffle_down, nvptx_expand_lock_unlock,
+	nvptx_expand_lock, nvptx_expand_unlock): Adjust.
+	(nvptx_expand_lock_unlock): Emit barrier too.
+	(nvptx_expand_work_red_addr): New.
+	(NT_UINTPTR_UINT_UINT, NT_ULLPTR_UINT_UINT, NT_FLTPTR_UINT_UINT,
+	NT_DBLPTR_UINT_UINT): New.
+	(builtins): Add new builtins.
+	(nvptx_init_builtins): Create new types.
+	(nvptx_expand_builtin): Adjust expander call.
+
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* internal-fn.def (GOACC_DIM_SIZE, GOACC_DFIM_POS): New.
