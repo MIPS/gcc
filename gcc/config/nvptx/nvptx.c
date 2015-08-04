@@ -3524,6 +3524,57 @@ nvptx_expand_builtin (tree exp, rtx target,
   return d->expander (exp, target, mode, ignore);
 }
 
+/* Validate compute dimensions, fill in defaults.  */
+
+static tree
+nvptx_validate_dims (tree decl, tree dims)
+{
+  tree adims[GOMP_DIM_MAX];
+  unsigned ix;
+  bool changed = false;
+  tree pos = dims;
+
+  for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+    {
+      adims[ix] = TREE_VALUE (pos);
+      pos = TREE_CHAIN (pos);
+    }
+  /* Define vector size for known hardware.  */
+#define PTX_VECTOR_LENGTH 32
+  /* If the worker size is not 1, the vector size must be 32.  If
+     the vector size is not 1, it must be 32.  */
+  if ((adims[GOMP_DIM_WORKER]
+       && TREE_INT_CST_LOW (adims[GOMP_DIM_WORKER]) != 1)
+      || (adims[GOMP_DIM_VECTOR]
+	  && TREE_INT_CST_LOW (adims[GOMP_DIM_VECTOR]) != 1))
+    {
+      if (!adims[GOMP_DIM_VECTOR]
+	  || TREE_INT_CST_LOW (adims[GOMP_DIM_VECTOR]) != PTX_VECTOR_LENGTH)
+	{
+	  tree use = build_int_cst (integer_type_node, PTX_VECTOR_LENGTH);
+	  if (adims[GOMP_DIM_VECTOR])
+	    warning_at (DECL_SOURCE_LOCATION (decl), 0,
+			TREE_INT_CST_LOW (adims[GOMP_DIM_VECTOR])
+			? "using vector_length (%E), ignoring %E"
+			: "using vector_length (%E), ignoring runtime setting",
+			use, adims[GOMP_DIM_VECTOR]);
+	  adims[GOMP_DIM_VECTOR] = use;
+	}
+    }
+
+  /* Set defaults.  */
+  for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+    if (!adims[ix])
+      adims[ix] = integer_one_node;
+
+  /* Write results.  */
+  pos = dims;
+  for (ix = 0; ix != GOMP_DIM_MAX; ix++, pos = TREE_CHAIN (pos))
+    TREE_VALUE (pos) = adims[ix];
+  
+  return dims;
+}
+
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
 
@@ -3617,6 +3668,9 @@ nvptx_expand_builtin (tree exp, rtx target,
 #define TARGET_EXPAND_BUILTIN nvptx_expand_builtin
 #undef  TARGET_BUILTIN_DECL
 #define TARGET_BUILTIN_DECL nvptx_builtin_decl
+
+#undef TARGET_GOACC_VALIDATE_DIMS
+#define TARGET_GOACC_VALIDATE_DIMS nvptx_validate_dims
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

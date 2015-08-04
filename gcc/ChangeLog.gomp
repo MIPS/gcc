@@ -1,5 +1,22 @@
 2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* doc/tm.texi.in (TARGET_GOACC_VALIDATE_DIMS): Add hook.
+	* doc/tm.texi: Regenerated.
+	* target.def (TARGET_GOACC): New hook prefix.
+	(validate_dims): New.
+	* targhooks.h (default_goacc_validate_dims): Declare.
+	* internal-fn.def: Add comments.
+	(GOACC_DIM_POS): Make pure.
+	* config/nvptx/nvptx.c (nvptx_validate_dims): New.
+	(TARGET_GOACC_VALIDATE_DIMS): Override.
+	* omp-low.h (set_oacc_fn_attrib): Leave default dims as NULL.
+	(oacc_xform_dim): New.
+	(execute_oacc_transform): Process launch dimensions. Optimize
+	DIM_SIZE and DIM_POS.  Delete FORK & JOIN on host.
+	(default_oacc_validate_dims): New.
+
+2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.md (nvptx_shuffle<mode>): Adjust assembly.
 	* config/nvptx/nvptx.c (nvptx_print_operand): Adjust 'S' case to
 	print leading . for consistency.

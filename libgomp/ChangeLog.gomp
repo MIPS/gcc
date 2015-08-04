@@ -1,3 +1,8 @@
+2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Add warning.
+	* testsuite/libgomp.oacc-c-c++-common/routine-2.c: Add warning.
+
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* plugin/plugin-nvptx.c: Don't include dlfcn.h.

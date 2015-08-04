@@ -5740,6 +5740,12 @@ usable.  In that case, the smaller the number is, the more desirable it is
 to use it.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_GOACC_VALIDATE_DIMS (tree, @var{tree})
+This hook should check the launch dimensions provided/ It should fill
+in default values and verify non-defaults.  The TREE_LIST is unshared
+and may be overwritten.  Diagnostics should be issued as appropriate.
+@end deftypefn
+
 @node Anchored Addresses
 @section Anchored Addresses
 @cindex anchored addresses

@@ -64,7 +64,22 @@ DEF_INTERNAL_FN (MUL_OVERFLOW, ECF_CONST | ECF_LEAF | ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (TSAN_FUNC_EXIT, ECF_NOVOPS | ECF_LEAF | ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (VA_ARG, ECF_NOTHROW | ECF_LEAF, NULL)
 DEF_INTERNAL_FN (GOACC_DATA_END_WITH_ARG, ECF_NOTHROW, ".r")
+
+/* FORK and JOIN mark the points at which partitioned execution is
+   entered or exited.  We arrange for these two function to be
+   unduplicable and uncombinable in order to preserve the SESE CFG
+   property of partitioned loops.  These are non-const functions to prevent
+   optimizations migrating memory accesses across a partition change
+   boundary.  They take a single INTEGER_CST
+   argument and return nothing.  */
 DEF_INTERNAL_FN (GOACC_FORK, ECF_NOTHROW | ECF_LEAF, ".")
 DEF_INTERNAL_FN (GOACC_JOIN, ECF_NOTHROW | ECF_LEAF, ".")
+
+/* DIM_SIZE and DIM_POS return the size of a particular compute
+   dimension and the executing thread's position within that
+   dimension.  DIM_POS is pure (and not const) so that it isn't
+   thought to clobber memory and can be gcse'd within a single
+   parallel region, but not across FORK/JOIN boundaries.  They take a
+   single INTEGER_CST argument.  */
 DEF_INTERNAL_FN (GOACC_DIM_SIZE, ECF_CONST | ECF_NOTHROW | ECF_LEAF, ".")
-DEF_INTERNAL_FN (GOACC_DIM_POS, ECF_NOTHROW | ECF_LEAF, ".")
+DEF_INTERNAL_FN (GOACC_DIM_POS, ECF_PURE | ECF_NOTHROW | ECF_LEAF, ".")

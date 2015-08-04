@@ -1,6 +1,6 @@
 /* FIXME: remove -fno-var-tracking from dg-aditional-options.  */
 
-/* { dg-do run } */
+/* { dg-do run { target openacc_nvidia_accel_selected }  } */
 /* { dg-additional-options "-fno-inline -fno-var-tracking" } */
 
 #include <stdio.h>
@@ -23,7 +23,7 @@ main()
 
   a = (int *)malloc (sizeof (int) * n);
 
-#pragma acc parallel copy (a[0:n]) vector_length (5)
+#pragma acc parallel copy (a[0:n]) vector_length (5) /* { dg-warning "using vector_length" } */
   {
 #pragma acc loop
     for (i = 0; i < n; i++)

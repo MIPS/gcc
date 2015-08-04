@@ -9293,7 +9293,9 @@ oacc_launch_pack (unsigned code, tree device, unsigned op)
 
    The attribute value is a TREE_LIST.  A set of dimensions is
    represented as a list of INTEGER_CST.  Those that are runtime
-   expres are represented as an INTEGER_CST of zero.
+   expres are represented as an INTEGER_CST of zero.  Defaults are set
+   as NULL_TREE and will be filled in later by the target hook
+   TARGET_OACC_VALIDATE_DIMS.
 
    TOOO. Normally the attribute will just contain a single such list.  If
    however it contains a list of lists, this will represent the use of
@@ -9317,14 +9319,12 @@ set_oacc_fn_attrib (tree clauses, tree fn, vec<tree> *args)
   for (ix = GOMP_DIM_MAX; ix--;)
     {
       tree clause = find_omp_clause (clauses, ids[ix]);
-      tree dim;
+      tree dim = NULL_TREE;
 
-      if (!clause)
-	dim = integer_one_node;
-      else
+      if (clause)
 	dim = OMP_CLAUSE_EXPR (clause, ids[ix]);
       dims[ix] = dim;
-      if (TREE_CODE (dim) != INTEGER_CST)
+      if (dim && TREE_CODE (dim) != INTEGER_CST)
 	{
 	  dim = integer_zero_node;
 	  non_const |= GOMP_DIM_MASK (ix);
@@ -14586,33 +14586,124 @@ oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)
   gsi_replace_with_seq (gsi, replace, false);
 }
 
+/* Transform oacc_dim_size and oacc_dim_pos internal function calls to
+   constants, where possible.  */
+
+static void
+oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
+		tree dims, bool is_pos)
+{
+  tree arg = gimple_call_arg (stmt, 0);
+  unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
+  while (axis--)
+    dims = TREE_CHAIN (dims);
+  unsigned size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+
+  if (size == 0)
+    /* Dimension size is dynamic.  */
+    return;
+  if (is_pos)
+    {
+      if (size != 1)
+	/* Size is more than 1.  */
+	return;
+      size = 0;
+    }
+
+  /* Replace the internal call with a constant.  */
+  tree lhs = gimple_call_lhs (stmt);
+  gimple g = gimple_build_assign
+    (lhs, build_int_cst (unsigned_type_node, size));
+  gsi_replace (gsi, g, false);
+}
+
 /* Main entry point for oacc transformations which run on the device
-   compilerafter LTO, so we know what the target device is at this
+   compiler after LTO, so we know what the target device is at this
    point (including the host fallback).  */
 
 static unsigned int
 execute_oacc_transform ()
 {
   basic_block bb;
-
-  if (!get_oacc_fn_attrib (current_function_decl))
+  tree attrs = get_oacc_fn_attrib (current_function_decl);
+  
+  if (!attrs)
+    /* Not an offloaded function.  */
     return 0;
 
+  tree dims = TREE_VALUE (attrs);
+  if (dims)
+    dims = targetm.goacc.validate_dims (current_function_decl, dims);
+  /* Safe to overwrite, this attribute chain is unshared.  */
+  TREE_VALUE (attrs) = dims;
+  
   FOR_ALL_BB_FN (bb, cfun)
     {
-      for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
-	   !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	{
 	  gimple stmt = gsi_stmt (gsi);
 
-	  /* acc_on_device must be evaluated at compile time for
-	     constant arguments.  */
-	  if (gimple_call_builtin_p (stmt, BUILT_IN_ACC_ON_DEVICE))
-	    oacc_xform_on_device (&gsi, stmt);
+	  if (is_gimple_call (stmt))
+	    {
+	      /* acc_on_device must be evaluated at compile time for
+		 constant arguments.  */
+	      if (gimple_call_builtin_p (stmt, BUILT_IN_ACC_ON_DEVICE))
+		oacc_xform_on_device (&gsi, stmt);
+
+	      if (gimple_call_internal_p (stmt))
+		switch (gimple_call_internal_fn (stmt))
+		  {
+		  default: break;
+
+		  case IFN_GOACC_DIM_SIZE:
+		    if (dims)
+		      oacc_xform_dim (&gsi, stmt, dims, false);
+		    break;
+
+		  case IFN_GOACC_DIM_POS:
+		    if (dims)
+		      oacc_xform_dim (&gsi, stmt, dims, true);
+		    break;
+
+#ifndef ACCEL_COMPILER
+		  case IFN_GOACC_FORK:
+		  case IFN_GOACC_JOIN:
+		    /* These are irrelevant on the host.  */
+		    replace_uses_by (gimple_vdef (stmt), gimple_vuse (stmt));
+		    gsi_remove (&gsi, true);
+		    /* Removal will have advanced the iterator.  */
+		    continue;
+#endif
+		  }
+	    }
+	  gsi_next (&gsi);
 	}
     }
 
   return 0;
+}
+
+/* Default launch dimension validator.  */
+
+tree
+default_goacc_validate_dims (tree ARG_UNUSED (decl), tree dims)
+{
+  tree pos = dims;
+  for (unsigned ix = GOMP_DIM_MAX; ix--; pos = TREE_CHAIN (pos))
+    {
+      tree val = TREE_VALUE (pos);
+      
+#ifdef ACCEL_COMPILER
+      if (!val)
+	val = integer_one_node;
+#else
+      /* Set to 1 on the host. */
+      val = integer_one_node;
+#endif
+      TREE_VALUE (pos) =  val;
+    }
+
+  return dims;
 }
 
 namespace {
