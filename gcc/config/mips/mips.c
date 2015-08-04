@@ -19564,7 +19564,7 @@ mips_option_override (void)
   if ((target_flags_explicit & MASK_BRANCHLIKELY) == 0)
     {
       if (ISA_HAS_BRANCHLIKELY
-	  && (optimize_size
+	  && ((optimize_size && strncmp (mips_arch_info->name, "mips", 4) != 0)
 	      || (mips_tune_info->tune_flags & PTF_AVOID_BRANCHLIKELY) == 0))
 	target_flags |= MASK_BRANCHLIKELY;
       else
