@@ -110,11 +110,27 @@ term_list::operator= (const term_list &x)
   return *this;
 }
 
-/* Insert the term T into the list before the current
-   position, making this term current. */
-inline void
+/* Try saving the term T into the list of terms. If
+   T is already in the list of terms, then no action is
+   performed. Otherwise, insert T before the current
+   position, making this term current.
+
+   Note that not inserting terms is an optimization
+   that corresponds to the structural rule of
+   contraction.
+
+   NOTE: With the contraction rule, this data structure
+   would be more efficiently represented as an ordered set
+   or hash set.  */
+void
 term_list::insert (tree t)
 {
+  /* Search the current term list. If there is already
+     a matching term, do not add the new one.  */
+  for (iterator i = begin(); i != end(); ++i)
+    if (cp_tree_equal (*i, t))
+      return;
+
   current = std::list<tree>::insert (current, t);
 }
 
