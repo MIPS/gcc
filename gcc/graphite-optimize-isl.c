@@ -24,36 +24,29 @@ along with GCC; see the file COPYING3.  If not see
 /* Workaround for GMP 5.1.3 bug, see PR56019.  */
 #include <stddef.h>
 
+#include <isl/constraint.h>
 #include <isl/set.h>
+#include <isl/union_set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/schedule.h>
 #include <isl/band.h>
 #include <isl/aff.h>
 #include <isl/options.h>
-#endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
-#include "options.h"
 #include "fold-const.h"
-#include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
-#include "dumpfile.h"
 #include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
-#include "tree-scalar-evolution.h"
-#include "sese.h"
-
-#ifdef HAVE_isl
 #include "graphite-poly.h"
+#include "params.h"
 
 static isl_union_set *
 scop_get_domains (scop_p scop ATTRIBUTE_UNUSED)
@@ -516,13 +509,13 @@ getScheduleMap (isl_schedule *Schedule, isl_union_map **map_sepcl)
   return ScheduleMap;
 }
 
-static int
+static isl_stat
 getSingleMap (__isl_take isl_map *map, void *user)
 {
   isl_map **singleMap = (isl_map **) user;
   *singleMap = map;
 
-  return 0;
+  return isl_stat_ok;
 }
 
 static void
@@ -594,7 +587,11 @@ optimize_isl (scop_p scop)
 
   isl_options_set_schedule_max_constant_term (scop->ctx, CONSTANT_BOUND);
   isl_options_set_schedule_maximize_band_depth (scop->ctx, 1);
+#ifdef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
+  isl_options_set_schedule_serialize_sccs (scop->ctx, 1);
+#else
   isl_options_set_schedule_fuse (scop->ctx, ISL_SCHEDULE_FUSE_MIN);
+#endif
   isl_options_set_on_error (scop->ctx, ISL_ON_ERROR_CONTINUE);
 
 #ifdef HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE
@@ -622,4 +619,4 @@ optimize_isl (scop_p scop)
   return true;
 }
 
-#endif
+#endif  /* HAVE_isl */

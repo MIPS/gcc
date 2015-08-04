@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -45,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
-#include "obstack.h"
 #include "except.h"
 #include "insn-codes.h"
 #include "optabs.h"
@@ -1191,7 +1191,7 @@ frv_stack_info (void)
 	}
     }
 
-  /* Set up the sizes of each each field in the frame body, making the sizes
+  /* Set up the sizes of each field in the frame body, making the sizes
      of each be divisible by the size of a dword if dword operations might
      be used, or the size of a word otherwise.  */
   alignment = (TARGET_DWORD? 2 * UNITS_PER_WORD : UNITS_PER_WORD);

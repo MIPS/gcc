@@ -90,7 +90,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "print-tree.h"
 #include "target.h"
-#include "lto-streamer.h"
 #include "data-streamer.h"
 #include "ipa-utils.h"
 #include "ipa-icf-gimple.h"
@@ -2404,7 +2403,7 @@ sem_item_optimizer::read_section (lto_file_decl_data *file_data,
   lto_data_in_delete (data_in);
 }
 
-/* Read IPA IPA ICF summary for symbols.  */
+/* Read IPA ICF summary for symbols.  */
 
 void
 sem_item_optimizer::read_summary (void)
@@ -3194,7 +3193,7 @@ sem_item_optimizer::do_congruence_step (congruence_class *cls)
   EXECUTE_IF_SET_IN_BITMAP (usage, 0, i, bi)
   {
     if (dump_file && (dump_flags & TDF_DETAILS))
-      fprintf (dump_file, "  processing congruece step for class: %u, index: %u\n",
+      fprintf (dump_file, "  processing congruence step for class: %u, index: %u\n",
 	       cls->id, i);
 
     do_congruence_step_for_index (cls, i);

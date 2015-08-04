@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -4744,7 +4745,7 @@ make_pass_clean_state (gcc::context *ctxt)
   return new pass_clean_state (ctxt);
 }
 
-/* Return true if INSN is a call to the the current function.  */
+/* Return true if INSN is a call to the current function.  */
 
 static bool
 self_recursive_call_p (rtx_insn *insn)

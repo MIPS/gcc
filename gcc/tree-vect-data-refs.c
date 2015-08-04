@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -62,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "builtins.h"
+#include "params.h"
 
 /* Return true if load- or store-lanes optab OPTAB is implemented for
    COUNT vectors of type VECTYPE.  NAME is the name of OPTAB.  */
@@ -620,7 +622,6 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   tree ref = DR_REF (dr);
   tree vectype;
   tree base, base_addr;
-  bool base_aligned;
   tree misalign = NULL_TREE;
   tree aligned_to;
   unsigned HOST_WIDE_INT alignment;
@@ -696,6 +697,19 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
 	}
     }
 
+  /* To look at alignment of the base we have to preserve an inner MEM_REF
+     as that carries alignment information of the actual access.  */
+  base = ref;
+  while (handled_component_p (base))
+    base = TREE_OPERAND (base, 0);
+  if (TREE_CODE (base) == MEM_REF)
+    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
+		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
+  unsigned int base_alignment = get_object_alignment (base);
+
+  if (base_alignment >= TYPE_ALIGN (TREE_TYPE (vectype)))
+    DR_VECT_AUX (dr)->base_element_aligned = true;
+
   alignment = TYPE_ALIGN_UNIT (vectype);
 
   if ((compare_tree_int (aligned_to, alignment) < 0)
@@ -711,21 +725,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return true;
     }
 
-  /* To look at alignment of the base we have to preserve an inner MEM_REF
-     as that carries alignment information of the actual access.  */
-  base = ref;
-  while (handled_component_p (base))
-    base = TREE_OPERAND (base, 0);
-  if (TREE_CODE (base) == MEM_REF)
-    base = build2 (MEM_REF, TREE_TYPE (base), base_addr,
-		   build_int_cst (TREE_TYPE (TREE_OPERAND (base, 1)), 0));
-
-  if (get_object_alignment (base) >= TYPE_ALIGN (vectype))
-    base_aligned = true;
-  else
-    base_aligned = false;
-
-  if (!base_aligned)
+  if (base_alignment < TYPE_ALIGN (vectype))
     {
       /* Strip an inner MEM_REF to a bare decl if possible.  */
       if (TREE_CODE (base) == MEM_REF
@@ -755,8 +755,9 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
           dump_printf (MSG_NOTE, "\n");
         }
 
-      ((dataref_aux *)dr->aux)->base_decl = base;
-      ((dataref_aux *)dr->aux)->base_misaligned = true;
+      DR_VECT_AUX (dr)->base_decl = base;
+      DR_VECT_AUX (dr)->base_misaligned = true;
+      DR_VECT_AUX (dr)->base_element_aligned = true;
     }
 
   /* If this is a backward running DR then first access in the larger
@@ -1515,7 +1516,8 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
   /* Check if we can possibly peel the loop.  */
   if (!vect_can_advance_ivs_p (loop_vinfo)
-      || !slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
+      || !slpeel_can_duplicate_loop_p (loop, single_exit (loop))
+      || loop->inner)
     do_peeling = false;
 
   if (do_peeling

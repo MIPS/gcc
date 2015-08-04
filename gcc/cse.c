@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -3058,7 +3059,7 @@ find_comparison_args (enum rtx_code code, rtx *parg1, rtx *parg2,
       if (x == 0)
 	break;
 
-      /* If we need to reverse the comparison, make sure that that is
+      /* If we need to reverse the comparison, make sure that is
 	 possible -- we can't necessarily infer the value of GE from LT
 	 with floating-point operands.  */
       if (reverse_code)
@@ -3296,9 +3297,8 @@ fold_rtx (rtx x, rtx_insn *insn)
 	 consistent with the order in X.  */
       if (canonicalize_change_group (insn, x))
 	{
-	  rtx tem;
-	  tem = const_arg0, const_arg0 = const_arg1, const_arg1 = tem;
-	  tem = folded_arg0, folded_arg0 = folded_arg1, folded_arg1 = tem;
+	  std::swap (const_arg0, const_arg1);
+	  std::swap (folded_arg0, folded_arg1);
 	}
 
       apply_change_group ();
@@ -4302,7 +4302,7 @@ find_sets_in_insn (rtx_insn *insn, struct set **psets)
 }
 
 /* Where possible, substitute every register reference in the N_SETS
-   number of SETS in INSN with the the canonical register.
+   number of SETS in INSN with the canonical register.
 
    Register canonicalization propagatest the earliest register (i.e.
    one that is set before INSN) with the same value.  This is a very
@@ -4523,14 +4523,49 @@ cse_insn (rtx_insn *insn)
   canonicalize_insn (insn, &sets, n_sets);
 
   /* If this insn has a REG_EQUAL note, store the equivalent value in SRC_EQV,
-     if different, or if the DEST is a STRICT_LOW_PART.  The latter condition
-     is necessary because SRC_EQV is handled specially for this case, and if
-     it isn't set, then there will be no equivalence for the destination.  */
+     if different, or if the DEST is a STRICT_LOW_PART/ZERO_EXTRACT.  The
+     latter condition is necessary because SRC_EQV is handled specially for
+     this case, and if it isn't set, then there will be no equivalence
+     for the destination.  */
   if (n_sets == 1 && REG_NOTES (insn) != 0
       && (tem = find_reg_note (insn, REG_EQUAL, NULL_RTX)) != 0
-      && (! rtx_equal_p (XEXP (tem, 0), SET_SRC (sets[0].rtl))
-	  || GET_CODE (SET_DEST (sets[0].rtl)) == STRICT_LOW_PART))
-    src_eqv = copy_rtx (XEXP (tem, 0));
+      && (! rtx_equal_p (XEXP (tem, 0), SET_SRC (sets[0].rtl))))
+    {
+      if (GET_CODE (SET_DEST (sets[0].rtl)) == STRICT_LOW_PART)
+	src_eqv = copy_rtx (XEXP (tem, 0));
+
+      /* If DEST is of the form ZERO_EXTACT, as in:
+	 (set (zero_extract:SI (reg:SI 119)
+		  (const_int 16 [0x10])
+		  (const_int 16 [0x10]))
+	      (const_int 51154 [0xc7d2]))
+	 REG_EQUAL note will specify the value of register (reg:SI 119) at this
+	 point.  Note that this is different from SRC_EQV. We can however
+	 calculate SRC_EQV with the position and width of ZERO_EXTRACT.  */
+      else if (GET_CODE (SET_DEST (sets[0].rtl)) == ZERO_EXTRACT
+	       && CONST_INT_P (XEXP (tem, 0))
+	       && CONST_INT_P (XEXP (SET_DEST (sets[0].rtl), 1))
+	       && CONST_INT_P (XEXP (SET_DEST (sets[0].rtl), 2)))
+	{
+	  rtx dest_reg = XEXP (SET_DEST (sets[0].rtl), 0);
+	  rtx width = XEXP (SET_DEST (sets[0].rtl), 1);
+	  rtx pos = XEXP (SET_DEST (sets[0].rtl), 2);
+	  HOST_WIDE_INT val = INTVAL (XEXP (tem, 0));
+	  HOST_WIDE_INT mask;
+	  unsigned int shift;
+	  if (BITS_BIG_ENDIAN)
+	    shift = GET_MODE_PRECISION (GET_MODE (dest_reg))
+	      - INTVAL (pos) - INTVAL (width);
+	  else
+	    shift = INTVAL (pos);
+	  if (INTVAL (width) == HOST_BITS_PER_WIDE_INT)
+	    mask = ~(HOST_WIDE_INT) 0;
+	  else
+	    mask = ((HOST_WIDE_INT) 1 << INTVAL (width)) - 1;
+	  val = (val >> shift) & mask;
+	  src_eqv = GEN_INT (val);
+	}
+    }
 
   /* Set sets[i].src_elt to the class each source belongs to.
      Detect assignments from or to volatile things

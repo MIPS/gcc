@@ -88,6 +88,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -203,7 +204,7 @@ static struct
 static struct occurrence *occ_head;
 
 /* Allocation pool for getting instances of "struct occurrence".  */
-static pool_allocator<occurrence> *occ_pool;
+static object_allocator<occurrence> *occ_pool;
 
 
 
@@ -546,7 +547,7 @@ pass_cse_reciprocals::execute (function *fun)
   basic_block bb;
   tree arg;
 
-  occ_pool = new pool_allocator<occurrence>
+  occ_pool = new object_allocator<occurrence>
     ("dominators for recip", n_basic_blocks_for_fn (fun) / 3 + 1);
 
   memset (&reciprocal_stats, 0, sizeof (reciprocal_stats));
@@ -2121,7 +2122,7 @@ perform_symbolic_merge (gimple source_stmt1, struct symbolic_number *n1,
      the same base (array, structure, ...).  */
   if (gimple_assign_rhs1 (source_stmt1) != gimple_assign_rhs1 (source_stmt2))
     {
-      int64_t inc;
+      uint64_t inc;
       HOST_WIDE_INT start_sub, end_sub, end1, end2, end;
       struct symbolic_number *toinc_n_ptr, *n_end;
 

@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -1126,6 +1127,7 @@ build_receiver_ref (tree var, bool by_ref, omp_context *ctx)
     field = x;
 
   x = build_simple_mem_ref (ctx->receiver_decl);
+  TREE_THIS_NOTRAP (x) = 1;
   x = omp_build_component_ref (x, field);
   if (by_ref)
     x = build_simple_mem_ref (x);
@@ -5602,6 +5604,10 @@ expand_omp_taskreg (struct omp_region *region)
 	}
       if (gimple_in_ssa_p (cfun))
 	update_ssa (TODO_update_ssa);
+#ifdef ENABLE_CHECKING
+      if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	verify_loop_structure ();
+#endif
       pop_cfun ();
     }
 
@@ -6533,7 +6539,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   body_bb = single_succ (seq_start_bb);
   if (!broken_loop)
     {
-      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb);
+      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb
+		  || single_succ (BRANCH_EDGE (cont_bb)->dest) == body_bb);
       gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
     }
   exit_bb = region->exit;
@@ -6816,6 +6823,11 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (!broken_loop)
     {
       ep = find_edge (cont_bb, body_bb);
+      if (ep == NULL)
+	{
+	  ep = BRANCH_EDGE (cont_bb);
+	  gcc_assert (single_succ (ep->dest) == body_bb);
+	}
       if (gimple_omp_for_combined_p (fd->for_stmt))
 	{
 	  remove_edge (ep);
@@ -6841,9 +6853,19 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   set_immediate_dominator (CDI_DOMINATORS, fin_bb,
 			   recompute_dominator (CDI_DOMINATORS, fin_bb));
 
+  struct loop *loop = body_bb->loop_father;
+  if (loop != entry_bb->loop_father)
+    {
+      gcc_assert (loop->header == body_bb);
+      gcc_assert (broken_loop
+		  || loop->latch == region->cont
+		  || single_pred (loop->latch) == region->cont);
+      return;
+    }
+
   if (!broken_loop && !gimple_omp_for_combined_p (fd->for_stmt))
     {
-      struct loop *loop = alloc_loop ();
+      loop = alloc_loop ();
       loop->header = body_bb;
       if (collapse_bb == NULL)
 	loop->latch = cont_bb;
@@ -8982,6 +9004,10 @@ expand_omp_target (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
+#ifdef ENABLE_CHECKING
+      if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	verify_loop_structure ();
+#endif
       pop_cfun ();
     }
 
@@ -9490,6 +9516,10 @@ execute_expand_omp (void)
 
   expand_omp (root_omp_region);
 
+#ifdef ENABLE_CHECKING
+  if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+    verify_loop_structure ();
+#endif
   cleanup_tree_cfg ();
 
   free_omp_regions ();
@@ -10578,7 +10608,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   block = make_node (BLOCK);
   new_stmt = gimple_build_bind (NULL, NULL, block);
   /* Replace at gsi right away, so that 'stmt' is no member
-     of a sequence anymore as we're going to add to to a different
+     of a sequence anymore as we're going to add to a different
      one below.  */
   gsi_replace (gsi_p, new_stmt, true);
 
@@ -11890,8 +11920,8 @@ lower_omp (gimple_seq *body, omp_context *ctx)
   for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
     lower_omp_1 (&gsi, ctx);
   /* During gimplification, we haven't folded statments inside offloading
-     regions (gimplify.c:maybe_fold_stmt); do that now.  */
-  if (target_nesting_level)
+     or taskreg regions (gimplify.c:maybe_fold_stmt); do that now.  */
+  if (target_nesting_level || taskreg_nesting_level)
     for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
       fold_stmt (&gsi);
   input_location = saved_location;

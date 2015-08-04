@@ -19,4 +19,4 @@ template<typename U>
   void f2(U) { }
 
 template<C3 T>  // { dg-error "not a type" }
-  void f(T) { } // { dg-error "declared void" }
+  void f(T) { } // { dg-error "" }

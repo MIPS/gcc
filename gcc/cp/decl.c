@@ -639,14 +639,16 @@ poplevel (int keep, int reverse, int functionbody)
 				     TYPE_ATTRIBUTES (TREE_TYPE (decl)))))
 	  {
 	    if (! TREE_USED (decl))
-	      warning (OPT_Wunused_variable, "unused variable %q+D", decl);
+	      warning_at (DECL_SOURCE_LOCATION (decl),
+			  OPT_Wunused_variable, "unused variable %qD", decl);
 	    else if (DECL_CONTEXT (decl) == current_function_decl
 		     // For -Wunused-but-set-variable leave references alone.
 		     && TREE_CODE (TREE_TYPE (decl)) != REFERENCE_TYPE
 		     && errorcount == unused_but_set_errorcount)
 	      {
-		warning (OPT_Wunused_but_set_variable,
-			 "variable %q+D set but not used", decl);
+		warning_at (DECL_SOURCE_LOCATION (decl),
+			    OPT_Wunused_but_set_variable,
+			    "variable %qD set but not used", decl);
 		unused_but_set_errorcount = errorcount;
 	      }
 	  }
@@ -1167,7 +1169,8 @@ warn_extern_redeclared_static (tree newdecl, tree olddecl)
 
   if (permerror (DECL_SOURCE_LOCATION (newdecl),
 		 "%qD was declared %<extern%> and later %<static%>", newdecl))
-    inform (input_location, "previous declaration of %q+D", olddecl);
+    inform (DECL_SOURCE_LOCATION (olddecl),
+	    "previous declaration of %qD", olddecl);
 }
 
 /* NEW_DECL is a redeclaration of OLD_DECL; both are functions or
@@ -1294,8 +1297,8 @@ check_redeclaration_no_default_args (tree decl)
        t && t != void_list_node; t = TREE_CHAIN (t))
     if (TREE_PURPOSE (t))
       {
-	permerror (input_location,
-		   "redeclaration of %q+#D may not have default "
+	permerror (DECL_SOURCE_LOCATION (decl),
+		   "redeclaration of %q#D may not have default "
 		   "arguments", decl);
 	return;
       }
@@ -1368,8 +1371,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	       && DECL_UNINLINABLE (olddecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (olddecl)))
 	{
-	  if (warning (OPT_Wattributes, "function %q+D redeclared as inline",
-		       newdecl))
+	  if (warning_at (DECL_SOURCE_LOCATION (newdecl),
+			  OPT_Wattributes, "function %qD redeclared as inline",
+			  newdecl))
 	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    "previous declaration of %qD with attribute noinline",
 		    olddecl);
@@ -1378,8 +1382,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	       && DECL_UNINLINABLE (newdecl)
 	       && lookup_attribute ("noinline", DECL_ATTRIBUTES (newdecl)))
 	{
-	  if (warning (OPT_Wattributes, "function %q+D redeclared with "
-		       "attribute noinline", newdecl))
+	  if (warning_at (DECL_SOURCE_LOCATION (newdecl),
+			  OPT_Wattributes, "function %qD redeclared with "
+			  "attribute noinline", newdecl))
 	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    "previous declaration of %qD was inline",
 		    olddecl);
@@ -1413,8 +1418,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  /* If the built-in is not ansi, then programs can override
 	     it even globally without an error.  */
 	  else if (! DECL_BUILT_IN (olddecl))
-	    warning (0, "library function %q#D redeclared as non-function %q+#D",
-		     olddecl, newdecl);
+	    warning_at (DECL_SOURCE_LOCATION (newdecl), 0,
+			"library function %q#D redeclared as non-function %q#D",
+			olddecl, newdecl);
 	  else
 	    error ("declaration of %q+#D conflicts with built-in "
 		   "declaration %q#D", newdecl, olddecl);
@@ -1476,8 +1482,9 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	      /* A near match; override the builtin.  */
 
 	      if (TREE_PUBLIC (newdecl))
-		warning (0, "new declaration %q+#D ambiguates built-in "
-			 "declaration %q#D", newdecl, olddecl);
+		warning_at (DECL_SOURCE_LOCATION (newdecl), 0,
+			    "new declaration %q#D ambiguates built-in "
+			    "declaration %q#D", newdecl, olddecl);
 	      else
 		warning (OPT_Wshadow, 
                          DECL_BUILT_IN (olddecl)
@@ -1715,10 +1722,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  error_at (DECL_SOURCE_LOCATION (newdecl), errmsg, newdecl);
 	  if (DECL_NAME (olddecl) != NULL_TREE)
-	    inform (input_location,
+	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    (DECL_INITIAL (olddecl) && namespace_bindings_p ())
-		    ? G_("%q+#D previously defined here")
-		    : G_("%q+#D previously declared here"), olddecl);
+		    ? G_("%q#D previously defined here")
+		    : G_("%q#D previously declared here"), olddecl);
 	  return error_mark_node;
 	}
       else if (TREE_CODE (olddecl) == FUNCTION_DECL
@@ -1728,7 +1735,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	{
 	  /* Prototype decl follows defn w/o prototype.  */
 	  if (warning_at (DECL_SOURCE_LOCATION (newdecl), 0,
-			  "prototype specified for %q+#D", newdecl))
+			  "prototype specified for %q#D", newdecl))
 	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    "previous non-prototype definition here");
 	}
@@ -1881,9 +1888,10 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	  && (! DECL_TEMPLATE_SPECIALIZATION (newdecl)
 	      || DECL_TEMPLATE_SPECIALIZATION (olddecl)))
 	{
-	  if (warning (OPT_Wredundant_decls,
-		       "redundant redeclaration of %q+D in same scope",
-		       newdecl))
+	  if (warning_at (DECL_SOURCE_LOCATION (newdecl),
+			  OPT_Wredundant_decls,
+			  "redundant redeclaration of %qD in same scope",
+			  newdecl))
 	    inform (DECL_SOURCE_LOCATION (olddecl),
 		    "previous declaration of %qD", olddecl);
 	}
@@ -3002,10 +3010,11 @@ check_previous_goto_1 (tree decl, cp_binding_level* level, tree names,
 	  if (complained)
 	    {
 	      if (problem > 1)
-		inform (input_location,
-			"  crosses initialization of %q+#D", new_decls);
+		inform (DECL_SOURCE_LOCATION (new_decls),
+			"  crosses initialization of %q#D", new_decls);
 	      else
-		inform (input_location, "  enters scope of %q+#D which has "
+		inform (DECL_SOURCE_LOCATION (new_decls),
+			"  enters scope of %q#D which has "
 			"non-trivial destructor", new_decls);
 	    }
 	}
@@ -3108,7 +3117,8 @@ check_goto (tree decl)
   if (ent->in_try_scope || ent->in_catch_scope
       || ent->in_omp_scope || !vec_safe_is_empty (ent->bad_decls))
     {
-      complained = permerror (input_location, "jump to label %q+D", decl);
+      complained = permerror (DECL_SOURCE_LOCATION (decl),
+			      "jump to label %qD", decl);
       if (complained)
 	inform (input_location, "  from here");
       identified = true;
@@ -3128,9 +3138,11 @@ check_goto (tree decl)
       else if (complained)
 	{
 	  if (u > 1)
-	    inform (input_location, "  skips initialization of %q+#D", bad);
+	    inform (DECL_SOURCE_LOCATION (bad),
+		    "  skips initialization of %q#D", bad);
 	  else
-	    inform (input_location, "  enters scope of %q+#D which has "
+	    inform (DECL_SOURCE_LOCATION (bad),
+		    "  enters scope of %q#D which has "
 		    "non-trivial destructor", bad);
 	}
     }
@@ -3159,8 +3171,8 @@ check_goto (tree decl)
 	    {
 	      if (!identified)
 		{
-		  complained = permerror (input_location,
-					  "jump to label %q+D", decl);
+		  complained = permerror (DECL_SOURCE_LOCATION (decl),
+					  "jump to label %qD", decl);
 		  if (complained)
 		    inform (input_location, "  from here");
 		  identified = true;
@@ -4809,7 +4821,8 @@ start_decl (const cp_declarator *declarator,
       && DECL_DECLARED_INLINE_P (decl)
       && DECL_UNINLINABLE (decl)
       && lookup_attribute ("noinline", DECL_ATTRIBUTES (decl)))
-    warning (0, "inline function %q+D given attribute noinline", decl);
+    warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		"inline function %qD given attribute noinline", decl);
 
   if (TYPE_P (context) && COMPLETE_TYPE_P (complete_type (context)))
     {
@@ -5362,8 +5375,9 @@ check_for_uninitialized_const_var (tree decl)
 	    inform (DECL_SOURCE_LOCATION (defaulted_ctor),
 		    "constructor is not user-provided because it is "
 		    "explicitly defaulted in the class body");
-	  inform (0, "and the implicitly-defined constructor does not "
-		  "initialize %q+#D", field);
+	  inform (DECL_SOURCE_LOCATION (field),
+		  "and the implicitly-defined constructor does not "
+		  "initialize %q#D", field);
 	}
     }
 }
@@ -9484,7 +9498,12 @@ grokdeclarator (const cp_declarator *declarator,
 	warning (OPT_Wreturn_type,
                  "ISO C++ forbids declaration of %qs with no type", name);
 
-      type = integer_type_node;
+      if (type_was_error_mark_node && template_parm_flag)
+	/* FIXME we should be able to propagate the error_mark_node as is
+	   for other contexts too.  */
+	type = error_mark_node;
+      else
+	type = integer_type_node;
     }
 
   ctype = NULL_TREE;
@@ -13591,7 +13610,8 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 
   if (DECL_DECLARED_INLINE_P (decl1)
       && lookup_attribute ("noinline", attrs))
-    warning (0, "inline function %q+D given attribute noinline", decl1);
+    warning_at (DECL_SOURCE_LOCATION (decl1), 0,
+		"inline function %qD given attribute noinline", decl1);
 
   /* Handle gnu_inline attribute.  */
   if (GNU_INLINE_P (decl1))
@@ -13732,8 +13752,9 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
 		    }
 
 		  if (context == NULL)
-		    warning (OPT_Wmissing_declarations,
-			     "no previous declaration for %q+D", decl1);
+		    warning_at (DECL_SOURCE_LOCATION (decl1),
+				OPT_Wmissing_declarations,
+				"no previous declaration for %qD", decl1);
 		}
 
 	      decl1 = olddecl;
@@ -14547,8 +14568,9 @@ finish_function (int flags)
 	    && TREE_CODE (TREE_TYPE (decl)) != REFERENCE_TYPE
 	    && (!CLASS_TYPE_P (TREE_TYPE (decl))
 	        || !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (TREE_TYPE (decl))))
-	  warning (OPT_Wunused_but_set_parameter,
-		   "parameter %q+D set but not used", decl);
+	  warning_at (DECL_SOURCE_LOCATION (decl),
+		      OPT_Wunused_but_set_parameter,
+		      "parameter %qD set but not used", decl);
       unused_but_set_errorcount = errorcount;
     }
 

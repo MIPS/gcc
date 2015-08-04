@@ -22,8 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-predict.h"
 #include "rtl.h"
 #include "ssa.h"
 #include "diagnostic-core.h"
@@ -4549,7 +4551,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
   id->call_stmt = stmt;
 
-  /* If the the src function contains an IFN_VA_ARG, then so will the dst
+  /* If the src function contains an IFN_VA_ARG, then so will the dst
      function after inlining.  */
   if ((id->src_cfun->curr_properties & PROP_gimple_lva) == 0)
     {
@@ -5845,7 +5847,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   fold_marked_statements (0, id.statements_to_fold);
   delete id.statements_to_fold;
-  fold_cond_expr_cond ();
   delete_unreachable_blocks_update_callgraph (&id);
   if (id.dst_node->definition)
     cgraph_edge::rebuild_references ();

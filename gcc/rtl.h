@@ -287,7 +287,7 @@ struct GTY((variable_size)) hwivec_def {
 /* RTL expression ("rtx").  */
 
 /* The GTY "desc" and "tag" options below are a kludge: we need a desc
-   field for for gengtype to recognize that inheritance is occurring,
+   field for gengtype to recognize that inheritance is occurring,
    so that all subclasses are redirected to the traversal hook for the
    base class.
    However, all of the fields are in the base class, and special-casing
@@ -2731,10 +2731,6 @@ extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       machine_mode);
 #endif
 
-/* In loop-iv.c  */
-
-extern rtx lowpart_subreg (machine_mode, rtx, machine_mode);
-
 /* In varasm.c  */
 extern rtx force_const_mem (machine_mode, rtx);
 
@@ -2866,6 +2862,7 @@ extern rtx simplify_subreg (machine_mode, rtx, machine_mode,
 			    unsigned int);
 extern rtx simplify_gen_subreg (machine_mode, rtx, machine_mode,
 				unsigned int);
+extern rtx lowpart_subreg (machine_mode, rtx, machine_mode);
 extern rtx simplify_replace_fn_rtx (rtx, const_rtx,
 				    rtx (*fn) (rtx, const_rtx, void *), void *);
 extern rtx simplify_replace_rtx (rtx, const_rtx, rtx);
@@ -3613,7 +3610,7 @@ extern void init_varasm_once (void);
 extern rtx make_debug_expr_from_rtl (const_rtx);
 
 /* In read-rtl.c */
-extern bool read_rtx (const char *, rtx *);
+extern bool read_rtx (const char *, vec<rtx> *);
 
 /* In alias.c */
 extern rtx canon_rtx (rtx);

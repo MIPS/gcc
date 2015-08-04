@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
-#include "obstack.h"
 #include "cfgloop.h"
 #include "flags.h"
 #include "alias.h"
@@ -204,17 +203,6 @@ dump_iv_info (FILE *file, struct rtx_iv *iv)
     }
   if (iv->first_special)
     fprintf (file, " (first special)");
-}
-
-/* Generates a subreg to get the least significant part of EXPR (in mode
-   INNER_MODE) to OUTER_MODE.  */
-
-rtx
-lowpart_subreg (machine_mode outer_mode, rtx expr,
-		machine_mode inner_mode)
-{
-  return simplify_gen_subreg (outer_mode, expr, inner_mode,
-			      subreg_lowpart_offset (outer_mode, inner_mode));
 }
 
 static void

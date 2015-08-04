@@ -21,13 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
 
 #include "rtl-error.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "alias.h"
@@ -8803,10 +8803,8 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       mark_jump_label (in, tem, 0);
     }
 
-#ifdef HAVE_reload_load_address
-  else if (HAVE_reload_load_address)
-    emit_insn (gen_reload_load_address (out, in));
-#endif
+  else if (targetm.have_reload_load_address ())
+    emit_insn (targetm.gen_reload_load_address (out, in));
 
   /* Otherwise, just write (set OUT IN) and hope for the best.  */
   else

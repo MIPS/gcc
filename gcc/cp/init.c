@@ -321,7 +321,7 @@ build_value_init (tree type, tsubst_flags_t complain)
 
      - if T is a class type (clause 9) with either no default constructor
        (12.1) or a default constructor that is user-provided or deleted,
-       then then the object is default-initialized;
+       then the object is default-initialized;
 
      - if T is a (possibly cv-qualified) class type without a user-provided
        or deleted default constructor, then the object is zero-initialized
@@ -936,13 +936,15 @@ sort_mem_initializers (tree t, tree mem_inits)
       if (warn_reorder && !subobject_init)
 	{
 	  if (TREE_CODE (TREE_PURPOSE (next_subobject)) == FIELD_DECL)
-	    warning (OPT_Wreorder, "%q+D will be initialized after",
-		     TREE_PURPOSE (next_subobject));
+	    warning_at (DECL_SOURCE_LOCATION (TREE_PURPOSE (next_subobject)),
+			OPT_Wreorder, "%qD will be initialized after",
+			TREE_PURPOSE (next_subobject));
 	  else
 	    warning (OPT_Wreorder, "base %qT will be initialized after",
 		     TREE_PURPOSE (next_subobject));
 	  if (TREE_CODE (subobject) == FIELD_DECL)
-	    warning (OPT_Wreorder, "  %q+#D", subobject);
+	    warning_at (DECL_SOURCE_LOCATION (subobject),
+			OPT_Wreorder, "  %q#D", subobject);
 	  else
 	    warning (OPT_Wreorder, "  base %qT", subobject);
 	  warning_at (DECL_SOURCE_LOCATION (current_function_decl),
@@ -3599,7 +3601,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       if (length_check)
 	{
-	  tree nelts = size_int (CONSTRUCTOR_NELTS (init) - 1);
+	  tree nelts = build_int_cst (ptrdiff_type_node,
+				      CONSTRUCTOR_NELTS (init) - 1);
 	  if (TREE_CODE (atype) != ARRAY_TYPE)
 	    {
 	      if (flag_exceptions)

@@ -1394,6 +1394,10 @@ class Function_declaration
   export_func(Export* exp, const std::string& name) const
   { Function::export_func_with_type(exp, name, this->fntype_); }
 
+  // Check that the types used in this declaration's signature are defined.
+  void
+  check_types() const;
+
  private:
   // The type of the function.
   Function_type* fntype_;
@@ -2687,6 +2691,10 @@ class Label
   // the function may call recover.
   Bexpression*
   get_addr(Translate_context*, Location location);
+
+  // Return a dummy label, representing any instance of the blank label.
+  static Label*
+  create_dummy_label();
 
  private:
   // The name of the label.
