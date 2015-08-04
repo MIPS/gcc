@@ -1,3 +1,8 @@
+2015-08-03  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (maybe_new_partial_specialization): An existing
+	specialization only matches if both args and constraints match.
+
 2015-08-01  Jason Merrill  <jason@redhat.com>
 
 	* pt.c (finish_template_variable): Never return a concept VAR_DECL.

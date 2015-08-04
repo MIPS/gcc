@@ -919,9 +919,11 @@ maybe_new_partial_specialization (tree type)
       // then, we can probably create a new specialization.
       tree tmpl_constr = TEMPLATE_PARM_CONSTRAINTS (current_template_parms);
       tree type_constr = build_constraints (tmpl_constr, NULL_TREE);
-      tree main_constr = get_constraints (tmpl);
-      if (equivalent_constraints (type_constr, main_constr))
-        return NULL_TREE;
+
+      if (type == TREE_TYPE (tmpl))
+	if (tree main_constr = get_constraints (tmpl))
+	  if (equivalent_constraints (type_constr, main_constr))
+	    return NULL_TREE;
 
       // Also, if there's a pre-existing specialization with matching
       // constraints, then this also isn't new.
@@ -929,8 +931,10 @@ maybe_new_partial_specialization (tree type)
       while (specs)
         {
           tree spec_tmpl = TREE_VALUE (specs);
+          tree spec_args = TREE_PURPOSE (specs);
           tree spec_constr = get_constraints (spec_tmpl);
-          if (equivalent_constraints (type_constr, spec_constr))
+          if (comp_template_args (args, spec_args)
+	      && equivalent_constraints (type_constr, spec_constr))
             return NULL_TREE;
           specs = TREE_CHAIN (specs);
         }
