@@ -1,3 +1,117 @@
+2015-08-04  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/64022
+	* gfortran.dg/ieee/ieee_7.f90: Adjust test.
+	* gfortran.dg/ieee/large_1.f90: New test.
+
+2015-08-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/67043
+	* gcc.dg/pr67043.c: New test.
+
+2015-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-tabort-no-r0.c: New test.
+
+2015-08-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-benchmark.c (test_jit): Add param "timer" and use
+	it to push/pop timing items.
+	(main): For each optimization level, create a gcc_jit_timer, and
+	time all of the iteration within that level cumulatively.
+	* jit.dg/test-error-gcc_jit_timer_pop-mismatch.c: New test case.
+	* jit.dg/test-error-gcc_jit_timer_pop-too-many.c: New test case.
+
+2015-08-03  Alexander Basov <coohpt@gmail.com>
+
+	PR middle-end/64744
+	PR middle-end/48470
+	PR middle-end/43404
+	* gcc.target/arm/pr43404.c : New testcase.
+	* gcc.target/arm/pr48470.c : New testcase.
+	* gcc.target/arm/pr64744-1.c : New testcase.
+	* gcc.target/arm/pr64744-2.c : New testcase.
+
+2015-08-03  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR tree-optimization/67077
+	* gcc.dg/pr67077.c: New test.
+
+2015-08-03  Jeff Law  <law@redhat.com>
+
+	PR middle-end/66314
+	PR gcov-profile/66899
+	* gcc.dg/pr66899.c: New test.
+	* gcc.dg/pr66314.c: New test.
+
+2015-08-03  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67088
+	* gcc.dg/pr67088.c: New test.
+
+2015-08-03  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* gcc.target/arm/vnmul-1.c: New.
+	* gcc.target/arm/vnmul-2.c: New.
+	* gcc.target/arm/vnmul-3.c: New.
+	* gcc.target/arm/vnmul-4.c: New.
+
+2015-08-03  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64921
+	* gfortran.dg/class_allocate_20.f90: New.
+
+2015-08-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/csel_bfx_1.c: New test.
+	* gcc.target/aarch64/csel_imms_inc_1.c: Likewise.
+
+2015-08-02  Martin Sebor  <msebor@redhat.com>
+
+	* g++.dg/Wframe-address-in-Wall.C: New test.
+	* g++.dg/Wframe-address.C: New test.
+	* g++.dg/Wno-frame-address.C: New test.
+	* gcc.dg/Wframe-address-in-Wall.c: New test.
+	* gcc.dg/Wframe-address.c: New test.
+	* gcc.dg/Wno-frame-address.c: New test.
+
+2015-08-02  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-c++-common/Wmisleading-indentation.c: Add more tests.
+
+2015-08-01  Michael Collison  <michael.collison@linaro.org
+	    Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
+
+	* gcc.target/arm/mincmp.c: New test.
+
+2015-08-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67091
+	* gfortran.dg/associated_target_6.f03: New test
+
+2015-08-01  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/autopar/reduc-2char.c (init_arrays): Mark with attribute
+	optimize ("-ftree-parallelize-loops=0").
+	Add successful scans for 2 detected reductions.	 Add xfail scans for 3
+	detected reductions.
+	* gcc.dg/autopar/reduc-2short.c: Same.
+	* gcc.dg/autopar/reduc-8.c (init_arrays): Mark with attribute
+	optimize ("-ftree-parallelize-loops=0").  Add successful scans for 2
+	detected reductions.
+	* gcc.dg/vect/trapv-vect-reduc-4.c: Update scan to match vectorized min
+	and max reductions.
+
+2015-07-31  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/66977
+	* g++.dg/ubsan/pr66977.C: New test.
+
+2015-07-30  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/Wtautological-compare-3.c: New test.
+
 2015-07-29  Alan Lawrence  <alan.lawrence@arm.com>
 
 	* gcc.target/aarch64/vld1_lane.c (main): Remove unused test data.

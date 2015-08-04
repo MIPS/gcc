@@ -10181,7 +10181,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	{
 	  rtx op0 = XEXP (x, 0);
 
-	  if (GET_CODE (op0) == NEG)
+	  if (GET_CODE (op0) == NEG && !flag_rounding_math)
 	    op0 = XEXP (op0, 0);
 
 	  if (speed_p)
@@ -10255,6 +10255,13 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && (mode == SFmode || !TARGET_VFP_SINGLE))
 	{
+	  if (GET_CODE (XEXP (x, 0)) == MULT)
+	    {
+	      /* VNMUL.  */
+	      *cost = rtx_cost (XEXP (x, 0), mode, NEG, 0, speed_p);
+	      return true;
+	    }
+
 	  if (speed_p)
 	    *cost += extra_cost->fp[mode != SFmode].neg;
 
@@ -12246,7 +12253,7 @@ neon_valid_immediate (rtx op, machine_mode mode, int inverse,
 	mode = DImode;
     }
 
-  innersize = GET_MODE_SIZE (GET_MODE_INNER (mode));
+  innersize = GET_MODE_UNIT_SIZE (mode);
 
   /* Vectors of float constants.  */
   if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
@@ -12473,7 +12480,7 @@ neon_immediate_valid_for_shift (rtx op, machine_mode mode,
 				rtx *modconst, int *elementwidth,
 				bool isleftshift)
 {
-  unsigned int innersize = GET_MODE_SIZE (GET_MODE_INNER (mode));
+  unsigned int innersize = GET_MODE_UNIT_SIZE (mode);
   unsigned int n_elts = CONST_VECTOR_NUNITS (op), i;
   unsigned HOST_WIDE_INT last_elt = 0;
   unsigned HOST_WIDE_INT maxshift;
@@ -12580,8 +12587,7 @@ void
 neon_pairwise_reduce (rtx op0, rtx op1, machine_mode mode,
 		      rtx (*reduc) (rtx, rtx, rtx))
 {
-  machine_mode inner = GET_MODE_INNER (mode);
-  unsigned int i, parts = GET_MODE_SIZE (mode) / GET_MODE_SIZE (inner);
+  unsigned int i, parts = GET_MODE_SIZE (mode) / GET_MODE_UNIT_SIZE (mode);
   rtx tmpsum = op1;
 
   for (i = parts / 2; i >= 1; i /= 2)
@@ -22315,7 +22321,7 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
       gcc_assert (GET_CODE (x) == CONST_VECTOR);
 
       units = CONST_VECTOR_NUNITS (x);
-      size = GET_MODE_SIZE (GET_MODE_INNER (mode));
+      size = GET_MODE_UNIT_SIZE (mode);
 
       if (GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
         for (i = 0; i < units; i++)

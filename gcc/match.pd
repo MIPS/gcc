@@ -948,7 +948,7 @@ along with GCC; see the file COPYING3.  If not see
      (if (low >= prec)
       (if (op == LROTATE_EXPR || op == RROTATE_EXPR)
        (op @0 { build_int_cst (TREE_TYPE (@1), low % prec); })
-       (if (TYPE_UNSIGNED (type) || code == LSHIFT_EXPR)
+       (if (TYPE_UNSIGNED (type) || op == LSHIFT_EXPR)
         { build_zero_cst (type); }
         (op @0 { build_int_cst (TREE_TYPE (@1), prec - 1); })))
       (op @0 { build_int_cst (TREE_TYPE (@1), low); })))))))
@@ -1502,6 +1502,14 @@ along with GCC; see the file COPYING3.  If not see
        || ! FLOAT_TYPE_P (TREE_TYPE (@0))
        || ! HONOR_NANS (TYPE_MODE (TREE_TYPE (@0))))
    { constant_boolean_node (false, type); })))
+(for cmp (unle unge uneq)
+ (simplify
+  (cmp @0 @0)
+  { constant_boolean_node (true, type); }))
+(simplify
+ (ltgt @0 @0)
+ (if (!flag_trapping_math)
+  { constant_boolean_node (false, type); }))
 
 /* Fold ~X op ~Y as Y op X.  */
 (for cmp (simple_comparison)
@@ -1972,19 +1980,34 @@ along with GCC; see the file COPYING3.  If not see
 	 (ge (convert:st @0) { build_zero_cst (st); })
 	 (lt (convert:st @0) { build_zero_cst (st); }))))))))))
  
+(for cmp (unordered ordered unlt unle ungt unge uneq ltgt)
+ /* If the second operand is NaN, the result is constant.  */
+ (simplify
+  (cmp @0 REAL_CST@1)
+  (if (REAL_VALUE_ISNAN (TREE_REAL_CST (@1))
+       && (cmp != LTGT_EXPR || ! flag_trapping_math))
+   { constant_boolean_node (cmp == ORDERED_EXPR || cmp == LTGT_EXPR
+			    ? false : true, type); })))
 
 /* bool_var != 0 becomes bool_var.  */
 (simplify
- (ne @0 integer_zerop@1)
+ (ne @0 integer_zerop)
  (if (TREE_CODE (TREE_TYPE (@0)) == BOOLEAN_TYPE
       && types_match (type, TREE_TYPE (@0)))
   (non_lvalue @0)))
 /* bool_var == 1 becomes bool_var.  */
 (simplify
- (eq @0 integer_onep@1)
+ (eq @0 integer_onep)
  (if (TREE_CODE (TREE_TYPE (@0)) == BOOLEAN_TYPE
       && types_match (type, TREE_TYPE (@0)))
   (non_lvalue @0)))
+/* Do not handle
+   bool_var == 0 becomes !bool_var or
+   bool_var != 1 becomes !bool_var
+   here because that only is good in assignment context as long
+   as we require a tcc_comparison in GIMPLE_CONDs where we'd
+   replace if (x == 0) with tem = ~x; if (tem != 0) which is
+   clearly less optimal and which we'll transform again in forwprop.  */
 
 
 /* Simplification of math builtins.  */
@@ -2028,6 +2051,8 @@ along with GCC; see the file COPYING3.  If not see
 	   x = build_real (type, dconst10);
 	 }
          break;
+       default:
+	 gcc_unreachable ();
        }
      }
     (mult (logs { x; }) @0))))
@@ -2050,6 +2075,8 @@ along with GCC; see the file COPYING3.  If not see
          x = build_real (type, real_value_truncate (TYPE_MODE (type),
 						    dconst_third ()));
          break;
+       default:
+	 gcc_unreachable ();
        }
      }
     (mult { x; } (logs @0)))))

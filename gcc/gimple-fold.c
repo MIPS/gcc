@@ -413,106 +413,14 @@ fold_gimple_assign (gimple_stmt_iterator *si)
       break;
 
     case GIMPLE_BINARY_RHS:
-      /* Try to canonicalize for boolean-typed X the comparisons
-	 X == 0, X == 1, X != 0, and X != 1.  */
-      if (gimple_assign_rhs_code (stmt) == EQ_EXPR
-	  || gimple_assign_rhs_code (stmt) == NE_EXPR)
-        {
-	  tree lhs = gimple_assign_lhs (stmt);
-	  tree op1 = gimple_assign_rhs1 (stmt);
-	  tree op2 = gimple_assign_rhs2 (stmt);
-	  tree type = TREE_TYPE (op1);
-
-	  /* Check whether the comparison operands are of the same boolean
-	     type as the result type is.
-	     Check that second operand is an integer-constant with value
-	     one or zero.  */
-	  if (TREE_CODE (op2) == INTEGER_CST
-	      && (integer_zerop (op2) || integer_onep (op2))
-	      && useless_type_conversion_p (TREE_TYPE (lhs), type))
-	    {
-	      enum tree_code cmp_code = gimple_assign_rhs_code (stmt);
-	      bool is_logical_not = false;
-
-	      /* X == 0 and X != 1 is a logical-not.of X
-	         X == 1 and X != 0 is X  */
-	      if ((cmp_code == EQ_EXPR && integer_zerop (op2))
-	          || (cmp_code == NE_EXPR && integer_onep (op2)))
-	        is_logical_not = true;
-
-	      if (is_logical_not == false)
-	        result = op1;
-	      /* Only for one-bit precision typed X the transformation
-	         !X -> ~X is valied.  */
-	      else if (TYPE_PRECISION (type) == 1)
-		result = build1_loc (gimple_location (stmt), BIT_NOT_EXPR,
-				     type, op1);
-	      /* Otherwise we use !X -> X ^ 1.  */
-	      else
-	        result = build2_loc (gimple_location (stmt), BIT_XOR_EXPR,
-				     type, op1, build_int_cst (type, 1));
-	     
-	    }
-	}
-
-      if (!result)
-        result = fold_binary_loc (loc, subcode,
-				  TREE_TYPE (gimple_assign_lhs (stmt)),
-				  gimple_assign_rhs1 (stmt),
-				  gimple_assign_rhs2 (stmt));
-
-      if (result)
-        {
-          STRIP_USELESS_TYPE_CONVERSION (result);
-          if (valid_gimple_rhs_p (result))
-	    return result;
-        }
       break;
 
     case GIMPLE_TERNARY_RHS:
-      /* Try to fold a conditional expression.  */
-      if (gimple_assign_rhs_code (stmt) == COND_EXPR)
-	{
-	  tree op0 = gimple_assign_rhs1 (stmt);
-	  tree tem;
-	  bool set = false;
-	  location_t cond_loc = gimple_location (stmt);
-
-	  if (COMPARISON_CLASS_P (op0))
-	    {
-	      fold_defer_overflow_warnings ();
-	      tem = fold_binary_loc (cond_loc,
-				     TREE_CODE (op0), TREE_TYPE (op0),
-				     TREE_OPERAND (op0, 0),
-				     TREE_OPERAND (op0, 1));
-	      /* This is actually a conditional expression, not a GIMPLE
-		 conditional statement, however, the valid_gimple_rhs_p
-		 test still applies.  */
-	      set = (tem && is_gimple_condexpr (tem)
-		     && valid_gimple_rhs_p (tem));
-	      fold_undefer_overflow_warnings (set, stmt, 0);
-	    }
-	  else if (is_gimple_min_invariant (op0))
-	    {
-	      tem = op0;
-	      set = true;
-	    }
-	  else
-	    return NULL_TREE;
-
-	  if (set)
-	    result = fold_build3_loc (cond_loc, COND_EXPR,
-				      TREE_TYPE (gimple_assign_lhs (stmt)), tem,
-				      gimple_assign_rhs2 (stmt),
-				      gimple_assign_rhs3 (stmt));
-	}
-
-      if (!result)
-	result = fold_ternary_loc (loc, subcode,
-				   TREE_TYPE (gimple_assign_lhs (stmt)),
-				   gimple_assign_rhs1 (stmt),
-				   gimple_assign_rhs2 (stmt),
-				   gimple_assign_rhs3 (stmt));
+      result = fold_ternary_loc (loc, subcode,
+				 TREE_TYPE (gimple_assign_lhs (stmt)),
+				 gimple_assign_rhs1 (stmt),
+				 gimple_assign_rhs2 (stmt),
+				 gimple_assign_rhs3 (stmt));
 
       if (result)
         {
@@ -3653,23 +3561,51 @@ fold_stmt_1 (gimple_stmt_iterator *gsi, bool inplace, tree (*valueize) (tree))
     {
     case GIMPLE_ASSIGN:
       {
-	unsigned old_num_ops = gimple_num_ops (stmt);
-	enum tree_code subcode = gimple_assign_rhs_code (stmt);
-	tree lhs = gimple_assign_lhs (stmt);
-	tree new_rhs;
-	/* First canonicalize operand order.  This avoids building new
-	   trees if this is the only thing fold would later do.  */
-	if ((commutative_tree_code (subcode)
-	     || commutative_ternary_tree_code (subcode))
-	    && tree_swap_operands_p (gimple_assign_rhs1 (stmt),
-				     gimple_assign_rhs2 (stmt), false))
+	/* Try to canonicalize for boolean-typed X the comparisons
+	   X == 0, X == 1, X != 0, and X != 1.  */
+	if (gimple_assign_rhs_code (stmt) == EQ_EXPR
+	    || gimple_assign_rhs_code (stmt) == NE_EXPR)
 	  {
-	    tree tem = gimple_assign_rhs1 (stmt);
-	    gimple_assign_set_rhs1 (stmt, gimple_assign_rhs2 (stmt));
-	    gimple_assign_set_rhs2 (stmt, tem);
-	    changed = true;
+	    tree lhs = gimple_assign_lhs (stmt);
+	    tree op1 = gimple_assign_rhs1 (stmt);
+	    tree op2 = gimple_assign_rhs2 (stmt);
+	    tree type = TREE_TYPE (op1);
+
+	    /* Check whether the comparison operands are of the same boolean
+	       type as the result type is.
+	       Check that second operand is an integer-constant with value
+	       one or zero.  */
+	    if (TREE_CODE (op2) == INTEGER_CST
+		&& (integer_zerop (op2) || integer_onep (op2))
+		&& useless_type_conversion_p (TREE_TYPE (lhs), type))
+	      {
+		enum tree_code cmp_code = gimple_assign_rhs_code (stmt);
+		bool is_logical_not = false;
+
+		/* X == 0 and X != 1 is a logical-not.of X
+		   X == 1 and X != 0 is X  */
+		if ((cmp_code == EQ_EXPR && integer_zerop (op2))
+		    || (cmp_code == NE_EXPR && integer_onep (op2)))
+		  is_logical_not = true;
+
+		if (is_logical_not == false)
+		  gimple_assign_set_rhs_with_ops (gsi, TREE_CODE (op1), op1);
+		/* Only for one-bit precision typed X the transformation
+		   !X -> ~X is valied.  */
+		else if (TYPE_PRECISION (type) == 1)
+		  gimple_assign_set_rhs_with_ops (gsi, BIT_NOT_EXPR, op1);
+		/* Otherwise we use !X -> X ^ 1.  */
+		else
+		  gimple_assign_set_rhs_with_ops (gsi, BIT_XOR_EXPR, op1,
+						  build_int_cst (type, 1));
+		changed = true;
+		break;
+	      }
 	  }
-	new_rhs = fold_gimple_assign (gsi);
+
+	unsigned old_num_ops = gimple_num_ops (stmt);
+	tree lhs = gimple_assign_lhs (stmt);
+	tree new_rhs = fold_gimple_assign (gsi);
 	if (new_rhs
 	    && !useless_type_conversion_p (TREE_TYPE (lhs),
 					   TREE_TYPE (new_rhs)))
