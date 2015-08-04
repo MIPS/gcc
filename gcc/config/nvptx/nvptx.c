@@ -2008,7 +2008,7 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	unsigned kind = UINTVAL (x);
 	static const char *const kinds[] = 
 	  {"up", "down", "bfly", "idx"};
-	fprintf (file, "%s", kinds[kind]);
+	fprintf (file, ".%s", kinds[kind]);
       }
       break;
       

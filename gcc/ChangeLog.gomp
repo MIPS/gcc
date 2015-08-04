@@ -1,5 +1,13 @@
 2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* config/nvptx/nvptx.md (nvptx_shuffle<mode>): Adjust assembly.
+	* config/nvptx/nvptx.c (nvptx_print_operand): Adjust 'S' case to
+	print leading . for consistency.
+	* config/nvptx/nvptx.h (struct nvptx_pseudo_info): Delete.
+	(machine_function): Remove pseudos field.
+
+2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.md (UNSPECV_MEMBAR): New.
 	(nvptx_membar): New insn.
 	* config/nvptx/nvptx.c (BARRIER_SHARED, BARRIER_GLOBAL,

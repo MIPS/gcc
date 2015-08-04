@@ -1419,7 +1419,7 @@
 		 (match_operand:SI 3 "const_int_operand" "n")]
 		  UNSPEC_SHUFFLE))]
   ""
-  "%.\\tshfl.%S3.b32\\t%0, %1, %2, 31;")
+  "%.\\tshfl%S3.b32\\t%0, %1, %2, 31;")
 
 ;; extract parts of a 64 bit object into 2 32-bit ints
 (define_insn "unpack<mode>si2"
