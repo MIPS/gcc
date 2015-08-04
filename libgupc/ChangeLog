@@ -1,3 +1,11 @@
+2015-08-03  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* configure.ac: Remove unnecessary check for
+	-rdynamic.
+	* configure: Re-generate.
+	* configure.tgt: Add option for exporting dynamic symbols
+	only if linker supports it.
+
 2015-07-25  Gary Funck  <gary@intrepid.com>
 
 	* libgupc.texi: Change menu ordering to agree with node ordering.

@@ -777,40 +777,6 @@ if test "$enable_upc_backtrace_signal" = yes; then
 fi
 
 if test "$enable_upc_backtrace" = yes; then
-  # Check for "-rdynamic" for UPC backtrace
-  case "${host}" in
-    *-*-darwin*)
-      if test x$build = x$host; then
-        export_sym_check="nm${exeext} -g"
-      elif test x$host = x$target; then
-        export_sym_check="$gcc_cv_nm -g"
-      else
-        export_sym_check=
-      fi
-    ;;
-    *)
-      if test x$build = x$host; then
-        export_sym_check="objdump${exeext} -T"
-      elif test x$host = x$target; then
-        export_sym_check="$gcc_cv_objdump -T"
-      else
-        export_sym_check=
-      fi
-    ;;
-  esac
-  AC_MSG_CHECKING([for -rdynamic])
-  if test "x$export_sym_check" != x; then
-    echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
-    ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c \
-      -o conftest > /dev/null 2>&1
-    if $export_sym_check conftest | grep foobar > /dev/null; then
-      have_rdynamic=yes
-    else
-      have_rdynamic=no
-    fi
-  fi
-  AC_MSG_RESULT([$have_rdynamic])
-
   # Check if backtrace can use addr2line
   if test x"$ADDR2LINE" != x""; then
     AC_DEFINE(HAVE_UPC_BACKTRACE_ADDR2LINE, 1,
