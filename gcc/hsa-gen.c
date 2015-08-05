@@ -3218,8 +3218,16 @@ generate_hsa (bool kernel)
     goto fail;
 
   if (hsa_cfun->kern_p)
-    hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->name,
-			       hsa_cfun->maximum_omp_data_size);
+    {
+      cgraph_node *node = cgraph_node::get_create (current_function_decl);
+      tree host_decl;
+      if (node->hsa_imp_of)
+	host_decl = node->hsa_imp_of->decl;
+      else
+	host_decl = current_function_decl;
+      hsa_add_kern_decl_mapping (host_decl, hsa_cfun->name,
+				 hsa_cfun->maximum_omp_data_size);
+    }
 
 #ifdef ENABLE_CHECKING
   for (unsigned i = 0; i < ssa_map.length (); i++)
@@ -3461,18 +3469,13 @@ public:
 bool
 pass_gen_hsail::gate (function *)
 {
-  return true;
-#ifdef ENABLE_HSA
-  return !flag_disable_hsa;
-#else
-  return false;
-#endif
+  return hsa_gen_requested_p ();
 }
 
 unsigned int
 pass_gen_hsail::execute (function *)
 {
-  if (cgraph_node::get_create (current_function_decl)->offloadable
+  if (cgraph_node::get_create (current_function_decl)->hsa_imp_of
       || lookup_attribute ("hsa", DECL_ATTRIBUTES (current_function_decl))
       || lookup_attribute ("hsakernel",
 			   DECL_ATTRIBUTES (current_function_decl)))

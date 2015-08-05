@@ -526,7 +526,11 @@ public:
   /* Section name. Again can be private, if allowed.  */
   section_hash_entry *x_section;
 
-protected:
+  /* TODO: Consider moving this to a summary.
+     The node this HSA node corresponds to.  */
+  symtab_node *hsa_imp_of;
+
+ protected:
   /* Dump base fields of symtab nodes to F.  Not to be used directly.  */
   void dump_base (FILE *);
 

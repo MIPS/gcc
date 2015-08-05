@@ -28,6 +28,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "basic-block.h"
 
+
+/* Return true if the compiler should produce HSAIL.  */
+
+static inline bool
+hsa_gen_requested_p (void)
+{
+#ifndef ENABLE_HSA
+  return false;
+#endif
+  return !flag_disable_hsa;
+}
+
 class hsa_insn_basic;
 typedef hsa_insn_basic *hsa_insn_basic_p;
 

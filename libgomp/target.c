@@ -926,7 +926,7 @@ gomp_fini_device (struct gomp_device_descr *devicep)
    and assumed sizeof (void *) size) and kinds.  */
 
 void
-GOMP_target (int device, void (*fn) (void *), const void *unused,
+GOMP_target (int device, void (*fn) (void *), const void *kernel_launch,
 	     size_t mapnum, void **hostaddrs, size_t *sizes,
 	     unsigned char *kinds)
 {
@@ -991,7 +991,8 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
       thr->ts.place_partition_len = gomp_places_list_len;
     }
   devicep->run_func (devicep->target_id, fn_addr,
-		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs);
+		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs,
+		     kernel_launch);
   gomp_free_thread (thr);
   *thr = old_thr;
   if (tgt_vars)

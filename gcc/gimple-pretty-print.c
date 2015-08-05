@@ -1185,6 +1185,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gomp_for *gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_CILKSIMD:
 	  pp_string (buffer, "#pragma simd");
 	  break;
+	case GF_OMP_FOR_KIND_KERNEL_BODY:
+	  pp_string (buffer, "#pragma omp for kernel");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}

@@ -792,17 +792,79 @@ init_kernel (struct kernel_info *kernel)
   return max_omp_data_size;
 }
 
+/* Strucutre provided by thre compiler, specifying the grid, sizes.  */
+
+struct kernel_launch_attributes
+{
+  /* Number of dimensions the workload has.  Maximum number is 3.  */
+  uint32_t ndim;
+  /* Size of the grid in the three respective dimensions.  */
+  uint32_t gdims[3];
+  /* Size of work-groups in the respective dimensions.  */
+  uint32_t wdims[3];
+};
+
+/* Parse the launch attributes INPUT provided by the compiler and return true
+   if we should run anything all.  If INPUT is NULL, fill DEF with default
+   values, then store INPUT or DEF into *RESULT.  */
+
+static bool
+parse_launch_attributes (const void *input,
+			 struct kernel_launch_attributes *def,
+			 const struct kernel_launch_attributes **result)
+{
+  if (!input)
+    {
+      def->ndim = 1;
+      def->gdims[0] = 1;
+      def->gdims[1] = 1;
+      def->gdims[2] = 1;
+      def->wdims[0] = 1;
+      def->wdims[1] = 1;
+      def->wdims[2] = 1;
+      *result = def;
+      if (debug)
+	fprintf (stderr, "GOMP_OFFLOAD_run called with no launch attributes\n");
+      return true;
+    }
+
+  const struct kernel_launch_attributes *kla;
+  kla = (const struct kernel_launch_attributes *) input;
+  *result = kla;
+  if (kla->ndim != 1)
+    GOMP_PLUGIN_fatal ("HSA does not yet support number of dimesions "
+		       "different from one.");
+  if (kla->gdims[0] == 0)
+    return false;
+
+  if (debug)
+    fprintf (stderr, "GOMP_OFFLOAD_run called with grid size %u and group "
+	     "size %u\n", kla->gdims[0], kla->wdims[0]);
+
+  return true;
+}
+
 /* Part of the libgomp plugin interface.  Run a kernel on a device N and pass
    the it an array of pointers in VARS as a parameter.  The kernel is
    identified by FN_PTR which must point to a kernel_info structure.  */
 
 void
-GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars)
+GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
 {
   struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
   struct agent_info *agent = kernel->agent;
   if (pthread_rwlock_rdlock (&agent->modules_rwlock))
     GOMP_PLUGIN_fatal ("Unable to read-lock an HSA agent rwlock");
+
+  struct kernel_launch_attributes def;
+  const struct kernel_launch_attributes *kla;
+  if (!parse_launch_attributes (kern_launch, &def, &kla))
+    {
+      if (debug)
+	fprintf (stderr, "Will not run HSA kernel because the grid size is "
+		 "zero\n");
+      return;
+    }
 
   create_and_finalize_hsa_program (agent);
   unsigned max_omp_data_size = init_kernel (kernel) ;
@@ -830,8 +892,14 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars)
 
   memset (((uint8_t *)packet) + 4, 0, sizeof (*packet) - 4);
   packet->setup  |= (uint16_t) 1 << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
-  packet->grid_size_x = 1;
-  packet->workgroup_size_x = 1;
+  packet->grid_size_x = kla->gdims[0];
+  uint32_t wgs = kla->wdims[0];
+  if (wgs == 0)
+    /* TODO: Provide a default via environment.  */
+    wgs = 64;
+  else if (wgs > kla->gdims[0])
+    wgs = kla->gdims[0];
+  packet->workgroup_size_x = wgs;
   packet->grid_size_y = 1;
   packet->workgroup_size_y = 1;
   packet->grid_size_z = 1;

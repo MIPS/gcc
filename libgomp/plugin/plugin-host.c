@@ -158,7 +158,8 @@ GOMP_OFFLOAD_dev2host (int n __attribute__ ((unused)), void *h, const void *d,
 }
 
 STATIC void
-GOMP_OFFLOAD_run (int n __attribute__ ((unused)), void *fn_ptr, void *vars)
+GOMP_OFFLOAD_run (int n __attribute__ ((unused)), void *fn_ptr, void *vars,
+		  const void *unused)
 {
   void (*fn)(void *) = (void (*)(void *)) fn_ptr;
 

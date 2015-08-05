@@ -1,3 +1,13 @@
+2015-08-04  Martin Jambor  <mjambor@suse.cz>
+
+	* libgomp.h (gomp_device_descr): Add a parameter to run_func.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_run): Add an unused parameter.
+	* plugin/plugin-hsa.c (kernel_launch_attributes): New type.
+	(parse_launch_attributes): New function.
+	(GOMP_OFFLOAD_run): New parameter, process kernel launch
+	attributes in it, set grid and group size accordingly.
+	* target.c (GOMP_target): New parameter, pass it to a plugin.
+
 2015-08-03  Martin Liska  <mliska@suse.cz>
 
 	* plugin/plugin-hsa.c (create_kernel_dispatch): Calculate maximum

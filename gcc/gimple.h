@@ -92,17 +92,18 @@ enum gf_mask {
     GF_CALL_CTRL_ALTERING       = 1 << 7,
     GF_CALL_WITH_BOUNDS 	= 1 << 8,
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
-    GF_OMP_FOR_KIND_MASK	= (1 << 3) - 1,
+    GF_OMP_FOR_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_FOR_KIND_FOR		= 0,
     GF_OMP_FOR_KIND_DISTRIBUTE	= 1,
     GF_OMP_FOR_KIND_CILKFOR     = 2,
     GF_OMP_FOR_KIND_OACC_LOOP	= 3,
+    GF_OMP_FOR_KIND_KERNEL_BODY = 4,
     /* Flag for SIMD variants of OMP_FOR kinds.  */
-    GF_OMP_FOR_SIMD		= 1 << 2,
+    GF_OMP_FOR_SIMD		= 1 << 3,
     GF_OMP_FOR_KIND_SIMD	= GF_OMP_FOR_SIMD | 0,
     GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
-    GF_OMP_FOR_COMBINED		= 1 << 3,
-    GF_OMP_FOR_COMBINED_INTO	= 1 << 4,
+    GF_OMP_FOR_COMBINED		= 1 << 4,
+    GF_OMP_FOR_COMBINED_INTO	= 1 << 5,
     GF_OMP_TARGET_KIND_MASK	= (1 << 3) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
@@ -579,6 +580,20 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
   /* [ WORD 10 ]
      Shared data argument.  */
   tree data_arg;
+
+  /* TODO: These are only good for omp target, move there when the changes are
+     final.  Also, add getter and setter methods.  */
+
+  /* [ WORD 11 ] */
+  /* Requested group size, if any.  */
+  tree kernel_group_size;
+
+  /* [ WORD 12 ] */
+  /* Number of elements in kernel_iter array.  */
+  size_t kernel_collapse;
+
+  /* [ WORD 13 ] */
+  struct gimple_omp_for_iter * GTY((length ("%h.kernel_collapse"))) kernel_iter;
 };
 
 /* GIMPLE_OMP_PARALLEL or GIMPLE_TASK */

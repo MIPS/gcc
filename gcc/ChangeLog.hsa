@@ -1,3 +1,46 @@
+2015-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_gen_requested_p): New function.
+	* hsa-gen.c (pass_gen_hsail::gate): Use it.
+	* cgraph.h (hsa_imp_of): New field.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Handle
+	GF_OMP_FOR_KIND_KERNEL_BODY.
+	* gimple.h (gf_mask): Add GF_OMP_FOR_KIND_KERNEL_BODY.
+	(gimple_statement_omp_parallel_layout): New fields kernel_group_size,
+	kernel_collapse and kernel_iter.
+	* hsa-gen.c (generate_hsa): Create mapping according to hsa_imp_of.
+	(pass_gen_hsail::execute): Use hsa_imp_of instead of offloadable flag.
+	* omp-low.c: Include hsa.h.
+	(omp_context): New field kernel_inner_loop.
+	(adjust_for_condition): Likewise.
+	(get_omp_for_step_from_incr): Likewise.
+	(extract_omp_for_data): Break up some functionality to
+	adjust_for_condition and get_omp_for_step_from_incr.
+	(single_stmt_in_seq_skip_bind): New function.
+	(target_follows_kernelizable_pattern): Likewise.
+	(attemp_target_kernelization): Likewise.
+	(region_part_of_unkernelized_tartget_p): Likewise.
+	(expand_parallel_call): If necessary, set hsa_imp_of of the child
+	function.
+	(scan_omp_target): Call attemp_target_kernelization, also scan kernel
+	loop, if any.
+	(kernel_dim_array_type): New variable.
+	(kernel_lattrs_dimnum_decl): Likewise.
+	(kernel_lattrs_grid_decl): Likewise.
+	(kernel_lattrs_group_decl): Likewise.
+	(kernel_launch_attributes_typ): Likewise.
+	(create_kernel_launch_attr_types): New function.
+	(insert_store_range_dim): Likewise.
+	(get_kernel_dimensions_info): Likewise.
+	(expand_omp_target): Create iteration space size description and pass
+	it to libgomp.
+	(expand_omp_for_kernel): New function.
+	(arg_decl_map): New type.
+	(remap_kernel_arg_accesses): New function.
+	(expand_target_kernel_body): Likewise.
+	(expand_omp): Call expand_target_kernel_body.
+	(lower_omp_target): Append kernel loop at the end of the body.
+
 2015-08-04  Martin Jambor  <mjambor@suse.cz>
 
 	* gimple.c: Revert to trunk version.
