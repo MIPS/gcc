@@ -86,10 +86,6 @@ static int last_call_num;
 /* The number of last call at which given allocno was saved.  */
 static int *allocno_saved_at_call;
 
-/* The value of get_preferred_alternatives for the current instruction,
-   supplemental to recog_data.  */
-static alternative_mask preferred_alternatives;
-
 /* Record the birth of hard register REGNO, updating hard_regs_live and
    hard reg conflict information for living allocnos.  */
 static void
@@ -648,7 +644,7 @@ check_and_make_def_conflict (int alt, int def, enum reg_class def_cl)
 	 instruction due to the earlyclobber, reload must fix it up.  */
       for (alt1 = 0; alt1 < recog_data.n_alternatives; alt1++)
 	{
-	  if (!TEST_BIT (preferred_alternatives, alt1))
+	  if (!TEST_BIT (recog_data.preferred_alternatives, alt1))
 	    continue;
 	  const operand_alternative *op_alt1
 	    = &recog_op_alt[alt1 * n_operands];
@@ -698,7 +694,7 @@ make_early_clobber_and_input_conflicts (void)
   int n_operands = recog_data.n_operands;
   const operand_alternative *op_alt = recog_op_alt;
   for (alt = 0; alt < n_alternatives; alt++, op_alt += n_operands)
-    if (TEST_BIT (preferred_alternatives, alt))
+    if (TEST_BIT (recog_data.preferred_alternatives, alt))
       for (def = 0; def < n_operands; def++)
 	{
 	  def_cl = NO_REGS;
@@ -765,7 +761,7 @@ single_reg_class (const char *constraints, rtx op, rtx equiv_const)
   enum constraint_num cn;
 
   cl = NO_REGS;
-  alternative_mask preferred = preferred_alternatives;
+  alternative_mask preferred = recog_data.preferred_alternatives;
   for (; (c = *constraints); constraints += CONSTRAINT_LEN (c, constraints))
     if (c == '#')
       preferred &= ~ALTERNATIVE_BIT (0);
@@ -854,7 +850,7 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 	  mode = (GET_CODE (op) == SCRATCH
 		  ? GET_MODE (op) : PSEUDO_REGNO_MODE (regno));
 	  cl = NO_REGS;
-	  alternative_mask preferred = preferred_alternatives;
+	  alternative_mask preferred = recog_data.preferred_alternatives;
 	  for (; (c = *p); p += CONSTRAINT_LEN (c, p))
 	    if (c == '#')
 	      preferred &= ~ALTERNATIVE_BIT (0);
@@ -1178,8 +1174,7 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 		  }
 	      }
 
-	  extract_insn (insn);
-	  preferred_alternatives = get_preferred_alternatives (insn);
+	  extract_insn (insn, true);
 	  preprocess_constraints (insn);
 	  process_single_reg_class_operands (false, freq);
 

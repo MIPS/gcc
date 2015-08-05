@@ -2889,7 +2889,7 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
     {
       HARD_REG_SET temp;
 
-      extract_insn (insn);
+      extract_insn (insn, true);
       preprocess_constraints (insn);
       ira_implicitly_set_insn_hard_regs (&temp);
       AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);

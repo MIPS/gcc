@@ -2225,7 +2225,7 @@ constrain_operands_cached (rtx_insn *insn, int strict)
 /* Analyze INSN and fill in recog_data.  */
 
 void
-extract_insn (rtx_insn *insn)
+extract_insn (rtx_insn *insn, bool preferred)
 {
   int i;
   int icode;
@@ -2319,6 +2319,10 @@ extract_insn (rtx_insn *insn)
 	 : OP_IN);
 
   gcc_assert (recog_data.n_alternatives <= MAX_RECOG_ALTERNATIVES);
+
+  recog_data.preferred_alternatives = (preferred
+				       ? get_preferred_alternatives (insn)
+				       : 0);
 
   recog_data.insn = NULL;
   which_alternative = -1;

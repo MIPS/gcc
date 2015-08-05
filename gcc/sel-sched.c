@@ -2102,7 +2102,7 @@ implicit_clobber_conflict_p (insn_t through_insn, expr_t expr)
   end_sequence ();
 
   /* Calculate implicit clobbers.  */
-  extract_insn (insn);
+  extract_insn (insn, true);
   preprocess_constraints (insn);
   ira_implicitly_set_insn_hard_regs (&temp);
   AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);

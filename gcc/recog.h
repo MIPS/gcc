@@ -131,7 +131,7 @@ static inline int recog_memoized (rtx_insn *insn);
 extern void add_clobbers (rtx, int);
 extern int added_clobbers_hard_reg_p (int);
 extern void insn_extract (rtx_insn *);
-extern void extract_insn (rtx_insn *);
+extern void extract_insn (rtx_insn *, bool preferred = false);
 extern void extract_constrain_insn (rtx_insn *insn);
 extern void extract_constrain_insn_cached (rtx_insn *);
 extern void extract_insn_cached (rtx_insn *);
@@ -247,6 +247,10 @@ struct recog_data_d
 
   /* True if insn is ASM_OPERANDS.  */
   bool is_asm;
+
+  /* Specifies whether an insn alternative is preferred by the current
+     target for the current size/speed optimization choice.  */
+  alternative_mask preferred_alternatives;
 
   /* In case we are caching, hold insn data was generated for.  */
   rtx_insn *insn;
