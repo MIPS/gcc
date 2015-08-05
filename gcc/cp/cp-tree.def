@@ -507,17 +507,6 @@ DEFTREECODE (COMPOUND_REQ, "compound_req", tcc_expression, 2)
 /* A requires clause within a requires expression. */
 DEFTREECODE (NESTED_REQ, "nested_req", tcc_expression, 1)
 
-/* A unary expression representing a requirement for a valid expression. */
-DEFTREECODE (VALIDEXPR_EXPR, "validexpr_expr", tcc_expression, 1)
-
-/* A unary expression representing a requirement for a valid type. */
-DEFTREECODE (VALIDTYPE_EXPR, "validtype_expr", tcc_expression, 1)
-
-/* A unary expression representing a requirement for an expression that
-   can be evaluated at compile time. */
-DEFTREECODE (CONSTEXPR_EXPR, "contexpr_expr", tcc_expression, 1)
-
-
 /* Constraints are modeled as kinds of expressions.
    The operands of a constraint can be either types or expressions.
    Unlike expressions, constraints do not have a type. */

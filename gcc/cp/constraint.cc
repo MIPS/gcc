@@ -299,30 +299,17 @@ deduce_constrained_parameter (tree expr, tree& check, tree& proto)
 static tree
 deduce_concept_introduction (tree expr)
 {
+  tree info = NULL_TREE;
   if (TREE_CODE (expr) == TEMPLATE_ID_EXPR)
-    {
-      // Get the parameters from the template expression.
-      tree decl = TREE_OPERAND (expr, 0);
-      tree args = TREE_OPERAND (expr, 1);
-      tree var = DECL_TEMPLATE_RESULT (decl);
-      tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (decl));
-
-      parms = coerce_template_parms (parms, args, var);
-      // Check that we are returned a proper set of arguments.
-      if (parms == error_mark_node)
-        return NULL_TREE;
-      return parms;
-    }
+    info = resolve_variable_concept_check (expr);
   else if (TREE_CODE (expr) == CALL_EXPR)
-    {
-      // Resolve the constraint check and return arguments.
-      tree info = resolve_constraint_check (expr);
-      if (info && info != error_mark_node)
-        return TREE_PURPOSE (info);
-      return NULL_TREE;
-    }
+    info = resolve_constraint_check (expr);
   else
     gcc_unreachable ();
+
+  if (info && info != error_mark_node)
+    return TREE_PURPOSE (info);
+  return NULL_TREE;
 }
 
 namespace {
@@ -2204,11 +2191,10 @@ check_constrained_friend (tree fn, tree reqs)
 
   // Constrained friend functions that don't depend on template
   // arguments are effectively meaningless.
-  tree parms = DECL_ARGUMENTS (fn);
-  tree result = TREE_TYPE (TREE_TYPE (fn));
-  if (!(parms && uses_template_parms (parms)) && !uses_template_parms (result))
+  if (!uses_template_parms (TREE_TYPE (fn)))
     {
-      error ("constrained friend does not depend on template parameters");
+      error_at (location_of (fn),
+		"constrained friend does not depend on template parameters");
       return;
     }
 }

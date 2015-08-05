@@ -20120,19 +20120,6 @@ likely to be removed in the future.
 @item __is_same (type1, type2)
 A binary type trait: true whenever the type arguments are the same.
 
-@item __is_valid_expr (expr)
-A syntactic requirement. In a constraint, this trait can be used to determine
-if a particular expression is valid for the types of its operands, and if so,
-whether the result type is the same as or convertible to some other type.
-
-@item __is_valid_type (type)
-A syntactic requirement. In a constraint, this trait can be used to determine
-if a type name is well-formed.
-
-@item __declval
-A new declaration specifier. This can be used in constraints to introduce
-``declared values'' to be used as a replacement for @code{declval}.
-
 @end table
 
 

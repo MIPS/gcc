@@ -22049,9 +22049,7 @@ value_dependent_expression_p (tree expression)
       return true;
 
     case TYPE_REQ:
-    case VALIDEXPR_EXPR:
-    case VALIDTYPE_EXPR:
-      return type_dependent_expression_p (TREE_OPERAND (expression, 0));
+      return dependent_type_p (TREE_OPERAND (expression, 0));
 
     case CALL_EXPR:
       {

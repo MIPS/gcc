@@ -1,3 +1,13 @@
+2015-08-05  Jason Merrill  <jason@redhat.com>
+
+	* cp-tree.def (VALIDEXPR_EXPR, VALIDTYPE_EXPR, CONSTEXPR_EXPR):
+	Remove unused tree codes.
+	* pt.c (value_dependent_expression_p): Don't handle them.
+	* extend.texi: Remove documentation of obsolete traits.
+	* constraint.cc (deduce_constrained_parameter): Use
+	resolve_variable_concept_check.
+	(check_constrained_friend): Tidy.
+
 2015-08-04  Jason Merrill  <jason@redhat.com>
 
 	* cp-tree.h (CONSTRAINED_PARM_CONCEPT)
