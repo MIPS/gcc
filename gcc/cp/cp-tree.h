@@ -951,6 +951,19 @@ check_constraint_info (tree t)
 #define CONSTRAINT_VAR_P(NODE) \
   DECL_LANG_FLAG_2 (TREE_CHECK (NODE, PARM_DECL))
 
+/* The concept constraining this constrained template-parameter.  */
+#define CONSTRAINED_PARM_CONCEPT(NODE) \
+  DECL_SIZE_UNIT (TYPE_DECL_CHECK (NODE))
+/* Any extra template arguments specified for a constrained
+   template-parameter.  */
+#define CONSTRAINED_PARM_EXTRA_ARGS(NODE) \
+  DECL_SIZE (TYPE_DECL_CHECK (NODE))
+/* The first template parameter of CONSTRAINED_PARM_CONCEPT to be used as a
+   prototype for the constrained parameter in finish_shorthand_constraint,
+   attached for convenience.  */
+#define CONSTRAINED_PARM_PROTOTYPE(NODE) \
+  DECL_INITIAL (TYPE_DECL_CHECK (NODE))
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,

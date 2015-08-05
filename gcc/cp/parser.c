@@ -13504,10 +13504,7 @@ is_constrained_parameter (tree decl)
 {
   return (decl
           && TREE_CODE (decl) == TYPE_DECL
-          && DECL_INITIAL (decl)
-          && DECL_SIZE_UNIT (decl)
-          && (TREE_CODE (DECL_SIZE_UNIT (decl)) == FUNCTION_DECL
-              || TREE_CODE (DECL_SIZE_UNIT (decl)) == VAR_DECL));
+          && CONSTRAINED_PARM_CONCEPT (decl));
 }
 
 /* Returns true if PARM declares a constrained-parameter. */
@@ -34665,7 +34662,7 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
       while (t)
         {
           tree c = get_concept_from_constraint (TREE_TYPE (t));
-          if (c == DECL_SIZE_UNIT (constr))
+          if (c == CONSTRAINED_PARM_CONCEPT (constr))
             return TREE_VALUE (t);
           t = TREE_CHAIN (t);
         }

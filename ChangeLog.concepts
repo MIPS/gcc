@@ -1,5 +1,12 @@
 2015-08-04  Jason Merrill  <jason@redhat.com>
 
+	* cp-tree.h (CONSTRAINED_PARM_CONCEPT)
+	(CONSTRAINED_PARM_EXTRA_ARGS, CONSTRAINED_PARM_PROTOTYPE): New.
+	* constraint.cc (build_constrained_parameter)
+	(finish_shorthand_constraint): Use them.
+	* parser.c (is_constrained_parameter)
+	(synthesize_implicit_template_parm): Use them.
+
 	* constraint.cc (resolve_variable_concept_check): Make the return
 	value match resolve_constraint_check.
 	(deduce_constrained_parameter): Combine code paths.

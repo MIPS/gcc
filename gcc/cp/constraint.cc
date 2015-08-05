@@ -1143,21 +1143,20 @@ build_concept_check (tree target, tree arg, tree rest)
 
 /* Returns a TYPE_DECL that contains sufficient information to
    build a template parameter of the same kind as PROTO and
-   constrained by the concept declaration FN. PROTO is saved as
-   the initializer of the new type decl, and the constraining
-   function is saved in DECL_SIZE_UNIT.
+   constrained by the concept declaration CNC.  Note that PROTO
+   is the first template parameter of CNC.
 
    If specified, ARGS provides additional arguments to the
-   constraint check. These are stored in the DECL_SIZE field. */
+   constraint check.  */
 tree
-build_constrained_parameter (tree fn, tree proto, tree args)
+build_constrained_parameter (tree cnc, tree proto, tree args)
 {
-  tree name = DECL_NAME (fn);
+  tree name = DECL_NAME (cnc);
   tree type = TREE_TYPE (proto);
   tree decl = build_decl (input_location, TYPE_DECL, name, type);
-  DECL_INITIAL (decl) = proto;  // Describing parameter
-  DECL_SIZE_UNIT (decl) = fn;   // Constraining function declaration
-  DECL_SIZE (decl) = args;      // Extra template arguments.
+  CONSTRAINED_PARM_PROTOTYPE (decl) = proto;
+  CONSTRAINED_PARM_CONCEPT (decl) = cnc;
+  CONSTRAINED_PARM_EXTRA_ARGS (decl) = args;
   return decl;
 }
 
@@ -1177,13 +1176,13 @@ finish_shorthand_constraint (tree decl, tree constr)
   if (!constr)
     return NULL_TREE;
 
-  tree proto = DECL_INITIAL (constr); /* The prototype declaration  */
-  tree con = DECL_SIZE_UNIT (constr); /* The concept declaration  */
-  tree args = DECL_SIZE (constr);     /* Extra template arguments  */
+  tree proto = CONSTRAINED_PARM_PROTOTYPE (constr);
+  tree con = CONSTRAINED_PARM_CONCEPT (constr);
+  tree args = CONSTRAINED_PARM_EXTRA_ARGS (constr);
 
-/* If the parameter declaration is variadic, but the concept
-   is not then we need to apply the concept to every element
-   in the pack.  */
+  /* If the parameter declaration is variadic, but the concept
+     is not then we need to apply the concept to every element
+     in the pack.  */
   bool is_proto_pack = template_parameter_pack_p (proto);
   bool is_decl_pack = template_parameter_pack_p (decl);
   bool apply_to_all_p = is_decl_pack && !is_proto_pack;
