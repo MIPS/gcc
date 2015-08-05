@@ -1,5 +1,10 @@
 2015-08-05  Jason Merrill  <jason@redhat.com>
 
+	PR c++/67117
+	* decl.c (grokvardecl): Set constraints here.
+	* pt.c (process_partial_specialization): Not here.
+	(finish_template_variable): Check constraints.
+
 	* cp-tree.def (VALIDEXPR_EXPR, VALIDTYPE_EXPR, CONSTEXPR_EXPR):
 	Remove unused tree codes.
 	* pt.c (value_dependent_expression_p): Don't handle them.

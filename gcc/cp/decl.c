@@ -8387,6 +8387,13 @@ grokvardecl (tree type,
 	error_at (declspecs->locations[ds_type_spec],
 		  "concept must have type %<bool%>");
     }
+  else if (flag_concepts
+	   && processing_template_decl > template_class_depth (scope))
+    {
+      tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
+      tree ci = build_constraints (reqs, NULL_TREE);
+      set_constraints (decl, ci);
+    }
 
   // Handle explicit specializations and instantiations of variable templates.
   if (orig_declarator)

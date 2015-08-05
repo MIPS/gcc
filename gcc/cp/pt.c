@@ -4565,17 +4565,6 @@ process_partial_specialization (tree decl)
   if (did_error_intro)
     return error_mark_node;
 
-  /* Build the associated constraints now so we can compare
-     and assign them below. */
-  tree tmpl_constr;
-  if (flag_concepts)
-    {
-      tree reqs = TEMPLATE_PARM_CONSTRAINTS (current_template_parms);
-      tmpl_constr = build_constraints (reqs, NULL_TREE);
-    }
-  else
-    tmpl_constr = NULL_TREE;
-
   /* [temp.class.spec]
 
      The argument list of the specialization shall not be identical to
@@ -4584,7 +4573,8 @@ process_partial_specialization (tree decl)
     = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (maintmpl)));
   if (comp_template_args (inner_args, INNERMOST_TEMPLATE_ARGS (main_args))
       && (!flag_concepts
-	  || !subsumes_constraints (tmpl_constr, get_constraints (maintmpl))))
+	  || !subsumes_constraints (get_constraints (decl),
+				    get_constraints (maintmpl))))
     {
       if (!flag_concepts)
         error ("partial specialization %q+D does not specialize "
@@ -4744,7 +4734,6 @@ process_partial_specialization (tree decl)
   SET_DECL_TEMPLATE_SPECIALIZATION (tmpl);
   DECL_TEMPLATE_INFO (tmpl) = build_template_info (maintmpl, specargs);
   DECL_PRIMARY_TEMPLATE (tmpl) = maintmpl;
-  set_constraints (tmpl, tmpl_constr);
 
   if (VAR_P (decl))
     /* We didn't register this in check_explicit_specialization so we could
@@ -8682,6 +8671,16 @@ finish_template_variable (tree var, tsubst_flags_t complain)
   arglist = coerce_innermost_template_parms (parms, arglist, templ, complain,
 					     /*req_all*/true,
 					     /*use_default*/true);
+
+  if (flag_concepts && !constraints_satisfied_p (templ, arglist))
+    {
+      if (complain & tf_error)
+	{
+	  error ("constraints for %qD not satisfied", templ);
+	  diagnose_constraints (location_of (var), templ, arglist);
+	}
+      return error_mark_node;
+    }
 
   /* If a template-id refers to a specialization of a variable
      concept, then the expression is true if and only if the
