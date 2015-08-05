@@ -1,3 +1,81 @@
+2015-08-05  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+	    Jeff Law  <law@redhat.com>
+
+	PR c/16351
+	* gcc.dg/tree-ssa/isolate-2.c: Close comment.
+	* gcc.dg/tree-ssa/isolate-4.c: Likewise.
+	* gcc.dg/tree-ssa/wnull-dereference.c: New test.
+	* gcc.dg/tree-ssa/isolate-1.c: Test warnings with -Wnull-dereference.
+	* gcc.dg/tree-ssa/isolate-3.c: Likewise.
+	* gcc.dg/tree-ssa/isolate-5.c: Likewise.
+
+2015-08-05  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR middle-end/66311
+	* gfortran.dg/pr66311.f90: New file.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67121
+	* gcc.dg/torture/pr67121.c: New testcase.
+
+2015-08-05  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/rl78: New directory.
+        * gcc.target/rl78/rl78.exp: New file: Test driver.
+        * gcc.target/rl78/test_addm3.c: New file: Test adds.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67120
+	* gcc.dg/torture/pr67120.c: New testcase.
+
+2015-08-05  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/52846
+
+	* lib/fortran-modules.exp: Call cleanup-submodules from
+	cleanup-modules.
+	* gfortran.dg/public_private_module_2.f90: Add two XFAILS to
+	cover the cases where private entities are no longer optimized
+	away.
+	* gfortran.dg/public_private_module_6.f90: Add an XFAIL for the
+	same reason.
+	* gfortran.dg/submodule_1.f08: Change cleanup module names.
+	* gfortran.dg/submodule_5.f08: The same.
+	* gfortran.dg/submodule_9.f08: The same.
+	* gfortran.dg/submodule_10.f08: New test.
+
+2015-08-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66595
+	* g++.dg/cpp1y/var-templ35.C: New.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67055
+	* g++.dg/torture/pr67055.C: New testcase.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67109
+	* gcc.dg/torture/pr67109.c: New testcase.
+	* gcc.dg/vect/vect-119.c: Adjust.
+
+2015-08-05  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67107
+	* gcc.dg/pr67107.c: New testcase.
+
+2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66197
+	* g++.dg/cpp1z/abbrev2.C: New.
+
+2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp1z/static_assert-nomsg.C: Fix DejaGnu directive.
+
 2015-08-04  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/66392
