@@ -1,3 +1,10 @@
+2015-08-05  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (release_dangling_ssa_names): Release SSA_NAMEs with NULL
+	def stmt.
+	* tree-cfg.c (replace_ssa_name): Don't move default def nops.  Set def
+	stmt of unused SSA_NAME to NULL.
+
 2015-08-04  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* doc/tm.texi.in (TARGET_GOACC_VALIDATE_DIMS): Add hook.
