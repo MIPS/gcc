@@ -168,7 +168,7 @@ resolve_constraint_check (tree ovl, tree args)
       if (TREE_CODE (tmpl) != TEMPLATE_DECL)
         continue;
 
-      // Don't try to deduce checks for non-concept-like. We often
+      // Don't try to deduce checks for non-concepts. We often
       // end up trying to resolve constraints in functional casts
       // as part of a postfix-expression. We can save time and
       // headaches by not instantiating those declarations.

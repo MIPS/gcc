@@ -941,6 +941,8 @@ check_constraint_info (tree t)
 #define PARM_CONSTR_OPERAND(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, PARM_CONSTR), 1)
 
+/* Whether a PARM_DECL represents a local parameter in a
+   requires-expression.  */
 #define CONSTRAINT_VAR_P(NODE) \
   DECL_LANG_FLAG_2 (TREE_CHECK (NODE, PARM_DECL))
 

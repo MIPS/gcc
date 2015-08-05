@@ -1982,13 +1982,11 @@ add_function_candidate (struct z_candidate **candidates,
 
   /* Second, for a function to be viable, its constraints must be
      satisfied. */
-  if (flag_concepts && viable)
+  if (flag_concepts && viable
+      && !constraints_satisfied_p (fn))
     {
-      if (!constraints_satisfied_p (fn))
-        {
-          reason = constraint_failure (fn);
-          viable = false;
-        }
+      reason = constraint_failure (fn);
+      viable = false;
     }
 
   /* When looking for a function from a subobject from an implicit
