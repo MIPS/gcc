@@ -897,6 +897,11 @@ check_constraint_info (tree t)
 #define COMPOUND_REQ_NOEXCEPT_P(NODE) \
   TREE_LANG_FLAG_0 (TREE_CHECK (NODE, COMPOUND_REQ))
 
+/* The constraints on an 'auto' placeholder type, used in an argument deduction
+   constraint.  */
+#define PLACEHOLDER_TYPE_CONSTRAINTS(NODE) \
+  DECL_SIZE_UNIT (TYPE_NAME (NODE))
+
 /* The expression evaluated by the predicate constraint. */
 #define PRED_CONSTR_EXPR(NODE) \
   TREE_OPERAND (TREE_CHECK (NODE, PRED_CONSTR), 0)

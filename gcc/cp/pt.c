@@ -12818,11 +12818,11 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 			       ? tf_ignore_bad_quals : 0));
 	      }
 	    else if (TREE_CODE (t) == TEMPLATE_TYPE_PARM
-		     && DECL_SIZE_UNIT (TYPE_NAME (t))
+		     && PLACEHOLDER_TYPE_CONSTRAINTS (t)
 		     && (r = (TEMPLATE_PARM_DESCENDANTS
 			      (TEMPLATE_TYPE_PARM_INDEX (t))))
 		     && (r = TREE_TYPE (r))
-		     && !DECL_SIZE_UNIT (TYPE_NAME (r)))
+		     && !PLACEHOLDER_TYPE_CONSTRAINTS (r))
 	      /* Break infinite recursion when substituting the constraints
 		 of a constrained placeholder.  */;
 	    else
@@ -12852,8 +12852,8 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 
 		/* Propagate constraints on placeholders.  */
                 if (TREE_CODE (t) == TEMPLATE_TYPE_PARM)
-                  if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (t)))
-		    DECL_SIZE_UNIT (TYPE_NAME (r))
+                  if (tree constr = PLACEHOLDER_TYPE_CONSTRAINTS (t))
+		    PLACEHOLDER_TYPE_CONSTRAINTS (r)
 		      = tsubst_constraint (constr, args, complain, in_decl);
 
 		if (code == BOUND_TEMPLATE_TEMPLATE_PARM)
@@ -23144,7 +23144,7 @@ do_auto_deduction (tree type, tree init, tree auto_node,
 
   /* Check any placeholder constraints against the deduced type. */
   if (flag_concepts && !processing_template_decl)
-    if (tree constr = DECL_SIZE_UNIT (TYPE_NAME (auto_node)))
+    if (tree constr = PLACEHOLDER_TYPE_CONSTRAINTS (auto_node))
       {
         /* Use the deduced type to check the associated constraints. */
         if (!constraints_satisfied_p (constr, targs))

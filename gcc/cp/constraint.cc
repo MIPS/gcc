@@ -1420,10 +1420,10 @@ make_constrained_auto (tree con, tree args)
     expr = build_concept_check (build_overload (tmpl, NULL_TREE), type, args);
 
   tree constr = make_predicate_constraint (expr);
+  PLACEHOLDER_TYPE_CONSTRAINTS (type) = constr;
 
   /* Attach the constraint to the type declaration. */
   tree decl = TYPE_NAME (type);
-  DECL_SIZE_UNIT (decl) = constr;
   return decl;
 }
 
@@ -1843,12 +1843,12 @@ satisfy_argument_deduction_constraint (tree t, tree args,
   /* Perform auto or decltype(auto) deduction to get the result. */
   tree pattern = DEDUCT_CONSTR_PATTERN (t);
   tree placeholder = DEDUCT_CONSTR_PLACEHOLDER (t);
-  tree constr = DECL_SIZE_UNIT (TYPE_NAME (placeholder));
-  DECL_SIZE_UNIT (TYPE_NAME (placeholder))
+  tree constr = PLACEHOLDER_TYPE_CONSTRAINTS (placeholder);
+  PLACEHOLDER_TYPE_CONSTRAINTS (placeholder)
     = tsubst_constraint (constr, args, complain|tf_partial, in_decl);
   tree type = do_auto_deduction (pattern, init, placeholder,
                                  complain, adc_requirement);
-  DECL_SIZE_UNIT (TYPE_NAME (placeholder)) = constr;
+  PLACEHOLDER_TYPE_CONSTRAINTS (placeholder) = constr;
   if (type == error_mark_node)
     return boolean_false_node;
 
