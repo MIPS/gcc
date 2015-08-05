@@ -7087,14 +7087,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      == TREE_VEC_LENGTH (OMP_FOR_COND (for_stmt)));
   gcc_assert (TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt))
 	      == TREE_VEC_LENGTH (OMP_FOR_INCR (for_stmt)));
-
-  tree zero_for_init = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), 0);
-  tree orig_zero_index = TREE_OPERAND (zero_for_init, 0);
-  tree orig_zero_initial = TREE_OPERAND (zero_for_init, 1);
-  tree zero_for_cond = TREE_VEC_ELT (OMP_FOR_COND (for_stmt), 0);
-  enum tree_code orig_zero_cond = TREE_CODE (zero_for_cond);
-  tree orig_zero_final = TREE_OPERAND (zero_for_cond, 1);
-
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (for_stmt)); i++)
     {
       t = TREE_VEC_ELT (OMP_FOR_INIT (for_stmt), i);
@@ -7448,11 +7440,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
       t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
       gimple_omp_for_set_incr (gfor, i, TREE_OPERAND (t, 1));
     }
-
-  t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), 0);
-  gimple_omp_for_set_orig_first_iter (gfor, orig_zero_index, orig_zero_initial,
-				      orig_zero_final, TREE_OPERAND (t, 1),
-				      orig_zero_cond);
 
   gimplify_seq_add_stmt (pre_p, gfor);
   if (ret != GS_ALL_DONE)

@@ -1,3 +1,10 @@
+2015-08-04  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple.c: Revert to trunk version.
+	* gimple.h: Likewise.
+	* gimplify.c: Likewise.
+	* omp-low.c: Likewise.
+
 2015-08-03  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (hsa_output_kernel_mapping): Serialize new data structure.

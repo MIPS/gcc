@@ -556,11 +556,6 @@ struct GTY((tag("GSS_OMP_FOR")))
   struct gimple_omp_for_iter * GTY((length ("%h.collapse"))) iter;
 
   /* [ WORD 11 ]
-     Copy of the first iteration information for the purposes of HSA
-     kernelization.  */
-  struct gimple_omp_for_iter *orig_first_iter;
-
-  /* [ WORD 12 ]
      Pre-body evaluated before the loop body begins.  */
   gimple_seq pre_body;
 };
@@ -4690,20 +4685,6 @@ gimple_omp_for_set_incr (gimple gs, size_t i, tree incr)
   omp_for_stmt->iter[i].incr = incr;
 }
 
-/* Set the original first dimension iteration information.  */
-
-static inline void
-gimple_omp_for_set_orig_first_iter (gimple gs, tree index, tree initial,
-				    tree final, tree incr, enum tree_code cond)
-{
-  gomp_for *omp_for_stmt = as_a <gomp_for *> (gs);
-
-  omp_for_stmt->orig_first_iter->index = index;
-  omp_for_stmt->orig_first_iter->initial = initial;
-  omp_for_stmt->orig_first_iter->final = final;
-  omp_for_stmt->orig_first_iter->incr = copy_node (incr);
-  omp_for_stmt->orig_first_iter->cond = cond;
-}
 
 /* Return a pointer to the sequence of statements to execute before the OMP_FOR
    statement GS starts.  */

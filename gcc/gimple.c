@@ -865,7 +865,6 @@ gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
   gimple_omp_for_set_kind (p, kind);
   p->collapse = collapse;
   p->iter =  ggc_cleared_vec_alloc<gimple_omp_for_iter> (collapse);
-  p->orig_first_iter = ggc_cleared_alloc<gimple_omp_for_iter> ();
 
   if (pre_body)
     gimple_omp_for_set_pre_body (p, pre_body);
