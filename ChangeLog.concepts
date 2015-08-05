@@ -1,5 +1,11 @@
 2015-08-04  Jason Merrill  <jason@redhat.com>
 
+	* constraint.cc (resolve_variable_concept_check): Make the return
+	value match resolve_constraint_check.
+	(deduce_constrained_parameter): Combine code paths.
+	(lift_variable_concept): Remove.
+	(lift_template_id): Use resolve_variable_concept_check.
+
 	* cp-tree.h (PLACEHOLDER_TYPE_CONSTRAINTS): New.
 	* constraint.cc (make_constrained_auto): Use it.
 	(satisfy_argument_deduction_constraint): Use it

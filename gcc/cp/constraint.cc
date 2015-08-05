@@ -254,8 +254,7 @@ resolve_variable_concept_check (tree id)
   if (result != error_mark_node)
     {
       tree decl = DECL_TEMPLATE_RESULT (tmpl);
-      tree proto = TREE_VALUE (TREE_VEC_ELT (parms, 0));
-      return build_tree_list (proto, decl);
+      return build_tree_list (result, decl);
     }
   else
     return NULL_TREE;
@@ -273,44 +272,25 @@ resolve_variable_concept_check (tree id)
 bool
 deduce_constrained_parameter (tree expr, tree& check, tree& proto)
 {
+  tree info = NULL_TREE;
   if (TREE_CODE (expr) == TEMPLATE_ID_EXPR)
-    {
-      if (tree info = resolve_variable_concept_check (expr))
-        {
-          /* FIXME: What if the prototype is a pack?
-             Do the same as below?  */
-          check = TREE_VALUE (info);
-          proto = TREE_PURPOSE (info);
-          return true;
-        }
-      else
-      {
-        check = proto = NULL_TREE;
-        return false;
-      }
-    }
+    info = resolve_variable_concept_check (expr);
   else if (TREE_CODE (expr) == CALL_EXPR)
-    {
-      tree info = resolve_constraint_check (expr);
-      if (info && info != error_mark_node)
-        {
-          /* Get function and argument from the resolved
-             check expression and the prototype parameter.
-             Note that if the first argument was a pack, we
-             need to extract the first element to get the
-             prototype.  */
-          check = TREE_VALUE (info);
-          tree arg = TREE_VEC_ELT (TREE_PURPOSE (info), 0);
-          if (ARGUMENT_PACK_P (arg))
-            arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
-          proto = TREE_TYPE (arg);
-          return true;
-        }
-      check = proto = NULL_TREE;
-      return false;
-    }
+    info = resolve_constraint_check (expr);
   else
     gcc_unreachable ();
+
+  if (info && info != error_mark_node)
+    {
+      check = TREE_VALUE (info);
+      tree arg = TREE_VEC_ELT (TREE_PURPOSE (info), 0);
+      if (ARGUMENT_PACK_P (arg))
+	arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
+      proto = TREE_TYPE (arg);
+      return true;
+    }
+  check = proto = NULL_TREE;
+  return false;
 }
 
 // Given a call expression or template-id expression to a concept, EXPR,
@@ -445,35 +425,17 @@ lift_variable_initializer (tree var, tree args)
   return lift_expression (result);
 }
 
-/* Inline a reference to a variable concept.  */
-tree
-lift_variable_concept (tree t)
-{
-  tree tmpl = TREE_OPERAND (t, 0);
-  tree args = TREE_OPERAND (t, 1);
-  tree decl = DECL_TEMPLATE_RESULT (tmpl);
-  gcc_assert (DECL_DECLARED_CONCEPT_P (decl));
+/* Determine if a template-id is a variable concept and inline.  */
 
-  /* Convert the template arguments to ensure that they match
-     the parameters of the variable concept.  */
-  tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (tmpl));
-  args = coerce_template_parms (parms, args, tmpl, tf_warning_or_error);
-  if (args == error_mark_node)
-    return error_mark_node;
-
-  return lift_variable_initializer (decl, args);
-}
-
-/* Determine if a template-id is a variable concept and inline.
-
-   TODO: I don't think that we get template-ids for variable
-   templates any more. They tend to be transformed into var-decl
-   specializations when an id-expression is parsed.  */
 tree
 lift_template_id (tree t)
 {
-  if (variable_concept_p (TREE_OPERAND (t, 0)))
-    return lift_variable_concept (t);
+  if (tree info = resolve_variable_concept_check (t))
+    {
+      tree decl = TREE_VALUE (info);
+      tree args = TREE_PURPOSE (info);
+      return lift_variable_initializer (decl, args);
+    }
 
   /* Check that we didn't refer to a function concept like
       a variable.
