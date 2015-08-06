@@ -3038,11 +3038,9 @@ fixup_template_type (tree type)
       tree spec_constr = get_constraints (TREE_VALUE (specs));
 
       // If the type and constraints match a specialization, then we
-      // are entering that type. Note that the type comparison is
-      // structural since constrained partial specialiations may
-      // have different canonical types for the same type patterns.
-      if (comptypes (type, TREE_TYPE (specs), COMPARE_STRUCTURAL)
-            && equivalent_constraints (cur_constr, spec_constr))
+      // are entering that type.
+      if (same_type_p (type, TREE_TYPE (specs))
+	  && equivalent_constraints (cur_constr, spec_constr))
         return TREE_TYPE (specs);
       specs = TREE_CHAIN (specs);
     }

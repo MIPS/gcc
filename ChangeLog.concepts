@@ -1,5 +1,10 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (process_partial_specialization): Don't
+	SET_TYPE_STRUCTURAL_EQUALITY.
+	(maybe_new_partial_specialization): Preserve TYPE_CANONICAL.
+	* semantics.c (fixup_template_type): Don't use COMPARE_STRUCTURAL.
+
 	* constraint.cc (current_template_constraints): New.
 	(associate_classtype_constraints): Use it.
 	* pt.c (maybe_new_partial_specialization)

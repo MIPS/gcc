@@ -871,12 +871,6 @@ maybe_new_partial_specialization (tree type)
       tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
       tree args = CLASSTYPE_TI_ARGS (type);
 
-      // If TYPE is the same as the template's type, this is clearly
-      // not a specialization. This happens when you define a member
-      // template outside of its enclosing class.
-      if (type == DECL_TEMPLATE_RESULT (tmpl))
-        return NULL_TREE;
-
       // If there are no template parameters, this cannot be a new
       // partial template specializtion?
       if (!current_template_parms)
@@ -910,8 +904,12 @@ maybe_new_partial_specialization (tree type)
       tree t = make_class_type (TREE_CODE (type));
       CLASSTYPE_DECLARED_CLASS (t) = CLASSTYPE_DECLARED_CLASS (type);
       TYPE_FOR_JAVA (t) = TYPE_FOR_JAVA (type);
-      TYPE_CANONICAL (t) = t;
       SET_TYPE_TEMPLATE_INFO (t, build_template_info (tmpl, args));
+
+      /* We only need a separate type node for storing the definition of this
+	 partial specialization; uses of S<T*> are unconstrained, so all are
+	 equivalent.  So keep TYPE_CANONICAL the same.  */
+      TYPE_CANONICAL (t) = TYPE_CANONICAL (type);
 
       // Build the corresponding type decl.
       tree d = create_implicit_typedef (DECL_NAME (tmpl), t);
@@ -4427,26 +4425,6 @@ process_partial_specialization (tree decl)
       error ("specialization of variable concept %q#D", maintmpl);
       return error_mark_node;
     }
-
-  /*  When defining a constrained partial specialization, DECL's type
-      will have been assigned to the canonical type of the primary.
-      That is:
-
-         template<typename T>
-           struct S; // Has canonical type S<T>
-
-         template<C T>
-           struct S<T>; // Binds to the primary template.
-
-      However, the constraints differ, so we should be constructing
-      a new type instead of simply referring to the old one. We
-      do this by erasing the canonical type of the partial
-      specialization and always comparing these types structurally.
-
-      TODO: Do we need to compare the current requirements to make
-      sure this isn't a redeclaration? */
-  if (TEMPLATE_PARM_CONSTRAINTS (current_template_parms))
-    SET_TYPE_STRUCTURAL_EQUALITY (type);
 
   inner_parms = INNERMOST_TEMPLATE_PARMS (current_template_parms);
   ntparms = TREE_VEC_LENGTH (inner_parms);
