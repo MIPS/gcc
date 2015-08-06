@@ -15303,13 +15303,7 @@ tsubst_copy_and_build (tree t,
 	  }
 	else
 	  object = NULL_TREE;
-	if (variable_template_p (templ))
-	  {
-	    templ = lookup_template_variable (templ, targs);
-	    RETURN (finish_template_variable (templ));
-	  }
-	else
-	  templ = lookup_template_function (templ, targs);
+	templ = lookup_template_function (templ, targs);
 
 	if (object)
 	  RETURN (build3 (COMPONENT_REF, TREE_TYPE (templ),

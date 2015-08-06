@@ -1,5 +1,8 @@
 2015-08-05  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (tsubst_copy_and_build) [TEMPLATE_ID_EXPR]: Remove
+	redundant variable template handling.
+
 	* cp-tree.h: Remove is_this_parameter, xvalue_result_type prototypes.
 	* decl.c (is_class_template_or_specialization): Remove.
 	* pt.c (get_specializing_template_decl)
