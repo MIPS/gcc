@@ -952,6 +952,15 @@ normalize_constraint (tree t)
 // The following functions are called by the parser and substitution rules
 // to create and evaluate constraint-related nodes.
 
+// The constraints associated with the current template parameters.
+tree
+current_template_constraints (void)
+{
+  if (!current_template_parms)
+    return NULL_TREE;
+  tree tmpl_constr = TEMPLATE_PARM_CONSTRAINTS (current_template_parms);
+  return build_constraints (tmpl_constr, NULL_TREE);
+}
 
 // If the recently parsed TYPE declares or defines a template or template
 // specialization, get its corresponding constraints from the current
@@ -970,8 +979,7 @@ associate_classtype_constraints (tree type)
   if (CLASSTYPE_IS_TEMPLATE (type) || CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
     {
       tree decl = TYPE_STUB_DECL (type);
-      tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
-      tree ci = build_constraints (reqs, NULL_TREE);
+      tree ci = current_template_constraints ();
 
       // An implicitly instantiated member template declaration already
       // has associated constraints. If it is defined outside of its

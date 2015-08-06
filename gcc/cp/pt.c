@@ -884,8 +884,7 @@ maybe_new_partial_specialization (tree type)
 
       // If the constraints are not the same as those of the primary
       // then, we can probably create a new specialization.
-      tree tmpl_constr = TEMPLATE_PARM_CONSTRAINTS (current_template_parms);
-      tree type_constr = build_constraints (tmpl_constr, NULL_TREE);
+      tree type_constr = current_template_constraints ();
 
       if (type == TREE_TYPE (tmpl))
 	if (tree main_constr = get_constraints (tmpl))
@@ -5236,8 +5235,7 @@ push_template_decl_real (tree decl, bool is_friend)
 	  /* Since a template declaration already existed for this
 	     class-type, we must be redeclaring it here.  Make sure
 	     that the redeclaration is valid.  */
-          tree reqs = TEMPLATE_PARMS_CONSTRAINTS (current_template_parms);
-          tree constr = build_constraints (reqs, NULL_TREE);
+          tree constr = current_template_constraints ();
 	  redeclare_class_template (TREE_TYPE (decl),
                                     current_template_parms,
                                     constr);

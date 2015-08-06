@@ -1,5 +1,11 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* constraint.cc (current_template_constraints): New.
+	(associate_classtype_constraints): Use it.
+	* pt.c (maybe_new_partial_specialization)
+	(push_template_decl_real): Use it.
+	* cp-tree.h: Declare it.
+
 	PR c++/66937
 	* pt.c (is_compatible_template_arg): A template template parameter
 	with unconstrained parameters can match an argument with
