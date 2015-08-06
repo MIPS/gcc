@@ -11515,13 +11515,12 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 
         /* When instantiating a constrained member, substitute
            into the constraints to create a new constraint.  */
-        if (tree ci = get_constraints (t)) {
+        if (tree ci = get_constraints (t))
           if (member)
             {
               ci = tsubst_constraint_info (ci, argvec, complain, NULL_TREE);
               set_constraints (r, ci);
             }
-        }
 
 	/* Set up the DECL_TEMPLATE_INFO for R.  There's no need to do
 	   this in the special friend case mentioned above where
