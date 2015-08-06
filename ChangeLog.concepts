@@ -1,5 +1,7 @@
 2015-08-05  Jason Merrill  <jason@redhat.com>
 
+	* parser.c (is_constrained_parameter): Add back DECL check.
+
 	* pt.c (tsubst_copy_and_build) [TEMPLATE_ID_EXPR]: Remove
 	redundant variable template handling.
 

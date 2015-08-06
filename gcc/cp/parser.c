@@ -13504,7 +13504,8 @@ is_constrained_parameter (tree decl)
 {
   return (decl
           && TREE_CODE (decl) == TYPE_DECL
-          && CONSTRAINED_PARM_CONCEPT (decl));
+          && CONSTRAINED_PARM_CONCEPT (decl)
+          && DECL_P (CONSTRAINED_PARM_CONCEPT (decl)));
 }
 
 /* Returns true if PARM declares a constrained-parameter. */
