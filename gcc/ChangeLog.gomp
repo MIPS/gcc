@@ -1,3 +1,13 @@
+2015-08-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_expand_lock_unlock): Pass an
+	additional scratch register to gen_nvptx_spinlock.
+	* config/nvptx/nvptx.md (nvptx_membar): Use %B for the address
+	space operand.
+	(nvptx_spinlock): Remove period prefix from atom.
+	(nvptx_spinunlock): Take additional scratch register argument.
+	Use atom.exch to update the lock.
+
 2015-08-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* doc/tm.texi.in (TARGET_GOACC_FORK_JOIN): New.

@@ -3327,7 +3327,7 @@ nvptx_expand_lock_unlock (tree exp, bool lock)
 				label);
     }
   else
-    pat = gen_nvptx_spinunlock (mem, space);
+    pat = gen_nvptx_spinunlock (mem, space, gen_reg_rtx (SImode));
   emit_insn (pat);
   if (lock)
     emit_insn (barrier);

@@ -1569,7 +1569,7 @@
   [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
 		    UNSPECV_MEMBAR)]
   ""
-  "membar%M0;")
+  "membar%B0;")
 
 ;; spinlock and unlock
 (define_insn "nvptx_spinlock"
@@ -1581,11 +1581,12 @@
       (match_operand:BI 3 "register_operand" "=R")
       (label_ref (match_operand 4 "" ""))])]
    ""
-   "%4:\\t.atom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni %4;")
+   "%4:\\tatom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni %4;")
 
 (define_insn "nvptx_spinunlock"
    [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
 		      (match_operand:SI 1 "const_int_operand" "i")]
-		      UNSPECV_UNLOCK)]
+		      UNSPECV_UNLOCK)
+    (match_operand:SI 2 "register_operand" "=R")]
    ""
-   ".atom%R1.cas.b32 %0,1,0;")
+   "atom%R1.exch.b32 %2,%0,0;")
