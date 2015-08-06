@@ -1,5 +1,8 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (tsubst_pack_conjunction): Remove.
+	(tsubst_copy, tsubst_expr): Remove calls.
+
 	* pt.c (more_specialized_fn): Check constraints earlier.
 	(more_specialized_partial_spec): Likewise.
 

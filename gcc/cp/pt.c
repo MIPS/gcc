@@ -10487,44 +10487,6 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
   return t;
 }
 
-/* Substitute args into the pack expansion T, and rewrite the resulting
-   list as a conjunction of the specified terms. If the result is an empty
-   expression, return boolean_true_node.
-
-   FIXME: This goes away with fold expressions.  */
-tree
-tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain,
-                         tree in_decl)
-{
-  tree terms = tsubst_pack_expansion (t, args, complain, in_decl);
-
-/* If the resulting expression is type- or value-dependent, then
-   return it after setting the result type to bool (so it can be
-   expanded as a conjunction). This happens when instantiating
-   constrained variadic member function templates. Just rebuild
-   the dependent pack expansion.  */
-  if (instantiation_dependent_expression_p (terms))
-    {
-      terms = TREE_VEC_ELT (terms, 0);
-      TREE_TYPE (terms) = boolean_type_node;
-      return terms;
-    }
-
-  /* Empty expansions are equivalent to 'true'.  */
-  if (TREE_VEC_LENGTH (terms) == 0)
-    return boolean_true_node;
-
-  /* Otherwise, and the terms together.  These are transformed
-     into constraints later.  */
-  tree result = TREE_VEC_ELT (terms, 0);
-  for (int i = 1; i < TREE_VEC_LENGTH (terms); ++i) {
-    tree t = TREE_VEC_ELT (terms, i);
-    result = build_min (TRUTH_ANDIF_EXPR, boolean_type_node, result, t);
-  }
-  return result;
-}
-
-
 /* Substitute ARGS into T, which is an pack expansion
    (i.e. TYPE_PACK_EXPANSION or EXPR_PACK_EXPANSION). Returns a
    TREE_VEC with the substituted arguments, a PACK_EXPANSION_* node
@@ -14048,11 +14010,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       }
 
     case EXPR_PACK_EXPANSION:
-      // Expansions of variadic constraints are viable, expanding
-      // to a conunction of the expanded terms.
-      if (TREE_TYPE (t) == boolean_type_node)
-        return tsubst_pack_conjunction (t, args, complain, in_decl);
-
       error ("invalid use of pack expansion expression");
       return error_mark_node;
 
@@ -15042,11 +14999,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       }
 
     case EXPR_PACK_EXPANSION:
-      // Expansions of variadic constraints are viable, expanding
-      // to a conunction of the expanded terms.
-      if (TREE_TYPE (t) == boolean_type_node)
-        return tsubst_pack_conjunction (t, args, complain, in_decl);
-
       error ("invalid use of pack expansion expression");
       RETURN (error_mark_node);
 
