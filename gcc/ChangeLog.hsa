@@ -1,3 +1,8 @@
+2015-08-06  Martin Liska  <mliska@suse.cz>
+
+	* common.opt: Add new flag: -fdisable-hsa-gridification.
+	* omp-low.c (attemp_target_kernelization): Use the flag.
+
 2015-08-05  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.h (hsa_gen_requested_p): New function.

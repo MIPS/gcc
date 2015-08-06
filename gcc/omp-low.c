@@ -2825,6 +2825,9 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p)
 static void
 attemp_target_kernelization (gomp_target *target, omp_context *ctx)
 {
+  if (flag_disable_hsa_gridification)
+    return;
+
   if (!hsa_gen_requested_p ())
     return;
   tree group_size;
