@@ -830,38 +830,6 @@ check_explicit_instantiation_namespace (tree spec)
 	       spec, current_namespace, ns);
 }
 
-// Returns the TEMPLATE_DECL that defines the partial template specialization
-// TYPE. If TYPE is not found in the list of partial specializations, then
-// it must be an explicit specialization.
-static tree
-get_specializing_template_decl (tree type)
-{
-  tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
-  tree decl = TYPE_MAIN_DECL (type);
-  tree specs = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
-  while (specs)
-    {
-      tree spec = TREE_VALUE (specs);
-      if (DECL_TEMPLATE_RESULT (spec) == decl)
-        return spec;
-      specs = TREE_CHAIN (specs);
-    }
-  return NULL_TREE;
-}
-
-// Return the template constraints for the template specialization TYPE.
-static inline tree
-get_specialization_constraints (tree type)
-{
-  // If TYPE is a partial specialization, return the constraints for
-  // that type. If it is an explicit specialization, return null since
-  // non-templates cannot be constrained.
-  if (tree d = get_specializing_template_decl (type))
-    return get_constraints (d);
-  else
-    return NULL_TREE;
-}
-
 // Returns the type of a template specialization only if that
 // specialization needs to be defined. Otherwise (e.g., if the type has
 // already been defined), the function returns NULL_TREE.
@@ -898,15 +866,6 @@ maybe_new_partial_specialization (tree type)
   // Note that we also get here for injected class names and
   // late-parsed template definitions. We must ensure that we
   // do not create new type declarations for those cases.
-  //
-  // FIXME: This may allow multiple partial specializations to have
-  // equivalent constraints. We need to check this against all
-  // partial specializations with euqivalent type. For exmaple:
-  //
-  //    template<typename T> struct S;
-  //    template<typename T> struct S<T*>; // #1
-  //    template<C T> struct S<T*>;        // #2
-  //    template<C T> struct S<T*>;        // differs from #1 but not #2
   if (flag_concepts && CLASSTYPE_TEMPLATE_SPECIALIZATION (type))
     {
       tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
@@ -1026,7 +985,7 @@ maybe_process_partial_specialization (tree type)
 	      tree decl = push_template_decl (TYPE_MAIN_DECL (t));
 	      if (decl == error_mark_node)
 		return error_mark_node;
-              return TREE_TYPE (decl);
+	      return TREE_TYPE (decl);
 	    }
 	}
       else if (CLASSTYPE_TEMPLATE_INSTANTIATION (type))
@@ -4043,7 +4002,6 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
   gcc_assert (TREE_CODE (parm) == TREE_LIST);
   tree defval = TREE_PURPOSE (parm);
   tree constr = TREE_TYPE (parm);
-  tree reqs = NULL_TREE;
 
   if (list)
     {
@@ -4144,7 +4102,7 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
   /* Build requirements for the type/template parameter.
      This must be done after SET_DECL_TEMPLATE_PARM_P or
      process_template_parm could fail. */
-  reqs = finish_shorthand_constraint (parm, constr);
+  tree reqs = finish_shorthand_constraint (parm, constr);
 
   pushdecl (decl);
 

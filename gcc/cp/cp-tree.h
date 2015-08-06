@@ -5917,7 +5917,7 @@ extern bool is_auto				(const_tree);
 extern bool is_auto_or_concept			(const_tree);
 extern tree process_template_parm		(tree, location_t, tree, 
 						 bool, bool);
-extern tree end_template_parm_list    (tree);
+extern tree end_template_parm_list		(tree);
 extern void end_template_parm_list		();
 extern void end_template_decl			(void);
 extern tree maybe_update_decl_type		(tree, tree);
@@ -6181,9 +6181,7 @@ extern tree begin_handler			(void);
 extern void finish_handler_parms		(tree, tree);
 extern void finish_handler			(tree);
 extern void finish_cleanup			(tree, tree);
-extern bool is_this_parameter (tree);
 extern bool is_this_parameter                   (tree);
-extern tree xvalue_result_type                  (tree);
 
 enum {
   BCS_NO_SCOPE = 1,

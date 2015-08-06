@@ -13344,9 +13344,9 @@ cp_parser_operator (cp_parser* parser)
    Concept Extensions:
 
    template-parameter-list-seq:
-     template < template-parameter-list > template-requirement [opt]
+     template < template-parameter-list > requires-clause [opt]
 
-   template-requirement:
+   requires-clause:
      requires logical-or-expression  */
 
 static void

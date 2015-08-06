@@ -4623,17 +4623,6 @@ check_tag_decl (cp_decl_specifier_seq *declspecs,
   return declared_type;
 }
 
-// True if the type T is a class template or a class template
-// specialization (either explicit or partial).
-static inline bool
-is_class_template_or_specialization (tree t)
-{
-  if (CLASS_TYPE_P (t)
-      && (CLASSTYPE_IS_TEMPLATE (t) || CLASSTYPE_TEMPLATE_SPECIALIZATION (t)))
-    return true;
-  return false;
-}
-
 /* Called when a declaration is seen that contains no names to declare.
    If its type is a reference to a structure, union or enum inherited
    from a containing scope, shadow that tag name for the current scope
