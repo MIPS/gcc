@@ -1,5 +1,15 @@
 2015-08-06  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* doc/tm.texi.in (TARGET_GOACC_FORK_JOIN): New.
+	* doc/tm.texi: Regenerate.
+	* omp-low.c (execute_oacc_transform): Forward fork and join to
+	target hook.
+	(default_goacc_fork_join): New.
+	* target.def (fork_join): New OpenACC hook.
+	* targhooks.h (default_goacc_fork_join): Declare.
+
+2015-08-06  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_expand_lock_unlock): Create label.
 	(nvptx_validate_dims): Check worker dimension is not too big.
 	* config/nvptx/nvptx.mc (nvptx_spinlock): Take label.

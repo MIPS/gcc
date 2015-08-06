@@ -5741,9 +5741,16 @@ to use it.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_GOACC_VALIDATE_DIMS (tree, @var{tree})
-This hook should check the launch dimensions provided/ It should fill
+This hook should check the launch dimensions provided.  It should fill
 in default values and verify non-defaults.  The TREE_LIST is unshared
 and may be overwritten.  Diagnostics should be issued as appropriate.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (bool, gimple_stmt_iterator *@var{}, @var{gimple})
+This hook should convert IFN_GOACC_FORK and IFN_GOACC_JOIN function
+calls to target-specific gimple.  It is executed during the oacc_xform
+pass.  It should return true, if the functions should be deleted.  The
+default hook returns true, if there is no RTL expanders for them.
 @end deftypefn
 
 @node Anchored Addresses

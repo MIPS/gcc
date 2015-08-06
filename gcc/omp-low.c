@@ -14638,30 +14638,35 @@ execute_oacc_transform ()
 		oacc_xform_on_device (&gsi, stmt);
 
 	      if (gimple_call_internal_p (stmt))
-		switch (gimple_call_internal_fn (stmt))
-		  {
-		  default: break;
+		{
+		  unsigned ifn_code = gimple_call_internal_fn (stmt);
+		  switch (ifn_code)
+		    {
+		    default: break;
 
-		  case IFN_GOACC_DIM_SIZE:
-		    if (dims)
-		      oacc_xform_dim (&gsi, stmt, dims, false);
-		    break;
+		    case IFN_GOACC_DIM_SIZE:
+		      if (dims)
+			oacc_xform_dim (&gsi, stmt, dims, false);
+		      break;
 
-		  case IFN_GOACC_DIM_POS:
-		    if (dims)
-		      oacc_xform_dim (&gsi, stmt, dims, true);
-		    break;
+		    case IFN_GOACC_DIM_POS:
+		      if (dims)
+			oacc_xform_dim (&gsi, stmt, dims, true);
+		      break;
 
-#ifndef ACCEL_COMPILER
-		  case IFN_GOACC_FORK:
-		  case IFN_GOACC_JOIN:
-		    /* These are irrelevant on the host.  */
-		    replace_uses_by (gimple_vdef (stmt), gimple_vuse (stmt));
-		    gsi_remove (&gsi, true);
-		    /* Removal will have advanced the iterator.  */
-		    continue;
-#endif
-		  }
+		    case IFN_GOACC_FORK:
+		    case IFN_GOACC_JOIN:
+		      if (targetm.goacc.fork_join
+			  (ifn_code == IFN_GOACC_FORK, &gsi, stmt))
+			{
+			  replace_uses_by (gimple_vdef (stmt),
+					   gimple_vuse (stmt));
+			  gsi_remove (&gsi, true);
+			  /* Removal will have advanced the iterator.  */
+			  continue;
+			}
+		    }
+		}
 	    }
 	  gsi_next (&gsi);
 	}
@@ -14670,7 +14675,8 @@ execute_oacc_transform ()
   return 0;
 }
 
-/* Default launch dimension validator.  */
+/* Default launch dimension validator.  Force everything to 1 on the
+   host and default to 1 otherwise.  */
 
 tree
 default_goacc_validate_dims (tree ARG_UNUSED (decl), tree dims)
@@ -14691,6 +14697,30 @@ default_goacc_validate_dims (tree ARG_UNUSED (decl), tree dims)
     }
 
   return dims;
+}
+
+/* Default fork/join early expander.  Delete the function calls if
+   there is no RTL expander.  */
+
+bool
+default_goacc_fork_join (bool is_fork, gimple_stmt_iterator *ARG_UNUSED (gsi),
+			 gimple ARG_UNUSED (stmt))
+{
+  if (is_fork)
+    {
+#ifdef HAVE_oacc_fork
+      return false;
+#endif
+    }
+  else
+    {
+#ifdef HAVE_oacc_join
+      return false;
+#endif
+    }
+
+  /* We have no expander, so delete the functions now.  */
+  return true;
 }
 
 namespace {

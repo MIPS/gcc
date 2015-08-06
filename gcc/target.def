@@ -1646,11 +1646,20 @@ HOOK_VECTOR (TARGET_GOACC, goacc)
 
 DEFHOOK
 (validate_dims,
-"This hook should check the launch dimensions provided/ It should fill\n\
+"This hook should check the launch dimensions provided.  It should fill\n\
 in default values and verify non-defaults.  The TREE_LIST is unshared\n\
 and may be overwritten.  Diagnostics should be issued as appropriate.",
 tree, (tree, tree),
 default_goacc_validate_dims)
+
+DEFHOOK
+(fork_join,
+"This hook should convert IFN_GOACC_FORK and IFN_GOACC_JOIN function\n\
+calls to target-specific gimple.  It is executed during the oacc_xform\n\
+pass.  It should return true, if the functions should be deleted.  The\n\
+default hook returns true, if there is no RTL expanders for them.",
+bool, (bool, gimple_stmt_iterator *, gimple),
+default_goacc_fork_join)
 
 HOOK_VECTOR_END (goacc)
 
