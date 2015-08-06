@@ -1,5 +1,9 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* search.c (lookup_member): Lookup in currently open specialization.
+	* class.c (currently_open_class): Return tree.
+	* cp-tree.h: Adjust.
+
 	* pt.c (tsubst_pack_conjunction): Remove.
 	(tsubst_copy, tsubst_expr): Remove calls.
 
