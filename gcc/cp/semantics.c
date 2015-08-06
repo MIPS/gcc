@@ -3028,7 +3028,8 @@ fixup_template_type (tree type)
     parms = TREE_CHAIN (parms);
   if (!parms)
     return type;
-  tree cur_constr = TEMPLATE_PARMS_CONSTRAINTS (parms);
+  tree cur_reqs = TEMPLATE_PARMS_CONSTRAINTS (parms);
+  tree cur_constr = build_constraints (cur_reqs, NULL_TREE);
 
   // Search for a specialization whose type and constraints match.
   tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
@@ -3064,12 +3065,13 @@ finish_template_type (tree name, tree args, int entering_scope)
 				NULL_TREE, NULL_TREE, entering_scope,
 				tf_warning_or_error | tf_user);
 
-  // If entering a scope of a template, correct the lookup to
-  // account for constraints.
+  /* If we might be entering the scope of a partial specialization,
+     find the one with the right constraints.  */
   if (flag_concepts
       && entering_scope
       && CLASS_TYPE_P (type)
-      && CLASSTYPE_IS_TEMPLATE (type))
+      && dependent_type_p (type)
+      && PRIMARY_TEMPLATE_P (CLASSTYPE_TI_TEMPLATE (type)))
     type = fixup_template_type (type);
 
   if (type == error_mark_node)

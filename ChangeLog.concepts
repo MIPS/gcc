@@ -1,5 +1,8 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* semantics.c (fixup_template_type): Call build_constraints.
+	(finish_template_type): Adjust fixup_template_type condition.
+
 	* constraint.cc (satisfy_type_constraint): Check that we got a type.
 	* parser.c (cp_parser_type_requirement): Strip all TYPE_DECLs.
 	* pt.c (tsubst_decl) [TYPE_DECL]: Remove DECL_TEMPLATE_INFO check.
