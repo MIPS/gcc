@@ -11,7 +11,7 @@ template<typename T>
 
 
 template<typename U>
-  requires C1<U>() // { dg-error "variable" }
+  requires C1<U>() // { dg-error "" }
   void f1(U) { }
 
 template<typename U>

@@ -346,12 +346,7 @@ tree
 lift_function_call (tree t)
 {
   gcc_assert (TREE_CODE (t) == CALL_EXPR);
-  tree target = CALL_EXPR_FN (t);
-  if (VAR_P (target))
-    {
-      error_at (location_of (t), "%qE cannot be used as a function", target);
-      return error_mark_node;
-    }
+  gcc_assert (!VAR_P (CALL_EXPR_FN (t)));
   return lift_operands (t);
 }
 

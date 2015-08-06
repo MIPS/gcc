@@ -8568,14 +8568,17 @@ lookup_template_class (tree d1, tree arglist, tree in_decl, tree context,
   return ret;
 }
 
-/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST.
-   The type of the expression is the unknown_type_node since the
-   template-id could refer to an explicit or partial specialization. */
+/* Return a TEMPLATE_ID_EXPR for the given variable template and ARGLIST.  */
 
 tree
 lookup_template_variable (tree templ, tree arglist)
 {
+  /* The type of the expression is NULL_TREE since the template-id could refer
+     to an explicit or partial specialization. */
   tree type = NULL_TREE;
+  if (flag_concepts && variable_concept_p (templ))
+    /* Except that concepts are always bool.  */
+    type = boolean_type_node;
   return build2 (TEMPLATE_ID_EXPR, type, templ, arglist);
 }
 
@@ -8585,17 +8588,13 @@ tree
 finish_template_variable (tree var, tsubst_flags_t complain)
 {
   tree templ = TREE_OPERAND (var, 0);
-
   tree arglist = TREE_OPERAND (var, 1);
 
   /* We never want to return a VAR_DECL for a variable concept, since they
      aren't instantiated.  In a template, leave the TEMPLATE_ID_EXPR alone.  */
   bool concept_p = flag_concepts && variable_concept_p (templ);
   if (concept_p && processing_template_decl)
-    {
-      TREE_TYPE (var) = boolean_type_node;
-      return var;
-    }
+    return var;
 
   tree tmpl_args = DECL_TI_ARGS (DECL_TEMPLATE_RESULT (templ));
   arglist = add_outermost_template_args (tmpl_args, arglist);

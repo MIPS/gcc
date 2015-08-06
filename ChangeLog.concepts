@@ -1,5 +1,10 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (lookup_template_variable): Set type of concept template-id
+	to bool here.
+	(finish_template_variable): Not here.
+	* constraint.cc (lift_function_call): Remove VAR_DECL handling.
+
 	* search.c (lookup_member): Lookup in currently open specialization.
 	* class.c (currently_open_class): Return tree.
 	* cp-tree.h: Adjust.
