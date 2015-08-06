@@ -23570,8 +23570,7 @@ cp_parser_type_requirement (cp_parser *parser)
   else
    type = cp_parser_type_name (parser, /*typename_keyword_p=*/true);
 
-  /* If we got an alias template, unwrap its aliased type. */
-  if (DECL_P (type) && TYPE_DECL_ALIAS_P (type))
+  if (TREE_CODE (type) == TYPE_DECL)
     type = TREE_TYPE (type);
 
   parser->scope = saved_scope;

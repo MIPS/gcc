@@ -1,5 +1,9 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* constraint.cc (satisfy_type_constraint): Check that we got a type.
+	* parser.c (cp_parser_type_requirement): Strip all TYPE_DECLs.
+	* pt.c (tsubst_decl) [TYPE_DECL]: Remove DECL_TEMPLATE_INFO check.
+
 	* pt.c (lookup_template_variable): Set type of concept template-id
 	to bool here.
 	(finish_template_variable): Not here.

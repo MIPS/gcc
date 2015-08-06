@@ -1741,6 +1741,7 @@ satisfy_type_constraint (tree t, tree args,
 {
   deferring_access_check_sentinel deferring;
   tree type = TYPE_CONSTR_TYPE (t);
+  gcc_assert (TYPE_P (type) || type == error_mark_node);
   tree check = tsubst (type, args, complain, in_decl);
   if (error_operand_p (check))
     return boolean_false_node;
