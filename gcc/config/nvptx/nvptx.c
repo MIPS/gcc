@@ -3318,8 +3318,14 @@ nvptx_expand_lock_unlock (tree exp, bool lock)
   if (!lock)
     emit_insn (barrier);
   if (lock)
-    pat = gen_nvptx_spinlock (mem, space,
-			      gen_reg_rtx (SImode), gen_reg_rtx (BImode));
+    {
+      rtx_code_label *label = gen_label_rtx ();
+
+      LABEL_NUSES (label)++;
+      pat = gen_nvptx_spinlock (mem, space,
+				gen_reg_rtx (SImode), gen_reg_rtx (BImode),
+				label);
+    }
   else
     pat = gen_nvptx_spinunlock (mem, space);
   emit_insn (pat);
@@ -3531,7 +3537,6 @@ nvptx_validate_dims (tree decl, tree dims)
 {
   tree adims[GOMP_DIM_MAX];
   unsigned ix;
-  bool changed = false;
   tree pos = dims;
 
   for (ix = 0; ix != GOMP_DIM_MAX; ix++)
@@ -3541,6 +3546,7 @@ nvptx_validate_dims (tree decl, tree dims)
     }
   /* Define vector size for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
+#define PTX_WORKER_LENGTH 32
   /* If the worker size is not 1, the vector size must be 32.  If
      the vector size is not 1, it must be 32.  */
   if ((adims[GOMP_DIM_WORKER]
@@ -3560,6 +3566,17 @@ nvptx_validate_dims (tree decl, tree dims)
 			use, adims[GOMP_DIM_VECTOR]);
 	  adims[GOMP_DIM_VECTOR] = use;
 	}
+    }
+
+  /* Check the num workers is not too large.  */
+  if (adims[GOMP_DIM_WORKER]
+      && TREE_INT_CST_LOW (adims[GOMP_DIM_WORKER]) > PTX_WORKER_LENGTH)
+    {
+      tree use = build_int_cst (integer_type_node, PTX_WORKER_LENGTH);
+      warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		  "using num_workers (%E), ignoring %E",
+		  use, adims[GOMP_DIM_WORKER]);
+      adims[GOMP_DIM_WORKER] = use;
     }
 
   /* Set defaults.  */

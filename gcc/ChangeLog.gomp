@@ -1,3 +1,9 @@
+2015-08-06  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_expand_lock_unlock): Create label.
+	(nvptx_validate_dims): Check worker dimension is not too big.
+	* config/nvptx/nvptx.mc (nvptx_spinlock): Take label.
+
 2015-08-05  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (release_dangling_ssa_names): Release SSA_NAMEs with NULL

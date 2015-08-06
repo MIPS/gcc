@@ -1578,9 +1578,10 @@
 			(match_operand:SI 1 "const_int_operand" "i")]
 		       UNSPECV_UNLOCK)
       (match_operand:SI 2 "register_operand" "=R")
-      (match_operand:BI 3 "register_operand" "=R")])]
+      (match_operand:BI 3 "register_operand" "=R")
+      (label_ref (match_operand 4 "" ""))])]
    ""
-   "1:\\t.atom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni 1b;")
+   "%4:\\t.atom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni %4;")
 
 (define_insn "nvptx_spinunlock"
    [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
