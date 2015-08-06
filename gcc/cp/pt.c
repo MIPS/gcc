@@ -19708,6 +19708,16 @@ more_specialized_fn (tree pat1, tree pat2, int len)
 
   processing_template_decl--;
 
+  /* If both deductions succeed, the partial ordering selects the more
+     constrained template.  */
+  if (!lose1 && !lose2)
+    {
+      tree c1 = get_constraints (DECL_TEMPLATE_RESULT (pat1));
+      tree c2 = get_constraints (DECL_TEMPLATE_RESULT (pat2));
+      lose1 = !subsumes_constraints (c1, c2);
+      lose2 = !subsumes_constraints (c2, c1);
+    }
+
   /* All things being equal, if the next argument is a pack expansion
      for one function but not for the other, prefer the
      non-variadic function.  FIXME this is bogus; see c++/41958.  */
@@ -19717,15 +19727,6 @@ more_specialized_fn (tree pat1, tree pat2, int len)
     {
       lose1 = TREE_CODE (TREE_VALUE (args1)) == TYPE_PACK_EXPANSION;
       lose2 = TREE_CODE (TREE_VALUE (args2)) == TYPE_PACK_EXPANSION;
-    }
-
-  // All things still being equal, determine if one is more constrained.
-  if (lose1 == lose2)
-    {
-      tree c1 = get_constraints (DECL_TEMPLATE_RESULT (pat1));
-      tree c2 = get_constraints (DECL_TEMPLATE_RESULT (pat2));
-      lose1 = !subsumes_constraints (c1, c2);
-      lose2 = !subsumes_constraints (c2, c1);
     }
 
   if (lose1 == lose2)
@@ -19785,6 +19786,11 @@ more_specialized_partial_spec (tree tmpl, tree pat1, tree pat2)
     }
   --processing_template_decl;
 
+  /* If both deductions succeed, the partial ordering selects the more
+     constrained template.  */
+  if (!winner && any_deductions)
+    return more_constrained (tmpl1, tmpl2);
+
   /* In the case of a tie where at least one of the templates
      has a parameter pack at the end, the template with the most
      non-packed parameters wins.  */
@@ -19809,11 +19815,6 @@ more_specialized_partial_spec (tree tmpl, tree pat1, tree pat2)
       else if (len1 < len2)
         return -1;
     }
-
-  // If still tied at this point, the most specialized is also
-  // the most constrained.
-  if (!winner && any_deductions)
-    return more_constrained (tmpl1, tmpl2);
 
   return winner;
 }

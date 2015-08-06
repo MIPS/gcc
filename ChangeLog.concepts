@@ -1,5 +1,8 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (more_specialized_fn): Check constraints earlier.
+	(more_specialized_partial_spec): Likewise.
+
 	* pt.c (process_partial_specialization): Don't
 	SET_TYPE_STRUCTURAL_EQUALITY.
 	(maybe_new_partial_specialization): Preserve TYPE_CANONICAL.
