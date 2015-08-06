@@ -6913,6 +6913,12 @@ static bool
 is_compatible_template_arg (tree parm, tree arg)
 {
   tree parm_cons = get_constraints (parm);
+
+  /* For now, allow constrained template template arguments
+     and unconstrained template template parameters.  */
+  if (parm_cons == NULL_TREE)
+    return true;
+
   tree arg_cons = get_constraints (arg);
 
   // If the template parameter is constrained, we need to rewrite its

@@ -1,3 +1,10 @@
+2015-08-06  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66937
+	* pt.c (is_compatible_template_arg): A template template parameter
+	with unconstrained parameters can match an argument with
+	constrained parameters.
+
 2015-08-05  Jason Merrill  <jason@redhat.com>
 
 	* parser.c (is_constrained_parameter): Add back DECL check.
