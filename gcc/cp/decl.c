@@ -1009,11 +1009,6 @@ decls_match (tree newdecl, tree olddecl)
 	 type for declaration matching.  */
       r2 = fndecl_declared_return_type (olddecl);
 
-      // Normal functions can be constrained. Two functions with the
-      // same type and different constraints are different functions.
-      tree c1 = get_constraints (newdecl);
-      tree c2 = get_constraints (olddecl);
-
       if (same_type_p (TREE_TYPE (f1), r2))
 	{
 	  if (!prototype_p (f2) && DECL_EXTERN_C_P (olddecl)
@@ -1045,7 +1040,6 @@ decls_match (tree newdecl, tree olddecl)
 	    types_match =
 	      compparms (p1, p2)
 	      && type_memfn_rqual (f1) == type_memfn_rqual (f2)
-              && equivalent_constraints (c1, c2)
 	      && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
 	          || comp_type_attributes (TREE_TYPE (newdecl),
 					   TREE_TYPE (olddecl)) != 0);
@@ -1095,14 +1089,12 @@ decls_match (tree newdecl, tree olddecl)
 	return 0;
 
       if (TREE_CODE (DECL_TEMPLATE_RESULT (newdecl)) == TYPE_DECL)
-	types_match = same_type_p (TREE_TYPE (oldres), TREE_TYPE (newres));
+	types_match = (same_type_p (TREE_TYPE (oldres), TREE_TYPE (newres))
+		       && equivalently_constrained (olddecl, newdecl));
       else
+	// We don't need to check equivalently_constrained for variable and
+	// function templates because we check it on the results.
 	types_match = decls_match (oldres, newres);
-
-      // If the types of the underlying templates match, compare
-      // the template constraints. The declarations could differ there.
-      if (types_match)
-        types_match = equivalently_constrained (olddecl, newdecl);
     }
   else
     {
@@ -1129,6 +1121,11 @@ decls_match (tree newdecl, tree olddecl)
 				 TREE_TYPE (olddecl),
 				 COMPARE_REDECLARATION);
     }
+
+  // Normal functions can be constrained, as can variable partial
+  // specializations.
+  if (types_match && VAR_OR_FUNCTION_DECL_P (newdecl))
+    types_match = equivalently_constrained (newdecl, olddecl);
 
   return types_match;
 }

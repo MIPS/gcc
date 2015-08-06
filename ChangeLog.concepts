@@ -1,5 +1,8 @@
 2015-08-05  Jason Merrill  <jason@redhat.com>
 
+	* decl.c (decls_match): Compare constraints on variables.
+	Don't compare them twice on functions.
+
 	PR c++/67117
 	* decl.c (grokvardecl): Set constraints here.
 	* pt.c (process_partial_specialization): Not here.
