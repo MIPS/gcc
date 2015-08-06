@@ -2440,15 +2440,15 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
   hbb->append_insn (mem);
 
-  /* Write to packet->grid_size_x.  */
+  /* Write to packet->workgroup_size_x.  */
   hbb->append_insn (new (hsa_allocp_inst_comment)
-		   hsa_insn_comment ("set packet->workgroup_size_x = 1"));
+		   hsa_insn_comment ("set packet->workgroup_size_x = 64"));
 
   addr = new (hsa_allocp_operand_address)
 	hsa_op_address (NULL, queue_packet_reg, offsetof
 			(hsa_queue_packet, workgroup_size_x));
   c = new (hsa_allocp_operand_immed)
-    hsa_op_immed (build_int_cstu (uint16_type_node, 1), false);
+    hsa_op_immed (build_int_cstu (uint16_type_node, 64), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
   hbb->append_insn (mem);
@@ -2466,7 +2466,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
   hbb->append_insn (mem);
 
-  /* Write to packet->grid_size_y.  */
+  /* Write to packet->workgroup_size_y.  */
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->workgroup_size_y = 1"));
 
@@ -2492,7 +2492,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
   hbb->append_insn (mem);
 
-  /* Write to packet->grid_size_z.  */
+  /* Write to packet->workgroup_size_z.  */
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->workgroup_size_z = 1"));
 

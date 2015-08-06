@@ -1,3 +1,8 @@
+2015-08-06  Martin liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Change default value
+	for workgroup_size_x and fix comments.
+
 2015-08-06  Martin Liska  <mliska@suse.cz>
 
 	* common.opt: Add new flag: -fdisable-hsa-gridification.
