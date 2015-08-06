@@ -1,3 +1,9 @@
+2015-08-06  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct kernel_info): Add new struct field.
+	(init_kernel): Precompute size of OMP data that is necessary
+	(GOMP_OFFLOAD_run): Use the procomputed value.
+
 2015-08-04  Martin Jambor  <mjambor@suse.cz>
 
 	* libgomp.h (gomp_device_descr): Add a parameter to run_func.

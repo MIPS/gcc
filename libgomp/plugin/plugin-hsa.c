@@ -112,6 +112,8 @@ struct kernel_info
   const char **dependencies;
   /* Number of dependencies.  */
   unsigned dependencies_count;
+  /* Maximum OMP data size necessary for kernel from kernel dispatches.  */
+  unsigned max_omp_data_size;
 };
 
 /* Information about a particular brig module, its image and kernels.  */
@@ -765,7 +767,7 @@ create_kernel_dispatch_recursive (struct kernel_info *kernel,
    The function assumes the program has been created, finalized and frozen by
    create_and_finalize_hsa_program.  */
 
-unsigned
+static void
 init_kernel (struct kernel_info *kernel)
 {
   if (pthread_mutex_lock (&kernel->init_mutex))
@@ -775,11 +777,13 @@ init_kernel (struct kernel_info *kernel)
       if (pthread_mutex_unlock (&kernel->init_mutex))
 	GOMP_PLUGIN_fatal ("Could not unlock an HSA kernel initialization "
 			   "mutex");
-      return 0;
+
+      return;
     }
 
-  unsigned max_omp_data_size = 0;
-  init_single_kernel (kernel, &max_omp_data_size);
+  /* Precomputed maximum size of OMP data necessary for a kernel from kernel
+     dispatch operation.  */
+  init_single_kernel (kernel, &kernel->max_omp_data_size);
 
   if (debug)
     fprintf (stderr, "\n");
@@ -788,8 +792,6 @@ init_kernel (struct kernel_info *kernel)
   if (pthread_mutex_unlock (&kernel->init_mutex))
     GOMP_PLUGIN_fatal ("Could not unlock an HSA kernel initialization "
 		       "mutex");
-
-  return max_omp_data_size;
 }
 
 /* Strucutre provided by thre compiler, specifying the grid, sizes.  */
@@ -867,9 +869,9 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
     }
 
   create_and_finalize_hsa_program (agent);
-  unsigned max_omp_data_size = init_kernel (kernel) ;
+  init_kernel (kernel) ;
   struct hsa_kernel_dispatch *shadow = create_kernel_dispatch_recursive
-    (kernel, max_omp_data_size);
+    (kernel, kernel->max_omp_data_size);
 
   if (debug)
     {
