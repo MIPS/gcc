@@ -1,5 +1,8 @@
 2015-08-05  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (determine_specialization): Remove rejections printing
+	for merge.
+
 	* decl.c (decls_match): Compare constraints on variables.
 	Don't compare them twice on functions.
 

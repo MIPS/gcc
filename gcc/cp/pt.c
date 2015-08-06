@@ -2102,7 +2102,6 @@ determine_specialization (tree template_id,
   tree targs;
   tree explicit_targs;
   tree candidates = NULL_TREE;
-  tree rejections = NULL_TREE;
 
   /* A TREE_LIST of templates of which DECL may be a specialization.
      The TREE_VALUE of each node is a TEMPLATE_DECL.  The
@@ -2332,13 +2331,9 @@ determine_specialization (tree template_id,
             continue;
 
           // If the deduced arguments do not satisfy the constraints,
-          // this is not a candidate. If it fails, record the
-          // rejected candidate.
+          // this is not a candidate.
           if (flag_concepts && !constraints_satisfied_p (fn))
-          {
-            rejections = tree_cons (NULL_TREE, fn, rejections);
             continue;
-          }
 
           // Add the candidate.
           candidates = tree_cons (NULL_TREE, fn, candidates);
@@ -2403,9 +2398,7 @@ determine_specialization (tree template_id,
     {
       error ("template-id %qD for %q+D does not match any template "
 	     "declaration", template_id, decl);
-      if (rejections)
-        print_candidates (rejections);
-      else if (header_count && header_count != template_count + 1)
+      if (header_count && header_count != template_count + 1)
 	inform (input_location, "saw %d %<template<>%>, need %d for "
 		"specializing a member function template",
 		header_count, template_count + 1);
