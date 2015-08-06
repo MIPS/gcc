@@ -1156,8 +1156,8 @@ check_noexcept_r (tree *tp, int * /*walk_subtrees*/, void * /*data*/)
       tree fn = (code == AGGR_INIT_EXPR
 		 ? AGGR_INIT_EXPR_FN (t) : CALL_EXPR_FN (t));
       tree type = TREE_TYPE (fn);
-      if (POINTER_TYPE_P (type))
-        type = TREE_TYPE (type);
+      gcc_assert (POINTER_TYPE_P (type));
+      type = TREE_TYPE (type);
 
       STRIP_NOPS (fn);
       if (TREE_CODE (fn) == ADDR_EXPR)
