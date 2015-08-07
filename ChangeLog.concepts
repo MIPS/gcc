@@ -1,5 +1,8 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* typeck.c (build_static_cast_1): Revert can_convert_standard change.
+	(casts_away_constness): Likewise.
+
 	* semantics.c (fixup_template_type): Call build_constraints.
 	(finish_template_type): Adjust fixup_template_type condition.
 
