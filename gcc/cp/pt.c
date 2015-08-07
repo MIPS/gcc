@@ -13942,8 +13942,6 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
     case UNION_TYPE:
     case ENUMERAL_TYPE:
     case INTEGER_TYPE:
-    case REAL_TYPE:
-    case BOOLEAN_TYPE:
     case TEMPLATE_TYPE_PARM:
     case TEMPLATE_TEMPLATE_PARM:
     case BOUND_TEMPLATE_TEMPLATE_PARM:

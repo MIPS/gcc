@@ -14505,11 +14505,6 @@ cp_parser_template_argument_list (cp_parser* parser)
           argument = make_pack_expansion (argument);
         }
 
-      // If we end up with a template decl argument, check if this is actually
-      // a template template parameter and drop the outer wrapping.
-      if (DECL_TEMPLATE_TEMPLATE_PARM_P (argument))
-	argument = TREE_TYPE (argument);
-
       if (n_args == alloced)
 	{
 	  alloced *= 2;

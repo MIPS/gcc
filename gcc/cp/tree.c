@@ -2975,12 +2975,6 @@ cp_tree_equal (tree t1, tree t2)
 	}
       return false;
 
-    case TYPE_DECL:
-      /* When comparing type constraints, we end up comparing
-         type declarations.  These are the same when they have
-         the same type.  */
-      return same_type_p (TREE_TYPE (t1), TREE_TYPE (t2));
-
     case VAR_DECL:
     case CONST_DECL:
     case FIELD_DECL:

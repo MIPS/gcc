@@ -1,5 +1,11 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* error.c (subst_to_string): Remove alternate input.
+	* parser.c (cp_parser_template_argument_list): Remove added
+	template decl handling.
+	* pt.c (tsubst_copy): Remove REAL_TYPE and BOOLEAN_TYPE.
+	* tree.c (cp_tree_equal): Remove TYPE_DECL handling.
+
 	* parser.c (cp_parser_maybe_concept_name): Rename from
 	cp_maybe_concept_name.
 	(cp_parser_maybe_partial_concept_id): Rename from
