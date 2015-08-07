@@ -1,5 +1,10 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* parser.c (cp_parser_maybe_concept_name): Rename from
+	cp_maybe_concept_name.
+	(cp_parser_maybe_partial_concept_id): Rename from
+	cp_maybe_partial_concept_id.  Return result rather than bool.
+
 	* typeck.c (build_static_cast_1): Revert can_convert_standard change.
 	(casts_away_constness): Likewise.
 

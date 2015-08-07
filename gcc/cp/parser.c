@@ -2563,8 +2563,8 @@ static bool cp_parser_skip_to_closing_square_bracket
 
 /* Concept-related syntactic transformations */
 
-static tree cp_maybe_concept_name       (cp_parser *, tree);
-static bool cp_maybe_partial_concept_id (cp_parser *, tree, tree, tree*);
+static tree cp_parser_maybe_concept_name       (cp_parser *, tree);
+static tree cp_parser_maybe_partial_concept_id (cp_parser *, tree, tree);
 
 // -------------------------------------------------------------------------- //
 // Unevaluated Operand Guard
@@ -14162,7 +14162,6 @@ cp_parser_template_id (cp_parser *parser,
     }
 
   /* Build a representation of the specialization.  */
-  tree partial_concept_id;
   if (identifier_p (templ))
     template_id = build_min_nt_loc (next_token->location,
 				    TEMPLATE_ID_EXPR,
@@ -14184,11 +14183,9 @@ cp_parser_template_id (cp_parser *parser,
     }
   /* A template-like identifier may be a partial concept id. */
   else if (flag_concepts
-           && cp_maybe_partial_concept_id
-              (parser, templ, arguments, &partial_concept_id))
-    {
-      return partial_concept_id;
-    }
+           && (template_id = (cp_parser_maybe_partial_concept_id
+			      (parser, templ, arguments))))
+    return template_id;
   else if (variable_template_p (templ))
     {
       template_id = lookup_template_variable (templ, arguments);
@@ -15659,7 +15656,8 @@ cp_check_type_concept (tree fn, tree proto)
     form a concept check of the form DECL<?>. */
 
 static tree
-cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
+cp_parser_maybe_constrained_type_specifier (cp_parser *parser,
+					    tree decl, tree args)
 {
   gcc_assert (args ? TREE_CODE (args) == TREE_VEC : true);
 
@@ -15733,9 +15731,9 @@ cp_maybe_constrained_type_specifier (cp_parser *parser, tree decl, tree args)
   - it is a variable concept taking a single type argument.  */
 
 static tree
-cp_maybe_concept_name (cp_parser* parser, tree decl)
+cp_parser_maybe_concept_name (cp_parser* parser, tree decl)
 {
-  return cp_maybe_constrained_type_specifier (parser, decl, NULL_TREE);
+  return cp_parser_maybe_constrained_type_specifier (parser, decl, NULL_TREE);
 }
 
 /* Check if DECL and ARGS form a partial-concept-id.  If so,
@@ -15745,11 +15743,10 @@ cp_maybe_concept_name (cp_parser* parser, tree decl)
    and false otherwise. Note that *id is set to NULL_TREE in
    this case. */
 
-bool
-cp_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args, tree* id)
+static tree
+cp_parser_maybe_partial_concept_id (cp_parser *parser, tree decl, tree args)
 {
-  *id = cp_maybe_constrained_type_specifier (parser, decl, args);
-  return *id != NULL_TREE;
+  return cp_parser_maybe_constrained_type_specifier (parser, decl, args);
 }
 
 /* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
@@ -15789,7 +15786,7 @@ cp_parser_nonclass_name (cp_parser* parser)
 	  || variable_concept_p (type_decl)))
   {
     /* Determine whether the overload refers to a concept. */
-    if (tree decl = cp_maybe_concept_name (parser, type_decl))
+    if (tree decl = cp_parser_maybe_concept_name (parser, type_decl))
       return decl;
   }
 
