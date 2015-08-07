@@ -5213,10 +5213,9 @@ push_template_decl_real (tree decl, bool is_friend)
 	  /* Since a template declaration already existed for this
 	     class-type, we must be redeclaring it here.  Make sure
 	     that the redeclaration is valid.  */
-          tree constr = current_template_constraints ();
 	  redeclare_class_template (TREE_TYPE (decl),
-                                    current_template_parms,
-                                    constr);
+				    current_template_parms,
+				    current_template_constraints ());
 	  /* We don't need to create a new TEMPLATE_DECL; just use the
 	     one we already had.  */
 	  tmpl = TYPE_TI_TEMPLATE (TREE_TYPE (decl));
@@ -11158,7 +11157,6 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* We can get here when processing a member function template,
 	   member class template, or template template parameter.  */
 	tree decl = DECL_TEMPLATE_RESULT (t);
-        tree type = TREE_TYPE (t);
 	tree spec;
 	tree tmpl_args;
 	tree full_args;
@@ -11166,7 +11164,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
 	  {
 	    /* Template template parameter is treated here.  */
-	    tree new_type = tsubst (type, args, complain, in_decl);
+	    tree new_type = tsubst (TREE_TYPE (t), args, complain, in_decl);
 	    if (new_type == error_mark_node)
 	      r = error_mark_node;
 	    /* If we get a real template back, return it.  This can happen in
@@ -23318,7 +23316,6 @@ struct constr_hasher : ggc_ptr_hash<constr_entry>
   }
 };
 
-
 /* A mapping from declarations to constraint information. Note that
    both templates and their underlying declarations are mapped to the
    same constraint information.
@@ -23390,7 +23387,7 @@ remove_constraints (tree t)
   constr_entry elt = {t, NULL_TREE};
   constr_entry** slot = decl_constraints->find_slot (&elt, NO_INSERT);
   if (slot)
-    decl_constraints->clear_slot(slot);
+    decl_constraints->clear_slot (slot);
 }
 
 /* Set up the hash table for constraint association. */

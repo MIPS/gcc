@@ -19035,7 +19035,7 @@ cp_parser_type_id_1 (cp_parser* parser, bool is_template_arg,
 	 is a function declarator with a late-specified return type.
 
          A type-id with 'auto' is also valid in a trailing-return-type
-         in a compound-requirment. */
+         in a compound-requirement. */
       if (abstract_declarator
 	  && abstract_declarator->kind == cdk_function
 	  && abstract_declarator->u.function.late_return_type)
@@ -21324,9 +21324,7 @@ cp_parser_member_declaration (cp_parser* parser)
     }
   /* Check for a template introduction.  */
   else if (cp_parser_template_declaration_after_export (parser, true))
-    {
-      return;
-    }
+    return;
 
   /* Check for a using-declaration.  */
   if (cp_lexer_next_token_is_keyword (parser->lexer, RID_USING))
@@ -23337,18 +23335,13 @@ cp_parser_requires_clause (cp_parser *parser)
 {
   // Parse the requires clause so that it is not automatically folded.
   ++processing_template_decl;
-  tree expr =
-    cp_parser_binary_expression (parser, false, false, PREC_NOT_OPERATOR, NULL);
+  tree expr = cp_parser_binary_expression (parser, false, false,
+					   PREC_NOT_OPERATOR, NULL);
   --processing_template_decl;
   return expr;
 }
 
 // Optionally parse a requires clause:
-//
-//   requires-clause:
-//     'requires' logical-or-expression
-//
-// The required logical-or-expression must be a constant expression.
 static tree
 cp_parser_requires_clause_opt (cp_parser *parser)
 {
@@ -23482,7 +23475,7 @@ cp_parser_requirement_list (cp_parser *parser)
 
       /* If we see a semi-colon, consume it. */
       if (cp_lexer_next_token_is (parser->lexer, CPP_SEMICOLON))
-          cp_lexer_consume_token (parser->lexer);
+	cp_lexer_consume_token (parser->lexer);
 
       /* Stop processing at the end of the list. */
       if (cp_lexer_next_token_is (parser->lexer, CPP_CLOSE_BRACE))
@@ -24755,9 +24748,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
       return true;
     }
   else if (flag_concepts)
-    {
-      return cp_parser_template_introduction (parser, member_p);
-    }
+    return cp_parser_template_introduction (parser, member_p);
 
   return false;
 }
