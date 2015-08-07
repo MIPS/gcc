@@ -4504,7 +4504,7 @@ process_partial_specialization (tree decl)
     = TI_ARGS (get_template_info (DECL_TEMPLATE_RESULT (maintmpl)));
   if (comp_template_args (inner_args, INNERMOST_TEMPLATE_ARGS (main_args))
       && (!flag_concepts
-	  || !subsumes_constraints (get_constraints (decl),
+	  || !subsumes_constraints (current_template_constraints (),
 				    get_constraints (maintmpl))))
     {
       if (!flag_concepts)

@@ -1,5 +1,8 @@
 2015-08-06  Jason Merrill  <jason@redhat.com>
 
+	* pt.c (process_partial_specialization): Use
+	current_template_constraints.
+
 	* error.c (subst_to_string): Remove alternate input.
 	* parser.c (cp_parser_template_argument_list): Remove added
 	template decl handling.
