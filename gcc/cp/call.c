@@ -689,7 +689,7 @@ invalid_copy_with_fn_template_rejection (void)
   return r;
 }
 
-// Build a constraint failure reecord, saving information into the
+// Build a constraint failure record, saving information into the
 // template_instantiation field of the rejection. If FN is not a template
 // declaration, the TMPL member is the FN declaration and TARGS is empty.
 

@@ -1618,9 +1618,7 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		      "old declaration %q#D", olddecl);
 	    }
           else if (check_concept_refinement (olddecl, newdecl))
-            {
-              return error_mark_node;
-            }
+	    return error_mark_node;
 	  return NULL_TREE;
 	}
       if (TREE_CODE (newdecl) == FUNCTION_DECL)

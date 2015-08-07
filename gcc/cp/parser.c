@@ -15640,7 +15640,7 @@ cp_parser_type_name (cp_parser* parser, bool typename_keyword_p)
 /* Returns true if proto is a type parameter, but not a template
    template parameter.  */
 static bool
-cp_check_type_concept (tree fn, tree proto)
+check_type_concept (tree fn, tree proto)
 {
   if (TREE_CODE (proto) != TYPE_DECL)
     {
@@ -15701,7 +15701,7 @@ cp_parser_maybe_constrained_type_specifier (cp_parser *parser,
 
      FIXME: A constrained-type-specifier can be a placeholder
      of any kind.  */
-  if (!cp_check_type_concept (conc, proto))
+  if (!check_type_concept (conc, proto))
     return error_mark_node;
 
   /* In a parameter-declaration-clause, constrained-type
