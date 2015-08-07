@@ -2112,6 +2112,8 @@ determine_specialization (tree template_id,
        b = b->level_chain)
     ++header_count;
 
+  tree orig_fns = fns;
+
   if (variable_template_p (fns))
     {
       tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (fns));
@@ -2358,6 +2360,8 @@ determine_specialization (tree template_id,
 	inform (input_location, "saw %d %<template<>%>, need %d for "
 		"specializing a member function template",
 		header_count, template_count + 1);
+      else
+	print_candidates (orig_fns);
       return error_mark_node;
     }
   else if ((templates && TREE_CHAIN (templates))
@@ -22186,10 +22190,9 @@ type_dependent_expression_p (tree expression)
 	      (TREE_OPERAND (expression, 1)))
 	    return true;
 	  expression = TREE_OPERAND (expression, 0);
+	  if (identifier_p (expression))
+	    return true;
 	}
-
-      if (variable_template_p (expression))
-        return dependent_type_p (TREE_TYPE (expression));
 
       gcc_assert (TREE_CODE (expression) == OVERLOAD
 		  || TREE_CODE (expression) == FUNCTION_DECL);
