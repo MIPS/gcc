@@ -1205,7 +1205,8 @@ struct mips_cpu_info {
 				 && mips_isa_rev >= 2)
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
-#define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
+#define ISA_HAS_LWXS		((TARGET_SMARTMIPS \
+				 || (TARGET_MICROMIPS && mips_isa_rev <= 5)) \
 				 && !TARGET_MIPS16)
 
 /* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
