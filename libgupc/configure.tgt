@@ -101,6 +101,9 @@ if test "$upc_runtime_model" = "portals4"; then
     LIBS="$portals4libs $LIBS"
   fi
 fi
+if test "x$enable_execinfo_lib" = "xyes"; then
+  LIBS="-lexecinfo $LIBS"
+fi
 libgupc_spec="%{!fupc-pthreads*:-lgupc;:-lgupc_pt -lpthread}"
 if test "$enable_upc_backtrace" = yes &&
    test -n "$export_dynamic_flag_spec"; then

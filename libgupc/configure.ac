@@ -681,11 +681,23 @@ AC_ARG_ENABLE(upc-backtrace,
 [
   enable_upc_backtrace=yes
 ])
-AC_MSG_RESULT($enable_upc_backtrace)
+# Check for execinfo library (needed on BSD systems for UPC backtracing)
+case "${target}" in
+  *-*-freebsd* | *-*-openbsd* | *-*-netbsd )
+    AC_CHECK_LIB(execinfo,backtrace,[execinfo_lib="yes"])
+    if test "x$execinfo_lib" = xyes; then
+      enable_execinfo_lib=yes
+    else
+      enable_upc_backtrace=no
+    fi
+  ;;
+  *) ;;
+esac
 if test "$enable_upc_backtrace" = yes; then
   AC_DEFINE(HAVE_UPC_BACKTRACE, 1,
     [Define to 1 if UPC backtrace is enabled.])
 fi
+AC_MSG_RESULT($enable_upc_backtrace)
 
 # Check for user specified GDB
 AC_ARG_WITH(upc-backtrace-gdb,
