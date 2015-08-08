@@ -97,6 +97,9 @@ cc1plus-checksum.c : build/genchecksum$(build_exeext) checksum-options \
 	$(srcdir)/../move-if-change cc1plus-checksum.c.tmp cc1plus-checksum.c
 
 cc1plus$(exeext): $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBDEPS)
+	@echo "*** THIS BRANCH IS NO LONGER UNDER DEVELOPMENT ***"
+	@echo "*** CONCEPTS HAS BEEN MERGED INTO TRUNK ***"
+	@false
 	+$(LLINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o $@ \
 	      $(CXX_OBJS) cc1plus-checksum.o $(BACKEND) $(LIBS) $(BACKENDLIBS)
 

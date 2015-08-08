@@ -27,6 +27,9 @@
 # Set by autoconf to "all.internal" for a native build, or
 # "all.cross" to build a cross compiler.
 all: @ALL@
+	@echo "*** THIS BRANCH IS NO LONGER UNDER DEVELOPMENT ***"
+	@echo "*** CONCEPTS HAS BEEN MERGED INTO TRUNK ***"
+	@false
 
 # Depend on this to specify a phony target portably.
 force:
