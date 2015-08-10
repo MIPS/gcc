@@ -1,3 +1,9 @@
+2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* internal-fn.c (expand_GOACC_DIM_SIZE) [!HAVE_oacc_dim_size]:
+	Don't define and set variable val.
+	(expand_GOACC_DIM_POS) [!HAVE_oacc_dim_pos]: Likewise.
+
 2015-08-06  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_expand_lock_unlock): Pass an

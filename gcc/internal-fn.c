@@ -1993,9 +1993,9 @@ expand_GOACC_DIM_SIZE (gcall *stmt)
     return;
   
   rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+#ifdef HAVE_oacc_dim_size
   rtx val = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
 			 VOIDmode, EXPAND_NORMAL);
-#ifdef HAVE_oacc_dim_size
   emit_insn (gen_oacc_dim_size (target, val));
 #else
   emit_move_insn (target, const1_rtx);
@@ -2011,9 +2011,9 @@ expand_GOACC_DIM_POS (gcall *stmt)
     return;
   
   rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+#ifdef HAVE_oacc_dim_pos
   rtx val = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
 			 VOIDmode, EXPAND_NORMAL);
-#ifdef HAVE_oacc_dim_pos
   emit_insn (gen_oacc_dim_pos (target, val));
 #else
   emit_move_insn (target, const0_rtx);
