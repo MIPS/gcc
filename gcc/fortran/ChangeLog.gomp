@@ -1,3 +1,8 @@
+2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.h (gfc_omp_map_op): Remove comma at end of enumerator
+	list.
+
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses_1): Remove GANGLOCAL
