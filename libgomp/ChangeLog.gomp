@@ -1,5 +1,9 @@
 2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* config/nvptx/critical.c: New file, replacing empty file.
+	* config/nvptx/oacc-init.c: Likewise.
+	* config/nvptx/openacc.f90: New file.
+
 	Backport trunk r226760:
 
 	2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>

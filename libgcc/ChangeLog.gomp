@@ -1,3 +1,13 @@
+2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config.host [nvptx-*] (extra_parts): Don't add "libgomp.a", and
+	"libgomp.spec".
+	* config/nvptx/gomp-acc_on_device.c: Remove file.
+	* config/nvptx/gomp-atomic.asm: Likewise.
+	* config/nvptx/t-nvptx (OBJS_libgomp): Don't set.
+	(gomp-acc_on_device.o, gomp-atomic.o, libgomp.a, libgomp.spec):
+	Remove targets.
+
 2015-08-03  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/gomp-acc_on_device.c: Don't include
