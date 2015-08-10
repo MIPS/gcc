@@ -437,17 +437,6 @@ enum cv_qualifier {
   TYPE_QUAL_UPC_STRICT   = 0x40
 };
 
-/* Enumerate visibility settings.  */
-#ifndef SYMBOL_VISIBILITY_DEFINED
-#define SYMBOL_VISIBILITY_DEFINED
-enum symbol_visibility {
-  VISIBILITY_DEFAULT,
-  VISIBILITY_PROTECTED,
-  VISIBILITY_HIDDEN,
-  VISIBILITY_INTERNAL
-};
-#endif  // SYMBOL_VISIBILITY_DEFINED
-
 /* Standard named or nameless data types of the C compiler.  */
 enum tree_index {
   TI_ERROR_MARK,

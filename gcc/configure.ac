@@ -1351,6 +1351,9 @@ AM_ICONV
 
 # Until we have in-tree GNU iconv:
 LIBICONV_DEP=
+if test -f "$LTLIBICONV"; then
+  LIBICONV_DEP=$LTLIBICONV
+fi
 AC_SUBST(LIBICONV_DEP)
 
 AM_LC_MESSAGES
