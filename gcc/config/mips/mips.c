@@ -12389,7 +12389,7 @@ mips_move_to_gpr_cost (reg_class_t from)
 
     case FP_REGS:
       /* MFC1, etc.  */
-      return 4;
+      return 5;
 
     case COP0_REGS:
     case COP2_REGS:
@@ -12422,7 +12422,7 @@ mips_move_from_gpr_cost (reg_class_t to)
 
     case FP_REGS:
       /* MTC1, etc.  */
-      return 4;
+      return 5;
 
     case COP0_REGS:
     case COP2_REGS:
