@@ -1,3 +1,14 @@
+2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport trunk r226760:
+
+	2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
+		    Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.ac (noconfigdirs): Don't add "target-libgomp" for target
+	nvptx*-*-*.
+	* configure: Regenerate.
+
 2015-06-30  Tom de Vries  <tom@codesourcery.com>
 
 	Revert:
