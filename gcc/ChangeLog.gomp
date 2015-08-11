@@ -1,3 +1,8 @@
+2015-08-10  Nathan Sidwell  <nathan@acm.org>
+
+	* tree-ssa-phiopt.c (minmax_replacement): Create new ssa name if
+	we're not the only contributor to target phi.
+
 2015-08-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* internal-fn.c (expand_GOACC_FORK): Use ARG_UNUSED.  Rename
