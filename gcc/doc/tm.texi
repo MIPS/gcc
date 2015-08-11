@@ -5743,7 +5743,13 @@ to use it.
 @deftypefn {Target Hook} tree TARGET_GOACC_VALIDATE_DIMS (tree, @var{tree})
 This hook should check the launch dimensions provided.  It should fill
 in default values and verify non-defaults.  The TREE_LIST is unshared
-and may be overwritten.  Diagnostics should be issued as appropriate.
+and may be overwritten.  If the dimension list is NULL, one should be
+created.  Diagnostics should be issued as appropriate.
+@end deftypefn
+
+@deftypefn {Target Hook} unsigned TARGET_GOACC_DIM_LIMIT (unsigned)
+This hook should return the maximum size of a particular dimension,
+or zero if unbounded.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (bool, gimple_stmt_iterator *@var{}, @var{gimple})

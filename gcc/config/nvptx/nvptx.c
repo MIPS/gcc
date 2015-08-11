@@ -3051,30 +3051,23 @@ nvptx_reorg (void)
   tree attr = get_oacc_fn_attrib (current_function_decl);
   if (attr)
     {
+      /* If we determined this mask before RTL expansion, we could
+	 elide emission of some levels of forks and joins.  */
       unsigned mask = 0;
       tree dims = TREE_VALUE (attr);
       unsigned ix;
 
-      for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+      for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
 	{
-	  unsigned HOST_WIDE_INT dim = 0;
+	  HOST_WIDE_INT size = TREE_INT_CST_LOW (TREE_VALUE (dims));
 
-	  if (dims)
-	    {
-	      tree cst = TREE_VALUE (dims);
-
-	      dim = TREE_INT_CST_LOW (cst);
-	      dims = TREE_CHAIN (dims);
-	    }
-	  if (dim != 1)
+	  if (size > 1 || (!size && !TREE_PURPOSE (dims)))
 	    mask |= GOMP_DIM_MASK (ix);
 	}
       /* If there is worker neutering, there must be vector
-	 neutering.  Otherwise the hardware will fail.  This really
-	 should be dealt with earlier because it indicates faulty
-	 logic in determining launch dimensions.  */
-      if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
-	mask |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
+	 neutering.  Otherwise the hardware will fail.  */
+      gcc_assert (!(mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+		  || (mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR)));
 
       parallel *pars = nvptx_discover_pars (&bb_insn_map);
       nvptx_process_pars (pars);
@@ -3175,15 +3168,10 @@ nvptx_record_offload_symbol (tree decl)
 
 	for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
 	  {
-	    tree cst = TREE_VALUE (dims);
+	    HOST_WIDE_INT size = TREE_INT_CST_LOW (TREE_VALUE (dims));
 
-	    /* When device_type support is added an earlier pass
-	       should have massaged the attribute to be
-	       ptx-specific.  */
-	    gcc_assert (TREE_CODE (cst) == INTEGER_CST);
-
-	    unsigned HOST_WIDE_INT dim = TREE_INT_CST_LOW (cst);
-	    fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_HEX, dim);
+	    gcc_assert (!TREE_PURPOSE (dims));
+	    fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_HEX, size);
 	  }
 
 	fprintf (asm_out_file, "\n");
@@ -3537,18 +3525,23 @@ nvptx_validate_dims (tree decl, tree dims)
 {
   tree adims[GOMP_DIM_MAX];
   unsigned ix;
-  tree pos = dims;
+  tree *pos_ptr;
 
-  for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+  for (ix = 0, pos_ptr = &dims; ix != GOMP_DIM_MAX;
+       ix++, pos_ptr = &TREE_CHAIN (*pos_ptr))
     {
-      adims[ix] = TREE_VALUE (pos);
-      pos = TREE_CHAIN (pos);
+      if (!*pos_ptr)
+	*pos_ptr = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
+      
+      adims[ix] = TREE_VALUE (*pos_ptr);
     }
+
   /* Define vector size for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
+
   /* If the worker size is not 1, the vector size must be 32.  If
-     the vector size is not 1, it must be 32.  */
+     the vector  size is not 1, it must be 32.  */
   if ((adims[GOMP_DIM_WORKER]
        && TREE_INT_CST_LOW (adims[GOMP_DIM_WORKER]) != 1)
       || (adims[GOMP_DIM_VECTOR]
@@ -3585,12 +3578,31 @@ nvptx_validate_dims (tree decl, tree dims)
       adims[ix] = integer_one_node;
 
   /* Write results.  */
-  pos = dims;
-  for (ix = 0; ix != GOMP_DIM_MAX; ix++, pos = TREE_CHAIN (pos))
+  tree pos;
+  for (ix = 0, pos = dims; ix != GOMP_DIM_MAX; ix++, pos = TREE_CHAIN (pos))
     TREE_VALUE (pos) = adims[ix];
-  
+
   return dims;
 }
+
+/* Return maximum dimension size, or zero for unbounded.  */
+
+static unsigned
+nvptx_dim_limit (unsigned axis)
+{
+  switch (axis)
+    {
+    case GOMP_DIM_WORKER:
+      return PTX_WORKER_LENGTH;
+      break;
+    case GOMP_DIM_VECTOR:
+      return  PTX_VECTOR_LENGTH;
+      break;
+    default: break;
+    }
+  return 0;
+}
+
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
@@ -3688,6 +3700,9 @@ nvptx_validate_dims (tree decl, tree dims)
 
 #undef TARGET_GOACC_VALIDATE_DIMS
 #define TARGET_GOACC_VALIDATE_DIMS nvptx_validate_dims
+
+#undef TARGET_GOACC_DIM_LIMIT
+#define TARGET_GOACC_DIM_LIMIT nvptx_dim_limit
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

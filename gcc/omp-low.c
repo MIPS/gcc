@@ -4681,13 +4681,13 @@ expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
   for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
     if (GOMP_DIM_MASK(ix) & gwv_bits)
       {
-	tree arg = build_int_cst (unsigned_type_node, ix);
-	tree count = create_tmp_var (unsigned_type_node);
+	tree arg = build_int_cst (integer_type_node, ix);
+	tree count = create_tmp_var (integer_type_node);
 	gimple call = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
 	
 	gimple_call_set_lhs (call, count);
 	gimple_seq_add_stmt (seq, call);
-	res = fold_build2 (MULT_EXPR, unsigned_type_node, res, count);
+	res = fold_build2 (MULT_EXPR, integer_type_node, res, count);
       }
   
   return res;
@@ -4713,30 +4713,30 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
 	  {
 	    /* We had an outer index, so scale that by the size of
 	       this dimension.  */
-	    tree n = create_tmp_var (unsigned_type_node);
+	    tree n = create_tmp_var (integer_type_node);
 	    gimple call
 	      = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
 	    
 	    gimple_call_set_lhs (call, n);
 	    gimple_seq_add_stmt (seq, call);
-	    res = fold_build2 (MULT_EXPR, unsigned_type_node, res, n);
+	    res = fold_build2 (MULT_EXPR, integer_type_node, res, n);
 	  }
 
 	/* Determine index in this dimension.  */
-	tree id = create_tmp_var (unsigned_type_node);
+	tree id = create_tmp_var (integer_type_node);
 	gimple call = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
 	
 	gimple_call_set_lhs (call, id);
 	gimple_seq_add_stmt (seq, call);
 	if (res)
-	  res = fold_build2 (PLUS_EXPR, unsigned_type_node, res, id);
+	  res = fold_build2 (PLUS_EXPR, integer_type_node, res, id);
 	else
 	  res = id;
       }
 
   if (res == NULL_TREE)
-    res = build_int_cst (unsigned_type_node, 0);
-			 
+    res = build_int_cst (integer_type_node, 0);
+
   return res;
 }
 
@@ -11662,8 +11662,8 @@ oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
     {
       tree arg = build_int_cst (unsigned_type_node, GOMP_DIM_WORKER);
       
-      worker_var = create_tmp_var (unsigned_type_node, ".worker");
-      worker_count = create_tmp_var (unsigned_type_node, ".workercount");
+      worker_var = create_tmp_var (integer_type_node, ".worker");
+      worker_count = create_tmp_var (integer_type_node, ".workercount");
       
       gimple call1 = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
       gimple_call_set_lhs (call1, worker_var);
@@ -11675,8 +11675,8 @@ oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
     }
   else
     {
-      worker_var = build_int_cst (unsigned_type_node, 0);
-      worker_count = build_int_cst (unsigned_type_node, 1);
+      worker_var = build_int_cst (integer_type_node, 0);
+      worker_count = build_int_cst (integer_type_node, 1);
     }
   
   ctx->worker_var = worker_var;
@@ -14582,17 +14582,19 @@ oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
 {
   tree arg = gimple_call_arg (stmt, 0);
   unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
+
   while (axis--)
     dims = TREE_CHAIN (dims);
-  unsigned size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+  int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
 
-  if (size == 0)
+  if (!size)
     /* Dimension size is dynamic.  */
     return;
+  
   if (is_pos)
     {
       if (size != 1)
-	/* Size is more than 1.  */
+	/* Size is more than 1, so POS might be non-zero.  */
 	return;
       size = 0;
     }
@@ -14600,7 +14602,7 @@ oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
   /* Replace the internal call with a constant.  */
   tree lhs = gimple_call_lhs (stmt);
   gimple g = gimple_build_assign
-    (lhs, build_int_cst (unsigned_type_node, size));
+    (lhs, build_int_cst (integer_type_node, size));
   gsi_replace (gsi, g, false);
 }
 
@@ -14619,8 +14621,7 @@ execute_oacc_transform ()
     return 0;
 
   tree dims = TREE_VALUE (attrs);
-  if (dims)
-    dims = targetm.goacc.validate_dims (current_function_decl, dims);
+  dims = targetm.goacc.validate_dims (current_function_decl, dims);
   /* Safe to overwrite, this attribute chain is unshared.  */
   TREE_VALUE (attrs) = dims;
   
@@ -14645,13 +14646,11 @@ execute_oacc_transform ()
 		    default: break;
 
 		    case IFN_GOACC_DIM_SIZE:
-		      if (dims)
-			oacc_xform_dim (&gsi, stmt, dims, false);
+		      oacc_xform_dim (&gsi, stmt, dims, false);
 		      break;
 
 		    case IFN_GOACC_DIM_POS:
-		      if (dims)
-			oacc_xform_dim (&gsi, stmt, dims, true);
+		      oacc_xform_dim (&gsi, stmt, dims, true);
 		      break;
 
 		    case IFN_GOACC_FORK:
@@ -14681,22 +14680,40 @@ execute_oacc_transform ()
 tree
 default_goacc_validate_dims (tree ARG_UNUSED (decl), tree dims)
 {
-  tree pos = dims;
-  for (unsigned ix = GOMP_DIM_MAX; ix--; pos = TREE_CHAIN (pos))
+  tree *pos_ptr;
+  unsigned ix;
+  
+  for (ix = 0, pos_ptr = &dims;
+       ix != GOMP_DIM_MAX; ix++, pos_ptr = &TREE_CHAIN (*pos_ptr))
     {
-      tree val = TREE_VALUE (pos);
+      /* Cons up a default, if the attribue list is NULL.  This
+	 happens on 'declare' routines, as theyy do not currently set
+	 the dimensions over which the routine may be active.  */
+      if (!*pos_ptr)
+	*pos_ptr = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
+      
+      tree val = TREE_VALUE (*pos_ptr);
       
 #ifdef ACCEL_COMPILER
       if (!val)
-	val = integer_one_node;
-#else
-      /* Set to 1 on the host. */
-      val = integer_one_node;
 #endif
-      TREE_VALUE (pos) =  val;
+	val = integer_one_node;
+      TREE_VALUE (*pos_ptr) = val;
     }
 
   return dims;
+}
+
+/* Default dimension bound is unknown on accelerator and 1 on host. */
+
+unsigned
+default_goacc_dim_limit (unsigned ARG_UNUSED (axis))
+{
+#ifdef ACCEL_COMPILER
+  return 0;
+#else
+  return 1;
+#endif
 }
 
 /* Default fork/join early expander.  Delete the function calls if

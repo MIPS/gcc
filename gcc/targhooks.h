@@ -108,6 +108,7 @@ extern void default_finish_cost (void *, unsigned *, unsigned *, unsigned *);
 extern void default_destroy_cost_data (void *);
 
 extern tree default_goacc_validate_dims (tree, tree);
+extern unsigned default_goacc_dim_limit (unsigned);
 extern bool default_goacc_fork_join (bool, gimple_stmt_iterator *, gimple);
 
 /* These are here, and not in hooks.[ch], because not all users of

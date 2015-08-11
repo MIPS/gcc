@@ -1,3 +1,29 @@
+2015-08-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* internal-fn.c (expand_GOACC_FORK): Use ARG_UNUSED.  Rename
+	varible sensibly. Assert we're never reached if there is no
+	expansion.
+	(expand_GOACC_JOIN, expand_GOACC_DIM_SIZE,
+	expand_GOACC_DIM_POS): likewise.
+	* targhooks.h (default_goacc_dim_limit): Declare.
+	* target.def (validate_dims): Expand documentation.
+	(dim_limit): New hook.
+	* config/nvptx/nvptx.c (nvptx_reorg): Expect attribute to always
+	have dimensions.
+	(nvptx_record_offload_symbol): Likewise.
+	(nvptx_validate_syms): Force dimension creation and adjust.
+	(nvtpx_dim_limit): Define.
+	(TARGET_GOACC_DIM_LIMIT): Override.
+	* omp-low.c (expand_oacc_get_num_threads): Builtins return int not
+	unsigned.
+	(expand_oacc_get_thread_num, oacc_init_count_vars): Likewise.
+	(oacc_xform_dim): Result is signed.
+	(execute_oacc_transform): Expect dims to always be present.
+	(default_goacc_validate_dims): Force dimension creation.
+	(default_goacc_dim_limit): New.
+	* doc/tm.texi.in (TARGET_GOACC_DIM_LIMIT): Add.
+	* doc/tm.texi: Rebuilt.
+
 2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* internal-fn.c (expand_GOACC_DIM_SIZE) [!HAVE_oacc_dim_size]:

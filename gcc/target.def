@@ -1648,9 +1648,17 @@ DEFHOOK
 (validate_dims,
 "This hook should check the launch dimensions provided.  It should fill\n\
 in default values and verify non-defaults.  The TREE_LIST is unshared\n\
-and may be overwritten.  Diagnostics should be issued as appropriate.",
+and may be overwritten.  If the dimension list is NULL, one should be\n\
+created.  Diagnostics should be issued as appropriate.",
 tree, (tree, tree),
 default_goacc_validate_dims)
+
+DEFHOOK
+(dim_limit,
+"This hook should return the maximum size of a particular dimension,\n\
+or zero if unbounded.",
+unsigned, (unsigned),
+default_goacc_dim_limit)
 
 DEFHOOK
 (fork_join,

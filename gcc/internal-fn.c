@@ -1965,58 +1965,62 @@ expand_GOACC_DATA_END_WITH_ARG (gcall *stmt ATTRIBUTE_UNUSED)
 }
 
 static void
-expand_GOACC_FORK (gcall *stmt ATTRIBUTE_UNUSED)
+expand_GOACC_FORK (gcall *ARG_UNUSED (stmt))
 {
 #ifdef HAVE_oacc_fork
-  rtx mode = expand_normal (gimple_call_arg (stmt, 0));
+  rtx dim = expand_normal (gimple_call_arg (stmt, 0));
   
-  emit_insn (gen_oacc_fork (mode));
+  emit_insn (gen_oacc_fork (dim));
+#else
+  gcc_unreachable ();
 #endif
 }
 
 static void
-expand_GOACC_JOIN (gcall *stmt ATTRIBUTE_UNUSED)
+expand_GOACC_JOIN (gcall *ARG_UNUSED (stmt))
 {
 #ifdef HAVE_oacc_join
-  rtx mode = expand_normal (gimple_call_arg (stmt, 0));
+  rtx dim = expand_normal (gimple_call_arg (stmt, 0));
   
-  emit_insn (gen_oacc_join (mode));
+  emit_insn (gen_oacc_join (dim));
+#else
+  gcc_unreachable ();
 #endif
 }
 
 static void
-expand_GOACC_DIM_SIZE (gcall *stmt)
+expand_GOACC_DIM_SIZE (gcall *ARG_UNUSED (stmt))
 {
-  tree lhs = gimple_call_lhs (stmt);
-
-  if (!lhs)
-    return;
-  
-  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
 #ifdef HAVE_oacc_dim_size
-  rtx val = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
-			 VOIDmode, EXPAND_NORMAL);
-  emit_insn (gen_oacc_dim_size (target, val));
-#else
-  emit_move_insn (target, const1_rtx);
-#endif
-}
-
-static void
-expand_GOACC_DIM_POS (gcall *stmt)
-{
   tree lhs = gimple_call_lhs (stmt);
 
   if (!lhs)
     return;
   
   rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
-#ifdef HAVE_oacc_dim_pos
-  rtx val = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
+  rtx dim = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
 			 VOIDmode, EXPAND_NORMAL);
-  emit_insn (gen_oacc_dim_pos (target, val));
+  emit_insn (gen_oacc_dim_size (target, dim));
 #else
-  emit_move_insn (target, const0_rtx);
+  gcc_unreachable ();
+#endif
+}
+
+static void
+expand_GOACC_DIM_POS (gcall *ARG_UNUSED (stmt))
+{
+#ifdef HAVE_oacc_dim_pos
+  tree lhs = gimple_call_lhs (stmt);
+
+  if (!lhs)
+    return;
+  
+  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  rtx dim = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
+			 VOIDmode, EXPAND_NORMAL);
+  emit_insn (gen_oacc_dim_pos (target, dim));
+#else
+  gcc_unreachable ();
 #endif
 }
 
