@@ -472,6 +472,10 @@ mshrink-offsets
 Target Report Mask(SHRINK_OFFSETS)
 Shrink offsets in MIPS16 code to avoid extended loads and stores
 
+mframe-header-opt
+Target Report Var(flag_frame_header_optimization) Optimization
+Optimize frame header
+
 noasmopt
 Driver
 
