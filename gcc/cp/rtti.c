@@ -708,12 +708,10 @@ build_dynamic_cast_1 (tree type, tree expr, tsubst_flags_t complain)
 	  target_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
 	  static_type = TYPE_MAIN_VARIANT (TREE_TYPE (exprtype));
 	  td2 = get_tinfo_decl (target_type);
-	  if (!mark_used (td2, complain) && !(complain & tf_error))
-	    return error_mark_node;
+	  mark_used (td2);
 	  td2 = cp_build_addr_expr (td2, complain);
 	  td3 = get_tinfo_decl (static_type);
-	  if (!mark_used (td3, complain) && !(complain & tf_error))
-	    return error_mark_node;
+	  mark_used (td3);
 	  td3 = cp_build_addr_expr (td3, complain);
 
 	  /* Determine how T and V are related.  */

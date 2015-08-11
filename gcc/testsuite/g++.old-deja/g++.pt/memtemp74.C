@@ -5,11 +5,11 @@ class S
 {
 protected:
   template <class U>
-  void f(U); // { dg-message "" } protected
+  void f(U); // { dg-error "" } is protected
 
 private:
   template <class U>
-  void g(U); // { dg-message "" } private
+  void g(U); // { dg-error "" } is private
 };
 
 

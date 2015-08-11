@@ -34,53 +34,51 @@
 void *
 acc_get_current_cuda_device (void)
 {
-  struct goacc_thread *thr = goacc_thread ();
+  void *p = NULL;
 
-  if (thr && thr->dev && thr->dev->openacc.cuda.get_current_device_func)
-    return thr->dev->openacc.cuda.get_current_device_func ();
+  if (base_dev && base_dev->openacc.cuda.get_current_device_func)
+    p = base_dev->openacc.cuda.get_current_device_func ();
 
-  return NULL;
+  return p;
 }
 
 void *
 acc_get_current_cuda_context (void)
 {
-  struct goacc_thread *thr = goacc_thread ();
+  void *p = NULL;
 
-  if (thr && thr->dev && thr->dev->openacc.cuda.get_current_context_func)
-    return thr->dev->openacc.cuda.get_current_context_func ();
- 
-  return NULL;
+  if (base_dev && base_dev->openacc.cuda.get_current_context_func)
+    p = base_dev->openacc.cuda.get_current_context_func ();
+
+  return p;
 }
 
 void *
 acc_get_cuda_stream (int async)
 {
-  struct goacc_thread *thr = goacc_thread ();
+  void *p = NULL;
 
   if (async < 0)
-    return NULL;
+    return p;
 
-  if (thr && thr->dev && thr->dev->openacc.cuda.get_stream_func)
-    return thr->dev->openacc.cuda.get_stream_func (async);
- 
-  return NULL;
+  if (base_dev && base_dev->openacc.cuda.get_stream_func)
+    p = base_dev->openacc.cuda.get_stream_func (async);
+
+  return p;
 }
 
 int
 acc_set_cuda_stream (int async, void *stream)
 {
-  struct goacc_thread *thr;
+  int s = -1;
 
   if (async < 0 || stream == NULL)
     return 0;
 
   goacc_lazy_initialize ();
 
-  thr = goacc_thread ();
+  if (base_dev && base_dev->openacc.cuda.set_stream_func)
+    s = base_dev->openacc.cuda.set_stream_func (async, stream);
 
-  if (thr && thr->dev && thr->dev->openacc.cuda.set_stream_func)
-    return thr->dev->openacc.cuda.set_stream_func (async, stream);
-
-  return -1;
+  return s;
 }

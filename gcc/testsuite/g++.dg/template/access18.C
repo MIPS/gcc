@@ -1,10 +1,10 @@
 // DR 401
 
 class X {
-  typedef int a; // { dg-message "private" }
-  static const int b = 5; // { dg-message "private" }
+  typedef int a; // { dg-error "private" }
+  static const int b = 5; // { dg-error "private" }
   template <typename>
-  struct c; // { dg-message "private" }
+  struct c; // { dg-error "private" }
 };
 
 template <typename = X::a> // { dg-error "context" }

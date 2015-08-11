@@ -5,7 +5,7 @@
 class A
 {
   private:
-    static void foo() {}	// { dg-message "" } 
+    static void foo() {}	// { dg-error "" } 
   public:
     void goo() {}
 };

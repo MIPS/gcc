@@ -8,7 +8,7 @@
 class A
 {
   public:
-    int foo() { return 1; }	// { dg-message "declared" }
+    int foo() { return 1; }	// { dg-error "inaccessible" }
 };
 
 class B : public A

@@ -15,9 +15,9 @@ class A {
     {}
   virtual ~A()
     {}
-  virtual void Number(int c) // { dg-message "declared" }
+  virtual void Number(int c) // { dg-error "inaccessible" }
     { number = c; }
-  virtual int Number() // { dg-message "declared" }
+  virtual int Number() // { dg-error "inaccessible" }
     { return number; }
 };
 

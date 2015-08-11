@@ -131,11 +131,7 @@
 #include <netax25/ax25.h>
 #include <netipx/ipx.h>
 #include <netrom/netrom.h>
-#if HAVE_RPC_XDR_H
-# include <rpc/xdr.h>
-#elif HAVE_TIRPC_RPC_XDR_H
-# include <tirpc/rpc/xdr.h>
-#endif
+#include <rpc/xdr.h>
 #include <scsi/scsi.h>
 #include <sys/mtio.h>
 #include <sys/kd.h>
@@ -1151,7 +1147,7 @@ CHECK_SIZE_AND_OFFSET(group, gr_passwd);
 CHECK_SIZE_AND_OFFSET(group, gr_gid);
 CHECK_SIZE_AND_OFFSET(group, gr_mem);
 
-#if HAVE_RPC_XDR_H || HAVE_TIRPC_RPC_XDR_H
+#if SANITIZER_LINUX && !SANITIZER_ANDROID
 CHECK_TYPE_SIZE(XDR);
 CHECK_SIZE_AND_OFFSET(XDR, x_op);
 CHECK_SIZE_AND_OFFSET(XDR, x_ops);

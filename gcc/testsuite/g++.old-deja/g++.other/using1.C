@@ -3,7 +3,7 @@ class D2;
 
 class B {
 private:
-  int a; // { dg-message "" } B::a declared private
+  int a; // { dg-error "" } B::a is private
 protected:
   int b;
 

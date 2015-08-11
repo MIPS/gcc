@@ -31,12 +31,12 @@ private:
   int num_;
 };
 
-Base::Base() // { dg-message "private" }
+Base::Base() // { dg-error "is private" }
 {
   name_ = std::strcpy(new char[std::strlen(" ") + 1], " ");
 }
 
-Base::Base(char* str) // { dg-message "private" }
+Base::Base(char* str) // { dg-error "is private" }
 {
   if(str != NULL)
     name_ = std::strcpy(new char[std::strlen(str) + 1], str);

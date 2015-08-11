@@ -5,7 +5,7 @@
 
 template <typename A>
 class S {
-  class T {};				// { dg-message "private" }
+  class T {};				// { dg-error "private" }
 };
 
 template <typename A>

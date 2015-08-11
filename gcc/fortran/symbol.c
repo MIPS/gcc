@@ -2758,8 +2758,8 @@ single_undo_checkpoint_p (void)
 
 /* Save symbol with the information necessary to back it out.  */
 
-void
-gfc_save_symbol_data (gfc_symbol *sym)
+static void
+save_symbol_data (gfc_symbol *sym)
 {
   gfc_symbol *s;
   unsigned i;
@@ -2860,7 +2860,7 @@ gfc_get_sym_tree (const char *name, gfc_namespace *ns, gfc_symtree **result,
       p->mark = 1;
 
       /* Copy in case this symbol is changed.  */
-      gfc_save_symbol_data (p);
+      save_symbol_data (p);
     }
 
   *result = st;
@@ -2899,7 +2899,7 @@ gfc_get_ha_sym_tree (const char *name, gfc_symtree **result)
 
   if (st != NULL)
     {
-      gfc_save_symbol_data (st->n.sym);
+      save_symbol_data (st->n.sym);
       *result = st;
       return i;
     }

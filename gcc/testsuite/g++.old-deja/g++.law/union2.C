@@ -10,9 +10,9 @@ class A {
 public:
   int x;
 private:
-  int y;    // { dg-message "" } private
+  int y;    // { dg-error "" } private
   union {
-    int z;  // { dg-message "" } private
+    int z;  // { dg-error "" } private
   };
 };
 

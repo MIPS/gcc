@@ -67,11 +67,6 @@
 	builtin_define ("__RX_GCC_ABI__");	\
       else					\
 	builtin_define ("__RX_ABI__");		\
-						\
-      if (rx_allow_string_insns)		\
-	builtin_define ("__RX_ALLOW_STRING_INSNS__"); \
-      else					\
-	builtin_define ("__RX_DISALLOW_STRING_INSNS__");\
     }                                           \
   while (0)
 
@@ -102,7 +97,6 @@
 %{msmall-data-limit*:-msmall-data-limit} \
 %{mrelax:-relax} \
 %{mpid} \
-%{mno-allow-string-insns} \
 %{mint-register=*} \
 %{mgcc-abi:-mgcc-abi} %{!mgcc-abi:-mrx-abi} \
 %{mcpu=*} \

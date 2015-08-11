@@ -30,10 +30,10 @@
 # duplicate
 msgid ""
 msgstr ""
-"Project-Id-Version: gcc 5.1-b20150208\n"
+"Project-Id-Version: gcc 4.8.0\n"
 "Report-Msgid-Bugs-To: http://gcc.gnu.org/bugs.html\n"
 "POT-Creation-Date: 2015-02-02 16:02+0000\n"
-"PO-Revision-Date: 2015-04-12 18:13+0200\n"
+"PO-Revision-Date: 2013-07-11 20:50+0300\n"
 "Last-Translator: Lauri Nurmi <lanurmi@iki.fi>\n"
 "Language-Team: Finnish <translation-team-fi@lists.sourceforge.net>\n"
 "Language: fi\n"
@@ -41,7 +41,6 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
-"X-Generator: Poedit 1.8beta1\n"
 
 #: cfgrtl.c:2698
 msgid "flow control insn inside a basic block"
@@ -1289,11 +1288,11 @@ msgstr ""
 
 #: opts.c:1270
 msgid "The following options are supported by the language "
-msgstr "Kieli tukee seuraavia valitsimia "
+msgstr ""
 
 #: opts.c:1281
 msgid "The following options are not documented"
-msgstr "Seuraavia valitsimia ei ole dokumentoitu"
+msgstr ""
 
 #: opts.c:1283
 msgid "The following options take separate arguments"
@@ -4162,8 +4161,9 @@ msgid "<unparsed>"
 msgstr "<jäsentämätön>"
 
 #: cp/error.c:2693
+#, fuzzy
 msgid "<lambda>"
-msgstr "<lambda>"
+msgstr "<lambda"
 
 #: cp/error.c:2703
 msgid "*this"
@@ -4299,8 +4299,9 @@ msgid "target is not pointer or reference"
 msgstr "ehtolausekkeessa on tyyppiristiriita"
 
 #: cp/rtti.c:584
+#, fuzzy
 msgid "source is not a pointer"
-msgstr "lähde ei ole osoitin"
+msgstr "taulukon indeksi ei ole kokonaisluku"
 
 #: cp/rtti.c:589
 msgid "source is not a pointer to class"
@@ -4588,15 +4589,15 @@ msgstr "kokonaislukuylivuoto lausekkeessa"
 
 #: fortran/module.c:1226
 msgid "Name too long"
-msgstr "Liian pitkä nimi"
+msgstr ""
 
 #: fortran/module.c:1328 fortran/module.c:1431
 msgid "Bad name"
-msgstr "Virheellinen nimi"
+msgstr ""
 
 #: fortran/module.c:1455
 msgid "Expected name"
-msgstr "Odotettu nimi"
+msgstr ""
 
 #: fortran/module.c:1458
 #, fuzzy
@@ -6939,8 +6940,10 @@ msgid "Conform to the Objective-C 1.0 language as implemented in GCC 4.0"
 msgstr "Noudata ISO 1990 C -standardia vuoden 1994 korjauksineen"
 
 #: c-family/c.opt:1288
+#, fuzzy
+#| msgid "Enable OpenMP"
 msgid "Enable OpenACC"
-msgstr "Käytä OpenACC:ta"
+msgstr "Käytä OpenMP:tä"
 
 #: c-family/c.opt:1292
 msgid "Enable OpenMP (implies -frecursive in Fortran)"
@@ -7180,16 +7183,21 @@ msgid "Deprecated in favor of -std=c++14"
 msgstr "Vanhentunut, ks. -std=c99"
 
 #: c-family/c.opt:1574
+#, fuzzy
+#| msgid "Conform to the ISO 2011 C++ standard (experimental and incomplete support)"
 msgid "Conform to the ISO 2014 C++ standard (experimental and incomplete support)"
-msgstr "Noudata ISO 2014 C++ -standardia (kokeellinen ja epätäydellinen tuki)"
+msgstr "Noudata ISO 2011 C++ -standardia (kokeellinen ja epätäydellinen tuki)"
 
 #: c-family/c.opt:1578
+#, fuzzy
+#| msgid "Conform to the ISO 201y(7?) C++ draft standard (experimental and incomplete support)"
 msgid "Conform to the ISO 2017(?) C++ draft standard (experimental and incomplete support)"
-msgstr "Noudata ISO 2017(?) C++ -standardiluonnosta (kokeellinen ja epätäydellinen tuki)"
+msgstr "Noudata ISO 201y(7?) C++ -standardiluonnosta (kokeellinen ja epätäydellinen tuki)"
 
 #: c-family/c.opt:1585 c-family/c.opt:1681
+#, fuzzy
 msgid "Conform to the ISO 2011 C standard (experimental and incomplete support)"
-msgstr "Noudata ISO 2011 C -standardia (kokeellinen ja epätäydellinen tuki)"
+msgstr "Noudata ISO 1990 C -standardia vuoden 1994 korjauksineen"
 
 #: c-family/c.opt:1589
 #, fuzzy
@@ -7276,8 +7284,9 @@ msgid "Do not predefine system-specific and GCC-specific macros"
 msgstr ""
 
 #: ada/gcc-interface/lang.opt:61
+#, fuzzy
 msgid "Synonym of -gnatk8"
-msgstr "Sama kuin -gnatk8"
+msgstr "Sama kuin -Wcomment"
 
 #: ada/gcc-interface/lang.opt:69
 msgid "Do not look for object files in standard path"
@@ -8435,8 +8444,9 @@ msgid "sizeof(long double) is 12"
 msgstr "sizeof(long double) on 12"
 
 #: config/i386/i386.opt:194
+#, fuzzy
 msgid "Use 80-bit long double"
-msgstr "Käytä 80-bittistä long double -tyyppiä"
+msgstr "Käytä 128-bittistä long double -tyyppiä"
 
 #: config/i386/i386.opt:198 config/s390/s390.opt:115
 #: config/sparc/long-double-switch.opt:27 config/alpha/alpha.opt:102
@@ -8699,12 +8709,15 @@ msgid "Generate 64bit x86-64 code"
 msgstr "Tuota 64-bittistä x86-64-koodia"
 
 #: config/i386/i386.opt:587
+#, fuzzy
 msgid "Generate 32bit x86-64 code"
-msgstr "Tuota 32-bittistä x86-64-koodia"
+msgstr "Tuota 64-bittistä x86-64-koodia"
 
 #: config/i386/i386.opt:591
+#, fuzzy
+#| msgid "Generate 32bit i386 code"
 msgid "Generate 16bit i386 code"
-msgstr "Tuota 16-bittistä i386-koodia"
+msgstr "Tuota 32-bittistä i386-koodia"
 
 #: config/i386/i386.opt:595
 msgid "Support MMX built-in functions"
@@ -12517,8 +12530,10 @@ msgid "Use given TILE-Gx code model"
 msgstr ""
 
 #: config/arc/arc.opt:26
+#, fuzzy
+#| msgid "Generate code in big endian mode"
 msgid "Compile code for big endian mode"
-msgstr "Käännä koodi big-endian-tilaa varten"
+msgstr "Tuota koodia big-endian-tilassa"
 
 #: config/arc/arc.opt:30
 msgid "Compile code for little endian mode.  This is the default"
@@ -12569,16 +12584,22 @@ msgid "Generate instructions supported by barrel shifter"
 msgstr ""
 
 #: config/arc/arc.opt:84
+#, fuzzy
+#| msgid "Generate bit instructions"
 msgid "Generate norm instruction"
-msgstr "Tuota norm-käsky"
+msgstr "Tuota bittikäskyjä"
 
 #: config/arc/arc.opt:88
+#, fuzzy
+#| msgid "Generate isel instructions"
 msgid "Generate swap instruction"
-msgstr "Tuota swap-käsky"
+msgstr "Tuota isel-käskyjä"
 
 #: config/arc/arc.opt:92
+#, fuzzy
+#| msgid "Generate isel instructions"
 msgid "Generate mul64 and mulu64 instructions"
-msgstr "Tuota mul64- ja mulu64-käskyjä"
+msgstr "Tuota isel-käskyjä"
 
 #: config/arc/arc.opt:96
 #, fuzzy
@@ -15249,9 +15270,9 @@ msgstr "attribuutille %qs annettu väärä määrä argumentteja"
 #. type-specifier, outside of the definition of, a class
 #. type.  Ignore it.
 #: attribs.c:481
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "attribute ignored"
-msgstr "attribuuttia ei huomioida"
+msgstr "%qE-attribuuttia ei huomioida"
 
 #: attribs.c:483
 #, gcc-internal-format
@@ -15676,79 +15697,79 @@ msgid "verify_flow_info failed"
 msgstr "verify_flow_info epäonnistui"
 
 #: cfghooks.c:330
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support dump_bb_for_graph"
-msgstr "%s ei tue: dump_bb_for_graph"
+msgstr "ISO C90 ei tue kompleksityyppejä"
 
 #: cfghooks.c:373
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support redirect_edge_and_branch"
-msgstr "%s ei tue: redirect_edge_and_branch"
+msgstr "%s ei tue %%n$-operandinumeromuotoilua"
 
 #: cfghooks.c:393
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support can_remove_branch_p"
-msgstr "%s ei tue: can_remove_branch_p"
+msgstr "%s ei tue %%n$-operandinumeromuotoilua"
 
 #: cfghooks.c:477
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support redirect_edge_and_branch_force"
-msgstr "%s ei tue: redirect_edge_and_branch_force"
+msgstr "%s ei tue %%n$-operandinumeromuotoilua"
 
 #: cfghooks.c:515
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support split_block"
-msgstr "%s ei tue: split_block"
+msgstr "%s ei tue pituusmäärettä %qs %s"
 
 #: cfghooks.c:570
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support move_block_after"
-msgstr "%s ei tue: move_block_after"
+msgstr "%s ei tue pituusmäärettä %qs %s"
 
 #: cfghooks.c:583
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support delete_basic_block"
-msgstr "%s ei tue: delete_basic_block"
+msgstr "%s ei tue muotoilua %<%%%s%c%> %s"
 
 #: cfghooks.c:630
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support split_edge"
-msgstr "%s ei tue: split_edge"
+msgstr "ISO C ei tue kompleksikokonaiskulutyyppejä"
 
 #: cfghooks.c:705
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support create_basic_block"
-msgstr "%s ei tue: create_basic_block"
+msgstr "%s ei tue muotoilua %<%%%s%c%> %s"
 
 #: cfghooks.c:733
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support can_merge_blocks_p"
-msgstr "%s ei tue: can_merge_blocks_p"
+msgstr "%s ei tue %%n$-operandinumeromuotoilua"
 
 #: cfghooks.c:744
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support predict_edge"
-msgstr "%s ei tue: predict_edge"
+msgstr "ISO C ei tue kompleksikokonaiskulutyyppejä"
 
 #: cfghooks.c:753
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support predicted_by_p"
-msgstr "%s ei tue: predicted_by_p"
+msgstr "ISO C ei tue kompleksikokonaiskulutyyppejä"
 
 #: cfghooks.c:767
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support merge_blocks"
-msgstr "%s ei tue: merge_blocks"
+msgstr "%s ei tue %%n$-operandinumeromuotoilua"
 
 #: cfghooks.c:848
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support make_forwarder_block"
-msgstr "%s ei tue: make_forwarder_block"
+msgstr "%s ei tue %%n$-operandinumeromuotoilua"
 
 #: cfghooks.c:1001
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support force_nonfallthru"
-msgstr "%s ei tue: force_nonfallthru"
+msgstr "%s ei tue pituusmäärettä %qs %s"
 
 #: cfghooks.c:1029
 #, gcc-internal-format, gfc-internal-format
@@ -15756,9 +15777,9 @@ msgid "%s does not support can_duplicate_block_p"
 msgstr ""
 
 #: cfghooks.c:1051
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s does not support duplicate_block"
-msgstr "%s ei tue: duplicate_block"
+msgstr "ISO C90 ei tue kompleksityyppejä"
 
 #: cfghooks.c:1145
 #, gcc-internal-format, gfc-internal-format
@@ -16437,9 +16458,9 @@ msgid "pex_init failed: %m"
 msgstr "pex_init epäonnistui: %s"
 
 #: collect-utils.c:192 collect2.c:2359 collect2.c:2557 gcc.c:8025
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "%s: %m"
-msgstr "%s: %m"
+msgstr "%s: %s"
 
 #: collect2.c:702
 #, gcc-internal-format
@@ -16473,14 +16494,14 @@ msgid "unknown demangling style '%s'"
 msgstr ""
 
 #: collect2.c:1546 collect2.c:1729 collect2.c:1769
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "fopen %s: %m"
-msgstr "fopen %s: %m"
+msgstr "fopen %s"
 
 #: collect2.c:1549 collect2.c:1734 collect2.c:1772
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "fclose %s: %m"
-msgstr "fclose %s: %m"
+msgstr "fclose %s"
 
 #: collect2.c:2324
 #, gcc-internal-format
@@ -17018,14 +17039,14 @@ msgid "failed to get process times: %m"
 msgstr ""
 
 #: gcc.c:2926
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s (program %s)"
-msgstr "%s (ohjelma %s)"
+msgstr "ohjelmat: %s\n"
 
 #: gcc.c:3370 opts-common.c:1030 opts-common.c:1102 opts-global.c:161
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "unrecognized command line option %qs"
-msgstr "tuntematon komentorivivalitsin %qs"
+msgstr "tuntematon komentorivivalitsin ”%s”"
 
 #: gcc.c:3435
 #, gcc-internal-format, gfc-internal-format
@@ -17038,9 +17059,10 @@ msgid "%qs is an unknown -save-temps option"
 msgstr ""
 
 #: gcc.c:4190 toplev.c:992
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
+#| msgid "%qs is not a valid output file"
 msgid "input file %qs is the same as output file"
-msgstr "syötetiedosto %qs on sama kuin tulostiedosto"
+msgstr "%qs ei ole kelpo tulostetiedosto"
 
 #: gcc.c:4217
 #, gcc-internal-format
@@ -17387,9 +17409,9 @@ msgstr "PCH-tiedostoa ei voida kirjoittaa"
 #: tree.c:12163 c/c-typeck.c:2789 c/c-typeck.c:2872 cp/constexpr.c:747
 #: cp/decl2.c:4962 cp/pt.c:7035 cp/semantics.c:1740 cp/typeck.c:1643
 #: cp/typeck.c:3596
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "declared here"
-msgstr "esitelty täällä"
+msgstr "%qD esitelty täällä"
 
 #: gimple-streamer-in.c:233
 #, gcc-internal-format, gfc-internal-format
@@ -18033,9 +18055,9 @@ msgid "environment variable COLLECT_GCC_OPTIONS must be set"
 msgstr "COLLECT_GCC_OPTIONS-ympäristömuuttujan on oltava asetettuna"
 
 #: lto-wrapper.c:1172
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "fopen: %s: %m"
-msgstr "fopen: %s: %m"
+msgstr "fopen %s"
 
 #: omp-low.c:1728 omp-low.c:1952
 #, fuzzy, gcc-internal-format
@@ -19080,9 +19102,9 @@ msgid "Alias and target's comdat groups differs"
 msgstr ""
 
 #: symtab.c:1166 symtab.c:1198
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "symtab_node::verify failed"
-msgstr "symtab_node::verify epäonnistui"
+msgstr "verify_flow_info epäonnistui"
 
 #: symtab.c:1195
 #, gcc-internal-format
@@ -24757,9 +24779,9 @@ msgid "MULT case in cris_op_str"
 msgstr ""
 
 #: config/cris/cris.c:926
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "invalid use of ':' modifier"
-msgstr "”:”-määreen epäkelpo käyttö"
+msgstr "void-lausekkeen epäkelpo käyttö"
 
 #: config/cris/cris.c:1160 config/moxie/moxie.c:221
 #, gcc-internal-format, gfc-internal-format
@@ -24803,14 +24825,14 @@ msgid "-fPIC and -fpic are not supported in this configuration"
 msgstr ""
 
 #: config/cris/cris.c:3017
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "unknown src"
-msgstr "tuntematon lähde"
+msgstr "<tuntematon>"
 
 #: config/cris/cris.c:3078
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "unknown dest"
-msgstr "tuntematon kohde"
+msgstr "<tuntematon operaattori>"
 
 #: config/cris/cris.c:3367
 #, gcc-internal-format, gfc-internal-format
@@ -25635,9 +25657,10 @@ msgid "cannot open '%s'"
 msgstr "Ei voi avata tiedostoa ”%s”"
 
 #: config/i386/intelmic-mkoffload.c:404
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
+#| msgid "no input file specified"
 msgid "output file not specified"
-msgstr "tulostiedostoa ei ole annettu"
+msgstr "syötetiedostoa ei ole annettu"
 
 #: config/i386/intelmic-mkoffload.c:484
 #, fuzzy, gcc-internal-format
@@ -42632,12 +42655,12 @@ msgstr ""
 #: cp/typeck2.c:1401 cp/typeck2.c:1425
 #, gcc-internal-format
 msgid "missing initializer for member %qD"
-msgstr "puuttuva alustin jäsenelle %qD"
+msgstr ""
 
 #: cp/typeck2.c:1408
 #, gcc-internal-format
 msgid "member %qD is uninitialized reference"
-msgstr "jäsen %qD on alustamaton viittaus"
+msgstr ""
 
 #: cp/typeck2.c:1415
 #, fuzzy, gcc-internal-format
@@ -42648,7 +42671,7 @@ msgstr "alustamaton viitejäsen %qD"
 #: cp/typeck2.c:1501
 #, gcc-internal-format
 msgid "no field %qD found in union being initialized"
-msgstr "alustettavassa unionissa ei ole kenttää %qD"
+msgstr ""
 
 #: cp/typeck2.c:1512
 #, gcc-internal-format
@@ -44345,7 +44368,7 @@ msgstr ""
 #: fortran/decl.c:1724
 #, gcc-internal-format, gfc-internal-format
 msgid "NULL() initialization at %C is ambiguous"
-msgstr "NULL()-alustus kohdassa %C on moniselitteinen"
+msgstr ""
 
 #: fortran/decl.c:1741
 #, gcc-internal-format, gfc-internal-format
@@ -54107,14 +54130,14 @@ msgid "%s: %s"
 msgstr "%s: %s"
 
 #: lto/lto-object.c:180
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "%s: %s: %s"
-msgstr "%s: %s: %s"
+msgstr "%s: %s"
 
 #: lto/lto-object.c:222
-#, gcc-internal-format, gfc-internal-format
+#, fuzzy, gcc-internal-format, gfc-internal-format
 msgid "close: %s"
-msgstr "close: %s"
+msgstr "fclose %s"
 
 #: lto/lto-object.c:278
 #, fuzzy, gcc-internal-format, gfc-internal-format
@@ -54238,9 +54261,9 @@ msgid "lto_obj_file_open() failed"
 msgstr ""
 
 #: lto/lto.c:2500
-#, gcc-internal-format
+#, fuzzy, gcc-internal-format
 msgid "waitpid failed"
-msgstr "waitpid epäonnistui"
+msgstr "pex_init epäonnistui: %s"
 
 #: lto/lto.c:2503
 #, fuzzy, gcc-internal-format

@@ -7,7 +7,7 @@
 // Message-ID: <9308121003.AA02294@mi.el.utwente.nl>
 class A {
 protected:
-      void foo(); // { dg-message "" } protected
+      void foo(); // { dg-error "" } protected
 };
 
 class B : public A

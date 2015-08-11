@@ -102,8 +102,8 @@ static rtx cselib_expand_value_rtx_1 (rtx, struct expand_value_data *, int);
 
 struct cselib_hasher : typed_noop_remove <cselib_val>
 {
-  typedef cselib_val *value_type;
-  struct key {
+  typedef cselib_val value_type;
+  struct compare_type {
     /* The rtx value and its mode (needed separately for constant
        integers).  */
     machine_mode mode;
@@ -111,9 +111,8 @@ struct cselib_hasher : typed_noop_remove <cselib_val>
     /* The mode of the contaning MEM, if any, otherwise VOIDmode.  */
     machine_mode memmode;
   };
-  typedef key *compare_type;
-  static inline hashval_t hash (const cselib_val *);
-  static inline bool equal (const cselib_val *, const key *);
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
 };
 
 /* The hash function for our hash table.  The value is always computed with
@@ -121,7 +120,7 @@ struct cselib_hasher : typed_noop_remove <cselib_val>
    hash value from a cselib_val structure.  */
 
 inline hashval_t
-cselib_hasher::hash (const cselib_val *v)
+cselib_hasher::hash (const value_type *v)
 {
   return v->hash;
 }
@@ -132,7 +131,7 @@ cselib_hasher::hash (const cselib_val *v)
    CONST of an appropriate mode.  */
 
 inline bool
-cselib_hasher::equal (const cselib_val *v, const key *x_arg)
+cselib_hasher::equal (const value_type *v, const compare_type *x_arg)
 {
   struct elt_loc_list *l;
   rtx x = x_arg->x;
@@ -508,7 +507,7 @@ preserve_constants_and_equivs (cselib_val **x, void *info ATTRIBUTE_UNUSED)
 
   if (invariant_or_equiv_p (v))
     {
-      cselib_hasher::key lookup = {
+      cselib_hasher::compare_type lookup = {
 	GET_MODE (v->val_rtx), v->val_rtx, VOIDmode
       };
       cselib_val **slot
@@ -593,7 +592,7 @@ cselib_find_slot (machine_mode mode, rtx x, hashval_t hash,
 		  enum insert_option insert, machine_mode memmode)
 {
   cselib_val **slot = NULL;
-  cselib_hasher::key lookup = { mode, x, memmode };
+  cselib_hasher::compare_type lookup = { mode, x, memmode };
   if (cselib_preserve_constants)
     slot = cselib_preserved_hash_table->find_slot_with_hash (&lookup, hash,
 							     NO_INSERT);

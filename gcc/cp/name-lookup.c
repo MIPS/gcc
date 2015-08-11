@@ -3408,7 +3408,7 @@ do_class_using_decl (tree scope, tree name)
 			   tf_warning_or_error);
       if (b_kind < bk_proper_base)
 	{
-	  if (!bases_dependent_p || b_kind == bk_same_type)
+	  if (!bases_dependent_p)
 	    {
 	      error_not_base_type (scope, current_class_type);
 	      return NULL_TREE;

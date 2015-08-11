@@ -137,10 +137,8 @@ wait (void)
   __builtin_rx_wait ();
 }
 
-#ifndef __RX_DISALLOW_STRING_INSNS__
 void
 rmpa (int * multiplicand, int * multiplier, int num)
 {
   __builtin_rx_rmpa ();
 }
-#endif

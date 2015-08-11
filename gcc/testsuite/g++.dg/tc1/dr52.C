@@ -17,7 +17,7 @@ struct B1 : B {};
 struct B2 : B {};
 
 struct C
-{ // { dg-message "declared" }
+{ // { dg-error "C" }
   void foo(void);
 };
 

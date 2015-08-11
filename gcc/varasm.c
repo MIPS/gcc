@@ -1928,18 +1928,17 @@ assemble_string (const char *p, int size)
 /* A noswitch_section_callback for lcomm_section.  */
 
 static bool
-emit_local (tree decl ATTRIBUTE_UNUSED,
+emit_local (tree decl,
 	    const char *name ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT size ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
-#if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
   int align = symtab_node::get (decl)->definition_alignment ();
+#if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
   ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name,
 				 size, align);
   return true;
 #elif defined ASM_OUTPUT_ALIGNED_LOCAL
-  int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, align);
   return true;
 #else
@@ -6822,13 +6821,9 @@ resolution_local_p (enum ld_plugin_symbol_resolution resolution)
 	  || resolution == LDPR_RESOLVED_EXEC);
 }
 
-/* COMMON_LOCAL_P is true means that the linker can guarantee that an
-   uninitialized common symbol in the executable will still be defined
-   (through COPY relocation) in the executable.  */
-
-bool
+static bool
 default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
-			 bool extern_protected_data, bool common_local_p)
+			 bool extern_protected_data)
 {
   /* A non-decl is an entry in the constant pool.  */
   if (!DECL_P (exp))
@@ -6853,16 +6848,7 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
      because dynamic linking might overwrite symbols
      in shared libraries.  */
   bool resolved_locally = false;
-
-  bool uninited_common = (DECL_COMMON (exp)
-			  && (DECL_INITIAL (exp) == NULL
-			      || (!in_lto_p
-				  && DECL_INITIAL (exp) == error_mark_node)));
-
-  /* A non-external variable is defined locally only if it isn't
-     uninitialized COMMON variable or common_local_p is true.  */
-  bool defined_locally = (!DECL_EXTERNAL (exp)
-			  && (!uninited_common || common_local_p));
+  bool defined_locally = !DECL_EXTERNAL (exp);
   if (symtab_node *node = symtab_node::get (exp))
     {
       if (node->in_other_partition)
@@ -6904,7 +6890,10 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 
   /* Uninitialized COMMON variable may be unified with symbols
      resolved from other modules.  */
-  if (uninited_common && !resolved_locally)
+  if (DECL_COMMON (exp)
+      && !resolved_locally
+      && (DECL_INITIAL (exp) == NULL
+	  || (!in_lto_p && DECL_INITIAL (exp) == error_mark_node)))
     return false;
 
   /* Otherwise we're left with initialized (or non-common) global data
@@ -6918,22 +6907,21 @@ default_binds_local_p_3 (const_tree exp, bool shlib, bool weak_dominate,
 bool
 default_binds_local_p (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false, false);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false);
 }
 
-/* Similar to default_binds_local_p, but common symbol may be local.  */
-
+/* Similar to default_binds_local_p, but protected data may be
+   external.  */
 bool
 default_binds_local_p_2 (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false,
-				  !flag_pic);
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true);
 }
 
 bool
 default_binds_local_p_1 (const_tree exp, int shlib)
 {
-  return default_binds_local_p_3 (exp, shlib != 0, false, false, false);
+  return default_binds_local_p_3 (exp, shlib != 0, false, false);
 }
 
 /* Return true when references to DECL must bind to current definition in

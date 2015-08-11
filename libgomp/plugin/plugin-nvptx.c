@@ -133,8 +133,7 @@ struct targ_fn_descriptor
   const char *name;
 };
 
-static unsigned int instantiated_devices = 0;
-static pthread_mutex_t ptx_dev_lock = PTHREAD_MUTEX_INITIALIZER;
+static bool ptx_inited = false;
 
 struct ptx_stream
 {
@@ -332,20 +331,8 @@ struct ptx_event
   struct ptx_event *next;
 };
 
-struct ptx_image_data
-{
-  void *target_data;
-  CUmodule module;
-  struct ptx_image_data *next;
-};
-
 static pthread_mutex_t ptx_event_lock;
 static struct ptx_event *ptx_events;
-
-static struct ptx_device **ptx_devices;
-
-static struct ptx_image_data *ptx_images = NULL;
-static pthread_mutex_t ptx_image_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define _XSTR(s) _STR(s)
 #define _STR(s) #s
@@ -463,8 +450,8 @@ fini_streams_for_device (struct ptx_device *ptx_dev)
       struct ptx_stream *s = ptx_dev->active_streams;
       ptx_dev->active_streams = ptx_dev->active_streams->next;
 
-      map_fini (s);
       cuStreamDestroy (s->stream);
+      map_fini (s);
       free (s);
     }
 
@@ -588,21 +575,21 @@ select_stream_for_async (int async, pthread_t thread, bool create,
   return stream;
 }
 
-/* Initialize the device.  Return TRUE on success, else FALSE.  PTX_DEV_LOCK
-   should be locked on entry and remains locked on exit.  */
-static bool
+static int nvptx_get_num_devices (void);
+
+/* Initialize the device.  */
+static int
 nvptx_init (void)
 {
   CUresult r;
   int rc;
-  int ndevs;
 
-  if (instantiated_devices != 0)
-    return true;
+  if (ptx_inited)
+    return nvptx_get_num_devices ();
 
   rc = verify_device_library ();
   if (rc < 0)
-    return false;
+    return -1;
 
   r = cuInit (0);
   if (r != CUDA_SUCCESS)
@@ -612,64 +599,22 @@ nvptx_init (void)
 
   pthread_mutex_init (&ptx_event_lock, NULL);
 
-  r = cuDeviceGetCount (&ndevs);
-  if (r != CUDA_SUCCESS)
-    GOMP_PLUGIN_fatal ("cuDeviceGetCount error: %s", cuda_error (r));
+  ptx_inited = true;
 
-  ptx_devices = GOMP_PLUGIN_malloc_cleared (sizeof (struct ptx_device *)
-					    * ndevs);
-
-  return true;
+  return nvptx_get_num_devices ();
 }
-
-/* Select the N'th PTX device for the current host thread.  The device must
-   have been previously opened before calling this function.  */
 
 static void
-nvptx_attach_host_thread_to_device (int n)
+nvptx_fini (void)
 {
-  CUdevice dev;
-  CUresult r;
-  struct ptx_device *ptx_dev;
-  CUcontext thd_ctx;
-
-  r = cuCtxGetDevice (&dev);
-  if (r != CUDA_SUCCESS && r != CUDA_ERROR_INVALID_CONTEXT)
-    GOMP_PLUGIN_fatal ("cuCtxGetDevice error: %s", cuda_error (r));
-
-  if (r != CUDA_ERROR_INVALID_CONTEXT && dev == n)
-    return;
-  else
-    {
-      CUcontext old_ctx;
-
-      ptx_dev = ptx_devices[n];
-      assert (ptx_dev);
-
-      r = cuCtxGetCurrent (&thd_ctx);
-      if (r != CUDA_SUCCESS)
-        GOMP_PLUGIN_fatal ("cuCtxGetCurrent error: %s", cuda_error (r));
-
-      /* We don't necessarily have a current context (e.g. if it has been
-         destroyed.  Pop it if we do though.  */
-      if (thd_ctx != NULL)
-	{
-	  r = cuCtxPopCurrent (&old_ctx);
-	  if (r != CUDA_SUCCESS)
-            GOMP_PLUGIN_fatal ("cuCtxPopCurrent error: %s", cuda_error (r));
-	}
-
-      r = cuCtxPushCurrent (ptx_dev->ctx);
-      if (r != CUDA_SUCCESS)
-        GOMP_PLUGIN_fatal ("cuCtxPushCurrent error: %s", cuda_error (r));
-    }
+  ptx_inited = false;
 }
 
-static struct ptx_device *
+static void *
 nvptx_open_device (int n)
 {
   struct ptx_device *ptx_dev;
-  CUdevice dev, ctx_dev;
+  CUdevice dev;
   CUresult r;
   int async_engines, pi;
 
@@ -682,21 +627,6 @@ nvptx_open_device (int n)
   ptx_dev->ord = n;
   ptx_dev->dev = dev;
   ptx_dev->ctx_shared = false;
-
-  r = cuCtxGetDevice (&ctx_dev);
-  if (r != CUDA_SUCCESS && r != CUDA_ERROR_INVALID_CONTEXT)
-    GOMP_PLUGIN_fatal ("cuCtxGetDevice error: %s", cuda_error (r));
-  
-  if (r != CUDA_ERROR_INVALID_CONTEXT && ctx_dev != dev)
-    {
-      /* The current host thread has an active context for a different device.
-         Detach it.  */
-      CUcontext old_ctx;
-      
-      r = cuCtxPopCurrent (&old_ctx);
-      if (r != CUDA_SUCCESS)
-	GOMP_PLUGIN_fatal ("cuCtxPopCurrent error: %s", cuda_error (r));
-    }
 
   r = cuCtxGetCurrent (&ptx_dev->ctx);
   if (r != CUDA_SUCCESS)
@@ -748,16 +678,17 @@ nvptx_open_device (int n)
 
   init_streams_for_device (ptx_dev, async_engines);
 
-  return ptx_dev;
+  return (void *) ptx_dev;
 }
 
-static void
-nvptx_close_device (struct ptx_device *ptx_dev)
+static int
+nvptx_close_device (void *targ_data)
 {
   CUresult r;
+  struct ptx_device *ptx_dev = targ_data;
 
   if (!ptx_dev)
-    return;
+    return 0;
 
   fini_streams_for_device (ptx_dev);
 
@@ -769,6 +700,8 @@ nvptx_close_device (struct ptx_device *ptx_dev)
     }
 
   free (ptx_dev);
+
+  return 0;
 }
 
 static int
@@ -781,7 +714,7 @@ nvptx_get_num_devices (void)
      order to enumerate available devices, but CUDA API routines can't be used
      until cuInit has been called.  Just call it now (but don't yet do any
      further initialization).  */
-  if (instantiated_devices == 0)
+  if (!ptx_inited)
     cuInit (0);
 
   r = cuDeviceGetCount (&n);
@@ -1574,84 +1507,64 @@ GOMP_OFFLOAD_get_num_devices (void)
   return nvptx_get_num_devices ();
 }
 
+static void **kernel_target_data;
+static void **kernel_host_table;
+
 void
-GOMP_OFFLOAD_init_device (int n)
+GOMP_OFFLOAD_register_image (void *host_table, void *target_data)
 {
-  pthread_mutex_lock (&ptx_dev_lock);
-
-  if (!nvptx_init () || ptx_devices[n] != NULL)
-    {
-      pthread_mutex_unlock (&ptx_dev_lock);
-      return;
-    }
-
-  ptx_devices[n] = nvptx_open_device (n);
-  instantiated_devices++;
-
-  pthread_mutex_unlock (&ptx_dev_lock);
+  kernel_target_data = target_data;
+  kernel_host_table = host_table;
 }
 
 void
-GOMP_OFFLOAD_fini_device (int n)
+GOMP_OFFLOAD_init_device (int n __attribute__ ((unused)))
 {
-  pthread_mutex_lock (&ptx_dev_lock);
+  (void) nvptx_init ();
+}
 
-  if (ptx_devices[n] != NULL)
-    {
-      nvptx_attach_host_thread_to_device (n);
-      nvptx_close_device (ptx_devices[n]);
-      ptx_devices[n] = NULL;
-      instantiated_devices--;
-    }
-
-  pthread_mutex_unlock (&ptx_dev_lock);
+void
+GOMP_OFFLOAD_fini_device (int n __attribute__ ((unused)))
+{
+  nvptx_fini ();
 }
 
 int
-GOMP_OFFLOAD_load_image (int ord, void *target_data,
-			 struct addr_pair **target_table)
+GOMP_OFFLOAD_get_table (int n __attribute__ ((unused)),
+			struct mapping_table **tablep)
 {
   CUmodule module;
-  char **fn_names, **var_names;
-  unsigned int fn_entries, var_entries, i, j;
+  void **fn_table;
+  char **fn_names;
+  int fn_entries, i;
   CUresult r;
   struct targ_fn_descriptor *targ_fns;
-  void **img_header = (void **) target_data;
-  struct ptx_image_data *new_image;
 
-  GOMP_OFFLOAD_init_device (ord);
+  if (nvptx_init () <= 0)
+    return 0;
 
-  nvptx_attach_host_thread_to_device (ord);
+  /* This isn't an error, because an image may legitimately have no offloaded
+     regions and so will not call GOMP_offload_register.  */
+  if (kernel_target_data == NULL)
+    return 0;
 
-  link_ptx (&module, img_header[0]);
+  link_ptx (&module, kernel_target_data[0]);
 
-  pthread_mutex_lock (&ptx_image_lock);
-  new_image = GOMP_PLUGIN_malloc (sizeof (struct ptx_image_data));
-  new_image->target_data = target_data;
-  new_image->module = module;
-  new_image->next = ptx_images;
-  ptx_images = new_image;
-  pthread_mutex_unlock (&ptx_image_lock);
+  /* kernel_target_data[0] -> ptx code
+     kernel_target_data[1] -> variable mappings
+     kernel_target_data[2] -> array of kernel names in ascii
 
-  /* The mkoffload utility emits a table of pointers/integers at the start of
-     each offload image:
-
-     img_header[0] -> ptx code
-     img_header[1] -> number of variables
-     img_header[2] -> array of variable names (pointers to strings)
-     img_header[3] -> number of kernels
-     img_header[4] -> array of kernel names (pointers to strings)
+     kernel_host_table[0] -> start of function addresses (__offload_func_table)
+     kernel_host_table[1] -> end of function addresses (__offload_funcs_end)
 
      The array of kernel names and the functions addresses form a
      one-to-one correspondence.  */
 
-  var_entries = (uintptr_t) img_header[1];
-  var_names = (char **) img_header[2];
-  fn_entries = (uintptr_t) img_header[3];
-  fn_names = (char **) img_header[4];
+  fn_table = kernel_host_table[0];
+  fn_names = (char **) kernel_target_data[2];
+  fn_entries = (kernel_host_table[1] - kernel_host_table[0]) / sizeof (void *);
 
-  *target_table = GOMP_PLUGIN_malloc (sizeof (struct addr_pair)
-				      * (fn_entries + var_entries));
+  *tablep = GOMP_PLUGIN_malloc (sizeof (struct mapping_table) * fn_entries);
   targ_fns = GOMP_PLUGIN_malloc (sizeof (struct targ_fn_descriptor)
 				 * fn_entries);
 
@@ -1666,86 +1579,38 @@ GOMP_OFFLOAD_load_image (int ord, void *target_data,
       targ_fns[i].fn = function;
       targ_fns[i].name = (const char *) fn_names[i];
 
-      (*target_table)[i].start = (uintptr_t) &targ_fns[i];
-      (*target_table)[i].end = (*target_table)[i].start + 1;
+      (*tablep)[i].host_start = (uintptr_t) fn_table[i];
+      (*tablep)[i].host_end = (*tablep)[i].host_start + 1;
+      (*tablep)[i].tgt_start = (uintptr_t) &targ_fns[i];
+      (*tablep)[i].tgt_end = (*tablep)[i].tgt_start + 1;
     }
 
-  for (j = 0; j < var_entries; j++, i++)
-    {
-      CUdeviceptr var;
-      size_t bytes;
-
-      r = cuModuleGetGlobal (&var, &bytes, module, var_names[j]);
-      if (r != CUDA_SUCCESS)
-        GOMP_PLUGIN_fatal ("cuModuleGetGlobal error: %s", cuda_error (r));
-
-      (*target_table)[i].start = (uintptr_t) var;
-      (*target_table)[i].end = (*target_table)[i].start + bytes;
-    }
-
-  return i;
-}
-
-void
-GOMP_OFFLOAD_unload_image (int tid __attribute__((unused)), void *target_data)
-{
-  void **img_header = (void **) target_data;
-  struct targ_fn_descriptor *targ_fns
-    = (struct targ_fn_descriptor *) img_header[0];
-  struct ptx_image_data *image, *prev = NULL, *newhd = NULL;
-
-  free (targ_fns);
-
-  pthread_mutex_lock (&ptx_image_lock);
-  for (image = ptx_images; image != NULL;)
-    {
-      struct ptx_image_data *next = image->next;
-
-      if (image->target_data == target_data)
-	{
-	  cuModuleUnload (image->module);
-	  free (image);
-	  if (prev)
-	    prev->next = next;
-	}
-      else
-	{
-	  prev = image;
-	  if (!newhd)
-	    newhd = image;
-	}
-
-      image = next;
-    }
-  ptx_images = newhd;
-  pthread_mutex_unlock (&ptx_image_lock);
+  return fn_entries;
 }
 
 void *
-GOMP_OFFLOAD_alloc (int ord, size_t size)
+GOMP_OFFLOAD_alloc (int n __attribute__ ((unused)), size_t size)
 {
-  nvptx_attach_host_thread_to_device (ord);
   return nvptx_alloc (size);
 }
 
 void
-GOMP_OFFLOAD_free (int ord, void *ptr)
+GOMP_OFFLOAD_free (int n __attribute__ ((unused)), void *ptr)
 {
-  nvptx_attach_host_thread_to_device (ord);
   nvptx_free (ptr);
 }
 
 void *
-GOMP_OFFLOAD_dev2host (int ord, void *dst, const void *src, size_t n)
+GOMP_OFFLOAD_dev2host (int ord __attribute__ ((unused)), void *dst,
+		       const void *src, size_t n)
 {
-  nvptx_attach_host_thread_to_device (ord);
   return nvptx_dev2host (dst, src, n);
 }
 
 void *
-GOMP_OFFLOAD_host2dev (int ord, void *dst, const void *src, size_t n)
+GOMP_OFFLOAD_host2dev (int ord __attribute__ ((unused)), void *dst,
+		       const void *src, size_t n)
 {
-  nvptx_attach_host_thread_to_device (ord);
   return nvptx_host2dev (dst, src, n);
 }
 
@@ -1760,6 +1625,45 @@ GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
 {
   nvptx_exec (fn, mapnum, hostaddrs, devaddrs, sizes, kinds, num_gangs,
 	    num_workers, vector_length, async, targ_mem_desc);
+}
+
+void *
+GOMP_OFFLOAD_openacc_open_device (int n)
+{
+  return nvptx_open_device (n);
+}
+
+int
+GOMP_OFFLOAD_openacc_close_device (void *h)
+{
+  return nvptx_close_device (h);
+}
+
+void
+GOMP_OFFLOAD_openacc_set_device_num (int n)
+{
+  struct nvptx_thread *nvthd = nvptx_thread ();
+
+  assert (n >= 0);
+
+  if (!nvthd->ptx_dev || nvthd->ptx_dev->ord != n)
+    (void) nvptx_open_device (n);
+}
+
+/* This can be called before the device is "opened" for the current thread, in
+   which case we can't tell which device number should be returned.  We don't
+   actually want to open the device here, so just return -1 and let the caller
+   (oacc-init.c:acc_get_device_num) handle it.  */
+
+int
+GOMP_OFFLOAD_openacc_get_device_num (void)
+{
+  struct nvptx_thread *nvthd = nvptx_thread ();
+
+  if (nvthd && nvthd->ptx_dev)
+    return nvthd->ptx_dev->ord;
+  else
+    return -1;
 }
 
 void
@@ -1825,17 +1729,13 @@ GOMP_OFFLOAD_openacc_async_set_async (int async)
 }
 
 void *
-GOMP_OFFLOAD_openacc_create_thread_data (int ord)
+GOMP_OFFLOAD_openacc_create_thread_data (void *targ_data)
 {
-  struct ptx_device *ptx_dev;
+  struct ptx_device *ptx_dev = (struct ptx_device *) targ_data;
   struct nvptx_thread *nvthd
     = GOMP_PLUGIN_malloc (sizeof (struct nvptx_thread));
   CUresult r;
   CUcontext thd_ctx;
-
-  ptx_dev = ptx_devices[ord];
-
-  assert (ptx_dev);
 
   r = cuCtxGetCurrent (&thd_ctx);
   if (r != CUDA_SUCCESS)

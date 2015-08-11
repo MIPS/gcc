@@ -368,10 +368,6 @@ sem_item::compare_cgraph_references (
   if (n1 == n2)
     return true;
 
-  /* Never match variable and function.  */
-  if (is_a <varpool_node *> (n1) != is_a <varpool_node *> (n2))
-    return false;
-
   /* Merging two definitions with a reference to equivalent vtables, but
      belonging to a different type may result in ipa-polymorphic-call analysis
      giving a wrong answer about the dynamic type of instance.  */
@@ -591,6 +587,9 @@ void
 sem_item::update_hash_by_addr_refs (hash_map <symtab_node *,
 				    sem_item *> &m_symtab_node_map)
 {
+  if (is_a <varpool_node *> (node) && DECL_VIRTUAL_P (node->decl))
+    return;
+
   ipa_ref* ref;
   inchash::hash hstate (hash);
   for (unsigned i = 0; i < node->num_references (); i++)
@@ -1668,19 +1667,17 @@ sem_variable::equals_wpa (sem_item *item,
 				      ref->address_matters_p ()))
 	return false;
 
-      /* When matching virtual tables, be sure to also match information
- 	 relevant for polymorphic call analysis.  */
-      if (DECL_VIRTUAL_P (decl) || DECL_VIRTUAL_P (item->decl))
-	{
-	  if (DECL_VIRTUAL_P (ref->referred->decl)
-	      != DECL_VIRTUAL_P (ref2->referred->decl))
-            return return_false_with_msg ("virtual flag mismatch");
-	  if (DECL_VIRTUAL_P (ref->referred->decl)
-	      && is_a <cgraph_node *> (ref->referred)
-	      && (DECL_FINAL_P (ref->referred->decl)
-		  != DECL_FINAL_P (ref2->referred->decl)))
-            return return_false_with_msg ("final flag mismatch");
-	}
+      /* DECL_FINAL_P flag on methods referred by virtual tables is used
+	 to decide on completeness possible_polymorphic_call_targets lists
+	 and therefore it must match.  */
+      if ((DECL_VIRTUAL_P (decl) || DECL_VIRTUAL_P (item->decl))
+	  && (DECL_VIRTUAL_P (ref->referred->decl)
+	      || DECL_VIRTUAL_P (ref2->referred->decl))
+	  && ((DECL_VIRTUAL_P (ref->referred->decl)
+	       != DECL_VIRTUAL_P (ref2->referred->decl))
+	      || (DECL_FINAL_P (ref->referred->decl)
+		  != DECL_FINAL_P (ref2->referred->decl))))
+        return return_false_with_msg ("virtual or final flag mismatch");
     }
 
   return true;
@@ -2712,9 +2709,6 @@ sem_item_optimizer::subdivide_classes_by_equality (bool in_wpa)
 unsigned
 sem_item_optimizer::subdivide_classes_by_sensitive_refs ()
 {
-  typedef hash_map <symbol_compare_collection *, vec <sem_item *>,
-    symbol_compare_hashmap_traits> subdivide_hash_map;
-
   unsigned newly_created_classes = 0;
 
   for (hash_table <congruence_class_group_hash>::iterator it = m_classes.begin ();
@@ -2729,7 +2723,8 @@ sem_item_optimizer::subdivide_classes_by_sensitive_refs ()
 
 	  if (c->members.length() > 1)
 	    {
-	      subdivide_hash_map split_map;
+	      hash_map <symbol_compare_collection *, vec <sem_item *>,
+		symbol_compare_hashmap_traits> split_map;
 
 	      for (unsigned j = 0; j < c->members.length (); j++)
 	        {
@@ -2737,15 +2732,10 @@ sem_item_optimizer::subdivide_classes_by_sensitive_refs ()
 
 		  symbol_compare_collection *collection = new symbol_compare_collection (source_node->node);
 
-		  bool existed;
-		  vec <sem_item *> *slot = &split_map.get_or_insert (collection,
-								     &existed);
+		  vec <sem_item *> *slot = &split_map.get_or_insert (collection);
 		  gcc_checking_assert (slot);
 
 		  slot->safe_push (source_node);
-
-		  if (existed)
-		    delete collection;
 	        }
 
 	       /* If the map contains more than one key, we have to split the map
@@ -2754,8 +2744,9 @@ sem_item_optimizer::subdivide_classes_by_sensitive_refs ()
 	        {
 		  bool first_class = true;
 
-		  for (subdivide_hash_map::iterator it2 = split_map.begin ();
-		       it2 != split_map.end (); ++it2)
+		  hash_map <symbol_compare_collection *, vec <sem_item *>,
+		  symbol_compare_hashmap_traits>::iterator it2 = split_map.begin ();
+		  for (; it2 != split_map.end (); ++it2)
 		    {
 		      congruence_class *new_cls;
 		      new_cls = new congruence_class (class_id++);
@@ -2777,14 +2768,6 @@ sem_item_optimizer::subdivide_classes_by_sensitive_refs ()
 			  m_classes_count++;
 		        }
 		    }
-		}
-
-	      /* Release memory.  */
-	      for (subdivide_hash_map::iterator it2 = split_map.begin ();
-		   it2 != split_map.end (); ++it2)
-		{
-		  delete (*it2).first;
-		  (*it2).second.release ();
 		}
 	    }
 	  }

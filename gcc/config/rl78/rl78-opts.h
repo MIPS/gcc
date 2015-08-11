@@ -24,17 +24,7 @@ enum rl78_mul_types
 {
   MUL_NONE,
   MUL_RL78,
-  MUL_G13,
-  MUL_G14,
-  MUL_UNINIT
-};
-
-enum rl78_cpu_types
-{
-  CPU_G10,
-  CPU_G13,
-  CPU_G14,
-  CPU_UNINIT
+  MUL_G13
 };
 
 #endif

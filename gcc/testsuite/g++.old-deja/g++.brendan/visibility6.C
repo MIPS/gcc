@@ -3,7 +3,7 @@
 class bottom
 {
 public:
-  int b; // { dg-message "" } private
+  int b; // { dg-error "" } private
 };
 class middle : private bottom
 {

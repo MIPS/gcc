@@ -2,7 +2,7 @@
 // GROUPS passed visibility
 class foo {
 protected:
-  int i; // { dg-message "" } protected
+  int i; // { dg-error "" } protected
 };
 
 class bar : public foo {

@@ -946,9 +946,21 @@ dump_passes (void)
 void
 pass_manager::dump_passes () const
 {
-  push_dummy_function (true);
+  struct cgraph_node *n, *node = NULL;
 
   create_pass_tab ();
+
+  FOR_EACH_FUNCTION (n)
+    if (DECL_STRUCT_FUNCTION (n->decl))
+      {
+	node = n;
+	break;
+      }
+
+  if (!node)
+    return;
+
+  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
   dump_pass_list (all_lowering_passes, 1);
   dump_pass_list (all_small_ipa_passes, 1);
@@ -956,8 +968,9 @@ pass_manager::dump_passes () const
   dump_pass_list (all_late_ipa_passes, 1);
   dump_pass_list (all_passes, 1);
 
-  pop_dummy_function ();
+  pop_cfun ();
 }
+
 
 /* Returns the pass with NAME.  */
 
@@ -2337,9 +2350,8 @@ execute_one_pass (opt_pass *pass)
   if (pass->type == IPA_PASS)
     {
       struct cgraph_node *node;
-      if (((ipa_opt_pass_d *)pass)->function_transform)
-	FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-	  node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
+      FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
+	node->ipa_transforms_to_apply.safe_push ((ipa_opt_pass_d *)pass);
     }
 
   if (!current_function_decl)

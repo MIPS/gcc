@@ -19,7 +19,6 @@ WWWDIR=/www/gcc/htdocs/onlinedocs/libstdc++
 ## No more changes should be needed.  Ha, right, whatever.
 #####################################################################
 
-FILTER="newer or same age version exists|0 blocks"
 
 PATH=/usr/local/bin:$PATH
 export SVNROOT
@@ -39,7 +38,8 @@ cd doc
 rm -f Makefile
 
 # copy the tree to the onlinedocs area, preserve directory structure
-find . -depth -print | cpio -pd $WWWDIR 2>&1 | egrep -v "$FILTER"
+#find . -depth -print | cpio -pdv $WWWDIR
+find . -depth -print | cpio -pd $WWWDIR 2>&1 | grep -v "newer or same age version exists"
 
 err=${PIPESTATUS[1]}
 if [ $err -gt 0 ]; then

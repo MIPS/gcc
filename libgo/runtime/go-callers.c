@@ -83,20 +83,7 @@ callback (void *data, uintptr_t pc, const char *filename, int lineno,
     }
 
   loc = &arg->locbuf[arg->index];
-
-  /* On the call to backtrace_full the pc value was most likely
-     decremented if there was a normal call, since the pc referred to
-     the instruction where the call returned and not the call itself.
-     This was done so that the line number referred to the call
-     instruction.  To make sure the actual pc from the call stack is
-     used, it is incremented here.
-
-     In the case of a signal, the pc was not decremented by
-     backtrace_full but still incremented here.  That doesn't really
-     hurt anything since the line number is right and the pc refers to
-     the same instruction.  */
-
-  loc->pc = pc + 1;
+  loc->pc = pc;
 
   /* The libbacktrace library says that these strings might disappear,
      but with the current implementation they won't.  We can't easily

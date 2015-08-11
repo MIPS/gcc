@@ -53,7 +53,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-inline.h"
 #include "flags.h"
-#include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
 
 /* Duplicates headers of loops if they are small enough, so that the statements

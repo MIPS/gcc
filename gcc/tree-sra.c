@@ -327,16 +327,16 @@ static hash_map<tree, auto_vec<access_p> > *base_access_vec;
 
 struct uid_decl_hasher : typed_noop_remove <tree_node>
 {
-  typedef tree_node *value_type;
-  typedef tree_node *compare_type;
-  static inline hashval_t hash (const tree_node *);
-  static inline bool equal (const tree_node *, const tree_node *);
+  typedef tree_node value_type;
+  typedef tree_node compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
 };
 
 /* Hash a tree in a uid_decl_map.  */
 
 inline hashval_t
-uid_decl_hasher::hash (const tree_node *item)
+uid_decl_hasher::hash (const value_type *item)
 {
   return item->decl_minimal.uid;
 }
@@ -344,7 +344,7 @@ uid_decl_hasher::hash (const tree_node *item)
 /* Return true if the DECL_UID in both trees are equal.  */
 
 inline bool
-uid_decl_hasher::equal (const tree_node *a, const tree_node *b)
+uid_decl_hasher::equal (const value_type *a, const compare_type *b)
 {
   return (a->decl_minimal.uid == b->decl_minimal.uid);
 }

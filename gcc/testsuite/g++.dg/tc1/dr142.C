@@ -2,10 +2,10 @@
 // Origin: Giovanni Bajo <giovannibajo at gcc dot gnu dot org>
 // DR142: Injection-related errors in access example 
 
-class B {                 // { dg-message "declared" }
+class B {                 // { dg-error "inaccessible" }
 public:
-  int mi;                 // { dg-message "declared" }
-  static int si;          // { dg-message "declared" }
+  int mi;                 // { dg-error "inaccessible" }
+  static int si;          // { dg-error "inaccessible" }
 };
 
 class D: private B {

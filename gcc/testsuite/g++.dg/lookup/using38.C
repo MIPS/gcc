@@ -3,7 +3,7 @@
 
 struct Baser
 {
-    enum { j, i }; // { dg-message "declared" }
+    enum { j, i }; // { dg-error "inaccessible" }
 };
 
 struct Base : Baser

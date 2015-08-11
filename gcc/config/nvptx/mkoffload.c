@@ -839,7 +839,6 @@ process (FILE *in, FILE *out)
 {
   const char *input = read_file (in);
   Token *tok = tokenize (input);
-  unsigned int nvars = 0, nfuncs = 0;
 
   do
     tok = parse_file (tok);
@@ -851,17 +850,16 @@ process (FILE *in, FILE *out)
   write_stmts (out, rev_stmts (fns));
   fprintf (out, ";\n\n");
   fprintf (out, "static const char *var_mappings[] = {\n");
-  for (id_map *id = var_ids; id; id = id->next, nvars++)
+  for (id_map *id = var_ids; id; id = id->next)
     fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
   fprintf (out, "};\n\n");
   fprintf (out, "static const char *func_mappings[] = {\n");
-  for (id_map *id = func_ids; id; id = id->next, nfuncs++)
+  for (id_map *id = func_ids; id; id = id->next)
     fprintf (out, "\t\"%s\"%s\n", id->ptx_name, id->next ? "," : "");
   fprintf (out, "};\n\n");
 
   fprintf (out, "static const void *target_data[] = {\n");
-  fprintf (out, "  ptx_code, (void*) %u, var_mappings, (void*) %u, "
-		"func_mappings\n", nvars, nfuncs);
+  fprintf (out, "  ptx_code, var_mappings, func_mappings\n");
   fprintf (out, "};\n\n");
 
   fprintf (out, "extern void GOMP_offload_register (const void *, int, void *);\n");

@@ -5,7 +5,7 @@
 // Deferred access checking of variable declaration.
 
 class A {
-  typedef int X;	// { dg-message "private" }
+  typedef int X;	// { dg-error "private" }
   static X a, b, c;
 };
 

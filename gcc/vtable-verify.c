@@ -268,15 +268,14 @@ vtbl_map_node_registration_insert (struct vtbl_map_node *node,
 /* Hashtable functions for vtable_registration hashtables.  */
 
 inline hashval_t
-registration_hasher::hash (const vtable_registration *p)
+registration_hasher::hash (const value_type *p)
 {
   const struct vtable_registration *n = (const struct vtable_registration *) p;
   return (hashval_t) (DECL_UID (n->vtable_decl));
 }
 
 inline bool
-registration_hasher::equal (const vtable_registration *p1,
-			    const vtable_registration *p2)
+registration_hasher::equal (const value_type *p1, const compare_type *p2)
 {
   const struct vtable_registration *n1 =
                                     (const struct vtable_registration *) p1;
@@ -293,16 +292,16 @@ registration_hasher::equal (const vtable_registration *p1,
 
 struct vtbl_map_hasher : typed_noop_remove <struct vtbl_map_node>
 {
-  typedef struct vtbl_map_node *value_type;
-  typedef struct vtbl_map_node *compare_type;
-  static inline hashval_t hash (const vtbl_map_node *);
-  static inline bool equal (const vtbl_map_node *, const vtbl_map_node *);
+  typedef struct vtbl_map_node value_type;
+  typedef struct vtbl_map_node compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
 };
 
 /* Returns a hash code for P.  */
 
 inline hashval_t
-vtbl_map_hasher::hash (const vtbl_map_node *p)
+vtbl_map_hasher::hash (const value_type *p)
 {
   const struct vtbl_map_node n = *((const struct vtbl_map_node *) p);
   return (hashval_t) IDENTIFIER_HASH_VALUE (n.class_name);
@@ -311,7 +310,7 @@ vtbl_map_hasher::hash (const vtbl_map_node *p)
 /* Returns nonzero if P1 and P2 are equal.  */
 
 inline bool
-vtbl_map_hasher::equal (const vtbl_map_node *p1, const vtbl_map_node *p2)
+vtbl_map_hasher::equal (const value_type *p1, const compare_type *p2)
 {
   const struct vtbl_map_node n1 = *((const struct vtbl_map_node *) p1);
   const struct vtbl_map_node n2 = *((const struct vtbl_map_node *) p2);

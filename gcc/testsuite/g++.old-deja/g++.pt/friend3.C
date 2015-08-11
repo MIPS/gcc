@@ -7,7 +7,7 @@ class C
 {
   friend void f<>(double);
 
-  int i; // { dg-message "" } private
+  int i; // { dg-error "" } private
 };
 
 

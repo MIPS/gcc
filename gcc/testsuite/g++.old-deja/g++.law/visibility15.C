@@ -10,7 +10,7 @@
 
 class X {
 private:
-  void* operator new(size_t) throw(){// { dg-message "" } .*
+  void* operator new(size_t) throw(){// { dg-error "" } .*
     printf("Inside private new().\n");
     return NULL;
   }

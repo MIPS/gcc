@@ -190,21 +190,21 @@ struct id_base : typed_noop_remove<id_base>
   const char *id;
 
   /* hash_table support.  */
-  typedef id_base *value_type;
-  typedef id_base *compare_type;
-  static inline hashval_t hash (const id_base *);
-  static inline int equal (const id_base *, const id_base *);
+  typedef id_base value_type;
+  typedef id_base compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline int equal (const value_type *, const compare_type *);
 };
 
 inline hashval_t
-id_base::hash (const id_base *op)
+id_base::hash (const value_type *op)
 {
   return op->hashval;
 }
 
 inline int
-id_base::equal (const id_base *op1,
-			const id_base *op2)
+id_base::equal (const value_type *op1,
+			const compare_type *op2)
 {
   return (op1->hashval == op2->hashval
 	  && strcmp (op1->id, op2->id) == 0);

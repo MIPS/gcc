@@ -17,24 +17,24 @@ public:
   int PUB_A;
 protected:
   union {
-    long B; // { dg-message "" } protected
-    void *pY; // { dg-message "" } protected
+    long B; // { dg-error "" } protected
+    void *pY; // { dg-error "" } protected
   } ;
   union Y {
     long B;
     void *pY;
-  } PRT; // { dg-message "" } protected
-  int PRT_A; // { dg-message "" } protected
+  } PRT; // { dg-error "" } protected
+  int PRT_A; // { dg-error "" } protected
 private:
   union {
-    long C; // { dg-message "" } private
-    void *pZ; // { dg-message "" } private
+    long C; // { dg-error "" } private
+    void *pZ; // { dg-error "" } private
   };
   union Z {
     long C;  
     void *pZ;
-  } PRV; // { dg-message "" } private
-  int PRV_A; // { dg-message "" } private
+  } PRV; // { dg-error "" } private
+  int PRV_A; // { dg-error "" } private
 };
 
 struct Bar : public Foo {

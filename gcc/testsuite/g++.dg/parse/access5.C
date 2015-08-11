@@ -7,7 +7,7 @@
 struct A 
 {
 protected:
-  int a;			// { dg-message "protected" }
+  int a;			// { dg-error "protected" }
 };
 
 struct B : A 

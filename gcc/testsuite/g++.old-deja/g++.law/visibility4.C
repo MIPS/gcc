@@ -8,7 +8,7 @@
 
 class A {
 public:
-     int b; // { dg-message "" } private
+     int b; // { dg-error "" } private
 };
 
 class C : private A {                   // NOTE WELL. private, not public

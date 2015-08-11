@@ -214,22 +214,20 @@ struct finally_tree_node
 
 struct finally_tree_hasher : typed_free_remove <finally_tree_node>
 {
-  typedef finally_tree_node *value_type;
-  typedef finally_tree_node *compare_type;
-  static inline hashval_t hash (const finally_tree_node *);
-  static inline bool equal (const finally_tree_node *,
-			    const finally_tree_node *);
+  typedef finally_tree_node value_type;
+  typedef finally_tree_node compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
 };
 
 inline hashval_t
-finally_tree_hasher::hash (const finally_tree_node *v)
+finally_tree_hasher::hash (const value_type *v)
 {
   return (intptr_t)v->child.t >> 4;
 }
 
 inline bool
-finally_tree_hasher::equal (const finally_tree_node *v,
-			    const finally_tree_node *c)
+finally_tree_hasher::equal (const value_type *v, const compare_type *c)
 {
   return v->child.t == c->child.t;
 }

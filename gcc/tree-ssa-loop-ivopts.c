@@ -292,16 +292,16 @@ typedef struct iv_cand *iv_cand_p;
 
 struct iv_inv_expr_hasher : typed_free_remove <iv_inv_expr_ent>
 {
-  typedef iv_inv_expr_ent *value_type;
-  typedef iv_inv_expr_ent *compare_type;
-  static inline hashval_t hash (const iv_inv_expr_ent *);
-  static inline bool equal (const iv_inv_expr_ent *, const iv_inv_expr_ent *);
+  typedef iv_inv_expr_ent value_type;
+  typedef iv_inv_expr_ent compare_type;
+  static inline hashval_t hash (const value_type *);
+  static inline bool equal (const value_type *, const compare_type *);
 };
 
 /* Hash function for loop invariant expressions.  */
 
 inline hashval_t
-iv_inv_expr_hasher::hash (const iv_inv_expr_ent *expr)
+iv_inv_expr_hasher::hash (const value_type *expr)
 {
   return expr->hash;
 }
@@ -309,8 +309,7 @@ iv_inv_expr_hasher::hash (const iv_inv_expr_ent *expr)
 /* Hash table equality function for expressions.  */
 
 inline bool
-iv_inv_expr_hasher::equal (const iv_inv_expr_ent *expr1,
-			   const iv_inv_expr_ent *expr2)
+iv_inv_expr_hasher::equal (const value_type *expr1, const compare_type *expr2)
 {
   return expr1->hash == expr2->hash
 	 && operand_equal_p (expr1->expr, expr2->expr, 0);

@@ -3,7 +3,7 @@
 #include <iostream>
 
 class A {
-   A() {}    // private constructor// { dg-message "" } .*
+   A() {}    // private constructor// { dg-error "" } .*
 };
 
 int main() {

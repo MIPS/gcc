@@ -5,7 +5,7 @@
 class foo
 {
 public:
-  static int y; // { dg-message "" } private
+  static int y; // { dg-error "" } private
 };
 class foo1 : private foo
 { };

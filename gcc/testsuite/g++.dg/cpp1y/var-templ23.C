@@ -3,7 +3,5 @@
 
 namespace std {
   template <typename T> int declval;
-  typename std::declval<> d;	// { dg-error "type" }
+  typename std::declval<> d;	// { dg-error "not a type" }
 }
-
-// { dg-prune-output "expected" }

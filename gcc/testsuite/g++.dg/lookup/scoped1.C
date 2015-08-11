@@ -4,7 +4,7 @@
 struct A
 {
   static int i1;
-  int i2; // { dg-message "declared" "" }
+  int i2; // { dg-error "inaccessible" "" }
   static void f1 ();
   void f2 ();
 };

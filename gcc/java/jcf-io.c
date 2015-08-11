@@ -285,20 +285,21 @@ find_classfile (char *filename, JCF *jcf, const char *dep_name)
 
 struct charstar_hash : typed_noop_remove <char>
 {
-  typedef const char *value_type;
-  typedef const char *compare_type;
-  static inline hashval_t hash (const char *candidate);
-  static inline bool equal (const char *existing, const char *candidate);
+  typedef const char value_type;
+  typedef const char compare_type;
+  static inline hashval_t hash (const value_type *candidate);
+  static inline bool equal (const value_type *existing,
+			    const compare_type *candidate);
 };
 
 inline hashval_t
-charstar_hash::hash (const char *candidate)
+charstar_hash::hash (const value_type *candidate)
 {
   return htab_hash_string (candidate);
 }
 
 inline bool
-charstar_hash::equal (const char *existing, const char *candidate)
+charstar_hash::equal (const value_type *existing, const compare_type *candidate)
 {
   return strcmp (existing, candidate) == 0;
 }

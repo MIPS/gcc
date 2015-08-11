@@ -13,7 +13,7 @@
 struct foo {
   foo() {}
 private:
-  void operator delete(void *) {} // { dg-message "" } private
+  void operator delete(void *) {} // { dg-error "" } private
 } foo_;
 
 struct bar : foo {

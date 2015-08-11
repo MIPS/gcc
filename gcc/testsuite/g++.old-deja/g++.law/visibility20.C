@@ -8,7 +8,7 @@
 
 class Base {
 protected:
-      void protectedBaseFunction() {} // { dg-message "" } protected
+      void protectedBaseFunction() {} // { dg-error "" } protected
 public:
     Base() {}
 };

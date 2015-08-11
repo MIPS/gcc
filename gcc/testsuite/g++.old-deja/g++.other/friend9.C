@@ -7,7 +7,7 @@
 
 class F
 {
-  class Internal;   // { dg-message "" } private
+  class Internal;   // { dg-error "" } is private
 };
 
 class C

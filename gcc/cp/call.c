@@ -5968,8 +5968,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	  argarray[0] = addr;
 	  for (i = 1; i < nargs; i++)
 	    argarray[i] = CALL_EXPR_ARG (placement, i);
-	  if (!mark_used (fn, complain) && !(complain & tf_error))
-	    return error_mark_node;
+	  mark_used (fn);
 	  return build_cxx_call (fn, nargs, argarray, complain);
 	}
       else
@@ -6021,22 +6020,12 @@ enforce_access (tree basetype_path, tree decl, tree diag_decl,
       if (complain & tf_error)
 	{
 	  if (TREE_PRIVATE (decl))
-	    {
-	      error ("%q#D is private within this context", diag_decl);
-	      inform (DECL_SOURCE_LOCATION (diag_decl),
-		      "declared private here");
-	    }
+	    error ("%q+#D is private", diag_decl);
 	  else if (TREE_PROTECTED (decl))
-	    {
-	      error ("%q#D is protected within this context", diag_decl);
-	      inform (DECL_SOURCE_LOCATION (diag_decl),
-		      "declared protected here");
-	    }
+	    error ("%q+#D is protected", diag_decl);
 	  else
-	    {
-	      error ("%q#D is inaccessible within this context", diag_decl);
-	      inform (DECL_SOURCE_LOCATION (diag_decl), "declared here");
-	    }
+	    error ("%q+#D is inaccessible", diag_decl);
+	  error ("within this context");
 	}
       return false;
     }
@@ -7401,8 +7390,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	 the implementation elided its use.  */
       if (!trivial || DECL_DELETED_FN (fn))
 	{
-	  if (!mark_used (fn, complain) && !(complain & tf_error))
-	    return error_mark_node;
+	  mark_used (fn);
 	  already_used = true;
 	}
 

@@ -461,7 +461,7 @@ remove_pseudos (rtx *loc, rtx_insn *insn)
 	{
 	  rtx x = lra_eliminate_regs_1 (insn, pseudo_slots[i].mem,
 					GET_MODE (pseudo_slots[i].mem),
-					false, false, 0, true);
+					0, false, false, true);
 	  *loc = x != pseudo_slots[i].mem ? x : copy_rtx (x);
 	}
       return;

@@ -8,7 +8,7 @@
 class Top {
 public:
     Top() {}
-      void val() {} // { dg-message "" } private base class
+      void val() {} // { dg-error "" } private base class
 };
 
 class Derived : private Top {

@@ -9,7 +9,7 @@ template <typename T> void foo(T*);
 
 template <typename T> class bar {
  private:
-  int i; // { dg-message "" } this variable
+  int i; // { dg-error "" } this variable
   friend void foo<T>(T);
 };
 
