@@ -109,7 +109,8 @@ extern void default_destroy_cost_data (void *);
 
 extern bool default_goacc_validate_dims (tree, int []);
 extern unsigned default_goacc_dim_limit (unsigned);
-extern bool default_goacc_fork_join (bool, gimple_stmt_iterator *, gimple);
+extern bool default_goacc_fork_join (gimple_stmt_iterator *, gimple,
+				     const int [], bool);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

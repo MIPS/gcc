@@ -1,3 +1,19 @@
+2015-08-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* target.def (fork_join): Adjust prototype.
+	* targhooks.h (default_foacc_fork_join): Adjust.
+	* omp-low.c (oacc_xform_dim): Constify DIMS arg.
+	(execute_oacc_transform): Defer setting defaulted unknown
+	dimensions to 0. Adjust fork_join hook call.
+	(default_goacc_fork_join): Adjust.
+	* config/nvptx/nvptx.c: Include gimple.h
+	(nvptx_xform_fork_join): New.
+	(TARGET_GOACC_FORK_JOIN): Override.
+	* doc/tm.texi: Rebuilt.
+	* tree-vrp.c: Include omp-low.h & target.h.
+	(extract_range_basic): Get range for IFN_GOACC_DIM_SIZE and
+	IFN_GOACC_DIM_POS.
+
 2015-08-12  Nathan Sidwell  <nathan@acm.org>
 
 	* tree-vrp.c (simplify_min_or_max_using_ranges): New.

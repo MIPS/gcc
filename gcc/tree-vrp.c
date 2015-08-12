@@ -66,8 +66,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
-
-
+#include "omp-low.h"
+#include "target.h"
 
 /* Range of values that can be associated with an SSA_NAME after VRP
    has executed.  */
@@ -4126,7 +4126,9 @@ extract_range_basic (value_range_t *vr, gimple stmt)
   else if (is_gimple_call (stmt) && gimple_call_internal_p (stmt))
     {
       enum tree_code subcode = ERROR_MARK;
-      switch (gimple_call_internal_fn (stmt))
+      unsigned ifn_code = gimple_call_internal_fn (stmt);
+      
+      switch (ifn_code)
 	{
 	case IFN_UBSAN_CHECK_ADD:
 	  subcode = PLUS_EXPR;
@@ -4137,6 +4139,33 @@ extract_range_basic (value_range_t *vr, gimple stmt)
 	case IFN_UBSAN_CHECK_MUL:
 	  subcode = MULT_EXPR;
 	  break;
+	case IFN_GOACC_DIM_SIZE:
+	case IFN_GOACC_DIM_POS:
+	  /* Optimizing these two internal functions helps the loop
+	     optimizer elimitate outer comparisons.  Size is [1,N]
+	     and pos is [0,N-1].  */
+	  {
+	    bool is_pos = ifn_code == IFN_GOACC_DIM_POS;
+	    tree attr = get_oacc_fn_attrib (current_function_decl);
+	    tree arg = gimple_call_arg (stmt, 0);
+	    unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
+	    tree dims = TREE_VALUE (attr);
+
+	    for (unsigned ix = axis; ix--;)
+	      dims = TREE_CHAIN (dims);
+	    int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+
+	    if (!size)
+	      size = targetm.goacc.dim_limit (axis);
+	    if (size)
+	      set_value_range (vr, VR_RANGE,
+			       build_int_cst (integer_type_node, !is_pos),
+			       build_int_cst (integer_type_node,
+					      size - is_pos), NULL);
+	    return;
+	  }
+	  break;
+	  
 	default:
 	  break;
 	}

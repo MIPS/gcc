@@ -61,6 +61,7 @@
 #include "cfg.h"
 #include "omp-low.h"
 #include "gomp-constants.h"
+#include "gimple.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -3598,6 +3599,25 @@ nvptx_dim_limit (unsigned axis)
   return 0;
 }
 
+/* Determine whether fork & joins are needed.  */
+
+static bool
+nvptx_xform_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi), gimple stmt,
+		       const int dims[], bool ARG_UNUSED (is_fork))
+{
+  tree arg = gimple_call_arg (stmt, 0);
+  unsigned axis = TREE_INT_CST_LOW (arg);
+
+  /* We only care about worker and vector partitioning.  */
+  if (axis < GOMP_DIM_WORKER)
+    return true;
+
+  /* If the size is 1, there's no partitioning.  */
+  if (dims[axis] == 1)
+    return true;
+
+  return false;
+}
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
@@ -3698,6 +3718,9 @@ nvptx_dim_limit (unsigned axis)
 
 #undef TARGET_GOACC_DIM_LIMIT
 #define TARGET_GOACC_DIM_LIMIT nvptx_dim_limit
+
+#undef TARGET_GOACC_FORK_JOIN
+#define TARGET_GOACC_FORK_JOIN nvptx_xform_fork_join
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

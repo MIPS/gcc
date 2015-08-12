@@ -14589,7 +14589,7 @@ oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)
 
 static void
 oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
-		int dims[], bool is_pos)
+		const int dims[], bool is_pos)
 {
   tree arg = gimple_call_arg (stmt, 0);
   unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
@@ -14636,12 +14636,12 @@ execute_oacc_transform ()
     for (ix = 0; ix != GOMP_DIM_MAX; ix++)
       {
 	if (!pos)
-	  dims[ix] = 0;
+	  dims[ix] = -1;
 	else
 	  {
 	    tree val = TREE_VALUE (pos);
 	    
-	    dims[ix] = val ? TREE_INT_CST_LOW (val) : -1;
+	    dims[ix] = val ? TREE_INT_CST_LOW (val) : -2;
 	    pos = TREE_CHAIN (pos);
 	  }
       }
@@ -14652,7 +14652,7 @@ execute_oacc_transform ()
     for (ix = 0; ix != GOMP_DIM_MAX; ix++)
       if (dims[ix] < 0)
 	{
-	  dims[ix] = 1;
+	  dims[ix] = (int)(dims[ix] < -1);
 	  changed = true;
 	}
   
@@ -14699,7 +14699,7 @@ execute_oacc_transform ()
 		    case IFN_GOACC_FORK:
 		    case IFN_GOACC_JOIN:
 		      if (targetm.goacc.fork_join
-			  (ifn_code == IFN_GOACC_FORK, &gsi, stmt))
+			  (&gsi, stmt, dims, ifn_code == IFN_GOACC_FORK))
 			{
 			  replace_uses_by (gimple_vdef (stmt),
 					   gimple_vuse (stmt));
@@ -14754,24 +14754,25 @@ default_goacc_dim_limit (unsigned ARG_UNUSED (axis))
    there is no RTL expander.  */
 
 bool
-default_goacc_fork_join (bool is_fork, gimple_stmt_iterator *ARG_UNUSED (gsi),
-			 gimple ARG_UNUSED (stmt))
+default_goacc_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi),
+			 gimple ARG_UNUSED (stmt),
+			 const int *ARG_UNUSED (dims), bool is_fork)
 {
+  /* If there is no expander, we can delete the functions.  */
   if (is_fork)
     {
-#ifdef HAVE_oacc_fork
-      return false;
+#ifndef HAVE_oacc_fork
+      return true;
 #endif
     }
   else
     {
-#ifdef HAVE_oacc_join
-      return false;
+#ifndef HAVE_oacc_join
+      return true;
 #endif
     }
 
-  /* We have no expander, so delete the functions now.  */
-  return true;
+  return false;
 }
 
 namespace {

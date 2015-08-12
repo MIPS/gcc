@@ -5753,7 +5753,7 @@ This hook should return the maximum size of a particular dimension,
 or zero if unbounded.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (bool, gimple_stmt_iterator *@var{}, @var{gimple})
+@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (gimple_stmt_iterator *@var{}, @var{gimple}, const @var{int[]}, @var{bool})
 This hook should convert IFN_GOACC_FORK and IFN_GOACC_JOIN function
 calls to target-specific gimple.  It is executed during the oacc_xform
 pass.  It should return true, if the functions should be deleted.  The
