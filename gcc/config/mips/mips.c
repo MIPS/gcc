@@ -24884,6 +24884,12 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class,
      instructions that say integer mode values must be placed in FPRs.  */
   if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
     return GR_REGS;
+
+  /* Likewise for the mirror case of floating mode pseudos being allocated in
+     a GPR.  */
+  if (FLOAT_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+    return FP_REGS;
+
   return allocno_class;
 }
 
