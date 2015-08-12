@@ -1,3 +1,15 @@
+2015-08-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* target.def (validate_dims): Adjust API.
+	* targhooks.h (default_goacc_validate_dims): Adjust.
+	* omp-low.c (replace_oacc_fn_attrib): New function.
+	(set_oacc_fn_attrib): Use it.
+	(oacc_xform_dim): Dims is array of ints.
+	(execute_oacc_transform): Create int array of dims, adjust uses.
+	(default_goacc_validate_dims): Adjust API.  Force to w everywhere.
+	* doc/tm.texi: Rebuild.
+	* config/nvptx/nvptx.c (nvptx_validate_dims): Adjust API.
+
 2015-08-12  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* internal-fn.c: Include "builtins.h".

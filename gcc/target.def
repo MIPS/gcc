@@ -1647,10 +1647,11 @@ HOOK_VECTOR (TARGET_GOACC, goacc)
 DEFHOOK
 (validate_dims,
 "This hook should check the launch dimensions provided.  It should fill\n\
-in default values and verify non-defaults.  The TREE_LIST is unshared\n\
-and may be overwritten.  If the dimension list is NULL, one should be\n\
-created.  Diagnostics should be issued as appropriate.",
-tree, (tree, tree),
+in anything that needs default to non-unity and verify non-defaults.\n\
+Defaults are represented as -1.  Diagnostics should be issuedas \n\
+ppropriate.  Return true if changes have been made.  You must override\n\
+this hook to provide dimensions larger than 1.",
+bool, (tree, int []),
 default_goacc_validate_dims)
 
 DEFHOOK

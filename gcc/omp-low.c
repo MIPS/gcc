@@ -9314,6 +9314,16 @@ oacc_launch_pack (unsigned code, tree device, unsigned op)
 
 #define OACC_FN_ATTRIB "oacc function"
 
+/* Replace any existing oacc fn attribute with updated dimensions.  */
+
+void
+replace_oacc_fn_attrib (tree fn, tree dims)
+{
+  /* Simply cons onto the beginning of the list.  */
+  DECL_ATTRIBUTES (fn) =
+    tree_cons (get_identifier (OACC_FN_ATTRIB), dims, DECL_ATTRIBUTES (fn));
+}
+
 static void
 set_oacc_fn_attrib (tree clauses, tree fn, vec<tree> *args)
 {
@@ -9341,9 +9351,7 @@ set_oacc_fn_attrib (tree clauses, tree fn, vec<tree> *args)
       attr = tree_cons (NULL_TREE, dim, attr);
     }
 
-  /* Add the attributes.  */
-  DECL_ATTRIBUTES (fn) =
-    tree_cons (get_identifier (OACC_FN_ATTRIB), attr, DECL_ATTRIBUTES (fn));
+  replace_oacc_fn_attrib (fn, attr);
 
   if (non_const)
     {
@@ -14581,14 +14589,11 @@ oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)
 
 static void
 oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
-		tree dims, bool is_pos)
+		int dims[], bool is_pos)
 {
   tree arg = gimple_call_arg (stmt, 0);
   unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
-
-  while (axis--)
-    dims = TREE_CHAIN (dims);
-  int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+  int size = dims[axis];
 
   if (!size)
     /* Dimension size is dynamic.  */
@@ -14618,15 +14623,50 @@ execute_oacc_transform ()
 {
   basic_block bb;
   tree attrs = get_oacc_fn_attrib (current_function_decl);
+  int dims[GOMP_DIM_MAX];
   
   if (!attrs)
     /* Not an offloaded function.  */
     return 0;
 
-  tree dims = TREE_VALUE (attrs);
-  dims = targetm.goacc.validate_dims (current_function_decl, dims);
-  /* Safe to overwrite, this attribute chain is unshared.  */
-  TREE_VALUE (attrs) = dims;
+  {
+    unsigned ix;
+    tree pos = TREE_VALUE (attrs);
+
+    for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+      {
+	if (!pos)
+	  dims[ix] = 0;
+	else
+	  {
+	    tree val = TREE_VALUE (pos);
+	    
+	    dims[ix] = val ? TREE_INT_CST_LOW (val) : -1;
+	    pos = TREE_CHAIN (pos);
+	  }
+      }
+
+    bool changed = targetm.goacc.validate_dims (current_function_decl, dims);
+
+    /* Default anything left undefaulted to 1.  */
+    for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+      if (dims[ix] < 0)
+	{
+	  dims[ix] = 1;
+	  changed = true;
+	}
+  
+    if (changed)
+      {
+	/* Replace the attribute with new values.  */
+	pos = NULL_TREE;
+	for (ix = GOMP_DIM_MAX; ix--;)
+	  pos = tree_cons (NULL_TREE,
+			   build_int_cst (integer_type_node, dims[ix]),
+			   pos);
+	replace_oacc_fn_attrib (current_function_decl, pos);
+      }
+  }
   
   FOR_ALL_BB_FN (bb, cfun)
     {
@@ -14677,34 +14717,25 @@ execute_oacc_transform ()
   return 0;
 }
 
-/* Default launch dimension validator.  Force everything to 1 on the
-   host and default to 1 otherwise.  */
+/* Default launch dimension validator.  Force everything to 1.  A
+   backend that wants to provide larger dimensions must override this
+   hook.  */
 
-tree
-default_goacc_validate_dims (tree ARG_UNUSED (decl), tree dims)
+bool
+default_goacc_validate_dims (tree ARG_UNUSED (decl), int *ARG_UNUSED (dims))
 {
-  tree *pos_ptr;
-  unsigned ix;
-  
-  for (ix = 0, pos_ptr = &dims;
-       ix != GOMP_DIM_MAX; ix++, pos_ptr = &TREE_CHAIN (*pos_ptr))
+  bool changed = false;
+
+  for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)
     {
-      /* Cons up a default, if the attribue list is NULL.  This
-	 happens on 'declare' routines, as theyy do not currently set
-	 the dimensions over which the routine may be active.  */
-      if (!*pos_ptr)
-	*pos_ptr = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
-      
-      tree val = TREE_VALUE (*pos_ptr);
-      
-#ifdef ACCEL_COMPILER
-      if (!val)
-#endif
-	val = integer_one_node;
-      TREE_VALUE (*pos_ptr) = val;
+      if (dims[ix] != 1)
+	{
+	  dims[ix] = 1;
+	  changed = true;
+	}
     }
 
-  return dims;
+  return changed;
 }
 
 /* Default dimension bound is unknown on accelerator and 1 on host. */

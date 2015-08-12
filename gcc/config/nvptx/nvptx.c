@@ -3538,71 +3538,46 @@ nvptx_expand_builtin (tree exp, rtx target,
   return d->expander (exp, target, mode, ignore);
 }
 
-/* Validate compute dimensions, fill in defaults.  */
-
-static tree
-nvptx_validate_dims (tree decl, tree dims)
-{
-  tree adims[GOMP_DIM_MAX];
-  unsigned ix;
-  tree *pos_ptr;
-
-  for (ix = 0, pos_ptr = &dims; ix != GOMP_DIM_MAX;
-       ix++, pos_ptr = &TREE_CHAIN (*pos_ptr))
-    {
-      if (!*pos_ptr)
-	*pos_ptr = tree_cons (NULL_TREE, NULL_TREE, NULL_TREE);
-      
-      adims[ix] = TREE_VALUE (*pos_ptr);
-    }
-
-  /* Define vector size for known hardware.  */
+/* Define vector size for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
 
+/* Validate compute dimensions, fill in non-unity defaults.  */
+
+static bool
+nvptx_validate_dims (tree decl, int dims[])
+{
+  bool changed = false;
+
   /* If the worker size is not 1, the vector size must be 32.  If
      the vector  size is not 1, it must be 32.  */
-  if ((adims[GOMP_DIM_WORKER]
-       && TREE_INT_CST_LOW (adims[GOMP_DIM_WORKER]) != 1)
-      || (adims[GOMP_DIM_VECTOR]
-	  && TREE_INT_CST_LOW (adims[GOMP_DIM_VECTOR]) != 1))
+  if ((dims[GOMP_DIM_WORKER] > 1 || dims[GOMP_DIM_WORKER] == 0)
+      || (dims[GOMP_DIM_VECTOR] > 1 || dims[GOMP_DIM_VECTOR] == 0))
     {
-      if (!adims[GOMP_DIM_VECTOR]
-	  || TREE_INT_CST_LOW (adims[GOMP_DIM_VECTOR]) != PTX_VECTOR_LENGTH)
+      if (dims[GOMP_DIM_VECTOR] != PTX_VECTOR_LENGTH)
 	{
-	  tree use = build_int_cst (integer_type_node, PTX_VECTOR_LENGTH);
-	  if (adims[GOMP_DIM_VECTOR])
+	  if (dims[GOMP_DIM_VECTOR] >= 0)
 	    warning_at (DECL_SOURCE_LOCATION (decl), 0,
-			TREE_INT_CST_LOW (adims[GOMP_DIM_VECTOR])
-			? "using vector_length (%E), ignoring %E"
-			: "using vector_length (%E), ignoring runtime setting",
-			use, adims[GOMP_DIM_VECTOR]);
-	  adims[GOMP_DIM_VECTOR] = use;
+			dims[GOMP_DIM_VECTOR]
+			? "using vector_length (%d), ignoring %d"
+			: "using vector_length (%d), ignoring runtime setting",
+			PTX_VECTOR_LENGTH, dims[GOMP_DIM_VECTOR]);
+	  dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
+	  changed = true;
 	}
     }
 
   /* Check the num workers is not too large.  */
-  if (adims[GOMP_DIM_WORKER]
-      && TREE_INT_CST_LOW (adims[GOMP_DIM_WORKER]) > PTX_WORKER_LENGTH)
+  if (dims[GOMP_DIM_WORKER] > PTX_WORKER_LENGTH)
     {
-      tree use = build_int_cst (integer_type_node, PTX_WORKER_LENGTH);
       warning_at (DECL_SOURCE_LOCATION (decl), 0,
-		  "using num_workers (%E), ignoring %E",
-		  use, adims[GOMP_DIM_WORKER]);
-      adims[GOMP_DIM_WORKER] = use;
+		  "using num_workers (%d), ignoring %d",
+		  PTX_WORKER_LENGTH, dims[GOMP_DIM_WORKER]);
+      dims[GOMP_DIM_WORKER] = PTX_WORKER_LENGTH;
+      changed = true;
     }
 
-  /* Set defaults.  */
-  for (ix = 0; ix != GOMP_DIM_MAX; ix++)
-    if (!adims[ix])
-      adims[ix] = integer_one_node;
-
-  /* Write results.  */
-  tree pos;
-  for (ix = 0, pos = dims; ix != GOMP_DIM_MAX; ix++, pos = TREE_CHAIN (pos))
-    TREE_VALUE (pos) = adims[ix];
-
-  return dims;
+  return changed;
 }
 
 /* Return maximum dimension size, or zero for unbounded.  */
