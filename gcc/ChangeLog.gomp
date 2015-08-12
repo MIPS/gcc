@@ -1,3 +1,9 @@
+2015-08-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* internal-fn.c: Include "builtins.h".
+	(expand_GOACC_DIM_SIZE, expand_GOACC_DIM_POS): Instead of
+	gcc_unreachable, expand_builtin_trap.
+
 2015-08-10  Nathan Sidwell  <nathan@acm.org>
 
 	* tree-ssa-phiopt.c (minmax_replacement): Create new ssa name if

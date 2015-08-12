@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "diagnostic-core.h"
+#include "builtins.h"
 
 /* The names of each internal function, indexed by function number.  */
 const char *const internal_fn_name_array[] = {
@@ -2003,7 +2004,7 @@ expand_GOACC_DIM_SIZE (gcall *ARG_UNUSED (stmt))
 			 VOIDmode, EXPAND_NORMAL);
   emit_insn (gen_oacc_dim_size (target, dim));
 #else
-  gcc_unreachable ();
+  expand_builtin_trap ();
 #endif
 }
 
@@ -2021,7 +2022,7 @@ expand_GOACC_DIM_POS (gcall *ARG_UNUSED (stmt))
 			 VOIDmode, EXPAND_NORMAL);
   emit_insn (gen_oacc_dim_pos (target, dim));
 #else
-  gcc_unreachable ();
+  expand_builtin_trap ();
 #endif
 }
 
