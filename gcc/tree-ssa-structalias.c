@@ -26,7 +26,6 @@
 #include "gimple.h"
 #include "rtl.h"
 #include "ssa.h"
-#include "obstack.h"
 #include "flags.h"
 #include "alias.h"
 #include "fold-const.h"
@@ -323,7 +322,7 @@ static varinfo_t lookup_vi_for_tree (tree);
 static inline bool type_can_have_subvars (const_tree);
 
 /* Pool of variable info structures.  */
-static pool_allocator<variable_info> variable_info_pool
+static object_allocator<variable_info> variable_info_pool
   ("Variable info pool", 30);
 
 /* Map varinfo to final pt_solution.  */
@@ -524,7 +523,7 @@ struct constraint
 /* List of constraints that we use to build the constraint graph from.  */
 
 static vec<constraint_t> constraints;
-static pool_allocator<constraint> constraint_pool ("Constraint pool", 30);
+static object_allocator<constraint> constraint_pool ("Constraint pool", 30);
 
 /* The constraint graph is represented as an array of bitmaps
    containing successor nodes.  */
@@ -4714,7 +4713,7 @@ find_func_aliases (struct function *fn, gimple origt)
 	    }
 	  else if (truth_value_p (code))
 	    /* Truth value results are not pointer (parts).  Or at least
-	       very very unreasonable obfuscation of a part.  */
+	       very unreasonable obfuscation of a part.  */
 	    ;
 	  else
 	    {
@@ -5136,7 +5135,7 @@ first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
   while (start)
     {
       /* We may not find a variable in the field list with the actual
-	 offset when when we have glommed a structure to a variable.
+	 offset when we have glommed a structure to a variable.
 	 In that case, however, offset should still be within the size
 	 of the variable. */
       if (offset >= start->offset
@@ -5163,7 +5162,7 @@ first_or_preceding_vi_for_offset (varinfo_t start,
     start = get_varinfo (start->head);
 
   /* We may not find a variable in the field list with the actual
-     offset when when we have glommed a structure to a variable.
+     offset when we have glommed a structure to a variable.
      In that case, however, offset should still be within the size
      of the variable.
      If we got beyond the offset we look for return the field

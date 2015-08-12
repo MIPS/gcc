@@ -38,11 +38,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "cfgrtl.h"
 #include "cfgloop.h"
 #include "flags.h"
@@ -676,6 +676,8 @@ find_defs (struct loop *loop)
   df_remove_problem (df_chain);
   df_process_deferred_rescans ();
   df_chain_add_problem (DF_UD_CHAIN);
+  df_live_add_problem ();
+  df_live_set_all_dirty ();
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
   df_analyze_loop (loop);
   check_invariant_table_size ();
@@ -1629,6 +1631,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	fprintf (dump_file, "Invariant %d moved without introducing a new "
 			    "temporary register\n", invno);
       reorder_insns (inv->insn, inv->insn, BB_END (preheader));
+      df_recompute_luids (preheader);
 
       /* If there is a REG_EQUAL note on the insn we just moved, and the
 	 insn is in a basic block that is not always executed or the note
@@ -1992,11 +1995,11 @@ calculate_loop_reg_pressure (void)
 
 	  note_stores (PATTERN (insn), mark_reg_store, NULL);
 
-#ifdef AUTO_INC_DEC
-	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	    if (REG_NOTE_KIND (link) == REG_INC)
-	      mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
-#endif
+	  if (AUTO_INC_DEC)
+	    for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	      if (REG_NOTE_KIND (link) == REG_INC)
+		mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
+
 	  while (n_regs_set-- > 0)
 	    {
 	      rtx note = find_regno_note (insn, REG_UNUSED,

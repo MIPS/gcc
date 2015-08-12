@@ -22,6 +22,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -35,7 +36,6 @@
 #include "recog.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "obstack.h"
 #include "alias.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -782,7 +782,7 @@ ft32_is_mem_pm (rtx o)
 
 /* Define this to return an RTX representing the place where a
    function returns or receives a value of data type RET_TYPE, a tree
-   node node representing a data type.  */
+   node representing a data type.  */
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE ft32_function_value
 #undef TARGET_LIBCALL_VALUE

@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -676,7 +677,7 @@ cgraph_edge_hasher::hash (gimple call_stmt)
   return (hashval_t) ((intptr_t)call_stmt >> 3);
 }
 
-/* Return nonzero if the call_stmt of of cgraph_edge X is stmt *Y.  */
+/* Return nonzero if the call_stmt of cgraph_edge X is stmt *Y.  */
 
 inline bool
 cgraph_edge_hasher::equal (cgraph_edge *x, gimple y)
@@ -1747,8 +1748,8 @@ cgraph_node::release_body (bool keep_arguments)
       if (!keep_arguments)
 	DECL_ARGUMENTS (decl) = NULL;
     }
-  /* If the node is abstract and needed, then do not clear DECL_INITIAL
-     of its associated function function declaration because it's
+  /* If the node is abstract and needed, then do not clear
+     DECL_INITIAL of its associated function declaration because it's
      needed to emit debug info later.  */
   if (!used_as_abstract_origin && DECL_INITIAL (decl))
     DECL_INITIAL (decl) = error_mark_node;

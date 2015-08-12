@@ -6667,6 +6667,8 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 						       arg2se.expr);
 	  gfc_add_block_to_block (&se->pre, &arg1se.pre);
 	  gfc_add_block_to_block (&se->post, &arg1se.post);
+	  gfc_add_block_to_block (&se->pre, &arg2se.pre);
+	  gfc_add_block_to_block (&se->post, &arg2se.post);
           tmp = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
 				 arg1se.expr, arg2se.expr);
           tmp2 = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
@@ -8804,7 +8806,7 @@ conv_co_collective (gfc_code *code)
 	}
       opr_flags = build_int_cst (integer_type_node, opr_flag_int);
       gfc_conv_expr (&argse, opr_expr);
-      opr = gfc_build_addr_expr (NULL_TREE, argse.expr);
+      opr = argse.expr;
       fndecl = build_call_expr_loc (input_location, fndecl, 8, array, opr, opr_flags,
 				    image_index, stat, errmsg, strlen, errmsg_len);
     }

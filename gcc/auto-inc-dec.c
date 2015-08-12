@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -116,7 +117,6 @@ along with GCC; see the file COPYING3.  If not see
   before the ref or +c if the increment was after the ref, then if we
   can do the combination but switch the pre/post bit.  */
 
-#ifdef AUTO_INC_DEC
 
 enum form
 {
@@ -1441,8 +1441,6 @@ merge_in_block (int max_reg, basic_block bb)
     }
 }
 
-#endif
-
 /* Discover auto-inc auto-dec instructions.  */
 
 namespace {
@@ -1470,11 +1468,10 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *)
     {
-#ifdef AUTO_INC_DEC
+      if (!AUTO_INC_DEC)
+	return false;
+
       return (optimize > 0 && flag_auto_inc_dec);
-#else
-      return false;
-#endif
     }
 
 
@@ -1485,7 +1482,9 @@ public:
 unsigned int
 pass_inc_dec::execute (function *fun ATTRIBUTE_UNUSED)
 {
-#ifdef AUTO_INC_DEC
+  if (!AUTO_INC_DEC)
+    return 0;
+
   basic_block bb;
   int max_reg = max_reg_num ();
 
@@ -1508,7 +1507,7 @@ pass_inc_dec::execute (function *fun ATTRIBUTE_UNUSED)
   free (reg_next_def);
 
   mem_tmp = NULL;
-#endif
+
   return 0;
 }
 

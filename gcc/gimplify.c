@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-predict.h"
 #include "rtl.h"
 #include "ssa.h"
 #include "options.h"
@@ -2271,16 +2272,17 @@ gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
   return gimplify_expr (arg_p, pre_p, NULL, test, fb);
 }
 
-/* Don't fold inside offloading regions: it can break code by adding decl
-   references that weren't in the source.  We'll do it during omplower pass
-   instead.  */
+/* Don't fold inside offloading or taskreg regions: it can break code by
+   adding decl references that weren't in the source.  We'll do it during
+   omplower pass instead.  */
 
 static bool
 maybe_fold_stmt (gimple_stmt_iterator *gsi)
 {
   struct gimplify_omp_ctx *ctx;
   for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-    if (ctx->region_type == ORT_TARGET)
+    if (ctx->region_type == ORT_TARGET
+	|| (ctx->region_type & (ORT_PARALLEL | ORT_TASK)) != 0)
       return false;
   return fold_stmt (gsi);
 }
@@ -4651,7 +4653,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
     return ret;
 
   /* In case of va_arg internal fn wrappped in a WITH_SIZE_EXPR, add the type
-     size as argument to the the call.  */
+     size as argument to the call.  */
   if (TREE_CODE (*from_p) == WITH_SIZE_EXPR)
     {
       tree call = TREE_OPERAND (*from_p, 0);

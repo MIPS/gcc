@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -57,12 +58,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "debug.h"
-#include "obstack.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimplify.h"
 #include "cgraph.h"
+#include "alloc-pool.h"
 #include "lto-streamer.h"
 #include "lto-section-names.h"
 
@@ -462,7 +463,7 @@ typedef struct GTY ((for_user)) machopic_indirection
   /* True iff this entry is for a stub (as opposed to a non-lazy
      pointer).  */
   bool stub_p;
-  /* True iff this stub or pointer pointer has been referenced.  */
+  /* True iff this stub or pointer has been referenced.  */
   bool used;
 } machopic_indirection;
 
@@ -1229,6 +1230,11 @@ darwin_encode_section_info (tree decl, rtx rtl, int first ATTRIBUTE_UNUSED)
 void
 darwin_mark_decl_preserved (const char *name)
 {
+  /* Actually we shouldn't mark any local symbol this way, but for now
+     this only happens with ObjC meta-data.  */
+  if (darwin_label_is_anonymous_local_objc_name (name))
+    return;
+
   fprintf (asm_out_file, "\t.no_dead_strip ");
   assemble_name (asm_out_file, name);
   fputc ('\n', asm_out_file);

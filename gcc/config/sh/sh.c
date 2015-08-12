@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -4651,25 +4652,9 @@ typedef struct label_ref_list_d
 {
   rtx_code_label *label;
   struct label_ref_list_d *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((label_ref_list_d *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<label_ref_list_d> pool;
-
 } *label_ref_list_t;
 
-pool_allocator<label_ref_list_d> label_ref_list_d::pool
+static object_allocator<label_ref_list_d> label_ref_list_d_pool
   ("label references list", 30);
 
 /* The SH cannot load a large constant into a register, constants have to
@@ -4791,7 +4776,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
 		}
 	      if (lab && pool_window_label)
 		{
-		  newref = new label_ref_list_d;
+		  newref = label_ref_list_d_pool.allocate ();
 		  newref->label = pool_window_label;
 		  ref = pool_vector[pool_window_last].wend;
 		  newref->next = ref;
@@ -4820,7 +4805,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
   pool_vector[pool_size].part_of_sequence_p = (lab == 0);
   if (lab && pool_window_label)
     {
-      newref = new label_ref_list_d;
+      newref = label_ref_list_d_pool.allocate ();
       newref->label = pool_window_label;
       ref = pool_vector[pool_window_last].wend;
       newref->next = ref;
@@ -6566,7 +6551,7 @@ sh_reorg (void)
 	  insn = barrier;
 	}
     }
-  label_ref_list_d::pool.release ();
+  label_ref_list_d_pool.release ();
   for (insn = first; insn; insn = NEXT_INSN (insn))
     PUT_MODE (insn, VOIDmode);
 
@@ -9022,7 +9007,7 @@ sh_round_reg (const CUMULATIVE_ARGS& cum, machine_mode mode)
     : cum.arg_count[(int) GET_SH_ARG_CLASS (mode)]);
 }
 
-/* Return true if arg of the specified mode should be be passed in a register
+/* Return true if arg of the specified mode should be passed in a register
    or false otherwise.  */
 static bool
 sh_pass_in_reg_p (const CUMULATIVE_ARGS& cum, machine_mode mode,
@@ -13903,6 +13888,7 @@ sh_split_movrt_negc_to_movt_xor (rtx_insn* curr_insn, rtx operands[])
       && !sh_insn_operands_modified_between_p (t_before_negc.insn,
 					       t_before_negc.insn,
 					       t_after_negc.insn)
+      && !modified_between_p (get_t_reg_rtx (), curr_insn, t_after_negc.insn)
       && !sh_unspec_insn_p (t_after_negc.insn)
       && !volatile_insn_p (PATTERN (t_after_negc.insn))
       && !side_effects_p (PATTERN (t_after_negc.insn))
@@ -14177,6 +14163,12 @@ sh_recog_treg_set_expr (rtx op, machine_mode mode)
     return false;
 
   if (!can_create_pseudo_p ())
+    return false;
+
+  /* expand_debug_locations may call this to compute rtx costs at
+     very early stage.  In that case, don't make new insns here to
+     avoid codegen differences with -g. */
+  if (currently_expanding_to_rtl)
     return false;
 
   /* We are going to invoke recog in a re-entrant way and thus

@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -5979,9 +5980,7 @@ static void
 store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 {
   tree type = TREE_TYPE (exp);
-#ifdef WORD_REGISTER_OPERATIONS
   HOST_WIDE_INT exp_size = int_size_in_bytes (type);
-#endif
 
   switch (TREE_CODE (type))
     {
@@ -6094,13 +6093,13 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					 highest_pow2_factor (offset));
 	      }
 
-#ifdef WORD_REGISTER_OPERATIONS
 	    /* If this initializes a field that is smaller than a
 	       word, at the start of a word, try to widen it to a full
 	       word.  This special case allows us to output C++ member
 	       function initializations in a form that the optimizers
 	       can understand.  */
-	    if (REG_P (target)
+	    if (WORD_REGISTER_OPERATIONS
+		&& REG_P (target)
 		&& bitsize < BITS_PER_WORD
 		&& bitpos % BITS_PER_WORD == 0
 		&& GET_MODE_CLASS (mode) == MODE_INT
@@ -6125,7 +6124,6 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		bitsize = BITS_PER_WORD;
 		mode = word_mode;
 	      }
-#endif
 
 	    if (MEM_P (to_rtx) && !MEM_KEEP_ALIAS_SET_P (to_rtx)
 		&& DECL_NONADDRESSABLE_P (field))
@@ -7605,15 +7603,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, machine_mode tmode,
 	     marked TREE_ADDRESSABLE, which will be either a front-end
 	     or a tree optimizer bug.  */
 
-	  if (TREE_ADDRESSABLE (exp)
-	      && ! MEM_P (result)
-	      && ! targetm.calls.allocate_stack_slots_for_args ())
-	    {
-	      error ("local frame unavailable (naked function?)");
-	      return result;
-	    }
-	  else
-	    gcc_assert (MEM_P (result));
+	  gcc_assert (MEM_P (result));
 	  result = XEXP (result, 0);
 
 	  /* ??? Is this needed anymore?  */
@@ -7900,9 +7890,9 @@ expand_expr_real (tree exp, rtx target, machine_mode tmode,
 }
 
 /* Try to expand the conditional expression which is represented by
-   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If succeseds
-   return the rtl reg which repsents the result.  Otherwise return
-   NULL_RTL.  */
+   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If it succeeds
+   return the rtl reg which represents the result.  Otherwise return
+   NULL_RTX.  */
 
 static rtx
 expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
@@ -8139,9 +8129,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    inner_mode = TYPE_MODE (inner_type);
 
 	  if (modifier == EXPAND_INITIALIZER)
-	    op0 = simplify_gen_subreg (mode, op0, inner_mode,
-				       subreg_lowpart_offset (mode,
-							      inner_mode));
+	    op0 = lowpart_subreg (mode, op0, inner_mode);
 	  else
 	    op0=  convert_modes (mode, inner_mode, op0,
 				 TYPE_UNSIGNED (inner_type));

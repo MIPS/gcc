@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -208,7 +209,7 @@ typedef struct operand_entry
   unsigned int count;
 } *operand_entry_t;
 
-static pool_allocator<operand_entry> operand_entry_pool ("operand entry pool",
+static object_allocator<operand_entry> operand_entry_pool ("operand entry pool",
 							 30);
 
 /* This is used to assign a unique ID to each struct operand_entry

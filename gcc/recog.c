@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -1704,9 +1705,7 @@ int
 asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 {
   int result = 0;
-#ifdef AUTO_INC_DEC
   bool incdec_ok = false;
-#endif
 
   /* Use constrain_operands after reload.  */
   gcc_assert (!reload_completed);
@@ -1774,7 +1773,6 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 	    result = 1;
 	  break;
 
-#ifdef AUTO_INC_DEC
 	case '<':
 	case '>':
 	  /* ??? Before auto-inc-dec, auto inc/dec insns are not supposed
@@ -1784,7 +1782,6 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 
 	     Match any memory and hope things are resolved after reload.  */
 	  incdec_ok = true;
-#endif
 	default:
 	  cn = lookup_constraint (constraint);
 	  switch (get_constraint_type (cn))
@@ -1828,9 +1825,8 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 	return 0;
     }
 
-#ifdef AUTO_INC_DEC
   /* For operands without < or > constraints reject side-effects.  */
-  if (!incdec_ok && result && MEM_P (op))
+  if (AUTO_INC_DEC && !incdec_ok && result && MEM_P (op))
     switch (GET_CODE (XEXP (op, 0)))
       {
       case PRE_INC:
@@ -1843,7 +1839,6 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
       default:
 	break;
       }
-#endif
 
   return result;
 }
@@ -2806,9 +2801,8 @@ constrain_operands (int strict, alternative_mask alternatives)
 		    = recog_data.operand[funny_match[funny_match_index].this_op];
 		}
 
-#ifdef AUTO_INC_DEC
 	      /* For operands without < or > constraints reject side-effects.  */
-	      if (recog_data.is_asm)
+	      if (AUTO_INC_DEC && recog_data.is_asm)
 		{
 		  for (opno = 0; opno < recog_data.n_operands; opno++)
 		    if (MEM_P (recog_data.operand[opno]))
@@ -2829,7 +2823,7 @@ constrain_operands (int strict, alternative_mask alternatives)
 			  break;
 			}
 		}
-#endif
+
 	      return 1;
 	    }
 	}

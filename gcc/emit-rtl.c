@@ -1159,9 +1159,10 @@ set_reg_attrs_from_value (rtx reg, rtx x)
 	 || GET_CODE (x) == TRUNCATE
 	 || (GET_CODE (x) == SUBREG && subreg_lowpart_p (x)))
     {
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if ((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
-	  || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+#if defined(POINTERS_EXTEND_UNSIGNED)
+      if (((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
+	   || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+	  && !targetm.have_ptr_extend ())
 	can_be_reg_pointer = false;
 #endif
       x = XEXP (x, 0);
@@ -1376,7 +1377,6 @@ gen_lowpart_common (machine_mode mode, rtx x)
 {
   int msize = GET_MODE_SIZE (mode);
   int xsize;
-  int offset = 0;
   machine_mode innermode;
 
   /* Unfortunately, this routine doesn't take a parameter for the mode of X,
@@ -1404,8 +1404,6 @@ gen_lowpart_common (machine_mode mode, rtx x)
   if (SCALAR_FLOAT_MODE_P (mode) && msize > xsize)
     return 0;
 
-  offset = subreg_lowpart_offset (mode, innermode);
-
   if ((GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND)
       && (GET_MODE_CLASS (mode) == MODE_INT
 	  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT))
@@ -1428,7 +1426,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
   else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
 	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x))
-    return simplify_gen_subreg (mode, x, innermode, offset);
+    return lowpart_subreg (mode, x, innermode);
 
   /* Otherwise, we can't do this.  */
   return 0;
@@ -3588,7 +3586,6 @@ prev_cc0_setter (rtx_insn *insn)
   return insn;
 }
 
-#ifdef AUTO_INC_DEC
 /* Find a RTX_AUTOINC class rtx which matches DATA.  */
 
 static int
@@ -3604,7 +3601,6 @@ find_auto_inc (const_rtx x, const_rtx reg)
     }
   return false;
 }
-#endif
 
 /* Increment the label uses for all labels present in rtx.  */
 
@@ -3776,8 +3772,10 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	    }
 	  break;
 
-#ifdef AUTO_INC_DEC
 	case REG_INC:
+	  if (!AUTO_INC_DEC)
+	    break;
+
 	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      rtx reg = XEXP (note, 0);
@@ -3786,7 +3784,6 @@ try_split (rtx pat, rtx_insn *trial, int last)
 		add_reg_note (insn, REG_INC, reg);
 	    }
 	  break;
-#endif
 
 	case REG_ARGS_SIZE:
 	  fixup_args_size_notes (NULL, insn_last, INTVAL (XEXP (note, 0)));
@@ -5222,7 +5219,8 @@ set_for_reg_notes (rtx insn)
   reg = SET_DEST (pat);
 
   /* Notes apply to the contents of a STRICT_LOW_PART.  */
-  if (GET_CODE (reg) == STRICT_LOW_PART)
+  if (GET_CODE (reg) == STRICT_LOW_PART
+      || GET_CODE (reg) == ZERO_EXTRACT)
     reg = XEXP (reg, 0);
 
   /* Check that we have a register.  */

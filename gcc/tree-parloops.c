@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "alias.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "hard-reg-set.h"
@@ -1033,21 +1034,22 @@ create_phi_for_local_result (reduction_info **slot, struct loop *loop)
   struct reduction_info *const reduc = *slot;
   edge e;
   gphi *new_phi;
-  basic_block store_bb;
+  basic_block store_bb, continue_bb;
   tree local_res;
   source_location locus;
 
   /* STORE_BB is the block where the phi
      should be stored.  It is the destination of the loop exit.
      (Find the fallthru edge from GIMPLE_OMP_CONTINUE).  */
-  store_bb = FALLTHRU_EDGE (loop->latch)->dest;
+  continue_bb = single_pred (loop->latch);
+  store_bb = FALLTHRU_EDGE (continue_bb)->dest;
 
   /* STORE_BB has two predecessors.  One coming from  the loop
      (the reduction's result is computed at the loop),
      and another coming from a block preceding the loop,
      when no iterations
      are executed (the initial value should be taken).  */
-  if (EDGE_PRED (store_bb, 0) == FALLTHRU_EDGE (loop->latch))
+  if (EDGE_PRED (store_bb, 0) == FALLTHRU_EDGE (continue_bb))
     e = EDGE_PRED (store_bb, 1);
   else
     e = EDGE_PRED (store_bb, 0);
@@ -1056,7 +1058,7 @@ create_phi_for_local_result (reduction_info **slot, struct loop *loop)
   locus = gimple_location (reduc->reduc_stmt);
   new_phi = create_phi_node (local_res, store_bb);
   add_phi_arg (new_phi, reduc->init, e, locus);
-  add_phi_arg (new_phi, lhs, FALLTHRU_EDGE (loop->latch), locus);
+  add_phi_arg (new_phi, lhs, FALLTHRU_EDGE (continue_bb), locus);
   reduc->new_phi = new_phi;
 
   return 1;
@@ -1155,7 +1157,8 @@ create_call_for_reduction (struct loop *loop,
 {
   reduction_list->traverse <struct loop *, create_phi_for_local_result> (loop);
   /* Find the fallthru edge from GIMPLE_OMP_CONTINUE.  */
-  ld_st_data->load_bb = FALLTHRU_EDGE (loop->latch)->dest;
+  basic_block continue_bb = single_pred (loop->latch);
+  ld_st_data->load_bb = FALLTHRU_EDGE (continue_bb)->dest;
   reduction_list
     ->traverse <struct clsn_data *, create_call_for_reduction_1> (ld_st_data);
 }
@@ -1882,17 +1885,11 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
       alt_bound = fold_build2 (PLUS_EXPR, nit_type, nit,
 			       build_int_cst_type (nit_type, 1));
 
-      gimple_seq pre = NULL, post = NULL;
-      push_gimplify_context (true);
-      gimplify_expr (&alt_bound, &pre, &post, is_gimple_reg,
-		     fb_rvalue);
-      pop_gimplify_context (NULL);
+      gimple_stmt_iterator gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-      gimple_seq_add_seq (&pre, post);
-
-      gimple_stmt_iterator gsi
-	= gsi_last_bb (loop_preheader_edge (loop)->src);
-      gsi_insert_seq_after (&gsi, pre, GSI_CONTINUE_LINKING);
+      alt_bound
+	= force_gimple_operand_gsi (&gsi, alt_bound, true, NULL_TREE, false,
+				    GSI_CONTINUE_LINKING);
     }
 
   transform_to_exit_first_loop_alt (loop, reduction_list, alt_bound);
@@ -2023,7 +2020,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 		      basic_block region_entry, bool oacc_kernels_p)
 {
   gimple_stmt_iterator gsi;
-  basic_block bb, paral_bb, for_bb, ex_bb;
+  basic_block bb, paral_bb, for_bb, ex_bb, continue_bb;
   tree t, param;
   gomp_parallel *omp_par_stmt;
   gimple omp_return_stmt1, omp_return_stmt2;
@@ -2162,13 +2159,10 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gcc_assert (exit == single_dom_exit (loop));
 
   guard = make_edge (for_bb, ex_bb, 0);
-  single_succ_edge (loop->latch)->flags = 0;
-
-  /* After creating this edge, the latch has two successors, so
-     LOOPS_HAVE_SIMPLE_LATCHES is no longer valid.  We'll update the loop state
-     as such at the end of the pass, since it's not needed earlier, and doing it
-     earlier will invalidate info for loops we still need to process.  */
-  end = make_edge (loop->latch, ex_bb, EDGE_FALLTHRU);
+  /* Split the latch edge, so LOOPS_HAVE_SIMPLE_LATCHES is still valid.  */
+  loop->latch = split_edge (single_succ_edge (loop->latch));
+  single_pred_edge (loop->latch)->flags = 0;
+  end = make_edge (single_pred (loop->latch), ex_bb, EDGE_FALLTHRU);
   rescan_loop_exit (end, true, false);
 
   for (gphi_iterator gpi = gsi_start_phis (ex_bb);
@@ -2229,7 +2223,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   SSA_NAME_DEF_STMT (initvar) = for_stmt;
 
   /* Emit GIMPLE_OMP_CONTINUE.  */
-  gsi = gsi_last_bb (loop->latch);
+  continue_bb = single_pred (loop->latch);
+  gsi = gsi_last_bb (continue_bb);
   omp_cont_stmt = gimple_build_omp_continue (cvar_next, cvar);
   gimple_set_location (omp_cont_stmt, loc);
   gsi_insert_after (&gsi, omp_cont_stmt, GSI_NEW_STMT);
@@ -2978,7 +2973,6 @@ pass_parallelize_loops::execute (function *fun)
     {
       fun->curr_properties &= ~(PROP_gimple_eomp);
 
-      loops_state_clear (LOOPS_HAVE_SIMPLE_LATCHES);
 #ifdef ENABLE_CHECKING
       verify_loop_structure ();
 #endif

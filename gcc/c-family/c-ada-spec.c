@@ -2911,6 +2911,10 @@ print_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
 
       if (is_constructor || is_destructor)
 	{
+	  /* ??? Skip implicit constructors/destructors for now.  */
+	  if (DECL_ARTIFICIAL (t))
+	    return 0;
+
 	  /* Only consider constructors/destructors for complete objects.  */
 	  if (strncmp (IDENTIFIER_POINTER (decl_name), "__comp", 6) != 0)
 	    return 0;
@@ -3044,9 +3048,12 @@ print_ada_declaration (pretty_printer *buffer, tree t, tree type, int spc)
 	  if (num_fields == 1)
 	    is_interface = 1;
 
-	  /* Also check that there are only virtual methods.  */
+	  /* Also check that there are only pure virtual methods.  Since the
+	     class is empty, we can skip implicit constructors/destructors.  */
 	  for (tmp = TYPE_METHODS (TREE_TYPE (t)); tmp; tmp = TREE_CHAIN (tmp))
 	    {
+	      if (DECL_ARTIFICIAL (tmp))
+		continue;
 	      if (cpp_check (tmp, IS_ABSTRACT))
 		is_abstract_record = 1;
 	      else

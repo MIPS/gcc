@@ -113,6 +113,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "rtl.h"
 #include "alias.h"
 #include "tree.h"
@@ -2268,11 +2269,9 @@ expand_eh_return (void)
   emit_move_insn (EH_RETURN_STACKADJ_RTX, crtl->eh.ehr_stackadj);
 #endif
 
-#ifdef HAVE_eh_return
-  if (HAVE_eh_return)
-    emit_insn (gen_eh_return (crtl->eh.ehr_handler));
+  if (targetm.have_eh_return ())
+    emit_insn (targetm.gen_eh_return (crtl->eh.ehr_handler));
   else
-#endif
     {
 #ifdef EH_RETURN_HANDLER_RTX
       emit_move_insn (EH_RETURN_HANDLER_RTX, crtl->eh.ehr_handler);

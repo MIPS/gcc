@@ -100,7 +100,8 @@ enum processor_features
   FEATURE_FMA,
   FEATURE_AVX512F,
   FEATURE_BMI,
-  FEATURE_BMI2
+  FEATURE_BMI2,
+  FEATURE_AES
 };
 
 struct __processor_model
@@ -231,6 +232,7 @@ get_intel_cpu (unsigned int family, unsigned int model, unsigned int brand_id)
 	      __cpu_model.__cpu_subtype = INTEL_COREI7_HASWELL;
 	      break;
 	    case 0x3d:
+	    case 0x47:
 	    case 0x4f:
 	    case 0x56:
 	      /* Broadwell.  */
@@ -273,6 +275,8 @@ get_available_features (unsigned int ecx, unsigned int edx,
     features |= (1 << FEATURE_SSE2);
   if (ecx & bit_POPCNT)
     features |= (1 << FEATURE_POPCNT);
+  if (ecx & bit_AES)
+    features |= (1 << FEATURE_AES);
   if (ecx & bit_SSE3)
     features |= (1 << FEATURE_SSE3);
   if (ecx & bit_SSSE3)

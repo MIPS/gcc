@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -6877,7 +6878,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   body_bb = single_succ (seq_start_bb);
   if (!broken_loop)
     {
-      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb);
+      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb
+		  || single_succ (BRANCH_EDGE (cont_bb)->dest) == body_bb);
       gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
     }
   exit_bb = region->exit;
@@ -7179,6 +7181,11 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (!broken_loop)
     {
       ep = find_edge (cont_bb, body_bb);
+      if (ep == NULL)
+	{
+	  ep = BRANCH_EDGE (cont_bb);
+	  gcc_assert (single_succ (ep->dest) == body_bb);
+	}
       if (gimple_omp_for_combined_p (fd->for_stmt))
 	{
 	  remove_edge (ep);
@@ -7208,7 +7215,9 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (loop != entry_bb->loop_father)
     {
       gcc_assert (loop->header == body_bb);
-      gcc_assert (broken_loop || loop->latch == region->cont);
+      gcc_assert (broken_loop
+		  || loop->latch == region->cont
+		  || single_pred (loop->latch) == region->cont);
       return;
     }
 
@@ -10275,12 +10284,6 @@ execute_expand_omp (void)
 
       expand_omp (root_omp_region);
 
-      /* We dropped this property in parloops because of the omp_for.  Now that
-	 the omp_for has been expanded, reinstate it.  */
-      if (gimple_in_ssa_p (cfun)
-	  && !loops_state_satisfies_p (LOOPS_MAY_HAVE_MULTIPLE_LATCHES))
-	loops_state_set (LOOPS_HAVE_SIMPLE_LATCHES);
-
 #ifdef ENABLE_CHECKING
       if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
 	verify_loop_structure ();
@@ -11024,7 +11027,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   block = make_node (BLOCK);
   new_stmt = gimple_build_bind (NULL, NULL, block);
   /* Replace at gsi right away, so that 'stmt' is no member
-     of a sequence anymore as we're going to add to to a different
+     of a sequence anymore as we're going to add to a different
      one below.  */
   gsi_replace (gsi_p, new_stmt, true);
 
@@ -12490,8 +12493,8 @@ lower_omp (gimple_seq *body, omp_context *ctx)
   for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
     lower_omp_1 (&gsi, ctx);
   /* During gimplification, we haven't folded statments inside offloading
-     regions (gimplify.c:maybe_fold_stmt); do that now.  */
-  if (target_nesting_level)
+     or taskreg regions (gimplify.c:maybe_fold_stmt); do that now.  */
+  if (target_nesting_level || taskreg_nesting_level)
     for (gsi = gsi_start (*body); !gsi_end_p (gsi); gsi_next (&gsi))
       fold_stmt (&gsi);
   input_location = saved_location;

@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "rtl.h"
 #include "df.h"
 #include "regs.h"
@@ -830,7 +831,8 @@ single_reg_operand_class (int op_num)
    might be used by insn reloads because the constraints are too
    strict.  */
 void
-ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
+ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set,
+				   alternative_mask preferred)
 {
   int i, c, regno = 0;
   enum reg_class cl;
@@ -853,7 +855,6 @@ ira_implicitly_set_insn_hard_regs (HARD_REG_SET *set)
 	  mode = (GET_CODE (op) == SCRATCH
 		  ? GET_MODE (op) : PSEUDO_REGNO_MODE (regno));
 	  cl = NO_REGS;
-	  alternative_mask preferred = preferred_alternatives;
 	  for (; (c = *p); p += CONSTRAINT_LEN (c, p))
 	    if (c == '#')
 	      preferred &= ~ALTERNATIVE_BIT (0);
@@ -965,22 +966,6 @@ process_single_reg_class_operands (bool in_p, int freq)
 	    }
 	}
     }
-}
-
-/* Return true when one of the predecessor edges of BB is marked with
-   EDGE_ABNORMAL_CALL or EDGE_EH.  */
-static bool
-bb_has_abnormal_call_pred (basic_block bb)
-{
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, bb->preds)
-    {
-      if (e->flags & (EDGE_ABNORMAL_CALL | EDGE_EH))
-	return true;
-    }
-  return false;
 }
 
 /* Look through the CALL_INSN_FUNCTION_USAGE of a call insn INSN, and see if
@@ -1342,7 +1327,8 @@ process_bb_node_lives (ira_loop_tree_node_t loop_tree_node)
 	  /* No need to record conflicts for call clobbered regs if we
 	     have nonlocal labels around, as we don't ever try to
 	     allocate such regs in this case.  */
-	  if (!cfun->has_nonlocal_label && bb_has_abnormal_call_pred (bb))
+	  if (!cfun->has_nonlocal_label
+	      && has_abnormal_call_or_eh_pred_edge_p (bb))
 	    for (px = 0; px < FIRST_PSEUDO_REGISTER; px++)
 	      if (call_used_regs[px]
 #ifdef REAL_PIC_OFFSET_TABLE_REGNUM

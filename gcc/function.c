@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -2104,9 +2105,6 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 bool
 use_register_for_decl (const_tree decl)
 {
-  if (!targetm.calls.allocate_stack_slots_for_args ())
-    return true;
-
   /* Honor volatile.  */
   if (TREE_SIDE_EFFECTS (decl))
     return false;
@@ -2133,6 +2131,9 @@ use_register_for_decl (const_tree decl)
      propagates values across these stores, and it probably shouldn't.  */
   if (flag_float_store && FLOAT_TYPE_P (TREE_TYPE (decl)))
     return false;
+
+  if (!targetm.calls.allocate_stack_slots_for_args ())
+    return true;
 
   /* If we're not interested in tracking debugging information for
      this decl, then we can certainly put it in a register.  */
@@ -4874,26 +4875,18 @@ stack_protect_epilogue (void)
   tree guard_decl = targetm.stack_protect_guard ();
   rtx_code_label *label = gen_label_rtx ();
   rtx x, y, tmp;
+  rtx_insn *seq;
 
   x = expand_normal (crtl->stack_protect_guard);
   y = expand_normal (guard_decl);
 
   /* Allow the target to compare Y with X without leaking either into
      a register.  */
-  switch (targetm.have_stack_protect_test ())
-    {
-    case 1:
-      if (rtx_insn *seq = targetm.gen_stack_protect_test (x, y, label))
-	{
-	  emit_insn (seq);
-	  break;
-	}
-      /* FALLTHRU */
-
-    default:
-      emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
-      break;
-    }
+  if (targetm.have_stack_protect_test ()
+      && ((seq = targetm.gen_stack_protect_test (x, y, label)) != NULL_RTX))
+    emit_insn (seq);
+  else
+    emit_cmp_and_jump_insns (x, y, EQ, NULL_RTX, ptr_mode, 1, label);
 
   /* The noreturn predictor has been moved to the tree level.  The rtl-level
      predictors estimate this branch about 20%, which isn't enough to get
@@ -5943,7 +5936,6 @@ thread_prologue_and_epilogue_insns (void)
      uses the flag in the meantime.  */
   epilogue_completed = 1;
 
-#ifdef HAVE_eh_return
   /* Find non-fallthru edges that end with EH_RETURN instructions.  On
      some targets, these get split to a special version of the epilogue
      code.  In order to be able to properly annotate these with unwind
@@ -5967,7 +5959,6 @@ thread_prologue_and_epilogue_insns (void)
       record_insns (NEXT_INSN (prev), NEXT_INSN (trial), &epilogue_insn_hash);
       emit_note_after (NOTE_INSN_EPILOGUE_BEG, prev);
     }
-#endif
 
   /* If nothing falls through into the exit block, we don't need an
      epilogue.  */

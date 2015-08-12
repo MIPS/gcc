@@ -19905,6 +19905,10 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
 
   decl = block_ultimate_origin (stmt);
 
+  /* Make sure any inlined functions are known to be inlineable.  */
+  gcc_checking_assert (DECL_ABSTRACT_P (decl)
+		       || cgraph_function_possibly_inlined_p (decl));
+
   /* Emit info for the abstract instance first, if we haven't yet.  We
      must emit this even if the block is abstract, otherwise when we
      emit the block below (or elsewhere), we may end up trying to emit
@@ -25166,8 +25170,8 @@ dwarf2out_finish (const char *filename)
   if (flag_eliminate_dwarf2_dups)
     break_out_includes (comp_unit_die ());
 
-  /* Traverse the DIE's and add add sibling attributes to those DIE's
-     that have children.  */
+  /* Traverse the DIE's and add sibling attributes to those DIE's that
+     have children.  */
   add_sibling_attributes (comp_unit_die ());
   limbo_die_node *node;
   for (node = limbo_die_list; node; node = node->next)
@@ -25445,7 +25449,7 @@ dwarf2out_early_finish (void)
       tree decl = node->created_for;
       if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
 	  /* A missing DECL_ASSEMBLER_NAME can be a constant DIE that
-	     ended up in in deferred_asm_name before we knew it was
+	     ended up in deferred_asm_name before we knew it was
 	     constant and never written to disk.  */
 	  && DECL_ASSEMBLER_NAME (decl))
 	{

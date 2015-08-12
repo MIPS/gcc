@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtlhooks-def.h"
 #include "emit-rtl.h"
 #include "ira.h"
+#include "ira-int.h"
 #include "rtl-iter.h"
 
 #ifdef INSN_SCHEDULING
@@ -1191,11 +1192,10 @@ mark_unavailable_hard_regs (def_t def, struct reg_rename *reg_rename_p,
      frame pointer, or we could not discover its class.  */
   if (fixed_regs[regno]
       || global_regs[regno]
-#if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-      || (frame_pointer_needed && regno == HARD_FRAME_POINTER_REGNUM)
-#else
-      || (frame_pointer_needed && regno == FRAME_POINTER_REGNUM)
-#endif
+      || (!HARD_FRAME_POINTER_IS_FRAME_POINTER && frame_pointer_needed
+	  && regno == HARD_FRAME_POINTER_REGNUM)
+      || (HARD_FRAME_POINTER_REGNUM && frame_pointer_needed
+	  && regno == FRAME_POINTER_REGNUM)
       || (reload_completed && cl == NO_REGS))
     {
       SET_HARD_REG_SET (reg_rename_p->unavailable_hard_regs);
@@ -2105,7 +2105,8 @@ implicit_clobber_conflict_p (insn_t through_insn, expr_t expr)
   /* Calculate implicit clobbers.  */
   extract_insn (insn);
   preprocess_constraints (insn);
-  ira_implicitly_set_insn_hard_regs (&temp);
+  alternative_mask prefrred = get_preferred_alternatives (insn);
+  ira_implicitly_set_insn_hard_regs (&temp, prefrred);
   AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);
 
   /* If any implicit clobber registers intersect with regular ones in

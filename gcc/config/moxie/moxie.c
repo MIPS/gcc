@@ -22,6 +22,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -35,7 +36,6 @@
 #include "recog.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "obstack.h"
 #include "alias.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -128,7 +128,7 @@ moxie_operand_lossage (const char *msgid, rtx op)
 
 /* The PRINT_OPERAND_ADDRESS worker.  */
 
-void
+static void
 moxie_print_operand_address (FILE *file, rtx x)
 {
   switch (GET_CODE (x))
@@ -175,7 +175,7 @@ moxie_print_operand_address (FILE *file, rtx x)
 
 /* The PRINT_OPERAND worker.  */
 
-void
+static void
 moxie_print_operand (FILE *file, rtx x, int code)
 {
   rtx operand = x;
@@ -658,7 +658,7 @@ moxie_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
 
 /* Define this to return an RTX representing the place where a
    function returns or receives a value of data type RET_TYPE, a tree
-   node node representing a data type.  */
+   node representing a data type.  */
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE moxie_function_value
 #undef TARGET_LIBCALL_VALUE
@@ -678,6 +678,11 @@ moxie_legitimate_address_p (machine_mode mode ATTRIBUTE_UNUSED,
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE moxie_option_override
+
+#undef  TARGET_PRINT_OPERAND
+#define TARGET_PRINT_OPERAND moxie_print_operand
+#undef  TARGET_PRINT_OPERAND_ADDRESS
+#define TARGET_PRINT_OPERAND_ADDRESS moxie_print_operand_address
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

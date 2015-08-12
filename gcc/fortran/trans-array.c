@@ -6882,9 +6882,9 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
       gfc_add_block_to_block (&block, &lse.pre);
 
       lse.string_length = rse.string_length;
-      tmp = gfc_trans_scalar_assign (&lse, &rse, expr->ts, true,
+      tmp = gfc_trans_scalar_assign (&lse, &rse, expr->ts,
 				     expr->expr_type == EXPR_VARIABLE
-				     || expr->expr_type == EXPR_ARRAY, true);
+				     || expr->expr_type == EXPR_ARRAY, false);
       gfc_add_expr_to_block (&block, tmp);
 
       /* Finish the copying loops.  */
@@ -7395,10 +7395,11 @@ gfc_conv_array_parameter (gfc_se * se, gfc_expr * expr, bool g77,
     }
 
   /* Deallocate the allocatable components of structures that are
-     not variable.  */
-  if ((expr->ts.type == BT_DERIVED || expr->ts.type == BT_CLASS)
-	&& expr->ts.u.derived->attr.alloc_comp
-	&& expr->expr_type != EXPR_VARIABLE)
+     not variable, for descriptorless arguments.
+     Arguments with a descriptor are handled in gfc_conv_procedure_call.  */
+  if (g77 && (expr->ts.type == BT_DERIVED || expr->ts.type == BT_CLASS)
+	  && expr->ts.u.derived->attr.alloc_comp
+	  && expr->expr_type != EXPR_VARIABLE)
     {
       tmp = build_fold_indirect_ref_loc (input_location, se->expr);
       tmp = gfc_deallocate_alloc_comp (expr->ts.u.derived, tmp, expr->rank);
@@ -9165,7 +9166,11 @@ gfc_get_proc_ifc_for_expr (gfc_expr *procedure_ref)
     return NULL;
 
   /* Normal procedure case.  */
-  sym = procedure_ref->symtree->n.sym;
+  if (procedure_ref->expr_type == EXPR_FUNCTION
+      && procedure_ref->value.function.esym)
+    sym = procedure_ref->value.function.esym;
+  else
+    sym = procedure_ref->symtree->n.sym;
 
   /* Typebound procedure case.  */
   for (ref = procedure_ref->ref; ref; ref = ref->next)

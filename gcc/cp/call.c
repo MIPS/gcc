@@ -425,7 +425,8 @@ enum rejection_reason_code {
   rr_arg_conversion,
   rr_bad_arg_conversion,
   rr_template_unification,
-  rr_invalid_copy
+  rr_invalid_copy,
+  rr_constraint_failure
 };
 
 struct conversion_info {
@@ -685,6 +686,27 @@ static struct rejection_reason *
 invalid_copy_with_fn_template_rejection (void)
 {
   struct rejection_reason *r = alloc_rejection (rr_invalid_copy);
+  return r;
+}
+
+// Build a constraint failure record, saving information into the
+// template_instantiation field of the rejection. If FN is not a template
+// declaration, the TMPL member is the FN declaration and TARGS is empty.
+
+static struct rejection_reason *
+constraint_failure (tree fn)
+{
+  struct rejection_reason *r = alloc_rejection (rr_constraint_failure);
+  if (tree ti = DECL_TEMPLATE_INFO (fn))
+    {
+      r->u.template_instantiation.tmpl = TI_TEMPLATE (ti);
+      r->u.template_instantiation.targs = TI_ARGS (ti);
+    }
+  else
+    {
+      r->u.template_instantiation.tmpl = fn;
+      r->u.template_instantiation.targs = NULL_TREE;
+    }
   return r;
 }
 
@@ -1519,7 +1541,7 @@ reference_binding (tree rto, tree rfrom, tree expr, bool c_cast_p, int flags,
     tfrom = unlowered_expr_type (expr);
 
   /* Figure out whether or not the types are reference-related and
-     reference compatible.  We have do do this after stripping
+     reference compatible.  We have to do this after stripping
      references from FROM.  */
   related_p = reference_related_p (to, tfrom);
   /* If this is a C cast, first convert to an appropriately qualified
@@ -1957,10 +1979,20 @@ add_function_candidate (struct z_candidate **candidates,
       viable = 0;
       reason = arity_rejection (first_arg, i + remaining, len);
     }
+
+  /* Second, for a function to be viable, its constraints must be
+     satisfied. */
+  if (flag_concepts && viable
+      && !constraints_satisfied_p (fn))
+    {
+      reason = constraint_failure (fn);
+      viable = false;
+    }
+
   /* When looking for a function from a subobject from an implicit
      copy/move constructor/operator=, don't consider anything that takes (a
      reference to) an unrelated type.  See c++/44909 and core 1092.  */
-  else if (parmlist && (flags & LOOKUP_DEFAULTED))
+  if (viable && parmlist && (flags & LOOKUP_DEFAULTED))
     {
       if (DECL_CONSTRUCTOR_P (fn))
 	i = 1;
@@ -1984,7 +2016,7 @@ add_function_candidate (struct z_candidate **candidates,
   if (! viable)
     goto out;
 
-  /* Second, for F to be a viable function, there shall exist for each
+  /* Third, for F to be a viable function, there shall exist for each
      argument an implicit conversion sequence that converts that argument
      to the corresponding parameter of F.  */
 
@@ -3387,6 +3419,13 @@ print_z_candidate (location_t loc, const char *msgstr,
 		  "  a constructor taking a single argument of its own "
 		  "class type is invalid");
 	  break;
+	case rr_constraint_failure:
+	  {
+	    tree tmpl = r->u.template_instantiation.tmpl;
+	    tree args = r->u.template_instantiation.targs;
+	    diagnose_constraints (cloc, tmpl, args);
+	  }
+	  break;
 	case rr_none:
 	default:
 	  /* This candidate didn't have any issues or we failed to
@@ -4044,9 +4083,13 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
     {
       if (complain & tf_error)
 	{
+	  // If there is a single (non-viable) function candidate,
+	  // let the error be diagnosed by cp_build_function_call_vec.
 	  if (!any_viable_p && candidates && ! candidates->next
 	      && (TREE_CODE (candidates->fn) == FUNCTION_DECL))
 	    return cp_build_function_call_vec (candidates->fn, args, complain);
+
+	  // Otherwise, emit notes for non-viable candidates.
 	  if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
 	    fn = TREE_OPERAND (fn, 0);
 	  print_error_for_call_failure (fn, *args, candidates);
@@ -4061,7 +4104,26 @@ build_new_function_call (tree fn, vec<tree, va_gc> **args, bool koenig_p,
          through flags so that later we can use it to decide whether to warn
          about peculiar null pointer conversion.  */
       if (TREE_CODE (fn) == TEMPLATE_ID_EXPR)
-        flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
+        {
+          /* If overload resolution selects a specialization of a
+             function concept for non-dependent template arguments,
+             the expression is true if the constraints are satisfied
+             and false otherwise.
+
+             NOTE: This is an extension of Concepts Lite TS that
+             allows constraints to be used in expressions. */
+          if (flag_concepts && !processing_template_decl)
+            {
+              tree tmpl = DECL_TI_TEMPLATE (cand->fn);
+              tree targs = DECL_TI_ARGS (cand->fn);
+              tree decl = DECL_TEMPLATE_RESULT (tmpl);
+              if (DECL_DECLARED_CONCEPT_P (decl))
+                return evaluate_function_concept (decl, targs);
+            }
+
+          flags |= LOOKUP_EXPLICIT_TMPL_ARGS;
+        }
+
       result = build_over_call (cand, flags, complain);
     }
 
@@ -5395,7 +5457,7 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
      only non-member functions that have type T1 or reference to
      cv-qualified-opt T1 for the first argument, if the first argument
      has an enumeration type, or T2 or reference to cv-qualified-opt
-     T2 for the second argument, if the the second argument has an
+     T2 for the second argument, if the second argument has an
      enumeration type.  Filter out those that don't match.  */
   else if (! arg2 || ! CLASS_TYPE_P (TREE_TYPE (arg2)))
     {
@@ -5651,6 +5713,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
 	  && ((code_orig_arg1 == BOOLEAN_TYPE)
 	      ^ (code_orig_arg2 == BOOLEAN_TYPE)))
 	maybe_warn_bool_compare (loc, code, arg1, arg2);
+      if (complain & tf_warning && warn_tautological_compare)
+	warn_tautological_cmp (loc, code, arg1, arg2);
       /* Fall through.  */
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -5841,7 +5905,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	    = G_("exception cleanup for this placement new selects "
 		 "non-placement operator delete");
 	  const char *msg2
-	    = G_("%q+D is a usual (non-placement) deallocation "
+	    = G_("%qD is a usual (non-placement) deallocation "
 		 "function in C++14 (or with -fsized-deallocation)");
 
 	  /* But if the class has an operator delete (void *), then that is
@@ -5863,7 +5927,7 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 	    {
 	      if ((complain & tf_warning)
 		  && warning (OPT_Wc__14_compat, msg1))
-		inform (0, msg2, fn);
+		inform (DECL_SOURCE_LOCATION (fn), msg2, fn);
 	      goto ok;
 	    }
 
@@ -5873,9 +5937,10 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
 		{
 		  /* Only mention C++14 for namespace-scope delete.  */
 		  if (DECL_NAMESPACE_SCOPE_P (fn))
-		    inform (0, msg2, fn);
+		    inform (DECL_SOURCE_LOCATION (fn), msg2, fn);
 		  else
-		    inform (0, "%q+D is a usual (non-placement) deallocation "
+		    inform (DECL_SOURCE_LOCATION (fn),
+			    "%qD is a usual (non-placement) deallocation "
 			    "function", fn);
 		}
 	    }
@@ -6331,8 +6396,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  build_user_type_conversion (totype, convs->u.expr, LOOKUP_NORMAL,
 				      complain);
 	  if (fn)
-	    inform (input_location, "  initializing argument %P of %q+D",
-		    argnum, fn);
+	    inform (DECL_SOURCE_LOCATION (fn),
+		    "  initializing argument %P of %qD", argnum, fn);
 	}
       return error_mark_node;
 
@@ -6437,12 +6502,14 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
       /* Copy-initialization where the cv-unqualified version of the source
 	 type is the same class as, or a derived class of, the class of the
 	 destination [is treated as direct-initialization].  [dcl.init] */
-      flags = LOOKUP_NORMAL|LOOKUP_ONLYCONVERTING;
+      flags = LOOKUP_NORMAL;
       if (convs->user_conv_p)
 	/* This conversion is being done in the context of a user-defined
 	   conversion (i.e. the second step of copy-initialization), so
 	   don't allow any more.  */
 	flags |= LOOKUP_NO_CONVERSION;
+      else
+	flags |= LOOKUP_ONLYCONVERTING;
       if (convs->rvaluedness_matches_p)
 	flags |= LOOKUP_PREFER_RVALUE;
       if (TREE_CODE (expr) == TARGET_EXPR
@@ -6482,8 +6549,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	      gcc_unreachable ();
 	    maybe_print_user_conv_context (convs);
 	    if (fn)
-	      inform (input_location,
-		      "  initializing argument %P of %q+D", argnum, fn);
+	      inform (DECL_SOURCE_LOCATION (fn),
+		      "  initializing argument %P of %qD", argnum, fn);
 	    return error_mark_node;
 	  }
 
@@ -7303,7 +7370,8 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 	      pedwarn (input_location, 0, "deducing %qT as %qT",
 		       non_reference (TREE_TYPE (patparm)),
 		       non_reference (type));
-	      pedwarn (input_location, 0, "  in call to %q+D", cand->fn);
+	      pedwarn (DECL_SOURCE_LOCATION (cand->fn), 0,
+		       "  in call to %qD", cand->fn);
 	      pedwarn (input_location, 0,
 		       "  (you can disable this with -fno-deduce-init-list)");
 	    }
@@ -8067,7 +8135,10 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
       /* If BASETYPE is an aggregate, we need to do aggregate
 	 initialization.  */
       else if (CP_AGGREGATE_TYPE_P (basetype))
-	init = digest_init (basetype, init_list, complain);
+	{
+	  init = reshape_init (basetype, init_list, complain);
+	  init = digest_init (basetype, init, complain);
+	}
 
       if (init)
 	{
@@ -9082,6 +9153,15 @@ joust (struct z_candidate *cand1, struct z_candidate *cand2, bool warn,
 	    templates.   add_function_candidate() will not have
 	    counted the "this" argument for constructors.  */
 	 cand1->num_convs + DECL_CONSTRUCTOR_P (cand1->fn));
+      if (winner)
+	return winner;
+    }
+
+  // C++ Concepts
+  // or, if not that, F1 is more constrained than F2.
+  if (flag_concepts && DECL_P (cand1->fn) && DECL_P (cand2->fn))
+    {
+      winner = more_constrained (cand1->fn, cand2->fn);
       if (winner)
 	return winner;
     }

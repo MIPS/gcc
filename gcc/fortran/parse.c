@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include <setjmp.h>
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -4390,8 +4390,10 @@ parse_oacc_structured_block (gfc_statement acc_st)
       if (st == ST_NONE)
 	unexpected_eof ();
       else if (st != acc_end_st)
-	gfc_error ("Expecting %s at %C", gfc_ascii_statement (acc_end_st));
-      reject_statement ();
+	{
+	  gfc_error ("Expecting %s at %C", gfc_ascii_statement (acc_end_st));
+	  reject_statement ();
+	}
     }
   while (st != acc_end_st);
 

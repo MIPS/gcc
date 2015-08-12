@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -163,7 +164,7 @@ fix_loop_placement (struct loop *loop, bool *irred_invalidated)
 }
 
 /* Fix placements of basic blocks inside loop hierarchy stored in loops; i.e.
-   enforce condition condition stated in description of fix_bb_placement. We
+   enforce condition stated in description of fix_bb_placement. We
    start from basic block FROM that had some of its successors removed, so that
    his placement no longer has to be correct, and iteratively fix placement of
    its predecessors that may change if placement of FROM changed.  Also fix

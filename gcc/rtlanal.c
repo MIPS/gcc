@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -3570,10 +3571,7 @@ subreg_get_info (unsigned int xregno, machine_mode xmode,
       machine_mode xmode_unit;
 
       nregs_xmode = HARD_REGNO_NREGS_WITH_PADDING (xregno, xmode);
-      if (GET_MODE_INNER (xmode) == VOIDmode)
-	xmode_unit = xmode;
-      else
-	xmode_unit = GET_MODE_INNER (xmode);
+      xmode_unit = GET_MODE_INNER (xmode);
       gcc_assert (HARD_REGNO_NREGS_HAS_PADDING (xregno, xmode_unit));
       gcc_assert (nregs_xmode
 		  == (GET_MODE_NUNITS (xmode)
@@ -4253,7 +4251,6 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
        just return the mode mask.  Those tests will then be false.  */
     return nonzero;
 
-#ifndef WORD_REGISTER_OPERATIONS
   /* If MODE is wider than X, but both are a single word for both the host
      and target machines, we can compute this from which bits of the
      object might be nonzero in its own mode, taking into account the fact
@@ -4261,7 +4258,9 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
      causes the high-order bits to become undefined.  So they are
      not known to be zero.  */
 
-  if (GET_MODE (x) != VOIDmode && GET_MODE (x) != mode
+  if (!WORD_REGISTER_OPERATIONS
+      && GET_MODE (x) != VOIDmode
+      && GET_MODE (x) != mode
       && GET_MODE_PRECISION (GET_MODE (x)) <= BITS_PER_WORD
       && GET_MODE_PRECISION (GET_MODE (x)) <= HOST_BITS_PER_WIDE_INT
       && GET_MODE_PRECISION (mode) > GET_MODE_PRECISION (GET_MODE (x)))
@@ -4271,13 +4270,12 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
       nonzero |= GET_MODE_MASK (mode) & ~GET_MODE_MASK (GET_MODE (x));
       return nonzero;
     }
-#endif
 
   code = GET_CODE (x);
   switch (code)
     {
     case REG:
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
+#if defined(POINTERS_EXTEND_UNSIGNED)
       /* If pointers extend unsigned and this is a pointer in Pmode, say that
 	 all the bits above ptr_mode are known to be zero.  */
       /* As we do not know which address space the pointer is referring to,
@@ -4285,7 +4283,8 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	 or address modes depending on the address space.  */
       if (target_default_pointer_address_modes_p ()
 	  && POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode
-	  && REG_POINTER (x))
+	  && REG_POINTER (x)
+	  && !targetm.have_ptr_extend ())
 	nonzero &= GET_MODE_MASK (ptr_mode);
 #endif
 
@@ -4327,14 +4326,12 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
       }
 
     case CONST_INT:
-#ifdef SHORT_IMMEDIATES_SIGN_EXTEND
       /* If X is negative in MODE, sign-extend the value.  */
-      if (INTVAL (x) > 0
+      if (SHORT_IMMEDIATES_SIGN_EXTEND && INTVAL (x) > 0
 	  && mode_width < BITS_PER_WORD
 	  && (UINTVAL (x) & ((unsigned HOST_WIDE_INT) 1 << (mode_width - 1)))
 	     != 0)
 	return UINTVAL (x) | (HOST_WIDE_INT_M1U << mode_width);
-#endif
 
       return UINTVAL (x);
 
@@ -4545,7 +4542,7 @@ nonzero_bits1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	  nonzero &= cached_nonzero_bits (SUBREG_REG (x), mode,
 					  known_x, known_mode, known_ret);
 
-#if defined (WORD_REGISTER_OPERATIONS) && defined (LOAD_EXTEND_OP)
+#if WORD_REGISTER_OPERATIONS && defined (LOAD_EXTEND_OP)
 	  /* If this is a typical RISC machine, we only have to worry
 	     about the way loads are extended.  */
 	  if ((LOAD_EXTEND_OP (inner_mode) == SIGN_EXTEND
@@ -4765,12 +4762,12 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 
   if (GET_MODE (x) != VOIDmode && bitwidth > GET_MODE_PRECISION (GET_MODE (x)))
     {
-#ifndef WORD_REGISTER_OPERATIONS
       /* If this machine does not do all register operations on the entire
 	 register and MODE is wider than the mode of X, we can say nothing
 	 at all about the high-order bits.  */
-      return 1;
-#else
+      if (!WORD_REGISTER_OPERATIONS)
+	return 1;
+
       /* Likewise on machines that do, if the mode of the object is smaller
 	 than a word and loads of that size don't sign extend, we can say
 	 nothing about the high order bits.  */
@@ -4780,14 +4777,13 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 #endif
 	  )
 	return 1;
-#endif
     }
 
   switch (code)
     {
     case REG:
 
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
+#if defined(POINTERS_EXTEND_UNSIGNED)
       /* If pointers extend signed and this is a pointer in Pmode, say that
 	 all the bits above ptr_mode are known to be sign bit copies.  */
       /* As we do not know which address space the pointer is referring to,
@@ -4795,7 +4791,8 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	 or address modes depending on the address space.  */
       if (target_default_pointer_address_modes_p ()
 	  && ! POINTERS_EXTEND_UNSIGNED && GET_MODE (x) == Pmode
-	  && mode == Pmode && REG_POINTER (x))
+	  && mode == Pmode && REG_POINTER (x)
+	  && !targetm.have_ptr_extend ())
 	return GET_MODE_PRECISION (Pmode) - GET_MODE_PRECISION (ptr_mode) + 1;
 #endif
 
@@ -4859,7 +4856,6 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 				   - bitwidth)));
 	}
 
-#ifdef WORD_REGISTER_OPERATIONS
 #ifdef LOAD_EXTEND_OP
       /* For paradoxical SUBREGs on machines where all register operations
 	 affect the entire register, just look inside.  Note that we are
@@ -4871,12 +4867,12 @@ num_sign_bit_copies1 (const_rtx x, machine_mode mode, const_rtx known_x,
 	 then we lose all sign bit copies that existed before the store
 	 to the stack.  */
 
-      if (paradoxical_subreg_p (x)
+      if (WORD_REGISTER_OPERATIONS
+	  && paradoxical_subreg_p (x)
 	  && LOAD_EXTEND_OP (GET_MODE (SUBREG_REG (x))) == SIGN_EXTEND
 	  && MEM_P (SUBREG_REG (x)))
 	return cached_num_sign_bit_copies (SUBREG_REG (x), mode,
 					   known_x, known_mode, known_ret);
-#endif
 #endif
       break;
 

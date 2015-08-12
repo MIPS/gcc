@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "toplev.h" /* get_random_seed */
 #include "filenames.h"
 #include "output.h"
@@ -701,8 +700,8 @@ decl_section_name (const_tree node)
   return snode->get_section ();
 }
 
-/* Set section section name of NODE to VALUE (that is expected to
-   be identifier node)  */
+/* Set section name of NODE to VALUE (that is expected to be
+   identifier node) */
 void
 set_decl_section_name (tree node, const char *value)
 {
@@ -1339,7 +1338,7 @@ force_fit_type (tree type, const wide_int_ref &cst,
 /* These are the hash table functions for the hash table of INTEGER_CST
    nodes of a sizetype.  */
 
-/* Return the hash code code X, an INTEGER_CST.  */
+/* Return the hash code X, an INTEGER_CST.  */
 
 hashval_t
 int_cst_hasher::hash (tree x)
@@ -7630,6 +7629,75 @@ commutative_ternary_tree_code (enum tree_code code)
   return false;
 }
 
+/* Returns true if CODE can overflow.  */
+
+bool
+operation_can_overflow (enum tree_code code)
+{
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case LSHIFT_EXPR:
+      /* Can overflow in various ways.  */
+      return true;
+    case TRUNC_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+      /* For INT_MIN / -1.  */
+      return true;
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+      /* For -INT_MIN.  */
+      return true;
+    default:
+      /* These operators cannot overflow.  */
+      return false;
+    }
+}
+
+/* Returns true if CODE operating on operands of type TYPE doesn't overflow, or
+   ftrapv doesn't generate trapping insns for CODE.  */
+
+bool
+operation_no_trapping_overflow (tree type, enum tree_code code)
+{
+  gcc_checking_assert (ANY_INTEGRAL_TYPE_P (type));
+
+  /* We don't generate instructions that trap on overflow for complex or vector
+     types.  */
+  if (!INTEGRAL_TYPE_P (type))
+    return true;
+
+  if (!TYPE_OVERFLOW_TRAPS (type))
+    return true;
+
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+      /* These operators can overflow, and -ftrapv generates trapping code for
+	 these.  */
+      return false;
+    case TRUNC_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case LSHIFT_EXPR:
+      /* These operators can overflow, but -ftrapv does not generate trapping
+	 code for these.  */
+      return true;
+    default:
+      /* These operators cannot overflow.  */
+      return true;
+    }
+}
+
 namespace inchash
 {
 
@@ -10359,7 +10427,7 @@ build_common_builtin_nodes (void)
   ftype = build_function_type_list (ptr_type_node,
 				    integer_type_node, NULL_TREE);
   ecf_flags = ECF_PURE | ECF_NOTHROW | ECF_LEAF;
-  /* Only use TM_PURE if we we have TM language support.  */
+  /* Only use TM_PURE if we have TM language support.  */
   if (builtin_decl_explicit_p (BUILT_IN_TM_LOAD_1))
     ecf_flags |= ECF_TM_PURE;
   local_define_builtin ("__builtin_eh_pointer", ftype, BUILT_IN_EH_POINTER,
@@ -11764,7 +11832,7 @@ tree_nonartificial_location (tree exp)
 /* These are the hash table functions for the hash table of OPTIMIZATION_NODEq
    nodes.  */
 
-/* Return the hash code code X, an OPTIMIZATION_NODE or TARGET_OPTION code.  */
+/* Return the hash code X, an OPTIMIZATION_NODE or TARGET_OPTION code.  */
 
 hashval_t
 cl_option_hasher::hash (tree x)

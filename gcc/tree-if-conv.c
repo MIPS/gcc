@@ -84,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -642,7 +643,7 @@ memrefs_read_or_written_unconditionally (gimple stmt,
                    || TREE_CODE (ref_base_b) == REALPART_EXPR)
               ref_base_b = TREE_OPERAND (ref_base_b, 0);
 
-  	    if (!operand_equal_p (ref_base_a, ref_base_b, 0))
+  	    if (operand_equal_p (ref_base_a, ref_base_b, 0))
 	      {
 	        tree cb = bb_predicate (gimple_bb (DR_STMT (b)));
 
@@ -874,7 +875,7 @@ if_convertible_gimple_assign_stmt_p (gimple stmt,
       return true;
     }
 
-  if (gimple_assign_rhs_could_trap_p (stmt))
+  if (ifcvt_could_trap_p (stmt, refs))
     {
       if (ifcvt_can_use_mask_load_store (stmt))
 	{
@@ -1297,18 +1298,15 @@ if_convertible_loop_p_1 (struct loop *loop,
 	  }
     }
 
-  if (flag_tree_loop_if_convert_stores)
-    {
-      data_reference_p dr;
+  data_reference_p dr;
 
-      for (i = 0; refs->iterate (i, &dr); i++)
-	{
-	  dr->aux = XNEW (struct ifc_dr);
-	  DR_WRITTEN_AT_LEAST_ONCE (dr) = -1;
-	  DR_RW_UNCONDITIONALLY (dr) = -1;
-	}
-      predicate_bbs (loop);
+  for (i = 0; refs->iterate (i, &dr); i++)
+    {
+      dr->aux = XNEW (struct ifc_dr);
+      DR_WRITTEN_AT_LEAST_ONCE (dr) = -1;
+      DR_RW_UNCONDITIONALLY (dr) = -1;
     }
+  predicate_bbs (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -1323,9 +1321,8 @@ if_convertible_loop_p_1 (struct loop *loop,
 	    return false;
     }
 
-  if (flag_tree_loop_if_convert_stores)
-    for (i = 0; i < loop->num_nodes; i++)
-      free_bb_predicate (ifc_bbs[i]);
+  for (i = 0; i < loop->num_nodes; i++)
+    free_bb_predicate (ifc_bbs[i]);
 
   /* Checking PHIs needs to be done after stmts, as the fact whether there
      are any masked loads or stores affects the tests.  */
@@ -1399,14 +1396,10 @@ if_convertible_loop_p (struct loop *loop, bool *any_mask_load_store)
   res = if_convertible_loop_p_1 (loop, &loop_nest, &refs, &ddrs,
 				 any_mask_load_store);
 
-  if (flag_tree_loop_if_convert_stores)
-    {
-      data_reference_p dr;
-      unsigned int i;
-
-      for (i = 0; refs.iterate (i, &dr); i++)
-	free (dr->aux);
-    }
+  data_reference_p dr;
+  unsigned int i;
+  for (i = 0; refs.iterate (i, &dr); i++)
+    free (dr->aux);
 
   free_data_refs (refs);
   free_dependence_relations (ddrs);
@@ -2206,9 +2199,11 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
   /* Merge basic blocks: first remove all the edges in the loop,
      except for those from the exit block.  */
   exit_bb = NULL;
+  bool *predicated = XNEWVEC (bool, orig_loop_num_nodes);
   for (i = 0; i < orig_loop_num_nodes; i++)
     {
       bb = ifc_bbs[i];
+      predicated[i] = !is_true_predicate (bb_predicate (bb));
       free_bb_predicate (bb);
       if (bb_with_exit_edge_p (loop, bb))
 	{
@@ -2266,9 +2261,21 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
       if (bb == exit_bb || bb == loop->latch)
 	continue;
 
-      /* Make stmts member of loop->header.  */
+      /* Make stmts member of loop->header and clear range info from all stmts
+	 in BB which is now no longer executed conditional on a predicate we
+	 could have derived it from.  */
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	gimple_set_bb (gsi_stmt (gsi), merge_target_bb);
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  gimple_set_bb (stmt, merge_target_bb);
+	  if (predicated[i])
+	    {
+	      ssa_op_iter i;
+	      tree op;
+	      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_DEF)
+		reset_flow_sensitive_info (op);
+	    }
+	}
 
       /* Update stmt list.  */
       last = gsi_last_bb (merge_target_bb);
@@ -2288,10 +2295,11 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
 
   free (ifc_bbs);
   ifc_bbs = NULL;
+  free (predicated);
 }
 
-/* Version LOOP before if-converting it, the original loop
-   will be then if-converted, the new copy of the loop will not,
+/* Version LOOP before if-converting it; the original loop
+   will be if-converted, the new copy of the loop will not,
    and the LOOP_VECTORIZED internal call will be guarding which
    loop to execute.  The vectorizer pass will fold this
    internal call into either true or false.  */
@@ -2463,7 +2471,7 @@ ifcvt_walk_pattern_tree (tree var, vec<gimple> *defuse_list,
   return;
 }
 
-/* Returns true if STMT can be a root of bool pattern apllied
+/* Returns true if STMT can be a root of bool pattern applied
    by vectorizer.  */
 
 static bool
@@ -2493,7 +2501,7 @@ stmt_is_root_of_bool_pattern (gimple stmt)
   return false;
 }
 
-/*  Traverse all statements in BB which correspondent to loop header to
+/*  Traverse all statements in BB which correspond to loop header to
     find out all statements which can start bool pattern applied by
     vectorizer and convert multiple uses in it to conform pattern
     restrictions.  Such case can occur if the same predicate is used both
@@ -2574,7 +2582,7 @@ ifcvt_local_dce (basic_block bb)
       gimple_set_plf (phi, GF_PLF_2, true);
       worklist.safe_push (phi);
     }
-  /* Consider load/store statemnts, CALL and COND as live.  */
+  /* Consider load/store statements, CALL and COND as live.  */
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gsi_stmt (gsi);
@@ -2662,7 +2670,7 @@ tree_if_conversion (struct loop *loop)
   ifc_bbs = NULL;
   bool any_mask_load_store = false;
 
-  /* Set-up aggressive if-conversion for loops marked with simd pragma.  */
+  /* Set up aggressive if-conversion for loops marked with simd pragma.  */
   aggressive_if_conv = loop->force_vectorize;
   /* Check either outer loop was marked with simd pragma.  */
   if (!aggressive_if_conv)
@@ -2694,7 +2702,7 @@ tree_if_conversion (struct loop *loop)
   combine_blocks (loop, any_mask_load_store);
 
   /* Delete dead predicate computations and repair tree correspondent
-     to bool pattern to delete multiple uses of preidcates.  */
+     to bool pattern to delete multiple uses of predicates.  */
   if (aggressive_if_conv)
     {
       ifcvt_local_dce (loop->header);

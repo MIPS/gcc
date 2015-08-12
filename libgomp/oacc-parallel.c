@@ -246,7 +246,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
       free_host_shared_mem ();
       return;
     }
-  
+
   va_start (ap, shared_size);
   /* TODO: This will need amending when device_type is implemented.  */
   while (GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0)
@@ -286,7 +286,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 	}
     }
   va_end (ap);
-  
+
   acc_dev->openacc.async_set_async_func (async);
 
   if (!(acc_dev->capabilities & GOMP_OFFLOAD_CAP_NATIVE_EXEC))

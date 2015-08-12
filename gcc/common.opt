@@ -592,6 +592,10 @@ Wlarger-than=
 Common RejectNegative Joined UInteger Warning
 -Wlarger-than=<number>	Warn if an object is larger than <number> bytes
 
+Wnull-dereference
+Common Var(warn_null_dereference) Warning
+Warn if dereferencing a NULL pointer may lead to erroneous or undefined behavior
+
 Wunsafe-loop-optimizations
 Common Var(warn_unsafe_loop_optimizations) Warning
 Warn if the loop cannot be optimized due to nontrivial assumptions.
@@ -990,7 +994,7 @@ Save registers around function calls
 
 fcheck-data-deps
 Common Report Var(flag_check_data_deps)
-Compare the results of several data dependence analyzers.
+This switch is deprecated; do not use.
 
 fcheck-new
 Common Var(flag_check_new)

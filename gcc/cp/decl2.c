@@ -714,6 +714,10 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      != type_memfn_rqual (TREE_TYPE (fndecl)))
 	    continue;
 
+	  // Include constraints in the match.
+	  tree c1 = get_constraints (function);
+	  tree c2 = get_constraints (fndecl);
+
 	  /* While finding a match, same types and params are not enough
 	     if the function is versioned.  Also check version ("target")
 	     attributes.  */
@@ -724,6 +728,7 @@ check_classfn (tree ctype, tree function, tree template_parms)
 	      && (!is_template
 		  || comp_template_parms (template_parms,
 					  DECL_TEMPLATE_PARMS (fndecl)))
+	      && equivalent_constraints (c1, c2)
 	      && (DECL_TEMPLATE_SPECIALIZATION (function)
 		  == DECL_TEMPLATE_SPECIALIZATION (fndecl))
 	      && (!DECL_TEMPLATE_SPECIALIZATION (function)
@@ -1533,15 +1538,18 @@ build_anon_union_vars (tree type, tree object)
 	continue;
       if (TREE_CODE (field) != FIELD_DECL)
 	{
-	  permerror (input_location, "%q+#D invalid; an anonymous union can only "
+	  permerror (DECL_SOURCE_LOCATION (field),
+		     "%q#D invalid; an anonymous union can only "
 		     "have non-static data members", field);
 	  continue;
 	}
 
       if (TREE_PRIVATE (field))
-	permerror (input_location, "private member %q+#D in anonymous union", field);
+	permerror (DECL_SOURCE_LOCATION (field),
+		   "private member %q#D in anonymous union", field);
       else if (TREE_PROTECTED (field))
-	permerror (input_location, "protected member %q+#D in anonymous union", field);
+	permerror (DECL_SOURCE_LOCATION (field),
+		   "protected member %q#D in anonymous union", field);
 
       if (processing_template_decl)
 	ref = build_min_nt_loc (UNKNOWN_LOCATION, COMPONENT_REF, object,
@@ -4766,7 +4774,8 @@ c_parse_final_cleanups (void)
 	       && DECL_INITIAL (DECL_TEMPLATE_RESULT
 				(template_for_substitution (decl)))))
 	{
-	  warning (0, "inline function %q+D used but never defined", decl);
+	  warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		      "inline function %qD used but never defined", decl);
 	  /* Avoid a duplicate warning from check_global_declaration.  */
 	  TREE_NO_WARNING (decl) = 1;
 	}
@@ -5079,6 +5088,7 @@ mark_used (tree decl, tsubst_flags_t complain)
 	  || (TREE_CODE (decl) == FUNCTION_DECL
 	      && DECL_OMP_DECLARE_REDUCTION_P (decl))
 	  || undeduced_auto_decl (decl))
+      && !DECL_DECLARED_CONCEPT_P (decl)
       && !uses_template_parms (DECL_TI_ARGS (decl)))
     {
       /* Instantiating a function will result in garbage collection.  We
@@ -5177,6 +5187,7 @@ mark_used (tree decl, tsubst_flags_t complain)
     }
   else if (VAR_OR_FUNCTION_DECL_P (decl)
 	   && DECL_TEMPLATE_INFO (decl)
+           && !DECL_DECLARED_CONCEPT_P (decl)
 	   && (!DECL_EXPLICIT_INSTANTIATION (decl)
 	       || always_instantiate_p (decl)))
     /* If this is a function or variable that is an instance of some
