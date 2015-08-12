@@ -207,7 +207,13 @@
   if (!REG_P (op))
     return 0;
 
-  if (REGNO (op) >= ARG_POINTER_REGNUM && !CA_REGNO_P (REGNO (op)))
+  if (REGNO (op) >= FIRST_PSEUDO_REGISTER)
+    return 1;
+
+  if (CR_REGNO_P (REGNO (op)))
+    return 1;
+
+  if (TARGET_ALTIVEC && ALTIVEC_REGNO_P (REGNO (op)))
     return 1;
 
   if (TARGET_VSX && VSX_REGNO_P (REGNO (op)))

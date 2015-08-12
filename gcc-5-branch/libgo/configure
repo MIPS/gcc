@@ -14029,12 +14029,24 @@ if test "${libgo_cv_c_linker_supports_split_stack+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
   libgo_cv_c_linker_supports_split_stack=no
-if $GOC -Wl,--help 2>/dev/null | grep split-stack-adjust-size >/dev/null 2>&1; then
+cat >conftest1.c <<EOF
+extern void callee (void);
+void call (void) { callee (); }
+EOF
+cat >conftest2.c <<EOF
+void callee (void) { }
+EOF
+use_ld=`$GOC -print-prog-name=ld`
+if $use_ld --version | grep -i gold | grep "2.25." >/dev/null 2>&1 \
+  && $CC -c -O2 conftest1.c -fsplit-stack >/dev/null 2>&1 \
+  && $CC -c -O2 conftest2.c >/dev/null 2>&1 \
+  && $use_ld -o ss conftest1.o conftest2.o --defsym __morestack=0 >/dev/null 2>&1; then
   libgo_cv_c_linker_supports_split_stack=yes
 fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $libgo_cv_c_linker_supports_split_stack" >&5
 $as_echo "$libgo_cv_c_linker_supports_split_stack" >&6; }
+rm -fr conftest1.c conftest1.o conftest2.c conftest2.o ss
 if test "$libgo_cv_c_linker_supports_split_stack" = yes; then
 
 $as_echo "#define LINKER_SUPPORTS_SPLIT_STACK 1" >>confdefs.h

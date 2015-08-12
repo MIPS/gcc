@@ -385,17 +385,25 @@ AC_SUBST(SPLIT_STACK)
 AM_CONDITIONAL(USING_SPLIT_STACK,
 	test "$libgo_cv_c_split_stack_supported" = yes)
 
-dnl Check whether the linker does stack munging when calling from
-dnl split-stack into non-split-stack code.  We check this by looking
-dnl at the --help output.  FIXME: This is only half right: it's
-dnl possible for the linker to support this for some targets but not
-dnl others.
+dnl Check whether the linker supports split stack
 AC_CACHE_CHECK([whether linker supports split stack],
 [libgo_cv_c_linker_supports_split_stack],
 [libgo_cv_c_linker_supports_split_stack=no
-if $GOC -Wl,--help 2>/dev/null | grep split-stack-adjust-size >/dev/null 2>&1; then
+cat >conftest1.c <<EOF
+extern void callee (void);
+void call (void) { callee (); }
+EOF
+cat >conftest2.c <<EOF
+void callee (void) { }
+EOF
+use_ld=`$GOC -print-prog-name=ld`
+if $use_ld --version | grep -i gold | grep "2.25." >/dev/null 2>&1 \
+  && $CC -c -O2 conftest1.c -fsplit-stack >/dev/null 2>&1 \
+  && $CC -c -O2 conftest2.c >/dev/null 2>&1 \
+  && $use_ld -o ss conftest1.o conftest2.o --defsym __morestack=0 >/dev/null 2>&1; then
   libgo_cv_c_linker_supports_split_stack=yes
 fi])
+rm -fr conftest1.c conftest1.o conftest2.c conftest2.o ss
 if test "$libgo_cv_c_linker_supports_split_stack" = yes; then
   AC_DEFINE(LINKER_SUPPORTS_SPLIT_STACK, 1,
 	    [Define if the linker support split stack adjustments])

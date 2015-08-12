@@ -1628,8 +1628,11 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define FIRST_PARM_OFFSET(FNDECL) RS6000_SAVE_AREA
 
 /* Offset from the argument pointer register value to the top of
-   stack.  This is different from FIRST_PARM_OFFSET because of the
-   register save area.  */
+   stack.  Note that we can't use FRAME_POINTER_CFA_OFFSET because
+   the soft frame pointer (which points to the local var area) has an
+   offset to the top of the stack depending on the size of the
+   register save area.  The size of the register save area isn't
+   known at the time FRAME_POINTER_CFA_OFFSET is first used.  */
 #define ARG_POINTER_CFA_OFFSET(FNDECL) 0
 
 /* Define this if stack space is still allocated for a parameter passed

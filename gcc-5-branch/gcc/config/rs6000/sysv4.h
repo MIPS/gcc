@@ -946,6 +946,16 @@ ncrtn.o%s"
 #undef TARGET_ASAN_SHADOW_OFFSET
 #define TARGET_ASAN_SHADOW_OFFSET rs6000_asan_shadow_offset
 
+#undef TARGET_CAN_SPLIT_STACK
+#undef TARGET_USE_GOLD_WITH_SPLIT_STACK
+#if TARGET_GLIBC_MAJOR > 2 \
+  || (TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 18)
+#define TARGET_CAN_SPLIT_STACK 1
+#ifdef HAVE_LD_GOLD_SUPPORTS_SPLIT_STACK
+#define TARGET_USE_GOLD_WITH_SPLIT_STACK 1
+#endif
+#endif
+
 /* This target uses the sysv4.opt file.  */
 #define TARGET_USES_SYSV4_OPT 1
 

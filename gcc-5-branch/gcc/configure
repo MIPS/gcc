@@ -27531,6 +27531,82 @@ $as_echo "$gcc_cv_ld_large_toc" >&6; }
 $as_echo "#define HAVE_LD_LARGE_TOC 1" >>confdefs.h
 
     fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking linker toc pointer alignment" >&5
+$as_echo_n "checking linker toc pointer alignment... " >&6; }
+if test "${gcc_cv_ld_toc_align+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test x$gcc_cv_as != x -a x$gcc_cv_ld != x -a x$gcc_cv_nm != x; then
+      cat > conftest.s <<EOF
+	.global _start
+	.text
+_start:
+	addis 9,2,x@got@ha
+	.section .data.rel.ro,"aw",@progbits
+	.p2align 16
+	.space 32768
+x:	.quad .TOC.
+EOF
+      if $gcc_cv_as -a64 -o conftest.o conftest.s > /dev/null 2>&1 \
+         && $gcc_cv_ld $emul_name -o conftest conftest.o > /dev/null 2>&1; then
+        gcc_cv_ld_toc_align=`$gcc_cv_nm conftest | ${AWK} '/\.TOC\./ { match ($0, "0[[:xdigit:]]*", a); print strtonum ("0x" substr(a[0], length(a[0])-3)) }'`
+      fi
+      rm -f conftest conftest.o conftest.s
+    fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_toc_align" >&5
+$as_echo "$gcc_cv_ld_toc_align" >&6; }
+    if test -n "$gcc_cv_ld_toc_align" && test $gcc_cv_ld_toc_align -gt 8; then
+
+cat >>confdefs.h <<_ACEOF
+#define POWERPC64_TOC_POINTER_ALIGNMENT $gcc_cv_ld_toc_align
+_ACEOF
+
+    fi
+
+     # Check for split stack support within the gold linker
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking gold linker supports split stack" >&5
+$as_echo_n "checking gold linker supports split stack... " >&6; }
+if test "${gcc_cv_ld_gold_supports_split_stack+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_ld_gold_supports_split_stack=no
+     if test x"$ld_is_gold" = xyes; then
+         gold_linker=$gcc_cv_ld
+     elif "$ORIGINAL_LD_GOLD_FOR_TARGET" --version | grep gold >/dev/null 2>&1; then
+         gold_linker=$ORIGINAL_LD_GOLD_FOR_TARGET
+     else
+         gold_linker=""
+     fi
+     if test "$gold_linker" != ""; then
+         gold_vers=`$gold_linker --version | sed 1q | sed -n -e 's/.*Binutils.* \([0-9][0-9]*\.[^)]*\)).*$/\1/p'`
+         gold_vers_major=`expr "$gold_vers" : '\([0-9]*\)'`
+         gold_vers_minor=`expr "$gold_vers" : '[0-9]*\.\([0-9]*\)'`
+         gold_vers_patch=`expr "$gold_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+
+         case x"$gold_vers_minor" in
+           x25)
+             if test x"$gold_vers_patch" != ""; then
+               gcc_cv_ld_gold_supports_split_stack=yes
+             fi
+             ;;
+           x2[6-9])
+             gcc_cv_ld_gold_supports_split_stack=yes
+             ;;
+         esac
+    fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_gold_supports_split_stack" >&5
+$as_echo "$gcc_cv_ld_gold_supports_split_stack" >&6; }
+    if test x"$gcc_cv_ld_gold_supports_split_stack" = xyes; then
+
+$as_echo "#define HAVE_LD_GOLD_SUPPORTS_SPLIT_STACK 1" >>confdefs.h
+
+    fi
+
     ;;
 esac
 
