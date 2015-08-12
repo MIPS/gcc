@@ -1417,7 +1417,7 @@
 	Merge trunk version 185278 into gupc branch.
 	* c-decl.c (c_build_pointer_type): For UPC pointer-to-shared types
 	call build_pointer_type() to apply UPC-specific qualifiers.
-	* top-level/configure.ac: factor the checking for posix hostst
+	* top-level/configure.ac: factor the checking for posix hosts
 	out of the libgomp section so that it can also be used by libgupc.
 	* top-level/configure: Re-generate.
 	* DEV-PHASE: bump to 4.8.0-1.
@@ -1600,7 +1600,7 @@
 	* gcc/ada/mlib-tgt-specific-darwin.adb: Ditto.
 	* gcc/ada/gcc-interface/Makefile.in: Ditto.
 	* top-level/configure: Re-generate.
-	* gcc/configure: Re-genrate.
+	* gcc/configure: Re-generate.
 
 2011-10-26  Gary Funck  <gary@intrepid.com>
 
@@ -1897,7 +1897,7 @@
 	Merge trunk version 177548 into gupc branch.
 	* config/i386/i386.c (ix86_promote_function_mode):
 	  Do not promote UPC pointers-to-shared to Pmode.
-	* c-family/c-ommon.c (pointer_int_sum):
+	* c-family/c-common.c (pointer_int_sum):
 	  Also check the pointer operand, rather than just
 	  its type, when making the decision to derive
 	  the equivalent unshared type.
@@ -2680,7 +2680,7 @@
 	It had been incorrectly spelled as Objc.
 	* c-family/c.opt: Add UPC for the various switches
 	that are valid for both C and ObjC.
-	* c-fmaily/c-opts.c: Add CL_UPC to the list of
+	* c-family/c-opts.c: Add CL_UPC to the list of
 	supported options switches when compiling assembly
 	language.
 	* lto/lto-lang.c (use_upc_dwarf2_extensions,
@@ -2714,7 +2714,7 @@
 	C preprocessor.  This is not necessary because
 	UPC is a derivative of C99, and does not need
 	a different language kind.
-	* c-fmaily/c-opts.c (c_common_handle_option):
+	* c-family/c-opts.c (c_common_handle_option):
 	Call set_std_c99() when processing the
 	"--lang upc" switch, instead of setting the
 	language kind to CL_UPC.
@@ -3082,7 +3082,7 @@
 	Merge trunk version 177548 into gupc branch.
 	* config/i386/i386.c (ix86_promote_function_mode):
 	  Do not promote UPC pointers-to-shared to Pmode.
-	* c-family/c-ommon.c (pointer_int_sum):
+	* c-family/c-common.c (pointer_int_sum):
 	  Also check the pointer operand, rather than just
 	  its type, when making the decision to derive
 	  the equivalent unshared type.
@@ -3102,7 +3102,7 @@
 	* upc/upc-genericize.c (upc_expand_put): Fix bug, where strict/relaxed
 	qualification was incorrectly derived from the source operand.
 	(upc_genericize_fndecl): New.
-	(upc_gnericize): Call upc_genericize_fndecl() to avoid calling
+	(upc_genericize): Call upc_genericize_fndecl() to avoid calling
 	c_genericize() more than once in the event of nested procedures.
 	(upc_genericize_real_imag_ref): Rename,
 	was: upc_genericize_real_image_ref.
@@ -3658,7 +3658,7 @@
 
 2011-04-29  Gary Funck  <gary@intrepid.com>
 
-	* upc/upc-gimplify.c (upc_expsnd_get): Improve error diagnostics.
+	* upc/upc-gimplify.c (upc_expand_get): Improve error diagnostics.
 	  (upc_expand_put): Ditto.
 	  (upc_shared_addr): Ditto.
 	  (upc_gimplify_sync_stmt): Ditto.
@@ -4429,7 +4429,7 @@
 	It had been incorrectly spelled as Objc.
 	* c-family/c.opt: Add UPC for the various switches
 	that are valid for both C and ObjC.
-	* c-fmaily/c-opts.c: Add CL_UPC to the list of
+	* c-family/c-opts.c: Add CL_UPC to the list of
 	supported options switches when compiling assembly
 	language.
 	* lto/lto-lang.c (use_upc_dwarf2_extensions,
@@ -4463,7 +4463,7 @@
 	C preprocessor.  This is not necessary because
 	UPC is a derivative of C99, and does not need
 	a different language kind.
-	* c-fmaily/c-opts.c (c_common_handle_option):
+	* c-family/c-opts.c (c_common_handle_option):
 	Call set_std_c99() when processing the
 	"--lang upc" switch, instead of setting the
 	language kind to CL_UPC.
