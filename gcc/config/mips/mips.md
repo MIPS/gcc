@@ -71,6 +71,7 @@
   w64
   i6400
   m5100
+  m6200
 ])
 
 (define_c_enum "unspec" [
@@ -1136,6 +1137,7 @@
 (include "i6400.md")
 (include "p5600.md")
 (include "m5100.md")
+(include "m6200.md")
 (include "4k.md")
 (include "5k.md")
 (include "20kc.md")
@@ -2045,7 +2047,8 @@
   mulsidi3_gen_fn fn = mips_mulsidi3_gen_fn (<CODE>);
   emit_insn (fn (operands[0], operands[1], operands[2]));
   DONE;
-})
+}
+  [(set_attr "type" "imul")])
 
 (define_expand "<u>mulsidi3_32bit_r6"
   [(set (match_operand:DI 0 "register_operand")
@@ -2063,7 +2066,8 @@
   emit_move_insn (mips_subword (operands[0], 0), low);
   emit_move_insn (mips_subword (operands[0], 1), high);
   DONE;
-})
+}
+  [(set_attr "type" "imul")])
 
 (define_expand "<u>mulsidi3_32bit_mips16"
   [(set (match_operand:DI 0 "register_operand")
