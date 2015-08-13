@@ -1,3 +1,13 @@
+2015-08-13  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (gather_inner_locals): New function.
+	(target_follows_kernelizable_pattern): Call it, new parameter
+	inner_locals.
+	(attempt_target_kernelization): Fix typo in name. New parameter
+	inner_locals.
+	(scan_omp_kernel_loop): New function.
+	(scan_omp_target): Call it.
+
 2015-08-06  Martin liska  <mliska@suse.cz>
 
 	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Change default value

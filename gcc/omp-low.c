@@ -2695,12 +2695,38 @@ single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
   return stmt;
 }
 
+/* If SEQ contains a bind, add all variables pertaining to that bind statement
+   to vector INNER_LOCALS.  */
+
+static void
+gather_inner_locals (gimple_seq seq, vec <tree> *inner_locals)
+{
+  while (true)
+    {
+      if (!seq)
+	return;
+      gcc_checking_assert (gimple_seq_singleton_p (seq));
+      gimple stmt = gimple_seq_first_stmt (seq);
+      gbind *bind = dyn_cast <gbind *> (stmt);
+      if (!bind)
+	return;
+
+      tree var;
+      for (var = gimple_bind_vars (bind); var ; var = DECL_CHAIN (var))
+	inner_locals->safe_push (var);
+      seq = gimple_bind_body (bind);
+    }
+}
+
 /* If TARGET follows a pattern that can be turned into a GPGPU kernel, return
    the inner loop, otherwise return NULL.  In the case of success, also fill in
-   GROUP_SIZE_P with the requested group size or NULL if there is none.  */
+   GROUP_SIZE_P with the requested group size or NULL if there is none, and
+   INNER_LOCALS with local variables pertaining to binds that are in between
+   TARGET and the loop.  */
 
 static gomp_for *
-target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p)
+target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
+				     vec <tree> *inner_locals)
 {
   if (gimple_omp_target_kind (target) != GF_OMP_TARGET_KIND_REGION)
     return NULL;
@@ -2815,15 +2841,24 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p)
       return NULL;
     }
 
+  if (teams)
+    gather_inner_locals (gimple_omp_body (teams), inner_locals);
+  if (dist)
+    gather_inner_locals (gimple_omp_body (dist), inner_locals);
+  gather_inner_locals (gimple_omp_body (par), inner_locals);
+
   *group_size_p = group_size;
   return gfor;
 }
 
 /* Analyze TARGET body during its scanning and if it contains a loop which can
-   and should be turned into a GPGPU kernel, copy it aside for lowering.  */
+   and should be turned into a GPGPU kernel, copy it aside for lowering.  If
+   successful, also fill in INNER_LOCALS with variables locals to bind in
+   between TARGET and the loop.  */
 
 static void
-attemp_target_kernelization (gomp_target *target, omp_context *ctx)
+attempt_target_kernelization (gomp_target *target, omp_context *ctx,
+			      vec <tree> *inner_locals)
 {
   if (flag_disable_hsa_gridification)
     return;
@@ -2831,8 +2866,9 @@ attemp_target_kernelization (gomp_target *target, omp_context *ctx)
   if (!hsa_gen_requested_p ())
     return;
   tree group_size;
-  gomp_for *orig_inner_loop = target_follows_kernelizable_pattern (target,
-								   &group_size);
+  gomp_for *orig_inner_loop;
+  orig_inner_loop = target_follows_kernelizable_pattern (target, &group_size,
+							 inner_locals);
   if (!orig_inner_loop)
     return;
 
@@ -2858,6 +2894,31 @@ attemp_target_kernelization (gomp_target *target, omp_context *ctx)
     }
 }
 
+/* If TARGET_CTX has a kernel inner loop, set up a context for it so that it
+   can be scanned and scan it.  INNER_LOCALS are the variables local to binds
+   in beteen the target and the loop itself.  */
+
+static void
+scan_omp_kernel_loop (omp_context *target_ctx, vec <tree> *inner_locals)
+{
+  gomp_for *kernel_inner_loop = target_ctx->kernel_inner_loop;
+  if (!kernel_inner_loop)
+    {
+      gcc_checking_assert (inner_locals->is_empty ());
+      return;
+    }
+  unsigned count = inner_locals->length ();
+  for (unsigned i = 0 ; i < count; i++)
+    {
+      tree old = (*inner_locals)[i];
+      tree copy = omp_copy_decl_1 (old, target_ctx);
+      insert_decl_map (&target_ctx->cb, old, copy);
+    }
+  inner_locals->release ();
+
+  scan_omp_for (kernel_inner_loop, target_ctx);
+}
+
 /* Scan a GIMPLE_OMP_TARGET.  */
 
 static void
@@ -2867,6 +2928,7 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   tree name;
   bool offloaded = is_gimple_omp_offloaded (stmt);
   tree clauses = gimple_omp_target_clauses (stmt);
+  vec <tree> kernel_inner_locals = vNULL;
 
   ctx = new_omp_context (stmt, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
@@ -2880,7 +2942,7 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
 
-  attemp_target_kernelization (stmt, ctx);
+  attempt_target_kernelization (stmt, ctx, &kernel_inner_locals);
   if (offloaded)
     {
       if (is_gimple_omp_oacc (stmt))
@@ -2906,8 +2968,7 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
 
   scan_sharing_clauses (clauses, ctx);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
-  if (ctx->kernel_inner_loop)
-    scan_omp_for (ctx->kernel_inner_loop, ctx);
+  scan_omp_kernel_loop (ctx, &kernel_inner_locals);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
     ctx->record_type = ctx->receiver_decl = NULL;
