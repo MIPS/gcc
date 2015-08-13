@@ -18,6 +18,8 @@
 	(signbit<mode>2, IBM128 iterator): Likewise.
 	(mov<mode>_64bit_dm, FMOVE128_FPR iterator): Likewise.
 	(mov<mode>_32bit, FMOVE128_FPR iterator): Likewise.
+	(negtf2): Likewise.
+	(neg<mode>2, TFIFKF iterator): Likewise.
 	(negtf2_internal): Likewise.
 	(abstf2): Likewise.
 	(abs<mode>2, TFIFKF iterator): Likewise.
