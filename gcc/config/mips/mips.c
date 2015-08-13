@@ -16823,10 +16823,11 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 }
 
 /* Remove a SEQUENCE and replace it with the delay slot instruction
-   followed by the branch.  Subroutine of mips_reorg_process_insns.  */
+   followed by the branch and return the instruction in the delay sloy.
+   Subroutine of mips_reorg_process_insns.  */
 
-static void
-mips_break_sequence(rtx insn)
+static rtx
+mips_break_sequence (rtx insn)
 {
   rtx before = PREV_INSN (insn);
   rtx branch = SEQ_BEGIN (insn);
@@ -16834,8 +16835,8 @@ mips_break_sequence(rtx insn)
   remove_insn (insn);
   add_insn_after (ds, before, NULL);
   add_insn_after (branch, ds, NULL);
+  return branch;
 }
-
 
 /* Go through the instruction stream and insert nops where necessary.
    Also delete any high-part relocations whose partnering low parts
@@ -16946,38 +16947,37 @@ mips_reorg_process_insns (void)
 	      last_insn = insn;
 	      if (TARGET_CB_MAYBE)
 		{
-		  /* If we scan backwards from a sequence and find that there is a
-		     load of a value that is used in the CTI and there are no
+		  /* To hide a potienal pipeline bubble, if we scan backwards
+		     from the current SEQUENCE and find that there is a load
+		     of a value that is used in the CTI and there are no
 		     dependencies between the CTI and instruction in the delay
-		     slot, break the sequence.  */
-		  int reg;
+		     slot, break the sequence so the load delay is hidden.  */
 		  HARD_REG_SET uses;
 		  CLEAR_HARD_REG_SET (uses);
-		  note_uses (& PATTERN(SEQ_BEGIN (insn)), record_hard_reg_uses,
+		  note_uses ( &PATTERN (SEQ_BEGIN (insn)), record_hard_reg_uses,
 			     &uses);
-		  for (int i = 1; i < FIRST_PSEUDO_REGISTER; i++)
-		    if (TEST_HARD_REG_BIT (uses, i))
-		      reg = i;
-
+		  HARD_REG_SET delay_sets;
+		  CLEAR_HARD_REG_SET (delay_sets);
+		  note_stores ( PATTERN (SEQ_END (insn)), record_hard_reg_sets,
+			    &delay_sets);
 		  for (rtx prev = PREV_INSN (insn); prev != NULL;
 		       prev = PREV_INSN (prev))
 		    {
 		      if (USEFUL_INSN_P (prev))
 			{
-			  if (MEM_P (XEXP (XEXP (prev, 4), 1)))
+			  if (GET_CODE (PATTERN (prev)) == SET
+			      && MEM_P (SET_SRC (PATTERN (prev))))
 			    {
 			      HARD_REG_SET sets;
 			      CLEAR_HARD_REG_SET (sets);
-			      note_stores (prev, record_hard_reg_sets, sets);
-			      if (TEST_HARD_REG_BIT (sets, reg))
-				{
-				  last_insn = SEQ_BEGIN (insn);
-				  mips_break_sequence (insn);
-				}
-			      break;
+			      note_stores (PATTERN (prev), record_hard_reg_sets, &sets);
+
+			      /* Re-order if safe.  */
+			      if (!hard_reg_set_intersect_p (delay_sets, uses)
+				  && hard_reg_set_intersect_p (uses, sets))
+				last_insn = mips_break_sequence (insn);
 			    }
-			  else
-			    break;
+			  break;
 			}
 		    }
 		}
