@@ -1,3 +1,20 @@
+2015-07-29  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR libgfortran/66650
+	* libgfortran.h (GFC_DTYPE_SIZE_MASK): Rewrite to avoid
+	"left shift of negative value" warning.
+
+2015-07-16  Release Manager
+
+	* GCC 5.2.0 released.
+
+2015-07-15  Janne Blomqvist  <jb@gcc.gnu.org>
+
+	PR libfortran/66861
+	* io/unix.c (compare_file_filename): Verify that u->filename is
+	non-NULL before strcmp.
+	(find_file0): Likewise.
+
 2015-04-22  Release Manager
 
 	* GCC 5.1.0 released.

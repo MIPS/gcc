@@ -1556,8 +1556,7 @@ get_aligned_mem (rtx ref, rtx *paligned_mem, rtx *pbitnum)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
       gcc_assert (memory_address_p (GET_MODE (ref), base));
@@ -1602,11 +1601,9 @@ get_unaligned_address (rtx ref)
 
   gcc_assert (MEM_P (ref));
 
-  if (reload_in_progress
-      && ! memory_address_p (GET_MODE (ref), XEXP (ref, 0)))
+  if (reload_in_progress)
     {
       base = find_replacement (&XEXP (ref, 0));
-
       gcc_assert (memory_address_p (GET_MODE (ref), base));
     }
   else
@@ -4551,8 +4548,8 @@ alpha_split_compare_and_swap (rtx operands[])
   oldval = operands[3];
   newval = operands[4];
   is_weak = (operands[5] != const0_rtx);
-  mod_s = (enum memmodel) INTVAL (operands[6]);
-  mod_f = (enum memmodel) INTVAL (operands[7]);
+  mod_s = memmodel_from_int (INTVAL (operands[6]));
+  mod_f = memmodel_from_int (INTVAL (operands[7]));
   mode = GET_MODE (mem);
 
   alpha_pre_atomic_barrier (mod_s);
@@ -4590,12 +4587,12 @@ alpha_split_compare_and_swap (rtx operands[])
       emit_unlikely_jump (x, label1);
     }
 
-  if (mod_f != MEMMODEL_RELAXED)
+  if (!is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 
   alpha_post_atomic_barrier (mod_s);
 
-  if (mod_f == MEMMODEL_RELAXED)
+  if (is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 }
 
@@ -4656,8 +4653,8 @@ alpha_split_compare_and_swap_12 (rtx operands[])
   newval = operands[4];
   align = operands[5];
   is_weak = (operands[6] != const0_rtx);
-  mod_s = (enum memmodel) INTVAL (operands[7]);
-  mod_f = (enum memmodel) INTVAL (operands[8]);
+  mod_s = memmodel_from_int (INTVAL (operands[7]));
+  mod_f = memmodel_from_int (INTVAL (operands[8]));
   scratch = operands[9];
   mode = GET_MODE (orig_mem);
   addr = XEXP (orig_mem, 0);
@@ -4709,12 +4706,12 @@ alpha_split_compare_and_swap_12 (rtx operands[])
       emit_unlikely_jump (x, label1);
     }
 
-  if (mod_f != MEMMODEL_RELAXED)
+  if (!is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 
   alpha_post_atomic_barrier (mod_s);
 
-  if (mod_f == MEMMODEL_RELAXED)
+  if (is_mm_relaxed (mod_f))
     emit_label (XEXP (label2, 0));
 }
 
