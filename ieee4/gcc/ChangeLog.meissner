@@ -1,3 +1,48 @@
+2015-08-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (FP): Add IEEE 128-bit floating point
+	modes to iterators. Add new iterators for moving 128-bit values in
+	scalar FPR registers and VSX registers.
+	(FMOVE128): Likewise.
+	(FMOVE128_FPR): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(FMOVE128_VSX): Likewise.
+	(FLOAT128_SFDFTF): New iterators for IEEE 128-bit floating point
+	in VSX registers.
+	(IFKF): Likewise.
+	(IBM128): Likewise.
+	(TFIFKF): Likewise.
+	(RELOAD): Add IEEE 128-bit floating point modes.
+	(signbittf2): Convert TF insns to add support for new IEEE 128-bit
+	floating point in VSX registers modes.
+	(signbit<mode>2, IBM128 iterator): Likewise.
+	(mov<mode>_64bit_dm, FMOVE128_FPR iterator): Likewise.
+	(mov<mode>_32bit, FMOVE128_FPR iterator): Likewise.
+	(negtf2_internal): Likewise.
+	(abstf2): Likewise.
+	(abs<mode>2, TFIFKF iterator): Likewise.
+	(ieee_128bit_negative_zero): New IEEE 128-bit floating point in
+	VSX insn support for negate, absolute value, and negative absolute
+	value.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_neg<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(FP128_64): Update pack/unpack 128-bit insns for IEEE 128-bit
+	floating point in VSX registers.
+	(unpack<mode>_dm): Likewise.
+	(unpack<mode>_nodm): Likewise.
+	(pack<mode>): Likewise.
+	(unpackv1ti): Likewise.
+	(unpack<mode>, FMOVE128_VSX iterator): Likewise.
+	(packv1ti): Likewise.
+	(pack<mode>, FMOVE128_VSX iterator): Likewise.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate for only GPR hard registers.
+
 2015-08-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 226837.
