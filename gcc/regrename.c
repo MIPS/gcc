@@ -253,7 +253,16 @@ record_operand_use (struct du_head *head, struct du_chain *this_du)
 {
   if (cur_operand == NULL)
     return;
-  gcc_assert (cur_operand->n_chains < MAX_REGS_PER_OPERAND);
+
+  if (!cur_operand->heads.exists ())
+    cur_operand->heads.create (0);
+  if (!cur_operand->chains.exists ())
+    cur_operand->chains.create (0);
+  if (cur_operand->heads.length () <= (unsigned) cur_operand->n_chains)
+    cur_operand->heads.safe_grow_cleared (cur_operand->n_chains + 1);
+  if (cur_operand->chains.length () <= (unsigned) cur_operand->n_chains)
+    cur_operand->chains.safe_grow_cleared (cur_operand->n_chains + 1);
+
   cur_operand->heads[cur_operand->n_chains] = head;
   cur_operand->chains[cur_operand->n_chains++] = this_du;
 }
@@ -1630,10 +1639,14 @@ build_def_use (basic_block bb)
 	  if (insn_rr.exists ())
 	    {
 	      insn_info = &insn_rr[INSN_UID (insn)];
-	      insn_info->op_info = XOBNEWVEC (&rename_obstack, operand_rr_info,
-					      recog_data.n_operands);
-	      memset (insn_info->op_info, 0,
-		      sizeof (operand_rr_info) * recog_data.n_operands);
+	      if (recog_data.n_operands > 0)
+		{
+		  insn_info->op_info = XOBNEWVEC (&rename_obstack,
+						  operand_rr_info,
+						  recog_data.n_operands);
+		  memset (insn_info->op_info, 0,
+			  sizeof (operand_rr_info) * recog_data.n_operands);
+		}
 	    }
 
 	  /* Simplify the code below by rewriting things to reflect
@@ -1861,6 +1874,16 @@ regrename_init (bool insn_info)
 void
 regrename_finish (void)
 {
+  int i;
+  struct insn_rr_info *item;
+
+  FOR_EACH_VEC_ELT (insn_rr, i, item)
+    if (item->op_info)
+      {
+	item->op_info->heads.release ();
+	item->op_info->chains.release ();
+      }
+
   insn_rr.release ();
   free_chain_data ();
   obstack_free (&rename_obstack, NULL);

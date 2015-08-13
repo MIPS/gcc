@@ -2587,8 +2587,6 @@ typedef struct mips_args {
 
 #define MAX_REGS_PER_ADDRESS 1
 
-#define MAX_REGS_PER_OPERAND 2
-
 /* Check for constness inline but use mips_legitimate_address_p
    to check whether a constant really is an address.  */
 
