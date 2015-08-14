@@ -1,3 +1,7 @@
+2015-08-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/parallel-reduction.c: New test.
+
 2015-07-07  James Norris  <jnorris@codesourcery.com>
 
 	* c-c++-common/goacc/deviceptr-4.c: New test.
