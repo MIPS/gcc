@@ -5302,11 +5302,10 @@ tree
 finish_omp_clauses (tree clauses, bool oacc)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, oacc_data_head;
+  bitmap_head aligned_head, oacc_data_head, oacc_reduction_head;
   tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
-  bool oacc_data = false;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
@@ -5314,10 +5313,13 @@ finish_omp_clauses (tree clauses, bool oacc)
   bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_data_head, &bitmap_default_obstack);
+  bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
       bool remove = false;
+      bool oacc_data = false;
+      bool reduction = false;
 
       switch (OMP_CLAUSE_CODE (c))
 	{
@@ -5335,6 +5337,7 @@ finish_omp_clauses (tree clauses, bool oacc)
 	  if (oacc)
 	    {
 	      oacc_data = false;
+	      reduction = true;
 	      goto check_dup_oacc;
 	    }
 	  else
@@ -5446,6 +5449,17 @@ finish_omp_clauses (tree clauses, bool oacc)
 		}
 	      else
 		bitmap_set_bit (&oacc_data_head, DECL_UID (t));
+	    }
+	  else if (reduction)
+	    {
+	      if (oacc && bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears in multiple reduction clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&oacc_reduction_head, DECL_UID (t));
 	    }
 	  else
 	    {

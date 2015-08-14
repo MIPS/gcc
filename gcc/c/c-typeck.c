@@ -12065,11 +12065,10 @@ tree
 c_finish_omp_clauses (tree clauses, bool oacc)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, oacc_data_head;
+  bitmap_head aligned_head, oacc_data_head, oacc_reduction_head;
   tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
-  bool oacc_data = false;
   tree *nowait_clause = NULL;
 
   bitmap_obstack_initialize (NULL);
@@ -12078,12 +12077,15 @@ c_finish_omp_clauses (tree clauses, bool oacc)
   bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_data_head, &bitmap_default_obstack);
+  bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
       bool remove = false;
       bool need_complete = false;
       bool need_implicitly_determined = false;
+      bool oacc_data = false;
+      bool reduction = false;
 
       switch (OMP_CLAUSE_CODE (c))
 	{
@@ -12101,8 +12103,8 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 	    goto check_dup_generic;
 
 	case OMP_CLAUSE_REDUCTION:
-	  need_implicitly_determined = true;
-	  oacc_data = false;
+	  need_implicitly_determined = !oacc;
+	  reduction = true;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) == NULL_TREE
 	      && (FLOAT_TYPE_P (TREE_TYPE (t))
@@ -12318,12 +12320,23 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 	      else
 		bitmap_set_bit (&oacc_data_head, DECL_UID (t));
 	    }
+	  else if (reduction)
+	    {
+	      if (oacc && bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE appears in multiple reduction clauses", t);
+		  remove = true;
+		}
+	      else
+		bitmap_set_bit (&oacc_reduction_head, DECL_UID (t));
+	    }
 	  else
 	    {
 	      if (bitmap_bit_p (&generic_head, DECL_UID (t)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
-			    "%qE appears more than once in data clauses", t);
+			    "%qE appears more than one non-data clause", t);
 		  remove = true;
 		}
 	      else

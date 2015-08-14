@@ -1,3 +1,8 @@
+2015-08-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* semantics.c (finish_omp_clauses): Permit variables to appear
+	in both OpenACC data and reduction clauses.
+
 2015-08-03  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* semantics.c (finish_omp_clauses): Remove OpenACC-specific

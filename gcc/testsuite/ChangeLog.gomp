@@ -1,3 +1,7 @@
+2015-08-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/parallel-reduction.c: New test.
+
 2015-08-12  Nathan Sidwell  <nathan@acm.org>
 
 	* gcc.dg/vrp-min-max-1.c: New.
