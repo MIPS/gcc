@@ -16947,38 +16947,35 @@ mips_reorg_process_insns (void)
 	      last_insn = insn;
 	      if (TARGET_CB_MAYBE)
 		{
-		  /* To hide a potienal pipeline bubble, if we scan backwards
+		  /* To hide a potential pipeline bubble, if we scan backwards
 		     from the current SEQUENCE and find that there is a load
 		     of a value that is used in the CTI and there are no
 		     dependencies between the CTI and instruction in the delay
 		     slot, break the sequence so the load delay is hidden.  */
 		  HARD_REG_SET uses;
 		  CLEAR_HARD_REG_SET (uses);
-		  note_uses ( &PATTERN (SEQ_BEGIN (insn)), record_hard_reg_uses,
+		  note_uses (&PATTERN (SEQ_BEGIN (insn)), record_hard_reg_uses,
 			     &uses);
 		  HARD_REG_SET delay_sets;
 		  CLEAR_HARD_REG_SET (delay_sets);
-		  note_stores ( PATTERN (SEQ_END (insn)), record_hard_reg_sets,
-			    &delay_sets);
-		  for (rtx prev = PREV_INSN (insn); prev != NULL;
-		       prev = PREV_INSN (prev))
-		    {
-		      if (USEFUL_INSN_P (prev))
-			{
-			  if (GET_CODE (PATTERN (prev)) == SET
-			      && MEM_P (SET_SRC (PATTERN (prev))))
-			    {
-			      HARD_REG_SET sets;
-			      CLEAR_HARD_REG_SET (sets);
-			      note_stores (PATTERN (prev), record_hard_reg_sets, &sets);
+		  note_stores (PATTERN (SEQ_END (insn)), record_hard_reg_sets,
+			       &delay_sets);
 
-			      /* Re-order if safe.  */
-			      if (!hard_reg_set_intersect_p (delay_sets, uses)
-				  && hard_reg_set_intersect_p (uses, sets))
-				last_insn = mips_break_sequence (insn);
-			    }
-			  break;
-			}
+		  rtx prev = prev_active_insn (insn);
+		  if (prev
+		      && GET_CODE (PATTERN (prev)) == SET
+		      && MEM_P (SET_SRC (PATTERN (prev))))
+		    {
+		      HARD_REG_SET sets;
+		      CLEAR_HARD_REG_SET (sets);
+		      note_stores (PATTERN (prev), record_hard_reg_sets,
+				   &sets);
+
+		      /* Re-order if safe.  */
+		      if (!hard_reg_set_intersect_p (delay_sets, uses)
+			  && hard_reg_set_intersect_p (uses, sets))
+			last_insn = mips_break_sequence (insn);
+
 		    }
 		}
 	    }
@@ -17008,34 +17005,17 @@ mips_reorg_process_insns (void)
 
 		  if (fs_delay)
 		    {
-		      rtx next;
-		      for (next = NEXT_INSN (insn); next != 0;
-			   next = NEXT_INSN (next))
-			{
-			  /* Search onwards from the current position looking for a
-			     SEQUENCE but stop if a BARRIER or useful instruction is
-			     found.  Labels are ok to search past since we will be
-			     rearranging the sequence, not hoisting the instruction.
-			   */
-			  if (BARRIER_P (next) 
-			      || (USEFUL_INSN_P (next)
-				  && GET_CODE (PATTERN (next)) != SEQUENCE))
-				break;
-
-			  if (USEFUL_INSN_P (next)
-			      && GET_CODE (PATTERN (next)) == SEQUENCE)
-			    {
-			      rtx ds = SEQ_END (next);
-			      if (INSN_CODE (ds) == CODE_FOR_nop) 
-				break;
-			      rtx jump = SEQ_BEGIN (next);
-			      rtx previous = PREV_INSN (next);
-			      delete_insn (next);
-			      add_insn_after (ds, previous, NULL);
-			      add_insn_after (jump, ds, NULL);
-			      break;
-			    }
-			}
+		      /* Search onwards from the current position looking for
+			 a SEQUENCE.  We are looking for pipeline hazards here
+			 and do not need to worry about labels or barriers as
+			 the optimization only undoes delay slot filling which
+			 only affects the order of the branch and its delay
+			 slot.  */
+		      rtx next = next_active_insn (insn);
+		      if (next
+			  && USEFUL_INSN_P (next)
+			  && GET_CODE (PATTERN (next)) == SEQUENCE)
+			mips_break_sequence (next);
 		    }
 		  last_insn = insn;
 		}
