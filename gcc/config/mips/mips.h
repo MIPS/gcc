@@ -328,6 +328,7 @@ struct mips_cpu_info {
 				     || mips_tune == PROCESSOR_SB1A)
 #define TUNE_P5600                  (mips_tune == PROCESSOR_P5600)
 #define TUNE_I6400                  (mips_tune == PROCESSOR_I6400)
+#define TUNE_P6600                  (mips_tune == PROCESSOR_P5600)
 
 /* Whether vector modes and intrinsics for ST Microelectronics
    Loongson-2E/2F processors should be enabled.  In o32 pairs of
@@ -809,7 +810,7 @@ struct mips_cpu_info {
      %{march=mips64r2|march=loongson3a|march=octeon|march=xlp: -mips64r2} \
      %{march=mips64r3: -mips64r3} \
      %{march=mips64r5: -mips64r5} \
-     %{march=mips64r6|march=i6400: -mips64r6}}"
+     %{march=mips64r6|march=i6400|march=p6600: -mips64r6}}"
 
 /* A spec that injects the default multilib ISA if no architecture is
    specified.  */
@@ -3529,7 +3530,8 @@ struct GTY(())  machine_function {
    performance can be degraded for those targets.  Hence, do not bond for
    micromips or fix_24k.  */
 #define ENABLE_LD_ST_PAIRS \
-  (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400) \
+  (TARGET_LOAD_STORE_PAIRS \
+   && (TUNE_P5600 || TUNE_I6400 || TUNE_P6600) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
 
 #define ISA_SUPPORTS_COMMON_EPILOGUE \

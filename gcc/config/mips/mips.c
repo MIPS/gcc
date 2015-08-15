@@ -16296,7 +16296,7 @@ mips_multipass_dfa_lookahead (void)
   if (TUNE_OCTEON)
     return 2;
 
-  if (TUNE_P5600 || TUNE_I6400)
+  if (TUNE_P5600 || TUNE_P6600 || TUNE_I6400)
     return 4;
 
   return 0;
