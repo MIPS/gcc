@@ -107,32 +107,33 @@ namespace cc1_plugin
 	return OK;
       }
 
-    *result = new gcc_vbase_array;
+    struct gcc_vbase_array *gva = new gcc_vbase_array;
 
-    (*result)->n_elements = len;
-    (*result)->elements = new gcc_type[len];
+    gva->n_elements = len;
+    gva->elements = new gcc_type[len];
 
     if (!unmarshall_array_elmts (conn,
-				 len * sizeof ((*result)->elements[0]),
-				 (*result)->elements))
+				 len * sizeof (gva->elements[0]),
+				 gva->elements))
       {
-	delete[] (*result)->elements;
-	delete *result;
+	delete[] gva->elements;
+	delete gva;
 	return FAIL;
       }
 
-    (*result)->virtualp = new char[len];
+    gva->virtualp = new char[len];
 
     if (!unmarshall_array_elmts (conn,
-				 len * sizeof ((*result)->virtualp[0]),
-				 (*result)->virtualp))
+				 len * sizeof (gva->virtualp[0]),
+				 gva->virtualp))
       {
-	delete[] (*result)->virtualp;
-	delete[] (*result)->elements;
-	delete *result;
+	delete[] gva->virtualp;
+	delete[] gva->elements;
+	delete gva;
 	return FAIL;
       }
 
+    *result = gva;
     return OK;
   }
 }

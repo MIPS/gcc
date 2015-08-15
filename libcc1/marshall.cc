@@ -175,19 +175,21 @@ cc1_plugin::unmarshall (connection *conn, gcc_type_array **result)
       return OK;
     }
 
-  *result = new gcc_type_array;
+  gcc_type_array *gta = new gcc_type_array;
 
-  (*result)->n_elements = len;
-  (*result)->elements = new gcc_type[len];
+  gta->n_elements = len;
+  gta->elements = new gcc_type[len];
 
   if (!unmarshall_array_elmts (conn,
-			       len * sizeof ((*result)->elements[0]),
-			       (*result)->elements))
+			       len * sizeof (gta->elements[0]),
+			       gta->elements))
     {
-      delete[] (*result)->elements;
+      delete[] gta->elements;
       delete *result;
       return FAIL;
     }
+
+  *result = gta;
 
   return OK;
 }
