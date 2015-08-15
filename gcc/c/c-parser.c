@@ -225,10 +225,6 @@ typedef struct GTY(()) c_parser {
   /* Buffer to hold all the tokens from parsing the vector attribute for the
      SIMD-enabled functions (formerly known as elemental functions).  */
   vec <c_token, va_gc> *cilk_simd_fn_tokens;
-
-  /* OpenACC specific parser information.  */
-
-  vec <tree, va_gc> *oacc_routines;
 } c_parser;
 
 
@@ -1171,7 +1167,7 @@ static void c_parser_external_declaration (c_parser *);
 static void c_parser_asm_definition (c_parser *);
 static void c_parser_declaration_or_fndef (c_parser *, bool, bool, bool,
 					   bool, bool, tree *, vec<c_token>,
-					   tree, bool);
+					   tree);
 static void c_parser_static_assert_declaration_no_semi (c_parser *);
 static void c_parser_static_assert_declaration (c_parser *);
 static void c_parser_declspecs (c_parser *, struct c_declspecs *, bool, bool,
@@ -1261,8 +1257,7 @@ static bool c_parser_pragma (c_parser *, enum pragma_context);
 static bool c_parser_omp_target (c_parser *, enum pragma_context);
 static void c_parser_omp_end_declare_target (c_parser *);
 static void c_parser_omp_declare (c_parser *, enum pragma_context);
-static void c_parser_oacc_routine (c_parser *parser, enum pragma_context
-				      context);
+static void c_parser_oacc_routine (c_parser *parser, enum pragma_context);
 static void c_parser_oacc_declare (c_parser *parser);
 
 /* These Objective-C parser functions are only ever called when
@@ -1448,7 +1443,7 @@ c_parser_external_declaration (c_parser *parser)
 	 only tell which after parsing the declaration specifiers, if
 	 any, and the first declarator.  */
       c_parser_declaration_or_fndef (parser, true, true, true, false, true,
-				     NULL, vNULL, NULL_TREE, false);
+				     NULL, vNULL, NULL_TREE);
       break;
     }
 }
@@ -1767,7 +1762,7 @@ finish_oacc_declare (tree fnbody, tree decls)
 
 
 static void c_finish_omp_declare_simd (c_parser *, tree, tree, vec<c_token>);
-static void c_finish_oacc_routine (c_parser *, tree, tree, bool);
+static void c_finish_oacc_routine (c_parser *, tree, tree);
 
 /* Parse a declaration or function definition (C90 6.5, 6.7.1, C99
    6.7, 6.9.1).  If FNDEF_OK is true, a function definition is
@@ -1846,7 +1841,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 			       bool nested, bool start_attr_ok,
 			       tree *objc_foreach_object_declaration,
 			       vec<c_token> omp_declare_simd_clauses,
-			       tree oacc_routine_clauses, bool oacc_routine_named)
+			       tree oacc_routine_clauses)
 {
   struct c_declspecs *specs;
   tree prefix_attrs;
@@ -2024,9 +2019,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	      || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	    c_finish_omp_declare_simd (parser, NULL_TREE, NULL_TREE,
 				       omp_declare_simd_clauses);
-	  else
-	    c_finish_oacc_routine (parser, NULL_TREE,
-				      oacc_routine_clauses, oacc_routine_named);
+	  if (oacc_routine_clauses)
+	    c_finish_oacc_routine (parser, NULL_TREE, oacc_routine_clauses);
 	  c_parser_skip_to_end_of_block_or_statement (parser);
 	  return;
 	}
@@ -2123,9 +2117,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		      || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 		    c_finish_omp_declare_simd (parser, d, NULL_TREE,
 					       omp_declare_simd_clauses);
-		  else
-		    c_finish_oacc_routine (parser, d, oacc_routine_clauses,
-					      oacc_routine_named);
+
+		  if (oacc_routine_clauses)
+		    c_finish_oacc_routine (parser, d, oacc_routine_clauses);
 		}
 	      else
 		{
@@ -2139,9 +2133,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		      || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 		    c_finish_omp_declare_simd (parser, d, NULL_TREE,
 					       omp_declare_simd_clauses);
-		  else
-		    c_finish_oacc_routine (parser, d, oacc_routine_clauses,
-					      oacc_routine_named);
+		  if (oacc_routine_clauses)
+		    c_finish_oacc_routine (parser, d, oacc_routine_clauses);
 
 		  start_init (d, asm_name, global_bindings_p ());
 		  init_loc = c_parser_peek_token (parser)->location;
@@ -2188,16 +2181,17 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		    temp_store_parm_decls (d, parms);
 		  c_finish_omp_declare_simd (parser, d, parms,
 					     omp_declare_simd_clauses);
-		  c_finish_oacc_routine (parser, d, oacc_routine_clauses,
-					    oacc_routine_named);
 
 		  if (parms)
 		    temp_pop_parm_decls ();
 		}
+	      if (oacc_routine_clauses)
+		c_finish_oacc_routine (parser, d, oacc_routine_clauses);
+
 	      if (d)
 		finish_decl (d, UNKNOWN_LOCATION, NULL_TREE,
 			     NULL_TREE, asm_name);
-	      
+
 	      if (c_parser_next_token_is_keyword (parser, RID_IN))
 		{
 		  if (d)
@@ -2298,15 +2292,16 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
       while (c_parser_next_token_is_not (parser, CPP_EOF)
 	     && c_parser_next_token_is_not (parser, CPP_OPEN_BRACE))
 	c_parser_declaration_or_fndef (parser, false, false, false, true,
-				       false, NULL, vNULL, NULL_TREE, false);
+				       false, NULL, vNULL, NULL_TREE);
       store_parm_decls ();
       if (omp_declare_simd_clauses.exists ()
 	  || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
 				   omp_declare_simd_clauses);
-      else
+
+      if (oacc_routine_clauses)
 	c_finish_oacc_routine (parser, current_function_decl,
-				  oacc_routine_clauses, oacc_routine_named);
+				  oacc_routine_clauses);
 
       DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
 	= c_parser_peek_token (parser)->location;
@@ -4969,7 +4964,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	  last_label = false;
 	  mark_valid_location_for_stdc_pragma (false);
 	  c_parser_declaration_or_fndef (parser, true, true, true, true,
-					 true, NULL, vNULL, NULL_TREE, false);
+					 true, NULL, vNULL, NULL_TREE);
 	  if (last_stmt)
 	    pedwarn_c90 (loc, OPT_Wdeclaration_after_statement,
 			 "ISO C90 forbids mixed declarations and code");
@@ -4994,8 +4989,7 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	      last_label = false;
 	      mark_valid_location_for_stdc_pragma (false);
 	      c_parser_declaration_or_fndef (parser, true, true, true, true,
-					     true, NULL, vNULL, NULL_TREE,
-					     false);
+					     true, NULL, vNULL, NULL_TREE);
 	      /* Following the old parser, __extension__ does not
 		 disable this diagnostic.  */
 	      restore_extension_diagnostics (ext);
@@ -5144,7 +5138,7 @@ c_parser_label (c_parser *parser)
 					 /*static_assert_ok*/ true,
 					 /*empty_ok*/ true, /*nested*/ true,
 					 /*start_attr_ok*/ true, NULL,
-					 vNULL, NULL_TREE, false);
+					 vNULL, NULL_TREE);
 	}
     }
 }
@@ -5881,8 +5875,7 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
       else if (c_parser_next_tokens_start_declaration (parser))
 	{
 	  c_parser_declaration_or_fndef (parser, true, true, true, true, true, 
-					 &object_expression, vNULL, NULL_TREE,
-					 false);
+					 &object_expression, vNULL, NULL_TREE);
 	  parser->objc_could_be_foreach_context = false;
 	  
 	  if (c_parser_next_token_is_keyword (parser, RID_IN))
@@ -5912,7 +5905,7 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
 	      c_parser_consume_token (parser);
 	      c_parser_declaration_or_fndef (parser, true, true, true, true,
 					     true, &object_expression, vNULL,
-					     NULL_TREE, false);
+					     NULL_TREE);
 	      parser->objc_could_be_foreach_context = false;
 	      
 	      restore_extension_diagnostics (ext);
@@ -9049,8 +9042,7 @@ c_parser_objc_methodprotolist (c_parser *parser)
 	    }
 	  else
 	    c_parser_declaration_or_fndef (parser, false, false, true,false,
-					   true, NULL, vNULL, NULL_TREE,
-					   false);
+					   true, NULL, vNULL, NULL_TREE);
 	  break;
 	}
     }
@@ -13290,7 +13282,13 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
 static void
 c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 {
-  tree name = NULL_TREE;
+  tree decl = NULL_TREE;
+  /* Create a dummy claue, to record location.  */
+  tree c_head = build_omp_clause (c_parser_peek_token (parser)->location,
+				  OMP_CLAUSE_SEQ);
+  
+  if (context != pragma_external)
+    c_parser_error (parser, "%<#pragma acc routine%> not at file scope");
 
   c_parser_consume_pragma (parser);
 
@@ -13299,111 +13297,57 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
     {
       c_parser_consume_token (parser);
 
-      if (c_parser_next_token_is_not (parser, CPP_NAME)
-	  || c_parser_peek_token (parser)->id_kind != C_ID_ID)
-	c_parser_error (parser, "expected identifier");
+      c_token *token = c_parser_peek_token (parser);
 
-      // name should be an IDENTIFIER_NODE
-      name = c_parser_peek_token (parser)->value;
-
-      if (name == NULL_TREE)
+      if (token->type == CPP_NAME && token->id_kind == C_ID_ID)
 	{
-	  undeclared_variable (c_parser_peek_token (parser)->location,
-			       c_parser_peek_token (parser)->value);
-	  name = error_mark_node;
+	  decl = lookup_name (token->value);
+	  if (!decl)
+	    {
+	      error_at (token->location, "%qE undeclared", token->value);
+	      decl = error_mark_node;
+	    }
+	  c_parser_consume_token (parser);
 	}
-
-      c_parser_consume_token (parser);
-
-      if (name == error_mark_node)
-	return;
+      else
+	c_parser_error (parser, "expected function name");
 
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
     }
 
   /* Build a chain of clauses.  */
   parser->in_pragma = true;
-  tree clauses = NULL_TREE;
-  clauses = c_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
-				       "#pragma acc routine",
-				       OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
+  tree clauses = c_parser_oacc_all_clauses
+    (parser, OACC_ROUTINE_CLAUSE_MASK, "#pragma acc routine",
+     OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
 
-  if (name)
-    {
-      TREE_CHAIN (name) = clauses;
-      vec_safe_push (parser->oacc_routines, name);
-    }
+  /* Force clauses to be non-null, by attaching context to it.  */
+  clauses = tree_cons (c_head, clauses, NULL_TREE);
+  
+  if (decl)
+    c_finish_oacc_routine (parser, decl, clauses);
   else
-    {
-      if (context != pragma_external)
-	{
-	  c_parser_error (parser, "%<#pragma acc routine%> must be "
-			  "followed by function declaration or definition");
-	  return;
-	}
-
-      if (c_parser_next_token_is (parser, CPP_KEYWORD)
-	  && c_parser_peek_token (parser)->keyword == RID_EXTENSION)
-	{
-	  int ext = disable_extension_diagnostics ();
-	  do
-	    c_parser_consume_token (parser);
-	  while (c_parser_next_token_is (parser, CPP_KEYWORD)
-		 && c_parser_peek_token (parser)->keyword
-		 == RID_EXTENSION);
-	  c_parser_declaration_or_fndef (parser, true, true, true, false,
-					 true, NULL, vNULL, clauses, true);
-	  restore_extension_diagnostics (ext);
-	}
-      else
-	c_parser_declaration_or_fndef (parser, true, true, true, false,
-				       true, NULL, vNULL, clauses, true);
-    }
+    c_parser_declaration_or_fndef (parser, true, false, false, false,
+				   true, NULL, vNULL, clauses);
 }
 
 static void
-c_finish_oacc_routine (c_parser *parser, tree fndecl, tree clauses,
-			  bool named)
+c_finish_oacc_routine (c_parser *ARG_UNUSED (parser),
+		       tree fndecl, tree clauses)
 {
-  if (fndecl == NULL_TREE || TREE_CODE (fndecl) != FUNCTION_DECL)
+  if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL)
     {
-      if (!named)
-	return;
-
-      error ("%<#pragma acc routine%> not immediately followed by "
-	     "a function declaration or definition");
-      gcc_unreachable();
+      if (fndecl != error_mark_node)
+	error_at (OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses)),
+		  "%<#pragma acc routine%> does not refer to a function");
       return;
     }
 
-  if (!named)
-    {
-      bool found = false;
-      int i;
-      tree t;
-
-      for (i = 0; vec_safe_iterate (parser->oacc_routines, i, &t); i++)
-	{
-	  if (!strcmp (IDENTIFIER_POINTER (DECL_NAME (fndecl)),
-		       IDENTIFIER_POINTER (t)))
-	    {
-	      found = true;
-	      clauses = TREE_CHAIN (t);
-	      break;
-	    }
-	}
-
-      if (!found)
-	return;
-    }
-
   /* Process for function attrib  */
-  tree dims = build_oacc_routine_dims (clauses);
+  tree dims = build_oacc_routine_dims (TREE_VALUE (clauses));
   replace_oacc_fn_attrib (fndecl, dims);
 
   /* Also attach as a declare.  */
-  if (clauses != NULL_TREE)
-    clauses = tree_cons (NULL_TREE, clauses, NULL_TREE);
   DECL_ATTRIBUTES (fndecl)
     = tree_cons (get_identifier ("omp declare target"),
 		 clauses, DECL_ATTRIBUTES (fndecl));
@@ -14008,7 +13952,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	  if (i > 0)
 	    vec_safe_push (for_block, c_begin_compound_stmt (true));
 	  c_parser_declaration_or_fndef (parser, true, true, true, true, true,
-					 NULL, vNULL, NULL_TREE, false);
+					 NULL, vNULL, NULL_TREE);
 	  decl = check_for_loop_decls (for_loc, flag_isoc99);
 	  if (decl == NULL)
 	    goto error_init;
@@ -15193,12 +15137,12 @@ c_parser_omp_declare_simd (c_parser *parser, enum pragma_context context)
 	  while (c_parser_next_token_is (parser, CPP_KEYWORD)
 		 && c_parser_peek_token (parser)->keyword == RID_EXTENSION);
 	  c_parser_declaration_or_fndef (parser, true, true, true, false, true,
-					 NULL, clauses, NULL_TREE, false);
+					 NULL, clauses, NULL_TREE);
 	  restore_extension_diagnostics (ext);
 	}
       else
 	c_parser_declaration_or_fndef (parser, true, true, true, false, true,
-				       NULL, clauses, NULL_TREE, false);
+				       NULL, clauses, NULL_TREE);
       break;
     case pragma_struct:
     case pragma_param:
@@ -15218,8 +15162,7 @@ c_parser_omp_declare_simd (c_parser *parser, enum pragma_context context)
 	  if (c_parser_next_tokens_start_declaration (parser))
 	    {
 	      c_parser_declaration_or_fndef (parser, true, true, true, true,
-					     true, NULL, clauses, NULL_TREE,
-					     false);
+					     true, NULL, clauses, NULL_TREE);
 	      restore_extension_diagnostics (ext);
 	      break;
 	    }
@@ -15228,7 +15171,7 @@ c_parser_omp_declare_simd (c_parser *parser, enum pragma_context context)
       else if (c_parser_next_tokens_start_declaration (parser))
 	{
 	  c_parser_declaration_or_fndef (parser, true, true, true, true, true,
-					 NULL, clauses, NULL_TREE, false);
+					 NULL, clauses, NULL_TREE);
 	  break;
 	}
       c_parser_error (parser, "%<#pragma omp declare simd%> must be followed by "
@@ -16575,8 +16518,6 @@ c_parse_file (void)
   *the_parser = tparser;
   if (tparser.tokens == &tparser.tokens_buf[0])
     the_parser->tokens = &the_parser->tokens_buf[0];
-
-  the_parser->oacc_routines = NULL;
 
   /* Initialize EH, if we've been told to do so.  */
   if (flag_exceptions)

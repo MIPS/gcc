@@ -1,5 +1,13 @@
 2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* c-parser.c (struct c_parser): Remove oacc_routines field.
+	(c_parser_declaration_or_fndef): Remove 'named' parameter.  Adjust
+	all callers.  Adjust c_finish_oacc_routine calls.
+	(c_parser_oacc_routine): Reimplement.
+	(c_finish_oacc_routine): Reimplement.
+
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* c-parser.c (c_parser_oacc_routine): Don't check loop axes here,
 	use build_oacc_routine_dims.
 

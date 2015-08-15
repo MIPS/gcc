@@ -1,5 +1,9 @@
 2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* c-c++-common/goacc/dtype-1.c: Remove bogus routine tests.
+
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* c-c++-common/goacc/routine-4.c: Adjust expected error.  Delete
 	bogus tests.
 

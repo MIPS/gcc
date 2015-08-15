@@ -90,24 +90,6 @@ test ()
 #pragma acc update host(i1) async(4) wait (4) dtype(nvidia1) async(5) wait (5) dtype (*) async (6) wait (6)
 }
 
-/* ACC ROUTINE DEVICE_TYPE: */
-
-#pragma acc routine (foo1) device_type (nvidia) gang
-#pragma acc routine (foo2) device_type (nvidia) worker
-#pragma acc routine (foo3) dtype (nvidia) vector
-#pragma acc routine (foo4) dtype (nvidia) seq
-#pragma acc routine (foo5) device_type (nvidia) bind (foo)
-#pragma acc routine (foo6) device_type (nvidia) gang device_type (*) seq
-#pragma acc routine (foo7) dtype (nvidia) worker dtype (*) seq
-#pragma acc routine (foo8) dtype (nvidia) vector device_type (*) seq
-#pragma acc routine (foo9) device_type (nvidia) seq device_type (*) worker
-#pragma acc routine (foo10) device_type (nvidia) bind (foo) dtype (*) seq
-#pragma acc routine (foo11) device_type (gpu) gang device_type (*) seq
-#pragma acc routine (foo12) device_type (gpu) worker dtype (*) seq
-#pragma acc routine (foo13) device_type (gpu) vector device_type (*) seq
-#pragma acc routine (foo14) dtype (gpu) seq dtype (*) worker
-#pragma acc routine (foo15) dtype (gpu) bind (foo) dtype (*) seq
-
 /* { dg-final { scan-tree-dump-times "oacc_parallel device_type\\(nvidia\\) \\\[ wait\\(1\\) vector_length\\(32\\) num_workers\\(100\\) num_gangs\\(100\\) async\\(1\\) \\\]" 1 "omplower" } } */
 
 /* { dg-final { scan-tree-dump-times "oacc_parallel device_type\\(nvidia\\) \\\[ wait\\(2\\) vector_length\\(64\\) num_workers\\(200\\) num_gangs\\(200\\) async\\(2\\) \\\] wait\\(1\\) vector_length\\(1\\) num_workers\\(1\\) num_gangs\\(1\\) async\\(1\\)" 1 "omplower" } } */
