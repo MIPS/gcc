@@ -54,4 +54,10 @@ enum mips_lib_setting {
   MIPS_LIB_TINY
 };
 
+/* Enumerates the setting of the -mcompact-branches= option.  */
+enum mips_cb_setting {
+  MIPS_CB_NEVER,
+  MIPS_CB_OPTIMAL,
+  MIPS_CB_ALWAYS
+};
 #endif
