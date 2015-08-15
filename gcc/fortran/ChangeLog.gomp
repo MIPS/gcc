@@ -1,3 +1,14 @@
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	*  f95-lang.c (gfc_attribs): oacc function attribute can take
+	list.
+	* gfortran.h (struct symbol_attribute): Add more bits to
+	oacc_routine field.
+	* openmp.c (gfc_oacc_routine_dims): New.
+	(gfc_match_oacc_routins): Call it.
+	* trans-decl.c: Include gomp-constants.h.
+	(add_attributes_to_decl): Create oacc function dimension data.
+
 2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gfortran.h (gfc_omp_map_op): Remove comma at end of enumerator

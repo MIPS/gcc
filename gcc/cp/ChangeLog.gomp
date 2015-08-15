@@ -1,3 +1,9 @@
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_routine_check_parallelism): Delete.
+	(cp_parser_oacc_routine): Don't check parallelism here.
+	(cp_parser_late_parssing_oacc_routine): Use build_oacc_routine_dims.
+
 2015-08-14  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* semantics.c (finish_omp_clauses): Permit variables to appear

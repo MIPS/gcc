@@ -1,3 +1,22 @@
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_reorg): Examine TREE_PURPOSE of
+	dimensions.
+	(nvptx_record_offload_symbol): Adjust.
+	(nvptx_validate_dims): Adjust.
+	* omp-low.c (replace_oacc_fn_attrib): Detect if we're the first
+	attribute.
+	(set_oacc_fn_attrub): Swap FN and CLAUSE parameters for
+	consistency.
+	(build_oacc_routine_dims): New.
+	(expand_omp_target): Adjust set_oacc_fn_attrib call.
+	(execute_oacc_transform): Deal with routine dimensions.
+	(default_goacc_validate_dims): Add FN_LEVEL parameter.
+	* omp-low.h (replace_oacc_fn_attrib, build_oacc_routine_dims): Declare.
+	* target.def (validate_dims): Add FN_LEVEL arg.
+	* targhooks.h (default_goacc_validate_dims): Adjust.
+	* doc/tm.texi: Rebuilt.
+
 2015-08-12  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.def (fork_join): Adjust prototype.

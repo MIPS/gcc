@@ -107,7 +107,7 @@ extern unsigned default_add_stmt_cost (void *, int, enum vect_cost_for_stmt,
 extern void default_finish_cost (void *, unsigned *, unsigned *, unsigned *);
 extern void default_destroy_cost_data (void *);
 
-extern bool default_goacc_validate_dims (tree, int []);
+extern bool default_goacc_validate_dims (tree, int [], int);
 extern unsigned default_goacc_dim_limit (unsigned);
 extern bool default_goacc_fork_join (gimple_stmt_iterator *, gimple,
 				     const int [], bool);

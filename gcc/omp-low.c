@@ -9319,13 +9319,17 @@ oacc_launch_pack (unsigned code, tree device, unsigned op)
 void
 replace_oacc_fn_attrib (tree fn, tree dims)
 {
-  /* Simply cons onto the beginning of the list.  */
-  DECL_ATTRIBUTES (fn) =
-    tree_cons (get_identifier (OACC_FN_ATTRIB), dims, DECL_ATTRIBUTES (fn));
+  tree ident = get_identifier (OACC_FN_ATTRIB);
+  tree attribs = DECL_ATTRIBUTES (fn);
+
+  /* If we happen to be present as the first attrib, drop it.  */
+  if (attribs && TREE_PURPOSE (attribs) == ident)
+    attribs = TREE_CHAIN (attribs);
+  DECL_ATTRIBUTES (fn) = tree_cons (ident, dims, attribs);
 }
 
 static void
-set_oacc_fn_attrib (tree clauses, tree fn, vec<tree> *args)
+set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
 {
   /* Must match GOMP_DIM ordering.  */
   static const omp_clause_code ids[] = 
@@ -9362,6 +9366,45 @@ set_oacc_fn_attrib (tree clauses, tree fn, vec<tree> *args)
 	if (non_const & GOMP_DIM_MASK (ix))
 	  args->safe_push (dims[ix]);
     }
+}
+
+/*  Process the routine's dimension clauess to generate an attribute
+    value.  Issue diagnostics as appropriate.  We default to SEQ
+    (OpenACC 2.5 clarifies this). All dimensions have a size of zero
+    (dynamic).  TREE_PURPOSE is set to indicate whether that dimension
+    can have a loop partitioned on it.  boolean_true_node indicates
+    yes, boolean_false_node indicates no.  */
+
+tree
+build_oacc_routine_dims (tree clauses)
+{
+  /* Must match GOMP_DIM ordering.  */
+  static const omp_clause_code ids[] = 
+    {OMP_CLAUSE_GANG, OMP_CLAUSE_WORKER, OMP_CLAUSE_VECTOR, OMP_CLAUSE_SEQ};
+  int ix;
+  int level = -1;
+
+  for (; clauses; clauses = OMP_CLAUSE_CHAIN (clauses))
+    for (ix = GOMP_DIM_MAX + 1; ix--;)
+      if (OMP_CLAUSE_CODE (clauses) == ids[ix])
+	{
+	  if (level >= 0)
+	    error_at (OMP_CLAUSE_LOCATION (clauses),
+		      "multiple loop axes specified for routine");
+	  level = ix;
+	  break;
+	}
+
+  if (level < 0)
+    level = GOMP_DIM_MAX;
+  
+  tree dims = NULL_TREE;
+
+  for (ix = GOMP_DIM_MAX; ix--;)
+    dims = tree_cons (build_int_cst (boolean_type_node, ix >= level),
+		      integer_zero_node, dims);
+
+  return dims;
 }
 
 tree
@@ -9862,7 +9905,7 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_PARALLEL:
       {
 	args.quick_push (gimple_omp_target_ganglocal_size (entry_stmt));
-	set_oacc_fn_attrib (clauses, child_fn, &args);
+	set_oacc_fn_attrib (child_fn, clauses, &args);
 	tagging = true;
       }
       /* FALLTHRU */
@@ -14624,6 +14667,7 @@ execute_oacc_transform ()
   basic_block bb;
   tree attrs = get_oacc_fn_attrib (current_function_decl);
   int dims[GOMP_DIM_MAX];
+  tree purpose[GOMP_DIM_MAX];
   
   if (!attrs)
     /* Not an offloaded function.  */
@@ -14632,36 +14676,47 @@ execute_oacc_transform ()
   {
     unsigned ix;
     tree pos = TREE_VALUE (attrs);
+    int fn_level = -1;
 
+    /* Make sure the attribute creator attached the dimension
+       information.  */
+    gcc_assert (pos);
+    
     for (ix = 0; ix != GOMP_DIM_MAX; ix++)
       {
-	if (!pos)
-	  dims[ix] = -1;
-	else
+	purpose[ix] = TREE_PURPOSE (pos);
+
+	if (purpose[ix])
 	  {
-	    tree val = TREE_VALUE (pos);
-	    
-	    dims[ix] = val ? TREE_INT_CST_LOW (val) : -2;
-	    pos = TREE_CHAIN (pos);
+	    if (purpose[ix] == boolean_false_node)
+	      fn_level = ix + 1;
+	    else if (fn_level < 0)
+	      fn_level = ix;
 	  }
+	
+	tree val = TREE_VALUE (pos);
+
+	dims[ix] = val ? TREE_INT_CST_LOW (val) : -1;
+	pos = TREE_CHAIN (pos);
       }
 
-    bool changed = targetm.goacc.validate_dims (current_function_decl, dims);
+    bool changed = targetm.goacc.validate_dims (current_function_decl,
+						dims, fn_level);
 
-    /* Default anything left undefaulted to 1.  */
+    /* Default anything left to 1.  */
     for (ix = 0; ix != GOMP_DIM_MAX; ix++)
       if (dims[ix] < 0)
 	{
-	  dims[ix] = (int)(dims[ix] < -1);
+	  dims[ix] = 1;
 	  changed = true;
 	}
-  
+
     if (changed)
       {
 	/* Replace the attribute with new values.  */
 	pos = NULL_TREE;
 	for (ix = GOMP_DIM_MAX; ix--;)
-	  pos = tree_cons (NULL_TREE,
+	  pos = tree_cons (purpose[ix],
 			   build_int_cst (integer_type_node, dims[ix]),
 			   pos);
 	replace_oacc_fn_attrib (current_function_decl, pos);
@@ -14722,7 +14777,8 @@ execute_oacc_transform ()
    hook.  */
 
 bool
-default_goacc_validate_dims (tree ARG_UNUSED (decl), int *ARG_UNUSED (dims))
+default_goacc_validate_dims (tree ARG_UNUSED (decl), int *ARG_UNUSED (dims),
+			     int ARG_UNUSED (fn_level))
 {
   bool changed = false;
 

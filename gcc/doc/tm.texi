@@ -5740,7 +5740,7 @@ usable.  In that case, the smaller the number is, the more desirable it is
 to use it.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree, int @var{[]})
+@deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree, int @var{[]}, @var{int})
 This hook should check the launch dimensions provided.  It should fill
 in anything that needs default to non-unity and verify non-defaults.
 Defaults are represented as -1.  Diagnostics should be issuedas 

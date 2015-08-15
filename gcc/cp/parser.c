@@ -34368,34 +34368,6 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
   cp_parser_require_pragma_eol (parser, pragma_tok);
 }
 
-static void
-cp_parser_oacc_routine_check_parallelism (tree clauses, location_t loc)
-{
- /* Check of the presence if gang, worker, vector and seq clauses, and
-     throw an error if more than one of those clauses is specified.  */
-  int parallelism = 0;
-  tree c;
-
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    switch (OMP_CLAUSE_CODE (c))
-      {
-      case OMP_CLAUSE_GANG:
-      case OMP_CLAUSE_WORKER:
-      case OMP_CLAUSE_VECTOR:
-      case OMP_CLAUSE_SEQ:
-	++parallelism;
-	break;
-      default:
-	break;
-      }
-
-  if (parallelism > 1)
-    {
-      error_at (loc, "invalid combination of gang, worker, vector or seq for"
-		"%<#pragma acc routine%>");
-    }
-}
-
 /* OpenACC 2.0:
    # pragma acc routine oacc-routine-clause[optseq] new-line
      function-definition
@@ -34424,7 +34396,6 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 			enum pragma_context context)
 {
   tree name = NULL_TREE;
-  location_t here = cp_lexer_peek_token (parser->lexer)->location;
 
   //cp_lexer_consume_token (parser->lexer);
 
@@ -34466,8 +34437,6 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 					cp_lexer_peek_token (parser->lexer),
 					OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
 
-  cp_parser_oacc_routine_check_parallelism (clauses, here);
-
   TREE_CHAIN (name) = clauses;
   vec_safe_push (parser->named_oacc_routines, name);
 }
@@ -34481,7 +34450,6 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
   struct cp_token_cache *ce;
   cp_omp_declare_simd_data *data = parser->oacc_routine;
   int i;
-  location_t here = UNKNOWN_LOCATION;
 
   if (!data->error_seen && data->fndecl_seen)
     {
@@ -34499,7 +34467,6 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
     {
       cp_parser_push_lexer_for_tokens (parser, ce);
       parser->lexer->in_pragma = true;
-      here = cp_lexer_peek_token (parser->lexer)->location;
       gcc_assert (cp_lexer_peek_token (parser->lexer)->type == CPP_PRAGMA);
       cp_token *pragma_tok = cp_lexer_consume_token (parser->lexer);
       c = cp_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
@@ -34519,13 +34486,13 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
 	}
     }
 
-  cp_parser_oacc_routine_check_parallelism (cl, here);
+  tree dims = build_oacc_routine_dims (cl);
+  attrs = tree_cons (get_identifier ("oacc function"), dims, attrs);
 
   if (cl != NULL_TREE)
     cl = tree_cons (NULL_TREE, cl, NULL_TREE);
 
-  attrs = build_tree_list (get_identifier ("omp declare target"), cl);
-  attrs = tree_cons (get_identifier ("oacc function"), NULL_TREE, attrs);
+  attrs = tree_cons (get_identifier ("omp declare target"), cl, attrs);
   data->fndecl_seen = true;
   return attrs;
 }

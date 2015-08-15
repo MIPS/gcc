@@ -1,3 +1,7 @@
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-common.c (c_common_attribs): oacc function can take list.
+
 2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-common.c (DEF_FUNCTION_TYPE_VAR_12): Delete.

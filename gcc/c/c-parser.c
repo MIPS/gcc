@@ -13291,7 +13291,6 @@ static void
 c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 {
   tree name = NULL_TREE;
-  location_t here = c_parser_peek_token (parser)->location;
 
   c_parser_consume_pragma (parser);
 
@@ -13328,30 +13327,6 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
   clauses = c_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
 				       "#pragma acc routine",
 				       OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
-
-  /* Check of the presence if gang, worker, vector and seq clauses, and
-     throw an error if more than one of those clauses is specified.  */
-  int parallelism = 0;
-  tree c;
-
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    switch (OMP_CLAUSE_CODE (c))
-      {
-      case OMP_CLAUSE_GANG:
-      case OMP_CLAUSE_WORKER:
-      case OMP_CLAUSE_VECTOR:
-      case OMP_CLAUSE_SEQ:
-	++parallelism;
-	break;
-      default:
-	break;
-      }
-
-  if (parallelism > 1)
-    {
-      error_at (here, "invalid combination of gang, worker, vector or seq for"
-		"%<#pragma acc routine%>");
-    }
 
   if (name)
     {
@@ -13422,14 +13397,16 @@ c_finish_oacc_routine (c_parser *parser, tree fndecl, tree clauses,
 	return;
     }
 
+  /* Process for function attrib  */
+  tree dims = build_oacc_routine_dims (clauses);
+  replace_oacc_fn_attrib (fndecl, dims);
+
+  /* Also attach as a declare.  */
   if (clauses != NULL_TREE)
     clauses = tree_cons (NULL_TREE, clauses, NULL_TREE);
-  clauses = build_tree_list (get_identifier ("omp declare target"),
-			     clauses);
-  TREE_CHAIN (clauses) = DECL_ATTRIBUTES (fndecl);
   DECL_ATTRIBUTES (fndecl)
-    = tree_cons (get_identifier ("oacc function"),
-		 NULL_TREE, clauses);
+    = tree_cons (get_identifier ("omp declare target"),
+		 clauses, DECL_ATTRIBUTES (fndecl));
 }
 
 /* OpenACC 2.0:

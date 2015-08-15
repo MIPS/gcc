@@ -1,3 +1,8 @@
+2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_routine): Don't check loop axes here,
+	use build_oacc_routine_dims.
+
 2015-08-14  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Permit variables to appear

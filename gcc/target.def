@@ -1651,7 +1651,7 @@ in anything that needs default to non-unity and verify non-defaults.\n\
 Defaults are represented as -1.  Diagnostics should be issuedas \n\
 ppropriate.  Return true if changes have been made.  You must override\n\
 this hook to provide dimensions larger than 1.",
-bool, (tree, int []),
+bool, (tree, int [], int),
 default_goacc_validate_dims)
 
 DEFHOOK

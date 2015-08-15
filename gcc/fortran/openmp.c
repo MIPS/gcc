@@ -1691,6 +1691,35 @@ gfc_match_oacc_cache (void)
   return MATCH_YES;
 }
 
+/* Determine the loop level for a routine.   */
+
+static int
+gfc_oacc_routine_dims (gfc_omp_clauses *clauses)
+{
+  int level = -1;
+
+  if (clauses)
+    {
+      unsigned mask = 0;
+
+      if (clauses->gang)
+	level = GOMP_DIM_GANG, mask |= GOMP_DIM_MASK (level);
+      if (clauses->worker)
+	level = GOMP_DIM_WORKER, mask |= GOMP_DIM_MASK (level);
+      if (clauses->vector)
+	level = GOMP_DIM_VECTOR, mask |= GOMP_DIM_MASK (level);
+      if (clauses->seq)
+	level = GOMP_DIM_MAX, mask |= GOMP_DIM_MASK (level);
+
+      if (mask != (mask & -mask))
+	gfc_error ("Multiple loop axes specified for routine");
+    }
+
+  if (level < 0)
+    level = GOMP_DIM_MAX;
+
+  return level;
+}
 
 match
 gfc_match_oacc_routine (void)
@@ -1743,6 +1772,12 @@ gfc_match_oacc_routine (void)
       }
     }
 
+  if (gfc_match_omp_eos () != MATCH_YES
+      && gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES,
+				OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK, false,
+				false, true) != MATCH_YES)
+    return MATCH_ERROR;
+
   if (sym != NULL)
     {
       n = gfc_get_oacc_routine_name ();
@@ -1760,19 +1795,11 @@ gfc_match_oacc_routine (void)
 				       gfc_current_ns->proc_name->name,
 				       &old_loc))
 	goto cleanup;
-      gfc_current_ns->proc_name->attr.oacc_function = 1;
+      gfc_current_ns->proc_name->attr.oacc_function
+	= gfc_oacc_routine_dims (c) + 1;
     }
   else
     gcc_unreachable ();
-
-  if (gfc_match_omp_eos () == MATCH_YES)
-    return MATCH_YES;
-
-  if (gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES,
-			     OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK, false,
-			     false, true)
-      != MATCH_YES)
-    return MATCH_ERROR;
 
   if (n)
     n->clauses = c;

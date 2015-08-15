@@ -875,8 +875,8 @@ typedef struct
   unsigned oacc_declare_device_resident:1;
   unsigned oacc_declare_link:1;
 
-  /* This is an OpenACC acclerator function.  */
-  unsigned oacc_function:1;
+  /* This is an OpenACC acclerator function at level N - 1  */
+  unsigned oacc_function:3;
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;

@@ -3079,9 +3079,10 @@ nvptx_reorg (void)
 
       for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
 	{
-	  HOST_WIDE_INT size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+	  int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+	  tree allowed = TREE_PURPOSE (dims);
 
-	  if (size > 1 || (!size && !TREE_PURPOSE (dims)))
+	  if (size != 1 && !(allowed && integer_zerop (allowed)))
 	    mask |= GOMP_DIM_MASK (ix);
 	}
       /* If there is worker neutering, there must be vector
@@ -3188,10 +3189,10 @@ nvptx_record_offload_symbol (tree decl)
 
 	for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
 	  {
-	    HOST_WIDE_INT size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+	    int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
 
 	    gcc_assert (!TREE_PURPOSE (dims));
-	    fprintf (asm_out_file, ", " HOST_WIDE_INT_PRINT_HEX, size);
+	    fprintf (asm_out_file, ", %#x", size);
 	  }
 
 	fprintf (asm_out_file, "\n");
@@ -3543,15 +3544,24 @@ nvptx_expand_builtin (tree exp, rtx target,
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
 
-/* Validate compute dimensions, fill in non-unity defaults.  */
+/* Validate compute dimensions, fill in non-unity defaults.  FN_LEVEL
+   indicates the level at which a routine might spawn a loop.  It is
+   negative for non-routines.  */
 
 static bool
-nvptx_validate_dims (tree decl, int dims[])
+nvptx_validate_dims (tree decl, int dims[], int fn_level)
 {
   bool changed = false;
 
+  if (fn_level >= 0)
+    /* This is a routine.  All dimensions are dynamic and controlled
+       by the  calling function.  Because we permit a 1vx1wxNg
+       geometry, we can't take the opportunity to fix the vector
+       dimension inside a routine.  Perhaps we should?  */
+    return false;
+  
   /* If the worker size is not 1, the vector size must be 32.  If
-     the vector  size is not 1, it must be 32.  */
+     the vector size is not 1, it must be 32.  */
   if ((dims[GOMP_DIM_WORKER] > 1 || dims[GOMP_DIM_WORKER] == 0)
       || (dims[GOMP_DIM_VECTOR] > 1 || dims[GOMP_DIM_VECTOR] == 0))
     {
