@@ -1,5 +1,11 @@
 2015-08-15  Gary Funck  <gary@intrepid.com>
 
+	* top-level/Makefile.def (language=upc):
+	Remove UPC language target.
+	* top-level/Makefile.in: Re-generate.
+
+2015-08-15  Gary Funck  <gary@intrepid.com>
+
 	testsuite/gcc.dg/gupc/
 	* barrier-notify-wait.upc, getaddr.upc, get-blk-relaxed.upc,
 	get-blk-strict.upc, get-df-relaxed.upc, get-df-strict.upc,
