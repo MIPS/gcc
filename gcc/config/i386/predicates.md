@@ -80,7 +80,12 @@
 ;; Return true if OP is a memory operands that can be used in sibcalls.
 (define_predicate "sibcall_memory_operand"
   (and (match_operand 0 "memory_operand")
-       (match_test "CONSTANT_P (XEXP (op, 0))")))
+       (match_test "CONSTANT_P (XEXP (op, 0))
+		    || (GET_CODE (XEXP (op, 0)) == PLUS
+			&& REG_P (XEXP (XEXP (op, 0), 0))
+			&& GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST
+			&& GET_CODE (XEXP (XEXP (XEXP (op, 0), 1), 0)) == UNSPEC
+			&& XINT (XEXP (XEXP (XEXP (op, 0), 1), 0), 1) == UNSPEC_GOT)")))
 
 ;; Match an SI or HImode register for a zero_extract.
 (define_special_predicate "ext_register_operand"
