@@ -521,11 +521,13 @@
 /* { dg-final { scan-assembler "msa_pckev_b.*:.*pckev\\.b.*msa_pckev_b" } } */
 /* { dg-final { scan-assembler "msa_pckev_h.*:.*pckev\\.h.*msa_pckev_h" } } */
 /* { dg-final { scan-assembler "msa_pckev_w.*:.*pckev\\.w.*msa_pckev_w" } } */
-/* { dg-final { scan-assembler "msa_pckev_d.*:.*pckev\\.d.*msa_pckev_d" } } */
+/* Note: ilvr.d is equivalent to pckev.d.  */
+/* { dg-final { scan-assembler "msa_pckev_d.*:.*ilvr\\.d.*msa_pckev_d" } } */
 /* { dg-final { scan-assembler "msa_pckod_b.*:.*pckod\\.b.*msa_pckod_b" } } */
 /* { dg-final { scan-assembler "msa_pckod_h.*:.*pckod\\.h.*msa_pckod_h" } } */
 /* { dg-final { scan-assembler "msa_pckod_w.*:.*pckod\\.w.*msa_pckod_w" } } */
-/* { dg-final { scan-assembler "msa_pckod_d.*:.*pckod\\.d.*msa_pckod_d" } } */
+/* Note: ilvl.d is equivalent to pckod.d.  */
+/* { dg-final { scan-assembler "msa_pckod_d.*:.*ilvl\\.d.*msa_pckod_d" } } */
 /* { dg-final { scan-assembler "msa_shf_b.*:.*shf\\.b.*msa_shf_b" } } */
 /* { dg-final { scan-assembler "msa_shf_h.*:.*shf\\.h.*msa_shf_h" } } */
 /* { dg-final { scan-assembler "msa_shf_w.*:.*shf\\.w.*msa_shf_w" } } */
