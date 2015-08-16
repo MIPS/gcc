@@ -3035,11 +3035,11 @@ of an interrupt handler:
 An optional argument is supported for the interrupt attribute which allows
 the interrupt mode to be described.  By default GCC assumes the external
 interrupt controller (EIC) mode is in use, this can be explicitly set using
-@code{eic}.  When interrupts are non-masked then the requested IPL is copied
-to the current IPL which has the effect of only enabling higher priority
-interrupts.  To use vectored interrupt mode use the argument
-@code{vector=[sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5]}, this will change the
-behaviour of the non-masked interrupt support and GCC will arrange to mask
+@code{eic}.  When interrupts are non-masked then the requested Interrupt
+Priority Level (IPL) is copied to the current IPL which has the effect of only
+enabling higher priority interrupts.  To use vectored interrupt mode use
+the argument @code{vector=[sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5]}, this will change
+the behaviour of the non-masked interrupt support and GCC will arrange to mask
 all interrupts from sw0 up to and including the specified interrupt vector.
 
 @item use_shadow_register_set
