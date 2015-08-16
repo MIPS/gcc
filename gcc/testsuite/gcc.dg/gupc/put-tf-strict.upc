@@ -18,4 +18,3 @@ void p () {
 
 /* { dg-final { scan-tree-dump-times "puts\[tx\]f2" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "get|put" 1 "original" } } */
-/* { dg-final { cleanup-tree-dump "original" } } */

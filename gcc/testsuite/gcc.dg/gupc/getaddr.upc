@@ -12,4 +12,3 @@ int main () {
   local_p = (void *)p;
   return 0;
 }
-/* { dg-final { cleanup-tree-dump "original" } } */

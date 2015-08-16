@@ -15,4 +15,3 @@ int main () {
   upc_wait 456;
   return 0;
 }
-/* { dg-final { cleanup-tree-dump "original" } } */

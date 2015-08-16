@@ -16,4 +16,3 @@ float p () {
 
 /* { dg-final { scan-tree-dump-times "getssf2" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "get|put" 1 "original" } } */
-/* { dg-final { cleanup-tree-dump "original" } } */

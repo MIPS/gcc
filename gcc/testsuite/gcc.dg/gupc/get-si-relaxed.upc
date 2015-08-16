@@ -17,4 +17,3 @@ uint_si_t p () {
 
 /* { dg-final { scan-tree-dump-times "getsi2" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "get|put" 1 "original" } } */
-/* { dg-final { cleanup-tree-dump "original" } } */

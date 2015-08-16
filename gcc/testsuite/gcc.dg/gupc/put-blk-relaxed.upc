@@ -19,4 +19,3 @@ void p () {
 
 /* { dg-final { scan-tree-dump-times "putblk3" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "get|put" 1 "original" } } */
-/* { dg-final { cleanup-tree-dump "original" } } */

@@ -18,4 +18,3 @@ int main () {
 /* { dg-final { scan-tree-dump-times "Function __upc_init_decls" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "__putsi2" 1 "original" } } */
 /* { dg-final { scan-tree-dump-times "xp = " 1 "original" } } */
-/* { dg-final { cleanup-tree-dump "original" } } */

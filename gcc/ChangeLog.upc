@@ -1,3 +1,21 @@
+2015-08-15  Gary Funck  <gary@intrepid.com>
+
+	testsuite/gcc.dg/gupc/
+	* barrier-notify-wait.upc, getaddr.upc, get-blk-relaxed.upc,
+	get-blk-strict.upc, get-df-relaxed.upc, get-df-strict.upc,
+	get-di-relaxed.upc, get-di-strict.upc, get-hi-relaxed.upc,
+	get-hi-strict.upc, get-qi-relaxed.upc, get-qi-strict.upc,
+	get-sf-relaxed.upc, get-sf-strict.upc, get-si-relaxed.upc,
+	get-si-strict.upc, get-tf-relaxed.upc, get-tf-strict.upc,
+	get-ti-relaxed.upc, get-ti-strict.upc, put-blk-relaxed.upc,
+	put-blk-strict.upc, put-df-relaxed.upc, put-df-strict.upc,
+	put-di-relaxed.upc, put-di-strict.upc, put-hi-relaxed.upc,
+	put-hi-strict.upc, put-qi-relaxed.upc, put-qi-strict.upc,
+	put-sf-relaxed.upc, put-sf-strict.upc, put-si-relaxed.upc,
+	put-si-strict.upc, put-tf-relaxed.upc, put-tf-strict.upc,
+	put-ti-relaxed.upc, put-ti-strict.upc, shared-init-addr.upc:
+	Remove calls to cleanup-tree-dump.
+
 2015-08-10  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 226755 into gupc branch.
