@@ -1,6 +1,8 @@
 void *malloc (__SIZE_TYPE__);
 void free (void *);
 
+int fact (int n);
+
 #pragma acc routine (fact)
 
 int

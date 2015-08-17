@@ -6,8 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#pragma acc routine (fact)
+int fact (int);
 
+#pragma acc routine (fact)
 
 int fact (int n)
 {

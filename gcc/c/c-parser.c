@@ -1762,7 +1762,7 @@ finish_oacc_declare (tree fnbody, tree decls)
 
 
 static void c_finish_omp_declare_simd (c_parser *, tree, tree, vec<c_token>);
-static void c_finish_oacc_routine (c_parser *, tree, tree);
+static void c_finish_oacc_routine (c_parser *, tree, tree, bool);
 
 /* Parse a declaration or function definition (C90 6.5, 6.7.1, C99
    6.7, 6.9.1).  If FNDEF_OK is true, a function definition is
@@ -2020,7 +2020,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	    c_finish_omp_declare_simd (parser, NULL_TREE, NULL_TREE,
 				       omp_declare_simd_clauses);
 	  if (oacc_routine_clauses)
-	    c_finish_oacc_routine (parser, NULL_TREE, oacc_routine_clauses);
+	    c_finish_oacc_routine (parser, NULL_TREE,
+				   oacc_routine_clauses, false);
 	  c_parser_skip_to_end_of_block_or_statement (parser);
 	  return;
 	}
@@ -2117,9 +2118,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		      || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 		    c_finish_omp_declare_simd (parser, d, NULL_TREE,
 					       omp_declare_simd_clauses);
-
-		  if (oacc_routine_clauses)
-		    c_finish_oacc_routine (parser, d, oacc_routine_clauses);
 		}
 	      else
 		{
@@ -2133,14 +2131,14 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		      || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 		    c_finish_omp_declare_simd (parser, d, NULL_TREE,
 					       omp_declare_simd_clauses);
-		  if (oacc_routine_clauses)
-		    c_finish_oacc_routine (parser, d, oacc_routine_clauses);
-
+		  
 		  start_init (d, asm_name, global_bindings_p ());
 		  init_loc = c_parser_peek_token (parser)->location;
 		  init = c_parser_initializer (parser);
 		  finish_init ();
 		}
+	      if (oacc_routine_clauses)
+		c_finish_oacc_routine (parser, d, oacc_routine_clauses, false);
 	      if (d != error_mark_node)
 		{
 		  maybe_warn_string_init (init_loc, TREE_TYPE (d), init);
@@ -2186,8 +2184,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		    temp_pop_parm_decls ();
 		}
 	      if (oacc_routine_clauses)
-		c_finish_oacc_routine (parser, d, oacc_routine_clauses);
-
+		c_finish_oacc_routine (parser, d, oacc_routine_clauses, false);
+	      
 	      if (d)
 		finish_decl (d, UNKNOWN_LOCATION, NULL_TREE,
 			     NULL_TREE, asm_name);
@@ -2298,10 +2296,10 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  || !vec_safe_is_empty (parser->cilk_simd_fn_tokens))
 	c_finish_omp_declare_simd (parser, current_function_decl, NULL_TREE,
 				   omp_declare_simd_clauses);
-
       if (oacc_routine_clauses)
 	c_finish_oacc_routine (parser, current_function_decl,
-				  oacc_routine_clauses);
+			       oacc_routine_clauses, true);
+
 
       DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
 	= c_parser_peek_token (parser)->location;
@@ -13279,6 +13277,10 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser, char *p_name)
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_SEQ)			\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_BIND))
 
+/* Parse an OpenACC routine directive.  For named directives, we apply
+   immediately to the named function.  For unnamed ones we then parse
+   a declaration or definition, which must be for a function.  */
+
 static void
 c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 {
@@ -13325,23 +13327,35 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
   clauses = tree_cons (c_head, clauses, NULL_TREE);
   
   if (decl)
-    c_finish_oacc_routine (parser, decl, clauses);
+    c_finish_oacc_routine (parser, decl, clauses, false);
   else
     c_parser_declaration_or_fndef (parser, true, false, false, false,
 				   true, NULL, vNULL, clauses);
 }
 
+/* Finalize an OpenACC routine pragma, applying it to FNDECL.  CLAUSES
+   are the parsed clauses.  IS_DEFN is true if we're applying it to
+   the definition (so expect FNDEF to look somewhat defined.  */
+
 static void
 c_finish_oacc_routine (c_parser *ARG_UNUSED (parser),
-		       tree fndecl, tree clauses)
+		       tree fndecl, tree clauses, bool is_defn)
 {
+  location_t loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
+
   if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL)
     {
       if (fndecl != error_mark_node)
-	error_at (OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses)),
-		  "%<#pragma acc routine%> does not refer to a function");
+	error_at (loc, "%<#pragma acc routine%> does not refer to a function");
       return;
     }
+
+  if (get_oacc_fn_attrib (fndecl))
+    error_at (loc, "%<#pragma acc routine%> already applied to %D", fndecl);
+
+  if (TREE_USED (fndecl) || (!is_defn && DECL_SAVED_TREE (fndecl)))
+    error_at (loc, "%<#pragma acc routine%> must be applied before %s",
+	      TREE_USED (fndecl) ? "use" : "definition");
 
   /* Process for function attrib  */
   tree dims = build_oacc_routine_dims (TREE_VALUE (clauses));

@@ -1,3 +1,21 @@
+2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* parser.h (struct cp_parser): Change oacc_routine field
+	tree. Remove named_oacc_routines field.
+	* parser.c (cp_ensure_no_omp_declare_simd): Remove oacc routine
+	checking, move to ...
+	(cp_ensure_no_oacc_routine): ... here.  New function, adjust all
+	callers.
+	(cp_parser_late_parsing_oacc_routine): Delete.
+	(cp_parser_new): Adjust.
+	(cp_parser_linkage_specification): Call cp_ensure_no_oacc_routine.
+	(cp_finalize_oacc_routine): Reimplement.  Adjust all callers.
+	(cp_parser_late_return_type_opt): Remove oacc routine handling.
+	(cp_parser_omp_declare_simd): Remove oacc routine handling. Adjust
+	callers.
+	(cp_parser_finish_oacc_routine): New.
+	(cp_parser_oacc_routine): Reimplement.
+
 2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_routine_check_parallelism): Delete.

@@ -1,3 +1,7 @@
+2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.c-c++-common/routine-2.c: Insert declaration.
+
 2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/critical.c: New file, replacing empty file.
