@@ -34318,24 +34318,19 @@ cp_parser_finish_oacc_routine (cp_parser *ARG_UNUSED (parser), tree fndecl,
 {
   location_t loc  = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
 
-  if (!fndecl)
-    {
-      error ("%<#pragma oacc routine%> not immediately followed by "
-	     "function declaration or definition");
-      return;
-    }
-
-  if (named && is_overloaded_fn (fndecl)
+  if (named && fndecl && is_overloaded_fn (fndecl)
       && (TREE_CODE (fndecl) != FUNCTION_DECL
 	  || DECL_FUNCTION_TEMPLATE_P  (fndecl)))
     {
-      error_at (loc, "%D names a set of overloads", OVL_CURRENT (fndecl));
+      error_at (loc, "%<#pragma acc routine%> names a set of overloads");
       return;
     }
 
-  if (TREE_CODE (fndecl) != FUNCTION_DECL)
+  if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL)
     {
-      error_at (loc, "%D is not a function", fndecl);
+      error_at (loc, "%<#pragma acc routine%> %s",
+		named ? "does not refer to a function"
+		: "not followed by function");
       return;
     }
 
@@ -34343,7 +34338,8 @@ cp_parser_finish_oacc_routine (cp_parser *ARG_UNUSED (parser), tree fndecl,
      namespaces?  */
   if (named && !DECL_NAMESPACE_SCOPE_P (fndecl))
     {
-      error_at (loc, "%D is not at namespace scope", fndecl);
+      error_at (loc, "%<#pragma acc routine%> does not refer to a"
+		" namespace scope function");
       return;
     }
 
@@ -34399,6 +34395,9 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 					 /*declarator_p=*/false,
 					 /*optional_p=*/false);
       decl = cp_parser_lookup_name_simple (parser, id, token->location);
+      if (id != error_mark_node && decl == error_mark_node)
+	cp_parser_name_lookup_error (parser, id, decl, NLE_NULL,
+				     token->location);
 
       if (decl == error_mark_node
 	  || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))

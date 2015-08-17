@@ -1762,7 +1762,7 @@ finish_oacc_declare (tree fnbody, tree decls)
 
 
 static void c_finish_omp_declare_simd (c_parser *, tree, tree, vec<c_token>);
-static void c_finish_oacc_routine (c_parser *, tree, tree, bool);
+static void c_finish_oacc_routine (c_parser *, tree, tree, bool, bool);
 
 /* Parse a declaration or function definition (C90 6.5, 6.7.1, C99
    6.7, 6.9.1).  If FNDEF_OK is true, a function definition is
@@ -1903,6 +1903,9 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 	  pedwarn (here, 0, "empty declaration");
 	}
       c_parser_consume_token (parser);
+      if (oacc_routine_clauses)
+	c_finish_oacc_routine (parser, NULL_TREE,
+			       oacc_routine_clauses, false, false);
       return;
     }
 
@@ -2021,7 +2024,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 				       omp_declare_simd_clauses);
 	  if (oacc_routine_clauses)
 	    c_finish_oacc_routine (parser, NULL_TREE,
-				   oacc_routine_clauses, false);
+				   oacc_routine_clauses, false, false);
 	  c_parser_skip_to_end_of_block_or_statement (parser);
 	  return;
 	}
@@ -2138,7 +2141,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  finish_init ();
 		}
 	      if (oacc_routine_clauses)
-		c_finish_oacc_routine (parser, d, oacc_routine_clauses, false);
+		c_finish_oacc_routine (parser, d, oacc_routine_clauses,
+				       false, false);
 	      if (d != error_mark_node)
 		{
 		  maybe_warn_string_init (init_loc, TREE_TYPE (d), init);
@@ -2184,7 +2188,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		    temp_pop_parm_decls ();
 		}
 	      if (oacc_routine_clauses)
-		c_finish_oacc_routine (parser, d, oacc_routine_clauses, false);
+		c_finish_oacc_routine (parser, d, oacc_routine_clauses,
+				       false, false);
 	      
 	      if (d)
 		finish_decl (d, UNKNOWN_LOCATION, NULL_TREE,
@@ -2298,7 +2303,7 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 				   omp_declare_simd_clauses);
       if (oacc_routine_clauses)
 	c_finish_oacc_routine (parser, current_function_decl,
-			       oacc_routine_clauses, true);
+			       oacc_routine_clauses, false, true);
 
 
       DECL_STRUCT_FUNCTION (current_function_decl)->function_start_locus
@@ -13306,7 +13311,8 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 	  decl = lookup_name (token->value);
 	  if (!decl)
 	    {
-	      error_at (token->location, "%qE undeclared", token->value);
+	      error_at (token->location, "%qE has not been declared",
+			token->value);
 	      decl = error_mark_node;
 	    }
 	  c_parser_consume_token (parser);
@@ -13327,7 +13333,7 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
   clauses = tree_cons (c_head, clauses, NULL_TREE);
   
   if (decl)
-    c_finish_oacc_routine (parser, decl, clauses, false);
+    c_finish_oacc_routine (parser, decl, clauses, true, false);
   else
     c_parser_declaration_or_fndef (parser, true, false, false, false,
 				   true, NULL, vNULL, clauses);
@@ -13339,14 +13345,16 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 
 static void
 c_finish_oacc_routine (c_parser *ARG_UNUSED (parser),
-		       tree fndecl, tree clauses, bool is_defn)
+		       tree fndecl, tree clauses, bool named, bool is_defn)
 {
   location_t loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
 
   if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL)
     {
       if (fndecl != error_mark_node)
-	error_at (loc, "%<#pragma acc routine%> does not refer to a function");
+	error_at (loc, "%<#pragma acc routine%> %s",
+		  named ? "does not refer to a function"
+		  : "not followed by function");
       return;
     }
 

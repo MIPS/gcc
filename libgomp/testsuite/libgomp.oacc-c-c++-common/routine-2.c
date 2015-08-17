@@ -25,7 +25,7 @@ main()
 
   a = (int *)malloc (sizeof (int) * n);
 
-#pragma acc parallel copy (a[0:n]) vector_length (5) /* { dg-warning "using vector_length" } */
+#pragma acc parallel copy (a[0:n]) vector_length (32)
   {
 #pragma acc loop
     for (i = 0; i < n; i++)

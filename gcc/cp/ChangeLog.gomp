@@ -1,5 +1,10 @@
 2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* parser.c (cp_parser_finish_oacc_routine): Adjust to match
+	errors from C FE.
+
+2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* parser.h (struct cp_parser): Change oacc_routine field
 	tree. Remove named_oacc_routines field.
 	* parser.c (cp_ensure_no_omp_declare_simd): Remove oacc routine

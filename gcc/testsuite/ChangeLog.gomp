@@ -1,5 +1,9 @@
 2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* c-c++-common/goacc/routine-5.c: New.
+
+2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* c-c++-common/goacc/routine-2.c: Insert declaration.
 
 2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
