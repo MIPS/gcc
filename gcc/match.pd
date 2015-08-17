@@ -2128,7 +2128,7 @@ along with GCC; see the file COPYING3.  If not see
 	(convert (op @0 @1))
 	(with { tree utype = unsigned_type_for (TREE_TYPE (@0)); }
 	 (convert (op (convert:utype @0) (convert:utype @1))))))))
- 
+
 /* This is another case of narrowing, specifically when there's an outer
    BIT_AND_EXPR which masks off bits outside the type of the innermost
    operands.   Like the previous case we have to convert the operands

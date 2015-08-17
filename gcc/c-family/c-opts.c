@@ -160,6 +160,7 @@ unsigned int
 c_common_option_lang_mask (void)
 {
   static const unsigned int lang_flags[] = {CL_C, CL_ObjC, CL_CXX, CL_ObjCXX};
+
   return lang_flags[c_language];
 }
 

@@ -173,7 +173,6 @@ in the following sections.
 -fupc-inline-lib -fupc-pre-include -fupc-debug -dwarf-2-upc @gol
 -fupc-instrument -fupc-instrument-functions @gol
 -fms-extensions -fplan9-extensions -trigraphs -traditional -traditional-cpp @gol
--trigraphs  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch -flax-vector-conversions @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char}

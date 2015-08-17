@@ -4218,7 +4218,6 @@ stabilize_reference (tree ref)
 
   return result;
 }
-
 
 /* Low-level constructors for expressions.  */
 

@@ -199,7 +199,6 @@ const char *pch_file;
    user's namespace.  */
 int flag_iso;
 
-
 /* C/ObjC language option variables.  */
 
 

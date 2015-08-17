@@ -2552,6 +2552,7 @@ build_array_ref (location_t loc, tree array, tree index)
 
   bool non_lvalue
     = convert_vector_to_pointer_for_subscript (loc, &array, index);
+
   if (TREE_CODE (TREE_TYPE (array)) == ARRAY_TYPE
       && !upc_shared_type_p (TREE_TYPE (array)))
     {

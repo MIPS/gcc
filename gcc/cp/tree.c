@@ -995,7 +995,8 @@ move (tree expr)
    the C version of this function does not properly maintain canonical
    types (which are not used in C).  */
 tree
-c_build_qualified_type_1 (tree type, int type_quals, tree ARG_UNUSED(layout_qualiefier))
+c_build_qualified_type_1 (tree type, int type_quals,
+			  tree ARG_UNUSED (layout_qualiefier))
 {
   return cp_build_qualified_type (type, type_quals);
 }

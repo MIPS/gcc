@@ -1,3 +1,21 @@
+2015-08-16  Gary Funck  <gary@intrepid.com>
+
+	* c/c-decl.c (grokdeclarator):  Remove extra space on empty line.
+	* c/c-typeck.c (build_array_ref): Add an empty line to match trunk.
+	* c-family/c-common.c: Remove extra blank line to match trunk.
+	* c-family/c-opts.c (c_common_option_lang_mask):
+	Add an empty line to match trunk.
+	* c-family/c-pretty-print.c (pp_c_cv_qualifiers):
+	Remove assignment to 'previous' to match trunk.
+	* config/darwin.c (darwin_override_options):
+	Remove check for optimize to match trunk.
+	* configure.ac (ACX_BUGRURL): Revert to trunk.
+	* configure: Re-generate.
+	* cp/tree.c (c_build_qualified_type_1): wrap long line.
+	* doc/invoke.texi: Remove extra line with -trigraphs. 
+	* match.pd: Remove extra space on empty line.
+	* tree.c (stabilize_reference): Remove extra line to match trunk.
+
 2015-08-15  Gary Funck  <gary@intrepid.com>
 
 	* top-level/Makefile.def (language=upc):

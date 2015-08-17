@@ -212,7 +212,6 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
         pp_c_whitespace (pp);
       pp_c_ws_string (pp, (flag_isoc99 && !c_dialect_cxx ()
 			   ? "restrict" : "__restrict__"));
-      previous = true;
     }
 
   if (qualifiers & TYPE_QUAL_UPC_RELAXED)

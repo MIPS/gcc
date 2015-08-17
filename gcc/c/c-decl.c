@@ -5587,7 +5587,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		| (strictp ? TYPE_QUAL_UPC_STRICT : 0)
 		| (relaxedp ? TYPE_QUAL_UPC_RELAXED : 0)
 		| ENCODE_QUAL_ADDR_SPACE (address_space));
-  
+
   /* Applying the _Atomic qualifier to an array type (through the use
      of typedefs or typeof) must be detected here.  If the qualifier
      is introduced later, any appearance of applying it to an array is
@@ -5688,7 +5688,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  threadp = false;
 	}
     }
-    
+
   /* Now figure out the structure of the declarator proper.
      Descend through it, creating more complex types, until we reach
      the declared identifier (or NULL_TREE, in an absolute declarator).
