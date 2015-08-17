@@ -1164,6 +1164,39 @@ nvptx_expand_oacc_join (rtx mode)
   emit_insn (gen_nvptx_joining (mode));
 }
 
+/* Expander for reduction locking and unlocking.  We expect SRC to be
+   gang or worker level.  */
+
+void
+nvptx_expand_oacc_lock_unlock (rtx src, bool lock)
+{
+  unsigned HOST_WIDE_INT kind;
+  rtx pat;
+  
+  kind = INTVAL (src) == GOMP_DIM_GANG ? LOCK_GLOBAL : LOCK_SHARED;
+  lock_used[kind] = true;
+
+  rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
+  rtx space = GEN_INT (lock_space[kind]);
+  rtx barrier = gen_nvptx_membar (GEN_INT (lock_level[kind]));
+  rtx tmp = gen_reg_rtx (SImode);
+
+  if (!lock)
+    emit_insn (barrier);
+  if (lock)
+    {
+      rtx_code_label *label = gen_label_rtx ();
+
+      LABEL_NUSES (label)++;
+      pat = gen_nvptx_spinlock (mem, space, tmp, gen_reg_rtx (BImode), label);
+    }
+  else
+    pat = gen_nvptx_spinunlock (mem, space, tmp);
+  emit_insn (pat);
+  if (lock)
+    emit_insn (barrier);
+}
+
 /* Generate instruction(s) to unpack a 64 bit object into 2 32 bit
    objects.  */
 
@@ -3306,62 +3339,6 @@ nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
   return target;
 }
 
-/* Expander for locking and unlocking.  */
-static rtx
-nvptx_expand_lock_unlock (tree exp, bool lock)
-{
-  rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
-			 NULL_RTX, SImode, EXPAND_NORMAL);
-  unsigned HOST_WIDE_INT kind;
-  rtx pat;
-  
-  kind = GET_CODE (src) == CONST_INT ? INTVAL  (src) : LOCK_MAX;
-  if (kind >= LOCK_MAX)
-    error ("builtin %D requires constant argument less than %u",
-	   get_callee_fndecl (exp), LOCK_MAX);
-  lock_used[kind] = true;
-
-  rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
-  rtx space = GEN_INT (lock_space[kind]);
-  rtx barrier = gen_nvptx_membar (GEN_INT (lock_level[kind]));
-
-  if (!lock)
-    emit_insn (barrier);
-  if (lock)
-    {
-      rtx_code_label *label = gen_label_rtx ();
-
-      LABEL_NUSES (label)++;
-      pat = gen_nvptx_spinlock (mem, space,
-				gen_reg_rtx (SImode), gen_reg_rtx (BImode),
-				label);
-    }
-  else
-    pat = gen_nvptx_spinunlock (mem, space, gen_reg_rtx (SImode));
-  emit_insn (pat);
-  if (lock)
-    emit_insn (barrier);
-  return const0_rtx;
-}
-
-/* Lock expander.  */
-
-static rtx
-nvptx_expand_lock (tree exp, rtx ARG_UNUSED (target),
-		   machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
-{
-  return nvptx_expand_lock_unlock (exp, true);
-}
-
-/* Unlock expander.  */
-
-static rtx
-nvptx_expand_unlock (tree exp, rtx ARG_UNUSED (target),
-		     machine_mode ARG_UNUSED (mode), int ARG_UNUSED (ignore))
-{
-  return nvptx_expand_lock_unlock (exp, false);
-}
-
 /* Worker reduction address expander.  */
 static rtx
 nvptx_expand_work_red_addr (tree exp, rtx target,
@@ -3413,12 +3390,16 @@ nvptx_expand_work_red_addr (tree exp, rtx target,
   /* Return offset into worker reduction array.  */
   unsigned offset = loop.vars[ix].second;
   
-  rtx addr = gen_reg_rtx (Pmode);
-  emit_move_insn (addr,
-		  gen_rtx_PLUS (Pmode, worker_red_sym, GEN_INT (offset)));
+  emit_insn (gen_rtx_SET (target, worker_red_sym));
+
+  if (offset)
+    emit_insn (gen_rtx_SET (target,
+			    gen_rtx_PLUS (Pmode, target, GEN_INT (offset))));
+	       
   emit_insn (gen_rtx_SET (target,
-			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, addr),
+			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, target),
 					  UNSPEC_FROM_SHARED)));
+
   return target;
 }
 
@@ -3428,7 +3409,6 @@ enum nvptx_types
     NT_ULL_ULL_INT,
     NT_FLT_FLT_INT,
     NT_DBL_DBL_INT,
-    NT_VOID_UINT,
     NT_UINTPTR_UINT_UINT,
     NT_ULLPTR_UINT_UINT,
     NT_FLTPTR_UINT_UINT,
@@ -3446,8 +3426,6 @@ static const struct builtin_description builtins[] =
    nvptx_expand_shuffle_down},
   {"__builtin_nvptx_shuffle_downd", NT_DBL_DBL_INT,
    nvptx_expand_shuffle_down},
-  {"__builtin_nvptx_lock", NT_VOID_UINT, nvptx_expand_lock},
-  {"__builtin_nvptx_unlock", NT_VOID_UINT, nvptx_expand_unlock},
   {"__builtin_nvptx_work_red_addr", NT_UINTPTR_UINT_UINT,
    nvptx_expand_work_red_addr},
   {"__builtin_nvptx_work_red_addrll", NT_ULLPTR_UINT_UINT,
@@ -3492,9 +3470,6 @@ nvptx_init_builtins (void)
   types[NT_DBL_DBL_INT]
     = build_function_type_list (double_type_node, double_type_node,
 				integer_type_node, NULL_TREE);
-  types[NT_VOID_UINT]
-    = build_function_type_list (void_type_node, unsigned_type_node, NULL_TREE);
-
   types[NT_UINTPTR_UINT_UINT]
     = build_function_type_list (build_pointer_type (unsigned_type_node),
 				unsigned_type_node, unsigned_type_node,
@@ -3628,6 +3603,20 @@ nvptx_xform_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi), gimple stmt,
 
   return false;
 }
+
+/* Check lock & unlock.  We only need the gang- & worker-level ones.
+ */
+
+static bool
+nvptx_xform_lock_unlock (gimple_stmt_iterator *ARG_UNUSED (gsi),
+			 gimple stmt,
+			 const int *ARG_UNUSED (dims),
+			 bool ARG_UNUSED (is_fork))
+{
+  tree arg = gimple_call_arg (stmt, 0);
+  
+  return TREE_INT_CST_LOW (arg) > GOMP_DIM_WORKER;
+}
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
@@ -3731,6 +3720,9 @@ nvptx_xform_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi), gimple stmt,
 
 #undef TARGET_GOACC_FORK_JOIN
 #define TARGET_GOACC_FORK_JOIN nvptx_xform_fork_join
+
+#undef TARGET_GOACC_LOCK_UNLOCK
+#define TARGET_GOACC_LOCK_UNLOCK nvptx_xform_lock_unlock
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

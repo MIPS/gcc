@@ -14743,19 +14743,24 @@ execute_oacc_transform ()
 		    {
 		    default: break;
 
+		    case IFN_GOACC_DIM_POS:
 		    case IFN_GOACC_DIM_SIZE:
-		      oacc_xform_dim (&gsi, stmt, dims, false);
+		      oacc_xform_dim (&gsi, stmt, dims,
+				      ifn_code == IFN_GOACC_DIM_POS);
 		      break;
 
-		    case IFN_GOACC_DIM_POS:
-		      oacc_xform_dim (&gsi, stmt, dims, true);
-		      break;
+		    case IFN_GOACC_LOCK:
+		    case IFN_GOACC_UNLOCK:
+		      if (targetm.goacc.lock_unlock
+			  (&gsi, stmt, dims, ifn_code == IFN_GOACC_LOCK))
+			goto remove;
 
 		    case IFN_GOACC_FORK:
 		    case IFN_GOACC_JOIN:
 		      if (targetm.goacc.fork_join
 			  (&gsi, stmt, dims, ifn_code == IFN_GOACC_FORK))
 			{
+			remove:
 			  replace_uses_by (gimple_vdef (stmt),
 					   gimple_vuse (stmt));
 			  gsi_remove (&gsi, true);
@@ -14814,7 +14819,6 @@ default_goacc_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi),
 			 gimple ARG_UNUSED (stmt),
 			 const int *ARG_UNUSED (dims), bool is_fork)
 {
-  /* If there is no expander, we can delete the functions.  */
   if (is_fork)
     {
 #ifndef HAVE_oacc_fork
@@ -14824,6 +14828,31 @@ default_goacc_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi),
   else
     {
 #ifndef HAVE_oacc_join
+      return true;
+#endif
+    }
+
+  return false;
+}
+
+/* Default lock/unlock early expander.  Delete the function calls if
+   there is no RTL expander.  */
+
+bool
+default_goacc_lock_unlock (gimple_stmt_iterator *ARG_UNUSED (gsi),
+			   gimple ARG_UNUSED (stmt),
+			   const int*ARG_UNUSED (dims),
+			   bool is_lock)
+{
+  if (is_lock)
+    {
+#ifndef HAVE_oacc_lock
+      return true;
+#endif
+    }
+  else
+    {
+#ifndef HAVE_oacc_unlock
       return true;
 #endif
     }

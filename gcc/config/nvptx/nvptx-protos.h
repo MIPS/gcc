@@ -34,6 +34,7 @@ extern const char *nvptx_section_for_decl (const_tree);
 #ifdef RTX_CODE
 extern void nvptx_expand_oacc_fork (rtx);
 extern void nvptx_expand_oacc_join (rtx);
+extern void nvptx_expand_oacc_lock_unlock (rtx, bool);
 extern void nvptx_expand_call (rtx, rtx);
 extern rtx nvptx_expand_compare (rtx);
 extern const char *nvptx_ptx_type_from_mode (machine_mode, bool);

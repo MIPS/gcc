@@ -83,3 +83,9 @@ DEF_INTERNAL_FN (GOACC_JOIN, ECF_NOTHROW | ECF_LEAF, ".")
    single INTEGER_CST argument.  */
 DEF_INTERNAL_FN (GOACC_DIM_SIZE, ECF_CONST | ECF_NOTHROW | ECF_LEAF, ".")
 DEF_INTERNAL_FN (GOACC_DIM_POS, ECF_PURE | ECF_NOTHROW | ECF_LEAF, ".")
+
+/* LOCK and UNLOCK operate a mutex used for reductions.  The first
+   argument is the compute dimension of the reduction and the second
+   argument is a loop identifer.  */
+DEF_INTERNAL_FN (GOACC_LOCK, ECF_NOTHROW | ECF_LEAF, "..")
+DEF_INTERNAL_FN (GOACC_UNLOCK, ECF_NOTHROW | ECF_LEAF, "..")

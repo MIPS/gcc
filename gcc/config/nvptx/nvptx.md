@@ -61,7 +61,6 @@
 
 (define_c_enum "unspecv" [
    UNSPECV_LOCK
-   UNSPECV_UNLOCK
    UNSPECV_CAS
    UNSPECV_XCHG
    UNSPECV_BARSYNC
@@ -1366,6 +1365,26 @@
   return asms[INTVAL (operands[1])];
 })
 
+(define_expand "oacc_lock"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")
+		        (match_operand:SI 1 "const_int_operand" "")]
+		       UNSPECV_LOCK)]
+  ""
+{
+  nvptx_expand_oacc_lock_unlock (operands[0], true);
+  DONE;
+})
+
+(define_expand "oacc_unlock"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")
+		        (match_operand:SI 1 "const_int_operand" "")]
+		       UNSPECV_LOCK)]
+  ""
+{
+  nvptx_expand_oacc_lock_unlock (operands[0], false);
+  DONE;
+})
+
 (define_insn "nvptx_fork"
   [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
 		       UNSPECV_FORK)]
@@ -1576,7 +1595,7 @@
    [(parallel
      [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
 			(match_operand:SI 1 "const_int_operand" "i")]
-		       UNSPECV_UNLOCK)
+		       UNSPECV_LOCK)
       (match_operand:SI 2 "register_operand" "=R")
       (match_operand:BI 3 "register_operand" "=R")
       (label_ref (match_operand 4 "" ""))])]
@@ -1586,7 +1605,7 @@
 (define_insn "nvptx_spinunlock"
    [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
 		      (match_operand:SI 1 "const_int_operand" "i")]
-		      UNSPECV_UNLOCK)
+		      UNSPECV_LOCK)
     (match_operand:SI 2 "register_operand" "=R")]
    ""
    "atom%R1.exch.b32 %2,%0,0;")

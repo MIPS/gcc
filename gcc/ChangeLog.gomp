@@ -1,5 +1,29 @@
 2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* target.def (lock_unlock): New GOACC hook.
+	* targhooks.h (default_goacc_lock_unlock): Declare.
+	* doc/tm.texi.in (TARGET_GOACC_LOCK_UNLOCK): Add.
+	* doc/tm.texi: Rebuilt.
+	* internal-fn.def (GOACC_LOCK, GOACC_UNLOCK): New.
+	* internal-fn.c (expand_GOACC_LOCK, expand_GOACC_UNLOCK): New.
+	* omp-low.c (execute_oacc_transform): Add lock/unlock handling.
+	(default_goacc_lock_unlock): New.
+	* config/nvptx/nvptx-protos.h (nvptx_expand_oacc_lock_unlock): Declare.
+	* config/nvptx/nvptx.md (UNSPECV_UNLOCK): Delete.
+	(oacc_lock, oacc_unlock): New expanders.
+	(nvptx_spinlock, nvptx_spinunlock): Use UNSPECV_LOCK.
+	* config/nvptx/nvptx.c (nvptx_expand_oacc_lock_unlock): New.
+	(nvptx_expand_lock_unlock): Delete.
+	(nvptx_expand_lock, nvptx_expand_unlock): Delete.
+	(nvptx_expand_work_red_addr): Fixup address generation.
+	(enum nvptx_types): Delete NT_VOID_UINT.
+	(builtins): Delete nvptx_lock and nvptx_unlock.
+	(nvptx_init_builtins): Adjust.
+	(nvptx_xform_lock_unlock): New.
+	(TARGET_GOACC_LOCK_UNLOCK): Override.
+	
+2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* c-parser.c (c_finish_oacc_routine): Add is_defn arg and adjust
 	all callers.  Detect duplicate, post-use or post-defn application.
 

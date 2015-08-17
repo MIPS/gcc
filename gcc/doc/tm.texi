@@ -5760,6 +5760,13 @@ pass.  It should return true, if the functions should be deleted.  The
 default hook returns true, if there is no RTL expanders for them.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_GOACC_LOCK_UNLOCK (gimple_stmt_iterator *@var{}, @var{gimple}, const @var{int[]}, @var{bool})
+This hook should convert IFN_GOACC_LOCK and IFN_GOACC_UNLOCK function
+calls to target-specific gimple.  It is executed during the oacc_xform
+pass.  It should return true, if the functions should be deleted.  The
+default hook returns true, if there is no RTL expanders for them.
+@end deftypefn
+
 @node Anchored Addresses
 @section Anchored Addresses
 @cindex anchored addresses

@@ -1670,6 +1670,15 @@ default hook returns true, if there is no RTL expanders for them.",
 bool, (gimple_stmt_iterator *, gimple, const int[], bool),
 default_goacc_fork_join)
 
+DEFHOOK
+(lock_unlock,
+"This hook should convert IFN_GOACC_LOCK and IFN_GOACC_UNLOCK function\n\
+calls to target-specific gimple.  It is executed during the oacc_xform\n\
+pass.  It should return true, if the functions should be deleted.  The\n\
+default hook returns true, if there is no RTL expanders for them.",
+bool, (gimple_stmt_iterator *, gimple, const int[], bool),
+default_goacc_lock_unlock)
+
 HOOK_VECTOR_END (goacc)
 
 /* Functions relating to vectorization.  */
