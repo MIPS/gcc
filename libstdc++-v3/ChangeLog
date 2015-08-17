@@ -1,3 +1,140 @@
+2015-08-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/any (any::operator=(const any&)): Move check
+	for self-assignment.
+	(any::operator=(any&&)): Add check for self-assignment.
+	(any::operator=(_ValueType&&)): Constrain template argument.
+	(any::swap(any&)): Add check for self-swap.
+	* testsuite/experimental/any/assign/self.cc: Test move and swap.
+	* testsuite/experimental/any/misc/any_cast_neg.cc: Update dg-error.
+
+2015-08-14  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/array: Add feature-test macro.
+	* testsuite/experimental/array/neg.cc: Update dg-error.
+
+2015-08-13  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	* testsuite/experimental/array/neg.s: Remove.
+	* testsuite/experimental/array/neg.ii.gz: Remove.
+
+2015-08-13  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement std::experimental::fundamentals_v2::make_array and
+	std::experimental::fundamentals_v2::to_array.
+	* include/Makefile.am: Add array.
+	* include/Makefile.in: Add array.
+	* include/experimental/array: New.
+	* testsuite/experimental/array/make_array.cc: Likewise.
+	* testsuite/experimental/array/neg.cc: Likewise.
+	* doc/html/manual/status.html: Mark make_array as Y.
+	* doc/xml/manual/status_cxx2017.xml: Likewise.
+
+2015-08-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/alloc_traits.h: Add feature-test macro.
+	* include/bits/allocator.h: Likewise.
+	* include/bits/range_access.h: Likewise.
+	* include/bits/stl_map.h: Likewise.
+	* include/bits/unordered_map.h: Likewise.
+
+2015-08-13  Jonathan Wakely  <jwakely@redhat.com>
+
+	* testsuite/30_threads/mutex/unlock/2.cc: New.
+	* testsuite/30_threads/recursive_mutex/unlock/2.cc: New.
+	* testsuite/30_threads/recursive_timed_mutex/unlock/2.cc: New.
+	* testsuite/30_threads/shared_mutex/unlock/1.cc: New.
+	* testsuite/30_threads/shared_timed_mutex/unlock/1.cc: New.
+	* testsuite/30_threads/timed_mutex/unlock/2.cc: New.
+
+2015-08-13  Eelis van der Weegen  <eelis@eelis.net>
+
+	* include/std/shared_mutex (shared_mutex::unlock()): Fix typo.
+
+2015-08-12  Caroline Tice <cmtice@google.com>
+
+	PR 66521, Contributed by Eric Gallager
+	* acinclude.m4 (VTV_CXXLINKFLAGS): Make this variable OS-specific, and
+	fix the rpath flag to work properly for darwin.
+	* configure: Regenerated.
+
+2015-08-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/appendix_contributing.xml: Update patch email policy.
+	* doc/xml/manual/status_cxx2017.xml: Update status table.
+	* doc/html/manual/*: Regenerate.
+
+2015-08-09  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement N4279, Improved insertion interface for unique-key maps.
+	* include/bits/stl_map.h (try_emplace, insert_or_assign): New.
+	* include/bits/stl_tree.h (_M_get_insert_unique_pos,
+	_M_get_insert_equal_pos, _M_get_insert_hint_unique_pos,
+	_M_get_insert_hint_equal_pos): Make public.
+	* include/bits/unordered_map.h (try_emplace, insert_or_assign): New.
+	* testsuite/23_containers/map/modifiers/insert_or_assign/1.cc:
+	Likewise.
+	* testsuite/23_containers/map/modifiers/try_emplace/1.cc: Likewise.
+	* testsuite/23_containers/unordered_map/modifiers/insert_or_assign.cc:
+	Likewise.
+	* testsuite/23_containers/unordered_map/modifiers/try_emplace.cc:
+	Likewise.
+
+2015-08-08  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement N4089 Safe conversions in unique_ptr<T[]> (LWG 2118)
+	and N4366 LWG 2228: Missing SFINAE rule in unique_ptr
+	templated assignment
+	* include/bits/unique_ptr.h
+	(__remove_cv, __is_derived_Tp): Remove.
+	(default_delete::default_delete(const default_delete<_Up[]>)):
+	Constrain with array convertibility.
+	(default_delete::operator(_Up*)): Turn into a template,
+	constrain with array convertibility.
+	(__safe_conversion_up): New, single object version.
+	(unique_ptr(unique_ptr<_Up, _Ep>&&)): Constrain with deleter
+	convertibility.
+	(unique_ptr::operator=(unique_ptr<_Up, _Ep>&&)): Likewise, and add
+	is_assignable as a constraint.
+	(__safe_conversion_up): Array version, renamed from __safe_conversion,
+	updated to implement N4089.
+	(__safe_conversion_raw): New.
+	(unique_ptr(_Up)): Turn into a template, constrain with array
+	convertibility.
+	(unique_ptr(_Up,
+	typename conditional<is_reference<deleter_type>::value,
+	deleter_type, const deleter_type&>::type)): Likewise.
+	(unique_ptr(_Up, typename
+	remove_reference<deleter_type>::type&&)): Likewise.
+	(unique_ptr(unique_ptr<_Up, _Ep>&&)): Likewise.
+	(operator=(unique_ptr<_Up, _Ep>&&)): Likewise, and add
+	is_assignable as a constraint (array version).
+	(reset(_Up)): Turn into a template, constrain with array
+	convertibility.
+	(reset(nullptr_t)): New.
+	* testsuite/20_util/default_delete/48631_neg.cc: Adjust.
+	* testsuite/20_util/unique_ptr/assign/48635.cc: Likewise.
+	* testsuite/20_util/unique_ptr/assign/48635_neg.cc: Likewise.
+	* testsuite/20_util/unique_ptr/assign/cv_qual.cc: Likewise.
+	* testsuite/20_util/unique_ptr/cons/cv_qual.cc: Likewise.
+	* testsuite/20_util/unique_ptr/dr2228.cc: New.
+	* testsuite/20_util/unique_ptr/modifiers/cv_qual.cc: Adjust.
+
+2015-08-05  Nikolai Bozhenov  <n.bozhenov@samsung.com>
+
+	* testsuite/20_util/enable_shared_from_this/cons/constexpr.cc: Remove
+	redundant -save-temps option.
+	* testsuite/20_util/shared_ptr/cons/constexpr.cc: Likewise.
+	* testsuite/20_util/unique_ptr/cons/constexpr.cc: Likewise.
+	* testsuite/20_util/weak_ptr/cons/constexpr.cc: Likewise.
+	* testsuite/30_threads/future/cons/constexpr.cc: Likewise.
+	* testsuite/30_threads/shared_future/cons/constexpr.cc: Likewise.
+
+2015-08-03  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67078
+	* include/bits/range_access.h (size, empty, data): Fix _N bad name.
+
 2015-07-30  Jonathan Wakely  <jwakely@redhat.com>
 
 	* testsuite/experimental/filesystem/operations/current_path.cc: Use

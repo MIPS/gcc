@@ -55,6 +55,8 @@ along with GCC; see the file COPYING3.  If not see
 (define_operator_list POW10 BUILT_IN_POW10F BUILT_IN_POW10 BUILT_IN_POW10L)
 (define_operator_list SQRT BUILT_IN_SQRTF BUILT_IN_SQRT BUILT_IN_SQRTL)
 (define_operator_list CBRT BUILT_IN_CBRTF BUILT_IN_CBRT BUILT_IN_CBRTL)
+(define_operator_list COS BUILT_IN_COS BUILT_IN_COSL BUILT_IN_COSF)
+(define_operator_list COSH BUILT_IN_COSH BUILT_IN_COSHL BUILT_IN_COSHF)
 
 
 /* Simplifications of operations with one constant operand and
@@ -295,6 +297,21 @@ along with GCC; see the file COPYING3.  If not see
  (mult (trunc_div @0 integer_pow2p@1) @1)
  (if (TYPE_UNSIGNED (TREE_TYPE (@0)))
   (bit_and @0 (negate @1))))
+
+/* Simplify (t * 2) / 2) -> t.  */
+(for div (trunc_div ceil_div floor_div round_div exact_div)
+ (simplify
+  (div (mult @0 @1) @1)
+  (if (ANY_INTEGRAL_TYPE_P (type)
+       && TYPE_OVERFLOW_UNDEFINED (type))
+   @0)))
+
+/* Simplify cos (-x) -> cos (x).  */
+(for op (negate abs)
+(for coss (COS COSH)
+ (simplify
+  (coss (op @0))
+   (coss @0))))
 
 /* X % Y is smaller than Y.  */
 (for cmp (lt ge)
@@ -618,6 +635,11 @@ along with GCC; see the file COPYING3.  If not see
  (simplify
   (op:c truth_valued_p@0 (logical_inverted_value @0))
   { constant_boolean_node (true, type); }))
+/* X ==/!= !X is false/true.  */
+(for op (eq ne)
+ (simplify
+  (op:c truth_valued_p@0 (logical_inverted_value @0))
+  { constant_boolean_node (op == NE_EXPR ? true : false, type); }))
 
 /* If arg1 and arg2 are booleans (or any single bit type)
    then try to simplify:
@@ -945,7 +967,7 @@ along with GCC; see the file COPYING3.  If not see
      (if (low >= prec)
       (if (op == LROTATE_EXPR || op == RROTATE_EXPR)
        (op @0 { build_int_cst (TREE_TYPE (@1), low % prec); })
-       (if (TYPE_UNSIGNED (type) || code == LSHIFT_EXPR)
+       (if (TYPE_UNSIGNED (type) || op == LSHIFT_EXPR)
         { build_zero_cst (type); }
         (op @0 { build_int_cst (TREE_TYPE (@1), prec - 1); })))
       (op @0 { build_int_cst (TREE_TYPE (@1), low); })))))))
@@ -1594,7 +1616,7 @@ along with GCC; see the file COPYING3.  If not see
        tree tem = const_binop (op == PLUS_EXPR ? MINUS_EXPR : PLUS_EXPR,
 			       TREE_TYPE (@1), @2, @1);
      }
-     (if (!TREE_OVERFLOW (tem))
+     (if (tem && !TREE_OVERFLOW (tem))
       (cmp @0 { tem; }))))))
 
  /* Likewise, we can simplify a comparison of a real constant with
@@ -1605,7 +1627,7 @@ along with GCC; see the file COPYING3.  If not see
   (simplify
    (cmp (minus REAL_CST@0 @1) REAL_CST@2)
    (with { tree tem = const_binop (MINUS_EXPR, TREE_TYPE (@1), @0, @2); }
-    (if (!TREE_OVERFLOW (tem))
+    (if (tem && !TREE_OVERFLOW (tem))
      (cmp { tem; } @1)))))
 
  /* Fold comparisons against built-in math functions.  */
@@ -1843,13 +1865,14 @@ along with GCC; see the file COPYING3.  If not see
    (if (base0 && base1)
     (with
      {
-       int equal;
+       int equal = 2;
        if (decl_in_symtab_p (base0)
 	   && decl_in_symtab_p (base1))
          equal = symtab_node::get_create (base0)
 	           ->equal_address_to (symtab_node::get_create (base1));
-       else
-         equal = operand_equal_p (base0, base1, 0);
+       else if ((DECL_P (base0) || TREE_CODE (base0) == SSA_NAME)
+		&& (DECL_P (base1) || TREE_CODE (base1) == SSA_NAME))
+         equal = (base0 == base1);
      }
      (if (equal == 1
 	  && (cmp == EQ_EXPR || cmp == NE_EXPR
@@ -1955,7 +1978,7 @@ along with GCC; see the file COPYING3.  If not see
   (cmp @0 REAL_CST@1)
   (if (REAL_VALUE_ISNAN (TREE_REAL_CST (@1))
        && (cmp != LTGT_EXPR || ! flag_trapping_math))
-   { constant_boolean_node (cmp == ORDERED_EXPR || code == LTGT_EXPR
+   { constant_boolean_node (cmp == ORDERED_EXPR || cmp == LTGT_EXPR
 			    ? false : true, type); })))
 
 /* bool_var != 0 becomes bool_var.  */
@@ -2020,6 +2043,8 @@ along with GCC; see the file COPYING3.  If not see
 	   x = build_real (type, dconst10);
 	 }
          break;
+       default:
+	 gcc_unreachable ();
        }
      }
     (mult (logs { x; }) @0))))
@@ -2042,6 +2067,8 @@ along with GCC; see the file COPYING3.  If not see
          x = build_real (type, real_value_truncate (TYPE_MODE (type),
 						    dconst_third ()));
          break;
+       default:
+	 gcc_unreachable ();
        }
      }
     (mult { x; } (logs @0)))))

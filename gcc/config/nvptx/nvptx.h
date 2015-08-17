@@ -217,12 +217,6 @@ struct nvptx_args {
 #define LEGITIMATE_PIC_OPERAND_P(X) 1
 
 
-struct nvptx_pseudo_info
-{
-  int true_size;
-  int renumber;
-};
-
 #if defined HOST_WIDE_INT
 struct GTY(()) machine_function
 {
@@ -231,7 +225,6 @@ struct GTY(()) machine_function
   tree funtype;
   bool has_call_with_varargs;
   bool has_call_with_sc;
-  struct GTY((skip)) nvptx_pseudo_info *pseudos;
   HOST_WIDE_INT outgoing_stdarg_size;
   int ret_reg_mode;
   int punning_buffer_size;
@@ -346,7 +339,7 @@ struct GTY(()) machine_function
 
 /* Misc.  */
 
-#define DWARF2_DEBUGGING_INFO 1
+#define DWARF2_LINENO_DEBUGGING_INFO 1
 
 #define CLZ_DEFINED_VALUE_AT_ZERO(MODE, VALUE) \
   ((VALUE) = GET_MODE_BITSIZE ((MODE)), 2)

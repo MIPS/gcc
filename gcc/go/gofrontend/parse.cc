@@ -1045,7 +1045,8 @@ Parse::parameter_decl(bool parameters_have_names,
 	    {
 	      *mix_error = true;
 	      while (!this->peek_token()->is_op(OPERATOR_COMMA)
-		     && !this->peek_token()->is_op(OPERATOR_RPAREN))
+		     && !this->peek_token()->is_op(OPERATOR_RPAREN)
+                     && !this->peek_token()->is_eof())
 		this->advance_token();
 	    }
 	}
@@ -2231,9 +2232,11 @@ Parse::function_decl(bool saw_nointerface)
   std::string extern_name = this->lex_->extern_name();
   const Token* token = this->advance_token();
 
+  bool expected_receiver = false;
   Typed_identifier* rec = NULL;
   if (token->is_op(OPERATOR_LPAREN))
     {
+      expected_receiver = true;
       rec = this->receiver();
       token = this->peek_token();
     }
@@ -2304,7 +2307,8 @@ Parse::function_decl(bool saw_nointerface)
     {
       if (named_object == NULL && !Gogo::is_sink_name(name))
 	{
-	  if (fntype == NULL)
+	  if (fntype == NULL
+              || (expected_receiver && rec == NULL))
 	    this->gogo_->add_erroneous_name(name);
 	  else
 	    {

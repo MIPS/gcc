@@ -1927,7 +1927,11 @@ Gogo::declare_function(const std::string& name, Function_type* type,
 	  return ftype->add_method_declaration(name, NULL, type, location);
 	}
       else
-	go_unreachable();
+        {
+          error_at(type->receiver()->location(),
+                   "invalid receiver type (receiver must be a named type)");
+          return Named_object::make_erroneous_name(name);
+        }
     }
 }
 
@@ -7151,7 +7155,7 @@ Named_object::get_backend(Gogo* gogo, std::vector<Bexpression*>& const_decls,
         // still be returned by some function.  Simply calling the
         // type_descriptor method is enough to create the type
         // descriptor, even though we don't do anything with it.
-        if (this->package_ == NULL)
+        if (this->package_ == NULL && !saw_errors())
           {
             named_type->
                 type_descriptor_pointer(gogo, Linemap::predeclared_location());
@@ -7408,16 +7412,10 @@ Bindings::new_definition(Named_object* old_object, Named_object* new_object)
 
     case Named_object::NAMED_OBJECT_FUNC_DECLARATION:
       {
-	Function_type* old_type = old_object->func_declaration_value()->type();
-	if (new_object->is_function_declaration())
-	  {
-	    Function_type* new_type =
-	      new_object->func_declaration_value()->type();
-	    if (old_type->is_valid_redeclaration(new_type, &reason))
-	      return old_object;
-	  }
 	if (new_object->is_function())
 	  {
+            Function_type* old_type =
+                old_object->func_declaration_value()->type();
 	    Function_type* new_type = new_object->func_value()->type();
 	    if (old_type->is_valid_redeclaration(new_type, &reason))
 	      {

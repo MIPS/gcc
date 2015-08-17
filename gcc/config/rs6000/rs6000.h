@@ -1496,6 +1496,8 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_wk,		/* FPR/VSX register for DFmode direct moves. */
   RS6000_CONSTRAINT_wl,		/* FPR register for LFIWAX */
   RS6000_CONSTRAINT_wm,		/* VSX register for direct move */
+  RS6000_CONSTRAINT_wp,		/* VSX reg for IEEE 128-bit fp TFmode. */
+  RS6000_CONSTRAINT_wq,		/* VSX reg for IEEE 128-bit fp KFmode.  */
   RS6000_CONSTRAINT_wr,		/* GPR register if 64-bit  */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
   RS6000_CONSTRAINT_wt,		/* VSX register for TImode */
@@ -1978,7 +1980,7 @@ typedef struct rs6000_args
 				    && ((n) & 1) == 0)
 
 #define EASY_VECTOR_MSB(n,mode)						\
-  (((unsigned HOST_WIDE_INT)n) ==					\
+  ((((unsigned HOST_WIDE_INT) (n)) & GET_MODE_MASK (mode)) ==		\
    ((((unsigned HOST_WIDE_INT)GET_MODE_MASK (mode)) + 1) >> 1))
 
 

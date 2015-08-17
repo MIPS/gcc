@@ -2230,8 +2230,8 @@ char arm_arch_name[] = "__ARM_ARCH_0UNK__";
 
 static const struct arm_fpu_desc all_fpus[] =
 {
-#define ARM_FPU(NAME, MODEL, REV, VFP_REGS, NEON, FP16, CRYPTO) \
-  { NAME, MODEL, REV, VFP_REGS, NEON, FP16, CRYPTO },
+#define ARM_FPU(NAME, MODEL, REV, VFP_REGS, FEATURES) \
+  { NAME, MODEL, REV, VFP_REGS, FEATURES },
 #include "arm-fpus.def"
 #undef ARM_FPU
 };
@@ -10181,7 +10181,7 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
 	{
 	  rtx op0 = XEXP (x, 0);
 
-	  if (GET_CODE (op0) == NEG)
+	  if (GET_CODE (op0) == NEG && !flag_rounding_math)
 	    op0 = XEXP (op0, 0);
 
 	  if (speed_p)
@@ -10255,6 +10255,13 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
       if (TARGET_HARD_FLOAT && GET_MODE_CLASS (mode) == MODE_FLOAT
 	  && (mode == SFmode || !TARGET_VFP_SINGLE))
 	{
+	  if (GET_CODE (XEXP (x, 0)) == MULT)
+	    {
+	      /* VNMUL.  */
+	      *cost = rtx_cost (XEXP (x, 0), mode, NEG, 0, speed_p);
+	      return true;
+	    }
+
 	  if (speed_p)
 	    *cost += extra_cost->fp[mode != SFmode].neg;
 

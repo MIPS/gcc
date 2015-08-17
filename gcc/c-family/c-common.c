@@ -492,6 +492,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__is_literal_type", RID_IS_LITERAL_TYPE, D_CXXONLY },
   { "__is_pod",		RID_IS_POD,	D_CXXONLY },
   { "__is_polymorphic",	RID_IS_POLYMORPHIC, D_CXXONLY },
+  { "__is_same_as",     RID_IS_SAME_AS, D_CXXONLY },
   { "__is_standard_layout", RID_IS_STD_LAYOUT, D_CXXONLY },
   { "__is_trivial",     RID_IS_TRIVIAL, D_CXXONLY },
   { "__is_trivially_assignable", RID_IS_TRIVIALLY_ASSIGNABLE, D_CXXONLY },
@@ -590,6 +591,11 @@ const struct c_common_resword c_common_reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",		RID_WCHAR,	D_CXXONLY },
   { "while",		RID_WHILE,	0 },
+
+  /* Concepts-related keywords */
+  { "concept",		RID_CONCEPT,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
+  { "requires", 	RID_REQUIRES,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
+
   /* These Objective-C keywords are recognized only immediately after
      an '@'.  */
   { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
@@ -12468,9 +12474,10 @@ maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
   if (TYPE_UNSIGNED (type0))
     return false;
 
+  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
+			   + TREE_INT_CST_LOW (op1));
   /* Handle the left-shifting 1 into the sign bit case.  */
-  if (integer_onep (op0)
-      && compare_tree_int (op1, prec0 - 1) == 0)
+  if (min_prec == prec0 + 1)
     {
       /* Never warn for C++14 onwards.  */
       if (cxx_dialect >= cxx14)
@@ -12482,8 +12489,6 @@ maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
 	return true;
     }
 
-  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
-			   + TREE_INT_CST_LOW (op1));
   bool overflowed = min_prec > prec0;
   if (overflowed && c_inhibit_evaluation_warnings == 0)
     warning_at (loc, OPT_Wshift_overflow_,

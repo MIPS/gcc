@@ -1697,7 +1697,38 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
       VERIFY_CONSTANT (ary);
       gcc_unreachable ();
     }
-  if (compare_tree_int (index, len) >= 0)
+
+  i = tree_to_shwi (index);
+  bool found = true;
+  if (TREE_CODE (ary) == CONSTRUCTOR && len
+      && (TREE_CODE (CONSTRUCTOR_ELT (ary, len-1)->index) == RANGE_EXPR
+	  || compare_tree_int (CONSTRUCTOR_ELT (ary, len-1)->index, len-1)))
+    {
+      /* The last element doesn't match its position in the array; this must be
+	 a sparse array from cxx_eval_store_expression.  So iterate.  */
+      found = false;
+      vec<constructor_elt, va_gc> *v = CONSTRUCTOR_ELTS (ary);
+      constructor_elt *e;
+      for (unsigned ix = 0; vec_safe_iterate (v, ix, &e); ++ix)
+	{
+	  if (TREE_CODE (e->index) == RANGE_EXPR)
+	    {
+	      tree lo = TREE_OPERAND (e->index, 0);
+	      tree hi = TREE_OPERAND (e->index, 1);
+	      if (tree_int_cst_le (lo, index) && tree_int_cst_le (index, hi))
+		found = true;
+	    }
+	  else if (tree_int_cst_equal (e->index, index))
+	    found = true;
+	  if (found)
+	    {
+	      i = ix;
+	      break;
+	    }
+	}
+    }
+
+  if (i >= len || !found)
     {
       if (tree_int_cst_lt (index, array_type_nelts_top (TREE_TYPE (ary))))
 	{
@@ -1714,14 +1745,14 @@ cxx_eval_array_reference (const constexpr_ctx *ctx, tree t,
       *non_constant_p = true;
       return t;
     }
-  else if (tree_int_cst_lt (index, integer_zero_node))
+  else if (i < 0)
     {
       if (!ctx->quiet)
 	error ("negative array subscript");
       *non_constant_p = true;
       return t;
     }
-  i = tree_to_shwi (index);
+
   if (TREE_CODE (ary) == CONSTRUCTOR)
     return (*CONSTRUCTOR_ELTS (ary))[i].value;
   else if (elem_nchars == 1)
@@ -3525,6 +3556,25 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 			    non_constant_p, overflow_p, jump_target);
       break;
 
+    case REQUIRES_EXPR:
+      /* It's possible to get a requires-expression in a constant
+         expression. For example:
+
+             template<typename T> concept bool C() {
+               return requires (T t) { t; };
+             }
+
+             template<typename T> requires !C<T>() void f(T);
+
+         Normalization leaves f with the associated constraint
+         '!requires (T t) { ... }' which is not transformed into
+         a constraint.  */
+      if (!processing_template_decl)
+        return evaluate_constraint_expression (t, NULL_TREE);
+      else
+        *non_constant_p = true;
+      return t;
+
     default:
       if (STATEMENT_CODE_P (TREE_CODE (t)))
 	{
@@ -3897,6 +3947,7 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
     case PLACEHOLDER_EXPR:
     case BREAK_STMT:
     case CONTINUE_STMT:
+    case REQUIRES_EXPR:
       return true;
 
     case AGGR_INIT_EXPR:

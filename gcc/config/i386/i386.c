@@ -3285,6 +3285,8 @@ ix86_option_override_internal (bool main_args_p,
    | PTA_FMA | PTA_MOVBE | PTA_HLE)
 #define PTA_BROADWELL \
   (PTA_HASWELL | PTA_ADX | PTA_PRFCHW | PTA_RDSEED)
+#define PTA_SKYLAKE \
+  (PTA_BROADWELL | PTA_CLFLUSHOPT | PTA_XSAVEC | PTA_XSAVES)
 #define PTA_KNL \
   (PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER | PTA_AVX512F | PTA_AVX512CD)
 #define PTA_BONNELL \
@@ -3347,11 +3349,12 @@ ix86_option_override_internal (bool main_args_p,
       {"haswell", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_HASWELL},
       {"core-avx2", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_HASWELL},
       {"broadwell", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_BROADWELL},
+      {"skylake", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_SKYLAKE},
       {"bonnell", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"atom", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"silvermont", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
       {"slm", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
-      {"knl", PROCESSOR_KNL, CPU_KNL, PTA_KNL},
+      {"knl", PROCESSOR_KNL, CPU_SLM, PTA_KNL},
       {"intel", PROCESSOR_INTEL, CPU_SLM, PTA_NEHALEM},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
 	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
@@ -21245,7 +21248,7 @@ ix86_expand_int_movcc (rtx operands[])
       operands[0] = tmp;
 
       /* Recurse to get the constant loaded.  */
-      if (ix86_expand_int_movcc (operands) == 0)
+      if (!ix86_expand_int_movcc (operands))
         return false;
 
       /* Mask in the interesting variable.  */
@@ -31734,9 +31737,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_ROUND, CODE_FOR_roundv4sf2, "__builtin_ia32_roundps_az", IX86_BUILTIN_ROUNDPS_AZ, UNKNOWN, (int) V4SF_FTYPE_V4SF },
   { OPTION_MASK_ISA_ROUND, CODE_FOR_roundv4sf2_sfix, "__builtin_ia32_roundps_az_sfix", IX86_BUILTIN_ROUNDPS_AZ_SFIX, UNKNOWN, (int) V4SI_FTYPE_V4SF },
 
-  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptest, "__builtin_ia32_ptestz128", IX86_BUILTIN_PTESTZ, EQ, (int) INT_FTYPE_V2DI_V2DI_PTEST },
-  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptest, "__builtin_ia32_ptestc128", IX86_BUILTIN_PTESTC, LTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
-  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptest, "__builtin_ia32_ptestnzc128", IX86_BUILTIN_PTESTNZC, GTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
+  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptestv2di, "__builtin_ia32_ptestz128", IX86_BUILTIN_PTESTZ, EQ, (int) INT_FTYPE_V2DI_V2DI_PTEST },
+  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptestv2di, "__builtin_ia32_ptestc128", IX86_BUILTIN_PTESTC, LTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
+  { OPTION_MASK_ISA_ROUND, CODE_FOR_sse4_1_ptestv2di, "__builtin_ia32_ptestnzc128", IX86_BUILTIN_PTESTNZC, GTU, (int) INT_FTYPE_V2DI_V2DI_PTEST },
 
   /* SSE4.2 */
   { OPTION_MASK_ISA_SSE4_2, CODE_FOR_sse4_2_gtv2di3, "__builtin_ia32_pcmpgtq", IX86_BUILTIN_PCMPGTQ, UNKNOWN, (int) V2DI_FTYPE_V2DI_V2DI },
@@ -31892,9 +31895,9 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestzps256", IX86_BUILTIN_VTESTZPS256, EQ, (int) INT_FTYPE_V8SF_V8SF_PTEST },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestcps256", IX86_BUILTIN_VTESTCPS256, LTU, (int) INT_FTYPE_V8SF_V8SF_PTEST },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_vtestps256, "__builtin_ia32_vtestnzcps256", IX86_BUILTIN_VTESTNZCPS256, GTU, (int) INT_FTYPE_V8SF_V8SF_PTEST },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestz256", IX86_BUILTIN_PTESTZ256, EQ, (int) INT_FTYPE_V4DI_V4DI_PTEST },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestc256", IX86_BUILTIN_PTESTC256, LTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptest256, "__builtin_ia32_ptestnzc256", IX86_BUILTIN_PTESTNZC256, GTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptestv4di, "__builtin_ia32_ptestz256", IX86_BUILTIN_PTESTZ256, EQ, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptestv4di, "__builtin_ia32_ptestc256", IX86_BUILTIN_PTESTC256, LTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_ptestv4di, "__builtin_ia32_ptestnzc256", IX86_BUILTIN_PTESTNZC256, GTU, (int) INT_FTYPE_V4DI_V4DI_PTEST },
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskpd256, "__builtin_ia32_movmskpd256", IX86_BUILTIN_MOVMSKPD256, UNKNOWN, (int) INT_FTYPE_V4DF  },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movmskps256, "__builtin_ia32_movmskps256", IX86_BUILTIN_MOVMSKPS256, UNKNOWN, (int) INT_FTYPE_V8SF },
@@ -34574,6 +34577,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
     P_PROC_SSE4_2,
     P_POPCNT,
     P_AES,
+    P_PCLMUL,
     P_AVX,
     P_PROC_AVX,
     P_BMI,
@@ -34612,6 +34616,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       {"sse4.2", P_SSE4_2},
       {"popcnt", P_POPCNT},
       {"aes", P_AES},
+      {"pclmul", P_PCLMUL},
       {"avx", P_AVX},
       {"bmi", P_BMI},
       {"fma4", P_FMA4},
@@ -35600,6 +35605,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     F_BMI,
     F_BMI2,
     F_AES,
+    F_PCLMUL,
     F_MAX
   };
 
@@ -35633,7 +35639,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_AMDFAM15H_BDVER4,
     M_INTEL_COREI7_IVYBRIDGE,
     M_INTEL_COREI7_HASWELL,
-    M_INTEL_COREI7_BROADWELL
+    M_INTEL_COREI7_BROADWELL,
+    M_INTEL_COREI7_SKYLAKE
   };
 
   static struct _arch_names_table
@@ -35655,6 +35662,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"ivybridge", M_INTEL_COREI7_IVYBRIDGE},
       {"haswell", M_INTEL_COREI7_HASWELL},
       {"broadwell", M_INTEL_COREI7_BROADWELL},
+      {"skylake", M_INTEL_COREI7_SKYLAKE},
       {"bonnell", M_INTEL_BONNELL},
       {"silvermont", M_INTEL_SILVERMONT},
       {"knl", M_INTEL_KNL},
@@ -35696,7 +35704,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"avx512f",F_AVX512F},
       {"bmi",    F_BMI},
       {"bmi2",   F_BMI2},
-      {"aes",    F_AES}
+      {"aes",    F_AES},
+      {"pclmul", F_PCLMUL}
     };
 
   tree __processor_model_type = build_processor_model_struct ();
