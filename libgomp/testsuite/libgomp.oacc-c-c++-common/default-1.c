@@ -6,6 +6,8 @@ int
 main (int argc, char **argv)
 {
   float a, b;
+  float c;
+#pragma acc declare create (c)
 
   a = 2.0;
   b = 0.0;
@@ -58,6 +60,29 @@ main (int argc, char **argv)
   }
 
   if (a != 5.0)
+    abort ();
+
+#pragma acc parallel default (none) copy (a)
+  {
+    c = a;
+    a = 1.0;
+    a = a + c;
+  }
+
+  if (a != 6.0)
+    abort ();
+
+#pragma acc data copy (a)
+  {
+#pragma acc parallel default (none)
+    {
+      c = a;
+      a = 1.0;
+      a = a + c;
+    }
+  }
+
+  if (a != 7.0)
     abort ();
 
   return 0;

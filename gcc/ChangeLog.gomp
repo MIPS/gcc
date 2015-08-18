@@ -1,3 +1,13 @@
+2015-08-18  James Norris  <jnorris@codesourcery.com>
+
+	* gimplify.c (enum acc_region_kind): New enum.
+	(gimplify_oacc_declare): New.
+	(gimplify_omp_target_update): Remove handling of OACC_DECLARE.
+	(gimplify_expr): Handle OACC_DECLARE.
+	(gimplify_body): Handle ARK_DECLARE.
+	* tree.def (OACC_DECLARE): Update.
+	* tree.h (OACC_DECLARE_RETURN_CLAUSES): New.
+
 2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.def (lock_unlock): New GOACC hook.

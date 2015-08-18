@@ -5891,8 +5891,7 @@ void
 finish_oacc_declare (gfc_namespace *ns, enum sym_flavor flavor)
 {
   gfc_code *code, *end_c, *code2;
-  gfc_oacc_declare *oc;
-  gfc_omp_clauses *omp_clauses = NULL, *ret_clauses = NULL;
+  gfc_oacc_declare *oc, *new_oc;
   gfc_omp_namelist *n;
   locus where = gfc_current_locus;
 
@@ -5915,204 +5914,109 @@ finish_oacc_declare (gfc_namespace *ns, enum sym_flavor flavor)
 
   for (oc = ns->oacc_declare; oc; oc = oc->next)
     {
+      gfc_omp_clauses *omp_clauses, *ret_clauses;
+
       if (oc->module_var)
 	continue;
 
       if (oc->clauses)
 	{
-	  if (omp_clauses)
-	    {
-	      gfc_omp_namelist *p;
+	   code = XCNEW (gfc_code);
+	   code->op = EXEC_OACC_DECLARE;
+	   code->loc = where;
 
-	      for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
-		p = n;
+	   ret_clauses = NULL;
+	   omp_clauses = oc->clauses;
 
-	      p->next = oc->clauses->lists[OMP_LIST_MAP];
-	    }
-	  else
-	    {
-	      omp_clauses = oc->clauses;
-	    }
+	   for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
+	     {
+		bool ret = false;
+		gfc_omp_map_op new_op;
+
+		switch (n->u.map_op)
+		  {
+		    case OMP_MAP_ALLOC:
+		    case OMP_MAP_FORCE_ALLOC:
+		      new_op = OMP_MAP_FORCE_DEALLOC;
+		      ret = true;
+		      break;
+
+		    case OMP_MAP_DEVICE_RESIDENT:
+		      n->u.map_op = OMP_MAP_FORCE_ALLOC;
+		      new_op = OMP_MAP_FORCE_DEALLOC;
+		      ret = true;
+		      break;
+
+		    case OMP_MAP_FORCE_FROM:
+		      n->u.map_op = OMP_MAP_FORCE_ALLOC;
+		      new_op = OMP_MAP_FORCE_FROM;
+		      ret = true;
+		      break;
+
+		    case OMP_MAP_FORCE_TO:
+		      new_op = OMP_MAP_FORCE_DEALLOC;
+		      ret = true;
+		      break;
+
+		    case OMP_MAP_FORCE_TOFROM:
+		      n->u.map_op = OMP_MAP_FORCE_TO;
+		      new_op = OMP_MAP_FORCE_FROM;
+		      ret = true;
+		      break;
+
+		    case OMP_MAP_FROM:
+		      n->u.map_op = OMP_MAP_FORCE_ALLOC;
+		      new_op = OMP_MAP_FROM;
+		      ret = true;
+		      break;
+
+		    case OMP_MAP_FORCE_DEVICEPTR:
+		    case OMP_MAP_FORCE_PRESENT:
+		    case OMP_MAP_LINK:
+		    case OMP_MAP_TO:
+		      break;
+
+		    case OMP_MAP_TOFROM:
+		      n->u.map_op = OMP_MAP_TO;
+		      new_op = OMP_MAP_FROM;
+		      ret = true;
+		      break;
+
+		    default:
+		      gcc_unreachable ();
+		      break;
+		  }
+
+		if (ret)
+		  {
+		    gfc_omp_namelist *new_n;
+
+		    new_n = gfc_get_omp_namelist ();
+		    new_n->sym = n->sym;
+		    new_n->u.map_op = new_op;
+
+		    if (!ret_clauses)
+		      ret_clauses = gfc_get_omp_clauses ();
+
+		    if (ret_clauses->lists[OMP_LIST_MAP])
+		      new_n->next = ret_clauses->lists[OMP_LIST_MAP];
+
+		    ret_clauses->lists[OMP_LIST_MAP] = new_n;
+		    ret = false;
+		  }
+	     }
+
+	   code->ext.oacc_declare = gfc_get_oacc_declare ();
+	   code->ext.oacc_declare->clauses = omp_clauses;
+	   code->ext.oacc_declare->return_clauses = ret_clauses;
+
+	   if (ns->code)
+	     code->next = ns->code;
+	   ns->code = code;
 	}
     }
 
-  while (ns->oacc_declare)
-    {
-      oc = ns->oacc_declare;
-      ns->oacc_declare = oc->next;
-      free (oc);
-    }
-
-  code = XCNEW (gfc_code);
-  code->op = EXEC_OACC_DECLARE;
-  code->loc = where;
-  code->ext.omp_clauses = omp_clauses;
-
-  for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
-    {
-      bool ret = false;
-      gfc_omp_map_op new_op;
-
-      switch (n->u.map_op)
-	{
-	case OMP_MAP_ALLOC:
-	case OMP_MAP_FORCE_ALLOC:
-	  new_op = OMP_MAP_FORCE_DEALLOC;
-	  ret = true;
-	  break;
-
-	case OMP_MAP_DEVICE_RESIDENT:
-	  n->u.map_op = OMP_MAP_FORCE_ALLOC;
-	  new_op = OMP_MAP_FORCE_DEALLOC;
-	  ret = true;
-	  break;
-
-	case OMP_MAP_FORCE_FROM:
-	  n->u.map_op = OMP_MAP_FORCE_ALLOC;
-	  new_op = OMP_MAP_FORCE_FROM;
-	  ret = true;
-	  break;
-
-	case OMP_MAP_FORCE_TO:
-	  new_op = OMP_MAP_FORCE_DEALLOC;
-	  ret = true;
-	  break;
-
-	case OMP_MAP_FORCE_TOFROM:
-	  n->u.map_op = OMP_MAP_FORCE_TO;
-	  new_op = OMP_MAP_FORCE_FROM;
-	  ret = true;
-	  break;
-
-	case OMP_MAP_FROM:
-	  n->u.map_op = OMP_MAP_FORCE_ALLOC;
-	  new_op = OMP_MAP_FROM;
-	  ret = true;
-	  break;
-
-	case OMP_MAP_FORCE_DEVICEPTR:
-	case OMP_MAP_FORCE_PRESENT:
-	case OMP_MAP_LINK:
-	case OMP_MAP_TO:
-	  break;
-
-	case OMP_MAP_TOFROM:
-	  n->u.map_op = OMP_MAP_TO;
-	  new_op = OMP_MAP_FROM;
-	  ret = true;
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	  break;
-	}
-
-      if (ret)
-	{
-	  gfc_omp_namelist *new_n;
-
-	  new_n = gfc_get_omp_namelist ();
-	  new_n->sym = n->sym;
-	  new_n->u.map_op = new_op;
-
-	  if (!ret_clauses)
-	    ret_clauses = gfc_get_omp_clauses ();
-
-	  if (ret_clauses->lists[OMP_LIST_MAP])
-	    new_n->next = ret_clauses->lists[OMP_LIST_MAP];
-
-	  ret_clauses->lists[OMP_LIST_MAP] = new_n;
-	  ret = false;
-	}
-    }
-
-  if (!ret_clauses)
-    {
-      code->next = ns->code;
-      ns->code = code;
-      return;
-    }
-
-  code2 = XCNEW (gfc_code);
-  code2->op = EXEC_OACC_DECLARE;
-  code2->loc = where;
-  code2->ext.omp_clauses = ret_clauses;
-
-  if (ns->code)
-    {
-      find_oacc_return (ns->code);
-
-      if (ns->code->op == EXEC_END_PROCEDURE)
-	{
-	  code2->next = ns->code;
-	  code->next = code2;
-	}
-      else
-	{
-	  end_c = find_end (ns->code);
-	  if (end_c)
-	    {
-	      code2->next = end_c->next;
-	      end_c->next = code2;
-	      code->next = ns->code;
-	    }
-	  else
-	    {
-	      gfc_code *last;
-
-	      last = ns->code;
-
-	      while (last->next)
-		last = last->next;
-
-	      last->next = code2;
-	      code->next = ns->code;
-	    }
-	}
-    }
-  else
-    {
-      code->next = code2;
-    }
-
-  while (oacc_returns)
-    {
-      struct oacc_return *r;
-
-      r = oacc_returns;
-
-      ret_clauses = gfc_get_omp_clauses ();
-
-      for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
-	{
-	  if (n->u.map_op == OMP_MAP_FORCE_ALLOC
-	      || n->u.map_op == OMP_MAP_FORCE_TO)
-	    {
-	      gfc_omp_namelist *new_n;
-
-	      new_n = gfc_get_omp_namelist ();
-	      new_n->sym = n->sym;
-	      new_n->u.map_op = OMP_MAP_FORCE_DEALLOC;
-
-	      if (ret_clauses->lists[OMP_LIST_MAP])
-		new_n->next = ret_clauses->lists[OMP_LIST_MAP];
-
-	      ret_clauses->lists[OMP_LIST_MAP] = new_n;
-	    }
-	}
-
-      code2 = XCNEW (gfc_code);
-      code2->op = EXEC_OACC_DECLARE;
-      code2->loc = where;
-      code2->ext.omp_clauses = ret_clauses;
-      code2->next = r->code->next;
-      r->code->next = code2;
-
-      oacc_returns = r->next;
-      free (r);
-    }
-
-    ns->code = code;
+  return;
 }
 
 

@@ -1287,6 +1287,7 @@ typedef struct gfc_oacc_declare
   locus where;
   bool module_var;
   gfc_omp_clauses *clauses;
+  gfc_omp_clauses *return_clauses;
 }
 gfc_oacc_declare;
 #define gfc_get_oacc_declare() XCNEW (gfc_oacc_declare)

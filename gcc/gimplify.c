@@ -133,7 +133,8 @@ enum acc_region_kind
 {
   ARK_GENERAL,  /* Default used for data, etc. regions.  */
   ARK_PARALLEL, /* Parallel construct.  */
-  ARK_KERNELS   /* Kernels construct.  */
+  ARK_KERNELS,  /* Kernels construct.  */
+  ARK_DECLARE   /* Declare directive.  */
 };
 
 /* Gimplify hashtable helper.  */
@@ -177,6 +178,7 @@ struct gimplify_omp_ctx
   enum acc_region_kind acc_region_kind;
   bool combined_loop;
   bool distribute;
+  gomp_target *stmt;
 };
 
 static struct gimplify_ctx *gimplify_ctxp;
@@ -7107,6 +7109,61 @@ gimplify_oacc_cache (tree *expr_p, gimple_seq *pre_p)
   *expr_p = NULL_TREE;
 }
 
+/* Gimplify OACC_DECLARE.  */
+
+static void
+gimplify_oacc_declare (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gomp_target *stmt;
+  tree clauses, t;
+
+  clauses = OACC_DECLARE_CLAUSES (expr);
+
+  gimplify_scan_omp_clauses (&clauses, pre_p, ORT_TARGET_DATA, ORK_OACC);
+
+  gimplify_omp_ctxp->acc_region_kind = ARK_DECLARE;
+  gimplify_omp_ctxp->stmt = NULL;
+
+  for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
+    {
+      tree attrs, decl = OMP_CLAUSE_DECL (t);
+
+      if (TREE_CODE (decl) == MEM_REF)
+	continue;
+
+      omp_add_variable (gimplify_omp_ctxp, decl, GOVD_SEEN);
+
+      attrs = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
+      if (attrs)
+	DECL_ATTRIBUTES (decl) = remove_attribute ("oacc declare", attrs);
+    }
+
+  stmt = gimple_build_omp_target (NULL, GF_OMP_TARGET_KIND_OACC_DECLARE,
+				  clauses);
+
+  gimplify_seq_add_stmt (pre_p, stmt);
+
+  clauses = OACC_DECLARE_RETURN_CLAUSES (expr);
+
+  if (clauses)
+    {
+      struct gimplify_omp_ctx *c;
+
+      gimplify_scan_omp_clauses (&clauses, pre_p, ORT_TARGET_DATA, ORK_OACC);
+
+      c = gimplify_omp_ctxp;
+      gimplify_omp_ctxp = c->outer_context;
+      delete_omp_context (c);
+
+      stmt = gimple_build_omp_target (NULL, GF_OMP_TARGET_KIND_OACC_DECLARE,
+				      clauses);
+      gimplify_omp_ctxp->stmt = stmt;
+    }
+
+  *expr_p = NULL_TREE;
+}
+
 static tree
 gimplify_oacc_host_data_1 (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 {
@@ -7935,10 +7992,6 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 
   switch (TREE_CODE (expr))
     {
-    case OACC_DECLARE:
-      kind = GF_OMP_TARGET_KIND_OACC_DECLARE;
-      ork = ORK_OACC;
-      break;
     case OACC_ENTER_DATA:
       kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
       ork = ORK_OACC;
@@ -8916,6 +8969,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OACC_HOST_DATA:
 	  ret = gimplify_oacc_host_data (expr_p, pre_p);
 	  break;
+
+	case OACC_DECLARE:
+	  gimplify_oacc_declare (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
 	  
 	case OACC_KERNELS:
 	case OACC_PARALLEL:
@@ -8929,7 +8987,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case OACC_DECLARE:
 	case OACC_ENTER_DATA:
 	case OACC_EXIT_DATA:
 	case OACC_UPDATE:
@@ -9568,6 +9625,25 @@ gimplify_body (tree fndecl, bool do_parms)
     {
       outer_stmt = gimple_build_nop ();
       gimplify_seq_add_stmt (&seq, outer_stmt);
+    }
+
+   if (flag_openacc && gimplify_omp_ctxp)
+    {
+      while (gimplify_omp_ctxp)
+	{
+	  struct gimplify_omp_ctx *c;
+
+	  if (gimplify_omp_ctxp->acc_region_kind == ARK_DECLARE
+	      && gimplify_omp_ctxp->stmt)
+	    {
+	      gimplify_seq_add_stmt (&seq, gimplify_omp_ctxp->stmt);
+	      gimplify_omp_ctxp->stmt = NULL;
+	    }
+
+	  c = gimplify_omp_ctxp;
+	  gimplify_omp_ctxp = c->outer_context;
+	  delete_omp_context (c);
+	}
     }
 
   /* The body must contain exactly one statement, a GIMPLE_BIND.  If this is

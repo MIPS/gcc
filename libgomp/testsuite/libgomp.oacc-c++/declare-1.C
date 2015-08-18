@@ -1,3 +1,4 @@
+/* { dg-do run { target openacc_nvidia_accel_selected } } */
 
 template<class T>
 T foo()

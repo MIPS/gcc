@@ -1,3 +1,9 @@
+2015-08-18  James Norris  <jnorris@codesourcery.com>
+
+	* gfortran.h (struct gfc_oacc_declare): New field.
+	* trans-decl.c (finish_oacc_declare): Rewrite.
+	* trans-openmp.c (gfc_trans_oacc_declare): Rewrite.
+
 2015-08-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	*  f95-lang.c (gfc_attribs): oacc function attribute can take

@@ -4448,7 +4448,7 @@ tree
 gfc_trans_oacc_declare (gfc_code *code)
 {
   stmtblock_t block;
-  tree stmt, oacc_clauses;
+  tree stmt, c1, c2;
   enum tree_code construct_code;
 
   gfc_start_block (&block);
@@ -4456,11 +4456,15 @@ gfc_trans_oacc_declare (gfc_code *code)
   construct_code = OACC_DECLARE;
 
   gfc_start_block (&block);
-  oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
-					code->loc);
-  stmt = build1_loc (input_location, construct_code, void_type_node,
-		     oacc_clauses);
+  c1 = gfc_trans_omp_clauses (&block, code->ext.oacc_declare->clauses,
+			      code->loc);
+
+  c2 = gfc_trans_omp_clauses (&block, code->ext.oacc_declare->return_clauses,
+			      code->loc);
+
+  stmt = build2_loc (input_location, construct_code, void_type_node, c1, c2);
   gfc_add_expr_to_block (&block, stmt);
+
   return gfc_finish_block (&block);
 }
 

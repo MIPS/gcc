@@ -1,3 +1,10 @@
+2015-08-18  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c++/declare-1.C: Update.
+	* testsuite/libgomp.oacc-c-c++-common/default-1: Additional testing.
+	* testsuite/libgomp.oacc-fortran/declare-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/default-1.f90: Likewise.
+
 2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/routine-1.c: Avoid

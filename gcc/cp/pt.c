@@ -14418,6 +14418,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	       integral_constant_expression_p)
 
   tree stmt, tmp;
+tree s;
   tree r;
   location_t loc;
 
@@ -14907,8 +14908,18 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       add_stmt (t);
       break;
 
-    case OMP_TARGET_UPDATE:
     case OACC_DECLARE:
+      t = copy_node (t);
+      tmp = tsubst_omp_clauses (OACC_DECLARE_CLAUSES (t), false,
+				args, complain, in_decl);
+      OACC_DECLARE_CLAUSES (t) = tmp;
+      tmp = tsubst_omp_clauses (OACC_DECLARE_RETURN_CLAUSES (t), false,
+				args, complain, in_decl);
+      OACC_DECLARE_RETURN_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
+    case OMP_TARGET_UPDATE:
     case OACC_ENTER_DATA:
     case OACC_EXIT_DATA:
     case OACC_UPDATE:

@@ -104,13 +104,11 @@ subroutine subr2 (a, b, c)
 
 end subroutine
 
-subroutine subr1 (a, b, c)
+subroutine subr1 (a)
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
   !$acc declare present (a)
-  integer :: b(N)
-  integer :: c(N)
 
   i = 0
 
@@ -144,7 +142,7 @@ subroutine subr0 (a, b, c, d)
   call test (b, .false.)
   call test (c, .false.)
 
-  call subr1 (a, b, c)
+  call subr1 (a)
 
   call test (a, .true.)
   call test (b, .false.)

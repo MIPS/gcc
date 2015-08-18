@@ -33083,11 +33083,13 @@ static int oacc_dcl_idx = 0;
 static tree
 cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree clauses;
+  tree c, clauses, ret_clauses, stmt, t;
   bool error = false;
+
 
   clauses = cp_parser_oacc_all_clauses (parser, OACC_DECLARE_CLAUSE_MASK,
 					"#pragma acc declare", pragma_tok);
+
 
   if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
     {
@@ -33162,58 +33164,26 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	  break;
 	}
 
-      /* Store the clause in an attribute on the variable, at file
-	 scope, or the function, at block scope.  */
-      tree decl_for_attr;
-      if (global_bindings_p ())
-	{
-	  decl_for_attr = decl;
-	  tree prev_attr = lookup_attribute ("oacc declare",
+      tree decl_for_attr = decl;
+      tree prev_attr = lookup_attribute ("oacc declare",
 					     DECL_ATTRIBUTES (decl));
-	  if (prev_attr)
-	    {
-	      tree p = TREE_VALUE (prev_attr);
-	      tree cl = TREE_VALUE (p);
-
-	      if (!devres
-		  && OMP_CLAUSE_MAP_KIND (cl) != GOMP_MAP_DEVICE_RESIDENT)
-		{
-		  error_at (loc,
-			    "variable %qD used more than once with "
-			    "%<#pragma acc declare%>", decl);
-		  inform (OMP_CLAUSE_LOCATION (TREE_VALUE (p)),
-			  "previous directive was here");
-		  error = true;
-		  continue;
-		}
-	    }
-	}
-      else
+      if (prev_attr)
 	{
-	  decl_for_attr = current_function_decl;
-	  tree prev_attr = lookup_attribute ("oacc declare",
-					     DECL_ATTRIBUTES (decl_for_attr));
-	  for (;
-	       prev_attr;
-	       prev_attr = lookup_attribute ("oacc declare",
-					     TREE_CHAIN (prev_attr)))
+	  tree p = TREE_VALUE (prev_attr);
+	  tree cl = TREE_VALUE (p);
+
+	  if (!devres && OMP_CLAUSE_MAP_KIND (cl) != GOMP_MAP_DEVICE_RESIDENT)
 	    {
-	      tree p = TREE_VALUE (prev_attr);
-	      tree cl = TREE_VALUE (p);
-	      if (OMP_CLAUSE_DECL (cl) == decl)
-		{
-		  error_at (loc,
-			    "variable %qD used more than once with "
-			    "%<#pragma acc declare%>", decl);
-		  inform (OMP_CLAUSE_LOCATION (cl),
-			  "previous directive was here");
-		  error = true;
-		  break;
-		}
+	      error_at (loc, "variable %qD used more than once with "
+			"%<#pragma acc declare%>", decl);
+	      inform (OMP_CLAUSE_LOCATION (TREE_VALUE (p)),
+		      "previous directive was here");
+	      error = true;
+	      continue;
 	    }
 	}
 
-      if (!error)
+      if (!error && global_bindings_p ())
 	{
 	  tree attr = tree_cons (NULL_TREE, t, NULL_TREE);
 	  tree attrs = tree_cons (get_identifier ("oacc declare"),
@@ -33224,6 +33194,76 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 
   if (error)
     return NULL_TREE;
+
+  ret_clauses = NULL_TREE;
+
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      bool ret = false;
+      HOST_WIDE_INT kind, new_op;
+
+      kind = OMP_CLAUSE_MAP_KIND (c);
+
+      switch (kind)
+	{
+	  case GOMP_MAP_ALLOC:
+	  case GOMP_MAP_FORCE_ALLOC:
+	  case GOMP_MAP_FORCE_TO:
+	    new_op = GOMP_MAP_FORCE_DEALLOC;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FORCE_FROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
+	    new_op = GOMP_MAP_FORCE_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FORCE_TOFROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_TO);
+	    new_op = GOMP_MAP_FORCE_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_FROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
+	    new_op = GOMP_MAP_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_TOFROM:
+	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TO);
+	    new_op = GOMP_MAP_FROM;
+	    ret = true;
+	    break;
+
+	  case GOMP_MAP_DEVICE_RESIDENT:
+	  case GOMP_MAP_FORCE_DEVICEPTR:
+	  case GOMP_MAP_FORCE_PRESENT:
+	  case GOMP_MAP_POINTER:
+	  case GOMP_MAP_TO:
+	    break;
+
+	  case GOMP_MAP_LINK:
+	    continue;
+
+	  default:
+	    gcc_unreachable ();
+	    break;
+	}
+
+      if (ret)
+	{
+	  t = copy_node (c);
+
+	  OMP_CLAUSE_SET_MAP_KIND (t, new_op);
+
+	  if (ret_clauses)
+	    OMP_CLAUSE_CHAIN (t) = ret_clauses;
+
+	  ret_clauses = t;
+	}
+    }
 
   if (global_bindings_p ())
     {
@@ -33279,6 +33319,16 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
       finish_compound_stmt (f);
       expand_or_defer_fn (finish_function (0));
       obstack_free (&declarator_obstack, p);
+    }
+  else
+    {
+      stmt = make_node (OACC_DECLARE);
+      TREE_TYPE (stmt) = void_type_node;
+      OACC_DECLARE_CLAUSES (stmt) = clauses;
+      OACC_DECLARE_RETURN_CLAUSES (stmt) = ret_clauses;
+      SET_EXPR_LOCATION (stmt, pragma_tok->location);
+
+      add_stmt (stmt);
     }
 
   return NULL_TREE;

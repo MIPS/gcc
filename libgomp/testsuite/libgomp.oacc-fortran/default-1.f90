@@ -3,6 +3,8 @@
 program main
   implicit none
   real a, b
+  real c
+  !$acc declare create (c)
 
   a = 2.0
   b = 0.0
@@ -30,5 +32,23 @@ program main
   !$acc end parallel
 
   if (a .ne. 5.0) call abort
+
+  !$acc parallel default (none) copy (a)
+    c = a
+    a = 1.0
+    a = a + c
+  !$acc end parallel
+
+  if (a .ne. 6.0) call abort
+
+  !$acc data copy (a)
+  !$acc parallel default (none)
+    c = a
+    a = 1.0
+    a = a + c
+  !$acc end parallel
+  !$acc end data
+
+  if (a .ne. 7.0) call abort
 
 end program main

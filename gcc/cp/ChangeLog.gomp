@@ -1,3 +1,11 @@
+2015-08-18  James Norris  <jnorris@codesourcery.com>
+
+	* decl.c (check_oacc_vars_1, check_oacc_vars, struct oacc_return,
+	find_oacc_return, finish_oacc_declare): Remove.
+	(finish_function): Remove call.
+	* parser.c (cp_parser_oacc_declare): Rewrite.
+	* pt.c (tsubst_expr): Handle OACC_DECLARE:
+
 2015-08-17  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* parser.c (cp_parser_finish_oacc_routine): Adjust to match
