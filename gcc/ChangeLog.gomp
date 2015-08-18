@@ -1,5 +1,12 @@
 2015-08-18  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (oacc_xform_on_device): Lose GSI parameter & adjust.
+	(oacc_xform_dim): Likewise.
+	(execute_oacc_transform): Adjust calls to oacc_xform_on_device and
+	oacc_xform_dim.  Insert breaks.
+
+2015-08-18  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* target.def  (GOACC_FORK_JOIN, GOACC_LOCK_UNLOCK): Remove GSI
 	parameter. 
 	* targhooks.h (default_goacc_fork_join,

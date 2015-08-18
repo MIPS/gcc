@@ -14599,7 +14599,7 @@ make_pass_late_lower_omp (gcc::context *ctxt)
    offloaded function we're never 'none'.  */
 
 static void
-oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)
+oacc_xform_on_device (gimple stmt)
 {
   tree arg = gimple_call_arg (stmt, 0);
   unsigned val = GOMP_DEVICE_HOST;
@@ -14624,15 +14624,16 @@ oacc_xform_on_device (gimple_stmt_iterator *gsi, gimple stmt)
   push_gimplify_context (true);
   gimplify_assign (lhs, result, &replace);
   pop_gimplify_context (NULL);
-  gsi_replace_with_seq (gsi, replace, false);
+
+  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+  gsi_replace (&gsi, replace, false);
 }
 
 /* Transform oacc_dim_size and oacc_dim_pos internal function calls to
    constants, where possible.  */
 
 static void
-oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
-		const int dims[], bool is_pos)
+oacc_xform_dim (gimple stmt, const int dims[], bool is_pos)
 {
   tree arg = gimple_call_arg (stmt, 0);
   unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
@@ -14654,7 +14655,9 @@ oacc_xform_dim (gimple_stmt_iterator *gsi, gimple stmt,
   tree lhs = gimple_call_lhs (stmt);
   gimple g = gimple_build_assign
     (lhs, build_int_cst (integer_type_node, size));
-  gsi_replace (gsi, g, false);
+
+  gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
+  gsi_replace (&gsi, g, false);
 }
 
 /* Main entry point for oacc transformations which run on the device
@@ -14733,7 +14736,11 @@ execute_oacc_transform ()
 	else if (gimple_call_builtin_p (stmt, BUILT_IN_ACC_ON_DEVICE))
 	  /* acc_on_device must be evaluated at compile time for
 	     constant arguments.  */
-	  oacc_xform_on_device (&gsi, stmt);
+	  {
+	    gsi_next (&gsi);
+	    oacc_xform_on_device (stmt);
+	    continue;
+	  }
 	else if (gimple_call_internal_p (stmt))
 	  {
 	    unsigned ifn_code = gimple_call_internal_fn (stmt);
@@ -14743,15 +14750,16 @@ execute_oacc_transform ()
 
 	      case IFN_GOACC_DIM_POS:
 	      case IFN_GOACC_DIM_SIZE:
-		oacc_xform_dim (&gsi, stmt, dims,
-				ifn_code == IFN_GOACC_DIM_POS);
-		break;
+		gsi_next (&gsi);
+		oacc_xform_dim (stmt, dims, ifn_code == IFN_GOACC_DIM_POS);
+		continue;
 
 	      case IFN_GOACC_LOCK:
 	      case IFN_GOACC_UNLOCK:
 		if (targetm.goacc.lock_unlock
 		    (stmt, dims, ifn_code == IFN_GOACC_LOCK))
 		  goto remove;
+		break;
 
 	      case IFN_GOACC_FORK:
 	      case IFN_GOACC_JOIN:
@@ -14765,6 +14773,7 @@ execute_oacc_transform ()
 		    /* Removal will have advanced the iterator.  */
 		    continue;
 		  }
+		break;
 	      }
 	  }
 	gsi_next (&gsi);
