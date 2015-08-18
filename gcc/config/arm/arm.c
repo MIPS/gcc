@@ -2230,8 +2230,8 @@ char arm_arch_name[] = "__ARM_ARCH_0UNK__";
 
 static const struct arm_fpu_desc all_fpus[] =
 {
-#define ARM_FPU(NAME, MODEL, REV, VFP_REGS, NEON, FP16, CRYPTO) \
-  { NAME, MODEL, REV, VFP_REGS, NEON, FP16, CRYPTO },
+#define ARM_FPU(NAME, MODEL, REV, VFP_REGS, FEATURES) \
+  { NAME, MODEL, REV, VFP_REGS, FEATURES },
 #include "arm-fpus.def"
 #undef ARM_FPU
 };
@@ -12836,7 +12836,7 @@ neon_const_bounds (rtx operand, HOST_WIDE_INT low, HOST_WIDE_INT high)
 HOST_WIDE_INT
 neon_element_bits (machine_mode mode)
 {
-  return GET_MODE_BITSIZE (GET_MODE_INNER (mode));
+  return GET_MODE_UNIT_BITSIZE (mode);
 }
 
 
@@ -14412,7 +14412,10 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
 				srcoffset + j * UNITS_PER_WORD - src_autoinc);
 	  mem = adjust_automodify_address (srcbase, SImode, addr,
 					   srcoffset + j * UNITS_PER_WORD);
-	  emit_insn (gen_unaligned_loadsi (regs[j], mem));
+	  if (src_aligned)
+	    emit_move_insn (regs[j], mem);
+	  else
+	    emit_insn (gen_unaligned_loadsi (regs[j], mem));
 	}
       srcoffset += words * UNITS_PER_WORD;
     }
@@ -14431,7 +14434,10 @@ arm_block_move_unaligned_straight (rtx dstbase, rtx srcbase,
 				dstoffset + j * UNITS_PER_WORD - dst_autoinc);
 	  mem = adjust_automodify_address (dstbase, SImode, addr,
 					   dstoffset + j * UNITS_PER_WORD);
-	  emit_insn (gen_unaligned_storesi (mem, regs[j]));
+	  if (dst_aligned)
+	    emit_move_insn (mem, regs[j]);
+	  else
+	    emit_insn (gen_unaligned_storesi (mem, regs[j]));
 	}
       dstoffset += words * UNITS_PER_WORD;
     }

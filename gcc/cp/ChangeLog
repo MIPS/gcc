@@ -1,3 +1,41 @@
+2015-08-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67244
+	* pt.c (tsubst_copy_and_build): Call insert_pending_capture_proxies.
+
+	PR c++/67104
+	* constexpr.c (array_index_cmp, find_array_ctor_elt): New.
+	(cxx_eval_array_reference, cxx_eval_store_expression): Use them.
+
+	* constexpr.c (cxx_eval_store_expression): Don't set
+	CONSTRUCTOR_NO_IMPLICIT_ZERO if we have an enclosing CONSTRUCTOR
+	without it.
+	(cxx_eval_array_reference): Check it.
+
+	* except.c (check_noexcept_r): Assert that fn is POINTER_TYPE_P.
+
+2015-08-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65974
+	* decl2.c (mark_vtable_entries): Suppress -Wdeprecated.
+
+2015-08-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67104
+	* constexpr.c (cxx_eval_array_reference): Fix typo.
+
+	PR c++/67104
+	* constexpr.c (cxx_eval_array_reference): Handle sparse
+	CONSTRUCTORs.
+
+	PR c++/67108
+	* decl2.c (c_parse_final_cleanups): Set at_eof to 2 at end.
+	* error.c (dump_template_bindings): Don't tsubst in that case.
+
+	PR c++/67161
+	* error.c (dump_decl) [TEMPLATE_ID_EXPR]: Pass
+	TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS.
+
 2015-08-08  Jason Merrill  <jason@redhat.com>
 
 	PR c++/67152

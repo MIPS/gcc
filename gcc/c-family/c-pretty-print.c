@@ -173,7 +173,6 @@ void
 pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
 {
   const char *p = pp_last_position_in_text (pp);
-  bool previous = false;
 
   if (!qualifiers)
     return;
@@ -185,58 +184,20 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
     pp_c_whitespace (pp);
 
   if (qualifiers & TYPE_QUAL_ATOMIC)
-    {
-      pp_c_ws_string (pp, "_Atomic");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, "_Atomic");
   if (qualifiers & TYPE_QUAL_CONST)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
   if (qualifiers & TYPE_QUAL_VOLATILE)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, func_type ? "__attribute__((noreturn))" : "volatile");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, func_type ? "__attribute__((noreturn))" : "volatile");
   if (qualifiers & TYPE_QUAL_RESTRICT)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, (flag_isoc99 && !c_dialect_cxx ()
-			   ? "restrict" : "__restrict__"));
-    }
-
+    pp_c_ws_string (pp, (flag_isoc99 && !c_dialect_cxx ()
+			 ? "restrict" : "__restrict__"));
   if (qualifiers & TYPE_QUAL_UPC_RELAXED)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, "relaxed");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, "relaxed");
   if (qualifiers & TYPE_QUAL_UPC_STRICT)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, "strict");
-      previous = true;
-    }
-
+    pp_c_ws_string (pp, "strict");
   if (qualifiers & TYPE_QUAL_UPC_SHARED)
-    {
-      if (previous)
-        pp_c_whitespace (pp);
-      pp_c_ws_string (pp, "shared");
-      previous = true;
-    }
+    pp_c_ws_string (pp, "shared");
 
 }
 

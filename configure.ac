@@ -530,7 +530,7 @@ if test x$enable_static_libjava != xyes ; then
 fi
 AC_SUBST(EXTRA_CONFIGARGS_LIBJAVA)
 
-posix_based_os="yes"
+posix_like_os="yes"
 case "${target}" in
     *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
 	;;
@@ -540,19 +540,21 @@ case "${target}" in
 	;;
     *-*-darwin* | *-*-aix*)
 	;;
+    nvptx*-*-*)
+	;;
     *)
-    posix_based_os="no"
+    posix_like_os="no"
     ;;
 esac
 
 # Enable libgomp by default on POSIX hosted systems.
-if test x$enable_libgomp = x -a $posix_based_os = "no" ; then
+if test x$enable_libgomp = x && test $posix_like_os = "no" ; then
     # Disable libgomp on non POSIX hosted systems.
     noconfigdirs="$noconfigdirs target-libgomp"
 fi
 
 # Enable libgupc by default on POSIX hosted systems.
-if test x$enable_libgupc = x -a $posix_based_os = "no" ; then
+if test x$enable_libgupc = x && test $posix_like_os = "no" ; then
     # Disable libgupc on non POSIX hosted systems.
     noconfigdirs="$noconfigdirs target-libgupc"
 fi
@@ -1267,7 +1269,6 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gdb"
     ;;
   nvptx*-*-*)
-    # nvptx is just a compiler
     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"
     ;;
   or1k*-*-*)
@@ -1709,18 +1710,6 @@ AC_SUBST(extra_mpc_gmp_configure_flags)
 AC_SUBST(extra_mpc_mpfr_configure_flags)
 AC_SUBST(extra_isl_gmp_configure_flags)
 
-# Allow host libstdc++ to be specified for static linking with PPL.
-AC_ARG_WITH(host-libstdcxx,
-[AS_HELP_STRING([--with-host-libstdcxx=L],
-		[use linker arguments L to link with libstdc++
-		 when linking with PPL])])
-
-case $with_host_libstdcxx in
-  no|yes)
-    AC_MSG_ERROR([-with-host-libstdcxx needs an argument])
-    ;;
-esac
-
 # Libraries to use for stage1 or when not bootstrapping.
 AC_ARG_WITH(stage1-libs,
 [AS_HELP_STRING([--with-stage1-libs=LIBS], [libraries for stage1])],
@@ -1729,7 +1718,7 @@ AC_ARG_WITH(stage1-libs,
  else
    stage1_libs=$withval
  fi],
-[stage1_libs=$with_host_libstdcxx])
+[stage1_libs=])
 AC_SUBST(stage1_libs)
 
 # Linker flags to use for stage1 or when not bootstrapping.
@@ -1749,8 +1738,7 @@ AC_ARG_WITH(stage1-ldflags,
  fi])
 AC_SUBST(stage1_ldflags)
 
-# Libraries to use for stage2 and later builds.  This defaults to the
-# argument passed to --with-host-libstdcxx.
+# Libraries to use for stage2 and later builds.
 AC_ARG_WITH(boot-libs,
 [AS_HELP_STRING([--with-boot-libs=LIBS], [libraries for stage2 and later])],
 [if test "$withval" = "no" -o "$withval" = "yes"; then
@@ -1758,7 +1746,7 @@ AC_ARG_WITH(boot-libs,
  else
    poststage1_libs=$withval
  fi],
-[poststage1_libs=$with_host_libstdcxx])
+[poststage1_libs=])
 AC_SUBST(poststage1_libs)
 
 # Linker flags to use for stage2 and later builds.

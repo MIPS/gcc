@@ -1,3 +1,9 @@
+2015-08-17  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 226950 into gupc branch.
+	* c-family/c-pretty-print.c (pp_c_cv_qualifiers):
+	Adjust logic for relaxed/strict/shared qualifiers.
+
 2015-08-16  Gary Funck  <gary@intrepid.com>
 
 	* c/c-decl.c (grokdeclarator):  Remove extra space on empty line.
