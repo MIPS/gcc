@@ -1,3 +1,19 @@
+2015-08-18  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (kernel_remap_info): New type.
+	(gather_inner_locals): Change parameter type to kernel_remap_info.
+	(target_follows_kernelizable_pattern): Likewise, also fill in block
+	info in it.
+	(attempt_target_kernelization): Change parameter type to
+	kernel_remap_info.
+	(remap_kernel_blocks): New function.
+	(scan_omp_kernel_loop): Change parameter type to kernel_remap_info,
+	use it to create block copies for statement copies.
+	(scan_omp_target): Set up a kernel_remap_info variable, pass it to
+	gridification functions.
+	(expand_target_kernel_body): Set function_end_locus of the kernel
+	function and move its blocks appropriately.
+
 2015-08-13  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (gather_inner_locals): New function.
