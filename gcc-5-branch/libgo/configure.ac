@@ -389,24 +389,29 @@ dnl Check whether the linker supports split stack
 AC_CACHE_CHECK([whether linker supports split stack],
 [libgo_cv_c_linker_supports_split_stack],
 [libgo_cv_c_linker_supports_split_stack=no
-cat >conftest1.c <<EOF
-extern void callee (void);
-void call (void) { callee (); }
-EOF
-cat >conftest2.c <<EOF
-void callee (void) { }
-EOF
-use_ld=`$GOC -print-prog-name=ld`
-if $use_ld --version | grep -i gold | grep "2.25." >/dev/null 2>&1 \
-  && $CC -c -O2 conftest1.c -fsplit-stack >/dev/null 2>&1 \
-  && $CC -c -O2 conftest2.c >/dev/null 2>&1 \
-  && $use_ld -o ss conftest1.o conftest2.o --defsym __morestack=0 >/dev/null 2>&1; then
-  libgo_cv_c_linker_supports_split_stack=yes
-fi])
-rm -fr conftest1.c conftest1.o conftest2.c conftest2.o ss
-if test "$libgo_cv_c_linker_supports_split_stack" = yes; then
-  AC_DEFINE(LINKER_SUPPORTS_SPLIT_STACK, 1,
-	    [Define if the linker support split stack adjustments])
+if test "$is_ppc64" == "yes" || test "$is_ppc64le" == "yes"; then
+  if $GOC -Wl,--version | grep -i gold >/dev/null 2>&1; then
+    gold_vers=`$GOC -Wl,--version | sed 1q | sed -n -e 's/.*Binutils.* \([[0-9]][[0-9]]*\.[[^)]]*\)).*$/\1/p'`
+    gold_vers_major=`expr "$gold_vers" : '\([[0-9]]*\)'`
+    gold_vers_minor=`expr "$gold_vers" : '[[0-9]]*\.\([[0-9]]*\)'`
+    gold_vers_patch=`expr "$gold_vers" : '[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)'`
+
+    case x"$gold_vers_minor" in
+      x25)
+        if test "$gold_vers_patch" != ""; then
+          libgo_cv_c_linker_supports_split_stack=yes
+        fi
+        ;;
+      x2[[6-9]])
+        libgo_cv_c_linker_supports_split_stack=yes
+        ;;
+      esac
+  fi
+fi
+])
+if test x"$libgo_cv_c_linker_supports_split_stack" = xyes; then
+   AC_DEFINE(LINKER_SUPPORTS_SPLIT_STACK, 1,
+[Define if your PowerPC64 gold linker supports split stack.])
 fi
 
 AC_CACHE_CHECK([whether compiler is llgo],
