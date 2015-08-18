@@ -1,3 +1,17 @@
+2015-08-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* target.def  (GOACC_FORK_JOIN, GOACC_LOCK_UNLOCK): Remove GSI
+	parameter. 
+	* targhooks.h (default_goacc_fork_join,
+	default_goacc_lock_unlock): Lose GSI parameter.
+	* omp-low.c (execute_oacc_transform): Reformat to remove
+	indentation. Adjust target hook calls.
+	(default_goacc_fork_join, default_goacc_lock_unlock): Lose GSI
+	parameter.
+	* doc/tm.texi: Rebuilt.
+	* config/nvptx/nvptx.c (nvptx_xform_fork_join,
+	nvptx_xform_lock_unlock): Remove GSI parameter.
+
 2015-08-18  James Norris  <jnorris@codesourcery.com>
 
 	* gimplify.c (enum acc_region_kind): New enum.

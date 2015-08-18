@@ -3587,8 +3587,8 @@ nvptx_dim_limit (unsigned axis)
 /* Determine whether fork & joins are needed.  */
 
 static bool
-nvptx_xform_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi), gimple stmt,
-		       const int dims[], bool ARG_UNUSED (is_fork))
+nvptx_xform_fork_join (gimple stmt, const int dims[],
+		       bool ARG_UNUSED (is_fork))
 {
   tree arg = gimple_call_arg (stmt, 0);
   unsigned axis = TREE_INT_CST_LOW (arg);
@@ -3608,10 +3608,8 @@ nvptx_xform_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi), gimple stmt,
  */
 
 static bool
-nvptx_xform_lock_unlock (gimple_stmt_iterator *ARG_UNUSED (gsi),
-			 gimple stmt,
-			 const int *ARG_UNUSED (dims),
-			 bool ARG_UNUSED (is_fork))
+nvptx_xform_lock_unlock (gimple stmt, const int *ARG_UNUSED (dims),
+			 bool ARG_UNUSED (is_lock))
 {
   tree arg = gimple_call_arg (stmt, 0);
   

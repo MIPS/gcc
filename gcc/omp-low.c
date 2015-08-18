@@ -14724,55 +14724,51 @@ execute_oacc_transform ()
   }
   
   FOR_ALL_BB_FN (bb, cfun)
-    {
-      for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
-	{
-	  gimple stmt = gsi_stmt (gsi);
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+      {
+	gimple stmt = gsi_stmt (gsi);
 
-	  if (is_gimple_call (stmt))
-	    {
-	      /* acc_on_device must be evaluated at compile time for
-		 constant arguments.  */
-	      if (gimple_call_builtin_p (stmt, BUILT_IN_ACC_ON_DEVICE))
-		oacc_xform_on_device (&gsi, stmt);
+	if (!is_gimple_call (stmt))
+	  ; /* Nothing.  */
+	else if (gimple_call_builtin_p (stmt, BUILT_IN_ACC_ON_DEVICE))
+	  /* acc_on_device must be evaluated at compile time for
+	     constant arguments.  */
+	  oacc_xform_on_device (&gsi, stmt);
+	else if (gimple_call_internal_p (stmt))
+	  {
+	    unsigned ifn_code = gimple_call_internal_fn (stmt);
+	    switch (ifn_code)
+	      {
+	      default: break;
 
-	      if (gimple_call_internal_p (stmt))
-		{
-		  unsigned ifn_code = gimple_call_internal_fn (stmt);
-		  switch (ifn_code)
-		    {
-		    default: break;
+	      case IFN_GOACC_DIM_POS:
+	      case IFN_GOACC_DIM_SIZE:
+		oacc_xform_dim (&gsi, stmt, dims,
+				ifn_code == IFN_GOACC_DIM_POS);
+		break;
 
-		    case IFN_GOACC_DIM_POS:
-		    case IFN_GOACC_DIM_SIZE:
-		      oacc_xform_dim (&gsi, stmt, dims,
-				      ifn_code == IFN_GOACC_DIM_POS);
-		      break;
+	      case IFN_GOACC_LOCK:
+	      case IFN_GOACC_UNLOCK:
+		if (targetm.goacc.lock_unlock
+		    (stmt, dims, ifn_code == IFN_GOACC_LOCK))
+		  goto remove;
 
-		    case IFN_GOACC_LOCK:
-		    case IFN_GOACC_UNLOCK:
-		      if (targetm.goacc.lock_unlock
-			  (&gsi, stmt, dims, ifn_code == IFN_GOACC_LOCK))
-			goto remove;
-
-		    case IFN_GOACC_FORK:
-		    case IFN_GOACC_JOIN:
-		      if (targetm.goacc.fork_join
-			  (&gsi, stmt, dims, ifn_code == IFN_GOACC_FORK))
-			{
-			remove:
-			  replace_uses_by (gimple_vdef (stmt),
-					   gimple_vuse (stmt));
-			  gsi_remove (&gsi, true);
-			  /* Removal will have advanced the iterator.  */
-			  continue;
-			}
-		    }
-		}
-	    }
-	  gsi_next (&gsi);
-	}
-    }
+	      case IFN_GOACC_FORK:
+	      case IFN_GOACC_JOIN:
+		if (targetm.goacc.fork_join
+		    (stmt, dims, ifn_code == IFN_GOACC_FORK))
+		  {
+		  remove:
+		    replace_uses_by (gimple_vdef (stmt),
+				     gimple_vuse (stmt));
+		    gsi_remove (&gsi, true);
+		    /* Removal will have advanced the iterator.  */
+		    continue;
+		  }
+	      }
+	  }
+	gsi_next (&gsi);
+      }
 
   return 0;
 }
@@ -14815,8 +14811,7 @@ default_goacc_dim_limit (unsigned ARG_UNUSED (axis))
    there is no RTL expander.  */
 
 bool
-default_goacc_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi),
-			 gimple ARG_UNUSED (stmt),
+default_goacc_fork_join (gimple ARG_UNUSED (stmt),
 			 const int *ARG_UNUSED (dims), bool is_fork)
 {
   if (is_fork)
@@ -14839,8 +14834,7 @@ default_goacc_fork_join (gimple_stmt_iterator *ARG_UNUSED (gsi),
    there is no RTL expander.  */
 
 bool
-default_goacc_lock_unlock (gimple_stmt_iterator *ARG_UNUSED (gsi),
-			   gimple ARG_UNUSED (stmt),
+default_goacc_lock_unlock (gimple ARG_UNUSED (stmt),
 			   const int*ARG_UNUSED (dims),
 			   bool is_lock)
 {

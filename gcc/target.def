@@ -1667,7 +1667,7 @@ DEFHOOK
 calls to target-specific gimple.  It is executed during the oacc_xform\n\
 pass.  It should return true, if the functions should be deleted.  The\n\
 default hook returns true, if there is no RTL expanders for them.",
-bool, (gimple_stmt_iterator *, gimple, const int[], bool),
+bool, (gimple, const int[], bool),
 default_goacc_fork_join)
 
 DEFHOOK
@@ -1676,7 +1676,7 @@ DEFHOOK
 calls to target-specific gimple.  It is executed during the oacc_xform\n\
 pass.  It should return true, if the functions should be deleted.  The\n\
 default hook returns true, if there is no RTL expanders for them.",
-bool, (gimple_stmt_iterator *, gimple, const int[], bool),
+bool, (gimple, const int[], bool),
 default_goacc_lock_unlock)
 
 HOOK_VECTOR_END (goacc)
