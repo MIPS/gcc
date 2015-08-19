@@ -1,3 +1,9 @@
+2015-08-19  Michael Matz  <matz@suse.de>
+
+	PR target/67272
+	* hsa-regalloc.c (naive_process_phi): Don't emit code into
+	the entry block.
+
 2015-08-18  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (kernel_remap_info): New type.

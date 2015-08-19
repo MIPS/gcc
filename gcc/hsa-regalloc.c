@@ -68,7 +68,9 @@ naive_process_phi (hsa_insn_phi *phi)
 	break;
 
       e = EDGE_PRED (phi->bb, i);
-      if (single_succ_p (e->src))
+      /* Make sure to not emit insns into the entry block.  We won't
+         process it.  */
+      if (single_succ_p (e->src) && e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	hbb = hsa_bb_for_bb (e->src);
       else
 	hbb = hsa_init_new_bb (split_edge (e));
