@@ -14619,14 +14619,14 @@ oacc_xform_on_device (gimple stmt)
 #endif
   result = fold_convert (integer_type_node, result);
   tree lhs = gimple_call_lhs (stmt);
-  gimple_seq replace = NULL;
+  gimple_seq seq = NULL;
 
   push_gimplify_context (true);
-  gimplify_assign (lhs, result, &replace);
+  gimplify_assign (lhs, result, &seq);
   pop_gimplify_context (NULL);
 
   gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
-  gsi_replace (&gsi, replace, false);
+  gsi_replace_with_seq (&gsi, seq, false);
 }
 
 /* Transform oacc_dim_size and oacc_dim_pos internal function calls to

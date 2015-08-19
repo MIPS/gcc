@@ -1,3 +1,7 @@
+2015-08-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (oacc_xform_on_device): Fix thinko in previous change.
+
 2015-08-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (oacc_xform_on_device): Lose GSI parameter & adjust.
