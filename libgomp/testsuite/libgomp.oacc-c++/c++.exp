@@ -78,14 +78,16 @@ if { $lang_test_file_found } {
     }
 
     # Test OpenACC with available accelerators.
+    set SAVE_ALWAYS_CFLAGS "$ALWAYS_CFLAGS"
     foreach offload_target_openacc $offload_targets_s_openacc {
-	set tagopt "-DACC_DEVICE_TYPE_$offload_target_openacc=1"
+	set ALWAYS_CFLAGS "$SAVE_ALWAYS_CFLAGS"
 
-	switch $offload_target_openacc {
-	    host {
+	switch -glob $offload_target_openacc {
+	    disable {
 		set acc_mem_shared 1
+		set tagopt "-DACC_DEVICE_TYPE_host=\"\""
 	    }
-	    nvidia {
+	    nvptx* {
 		if { ![check_effective_target_openacc_nvidia_accel_present] } {
 		    # Don't bother; execution testing is going to FAIL.
 		    untested "$subdir $offload_target_openacc offloading"
@@ -99,14 +101,14 @@ if { $lang_test_file_found } {
 		lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/libgomp.oacc-c-c++-common"
 
 		set acc_mem_shared 0
+		set tagopt "-DACC_DEVICE_TYPE_nvidia=\"$offload_target_openacc\""
 	    }
 	    default {
 		set acc_mem_shared 0
+		#TODO error
 	    }
 	}
-	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
-
-	setenv ACC_DEVICE_TYPE $offload_target_openacc
+	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared -foffload=$offload_target_openacc"
 
 	# To get better test coverage for device-specific code that is only
 	# ever used in offloading configurations, we'd like more thorough
@@ -115,8 +117,8 @@ if { $lang_test_file_found } {
 	# -O0 and -O2 only, to avoid testing times exploding too much, under
 	# the assumption that between -O0 and -O[something] there is the
 	# biggest difference in the overall structure of the generated code.
-	switch $offload_target_openacc {
-	    host {
+	switch -glob $offload_target_openacc {
+	    disable {
 		set-torture-options [list \
 					 { -O2 } ]
 	    }

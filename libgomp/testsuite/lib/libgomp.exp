@@ -41,18 +41,14 @@ load_gcc_lib fortran-modules.exp
 load_file libgomp-test-support.exp
 
 # Populate offload_targets_s (offloading targets separated by a space), and
-# offload_targets_s_openacc (the same, but with OpenACC names; OpenACC spells
-# some of them a little differently).
-set offload_targets_s [split $offload_targets ","]
+# offload_targets_s_openacc (those suitable for OpenACC).
+set offload_targets_s [split $offload_targets ":"]
 set offload_targets_s_openacc {}
 foreach offload_target_openacc $offload_targets_s {
-    # Translate to OpenACC names, or skip if not yet supported.
-    switch $offload_target_openacc {
-	intelmic {
+    # Skip if not yet supported.
+    switch -glob $offload_target_openacc {
+	*-intelmic* {
 	    continue
-	}
-	nvptx {
-	    set offload_target_openacc "nvidia"
 	}
 	hsa {
 	    continue
@@ -60,7 +56,8 @@ foreach offload_target_openacc $offload_targets_s {
     }
     lappend offload_targets_s_openacc "$offload_target_openacc"
 }
-lappend offload_targets_s_openacc "host"
+# Host fallback.
+lappend offload_targets_s_openacc "disable"
 
 set dg-do-what-default run
 
@@ -141,7 +138,7 @@ proc libgomp_init { args } {
     # Add liboffloadmic build directory in LD_LIBRARY_PATH to support
     # non-fallback testing for Intel MIC targets
     global offload_targets
-    if { [string match "*,intelmic,*" ",$offload_targets,"] } {
+    if { [string match "*:*-intelmic*:*" ":$offload_targets:"] } {
 	append always_ld_library_path ":${blddir}/../liboffloadmic/.libs"
 	append always_ld_library_path ":${blddir}/../liboffloadmic/plugin/.libs"
 	# libstdc++ is required by liboffloadmic
@@ -378,7 +375,7 @@ proc check_effective_target_openacc_nvidia_accel_configured { } {
 # check_effective_target_openacc_nvidia_accel_configured?
 proc check_effective_target_openacc_nvidia_accel_supported { } {
     global offload_targets_s_openacc
-    set res [lsearch $offload_targets_s_openacc "nvidia" ]
+    set res [lsearch -glob $offload_targets_s_openacc "nvptx*" ]
     if { $res != -1 } {
 	return 1;
     }
@@ -397,15 +394,14 @@ proc check_effective_target_openacc_nvidia_accel_present { } {
 }
 
 # Return 1 if at least one nvidia board is present, and the nvidia device type
-# is selected by default by means of setting the environment variable
-# ACC_DEVICE_TYPE.
+# is selected by default.
 
 proc check_effective_target_openacc_nvidia_accel_selected { } {
     if { ![check_effective_target_openacc_nvidia_accel_present] } {
 	return 0;
     }
     global offload_target_openacc
-    if { $offload_target_openacc == "nvidia" } {
+    if { [string match "nvptx*" $offload_target_openacc] } {
         return 1;
     }
     return 0;
@@ -415,7 +411,7 @@ proc check_effective_target_openacc_nvidia_accel_selected { } {
 
 proc check_effective_target_openacc_host_selected { } {
     global offload_target_openacc
-    if { $offload_target_openacc == "host" } {
+    if { $offload_target_openacc == "disable" } {
         return 1;
     }
     return 0;

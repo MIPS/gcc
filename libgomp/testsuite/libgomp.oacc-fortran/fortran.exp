@@ -67,13 +67,12 @@ if { $lang_test_file_found } {
 
     # Test OpenACC with available accelerators.
     foreach offload_target_openacc $offload_targets_s_openacc {
-	set tagopt "-DACC_DEVICE_TYPE_$offload_target_openacc=1"
-
-	switch $offload_target_openacc {
-	    host {
+	switch -glob $offload_target_openacc {
+	    disable {
 		set acc_mem_shared 1
+		set tagopt "-DACC_DEVICE_TYPE_host=\"\""
 	    }
-	    nvidia {
+	    nvptx* {
 		if { ![check_effective_target_openacc_nvidia_accel_present] } {
 		    # Don't bother; execution testing is going to FAIL.
 		    untested "$subdir $offload_target_openacc offloading"
@@ -81,14 +80,14 @@ if { $lang_test_file_found } {
 		}
 
 		set acc_mem_shared 0
+		set tagopt "-DACC_DEVICE_TYPE_nvidia=\"$offload_target_openacc\""
 	    }
 	    default {
 		set acc_mem_shared 0
+		#TODO error
 	    }
 	}
-	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
-
-	setenv ACC_DEVICE_TYPE $offload_target_openacc
+	set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared -foffload=$offload_target_openacc"
 
 	# For Fortran we're doing torture testing, as Fortran has far more tests
 	# with arrays etc. that testing just -O0 or -O2 is insufficient, that is
