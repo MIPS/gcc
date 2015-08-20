@@ -9372,8 +9372,9 @@ set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
     value.  Issue diagnostics as appropriate.  We default to SEQ
     (OpenACC 2.5 clarifies this). All dimensions have a size of zero
     (dynamic).  TREE_PURPOSE is set to indicate whether that dimension
-    can have a loop partitioned on it.  boolean_true_node indicates
-    yes, boolean_false_node indicates no.  */
+    can have a loop partitioned on it.  non-zero indicates
+    yes, zero indicates no.  By construction once a non-zero has been
+    reached, further inner dimensions must also be non-zero.  */
 
 tree
 build_oacc_routine_dims (tree clauses)
@@ -9395,6 +9396,7 @@ build_oacc_routine_dims (tree clauses)
 	  break;
 	}
 
+  /* Default to SEQ.  */
   if (level < 0)
     level = GOMP_DIM_MAX;
   

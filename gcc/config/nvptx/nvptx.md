@@ -211,9 +211,14 @@
 (define_predicate "call_operation"
   (match_code "parallel")
 {
-  int i;
+  int arg_start = 1;
+  int arg_end = XVECLEN (op, 0);
 
-  for (i = 1; i < XVECLEN (op, 0); i++)
+  /* Skip optional routine partitioning information.  */
+  if (arg_end > 1 && GET_CODE (XVECEXP (op, 0, 1)) == CONST_INT)
+    arg_start++;
+
+  for (int i = arg_start; i < arg_end; i++)
     {
       rtx elt = XVECEXP (op, 0, i);
 

@@ -848,18 +848,17 @@ nvptx_end_call_args (void)
 void
 nvptx_expand_call (rtx retval, rtx address)
 {
-  int nargs;
+  int nargs = 0;
   rtx callee = XEXP (address, 0);
   rtx pat, t;
   rtvec vec;
   bool external_decl = false;
+  rtx partitioning = NULL_RTX;
+  rtx varargs = NULL_RTX;
+  tree decl_type = NULL_TREE;
 
-  nargs = 0;
   for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
     nargs++;
-
-  bool has_varargs = false;
-  tree decl_type = NULL_TREE;
 
   if (!call_insn_operand (callee, Pmode))
     {
@@ -877,6 +876,22 @@ nvptx_expand_call (rtx retval, rtx address)
 	    cfun->machine->has_call_with_sc = true;
 	  if (DECL_EXTERNAL (decl))
 	    external_decl = true;
+	  tree attr = get_oacc_fn_attrib (decl);
+	  if (attr)
+	    {
+	      tree dims = TREE_VALUE (attr);
+
+	      for (int ix = 0; ix != GOMP_DIM_MAX; ix++)
+		{
+		  if (TREE_PURPOSE (dims)
+		      && !integer_zerop (TREE_PURPOSE (dims)))
+		    {
+		      partitioning = GEN_INT (ix);
+		      break;
+		    }
+		  dims = TREE_CHAIN (dims);
+		}
+	    }
 	}
     }
   if (cfun->machine->funtype
@@ -887,31 +902,19 @@ nvptx_expand_call (rtx retval, rtx address)
 	  || TREE_CODE (cfun->machine->funtype) == METHOD_TYPE)
       && stdarg_p (cfun->machine->funtype))
     {
-      has_varargs = true;
+      varargs = gen_reg_rtx (Pmode);
+      if (Pmode == DImode)
+	emit_move_insn (varargs, stack_pointer_rtx);
+      else
+	emit_move_insn (varargs, stack_pointer_rtx);
       cfun->machine->has_call_with_varargs = true;
     }
-  vec = rtvec_alloc (nargs + 1 + (has_varargs ? 1 : 0));
+  vec = rtvec_alloc (nargs + 1
+		     + (partitioning ? 1 : 0) + (varargs ? 1 : 0));
   pat = gen_rtx_PARALLEL (VOIDmode, vec);
-  if (has_varargs)
-    {
-      rtx this_arg = gen_reg_rtx (Pmode);
-      if (Pmode == DImode)
-	emit_move_insn (this_arg, stack_pointer_rtx);
-      else
-	emit_move_insn (this_arg, stack_pointer_rtx);
-      XVECEXP (pat, 0, nargs + 1) = gen_rtx_USE (VOIDmode, this_arg);
-    }
 
-  /* Construct the call insn, including a USE for each argument pseudo
-     register.  These will be used when printing the insn.  */
-  int i;
-  rtx arg;
-  for (i = 1, arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1), i++)
-    {
-      rtx this_arg = XEXP (arg, 0);
-      XVECEXP (pat, 0, i) = gen_rtx_USE (VOIDmode, this_arg);
-    }
-
+  int vec_pos = 0;
+  
   rtx tmp_retval = retval;
   t = gen_rtx_CALL (VOIDmode, address, const0_rtx);
   if (retval != NULL_RTX)
@@ -920,7 +923,23 @@ nvptx_expand_call (rtx retval, rtx address)
 	tmp_retval = gen_reg_rtx (GET_MODE (retval));
       t = gen_rtx_SET (tmp_retval, t);
     }
-  XVECEXP (pat, 0, 0) = t;
+  XVECEXP (pat, 0, vec_pos++) = t;
+
+  if (partitioning)
+    XVECEXP (pat, 0, vec_pos++) = partitioning;
+
+  /* Construct the call insn, including a USE for each argument pseudo
+     register.  These will be used when printing the insn.  */
+  for (rtx arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1))
+    {
+      rtx this_arg = XEXP (arg, 0);
+      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, this_arg);
+    }
+
+  if (varargs)
+      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
+
+  gcc_assert (vec_pos = XVECLEN (pat, 0));
 
   /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
      undeclared function, we'll have an external decl without arg types.
@@ -1816,16 +1835,25 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   static int labelno;
   bool needs_tgt = register_operand (callee, Pmode);
   rtx pat = PATTERN (insn);
-  int nargs = XVECLEN (pat, 0) - 1;
+  int arg_end = XVECLEN (pat, 0);
+  int arg_start = 1;
   tree decl = NULL_TREE;
+  rtx partitioning = NULL_RTX;
+
+  if (arg_end > 1)
+    {
+      partitioning = XVECEXP (pat, 0, 1);
+      if (GET_CODE (partitioning) == CONST_INT)
+	arg_start++;
+      else
+	partitioning = NULL_RTX;
+    }
 
   fprintf (asm_out_file, "\t{\n");
   if (result != NULL)
-    {
-      fprintf (asm_out_file, "\t\t.param%s %%retval_in;\n",
-	       nvptx_ptx_type_from_mode (arg_promotion (GET_MODE (result)),
-					 false));
-    }
+    fprintf (asm_out_file, "\t\t.param%s %%retval_in;\n",
+	     nvptx_ptx_type_from_mode (arg_promotion (GET_MODE (result)),
+				       false));
 
   /* Ensure we have a ptx declaration in the output if necessary.  */
   if (GET_CODE (callee) == SYMBOL_REF)
@@ -1845,20 +1873,20 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       fputs (s.str().c_str(), asm_out_file);
     }
 
-  for (int i = 0, argno = 0; i < nargs; i++)
+  for (int i = arg_start, argno = 0; i < arg_end; i++)
     {
-      rtx t = XEXP (XVECEXP (pat, 0, i + 1), 0);
+      rtx t = XEXP (XVECEXP (pat, 0, i), 0);
       machine_mode mode = GET_MODE (t);
       int count = maybe_split_mode (&mode);
 
-      while (count-- > 0)
+      while (count--)
 	fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
 		 nvptx_ptx_type_from_mode (mode, false), argno++,
 		 mode == QImode || mode == HImode ? "[1]" : "");
     }
-  for (int i = 0, argno = 0; i < nargs; i++)
+  for (int i = arg_start, argno = 0; i < arg_end; i++)
     {
-      rtx t = XEXP (XVECEXP (pat, 0, i + 1), 0);
+      rtx t = XEXP (XVECEXP (pat, 0, i), 0);
       gcc_assert (REG_P (t));
       machine_mode mode = GET_MODE (t);
       int count = maybe_split_mode (&mode);
@@ -1870,7 +1898,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       else
 	{
 	  int n = 0;
-	  while (count-- > 0)
+	  while (count--)
 	    fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d$%d;\n",
 		     nvptx_ptx_type_from_mode (mode, false), argno++,
 		     REGNO (t), n++);
@@ -1890,33 +1918,30 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   else
     output_address (callee);
 
-  if (nargs > 0 || (decl && DECL_STATIC_CHAIN (decl)))
+  if (arg_end > arg_start || (decl && DECL_STATIC_CHAIN (decl)))
     {
+      const char *comma = "";
+      
       fprintf (asm_out_file, ", (");
-      int i, argno;
-      for (i = 0, argno = 0; i < nargs; i++)
+      for (int i = arg_start, argno = 0; i < arg_end; i++)
 	{
-	  rtx t = XEXP (XVECEXP (pat, 0, i + 1), 0);
+	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
 	  machine_mode mode = GET_MODE (t);
 	  int count = maybe_split_mode (&mode);
 
-	  while (count-- > 0)
+	  while (count--)
 	    {
-	      fprintf (asm_out_file, "%%out_arg%d", argno++);
-	      if (i + 1 < nargs || count > 0)
-		fprintf (asm_out_file, ", ");
+	      fprintf (asm_out_file, "%s%%out_arg%d", comma, argno++);
+	      comma = ", ";
 	    }
 	}
       if (decl && DECL_STATIC_CHAIN (decl))
-	{
-	  if (i > 0)
-	    fprintf (asm_out_file, ", ");
-	  fprintf (asm_out_file, "%s",
-		   reg_names [OUTGOING_STATIC_CHAIN_REGNUM]);
-	}
+	fprintf (asm_out_file, "%s%s", comma,
+		 reg_names [OUTGOING_STATIC_CHAIN_REGNUM]);
 
       fprintf (asm_out_file, ")");
     }
+
   if (needs_tgt)
     {
       fprintf (asm_out_file, ", ");

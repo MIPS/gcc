@@ -1,3 +1,12 @@
+2015-08-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (build_oacc_routine_dims): Expand comment.
+	* config/nvptx/nvptx.md (call_operation): Skip optional
+	partitioning information.
+	* config/nvptx/nvptx.c (nvptx_expand_call): Insert target
+	partitioning information, if present.
+	(nvptx_output_call_insn): Skip partitioning info, if present.
+
 2015-08-19  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (oacc_xform_on_device): Fix thinko in previous change.
