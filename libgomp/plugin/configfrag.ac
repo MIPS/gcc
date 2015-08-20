@@ -29,6 +29,8 @@
 offload_targets=
 AC_SUBST(offload_targets)
 plugin_support=yes
+AC_CHECK_HEADERS([fnmatch.h], , [plugin_support=no])
+AC_CHECK_FUNCS([fnmatch], , [plugin_support=no])
 AC_CHECK_LIB(dl, dlsym, , [plugin_support=no])
 if test x"$plugin_support" = xyes; then
   AC_DEFINE(PLUGIN_SUPPORT, 1,
@@ -92,10 +94,8 @@ if test x"$enable_offload_targets" != x; then
     tgt=`echo $tgt | sed 's/=.*//'`
     case $tgt in
       *-intelmic-* | *-intelmicemul-*)
-	tgt_name=intelmic
 	;;
       nvptx*)
-        tgt_name=nvptx
 	PLUGIN_NVPTX=$tgt
 	PLUGIN_NVPTX_CPPFLAGS=$CUDA_DRIVER_CPPFLAGS
 	PLUGIN_NVPTX_LDFLAGS=$CUDA_DRIVER_LDFLAGS
@@ -127,9 +127,9 @@ if test x"$enable_offload_targets" != x; then
 	;;
     esac
     if test x"$offload_targets" = x; then
-      offload_targets=$tgt_name
+      offload_targets=$tgt
     else
-      offload_targets=$offload_targets,$tgt_name
+      offload_targets=$offload_targets:$tgt
     fi
     if test x"$tgt_dir" != x; then
       offload_additional_options="$offload_additional_options -B$tgt_dir/libexec/gcc/\$(target_alias)/\$(gcc_version) -B$tgt_dir/bin"
@@ -141,7 +141,7 @@ if test x"$enable_offload_targets" != x; then
   done
 fi
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
-  [Define to hold the list of target names suitable for offloading.])
+  [Define to hold the list of offload targets, separated by colons.])
 AM_CONDITIONAL([PLUGIN_NVPTX], [test $PLUGIN_NVPTX = 1])
 AC_DEFINE_UNQUOTED([PLUGIN_NVPTX], [$PLUGIN_NVPTX],
   [Define to 1 if the NVIDIA plugin is built, 0 if not.])

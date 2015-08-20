@@ -36,24 +36,21 @@ load_gcc_lib fortran-modules.exp
 load_file libgomp-test-support.exp
 
 # Populate offload_targets_s (offloading targets separated by a space), and
-# offload_targets_s_openacc (the same, but with OpenACC names; OpenACC spells
-# some of them a little differently).
-set offload_targets_s [split $offload_targets ","]
+# offload_targets_s_openacc (those suitable for OpenACC).
+set offload_targets_s [split $offload_targets ":"]
 set offload_targets_s_openacc {}
 foreach offload_target_openacc $offload_targets_s {
-    switch $offload_target_openacc {
-	intelmic {
+    switch -glob $offload_target_openacc {
+	*-intelmic* {
 	    # TODO.  Skip; will all FAIL because of missing
 	    # GOMP_OFFLOAD_CAP_OPENACC_200.
 	    continue
 	}
-	nvptx {
-	    set offload_target_openacc "nvidia"
-	}
     }
     lappend offload_targets_s_openacc "$offload_target_openacc"
 }
-lappend offload_targets_s_openacc "host"
+# Host fallback.
+lappend offload_targets_s_openacc "disable"
 
 set dg-do-what-default run
 
@@ -134,7 +131,7 @@ proc libgomp_init { args } {
     # Add liboffloadmic build directory in LD_LIBRARY_PATH to support
     # non-fallback testing for Intel MIC targets
     global offload_targets
-    if { [string match "*,intelmic,*" ",$offload_targets,"] } {
+    if { [string match "*:*-intelmic*:*" ":$offload_targets:"] } {
 	append always_ld_library_path ":${blddir}/../liboffloadmic/.libs"
 	append always_ld_library_path ":${blddir}/../liboffloadmic/plugin/.libs"
 	# libstdc++ is required by liboffloadmic
@@ -235,56 +232,6 @@ proc libgomp_init { args } {
     if { $offload_additional_options != "" } {
 	lappend ALWAYS_CFLAGS "additional_flags=${offload_additional_options}"
     }
-
-    # TODO.  Evil hack.  DejaGnu doesn't have a mechanism for setting
-    # environment variables on remote boards.  Thus, we have to fake it, using
-    # GCC's constructor attributes to create object files that install the
-    # desired environment variables.
-    set e_list [list \
-		    [list defaults DUMMY=dummy ] \
-		    [list ACC_DEVICE_TYPE-host ACC_DEVICE_TYPE=host ] \
-		    [list ACC_DEVICE_TYPE-nvidia ACC_DEVICE_TYPE=nvidia ] ]
-    foreach e $e_list {
-	set v [lindex $e 0]
-	set s [lindex $e 1]
-	verbose "creating constructor-setenv: $v: $s"
-	set src constructor-setenv-$v.c
-	set obj constructor-setenv-$v.o
-	set f_src [open $src "w"]
-	puts $f_src "static void __attribute__((constructor(1000)))"
-	puts $f_src "init_env(void) {"
-	puts $f_src "  int putenv(char *);"
-	puts $f_src "  putenv(\"$s\");"
-	puts $f_src "}"
-	if { $v == "defaults" } {
-	    # TODO.  We want libgomp to initialize after the putenv calls.
-	    # But: shared libraries' constructors (and thus
-	    # env.c:initialize_env) will be called before the executable's
-	    # (init_env functions created above), so it will already have been
-	    # initialized (and has to be, in case we're not linking in this
-	    # gunk).  Assuming no execution of other libgomp functionality in
-	    # between (which we're not doing during initialization),
-	    # initialize_env's effects are idempotent when calling it again, so
-	    # we'll do that now, after the putenv calls have been executed.
-	    puts $f_src "static void __attribute__((constructor(1001)))"
-	    puts $f_src "init_libgomp(void) {"
-	    # Some test cases specify -fno-openmp, so libgomp isn't linked in.
-	    puts $f_src "  void initialize_env(void) __attribute__((weak));"
-	    puts $f_src "  if (initialize_env)"
-	    puts $f_src "    initialize_env();"
-	    puts $f_src "}"
-	}
-	close $f_src
-	# TODO.  Using whichever compiler is currently configured...  At least
-	# switch it into C mode.
-	set lines [libgomp_target_compile $src $obj object "additional_flags=-xc"]
-	# TODO.  Error checking.
-	file delete $src
-    }
-    # When adding constructor-setenv-*.o files, make sure to cancel any -x flag
-    # that may have been set before.
-    lappend ALWAYS_CFLAGS "ldflags=-x none"
-    lappend ALWAYS_CFLAGS "ldflags=constructor-setenv-defaults.o"
 }
 
 #
@@ -296,6 +243,7 @@ proc libgomp_target_compile { source dest type options } {
     global libgomp_compile_options
     global gluefile wrap_flags
     global ALWAYS_CFLAGS
+    global GCC_UNDER_TEST
     global lang_test_file
     global lang_library_path
     global lang_link_flags
@@ -323,6 +271,7 @@ proc libgomp_target_compile { source dest type options } {
 
     lappend options "additional_flags=[libio_include_flags]"
     lappend options "timeout=[timeout_value]"
+    lappend options "compiler=$GCC_UNDER_TEST"
 
     set options [concat $libgomp_compile_options $options]
 
@@ -370,7 +319,7 @@ proc check_effective_target_offload_device { } {
 
 proc check_effective_target_openacc_nvidia_accel_supported { } {
     global offload_targets_s_openacc
-    set res [lsearch $offload_targets_s_openacc "nvidia" ]
+    set res [lsearch -glob $offload_targets_s_openacc "nvptx*" ]
     if { $res != -1 } {
 	return 1;
     }
@@ -396,7 +345,7 @@ proc check_effective_target_openacc_nvidia_accel_selected { } {
 	return 0;
     }
     global offload_target_openacc
-    if { $offload_target_openacc == "nvidia" } {
+    if { [string match "nvptx*" $offload_target_openacc] } {
         return 1;
     }
     return 0;
@@ -406,7 +355,7 @@ proc check_effective_target_openacc_nvidia_accel_selected { } {
 
 proc check_effective_target_openacc_host_selected { } {
     global offload_target_openacc
-    if { $offload_target_openacc == "host" } {
+    if { $offload_target_openacc == "disable" } {
         return 1;
     }
     return 0;

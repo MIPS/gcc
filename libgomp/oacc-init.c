@@ -122,7 +122,9 @@ resolve_device (acc_device_t d, bool fail_is_error)
       {
 	if (goacc_device_type)
 	  {
-	    /* Lookup the named device.  */
+	    /* Lookup the device that has been explicitly named, so do not pay
+	       attention to gomp_offload_target_available_p.  (That is, hard
+	       error if not actually available.)  */
 	    while (++d != _ACC_device_hwm)
 	      if (dispatchers[d]
 		  && !strcasecmp (goacc_device_type,
@@ -148,8 +150,14 @@ resolve_device (acc_device_t d, bool fail_is_error)
     case acc_device_not_host:
       /* Find the first available device after acc_device_not_host.  */
       while (++d != _ACC_device_hwm)
-	if (dispatchers[d] && dispatchers[d]->get_num_devices_func () > 0)
+	if (dispatchers[d]
+	    && dispatchers[d]->get_num_devices_func () > 0
+	    /* No device has been explicitly named, so pay attention to
+	       gomp_offload_target_available_p, to not decide on an offload
+	       target that we don't have offload data available for.  */
+	    && gomp_offload_target_available_p (dispatchers[d]->type))
 	  goto found;
+      /* No non-host device found.  */
       if (d_arg == acc_device_default)
 	{
 	  d = acc_device_host;
@@ -162,9 +170,6 @@ resolve_device (acc_device_t d, bool fail_is_error)
 	}
       else
         return NULL;
-      break;
-
-    case acc_device_host:
       break;
 
     default:
@@ -181,7 +186,8 @@ resolve_device (acc_device_t d, bool fail_is_error)
 
   assert (d != acc_device_none
 	  && d != acc_device_default
-	  && d != acc_device_not_host);
+	  && d != acc_device_not_host
+	  && d < _ACC_device_hwm);
 
   if (dispatchers[d] == NULL && fail_is_error)
     {

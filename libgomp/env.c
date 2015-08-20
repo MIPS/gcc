@@ -1175,11 +1175,7 @@ handle_omp_display_env (unsigned long stacksize, int wait_policy)
 }
 
 
-/* TODO.  See testsuite/lib/libgomp.exp:libgomp_init.  */
-#if 0
-static
-#endif
-void __attribute__((constructor))
+static void __attribute__((constructor))
 initialize_env (void)
 {
   unsigned long thread_limit_var, stacksize;

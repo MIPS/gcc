@@ -1,3 +1,56 @@
+2015-08-20  Thomas Schwinge  <thomas@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* plugin/configfrag.ac (fnmatch.h): Check for header.
+	(fnmatch): Check for function.
+	(tgt_name): Do not set.
+	(offload_targets): Separate with colons not commas.
+	* config.h.in, configure: Regenerate.
+	* env.c (initialize_env): Make static.  Remove TODO.
+	* libgomp.h (gomp_offload_target_available_p): New prototype.
+	* libgomp.map (GOACC_2.0.GOMP_4_BRANCH): Add
+	GOMP_set_offload_targets.
+	(INTERNAL): Remove.
+	* libgomp_g.h (GOMP_set_offload_targets): New prototype.
+	* oacc-init.c (resolve_device): Do not handle acc_device_host.
+	Add comments.
+	* target.c: Include <fnmatch.h>.
+	(resolve_device): Use host fallback when offload data not
+	available.
+	(gomp_offload_target_available_p, offload_target_to_plugin_name)
+	(gomp_offload_targets, gomp_offload_targets_init)
+	(GOMP_set_offload_targets, gomp_plugin_prefix)
+	(gomp_plugin_suffix): New.
+	(gomp_load_plugin_for_device): Add gomp_debug call.
+	(gomp_target_init): Usegomp_offload_targets instead of
+	OFFLOAD_TARGETS.  Handle and rewrie colon-separated string.
+	* testsuite/lib/libgomp.exp: Expect offload targets to be
+	colon-separated.  Adjust matching of offload targets.  Don't
+	generate constructor here.
+	(libgomp_target_compile): Use GCC_UNDER_TEST.
+	(check_effective_target_openacc_nvidia_accel_supported)
+	(check_effective_target_openacc_host_selected): Adjust checks of
+	offload target names.
+	* testsuite/libgomp.c++/c++.exp: Do not set
+	HAVE_SET_GXX_UNDER_TEST or GXX_UNDER_TEST.
+	* testsuite/libgomp.c/c.exp: Do not append to
+	libgomp_compile_options,
+	* testsuite/libgomp.fortran/fortran.exp: Do not set
+	GFORTRAN_UNDER_TEST or libgomp_compile_options.
+	* testsuite/libgomp.graphite/graphite.exp: Do not append to
+	libgomp_compile_options.
+	* testsuite/libgomp.oacc-c++/c++.exp: Set SAVE_GCC_UNDER_TEST and
+	GCC_UNDER_TEST.  Do not set HAVE_SET_GXX_UNDER_TEST and
+	GXX_UNDER_TEST.  Do not append to ALWAYS_CFLAGS.  Adjust set of
+	offload targets.  Use -foffload=.
+	* testsuite/libgomp.oacc-c/c.exp: Do not append to
+	libgomp_compile_options or ALWAYS_CFLAGS.  Adjust set of offload
+	targets.  Use -foffload=.
+	* testsuite/libgomp.oacc-fortran/fortran.exp: Do not set
+	GFORTRAN_UNDER_TEST or append to libgomp_compile_options.  Do not
+	append to ALWAYS_CFLAGS.  Adjust set of offload targets.  Use
+	-foffload=.
+
 2015-08-18  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c++/declare-1.C: Update.

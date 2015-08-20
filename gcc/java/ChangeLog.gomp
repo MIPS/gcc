@@ -1,0 +1,4 @@
+2015-08-20  Joseph Myers  <joseph@codesourcery.com>
+
+	* jvspec.c (lang_specific_pre_link): Update call to do_spec.
+

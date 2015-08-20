@@ -32,8 +32,6 @@ dg-init
 # Turn on OpenACC.
 lappend ALWAYS_CFLAGS "additional_flags=-fopenacc"
 
-lappend libgomp_compile_options "compiler=$GCC_UNDER_TEST"
-
 # Gather a list of all tests.
 set tests [lsort [concat \
 		      [find $srcdir/$subdir *.c] \
@@ -62,17 +60,14 @@ set_ld_library_path_env_vars
 set SAVE_ALWAYS_CFLAGS "$ALWAYS_CFLAGS"
 foreach offload_target_openacc $offload_targets_s_openacc {
     set ALWAYS_CFLAGS "$SAVE_ALWAYS_CFLAGS"
-    set tagopt "-DACC_DEVICE_TYPE_$offload_target_openacc=1"
-    # Set $ACC_DEVICE_TYPE.  See the comments in
-    # ../lib/libgomp.exp:libgomp_init.
-    lappend ALWAYS_CFLAGS "ldflags=constructor-setenv-ACC_DEVICE_TYPE-$offload_target_openacc.o"
 
     # Todo: Determine shared memory or not using run-time test.
-    switch $offload_target_openacc {
-	host {
+    switch -glob $offload_target_openacc {
+	disable {
 	    set acc_mem_shared 1
+	    set tagopt "-DACC_DEVICE_TYPE_host=1"
 	}
-	nvidia {
+	nvptx* {
 	    if { ![check_effective_target_openacc_nvidia_accel_present] } {
 		# Don't bother; execution testing is going to FAIL.
 		untested "$subdir $offload_target_openacc offloading"
@@ -86,12 +81,14 @@ foreach offload_target_openacc $offload_targets_s_openacc {
 	    lappend ALWAYS_CFLAGS "additional_flags=-I${srcdir}/libgomp.oacc-c-c++-common"
 
 	    set acc_mem_shared 0
+	    set tagopt "-DACC_DEVICE_TYPE_nvidia=1"
 	}
 	default {
 	    set acc_mem_shared 0
+	    #TODO error
 	}
     }
-    set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared"
+    set tagopt "$tagopt -DACC_MEM_SHARED=$acc_mem_shared -foffload=$offload_target_openacc"
 
     dg-runtest $tests "$tagopt" $DEFAULT_CFLAGS
     gcc-dg-runtest $ttests "$tagopt" ""

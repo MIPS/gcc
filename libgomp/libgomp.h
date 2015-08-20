@@ -785,6 +785,7 @@ extern void gomp_unmap_vars (struct target_mem_desc *, bool);
 extern void gomp_init_device (struct gomp_device_descr *);
 extern void gomp_fini_device (struct gomp_device_descr *);
 extern void gomp_unload_device (struct gomp_device_descr *);
+extern bool gomp_offload_target_available_p (int);
 
 /* work.c */
 

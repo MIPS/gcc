@@ -15119,6 +15119,33 @@ esac
 offload_targets=
 
 plugin_support=yes
+for ac_header in fnmatch.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "fnmatch.h" "ac_cv_header_fnmatch_h" "$ac_includes_default"
+if test "x$ac_cv_header_fnmatch_h" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_FNMATCH_H 1
+_ACEOF
+
+else
+  plugin_support=no
+fi
+
+done
+
+for ac_func in fnmatch
+do :
+  ac_fn_c_check_func "$LINENO" "fnmatch" "ac_cv_func_fnmatch"
+if test "x$ac_cv_func_fnmatch" = x""yes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_FNMATCH 1
+_ACEOF
+
+else
+  plugin_support=no
+fi
+done
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dlsym in -ldl" >&5
 $as_echo_n "checking for dlsym in -ldl... " >&6; }
 if test "${ac_cv_lib_dl_dlsym+set}" = set; then :
@@ -15236,10 +15263,8 @@ if test x"$enable_offload_targets" != x; then
     tgt=`echo $tgt | sed 's/=.*//'`
     case $tgt in
       *-intelmic-* | *-intelmicemul-*)
-	tgt_name=intelmic
 	;;
       nvptx*)
-        tgt_name=nvptx
 	PLUGIN_NVPTX=$tgt
 	PLUGIN_NVPTX_CPPFLAGS=$CUDA_DRIVER_CPPFLAGS
 	PLUGIN_NVPTX_LDFLAGS=$CUDA_DRIVER_LDFLAGS
@@ -15282,9 +15307,9 @@ rm -f core conftest.err conftest.$ac_objext \
 	;;
     esac
     if test x"$offload_targets" = x; then
-      offload_targets=$tgt_name
+      offload_targets=$tgt
     else
-      offload_targets=$offload_targets,$tgt_name
+      offload_targets=$offload_targets:$tgt
     fi
     if test x"$tgt_dir" != x; then
       offload_additional_options="$offload_additional_options -B$tgt_dir/libexec/gcc/\$(target_alias)/\$(gcc_version) -B$tgt_dir/bin"

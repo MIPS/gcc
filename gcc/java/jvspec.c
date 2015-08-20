@@ -629,7 +629,7 @@ lang_specific_pre_link (void)
      class name.  Append dummy `.c' that can be stripped by set_input so %b
      is correct.  */ 
   set_input (concat (main_class_name, "main.c", NULL));
-  err = do_spec (jvgenmain_spec);
+  err = do_spec (jvgenmain_spec, 0);
   if (err == 0)
     {
       /* Shift the outfiles array so the generated main comes first.

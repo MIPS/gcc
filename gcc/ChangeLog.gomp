@@ -1,3 +1,25 @@
+2015-08-20  Thomas Schwinge  <thomas@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/invoke.texi (-ffixed-@var{reg}): Document conflict with
+	Fortran options.
+	* gcc.c (offload_targets): Update comment.
+	(add_omp_infile_spec_func, spec_lang_mask_accept): New.
+	(driver_self_specs) [ENABLE_OFFLOADING]: Add spec to use
+	%:add-omp-infile().
+	(static_spec_functions): Add add-omp-infile.
+	(struct switchstr): Add lang_mask field.  Expand comment.
+	(struct infile): Add lang_mask field.
+	(add_infile, save_switch, do_spec): Add lang_mask argument.
+	(driver_unknown_option_callback, driver_wrong_lang_callback)
+	(driver_handle_option, process_command, do_self_spec)
+	(driver::do_spec_on_infiles): All callers changed.
+	(give_switch): Check languages of switch against
+	spec_lang_mask_accept.
+	(driver::maybe_putenv_OFFLOAD_TARGETS): Do not use intermediate
+	targets variable.
+	* gcc.h (do_spec): Update prototype.
+
 2015-08-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (build_oacc_routine_dims): Expand comment.

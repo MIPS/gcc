@@ -41,6 +41,7 @@
 
 #ifdef PLUGIN_SUPPORT
 #include <dlfcn.h>
+#include <fnmatch.h>
 #include "plugin-suffix.h"
 #endif
 
@@ -122,15 +123,24 @@ gomp_get_num_devices (void)
 }
 
 static struct gomp_device_descr *
-resolve_device (int device_id)
+resolve_device (int device)
 {
-  if (device_id == GOMP_DEVICE_ICV)
+  int device_id;
+  if (device == GOMP_DEVICE_ICV)
     {
       struct gomp_task_icv *icv = gomp_icv (false);
       device_id = icv->default_device_var;
     }
+  else
+    device_id = device;
 
   if (device_id < 0 || device_id >= gomp_get_num_devices ())
+    return NULL;
+
+  /* If the device-var ICV does not actually have offload data available, don't
+     try use it (which will fail), and use host fallback instead.  */
+  if (device == GOMP_DEVICE_ICV
+      && !gomp_offload_target_available_p (devices[device_id].type))
     return NULL;
 
   return &devices[device_id];
@@ -947,6 +957,48 @@ gomp_fini_device (struct gomp_device_descr *devicep)
   devicep->is_initialized = false;
 }
 
+/* Do we have offload data available for the given offload target type?
+   Instead of verifying that *all* offload data is available that could
+   possibly be required, we instead just look for *any*.  If we later find any
+   offload data missing, that's user error.  */
+
+attribute_hidden bool
+gomp_offload_target_available_p (int type)
+{
+  bool available = false;
+
+  /* Has the offload target already been initialized?  */
+  for (int i = 0; !available && i < num_devices; i++)
+    {
+      struct gomp_device_descr *devicep = &devices[i];
+      gomp_mutex_lock (&devicep->lock);
+      if (devicep->type == type && devicep->is_initialized)
+	available = true;
+      gomp_mutex_unlock (&devicep->lock);
+    }
+
+  if (!available)
+    {
+      gomp_mutex_lock (&register_lock);
+
+      /* If there is no offload data available at all, we cannot later fail to
+	 find any of it for a specific offload target.  This is the case where
+	 there are no offloaded code regions in user code, but there can still
+	 be executable directives used, or runtime library calls made.  */
+      if (num_offload_images == 0)
+	available = true;
+
+      /* Can the offload target be initialized?  */
+      for (int i = 0; !available && i < num_offload_images; i++)
+	if (offload_images[i].type == type)
+	  available = true;
+
+      gomp_mutex_unlock (&register_lock);
+    }
+
+  return available;
+}
+
 /* Called when encountering a target directive.  If DEVICE
    is GOMP_DEVICE_ICV, it means use device-var ICV.  If it is
    GOMP_DEVICE_HOST_FALLBACK (or any value
@@ -1116,6 +1168,8 @@ static bool
 gomp_load_plugin_for_device (struct gomp_device_descr *device,
 			     const char *plugin_name)
 {
+  gomp_debug (0, "%s (\"%s\")\n", __FUNCTION__, plugin_name);
+
   const char *err = NULL, *last_missing = NULL;
 
   void *plugin_handle = dlopen (plugin_name, RTLD_LAZY);
@@ -1212,6 +1266,39 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   return 0;
 }
 
+/* Helper, to translate from an offload target to the corresponding plugin name.  */
+
+static const char *
+offload_target_to_plugin_name (const char *offload_target)
+{
+  if (fnmatch ("*-intelmic*", offload_target, 0) == 0)
+    return "intelmic";
+  if (fnmatch ("nvptx*", offload_target, 0) == 0)
+    return "nvptx";
+  gomp_fatal ("Unknown offload target: %s", offload_target);
+}
+
+/* List of offload targets, separated by colon.  Defaults to the list
+   determined when configuring libgomp.  */
+static const char *gomp_offload_targets = OFFLOAD_TARGETS;
+static bool gomp_offload_targets_init = false;
+
+/* Override the list of offload targets.  This must be called early, and only
+   once.  */
+
+void
+GOMP_set_offload_targets (const char *offload_targets)
+{
+  gomp_debug (0, "%s (\"%s\")\n", __FUNCTION__, offload_targets);
+
+  /* Make sure this gets called early.  */
+  assert (gomp_is_initialized == PTHREAD_ONCE_INIT);
+  /* Make sure this only gets called once.  */
+  assert (!gomp_offload_targets_init);
+  gomp_offload_targets_init = true;
+  gomp_offload_targets = offload_targets;
+}
+
 /* This function initializes the runtime needed for offloading.
    It parses the list of offload targets and tries to load the plugins for
    these targets.  On return, the variables NUM_DEVICES and NUM_DEVICES_OPENMP
@@ -1219,11 +1306,12 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
    corresponding devices, first the GOMP_OFFLOAD_CAP_OPENMP_400 ones, follows
    by the others.  */
 
+static const char *gomp_plugin_prefix ="libgomp-plugin-";
+static const char *gomp_plugin_suffix = SONAME_SUFFIX (1);
+
 static void
 gomp_target_init (void)
 {
-  const char *prefix ="libgomp-plugin-";
-  const char *suffix = SONAME_SUFFIX (1);
   const char *cur, *next;
   char *plugin_name;
   int i, new_num_devices;
@@ -1231,48 +1319,60 @@ gomp_target_init (void)
   num_devices = 0;
   devices = NULL;
 
-  cur = OFFLOAD_TARGETS;
+  cur = gomp_offload_targets;
   if (*cur)
     do
       {
+	next = strchr (cur, ':');
+	/* If no other offload target following...  */
+	if (next == NULL)
+	  /* ..., point to the terminating NUL character.  */
+	  next = cur + strlen (cur);
+
+	size_t gomp_plugin_prefix_len = strlen (gomp_plugin_prefix);
+	size_t cur_len = next - cur;
+	size_t gomp_plugin_suffix_len = strlen (gomp_plugin_suffix);
+	plugin_name = gomp_malloc (gomp_plugin_prefix_len
+				   + cur_len
+				   + gomp_plugin_suffix_len
+				   + 1);
+	memcpy (plugin_name, gomp_plugin_prefix, gomp_plugin_prefix_len);
+	memcpy (plugin_name + gomp_plugin_prefix_len, cur, cur_len);
+	/* NUL-terminate the string here...  */
+	plugin_name[gomp_plugin_prefix_len + cur_len] = '\0';
+	/* ..., so that we can then use it to translate the offload target to
+	   the plugin name...  */
+	const char *cur_plugin_name
+	  = offload_target_to_plugin_name (plugin_name
+					   + gomp_plugin_prefix_len);
+	size_t cur_plugin_name_len = strlen (cur_plugin_name);
+	assert (cur_plugin_name_len <= cur_len);
+	/* ..., and then rewrite it.  */
+	memcpy (plugin_name + gomp_plugin_prefix_len,
+		cur_plugin_name, cur_plugin_name_len);
+	memcpy (plugin_name + gomp_plugin_prefix_len + cur_plugin_name_len,
+		gomp_plugin_suffix, gomp_plugin_suffix_len);
+	plugin_name[gomp_plugin_prefix_len
+		    + cur_plugin_name_len
+		    + gomp_plugin_suffix_len] = '\0';
+
 	struct gomp_device_descr current_device;
-
-	next = strchr (cur, ',');
-
-	plugin_name = (char *) malloc (1 + (next ? next - cur : strlen (cur))
-				       + strlen (prefix) + strlen (suffix));
-	if (!plugin_name)
-	  {
-	    num_devices = 0;
-	    break;
-	  }
-
-	strcpy (plugin_name, prefix);
-	strncat (plugin_name, cur, next ? next - cur : strlen (cur));
-	strcat (plugin_name, suffix);
-
 	if (gomp_load_plugin_for_device (&current_device, plugin_name))
 	  {
 	    new_num_devices = current_device.get_num_devices_func ();
 	    if (new_num_devices >= 1)
 	      {
-		/* Augment DEVICES and NUM_DEVICES.  */
-
-		devices = realloc (devices, (num_devices + new_num_devices)
-				   * sizeof (struct gomp_device_descr));
-		if (!devices)
-		  {
-		    num_devices = 0;
-		    free (plugin_name);
-		    break;
-		  }
-
 		current_device.name = current_device.get_name_func ();
 		/* current_device.capabilities has already been set.  */
 		current_device.type = current_device.get_type_func ();
 		current_device.mem_map.root = NULL;
 		current_device.is_initialized = false;
 		current_device.openacc.data_environ = NULL;
+
+		/* Augment DEVICES and NUM_DEVICES.  */
+		devices = gomp_realloc (devices,
+					((num_devices + new_num_devices)
+					 * sizeof (struct gomp_device_descr)));
 		for (i = 0; i < new_num_devices; i++)
 		  {
 		    current_device.target_id = i;
@@ -1286,18 +1386,12 @@ gomp_target_init (void)
 	free (plugin_name);
 	cur = next + 1;
       }
-    while (next);
+    while (*next);
 
   /* In DEVICES, sort the GOMP_OFFLOAD_CAP_OPENMP_400 ones first, and set
      NUM_DEVICES_OPENMP.  */
   struct gomp_device_descr *devices_s
-    = malloc (num_devices * sizeof (struct gomp_device_descr));
-  if (!devices_s)
-    {
-      num_devices = 0;
-      free (devices);
-      devices = NULL;
-    }
+    = gomp_malloc (num_devices * sizeof (struct gomp_device_descr));
   num_devices_openmp = 0;
   for (i = 0; i < num_devices; i++)
     if (devices[i].capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
