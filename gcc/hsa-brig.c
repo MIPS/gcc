@@ -458,6 +458,41 @@ get_alignment (BrigType16_t type)
   gcc_unreachable ();
 }
 
+/* Enqueue operation OP.  Return the offset at which it will be stored.  */
+
+static unsigned int
+enqueue_op (hsa_op_base *op)
+{
+  unsigned ret;
+
+  if (op->brig_op_offset)
+    return op->brig_op_offset;
+
+  ret = op_queue.projected_size;
+  op->brig_op_offset = op_queue.projected_size;
+
+  if (!op_queue.first_op)
+    op_queue.first_op = op;
+  else
+    op_queue.last_op->next = op;
+  op_queue.last_op = op;
+
+  if (is_a <hsa_op_immed *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandConstantBytes);
+  else if (is_a <hsa_op_reg *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandRegister);
+  else if (is_a <hsa_op_address *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandAddress);
+  else if (is_a <hsa_op_code_ref *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandCodeRef);
+  else if (is_a <hsa_op_code_list *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandCodeList);
+  else
+    gcc_unreachable ();
+  return ret;
+}
+
+
 /* Emit directive describing a symbol if it has not been emitted already.
    Return the offset of the directive.  */
 
@@ -477,14 +512,20 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VARIABLE);
   dirvar.allocation = BRIG_ALLOCATION_AUTOMATIC;
 
+  /* String readonly constant must have agent allocation.  */
+  if (symbol->cst_value)
+    dirvar.allocation = BRIG_ALLOCATION_AGENT;
+
   if (symbol->decl && is_global_var (symbol->decl))
     {
       prefix = '&';
-      dirvar.allocation = BRIG_ALLOCATION_PROGRAM ;
+      dirvar.allocation = BRIG_ALLOCATION_PROGRAM;
       if (TREE_CODE (symbol->decl) == VAR_DECL)
 	warning (0, "referring to global symbol %q+D by name from HSA code "
 		 "won't work", symbol->decl);
     }
+  else if (symbol->cst_value)
+    prefix = '&';
   else
     prefix = '%';
 
@@ -515,6 +556,12 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.modifier.allBits |= BRIG_VARIABLE_DEFINITION;
   dirvar.reserved = 0;
 
+  if (symbol->cst_value)
+    {
+      dirvar.modifier.allBits |= BRIG_VARIABLE_CONST;
+      dirvar.init = htole32 (enqueue_op (symbol->cst_value));
+    }
+
   symbol->directive_offset = brig_code.add (&dirvar, sizeof (dirvar));
   return symbol->directive_offset;
 }
@@ -530,6 +577,13 @@ emit_function_directives (hsa_function_representation *f)
   int count = 0;
   BrigDirectiveExecutable *ptr_to_fndir;
   hsa_symbol *sym;
+
+  if (!f->declaration_p)
+    for (int i = 0; f->string_constants.iterate (i, &sym); i++)
+      {
+	emit_directive_variable (sym);
+	brig_insn_count++;
+      }
 
   name_offset = brig_emit_string (f->name, '&');
   inarg_off = brig_code.total_size + sizeof(fndir)
@@ -602,6 +656,7 @@ emit_function_directives (hsa_function_representation *f)
 	  emit_directive_variable (sym);
 	  brig_insn_count++;
 	}
+
     }
 
   return ptr_to_fndir;
@@ -686,42 +741,6 @@ regtype_for_type (BrigType16_t t)
     default:
       gcc_unreachable ();
     }
-}
-
-/* Enqueue operation OP.  Return the offset at which it will be stored.  */
-
-unsigned int
-enqueue_op (hsa_op_base *op)
-{
-  unsigned ret;
-
-  if (op->brig_op_offset)
-    return op->brig_op_offset;
-
-  ret = op_queue.projected_size;
-  op->brig_op_offset = op_queue.projected_size;
-
-  if (!op_queue.first_op)
-    op_queue.first_op = op;
-  else
-    op_queue.last_op->next = op;
-  op_queue.last_op = op;
-
-  if (is_a <hsa_op_immed *> (op))
-    op_queue.projected_size += sizeof (struct BrigOperandConstantBytes);
-  else if (is_a <hsa_op_reg *> (op))
-    op_queue.projected_size += sizeof (struct BrigOperandRegister);
-  else if (is_a <hsa_op_address *> (op))
-    {
-    op_queue.projected_size += sizeof (struct BrigOperandAddress);
-    }
-  else if (is_a <hsa_op_code_ref *> (op))
-    op_queue.projected_size += sizeof (struct BrigOperandCodeRef);
-  else if (is_a <hsa_op_code_list *> (op))
-    op_queue.projected_size += sizeof (struct BrigOperandCodeList);
-  else
-    gcc_unreachable ();
-  return ret;
 }
 
 /* Return the length of the BRIG type TYPE that is going to be streamed out as
@@ -863,8 +882,8 @@ emit_immediate_operand (hsa_op_immed *imm)
   struct BrigOperandConstantBytes out;
   unsigned total_len = hsa_get_imm_brig_type_len (imm->type);
 
-  /* We do not produce HSAIL array types anywhere.  */
-  gcc_assert (!(imm->type & BRIG_TYPE_ARRAY));
+  if (TREE_CODE (imm->value) == STRING_CST)
+    total_len = TREE_STRING_LENGTH (imm->value);
 
   memset (&out, 0, sizeof (out));
   out.base.byteCount = htole16 (sizeof (out));
@@ -887,6 +906,9 @@ emit_immediate_operand (hsa_op_immed *imm)
       /* Vectors should have the exact size.  */
       gcc_assert (total_len == 0);
     }
+  else if (TREE_CODE (imm->value) == STRING_CST)
+    brig_data.add (TREE_STRING_POINTER (imm->value),
+		   TREE_STRING_LENGTH (imm->value));
   else if (TREE_CODE (imm->value) == COMPLEX_CST)
     {
       gcc_assert (total_len % 2 == 0);

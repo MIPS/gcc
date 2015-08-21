@@ -72,6 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "cfghooks.h"
 #include "hsa.h"
+#include "cfghooks.h"
 
 /* Following structures are defined in the final version
    of HSA specification.  */
@@ -180,6 +181,7 @@ hsa_function_representation::hsa_function_representation ()
   int sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;;
   local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
   spill_symbols = vNULL;
+  string_constants = vNULL;
   hbb_count = 1;        /* 0 is for prologue.  */
   in_ssa = true;	/* We start in SSA.  */
   kern_p = false;
@@ -202,6 +204,7 @@ hsa_function_representation::~hsa_function_representation ()
   if (!kern_p)
     free (name);
   spill_symbols.release ();
+  string_constants.release ();
   called_functions.release ();
 }
 
@@ -374,6 +377,11 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
   HOST_WIDE_INT bsize;
   const_tree base;
   BrigType16_t res = BRIG_TYPE_NONE;
+
+  /* Handle string constants.  */
+  if (TREE_CODE (type) == ARRAY_TYPE
+      && TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE)
+    return BRIG_TYPE_U8_ARRAY;
 
   gcc_checking_assert (TYPE_P (type));
   gcc_checking_assert (!AGGREGATE_TYPE_P (type));
@@ -667,6 +675,31 @@ hsa_get_spill_symbol (BrigType16_t type)
   return sym;
 }
 
+/* Create a symbol for a read-only string constant.  */
+hsa_symbol *
+hsa_get_string_cst_symbol (tree string_cst)
+{
+  gcc_checking_assert (TREE_CODE (string_cst) == STRING_CST);
+
+  hsa_symbol **slot = hsa_cfun->string_constants_map.get (string_cst);
+  if (slot)
+    return *slot;
+
+  hsa_symbol *sym = hsa_allocp_symbols->allocate ();
+  memset (sym, 0, sizeof (hsa_symbol));
+
+  sym->segment = BRIG_SEGMENT_GLOBAL;
+  sym->linkage = BRIG_LINKAGE_MODULE;
+  sym->type = BRIG_TYPE_U8_ARRAY;
+  sym->cst_value = new (hsa_allocp_operand_immed) hsa_op_immed (string_cst);
+  sym->dim = TREE_STRING_LENGTH (string_cst);
+  sym->name_number = hsa_cfun->string_constants.length ();
+
+  hsa_cfun->string_constants.safe_push (sym);
+  hsa_cfun->string_constants_map.put (string_cst, sym);
+  return sym;
+}
+
 /* Constructor of the ancetor if all operands.  K is BRIG kind that identified
    what the operator is.  */
 
@@ -696,7 +729,8 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 						     min32int))
 {
   gcc_checking_assert (is_gimple_min_invariant (tree_val)
-		       && !POINTER_TYPE_P (TREE_TYPE (tree_val)));
+		       && (!POINTER_TYPE_P (TREE_TYPE (tree_val))
+			   || TREE_CODE (tree_val) == INTEGER_CST));
   value = tree_val;
 }
 
@@ -1211,7 +1245,12 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
   tree varoffset = NULL_TREE;
   BrigType16_t addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
 
-  if (TREE_CODE (ref) == COMPONENT_REF)
+  if (TREE_CODE (ref) == STRING_CST)
+    {
+      symbol = hsa_get_string_cst_symbol (ref);
+      goto out;
+    }
+  else if (TREE_CODE (ref) == COMPONENT_REF)
     {
       tree fld = TREE_OPERAND (ref, 1);
       if (DECL_BIT_FIELD (fld))
@@ -1383,6 +1422,20 @@ static void
 gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
 		    vec <hsa_op_reg_p> *ssa_map)
 {
+  /* Handle cases like tmp = NULL, where we just emit a move instruction
+     to a register.  */
+  if (TREE_CODE (val) == INTEGER_CST)
+    {
+      hsa_op_immed *c = new (hsa_allocp_operand_immed)
+	hsa_op_immed (val);
+
+      hsa_insn_basic *insn = new (hsa_allocp_inst_basic) hsa_insn_basic
+	(2, BRIG_OPCODE_MOV, dest->type, dest, c);
+      hbb->append_insn (insn);
+      dest->set_definition (insn);
+      return;
+    }
+
   hsa_op_address *addr;
   hsa_insn_basic *insn = new (hsa_allocp_inst_basic) hsa_insn_basic
     (2, BRIG_OPCODE_LDA);
@@ -1394,7 +1447,7 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
   insn->operands[1] = addr;
   if (addr->reg)
     addr->reg->uses.safe_push (insn);
-  if (addr->symbol)
+  if (addr->symbol && addr->symbol->segment != BRIG_SEGMENT_GLOBAL)
     {
       /* LDA produces segment-relative address, we need to convert
 	 it to the flat one.  */
@@ -1504,6 +1557,7 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 		     "the requested non-pointer type.", rhs);
 	      return;
 	    }
+
 	  gen_hsa_addr_insns (rhs, dest, hbb, ssa_map);
 	}
       else if (TREE_CODE (rhs) == COMPLEX_CST)
@@ -1735,7 +1789,7 @@ gen_hsa_insns_for_single_assignment (gimple assign, hsa_bb *hbb,
       gen_hsa_insns_for_load (dest, rhs, TREE_TYPE (lhs), hbb, ssa_map);
     }
   else if (TREE_CODE (rhs) == SSA_NAME
-	   || is_gimple_min_invariant (rhs))
+	   || (is_gimple_min_invariant (rhs) && TREE_CODE (rhs) != STRING_CST))
     {
       /* Store to memory.  */
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (rhs, hbb, ssa_map,
@@ -3047,6 +3101,7 @@ gen_hsa_phi_from_gimple_phi (gimple phi_stmt, hsa_bb *hbb,
   for (unsigned i = 0; i < count; i++)
     {
       tree op = gimple_phi_arg_def (phi_stmt, i);
+
       if (TREE_CODE (op) == SSA_NAME)
 	{
 	  hsa_op_reg *hreg = hsa_reg_for_gimple_ssa (op, ssa_map);
@@ -3057,7 +3112,9 @@ gen_hsa_phi_from_gimple_phi (gimple phi_stmt, hsa_bb *hbb,
 	{
 	  gcc_assert (is_gimple_min_invariant (op));
 	  tree t = TREE_TYPE (op);
-	  if (!POINTER_TYPE_P (t))
+	  if (!POINTER_TYPE_P (t)
+	      || (TREE_CODE (op) == STRING_CST
+		  && TREE_CODE (TREE_TYPE (t)) == INTEGER_TYPE))
 	    hphi->operands[i] = new (hsa_allocp_operand_immed)
 	      hsa_op_immed (op);
 	  else if (POINTER_TYPE_P (TREE_TYPE (lhs))

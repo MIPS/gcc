@@ -1,5 +1,28 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (enqueue_op): Move the function up in source file.
+	(emit_directive_variable): Add support for string constants.
+	(emit_function_directives): Emit all const global variables where
+	string constant live in.
+	(emit_immediate_scalar_to_data_section): Fix pointer assignment.
+	(emit_immediate_operand): Add support for string constants
+	that can type of an immediate operand.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Initialize list of string constants.
+	(hsa_function_representation::~hsa_function_representation): Release
+	the list.
+	(hsa_type_for_scalar_tree_type): Handle type of a string constant.
+	(hsa_get_string_cst_symbol): New function.
+	(hsa_op_immed::hsa_op_immed): Change validator to accept a string
+	constant.
+	(gen_hsa_addr): Handle an address of a string constant.
+	(gen_hsa_addr_insns): Fix address emission.
+	(gen_hsa_insns_for_load): Fix coding style.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	* hsa.h (struct hsa_symbol): Add new forward declarations.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
     * hsa-gen.c (gen_hsa_addr): Add new sorry.
     (get_unsigned_type_by_bytes): New function.
     (gen_hsa_memory_copy): Newly reimplemented function.

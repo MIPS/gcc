@@ -40,6 +40,8 @@ hsa_gen_requested_p (void)
   return !flag_disable_hsa;
 }
 
+class hsa_op_immed;
+class hsa_op_cst_list;
 class hsa_insn_basic;
 typedef hsa_insn_basic *hsa_insn_basic_p;
 
@@ -75,6 +77,9 @@ struct hsa_symbol
 
   /* Array dimension, if non-zero.  */
   unsigned HOST_WIDE_INT dim;
+
+  /* Constant value, used for string constants.  */
+  hsa_op_immed *cst_value;
 };
 
 /* Abstract class for HSA instruction operands. */
@@ -804,8 +809,15 @@ public:
   struct hsa_symbol *output_arg;
   /* Hash table of local variable symbols.  */
   hash_table <hsa_noop_symbol_hasher> *local_symbols;
+
+  /* Hash map for string constants.  */
+  hash_map <tree, hsa_symbol *> string_constants_map;
+
   /* Vector of pointers to spill symbols.  */
   vec <struct hsa_symbol *> spill_symbols;
+
+  /* Vector of pointers to symbols for string constants.  */
+  vec <struct hsa_symbol *> string_constants;
 
   /* Vector of called function declarations.  */
   vec <tree> called_functions;
@@ -869,6 +881,7 @@ const char *hsa_get_declaration_name (tree decl);
 /* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);
 hsa_symbol *hsa_get_spill_symbol (BrigType16_t);
+hsa_symbol *hsa_get_string_cst_symbol (BrigType16_t);
 hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
