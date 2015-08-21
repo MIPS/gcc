@@ -422,7 +422,7 @@ microblaze*-*-*)
 mips*-*-*)
 	cpu_type=mips
 	need_64bit_hwint=yes
-	extra_headers="loongson.h"
+	extra_headers="loongson.h msa.h"
 	extra_options="${extra_options} g.opt mips/mips-tables.opt"
 	;;
 nds32*)
@@ -1959,6 +1959,8 @@ mips*-img-linux*)
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-img-linux"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_32"
+	with_arch_32="mips32r6"
+	with_arch_64="mips64r6"
 	gnu_ld=yes
 	gas=yes
 	;;
@@ -1967,6 +1969,8 @@ mips*-mti-linux*)
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-mti-linux"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
+	with_arch_32="mips32r2"
+	with_arch_64="mips64r2"
 	gnu_ld=yes
 	gas=yes
 	;;
@@ -1974,6 +1978,17 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/linux.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
 	case ${target} in
+		mips64*android*)
+			default_mips_arch=mips64r6
+			default_mips_abi=64
+			tm_file="${tm_file} mips/android.h"
+			tmake_file="${tmake_file} mips/t-linux-android64"
+			;;
+		mips*android*)
+			default_mips_arch=mips32
+			tm_file="${tm_file} mips/android.h"
+			tmake_file="$tmake_file mips/t-linux-android"
+			;;
 		mipsisa32r6*)
 			default_mips_arch=mips32r6
 			;;
@@ -2021,11 +2036,15 @@ mips*-mti-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
 	tmake_file="mips/t-mti-elf"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=33 MIPS_ABI_DEFAULT=ABI_32"
+	with_arch_32="mips32r2"
+	with_arch_64="mips64r2"
 	;;
 mips*-img-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h mips/mti-elf.h"
 	tmake_file="mips/t-img-elf"
 	tm_defines="${tm_defines} MIPS_ISA_DEFAULT=37 MIPS_ABI_DEFAULT=ABI_32"
+	with_arch_32="mips32r6"
+	with_arch_64="mips64r6"
 	;;
 mips*-sde-elf*)
 	tm_file="elfos.h newlib-stdint.h ${tm_file} mips/elf.h mips/n32-elf.h mips/sde.h"

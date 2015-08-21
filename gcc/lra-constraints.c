@@ -1950,13 +1950,18 @@ process_alt_operands (int only_alternative)
 		  break;
 
 		case TARGET_MEM_CONSTRAINT:
-		  if (MEM_P (op) || spilled_pseudo_p (op))
+		  if ((MEM_P (op)
+		       && memory_address_addr_space_p (GET_MODE (op),
+						       XEXP (op, 0),
+						       MEM_ADDR_SPACE (op)))
+		      || spilled_pseudo_p (op))
 		    win = true;
 		  /* We can put constant or pseudo value into memory
 		     to satisfy the constraint.  */
-		  if (CONST_POOL_OK_P (mode, op) || REG_P (op))
+		  if (MEM_P (op) || CONST_POOL_OK_P (mode, op) || REG_P (op))
 		    badop = false;
 		  constmemok = true;
+		  offmemok = true;
 		  break;
 
 		case '<':
@@ -3798,6 +3803,7 @@ curr_insn_transform (void)
 				  (ira_class_hard_regs[goal_alt[i]][0],
 				   GET_MODE (reg), byte, mode) >= 0)))))
 		{
+		  type = OP_INOUT;
 		  loc = &SUBREG_REG (*loc);
 		  mode = GET_MODE (*loc);
 		}

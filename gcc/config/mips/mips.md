@@ -69,6 +69,8 @@
   p5600
   w32
   w64
+  i6400
+  m5100
 ])
 
 (define_c_enum "unspec" [
@@ -243,6 +245,13 @@
 	 (const_string "yes")]
 	(const_string "no")))
 
+;; True if the main data type is four times of the size of a word.
+(define_attr "qword_mode" "no,yes"
+  (cond [(and (eq_attr "mode" "TI,TF")
+	      (not (match_test "TARGET_64BIT")))
+	 (const_string "yes")]
+	(const_string "no")))
+
 ;; Attributes describing a sync loop.  These loops have the form:
 ;;
 ;;       if (RELEASE_BARRIER == YES) sync
@@ -400,6 +409,11 @@
 	 (eq_attr "move_type" "constN,shift_shift")
 	   (const_string "multi")
 
+	 ;; These types of move are split for quadword modes only.
+	 (and (eq_attr "move_type" "move,const")
+	      (eq_attr "qword_mode" "yes"))
+	   (const_string "multi")
+
 	 ;; These types of move are split for doubleword modes only.
 	 (and (eq_attr "move_type" "move,const")
 	      (eq_attr "dword_mode" "yes"))
@@ -486,6 +500,12 @@
 	      (eq_attr "dword_mode" "yes"))
 	 (const_int 2)
 
+	 ;; Check for quadword moves that are decomposed into four
+	 ;; instructions.
+	 (and (eq_attr "move_type" "mtc,mfc,move")
+	      (eq_attr "qword_mode" "yes"))
+	 (const_int 4)
+
 	 ;; Constants, loads and stores are handled by external routines.
 	 (and (eq_attr "move_type" "const,constN")
 	      (eq_attr "dword_mode" "yes"))
@@ -527,7 +547,9 @@
 	 (const_int 2)
 
 	 (eq_attr "type" "idiv,idiv3")
-	 (symbol_ref "mips_idiv_insns ()")
+	 (cond [(eq_attr "mode" "TI")
+		(symbol_ref "mips_msa_idiv_insns () * 4")]
+	        (symbol_ref "mips_idiv_insns () * 4"))
 
 	 (not (eq_attr "sync_mem" "none"))
 	 (symbol_ref "mips_sync_loop_insns (insn, operands)")]
@@ -763,6 +785,11 @@
 
 (define_mode_iterator MOVEP1 [SI SF])
 (define_mode_iterator MOVEP2 [SI SF])
+(define_mode_iterator JOIN_MODE [
+				 HI
+				 SI
+				 (SF "TARGET_HARD_FLOAT")
+				 (DF "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT")])
 
 ;; This mode iterator allows :HILO to be used as the mode of the
 ;; concatenated HI and LO registers.
@@ -879,8 +906,10 @@
 (define_mode_attr fmt [(SF "s") (DF "d") (V2SF "ps")])
 
 ;; This attribute gives the upper-case mode name for one unit of a
-;; floating-point mode.
-(define_mode_attr UNITMODE [(SF "SF") (DF "DF") (V2SF "SF")])
+;; floating-point mode or vector mode.
+(define_mode_attr UNITMODE [(SF "SF") (DF "DF") (V2SF "SF") (V4SF "SF")
+			    (V16QI "QI") (V8HI "HI") (V4SI "SI") (V2DI "DI")
+			    (V2DF "DF")])
 
 ;; This attribute gives the integer mode that has the same size as a
 ;; fixed-point mode.
@@ -1104,7 +1133,9 @@
   (eq_attr "type" "ghost")
   "nothing")
 
+(include "i6400.md")
 (include "p5600.md")
+(include "m5100.md")
 (include "4k.md")
 (include "5k.md")
 (include "20kc.md")
@@ -6372,10 +6403,10 @@
   rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
-  
+
   output_asm_insn ("sltu\t%0, %1", operands);
   output_asm_insn ("bteqz\t%3", operands);
-  
+
   switch (GET_MODE (diff_vec))
     {
     case HImode:
@@ -7494,6 +7525,98 @@
   { return mips_output_jump (operands, 0, -1, true); }
   [(set_attr "type" "call")
    (set_attr "insn_count" "3")])
+
+(define_insn "*join2_load_store<JOIN_MODE:mode>"
+  [(set (match_operand:JOIN_MODE 0 "nonimmediate_operand" "=d,f,m,m")
+	(match_operand:JOIN_MODE 1 "nonimmediate_operand" "m,m,d,f"))
+   (set (match_operand:JOIN_MODE 2 "nonimmediate_operand" "=d,f,m,m")
+	(match_operand:JOIN_MODE 3 "nonimmediate_operand" "m,m,d,f"))]
+  "ENABLE_LD_ST_PAIRS && reload_completed"
+  {
+    bool load_p = (which_alternative == 0 || which_alternative == 1);
+    if (!load_p || !reg_overlap_mentioned_p (operands[0], operands[1]))
+      {
+	output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
+	output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
+      }
+    else
+      {
+	output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
+	output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
+      }
+    return "";
+  }
+  [(set_attr "move_type" "load,fpload,store,fpstore")
+   (set_attr "insn_count" "2,2,2,2")])
+
+;; 2 HI/SI/SF/DF loads are joined.
+;; P5600 does not support bonding of two LBs, hence QI mode is not included.
+(define_peephole2
+  [(set (match_operand:JOIN_MODE 0 "register_operand")
+	(match_operand:JOIN_MODE 1 "non_volatile_mem_operand"))
+   (set (match_operand:JOIN_MODE 2 "register_operand")
+	(match_operand:JOIN_MODE 3 "non_volatile_mem_operand"))]
+  "ENABLE_LD_ST_PAIRS && 
+   mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode, true)"
+  [(parallel [(set (match_dup 0)
+		   (match_dup 1))
+	      (set (match_dup 2)
+		   (match_dup 3))])]
+  "")
+
+;; 2 HI/SI/SF/DF stores are joined.
+;; P5600 does not support bonding of two SBs, hence QI mode is not included.
+(define_peephole2
+  [(set (match_operand:JOIN_MODE 0 "memory_operand")
+	(match_operand:JOIN_MODE 1 "register_operand"))
+   (set (match_operand:JOIN_MODE 2 "memory_operand")
+	(match_operand:JOIN_MODE 3 "register_operand"))]
+  "ENABLE_LD_ST_PAIRS &&
+   mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode, false)"
+  [(parallel [(set (match_dup 0)
+		   (match_dup 1))
+	      (set (match_dup 2)
+		   (match_dup 3))])]
+  "")
+
+(define_insn "*join2_loadhi"
+  [(set (match_operand:SI 0 "register_operand" "=r")
+	(any_extend:SI (match_operand:HI 1 "memory_operand" "m")))
+   (set (match_operand:SI 2 "register_operand" "=r")
+	(any_extend:SI (match_operand:HI 3 "memory_operand" "m")))]
+  "ENABLE_LD_ST_PAIRS && reload_completed"
+  {
+    if (!reg_overlap_mentioned_p (operands[0], operands[1]))
+      {
+	output_asm_insn ("lh<u>\t%0,%1", operands);
+	output_asm_insn ("lh<u>\t%2,%3", operands);
+      }
+    else
+      {
+	output_asm_insn ("lh<u>\t%2,%3", operands);
+	output_asm_insn ("lh<u>\t%0,%1", operands);
+      }
+
+    return "";
+  }
+  [(set_attr "move_type" "load")
+   (set_attr "insn_count" "2")])
+
+
+;; 2 16 bit integer loads are joined.
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand")
+	(any_extend:SI (match_operand:HI 1 "non_volatile_mem_operand")))
+   (set (match_operand:SI 2 "register_operand")
+	(any_extend:SI (match_operand:HI 3 "non_volatile_mem_operand")))]
+  "ENABLE_LD_ST_PAIRS &&
+   mips_load_store_bonding_p (operands, HImode, true)"
+  [(parallel [(set (match_dup 0)
+		   (any_extend:SI (match_dup 1)))
+	      (set (match_dup 2)
+		   (any_extend:SI (match_dup 3)))])]
+  "")
+
 
 ;; Synchronization instructions.
 
@@ -7519,6 +7642,9 @@
 
 ; ST-Microelectronics Loongson-2E/2F-specific patterns.
 (include "loongson.md")
+
+; The MIPS MSA Instructions.
+(include "mips-msa.md")
 
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
