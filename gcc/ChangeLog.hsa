@@ -1,5 +1,16 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use new ctor.
+	(hsa_op_address::hsa_op_address): Add two new constructors.
+	(gen_hsa_addr_for_arg): Use the newly added ctors.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	* hsa.h: Add declaration of the constructors.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_cvt_insn): Add rounding for float->int conversions.
 	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Support
 	TRUNC expression.

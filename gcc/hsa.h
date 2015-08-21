@@ -211,7 +211,21 @@ is_a_helper <hsa_op_reg *>::test (hsa_op_base *p)
 class hsa_op_address : public hsa_op_base
 {
 public:
-  hsa_op_address (hsa_symbol *sym, hsa_op_reg *reg, HOST_WIDE_INT offset);
+  /* set up a new address operand consisting of base symbol SYM, register R and
+     immediate OFFSET.  If the machine model is not large and offset is 64 bit,
+     the upper, 32 bits have to be zero.  */
+  hsa_op_address (hsa_symbol *sym, hsa_op_reg *reg,
+		  HOST_WIDE_INT offset = 0);
+
+  /* Set up a new address operand consisting of base symbol SYM and
+     immediate OFFSET.  If the machine model is not large and offset is 64 bit,
+     the upper, 32 bits have to be zero.  */
+  hsa_op_address (hsa_symbol *sym, HOST_WIDE_INT offset = 0);
+
+  /* Set up a new address operand consisting of register R and
+     immediate OFFSET.  If the machine model is not large and offset is 64 bit,
+     the upper, 32 bits have to be zero.  */
+  hsa_op_address (hsa_op_reg *reg, HOST_WIDE_INT offset = 0);
 
   /* Symbol base of the address.  Can be NULL if there is none.  */
   hsa_symbol *symbol;
