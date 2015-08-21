@@ -1,4 +1,4 @@
-/* { dg-options "-mcompact-branches=never" } */
+/* { dg-options "-mcompact-branches=never -mno-abicalls -G4" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" "-O1" "-Os" } { "" } } */
 /* { dg-final { scan-assembler "beq.*\n\tlw" } } */
 /* { dg-final { scan-assembler-times "\\(foo\\)" 2 } } */
