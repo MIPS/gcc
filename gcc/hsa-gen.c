@@ -2132,8 +2132,7 @@ gen_hsa_insns_for_known_library_call (gimple stmt, hsa_bb *hbb,
   tree decl = gimple_call_fndecl (stmt);
   const char *name = get_declaration_name (decl);
 
-  if (!strcmp (name, "omp_is_initial_device")
-      || strcmp (name, "omp_is_initial_device"))
+  if (strcmp (name, "omp_is_initial_device") == 0)
     {
       tree lhs = gimple_call_lhs (stmt);
       if (!lhs)

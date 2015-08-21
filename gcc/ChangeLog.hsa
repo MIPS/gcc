@@ -1,3 +1,8 @@
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call): Fix function name
+	comparison condition.
+
 2015-08-19  Michael Matz  <matz@suse.de>
 
 	PR target/67272
