@@ -379,7 +379,7 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
   if (POINTER_TYPE_P (type))
     return hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
 
-  if (TREE_CODE (type) == VECTOR_TYPE)
+  if (TREE_CODE (type) == VECTOR_TYPE || TREE_CODE (type) == COMPLEX_TYPE)
     base = TREE_TYPE (type);
   else
     base = type;
@@ -459,7 +459,7 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
       return res;
     }
 
-  if (TREE_CODE (type) == VECTOR_TYPE)
+  if (TREE_CODE (type) == VECTOR_TYPE || TREE_CODE (type) == COMPLEX_TYPE)
     {
       HOST_WIDE_INT tsize = tree_to_uhwi (TYPE_SIZE (type));
       switch (tsize)
@@ -880,7 +880,9 @@ hsa_insn_mem::hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0,
 			    hsa_op_base *arg1)
   : hsa_insn_basic (2, opc, t)
 {
-  gcc_checking_assert (opc == BRIG_OPCODE_LD || opc == BRIG_OPCODE_ST);
+  gcc_checking_assert (opc == BRIG_OPCODE_LD || opc == BRIG_OPCODE_ST
+		       || opc == BRIG_OPCODE_EXPAND);
+
   equiv_class = 0;
   memoryorder = BRIG_MEMORY_ORDER_NONE;
   memoryscope = BRIG_MEMORY_SCOPE_NONE;
@@ -1497,12 +1499,72 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 	    }
 	  gen_hsa_addr_insns (rhs, dest, hbb, ssa_map);
 	}
+      else if (TREE_CODE (rhs) == COMPLEX_CST)
+	{
+	  tree pack_type = TREE_TYPE (rhs);
+	  hsa_op_immed *real_part = new (hsa_allocp_operand_immed)
+	    hsa_op_immed (TREE_REALPART (rhs));
+	  hsa_op_immed *imag_part = new (hsa_allocp_operand_immed)
+	    hsa_op_immed (TREE_IMAGPART (rhs));
+
+	  hsa_op_reg *real_part_reg = new (hsa_allocp_operand_reg)
+	    hsa_op_reg (hsa_type_for_scalar_tree_type (TREE_TYPE (type),
+						       false));
+	  hsa_op_reg *imag_part_reg = new (hsa_allocp_operand_reg)
+	    hsa_op_reg (hsa_type_for_scalar_tree_type (TREE_TYPE (type),
+						       false));
+
+	  hsa_build_append_simple_mov (real_part_reg, real_part, hbb);
+	  hsa_build_append_simple_mov (imag_part_reg, imag_part, hbb);
+
+	  hsa_insn_basic *insn = new (hsa_allocp_inst_basic)
+	    hsa_insn_basic (3, BRIG_OPCODE_COMBINE,
+			    hsa_type_for_scalar_tree_type (pack_type, false),
+			    dest,
+			    real_part_reg, imag_part_reg);
+	  hbb->append_insn (insn);
+	  dest->set_definition (insn);
+	}
       else
 	{
 	  hsa_op_immed *imm = new (hsa_allocp_operand_immed)
 	    hsa_op_immed (rhs);
 	  hsa_build_append_simple_mov (dest, imm, hbb);
 	}
+    }
+  else if (TREE_CODE (rhs) == REALPART_EXPR || TREE_CODE (rhs) == IMAGPART_EXPR)
+    {
+      tree pack_type = TREE_TYPE (TREE_OPERAND (rhs, 0));
+
+      hsa_op_reg *packed_reg = new (hsa_allocp_operand_reg)
+	hsa_op_reg (hsa_type_for_scalar_tree_type (pack_type, false));
+
+      gen_hsa_insns_for_load (packed_reg, TREE_OPERAND (rhs, 0), type, hbb,
+			      ssa_map);
+
+      hsa_op_reg *real_reg = new (hsa_allocp_operand_reg)
+	hsa_op_reg (hsa_type_for_scalar_tree_type (type, false));
+
+      hsa_op_reg *imag_reg = new (hsa_allocp_operand_reg)
+	hsa_op_reg (hsa_type_for_scalar_tree_type (type, false));
+
+      BrigKind16_t brig_type = packed_reg->type;
+      hsa_insn_basic *expand = new (hsa_allocp_inst_basic)
+	hsa_insn_basic (3, BRIG_OPCODE_EXPAND, brig_type, real_reg, imag_reg,
+			packed_reg);
+
+      real_reg->set_definition (expand);
+      imag_reg->set_definition (expand);
+      hbb->append_insn (expand);
+
+      hsa_op_reg *source = TREE_CODE (rhs) == REALPART_EXPR ?
+	real_reg : imag_reg;
+
+      hsa_insn_basic *insn = new (hsa_allocp_inst_basic)
+	hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->type, dest, source);
+
+      dest->set_definition (insn);
+      hbb->append_insn (insn);
     }
   else if (DECL_P (rhs) || TREE_CODE (rhs) == MEM_REF
 	   || TREE_CODE (rhs) == TARGET_MEM_REF
@@ -1850,7 +1912,24 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
 				      dest, hbb, ssa_map);
       }
       return;
+    case COMPLEX_EXPR:
+      {
+	hsa_op_reg *dest = hsa_reg_for_gimple_ssa (gimple_assign_lhs (assign),
+						   ssa_map);
 
+	hsa_op_base *rhs1 = hsa_reg_or_immed_for_gimple_op
+	  (gimple_assign_rhs1 (assign), hbb, ssa_map, NULL);
+	hsa_op_base *rhs2 = hsa_reg_or_immed_for_gimple_op
+	  (gimple_assign_rhs2 (assign), hbb, ssa_map, NULL);
+
+	hsa_insn_basic *insn = new (hsa_allocp_inst_basic)
+	  hsa_insn_basic (3, BRIG_OPCODE_COMBINE, dest->type, dest, rhs1, rhs2);
+
+	dest->set_definition (insn);
+	hbb->append_insn (insn);
+
+	return;
+      }
     default:
       /* Implement others as we come across them.  */
       sorry ("Support for HSA does not implement operation %s",

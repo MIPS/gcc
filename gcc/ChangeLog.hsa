@@ -1,5 +1,17 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_immediate_operand): Add emission for complex
+	constants.
+	(emit_basic_insn): Fix condition.
+	* hsa-gen.c (hsa_type_for_scalar_tree_type): Add handling of complex
+	constants.
+	(hsa_insn_mem::hsa_insn_mem): Likewise.
+	(gen_hsa_insns_for_load): Emit load isntructions for a complex constant.
+	(gen_hsa_insns_for_operation_assignment): Add support for COMPLEX_EXPR.
+	* hsa-regalloc.c (hsa_num_def_ops): Fix number of defined registers.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_function_def_parameters): Generate declaration names
 	for anonymous parameters.
 	* hsa.c (hsa_get_declaration_name): New function.

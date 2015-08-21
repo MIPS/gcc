@@ -254,8 +254,7 @@ hsa_num_def_ops (hsa_insn_basic *insn)
 	return 0;
 
       case BRIG_OPCODE_EXPAND:
-	sorry ("HSA expand opcode not handled");
-	return 1;
+	return 2;
 
       case BRIG_OPCODE_LD:
 	/* ld_v[234] not yet handled.  */
