@@ -1,5 +1,11 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_init_data_for_cfun): Fix coding style.
+	(hsa_bb::append_insn): Change assert.
+	(gen_hsa_insns_for_gimple_stmt): Handle GIMPLE_NOP statements.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use new ctor.
 	(hsa_op_address::hsa_op_address): Add two new constructors.
 	(gen_hsa_addr_for_arg): Use the newly added ctors.

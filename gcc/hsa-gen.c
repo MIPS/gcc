@@ -278,8 +278,7 @@ hsa_init_data_for_cfun ()
     = new object_allocator<hsa_insn_comment> ("HSA comment instructions",
 						16);
   hsa_allocp_inst_queue
-    = new object_allocator<hsa_insn_queue> ("HSA queue instructions",
-						16);
+    = new object_allocator<hsa_insn_queue> ("HSA queue instructions", 16);
   hsa_allocp_bb = new object_allocator<hsa_bb> ("HSA basic blocks", 8);
 
   sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;
@@ -1049,8 +1048,7 @@ hsa_insn_queue::hsa_insn_queue (int nops, BrigOpcode opcode)
 void
 hsa_bb::append_insn (hsa_insn_basic *insn)
 {
-  /* Make sure we did not forget to set the kind.  */
-  gcc_assert (insn->opcode != 0);
+  gcc_assert (insn->opcode != 0 || insn->operands.length () == 0);
   gcc_assert (!insn->bb);
 
   insn->bb = bb;
@@ -3443,6 +3441,12 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
 	sorry ("Support for HSA does not implement gimple label with address "
 	       "taken");
 
+      break;
+    }
+    case GIMPLE_NOP:
+    {
+      hbb->append_insn (new (hsa_allocp_inst_basic)
+			hsa_insn_basic (0, BRIG_OPCODE_NOP));
       break;
     }
     default:
