@@ -1,3 +1,7 @@
+2015-08-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gomp-constants.h (GOMP_DIM_MASK): Generate unsigned.
+
 2015-08-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gomp-constants.h: Note why device 3 is missing.

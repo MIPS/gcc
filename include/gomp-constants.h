@@ -126,7 +126,7 @@ enum gomp_map_kind
 #define GOMP_DIM_WORKER	1
 #define GOMP_DIM_VECTOR	2
 #define GOMP_DIM_MAX	3
-#define GOMP_DIM_MASK(X) (1 << (X))
+#define GOMP_DIM_MASK(X) (1u << (X))
 
 /* Varadic launch arguments.  */
 #define GOMP_LAUNCH_END 	0  /* End of args, no dev or op */
