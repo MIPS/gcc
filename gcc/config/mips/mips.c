@@ -15343,6 +15343,14 @@ mips_sched_reorder2 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
   return cached_can_issue_more;
 }
 
+/* Implement USE_EAGER_DELAY_FILLER.  */
+
+static bool
+mips_use_eager_delay_filler_p ()
+{
+  return TARGET_CB_NEVER;
+}
+
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */
 
 static void
@@ -18659,6 +18667,23 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
       }
 }
 
+/* Remove a SEQUENCE and replace it with the delay slot instruction
+   followed by the branch and return the instruction in the delay slot.
+   Return the first of the two new instructions.
+   Subroutine of mips_reorg_process_insns.  */
+
+static rtx
+mips_break_sequence (rtx insn)
+{
+  rtx before = PREV_INSN (insn);
+  rtx branch = SEQ_BEGIN (insn);
+  rtx ds = SEQ_END (insn);
+  remove_insn (insn);
+  add_insn_after (ds, before, NULL);
+  add_insn_after (branch, ds, NULL);
+  return ds;
+}
+
 /* Go through the instruction stream and insert nops where necessary.
    Also delete any high-part relocations whose partnering low parts
    are now all dead.  See if the whole function can then be put into
@@ -18751,6 +18776,65 @@ mips_reorg_process_insns (void)
 	{
 	  if (GET_CODE (PATTERN (insn)) == SEQUENCE)
 	    {
+	      rtx next_active = next_active_insn (insn);
+	      /* Undo delay slots to avoid bubbles if the next instruction can
+		 be placed in a forbidden slot or the cost of adding an
+		 explicit NOP in a forbidden slot is OK.  */
+	      if (TARGET_CB_MAYBE
+		  && INSN_P (SEQ_BEGIN (insn))
+		  && INSN_P (SEQ_END (insn))
+		  && ((next_active
+		       && GET_CODE (PATTERN (next_active)) != SEQUENCE
+		       && get_attr_can_delay (next_active) == CAN_DELAY_YES)
+		      || !optimize_size))
+		{
+		  /* To hide a potential pipeline bubble, if we scan backwards
+		     from the current SEQUENCE and find that there is a load
+		     of a value that is used in the CTI and there are no
+		     dependencies between the CTI and instruction in the delay
+		     slot, break the sequence so the load delay is hidden.  */
+		  HARD_REG_SET uses;
+		  CLEAR_HARD_REG_SET (uses);
+		  note_uses (&PATTERN (SEQ_BEGIN (insn)), record_hard_reg_uses,
+			     &uses);
+		  HARD_REG_SET delay_sets;
+		  CLEAR_HARD_REG_SET (delay_sets);
+		  note_stores (PATTERN (SEQ_END (insn)), record_hard_reg_sets,
+			       &delay_sets);
+
+		  rtx prev = prev_active_insn (insn);
+		  if (prev
+		      && GET_CODE (PATTERN (prev)) == SET
+		      && MEM_P (SET_SRC (PATTERN (prev))))
+		    {
+		      HARD_REG_SET sets;
+		      CLEAR_HARD_REG_SET (sets);
+		      note_stores (PATTERN (prev), record_hard_reg_sets,
+				   &sets);
+
+		      /* Re-order if safe.  */
+		      if (!hard_reg_set_intersect_p (delay_sets, uses)
+			  && hard_reg_set_intersect_p (uses, sets))
+			{
+			  next_insn = mips_break_sequence (insn);
+			  /* Need to process the hazards of the newly
+			     introduced instructions.  */
+			  continue;
+			}
+		    }
+
+		  /* If we find an orphaned high-part relocation in a delay
+		     slot then we can convert to a compact branch and get
+		     the orphaned high part deleted.  */
+		  if (mips_orphaned_high_part_p (htab, SEQ_END (insn)))
+		    {
+		      next_insn = mips_break_sequence (insn);
+		      /* Need to process the hazards of the newly
+			 introduced instructions.  */
+		      continue;
+		    }
+		}
+
 	      /* If we find an orphaned high-part relocation in a delay
 		 slot, it's easier to turn that instruction into a NOP than
 		 to delete it.  The delay slot will be a NOP either way.  */
@@ -18785,6 +18869,32 @@ mips_reorg_process_insns (void)
 		{
 		  mips_avoid_hazard (last_insn, insn, &hilo_delay,
 				     &delayed_reg, lo_reg, &fs_delay);
+		  /* When a compact branch introduces a forbidden slot hazard
+		     and the next useful instruction is a SEQUENCE of a jump
+		     and a non-nop instruction in the delay slot, remove the
+		     sequence and replace it with the delay slot instruction
+		     then the jump to clear the forbidden slot hazard.  */
+
+		  if (fs_delay)
+		    {
+		      /* Search onwards from the current position looking for
+			 a SEQUENCE.  We are looking for pipeline hazards here
+			 and do not need to worry about labels or barriers as
+			 the optimization only undoes delay slot filling which
+			 only affects the order of the branch and its delay
+			 slot.  */
+		      rtx next = next_active_insn (insn);
+		      if (next
+			  && USEFUL_INSN_P (next)
+			  && GET_CODE (PATTERN (next)) == SEQUENCE)
+			{
+			  last_insn = insn;
+			  next_insn = mips_break_sequence (next);
+			  /* Need to process the hazards of the newly
+			     introduced instructions.  */
+			  continue;
+			}
+		    }
 		  last_insn = insn;
 		}
 	    }
@@ -19604,7 +19714,7 @@ mips_option_override (void)
   if ((target_flags_explicit & MASK_BRANCHLIKELY) == 0)
     {
       if (ISA_HAS_BRANCHLIKELY
-	  && (optimize_size
+	  && ((optimize_size && strncmp (mips_arch_info->name, "mips", 4) != 0)
 	      || (mips_tune_info->tune_flags & PTF_AVOID_BRANCHLIKELY) == 0))
 	target_flags |= MASK_BRANCHLIKELY;
       else
@@ -22222,6 +22332,12 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
      instructions that say integer mode values must be placed in FPRs.  */
   if (INTEGRAL_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
     return GR_REGS;
+
+  /* Likewise for the mirror case of floating mode pseudos being allocated in
+     a GPR.  */
+  if (FLOAT_MODE_P (PSEUDO_REGNO_MODE (regno)) && allocno_class == ALL_REGS)
+    return FP_REGS;
+
   return allocno_class;
 }
 
@@ -22298,6 +22414,9 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_IN_SMALL_DATA_P
 #define TARGET_IN_SMALL_DATA_P mips_in_small_data_p
+
+#undef TARGET_USE_EAGER_DELAY_FILLER_P
+#define TARGET_USE_EAGER_DELAY_FILLER_P mips_use_eager_delay_filler_p
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG mips_reorg
