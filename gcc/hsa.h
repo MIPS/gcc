@@ -310,7 +310,8 @@ public:
   hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
 		  hsa_op_base *arg0 = NULL,
 		  hsa_op_base *arg1 = NULL,
-		  hsa_op_base *arg2 = NULL);
+		  hsa_op_base *arg2 = NULL,
+		  hsa_op_base *arg3 = NULL);
 
   /* The previous and next instruction in the basic block.  */
   hsa_insn_basic *prev, *next;

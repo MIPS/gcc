@@ -1,5 +1,22 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_addr): Add support for bit fields.
+	(gen_hsa_insns_for_bitfield_load): New function.
+	(gen_hsa_insns_for_load): Handle cases where we load a bit field
+	address.
+	(get_bitfield_size): New function.
+	(get_unsigned_type_by_bytes): Removed.
+	(get_integer_type_by_bytes): New function.
+	(get_integer_tree_type_by_bytes): Likewise.
+	(gen_hsa_memory_copy): Use the new function.
+	(gen_hsa_insns_for_store): Handle bit fields.
+	(gen_hsa_unary_operation): New function.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Add support for new
+	operations.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (enqueue_op): Move the function up in source file.
 	(emit_directive_variable): Add support for string constants.
 	(emit_function_directives): Emit all const global variables where
