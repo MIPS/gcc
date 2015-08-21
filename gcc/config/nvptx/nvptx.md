@@ -1418,7 +1418,7 @@
 		       UNSPECV_FORKED)]
   ""
 {
-  nvptx_expand_oacc_fork (GOMP_DIM_MASK (INTVAL (operands[0])));
+  nvptx_expand_oacc_fork (INTVAL (operands[0]));
   DONE;
 })
 
@@ -1427,7 +1427,7 @@
 		       UNSPECV_JOIN)]
   ""
 {
-  nvptx_expand_oacc_join (GOMP_DIM_MASK (INTVAL (operands[0])));
+  nvptx_expand_oacc_join (INTVAL (operands[0]));
   DONE;
 })
 

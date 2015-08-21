@@ -1165,11 +1165,10 @@ nvptx_expand_compare (rtx compare)
   return gen_rtx_NE (BImode, pred, const0_rtx);
 }
 
+/* Emit forking instructions for MASK.  */
 
-/* Expand the oacc fork & join primitive into ptx-required unspecs.  */
-
-void
-nvptx_expand_oacc_fork (unsigned mask)
+static void
+nvptx_emit_forking (unsigned mask)
 {
   mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
 	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
@@ -1184,8 +1183,10 @@ nvptx_expand_oacc_fork (unsigned mask)
     }
 }
 
-void
-nvptx_expand_oacc_join (unsigned mask)
+/* Emit joining instructions for MASK.  */
+
+static void
+nvptx_emit_joining (unsigned mask)
 {
   mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
 	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
@@ -1197,6 +1198,20 @@ nvptx_expand_oacc_join (unsigned mask)
       emit_insn (gen_nvptx_joining (op));
       emit_insn (gen_nvptx_join (op));
     }
+}
+
+/* Expand the oacc fork & join primitive into ptx-required unspecs.  */
+
+void
+nvptx_expand_oacc_fork (unsigned mode)
+{
+  nvptx_emit_forking (GOMP_DIM_MASK (mode));
+}
+
+void
+nvptx_expand_oacc_join (unsigned mode)
+{
+  nvptx_emit_joining (GOMP_DIM_MASK (mode));
 }
 
 /* Expander for reduction locking and unlocking.  We expect SRC to be
