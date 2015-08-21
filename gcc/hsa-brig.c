@@ -1393,6 +1393,9 @@ emit_cvt_insn (hsa_insn_basic *insn)
          || ((insn->type & BRIG_TYPE_BASE_MASK)
              < (srctype & BRIG_TYPE_BASE_MASK))))
     repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
+  else if (hsa_type_integer_p (insn->type) &&
+	   hsa_type_float_p (srctype))
+    repr.round = BRIG_ROUND_INTEGER_ZERO;
   else
     repr.round = BRIG_ROUND_NONE;
   brig_code.add (&repr, sizeof (repr));

@@ -253,7 +253,7 @@ hsa_bittype_for_type (BrigType16_t t)
     }
 }
 
-/* Return true iff TYPE is a floating point number type.  */
+/* Return true if and only if TYPE is a floating point number type.  */
 
 bool
 hsa_type_float_p (BrigType16_t type)
@@ -263,6 +263,26 @@ hsa_type_float_p (BrigType16_t type)
     case BRIG_TYPE_F16:
     case BRIG_TYPE_F32:
     case BRIG_TYPE_F64:
+      return true;
+    default:
+      return false;
+    }
+}
+
+/* Return true if and only if TYPE is an integer number type.  */
+
+bool
+hsa_type_integer_p (BrigType16_t type)
+{
+  switch (type & BRIG_TYPE_BASE_MASK)
+    {
+    case BRIG_TYPE_U16:
+    case BRIG_TYPE_U32:
+    case BRIG_TYPE_U64:
+    case BRIG_TYPE_S8:
+    case BRIG_TYPE_S16:
+    case BRIG_TYPE_S32:
+    case BRIG_TYPE_S64:
       return true;
     default:
       return false;

@@ -867,6 +867,7 @@ bool hsa_opcode_op_output_p (BrigOpcode16_t, int);
 unsigned hsa_type_bit_size (BrigType16_t t);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 bool hsa_type_float_p (BrigType16_t type);
+bool hsa_type_integer_p (BrigType16_t type);
 void hsa_destroy_insn (hsa_insn_basic *insn);
 void hsa_add_kern_decl_mapping (tree decl, char *name, unsigned);
 unsigned hsa_get_number_decl_kernel_mappings (void);

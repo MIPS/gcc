@@ -1,5 +1,13 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_cvt_insn): Add rounding for float->int conversions.
+	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Support
+	TRUNC expression.
+	* hsa.h (hsa_type_integer_p): New function.
+	* hsa.c (hsa_type_integer_p): Likewise.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_addr): Add support for bit fields.
 	(gen_hsa_insns_for_bitfield_load): New function.
 	(gen_hsa_insns_for_load): Handle cases where we load a bit field

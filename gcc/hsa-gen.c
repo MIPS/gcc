@@ -2362,6 +2362,39 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
     case BIT_NOT_EXPR:
       opcode = BRIG_OPCODE_NOT;
       break;
+    case FIX_TRUNC_EXPR:
+      {
+	hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+	hsa_op_with_type *v = hsa_reg_or_immed_for_gimple_op (rhs1, hbb,
+							      ssa_map, NULL);
+
+	if (hsa_needs_cvt (dest->type, v->type))
+	  {
+	    hsa_op_reg *tmp = new (hsa_allocp_operand_reg)
+	      hsa_op_reg (v->type);
+
+	    hsa_insn_basic *insn = new (hsa_allocp_inst_basic)
+	      hsa_insn_basic (2, BRIG_OPCODE_TRUNC, tmp->type, tmp, v);
+	    tmp->set_definition (insn);
+	    hbb->append_insn (insn);
+
+	    hsa_insn_basic *cvtinsn = new (hsa_allocp_inst_basic)
+	      hsa_insn_basic (2, BRIG_OPCODE_CVT, dest->type, dest, tmp);
+	    hbb->append_insn (cvtinsn);
+	    dest->set_definition (cvtinsn);
+	  }
+	else
+	  {
+	    hsa_insn_basic *insn = new (hsa_allocp_inst_basic)
+	      hsa_insn_basic (2, BRIG_OPCODE_TRUNC, dest->type, dest, v);
+	    hbb->append_insn (insn);
+	    dest->set_definition (insn);
+	  }
+
+	return;
+      }
+      opcode = BRIG_OPCODE_TRUNC;
+      break;
 
     case LT_EXPR:
     case LE_EXPR:
@@ -2380,8 +2413,7 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
       {
 	hsa_op_reg *dest = hsa_reg_for_gimple_ssa (gimple_assign_lhs (assign),
 						   ssa_map);
-	hsa_op_reg *ctrl = new (hsa_allocp_operand_reg) hsa_op_reg
-	  (BRIG_TYPE_B1);
+	hsa_op_reg *ctrl = NULL;
 	tree cond = rhs1;
 
 	gen_hsa_cmp_insn_from_gimple (TREE_CODE (cond),
