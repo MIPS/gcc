@@ -1,11 +1,11 @@
 /* Integer reductions.  */
 
 #define vl 32
+#define n 1000
 
 int
 main(void)
 {
-  const int n = 1000;
   int i;
   int result, array[n];
   int lresult;
