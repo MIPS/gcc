@@ -1,5 +1,10 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call): Fix ICE
+	in compare and swap insn generation.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (hsa_output_kernel_mapping): Do not emit GOMP registration
 	code for a TU w/o kernel.
 

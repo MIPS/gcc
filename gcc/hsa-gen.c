@@ -2816,13 +2816,19 @@ specialop:
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_16:
       {
 	/* XXX Ignore mem model for now.  */
+	tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
+
 	BrigType16_t atype  = hsa_bittype_for_type
-	  (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
+	  (hsa_type_for_scalar_tree_type (type, false));
 	hsa_insn_atomic *atominsn = new (hsa_allocp_inst_atomic)
 	  hsa_insn_atomic (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype);
 	hsa_op_address *addr;
 	addr = gen_hsa_addr (gimple_call_arg (stmt, 0), hbb, ssa_map);
-	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+
+	if (lhs != NULL)
+	  dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+	else
+	  dest = new (hsa_allocp_operand_reg) hsa_op_reg (atype);
 
 	/* Should check what the memory scope is */
 	atominsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
