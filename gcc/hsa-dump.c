@@ -897,7 +897,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
   else if (is_a <hsa_insn_call *> (insn))
     {
       hsa_insn_call *call = as_a <hsa_insn_call *> (insn);
-      const char *name = get_declaration_name (call->called_function);
+      const char *name = hsa_get_declaration_name (call->called_function);
 
       fprintf (f, "call &%s", name);
 

@@ -1,5 +1,11 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_function_def_parameters): Generate declaration names
+	for anonymous parameters.
+	* hsa.c (hsa_get_declaration_name): New function.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call): Fix ICE
 	in compare and swap insn generation.
 

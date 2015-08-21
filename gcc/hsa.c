@@ -425,10 +425,16 @@ hsa_brig_function_name (const char *p)
 /* Return declaration name if exists.  */
 
 const char *
-get_declaration_name (tree decl)
+hsa_get_declaration_name (tree decl)
 {
   if (!DECL_NAME (decl))
-    sorry ("Support for HSA does not implement anonymous declarations");
+    {
+      char *b = XNEWVEC (char, 64);
+      sprintf (b, "__hsa_anonymous_%i", DECL_UID (decl));
+      const char *ggc_str = ggc_alloc_string (b, strlen (b) + 1);
+      free (b);
+      return ggc_str;
+    }
   else
     return IDENTIFIER_POINTER (DECL_NAME (decl));
 

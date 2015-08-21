@@ -639,7 +639,7 @@ get_symbol_for_decl (tree decl)
     }
 
   fillup_sym_for_decl (decl, sym);
-  sym->name = get_declaration_name (decl);
+  sym->name = hsa_get_declaration_name (decl);
   *slot = sym;
   return sym;
 }
@@ -2130,7 +2130,7 @@ gen_hsa_insns_for_known_library_call (gimple stmt, hsa_bb *hbb,
 				      vec <hsa_op_reg_p> *ssa_map)
 {
   tree decl = gimple_call_fndecl (stmt);
-  const char *name = get_declaration_name (decl);
+  const char *name = hsa_get_declaration_name (decl);
 
   if (strcmp (name, "omp_is_initial_device") == 0)
     {
@@ -2856,7 +2856,7 @@ specialop:
 	called = TREE_OPERAND (called, 0);
 	gcc_checking_assert (TREE_CODE (called) == FUNCTION_DECL);
 
-	const char *name = get_declaration_name (called);
+	const char *name = hsa_get_declaration_name (called);
 	hsa_add_kernel_dependency (hsa_cfun->decl,
 				   hsa_brig_function_name (name));
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
@@ -3132,13 +3132,8 @@ gen_function_def_parameters (hsa_function_representation *f,
 				       BRIG_SEGMENT_ARG;
 
       f->input_args[i].linkage = BRIG_LINKAGE_FUNCTION;
-      if (!DECL_NAME (parm))
-	{
-	  /* FIXME: Just generate some UID.  */
-	  sorry ("Support for HSA does not implement anonymous C++ parameters");
-	  return;
-	}
-      f->input_args[i].name = IDENTIFIER_POINTER (DECL_NAME (parm));
+      f->input_args[i].name = hsa_get_declaration_name (parm);
+
       slot = f->local_symbols->find_slot (&f->input_args[i],
 						INSERT);
       gcc_assert (!*slot);
@@ -3189,7 +3184,7 @@ hsa_generate_function_declaration (tree decl)
 
   fun->declaration_p = true;
   fun->decl = decl;
-  fun->name = xstrdup (get_declaration_name (decl));
+  fun->name = xstrdup (hsa_get_declaration_name (decl));
 
   gen_function_decl_parameters (fun, decl);
 
@@ -3212,7 +3207,7 @@ generate_hsa (bool kernel)
 
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
   hsa_cfun->name
-    = xstrdup (get_declaration_name (current_function_decl));
+    = xstrdup (hsa_get_declaration_name (current_function_decl));
   hsa_sanitize_name (hsa_cfun->name);
 
   gen_function_def_parameters (hsa_cfun, &ssa_map);

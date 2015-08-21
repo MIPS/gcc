@@ -863,7 +863,7 @@ void hsa_free_decl_kernel_mapping (void);
 void hsa_add_kernel_dependency (tree caller, char *called_function);
 void hsa_sanitize_name (char *p);
 char *hsa_brig_function_name (const char *p);
-const char *get_declaration_name (tree decl);
+const char *hsa_get_declaration_name (tree decl);
 
 /* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);
