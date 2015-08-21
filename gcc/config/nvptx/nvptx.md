@@ -211,14 +211,9 @@
 (define_predicate "call_operation"
   (match_code "parallel")
 {
-  int arg_start = 1;
   int arg_end = XVECLEN (op, 0);
 
-  /* Skip optional routine partitioning information.  */
-  if (arg_end > 1 && GET_CODE (XVECEXP (op, 0, 1)) == CONST_INT)
-    arg_start++;
-
-  for (int i = arg_start; i < arg_end; i++)
+  for (int i = 1; i < arg_end; i++)
     {
       rtx elt = XVECEXP (op, 0, i);
 
@@ -1423,7 +1418,8 @@
 		       UNSPECV_FORKED)]
   ""
 {
-  nvptx_expand_oacc_fork (operands[0]);
+  nvptx_expand_oacc_fork (GOMP_DIM_MASK (INTVAL (operands[0])));
+  DONE;
 })
 
 (define_expand "oacc_join"
@@ -1431,7 +1427,8 @@
 		       UNSPECV_JOIN)]
   ""
 {
-  nvptx_expand_oacc_join (operands[0]);
+  nvptx_expand_oacc_join (GOMP_DIM_MASK (INTVAL (operands[0])));
+  DONE;
 })
 
 ;; only 32-bit shuffles exist.

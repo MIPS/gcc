@@ -1,3 +1,24 @@
+2015-08-21  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (call_operation): Remove partitioning
+	handling.
+	(oacc_fork, oacc_join): Adjust expand calls.
+	* config/nvptx/nvptx.c (write_func_decl_from_isnsn): Remove
+	partitioning handling.
+	(nvptx_expand_call): Remove partitioning handling, generate mask
+	instead.
+	(nvptx_expand_oacc_fork, nvptx_expand_oacc_join): Take unsigned
+	mask, not RTX and emit all necessary insns.
+	(nvptx_output_call_insn): Remove partitioning handling.
+	(struct parallel): Replace mode with mask.
+	(nvptx_dump_pars): Adjust.
+	(nvptx_discover_pars): Adjust for insns having mask not mode.
+	(nvptx_process_pars): Adjust for parallel containing mask not
+	mode.
+	(nvptx_neuter_pars): Likewise.
+	* config/nvptx/nvptx-protos.h (nvptx_expand_oacc_fork,
+	nvptx_expand_oacc_join): Pass mask not rtx.
+
 2015-08-20  Thomas Schwinge  <thomas@codesourcery.com>
 	    Joseph Myers  <joseph@codesourcery.com>
 

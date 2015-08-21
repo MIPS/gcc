@@ -32,8 +32,8 @@ extern void nvptx_register_pragmas (void);
 extern const char *nvptx_section_for_decl (const_tree);
 
 #ifdef RTX_CODE
-extern void nvptx_expand_oacc_fork (rtx);
-extern void nvptx_expand_oacc_join (rtx);
+extern void nvptx_expand_oacc_fork (unsigned);
+extern void nvptx_expand_oacc_join (unsigned);
 extern void nvptx_expand_oacc_lock_unlock (rtx, bool);
 extern void nvptx_expand_call (rtx, rtx);
 extern rtx nvptx_expand_compare (rtx);

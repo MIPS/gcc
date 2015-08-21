@@ -762,29 +762,30 @@ write_func_decl_from_insn (std::stringstream &s, rtx result, rtx pat,
 
   s << name;
 
-  int nargs = XVECLEN (pat, 0) - 1;
-  if (nargs > 0)
+  int arg_end = XVECLEN (pat, 0);
+      
+  if (1 < arg_end)
     {
+      const char *comma = "";
       s << " (";
-      for (int i = 0; i < nargs; i++)
+      for (int i = 1; i < arg_end; i++)
 	{
-	  rtx t = XEXP (XVECEXP (pat, 0, i + 1), 0);
+	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
 	  machine_mode mode = GET_MODE (t);
 	  int count = maybe_split_mode (&mode);
 
-	  while (count-- > 0)
+	  while (count--)
 	    {
-	      s << ".param";
+	      s << comma << ".param";
 	      s << nvptx_ptx_type_from_mode (mode, false);
 	      s << " ";
 	      if (callprototype)
 		s << "_";
 	      else
-		s << "%arg" << i;
+		s << "%arg" << i - 1;
 	      if (mode == QImode || mode == HImode)
 		s << "[1]";
-	      if (i + 1 < nargs || count > 0)
-		s << ", ";
+	      comma = ", ";
 	    }
 	}
       s << ")";
@@ -853,9 +854,9 @@ nvptx_expand_call (rtx retval, rtx address)
   rtx pat, t;
   rtvec vec;
   bool external_decl = false;
-  rtx partitioning = NULL_RTX;
   rtx varargs = NULL_RTX;
   tree decl_type = NULL_TREE;
+  unsigned parallel = 0;
 
   for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
     nargs++;
@@ -886,7 +887,9 @@ nvptx_expand_call (rtx retval, rtx address)
 		  if (TREE_PURPOSE (dims)
 		      && !integer_zerop (TREE_PURPOSE (dims)))
 		    {
-		      partitioning = GEN_INT (ix);
+		      parallel = GOMP_DIM_MASK (GOMP_DIM_MAX) - 1;
+		      if (ix)
+			parallel ^= GOMP_DIM_MASK (ix - 1) - 1;
 		      break;
 		    }
 		  dims = TREE_CHAIN (dims);
@@ -894,6 +897,7 @@ nvptx_expand_call (rtx retval, rtx address)
 	    }
 	}
     }
+
   if (cfun->machine->funtype
       /* It's possible to construct testcases where we call a variable.
 	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
@@ -909,8 +913,7 @@ nvptx_expand_call (rtx retval, rtx address)
 	emit_move_insn (varargs, stack_pointer_rtx);
       cfun->machine->has_call_with_varargs = true;
     }
-  vec = rtvec_alloc (nargs + 1
-		     + (partitioning ? 1 : 0) + (varargs ? 1 : 0));
+  vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
   pat = gen_rtx_PARALLEL (VOIDmode, vec);
 
   int vec_pos = 0;
@@ -924,9 +927,6 @@ nvptx_expand_call (rtx retval, rtx address)
       t = gen_rtx_SET (tmp_retval, t);
     }
   XVECEXP (pat, 0, vec_pos++) = t;
-
-  if (partitioning)
-    XVECEXP (pat, 0, vec_pos++) = partitioning;
 
   /* Construct the call insn, including a USE for each argument pseudo
      register.  These will be used when printing the insn.  */
@@ -1169,18 +1169,34 @@ nvptx_expand_compare (rtx compare)
 /* Expand the oacc fork & join primitive into ptx-required unspecs.  */
 
 void
-nvptx_expand_oacc_fork (rtx mode)
+nvptx_expand_oacc_fork (unsigned mask)
 {
-  /* Emit fork for worker level.  */
-  if (UINTVAL (mode) == GOMP_DIM_WORKER)
-    emit_insn (gen_nvptx_fork (mode));
+  mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
+  if (mask)
+    {
+      rtx op = GEN_INT (mask);
+      
+      /* Emit fork for worker level.  */
+      if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+	emit_insn (gen_nvptx_fork (op));
+      emit_insn (gen_nvptx_forked (op));
+    }
 }
 
 void
-nvptx_expand_oacc_join (rtx mode)
+nvptx_expand_oacc_join (unsigned mask)
 {
-  /* Emit joining for all pars.  */
-  emit_insn (gen_nvptx_joining (mode));
+  mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
+  if (mask)
+    {
+      rtx op = GEN_INT (mask);
+
+      /* Emit joining for all pars.  */
+      emit_insn (gen_nvptx_joining (op));
+      emit_insn (gen_nvptx_join (op));
+    }
 }
 
 /* Expander for reduction locking and unlocking.  We expect SRC to be
@@ -1836,18 +1852,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   bool needs_tgt = register_operand (callee, Pmode);
   rtx pat = PATTERN (insn);
   int arg_end = XVECLEN (pat, 0);
-  int arg_start = 1;
   tree decl = NULL_TREE;
-  rtx partitioning = NULL_RTX;
-
-  if (arg_end > 1)
-    {
-      partitioning = XVECEXP (pat, 0, 1);
-      if (GET_CODE (partitioning) == CONST_INT)
-	arg_start++;
-      else
-	partitioning = NULL_RTX;
-    }
 
   fprintf (asm_out_file, "\t{\n");
   if (result != NULL)
@@ -1873,7 +1878,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       fputs (s.str().c_str(), asm_out_file);
     }
 
-  for (int i = arg_start, argno = 0; i < arg_end; i++)
+  for (int i = 1, argno = 0; i < arg_end; i++)
     {
       rtx t = XEXP (XVECEXP (pat, 0, i), 0);
       machine_mode mode = GET_MODE (t);
@@ -1884,7 +1889,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
 		 nvptx_ptx_type_from_mode (mode, false), argno++,
 		 mode == QImode || mode == HImode ? "[1]" : "");
     }
-  for (int i = arg_start, argno = 0; i < arg_end; i++)
+  for (int i = 1, argno = 0; i < arg_end; i++)
     {
       rtx t = XEXP (XVECEXP (pat, 0, i), 0);
       gcc_assert (REG_P (t));
@@ -1918,12 +1923,12 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   else
     output_address (callee);
 
-  if (arg_end > arg_start || (decl && DECL_STATIC_CHAIN (decl)))
+  if (arg_end > 1 || (decl && DECL_STATIC_CHAIN (decl)))
     {
       const char *comma = "";
       
       fprintf (asm_out_file, ", (");
-      for (int i = arg_start, argno = 0; i < arg_end; i++)
+      for (int i = 1, argno = 0; i < arg_end; i++)
 	{
 	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
 	  machine_mode mode = GET_MODE (t);
@@ -2357,8 +2362,8 @@ struct parallel
   /* First child parallel.  */
   parallel *inner;
 
-  /* Partitioning mode of the parallel.  */
-  unsigned mode;
+  /* Partitioning mask of the parallel.  */
+  unsigned mask;
 
   /* Partitioning used within inner parallels. */
   unsigned inner_mask;
@@ -2388,8 +2393,8 @@ public:
 /* Constructor links the new parallel into it's parent's chain of
    children.  */
 
-parallel::parallel (parallel *parent_, unsigned mode_)
-  :parent (parent_), next (0), inner (0), mode (mode_), inner_mask (0)
+parallel::parallel (parallel *parent_, unsigned mask_)
+  :parent (parent_), next (0), inner (0), mask (mask_), inner_mask (0)
 {
   forked_block = join_block = 0;
   forked_insn = join_insn = 0;
@@ -2450,7 +2455,7 @@ nvptx_split_blocks (bb_insn_map_t *map)
 	    case CODE_FOR_nvptx_forked:
 	    case CODE_FOR_nvptx_join:
 	      break;
-	      
+
 	    case CODE_FOR_return:
 	      /* We also need to split just before return insns, as
 		 that insn needs executing by all threads, but the
@@ -2514,8 +2519,8 @@ nvptx_discover_pre (basic_block block, int expected)
 static void
 nvptx_dump_pars (parallel *par, unsigned depth)
 {
-  fprintf (dump_file, "%u: mode %d head=%d, tail=%d\n",
-	   depth, par->mode,
+  fprintf (dump_file, "%u: mask %d head=%d, tail=%d\n",
+	   depth, par->mask,
 	   par->forked_block ? par->forked_block->index : -1,
 	   par->join_block ? par->join_block->index : -1);
 
@@ -2544,7 +2549,7 @@ typedef auto_vec<bb_par_t> bb_par_vec_t;
 static parallel *
 nvptx_discover_pars (bb_insn_map_t *map)
 {
-  parallel *outer_par = new parallel (0, GOMP_DIM_MAX);
+  parallel *outer_par = new parallel (0, 0);
   bb_par_vec_t worklist;
   basic_block block;
 
@@ -2583,12 +2588,13 @@ nvptx_discover_pars (bb_insn_map_t *map)
 	      /* Loop head, create a new inner loop and add it into
 		 our parent's child list.  */
 	      {
-		unsigned mode = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
-		
-		l = new parallel (l, mode);
+		unsigned mask = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
+
+		gcc_assert (mask);
+		l = new parallel (l, mask);
 		l->forked_block = block;
 		l->forked_insn = end;
-		if (mode == GOMP_DIM_WORKER)
+		if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
 		  l->fork_insn
 		    = nvptx_discover_pre (block, CODE_FOR_nvptx_fork);
 	      }
@@ -2598,12 +2604,12 @@ nvptx_discover_pars (bb_insn_map_t *map)
 	      /* A loop tail.  Finish the current loop and return to
 		 parent.  */
 	      {
-		unsigned mode = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
+		unsigned mask = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
 
-		gcc_assert (l->mode == mode);
+		gcc_assert (l->mask == mask);
 		l->join_block = block;
 		l->join_insn = end;
-		if (mode == GOMP_DIM_WORKER)
+		if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
 		  l->joining_insn
 		    = nvptx_discover_pre (block, CODE_FOR_nvptx_joining);
 		l = l->parent;
@@ -2981,7 +2987,7 @@ nvptx_skip_par (unsigned mask, parallel *par)
 static unsigned
 nvptx_process_pars (parallel *par)
 {
-  unsigned inner_mask = GOMP_DIM_MASK (par->mode);
+  unsigned inner_mask = par->mask;
   
   /* Do the inner parallels first.  */
   if (par->inner)
@@ -2990,17 +2996,17 @@ nvptx_process_pars (parallel *par)
       inner_mask |= par->inner_mask;
     }
   
-  switch (par->mode)
+  switch (par->mask)
     {
-    case GOMP_DIM_MAX:
+    case 0:
       /* Dummy parallel.  */
       break;
 
-    case GOMP_DIM_VECTOR:
+    case GOMP_DIM_MASK (GOMP_DIM_VECTOR):
       nvptx_vpropagate (par->forked_block, par->forked_insn);
       break;
       
-    case GOMP_DIM_WORKER:
+    case GOMP_DIM_MASK (GOMP_DIM_WORKER):
       {
 	nvptx_wpropagate (false, par->forked_block,
 			  par->forked_insn);
@@ -3009,9 +3015,6 @@ nvptx_process_pars (parallel *par)
 	emit_insn_after (nvptx_wsync (false), par->forked_insn);
 	emit_insn_before (nvptx_wsync (true), par->joining_insn);
       }
-      break;
-
-    case GOMP_DIM_GANG:
       break;
 
     default:gcc_unreachable ();
@@ -3030,9 +3033,8 @@ nvptx_process_pars (parallel *par)
 static void
 nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 {
-  unsigned me = (GOMP_DIM_MASK (par->mode)
-		 & (GOMP_DIM_MASK (GOMP_DIM_WORKER)
-		    | GOMP_DIM_MASK (GOMP_DIM_VECTOR)));
+  unsigned me = par->mask
+    & (GOMP_DIM_MASK (GOMP_DIM_WORKER) | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
   unsigned  skip_mask = 0, neuter_mask = 0;
   
   if (par->inner)
