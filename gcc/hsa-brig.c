@@ -1756,6 +1756,10 @@ hsa_output_kernel_mapping (tree brig_decl)
 {
   unsigned map_count = hsa_get_number_decl_kernel_mappings ();
 
+  /* If the current TU does not contain a kernel, no mapping is produced.  */
+  if (map_count == 0)
+    return;
+
   tree int_num_of_kernels;
   int_num_of_kernels = build_int_cst (uint32_type_node, map_count);
   tree kernel_num_index_type = build_index_type (int_num_of_kernels);
@@ -2019,10 +2023,14 @@ hsa_output_kernel_mapping (tree brig_decl)
 					       ptr_type_node, NULL_TREE);
   tree reg_fn = build_fn_decl ("__hsa_register_image", reg_fn_type);
 
+  tree offload_register = builtin_decl_explicit
+    (BUILT_IN_GOMP_OFFLOAD_REGISTER);
+  gcc_checking_assert (offload_register);
+
   append_to_statement_list
-    (build_call_expr (builtin_decl_explicit (BUILT_IN_GOMP_OFFLOAD_REGISTER), 3,
+    (build_call_expr (offload_register, 3,
 		      build_fold_addr_expr (hsa_libgomp_host_table),
-		      /* 7 stands for HSA */
+		      /* 7 stands for HSA.  */
 		      build_int_cst (integer_type_node, 7),
 		      build_fold_addr_expr (hsa_img_descriptor)),
      &hsa_ctor_statements);
@@ -2034,10 +2042,14 @@ hsa_output_kernel_mapping (tree brig_decl)
 
   cgraph_build_static_cdtor ('I', hsa_ctor_statements, DEFAULT_INIT_PRIORITY);
 
+  tree offload_unregister = builtin_decl_explicit
+    (BUILT_IN_GOMP_OFFLOAD_UNREGISTER);
+  gcc_checking_assert (offload_unregister);
+
   append_to_statement_list
-    (build_call_expr (builtin_decl_explicit (BUILT_IN_GOMP_OFFLOAD_UNREGISTER),
+    (build_call_expr (offload_unregister,
 		      3, build_fold_addr_expr (hsa_libgomp_host_table),
-		      /* 7 stands for HSA */
+		      /* 7 stands for HSA.  */
 		      build_int_cst (integer_type_node, 7),
 		      build_fold_addr_expr (hsa_img_descriptor)),
      &hsa_dtor_statements);
