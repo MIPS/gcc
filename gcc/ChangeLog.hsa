@@ -1,5 +1,20 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+    * hsa-gen.c (gen_hsa_addr): Add new sorry.
+    (get_unsigned_type_by_bytes): New function.
+    (gen_hsa_memory_copy): Newly reimplemented function.
+    (gen_hsa_insns_for_single_assignment): Add support for assignments
+    that can be done by memory copy operation.
+    (gen_hsa_insns_for_direct_call): New sorry message.
+    (get_unsinged_type_by_bytes): Removed.
+    (gen_hsa_insns_for_kernel_call): Rename local variable.
+    (gen_hsa_insns_for_call): Anothe sorry message.
+    (gen_hsa_phi_from_gimple_phi): Support assignment of NULL value
+    to a pointer type; support LSA instructions.
+    * hsa.h: Fix indentation.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_immediate_operand): Add emission for complex
 	constants.
 	(emit_basic_insn): Fix condition.

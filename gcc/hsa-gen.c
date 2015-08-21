@@ -70,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "gimplify-me.h"
 #include "print-tree.h"
+#include "cfghooks.h"
 #include "hsa.h"
 
 /* Following structures are defined in the final version
@@ -462,6 +463,14 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
   if (TREE_CODE (type) == VECTOR_TYPE || TREE_CODE (type) == COMPLEX_TYPE)
     {
       HOST_WIDE_INT tsize = tree_to_uhwi (TYPE_SIZE (type));
+
+      if (bsize == tsize)
+	{
+	  sorry ("Support for HSA does not implement a vector type where "
+		 "a type and unit size are equal: %T", type);
+	  return res;
+	}
+
       switch (tsize)
 	{
 	case 32:
@@ -1099,11 +1108,7 @@ gen_address_calculation (tree exp, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
       {
        hsa_op_immed *imm = new (hsa_allocp_operand_immed) hsa_op_immed (exp);
        if (addrtype != imm->type)
-	 {
-	   gcc_assert (hsa_type_bit_size (addrtype)
-		       > hsa_type_bit_size (imm->type));
-	   imm->type = addrtype;
-	 }
+	 imm->type = addrtype;
        return imm;
       }
 
@@ -1311,7 +1316,9 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
 	}
       offset += wi::to_offset (TMR_OFFSET (ref));
       break;
-
+    case FUNCTION_DECL:
+      sorry ("HSA does not support indirect calls");
+      goto out;
     default:
       sorry ("Support for HSA does not implement memory access to %E", origref);
       goto out;
@@ -1644,6 +1651,71 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
   hbb->append_insn (mem);
 }
 
+/* Return unsigned brig type according to provided SIZE in bytes.  */
+
+static BrigType16_t
+get_unsigned_type_by_bytes (unsigned size)
+{
+  switch (size)
+    {
+    case 1:
+      return BRIG_TYPE_U8;
+    case 2:
+      return BRIG_TYPE_U16;
+    case 4:
+      return BRIG_TYPE_U32;
+    case 8:
+      return BRIG_TYPE_U64;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Generate memory copy instructions that are going to be used
+   for copying a HSA symbol SRC_SYMBOL (or SRC_REG) to TARGET memory,
+   represented by pointer in a register.  */
+
+static void
+gen_hsa_memory_copy (hsa_bb *hbb, hsa_op_address *target, hsa_op_address *src,
+		     unsigned size)
+{
+  hsa_op_address *addr;
+  hsa_insn_mem *mem;
+
+  unsigned offset = 0;
+
+  while (size)
+    {
+      unsigned s;
+      if (size >= 8)
+	s = 8;
+      else if (size >= 4)
+	s = 4;
+      else if (size >= 2)
+	s = 2;
+      else
+	s = 1;
+
+      BrigType16_t t = get_unsigned_type_by_bytes (s);
+
+      hsa_op_reg *tmp = new (hsa_allocp_operand_reg) hsa_op_reg (t);
+      addr = new (hsa_allocp_operand_address) hsa_op_address
+	(src->symbol, src->reg, src->imm_offset + offset);
+      mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, t,
+						    tmp, addr);
+      hbb->append_insn (mem);
+      tmp->set_definition (mem);
+
+      addr = new (hsa_allocp_operand_address) hsa_op_address
+	(target->symbol, target->reg, target->imm_offset + offset);
+      mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_ST, t, tmp,
+						    addr);
+      hbb->append_insn (mem);
+      offset += s;
+      size -= s;
+    }
+}
+
 /* Generate HSA instructions for a single assignment.  HBB is the basic block
    they will be appended to.  SSA_MAP maps gimple SSA names to HSA pseudo
    registers.  */
@@ -1672,8 +1744,11 @@ gen_hsa_insns_for_single_assignment (gimple assign, hsa_bb *hbb,
     }
   else
     {
-      gcc_assert (!is_gimple_reg_type (TREE_TYPE (lhs)));
-      sorry ("Support for HSA does not implement non-scalar memory moves.");
+      hsa_op_address *addr_lhs = gen_hsa_addr (lhs, hbb, ssa_map);
+      hsa_op_address *addr_rhs = gen_hsa_addr (rhs, hbb, ssa_map);
+
+      unsigned size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (rhs)));
+      gen_hsa_memory_copy (hbb, addr_lhs, addr_rhs, size);
     }
 }
 
@@ -2045,6 +2120,14 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
   for (unsigned i = 0; i < args; ++i)
     {
       tree parm = gimple_call_arg (stmt, (int)i);
+
+      if (AGGREGATE_TYPE_P (TREE_TYPE (parm)))
+	{
+	  sorry ("Support for HSA does not implement an aggregate argument "
+		 "in a function call");
+	  return;
+	}
+
       BrigType16_t mtype = mem_type_for_type (hsa_type_for_scalar_tree_type
 					      (TREE_TYPE (parm), false));
       hsa_op_address *addr = gen_hsa_addr_for_arg (TREE_TYPE (parm), i);
@@ -2070,6 +2153,13 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
   hsa_insn_mem *result_insn = NULL;
   if (!VOID_TYPE_P (result_type))
     {
+      if (AGGREGATE_TYPE_P (result_type))
+	{
+	  sorry ("Support for HSA does not implement returning a value "
+		 "which is of an aggregate type: %D", result_type);
+	  return;
+	}
+
       hsa_op_address *addr = gen_hsa_addr_for_arg (result_type, -1);
 
       /* Even if result of a function call is unused, we have to emit
@@ -2132,73 +2222,6 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
   hsa_insn_basic *ret = new (hsa_allocp_inst_basic)
     hsa_insn_basic (0, BRIG_OPCODE_RET);
   hbb->append_insn (ret);
-}
-
-/* Return unsigned brig type according to provided SIZE in bytes.  */
-
-static BrigType16_t
-get_unsinged_type_by_bytes (unsigned size)
-{
-  switch (size)
-    {
-    case 1:
-      return BRIG_TYPE_U8;
-    case 2:
-      return BRIG_TYPE_U16;
-    case 4:
-      return BRIG_TYPE_U32;
-    case 8:
-      return BRIG_TYPE_U64;
-    default:
-      gcc_unreachable ();
-    }
-}
-
-/* Generate memory copy instructions that are going to be used
-   for copying a HSA symbol SRC to TARGET memory, represented by
-   pointer in a register.  */
-
-static void
-gen_hsa_memory_copy (hsa_bb *hbb, hsa_symbol *src, hsa_op_reg *target)
-{
-  hsa_op_address *addr;
-  hsa_insn_mem *mem;
-
-  gcc_assert (src->type | BRIG_TYPE_U8);
-
-  unsigned size = src->dim;
-  unsigned offset = 0;
-
-  while (size)
-    {
-      unsigned s;
-      if (size >= 8)
-	s = 8;
-      else if (size >= 4)
-	s = 4;
-      else if (size >= 2)
-	s = 2;
-      else
-	s = 1;
-
-      BrigType16_t t = get_unsinged_type_by_bytes (s);
-
-      hsa_op_reg *tmp = new (hsa_allocp_operand_reg) hsa_op_reg (t);
-      addr = new (hsa_allocp_operand_address) hsa_op_address (src, NULL,
-							      offset);
-      mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, t,
-						    tmp, addr);
-      hbb->append_insn (mem);
-      tmp->set_definition (mem);
-
-      addr = new (hsa_allocp_operand_address) hsa_op_address
-	(NULL, target, offset);
-      mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_ST, t, tmp,
-						    addr);
-      hbb->append_insn (mem);
-      offset += s;
-      size -= s;
-    }
 }
 
 /* If STMT is a call of a known library function, generate code to perform
@@ -2642,12 +2665,16 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
     hsa_op_reg (BRIG_TYPE_U64);
 
   addr = new (hsa_allocp_operand_address)
-	hsa_op_address (NULL, shadow_reg,
-			offsetof (hsa_kernel_dispatch, omp_data_memory));
+    hsa_op_address (NULL, shadow_reg,
+		    offsetof (hsa_kernel_dispatch, omp_data_memory));
+
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
 						omp_data_memory_reg, addr);
   omp_data_memory_reg->set_definition (mem);
   hbb->append_insn (mem);
+
+  hsa_op_address *dst_addr = new (hsa_allocp_operand_address)
+    hsa_op_address (NULL, omp_data_memory_reg, 0);
 
   tree argument = gimple_call_arg (call, 1);
   gcc_assert (TREE_CODE (argument) == ADDR_EXPR);
@@ -2663,7 +2690,10 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("memory copy instructions"));
-  gen_hsa_memory_copy (hbb, var_decl, omp_data_memory_reg);
+
+  hsa_op_address *src_addr = new (hsa_allocp_operand_address)
+    hsa_op_address (var_decl, NULL, 0);
+  gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->dim);
 
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("write memory pointer to "
@@ -2793,8 +2823,14 @@ gen_hsa_insns_for_call (gimple stmt, hsa_bb *hbb,
 
   if (!gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
     {
-      if (lookup_attribute ("hsafunc",
-			    DECL_ATTRIBUTES (gimple_call_fndecl (stmt))))
+      tree function_decl = gimple_call_fndecl (stmt);
+      if (function_decl == NULL_TREE)
+	{
+	  sorry ("HSA does not support indirect calls");
+	  return;
+	}
+
+      if (lookup_attribute ("hsafunc", DECL_ATTRIBUTES (function_decl)))
         gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
       else if (!gen_hsa_insns_for_known_library_call (stmt, hbb, ssa_map))
 	sorry ("HSA does support only call for functions with 'hsafunc' "
@@ -2995,20 +3031,22 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
    pseudo registers.  */
 
 static void
-gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
+gen_hsa_phi_from_gimple_phi (gimple phi_stmt, hsa_bb *hbb,
 			     vec <hsa_op_reg_p> *ssa_map)
 {
   hsa_insn_phi *hphi;
-  unsigned count = gimple_phi_num_args (gphi);
+  unsigned count = gimple_phi_num_args (phi_stmt);
 
   hphi = new (hsa_allocp_inst_phi) hsa_insn_phi (count);
   hphi->bb = hbb->bb;
-  hphi->dest = hsa_reg_for_gimple_ssa (gimple_phi_result (gphi), ssa_map);
+  hphi->dest = hsa_reg_for_gimple_ssa (gimple_phi_result (phi_stmt), ssa_map);
   hphi->dest->set_definition (hphi);
+
+  tree lhs = gimple_phi_result (phi_stmt);
 
   for (unsigned i = 0; i < count; i++)
     {
-      tree op = gimple_phi_arg_def (gphi, i);
+      tree op = gimple_phi_arg_def (phi_stmt, i);
       if (TREE_CODE (op) == SSA_NAME)
 	{
 	  hsa_op_reg *hreg = hsa_reg_for_gimple_ssa (op, ssa_map);
@@ -3018,9 +3056,33 @@ gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
       else
 	{
 	  gcc_assert (is_gimple_min_invariant (op));
-	  if (!POINTER_TYPE_P (TREE_TYPE (op)))
+	  tree t = TREE_TYPE (op);
+	  if (!POINTER_TYPE_P (t))
 	    hphi->operands[i] = new (hsa_allocp_operand_immed)
 	      hsa_op_immed (op);
+	  else if (POINTER_TYPE_P (TREE_TYPE (lhs))
+		   && TREE_CODE (op) == INTEGER_CST)
+	    {
+	      /* Handle assignment of NULL value to a pointer type.  */
+	      hphi->operands[i] = new (hsa_allocp_operand_immed)
+		hsa_op_immed (op);
+	    }
+	  else if (TREE_CODE (op) == ADDR_EXPR)
+	    {
+	      edge e = gimple_phi_arg_edge (as_a <gphi *> (phi_stmt), i);
+	      hsa_bb *hbb_src = hsa_init_new_bb (split_edge (e));
+	      hsa_op_address *addr = gen_hsa_addr (TREE_OPERAND (op, 0),
+						hbb_src, ssa_map);
+
+	      hsa_op_reg *dest = new (hsa_allocp_operand_reg) hsa_op_reg
+		(BRIG_TYPE_U64);
+	      hsa_insn_basic *insn = new (hsa_allocp_inst_basic)
+		hsa_insn_basic (2, BRIG_OPCODE_LDA, BRIG_TYPE_U64, dest, addr);
+	      hbb_src->append_insn (insn);
+	      dest->set_definition (insn);
+
+	      hphi->operands[i] = dest;
+	    }
 	  else
 	    {
 	      sorry ("Support for HSA does not handle PHI nodes with constant "

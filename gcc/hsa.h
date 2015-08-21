@@ -216,6 +216,7 @@ public:
 
   /* Immediate byte offset.  */
   HOST_WIDE_INT imm_offset;
+
 private:
   /* Make the default constructor inaccessible.  */
   hsa_op_address () : hsa_op_base (BRIG_KIND_NONE) {}
