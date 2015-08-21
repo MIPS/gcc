@@ -1,5 +1,20 @@
 2015-08-21  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_type_for_tree_type): Empty structure can have
+	dim_p equals to zero.
+	(process_mem_base): Add sorry message for memory references of
+	function declarations, ...
+	(gen_hsa_insns_for_load): Ignore bit fields residing more than 64 bits.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_insns_for_single_assignment): Exit if an error is seen.
+	(gen_hsa_insns_for_assignment): Enhance COND expression.
+	(gen_hsa_insns_for_direct_call): Fix call of sorry function.
+	(gen_hsa_insns_for_return): New sorry message.
+	(generate_hsa): Likewise.
+	* hsa-regalloc.c (linear_scan_regalloc): Add new checking code.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_init_data_for_cfun): Fix coding style.
 	(hsa_bb::append_insn): Change assert.
 	(gen_hsa_insns_for_gimple_stmt): Handle GIMPLE_NOP statements.
