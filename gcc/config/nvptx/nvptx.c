@@ -3570,29 +3570,18 @@ nvptx_validate_dims (tree decl, int dims[], int fn_level)
 {
   bool changed = false;
 
-  if (fn_level >= 0)
-    /* This is a routine.  All dimensions are dynamic and controlled
-       by the  calling function.  Because we permit a 1vx1wxNg
-       geometry, we can't take the opportunity to fix the vector
-       dimension inside a routine.  Perhaps we should?  */
-    return false;
-  
-  /* If the worker size is not 1, the vector size must be 32.  If
-     the vector size is not 1, it must be 32.  */
-  if ((dims[GOMP_DIM_WORKER] > 1 || dims[GOMP_DIM_WORKER] == 0)
-      || (dims[GOMP_DIM_VECTOR] > 1 || dims[GOMP_DIM_VECTOR] == 0))
+  /* The vector size must be 32, unless this is a SEQ routine.  */
+  if (fn_level <= GOMP_DIM_VECTOR
+      && dims[GOMP_DIM_VECTOR] != PTX_VECTOR_LENGTH)
     {
-      if (dims[GOMP_DIM_VECTOR] != PTX_VECTOR_LENGTH)
-	{
-	  if (dims[GOMP_DIM_VECTOR] >= 0)
-	    warning_at (DECL_SOURCE_LOCATION (decl), 0,
-			dims[GOMP_DIM_VECTOR]
-			? "using vector_length (%d), ignoring %d"
-			: "using vector_length (%d), ignoring runtime setting",
-			PTX_VECTOR_LENGTH, dims[GOMP_DIM_VECTOR]);
-	  dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
-	  changed = true;
-	}
+      if (dims[GOMP_DIM_VECTOR] >= 0 && fn_level < 0)
+	warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		    dims[GOMP_DIM_VECTOR]
+		    ? "using vector_length (%d), ignoring %d"
+		    : "using vector_length (%d), ignoring runtime setting",
+		    PTX_VECTOR_LENGTH, dims[GOMP_DIM_VECTOR]);
+      dims[GOMP_DIM_VECTOR] = PTX_VECTOR_LENGTH;
+      changed = true;
     }
 
   /* Check the num workers is not too large.  */

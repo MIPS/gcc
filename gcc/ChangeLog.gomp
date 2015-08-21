@@ -1,5 +1,10 @@
 2015-08-21  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* config/nvptx/nvptx.c (nvptx_validate_dims): Set vector length to
+	32 always.
+
+2015-08-21  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.md (oacc_fork, oacc_join): Adjust expand calls.
 	* config/nvptx/nvptx.c (nvptx_emit_forking, nvptx_emit_joining): New.
 	Broken out of ...
