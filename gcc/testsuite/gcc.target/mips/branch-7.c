@@ -1,4 +1,5 @@
 /* { dg-options "-mshared -mabi=64" } */
+/* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 /* { dg-final { scan-assembler "\tdaddiu\t\\\$3,\\\$3,%lo\\(%neg\\(%gp_rel\\(foo\\)\\)\\)\n" } } */
 /* { dg-final { scan-assembler "\tld\t\\\$1,%got_page\\(\[^)\]*\\)\\(\\\$3\\)\\n" } } */
 /* { dg-final { scan-assembler "\tjrc?\t\\\$1\n" } } */
