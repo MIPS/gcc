@@ -9374,7 +9374,10 @@ set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
     (dynamic).  TREE_PURPOSE is set to indicate whether that dimension
     can have a loop partitioned on it.  non-zero indicates
     yes, zero indicates no.  By construction once a non-zero has been
-    reached, further inner dimensions must also be non-zero.  */
+    reached, further inner dimensions must also be non-zero.  We set
+    TREE_VALUE to zero for the dimensions that may be partitioned and
+    1 for the other ones -- if a loop is (erroneously) spawned at
+    an outer level, we don't want to try and partition it.  */
 
 tree
 build_oacc_routine_dims (tree clauses)
@@ -9404,7 +9407,7 @@ build_oacc_routine_dims (tree clauses)
 
   for (ix = GOMP_DIM_MAX; ix--;)
     dims = tree_cons (build_int_cst (boolean_type_node, ix >= level),
-		      integer_zero_node, dims);
+		      build_int_cst (integer_type_node, ix < level), dims);
 
   return dims;
 }

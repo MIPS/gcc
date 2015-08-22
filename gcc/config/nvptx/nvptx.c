@@ -840,127 +840,6 @@ nvptx_end_call_args (void)
   free_EXPR_LIST_list (&cfun->machine->call_args);
 }
 
-/* Emit the sequence for a call to ADDRESS, setting RETVAL.  Keep
-   track of whether calls involving static chains or varargs were seen
-   in the current function.
-   For libcalls, maintain a hash table of decls we have seen, and
-   record a function decl for later when encountering a new one.  */
-
-void
-nvptx_expand_call (rtx retval, rtx address)
-{
-  int nargs = 0;
-  rtx callee = XEXP (address, 0);
-  rtx pat, t;
-  rtvec vec;
-  bool external_decl = false;
-  rtx varargs = NULL_RTX;
-  tree decl_type = NULL_TREE;
-  unsigned parallel = 0;
-
-  for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
-    nargs++;
-
-  if (!call_insn_operand (callee, Pmode))
-    {
-      callee = force_reg (Pmode, callee);
-      address = change_address (address, QImode, callee);
-    }
-
-  if (GET_CODE (callee) == SYMBOL_REF)
-    {
-      tree decl = SYMBOL_REF_DECL (callee);
-      if (decl != NULL_TREE)
-	{
-	  decl_type = TREE_TYPE (decl);
-	  if (DECL_STATIC_CHAIN (decl))
-	    cfun->machine->has_call_with_sc = true;
-	  if (DECL_EXTERNAL (decl))
-	    external_decl = true;
-	  tree attr = get_oacc_fn_attrib (decl);
-	  if (attr)
-	    {
-	      tree dims = TREE_VALUE (attr);
-
-	      for (int ix = 0; ix != GOMP_DIM_MAX; ix++)
-		{
-		  if (TREE_PURPOSE (dims)
-		      && !integer_zerop (TREE_PURPOSE (dims)))
-		    {
-		      parallel = GOMP_DIM_MASK (GOMP_DIM_MAX) - 1;
-		      if (ix)
-			parallel ^= GOMP_DIM_MASK (ix - 1) - 1;
-		      break;
-		    }
-		  dims = TREE_CHAIN (dims);
-		}
-	    }
-	}
-    }
-
-  if (cfun->machine->funtype
-      /* It's possible to construct testcases where we call a variable.
-	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
-	 in such a case.  */
-      && (TREE_CODE (cfun->machine->funtype) == FUNCTION_TYPE
-	  || TREE_CODE (cfun->machine->funtype) == METHOD_TYPE)
-      && stdarg_p (cfun->machine->funtype))
-    {
-      varargs = gen_reg_rtx (Pmode);
-      if (Pmode == DImode)
-	emit_move_insn (varargs, stack_pointer_rtx);
-      else
-	emit_move_insn (varargs, stack_pointer_rtx);
-      cfun->machine->has_call_with_varargs = true;
-    }
-  vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
-  pat = gen_rtx_PARALLEL (VOIDmode, vec);
-
-  int vec_pos = 0;
-  
-  rtx tmp_retval = retval;
-  t = gen_rtx_CALL (VOIDmode, address, const0_rtx);
-  if (retval != NULL_RTX)
-    {
-      if (!nvptx_register_operand (retval, GET_MODE (retval)))
-	tmp_retval = gen_reg_rtx (GET_MODE (retval));
-      t = gen_rtx_SET (tmp_retval, t);
-    }
-  XVECEXP (pat, 0, vec_pos++) = t;
-
-  /* Construct the call insn, including a USE for each argument pseudo
-     register.  These will be used when printing the insn.  */
-  for (rtx arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1))
-    {
-      rtx this_arg = XEXP (arg, 0);
-      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, this_arg);
-    }
-
-  if (varargs)
-      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
-
-  gcc_assert (vec_pos = XVECLEN (pat, 0));
-
-  /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
-     undeclared function, we'll have an external decl without arg types.
-     In either case we have to try to construct a ptx declaration from one of
-     the calls to the function.  */
-  if (!REG_P (callee)
-      && (decl_type == NULL_TREE
-	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
-    {
-      rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
-      if (*slot == NULL)
-	{
-	  *slot = callee;
-	  write_func_decl_from_insn (func_decls, retval, pat, callee);
-	}
-    }
-  emit_call_insn (pat);
-  if (tmp_retval != retval)
-    emit_move_insn (retval, tmp_retval);
-}
-
 /* Implement TARGET_FUNCTION_ARG.  */
 
 static rtx
@@ -1198,6 +1077,129 @@ nvptx_emit_joining (unsigned mask)
       emit_insn (gen_nvptx_joining (op));
       emit_insn (gen_nvptx_join (op));
     }
+}
+
+/* Emit the sequence for a call to ADDRESS, setting RETVAL.  Keep
+   track of whether calls involving static chains or varargs were seen
+   in the current function.
+   For libcalls, maintain a hash table of decls we have seen, and
+   record a function decl for later when encountering a new one.  */
+
+void
+nvptx_expand_call (rtx retval, rtx address)
+{
+  int nargs = 0;
+  rtx callee = XEXP (address, 0);
+  rtx pat, t;
+  rtvec vec;
+  bool external_decl = false;
+  rtx varargs = NULL_RTX;
+  tree decl_type = NULL_TREE;
+  unsigned parallel = 0;
+
+  for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
+    nargs++;
+
+  if (!call_insn_operand (callee, Pmode))
+    {
+      callee = force_reg (Pmode, callee);
+      address = change_address (address, QImode, callee);
+    }
+
+  if (GET_CODE (callee) == SYMBOL_REF)
+    {
+      tree decl = SYMBOL_REF_DECL (callee);
+      if (decl != NULL_TREE)
+	{
+	  decl_type = TREE_TYPE (decl);
+	  if (DECL_STATIC_CHAIN (decl))
+	    cfun->machine->has_call_with_sc = true;
+	  if (DECL_EXTERNAL (decl))
+	    external_decl = true;
+	  tree attr = get_oacc_fn_attrib (decl);
+	  if (attr)
+	    {
+	      tree dims = TREE_VALUE (attr);
+
+	      parallel = GOMP_DIM_MASK (GOMP_DIM_MAX) - 1;
+	      for (int ix = 0; ix != GOMP_DIM_MAX; ix++)
+		{
+		  if (TREE_PURPOSE (dims)
+		      && !integer_zerop (TREE_PURPOSE (dims)))
+		    break;
+		  /* Not on this axis.  */
+		  parallel ^= GOMP_DIM_MASK (ix);
+		  dims = TREE_CHAIN (dims);
+		}
+	    }
+	}
+    }
+
+  nvptx_emit_forking (parallel);
+
+  if (cfun->machine->funtype
+      /* It's possible to construct testcases where we call a variable.
+	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
+	 in such a case.  */
+      && (TREE_CODE (cfun->machine->funtype) == FUNCTION_TYPE
+	  || TREE_CODE (cfun->machine->funtype) == METHOD_TYPE)
+      && stdarg_p (cfun->machine->funtype))
+    {
+      varargs = gen_reg_rtx (Pmode);
+      if (Pmode == DImode)
+	emit_move_insn (varargs, stack_pointer_rtx);
+      else
+	emit_move_insn (varargs, stack_pointer_rtx);
+      cfun->machine->has_call_with_varargs = true;
+    }
+  vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
+  pat = gen_rtx_PARALLEL (VOIDmode, vec);
+
+  int vec_pos = 0;
+  
+  rtx tmp_retval = retval;
+  t = gen_rtx_CALL (VOIDmode, address, const0_rtx);
+  if (retval != NULL_RTX)
+    {
+      if (!nvptx_register_operand (retval, GET_MODE (retval)))
+	tmp_retval = gen_reg_rtx (GET_MODE (retval));
+      t = gen_rtx_SET (tmp_retval, t);
+    }
+  XVECEXP (pat, 0, vec_pos++) = t;
+
+  /* Construct the call insn, including a USE for each argument pseudo
+     register.  These will be used when printing the insn.  */
+  for (rtx arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1))
+    {
+      rtx this_arg = XEXP (arg, 0);
+      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, this_arg);
+    }
+
+  if (varargs)
+      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
+
+  gcc_assert (vec_pos = XVECLEN (pat, 0));
+
+  /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
+     undeclared function, we'll have an external decl without arg types.
+     In either case we have to try to construct a ptx declaration from one of
+     the calls to the function.  */
+  if (!REG_P (callee)
+      && (decl_type == NULL_TREE
+	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
+    {
+      rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
+      if (*slot == NULL)
+	{
+	  *slot = callee;
+	  write_func_decl_from_insn (func_decls, retval, pat, callee);
+	}
+    }
+  emit_call_insn (pat);
+  if (tmp_retval != retval)
+    emit_move_insn (retval, tmp_retval);
+
+  nvptx_emit_joining (parallel);
 }
 
 /* Expand the oacc fork & join primitive into ptx-required unspecs.  */
@@ -3010,30 +3012,17 @@ nvptx_process_pars (parallel *par)
       par->inner_mask = nvptx_process_pars (par->inner);
       inner_mask |= par->inner_mask;
     }
-  
-  switch (par->mask)
+
+  if (par->mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
     {
-    case 0:
-      /* Dummy parallel.  */
-      break;
-
-    case GOMP_DIM_MASK (GOMP_DIM_VECTOR):
-      nvptx_vpropagate (par->forked_block, par->forked_insn);
-      break;
-      
-    case GOMP_DIM_MASK (GOMP_DIM_WORKER):
-      {
-	nvptx_wpropagate (false, par->forked_block,
-			  par->forked_insn);
-	nvptx_wpropagate (true, par->forked_block, par->fork_insn);
-	/* Insert begin and end synchronizations.  */
-	emit_insn_after (nvptx_wsync (false), par->forked_insn);
-	emit_insn_before (nvptx_wsync (true), par->joining_insn);
-      }
-      break;
-
-    default:gcc_unreachable ();
+      nvptx_wpropagate (false, par->forked_block, par->forked_insn);
+      nvptx_wpropagate (true, par->forked_block, par->fork_insn);
+      /* Insert begin and end synchronizations.  */
+      emit_insn_after (nvptx_wsync (false), par->forked_insn);
+      emit_insn_before (nvptx_wsync (true), par->joining_insn);
     }
+  else if (par->mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))
+    nvptx_vpropagate (par->forked_block, par->forked_insn);
 
   /* Now do siblings.  */
   if (par->next)

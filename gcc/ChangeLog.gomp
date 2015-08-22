@@ -1,3 +1,11 @@
+2015-08-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (build_oacc_routine_dims): Size non-partitioned
+	levels to 1.
+	* config/nvptx/nvptx.c (nvptx_expand_call): Move later, emit
+	forking and joining instructions.
+	(nvptx_process_pars): Cope with both Worker and Vector being set.
+
 2015-08-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_validate_dims): Set vector length to
