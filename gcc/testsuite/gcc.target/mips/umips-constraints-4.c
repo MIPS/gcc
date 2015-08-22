@@ -1,4 +1,4 @@
-/* { dg-options "(-mmicromips) isa_rev<=6" } */
+/* { dg-options "(-mmicromips) isa_rev>=6" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
 
 MICROMIPS void
