@@ -268,6 +268,7 @@ foreach option {
     branch-likely
     dsp
     dspr2
+    dspr3
     explicit-relocs
     extern-sdata
     fix-r4000
@@ -800,6 +801,12 @@ proc mips-dg-init {} {
 	    "-mabicalls",
 	    #else
 	    "-mno-abicalls",
+	    #endif
+
+	    #if __mips_dsp_rev >= 3
+	    "-mdspr3",
+	    #else
+	    "-mno-dspr3",
 	    #endif
 
 	    #if __mips_dsp_rev >= 2
@@ -1367,6 +1374,13 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-msoft-float" "-mno-paired-single"
     mips_option_dependency options "-mno-paired-single" "-mno-mips3d"
     mips_option_dependency options "-mmsa" "-mno-micromips"
+
+    if { [mips_arch_info $arch isa_rev] >= 6
+         && [mips_have_option_p options "-mmicromips"]
+	 && ([mips_have_option_p options "-mdsp"]
+	     || [mips_have_option_p options "-mdspr2"]) } {
+      mips_make_test_option options "-mdspr3"
+    }
 
     # If the test requires an unsupported option, change run tests
     # to link tests.
