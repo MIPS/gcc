@@ -127,6 +127,7 @@ class hsa_op_immed : public hsa_op_with_type
 {
 public:
   hsa_op_immed (tree tree_val, bool min32int = true);
+  void *operator new (size_t);
 
   /* Value as represented by middle end.  */
   tree value;
