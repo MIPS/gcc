@@ -1,5 +1,5 @@
 /* Struct-reorg optimizations.
-   Copyright (C) 2007-2014 Free Software Foundation, Inc.
+   Copyright (C) 2007-2015 Free Software Foundation, Inc.
    Contributed by Olga Golovanevsky <golovanevsky.olga@gmail.com>
 
 This file is part of GCC.
@@ -57,6 +57,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfgcleanup.h"
 #include "cfgloop.h"
 
+/* We transform structures level by level in hierarchy of structures. 
+   This variable represents a level of structures to be 
+   transformed in one iteration of do_reorg_for_func () function.
+   It should be equal to -1 when global variables are transformed.  */
+int CURRENT_LEVEL = -1;
+
 typedef enum escape_type {
   NONESCAPE = 0,
   CUSTOM_ALLOC_SITE,
@@ -95,6 +101,8 @@ struct_reorg_give_up = (1 << STRUCT_REORG_DO_NOT_GIVE_UP);
 
    This structure is used to define visibility of structure types. */
 
+typedef struct struct_symbols_d * struct_symbols;
+
 struct struct_symbols_d {
 
   /* The following fields are part of serialization.  */
@@ -119,6 +127,18 @@ struct struct_symbols_d {
 
   /* New types to replace the original structure type.  */
   vec<tree> new_types;
+
+  /* Vector of structs where this struct is included in or pointed to.  */
+  vec<struct_symbols> included_in;
+
+  /* Is true if this struct participate in any cycle of struct.  */
+  bool is_in_cycle;
+
+  /* Level of this structure in hierarchy of structs.   */
+  int level;
+
+  /* Is true if this struct has substructure(s) or pointer to other structs. */
+  bool has_substruct;
 };
 
 typedef struct struct_symbols_d * struct_symbols;
@@ -300,13 +320,24 @@ find_var_in_new_vars_vec (new_var var, tree new_type)
 {
   tree n_var;
   unsigned i;
+  if (dump_file)
+    {
+      fprintf (dump_file, "\n\norig var is ");
+      print_generic_expr (dump_file, var->orig_var, 0);
+    }
 
   FOR_EACH_VEC_ELT (var->new_vars, i, n_var)
     {
       tree type = strip_type(get_type_of_var (n_var));
+      /* tree type = get_type_of_var (n_var); */      
       gcc_assert (type);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nn_var type is ");
+	  print_generic_expr (dump_file, type, 0);
+	}
 
-      if (type == new_type)
+      if (type == strip_type (new_type))
 	return n_var;
     }
 
@@ -354,7 +385,8 @@ find_new_var_of_type (tree orig_var, tree new_type)
     {
       fprintf (dump_file, "\nvar is ");
       print_generic_expr (dump_file, var->orig_var, 0);
-      //debug_tree (var->orig_var);
+      fprintf (dump_file, "\nnew_type is ");
+      print_generic_expr (dump_file, new_type, 0);
     }
 
   tmp = find_var_in_new_vars_vec (var, new_type); 
@@ -687,6 +719,7 @@ print_struct_symbol_vec ()
   symtab_node *sbl;
   struct_symbols symbols, str;
   tree new_type;
+  struct_symbols incl;
 
   if (!dump_file) 
     return;
@@ -758,7 +791,31 @@ print_struct_symbol_vec ()
 	    print_generic_expr (dump_file, new_type, 0);
 	  
 	  fprintf (dump_file, "\n");
+	}
+
+
+      if (symbols->included_in.exists ())
+	  fprintf (dump_file, "\nIncluded in following structures:");
+	
+      FOR_EACH_VEC_ELT (symbols->included_in, k, incl)
+	{
+	  print_generic_expr (dump_file, incl->struct_decl, 0);
+	  fprintf (dump_file, "; ");	  
 	}      
+      fprintf (dump_file, "\n");
+
+      if (symbols->is_in_cycle)
+	  fprintf (dump_file, "This struct is in cycle of structs. \n");	  
+      else
+	  fprintf (dump_file, "This struct is not in cycle of structs. \n");  
+
+      fprintf (dump_file, "This struct is on level %d.\n", symbols->level);	  
+
+      if (symbols->has_substruct)
+	  fprintf (dump_file, "This struct has substructs. \n");	  
+      else
+	  fprintf (dump_file, "This struct has not  substructs,"
+		   "or was not analized yet. \n");  
     }
 }
 
@@ -866,11 +923,15 @@ add_struct_to_struct_symbols_vec (tree type)
   symbs->struct_decl = type;
   symbs->symbols.create (0);
   symbs->new_types.create (0);
+  symbs->included_in.create (0);
   symbs->num_fields = 0;
   symbs->struct_clustering = 0;
   symbs->fields = 0;
   symbs->accs = NULL;
   symbs->escape = (1 << NONESCAPE);
+  symbs->is_in_cycle = false;
+  symbs->level = -1;
+  symbs->has_substruct = false;
   if (!struct_symbols_vec.exists ())
     struct_symbols_vec.create (0);
   struct_symbols_vec.safe_push (symbs);
@@ -880,6 +941,7 @@ add_struct_to_struct_symbols_vec (tree type)
 static void 
 remove_type_from_struct_symbols_vec (struct_symbols symbols)
 {
+  //TBD Deallocate all other fields if they exists
   if (symbols->symbols.exists ())
     symbols->symbols.release ();
   free (symbols);
@@ -1048,6 +1110,103 @@ get_fields (tree struct_decl, int num_fields)
   return list;
 } 
 
+/* */
+static inline int
+is_in_included_in (struct_symbols str, tree type)
+{
+  unsigned int i;
+  struct_symbols symbol; 
+  if (str->included_in.exists ())
+    {
+      FOR_EACH_VEC_ELT (str->included_in, i, symbol)
+	{
+	  if (is_equal_types (symbol->struct_decl, type))
+	      return (int)i;
+	}	  
+    }
+  return -1;
+}
+
+/* This function collects all substructure that structure STR 
+   contains or on which it points.  */
+
+static void
+get_included_in (struct_symbols str)
+{
+  for (int i = 0; i < str->num_fields; i++)
+    {
+      tree f_type = strip_type(TREE_TYPE (str->fields[i].decl));
+
+      if (TREE_CODE (f_type) == RECORD_TYPE)
+	{
+	  int k = is_in_struct_symbols_vec (f_type);
+	  if (k != -1)
+	    {	      
+	      struct_symbols str1 = struct_symbols_vec[k];
+	      str->has_substruct = true;
+
+	      if (dump_file) {
+		fprintf (dump_file, "\nStruct ");
+		print_generic_expr (dump_file, str->struct_decl, 0);
+		fprintf (dump_file, " has substruct.");		
+	      }
+
+	      int j = is_in_included_in (str1, str->struct_decl);
+	      if (j == -1)
+		str1->included_in.safe_push (str);
+	    }
+	}
+    }
+}
+
+/* Find all cycles between structures connected by included_in edges.
+   Set is_in_cycle to be true for all structures in all cycles.  */
+
+static void
+find_cycles ()
+{
+  // TBD
+}
+
+/* */
+static void
+remove_in_cycle ()
+{
+  struct_symbols symbols;
+  int i;
+
+  for (i = 0; struct_symbols_vec.iterate (i, &symbols);)
+    {
+      if (symbols->is_in_cycle)
+	{
+	  /* Delete i's type from struct_symbols_vec.  */
+	  remove_type_from_struct_symbols_vec (symbols);
+	  struct_symbols_vec.ordered_remove (i);
+	}
+      else
+	i++;
+    }
+}
+
+/* */
+static void
+remove_included_in ()
+{
+  struct_symbols symbols;
+  int i;
+
+  for (i = 0; struct_symbols_vec.iterate (i, &symbols);)
+    {
+      if (symbols->included_in.exists() && !symbols->included_in.is_empty ())
+	{
+	  /* Delete i's type from struct_symbols_vec.  */
+	  remove_type_from_struct_symbols_vec (symbols);
+	  struct_symbols_vec.ordered_remove (i);
+	}
+      else
+	i++;
+    }
+}
 
 /* This function adds a structure TYPE to the vector of structures,
    if it's not already there.  */
@@ -1057,6 +1216,7 @@ analyze_structure (struct_symbols str)
 {
   str->num_fields = fields_length (str->struct_decl);
   str->fields = get_fields (str->struct_decl, str->num_fields);
+  get_included_in (str);
 }
 
 /* Check whether the type of VAR is potential candidate for peeling.
@@ -1076,6 +1236,38 @@ var_is_candidate (tree var, tree *type_p)
   type = get_type_of_var (var);
 
   return type_is_candidate (type, type_p);
+}
+
+static void
+collect_substructs ()
+{
+  int i;
+  struct_symbols symbols;
+
+  if (!struct_symbols_vec.exists ())
+    fprintf (dump_file, "\nstruct_symbols_vec does not exist.");
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+    {
+      struct_symbols str = struct_symbols_vec[i];
+      analyze_structure (str);
+
+      for (int i = 0; i < str->num_fields; i++)
+	{
+	  tree f_type = strip_type(TREE_TYPE (str->fields[i].decl));
+
+	  if (TREE_CODE (f_type) == RECORD_TYPE)
+	    {
+	      int i = is_in_struct_symbols_vec (f_type);
+	      if (i == -1)
+		{
+		  int j;
+		  j = add_struct_to_struct_symbols_vec (f_type);
+		  analyze_structure (struct_symbols_vec[j]);		    
+		}
+	    }
+	}
+    }
 }
 
 /* This function looks for structure types instantiated in the program.
@@ -1261,6 +1453,7 @@ build_data_structure (void)
 	  }
       }
   }
+  collect_substructs ();
   print_struct_symbol_vec ();
 }
 
@@ -1321,7 +1514,14 @@ is_cast_to_struct (gimple stmt, int *i_p)
   if ((*i_p) == -1)
     return false;
   else
-    return true;
+    {
+      if (CURRENT_LEVEL < 0 ||
+	  (CURRENT_LEVEL >= 0 && 
+	   struct_symbols_vec[*i_p]->level == CURRENT_LEVEL))
+	return true;
+      else
+	return false;
+    }
 }
 
 
@@ -1375,8 +1575,13 @@ is_alloc_of_struct (gimple alloc_stmt, int *i_p)
 
       if (ii != -1)
 	{
-	  *i_p = ii;
-	  return true;
+	  if (CURRENT_LEVEL < 0 || 
+	      (CURRENT_LEVEL >= 0 && 
+	       struct_symbols_vec[ii]->level == CURRENT_LEVEL))
+	    {
+	      *i_p = ii;
+	      return true;
+	    }
 	}
     }
 
@@ -1811,6 +2016,49 @@ analyze_structs (void)
     analyze_structure (struct_symbols_vec[i]);
 }
 
+static int
+define_level_from_root (struct_symbols str)
+{
+  unsigned int i;
+  struct_symbols in;
+  int level = str->level;
+  
+  if (!str->included_in.exists () || str->included_in.is_empty ())
+    str->level = 0;
+  else
+    {
+      FOR_EACH_VEC_ELT (str->included_in, i, in)
+	{
+	  int l = define_level_from_root (in);
+	  if (l > level)
+	    level = l;
+	}
+      str->level = level + 1;
+    }
+  return level;
+}
+
+static void
+init_levels (void)
+{
+  unsigned int i;
+  struct_symbols str;
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+    str->level = -1;
+}
+
+static void
+define_level (void)
+{
+  unsigned int i;
+  struct_symbols str;
+  
+  init_levels ();
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, str)
+    if (str->level == -1)
+      define_level_from_root (str);  
+}
 
 static void
 generate_new_types (void)
@@ -1819,6 +2067,11 @@ generate_new_types (void)
     return;
 
   analyze_structs ();
+  find_cycles ();
+  remove_in_cycle ();
+  define_level ();
+  if (0)
+    remove_included_in ();
   peel_structs ();
   create_new_types ();
 }
@@ -1930,10 +2183,10 @@ propagate (void)
 	fprintf (dump_file, "\nstruct_symbols_vec does not exist.");
     }
 
+  generate_new_types ();
   if (dump_file)
     fprintf (dump_file, "\nnumber of types is %d", struct_symbols_vec.length ());
 
-  generate_new_types ();
   print_struct_symbol_vec ();
 
   return 0;
@@ -2114,6 +2367,9 @@ struct_reorg_read_section_after_decision (struct lto_file_decl_data *file_data,
       
       /* Deserialize number of fields.  */
       str->num_fields = streamer_read_uhwi (&ib_main);
+
+      /* Deserialize struct level.  */
+      str->level = streamer_read_uhwi (&ib_main);
 
       /* Deserialize fields.  */
       read_struct_fields (&ib_main, data_in, str);
@@ -2368,6 +2624,9 @@ struct_reorg_write_opt_summary (void)
       /* Serialize number of fields.  */
       streamer_write_uhwi (ob, struct_symbols_vec[i]->num_fields);
 
+      /* Serialize struct level.  */
+      streamer_write_uhwi (ob, struct_symbols_vec[i]->level);
+
       /* Serialize fields.  */
       write_struct_fields (ob, symbols->fields, symbols->num_fields);
 
@@ -2587,23 +2846,29 @@ add_to_new_vars_htab (new_var new_node, htab_t new_vars_htab)
   *slot = new_node;
 }
 
+void struct_reorg_var_transform (varpool_node *vnode);
+
 /* This function inserts new variables from new_var into varpool.  */
 
 static void
-update_varpool_with_new_var (new_var node)
+update_varpool_with_new_var (new_var var)
 {
-  tree var;
+  tree decl;
   unsigned i;
 
-  if (!node)
+  if (!var)
     return;
 
-  FOR_EACH_VEC_ELT (node->new_vars, i, var)
-    {      
+  FOR_EACH_VEC_ELT (var->new_vars, i, decl)
+    {
+      
       /* FIXME: if not preserved, var will be remove 
 	 after first function transform as non-referenced.  */
-      DECL_PRESERVE_P (var) = 1;
-      varpool_finalize_decl (var);
+      DECL_PRESERVE_P (decl) = 1;
+      varpool_finalize_decl (decl);
+      /* We call struct_reorg_var_transform () recursively 
+	 in case original structure contains substructures.*/
+      struct_reorg_var_transform (varpool_get_node (decl));
     }
 }
 
@@ -2627,6 +2892,9 @@ create_new_var (tree var, htab_t new_vars_htab)
 
   i = is_in_struct_symbols_vec (type);
   if (i == -1)
+    return NULL;
+
+  if (CURRENT_LEVEL >= 0 && struct_symbols_vec[i]->level != CURRENT_LEVEL)
     return NULL;
 
   str = struct_symbols_vec[i];
@@ -2691,6 +2959,8 @@ struct_reorg_var_transform (varpool_node *vnode)
 {
   tree var_decl;
 
+  CURRENT_LEVEL = -1;
+
   if (dump_file)
     fprintf (dump_file, "\nStruct_reorg is transforming %s variable.", vnode->name ());
 
@@ -2698,12 +2968,15 @@ struct_reorg_var_transform (varpool_node *vnode)
     new_global_vars = htab_create (30, new_var_hash, new_var_eq, NULL);
 
   var_decl = vnode->decl;
+  //debug_tree (var_decl);
 
   if (!var_decl || TREE_CODE (var_decl) != VAR_DECL)
     return;
 
   update_varpool_with_new_var (create_new_var (var_decl, new_global_vars));
-  dump_new_vars (new_global_vars);  
+  //dump_new_vars (new_global_vars);
+  if (dump_file)
+    dump_symtab (dump_file);
 }
 
 /* For each local variable of structure type from the vector of structures
@@ -2871,13 +3144,18 @@ check_func_args (gimple stmt)
       j = is_in_struct_symbols_vec (t);
       if (j != -1)
 	{
-	  if (dump_file)
+	  /* We do not expect to call this function outside do_reorg_fo_func ().  */
+	  gcc_assert (CURRENT_LEVEL >= 0);	  
+	  if (CURRENT_LEVEL == struct_symbols_vec[j]->level)
 	    {
-	      fprintf (dump_file, " Type ");
-	      print_generic_expr (dump_file, t, 0);
-	      fprintf (dump_file,  " is in symbols_vec. \n");
+	      if (dump_file)
+		{
+		  fprintf (dump_file, " Type ");
+		  print_generic_expr (dump_file, t, 0);
+		  fprintf (dump_file,  " is in symbols_vec. \n");
+		}
+	      add_formal_to_call_with_struct (stmt, struct_symbols_vec[j]->struct_decl, i);
 	    }
-	  add_formal_to_call_with_struct (stmt, struct_symbols_vec[j]->struct_decl, i);
 	} 
       else 
 	{
@@ -2940,9 +3218,9 @@ is_result_of_mult (tree arg, tree *num, tree struct_size)
 
   /* If the allocation statement was of the form
      D.2229_10 = <alloc_func> (D.2228_9);
-     then size_def_stmt can be D.2228_9 = num.3_8 * 8;  */
+     then size_def_stmt can be D.2228_9 = num.3_8 * 8;  */    
 
-  if (size_def_stmt && is_gimple_assign (size_def_stmt))
+  while (size_def_stmt && is_gimple_assign (size_def_stmt))
     {
       tree lhs = gimple_assign_lhs (size_def_stmt);
 
@@ -2950,6 +3228,7 @@ is_result_of_mult (tree arg, tree *num, tree struct_size)
       if (!is_gimple_reg (lhs))
 	return false;
 
+      debug_tree (gimple_assign_rhs1 (size_def_stmt));
       if (gimple_assign_rhs_code (size_def_stmt) == MULT_EXPR)
 	{
 	  tree arg0 = gimple_assign_rhs1 (size_def_stmt);
@@ -2967,6 +3246,16 @@ is_result_of_mult (tree arg, tree *num, tree struct_size)
 	      return true;
 	    }
 	}
+      else if (gimple_assign_rhs_code (size_def_stmt) == SSA_NAME)
+	{
+	  arg = gimple_assign_rhs1 (size_def_stmt);
+	  size_def_stmt = SSA_NAME_DEF_STMT (arg);
+	}
+      else
+	{
+	  *num = NULL_TREE;
+	  return false;
+	}	
     }
 
   *num = NULL_TREE;
@@ -3643,7 +3932,7 @@ decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
 	{
 	  if (dump_file)
 	    {
-	      fprintf (dump_file, "  Tree cpde of rhs of def is %s ", 
+	      fprintf (dump_file, "  Tree code of rhs of def is %s ", 
 		       get_tree_code_name (rhs_code));
 	    }
 
@@ -3683,7 +3972,7 @@ decompose_indirect_ref_acc (tree str_decl, struct field_access_site *acc)
 	      return false;	      
 	    }
 
-	  /* We care about def stmt ouly when it is a calculation of offset.
+	  /* We care about def stmt only when it is a calculation of offset.
 	     Otherwise it should be NULL. */
 	  acc->ref_def_stmt = SSA_NAME_DEF_STMT (ref_var);
       
@@ -3804,7 +4093,10 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 	    int i = is_in_struct_symbols_vec (type);
 	    struct_symbols str;
 
-	    if (i != -1)
+	    /* We call this function only from struct_reorg_func_transform ().  */
+	    gcc_assert (CURRENT_LEVEL >= 0);
+
+	    if (i != -1 && CURRENT_LEVEL == struct_symbols_vec[i]->level)
 	      {
 		str = struct_symbols_vec[i];
 
@@ -3896,7 +4188,10 @@ get_stmt_accesses (tree *tp, int *walk_subtrees, void *data)
 
 	i = is_in_struct_symbols_vec (strip_type (get_type_of_var (t)));
 
-	if (i != -1)
+	/* We call this function only from struct_reorg_func_transform ().  */
+	gcc_assert (CURRENT_LEVEL >= 0);
+
+	if (i != -1 && CURRENT_LEVEL == struct_symbols_vec[i]->level)
 	  {
 	    struct_symbols str;
 
@@ -4657,6 +4952,13 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
 	}
     }
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nref_var is ");
+      print_generic_expr (dump_file, ref_var, 0);
+      /* if (ref_var)
+	 debug_tree (ref_var); */
+    }
   new_ref = find_new_var_of_type (ref_var, new_type);
   //finalize_global_creation (new_ref);
   if (dump_file)
@@ -5269,6 +5571,60 @@ print_loop_fathers (void)
 
 }
 
+/* static void
+prune_struct_symbols_vec (vec<struct_symbols> symbs)
+{
+  unsigned int i;
+  struct_symbols symbols; 
+  if (struct_symbols_vec.exists () && !struct_symbols_vec.empty ())
+    {
+      for (i = 0; struct_symbols_vec.iterate (i, &symbols);)
+	{
+	  if (symbols->included_in.exists () && !symbols->included_in.empty ())
+	    {
+	      symbs.safe_push (symbols);
+	      struct_symbols_vec.ordered_remove (i);
+	    }
+	  else
+	    i++;
+	}
+    }
+}
+
+void static
+remove_included_in_edges (vec<struct_symbols> symbs)
+{
+  unsigned int i, j, k;
+  struct_symbols symbols, s, struct_symbs; 
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+    {
+      FOR_EACH_VEC_ELT (symbs, j, s)
+	{
+	  for (k = 0; s->included_in.iterate (k, &struct_symbs);)
+	    {
+	      if (struct_symb == symbols)
+		s->included_in.ordered_remove (k);	      
+	      else
+		k++;
+	    }
+	}
+    }
+    } */
+
+static int
+max_level (void)
+{
+  unsigned int i;
+  struct_symbols symbols; 
+  int level = -1;
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+    if (symbols->level > level)
+      level = symbols->level;
+
+  return level;
+}
+
 /* Do struct-reorg transformation for individual function
    represented by NODE. All structure types relevant
    for this function are transformed.  */
@@ -5276,33 +5632,42 @@ print_loop_fathers (void)
 static void
 do_reorg_for_func (struct cgraph_node *node)
 {
-  create_new_local_vars ();
-  create_new_tmp_vars ();
-  collect_alloc_sites (node);
-  collect_func_calls (node);
-  create_new_alloc_sites (node);
-  collect_data_accesses ();
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nPrinting loop_father before transform.");
-      print_loop_fathers ();
-    }
-  create_new_accesses ();
-  update_ssa (TODO_update_ssa);
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nPrinting loop_father after transform.");
-      print_loop_fathers ();
-    }
-  cleanup_tree_cfg ();
-  cgraph_rebuild_references (); 
+  CURRENT_LEVEL = 0;
+  int MAX_LEVEL = max_level ();
 
-  /* Free auxiliary data.  */
-  free_alloc_sites ();
-  free_new_vars_htab (new_local_vars);
-  free_new_vars_htab (new_tmp_vars);
-  free_data_accesses ();
-  free_calls_with_structs ();
+  while (CURRENT_LEVEL <= MAX_LEVEL)
+    {
+      create_new_local_vars ();
+      create_new_tmp_vars ();
+      collect_alloc_sites (node);
+      collect_func_calls (node);
+      create_new_alloc_sites (node);
+      collect_data_accesses ();
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nPrinting loop_father before transform.");
+	  print_loop_fathers ();
+	}
+      create_new_accesses ();
+      update_ssa (TODO_update_ssa);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nPrinting loop_father after transform.");
+	  print_loop_fathers ();
+	}
+      cleanup_tree_cfg ();
+      cgraph_rebuild_references (); 
+
+      /* Free auxiliary data.  */
+      free_alloc_sites ();
+      free_new_vars_htab (new_local_vars);
+      free_new_vars_htab (new_tmp_vars);
+      free_data_accesses ();
+      free_calls_with_structs ();
+
+      dump_function_to_file (node->decl, dump_file, 0);
+      CURRENT_LEVEL++;
+    }
 }
 
 /* Implementation of function_transform function for struct-reorg.  */
@@ -5344,6 +5709,8 @@ check_prog_eligibility (void)
 static void
 struct_reorg_generate_summary (void)
 {
+  CURRENT_LEVEL = -1;
+
   check_prog_eligibility ();
   if (struct_reorg_give_up != (1 << STRUCT_REORG_DO_NOT_GIVE_UP))
     {
