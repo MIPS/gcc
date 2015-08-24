@@ -156,6 +156,7 @@ class hsa_op_reg : public hsa_op_with_type
 {
 public:
   hsa_op_reg (BrigType16_t t);
+  void *operator new (size_t);
 
   /* Verify register operand.  */
   void verify ();

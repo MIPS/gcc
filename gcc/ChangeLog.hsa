@@ -1,5 +1,29 @@
 2015-08-24  Martin Liska  <mliska@suse.cz>
 
+	* hsa.h (hsa_op_reg::operator new): New function.
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use
+	the newly added operator.
+	(hsa_op_reg::operator new): Likewise.
+	(hsa_reg_for_gimple_ssa): Likewise.
+	(hsa_reg_for_gimple_ssa_reqtype): Likewise.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_reg_or_immed_for_gimple_op): Likewise.
+	(gen_hsa_insns_for_bitfield_load): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
 	* hsa.h (hsa_op_immed::operator new): New function.
 	* hsa-gen.c (hsa_get_string_cst_symbol): Use the newly added operator.
 	(hsa_op_immed::operator new): Likewise.
