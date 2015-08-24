@@ -5905,6 +5905,7 @@ bool
 ix86_function_arg_regno_p (int regno)
 {
   int i;
+  enum calling_abi call_abi;
   const int *parm_regs;
 
   if (!TARGET_64BIT)
@@ -5927,16 +5928,18 @@ ix86_function_arg_regno_p (int regno)
   /* TODO: The function should depend on current function ABI but
      builtins.c would need updating then. Therefore we use the
      default ABI.  */
+  call_abi = ix86_cfun_abi ();
 
   /* RAX is used as hidden argument to va_arg functions.  */
-  if (ix86_abi == SYSV_ABI && regno == AX_REG)
+  if (call_abi == SYSV_ABI && regno == AX_REG)
     return true;
 
-  if (ix86_abi == MS_ABI)
+  if (call_abi == MS_ABI)
     parm_regs = x86_64_ms_abi_int_parameter_registers;
   else
     parm_regs = x86_64_int_parameter_registers;
-  for (i = 0; i < (ix86_abi == MS_ABI
+
+  for (i = 0; i < (call_abi == MS_ABI
 		   ? X86_64_MS_REGPARM_MAX : X86_64_REGPARM_MAX); i++)
     if (regno == parm_regs[i])
       return true;
@@ -7780,7 +7783,7 @@ ix86_function_value_regno_p (const unsigned int regno)
       return true;
     case DI_REG:
     case SI_REG:
-      return TARGET_64BIT && ix86_abi != MS_ABI;
+      return TARGET_64BIT && ix86_cfun_abi () != MS_ABI;
 
       /* Complex values are returned in %st(0)/%st(1) pair.  */
     case ST0_REG:
@@ -7788,7 +7791,7 @@ ix86_function_value_regno_p (const unsigned int regno)
       /* TODO: The function should depend on current function ABI but
        builtins.c would need updating then. Therefore we use the
        default ABI.  */
-      if (TARGET_64BIT && ix86_abi == MS_ABI)
+      if (TARGET_64BIT && ix86_cfun_abi () == MS_ABI)
 	return false;
       return TARGET_FLOAT_RETURNS_IN_80387;
 
@@ -9516,20 +9519,30 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   frame->nregs = ix86_nsaved_regs ();
   frame->nsseregs = ix86_nsaved_sseregs ();
 
-  stack_alignment_needed = crtl->stack_alignment_needed / BITS_PER_UNIT;
-  preferred_alignment = crtl->preferred_stack_boundary / BITS_PER_UNIT;
-
   /* 64-bit MS ABI seem to require stack alignment to be always 16 except for
      function prologues and leaf.  */
-  if ((TARGET_64BIT_MS_ABI && preferred_alignment < 16)
+  if ((TARGET_64BIT_MS_ABI && crtl->preferred_stack_boundary < 128)
       && (!crtl->is_leaf || cfun->calls_alloca != 0
           || ix86_current_function_calls_tls_descriptor))
     {
-      preferred_alignment = 16;
-      stack_alignment_needed = 16;
       crtl->preferred_stack_boundary = 128;
       crtl->stack_alignment_needed = 128;
     }
+  /* preferred_stack_boundary is never updated for call
+     expanded from tls descriptor. Update it here. We don't update it in
+     expand stage because according to the comments before
+     ix86_current_function_calls_tls_descriptor, tls calls may be optimized
+     away.  */
+  else if (ix86_current_function_calls_tls_descriptor
+	   && crtl->preferred_stack_boundary < PREFERRED_STACK_BOUNDARY)
+    {
+      crtl->preferred_stack_boundary = PREFERRED_STACK_BOUNDARY;
+      if (crtl->stack_alignment_needed < PREFERRED_STACK_BOUNDARY)
+	crtl->stack_alignment_needed = PREFERRED_STACK_BOUNDARY;
+    }
+
+  stack_alignment_needed = crtl->stack_alignment_needed / BITS_PER_UNIT;
+  preferred_alignment = crtl->preferred_stack_boundary / BITS_PER_UNIT;
 
   gcc_assert (!size || stack_alignment_needed);
   gcc_assert (preferred_alignment >= STACK_BOUNDARY / BITS_PER_UNIT);
@@ -22269,7 +22282,7 @@ ix86_split_long_move (rtx operands[])
 	 Do an lea to the last part and use only one colliding move.  */
       else if (collisions > 1)
 	{
-	  rtx base;
+	  rtx base, addr, tls_base = NULL_RTX;
 
 	  collisions = 1;
 
@@ -22280,10 +22293,50 @@ ix86_split_long_move (rtx operands[])
 	  if (GET_MODE (base) != Pmode)
 	    base = gen_rtx_REG (Pmode, REGNO (base));
 
-	  emit_insn (gen_rtx_SET (VOIDmode, base, XEXP (part[1][0], 0)));
+	  addr = XEXP (part[1][0], 0);
+	  if (TARGET_TLS_DIRECT_SEG_REFS)
+	    {
+	      struct ix86_address parts;
+	      int ok = ix86_decompose_address (addr, &parts);
+	      gcc_assert (ok);
+	      if (parts.seg == DEFAULT_TLS_SEG_REG)
+		{
+		  /* It is not valid to use %gs: or %fs: in
+		     lea though, so we need to remove it from the
+		     address used for lea and add it to each individual
+		     memory loads instead.  */
+		  addr = copy_rtx (addr);
+		  rtx *x = &addr;
+		  while (GET_CODE (*x) == PLUS)
+		    {
+		      for (i = 0; i < 2; i++)
+			{
+			  rtx u = XEXP (*x, i);
+			  if (GET_CODE (u) == ZERO_EXTEND)
+			    u = XEXP (u, 0);
+			  if (GET_CODE (u) == UNSPEC
+			      && XINT (u, 1) == UNSPEC_TP)
+			    {
+			      tls_base = XEXP (*x, i);
+			      *x = XEXP (*x, 1 - i);
+			      break;
+			    }
+			}
+		      if (tls_base)
+			break;
+		      x = &XEXP (*x, 0);
+		    }
+		  gcc_assert (tls_base);
+		}
+	    }
+	  emit_insn (gen_rtx_SET (VOIDmode, base, addr));
+	  if (tls_base)
+	    base = gen_rtx_PLUS (GET_MODE (base), base, tls_base);
 	  part[1][0] = replace_equiv_address (part[1][0], base);
 	  for (i = 1; i < nparts; i++)
 	    {
+	      if (tls_base)
+		base = copy_rtx (base);
 	      tmp = plus_constant (Pmode, base, UNITS_PER_WORD * i);
 	      part[1][i] = replace_equiv_address (part[1][i], tmp);
 	    }
@@ -22789,12 +22842,19 @@ counter_mode (rtx count_exp)
 static rtx
 ix86_copy_addr_to_reg (rtx addr)
 {
+  rtx reg;
   if (GET_MODE (addr) == Pmode || GET_MODE (addr) == VOIDmode)
-    return copy_addr_to_reg (addr);
+    {
+      reg = copy_addr_to_reg (addr);
+      REG_POINTER (reg) = 1;
+      return reg;
+    }
   else
     {
       gcc_assert (GET_MODE (addr) == DImode && Pmode == SImode);
-      return gen_rtx_SUBREG (SImode, copy_to_mode_reg (DImode, addr), 0);
+      reg = copy_to_mode_reg (DImode, addr);
+      REG_POINTER (reg) = 1;
+      return gen_rtx_SUBREG (SImode, reg, 0);
     }
 }
 
@@ -23685,6 +23745,8 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
       *destptr = expand_simple_binop (GET_MODE (*destptr), PLUS, *destptr,
 				      GEN_INT (prolog_size),
 				      NULL_RTX, 1, OPTAB_DIRECT);
+      if (REG_P (*destptr) && REG_P (saveddest) && REG_POINTER (saveddest))
+	REG_POINTER (*destptr) = 1;
       *destptr = expand_simple_binop (GET_MODE (*destptr), AND, *destptr,
 				      GEN_INT (-desired_align),
 				      *destptr, 1, OPTAB_DIRECT);
@@ -23694,8 +23756,8 @@ expand_set_or_movmem_prologue_epilogue_by_misaligned_moves (rtx destmem, rtx src
 				       saveddest, 1, OPTAB_DIRECT);
       /* Adjust srcptr and count.  */
       if (!issetmem)
-	*srcptr = expand_simple_binop (GET_MODE (*srcptr), MINUS, *srcptr, saveddest,
-					*srcptr, 1, OPTAB_DIRECT);
+	*srcptr = expand_simple_binop (GET_MODE (*srcptr), MINUS, *srcptr,
+				       saveddest, *srcptr, 1, OPTAB_DIRECT);
       *count = expand_simple_binop (GET_MODE (*count), PLUS, *count,
 				    saveddest, *count, 1, OPTAB_DIRECT);
       /* We copied at most size + prolog_size.  */
@@ -24357,7 +24419,8 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
       dst = change_address (dst, BLKmode, destreg);
       set_mem_align (dst, desired_align * BITS_PER_UNIT);
       epilogue_size_needed = 0;
-      if (need_zero_guard && !min_size)
+      if (need_zero_guard
+	  && min_size < (unsigned HOST_WIDE_INT) size_needed)
 	{
 	  /* It is possible that we copied enough so the main loop will not
 	     execute.  */
@@ -24489,7 +24552,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	  max_size -= align_bytes;
 	}
       if (need_zero_guard
-	  && !min_size
+	  && min_size < (unsigned HOST_WIDE_INT) size_needed
 	  && (count < (unsigned HOST_WIDE_INT) size_needed
 	      || (align_bytes == 0
 		  && count < ((unsigned HOST_WIDE_INT) size_needed
@@ -45268,14 +45331,19 @@ ix86_expand_pinsr (rtx *operands)
   unsigned int size = INTVAL (operands[1]);
   unsigned int pos = INTVAL (operands[2]);
 
+  if (GET_CODE (src) == SUBREG)
+    {
+      /* Reject non-lowpart subregs.  */
+      if (SUBREG_BYTE (src) != 0)
+       return false;
+      src = SUBREG_REG (src);
+    }
+
   if (GET_CODE (dst) == SUBREG)
     {
       pos += SUBREG_BYTE (dst) * BITS_PER_UNIT;
       dst = SUBREG_REG (dst);
     }
-
-  if (GET_CODE (src) == SUBREG)
-    src = SUBREG_REG (src);
 
   switch (GET_MODE (dst))
     {
@@ -45323,6 +45391,10 @@ ix86_expand_pinsr (rtx *operands)
 	  default:
 	    return false;
 	  }
+
+	/* Reject insertions to misaligned positions.  */
+	if (pos & (size-1))
+	  return false;
 
 	rtx d = dst;
 	if (GET_MODE (dst) != dstmode)

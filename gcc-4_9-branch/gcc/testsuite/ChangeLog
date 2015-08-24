@@ -1,3 +1,389 @@
+2015-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline:
+	2015-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/67211
+	* g++.dg/pr67211.C: New test.
+
+2015-08-18  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	Backport from mainline:
+	2015-08-08  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR rtl-optimization/67028
+	* gcc.dg/pr67028.c: New testcase.
+
+2015-08-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-07-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66648
+	* gcc.target/i386/pr66648.c: New test.
+
+2015-08-07  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/66929
+	* gfortran.dg/generic_30.f90: New.
+	* gfortran.dg/generic_31.f90: New.
+
+2015-08-05  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/64921
+	* gfortran.dg/class_allocate_20.f90: New.
+
+2015-08-04  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport from mainline r225450:
+	2015-07-06  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* gcc.target/aarch64/fnmul-1.c: New.
+	* gcc.target/aarch64/fnmul-2.c: New.
+	* gcc.target/aarch64/fnmul-3.c: New.
+	* gcc.target/aarch64/fnmul-4.c: New.
+
+2015-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline:
+	2015-08-03  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* gcc.target/powerpc/htm-tabort-no-r0.c: New test.
+
+2015-08-03  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport form mainline r226496.
+	2015-08-03  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66731
+	* gcc.target/arm/vnmul-1.c: New.
+	* gcc.target/arm/vnmul-2.c: New.
+	* gcc.target/arm/vnmul-3.c: New.
+	* gcc.target/arm/vnmul-4.c: New.
+
+2015-07-30  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-07-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66891
+	* gcc.target/i386/pr66891.c: New test.
+
+	2014-05-18  Wei Mi  <wmi@google.com>
+
+	PR target/58066
+	* gcc.target/i386/pr58066.c: Replace pattern matching of .cfi
+	directive with rtl insns. Add effective-target fpic and
+	tls_native.
+
+	2014-05-08  Wei Mi  <wmi@google.com>
+
+	PR target/58066
+	* gcc.target/i386/pr58066.c: New test.
+
+2015-07-25  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	2015-07-25  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/graphite.exp: Include uns-*.c files in
+	interchange_files and block_files variables.
+	* gcc.dg/graphite/uns-block-1.c (main): Change signed into unsigned
+	arithmetic.
+	* gcc.dg/graphite/uns-interchange-12.c: Same.
+	* gcc.dg/graphite/uns-interchange-14.c: Same.
+	* gcc.dg/graphite/uns-interchange-15.c: Same.
+	* gcc.dg/graphite/uns-interchange-9.c (foo): Same.
+	* gcc.dg/graphite/uns-interchange-mvt.c: Same.
+
+	2015-07-24  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/graphite/block-1.c: Xfail scan.
+	* gcc.dg/graphite/interchange-12.c: Same.
+	* gcc.dg/graphite/interchange-14.c: Same.
+	* gcc.dg/graphite/interchange-15.c: Same.
+	* gcc.dg/graphite/interchange-9.c: Same.
+	* gcc.dg/graphite/interchange-mvt.c: Same.
+	* gcc.dg/graphite/uns-block-1.c: New test.
+	* gcc.dg/graphite/uns-interchange-12.c: New test.
+	* gcc.dg/graphite/uns-interchange-14.c: New test.
+	* gcc.dg/graphite/uns-interchange-15.c: New test.
+	* gcc.dg/graphite/uns-interchange-9.c: New test.
+	* gcc.dg/graphite/uns-interchange-mvt.c: New test.
+
+2015-07-21  Mantas Mikaitis  <mantas.mikaitis@arm.com>
+
+	* gcc.target/arm/macro_defs0.c: Add directive to skip
+	test if -marm is present.
+	* gcc.target/arm/macro_defs1.c: Likewise.
+
+2015-07-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66922
+	* gcc.target/i386/pr66922.c: New test.
+
+2015-07-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66866
+	* g++.dg/pr66866.C: New test.
+
+2015-07-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-07-10  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66703
+	* gcc.target/i386/readeflags-1.c (readeflags_test): Declare with
+	__attribute__((noinline, noclone)).  Change "x" to "volatile char"
+	type to prevent possible flag-clobbering zero-extensions.
+	* gcc.target/i386/pr66703.c: New test.
+
+2015-07-17  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-07-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66814
+	* gcc.target/i386/pr66814.c: New test.
+
+2015-07-16  Marek Polacek  <polacek@redhat.com>
+
+	2015-07-08  Marek Polacek  <polacek@redhat.com>
+	Backported from mainline
+
+	PR c++/66748
+	* g++.dg/abi/abi-tag15.C: New test.
+
+2015-07-10  Mantas Mikaitis  <Mantas.Mikaitis@arm.com>
+
+	* gcc.target/arm/macro_defs0.c: New test.
+	* gcc.target/arm/macro_defs1.c: New test.
+	* gcc.target/arm/macro_defs2.c: New test.
+
+2015-07-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61820
+	Backport from mainline r212915
+	2014-07-22  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/61160
+	* g++.dg/ipa/pr61160-3.C (main): Return zero.
+
+2015-07-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r224725
+	2015-06-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/65914
+	* g++.dg/torture/pr65914.C:  New.
+
+2015-07-01  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	Backport from mainline
+        2015-06-24  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/63408
+	* gcc.target/arm/pr63408.c: New test.
+
+2015-06-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66412
+	* gcc.target/i386/pr66412.c: New test.
+
+2015-06-26  Release Manager
+
+	* GCC 4.9.3 released.
+
+2015-06-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	Backport from mainline r224649.
+	2015-06-19  Christophe Lyon  <christophe.lyon@linaro.org>
+
+	* gcc.target/aarch64/pr62308.c: New test.
+
+2015-06-18  Richard Biener  <rguenther@suse.de>
+
+	* g++.dg/other/const4.C: New testcase.
+
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/66233
+	* gcc.c-torture/execute/pr66233.c: New test.
+
+2015-06-16  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/66200
+	* g++.dg/abi/aarch64_guard1.C: Adjust.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/63608
+	* gcc.c-torture/compile/pr63608.c: New test.
+
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/66470
+	* gcc.dg/tls/pr66470.c: New test.
+	* gcc.target/i386/pr66470.c: New test.
+
+2015-06-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline:
+	2015-06-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66275
+	* gcc.target/i386/pr66275.c: New test.
+
+2015-06-04  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/66251
+	* gcc.dg/vect/pr66251.c: Fix expected vectorization.
+
+2015-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2015-05-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65984
+	* c-c++-common/ubsan/pr65984.c: New test.
+
+	2015-04-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/65680
+	* gcc.c-torture/compile/pr65680.c: New test.
+
+	2015-03-23  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65504
+	* gfortran.dg/pr65504.f90: New test.
+
+	2015-03-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65450
+	* gfortran.dg/pr65450.f90: New test.
+
+	2015-03-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/65427
+	* gcc.c-torture/execute/pr65427.c: New test.
+
+	2015-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/65368
+	* gcc.target/i386/bmi2-bzhi-2.c: New test.
+
+	2015-02-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR gcov-profile/64634
+	* g++.dg/gcov/gcov-15.C: New test.
+
+2015-06-03  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2015-05-26  Michael Matz  <matz@suse.de>
+
+	PR middle-end/66251
+	* gcc.dg/vect/pr66251.c: New test.
+
+	2015-05-22  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66251
+	* gfortran.fortran-torture/compile/pr66251.f90: New testcase.
+
+	2015-05-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66272
+	* gcc.dg/torture/pr66272.c: New testcase.
+
+	2015-05-13  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/66123
+	* gcc.dg/torture/pr66123.c: New testcase.
+
+	2015-06-02  Richard Biener  <rguenther@suse.de>
+
+	PR debug/65549
+	* g++.dg/lto/pr65549_0.C: New testcase.
+
+	2015-03-23  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/65518
+	* gcc.dg/vect/pr65518.c: New testcase.
+
+2015-06-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.target/s390/hotpatch-compile-15.c: Remove dg-prune-output
+	directives.
+	(hp3, hp4): Add inline keyword.
+	* gcc.target/s390/hotpatch-19.c: Remove dg-prune-output directive.
+	(hp2): Add inline keyword.
+	* gcc.target/s390/hotpatch-19.c: Remove dg-prune-output directives.
+	(hp2): Add inline keyword.
+
+2015-06-01  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-05-29  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR target/66215
+	* gcc.target/s390/hotpatch-1.c: Remove optimization options from
+	dg-options.
+	* gcc.target/s390/hotpatch-10.c: Likewise.
+	* gcc.target/s390/hotpatch-11.c: Likewise.
+	* gcc.target/s390/hotpatch-12.c: Likewise.
+	* gcc.target/s390/hotpatch-17.c: Likewise.
+	* gcc.target/s390/hotpatch-18.c: Likewise.
+	* gcc.target/s390/hotpatch-20.c: Likewise.
+	* gcc.target/s390/hotpatch-21.c: Likewise.
+	* gcc.target/s390/hotpatch-22.c: Likewise.
+	* gcc.target/s390/hotpatch-23.c: Likewise.
+	* gcc.target/s390/hotpatch-24.c: Likewise.
+	* gcc.target/s390/hotpatch-2.c: Likewise.  Adjust scan-assembler
+	to check for the exact nops too.
+	* gcc.target/s390/hotpatch-3.c: Likewise.
+	* gcc.target/s390/hotpatch-4.c: Likewise.
+	* gcc.target/s390/hotpatch-5.c: Likewise.
+	* gcc.target/s390/hotpatch-6.c: Likewise.
+	* gcc.target/s390/hotpatch-7.c: Likewise.
+	* gcc.target/s390/hotpatch-8.c: Likewise.
+	* gcc.target/s390/hotpatch-9.c: Likewise.
+	* gcc.target/s390/hotpatch-14.c: Likewise.
+	* gcc.target/s390/hotpatch-15.c: Likewise.
+	* gcc.target/s390/hotpatch-16.c: Likewise.
+	* gcc.target/s390/hotpatch-19.c: Likewise.
+	* gcc.target/s390/hotpatch-25.c: Likewise.  Remove
+	scan-assembler-times counting number of .align directives.
+	* gcc.target/s390/hotpatch-13.c: Remove optimization options from
+	dg-options.  Remove scan-assembler-times counting number of .align
+	directives.
+	* gcc.target/s390/hotpatch-26.c: New file.
+	* gcc.target/s390/hotpatch-27.c: New file.
+	* gcc.target/s390/hotpatch-28.c: New file.
+	* gcc.target/s390/s390.exp: Run hotpatch-*.c tests as torture tests
+	using -Os -O0 -O1 -O2 -O3 options.
+
+2015-05-29  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backported from mainline
+	2015-03-23  Martin Sebor  <msebor@redhat.com>
+
+	PR testsuite/63175
+	* gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a-pr63175.c: Scan
+	assembly for lvx in addition to lxv.
+
+2015-05-26  Rohit Arul Raj  <rohitarulraj@freescale.com>
+
+	Backported from mainline
+	2015-05-14  Rohit Arul Raj  <rohitarulraj@freescale.com>
+
+	* gcc.target/powerpc/pr60158.c: New test.
+
+2015-05-16  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66140
+	* gcc.target/alpha/pr66140.c: New test.
+
 2015-05-06  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR target/65990
