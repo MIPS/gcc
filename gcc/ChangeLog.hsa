@@ -1,5 +1,44 @@
 2015-08-24  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_insn_basic::operator new): New function.
+	(hsa_insn_phi::operator new): Likewise.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_insn_signal::operator new): Likewise.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_insn_arg_block::operator new): Likewise.
+	(hsa_insn_comment::operator new): Likewise.
+	(hsa_function_representation::get_shadow_reg): Use the newly added
+	operator new.
+	(hsa_reg_for_gimple_ssa_reqtype): Likewise.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(gen_hsa_insns_for_bitfield_load): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_unary_operation): Likewise.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_function_def_parameters): Likewise.
+	* hsa.h: Add declarations for newly added operators.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
 	* hsa.h (hsa_op_code_list::operator new): Add function.
 	* hsa-gen.c (hsa_op_code_list::operator new): Use the newly added
 	operator new.

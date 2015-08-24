@@ -332,6 +332,8 @@ public:
 		  hsa_op_base *arg2 = NULL,
 		  hsa_op_base *arg3 = NULL);
 
+  void *operator new (size_t);
+
   /* The previous and next instruction in the basic block.  */
   hsa_insn_basic *prev, *next;
 
@@ -369,6 +371,8 @@ class hsa_insn_phi : public hsa_insn_basic
 public:
   hsa_insn_phi (unsigned nops);
 
+  void *operator new (size_t);
+
   /* Destination.  */
   hsa_op_reg *dest;
 
@@ -398,6 +402,8 @@ class hsa_insn_br : public hsa_insn_basic
 public:
   hsa_insn_br (hsa_op_reg *ctrl);
 
+  void *operator new (size_t);
+
   /* Width as described in HSA documentation.  */
   BrigWidth8_t width;
 private:
@@ -425,6 +431,8 @@ class hsa_insn_cmp : public hsa_insn_basic
 {
 public:
   hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t);
+
+  void *operator new (size_t);
 
   /* Source type should be derived from operand types.  */
 
@@ -457,6 +465,8 @@ class hsa_insn_mem : public hsa_insn_basic
 {
 public:
   hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0, hsa_op_base *arg1);
+
+  void *operator new (size_t);
 
   /* The segment is of the memory access is either the segment of the symbol in
      the address operand or flat address is there is no symbol there.  */
@@ -530,6 +540,8 @@ public:
   hsa_insn_signal (int nops, int opc, enum BrigAtomicOperation sop,
 		   BrigType16_t t);
 
+  void *operator new (size_t);
+
 private:
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
@@ -554,6 +566,8 @@ class hsa_insn_seg : public hsa_insn_basic
 public:
   hsa_insn_seg (int opc, BrigType16_t destt, BrigType16_t srct,
 		BrigSegment8_t seg);
+
+  void *operator new (size_t);
 
   /* Source type.  Depends on the source addressing/segment.  */
   BrigType16_t src_type;
@@ -584,6 +598,8 @@ class hsa_insn_call : public hsa_insn_basic
 {
 public:
   hsa_insn_call (tree callee);
+
+  void *operator new (size_t);
 
   /* Called function */
   tree called_function;
@@ -640,6 +656,8 @@ class hsa_insn_arg_block : public hsa_insn_basic
 public:
   hsa_insn_arg_block (BrigKind brig_kind, hsa_insn_call * call);
 
+  void *operator new (size_t);
+
   /* Kind of argument block.  */
   BrigKind kind;
 
@@ -668,6 +686,8 @@ class hsa_insn_comment: public hsa_insn_basic
 public:
   /* Constructor of class representing the comment in HSAIL.  */
   hsa_insn_comment (const char *s);
+
+  void *operator new (size_t);
 
   /* Destructor.  */
   ~hsa_insn_comment ();
