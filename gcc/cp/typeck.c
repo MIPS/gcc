@@ -2633,11 +2633,8 @@ finish_class_member_access_expr (tree object, tree name, bool template_p,
 
   if (processing_template_decl)
     {
-      if (/* If OBJECT_TYPE is dependent, so is OBJECT.NAME.  */
-	  dependent_type_p (object_type)
-	  /* If NAME is just an IDENTIFIER_NODE, then the expression
-	     is dependent.  */
-	  || identifier_p (object)
+      if (/* If OBJECT is dependent, so is OBJECT.NAME.  */
+	  type_dependent_expression_p (object)
 	  /* If NAME is "f<args>", where either 'f' or 'args' is
 	     dependent, then the expression is dependent.  */
 	  || (TREE_CODE (name) == TEMPLATE_ID_EXPR
@@ -3284,6 +3281,7 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
       idx = build1 (NOP_EXPR, vtable_index_type, e3);
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
+	  int flag_sanitize_save;
 	case ptrmemfunc_vbit_in_pfn:
 	  e1 = cp_build_binary_op (input_location,
 				   BIT_AND_EXPR, idx, integer_one_node,
@@ -3299,9 +3297,15 @@ get_member_function_from_ptrfunc (tree *instance_ptrptr, tree function,
 	  e1 = cp_build_binary_op (input_location,
 				   BIT_AND_EXPR, delta, integer_one_node,
 				   complain);
+	  /* Don't instrument the RSHIFT_EXPR we're about to create because
+	     we're going to use DELTA number of times, and that wouldn't play
+	     well with SAVE_EXPRs therein.  */
+	  flag_sanitize_save = flag_sanitize;
+	  flag_sanitize = 0;
 	  delta = cp_build_binary_op (input_location,
 				      RSHIFT_EXPR, delta, integer_one_node,
 				      complain);
+	  flag_sanitize = flag_sanitize_save;
 	  if (delta == error_mark_node)
 	    return error_mark_node;
 	  break;
@@ -3466,6 +3470,25 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
 
   if (TREE_CODE (function) == FUNCTION_DECL)
     {
+      /* If the function is a non-template member function
+         or a non-template friend, then we need to check the
+         constraints.
+
+        Note that if overload resolution failed with a single
+        candidate this function will be used to explicitly diagnose
+        the failure for the single call expression. The check is
+        technically redundant since we also would have failed in
+        add_function_candidate. */
+      if (flag_concepts
+          && (complain & tf_error)
+          && !constraints_satisfied_p (function))
+        {
+          error ("cannot call function %qD", function);
+          location_t loc = DECL_SOURCE_LOCATION (function);
+          diagnose_constraints (loc, function, NULL_TREE);
+          return error_mark_node;
+        }
+
       if (!mark_used (function, complain) && !(complain & tf_error))
 	return error_mark_node;
       fndecl = function;

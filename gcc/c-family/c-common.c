@@ -491,6 +491,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__is_literal_type", RID_IS_LITERAL_TYPE, D_CXXONLY },
   { "__is_pod",		RID_IS_POD,	D_CXXONLY },
   { "__is_polymorphic",	RID_IS_POLYMORPHIC, D_CXXONLY },
+  { "__is_same_as",     RID_IS_SAME_AS, D_CXXONLY },
   { "__is_standard_layout", RID_IS_STD_LAYOUT, D_CXXONLY },
   { "__is_trivial",     RID_IS_TRIVIAL, D_CXXONLY },
   { "__is_trivially_assignable", RID_IS_TRIVIALLY_ASSIGNABLE, D_CXXONLY },
@@ -589,6 +590,11 @@ const struct c_common_resword c_common_reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",		RID_WCHAR,	D_CXXONLY },
   { "while",		RID_WHILE,	0 },
+
+  /* Concepts-related keywords */
+  { "concept",		RID_CONCEPT,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
+  { "requires", 	RID_REQUIRES,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
+
   /* These Objective-C keywords are recognized only immediately after
      an '@'.  */
   { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
@@ -1890,6 +1896,12 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
   if (TREE_CODE_CLASS (code) != tcc_comparison)
     return;
 
+  /* Don't warn for various macro expansions.  */
+  if (from_macro_expansion_at (loc)
+      || from_macro_expansion_at (EXPR_LOCATION (lhs))
+      || from_macro_expansion_at (EXPR_LOCATION (rhs)))
+    return;
+
   /* We do not warn for constants because they are typical of macro
      expansions that test for features, sizeof, and similar.  */
   if (CONSTANT_CLASS_P (lhs) || CONSTANT_CLASS_P (rhs))
@@ -1902,6 +1914,12 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
    */
   if ((CONVERT_EXPR_P (lhs) || TREE_CODE (lhs) == NON_LVALUE_EXPR)
       || (CONVERT_EXPR_P (rhs) || TREE_CODE (rhs) == NON_LVALUE_EXPR))
+    return;
+
+  /* Don't warn if either LHS or RHS has an IEEE floating-point type.
+     It could be a NaN, and NaN never compares equal to anything, even
+     itself.  */
+  if (FLOAT_TYPE_P (TREE_TYPE (lhs)) || FLOAT_TYPE_P (TREE_TYPE (rhs)))
     return;
 
   if (operand_equal_p (lhs, rhs, 0))
@@ -6293,11 +6311,11 @@ build_va_arg (location_t loc, tree expr, tree type)
 
 /* Linked list of disabled built-in functions.  */
 
-typedef struct disabled_builtin
+struct disabled_builtin
 {
   const char *name;
   struct disabled_builtin *next;
-} disabled_builtin;
+};
 static disabled_builtin *disabled_builtins = NULL;
 
 static bool builtin_function_disabled_p (const char *);
@@ -10133,6 +10151,7 @@ check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
     case BUILT_IN_ISINF_SIGN:
     case BUILT_IN_ISNAN:
     case BUILT_IN_ISNORMAL:
+    case BUILT_IN_SIGNBIT:
       if (builtin_function_validate_nargs (fndecl, nargs, 1))
 	{
 	  if (TREE_CODE (TREE_TYPE (args[0])) != REAL_TYPE)
@@ -12424,9 +12443,10 @@ maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
   if (TYPE_UNSIGNED (type0))
     return false;
 
+  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
+			   + TREE_INT_CST_LOW (op1));
   /* Handle the left-shifting 1 into the sign bit case.  */
-  if (integer_onep (op0)
-      && compare_tree_int (op1, prec0 - 1) == 0)
+  if (min_prec == prec0 + 1)
     {
       /* Never warn for C++14 onwards.  */
       if (cxx_dialect >= cxx14)
@@ -12438,8 +12458,6 @@ maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
 	return true;
     }
 
-  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
-			   + TREE_INT_CST_LOW (op1));
   bool overflowed = min_prec > prec0;
   if (overflowed && c_inhibit_evaluation_warnings == 0)
     warning_at (loc, OPT_Wshift_overflow_,

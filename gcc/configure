@@ -678,6 +678,7 @@ MAINT
 zlibinc
 zlibdir
 HOST_LIBS
+enable_default_ssp
 libgcc_visibility
 gcc_cv_readelf
 gcc_cv_objdump
@@ -789,6 +790,7 @@ c_strict_warn
 strict_warn
 c_loose_warn
 loose_warn
+aliasing_flags
 CPP
 EGREP
 GREP
@@ -929,6 +931,7 @@ enable_fix_cortex_a53_843419
 with_glibc_version
 enable_gnu_unique_object
 enable_linker_build_id
+enable_default_ssp
 with_long_double_128
 with_gc
 with_system_zlib
@@ -1665,6 +1668,7 @@ Optional Features:
                           extension on glibc systems
   --enable-linker-build-id
                           compiler will always pass --build-id to linker
+  --enable-default-ssp    enable Stack Smashing Protection as default
   --enable-maintainer-mode
                           enable make rules and dependencies not useful (and
                           sometimes confusing) to the casual installer
@@ -6526,6 +6530,42 @@ fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
 
+# Check whether compiler is affected by placement new aliasing bug (PR 29286).
+# If the host compiler is affected by the bug, and we build with optimization
+# enabled (which happens e.g. when cross-compiling), the pool allocator may
+# get miscompiled.  Use -fno-strict-aliasing to work around this problem.
+# Since there is no reliable feature check for the presence of this bug,
+# we simply use a GCC version number check.  (This should never trigger for
+# stages 2 or 3 of a native bootstrap.)
+aliasing_flags=
+if test "$GCC" = yes; then
+  saved_CXXFLAGS="$CXXFLAGS"
+
+  # The following test compilation will succeed if and only if $CXX accepts
+  # -fno-strict-aliasing *and* is older than GCC 4.3.
+  CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX is affected by placement new aliasing bug" >&5
+$as_echo_n "checking whether $CXX is affected by placement new aliasing bug... " >&6; }
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#error compiler not affected by placement new aliasing bug
+#endif
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }; aliasing_flags='-fno-strict-aliasing'
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+  CXXFLAGS="$saved_CXXFLAGS"
+fi
+
 
 
 
@@ -10727,6 +10767,9 @@ _ACEOF
 
 # Until we have in-tree GNU iconv:
 LIBICONV_DEP=
+if test -f "$LTLIBICONV"; then
+  LIBICONV_DEP=$LTLIBICONV
+fi
 
 
 
@@ -18301,7 +18344,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18304 "configure"
+#line 18347 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18407,7 +18450,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18410 "configure"
+#line 18453 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -28006,6 +28049,29 @@ if test x$gcc_cv_libc_provides_ssp = xyes; then
 $as_echo "#define TARGET_LIBC_PROVIDES_SSP 1" >>confdefs.h
 
 fi
+
+# Check whether --enable-default-ssp was given.
+# Check whether --enable-default-ssp was given.
+if test "${enable_default_ssp+set}" = set; then :
+  enableval=$enable_default_ssp;
+if test x$gcc_cv_libc_provides_ssp = xyes; then
+  case "$target" in
+    ia64*-*-*) enable_default_ssp=no ;;
+    *) enable_default_ssp=$enableval ;;
+  esac
+else
+  enable_default_ssp=no
+fi
+else
+  enable_default_ssp=no
+fi
+
+if test x$enable_default_ssp == xyes ; then
+
+$as_echo "#define ENABLE_DEFAULT_SSP 1" >>confdefs.h
+
+fi
+
 
 # Test for <sys/sdt.h> on the target.
 

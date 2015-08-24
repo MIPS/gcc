@@ -22,6 +22,8 @@
 #ifndef GCC_AARCH64_PROTOS_H
 #define GCC_AARCH64_PROTOS_H
 
+#include "input.h"
+
 /*
   SYMBOL_CONTEXT_ADR
   The symbol is used in a load-address operation.
@@ -199,23 +201,24 @@ struct tune_params
   unsigned int extra_tuning_flags;
 };
 
-#define AARCH64_FUSION_PAIR(x, name, index) \
-  AARCH64_FUSE_##name = (1 << index),
+#define AARCH64_FUSION_PAIR(x, name) \
+  AARCH64_FUSE_##name##_index, 
+/* Supported fusion operations.  */
+enum aarch64_fusion_pairs_index
+{
+#include "aarch64-fusion-pairs.def"
+  AARCH64_FUSE_index_END
+};
+#undef AARCH64_FUSION_PAIR
+
+#define AARCH64_FUSION_PAIR(x, name) \
+  AARCH64_FUSE_##name = (1u << AARCH64_FUSE_##name##_index),
 /* Supported fusion operations.  */
 enum aarch64_fusion_pairs
 {
   AARCH64_FUSE_NOTHING = 0,
 #include "aarch64-fusion-pairs.def"
-
-/* Hacky macro to build AARCH64_FUSE_ALL.  The sequence below expands
-   to:
-   AARCH64_FUSE_ALL = 0 | AARCH64_FUSE_index1 | AARCH64_FUSE_index2 ...  */
-#undef AARCH64_FUSION_PAIR
-#define AARCH64_FUSION_PAIR(x, name, y) \
-  | AARCH64_FUSE_##name
-
-  AARCH64_FUSE_ALL = 0
-#include "aarch64-fusion-pairs.def"
+  AARCH64_FUSE_ALL = (1u << AARCH64_FUSE_index_END) - 1
 };
 #undef AARCH64_FUSION_PAIR
 
@@ -252,9 +255,13 @@ bool aarch64_float_const_zero_rtx_p (rtx);
 bool aarch64_function_arg_regno_p (unsigned);
 bool aarch64_gen_movmemqi (rtx *);
 bool aarch64_gimple_fold_builtin (gimple_stmt_iterator *);
+bool aarch64_handle_option (struct gcc_options *, struct gcc_options *,
+			     const struct cl_decoded_option *, location_t);
 bool aarch64_is_extend_from_extract (machine_mode, rtx, rtx);
 bool aarch64_is_long_call_p (rtx);
+bool aarch64_is_noplt_call_p (rtx);
 bool aarch64_label_mentioned_p (rtx);
+void aarch64_declare_function_name (FILE *, const char*, tree);
 bool aarch64_legitimate_pic_operand_p (rtx);
 bool aarch64_modes_tieable_p (machine_mode mode1,
 			      machine_mode mode2);
@@ -304,10 +311,12 @@ rtx aarch64_simd_gen_const_vector_dup (machine_mode, int);
 bool aarch64_simd_mem_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, bool);
 rtx aarch64_tls_get_addr (void);
+std::string aarch64_get_extension_string_for_isa_flags (unsigned long);
 tree aarch64_fold_builtin (tree, int, tree *, bool);
 unsigned aarch64_dbx_register_number (unsigned);
 unsigned aarch64_trampoline_size (void);
 void aarch64_asm_output_labelref (FILE *, const char *);
+void aarch64_cpu_cpp_builtins (cpp_reader *);
 void aarch64_elf_asm_named_section (const char *, unsigned, tree);
 void aarch64_err_no_fpadvsimd (machine_mode, const char *);
 void aarch64_expand_epilogue (bool);
@@ -317,9 +326,13 @@ void aarch64_expand_vector_init (rtx, rtx);
 void aarch64_init_cumulative_args (CUMULATIVE_ARGS *, const_tree, rtx,
 				   const_tree, unsigned);
 void aarch64_init_expanders (void);
+void aarch64_init_simd_builtins (void);
 void aarch64_print_operand (FILE *, rtx, char);
 void aarch64_print_operand_address (FILE *, rtx);
 void aarch64_emit_call_insn (rtx);
+void aarch64_register_pragmas (void);
+void aarch64_relayout_simd_types (void);
+void aarch64_reset_previous_fndecl (void);
 
 /* Initialize builtins for SIMD intrinsics.  */
 void init_aarch64_simd_builtins (void);
@@ -351,12 +364,17 @@ rtx aarch64_load_tp (rtx);
 
 void aarch64_expand_compare_and_swap (rtx op[]);
 void aarch64_split_compare_and_swap (rtx op[]);
+void aarch64_gen_atomic_cas (rtx, rtx, rtx, rtx, rtx);
 void aarch64_split_atomic_op (enum rtx_code, rtx, rtx, rtx, rtx, rtx, rtx);
 
 bool aarch64_gen_adjusted_ldpstp (rtx *, bool, enum machine_mode, RTX_CODE);
 #endif /* RTX_CODE */
 
 void aarch64_init_builtins (void);
+
+bool aarch64_process_target_attr (tree, const char*);
+void aarch64_override_options_internal (struct gcc_options *);
+
 rtx aarch64_expand_builtin (tree exp,
 			    rtx target,
 			    rtx subtarget ATTRIBUTE_UNUSED,

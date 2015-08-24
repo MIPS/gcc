@@ -166,6 +166,7 @@ typedef struct GTY(()) machine_function
   rtx sdmode_stack_slot;
   /* Alternative internal arg pointer for -fsplit-stack.  */
   rtx split_stack_arg_pointer;
+  bool split_stack_argp_used;
   /* Flag if r2 setup is needed with ELFv2 ABI.  */
   bool r2_setup_needed;
 } machine_function;
@@ -2167,6 +2168,8 @@ rs6000_debug_reg_global (void)
 	   "wk reg_class = %s\n"
 	   "wl reg_class = %s\n"
 	   "wm reg_class = %s\n"
+	   "wp reg_class = %s\n"
+	   "wq reg_class = %s\n"
 	   "wr reg_class = %s\n"
 	   "ws reg_class = %s\n"
 	   "wt reg_class = %s\n"
@@ -2190,6 +2193,8 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wk]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wp]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wq]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_ws]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wt]],
@@ -2855,6 +2860,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (TARGET_LFIWZX)
     rs6000_constraints[RS6000_CONSTRAINT_wz] = FLOAT_REGS;	/* DImode  */
+
+  if (TARGET_FLOAT128)
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_wq] = VSX_REGS;	/* KFmode  */
+      if (rs6000_ieeequad)
+	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
+    }
 
   /* Set up the reload helper and direct move functions.  */
   if (TARGET_VSX || TARGET_ALTIVEC)
@@ -5437,6 +5449,96 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
   return true;
 }
 
+/* Like vsplitis_constant, but allow the value to be shifted left with a VSLDOI
+   instruction, filling in the bottom elements with 0 or -1.
+
+   Return 0 if the constant cannot be generated with VSLDOI.  Return positive
+   for the number of zeroes to shift in, or negative for the number of 0xff
+   bytes to shift in.
+
+   OP is a CONST_VECTOR.  */
+
+int
+vspltis_shifted (rtx op)
+{
+  machine_mode mode = GET_MODE (op);
+  machine_mode inner = GET_MODE_INNER (mode);
+
+  unsigned i, j;
+  unsigned nunits;
+  unsigned mask;
+
+  HOST_WIDE_INT val;
+
+  if (mode != V16QImode && mode != V8HImode && mode != V4SImode)
+    return false;
+
+  /* We need to create pseudo registers to do the shift, so don't recognize
+     shift vector constants after reload.  */
+  if (!can_create_pseudo_p ())
+    return false;
+
+  nunits = GET_MODE_NUNITS (mode);
+  mask = GET_MODE_MASK (inner);
+
+  val = const_vector_elt_as_int (op, BYTES_BIG_ENDIAN ? 0 : nunits - 1);
+
+  /* Check if the value can really be the operand of a vspltis[bhw].  */
+  if (EASY_VECTOR_15 (val))
+    ;
+
+  /* Also check if we are loading up the most significant bit which can be done
+     by loading up -1 and shifting the value left by -1.  */
+  else if (EASY_VECTOR_MSB (val, inner))
+    ;
+
+  else
+    return 0;
+
+  /* Check if VAL is present in every STEP-th element until we find elements
+     that are 0 or all 1 bits.  */
+  for (i = 1; i < nunits; ++i)
+    {
+      unsigned elt = BYTES_BIG_ENDIAN ? i : nunits - 1 - i;
+      HOST_WIDE_INT elt_val = const_vector_elt_as_int (op, elt);
+
+      /* If the value isn't the splat value, check for the remaining elements
+	 being 0/-1.  */
+      if (val != elt_val)
+	{
+	  if (elt_val == 0)
+	    {
+	      for (j = i+1; j < nunits; ++j)
+		{
+		  unsigned elt2 = BYTES_BIG_ENDIAN ? j : nunits - 1 - j;
+		  if (const_vector_elt_as_int (op, elt2) != 0)
+		    return 0;
+		}
+
+	      return (nunits - i) * GET_MODE_SIZE (inner);
+	    }
+
+	  else if ((elt_val & mask) == mask)
+	    {
+	      for (j = i+1; j < nunits; ++j)
+		{
+		  unsigned elt2 = BYTES_BIG_ENDIAN ? j : nunits - 1 - j;
+		  if ((const_vector_elt_as_int (op, elt2) & mask) != mask)
+		    return 0;
+		}
+
+	      return -((nunits - i) * GET_MODE_SIZE (inner));
+	    }
+
+	  else
+	    return 0;
+	}
+    }
+
+  /* If all elements are equal, we don't need to do VLSDOI.  */
+  return 0;
+}
+
 
 /* Return true if OP is of the given MODE and can be synthesized
    with a vspltisb, vspltish or vspltisw.  */
@@ -5501,6 +5603,9 @@ easy_altivec_constant (rtx op, machine_mode mode)
   if (vspltis_constant (op, step, copies))
     return true;
 
+  if (vspltis_shifted (op) != 0)
+    return true;
+
   return false;
 }
 
@@ -5544,7 +5649,7 @@ gen_easy_altivec_constant (rtx op)
 const char *
 output_vec_const_move (rtx *operands)
 {
-  int cst, cst2;
+  int cst, cst2, shift;
   machine_mode mode;
   rtx dest, vec;
 
@@ -5557,10 +5662,13 @@ output_vec_const_move (rtx *operands)
       if (zero_constant (vec, mode))
 	return "xxlxor %x0,%x0,%x0";
 
+      if (TARGET_P8_VECTOR && vec == CONSTM1_RTX (mode))
+	return "xxlorc %x0,%x0,%x0";
+
       if ((mode == V2DImode || mode == V1TImode)
 	  && INTVAL (CONST_VECTOR_ELT (vec, 0)) == -1
 	  && INTVAL (CONST_VECTOR_ELT (vec, 1)) == -1)
-	return "vspltisw %0,-1";
+	return (TARGET_P8_VECTOR) ? "xxlorc %x0,%x0,%x0" : "vspltisw %0,-1";
     }
 
   if (TARGET_ALTIVEC)
@@ -5568,6 +5676,11 @@ output_vec_const_move (rtx *operands)
       rtx splat_vec;
       if (zero_constant (vec, mode))
 	return "vxor %0,%0,%0";
+
+      /* Do we need to construct a value using VSLDOI?  */
+      shift = vspltis_shifted (vec);
+      if (shift != 0)
+	return "#";
 
       splat_vec = gen_easy_altivec_constant (vec);
       gcc_assert (GET_CODE (splat_vec) == VEC_DUPLICATE);
@@ -23736,6 +23849,11 @@ rs6000_emit_prologue (void)
   int using_static_chain_p = (cfun->static_chain_decl != NULL_TREE
 			      && df_regs_ever_live_p (STATIC_CHAIN_REGNUM)
 			      && call_used_regs[STATIC_CHAIN_REGNUM]);
+  int using_split_stack = (flag_split_stack
+                           && (lookup_attribute ("no_split_stack",
+                                                 DECL_ATTRIBUTES (cfun->decl))
+                               == NULL));
+ 
   /* Offset to top of frame for frame_reg and sp respectively.  */
   HOST_WIDE_INT frame_off = 0;
   HOST_WIDE_INT sp_off = 0;
@@ -24006,7 +24124,7 @@ rs6000_emit_prologue (void)
       && info->cr_save_p
       && REGNO (frame_reg_rtx) != cr_save_regno
       && !(using_static_chain_p && cr_save_regno == 11)
-      && !(flag_split_stack && cr_save_regno == 12 && sp_adjust))
+      && !(using_split_stack && cr_save_regno == 12 && sp_adjust))
     {
       cr_save_rtx = gen_rtx_REG (SImode, cr_save_regno);
       START_USE (cr_save_regno);
@@ -24584,7 +24702,7 @@ rs6000_emit_prologue (void)
       if ((DEFAULT_ABI == ABI_AIX || DEFAULT_ABI == ABI_ELFv2)
 	  && !using_static_chain_p)
 	save_regno = 11;
-      else if (flag_split_stack || REGNO (frame_reg_rtx) == 12)
+      else if (using_split_stack || REGNO (frame_reg_rtx) == 12)
 	{
 	  save_regno = 11;
 	  if (using_static_chain_p)
@@ -24687,12 +24805,13 @@ rs6000_emit_prologue (void)
       emit_insn (gen_frame_store (reg, sp_reg_rtx, RS6000_TOC_SAVE_SLOT));
     }
 
-  if (flag_split_stack && split_stack_arg_pointer_used_p ())
+  if (using_split_stack && split_stack_arg_pointer_used_p ())
     {
       /* Set up the arg pointer (r12) for -fsplit-stack code.  If
 	 __morestack was called, it left the arg pointer to the old
 	 stack in r29.  Otherwise, the arg pointer is the top of the
 	 current frame.  */
+      cfun->machine->split_stack_argp_used = true;
       if (sp_adjust)
 	{
 	  rtx r12 = gen_rtx_REG (Pmode, 12);
@@ -26274,7 +26393,10 @@ rs6000_expand_split_stack_prologue (void)
 static rtx
 rs6000_internal_arg_pointer (void)
 {
-  if (flag_split_stack)
+  if (flag_split_stack
+     && (lookup_attribute ("no_split_stack", DECL_ATTRIBUTES (cfun->decl))
+         == NULL))
+
     {
       if (cfun->machine->split_stack_arg_pointer == NULL_RTX)
 	{
@@ -32218,8 +32340,7 @@ rs6000_do_expand_vec_perm (rtx target, rtx op0, rtx op1,
   imode = vmode;
   if (GET_MODE_CLASS (vmode) != MODE_VECTOR_INT)
     {
-      imode = GET_MODE_INNER (vmode);
-      imode = mode_for_size (GET_MODE_BITSIZE (imode), MODE_INT, 0);
+      imode = mode_for_size (GET_MODE_UNIT_BITSIZE (vmode), MODE_INT, 0);
       imode = mode_for_vector (imode, nelt);
     }
 
@@ -32288,7 +32409,7 @@ rs6000_complex_function_value (machine_mode mode)
   unsigned int regno;
   rtx r1, r2;
   machine_mode inner = GET_MODE_INNER (mode);
-  unsigned int inner_bytes = GET_MODE_SIZE (inner);
+  unsigned int inner_bytes = GET_MODE_UNIT_SIZE (mode);
 
   if (FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     regno = FP_ARG_RETURN;
@@ -33930,6 +34051,8 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
       && TARGET_MINIMAL_TOC
       && get_pool_size () != 0)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
+  if (cfun->machine->split_stack_argp_used)
+    add_to_hard_reg_set (&set->set, Pmode, 12);
 }
 
 

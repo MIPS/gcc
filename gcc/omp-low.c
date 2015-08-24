@@ -142,7 +142,7 @@ struct omp_region
 /* Context structure.  Used to store information about each parallel
    directive in the code.  */
 
-typedef struct omp_context
+struct omp_context
 {
   /* This field must be at the beginning, as we do "inheritance": Some
      callback functions for tree-inline.c (e.g., omp_copy_decl)
@@ -204,7 +204,7 @@ typedef struct omp_context
      this level and above.  For parallel and kernels clauses, a mask
      indicating which of num_gangs/num_workers/num_vectors was used.  */
   int gwv_this;
-} omp_context;
+};
 
 /* A structure holding the elements of:
    for (V = N1; V cond N2; V += STEP) [...] */
@@ -5417,7 +5417,7 @@ expand_omp_taskreg (struct omp_region *region)
 	  basic_block entry_succ_bb
 	    = single_succ_p (entry_bb) ? single_succ (entry_bb)
 				       : FALLTHRU_EDGE (entry_bb)->dest;
-	  tree arg, narg;
+	  tree arg;
 	  gimple parcopy_stmt = NULL;
 
 	  for (gsi = gsi_start_bb (entry_succ_bb); ; gsi_next (&gsi))
@@ -5462,15 +5462,15 @@ expand_omp_taskreg (struct omp_region *region)
 	    }
 	  else
 	    {
-	      /* If we are in ssa form, we must load the value from the default
-		 definition of the argument.  That should not be defined now,
-		 since the argument is not used uninitialized.  */
-	      gcc_assert (ssa_default_def (cfun, arg) == NULL);
-	      narg = make_ssa_name (arg, gimple_build_nop ());
-	      set_ssa_default_def (cfun, arg, narg);
-	      /* ?? Is setting the subcode really necessary ??  */
-	      gimple_omp_set_subcode (parcopy_stmt, TREE_CODE (narg));
-	      gimple_assign_set_rhs1 (parcopy_stmt, narg);
+	      tree lhs = gimple_assign_lhs (parcopy_stmt);
+	      gcc_assert (SSA_NAME_VAR (lhs) == arg);
+	      /* We'd like to set the rhs to the default def in the child_fn,
+		 but it's too early to create ssa names in the child_fn.
+		 Instead, we set the rhs to the parm.  In
+		 move_sese_region_to_fn, we introduce a default def for the
+		 parm, map the parm to it's default def, and once we encounter
+		 this stmt, replace the parm with the default def.  */
+	      gimple_assign_set_rhs1 (parcopy_stmt, arg);
 	      update_stmt (parcopy_stmt);
 	    }
 	}
@@ -5604,6 +5604,10 @@ expand_omp_taskreg (struct omp_region *region)
 	}
       if (gimple_in_ssa_p (cfun))
 	update_ssa (TODO_update_ssa);
+#ifdef ENABLE_CHECKING
+      if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	verify_loop_structure ();
+#endif
       pop_cfun ();
     }
 
@@ -6535,7 +6539,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   body_bb = single_succ (seq_start_bb);
   if (!broken_loop)
     {
-      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb);
+      gcc_assert (BRANCH_EDGE (cont_bb)->dest == body_bb
+		  || single_succ (BRANCH_EDGE (cont_bb)->dest) == body_bb);
       gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
     }
   exit_bb = region->exit;
@@ -6818,6 +6823,11 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   if (!broken_loop)
     {
       ep = find_edge (cont_bb, body_bb);
+      if (ep == NULL)
+	{
+	  ep = BRANCH_EDGE (cont_bb);
+	  gcc_assert (single_succ (ep->dest) == body_bb);
+	}
       if (gimple_omp_for_combined_p (fd->for_stmt))
 	{
 	  remove_edge (ep);
@@ -6843,9 +6853,19 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   set_immediate_dominator (CDI_DOMINATORS, fin_bb,
 			   recompute_dominator (CDI_DOMINATORS, fin_bb));
 
+  struct loop *loop = body_bb->loop_father;
+  if (loop != entry_bb->loop_father)
+    {
+      gcc_assert (loop->header == body_bb);
+      gcc_assert (broken_loop
+		  || loop->latch == region->cont
+		  || single_pred (loop->latch) == region->cont);
+      return;
+    }
+
   if (!broken_loop && !gimple_omp_for_combined_p (fd->for_stmt))
     {
-      struct loop *loop = alloc_loop ();
+      loop = alloc_loop ();
       loop->header = body_bb;
       if (collapse_bb == NULL)
 	loop->latch = cont_bb;
@@ -8984,6 +9004,10 @@ expand_omp_target (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
+#ifdef ENABLE_CHECKING
+      if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+	verify_loop_structure ();
+#endif
       pop_cfun ();
     }
 
@@ -9492,6 +9516,10 @@ execute_expand_omp (void)
 
   expand_omp (root_omp_region);
 
+#ifdef ENABLE_CHECKING
+  if (!loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+    verify_loop_structure ();
+#endif
   cleanup_tree_cfg ();
 
   free_omp_regions ();
@@ -9933,24 +9961,6 @@ oacc_process_reduction_data (gimple_seq *body, gimple_seq *in_stmt_seqp,
 	  gimplify_assign (acc_device_host,
 			   build_int_cst (integer_type_node,
 					  GOMP_DEVICE_HOST),
-			   in_stmt_seqp);
-
-	  enter = create_artificial_label (UNKNOWN_LOCATION);
-	  exit = create_artificial_label (UNKNOWN_LOCATION);
-
-	  stmt = gimple_build_cond (EQ_EXPR, acc_device, acc_device_host,
-				    enter, exit);
-	  gimple_seq_add_stmt (in_stmt_seqp, stmt);
-	  gimple_seq_add_stmt (in_stmt_seqp, gimple_build_label (enter));
-	  gimplify_assign (nthreads, fold_build1 (NOP_EXPR, sizetype,
-						  integer_one_node),
-			   in_stmt_seqp);
-	  gimple_seq_add_stmt (in_stmt_seqp, gimple_build_label (exit));
-
-	  /* Also, set nthreads = 1 for ACC_DEVICE_TYPE=host_nonshm.  */
-	  gimplify_assign (acc_device_host,
-			   build_int_cst (integer_type_node,
-					  GOMP_DEVICE_HOST_NONSHM),
 			   in_stmt_seqp);
 
 	  enter = create_artificial_label (UNKNOWN_LOCATION);

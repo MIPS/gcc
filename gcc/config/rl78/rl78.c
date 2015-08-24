@@ -357,6 +357,9 @@ rl78_option_override (void)
 
   if (TARGET_ES0
       && strcmp (lang_hooks.name, "GNU C")
+      && strcmp (lang_hooks.name, "GNU C11")
+      && strcmp (lang_hooks.name, "GNU C89")
+      && strcmp (lang_hooks.name, "GNU C99")
       /* Compiling with -flto results in a language of GNU GIMPLE being used... */
       && strcmp (lang_hooks.name, "GNU GIMPLE"))
     /* Address spaces are currently only supported by C.  */
@@ -604,13 +607,6 @@ rl78_force_nonfar_3 (rtx *operands, rtx (*gen)(rtx,rtx,rtx))
 {
   int did = 0;
   rtx temp_reg = NULL;
-
-  /* As an exception, we allow two far operands if they're identical
-     and the third operand is not a MEM.  This allows global variables
-     to be incremented, for example.  */
-  if (rtx_equal_p (operands[0], operands[1])
-      && ! MEM_P (operands[2]))
-    return 0;
 
   /* FIXME: Likewise.  */
   if (rl78_far_p (operands[1]))
@@ -4638,6 +4634,33 @@ rl78_flags_already_set (rtx op, rtx operand)
 
   return res;
 }
+
+const char *
+rl78_addsi3_internal (rtx * operands, unsigned int alternative)
+{
+  /* If we are adding in a constant symbolic address when -mes0
+     is active then we know that the address must be <64K and
+     that it is invalid to access anything above 64K relative to
+     this address.  So we can skip adding in the high bytes.  */
+  if (TARGET_ES0
+      && GET_CODE (operands[2]) == SYMBOL_REF
+      && TREE_CODE (SYMBOL_REF_DECL (operands[2])) == VAR_DECL
+      && TREE_READONLY (SYMBOL_REF_DECL (operands[2]))
+      && ! TREE_SIDE_EFFECTS (SYMBOL_REF_DECL (operands[2])))
+    return "movw ax, %h1\n\taddw ax, %h2\n\tmovw %h0, ax";
+
+  switch (alternative)
+    {
+    case 0:
+    case 1:
+      return "movw ax, %h1\n\taddw ax, %h2\n\tmovw %h0, ax\n\tmovw ax, %H1\n\tsknc\n\tincw ax\n\taddw ax, %H2\n\tmovw %H0, ax";
+    case 2:
+      return "movw ax, %h1\n\taddw ax,%h2\n\tmovw bc, ax\n\tmovw ax, %H1\n\tsknc\n\tincw ax\n\taddw ax, %H2\n\tmovw %H0, ax\n\tmovw ax, bc\n\tmovw %h0, ax";
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS rl78_preferred_reload_class

@@ -63,6 +63,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+#include "stor-layout.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -1159,9 +1160,10 @@ set_reg_attrs_from_value (rtx reg, rtx x)
 	 || GET_CODE (x) == TRUNCATE
 	 || (GET_CODE (x) == SUBREG && subreg_lowpart_p (x)))
     {
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if ((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
-	  || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+#if defined(POINTERS_EXTEND_UNSIGNED)
+      if (((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
+	   || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+	  && !targetm.have_ptr_extend ())
 	can_be_reg_pointer = false;
 #endif
       x = XEXP (x, 0);
@@ -1232,6 +1234,9 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
 void
 set_reg_attrs_for_decl_rtl (tree t, rtx x)
 {
+  if (!t)
+    return;
+  tree tdecl = t;
   if (GET_CODE (x) == SUBREG)
     {
       gcc_assert (subreg_lowpart_p (x));
@@ -1240,7 +1245,9 @@ set_reg_attrs_for_decl_rtl (tree t, rtx x)
   if (REG_P (x))
     REG_ATTRS (x)
       = get_reg_attrs (t, byte_lowpart_offset (GET_MODE (x),
-					       DECL_MODE (t)));
+					       DECL_P (tdecl)
+					       ? DECL_MODE (tdecl)
+					       : TYPE_MODE (TREE_TYPE (tdecl))));
   if (GET_CODE (x) == CONCAT)
     {
       if (REG_P (XEXP (x, 0)))
@@ -1376,7 +1383,6 @@ gen_lowpart_common (machine_mode mode, rtx x)
 {
   int msize = GET_MODE_SIZE (mode);
   int xsize;
-  int offset = 0;
   machine_mode innermode;
 
   /* Unfortunately, this routine doesn't take a parameter for the mode of X,
@@ -1404,8 +1410,6 @@ gen_lowpart_common (machine_mode mode, rtx x)
   if (SCALAR_FLOAT_MODE_P (mode) && msize > xsize)
     return 0;
 
-  offset = subreg_lowpart_offset (mode, innermode);
-
   if ((GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND)
       && (GET_MODE_CLASS (mode) == MODE_INT
 	  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT))
@@ -1428,7 +1432,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
   else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
 	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x))
-    return simplify_gen_subreg (mode, x, innermode, offset);
+    return lowpart_subreg (mode, x, innermode);
 
   /* Otherwise, we can't do this.  */
   return 0;

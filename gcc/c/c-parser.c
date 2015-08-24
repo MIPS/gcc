@@ -65,6 +65,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "builtins.h"
 #include "gomp-constants.h"
+#include "c-family/c-indentation.h"
 
 
 /* Initialization routine for this file.  */
@@ -140,7 +141,7 @@ c_parse_init (void)
    lexer code, if desired.  */
 
 /* More information about the type of a CPP_NAME token.  */
-typedef enum c_id_kind {
+enum c_id_kind {
   /* An ordinary identifier.  */
   C_ID_ID,
   /* An identifier declared as a typedef name.  */
@@ -151,11 +152,11 @@ typedef enum c_id_kind {
   C_ID_ADDRSPACE,
   /* Not an identifier.  */
   C_ID_NONE
-} c_id_kind;
+};
 
 /* A single C token after string literal concatenation and conversion
    of preprocessing tokens to tokens.  */
-typedef struct GTY (()) c_token {
+struct GTY (()) c_token {
   /* The kind of token.  */
   ENUM_BITFIELD (cpp_ttype) type : 8;
   /* If this token is a CPP_NAME, this value indicates whether also
@@ -171,12 +172,12 @@ typedef struct GTY (()) c_token {
   location_t location;
   /* The value associated with this token, if any.  */
   tree value;
-} c_token;
+};
 
 /* A parser structure recording information about the state and
    context of parsing.  Includes lexer information with up to two
    tokens of look-ahead; more are not needed for C.  */
-typedef struct GTY(()) c_parser {
+struct GTY(()) c_parser {
   /* The look-ahead tokens.  */
   c_token * GTY((skip)) tokens;
   /* Buffer for look-ahead tokens.  */
@@ -223,7 +224,7 @@ typedef struct GTY(()) c_parser {
   /* Buffer to hold all the tokens from parsing the vector attribute for the
      SIMD-enabled functions (formerly known as elemental functions).  */
   vec <c_token, va_gc> *cilk_simd_fn_tokens;
-} c_parser;
+};
 
 
 /* The actual parser and external interface.  ??? Does this need to be
@@ -1126,7 +1127,7 @@ restore_extension_diagnostics (int flags)
 }
 
 /* Possibly kinds of declarator to parse.  */
-typedef enum c_dtr_syn {
+enum c_dtr_syn {
   /* A normal declarator with an identifier.  */
   C_DTR_NORMAL,
   /* An abstract declarator (maybe empty).  */
@@ -1142,7 +1143,7 @@ typedef enum c_dtr_syn {
      the same applies with attributes inside the parentheses before
      "T".  */
   C_DTR_PARM
-} c_dtr_syn;
+};
 
 /* The binary operation precedence levels, where 0 is a dummy lowest level
    used for the bottom of the stack.  */
@@ -5179,10 +5180,14 @@ c_parser_c99_block_statement (c_parser *parser)
    parser->in_if_block.  */
 
 static tree
-c_parser_if_body (c_parser *parser, bool *if_p, location_t if_loc)
+c_parser_if_body (c_parser *parser, bool *if_p,
+		  const token_indent_info &if_tinfo)
 {
   tree block = c_begin_compound_stmt (flag_isoc99);
   location_t body_loc = c_parser_peek_token (parser)->location;
+  token_indent_info body_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+
   c_parser_all_labels (parser);
   *if_p = c_parser_next_token_is_keyword (parser, RID_IF);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
@@ -5197,14 +5202,11 @@ c_parser_if_body (c_parser *parser, bool *if_p, location_t if_loc)
   else if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
     add_stmt (c_parser_compound_statement (parser));
   else
-    {
-      c_parser_statement_after_labels (parser);
-      if (!c_parser_next_token_is_keyword (parser, RID_ELSE))
-	warn_for_misleading_indentation (if_loc, body_loc,
-					 c_parser_peek_token (parser)->location,
-					 c_parser_peek_token (parser)->type,
-					 "if");
-    }
+    c_parser_statement_after_labels (parser);
+
+  token_indent_info next_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+  warn_for_misleading_indentation (if_tinfo, body_tinfo, next_tinfo);
 
   return c_end_compound_stmt (body_loc, block, flag_isoc99);
 }
@@ -5214,10 +5216,13 @@ c_parser_if_body (c_parser *parser, bool *if_p, location_t if_loc)
    specially for the sake of -Wempty-body warnings.  */
 
 static tree
-c_parser_else_body (c_parser *parser, location_t else_loc)
+c_parser_else_body (c_parser *parser, const token_indent_info &else_tinfo)
 {
   location_t body_loc = c_parser_peek_token (parser)->location;
   tree block = c_begin_compound_stmt (flag_isoc99);
+  token_indent_info body_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+
   c_parser_all_labels (parser);
   if (c_parser_next_token_is (parser, CPP_SEMICOLON))
     {
@@ -5229,13 +5234,12 @@ c_parser_else_body (c_parser *parser, location_t else_loc)
       c_parser_consume_token (parser);
     }
   else
-    {
-      c_parser_statement_after_labels (parser);
-      warn_for_misleading_indentation (else_loc, body_loc,
-				       c_parser_peek_token (parser)->location,
-				       c_parser_peek_token (parser)->type,
-				       "else");
-    }
+    c_parser_statement_after_labels (parser);
+
+  token_indent_info next_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+  warn_for_misleading_indentation (else_tinfo, body_tinfo, next_tinfo);
+
   return c_end_compound_stmt (body_loc, block, flag_isoc99);
 }
 
@@ -5258,7 +5262,8 @@ c_parser_if_statement (c_parser *parser)
   tree if_stmt;
 
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_IF));
-  location_t if_loc = c_parser_peek_token (parser)->location;
+  token_indent_info if_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
@@ -5270,13 +5275,14 @@ c_parser_if_statement (c_parser *parser)
     }
   in_if_block = parser->in_if_block;
   parser->in_if_block = true;
-  first_body = c_parser_if_body (parser, &first_if, if_loc);
+  first_body = c_parser_if_body (parser, &first_if, if_tinfo);
   parser->in_if_block = in_if_block;
   if (c_parser_next_token_is_keyword (parser, RID_ELSE))
     {
-      location_t else_loc = c_parser_peek_token (parser)->location;
+      token_indent_info else_tinfo
+	= get_token_indent_info (c_parser_peek_token (parser));
       c_parser_consume_token (parser);
-      second_body = c_parser_else_body (parser, else_loc);
+      second_body = c_parser_else_body (parser, else_tinfo);
     }
   else
     second_body = NULL_TREE;
@@ -5356,7 +5362,8 @@ c_parser_while_statement (c_parser *parser, bool ivdep)
   tree block, cond, body, save_break, save_cont;
   location_t loc;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_WHILE));
-  location_t while_loc = c_parser_peek_token (parser)->location;
+  token_indent_info while_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
   c_parser_consume_token (parser);
   block = c_begin_compound_stmt (flag_isoc99);
   loc = c_parser_peek_token (parser)->location;
@@ -5374,14 +5381,14 @@ c_parser_while_statement (c_parser *parser, bool ivdep)
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
 
-  location_t body_loc = UNKNOWN_LOCATION;
-  if (c_parser_peek_token (parser)->type != CPP_OPEN_BRACE)
-    body_loc = c_parser_peek_token (parser)->location;
+  token_indent_info body_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+
   body = c_parser_c99_block_statement (parser);
-  warn_for_misleading_indentation (while_loc, body_loc,
-				   c_parser_peek_token (parser)->location,
-				   c_parser_peek_token (parser)->type,
-				   "while");
+
+  token_indent_info next_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+  warn_for_misleading_indentation (while_tinfo, body_tinfo, next_tinfo);
 
   c_finish_loop (loc, cond, NULL, body, c_break_label, c_cont_label, true);
   add_stmt (c_end_compound_stmt (loc, block, flag_isoc99));
@@ -5501,6 +5508,8 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
   location_t for_loc = c_parser_peek_token (parser)->location;
   bool is_foreach_statement = false;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_FOR));
+  token_indent_info for_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
   c_parser_consume_token (parser);
   /* Open a compound statement in Objective-C as well, just in case this is
      as foreach expression.  */
@@ -5661,14 +5670,14 @@ c_parser_for_statement (c_parser *parser, bool ivdep)
   save_cont = c_cont_label;
   c_cont_label = NULL_TREE;
 
-  location_t body_loc = UNKNOWN_LOCATION;
-  if (c_parser_peek_token (parser)->type != CPP_OPEN_BRACE)
-    body_loc = c_parser_peek_token (parser)->location;
+  token_indent_info body_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+
   body = c_parser_c99_block_statement (parser);
-  warn_for_misleading_indentation (for_loc, body_loc,
-				   c_parser_peek_token (parser)->location,
-				   c_parser_peek_token (parser)->type,
-				   "for");
+
+  token_indent_info next_tinfo
+    = get_token_indent_info (c_parser_peek_token (parser));
+  warn_for_misleading_indentation (for_tinfo, body_tinfo, next_tinfo);
 
   if (is_foreach_statement)
     objc_finish_foreach_loop (loc, object_expression, collection_expression, body, c_break_label, c_cont_label);

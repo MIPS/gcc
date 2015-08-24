@@ -676,6 +676,11 @@ gfc_build_intrinsic_lib_fndecls (void)
 #undef DEFINE_MATH_BUILTIN
 #undef DEFINE_MATH_BUILTIN_C
 
+    /* There is one built-in we defined manually, because it gets called
+       with builtin_decl_for_precision() or builtin_decl_for_float_type()
+       even though it is not an OTHER_BUILTIN: it is SQRT.  */
+    quad_decls[BUILT_IN_SQRT] = define_quad_builtin ("sqrtq", func_1, true);
+
   }
 
   /* Add GCC builtin functions.  */
@@ -6667,6 +6672,8 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 						       arg2se.expr);
 	  gfc_add_block_to_block (&se->pre, &arg1se.pre);
 	  gfc_add_block_to_block (&se->post, &arg1se.post);
+	  gfc_add_block_to_block (&se->pre, &arg2se.pre);
+	  gfc_add_block_to_block (&se->post, &arg2se.post);
           tmp = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
 				 arg1se.expr, arg2se.expr);
           tmp2 = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
@@ -7415,8 +7422,7 @@ conv_intrinsic_ieee_is_normal (gfc_se * se, gfc_expr * expr)
 static void
 conv_intrinsic_ieee_is_negative (gfc_se * se, gfc_expr * expr)
 {
-  tree arg, signbit, isnan, decl;
-  int argprec;
+  tree arg, signbit, isnan;
 
   /* Convert arg, evaluate it only once.  */
   conv_ieee_function_args (se, expr, &arg, 1);
@@ -7427,9 +7433,9 @@ conv_intrinsic_ieee_is_negative (gfc_se * se, gfc_expr * expr)
 			       1, arg);
   STRIP_TYPE_NOPS (isnan);
 
-  argprec = TYPE_PRECISION (TREE_TYPE (arg));
-  decl = builtin_decl_for_precision (BUILT_IN_SIGNBIT, argprec);
-  signbit = build_call_expr_loc (input_location, decl, 1, arg);
+  signbit = build_call_expr_loc (input_location,
+				 builtin_decl_explicit (BUILT_IN_SIGNBIT),
+				 1, arg);
   signbit = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			     signbit, integer_zero_node);
 
@@ -7577,9 +7583,9 @@ conv_intrinsic_ieee_copy_sign (gfc_se * se, gfc_expr * expr)
   conv_ieee_function_args (se, expr, args, 2);
 
   /* Get the sign of the second argument.  */
-  argprec = TYPE_PRECISION (TREE_TYPE (args[1]));
-  decl = builtin_decl_for_precision (BUILT_IN_SIGNBIT, argprec);
-  sign = build_call_expr_loc (input_location, decl, 1, args[1]);
+  sign = build_call_expr_loc (input_location,
+			      builtin_decl_explicit (BUILT_IN_SIGNBIT),
+			      1, args[1]);
   sign = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			  sign, integer_zero_node);
 
