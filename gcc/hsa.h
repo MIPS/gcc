@@ -219,6 +219,8 @@ public:
   hsa_op_address (hsa_symbol *sym, hsa_op_reg *reg,
 		  HOST_WIDE_INT offset = 0);
 
+  void *operator new (size_t);
+
   /* Set up a new address operand consisting of base symbol SYM and
      immediate OFFSET.  If the machine model is not large and offset is 64 bit,
      the upper, 32 bits have to be zero.  */

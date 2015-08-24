@@ -224,8 +224,7 @@ hsa_function_representation::get_shadow_reg ()
   shadow->name = "hsa_runtime_shadow";
 
   hsa_op_reg *r = new hsa_op_reg (BRIG_TYPE_U64);
-  hsa_op_address *addr = new (hsa_allocp_operand_address)
-    hsa_op_address (shadow);
+  hsa_op_address *addr = new hsa_op_address (shadow);
 
   hsa_insn_mem *mem = new (hsa_allocp_inst_mem)
     hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, r, addr);
@@ -799,6 +798,15 @@ hsa_op_address::hsa_op_address (hsa_op_reg *r, HOST_WIDE_INT offset)
   imm_offset (offset)
 {
 }
+
+/* New operator to allocate address operands from pool alloc.  */
+
+void *
+hsa_op_address::operator new (size_t)
+{
+  return hsa_allocp_operand_address->vallocate ();
+}
+
 
 /* Constructor of an operand referring to HSAIL code.  */
 
@@ -1414,8 +1422,7 @@ out:
       *output_bitpos = bitpos;
     }
 
-  return new (hsa_allocp_operand_address) hsa_op_address (symbol, reg,
-							  hwi_offset);
+  return new hsa_op_address (symbol, reg, hwi_offset);
 }
 
 /* Generate HSA address for a function call argument of given TYPE.
@@ -1440,7 +1447,7 @@ gen_hsa_addr_for_arg (tree tree_type, int index)
       sym->name_number = index;
     }
 
-  return new (hsa_allocp_operand_address) hsa_op_address (sym);
+  return new hsa_op_address (sym);
 }
 
 /* Generate HSA instructions that calculate address of VAL including all
@@ -1996,15 +2003,15 @@ gen_hsa_memory_copy (hsa_bb *hbb, hsa_op_address *target, hsa_op_address *src,
       BrigType16_t t = get_integer_type_by_bytes (s, false);
 
       hsa_op_reg *tmp = new hsa_op_reg (t);
-      addr = new (hsa_allocp_operand_address) hsa_op_address
-	(src->symbol, src->reg, src->imm_offset + offset);
+      addr = new hsa_op_address (src->symbol, src->reg,
+				 src->imm_offset + offset);
       mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, t,
 						    tmp, addr);
       hbb->append_insn (mem);
       tmp->set_definition (mem);
 
-      addr = new (hsa_allocp_operand_address) hsa_op_address
-	(target->symbol, target->reg, target->imm_offset + offset);
+      addr = new hsa_op_address (target->symbol, target->reg,
+				 target->imm_offset + offset);
       mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_ST, t, tmp,
 						    addr);
       hbb->append_insn (mem);
@@ -2063,8 +2070,7 @@ hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 {
   hsa_symbol *spill_sym = spill_reg->spill_sym;
   hsa_op_reg *reg = new hsa_op_reg (spill_sym->type);
-  hsa_op_address *addr = new (hsa_allocp_operand_address)
-    hsa_op_address (spill_sym);
+  hsa_op_address *addr = new hsa_op_address (spill_sym);
 
   hsa_insn_mem *mem = new (hsa_allocp_inst_mem)
     hsa_insn_mem (BRIG_OPCODE_LD, spill_sym->type, reg, addr);
@@ -2097,8 +2103,7 @@ hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 {
   hsa_symbol *spill_sym = spill_reg->spill_sym;
   hsa_op_reg *reg = new hsa_op_reg (spill_sym->type);
-  hsa_op_address *addr = new (hsa_allocp_operand_address)
-    hsa_op_address (spill_sym);
+  hsa_op_address *addr = new hsa_op_address (spill_sym);
   hsa_op_reg *returnreg;
 
   *ptmp2 = NULL;
@@ -2669,8 +2674,7 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
       /* Store of return value.  */
       BrigType16_t mtype = mem_type_for_type
 	(hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
-      hsa_op_address *addr = new (hsa_allocp_operand_address)
-	hsa_op_address (hsa_cfun->output_arg);
+      hsa_op_address *addr = new hsa_op_address (hsa_cfun->output_arg);
       hsa_insn_mem *mem = new (hsa_allocp_inst_mem)
 	hsa_insn_mem (BRIG_OPCODE_ST, mtype, NULL, addr);
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (retval, hbb, ssa_map,
@@ -2729,9 +2733,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Get my kernel dispatch argument.  */
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		    hsa_insn_comment ("get kernel dispatch structure"));
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg_ptr,
-			offsetof (hsa_kernel_dispatch, children_dispatches));
+  addr = new hsa_op_address
+    (shadow_reg_ptr, offsetof (hsa_kernel_dispatch, children_dispatches));
 
   hsa_op_reg *shadow_reg_base_ptr = new hsa_op_reg (BRIG_TYPE_U64);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
@@ -2742,8 +2745,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   unsigned index = hsa_cfun->kernel_dispatch_count;
   unsigned byte_offset = index * sizeof (hsa_kernel_dispatch *);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg_base_ptr, byte_offset);
+  addr = new hsa_op_address (shadow_reg_base_ptr, byte_offset);
 
   hsa_op_reg *shadow_reg = new hsa_op_reg (BRIG_TYPE_U64);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
@@ -2752,8 +2754,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   /* Emit store to debug argument.  */
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, debug));
+  addr = new hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, debug));
 
   /* Create a magic number that is going to be printed by libgomp.  */
   c = new hsa_op_immed (build_int_cstu (uint64_type_node, 1000 + index));
@@ -2766,8 +2767,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("load base address of command queue"));
 
   hsa_op_reg *queue_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  addr = new (hsa_allocp_operand_address)
-    hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, queue));
+  addr = new hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, queue));
 
   mem = new (hsa_allocp_inst_mem)
     hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, queue_reg, addr);
@@ -2780,9 +2780,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("get a kernarg address"));
   hsa_op_reg *kernarg_reg = new hsa_op_reg (BRIG_TYPE_U64);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg,
-			offsetof (hsa_kernel_dispatch, kernarg_address));
+  addr = new hsa_op_address (shadow_reg,
+			     offsetof (hsa_kernel_dispatch, kernarg_address));
 
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
 						kernarg_reg, addr);
@@ -2794,8 +2793,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("get a kernel object"));
   hsa_op_reg *object_reg = new hsa_op_reg (BRIG_TYPE_U64);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, object));
+  addr = new hsa_op_address (shadow_reg,
+			     offsetof (hsa_kernel_dispatch, object));
 
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
 						object_reg, addr);
@@ -2807,8 +2806,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("get a signal by kernel call index"));
 
   hsa_op_reg *signal_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, signal));
+  addr = new hsa_op_address (shadow_reg,
+			     offsetof (hsa_kernel_dispatch, signal));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
 						signal_reg, addr);
   signal_reg->set_definition (mem);
@@ -2836,9 +2835,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("get a kernel private segment size by "
 				      "kernel call index"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg,
-			offsetof (hsa_kernel_dispatch, private_segment_size));
+  addr = new hsa_op_address
+    (shadow_reg, offsetof (hsa_kernel_dispatch, private_segment_size));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U32,
 						private_seg_reg, addr);
   private_seg_reg->set_definition (mem);
@@ -2851,9 +2849,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("get a kernel group segment size by "
 				      "kernel call index"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (shadow_reg,
-			offsetof (hsa_kernel_dispatch, group_segment_size));
+  addr = new hsa_op_address
+    (shadow_reg, offsetof (hsa_kernel_dispatch, group_segment_size));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U32,
 						group_seg_reg, addr);
   group_seg_reg->set_definition (mem);
@@ -2866,8 +2863,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_insn_queue *queue = new (hsa_allocp_inst_queue)
     hsa_insn_queue (3, BRIG_OPCODE_ADDQUEUEWRITEINDEX);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_reg);
+  addr = new hsa_op_address (queue_reg);
   queue->operands[0] = queue_index_reg;
   queue->operands[1] = addr;
   queue->operands[2] = c;
@@ -2892,7 +2888,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		    hsa_insn_comment ("get base address of prepared packet"));
 
   hsa_op_reg *queue_addr_value_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  addr = new (hsa_allocp_operand_address) hsa_op_address (queue_addr_reg);
+  addr = new hsa_op_address (queue_addr_reg);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
 						queue_addr_value_reg, addr);
   queue_addr_value_reg->set_definition (mem);
@@ -2921,8 +2917,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->setup |= 1"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof (hsa_queue_packet, setup));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, setup));
   hsa_op_reg *packet_setup_reg = new hsa_op_reg (BRIG_TYPE_U16);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_LD, BRIG_TYPE_U16, packet_setup_reg, addr);
@@ -2954,9 +2950,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (cvtinsn);
   packet_setup_reg_2->set_definition (cvtinsn);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, setup));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, setup));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, packet_setup_reg_2, addr);
   hbb->append_insn (mem);
@@ -2965,9 +2960,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->grid_size_x = 64"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, grid_size_x));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, grid_size_x));
   c = new hsa_op_immed (build_int_cstu (uint16_type_node, 64), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
@@ -2977,9 +2971,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->workgroup_size_x = 64"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, workgroup_size_x));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, workgroup_size_x));
   c = new hsa_op_immed (build_int_cstu (uint16_type_node, 64), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
@@ -2989,9 +2982,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->grid_size_y = 1"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, grid_size_y));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, grid_size_y));
   c = new hsa_op_immed (build_int_cstu (uint16_type_node, 1), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
@@ -3001,9 +2993,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->workgroup_size_y = 1"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, workgroup_size_y));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, workgroup_size_y));
   c = new hsa_op_immed (build_int_cstu (uint16_type_node, 1), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
@@ -3013,9 +3004,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->grid_size_z = 1"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, grid_size_z));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, grid_size_z));
   c = new hsa_op_immed (build_int_cstu (uint16_type_node, 1), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
@@ -3025,9 +3015,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->workgroup_size_z = 1"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, workgroup_size_z));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, workgroup_size_z));
   c = new hsa_op_immed (build_int_cstu (uint16_type_node, 1), false);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, c, addr);
@@ -3045,9 +3034,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (cvtinsn);
   private_seg_reg_u16->set_definition (cvtinsn);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, private_segment_size));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, private_segment_size));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, private_seg_reg_u16, addr);
   hbb->append_insn (mem);
@@ -3064,9 +3052,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (cvtinsn);
   group_seg_reg_u16->set_definition (cvtinsn);
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, group_segment_size));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, group_segment_size));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U16, group_seg_reg_u16, addr);
   hbb->append_insn (mem);
@@ -3075,9 +3062,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->kernel_object"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, kernel_object));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, kernel_object));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U64, object_reg, addr);
   hbb->append_insn (mem);
@@ -3088,17 +3074,15 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   hsa_op_reg *omp_data_memory_reg = new hsa_op_reg (BRIG_TYPE_U64);
 
-  addr = new (hsa_allocp_operand_address)
-    hsa_op_address (shadow_reg,
-		    offsetof (hsa_kernel_dispatch, omp_data_memory));
+  addr = new hsa_op_address (shadow_reg,
+			     offsetof (hsa_kernel_dispatch, omp_data_memory));
 
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
 						omp_data_memory_reg, addr);
   omp_data_memory_reg->set_definition (mem);
   hbb->append_insn (mem);
 
-  hsa_op_address *dst_addr = new (hsa_allocp_operand_address)
-    hsa_op_address (NULL, omp_data_memory_reg, 0);
+  hsa_op_address *dst_addr = new hsa_op_address (omp_data_memory_reg);
 
   tree argument = gimple_call_arg (call, 1);
   gcc_assert (TREE_CODE (argument) == ADDR_EXPR);
@@ -3115,17 +3099,15 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("memory copy instructions"));
 
-  hsa_op_address *src_addr = new (hsa_allocp_operand_address)
-    hsa_op_address (var_decl);
+  hsa_op_address *src_addr = new hsa_op_address (var_decl);
   gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->dim);
 
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("write memory pointer to "
 				     "packet->kernarg_address"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, kernarg_address));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, kernarg_address));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U64, kernarg_reg, addr);
   hbb->append_insn (mem);
@@ -3135,7 +3117,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		   hsa_insn_comment ("write argument0 to "
 				     "*packet->kernarg_address"));
 
-  addr = new (hsa_allocp_operand_address) hsa_op_address (kernarg_reg);
+  addr = new hsa_op_address (kernarg_reg);
 
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64,
 						omp_data_memory_reg, addr);
@@ -3146,7 +3128,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		   hsa_insn_comment ("write argument1 to "
 				     "*packet->kernarg_address"));
 
-  addr = new (hsa_allocp_operand_address) hsa_op_address (kernarg_reg, 8);
+  addr = new hsa_op_address (kernarg_reg, 8);
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64,
 						shadow_reg, addr);
   hbb->append_insn (mem);
@@ -3155,9 +3137,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("set packet->completion_signal"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, completion_signal));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, completion_signal));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_ST, BRIG_TYPE_U64, signal_reg, addr);
   hbb->append_insn (mem);
@@ -3166,9 +3147,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new (hsa_allocp_inst_comment)
 		   hsa_insn_comment ("store atomically to packet->header"));
 
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_packet_reg, offsetof
-			(hsa_queue_packet, header));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, header));
 
   /* Store 5122 << 16 + 1 to packet->header.  */
   c = new hsa_op_immed (build_int_cstu (uint32_type_node, 70658));
@@ -3187,8 +3167,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 		   hsa_insn_comment ("store index to doorbell signal"));
 
   hsa_op_reg *doorbell_signal_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  addr = new (hsa_allocp_operand_address)
-	hsa_op_address (queue_reg, offsetof (hsa_queue, doorbell_signal));
+  addr = new hsa_op_address (queue_reg, offsetof (hsa_queue, doorbell_signal));
   mem = new (hsa_allocp_inst_mem) hsa_insn_mem
     (BRIG_OPCODE_LD, BRIG_TYPE_U64, doorbell_signal_reg, addr);
   hbb->append_insn (mem);

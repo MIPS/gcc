@@ -1,5 +1,18 @@
 2015-08-24  Martin Liska  <mliska@suse.cz>
 
+	* hsa.h (hsa_op_address:operator new): New function.
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use
+	the newly added operator.
+	(hsa_op_address::operator new): Likewise.
+	(gen_hsa_addr_for_arg): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
 	* hsa.h (hsa_op_reg::operator new): New function.
 	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use
 	the newly added operator.
