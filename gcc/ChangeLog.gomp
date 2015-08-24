@@ -1,3 +1,10 @@
+2015-08-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c (driver_self_specs) [ENABLE_OFFLOADING]: Don't generate a
+	-foffload option.
+	(process_command): Call handle_foffload_option (OFFLOAD_TARGETS)
+	if no offload target specified.
+
 2015-08-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (build_oacc_routine_dims): Size non-partitioned

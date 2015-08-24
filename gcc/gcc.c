@@ -1064,9 +1064,6 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 static const char *const driver_self_specs[] = {
   "%{fdump-final-insns:-fdump-final-insns=.} %<fdump-final-insns",
 #ifdef ENABLE_OFFLOADING
-  /* If the user didn't specify any, default to all configured offload
-     targets.  */
-  "%{!foffload=*:-foffload=" OFFLOAD_TARGETS "}",
   /* If linking against libgomp, add a setup file.  */
   "%{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*} 1):" \
   "%:add-omp-infile()}",
@@ -4290,6 +4287,11 @@ process_command (unsigned int decoded_options_count,
 			   decoded_options + j, UNKNOWN_LOCATION,
 			   CL_DRIVER, &handlers, global_dc);
     }
+
+  /* If the user didn't specify any, default to all configured offload
+     targets.  */
+  if (offload_targets == NULL)
+    handle_foffload_option (OFFLOAD_TARGETS);
 
   if (output_file
       && strcmp (output_file, "-") != 0
