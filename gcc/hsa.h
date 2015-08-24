@@ -286,6 +286,7 @@ class hsa_op_code_list: public hsa_op_base
 {
 public:
   hsa_op_code_list (unsigned elements);
+  void *operator new (size_t);
 
   /* Offset to variable-sized array in hsa_data section, where
      are offsets to entries in the hsa_code section.  */

@@ -827,6 +827,14 @@ hsa_op_code_list::hsa_op_code_list (unsigned elements)
   hsa_list_operand_code_list.safe_push (this);
 }
 
+/* New operator to allocate code list operands from pool alloc.  */
+
+void *
+hsa_op_code_list::operator new (size_t)
+{
+  return hsa_allocp_operand_code_list->vallocate ();
+}
+
 /* Lookup or create a HSA pseudo register for a given gimple SSA name.  */
 
 static hsa_op_reg *
@@ -2594,8 +2602,7 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
       call_insn->args_symbols.safe_push (addr->symbol);
     }
 
-  call_insn->args_code_list = new (hsa_allocp_operand_code_list)
-    hsa_op_code_list (args);
+  call_insn->args_code_list = new hsa_op_code_list (args);
   hbb->append_insn (call_insn);
 
   tree result_type = TREE_TYPE (TREE_TYPE (gimple_call_fndecl (stmt)));
@@ -2630,8 +2637,7 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
 
       call_insn->output_arg = addr->symbol;
       call_insn->result_symbol = addr->symbol;
-      call_insn->result_code_list = new (hsa_allocp_operand_code_list)
-	hsa_op_code_list (1);
+      call_insn->result_code_list = new hsa_op_code_list (1);
     }
   else
     {
@@ -2642,8 +2648,7 @@ gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
 	  return;
 	}
 
-      call_insn->result_code_list = new (hsa_allocp_operand_code_list)
-	hsa_op_code_list (0);
+      call_insn->result_code_list = new hsa_op_code_list (0);
     }
 
   /* Argument block start.  */
