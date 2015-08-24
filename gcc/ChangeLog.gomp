@@ -1,3 +1,14 @@
+2015-08-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/routine-3.f90: New test.
+
+2015-08-24  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* tree-nested.c (convert_nonlocal_omp_clauses): Handle
+	OMP_CLAUSE_NUM_GANGS, OMP_CLAUSE_NUM_WORKERS and
+	OMP_CLAUSE_VECTOR_LENGTH.
+	(convert_local_omp_clauses): Likewise.
+
 2015-08-24  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.c (driver_self_specs) [ENABLE_OFFLOADING]: Don't generate a
