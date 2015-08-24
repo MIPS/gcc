@@ -1110,7 +1110,6 @@ c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
 	  loop_clauses = clauses;
 	  break;
 
-	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_PRIVATE:
 	  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
 			        OMP_CLAUSE_CODE (clauses));
