@@ -1,3 +1,11 @@
+2015-08-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* plugin/configfrag.ac: Don't test for fnmatch.h or fnmatch.
+	* configure, config.h.in: Regenerate.
+	* target.c [PLUGIN_SUPPORT]: Don't include <fnmatch.h>.
+	(offload_target_to_plugin_name): Use strstr and strncmp instead of
+	fnmatch.
+
 2015-08-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/routine-wv-1.c: New.

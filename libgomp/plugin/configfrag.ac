@@ -29,8 +29,6 @@
 offload_targets=
 AC_SUBST(offload_targets)
 plugin_support=yes
-AC_CHECK_HEADERS([fnmatch.h], , [plugin_support=no])
-AC_CHECK_FUNCS([fnmatch], , [plugin_support=no])
 AC_CHECK_LIB(dl, dlsym, , [plugin_support=no])
 if test x"$plugin_support" = xyes; then
   AC_DEFINE(PLUGIN_SUPPORT, 1,

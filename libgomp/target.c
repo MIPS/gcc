@@ -41,7 +41,6 @@
 
 #ifdef PLUGIN_SUPPORT
 #include <dlfcn.h>
-#include <fnmatch.h>
 #include "plugin-suffix.h"
 #endif
 
@@ -1271,9 +1270,9 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
 static const char *
 offload_target_to_plugin_name (const char *offload_target)
 {
-  if (fnmatch ("*-intelmic*", offload_target, 0) == 0)
+  if (strstr (offload_target, "-intelmic") != NULL)
     return "intelmic";
-  if (fnmatch ("nvptx*", offload_target, 0) == 0)
+  if (strncmp (offload_target, "nvptx", 5) == 0)
     return "nvptx";
   gomp_fatal ("Unknown offload target: %s", offload_target);
 }
