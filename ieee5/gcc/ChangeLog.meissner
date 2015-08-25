@@ -1,5 +1,52 @@
 2015-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7>
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define user
+	macros for IEEE 128-bit floating point in VSX registers.
+
+	* config/rs6000/rs6000.c (TARGET_C_MODE_FOR_SUFFIX): Add 'q' or
+	'Q' as the suffix for IEEE 128-bit floating point in VSX
+	registers.
+	(rs6000_c_mode_for_suffix): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Set up IEEE 128-bit floating
+	point in VSX register mode support.
+	(rs6000_gen_le_vsx_permute): Use ROTATE instead of VEC_SELECT for
+	IEEE 128-bit floating point in VSX registers.
+	(init_cumulative_args): When calling the library support
+	functions, suppress passing values to IEEE 128-bit floating point
+	in VSX registers in both the GPRs and VSX registers.
+	(rs6000_function_arg): Likewise.
+	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(init_float128_ibm): Split 128-bit floating point support into two
+	functions, and add support for IEEE 128-bit floating point in VSX
+	registers.
+	(init_float128_ieee): Likewise.
+	(rs6000_init_libfuncs): Likewise.
+	(rs6000_mangle_type): Use U10__float128 as the mangled type for
+	IEEE 128-bit floating point in VSX registers.
+	(struct rs6000_opt_var): Fix typo.
+	(struct rs6000_float128_var): Add target attribute and pragma
+	support for the IEEE 128-bit floating point in VSX registers.
+	(rs6000_float128_vars): Likewise.
+	(rs6000_inner_target_options): Likewise.
+
+	* config/rs6000/rs6000.h (ALTIVEC_VECTOR_MODE): Treat IEEE 128-bit
+	floating point in vector registers as a vector type.
+	(MODES_TIEABLE_P): Move vector tests above floating point scalar
+	tests, so that IEEE 128-bit floating point in VSX registers ties
+	like a vector operand and not a scalar floating point operand.
+	(struct rs6000_args): Add libcall field to support IEEE 128-bit
+	floating point in VSX registers.
+
+	* doc/extend.texi (additional floating types): Document PowerPC
+	use of __float128 and __ibm128 types.
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Document
+	-mfloat128-software and -mfloat128-none.
+
+2015-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #6>
 	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
 	Add declaration.
