@@ -1,5 +1,11 @@
 2015-08-25  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_unaryop_for_builtin): New function.
+	(gen_hsa_insns_for_call): Add support for a few unary fp
+	operations.
+
+2015-08-25  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (gen_hsa_unary_operation): Use int for the opcode.
 	Add instruction to uses of register operands.
 	(gen_hsa_binary_operation): Likewise.

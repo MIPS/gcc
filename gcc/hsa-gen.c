@@ -3213,6 +3213,26 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_cfun->kernel_dispatch_count++;
 }
 
+/* Helper functions to create a single unary HSA operations out of calls to
+   builtins.  OPCODE is the HSA operation to be generated.  STMT is a gimple
+   call to a builtin.  HBB is the HSA BB to which the instruction should be
+   added and SSA_MAP is used to map gimple SSA names to HSA pseudoreisters.  */
+
+static void
+gen_hsa_unaryop_for_builtin (int opcode, gimple stmt, hsa_bb *hbb,
+			     vec <hsa_op_reg_p> *ssa_map)
+{
+  tree lhs = gimple_call_lhs (stmt);
+  /* FIXME: Since calls without a LHS are not removed, double check that
+     they cannot have side effects.  */
+  if (!lhs)
+    return;
+  hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+  hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0),
+						    hbb, ssa_map, NULL);
+  gen_hsa_unary_operation (opcode, dest, op, hbb);
+}
+
 /* Generate HSA instructions for the given call statement STMT.  Instructions
    will be appended to HBB.  SSA_MAP maps gimple SSA names to HSA pseudo
    registers.  */
@@ -3284,21 +3304,63 @@ specialop:
 	break;
       }
 
+    case BUILT_IN_FABS:
+    case BUILT_IN_FABSF:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_ABS, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_CEIL:
+    case BUILT_IN_CEILF:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_CEIL, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_FLOOR:
+    case BUILT_IN_FLOORF:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_FLOOR, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_RINT:
+    case BUILT_IN_RINTF:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_RINT, stmt, hbb, ssa_map);
+      break;
+
     case BUILT_IN_SQRT:
     case BUILT_IN_SQRTF:
-      /* FIXME: Since calls without a LHS are not removed, double check that
-	 they cannot have side effects.  */
-      if (!lhs)
-	return;
-      dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
-      insn = new hsa_insn_basic (2, BRIG_OPCODE_SQRT, dest->type);
-      insn->operands[0] = dest;
-      dest->set_definition (insn);
-      insn->operands[1]
-	= hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0),
-					  hbb, ssa_map, insn);
-      hbb->append_insn (insn);
+      /* TODO: Perhaps produce BRIG_OPCODE_NSQRT with -ffast-math?  */
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_SQRT, stmt, hbb, ssa_map);
       break;
+
+    case BUILT_IN_TRUNC:
+    case BUILT_IN_TRUNCF:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_TRUNC, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_COS:
+    case BUILT_IN_COSF:
+      /* FIXME: Using the native instruction may not be precise enough.
+	 Perhaps only allow if using -ffast-math?  */
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NCOS, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_EXP2:
+    case BUILT_IN_EXP2F:
+      /* FIXME: Using the native instruction may not be precise enough.
+	 Perhaps only allow if using -ffast-math?  */
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NEXP2, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_LOG2:
+    case BUILT_IN_LOG2F:
+      /* FIXME: Using the native instruction may not be precise enough.
+	 Perhaps only allow if using -ffast-math?  */
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NLOG2, stmt, hbb, ssa_map);
+      break;
+
+    case BUILT_IN_SIN:
+    case BUILT_IN_SINF:
+      /* FIXME: Using the native instruction may not be precise enough.
+	 Perhaps only allow if using -ffast-math?  */
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb, ssa_map);
 
     case BUILT_IN_ATOMIC_LOAD_1:
     case BUILT_IN_ATOMIC_LOAD_2:
