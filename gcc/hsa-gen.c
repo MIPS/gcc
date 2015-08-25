@@ -2250,7 +2250,7 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
    as a single operand.  */
 
 static void
-gen_hsa_unary_operation (BrigType16_t opcode, hsa_op_reg *dest,
+gen_hsa_unary_operation (int opcode, hsa_op_reg *dest,
 			 hsa_op_base *op1, hsa_bb *hbb)
 {
   gcc_checking_assert (dest);
@@ -2266,6 +2266,8 @@ gen_hsa_unary_operation (BrigType16_t opcode, hsa_op_reg *dest,
     }
 
   dest->set_definition (insn);
+  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op1))
+    reg->uses.safe_push (insn);
   hbb->append_insn (insn);
 }
 
@@ -2274,7 +2276,7 @@ gen_hsa_unary_operation (BrigType16_t opcode, hsa_op_reg *dest,
    and OP2.  */
 
 static void
-gen_hsa_binary_operation (BrigType16_t opcode, hsa_op_reg *dest,
+gen_hsa_binary_operation (int opcode, hsa_op_reg *dest,
 			  hsa_op_base *op1, hsa_op_base *op2, hsa_bb *hbb)
 {
   gcc_checking_assert (dest);
@@ -2290,6 +2292,10 @@ gen_hsa_binary_operation (BrigType16_t opcode, hsa_op_reg *dest,
   hsa_insn_basic *insn = new hsa_insn_basic (3, opcode, dest->type, dest,
 					     op1, op2);
   dest->set_definition (insn);
+  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op1))
+    reg->uses.safe_push (insn);
+  if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op2))
+    reg->uses.safe_push (insn);
   hbb->append_insn (insn);
 }
 
@@ -2387,10 +2393,8 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
     case RROTATE_EXPR:
       {
 	hsa_insn_basic *insn = NULL;
-	BrigType16_t code1 = code == LROTATE_EXPR
-	  ? BRIG_OPCODE_SHL : BRIG_OPCODE_SHR;
-	BrigType16_t code2 = code != LROTATE_EXPR
-	  ? BRIG_OPCODE_SHL : BRIG_OPCODE_SHR;
+	int code1 = code == LROTATE_EXPR ? BRIG_OPCODE_SHL : BRIG_OPCODE_SHR;
+	int code2 = code != LROTATE_EXPR ? BRIG_OPCODE_SHL : BRIG_OPCODE_SHR;
 	BrigType16_t btype = hsa_type_for_scalar_tree_type (TREE_TYPE (lhs),
 							    true);
 

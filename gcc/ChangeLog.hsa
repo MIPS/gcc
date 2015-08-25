@@ -1,3 +1,11 @@
+2015-08-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_unary_operation): Use int for the opcode.
+	Add instruction to uses of register operands.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Use int for opcodes
+	passed to gen_hsa_binary_operation.
+
 2015-08-24  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (hsa_insn_basic::operator new): New function.
