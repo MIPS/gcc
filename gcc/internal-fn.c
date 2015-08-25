@@ -2051,6 +2051,19 @@ expand_GOACC_UNLOCK (gcall *ARG_UNUSED (stmt))
 #endif
 }
 
+static void
+expand_GOACC_LOCK_INIT (gcall *ARG_UNUSED (stmt))
+{
+#ifdef HAVE_oacc_lock_init
+  rtx dim = expand_normal (gimple_call_arg (stmt, 0));
+  rtx id = expand_normal (gimple_call_arg (stmt, 1));
+  
+  emit_insn (gen_oacc_lock_init (dim, id));
+#else
+  gcc_unreachable ();
+#endif
+}
+
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 

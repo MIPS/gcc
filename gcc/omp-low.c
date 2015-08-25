@@ -14761,8 +14761,8 @@ execute_oacc_transform ()
 
 	      case IFN_GOACC_LOCK:
 	      case IFN_GOACC_UNLOCK:
-		if (targetm.goacc.lock_unlock
-		    (stmt, dims, ifn_code == IFN_GOACC_LOCK))
+	      case IFN_GOACC_LOCK_INIT:
+		if (targetm.goacc.lock (stmt, dims, ifn_code))
 		  goto remove;
 		break;
 
@@ -14848,21 +14848,28 @@ default_goacc_fork_join (gimple ARG_UNUSED (stmt),
    there is no RTL expander.  */
 
 bool
-default_goacc_lock_unlock (gimple ARG_UNUSED (stmt),
-			   const int*ARG_UNUSED (dims),
-			   bool is_lock)
+default_goacc_lock (gimple ARG_UNUSED (stmt), const int*ARG_UNUSED (dims),
+		    unsigned ifn_code)
 {
-  if (is_lock)
+  switch (ifn_code)
     {
+    case IFN_GOACC_LOCK:
 #ifndef HAVE_oacc_lock
       return true;
 #endif
-    }
-  else
-    {
+      break;
+    case IFN_GOACC_UNLOCK:
 #ifndef HAVE_oacc_unlock
       return true;
 #endif
+      break;
+    case IFN_GOACC_LOCK_INIT:
+#ifndef HAVE_oacc_lock_init
+      return true;
+#endif
+      break;
+    default:
+      gcc_unreachable ();
     }
 
   return false;

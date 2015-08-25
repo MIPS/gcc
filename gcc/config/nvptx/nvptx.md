@@ -1371,7 +1371,7 @@
 		       UNSPECV_LOCK)]
   ""
 {
-  nvptx_expand_oacc_lock_unlock (operands[0], true);
+  nvptx_expand_oacc_lock (operands[0], 0);
   DONE;
 })
 
@@ -1381,7 +1381,17 @@
 		       UNSPECV_LOCK)]
   ""
 {
-  nvptx_expand_oacc_lock_unlock (operands[0], false);
+  nvptx_expand_oacc_lock (operands[0], +1);
+  DONE;
+})
+
+(define_expand "oacc_lock_init"
+  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")
+		        (match_operand:SI 1 "const_int_operand" "")]
+		       UNSPECV_LOCK)]
+  ""
+{
+  nvptx_expand_oacc_lock (operands[0], -1);
   DONE;
 })
 
@@ -1592,8 +1602,8 @@
   ""
   "membar%B0;")
 
-;; spinlock and unlock
-(define_insn "nvptx_spinlock"
+;; spin lock and reset
+(define_insn "nvptx_spin_lock"
    [(parallel
      [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
 			(match_operand:SI 1 "const_int_operand" "i")]
@@ -1604,7 +1614,7 @@
    ""
    "%4:\\tatom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni %4;")
 
-(define_insn "nvptx_spinunlock"
+(define_insn "nvptx_spin_reset"
    [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
 		      (match_operand:SI 1 "const_int_operand" "i")]
 		      UNSPECV_LOCK)

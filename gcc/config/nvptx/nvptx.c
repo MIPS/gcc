@@ -1222,7 +1222,7 @@ nvptx_expand_oacc_join (unsigned mode)
    gang or worker level.  */
 
 void
-nvptx_expand_oacc_lock_unlock (rtx src, bool lock)
+nvptx_expand_oacc_lock (rtx src, int direction)
 {
   unsigned HOST_WIDE_INT kind;
   rtx pat;
@@ -1232,22 +1232,26 @@ nvptx_expand_oacc_lock_unlock (rtx src, bool lock)
 
   rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
   rtx space = GEN_INT (lock_space[kind]);
-  rtx barrier = gen_nvptx_membar (GEN_INT (lock_level[kind]));
+  rtx barrier = NULL_RTX;
   rtx tmp = gen_reg_rtx (SImode);
 
-  if (!lock)
+  if (direction >= 0)
+    barrier = gen_nvptx_membar (GEN_INT (lock_level[kind]));
+
+  if (direction > 0)
     emit_insn (barrier);
-  if (lock)
+  if (!direction)
     {
       rtx_code_label *label = gen_label_rtx ();
 
       LABEL_NUSES (label)++;
-      pat = gen_nvptx_spinlock (mem, space, tmp, gen_reg_rtx (BImode), label);
+      pat = gen_nvptx_spin_lock (mem, space, tmp, gen_reg_rtx (BImode), label);
     }
   else
-    pat = gen_nvptx_spinunlock (mem, space, tmp);
+    /* We can use reset for both unlock and initialization.  */
+    pat = gen_nvptx_spin_reset (mem, space, tmp);
   emit_insn (pat);
-  if (lock)
+  if (!direction)
     emit_insn (barrier);
 }
 
@@ -3634,12 +3638,22 @@ nvptx_xform_fork_join (gimple stmt, const int dims[],
  */
 
 static bool
-nvptx_xform_lock_unlock (gimple stmt, const int *ARG_UNUSED (dims),
-			 bool ARG_UNUSED (is_lock))
+nvptx_xform_lock (gimple stmt, const int *ARG_UNUSED (dims), unsigned ifn_code)
 {
   tree arg = gimple_call_arg (stmt, 0);
+  unsigned mode = TREE_INT_CST_LOW (arg);
   
-  return TREE_INT_CST_LOW (arg) > GOMP_DIM_WORKER;
+  switch (ifn_code)
+    {
+    case IFN_GOACC_LOCK:
+    case IFN_GOACC_UNLOCK:
+      return mode > GOMP_DIM_WORKER;
+
+    case IFN_GOACC_LOCK_INIT:
+      return mode != GOMP_DIM_WORKER;
+
+    default: gcc_unreachable();
+    }
 }
 
 #undef TARGET_OPTION_OVERRIDE
@@ -3745,8 +3759,8 @@ nvptx_xform_lock_unlock (gimple stmt, const int *ARG_UNUSED (dims),
 #undef TARGET_GOACC_FORK_JOIN
 #define TARGET_GOACC_FORK_JOIN nvptx_xform_fork_join
 
-#undef TARGET_GOACC_LOCK_UNLOCK
-#define TARGET_GOACC_LOCK_UNLOCK nvptx_xform_lock_unlock
+#undef TARGET_GOACC_LOCK
+#define TARGET_GOACC_LOCK nvptx_xform_lock
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

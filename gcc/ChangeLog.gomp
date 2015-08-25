@@ -1,5 +1,32 @@
 2015-08-25  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* targhooks.h (default_goacc_lock_unlock): Rename to ...
+	(default_goacc_lock): ... here.  Adjust.
+	* config/nvptx/nvptx.md (oacc_expand_lock, oacc_expand_unlock):
+	Adjust call to lock expander.
+	(oacc_expand_lock_init): New.
+	(nvptx_spinlock, nvptx_spinunlock): Rename to ...
+	(nvptx_spin_lock, nvtx_spin_reset): ... here.
+	* config/nvptx/ntptx.c (nvptx_expand_oacc_lock_unlock): Rename to ...
+	(nvptx_expand_oacc_lock): ... here.  Deal with init too.
+	(nvptx_xform_lock_unlock): Rename to ...
+	(nvptx_xform_lock): ... here.  Deal with init too.
+	(TARGET_GOACC_LOCK_UNLOCK): Replace with ...
+	(TARGET_GOACC_LOCK): ... this.
+	* omp-low.c (exectute_oacc_transform): Deal with
+	IFN_GOACC_LOCK_INIT.
+	(default_goacc_lock_unlock): Rename to ...
+	(default_goacc_lock): ... here.  Deal with init too.
+	* internal-fn.c (expand_GOACC_LOCK_INIT): New.
+	* internal-fn.def (GOACC_LOCK_INIT): New.
+	* doc/tm.texi.in (TARGET_GOACC_LOCK_UNLOCK): Replace with ...
+	(TARGET_GOACC_LOCK): ... this.
+	* doc/tm.texi: Rebuilt.
+	* target.def (goacc lock_unlock): Replace with ...
+	(goacc lock): ... this.  Deal with init too.
+
+2015-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_emit_forking): Add is_call argument,
 	propagate it into mask.
 	(nvptx_emit_joining): Likewise.
