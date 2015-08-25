@@ -898,6 +898,7 @@ extern struct hsa_function_representation *hsa_cfun;
 extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 extern hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
 extern unsigned hsa_kernel_calls_counter;
+bool hsa_callable_function_p (tree fndecl);
 void hsa_init_compilation_unit_data (void);
 void hsa_deinit_compilation_unit_data (void);
 bool hsa_machine_large_p (void);

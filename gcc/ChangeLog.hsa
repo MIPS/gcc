@@ -1,5 +1,12 @@
 2015-08-25  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.h (hsa_callable_function_p): Declare.
+	* hsa.c (hsa_callable_function_p): New function.
+	* hsa-gen.c (gen_hsa_insns_for_call): Use it.
+	(pass_gen_hsail::execute): Likewise.
+
+2015-08-25  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (gen_hsa_unaryop_for_builtin): New function.
 	(gen_hsa_insns_for_call): Add support for a few unary fp
 	operations.

@@ -3255,7 +3255,7 @@ gen_hsa_insns_for_call (gimple stmt, hsa_bb *hbb,
 	  return;
 	}
 
-      if (lookup_attribute ("hsafunc", DECL_ATTRIBUTES (function_decl)))
+      if (hsa_callable_function_p (function_decl))
         gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
       else if (!gen_hsa_insns_for_known_library_call (stmt, hbb, ssa_map))
 	sorry ("HSA does support only call for functions with 'hsafunc' "
@@ -4102,8 +4102,7 @@ pass_gen_hsail::execute (function *)
       || lookup_attribute ("hsakernel",
 			   DECL_ATTRIBUTES (current_function_decl)))
     return generate_hsa (true);
-  else if (lookup_attribute ("hsafunc",
-			     DECL_ATTRIBUTES (current_function_decl)))
+  else if (hsa_callable_function_p (current_function_decl))
     return generate_hsa (false);
   else
     return wrap_all_hsa_calls ();

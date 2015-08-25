@@ -103,6 +103,15 @@ hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 /* True if compilation unit-wide data are already allocated and initialized.  */
 static bool compilation_unit_data_initialized;
 
+/* Return true if FNDECL represents an HSA-callable function.  */
+
+bool
+hsa_callable_function_p (tree fndecl)
+{
+  return lookup_attribute ("hsafunc", DECL_ATTRIBUTES (fndecl))
+    || lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl));
+}
+
 /* Allocate HSA structures that are are used when dealing with different
    functions.  */
 
