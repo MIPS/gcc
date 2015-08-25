@@ -530,8 +530,9 @@ if test x$enable_static_libjava != xyes ; then
 fi
 AC_SUBST(EXTRA_CONFIGARGS_LIBJAVA)
 
-posix_like_os="yes"
-case "${target}" in
+# Enable libgomp by default on hosted POSIX systems, and a few others.
+if test x$enable_libgomp = x ; then
+    case "${target}" in
     *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
 	;;
     *-*-netbsd* | *-*-freebsd* | *-*-openbsd* | *-*-dragonfly*)
@@ -543,20 +544,25 @@ case "${target}" in
     nvptx*-*-*)
 	;;
     *)
-    posix_like_os="no"
-    ;;
-esac
-
-# Enable libgomp by default on POSIX hosted systems.
-if test x$enable_libgomp = x && test $posix_like_os = "no" ; then
-    # Disable libgomp on non POSIX hosted systems.
-    noconfigdirs="$noconfigdirs target-libgomp"
+	noconfigdirs="$noconfigdirs target-libgomp"
+	;;
+    esac
 fi
 
-# Enable libgupc by default on POSIX hosted systems.
-if test x$enable_libgupc = x && test $posix_like_os = "no" ; then
-    # Disable libgupc on non POSIX hosted systems.
-    noconfigdirs="$noconfigdirs target-libgupc"
+# Disable libgupc on unsupported systems.
+if test -d ${srcdir}/libgupc; then
+    if test x$enable_libgupc = x; then
+	AC_MSG_CHECKING([for libgupc support])
+	if (srcdir=${srcdir}/libgupc; \
+		. ${srcdir}/configure.tgt; \
+		test -n "$UNSUPPORTED")
+	then
+	    AC_MSG_RESULT([no])
+	    noconfigdirs="$noconfigdirs target-libgupc"
+	else
+	    AC_MSG_RESULT([yes])
+	fi
+    fi
 fi
 
 # Disable libatomic on unsupported systems.

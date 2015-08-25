@@ -1,5 +1,11 @@
 2015-08-25  Gary Funck  <gary@intrepid.com>
 
+	top-level/configure.ac: Use libgupc/configure.tgt to determine
+	if a target is unsupported.
+	top-level/configure: Re-generate.
+
+2015-08-25  Gary Funck  <gary@intrepid.com>
+
 	* dwarf2out.c (type_main_variant): Add back static prototype
 	to match trunk.
 	* fold-const.c (fold_unary_loc): Re-arrange terms in
