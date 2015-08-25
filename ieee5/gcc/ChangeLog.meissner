@@ -1,5 +1,11 @@
 2015-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<future patch #9>
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Enable
+	-mfloat128-software if VSX is available.
+
+2015-08-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7>
 	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define user
 	macros for IEEE 128-bit floating point in VSX registers.
