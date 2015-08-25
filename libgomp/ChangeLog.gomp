@@ -1,7 +1,11 @@
+2015-08-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/routine-wv-1.c: New.
+
 2015-08-22  Nathan Sidwell  <nathan@codesourcery.com>
 
-	*  testsuite/libgomp.oacc-c-c++-common/routine-vec-1.c: New.
-	*  testsuite/libgomp.oacc-c-c++-common/routine-work-1.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/routine-vec-1.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/routine-work-1.c: New.
 
 2015-08-20  Thomas Schwinge  <thomas@codesourcery.com>
 	    Joseph Myers  <joseph@codesourcery.com>
