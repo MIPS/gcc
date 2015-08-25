@@ -862,10 +862,6 @@ public:
   /* Vector of called function declarations.  */
   vec <tree> called_functions;
 
-  /* Instructions to be executed before the first BB from gimple.  It's label
-   is zero and must not be referenced, of course there are no PHIs.  */
-  hsa_bb prologue;
-
   /* Number of HBB BBs.  */
   int hbb_count;
 

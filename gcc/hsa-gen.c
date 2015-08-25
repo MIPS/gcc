@@ -170,7 +170,6 @@ static vec <hsa_op_reg *> hsa_list_operand_reg;
 /* TODO: Move more initialization here. */
 
 hsa_function_representation::hsa_function_representation ()
-  : prologue (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0)
 {
   name = NULL;
   input_args_count = 0;
@@ -182,7 +181,7 @@ hsa_function_representation::hsa_function_representation ()
   local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
   spill_symbols = vNULL;
   string_constants = vNULL;
-  hbb_count = 1;        /* 0 is for prologue.  */
+  hbb_count = 0;
   in_ssa = true;	/* We start in SSA.  */
   kern_p = false;
   declaration_p = false;
@@ -228,7 +227,7 @@ hsa_function_representation::get_shadow_reg ()
 
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, r, addr);
   r->set_definition (mem);
-  prologue.append_insn (mem);
+  hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->append_insn (mem);
   shadow_reg = r;
 
   return r;
@@ -284,6 +283,12 @@ hsa_init_data_for_cfun ()
 						       sym_init_len);
 
   hsa_cfun = new hsa_function_representation ();
+
+  /* The entry/exit blocks don't contain incoming code,
+     but the HSA generator might use them to put code into,
+     so we need hsa_bb instances of them.  */
+  hsa_init_new_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  hsa_init_new_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 }
 
 /* Deinitialize HSA subsystem and free all allocated memory.  */
@@ -293,7 +298,7 @@ hsa_deinit_data_for_cfun (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_ALL_BB_FN (bb, cfun)
     if (bb->aux)
       {
 	hsa_bb *hbb = hsa_bb_for_bb (bb);
@@ -3198,7 +3203,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_op_reg *signal_result_reg = new hsa_op_reg (BRIG_TYPE_U64);
   c = new  hsa_op_immed (build_int_cst (long_integer_type_node, 1));
   hsa_op_immed *c2 = new hsa_op_immed
-    (build_int_cst (uint64_type_node, UINT64_MAX));
+    (TYPE_MAX_VALUE (uint64_type_node));
 
   signal = new hsa_insn_signal (4, BRIG_OPCODE_SIGNAL,
 				BRIG_ATOMIC_WAITTIMEOUT_LT, BRIG_TYPE_S64);
@@ -3722,14 +3727,13 @@ gen_function_def_parameters (hsa_function_representation *f,
   for (parm = DECL_ARGUMENTS (cfun->decl); parm; parm = DECL_CHAIN (parm))
     count++;
 
-  ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux = &f->prologue;
-  f->prologue.bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
-
   f->input_args_count = count;
 
   /* Allocate one more argument which can be potentially used for a kernel
      dispatching.  */
   f->input_args = XCNEWVEC (hsa_symbol, f->input_args_count + 1);
+
+  hsa_bb *prologue = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   for (parm = DECL_ARGUMENTS (cfun->decl), i = 0;
        parm;
@@ -3759,12 +3763,12 @@ gen_function_def_parameters (hsa_function_representation *f,
 	      hsa_op_reg *dest = hsa_reg_for_gimple_ssa (ddef, ssa_map);
 	      hsa_op_address *addr;
 
-	      addr = gen_hsa_addr (parm, &hsa_cfun->prologue, ssa_map);
+	      addr = gen_hsa_addr (parm, prologue, ssa_map);
 	      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mtype,
 						    dest, addr);
 	      dest->set_definition (mem);
 	      gcc_assert (!addr->reg);
-	      f->prologue.append_insn (mem);
+	      prologue->append_insn (mem);
 	    }
 	}
     }
@@ -4039,7 +4043,7 @@ wrap_all_hsa_calls (void)
 {
   bool changed = false;
   basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       tree fndecl;

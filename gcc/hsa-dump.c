@@ -1010,8 +1010,7 @@ dump_hsa_cfun (FILE *f)
 
   fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->name);
 
-  dump_hsa_bb (f, &hsa_cfun->prologue);
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_ALL_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = (struct hsa_bb *) bb->aux;
     dump_hsa_bb (f, hbb);

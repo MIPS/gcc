@@ -1,3 +1,26 @@
+2015-08-25  Michael Matz  <matz@suse.de>
+
+	PR target/67272
+	PR target/67296
+	* hsa.h (hsa_function_representation): Remove prologue member.
+	* hsa-dump.c (dump_hsa_cfun): Iterator over all BBs.
+	* hsa-gen.c (hsa_function_representation): Don't init prologue,
+	start with zero bbs.
+	(hsa_function_representation::get_shadow_reg): Use entry block,
+	not prologue member.
+	(hsa_init_data_for_cfun): Create hsa_bb for entry/exit blocks.
+	(hsa_deinit_data_for_cfun): Deallocate also for entry/exit blocks.
+	(gen_hsa_insns_for_kernel_call): Don't use UINT64_MAX, but
+	the built-in max value of the type.
+	(gen_function_def_parameters): Don't use prologue member, but
+	the hsa bb for entry bb.
+	(wrap_all_hsa_calls): Iterate over all BBs.
+	* hsa-regalloc.c (naive_process_phi): Revert 2015-08-19 change.
+	(naive_outof_ssa): Iterate over all BBs.
+	(dump_hsa_cfun_regalloc): Ditto.
+	(linear_scan_regalloc): Ditto.
+	(regalloc): Ditto.
+
 2015-08-25  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.h (hsa_callable_function_p): Declare.

@@ -68,9 +68,7 @@ naive_process_phi (hsa_insn_phi *phi)
 	break;
 
       e = EDGE_PRED (phi->bb, i);
-      /* Make sure to not emit insns into the entry block.  We won't
-         process it.  */
-      if (single_succ_p (e->src) && e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
+      if (single_succ_p (e->src))
 	hbb = hsa_bb_for_bb (e->src);
       else
 	hbb = hsa_init_new_bb (split_edge (e));
@@ -88,7 +86,7 @@ naive_outof_ssa (void)
 
   hsa_cfun->in_ssa = false;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_ALL_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = hsa_bb_for_bb (bb);
     hsa_insn_phi *phi;
@@ -365,8 +363,7 @@ dump_hsa_cfun_regalloc (FILE *f)
 
   fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->name);
 
-  dump_hsa_bb (f, &hsa_cfun->prologue);
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_ALL_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = (struct hsa_bb *) bb->aux;
     bitmap_print (dump_file, hbb->livein, "livein  ", "\n");
@@ -529,7 +526,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
   bool changed;
   int i, n;
   int insn_order;
-  int *bbs = XNEWVEC (int, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
+  int *bbs = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   bitmap work = BITMAP_ALLOC (NULL);
   vec<hsa_op_reg*> ind2reg = vNULL;
   vec<hsa_op_reg*> active[4] = {vNULL, vNULL, vNULL, vNULL};
@@ -538,7 +535,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
   /* We will need the reverse post order for linearization,
      and the post order for liveness analysis, which is the same
      backward.  */
-  n = pre_and_rev_post_order_compute (NULL, bbs, false);
+  n = pre_and_rev_post_order_compute (NULL, bbs, true);
   ind2reg.safe_grow_cleared (hsa_cfun->reg_count);
 
   /* Give all instructions a linearized number, at the same time
@@ -792,8 +789,7 @@ regalloc (void)
 
   linear_scan_regalloc (classes);
 
-  rewrite_code_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun), classes);
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_ALL_BB_FN (bb, cfun)
     rewrite_code_bb (bb, classes);
 }
 
