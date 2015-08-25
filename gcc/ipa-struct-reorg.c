@@ -3228,7 +3228,7 @@ is_result_of_mult (tree arg, tree *num, tree struct_size)
       if (!is_gimple_reg (lhs))
 	return false;
 
-      debug_tree (gimple_assign_rhs1 (size_def_stmt));
+      //debug_tree (gimple_assign_rhs1 (size_def_stmt));
       if (gimple_assign_rhs_code (size_def_stmt) == MULT_EXPR)
 	{
 	  tree arg0 = gimple_assign_rhs1 (size_def_stmt);
@@ -3445,6 +3445,88 @@ gen_size (tree num, tree type, tree *res)
   return new_stmt;
 }
 
+/* This function 
+ (1) unwraps variable ORIG_VAR,
+ (2) finds new variable of type TYPE correspoding to it,
+ (3) wraps new varible in the way similar to original ORIG_VAR and
+ (4) returns it.  */
+
+static tree
+find_new_var_of_type_with_wrapper (tree orig_var, tree type)
+{
+  tree var = orig_var;
+  tree new_var;
+  vec<type_wrapper_t> wrapper;
+
+  wrapper.create (10);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nvar is before stripping");
+      print_generic_expr (dump_file, var, 0);
+    }
+
+  while (TREE_CODE (var) == MEM_REF 
+	    || TREE_CODE (var) == ARRAY_REF)
+    {
+      type_wrapper_t wr;
+
+      if (TREE_CODE (var) == MEM_REF)
+	{
+	  wr.wrap = 0;
+	  wr.domain = 0;
+	}
+      else
+	{
+	  wr.wrap = 1;
+	  wr.domain = TREE_OPERAND (var, 1);
+	}                 
+      wrapper.safe_push (wr);
+      var = TREE_OPERAND (var, 0);
+      if (dump_file)
+	{
+	  fprintf (dump_file, "\nvar is after stripping");
+	  print_generic_expr (dump_file, var, 0);
+	}
+    }
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nvar is ");
+      print_generic_expr (dump_file, var, 0);
+    }
+  new_var = find_new_var_of_type (var, type);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nnew_var is before wrapping");
+      print_generic_expr (dump_file, new_var, 0);
+    }
+
+  while (!wrapper.is_empty ())
+    {
+      tree type = TREE_TYPE (TREE_TYPE (new_var));
+      type_wrapper_t wr = wrapper.last ();
+
+      if (wr.wrap) 
+	new_var = build4 (ARRAY_REF, type, new_var,
+			  wr.domain, NULL_TREE, NULL_TREE);
+      else 
+	new_var = build_simple_mem_ref (new_var);
+      wrapper.pop ();
+    } 
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "\nnew_var is after wrap");
+      print_generic_expr (dump_file, new_var, 0);
+    }
+
+  wrapper.release ();
+  return new_var;
+
+}
+
 /* This function generates and returns a statement, that cast variable
    BEFORE_CAST to NEW_TYPE. The cast result variable is stored
    into RES_P. ORIG_CAST_STMT is the original cast statement.  */
@@ -3457,7 +3539,8 @@ gen_cast_stmt (tree before_cast, tree new_type, gimple orig_cast_stmt,
   gimple new_stmt = NULL;
 
   lhs = gimple_assign_lhs (orig_cast_stmt);
-  new_lhs = find_new_var_of_type (lhs, new_type);
+  new_lhs = find_new_var_of_type_with_wrapper (lhs, new_type);
+  //new_lhs = find_new_var_of_type (lhs, new_type);
     
   gcc_assert (new_lhs);
     
@@ -4915,84 +4998,15 @@ replace_field_acc (struct field_access_site *acc, tree new_type)
   tree *pos;
   tree new_acc;
   tree field_id = DECL_NAME (acc->field_decl);
-  vec<type_wrapper_t> wrapper;
   struct ref_pos r_pos;
-
-  wrapper.create (10);
 
   ref_var = (acc->insn_base)? acc->insn_base : acc->ref;
 
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nref_ref is before stripping");
-      print_generic_expr (dump_file, ref_var, 0);
-    }
-
-  while (TREE_CODE (ref_var) == MEM_REF 
-	    || TREE_CODE (ref_var) == ARRAY_REF)
-    {
-      type_wrapper_t wr;
-
-      if (TREE_CODE (ref_var) == MEM_REF)
-	{
-	  wr.wrap = 0;
-	  wr.domain = 0;
-	}
-      else
-	{
-	  wr.wrap = 1;
-	  wr.domain = TREE_OPERAND (ref_var, 1);
-	}                 
-      wrapper.safe_push (wr);
-      ref_var = TREE_OPERAND (ref_var, 0);
-      if (dump_file)
-	{
-	  fprintf (dump_file, "\nref_var is after stripping");
-	  print_generic_expr (dump_file, ref_var, 0);
-	}
-    }
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nref_var is ");
-      print_generic_expr (dump_file, ref_var, 0);
-      /* if (ref_var)
-	 debug_tree (ref_var); */
-    }
-  new_ref = find_new_var_of_type (ref_var, new_type);
-  //finalize_global_creation (new_ref);
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nnew_ref is before wrapping");
-      print_generic_expr (dump_file, new_ref, 0);
-    }
-
-  while (!wrapper.is_empty ())
-    {
-      tree type = TREE_TYPE (TREE_TYPE (new_ref));
-      type_wrapper_t wr = wrapper.last ();
-
-      if (wr.wrap) 
-	new_ref = build4 (ARRAY_REF, type, new_ref,
-			  wr.domain, NULL_TREE, NULL_TREE);
-      else 
-	new_ref = build_simple_mem_ref (new_ref);
-      wrapper.pop ();
-    } 
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "\nnew_ref is after wrap");
-      print_generic_expr (dump_file, new_ref, 0);
-    }
-
-  //debug_tree (new_ref);
+  new_ref = find_new_var_of_type_with_wrapper (ref_var, new_type);
   if (TREE_CODE (new_type) != RECORD_TYPE)
     new_acc = build_mem_ref (new_ref, new_type, acc);
   else
     new_acc = build_comp_ref (new_ref, field_id, new_type, acc);
-
-  wrapper.release ();
   
   if (dump_file)
     {
@@ -5640,7 +5654,7 @@ do_reorg_for_func (struct cgraph_node *node)
       create_new_local_vars ();
       create_new_tmp_vars ();
       collect_alloc_sites (node);
-      collect_func_calls (node);
+      if (0) collect_func_calls (node);
       create_new_alloc_sites (node);
       collect_data_accesses ();
       if (dump_file)
@@ -5663,7 +5677,7 @@ do_reorg_for_func (struct cgraph_node *node)
       free_new_vars_htab (new_local_vars);
       free_new_vars_htab (new_tmp_vars);
       free_data_accesses ();
-      free_calls_with_structs ();
+      if (0) free_calls_with_structs ();
 
       dump_function_to_file (node->decl, dump_file, 0);
       CURRENT_LEVEL++;
