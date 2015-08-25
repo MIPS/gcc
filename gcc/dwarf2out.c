@@ -3076,6 +3076,7 @@ enum dw_scalar_form
 /* Forward declarations for functions defined in this file.  */
 
 static int is_pseudo_reg (const_rtx);
+static tree type_main_variant (tree);
 static int is_tagged_type (const_tree);
 static const char *dwarf_tag_name (unsigned);
 static const char *dwarf_attr_name (unsigned);

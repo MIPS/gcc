@@ -1,3 +1,10 @@
+2015-08-25  Gary Funck  <gary@intrepid.com>
+
+	* dwarf2out.c (type_main_variant): Add back static prototype
+	to match trunk.
+	* fold-const.c (fold_unary_loc): Re-arrange terms in
+	if-statement to match trunk.
+
 2015-08-17  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 226950 into gupc branch.
