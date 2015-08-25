@@ -1,3 +1,15 @@
+2015-08-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_emit_forking): Add is_call argument,
+	propagate it into mask.
+	(nvptx_emit_joining): Likewise.
+	(nvptx_expand_call): Move emit_forking call to later.  Add is_call
+	argument.
+	(nvptx_expand_oacc_fork, nvptx_expand_oacc_join): Asjust calls.
+	(nvptx_discover_pars): Don't look for predecessor insn in call
+	forks and joins.
+	(nvptx_process_pars): Don't emit propagation code for a call.
+
 2015-08-24  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/routine-3.f90: New test.

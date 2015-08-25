@@ -1047,16 +1047,16 @@ nvptx_expand_compare (rtx compare)
 /* Emit forking instructions for MASK.  */
 
 static void
-nvptx_emit_forking (unsigned mask)
+nvptx_emit_forking (unsigned mask, bool is_call)
 {
   mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
 	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
   if (mask)
     {
-      rtx op = GEN_INT (mask);
+      rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
       
       /* Emit fork for worker level.  */
-      if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+      if (!is_call && mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
 	emit_insn (gen_nvptx_fork (op));
       emit_insn (gen_nvptx_forked (op));
     }
@@ -1065,16 +1065,19 @@ nvptx_emit_forking (unsigned mask)
 /* Emit joining instructions for MASK.  */
 
 static void
-nvptx_emit_joining (unsigned mask)
+nvptx_emit_joining (unsigned mask, bool is_call)
 {
   mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
 	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
   if (mask)
     {
-      rtx op = GEN_INT (mask);
+      rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
 
-      /* Emit joining for all pars.  */
-      emit_insn (gen_nvptx_joining (op));
+      /* Emit joining for all non-call pars to ensure there's a single
+	 predecessor for the block the join insn ends up in.  This is
+	 needed for skipping entire loops.  */
+      if (!is_call)
+	emit_insn (gen_nvptx_joining (op));
       emit_insn (gen_nvptx_join (op));
     }
 }
@@ -1135,8 +1138,6 @@ nvptx_expand_call (rtx retval, rtx address)
 	}
     }
 
-  nvptx_emit_forking (parallel);
-
   if (cfun->machine->funtype
       /* It's possible to construct testcases where we call a variable.
 	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
@@ -1195,11 +1196,12 @@ nvptx_expand_call (rtx retval, rtx address)
 	  write_func_decl_from_insn (func_decls, retval, pat, callee);
 	}
     }
+  nvptx_emit_forking (parallel, true);
   emit_call_insn (pat);
   if (tmp_retval != retval)
     emit_move_insn (retval, tmp_retval);
 
-  nvptx_emit_joining (parallel);
+  nvptx_emit_joining (parallel, true);
 }
 
 /* Expand the oacc fork & join primitive into ptx-required unspecs.  */
@@ -1207,13 +1209,13 @@ nvptx_expand_call (rtx retval, rtx address)
 void
 nvptx_expand_oacc_fork (unsigned mode)
 {
-  nvptx_emit_forking (GOMP_DIM_MASK (mode));
+  nvptx_emit_forking (GOMP_DIM_MASK (mode), false);
 }
 
 void
 nvptx_expand_oacc_join (unsigned mode)
 {
-  nvptx_emit_joining (GOMP_DIM_MASK (mode));
+  nvptx_emit_joining (GOMP_DIM_MASK (mode), false);
 }
 
 /* Expander for reduction locking and unlocking.  We expect SRC to be
@@ -2611,7 +2613,8 @@ nvptx_discover_pars (bb_insn_map_t *map)
 		l = new parallel (l, mask);
 		l->forked_block = block;
 		l->forked_insn = end;
-		if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+		if (!(mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
+		    && (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
 		  l->fork_insn
 		    = nvptx_discover_pre (block, CODE_FOR_nvptx_fork);
 	      }
@@ -2626,7 +2629,8 @@ nvptx_discover_pars (bb_insn_map_t *map)
 		gcc_assert (l->mask == mask);
 		l->join_block = block;
 		l->join_insn = end;
-		if (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+		if (!(mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
+		    && (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
 		  l->joining_insn
 		    = nvptx_discover_pre (block, CODE_FOR_nvptx_joining);
 		l = l->parent;
@@ -3013,7 +3017,9 @@ nvptx_process_pars (parallel *par)
       inner_mask |= par->inner_mask;
     }
 
-  if (par->mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+  if (par->mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
+    { /* No propagation needed for a call.  */ }
+  else if (par->mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
     {
       nvptx_wpropagate (false, par->forked_block, par->forked_insn);
       nvptx_wpropagate (true, par->forked_block, par->fork_insn);
