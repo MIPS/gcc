@@ -201,41 +201,46 @@ struct tune_params
   unsigned int extra_tuning_flags;
 };
 
-#define AARCH64_FUSION_PAIR(x, name, index) \
-  AARCH64_FUSE_##name = (1 << index),
+#define AARCH64_FUSION_PAIR(x, name) \
+  AARCH64_FUSE_##name##_index, 
+/* Supported fusion operations.  */
+enum aarch64_fusion_pairs_index
+{
+#include "aarch64-fusion-pairs.def"
+  AARCH64_FUSE_index_END
+};
+#undef AARCH64_FUSION_PAIR
+
+#define AARCH64_FUSION_PAIR(x, name) \
+  AARCH64_FUSE_##name = (1u << AARCH64_FUSE_##name##_index),
 /* Supported fusion operations.  */
 enum aarch64_fusion_pairs
 {
   AARCH64_FUSE_NOTHING = 0,
 #include "aarch64-fusion-pairs.def"
-
-/* Hacky macro to build AARCH64_FUSE_ALL.  The sequence below expands
-   to:
-   AARCH64_FUSE_ALL = 0 | AARCH64_FUSE_index1 | AARCH64_FUSE_index2 ...  */
-#undef AARCH64_FUSION_PAIR
-#define AARCH64_FUSION_PAIR(x, name, y) \
-  | AARCH64_FUSE_##name
-
-  AARCH64_FUSE_ALL = 0
-#include "aarch64-fusion-pairs.def"
+  AARCH64_FUSE_ALL = (1u << AARCH64_FUSE_index_END) - 1
 };
 #undef AARCH64_FUSION_PAIR
 
-#define AARCH64_EXTRA_TUNING_OPTION(x, name, index) \
-  AARCH64_EXTRA_TUNE_##name = (1 << index),
+#define AARCH64_EXTRA_TUNING_OPTION(x, name) \
+  AARCH64_EXTRA_TUNE_##name##_index,
+/* Supported tuning flags indexes.  */
+enum aarch64_extra_tuning_flags_index
+{
+#include "aarch64-tuning-flags.def"
+  AARCH64_EXTRA_TUNE_index_END
+};
+#undef AARCH64_EXTRA_TUNING_OPTION
+
+
+#define AARCH64_EXTRA_TUNING_OPTION(x, name) \
+  AARCH64_EXTRA_TUNE_##name = (1u << AARCH64_EXTRA_TUNE_##name##_index),
 /* Supported tuning flags.  */
 enum aarch64_extra_tuning_flags
 {
   AARCH64_EXTRA_TUNE_NONE = 0,
 #include "aarch64-tuning-flags.def"
-
-/* Hacky macro to build the "all" flag mask.
-   Expands to 0 | AARCH64_TUNE_index0 | AARCH64_TUNE_index1 , etc.  */
-#undef AARCH64_EXTRA_TUNING_OPTION
-#define AARCH64_EXTRA_TUNING_OPTION(x, name, y) \
-  | AARCH64_EXTRA_TUNE_##name
-  AARCH64_EXTRA_TUNE_ALL = 0
-#include "aarch64-tuning-flags.def"
+  AARCH64_EXTRA_TUNE_ALL = (1u << AARCH64_EXTRA_TUNE_index_END) - 1
 };
 #undef AARCH64_EXTRA_TUNING_OPTION
 
@@ -310,6 +315,7 @@ rtx aarch64_simd_gen_const_vector_dup (machine_mode, int);
 bool aarch64_simd_mem_operand_p (rtx);
 rtx aarch64_simd_vect_par_cnst_half (machine_mode, bool);
 rtx aarch64_tls_get_addr (void);
+std::string aarch64_get_extension_string_for_isa_flags (unsigned long);
 tree aarch64_fold_builtin (tree, int, tree *, bool);
 unsigned aarch64_dbx_register_number (unsigned);
 unsigned aarch64_trampoline_size (void);

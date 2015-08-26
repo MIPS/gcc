@@ -1,3 +1,7 @@
+2015-08-26  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 227163 into gupc branch.
+
 2015-08-25  Gary Funck  <gary@intrepid.com>
 
 	top-level/configure.ac: Use libgupc/configure.tgt to determine
