@@ -92,6 +92,8 @@ gomp_end_task (void)
   thr->task = task->parent;
 }
 
+/* Orphan the task in CHILDREN and all its siblings.  */
+
 static inline void
 gomp_clear_parent (struct gomp_task *children)
 {
@@ -110,7 +112,12 @@ static void gomp_task_maybe_wait_for_dependencies (void **depend);
 
 /* Called when encountering an explicit task directive.  If IF_CLAUSE is
    false, then we must not delay in executing the task.  If UNTIED is true,
-   then the task may be executed by any member of the team.  */
+   then the task may be executed by any member of the team.
+
+   DEPEND is an array containing:
+	depend[0]: number of depend elements.
+	depend[1]: number of depend elements of type "out".
+	depend[N+2]: address of [0..N]th depend element.  */
 
 void
 GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
@@ -444,8 +451,10 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 {
   if (parent)
     {
+      /* Remove child_task from parent.  */
       if (parent->children == child_task)
 	parent->children = child_task->next_child;
+
       if (__builtin_expect (child_task->parent_depends_on, 0)
 	  && parent->taskwait->last_parent_depends_on == child_task)
 	{
@@ -456,8 +465,10 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 	    parent->taskwait->last_parent_depends_on = NULL;
 	}
     }
+  /* Remove child_task from taskgroup.  */
   if (taskgroup && taskgroup->children == child_task)
     taskgroup->children = child_task->next_taskgroup;
+
   child_task->prev_queue->next_queue = child_task->next_queue;
   child_task->next_queue->prev_queue = child_task->prev_queue;
   if (team->task_queue == child_task)
@@ -528,6 +539,7 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 	      if (parent->taskwait && parent->taskwait->last_parent_depends_on
 		  && !task->parent_depends_on)
 		{
+		  /* Put task in last_parent_depends_on.  */
 		  struct gomp_task *last_parent_depends_on
 		    = parent->taskwait->last_parent_depends_on;
 		  task->next_child = last_parent_depends_on->next_child;
@@ -535,6 +547,7 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 		}
 	      else
 		{
+		  /* Put task at the top of the sibling list.  */
 		  task->next_child = parent->children;
 		  task->prev_child = parent->children->prev_child;
 		  parent->children = task;
@@ -544,6 +557,7 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 	    }
 	  else
 	    {
+	      /* Put task in the sibling list.  */
 	      task->next_child = task;
 	      task->prev_child = task;
 	      parent->children = task;
@@ -628,12 +642,18 @@ gomp_task_run_post_handle_depend (struct gomp_task *child_task,
   return gomp_task_run_post_handle_dependers (child_task, team);
 }
 
+/* Remove CHILD_TASK from its parent.  */
+
 static inline void
 gomp_task_run_post_remove_parent (struct gomp_task *child_task)
 {
   struct gomp_task *parent = child_task->parent;
   if (parent == NULL)
     return;
+
+  /* If this was the last task the parent was depending on,
+     synchronize with gomp_task_maybe_wait_for_dependencies so it can
+     clean up and return.  */
   if (__builtin_expect (child_task->parent_depends_on, 0)
       && --parent->taskwait->n_depend == 0
       && parent->taskwait->in_depend_wait)
@@ -641,6 +661,8 @@ gomp_task_run_post_remove_parent (struct gomp_task *child_task)
       parent->taskwait->in_depend_wait = false;
       gomp_sem_post (&parent->taskwait->taskwait_sem);
     }
+
+  /* Remove CHILD_TASK from its sibling list.  */
   child_task->prev_child->next_child = child_task->next_child;
   child_task->next_child->prev_child = child_task->prev_child;
   if (parent->children != child_task)
@@ -662,6 +684,8 @@ gomp_task_run_post_remove_parent (struct gomp_task *child_task)
 	}
     }
 }
+
+/* Remove CHILD_TASK from its taskgroup.  */
 
 static inline void
 gomp_task_run_post_remove_taskgroup (struct gomp_task *child_task)
@@ -889,6 +913,9 @@ GOMP_taskwait (void)
 	 finish_cancelled:;
 	  size_t new_tasks
 	    = gomp_task_run_post_handle_depend (child_task, team);
+
+	  /* Remove child_task from children list, and set up the next
+	     sibling to be run.  */
 	  child_task->prev_child->next_child = child_task->next_child;
 	  child_task->next_child->prev_child = child_task->prev_child;
 	  if (task->children == child_task)
@@ -898,8 +925,12 @@ GOMP_taskwait (void)
 	      else
 		task->children = NULL;
 	    }
+	  /* Orphan all the children of CHILD_TASK.  */
 	  gomp_clear_parent (child_task->children);
+
+	  /* Remove CHILD_TASK from its taskgroup.  */
 	  gomp_task_run_post_remove_taskgroup (child_task);
+
 	  to_free = child_task;
 	  child_task = NULL;
 	  team->task_count--;
@@ -915,7 +946,9 @@ GOMP_taskwait (void)
 }
 
 /* This is like GOMP_taskwait, but we only wait for tasks that the
-   upcoming task depends on.  */
+   upcoming task depends on.
+
+   DEPEND is as in GOMP_task.  */
 
 static void
 gomp_task_maybe_wait_for_dependencies (void **depend)
@@ -956,8 +989,10 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 		       to front, so that we run it as soon as possible.  */
 		    if (last_parent_depends_on)
 		      {
+			/* Remove tsk from the sibling list...  */
 			tsk->prev_child->next_child = tsk->next_child;
 			tsk->next_child->prev_child = tsk->prev_child;
+			/* ...and insert it into last_parent_depends_on.  */
 			tsk->prev_child = last_parent_depends_on;
 			tsk->next_child = last_parent_depends_on->next_child;
 			tsk->prev_child->next_child = tsk;
@@ -965,8 +1000,11 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 		      }
 		    else if (tsk != task->children)
 		      {
+			/* Remove tsk from the sibling list...  */
 			tsk->prev_child->next_child = tsk->next_child;
 			tsk->next_child->prev_child = tsk->prev_child;
+			/* ...and insert it into the running task's
+			   children.  */
 			tsk->prev_child = task->children;
 			tsk->next_child = task->children->next_child;
 			task->children = tsk;
@@ -1054,6 +1092,8 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 	    = gomp_task_run_post_handle_depend (child_task, team);
 	  if (child_task->parent_depends_on)
 	    --taskwait.n_depend;
+
+	  /* Remove child_task from sibling list.  */
 	  child_task->prev_child->next_child = child_task->next_child;
 	  child_task->next_child->prev_child = child_task->prev_child;
 	  if (task->children == child_task)
@@ -1063,6 +1103,7 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 	      else
 		task->children = NULL;
 	    }
+
 	  gomp_clear_parent (child_task->children);
 	  gomp_task_run_post_remove_taskgroup (child_task);
 	  to_free = child_task;

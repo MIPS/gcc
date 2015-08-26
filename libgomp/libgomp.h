@@ -279,6 +279,7 @@ struct gomp_task_depend_entry
   struct gomp_task_depend_entry *next;
   struct gomp_task_depend_entry *prev;
   struct gomp_task *task;
+  /* Depend entry is of type "IN".  */
   bool is_in;
   bool redundant;
   bool redundant_out;

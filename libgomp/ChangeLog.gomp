@@ -1,3 +1,15 @@
+2015-08-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h (struct gomp_task_depend_entry): Add comment.
+	* task.c (gomp_clear_parent): Document function.
+	(GOMP_task): Same.
+	(gomp_task_run_pre): Add comments.
+	(gomp_task_run_post_handle_dependers): Same.
+	(gomp_task_run_post_remove_parent): Same.
+	(gomp_task_run_post_remove_taskgroup): Same.
+	(GOMP_taskwait): Same.
+	(gomp_task_maybe_wait_for_dependencies): Same.
+
 2015-07-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* target.c (gomp_map_fields_existing): New function.
