@@ -29,6 +29,10 @@ mmainkernel
 Target Report RejectNegative
 Link in code for a __main kernel.
 
+moptimize
+Target Report Var(nvptx_optimize) Init(-1)
+Optimize partition neutering
+
 Enum
 Name(ptx_isa) Type(int)
 Known PTX ISA versions (for use with the -misa= option):

@@ -1,3 +1,12 @@
+2015-08-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.opt (moptimize): New flag.
+	* config/nvptx/nvptx.c (nvptx_option_override): Default
+	nvptx_optimize.
+	(nvptx_optimmize_inner): New.
+	(nvptx_process_pars): Call it.
+	* doc/invoke.txi (Nvptx options): Document moptimize.
+
 2015-08-25  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* targhooks.h (default_goacc_lock_unlock): Rename to ...

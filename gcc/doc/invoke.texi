@@ -18814,6 +18814,11 @@ Generate code for 32-bit or 64-bit ABI.
 Link in code for a __main kernel.  This is for stand-alone instead of
 offloading execution.
 
+@item -moptimize
+@opindex moptimize
+Apply partitioned execution optimizations.  This is the default when any
+level of optimization is selected.
+
 @end table
 
 @node PDP-11 Options
