@@ -788,6 +788,7 @@
 (define_mode_iterator JOIN_MODE [
 				 HI
 				 SI
+				 (DI "TARGET_64BIT")
 				 (SF "TARGET_HARD_FLOAT")
 				 (DF "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT")])
 
