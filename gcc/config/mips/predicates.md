@@ -101,10 +101,6 @@
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONST0_RTX (GET_MODE (op))")))
 
-(define_predicate "const_yi_operand"
-  (and (match_code "const_vector")
-       (match_test "mips_const_vector_same_int_p (op, mode, -1024, 1023)")))
-
 (define_predicate "const_m1_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
@@ -116,12 +112,6 @@
 (define_predicate "reg_or_0_operand"
   (ior (and (match_operand 0 "const_0_operand")
 	    (not (match_test "TARGET_MIPS16")))
-       (match_operand 0 "register_operand")))
-
-(define_predicate "reg_or_0yi_operand"
-   (ior (and (ior (match_operand 0 "const_0_operand")
-	          (match_operand 0 "const_yi_operand"))
-	    (match_test "TARGET_MSA"))
        (match_operand 0 "register_operand")))
 
 (define_predicate "const_1_operand"
@@ -583,22 +573,34 @@
   (and (match_operand 0 "memory_operand")
        (not (match_test "MEM_VOLATILE_P (op)"))))
 
-(define_predicate "const_vector_same_uimm3_operand"
+(define_predicate "const_vector_same_byte_operand"
   (match_code "const_vector")
 {
-  return mips_const_vector_same_int_p (op, mode, 0, 7);
+  return mips_const_vector_same_byte_p (op, mode);
 })
 
-(define_predicate "const_vector_same_v16qi_set_operand"
+(define_predicate "const_vector_same_ximm5_operand"
   (match_code "const_vector")
 {
-  return mips_const_vector_bitimm_set_p (op, mode);
+  return mips_const_vector_same_int_p (op, mode, -31, 31);
 })
 
-(define_predicate "const_vector_same_v16qi_clr_operand"
+(define_predicate "const_vector_same_uimm5_operand"
   (match_code "const_vector")
 {
-  return mips_const_vector_bitimm_clr_p (op, mode);
+  return mips_const_vector_same_int_p (op, mode, 0, 31);
+})
+
+(define_predicate "const_vector_same_uimm6_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, 0, 63);
+})
+
+(define_predicate "const_vector_same_uimm8_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, 0, 255);
 })
 
 (define_predicate "const_vector_same_cmpsimm4_operand"
@@ -613,25 +615,13 @@
   return mips_const_vector_same_int_p (op, mode, 0, 31);
 })
 
-(define_predicate "const_vector_same_simm10_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_int_p (op, mode, -1024, 1023);
-})
-
-(define_predicate "const_vector_same_uimm4_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_int_p (op, mode, 0, 15);
-})
-
-(define_predicate "const_vector_same_v8hi_set_operand"
+(define_predicate "const_vector_same_v2di_set_operand"
   (match_code "const_vector")
 {
   return mips_const_vector_bitimm_set_p (op, mode);
 })
 
-(define_predicate "const_vector_same_v8hi_clr_operand"
+(define_predicate "const_vector_same_v2di_clr_operand"
   (match_code "const_vector")
 {
   return mips_const_vector_bitimm_clr_p (op, mode);
@@ -649,97 +639,37 @@
   return mips_const_vector_bitimm_clr_p (op, mode);
 })
 
-(define_predicate "const_vector_same_uimm6_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_int_p (op, mode, 0, 63);
-})
-
-(define_predicate "const_vector_same_v2di_set_operand"
+(define_predicate "const_vector_same_v8hi_set_operand"
   (match_code "const_vector")
 {
   return mips_const_vector_bitimm_set_p (op, mode);
 })
 
-(define_predicate "const_vector_same_v2di_clr_operand"
+(define_predicate "const_vector_same_v8hi_clr_operand"
   (match_code "const_vector")
 {
   return mips_const_vector_bitimm_clr_p (op, mode);
 })
 
-(define_predicate "const_vector_same_ximm5_operand"
+(define_predicate "const_vector_same_v16qi_set_operand"
   (match_code "const_vector")
 {
-  return mips_const_vector_same_int_p (op, mode, -31, 31);
+  return mips_const_vector_bitimm_set_p (op, mode);
 })
 
-(define_predicate "const_vector_same_simm5_operand"
+(define_predicate "const_vector_same_v16qi_clr_operand"
   (match_code "const_vector")
 {
-  return mips_const_vector_same_int_p (op, mode, -32, 0);
+  return mips_const_vector_bitimm_clr_p (op, mode);
 })
 
-(define_predicate "const_vector_same_uimm5_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_int_p (op, mode, 0, 31);
-})
-
-(define_predicate "const_vector_same_uimm8_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_int_p (op, mode, 0, 255);
-})
-
-(define_predicate "const_vector_same_byte_operand"
-  (match_code "const_vector")
-{
-  return mips_const_vector_same_byte_p (op, mode);
-})
+(define_predicate "reg_or_vector_same_byte_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const_vector_same_byte_operand")))
 
 (define_predicate "reg_or_vector_same_ximm5_operand"
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_ximm5_operand")))
-
-(define_predicate "reg_or_vector_same_simm5_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_simm5_operand")))
-
-(define_predicate "reg_or_vector_same_uimm5_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm5_operand")))
-
-(define_predicate "reg_or_vector_same_uimm3_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm3_operand")))
-
-(define_predicate "reg_or_vector_same_v16qi_set_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_v16qi_set_operand")))
-
-(define_predicate "reg_or_vector_same_v16qi_clr_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_v16qi_clr_operand")))
-
-(define_predicate "reg_or_vector_same_uimm4_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm4_operand")))
-
-(define_predicate "reg_or_vector_same_v8hi_set_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_v8hi_set_operand")))
-
-(define_predicate "reg_or_vector_same_v8hi_clr_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_v8hi_clr_operand")))
-
-(define_predicate "reg_or_vector_same_v4si_set_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_v4si_set_operand")))
-
-(define_predicate "reg_or_vector_same_v4si_clr_operand"
-  (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_v4si_clr_operand")))
 
 (define_predicate "reg_or_vector_same_uimm6_operand"
   (ior (match_operand 0 "register_operand")
@@ -753,26 +683,26 @@
   (ior (match_operand 0 "register_operand")
        (match_operand 0 "const_vector_same_v2di_clr_operand")))
 
-(define_predicate "reg_or_vector_same_uimm8_operand"
+(define_predicate "reg_or_vector_same_v4si_set_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm8_operand")))
+       (match_operand 0 "const_vector_same_v4si_set_operand")))
 
-(define_predicate "reg_or_vector_same_byte_operand"
+(define_predicate "reg_or_vector_same_v4si_clr_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_byte_operand")))
+       (match_operand 0 "const_vector_same_v4si_clr_operand")))
 
-(define_predicate "reg_or_vector_same_bitumm3_operand"
+(define_predicate "reg_or_vector_same_v8hi_set_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm3_operand")))
+       (match_operand 0 "const_vector_same_v8hi_set_operand")))
 
-(define_predicate "reg_or_vector_same_bituimm4_operand"
+(define_predicate "reg_or_vector_same_v8hi_clr_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm4_operand")))
+       (match_operand 0 "const_vector_same_v8hi_clr_operand")))
 
-(define_predicate "reg_or_vector_same_bituimm5_operand"
+(define_predicate "reg_or_vector_same_v16qi_set_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm5_operand")))
+       (match_operand 0 "const_vector_same_v16qi_set_operand")))
 
-(define_predicate "reg_or_vector_same_bituimm6_operand"
+(define_predicate "reg_or_vector_same_v16qi_clr_operand"
   (ior (match_operand 0 "register_operand")
-       (match_operand 0 "const_vector_same_uimm6_operand")))
+       (match_operand 0 "const_vector_same_v16qi_clr_operand")))

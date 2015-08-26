@@ -481,7 +481,7 @@
 /* { dg-final { scan-assembler "msa_insert_h.*:.*insert\\.h.*msa_insert_h" } } */
 /* { dg-final { scan-assembler "msa_insert_w.*:.*insert\\.w.*msa_insert_w" } } */
 /* { dg-final { scan-assembler "msa_insert_d.*:.*insert\\.d.*msa_insert_d" { target mips64 } } } */
-/* { dg-final { scan-assembler "msa_insert_d.*:.*sra.*\(insert.w.*\)\{2\}.*msa_insert_d" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "msa_insert_d.*:.*\(insert.w.*\)\{2\}.*msa_insert_d" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "msa_insve_b.*:.*insve\\.b.*msa_insve_b" } } */
 /* { dg-final { scan-assembler "msa_insve_h.*:.*insve\\.h.*msa_insve_h" } } */
 /* { dg-final { scan-assembler "msa_insve_w.*:.*insve\\.w.*msa_insve_w" } } */
@@ -521,11 +521,13 @@
 /* { dg-final { scan-assembler "msa_pckev_b.*:.*pckev\\.b.*msa_pckev_b" } } */
 /* { dg-final { scan-assembler "msa_pckev_h.*:.*pckev\\.h.*msa_pckev_h" } } */
 /* { dg-final { scan-assembler "msa_pckev_w.*:.*pckev\\.w.*msa_pckev_w" } } */
-/* { dg-final { scan-assembler "msa_pckev_d.*:.*pckev\\.d.*msa_pckev_d" } } */
+/* Note: ilvr.d is equivalent to pckev.d.  */
+/* { dg-final { scan-assembler "msa_pckev_d.*:.*ilvr\\.d.*msa_pckev_d" } } */
 /* { dg-final { scan-assembler "msa_pckod_b.*:.*pckod\\.b.*msa_pckod_b" } } */
 /* { dg-final { scan-assembler "msa_pckod_h.*:.*pckod\\.h.*msa_pckod_h" } } */
 /* { dg-final { scan-assembler "msa_pckod_w.*:.*pckod\\.w.*msa_pckod_w" } } */
-/* { dg-final { scan-assembler "msa_pckod_d.*:.*pckod\\.d.*msa_pckod_d" } } */
+/* Note: ilvl.d is equivalent to pckod.d.  */
+/* { dg-final { scan-assembler "msa_pckod_d.*:.*ilvl\\.d.*msa_pckod_d" } } */
 /* { dg-final { scan-assembler "msa_shf_b.*:.*shf\\.b.*msa_shf_b" } } */
 /* { dg-final { scan-assembler "msa_shf_h.*:.*shf\\.h.*msa_shf_h" } } */
 /* { dg-final { scan-assembler "msa_shf_w.*:.*shf\\.w.*msa_shf_w" } } */
@@ -630,6 +632,12 @@
 #define v8u16_CMP v8i16
 #define v4u32_CMP v4i32
 #define v2u64_CMP v2i64
+
+/* Global variables to use in the tests.  */
+v16i8 v16i8_glob;
+v8i16 v8i16_glob;
+v4i32 v4i32_glob;
+v2i64 v2i64_glob;
 
 #define PASTE_BUILTIN(NAME, DF) __builtin_msa_ ## NAME ## _ ## DF
 #define EVAL_BUILTIN(NAME, DF) PASTE_BUILTIN(NAME, DF)
@@ -818,7 +826,7 @@
 #define SPLAT(T) T FN(splat, T ## _DF) (T i, int j) { return BUILTIN(splat, T ## _DF) (i, j); }
 #define SPLATI(T) T FN(splati, T ## _DF) (T i) { return BUILTIN(splati, T ## _DF) (i, 1); }
 #define FILL(T) T FN(fill, T ## _DF) (int i) { return BUILTIN(fill, T ## _DF) (i); }
-#define INSERT(T) T FN(insert, T ## _DF) (T i, int j) { return BUILTIN(insert, T ## _DF) (i, 1, j); }
+#define INSERT(T) T FN(insert, T ## _DF) (typeof(T ## _glob[0]) j) { return BUILTIN(insert, T ## _DF) (T ## _glob, 1, j); }
 #define INSVE(T) T FN(insve, T ## _DF) (T i, T j) { return BUILTIN(insve, T ## _DF) (i, 1, j); }
 #define COPY_S(T) int FN(copy_s, T ## _DF) (T i) { return BUILTIN(copy_s, T ## _DF) (i, 1); }
 #define COPY_S_D(T) long long FN(copy_s, T ## _DF) (T i) { return BUILTIN(copy_s, T ## _DF) (i, 1); }

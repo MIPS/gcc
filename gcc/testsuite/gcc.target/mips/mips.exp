@@ -1352,6 +1352,7 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mfpxx" "-mno-paired-single"
     mips_option_dependency options "-msoft-float" "-mno-paired-single"
     mips_option_dependency options "-mno-paired-single" "-mno-mips3d"
+    mips_option_dependency options "-mmsa" "-mno-micromips"
 
     if { $isa_rev >= 6
          && [mips_have_option_p options "-mmicromips"]
