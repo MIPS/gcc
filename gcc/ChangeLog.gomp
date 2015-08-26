@@ -1,3 +1,8 @@
+2015-08-25  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* tracer.c (ignore_bb_p): Change bb argument from const_basic_block
+	to basic_block.  Check for non-clonable calls to internal functions.
+
 2015-08-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.opt (moptimize): New flag.

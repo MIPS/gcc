@@ -58,7 +58,7 @@
 #include "fibonacci_heap.h"
 
 static int count_insns (basic_block);
-static bool ignore_bb_p (const_basic_block);
+static bool ignore_bb_p (basic_block);
 static bool better_p (const_edge, const_edge);
 static edge find_best_successor (basic_block);
 static edge find_best_predecessor (basic_block);
@@ -91,8 +91,9 @@ bb_seen_p (basic_block bb)
 
 /* Return true if we should ignore the basic block for purposes of tracing.  */
 static bool
-ignore_bb_p (const_basic_block bb)
+ignore_bb_p (basic_block bb)
 {
+  gimple_stmt_iterator gsi;
   gimple g;
 
   if (bb->index < NUM_FIXED_BLOCKS)
@@ -105,6 +106,16 @@ ignore_bb_p (const_basic_block bb)
   g = last_stmt (CONST_CAST_BB (bb));
   if (g && gimple_code (g) == GIMPLE_TRANSACTION)
     return true;
+
+  /* Ignore blocks containing non-clonable function calls.  */
+  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      g = gsi_stmt (gsi);
+
+      if (is_gimple_call (g) && gimple_call_internal_p (g)
+	  && gimple_call_internal_unique_p (g))
+	return true;
+    }
 
   return false;
 }
