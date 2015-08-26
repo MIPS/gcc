@@ -117,7 +117,7 @@ static void gomp_task_maybe_wait_for_dependencies (void **depend);
    DEPEND is an array containing:
 	depend[0]: number of depend elements.
 	depend[1]: number of depend elements of type "out".
-	depend[N+2]: address of [0..N]th depend element.  */
+	depend[2..N+1]: address of [1..N]th depend element.  */
 
 void
 GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
