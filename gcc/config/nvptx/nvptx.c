@@ -53,13 +53,27 @@
 #include "target.h"
 #include "diagnostic.h"
 #include "cfgrtl.h"
+#include "cfghooks.h"
+#include "cfgloop.h"
 #include "stor-layout.h"
 #include "df.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "dominance.h"
 #include "cfg.h"
+#include "tree-cfg.h"
 #include "omp-low.h"
+#include "fold-const.h"
+#include "stringpool.h"
+#include "internal-fn.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "gimplify.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "gomp-constants.h"
 #include "gimple.h"
 
@@ -3521,6 +3535,20 @@ enum nvptx_types
     NT_MAX
   };
 
+/* Codes for all the NVPTX builtins.  */
+enum nvptx_builtins
+{
+  NVPTX_BUILTIN_SHUFFLE_DOWN,
+  NVPTX_BUILTIN_SHUFFLE_DOWNLL,
+  NVPTX_BUILTIN_SHUFFLE_DOWNF,
+  NVPTX_BUILTIN_SHUFFLE_DOWND,
+  NVPTX_BUILTIN_WORK_RED_ADDR,
+  NVPTX_BUILTIN_WORK_RED_ADDRLL,
+  NVPTX_BUILTIN_WORK_RED_ADDRF,
+  NVPTX_BUILTIN_WORK_RED_ADDRD,
+  NVPTX_BUILTIN_MAX
+};
+
 static const struct builtin_description builtins[] =
 {
   {"__builtin_nvptx_shuffle_down", NT_UINT_UINT_INT,
@@ -3540,8 +3568,6 @@ static const struct builtin_description builtins[] =
   {"__builtin_nvptx_work_red_addrd", NT_DBLPTR_UINT_UINT,
    nvptx_expand_work_red_addr},
 };
-
-#define NVPTX_BUILTIN_MAX (sizeof (builtins) / sizeof (builtins[0]))
 
 static GTY(()) tree nvptx_builtin_decls[NVPTX_BUILTIN_MAX];
 
@@ -3719,6 +3745,549 @@ nvptx_xform_lock (gimple stmt, const int *ARG_UNUSED (dims), unsigned ifn_code)
     default: gcc_unreachable();
     }
 }
+
+static tree
+nvptx_get_worker_red_addr_fn (tree var, tree rid, tree lid)
+{
+  tree vartype = TREE_TYPE (var);
+  tree fndecl, call;
+  enum nvptx_builtins fn;
+  machine_mode mode = TYPE_MODE (vartype);
+
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+      fn = NVPTX_BUILTIN_WORK_RED_ADDR;
+      break;
+    case DImode:
+      fn = NVPTX_BUILTIN_WORK_RED_ADDRLL;
+      break;
+    case DFmode:
+      fn = NVPTX_BUILTIN_WORK_RED_ADDRD;
+      break;
+    case SFmode:
+      fn = NVPTX_BUILTIN_WORK_RED_ADDRF;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  fndecl = nvptx_builtin_decl (fn, true);
+  call = build_call_expr (fndecl, 2, lid, rid);
+
+  return call;
+}
+
+/* Emit a SHFL.DOWN using index SHFL of VAR into DEST_VAR.  This function
+   will cast the variable if necessary.  */
+
+static void
+nvptx_generate_vector_shuffle (tree dest_var, tree var, int shfl,
+			       gimple_seq *seq)
+{
+  tree vartype = TREE_TYPE (var);
+  enum nvptx_builtins fn = NVPTX_BUILTIN_SHUFFLE_DOWN;
+  machine_mode mode = TYPE_MODE (vartype);
+  tree casted_dest = dest_var;
+  tree casted_var = var;
+  tree call_arg_type;
+
+  switch (mode)
+    {
+    case QImode:
+    case HImode:
+    case SImode:
+      fn = NVPTX_BUILTIN_SHUFFLE_DOWN;
+      call_arg_type = unsigned_type_node;
+      break;
+    case DImode:
+      fn = NVPTX_BUILTIN_SHUFFLE_DOWNLL;
+      call_arg_type = long_long_unsigned_type_node;
+      break;
+    case DFmode:
+      fn = NVPTX_BUILTIN_SHUFFLE_DOWND;
+      call_arg_type = double_type_node;
+      break;
+    case SFmode:
+      fn = NVPTX_BUILTIN_SHUFFLE_DOWNF;
+      call_arg_type = float_type_node;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* All of the integral types need to be unsigned.  Furthermore, small
+     integral types may need to be extended to 32-bits.  */
+  bool need_conversion = !types_compatible_p (vartype, call_arg_type);
+
+  if (need_conversion)
+    {
+      casted_var = make_ssa_name (call_arg_type);
+      tree t1 = fold_build1 (NOP_EXPR, call_arg_type, var);
+      gassign *conv1 = gimple_build_assign (casted_var, t1);
+      gimple_seq_add_stmt (seq, conv1);
+    }
+
+  tree fndecl = nvptx_builtin_decl (fn, true);
+  tree shift =  build_int_cst (unsigned_type_node, shfl);
+  gimple call = gimple_build_call (fndecl, 2, casted_var, shift);
+
+  gimple_seq_add_stmt (seq, call);
+
+  if (need_conversion)
+    {
+      casted_dest = make_ssa_name (call_arg_type);
+      tree t2 = fold_build1 (NOP_EXPR, vartype, casted_dest);
+      gassign *conv2 = gimple_build_assign (dest_var, t2);
+      gimple_seq_add_stmt (seq, conv2);
+    }
+
+  update_stmt (call);
+  gimple_call_set_lhs (call, casted_dest);
+}
+
+/* Fold an OpenACC vector reduction using shuffle down instructions.  */
+
+static void
+nvptx_shuffle_reduction (tree lhs, tree var, enum tree_code code,
+			 gimple_seq *seq)
+{
+  /* Generate a sequence of instructions to preform a tree reduction using
+     shfl.down as an intermediate step.  */
+
+  tree type = TREE_TYPE (var);
+  tree t, t2;
+  gassign *g;
+
+  if (code == TRUTH_ANDIF_EXPR)
+    code = BIT_AND_EXPR;
+  else if (code == TRUTH_ORIF_EXPR)
+    code = BIT_IOR_EXPR;
+
+  for (int shfl = PTX_VECTOR_LENGTH / 2; shfl > 0; shfl = shfl >> 1)
+    {
+      t = make_ssa_name (type);
+      nvptx_generate_vector_shuffle (t, var, shfl, seq);
+      t2 = make_ssa_name (create_tmp_var (type));
+      g = gimple_build_assign (t2, fold_build2 (code, type, var, t));
+      gimple_seq_add_stmt (seq, g);
+      var = t2;
+    }
+
+  /* Restore the type of the comparison operand.  */
+  if (code == EQ_EXPR || code == NE_EXPR)
+    {
+      type = TREE_TYPE (lhs);
+      t = make_ssa_name (type);
+      t2 = fold_build1 (NOP_EXPR, type, var);
+      g = gimple_build_assign (t, t2);
+      gimple_seq_add_stmt (seq, g);
+      var = t;
+    }
+
+  g = gimple_build_assign (lhs, var);
+  gimple_seq_add_stmt (seq, g);
+}
+
+/* NVPTX implementation of GOACC_REDUCTION_SETUP.  Reserve shared
+   memory for worker reductions.
+
+   Given:
+
+     V = IFN_RED_SETUP (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
+
+   Expand to:
+
+   Vector:
+
+     V = LOCAL;
+
+   Worker:
+
+     *ptx_work_red_addr<T> (LID, RID) = LOCAL;
+     ptx_mem_bar (WORKER)  // Should be inserted automatically by the
+                           // predication framework.
+
+   Gang:
+
+     if (RES_PTR != NULL)
+       V = LOCAL
+*/
+
+static bool
+nvptx_goacc_reduction_setup (gimple call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  tree v = gimple_call_lhs (call);
+  tree local_var = gimple_call_arg (call, 1);
+  int loop_dim = tree_to_shwi (gimple_call_arg (call, 2));
+  tree lid = gimple_call_arg (call, 4);
+  tree rid = gimple_call_arg (call, 5);
+  gimple_seq seq = NULL;
+
+  push_gimplify_context (true);
+
+  switch (loop_dim)
+    {
+    case GOMP_DIM_GANG:
+    case GOMP_DIM_VECTOR:
+      gimplify_assign (v, local_var, &seq);
+      break;
+    case GOMP_DIM_WORKER:
+      {
+	tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (local_var)));
+	tree call = nvptx_get_worker_red_addr_fn (local_var, rid, lid);
+	tree ref;
+
+	gimplify_assign (ptr, call, &seq);
+	ref = build_simple_mem_ref (ptr);
+	TREE_THIS_VOLATILE (ref) = 1;
+	gimplify_assign (ref, local_var, &seq);
+	if (v)
+	  gimplify_assign (v, local_var, &seq);
+      }
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  pop_gimplify_context (NULL);
+
+  gsi_replace_with_seq (&gsi, seq, true);
+
+  return false;
+}
+
+/* NVPTX implementation of GOACC_REDUCTION_INIT. Initialize the private
+   reduction variables.  Vectors are special in that tid.x = 0 contains
+   the original value of LOCAL prior to the reduction.
+
+   Given:
+
+     V = IFN_RED_INIT (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
+
+   Expand to:
+
+   Vector:
+
+     V = IFN_OACC_DIM_POS (VECTOR) ? {init_val<T> (OP)} : LOCAL
+
+   Worker:
+
+     V = {init_val<T> (OPERATOR)}
+
+   Gang:
+
+     V = {init_val<T> (OPERATOR)}
+*/
+
+static bool
+nvptx_goacc_reduction_init (gimple call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  tree v = gimple_call_lhs (call);
+  tree local_var = gimple_call_arg (call, 1);
+  tree clause = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE_REDUCTION);
+  int loop_dim = tree_to_shwi (gimple_call_arg (call, 2));
+  tree local_vartype = TREE_TYPE (local_var);
+  enum tree_code op;
+  gimple_seq seq = NULL;
+  bool retval = false;
+
+  op = (enum tree_code) tree_to_shwi (gimple_call_arg (call, 3));
+  OMP_CLAUSE_REDUCTION_CODE (clause) = op;
+
+  switch (loop_dim)
+    {
+    case GOMP_DIM_GANG:
+    case GOMP_DIM_WORKER:
+      push_gimplify_context (true);
+      gimplify_assign(v, omp_reduction_init (clause, local_vartype), &seq);
+      pop_gimplify_context (NULL);
+      gsi_replace_with_seq (&gsi, seq, true);
+      break;
+    case GOMP_DIM_VECTOR:
+      {
+	tree tid = make_ssa_name (unsigned_type_node);
+	tree dim_vector = build_int_cst (unsigned_type_node, GOMP_DIM_VECTOR);
+	gimple tid_call = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1,
+						      dim_vector);
+
+	gimple_call_set_lhs (tid_call, tid);
+	gsi_insert_before (&gsi, tid_call, GSI_SAME_STMT);
+
+	tree zero = build_int_cst (unsigned_type_node, 0);
+	gimple cond_stmt = gimple_build_cond (NE_EXPR, tid, zero,
+					      NULL_TREE, NULL_TREE);
+
+	gsi_insert_before (&gsi, cond_stmt, GSI_SAME_STMT);
+
+	basic_block cond_bb = gsi_bb (gsi);
+	edge e = split_block (cond_bb, cond_stmt);
+	basic_block fallthru_bb = e->dest;
+	basic_block true_bb = create_empty_bb (cond_bb);
+	basic_block false_bb = create_empty_bb (cond_bb);
+	gimple_stmt_iterator true_gsi = gsi_start_bb (true_bb);
+	gimple_stmt_iterator false_gsi = gsi_start_bb (false_bb);
+
+	/* True case: v = gomp_init_reduction () */
+
+	make_edge (cond_bb, true_bb, EDGE_TRUE_VALUE);
+	edge etrue = make_edge (true_bb, fallthru_bb, EDGE_FALLTHRU);
+	remove_edge (e);
+
+	add_bb_to_loop (true_bb, cond_bb->loop_father);
+	set_immediate_dominator (CDI_DOMINATORS, true_bb, cond_bb);
+
+	tree true_v = make_ssa_name (local_vartype);
+	seq = NULL;
+
+	push_gimplify_context (true);
+	gimplify_assign (true_v, omp_reduction_init (clause, local_vartype),
+			 &seq);
+	pop_gimplify_context (NULL);
+	gsi_insert_seq_after (&true_gsi, seq, GSI_CONTINUE_LINKING);
+	gsi = gsi_start_bb (fallthru_bb);
+
+	/* False case: v = local_var  */
+
+	make_edge (cond_bb, false_bb, EDGE_FALSE_VALUE);
+	edge efalse = make_edge (false_bb, fallthru_bb, EDGE_FALLTHRU);
+
+	tree false_v = make_ssa_name (local_vartype);
+	seq = NULL;
+
+	push_gimplify_context (true);
+	gimplify_assign (false_v, local_var, &seq);
+	pop_gimplify_context (NULL);
+	gsi_insert_seq_after (&false_gsi, seq, GSI_CONTINUE_LINKING);
+
+	gsi = gsi_for_stmt (call);
+
+	add_bb_to_loop (false_bb, cond_bb->loop_father);
+	set_immediate_dominator (CDI_DOMINATORS, false_bb, cond_bb);
+
+	gsi_remove (&gsi, true);
+
+	/* Update phi.  */
+
+	gphi *phi = create_phi_node (v, fallthru_bb);
+	add_phi_arg (phi, true_v, etrue, UNKNOWN_LOCATION);
+	add_phi_arg (phi, false_v, efalse, UNKNOWN_LOCATION);
+
+	retval = true;
+      }
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  return retval;
+}
+
+/* NVPTX implementation of GOACC_REDUCTION_FINI. For vectors, preform
+   a tree reduction on LOCAL, otherwise, preform the reduction operation
+   atomically.
+
+   Given:
+
+     V = IFN_RED_INIT (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
+
+   Expand to:
+
+   Vector:
+
+     for (ix = IFN_OACC_DIM_SIZE (VECTOR); ix >>= 1;)
+       {
+          T tmp = ptx_shuffle_down<T> (LOCAL, ix);
+          LOCAL = OP (LOCAL, tmp);
+       }
+     V = LOCAL
+
+   Worker:
+
+     T tmp = *ptx_work_red_addr<T> (LID, RID);
+     tmp = OP (tmp, LOCAL);
+     *ptx_work_red_addr<T> (LID, RID) = tmp;
+
+   Gang:
+
+     V = OPERATOR (*RES_PTR, LOCAL);
+     *RES_PTR = V;
+*/
+
+static bool
+nvptx_goacc_reduction_fini (gimple call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  tree v = gimple_call_lhs (call);
+  tree ref_to_res = gimple_call_arg (call, 0);
+  tree local_var = gimple_call_arg (call, 1);
+  int loop_dim = tree_to_shwi (gimple_call_arg (call, 2));
+  enum tree_code op = (enum tree_code)tree_to_shwi (gimple_call_arg (call, 3));
+  tree lid = gimple_call_arg (call, 4);
+  tree rid = gimple_call_arg (call, 5);
+  tree local_vartype = TREE_TYPE (local_var);
+  gimple_seq seq = NULL;
+
+  if (op == TRUTH_ANDIF_EXPR)
+    op = BIT_AND_EXPR;
+  else if (op == TRUTH_ORIF_EXPR)
+    op = BIT_IOR_EXPR;
+
+  push_gimplify_context (true);
+
+  switch (loop_dim)
+    {
+    case GOMP_DIM_GANG:
+      {
+	tree ref = build_simple_mem_ref (ref_to_res);
+	tree t = make_ssa_name (local_vartype);
+
+	gimplify_assign (t, fold_build2 (op, local_vartype, ref, local_var),
+			 &seq);
+	gimplify_assign (ref, t, &seq);
+
+	if (v != NULL)
+	  {
+	    push_gimplify_context (true);
+	    gimplify_assign (v, t, &seq);
+	  }
+      }
+      break;
+    case GOMP_DIM_WORKER:
+      {
+	tree ptr = make_ssa_name (build_pointer_type (local_vartype));
+	tree call = nvptx_get_worker_red_addr_fn (local_var, rid, lid);
+	tree t1 = make_ssa_name (local_vartype);
+	tree t2 = make_ssa_name (local_vartype);
+	tree ref;
+
+	gimplify_assign (ptr, call, &seq);
+	ref = build_simple_mem_ref (ptr);
+	TREE_THIS_VOLATILE (ref) = 1;
+	gimplify_assign (t1, ref, &seq);
+	gimplify_assign (t2, fold_build2 (op, local_vartype, t1, local_var),
+			 &seq);
+	ref = build_simple_mem_ref (ptr);
+	gimplify_assign (ref, t2, &seq);
+	TREE_THIS_VOLATILE (ref) = 1;
+
+	if (v != NULL)
+	  gimplify_assign (v, t2, &seq);
+      }
+      break;
+    case GOMP_DIM_VECTOR:
+      nvptx_shuffle_reduction (v, local_var, op, &seq);
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  push_gimplify_context (true);
+
+  gsi_replace_with_seq (&gsi, seq, true);
+
+  return false;
+}
+
+/* NVPTX implementation of GOACC_REDUCTION_TEARDOWN.  For workers
+   and vectors, ensure that V has the final reduction value.  Likewise,
+   for gangs, writeback V to RES_PTR if necessary.
+
+   Given:
+
+     V = IFN_RED_TEARDOWN (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
+
+   Expand to:
+
+   Vector:
+
+     V = LOCAL;
+
+   Worker:
+
+     ptx_mem_bar (WORKER)
+     V = *ptx_work_red_addr<T> (LID, RID);
+
+   Gang:
+
+     if (RES_PTR != NULL)
+       V = LOCAL
+*/
+
+static bool
+nvptx_goacc_reduction_teardown (gimple call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  tree v = gimple_call_lhs (call);
+  tree local_var = gimple_call_arg (call, 1);
+  int loop_dim = tree_to_shwi (gimple_call_arg (call, 2));
+  tree lid = gimple_call_arg (call, 4);
+  tree rid = gimple_call_arg (call, 5);
+  gimple_seq seq = NULL;
+
+  push_gimplify_context (true);
+
+  switch (loop_dim)
+    {
+    case GOMP_DIM_GANG:
+    case GOMP_DIM_VECTOR:
+      if (v)
+	gimplify_assign (v, local_var, &seq);
+      break;
+    case GOMP_DIM_WORKER:
+      {
+	tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (local_var)));
+	tree call = nvptx_get_worker_red_addr_fn (local_var, rid, lid);
+	tree ref;
+
+	gimplify_assign (ptr, call, &seq);
+	ref = build_simple_mem_ref (ptr);
+	TREE_THIS_VOLATILE (ref) = 1;
+	gimplify_assign (v, ref, &seq);
+      }
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  pop_gimplify_context (NULL);
+
+  gsi_replace_with_seq (&gsi, seq, true);
+
+  return false;
+}
+
+/* Default goacc.reduction early expander.  */
+
+bool
+nvptx_goacc_reduction (gimple call)
+{
+  /* Reductions modify the SSA names in complicated ways.  Let update_ssa
+     correct it.  */
+  mark_virtual_operands_for_renaming (cfun);
+
+  switch (gimple_call_internal_fn (call))
+    {
+    case IFN_GOACC_REDUCTION_SETUP:
+      return nvptx_goacc_reduction_setup (call);
+
+    case IFN_GOACC_REDUCTION_INIT:
+      return nvptx_goacc_reduction_init (call);
+
+    case IFN_GOACC_REDUCTION_FINI:
+      return nvptx_goacc_reduction_fini (call);
+
+    case IFN_GOACC_REDUCTION_TEARDOWN:
+      return nvptx_goacc_reduction_teardown (call);
+
+    default:
+      gcc_unreachable ();
+    }
+}
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
@@ -3825,6 +4394,9 @@ nvptx_xform_lock (gimple stmt, const int *ARG_UNUSED (dims), unsigned ifn_code)
 
 #undef TARGET_GOACC_LOCK
 #define TARGET_GOACC_LOCK nvptx_xform_lock
+
+#undef TARGET_GOACC_REDUCTION
+#define TARGET_GOACC_REDUCTION nvptx_goacc_reduction
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

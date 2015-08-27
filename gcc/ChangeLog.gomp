@@ -1,5 +1,18 @@
 2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* config/nvptx/nvptx.c (enum nvptx_builtins): New enum.
+	(NVPTX_BUILTIN_MAX): Delete.
+	(nvptx_get_worker_red_addr_fn): New function.
+	(nvptx_generate_vector_shuffle): New function.
+	(nvptx_shuffle_reduction): New function.
+	(nvptx_goacc_reduction_setup): New function.
+	(nvptx_goacc_reduction_init): New function.
+	(nvptx_goacc_reduction_fini): New function.
+	(nvptx_goacc_reduction_teardown): New function.
+	(nvptx_goacc_reduction): New function.
+
+2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* doc/tm.texi: Regenerate.
 	* doc/tm.texi.in: Add a placeholder for TARGET_GOACC_REDUCTION.
 	* internal-fn.c (expand_GOACC_REDUCTION_SETUP): New function.
