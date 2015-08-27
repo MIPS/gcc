@@ -1,5 +1,10 @@
 2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* omp-low.c (lower_oacc_reductions): Call GOACC_REDUCTION_INIT
+	to initialize the gang and worker mutex.
+
+2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* gimplify.c (struct privatize_reduction): New struct.
 	(localize_reductions_r): New function.
 	(localize_reductions): New function.

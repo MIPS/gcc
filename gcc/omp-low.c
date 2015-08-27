@@ -4795,10 +4795,20 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
   if (ctx->reductions == 0)
     return;
 
+  dim = build_int_cst (integer_type_node, loop_dim);
+
+  /* Call GOACC_LOCK_INIT.  */
+  if (ifn == IFN_GOACC_REDUCTION_SETUP)
+    {
+      call = build_call_expr_internal_loc (UNKNOWN_LOCATION,
+					   IFN_GOACC_LOCK_INIT,
+					   void_type_node, 2, dim, lid);
+      gimplify_and_add (call, ilist);
+    }
+
   /* Call GOACC_LOCK.  */
   if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
     {
-      dim = build_int_cst (integer_type_node, loop_dim);
       call = build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOACC_LOCK,
 					   void_type_node, 2, dim, lid);
       gimplify_and_add (call, ilist);
