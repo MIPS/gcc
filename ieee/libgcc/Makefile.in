@@ -70,6 +70,8 @@ INSTALL_DATA = @INSTALL_DATA@
 mkinstalldirs = $(SHELL) $(libgcc_topdir)/mkinstalldirs
 INSTALL_PARTS = $(EXTRA_PARTS)
 
+EXTRA_CLEAN =
+
 objext = .o
 
 AR = @AR@
@@ -90,6 +92,7 @@ FLAGS_TO_PASS = \
 	"CFLAGS=$(CFLAGS)" \
 	"DESTDIR=$(DESTDIR)" \
 	"EXTRA_OFILES=$(EXTRA_OFILES)" \
+	"EXTRA_CLEAN=$(EXTRA_CLEAN)" \
 	"HDEFINES=$(HDEFINES)" \
 	"INSTALL=$(INSTALL)" \
 	"INSTALL_DATA=$(INSTALL_DATA)" \
@@ -128,7 +131,7 @@ installcheck:
 clean:
 	-rm -f libgcc_tm.h libgcc.map
 	-rm -f libgcc_tm.stamp stmp-ldirs
-	-rm -f *$(objext)
+	-rm -f *$(objext) $(EXTRA_CLEAN)
 	-rm -f *.dep
 	-rm -f *.a
 	-rm -f libunwind$(SHLIB_EXT)
