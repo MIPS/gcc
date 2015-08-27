@@ -165,7 +165,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	gomp_task_maybe_wait_for_dependencies (depend);
 
       gomp_init_task (&task, thr->task, gomp_icv (false));
-      task.kind = GOMP_TASK_IFFALSE;
+      task.kind = GOMP_TASK_UNDEFERRED;
       task.final_task = (thr->task && thr->task->final_task)
 			|| (flags & GOMP_TASK_FLAG_FINAL);
       if (thr->task)
@@ -218,7 +218,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       arg = (char *) (((uintptr_t) (task + 1) + depend_size + arg_align - 1)
 		      & ~(uintptr_t) (arg_align - 1));
       gomp_init_task (task, parent, gomp_icv (false));
-      task->kind = GOMP_TASK_IFFALSE;
+      task->kind = GOMP_TASK_UNDEFERRED;
       task->in_tied_task = parent->in_tied_task;
       task->taskgroup = taskgroup;
       thr->task = task;
@@ -388,6 +388,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       parent->children = task;
       if (taskgroup)
 	{
+	  /* If applicable, place task into its taskgroup.  */
 	  if (taskgroup->children)
 	    {
 	      task->next_taskgroup = taskgroup->children;
@@ -451,7 +452,14 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 {
   if (parent)
     {
-      /* Remove child_task from parent.  */
+      /* Adjust children such that it will point to a next child,
+	 while the current one is scheduled to be executed.  This way,
+	 GOMP_taskwait (and others) can schedule a next task while
+	 waiting.
+
+	 Do not remove it entirely from the circular list, as it is
+	 still a child, though not one we should consider first (say
+	 by GOMP_taskwait).  */
       if (parent->children == child_task)
 	parent->children = child_task->next_child;
 
@@ -465,10 +473,14 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 	    parent->taskwait->last_parent_depends_on = NULL;
 	}
     }
-  /* Remove child_task from taskgroup.  */
+
+  /* Adjust taskgroup to point to the next taskgroup.  See note above
+     regarding adjustment of children as to why the child_task is not
+     removed entirely from the circular list.  */
   if (taskgroup && taskgroup->children == child_task)
     taskgroup->children = child_task->next_taskgroup;
 
+  /* Remove child_task from the task_queue.  */
   child_task->prev_queue->next_queue = child_task->next_queue;
   child_task->next_queue->prev_queue = child_task->prev_queue;
   if (team->task_queue == child_task)
@@ -479,6 +491,7 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 	team->task_queue = NULL;
     }
   child_task->kind = GOMP_TASK_TIED;
+
   if (--team->task_queued_count == 0)
     gomp_team_barrier_clear_task_pending (&team->barrier);
   if ((gomp_team_barrier_cancelled (&team->barrier)
@@ -1137,7 +1150,7 @@ GOMP_taskgroup_start (void)
   struct gomp_taskgroup *taskgroup;
 
   /* If team is NULL, all tasks are executed as
-     GOMP_TASK_IFFALSE tasks and thus all children tasks of
+     GOMP_TASK_UNDEFERRED tasks and thus all children tasks of
      taskgroup and their descendant tasks will be finished
      by the time GOMP_taskgroup_end is called.  */
   if (team == NULL)

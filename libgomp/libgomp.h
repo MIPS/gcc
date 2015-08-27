@@ -263,9 +263,13 @@ extern char *goacc_device_type;
 
 enum gomp_task_kind
 {
+  /* Implicit task.  */
   GOMP_TASK_IMPLICIT,
-  GOMP_TASK_IFFALSE,
+  /* Undeferred task.  */
+  GOMP_TASK_UNDEFERRED,
+  /* Task created by GOMP_task and waiting to be run.  */
   GOMP_TASK_WAITING,
+  /* Task currently executing or scheduled and about to execute.  */
   GOMP_TASK_TIED
 };
 
@@ -313,8 +317,11 @@ struct gomp_task
   struct gomp_task *prev_child;
   struct gomp_task *next_queue;
   struct gomp_task *prev_queue;
+  /* Next task in the current taskgroup.  */
   struct gomp_task *next_taskgroup;
+  /* Previous task in the current taskgroup.  */
   struct gomp_task *prev_taskgroup;
+  /* Taskgroup this task belongs in.  */
   struct gomp_taskgroup *taskgroup;
   struct gomp_dependers_vec *dependers;
   struct htab *depend_hash;

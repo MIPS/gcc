@@ -1,3 +1,14 @@
+2015-08-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h (enum gomp_task_kind): Comment fields.
+	(struct gomp_task): Comment some fields.
+	* task.c (GOMP_task): Add comments.
+	Rename GOMP_TASK_IFFALSE to GOMP_TASK_UNDEFERRED.
+	(gomp_task_run_pre): Add comments.
+	(GOMP_taskgroup_start): Rename GOMP_TASK_IFFALSE to
+	GOMP_TASK_UNDEFERRED.
+	* taskloop.c (GOMP_taskloop): Same.
+
 2015-08-25  Aldy Hernandez  <aldyh@redhat.com>
 
 	* libgomp.h (struct gomp_task_depend_entry): Add comment.
