@@ -1485,23 +1485,6 @@
   ""
   "%.\\tst.shared%u1\\t%1,%0;")
 
-(define_insn "ganglocal_ptr<mode>"
-  [(set (match_operand:P 0 "nvptx_register_operand" "")
-	(unspec:P [(const_int 0)] UNSPEC_SHARED_DATA))]
-  ""
-  "%.\\tcvta.shared%t0\\t%0, sdata;")
-
-(define_expand "ganglocal_ptr"
-  [(match_operand 0 "nvptx_register_operand" "")]
-  ""
-{
-  if (Pmode == DImode)
-    emit_insn (gen_ganglocal_ptrdi (operands[0]));
-  else
-    emit_insn (gen_ganglocal_ptrsi (operands[0]));
-  DONE;
-})
-
 ;; Atomic insns.
 
 (define_expand "atomic_compare_and_swap<mode>"

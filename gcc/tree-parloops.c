@@ -2080,9 +2080,6 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       gimple_omp_target_set_child_fn (stmt, child_fn);
       tree data_arg = gimple_omp_target_data_arg (kernels);
       gimple_omp_target_set_data_arg (stmt, data_arg);
-      tree ganglocal_size
-	= gimple_call_arg (goacc_kernels_internal, /* TODO */ 6);
-      gimple_omp_target_set_ganglocal_size (stmt, ganglocal_size);
 
       gimple_set_location (stmt, loc);
 

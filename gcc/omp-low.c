@@ -212,21 +212,6 @@ typedef struct omp_context
      this level and above.  For parallel and kernels clauses, a mask
      indicating which of num_gangs/num_workers/num_vectors was used.  */
   int gwv_this;
-
-  gimple_seq ganglocal_init;
-  tree ganglocal_ptr;
-  tree ganglocal_size;
-  tree ganglocal_size_host;
-
-  /* For OpenACC offloaded regions, variables holding the worker id and count
-     of workers.  */
-  tree worker_var;
-  tree worker_count;
-
-  /* For offloaded regions, at runtime this variable holds a pointer
-     to the location that should be used for thread
-     synchronization.  */
-  tree worker_sync_elt;
 } omp_context;
 
 /* A structure holding the elements of:
@@ -1448,96 +1433,6 @@ align_and_expand (tree *poldsz, tree size, unsigned int align)
   return fold_build2 (PLUS_EXPR, size_type_node, oldsz, size);
 }
 
-/* Generate code at the entry to CTX to allocate SIZE bytes of gang-local
-   memory, cast this to be a pointer to VARTYPE and return the result.
-   UNDERLYING_VAR is used to choose a name, it can be NULL.
-
-   FIXME: Consider pointer to arrays.  */
-
-static tree
-alloc_var_ganglocal (tree underlying_var, tree vartype, omp_context *ctx,
-		     tree size, tree host_size = NULL)
-{
-  /* If this is a pointer mapping, then we need to create too mappings, one
-     for the pointer, and another to the data.  Add the offset for the pointer
-     to size.  */
-  bool pointer = underlying_var ? is_reference (underlying_var) : false;
-
-  if (pointer)
-    size = fold_build2 (PLUS_EXPR, TREE_TYPE (size), size,
-			TYPE_SIZE_UNIT (ptr_type_node));
-
-  if (host_size == NULL)
-    host_size = size;
-  else if (pointer)
-    {
-      host_size = fold_build2 (PLUS_EXPR, TREE_TYPE (size), host_size,
-			       TYPE_SIZE_UNIT (ptr_type_node));
-    }
-
-  if (ctx->ganglocal_ptr == NULL_TREE)
-    {
-      tree ptr = create_tmp_var (ptr_type_node, "__ganglocal_ptr");
-      tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_GET_GANGLOCAL_PTR);
-      gimple g = gimple_build_call (fndecl, 0);
-      gimple_call_set_lhs (g, ptr);
-      gimple_seq_add_stmt (&ctx->ganglocal_init, g);
-
-      ctx->ganglocal_ptr = ptr;
-    }
-  const char *name = NULL;
-  if (underlying_var && DECL_NAME (underlying_var))
-    name = IDENTIFIER_POINTER (DECL_NAME (underlying_var));
-  tree oldsz = ctx->ganglocal_size;
-  tree varptrtype = build_pointer_type (vartype);
-
-  unsigned int align = TYPE_ALIGN_UNIT (vartype);
-  tree newsz = align_and_expand (&oldsz, size, align);
-  tree gl_host = ctx->ganglocal_size_host;
-  ctx->ganglocal_size_host = align_and_expand (&gl_host, host_size, align);
-  ctx->ganglocal_size = newsz;
-
-  tree newvarptr = create_tmp_var (varptrtype, name);
-#if 0
-  DECL_CHAIN (newvarptr) = ctx->block_vars;
-  ctx->block_vars = newvarptr;
-#endif
-  tree device_off = oldsz;
-  walk_tree (&device_off, copy_tree_body_r, &ctx->cb, NULL);
-
-  tree x = fold_convert (varptrtype,
-			 fold_build_pointer_plus (ctx->ganglocal_ptr,
-						  device_off));
-  gimple g = gimple_build_assign (newvarptr, x);
-  gimple_seq_add_stmt (&ctx->ganglocal_init, g);
-
-  /* Add a target for the pointer.  */
-  if (pointer)
-    {
-      tree vtype = build_pointer_type (size_type_node);
-      tree t = create_tmp_var (vtype);
-      x = fold_convert (vtype, x);
-      g = gimple_build_assign (t, x);
-      gimple_seq_add_stmt (&ctx->ganglocal_init, g);
-
-      x = fold_build_pointer_plus (x, build_int_cst (sizetype, 8));
-      g = gimple_build_assign (build_simple_mem_ref (t),
-			       fold_convert (sizetype, x));
-      gimple_seq_add_stmt (&ctx->ganglocal_init, g);
-    }
-  return newvarptr;
-}
-
-static tree
-install_var_ganglocal (tree decl, omp_context *ctx)
-{
-  tree type = TREE_TYPE (decl);
-  tree ptr = alloc_var_ganglocal (decl, type, ctx, TYPE_SIZE_UNIT (type));
-  tree new_var = build1 (INDIRECT_REF, type, ptr);
-  insert_decl_map (&ctx->cb, decl, new_var);
-  return new_var;
-}
-
 /* Debugging dumps for parallel regions.  */
 void dump_omp_region (FILE *, struct omp_region *, int);
 void debug_omp_region (struct omp_region *);
@@ -1675,8 +1570,6 @@ new_omp_context (gimple stmt, omp_context *outer_ctx)
       ctx->cb.transform_call_graph_edges = CB_CGE_MOVE;
       ctx->depth = 1;
     }
-  ctx->ganglocal_size = size_zero_node;
-  ctx->ganglocal_size_host = size_zero_node;
   ctx->cb.decl_map = new hash_map<tree, tree>;
 
   return ctx;
@@ -10056,7 +9949,8 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
       {
-	args.quick_push (gimple_omp_target_ganglocal_size (entry_stmt));
+	tree shared_memory = build_int_cst (integer_type_node, 0);
+	args.quick_push (shared_memory);
 	set_oacc_fn_attrib (child_fn, clauses, &args);
 	tagging = true;
       }
@@ -11935,39 +11829,6 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
 }
 
-/* A subroutine of lower_omp_target.  Build variables holding the
-   worker count and index for use inside in ganglocal memory allocations.  */
-
-static void
-oacc_init_count_vars (omp_context *ctx, tree clauses ATTRIBUTE_UNUSED)
-{
-  tree worker_var, worker_count;
-  
-  if (ctx->gwv_this & GOMP_DIM_MASK (GOMP_DIM_WORKER))
-    {
-      tree arg = build_int_cst (unsigned_type_node, GOMP_DIM_WORKER);
-      
-      worker_var = create_tmp_var (integer_type_node, ".worker");
-      worker_count = create_tmp_var (integer_type_node, ".workercount");
-      
-      gimple call1 = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
-      gimple_call_set_lhs (call1, worker_var);
-      gimple_seq_add_stmt (&ctx->ganglocal_init, call1);
-
-      gimple call2 = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
-      gimple_call_set_lhs (call2, worker_count);
-      gimple_seq_add_stmt (&ctx->ganglocal_init, call2);
-    }
-  else
-    {
-      worker_var = build_int_cst (integer_type_node, 0);
-      worker_count = build_int_cst (integer_type_node, 1);
-    }
-  
-  ctx->worker_var = worker_var;
-  ctx->worker_count = worker_count;
-}
-
 /* Lower the GIMPLE_OMP_TARGET in the current statement
    in GSI_P.  CTX holds context information for the directive.  */
 
@@ -12057,7 +11918,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    break;
 	  case GOMP_MAP_FORCE_ALLOC:
 	  case GOMP_MAP_FORCE_TO:
-	  case GOMP_MAP_FORCE_TO_GANGLOCAL:
 	  case GOMP_MAP_FORCE_FROM:
 	  case GOMP_MAP_FORCE_TOFROM:
 	  case GOMP_MAP_FORCE_PRESENT:
@@ -12127,15 +11987,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		DECL_HAS_VALUE_EXPR_P (new_var) = 1;
 	      }
 	    else
-	      {
-		/* Copy from the receiver field to gang-local memory.  */
-		gcc_assert (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-			    && (OMP_CLAUSE_MAP_KIND (c)
-				== GOMP_MAP_FORCE_TO_GANGLOCAL)
-			    && TREE_CODE (new_var) == INDIRECT_REF);
-		gimple g = gimple_build_assign (new_var, x);
-		gimple_seq_add_stmt (&ctx->ganglocal_init, g);
-	      }
+	      gcc_unreachable ();
 	  }
 	map_cnt++;
 	break;
@@ -12153,9 +12005,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   irlist = NULL;
   orlist = NULL;
 
-  if (is_gimple_omp_oacc (stmt))
-    oacc_init_count_vars (ctx, clauses);
-
   if (is_oacc_parallel (ctx) && ctx->reductions)
     {
       lower_oacc_reductions (IFN_GOACC_REDUCTION_SETUP, GOMP_DIM_GANG,
@@ -12167,8 +12016,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       lower_oacc_reductions (IFN_GOACC_REDUCTION_TEARDOWN, GOMP_DIM_GANG,
 			      clauses, &orlist, ctx, true);
     }
-
-  lower_omp (&ctx->ganglocal_init, ctx);
 
   if (offloaded)
     {
@@ -12424,7 +12271,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       gimple_seq_add_stmt (&new_body,
 	  		   gimple_build_assign (ctx->receiver_decl, t));
     }
-  gimple_seq_add_seq (&new_body, ctx->ganglocal_init);
   gimple_seq_add_seq (&new_body, fplist);
 
   if (offloaded)
@@ -12457,14 +12303,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_bind_add_stmt (bind, stmt);
   gimple_bind_add_seq (bind, olist);
 
-  gimple_seq sz_ilist = NULL;
-  tree sz = create_tmp_var (size_type_node, "__ganglocal_size");
-  gimplify_and_add (build2 (MODIFY_EXPR, size_type_node, sz,
-			    ctx->ganglocal_size_host),
-		    &sz_ilist);
-  gsi_insert_seq_before (gsi_p, sz_ilist, GSI_SAME_STMT);
-
-  gimple_omp_target_set_ganglocal_size (stmt, sz);
   pop_gimplify_context (NULL);
 }
 

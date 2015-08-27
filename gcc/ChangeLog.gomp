@@ -1,3 +1,26 @@
+2015-08-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* builtins.c (expand_oacc_ganglocal_ptr): Delete.
+	(expand_builtin): Remove stale GOACC_GET_GANGLOCAL_PTR builtin.
+	* config/nvptx/nvptx.md (ganglocal_ptr): Delete.
+	* gimple.h (struct gimple_statement_omp_parallel_layout): Remove
+	ganglocal_size member.
+	(gimple_omp_target_ganglocal_size): Delete.
+	(gimple_omp_target_set_ganglocal_size): Delete.
+	* omp-builtins.def (BUILT_IN_GOACC_GET_GANGLOCAL_PTR): Delete.
+	* omp-low.c (struct omp_context): Remove ganglocal_init, ganglocal_ptr,
+	ganglocal_size, ganglocal_size_host, worker_var, worker_count and
+	worker_sync_elt.
+	(alloc_var_ganglocal): Delete.
+	(install_var_ganglocal): Delete.
+	(new_omp_context): Don't use ganglocal memory.
+	(expand_omp_target): Likewise.
+	(lower_omp_taskreg): Likewise.
+	(lower_omp_target): Likewise.
+	* tree-parloops.c (create_parallel_loop): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Remove support for
+	GOMP_MAP_FORCE_TO_GANGLOCAL
+
 2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_oacc_reductions): Call GOACC_REDUCTION_INIT

@@ -5913,25 +5913,6 @@ expand_builtin_acc_on_device (tree exp, rtx target)
   return target;
 }
 
-static rtx
-expand_oacc_ganglocal_ptr (rtx target ATTRIBUTE_UNUSED)
-{
-#ifdef HAVE_ganglocal_ptr
-  enum insn_code icode;
-  icode = CODE_FOR_ganglocal_ptr;
-  rtx tmp = target;
-  if (!REG_P (tmp) || GET_MODE (tmp) != Pmode)
-    tmp = gen_reg_rtx (Pmode);
-  rtx insn = GEN_FCN (icode) (tmp);
-  if (insn != NULL_RTX)
-    {
-      emit_insn (insn);
-      return tmp;
-    }
-#endif
-  return NULL_RTX;
-}
-
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -7070,12 +7051,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
     case BUILT_IN_ACC_ON_DEVICE:
       target = expand_builtin_acc_on_device (exp, target);
-      if (target)
-	return target;
-      break;
-
-    case BUILT_IN_GOACC_GET_GANGLOCAL_PTR:
-      target = expand_oacc_ganglocal_ptr (target);
       if (target)
 	return target;
       break;
