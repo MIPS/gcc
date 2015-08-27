@@ -1,5 +1,48 @@
 2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* gimplify.c (struct privatize_reduction): New struct.
+	(localize_reductions_r): New function.
+	(localize_reductions): New function.
+	(gimplify_omp_for): Use it.
+	(gimplify_omp_workshare): Likweise.
+	* omp-low.c (struct omp_context): Remove reduction_map and
+	oacc_reduction_set. Add 'int reductions'.
+	(oacc_gang_reduction_init): New gimple_seq to contain initialization
+	code for fake gang reductions.
+	(oacc_gang_reduction_fini): Ditto, but for finalization code.
+	(extract_oacc_loop_mask): New function.
+	(is_oacc_reduction_private): New function.
+	(lookup_oacc_reduction): Delete.
+	(maybe_lookup_oacc_reduction): Delete.
+	(new_omp_context): Remove stale references to reduction_map.
+	(delete_omp_context): Likewise.
+	(scan_sharing_clauses): Don't populate the oacc_reduction_set
+	or create a special ganglocal mapping for reductoins. Increment
+	reductions.
+	(scan_omp_for): Filter out reductions when they are going to be
+	executed by a single thread.
+	(scan_omp_target): Remove references to reduction_map.
+	(gen_oacc_fork): Delete.
+	(gen_oacc_join): Delete.
+	(lower_rec_input_clauses): Ignore on OpenACC reductions.
+	(lower_oacc_reductions): New function.
+	(oacc_fake_gang_reduction): New function.
+	(lower_oacc_loop_helper): New function.
+	(lower_reduction_clauses): Update to use lower_oacc_reductions for
+	OpenACC.
+	(expand_omp_for_static_nochunk): Don't call gen_oacc_{fork,join}.
+	(expand_omp_for_static_chunk): Likewise.
+	(lower_oacc_loop_enter_exit): New function.
+	(lower_omp_for): Hanle OpenACC reductions and insert fork/joins.
+	(lower_omp_target): Handle non-loop OpenACC reductions.
+	* tree-core.h (enum omp_clause_code): Document the new
+	OMP_CLUASE_REDUCTION_PRIVATE_DECL argument to OMP_CLAUSE_REDUCTION.
+	* tree.c (omp_clause_num_ops): Increment the number of operands
+	for OMP_CLUASE_REDUCTIONS.
+	* tree.h (OMP_CLAUSE_REDUCTION_PRIVATE_DECL): Define.
+
+2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* config/nvptx/nvptx.c (enum nvptx_builtins): New enum.
 	(NVPTX_BUILTIN_MAX): Delete.
 	(nvptx_get_worker_red_addr_fn): New function.

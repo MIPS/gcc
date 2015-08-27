@@ -181,6 +181,11 @@ struct gimplify_omp_ctx
   gomp_target *stmt;
 };
 
+struct privatize_reduction
+{
+  tree ref_var, local_var;
+};
+
 static struct gimplify_ctx *gimplify_ctxp;
 static struct gimplify_omp_ctx *gimplify_omp_ctxp;
 
@@ -7381,6 +7386,106 @@ find_combined_omp_for (tree *tp, int *walk_subtrees, void *)
   return NULL_TREE;
 }
 
+/* Helper function for localize_reductions.  Replace all uses of REF_VAR with
+   LOCAL_VAR.  */
+
+static tree
+localize_reductions_r (tree *tp, int *walk_subtrees, void *data)
+{
+  enum tree_code tc = TREE_CODE (*tp);
+  struct privatize_reduction *pr = (struct privatize_reduction *) data;
+
+  if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+
+  switch (tc)
+    {
+    case INDIRECT_REF:
+    case MEM_REF:
+      if (TREE_OPERAND (*tp, 0) == pr->ref_var)
+	*tp = pr->local_var;
+
+      *walk_subtrees = 0;
+      break;
+
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+      if (*tp == pr->ref_var)
+	*tp = pr->local_var;
+
+      *walk_subtrees = 0;
+      break;
+
+    default:
+      break;
+    }
+
+  return NULL_TREE;
+}
+
+/* OpenACC worker and vector loop state propagation requires reductions
+   to be inside local variables.  This function replaces all reference-type
+   reductions variables associated with the loop with a local copy.  It is
+   also used to create private copies of reduction variables for those
+   which are not associated with acc loops.  */
+
+static void
+localize_reductions (tree *expr_p, bool target = false)
+{
+  tree clauses = target ? OMP_CLAUSES (*expr_p) : OMP_FOR_CLAUSES (*expr_p);
+  tree c, var, type, new_var;
+  struct privatize_reduction pr;
+  int gwv_cur = 0;
+  int mask_wv =
+    GOMP_DIM_MASK (GOMP_DIM_WORKER) | GOMP_DIM_MASK (GOMP_DIM_VECTOR);
+
+  /* Non-vector and worker reduction do not need to be localized.  */
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      enum omp_clause_code cc = OMP_CLAUSE_CODE (c);
+
+      if (cc == OMP_CLAUSE_GANG)
+	gwv_cur |= GOMP_DIM_MASK (GOMP_DIM_GANG);
+      else if (cc == OMP_CLAUSE_WORKER)
+	gwv_cur |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
+      else if (cc == OMP_CLAUSE_VECTOR)
+	gwv_cur |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
+    }
+
+  if (!(gwv_cur & mask_wv) && target == false)
+    return;
+
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+      {
+	var = OMP_CLAUSE_DECL (c);
+
+	if (!target && !lang_hooks.decls.omp_privatize_by_reference (var))
+	  {
+	    OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c) = NULL;
+	    continue;
+	  }
+
+	if (lang_hooks.decls.omp_privatize_by_reference (var))
+	  type = TREE_TYPE (TREE_TYPE (var));
+	else
+	  type = TREE_TYPE (var);
+	new_var = create_tmp_var (type);
+
+	pr.ref_var = var;
+	pr.local_var = new_var;
+
+	/* Only replace var with new_var within the region associated the
+	   current ACC construct, not in the clauses of this construct.  */
+	tree region = TREE_OPERAND (*expr_p, 0);
+
+	walk_tree (&region, localize_reductions_r, &pr, NULL);
+
+	OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c) = new_var;
+      }
+}
+
 /* Gimplify the gross structure of an OMP_FOR statement.  */
 
 static enum gimplify_status
@@ -7418,6 +7523,9 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     default:
       gcc_unreachable ();
     }
+
+  if (ork == ORK_OACC)
+    localize_reductions (expr_p);
 
   /* Set OMP_CLAUSE_LINEAR_NO_COPYIN flag on explicit linear
      clause for the IV.  */
@@ -7896,6 +8004,10 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     {
       gimplify_omp_ctxp->acc_region_kind = ark;
       push_gimplify_context ();
+
+      if (ork == ORK_OACC)
+	localize_reductions (expr_p, true);
+
       gimple g = gimplify_and_return_first (OMP_BODY (expr), &body);
       if (gimple_code (g) == GIMPLE_BIND)
 	pop_gimplify_context (g);

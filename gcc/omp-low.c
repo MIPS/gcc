@@ -83,6 +83,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "gimple-pretty-print.h"
 #include "set"
+#include "tree-ssa-propagate.h"
+#include "omp-low.h"
 
 
 /* Lowering of OMP parallel and workshare constructs proceeds in two
@@ -181,14 +183,6 @@ typedef struct omp_context
      construct.  In the case of a parallel, this is in the child function.  */
   tree block_vars;
 
-  /* A map of reduction pointer variables.  For accelerators, each
-     reduction variable is replaced with an array.  Each thread, in turn,
-     is assigned to a slot on that array.  */
-  splay_tree reduction_map;
-
-  /* A set of reduction variables used in an OpenACC parallel region.  */
-  hash_set<tree> *oacc_reduction_set;
-
   /* Label to which GOMP_cancel{,llation_point} and explicit and implicit
      barriers should jump to during omplower pass.  */
   tree cancel_label;
@@ -207,6 +201,9 @@ typedef struct omp_context
 
   /* True if this construct can be cancelled.  */
   bool cancellable;
+
+  /* The number of reductions in a loop.  */
+  int reductions;
 
   /* For OpenACC loops, a mask of gang, worker and vector used at
      levels below this one.  */
@@ -263,6 +260,10 @@ static struct omp_region *root_omp_region;
 static bitmap task_shared_vars;
 static vec<omp_context *> taskreg_contexts;
 
+static int oacc_lid;
+static gimple_seq oacc_gang_reduction_init = NULL;
+static gimple_seq oacc_gang_reduction_fini = NULL;
+
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
 
@@ -276,6 +277,34 @@ static tree scan_omp_1_op (tree *, int *, void *);
       *handled_ops_p = false; \
       break;
 
+/* Extract the gang, worker and vector clauses associated with CTX.
+
+  GWV_THIS contains the current level of parallelism the loop nest.
+  I.e. if the loop above contains a gang clause, and the current loop
+  contains a vector clause, gwv_this will have the GOM_DIM_GANG and
+  GOMP_DIM_VECTOR bits set.  This function extracts the level of
+  parallelism only associated with the current loop, e.g.
+  GOMP_DIM_VECTOR.  */
+
+static int
+extract_oacc_loop_mask (omp_context *ctx)
+{
+  int loop_flags = 0;
+
+  if (is_gimple_omp_oacc (ctx->stmt))
+    {
+      omp_context *outer = ctx->outer;
+
+      if (outer && gimple_code (outer->stmt) != GIMPLE_OMP_FOR)
+	outer = NULL;
+
+      loop_flags = outer ? ctx->gwv_this & (~outer->gwv_this)
+	: ctx->gwv_this;
+    }
+
+  return loop_flags;
+}
+
 static bool
 is_oacc_parallel (omp_context *ctx)
 {
@@ -283,6 +312,53 @@ is_oacc_parallel (omp_context *ctx)
   return ((outer_type == GIMPLE_OMP_TARGET)
 	  && (gimple_omp_target_kind (ctx->stmt)
 	      == GF_OMP_TARGET_KIND_OACC_PARALLEL));
+}
+
+/* Return true if VAR is a is private reduction variable.  A reduction
+   variable is considered private if the variable is local to the
+   offloaded region, or if it is the first reduction to use a mapped
+   variable.  E.g., if V is mapped as 'copy', and loops L1 and L2 contain
+   reductions on V, and L2 is nested inside L1, V is not private in L1
+   but is private in L2.  */
+
+static bool
+is_oacc_reduction_private (tree var, omp_context *ctx, bool initial = true)
+{
+  tree c, clauses, decl;
+
+  if (ctx == NULL || !is_gimple_omp_oacc (ctx->stmt))
+    return true;
+
+  if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR)
+    clauses = gimple_omp_for_clauses (ctx->stmt);
+  else
+    clauses = gimple_omp_target_clauses (ctx->stmt);
+
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      switch (OMP_CLAUSE_CODE (c))
+	{
+	case OMP_CLAUSE_PRIVATE:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (decl == var)
+	    return true;
+	  break;
+	case OMP_CLAUSE_MAP:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (decl == var)
+	    return false;
+	  break;
+	case OMP_CLAUSE_REDUCTION:
+	  decl = OMP_CLAUSE_DECL (c);
+	  if (!initial && decl == var)
+	    return true;
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  return is_oacc_reduction_private (var, ctx->outer, false);
 }
 
 /* Holds offload tables with decls.  */
@@ -959,23 +1035,6 @@ maybe_lookup_field (tree var, omp_context *ctx)
   return n ? (tree) n->value : NULL_TREE;
 }
 
-static inline tree
-lookup_oacc_reduction (const char *id, omp_context *ctx)
-{
-  splay_tree_node n;
-  n = splay_tree_lookup (ctx->reduction_map, (splay_tree_key) id);
-  return (tree) n->value;
-}
-
-static inline tree
-maybe_lookup_oacc_reduction (tree var, omp_context *ctx)
-{
-  splay_tree_node n = NULL;
-  if (ctx->reduction_map)
-    n = splay_tree_lookup (ctx->reduction_map, (splay_tree_key) var);
-  return n ? (tree) n->value : NULL_TREE;
-}
-
 /* Return true if DECL should be copied by pointer.  SHARED_CTX is
    the parallel context if DECL is to be shared.  */
 
@@ -1602,7 +1661,6 @@ new_omp_context (gimple stmt, omp_context *outer_ctx)
       ctx->cb = outer_ctx->cb;
       ctx->cb.block = NULL;
       ctx->depth = outer_ctx->depth + 1;
-      ctx->reduction_map = outer_ctx->reduction_map;
     }
   else
     {
@@ -1620,7 +1678,6 @@ new_omp_context (gimple stmt, omp_context *outer_ctx)
   ctx->ganglocal_size = size_zero_node;
   ctx->ganglocal_size_host = size_zero_node;
   ctx->cb.decl_map = new hash_map<tree, tree>;
-  ctx->oacc_reduction_set = NULL;
 
   return ctx;
 }
@@ -1677,15 +1734,6 @@ delete_omp_context (splay_tree_value value)
     splay_tree_delete (ctx->field_map);
   if (ctx->sfield_map)
     splay_tree_delete (ctx->sfield_map);
-  /* Reduction map is copied to nested contexts, so only delete it in the
-     owner.  */
-  if (ctx->reduction_map
-      && gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET
-      && is_gimple_omp_offloaded (ctx->stmt)
-      && is_gimple_omp_oacc (ctx->stmt))
-    splay_tree_delete (ctx->reduction_map);
-  if (ctx->oacc_reduction_set)
-    delete ctx->oacc_reduction_set;
 
   /* We hijacked DECL_ABSTRACT_ORIGIN earlier.  We need to clear it before
      it produces corrupt debug information.  */
@@ -1768,23 +1816,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
   tree c, decl;
   bool scan_array_reductions = false;
 
-  /* OpenACC parallel reduction variables belong in shared memory, but the
-     the original value still needs to be mapped as a COPY_FROMTO.  Populate
-     the hash table redset with all of the acc parallel reduction variable
-     decls.  Also initialize oacc_reduction_set for OpenMP target regions.  */
-
-  if (gimple_code (ctx->stmt) == GIMPLE_OMP_PARALLEL
-      || gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET)
-    {
-      ctx->oacc_reduction_set = new hash_set<tree>;
-
-      for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-	{
-	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
-	    ctx->oacc_reduction_set->add (OMP_CLAUSE_DECL (c));
-	}
-    }
-
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
       bool by_ref;
@@ -1796,13 +1827,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  if (OMP_CLAUSE_PRIVATE_OUTER_REF (c))
 	    goto do_private;
 	  else if (!is_variable_sized (decl))
-	    {
-	      if (gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET
-		  && is_gimple_omp_oacc (ctx->stmt))
-		install_var_ganglocal (decl, ctx);
-	      else
-		install_var_local (decl, ctx);
-	    }
+	    install_var_local (decl, ctx);
 	  break;
 
 	case OMP_CLAUSE_SHARED:
@@ -1851,6 +1876,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_LINEAR:
 	  decl = OMP_CLAUSE_DECL (c);
 
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+	    ctx->reductions++;
+
 	do_private:
 	  if (is_variable_sized (decl))
 	    {
@@ -1875,7 +1903,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		install_var_field (decl, by_ref, 3, ctx);
 	    }
 
-	  if (!is_oacc_parallel (ctx))
+	  if (!(is_gimple_omp_oacc (ctx->stmt)
+		&& is_oacc_reduction_private (decl, ctx)))
 	    install_var_local (decl, ctx);
 	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
 	    {
@@ -1972,15 +2001,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		  else
 		    install_var_field (decl, true, 3, ctx);
 		  if (is_gimple_omp_offloaded (ctx->stmt))
-		    {
-		      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-			  && ((OMP_CLAUSE_MAP_KIND (c)
-			       == GOMP_MAP_FORCE_TO_GANGLOCAL)
-			      || ctx->oacc_reduction_set->contains (decl)))
-			install_var_ganglocal (decl, ctx);
-		      else
-			install_var_local (decl, ctx);
-		    }
+		    install_var_local (decl, ctx);
 		}
 	    }
 	  else
@@ -2074,9 +2095,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);
-	  fixup_remapped_decl (decl, ctx,
-			       OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
-			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
+	  if (!(is_gimple_omp_oacc (ctx->stmt)
+		&& is_oacc_reduction_private (decl, ctx)))
+	    fixup_remapped_decl (decl, ctx,
+				 OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+				 && OMP_CLAUSE_PRIVATE_DEBUG (c));
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    scan_array_reductions = true;
@@ -2726,6 +2749,35 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 			  "no arguments allowed to gang, worker and vector clauses inside parallel");
 	    }
 	}
+
+      /* Filter out any OpenACC clauses which aren't associated with
+	 gangs, workers or vectors.  Such reductions are no-ops.  */
+      if (extract_oacc_loop_mask (ctx) == 0)
+	{
+	  /* First filter out the clauses at the beginning of the chain.  */
+	  while (clauses && OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_REDUCTION)
+	    {
+	      clauses = OMP_CLAUSE_CHAIN (clauses);
+	    }
+
+	  if (clauses != NULL)
+	    {
+	      /* Filter out the remaining clauses.  */
+	      for (tree c = OMP_CLAUSE_CHAIN (clauses), prev = clauses;
+		   c; c = OMP_CLAUSE_CHAIN (c))
+		{
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
+		    {
+		      tree t = OMP_CLAUSE_CHAIN (c);
+		      OMP_CLAUSE_CHAIN (prev) = t;
+		    }
+		  else
+		    prev = c;
+		}
+	    }
+
+	  gimple_omp_for_set_clauses (stmt, clauses);
+	}
     }
 
   if ((gwv_clause && auto_clause) || (auto_clause && seq_clause))
@@ -2819,10 +2871,6 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
   if (offloaded)
     {
-      if (is_gimple_omp_oacc (stmt))
-	ctx->reduction_map = splay_tree_new (splay_tree_compare_pointers,
-					     0, 0);
-
       create_omp_child_function (ctx, false);
       gimple_omp_target_set_child_fn (stmt, ctx->cb.dst_fn);
     }
@@ -3462,38 +3510,6 @@ maybe_lookup_ctx (gimple stmt)
   splay_tree_node n;
   n = splay_tree_lookup (all_contexts, (splay_tree_key) stmt);
   return n ? (omp_context *) n->value : NULL;
-}
-
-/* Generate loop head markers in outer->inner order.  */
-
-static void
-gen_oacc_fork (gimple_seq *seq, unsigned mask)
-{
-  unsigned level;
-
-  for (level = GOMP_DIM_GANG; level != GOMP_DIM_MAX; level++)
-    if (mask & GOMP_DIM_MASK (level))
-      {
-	tree arg = build_int_cst (unsigned_type_node, level);
-	gcall *call = gimple_build_call_internal (IFN_GOACC_FORK, 1, arg);
-	gimple_seq_add_stmt (seq, call);
-      }
-}
-
-/* Generate loop tail markers in inner->outer order.  */
-
-static void
-gen_oacc_join (gimple_seq *seq, unsigned mask)
-{
-  unsigned level;
-
-  for (level = GOMP_DIM_MAX; level-- != GOMP_DIM_GANG; )
-    if (mask & GOMP_DIM_MASK (level))
-      {
-	tree arg = build_int_cst (unsigned_type_node, level);
-	gcall *call = gimple_build_call_internal (IFN_GOACC_JOIN, 1, arg);
-	gimple_seq_add_stmt (seq, call);
-      }
 }
 
 /* Find the mapping for DECL in CTX or the immediately enclosing
@@ -4247,6 +4263,10 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      break;
 
 	    case OMP_CLAUSE_REDUCTION:
+	      /* OpenACC reductions are initialized using the internal
+		 functions GOACC_REDUCTION_SETUP and GOACC_REDUCTION_INIT.  */
+	      if (is_gimple_omp_oacc (ctx->stmt))
+		break;
 	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 		{
 		  tree placeholder = OMP_CLAUSE_REDUCTION_PLACEHOLDER (c);
@@ -4389,8 +4409,6 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		    {
 		      if (is_reference (var) && is_simd)
 			handle_simd_reference (clause_loc, new_vard, ilist);
-		      else if (is_oacc_parallel (ctx) && is_reference (var))
-			new_var = build_simple_mem_ref (new_var);
 		      gimplify_assign (new_var, x, ilist);
 		      if (is_simd)
 			{
@@ -4741,6 +4759,157 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
   return res;
 }
 
+/* Lowering code for OpenACC reductions.  This function takes as input an
+   internal function IFN (one of IFN_GOACC_REDUCTION_SETUP,
+   IFN_GOACC_REDUCTION_INIT, IFN_GOACC_REDUCTION_FINI or
+   IFN_GOACC_REDUCTION_TEARDOWN), a GOMP_DIM LOOP_DIM, the CLAUSES associated
+   with the acc construct, a gimple sequence ILIST, an omp_context CTX.
+   WRITE_BACK specifies whether code for a reduction should be emitted.
+   E.g., calls to GOACC_REDUCTION_FINI may need to be done in both
+   lower_omp_reductions and lower_omp_target and/or lower_omp_for due to
+   predication constraints.  */
+
+static void
+lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
+		       gimple_seq *ilist, omp_context *ctx, bool write_back)
+{
+  tree orig, res, var, ref_to_res, call, dim;
+  tree c, tcode, gwv, rid, lid = build_int_cst (integer_type_node, oacc_lid);
+  int oacc_rid, i;
+  unsigned mask = extract_oacc_loop_mask (ctx);
+  enum tree_code rcode;
+
+  /* Remove the outer-most level of parallelism from the loop.  */
+  for (i = GOMP_DIM_MAX-1; i >= 0; i--)
+    if (GOMP_DIM_MASK (i) & mask)
+      {
+        mask &= ~GOMP_DIM_MASK (i);
+	break;
+      }
+
+  /* Update the write-back status if this loop contains more than one
+     level of parallelism associated with it.  */
+  if (!write_back && (mask & GOMP_DIM_MASK (loop_dim)))
+    write_back = true;
+
+  if (ctx->reductions == 0)
+    return;
+
+  /* Call GOACC_LOCK.  */
+  if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
+    {
+      dim = build_int_cst (integer_type_node, loop_dim);
+      call = build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOACC_LOCK,
+					   void_type_node, 2, dim, lid);
+      gimplify_and_add (call, ilist);
+    }
+
+  for (c = clauses, oacc_rid = 0;
+       c && write_back;
+       c = OMP_CLAUSE_CHAIN (c), oacc_rid++)
+    {
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
+	continue;
+
+      orig = OMP_CLAUSE_DECL (c);
+
+      if (loop_dim == GOMP_DIM_GANG && is_oacc_reduction_private (orig, ctx)
+	  && !is_oacc_parallel (ctx))
+	continue;
+
+      var = OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c);
+      if (var == NULL_TREE)
+	var = lookup_decl (orig, ctx);
+
+      res = build_outer_var_ref (orig, ctx);
+
+      if (res == orig)
+	ref_to_res = NULL_TREE;
+
+      ref_to_res = integer_zero_node;
+      if (is_oacc_parallel (ctx))
+	{
+	  ref_to_res = build_receiver_ref (orig, false, ctx);
+
+	  if (is_reference (orig))
+	    ref_to_res = build_simple_mem_ref (ref_to_res);
+	}
+      else if (loop_dim == GOMP_DIM_GANG)
+	ref_to_res = build_fold_addr_expr (res);
+
+      /* Don't do anything for private gang reductions.  */
+      if (ref_to_res == NULL_TREE)
+	continue;
+
+      rcode = OMP_CLAUSE_REDUCTION_CODE (c);
+      if (rcode == MINUS_EXPR)
+	rcode = PLUS_EXPR;
+
+      if (is_reference (var))
+	var = build_simple_mem_ref (var);
+
+      tcode = build_int_cst (integer_type_node, rcode);
+      rid = build_int_cst (integer_type_node, oacc_rid);
+      gwv = build_int_cst (integer_type_node, loop_dim);
+      call = build_call_expr_internal_loc (UNKNOWN_LOCATION, ifn,
+					   TREE_TYPE (var), 6, ref_to_res,
+					   var, gwv, tcode, lid, rid);
+      gimplify_assign (var, call, ilist);
+    }
+
+  /* Call GOACC_UNLOCK.  */
+  if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
+    {
+      dim = build_int_cst (integer_type_node, loop_dim);
+      call = build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOACC_UNLOCK,
+					   void_type_node, 2, dim, lid);
+      gimplify_and_add (call, ilist);
+    }
+}
+
+/* Determine if a fake gang loop is necessary for an OpenACC reduction.  */
+
+static bool
+oacc_fake_gang_reduction (omp_context *ctx)
+{
+  if ((ctx->gwv_below & GOMP_DIM_MASK (GOMP_DIM_GANG)) == 0)
+    return true;
+
+  return false;
+}
+
+/* Helper function for lower_goacc_loop_*. ILIST is the gimple sequence
+   corresponding to private reductions.  OLIST is for the copy reductions.  */
+
+static unsigned
+lower_oacc_loop_helper (tree clauses, gimple_seq *ilist, gimple_seq *olist,
+			 omp_context *ctx, enum internal_fn f1,
+			 enum internal_fn f2, enum internal_fn fork_join,
+			 unsigned loop_dim, unsigned loop_mask,
+			 bool emit_f1)
+{
+  tree gwv;
+  gcall *call;
+  unsigned orig_mask = extract_oacc_loop_mask (ctx);
+
+  lower_oacc_reductions (f1, loop_dim, clauses, ilist, ctx, emit_f1);
+  gwv = build_int_cst (unsigned_type_node, loop_dim);
+  call = gimple_build_call_internal (fork_join, 1, gwv);
+  gimple_seq_add_stmt (ilist, call);
+  lower_oacc_reductions (f2, loop_dim, clauses, ilist, ctx, true);
+  loop_mask = loop_mask & ~GOMP_DIM_MASK (loop_dim);
+
+  if ((orig_mask & GOMP_DIM_MASK (GOMP_DIM_GANG)) == 0
+      && loop_dim != GOMP_DIM_GANG && loop_mask == 0
+      && oacc_fake_gang_reduction (ctx))
+    {
+      lower_oacc_reductions (f1, GOMP_DIM_GANG, clauses, olist, ctx, true);
+      lower_oacc_reductions (f2, GOMP_DIM_GANG, clauses, olist, ctx, true);
+    }
+
+  return loop_mask;
+}
+
 /* Generate code to implement the REDUCTION clauses.  OpenACC reductions
    are usually executed in parallel, but they fallback to sequential code for
    known single-threaded regions.  */
@@ -4752,6 +4921,24 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
   gimple stmt;
   tree x, c;
   int count = 0;
+
+  /* OpenACC loop reductions are handled elsewhere.  */
+  if (is_gimple_omp_oacc (ctx->stmt))
+    {
+      unsigned loop_dim, loop_mask = extract_oacc_loop_mask (ctx);
+
+      if (loop_mask == 0)
+	return;
+
+      for (loop_dim = GOMP_DIM_MAX; --loop_dim; )
+	if (loop_mask & GOMP_DIM_MASK (loop_dim))
+	  break;
+
+      lower_oacc_reductions (IFN_GOACC_REDUCTION_FINI, loop_dim, clauses,
+			      stmt_seqp, ctx, true);
+
+      return;
+    }
 
   /* SIMD reductions are handled in lower_rec_input_clauses.  */
   if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
@@ -4788,11 +4975,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
       new_var = lookup_decl (var, ctx);
       if (is_reference (var))
 	new_var = build_simple_mem_ref_loc (clause_loc, new_var);
-      if (is_oacc_parallel (ctx))
-	ref = lookup_oacc_reduction (IDENTIFIER_POINTER (DECL_NAME (var)),
-				     ctx);
-      else
-	ref = build_outer_var_ref (var, ctx);
+      ref = build_outer_var_ref (var, ctx);
       code = OMP_CLAUSE_REDUCTION_CODE (c);
 
       /* reduction(-:var) sums up the partial results, so it acts
@@ -4843,28 +5026,9 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	}
       else
 	{
-	  if (is_oacc_parallel (ctx) && is_reference (var))
-	    {
-	      tree t1, t2;
-	      tree type = TREE_TYPE (new_var);
-
-	      t1 = create_tmp_var (type);
-	      gimplify_assign (t1, build_simple_mem_ref (ref), &sub_seq);
-
-	      t2 = create_tmp_var (type);
-	      x = build2 (code, type, t1, new_var);
-	      gimplify_assign (t2, x, &sub_seq);
-
-	      x = build_simple_mem_ref (ref);
-	      gimplify_assign (x, t2, &sub_seq);
-	    }
-	  else
-	    {
-	      x = build2 (code, TREE_TYPE (ref), ref, new_var);
-	      if (!is_oacc_parallel (ctx))
-		ref = build_outer_var_ref (var, ctx);
-	      gimplify_assign (ref, x, &sub_seq);
-	    }
+	  x = build2 (code, TREE_TYPE (ref), ref, new_var);
+	  ref = build_outer_var_ref (var, ctx);
+	  gimplify_assign (ref, x, &sub_seq);
 	}
     }
 
@@ -6906,14 +7070,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 		     fold_convert (type, fd->loop.n1),
 		     fold_convert (type, fd->loop.n2));
 
-  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-    {
-      gimple_seq seq = NULL;
-	
-      gen_oacc_fork (&seq, region->gwv_this);
-      gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
-    }
-
   if (fd->collapse == 1
       && TYPE_UNSIGNED (type)
       && (t == NULL_TREE || !integer_onep (t)))
@@ -7155,14 +7311,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
-  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-    {
-      gimple_seq seq = NULL;
-
-      gen_oacc_join (&seq, region->gwv_this);
-      gsi_insert_seq_after (&gsi, seq, GSI_SAME_STMT);
-    }
-  else if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+  if (gimple_omp_for_kind (fd->for_stmt) != GF_OMP_FOR_KIND_OACC_LOOP
+      && !gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     {
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
@@ -7355,13 +7505,6 @@ expand_omp_for_static_chunk (struct omp_region *region,
     t = fold_binary (fd->loop.cond_code, boolean_type_node,
 		     fold_convert (type, fd->loop.n1),
 		     fold_convert (type, fd->loop.n2));
-  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-    {
-      gimple_seq seq = NULL;
-	
-      gen_oacc_fork (&seq, region->gwv_this);
-      gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
-    }
 
   if (fd->collapse == 1
       && TYPE_UNSIGNED (type)
@@ -7622,14 +7765,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
 
-  if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-    {
-      gimple_seq seq = NULL;
-
-      gen_oacc_join (&seq, region->gwv_this);
-      gsi_insert_seq_after (&gsi, seq, GSI_SAME_STMT);
-    }
-  else if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi))
+      && gimple_omp_for_kind (fd->for_stmt) != GF_OMP_FOR_KIND_OACC_LOOP)
     {
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
@@ -11063,6 +11200,50 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
     }
 }
 
+/* Lower code for OpenACC for entry and exit to an oacc loop.  This function
+   is responsible for setting up reductions and placing markers to GOACC_FORK
+   and GOACC_JOIN.
+*/
+
+static void
+lower_oacc_loop_enter_exit (bool enter_loop, tree clauses, gimple_seq *ilist,
+			     omp_context *ctx)
+{
+  unsigned loop_dim_mask = extract_oacc_loop_mask (ctx);
+  gimple_seq *seq;
+  enum internal_fn fork_join, f1, f2;
+  int dir;
+
+  if (loop_dim_mask == 0)
+    return;
+
+  if (enter_loop)
+    {
+      fork_join = IFN_GOACC_FORK;
+      f1 = IFN_GOACC_REDUCTION_SETUP;
+      f2 = IFN_GOACC_REDUCTION_INIT;
+      seq = &oacc_gang_reduction_init;
+      dir = 1;
+    }
+  else
+    {
+      fork_join = IFN_GOACC_JOIN;
+      f1 = IFN_GOACC_REDUCTION_FINI;
+      f2 = IFN_GOACC_REDUCTION_TEARDOWN;
+      seq = &oacc_gang_reduction_fini;
+      dir = -1;
+    }
+
+  for (int i = GOMP_DIM_GANG; i < GOMP_DIM_MAX; i++)
+    {
+      int dim = dir > 0 ? i : GOMP_DIM_MAX - (i + 1);
+      if (loop_dim_mask & GOMP_DIM_MASK (dim))
+	loop_dim_mask =
+	  lower_oacc_loop_helper (clauses, ilist, seq, ctx, f1, f2,
+				  fork_join, dim, loop_dim_mask,
+				  enter_loop);
+    }
+}
 
 /* Lower code for an OMP loop directive.  */
 
@@ -11073,8 +11254,12 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   struct omp_for_data fd, *fdp = NULL;
   gomp_for *stmt = as_a <gomp_for *> (gsi_stmt (*gsi_p));
   gbind *new_stmt;
-  gimple_seq omp_for_body, body, dlist;
+  gimple_seq omp_for_body, body, dlist, header, exit;
   size_t i;
+  int loop_mask = extract_oacc_loop_mask (ctx);
+
+  if (is_gimple_omp_oacc (ctx->stmt))
+    oacc_lid++;
 
   push_gimplify_context ();
 
@@ -11149,6 +11334,22 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* The pre-body and input clauses go before the lowered GIMPLE_OMP_FOR.  */
   dlist = NULL;
   body = NULL;
+  header = NULL;
+
+  if (is_gimple_omp_oacc (ctx->stmt))
+    {
+      lower_oacc_loop_enter_exit (true, gimple_omp_for_clauses (stmt),
+				   &header, ctx);
+      if (loop_mask & GOMP_DIM_MASK (GOMP_DIM_GANG)
+	  || (oacc_fake_gang_reduction (ctx) && loop_mask == ctx->gwv_this))
+	{
+	  gimple_seq_add_seq (&body, oacc_gang_reduction_init);
+	  oacc_gang_reduction_init = NULL;
+	}
+    }
+
+  gimple_seq_add_seq (&body, header);
+
   lower_rec_input_clauses (gimple_omp_for_clauses (stmt), &body, &dlist, ctx,
 			   fdp);
   gimple_seq_add_seq (&body, gimple_omp_for_pre_body (stmt));
@@ -11201,6 +11402,21 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* Region exit marker goes at the end of the loop body.  */
   gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
   maybe_add_implicit_barrier_cancel (ctx, &body);
+
+  if (is_gimple_omp_oacc (ctx->stmt))
+    {
+      exit = NULL;
+      lower_oacc_loop_enter_exit (false, gimple_omp_for_clauses (stmt),
+				   &exit, ctx);
+      gimple_seq_add_seq (&body, exit);
+      if (loop_mask & GOMP_DIM_MASK (GOMP_DIM_GANG)
+	  || (oacc_fake_gang_reduction (ctx) && loop_mask == ctx->gwv_this))
+	{
+	  gimple_seq_add_seq (&body, oacc_gang_reduction_fini);
+	  oacc_gang_reduction_fini = NULL;
+	}
+    }
+
   pop_gimplify_context (new_stmt);
 
   gimple_bind_append_vars (new_stmt, ctx->block_vars);
@@ -11754,7 +11970,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gbind *tgt_bind, *bind;
   gimple_seq tgt_body, olist, ilist, orlist, irlist, fplist, new_body;
   location_t loc = gimple_location (stmt);
-  bool offloaded, data_region, has_reduction;
+  bool offloaded, data_region;
   unsigned int map_cnt = 0;
   gimple goacc_data_end = NULL;
 
@@ -11779,7 +11995,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
 
   clauses = gimple_omp_target_clauses (stmt);
-  has_reduction = find_omp_clause (clauses, OMP_CLAUSE_REDUCTION) != NULL_TREE;
 
   tgt_bind = NULL;
   tgt_body = NULL;
@@ -11901,12 +12116,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		SET_DECL_VALUE_EXPR (new_var, x);
 		DECL_HAS_VALUE_EXPR_P (new_var) = 1;
 	      }
-	    else if (ctx->oacc_reduction_set->contains (var))
-	      {
-		splay_tree_insert (ctx->reduction_map, (splay_tree_key)
-				   IDENTIFIER_POINTER (DECL_NAME (var)),
-				   (splay_tree_value) x);
-	      }
 	    else
 	      {
 		/* Copy from the receiver field to gang-local memory.  */
@@ -11937,10 +12146,16 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (is_gimple_omp_oacc (stmt))
     oacc_init_count_vars (ctx, clauses);
 
-  if (has_reduction)
+  if (is_oacc_parallel (ctx) && ctx->reductions)
     {
-      lower_rec_input_clauses (clauses, &irlist, &orlist, ctx, NULL);
-      lower_reduction_clauses (clauses, &orlist, ctx);
+      lower_oacc_reductions (IFN_GOACC_REDUCTION_SETUP, GOMP_DIM_GANG,
+			      clauses, &irlist, ctx, true);
+      lower_oacc_reductions (IFN_GOACC_REDUCTION_INIT, GOMP_DIM_GANG,
+			      clauses, &irlist, ctx, true);
+      lower_oacc_reductions (IFN_GOACC_REDUCTION_FINI, GOMP_DIM_GANG,
+			      clauses, &orlist, ctx, true);
+      lower_oacc_reductions (IFN_GOACC_REDUCTION_TEARDOWN, GOMP_DIM_GANG,
+			      clauses, &orlist, ctx, true);
     }
 
   lower_omp (&ctx->ganglocal_init, ctx);
@@ -12059,13 +12274,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 		tree var = lookup_decl_in_outer_ctx (ovar, ctx);
 		tree x = build_sender_ref (ovar, ctx);
-		if (maybe_lookup_oacc_reduction (var, ctx))
-		  {
-		    gcc_checking_assert (offloaded
-					 && is_gimple_omp_oacc (stmt));
-		    gimplify_assign (x, var, &ilist);
-		  }
-		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 			 && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
 			 && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 			 && TREE_CODE (TREE_TYPE (ovar)) == ARRAY_TYPE)
@@ -12211,7 +12420,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (offloaded)
     {
       gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
-      if (has_reduction)
+      if (ctx->reductions)
 	{
 	  gimple_seq_add_seq (&irlist, tgt_body);
 	  gimple_seq_add_seq (&new_body, irlist);
