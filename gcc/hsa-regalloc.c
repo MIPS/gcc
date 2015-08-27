@@ -665,6 +665,18 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 		}
 	    }
 	}
+
+      /* Everything live-in in this BB has a start point before
+         our first insn.  */
+      int before_start_number;
+      if (hbb->first_insn)
+	before_start_number = hbb->first_insn->number;
+      else
+	before_start_number = after_end_number;
+      before_start_number--;
+      EXECUTE_IF_SET_IN_BITMAP (hbb->livein, 0, bit, bi)
+	note_lr_begin (ind2reg[bit], before_start_number);
+
       if (hbb->first_insn)
 	last_insn = hbb->first_insn;
     }
