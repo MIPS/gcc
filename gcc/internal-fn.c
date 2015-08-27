@@ -2064,6 +2064,39 @@ expand_GOACC_LOCK_INIT (gcall *ARG_UNUSED (stmt))
 #endif
 }
 
+/* This should get expanded in oacc_transform.  */
+
+static void
+expand_GOACC_REDUCTION_SETUP (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+/* This should get expanded in oacc_transform.  */
+
+static void
+expand_GOACC_REDUCTION_INIT (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+/* This should get expanded in oacc_transform.  */
+
+static void
+expand_GOACC_REDUCTION_FINI (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+/* This should get expanded in oacc_transform.  */
+
+static void
+expand_GOACC_REDUCTION_TEARDOWN (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 

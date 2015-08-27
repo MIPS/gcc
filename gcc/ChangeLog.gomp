@@ -1,3 +1,25 @@
+2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in: Add a placeholder for TARGET_GOACC_REDUCTION.
+	* internal-fn.c (expand_GOACC_REDUCTION_SETUP): New function.
+	(expand_GOACC_REDUCTION_INIT): New function.
+	(expand_GOACC_REDUCTION_FINI): New function.
+	(expand_GOACC_REDUCTION_TEARDOWN): New function.
+	* internal-fn.def (DEF_INTERNAL_FN):
+	* omp-low.c (GOACC_REDUCTION_SETUP, GOACC_REDUCTION_INIT,
+	GOACC_REDUCTION_FINI, GOACC_REDUCTION_TEARDOWN): New internal
+	functions.
+	* omp-low.c (execute_oacc_transform): Expand those new internal
+	functions.
+	(make_pass_oacc_transform): Add TODO_cleanup_cfg to todo_flags_finish.
+	(default_goacc_reduction_setup): New function.
+	(default_goacc_reduction_init_fini): New function.
+	(default_goacc_reduction_teardown): New function.
+	(default_goacc_reduction): New function.
+	* target.def (reduction): New goacc target hook.
+	* targhooks.h (default_goacc_reduction): Declare
+
 2015-08-25  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* tracer.c (ignore_bb_p): Change bb argument from const_basic_block
