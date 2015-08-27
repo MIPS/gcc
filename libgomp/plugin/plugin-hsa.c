@@ -855,9 +855,6 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
 {
   struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
   struct agent_info *agent = kernel->agent;
-  if (pthread_rwlock_rdlock (&agent->modules_rwlock))
-    GOMP_PLUGIN_fatal ("Unable to read-lock an HSA agent rwlock");
-
   struct kernel_launch_attributes def;
   const struct kernel_launch_attributes *kla;
   if (!parse_launch_attributes (kern_launch, &def, &kla))
@@ -867,6 +864,8 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
 		 "zero\n");
       return;
     }
+  if (pthread_rwlock_rdlock (&agent->modules_rwlock))
+    GOMP_PLUGIN_fatal ("Unable to read-lock an HSA agent rwlock");
 
   create_and_finalize_hsa_program (agent);
   init_kernel (kernel) ;
