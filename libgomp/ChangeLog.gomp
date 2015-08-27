@@ -1,3 +1,19 @@
+2015-08-26  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction.h: New file.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-1.c: Update to check
+	worker and vector reductions.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-5.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-3.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-4.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-5.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-6.f90: Likewise.
+
 2015-08-25  Joseph Myers  <joseph@codesourcery.com>
 
 	* plugin/configfrag.ac: Don't test for fnmatch.h or fnmatch.
