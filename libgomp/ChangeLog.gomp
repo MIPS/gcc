@@ -1,3 +1,11 @@
+2015-08-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h: Document gomp_task_depend_entry, gomp_task,
+	gomp_taskgroup.
+	* task.c (gomp_task_run_pre): Add comments.
+	(gomp_task_run_post_handle_dependers): Same.
+	(GOMP_taskwait): Same.
+
 2015-08-27  Aldy Hernandez  <aldyh@redhat.com>
 
 	* libgomp.h (enum gomp_task_kind): Comment fields.

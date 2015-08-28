@@ -279,9 +279,11 @@ struct htab;
 
 struct gomp_task_depend_entry
 {
+  /* Address of dependency.  */
   void *addr;
   struct gomp_task_depend_entry *next;
   struct gomp_task_depend_entry *prev;
+  /* Task that provides the dependency in ADDR.  */
   struct gomp_task *task;
   /* Depend entry is of type "IN".  */
   bool is_in;
@@ -311,22 +313,35 @@ struct gomp_taskwait
 
 struct gomp_task
 {
+  /* Parent circular list.  See children description below.  */
   struct gomp_task *parent;
+  /* Circular list representing the children of this task.
+
+     In this list we first have parent_depends_on ready to run tasks,
+     then !parent_depends_on ready to run tasks, and finally already
+     running tasks.  */
   struct gomp_task *children;
   struct gomp_task *next_child;
   struct gomp_task *prev_child;
+  /* Circular task_queue in `struct gomp_team'.
+
+     GOMP_TASK_WAITING tasks come before GOMP_TASK_TIED tasks.  */
   struct gomp_task *next_queue;
   struct gomp_task *prev_queue;
-  /* Next task in the current taskgroup.  */
+  /* Circular queue in gomp_taskgroup->children.
+
+     GOMP_TASK_WAITING tasks come before GOMP_TASK_TIED tasks.  */
   struct gomp_task *next_taskgroup;
-  /* Previous task in the current taskgroup.  */
   struct gomp_task *prev_taskgroup;
   /* Taskgroup this task belongs in.  */
   struct gomp_taskgroup *taskgroup;
+  /* Tasks that depend on this task.  */
   struct gomp_dependers_vec *dependers;
   struct htab *depend_hash;
   struct gomp_taskwait *taskwait;
+  /* Number of items in DEPEND.  */
   size_t depend_count;
+  /* Number of tasks in the DEPENDERS field above.  */
   size_t num_dependees;
   struct gomp_task_icv icv;
   void (*fn) (void *);
@@ -335,13 +350,23 @@ struct gomp_task
   bool in_tied_task;
   bool final_task;
   bool copy_ctors_done;
+  /* Set for undeferred tasks with unsatisfied dependencies which
+     block further execution of their parent until the dependencies
+     are satisfied.  */
   bool parent_depends_on;
+  /* Dependencies provided and/or needed for this task.  DEPEND_COUNT
+     is the number of items available.  */
   struct gomp_task_depend_entry depend[];
 };
 
 struct gomp_taskgroup
 {
   struct gomp_taskgroup *prev;
+  /* Circular list of tasks that belong in this taskgroup.
+
+     Tasks are chained by next/prev_taskgroup within gomp_task, and
+     are sorted by GOMP_TASK_WAITING tasks, and then GOMP_TASK_TIED
+     tasks.  */
   struct gomp_task *children;
   bool in_taskgroup_wait;
   bool cancelled;
@@ -411,6 +436,8 @@ struct gomp_team
   struct gomp_work_share work_shares[8];
 
   gomp_mutex_t task_lock;
+  /* Scheduled tasks.  Chain fields are next/prev_queue within a
+     gomp_task.  */
   struct gomp_task *task_queue;
   /* Number of all GOMP_TASK_{WAITING,TIED} tasks in the team.  */
   unsigned int task_count;

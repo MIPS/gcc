@@ -463,14 +463,26 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
       if (parent->children == child_task)
 	parent->children = child_task->next_child;
 
+      /* If the current task (child_task) is at the top of the
+	 parent's last_parent_depends_on, it's about to be removed
+	 from it.  Adjust last_parent_depends_on appropriately.  */
       if (__builtin_expect (child_task->parent_depends_on, 0)
 	  && parent->taskwait->last_parent_depends_on == child_task)
 	{
+	  /* The last_parent_depends_on list was built with all
+	     parent_depends_on entries linked to the prev_child.  Grab
+	     the next last_parent_depends_on head from this prev_child if
+	     available...  */
 	  if (child_task->prev_child->kind == GOMP_TASK_WAITING
 	      && child_task->prev_child->parent_depends_on)
 	    parent->taskwait->last_parent_depends_on = child_task->prev_child;
 	  else
-	    parent->taskwait->last_parent_depends_on = NULL;
+	    {
+	      /* ...otherwise, there are no more parent_depends_on
+		 entries waiting to run.  In which case, clear the
+		 list.  */
+	      parent->taskwait->last_parent_depends_on = NULL;
+	    }
 	}
     }
 
@@ -529,6 +541,11 @@ gomp_task_run_post_handle_depend_hash (struct gomp_task *child_task)
       }
 }
 
+/* After CHILD_TASK has been run, adjust the various task queues to
+   give higher priority to the tasks that depend on CHILD_TASK.
+
+   TEAM is the team to which CHILD_TASK belongs to.  */
+
 static size_t
 gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 				     struct gomp_team *team)
@@ -552,7 +569,7 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 	      if (parent->taskwait && parent->taskwait->last_parent_depends_on
 		  && !task->parent_depends_on)
 		{
-		  /* Put task in last_parent_depends_on.  */
+		  /* Put depender in last_parent_depends_on.  */
 		  struct gomp_task *last_parent_depends_on
 		    = parent->taskwait->last_parent_depends_on;
 		  task->next_child = last_parent_depends_on->next_child;
@@ -560,7 +577,8 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 		}
 	      else
 		{
-		  /* Put task at the top of the sibling list.  */
+		  /* Make depender a sibling of child_task, and place
+		     it at the top of said sibling list.  */
 		  task->next_child = parent->children;
 		  task->prev_child = parent->children->prev_child;
 		  parent->children = task;
@@ -570,7 +588,7 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 	    }
 	  else
 	    {
-	      /* Put task in the sibling list.  */
+	      /* Make depender a sibling of child_task.  */
 	      task->next_child = task;
 	      task->prev_child = task;
 	      parent->children = task;
@@ -592,6 +610,8 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 		parent->taskwait->last_parent_depends_on = task;
 	    }
 	}
+      /* If depender is in a taskgroup, put it at the TOP of its
+	 taskgroup.  */
       if (taskgroup)
 	{
 	  if (taskgroup->children)
@@ -613,6 +633,8 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 	      gomp_sem_post (&taskgroup->taskgroup_sem);
 	    }
 	}
+      /* Put depender of child_task at the END of the team's
+	 task_queue.  */
       if (team->task_queue)
 	{
 	  task->next_queue = team->task_queue;
@@ -829,7 +851,9 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
     }
 }
 
-/* Called when encountering a taskwait directive.  */
+/* Called when encountering a taskwait directive.
+
+   Wait for all children of the current task.  */
 
 void
 GOMP_taskwait (void)
@@ -1023,6 +1047,10 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 			task->children = tsk;
 			tsk->prev_child->next_child = tsk;
 			tsk->next_child->prev_child = tsk;
+		      }
+		    else
+		      {
+			/* It's already in task->children.  Nothing to do.  */;
 		      }
 		    last_parent_depends_on = tsk;
 		  }
