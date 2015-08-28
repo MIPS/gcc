@@ -16213,7 +16213,7 @@ static const struct mips_builtin_description mips_builtins[] = {
 static GTY(()) tree mips_builtin_decls[ARRAY_SIZE (mips_builtins)];
 /* Get the index I of the function declaration for mips_builtin_decls[I]
    using the instruction code or return null if not defined for the target.  */
-static GTY(()) int mips_get_builtin_decl_index[LAST_INSN_CODE];
+static GTY(()) int mips_get_builtin_decl_index[NUM_INSN_CODES];
 
 /* MODE is a vector mode whose elements have type TYPE.  Return the type
    of the vector itself.  */
