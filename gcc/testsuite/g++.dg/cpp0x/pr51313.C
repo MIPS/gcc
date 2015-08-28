@@ -9,8 +9,6 @@ extern "C" {
 
 ostream&
 operator<<(ostream&, const unsigned char*);
-ostream&
-operator<<(ostream&, const int);
 
 extern ostream cout;
 
