@@ -1435,6 +1435,7 @@ gomp_task *gimple_build_omp_task (gimple_seq, tree, tree, tree, tree,
 				       tree, tree);
 gimple gimple_build_omp_section (gimple_seq);
 gimple gimple_build_omp_master (gimple_seq);
+gimple gimple_build_omp_gpukernel (gimple_seq);
 gimple gimple_build_omp_taskgroup (gimple_seq);
 gomp_continue *gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_ordered (gimple_seq);
@@ -1691,6 +1692,7 @@ gimple_has_substatements (gimple g)
     case GIMPLE_OMP_TARGET:
     case GIMPLE_OMP_TEAMS:
     case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_GPUKERNEL:
     case GIMPLE_WITH_CLEANUP_EXPR:
     case GIMPLE_TRANSACTION:
       return true;
@@ -5879,7 +5881,8 @@ gimple_return_set_retbnd (gimple gs, tree retval)
     case GIMPLE_OMP_RETURN:			\
     case GIMPLE_OMP_ATOMIC_LOAD:		\
     case GIMPLE_OMP_ATOMIC_STORE:		\
-    case GIMPLE_OMP_CONTINUE
+    case GIMPLE_OMP_CONTINUE:			\
+    case GIMPLE_OMP_GPUKERNEL
 
 static inline bool
 is_gimple_omp (const_gimple stmt)

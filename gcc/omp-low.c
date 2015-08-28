@@ -9905,8 +9905,6 @@ expand_omp_for_kernel (struct omp_region *kfor)
   gsi = gsi_last_bb (kfor->exit);
   gcc_assert (!gsi_end_p (gsi)
 	      && gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
-  gimple ret_stmt = gimple_build_return (NULL);
-  gsi_insert_after (&gsi, ret_stmt, GSI_SAME_STMT);
   gsi_remove (&gsi, true);
 
   /* Fixup the much simpler CFG.  */
@@ -9957,14 +9955,13 @@ expand_target_kernel_body (struct omp_region *target)
   struct omp_region **pp;
 
   for (pp = &target->inner; *pp; pp = &(*pp)->next)
-    if ((*pp)->type == GIMPLE_OMP_FOR
-	&& (gimple_omp_for_kind (last_stmt ((*pp)->entry))
-	    == GF_OMP_FOR_KIND_KERNEL_BODY))
+    if ((*pp)->type == GIMPLE_OMP_GPUKERNEL)
       break;
 
+  struct omp_region *gpukernel = *pp;
+
   tree orig_child_fndecl = gimple_omp_target_child_fn (tgt_stmt);
-  struct omp_region *kfor = *pp;
-  if (!kfor)
+  if (!gpukernel)
     {
       gcc_assert (!tgt_stmt->kernel_iter);
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
@@ -9978,9 +9975,18 @@ expand_target_kernel_body (struct omp_region *target)
     }
 
   gcc_assert (tgt_stmt->kernel_iter);
+  *pp = gpukernel->next;
+
+  for (pp = &gpukernel->inner; *pp; pp = &(*pp)->next)
+    if ((*pp)->type == GIMPLE_OMP_FOR
+	&& (gimple_omp_for_kind (last_stmt ((*pp)->entry))
+	    == GF_OMP_FOR_KIND_KERNEL_BODY))
+      break;
+
+  struct omp_region *kfor = *pp;
+  gcc_assert (kfor);
   if (kfor->inner)
     expand_omp (kfor->inner);
-  *pp = kfor->next;
 
   tree kern_fndecl = copy_node (orig_child_fndecl);
   DECL_NAME (kern_fndecl) = clone_function_name (kern_fndecl, "kernel");
@@ -10007,8 +10013,20 @@ expand_target_kernel_body (struct omp_region *target)
 
   expand_omp_for_kernel (kfor);
 
-  move_sese_region_to_fn (kern_cfun, single_succ (kfor->entry),
-			  kfor->exit, block);
+  /* Remove the omp for statement */
+  gimple_stmt_iterator gsi = gsi_last_bb (gpukernel->entry);
+  gsi_remove (&gsi, true);
+  /* Replace the GIMPLE_OMP_RETURN at the end of the kernel region with a real
+     return.  */
+  gsi = gsi_last_bb (gpukernel->exit);
+  gcc_assert (!gsi_end_p (gsi)
+	      && gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
+  gimple ret_stmt = gimple_build_return (NULL);
+  gsi_insert_after (&gsi, ret_stmt, GSI_SAME_STMT);
+  gsi_remove (&gsi, true);
+
+  move_sese_region_to_fn (kern_cfun, single_succ (gpukernel->entry),
+			  gpukernel->exit, block);
 
   cgraph_node *kcn = cgraph_node::get_create (kern_fndecl);
   kcn->mark_force_output ();
@@ -10034,7 +10052,6 @@ expand_target_kernel_body (struct omp_region *target)
   basic_block bb;
   FOR_EACH_BB_FN (bb, kern_cfun)
     {
-      gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
@@ -12117,10 +12134,12 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       lower_omp (&tgt_body, ctx);
       if (ctx->kernel_inner_loop)
 	{
-	  /* FIXME: Try to invent an encapsulating block which would survive
-	     until omp expansion.  */
 	  gimple_seq_add_stmt (&kernel_seq, ctx->kernel_inner_loop);
 	  lower_omp (&kernel_seq, ctx);
+	  gimple_seq_add_stmt (&kernel_seq, gimple_build_omp_return (false));
+	  gimple gpukernel = gimple_build_omp_gpukernel (kernel_seq);
+	  kernel_seq = NULL;
+	  gimple_seq_add_stmt (&kernel_seq, gpukernel);
 	}
       target_nesting_level--;
     }
@@ -13047,6 +13066,7 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_GPUKERNEL:
       cur_region = new_omp_region (bb, code, cur_region);
       fallthru = true;
       break;

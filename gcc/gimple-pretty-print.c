@@ -1486,6 +1486,9 @@ dump_gimple_omp_block (pretty_printer *buffer, gimple gs, int spc, int flags)
 	case GIMPLE_OMP_SECTION:
 	  pp_string (buffer, "#pragma omp section");
 	  break;
+	case GIMPLE_OMP_GPUKERNEL:
+	  pp_string (buffer, "#pragma omp gpukernel");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -2240,6 +2243,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_GPUKERNEL:
       dump_gimple_omp_block (buffer, gs, spc, flags);
       break;
 

@@ -1,3 +1,21 @@
+2015-08-28  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (expand_omp_for_kernel): Do not insert return
+	statement.
+	(expand_target_kernel_body): Handle kernels
+	encapsulated in GIMPLE_OMP_GPUKERNEL statements.
+	(lower_omp_target): Lower kernel code into a new
+	GIMPLE_OMP_GPUKERNEL statement.
+	* gimple.def (GIMPLE_OMP_GPUKERNEL): New code.
+	* gimple.c (gimple_build_omp_gpukernel): New function.
+	(gimple_copy): Handle GIMPLE_OMP_GPUKERNEL case.
+	* gimple-low.c (lower_stmt): Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_block): Likewise.
+	(pp_gimple_stmt_1): Likewise.
+	* gimple.h (gimple_build_omp_gpukernel): Declare.
+	(gimple_has_substatements): Handle GIMPLE_OMP_GPUKERNEL case.
+	(CASE_GIMPLE_OMP): Likewise.
+
 2015-08-26  Michael Matz  <matz@suse.de>
 
 	* hsa-regalloc.c (linear_scan_regalloc): Make sure to mark
