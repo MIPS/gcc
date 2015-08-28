@@ -1,3 +1,12 @@
+2015-08-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (extract_oacc_routine_gwv): New function.
+	(build_outer_var_ref): Handle refs inside acc routines.
+	(scan_omp_for): Check nested parallelism inside acc routines.
+	(scan_omp_1_stmt): Check for compatible parallelism when calling
+	routines.
+	(execute_oacc_transform): Remove dead variable.
+
 2015-08-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* builtins.c (expand_oacc_ganglocal_ptr): Delete.

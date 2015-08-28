@@ -13,14 +13,8 @@ program main
     a(i) = i
   end do
 
-  !
-  ! Appears there's two bugs...
-  ! 1) loop with vector
-  ! 2) loop without vector
-  !
-
   !$acc parallel copy (a)
-  !$acc loop vector
+  !$acc loop worker
     do i = 1, N
       call vector (a)
     end do
@@ -37,6 +31,7 @@ contains
   integer, intent (inout) :: a(N)
   integer :: i
 
+  !$acc loop vector
   do i = 1, N
     a(i) = a(i) - a(i) 
   end do

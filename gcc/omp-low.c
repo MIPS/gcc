@@ -415,6 +415,35 @@ is_combined_parallel (struct omp_region *region)
   return region->is_combined_parallel;
 }
 
+/* Return the gang, worker and vector attributes from associated with
+   FNDECL.  Returns a GOMP_DIM for the lowest level of parallelism beginning
+   with GOMP_DIM_GANG, or -1 if the routine is a SEQ. Otherwise, return 0 if
+   the FNDECL is not an acc routine.
+*/
+
+static int
+extract_oacc_routine_gwv (tree fndecl)
+{
+  tree attrs = get_oacc_fn_attrib (fndecl);
+  tree pos;
+  unsigned gwv = 0;
+  int i;
+  int ret = 0;
+
+  if (attrs != NULL_TREE)
+    {
+      for (i = 0, pos = TREE_VALUE (attrs);
+	   gwv == 0 && i != GOMP_DIM_MAX;
+	   i++, pos = TREE_CHAIN (pos))
+	if (TREE_PURPOSE (pos) != boolean_false_node)
+	  return 1 << i;
+
+      ret = -1;
+    }
+
+  return ret;
+}
+
 
 /* Extract the header elements of parallel loop FOR_STMT and store
    them into *FD.  */
@@ -1227,7 +1256,8 @@ build_outer_var_ref (tree var, omp_context *ctx)
       else
 	x = lookup_decl (var, ctx->outer);
     }
-  else if (is_reference (var) || is_oacc_parallel (ctx))
+  else if (is_reference (var) || is_oacc_parallel (ctx)
+	   || extract_oacc_routine_gwv (current_function_decl) != 0)
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */
     x = var;
@@ -2578,9 +2608,16 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
   bool gwv_clause = false;
   bool auto_clause = false;
   bool seq_clause = false;
+  int gwv_routine = 0;
 
   if (outer_ctx)
     outer_type = gimple_code (outer_ctx->stmt);
+  else
+    {
+      gwv_routine = extract_oacc_routine_gwv (current_function_decl);
+      if (gwv_routine > 0)
+	gwv_routine = gwv_routine >> 1;
+    }
 
   ctx = new_omp_context (stmt, outer_ctx);
 
@@ -2699,6 +2736,12 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 	       && ctx->gwv_this > ctx->gwv_below)
 	error_at (gimple_location (stmt),
 		  "gang, worker and vector must occur in this order in a loop nest");
+      else if (!outer_ctx && ctx->gwv_this != 0 && gwv_routine != 0
+	       && ((ffs (ctx->gwv_this) <= gwv_routine)
+		   || gwv_routine < 0))
+	error_at (gimple_location (stmt),
+		  "invalid parallelism inside acc routine");
+
       if (outer_ctx && outer_type == GIMPLE_OMP_FOR)
 	outer_ctx->gwv_below |= ctx->gwv_below;
     }
@@ -3287,6 +3330,16 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	      default:
 		break;
 	      }
+	  else if (ctx && is_gimple_omp_oacc (ctx->stmt)
+		   && !is_oacc_parallel (ctx))
+	    {
+	      /* Is this a call to an acc routine?  */
+	      int gwv = extract_oacc_routine_gwv (fndecl);
+
+	      if (gwv > 0 && ffs (ctx->gwv_this) >= ffs (gwv))
+		error_at (gimple_location (stmt),
+			  "incompatible parallelism with acc routine");
+	    }
 	}
     }
   if (remove)
@@ -3352,6 +3405,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	    insert_decl_map (&ctx->cb, var, var);
       }
       break;
+
     default:
       *handled_ops_p = false;
       break;
@@ -14815,7 +14869,6 @@ execute_oacc_transform ()
 	    else if (gimple_call_internal_p (stmt))
 	      {
 		unsigned ifn_code = gimple_call_internal_fn (stmt);
-		int retval = 0;
 		switch (ifn_code)
 		  {
 		  default: break;

@@ -41,7 +41,7 @@ program main
   end do
 
   !$acc parallel copy (b)
-  !$acc loop worker
+  !$acc loop
     do i = 1, N
       call worker (b)
     end do
@@ -56,7 +56,7 @@ program main
   end do
 
   !$acc parallel copy (a)
-  !$acc loop vector
+  !$acc loop
     do i = 1, N
       call vector (a)
     end do
@@ -85,9 +85,9 @@ subroutine worker (b)
   integer, intent (inout) :: b(M*N)
   integer :: i, j
 
-  !$acc loop gang
-  do i = 1, N
   !$acc loop worker
+  do i = 1, N
+  !$acc loop vector
     do j = 1, M
       b(j + ((i - 1) * M)) = b(j + ((i - 1) * M)) + 1
     end do

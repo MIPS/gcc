@@ -23,10 +23,10 @@ worker (int *b)
 {
   int i, j;
 
-#pragma acc loop gang
+#pragma acc loop worker
   for (i = 0; i < N; i++)
     {
-#pragma acc loop worker
+#pragma acc loop vector
       for (j = 0; j < M; j++)
         b[i * M + j] += b[i  * M + j]; 
     }
@@ -112,7 +112,7 @@ main(int argc, char **argv)
 
 #pragma acc parallel copy (a[0:N])
   {
-#pragma acc loop vector
+#pragma acc loop
     for (i = 0; i < N; i++)
       vector (&a[0]);
   }
