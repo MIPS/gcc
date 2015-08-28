@@ -975,9 +975,9 @@ vect_model_store_cost (stmt_vec_info stmt_info, int ncopies,
      include the cost of the permutes.  */
   if (!store_lanes_p && group_size > 1)
     {
-      /* Uses a high and low interleave operation for each needed permute.  */
-      
-      int nstmts = ncopies * exact_log2 (group_size) * group_size;
+      /* Uses a high and low interleave or shuffle operations for each
+	 needed permute.  */
+      int nstmts = ncopies * ceil_log2 (group_size) * group_size;
       inside_cost = record_stmt_cost (body_cost_vec, nstmts, vec_perm,
 				      stmt_info, 0, vect_body);
 
@@ -1092,10 +1092,11 @@ vect_model_load_cost (stmt_vec_info stmt_info, int ncopies,
      include the cost of the permutes.  */
   if (!load_lanes_p && group_size > 1)
     {
-      /* Uses an even and odd extract operations for each needed permute.  */
-      int nstmts = ncopies * exact_log2 (group_size) * group_size;
-      inside_cost += record_stmt_cost (body_cost_vec, nstmts, vec_perm,
-				       stmt_info, 0, vect_body);
+      /* Uses an even and odd extract operations or shuffle operations
+	 for each needed permute.  */
+      int nstmts = ncopies * ceil_log2 (group_size) * group_size;
+      inside_cost = record_stmt_cost (body_cost_vec, nstmts, vec_perm,
+				      stmt_info, 0, vect_body);
 
       if (dump_enabled_p ())
         dump_printf_loc (MSG_NOTE, vect_location,
