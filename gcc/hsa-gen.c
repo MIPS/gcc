@@ -2236,6 +2236,31 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
     case NE_EXPR:
       compare = BRIG_COMPARE_NE;
       break;
+    case UNORDERED_EXPR:
+      compare = BRIG_COMPARE_NAN;
+      break;
+    case ORDERED_EXPR:
+      compare = BRIG_COMPARE_NUM;
+      break;
+    case UNLT_EXPR:
+      compare = BRIG_COMPARE_LTU;
+      break;
+    case UNLE_EXPR:
+      compare = BRIG_COMPARE_LEU;
+      break;
+    case UNGT_EXPR:
+      compare = BRIG_COMPARE_GTU;
+      break;
+    case UNGE_EXPR:
+      compare = BRIG_COMPARE_GEU;
+      break;
+    case UNEQ_EXPR:
+      compare = BRIG_COMPARE_EQU;
+      break;
+    case LTGT_EXPR:
+      compare = BRIG_COMPARE_NEU;
+      break;
+
     default:
       sorry ("Support for HSA does not implement comparison tree code %s\n",
 	     get_tree_code_name (code));
@@ -2494,6 +2519,14 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
     case GE_EXPR:
     case EQ_EXPR:
     case NE_EXPR:
+    case UNORDERED_EXPR:
+    case ORDERED_EXPR:
+    case UNLT_EXPR:
+    case UNLE_EXPR:
+    case UNGT_EXPR:
+    case UNGE_EXPR:
+    case UNEQ_EXPR:
+    case LTGT_EXPR:
       {
 	hsa_op_reg *dest = hsa_reg_for_gimple_ssa (gimple_assign_lhs (assign),
 						   ssa_map);
