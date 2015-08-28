@@ -1441,8 +1441,6 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 bool
 reduced_constant_expression_p (tree t)
 {
-  /* Make sure we remove useless initial NOP_EXPRs.  */
-  STRIP_NOPS (t);
   switch (TREE_CODE (t))
     {
     case PTRMEM_CST:

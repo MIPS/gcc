@@ -2110,6 +2110,17 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
       else if (TREE_CODE (arg1) == REAL_CST)
 	return fold_convert_const_fixed_from_real (type, arg1);
     }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      if (TREE_CODE (arg1) == VECTOR_CST
+	  && TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (arg1))
+	  && TYPE_VECTOR_SUBPARTS (type) == VECTOR_CST_NELTS (arg1))
+	{
+	  tree r = copy_node (arg1);
+	  TREE_TYPE (arg1) = type;
+	  return r;
+	}
+    }
   return NULL_TREE;
 }
 
