@@ -1816,6 +1816,10 @@ fplt
 Common Report Var(flag_plt) Init(1) Optimization
 Use PLT for PIC calls (-fno-plt: load the address from GOT at call site).
 
+fno-plt=
+Common Report RejectNegative Joined Var(noplt_string)
+Load the address from GOT at call site for specific external functions
+
 fplugin=
 Common Joined RejectNegative Var(common_deferred_options) Defer
 Specify a plugin to load.

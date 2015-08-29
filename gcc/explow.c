@@ -647,6 +647,7 @@ force_reg (machine_mode mode, rtx x)
      and that X can be substituted for it.  Don't get confused
      if INSN set something else (such as a SUBREG of TEMP).  */
   if (CONSTANT_P (x)
+      && !targetm.cannot_set_reg_equal_const (x)
       && (set = single_set (insn)) != 0
       && SET_DEST (set) == temp
       && ! rtx_equal_p (x, SET_SRC (set)))

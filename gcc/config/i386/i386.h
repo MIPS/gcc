@@ -2561,6 +2561,16 @@ struct GTY(()) machine_function {
 #define SYMBOL_REF_STUBVAR_P(X) \
 	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_STUBVAR) != 0)
 
+/* Re-use the SYMBOL_FLAG_DLLIMPORT bit.  */
+#define SYMBOL_FLAG_PLT		SYMBOL_FLAG_DLLIMPORT
+#define SYMBOL_REF_PLT_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_PLT) != 0)
+
+/* Re-use the SYMBOL_FLAG_DLLEXPORT bit.  */
+#define SYMBOL_FLAG_NOPLT	SYMBOL_FLAG_DLLEXPORT
+#define SYMBOL_REF_NOPLT_P(X) \
+	((SYMBOL_REF_FLAGS (X) & SYMBOL_FLAG_NOPLT) != 0)
+
 extern void debug_ready_dispatch (void);
 extern void debug_dispatch_window (int);
 

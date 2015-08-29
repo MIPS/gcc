@@ -2659,6 +2659,21 @@ of TLS symbols for various targets.",
  bool, (machine_mode mode, rtx x),
  hook_bool_mode_rtx_false)
 
+/* True if the constant X cannot be used to set REG_EQUAL note.  */
+DEFHOOK
+(cannot_set_reg_equal_const,
+ "This hook should return true if @var{x} is of a form that cannot (or\n\
+should not) be used to set @code{REG_EQUAL} note.\n\
+\n\
+The default version of this hook returns false.\n\
+\n\
+The primary reason to define this hook is to prevent cse and fwprop from\n\
+deciding that a constant should be used to replace a register.  This\n\
+restriction is often true for addresses of external function symbols\n\
+when @option{-fno-plt} is used.",
+ bool, (rtx x),
+ hook_bool_rtx_false)
+
 DEFHOOK_UNDOC
 (cannot_copy_insn_p,
  "True if the insn @var{x} cannot be duplicated.",

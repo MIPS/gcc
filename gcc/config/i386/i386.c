@@ -72,6 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
 #include "dbgcnt.h"
+#include "noplt-symbols.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -6616,6 +6617,61 @@ ix86_target_stack_probe (void)
 
   return TARGET_STACK_PROBE;
 }
+
+static bool
+ix86_noplt_rtx_p (rtx call_op)
+{
+  if (SYMBOL_REF_NOPLT_P (call_op))
+    return true;
+
+  if (SYMBOL_REF_PLT_P (call_op))
+    return false;
+
+  tree decl = SYMBOL_REF_DECL (call_op);
+  if (noplt_decl_p (decl)
+      || (!decl && noplt_symbol_p (XSTR (call_op, 0))))
+    {
+      SYMBOL_REF_FLAGS (call_op) |= SYMBOL_FLAG_NOPLT;
+      return true;
+    }
+
+  SYMBOL_REF_FLAGS (call_op) |= SYMBOL_FLAG_PLT;
+  return false;
+}
+
+bool
+ix86_noplt_operand (rtx op)
+{
+  return (!TARGET_PECOFF
+	  && !TARGET_MACHO
+	  && GET_CODE (op) == SYMBOL_REF
+	  && SYMBOL_REF_FUNCTION_P (op)
+	  && !SYMBOL_REF_LOCAL_P (op)
+	  && ix86_noplt_rtx_p (op));
+}
+
+rtx
+ix86_noplt_addr_symbol_rtx (rtx op)
+{
+  if (!TARGET_64BIT
+      && GET_CODE (op) == PLUS
+      && REG_P (XEXP (op, 0)))
+    op = XEXP (op, 1);
+  if (GET_CODE (op) == CONST)
+    {
+      op = XEXP (op, 0);
+      if (GET_CODE (op) == UNSPEC
+	  && (XINT (op, 1) == (TARGET_64BIT
+			       ? UNSPEC_GOTPCREL
+			       : UNSPEC_GOT)))
+	{
+	  op = XVECEXP (op, 0, 0);
+	  if (ix86_noplt_operand (op))
+	    return op;
+	}
+    }
+  return NULL_RTX;
+}
 
 /* Decide whether we can make a sibling call to a function.  DECL is the
    declaration of the function being targeted by the call and EXP is the
@@ -6633,7 +6689,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   if (!TARGET_MACHO
       && !TARGET_64BIT
       && flag_pic
-      && flag_plt
+      && !noplt_decl_p (decl)
       && decl && !targetm.binds_local_p (decl))
     return false;
 
@@ -14363,6 +14419,19 @@ ix86_legitimate_constant_p (machine_mode, rtx x)
   return true;
 }
 
+/* True if the constant X cannot be used to set REG_EQUAL note.  */
+
+static bool
+ix86_cannot_set_reg_equal_const (rtx x)
+{
+  /* External function symbol must be loaded via the GOT slot for
+     -fno-plt.  */
+  return (!flag_pic
+	  && ix86_cmodel != CM_LARGE
+	  && (TARGET_64BIT || HAVE_LD_R_386_GOT32X)
+	  && ix86_noplt_operand (x));
+}
+
 /* Determine if it's legal to put X into the constant pool.  This
    is not possible for the address of thread-local symbols, which
    is checked above.  */
@@ -14730,6 +14799,18 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	     used.  While ABI specify also 32bit relocations, we don't produce
 	     them at all and use IP relative instead.  */
 	  case UNSPEC_GOT:
+	    gcc_assert (flag_pic
+			|| (!flag_pic
+			    && ix86_cmodel != CM_LARGE
+			    && !TARGET_64BIT
+			    && HAVE_LD_R_386_GOT32X
+			    && ix86_noplt_addr_symbol_rtx (addr)));
+	    if (!TARGET_64BIT)
+	      goto is_legitimate_pic;
+
+	    /* 64bit address unspec.  */
+	    return false;
+
 	  case UNSPEC_GOTOFF:
 	    gcc_assert (flag_pic);
 	    if (!TARGET_64BIT)
@@ -14739,6 +14820,13 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	    return false;
 
 	  case UNSPEC_GOTPCREL:
+	    gcc_assert (flag_pic
+			|| (!flag_pic
+			    && ix86_cmodel != CM_LARGE
+			    && (TARGET_64BIT || HAVE_LD_R_386_GOT32X)
+			    && ix86_noplt_addr_symbol_rtx (addr)));
+	    goto is_legitimate_pic;
+
 	  case UNSPEC_PCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -17336,6 +17424,13 @@ ix86_print_operand_address (FILE *file, rtx addr)
 	}
       else if (flag_pic)
 	output_pic_addr_const (file, disp, 0);
+      else if (GET_CODE (disp) == CONST
+	       && GET_CODE (XEXP (disp, 0)) == UNSPEC
+	       && !flag_pic
+	       && ix86_cmodel != CM_LARGE
+	       && (TARGET_64BIT || HAVE_LD_R_386_GOT32X)
+	       && ix86_noplt_addr_symbol_rtx (addr))
+	output_pic_addr_const (file, XEXP (disp, 0), code);
       else
 	output_addr_const (file, disp);
     }
@@ -18593,6 +18688,25 @@ ix86_expand_move (machine_mode mode, rtx operands[])
 	      op1 = convert_to_mode (mode, op1, 1);
 	    }
 	}
+   }
+  else if (!flag_pic
+	   && ix86_cmodel != CM_LARGE
+	   && (TARGET_64BIT || HAVE_LD_R_386_GOT32X)
+	   && ix86_noplt_operand (op1))
+    {
+      /* Load the external function address via the GOT slot to
+	 avoid PLT.  */
+      op1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op1),
+			    (TARGET_64BIT
+			     ? UNSPEC_GOTPCREL
+			     : UNSPEC_GOT));
+      op1 = gen_rtx_CONST (Pmode, op1);
+      op1 = gen_const_mem (Pmode, op1);
+      if (op0 == op1)
+	return;
+      op1 = convert_to_mode (mode, op1, 1);
+      if (MEM_P (op0))
+	op1 = force_reg (mode, op1);
     }
   else
     {
@@ -26754,10 +26868,7 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	  && GET_CODE (addr) == SYMBOL_REF
 	  && !SYMBOL_REF_LOCAL_P (addr))
 	{
-	  if (flag_plt
-	      && (SYMBOL_REF_DECL (addr) == NULL_TREE
-		  || !lookup_attribute ("noplt",
-					DECL_ATTRIBUTES (SYMBOL_REF_DECL (addr)))))
+	  if (!ix86_noplt_rtx_p (addr))
 	    {
 	      if (!TARGET_64BIT
 		  || (ix86_cmodel == CM_LARGE_PIC
@@ -26909,14 +27020,7 @@ ix86_nopic_noplt_attribute_p (rtx call_op)
       || SYMBOL_REF_LOCAL_P (call_op))
     return false;
 
-  tree symbol_decl = SYMBOL_REF_DECL (call_op);
-
-  if (!flag_plt
-      || (symbol_decl != NULL_TREE
-          && lookup_attribute ("noplt", DECL_ATTRIBUTES (symbol_decl))))
-    return true;
-
-  return false;
+  return ix86_noplt_rtx_p (call_op);
 }
 
 /* Output the assembly for a call instruction.  */
@@ -53789,6 +53893,8 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
+#undef TARGET_CANNOT_SET_REG_EQUAL_CONST
+#define TARGET_CANNOT_SET_REG_EQUAL_CONST ix86_cannot_set_reg_equal_const
 #undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
 #define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_const_rtx_true
 

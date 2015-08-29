@@ -91,6 +91,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs-libfuncs.h"
 #include "tree-chkp.h"
 #include "omp-low.h"
+#include "noplt-symbols.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -1226,6 +1227,8 @@ process_options (void)
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
 
+  noplt_symbols_initialize ();
+
   /* Avoid any informative notes in the second run of -fcompare-debug.  */
   if (flag_compare_debug) 
     diagnostic_inhibit_notes (global_dc);
@@ -2087,6 +2090,7 @@ toplev::main (int argc, char **argv)
 
   diagnostic_finish (global_dc);
 
+  noplt_symbols_finish ();
   finalize_plugins ();
   location_adhoc_data_fini (line_table);
   if (seen_error () || werrorcount)

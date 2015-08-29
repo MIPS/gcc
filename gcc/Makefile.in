@@ -1349,6 +1349,7 @@ OBJS = \
 	mcf.o \
 	mode-switching.o \
 	modulo-sched.o \
+	noplt-symbols.o \
 	omp-low.o \
 	optabs.o \
 	optabs-libfuncs.o \
