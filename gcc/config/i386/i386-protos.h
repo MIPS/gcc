@@ -70,6 +70,9 @@ extern bool legitimate_pic_address_disp_p (rtx);
 extern void print_reg (rtx, int, FILE*);
 extern void ix86_print_operand (FILE *, rtx, int);
 
+extern bool ix86_noplt_operand (rtx);
+extern rtx ix86_noplt_addr_symbol_rtx (rtx);
+
 extern void split_double_mode (machine_mode, rtx[], int, rtx[], rtx[]);
 
 extern const char *output_set_got (rtx, rtx);

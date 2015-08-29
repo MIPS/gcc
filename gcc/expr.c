@@ -3593,6 +3593,7 @@ emit_move_insn (rtx x, rtx y)
   last_insn = emit_move_insn_1 (x, y);
 
   if (y_cst && REG_P (x)
+      && !targetm.cannot_set_reg_equal_const (y_cst)
       && (set = single_set (last_insn)) != NULL_RTX
       && SET_DEST (set) == x
       && ! rtx_equal_p (y_cst, SET_SRC (set)))
