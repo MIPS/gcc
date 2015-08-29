@@ -13149,6 +13149,24 @@ ix86_legitimate_constant_p (machine_mode, rtx x)
   return true;
 }
 
+/* True if the constant X cannot be used to set REG_EQUAL note.  */
+
+static bool
+ix86_cannot_set_reg_equal_const (rtx x)
+{
+  /* External function symbol must be loaded via the GOT slot for
+     -fno-plt.  */
+  return (!flag_plt
+	  && !flag_pic
+	  && ix86_cmodel != CM_LARGE
+	  && (TARGET_64BIT || HAVE_LD_IX86_INDBR_RELOC)
+	  && !TARGET_PECOFF
+	  && !TARGET_MACHO
+	  && GET_CODE (x) == SYMBOL_REF
+	  && SYMBOL_REF_FUNCTION_P (x)
+	  && !SYMBOL_REF_LOCAL_P (x));
+}
+
 /* Determine if it's legal to put X into the constant pool.  This
    is not possible for the address of thread-local symbols, which
    is checked above.  */
@@ -13575,6 +13593,20 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	     used.  While ABI specify also 32bit relocations, we don't produce
 	     them at all and use IP relative instead.  */
 	  case UNSPEC_GOT:
+	    gcc_assert (flag_pic
+			|| (!flag_plt
+			    && !flag_pic
+			    && ix86_cmodel != CM_LARGE
+			    && !TARGET_64BIT
+			    && HAVE_LD_IX86_INDBR_RELOC
+			    && !TARGET_PECOFF
+			    && !TARGET_MACHO));
+	    if (!TARGET_64BIT)
+	      goto is_legitimate_pic;
+
+	    /* 64bit address unspec.  */
+	    return false;
+
 	  case UNSPEC_GOTOFF:
 	    gcc_assert (flag_pic);
 	    if (!TARGET_64BIT)
@@ -13584,6 +13616,16 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	    return false;
 
 	  case UNSPEC_GOTPCREL:
+	    gcc_assert (flag_pic
+			|| (!flag_plt
+			    && !flag_pic
+			    && ix86_cmodel != CM_LARGE
+			    && (TARGET_64BIT
+				|| HAVE_LD_IX86_INDBR_RELOC)
+			    && !TARGET_PECOFF
+			    && !TARGET_MACHO));
+	    goto is_legitimate_pic;
+
 	  case UNSPEC_PCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -16226,6 +16268,15 @@ ix86_print_operand_address (FILE *file, rtx addr)
 	}
       else if (flag_pic)
 	output_pic_addr_const (file, disp, 0);
+      else if (GET_CODE (disp) == CONST
+	       && GET_CODE (XEXP (disp, 0)) == UNSPEC
+	       && !flag_plt
+	       && !flag_pic
+	       && ix86_cmodel != CM_LARGE
+	       && (TARGET_64BIT || HAVE_LD_IX86_INDBR_RELOC)
+	       && !TARGET_PECOFF
+	       && !TARGET_MACHO)
+	output_pic_addr_const (file, XEXP (disp, 0), code);
       else
 	output_addr_const (file, disp);
     }
@@ -17485,6 +17536,30 @@ ix86_expand_move (machine_mode mode, rtx operands[])
 	      op1 = convert_to_mode (mode, op1, 1);
 	    }
 	}
+   }
+  else if (!flag_plt
+	   && !flag_pic
+	   && ix86_cmodel != CM_LARGE
+	   && (TARGET_64BIT || HAVE_LD_IX86_INDBR_RELOC)
+	   && !TARGET_PECOFF
+	   && !TARGET_MACHO
+	   && GET_CODE (op1) == SYMBOL_REF
+	   && SYMBOL_REF_FUNCTION_P (op1)
+	   && !SYMBOL_REF_LOCAL_P (op1))
+    {
+      /* Load the external function address via the GOT slot to
+	 avoid PLT.  */
+      op1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op1),
+			    (TARGET_64BIT
+			     ? UNSPEC_GOTPCREL
+			     : UNSPEC_GOT));
+      op1 = gen_rtx_CONST (Pmode, op1);
+      op1 = gen_const_mem (Pmode, op1);
+      if (op0 == op1)
+	return;
+      op1 = convert_to_mode (mode, op1, 1);
+      if (MEM_P (op0))
+	op1 = force_reg (mode, op1);
     }
   else
     {
@@ -52187,6 +52262,8 @@ ix86_binds_local_p (const_tree exp)
 #endif
 #undef TARGET_CANNOT_FORCE_CONST_MEM
 #define TARGET_CANNOT_FORCE_CONST_MEM ix86_cannot_force_const_mem
+#undef TARGET_CANNOT_SET_REG_EQUAL_CONST
+#define TARGET_CANNOT_SET_REG_EQUAL_CONST ix86_cannot_set_reg_equal_const
 #undef TARGET_USE_BLOCKS_FOR_CONSTANT_P
 #define TARGET_USE_BLOCKS_FOR_CONSTANT_P hook_bool_mode_const_rtx_true
 
