@@ -5577,6 +5577,18 @@ holding the constant.  This restriction is often true of addresses
 of TLS symbols for various targets.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_CANNOT_SET_REG_EQUAL_CONST (rtx @var{x})
+This hook should return true if @var{x} is of a form that cannot (or
+should not) be used to set @code{REG_EQUAL} note.
+
+The default version of this hook returns false.
+
+The primary reason to define this hook is to prevent cse and fwprop from
+deciding that a constant should be used to replace a register.  This
+restriction is often true for addresses of external function symbols
+when @option{-fno-plt} is used.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_USE_BLOCKS_FOR_CONSTANT_P (machine_mode @var{mode}, const_rtx @var{x})
 This hook should return true if pool entries for constant @var{x} can
 be placed in an @code{object_block} structure.  @var{mode} is the mode
