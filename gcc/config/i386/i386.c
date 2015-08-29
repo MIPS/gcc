@@ -14443,6 +14443,24 @@ ix86_legitimate_constant_p (machine_mode, rtx x)
   return true;
 }
 
+/* True if operand X should be loaded from GOT.  */
+
+bool
+ix86_force_load_from_GOT_p (rtx x)
+{
+  /* External function symbol should be loaded via the GOT slot for
+     -fno-plt.  */
+  return (!flag_plt
+	  && !flag_pic
+	  && ix86_cmodel != CM_LARGE
+	  && TARGET_64BIT
+	  && !TARGET_PECOFF
+	  && !TARGET_MACHO
+	  && GET_CODE (x) == SYMBOL_REF
+	  && SYMBOL_REF_FUNCTION_P (x)
+	  && !SYMBOL_REF_LOCAL_P (x));
+}
+
 /* Determine if it's legal to put X into the constant pool.  This
    is not possible for the address of thread-local symbols, which
    is checked above.  */
@@ -14823,6 +14841,10 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
 	    return false;
 
 	  case UNSPEC_GOTPCREL:
+	    gcc_assert (flag_pic
+			|| ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)));
+	    goto is_legitimate_pic;
+
 	  case UNSPEC_PCREL:
 	    gcc_assert (flag_pic);
 	    goto is_legitimate_pic;
@@ -17427,6 +17449,11 @@ ix86_print_operand_address_as (FILE *file, rtx addr,
 	}
       else if (flag_pic)
 	output_pic_addr_const (file, disp, 0);
+      else if (GET_CODE (disp) == CONST
+	       && GET_CODE (XEXP (disp, 0)) == UNSPEC
+	       && XINT (XEXP (disp, 0), 1) == UNSPEC_GOTPCREL
+	       && ix86_force_load_from_GOT_p (XVECEXP (XEXP (disp, 0), 0, 0)))
+	output_pic_addr_const (file, XEXP (disp, 0), code);
       else
 	output_addr_const (file, disp);
     }
@@ -18692,6 +18719,21 @@ ix86_expand_move (machine_mode mode, rtx operands[])
 	      op1 = convert_to_mode (mode, op1, 1);
 	    }
 	}
+   }
+  else if (ix86_force_load_from_GOT_p (op1))
+    {
+      /* Load the external function address via the GOT slot to
+	 avoid PLT.  */
+      op1 = gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op1),
+			    (TARGET_64BIT
+			     ? UNSPEC_GOTPCREL
+			     : UNSPEC_GOT));
+      op1 = gen_rtx_CONST (Pmode, op1);
+      op1 = gen_const_mem (Pmode, op1);
+      op1 = convert_to_mode (mode, op1, 1);
+      /* Force OP1 into register to prevent cse and fwprop from
+	 replacing a GOT load with a constant.  */
+      op1 = force_reg (mode, op1);
     }
   else
     {

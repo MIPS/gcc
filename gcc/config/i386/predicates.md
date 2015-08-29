@@ -159,6 +159,10 @@
       /* TLS symbols are not constant.  */
       if (SYMBOL_REF_TLS_MODEL (op))
 	return false;
+      /* Load the external function address via the GOT slot to avoid
+	 PLT.  */
+      if (ix86_force_load_from_GOT_p (op))
+	return false;
       return (ix86_cmodel == CM_SMALL || ix86_cmodel == CM_KERNEL
 	      || (ix86_cmodel == CM_MEDIUM && !SYMBOL_REF_FAR_ADDR_P (op)));
 
