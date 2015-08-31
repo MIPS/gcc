@@ -1,3 +1,21 @@
+2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (expand_omp_target): Lose shared_size parameter.
+	* omp-builtins.def (GOACC_KERNELS, GOACC_PARALLEL): Lose
+	shared_size parameter.
+	* builtin-types.def (DEF_FUNCTION_TYPE_VAR_6): Define.
+
+	fortran/
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_6): Define.
+	* types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR): Declare.
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_SIZE_VAR): Delete.
+
+	lto/
+	* lto-lang.c (DEF_FUNCTION_TYPE_VAR_6): Define.
+
+	c-family/
+	* c-common.c (DEF_FUNCTION_TYPE_VAR_6): Define.
+	
 2015-08-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (extract_oacc_routine_gwv): New function.

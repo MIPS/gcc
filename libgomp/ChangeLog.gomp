@@ -1,3 +1,17 @@
+2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* oacc-parallel.c (__goacc_host_ganglocal_ptr): Delete.
+	(GOACC_get_ganglocal_ptr): Delete.
+	(alloc_host_shared_mem, free_host_shared_mem): Delete.
+	(GOACC_parallel_keyed): Remove shared_size param.
+	(GOACC_parallel): Likewise.
+	* libgomp_g.h (GOACC_parallel_keyed): Adjust prototype.
+	* plugin/plugin-nvptx.c (nvptx_exec): Lose shared_size parameter.
+	(GOMP_OFFLOAD_openacc_parallel): Likewise.
+	* libgomp.map (GOACC_get_ganglocal_ptr): Remove.
+	* libgomp.h (struct acc_dispatch_t): Adjust exec_func prototype.
+	* oacc-host.c (host_openacc_exec): Lose shared_size parameter.
+
 2015-08-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/routine-4.c: Fix calls to

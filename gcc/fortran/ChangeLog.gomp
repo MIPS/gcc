@@ -1,3 +1,9 @@
+2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_6): Define.
+	* types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_VAR): Declare.
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_SIZE_VAR): Delete.
+
 2015-08-20  Joseph Myers  <joseph@codesourcery.com>
 
 	* gfortranspec.c (lang_specific_pre_link): Update call to do_spec.

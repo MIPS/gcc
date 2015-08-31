@@ -940,8 +940,7 @@ event_add (enum ptx_event_type type, CUevent *e, void *h)
 
 void
 nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
-	    size_t shared_size, int async, unsigned dims[GOMP_DIM_MAX],
-	    void *targ_mem_desc)
+	    int async, unsigned dims[GOMP_DIM_MAX], void *targ_mem_desc)
 {
   struct targ_fn_descriptor *targ_fn = (struct targ_fn_descriptor *) fn;
   CUfunction function;
@@ -983,9 +982,9 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
     GOMP_PLUGIN_fatal ("cuMemcpy failed: %s", cuda_error (r));
 
   GOMP_PLUGIN_debug (0, "  %s: kernel %s: launch"
-		     " gangs=%u, workers=%u, vectors=%u, shared=%u\n",
+		     " gangs=%u, workers=%u, vectors=%u\n",
 		     __FUNCTION__, targ_fn->launch->fn,
-		     dims[0], dims[1], dims[2], (unsigned)shared_size);
+		     dims[0], dims[1], dims[2]);
 
   // OpenACC		CUDA
   //
@@ -997,7 +996,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   r = cuLaunchKernel (function,
 		      dims[GOMP_DIM_GANG], 1, 1,
 		      dims[GOMP_DIM_VECTOR], dims[GOMP_DIM_WORKER], 1,
-		      shared_size, dev_str->stream, kargs, 0);
+		      0, dev_str->stream, kargs, 0);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLaunchKernel error: %s", cuda_error (r));
 
@@ -1719,10 +1718,9 @@ void (*device_run) (int n, void *fn_ptr, void *vars) = NULL;
 void
 GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
 			       void **hostaddrs, void **devaddrs,
-			       size_t shared_size,
 			       int async, unsigned *dims, void *targ_mem_desc)
 {
-  nvptx_exec (fn, mapnum, hostaddrs, devaddrs, shared_size,
+  nvptx_exec (fn, mapnum, hostaddrs, devaddrs,
 	      async, dims, targ_mem_desc);
 }
 

@@ -10003,8 +10003,6 @@ expand_omp_target (struct omp_region *region)
     case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
       {
-	tree shared_memory = build_int_cst (integer_type_node, 0);
-	args.quick_push (shared_memory);
 	set_oacc_fn_attrib (child_fn, clauses, &args);
 	tagging = true;
       }

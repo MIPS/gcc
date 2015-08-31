@@ -1,3 +1,7 @@
+2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-common.c (DEF_FUNCTION_TYPE_VAR_6): Define.
+
 2015-08-24  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-omp.c (c_oacc_split_loop_clauses): Don't propagate

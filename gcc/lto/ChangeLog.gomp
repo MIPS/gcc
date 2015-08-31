@@ -1,3 +1,7 @@
+2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* lto-lang.c (DEF_FUNCTION_TYPE_VAR_6): Define.
+
 2015-07-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* lto-lang.c (DEF_FUNCTION_TYPE_VAR_12): Delete.

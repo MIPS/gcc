@@ -57,31 +57,6 @@ find_pointer (int pos, size_t mapnum, unsigned short *kinds)
   return 0;
 }
 
-static void *__goacc_host_ganglocal_ptr;
-
-void *
-GOACC_get_ganglocal_ptr (void)
-{
-  return __goacc_host_ganglocal_ptr;
-}
-
-static void
-alloc_host_shared_mem (size_t shared_size)
-{
-  if (shared_size > 0)
-    __goacc_host_ganglocal_ptr = malloc (shared_size);
-}
-
-static void
-free_host_shared_mem (void)
-{
-  if (__goacc_host_ganglocal_ptr)
-    {
-      free (__goacc_host_ganglocal_ptr);
-      __goacc_host_ganglocal_ptr = NULL;
-    }
-}
-
 static void
 alloc_ganglocal_addrs (size_t mapnum, void **hostaddrs, size_t *sizes,
 		       unsigned short *kinds)
@@ -176,7 +151,7 @@ static void goacc_wait (int async, int num_waits, va_list *ap);
 void
 GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 		      void **hostaddrs, size_t *sizes, unsigned short *kinds,
-		      size_t shared_size, ...)
+		      ...)
 {
   bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   va_list ap;
@@ -194,15 +169,11 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 
   memset (dims, 0, sizeof (dims));
 #ifdef HAVE_INTTYPES_H
-  gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p, "
-	      "shared_size=%"PRIu64"\n",
-	      __FUNCTION__, (uint64_t) mapnum, hostaddrs, sizes, kinds,
-	      (uint64_t) shared_size);
+  gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p\n",
+	      __FUNCTION__, (uint64_t) mapnum, hostaddrs, sizes, kinds);
 #else
-  gomp_debug (0, "%s: mapnum=%lu, hostaddrs=%p, sizes=%p, kinds=%p, "
-	      "shared_size=%lu\n",
-	      __FUNCTION__, (unsigned long) mapnum, hostaddrs, sizes, kinds,
-	      (unsigned long) shared_size);
+  gomp_debug (0, "%s: mapnum=%lu, hostaddrs=%p, sizes=%p, kinds=%p\n",
+	      __FUNCTION__, (unsigned long) mapnum, hostaddrs, sizes, kinds);
 #endif
 
   alloc_ganglocal_addrs (mapnum, hostaddrs, sizes, kinds);
@@ -233,21 +204,17 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
   if (host_fallback)
     {
       goacc_save_and_set_bind (acc_device_host);
-      alloc_host_shared_mem (shared_size);
       fn (hostaddrs);
-      free_host_shared_mem ();
       goacc_restore_bind ();
       return;
     }
   else if (acc_device_type (acc_dev->type) == acc_device_host)
     {
-      alloc_host_shared_mem (shared_size);
       fn (hostaddrs);
-      free_host_shared_mem ();
       return;
     }
 
-  va_start (ap, shared_size);
+  va_start (ap, kinds);
   /* TODO: This will need amending when device_type is implemented.  */
   while (GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0)
 	 != (tag = va_arg (ap, unsigned)))
@@ -319,7 +286,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
     }
 
   acc_dev->openacc.exec_func (tgt_fn, mapnum, hostaddrs, devaddrs,
-			      shared_size, async, dims, tgt);
+			      async, dims, tgt);
 
   /* If running synchronously, unmap immediately.  */
   if (async < acc_async_noval)
@@ -339,7 +306,6 @@ void
 GOACC_parallel (int device, void (*fn) (void *), size_t mapnum,
 		void **hostaddrs, size_t *sizes, unsigned short *kinds,
 		int num_gangs, int num_workers, int vector_length,
-		size_t shared_size,
 		int async, int num_waits, ...)
 {
   int waits[9];
@@ -356,7 +322,6 @@ GOACC_parallel (int device, void (*fn) (void *), size_t mapnum,
   waits[ix] = GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0);
   
   GOACC_parallel_keyed (device, fn, mapnum, hostaddrs, sizes, kinds,
-			shared_size,
 			GOMP_LAUNCH_PACK (GOMP_LAUNCH_DIM, 0,
 					  GOMP_DIM_MASK (GOMP_DIM_MAX) - 1),
 			num_gangs, num_workers, vector_length,
