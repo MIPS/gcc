@@ -3,9 +3,11 @@
 #include <string.h>
 #include <pthread.h>
 #include "libgomp-plugin.h"
+#include "gomp-constants.h"
 #include "hsa.h"
 #include "hsa-traits.h"
 #include "hsa_ext_finalize.h"
+
 
 /* Part of the libgomp plugin interface.  Return the name of the accelerator,
    which is "hsa".  */
@@ -31,6 +33,15 @@ int
 GOMP_OFFLOAD_get_type (void)
 {
   return OFFLOAD_TARGET_TYPE_HSA;
+}
+
+/* Return the libgomp version number we're compatible with.  There is
+   no requirement for cross-version compatibility.  */
+
+unsigned
+GOMP_OFFLOAD_version (void)
+{
+  return GOMP_VERSION;
 }
 
 /* Flag to decide whether print to stderr information about what is going on.
@@ -443,9 +454,11 @@ destroy_hsa_program (struct agent_info *agent)
    brig_image_desc in TARGET_DATA and return references to kernel descriptors
    in TARGET_TABLE.  */
 
+/* FIXME: Start using some lind of versioning scheme too, I suppose.  */
+
 int
-GOMP_OFFLOAD_load_image (int ord, void *target_data,
-			 struct addr_pair **target_table)
+GOMP_OFFLOAD_load_image (int ord, unsigned version  __attribute__ ((unused)),
+			 void *target_data, struct addr_pair **target_table)
 {
   struct brig_image_desc *image_desc = (struct brig_image_desc *) target_data;
   struct agent_info *agent;
@@ -963,8 +976,11 @@ destroy_module (struct module_info *module)
 /* Part of the libgomp plugin interface.  Unload BRIG module described by
    struct brig_image_desc in TARGET_DATA from agent number N.  */
 
+/* FIXME: Like when loading animage, look at the version.  */
+
 void
-GOMP_OFFLOAD_unload_image (int n, void *target_data)
+GOMP_OFFLOAD_unload_image (int n, unsigned version  __attribute__ ((unused)),
+			   void *target_data)
 {
   struct agent_info *agent;
   agent = get_agent_info (n);
