@@ -9935,6 +9935,17 @@ ix86_code_end (void)
     file_end_indicate_split_stack ();
 }
 
+#if !TARGET_PECOFF && !TARGET_MACHO
+/* Local and global relocs are always placed into readonly memory when
+   -fno-plt is used.  */
+
+static int
+ix86_reloc_rw_mask (void)
+{
+  return (flag_pic || !flag_plt) ? 3 : 0;
+}
+#endif
+
 /* Emit code for the SET_GOT patterns.  */
 
 const char *
@@ -52804,6 +52815,13 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 
 #undef TARGET_ASM_CODE_END
 #define TARGET_ASM_CODE_END ix86_code_end
+
+#if !TARGET_PECOFF && !TARGET_MACHO
+/* Local and global relocs can be placed always into readonly memory
+   when -fno-plt is used.  */
+#undef TARGET_ASM_RELOC_RW_MASK
+#define TARGET_ASM_RELOC_RW_MASK ix86_reloc_rw_mask
+#endif
 
 #undef TARGET_CONDITIONAL_REGISTER_USAGE
 #define TARGET_CONDITIONAL_REGISTER_USAGE ix86_conditional_register_usage
