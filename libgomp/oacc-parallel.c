@@ -673,12 +673,9 @@ GOACC_register_static (void *addr, int size, unsigned int mask)
   s->size = (size_t) size;
   s->mask = mask;
   s->free = false;
-  s->next = NULL;
+  s->next = oacc_statics;
 
-  if (oacc_statics)
-    s->next = oacc_statics;
-
-   oacc_statics = s;
+  oacc_statics = s;
 }
 
 void
