@@ -790,14 +790,8 @@ internal_proto(xrealloc);
 
 /* environ.c */
 
-extern int check_buffered (int);
-internal_proto(check_buffered);
-
 extern void init_variables (void);
 internal_proto(init_variables);
-
-extern void show_variables (void);
-internal_proto(show_variables);
 
 unit_convert get_unformatted_convert (int);
 internal_proto(get_unformatted_convert);

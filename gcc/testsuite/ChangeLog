@@ -1,3 +1,187 @@
+2015-08-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/swaps-p8-19.c: New test.
+
+2015-08-29 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR fortran/67367
+	* gfortran.dg/read_dir.f90: New test. May fail on some platforms.
+
+2015-08-29  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/46193
+	* gcc.dg/autopar/pr46193.c: New test.
+
+2015-08-28  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc/testsuite/gcc.dg/compat/struct-layout-1_generate.c: Simply
+	use exit code for failure.
+
+	* gcc/testsuite/gcc.dg/torture/matrix-1.c: Use plain printf.
+	* gcc/testsuite/gcc.dg/torture/matrix-2.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/matrix-5.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/matrix-6.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/transpose-1.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/transpose-2.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/transpose-3.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/transpose-4.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/transpose-5.c: Likewise.
+	* gcc/testsuite/gcc.dg/torture/transpose-6.c: Likewise.
+
+2015-08-28  Jeff Law  <law@redhat.com>
+
+	PR lto/66752
+	* gcc.dg/tree-ssa/pr66752-2.c: New test.
+	* gcc.dg/torture/pr66752-1.c: New test
+	* g++.dg/torture/pr66752-2.C: New test.
+
+2015-08-28  Alan Lawrence  <alan.lawrence@arm.com>
+	Revert:
+	2015-08-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+		* gcc.dg/tree-ssa/sra-15.c: New.
+
+2015-08-28  Andrew Bennett  <andrew.bennett@imgtec.com>
+
+	* gcc.target/mips/madd-8.c: Add lo register to clobber list. 
+	* gcc.target/mips/msub-8.c: Ditto
+
+2015-08-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* lib/target-supports.exp (check-effective_target_vect_double):
+	Enable for Power targets with VSX hardware available.
+	* gfortran.dg/vect/O3-pr49957.f: Replace vect_no_align with
+	vect_no_align && { ! vect_hw_misalign }.
+
+2015-08-27  Sebastian Pop  <s.pop@samsung.com>
+
+	* gcc.dg/graphite/graphite.exp (interchange_files, block_files):
+	Replaced by opt_files, compile with -floop-nest-optimize.
+	* g++.dg/graphite/graphite.exp: Same.
+	* gfortran.dg/graphite/graphite.exp: Same.
+	* gcc.dg/graphite/block-0.c: Adjust pattern.
+	* gcc.dg/graphite/block-1.c: Same.
+	* gcc.dg/graphite/block-3.c: Same.
+	* gcc.dg/graphite/block-4.c: Same.
+	* gcc.dg/graphite/block-5.c: Same.
+	* gcc.dg/graphite/block-6.c: Same.
+	* gcc.dg/graphite/block-7.c: Same.
+	* gcc.dg/graphite/block-8.c: Same.
+	* gcc.dg/graphite/block-pr47654.c: Same.
+	* gcc.dg/graphite/interchange-0.c: Same.
+	* gcc.dg/graphite/interchange-1.c: Same.
+	* gcc.dg/graphite/interchange-10.c: Same.
+	* gcc.dg/graphite/interchange-11.c: Same.
+	* gcc.dg/graphite/interchange-12.c: Same.
+	* gcc.dg/graphite/interchange-13.c: Same.
+	* gcc.dg/graphite/interchange-14.c: Same.
+	* gcc.dg/graphite/interchange-15.c: Same.
+	* gcc.dg/graphite/interchange-3.c: Same.
+	* gcc.dg/graphite/interchange-4.c: Same.
+	* gcc.dg/graphite/interchange-5.c: Same.
+	* gcc.dg/graphite/interchange-6.c: Same.
+	* gcc.dg/graphite/interchange-7.c: Same.
+	* gcc.dg/graphite/interchange-8.c: Same.
+	* gcc.dg/graphite/interchange-9.c: Same.
+	* gcc.dg/graphite/interchange-mvt.c: Same.
+	* gcc.dg/graphite/pr37485.c: Same.
+	* gcc.dg/graphite/uns-block-1.c: Same.
+	* gcc.dg/graphite/uns-interchange-12.c: Same.
+	* gcc.dg/graphite/uns-interchange-14.c: Same.
+	* gcc.dg/graphite/uns-interchange-15.c: Same.
+	* gcc.dg/graphite/uns-interchange-9.c: Same.
+	* gcc.dg/graphite/uns-interchange-mvt.c: Same.
+	* gfortran.dg/graphite/interchange-3.f90: Same.
+
+2015-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67317
+	* gcc.target/i386/pr67317-1.c: New test.
+	* gcc.target/i386/pr67317-2.c: Ditto.
+	* gcc.target/i386/pr67317-3.c: Ditto.
+	* gcc.target/i386/pr67317-4.c: Ditto.
+	* gcc.target/i386/adx-addcarryx32-1.c: Also scan for adcl.
+	* gcc.target/i386/adx-addcarryx32-2.c: Also scan for adcq.
+
+2015-08-27  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* gcc.target/powerpc/vec-shr.c: New.
+
+2015-08-27  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67005
+	* gcc.dg/torture/pr67005.c: New test.
+
+2015-08-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.dg/tree-ssa/sra-15.c: New.
+
+2015-08-27  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* gcc.target/aarch64/long_branch_1.c: New test.
+
+2015-08-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/20150826-1.c: New test.
+
+2015-08-26  Renlin Li  <renlin.li@arm.com>
+
+	* gcc.target/aarch64/combine_bfi_1.c: New testcase.
+
+2015-08-26  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/tlsie_tiny_1.c: New testcase.
+
+2015-08-26  Jiong Wang  <jiong.wang@arm.com>
+
+	* gcc.target/aarch64/tlsle_1.x: Rename to tls_1.x
+	* gcc.target/aarch64/aarch64/tlsle12_1.c: Update source file name.
+	* gcc.target/aarch64/aarch64/tlsle24_1.c: Likewise.
+	* gcc.target/aarch64/aarch64/tlsle32_1.c: Likewise.
+
+2015-08-26  Jiong Wang  <jiong.wang@arm.com>
+
+	* lib/target-supports.exp (check_effective_target_aarch64_tlsle32):
+	New test directive.
+	* gcc.target/aarch64/tlsle_1.x: New test source.
+	* gcc.target/aarch64/tlsle12_1.c: New testcase.
+	* gcc.target/aarch64/tlsle24_1.c: Likewise.
+	* gcc.target/aarch64/tlsle32_1.c: Likewise.
+
+2015-08-26  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/29600
+	* gfortran.dg/shape_8.f90: New test.
+
+2015-08-25  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67330
+	* gcc.dg/weak/weak-18.c: New test.
+
+2015-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-pr63969-missing-driver.c: Add call to
+	gcc_jit_context_set_bool_use_external_driver.
+
+2015-08-25  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.c-torture/execute/builtins/20010124-1.x: New.
+
+	* gcc.dg/20001117-1.c: Needs return_address.
+	* gcc.dg/20020415-1.c: Needs alloca.
+	* gcc.dg/graphite/id-pr44676.c: Needs profiling.
+	* gcc.dg/graphite/pr60979.c: Needs nonlocal_goto
+	* gcc.dg/pr63186.c: Needs label_values.
+	* gcc.dg/torture/pr33848.c: Likwise.
+
+	* lib/target-supports.exp (check_effective_target_fopenacc,
+	check_effective_target_fopenmp): Disable for nvptx.
+	* gcc.dg/graphite/run-id-pr47653.c: Disable for nvptx.
+	* gcc.dg/stack-usage-1.c: Likewise.
+	* gcc.dg/stack-usage-2.c: Likewise.
+	* gcc.dg/unused-5.c: Likewise.
+	* gcc.dg/unwind-1.c: Likewise.
+
 2015-08-25  Christian Bruel  <christian.bruel@st.com>
 
 	* gcc.dg/Wno-frame-address.c: Skip for ARM.

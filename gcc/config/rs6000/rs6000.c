@@ -8485,7 +8485,7 @@ rs6000_emit_le_vsx_store (rtx dest, rtx source, machine_mode mode)
      during expand.  */
   gcc_assert (!reload_in_progress && !lra_in_progress && !reload_completed);
 
-  /* Use V2DImode to do swaps of types with 128-bit scalare parts (TImode,
+  /* Use V2DImode to do swaps of types with 128-bit scalar parts (TImode,
      V1TImode).  */
   if (mode == TImode || mode == V1TImode)
     {
@@ -18572,6 +18572,8 @@ rs6000_cannot_change_mode_class (machine_mode from,
 	{
 	  unsigned to_nregs = hard_regno_nregs[FIRST_FPR_REGNO][to];
 	  unsigned from_nregs = hard_regno_nregs[FIRST_FPR_REGNO][from];
+	  bool to_float128_vector_p = FLOAT128_VECTOR_P (to);
+	  bool from_float128_vector_p = FLOAT128_VECTOR_P (from);
 
 	  /* Don't allow 64-bit types to overlap with 128-bit types that take a
 	     single register under VSX because the scalar part of the register
@@ -18580,7 +18582,10 @@ rs6000_cannot_change_mode_class (machine_mode from,
 	     IEEE floating point can't overlap, and neither can small
 	     values.  */
 
-	  if (TARGET_IEEEQUAD && (to == TFmode || from == TFmode))
+	  if (to_float128_vector_p && from_float128_vector_p)
+	    return false;
+
+	  else if (to_float128_vector_p || from_float128_vector_p)
 	    return true;
 
 	  /* TDmode in floating-mode registers must always go into a register
@@ -18608,6 +18613,8 @@ rs6000_cannot_change_mode_class (machine_mode from,
   if (TARGET_E500_DOUBLE
       && ((((to) == DFmode) + ((from) == DFmode)) == 1
 	  || (((to) == TFmode) + ((from) == TFmode)) == 1
+	  || (((to) == IFmode) + ((from) == IFmode)) == 1
+	  || (((to) == KFmode) + ((from) == KFmode)) == 1
 	  || (((to) == DDmode) + ((from) == DDmode)) == 1
 	  || (((to) == TDmode) + ((from) == TDmode)) == 1
 	  || (((to) == DImode) + ((from) == DImode)) == 1))
@@ -18804,13 +18811,7 @@ rs6000_output_move_128bit (rtx operands[])
 	return output_vec_const_move (operands);
     }
 
-  if (TARGET_DEBUG_ADDR)
-    {
-      fprintf (stderr, "\n===== Bad 128 bit move:\n");
-      debug_rtx (gen_rtx_SET (dest, src));
-    }
-
-  gcc_unreachable ();
+  fatal_insn ("Bad 128-bit move", gen_rtx_SET (dest, src));
 }
 
 /* Validate a 128-bit move.  */
@@ -19854,6 +19855,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result, op0, op1)
 		: gen_cmptfeq_gpr (compare_result, op0, op1);
@@ -19881,6 +19884,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfgt_gpr (compare_result, op0, op1)
 		: gen_cmptfgt_gpr (compare_result, op0, op1);
@@ -19908,6 +19913,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttflt_gpr (compare_result, op0, op1)
 		: gen_cmptflt_gpr (compare_result, op0, op1);
@@ -19945,6 +19952,8 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 	      break;
 
 	    case TFmode:
+	    case IFmode:
+	    case KFmode:
 	      cmp = (flag_finite_math_only && !flag_trapping_math)
 		? gen_tsttfeq_gpr (compare_result2, op0, op1)
 		: gen_cmptfeq_gpr (compare_result2, op0, op1);
@@ -19967,14 +19976,117 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 
       emit_insn (cmp);
     }
+
+  /* IEEE 128-bit support in VSX registers.  The comparison function (__cmpkf2)
+     returns 0..15 that is laid out the same way as the PowerPC CR register
+     would for a normal floating point comparison.  */
+  else if (FLOAT128_IEEE_P (mode))
+    {
+      rtx and_reg = gen_reg_rtx (SImode);
+      rtx dest = gen_reg_rtx (SImode);
+      rtx libfunc = optab_libfunc (cmp_optab, mode);
+      HOST_WIDE_INT mask_value = 0;
+
+      /* Values that __cmpkf2 returns.  */
+#define PPC_CMP_UNORDERED	0x1		/* isnan (a) || isnan (b).  */
+#define PPC_CMP_EQUAL		0x2		/* a == b.  */
+#define PPC_CMP_GREATER_THEN	0x4		/* a > b.  */
+#define PPC_CMP_LESS_THEN	0x8		/* a < b.  */
+
+      switch (code)
+	{
+	case EQ:
+	  mask_value = PPC_CMP_EQUAL;
+	  code = NE;
+	  break;
+
+	case NE:
+	  mask_value = PPC_CMP_EQUAL;
+	  code = EQ;
+	  break;
+
+	case GT:
+	  mask_value = PPC_CMP_GREATER_THEN;
+	  code = NE;
+	  break;
+
+	case GE:
+	  mask_value = PPC_CMP_GREATER_THEN | PPC_CMP_EQUAL;
+	  code = NE;
+	  break;
+
+	case LT:
+	  mask_value = PPC_CMP_LESS_THEN;
+	  code = NE;
+	  break;
+
+	case LE:
+	  mask_value = PPC_CMP_LESS_THEN | PPC_CMP_EQUAL;
+	  code = NE;
+	  break;
+
+	case UNLE:
+	  mask_value = PPC_CMP_GREATER_THEN;
+	  code = EQ;
+	  break;
+
+	case UNLT:
+	  mask_value = PPC_CMP_GREATER_THEN | PPC_CMP_EQUAL;
+	  code = EQ;
+	  break;
+
+	case UNGE:
+	  mask_value = PPC_CMP_LESS_THEN;
+	  code = EQ;
+	  break;
+
+	case UNGT:
+	  mask_value = PPC_CMP_LESS_THEN | PPC_CMP_EQUAL;
+	  code = EQ;
+	  break;
+
+	case UNEQ:
+	  mask_value = PPC_CMP_EQUAL | PPC_CMP_UNORDERED;
+	  code = NE;
+
+	case LTGT:
+	  mask_value = PPC_CMP_EQUAL | PPC_CMP_UNORDERED;
+	  code = EQ;
+	  break;
+
+	case UNORDERED:
+	  mask_value = PPC_CMP_UNORDERED;
+	  code = NE;
+	  break;
+
+	case ORDERED:
+	  mask_value = PPC_CMP_UNORDERED;
+	  code = EQ;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      gcc_assert (mask_value != 0);
+      and_reg = emit_library_call_value (libfunc, and_reg, LCT_CONST, SImode, 2,
+					 op0, mode, op1, mode);
+
+      emit_insn (gen_andsi3 (dest, and_reg, GEN_INT (mask_value)));
+      compare_result = gen_reg_rtx (CCmode);
+      comp_mode = CCmode;
+
+      emit_insn (gen_rtx_SET (compare_result,
+			      gen_rtx_COMPARE (comp_mode, dest, const0_rtx)));
+    }
+
   else
     {
       /* Generate XLC-compatible TFmode compare as PARALLEL with extra
 	 CLOBBERs to match cmptf_internal2 pattern.  */
       if (comp_mode == CCFPmode && TARGET_XL_COMPAT
-	  && GET_MODE (op0) == TFmode
-	  && !TARGET_IEEEQUAD
-	  && TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_LONG_DOUBLE_128)
+	  && FLOAT128_IBM_P (GET_MODE (op0))
+	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	emit_insn (gen_rtx_PARALLEL (VOIDmode,
 	  gen_rtvec (10,
 		     gen_rtx_SET (compare_result,
@@ -20007,6 +20119,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   /* Some kinds of FP comparisons need an OR operation;
      under flag_finite_math_only we don't bother.  */
   if (FLOAT_MODE_P (mode)
+      && !FLOAT128_IEEE_P (mode)
       && !flag_finite_math_only
       && !(TARGET_HARD_FLOAT && !TARGET_FPRS)
       && (code == LE || code == GE
@@ -20045,6 +20158,68 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   return gen_rtx_fmt_ee (code, VOIDmode, compare_result, const0_rtx);
 }
 
+
+/* Expand floating point conversion to/from __float128 and __ibm128.  */
+
+void
+rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
+{
+  machine_mode dest_mode = GET_MODE (dest);
+  machine_mode src_mode = GET_MODE (src);
+  convert_optab cvt = unknown_optab;
+  rtx libfunc = NULL_RTX;
+  rtx dest2;
+
+  if (dest_mode == src_mode)
+    gcc_unreachable ();
+
+  if (FLOAT128_IEEE_P (dest_mode))
+    {
+      if (src_mode == SFmode
+	  || src_mode == DFmode
+	  || FLOAT128_IBM_P (src_mode))
+	cvt = sext_optab;
+
+      else if (GET_MODE_CLASS (src_mode) == MODE_INT)
+	cvt = (unsigned_p) ? ufloat_optab : sfloat_optab;
+
+      else if (FLOAT128_IEEE_P (src_mode))
+	emit_move_insn (dest, gen_lowpart (dest_mode, src));
+
+      else
+	gcc_unreachable ();
+    }
+
+  else if (FLOAT128_IEEE_P (src_mode))
+    {
+      if (dest_mode == SFmode
+	  || dest_mode == DFmode
+	  || FLOAT128_IBM_P (dest_mode))
+	cvt = trunc_optab;
+
+      else if (GET_MODE_CLASS (dest_mode) == MODE_INT)
+	cvt = (unsigned_p) ? ufix_optab : sfix_optab;
+
+      else
+	gcc_unreachable ();
+    }
+
+  else
+    gcc_unreachable ();
+
+  gcc_assert (cvt != unknown_optab);
+  libfunc = convert_optab_libfunc (cvt, dest_mode, src_mode);
+  gcc_assert (libfunc != NULL_RTX);
+
+  dest2 = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode, 1, src,
+				   src_mode);
+
+  gcc_assert (dest != NULL_RTX);
+  if (!rtx_equal_p (dest, dest2))
+    emit_move_insn (dest, dest2);
+
+  return;
+}
 
 /* Emit the RTL for an sISEL pattern.  */
 
@@ -34842,7 +35017,7 @@ class swap_web_entry : public web_entry_base
   /* A nonzero value indicates what kind of special handling for this
      insn is required if doublewords are swapped.  Undefined if
      is_swappable is not set.  */
-  unsigned int special_handling : 3;
+  unsigned int special_handling : 4;
   /* Set if the web represented by this entry cannot be optimized.  */
   unsigned int web_not_optimizable : 1;
   /* Set if this insn should be deleted.  */
@@ -34856,7 +35031,9 @@ enum special_handling_values {
   SH_NOSWAP_LD,
   SH_NOSWAP_ST,
   SH_EXTRACT,
-  SH_SPLAT
+  SH_SPLAT,
+  SH_XXPERMDI,
+  SH_CONCAT
 };
 
 /* Union INSN with all insns containing definitions that reach USE.
@@ -35048,6 +35225,20 @@ rtx_is_swappable_p (rtx op, unsigned int *special)
 	  *special = SH_EXTRACT;
 	  return 1;
 	}
+      /* An XXPERMDI is ok if we adjust the lanes.  Note that if the
+	 XXPERMDI is a swap operation, it will be identified by
+	 insn_is_swap_p and therefore we won't get here.  */
+      else if (GET_CODE (XEXP (op, 0)) == VEC_CONCAT
+	       && (GET_MODE (XEXP (op, 0)) == V4DFmode
+		   || GET_MODE (XEXP (op, 0)) == V4DImode)
+	       && GET_CODE ((parallel = XEXP (op, 1))) == PARALLEL
+	       && XVECLEN (parallel, 0) == 2
+	       && GET_CODE (XVECEXP (parallel, 0, 0)) == CONST_INT
+	       && GET_CODE (XVECEXP (parallel, 0, 1)) == CONST_INT)
+	{
+	  *special = SH_XXPERMDI;
+	  return 1;
+	}
       else
 	return 0;
 
@@ -35222,6 +35413,17 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
 	  }
 	}
 
+      return 1;
+    }
+
+  /* A concatenation of two doublewords is ok if we reverse the
+     order of the inputs.  */
+  if (GET_CODE (body) == SET
+      && GET_CODE (SET_SRC (body)) == VEC_CONCAT
+      && (GET_MODE (SET_SRC (body)) == V2DFmode
+	  || GET_MODE (SET_SRC (body)) == V2DImode))
+    {
+      *special = SH_CONCAT;
       return 1;
     }
 
@@ -35514,6 +35716,49 @@ adjust_splat (rtx_insn *insn)
     fprintf (dump_file, "Changing lane for splat %d\n", INSN_UID (insn));
 }
 
+/* Given OP that contains an XXPERMDI operation (that is not a doubleword
+   swap), reverse the order of the source operands and adjust the indices
+   of the source lanes to account for doubleword reversal.  */
+static void
+adjust_xxpermdi (rtx_insn *insn)
+{
+  rtx set = PATTERN (insn);
+  rtx select = XEXP (set, 1);
+  rtx concat = XEXP (select, 0);
+  rtx src0 = XEXP (concat, 0);
+  XEXP (concat, 0) = XEXP (concat, 1);
+  XEXP (concat, 1) = src0;
+  rtx parallel = XEXP (select, 1);
+  int lane0 = INTVAL (XVECEXP (parallel, 0, 0));
+  int lane1 = INTVAL (XVECEXP (parallel, 0, 1));
+  int new_lane0 = 3 - lane1;
+  int new_lane1 = 3 - lane0;
+  XVECEXP (parallel, 0, 0) = GEN_INT (new_lane0);
+  XVECEXP (parallel, 0, 1) = GEN_INT (new_lane1);
+  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+  df_insn_rescan (insn);
+
+  if (dump_file)
+    fprintf (dump_file, "Changing lanes for xxpermdi %d\n", INSN_UID (insn));
+}
+
+/* Given OP that contains a VEC_CONCAT operation of two doublewords,
+   reverse the order of those inputs.  */
+static void
+adjust_concat (rtx_insn *insn)
+{
+  rtx set = PATTERN (insn);
+  rtx concat = XEXP (set, 1);
+  rtx src0 = XEXP (concat, 0);
+  XEXP (concat, 0) = XEXP (concat, 1);
+  XEXP (concat, 1) = src0;
+  INSN_CODE (insn) = -1; /* Force re-recognition.  */
+  df_insn_rescan (insn);
+
+  if (dump_file)
+    fprintf (dump_file, "Reversing inputs for concat %d\n", INSN_UID (insn));
+}
+
 /* The insn described by INSN_ENTRY[I] can be swapped, but only
    with special handling.  Take care of that here.  */
 static void
@@ -35559,6 +35804,14 @@ handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
     case SH_SPLAT:
       /* Change the lane on a direct-splat operation.  */
       adjust_splat (insn);
+      break;
+    case SH_XXPERMDI:
+      /* Change the lanes on an XXPERMDI operation.  */
+      adjust_xxpermdi (insn);
+      break;
+    case SH_CONCAT:
+      /* Reverse the order of a concatenation operation.  */
+      adjust_concat (insn);
       break;
     }
 }
@@ -35632,6 +35885,10 @@ dump_swap_insn_table (swap_web_entry *insn_entry)
 	      fputs ("special:extract ", dump_file);
 	    else if (insn_entry[i].special_handling == SH_SPLAT)
 	      fputs ("special:splat ", dump_file);
+	    else if (insn_entry[i].special_handling == SH_XXPERMDI)
+	      fputs ("special:xxpermdi ", dump_file);
+	    else if (insn_entry[i].special_handling == SH_CONCAT)
+	      fputs ("special:concat ", dump_file);
 	  }
 	if (insn_entry[i].web_not_optimizable)
 	  fputs ("unoptimizable ", dump_file);

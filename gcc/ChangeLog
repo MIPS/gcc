@@ -1,3 +1,653 @@
+2015-08-30  Michael Collison  <michael.collison@linaro.org>
+
+	PR other/67320
+	* doc.md.texi: Rename [su]sum_widen to widen_[su]sum to reflect correct
+	standard names
+
+2015-08-30  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (swap_web_entry): Enlarge
+	special_handling bitfield.
+	(special_handling_values): Add SH_XXPERMDI and SH_CONCAT.
+	(rtx_is_swappable_p): Add handling for vec_select/vec_concat form
+	that represents a general xxpermdi.
+	(insn_is_swappable_p): Add handling for vec_concat of two
+	doublewords, which maps to a specific xxpermdi.
+	(adjust_xxpermdi): New function.
+	(adjust_concat): Likewise.
+	(handle_special_swappables): Call adjust_xxpermdi and
+	adjust_concat.
+	(dump_swap_insn_table): Handle SH_XXPERMDI and SH_CONCAT.
+
+2015-08-30  Rich Felker <dalias@libc.org>
+
+	* config.gcc (supported_defaults): Handle sh[123456ble]*-*-*
+	case instead of sh[123456ble]-*-*.
+
+2015-08-29  Anatoly Sokolov  <aesok@post.ru>
+
+	* ira.c (print_unform_and_important_classes,
+	print_translated_classes): Remove reg_class_names static array.
+	(print_unform_and_important_classes): Rename to ...
+	(print_uniform_and_important_classes): ... this.
+	(ira_debug_allocno_classes): Update accordingly.
+
+2015-08-29  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/46193
+	* omp-low.c (omp_reduction_init): Handle pointer type for min or max
+	clause.
+
+2015-08-28  Jeff Law  <law@redhat.com>
+
+	PR lto/66752
+	* tree-ssa-threadedge.c (simplify_conrol_stmt_condition): If we are
+	unable to find X NE 0 in the tables, return X as the simplified
+	condition.
+	(fsm_find_control_statement_thread_paths): If nodes in NEXT_PATH are
+	in VISISTED_BBS, then return failure.  Else add nodes from NEXT_PATH
+	to VISISTED_BBS.
+	* tree-ssa-threadupdate.c (duplicate_thread_path): Fix up edge flags
+	after removing the control flow statement and unnecessary edges.
+
+2015-08-28  Alan Lawrence  <alan.lawrence@arm.com>
+
+	Revert:
+	2015-08-27  Alan Lawrence  <alan.lawrence@arm.com>
+		PR tree-optimization/67283
+		* tree-sra.c (type_consists_of_records_p): Rename to...
+		(scalarizable_type_p): ...this, add case for ARRAY_TYPE.
+
+		(completely_scalarize_record): Rename to...
+		(completely_scalarize): ...this, add ARRAY_TYPE case, move some
+		 code to:
+		(scalarize_elem): New.
+
+2015-08-28  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_context): Rename
+	SYMBOL_SMALL_GOTTPREL to SYMBOL_SMALL_TLSIE.
+	(aarch64_symbol_type): Likewise.
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately):
+	Likewise.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_print_operand): Likewise.
+	(aarch64_classify_tls_symbol): Likewise.
+
+2015-08-28  Richard Biener  <rguenther@suse.de>
+
+	* cgraphunit.c (symbol_table::compile): Move early debug generation
+	and finish...
+	(symbol_table::finalize_compilation_unit): ... back here and
+	add a !seen_error () guard.
+
+2015-08-27  Sebastian Pop  <s.pop@samsung.com>
+
+	* toplev.c (process_options): Do not use flag_loop_block,
+	flag_loop_interchange, and flag_loop_strip_mine.  Add check for
+	flag_loop_optimize_isl.
+
+2015-08-27  Sebastian Pop  <s.pop@samsung.com>
+
+	* Makefile.in (OBJS): Remove graphite-blocking.o and
+	graphite-interchange.o.
+	* common.opt (floop-strip-mine, floop-interchange, floop-block):
+	Alias of floop-nest-optimize.
+	* doc/invoke.texi (floop-strip-mine, floop-interchange, floop-block):
+	Document as alias of -floop-nest-optimize.
+	* graphite-blocking.c: Remove.
+	* graphite-interchange.c: Remove.
+	* graphite-optimize-isl.c: Include dumpfile.h.
+	(getScheduleForBand): Add dump for tiled loops.  Use
+	PARAM_LOOP_BLOCK_TILE_SIZE instead of hard coded constant.
+	* graphite-poly.c (scop_max_loop_depth): Remove.
+	(print_scattering_function_1): Remove.
+	(print_scattering_function): Remove.
+	(print_scattering_functions): Remove.
+	(debug_scattering_function): Remove.
+	(debug_scattering_functions): Remove.
+	(apply_poly_transforms): Remove use of flag_loop_block,
+	flag_loop_strip_mine, and flag_loop_interchange.
+	(new_poly_bb): Remove use of PBB_TRANSFORMED, PBB_SAVED, and
+	PBB_ORIGINAL.
+	(print_pdr_access_layout): Remove.
+	(print_pdr): Print ISL representation.
+	(new_scop): Remove use of SCOP_ORIGINAL_SCHEDULE,
+	SCOP_TRANSFORMED_SCHEDULE, and SCOP_SAVED_SCHEDULE.
+	(free_scop): Same.
+	(openscop_print_pbb_domain): Remove.
+	(print_pbb): Remove call to print_scattering_function.
+	(openscop_print_scop_context): Remove.
+	(print_scop_context): Do not print matrices anymore.
+	(print_scop): Do not print SCOP_ORIGINAL_SCHEDULE and
+	SCOP_TRANSFORMED_SCHEDULE.
+	(print_isl_set): Add printing of a new line.
+	(print_isl_map): Same.
+	(print_isl_aff): Same.
+	(print_isl_constraint): Same.
+	(loop_to_lst): Remove.
+	(scop_to_lst): Remove.
+	(lst_indent_to): Remove.
+	(print_lst): Remove.
+	(debug_lst): Remove.
+	(dot_lst_1): Remove.
+	(dot_lst): Remove.
+	(reverse_loop_at_level): Remove.
+	(reverse_loop_for_pbbs): Remove.
+	* graphite-poly.h (pdr_dim_iter_domain): Remove.
+	(pdr_nb_params): Remove.
+	(pdr_alias_set_dim): Remove.
+	(pdr_subscript_dim): Remove.
+	(pdr_iterator_dim): Remove.
+	(pdr_parameter_dim): Remove.
+	(same_pdr_p): Remove.
+	(struct poly_scattering): Remove.
+	(struct poly_bb): Remove _original, _transformed, _saved.
+	(PBB_DOMAIN, PBB_ORIGINAL, PBB_ORIGINAL_SCATTERING): Remove.
+	(PBB_TRANSFORMED, PBB_TRANSFORMED_SCATTERING, PBB_SAVED): Remove.
+	(PBB_NB_LOCAL_VARIABLES): Remove.
+	(PBB_NB_SCATTERING_TRANSFORM): Remove.
+	(schedule_to_scattering): Remove.
+	(number_of_write_pdrs): Remove.
+	(pbb_dim_iter_domain): Remove.
+	(pbb_nb_params): Remove.
+	(pbb_nb_scattering_orig): Remove.
+	(pbb_nb_scattering_transform): Remove.
+	(pbb_nb_dynamic_scattering_transform): Remove.
+	(pbb_nb_local_vars): Remove.
+	(pbb_iterator_dim): Remove.
+	(pbb_parameter_dim): Remove.
+	(psco_scattering_dim): Remove.
+	(psct_scattering_dim): Remove.
+	(psct_local_var_dim): Remove.
+	(psco_iterator_dim): Remove.
+	(psct_iterator_dim): Remove.
+	(psco_parameter_dim): Remove.
+	(psct_parameter_dim): Remove.
+	(psct_dynamic_dim): Remove.
+	(psct_static_dim): Remove.
+	(psct_add_local_variable): Remove.
+	(new_lst_loop): Remove.
+	(new_lst_stmt): Remove.
+	(free_lst): Remove.
+	(copy_lst): Remove.
+	(lst_add_loop_under_loop): Remove.
+	(lst_depth): Remove.
+	(lst_dewey_number): Remove.
+	(lst_dewey_number_at_depth): Remove.
+	(lst_pred): Remove.
+	(lst_succ): Remove.
+	(lst_find_pbb): Remove.
+	(find_lst_loop): Remove.
+	(lst_find_first_pbb): Remove.
+	(lst_empty_p): Remove.
+	(lst_find_last_pbb): Remove.
+	(lst_contains_p): Remove.
+	(lst_contains_pbb): Remove.
+	(lst_create_nest): Remove.
+	(lst_remove_from_sequence): Remove.
+	(lst_remove_loop_and_inline_stmts_in_loop_father): Remove.
+	(lst_niter_for_loop): Remove.
+	(pbb_update_scattering): Remove.
+	(lst_update_scattering_under): Remove.
+	(lst_update_scattering): Remove.
+	(lst_insert_in_sequence): Remove.
+	(lst_replace): Remove.
+	(lst_substitute_3): Remove.
+	(lst_distribute_lst): Remove.
+	(lst_remove_all_before_including_pbb): Remove.
+	(lst_remove_all_before_excluding_pbb): Remove.
+	(struct scop): Remove original_schedule, transformed_schedule, and
+	saved_schedule.
+	(SCOP_ORIGINAL_SCHEDULE, SCOP_TRANSFORMED_SCHEDULE): Remove.
+	(SCOP_SAVED_SCHEDULE): Remove.
+	(poly_scattering_new): Remove.
+	(poly_scattering_free): Remove.
+	(poly_scattering_copy): Remove.
+	(store_scattering_pbb): Remove.
+	(store_lst_schedule): Remove.
+	(restore_lst_schedule): Remove.
+	(store_scattering): Remove.
+	(restore_scattering_pbb): Remove.
+	(restore_scattering): Remove.
+	* graphite-sese-to-poly.c (build_pbb_scattering_polyhedrons):
+	Remove scattering_dimensions.  Do not use pbb_dim_iter_domain:
+	compute the scattering polyhedron dimension from the dimension of
+	pbb->domain.
+	(build_scop_scattering): Update call to
+	build_pbb_scattering_polyhedrons.
+	(build_poly_scop): Remove call to scop_to_lst.
+	* graphite.c (graphite_transform_loops): Add call to print_scop.
+	(gate_graphite_transforms): Remove use of flag_loop_block,
+	flag_loop_interchange, and flag_loop_strip_mine.
+
+2015-08-27  Sebastian Pop  <s.pop@samsung.com>
+
+	* common.opt (floop-unroll-and-jam): Make alias of floop-nest-optimize.
+	* doc/invoke.texi (-floop-unroll-and-jam): Document as alias of
+	-floop-nest-optimize.
+	* graphite-isl-ast-to-gimple.c (generate_luj_sepclass_opt): Remove.
+	(generate_luj_sepclass): Remove.
+	(generate_luj_options): Remove.
+	(set_options): Remove opt_luj.
+	(scop_to_isl_ast): Remove opt_luj.
+	* graphite-optimize-isl.c (getScheduleForBand): Remove check for
+	flag_loop_unroll_jam.
+	(getPrevectorMap_full): Remove.
+	(getScheduleForBandList): Remove map_sepcl.
+	(getScheduleMap): Same.
+	(apply_schedule_map_to_scop): Remove sepcl.
+	(optimize_isl): Same.
+	* graphite-poly.c (apply_poly_transforms): Remove check for
+	flag_loop_unroll_jam.
+	(new_poly_bb): Remove map_sepclass.
+	* graphite-poly.h (struct poly_bb): Same.
+	* graphite.c (gate_graphite_transforms): Remove flag_loop_unroll_jam.
+	* params.def (PARAM_LOOP_UNROLL_JAM_SIZE)
+	(PARAM_LOOP_UNROLL_JAM_DEPTH): Remove.
+	* toplev.c (process_options): Remove flag_loop_unroll_jam.
+
+2015-08-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/67317
+	* config/i386/i386.md (*add<mode>3_cc): Remove insn pattern.
+	(addqi3_cc): Ditto.
+	(UNSPEC_ADD_CARRY): Remove.
+	(addqi3_cconly_overflow): New expander.
+	(*add<dwi>3_doubleword): Split to add<mode>3_cconly_overflow.
+	Adjust for changed add<mode>3_carry.
+	(*neg<dwi>2_doubleword): Adjust for changed add<mode>3_carry.
+	(*sub<dwi>3_doubleword): Adjust for changed sub<mode>3_carry.
+	(<plusminus_insn><mode>3_carry): Remove expander.
+	(*<plusminus_insn><mode>3_carry): Split insn pattern to
+	add<mode>3_carry and sub<mode>3_carry.
+	(plusminus_carry_mnemonic): Remove code attribute.
+	(add<mode>3_carry): Canonicalize insn pattern.
+	(*addsi3_carry_zext): Ditto.
+	(sub<mode>3_carry): Ditto.
+	(*subsi3_carry_zext): Ditto.
+	(adcx<mode>3): Remove insn pattern.
+	(addcarry<mode>): New insn pattern.
+	(subborrow<mode>): Ditto.
+	* config/i386/i386.c (ix86_expand_strlensi_unroll_1): Use
+	gen_addqi3_cconly_overflow instead of gen_addqi3_cc.
+	(ix86_expand_builtin) <case IX86_BUILTIN_SBB32,
+	case IX86_BUILTIN_SBB64, case IX86_BUILTIN_ADDCARRY32,
+	case IX86_BUILTIN_ADDCARRY64>: Use CODE_FOR_subborrowsi,
+	CODE_FOR_subborrowdi, CODE_FOR_addcarrysi and CODE_FOR_addcarrydi.
+	Rewrite expander to not clobber carry flag chains.
+
+2015-08-27  Pat Haugen  <pthaugen@us.ibm.com>
+
+	* config/rs6000/vector.md (vec_shr_<mode>): Fix to do a shift
+	instead of a rotate.
+
+2015-08-27  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67005
+	* tree-ssa-dce.c (remove_dead_stmt): Also schedule fixup if removing
+	an entry into an irreducible region.
+
+2015-08-27  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* configure: Regenerate.
+
+2015-08-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR tree-optimization/67283
+	* tree-sra.c (type_consists_of_records_p): Rename to...
+	(scalarizable_type_p): ...this, add case for ARRAY_TYPE.
+
+	(completely_scalarize_record): Rename to...
+	(completely_scalarize): ...this, add ARRAY_TYPE case, move some code to:
+	(scalarize_elem): New.
+
+2015-08-27  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* tree-sra.c (completely_scalarize_var): Rename to...
+	(create_total_scalarization_access): ... Here. Drop call to
+	completely_scalarize_record.
+
+	(analyze_all_variable_accesses): Replace completely_scalarize_var
+	with create_total_scalarization_access and completely_scalarize_record.
+
+2015-08-27  Alan Modra  <amodra@gmail.com>
+
+	PR target/67356
+	* config/rs6000/rs6000.md (ior<mode>_mask): Use constraint "0"
+	for operand 1.
+
+2015-08-27  Richard Biener  <rguenther@suse.de>
+
+	* passes.c (rest_of_decl_compilation): Guard early_global_decl
+	call with !seen_error ().
+	* cgraphunit.c (symbol_table::finalize_compilation_unit): Move
+	early debug generation and finish...
+	(symbol_table::compile): ... here to put it after a !seen_error ()
+	guard.
+
+2015-08-27  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* config.gcc (*-*-solaris2*): Enable default_use_cxa_atexit on
+	Solaris 12+.
+
+2015-08-27  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+	    Andre Vieira  <andre.simoesdiasvieira@arm.com>
+
+	* config/aarch64/aarch64.md (*condjump): Handle functions > 1 MiB.
+	(*cb<optab><mode>1): Likewise.
+	(*tb<optab><mode>1): Likewise.
+	(*cb<optab><mode>1): Likewise.
+	* config/aarch64/iterators.md (inv_cb): New code attribute.
+	(inv_tb): Likewise.
+	* config/aarch64/aarch64.c (aarch64_gen_far_branch): New.
+	* config/aarch64/aarch64-protos.h (aarch64_gen_far_branch): New.
+
+2015-08-27  Richard Biener  <rguenther@suse.de>
+
+	* ipa.c (cgraph_build_static_cdtor_1): Set DECL_IGNORED_P.
+
+2015-08-27  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Add emit_barrier() after
+	trap to fix ICE.
+
+2015-08-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_expand_float128_convert):
+	Add declaration.
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_store): Fix a
+	comment.
+	(rs6000_cannot_change_mode_class): Add support for IEEE 128-bit
+	floating point in VSX registers.
+	(rs6000_output_move_128bit): Always print out the set insn if we
+	can't generate an appropriate 128-bit move.
+	(rs6000_generate_compare): Add support for IEEE 128-bit floating
+	point in VSX registers comparisons.
+	(rs6000_expand_float128_convert): Likewise.
+
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate for only GPR hard registers.
+
+	* config/rs6000/rs6000.md (FP): Add IEEE 128-bit floating point
+	modes to iterators. Add new iterators for moving 128-bit values in
+	scalar FPR registers and VSX registers.
+	(FMOVE128): Likewise.
+	(FMOVE128_FPR): Likewise.
+	(FMOVE128_GPR): Likewise.
+	(FMOVE128_VSX): Likewise.
+	(FLOAT128_SFDFTF): New iterators for IEEE 128-bit floating point
+	in VSX registers.
+	(IFKF): Likewise.
+	(IBM128): Likewise.
+	(TFIFKF): Likewise.
+	(RELOAD): Add IEEE 128-bit floating point modes.
+	(signbittf2): Convert TF insns to add support for new IEEE 128-bit
+	floating point in VSX registers modes.
+	(signbit<mode>2, IBM128 iterator): Likewise.
+	(mov<mode>_64bit_dm, FMOVE128_FPR iterator): Likewise.
+	(mov<mode>_32bit, FMOVE128_FPR iterator): Likewise.
+	(negtf2): Likewise.
+	(neg<mode>2, TFIFKF iterator): Likewise.
+	(negtf2_internal): Likewise.
+	(abstf2): Likewise.
+	(abs<mode>2, TFIFKF iterator): Likewise.
+	(ieee_128bit_negative_zero): New IEEE 128-bit floating point in
+	VSX insn support for negate, absolute value, and negative absolute
+	value.
+	(ieee_128bit_vsx_neg<mode>2): Likewise.
+	(ieee_128bit_vsx_neg<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_abs<mode>2): Likewise.
+	(ieee_128bit_vsx_abs<mode>2_internal): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2): Likewise.
+	(ieee_128bit_vsx_nabs<mode>2_internal): Likewise.
+	(FP128_64): Update pack/unpack 128-bit insns for IEEE 128-bit
+	floating point in VSX registers.
+	(unpack<mode>_dm): Likewise.
+	(unpack<mode>_nodm): Likewise.
+	(pack<mode>): Likewise.
+	(unpackv1ti): Likewise.
+	(unpack<mode>, FMOVE128_VSX iterator): Likewise.
+	(packv1ti): Likewise.
+	(pack<mode>, FMOVE128_VSX iterator): Likewise.
+	(extenddftf2): Add support for IEEE 128-bit floating point in VSX
+	registers.
+	(extenddftf2_internal): Likewise.
+	(trunctfdf2): Likewise.
+	(trunctfdf2_internal2): Likewise.
+	(fix_trunc_helper): Likewise.
+	(fix_trunctfdi2"): Likewise.
+	(floatditf2): Likewise.
+	(floatuns<mode>tf2): Likewise.
+	(extend<FLOAT128_SFDFTF:mode><IFKF:mode>2): Likewise.
+	(trunc<IFKF:mode><FLOAT128_SFDFTF:mode>2): Likewise.
+	(fix_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(fixuns_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(float<SDI:mode><IFKF:mode>2): Likewise.
+	(floatuns<SDI:mode><IFKF:mode>2): Likewise.
+
+2015-08-26  Renlin Li  <renlin.li@arm.com>
+
+	* config/aarch64/aarch64.md (*aarch64_bfi<GPI:mode><ALLX:mode>4): New.
+
+2015-08-26  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.md (UNSPEC_GOTTINYTLS): New UNSPEC.
+	(tlsie_tiny_<mode>): New define_insn.
+	(tlsie_tiny_sidi): Likewise.
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_type): Define
+	SYMBOL_TINY_TLSIE.
+	(aarch64_symbol_context): New comment for SYMBOL_TINY_TLSIE.
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately): Support
+	SYMBOL_TINY_TLSIE.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_print_operand): Likewise.
+	(arch64_classify_tls_symbol): Likewise.
+
+2015-08-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm-arches.def: Replace single value flags with
+	an initializer built from ARM_FSET_MAKE_CPU1.
+	* config/arm/arm-cores.def: Likewise.
+	* config/arm/arm.c: (all_cores): Remove ARM_FSET_MAKE_CPU1
+	derivation from the ARM_CORE macro definition, use the given value
+	instead.
+	(all_architectures): Remove ARM_FSET_MAKE_CPU1 derivation from the
+	ARM_ARCH macro definition, use the given value instead.
+
+2015-08-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm-builtins.c (def_mbuiltin): Test all flags in a
+	feature set.
+	(struct builtin_description): Replace field mask with field
+	features.
+	(IWMMXT_BUILTIN): Use ARM_FSET macros for feature flags.
+	(IWMMXT2_BUILTIN): Likewise.
+	(IWMMXT2_BUILTIN2): Likewise.
+	(FP_BUILTIN): Likewise.
+	(CRC32_BUILTIN): Likewise.
+	(CRYPTO_BUILTIN): Likewise.
+	(iwmmx_mbuiltin): Likewise.
+	(iwmmx2_mbuiltin): Likewise.
+	(arm_init_iwmmxt_builtins): Likewise. Also, update for change to
+	struct builtin_description.
+
+2015-08-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm-builtins.c (def_mbuiltin): Use ARM_FSET macro.
+	(struct builtin_description): Change type of mask to unsigned
+	long.
+	* config/arm/arm-protos.h (insn_flags): Declare as type
+	arm_feature_set.
+	(tune_flags): Likewise.
+	* config/arm/arm.c (feature_count): New.
+	(insn_flags): Define as type arm_feature_set.
+	(tune_flags): Likewise.
+	(struct processors): Define field flags as type arm_feature_set.
+	(all_cores): Update for change to struct processors.
+	(all_architectures): Likewise.
+	(arm_option_check_internal): Use arm_feature_set and ARM_FSET
+	macros.
+	(arm_option_override_internal): Likewise.
+	(arm_option_override): Likewise.
+
+2015-08-26  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+	    Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.c (initialize_aarch64_tls_size): Set default
+	tls size for tiny, small, large memory model.
+	(aarch64_load_symref_appropriately): Support new symbol types.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_print_operand): Likewise.
+	(aarch64_classify_tls_symbol): Likewise.
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_context): Likewise.
+	(aarch64_symbol_type): Likewise.
+	* config/aarch64/aarch64.md (tlsle): Deleted.
+	(tlsle12_<mode>): New define_insn.
+	(tlsle24_<mode>): Likewise.
+	(tlsle32_<mode>): Likewise.
+	(tlsle48_<mode>): Likewise.
+	* doc/sourcebuild.texi (AArch64-specific attributes): Document
+	"aarch64_tlsle32".
+
+2015-08-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* config/arm/arm-protos.h (FL_NONE): New.
+	(FL_ANY): New.
+	(arm_feature_set): New.
+	(ARM_FSET_MAKE): New.
+	(ARM_FSET_MAKE_CPU1): New.
+	(ARM_FSET_MAKE_CPU2): New.
+	(ARM_FSET_CPU1): New.
+	(ARM_FSET_CPU2): New.
+	(ARM_FSET_EMPTY): New.
+	(ARM_FSET_ANY): New.
+	(ARM_FSET_HAS_CPU1): New.
+	(ARM_FSET_HAS_CPU2): New.
+	(ARM_FSET_HAS_CPU): New.
+	(ARM_FSET_ADD_CPU1): New.
+	(ARM_FSET_ADD_CPU2): New.
+	(ARM_FSET_DEL_CPU1): New.
+	(ARM_FSET_DEL_CPU2): New.
+	(ARM_FSET_UNION): New.
+	(ARM_FSET_INTER): New.
+	(ARM_FSET_XOR): New.
+	(ARM_FSET_EXCLUDE): New.
+	(AFM_FSET_IS_EMPTY): New.
+	(ARM_FSET_CPU_SUBSET): New.
+
+2015-08-26  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64-protos.h (aarch64_symbol_type): Rename
+	SYMBOL_TLSLE to SYMBOL_TLSLE24.
+	* config/aarch64/aarch64.c (aarch64_load_symref_appropriately):
+	Likewise.
+	(aarch64_expand_mov_immediate): Likewise.
+	(aarch64_print_operand): Likewise.
+	(aarch64_classify_symbol): Likewise.
+
+2015-08-26  Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.opt (mtls-size): New entry.
+	* config/aarch64/aarch64.c (initialize_aarch64_tls_size): New function.
+	(aarch64_override_options_internal): Call initialize_aarch64_tls_size.
+	* doc/invoke.texi (AArch64 Options): Document -mtls-size.
+
+2015-08-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc/config/arm/arm-cores.def: Add FL_FOR_ARCH flag for each
+	ARM_CORE entry.  Fix some white-space.
+	* gcc/config/arm/arm.c: Remove FL_FOR_ARCH derivation from
+	ARM_CORE definition.
+
+2015-08-26  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* fold-const.c (fold_binary_loc) : Move Optimize 
+	root(x)*root(y)	as root(x*y) to match.pd.
+	Move Optimize expN(x)*expN(y) as expN(x+y) to match.pd.
+	Move Optimize pow(x,y)*pow(x,z) as pow(x,y+z) to match.pd.
+	Move Optimize a/root(b/c) into a*root(c/b) to match.pd.
+	Move Optimize x/expN(y) into x*expN(-y) to match.pd.
+	* match.pd (mult (root:s @0) (root:s @1)): New simplifier.
+	(mult (POW:s @0 @1) (POW:s @0 @2)) : New simplifier.
+	(mult (exps:s @0) (exps:s @1)) : New simplifier.
+	(rdiv @0 (root:s (rdiv:s @1 @2))) : New simplifier.
+	(rdiv @0 (exps:s @1)) : New simplifier.
+
+2015-08-25  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c (driver::finalize): Only assign to extra_specs if
+	[EXTRA_SPECS].
+
+2015-08-25  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/67330
+	* varasm.c (declare_weak): Return after giving an error.
+
+2015-08-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc-main.c (main): Add params to driver ctor.
+	* gcc.c (class env_manager): New.
+	(env): New global.
+	(env_manager::init): New.
+	(env_manager::get): New.
+	(env_manager::xput): New.
+	(env_manager::restore): New.
+	Poison getenv and putenv.
+	(DEFAULT_TARGET_SYSTEM_ROOT): New.
+	(target_system_root): Update initialization to use
+	DEFAULT_TARGET_SYSTEM_ROOT.
+	(struct spec_list): Add field "default_ptr".
+	(INIT_STATIC_SPEC): Initialize new field "default_ptr".
+	(init_spec): Likewise.
+	(set_spec): Clear field "default_ptr".
+	(read_specs): Free "spec" and "buffer".
+	(xputenv): Reimplement in terms of env_manager.
+	(process_command): Replace ::getenv calls with calls to the
+	env_manager singleton.
+	(process_brace_body): Free string in three places.
+	(driver::driver): New.
+	(driver::~driver): New.
+	(used_arg): Convert from a function to...
+	(class used_arg_t): ...this class, and...
+	(used_arg): ...this new global instance.
+	(used_arg_t::finalize): New function.
+	(getenv_spec_function): Add "const" to local "value".  Replace
+	::getenv call with call to the env_manager singleton.
+	(path_prefix_reset): New function.
+	(driver::finalize): New function.
+	* gcc.h (driver::driver): New.
+	(driver::~driver): New.
+	(driver::finalize): New.
+
+2015-08-25  Nathan Sidwell  <nathan@acm.org>
+
+	* optabs.c (emit_indirect_jump): Don't try an emit a jump if the
+	target doesn't have one.
+
+2015-08-25  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/67346
+	* config/rs6000/rs6000.md (*ior<mode>_mask): Use a match_scratch.
+
+2015-08-25  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	PR target/67344
+	* config/rs6000/rs6000.md (*and<mode>3_imm_dot_shifted): Change to
+	a define_insn, remove second alternative.
+
+2015-08-25  Thomas Schwinge  <thomas@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.c (struct switchstr): Expand comment.
+
+2015-08-25  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_write_function_decl): Reformat.
+	(nvptx_reorg_subreg): Pass insn pattern to asm_operands.
+
 2015-08-25  Richard Biener  <rguenther@suse.de>
 
 	PR middle-end/67306
