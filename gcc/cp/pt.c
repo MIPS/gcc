@@ -14543,7 +14543,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 
     case OMP_TARGET_DATA:
     case OMP_TARGET:
-      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, false,
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, true,
 				args, complain, in_decl);
       keep_next_level (true);
       stmt = begin_omp_structured_block ();
@@ -14558,10 +14558,12 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_TARGET_UPDATE:
-      tmp = tsubst_omp_clauses (OMP_TARGET_UPDATE_CLAUSES (t), false, false,
+    case OMP_TARGET_ENTER_DATA:
+    case OMP_TARGET_EXIT_DATA:
+      tmp = tsubst_omp_clauses (OMP_STANDALONE_CLAUSES (t), false, true,
 				args, complain, in_decl);
       t = copy_node (t);
-      OMP_TARGET_UPDATE_CLAUSES (t) = tmp;
+      OMP_STANDALONE_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 

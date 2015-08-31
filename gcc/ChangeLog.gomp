@@ -1,3 +1,20 @@
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	struct element GOMP_MAP_FIRSTPRIVATE_POINTER.
+	(gimplify_adjust_omp_clauses): Add CODE argument.
+	Handle removal of GOMP_MAP_FIRSTPRIVATE_POINTER
+	struct elements for struct not seen in target body.
+	Handle removal of struct mapping if struct is not
+	seen in target body.  Remove GOMP_MAP_STRUCT
+	map clause on OMP_TARGET_EXIT_DATA.
+	(gimplify_oacc_cache, gimplify_omp_parallel, gimplify_omp_task,
+	gimplify_omp_for, gimplify_omp_workshare, gimplify_omp_target_update,
+	gimplify_expr): Adjust callers.
+	* omp-low.c (scan_sharing_clauses): Handle struct element
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	(lower_omp_target): Likewise.
+
 2015-07-31  Aldy Hernandez  <aldyh@redhat.com>
 
 	* wide-int.h (wi::gcd): New.

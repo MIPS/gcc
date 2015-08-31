@@ -27950,10 +27950,22 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 		  decl = error_mark_node;
 		  break;
 		}
-	      /* FALL THROUGH.  */
+	      /* FALLTHROUGH.  */
 	    case OMP_CLAUSE_MAP:
 	    case OMP_CLAUSE_FROM:
 	    case OMP_CLAUSE_TO:
+	      while (cp_lexer_next_token_is (parser->lexer, CPP_DOT))
+		{
+		  location_t loc
+		    = cp_lexer_peek_token (parser->lexer)->location;
+		  cp_id_kind idk = CP_ID_KIND_NONE;
+		  cp_lexer_consume_token (parser->lexer);
+		  decl
+		    = cp_parser_postfix_dot_deref_expression (parser, CPP_DOT,
+							      decl, false,
+							      &idk, loc);
+		}
+	      /* FALLTHROUGH.  */
 	    case OMP_CLAUSE_DEPEND:
 	    case OMP_CLAUSE_REDUCTION:
 	      while (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_SQUARE))
@@ -29655,7 +29667,9 @@ cp_parser_omp_clause_map (cp_parser *parser, tree list)
 	  int nth = 2;
 	  if (cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_COMMA)
 	    nth++;
-	  if (cp_lexer_peek_nth_token (parser->lexer, nth)->type == CPP_NAME
+	  if ((cp_lexer_peek_nth_token (parser->lexer, nth)->type == CPP_NAME
+	       || (cp_lexer_peek_nth_token (parser->lexer, nth)->keyword
+		   == RID_DELETE))
 	      && (cp_lexer_peek_nth_token (parser->lexer, nth + 1)->type
 		  == CPP_COLON))
 	    {
@@ -29683,8 +29697,6 @@ cp_parser_omp_clause_map (cp_parser *parser, tree list)
 	kind = always ? GOMP_MAP_ALWAYS_TOFROM : GOMP_MAP_TOFROM;
       else if (strcmp ("release", p) == 0)
 	kind = GOMP_MAP_RELEASE;
-      else if (strcmp ("delete", p) == 0)
-	kind = GOMP_MAP_DELETE;
       else
 	{
 	  cp_parser_error (parser, "invalid map kind");
@@ -29693,6 +29705,13 @@ cp_parser_omp_clause_map (cp_parser *parser, tree list)
 						 /*consume_paren=*/true);
 	  return list;
 	}
+      cp_lexer_consume_token (parser->lexer);
+      cp_lexer_consume_token (parser->lexer);
+    }
+  else if (cp_lexer_next_token_is_keyword (parser->lexer, RID_DELETE)
+	   && cp_lexer_peek_nth_token (parser->lexer, 2)->type == CPP_COLON)
+    {
+      kind = GOMP_MAP_DELETE;
       cp_lexer_consume_token (parser->lexer);
       cp_lexer_consume_token (parser->lexer);
     }

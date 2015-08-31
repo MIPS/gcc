@@ -1465,7 +1465,8 @@ GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
 
       if (kind == GOMP_MAP_ALLOC
 	  || kind == GOMP_MAP_TO
-	  || kind == GOMP_MAP_ALWAYS_TO)
+	  || kind == GOMP_MAP_ALWAYS_TO
+	  || kind == GOMP_MAP_STRUCT)
 	{
 	  is_enter_data = true;
 	  break;
@@ -1483,8 +1484,15 @@ GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
 
   if (is_enter_data)
     for (i = 0; i < mapnum; i++)
-      gomp_map_vars (devicep, 1, &hostaddrs[i], NULL, &sizes[i], &kinds[i],
-		     true, GOMP_MAP_VARS_ENTER_DATA);
+      if ((kinds[i] & 0xff) == GOMP_MAP_STRUCT)
+	{
+	  gomp_map_vars (devicep, sizes[i] + 1, &hostaddrs[i], NULL, &sizes[i],
+			 &kinds[i], true, GOMP_MAP_VARS_ENTER_DATA);
+	  i += sizes[i];
+	}
+      else
+	gomp_map_vars (devicep, 1, &hostaddrs[i], NULL, &sizes[i], &kinds[i],
+		       true, GOMP_MAP_VARS_ENTER_DATA);
   else
     gomp_exit_data (devicep, mapnum, hostaddrs, sizes, kinds);
 }

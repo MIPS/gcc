@@ -1,3 +1,13 @@
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Add IS_OMP argument, pass
+	it down recursively.  Handle struct element based array sections.
+	(handle_omp_array_sections): Adjust caller.  Handle struct element
+	based array sections.
+	(c_finish_omp_clauses): Handle struct element based array sections.
+	Use generic_head instead of map_head for GOMP_MAP_FIRSTPRIVATE_POINTER
+	duplicate testing.
+
 2015-07-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_variable_list): Parse struct

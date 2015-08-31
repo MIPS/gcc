@@ -11590,13 +11590,39 @@ c_finish_omp_cancellation_point (location_t loc, tree clauses)
 
 static tree
 handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
-			     bool &maybe_zero_len, unsigned int &first_non_one)
+			     bool &maybe_zero_len, unsigned int &first_non_one,
+			     bool is_omp)
 {
   tree ret, low_bound, length, type;
   if (TREE_CODE (t) != TREE_LIST)
     {
       if (error_operand_p (t))
 	return error_mark_node;
+      ret = t;
+      if (TREE_CODE (t) == COMPONENT_REF
+	  && is_omp
+	  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TO
+	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM))
+	{
+	  if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"bit-field %qE in %qs clause",
+			t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      return error_mark_node;
+	    }
+	  while (TREE_CODE (t) == COMPONENT_REF)
+	    {
+	      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (t, 0))) == UNION_TYPE)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qE is a member of a union", t);
+		  return error_mark_node;
+		}
+	      t = TREE_OPERAND (t, 0);
+	    }
+	}
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
 	  if (DECL_P (t))
@@ -11617,11 +11643,11 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
-      return t;
+      return ret;
     }
 
   ret = handle_omp_array_sections_1 (c, TREE_CHAIN (t), types,
-				     maybe_zero_len, first_non_one);
+				     maybe_zero_len, first_non_one, is_omp);
   if (ret == error_mark_node || ret == NULL_TREE)
     return ret;
 
@@ -11856,7 +11882,8 @@ handle_omp_array_sections (tree c, bool is_omp)
   unsigned int first_non_one = 0;
   auto_vec<tree, 10> types;
   tree first = handle_omp_array_sections_1 (c, OMP_CLAUSE_DECL (c), types,
-					    maybe_zero_len, first_non_one);
+					    maybe_zero_len, first_non_one,
+					    is_omp);
   if (first == error_mark_node)
     return true;
   if (first == NULL_TREE)
@@ -12027,7 +12054,9 @@ handle_omp_array_sections (tree c, bool is_omp)
       if (size)
 	size = c_fully_fold (size, false, NULL);
       OMP_CLAUSE_SIZE (c) = size;
-      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+	  || (TREE_CODE (t) == COMPONENT_REF
+	      && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE))
 	return false;
       gcc_assert (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FORCE_DEVICEPTR);
       if (is_omp)
@@ -12118,7 +12147,7 @@ tree
 c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, map_head, map_field_head;
+  bitmap_head aligned_head, map_head, map_field_head, generic_field_head;
   tree c, t, type, *pc;
   tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
@@ -12132,6 +12161,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
+  bitmap_initialize (&generic_field_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -12572,6 +12602,31 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 				omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 		      remove = true;
 		    }
+		  while (TREE_CODE (t) == ARRAY_REF)
+		    t = TREE_OPERAND (t, 0);
+		  if (TREE_CODE (t) == COMPONENT_REF
+		      && TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
+		    {
+		      while (TREE_CODE (t) == COMPONENT_REF)
+			t = TREE_OPERAND (t, 0);
+		      if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
+			break;
+		      if (bitmap_bit_p (&map_head, DECL_UID (t)))
+			{
+			  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+			    error ("%qD appears more than once in motion"
+				   " clauses", t);
+			  else
+			    error ("%qD appears more than once in map"
+				   " clauses", t);
+			  remove = true;
+			}
+		      else
+			{
+			  bitmap_set_bit (&map_head, DECL_UID (t));
+			  bitmap_set_bit (&map_field_head, DECL_UID (t));
+			}
+		    }
 		}
 	      break;
 	    }
@@ -12614,7 +12669,14 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 		break;
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
-		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
+		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		      && (OMP_CLAUSE_MAP_KIND (c)
+			  == GOMP_MAP_FIRSTPRIVATE_POINTER))
+		    {
+		      if (bitmap_bit_p (&generic_field_head, DECL_UID (t)))
+			break;
+		    }
+		  else if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
 		    break;
 		}
 	    }
@@ -12647,6 +12709,23 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
+		   && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+	    {
+	      if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		  || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+		{
+		  error ("%qD appears more than once in data clauses", t);
+		  remove = true;
+		}
+	      else
+		{
+		  bitmap_set_bit (&generic_head, DECL_UID (t));
+		  if (t != OMP_CLAUSE_DECL (c)
+		      && TREE_CODE (OMP_CLAUSE_DECL (c)) == COMPONENT_REF)
+		    bitmap_set_bit (&generic_field_head, DECL_UID (t));
+		}
 	    }
 	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {

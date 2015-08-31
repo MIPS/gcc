@@ -6203,6 +6203,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
   struct gimplify_omp_ctx *ctx, *outer_ctx;
   tree c;
   hash_map<tree, tree> *struct_map_to_clause = NULL;
+  tree *orig_list_p = list_p;
 
   ctx = new_omp_context (region_type);
   outer_ctx = ctx->outer_context;
@@ -6443,13 +6444,31 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    }
 	  if (!DECL_P (decl))
 	    {
+	      tree d = decl, *pd;
+	      if (TREE_CODE (d) == ARRAY_REF)
+		{
+		  while (TREE_CODE (d) == ARRAY_REF)
+		    d = TREE_OPERAND (d, 0);
+		  if (TREE_CODE (d) == COMPONENT_REF
+		      && TREE_CODE (TREE_TYPE (d)) == ARRAY_TYPE)
+		    decl = d;
+		}
+	      pd = &OMP_CLAUSE_DECL (c);
+	      if (d == decl
+		  && TREE_CODE (decl) == INDIRECT_REF
+		  && TREE_CODE (TREE_OPERAND (decl, 0)) == COMPONENT_REF
+		  && (TREE_CODE (TREE_TYPE (TREE_OPERAND (decl, 0)))
+		      == REFERENCE_TYPE))
+		{
+		  pd = &TREE_OPERAND (decl, 0);
+		  decl = TREE_OPERAND (decl, 0);
+		}
 	      if (TREE_CODE (decl) == COMPONENT_REF)
 		{
 		  while (TREE_CODE (decl) == COMPONENT_REF)
 		    decl = TREE_OPERAND (decl, 0);
 		}
-	      if (gimplify_expr (&OMP_CLAUSE_DECL (c), pre_p,
-				 NULL, is_gimple_lvalue, fb_lvalue)
+	      if (gimplify_expr (pd, pre_p, NULL, is_gimple_lvalue, fb_lvalue)
 		  == GS_ERROR)
 		{
 		  remove = true;
@@ -6478,18 +6497,49 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  HOST_WIDE_INT bitsize, bitpos;
 		  machine_mode mode;
 		  int unsignedp, volatilep = 0;
-		  tree base
-		    = get_inner_reference (OMP_CLAUSE_DECL (c), &bitsize,
-					   &bitpos, &offset, &mode, &unsignedp,
-					   &volatilep, false);
+		  tree base = OMP_CLAUSE_DECL (c);
+		  while (TREE_CODE (base) == ARRAY_REF)
+		    base = TREE_OPERAND (base, 0);
+		  if (TREE_CODE (base) == INDIRECT_REF)
+		    base = TREE_OPERAND (base, 0);
+		  base = get_inner_reference (base, &bitsize, &bitpos, &offset,
+					      &mode, &unsignedp,
+					      &volatilep, false);
 		  gcc_assert (base == decl
 			      && (offset == NULL_TREE
 				  || TREE_CODE (offset) == INTEGER_CST));
 
 		  splay_tree_node n
 		    = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-		  if (n == NULL || (n->value & GOVD_MAP) == 0)
+		  bool ptr = (OMP_CLAUSE_MAP_KIND (c)
+			      == GOMP_MAP_FIRSTPRIVATE_POINTER);
+		  if (n == NULL || (n->value & (ptr ? GOVD_PRIVATE
+						    : GOVD_MAP)) == 0)
 		    {
+		      if (ptr)
+			{
+			  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+						      OMP_CLAUSE_PRIVATE);
+			  OMP_CLAUSE_DECL (c2) = decl;
+			  OMP_CLAUSE_CHAIN (c2) = *orig_list_p;
+			  *orig_list_p = c2;
+			  if (struct_map_to_clause == NULL)
+			    struct_map_to_clause = new hash_map<tree, tree>;
+			  tree *osc;
+			  if (n == NULL || (n->value & GOVD_MAP) == 0)
+			    osc = NULL;
+			  else
+			    osc = struct_map_to_clause->get (decl);
+			  if (osc == NULL)
+			    struct_map_to_clause->put (decl,
+						       tree_cons (NULL_TREE,
+								  c,
+								  NULL_TREE));
+			  else
+			    *osc = tree_cons (*osc, c, NULL_TREE);
+			  flags = GOVD_PRIVATE | GOVD_EXPLICIT;
+			  goto do_add_decl;
+			}
 		      *list_p = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 						  OMP_CLAUSE_MAP);
 		      OMP_CLAUSE_SET_MAP_KIND (*list_p, GOMP_MAP_STRUCT);
@@ -6508,6 +6558,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  else
 		    {
 		      tree *osc = struct_map_to_clause->get (decl), *sc;
+		      tree *pt = NULL;
+		      if (!ptr && TREE_CODE (*osc) == TREE_LIST)
+			osc = &TREE_PURPOSE (*osc);
 		      if (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS)
 			n->value |= GOVD_SEEN;
 		      offset_int o1, o2;
@@ -6517,25 +6570,58 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			o1 = 0;
 		      if (bitpos)
 			o1 = o1 + bitpos / BITS_PER_UNIT;
-		      for (sc = &OMP_CLAUSE_CHAIN (*osc); *sc != c;
-			   sc = &OMP_CLAUSE_CHAIN (*sc))
-			if (TREE_CODE (OMP_CLAUSE_DECL (*sc)) != COMPONENT_REF)
+		      if (ptr)
+			pt = osc;
+		      else
+			sc = &OMP_CLAUSE_CHAIN (*osc);
+		      for (; ptr ? (*pt && (sc = &TREE_VALUE (*pt)))
+				 : *sc != c;
+			   ptr ? (pt = &TREE_CHAIN (*pt))
+			       : (sc = &OMP_CLAUSE_CHAIN (*sc)))
+			if (TREE_CODE (OMP_CLAUSE_DECL (*sc)) != COMPONENT_REF
+			    && (TREE_CODE (OMP_CLAUSE_DECL (*sc))
+				!= INDIRECT_REF)
+			    && TREE_CODE (OMP_CLAUSE_DECL (*sc)) != ARRAY_REF)
 			  break;
 			else
 			  {
 			    tree offset2;
 			    HOST_WIDE_INT bitsize2, bitpos2;
-			    base = get_inner_reference (OMP_CLAUSE_DECL (*sc),
-							&bitsize2, &bitpos2,
-							&offset2, &mode,
-							&unsignedp, &volatilep,
-							false);
+			    base = OMP_CLAUSE_DECL (*sc);
+			    if (TREE_CODE (base) == ARRAY_REF)
+			      {
+				while (TREE_CODE (base) == ARRAY_REF)
+				  base = TREE_OPERAND (base, 0);
+				if (TREE_CODE (base) != COMPONENT_REF
+				    || (TREE_CODE (TREE_TYPE (base))
+					!= ARRAY_TYPE))
+				  break;
+			      }
+			    else if (TREE_CODE (base) == INDIRECT_REF
+				     && (TREE_CODE (TREE_OPERAND (base, 0))
+					 == COMPONENT_REF)
+				     && (TREE_CODE (TREE_TYPE
+						     (TREE_OPERAND (base, 0)))
+					 == REFERENCE_TYPE))
+			      base = TREE_OPERAND (base, 0);
+			    base = get_inner_reference (base, &bitsize2,
+							&bitpos2, &offset2,
+							&mode, &unsignedp,
+							&volatilep, false);
 			    if (base != decl)
 			      break;
 			    gcc_assert (offset == NULL_TREE
 					|| TREE_CODE (offset) == INTEGER_CST);
 			    tree d1 = OMP_CLAUSE_DECL (*sc);
 			    tree d2 = OMP_CLAUSE_DECL (c);
+			    while (TREE_CODE (d1) == ARRAY_REF)
+			      d1 = TREE_OPERAND (d1, 0);
+			    while (TREE_CODE (d2) == ARRAY_REF)
+			      d2 = TREE_OPERAND (d2, 0);
+			    if (TREE_CODE (d1) == INDIRECT_REF)
+			      d1 = TREE_OPERAND (d1, 0);
+			    if (TREE_CODE (d2) == INDIRECT_REF)
+			      d2 = TREE_OPERAND (d2, 0);
 			    while (TREE_CODE (d1) == COMPONENT_REF)
 			      if (TREE_CODE (d2) == COMPONENT_REF
 				  && TREE_OPERAND (d1, 1)
@@ -6564,6 +6650,12 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 				|| (wi::eq_p (o1, o2) && bitpos < bitpos2))
 			      break;
 			  }
+		      if (ptr)
+			{
+			  if (!remove)
+			    *pt = tree_cons (TREE_PURPOSE (*osc), c, *pt);
+			  break;
+			}
 		      if (!remove)
 			OMP_CLAUSE_SIZE (*osc)
 			  = size_binop (PLUS_EXPR, OMP_CLAUSE_SIZE (*osc),
@@ -7081,7 +7173,8 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 }
 
 static void
-gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
+gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p,
+			     enum tree_code code)
 {
   struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
   tree c, decl;
@@ -7176,11 +7269,51 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p)
 	case OMP_CLAUSE_MAP:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (!DECL_P (decl))
-	    break;
+	    {
+	      if ((ctx->region_type & ORT_TARGET) != 0
+		  && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+		{
+		  if (TREE_CODE (decl) == INDIRECT_REF
+		      && TREE_CODE (TREE_OPERAND (decl, 0)) == COMPONENT_REF
+		      && (TREE_CODE (TREE_TYPE (TREE_OPERAND (decl, 0)))
+			  == REFERENCE_TYPE))
+		    decl = TREE_OPERAND (decl, 0);
+		  if (TREE_CODE (decl) == COMPONENT_REF)
+		    {
+		      while (TREE_CODE (decl) == COMPONENT_REF)
+			decl = TREE_OPERAND (decl, 0);
+		      if (DECL_P (decl))
+			{
+			  n = splay_tree_lookup (ctx->variables,
+						 (splay_tree_key) decl);
+			  if (!(n->value & GOVD_SEEN))
+			    remove = true;
+			}
+		    }
+		}
+	      break;
+	    }
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
 	  if ((ctx->region_type & ORT_TARGET) != 0
 	      && !(n->value & GOVD_SEEN)
-	      && !(OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS))
+	      && ((OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS) == 0
+		  || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_STRUCT))
+	    {
+	      remove = true;
+	      /* For struct element mapping, if struct is never referenced
+		 in target block and none of the mapping has always modifier,
+		 remove all the struct element mappings, which immediately
+		 follow the GOMP_MAP_STRUCT map clause.  */
+	      if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_STRUCT)
+		{
+		  HOST_WIDE_INT cnt = tree_to_shwi (OMP_CLAUSE_SIZE (c));
+		  while (cnt--)
+		    OMP_CLAUSE_CHAIN (c)
+		      = OMP_CLAUSE_CHAIN (OMP_CLAUSE_CHAIN (c));
+		}
+	    }
+	  else if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_STRUCT
+		   && code == OMP_TARGET_EXIT_DATA)
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
@@ -7337,7 +7470,7 @@ gimplify_oacc_cache (tree *expr_p, gimple_seq *pre_p)
 
   gimplify_scan_omp_clauses (&OACC_CACHE_CLAUSES (expr), pre_p, ORT_WORKSHARE,
 			     OACC_CACHE);
-  gimplify_adjust_omp_clauses (pre_p, &OACC_CACHE_CLAUSES (expr));
+  gimplify_adjust_omp_clauses (pre_p, &OACC_CACHE_CLAUSES (expr), OACC_CACHE);
 
   /* TODO: Do something sensible with this information.  */
 
@@ -7369,7 +7502,8 @@ gimplify_omp_parallel (tree *expr_p, gimple_seq *pre_p)
   else
     pop_gimplify_context (NULL);
 
-  gimplify_adjust_omp_clauses (pre_p, &OMP_PARALLEL_CLAUSES (expr));
+  gimplify_adjust_omp_clauses (pre_p, &OMP_PARALLEL_CLAUSES (expr),
+			       OMP_PARALLEL);
 
   g = gimple_build_omp_parallel (body,
 				 OMP_PARALLEL_CLAUSES (expr),
@@ -7405,7 +7539,7 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
   else
     pop_gimplify_context (NULL);
 
-  gimplify_adjust_omp_clauses (pre_p, &OMP_TASK_CLAUSES (expr));
+  gimplify_adjust_omp_clauses (pre_p, &OMP_TASK_CLAUSES (expr), OMP_TASK);
 
   g = gimple_build_omp_task (body,
 			     OMP_TASK_CLAUSES (expr),
@@ -7984,7 +8118,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	TREE_OPERAND (TREE_OPERAND (t, 1), 0) = var;
       }
 
-  gimplify_adjust_omp_clauses (pre_p, &OMP_FOR_CLAUSES (orig_for_stmt));
+  gimplify_adjust_omp_clauses (pre_p, &OMP_FOR_CLAUSES (orig_for_stmt),
+			       TREE_CODE (orig_for_stmt));
 
   int kind;
   switch (TREE_CODE (orig_for_stmt))
@@ -8236,7 +8371,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     }
   else
     gimplify_and_add (OMP_BODY (expr), &body);
-  gimplify_adjust_omp_clauses (pre_p, &OMP_CLAUSES (expr));
+  gimplify_adjust_omp_clauses (pre_p, &OMP_CLAUSES (expr), TREE_CODE (expr));
 
   switch (TREE_CODE (expr))
     {
@@ -8312,7 +8447,8 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
     }
   gimplify_scan_omp_clauses (&OMP_STANDALONE_CLAUSES (expr), pre_p,
 			     ORT_WORKSHARE, TREE_CODE (expr));
-  gimplify_adjust_omp_clauses (pre_p, &OMP_STANDALONE_CLAUSES (expr));
+  gimplify_adjust_omp_clauses (pre_p, &OMP_STANDALONE_CLAUSES (expr),
+			       TREE_CODE (expr));
   stmt = gimple_build_omp_target (NULL, kind, OMP_STANDALONE_CLAUSES (expr));
 
   gimplify_seq_add_stmt (pre_p, stmt);
@@ -9396,7 +9532,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		gimplify_scan_omp_clauses (&OMP_CRITICAL_CLAUSES (*expr_p),
 					   pre_p, ORT_WORKSHARE, OMP_CRITICAL);
 		gimplify_adjust_omp_clauses (pre_p,
-					     &OMP_CRITICAL_CLAUSES (*expr_p));
+					     &OMP_CRITICAL_CLAUSES (*expr_p),
+					     OMP_CRITICAL);
 		g = gimple_build_omp_critical (body,
 		    			       OMP_CRITICAL_NAME (*expr_p),
 		    			       OMP_CRITICAL_CLAUSES (*expr_p));

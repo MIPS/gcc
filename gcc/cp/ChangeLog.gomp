@@ -1,3 +1,18 @@
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Parse struct element
+	on map/to/from clauses.
+	(cp_parser_omp_clause_map): Fix up parsing of delete kind.
+	* pt.c (tsubst_expr): For OMP_TARGET{,_DATA} pass true instead of
+	false to allows_field.
+	* semantics.c (handle_omp_array_sections_1): Add IS_OMP argument,
+	pass it down recursively.  Handle struct element based array sections.
+	(handle_omp_array_sections): Adjust caller.  Handle struct element
+	based array sections.
+	(finish_omp_clauses): Handle struct element mappings and struct
+	element based array sections.  Use generic_head instead of map_head
+	for GOMP_MAP_FIRSTPRIVATE_POINTER duplicate testing.
+
 2015-07-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_array_sections): Handle
