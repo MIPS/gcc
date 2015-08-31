@@ -2619,6 +2619,10 @@ fzero-initialized-in-bss
 Common Report Var(flag_zero_initialized_in_bss) Init(1)
 Put zero initialized data in the bss section
 
+freloc-rw
+Common Report Var(flag_reloc_rw) Init(0)
+Put local and global relocations in a read-write section.
+
 g
 Common JoinedOrMissing
 Generate debug information in default format

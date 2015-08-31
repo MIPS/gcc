@@ -1019,7 +1019,7 @@ default_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 int
 default_reloc_rw_mask (void)
 {
-  return flag_pic ? 3 : 0;
+  return (flag_pic || flag_reloc_rw) ? 3 : 0;
 }
 
 /* By default, do no modification. */
