@@ -73,7 +73,7 @@ enum aarch64_symbol_context
 
    SYMBOL_SMALL_TLSGD
    SYMBOL_SMALL_TLSDESC
-   SYMBOL_SMALL_GOTTPREL
+   SYMBOL_SMALL_TLSIE
    SYMBOL_TINY_TLSIE
    SYMBOL_TLSLE12
    SYMBOL_TLSLE24
@@ -112,7 +112,7 @@ enum aarch64_symbol_type
   SYMBOL_SMALL_GOT_4G,
   SYMBOL_SMALL_TLSGD,
   SYMBOL_SMALL_TLSDESC,
-  SYMBOL_SMALL_GOTTPREL,
+  SYMBOL_SMALL_TLSIE,
   SYMBOL_TINY_ABSOLUTE,
   SYMBOL_TINY_GOT,
   SYMBOL_TINY_TLSIE,
@@ -330,6 +330,7 @@ unsigned aarch64_trampoline_size (void);
 void aarch64_asm_output_labelref (FILE *, const char *);
 void aarch64_cpu_cpp_builtins (cpp_reader *);
 void aarch64_elf_asm_named_section (const char *, unsigned, tree);
+const char * aarch64_gen_far_branch (rtx *, int, const char *, const char *);
 void aarch64_err_no_fpadvsimd (machine_mode, const char *);
 void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx);

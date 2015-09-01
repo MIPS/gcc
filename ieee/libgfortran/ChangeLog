@@ -1,3 +1,53 @@
+2015-08-31  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/47571
+	* acinclude.m4 (LIBGFOR_GTHREAD_WEAK): Reinstate.
+	* configure.ac: Call LIBGFOR_GTHREAD_WEAK again.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2015-08-31  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR libfortran/47571
+	* acinclude.m4 (LIBGFOR_GTHREAD_WEAK): Remove.
+	(LIBGFOR_CHECK_WEAKREF): New test.
+	* configure.ac: Call LIBGFOR_CHECK_WEAKREF instead of
+	LIBGFOR_GTHREAD_WEAK.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+	* intrinsics/system_clock.c: Use SUPPORTS_WEAKREF instead of
+	SUPPORTS_WEAK and GTHREAD_USE_WEAK.
+
+2015-08-29 Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libgfortran/67367
+	* io/unix.c (buf_read): Check for error condition and if found
+	return the error code.
+
+2015-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* acinclude.m4: Remove LIBGFOR_CHECK_ATTRIBUTE_DLLEXPORT.
+	* configure.ac: Remove checks for strcasestr, execl, close,
+	getrlimit, readlink, getppid, powl, erfl, j0l, j1l, y0l, y1l,
+	tgammal, and lgammal.
+	* config.h.in: Regenerate.
+	* configure: Regenerate.
+
+2015-08-29  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	* io/unix.c (min): Remove unused macro.
+
+2015-08-28  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
+
+	PR fortran/53668
+	* intrinsics/malloc.c: Adapt comments.
+
+2015-08-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* configure.ac: Auto-detect newlib function support unless we
+	know there are issues when configuring for a host.
+	* configure: Regenerate.
+
 2015-08-26  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR fortran/29600

@@ -586,6 +586,29 @@ static const char * const aarch64_condition_codes[] =
   "hi", "ls", "ge", "lt", "gt", "le", "al", "nv"
 };
 
+/* Generate code to enable conditional branches in functions over 1 MiB.  */
+const char *
+aarch64_gen_far_branch (rtx * operands, int pos_label, const char * dest,
+			const char * branch_format)
+{
+    rtx_code_label * tmp_label = gen_label_rtx ();
+    char label_buf[256];
+    char buffer[128];
+    ASM_GENERATE_INTERNAL_LABEL (label_buf, dest,
+				 CODE_LABEL_NUMBER (tmp_label));
+    const char *label_ptr = targetm.strip_name_encoding (label_buf);
+    rtx dest_label = operands[pos_label];
+    operands[pos_label] = tmp_label;
+
+    snprintf (buffer, sizeof (buffer), "%s%s", branch_format, label_ptr);
+    output_asm_insn (buffer, operands);
+
+    snprintf (buffer, sizeof (buffer), "b\t%%l%d\n%s:", pos_label, label_ptr);
+    operands[pos_label] = dest_label;
+    output_asm_insn (buffer, operands);
+    return "";
+}
+
 void
 aarch64_err_no_fpadvsimd (machine_mode mode, const char *msg)
 {
@@ -1080,7 +1103,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	return;
       }
 
-    case SYMBOL_SMALL_GOTTPREL:
+    case SYMBOL_SMALL_TLSIE:
       {
 	/* In ILP32, the mode of dest can be either SImode or DImode,
 	   while the got entry is always of SImode size.  The mode of
@@ -1714,7 +1737,7 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 
         case SYMBOL_SMALL_TLSGD:
         case SYMBOL_SMALL_TLSDESC:
-        case SYMBOL_SMALL_GOTTPREL:
+	case SYMBOL_SMALL_TLSIE:
 	case SYMBOL_SMALL_GOT_28K:
 	case SYMBOL_SMALL_GOT_4G:
 	case SYMBOL_TINY_GOT:
@@ -4600,7 +4623,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  asm_fprintf (asm_out_file, ":tlsdesc:");
 	  break;
 
-	case SYMBOL_SMALL_GOTTPREL:
+	case SYMBOL_SMALL_TLSIE:
 	  asm_fprintf (asm_out_file, ":gottprel:");
 	  break;
 
@@ -4633,7 +4656,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  asm_fprintf (asm_out_file, ":tlsdesc_lo12:");
 	  break;
 
-	case SYMBOL_SMALL_GOTTPREL:
+	case SYMBOL_SMALL_TLSIE:
 	  asm_fprintf (asm_out_file, ":gottprel_lo12:");
 	  break;
 
@@ -8088,6 +8111,23 @@ aarch64_set_current_function (tree fndecl)
 	      = save_target_globals_default_opts ();
 	}
     }
+
+  if (!fndecl)
+    return;
+
+  /* If we turned on SIMD make sure that any vector parameters are re-laid out
+     so that they use proper vector modes.  */
+  if (TARGET_SIMD)
+    {
+      tree parms = DECL_ARGUMENTS (fndecl);
+      for (; parms && parms != void_list_node; parms = TREE_CHAIN (parms))
+	{
+	  if (TREE_CODE (parms) == PARM_DECL
+	      && VECTOR_TYPE_P (TREE_TYPE (parms))
+	      && DECL_MODE (parms) != TYPE_MODE (TREE_TYPE (parms)))
+	    relayout_decl (parms);
+	}
+    }
 }
 
 /* Enum describing the various ways we can handle attributes.
@@ -8764,7 +8804,7 @@ aarch64_classify_tls_symbol (rtx x)
 	case AARCH64_CMODEL_TINY_PIC:
 	  return SYMBOL_TINY_TLSIE;
 	default:
-	  return SYMBOL_SMALL_GOTTPREL;
+	  return SYMBOL_SMALL_TLSIE;
 	}
 
     case TLS_MODEL_LOCAL_EXEC:

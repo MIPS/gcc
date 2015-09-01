@@ -1,3 +1,41 @@
+2015-08-28  Tim Shen  <timshen@google.com>
+
+	PR libstdc++/67362
+	* include/bits/regex_scanner.tcc (_Scanner<>::_M_scan_normal):
+	Always returns ordinary char token if the char isn't
+	considered a special char.
+	* testsuite/28_regex/regression.cc: New test file for collecting
+	regression testcases from, typically, bugzilla.
+
+2015-08-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/67374
+	* include/bits/range_access.h (valarray, begin, end): Declare.
+	* testsuite/26_numerics/valarray/range_access.cc: Test const
+	overloads.
+	* testsuite/26_numerics/valarray/range_access2.cc: New.
+
+2015-08-27  John Marino  <gnugcc@marino.st>
+
+	* acinclude.m4 (*-*-dragonfly*): Change 7 locale support files
+	from generic to new DragonFly versions.
+	* configure: Regenerate.
+	* config/locale/dragonfly/c_locale.cc: Improve locale support.
+	* config/locale/dragonfly/ctype_members.cc: Likewise.
+	* config/os/bsd/dragonfly/ctype_configure_char.cc: Likewise.
+	* config/os/bsd/dragonfly/os_defines.h: Define _GLIBCXX_USE_C99.
+	* config/locale/dragonfly/c_locale.h: New.
+	* config/locale/dragonfly/codecvt_members.cc: New.
+	* config/locale/dragonfly/collate_members.cc: New.
+	* config/locale/dragonfly/monetary_members.cc: New.
+	* config/locale/dragonfly/numeric_members.cc: New.
+	* config/locale/dragonfly/time_members.cc: New.
+	* config/locale/dragonfly/time_members.h: New.
+
+2015-08-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	* configure: Regenerate.
+
 2015-08-26  Edward Smith-Rowland  <3dw4rd@verizon.net>
 	    Jonathan Wakely  <jwakely@redhat.com>
 
