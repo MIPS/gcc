@@ -1,5 +1,10 @@
 2015-09-01  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-parloops.c (create_parallel_loop): Remove unused variable
+	goacc_kernels_internal.
+
+2015-09-01  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (align_and_expand): Mark as unused.
 
 2015-09-01  Tom de Vries  <tom@codesourcery.com>

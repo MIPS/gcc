@@ -2058,9 +2058,6 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 	 GOACC_kernels_internal call.  */
       gomp_target *kernels = as_a <gomp_target *> (gsi_stmt (gsi));
 
-      gsi_prev (&gsi);
-      gcall *goacc_kernels_internal = as_a <gcall *> (gsi_stmt (gsi));
-
       tree clauses = gimple_omp_target_clauses (kernels);
       /* FIXME: We need a more intelligent mapping onto vector, gangs,
 	 workers.  */
