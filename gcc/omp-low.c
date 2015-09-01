@@ -3892,7 +3892,14 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
 	  new_var = var = OMP_CLAUSE_DECL (c);
 	  if (c_kind != OMP_CLAUSE_COPYIN)
-	    new_var = lookup_decl (var, ctx);
+	    {
+	      /* Not all OpenACC reductions require new mappings.  */
+	      if (is_gimple_omp_oacc (ctx->stmt)
+		  && (new_var = maybe_lookup_decl (var, ctx)) == NULL)
+		new_var = var;
+	      else
+		new_var = lookup_decl (var, ctx);
+	    }
 
 	  if (c_kind == OMP_CLAUSE_SHARED || c_kind == OMP_CLAUSE_COPYIN)
 	    {
@@ -4724,6 +4731,8 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
   tree c, tcode, gwv, rid, lid = build_int_cst (integer_type_node, oacc_lid);
   int oacc_rid, i;
   unsigned mask = extract_oacc_loop_mask (ctx);
+  gimple_seq red_seq = NULL;
+  int num_reductions = 0;
   enum tree_code rcode;
 
   /* Remove the outer-most level of parallelism from the loop.  */
@@ -4753,14 +4762,6 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
       gimplify_and_add (call, ilist);
     }
 
-  /* Call GOACC_LOCK.  */
-  if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
-    {
-      call = build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOACC_LOCK,
-					   void_type_node, 2, dim, lid);
-      gimplify_and_add (call, ilist);
-    }
-
   for (c = clauses, oacc_rid = 0;
        c && write_back;
        c = OMP_CLAUSE_CHAIN (c), oacc_rid++)
@@ -4776,7 +4777,9 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
 
       var = OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c);
       if (var == NULL_TREE)
-	var = lookup_decl (orig, ctx);
+	var = maybe_lookup_decl (orig, ctx);
+      if (var == NULL_TREE)
+	var = orig;
 
       res = build_outer_var_ref (orig, ctx);
 
@@ -4811,16 +4814,32 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
       call = build_call_expr_internal_loc (UNKNOWN_LOCATION, ifn,
 					   TREE_TYPE (var), 6, ref_to_res,
 					   var, gwv, tcode, lid, rid);
-      gimplify_assign (var, call, ilist);
+      gimplify_assign (var, call, &red_seq);
+      num_reductions++;
     }
 
-  /* Call GOACC_UNLOCK.  */
-  if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
+  if (num_reductions)
     {
-      dim = build_int_cst (integer_type_node, loop_dim);
-      call = build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOACC_UNLOCK,
-					   void_type_node, 2, dim, lid);
-      gimplify_and_add (call, ilist);
+      /* Call GOACC_LOCK.  */
+      if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
+	{
+	  call = build_call_expr_internal_loc (UNKNOWN_LOCATION,
+					       IFN_GOACC_LOCK, void_type_node,
+					       2, dim, lid);
+	  gimplify_and_add (call, ilist);
+	}
+
+      gimple_seq_add_seq (ilist, red_seq);
+
+      /* Call GOACC_UNLOCK.  */
+      if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
+	{
+	  dim = build_int_cst (integer_type_node, loop_dim);
+	  call = build_call_expr_internal_loc (UNKNOWN_LOCATION,
+					       IFN_GOACC_UNLOCK,
+					       void_type_node, 2, dim, lid);
+	  gimplify_and_add (call, ilist);
+	}
     }
 }
 

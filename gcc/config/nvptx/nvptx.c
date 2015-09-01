@@ -4229,14 +4229,19 @@ nvptx_goacc_reduction_teardown (gimple call)
   tree rid = gimple_call_arg (call, 5);
   gimple_seq seq = NULL;
 
+  if (v == NULL)
+    {
+      gsi_remove (&gsi, true);
+      return false;
+    }
+
   push_gimplify_context (true);
 
   switch (loop_dim)
     {
     case GOMP_DIM_GANG:
     case GOMP_DIM_VECTOR:
-      if (v)
-	gimplify_assign (v, local_var, &seq);
+      gimplify_assign (v, local_var, &seq);
       break;
     case GOMP_DIM_WORKER:
       {

@@ -1,3 +1,11 @@
+2015-09-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_goacc_reduction_teardown): Allow
+	lhs to be NULL for worker reductions too.
+	* omp-low.c (lower_rec_input_clauses): Bail out on OpenACC reductions.
+	(lower_oacc_reductions): Use maybe_lookup_decl for private reductions.
+	Don't emit locks for fake private gang reductions.
+
 2015-09-01  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (create_parallel_loop): Remove unused variable
