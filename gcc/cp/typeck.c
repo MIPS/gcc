@@ -5070,24 +5070,32 @@ cp_build_binary_op (location_t location,
   result = build2 (resultcode, build_type, op0, op1);
   if (final_type != 0)
     result = cp_convert (final_type, result, complain);
-  if (!processing_template_decl)
-    {
-      op0 = maybe_constant_value (op0);
-      op1 = maybe_constant_value (op1);
-      /* Strip added nop-expression for overflow-operand introduced by
-	 maybe_constant_value.  */
-      STRIP_NOPS (op0);
-      STRIP_NOPS (op1);
-    }
-  result_ovl = fold_build2 (resultcode, build_type, op0, op1);
-  if (TREE_OVERFLOW_P (result_ovl)
-      && !TREE_OVERFLOW_P (op0) 
-      && !TREE_OVERFLOW_P (op1))
-    overflow_warning (location, result_ovl);
 
   if (instrument_expr != NULL)
     result = build2 (COMPOUND_EXPR, TREE_TYPE (result),
-		      instrument_expr, result);
+		     instrument_expr, result);
+
+  if (!processing_template_decl)
+    {
+      op0 = maybe_constant_value (op0);
+      STRIP_NOPS (op0);
+      /* Only call maybe_constant_value on second argument, if first
+	 isn't overflown.  */
+      if (TREE_OVERFLOW_P (op0))
+	return result;
+      op1 = maybe_constant_value (op1);
+      /* Strip added nop-expression for overflow-operand introduced by
+	 maybe_constant_value.  */
+      STRIP_NOPS (op1);
+      if (TREE_OVERFLOW_P (op1))
+	return result;
+    }
+  else if (TREE_OVERFLOW_P (op0) || TREE_OVERFLOW_P (op1))
+    return result;
+
+  result_ovl = fold_build2 (resultcode, build_type, op0, op1);
+  if (TREE_OVERFLOW_P (result_ovl))
+    overflow_warning (location, result_ovl);
 
   return result;
 }
