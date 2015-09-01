@@ -5070,12 +5070,15 @@ cp_build_binary_op (location_t location,
   result = build2 (resultcode, build_type, op0, op1);
   if (final_type != 0)
     result = cp_convert (final_type, result, complain);
-  op0 = maybe_constant_value (op0);
-  op1 = maybe_constant_value (op1);
-  /* Strip added nop-expression for overflow-operand introduced by
-     maybe_constant_value.  */
-  STRIP_NOPS (op0);
-  STRIP_NOPS (op1);
+  if (!processing_template_decl)
+    {
+      op0 = maybe_constant_value (op0);
+      op1 = maybe_constant_value (op1);
+      /* Strip added nop-expression for overflow-operand introduced by
+	 maybe_constant_value.  */
+      STRIP_NOPS (op0);
+      STRIP_NOPS (op1);
+    }
   result_ovl = fold_build2 (resultcode, build_type, op0, op1);
   if (TREE_OVERFLOW_P (result_ovl)
       && !TREE_OVERFLOW_P (op0) 

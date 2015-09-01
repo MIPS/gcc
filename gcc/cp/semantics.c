@@ -2553,11 +2553,15 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
   tree result = build_x_unary_op (loc, code, expr, complain);
   tree result_ovl =  result;
 
-  expr_ovl = maybe_constant_value (expr_ovl);
-  result_ovl = maybe_constant_value (result);
-  /* Strip nop-expressions added by maybe_constant_value on overflow.  */
-  STRIP_NOPS (expr_ovl);
-  STRIP_NOPS (result_ovl); 
+  if (!processing_template_decl)
+    {
+      expr_ovl = maybe_constant_value (expr_ovl);
+      result_ovl = maybe_constant_value (result);
+      /* Strip nop-expressions added by maybe_constant_value on overflow.  */
+      STRIP_NOPS (expr_ovl);
+      STRIP_NOPS (result_ovl);
+    }
+
   if ((complain & tf_warning)
       && TREE_OVERFLOW_P (result_ovl) && !TREE_OVERFLOW_P (expr_ovl))
     overflow_warning (input_location, result_ovl);
