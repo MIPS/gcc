@@ -2565,12 +2565,12 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
       STRIP_NOPS (expr_ovl);
     }
 
-  if (TREE_OVERFLOW_P (expr_ovl))
+  if (TREE_OVERFLOW_P (expr_ovl) || !CONSTANT_CLASS_P (expr_ovl))
     return result;
 
   if (!processing_template_decl)
     {
-      result_ovl = maybe_constant_value (result);
+      result_ovl = maybe_constant_value (result_ovl);
       /* Strip nop-expressions added by maybe_constant_value on overflow.  */
       STRIP_NOPS (result_ovl);
     }
