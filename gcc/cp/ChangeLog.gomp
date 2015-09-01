@@ -1,3 +1,7 @@
+2015-09-01  Tom de Vries  <tom@codesourcery.com>
+
+	* pt.c (tsubst_expr): Remove unused variable s.
+
 2015-08-18  James Norris  <jnorris@codesourcery.com>
 
 	* decl.c (check_oacc_vars_1, check_oacc_vars, struct oacc_return,

@@ -14418,7 +14418,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 	       integral_constant_expression_p)
 
   tree stmt, tmp;
-tree s;
   tree r;
   location_t loc;
 
