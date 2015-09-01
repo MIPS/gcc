@@ -1,3 +1,10 @@
+2015-09-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md: Use tabs and operand spacing consistently
+	throughout.
+	(nvptx_spin_lock): Use set.
+	(nvptx_spin_reset): Likewise.
+
 2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (expand_omp_target): Lose shared_size parameter.

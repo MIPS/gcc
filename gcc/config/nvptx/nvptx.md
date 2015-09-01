@@ -799,7 +799,7 @@
 	   [(match_operand:HSDIM 2 "nvptx_register_operand" "R")
 	    (match_operand:HSDIM 3 "nvptx_nonmemory_operand" "Ri")]))]
   ""
-  "%.\\tsetp%c1 %0,%2,%3;")
+  "%.\\tsetp%c1\\t%0, %2, %3;")
 
 (define_insn "*cmp<mode>"
   [(set (match_operand:BI 0 "nvptx_register_operand" "=R")
@@ -807,7 +807,7 @@
 	   [(match_operand:SDFM 2 "nvptx_register_operand" "R")
 	    (match_operand:SDFM 3 "nvptx_nonmemory_operand" "RF")]))]
   ""
-  "%.\\tsetp%c1 %0,%2,%3;")
+  "%.\\tsetp%c1\\t%0, %2, %3;")
 
 (define_insn "jump"
   [(set (pc)
@@ -941,7 +941,7 @@
 	  [(match_operand:HSDIM 2 "nvptx_register_operand" "R")
 	   (match_operand:HSDIM 3 "nvptx_nonmemory_operand" "Ri")]))]
   ""
-  "%.\\tset%t0%c1 %0,%2,%3;")
+  "%.\\tset%t0%c1\\t%0, %2, %3;")
 
 (define_insn "setcc_int<mode>"
   [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
@@ -949,7 +949,7 @@
 	   [(match_operand:SDFM 2 "nvptx_register_operand" "R")
 	    (match_operand:SDFM 3 "nvptx_nonmemory_operand" "RF")]))]
   ""
-  "%.\\tset%t0%c1 %0,%2,%3;")
+  "%.\\tset%t0%c1\\t%0, %2, %3;")
 
 (define_insn "setcc_float<mode>"
   [(set (match_operand:SF 0 "nvptx_register_operand" "=R")
@@ -957,7 +957,7 @@
 	   [(match_operand:HSDIM 2 "nvptx_register_operand" "R")
 	    (match_operand:HSDIM 3 "nvptx_nonmemory_operand" "Ri")]))]
   ""
-  "%.\\tset%t0%c1 %0,%2,%3;")
+  "%.\\tset%t0%c1\\t%0, %2, %3;")
 
 (define_insn "setcc_float<mode>"
   [(set (match_operand:SF 0 "nvptx_register_operand" "=R")
@@ -965,7 +965,7 @@
 	   [(match_operand:SDFM 2 "nvptx_register_operand" "R")
 	    (match_operand:SDFM 3 "nvptx_nonmemory_operand" "RF")]))]
   ""
-  "%.\\tset%t0%c1 %0,%2,%3;")
+  "%.\\tset%t0%c1\\t%0, %2, %3;")
 
 (define_expand "cstorebi4"
   [(set (match_operand:SI 0 "nvptx_register_operand")
@@ -1343,9 +1343,9 @@
 {
   static const char *const asms[] =
 { /* Must match oacc_loop_levels ordering.  */
-  "%.\\tmov.u32 %0, %%nctaid.x;",/* gang */
-  "%.\\tmov.u32 %0, %%ntid.y;",	/* worker */
-  "%.\\tmov.u32 %0, %%ntid.x;",	/* vector */
+  "%.\\tmov.u32\\t%0, %%nctaid.x;",	/* gang */
+  "%.\\tmov.u32\\t%0, %%ntid.y;",	/* worker */
+  "%.\\tmov.u32\\t%0, %%ntid.x;",	/* vector */
 };
   return asms[INTVAL (operands[1])];
 })
@@ -1358,9 +1358,9 @@
 {
   static const char *const asms[] =
 { /* Must match oacc_loop_levels ordering.  */
-  "%.\\tmov.u32 %0, %%ctaid.x;",/* gang */
-  "%.\\tmov.u32 %0, %%tid.y;",	/* worker */
-  "%.\\tmov.u32 %0, %%tid.x;",	/* vector */
+  "%.\\tmov.u32\\t%0, %%ctaid.x;",	/* gang */
+  "%.\\tmov.u32\\t%0, %%tid.y;",	/* worker */
+  "%.\\tmov.u32\\t%0, %%tid.x;",	/* vector */
 };
   return asms[INTVAL (operands[1])];
 })
@@ -1460,7 +1460,7 @@
    (set (match_operand:SI 1 "nvptx_register_operand" "=R")
         (unspec:SI [(match_dup 2) (const_int 1)] UNSPEC_BIT_CONV))]
   ""
-  "%.\\tmov.b64 {%0,%1}, %2;")
+  "%.\\tmov.b64\\t{%0,%1}, %2;")
 
 ;; pack 2 32-bit ints into a 64 bit object
 (define_insn "packsi<mode>2"
@@ -1469,21 +1469,21 @@
 		      (match_operand:SI 2 "nvptx_register_operand" "R")]
 		    UNSPEC_BIT_CONV))]
   ""
-  "%.\\tmov.b64 %0, {%1,%2};")
+  "%.\\tmov.b64\\t%0, {%1,%2};")
 
 (define_insn "worker_load<mode>"
   [(set (match_operand:SDISDFM 0 "nvptx_register_operand" "=R")
         (unspec:SDISDFM [(match_operand:SDISDFM 1 "memory_operand" "m")]
 			 UNSPEC_SHARED_DATA))]
   ""
-  "%.\\tld.shared%u0\\t%0,%1;")
+  "%.\\tld.shared%u0\\t%0, %1;")
 
 (define_insn "worker_store<mode>"
   [(set (unspec:SDISDFM [(match_operand:SDISDFM 1 "memory_operand" "=m")]
 			 UNSPEC_SHARED_DATA)
 	(match_operand:SDISDFM 0 "nvptx_register_operand" "R"))]
   ""
-  "%.\\tst.shared%u1\\t%1,%0;")
+  "%.\\tst.shared%u1\\t%1, %0;")
 
 ;; Atomic insns.
 
@@ -1577,30 +1577,30 @@
   [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
 		    UNSPECV_BARSYNC)]
   ""
-  "bar.sync\\t%0;")
+  "\\tbar.sync\\t%0;")
 
 (define_insn "nvptx_membar"
   [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
 		    UNSPECV_MEMBAR)]
   ""
-  "membar%B0;")
+  "%.\\tmembar%B0;")
 
 ;; spin lock and reset
 (define_insn "nvptx_spin_lock"
    [(parallel
-     [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
-			(match_operand:SI 1 "const_int_operand" "i")]
-		       UNSPECV_LOCK)
-      (match_operand:SI 2 "register_operand" "=R")
-      (match_operand:BI 3 "register_operand" "=R")
+     [(set (match_operand:SI 2 "register_operand" "=R")
+	   (unspec_volatile:SI [(match_operand:SI 0 "memory_operand" "m")
+			        (match_operand:SI 1 "const_int_operand" "i")]
+			       UNSPECV_LOCK))
+      (set (match_operand:BI 3 "register_operand" "=R") (const_int 0))
       (label_ref (match_operand 4 "" ""))])]
    ""
-   "%4:\\tatom%R1.cas.b32 %2,%0,0,1;setp.ne.u32 %3,%2,0;@%3 bra.uni %4;")
+   "%4:\\tatom%R1.cas.b32\\t%2, %0, 0, 1;\\n\\t\\tsetp.ne.u32\\t%3, %2, 0;\\n\\t@%3\\tbra.uni\\t%4;")
 
 (define_insn "nvptx_spin_reset"
-   [(unspec_volatile [(match_operand:SI 0 "memory_operand" "m")
-		      (match_operand:SI 1 "const_int_operand" "i")]
-		      UNSPECV_LOCK)
-    (match_operand:SI 2 "register_operand" "=R")]
+   [(set (match_operand:SI 2 "register_operand" "=R")
+	    (unspec_volatile:SI [(match_operand:SI 0 "memory_operand" "m")
+				 (match_operand:SI 1 "const_int_operand" "i")]
+				UNSPECV_LOCK))]
    ""
-   "atom%R1.exch.b32 %2,%0,0;")
+   "%.\\tatom%R1.exch.b32\\t%2, %0, 0;")
