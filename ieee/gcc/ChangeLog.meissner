@@ -1,5 +1,10 @@
 2015-09-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Rework setting up
+	ibm128_float_type_node and ieee128_float_type_node.
+	(rs6000_mangle_type): Rework mangling for float128.
+	(rs6000_scalar_mode_supported_p): Support IFmode/KFmode if float128.
+
 	Merge up to 227373.
 	* REVISION: Update subversion id.
 

@@ -14457,8 +14457,6 @@ rs6000_init_builtins (void)
   tree tdecl;
   tree ftype;
   machine_mode mode;
-  machine_mode ieee128_mode;
-  machine_mode ibm128_mode;
 
   if (TARGET_DEBUG_BUILTIN)
     fprintf (stderr, "rs6000_init_builtins%s%s%s%s\n",
@@ -14531,31 +14529,21 @@ rs6000_init_builtins (void)
      TFmode will be either IEEE 128-bit floating point or the IBM double-double
      format that uses a pair of doubles, depending on the switches and
      defaults.  */
-  if (TARGET_IEEEQUAD)
-    {
-      ieee128_mode = TFmode;
-      ibm128_mode = IFmode;
-    }
-  else
-    {
-      ieee128_mode = KFmode;
-      ibm128_mode = TFmode;
-    }
-
-  ieee128_float_type_node = make_node (REAL_TYPE);
-  TYPE_PRECISION (ieee128_float_type_node) = 128;
-  layout_type (ieee128_float_type_node);
-  SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
-
-  ibm128_float_type_node = make_node (REAL_TYPE);
-  TYPE_PRECISION (ibm128_float_type_node) = 128;
-  layout_type (ibm128_float_type_node);
-  SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
-
   if (TARGET_FLOAT128)
     {
+      ibm128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ibm128_float_type_node) = 128;
+      layout_type (ibm128_float_type_node);
+      SET_TYPE_MODE (ibm128_float_type_node, IFmode);
+
+      ieee128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ieee128_float_type_node) = 128;
+      layout_type (ieee128_float_type_node);
+      SET_TYPE_MODE (ieee128_float_type_node, KFmode);
+
       lang_hooks.types.register_builtin_type (ieee128_float_type_node,
 					      "__float128");
+
       lang_hooks.types.register_builtin_type (ibm128_float_type_node,
 					      "__ibm128");
     }
@@ -29915,16 +29903,27 @@ rs6000_mangle_type (const_tree type)
   if (type == bool_int_type_node) return "U6__booli";
   if (type == bool_long_type_node) return "U6__booll";
 
-  /* Use a unique name for __float128 rather than trying to use "e" or "g".  */
-  if (type == ieee128_float_type_node && TARGET_FLOAT128)
-    return "U10__float128";
+  /* Use a unique name for __float128 rather than trying to use "e" or "g". Use
+     "g" for IBM extended double, no matter whether it is long double (using
+     -mabi=ibmlongdouble) or the distinct __ibm128 type.  */
+  if (TARGET_FLOAT128)
+    {
+      if (type == ieee128_float_type_node)
+	return "U10__float128";
+
+      if (type == ibm128_float_type_node)
+	return "g";
+
+      if (type == long_double_type_node)
+	return (TARGET_IEEEQUAD) ? "U10__float128" : "g";
+    }
 
   /* Mangle IBM extended float long double as `g' (__float128) on
      powerpc*-linux where long-double-64 previously was the default.  */
-  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
-      && TARGET_ELF
-      && TARGET_LONG_DOUBLE_128
-      && !TARGET_IEEEQUAD)
+  else if (type == long_double_type_node
+	   && TARGET_ELF
+	   && TARGET_LONG_DOUBLE_128
+	   && !TARGET_IEEEQUAD)
     return "g";
 
   /* For all other types, use normal C++ mangling.  */
@@ -33142,8 +33141,8 @@ rs6000_scalar_mode_supported_p (machine_mode mode)
 
   if (DECIMAL_FLOAT_MODE_P (mode))
     return default_decimal_float_supported_p ();
-  else if (mode == KFmode)
-    return TARGET_FLOAT128;
+  else if (TARGET_FLOAT128 && (mode == KFmode || mode == IFmode))
+    return true;
   else
     return default_scalar_mode_supported_p (mode);
 }
