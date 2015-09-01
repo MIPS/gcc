@@ -1450,7 +1450,7 @@ omp_copy_decl (tree var, copy_body_data *cb)
 
 /* Modify the old size *POLDSZ to align it up to ALIGN, and then return
    a value with SIZE added to it.  */
-static tree
+static tree ATTRIBUTE_UNUSED
 align_and_expand (tree *poldsz, tree size, unsigned int align)
 {
   tree oldsz = *poldsz;

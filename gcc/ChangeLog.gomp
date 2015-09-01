@@ -1,5 +1,9 @@
 2015-09-01  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (align_and_expand): Mark as unused.
+
+2015-09-01  Tom de Vries  <tom@codesourcery.com>
+
 	* target.def: Fix unknown escape sequence 040 error in reduction
 	DEFHOOK.
 	* doc/tm.texi: Regenerate.
