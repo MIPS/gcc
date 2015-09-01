@@ -1,3 +1,9 @@
+2015-09-01  Tom de Vries  <tom@codesourcery.com>
+
+	* target.def: Fix unknown escape sequence 040 error in reduction
+	DEFHOOK.
+	* doc/tm.texi: Regenerate.
+
 2015-09-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.md: Use tabs and operand spacing consistently

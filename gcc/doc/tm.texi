@@ -5772,12 +5772,12 @@ is no RTL expanders for them.
 This hook is used by the oacc_transform pass to expand calls to the
 internal functions @var{GOACC_REDUCTION_SETUP},
 @var{GOACC_REDUCTION_INIT},
- @var{GOACC_REDUCTION_FINI} and
- @var{GOACC_REDUCTION_TEARDOWN} into a sequence of gimple instructions.
- @var{call} is gimple statement containing the call to the function.  This
- hook removes statement @var{call} after the expanded sequence has been
- inserted.  This hook is also responsible for allocating any storage for
- reductions when necessary.  It returns @var{true} if the expanded
+@var{GOACC_REDUCTION_FINI} and
+@var{GOACC_REDUCTION_TEARDOWN} into a sequence of gimple instructions.
+@var{call} is gimple statement containing the call to the function.  This
+hook removes statement @var{call} after the expanded sequence has been
+inserted.  This hook is also responsible for allocating any storage for
+reductions when necessary.  It returns @var{true} if the expanded
 sequence introduces any calls to OpenACC-specific internal functions.
 @end deftypefn
 
