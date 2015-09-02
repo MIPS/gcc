@@ -1,5 +1,28 @@
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (gimplify_scan_omp_clauses): Initialize sc
+	to NULL to avoid false positive warnings.
+	* omp-low.c (check_omp_nesting_restrictions): Diagnose
+	depend(source) or depend(sink:...) on #pragma omp target *.
+	(expand_omp_target): Pass flags and depend arguments to
+	GOMP_target_{41,update_41,enter_exit_data} libcalls.
+	(lower_depend_clauses): Change first argument from gimple
+	to tree * pointing to the stmt's clauses.
+	(lower_omp_taskreg): Adjust caller.
+	(lower_omp_target): Lower depend clauses.  Always use 16-bit
+	kinds and 8 as align shift.  Use
+	GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION for zero length array
+	section in map clause with delete kind.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET,
+	BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA): Add flags and depend arguments.
+	(BUILT_IN_GOMP_TARGET_UPDATE): Change library function name
+	to GOMP_target_update_41.  Add flags and depend arguments,
+	remove unused argument.
+	* builtin-types.def (BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR): New.
+
 	* omp-low.c (check_omp_nesting_restrictions): Allow ordered simd
 	instead of simd region.  Don't assume that all ordered construct
 	clauses must be depend clauses.

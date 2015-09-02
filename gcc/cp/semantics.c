@@ -4869,6 +4869,7 @@ handle_omp_array_sections (tree c, bool is_omp)
 	      case GOMP_MAP_ALWAYS_FROM:
 	      case GOMP_MAP_ALWAYS_TOFROM:
 	      case GOMP_MAP_RELEASE:
+	      case GOMP_MAP_DELETE:
 		OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
 		break;
 	      default:

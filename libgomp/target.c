@@ -1247,9 +1247,21 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
 
 void
 GOMP_target_41 (int device, void (*fn) (void *), size_t mapnum,
-		void **hostaddrs, size_t *sizes, unsigned short *kinds)
+		void **hostaddrs, size_t *sizes, unsigned short *kinds,
+		unsigned int flags, void **depend)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
+
+  /* If there are depend clauses, but nowait is not present,
+     block the parent task until the dependencies are resolved
+     and then just continue with the rest of the function as if it
+     is a merged task.  */
+  if (depend != NULL)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      if (thr->task && thr->task->depend_hash)
+	gomp_task_maybe_wait_for_dependencies (depend);
+    }
 
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
@@ -1386,6 +1398,31 @@ GOMP_target_update (int device, const void *unused, size_t mapnum,
   gomp_update (devicep, mapnum, hostaddrs, sizes, kinds, false);
 }
 
+void
+GOMP_target_update_41 (int device, size_t mapnum, void **hostaddrs,
+		       size_t *sizes, unsigned short *kinds,
+		       unsigned int flags, void **depend)
+{
+  struct gomp_device_descr *devicep = resolve_device (device);
+
+  /* If there are depend clauses, but nowait is not present,
+     block the parent task until the dependencies are resolved
+     and then just continue with the rest of the function as if it
+     is a merged task.  */
+  if (depend != NULL)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      if (thr->task && thr->task->depend_hash)
+	gomp_task_maybe_wait_for_dependencies (depend);
+    }
+
+  if (devicep == NULL
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return;
+
+  gomp_update (devicep, mapnum, hostaddrs, sizes, kinds, true);
+}
+
 static void
 gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 		void **hostaddrs, size_t *sizes, unsigned short *kinds)
@@ -1404,9 +1441,11 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 	case GOMP_MAP_DELETE:
 	case GOMP_MAP_RELEASE:
 	case GOMP_MAP_ZERO_LEN_ARRAY_SECTION:
+	case GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION:
 	  cur_node.host_start = (uintptr_t) hostaddrs[i];
 	  cur_node.host_end = cur_node.host_start + sizes[i];
-	  splay_tree_key k = kind == GOMP_MAP_ZERO_LEN_ARRAY_SECTION
+	  splay_tree_key k = (kind == GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION
+			      || kind == GOMP_MAP_ZERO_LEN_ARRAY_SECTION)
 	    ? gomp_map_lookup (&devicep->mem_map, &cur_node)
 	    : splay_tree_lookup (&devicep->mem_map, &cur_node);
 	  if (!k)
@@ -1414,7 +1453,9 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 
 	  if (k->refcount > 0 && k->refcount != REFCOUNT_INFINITY)
 	    k->refcount--;
-	  if (kind == GOMP_MAP_DELETE && k->refcount != REFCOUNT_INFINITY)
+	  if ((kind == GOMP_MAP_DELETE
+	       || kind == GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION)
+	      && k->refcount != REFCOUNT_INFINITY)
 	    k->refcount = 0;
 
 	  if ((kind == GOMP_MAP_FROM && k->refcount == 0)
@@ -1447,42 +1488,28 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 
 void
 GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
-			     size_t *sizes, unsigned short *kinds)
+			     size_t *sizes, unsigned short *kinds,
+			     unsigned int flags, void **depend)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
+
+  /* If there are depend clauses, but nowait is not present,
+     block the parent task until the dependencies are resolved
+     and then just continue with the rest of the function as if it
+     is a merged task.  */
+  if (depend != NULL)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      if (thr->task && thr->task->depend_hash)
+	gomp_task_maybe_wait_for_dependencies (depend);
+    }
 
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     return;
 
-  /* Determine if this is an "omp target enter data".  */
-  const int typemask = 0xff;
-  bool is_enter_data = false;
   size_t i;
-  for (i = 0; i < mapnum; i++)
-    {
-      unsigned char kind = kinds[i] & typemask;
-
-      if (kind == GOMP_MAP_ALLOC
-	  || kind == GOMP_MAP_TO
-	  || kind == GOMP_MAP_ALWAYS_TO
-	  || kind == GOMP_MAP_STRUCT)
-	{
-	  is_enter_data = true;
-	  break;
-	}
-
-      if (kind == GOMP_MAP_FROM
-	  || kind == GOMP_MAP_ALWAYS_FROM
-	  || kind == GOMP_MAP_DELETE
-	  || kind == GOMP_MAP_RELEASE
-	  || kind == GOMP_MAP_ZERO_LEN_ARRAY_SECTION)
-	break;
-
-      gomp_fatal ("GOMP_target_enter_exit_data unhandled kind 0x%.2x", kind);
-    }
-
-  if (is_enter_data)
+  if ((flags & GOMP_TARGET_FLAG_EXIT_DATA) == 0)
     for (i = 0; i < mapnum; i++)
       if ((kinds[i] & 0xff) == GOMP_MAP_STRUCT)
 	{

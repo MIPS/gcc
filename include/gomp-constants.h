@@ -110,6 +110,10 @@ enum gomp_map_kind
        (address of the last adjacent entry plus its size).  */
     GOMP_MAP_STRUCT =			(GOMP_MAP_FLAG_ALWAYS
 					 | GOMP_MAP_FLAG_SPECIAL | 0),
+    /* Forced deallocation of zero length array section.  */
+    GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION
+      =					(GOMP_MAP_FLAG_ALWAYS
+					 | GOMP_MAP_FLAG_SPECIAL | 3),
     /* OpenMP 4.1 alias for forced deallocation.  */
     GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
     /* Decrement usage count and deallocate if zero.  */
@@ -170,5 +174,9 @@ enum gomp_map_kind
 #define GOMP_TASK_FLAG_GRAINSIZE	(1 << 9)
 #define GOMP_TASK_FLAG_IF		(1 << 10)
 #define GOMP_TASK_FLAG_NOGROUP		(1 << 11)
+
+/* GOMP_target{_41,update_41,enter_exit_data} flags argument.  */
+#define GOMP_TARGET_FLAG_NOWAIT		(1 << 0)
+#define GOMP_TARGET_FLAG_EXIT_DATA	(1 << 1)
 
 #endif

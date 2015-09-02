@@ -108,8 +108,6 @@ gomp_clear_parent (struct gomp_task *children)
     while (task != children);
 }
 
-static void gomp_task_maybe_wait_for_dependencies (void **depend);
-
 /* Called when encountering an explicit task directive.  If IF_CLAUSE is
    false, then we must not delay in executing the task.  If UNTIED is true,
    then the task may be executed by any member of the team.
@@ -987,7 +985,7 @@ GOMP_taskwait (void)
 
    DEPEND is as in GOMP_task.  */
 
-static void
+void
 gomp_task_maybe_wait_for_dependencies (void **depend)
 {
   struct gomp_thread *thr = gomp_thread ();

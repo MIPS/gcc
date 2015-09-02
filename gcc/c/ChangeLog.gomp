@@ -1,3 +1,9 @@
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections): Set
+	OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION even for
+	GOMP_MAP_DELETE kinds.
+
 2015-08-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (handle_omp_array_sections_1): Add IS_OMP argument, pass

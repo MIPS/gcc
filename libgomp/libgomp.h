@@ -650,6 +650,7 @@ extern void gomp_init_task (struct gomp_task *, struct gomp_task *,
 			    struct gomp_task_icv *);
 extern void gomp_end_task (void);
 extern void gomp_barrier_handle_tasks (gomp_barrier_state_t);
+extern void gomp_task_maybe_wait_for_dependencies (void **);
 
 static void inline
 gomp_finish_task (struct gomp_task *task)

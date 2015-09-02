@@ -1,5 +1,21 @@
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
+	* libgomp_g.h (GOMP_target_41, GOMP_target_enter_exit_data): Add
+	flags and depend arguments.
+	(GOMP_target_update_41): New prototype.
+	* libgomp.h (gomp_task_maybe_wait_for_dependencies): New prototype.
+	* libgomp.map (GOMP_4.1): Add GOMP_target_update_41.
+	* task.c (gomp_task_maybe_wait_for_dependencies): Remove prototype.
+	No longer static.
+	* target.c (GOMP_target_41): Add flags and depend arguments.  If
+	depend is non-NULL, wait until all dependencies are satisfied.
+	(GOMP_target_enter_exit_data): Likewise.  Use
+	flags & GOMP_TARGET_FLAG_EXIT_DATA to determine if it is enter
+	or exit data construct, instead of analysing kinds.
+	(gomp_exit_data): Handle GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION.
+	(GOMP_target_update_41): New function.
+	* testsuite/libgomp.c/target-24.c: New test.
+
 	* testsuite/libgomp.c/ordered-4.c: New test.
 	* testsuite/libgomp.c++/ordered-1.C: New test.
 

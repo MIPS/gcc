@@ -6557,8 +6557,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    }
 		  else
 		    {
-		      tree *osc = struct_map_to_clause->get (decl), *sc;
-		      tree *pt = NULL;
+		      tree *osc = struct_map_to_clause->get (decl);
+		      tree *sc = NULL, *pt = NULL;
 		      if (!ptr && TREE_CODE (*osc) == TREE_LIST)
 			osc = &TREE_PURPOSE (*osc);
 		      if (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS)
