@@ -1,5 +1,3 @@
-/* { dg-xfail-run-if "TODO" { *-*-* } { "*" } { "" } } */
-
 #include <assert.h>
 
 /* Test of reduction on loop directive (gangs, workers and vectors, multiple

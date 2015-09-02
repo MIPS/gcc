@@ -1,5 +1,3 @@
-/* { dg-xfail-run-if "TODO" { openacc_nvidia_accel_selected } { "*" } { "" } } */
-
 #include <assert.h>
 
 /* Test of reduction on loop directive (gangs, workers and vectors, non-private

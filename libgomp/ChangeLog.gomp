@@ -1,3 +1,20 @@
+2015-09-02  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/loop-reduction-gwv-np-2.c:
+	Remove xfail.
+	* testsuite/libgomp.oacc-c-c++-common/loop-reduction-gwv-np-3.c:
+	Likwise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-reduction-gwv-np-4.c:
+	Remove xfail.
+	* testsuite/libgomp.oacc-c-c++-common/loop-reduction-vector-p-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-loop-comb-reduction-3.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-loop-comb-reduction-4.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/loop-reduction-wv-p-3.c:
+	Likewise.  Initialize res because it's private.
+
 2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_register_static): Remove superfluous NULL

@@ -1,5 +1,3 @@
-/* { dg-xfail-run-if "TODO" { *-*-* } { "*" } { "" } } */
-
 #include <assert.h>
 
 /* Test of reduction on loop directive (workers and vectors, private reduction
@@ -16,6 +14,9 @@ main (int argc, char *argv[])
   #pragma acc parallel num_gangs(32) num_workers(32) vector_length(32) \
 		       private(res) copyin(arr) copyout(out)
   {
+    /* Private variables aren't initialized by default in openacc.  */
+    res = 0;
+
     /* "res" should be available at the end of the following loop (and should
        have the same value redundantly in each gang).  */
     #pragma acc loop worker vector reduction(+:res)

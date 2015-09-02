@@ -1,5 +1,3 @@
-/* { dg-xfail-run-if "TODO" { *-*-* } { "*" } { "" } } */
-
 #include <assert.h>
 
 /* Test of reduction on both parallel and loop directives (workers and vectors
