@@ -1,3 +1,8 @@
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/ordered-4.c: New test.
+	* testsuite/libgomp.c++/ordered-1.C: New test.
+
 2015-08-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* target.c (GOMP_target_enter_exit_data): Allow GOMP_MAP_STRUCT

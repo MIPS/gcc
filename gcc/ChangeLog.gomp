@@ -1,3 +1,9 @@
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (check_omp_nesting_restrictions): Allow ordered simd
+	instead of simd region.  Don't assume that all ordered construct
+	clauses must be depend clauses.
+
 2015-08-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Handle

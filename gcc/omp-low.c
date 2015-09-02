@@ -3118,8 +3118,16 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
       if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
 	  && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_SIMD)
 	{
+	  c = NULL_TREE;
+	  if (gimple_code (stmt) == GIMPLE_OMP_ORDERED)
+	    {
+	      c = gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt));
+	      if (c && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SIMD)
+		return true;
+	    }
 	  error_at (gimple_location (stmt),
-		    "OpenMP constructs may not be nested inside simd region");
+		    "OpenMP constructs other than %<#pragma omp ordered simd%>"
+		    " may not be nested inside simd region");
 	  return false;
 	}
       else if (gimple_code (ctx->stmt) == GIMPLE_OMP_TEAMS)
@@ -3337,6 +3345,13 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
       for (c = gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt));
 	   c; c = OMP_CLAUSE_CHAIN (c))
 	{
+	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND)
+	    {
+	      gcc_assert (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_THREADS
+			  || (ctx == NULL
+			      && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SIMD));
+	      continue;
+	    }
 	  enum omp_clause_depend_kind kind = OMP_CLAUSE_DEPEND_KIND (c);
 	  if (kind == OMP_CLAUSE_DEPEND_SOURCE
 	      || kind == OMP_CLAUSE_DEPEND_SINK)
