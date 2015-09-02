@@ -1,3 +1,7 @@
+2015-09-02  Tom de Vries  <tom@codesourcery.com>
+
+	* trans-decl.c (finish_oacc_declare): Remove unused variables.
+
 2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_6): Define.

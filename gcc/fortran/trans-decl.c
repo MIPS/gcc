@@ -5890,8 +5890,8 @@ find_module_oacc_declare_clauses (gfc_symbol *sym)
 void
 finish_oacc_declare (gfc_namespace *ns, enum sym_flavor flavor)
 {
-  gfc_code *code, *end_c, *code2;
-  gfc_oacc_declare *oc, *new_oc;
+  gfc_code *code;
+  gfc_oacc_declare *oc;
   gfc_omp_namelist *n;
   locus where = gfc_current_locus;
 
