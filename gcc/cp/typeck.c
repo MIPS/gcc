@@ -5081,18 +5081,17 @@ cp_build_binary_op (location_t location,
       STRIP_NOPS (op0);
       /* Only call maybe_constant_value on second argument, if first
 	 isn't overflown.  */
-      if (TREE_OVERFLOW_P (op0) || !CONSTANT_CLASS_P (op0))
+      if (!CONSTANT_CLASS_P (op0) || TREE_OVERFLOW_P (op0))
 	return result;
       op1 = maybe_constant_value (op1);
       /* Strip added nop-expression for overflow-operand introduced by
 	 maybe_constant_value.  */
       STRIP_NOPS (op1);
-      if (TREE_OVERFLOW_P (op1) || !CONSTANT_CLASS_P (op1))
+      if (!CONSTANT_CLASS_P (op1) || TREE_OVERFLOW_P (op1))
 	return result;
     }
-  else if (TREE_OVERFLOW_P (op0) || TREE_OVERFLOW_P (op1)
-	   || !CONSTANT_CLASS_P (op0)
-	   || !CONSTANT_CLASS_P (op1))
+  else if (!CONSTANT_CLASS_P (op0) || !CONSTANT_CLASS_P (op1)
+	   || TREE_OVERFLOW_P (op0) || TREE_OVERFLOW_P (op1))
     return result;
 
   result_ovl = fold_build2 (resultcode, build_type, op0, op1);

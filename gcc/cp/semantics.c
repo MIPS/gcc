@@ -2565,7 +2565,8 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
       STRIP_NOPS (expr_ovl);
     }
 
-  if (TREE_OVERFLOW_P (expr_ovl) || !CONSTANT_CLASS_P (expr_ovl))
+  if (!CONSTANT_CLASS_P (expr_ovl)
+      || TREE_OVERFLOW_P (expr_ovl))
     return result;
 
   if (!processing_template_decl)
@@ -2575,7 +2576,7 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
       STRIP_NOPS (result_ovl);
     }
 
-  if (TREE_OVERFLOW_P (result_ovl))
+  if (CONSTANT_CLASS_P (result_ovl) && TREE_OVERFLOW_P (result_ovl))
     overflow_warning (input_location, result_ovl);
 
   return result;
