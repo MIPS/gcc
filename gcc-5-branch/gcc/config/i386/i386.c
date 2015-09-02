@@ -8211,7 +8211,8 @@ ix86_function_value_regno_p (const unsigned int regno)
     case SI_REG:
       return TARGET_64BIT && ix86_cfun_abi () != MS_ABI;
 
-    case FIRST_BND_REG:
+    case BND0_REG:
+    case BND1_REG:
       return chkp_function_instrumented_p (current_function_decl);
 
       /* Complex values are returned in %st(0)/%st(1) pair.  */
@@ -25140,7 +25141,8 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
       dst = change_address (dst, BLKmode, destreg);
       set_mem_align (dst, desired_align * BITS_PER_UNIT);
       epilogue_size_needed = 0;
-      if (need_zero_guard && !min_size)
+      if (need_zero_guard
+	  && min_size < (unsigned HOST_WIDE_INT) size_needed)
 	{
 	  /* It is possible that we copied enough so the main loop will not
 	     execute.  */
@@ -25272,7 +25274,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 	  max_size -= align_bytes;
 	}
       if (need_zero_guard
-	  && !min_size
+	  && min_size < (unsigned HOST_WIDE_INT) size_needed
 	  && (count < (unsigned HOST_WIDE_INT) size_needed
 	      || (align_bytes == 0
 		  && count < ((unsigned HOST_WIDE_INT) size_needed
@@ -25557,7 +25559,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 
   /* Avoid branch in fixing the byte.  */
   tmpreg = gen_lowpart (QImode, tmpreg);
-  emit_insn (gen_addqi3_cc (tmpreg, tmpreg, tmpreg));
+  emit_insn (gen_addqi3_cconly_overflow (tmpreg, tmpreg));
   tmp = gen_rtx_REG (CCmode, FLAGS_REG);
   cmp = gen_rtx_LTU (VOIDmode, tmp, const0_rtx);
   emit_insn (ix86_gen_sub3_carry (out, out, GEN_INT (3), tmp, cmp));
@@ -39522,60 +39524,57 @@ rdseed_step:
       return target;
 
     case IX86_BUILTIN_SBB32:
-      icode = CODE_FOR_subsi3_carry;
+      icode = CODE_FOR_subborrowsi;
       mode0 = SImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_SBB64:
-      icode = CODE_FOR_subdi3_carry;
+      icode = CODE_FOR_subborrowdi;
       mode0 = DImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_ADDCARRYX32:
-      icode = TARGET_ADX ? CODE_FOR_adcxsi3 : CODE_FOR_addsi3_carry;
+      icode = CODE_FOR_addcarrysi;
       mode0 = SImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_ADDCARRYX64:
-      icode = TARGET_ADX ? CODE_FOR_adcxdi3 : CODE_FOR_adddi3_carry;
+      icode = CODE_FOR_addcarrydi;
       mode0 = DImode;
 
-addcarryx:
+    handlecarry:
       arg0 = CALL_EXPR_ARG (exp, 0); /* unsigned char c_in.  */
       arg1 = CALL_EXPR_ARG (exp, 1); /* unsigned int src1.  */
       arg2 = CALL_EXPR_ARG (exp, 2); /* unsigned int src2.  */
       arg3 = CALL_EXPR_ARG (exp, 3); /* unsigned int *sum_out.  */
 
-      op0 = gen_reg_rtx (QImode);
-
-      /* Generate CF from input operand.  */
       op1 = expand_normal (arg0);
       op1 = copy_to_mode_reg (QImode, convert_to_mode (QImode, op1, 1));
-      emit_insn (gen_addqi3_cc (op0, op1, constm1_rtx));
 
-      /* Gen ADCX instruction to compute X+Y+CF.  */
       op2 = expand_normal (arg1);
-      op3 = expand_normal (arg2);
-
-      if (!REG_P (op2))
+      if (!register_operand (op2, mode0))
 	op2 = copy_to_mode_reg (mode0, op2);
-      if (!REG_P (op3))
+
+      op3 = expand_normal (arg2);
+      if (!register_operand (op3, mode0))
 	op3 = copy_to_mode_reg (mode0, op3);
 
-      op0 = gen_reg_rtx (mode0);
-
-      op4 = gen_rtx_REG (CCCmode, FLAGS_REG);
-      pat = gen_rtx_LTU (VOIDmode, op4, const0_rtx);
-      emit_insn (GEN_FCN (icode) (op0, op2, op3, op4, pat));
-
-      /* Store the result.  */
       op4 = expand_normal (arg3);
       if (!address_operand (op4, VOIDmode))
 	{
 	  op4 = convert_memory_address (Pmode, op4);
 	  op4 = copy_addr_to_reg (op4);
 	}
-      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
+      /* Generate CF from input operand.  */
+      emit_insn (gen_addqi3_cconly_overflow (op1, constm1_rtx));
+
+      /* Generate instruction that consumes CF.  */
+      op0 = gen_reg_rtx (mode0);
+
+      op1 = gen_rtx_REG (CCCmode, FLAGS_REG);
+      pat = gen_rtx_LTU (mode0, op1, const0_rtx);
+      emit_insn (GEN_FCN (icode) (op0, op2, op3, op1, pat));
 
       /* Return current CF value.  */
       if (target == 0)
@@ -39583,6 +39582,10 @@ addcarryx:
 
       PUT_MODE (pat, QImode);
       emit_insn (gen_rtx_SET (VOIDmode, target, pat));
+
+      /* Store the result.  */
+      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
       return target;
 
     case IX86_BUILTIN_READ_FLAGS:
@@ -50335,14 +50338,19 @@ ix86_expand_pinsr (rtx *operands)
   unsigned int size = INTVAL (operands[1]);
   unsigned int pos = INTVAL (operands[2]);
 
+  if (GET_CODE (src) == SUBREG)
+    {
+      /* Reject non-lowpart subregs.  */
+      if (SUBREG_BYTE (src) != 0)
+       return false;
+      src = SUBREG_REG (src);
+    }
+
   if (GET_CODE (dst) == SUBREG)
     {
       pos += SUBREG_BYTE (dst) * BITS_PER_UNIT;
       dst = SUBREG_REG (dst);
     }
-
-  if (GET_CODE (src) == SUBREG)
-    src = SUBREG_REG (src);
 
   switch (GET_MODE (dst))
     {
@@ -50390,6 +50398,10 @@ ix86_expand_pinsr (rtx *operands)
 	  default:
 	    return false;
 	  }
+
+	/* Reject insertions to misaligned positions.  */
+	if (pos & (size-1))
+	  return false;
 
 	rtx d = dst;
 	if (GET_MODE (dst) != dstmode)
@@ -51516,7 +51528,7 @@ ix86_destroy_cost_data (void *data)
 static unsigned HOST_WIDE_INT
 ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 {
-  unsigned HOST_WIDE_INT model = val & MEMMODEL_MASK;
+  enum memmodel model = memmodel_from_int (val);
   bool strong;
 
   if (val & ~(unsigned HOST_WIDE_INT)(IX86_HLE_ACQUIRE|IX86_HLE_RELEASE
@@ -51527,14 +51539,14 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 	       "Unknown architecture specific memory model");
       return MEMMODEL_SEQ_CST;
     }
-  strong = (model == MEMMODEL_ACQ_REL || model == MEMMODEL_SEQ_CST);
-  if (val & IX86_HLE_ACQUIRE && !(model == MEMMODEL_ACQUIRE || strong))
+  strong = (is_mm_acq_rel (model) || is_mm_seq_cst (model));
+  if (val & IX86_HLE_ACQUIRE && !(is_mm_acquire (model) || strong))
     {
       warning (OPT_Winvalid_memory_model,
               "HLE_ACQUIRE not used with ACQUIRE or stronger memory model");
       return MEMMODEL_SEQ_CST | IX86_HLE_ACQUIRE;
     }
-   if (val & IX86_HLE_RELEASE && !(model == MEMMODEL_RELEASE || strong))
+  if (val & IX86_HLE_RELEASE && !(is_mm_release (model) || strong))
     {
       warning (OPT_Winvalid_memory_model,
               "HLE_RELEASE not used with RELEASE or stronger memory model");
