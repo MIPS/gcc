@@ -29914,16 +29914,16 @@ rs6000_mangle_type (const_tree type)
       if (type == ibm128_float_type_node)
 	return "g";
 
-      if (type == long_double_type_node)
+      if (type == long_double_type_node && TARGET_LONG_DOUBLE_128)
 	return (TARGET_IEEEQUAD) ? "U10__float128" : "g";
     }
 
   /* Mangle IBM extended float long double as `g' (__float128) on
      powerpc*-linux where long-double-64 previously was the default.  */
-  else if (type == long_double_type_node
-	   && TARGET_ELF
-	   && TARGET_LONG_DOUBLE_128
-	   && !TARGET_IEEEQUAD)
+  if (TYPE_MAIN_VARIANT (type) == long_double_type_node
+      && TARGET_ELF
+      && TARGET_LONG_DOUBLE_128
+      && !TARGET_IEEEQUAD)
     return "g";
 
   /* For all other types, use normal C++ mangling.  */
