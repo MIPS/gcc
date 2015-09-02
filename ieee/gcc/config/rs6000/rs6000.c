@@ -3745,7 +3745,7 @@ rs6000_option_override_internal (bool global_init_p)
   /* Set the appropriate IEEE 128-bit floating option.  */
   if (TARGET_FLOAT128 == FLOAT128_UNSET)
     {
-      if (TARGET_VSX)
+      if (TARGET_VSX && TARGET_LONG_DOUBLE_128)
 	TARGET_FLOAT128 = FLOAT128_SW;
       else
 	TARGET_FLOAT128 = FLOAT128_NONE;
