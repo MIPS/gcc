@@ -3750,8 +3750,13 @@ rs6000_option_override_internal (bool global_init_p)
       else
 	TARGET_FLOAT128 = FLOAT128_NONE;
     }
-  else if (TARGET_FLOAT128 == FLOAT128_SW && !TARGET_VSX)
-    error ("-mfloat128-software requires VSX support");
+  else if (TARGET_FLOAT128)
+    {
+      if (!TARGET_VSX)
+	error ("-mfloat128-software requires VSX support");
+      else if (!TARGET_LONG_DOUBLE_128)
+	error ("-mfloat128-software requires -mlong-double-128");
+    }
 
   /* Set -mallow-movmisalign to explicitly on if we have full ISA 2.07
      support. If we only have ISA 2.06 support, and the user did not specify
