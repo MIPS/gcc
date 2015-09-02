@@ -1,3 +1,9 @@
+2015-09-02  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (target_follows_kernelizable_pattern): Parallel
+	num_thread clause and non-automatic loop schedule preclude
+	kernelization.
+
 2015-08-28  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (gen_hsa_cmp_insn_from_gimple): Add unordered

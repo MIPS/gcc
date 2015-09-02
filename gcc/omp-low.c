@@ -2832,9 +2832,23 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
   gomp_parallel *par;
   if (!stmt || !(par = dyn_cast <gomp_parallel *> (stmt)))
     return NULL;
+
+  tree clauses = gimple_omp_parallel_clauses (par);
+  tree num_threads_clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
+  if (num_threads_clause)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a "
+			 "simple GPGPU kernel because there is a num_threads "
+			 "clause of the parallel construct that "
+			 "is likely to require looping \n");
+      return NULL;
+    }
+
   stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (par), tloc, "parallel");
-  /* FIXME: We are currently ignoring parallel clauses and potentially also
-     sharing clauses of teams and distribute, if there are any. We need to
+  /* FIXME: We are currently ignoring parallel sharing clauses and potentially
+     also sharing clauses of teams and distribute, if there are any. We need to
      check they can be skipped.  */
   gomp_for *gfor;
   if (!stmt || !(gfor = dyn_cast <gomp_for *> (stmt)))
@@ -2856,6 +2870,20 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 			 "Will not turn target construct into a simple GPGPU "
 			 "kernel because the inner loop contains collapse "
 			 "clause\n");
+      return NULL;
+    }
+
+  clauses = gimple_omp_for_clauses (gfor);
+  tree for_sched_clause = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
+
+  if (for_sched_clause
+      && OMP_CLAUSE_SCHEDULE_KIND (for_sched_clause) != OMP_CLAUSE_SCHEDULE_AUTO)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a simple GPGPU "
+			 "kernel because the inner loop has non-automatic "
+			 "scheduling clause\n");
       return NULL;
     }
 
