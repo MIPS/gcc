@@ -6,6 +6,7 @@
 
 2015-09-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7>
 	* config/rs6000/rs6000-cpus.h (POWERPC_MASKS): Add -mfloat128.
 
 	* config/rs6000/rs6000.opt (-mfloat128): Change IEEE 128-bit
