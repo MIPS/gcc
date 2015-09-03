@@ -37,6 +37,38 @@
   (and (match_code "reg")
        (match_test "GENERAL_REGNO_P (REGNO (op))")))
 
+;; Return true if OP should be accessed by its GOT slot.
+(define_predicate "got_slot_operand"
+  (match_code "symbol_ref")
+{
+  /* Load address of external function from its GOT slot for -fno-plt
+     -fno-pic if preferred.  */
+  if (!flag_pic && ix86_noplt_operand (op))
+    {
+      if (TARGET_64BIT)
+	return ix86_cmodel == CM_SMALL && HAVE_LD_R_X86_64_GOTPCRELX;
+      else
+	return HAVE_LD_R_386_GOT32X;
+    }
+  return false;
+})
+
+;; Return true if OP is destination operand suitable for cmp
+;; instruction.
+(define_predicate "ix86_cmp_destination_operand"
+  (match_operand 0 "nonimmediate_operand")
+{
+  if (GET_CODE (op) == MEM)
+    {
+      op = ix86_noplt_addr_symbol_rtx (XEXP (op, 0));
+      if (op)
+	/* Don't put the GOT slot on destination since linker
+	   can't re-encode it as immediate operand.  */
+	return !got_slot_operand (op, GET_MODE (op));
+    }
+  return true;
+})
+
 ;; True if the operand is a nonimmediate operand with GENERAL class register.
 (define_predicate "nonimmediate_gr_operand"
   (if_then_else (match_code "reg")
@@ -141,6 +173,9 @@
 (define_predicate "x86_64_immediate_operand"
   (match_code "const_int,symbol_ref,label_ref,const")
 {
+  if (got_slot_operand (op, mode))
+    return false;
+
   if (!TARGET_64BIT)
     return immediate_operand (op, mode);
 
@@ -345,7 +380,8 @@
   (if_then_else (match_test "TARGET_64BIT")
     (ior (match_operand 0 "nonimmediate_operand")
 	 (match_operand 0 "x86_64_immediate_operand"))
-    (match_operand 0 "general_operand")))
+    (and (not (match_operand 0 "got_slot_operand"))
+	 (match_operand 0 "general_operand"))))
 
 ;; Return true if OP is non-VOIDmode general operand representable
 ;; on x86_64.  This predicate is used in sign-extending conversion
