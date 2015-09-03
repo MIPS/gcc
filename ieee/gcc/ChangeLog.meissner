@@ -26,8 +26,8 @@
 	floating point modes from GPRs if not -mfloat128.
 	(rs6000_debug_reg_global): Delete debug support for
 	-mfloat128-software and -mfloat128-none.
-	(rs6000_init_hard_regno_mode_ok): Enable hard registers if
-	-mfloat128.
+	(rs6000_init_hard_regno_mode_ok): Enable VSX constraints and
+	addressing for IEEE 128-bit floating point in VSX registers.
 	(rs6000_option_override_internal): Update test for __float128
 	support.
 	(rs6000_gen_le_vsx_permute): Add support for -mfloat128.
