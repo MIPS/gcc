@@ -179,6 +179,9 @@ case "$host" in
   *-*-rtems*)
     # RTEMS supports Pthreads, but the library is not available at GCC build time.
     ;;
+  nvptx*-*-*)
+    # NVPTX does not support Pthreads, has its own code replacement.
+    ;;
   *)
     # Check to see if -pthread or -lpthread is needed.  Prefer the former.
     # In case the pthread.h system header is not found, this test will fail.
@@ -210,6 +213,13 @@ case "$host" in
   *-darwin*)
     AC_DEFINE(HAVE_BROKEN_POSIX_SEMAPHORES, 1,
 	Define if the POSIX Semaphores do not work on your system.)
+    ;;
+esac
+
+# RTEMS specific checks
+case "$host" in
+  *-*-rtems*)
+    AC_CHECK_TYPES([struct _Mutex_Control],[],[],[#include <sys/lock.h>])
     ;;
 esac
 

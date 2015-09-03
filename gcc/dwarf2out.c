@@ -1258,7 +1258,7 @@ enum ate_kind {
   ate_kind_label
 };
 
-typedef struct GTY((for_user)) addr_table_entry_struct {
+struct GTY((for_user)) addr_table_entry {
   enum ate_kind kind;
   unsigned int refcount;
   unsigned int index;
@@ -1268,8 +1268,7 @@ typedef struct GTY((for_user)) addr_table_entry_struct {
       char * GTY ((tag ("1"))) label;
     }
   GTY ((desc ("%1.kind"))) addr;
-}
-addr_table_entry;
+};
 
 /* Location lists are ranges + location descriptions for that range,
    so you can track variables that are in different places over
@@ -2488,6 +2487,43 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   dwarf2out_set_name,
   1,                            /* start_end_main_source_file */
   TYPE_SYMTAB_IS_DIE            /* tree_type_symtab_field */
+};
+
+const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
+{
+  dwarf2out_init,
+  debug_nothing_charstar,
+  debug_nothing_void,
+  debug_nothing_void,
+  debug_nothing_int_charstar,
+  debug_nothing_int_charstar,
+  debug_nothing_int_charstar,
+  debug_nothing_int,
+  debug_nothing_int_int,	         /* begin_block */
+  debug_nothing_int_int,	         /* end_block */
+  debug_true_const_tree,	         /* ignore_block */
+  dwarf2out_source_line,	 /* source_line */
+  debug_nothing_int_charstar,	         /* begin_prologue */
+  debug_nothing_int_charstar,	         /* end_prologue */
+  debug_nothing_int_charstar,	         /* begin_epilogue */
+  debug_nothing_int_charstar,	         /* end_epilogue */
+  debug_nothing_tree,		         /* begin_function */
+  debug_nothing_int,		         /* end_function */
+  debug_nothing_tree,			 /* register_main_translation_unit */
+  debug_nothing_tree,		         /* function_decl */
+  debug_nothing_tree,		         /* early_global_decl */
+  debug_nothing_tree,		         /* late_global_decl */
+  debug_nothing_tree_int,		 /* type_decl */
+  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+  debug_nothing_tree,		         /* deferred_inline_function */
+  debug_nothing_tree,		         /* outlining_inline_function */
+  debug_nothing_rtx_code_label,	         /* label */
+  debug_nothing_int,		         /* handle_pch */
+  debug_nothing_rtx_insn,	         /* var_location */
+  debug_nothing_void,                    /* switch_text_section */
+  debug_nothing_tree_tree,		 /* set_name */
+  0,                                     /* start_end_main_source_file */
+  TYPE_SYMTAB_IS_ADDRESS                 /* tree_type_symtab_field */
 };
 
 /* NOTE: In the comments in this file, many references are made to
@@ -19905,6 +19941,10 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
 
   decl = block_ultimate_origin (stmt);
 
+  /* Make sure any inlined functions are known to be inlineable.  */
+  gcc_checking_assert (DECL_ABSTRACT_P (decl)
+		       || cgraph_function_possibly_inlined_p (decl));
+
   /* Emit info for the abstract instance first, if we haven't yet.  We
      must emit this even if the block is abstract, otherwise when we
      emit the block below (or elsewhere), we may end up trying to emit
@@ -23179,6 +23219,7 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   /* Allocate the file_table.  */
   file_table = hash_table<dwarf_file_hasher>::create_ggc (50);
 
+#ifndef DWARF2_LINENO_DEBUGGING_INFO
   /* Allocate the decl_die_table.  */
   decl_die_table = hash_table<decl_die_hasher>::create_ggc (10);
 
@@ -23294,10 +23335,15 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   switch_to_section (text_section);
   ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
+#endif
 
   /* Make sure the line number table for .text always exists.  */
   text_section_line_info = new_line_info_table ();
   text_section_line_info->end_label = text_end_label;
+
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  cur_line_info_table = text_section_line_info;
+#endif
 
   /* If front-ends already registered a main translation unit but we were not
      ready to perform the association, do this now.  */
@@ -25081,6 +25127,62 @@ optimize_location_lists (dw_die_ref die)
   optimize_location_lists_1 (die, &htab);
 }
 
+/* Traverse the limbo die list, and add parent/child links.  The only
+   dies without parents that should be here are concrete instances of
+   inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
+   For concrete instances, we can get the parent die from the abstract
+   instance.  */
+
+static void
+flush_limbo_die_list (void)
+{
+  limbo_die_node *node, *next_node;
+
+  for (node = limbo_die_list; node; node = next_node)
+    {
+      dw_die_ref die = node->die;
+      next_node = node->next;
+
+      if (die->die_parent == NULL)
+	{
+	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
+
+	  if (origin && origin->die_parent)
+	    add_child_die (origin->die_parent, die);
+	  else if (is_cu_die (die))
+	    ;
+	  else if (seen_error ())
+	    /* It's OK to be confused by errors in the input.  */
+	    add_child_die (comp_unit_die (), die);
+	  else
+	    {
+	      /* In certain situations, the lexical block containing a
+		 nested function can be optimized away, which results
+		 in the nested function die being orphaned.  Likewise
+		 with the return type of that nested function.  Force
+		 this to be a child of the containing function.
+
+		 It may happen that even the containing function got fully
+		 inlined and optimized out.  In that case we are lost and
+		 assign the empty child.  This should not be big issue as
+		 the function is likely unreachable too.  */
+	      gcc_assert (node->created_for);
+
+	      if (DECL_P (node->created_for))
+		origin = get_context_die (DECL_CONTEXT (node->created_for));
+	      else if (TYPE_P (node->created_for))
+		origin = scope_die_for (node->created_for, comp_unit_die ());
+	      else
+		origin = comp_unit_die ();
+
+	      add_child_die (origin, die);
+	    }
+	}
+    }
+
+  limbo_die_list = NULL;
+}
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -25091,7 +25193,11 @@ dwarf2out_finish (const char *filename)
   dw_die_ref main_comp_unit_die;
 
   /* Flush out any latecomers to the limbo party.  */
-  dwarf2out_early_finish ();
+  flush_limbo_die_list ();
+
+  /* We shouldn't have any symbols with delayed asm names for
+     DIEs generated after early finish.  */
+  gcc_assert (deferred_asm_name == NULL);
 
   /* PCH might result in DW_AT_producer string being restored from the
      header compilation, so always fill it with empty string initially
@@ -25166,8 +25272,8 @@ dwarf2out_finish (const char *filename)
   if (flag_eliminate_dwarf2_dups)
     break_out_includes (comp_unit_die ());
 
-  /* Traverse the DIE's and add add sibling attributes to those DIE's
-     that have children.  */
+  /* Traverse the DIE's and add sibling attributes to those DIE's that
+     have children.  */
   add_sibling_attributes (comp_unit_die ());
   limbo_die_node *node;
   for (node = limbo_die_list; node; node = node->next)
@@ -25437,7 +25543,7 @@ dwarf2out_finish (const char *filename)
 static void
 dwarf2out_early_finish (void)
 {
-  limbo_die_node *node, *next_node;
+  limbo_die_node *node;
 
   /* Add DW_AT_linkage_name for all deferred DIEs.  */
   for (node = deferred_asm_name; node; node = node->next)
@@ -25445,7 +25551,7 @@ dwarf2out_early_finish (void)
       tree decl = node->created_for;
       if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
 	  /* A missing DECL_ASSEMBLER_NAME can be a constant DIE that
-	     ended up in in deferred_asm_name before we knew it was
+	     ended up in deferred_asm_name before we knew it was
 	     constant and never written to disk.  */
 	  && DECL_ASSEMBLER_NAME (decl))
 	{
@@ -25455,57 +25561,9 @@ dwarf2out_early_finish (void)
     }
   deferred_asm_name = NULL;
 
-  /* Traverse the limbo die list, and add parent/child links.  The only
-     dies without parents that should be here are concrete instances of
-     inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
-     For concrete instances, we can get the parent die from the abstract
-     instance.
-
-     The point here is to flush out the limbo list so that it is empty
+  /* The point here is to flush out the limbo list so that it is empty
      and we don't need to stream it for LTO.  */
-  for (node = limbo_die_list; node; node = next_node)
-    {
-      dw_die_ref die = node->die;
-      next_node = node->next;
-
-      if (die->die_parent == NULL)
-	{
-	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
-
-	  if (origin && origin->die_parent)
-	    add_child_die (origin->die_parent, die);
-	  else if (is_cu_die (die))
-	    ;
-	  else if (seen_error ())
-	    /* It's OK to be confused by errors in the input.  */
-	    add_child_die (comp_unit_die (), die);
-	  else
-	    {
-	      /* In certain situations, the lexical block containing a
-		 nested function can be optimized away, which results
-		 in the nested function die being orphaned.  Likewise
-		 with the return type of that nested function.  Force
-		 this to be a child of the containing function.
-
-		 It may happen that even the containing function got fully
-		 inlined and optimized out.  In that case we are lost and
-		 assign the empty child.  This should not be big issue as
-		 the function is likely unreachable too.  */
-	      gcc_assert (node->created_for);
-
-	      if (DECL_P (node->created_for))
-		origin = get_context_die (DECL_CONTEXT (node->created_for));
-	      else if (TYPE_P (node->created_for))
-		origin = scope_die_for (node->created_for, comp_unit_die ());
-	      else
-		origin = comp_unit_die ();
-
-	      add_child_die (origin, die);
-	    }
-	}
-    }
-
-  limbo_die_list = NULL;
+  flush_limbo_die_list ();
 }
 
 /* Reset all state within dwarf2out.c so that we can rerun the compiler

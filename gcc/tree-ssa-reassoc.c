@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -208,7 +209,7 @@ typedef struct operand_entry
   unsigned int count;
 } *operand_entry_t;
 
-static pool_allocator<operand_entry> operand_entry_pool ("operand entry pool",
+static object_allocator<operand_entry> operand_entry_pool ("operand entry pool",
 							 30);
 
 /* This is used to assign a unique ID to each struct operand_entry
@@ -990,12 +991,12 @@ static void linearize_expr_tree (vec<operand_entry_t> *, gimple,
 				 bool, bool);
 
 /* Structure for tracking and counting operands.  */
-typedef struct oecount_s {
+struct oecount {
   int cnt;
   int id;
   enum tree_code oecode;
   tree op;
-} oecount;
+};
 
 
 /* The heap for the oecount hashtable and the sorted list of operands.  */

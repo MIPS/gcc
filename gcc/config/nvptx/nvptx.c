@@ -1,4 +1,3 @@
-
 /* Target code for NVPTX.
    Copyright (C) 2014-2015 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
@@ -24,6 +23,7 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -102,8 +102,6 @@ nvptx_option_override (void)
   flag_toplevel_reorder = 1;
   /* Assumes that it will see only hard registers.  */
   flag_var_tracking = 0;
-  write_symbols = NO_DEBUG;
-  debug_info_level = DINFO_LEVEL_NONE;
 
   declared_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
   needed_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
@@ -265,7 +263,9 @@ write_as_kernel (tree attrs)
 	  || lookup_attribute ("omp target entrypoint", attrs) != NULL_TREE);
 }
 
-/* Write a function decl for DECL to S, where NAME is the name to be used.  */
+/* Write a function decl for DECL to S, where NAME is the name to be used.
+   This includes ptx .visible or .extern specifiers, .func or .kernel, and
+   argument and return types.  */
 
 static void
 nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree decl)
@@ -321,7 +321,8 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
 
   /* Declare argument types.  */
   if ((args != NULL_TREE
-       && !(TREE_CODE (args) == TREE_LIST && TREE_VALUE (args) == void_type_node))
+       && !(TREE_CODE (args) == TREE_LIST
+	    && TREE_VALUE (args) == void_type_node))
       || is_main
       || return_in_mem
       || DECL_STATIC_CHAIN (decl))
@@ -405,8 +406,8 @@ walk_args_for_param (FILE *file, tree argtypes, tree args, bool write_copy,
 		mode = DFmode;
 
 	    }
-	  mode = arg_promotion (mode);
 	}
+      mode = arg_promotion (mode);
       while (count-- > 0)
 	{
 	  i++;
@@ -545,7 +546,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   else if (TYPE_MODE (result_type) != VOIDmode)
     {
       machine_mode mode = arg_promotion (TYPE_MODE (result_type));
-      fprintf (file, ".reg%s %%retval;\n",
+      fprintf (file, "\t.reg%s %%retval;\n",
 	       nvptx_ptx_type_from_mode (mode, false));
     }
 
@@ -597,9 +598,11 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   sz = get_frame_size ();
   if (sz > 0 || cfun->machine->has_call_with_sc)
     {
+      int alignment = crtl->stack_alignment_needed / BITS_PER_UNIT;
+
       fprintf (file, "\t.reg.u%d %%frame;\n"
-	       "\t.local.align 8 .b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
-	       BITS_PER_WORD, sz == 0 ? 1 : sz);
+	       "\t.local.align %d .b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
+	       BITS_PER_WORD, alignment, sz == 0 ? 1 : sz);
       fprintf (file, "\tcvta.local.u%d %%frame, %%farray;\n",
 	       BITS_PER_WORD);
     }
@@ -615,10 +618,10 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   walk_args_for_param (file, TYPE_ARG_TYPES (fntype), DECL_ARGUMENTS (decl),
 		       true, return_in_mem);
   if (return_in_mem)
-    fprintf (file, "ld.param.u%d %%ar1, [%%in_ar1];\n",
+    fprintf (file, "\tld.param.u%d %%ar1, [%%in_ar1];\n",
 	     GET_MODE_BITSIZE (Pmode));
   if (stdarg_p (fntype))
-    fprintf (file, "ld.param.u%d %%argp, [%%in_argp];\n",
+    fprintf (file, "\tld.param.u%d %%argp, [%%in_argp];\n",
 	     GET_MODE_BITSIZE (Pmode));
 }
 
@@ -725,6 +728,14 @@ nvptx_function_ok_for_sibcall (tree, tree)
   return false;
 }
 
+/* Return Dynamic ReAlignment Pointer RTX.  For PTX there isn't any.  */
+
+static rtx
+nvptx_get_drap_rtx (void)
+{
+  return NULL_RTX;
+}
+
 /* Implement the TARGET_CALL_ARGS hook.  Record information about one
    argument to the next call.  */
 
@@ -755,7 +766,11 @@ nvptx_end_call_args (void)
   free_EXPR_LIST_list (&cfun->machine->call_args);
 }
 
-/* Emit the sequence for a call.  */
+/* Emit the sequence for a call to ADDRESS, setting RETVAL.  Keep
+   track of whether calls involving static chains or varargs were seen
+   in the current function.
+   For libcalls, maintain a hash table of decls we have seen, and
+   record a function decl for later when encountering a new one.  */
 
 void
 nvptx_expand_call (rtx retval, rtx address)
@@ -814,6 +829,8 @@ nvptx_expand_call (rtx retval, rtx address)
       XVECEXP (pat, 0, nargs + 1) = gen_rtx_USE (VOIDmode, this_arg);
     }
 
+  /* Construct the call insn, including a USE for each argument pseudo
+     register.  These will be used when printing the insn.  */
   int i;
   rtx arg;
   for (i = 1, arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1), i++)
@@ -831,6 +848,11 @@ nvptx_expand_call (rtx retval, rtx address)
       t = gen_rtx_SET (tmp_retval, t);
     }
   XVECEXP (pat, 0, 0) = t;
+
+  /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
+     undeclared function, we'll have an external decl without arg types.
+     In either case we have to try to construct a ptx declaration from one of
+     the calls to the function.  */
   if (!REG_P (callee)
       && (decl_type == NULL_TREE
 	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
@@ -1193,7 +1215,10 @@ nvptx_addr_space_from_address (rtx addr)
   return ADDR_SPACE_GLOBAL;
 }
 
-/* Machinery to output constant initializers.  */
+/* Machinery to output constant initializers.  When beginning an initializer,
+   we decide on a chunk size (which is visible in ptx in the type used), and
+   then all initializer data is buffered until a chunk is filled and ready to
+   be written out.  */
 
 /* Used when assembling integers to ensure data is emitted in
    pieces whose size matches the declaration we printed.  */
@@ -1463,7 +1488,8 @@ nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 }
 
 /* Output INSN, which is a call to CALLEE with result RESULT.  For ptx, this
-   involves writing .param declarations and in/out copies into them.  */
+   involves writing .param declarations and in/out copies into them.  For
+   indirect calls, also write the .callprototype.  */
 
 const char *
 nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
@@ -1483,6 +1509,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
 					 false));
     }
 
+  /* Ensure we have a ptx declaration in the output if necessary.  */
   if (GET_CODE (callee) == SYMBOL_REF)
     {
       decl = SYMBOL_REF_DECL (callee);
@@ -1891,7 +1918,7 @@ nvptx_reorg_subreg (void)
     {
       next = NEXT_INSN (insn);
       if (!NONDEBUG_INSN_P (insn)
-	  || asm_noperands (insn) >= 0
+	  || asm_noperands (PATTERN (insn)) >= 0
 	  || GET_CODE (PATTERN (insn)) == USE
 	  || GET_CODE (PATTERN (insn)) == CLOBBER)
 	continue;
@@ -2056,7 +2083,8 @@ nvptx_file_start (void)
   fputs ("// END PREAMBLE\n", asm_out_file);
 }
 
-/* Write out the function declarations we've collected.  */
+/* Write out the function declarations we've collected and declare storage
+   for the broadcast buffer.  */
 
 static void
 nvptx_file_end (void)
@@ -2100,6 +2128,8 @@ nvptx_file_end (void)
 #define TARGET_LIBCALL_VALUE nvptx_libcall_value
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL nvptx_function_ok_for_sibcall
+#undef TARGET_GET_DRAP_RTX
+#define TARGET_GET_DRAP_RTX nvptx_get_drap_rtx
 #undef TARGET_SPLIT_COMPLEX_ARG
 #define TARGET_SPLIT_COMPLEX_ARG hook_bool_const_tree_true
 #undef TARGET_RETURN_IN_MEMORY

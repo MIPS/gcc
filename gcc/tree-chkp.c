@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "alias.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -60,7 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-chkp.h"
 #include "gimple-walk.h"
 #include "tree-dfa.h"
-#include "lto-streamer.h"
 #include "cgraph.h"
 #include "ipa-chkp.h"
 #include "params.h"
@@ -1667,8 +1667,9 @@ chkp_find_bound_slots_1 (const_tree type, bitmap have_bound,
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL)
 	  {
-	    HOST_WIDE_INT field_offs
-	      = TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+	    HOST_WIDE_INT field_offs = 0;
+	    if (DECL_FIELD_BIT_OFFSET (field))
+	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
 	    if (DECL_FIELD_OFFSET (field))
 	      field_offs += TREE_INT_CST_LOW (DECL_FIELD_OFFSET (field)) * 8;
 	    chkp_find_bound_slots_1 (TREE_TYPE (field), have_bound,

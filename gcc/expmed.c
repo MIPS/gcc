@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -679,8 +680,8 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       && !MEM_P (op0)
       && optab_handler (vec_set_optab, GET_MODE (op0)) != CODE_FOR_nothing
       && fieldmode == GET_MODE_INNER (GET_MODE (op0))
-      && bitsize == GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
-      && !(bitnum % GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
+      && bitsize == GET_MODE_UNIT_BITSIZE (GET_MODE (op0))
+      && !(bitnum % GET_MODE_UNIT_BITSIZE (GET_MODE (op0))))
     {
       struct expand_operand ops[3];
       machine_mode outermode = GET_MODE (op0);
@@ -1490,8 +1491,8 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (VECTOR_MODE_P (GET_MODE (op0))
       && !MEM_P (op0)
       && optab_handler (vec_extract_optab, GET_MODE (op0)) != CODE_FOR_nothing
-      && ((bitnum + bitsize - 1) / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
-	  == bitnum / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
+      && ((bitnum + bitsize - 1) / GET_MODE_UNIT_BITSIZE (GET_MODE (op0))
+	  == bitnum / GET_MODE_UNIT_BITSIZE (GET_MODE (op0))))
     {
       struct expand_operand ops[3];
       machine_mode outermode = GET_MODE (op0);
@@ -2426,8 +2427,6 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 
   /* Be prepared for vector modes.  */
   imode = GET_MODE_INNER (mode);
-  if (imode == VOIDmode)
-    imode = mode;
 
   maxm = MIN (BITS_PER_WORD, GET_MODE_BITSIZE (imode));
 
@@ -3087,8 +3086,6 @@ expand_mult_const (machine_mode mode, rtx op0, HOST_WIDE_INT val,
   /* Compare only the bits of val and val_so_far that are significant
      in the result mode, to avoid sign-/zero-extension confusion.  */
   nmode = GET_MODE_INNER (mode);
-  if (nmode == VOIDmode)
-    nmode = mode;
   val &= GET_MODE_MASK (nmode);
   val_so_far &= GET_MODE_MASK (nmode);
   gcc_assert (val == val_so_far);
@@ -3120,15 +3117,7 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
 
   /* For vectors, there are several simplifications that can be made if
      all elements of the vector constant are identical.  */
-  scalar_op1 = op1;
-  if (GET_CODE (op1) == CONST_VECTOR)
-    {
-      int i, n = CONST_VECTOR_NUNITS (op1);
-      scalar_op1 = CONST_VECTOR_ELT (op1, 0);
-      for (i = 1; i < n; ++i)
-	if (!rtx_equal_p (scalar_op1, CONST_VECTOR_ELT (op1, i)))
-	  goto skip_scalar;
-    }
+  scalar_op1 = unwrap_const_vec_duplicate (op1);
 
   if (INTEGRAL_MODE_P (mode))
     {
@@ -3257,7 +3246,6 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
 			       target, unsignedp, OPTAB_LIB_WIDEN);
 	}
     }
- skip_scalar:
 
   /* This used to use umul_optab if unsigned, but for non-widening multiply
      there is no difference between signed and unsigned.  */

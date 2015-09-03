@@ -37,6 +37,12 @@
   (and (match_code "reg")
        (match_test "GENERAL_REGNO_P (REGNO (op))")))
 
+;; True if the operand is a nonimmediate operand with GENERAL class register.
+(define_predicate "nonimmediate_gr_operand"
+  (if_then_else (match_code "reg")
+    (match_test "GENERAL_REGNO_P (REGNO (op))")
+    (match_operand 0 "nonimmediate_operand")))
+
 ;; Return true if OP is a register operand other than an i387 fp register.
 (define_predicate "register_and_not_fp_reg_operand"
   (and (match_code "reg")
@@ -95,7 +101,7 @@
   if ((!TARGET_64BIT || GET_MODE (op) != DImode)
       && GET_MODE (op) != SImode && GET_MODE (op) != HImode)
     return false;
-  if (GET_CODE (op) == SUBREG)
+  if (SUBREG_P (op))
     op = SUBREG_REG (op);
 
   /* Be careful to accept only registers having upper parts.  */
@@ -531,7 +537,7 @@
 (define_predicate "call_register_no_elim_operand"
   (match_operand 0 "register_operand")
 {
-  if (GET_CODE (op) == SUBREG)
+  if (SUBREG_P (op))
     op = SUBREG_REG (op);
 
   if (!TARGET_64BIT && op == stack_pointer_rtx)
@@ -545,7 +551,7 @@
 (define_predicate "register_no_elim_operand"
   (match_operand 0 "register_operand")
 {
-  if (GET_CODE (op) == SUBREG)
+  if (SUBREG_P (op))
     op = SUBREG_REG (op);
   return !(op == arg_pointer_rtx
 	   || op == frame_pointer_rtx
@@ -558,7 +564,7 @@
 (define_predicate "index_register_operand"
   (match_operand 0 "register_operand")
 {
-  if (GET_CODE (op) == SUBREG)
+  if (SUBREG_P (op))
     op = SUBREG_REG (op);
   if (reload_completed)
     return REG_OK_FOR_INDEX_STRICT_P (op);
@@ -906,25 +912,9 @@
 
 /* Return true if operand is a vector constant that is all ones. */
 (define_predicate "vector_all_ones_operand"
-  (match_code "const_vector")
-{
-  int nunits = GET_MODE_NUNITS (mode);
-
-  if (GET_CODE (op) == CONST_VECTOR
-      && CONST_VECTOR_NUNITS (op) == nunits)
-    {
-      int i;
-      for (i = 0; i < nunits; ++i)
-        {
-          rtx x = CONST_VECTOR_ELT (op, i);
-          if (x != constm1_rtx)
-            return false;
-        }
-      return true;
-    }
-
-  return false;
-})
+  (and (match_code "const_vector")
+       (match_test "INTEGRAL_MODE_P (GET_MODE (op))")
+       (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
 
 ; Return true when OP is operand acceptable for standard SSE move.
 (define_predicate "vector_move_operand"
@@ -1120,9 +1110,9 @@
   ok = ix86_decompose_address (op, &parts);
   gcc_assert (ok);
 
-  if (parts.base && GET_CODE (parts.base) == SUBREG)
+  if (parts.base && SUBREG_P (parts.base))
     parts.base = SUBREG_REG (parts.base);
-  if (parts.index && GET_CODE (parts.index) == SUBREG)
+  if (parts.index && SUBREG_P (parts.index))
     parts.index = SUBREG_REG (parts.index);
 
   /* Look for some component that isn't known to be aligned.  */

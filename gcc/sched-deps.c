@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "except.h"
-#include "recog.h"
 #include "emit-rtl.h"
 #include "cfgbuild.h"
 #include "sched-int.h"
@@ -43,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "cselib.h"
 #include "ira.h"
+#include "ira-int.h"
 #include "target.h"
 
 #ifdef INSN_SCHEDULING
@@ -321,7 +321,7 @@ dep_link_is_detached_p (dep_link_t link)
 }
 
 /* Pool to hold all dependency nodes (dep_node_t).  */
-static pool_allocator<_dep_node> *dn_pool;
+static object_allocator<_dep_node> *dn_pool;
 
 /* Number of dep_nodes out there.  */
 static int dn_pool_diff = 0;
@@ -362,7 +362,7 @@ delete_dep_node (dep_node_t n)
 }
 
 /* Pool to hold dependencies lists (deps_list_t).  */
-static pool_allocator<_deps_list> *dl_pool;
+static object_allocator<_deps_list> *dl_pool;
 
 /* Number of deps_lists out there.  */
 static int dl_pool_diff = 0;
@@ -2891,7 +2891,8 @@ sched_analyze_insn (struct deps_desc *deps, rtx x, rtx_insn *insn)
 
       extract_insn (insn);
       preprocess_constraints (insn);
-      ira_implicitly_set_insn_hard_regs (&temp);
+      alternative_mask prefrred = get_preferred_alternatives (insn);
+      ira_implicitly_set_insn_hard_regs (&temp, prefrred);
       AND_COMPL_HARD_REG_SET (temp, ira_no_alloc_regs);
       IOR_HARD_REG_SET (implicit_reg_pending_clobbers, temp);
     }
@@ -4058,10 +4059,10 @@ sched_deps_init (bool global_p)
 
   if (global_p)
     {
-      dl_pool = new pool_allocator<_deps_list> ("deps_list",
+      dl_pool = new object_allocator<_deps_list> ("deps_list",
                                    /* Allocate lists for one block at a time.  */
                                    insns_in_block);
-      dn_pool = new pool_allocator<_dep_node> ("dep_node",
+      dn_pool = new object_allocator<_dep_node> ("dep_node",
                                    /* Allocate nodes for one block at a time.
                                       We assume that average insn has
                                       5 producers.  */

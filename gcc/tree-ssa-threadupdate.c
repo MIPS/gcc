@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "alias.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "hard-reg-set.h"
@@ -1365,8 +1366,8 @@ ssa_redirect_edges (struct redirection_data **slot,
   struct redirection_data *rd = *slot;
   struct el *next, *el;
 
-  /* Walk over all the incoming edges associated associated with this
-     hash table entry.  */
+  /* Walk over all the incoming edges associated with this hash table
+     entry.  */
   for (el = rd->incoming_edges; el; el = next)
     {
       edge e = el->e;
@@ -2129,7 +2130,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
      cases where the second path starts at a downstream edge on the same
      path).  First record all joiner paths, deleting any in the unexpected
      case where there is already a path for that incoming edge.  */
-  for (i = 0; i < paths.length (); i++)
+  for (i = 0; i < paths.length ();)
     {
       vec<jump_thread_edge *> *path = paths[i];
 
@@ -2139,6 +2140,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  if ((*path)[0]->e->aux == NULL)
 	    {
 	      (*path)[0]->e->aux = path;
+	      i++;
 	    }
 	  else
 	    {
@@ -2148,10 +2150,15 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	      delete_jump_thread_path (path);
 	    }
 	}
+      else
+	{
+	  i++;
+	}
     }
+
   /* Second, look for paths that have any other jump thread attached to
      them, and either finish converting them or cancel them.  */
-  for (i = 0; i < paths.length (); i++)
+  for (i = 0; i < paths.length ();)
     {
       vec<jump_thread_edge *> *path = paths[i];
       edge e = (*path)[0]->e;
@@ -2166,7 +2173,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  /* If we iterated through the entire path without exiting the loop,
 	     then we are good to go, record it.  */
 	  if (j == path->length ())
-	    bitmap_set_bit (tmp, e->dest->index);
+	    {
+	      bitmap_set_bit (tmp, e->dest->index);
+	      i++;
+	    }
 	  else
 	    {
 	      e->aux = NULL;
@@ -2175,6 +2185,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 		dump_jump_thread_path (dump_file, *path, false);
 	      delete_jump_thread_path (path);
 	    }
+	}
+      else
+	{
+	  i++;
 	}
     }
 
@@ -2479,6 +2493,12 @@ duplicate_thread_path (edge entry, edge exit,
 
   /* Remove the last branch in the jump thread path.  */
   remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
+
+  /* And fixup the flags on the single remaining edge.  */
+  edge fix_e = find_edge (region_copy[n_region - 1], exit->dest);
+  fix_e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
+  fix_e->flags |= EDGE_FALLTHRU;
+
   edge e = make_edge (region_copy[n_region - 1], exit->dest, EDGE_FALLTHRU);
 
   if (e) {

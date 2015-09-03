@@ -524,10 +524,11 @@ check_global_declaration (tree decl)
 	      && !DECL_STATIC_DESTRUCTOR (decl)))
       /* Otherwise, ask the language.  */
       && lang_hooks.decls.warn_unused_global (decl))
-    warning ((TREE_CODE (decl) == FUNCTION_DECL)
-	     ? OPT_Wunused_function
-             : OPT_Wunused_variable,
-	     "%q+D defined but not used", decl);
+    warning_at (DECL_SOURCE_LOCATION (decl),
+		(TREE_CODE (decl) == FUNCTION_DECL)
+		? OPT_Wunused_function
+		: OPT_Wunused_variable,
+		"%qD defined but not used", decl);
 }
 
 /* Compile an entire translation unit.  Write a file of assembly
@@ -553,6 +554,11 @@ compile_file (void)
 
   if (flag_syntax_only || flag_wpa)
     return;
+ 
+  /* Reset maximum_field_alignment, it can be adjusted by #pragma pack
+     and this shouldn't influence any types built by the middle-end
+     from now on (like gcov_info_type).  */
+  maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
   ggc_protect_identifiers = false;
 
@@ -573,15 +579,6 @@ compile_file (void)
 
   if (seen_error ())
     return;
-
-  /* After the parser has generated debugging information, augment
-     this information with any new location/etc information that may
-     have become available after the compilation proper.  */
-  timevar_start (TV_PHASE_DBGINFO);
-  symtab_node *node;
-  FOR_EACH_DEFINED_SYMBOL (node)
-    debug_hooks->late_global_decl (node->decl);
-  timevar_stop (TV_PHASE_DBGINFO);
 
   timevar_start (TV_PHASE_LATE_ASM);
 
@@ -1319,12 +1316,9 @@ process_options (void)
 
 #ifndef HAVE_isl
   if (flag_graphite
+      || flag_loop_optimize_isl
       || flag_graphite_identity
-      || flag_loop_block
-      || flag_loop_interchange
-      || flag_loop_strip_mine
-      || flag_loop_parallelize_all
-      || flag_loop_unroll_jam)
+      || flag_loop_parallelize_all)
     sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
 	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
@@ -1475,6 +1469,10 @@ process_options (void)
 #ifdef VMS_DEBUGGING_INFO
   else if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
+#endif
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  else if (write_symbols == DWARF2_DEBUG)
+    debug_hooks = &dwarf2_lineno_debug_hooks;
 #endif
   else
     error ("target system does not support the %qs debug format",
@@ -1775,7 +1773,7 @@ static int rtl_initialized;
 void
 initialize_rtl (void)
 {
-  auto_timevar tv (TV_INITIALIZE_RTL);
+  auto_timevar tv (g_timer, TV_INITIALIZE_RTL);
 
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
@@ -2048,22 +2046,28 @@ do_compile ()
     }
 }
 
-toplev::toplev (bool use_TV_TOTAL, bool init_signals)
-  : m_use_TV_TOTAL (use_TV_TOTAL),
+toplev::toplev (timer *external_timer,
+		bool init_signals)
+  : m_use_TV_TOTAL (external_timer == NULL),
     m_init_signals (init_signals)
 {
-  if (!m_use_TV_TOTAL)
-    start_timevars ();
+  if (external_timer)
+    g_timer = external_timer;
 }
 
 toplev::~toplev ()
 {
-  if (g_timer)
+  if (g_timer && m_use_TV_TOTAL)
     {
       g_timer->stop (TV_TOTAL);
       g_timer->print (stderr);
+      delete g_timer;
+      g_timer = NULL;
     }
 }
+
+/* Potentially call timevar_init (which will create g_timevars if it
+   doesn't already exist).  */
 
 void
 toplev::start_timevars ()

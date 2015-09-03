@@ -1,5 +1,7 @@
 /* Passes for transactional memory support.
    Copyright (C) 2008-2015 Free Software Foundation, Inc.
+   Contributed by Richard Henderson <rth@redhat.com>
+   and Aldy Hernandez <aldyh@redhat.com>.
 
    This file is part of GCC.
 
@@ -22,6 +24,7 @@
 #include "coretypes.h"
 #include "alias.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"

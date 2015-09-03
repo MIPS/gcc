@@ -104,6 +104,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -123,7 +124,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "conditions.h"
 #include "regs.h"
 #include "recog.h"
-#include "obstack.h"
 #include "insn-attr.h"
 #include "resource.h"
 #include "except.h"
@@ -1397,12 +1397,12 @@ try_merge_delay_insns (rtx_insn *insn, rtx_insn *thread)
 	  rtx_insn *dtrial = pat->insn (i);
 
 	  CLEAR_RESOURCE (&modified);
-	  /* Account for resources set by the the insn following NEXT_TO_MATCH
+	  /* Account for resources set by the insn following NEXT_TO_MATCH
 	     inside INSN's delay list. */
 	  for (j = 1; slot_number + j < num_slots; j++)
 	    mark_set_resources (XVECEXP (PATTERN (insn), 0, slot_number + j),
 				&modified, 0, MARK_SRC_DEST_CALL);
-	  /* Account for resources set by the the insn before DTRIAL and inside
+	  /* Account for resources set by the insn before DTRIAL and inside
 	     TRIAL's delay list. */
 	  for (j = 1; j < i; j++)
 	    mark_set_resources (XVECEXP (pat, 0, j),
@@ -3445,15 +3445,13 @@ relax_delay_slots (rtx_insn *first)
 	  && ! condjump_in_parallel_p (delay_jump_insn)
 	  && prev_active_insn (target_label) == insn
 	  && ! BARRIER_P (prev_nonnote_insn (target_label))
-#if HAVE_cc0
 	  /* If the last insn in the delay slot sets CC0 for some insn,
 	     various code assumes that it is in a delay slot.  We could
 	     put it back where it belonged and delete the register notes,
 	     but it doesn't seem worthwhile in this uncommon case.  */
-	  && ! find_reg_note (XVECEXP (pat, 0, XVECLEN (pat, 0) - 1),
-			      REG_CC_USER, NULL_RTX)
-#endif
-	  )
+	  && (!HAVE_cc0
+	      || ! find_reg_note (XVECEXP (pat, 0, XVECLEN (pat, 0) - 1),
+				  REG_CC_USER, NULL_RTX)))
 	{
 	  rtx_insn *after;
 	  int i;

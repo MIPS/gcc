@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -317,7 +318,10 @@ rest_of_decl_compilation (tree decl,
       && !decl_function_context (decl)
       && !current_function_decl
       && DECL_SOURCE_LOCATION (decl) != BUILTINS_LOCATION
-      && !decl_type_context (decl))
+      && !decl_type_context (decl)
+      /* Avoid confusing the debug information machinery when there are
+	 errors.  */
+      && !seen_error ())
     (*debug_hooks->early_global_decl) (decl);
 }
 

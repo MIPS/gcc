@@ -138,12 +138,12 @@ static const unsigned int copy_all = copy_defs | copy_uses | copy_eq_uses
 /* Problem data for the scanning dataflow function.  */
 struct df_scan_problem_data
 {
-  pool_allocator<df_base_ref> *ref_base_pool;
-  pool_allocator<df_artificial_ref> *ref_artificial_pool;
-  pool_allocator<df_regular_ref> *ref_regular_pool;
-  pool_allocator<df_insn_info> *insn_pool;
-  pool_allocator<df_reg_info> *reg_pool;
-  pool_allocator<df_mw_hardreg> *mw_reg_pool;
+  object_allocator<df_base_ref> *ref_base_pool;
+  object_allocator<df_artificial_ref> *ref_artificial_pool;
+  object_allocator<df_regular_ref> *ref_regular_pool;
+  object_allocator<df_insn_info> *insn_pool;
+  object_allocator<df_reg_info> *reg_pool;
+  object_allocator<df_mw_hardreg> *mw_reg_pool;
 
   bitmap_obstack reg_bitmaps;
   bitmap_obstack insn_bitmaps;
@@ -252,17 +252,17 @@ df_scan_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   df_scan->problem_data = problem_data;
   df_scan->computed = true;
 
-  problem_data->ref_base_pool = new pool_allocator<df_base_ref>
+  problem_data->ref_base_pool = new object_allocator<df_base_ref>
     ("df_scan ref base", SCAN_PROBLEM_DATA_BLOCK_SIZE);
-  problem_data->ref_artificial_pool = new pool_allocator<df_artificial_ref>
+  problem_data->ref_artificial_pool = new object_allocator<df_artificial_ref>
     ("df_scan ref artificial", SCAN_PROBLEM_DATA_BLOCK_SIZE);
-  problem_data->ref_regular_pool = new pool_allocator<df_regular_ref>
+  problem_data->ref_regular_pool = new object_allocator<df_regular_ref>
     ("df_scan ref regular", SCAN_PROBLEM_DATA_BLOCK_SIZE);
-  problem_data->insn_pool = new pool_allocator<df_insn_info>
+  problem_data->insn_pool = new object_allocator<df_insn_info>
     ("df_scan insn", SCAN_PROBLEM_DATA_BLOCK_SIZE);
-  problem_data->reg_pool = new pool_allocator<df_reg_info>
+  problem_data->reg_pool = new object_allocator<df_reg_info>
     ("df_scan reg", SCAN_PROBLEM_DATA_BLOCK_SIZE);
-  problem_data->mw_reg_pool = new pool_allocator<df_mw_hardreg>
+  problem_data->mw_reg_pool = new object_allocator<df_mw_hardreg>
     ("df_scan mw_reg", SCAN_PROBLEM_DATA_BLOCK_SIZE / 16);
 
   bitmap_obstack_initialize (&problem_data->reg_bitmaps);
@@ -809,6 +809,14 @@ df_reg_chain_unlink (df_ref ref)
   df_free_ref (ref);
 }
 
+/* Initialize INSN_INFO to describe INSN.  */
+
+static void
+df_insn_info_init_fields (df_insn_info *insn_info, rtx_insn *insn)
+{
+  memset (insn_info, 0, sizeof (struct df_insn_info));
+  insn_info->insn = insn;
+}
 
 /* Create the insn record for INSN.  If there was one there, zero it
    out.  */
@@ -827,8 +835,7 @@ df_insn_create_insn_record (rtx_insn *insn)
       insn_rec = problem_data->insn_pool->allocate ();
       DF_INSN_INFO_SET (insn, insn_rec);
     }
-  memset (insn_rec, 0, sizeof (struct df_insn_info));
-  insn_rec->insn = insn;
+  df_insn_info_init_fields (insn_rec, insn);
   return insn_rec;
 }
 
@@ -876,6 +883,29 @@ df_mw_hardreg_chain_delete (struct df_mw_hardreg *hardregs)
     }
 }
 
+/* Remove the contents of INSN_INFO (but don't free INSN_INFO itself).  */
+
+static void
+df_insn_info_free_fields (df_insn_info *insn_info)
+{
+  /* In general, notes do not have the insn_info fields
+     initialized.  However, combine deletes insns by changing them
+     to notes.  How clever.  So we cannot just check if it is a
+     valid insn before short circuiting this code, we need to see
+     if we actually initialized it.  */
+  df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
+
+  if (df_chain)
+    {
+      df_ref_chain_delete_du_chain (insn_info->defs);
+      df_ref_chain_delete_du_chain (insn_info->uses);
+      df_ref_chain_delete_du_chain (insn_info->eq_uses);
+    }
+
+  df_ref_chain_delete (insn_info->defs);
+  df_ref_chain_delete (insn_info->uses);
+  df_ref_chain_delete (insn_info->eq_uses);
+}
 
 /* Delete all of the refs information from the insn with UID.
    Internal helper for df_insn_delete, df_insn_rescan, and other
@@ -895,24 +925,7 @@ df_insn_info_delete (unsigned int uid)
       struct df_scan_problem_data *problem_data
 	= (struct df_scan_problem_data *) df_scan->problem_data;
 
-      /* In general, notes do not have the insn_info fields
-	 initialized.  However, combine deletes insns by changing them
-	 to notes.  How clever.  So we cannot just check if it is a
-	 valid insn before short circuiting this code, we need to see
-	 if we actually initialized it.  */
-      df_mw_hardreg_chain_delete (insn_info->mw_hardregs);
-
-      if (df_chain)
-	{
-	  df_ref_chain_delete_du_chain (insn_info->defs);
-	  df_ref_chain_delete_du_chain (insn_info->uses);
-	  df_ref_chain_delete_du_chain (insn_info->eq_uses);
-	}
-
-      df_ref_chain_delete (insn_info->defs);
-      df_ref_chain_delete (insn_info->uses);
-      df_ref_chain_delete (insn_info->eq_uses);
-
+      df_insn_info_free_fields (insn_info);
       problem_data->insn_pool->remove (insn_info);
       DF_INSN_UID_SET (uid, NULL);
     }
@@ -1075,8 +1088,8 @@ df_insn_rescan (rtx_insn *insn)
       /* There's change - we need to delete the existing info.
 	 Since the insn isn't moved, we can salvage its LUID.  */
       luid = DF_INSN_LUID (insn);
-      df_insn_info_delete (uid);
-      df_insn_create_insn_record (insn);
+      df_insn_info_free_fields (insn_info);
+      df_insn_info_init_fields (insn_info, insn);
       DF_INSN_LUID (insn) = luid;
     }
   else

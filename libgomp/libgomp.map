@@ -272,6 +272,8 @@ GOMP_4.1 {
 	GOMP_target_enter_exit_data;
 	GOMP_taskloop;
 	GOMP_taskloop_ull;
+	GOMP_offload_register_ver;
+	GOMP_offload_unregister_ver;
 } GOMP_4.0.1;
 
 OACC_2.0 {

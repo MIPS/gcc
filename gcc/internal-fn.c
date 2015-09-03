@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "alias.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -1401,7 +1402,7 @@ expand_mul_overflow (location_t loc, tree lhs, tree arg0, tree arg1,
 	  emit_label (one_small_one_large);
 
 	  /* lopart is the low part of the operand that is sign extended
-	     to mode, larger is the the other operand, hipart is the
+	     to mode, larger is the other operand, hipart is the
 	     high part of larger and lopart0 and lopart1 are the low parts
 	     of both operands.
 	     We perform lopart0 * lopart1 and lopart * hipart widening

@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "rtl.h"
 #include "tree.h"
 #include "flags.h"
@@ -38,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "regs.h"
 #include "addresses.h"
-#include "recog.h"
 #include "reload.h"
 #include "diagnostic-core.h"
 #include "target.h"
@@ -1835,7 +1835,8 @@ find_costs_and_classes (FILE *dump_file)
 		alt_class = reg_class_subunion[alt_class][rclass];
 	    }
 	  alt_class = ira_allocno_class_translate[alt_class];
-	  if (best_cost > i_mem_cost)
+	  if (best_cost > i_mem_cost
+	      && ! non_spilled_static_chain_regno_p (i))
 	    regno_aclass[i] = NO_REGS;
 	  else if (!optimize && !targetm.class_likely_spilled_p (best))
 	    /* Registers in the alternative class are likely to need
@@ -1874,7 +1875,10 @@ find_costs_and_classes (FILE *dump_file)
 	    }
 	  if (pass == flag_expensive_optimizations)
 	    {
-	      if (best_cost > i_mem_cost)
+	      if (best_cost > i_mem_cost
+		  /* Do not assign NO_REGS to static chain pointer
+		     pseudo when non-local goto is used.  */
+		  && ! non_spilled_static_chain_regno_p (i))
 		best = alt_class = NO_REGS;
 	      else if (best == alt_class)
 		alt_class = NO_REGS;
@@ -1889,7 +1893,9 @@ find_costs_and_classes (FILE *dump_file)
 	  regno_best_class[i] = best;
 	  if (! allocno_p)
 	    {
-	      pref[i] = best_cost > i_mem_cost ? NO_REGS : best;
+	      pref[i] = (best_cost > i_mem_cost
+			 && ! non_spilled_static_chain_regno_p (i)
+			 ? NO_REGS : best);
 	      continue;
 	    }
 	  for (a = ira_regno_allocno_map[i];

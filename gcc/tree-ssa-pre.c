@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -55,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
-#include "obstack.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "cfgloop.h"
@@ -184,13 +184,13 @@ enum pre_expr_kind
     CONSTANT
 };
 
-typedef union pre_expr_union_d
+union pre_expr_union
 {
   tree name;
   tree constant;
   vn_nary_op_t nary;
   vn_reference_t reference;
-} pre_expr_union;
+};
 
 typedef struct pre_expr_d : nofree_ptr_hash <pre_expr_d>
 {
@@ -349,7 +349,7 @@ clear_expression_ids (void)
   expressions.release ();
 }
 
-static pool_allocator<pre_expr_d> pre_expr_pool ("pre_expr nodes", 30);
+static object_allocator<pre_expr_d> pre_expr_pool ("pre_expr nodes", 30);
 
 /* Given an SSA_NAME NAME, get or create a pre_expr to represent it.  */
 
@@ -488,7 +488,7 @@ static unsigned int get_expr_value_id (pre_expr);
 /* We can add and remove elements and entries to and from sets
    and hash tables, so we use alloc pools for them.  */
 
-static pool_allocator<bitmap_set> bitmap_set_pool ("Bitmap sets", 30);
+static object_allocator<bitmap_set> bitmap_set_pool ("Bitmap sets", 30);
 static bitmap_obstack grand_bitmap_obstack;
 
 /* Set of blocks with statements that have had their EH properties changed.  */
@@ -4291,7 +4291,31 @@ eliminate_dom_walker::before_dom_children (basic_block b)
               el_to_remove.safe_push (stmt);
 	      continue;
             }
-        }
+	}
+
+      /* If this is a control statement value numbering left edges
+	 unexecuted on force the condition in a way consistent with
+	 that.  */
+      if (gcond *cond = dyn_cast <gcond *> (stmt))
+	{
+	  if ((EDGE_SUCC (b, 0)->flags & EDGE_EXECUTABLE)
+	      ^ (EDGE_SUCC (b, 1)->flags & EDGE_EXECUTABLE))
+	    {
+              if (dump_file && (dump_flags & TDF_DETAILS))
+                {
+                  fprintf (dump_file, "Removing unexecutable edge from ");
+                  print_gimple_stmt (dump_file, stmt, 0, 0);
+                }
+	      if (((EDGE_SUCC (b, 0)->flags & EDGE_TRUE_VALUE) != 0)
+		  == ((EDGE_SUCC (b, 0)->flags & EDGE_EXECUTABLE) != 0))
+		gimple_cond_make_true (cond);
+	      else
+		gimple_cond_make_false (cond);
+	      update_stmt (cond);
+	      el_todo |= TODO_cleanup_cfg;
+	      continue;
+	    }
+	}
 
       bool can_make_abnormal_goto = stmt_can_make_abnormal_goto (stmt);
       bool was_noreturn = (is_gimple_call (stmt)

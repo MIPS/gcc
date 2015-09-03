@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "libgccjit.h"
 
 #include "vec.h"
-#include "flags.h"
 #include "tree.h"
 #include "inchash.h"
 #include "tree-iterator.h"
@@ -192,6 +191,7 @@ private:
 enum inner_bool_option
 {
   INNER_BOOL_OPTION_ALLOW_UNREACHABLE_BLOCKS,
+  INNER_BOOL_OPTION_USE_EXTERNAL_DRIVER,
 
   NUM_INNER_BOOL_OPTIONS
 };

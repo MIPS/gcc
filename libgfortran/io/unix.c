@@ -101,18 +101,13 @@ id_from_fd (const int fd)
 }
 
 #endif /* HAVE_WORKING_STAT */
+
+
+/* On mingw, we don't use umask in tempfile_open(), because it
+   doesn't support the user/group/other-based permissions.  */
+#undef HAVE_UMASK
+
 #endif /* __MINGW32__ */
-
-
-/* min macro that evaluates its arguments only once.  */
-#ifdef min
-#undef min
-#endif
-
-#define min(a,b)		\
-  ({ typeof (a) _a = (a);	\
-    typeof (b) _b = (b);	\
-    _a < _b ? _a : _b; })
 
 
 /* These flags aren't defined on all targets (mingw32), so provide them
@@ -523,16 +518,26 @@ buf_read (unix_stream * s, void * buf, ssize_t nbyte)
       if (to_read <= BUFFER_SIZE/2)
         {
           did_read = raw_read (s, s->buffer, BUFFER_SIZE);
-          s->physical_offset += did_read;
-          s->active = did_read;
-          did_read = (did_read > to_read) ? to_read : did_read;
-          memcpy (p, s->buffer, did_read);
+	  if (likely (did_read >= 0))
+	    {
+	      s->physical_offset += did_read;
+	      s->active = did_read;
+	      did_read = (did_read > to_read) ? to_read : did_read;
+	      memcpy (p, s->buffer, did_read);
+	    }
+	  else
+	    return did_read;
         }
       else
         {
           did_read = raw_read (s, p, to_read);
-          s->physical_offset += did_read;
-          s->active = 0;
+	  if (likely (did_read >= 0))
+	    {
+	      s->physical_offset += did_read;
+	      s->active = 0;
+	    }
+	  else
+	    return did_read;
         }
       nbyte = did_read + nread;
     }
@@ -1525,7 +1530,10 @@ compare_file_filename (gfc_unit *u, const char *name, int len)
       goto done;
     }
 # endif
-  ret = (strcmp(path, u->filename) == 0);
+  if (u->filename)
+    ret = (strcmp(path, u->filename) == 0);
+  else
+    ret = 0;
 #endif
  done:
   free (path);
@@ -1570,7 +1578,7 @@ find_file0 (gfc_unit *u, FIND_FILE0_DECL)
     }
   else
 # endif
-    if (strcmp (u->filename, path) == 0)
+    if (u->filename && strcmp (u->filename, path) == 0)
       return u;
 #endif
 

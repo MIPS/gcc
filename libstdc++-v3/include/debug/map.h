@@ -317,6 +317,89 @@ namespace __debug
 	    _Base::insert(__first, __last);
 	}
 
+
+#if __cplusplus > 201402L
+      template <typename... _Args>
+        pair<iterator, bool>
+        try_emplace(const key_type& __k, _Args&&... __args)
+        {
+	  auto __res = _Base::try_emplace(__k,
+					  std::forward<_Args>(__args)...);
+	  return { iterator(__res.first, this), __res.second };
+	}
+
+      template <typename... _Args>
+        pair<iterator, bool>
+        try_emplace(key_type&& __k, _Args&&... __args)
+        {
+	  auto __res = _Base::try_emplace(std::move(__k),
+					  std::forward<_Args>(__args)...);
+	  return { iterator(__res.first, this), __res.second };
+	}
+
+      template <typename... _Args>
+        iterator
+        try_emplace(const_iterator __hint, const key_type& __k,
+                    _Args&&... __args)
+        {
+	  __glibcxx_check_insert(__hint);
+	  return iterator(_Base::try_emplace(__hint.base(), __k,
+					     std::forward<_Args>(__args)...),
+			  this);
+	}
+
+      template <typename... _Args>
+        iterator
+        try_emplace(const_iterator __hint, key_type&& __k, _Args&&... __args)
+        {
+	  __glibcxx_check_insert(__hint);
+	  return iterator(_Base::try_emplace(__hint.base(), std::move(__k),
+					     std::forward<_Args>(__args)...),
+			  this);
+	}
+
+      template <typename _Obj>
+        std::pair<iterator, bool>
+        insert_or_assign(const key_type& __k, _Obj&& __obj)
+	{
+	  auto __res = _Base::insert_or_assign(__k,
+					       std::forward<_Obj>(__obj));
+	  return { iterator(__res.first, this), __res.second };
+	}
+
+      template <typename _Obj>
+        std::pair<iterator, bool>
+        insert_or_assign(key_type&& __k, _Obj&& __obj)
+	{
+	  auto __res = _Base::insert_or_assign(std::move(__k),
+					       std::forward<_Obj>(__obj));
+	  return { iterator(__res.first, this), __res.second };
+	}
+
+      template <typename _Obj>
+        iterator
+        insert_or_assign(const_iterator __hint,
+                         const key_type& __k, _Obj&& __obj)
+	{
+	  __glibcxx_check_insert(__hint);
+	  return iterator(_Base::insert_or_assign(__hint.base(), __k,
+						  std::forward<_Obj>(__obj)),
+			  this);
+	}
+
+      template <typename _Obj>
+        iterator
+        insert_or_assign(const_iterator __hint, key_type&& __k, _Obj&& __obj)
+        {
+	  __glibcxx_check_insert(__hint);
+	  return iterator(_Base::insert_or_assign(__hint.base(),
+						  std::move(__k),
+						  std::forward<_Obj>(__obj)),
+			  this);
+	}
+#endif
+
+
 #if __cplusplus >= 201103L
       iterator
       erase(const_iterator __position)
@@ -393,9 +476,7 @@ namespace __debug
 
       void
       swap(map& __x)
-#if __cplusplus >= 201103L
-	noexcept( noexcept(declval<_Base>().swap(__x)) )
-#endif
+      _GLIBCXX_NOEXCEPT_IF( noexcept(declval<_Base&>().swap(__x)) )
       {
 	_Safe::_M_swap(__x);
 	_Base::swap(__x);
@@ -589,6 +670,7 @@ namespace __debug
     inline void
     swap(map<_Key, _Tp, _Compare, _Allocator>& __lhs,
 	 map<_Key, _Tp, _Compare, _Allocator>& __rhs)
+    _GLIBCXX_NOEXCEPT_IF(noexcept(__lhs.swap(__rhs)))
     { __lhs.swap(__rhs); }
 
 } // namespace __debug

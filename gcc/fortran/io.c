@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
@@ -106,7 +106,7 @@ static gfc_dt *current_dt;
 /**************** Fortran 95 FORMAT parser  *****************/
 
 /* FORMAT tokens returned by format_lex().  */
-typedef enum
+enum format_token
 {
   FMT_NONE, FMT_UNKNOWN, FMT_SIGNED_INT, FMT_ZERO, FMT_POSINT, FMT_PERIOD,
   FMT_COMMA, FMT_COLON, FMT_SLASH, FMT_DOLLAR, FMT_LPAREN,
@@ -114,8 +114,7 @@ typedef enum
   FMT_E, FMT_EN, FMT_ES, FMT_G, FMT_L, FMT_A, FMT_D, FMT_H, FMT_END,
   FMT_ERROR, FMT_DC, FMT_DP, FMT_T, FMT_TR, FMT_TL, FMT_STAR, FMT_RC,
   FMT_RD, FMT_RN, FMT_RP, FMT_RU, FMT_RZ
-}
-format_token;
+};
 
 /* Local variables for checking format strings.  The saved_token is
    used to back up by a single format token during the parsing
@@ -1260,6 +1259,8 @@ check_char_variable (gfc_expr *e)
 static bool
 is_char_type (const char *name, gfc_expr *e)
 {
+  gfc_resolve_expr (e);
+
   if (e->ts.type != BT_CHARACTER)
     {
       gfc_error ("%s requires a scalar-default-char-expr at %L",
@@ -1580,6 +1581,8 @@ match_open_element (gfc_open *open)
   match m;
 
   m = match_etag (&tag_e_async, &open->asynchronous);
+  if (m == MATCH_YES && !is_char_type ("ASYNCHRONOUS", open->asynchronous))
+    return MATCH_ERROR;
   if (m != MATCH_NO)
     return m;
   m = match_etag (&tag_unit, &open->unit);
@@ -2752,6 +2755,8 @@ match_dt_element (io_kind k, gfc_dt *dt)
     }
 
   m = match_etag (&tag_e_async, &dt->asynchronous);
+  if (m == MATCH_YES && !is_char_type ("ASYNCHRONOUS", dt->asynchronous))
+    return MATCH_ERROR;
   if (m != MATCH_NO)
     return m;
   m = match_etag (&tag_e_blank, &dt->blank);
@@ -3986,6 +3991,8 @@ match_inquire_element (gfc_inquire *inquire)
   RETM m = match_vtag (&tag_write, &inquire->write);
   RETM m = match_vtag (&tag_readwrite, &inquire->readwrite);
   RETM m = match_vtag (&tag_s_async, &inquire->asynchronous);
+  if (m == MATCH_YES && !is_char_type ("ASYNCHRONOUS", inquire->asynchronous))
+    return MATCH_ERROR;
   RETM m = match_vtag (&tag_s_delim, &inquire->delim);
   RETM m = match_vtag (&tag_s_decimal, &inquire->decimal);
   RETM m = match_out_tag (&tag_size, &inquire->size);

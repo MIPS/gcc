@@ -24,8 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_LTO_STREAMER_H
 
 #include "plugin-api.h"
-#include "target.h"
-#include "alloc-pool.h"
 #include "gcov-io.h"
 #include "diagnostic.h"
 
@@ -347,6 +345,7 @@ private:
     const char *file;
     location_t *loc;
     int line, col;
+    bool sysp;
   };
 
   /* The location cache.  */
@@ -366,6 +365,7 @@ private:
   const char *current_file;
   int current_line;
   int current_col;
+  bool current_sysp;
   location_t current_loc;
 };
 
@@ -713,6 +713,7 @@ struct output_block
   const char *current_file;
   int current_line;
   int current_col;
+  bool current_sysp;
 
   /* Cache of nodes written in this section.  */
   struct streamer_tree_cache_d *writer_cache;

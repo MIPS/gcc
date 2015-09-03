@@ -340,7 +340,7 @@ WARN_CXXFLAGS = \
 
 
 # -I/-D flags to pass when compiling.
-AM_CPPFLAGS = $(GLIBCXX_INCLUDES)
+AM_CPPFLAGS = $(GLIBCXX_INCLUDES) $(CPPFLAGS)
 @ENABLE_PYTHONDIR_FALSE@pythondir = $(datadir)/gcc-$(gcc_version)/python
 @ENABLE_PYTHONDIR_TRUE@pythondir = $(prefix)/$(python_mod_dir)
 nobase_python_DATA = \
@@ -547,7 +547,7 @@ gdb.py: hook.in Makefile
 install-data-local: gdb.py
 	@$(mkdir_p) $(DESTDIR)$(toolexeclibdir)
 	@here=`pwd`; cd $(DESTDIR)$(toolexeclibdir); \
-	  for file in libstdc++*; do \
+	  for file in libstdc++.*; do \
 	    case $$file in \
 	      *-gdb.py) ;; \
 	      *.la) ;; \

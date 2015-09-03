@@ -287,7 +287,7 @@ struct GTY((variable_size)) hwivec_def {
 /* RTL expression ("rtx").  */
 
 /* The GTY "desc" and "tag" options below are a kludge: we need a desc
-   field for for gengtype to recognize that inheritance is occurring,
+   field for gengtype to recognize that inheritance is occurring,
    so that all subclasses are redirected to the traversal hook for the
    base class.
    However, all of the fields are in the base class, and special-casing
@@ -2678,6 +2678,42 @@ extern unsigned int rtx_size (const_rtx);
 extern rtx shallow_copy_rtx_stat (const_rtx MEM_STAT_DECL);
 #define shallow_copy_rtx(a) shallow_copy_rtx_stat (a MEM_STAT_INFO)
 extern int rtx_equal_p (const_rtx, const_rtx);
+extern bool rtvec_all_equal_p (const_rtvec);
+
+/* Return true if X is a vector constant with a duplicated element value.  */
+
+inline bool
+const_vec_duplicate_p (const_rtx x)
+{
+  return GET_CODE (x) == CONST_VECTOR && rtvec_all_equal_p (XVEC (x, 0));
+}
+
+/* Return true if X is a vector constant with a duplicated element value.
+   Store the duplicated element in *ELT if so.  */
+
+template <typename T>
+inline bool
+const_vec_duplicate_p (T x, T *elt)
+{
+  if (const_vec_duplicate_p (x))
+    {
+      *elt = CONST_VECTOR_ELT (x, 0);
+      return true;
+    }
+  return false;
+}
+
+/* If X is a vector constant with a duplicated element value, return that
+   element value, otherwise return X.  */
+
+template <typename T>
+inline T
+unwrap_const_vec_duplicate (T x)
+{
+  if (const_vec_duplicate_p (x))
+    x = CONST_VECTOR_ELT (x, 0);
+  return x;
+}
 
 /* In emit-rtl.c */
 extern rtvec gen_rtvec_v (int, rtx *);
@@ -2730,10 +2766,6 @@ extern rtx immed_wide_int_const (const wide_int_ref &, machine_mode);
 extern rtx immed_double_const (HOST_WIDE_INT, HOST_WIDE_INT,
 			       machine_mode);
 #endif
-
-/* In loop-iv.c  */
-
-extern rtx lowpart_subreg (machine_mode, rtx, machine_mode);
 
 /* In varasm.c  */
 extern rtx force_const_mem (machine_mode, rtx);
@@ -2866,6 +2898,7 @@ extern rtx simplify_subreg (machine_mode, rtx, machine_mode,
 			    unsigned int);
 extern rtx simplify_gen_subreg (machine_mode, rtx, machine_mode,
 				unsigned int);
+extern rtx lowpart_subreg (machine_mode, rtx, machine_mode);
 extern rtx simplify_replace_fn_rtx (rtx, const_rtx,
 				    rtx (*fn) (rtx, const_rtx, void *), void *);
 extern rtx simplify_replace_rtx (rtx, const_rtx, rtx);
@@ -3613,7 +3646,7 @@ extern void init_varasm_once (void);
 extern rtx make_debug_expr_from_rtl (const_rtx);
 
 /* In read-rtl.c */
-extern bool read_rtx (const char *, rtx *);
+extern bool read_rtx (const char *, vec<rtx> *);
 
 /* In alias.c */
 extern rtx canon_rtx (rtx);

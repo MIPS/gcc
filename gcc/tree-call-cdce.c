@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "hard-reg-set.h"
@@ -85,7 +86,7 @@ along with GCC; see the file COPYING3.  If not see
    to indicate if lb and ub value are inclusive
    respectively.  */
 
-typedef struct input_domain
+struct inp_domain
 {
   int lb;
   int ub;
@@ -93,7 +94,7 @@ typedef struct input_domain
   bool has_ub;
   bool is_lb_inclusive;
   bool is_ub_inclusive;
-} inp_domain;
+};
 
 /* A helper function to construct and return an input
    domain object.  LB is the lower bound, HAS_LB is

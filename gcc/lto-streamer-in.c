@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -54,11 +55,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
-#include "data-streamer.h"
+#include "target.h"
 #include "gimple-streamer.h"
-#include "lto-streamer.h"
-#include "tree-streamer.h"
-#include "streamer-hooks.h"
 #include "cfgloop.h"
 
 
@@ -173,6 +171,8 @@ lto_location_cache::cmp_loc (const void *pa, const void *pb)
     }
   if (a->file != b->file)
     return strcmp (a->file, b->file);
+  if (a->sysp != b->sysp)
+    return a->sysp ? 1 : -1;
   if (a->line != b->line)
     return a->line - b->line;
   return a->col - b->col;
@@ -196,7 +196,7 @@ lto_location_cache::apply_location_cache ()
 
       if (current_file != loc.file)
 	linemap_add (line_table, prev_file ? LC_RENAME : LC_ENTER,
-		     false, loc.file, loc.line);
+		     loc.sysp, loc.file, loc.line);
       else if (current_line != loc.line)
 	{
 	  int max = loc.col;
@@ -253,6 +253,7 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
   static const char *stream_file;
   static int stream_line;
   static int stream_col;
+  static bool stream_sysp;
   bool file_change, line_change, column_change;
 
   gcc_assert (current_cache == this);
@@ -270,7 +271,10 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
   column_change = bp_unpack_value (bp, 1);
 
   if (file_change)
-    stream_file = canon_file_name (bp_unpack_string (data_in, bp));
+    {
+      stream_file = canon_file_name (bp_unpack_string (data_in, bp));
+      stream_sysp = bp_unpack_value (bp, 1);
+    }
 
   if (line_change)
     stream_line = bp_unpack_var_len_unsigned (bp);
@@ -282,13 +286,14 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
      streaming.  */
      
   if (current_file == stream_file && current_line == stream_line
-      && current_col == stream_col)
+      && current_col == stream_col && current_sysp == stream_sysp)
     {
       *loc = current_loc;
       return;
     }
 
-  struct cached_location entry = {stream_file, loc, stream_line, stream_col};
+  struct cached_location entry
+    = {stream_file, loc, stream_line, stream_col, stream_sysp};
   loc_cache.safe_push (entry);
 }
 
@@ -1546,7 +1551,7 @@ lto_input_mode_table (struct lto_file_decl_data *file_data)
 	= bp_unpack_enum (&bp, mode_class, MAX_MODE_CLASS);
       unsigned int size = bp_unpack_value (&bp, 8);
       unsigned int prec = bp_unpack_value (&bp, 16);
-      machine_mode inner = (machine_mode) table[bp_unpack_value (&bp, 8)];
+      machine_mode inner = (machine_mode) bp_unpack_value (&bp, 8);
       unsigned int nunits = bp_unpack_value (&bp, 8);
       unsigned int ibit = 0, fbit = 0;
       unsigned int real_fmt_len = 0;
@@ -1575,12 +1580,14 @@ lto_input_mode_table (struct lto_file_decl_data *file_data)
 	for (machine_mode mr = pass ? VOIDmode
 				    : GET_CLASS_NARROWEST_MODE (mclass);
 	     pass ? mr < MAX_MACHINE_MODE : mr != VOIDmode;
-	     pass ? mr = (machine_mode) (m + 1)
+	     pass ? mr = (machine_mode) (mr + 1)
 		  : mr = GET_MODE_WIDER_MODE (mr))
 	  if (GET_MODE_CLASS (mr) != mclass
 	      || GET_MODE_SIZE (mr) != size
 	      || GET_MODE_PRECISION (mr) != prec
-	      || GET_MODE_INNER (mr) != inner
+	      || (inner == m
+		  ? GET_MODE_INNER (mr) != mr
+		  : GET_MODE_INNER (mr) != table[(int) inner])
 	      || GET_MODE_IBIT (mr) != ibit
 	      || GET_MODE_FBIT (mr) != fbit
 	      || GET_MODE_NUNITS (mr) != nunits)
@@ -1608,7 +1615,7 @@ lto_input_mode_table (struct lto_file_decl_data *file_data)
 	    case MODE_VECTOR_UACCUM:
 	      /* For unsupported vector modes just use BLKmode,
 		 if the scalar mode is supported.  */
-	      if (inner != VOIDmode)
+	      if (table[(int) inner] != VOIDmode)
 		{
 		  table[m] = BLKmode;
 		  break;

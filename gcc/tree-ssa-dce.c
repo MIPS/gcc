@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -1124,10 +1125,11 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 	if (e != e2)
 	  {
 	    cfg_altered = true;
-	    /* If we made a BB unconditionally exit a loop then this
-	       transform alters the set of BBs in the loop.  Schedule
-	       a fixup.  */
-	    if (loop_exit_edge_p (bb->loop_father, e))
+	    /* If we made a BB unconditionally exit a loop or removed
+	       an entry into an irreducible region, then this transform
+	       alters the set of BBs in the loop.  Schedule a fixup.  */
+	    if (loop_exit_edge_p (bb->loop_father, e)
+		|| (e2->dest->flags & BB_IRREDUCIBLE_LOOP))
 	      loops_state_set (LOOPS_NEED_FIXUP);
 	    remove_edge (e2);
 	  }

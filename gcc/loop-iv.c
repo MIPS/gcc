@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
-#include "obstack.h"
 #include "cfgloop.h"
 #include "flags.h"
 #include "alias.h"
@@ -204,17 +203,6 @@ dump_iv_info (FILE *file, struct rtx_iv *iv)
     }
   if (iv->first_special)
     fprintf (file, " (first special)");
-}
-
-/* Generates a subreg to get the least significant part of EXPR (in mode
-   INNER_MODE) to OUTER_MODE.  */
-
-rtx
-lowpart_subreg (machine_mode outer_mode, rtx expr,
-		machine_mode inner_mode)
-{
-  return simplify_gen_subreg (outer_mode, expr, inner_mode,
-			      subreg_lowpart_offset (outer_mode, inner_mode));
 }
 
 static void
@@ -2342,8 +2330,8 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
   enum rtx_code cond;
   machine_mode mode, comp_mode;
   rtx mmin, mmax, mode_mmin, mode_mmax;
-  uint64_t s, size, d, inv, max;
-  int64_t up, down, inc, step_val;
+  uint64_t s, size, d, inv, max, up, down;
+  int64_t inc, step_val;
   int was_sharp = false;
   rtx old_niter;
   bool step_is_pow2;
@@ -2633,7 +2621,7 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
 	  down = INTVAL (CONST_INT_P (iv0.base)
 			 ? iv0.base
 			 : mode_mmin);
-	  max = (uint64_t) (up - down) / inc + 1;
+	  max = (up - down) / inc + 1;
 	  if (!desc->infinite
 	      && !desc->assumptions)
 	    record_niter_bound (loop, max, false, true);

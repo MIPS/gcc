@@ -104,6 +104,7 @@ along with GCC; see the file COPYING3.	If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "predict.h"
 #include "tree.h"
 #include "rtl.h"
 #include "df.h"
@@ -532,7 +533,7 @@ lra_update_dups (lra_insn_recog_data_t id, signed char *nops)
    insns.  */
 
 /* Pools for insn reg info.  */
-pool_allocator<lra_insn_reg> lra_insn_reg::pool ("insn regs", 100);
+object_allocator<lra_insn_reg> lra_insn_reg_pool ("insn regs", 100);
 
 /* Create LRA insn related info about a reference to REGNO in INSN with
    TYPE (in/out/inout), biggest reference mode MODE, flag that it is
@@ -544,7 +545,7 @@ new_insn_reg (rtx_insn *insn, int regno, enum op_type type,
 	      machine_mode mode,
 	      bool subreg_p, bool early_clobber, struct lra_insn_reg *next)
 {
-  lra_insn_reg *ir = new lra_insn_reg ();
+  lra_insn_reg *ir = lra_insn_reg_pool.allocate ();
   ir->type = type;
   ir->biggest_mode = mode;
   if (GET_MODE_SIZE (mode) > GET_MODE_SIZE (lra_reg_info[regno].biggest_mode)
@@ -566,7 +567,7 @@ free_insn_regs (struct lra_insn_reg *ir)
   for (; ir != NULL; ir = next_ir)
     {
       next_ir = ir->next;
-      delete ir;
+      lra_insn_reg_pool.remove (ir);
     }
 }
 
@@ -574,7 +575,7 @@ free_insn_regs (struct lra_insn_reg *ir)
 static void
 finish_insn_regs (void)
 {
-  lra_insn_reg::pool.release ();
+  lra_insn_reg_pool.release ();
 }
 
 
@@ -584,7 +585,7 @@ finish_insn_regs (void)
 
 /* Map INSN_CODE -> the static insn data.  This info is valid during
    all translation unit.  */
-struct lra_static_insn_data *insn_code_data[LAST_INSN_CODE];
+struct lra_static_insn_data *insn_code_data[NUM_INSN_CODES];
 
 /* Debug insns are represented as a special insn with one input
    operand which is RTL expression in var_location.  */
@@ -630,9 +631,7 @@ init_insn_code_data_once (void)
 static void
 finish_insn_code_data_once (void)
 {
-  int i;
-
-  for (i = 0; i < LAST_INSN_CODE; i++)
+  for (unsigned int i = 0; i < NUM_INSN_CODES; i++)
     {
       if (insn_code_data[i] != NULL)
 	free (insn_code_data[i]);
@@ -649,7 +648,7 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
   struct lra_static_insn_data *data;
   size_t n_bytes;
 
-  lra_assert (icode < LAST_INSN_CODE);
+  lra_assert (icode < (int) NUM_INSN_CODES);
   if (icode >= 0 && (data = insn_code_data[icode]) != NULL)
     return data;
   lra_assert (nop >= 0 && ndup >= 0 && nalt >= 0);
@@ -744,6 +743,9 @@ free_insn_recog_data (lra_insn_recog_data_t data)
   free (data);
 }
 
+/* Pools for copies.  */
+static object_allocator<lra_copy> lra_copy_pool ("lra copies", 100);
+
 /* Finish LRA data about all insns.  */
 static void
 finish_insn_recog_data (void)
@@ -755,8 +757,8 @@ finish_insn_recog_data (void)
     if ((data = lra_insn_recog_data[i]) != NULL)
       free_insn_recog_data (data);
   finish_insn_regs ();
-  lra_copy::pool.release ();
-  lra_insn_reg::pool.release ();
+  lra_copy_pool.release ();
+  lra_insn_reg_pool.release ();
   free (lra_insn_recog_data);
 }
 
@@ -1055,6 +1057,7 @@ lra_set_insn_recog_data (rtx_insn *insn)
   data->arg_hard_regs = NULL;
   if (CALL_P (insn))
     {
+      bool use_p;
       rtx link;
       int n_hard_regs, regno, arg_hard_regs[FIRST_PSEUDO_REGISTER];
 
@@ -1065,14 +1068,16 @@ lra_set_insn_recog_data (rtx_insn *insn)
       for (link = CALL_INSN_FUNCTION_USAGE (insn);
 	   link != NULL_RTX;
 	   link = XEXP (link, 1))
-	if (GET_CODE (XEXP (link, 0)) == USE
+	if (((use_p = GET_CODE (XEXP (link, 0)) == USE)
+	     || GET_CODE (XEXP (link, 0)) == CLOBBER)
 	    && REG_P (XEXP (XEXP (link, 0), 0)))
 	  {
 	    regno = REGNO (XEXP (XEXP (link, 0), 0));
 	    lra_assert (regno < FIRST_PSEUDO_REGISTER);
 	    /* It is an argument register.  */
 	    for (i = REG_NREGS (XEXP (XEXP (link, 0), 0)) - 1; i >= 0; i--)
-	      arg_hard_regs[n_hard_regs++] = regno + i;
+	      arg_hard_regs[n_hard_regs++]
+		= regno + i + (use_p ? 0 : FIRST_PSEUDO_REGISTER);
 	  }
       if (n_hard_regs != 0)
 	{
@@ -1275,9 +1280,6 @@ get_new_reg_value (void)
   return ++last_reg_value;
 }
 
-/* Pools for copies.  */
-pool_allocator<lra_copy> lra_copy::pool ("lra copies", 100);
-
 /* Vec referring to pseudo copies.  */
 static vec<lra_copy_t> copy_vec;
 
@@ -1356,7 +1358,7 @@ lra_free_copies (void)
     {
       cp = copy_vec.pop ();
       lra_reg_info[cp->regno1].copies = lra_reg_info[cp->regno2].copies = NULL;
-      delete cp;
+      lra_copy_pool.remove (cp);
     }
 }
 
@@ -1375,7 +1377,7 @@ lra_create_copy (int regno1, int regno2, int freq)
       std::swap (regno1, regno2);
       regno1_dest_p = false;
     }
-  cp = new lra_copy ();
+  cp = lra_copy_pool.allocate ();
   copy_vec.safe_push (cp);
   cp->regno1_dest_p = regno1_dest_p;
   cp->freq = freq;
@@ -1544,7 +1546,7 @@ invalidate_insn_data_regno_info (lra_insn_recog_data_t data, rtx_insn *insn,
     {
       i = ir->regno;
       next_ir = ir->next;
-      delete ir;
+      lra_insn_reg_pool.remove (ir);
       bitmap_clear_bit (&lra_reg_info[i].insn_bitmap, uid);
       if (i >= FIRST_PSEUDO_REGISTER && ! debug_p)
 	{

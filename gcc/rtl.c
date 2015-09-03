@@ -441,7 +441,7 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
 
     case DEBUG_PARAMETER_REF:
       return DEBUG_PARAMETER_REF_DECL (x)
-	     == DEBUG_PARAMETER_REF_DECL (x);
+	     == DEBUG_PARAMETER_REF_DECL (y);
 
     case ENTRY_VALUE:
       return rtx_equal_p_cb (ENTRY_VALUE_EXP (x), ENTRY_VALUE_EXP (y), cb);
@@ -655,6 +655,31 @@ rtx_equal_p (const_rtx x, const_rtx y)
 	}
     }
   return 1;
+}
+
+/* Return true if all elements of VEC are equal.  */
+
+bool
+rtvec_all_equal_p (const_rtvec vec)
+{
+  const_rtx first = RTVEC_ELT (vec, 0);
+  /* Optimize the important special case of a vector of constants.
+     The main use of this function is to detect whether every element
+     of CONST_VECTOR is the same.  */
+  switch (GET_CODE (first))
+    {
+    CASE_CONST_UNIQUE:
+      for (int i = 1, n = GET_NUM_ELEM (vec); i < n; ++i)
+	if (first != RTVEC_ELT (vec, i))
+	  return false;
+      return true;
+
+    default:
+      for (int i = 1, n = GET_NUM_ELEM (vec); i < n; ++i)
+	if (!rtx_equal_p (first, RTVEC_ELT (vec, i)))
+	  return false;
+      return true;
+    }
 }
 
 /* Return an indication of which type of insn should have X as a body.

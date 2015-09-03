@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "function.h"
 #include "bitmap.h"
-#include "predict.h"
+#include "cfghooks.h"
 #include "basic-block.h"
 #include "tree.h"
 #include "gimple.h"
@@ -48,12 +48,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "lto.h"
 #include "lto-tree.h"
-#include "lto-streamer.h"
-#include "lto-section-names.h"
 #include "tree-streamer.h"
+#include "lto-section-names.h"
 #include "splay-tree.h"
 #include "lto-partition.h"
-#include "data-streamer.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "ipa-inline.h"
@@ -1056,8 +1054,10 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       return false;
 
 
-  /* We don't want to compare locations, so there is nothing do compare
-     for TS_DECL_MINIMAL.  */
+  /* We want to compare locations up to the point where it makes
+     a difference for streaming - thus whether the decl is builtin or not.  */
+  if (CODE_CONTAINS_STRUCT (code, TS_DECL_MINIMAL))
+    compare_values (streamer_handle_as_builtin_p);
 
   if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
     {
@@ -1305,6 +1305,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_tree_edges (DECL_SIZE (t1), DECL_SIZE (t2));
       compare_tree_edges (DECL_SIZE_UNIT (t1), DECL_SIZE_UNIT (t2));
       compare_tree_edges (DECL_ATTRIBUTES (t1), DECL_ATTRIBUTES (t2));
+      compare_tree_edges (DECL_ABSTRACT_ORIGIN (t1), DECL_ABSTRACT_ORIGIN (t2));
       if ((code == VAR_DECL
 	   || code == PARM_DECL)
 	  && DECL_HAS_VALUE_EXPR_P (t1))

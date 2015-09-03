@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gfortran.h"
 #include "match.h"
 #include "parse.h"
-#include "flags.h"
+#include "options.h"
 #include "constructor.h"
 #include "alias.h"
 #include "tree.h"
@@ -6450,6 +6450,11 @@ gfc_match_end (gfc_statement *st)
   if (block_name == NULL)
     goto syntax;
 
+  /* We have to pick out the declared submodule name from the composite
+     required by F2008:11.2.3 para 2, which ends in the declared name.  */
+  if (state == COMP_SUBMODULE)
+    block_name = strchr (block_name, '.') + 1;
+
   if (strcmp (name, block_name) != 0 && strcmp (block_name, "ppr@") != 0)
     {
       gfc_error ("Expected label %qs for %s statement at %C", block_name,
@@ -6478,7 +6483,7 @@ cleanup:
   /* If we are missing an END BLOCK, we created a half-ready namespace.
      Remove it from the parent namespace's sibling list.  */
 
-  if (state == COMP_BLOCK)
+  while (state == COMP_BLOCK)
     {
       parent_ns = gfc_current_ns->parent;
 
@@ -6501,6 +6506,8 @@ cleanup:
   
       gfc_free_namespace (gfc_current_ns);
       gfc_current_ns = parent_ns;
+      gfc_state_stack = gfc_state_stack->previous;
+      state = gfc_current_state ();
     }
 
   return MATCH_ERROR;

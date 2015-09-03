@@ -491,6 +491,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__is_literal_type", RID_IS_LITERAL_TYPE, D_CXXONLY },
   { "__is_pod",		RID_IS_POD,	D_CXXONLY },
   { "__is_polymorphic",	RID_IS_POLYMORPHIC, D_CXXONLY },
+  { "__is_same_as",     RID_IS_SAME_AS, D_CXXONLY },
   { "__is_standard_layout", RID_IS_STD_LAYOUT, D_CXXONLY },
   { "__is_trivial",     RID_IS_TRIVIAL, D_CXXONLY },
   { "__is_trivially_assignable", RID_IS_TRIVIALLY_ASSIGNABLE, D_CXXONLY },
@@ -589,6 +590,11 @@ const struct c_common_resword c_common_reswords[] =
   { "volatile",		RID_VOLATILE,	0 },
   { "wchar_t",		RID_WCHAR,	D_CXXONLY },
   { "while",		RID_WHILE,	0 },
+
+  /* Concepts-related keywords */
+  { "concept",		RID_CONCEPT,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
+  { "requires", 	RID_REQUIRES,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
+
   /* These Objective-C keywords are recognized only immediately after
      an '@'.  */
   { "compatibility_alias", RID_AT_ALIAS,	D_OBJC },
@@ -1364,7 +1370,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       if (TREE_OVERFLOW_P (ret)
 	  && !TREE_OVERFLOW_P (op0)
 	  && !TREE_OVERFLOW_P (op1))
-	overflow_warning (EXPR_LOCATION (expr), ret);
+	overflow_warning (EXPR_LOC_OR_LOC (expr, input_location), ret);
       if (code == LSHIFT_EXPR
 	  && TREE_CODE (orig_op0) != INTEGER_CST
 	  && TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
@@ -1394,6 +1400,18 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 			 ? G_("left shift count >= width of type")
 			 : G_("right shift count >= width of type")));
 	}
+      if (code == LSHIFT_EXPR
+	  /* If either OP0 has been folded to INTEGER_CST...  */
+	  && ((TREE_CODE (orig_op0) != INTEGER_CST
+	       && TREE_CODE (TREE_TYPE (orig_op0)) == INTEGER_TYPE
+	       && TREE_CODE (op0) == INTEGER_CST)
+	      /* ...or if OP1 has been folded to INTEGER_CST...  */
+	      || (TREE_CODE (orig_op1) != INTEGER_CST
+		  && TREE_CODE (TREE_TYPE (orig_op1)) == INTEGER_TYPE
+		  && TREE_CODE (op1) == INTEGER_CST))
+	  && c_inhibit_evaluation_warnings == 0)
+	/* ...then maybe we can detect an overflow.  */
+	maybe_warn_shift_overflow (loc, op0, op1);
       if ((code == TRUNC_DIV_EXPR
 	   || code == CEIL_DIV_EXPR
 	   || code == FLOOR_DIV_EXPR
@@ -1846,6 +1864,82 @@ warn_logical_operator (location_t location, enum tree_code code, tree type,
 	    warning_at (location, OPT_Wlogical_op,
 			"logical %<and%> of equal expressions");
 	}
+    }
+}
+
+/* Helper function for warn_tautological_cmp.  Look for ARRAY_REFs
+   with constant indices.  */
+
+static tree
+find_array_ref_with_const_idx_r (tree *expr_p, int *walk_subtrees, void *data)
+{
+  tree expr = *expr_p;
+
+  if ((TREE_CODE (expr) == ARRAY_REF
+       || TREE_CODE (expr) == ARRAY_RANGE_REF)
+      && TREE_CODE (TREE_OPERAND (expr, 1)) == INTEGER_CST)
+    {
+      *(bool *) data = true;
+      *walk_subtrees = 0;
+    }
+
+  return NULL_TREE;
+}
+
+/* Warn if a self-comparison always evaluates to true or false.  LOC
+   is the location of the comparison with code CODE, LHS and RHS are
+   operands of the comparison.  */
+
+void
+warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
+{
+  if (TREE_CODE_CLASS (code) != tcc_comparison)
+    return;
+
+  /* Don't warn for various macro expansions.  */
+  if (from_macro_expansion_at (loc)
+      || from_macro_expansion_at (EXPR_LOCATION (lhs))
+      || from_macro_expansion_at (EXPR_LOCATION (rhs)))
+    return;
+
+  /* We do not warn for constants because they are typical of macro
+     expansions that test for features, sizeof, and similar.  */
+  if (CONSTANT_CLASS_P (lhs) || CONSTANT_CLASS_P (rhs))
+    return;
+
+  /* Don't warn for e.g.
+     HOST_WIDE_INT n;
+     ...
+     if (n == (long) n) ...
+   */
+  if ((CONVERT_EXPR_P (lhs) || TREE_CODE (lhs) == NON_LVALUE_EXPR)
+      || (CONVERT_EXPR_P (rhs) || TREE_CODE (rhs) == NON_LVALUE_EXPR))
+    return;
+
+  /* Don't warn if either LHS or RHS has an IEEE floating-point type.
+     It could be a NaN, and NaN never compares equal to anything, even
+     itself.  */
+  if (FLOAT_TYPE_P (TREE_TYPE (lhs)) || FLOAT_TYPE_P (TREE_TYPE (rhs)))
+    return;
+
+  if (operand_equal_p (lhs, rhs, 0))
+    {
+      /* Don't warn about array references with constant indices;
+	 these are likely to come from a macro.  */
+      bool found = false;
+      walk_tree_without_duplicates (&lhs, find_array_ref_with_const_idx_r,
+				    &found);
+      if (found)
+	return;
+      const bool always_true = (code == EQ_EXPR || code == LE_EXPR
+				|| code == GE_EXPR || code == UNLE_EXPR
+				|| code == UNGE_EXPR || code == UNEQ_EXPR);
+      if (always_true)
+	warning_at (loc, OPT_Wtautological_compare,
+		    "self-comparison always evaluates to true");
+      else
+	warning_at (loc, OPT_Wtautological_compare,
+		    "self-comparison always evaluates to false");
     }
 }
 
@@ -6241,11 +6335,11 @@ build_va_arg (location_t loc, tree expr, tree type)
 
 /* Linked list of disabled built-in functions.  */
 
-typedef struct disabled_builtin
+struct disabled_builtin
 {
   const char *name;
   struct disabled_builtin *next;
-} disabled_builtin;
+};
 static disabled_builtin *disabled_builtins = NULL;
 
 static bool builtin_function_disabled_p (const char *);
@@ -6714,7 +6808,7 @@ c_do_switch_warnings (splay_tree cases, location_t switch_location,
 		    "switch condition has boolean value");
     }
 
-  /* From here on, we only care about about enumerated types.  */
+  /* From here on, we only care about enumerated types.  */
   if (!type || TREE_CODE (type) != ENUMERAL_TYPE)
     return;
 
@@ -8258,12 +8352,7 @@ handle_weak_attribute (tree *node, tree name,
       return NULL_TREE;
     }
   else if (VAR_OR_FUNCTION_DECL_P (*node))
-    {
-      struct symtab_node *n = symtab_node::get (*node);
-      if (n && n->refuse_visibility_changes)
-	error ("%+D declared weak after being used", *node);
-      declare_weak (*node);
-    }
+    declare_weak (*node);
   else
     warning (OPT_Wattributes, "%qE attribute ignored", name);
 
@@ -10081,6 +10170,7 @@ check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
     case BUILT_IN_ISINF_SIGN:
     case BUILT_IN_ISNAN:
     case BUILT_IN_ISNORMAL:
+    case BUILT_IN_SIGNBIT:
       if (builtin_function_validate_nargs (fndecl, nargs, 1))
 	{
 	  if (TREE_CODE (TREE_TYPE (args[0])) != REAL_TYPE)
@@ -11243,7 +11333,7 @@ atomic_size_supported_p (int n)
    TRUE is returned if it is translated into the proper format for a call to the
    external library, and NEW_RETURN is set the tree for that function.
    FALSE is returned if processing for the _N variation is required, and 
-   NEW_RETURN is set to the the return value the result is copied into.  */
+   NEW_RETURN is set to the return value the result is copied into.  */
 static bool
 resolve_overloaded_atomic_exchange (location_t loc, tree function, 
 				    vec<tree, va_gc> *params, tree *new_return)
@@ -11383,7 +11473,7 @@ resolve_overloaded_atomic_compare_exchange (location_t loc, tree function,
    TRUE is returned if it is translated into the proper format for a call to the
    external library, and NEW_RETURN is set the tree for that function.
    FALSE is returned if processing for the _N variation is required, and 
-   NEW_RETURN is set to the the return value the result is copied into.  */
+   NEW_RETURN is set to the return value the result is copied into.  */
 
 static bool
 resolve_overloaded_atomic_load (location_t loc, tree function, 
@@ -11443,7 +11533,7 @@ resolve_overloaded_atomic_load (location_t loc, tree function,
    TRUE is returned if it is translated into the proper format for a call to the
    external library, and NEW_RETURN is set the tree for that function.
    FALSE is returned if processing for the _N variation is required, and 
-   NEW_RETURN is set to the the return value the result is copied into.  */
+   NEW_RETURN is set to the return value the result is copied into.  */
 
 static bool
 resolve_overloaded_atomic_store (location_t loc, tree function, 
@@ -12350,6 +12440,52 @@ maybe_warn_bool_compare (location_t loc, enum tree_code code, tree op0,
 	warning_at (loc, OPT_Wbool_compare, "comparison of constant %qE "
 		    "with boolean expression is always false", cst);
     }
+}
+
+/* Warn if signed left shift overflows.  We don't warn
+   about left-shifting 1 into the sign bit in C++14; cf.
+   <http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2012/n3367.html#1457>
+   LOC is a location of the shift; OP0 and OP1 are the operands.
+   Return true if an overflow is detected, false otherwise.  */
+
+bool
+maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
+{
+  if (TREE_CODE (op0) != INTEGER_CST
+      || TREE_CODE (op1) != INTEGER_CST)
+    return false;
+
+  tree type0 = TREE_TYPE (op0);
+  unsigned int prec0 = TYPE_PRECISION (type0);
+
+  /* Left-hand operand must be signed.  */
+  if (TYPE_UNSIGNED (type0))
+    return false;
+
+  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
+			   + TREE_INT_CST_LOW (op1));
+  /* Handle the left-shifting 1 into the sign bit case.  */
+  if (min_prec == prec0 + 1)
+    {
+      /* Never warn for C++14 onwards.  */
+      if (cxx_dialect >= cxx14)
+	return false;
+      /* Otherwise only if -Wshift-overflow=2.  But return
+	 true to signal an overflow for the sake of integer
+	 constant expressions.  */
+      if (warn_shift_overflow < 2)
+	return true;
+    }
+
+  bool overflowed = min_prec > prec0;
+  if (overflowed && c_inhibit_evaluation_warnings == 0)
+    warning_at (loc, OPT_Wshift_overflow_,
+		"result of %qE requires %u bits to represent, "
+		"but %qT only has %u bits",
+		build2_loc (loc, LSHIFT_EXPR, type0, op0, op1),
+		min_prec, type0, prec0);
+
+  return overflowed;
 }
 
 /* The C and C++ parsers both use vectors to hold function arguments.

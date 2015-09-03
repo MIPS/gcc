@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
@@ -49,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "reload.h"
-#include "obstack.h"
 #include "except.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
@@ -700,7 +700,7 @@ resolve_reload_operand (rtx op)
   if (reload_in_progress)
     {
       rtx tmp = op;
-      if (GET_CODE (tmp) == SUBREG)
+      if (SUBREG_P (tmp))
 	tmp = SUBREG_REG (tmp);
       if (REG_P (tmp)
 	  && REGNO (tmp) >= FIRST_PSEUDO_REGISTER)
@@ -891,7 +891,7 @@ alpha_legitimate_address_p (machine_mode mode, rtx x, bool strict)
     x = XEXP (x, 0);
 
   /* Discard non-paradoxical subregs.  */
-  if (GET_CODE (x) == SUBREG
+  if (SUBREG_P (x)
       && (GET_MODE_SIZE (GET_MODE (x))
 	  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
     x = SUBREG_REG (x);
@@ -919,7 +919,7 @@ alpha_legitimate_address_p (machine_mode mode, rtx x, bool strict)
       x = XEXP (x, 0);
 
       /* Discard non-paradoxical subregs.  */
-      if (GET_CODE (x) == SUBREG
+      if (SUBREG_P (x)
           && (GET_MODE_SIZE (GET_MODE (x))
 	      < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
 	x = SUBREG_REG (x);
@@ -953,7 +953,7 @@ alpha_legitimate_address_p (machine_mode mode, rtx x, bool strict)
 	  x = XEXP (x, 0);
 
 	  /* Discard non-paradoxical subregs.  */
-	  if (GET_CODE (x) == SUBREG
+	  if (SUBREG_P (x)
 	      && (GET_MODE_SIZE (GET_MODE (x))
 		  < GET_MODE_SIZE (GET_MODE (SUBREG_REG (x)))))
 	    x = SUBREG_REG (x);
@@ -3110,7 +3110,7 @@ alpha_emit_xfloating_libcall (rtx func, rtx target, rtx operands[],
     }
 
   tmp = gen_rtx_MEM (QImode, func);
-  tmp = emit_call_insn (GEN_CALL_VALUE (reg, tmp, const0_rtx,
+  tmp = emit_call_insn (gen_call_value (reg, tmp, const0_rtx,
 					const0_rtx, const0_rtx));
   CALL_INSN_FUNCTION_USAGE (tmp) = usage;
   RTL_CONST_CALL_P (tmp) = 1;

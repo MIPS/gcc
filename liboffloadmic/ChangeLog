@@ -1,9 +1,27 @@
-2015-07-14  Ilya Verbin  <ilya.verbin@intel.com>
+2015-08-24  Nathan Sidwell  <nathan@codesourcery.com>
 
-	* plugin/libgomp-plugin-intelmic.cpp (GOMP_OFFLOAD_dev2dev): New
-	function.
-	* plugin/offload_target_main.cpp (__offload_target_tgt2tgt): New static
-	function, register it in liboffloadmic.
+	* plugin/libgomp-plugin-intelmic.cpp (GOMP_OFFLOAD_version): New.
+	(GOMP_OFFLOAD_load_image): Add version arg and check it.
+	(GOMP_OFFLOAD_unload_image): Likewise.
+
+2015-08-24  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* plugin/Makefile.am (include_src_dir): Set.
+	[PLUGIN_HOST] (libgomp_plugin_intelmic_la_CPPFLAGS): Use it.
+	* plugin/Makefile.in: Regenerate.
+	* plugin/libgomp-plugin-intelmic.cpp: Include "gomp-constants.h".
+
+2015-07-24  Micahel Darling  <darlingm@gmail.com>
+
+	PR other/66259
+	* configure: Reflects renaming of configure.in to configure.ac
+
+2015-07-17  Nathan Sidwell  <nathan@acm.org>
+	Ilya Verbin <iverbin@gmail.com>
+
+	* plugin/libgomp-plugin-intelmic.cpp (ImgDevAddrMap): Constify.
+	(offload_image, GOMP_OFFLOAD_load_image,
+	OMP_OFFLOAD_unload_image): Constify target data.
 
 2015-07-08  Thomas Schwinge  <thomas@codesourcery.com>
 

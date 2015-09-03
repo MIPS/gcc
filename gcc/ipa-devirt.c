@@ -128,7 +128,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-pass.h"
 #include "target.h"
-#include "tree-pretty-print.h"
 #include "ipa-utils.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -143,15 +142,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "streamer-hooks.h"
 #include "lto-streamer.h"
 
 /* Hash based set of pairs of types.  */
-typedef struct
+struct type_pair
 {
   tree first;
   tree second;
-} type_pair;
+};
 
 template <>
 struct default_hash_traits <type_pair> : typed_noop_remove <type_pair>
@@ -552,7 +550,7 @@ types_same_for_odr (const_tree type1, const_tree type2, bool strict)
 	return false;
       if (TREE_CODE (type1) == RECORD_TYPE
 	  && (TYPE_BINFO (type1) == NULL_TREE)
-	      != (TYPE_BINFO (type1) == NULL_TREE))
+	      != (TYPE_BINFO (type2) == NULL_TREE))
 	return false;
       if (TREE_CODE (type1) == RECORD_TYPE && TYPE_BINFO (type1)
 	  && (BINFO_VTABLE (TYPE_BINFO (type1)) == NULL_TREE)
@@ -1005,7 +1003,7 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 		  inform (DECL_SOURCE_LOCATION
 			   (TYPE_NAME (DECL_CONTEXT (prevailing->decl))),
 			  "the conflicting type defined in another translation "
-			  "unit has virtual table table with more entries");
+			  "unit has virtual table with more entries");
 		}
 	    }
 	  return;
@@ -1037,7 +1035,7 @@ compare_virtual_tables (varpool_node *prevailing, varpool_node *vtable)
 	    inform (DECL_SOURCE_LOCATION
 		      (TYPE_NAME (DECL_CONTEXT (prevailing->decl))),
 		    "the conflicting type defined in another translation "
-		    "unit has virtual table table with different contents");
+		    "unit has virtual table with different contents");
 	  return;
 	}
     }
