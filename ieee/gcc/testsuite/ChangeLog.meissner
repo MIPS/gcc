@@ -1,4 +1,4 @@
-2015-09-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+2015-09-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<patch #7>
 	* gcc.target/powerpc/float128-call.c: New function, test whether
