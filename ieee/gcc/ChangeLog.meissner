@@ -21,6 +21,8 @@
 	* config/rs6000/rs6000.c (rs6000_c_mode_for_suffix): Define 'q'
 	and 'Q' as the suffixes for __float128 constants.
 	(TARGET_C_MODE_FOR_SUFFIX): Likewise.
+	(rs6000_hard_regno_mode_ok): Remove tests disallowing IEEE 128-bit
+	floating point modes from GPRs if not -mfloat128.
 	(rs6000_debug_reg_global): Delete debug support for
 	-mfloat128-software and -mfloat128-none.
 	(rs6000_init_hard_regno_mode_ok): Enable hard registers if
