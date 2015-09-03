@@ -3287,7 +3287,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 /* Helper functions to create a single unary HSA operations out of calls to
    builtins.  OPCODE is the HSA operation to be generated.  STMT is a gimple
    call to a builtin.  HBB is the HSA BB to which the instruction should be
-   added and SSA_MAP is used to map gimple SSA names to HSA pseudoreisters.  */
+   added and SSA_MAP is used to map gimple SSA names to HSA
+   pseudoregisters.  */
 
 static void
 gen_hsa_unaryop_for_builtin (int opcode, gimple stmt, hsa_bb *hbb,
@@ -3302,6 +3303,97 @@ gen_hsa_unaryop_for_builtin (int opcode, gimple stmt, hsa_bb *hbb,
   hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0),
 						    hbb, ssa_map, NULL);
   gen_hsa_unary_operation (opcode, dest, op, hbb);
+}
+
+/* Helper function to create an HSA atomic binary operation instruction out of
+   calls to atomic builtins.  RET_ORIG is true if the built-in is the variant
+   that return s the value before applying operation, and false if it should
+   return the value after applying the operation (if it returns value at all).
+   ACODE is the atomic operation code, STMT is a gimple call to a builtin.  HBB
+   is the HSA BB to which the instruction should be added and SSA_MAP is used
+   to map gimple SSA names to HSA pseudoregisters.*/
+
+static void
+gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
+ 				    enum BrigAtomicOperation acode, gimple stmt,
+				    hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
+{
+  tree lhs = gimple_call_lhs (stmt);
+
+  tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
+  BrigType16_t hsa_type  = hsa_type_for_scalar_tree_type (type, false);
+  BrigType16_t bit_type  = hsa_bittype_for_type (hsa_type);
+
+  hsa_op_reg *dest;
+  int nops, opcode;
+  if (lhs)
+    {
+      if (ret_orig)
+	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+      else
+	dest = new hsa_op_reg (hsa_type);
+      opcode = BRIG_OPCODE_ATOMIC;
+      nops = 3;
+    }
+  else
+    {
+      dest = NULL;
+      opcode = BRIG_OPCODE_ATOMICNORET;
+      nops = 2;
+    }
+
+  hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode,
+						   bit_type);
+  hsa_op_address *addr;
+  addr = gen_hsa_addr (gimple_call_arg (stmt, 0), hbb, ssa_map);
+  hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1),
+						    hbb, ssa_map, NULL);
+
+  if (lhs)
+    {
+      atominsn->set_op (0, dest);
+      atominsn->set_op (1, addr);
+      atominsn->set_op (2, op);
+    }
+  else
+    {
+      atominsn->set_op (0, addr);
+      atominsn->set_op (1, op);
+    }
+  /* FIXME: Perhaps select a more relaxed memory model based on the last
+     argument of the buildin call.  */
+
+  hbb->append_insn (atominsn);
+
+  /* HSA does not natively support the variants that return the modified value,
+     so re-do the operation again non-atomically if that is what was
+     requested.  */
+  if (lhs && !ret_orig)
+    {
+      int arith;
+      switch (acode)
+	{
+	case BRIG_ATOMIC_ADD:
+	  arith = BRIG_OPCODE_ADD;
+	  break;
+	case BRIG_ATOMIC_AND:
+	  arith = BRIG_OPCODE_AND;
+	  break;
+	case BRIG_ATOMIC_OR:
+	  arith = BRIG_OPCODE_OR;
+	  break;
+	case BRIG_ATOMIC_SUB:
+	  arith = BRIG_OPCODE_SUB;
+	  break;
+	case BRIG_ATOMIC_XOR:
+	  arith = BRIG_OPCODE_XOR;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      hsa_op_reg *real_dest = dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+      gen_hsa_binary_operation (arith, real_dest, dest, op, hbb);
+    }
 }
 
 /* Generate HSA instructions for the given call statement STMT.  Instructions
@@ -3440,7 +3532,6 @@ specialop:
     case BUILT_IN_ATOMIC_LOAD_8:
     case BUILT_IN_ATOMIC_LOAD_16:
       {
-	/* XXX Ignore mem model for now.  */
 	BrigType16_t mtype = mem_type_for_type (hsa_type_for_scalar_tree_type
 						(TREE_TYPE (lhs), false));
 	hsa_op_address *addr = gen_hsa_addr (gimple_call_arg (stmt, 0),
@@ -3452,9 +3543,119 @@ specialop:
 	atominsn->set_op (0, dest);
 	atominsn->set_op (1, addr);
 	atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+
 	hbb->append_insn (atominsn);
 	break;
       }
+
+    case BUILT_IN_ATOMIC_EXCHANGE_1:
+    case BUILT_IN_ATOMIC_EXCHANGE_2:
+    case BUILT_IN_ATOMIC_EXCHANGE_4:
+    case BUILT_IN_ATOMIC_EXCHANGE_8:
+    case BUILT_IN_ATOMIC_EXCHANGE_16:
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_EXCH, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_FETCH_ADD_1:
+    case BUILT_IN_ATOMIC_FETCH_ADD_2:
+    case BUILT_IN_ATOMIC_FETCH_ADD_4:
+    case BUILT_IN_ATOMIC_FETCH_ADD_8:
+    case BUILT_IN_ATOMIC_FETCH_ADD_16:
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_ADD, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_FETCH_SUB_1:
+    case BUILT_IN_ATOMIC_FETCH_SUB_2:
+    case BUILT_IN_ATOMIC_FETCH_SUB_4:
+    case BUILT_IN_ATOMIC_FETCH_SUB_8:
+    case BUILT_IN_ATOMIC_FETCH_SUB_16:
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_SUB, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_FETCH_AND_1:
+    case BUILT_IN_ATOMIC_FETCH_AND_2:
+    case BUILT_IN_ATOMIC_FETCH_AND_4:
+    case BUILT_IN_ATOMIC_FETCH_AND_8:
+    case BUILT_IN_ATOMIC_FETCH_AND_16:
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_AND, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_FETCH_XOR_1:
+    case BUILT_IN_ATOMIC_FETCH_XOR_2:
+    case BUILT_IN_ATOMIC_FETCH_XOR_4:
+    case BUILT_IN_ATOMIC_FETCH_XOR_8:
+    case BUILT_IN_ATOMIC_FETCH_XOR_16:
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_XOR, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_FETCH_OR_1:
+    case BUILT_IN_ATOMIC_FETCH_OR_2:
+    case BUILT_IN_ATOMIC_FETCH_OR_4:
+    case BUILT_IN_ATOMIC_FETCH_OR_8:
+    case BUILT_IN_ATOMIC_FETCH_OR_16:
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_OR, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_STORE_1:
+    case BUILT_IN_ATOMIC_STORE_2:
+    case BUILT_IN_ATOMIC_STORE_4:
+    case BUILT_IN_ATOMIC_STORE_8:
+    case BUILT_IN_ATOMIC_STORE_16:
+      /* Since there canot be any LHS, the first parameter is meaningless.  */
+      gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_ST, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_ADD_FETCH_1:
+    case BUILT_IN_ATOMIC_ADD_FETCH_2:
+    case BUILT_IN_ATOMIC_ADD_FETCH_4:
+    case BUILT_IN_ATOMIC_ADD_FETCH_8:
+    case BUILT_IN_ATOMIC_ADD_FETCH_16:
+      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_ADD, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_SUB_FETCH_1:
+    case BUILT_IN_ATOMIC_SUB_FETCH_2:
+    case BUILT_IN_ATOMIC_SUB_FETCH_4:
+    case BUILT_IN_ATOMIC_SUB_FETCH_8:
+    case BUILT_IN_ATOMIC_SUB_FETCH_16:
+      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_SUB, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_AND_FETCH_1:
+    case BUILT_IN_ATOMIC_AND_FETCH_2:
+    case BUILT_IN_ATOMIC_AND_FETCH_4:
+    case BUILT_IN_ATOMIC_AND_FETCH_8:
+    case BUILT_IN_ATOMIC_AND_FETCH_16:
+      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_AND, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_XOR_FETCH_1:
+    case BUILT_IN_ATOMIC_XOR_FETCH_2:
+    case BUILT_IN_ATOMIC_XOR_FETCH_4:
+    case BUILT_IN_ATOMIC_XOR_FETCH_8:
+    case BUILT_IN_ATOMIC_XOR_FETCH_16:
+      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_XOR, stmt, hbb,
+					  ssa_map);
+      break;
+
+    case BUILT_IN_ATOMIC_OR_FETCH_1:
+    case BUILT_IN_ATOMIC_OR_FETCH_2:
+    case BUILT_IN_ATOMIC_OR_FETCH_4:
+    case BUILT_IN_ATOMIC_OR_FETCH_8:
+    case BUILT_IN_ATOMIC_OR_FETCH_16:
+      gen_hsa_ternary_atomic_for_builtin (false, BRIG_ATOMIC_OR, stmt, hbb,
+					  ssa_map);
+      break;
 
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_1:
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_2:

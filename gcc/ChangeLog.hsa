@@ -1,5 +1,11 @@
 2015-09-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): New function.
+	(gen_hsa_insns_for_call): Use it to implement appropriate builtin
+	calls.
+
+2015-09-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h (hsa_insn_mem): Move fields memoryorder and
 	memoryscope...
 	(hsa_insn_atomic): ...here.  Also add new operator.
