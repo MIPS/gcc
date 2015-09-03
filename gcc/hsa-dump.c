@@ -796,10 +796,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       if (addr->symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
-      if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
-	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
-      if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
-	fprintf (f, "_%s", hsa_memscope_name (mem->memoryscope));
       if (mem->equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->type));

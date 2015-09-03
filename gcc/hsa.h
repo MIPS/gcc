@@ -333,6 +333,7 @@ public:
 		  hsa_op_base *arg3 = NULL);
 
   void *operator new (size_t);
+  void set_op (int index, hsa_op_base *op);
 
   /* The previous and next instruction in the basic block.  */
   hsa_insn_basic *prev, *next;
@@ -474,12 +475,6 @@ public:
   /* HSA equiv class, basically an alias set number. */
   uint8_t equiv_class;
 
-  /* Things like acquire/release/aligned.  */
-  enum BrigMemoryOrder memoryorder;
-
-  /* Scope of the atomic operation. */
-  enum BrigMemoryScope memoryscope;
-
   /* TODO:  Add width modifier, perhaps also other things.  */
 protected:
   hsa_insn_mem (unsigned nops, int opc, BrigType16_t t);
@@ -510,9 +505,17 @@ class hsa_insn_atomic : public hsa_insn_mem
 public:
   hsa_insn_atomic (int nops, int opc, enum BrigAtomicOperation aop,
 		   BrigType16_t t);
+  void *operator new (size_t);
 
   /* The operation itself.  */
   enum BrigAtomicOperation atomicop;
+
+  /* Things like acquire/release/aligned.  */
+  enum BrigMemoryOrder memoryorder;
+
+  /* Scope of the atomic operation. */
+  enum BrigMemoryScope memoryscope;
+
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_atomic () : hsa_insn_mem (1, BRIG_KIND_NONE, BRIG_TYPE_NONE) {}

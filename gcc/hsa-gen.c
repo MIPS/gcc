@@ -888,6 +888,31 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc)
     operands.safe_grow_cleared (nops);
 }
 
+/* Make OP the operand number INDEX of operands of this instuction.  If OP is a
+   register or an address containing a register, then either set the definition
+   of the register to this instruction if it an output operand or add this
+   instruction to the uses if it is an input one.  */
+
+void
+hsa_insn_basic::set_op (int index, hsa_op_base *op)
+{
+  if (hsa_opcode_op_output_p (opcode, index))
+    {
+      if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))
+	reg->set_definition (this);
+    }
+    else
+      {
+	hsa_op_address *addr;
+	if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))
+	  reg->uses.safe_push (this);
+	else if ((addr = dyn_cast <hsa_op_address *> (op))
+		 && addr->reg)
+	  addr->reg->uses.safe_push (this);
+      }
+  operands[index] = op;
+}
+
 /* Constructor of the class which is the bases of all instructions and directly
    represents the most basic ones.  NOPS is the number of operands that the
    operand vector will contain (and which will be cleared).  OPC is the opcode
@@ -1005,8 +1030,6 @@ hsa_insn_mem::hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0,
 		       || opc == BRIG_OPCODE_EXPAND);
 
   equiv_class = 0;
-  memoryorder = BRIG_MEMORY_ORDER_NONE;
-  memoryscope = BRIG_MEMORY_SCOPE_NONE;
   operands[0] = arg0;
   operands[1] = arg1;
 }
@@ -1019,8 +1042,6 @@ hsa_insn_mem::hsa_insn_mem (unsigned nops, int opc, BrigType16_t t)
   : hsa_insn_basic (nops, opc, t)
 {
   equiv_class = 0;
-  memoryorder = BRIG_MEMORY_ORDER_NONE;
-  memoryscope = BRIG_MEMORY_SCOPE_NONE;
 }
 
 /* New operator to allocate memory instruction from pool alloc.  */
@@ -1031,9 +1052,9 @@ hsa_insn_mem::operator new (size_t)
   return hsa_allocp_inst_mem->vallocate ();
 }
 
-/* Constructor of class representing atomic instructions. OPC is the prinicpa;
-   opcode, aop is the specific atomic operation opcode.  T is the type of the
-   instruction.  */
+/* Constructor of class representing atomic instructions and signals. OPC is
+   the prinicpal opcode, aop is the specific atomic operation opcode.  T is the
+   type of the instruction.  */
 
 hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 				  enum BrigAtomicOperation aop,
@@ -1045,6 +1066,18 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 		       opc == BRIG_OPCODE_SIGNAL ||
 		       opc == BRIG_OPCODE_SIGNALNORET);
   atomicop = aop;
+  /* TODO: Review the following defaults (together with the few overriddes we
+     have in the code).  */
+  memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+  memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+}
+
+/* New operator to allocate signal instruction from pool alloc.  */
+
+void *
+hsa_insn_atomic::operator new (size_t)
+{
+  return hsa_allocp_inst_atomic->vallocate ();
 }
 
 /* Constructor of class representing signal instructions.  OPC is the prinicpa;
@@ -3399,6 +3432,7 @@ specialop:
       /* FIXME: Using the native instruction may not be precise enough.
 	 Perhaps only allow if using -ffast-math?  */
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb, ssa_map);
+      break;
 
     case BUILT_IN_ATOMIC_LOAD_1:
     case BUILT_IN_ATOMIC_LOAD_2:
@@ -3412,17 +3446,13 @@ specialop:
 	hsa_op_address *addr = gen_hsa_addr (gimple_call_arg (stmt, 0),
 					     hbb, ssa_map);
 	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
-	hsa_insn_mem *meminsn = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dest,
-						  addr);
+	hsa_insn_atomic *atominsn
+	  = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD, mtype);
 
-	/* Should check what the memory scope is */
-	meminsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
-	meminsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
-
-	dest->set_definition (meminsn);
-	if (addr->reg)
-	  addr->reg->uses.safe_push (meminsn);
-	hbb->append_insn (meminsn);
+	atominsn->set_op (0, dest);
+	atominsn->set_op (1, addr);
+	atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+	hbb->append_insn (atominsn);
 	break;
       }
 

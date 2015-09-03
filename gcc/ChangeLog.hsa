@@ -1,3 +1,17 @@
+2015-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_mem): Move fields memoryorder and
+	memoryscope...
+	(hsa_insn_atomic): ...here.  Also add new operator.
+	* hsa-dump.c (dump_hsa_insn): Do not dump removed fields.
+	* hsa-gen.c (hsa_insn_mem): Remove initialization of removed
+	fields.
+	(hsa_insn_mem): Likewise.
+	(hsa_insn_atomic::hsa_insn_atomic): Initialize new fields.
+	(hsa_insn_atomic::new): New.
+	(gen_hsa_insns_for_call): Create atomic instruction for atomic
+	loads.
+
 2015-09-02  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (target_follows_kernelizable_pattern): Parallel
