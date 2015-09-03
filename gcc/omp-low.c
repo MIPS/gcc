@@ -12975,6 +12975,7 @@ lower_depend_clauses (tree *pclauses, gimple_seq *iseq, gimple_seq *oseq)
 	}
   tree type = build_array_type_nelts (ptr_type_node, n_in + n_out + 2);
   tree array = create_tmp_var (type);
+  TREE_ADDRESSABLE (array) = 1;
   tree r = build4 (ARRAY_REF, ptr_type_node, array, size_int (0), NULL_TREE,
 		   NULL_TREE);
   g = gimple_build_assign (r, build_int_cst (ptr_type_node, n_in + n_out));
@@ -13182,7 +13183,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     {
       push_gimplify_context ();
       dep_bind = gimple_build_bind (NULL, NULL, make_node (BLOCK));
-      lower_depend_clauses (gimple_omp_task_clauses_ptr (stmt),
+      lower_depend_clauses (gimple_omp_target_clauses_ptr (stmt),
 			    &dep_ilist, &dep_olist);
     }
 

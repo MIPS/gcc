@@ -1,3 +1,9 @@
+2015-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_depend_clauses): Set TREE_ADDRESSABLE on array.
+	(lower_omp_target): Use gimple_omp_target_clauses_ptr instead of
+	gimple_omp_task_clauses_ptr.
+
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Initialize sc

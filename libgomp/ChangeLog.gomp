@@ -1,3 +1,7 @@
+2015-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/target-25.c: New test.
+
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp_g.h (GOMP_target_41, GOMP_target_enter_exit_data): Add
