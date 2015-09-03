@@ -19,33 +19,48 @@
 # The default build is mips32r2, hard-float big-endian.  Add mips32,
 # soft-float, and little-endian variations.
 
-MULTILIB_OPTIONS = mips64r2 mmicromips mabi=64 EL msoft-float mnan=2008 mclib=small/mclib=tiny
-MULTILIB_DIRNAMES = mips64r2 micromips 64 el sof nan2008 small tiny
+MULTILIB_OPTIONS = mips64r2 mmicromips mabi=32/mabi=n32/mabi=64 EL msoft-float mnan=2008 mclib=small/mclib=tiny
+MULTILIB_DIRNAMES = mips64r2 micromips 32 n32 64 el sof nan2008 small tiny
 MULTILIB_MATCHES = EL=mel EB=meb mips32r2=mips32r3 mips32r2=mips32r5 mips64r2=mips64r3 mips64r2=mips64r5
 
-MULTILIB_REQUIRED = .
-MULTILIB_REQUIRED += mips64r2
-MULTILIB_REQUIRED += EL
-MULTILIB_REQUIRED += msoft-float
-MULTILIB_REQUIRED += mnan=2008
-MULTILIB_REQUIRED += mnan=2008/mclib=small
-MULTILIB_REQUIRED += mnan=2008/mclib=tiny
-MULTILIB_REQUIRED += EL/msoft-float
-MULTILIB_REQUIRED += EL/mnan=2008
-MULTILIB_REQUIRED += EL/mnan=2008/mclib=small
-MULTILIB_REQUIRED += EL/mnan=2008/mclib=tiny
-MULTILIB_REQUIRED += EL/msoft-float/mclib=small
-MULTILIB_REQUIRED += EL/msoft-float/mclib=tiny
-MULTILIB_REQUIRED += mmicromips/EL/msoft-float
-MULTILIB_REQUIRED += mmicromips/EL/mnan=2008
-MULTILIB_REQUIRED += mmicromips/EL/mnan=2008/mclib=small
-MULTILIB_REQUIRED += mmicromips/EL/mnan=2008/mclib=tiny
-MULTILIB_REQUIRED += mmicromips/EL/msoft-float/mclib=small
-MULTILIB_REQUIRED += mmicromips/EL/msoft-float/mclib=tiny
+MULTILIB_EXCLUSIONS = !mips64r2/!mmicromips/!mabi=32/!mabi=n32/!mabi=64/!EL/!msoft-float/!mnan=2008/!mclib=small/!mclib=tiny
+
+MULTILIB_REQUIRED = mabi=32
+MULTILIB_REQUIRED += mabi=32/msoft-float
+MULTILIB_REQUIRED += mabi=32/mnan=2008
+MULTILIB_REQUIRED += mabi=32/mnan=2008/mclib=small
+MULTILIB_REQUIRED += mabi=32/mnan=2008/mclib=tiny
+MULTILIB_REQUIRED += mabi=32/EL
+MULTILIB_REQUIRED += mabi=32/EL/mnan=2008
+MULTILIB_REQUIRED += mabi=32/EL/mnan=2008/mclib=small
+MULTILIB_REQUIRED += mabi=32/EL/mnan=2008/mclib=tiny
+MULTILIB_REQUIRED += mabi=32/EL/msoft-float
+MULTILIB_REQUIRED += mabi=32/EL/msoft-float/mclib=small
+MULTILIB_REQUIRED += mabi=32/EL/msoft-float/mclib=tiny
+MULTILIB_REQUIRED += mmicromips/mabi=32/EL/mnan=2008
+MULTILIB_REQUIRED += mmicromips/mabi=32/EL/mnan=2008/mclib=small
+MULTILIB_REQUIRED += mmicromips/mabi=32/EL/mnan=2008/mclib=tiny
+MULTILIB_REQUIRED += mmicromips/mabi=32/EL/msoft-float
+MULTILIB_REQUIRED += mmicromips/mabi=32/EL/msoft-float/mclib=small
+MULTILIB_REQUIRED += mmicromips/mabi=32/EL/msoft-float/mclib=tiny
+MULTILIB_REQUIRED += mips64r2/mabi=n32
+MULTILIB_REQUIRED += mips64r2/mabi=n32/msoft-float
+MULTILIB_REQUIRED += mips64r2/mabi=n32/EL
+MULTILIB_REQUIRED += mips64r2/mabi=n32/EL/msoft-float
 MULTILIB_REQUIRED += mips64r2/mabi=64
-MULTILIB_REQUIRED += mips64r2/EL
-MULTILIB_REQUIRED += mips64r2/msoft-float
-MULTILIB_REQUIRED += mips64r2/EL/msoft-float
 MULTILIB_REQUIRED += mips64r2/mabi=64/EL
 MULTILIB_REQUIRED += mips64r2/mabi=64/msoft-float
 MULTILIB_REQUIRED += mips64r2/mabi=64/EL/msoft-float
+
+MULTILIB_REUSE = mabi.32=mips64r2/mabi.32
+MULTILIB_REUSE += mabi.32/msoft-float=mips64r2/mabi.32/msoft-float
+MULTILIB_REUSE += mabi.32/mnan.2008=mips64r2/mabi.32/mnan.2008
+MULTILIB_REUSE += mabi.32/mnan.2008/mclib.small=mips64r2/mabi.32/mnan.2008/mclib.small
+MULTILIB_REUSE += mabi.32/mnan.2008/mclib.tiny=mips64r2/mabi.32/mnan.2008/mclib.tiny
+MULTILIB_REUSE += mabi.32/EL=mips64r2/mabi.32/EL
+MULTILIB_REUSE += mabi.32/EL/mnan.2008=mips64r2/mabi.32/EL/mnan.2008
+MULTILIB_REUSE += mabi.32/EL/mnan.2008/mclib.small=mips64r2/mabi.32/EL/mnan.2008/mclib.small
+MULTILIB_REUSE += mabi.32/EL/mnan.2008/mclib.tiny=mips64r2/mabi.32/EL/mnan.2008/mclib.tiny
+MULTILIB_REUSE += mabi.32/EL/msoft-float=mips64r2/mabi.32/EL/msoft-float
+MULTILIB_REUSE += mabi.32/EL/msoft-float/mclib.small=mips64r2/mabi.32/EL/msoft-float/mclib.small
+MULTILIB_REUSE += mabi.32/EL/msoft-float/mclib.tiny=mips64r2/mabi.32/EL/msoft-float/mclib.tiny
