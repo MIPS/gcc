@@ -2509,6 +2509,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
 		  && GET_MODE_SIZE (m2) <= 8
 		  && !VECTOR_MODE_P (m2)
+		  && !FLOAT128_VECTOR_P (m2)
 		  && !COMPLEX_MODE_P (m2)
 		  && !indexed_only_p
 		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m2) == 8))
@@ -35558,7 +35559,7 @@ chain_contains_only_swaps (swap_web_entry *insn_entry, struct df_link *link,
 
   for (; link; link = link->next)
     {
-      if (!VECTOR_MODE_P (GET_MODE (DF_REF_REG (link->ref))))
+      if (!ALTIVEC_OR_VSX_VECTOR_MODE (GET_MODE (DF_REF_REG (link->ref))))
 	continue;
 
       if (DF_REF_IS_ARTIFICIAL (link->ref))
@@ -35657,7 +35658,7 @@ mark_swaps_for_removal (swap_web_entry *insn_entry, unsigned int i)
 	{
 	  /* Ignore uses for addressability.  */
 	  machine_mode mode = GET_MODE (DF_REF_REG (use));
-	  if (!VECTOR_MODE_P (mode))
+	  if (!ALTIVEC_OR_VSX_VECTOR_MODE (mode))
 	    continue;
 
 	  struct df_link *link = DF_REF_CHAIN (use);
@@ -36066,10 +36067,11 @@ rs6000_analyze_swaps (function *fun)
 		    mode = V4SImode;
 		}
 
-	      if (VECTOR_MODE_P (mode) || mode == TImode)
+	      if (ALTIVEC_OR_VSX_VECTOR_MODE (mode) || mode == TImode)
 		{
 		  insn_entry[uid].is_relevant = 1;
-		  if (mode == TImode || mode == V1TImode)
+		  if (mode == TImode || mode == V1TImode
+		      || FLOAT128_VECTOR_P (mode))
 		    insn_entry[uid].is_128_int = 1;
 		  if (DF_REF_INSN_INFO (mention))
 		    insn_entry[uid].contains_subreg
@@ -36090,13 +36092,14 @@ rs6000_analyze_swaps (function *fun)
 		 isn't sufficient to ensure we union the call into the
 		 web with the parameter setup code.  */
 	      if (mode == DImode && GET_CODE (insn) == SET
-		  && VECTOR_MODE_P (GET_MODE (SET_DEST (insn))))
+		  && ALTIVEC_OR_VSX_VECTOR_MODE (GET_MODE (SET_DEST (insn))))
 		mode = GET_MODE (SET_DEST (insn));
 
-	      if (VECTOR_MODE_P (mode) || mode == TImode)
+	      if (ALTIVEC_OR_VSX_VECTOR_MODE (mode) || mode == TImode)
 		{
 		  insn_entry[uid].is_relevant = 1;
-		  if (mode == TImode || mode == V1TImode)
+		  if (mode == TImode || mode == V1TImode
+		      || FLOAT128_VECTOR_P (mode))
 		    insn_entry[uid].is_128_int = 1;
 		  if (DF_REF_INSN_INFO (mention))
 		    insn_entry[uid].contains_subreg
