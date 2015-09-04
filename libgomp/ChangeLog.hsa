@@ -1,3 +1,8 @@
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (GOMP_OFFLOAD_load_image): Enable having a module
+	without kernels (can contain HSA functions).
+
 2015-08-27  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c (GOMP_OFFLOAD_run): Lock rwlock after

@@ -1,3 +1,50 @@
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Add new source file and remove hsa-gen.c from list
+	of GT files.
+	* cgraph.h: Remove hsa_imp_of property of cgraph_node.
+	* hsa-brig.c (brig_init): Append LTRANS name to a BRIG module name.
+	(emit_function_directives): Add new argument.
+	(emit_function_declaration): Use it.
+	(emit_call_insn): Fill up offsets of functions that should be filled
+	before a BRIG module is done.
+	(hsa_brig_emit_function): Emit declarations before a function
+	is defined/declared.
+	(hsa_output_kernel_mapping): An HSA brig module can have zero kernels.
+	(hsa_output_brig): Process functions linkage that fills up correct
+	code list references.
+	* hsa-dump.c: Add new include files due to function_summary.
+	* hsa-gen.c (hsa_get_gpu_function): New function.
+	(hsa_get_host_function): New function.
+	(gen_hsa_insns_for_direct_call): Small refactoring.
+	(gen_hsa_insns_for_known_library_call): Likewise.
+	(hsa_generate_function_declaration): Sanitize function name.
+	(generate_hsa): Remove unused return value.
+	(init_hsa_functions): Remove.
+	(insert_store_range_dim): Likewise.
+	(wrap_hsa_kernel_call): Likewise.
+	(wrap_all_hsa_calls): Likewise.
+	(pass_gen_hsail::execute): Emit code just for cgraph_nodes that
+	is hsa_summaries.
+	* hsa-regalloc.c: Include additional header files.
+	* hsa.c (hsa_get_declaration_name): Use asm_name as name of function.
+	(hsa_register_kernel): New function.
+	* hsa.h (enum hsa_function_kind): New enum.
+	(struct hsa_function_summary): New.
+	(hsa_summary_t::link_functions): Likewise.
+	* ipa-hsa.c: New file.
+	* lto-section-in.c: Add new section name.
+	* lto-streamer.h (enum lto_section_type): Likewise.
+	* omp-low.c (expand_parallel_call): Fill up HSA function summary.
+	(expand_target_kernel_body): Likewise.
+	* passes.c (execute_one_pass): Terminate pass queue if stop execution
+	TODO is returned.
+	(execute_pass_list_1): Likewise.
+	(execute_ipa_pass_list): Likewise.
+	* passes.def: Add new IPA pass.
+	* timevar.def: Likewise.
+	* tree-pass.h: Likewise.
+
 2015-09-03  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): New function.

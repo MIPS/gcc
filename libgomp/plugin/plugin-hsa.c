@@ -473,8 +473,6 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version  __attribute__ ((unused)),
   if (agent->prog_finalized)
     destroy_hsa_program (agent);
 
-  if (kernel_count == 0)
-    GOMP_PLUGIN_fatal ("No kernels encountered in a brig module description");
   if (debug)
     fprintf (stderr, "Encountered %d kernels in an image\n", kernel_count);
   pair = GOMP_PLUGIN_malloc (kernel_count * sizeof (struct addr_pair));

@@ -70,6 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "gimplify-me.h"
 #include "print-tree.h"
+#include "symbol-summary.h"
 #include "hsa.h"
 
 /* Structure containing intermediate HSA representation of the generated
@@ -99,6 +100,9 @@ hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
 
 /* Hash function to lookup a symbol for a decl.  */
 hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
+
+/* HSA summaries.  */
+hsa_summary_t *hsa_summaries = NULL;
 
 /* True if compilation unit-wide data are already allocated and initialized.  */
 static bool compilation_unit_data_initialized;
@@ -464,10 +468,34 @@ hsa_get_declaration_name (tree decl)
       free (b);
       return ggc_str;
     }
+  else if (TREE_CODE (decl) == FUNCTION_DECL)
+    return cgraph_node::get_create (decl)->asm_name ();
   else
     return IDENTIFIER_POINTER (DECL_NAME (decl));
 
   return NULL;
+}
+
+/* Add a HOST function to HSA summaries.  */
+
+void
+hsa_register_kernel (cgraph_node *host)
+{
+  if (hsa_summaries == NULL)
+    hsa_summaries = new hsa_summary_t (symtab);
+  hsa_function_summary *s = hsa_summaries->get (host);
+  s->kind = HSA_KERNEL;
+}
+
+/* Add a pair of functions to HSA summaries.  GPU is an HSA implementation of
+   a HOST function.  */
+
+void
+hsa_register_kernel (cgraph_node *gpu, cgraph_node *host)
+{
+  if (hsa_summaries == NULL)
+    hsa_summaries = new hsa_summary_t (symtab);
+  hsa_summaries->link_functions (gpu, host, HSA_KERNEL);
 }
 
 #include "gt-hsa.h"

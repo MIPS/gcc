@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "lto-section-names.h"
 #include "gomp-constants.h"
+#include "symbol-summary.h"
 #include "hsa.h"
 
 
@@ -5236,7 +5237,7 @@ gimple_build_cond_empty (tree cond)
    target region that has not been turned into a simple GPGPU kernel.  */
 
 static bool
-region_part_of_unkernelized_tartget_p (struct omp_region *region)
+region_part_of_unkernelized_target_p (struct omp_region *region)
 {
   if (lookup_attribute ("omp declare target",
 			DECL_ATTRIBUTES (current_function_decl)))
@@ -5429,10 +5430,11 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 			    false, GSI_CONTINUE_LINKING);
 
   if (hsa_gen_requested_p ()
-      && region_part_of_unkernelized_tartget_p (region))
+      && region_part_of_unkernelized_target_p (region))
     {
       cgraph_node *child_cnode = cgraph_node::get (child_fndecl);
-      child_cnode->hsa_imp_of = child_cnode;
+      hsa_register_kernel (child_cnode);
+
       /* FIXME: Flatten should be set on HSA-only clones created by an IPA
 	 pass.  */
       DECL_ATTRIBUTES (child_fndecl)
@@ -10010,7 +10012,8 @@ expand_target_kernel_body (struct omp_region *target)
     {
       gcc_assert (!tgt_stmt->kernel_iter);
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
-      n->hsa_imp_of = n;
+
+      hsa_register_kernel (n);
       /* FIXME: Flatten should be set on HSA-only clones created by an IPA
 	 pass.  */
       DECL_ATTRIBUTES (orig_child_fndecl)
@@ -10075,7 +10078,10 @@ expand_target_kernel_body (struct omp_region *target)
 
   cgraph_node *kcn = cgraph_node::get_create (kern_fndecl);
   kcn->mark_force_output ();
-  kcn->hsa_imp_of = cgraph_node::get (orig_child_fndecl);
+  cgraph_node *orig_child = cgraph_node::get (orig_child_fndecl);
+
+  hsa_register_kernel (kcn, orig_child);
+
   /* FIXME: Flatten should be set on HSA-only clones created by an IPA
      pass.  */
   DECL_ATTRIBUTES (kern_fndecl)

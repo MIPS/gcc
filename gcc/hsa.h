@@ -892,10 +892,69 @@ public:
   unsigned maximum_omp_data_size;
 };
 
+enum hsa_function_kind
+{
+  HSA_NONE,
+  HSA_KERNEL,
+  HSA_FUNCTION
+};
+
+struct hsa_function_summary
+{
+  /* Default constructor.  */
+  hsa_function_summary ();
+
+  /* Kind of GPU/hostfunction.  */
+  hsa_function_kind kind;
+
+  /* Pointer to a cgraph node which is a HSA implementation of the function.
+     In case of the function is a HSA function, the binded function points
+     to the host function.  */
+  cgraph_node *binded_function;
+
+  /* Identifies if the function is an HSA function or a host function.  */
+  bool gpu_implementation_p;
+};
+
+inline
+hsa_function_summary::hsa_function_summary (): kind (HSA_NONE),
+  binded_function (NULL), gpu_implementation_p (false)
+{
+}
+
+/* Function summary for HSA functions.  */
+class hsa_summary_t: public function_summary <hsa_function_summary *>
+{
+public:
+  hsa_summary_t (symbol_table *table):
+    function_summary<hsa_function_summary *> (table) { }
+
+  void link_functions (cgraph_node *gpu, cgraph_node *host,
+		       hsa_function_kind kind);
+};
+
+inline void
+hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
+			       hsa_function_kind kind)
+{
+  hsa_function_summary *gpu_summary = get (gpu);
+  hsa_function_summary *host_summary = get (host);
+
+  gpu_summary->kind = kind;
+  host_summary->kind = kind;
+
+  gpu_summary->gpu_implementation_p = true;
+  host_summary->gpu_implementation_p = false;
+
+  gpu_summary->binded_function = host;
+  host_summary->binded_function = gpu;
+}
+
 /* in hsa.c */
 extern struct hsa_function_representation *hsa_cfun;
 extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 extern hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
+extern hsa_summary_t *hsa_summaries;
 extern unsigned hsa_kernel_calls_counter;
 bool hsa_callable_function_p (tree fndecl);
 void hsa_init_compilation_unit_data (void);
@@ -918,6 +977,8 @@ void hsa_add_kernel_dependency (tree caller, char *called_function);
 void hsa_sanitize_name (char *p);
 char *hsa_brig_function_name (const char *p);
 const char *hsa_get_declaration_name (tree decl);
+void hsa_register_kernel (cgraph_node *host);
+void hsa_register_kernel (cgraph_node *gpu, cgraph_node *host);
 
 /* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);
@@ -927,6 +988,7 @@ hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
 hsa_function_representation *hsa_generate_function_declaration (tree decl);
+tree hsa_get_host_function (tree decl);
 
 /* In hsa-regalloc.c.  */
 void hsa_regalloc (void);

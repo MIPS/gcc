@@ -1,0 +1,5 @@
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* lto-partition.c (add_symbol_to_partition_1): For an HSA clone, append
+	also all dependencies to a LTO partition.
+

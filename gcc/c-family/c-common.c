@@ -667,10 +667,6 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute, false },
   { "noclone",                0, 0, true,  false, false,
 			      handle_noclone_attribute, false },
-  { "hsa",                    0, 0, true,  false, false,
-			      handle_hsa_attribute, false },
-  { "hsakernel",              0, 0, true,  false, false,
-			      handle_hsa_attribute, false },
   { "hsafunc",                0, 0, true,  false, false,
 			      handle_hsa_attribute, false },
   { "no_icf",                 0, 0, true,  false, false,
@@ -7369,11 +7365,6 @@ handle_hsa_attribute (tree *node, tree name,
 
   TREE_USED (*node) = 1;
   DECL_UNINLINABLE (*node) = 1;
-  if (strcmp ("hsakernel", IDENTIFIER_POINTER (name)) == 0
-      && (TREE_VALUE (tree_last (TYPE_ARG_TYPES (TREE_TYPE (*node))))
-	  == void_type_node))
-    warning (OPT_Wattributes, "%qE attribute on a function with fixed number "
-	     "of argument makes no sense", name);
 
   return NULL_TREE;
 }

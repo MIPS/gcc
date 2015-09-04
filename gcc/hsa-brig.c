@@ -37,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "tree-cfg.h"
 #include "tree-ssa-alias.h"
-#include "machmode.h"
 #include "output.h"
 #include "gimple-expr.h"
 #include "dominance.h"
@@ -51,10 +50,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "diagnostic-core.h"
 #include "hash-map.h"
-#include "ipa-ref.h"
 #include "lto-streamer.h"
 #include "cgraph.h"
 #include "real.h"
+#include "gimple-iterator.h"
+#include "bitmap.h"
+#include "dumpfile.h"
+#include "alloc-pool.h"
+#include "tree-ssa-operands.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "tree-ssanames.h"
+#include "rtl.h"
+#include "expr.h"
+#include "tree-dfa.h"
+#include "ssa-iterators.h"
+#include "ipa-ref.h"
+#include "gimplify-me.h"
+#include "print-tree.h"
+#include "cfghooks.h"
+#include "symbol-summary.h"
 #include "hsa.h"
 
 #define BRIG_ELF_SECTION_NAME ".brig"
@@ -116,6 +131,9 @@ static bool brig_initialized = false;
 /* Mapping between emitted HSA functions and their offset in code segment.  */
 static hash_map<tree, BrigCodeOffset32_t> *function_offsets;
 
+/* Set of emitted function declarations.  */
+static hash_set <tree> *emitted_declarations;
+
 struct function_linkage_pair
 {
   function_linkage_pair (tree decl, unsigned int off):
@@ -127,6 +145,9 @@ struct function_linkage_pair
   /* Offset in operand section.  */
   unsigned int offset;
 };
+
+/* Vector of function calls where we need to resolve function offsets.  */
+static auto_vec <function_linkage_pair> function_call_linkage;
 
 /* Add a new chunk, allocate data for it and initialize it.  */
 
@@ -404,6 +425,21 @@ brig_init (void)
       char* extension = strchr (modname, '.');
       if (extension)
 	*extension = '\0';
+
+      /* As in LTO mode, we have to emit a different module names.  */
+      if (flag_ltrans)
+	{
+	  part = strrchr (asm_file_name, '/');
+	  if (!part)
+	    part = asm_file_name;
+	  else
+	    part++;
+	  char *modname2;
+	  asprintf (&modname2, "%s_%s", modname, part);
+	  free (modname);
+	  modname = modname2;
+	}
+
       hsa_sanitize_name (modname);
       moddir.name = brig_emit_string (modname);
       free (modname);
@@ -570,7 +606,7 @@ emit_directive_variable (struct hsa_symbol *symbol)
    definition F.  */
 
 static BrigDirectiveExecutable *
-emit_function_directives (hsa_function_representation *f)
+emit_function_directives (hsa_function_representation *f, bool is_declaration)
 {
   struct BrigDirectiveExecutable fndir;
   unsigned name_offset, inarg_off, scoped_off, next_toplev_off;
@@ -621,7 +657,10 @@ emit_function_directives (hsa_function_representation *f)
     fndir.modifier.allBits |= BRIG_EXECUTABLE_DEFINITION;
   memset (&fndir.reserved, 0, sizeof (fndir.reserved));
 
-  function_offsets->put (f->decl, brig_code.total_size);
+  /* Once we put a definition of function_offsets, we should not overwrite
+     it with a declaration of the function.  */
+  if (!function_offsets->get (f->decl) || !is_declaration)
+    function_offsets->put (f->decl, brig_code.total_size);
 
   brig_code.add (&fndir, sizeof (fndir));
   /* XXX terrible hack: we need to set instCount after we emit all
@@ -1048,7 +1087,7 @@ emit_function_declaration (tree decl)
 {
   hsa_function_representation *f = hsa_generate_function_declaration (decl);
 
-  emit_function_directives (f);
+  emit_function_directives (f, true);
   emit_queued_operands ();
 
   delete f;
@@ -1423,11 +1462,9 @@ emit_call_insn (hsa_insn_basic *insn)
   operand_offsets[0] = htole32 (enqueue_op (call->result_code_list));
 
   /* Operand 1: func */
-  BrigCodeOffset32_t *func_offset = function_offsets->get
-    (call->called_function);
-  gcc_assert (func_offset != NULL);
-  call->func.directive_offset = *func_offset;
   unsigned int offset = enqueue_op (&call->func);
+  function_call_linkage.safe_push
+    (function_linkage_pair (call->called_function, offset));
 
   operand_offsets[1] = htole32 (offset);
   /* Operand 2: in-args.  */
@@ -1746,18 +1783,22 @@ hsa_brig_emit_function (void)
   if (!function_offsets)
     function_offsets = new hash_map<tree, BrigCodeOffset32_t> ();
 
+  if (!emitted_declarations)
+    emitted_declarations = new hash_set<tree> ();
+
   for (unsigned i = 0; i < hsa_cfun->called_functions.length (); i++)
     {
       tree called = hsa_cfun->called_functions[i];
 
-      if (function_offsets->get (called) == NULL)
+      /* If the function has no definition, emit a declaration.  */
+      if (!emitted_declarations->contains (called))
 	{
 	  emit_function_declaration (called);
-	  gcc_assert (function_offsets->get (called) != NULL);
+	  emitted_declarations->add (called);
 	}
     }
 
-  ptr_to_fndir = emit_function_directives (hsa_cfun);
+  ptr_to_fndir = emit_function_directives (hsa_cfun, false);
   for (insn = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->first_insn;
        insn;
        insn = insn->next)
@@ -1790,10 +1831,6 @@ hsa_output_kernel_mapping (tree brig_decl)
 {
   unsigned map_count = hsa_get_number_decl_kernel_mappings ();
 
-  /* If the current TU does not contain a kernel, no mapping is produced.  */
-  if (map_count == 0)
-    return;
-
   tree int_num_of_kernels;
   int_num_of_kernels = build_int_cst (uint32_type_node, map_count);
   tree kernel_num_index_type = build_index_type (int_num_of_kernels);
@@ -1804,8 +1841,9 @@ hsa_output_kernel_mapping (tree brig_decl)
   for (unsigned i = 0; i < map_count; ++i)
     {
       tree decl = hsa_get_decl_kernel_mapping_decl (i);
-      CONSTRUCTOR_APPEND_ELT (host_functions_vec, NULL_TREE,
-			      build_fold_addr_expr (decl));
+      CONSTRUCTOR_APPEND_ELT
+	(host_functions_vec, NULL_TREE,
+	 build_fold_addr_expr (hsa_get_host_function (decl)));
     }
   tree host_functions_ctor = build_constructor (host_functions_array_type,
 						host_functions_vec);
@@ -2106,6 +2144,18 @@ hsa_output_brig (void)
   if (!brig_initialized)
     return;
 
+  for (unsigned i = 0; i < function_call_linkage.length (); i++)
+    {
+      function_linkage_pair p = function_call_linkage[i];
+
+      BrigCodeOffset32_t *func_offset = function_offsets->get (p.function_decl);
+      gcc_assert (*func_offset);
+      BrigOperandCodeRef *code_ref = (BrigOperandCodeRef *)
+	(brig_operand.get_ptr_by_offset (p.offset));
+      gcc_assert (code_ref->base.kind == BRIG_KIND_OPERAND_CODE_REF);
+      code_ref->ref = htole32 (*func_offset);
+    }
+
   saved_section = in_section;
 
   switch_to_section (get_section (BRIG_ELF_SECTION_NAME, SECTION_NOTYPE, NULL));
@@ -2178,4 +2228,7 @@ hsa_output_brig (void)
   hsa_free_decl_kernel_mapping ();
   brig_release_data ();
   hsa_deinit_compilation_unit_data ();
+
+  delete emitted_declarations;
+  delete function_offsets;
 }

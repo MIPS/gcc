@@ -2257,7 +2257,7 @@ override_gate_status (opt_pass *pass, tree func, bool gate_status)
 /* Execute PASS. */
 
 bool
-execute_one_pass (opt_pass *pass)
+execute_one_pass (opt_pass *pass, bool *exit)
 {
   unsigned int todo_after = 0;
 
@@ -2362,18 +2362,28 @@ execute_one_pass (opt_pass *pass)
   if (!((todo_after | pass->todo_flags_finish) & TODO_do_not_ggc_collect))
     ggc_collect ();
 
+  /* If finish TODO flags contain TODO_stop_pass_execution, set exit = true.  */
+  if (todo_after & TODO_stop_pass_execution)
+    *exit = true;
+
   return true;
 }
 
 static void
 execute_pass_list_1 (opt_pass *pass)
 {
+  bool stop_pass_execution = false;
+
   do
     {
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
-      if (execute_one_pass (pass) && pass->sub)
+      if (execute_one_pass (pass, &stop_pass_execution) && pass->sub)
         execute_pass_list_1 (pass->sub);
+
+      if (stop_pass_execution)
+	return;
+
       pass = pass->next;
     }
   while (pass);
@@ -2714,12 +2724,14 @@ ipa_read_optimization_summaries (void)
 void
 execute_ipa_pass_list (opt_pass *pass)
 {
+  bool stop_pass_execution;
+
   do
     {
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-      if (execute_one_pass (pass) && pass->sub)
+      if (execute_one_pass (pass, &stop_pass_execution) && pass->sub)
 	{
 	  if (pass->sub->type == GIMPLE_PASS)
 	    {
