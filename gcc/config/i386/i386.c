@@ -2381,6 +2381,8 @@ struct ix86_frame
 {
   int nsseregs;
   int nregs;
+  int nbndregs;
+  int nmaskregs;
   int va_arg_size;
   int red_zone_size;
   int outgoing_arguments_size;
@@ -5464,6 +5466,13 @@ ix86_conditional_register_usage (void)
 {
   int i, c_mask;
 
+  /* If there are no caller-saved registers, preserve all registers.
+     except fixed_regs.  */
+  if (cfun && cfun->machine->no_caller_saved_registers)
+    for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+      if (!fixed_regs[i])
+	call_used_regs[i] = 0;
+
   /* For 32-bit targets, squash the REX registers.  */
   if (! TARGET_64BIT)
     {
@@ -6245,6 +6254,27 @@ ix86_set_current_function (tree fndecl)
       return;
     }
 
+  if (lookup_attribute ("interrupt", DECL_ATTRIBUTES (fndecl)))
+    {
+      int nargs = 0;
+      for (tree arg = DECL_ARGUMENTS (fndecl);
+	   arg;
+	   arg = TREE_CHAIN (arg))
+	{
+	  /* Mark arguments in interrupt handler as used to silence
+	     compiler warning since arguments in interrupt handler
+	     are mandatory even if they aren't used.  */
+	  TREE_USED (arg) = 1;
+	  nargs++;
+	}
+      cfun->machine->no_caller_saved_registers = true;
+      cfun->machine->func_type
+	= nargs == 2 ? TYPE_EXCEPTION : TYPE_INTERRUPT;
+    }
+  else if (lookup_attribute ("no_caller_saved_registers",
+			     DECL_ATTRIBUTES (fndecl)))
+    cfun->machine->no_caller_saved_registers = true;
+
   tree new_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
   if (new_tree == NULL_TREE)
     new_tree = target_option_default_node;
@@ -6522,6 +6552,10 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 {
   tree type, decl_or_type;
   rtx a, b;
+
+  /* Sibling call isn't OK if there are no caller-saved registers.  */
+  if (cfun->machine->no_caller_saved_registers)
+    return false;
 
   /* If we are generating position-independent code, we cannot sibcall
      optimize direct calls to global functions, as the PLT requires
@@ -7401,8 +7435,17 @@ ix86_call_abi_override (const_tree fndecl)
 static void
 ix86_maybe_switch_abi (void)
 {
-  if (TARGET_64BIT &&
-      call_used_regs[SI_REG] == (cfun->machine->call_abi == MS_ABI))
+  if (TARGET_64BIT
+	&& (call_used_regs[SI_REG]
+	  == (cfun->machine->call_abi == MS_ABI)))
+    {
+      reinit_regs ();
+      return;
+    }
+  /* AX register is only preserved if there are no caller-saved
+     registers.  */
+  if (cfun->machine->no_caller_saved_registers
+       != call_used_regs[AX_REG])
     reinit_regs ();
 }
 
@@ -7707,6 +7750,8 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 		      }
 		  }
 		else if ((size == 8 && !TARGET_64BIT)
+			 && (!cfun
+			     || cfun->machine->func_type == TYPE_NORMAL)
 			 && !TARGET_MMX
 			 && !TARGET_IAMCU)
 		  {
@@ -8686,6 +8731,11 @@ ix86_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
   HOST_WIDE_INT bytes, words;
   int nregs;
 
+  /* The argument of interrupt handler is a special case and is
+     handled in ix86_function_arg.  */
+  if (!cum->caller && cfun->machine->func_type != TYPE_NORMAL)
+    return;
+
   if (mode == BLKmode)
     bytes = int_size_in_bytes (type);
   else
@@ -9001,6 +9051,39 @@ ix86_function_arg (cumulative_args_t cum_v, machine_mode omode,
   machine_mode mode = omode;
   HOST_WIDE_INT bytes, words;
   rtx arg;
+
+  if (!cum->caller && cfun->machine->func_type != TYPE_NORMAL)
+    {
+      /* The first argument of interrupt handler is a pointer and
+	 points to the return address on stack.  The optional second
+	 argument is an integer for error code on stack.  */
+      gcc_assert (type != NULL_TREE);
+      if (POINTER_TYPE_P (type))
+	{
+	  if (cfun->machine->func_type == TYPE_EXCEPTION)
+	    /* (AP) in the current frame in exception handler.  */
+	    arg = arg_pointer_rtx;
+	  else
+	    /* -WORD(AP) in the current frame in interrupt handler.  */
+	    arg = plus_constant (Pmode, arg_pointer_rtx,
+				 -UNITS_PER_WORD);
+	  if (mode != Pmode)
+	    arg = convert_to_mode (mode, arg, 1);
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (type) == INTEGER_TYPE
+		      && cfun->machine->func_type == TYPE_EXCEPTION
+		      && mode == word_mode);
+	  /* The error code is at -WORD(AP) in the current frame in
+	     exception handler.  */
+	  arg = gen_rtx_MEM (word_mode,
+			     plus_constant (Pmode, arg_pointer_rtx,
+					    -UNITS_PER_WORD));
+	}
+
+      return arg;
+    }
 
   /* All pointer bounds arguments are handled separately here.  */
   if ((type && POINTER_BOUNDS_TYPE_P (type))
@@ -10717,7 +10800,10 @@ ix86_can_use_return_insn_p (void)
 {
   struct ix86_frame frame;
 
-  if (! reload_completed || frame_pointer_needed)
+  /* Don't use `ret' instruction in interrupt handler.  */
+  if (! reload_completed
+      || frame_pointer_needed
+      || cfun->machine->func_type != TYPE_NORMAL)
     return 0;
 
   /* Don't allow more than 32k pop, since that's all we can do
@@ -11027,11 +11113,65 @@ ix86_select_alt_pic_regnum (void)
   return INVALID_REGNUM;
 }
 
+/* Return nonzero if register REGNO can be used as a scratch register
+   in peephole2.  */
+
+bool
+ix86_hard_regno_scratch_ok (unsigned int regno ATTRIBUTE_UNUSED)
+{
+  /* No scratch registers if there are no caller-saved registers.  */
+  return !cfun->machine->no_caller_saved_registers;
+}
+
+/* Return true if REGNO is used by the epilogue.  */
+
+bool
+ix86_epilogue_uses (int regno)
+{
+  /* If there are no caller-saved registers, we preserve all registers,
+     except for MMX and x87 registers which aren't supported when saving
+     and restoring registers.  Don't explicitly save SP register since
+     it is always preserved.  */
+  return (cfun->machine->no_caller_saved_registers
+	  && !fixed_regs[regno]
+	  && !STACK_REGNO_P (regno)
+	  && !MMX_REGNO_P (regno));
+}
+
+/* Return TRUE if register REGNO is ever defined..  */
+
+static bool
+ix86_reg_ever_defined_p (unsigned int regno)
+{
+  df_ref def;
+
+  for (def = DF_REG_DEF_CHAIN (regno); def; def = DF_REF_NEXT_REG (def))
+    if (!DF_REF_IS_ARTIFICIAL (def))
+      return true;
+
+  return false;
+}
+
 /* Return TRUE if we need to save REGNO.  */
 
 static bool
 ix86_save_reg (unsigned int regno, bool maybe_eh_return)
 {
+  /* If there are no caller-saved registers, we preserve all registers,
+     except for MMX and x87 registers which aren't supported when saving
+     and restoring registers.  Don't explicitly save SP register since
+     it is always preserved.  */
+  if (cfun->machine->no_caller_saved_registers && reload_completed)
+    return (df_regs_ever_live_p (regno)
+	    && ix86_reg_ever_defined_p (regno)
+	    && !fixed_regs[regno]
+	    && (!crtl->return_rtx
+		|| !refers_to_regno_p (regno, crtl->return_rtx))
+	    && (!crtl->return_bnd
+		|| !refers_to_regno_p (regno, crtl->return_bnd))
+	    && !STACK_REGNO_P (regno)
+	    && !MMX_REGNO_P (regno));
+
   if (regno == REAL_PIC_OFFSET_TABLE_REGNUM
       && pic_offset_table_rtx)
     {
@@ -11088,6 +11228,34 @@ ix86_nsaved_regs (void)
   return nregs;
 }
 
+/* Return number of saved bound registers.  */
+
+static int
+ix86_nsaved_bndregs (void)
+{
+  int nregs = 0;
+  int regno;
+
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (BND_REGNO_P (regno) && ix86_save_reg (regno, true))
+      nregs ++;
+  return nregs;
+}
+
+/* Return number of saved mask registers.  */
+
+static int
+ix86_nsaved_maskregs (void)
+{
+  int nregs = 0;
+  int regno;
+
+  for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+    if (MASK_REGNO_P (regno) && ix86_save_reg (regno, true))
+      nregs ++;
+  return nregs;
+}
+
 /* Return number of saved SSE registers.  */
 
 static int
@@ -11096,7 +11264,10 @@ ix86_nsaved_sseregs (void)
   int nregs = 0;
   int regno;
 
-  if (!TARGET_64BIT_MS_ABI)
+  /* Always need to save SSE registers if there are no caller-saved
+     registers.  */
+  if (!TARGET_64BIT_MS_ABI
+      && !cfun->machine->no_caller_saved_registers)
     return 0;
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (SSE_REGNO_P (regno) && ix86_save_reg (regno, true))
@@ -11165,6 +11336,18 @@ ix86_builtin_setjmp_frame_value (void)
 
 #define SPLIT_STACK_AVAILABLE 256
 
+/* Register save area size.  */
+
+static unsigned int
+ix86_reg_save_area_size (struct ix86_frame *frame)
+{
+  unsigned int size = ((frame->nregs - frame->nbndregs
+			- frame->nmaskregs) * UNITS_PER_WORD);
+  size += frame->nbndregs * (ix86_pmode == PMODE_DI ? 16 : 8);
+  size += frame->nmaskregs * (TARGET_AVX512BW ? 8 : 2);
+  return size;
+}
+
 /* Fill structure ix86_frame about frame of currently computed function.  */
 
 static void
@@ -11177,6 +11360,8 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   HOST_WIDE_INT to_allocate;
 
   frame->nregs = ix86_nsaved_regs ();
+  frame->nbndregs = ix86_nsaved_bndregs ();
+  frame->nmaskregs = ix86_nsaved_maskregs ();
   frame->nsseregs = ix86_nsaved_sseregs ();
 
   /* 64-bit MS ABI seem to require stack alignment to be always 16 except for
@@ -11248,11 +11433,16 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
 	   = !expensive_function_p (count);
     }
 
+  /* We must use move to save bound and mask registers.  */
   frame->save_regs_using_mov
-    = (TARGET_PROLOGUE_USING_MOVE && cfun->machine->use_fast_prologue_epilogue
-       /* If static stack checking is enabled and done with probes,
-	  the registers need to be saved before allocating the frame.  */
-       && flag_stack_check != STATIC_BUILTIN_STACK_CHECK);
+    = (frame->nbndregs > 0
+       || frame->nmaskregs > 0
+       || (TARGET_PROLOGUE_USING_MOVE
+	   && cfun->machine->use_fast_prologue_epilogue
+	   /* If static stack checking is enabled and done with probes,
+	      the registers need to be saved before allocating the
+	      frame.  */
+	   && flag_stack_check != STATIC_BUILTIN_STACK_CHECK));
 
   /* Skip return address.  */
   offset = UNITS_PER_WORD;
@@ -11270,7 +11460,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   frame->hard_frame_pointer_offset = offset;
 
   /* Register save area */
-  offset += frame->nregs * UNITS_PER_WORD;
+  offset += ix86_reg_save_area_size (frame);
   frame->reg_save_offset = offset;
 
   /* On SEH target, registers are pushed just before the frame pointer
@@ -11284,9 +11474,29 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
       /* The only ABI that has saved SSE registers (Win64) also has a
          16-byte aligned default stack, and thus we don't need to be
 	 within the re-aligned local stack frame to save them.  */
-      gcc_assert (INCOMING_STACK_BOUNDARY >= 128);
-      offset = ROUND_UP (offset, 16);
-      offset += frame->nsseregs * 16;
+      unsigned int incoming_stack_boundary
+	= MAX (crtl->parm_stack_boundary, ix86_incoming_stack_boundary);
+      unsigned int vec_regsize;
+
+      /* We must save full vector registers if there are no
+	 caller-saved registers.  */
+      if (cfun->machine->no_caller_saved_registers)
+	vec_regsize = (TARGET_AVX512F ? 64 : (TARGET_AVX ? 32 : 16));
+      else
+	vec_regsize = 16;
+
+      if (cfun->machine->func_type == TYPE_NORMAL)
+	{
+	  /* Incoming stack may be 32-bit aligned in 32-bit mode.  */
+	  gcc_assert (!TARGET_64BIT || incoming_stack_boundary >= 128);
+	  /* Don't over-align vector register save area.  */
+	  incoming_stack_boundary /= BITS_PER_UNIT;
+	  if (incoming_stack_boundary > vec_regsize)
+	    incoming_stack_boundary = vec_regsize;
+	  offset = ROUND_UP (offset, incoming_stack_boundary);
+	}
+
+      offset += frame->nsseregs * vec_regsize;
     }
   frame->sse_reg_save_offset = offset;
 
@@ -11342,8 +11552,12 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
   /* Size prologue needs to allocate.  */
   to_allocate = offset - frame->sse_reg_save_offset;
 
-  if ((!to_allocate && frame->nregs <= 1)
-      || (TARGET_64BIT && to_allocate >= (HOST_WIDE_INT) 0x80000000))
+  /* We must use move to save bound and mask registers.  */
+  if (frame->nbndregs == 0
+      && frame->nmaskregs == 0
+      && ((!to_allocate && frame->nregs <= 1)
+	   || (TARGET_64BIT
+	       && to_allocate >= (HOST_WIDE_INT) 0x80000000)))
     frame->save_regs_using_mov = false;
 
   if (ix86_using_red_zone ()
@@ -11353,7 +11567,7 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
     {
       frame->red_zone_size = to_allocate;
       if (frame->save_regs_using_mov)
-	frame->red_zone_size += frame->nregs * UNITS_PER_WORD;
+	frame->red_zone_size += ix86_reg_save_area_size (frame);
       if (frame->red_zone_size > RED_ZONE_SIZE - RED_ZONE_RESERVE)
 	frame->red_zone_size = RED_ZONE_SIZE - RED_ZONE_RESERVE;
     }
@@ -11513,8 +11727,28 @@ ix86_emit_save_reg_using_mov (machine_mode mode, unsigned int regno,
   addr = choose_baseaddr (cfa_offset);
   mem = gen_frame_mem (mode, addr);
 
-  /* For SSE saves, we need to indicate the 128-bit alignment.  */
-  set_mem_align (mem, GET_MODE_ALIGNMENT (mode));
+  /* For SSE saves, we need to indicate the 128-bit alignment.  In
+     interrupt handler, stack is aligned to word_mode.  We can't use
+     gen_sse_storeups since RTX_FRAME_RELATED_P is set and
+     dwarf2out_flush_queued_reg_saves doesn't like UNSPEC_STOREU.
+     Also gen_sse_storeups doesn't cover AVX nor AVX512.  */
+  unsigned int incoming_stack_boundary;
+  if (cfun->machine->func_type == TYPE_NORMAL)
+    {
+      incoming_stack_boundary
+	= MAX (crtl->parm_stack_boundary, ix86_incoming_stack_boundary);
+      if (!TARGET_64BIT || incoming_stack_boundary >= 128)
+	{
+	  /* Don't over-align vector register save slot.  */
+	  if (incoming_stack_boundary > GET_MODE_ALIGNMENT (mode))
+	    incoming_stack_boundary = GET_MODE_ALIGNMENT (mode);
+	}
+      else
+	gcc_unreachable ();
+    }
+  else
+    incoming_stack_boundary = GET_MODE_ALIGNMENT (word_mode);
+  set_mem_align (mem, incoming_stack_boundary);
 
   insn = emit_move_insn (mem, reg);
   RTX_FRAME_RELATED_P (insn) = 1;
@@ -11575,8 +11809,9 @@ ix86_emit_save_regs_using_mov (HOST_WIDE_INT cfa_offset)
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (!SSE_REGNO_P (regno) && ix86_save_reg (regno, true))
       {
-        ix86_emit_save_reg_using_mov (word_mode, regno, cfa_offset);
-	cfa_offset -= UNITS_PER_WORD;
+	enum machine_mode reg_mode = GET_MODE (regno_reg_rtx[regno]);
+	ix86_emit_save_reg_using_mov (reg_mode, regno, cfa_offset);
+	cfa_offset -= GET_MODE_SIZE (reg_mode);
       }
 }
 
@@ -11586,12 +11821,27 @@ static void
 ix86_emit_save_sse_regs_using_mov (HOST_WIDE_INT cfa_offset)
 {
   unsigned int regno;
+  enum machine_mode vector_reg_mode;
+
+  if (cfun->machine->no_caller_saved_registers)
+    {
+      /* We must save full vector registers if there are no
+	 caller-saved registers.  */
+      if (TARGET_AVX512F)
+	vector_reg_mode = V16SFmode;
+      else if (TARGET_AVX)
+	vector_reg_mode = V8SFmode;
+      else
+	vector_reg_mode = V4SFmode;
+    }
+  else
+    vector_reg_mode = V4SFmode;
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (SSE_REGNO_P (regno) && ix86_save_reg (regno, true))
       {
-	ix86_emit_save_reg_using_mov (V4SFmode, regno, cfa_offset);
-	cfa_offset -= 16;
+	ix86_emit_save_reg_using_mov (vector_reg_mode, regno, cfa_offset);
+	cfa_offset -= GET_MODE_SIZE (vector_reg_mode);
       }
 }
 
@@ -13036,12 +13286,13 @@ ix86_emit_restore_regs_using_mov (HOST_WIDE_INT cfa_offset,
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (!SSE_REGNO_P (regno) && ix86_save_reg (regno, maybe_eh_return))
       {
-	rtx reg = gen_rtx_REG (word_mode, regno);
+	enum machine_mode reg_mode = GET_MODE (regno_reg_rtx[regno]);
+	rtx reg = gen_rtx_REG (reg_mode, regno);
 	rtx mem;
 	rtx_insn *insn;
 
 	mem = choose_baseaddr (cfa_offset);
-	mem = gen_frame_mem (word_mode, mem);
+	mem = gen_frame_mem (reg_mode, mem);
 	insn = emit_move_insn (reg, mem);
 
         if (m->fs.cfa_reg == crtl->drap_reg && regno == REGNO (crtl->drap_reg))
@@ -13060,7 +13311,7 @@ ix86_emit_restore_regs_using_mov (HOST_WIDE_INT cfa_offset,
 	else
 	  ix86_add_cfa_restore_note (NULL, reg, cfa_offset);
 
-	cfa_offset -= UNITS_PER_WORD;
+	cfa_offset -= GET_MODE_SIZE (reg_mode);
       }
 }
 
@@ -13071,21 +13322,56 @@ ix86_emit_restore_sse_regs_using_mov (HOST_WIDE_INT cfa_offset,
 				      bool maybe_eh_return)
 {
   unsigned int regno;
+  enum machine_mode vector_reg_mode;
+
+  if (cfun->machine->no_caller_saved_registers)
+    {
+      /* We must restore full vector registers if there are no
+	 caller-saved registers.  */
+      if (TARGET_AVX512F)
+	vector_reg_mode = V16SFmode;
+      else if (TARGET_AVX)
+	vector_reg_mode = V8SFmode;
+      else
+	vector_reg_mode = V4SFmode;
+    }
+  else
+    vector_reg_mode = V4SFmode;
+
+  /* In interrupt handler, stack is aligned to word_mode.  */
+  unsigned int incoming_stack_boundary;
+  if (cfun->machine->func_type == TYPE_NORMAL)
+    {
+      incoming_stack_boundary
+	= MAX (crtl->parm_stack_boundary, ix86_incoming_stack_boundary);
+      if (!TARGET_64BIT || incoming_stack_boundary >= 128)
+	{
+	  /* Don't over-align vector register save slot.  */
+	  if (incoming_stack_boundary
+	      > GET_MODE_ALIGNMENT (vector_reg_mode))
+	    incoming_stack_boundary
+	      = GET_MODE_ALIGNMENT (vector_reg_mode);
+	}
+      else
+	gcc_unreachable ();
+    }
+  else
+    incoming_stack_boundary = GET_MODE_ALIGNMENT (word_mode);
 
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (SSE_REGNO_P (regno) && ix86_save_reg (regno, maybe_eh_return))
       {
-	rtx reg = gen_rtx_REG (V4SFmode, regno);
+	rtx reg = gen_rtx_REG (vector_reg_mode, regno);
 	rtx mem;
 
 	mem = choose_baseaddr (cfa_offset);
-	mem = gen_rtx_MEM (V4SFmode, mem);
-	set_mem_align (mem, 128);
+	mem = gen_rtx_MEM (vector_reg_mode, mem);
+	set_mem_align (mem, incoming_stack_boundary);
 	emit_move_insn (reg, mem);
 
 	ix86_add_cfa_restore_note (NULL, reg, cfa_offset);
 
-	cfa_offset -= 16;
+	cfa_offset -= GET_MODE_SIZE (vector_reg_mode);
       }
 }
 
@@ -13149,8 +13435,9 @@ ix86_expand_epilogue (int style)
   if (crtl->calls_eh_return && style != 2)
     frame.reg_save_offset -= 2 * UNITS_PER_WORD;
 
-  /* EH_RETURN requires the use of moves to function properly.  */
-  if (crtl->calls_eh_return)
+  /* EH_RETURN requires the use of moves to function properly.  We must
+     use move to restore bound and mask registers.  */
+  if (crtl->calls_eh_return || frame.nbndregs > 0 || frame.nmaskregs > 0)
     restore_regs_via_mov = true;
   /* SEH requires the use of pops to identify the epilogue.  */
   else if (TARGET_SEH)
@@ -13391,7 +13678,20 @@ ix86_expand_epilogue (int style)
       return;
     }
 
-  if (crtl->args.pops_args && crtl->args.size)
+  if (cfun->machine->func_type != TYPE_NORMAL)
+    {
+      /* Return with the "IRET" instruction from interrupt handler.
+	 Pop the 'ERROR_CODE' off the stack before the 'IRET'
+	 instruction in exception handler.  */
+      if (cfun->machine->func_type == TYPE_EXCEPTION)
+	{
+	  rtx r = plus_constant (Pmode, stack_pointer_rtx,
+				 UNITS_PER_WORD);
+	  emit_insn (gen_rtx_SET (stack_pointer_rtx, r));
+	}
+      emit_jump_insn (gen_interrupt_return ());
+    }
+  else if (crtl->args.pops_args && crtl->args.size)
     {
       rtx popc = GEN_INT (crtl->args.pops_args);
 
@@ -18364,6 +18664,14 @@ ix86_expand_move (machine_mode mode, rtx operands[])
   rtx op0, op1;
   enum tls_model model;
 
+  if (cfun->machine->func_type != TYPE_NORMAL && IS_STACK_MODE (mode))
+    {
+      error ("80387 instructions aren't allowed in %s service routine",
+	     (cfun->machine->func_type == TYPE_EXCEPTION
+	      ? "exception" : "interrupt"));
+      return;
+    }
+
   op0 = operands[0];
   op1 = operands[1];
 
@@ -18507,6 +18815,15 @@ ix86_expand_vector_move (machine_mode mode, rtx operands[])
 {
   rtx op0 = operands[0], op1 = operands[1];
   unsigned int align = GET_MODE_ALIGNMENT (mode);
+
+  if (cfun->machine->func_type != TYPE_NORMAL
+      && VALID_MMX_REG_MODE (mode))
+    {
+      error ("MMX/3Dnow instructions aren't allowed in %s service routine",
+	     (cfun->machine->func_type == TYPE_EXCEPTION
+	      ? "exception" : "interrupt"));
+      return;
+    }
 
   if (push_operand (op0, VOIDmode))
     op0 = emit_move_resolve_push (mode, op0);
@@ -26593,6 +26910,17 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
   rtx vec[3];
   rtx use = NULL, call;
   unsigned int vec_len = 0;
+  tree fndecl;
+
+  if (GET_CODE (XEXP (fnaddr, 0)) == SYMBOL_REF)
+    {
+      fndecl = SYMBOL_REF_DECL (XEXP (fnaddr, 0));
+      if (fndecl
+	  && (lookup_attribute ("interrupt", DECL_ATTRIBUTES (fndecl))))
+	error ("interrupt service routine can't be called directly");
+    }
+  else
+    fndecl = NULL_TREE;
 
   if (pop == const0_rtx)
     pop = NULL;
@@ -26690,8 +27018,30 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       vec[vec_len++] = pop;
     }
 
-  if (TARGET_64BIT_MS_ABI
-      && (!callarg2 || INTVAL (callarg2) != -2))
+  if (cfun->machine->no_caller_saved_registers
+      && (!fndecl
+	  || !lookup_attribute ("no_caller_saved_registers",
+				DECL_ATTRIBUTES (fndecl))))
+    {
+      static const char ix86_call_used_regs[] = CALL_USED_REGISTERS;
+      char c_mask = ((TARGET_64BIT
+		      && ix86_function_abi (fndecl) == MS_ABI)
+		     ? (1 << 3)
+		     : TARGET_64BIT ? (1 << 2) : (1 << 1));
+
+      /* If there are no caller-saved registers, add all registers
+	 that are clobbered by the call.  */
+      for (int i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	if (!fixed_regs[i]
+	    && (ix86_call_used_regs[i] == 1
+		|| (ix86_call_used_regs[i] & c_mask))
+	    && !STACK_REGNO_P (i)
+	    && !MMX_REGNO_P (i))
+	  clobber_reg (&use,
+		       gen_rtx_REG (GET_MODE (regno_reg_rtx[i]), i));
+    }
+  else if (TARGET_64BIT_MS_ABI
+	   && (!callarg2 || INTVAL (callarg2) != -2))
     {
       int const cregs_size
 	= ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
@@ -44076,6 +44426,69 @@ ix86_handle_fndecl_attribute (tree *node, tree name, tree, int,
   return NULL_TREE;
 }
 
+static tree
+ix86_handle_no_caller_saved_registers_attribute (tree *node,
+						 tree name, tree, int,
+						 bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
+      *no_add_attrs = true;
+    }
+  return NULL_TREE;
+}
+
+static tree
+ix86_handle_interrupt_attribute (tree *node, tree name, tree, int,
+				 bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+	       name);
+      *no_add_attrs = true;
+    }
+
+  /* DECL_RESULT and DECL_ARGUMENTS do not exist there yet,
+     but the function type contains args and return type data.  */
+  tree func_type = TREE_TYPE (*node);
+  tree return_type = TREE_TYPE (func_type);
+
+  int nargs = 0;
+  tree current_arg_type = TYPE_ARG_TYPES (func_type);
+  while (current_arg_type
+	 && ! VOID_TYPE_P (TREE_VALUE (current_arg_type)))
+    {
+      if (nargs == 0)
+	{
+	  if (! POINTER_TYPE_P (TREE_VALUE (current_arg_type)))
+	    error ("interrupt service routine should have a pointer "
+		   "as the first argument");
+	}
+      else if (nargs == 1)
+	{
+	  if (TREE_CODE (TREE_VALUE (current_arg_type)) != INTEGER_TYPE
+	      || TYPE_MODE (TREE_VALUE (current_arg_type)) != word_mode)
+	    error ("interrupt service routine should have unsigned %s"
+		   "int as the second argument",
+		   TARGET_64BIT
+		   ? (TARGET_X32 ? "long long " : "long ")
+		   : "");
+	}
+      nargs++;
+      current_arg_type = TREE_CHAIN (current_arg_type);
+    }
+  if (!nargs || nargs > 2)
+    error ("interrupt service routine can only have a pointer argument "
+	   "and an optional integer argument");
+  if (! VOID_TYPE_P (return_type))
+    error ("interrupt service routine can't have non-void return value");
+
+  return NULL_TREE;
+}
+
 static bool
 ix86_ms_bitfield_layout_p (const_tree record_type)
 {
@@ -48077,6 +48490,11 @@ static const struct attribute_spec ix86_attribute_table[] =
     false },
   { "callee_pop_aggregate_return", 1, 1, false, true, true,
     ix86_handle_callee_pop_aggregate_return, true },
+  { "interrupt", 0, 0, true, false, false,
+    ix86_handle_interrupt_attribute, false },
+  { "no_caller_saved_registers", 0, 0, true, false, false,
+    ix86_handle_no_caller_saved_registers_attribute, false },
+
   /* End element.  */
   { NULL,        0, 0, false, false, false, NULL, false }
 };
@@ -53925,6 +54343,9 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 
 #undef TARGET_ABSOLUTE_BIGGEST_ALIGNMENT
 #define TARGET_ABSOLUTE_BIGGEST_ALIGNMENT 512
+
+#undef TARGET_HARD_REGNO_SCRATCH_OK
+#define TARGET_HARD_REGNO_SCRATCH_OK ix86_hard_regno_scratch_ok
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
