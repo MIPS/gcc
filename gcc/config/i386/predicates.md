@@ -1409,6 +1409,36 @@
   return true;
 })
 
+;; Return true if OP is an interrupt_return operation, known to be a
+;; PARALLEL.
+(define_predicate "interrupt_return_operation"
+  (match_code "parallel")
+{
+  unsigned i, n = ix86_interrupt_return_nregs + 2;
+
+  if ((unsigned) XVECLEN (op, 0) != n)
+    return false;
+
+  n = 2;
+  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+    if (reg_names[i][0]
+	&& !STACK_REGNO_P (i)
+	&& !MMX_REGNO_P (i)
+	&& i != BP_REG
+	&& i != SP_REG
+	&& (i <= ST7_REG || i >= XMM0_REG))
+    {
+      rtx elt = XVECEXP (op, 0, n);
+      if (GET_CODE (elt) != USE
+	  || GET_CODE (XEXP (elt, 0)) != REG
+	  || REGNO (XEXP (elt, 0)) != i)
+	return false;
+      n++;
+    }
+
+  return true;
+})
+
 ;; Return true if OP is a vzeroall operation, known to be a PARALLEL.
 (define_predicate "vzeroall_operation"
   (match_code "parallel")

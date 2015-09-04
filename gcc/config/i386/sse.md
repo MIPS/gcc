@@ -855,10 +855,14 @@
 	case MODE_V16SF:
 	case MODE_V8SF:
 	case MODE_V4SF:
-	  if (TARGET_AVX
+	  /* We must supprt misaligned SSE load and store in interrupt
+	     handler since ix86_emit_save_reg_using_mov generates the
+	     normal *mov<mode>_internal pattern for interrupt handler
+	     with misaligned stack.  */
+	  if ((TARGET_AVX || cfun->machine->is_interrupt)
 	      && (misaligned_operand (operands[0], <MODE>mode)
 		  || misaligned_operand (operands[1], <MODE>mode)))
-	    return "vmovups\t{%1, %0|%0, %1}";
+	    return "%vmovups\t{%1, %0|%0, %1}";
 	  else
 	    return "%vmovaps\t{%1, %0|%0, %1}";
 
