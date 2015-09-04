@@ -154,6 +154,8 @@ is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 
 class hsa_op_reg : public hsa_op_with_type
 {
+  friend class hsa_insn_basic;
+  friend class hsa_insn_phi;
 public:
   hsa_op_reg (BrigType16_t t);
   void *operator new (size_t);
@@ -161,16 +163,11 @@ public:
   /* Verify register operand.  */
   void verify ();
 
-  /* Set difinition where the register is defined.  */
-  void set_definition (hsa_insn_basic *insn);
-
   /* If NON-NULL, gimple SSA that we come from.  NULL if none.  */
   tree gimple_ssa;
 
   /* Defining instruction while still in the SSA.  */
   hsa_insn_basic *def_insn;
-  /* Uses of the value while still in SSA.  */
-  auto_vec <hsa_insn_basic_p> uses;
 
   /* If the register allocator decides to spill the register, this is the
      appropriate spill symbol.  */
@@ -194,6 +191,10 @@ private:
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
   void operator delete (void *) {}
+  /* Set difinition where the register is defined.  */
+  void set_definition (hsa_insn_basic *insn);
+  /* Uses of the value while still in SSA.  */
+  auto_vec <hsa_insn_basic_p> uses;
 };
 
 typedef class hsa_op_reg *hsa_op_reg_p;
@@ -334,6 +335,9 @@ public:
 
   void *operator new (size_t);
   void set_op (int index, hsa_op_base *op);
+  hsa_op_base *get_op (int index);
+  hsa_op_base **get_op_addr (int index);
+  unsigned int operand_count ();
 
   /* The previous and next instruction in the basic block.  */
   hsa_insn_basic *prev, *next;
@@ -351,17 +355,17 @@ public:
   /* Type of the destination of the operations.  */
   BrigType16_t type;
 
-  /* The individual operands.  All instructions but PHI nodes have five or
-     fewer instructions and so will fit the internal storage.  */
-  /* TODO: Vast majority of instructions have three or fewer operands, so we
-     may actually try reducing it.  */
-  auto_vec<hsa_op_base *, HSA_BRIG_INT_STORAGE_OPERANDS> operands;
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_basic () {}
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
   void operator delete (void *) {}
+  /* The individual operands.  All instructions but PHI nodes have five or
+     fewer instructions and so will fit the internal storage.  */
+  /* TODO: Vast majority of instructions have three or fewer operands, so we
+     may actually try reducing it.  */
+  auto_vec<hsa_op_base *, HSA_BRIG_INT_STORAGE_OPERANDS> operands;
 };
 
 /* Class representing a PHI node of the SSA form of HSA virtual
@@ -370,7 +374,7 @@ private:
 class hsa_insn_phi : public hsa_insn_basic
 {
 public:
-  hsa_insn_phi (unsigned nops);
+  hsa_insn_phi (unsigned nops, hsa_op_reg *dst);
 
   void *operator new (size_t);
 
@@ -477,7 +481,9 @@ public:
 
   /* TODO:  Add width modifier, perhaps also other things.  */
 protected:
-  hsa_insn_mem (unsigned nops, int opc, BrigType16_t t);
+  hsa_insn_mem (unsigned nops, int opc, BrigType16_t t,
+		hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
+		hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
 private:
   /* Make the default constructor inaccessible.  */
@@ -504,7 +510,9 @@ class hsa_insn_atomic : public hsa_insn_mem
 {
 public:
   hsa_insn_atomic (int nops, int opc, enum BrigAtomicOperation aop,
-		   BrigType16_t t);
+		   BrigType16_t t,
+		   hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
+		   hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
   void *operator new (size_t);
 
   /* The operation itself.  */
@@ -541,7 +549,9 @@ class hsa_insn_signal : public hsa_insn_atomic
 {
 public:
   hsa_insn_signal (int nops, int opc, enum BrigAtomicOperation sop,
-		   BrigType16_t t);
+		   BrigType16_t t, hsa_op_base *arg0 = NULL,
+		   hsa_op_base *arg1 = NULL,
+		   hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
 
   void *operator new (size_t);
 
@@ -568,7 +578,7 @@ class hsa_insn_seg : public hsa_insn_basic
 {
 public:
   hsa_insn_seg (int opc, BrigType16_t destt, BrigType16_t srct,
-		BrigSegment8_t seg);
+		BrigSegment8_t seg, hsa_op_base *arg0, hsa_op_base *arg1);
 
   void *operator new (size_t);
 

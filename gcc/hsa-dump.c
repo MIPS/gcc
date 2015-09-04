@@ -729,13 +729,13 @@ dump_hsa_operand (FILE *f, hsa_op_base *op, bool dump_reg_type = false)
 /* Dump textual representation of HSA IL operands in VEC to file F.  */
 
 static void
-dump_hsa_operands (FILE *f, vec <hsa_op_base *> &operands,
+dump_hsa_operands (FILE *f, hsa_insn_basic *insn,
 		   bool dump_reg_type = false)
 {
-  for (unsigned i = 0; i < operands.length (); i++)
+  for (unsigned i = 0; i < insn->operand_count (); i++)
     {
-      dump_hsa_operand (f, operands[i], dump_reg_type);
-      if (i != operands.length () - 1)
+      dump_hsa_operand (f, insn->get_op (i), dump_reg_type);
+      if (i != insn->operand_count () - 1)
 	fprintf (f, ", ");
     }
 }
@@ -765,16 +765,16 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       bool first = true;
       dump_hsa_reg (f, phi->dest, true);
       fprintf (f, " = PHI <");
-      unsigned count = phi->operands.length ();
+      unsigned count = phi->operand_count ();
       for (unsigned i = 0; i < count; i++)
 	{
-	  if (!phi->operands[i])
+	  if (!phi->get_op (i))
 	    break;
 	  if (!first)
 	    fprintf (f, ", ");
 	  else
 	    first = false;
-	  dump_hsa_operand (f, phi->operands[i], true);
+	  dump_hsa_operand (f, phi->get_op (i), true);
 	}
       fprintf (f, ">\n");
     }
@@ -788,7 +788,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
       fprintf (f, "_%s ", hsa_type_name (mem->type));
 
-      dump_hsa_operands (f, mem->operands);
+      dump_hsa_operands (f, mem);
       fprintf (f, "\n");
     }
 
@@ -798,10 +798,10 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 
       /* Either operand[0] or operand[1] must be an address operand.  */
       hsa_op_address *addr = NULL;
-      if (is_a <hsa_op_address *> (mem->operands[0]))
-	addr = as_a <hsa_op_address *> (mem->operands[0]);
+      if (is_a <hsa_op_address *> (mem->get_op (0)))
+	addr = as_a <hsa_op_address *> (mem->get_op (0));
       else
-	addr = as_a <hsa_op_address *> (mem->operands[1]);
+	addr = as_a <hsa_op_address *> (mem->get_op (1));
 
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
@@ -813,13 +813,13 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	fprintf (f, "_%s", hsa_memscope_name (mem->memoryscope));
       fprintf (f, "_%s ", hsa_type_name (mem->type));
 
-      dump_hsa_operands (f, mem->operands);
+      dump_hsa_operands (f, mem);
       fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_mem *> (insn))
     {
       hsa_insn_mem *mem = as_a <hsa_insn_mem *> (insn);
-      hsa_op_address *addr = as_a <hsa_op_address *> (mem->operands[1]);
+      hsa_op_address *addr = as_a <hsa_op_address *> (mem->get_op (1));
 
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       if (addr->symbol)
@@ -828,21 +828,21 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->type));
 
-      dump_hsa_operand (f, mem->operands[0]);
+      dump_hsa_operand (f, mem->get_op (0));
       fprintf (f, ", ");
       dump_hsa_address (f, addr);
       fprintf (f, "\n");
     }
   else if (insn->opcode == BRIG_OPCODE_LDA)
     {
-      hsa_op_address *addr = as_a <hsa_op_address *> (insn->operands[1]);
+      hsa_op_address *addr = as_a <hsa_op_address *> (insn->get_op (1));
 
       fprintf (f, "%s", hsa_opcode_name (insn->opcode));
       if (addr->symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
       fprintf (f, "_%s ", hsa_type_name (insn->type));
 
-      dump_hsa_operand (f, insn->operands[0]);
+      dump_hsa_operand (f, insn->get_op (0));
       fprintf (f, ", ");
       dump_hsa_address (f, addr);
       fprintf (f, "\n");
@@ -853,9 +853,9 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (seg->opcode),
 	       hsa_seg_name (seg->segment),
 	       hsa_type_name (seg->type), hsa_type_name (seg->src_type));
-      dump_hsa_reg (f, as_a <hsa_op_reg *> (seg->operands[0]));
+      dump_hsa_reg (f, as_a <hsa_op_reg *> (seg->get_op (0)));
       fprintf (f, ", ");
-      dump_hsa_operand (f, seg->operands[1]);
+      dump_hsa_operand (f, seg->get_op (1));
       fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_cmp *> (insn))
@@ -863,19 +863,19 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_insn_cmp *cmp = as_a <hsa_insn_cmp *> (insn);
       BrigType16_t src_type;
 
-      if (is_a <hsa_op_reg *> (cmp->operands[1]))
-	src_type = as_a <hsa_op_reg *> (cmp->operands[1])->type;
+      if (is_a <hsa_op_reg *> (cmp->get_op (1)))
+	src_type = as_a <hsa_op_reg *> (cmp->get_op (1))->type;
       else
-	src_type = as_a <hsa_op_immed *> (cmp->operands[1])->type;
+	src_type = as_a <hsa_op_immed *> (cmp->get_op (1))->type;
 
       fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (cmp->opcode),
 	       hsa_cmpop_name (cmp->compare),
 	       hsa_type_name (cmp->type), hsa_type_name (src_type));
-      dump_hsa_reg (f, as_a <hsa_op_reg *> (cmp->operands[0]));
+      dump_hsa_reg (f, as_a <hsa_op_reg *> (cmp->get_op (0)));
       fprintf (f, ", ");
-      dump_hsa_operand (f, cmp->operands[1]);
+      dump_hsa_operand (f, cmp->get_op (1));
       fprintf (f, ", ");
-      dump_hsa_operand (f, cmp->operands[2]);
+      dump_hsa_operand (f, cmp->get_op (2));
       fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_br *> (insn))
@@ -889,7 +889,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s ", hsa_opcode_name (br->opcode));
       if (br->opcode == BRIG_OPCODE_CBR)
 	{
-	  dump_hsa_reg (f, as_a <hsa_op_reg *> (br->operands[0]));
+	  dump_hsa_reg (f, as_a <hsa_op_reg *> (br->get_op (0)));
 	  fprintf (f, ", ");
 	}
 
@@ -948,10 +948,10 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s_%s ", hsa_opcode_name (insn->opcode),
 	       hsa_type_name (insn->type));
 
-      unsigned count = insn->operands.length ();
+      unsigned count = insn->operand_count ();
       for (unsigned i = 0; i < count; i++)
 	{
-	  hsa_op_base *op = insn->operands[i];
+	  hsa_op_base *op = insn->get_op (i);
 
 	  if (!op)
 	    break;

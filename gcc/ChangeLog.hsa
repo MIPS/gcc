@@ -1,5 +1,62 @@
 2015-09-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_memory_insn): Use get_op.
+	(emit_signal_insn): Use operand_count.
+	(emit_atomic_insn): Use get_op and operand_count.
+	(emit_addr_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_queue_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	* hsa-dump.c (dump_hsa_operands): Likewise.
+	(dump_hsa_insn): Likewise.
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg):
+	(hsa_insn_basic::set_op): Set definition for just a unset register.
+	(hsa_insn_basic::get_op): New function.
+	(hsa_insn_basic::get_op_addr): Likewise.
+	(hsa_insn_basic::operand_count): Likewise.
+	(hsa_insn_basic::hsa_insn_basic): Use set_op.
+	(hsa_insn_phi::hsa_insn_phi): Likewise.
+	(hsa_insn_br::hsa_insn_br): Do not push to uses vector.
+	(hsa_insn_mem::hsa_insn_mem): Add new arguments to ctor.
+	(hsa_bb::append_insn): Use operand_count function.
+	(hsa_reg_for_gimple_ssa_reqtype): Use newly added ctor.
+	(gen_address_calculation): Do not push to uses vector.
+	(add_addr_regs_if_needed): Use set_op.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Use set_op.
+	(hsa_reg_or_immed_for_gimple_op): Remove one argument.
+	(hsa_build_append_simple_mov): Use ctor.
+	(gen_hsa_insns_for_bitfield_load): Do not set definition and do not
+	push to uses vector.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(gen_hsa_insns_for_single_assignment): Update call of a function.
+	(hsa_spill_in): Use ctor.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Use set_op.
+	(gen_hsa_unary_operation): Do not set definition and do not
+	push to uses vector.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_direct_call): Use ctor.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Do not set definition.
+	(gen_hsa_unaryop_for_builtin): Update call of a function.
+	(gen_hsa_ternary_atomic_for_builtin): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Use set_op.
+	(gen_function_def_parameters): Do not set definition.
+	* hsa-regalloc.c (naive_process_phi): Use operand_count.
+	(insn_reg_addr): Use get_op_addr and get_op.
+	(rewrite_code_bb): Likewise.
+	(linear_scan_regalloc): Likewise.
+	* hsa.h (class hsa_op_reg): Add declarations of new functions.
+
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
 	* Makefile.in: Add new source file and remove hsa-gen.c from list
 	of GT files.
 	* cgraph.h: Remove hsa_imp_of property of cgraph_node.

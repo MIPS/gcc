@@ -1103,7 +1103,7 @@ emit_memory_insn (hsa_insn_mem *mem)
   BrigOperandOffset32_t operand_offsets[2];
   uint32_t byteCount;
 
-  hsa_op_address *addr = as_a <hsa_op_address *> (mem->operands[1]);
+  hsa_op_address *addr = as_a <hsa_op_address *> (mem->get_op (1));
 
   /* This is necessary because of the erroneous typedef of
      BrigMemoryModifier8_t which introduces padding which may then contain
@@ -1115,8 +1115,8 @@ emit_memory_insn (hsa_insn_mem *mem)
   repr.base.opcode = htole16 (mem->opcode);
   repr.base.type = htole16 (mem->type);
 
-  operand_offsets[0] = htole32 (enqueue_op (mem->operands[0]));
-  operand_offsets[1] = htole32 (enqueue_op (mem->operands[1]));
+  operand_offsets[0] = htole32 (enqueue_op (mem->get_op (0)));
+  operand_offsets[1] = htole32 (enqueue_op (mem->get_op (1)));
   /* We have two operands so use 4 * 2 for the byteCount.  */
   byteCount = htole32 (4 * 2);
 
@@ -1148,7 +1148,7 @@ emit_signal_insn (hsa_insn_signal *mem)
 {
   struct BrigInstSignal repr;
   BrigOperandOffset32_t *operand_offsets = XCNEWVEC (BrigOperandOffset32_t,
-						     mem->operands.length ());
+						     mem->operand_count ());
   uint32_t byteCount;
 
   /* This is necessary because of the erroneous typedef of
@@ -1161,15 +1161,15 @@ emit_signal_insn (hsa_insn_signal *mem)
   repr.base.opcode = htole16 (mem->opcode);
   repr.base.type = htole16 (mem->type);
 
-  for (unsigned i = 0; i < mem->operands.length (); i++)
-    operand_offsets[i] = htole32 (enqueue_op (mem->operands[i]));
+  for (unsigned i = 0; i < mem->operand_count (); i++)
+    operand_offsets[i] = htole32 (enqueue_op (mem->get_op (i)));
 
   /* We have N operands so use 4 * N for the byteCount.  */
-  byteCount = htole32 (4 * mem->operands.length ());
+  byteCount = htole32 (4 * mem->operand_count ());
 
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (operand_offsets, sizeof (BrigOperandOffset32_t) *
-		 mem->operands.length ());
+		 mem->operand_count ());
   brig_data.round_size_up (4);
   free (operand_offsets);
 
@@ -1189,15 +1189,15 @@ emit_atomic_insn (hsa_insn_atomic *mem)
 {
   struct BrigInstAtomic repr;
   BrigOperandOffset32_t *operand_offsets = XCNEWVEC (BrigOperandOffset32_t,
-						     mem->operands.length ());
+						     mem->operand_count ());
   uint32_t byteCount;
 
   /* Either operand[0] or operand[1] must be an address operand.  */
   hsa_op_address *addr = NULL;
-  if (is_a <hsa_op_address *> (mem->operands[0]))
-    addr = as_a <hsa_op_address *> (mem->operands[0]);
+  if (is_a <hsa_op_address *> (mem->get_op (0)))
+    addr = as_a <hsa_op_address *> (mem->get_op (0));
   else
-    addr = as_a <hsa_op_address *> (mem->operands[1]);
+    addr = as_a <hsa_op_address *> (mem->get_op (1));
 
   /* This is necessary because of the erroneous typedef of
      BrigMemoryModifier8_t which introduces padding which may then contain
@@ -1209,15 +1209,15 @@ emit_atomic_insn (hsa_insn_atomic *mem)
   repr.base.opcode = htole16 (mem->opcode);
   repr.base.type = htole16 (mem->type);
 
-  for (unsigned i = 0; i < mem->operands.length (); i++)
-    operand_offsets[i] = htole32 (enqueue_op (mem->operands[i]));
+  for (unsigned i = 0; i < mem->operand_count (); i++)
+    operand_offsets[i] = htole32 (enqueue_op (mem->get_op (i)));
 
   /* We have N operands so use 4 * N for the byteCount.  */
-  byteCount = htole32 (4 * mem->operands.length ());
+  byteCount = htole32 (4 * mem->operand_count ());
 
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (operand_offsets, sizeof (BrigOperandOffset32_t) *
-		 mem->operands.length ());
+		 mem->operand_count ());
   brig_data.round_size_up (4);
   free (operand_offsets);
 
@@ -1241,21 +1241,21 @@ emit_addr_insn (hsa_insn_basic *insn)
 {
   struct BrigInstAddr repr;
   BrigOperandOffset32_t *operand_offsets = XCNEWVEC (BrigOperandOffset32_t,
-						     insn->operands.length ());
+						     insn->operand_count ());
   uint32_t byteCount;
 
-  hsa_op_address *addr = as_a <hsa_op_address *> (insn->operands[1]);
+  hsa_op_address *addr = as_a <hsa_op_address *> (insn->get_op (1));
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_ADDR);
   repr.base.opcode = htole16 (insn->opcode);
   repr.base.type = htole16 (insn->type);
 
-  for (unsigned i = 0; i < insn->operands.length (); i++)
-    operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
+  for (unsigned i = 0; i < insn->operand_count (); i++)
+    operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
 
   /* We have N operands so use 4 * N for the byteCount.  */
-  byteCount = htole32 (4 * insn->operands.length ());
+  byteCount = htole32 (4 * insn->operand_count ());
 
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (operand_offsets, sizeof (operand_offsets));
@@ -1287,8 +1287,8 @@ emit_segment_insn (hsa_insn_seg *seg)
   repr.base.opcode = htole16 (seg->opcode);
   repr.base.type = htole16 (seg->type);
 
-  operand_offsets[0] = htole32 (enqueue_op (seg->operands[0]));
-  operand_offsets[1] = htole32 (enqueue_op (seg->operands[1]));
+  operand_offsets[0] = htole32 (enqueue_op (seg->get_op (0)));
+  operand_offsets[1] = htole32 (enqueue_op (seg->get_op (1)));
 
   /* We have two operands so use 4 * 2 for the byteCount.  */
   byteCount = htole32 (4 * 2);
@@ -1297,7 +1297,7 @@ emit_segment_insn (hsa_insn_seg *seg)
   brig_data.add (&operand_offsets, sizeof (operand_offsets));
   brig_data.round_size_up (4);
 
-  repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->operands[1])->type);
+  repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->get_op (1))->type);
   repr.segment = seg->segment;
   repr.modifier.allBits = 0;
 
@@ -1322,9 +1322,9 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   repr.base.opcode = htole16 (cmp->opcode);
   repr.base.type = htole16 (cmp->type);
 
-  operand_offsets[0] = htole32 (enqueue_op (cmp->operands[0]));
-  operand_offsets[1] = htole32 (enqueue_op (cmp->operands[1]));
-  operand_offsets[2] = htole32 (enqueue_op (cmp->operands[2]));
+  operand_offsets[0] = htole32 (enqueue_op (cmp->get_op (0)));
+  operand_offsets[1] = htole32 (enqueue_op (cmp->get_op (1)));
+  operand_offsets[2] = htole32 (enqueue_op (cmp->get_op (2)));
   /* We have three operands so use 4 * 3 for the byteCount.  */
   byteCount = htole32 (4 * 3);
 
@@ -1332,10 +1332,10 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   brig_data.add (&operand_offsets, sizeof (operand_offsets));
   brig_data.round_size_up (4);
 
-  if (is_a <hsa_op_reg *> (cmp->operands[1]))
-    repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->operands[1])->type);
+  if (is_a <hsa_op_reg *> (cmp->get_op (1)))
+    repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->get_op (1))->type);
   else
-    repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->operands[1])->type);
+    repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->type);
   repr.modifier.allBits = 0;
   repr.compare = cmp->compare;
   repr.pack = 0;
@@ -1367,7 +1367,7 @@ emit_branch_insn (hsa_insn_br *br)
   /* For Conditional jumps the type is always B1 */
   repr.base.type = htole16 (BRIG_TYPE_B1);
 
-  operand_offsets[0] = htole32 (enqueue_op (br->operands[0]));
+  operand_offsets[0] = htole32 (enqueue_op (br->get_op (0)));
 
   FOR_EACH_EDGE (e, ei, br->bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)
@@ -1400,7 +1400,7 @@ emit_cvt_insn (hsa_insn_basic *insn)
   struct BrigInstCvt repr;
   BrigType16_t srctype;
   auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS> operand_offsets;
-  uint32_t byteCount, operand_count = insn->operands.length ();
+  uint32_t byteCount, operand_count = insn->operand_count ();
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_CVT);
@@ -1410,8 +1410,8 @@ emit_cvt_insn (hsa_insn_basic *insn)
   operand_offsets.safe_grow_cleared (operand_count);
   for (unsigned i = 0; i < operand_count; i++)
     {
-      gcc_checking_assert (insn->operands[i]);
-      operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
+      gcc_checking_assert (insn->get_op (i));
+      operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
     }
 
   byteCount = htole32 (4 * operand_count) ;
@@ -1419,10 +1419,10 @@ emit_cvt_insn (hsa_insn_basic *insn)
   brig_data.add (operand_offsets.address (),
 		 operand_count * sizeof (BrigOperandOffset32_t));
 
-  if (is_a <hsa_op_reg *> (insn->operands[1]))
-    srctype = as_a <hsa_op_reg *> (insn->operands[1])->type;
+  if (is_a <hsa_op_reg *> (insn->get_op (1)))
+    srctype = as_a <hsa_op_reg *> (insn->get_op (1))->type;
   else
-    srctype = as_a <hsa_op_immed *> (insn->operands[1])->type;
+    srctype = as_a <hsa_op_immed *> (insn->get_op (1))->type;
   repr.sourceType = htole16 (srctype);
   repr.modifier.allBits = 0;
   /* float to smaller float requires a rounding setting (we default
@@ -1552,7 +1552,7 @@ emit_queue_insn (hsa_insn_queue *insn)
 
   auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS>
     operand_offsets;
-  uint32_t byteCount, operand_count = insn->operands.length ();
+  uint32_t byteCount, operand_count = insn->operand_count ();
 
   repr.base.base.byteCount = htole16 (sizeof (BrigInstQueue));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_QUEUE);
@@ -1564,8 +1564,8 @@ emit_queue_insn (hsa_insn_queue *insn)
   operand_offsets.safe_grow_cleared (operand_count);
   for (unsigned i = 0; i < operand_count; i++)
     {
-      gcc_checking_assert (insn->operands[i]);
-      operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
+      gcc_checking_assert (insn->get_op (i));
+      operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
     }
 
   byteCount = htole32 (4 * operand_count) ;
@@ -1589,7 +1589,7 @@ emit_basic_insn (hsa_insn_basic *insn)
   BrigType16_t type;
   auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS>
     operand_offsets;
-  uint32_t byteCount, operand_count = insn->operands.length ();
+  uint32_t byteCount, operand_count = insn->operand_count ();
 
   if (insn->opcode == BRIG_OPCODE_CVT)
     {
@@ -1620,8 +1620,8 @@ emit_basic_insn (hsa_insn_basic *insn)
   operand_offsets.safe_grow_cleared (operand_count);
   for (unsigned i = 0; i < operand_count; i++)
     {
-      gcc_checking_assert (insn->operands[i]);
-      operand_offsets[i] = htole32 (enqueue_op (insn->operands[i]));
+      gcc_checking_assert (insn->get_op (i));
+      operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
     }
 
   byteCount = htole32 (4 * operand_count) ;
@@ -1638,7 +1638,7 @@ emit_basic_insn (hsa_insn_basic *insn)
 	repr.round = 0;
       /* We assume that destination and sources agree in packing
          layout.  */
-      if (insn->operands.length () >= 2)
+      if (insn->operand_count () >= 2)
 	repr.pack = BRIG_PACK_PP;
       else
 	repr.pack = BRIG_PACK_P;

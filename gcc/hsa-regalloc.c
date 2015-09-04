@@ -79,11 +79,11 @@ along with GCC; see the file COPYING3.  If not see
 static void
 naive_process_phi (hsa_insn_phi *phi)
 {
-  unsigned count = phi->operands.length ();
+  unsigned count = phi->operand_count ();
   for (unsigned i = 0; i < count; i++)
     {
-      gcc_checking_assert (phi->operands[i]);
-      hsa_op_base *op = phi->operands[i];
+      gcc_checking_assert (phi->get_op (i));
+      hsa_op_base *op = phi->get_op (i);
       hsa_bb *hbb;
       edge e;
 
@@ -194,12 +194,12 @@ reg_class_for_type (BrigType16_t type)
 static hsa_op_reg **
 insn_reg_addr (hsa_insn_basic *insn, int i)
 {
-  hsa_op_base *op = insn->operands[i];
+  hsa_op_base *op = insn->get_op (i);
   if (!op)
     return NULL;
   hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op);
   if (reg)
-    return (hsa_op_reg **) &insn->operands[i];
+    return (hsa_op_reg **) insn->get_op_addr (i);
   hsa_op_address *addr = dyn_cast <hsa_op_address *> (op);
   if (addr && addr->reg)
     return &addr->reg;
@@ -226,10 +226,10 @@ rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
   for (insn = hbb->first_insn; insn; insn = next_insn)
     {
       next_insn = insn->next;
-      unsigned count = insn->operands.length ();
+      unsigned count = insn->operand_count ();
       for (unsigned i = 0; i < count; i++)
 	{
-	  gcc_checking_assert (insn->operands[i]);
+	  gcc_checking_assert (insn->get_op (i));
 	  hsa_op_reg **regaddr = insn_reg_addr (insn, i);
 
 	  if (regaddr)
@@ -573,9 +573,9 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	{
 	  unsigned opi;
 	  insn->number = insn_order++;
-	  for (opi = 0; opi < insn->operands.length (); opi++)
+	  for (opi = 0; opi < insn->operand_count (); opi++)
 	    {
-	      gcc_checking_assert (insn->operands[opi]);
+	      gcc_checking_assert (insn->get_op (opi));
 	      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 	      if (regaddr)
 		ind2reg[(*regaddr)->order] = *regaddr;
@@ -626,16 +626,16 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	    {
 	      unsigned opi;
 	      unsigned ndefs = hsa_num_def_ops (insn);
-	      for (opi = 0; opi < ndefs && insn->operands[opi]; opi++)
+	      for (opi = 0; opi < ndefs && insn->get_op (opi); opi++)
 		{
-		  gcc_checking_assert (insn->operands[opi]);
+		  gcc_checking_assert (insn->get_op (opi));
 		  hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 		  if (regaddr)
 		    bitmap_clear_bit (work, (*regaddr)->order);
 		}
-	      for (; opi < insn->operands.length (); opi++)
+	      for (; opi < insn->operand_count (); opi++)
 		{
-		  gcc_checking_assert (insn->operands[opi]);
+		  gcc_checking_assert (insn->get_op (opi));
 		  hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 		  if (regaddr)
 		    bitmap_set_bit (work, (*regaddr)->order);
@@ -674,9 +674,9 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	{
 	  unsigned opi;
 	  unsigned ndefs = hsa_num_def_ops (insn);
-	  for (opi = 0; opi < insn->operands.length (); opi++)
+	  for (opi = 0; opi < insn->operand_count (); opi++)
 	    {
-	      gcc_checking_assert (insn->operands[opi]);
+	      gcc_checking_assert (insn->get_op (opi));
 	      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 	      if (regaddr)
 		{
