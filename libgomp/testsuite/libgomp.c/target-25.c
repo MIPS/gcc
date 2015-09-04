@@ -23,7 +23,7 @@ main ()
       usleep (7000);
       z = 3;
     }
-    #pragma omp target map(tofrom: x) firstprivate (y) depend(inout: x, z)
+    #pragma omp target map(tofrom: x) map(from: err) firstprivate (y) depend(inout: x, z)
     err = (x != 1 || y != 2 || z != 3);
     if (err)
       abort ();
@@ -44,7 +44,7 @@ main ()
     }
     #pragma omp target enter data nowait map (to: w)
     #pragma omp target enter data depend (inout: x, z) map (to: x, y, z)
-    #pragma omp target map (alloc: x, y, z)
+    #pragma omp target map (alloc: x, y, z) map(from: err)
     {
       err = (x != 4 || y != 5 || z != 6);
       x = 7;
@@ -54,7 +54,7 @@ main ()
     if (err)
       abort ();
     #pragma omp taskwait
-    #pragma omp target map (alloc: w)
+    #pragma omp target map (alloc: w) map(from: err)
     {
       err = w != 7;
       w = 17;

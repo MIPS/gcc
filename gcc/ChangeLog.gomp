@@ -1,3 +1,12 @@
+2015-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_target): If target has depend
+	clauses, avoid using GOMP_MAP_FIRSTPRIVATE_INT unless the
+	var is non-addressable and private in the current task.
+	Even for GOMP_MAP_FIRSTPRIVATE, if the var is non-addressable,
+	but shared or threadprivate, take address of the shared var
+	rather than initializing a temporary with the current value.
+
 2015-09-03  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (lower_depend_clauses): Set TREE_ADDRESSABLE on array.
