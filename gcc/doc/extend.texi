@@ -16815,6 +16815,15 @@ The following built-in function is always available.
 @item void __builtin_ia32_pause (void)
 Generates the @code{pause} machine instruction with a compiler memory
 barrier.
+
+@item void *__builtin_ia32_interrupt_data (void)
+Returns a pointer to interrupt or exception data pushed onto the stack
+by processor.
+
+The @code{__builtin_frame_address} builtin isn't suitable for interrupt
+and exception handlers since it returns the stack frame address on the
+callee side and compiler may generate a new stack frame for stack
+alignment.
 @end table
 
 The following floating-point built-in functions are made available in the
