@@ -1,3 +1,11 @@
+2015-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_sharing_clauses): Don't ignore map with
+	declare target vars for GOMP_MAP_FIRSTPRIVATE_POINTER,
+	unless the decl is an array.
+	(lower_omp_target): Ignore GOMP_MAP_FIRSTPRIVATE_POINTER map with
+	declare target var if it is an array.
+
 2015-09-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (lower_omp_target): If target has depend

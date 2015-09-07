@@ -2060,6 +2060,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	     directly.  */
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && DECL_P (decl)
+	      && (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
+		  || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
 	      && varpool_node::get_create (decl)->offloadable)
 	    break;
@@ -2284,6 +2286,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (DECL_P (decl)
+	      && (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
+		  || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
 	      && varpool_node::get_create (decl)->offloadable)
 	    break;
@@ -13358,6 +13362,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  {
 	    if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
 	      {
+		if (is_global_var (maybe_lookup_decl_in_outer_ctx (var, ctx))
+		    && varpool_node::get_create (var)->offloadable)
+		  continue;
+
 		tree type = build_pointer_type (TREE_TYPE (var));
 		tree new_var = lookup_decl (var, ctx);
 		x = create_tmp_var_raw (type, get_name (new_var));
@@ -14081,6 +14089,12 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		HOST_WIDE_INT offset = 0;
 		gcc_assert (prev);
 		var = OMP_CLAUSE_DECL (c);
+		if (DECL_P (var)
+		    && TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE
+		    && is_global_var (maybe_lookup_decl_in_outer_ctx (var,
+								      ctx))
+		    && varpool_node::get_create (var)->offloadable)
+		  break;
 		if (TREE_CODE (var) == INDIRECT_REF
 		    && TREE_CODE (TREE_OPERAND (var, 0)) == COMPONENT_REF)
 		  var = TREE_OPERAND (var, 0);
