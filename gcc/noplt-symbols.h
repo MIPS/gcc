@@ -20,8 +20,29 @@
 #ifndef NOPLT_SYMBOLS_H
 #define NOPLT_SYMBOLS_H
 
+/* Hasher for "const char *" strings, using string rather than pointer
+   equality.  */
+
+struct string_hash : pointer_hash <const char>
+{
+  static inline hashval_t hash (const char *);
+  static inline bool equal (const char *, const char *);
+};
+
+inline hashval_t
+string_hash::hash (const char *id)
+{
+  return htab_hash_string (id);
+}
+
+inline bool
+string_hash::equal (const char *id1, const char *id2)
+{
+  return strcmp (id1, id2) == 0;
+}
+
 /* No-plt symbol hash table type.  */
-typedef hash_table<nofree_string_hash> noplt_symbol_table_type;
+typedef hash_table<string_hash> noplt_symbol_table_type;
 
 extern void noplt_symbols_initialize (void);
 extern void noplt_symbols_finish (void);
