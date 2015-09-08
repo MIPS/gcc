@@ -2123,6 +2123,59 @@ gen_hsa_memory_copy (hsa_bb *hbb, hsa_op_address *target, hsa_op_address *src,
     }
 }
 
+/* Create a memset mask that is created by copying a CONSTANT byte value
+   to an integer of BYTE_SIZE bytes.  */
+
+static unsigned HOST_WIDE_INT
+build_memset_value (unsigned HOST_WIDE_INT constant, unsigned byte_size)
+{
+  HOST_WIDE_INT v = constant;
+
+  for (unsigned i = 1; i < byte_size; i++)
+    v |= constant << (8 * i);
+
+  return v;
+}
+
+/* Generate memory set instructions that are going to be used
+   for setting a CONSTANT byte value to TARGET memory of SIZE bytes.  */
+
+static void
+gen_hsa_memory_set (hsa_bb *hbb, hsa_op_address *target,
+		    unsigned HOST_WIDE_INT constant,
+		    unsigned size)
+{
+  hsa_op_address *addr;
+  hsa_insn_mem *mem;
+
+  unsigned offset = 0;
+
+  while (size)
+    {
+      unsigned s;
+      if (size >= 8)
+	s = 8;
+      else if (size >= 4)
+	s = 4;
+      else if (size >= 2)
+	s = 2;
+      else
+	s = 1;
+
+      addr = new hsa_op_address (target->symbol, target->reg,
+				 target->imm_offset + offset);
+
+      BrigType16_t t = get_integer_type_by_bytes (s, false);
+      HOST_WIDE_INT c = build_memset_value (constant, s);
+
+      mem = new hsa_insn_mem (BRIG_OPCODE_ST, t, new hsa_op_immed (c, t),
+			      addr);
+      hbb->append_insn (mem);
+      offset += s;
+      size -= s;
+    }
+}
+
 /* Generate HSA instructions for a single assignment.  HBB is the basic block
    they will be appended to.  SSA_MAP maps gimple SSA names to HSA pseudo
    registers.  */
@@ -3639,6 +3692,58 @@ specialop:
 	hsa_add_kernel_dependency (hsa_cfun->decl,
 				   hsa_brig_function_name (name));
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
+
+	break;
+      }
+    case BUILT_IN_MEMCPY:
+      {
+	tree byte_size = gimple_call_arg (stmt, 2);
+
+	if (TREE_CODE (byte_size) != INTEGER_CST)
+	  {
+	    sorry ("Support for HSA does not implement __builtin_memcpy with "
+		   "a non constant size");
+	    return;
+	  }
+
+	tree dst = gimple_call_arg (stmt, 0);
+	tree src = gimple_call_arg (stmt, 1);
+
+	hsa_op_address *dst_addr = gen_hsa_addr (dst, hbb, ssa_map);
+	hsa_op_address *src_addr = gen_hsa_addr (src, hbb, ssa_map);
+	unsigned n = tree_to_uhwi (byte_size);
+
+	gen_hsa_memory_copy (hbb, dst_addr, src_addr, n);
+
+	break;
+      }
+    case BUILT_IN_MEMSET:
+      {
+	tree c = gimple_call_arg (stmt, 1);
+
+	if (TREE_CODE (c) != INTEGER_CST)
+	  {
+	    sorry ("Support for HSA does not implement __builtin_memset with "
+		   "a non constant byte value that should be written");
+	    return;
+	  }
+
+	tree byte_size = gimple_call_arg (stmt, 2);
+
+	if (TREE_CODE (byte_size) != INTEGER_CST)
+	  {
+	    sorry ("Support for HSA does not implement __builtin_memset with "
+		   "a non constant size");
+	    return;
+	  }
+
+	hsa_op_address *dst_addr = gen_hsa_addr (gimple_call_arg (stmt, 0),
+						 hbb, ssa_map);
+	unsigned n = tree_to_uhwi (byte_size);
+	unsigned HOST_WIDE_INT constant = tree_to_uhwi
+	  (fold_convert (unsigned_char_type_node, c));
+
+	gen_hsa_memory_set (hbb, dst_addr, constant, n);
 
 	break;
       }

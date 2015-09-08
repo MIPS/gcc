@@ -1,5 +1,12 @@
 2015-09-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (build_memset_value): New function.
+	(gen_hsa_memory_set): New function.
+	(gen_hsa_insns_for_call): Add support for __builtin_memcpy and
+	__builtin_memset.
+
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (get_integer_type_by_bytes): Return 0 if a type is not
 	an integer type.
 	(hsa_type_for_scalar_tree_type): Reuse the function.
