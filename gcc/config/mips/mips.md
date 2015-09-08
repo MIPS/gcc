@@ -72,6 +72,7 @@
   i6400
   m5100
   m6200
+  p6600
 ])
 
 (define_c_enum "unspec" [
@@ -732,7 +733,7 @@
 ;; DELAY means that the next instruction cannot read the result
 ;; of this one.  HILO means that the next two instructions cannot
 ;; write to HI or LO.
-(define_attr "hazard" "none,delay,hilo,forbidden_slot"
+(define_attr "hazard" "none,delay,hilo,forbidden_slot,p6600_ubranch"
   (cond [(and (eq_attr "type" "load,fpload,fpidxload")
 	      (match_test "ISA_HAS_LOAD_DELAY"))
 	 (const_string "delay")
@@ -1142,6 +1143,7 @@
   "nothing")
 
 (include "i6400.md")
+(include "p6600.md")
 (include "p5600.md")
 (include "m5100.md")
 (include "m6200.md")
@@ -6233,7 +6235,10 @@
     }
 }
   [(set_attr "type" "branch")
-   (set_attr "compact_form" "maybe")])
+   (set_attr "compact_form" "maybe")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_insn "*jump_pic"
   [(set (pc)
@@ -6257,7 +6262,10 @@
     }
 }
   [(set_attr "type" "branch")
-   (set_attr "compact_form" "maybe")])
+   (set_attr "compact_form" "maybe")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 ;; We need a different insn for the mips16, because a mips16 branch
 ;; does not have a delay slot.
@@ -6299,7 +6307,8 @@
   operands[0] = force_reg (Pmode, operands[0]);
   emit_jump_insn (PMODE_INSN (gen_indirect_jump, (operands[0])));
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
 
 (define_insn "indirect_jump_<mode>"
   [(set (pc) (match_operand:P 0 "register_operand" "d"))]
@@ -6308,7 +6317,10 @@
     return mips_output_jump (operands, 0, -1, false);
   }
   [(set_attr "type" "jump")
-   (set_attr "mode" "none")])
+   (set_attr "mode" "none")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 ;; A combined jump-and-move instruction, used for MIPS16 long-branch
 ;; sequences.  Having a dedicated pattern is more convenient than
@@ -6343,7 +6355,8 @@
 
   emit_jump_insn (PMODE_INSN (gen_tablejump, (operands[0], operands[1])));
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
 
 (define_insn "tablejump_<mode>"
   [(set (pc)
@@ -6354,7 +6367,8 @@
     return mips_output_jump (operands, 0, -1, false);
   }
   [(set_attr "type" "jump")
-   (set_attr "mode" "none")])
+   (set_attr "mode" "none")
+   (set_attr "hazard" "p6600_ubranch")])
 
 ;; For MIPS16, we don't know whether a given jump table will use short or
 ;; word-sized offsets until late in compilation, when we are able to determine
@@ -6829,7 +6843,11 @@
   mips_expand_call (MIPS_CALL_SIBCALL, NULL_RTX, XEXP (operands[0], 0),
 		    operands[1], operands[2], false);
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
+
+
+
 
 (define_insn "sibcall_internal"
   [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
@@ -6837,7 +6855,10 @@
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 0, 1, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_expand "sibcall_value"
   [(parallel [(set (match_operand 0 "")
@@ -6849,7 +6870,10 @@
   mips_expand_call (MIPS_CALL_SIBCALL, operands[0], XEXP (operands[1], 0),
 		    operands[2], operands[3], false);
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_insn "sibcall_value_internal"
   [(set (match_operand 0 "register_operand" "")
@@ -6858,7 +6882,10 @@
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_insn "sibcall_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "")
@@ -6870,7 +6897,10 @@
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_expand "call"
   [(parallel [(call (match_operand 0 "")
@@ -6882,7 +6912,10 @@
   mips_expand_call (MIPS_CALL_NORMAL, NULL_RTX, XEXP (operands[0], 0),
 		    operands[1], operands[2], false);
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
+
+
 
 ;; This instruction directly corresponds to an assembly-language "jal".
 ;; There are four cases:
@@ -6934,7 +6967,10 @@
   mips_split_call (curr_insn, gen_call_split (operands[0], operands[1]));
   DONE;
 }
-  [(set_attr "jal" "indirect,direct")])
+  [(set_attr "jal" "indirect,direct")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_insn "call_split"
   [(call (mem:SI (match_operand 0 "call_insn_operand" "c,S"))
@@ -6944,7 +6980,10 @@
   "TARGET_SPLIT_CALLS"
   { return mips_output_jump (operands, 0, 1, true); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 ;; A pattern for calls that must be made directly.  It is used for
 ;; MIPS16 calls that the linker may need to redirect to a hard-float
@@ -6967,7 +7006,10 @@
 		   gen_call_direct_split (operands[0], operands[1]));
   DONE;
 }
-  [(set_attr "jal" "direct")])
+  [(set_attr "jal" "direct")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_insn "call_direct_split"
   [(call (mem:SI (match_operand 0 "const_call_insn_operand"))
@@ -6978,7 +7020,10 @@
   "TARGET_SPLIT_CALLS"
   { return mips_output_jump (operands, 0, -1, true); }
   [(set_attr "jal" "direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
+
+
 
 (define_expand "call_value"
   [(parallel [(set (match_operand 0 "")
@@ -6990,7 +7035,10 @@
   mips_expand_call (MIPS_CALL_NORMAL, operands[0], XEXP (operands[1], 0),
 		    operands[2], operands[3], false);
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
+
+
 
 ;; See comment for call_internal.
 (define_insn_and_split "call_value_internal"
@@ -7011,7 +7059,8 @@
 					 operands[2]));
   DONE;
 }
-  [(set_attr "jal" "indirect,direct")])
+  [(set_attr "jal" "indirect,direct")
+   (set_attr "hazard" "p6600_ubranch")])
 
 (define_insn "call_value_split"
   [(set (match_operand 0 "register_operand" "")
@@ -7022,7 +7071,8 @@
   "TARGET_SPLIT_CALLS"
   { return mips_output_jump (operands, 1, 2, true); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
 
 ;; See call_internal_direct.
 (define_insn_and_split "call_value_internal_direct"
@@ -7044,7 +7094,8 @@
 						operands[2]));
   DONE;
 }
-  [(set_attr "jal" "direct")])
+  [(set_attr "jal" "direct")
+   (set_attr "hazard" "p6600_ubranch")])
 
 (define_insn "call_value_direct_split"
   [(set (match_operand 0 "register_operand")
@@ -7056,7 +7107,8 @@
   "TARGET_SPLIT_CALLS"
   { return mips_output_jump (operands, 1, -1, true); }
   [(set_attr "jal" "direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
 
 ;; See comment for call_internal.
 (define_insn_and_split "call_value_multiple_internal"
@@ -7080,7 +7132,8 @@
 						  operands[2], operands[3]));
   DONE;
 }
-  [(set_attr "jal" "indirect,direct")])
+  [(set_attr "jal" "indirect,direct")
+   (set_attr "hazard" "p6600_ubranch")])
 
 (define_insn "call_value_multiple_split"
   [(set (match_operand 0 "register_operand" "")
@@ -7094,7 +7147,8 @@
   "TARGET_SPLIT_CALLS"
   { return mips_output_jump (operands, 1, 2, true); }
   [(set_attr "jal" "indirect,direct")
-   (set_attr "jal_macro" "no")])
+   (set_attr "jal_macro" "no")
+   (set_attr "hazard" "p6600_ubranch")])
 
 ;; Call subroutine returning any type.
 
@@ -7117,7 +7171,8 @@
 
   emit_insn (gen_blockage ());
   DONE;
-})
+}
+  [(set_attr "hazard" "p6600_ubranch")])
 
 ;;
 ;;  ....................

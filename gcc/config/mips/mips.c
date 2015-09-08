@@ -1338,7 +1338,20 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
-   }
+   },
+  { /* P6600 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (5),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (17),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (8),            /* int_div_si */
+    COSTS_N_INSNS (8),            /* int_div_di */
+		    2,            /* branch_cost */
+		    4             /* memory_latency */
+  }
 };
 
 static void mips_rest_of_frame_header_opt (void);
@@ -13852,6 +13865,7 @@ mips_adjust_insn_length (rtx insn, int length)
     switch (get_attr_hazard (insn))
       {
       case HAZARD_NONE:
+      case HAZARD_P6600_UBRANCH:
 	break;
 
       case HAZARD_DELAY:
@@ -14828,6 +14842,7 @@ mips_issue_rate (void)
     case PROCESSOR_LOONGSON_2F:
     case PROCESSOR_LOONGSON_3A:
     case PROCESSOR_P5600:
+    case PROCESSOR_P6600:
       return 4;
 
     case PROCESSOR_XLP:
@@ -18821,6 +18836,12 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
     nops = 1;
+  /* The P6600 will stall if there is a unconditional jump followed by any
+     other CTI in the same 64 bit fetch.  Inserting a nop will increase code
+     size but clear the stall.  */
+  else if (TUNE_P6600 && !optimize_size && (JUMP_P (insn) || CALL_P (insn))
+	   && (JUMP_P (after) || CALL_P (after)))
+    nops = 1;
   else
     nops = 0;
 
@@ -18854,6 +18875,12 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	gcc_assert (set);
 	*delayed_reg = SET_DEST (set);
 	break;
+
+      case HAZARD_P6600_UBRANCH:
+	if (TUNE_P6600 && TARGET_CB_MAYBE)
+	  *fs_delay = true;
+	break;
+
       }
 }
 
