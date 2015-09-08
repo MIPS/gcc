@@ -1,3 +1,19 @@
+2015-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_update): Remove fatal error if object is not mapped.
+
+	* target.c (GOMP_target_update_41): Handle nowait update with
+	dependencies.  Don't call gomp_update if parallel or taskgroup has
+	been cancelled.
+	(GOMP_target_enter_exit_data): Likewise.
+	(gomp_target_task_fn): New function.
+	* task.c (gomp_task_handle_depend): New function, copied from...
+	(GOMP_task): ... here.  Use gomp_task_handle_depend.
+	(gomp_create_target_task): New function.
+	* libgomp.h (struct gomp_target_task): New type.
+	(gomp_create_target_task, gomp_target_task_fn): New prototypes.
+	* testsuite/libgomp.c/target-27.c: New test.
+
 2015-09-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/target-26.c: New test.

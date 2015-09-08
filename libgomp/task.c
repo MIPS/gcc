@@ -108,6 +108,123 @@ gomp_clear_parent (struct gomp_task *children)
     while (task != children);
 }
 
+/* Helper function for GOMP_task and gomp_create_target_task.  Depend clause
+   handling for undeferred task creation.  */
+
+static void
+gomp_task_handle_depend (struct gomp_task *task, struct gomp_task *parent,
+			 void **depend)
+{
+  size_t ndepend = (uintptr_t) depend[0];
+  size_t nout = (uintptr_t) depend[1];
+  size_t i;
+  hash_entry_type ent;
+
+  task->depend_count = ndepend;
+  task->num_dependees = 0;
+  if (parent->depend_hash == NULL)
+    parent->depend_hash = htab_create (2 * ndepend > 12 ? 2 * ndepend : 12);
+  for (i = 0; i < ndepend; i++)
+    {
+      task->depend[i].addr = depend[2 + i];
+      task->depend[i].next = NULL;
+      task->depend[i].prev = NULL;
+      task->depend[i].task = task;
+      task->depend[i].is_in = i >= nout;
+      task->depend[i].redundant = false;
+      task->depend[i].redundant_out = false;
+
+      hash_entry_type *slot = htab_find_slot (&parent->depend_hash,
+					      &task->depend[i], INSERT);
+      hash_entry_type out = NULL, last = NULL;
+      if (*slot)
+	{
+	  /* If multiple depends on the same task are the same, all but the
+	     first one are redundant.  As inout/out come first, if any of them
+	     is inout/out, it will win, which is the right semantics.  */
+	  if ((*slot)->task == task)
+	    {
+	      task->depend[i].redundant = true;
+	      continue;
+	    }
+	  for (ent = *slot; ent; ent = ent->next)
+	    {
+	      if (ent->redundant_out)
+		break;
+
+	      last = ent;
+
+	      /* depend(in:...) doesn't depend on earlier depend(in:...).  */
+	      if (i >= nout && ent->is_in)
+		continue;
+
+	      if (!ent->is_in)
+		out = ent;
+
+	      struct gomp_task *tsk = ent->task;
+	      if (tsk->dependers == NULL)
+		{
+		  tsk->dependers
+		    = gomp_malloc (sizeof (struct gomp_dependers_vec)
+				   + 6 * sizeof (struct gomp_task *));
+		  tsk->dependers->n_elem = 1;
+		  tsk->dependers->allocated = 6;
+		  tsk->dependers->elem[0] = task;
+		  task->num_dependees++;
+		  continue;
+		}
+	      /* We already have some other dependency on tsk from earlier
+		 depend clause.  */
+	      else if (tsk->dependers->n_elem
+		       && (tsk->dependers->elem[tsk->dependers->n_elem - 1]
+			   == task))
+		continue;
+	      else if (tsk->dependers->n_elem == tsk->dependers->allocated)
+		{
+		  tsk->dependers->allocated
+		    = tsk->dependers->allocated * 2 + 2;
+		  tsk->dependers
+		    = gomp_realloc (tsk->dependers,
+				    sizeof (struct gomp_dependers_vec)
+				    + (tsk->dependers->allocated
+				       * sizeof (struct gomp_task *)));
+		}
+	      tsk->dependers->elem[tsk->dependers->n_elem++] = task;
+	      task->num_dependees++;
+	    }
+	  task->depend[i].next = *slot;
+	  (*slot)->prev = &task->depend[i];
+	}
+      *slot = &task->depend[i];
+
+      /* There is no need to store more than one depend({,in}out:) task per
+	 address in the hash table chain for the purpose of creation of
+	 deferred tasks, because each out depends on all earlier outs, thus it
+	 is enough to record just the last depend({,in}out:).  For depend(in:),
+	 we need to keep all of the previous ones not terminated yet, because
+	 a later depend({,in}out:) might need to depend on all of them.  So, if
+	 the new task's clause is depend({,in}out:), we know there is at most
+	 one other depend({,in}out:) clause in the list (out).  For
+	 non-deferred tasks we want to see all outs, so they are moved to the
+	 end of the chain, after first redundant_out entry all following
+	 entries should be redundant_out.  */
+      if (!task->depend[i].is_in && out)
+	{
+	  if (out != last)
+	    {
+	      out->next->prev = out->prev;
+	      out->prev->next = out->next;
+	      out->next = last->next;
+	      out->prev = last;
+	      last->next = out;
+	      if (out->next)
+		out->next->prev = out;
+	    }
+	  out->redundant_out = true;
+	}
+    }
+}
+
 /* Called when encountering an explicit task directive.  If IF_CLAUSE is
    false, then we must not delay in executing the task.  If UNTIED is true,
    then the task may be executed by any member of the team.
@@ -248,123 +365,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	taskgroup->num_children++;
       if (depend_size)
 	{
-	  size_t ndepend = (uintptr_t) depend[0];
-	  size_t nout = (uintptr_t) depend[1];
-	  size_t i;
-	  hash_entry_type ent;
-
-	  task->depend_count = ndepend;
-	  task->num_dependees = 0;
-	  if (parent->depend_hash == NULL)
-	    parent->depend_hash
-	      = htab_create (2 * ndepend > 12 ? 2 * ndepend : 12);
-	  for (i = 0; i < ndepend; i++)
-	    {
-	      task->depend[i].addr = depend[2 + i];
-	      task->depend[i].next = NULL;
-	      task->depend[i].prev = NULL;
-	      task->depend[i].task = task;
-	      task->depend[i].is_in = i >= nout;
-	      task->depend[i].redundant = false;
-	      task->depend[i].redundant_out = false;
-
-	      hash_entry_type *slot
-		= htab_find_slot (&parent->depend_hash, &task->depend[i],
-				  INSERT);
-	      hash_entry_type out = NULL, last = NULL;
-	      if (*slot)
-		{
-		  /* If multiple depends on the same task are the
-		     same, all but the first one are redundant.
-		     As inout/out come first, if any of them is
-		     inout/out, it will win, which is the right
-		     semantics.  */
-		  if ((*slot)->task == task)
-		    {
-		      task->depend[i].redundant = true;
-		      continue;
-		    }
-		  for (ent = *slot; ent; ent = ent->next)
-		    {
-		      if (ent->redundant_out)
-			break;
-
-		      last = ent;
-
-		      /* depend(in:...) doesn't depend on earlier
-			 depend(in:...).  */
-		      if (i >= nout && ent->is_in)
-			continue;
-
-		      if (!ent->is_in)
-			out = ent;
-
-		      struct gomp_task *tsk = ent->task;
-		      if (tsk->dependers == NULL)
-			{
-			  tsk->dependers
-			    = gomp_malloc (sizeof (struct gomp_dependers_vec)
-					   + 6 * sizeof (struct gomp_task *));
-			  tsk->dependers->n_elem = 1;
-			  tsk->dependers->allocated = 6;
-			  tsk->dependers->elem[0] = task;
-			  task->num_dependees++;
-			  continue;
-			}
-		      /* We already have some other dependency on tsk
-			 from earlier depend clause.  */
-		      else if (tsk->dependers->n_elem
-			       && (tsk->dependers->elem[tsk->dependers->n_elem
-							- 1]
-				   == task))
-			continue;
-		      else if (tsk->dependers->n_elem
-			       == tsk->dependers->allocated)
-			{
-			  tsk->dependers->allocated
-			    = tsk->dependers->allocated * 2 + 2;
-			  tsk->dependers
-			    = gomp_realloc (tsk->dependers,
-					    sizeof (struct gomp_dependers_vec)
-					    + (tsk->dependers->allocated
-					       * sizeof (struct gomp_task *)));
-			}
-		      tsk->dependers->elem[tsk->dependers->n_elem++] = task;
-		      task->num_dependees++;
-		    }
-		  task->depend[i].next = *slot;
-		  (*slot)->prev = &task->depend[i];
-		}
-	      *slot = &task->depend[i];
-
-	      /* There is no need to store more than one depend({,in}out:)
-		 task per address in the hash table chain for the purpose
-		 of creation of deferred tasks, because each out
-		 depends on all earlier outs, thus it is enough to record
-		 just the last depend({,in}out:).  For depend(in:), we need
-		 to keep all of the previous ones not terminated yet, because
-		 a later depend({,in}out:) might need to depend on all of
-		 them.  So, if the new task's clause is depend({,in}out:),
-		 we know there is at most one other depend({,in}out:) clause
-		 in the list (out).  For non-deferred tasks we want to see
-		 all outs, so they are moved to the end of the chain,
-		 after first redundant_out entry all following entries
-		 should be redundant_out.  */
-	      if (!task->depend[i].is_in && out)
-		{
-		  if (out != last)
-		    {
-		      out->next->prev = out->prev;
-		      out->prev->next = out->next;
-		      out->next = last->next;
-		      out->prev = last;
-		      last->next = out;
-		      if (out->next)
-			out->next->prev = out;
-		    }
-		  out->redundant_out = true;
-		}
-	    }
+	  gomp_task_handle_depend (task, parent, depend);
 	  if (task->num_dependees)
 	    {
 	      gomp_mutex_unlock (&team->task_lock);
@@ -443,6 +444,128 @@ ialias (GOMP_taskgroup_end)
 #undef TYPE
 #undef UTYPE
 #undef GOMP_taskloop
+
+/* Called for nowait target tasks.  */
+
+void
+gomp_create_target_task (struct gomp_device_descr *devicep,
+			 void (*fn) (void *), size_t mapnum, void **hostaddrs,
+			 size_t *sizes, unsigned short *kinds,
+			 unsigned int flags, void **depend)
+{
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (team
+      && (gomp_team_barrier_cancelled (&team->barrier)
+	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
+    return;
+
+  struct gomp_target_task *ttask;
+  struct gomp_task *task;
+  struct gomp_task *parent = thr->task;
+  struct gomp_taskgroup *taskgroup = parent->taskgroup;
+  bool do_wake;
+  size_t depend_size = 0;
+
+  if (depend != NULL)
+    depend_size = ((uintptr_t) depend[0]
+		   * sizeof (struct gomp_task_depend_entry));
+  task = gomp_malloc (sizeof (*task) + depend_size
+		      + sizeof (*ttask)
+		      + mapnum * (sizeof (void *) + sizeof (size_t)
+				  + sizeof (unsigned short)));
+  gomp_init_task (task, parent, gomp_icv (false));
+  task->kind = GOMP_TASK_WAITING;
+  task->in_tied_task = parent->in_tied_task;
+  task->taskgroup = taskgroup;
+  ttask = (struct gomp_target_task *) &task->depend[(uintptr_t) depend[0]];
+  ttask->devicep = devicep;
+  ttask->fn = fn;
+  ttask->mapnum = mapnum;
+  memcpy (ttask->hostaddrs, hostaddrs, mapnum * sizeof (void *));
+  ttask->sizes = (size_t *) &ttask->hostaddrs[mapnum];
+  memcpy (ttask->sizes, sizes, mapnum * sizeof (size_t));
+  ttask->kinds = (unsigned short *) &ttask->sizes[mapnum];
+  memcpy (ttask->kinds, kinds, mapnum * sizeof (unsigned short));
+  ttask->flags = flags;
+  task->fn = gomp_target_task_fn;
+  task->fn_data = ttask;
+  task->final_task = 0;
+  gomp_mutex_lock (&team->task_lock);
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (__builtin_expect (gomp_team_barrier_cancelled (&team->barrier)
+			|| (taskgroup && taskgroup->cancelled), 0))
+    {
+      gomp_mutex_unlock (&team->task_lock);
+      gomp_finish_task (task);
+      free (task);
+      return;
+    }
+  if (taskgroup)
+    taskgroup->num_children++;
+  if (depend_size)
+    {
+      gomp_task_handle_depend (task, parent, depend);
+      if (task->num_dependees)
+	{
+	  gomp_mutex_unlock (&team->task_lock);
+	  return;
+	}
+    }
+  if (parent->children)
+    {
+      task->next_child = parent->children;
+      task->prev_child = parent->children->prev_child;
+      task->next_child->prev_child = task;
+      task->prev_child->next_child = task;
+    }
+  else
+    {
+      task->next_child = task;
+      task->prev_child = task;
+    }
+  parent->children = task;
+  if (taskgroup)
+    {
+      /* If applicable, place task into its taskgroup.  */
+      if (taskgroup->children)
+	{
+	  task->next_taskgroup = taskgroup->children;
+	  task->prev_taskgroup = taskgroup->children->prev_taskgroup;
+	  task->next_taskgroup->prev_taskgroup = task;
+	  task->prev_taskgroup->next_taskgroup = task;
+	}
+      else
+	{
+	  task->next_taskgroup = task;
+	  task->prev_taskgroup = task;
+	}
+      taskgroup->children = task;
+    }
+  if (team->task_queue)
+    {
+      task->next_queue = team->task_queue;
+      task->prev_queue = team->task_queue->prev_queue;
+      task->next_queue->prev_queue = task;
+      task->prev_queue->next_queue = task;
+    }
+  else
+    {
+      task->next_queue = task;
+      task->prev_queue = task;
+      team->task_queue = task;
+    }
+  ++team->task_count;
+  ++team->task_queued_count;
+  gomp_team_barrier_set_task_pending (&team->barrier);
+  do_wake = team->task_running_count + !parent->in_tied_task
+	    < team->nthreads;
+  gomp_mutex_unlock (&team->task_lock);
+  if (do_wake)
+    gomp_team_barrier_wake (&team->barrier, 1);
+}
 
 static inline bool
 gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,

@@ -899,13 +899,6 @@ gomp_update (struct gomp_device_descr *devicep, size_t mapnum, void **hostaddrs,
 						- n->host_start),
 				      cur_node.host_end - cur_node.host_start);
 	  }
-	else
-	  {
-	    gomp_mutex_unlock (&devicep->lock);
-	    gomp_fatal ("Trying to update [%p..%p) object that is not mapped",
-			(void *) cur_node.host_start,
-			(void *) cur_node.host_end);
-	  }
       }
   gomp_mutex_unlock (&devicep->lock);
 }
@@ -1460,16 +1453,48 @@ GOMP_target_update_41 (int device, size_t mapnum, void **hostaddrs,
   /* If there are depend clauses, but nowait is not present,
      block the parent task until the dependencies are resolved
      and then just continue with the rest of the function as if it
-     is a merged task.  */
+     is a merged task.  Until we are able to schedule task during
+     variable mapping or unmapping, ignore nowait if depend clauses
+     are not present.  */
   if (depend != NULL)
     {
       struct gomp_thread *thr = gomp_thread ();
       if (thr->task && thr->task->depend_hash)
-	gomp_task_maybe_wait_for_dependencies (depend);
+	{
+	  if ((flags & GOMP_TARGET_FLAG_NOWAIT)
+	      && thr->ts.team
+	      && !thr->task->final_task)
+	    {
+	      gomp_create_target_task (devicep, (void (*) (void *)) NULL,
+				       mapnum, hostaddrs, sizes, kinds,
+				       flags | GOMP_TARGET_FLAG_UPDATE,
+				       depend);
+	      return;
+	    }
+
+	  struct gomp_team *team = thr->ts.team;
+	  /* If parallel or taskgroup has been cancelled, don't start new
+	     tasks.  */
+	  if (team
+	      && (gomp_team_barrier_cancelled (&team->barrier)
+		  || (thr->task->taskgroup
+		      && thr->task->taskgroup->cancelled)))
+	    return;
+
+	  gomp_task_maybe_wait_for_dependencies (depend);
+	}
     }
 
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return;
+
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (team
+      && (gomp_team_barrier_cancelled (&team->barrier)
+	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
     return;
 
   gomp_update (devicep, mapnum, hostaddrs, sizes, kinds, true);
@@ -1548,16 +1573,47 @@ GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
   /* If there are depend clauses, but nowait is not present,
      block the parent task until the dependencies are resolved
      and then just continue with the rest of the function as if it
-     is a merged task.  */
+     is a merged task.  Until we are able to schedule task during
+     variable mapping or unmapping, ignore nowait if depend clauses
+     are not present.  */
   if (depend != NULL)
     {
       struct gomp_thread *thr = gomp_thread ();
       if (thr->task && thr->task->depend_hash)
-	gomp_task_maybe_wait_for_dependencies (depend);
+	{
+	  if ((flags & GOMP_TARGET_FLAG_NOWAIT)
+	      && thr->ts.team
+	      && !thr->task->final_task)
+	    {
+	      gomp_create_target_task (devicep, (void (*) (void *)) NULL,
+				       mapnum, hostaddrs, sizes, kinds,
+				       flags, depend);
+	      return;
+	    }
+
+	  struct gomp_team *team = thr->ts.team;
+	  /* If parallel or taskgroup has been cancelled, don't start new
+	     tasks.  */
+	  if (team
+	      && (gomp_team_barrier_cancelled (&team->barrier)
+		  || (thr->task->taskgroup
+		      && thr->task->taskgroup->cancelled)))
+	    return;
+
+	  gomp_task_maybe_wait_for_dependencies (depend);
+	}
     }
 
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return;
+
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (team
+      && (gomp_team_barrier_cancelled (&team->barrier)
+	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
     return;
 
   size_t i;
@@ -1574,6 +1630,40 @@ GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
 		       true, GOMP_MAP_VARS_ENTER_DATA);
   else
     gomp_exit_data (devicep, mapnum, hostaddrs, sizes, kinds);
+}
+
+void
+gomp_target_task_fn (void *data)
+{
+  struct gomp_target_task *ttask = (struct gomp_target_task *) data;
+  if (ttask->fn != NULL)
+    {
+      /* GOMP_target_41 */
+    }
+  else if (ttask->devicep == NULL
+	   || !(ttask->devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return;
+
+  size_t i;
+  if (ttask->flags & GOMP_TARGET_FLAG_UPDATE)
+    gomp_update (ttask->devicep, ttask->mapnum, ttask->hostaddrs, ttask->sizes,
+		 ttask->kinds, true);
+  else if ((ttask->flags & GOMP_TARGET_FLAG_EXIT_DATA) == 0)
+    for (i = 0; i < ttask->mapnum; i++)
+      if ((ttask->kinds[i] & 0xff) == GOMP_MAP_STRUCT)
+	{
+	  gomp_map_vars (ttask->devicep, ttask->sizes[i] + 1,
+			 &ttask->hostaddrs[i], NULL, &ttask->sizes[i],
+			 &ttask->kinds[i], true, GOMP_MAP_VARS_ENTER_DATA);
+	  i += ttask->sizes[i];
+	}
+      else
+	gomp_map_vars (ttask->devicep, 1, &ttask->hostaddrs[i], NULL,
+		       &ttask->sizes[i], &ttask->kinds[i],
+		       true, GOMP_MAP_VARS_ENTER_DATA);
+  else
+    gomp_exit_data (ttask->devicep, ttask->mapnum, ttask->hostaddrs,
+		    ttask->sizes, ttask->kinds);
 }
 
 void

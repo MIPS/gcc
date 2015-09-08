@@ -374,6 +374,17 @@ struct gomp_taskgroup
   size_t num_children;
 };
 
+struct gomp_target_task
+{
+  struct gomp_device_descr *devicep;
+  void (*fn) (void *);
+  size_t mapnum;
+  size_t *sizes;
+  unsigned short *kinds;
+  unsigned int flags;
+  void *hostaddrs[];
+};
+
 /* This structure describes a "team" of threads.  These are the threads
    that are spawned by a PARALLEL constructs, as well as the work sharing
    constructs that the team encounters.  */
@@ -653,6 +664,10 @@ extern void gomp_init_task (struct gomp_task *, struct gomp_task *,
 extern void gomp_end_task (void);
 extern void gomp_barrier_handle_tasks (gomp_barrier_state_t);
 extern void gomp_task_maybe_wait_for_dependencies (void **);
+extern void gomp_create_target_task (struct gomp_device_descr *,
+				     void (*) (void *), size_t, void **,
+				     size_t *, unsigned short *, unsigned int,
+				     void **);
 
 static void inline
 gomp_finish_task (struct gomp_task *task)
@@ -673,6 +688,7 @@ extern void gomp_free_thread (void *);
 
 extern void gomp_init_targets_once (void);
 extern int gomp_get_num_devices (void);
+extern void gomp_target_task_fn (void *);
 
 typedef struct splay_tree_node_s *splay_tree_node;
 typedef struct splay_tree_s *splay_tree;
