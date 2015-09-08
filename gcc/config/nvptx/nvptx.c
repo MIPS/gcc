@@ -134,6 +134,9 @@ static const unsigned lock_level[] = {BARRIER_GLOBAL, BARRIER_SHARED};
 static GTY(()) rtx lock_syms[LOCK_MAX];
 static bool lock_used[LOCK_MAX];
 
+/* FIXME: Temporary workaround for worker locks.  */
+static bool force_global_locks = true;
+
 /* Size of buffer needed for worker reductions.  This has to be
    disjoing from the worker broadcast array, as both may be live
    concurrently.  */
@@ -1245,6 +1248,7 @@ nvptx_expand_oacc_lock (rtx src, int direction)
   rtx pat;
   
   kind = INTVAL (src) == GOMP_DIM_GANG ? LOCK_GLOBAL : LOCK_SHARED;
+  kind = force_global_locks ? LOCK_GLOBAL : kind;
   lock_used[kind] = true;
 
   rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
@@ -3740,7 +3744,7 @@ nvptx_xform_lock (gimple stmt, const int *ARG_UNUSED (dims), unsigned ifn_code)
       return mode > GOMP_DIM_WORKER;
 
     case IFN_GOACC_LOCK_INIT:
-      return mode != GOMP_DIM_WORKER;
+      return force_global_lock || mode != GOMP_DIM_WORKER;
 
     default: gcc_unreachable();
     }
