@@ -127,10 +127,22 @@ class hsa_op_immed : public hsa_op_with_type
 {
 public:
   hsa_op_immed (tree tree_val, bool min32int = true);
+  hsa_op_immed (HOST_WIDE_INT int_value, BrigKind16_t type);
   void *operator new (size_t);
+  ~hsa_op_immed ();
+  void set_type (BrigKind16_t t);
 
   /* Value as represented by middle end.  */
-  tree value;
+  tree tree_value;
+
+  /* Integer value representation.  */
+  HOST_WIDE_INT int_value;
+
+  /* Brig data representation.  */
+  char *brig_repr;
+
+  /* Brig data representation size in bytes.  */
+  unsigned brig_repr_size;
 
 private:
   /* Make the default constructor inaccessible.  */
@@ -138,6 +150,7 @@ private:
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
   void operator delete (void *) {}
+  void emit_to_buffer (tree value);
 };
 
 /* Report whether or not P is a an immediate operand.  */
@@ -1007,10 +1020,19 @@ void hsa_regalloc (void);
 void hsa_brig_emit_function (void);
 void hsa_output_brig (void);
 BrigType16_t bittype_for_type (BrigType16_t t);
+unsigned hsa_get_imm_brig_type_len (BrigType16_t type);
 
 /*  In hsa-dump.c.  */
 const char *hsa_seg_name (BrigSegment8_t);
 void dump_hsa_bb (FILE *, hsa_bb *);
 void dump_hsa_cfun (FILE *);
+
+union hsa_bytes
+{
+  uint8_t b8;
+  uint16_t b16;
+  uint32_t b32;
+  uint64_t b64;
+};
 
 #endif /* HSA_H */

@@ -677,7 +677,22 @@ dump_hsa_reg (FILE *f, hsa_op_reg *reg, bool dump_type = false)
 static void
 dump_hsa_immed (FILE *f, hsa_op_immed *imm)
 {
-  print_generic_expr (f, imm->value, 0);
+  bool unsigned_int_type = (BRIG_TYPE_U8 | BRIG_TYPE_U16 | BRIG_TYPE_U32
+    | BRIG_TYPE_U64) & imm->type;
+
+  if (imm->tree_value)
+    print_generic_expr (f, imm->tree_value, 0);
+  else
+    {
+      gcc_checking_assert (imm->brig_repr_size <= 8);
+
+      if (unsigned_int_type)
+	fprintf (f, HOST_WIDE_INT_PRINT_DEC, imm->int_value);
+      else
+	fprintf (f, HOST_WIDE_INT_PRINT_UNSIGNED,
+		 (unsigned HOST_WIDE_INT)imm->int_value);
+    }
+
   fprintf (f, " (%s)", hsa_type_name (imm->type));
 }
 

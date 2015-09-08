@@ -785,7 +785,7 @@ regtype_for_type (BrigType16_t t)
 /* Return the length of the BRIG type TYPE that is going to be streamed out as
    an immediate constant (so it must not be B1).  */
 
-static unsigned
+unsigned
 hsa_get_imm_brig_type_len (BrigType16_t type)
 {
   BrigType16_t base_type = type & BRIG_TYPE_BASE_MASK;
@@ -833,20 +833,14 @@ hsa_get_imm_brig_type_len (BrigType16_t type)
     }
 }
 
-/* Emit one scalar VALUE to the data BRIG section.  If NEED_LEN is not equal to
-   zero, shrink or extend the value to NEED_LEN bytes.  Return how many bytes
-   were written.  */
+/* Emit one scalar VALUE to the buffer DATA intended for BRIG emission.
+   If NEED_LEN is not equal to zero, shrink or extend the value
+   to NEED_LEN bytes.  Return how many bytes were written.  */
 
 static int
-emit_immediate_scalar_to_data_section (tree value, unsigned need_len)
+emit_immediate_scalar_to_buffer (tree value, char *data, unsigned need_len)
 {
-  union
-  {
-    uint8_t b8;
-    uint16_t b16;
-    uint32_t b32;
-    uint64_t b64;
-  } bytes;
+  union hsa_bytes bytes;
 
   memset (&bytes, 0, sizeof (bytes));
   tree type = TREE_TYPE (value);
@@ -905,8 +899,49 @@ emit_immediate_scalar_to_data_section (tree value, unsigned need_len)
   else
     len = need_len;
 
-  brig_data.add (&bytes, len);
+  memcpy (data, &bytes, len);
   return len;
+}
+
+void
+hsa_op_immed::emit_to_buffer (tree value)
+{
+  unsigned total_len = brig_repr_size;
+  brig_repr = XNEWVEC (char, total_len);
+  char *p = brig_repr;
+
+  if (TREE_CODE (value) == VECTOR_CST)
+    {
+      int i, num = VECTOR_CST_NELTS (value);
+      for (i = 0; i < num; i++)
+	{
+	  unsigned actual;
+	  actual = emit_immediate_scalar_to_buffer
+	    (VECTOR_CST_ELT (value, i), p, 0);
+	  total_len -= actual;
+	  p += actual;
+	}
+      /* Vectors should have the exact size.  */
+      gcc_assert (total_len == 0);
+    }
+  else if (TREE_CODE (value) == STRING_CST)
+    memcpy (brig_repr, TREE_STRING_POINTER (value), TREE_STRING_LENGTH (value));
+  else if (TREE_CODE (value) == COMPLEX_CST)
+    {
+      gcc_assert (total_len % 2 == 0);
+      unsigned actual;
+      actual = emit_immediate_scalar_to_buffer
+	(TREE_REALPART (value), p, total_len / 2);
+
+      gcc_assert (actual == total_len / 2);
+      p += actual;
+
+      actual = emit_immediate_scalar_to_buffer
+	(TREE_IMAGPART (value), p, total_len / 2);
+      gcc_assert (actual == total_len / 2);
+    }
+  else
+    emit_immediate_scalar_to_buffer (value, p, total_len);
 }
 
 /* Emit an immediate BRIG operand IMM.  The BRIG type of the immediate might
@@ -919,46 +954,15 @@ static void
 emit_immediate_operand (hsa_op_immed *imm)
 {
   struct BrigOperandConstantBytes out;
-  unsigned total_len = hsa_get_imm_brig_type_len (imm->type);
-
-  if (TREE_CODE (imm->value) == STRING_CST)
-    total_len = TREE_STRING_LENGTH (imm->value);
 
   memset (&out, 0, sizeof (out));
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
-  uint32_t byteCount = htole32 (total_len);
+  uint32_t byteCount = htole32 (imm->brig_repr_size);
   out.type = htole16 (imm->type);
   out.bytes = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_operand.add (&out, sizeof(out));
-
-  if (TREE_CODE (imm->value) == VECTOR_CST)
-    {
-      int i, num = VECTOR_CST_NELTS (imm->value);
-      for (i = 0; i < num; i++)
-	{
-	  unsigned actual;
-	  actual = emit_immediate_scalar_to_data_section
-	    (VECTOR_CST_ELT (imm->value, i), 0);
-	  total_len -= actual;
-	}
-      /* Vectors should have the exact size.  */
-      gcc_assert (total_len == 0);
-    }
-  else if (TREE_CODE (imm->value) == STRING_CST)
-    brig_data.add (TREE_STRING_POINTER (imm->value),
-		   TREE_STRING_LENGTH (imm->value));
-  else if (TREE_CODE (imm->value) == COMPLEX_CST)
-    {
-      gcc_assert (total_len % 2 == 0);
-      emit_immediate_scalar_to_data_section (TREE_REALPART (imm->value),
-					     total_len / 2);
-      emit_immediate_scalar_to_data_section (TREE_IMAGPART (imm->value),
-					     total_len / 2);
-    }
-  else
-    emit_immediate_scalar_to_data_section (imm->value, total_len);
-
+  brig_data.add (imm->brig_repr, imm->brig_repr_size);
   brig_data.round_size_up (4);
 }
 

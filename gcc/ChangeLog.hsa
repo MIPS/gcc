@@ -1,3 +1,16 @@
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_immediate_scalar_to_buffer): Add a new argument.
+	(emit_immediate_scalar_to_data_section): Likewise.
+	(hsa_op_immed::emit_to_buffer): New function.
+	(emit_immediate_operand): Emit prepared byte buffer.
+	* hsa-dump.c (dump_hsa_immed): Handle integer values.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Release allocated byte buffers.
+	(hsa_op_immed::hsa_op_immed): New.
+	(hsa_op_immed::~hsa_op_immed): Likewise.
+	(hsa_op_immed::set_type): New function.
+	* hsa.h (union hsa_bytes): New
+
 2015-09-04  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (emit_memory_insn): Use get_op.
