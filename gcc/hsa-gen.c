@@ -373,6 +373,44 @@ hsa_get_segment_addr_type (BrigSegment8_t segment)
   gcc_unreachable ();
 }
 
+/* Return integer brig type according to provided SIZE in bytes.  If SIGN
+   is set to true, return signed integer type.  */
+
+static BrigType16_t
+get_integer_type_by_bytes (unsigned size, bool sign)
+{
+  if (sign)
+    switch (size)
+      {
+      case 1:
+	return BRIG_TYPE_S8;
+      case 2:
+	return BRIG_TYPE_S16;
+      case 4:
+	return BRIG_TYPE_S32;
+      case 8:
+	return BRIG_TYPE_S64;
+      default:
+	break;
+      }
+  else
+    switch (size)
+      {
+      case 1:
+	return BRIG_TYPE_U8;
+      case 2:
+	return BRIG_TYPE_U16;
+      case 4:
+	return BRIG_TYPE_U32;
+      case 8:
+	return BRIG_TYPE_U64;
+      default:
+	break;
+      }
+
+  return 0;
+}
+
 /* Return HSA type for tree TYPE, which has to fit into BrigType16_t.  Pointers
    are assumed to use flat addressing.  If min32int is true, always expand
    integer types to one that has at least 32 bits.  */
@@ -407,50 +445,10 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
     }
 
   bsize = tree_to_uhwi (TYPE_SIZE (base));
+  unsigned byte_size = bsize / BITS_PER_UNIT;
   if (INTEGRAL_TYPE_P (base))
-    {
-      if (TYPE_UNSIGNED (base))
-	{
-	  switch (bsize)
-	    {
-	    case 8:
-	      res = BRIG_TYPE_U8;
-	      break;
-	    case 16:
-	      res = BRIG_TYPE_U16;
-	      break;
-	    case 32:
-	      res = BRIG_TYPE_U32;
-	      break;
-	    case 64:
-	      res = BRIG_TYPE_U64;
-	      break;
-	    default:
-	      break;
-	    }
-	}
-      else
-	{
-	  switch (bsize)
-	    {
-	    case 8:
-	      res = BRIG_TYPE_S8;
-	      break;
-	    case 16:
-	      res = BRIG_TYPE_S16;
-	      break;
-	    case 32:
-	      res = BRIG_TYPE_S32;
-	      break;
-	    case 64:
-	      res = BRIG_TYPE_S64;
-	      break;
-	    default:
-	      break;
-	    }
-	}
-    }
-  if (SCALAR_FLOAT_TYPE_P (base))
+    res = get_integer_type_by_bytes (byte_size, !TYPE_UNSIGNED (base));
+  else if (SCALAR_FLOAT_TYPE_P (base))
     {
       switch (bsize)
 	{
@@ -1959,67 +1957,6 @@ get_bitfield_size (unsigned bitpos, unsigned bitsize)
 
   gcc_unreachable ();
   return 0;
-}
-
-/* Return integer brig type according to provided SIZE in bytes.  If SIGN
-   is set to true, return signed integer type.  */
-
-static BrigType16_t
-get_integer_type_by_bytes (unsigned size, bool sign)
-{
-  if (sign)
-    switch (size)
-      {
-      case 1:
-	return BRIG_TYPE_S8;
-      case 2:
-	return BRIG_TYPE_S16;
-      case 4:
-	return BRIG_TYPE_S32;
-      case 8:
-	return BRIG_TYPE_S64;
-      default:
-	break;
-      }
-  else
-    switch (size)
-      {
-      case 1:
-	return BRIG_TYPE_U8;
-      case 2:
-	return BRIG_TYPE_U16;
-      case 4:
-	return BRIG_TYPE_U32;
-      case 8:
-	return BRIG_TYPE_U64;
-      default:
-	break;
-      }
-
-  gcc_unreachable ();
-  return 0;
-}
-
-/* Return unsigned integer tree type wite SIZE bytes.  */
-
-static tree
-get_integer_tree_type_by_bytes (unsigned size)
-{
-  switch (size)
-    {
-    case 1:
-      return char_type_node;
-    case 2:
-      return uint16_type_node;
-    case 4:
-      return uint32_type_node;
-    case 8:
-      return uint64_type_node;
-    default:
-      gcc_unreachable ();
-    }
-
-  return NULL_TREE;
 }
 
 /* Generate HSAIL instructions storing into memory.  LHS is the destination of

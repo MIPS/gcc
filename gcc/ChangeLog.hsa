@@ -1,5 +1,12 @@
 2015-09-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (get_integer_type_by_bytes): Return 0 if a type is not
+	an integer type.
+	(hsa_type_for_scalar_tree_type): Reuse the function.
+	(get_integer_tree_type_by_bytes): Remove unused function.
+
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_bitfield_load): Use newly added
 	ctor for hsa_op_immed.
 	(gen_hsa_insns_for_store): Likewise.
