@@ -1,3 +1,9 @@
+2015-09-09  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_opcode_op_output_p): Handle HSA_OPCODE_PHI, change
+	type of the opcode argument to int.
+	* hsa.h (hsa_opcode_op_output_p): Change declaration accordingly.
+
 2015-09-09  Martin Liska  <mliska@suse.cz>
 
 	* ipa-hsa.c (process_hsa_functions): Set force_output for functions

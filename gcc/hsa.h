@@ -984,7 +984,7 @@ void hsa_init_compilation_unit_data (void);
 void hsa_deinit_compilation_unit_data (void);
 bool hsa_machine_large_p (void);
 bool hsa_full_profile_p (void);
-bool hsa_opcode_op_output_p (BrigOpcode16_t, int);
+bool hsa_opcode_op_output_p (int, int);
 unsigned hsa_type_bit_size (BrigType16_t t);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 bool hsa_type_float_p (BrigType16_t type);

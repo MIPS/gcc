@@ -158,14 +158,15 @@ hsa_full_profile_p (void)
   return true;
 }
 
-/* Return true if operand number OPNUM of instruction with OPCODE is an output.
-   False if it is an input.  */
+/* Return true if a register in operand number OPNUM of instruction with OPCODE
+   is output of that instruction.  False if it is an input.  */
 
 bool
-hsa_opcode_op_output_p (BrigOpcode16_t opcode, int opnum)
+hsa_opcode_op_output_p (int opcode, int opnum)
 {
   switch (opcode)
     {
+    case HSA_OPCODE_PHI:
     case BRIG_OPCODE_CBR:
     case BRIG_OPCODE_ST:
       /* FIXME: There are probably missing cases here, double check.  */
