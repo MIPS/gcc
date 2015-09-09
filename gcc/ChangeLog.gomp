@@ -1,5 +1,10 @@
 2015-09-09  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (execute_oacc_transform): Use integer_zerop, not
+	direct node comparison.
+
+2015-09-09  Nathan Sidwell  <nathan@codesourcery.com>
+
 	Port from trunk:
 	* config/nvptx/nvptx.md (allocate_stack): Emit sorry.
 	(atomic_compare_and_swap<mode>_1): Use sel_truesi.

@@ -14829,7 +14829,7 @@ execute_oacc_transform ()
 
 	if (purpose[ix])
 	  {
-	    if (purpose[ix] == boolean_false_node)
+	    if (integer_zerop (purpose[ix]))
 	      fn_level = ix + 1;
 	    else if (fn_level < 0)
 	      fn_level = ix;
