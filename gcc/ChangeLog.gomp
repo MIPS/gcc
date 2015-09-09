@@ -1,3 +1,19 @@
+2015-09-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Port from trunk:
+	* config/nvptx/nvptx.md (allocate_stack): Emit sorry.
+	(atomic_compare_and_swap<mode>_1): Use sel_truesi.
+	* config/nvptx/nvptx.c (nvptx_write_function_decl): Reformat.
+	(nvptx_reorg_subreg): Pass insn pattern to asm_operands.
+	(walk_args_for_param): Use arg_promotion for both split and
+	non-split args.
+	(nvptx_declare_function_name): Insert formatting tabs for
+	consistency.  Look at crtl->stack_alignment_needed to determine
+	alignment.
+	(nvptx_get_drap_rtx): New.
+	(TARGET_GET_DRAP_RTX): Override.
+	* config/nvptx/nvptx.h (MAX_STACK_ALIGNMENT): Set.
+
 2015-09-09  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_xform_lock): Correct typo

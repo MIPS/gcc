@@ -425,7 +425,8 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
 
   /* Declare argument types.  */
   if ((args != NULL_TREE
-       && !(TREE_CODE (args) == TREE_LIST && TREE_VALUE (args) == void_type_node))
+       && !(TREE_CODE (args) == TREE_LIST
+	    && TREE_VALUE (args) == void_type_node))
       || is_main
       || return_in_mem
       || DECL_STATIC_CHAIN (decl))
@@ -509,8 +510,8 @@ walk_args_for_param (FILE *file, tree argtypes, tree args, bool write_copy,
 		mode = DFmode;
 
 	    }
-	  mode = arg_promotion (mode);
 	}
+      mode = arg_promotion (mode);
       while (count-- > 0)
 	{
 	  i++;
@@ -649,7 +650,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   else if (TYPE_MODE (result_type) != VOIDmode)
     {
       machine_mode mode = arg_promotion (TYPE_MODE (result_type));
-      fprintf (file, ".reg%s %%retval;\n",
+      fprintf (file, "\t.reg%s %%retval;\n",
 	       nvptx_ptx_type_from_mode (mode, false));
     }
 
@@ -701,9 +702,11 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   sz = get_frame_size ();
   if (sz > 0 || cfun->machine->has_call_with_sc)
     {
+      int alignment = crtl->stack_alignment_needed / BITS_PER_UNIT;
+
       fprintf (file, "\t.reg.u%d %%frame;\n"
-	       "\t.local.align 8 .b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
-	       BITS_PER_WORD, sz == 0 ? 1 : sz);
+	       "\t.local.align %d .b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
+	       BITS_PER_WORD, alignment, sz == 0 ? 1 : sz);
       fprintf (file, "\tcvta.local.u%d %%frame, %%farray;\n",
 	       BITS_PER_WORD);
     }
@@ -719,10 +722,10 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   walk_args_for_param (file, TYPE_ARG_TYPES (fntype), DECL_ARGUMENTS (decl),
 		       true, return_in_mem);
   if (return_in_mem)
-    fprintf (file, "ld.param.u%d %%ar1, [%%in_ar1];\n",
+    fprintf (file, "\tld.param.u%d %%ar1, [%%in_ar1];\n",
 	     GET_MODE_BITSIZE (Pmode));
   if (stdarg_p (fntype))
-    fprintf (file, "ld.param.u%d %%argp, [%%in_argp];\n",
+    fprintf (file, "\tld.param.u%d %%argp, [%%in_argp];\n",
 	     GET_MODE_BITSIZE (Pmode));
 }
 
@@ -828,6 +831,14 @@ static bool
 nvptx_function_ok_for_sibcall (tree, tree)
 {
   return false;
+}
+
+/* Return Dynamic ReAlignment Pointer RTX.  For PTX there isn't any.  */
+
+static rtx
+nvptx_get_drap_rtx (void)
+{
+  return NULL_RTX;
 }
 
 /* Implement the TARGET_CALL_ARGS hook.  Record information about one
@@ -4330,6 +4341,8 @@ nvptx_goacc_reduction (gimple call)
 #define TARGET_LIBCALL_VALUE nvptx_libcall_value
 #undef TARGET_FUNCTION_OK_FOR_SIBCALL
 #define TARGET_FUNCTION_OK_FOR_SIBCALL nvptx_function_ok_for_sibcall
+#undef TARGET_GET_DRAP_RTX
+#define TARGET_GET_DRAP_RTX nvptx_get_drap_rtx
 #undef TARGET_SPLIT_COMPLEX_ARG
 #define TARGET_SPLIT_COMPLEX_ARG hook_bool_const_tree_true
 #undef TARGET_RETURN_IN_MEMORY

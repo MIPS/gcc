@@ -1274,6 +1274,12 @@
    (match_operand 1 "nvptx_register_operand")]
   ""
 {
+  /* The ptx documentation specifies an alloca intrinsic (for 32 bit
+     only)  but notes it is not implemented.  The assembler emits a
+     confused error message.  Issue a blunt one now instead.  */
+  sorry ("target cannot support alloca.");
+  emit_insn (gen_nop ());
+  DONE;
   if (TARGET_ABI64)
     emit_insn (gen_allocate_stack_di (operands[0], operands[1]));
   else
@@ -1498,14 +1504,12 @@
    (match_operand:SI 7 "const_int_operand")]		;; failure model
   ""
 {
-  emit_insn (gen_atomic_compare_and_swap<mode>_1 (operands[1], operands[2], operands[3],
-					          operands[4], operands[6]));
+  emit_insn (gen_atomic_compare_and_swap<mode>_1
+    (operands[1], operands[2], operands[3], operands[4], operands[6]));
 
-  rtx tmp = gen_reg_rtx (GET_MODE (operands[0]));
-  emit_insn (gen_cstore<mode>4 (tmp,
-				gen_rtx_EQ (SImode, operands[1], operands[3]),
-				operands[1], operands[3]));
-  emit_insn (gen_andsi3 (operands[0], tmp, GEN_INT (1)));
+  rtx cond = gen_reg_rtx (BImode);
+  emit_move_insn (cond, gen_rtx_EQ (BImode, operands[1], operands[3]));
+  emit_insn (gen_sel_truesi (operands[0], cond, GEN_INT (1), GEN_INT (0)));
   DONE;
 })
 
