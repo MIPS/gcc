@@ -1,3 +1,8 @@
+2015-09-09  Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_xform_lock): Correct typo
+	of variable 'force_global_locks'.
+
 2015-09-08  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* config/nvptx/nvptx.c (force_global_lock): New global variable.

@@ -3744,7 +3744,7 @@ nvptx_xform_lock (gimple stmt, const int *ARG_UNUSED (dims), unsigned ifn_code)
       return mode > GOMP_DIM_WORKER;
 
     case IFN_GOACC_LOCK_INIT:
-      return force_global_lock || mode != GOMP_DIM_WORKER;
+      return force_global_locks || mode != GOMP_DIM_WORKER;
 
     default: gcc_unreachable();
     }
