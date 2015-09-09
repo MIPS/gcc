@@ -1,3 +1,8 @@
+2015-09-09  Martin Liska  <mliska@suse.cz>
+
+	* ipa-hsa.c (process_hsa_functions): Set force_output for functions
+	decorated with hsafunc attribute.
+
 2015-09-08  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (build_memset_value): New function.

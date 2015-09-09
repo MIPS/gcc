@@ -115,6 +115,8 @@ process_hsa_functions (void)
 	  cgraph_node *clone = node->create_virtual_clone
 	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
 
+	  if (!cgraph_local_p (node))
+	    clone->force_output = true;
 	  hsa_summaries->link_functions (clone, node, HSA_FUNCTION);
 
 	  if (dump_file)
