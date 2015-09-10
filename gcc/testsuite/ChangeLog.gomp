@@ -1,5 +1,8 @@
 2015-09-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/gomp/ordered-1.c: New test.
+	* c-c++-common/gomp/ordered-2.c: New test.
+
 	* g++.dg/gomp/pr67504.C (foo): Add test for ordered clause with
 	dependent argument.
 	* g++.dg/gomp/pr67522.C (foo): Add test for invalid array section

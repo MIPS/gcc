@@ -1,3 +1,20 @@
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* internal-fn.def (GOMP_SIMD_ORDERED_START, GOMP_SIMD_ORDERED_END):
+	New internal functions.
+	* omp-low.c (lower_omp_ordered): For ordered simd construct expand
+	GOMP_SIMD_ORDERED_{START,END} internal calls around the body
+	instead of GOMP_ordered_{start,end}, and set cfun->has_simduid_loops.
+	* passes.def (pass_simduid_cleanup): Schedule another copy of the
+	pass after all optimizations.
+	* tree-inline.c (remap_gimple_stmt): Set has_simduid_loops if
+	remapping GOMP_SIMD_ORDERED_{START,END} internal call.
+	* tree-vectorizer.c (adjust_simduid_builtins): Remove
+	GOMP_SIMD_ORDERED_{START,END} calls.
+	(vectorize_loops, pass_simduid_cleanup::execute): Adjust comments.
+	* internal-fn.c (expand_GOMP_SIMD_ORDERED_START,
+	expand_GOMP_SIMD_ORDERED_END): New functions.
+
 2015-09-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (scan_sharing_clauses): Don't ignore map with

@@ -12327,10 +12327,13 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
   gimple stmt = gsi_stmt (*gsi_p);
+  gomp_ordered *ord_stmt = as_a <gomp_ordered *> (stmt);
   gcall *x;
   gbind *bind;
+  bool simd
+    = find_omp_clause (gimple_omp_ordered_clauses (ord_stmt), OMP_CLAUSE_SIMD);
 
-  lower_omp_ordered_clauses (as_a <gomp_ordered *> (stmt), ctx);
+  lower_omp_ordered_clauses (ord_stmt, ctx);
 
   push_gimplify_context ();
 
@@ -12339,8 +12342,14 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gsi_replace (gsi_p, bind, true);
   gimple_bind_add_stmt (bind, stmt);
 
-  x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_ORDERED_START),
-			 0);
+  if (simd)
+    {
+      x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_START, 0);
+      cfun->has_simduid_loops = true;
+    }
+  else
+    x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_ORDERED_START),
+			   0);
   gimple_bind_add_stmt (bind, x);
 
   lower_omp (gimple_omp_body_ptr (stmt), ctx);
@@ -12348,7 +12357,11 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_bind_add_seq (bind, gimple_omp_body (stmt));
   gimple_omp_set_body (stmt, NULL);
 
-  x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_ORDERED_END), 0);
+  if (simd)
+    x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_END, 0);
+  else
+    x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_ORDERED_END),
+			   0);
   gimple_bind_add_stmt (bind, x);
 
   gimple_bind_add_stmt (bind, gimple_build_omp_return (true));
