@@ -4395,8 +4395,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     {
       if (error_operand_p (t))
 	return error_mark_node;
-      if (type_dependent_expression_p (t))
-	return NULL_TREE;
       if (REFERENCE_REF_P (t)
 	  && TREE_CODE (TREE_OPERAND (t, 0)) == COMPONENT_REF)
 	t = TREE_OPERAND (t, 0);
@@ -4405,7 +4403,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	  && is_omp
 	  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TO
-	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM))
+	      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FROM)
+	  && !type_dependent_expression_p (t))
 	{
 	  if (DECL_BIT_FIELD (TREE_OPERAND (t, 1)))
 	    {
@@ -4456,6 +4455,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
+      if (type_dependent_expression_p (ret))
+	return NULL_TREE;
       ret = convert_from_reference (ret);
       return ret;
     }
@@ -5715,7 +5716,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	case OMP_CLAUSE_LINEAR:
 	  field_ok = allow_fields;
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!type_dependent_expression_p (t))
+	  if ((VAR_P (t) || TREE_CODE (t) == PARM_DECL)
+	      && !type_dependent_expression_p (t))
 	    {
 	      tree type = TREE_TYPE (t);
 	      if ((OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
@@ -5758,7 +5760,9 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  else
 	    {
 	      t = mark_rvalue_use (t);
-	      if (!processing_template_decl)
+	      if (!processing_template_decl
+		  && (VAR_P (OMP_CLAUSE_DECL (c))
+		      || TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL))
 		{
 		  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL)
 		    t = maybe_constant_value (t);
@@ -7455,7 +7459,8 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
   iter_init = build_x_modify_expr (elocus,
 				   iter, PLUS_EXPR, iter_init,
 				   tf_warning_or_error);
-  iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
+  if (iter_init != error_mark_node)
+    iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
   finish_expr_stmt (iter_init);
   finish_expr_stmt (build_x_modify_expr (elocus,
 					 last, NOP_EXPR, decl,
