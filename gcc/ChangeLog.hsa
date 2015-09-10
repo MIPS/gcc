@@ -1,5 +1,12 @@
 2015-09-10  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_unary_operation): Change argument type.
+	(gen_hsa_insns_for_operation_assignment): Handle correctly
+	BRIG_OPCODE_CVT instruction. Change types of local variables.
+	(gen_hsa_unaryop_for_builtin): Likewise.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (convert_switch_statements): New function.
 	(pass_gen_hsail::execute): Call the function.
 

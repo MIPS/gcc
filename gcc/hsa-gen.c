@@ -2446,7 +2446,7 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
 
 static void
 gen_hsa_unary_operation (int opcode, hsa_op_reg *dest,
-			 hsa_op_base *op1, hsa_bb *hbb)
+			 hsa_op_with_type *op1, hsa_bb *hbb)
 {
   gcc_checking_assert (dest);
   hsa_insn_basic *insn = new hsa_insn_basic (2, opcode, dest->type, dest, op1);
@@ -2459,6 +2459,8 @@ gen_hsa_unary_operation (int opcode, hsa_op_reg *dest,
       else if (insn->type == BRIG_TYPE_U64)
 	insn->type = BRIG_TYPE_S64;
     }
+  else if (opcode == BRIG_OPCODE_MOV && hsa_needs_cvt (dest->type, op1->type))
+    insn->opcode = BRIG_OPCODE_CVT;
 
   hbb->append_insn (insn);
 }
@@ -2507,21 +2509,9 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
     {
     CASE_CONVERT:
     case FLOAT_EXPR:
-      {
-	/* HSA is a bit unforgiving with CVT, the types must not be
-	   same sized without float/int conversion, otherwise we need
-	   to use MOV.  */
-	tree tl = TREE_TYPE (lhs);
-	tree tr = TREE_TYPE (rhs1);
-	/* We don't need to check for float/float conversion of same size,
-	   as that wouldn't result in a gimple instruction.  */
-	if ((INTEGRAL_TYPE_P (tl) || POINTER_TYPE_P (tl))
-	    && (INTEGRAL_TYPE_P (tr) || POINTER_TYPE_P (tr))
-	    && TYPE_SIZE (tl) == TYPE_SIZE (tr))
-	  opcode = BRIG_OPCODE_MOV;
-	else
-	  opcode = BRIG_OPCODE_CVT;
-      }
+      /* The opcode is changed to BRIG_OPCODE_CVT if BRIG types
+	 needs a conversion.  */
+      opcode = BRIG_OPCODE_MOV;
       break;
 
     case PLUS_EXPR:
@@ -2756,8 +2746,8 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
 					     ssa_map);
 
   /* FIXME: Allocate an instruction with modifiers if appropriate.  */
-  hsa_op_base *op1 = hsa_reg_or_immed_for_gimple_op (rhs1, hbb, ssa_map);
-  hsa_op_base *op2 = rhs2 != NULL_TREE ?
+  hsa_op_with_type *op1 = hsa_reg_or_immed_for_gimple_op (rhs1, hbb, ssa_map);
+  hsa_op_with_type *op2 = rhs2 != NULL_TREE ?
     hsa_reg_or_immed_for_gimple_op (rhs2, hbb, ssa_map) : NULL;
 
   switch (rhs_class)
@@ -3381,8 +3371,8 @@ gen_hsa_unaryop_for_builtin (int opcode, gimple stmt, hsa_bb *hbb,
   if (!lhs)
     return;
   hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
-  hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0),
-						    hbb, ssa_map);
+  hsa_op_with_type *op = hsa_reg_or_immed_for_gimple_op
+    (gimple_call_arg (stmt, 0), hbb, ssa_map);
   gen_hsa_unary_operation (opcode, dest, op, hbb);
 }
 
