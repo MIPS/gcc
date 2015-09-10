@@ -1587,9 +1587,15 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
 	      disp1 = new hsa_op_reg (addrtype);
 	      hsa_insn_basic *insn = new hsa_insn_basic (3, BRIG_OPCODE_MUL,
 							 addrtype);
+
+	      /* As step must respect addrtype, we overwrite the type
+		 of an immediate value.  */
+	      hsa_op_immed *step = new hsa_op_immed (TMR_STEP (ref));
+	      step->type = addrtype;
+
 	      insn->set_op (0, disp1);
 	      insn->set_op (1, idx);
-	      insn->set_op (2, new hsa_op_immed (TMR_STEP (ref)));
+	      insn->set_op (2, step);
 	      hbb->append_insn (insn);
 	    }
 	  else

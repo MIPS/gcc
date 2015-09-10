@@ -1,3 +1,7 @@
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_addr): Fix TARGET_MEM_REF emission.
+
 2015-09-09  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (hsa_opcode_op_output_p): Handle HSA_OPCODE_PHI, change
