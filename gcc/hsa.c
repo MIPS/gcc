@@ -176,6 +176,148 @@ hsa_opcode_op_output_p (int opcode, int opnum)
     }
 }
 
+/* Return true if OPCODE is an floating-point bit instruction opcode.  */
+
+bool
+hsa_opcode_floating_bit_insn_p (BrigOpcode16_t opcode)
+{
+  switch (opcode)
+    {
+    case BRIG_OPCODE_NEG:
+    case BRIG_OPCODE_ABS:
+    case BRIG_OPCODE_CLASS:
+    case BRIG_OPCODE_COPYSIGN:
+      return true;
+    default:
+      return false;
+    }
+}
+
+/* Return the number of destination operands for this INSN.  */
+
+unsigned
+hsa_insn_basic::input_count ()
+{
+  switch (opcode)
+    {
+      default:
+	return 1;
+
+      case BRIG_OPCODE_NOP:
+	return 0;
+
+      case BRIG_OPCODE_EXPAND:
+	return 2;
+
+      case BRIG_OPCODE_LD:
+	/* ld_v[234] not yet handled.  */
+	return 1;
+
+      case BRIG_OPCODE_ST:
+	return 0;
+
+      case BRIG_OPCODE_ATOMICNORET:
+	return 0;
+
+      case BRIG_OPCODE_SIGNAL:
+	return 1;
+
+      case BRIG_OPCODE_SIGNALNORET:
+	return 0;
+
+      case BRIG_OPCODE_MEMFENCE:
+	return 0;
+
+      case BRIG_OPCODE_RDIMAGE:
+      case BRIG_OPCODE_LDIMAGE:
+      case BRIG_OPCODE_STIMAGE:
+      case BRIG_OPCODE_QUERYIMAGE:
+      case BRIG_OPCODE_QUERYSAMPLER:
+	sorry ("HSA image ops not handled");
+	return 0;
+
+      case BRIG_OPCODE_CBR:
+      case BRIG_OPCODE_BR:
+	return 0;
+
+      case BRIG_OPCODE_SBR:
+	return 0; /* ??? */
+
+      case BRIG_OPCODE_WAVEBARRIER:
+	return 0; /* ??? */
+
+      case BRIG_OPCODE_BARRIER:
+      case BRIG_OPCODE_ARRIVEFBAR:
+      case BRIG_OPCODE_INITFBAR:
+      case BRIG_OPCODE_JOINFBAR:
+      case BRIG_OPCODE_LEAVEFBAR:
+      case BRIG_OPCODE_RELEASEFBAR:
+      case BRIG_OPCODE_WAITFBAR:
+	return 0;
+
+      case BRIG_OPCODE_LDF:
+	return 1;
+
+      case BRIG_OPCODE_ACTIVELANECOUNT:
+      case BRIG_OPCODE_ACTIVELANEID:
+      case BRIG_OPCODE_ACTIVELANEMASK:
+      case BRIG_OPCODE_ACTIVELANEPERMUTE:
+	return 1; /* ??? */
+
+      case BRIG_OPCODE_CALL:
+      case BRIG_OPCODE_SCALL:
+      case BRIG_OPCODE_ICALL:
+	return 0;
+
+      case BRIG_OPCODE_RET:
+	return 0;
+
+      case BRIG_OPCODE_ALLOCA:
+	return 1;
+
+      case BRIG_OPCODE_CLEARDETECTEXCEPT:
+	return 0;
+
+      case BRIG_OPCODE_SETDETECTEXCEPT:
+	return 0;
+
+      case BRIG_OPCODE_PACKETCOMPLETIONSIG:
+      case BRIG_OPCODE_PACKETID:
+      case BRIG_OPCODE_CASQUEUEWRITEINDEX:
+      case BRIG_OPCODE_LDQUEUEREADINDEX:
+      case BRIG_OPCODE_LDQUEUEWRITEINDEX:
+      case BRIG_OPCODE_STQUEUEREADINDEX:
+      case BRIG_OPCODE_STQUEUEWRITEINDEX:
+	return 1; /* ??? */
+
+      case BRIG_OPCODE_ADDQUEUEWRITEINDEX:
+	return 1;
+
+      case BRIG_OPCODE_DEBUGTRAP:
+	return 0;
+
+      case BRIG_OPCODE_GROUPBASEPTR:
+      case BRIG_OPCODE_KERNARGBASEPTR:
+	return 1; /* ??? */
+
+      case HSA_OPCODE_ARG_BLOCK:
+	return 0;
+
+      case BRIG_KIND_DIRECTIVE_COMMENT:
+	return 0;
+    }
+}
+
+/* Return the number of source operands for this INSN.  */
+
+unsigned
+hsa_insn_basic::num_used_ops ()
+{
+  gcc_checking_assert (input_count () <= operand_count ());
+
+  return operand_count () - input_count ();
+}
+
 /* Return size of HSA type T in bits.  */
 
 unsigned

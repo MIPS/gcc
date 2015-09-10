@@ -261,121 +261,6 @@ rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
     }
 }
 
-/* Return the number of destination operands for this INSN.  */
-
-static int
-hsa_num_def_ops (hsa_insn_basic *insn)
-{
-  switch (insn->opcode)
-    {
-      default:
-	return 1;
-
-      case BRIG_OPCODE_NOP:
-	return 0;
-
-      case BRIG_OPCODE_EXPAND:
-	return 2;
-
-      case BRIG_OPCODE_LD:
-	/* ld_v[234] not yet handled.  */
-	return 1;
-
-      case BRIG_OPCODE_ST:
-	return 0;
-
-      case BRIG_OPCODE_ATOMICNORET:
-	return 0;
-
-      case BRIG_OPCODE_SIGNAL:
-	return 1;
-
-      case BRIG_OPCODE_SIGNALNORET:
-	return 0;
-
-      case BRIG_OPCODE_MEMFENCE:
-	return 0;
-
-      case BRIG_OPCODE_RDIMAGE:
-      case BRIG_OPCODE_LDIMAGE:
-      case BRIG_OPCODE_STIMAGE:
-      case BRIG_OPCODE_QUERYIMAGE:
-      case BRIG_OPCODE_QUERYSAMPLER:
-	sorry ("HSA image ops not handled");
-	return 0;
-
-      case BRIG_OPCODE_CBR:
-      case BRIG_OPCODE_BR:
-	return 0;
-
-      case BRIG_OPCODE_SBR:
-	return 0; /* ??? */
-
-      case BRIG_OPCODE_WAVEBARRIER:
-	return 0; /* ??? */
-
-      case BRIG_OPCODE_BARRIER:
-      case BRIG_OPCODE_ARRIVEFBAR:
-      case BRIG_OPCODE_INITFBAR:
-      case BRIG_OPCODE_JOINFBAR:
-      case BRIG_OPCODE_LEAVEFBAR:
-      case BRIG_OPCODE_RELEASEFBAR:
-      case BRIG_OPCODE_WAITFBAR:
-	return 0;
-
-      case BRIG_OPCODE_LDF:
-	return 1;
-
-      case BRIG_OPCODE_ACTIVELANECOUNT:
-      case BRIG_OPCODE_ACTIVELANEID:
-      case BRIG_OPCODE_ACTIVELANEMASK:
-      case BRIG_OPCODE_ACTIVELANEPERMUTE:
-	return 1; /* ??? */
-
-      case BRIG_OPCODE_CALL:
-      case BRIG_OPCODE_SCALL:
-      case BRIG_OPCODE_ICALL:
-	return 0;
-
-      case BRIG_OPCODE_RET:
-	return 0;
-
-      case BRIG_OPCODE_ALLOCA:
-	return 1;
-
-      case BRIG_OPCODE_CLEARDETECTEXCEPT:
-	return 0;
-
-      case BRIG_OPCODE_SETDETECTEXCEPT:
-	return 0;
-
-      case BRIG_OPCODE_PACKETCOMPLETIONSIG:
-      case BRIG_OPCODE_PACKETID:
-      case BRIG_OPCODE_CASQUEUEWRITEINDEX:
-      case BRIG_OPCODE_LDQUEUEREADINDEX:
-      case BRIG_OPCODE_LDQUEUEWRITEINDEX:
-      case BRIG_OPCODE_STQUEUEREADINDEX:
-      case BRIG_OPCODE_STQUEUEWRITEINDEX:
-	return 1; /* ??? */
-
-      case BRIG_OPCODE_ADDQUEUEWRITEINDEX:
-	return 1;
-
-      case BRIG_OPCODE_DEBUGTRAP:
-	return 0;
-
-      case BRIG_OPCODE_GROUPBASEPTR:
-      case BRIG_OPCODE_KERNARGBASEPTR:
-	return 1; /* ??? */
-
-      case HSA_OPCODE_ARG_BLOCK:
-	return 0;
-
-      case BRIG_KIND_DIRECTIVE_COMMENT:
-	return 0;
-    }
-}
-
 /* Dump current function to dump file F, with info specific
    to register allocation.  */
 
@@ -625,7 +510,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	  for (insn = hbb->last_insn; insn; insn = insn->prev)
 	    {
 	      unsigned opi;
-	      unsigned ndefs = hsa_num_def_ops (insn);
+	      unsigned ndefs = insn->input_count ();
 	      for (opi = 0; opi < ndefs && insn->get_op (opi); opi++)
 		{
 		  gcc_checking_assert (insn->get_op (opi));
@@ -673,7 +558,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
       for (insn = hbb->last_insn; insn; insn = insn->prev)
 	{
 	  unsigned opi;
-	  unsigned ndefs = hsa_num_def_ops (insn);
+	  unsigned ndefs = insn->input_count ();
 	  for (opi = 0; opi < insn->operand_count (); opi++)
 	    {
 	      gcc_checking_assert (insn->get_op (opi));

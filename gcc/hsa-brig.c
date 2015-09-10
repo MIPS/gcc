@@ -1636,13 +1636,14 @@ emit_basic_insn (hsa_insn_basic *insn)
 
   if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
     {
-      if (hsa_type_float_p (type))
+      if (hsa_type_float_p (type)
+	  && !hsa_opcode_floating_bit_insn_p (insn->opcode))
 	repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
       else
 	repr.round = 0;
       /* We assume that destination and sources agree in packing
          layout.  */
-      if (insn->operand_count () >= 2)
+      if (insn->num_used_ops () >= 2)
 	repr.pack = BRIG_PACK_PP;
       else
 	repr.pack = BRIG_PACK_P;

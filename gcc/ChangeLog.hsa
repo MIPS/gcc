@@ -1,3 +1,15 @@
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_basic_insn): Handle correctly packing and
+	rounding for a packed type insn.
+	* hsa-regalloc.c (hsa_num_def_ops): Remove implementation from
+	the source file.
+	(linear_scan_regalloc): Use newly added member function.
+	* hsa.c (hsa_insn_basic::input_count): New function.
+	(hsa_insn_basic::num_used_ops): New function.
+	(hsa_opcode_floating_bit_insn_p): New function.
+	* hsa.h: Add declaration of these functions.
+
 2015-09-10  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): Fix instruction
