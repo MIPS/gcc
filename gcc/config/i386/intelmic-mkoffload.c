@@ -241,18 +241,18 @@ generate_target_descr_file (const char *target_compiler)
     fatal_error (input_location, "cannot open '%s'", src_filename);
 
   fprintf (src_file,
-	   "extern void *__offload_funcs_end[];\n"
-	   "extern void *__offload_vars_end[];\n\n"
+	   "extern const void *const __offload_funcs_end[];\n"
+	   "extern const void *const __offload_vars_end[];\n\n"
 
-	   "void *__offload_func_table[0]\n"
+	   "const void *const __offload_func_table[0]\n"
 	   "__attribute__ ((__used__, visibility (\"hidden\"),\n"
 	   "section (\".gnu.offload_funcs\"))) = { };\n\n"
 
-	   "void *__offload_var_table[0]\n"
+	   "const void *const __offload_var_table[0]\n"
 	   "__attribute__ ((__used__, visibility (\"hidden\"),\n"
 	   "section (\".gnu.offload_vars\"))) = { };\n\n"
 
-	   "void *__OFFLOAD_TARGET_TABLE__[]\n"
+	   "const void *const __OFFLOAD_TARGET_TABLE__[]\n"
 	   "__attribute__ ((__used__, visibility (\"hidden\"))) = {\n"
 	   "  &__offload_func_table, &__offload_funcs_end,\n"
 	   "  &__offload_var_table, &__offload_vars_end\n"
@@ -301,11 +301,11 @@ generate_target_offloadend_file (const char *target_compiler)
     fatal_error (input_location, "cannot open '%s'", src_filename);
 
   fprintf (src_file,
-	   "void *__offload_funcs_end[0]\n"
+	   "const void *const __offload_funcs_end[0]\n"
 	   "__attribute__ ((__used__, visibility (\"hidden\"),\n"
 	   "section (\".gnu.offload_funcs\"))) = { };\n\n"
 
-	   "void *__offload_vars_end[0]\n"
+	   "const void *const __offload_vars_end[0]\n"
 	   "__attribute__ ((__used__, visibility (\"hidden\"),\n"
 	   "section (\".gnu.offload_vars\"))) = { };\n");
   fclose (src_file);
@@ -338,11 +338,11 @@ generate_host_descr_file (const char *host_compiler)
     fatal_error (input_location, "cannot open '%s'", src_filename);
 
   fprintf (src_file,
-	   "extern void *__OFFLOAD_TABLE__;\n"
-	   "extern void *__offload_image_intelmic_start;\n"
-	   "extern void *__offload_image_intelmic_end;\n\n"
+	   "extern const void *const __OFFLOAD_TABLE__;\n"
+	   "extern const void *const __offload_image_intelmic_start;\n"
+	   "extern const void *const __offload_image_intelmic_end;\n\n"
 
-	   "static const void *__offload_target_data[] = {\n"
+	   "static const void *const __offload_target_data[] = {\n"
 	   "  &__offload_image_intelmic_start, &__offload_image_intelmic_end\n"
 	   "};\n\n");
 
@@ -350,11 +350,11 @@ generate_host_descr_file (const char *host_compiler)
 	   "#ifdef __cplusplus\n"
 	   "extern \"C\"\n"
 	   "#endif\n"
-	   "void GOMP_offload_register (void *, int, void *);\n"
+	   "void GOMP_offload_register (const void *, int, const void *);\n"
 	   "#ifdef __cplusplus\n"
 	   "extern \"C\"\n"
 	   "#endif\n"
-	   "void GOMP_offload_unregister (void *, int, void *);\n\n"
+	   "void GOMP_offload_unregister (const void *, int, const void *);\n\n"
 
 	   "__attribute__((constructor))\n"
 	   "static void\n"
@@ -453,17 +453,18 @@ prepare_target_image (const char *target_compiler, int argc, char **argv)
   fork_execute (objcopy_argv[0], CONST_CAST (char **, objcopy_argv), false);
 
   /* Objcopy has created symbols, containing the input file name with
-     special characters replaced with '_'.  We are going to rename these
-     new symbols.  */
+     non-alphanumeric characters replaced by underscores.
+     We are going to rename these new symbols.  */
   size_t symbol_name_len = strlen (target_so_filename);
   char *symbol_name = XALLOCAVEC (char, symbol_name_len + 1);
-  for (size_t i = 0; i <= symbol_name_len; i++)
+  for (size_t i = 0; i < symbol_name_len; i++)
     {
       char c = target_so_filename[i];
-      if ((c == '/') || (c == '.'))
+      if (!ISALNUM (c))
 	c = '_';
       symbol_name[i] = c;
     }
+  symbol_name[symbol_name_len] = '\0';
 
   char *opt_for_objcopy[3];
   opt_for_objcopy[0] = XALLOCAVEC (char, sizeof ("_binary__start=")

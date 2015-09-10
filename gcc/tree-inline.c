@@ -21,12 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "gimple-predict.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "diagnostic-core.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -35,34 +38,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "insn-config.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tree-iterator.h"
 #include "intl.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -75,8 +62,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "except.h"
 #include "debug.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
@@ -88,7 +73,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "tree-chkp.h"
 
-#include "rtl.h"	/* FIXME: For asm_str_count.  */
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
@@ -864,8 +848,7 @@ remap_dependence_clique (copy_body_data *id, unsigned short clique)
   if (clique == 0)
     return 0;
   if (!id->dependence_map)
-    id->dependence_map
-      = new hash_map<unsigned short, unsigned short, dependence_hasher>;
+    id->dependence_map = new hash_map<dependence_hash, unsigned short>;
   bool existed;
   unsigned short &newc = id->dependence_map->get_or_insert (clique, &existed);
   if (!existed)
@@ -4570,7 +4553,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   id->src_cfun = DECL_STRUCT_FUNCTION (fn);
   id->call_stmt = stmt;
 
-  /* If the the src function contains an IFN_VA_ARG, then so will the dst
+  /* If the src function contains an IFN_VA_ARG, then so will the dst
      function after inlining.  */
   if ((id->src_cfun->curr_properties & PROP_gimple_lva) == 0)
     {
@@ -5866,7 +5849,6 @@ tree_function_versioning (tree old_decl, tree new_decl,
 
   fold_marked_statements (0, id.statements_to_fold);
   delete id.statements_to_fold;
-  fold_cond_expr_cond ();
   delete_unreachable_blocks_update_callgraph (&id);
   if (id.dst_node->definition)
     cgraph_edge::rebuild_references ();

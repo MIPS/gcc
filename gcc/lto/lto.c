@@ -23,45 +23,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "toplev.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "tm.h"
+#include "function.h"
+#include "bitmap.h"
+#include "cfghooks.h"
+#include "basic-block.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "diagnostic-core.h"
-#include "tm.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa-operands.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "bitmap.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "common.h"
 #include "debug.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "lto.h"
 #include "lto-tree.h"
-#include "lto-streamer.h"
-#include "lto-section-names.h"
 #include "tree-streamer.h"
+#include "lto-section-names.h"
 #include "splay-tree.h"
 #include "lto-partition.h"
-#include "data-streamer.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "ipa-inline.h"
@@ -940,10 +930,8 @@ struct tree_scc
   tree entries[1];
 };
 
-struct tree_scc_hasher : typed_noop_remove <tree_scc>
+struct tree_scc_hasher : nofree_ptr_hash <tree_scc>
 {
-  typedef tree_scc *value_type;
-  typedef tree_scc *compare_type;
   static inline hashval_t hash (const tree_scc *);
   static inline bool equal (const tree_scc *, const tree_scc *);
 };
@@ -1069,8 +1057,10 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       return false;
 
 
-  /* We don't want to compare locations, so there is nothing do compare
-     for TS_DECL_MINIMAL.  */
+  /* We want to compare locations up to the point where it makes
+     a difference for streaming - thus whether the decl is builtin or not.  */
+  if (CODE_CONTAINS_STRUCT (code, TS_DECL_MINIMAL))
+    compare_values (streamer_handle_as_builtin_p);
 
   if (CODE_CONTAINS_STRUCT (code, TS_DECL_COMMON))
     {
@@ -1162,7 +1152,6 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
     {
       compare_values (TYPE_MODE);
       compare_values (TYPE_STRING_FLAG);
-      compare_values (TYPE_NO_FORCE_BLK);
       compare_values (TYPE_NEEDS_CONSTRUCTING);
       if (RECORD_OR_UNION_TYPE_P (t1))
 	{
@@ -1319,6 +1308,7 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_tree_edges (DECL_SIZE (t1), DECL_SIZE (t2));
       compare_tree_edges (DECL_SIZE_UNIT (t1), DECL_SIZE_UNIT (t2));
       compare_tree_edges (DECL_ATTRIBUTES (t1), DECL_ATTRIBUTES (t2));
+      compare_tree_edges (DECL_ABSTRACT_ORIGIN (t1), DECL_ABSTRACT_ORIGIN (t2));
       if ((code == VAR_DECL
 	   || code == PARM_DECL)
 	  && DECL_HAS_VALUE_EXPR_P (t1))

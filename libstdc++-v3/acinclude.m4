@@ -1809,6 +1809,52 @@ AC_DEFUN([GLIBCXX_CHECK_C99_TR1], [
 ])
 
 dnl
+dnl Check for uchar.h and usability.
+dnl
+AC_DEFUN([GLIBCXX_CHECK_UCHAR_H], [
+
+  # Test uchar.h.
+  AC_CHECK_HEADERS(uchar.h, ac_has_uchar_h=yes, ac_has_uchar_h=no)
+
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -std=c++11"
+
+  if test x"$ac_has_uchar_h" = x"yes"; then
+    AC_MSG_CHECKING([for ISO C11 support for <uchar.h>])
+    AC_TRY_COMPILE([#include <uchar.h>
+		    #ifdef __STDC_UTF_16__
+		    long i = __STDC_UTF_16__;
+		    #endif
+		    #ifdef __STDC_UTF_32__
+		    long j = __STDC_UTF_32__;
+		    #endif
+		    namespace test
+		    {
+		      using ::c16rtomb;
+		      using ::c32rtomb;
+		      using ::mbrtoc16;
+		      using ::mbrtoc32;
+		    }
+		   ],
+		   [], [ac_c11_uchar_cxx11=yes], [ac_c11_uchar_cxx11=no])
+  else
+    ac_c11_uchar_cxx11=no
+  fi
+  AC_MSG_RESULT($ac_c11_uchar_cxx11)
+  if test x"$ac_c11_uchar_cxx11" = x"yes"; then
+    AC_DEFINE(_GLIBCXX_USE_C11_UCHAR_CXX11, 1,
+	      [Define if C11 functions in <uchar.h> should be imported into
+	      namespace std in <cuchar>.])
+  fi
+
+  CXXFLAGS="$ac_save_CXXFLAGS"
+  AC_LANG_RESTORE
+])
+
+
+dnl
 dnl Check whether "/dev/random" and "/dev/urandom" are available for the
 dnl random_device of "TR1" (Chapter 5.1, "Random number generation").
 dnl
@@ -2087,17 +2133,17 @@ AC_DEFUN([GLIBCXX_ENABLE_CLOCALE], [
     dragonfly)
       AC_MSG_RESULT(dragonfly)
 
-      CLOCALE_H=config/locale/generic/c_locale.h
+      CLOCALE_H=config/locale/dragonfly/c_locale.h
       CLOCALE_CC=config/locale/dragonfly/c_locale.cc
-      CCODECVT_CC=config/locale/generic/codecvt_members.cc
-      CCOLLATE_CC=config/locale/generic/collate_members.cc
+      CCODECVT_CC=config/locale/dragonfly/codecvt_members.cc
+      CCOLLATE_CC=config/locale/dragonfly/collate_members.cc
       CCTYPE_CC=config/locale/dragonfly/ctype_members.cc
       CMESSAGES_H=config/locale/generic/messages_members.h
       CMESSAGES_CC=config/locale/generic/messages_members.cc
-      CMONEY_CC=config/locale/generic/monetary_members.cc
-      CNUMERIC_CC=config/locale/generic/numeric_members.cc
-      CTIME_H=config/locale/generic/time_members.h
-      CTIME_CC=config/locale/generic/time_members.cc
+      CMONEY_CC=config/locale/dragonfly/monetary_members.cc
+      CNUMERIC_CC=config/locale/dragonfly/numeric_members.cc
+      CTIME_H=config/locale/dragonfly/time_members.h
+      CTIME_CC=config/locale/dragonfly/time_members.cc
       CLOCALE_INTERNAL_H=config/locale/generic/c++locale_internal.h
       ;;
 
@@ -2325,14 +2371,19 @@ AC_DEFUN([GLIBCXX_ENABLE_VTABLE_VERIFY], [
     case ${target_os} in
       cygwin*|mingw32*)
         VTV_CXXFLAGS="-fvtable-verify=std -Wl,-lvtv,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"
         vtv_cygmin=yes
+        ;;
+      darwin*)
+        VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u,_vtable_map_vars_start -Wl,-u,_vtable_map_vars_end"
+        VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,-rpath,${toplevel_builddir}/libvtv/.libs"
         ;;
       *)
         VTV_CXXFLAGS="-fvtable-verify=std -Wl,-u_vtable_map_vars_start,-u_vtable_map_vars_end"
+        VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"
         ;;
     esac
     VTV_PCH_CXXFLAGS="-fvtable-verify=std"
-    VTV_CXXLINKFLAGS="-L${toplevel_builddir}/libvtv/.libs -Wl,--rpath -Wl,${toplevel_builddir}/libvtv/.libs"		
   else
     VTV_CXXFLAGS= 
     VTV_PCH_CXXFLAGS=
@@ -3792,7 +3843,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_DUAL_ABI], [
   fi
   if test x"$enable_libstdcxx_dual_abi" != xyes; then
     AC_MSG_NOTICE([dual ABI is disabled])
-    default_libstdcxx_abi="c++98"
+    default_libstdcxx_abi="gcc4-compatible"
   fi
   GLIBCXX_CONDITIONAL(ENABLE_DUAL_ABI, test $enable_libstdcxx_dual_abi = yes)
 ])
@@ -3800,7 +3851,7 @@ AC_DEFUN([GLIBCXX_ENABLE_LIBSTDCXX_DUAL_ABI], [
 dnl
 dnl Check to see which ABI should be enabled by default.
 dnl
-dnl --with-default-libstdcxx-abi={c++98,c++11}
+dnl --with-default-libstdcxx-abi={gcc4-compatible,new}
 dnl
 dnl Defines:
 dnl  _GLIBCXX_USE_CXX11_ABI (always defined, either to 1 or 0)
@@ -3812,14 +3863,16 @@ AC_DEFUN([GLIBCXX_DEFAULT_ABI], [
     AS_HELP_STRING([--with-default-libstdcxx-abi],
                    [set the std::string ABI to use by default]),
     [case "$withval" in
-      c++98|gnu++98|c++03|gnu++03)  default_libstdcxx_abi="c++98" ;;
-      c++1?|gnu++1?)  default_libstdcxx_abi="c++11" ;;
-      *)  AC_MSG_ERROR([Invalid argument for --with-default-libstdcxx-abi]) ;;
-     esac],
-    [default_libstdcxx_abi="c++11"])
+      gcc4-compatible)  default_libstdcxx_abi="gcc4-compatible" ;;
+      new|cxx11)  default_libstdcxx_abi="new" ;;
+      c++*|gnu++*) AC_MSG_ERROR([Supported arguments for --with-default-libstdcxx-abi have changed, use "new" or "gcc4-compatible"]) ;;
+      *) AC_MSG_ERROR([Invalid argument for --with-default-libstdcxx-abi]) ;;
+     esac
+     ],
+    [default_libstdcxx_abi="new"])
   AC_MSG_RESULT(${default_libstdcxx_abi})
   fi
-  if test $default_libstdcxx_abi = "c++11"; then
+  if test $default_libstdcxx_abi = "new"; then
     glibcxx_cxx11_abi=1
     glibcxx_cxx98_abi=0
   else

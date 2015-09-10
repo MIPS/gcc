@@ -366,28 +366,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "regs.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "regs.h"
+#include "alias.h"
 #include "tm_p.h"
 #include "target.h"
 #include "flags.h"
-#include "obstack.h"
-#include "bitmap.h"
-#include "hard-reg-set.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "df.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -397,13 +387,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "recog.h"
 #include "params.h"
 #include "tree-pass.h"
 #include "output.h"
 #include "except.h"
 #include "reload.h"
 #include "diagnostic-core.h"
+#include "cfgloop.h"
+#include "ira.h"
+#include "alloc-pool.h"
 #include "ira-int.h"
 #include "lra.h"
 #include "dce.h"
@@ -1384,9 +1376,8 @@ setup_reg_class_relations (void)
 
 /* Output all uniform and important classes into file F.  */
 static void
-print_unform_and_important_classes (FILE *f)
+print_uniform_and_important_classes (FILE *f)
 {
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   int i, cl;
 
   fprintf (f, "Uniform classes:\n");
@@ -1411,7 +1402,6 @@ print_translated_classes (FILE *f, bool pressure_p)
   enum reg_class *class_translate = (pressure_p
 				     ? ira_pressure_class_translate
 				     : ira_allocno_class_translate);
-  static const char *const reg_class_names[] = REG_CLASS_NAMES;
   int i;
 
   fprintf (f, "%s classes:\n", pressure_p ? "Pressure" : "Allocno");
@@ -1428,7 +1418,7 @@ print_translated_classes (FILE *f, bool pressure_p)
 void
 ira_debug_allocno_classes (void)
 {
-  print_unform_and_important_classes (stderr);
+  print_uniform_and_important_classes (stderr);
   print_translated_classes (stderr, false);
   print_translated_classes (stderr, true);
 }
@@ -4367,7 +4357,7 @@ rtx_moveable_p (rtx *loc, enum op_type type)
       return rtx_moveable_p (&SET_DEST (x), OP_OUT);
 
     case UNSPEC_VOLATILE:
-      /* It is a bad idea to consider insns with with such rtl
+      /* It is a bad idea to consider insns with such rtl
 	 as moveable ones.  The insn scheduler also considers them as barrier
 	 for a reason.  */
       return false;

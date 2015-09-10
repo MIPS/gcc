@@ -1,3 +1,40 @@
+2015-08-24  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67284
+	* go-gcc.cc (Gcc_backend::define_builtin): Add NORETURN_P parameter.
+	Set TREE_THIS_VOLATILE.
+	(Gcc_backend::Gcc_backend): Mark __builtin_trap as a noreturn call.
+	Pass false to the rest of define_builtin calls.
+
+2015-07-31  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* go-lang.c (go_langhook_init_options_struct): Don't set
+	x_flag_split_stack.
+	(go_langhook_post_options): Set it here instead.
+
+2015-07-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gofrontend/backend.h: Fix double word typos.
+        * gofrontend/expressions.cc: Same.
+	* gospec.c: Same.
+
+2015-07-07  Andrew MacLeod  <amacleod@redhat.com>
+
+	* go-backend.c: Adjust includes.
+	* go-gcc.cc: Likewise.
+	* go-lang.c: Likewise.
+
+2015-06-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* go-gcc.cc: Remove ipa-ref.h and plugin-api.h from include list.
+
+2015-06-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* go-backend.c: Do not include input.h, line-map.h or is-a.h.
+	* go-gcc.cc: Likewise.
+	* go-lang.c: Likewise.
+	* go-system.h: Likewise.
+
 2015-06-08  Andrew MacLeod  <amacleod@redhat.com>
 
 	* go-backend.c : Adjust include files.

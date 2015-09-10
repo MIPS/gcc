@@ -31,11 +31,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "vec.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
+#include "inchash.h"
 #include "fold-const.h"
 
 #include "ada.h"

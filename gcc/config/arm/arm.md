@@ -1229,7 +1229,7 @@
   ""
 )
 
-(define_insn "*subsi3_compare0"
+(define_insn "subsi3_compare0"
   [(set (reg:CC_NOOV CC_REGNUM)
 	(compare:CC_NOOV
 	 (minus:SI (match_operand:SI 1 "arm_rhs_operand" "r,r,I")
@@ -3455,6 +3455,44 @@
    (set_attr "type" "multiple,multiple")]
 )
 
+;; t = (s/u)min (x, y)
+;; cc = cmp (t, z)
+;; is the same as
+;; cmp x, z
+;; cmpge(u) y, z
+
+(define_insn_and_split "*arm_smin_cmp"
+  [(set (reg:CC CC_REGNUM)
+	(compare:CC
+	 (smin:SI (match_operand:SI 0 "s_register_operand" "r")
+		  (match_operand:SI 1 "s_register_operand" "r"))
+	 (match_operand:SI 2 "s_register_operand" "r")))]
+  "TARGET_32BIT"
+  "#"
+  "&& reload_completed"
+  [(set (reg:CC CC_REGNUM)
+	(compare:CC (match_dup 0) (match_dup 2)))
+   (cond_exec (ge:CC (reg:CC CC_REGNUM) (const_int 0))
+	      (set (reg:CC CC_REGNUM)
+		   (compare:CC (match_dup 1) (match_dup 2))))]
+)
+
+(define_insn_and_split "*arm_umin_cmp"
+  [(set (reg:CC CC_REGNUM)
+	(compare:CC
+	 (umin:SI (match_operand:SI 0 "s_register_operand" "r")
+		  (match_operand:SI 1 "s_register_operand" "r"))
+	 (match_operand:SI 2 "s_register_operand" "r")))]
+  "TARGET_32BIT"
+  "#"
+  "&& reload_completed"
+  [(set (reg:CC CC_REGNUM)
+	(compare:CC (match_dup 0) (match_dup 2)))
+   (cond_exec (geu:CC (reg:CC CC_REGNUM) (const_int 0))
+	      (set (reg:CC CC_REGNUM)
+		   (compare:CC (match_dup 1) (match_dup 2))))]
+)
+
 (define_expand "umaxsi3"
   [(parallel [
     (set (match_operand:SI 0 "s_register_operand" "")
@@ -4553,7 +4591,7 @@
   "TARGET_32BIT"
   "#" ; "rsbs\\t%Q0, %1, #0\;sbc\\t%R0,%R0,%R0"
       ;; Don't care what register is input to sbc,
-      ;; since we just just need to propagate the carry.
+      ;; since we just need to propagate the carry.
   "&& reload_completed"
   [(parallel [(set (reg:CC CC_REGNUM)
                    (compare:CC (const_int 0) (match_dup 1)))
@@ -5481,6 +5519,42 @@
       if (!REG_P (operands[0]))
 	operands[1] = force_reg (DImode, operands[1]);
     }
+  if (REG_P (operands[0]) && REGNO (operands[0]) <= LAST_ARM_REGNUM
+      && !HARD_REGNO_MODE_OK (REGNO (operands[0]), DImode))
+    {
+      /* Avoid LDRD's into an odd-numbered register pair in ARM state
+	 when expanding function calls.  */
+      gcc_assert (can_create_pseudo_p ());
+      if (MEM_P (operands[1]) && MEM_VOLATILE_P (operands[1]))
+	{
+	  /* Perform load into legal reg pair first, then move.  */
+	  rtx reg = gen_reg_rtx (DImode);
+	  emit_insn (gen_movdi (reg, operands[1]));
+	  operands[1] = reg;
+	}
+      emit_move_insn (gen_lowpart (SImode, operands[0]),
+		      gen_lowpart (SImode, operands[1]));
+      emit_move_insn (gen_highpart (SImode, operands[0]),
+		      gen_highpart (SImode, operands[1]));
+      DONE;
+    }
+  else if (REG_P (operands[1]) && REGNO (operands[1]) <= LAST_ARM_REGNUM
+	   && !HARD_REGNO_MODE_OK (REGNO (operands[1]), DImode))
+    {
+      /* Avoid STRD's from an odd-numbered register pair in ARM state
+	 when expanding function prologue.  */
+      gcc_assert (can_create_pseudo_p ());
+      rtx split_dest = (MEM_P (operands[0]) && MEM_VOLATILE_P (operands[0]))
+		       ? gen_reg_rtx (DImode)
+		       : operands[0];
+      emit_move_insn (gen_lowpart (SImode, split_dest),
+		      gen_lowpart (SImode, operands[1]));
+      emit_move_insn (gen_highpart (SImode, split_dest),
+		      gen_highpart (SImode, operands[1]));
+      if (split_dest != operands[0])
+	emit_insn (gen_movdi (operands[0], split_dest));
+      DONE;
+    }
   "
 )
 
@@ -5700,7 +5774,7 @@
   [(set (match_operand:SI 0 "nonimmediate_operand" "=r")
 	(lo_sum:SI (match_operand:SI 1 "nonimmediate_operand" "0")
 		   (match_operand:SI 2 "general_operand"      "i")))]
-  "arm_arch_thumb2"
+  "arm_arch_thumb2 && arm_valid_symbolic_address_p (operands[2])"
   "movt%?\t%0, #:upper16:%c2"
   [(set_attr "predicable" "yes")
    (set_attr "predicable_short_it" "no")
@@ -8088,8 +8162,7 @@
         size += GET_MODE_SIZE (GET_MODE (src));
       }
 
-    emit_call_insn (GEN_CALL_VALUE (par, operands[0], const0_rtx, NULL,
-				    const0_rtx));
+    emit_call_insn (gen_call_value (par, operands[0], const0_rtx, NULL));
 
     size = 0;
 
@@ -10028,21 +10101,24 @@
    (set_attr "type" "multiple")]
 )
 
-(define_insn "*if_neg_move"
-  [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
+(define_insn_and_split "*if_neg_move"
+  [(set (match_operand:SI 0 "s_register_operand" "=l,r")
 	(if_then_else:SI
 	 (match_operator 4 "arm_comparison_operator"
 	  [(match_operand 3 "cc_register" "") (const_int 0)])
-	 (neg:SI (match_operand:SI 2 "s_register_operand" "r,r,r"))
-	 (match_operand:SI 1 "arm_not_operand" "0,?rI,K")))]
-  "TARGET_ARM"
-  "@
-   rsb%d4\\t%0, %2, #0
-   mov%D4\\t%0, %1\;rsb%d4\\t%0, %2, #0
-   mvn%D4\\t%0, #%B1\;rsb%d4\\t%0, %2, #0"
+	 (neg:SI (match_operand:SI 2 "s_register_operand" "l,r"))
+	 (match_operand:SI 1 "s_register_operand" "0,0")))]
+  "TARGET_32BIT"
+  "#"
+  "&& reload_completed"
+  [(cond_exec (match_op_dup 4 [(match_dup 3) (const_int 0)])
+	      (set (match_dup 0) (neg:SI (match_dup 2))))]
+  ""
   [(set_attr "conds" "use")
-   (set_attr "length" "4,8,8")
-   (set_attr "type" "logic_shift_imm,multiple,multiple")]
+   (set_attr "length" "4")
+   (set_attr "arch" "t2,32")
+   (set_attr "enabled_for_depr_it" "yes,no")
+   (set_attr "type" "logic_shift_imm")]
 )
 
 (define_insn "*ifcompare_move_neg"
@@ -10061,21 +10137,34 @@
    (set_attr "type" "multiple")]
 )
 
-(define_insn "*if_move_neg"
-  [(set (match_operand:SI 0 "s_register_operand" "=r,r,r")
+(define_insn_and_split "*if_move_neg"
+  [(set (match_operand:SI 0 "s_register_operand" "=l,r")
 	(if_then_else:SI
 	 (match_operator 4 "arm_comparison_operator"
 	  [(match_operand 3 "cc_register" "") (const_int 0)])
-	 (match_operand:SI 1 "arm_not_operand" "0,?rI,K")
-	 (neg:SI (match_operand:SI 2 "s_register_operand" "r,r,r"))))]
-  "TARGET_ARM"
-  "@
-   rsb%D4\\t%0, %2, #0
-   mov%d4\\t%0, %1\;rsb%D4\\t%0, %2, #0
-   mvn%d4\\t%0, #%B1\;rsb%D4\\t%0, %2, #0"
+	 (match_operand:SI 1 "s_register_operand" "0,0")
+	 (neg:SI (match_operand:SI 2 "s_register_operand" "l,r"))))]
+  "TARGET_32BIT"
+  "#"
+  "&& reload_completed"
+  [(cond_exec (match_dup 5)
+	      (set (match_dup 0) (neg:SI (match_dup 2))))]
+  {
+    machine_mode mode = GET_MODE (operands[3]);
+    rtx_code rc = GET_CODE (operands[4]);
+
+    if (mode == CCFPmode || mode == CCFPEmode)
+      rc = reverse_condition_maybe_unordered (rc);
+    else
+      rc = reverse_condition (rc);
+
+    operands[5] = gen_rtx_fmt_ee (rc, VOIDmode, operands[3], const0_rtx);
+  }
   [(set_attr "conds" "use")
-   (set_attr "length" "4,8,8")
-   (set_attr "type" "logic_shift_imm,multiple,multiple")]
+   (set_attr "length" "4")
+   (set_attr "arch" "t2,32")
+   (set_attr "enabled_for_depr_it" "yes,no")
+   (set_attr "type" "logic_shift_imm")]
 )
 
 (define_insn "*arith_adjacentmem"
@@ -11051,6 +11140,75 @@
              (match_dup 3)))]
   "TARGET_THUMB"
   ""
+)
+
+;; ARM-specific expansion of signed mod by power of 2
+;; using conditional negate.
+;; For r0 % n where n is a power of 2 produce:
+;; rsbs    r1, r0, #0
+;; and     r0, r0, #(n - 1)
+;; and     r1, r1, #(n - 1)
+;; rsbpl   r0, r1, #0
+
+(define_expand "modsi3"
+  [(match_operand:SI 0 "register_operand" "")
+   (match_operand:SI 1 "register_operand" "")
+   (match_operand:SI 2 "const_int_operand" "")]
+  "TARGET_32BIT"
+  {
+    HOST_WIDE_INT val = INTVAL (operands[2]);
+
+    if (val <= 0
+       || exact_log2 (val) <= 0)
+      FAIL;
+
+    rtx mask = GEN_INT (val - 1);
+
+    /* In the special case of x0 % 2 we can do the even shorter:
+	cmp     r0, #0
+	and     r0, r0, #1
+	rsblt   r0, r0, #0.  */
+
+    if (val == 2)
+      {
+	rtx cc_reg = arm_gen_compare_reg (LT,
+					  operands[1], const0_rtx, NULL_RTX);
+	rtx cond = gen_rtx_LT (SImode, cc_reg, const0_rtx);
+	rtx masked = gen_reg_rtx (SImode);
+
+	emit_insn (gen_andsi3 (masked, operands[1], mask));
+	emit_move_insn (operands[0],
+			gen_rtx_IF_THEN_ELSE (SImode, cond,
+					      gen_rtx_NEG (SImode,
+							   masked),
+					      masked));
+	DONE;
+      }
+
+    rtx neg_op = gen_reg_rtx (SImode);
+    rtx_insn *insn = emit_insn (gen_subsi3_compare0 (neg_op, const0_rtx,
+						      operands[1]));
+
+    /* Extract the condition register and mode.  */
+    rtx cmp = XVECEXP (PATTERN (insn), 0, 0);
+    rtx cc_reg = SET_DEST (cmp);
+    rtx cond = gen_rtx_GE (SImode, cc_reg, const0_rtx);
+
+    emit_insn (gen_andsi3 (operands[0], operands[1], mask));
+
+    rtx masked_neg = gen_reg_rtx (SImode);
+    emit_insn (gen_andsi3 (masked_neg, neg_op, mask));
+
+    /* We want a conditional negate here, but emitting COND_EXEC rtxes
+       during expand does not always work.  Do an IF_THEN_ELSE instead.  */
+    emit_move_insn (operands[0],
+		    gen_rtx_IF_THEN_ELSE (SImode, cond,
+					  gen_rtx_NEG (SImode, masked_neg),
+					  operands[0]));
+
+
+    DONE;
+  }
 )
 
 (define_expand "bswapsi2"

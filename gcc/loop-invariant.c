@@ -37,23 +37,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
-#include "obstack.h"
-#include "predict.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "cfgloop.h"
-#include "symtab.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -65,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "recog.h"
 #include "target.h"
-#include "df.h"
 #include "except.h"
 #include "params.h"
 #include "regs.h"
@@ -442,10 +434,8 @@ invariant_expr_equal_p (rtx_insn *insn1, rtx e1, rtx_insn *insn2, rtx e2)
   return true;
 }
 
-struct invariant_expr_hasher : typed_free_remove <invariant_expr_entry>
+struct invariant_expr_hasher : free_ptr_hash <invariant_expr_entry>
 {
-  typedef invariant_expr_entry *value_type;
-  typedef invariant_expr_entry *compare_type;
   static inline hashval_t hash (const invariant_expr_entry *);
   static inline bool equal (const invariant_expr_entry *,
 			    const invariant_expr_entry *);
@@ -686,6 +676,8 @@ find_defs (struct loop *loop)
   df_remove_problem (df_chain);
   df_process_deferred_rescans ();
   df_chain_add_problem (DF_UD_CHAIN);
+  df_live_add_problem ();
+  df_live_set_all_dirty ();
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
   df_analyze_loop (loop);
   check_invariant_table_size ();
@@ -738,7 +730,8 @@ create_new_invariant (struct def *def, rtx_insn *insn, bitmap depends_on,
     }
   else
     {
-      inv->cost = set_src_cost (SET_SRC (set), speed);
+      inv->cost = set_src_cost (SET_SRC (set), GET_MODE (SET_DEST (set)),
+				speed);
       inv->cheap_address = false;
     }
 
@@ -1638,6 +1631,7 @@ move_invariant_reg (struct loop *loop, unsigned invno)
 	fprintf (dump_file, "Invariant %d moved without introducing a new "
 			    "temporary register\n", invno);
       reorder_insns (inv->insn, inv->insn, BB_END (preheader));
+      df_recompute_luids (preheader);
 
       /* If there is a REG_EQUAL note on the insn we just moved, and the
 	 insn is in a basic block that is not always executed or the note
@@ -2001,11 +1995,11 @@ calculate_loop_reg_pressure (void)
 
 	  note_stores (PATTERN (insn), mark_reg_store, NULL);
 
-#ifdef AUTO_INC_DEC
-	  for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
-	    if (REG_NOTE_KIND (link) == REG_INC)
-	      mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
-#endif
+	  if (AUTO_INC_DEC)
+	    for (link = REG_NOTES (insn); link; link = XEXP (link, 1))
+	      if (REG_NOTE_KIND (link) == REG_INC)
+		mark_reg_store (XEXP (link, 0), NULL_RTX, NULL);
+
 	  while (n_regs_set-- > 0)
 	    {
 	      rtx note = find_regno_note (insn, REG_UNUSED,

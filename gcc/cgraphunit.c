@@ -160,35 +160,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stringpool.h"
+#include "gimple-ssa.h"
 #include "output.h"
-#include "rtl.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "basic-block.h"
-#include "dominance.h"
 #include "cfgcleanup.h"
-#include "cfg.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
@@ -201,8 +190,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "params.h"
 #include "intl.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
@@ -476,10 +463,6 @@ cgraph_node::finalize_function (tree decl, bool no_collect)
   /* If we've not yet emitted decl, tell the debug info about it.  */
   if (!TREE_ASM_WRITTEN (decl))
     (*debug_hooks->deferred_inline_function) (decl);
-
-  /* Possibly warn about unused parameters.  */
-  if (warn_unused_parameter)
-    do_warn_unused_parameter (decl);
 
   if (!no_collect)
     ggc_collect ();
@@ -2499,15 +2482,18 @@ symbol_table::finalize_compilation_unit (void)
   /* Gimplify and lower thunks.  */
   analyze_functions (/*first_time=*/false);
 
-  /* Emit early debug for reachable functions, and by consequence,
-     locally scoped symbols.  */
-  struct cgraph_node *cnode;
-  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
-    (*debug_hooks->early_global_decl) (cnode->decl);
+  if (!seen_error ())
+    {
+      /* Emit early debug for reachable functions, and by consequence,
+	 locally scoped symbols.  */
+      struct cgraph_node *cnode;
+      FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
+	(*debug_hooks->early_global_decl) (cnode->decl);
 
-  /* Clean up anything that needs cleaning up after initial debug
-     generation.  */
-  (*debug_hooks->early_finish) ();
+      /* Clean up anything that needs cleaning up after initial debug
+	 generation.  */
+      (*debug_hooks->early_finish) ();
+    }
 
   /* Finally drive the pass manager.  */
   compile ();
@@ -2557,6 +2543,7 @@ cgraph_node::create_wrapper (cgraph_node *target)
   memset (&thunk, 0, sizeof (cgraph_thunk_info));
   thunk.thunk_p = true;
   create_edge (target, NULL, count, CGRAPH_FREQ_BASE);
+  callees->can_throw_external = !TREE_NOTHROW (target->decl);
 
   tree arguments = DECL_ARGUMENTS (decl);
 

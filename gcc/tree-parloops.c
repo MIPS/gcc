@@ -22,37 +22,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
+#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "stor-layout.h"
 #include "tree-nested.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
@@ -69,10 +55,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-parloops.h"
 #include "omp-low.h"
 #include "tree-nested.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa.h"
+#include "params.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
    The implementation is straightforward -- for each loop we test whether its
@@ -221,10 +206,8 @@ struct reduction_info
 
 /* Reduction info hashtable helpers.  */
 
-struct reduction_hasher : typed_free_remove <reduction_info>
+struct reduction_hasher : free_ptr_hash <reduction_info>
 {
-  typedef reduction_info *value_type;
-  typedef reduction_info *compare_type;
   static inline hashval_t hash (const reduction_info *);
   static inline bool equal (const reduction_info *, const reduction_info *);
 };
@@ -273,10 +256,8 @@ struct name_to_copy_elt
 
 /* Name copies hashtable helpers.  */
 
-struct name_to_copy_hasher : typed_free_remove <name_to_copy_elt>
+struct name_to_copy_hasher : free_ptr_hash <name_to_copy_elt>
 {
-  typedef name_to_copy_elt *value_type;
-  typedef name_to_copy_elt *compare_type;
   static inline hashval_t hash (const name_to_copy_elt *);
   static inline bool equal (const name_to_copy_elt *, const name_to_copy_elt *);
 };
@@ -569,6 +550,14 @@ take_address_of (tree obj, tree type, edge entry,
   return name;
 }
 
+static tree
+reduc_stmt_res (gimple stmt)
+{
+  return (gimple_code (stmt) == GIMPLE_PHI
+	  ? gimple_phi_result (stmt)
+	  : gimple_assign_lhs (stmt));
+}
+
 /* Callback for htab_traverse.  Create the initialization statement
    for reduction described in SLOT, and place it at the preheader of
    the loop described in DATA.  */
@@ -595,7 +584,7 @@ initialize_reductions (reduction_info **slot, struct loop *loop)
   c = build_omp_clause (gimple_location (reduc->reduc_stmt),
 			OMP_CLAUSE_REDUCTION);
   OMP_CLAUSE_REDUCTION_CODE (c) = reduc->reduction_code;
-  OMP_CLAUSE_DECL (c) = SSA_NAME_VAR (gimple_assign_lhs (reduc->reduc_stmt));
+  OMP_CLAUSE_DECL (c) = SSA_NAME_VAR (reduc_stmt_res (reduc->reduc_stmt));
 
   init = omp_reduction_init (c, TREE_TYPE (bvar));
   reduc->init = init;
@@ -1002,7 +991,7 @@ add_field_for_reduction (reduction_info **slot, tree type)
 {
 
   struct reduction_info *const red = *slot;
-  tree var = gimple_assign_lhs (red->reduc_stmt);
+  tree var = reduc_stmt_res (red->reduc_stmt);
   tree field = build_decl (gimple_location (red->reduc_stmt), FIELD_DECL,
 			   SSA_NAME_IDENTIFIER (var), TREE_TYPE (var));
 
@@ -1044,30 +1033,31 @@ create_phi_for_local_result (reduction_info **slot, struct loop *loop)
   struct reduction_info *const reduc = *slot;
   edge e;
   gphi *new_phi;
-  basic_block store_bb;
+  basic_block store_bb, continue_bb;
   tree local_res;
   source_location locus;
 
   /* STORE_BB is the block where the phi
      should be stored.  It is the destination of the loop exit.
      (Find the fallthru edge from GIMPLE_OMP_CONTINUE).  */
-  store_bb = FALLTHRU_EDGE (loop->latch)->dest;
+  continue_bb = single_pred (loop->latch);
+  store_bb = FALLTHRU_EDGE (continue_bb)->dest;
 
   /* STORE_BB has two predecessors.  One coming from  the loop
      (the reduction's result is computed at the loop),
      and another coming from a block preceding the loop,
      when no iterations
      are executed (the initial value should be taken).  */
-  if (EDGE_PRED (store_bb, 0) == FALLTHRU_EDGE (loop->latch))
+  if (EDGE_PRED (store_bb, 0) == FALLTHRU_EDGE (continue_bb))
     e = EDGE_PRED (store_bb, 1);
   else
     e = EDGE_PRED (store_bb, 0);
-  local_res = copy_ssa_name (gimple_assign_lhs (reduc->reduc_stmt));
+  tree lhs = reduc_stmt_res (reduc->reduc_stmt);
+  local_res = copy_ssa_name (lhs);
   locus = gimple_location (reduc->reduc_stmt);
   new_phi = create_phi_node (local_res, store_bb);
   add_phi_arg (new_phi, reduc->init, e, locus);
-  add_phi_arg (new_phi, gimple_assign_lhs (reduc->reduc_stmt),
-	       FALLTHRU_EDGE (loop->latch), locus);
+  add_phi_arg (new_phi, lhs, FALLTHRU_EDGE (continue_bb), locus);
   reduc->new_phi = new_phi;
 
   return 1;
@@ -1146,7 +1136,8 @@ create_call_for_reduction (struct loop *loop,
 {
   reduction_list->traverse <struct loop *, create_phi_for_local_result> (loop);
   /* Find the fallthru edge from GIMPLE_OMP_CONTINUE.  */
-  ld_st_data->load_bb = FALLTHRU_EDGE (loop->latch)->dest;
+  basic_block continue_bb = single_pred (loop->latch);
+  ld_st_data->load_bb = FALLTHRU_EDGE (continue_bb)->dest;
   reduction_list
     ->traverse <struct clsn_data *, create_call_for_reduction_1> (ld_st_data);
 }
@@ -1160,10 +1151,14 @@ create_loads_for_reductions (reduction_info **slot, struct clsn_data *clsn_data)
   struct reduction_info *const red = *slot;
   gimple stmt;
   gimple_stmt_iterator gsi;
-  tree type = TREE_TYPE (gimple_assign_lhs (red->reduc_stmt));
+  tree type = TREE_TYPE (reduc_stmt_res (red->reduc_stmt));
   tree load_struct;
   tree name;
   tree x;
+
+  /* If there's no exit phi, the result of the reduction is unused.  */
+  if (red->keep_res == NULL)
+    return 1;
 
   gsi = gsi_after_labels (clsn_data->load_bb);
   load_struct = build_simple_mem_ref (clsn_data->load);
@@ -1221,7 +1216,7 @@ create_stores_for_reduction (reduction_info **slot, struct clsn_data *clsn_data)
   tree t;
   gimple stmt;
   gimple_stmt_iterator gsi;
-  tree type = TREE_TYPE (gimple_assign_lhs (red->reduc_stmt));
+  tree type = TREE_TYPE (reduc_stmt_res (red->reduc_stmt));
 
   gsi = gsi_last_bb (clsn_data->store_bb);
   t = build3 (COMPONENT_REF, type, clsn_data->store, red->field, NULL_TREE);
@@ -1501,25 +1496,6 @@ replace_uses_in_bb_by (tree name, tree val, basic_block bb)
     }
 }
 
-/* Replace uses of NAME by VAL in blocks BBS.  */
-
-static void
-replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
-{
-  gimple use_stmt;
-  imm_use_iterator imm_iter;
-
-  FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, name)
-    {
-      if (!bitmap_bit_p (bbs, gimple_bb (use_stmt)->index))
-	continue;
-
-      use_operand_p use_p;
-      FOR_EACH_IMM_USE_ON_STMT (use_p, imm_iter)
-	SET_USE (use_p, val);
-    }
-}
-
 /* Do transformation from:
 
      <bb preheader>:
@@ -1544,7 +1520,7 @@ replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
      goto <bb header>
 
      <bb exit>:
-     sum_z = PHI <sum_b (cond[1])>
+     sum_z = PHI <sum_b (cond[1]), ...>
 
      [1] Where <bb cond> is single_pred (bb latch); In the simplest case,
 	 that's <bb header>.
@@ -1571,14 +1547,17 @@ replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
      if (ivtmp_c < n + 1)
        goto <bb header>;
      else
-       goto <bb exit>;
+       goto <bb newexit>;
 
      <bb latch>:
      ivtmp_b = ivtmp_a + 1;
      goto <bb newheader>
 
+     <bb newexit>:
+     sum_y = PHI <sum_c (newheader)>
+
      <bb exit>:
-     sum_z = PHI <sum_c (newheader)>
+     sum_z = PHI <sum_y (newexit), ...>
 
 
    In unified diff format:
@@ -1615,9 +1594,12 @@ replace_uses_in_bbs_by (tree name, tree val, bitmap bbs)
 -     goto <bb header>
 +     goto <bb newheader>
 
++    <bb newexit>:
++    sum_y = PHI <sum_c (newheader)>
+
       <bb exit>:
--     sum_z = PHI <sum_b (cond[1])>
-+     sum_z = PHI <sum_c (newheader)>
+-     sum_z = PHI <sum_b (cond[1]), ...>
++     sum_z = PHI <sum_y (newexit), ...>
 
    Note: the example does not show any virtual phis, but these are handled more
    or less as reductions.
@@ -1640,22 +1622,15 @@ transform_to_exit_first_loop_alt (struct loop *loop,
   tree control = gimple_cond_lhs (cond_stmt);
   edge e;
 
-  /* Gather the bbs dominated by the exit block.  */
-  bitmap exit_dominated = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (exit_dominated, exit_block->index);
-  vec<basic_block> exit_dominated_vec
-    = get_dominated_by (CDI_DOMINATORS, exit_block);
-
-  int i;
-  basic_block dom_bb;
-  FOR_EACH_VEC_ELT (exit_dominated_vec, i, dom_bb)
-    bitmap_set_bit (exit_dominated, dom_bb->index);
-
-  exit_dominated_vec.release ();
+  /* Rewriting virtuals into loop-closed ssa normal form makes this
+     transformation simpler.  It also ensures that the virtuals are in
+     loop-closed ssa normal from after the transformation, which is required by
+     create_parallel_loop.  */
+  rewrite_virtuals_into_loop_closed_ssa (loop);
 
   /* Create the new_header block.  */
   basic_block new_header = split_block_before_cond_jump (exit->src);
-  edge split_edge = single_pred_edge (new_header);
+  edge edge_at_split = single_pred_edge (new_header);
 
   /* Redirect entry edge to new_header.  */
   edge entry = loop_preheader_edge (loop);
@@ -1672,17 +1647,19 @@ transform_to_exit_first_loop_alt (struct loop *loop,
   e = redirect_edge_and_branch (post_cond_edge, header);
   gcc_assert (e == post_cond_edge);
 
-  /* Redirect split_edge to latch.  */
-  e = redirect_edge_and_branch (split_edge, latch);
-  gcc_assert (e == split_edge);
+  /* Redirect edge_at_split to latch.  */
+  e = redirect_edge_and_branch (edge_at_split, latch);
+  gcc_assert (e == edge_at_split);
 
   /* Set the new loop bound.  */
   gimple_cond_set_rhs (cond_stmt, bound);
+  update_stmt (cond_stmt);
 
   /* Repair the ssa.  */
   vec<edge_var_map> *v = redirect_edge_var_map_vector (post_inc_edge);
   edge_var_map *vm;
   gphi_iterator gsi;
+  int i;
   for (gsi = gsi_start_phis (header), i = 0;
        !gsi_end_p (gsi) && v->iterate (i, &vm);
        gsi_next (&gsi), i++)
@@ -1700,10 +1677,9 @@ transform_to_exit_first_loop_alt (struct loop *loop,
       /* Replace ivtmp/sum_b with ivtmp/sum_c in header phi.  */
       add_phi_arg (phi, res_c, post_cond_edge, UNKNOWN_LOCATION);
 
-      /* Replace sum_b with sum_c in exit phi.  Loop-closed ssa does not hold
-	 for virtuals, so we cannot get away with exit_block only.  */
+      /* Replace sum_b with sum_c in exit phi.  */
       tree res_b = redirect_edge_var_map_def (vm);
-      replace_uses_in_bbs_by (res_b, res_c, exit_dominated);
+      replace_uses_in_bb_by (res_b, res_c, exit_block);
 
       struct reduction_info *red = reduction_phi (reduction_list, phi);
       gcc_assert (virtual_operand_p (res_a)
@@ -1718,7 +1694,6 @@ transform_to_exit_first_loop_alt (struct loop *loop,
 	}
     }
   gcc_assert (gsi_end_p (gsi) && !v->iterate (i, &vm));
-  BITMAP_FREE (exit_dominated);
 
   /* Set the preheader argument of the new phis to ivtmp/sum_init.  */
   flush_pending_stmts (entry);
@@ -1726,21 +1701,36 @@ transform_to_exit_first_loop_alt (struct loop *loop,
   /* Set the latch arguments of the new phis to ivtmp/sum_b.  */
   flush_pending_stmts (post_inc_edge);
 
-  /* Register the reduction exit phis.  */
+  /* Create a new empty exit block, inbetween the new loop header and the old
+     exit block.  The function separate_decls_in_region needs this block to
+     insert code that is active on loop exit, but not any other path.  */
+  basic_block new_exit_block = split_edge (exit);
+
+  /* Insert and register the reduction exit phis.  */
   for (gphi_iterator gsi = gsi_start_phis (exit_block);
        !gsi_end_p (gsi);
        gsi_next (&gsi))
     {
       gphi *phi = gsi.phi ();
       tree res_z = PHI_RESULT (phi);
+
+      /* Now that we have a new exit block, duplicate the phi of the old exit
+	 block in the new exit block to preserve loop-closed ssa.  */
+      edge succ_new_exit_block = single_succ_edge (new_exit_block);
+      edge pred_new_exit_block = single_pred_edge (new_exit_block);
+      tree res_y = copy_ssa_name (res_z, phi);
+      gphi *nphi = create_phi_node (res_y, new_exit_block);
+      tree res_c = PHI_ARG_DEF_FROM_EDGE (phi, succ_new_exit_block);
+      add_phi_arg (nphi, res_c, pred_new_exit_block, UNKNOWN_LOCATION);
+      add_phi_arg (phi, res_y, succ_new_exit_block, UNKNOWN_LOCATION);
+
       if (virtual_operand_p (res_z))
 	continue;
 
-      tree res_c = PHI_ARG_DEF_FROM_EDGE (phi, exit);
       gimple reduc_phi = SSA_NAME_DEF_STMT (res_c);
       struct reduction_info *red = reduction_phi (reduction_list, reduc_phi);
       if (red != NULL)
-	red->keep_res = phi;
+	red->keep_res = nphi;
     }
 
   /* We're going to cancel the loop at the end of gen_parallel_loop, but until
@@ -1796,64 +1786,76 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
 				       nit, build_one_cst (nit_type));
 
 	  gcc_assert (TREE_CODE (alt_bound) == INTEGER_CST);
+	  transform_to_exit_first_loop_alt (loop, reduction_list, alt_bound);
+	  return true;
 	}
       else
 	{
 	  /* Todo: Figure out if we can trigger this, if it's worth to handle
 	     optimally, and if we can handle it optimally.  */
+	  return false;
 	}
     }
-  else
-    {
-      gcc_assert (TREE_CODE (nit) == SSA_NAME);
 
-      gimple def = SSA_NAME_DEF_STMT (nit);
+  gcc_assert (TREE_CODE (nit) == SSA_NAME);
 
-      if (def
-	  && is_gimple_assign (def)
-	  && gimple_assign_rhs_code (def) == PLUS_EXPR)
-	{
-	  tree op1 = gimple_assign_rhs1 (def);
-	  tree op2 = gimple_assign_rhs2 (def);
-	  if (integer_minus_onep (op1))
-	    alt_bound = op2;
-	  else if (integer_minus_onep (op2))
-	    alt_bound = op1;
-	}
+  /* Variable nit is the loop bound as returned by canonicalize_loop_ivs, for an
+     iv with base 0 and step 1 that is incremented in the latch, like this:
 
-      /* There is a number of test-cases for which we don't get an alt_bound
-	 here: they're listed here, with the lhs of the last stmt as the nit:
+     <bb header>:
+     # iv_1 = PHI <0 (preheader), iv_2 (latch)>
+     ...
+     if (iv_1 < nit)
+       goto <bb latch>;
+     else
+       goto <bb exit>;
 
-	 libgomp.graphite/force-parallel-1.c:
-	 _21 = (signed long) N_6(D);
-	 _19 = _21 + -1;
-	 _7 = (unsigned long) _19;
+     <bb latch>:
+     iv_2 = iv_1 + 1;
+     goto <bb header>;
 
-	 libgomp.graphite/force-parallel-2.c:
-	 _33 = (signed long) N_9(D);
-	 _16 = _33 + -1;
-	 _37 = (unsigned long) _16;
+     The range of iv_1 is [0, nit].  The latch edge is taken for
+     iv_1 == [0, nit - 1] and the exit edge is taken for iv_1 == nit.  So the
+     number of latch executions is equal to nit.
 
-	 libgomp.graphite/force-parallel-5.c:
-	 <bb 6>:
-	 # graphite_IV.5_46 = PHI <0(5), graphite_IV.5_47(11)>
-	 <bb 7>:
-	 _33 = (unsigned long) graphite_IV.5_46;
-
-	 g++.dg/tree-ssa/pr34355.C:
-	 _2 = (unsigned int) i_9;
-	 _3 = 4 - _2;
-
-	 gcc.dg/pr53849.c:
-	 _5 = d.0_11 + -2;
-	 _18 = (unsigned int) _5;
-
-	 We will be able to handle some of these cases, if we can determine when
-	 it's safe to look past casts.  */
-    }
-
-  if (alt_bound == NULL_TREE)
+     The function max_loop_iterations gives us the maximum number of latch
+     executions, so it gives us the maximum value of nit.  */
+  widest_int nit_max;
+  if (!max_loop_iterations (loop, &nit_max))
     return false;
+
+  /* Check if nit + 1 overflows.  */
+  widest_int type_max = wi::to_widest (TYPE_MAXVAL (nit_type));
+  if (!wi::lts_p (nit_max, type_max))
+    return false;
+
+  gimple def = SSA_NAME_DEF_STMT (nit);
+
+  /* Try to find nit + 1, in the form of n in an assignment nit = n - 1.  */
+  if (def
+      && is_gimple_assign (def)
+      && gimple_assign_rhs_code (def) == PLUS_EXPR)
+    {
+      tree op1 = gimple_assign_rhs1 (def);
+      tree op2 = gimple_assign_rhs2 (def);
+      if (integer_minus_onep (op1))
+	alt_bound = op2;
+      else if (integer_minus_onep (op2))
+	alt_bound = op1;
+    }
+
+  /* If not found, insert nit + 1.  */
+  if (alt_bound == NULL_TREE)
+    {
+      alt_bound = fold_build2 (PLUS_EXPR, nit_type, nit,
+			       build_int_cst_type (nit_type, 1));
+
+      gimple_stmt_iterator gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
+
+      alt_bound
+	= force_gimple_operand_gsi (&gsi, alt_bound, true, NULL_TREE, false,
+				    GSI_CONTINUE_LINKING);
+    }
 
   transform_to_exit_first_loop_alt (loop, reduction_list, alt_bound);
   return true;
@@ -1982,7 +1984,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 		      tree new_data, unsigned n_threads, location_t loc)
 {
   gimple_stmt_iterator gsi;
-  basic_block bb, paral_bb, for_bb, ex_bb;
+  basic_block bb, paral_bb, for_bb, ex_bb, continue_bb;
   tree t, param;
   gomp_parallel *omp_par_stmt;
   gimple omp_return_stmt1, omp_return_stmt2;
@@ -2053,19 +2055,27 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gcc_assert (exit == single_dom_exit (loop));
 
   guard = make_edge (for_bb, ex_bb, 0);
-  single_succ_edge (loop->latch)->flags = 0;
-  end = make_edge (loop->latch, ex_bb, EDGE_FALLTHRU);
+  /* Split the latch edge, so LOOPS_HAVE_SIMPLE_LATCHES is still valid.  */
+  loop->latch = split_edge (single_succ_edge (loop->latch));
+  single_pred_edge (loop->latch)->flags = 0;
+  end = make_edge (single_pred (loop->latch), ex_bb, EDGE_FALLTHRU);
+  rescan_loop_exit (end, true, false);
+
   for (gphi_iterator gpi = gsi_start_phis (ex_bb);
        !gsi_end_p (gpi); gsi_next (&gpi))
     {
       source_location locus;
-      tree def;
       gphi *phi = gpi.phi ();
-      gphi *stmt;
+      tree def = PHI_ARG_DEF_FROM_EDGE (phi, exit);
+      gimple def_stmt = SSA_NAME_DEF_STMT (def);
 
-      stmt = as_a <gphi *> (
-	       SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit)));
+      /* If the exit phi is not connected to a header phi in the same loop, this
+	 value is not modified in the loop, and we're done with this phi.  */
+      if (!(gimple_code (def_stmt) == GIMPLE_PHI
+	    && gimple_bb (def_stmt) == loop->header))
+	continue;
 
+      gphi *stmt = as_a <gphi *> (def_stmt);
       def = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));
       locus = gimple_phi_arg_location_from_edge (stmt,
 						 loop_preheader_edge (loop));
@@ -2083,6 +2093,10 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   type = TREE_TYPE (cvar);
   t = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (t) = OMP_CLAUSE_SCHEDULE_STATIC;
+  int chunk_size = PARAM_VALUE (PARAM_PARLOOPS_CHUNK_SIZE);
+  if (chunk_size != 0)
+    OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (t)
+      = build_int_cst (integer_type_node, chunk_size);
 
   for_stmt = gimple_build_omp_for (NULL, GF_OMP_FOR_KIND_FOR, t, 1, NULL);
   gimple_set_location (for_stmt, loc);
@@ -2099,7 +2113,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   SSA_NAME_DEF_STMT (initvar) = for_stmt;
 
   /* Emit GIMPLE_OMP_CONTINUE.  */
-  gsi = gsi_last_bb (loop->latch);
+  continue_bb = single_pred (loop->latch);
+  gsi = gsi_last_bb (continue_bb);
   omp_cont_stmt = gimple_build_omp_continue (cvar_next, cvar);
   gimple_set_location (omp_cont_stmt, loc);
   gsi_insert_after (&gsi, omp_cont_stmt, GSI_NEW_STMT);
@@ -2251,7 +2266,15 @@ gen_parallel_loop (struct loop *loop,
      increment) and immediately follows the loop exit test.  Attempt to move the
      entry of the loop directly before the exit check and increase the number of
      iterations of the loop by one.  */
-  if (!try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+  if (try_transform_to_exit_first_loop_alt (loop, reduction_list, nit))
+    {
+      if (dump_file
+	  && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "alternative exit-first loop transform succeeded"
+		 " for loop %d\n", loop->num);
+    }
+  else
     {
       /* Fall back on the method that handles more cases, but duplicates the
 	 loop body: move the exit condition of LOOP to the beginning of its
@@ -2286,10 +2309,6 @@ gen_parallel_loop (struct loop *loop,
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 
   scev_reset ();
-
-  /* Cancel the loop (it is simpler to do it here rather than to teach the
-     expander to do it).  */
-  cancel_loop_tree (loop);
 
   /* Free loop bound estimations that could contain references to
      removed statements.  */
@@ -2327,6 +2346,7 @@ build_new_reduction (reduction_info_table_type *reduction_list,
 {
   reduction_info **slot;
   struct reduction_info *new_reduction;
+  enum tree_code reduction_code;
 
   gcc_assert (reduc_stmt);
 
@@ -2338,12 +2358,22 @@ build_new_reduction (reduction_info_table_type *reduction_list,
       fprintf (dump_file, "\n");
     }
 
+  if (gimple_code (reduc_stmt) == GIMPLE_PHI)
+    {
+      tree op1 = PHI_ARG_DEF (reduc_stmt, 0);
+      gimple def1 = SSA_NAME_DEF_STMT (op1);
+      reduction_code = gimple_assign_rhs_code (def1);
+    }
+
+  else
+    reduction_code = gimple_assign_rhs_code (reduc_stmt);
+
   new_reduction = XCNEW (struct reduction_info);
 
   new_reduction->reduc_stmt = reduc_stmt;
   new_reduction->reduc_phi = phi;
   new_reduction->reduc_version = SSA_NAME_VERSION (gimple_phi_result (phi));
-  new_reduction->reduction_code = gimple_assign_rhs_code (reduc_stmt);
+  new_reduction->reduction_code = reduction_code;
   slot = reduction_list->find_slot (new_reduction, INSERT);
   *slot = new_reduction;
 }
@@ -2365,8 +2395,12 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
 {
   gphi_iterator gsi;
   loop_vec_info simple_loop_info;
+  loop_vec_info simple_inner_loop_info = NULL;
+  bool allow_double_reduc = true;
 
   simple_loop_info = vect_analyze_loop_form (loop);
+  if (simple_loop_info == NULL)
+    return;
 
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
@@ -2378,17 +2412,52 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
       if (virtual_operand_p (res))
 	continue;
 
-      if (!simple_iv (loop, loop, res, &iv, true)
-	&& simple_loop_info)
+      if (simple_iv (loop, loop, res, &iv, true))
+	continue;
+
+      gimple reduc_stmt
+	= vect_force_simple_reduction (simple_loop_info, phi, true,
+				       &double_reduc, true);
+      if (!reduc_stmt)
+	continue;
+
+      if (double_reduc)
 	{
-           gimple reduc_stmt = vect_force_simple_reduction (simple_loop_info,
-							    phi, true,
-							    &double_reduc);
-	   if (reduc_stmt && !double_reduc)
-              build_new_reduction (reduction_list, reduc_stmt, phi);
-        }
+	  if (!allow_double_reduc
+	      || loop->inner->inner != NULL)
+	    continue;
+
+	  if (!simple_inner_loop_info)
+	    {
+	      simple_inner_loop_info = vect_analyze_loop_form (loop->inner);
+	      if (!simple_inner_loop_info)
+		{
+		  allow_double_reduc = false;
+		  continue;
+		}
+	    }
+
+	  use_operand_p use_p;
+	  gimple inner_stmt;
+	  bool single_use_p = single_imm_use (res, &use_p, &inner_stmt);
+	  gcc_assert (single_use_p);
+	  gphi *inner_phi = as_a <gphi *> (inner_stmt);
+	  if (simple_iv (loop->inner, loop->inner, PHI_RESULT (inner_phi),
+			 &iv, true))
+	    continue;
+
+	  gimple inner_reduc_stmt
+	    = vect_force_simple_reduction (simple_inner_loop_info, inner_phi,
+					   true, &double_reduc, true);
+	  gcc_assert (!double_reduc);
+	  if (inner_reduc_stmt == NULL)
+	    continue;
+	}
+
+      build_new_reduction (reduction_list, reduc_stmt, phi);
     }
   destroy_loop_vec_info (simple_loop_info, true);
+  destroy_loop_vec_info (simple_inner_loop_info, true);
 
   /* As gimple_uid is used by the vectorizer in between vect_analyze_loop_form
      and destroy_loop_vec_info, we can set gimple_uid of reduc_phi stmts
@@ -2526,6 +2595,7 @@ parallelize_loops (void)
   unsigned n_threads = flag_tree_parallelize_loops;
   bool changed = false;
   struct loop *loop;
+  struct loop *skip_loop = NULL;
   struct tree_niter_desc niter_desc;
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
@@ -2543,6 +2613,19 @@ parallelize_loops (void)
 
   FOR_EACH_LOOP (loop, 0)
     {
+      if (loop == skip_loop)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "Skipping loop %d as inner loop of parallelized loop\n",
+		     loop->num);
+
+	  skip_loop = loop->inner;
+	  continue;
+	}
+      else
+	skip_loop = NULL;
+
       reduction_list.empty ();
       if (dump_file && (dump_flags & TDF_DETAILS))
       {
@@ -2602,6 +2685,7 @@ parallelize_loops (void)
 	continue;
 
       changed = true;
+      skip_loop = loop->inner;
       if (dump_file && (dump_flags & TDF_DETAILS))
       {
 	if (loop->inner)
@@ -2668,6 +2752,11 @@ pass_parallelize_loops::execute (function *fun)
   if (parallelize_loops ())
     {
       fun->curr_properties &= ~(PROP_gimple_eomp);
+
+#ifdef ENABLE_CHECKING
+      verify_loop_structure ();
+#endif
+
       return TODO_update_ssa;
     }
 

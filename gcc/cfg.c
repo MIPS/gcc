@@ -49,23 +49,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "obstack.h"
+#include "backend.h"
 #include "alloc-pool.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "predict.h"
-#include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
 #include "df.h"
+#include "options.h"
+#include "cfganal.h"
 #include "cfgloop.h" /* FIXME: For struct loop.  */
 #include "dumpfile.h"
 
@@ -1025,10 +1017,8 @@ struct htab_bb_copy_original_entry
   int index2;
 };
 
-struct bb_copy_hasher : typed_noop_remove <htab_bb_copy_original_entry>
+struct bb_copy_hasher : nofree_ptr_hash <htab_bb_copy_original_entry>
 {
-  typedef htab_bb_copy_original_entry *value_type;
-  typedef htab_bb_copy_original_entry *compare_type;
   static inline hashval_t hash (const htab_bb_copy_original_entry *);
   static inline bool equal (const htab_bb_copy_original_entry *existing,
 			    const htab_bb_copy_original_entry * candidate);
@@ -1054,15 +1044,14 @@ static hash_table<bb_copy_hasher> *bb_copy;
 
 /* And between loops and copies.  */
 static hash_table<bb_copy_hasher> *loop_copy;
-static pool_allocator<htab_bb_copy_original_entry> *original_copy_bb_pool;
+static object_allocator<htab_bb_copy_original_entry> *original_copy_bb_pool;
 
 /* Initialize the data structures to maintain mapping between blocks
    and its copies.  */
 void
 initialize_original_copy_tables (void)
 {
-
-  original_copy_bb_pool = new pool_allocator<htab_bb_copy_original_entry>
+  original_copy_bb_pool = new object_allocator<htab_bb_copy_original_entry>
     ("original_copy", 10);
   bb_original = new hash_table<bb_copy_hasher> (10);
   bb_copy = new hash_table<bb_copy_hasher> (10);

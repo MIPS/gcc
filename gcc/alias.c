@@ -21,16 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -49,17 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "dumpfile.h"
 #include "target.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
 
@@ -143,31 +132,7 @@ along with GCC; see the file COPYING3.  If not see
    However, this is no actual entry for alias set zero.  It is an
    error to attempt to explicitly construct a subset of zero.  */
 
-struct alias_set_traits : default_hashmap_traits
-{
-  template<typename T>
-  static bool
-  is_empty (T &e)
-  {
-    return e.m_key == INT_MIN;
-  }
-
-  template<typename  T>
-  static bool
-  is_deleted (T &e)
-  {
-    return e.m_key == (INT_MIN + 1);
-  }
-
-  template<typename T> static void mark_empty (T &e) { e.m_key = INT_MIN; }
-
-  template<typename T>
-  static void
-  mark_deleted (T &e)
-  {
-    e.m_key = INT_MIN + 1;
-  }
-};
+struct alias_set_hash : int_hash <int, INT_MIN, INT_MIN + 1> {};
 
 struct GTY(()) alias_set_entry_d {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
@@ -180,7 +145,7 @@ struct GTY(()) alias_set_entry_d {
 
      continuing our example above, the children here will be all of
      `int', `double', `float', and `struct S'.  */
-  hash_map<int, int, alias_set_traits> *children;
+  hash_map<alias_set_hash, int> *children;
 
   /* Nonzero if would have a child of zero: this effectively makes this
      alias set the same as alias set zero.  */
@@ -1159,7 +1124,7 @@ record_alias_subset (alias_set_type superset, alias_set_type subset)
       subset_entry = get_alias_set_entry (subset);
       if (!superset_entry->children)
 	superset_entry->children
-	  = hash_map<int, int, alias_set_traits>::create_ggc (64);
+	  = hash_map<alias_set_hash, int>::create_ggc (64);
       /* If there is an entry for the subset, enter all of its children
 	 (if they are not already present) as children of the SUPERSET.  */
       if (subset_entry)
@@ -1171,7 +1136,7 @@ record_alias_subset (alias_set_type superset, alias_set_type subset)
 
 	  if (subset_entry->children)
 	    {
-	      hash_map<int, int, alias_set_traits>::iterator iter
+	      hash_map<alias_set_hash, int>::iterator iter
 		= subset_entry->children->begin ();
 	      for (; iter != subset_entry->children->end (); ++iter)
 		superset_entry->children->put ((*iter).first, (*iter).second);
@@ -2263,12 +2228,24 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
       rtx x0 = XEXP (x, 0);
       rtx x1 = XEXP (x, 1);
 
+      /* However, VALUEs might end up in different positions even in
+	 canonical PLUSes.  Comparing their addresses is enough.  */
+      if (x0 == y)
+	return memrefs_conflict_p (xsize, x1, ysize, const0_rtx, c);
+      else if (x1 == y)
+	return memrefs_conflict_p (xsize, x0, ysize, const0_rtx, c);
+
       if (GET_CODE (y) == PLUS)
 	{
 	  /* The fact that Y is canonicalized means that this
 	     PLUS rtx is canonicalized.  */
 	  rtx y0 = XEXP (y, 0);
 	  rtx y1 = XEXP (y, 1);
+
+	  if (x0 == y1)
+	    return memrefs_conflict_p (xsize, x1, ysize, y0, c);
+	  if (x1 == y0)
+	    return memrefs_conflict_p (xsize, x0, ysize, y1, c);
 
 	  if (rtx_equal_for_memref_p (x1, y1))
 	    return memrefs_conflict_p (xsize, x0, ysize, y0, c);
@@ -2297,6 +2274,11 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	 PLUS rtx is canonicalized.  */
       rtx y0 = XEXP (y, 0);
       rtx y1 = XEXP (y, 1);
+
+      if (x == y0)
+	return memrefs_conflict_p (xsize, const0_rtx, ysize, y1, c);
+      if (x == y1)
+	return memrefs_conflict_p (xsize, const0_rtx, ysize, y0, c);
 
       if (CONST_INT_P (y1))
 	return memrefs_conflict_p (xsize, x, ysize, y0, c + INTVAL (y1));
@@ -2501,7 +2483,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   rtx basex, basey;
   bool moffsetx_known_p, moffsety_known_p;
   HOST_WIDE_INT moffsetx = 0, moffsety = 0;
-  HOST_WIDE_INT offsetx = 0, offsety = 0, sizex, sizey, tem;
+  HOST_WIDE_INT offsetx = 0, offsety = 0, sizex, sizey;
 
   /* Unless both have exprs, we can't tell anything.  */
   if (exprx == 0 || expry == 0)
@@ -2541,6 +2523,23 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
 
   if (! DECL_P (exprx) || ! DECL_P (expry))
     return 0;
+
+  /* If we refer to different gimple registers, or one gimple register
+     and one non-gimple-register, we know they can't overlap.  First,
+     gimple registers don't have their addresses taken.  Now, there
+     could be more than one stack slot for (different versions of) the
+     same gimple register, but we can presumably tell they don't
+     overlap based on offsets from stack base addresses elsewhere.
+     It's important that we don't proceed to DECL_RTL, because gimple
+     registers may not pass DECL_RTL_SET_P, and make_decl_rtl won't be
+     able to do anything about them since no SSA information will have
+     remained to guide it.  */
+  if (is_gimple_reg (exprx) || is_gimple_reg (expry))
+    return exprx != expry
+      || (moffsetx_known_p && moffsety_known_p
+	  && MEM_SIZE_KNOWN_P (x) && MEM_SIZE_KNOWN_P (y)
+	  && !offset_overlap_p (moffsety - moffsetx,
+				MEM_SIZE (x), MEM_SIZE (y)));
 
   /* With invalid code we can end up storing into the constant pool.
      Bail out to avoid ICEing when creating RTL for this.
@@ -2618,8 +2617,8 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   /* Put the values of the memref with the lower offset in X's values.  */
   if (offsetx > offsety)
     {
-      tem = offsetx, offsetx = offsety, offsety = tem;
-      tem = sizex, sizex = sizey, sizey = tem;
+      std::swap (offsetx, offsety);
+      std::swap (sizex, sizey);
     }
 
   /* If we don't know the size of the lower-offset value, we can't tell
@@ -3064,6 +3063,14 @@ init_alias_analysis (void)
   rpo = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   rpo_cnt = pre_and_rev_post_order_compute (NULL, rpo, false);
 
+  /* The prologue/epilogue insns are not threaded onto the
+     insn chain until after reload has completed.  Thus,
+     there is no sense wasting time checking if INSN is in
+     the prologue/epilogue until after reload has completed.  */
+  bool could_be_prologue_epilogue = ((targetm.have_prologue ()
+				      || targetm.have_epilogue ())
+				     && reload_completed);
+
   pass = 0;
   do
     {
@@ -3102,17 +3109,7 @@ init_alias_analysis (void)
 		{
 		  rtx note, set;
 
-#if defined (HAVE_prologue)
-		  static const bool prologue = true;
-#else
-		  static const bool prologue = false;
-#endif
-
-		  /* The prologue/epilogue insns are not threaded onto the
-		     insn chain until after reload has completed.  Thus,
-		     there is no sense wasting time checking if INSN is in
-		     the prologue/epilogue until after reload has completed.  */
-		  if ((prologue || HAVE_epilogue) && reload_completed
+		  if (could_be_prologue_epilogue
 		      && prologue_epilogue_contains (insn))
 		    continue;
 

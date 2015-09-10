@@ -23,24 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "function.h"
+#include "predict.h"
+#include "basic-block.h"
 #include "tree.h"
-#include "stor-layout.h"
 #include "cp-tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "alias.h"
+#include "stor-layout.h"
 #include "c-family/c-common.h"
 #include "tree-iterator.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "flags.h"
 #include "splay-tree.h"
@@ -48,7 +42,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gimplify.h"
-#include "gimple-expr.h"
 
 /* Forward declarations.  */
 
@@ -101,6 +94,25 @@ finish_bc_block (tree *block, enum bc_t bc, tree label)
   bc_label[bc] = DECL_CHAIN (label);
   DECL_CHAIN (label) = NULL_TREE;
 }
+
+/* This function is a wrapper for cilk_gimplify_call_params_in_spawned_fn.
+   *EXPR_P can be a CALL_EXPR, INIT_EXPR, MODIFY_EXPR, AGGR_INIT_EXPR or
+   TARGET_EXPR.  *PRE_P and *POST_P are gimple sequences from the caller
+   of gimplify_cilk_spawn.  */
+
+static void
+cilk_cp_gimplify_call_params_in_spawned_fn (tree *expr_p, gimple_seq *pre_p,
+					    gimple_seq *post_p)
+{
+  int ii = 0;
+
+  cilk_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);  
+  if (TREE_CODE (*expr_p) == AGGR_INIT_EXPR)
+    for (ii = 0; ii < aggr_init_expr_nargs (*expr_p); ii++)
+      gimplify_expr (&AGGR_INIT_EXPR_ARG (*expr_p, ii), pre_p, post_p,
+		     is_gimple_reg, fb_rvalue);
+}
+
 
 /* Get the LABEL_EXPR to represent a break or continue statement
    in the current block scope.  BC indicates which.  */
@@ -610,7 +622,10 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
       if (fn_contains_cilk_spawn_p (cfun)
 	  && cilk_detect_spawn_and_unwrap (expr_p)
 	  && !seen_error ())
-	return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+	{
+	  cilk_cp_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
+	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+	}
       cp_gimplify_init_expr (expr_p);
       if (TREE_CODE (*expr_p) != INIT_EXPR)
 	return GS_OK;
@@ -621,8 +636,10 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 	if (fn_contains_cilk_spawn_p (cfun)
 	    && cilk_detect_spawn_and_unwrap (expr_p)
 	    && !seen_error ())
-	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
-
+	  {
+	    cilk_cp_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
+	    return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+	  }
 	/* If the back end isn't clever enough to know that the lhs and rhs
 	   types are the same, add an explicit conversion.  */
 	tree op0 = TREE_OPERAND (*expr_p, 0);
@@ -722,14 +739,18 @@ cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 
       /* If errors are seen, then just process it as a CALL_EXPR.  */
       if (!seen_error ())
-	return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
-      
+	{
+	  cilk_cp_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
+	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+	}
     case CALL_EXPR:
       if (fn_contains_cilk_spawn_p (cfun)
 	  && cilk_detect_spawn_and_unwrap (expr_p)
 	  && !seen_error ())
-	return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
-
+	{
+	  cilk_cp_gimplify_call_params_in_spawned_fn (expr_p, pre_p, post_p);
+	  return (enum gimplify_status) gimplify_cilk_spawn (expr_p);
+	}
       /* DR 1030 says that we need to evaluate the elements of an
 	 initializer-list in forward order even when it's used as arguments to
 	 a constructor.  So if the target wants to evaluate them in reverse
@@ -834,7 +855,7 @@ omp_var_to_track (tree decl)
     type = TREE_TYPE (type);
   if (type == error_mark_node || !CLASS_TYPE_P (type))
     return false;
-  if (VAR_P (decl) && DECL_THREAD_LOCAL_P (decl))
+  if (VAR_P (decl) && CP_DECL_THREAD_LOCAL_P (decl))
     return false;
   if (cxx_omp_predetermined_sharing (decl) != OMP_CLAUSE_DEFAULT_UNSPECIFIED)
     return false;
@@ -1159,6 +1180,12 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
       /* Using decls inside DECL_EXPRs are just dropped on the floor.  */
       *stmt_p = build1 (NOP_EXPR, void_type_node, integer_zero_node);
       *walk_subtrees = 0;
+    }
+  else if (TREE_CODE (stmt) == DECL_EXPR)
+    {
+      tree d = DECL_EXPR_DECL (stmt);
+      if (TREE_CODE (d) == VAR_DECL)
+	gcc_assert (CP_DECL_THREAD_LOCAL_P (d) == DECL_THREAD_LOCAL_P (d));
     }
   else if (TREE_CODE (stmt) == OMP_PARALLEL || TREE_CODE (stmt) == OMP_TASK)
     {

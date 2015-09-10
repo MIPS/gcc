@@ -23,9 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "print-tree.h"
 #include "cp-tree.h"
@@ -255,6 +253,19 @@ cxx_print_xnode (FILE *file, tree node, int indent)
 	  fprintf (file, "pending_template");
 	}
       break;
+    case CONSTRAINT_INFO:
+      {
+        tree_constraint_info *cinfo = (tree_constraint_info *)node;
+        if (cinfo->template_reqs)
+          print_node (file, "template_reqs", cinfo->template_reqs, indent+4);
+        if (cinfo->declarator_reqs)
+          print_node (file, "declarator_reqs", cinfo->declarator_reqs,
+		      indent+4);
+        print_node (file, "associated_constr",
+                          cinfo->associated_constr, indent+4);
+        print_node_brief (file, "assumptions", cinfo->assumptions, indent+4);
+        break;
+      }
     case ARGUMENT_PACK_SELECT:
       print_node (file, "pack", ARGUMENT_PACK_SELECT_FROM_PACK (node),
 		  indent+4);

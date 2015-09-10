@@ -24,19 +24,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "stringpool.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
 #include "cp-tree.h"
@@ -821,6 +815,30 @@ nonlambda_method_basetype (void)
     return NULL_TREE;
 
   return TYPE_METHOD_BASETYPE (TREE_TYPE (fn));
+}
+
+/* Like current_scope, but looking through lambdas.  */
+
+tree
+current_nonlambda_scope (void)
+{
+  tree scope = current_scope ();
+  for (;;)
+    {
+      if (TREE_CODE (scope) == FUNCTION_DECL
+	  && LAMBDA_FUNCTION_P (scope))
+	{
+	  scope = CP_TYPE_CONTEXT (DECL_CONTEXT (scope));
+	  continue;
+	}
+      else if (LAMBDA_TYPE_P (scope))
+	{
+	  scope = CP_TYPE_CONTEXT (scope);
+	  continue;
+	}
+      break;
+    }
+  return scope;
 }
 
 /* Helper function for maybe_add_lambda_conv_op; build a CALL_EXPR with

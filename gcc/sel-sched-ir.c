@@ -20,21 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
 #include "regs.h"
-#include "input.h"
-#include "function.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "insn-attr.h"
@@ -43,13 +39,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "target.h"
 #include "sched-int.h"
-#include "symtab.h"
-#include "tree.h"
 #include "langhooks.h"
 #include "rtlhooks-def.h"
 #include "emit-rtl.h"  /* FIXME: Can go away once crtl is moved to rtl.h.  */
 
 #ifdef INSN_SCHEDULING
+#include "regset.h"
+#include "cfgloop.h"
 #include "sel-sched-ir.h"
 /* We don't have to use it except for sel_print_insn.  */
 #include "sel-sched-dump.h"
@@ -63,7 +59,7 @@ vec<sel_region_bb_info_def>
     sel_region_bb_info = vNULL;
 
 /* A pool for allocating all lists.  */
-pool_allocator<_list_node> sched_lists_pool ("sel-sched-lists", 500);
+object_allocator<_list_node> sched_lists_pool ("sel-sched-lists", 500);
 
 /* This contains information about successors for compute_av_set.  */
 struct succs_info current_succs;
@@ -4415,51 +4411,17 @@ free_data_sets (basic_block bb)
   free_av_set (bb);
 }
 
-/* Exchange lv sets of TO and FROM.  */
-static void
-exchange_lv_sets (basic_block to, basic_block from)
-{
-  {
-    regset to_lv_set = BB_LV_SET (to);
-
-    BB_LV_SET (to) = BB_LV_SET (from);
-    BB_LV_SET (from) = to_lv_set;
-  }
-
-  {
-    bool to_lv_set_valid_p = BB_LV_SET_VALID_P (to);
-
-    BB_LV_SET_VALID_P (to) = BB_LV_SET_VALID_P (from);
-    BB_LV_SET_VALID_P (from) = to_lv_set_valid_p;
-  }
-}
-
-
-/* Exchange av sets of TO and FROM.  */
-static void
-exchange_av_sets (basic_block to, basic_block from)
-{
-  {
-    av_set_t to_av_set = BB_AV_SET (to);
-
-    BB_AV_SET (to) = BB_AV_SET (from);
-    BB_AV_SET (from) = to_av_set;
-  }
-
-  {
-    int to_av_level = BB_AV_LEVEL (to);
-
-    BB_AV_LEVEL (to) = BB_AV_LEVEL (from);
-    BB_AV_LEVEL (from) = to_av_level;
-  }
-}
-
 /* Exchange data sets of TO and FROM.  */
 void
 exchange_data_sets (basic_block to, basic_block from)
 {
-  exchange_lv_sets (to, from);
-  exchange_av_sets (to, from);
+  /* Exchange lv sets of TO and FROM.  */
+  std::swap (BB_LV_SET (from), BB_LV_SET (to));
+  std::swap (BB_LV_SET_VALID_P (from), BB_LV_SET_VALID_P (to));
+
+  /* Exchange av sets of TO and FROM.  */
+  std::swap (BB_AV_SET (from), BB_AV_SET (to));
+  std::swap (BB_AV_LEVEL (from), BB_AV_LEVEL (to));
 }
 
 /* Copy data sets of FROM to TO.  */

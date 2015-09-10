@@ -122,6 +122,7 @@ bits_headers = \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
+	${bits_srcdir}/mutex.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
@@ -646,6 +647,7 @@ experimental_builddir = ./experimental
 experimental_headers = \
 	${experimental_srcdir}/algorithm \
 	${experimental_srcdir}/any \
+	${experimental_srcdir}/array \
 	${experimental_srcdir}/chrono \
 	${experimental_srcdir}/deque \
 	${experimental_srcdir}/erase_if.h \
@@ -657,6 +659,7 @@ experimental_headers = \
 	${experimental_srcdir}/memory \
 	${experimental_srcdir}/numeric \
 	${experimental_srcdir}/optional \
+	${experimental_srcdir}/propagate_const \
 	${experimental_srcdir}/ratio \
 	${experimental_srcdir}/set \
 	${experimental_srcdir}/string \
@@ -708,6 +711,7 @@ c_base_headers = \
 	${c_base_srcdir}/cstring \
 	${c_base_srcdir}/ctgmath \
 	${c_base_srcdir}/ctime \
+	${c_base_srcdir}/cuchar \
 	${c_base_srcdir}/cwchar \
 	${c_base_srcdir}/cwctype
 
@@ -750,6 +754,7 @@ c_compatibility_headers = \
 	${c_compatibility_srcdir}/string.h \
 	${c_compatibility_srcdir}/tgmath.h \
 	${c_compatibility_srcdir}/time.h \
+	${c_compatibility_srcdir}/uchar.h \
 	${c_compatibility_srcdir}/wchar.h \
 	${c_compatibility_srcdir}/wctype.h
 endif
@@ -766,6 +771,7 @@ debug_headers = \
 	${debug_srcdir}/formatter.h \
 	${debug_srcdir}/forward_list \
 	${debug_srcdir}/functions.h \
+	${debug_srcdir}/helper_functions.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
 	${debug_srcdir}/macros.h \
@@ -785,6 +791,7 @@ debug_headers = \
 	${debug_srcdir}/safe_unordered_container.tcc \
 	${debug_srcdir}/set \
 	${debug_srcdir}/set.h \
+	${debug_srcdir}/stl_iterator.h \
 	${debug_srcdir}/string \
 	${debug_srcdir}/unordered_map \
 	${debug_srcdir}/unordered_set \

@@ -245,6 +245,8 @@ if test x$with_gnu_as = xno ; then
 fi
 
 use_included_zlib=
+AC_ARG_WITH(system-zlib,
+[AS_HELP_STRING([--with-system-zlib], [use installed libz])])
 # Make sure we don't let ZLIB be added if we didn't want it.
 if test x$with_system_zlib = xyes ; then
   use_included_zlib=no
@@ -527,9 +529,8 @@ if test x$enable_static_libjava != xyes ; then
 fi
 AC_SUBST(EXTRA_CONFIGARGS_LIBJAVA)
 
-# Disable libgomp on non POSIX hosted systems.
+# Enable libgomp by default on hosted POSIX systems, and a few others.
 if test x$enable_libgomp = x ; then
-    # Enable libgomp by default on hosted POSIX systems.
     case "${target}" in
     *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
 	;;
@@ -538,6 +539,8 @@ if test x$enable_libgomp = x ; then
     *-*-solaris2* | *-*-hpux11*)
 	;;
     *-*-darwin* | *-*-aix*)
+	;;
+    nvptx*-*-*)
 	;;
     *)
 	noconfigdirs="$noconfigdirs target-libgomp"
@@ -867,6 +870,9 @@ case "${target}" in
   rs6000-*-aix*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
+  ft32-*-*)
+    noconfigdirs="$noconfigdirs ${libgcj}"
+    ;;
   *-*-lynxos*)
     noconfigdirs="$noconfigdirs ${libgcj}"
     ;;
@@ -1100,8 +1106,11 @@ case "${target}" in
   fr30-*-elf*)
     noconfigdirs="$noconfigdirs gdb"
     ;;
+  ft32-*-*)
+    noconfigdirs="$noconfigdirs target-rda gprof"
+    ;;
   moxie-*-*)
-    noconfigdirs="$noconfigdirs gprof"
+    noconfigdirs="$noconfigdirs"
     ;;
   h8300*-*-*)
     noconfigdirs="$noconfigdirs target-libgloss"
@@ -1111,6 +1120,12 @@ case "${target}" in
     ;;
   hppa1.1-*-osf* | hppa1.1-*-bsd* )
     ;;
+  hppa*64*-*-hpux*)
+    noconfigdirs="$noconfigdirs gdb"
+    ;;
+  hppa*-*-hpux11*)
+    noconfigdirs="$noconfigdirs gdb ld"
+    ;;
   hppa*64*-*-linux*)
     ;;
   hppa*-*-linux*)
@@ -1119,9 +1134,6 @@ case "${target}" in
   hppa*-*-lites* | \
   hppa*-*-openbsd* | \
   hppa*64*-*-*)
-    ;;
-  hppa*-hp-hpux11*)
-    noconfigdirs="$noconfigdirs ld"
     ;;
   hppa*-*-pro*)
     ;;
@@ -1137,7 +1149,7 @@ case "${target}" in
     ;;
   ia64*-**-hpux*)
     # No ld support yet.
-    noconfigdirs="$noconfigdirs libgui itcl ld"
+    noconfigdirs="$noconfigdirs gdb libgui itcl ld"
     ;;
   ia64*-*-*vms*)
     # No ld support yet.
@@ -1246,7 +1258,6 @@ case "${target}" in
     noconfigdirs="$noconfigdirs gdb"
     ;;
   nvptx*-*-*)
-    # nvptx is just a compiler
     noconfigdirs="$noconfigdirs target-libssp target-libstdc++-v3 target-libobjc"
     ;;
   or1k*-*-*)
@@ -1686,18 +1697,6 @@ AC_SUBST(extra_mpc_gmp_configure_flags)
 AC_SUBST(extra_mpc_mpfr_configure_flags)
 AC_SUBST(extra_isl_gmp_configure_flags)
 
-# Allow host libstdc++ to be specified for static linking with PPL.
-AC_ARG_WITH(host-libstdcxx,
-[AS_HELP_STRING([--with-host-libstdcxx=L],
-		[use linker arguments L to link with libstdc++
-		 when linking with PPL])])
-
-case $with_host_libstdcxx in
-  no|yes)
-    AC_MSG_ERROR([-with-host-libstdcxx needs an argument])
-    ;;
-esac
-
 # Libraries to use for stage1 or when not bootstrapping.
 AC_ARG_WITH(stage1-libs,
 [AS_HELP_STRING([--with-stage1-libs=LIBS], [libraries for stage1])],
@@ -1706,7 +1705,7 @@ AC_ARG_WITH(stage1-libs,
  else
    stage1_libs=$withval
  fi],
-[stage1_libs=$with_host_libstdcxx])
+[stage1_libs=])
 AC_SUBST(stage1_libs)
 
 # Linker flags to use for stage1 or when not bootstrapping.
@@ -1726,8 +1725,7 @@ AC_ARG_WITH(stage1-ldflags,
  fi])
 AC_SUBST(stage1_ldflags)
 
-# Libraries to use for stage2 and later builds.  This defaults to the
-# argument passed to --with-host-libstdcxx.
+# Libraries to use for stage2 and later builds.
 AC_ARG_WITH(boot-libs,
 [AS_HELP_STRING([--with-boot-libs=LIBS], [libraries for stage2 and later])],
 [if test "$withval" = "no" -o "$withval" = "yes"; then
@@ -1735,7 +1733,7 @@ AC_ARG_WITH(boot-libs,
  else
    poststage1_libs=$withval
  fi],
-[poststage1_libs=$with_host_libstdcxx])
+[poststage1_libs=])
 AC_SUBST(poststage1_libs)
 
 # Linker flags to use for stage2 and later builds.
@@ -1855,7 +1853,7 @@ if test -d ${srcdir}/gcc; then
   if test x"${enable_languages+set}" != xset; then
     if test x"${LANGUAGES+set}" = xset; then
       enable_languages="${LANGUAGES}"
-        echo configure.in: warning: setting LANGUAGES is deprecated, use --enable-languages instead 1>&2
+        echo configure.ac: warning: setting LANGUAGES is deprecated, use --enable-languages instead 1>&2
     else
       enable_languages=all
     fi
@@ -1863,7 +1861,7 @@ if test -d ${srcdir}/gcc; then
     if test x"${enable_languages}" = x ||
        test x"${enable_languages}" = xyes;
        then
-      echo configure.in: --enable-languages needs at least one language argument 1>&2
+      echo configure.ac: --enable-languages needs at least one language argument 1>&2
       exit 1
     fi
   fi
@@ -1873,7 +1871,7 @@ if test -d ${srcdir}/gcc; then
   # and make the substitution.
   case ,${enable_languages}, in
     *,f95,*)
-      echo configure.in: warning: 'f95' as language name is deprecated, use 'fortran' instead 1>&2
+      echo configure.ac: warning: 'f95' as language name is deprecated, use 'fortran' instead 1>&2
       enable_languages=`echo "${enable_languages}" | sed -e 's/f95/fortran/g'`
       ;;
   esac
@@ -2254,6 +2252,15 @@ for i in ${target_configdirs_all} ; do
   fi
 done
 
+# Exclude target-zlib if target-libjava isn't built.
+case ${target_configdirs} in
+*target-libjava*)
+  ;;
+*)
+  target_configdirs="`echo ${target_configdirs} | sed -e 's/target-zlib//'`"
+  ;;
+esac
+
 # libiberty-linker-plugin is special: it doesn't have its own source directory,
 # so we have to add it after the preceding checks.
 if test x"$extra_linker_plugin_flags$extra_linker_plugin_configure_flags" != x
@@ -2271,14 +2278,23 @@ fi
 
 # Sometimes we have special requirements for the host libiberty.
 extra_host_libiberty_configure_flags=
+extra_host_zlib_configure_flags=
 case " $configdirs " in
   *" lto-plugin "* | *" libcc1 "*)
     # When these are to be built as shared libraries, the same applies to
     # libiberty.
     extra_host_libiberty_configure_flags=--enable-shared
     ;;
+  *" bfd "*)
+    # When bfd is to be built as a shared library, the same applies to
+    # zlib.
+    if test "$enable_shared" = "yes"; then
+      extra_host_zlib_configure_flags=--enable-host-shared
+    fi
+    ;;
 esac
 AC_SUBST(extra_host_libiberty_configure_flags)
+AC_SUBST(extra_host_zlib_configure_flags)
 
 # Produce a warning message for the subdirs we can't configure.
 # This isn't especially interesting in the Cygnus tree, but in the individual
@@ -2426,7 +2442,7 @@ fi
 # have requested that this magic not happen.
 # 
 # The command line options always override the explicit settings in 
-# configure.in, and the settings in configure.in override this magic.
+# configure.ac, and the settings in configure.ac override this magic.
 #
 # If the default for a toolchain is to use GNU as and ld, and you don't 
 # want to do that, then you should use the --without-gnu-as and
@@ -2560,7 +2576,7 @@ case "${enable_target_optspace}:${target}" in
   :d30v-*)
     ospace_frag="config/mt-d30v"
     ;;
-  :m32r-* | :d10v-* | :fr30-*)
+  :m32r-* | :d10v-* | :fr30-* | :i?86*-*-elfiamcu)
     ospace_frag="config/mt-ospace"
     ;;
   no:* | :*)

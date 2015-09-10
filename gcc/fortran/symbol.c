@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "parse.h"
 #include "match.h"
@@ -1539,7 +1539,7 @@ gfc_add_procedure (symbol_attribute *attr, procedure_type t,
   if (where == NULL)
     where = &gfc_current_locus;
 
-  if (attr->proc != PROC_UNKNOWN)
+  if (attr->proc != PROC_UNKNOWN && !attr->module_procedure)
     {
       gfc_error ("%s procedure at %L is already declared as %s procedure",
 		 gfc_code2string (procedures, t), where,
@@ -1655,9 +1655,14 @@ bool
 gfc_add_explicit_interface (gfc_symbol *sym, ifsrc source,
 			    gfc_formal_arglist * formal, locus *where)
 {
-
   if (check_used (&sym->attr, sym->name, where))
     return false;
+
+  /* Skip the following checks in the case of a module_procedures in a
+     submodule since they will manifestly fail.  */
+  if (sym->attr.module_procedure == 1
+      && source == IFSRC_DECL)
+    goto finish;
 
   if (where == NULL)
     where = &gfc_current_locus;
@@ -1677,6 +1682,7 @@ gfc_add_explicit_interface (gfc_symbol *sym, ifsrc source,
       return false;
     }
 
+finish:
   sym->formal = formal;
   sym->attr.if_source = source;
 
@@ -1703,7 +1709,10 @@ gfc_add_type (gfc_symbol *sym, gfc_typespec *ts, locus *where)
   if (sym->attr.result && type == BT_UNKNOWN && sym->ns->proc_name)
     type = sym->ns->proc_name->ts.type;
 
-  if (type != BT_UNKNOWN && !(sym->attr.function && sym->attr.implicit_type))
+  if (type != BT_UNKNOWN && !(sym->attr.function && sym->attr.implicit_type)
+      && !(gfc_state_stack->previous && gfc_state_stack->previous->previous
+	   && gfc_state_stack->previous->previous->state == COMP_SUBMODULE)
+      && !sym->attr.module_procedure)
     {
       if (sym->attr.use_assoc)
 	gfc_error ("Symbol %qs at %L conflicts with symbol from module %qs, "
@@ -1873,6 +1882,44 @@ gfc_copy_attr (symbol_attribute *dest, symbol_attribute *src, locus *where)
 
 fail:
   return false;
+}
+
+
+/* A function to generate a dummy argument symbol using that from the
+   interface declaration. Can be used for the result symbol as well if
+   the flag is set.  */
+
+int
+gfc_copy_dummy_sym (gfc_symbol **dsym, gfc_symbol *sym, int result)
+{
+  int rc;
+
+  rc = gfc_get_symbol (sym->name, NULL, dsym);
+  if (rc)
+    return rc;
+
+  if (!gfc_add_type (*dsym, &(sym->ts), &gfc_current_locus))
+    return 1;
+
+  if (!gfc_copy_attr (&(*dsym)->attr, &(sym->attr),
+      &gfc_current_locus))
+    return 1;
+
+  if ((*dsym)->attr.dimension)
+    (*dsym)->as = gfc_copy_array_spec (sym->as);
+
+  (*dsym)->attr.class_ok = sym->attr.class_ok;
+
+  if ((*dsym) != NULL && !result
+      && (!gfc_add_dummy(&(*dsym)->attr, (*dsym)->name, NULL)
+	  || !gfc_missing_attr (&(*dsym)->attr, NULL)))
+    return 1;
+  else if ((*dsym) != NULL && result
+      && (!gfc_add_result(&(*dsym)->attr, (*dsym)->name, NULL)
+	  || !gfc_missing_attr (&(*dsym)->attr, NULL)))
+    return 1;
+
+  return 0;
 }
 
 
@@ -3121,49 +3168,49 @@ gfc_restore_last_undo_checkpoint (void)
 
   FOR_EACH_VEC_ELT (latest_undo_chgset->syms, i, p)
     {
-      if (p->gfc_new)
+      /* Symbol was new. Or was old and just put in common */
+      if ((p->gfc_new
+	   || (p->attr.in_common && !p->old_symbol->attr.in_common ))
+	  && p->attr.in_common && p->common_block && p->common_block->head)
 	{
-	  /* Symbol was new.  */
-	  if (p->attr.in_common && p->common_block && p->common_block->head)
+	  /* If the symbol was added to any common block, it
+	     needs to be removed to stop the resolver looking
+	     for a (possibly) dead symbol.  */
+
+	  if (p->common_block->head == p && !p->common_next)
 	    {
-	      /* If the symbol was added to any common block, it
-		 needs to be removed to stop the resolver looking
-		 for a (possibly) dead symbol.  */
-
-	      if (p->common_block->head == p && !p->common_next)
+	      gfc_symtree st, *st0;
+	      st0 = find_common_symtree (p->ns->common_root,
+					 p->common_block);
+	      if (st0)
 		{
-		  gfc_symtree st, *st0;
-		  st0 = find_common_symtree (p->ns->common_root,
-					     p->common_block);
-		  if (st0)
-		    {
-		      st.name = st0->name;
-		      gfc_delete_bbt (&p->ns->common_root, &st, compare_symtree);
-		      free (st0);
-		    }
-		}
-
-	      if (p->common_block->head == p)
-	        p->common_block->head = p->common_next;
-	      else
-		{
-		  gfc_symbol *cparent, *csym;
-
-		  cparent = p->common_block->head;
-		  csym = cparent->common_next;
-
-		  while (csym != p)
-		    {
-		      cparent = csym;
-		      csym = csym->common_next;
-		    }
-
-		  gcc_assert(cparent->common_next == p);
-
-		  cparent->common_next = csym->common_next;
+		  st.name = st0->name;
+		  gfc_delete_bbt (&p->ns->common_root, &st, compare_symtree);
+		  free (st0);
 		}
 	    }
 
+	  if (p->common_block->head == p)
+	    p->common_block->head = p->common_next;
+	  else
+	    {
+	      gfc_symbol *cparent, *csym;
+
+	      cparent = p->common_block->head;
+	      csym = cparent->common_next;
+
+	      while (csym != p)
+		{
+		  cparent = csym;
+		  csym = csym->common_next;
+		}
+
+	      gcc_assert(cparent->common_next == p);
+	      cparent->common_next = csym->common_next;
+	    }
+	}
+      if (p->gfc_new)
+	{
 	  /* The derived type is saved in the symtree with the first
 	     letter capitalized; the all lower-case version to the
 	     derived type contains its associated generic function.  */

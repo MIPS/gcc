@@ -20,22 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "flags.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "except.h"
-#include "function.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "expmed.h"
@@ -57,24 +56,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm_p.h"
 #include "tree-iterator.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "tree-ssanames.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "timevar.h"
-#include "df.h"
 #include "diagnostic.h"
 #include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
@@ -1495,10 +1481,6 @@ emit_block_move_via_loop (rtx x, rtx y, rtx size,
 void
 move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 {
-  int i;
-  rtx pat;
-  rtx_insn *last;
-
   if (nregs == 0)
     return;
 
@@ -1506,12 +1488,12 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
     x = validize_mem (force_const_mem (mode, x));
 
   /* See if the machine can do this with a load multiple insn.  */
-  if (HAVE_load_multiple)
+  if (targetm.have_load_multiple ())
     {
-      last = get_last_insn ();
-      pat = gen_load_multiple (gen_rtx_REG (word_mode, regno), x,
-			       GEN_INT (nregs));
-      if (pat)
+      rtx_insn *last = get_last_insn ();
+      rtx first = gen_rtx_REG (word_mode, regno);
+      if (rtx_insn *pat = targetm.gen_load_multiple (first, x,
+						     GEN_INT (nregs)))
 	{
 	  emit_insn (pat);
 	  return;
@@ -1520,7 +1502,7 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 	delete_insns_since (last);
     }
 
-  for (i = 0; i < nregs; i++)
+  for (int i = 0; i < nregs; i++)
     emit_move_insn (gen_rtx_REG (word_mode, regno + i),
 		    operand_subword_force (x, i, mode));
 }
@@ -1531,18 +1513,16 @@ move_block_to_reg (int regno, rtx x, int nregs, machine_mode mode)
 void
 move_block_from_reg (int regno, rtx x, int nregs)
 {
-  int i;
-
   if (nregs == 0)
     return;
 
   /* See if the machine can do this with a store multiple insn.  */
-  if (HAVE_store_multiple)
+  if (targetm.have_store_multiple ())
     {
       rtx_insn *last = get_last_insn ();
-      rtx pat = gen_store_multiple (x, gen_rtx_REG (word_mode, regno),
-				    GEN_INT (nregs));
-      if (pat)
+      rtx first = gen_rtx_REG (word_mode, regno);
+      if (rtx_insn *pat = targetm.gen_store_multiple (x, first,
+						      GEN_INT (nregs)))
 	{
 	  emit_insn (pat);
 	  return;
@@ -1551,7 +1531,7 @@ move_block_from_reg (int regno, rtx x, int nregs)
 	delete_insns_since (last);
     }
 
-  for (i = 0; i < nregs; i++)
+  for (int i = 0; i < nregs; i++)
     {
       rtx tem = operand_subword (x, i, 1, BLKmode);
 
@@ -3640,15 +3620,6 @@ gen_move_insn (rtx x, rtx y)
   return seq;
 }
 
-/* Same as above, but return rtx (used as a callback, which must have
-   prototype compatible with other functions returning rtx).  */
-
-rtx
-gen_move_insn_uncast (rtx x, rtx y)
-{
-  return gen_move_insn (x, y);
-}
-
 /* If Y is representable exactly in a narrower mode, and the target can
    perform the extension directly from constant or memory, then emit the
    move as an extension.  */
@@ -3666,9 +3637,9 @@ compress_float_constant (rtx x, rtx y)
   REAL_VALUE_FROM_CONST_DOUBLE (r, y);
 
   if (targetm.legitimate_constant_p (dstmode, y))
-    oldcost = set_src_cost (y, speed);
+    oldcost = set_src_cost (y, orig_srcmode, speed);
   else
-    oldcost = set_src_cost (force_const_mem (dstmode, y), speed);
+    oldcost = set_src_cost (force_const_mem (dstmode, y), dstmode, speed);
 
   for (srcmode = GET_CLASS_NARROWEST_MODE (GET_MODE_CLASS (orig_srcmode));
        srcmode != orig_srcmode;
@@ -3697,7 +3668,7 @@ compress_float_constant (rtx x, rtx y)
 	    continue;
 	  /* This is valid, but may not be cheaper than the original. */
 	  newcost = set_src_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y),
-				  speed);
+				  dstmode, speed);
 	  if (oldcost < newcost)
 	    continue;
 	}
@@ -3706,7 +3677,7 @@ compress_float_constant (rtx x, rtx y)
 	  trunc_y = force_const_mem (srcmode, trunc_y);
 	  /* This is valid, but may not be cheaper than the original. */
 	  newcost = set_src_cost (gen_rtx_FLOAT_EXTEND (dstmode, trunc_y),
-				  speed);
+				  dstmode, speed);
 	  if (oldcost < newcost)
 	    continue;
 	  trunc_y = validize_mem (trunc_y);
@@ -5297,7 +5268,7 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
       jumpifnot (TREE_OPERAND (exp, 0), lab1, -1);
       store_expr_with_bounds (TREE_OPERAND (exp, 1), target, call_param_p,
 			      nontemporal, reverse, btarget);
-      emit_jump_insn (gen_jump (lab2));
+      emit_jump_insn (targetm.gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
       store_expr_with_bounds (TREE_OPERAND (exp, 2), target, call_param_p,
@@ -6038,9 +6009,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		   bool reverse)
 {
   tree type = TREE_TYPE (exp);
-#ifdef WORD_REGISTER_OPERATIONS
   HOST_WIDE_INT exp_size = int_size_in_bytes (type);
-#endif
 
   switch (TREE_CODE (type))
     {
@@ -6156,13 +6125,13 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 					 highest_pow2_factor (offset));
 	      }
 
-#ifdef WORD_REGISTER_OPERATIONS
 	    /* If this initializes a field that is smaller than a
 	       word, at the start of a word, try to widen it to a full
 	       word.  This special case allows us to output C++ member
 	       function initializations in a form that the optimizers
 	       can understand.  */
-	    if (REG_P (target)
+	    if (WORD_REGISTER_OPERATIONS
+		&& REG_P (target)
 		&& bitsize < BITS_PER_WORD
 		&& bitpos % BITS_PER_WORD == 0
 		&& GET_MODE_CLASS (mode) == MODE_INT
@@ -6187,7 +6156,6 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
 		bitsize = BITS_PER_WORD;
 		mode = word_mode;
 	      }
-#endif
 
 	    if (MEM_P (to_rtx) && !MEM_KEEP_ALIAS_SET_P (to_rtx)
 		&& DECL_NONADDRESSABLE_P (field))
@@ -7688,15 +7656,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, machine_mode tmode,
 	     marked TREE_ADDRESSABLE, which will be either a front-end
 	     or a tree optimizer bug.  */
 
-	  if (TREE_ADDRESSABLE (exp)
-	      && ! MEM_P (result)
-	      && ! targetm.calls.allocate_stack_slots_for_args ())
-	    {
-	      error ("local frame unavailable (naked function?)");
-	      return result;
-	    }
-	  else
-	    gcc_assert (MEM_P (result));
+	  gcc_assert (MEM_P (result));
 	  result = XEXP (result, 0);
 
 	  /* ??? Is this needed anymore?  */
@@ -7983,9 +7943,9 @@ expand_expr_real (tree exp, rtx target, machine_mode tmode,
 }
 
 /* Try to expand the conditional expression which is represented by
-   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If succeseds
-   return the rtl reg which repsents the result.  Otherwise return
-   NULL_RTL.  */
+   TREEOP0 ? TREEOP1 : TREEOP2 using conditonal moves.  If it succeeds
+   return the rtl reg which represents the result.  Otherwise return
+   NULL_RTX.  */
 
 static rtx
 expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
@@ -8224,9 +8184,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    inner_mode = TYPE_MODE (inner_type);
 
 	  if (modifier == EXPAND_INITIALIZER)
-	    op0 = simplify_gen_subreg (mode, op0, inner_mode,
-				       subreg_lowpart_offset (mode,
-							      inner_mode));
+	    op0 = lowpart_subreg (mode, op0, inner_mode);
 	  else
 	    op0=  convert_modes (mode, inner_mode, op0,
 				 TYPE_UNSIGNED (inner_type));
@@ -8483,11 +8441,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	 Thus the following special case checks need only
 	 check the second operand.  */
       if (TREE_CODE (treeop0) == INTEGER_CST)
-	{
-	  tree t1 = treeop0;
-	  treeop0 = treeop1;
-	  treeop1 = t1;
-	}
+	std::swap (treeop0, treeop1);
 
       /* First, check if we have a multiplication of one signed and one
 	 unsigned operand.  */
@@ -8612,11 +8566,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    def0 = get_def_for_expr (treeop1, NEGATE_EXPR);
 	    /* Swap operands if the 2nd operand is fed by a negate.  */
 	    if (def0)
-	      {
-		tree tem = treeop0;
-		treeop0 = treeop1;
-		treeop1 = tem;
-	      }
+	      std::swap (treeop0, treeop1);
 	  }
 	def2 = get_def_for_expr (treeop2, NEGATE_EXPR);
 
@@ -8663,11 +8613,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	 Thus the following special case checks need only
 	 check the second operand.  */
       if (TREE_CODE (treeop0) == INTEGER_CST)
-	{
-	  tree t1 = treeop0;
-	  treeop0 = treeop1;
-	  treeop1 = t1;
-	}
+	std::swap (treeop0, treeop1);
 
       /* Attempt to return something suitable for generating an
 	 indexed address, for machines that support that.  */
@@ -8945,23 +8891,112 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
-      /* If this is a fixed-point operation, then we cannot use the code
-	 below because "expand_shift" doesn't support sat/no-sat fixed-point
-         shifts.   */
-      if (ALL_FIXED_POINT_MODE_P (mode))
-	goto binop;
+      {
+	/* If this is a fixed-point operation, then we cannot use the code
+	   below because "expand_shift" doesn't support sat/no-sat fixed-point
+	   shifts.  */
+	if (ALL_FIXED_POINT_MODE_P (mode))
+	  goto binop;
 
-      if (! safe_from_p (subtarget, treeop1, 1))
-	subtarget = 0;
-      if (modifier == EXPAND_STACK_PARM)
-	target = 0;
-      op0 = expand_expr (treeop0, subtarget,
-			 VOIDmode, EXPAND_NORMAL);
-      temp = expand_variable_shift (code, mode, op0, treeop1, target,
-				    unsignedp);
-      if (code == LSHIFT_EXPR)
-	temp = REDUCE_BIT_FIELD (temp);
-      return temp;
+	if (! safe_from_p (subtarget, treeop1, 1))
+	  subtarget = 0;
+	if (modifier == EXPAND_STACK_PARM)
+	  target = 0;
+	op0 = expand_expr (treeop0, subtarget,
+			   VOIDmode, EXPAND_NORMAL);
+
+	/* Left shift optimization when shifting across word_size boundary.
+
+	   If mode == GET_MODE_WIDER_MODE (word_mode), then normally there isn't
+	   native instruction to support this wide mode left shift.  Given below
+	   scenario:
+
+	    Type A = (Type) B  << C
+
+	    |<		 T	    >|
+	    | dest_high  |  dest_low |
+
+			 | word_size |
+
+	   If the shift amount C caused we shift B to across the word size
+	   boundary, i.e part of B shifted into high half of destination
+	   register, and part of B remains in the low half, then GCC will use
+	   the following left shift expand logic:
+
+	   1. Initialize dest_low to B.
+	   2. Initialize every bit of dest_high to the sign bit of B.
+	   3. Logic left shift dest_low by C bit to finalize dest_low.
+	      The value of dest_low before this shift is kept in a temp D.
+	   4. Logic left shift dest_high by C.
+	   5. Logic right shift D by (word_size - C).
+	   6. Or the result of 4 and 5 to finalize dest_high.
+
+	   While, by checking gimple statements, if operand B is coming from
+	   signed extension, then we can simplify above expand logic into:
+
+	      1. dest_high = src_low >> (word_size - C).
+	      2. dest_low = src_low << C.
+
+	   We can use one arithmetic right shift to finish all the purpose of
+	   steps 2, 4, 5, 6, thus we reduce the steps needed from 6 into 2.  */
+
+	temp = NULL_RTX;
+	if (code == LSHIFT_EXPR
+	    && target
+	    && REG_P (target)
+	    && ! unsignedp
+	    && mode == GET_MODE_WIDER_MODE (word_mode)
+	    && GET_MODE_SIZE (mode) == 2 * GET_MODE_SIZE (word_mode)
+	    && ! have_insn_for (ASHIFT, mode)
+	    && TREE_CONSTANT (treeop1)
+	    && TREE_CODE (treeop0) == SSA_NAME)
+	  {
+	    gimple def = SSA_NAME_DEF_STMT (treeop0);
+	    if (is_gimple_assign (def)
+		&& gimple_assign_rhs_code (def) == NOP_EXPR)
+	      {
+		machine_mode rmode = TYPE_MODE
+		  (TREE_TYPE (gimple_assign_rhs1 (def)));
+
+		if (GET_MODE_SIZE (rmode) < GET_MODE_SIZE (mode)
+		    && TREE_INT_CST_LOW (treeop1) < GET_MODE_BITSIZE (word_mode)
+		    && ((TREE_INT_CST_LOW (treeop1) + GET_MODE_BITSIZE (rmode))
+			>= GET_MODE_BITSIZE (word_mode)))
+		  {
+		    unsigned int high_off = subreg_highpart_offset (word_mode,
+								    mode);
+		    rtx low = lowpart_subreg (word_mode, op0, mode);
+		    rtx dest_low = lowpart_subreg (word_mode, target, mode);
+		    rtx dest_high = simplify_gen_subreg (word_mode, target,
+							 mode, high_off);
+		    HOST_WIDE_INT ramount = (BITS_PER_WORD
+					     - TREE_INT_CST_LOW (treeop1));
+		    tree rshift = build_int_cst (TREE_TYPE (treeop1), ramount);
+
+		    /* dest_high = src_low >> (word_size - C).  */
+		    temp = expand_variable_shift (RSHIFT_EXPR, word_mode, low,
+						  rshift, dest_high, unsignedp);
+		    if (temp != dest_high)
+		      emit_move_insn (dest_high, temp);
+
+		    /* dest_low = src_low << C.  */
+		    temp = expand_variable_shift (LSHIFT_EXPR, word_mode, low,
+						  treeop1, dest_low, unsignedp);
+		    if (temp != dest_low)
+		      emit_move_insn (dest_low, temp);
+
+		    temp = target ;
+		  }
+	      }
+	  }
+
+	if (temp == NULL_RTX)
+	  temp = expand_variable_shift (code, mode, op0, treeop1, target,
+					unsignedp);
+	if (code == LSHIFT_EXPR)
+	  temp = REDUCE_BIT_FIELD (temp);
+	return temp;
+      }
 
       /* Could determine the answer when only additive constants differ.  Also,
 	 the addition of one can be handled by changing the condition.  */
@@ -8987,7 +9022,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	  return temp;
 
 	/* Use a compare and a jump for BLKmode comparisons, or for function
-	   type comparisons is HAVE_canonicalize_funcptr_for_compare.  */
+	   type comparisons is have_canonicalize_funcptr_for_compare.  */
 
 	if ((target == 0
 	     || modifier == EXPAND_STACK_PARM
@@ -9117,7 +9152,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
            little-endian, or element N-1 if big-endian.  So pull the scalar
            result out of that element.  */
         int index = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (vec_mode) - 1 : 0;
-        int bitsize = GET_MODE_BITSIZE (GET_MODE_INNER (vec_mode));
+	int bitsize = GET_MODE_UNIT_BITSIZE (vec_mode);
         temp = extract_bit_field (temp, bitsize, bitsize * index, unsignedp,
 				  target, mode, mode, false);
         gcc_assert (temp);
@@ -9277,7 +9312,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 		    modifier == EXPAND_STACK_PARM,
 		    false, false);
 
-	emit_jump_insn (gen_jump (lab1));
+	emit_jump_insn (targetm.gen_jump (lab1));
 	emit_barrier ();
 	emit_label (lab0);
 	store_expr (treeop2, temp,
@@ -9345,7 +9380,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
   rtx op0, op1, temp, decl_rtl;
   tree type;
   int unsignedp;
-  machine_mode mode;
+  machine_mode mode, dmode;
   enum tree_code code = TREE_CODE (exp);
   rtx subtarget, original_target;
   int ignore;
@@ -9476,12 +9511,17 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       if (g == NULL
 	  && modifier == EXPAND_INITIALIZER
 	  && !SSA_NAME_IS_DEFAULT_DEF (exp)
-	  && (optimize || DECL_IGNORED_P (SSA_NAME_VAR (exp)))
+	  && (optimize || !SSA_NAME_VAR (exp)
+	      || DECL_IGNORED_P (SSA_NAME_VAR (exp)))
 	  && stmt_is_replaceable_p (SSA_NAME_DEF_STMT (exp)))
 	g = SSA_NAME_DEF_STMT (exp);
       if (g)
 	{
 	  rtx r;
+	  location_t saved_loc = curr_insn_location ();
+	  location_t loc = gimple_location (g);
+	  if (loc != UNKNOWN_LOCATION)
+	    set_curr_insn_location (loc);
 	  ops.code = gimple_assign_rhs_code (g);
           switch (get_gimple_rhs_class (ops.code))
 	    {
@@ -9503,21 +9543,19 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    case GIMPLE_UNARY_RHS:
 	      ops.op0 = gimple_assign_rhs1 (g);
 	      ops.type = TREE_TYPE (gimple_assign_lhs (g));
-	      ops.location = gimple_location (g);
+	      ops.location = loc;
 	      r = expand_expr_real_2 (&ops, target, tmode, modifier);
 	      break;
 	    case GIMPLE_SINGLE_RHS:
 	      {
-		location_t saved_loc = curr_insn_location ();
-		set_curr_insn_location (gimple_location (g));
 		r = expand_expr_real (gimple_assign_rhs1 (g), target,
 				      tmode, modifier, NULL, inner_reference_p);
-		set_curr_insn_location (saved_loc);
 		break;
 	      }
 	    default:
 	      gcc_unreachable ();
 	    }
+	  set_curr_insn_location (saved_loc);
 	  if (REG_P (r) && !REG_EXPR (r))
 	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (exp), r);
 	  return r;
@@ -9555,15 +9593,18 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       /* Ensure variable marked as used even if it doesn't go through
 	 a parser.  If it hasn't be used yet, write out an external
 	 definition.  */
-      TREE_USED (exp) = 1;
+      if (exp)
+	TREE_USED (exp) = 1;
 
       /* Show we haven't gotten RTL for this yet.  */
       temp = 0;
 
       /* Variables inherited from containing functions should have
 	 been lowered by this point.  */
-      context = decl_function_context (exp);
-      gcc_assert (SCOPE_FILE_SCOPE_P (context)
+      if (exp)
+	context = decl_function_context (exp);
+      gcc_assert (!exp
+		  || SCOPE_FILE_SCOPE_P (context)
 		  || context == current_function_decl
 		  || TREE_STATIC (exp)
 		  || DECL_EXTERNAL (exp)
@@ -9587,7 +9628,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  decl_rtl = use_anchored_address (decl_rtl);
 	  if (modifier != EXPAND_CONST_ADDRESS
 	      && modifier != EXPAND_SUM
-	      && !memory_address_addr_space_p (DECL_MODE (exp),
+	      && !memory_address_addr_space_p (exp ? DECL_MODE (exp)
+					       : GET_MODE (decl_rtl),
 					       XEXP (decl_rtl, 0),
 					       MEM_ADDR_SPACE (decl_rtl)))
 	    temp = replace_equiv_address (decl_rtl,
@@ -9598,11 +9640,16 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	 if the address is a register.  */
       if (temp != 0)
 	{
-	  if (MEM_P (temp) && REG_P (XEXP (temp, 0)))
+	  if (exp && MEM_P (temp) && REG_P (XEXP (temp, 0)))
 	    mark_reg_pointer (XEXP (temp, 0), DECL_ALIGN (exp));
 
 	  return temp;
 	}
+
+      if (exp)
+	dmode = DECL_MODE (exp);
+      else
+	dmode = TYPE_MODE (TREE_TYPE (ssa_name));
 
       /* If the mode of DECL_RTL does not match that of the decl,
 	 there are two cases: we are dealing with a BLKmode value
@@ -9611,22 +9658,23 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	 of the wanted mode, but mark it so that we know that it
 	 was already extended.  */
       if (REG_P (decl_rtl)
-	  && DECL_MODE (exp) != BLKmode
-	  && GET_MODE (decl_rtl) != DECL_MODE (exp))
+	  && dmode != BLKmode
+	  && GET_MODE (decl_rtl) != dmode)
 	{
 	  machine_mode pmode;
 
 	  /* Get the signedness to be used for this variable.  Ensure we get
 	     the same mode we got when the variable was declared.  */
-	  if (code == SSA_NAME
-	      && (g = SSA_NAME_DEF_STMT (ssa_name))
-	      && gimple_code (g) == GIMPLE_CALL
-	      && !gimple_call_internal_p (g))
+	  if (code != SSA_NAME)
+	    pmode = promote_decl_mode (exp, &unsignedp);
+	  else if ((g = SSA_NAME_DEF_STMT (ssa_name))
+		   && gimple_code (g) == GIMPLE_CALL
+		   && !gimple_call_internal_p (g))
 	    pmode = promote_function_mode (type, mode, &unsignedp,
 					   gimple_call_fntype (g),
 					   2);
 	  else
-	    pmode = promote_decl_mode (exp, &unsignedp);
+	    pmode = promote_ssa_mode (ssa_name, &unsignedp);
 	  gcc_assert (GET_MODE (decl_rtl) == pmode);
 
 	  temp = gen_lowpart_SUBREG (mode, decl_rtl);
@@ -11002,7 +11050,6 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 {
   enum rtx_code code;
   tree arg0, arg1, type;
-  tree tem;
   machine_mode operand_mode;
   int unsignedp;
   rtx op0, op1;
@@ -11027,8 +11074,7 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 
   /* We won't bother with store-flag operations involving function pointers
      when function pointers must be canonicalized before comparisons.  */
-#ifdef HAVE_canonicalize_funcptr_for_compare
-  if (HAVE_canonicalize_funcptr_for_compare
+  if (targetm.have_canonicalize_funcptr_for_compare ()
       && ((TREE_CODE (TREE_TYPE (arg0)) == POINTER_TYPE
 	   && (TREE_CODE (TREE_TYPE (TREE_TYPE (arg0)))
 	       == FUNCTION_TYPE))
@@ -11036,7 +11082,6 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 	      && (TREE_CODE (TREE_TYPE (TREE_TYPE (arg1)))
 		  == FUNCTION_TYPE))))
     return 0;
-#endif
 
   STRIP_NOPS (arg0);
   STRIP_NOPS (arg1);
@@ -11125,7 +11170,7 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
   if (TREE_CODE (arg0) == REAL_CST || TREE_CODE (arg0) == INTEGER_CST
       || TREE_CODE (arg0) == FIXED_CST)
     {
-      tem = arg0; arg0 = arg1; arg1 = tem;
+      std::swap (arg0, arg1);
       code = swap_condition (code);
     }
 
@@ -11173,14 +11218,6 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
 				 && !TYPE_UNSIGNED (ops->type)) ? -1 : 1);
 }
 
-
-/* Stubs in case we haven't got a casesi insn.  */
-#ifndef HAVE_casesi
-# define HAVE_casesi 0
-# define gen_casesi(a, b, c, d, e) (0)
-# define CODE_FOR_casesi CODE_FOR_nothing
-#endif
-
 /* Attempt to generate a casesi instruction.  Returns 1 if successful,
    0 otherwise (i.e. if there is no casesi instruction).
 
@@ -11195,7 +11232,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
   machine_mode index_mode = SImode;
   rtx op1, op2, index;
 
-  if (! HAVE_casesi)
+  if (! targetm.have_casesi ())
     return 0;
 
   /* Convert the index to SImode.  */
@@ -11239,7 +11276,7 @@ try_casesi (tree index_type, tree index_expr, tree minval, tree range,
   create_fixed_operand (&ops[4], (default_label
 				  ? default_label
 				  : fallback_label));
-  expand_jump_insn (CODE_FOR_casesi, 5, ops);
+  expand_jump_insn (targetm.code_for_casesi, 5, ops);
   return 1;
 }
 
@@ -11312,7 +11349,7 @@ do_tablejump (rtx index, machine_mode mode, rtx range, rtx table_label,
   vector = gen_const_mem (CASE_VECTOR_MODE, index);
   convert_move (temp, vector, 0);
 
-  emit_jump_insn (gen_tablejump (temp, table_label));
+  emit_jump_insn (targetm.gen_tablejump (temp, table_label));
 
   /* If we are generating PIC code or if the table is PC-relative, the
      table and JUMP_INSN must be adjacent, so don't output a BARRIER.  */
@@ -11326,7 +11363,7 @@ try_tablejump (tree index_type, tree index_expr, tree minval, tree range,
 {
   rtx index;
 
-  if (! HAVE_tablejump)
+  if (! targetm.have_tablejump ())
     return 0;
 
   index_expr = fold_build2 (MINUS_EXPR, index_type,

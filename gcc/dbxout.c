@@ -70,9 +70,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
@@ -88,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "tm_p.h"
 #include "debug.h"
-#include "hard-reg-set.h"
 #include "function.h"
 #include "target.h"
 #include "common/common-target.h"
@@ -101,9 +98,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "stringpool.h"
 
@@ -2415,8 +2409,8 @@ dbxout_type_name (tree type)
   stabstr_I (t);
 }
 
-/* Output leading leading struct or class names needed for qualifying
-   type whose scope is limited to a struct or class.  */
+/* Output leading struct or class names needed for qualifying type
+   whose scope is limited to a struct or class.  */
 
 static void
 dbxout_class_name_qualifiers (tree decl)

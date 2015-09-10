@@ -22,20 +22,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -48,9 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "recog.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "target.h"
 
 struct target_expmed default_target_expmed;
@@ -151,7 +146,8 @@ init_expmed_one_conv (struct init_expmed_rtl *all, machine_mode to_mode,
   which = (to_size < from_size ? all->trunc : all->zext);
 
   PUT_MODE (all->reg, from_mode);
-  set_convert_cost (to_mode, from_mode, speed, set_src_cost (which, speed));
+  set_convert_cost (to_mode, from_mode, speed,
+		    set_src_cost (which, to_mode, speed));
 }
 
 static void
@@ -180,15 +176,15 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
   PUT_MODE (all->zext, mode);
   PUT_MODE (all->trunc, mode);
 
-  set_add_cost (speed, mode, set_src_cost (all->plus, speed));
-  set_neg_cost (speed, mode, set_src_cost (all->neg, speed));
-  set_mul_cost (speed, mode, set_src_cost (all->mult, speed));
-  set_sdiv_cost (speed, mode, set_src_cost (all->sdiv, speed));
-  set_udiv_cost (speed, mode, set_src_cost (all->udiv, speed));
+  set_add_cost (speed, mode, set_src_cost (all->plus, mode, speed));
+  set_neg_cost (speed, mode, set_src_cost (all->neg, mode, speed));
+  set_mul_cost (speed, mode, set_src_cost (all->mult, mode, speed));
+  set_sdiv_cost (speed, mode, set_src_cost (all->sdiv, mode, speed));
+  set_udiv_cost (speed, mode, set_src_cost (all->udiv, mode, speed));
 
-  set_sdiv_pow2_cheap (speed, mode, (set_src_cost (all->sdiv_32, speed)
+  set_sdiv_pow2_cheap (speed, mode, (set_src_cost (all->sdiv_32, mode, speed)
 				     <= 2 * add_cost (speed, mode)));
-  set_smod_pow2_cheap (speed, mode, (set_src_cost (all->smod_32, speed)
+  set_smod_pow2_cheap (speed, mode, (set_src_cost (all->smod_32, mode, speed)
 				     <= 4 * add_cost (speed, mode)));
 
   set_shift_cost (speed, mode, 0, 0);
@@ -205,10 +201,13 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
       XEXP (all->shift, 1) = all->cint[m];
       XEXP (all->shift_mult, 1) = all->pow2[m];
 
-      set_shift_cost (speed, mode, m, set_src_cost (all->shift, speed));
-      set_shiftadd_cost (speed, mode, m, set_src_cost (all->shift_add, speed));
-      set_shiftsub0_cost (speed, mode, m, set_src_cost (all->shift_sub0, speed));
-      set_shiftsub1_cost (speed, mode, m, set_src_cost (all->shift_sub1, speed));
+      set_shift_cost (speed, mode, m, set_src_cost (all->shift, mode, speed));
+      set_shiftadd_cost (speed, mode, m, set_src_cost (all->shift_add, mode,
+						       speed));
+      set_shiftsub0_cost (speed, mode, m, set_src_cost (all->shift_sub0, mode,
+							speed));
+      set_shiftsub1_cost (speed, mode, m, set_src_cost (all->shift_sub1, mode,
+							speed));
     }
 
   if (SCALAR_INT_MODE_P (mode))
@@ -228,9 +227,9 @@ init_expmed_one_mode (struct init_expmed_rtl *all,
 	  XEXP (all->wide_lshr, 1) = GEN_INT (mode_bitsize);
 
 	  set_mul_widen_cost (speed, wider_mode,
-			      set_src_cost (all->wide_mult, speed));
+			      set_src_cost (all->wide_mult, wider_mode, speed));
 	  set_mul_highpart_cost (speed, mode,
-				 set_src_cost (all->wide_trunc, speed));
+				 set_src_cost (all->wide_trunc, mode, speed));
 	}
     }
 }
@@ -272,7 +271,7 @@ init_expmed (void)
   for (speed = 0; speed < 2; speed++)
     {
       crtl->maybe_hot_insn_p = speed;
-      set_zero_cost (speed, set_src_cost (const0_rtx, speed));
+      set_zero_cost (speed, set_src_cost (const0_rtx, mode, speed));
 
       for (mode = MIN_MODE_INT; mode <= MAX_MODE_INT;
 	   mode = (machine_mode)(mode + 1))
@@ -769,8 +768,8 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       && !MEM_P (op0)
       && optab_handler (vec_set_optab, GET_MODE (op0)) != CODE_FOR_nothing
       && fieldmode == GET_MODE_INNER (GET_MODE (op0))
-      && bitsize == GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
-      && !(bitnum % GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
+      && bitsize == GET_MODE_UNIT_BITSIZE (GET_MODE (op0))
+      && !(bitnum % GET_MODE_UNIT_BITSIZE (GET_MODE (op0))))
     {
       struct expand_operand ops[3];
       machine_mode outermode = GET_MODE (op0);
@@ -1615,8 +1614,8 @@ extract_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
   if (VECTOR_MODE_P (GET_MODE (op0))
       && !MEM_P (op0)
       && optab_handler (vec_extract_optab, GET_MODE (op0)) != CODE_FOR_nothing
-      && ((bitnum + bitsize - 1) / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))
-	  == bitnum / GET_MODE_BITSIZE (GET_MODE_INNER (GET_MODE (op0)))))
+      && ((bitnum + bitsize - 1) / GET_MODE_UNIT_BITSIZE (GET_MODE (op0))
+	  == bitnum / GET_MODE_UNIT_BITSIZE (GET_MODE (op0))))
     {
       struct expand_operand ops[3];
       machine_mode outermode = GET_MODE (op0);
@@ -2580,8 +2579,6 @@ synth_mult (struct algorithm *alg_out, unsigned HOST_WIDE_INT t,
 
   /* Be prepared for vector modes.  */
   imode = GET_MODE_INNER (mode);
-  if (imode == VOIDmode)
-    imode = mode;
 
   maxm = MIN (BITS_PER_WORD, GET_MODE_BITSIZE (imode));
 
@@ -3241,8 +3238,6 @@ expand_mult_const (machine_mode mode, rtx op0, HOST_WIDE_INT val,
   /* Compare only the bits of val and val_so_far that are significant
      in the result mode, to avoid sign-/zero-extension confusion.  */
   nmode = GET_MODE_INNER (mode);
-  if (nmode == VOIDmode)
-    nmode = mode;
   val &= GET_MODE_MASK (nmode);
   val_so_far &= GET_MODE_MASK (nmode);
   gcc_assert (val == val_so_far);
@@ -3274,15 +3269,7 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
 
   /* For vectors, there are several simplifications that can be made if
      all elements of the vector constant are identical.  */
-  scalar_op1 = op1;
-  if (GET_CODE (op1) == CONST_VECTOR)
-    {
-      int i, n = CONST_VECTOR_NUNITS (op1);
-      scalar_op1 = CONST_VECTOR_ELT (op1, 0);
-      for (i = 1; i < n; ++i)
-	if (!rtx_equal_p (scalar_op1, CONST_VECTOR_ELT (op1, i)))
-	  goto skip_scalar;
-    }
+  scalar_op1 = unwrap_const_vec_duplicate (op1);
 
   if (INTEGRAL_MODE_P (mode))
     {
@@ -3365,7 +3352,8 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
 	     Exclude cost of op0 from max_cost to match the cost
 	     calculation of the synth_mult.  */
 	  coeff = -(unsigned HOST_WIDE_INT) coeff;
-	  max_cost = (set_src_cost (gen_rtx_MULT (mode, fake_reg, op1), speed)
+	  max_cost = (set_src_cost (gen_rtx_MULT (mode, fake_reg, op1),
+				    mode, speed)
 		      - neg_cost (speed, mode));
 	  if (max_cost <= 0)
 	    goto skip_synth;
@@ -3390,7 +3378,7 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
 
       /* Exclude cost of op0 from max_cost to match the cost
 	 calculation of the synth_mult.  */
-      max_cost = set_src_cost (gen_rtx_MULT (mode, fake_reg, op1), speed);
+      max_cost = set_src_cost (gen_rtx_MULT (mode, fake_reg, op1), mode, speed);
       if (choose_mult_variant (mode, coeff, &algorithm, &variant, max_cost))
 	return expand_mult_const (mode, op0, coeff, target,
 				  &algorithm, variant);
@@ -3410,7 +3398,6 @@ expand_mult (machine_mode mode, rtx op0, rtx op1, rtx target,
 			       target, unsignedp, OPTAB_LIB_WIDEN);
 	}
     }
- skip_scalar:
 
   /* This used to use umul_optab if unsigned, but for non-widening multiply
      there is no difference between signed and unsigned.  */
@@ -3431,7 +3418,8 @@ mult_by_coeff_cost (HOST_WIDE_INT coeff, machine_mode mode, bool speed)
   enum mult_variant variant;
 
   rtx fake_reg = gen_raw_REG (mode, LAST_VIRTUAL_REGISTER + 1);
-  max_cost = set_src_cost (gen_rtx_MULT (mode, fake_reg, fake_reg), speed);
+  max_cost = set_src_cost (gen_rtx_MULT (mode, fake_reg, fake_reg),
+			   mode, speed);
   if (choose_mult_variant (mode, coeff, &algorithm, &variant, max_cost))
     return algorithm.cost.cost;
   else
@@ -3857,7 +3845,7 @@ expand_smod_pow2 (machine_mode mode, rtx op0, HOST_WIDE_INT d)
 
 	  temp = gen_rtx_LSHIFTRT (mode, result, shift);
 	  if (optab_handler (lshr_optab, mode) == CODE_FOR_nothing
-	      || (set_src_cost (temp, optimize_insn_for_speed_p ())
+	      || (set_src_cost (temp, mode, optimize_insn_for_speed_p ())
 		  > COSTS_N_INSNS (2)))
 	    {
 	      temp = expand_binop (mode, xor_optab, op0, signmask,
@@ -4692,11 +4680,11 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 			      quotient, 0, OPTAB_LIB_WIDEN);
 	  if (tem != quotient)
 	    emit_move_insn (quotient, tem);
-	  emit_jump_insn (gen_jump (label5));
+	  emit_jump_insn (targetm.gen_jump (label5));
 	  emit_barrier ();
 	  emit_label (label1);
 	  expand_inc (adjusted_op0, const1_rtx);
-	  emit_jump_insn (gen_jump (label4));
+	  emit_jump_insn (targetm.gen_jump (label4));
 	  emit_barrier ();
 	  emit_label (label2);
 	  do_cmp_and_jump (adjusted_op0, const0_rtx, GT, compute_mode, label3);
@@ -4704,7 +4692,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 			      quotient, 0, OPTAB_LIB_WIDEN);
 	  if (tem != quotient)
 	    emit_move_insn (quotient, tem);
-	  emit_jump_insn (gen_jump (label5));
+	  emit_jump_insn (targetm.gen_jump (label5));
 	  emit_barrier ();
 	  emit_label (label3);
 	  expand_dec (adjusted_op0, const1_rtx);
@@ -4798,7 +4786,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 	      do_cmp_and_jump (adjusted_op0, const0_rtx, NE,
 			       compute_mode, label1);
 	      emit_move_insn  (quotient, const0_rtx);
-	      emit_jump_insn (gen_jump (label2));
+	      emit_jump_insn (targetm.gen_jump (label2));
 	      emit_barrier ();
 	      emit_label (label1);
 	      expand_dec (adjusted_op0, const1_rtx);
@@ -4906,11 +4894,11 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 				  quotient, 0, OPTAB_LIB_WIDEN);
 	      if (tem != quotient)
 		emit_move_insn (quotient, tem);
-	      emit_jump_insn (gen_jump (label5));
+	      emit_jump_insn (targetm.gen_jump (label5));
 	      emit_barrier ();
 	      emit_label (label1);
 	      expand_dec (adjusted_op0, const1_rtx);
-	      emit_jump_insn (gen_jump (label4));
+	      emit_jump_insn (targetm.gen_jump (label4));
 	      emit_barrier ();
 	      emit_label (label2);
 	      do_cmp_and_jump (adjusted_op0, const0_rtx, LT,
@@ -4919,7 +4907,7 @@ expand_divmod (int rem_flag, enum tree_code code, machine_mode mode,
 				  quotient, 0, OPTAB_LIB_WIDEN);
 	      if (tem != quotient)
 		emit_move_insn (quotient, tem);
-	      emit_jump_insn (gen_jump (label5));
+	      emit_jump_insn (targetm.gen_jump (label5));
 	      emit_barrier ();
 	      emit_label (label3);
 	      expand_inc (adjusted_op0, const1_rtx);
@@ -5661,7 +5649,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
 	  /* For the reverse comparison, use either an addition or a XOR.  */
           if (want_add
-	      && rtx_cost (GEN_INT (normalizep), PLUS, 1,
+	      && rtx_cost (GEN_INT (normalizep), mode, PLUS, 1,
 			   optimize_insn_for_speed_p ()) == 0)
 	    {
 	      tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
@@ -5672,7 +5660,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 				     target, 0, OPTAB_WIDEN);
 	    }
           else if (!want_add
-	           && rtx_cost (trueval, XOR, 1,
+	           && rtx_cost (trueval, mode, XOR, 1,
 			        optimize_insn_for_speed_p ()) == 0)
 	    {
 	      tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
@@ -5764,7 +5752,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 
       /* Again, for the reverse comparison, use either an addition or a XOR.  */
       if (want_add
-	  && rtx_cost (GEN_INT (normalizep), PLUS, 1,
+	  && rtx_cost (GEN_INT (normalizep), mode, PLUS, 1,
 		       optimize_insn_for_speed_p ()) == 0)
 	{
 	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,
@@ -5775,7 +5763,7 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
 				target, 0, OPTAB_WIDEN);
 	}
       else if (!want_add
-	       && rtx_cost (trueval, XOR, 1,
+	       && rtx_cost (trueval, mode, XOR, 1,
 			    optimize_insn_for_speed_p ()) == 0)
 	{
 	  tem = emit_store_flag_1 (subtarget, rcode, op0, op1, mode, 0,

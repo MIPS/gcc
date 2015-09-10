@@ -21,16 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "stringpool.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"		/* For cfun.  FIXME: Does the parser know
 				   when it is inside a function, so that
 				   we don't have to look at cfun?  */
@@ -44,9 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "opts.h"
 #include "plugin.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 
 #define GCC_BAD(gmsgid) \
@@ -54,11 +48,11 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_BAD2(gmsgid, arg) \
   do { warning (OPT_Wpragmas, gmsgid, arg); return; } while (0)
 
-typedef struct GTY(()) align_stack {
+struct GTY(()) align_stack {
   int		       alignment;
   tree		       id;
   struct align_stack * prev;
-} align_stack;
+};
 
 static GTY(()) struct align_stack * alignment_stack;
 
@@ -242,11 +236,11 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     }
 }
 
-typedef struct GTY(()) pending_weak_d
+struct GTY(()) pending_weak
 {
   tree name;
   tree value;
-} pending_weak;
+};
 
 
 static GTY(()) vec<pending_weak, va_gc> *pending_weaks;
@@ -344,7 +338,7 @@ maybe_apply_pending_pragma_weaks (void)
       DECL_ARTIFICIAL (decl) = 1;
       TREE_PUBLIC (decl) = 1;
       DECL_WEAK (decl) = 1;
-      if (TREE_CODE (decl) == VAR_DECL)
+      if (VAR_P (decl))
 	TREE_STATIC (decl) = 1;
       if (!target)
 	{
@@ -388,7 +382,7 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       if (value)
 	{
 	  DECL_EXTERNAL (decl) = 0;
-	  if (TREE_CODE (decl) == VAR_DECL)
+	  if (VAR_P (decl))
 	    TREE_STATIC (decl) = 1;
 	  assemble_alias (decl, value);
 	}
@@ -477,10 +471,10 @@ handle_pragma_scalar_storage_order (cpp_reader *ARG_UNUSED(dummy))
       if it appears afterward, we have no way of knowing whether a modified
       DECL_ASSEMBLER_NAME is due to #pragma extern_prefix.)  */
 
-typedef struct GTY(()) pending_redefinition_d {
+struct GTY(()) pending_redefinition {
   tree oldname;
   tree newname;
-} pending_redefinition;
+};
 
 
 static GTY(()) vec<pending_redefinition, va_gc> *pending_redefine_extname;
@@ -945,13 +939,13 @@ handle_pragma_optimize (cpp_reader *ARG_UNUSED(dummy))
 /* Stack of the #pragma GCC options created with #pragma GCC push_option.  Save
    both the binary representation of the options and the TREE_LIST of
    strings that will be added to the function's attribute list.  */
-typedef struct GTY(()) opt_stack {
+struct GTY(()) opt_stack {
   struct opt_stack *prev;
   tree target_binary;
   tree target_strings;
   tree optimize_binary;
   tree optimize_strings;
-} opt_stack;
+};
 
 static GTY(()) struct opt_stack * options_stack;
 
@@ -1216,11 +1210,11 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 
 static vec<internal_pragma_handler> registered_pragmas;
 
-typedef struct
+struct pragma_ns_name
 {
   const char *space;
   const char *name;
-} pragma_ns_name;
+};
 
 
 static vec<pragma_ns_name> registered_pp_pragmas;

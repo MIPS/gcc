@@ -25,21 +25,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "insn-config.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "insn-config.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
 #include "flags.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -57,28 +56,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "dwarf2.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "df.h"
 #include "intl.h"
 #include "sched-int.h"
 #include "params.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "cfgloop.h"
 #include "alloc-pool.h"
@@ -89,6 +78,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 int code_for_indirect_jump_scratch = CODE_FOR_indirect_jump_scratch;
 
@@ -284,7 +276,7 @@ static int addsubcosts (rtx);
 static int multcosts (rtx);
 static bool unspec_caller_rtx_p (rtx);
 static bool sh_cannot_copy_insn_p (rtx_insn *);
-static bool sh_rtx_costs (rtx, int, int, int, int *, bool);
+static bool sh_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 static int sh_address_cost (rtx, machine_mode, addr_space_t, bool);
 static int sh_pr_n_sets (void);
 static rtx sh_allocate_initial_value (rtx);
@@ -1612,6 +1604,10 @@ sh_asm_output_addr_const_extra (FILE *file, rtx x)
 	  output_addr_const (file, XVECEXP (x, 0, 0));
 	  fputs ("@GOTPLT", file);
 	  break;
+	case UNSPEC_PCREL:
+	  output_addr_const (file, XVECEXP (x, 0, 0));
+	  fputs ("@PCREL", file);
+	  break;
 	case UNSPEC_DTPOFF:
 	  output_addr_const (file, XVECEXP (x, 0, 0));
 	  fputs ("@DTPOFF", file);
@@ -1777,10 +1773,14 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	 target/55212.
 	 We split possible load/store to two move insns via r0 so as to
 	 shorten R0 live range.  It will make some codes worse but will
-	 win on avarage for LRA.  */
+	 win on average for LRA.
+	 Also when base+index addressing is used and the index term is
+	 a subreg, LRA assumes that more hard registers can be available
+	 in some situation.  It isn't the case for SH in the problematic
+	 case.  We can pre-allocate R0 for that index term to avoid
+	 the issue.  See PR target/66591.  */
       else if (sh_lra_p ()
 	       && TARGET_SH1 && ! TARGET_SH2A
-	       && (mode == QImode || mode == HImode)
 	       && ((REG_P (operands[0]) && MEM_P (operands[1]))
 		   || (REG_P (operands[1]) && MEM_P (operands[0]))))
 	{
@@ -1788,7 +1788,8 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	  rtx reg = operands[load_p ? 0 : 1];
 	  rtx adr = XEXP (operands[load_p ? 1 : 0], 0);
 
-	  if (REGNO (reg) >= FIRST_PSEUDO_REGISTER
+	  if ((mode == QImode || mode == HImode)
+	      && REGNO (reg) >= FIRST_PSEUDO_REGISTER
 	      && GET_CODE (adr) == PLUS
 	      && REG_P (XEXP (adr, 0))
 	      && (REGNO (XEXP (adr, 0)) >= FIRST_PSEUDO_REGISTER)
@@ -1799,6 +1800,17 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 	      rtx r0_rtx = gen_rtx_REG (mode, R0_REG);
 	      emit_move_insn (r0_rtx, operands[1]);
 	      operands[1] = r0_rtx;
+	    }
+	  if (REGNO (reg) >= FIRST_PSEUDO_REGISTER
+	      && GET_CODE (adr) == PLUS
+	      && REG_P (XEXP (adr, 0))
+	      && (REGNO (XEXP (adr, 0)) >= FIRST_PSEUDO_REGISTER)
+	      && SUBREG_P (XEXP (adr, 1))
+	      && REG_P (SUBREG_REG (XEXP (adr, 1))))
+	    {
+	      rtx r0_rtx = gen_rtx_REG (GET_MODE (XEXP (adr, 1)), R0_REG);
+	      emit_move_insn (r0_rtx, XEXP (adr, 1));
+	      XEXP (adr, 1) = r0_rtx;
 	    }
 	}
     }
@@ -1831,12 +1843,13 @@ prepare_move_operands (rtx operands[], machine_mode mode)
 		  || tls_kind == TLS_MODEL_LOCAL_DYNAMIC
 		  || tls_kind == TLS_MODEL_INITIAL_EXEC))
 	    {
+	      static int got_labelno;
 	      /* Don't schedule insns for getting GOT address when
 		 the first scheduling is enabled, to avoid spill
 		 failures for R0.  */
 	      if (flag_schedule_insns)
 		emit_insn (gen_blockage ());
-	      emit_insn (gen_GOTaddr2picreg ());
+	      emit_insn (gen_GOTaddr2picreg (GEN_INT (++got_labelno)));
 	      emit_use (gen_rtx_REG (SImode, PIC_REG));
 	      if (flag_schedule_insns)
 		emit_insn (gen_blockage ());
@@ -3272,7 +3285,7 @@ and_xor_ior_costs (rtx x, int code)
 	  || satisfies_constraint_J16 (XEXP (x, 1)))
 	return 1;
       else
-	return 1 + rtx_cost (XEXP (x, 1), AND, 1, !optimize_size);
+	return 1 + rtx_cost (XEXP (x, 1), GET_MODE (x), AND, 1, !optimize_size);
     }
 
   /* These constants are single cycle extu.[bw] instructions.  */
@@ -3412,9 +3425,12 @@ multcosts (rtx x ATTRIBUTE_UNUSED)
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
 static bool
-sh_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
+sh_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
+	      int opno ATTRIBUTE_UNUSED,
 	      int *total, bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
       /* The lower-subreg pass decides whether to split multi-word regs
@@ -4640,25 +4656,9 @@ typedef struct label_ref_list_d
 {
   rtx_code_label *label;
   struct label_ref_list_d *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((label_ref_list_d *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<label_ref_list_d> pool;
-
 } *label_ref_list_t;
 
-pool_allocator<label_ref_list_d> label_ref_list_d::pool
+static object_allocator<label_ref_list_d> label_ref_list_d_pool
   ("label references list", 30);
 
 /* The SH cannot load a large constant into a register, constants have to
@@ -4780,7 +4780,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
 		}
 	      if (lab && pool_window_label)
 		{
-		  newref = new label_ref_list_d;
+		  newref = label_ref_list_d_pool.allocate ();
 		  newref->label = pool_window_label;
 		  ref = pool_vector[pool_window_last].wend;
 		  newref->next = ref;
@@ -4809,7 +4809,7 @@ add_constant (rtx x, machine_mode mode, rtx last_value)
   pool_vector[pool_size].part_of_sequence_p = (lab == 0);
   if (lab && pool_window_label)
     {
-      newref = new label_ref_list_d;
+      newref = label_ref_list_d_pool.allocate ();
       newref->label = pool_window_label;
       ref = pool_vector[pool_window_last].wend;
       newref->next = ref;
@@ -6555,7 +6555,7 @@ sh_reorg (void)
 	  insn = barrier;
 	}
     }
-  label_ref_list_d::pool.release ();
+  label_ref_list_d_pool.release ();
   for (insn = first; insn; insn = NEXT_INSN (insn))
     PUT_MODE (insn, VOIDmode);
 
@@ -7944,7 +7944,7 @@ sh_expand_prologue (void)
     }
 
   if (flag_pic && df_regs_ever_live_p (PIC_OFFSET_TABLE_REGNUM))
-    emit_insn (gen_GOTaddr2picreg ());
+    emit_insn (gen_GOTaddr2picreg (const0_rtx));
 
   if (SHMEDIA_REGS_STACK_ADJUST ())
     {
@@ -9011,7 +9011,7 @@ sh_round_reg (const CUMULATIVE_ARGS& cum, machine_mode mode)
     : cum.arg_count[(int) GET_SH_ARG_CLASS (mode)]);
 }
 
-/* Return true if arg of the specified mode should be be passed in a register
+/* Return true if arg of the specified mode should be passed in a register
    or false otherwise.  */
 static bool
 sh_pass_in_reg_p (const CUMULATIVE_ARGS& cum, machine_mode mode,
@@ -10445,6 +10445,7 @@ nonpic_symbol_mentioned_p (rtx x)
 	  || XINT (x, 1) == UNSPEC_DTPOFF
 	  || XINT (x, 1) == UNSPEC_TPOFF
 	  || XINT (x, 1) == UNSPEC_PLT
+	  || XINT (x, 1) == UNSPEC_PCREL
 	  || XINT (x, 1) == UNSPEC_SYMOFF
 	  || XINT (x, 1) == UNSPEC_PCREL_SYMOFF))
     return false;
@@ -10718,7 +10719,8 @@ sh_delegitimize_address (rtx orig_x)
 		  rtx symplt = XEXP (XVECEXP (y, 0, 0), 0);
 
 		  if (GET_CODE (symplt) == UNSPEC
-		      && XINT (symplt, 1) == UNSPEC_PLT)
+		      && (XINT (symplt, 1) == UNSPEC_PLT
+			  || XINT (symplt, 1) == UNSPEC_PCREL))
 		    return XVECEXP (symplt, 0, 0);
 		}
 	    }
@@ -11706,8 +11708,23 @@ sh_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 	      || crtl->args.info.stack_regs == 0)
 	  && ! sh_cfun_interrupt_handler_p ()
 	  && (! flag_pic
-	      || (decl && ! TREE_PUBLIC (decl))
+	      || (decl && ! (TREE_PUBLIC (decl) || DECL_WEAK (decl)))
 	      || (decl && DECL_VISIBILITY (decl) != VISIBILITY_DEFAULT)));
+}
+
+/* Expand to appropriate sym*_label2reg for SYM and SIBCALL_P.  */
+void
+sh_expand_sym_label2reg (rtx reg, rtx sym, rtx lab, bool sibcall_p)
+{
+  const_tree decl = SYMBOL_REF_DECL (sym);
+  bool is_weak = (decl && DECL_P (decl) && DECL_WEAK (decl));
+
+  if (!is_weak && SYMBOL_REF_LOCAL_P (sym))
+    emit_insn (gen_sym_label2reg (reg, sym, lab));
+  else if (sibcall_p)
+    emit_insn (gen_symPCREL_label2reg (reg, sym, lab));
+  else
+    emit_insn (gen_symPLT_label2reg (reg, sym, lab));
 }
 
 /* Machine specific built-in functions.  */
@@ -13892,6 +13909,7 @@ sh_split_movrt_negc_to_movt_xor (rtx_insn* curr_insn, rtx operands[])
       && !sh_insn_operands_modified_between_p (t_before_negc.insn,
 					       t_before_negc.insn,
 					       t_after_negc.insn)
+      && !modified_between_p (get_t_reg_rtx (), curr_insn, t_after_negc.insn)
       && !sh_unspec_insn_p (t_after_negc.insn)
       && !volatile_insn_p (PATTERN (t_after_negc.insn))
       && !side_effects_p (PATTERN (t_after_negc.insn))
@@ -14166,6 +14184,12 @@ sh_recog_treg_set_expr (rtx op, machine_mode mode)
     return false;
 
   if (!can_create_pseudo_p ())
+    return false;
+
+  /* expand_debug_locations may call this to compute rtx costs at
+     very early stage.  In that case, don't make new insns here to
+     avoid codegen differences with -g. */
+  if (currently_expanding_to_rtl)
     return false;
 
   /* We are going to invoke recog in a re-entrant way and thus

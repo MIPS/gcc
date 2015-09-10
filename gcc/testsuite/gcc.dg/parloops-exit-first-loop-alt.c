@@ -1,17 +1,12 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target pthread } */
-/* { dg-options "-O2 -ftree-parallelize-loops=2 -fdump-tree-parloops" } */
+/* { dg-options "-O2 -ftree-parallelize-loops=2 -fdump-tree-parloops-details" } */
 
-/* Variable bound, vector addition.  */
-
-#define N 1000
-
-unsigned int a[N];
-unsigned int b[N];
-unsigned int c[N];
+/* Variable bound, vector addition, signed loop counter, unsigned bound.  */
 
 void
-f (unsigned int n)
+f (unsigned int n, unsigned int *__restrict__ a, unsigned int *__restrict__ b,
+   unsigned int *__restrict__ c)
 {
   int i;
 
@@ -19,9 +14,5 @@ f (unsigned int n)
     c[i] = a[i] + b[i];
 }
 
-/* Three times three array accesses:
-   - three in f._loopfn.0
-   - three in the parallel
-   - three in the low iteration count loop
-   Crucially, none for a peeled off last iteration following the parallel.  */
-/* { dg-final { scan-tree-dump-times "(?n)\\\[i" 9 "parloops" } } */
+/* { dg-final { scan-tree-dump-times "alternative exit-first loop transform succeeded" 1 "parloops" } } */
+

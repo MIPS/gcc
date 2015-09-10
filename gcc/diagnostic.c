@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "version.h"
 #include "demangle.h"
-#include "input.h"
 #include "intl.h"
 #include "backtrace.h"
 #include "diagnostic.h"
@@ -697,9 +696,10 @@ diagnostic_classify_diagnostic (diagnostic_context *context,
       /* Record the command-line status, so we can reset it back on DK_POP. */
       if (old_kind == DK_UNSPECIFIED)
 	{
-	  old_kind = context->option_enabled (option_index,
-					      context->option_state)
-	    ? DK_WARNING : DK_IGNORED;
+	  old_kind = !context->option_enabled (option_index,
+					       context->option_state)
+	    ? DK_IGNORED : (context->warning_as_error_requested
+			    ? DK_ERROR : DK_WARNING);
 	  context->classify_diagnostic[option_index] = old_kind;
 	}
 

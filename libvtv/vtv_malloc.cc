@@ -1,5 +1,4 @@
-/* Copyright (C) 2012-2013
-   Free Software Foundation
+/* Copyright (C) 2012-2015 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -145,7 +144,7 @@ change_protections_on_data_chunks (int protection_flag)
     }
 
 #ifdef VTV_DEBUG
-    VTV_malloc_dump_stats ();
+    __vtv_malloc_dump_stats ();
 #endif
 }
 

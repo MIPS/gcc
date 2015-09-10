@@ -24,12 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
+#include "tree.h"
 #include "options.h"
 #include "tm.h"
-#include "tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "attribs.h"
@@ -39,12 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "target.h"
 #include "convert.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
@@ -78,7 +72,7 @@ typedef struct class_stack_node {
   size_t hidden;
 }* class_stack_node_t;
 
-typedef struct vtbl_init_data_s
+struct vtbl_init_data
 {
   /* The base for which we're building initializers.  */
   tree binfo;
@@ -107,7 +101,7 @@ typedef struct vtbl_init_data_s
   /* True when adding vcall offset entries to the vtable.  False when
      merely computing the indices.  */
   bool generate_vcall_entries;
-} vtbl_init_data;
+};
 
 /* The type of a function passed to walk_subobject_offsets.  */
 typedef int (*subobject_offset_fn) (tree, tree, splay_tree);
@@ -1145,7 +1139,8 @@ add_method (tree type, tree method, tree using_decl)
       if (compparms (parms1, parms2)
 	  && (!DECL_CONV_FN_P (fn)
 	      || same_type_p (TREE_TYPE (fn_type),
-			      TREE_TYPE (method_type))))
+			      TREE_TYPE (method_type)))
+          && equivalently_constrained (fn, method))
 	{
 	  /* For function versions, their parms and types match
 	     but they are not duplicates.  Record function versions
@@ -1405,7 +1400,7 @@ check_tag (tree tag, tree id, tree *tp, abi_tag_data *p)
 		       p->t, tag, *tp))
 	    inform (location_of (*tp), "%qT declared here", *tp);
 	}
-      else if (TREE_CODE (p->t) == VAR_DECL)
+      else if (VAR_P (p->t))
 	{
 	  if (warning (OPT_Wabi_tag, "%qD inherits the %E ABI tag "
 		       "that %qT (used in its type) has", p->t, tag, *tp))
@@ -1594,7 +1589,7 @@ check_abi_tags (tree t, tree subob)
 void
 check_abi_tags (tree decl)
 {
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     check_abi_tags (decl, TREE_TYPE (decl));
   else if (TREE_CODE (decl) == FUNCTION_DECL
 	   && !mangle_return_type_p (decl))
@@ -2383,7 +2378,7 @@ base_derived_from (tree derived, tree base)
   return false;
 }
 
-typedef struct find_final_overrider_data_s {
+struct find_final_overrider_data {
   /* The function for which we are trying to find a final overrider.  */
   tree fn;
   /* The base class in which the function was declared.  */
@@ -2392,7 +2387,7 @@ typedef struct find_final_overrider_data_s {
   tree candidates;
   /* Path to most derived.  */
   vec<tree> path;
-} find_final_overrider_data;
+};
 
 /* Add the overrider along the current path to FFOD->CANDIDATES.
    Returns true if an overrider was found; false otherwise.  */
@@ -2933,7 +2928,7 @@ check_for_override (tree decl, tree ctype)
       if (warn_override && !DECL_OVERRIDE_P (decl)
 	  && !DECL_DESTRUCTOR_P (decl))
 	warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wsuggest_override,
-		    "%q+D can be marked override", decl);
+		    "%qD can be marked override", decl);
     }
 
   if (DECL_VIRTUAL_P (decl))
@@ -3014,9 +3009,12 @@ warn_hidden (tree t)
       FOR_EACH_VEC_ELT (base_fndecls, k, base_fndecl)
 	if (base_fndecl)
 	  {
-	      /* Here we know it is a hider, and no overrider exists.  */
-	      warning (OPT_Woverloaded_virtual, "%q+D was hidden", base_fndecl);
-	      warning (OPT_Woverloaded_virtual, "  by %q+D", fns);
+	    /* Here we know it is a hider, and no overrider exists.  */
+	    warning_at (location_of (base_fndecl),
+			OPT_Woverloaded_virtual,
+			"%qD was hidden", base_fndecl);
+	    warning_at (location_of (fns),
+			OPT_Woverloaded_virtual, "  by %qD", fns);
 	  }
     }
 }
@@ -3046,15 +3044,15 @@ finish_struct_anon_r (tree field, bool complain)
 	{
 	  /* We already complained about static data members in
 	     finish_static_data_member_decl.  */
-	  if (complain && TREE_CODE (elt) != VAR_DECL)
+	  if (complain && !VAR_P (elt))
 	    {
 	      if (is_union)
-		permerror (input_location,
-			   "%q+#D invalid; an anonymous union can "
+		permerror (DECL_SOURCE_LOCATION (elt),
+			   "%q#D invalid; an anonymous union can "
 			   "only have non-static data members", elt);
 	      else
-		permerror (input_location,
-			   "%q+#D invalid; an anonymous struct can "
+		permerror (DECL_SOURCE_LOCATION (elt),
+			   "%q#D invalid; an anonymous struct can "
 			   "only have non-static data members", elt);
 	    }
 	  continue;
@@ -3065,20 +3063,20 @@ finish_struct_anon_r (tree field, bool complain)
 	  if (TREE_PRIVATE (elt))
 	    {
 	      if (is_union)
-		permerror (input_location,
-			   "private member %q+#D in anonymous union", elt);
+		permerror (DECL_SOURCE_LOCATION (elt),
+			   "private member %q#D in anonymous union", elt);
 	      else
-		permerror (input_location,
-			   "private member %q+#D in anonymous struct", elt);
+		permerror (DECL_SOURCE_LOCATION (elt),
+			   "private member %q#D in anonymous struct", elt);
 	    }
 	  else if (TREE_PROTECTED (elt))
 	    {
 	      if (is_union)
-		permerror (input_location,
-			   "protected member %q+#D in anonymous union", elt);
+		permerror (DECL_SOURCE_LOCATION (elt),
+			   "protected member %q#D in anonymous union", elt);
 	      else
-		permerror (input_location,
-			   "protected member %q+#D in anonymous struct", elt);
+		permerror (DECL_SOURCE_LOCATION (elt),
+			   "protected member %q#D in anonymous struct", elt);
 	    }
 	}
 
@@ -3467,11 +3465,14 @@ check_bitfield_decl (tree field)
 	       || ((TREE_CODE (type) == ENUMERAL_TYPE
 		    || TREE_CODE (type) == BOOLEAN_TYPE)
 		   && tree_int_cst_lt (TYPE_SIZE (type), w)))
-	warning (0, "width of %q+D exceeds its type", field);
+	warning_at (DECL_SOURCE_LOCATION (field), 0,
+		    "width of %qD exceeds its type", field);
       else if (TREE_CODE (type) == ENUMERAL_TYPE
 	       && (0 > (compare_tree_int
 			(w, TYPE_PRECISION (ENUM_UNDERLYING_TYPE (type))))))
-	warning (0, "%q+D is too small to hold all values of %q#T", field, type);
+	warning_at (DECL_SOURCE_LOCATION (field), 0,
+		    "%qD is too small to hold all values of %q#T",
+		    field, type);
     }
 
   if (w != error_mark_node)
@@ -3744,9 +3745,9 @@ check_field_decls (tree t, tree *access_decls,
 	{
 	  if (!layout_pod_type_p (type) && !TYPE_PACKED (type))
 	    {
-	      warning
-		(0,
-		 "ignoring packed attribute because of unpacked non-POD field %q+#D",
+	      warning_at
+		(DECL_SOURCE_LOCATION (x), 0,
+		 "ignoring packed attribute because of unpacked non-POD field %q#D",
 		 x);
 	      cant_pack = 1;
 	    }
@@ -3861,7 +3862,8 @@ check_field_decls (tree t, tree *access_decls,
 	 user-declared constructor.  */
       if (constructor_name_p (DECL_NAME (x), t)
 	  && TYPE_HAS_USER_CONSTRUCTOR (t))
-	permerror (input_location, "field %q+#D with same name as class", x);
+	permerror (DECL_SOURCE_LOCATION (x),
+		   "field %q#D with same name as class", x);
     }
 
   /* Effective C++ rule 11: if a class has dynamic memory held by pointers,
@@ -4287,6 +4289,25 @@ layout_nonempty_base_or_field (record_layout_info rli,
 				       : TYPE_ALIGN (type)));
 	  normalize_rli (rli);
 	}
+      else if (TREE_CODE (type) == NULLPTR_TYPE
+	       && warn_abi && abi_version_crosses (9))
+	{
+	  /* Before ABI v9, we were giving nullptr_t alignment of 1; if
+	     the offset wasn't aligned like a pointer when we started to
+	     layout this field, that affects its position.  */
+	  tree pos = rli_size_unit_so_far (&old_rli);
+	  if (int_cst_value (pos) % TYPE_ALIGN_UNIT (ptr_type_node) != 0)
+	    {
+	      if (abi_version_at_least (9))
+		warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wabi,
+			    "alignment of %qD increased in -fabi-version=9 "
+			    "(GCC 5.2)", decl);
+	      else
+		warning_at (DECL_SOURCE_LOCATION (decl), OPT_Wabi, "alignment "
+			    "of %qD will increase in -fabi-version=9", decl);
+	    }
+	  break;
+	}
       else
 	/* There was no conflict.  We're done laying out this field.  */
 	break;
@@ -4583,6 +4604,14 @@ build_clone (tree fn, tree name)
       TREE_TYPE (clone) = TREE_TYPE (result);
       return clone;
     }
+  else
+    {
+      // Clone constraints.
+      if (flag_concepts)
+        if (tree ci = get_constraints (fn))
+          set_constraints (clone, copy_node (ci));
+    }
+
 
   SET_DECL_ASSEMBLER_NAME (clone, NULL_TREE);
   DECL_CLONED_FUNCTION (clone) = fn;
@@ -5611,14 +5640,15 @@ explain_non_literal_class (tree t)
 	  ftype = TREE_TYPE (field);
 	  if (!literal_type_p (ftype))
 	    {
-	      inform (0, "  non-static data member %q+D has "
-		      "non-literal type", field);
+	      inform (DECL_SOURCE_LOCATION (field),
+		      "  non-static data member %qD has non-literal type",
+		      field);
 	      if (CLASS_TYPE_P (ftype))
 		explain_non_literal_class (ftype);
 	    }
 	  if (CP_TYPE_VOLATILE_P (ftype))
-	    inform (0, "  non-static data member %q+D has "
-		    "volatile type", field);
+	    inform (DECL_SOURCE_LOCATION (field),
+		    "  non-static data member %qD has volatile type", field);
 	}
     }
 }
@@ -5763,13 +5793,15 @@ check_bases_and_members (tree t)
 
 	  type = TREE_TYPE (field);
 	  if (TREE_CODE (type) == REFERENCE_TYPE)
-	    warning (OPT_Wuninitialized, "non-static reference %q+#D "
-		     "in class without a constructor", field);
+	    warning_at (DECL_SOURCE_LOCATION (field),
+			OPT_Wuninitialized, "non-static reference %q#D "
+			"in class without a constructor", field);
 	  else if (CP_TYPE_CONST_P (type)
 		   && (!CLASS_TYPE_P (type)
 		       || !TYPE_HAS_DEFAULT_CONSTRUCTOR (type)))
-	    warning (OPT_Wuninitialized, "non-static const member %q+#D "
-		     "in class without a constructor", field);
+	    warning_at (DECL_SOURCE_LOCATION (field),
+			OPT_Wuninitialized, "non-static const member %q#D "
+			"in class without a constructor", field);
 	}
     }
 
@@ -6310,8 +6342,9 @@ layout_class_type (tree t, tree *virtuals_p)
 	  && !integer_zerop (size_binop (TRUNC_MOD_EXPR,
 					 DECL_FIELD_BIT_OFFSET (field),
 					 bitsize_unit_node)))
-	warning (OPT_Wabi, "offset of %q+D is not ABI-compliant and may "
-		 "change in a future version of GCC", field);
+	warning_at (DECL_SOURCE_LOCATION (field), OPT_Wabi,
+		    "offset of %qD is not ABI-compliant and may "
+		    "change in a future version of GCC", field);
 
       /* The middle end uses the type of expressions to determine the
 	 possible range of expression values.  In order to optimize
@@ -6847,6 +6880,7 @@ finish_struct (tree t, tree attributes)
   unreverse_member_declarations (t);
 
   cplus_decl_attributes (&t, attributes, (int) ATTR_FLAG_TYPE_IN_PLACE);
+  fixup_attribute_variants (t);
 
   /* Nadger the current location so that diagnostics point to the start of
      the struct, not the end.  */
@@ -6941,7 +6975,7 @@ finish_struct (tree t, tree attributes)
 }
 
 /* Hash table to avoid endless recursion when handling references.  */
-static hash_table<pointer_hash<tree_node> > *fixed_type_or_null_ref_ht;
+static hash_table<nofree_ptr_hash<tree_node> > *fixed_type_or_null_ref_ht;
 
 /* Return the dynamic type of INSTANCE, if known.
    Used to determine whether the virtual function table is needed
@@ -7060,7 +7094,7 @@ fixed_type_or_null (tree instance, int *nonnull, int *cdtorp)
 	  /* We only need one hash table because it is always left empty.  */
 	  if (!fixed_type_or_null_ref_ht)
 	    fixed_type_or_null_ref_ht
-	      = new hash_table<pointer_hash<tree_node> > (37); 
+	      = new hash_table<nofree_ptr_hash<tree_node> > (37);
 
 	  /* Reference variables should be references to objects.  */
 	  if (nonnull)
@@ -7278,15 +7312,17 @@ pop_class_stack (void)
 }
 
 /* Returns 1 if the class type currently being defined is either T or
-   a nested type of T.  */
+   a nested type of T.  Returns the type from the current_class_stack,
+   which might be equivalent to but not equal to T in case of
+   constrained partial specializations.  */
 
-bool
+tree
 currently_open_class (tree t)
 {
   int i;
 
   if (!CLASS_TYPE_P (t))
-    return false;
+    return NULL_TREE;
 
   t = TYPE_MAIN_VARIANT (t);
 
@@ -7306,9 +7342,9 @@ currently_open_class (tree t)
       if (!c)
 	continue;
       if (same_type_p (c, t))
-	return true;
+	return c;
     }
-  return false;
+  return NULL_TREE;
 }
 
 /* If either current_class_type or one of its enclosing classes are derived
@@ -7656,6 +7692,12 @@ resolve_address_of_overloaded_function (tree target_type,
 					       false, false);
 	  if (instantiation == error_mark_node)
 	    /* Instantiation failed.  */
+	    continue;
+
+	  /* Constraints must be satisfied. This is done before
+	     return type deduction since that instantiates the
+	     function. */
+	  if (flag_concepts && !constraints_satisfied_p (instantiation))
 	    continue;
 
 	  /* And now force instantiation to do return type deduction.  */
@@ -8121,8 +8163,9 @@ note_name_declared_in_class (tree name, tree decl)
 	 in its context and when re-evaluated in the completed scope of
 	 S.  */
       permerror (input_location, "declaration of %q#D", decl);
-      permerror (input_location, "changes meaning of %qD from %q+#D",
-	       DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
+      permerror (location_of ((tree) n->value),
+		 "changes meaning of %qD from %q#D",
+		 DECL_NAME (OVL_CURRENT (decl)), (tree) n->value);
     }
 }
 
@@ -8535,7 +8578,7 @@ binfo_ctor_vtable (tree binfo)
 }
 
 /* Data for secondary VTT initialization.  */
-typedef struct secondary_vptr_vtt_init_data_s
+struct secondary_vptr_vtt_init_data
 {
   /* Is this the primary VTT? */
   bool top_level_p;
@@ -8548,7 +8591,7 @@ typedef struct secondary_vptr_vtt_init_data_s
 
   /* The type being constructed by this secondary VTT.  */
   tree type_being_constructed;
-} secondary_vptr_vtt_init_data;
+};
 
 /* Recursively build the VTT-initializer for BINFO (which is in the
    hierarchy dominated by T).  INITS points to the end of the initializer

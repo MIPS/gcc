@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_DATA_REF_H
 
 #include "graphds.h"
-#include "omega.h"
 #include "tree-chrec.h"
 
 /*
@@ -301,9 +300,6 @@ extern bool compute_data_dependences_for_loop (struct loop *, bool,
 					       vec<loop_p> *,
 					       vec<data_reference_p> *,
 					       vec<ddr_p> *);
-extern bool compute_data_dependences_for_bb (basic_block, bool,
-                                             vec<data_reference_p> *,
-                                             vec<ddr_p> *);
 extern void debug_ddrs (vec<ddr_p> );
 extern void dump_data_reference (FILE *, struct data_reference *);
 extern void debug (data_reference &ref);
@@ -326,6 +322,7 @@ extern bool find_data_references_in_stmt (struct loop *, gimple,
 extern bool graphite_find_data_references_in_stmt (loop_p, loop_p, gimple,
 						   vec<data_reference_p> *);
 tree find_data_references_in_loop (struct loop *, vec<data_reference_p> *);
+bool loop_nest_has_data_refs (loop_p loop);
 struct data_reference *create_data_ref (loop_p, loop_p, tree, gimple, bool);
 extern bool find_loop_nest (struct loop *, vec<loop_p> *);
 extern struct data_dependence_relation *initialize_data_dependence_relation
@@ -343,8 +340,6 @@ extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
                                 struct data_reference *);
-extern void tree_check_data_deps (void);
-
 
 /* Return true when the base objects of data references A and B are
    the same memory object.  */

@@ -24,9 +24,7 @@
 #include "tm.h"
 #include "tm_p.h"
 #include "cpplib.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "c-family/c-common.h"
 

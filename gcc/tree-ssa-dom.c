@@ -21,39 +21,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "domwalk.h"
 #include "tree-pass.h"
@@ -99,11 +85,11 @@ struct hashable_expr
 /* Structure for recording known values of a conditional expression
    at the exits from its block.  */
 
-typedef struct cond_equivalence_s
+struct cond_equivalence
 {
   struct hashable_expr cond;
   tree value;
-} cond_equivalence;
+};
 
 
 /* Structure for recording edge equivalences as well as any pending
@@ -169,10 +155,8 @@ static bool hashable_expr_equal_p (const struct hashable_expr *,
 				   const struct hashable_expr *);
 static void free_expr_hash_elt (void *);
 
-struct expr_elt_hasher
+struct expr_elt_hasher : pointer_hash <expr_hash_elt>
 {
-  typedef expr_hash_elt *value_type;
-  typedef expr_hash_elt *compare_type;
   static inline hashval_t hash (const value_type &);
   static inline bool equal (const value_type &, const compare_type &);
   static inline void remove (value_type &);
@@ -417,10 +401,10 @@ initialize_hash_element_from_expr (struct hashable_expr *expr,
   element->stamp = element;
 }
 
-/* Compare two hashable_expr structures for equivalence.
-   They are considered equivalent when the the expressions
-   they denote must necessarily be equal.  The logic is intended
-   to follow that of operand_equal_p in fold-const.c  */
+/* Compare two hashable_expr structures for equivalence.  They are
+   considered equivalent when the expressions they denote must
+   necessarily be equal.  The logic is intended to follow that of
+   operand_equal_p in fold-const.c */
 
 static bool
 hashable_expr_equal_p (const struct hashable_expr *expr0,
@@ -818,7 +802,8 @@ free_all_edge_infos (void)
 static void
 build_and_record_new_cond (enum tree_code code,
                            tree op0, tree op1,
-                           vec<cond_equivalence> *p)
+                           vec<cond_equivalence> *p,
+			   bool val = true)
 {
   cond_equivalence c;
   struct hashable_expr *cond = &c.cond;
@@ -831,7 +816,7 @@ build_and_record_new_cond (enum tree_code code,
   cond->ops.binary.opnd0 = op0;
   cond->ops.binary.opnd1 = op1;
 
-  c.value = boolean_true_node;
+  c.value = val ? boolean_true_node : boolean_false_node;
   p->safe_push (c);
 }
 
@@ -870,6 +855,8 @@ record_conditions (struct edge_info *edge_info, tree cond, tree inverted)
 				 op0, op1, &edge_info->cond_equivalences);
       build_and_record_new_cond (NE_EXPR, op0, op1,
 				 &edge_info->cond_equivalences);
+      build_and_record_new_cond (EQ_EXPR, op0, op1,
+				 &edge_info->cond_equivalences, false);
       break;
 
     case GE_EXPR:
@@ -1181,7 +1168,7 @@ pass_dominator::execute (function *fun)
   /* Create our hash tables.  */
   avail_exprs = new hash_table<expr_elt_hasher> (1024);
   avail_exprs_stack.create (20);
-  const_and_copies = new class const_and_copies (dump_file, dump_flags);
+  const_and_copies = new class const_and_copies ();
   need_eh_cleanup = BITMAP_ALLOC (NULL);
   need_noreturn_fixup.create (0);
 
@@ -1414,6 +1401,20 @@ simplify_stmt_for_jump_threading (gimple stmt,
   return lookup_avail_expr (stmt, false);
 }
 
+/* Valueize hook for gimple_fold_stmt_to_constant_1.  */
+
+static tree
+dom_valueize (tree t)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      tree tem = SSA_NAME_VALUE (t);
+      if (tem)
+	return tem;
+    }
+  return t;
+}
+
 /* Record into the equivalence tables any equivalences implied by
    traversing edge E (which are cached in E->aux).
 
@@ -1433,8 +1434,75 @@ record_temporary_equivalences (edge e)
       tree rhs = edge_info->rhs;
 
       /* If we have a simple NAME = VALUE equivalence, record it.  */
+      if (lhs)
+	record_equality (lhs, rhs);
+
+      /* If LHS is an SSA_NAME and RHS is a constant integer and LHS was
+	 set via a widening type conversion, then we may be able to record
+	 additional equivalences.  */
+      if (lhs
+	  && TREE_CODE (lhs) == SSA_NAME
+	  && TREE_CODE (rhs) == INTEGER_CST)
+	{
+	  gimple defstmt = SSA_NAME_DEF_STMT (lhs);
+
+	  if (defstmt
+	      && is_gimple_assign (defstmt)
+	      && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (defstmt)))
+	    {
+	      tree old_rhs = gimple_assign_rhs1 (defstmt);
+
+	      /* If the conversion widens the original value and
+		 the constant is in the range of the type of OLD_RHS,
+		 then convert the constant and record the equivalence.
+
+		 Note that int_fits_type_p does not check the precision
+		 if the upper and lower bounds are OK.  */
+	      if (INTEGRAL_TYPE_P (TREE_TYPE (old_rhs))
+		  && (TYPE_PRECISION (TREE_TYPE (lhs))
+		      > TYPE_PRECISION (TREE_TYPE (old_rhs)))
+		  && int_fits_type_p (rhs, TREE_TYPE (old_rhs)))
+		{
+		  tree newval = fold_convert (TREE_TYPE (old_rhs), rhs);
+		  record_equality (old_rhs, newval);
+		}
+	    }
+	}
+
+      /* If LHS is an SSA_NAME with a new equivalency then try if
+         stmts with uses of that LHS that dominate the edge destination
+	 simplify and allow further equivalences to be recorded.  */
       if (lhs && TREE_CODE (lhs) == SSA_NAME)
-	const_and_copies->record_const_or_copy (lhs, rhs);
+	{
+	  use_operand_p use_p;
+	  imm_use_iterator iter;
+	  FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
+	    {
+	      gimple use_stmt = USE_STMT (use_p);
+
+	      /* Only bother to record more equivalences for lhs that
+	         can be directly used by e->dest.
+		 ???  If the code gets re-organized to a worklist to
+		 catch more indirect opportunities and it is made to
+		 handle PHIs then this should only consider use_stmts
+		 in basic-blocks we have already visited.  */
+	      if (e->dest == gimple_bb (use_stmt)
+		  || !dominated_by_p (CDI_DOMINATORS,
+				      e->dest, gimple_bb (use_stmt)))
+		continue;
+	      tree lhs2 = gimple_get_lhs (use_stmt);
+	      if (lhs2 && TREE_CODE (lhs2) == SSA_NAME)
+		{
+		  tree res
+		    = gimple_fold_stmt_to_constant_1 (use_stmt, dom_valueize,
+						      no_follow_ssa_edges);
+		  if (res
+		      && (TREE_CODE (res) == SSA_NAME
+			  || is_gimple_min_invariant (res)))
+		    record_equality (lhs2, res);
+		}
+	    }
+	}
 
       /* If we have 0 = COND or 1 = COND equivalences, record them
 	 into our expression hash tables.  */
@@ -1509,12 +1577,7 @@ record_equivalences_from_phis (basic_block bb)
 	  if (lhs == t)
 	    continue;
 
-	  /* Valueize t.  */
-	  if (TREE_CODE (t) == SSA_NAME)
-	    {
-	      tree tmp = SSA_NAME_VALUE (t);
-	      t = tmp ? tmp : t;
-	    }
+	  t = dom_valueize (t);
 
 	  /* If we have not processed an alternative yet, then set
 	     RHS to this alternative.  */
@@ -1581,7 +1644,6 @@ record_equivalences_from_incoming_edge (basic_block bb)
 {
   edge e;
   basic_block parent;
-  struct edge_info *edge_info;
 
   /* If our parent block ended with a control statement, then we may be
      able to record some equivalences based on which outgoing edge from
@@ -1593,57 +1655,7 @@ record_equivalences_from_incoming_edge (basic_block bb)
   /* If we had a single incoming edge from our parent block, then enter
      any data associated with the edge into our tables.  */
   if (e && e->src == parent)
-    {
-      unsigned int i;
-
-      edge_info = (struct edge_info *) e->aux;
-
-      if (edge_info)
-	{
-	  tree lhs = edge_info->lhs;
-	  tree rhs = edge_info->rhs;
-	  cond_equivalence *eq;
-
-	  if (lhs)
-	    record_equality (lhs, rhs);
-
-	  /* If LHS is an SSA_NAME and RHS is a constant integer and LHS was
-	     set via a widening type conversion, then we may be able to record
-	     additional equivalences.  */
-	  if (lhs
-	      && TREE_CODE (lhs) == SSA_NAME
-	      && is_gimple_constant (rhs)
-	      && TREE_CODE (rhs) == INTEGER_CST)
-	    {
-	      gimple defstmt = SSA_NAME_DEF_STMT (lhs);
-
-	      if (defstmt
-		  && is_gimple_assign (defstmt)
-		  && CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (defstmt)))
-		{
-		  tree old_rhs = gimple_assign_rhs1 (defstmt);
-
-		  /* If the conversion widens the original value and
-		     the constant is in the range of the type of OLD_RHS,
-		     then convert the constant and record the equivalence.
-
-		     Note that int_fits_type_p does not check the precision
-		     if the upper and lower bounds are OK.  */
-		  if (INTEGRAL_TYPE_P (TREE_TYPE (old_rhs))
-		      && (TYPE_PRECISION (TREE_TYPE (lhs))
-			  > TYPE_PRECISION (TREE_TYPE (old_rhs)))
-		      && int_fits_type_p (rhs, TREE_TYPE (old_rhs)))
-		    {
-		      tree newval = fold_convert (TREE_TYPE (old_rhs), rhs);
-		      record_equality (old_rhs, newval);
-		    }
-		}
-	    }
-
-	  for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
-	    record_cond (eq);
-	}
-    }
+    record_temporary_equivalences (e);
 }
 
 /* Dump SSA statistics on FILE.  */
@@ -2143,12 +2155,7 @@ record_equivalences_from_stmt (gimple stmt, int may_optimize_p)
 	  && (TREE_CODE (rhs) == SSA_NAME
 	      || is_gimple_min_invariant (rhs)))
 	{
-	  /* Valueize rhs.  */
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    {
-	      tree tmp = SSA_NAME_VALUE (rhs);
-	      rhs = tmp ? tmp : rhs;
-	    }
+	  rhs = dom_valueize (rhs);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2425,12 +2432,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	  tree rhs = gimple_assign_rhs1 (stmt);
 	  tree cached_lhs;
 	  gassign *new_stmt;
-	  if (TREE_CODE (rhs) == SSA_NAME)
-	    {
-	      tree tem = SSA_NAME_VALUE (rhs);
-	      if (tem)
-		rhs = tem;
-	    }
+	  rhs = dom_valueize (rhs);
 	  /* Build a new statement with the RHS and LHS exchanged.  */
 	  if (TREE_CODE (rhs) == SSA_NAME)
 	    {
@@ -2552,7 +2554,6 @@ lookup_avail_expr (gimple stmt, bool insert)
 {
   expr_hash_elt **slot;
   tree lhs;
-  tree temp;
   struct expr_hash_elt element;
 
   /* Get LHS of phi, assignment, or call; else NULL_TREE.  */
@@ -2647,14 +2648,7 @@ lookup_avail_expr (gimple stmt, bool insert)
      definition of another variable.  */
   lhs = (*slot)->lhs;
 
-  /* See if the LHS appears in the CONST_AND_COPIES table.  If it does, then
-     use the value from the const_and_copies table.  */
-  if (TREE_CODE (lhs) == SSA_NAME)
-    {
-      temp = SSA_NAME_VALUE (lhs);
-      if (temp)
-	lhs = temp;
-    }
+  lhs = dom_valueize (lhs);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {

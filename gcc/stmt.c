@@ -25,21 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-
-#include "rtl.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "except.h"
-#include "function.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -53,17 +51,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "output.h"
 #include "langhooks.h"
-#include "predict.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "target.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "pretty-print.h"
@@ -114,7 +106,6 @@ struct case_node
   int                   subtree_prob;
 };
 
-typedef struct case_node case_node;
 typedef struct case_node *case_node_ptr;
 
 extern basic_block label_to_block_fn (struct function *, tree);
@@ -174,7 +165,7 @@ void
 emit_jump (rtx label)
 {
   do_pending_stack_adjust ();
-  emit_jump_insn (gen_jump (label));
+  emit_jump_insn (targetm.gen_jump (label));
   emit_barrier ();
 }
 
@@ -738,7 +729,8 @@ do_jump_if_equal (machine_mode mode, rtx op0, rtx op1, rtx_code_label *label,
 
 static struct case_node *
 add_case_node (struct case_node *head, tree low, tree high,
-	       tree label, int prob, pool_allocator<case_node> &case_node_pool)
+	       tree label, int prob,
+	       object_allocator<case_node> &case_node_pool)
 {
   struct case_node *r;
 
@@ -782,10 +774,6 @@ dump_case_nodes (FILE *f, struct case_node *root,
   dump_case_nodes (f, root->right, indent_step, indent_level);
 }
 
-#ifndef HAVE_casesi
-#define HAVE_casesi 0
-#endif
-
 /* Return the smallest number of different values for which it is best to use a
    jump-table instead of a tree of conditional branches.  */
 
@@ -814,7 +802,7 @@ expand_switch_as_decision_tree_p (tree range,
 
   /* If neither casesi or tablejump is available, or flag_jump_tables
      over-ruled us, we really have no choice.  */
-  if (!HAVE_casesi && !HAVE_tablejump)
+  if (!targetm.have_casesi () && !targetm.have_tablejump ())
     return true;
   if (!flag_jump_tables)
     return true;
@@ -902,7 +890,7 @@ emit_case_decision_tree (tree index_expr, tree index_type,
     {
       index = copy_to_reg (index);
       if (TREE_CODE (index_expr) == SSA_NAME)
-	set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (index_expr), index);
+	set_reg_attrs_for_decl_rtl (index_expr, index);
     }
 
   balance_case_nodes (&case_list, NULL);
@@ -1150,7 +1138,7 @@ expand_case (gswitch *stmt)
   struct case_node *case_list = 0;
 
   /* A pool for case nodes.  */
-  pool_allocator<case_node> case_node_pool ("struct case_node pool", 100);
+  object_allocator<case_node> case_node_pool ("struct case_node pool", 100);
 
   /* An ERROR_MARK occurs for various reasons including invalid data type.
      ??? Can this still happen, with GIMPLE and all?  */
@@ -1293,7 +1281,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
      of expanding as a decision tree or dispatch table vs. the "new
      way" with decrement chain or dispatch table.  */
   if (dispatch_table.length () <= 5
-      || (!HAVE_casesi && !HAVE_tablejump)
+      || (!targetm.have_casesi () && !targetm.have_tablejump ())
       || !flag_jump_tables)
     {
       /* Expand the dispatch as a decrement chain:
@@ -1326,7 +1314,7 @@ expand_sjlj_dispatch_table (rtx dispatch_index,
     {
       /* Similar to expand_case, but much simpler.  */
       struct case_node *case_list = 0;
-      pool_allocator<case_node> case_node_pool ("struct sjlj_case pool",
+      object_allocator<case_node> case_node_pool ("struct sjlj_case pool",
 						ncases);
       tree index_expr = make_tree (index_type, dispatch_index);
       tree minval = build_int_cst (index_type, 0);

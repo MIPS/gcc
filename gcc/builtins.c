@@ -20,12 +20,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -33,16 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "tree-object-size.h"
 #include "realmpfr.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "flags.h"
 #include "regs.h"
 #include "except.h"
@@ -69,8 +61,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "asan.h"
 #include "cilk.h"
-#include "ipa-ref.h"
-#include "lto-streamer.h"
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
@@ -107,9 +97,7 @@ static int target_char_cast (tree, char *);
 static rtx get_memory_rtx (tree, tree);
 static int apply_args_size (void);
 static int apply_result_size (void);
-#if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
 static rtx result_vector (int, rtx);
-#endif
 static void expand_builtin_prefetch (tree);
 static rtx expand_builtin_apply_args (void);
 static rtx expand_builtin_apply_args_1 (void);
@@ -131,7 +119,6 @@ static rtx expand_builtin_next_arg (void);
 static rtx expand_builtin_va_start (tree);
 static rtx expand_builtin_va_end (tree);
 static rtx expand_builtin_va_copy (tree);
-static rtx expand_builtin_memcmp (tree, rtx, machine_mode);
 static rtx expand_builtin_strcmp (tree, rtx);
 static rtx expand_builtin_strncmp (tree, rtx, machine_mode);
 static rtx builtin_memcpy_read_str (void *, HOST_WIDE_INT, machine_mode);
@@ -326,10 +313,9 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
       /* The alignment of a CONST_DECL is determined by its initializer.  */
       exp = DECL_INITIAL (exp);
       align = TYPE_ALIGN (TREE_TYPE (exp));
-#ifdef CONSTANT_ALIGNMENT
       if (CONSTANT_CLASS_P (exp))
 	align = (unsigned) CONSTANT_ALIGNMENT (exp, align);
-#endif
+
       known_alignment = true;
     }
   else if (DECL_P (exp))
@@ -405,10 +391,9 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
       /* STRING_CST are the only constant objects we allow to be not
          wrapped inside a CONST_DECL.  */
       align = TYPE_ALIGN (TREE_TYPE (exp));
-#ifdef CONSTANT_ALIGNMENT
       if (CONSTANT_CLASS_P (exp))
 	align = (unsigned) CONSTANT_ALIGNMENT (exp, align);
-#endif
+
       known_alignment = true;
     }
 
@@ -476,6 +461,28 @@ get_pointer_alignment_1 (tree exp, unsigned int *alignp,
   if (TREE_CODE (exp) == ADDR_EXPR)
     return get_object_alignment_2 (TREE_OPERAND (exp, 0),
 				   alignp, bitposp, true);
+  else if (TREE_CODE (exp) == POINTER_PLUS_EXPR)
+    {
+      unsigned int align;
+      unsigned HOST_WIDE_INT bitpos;
+      bool res = get_pointer_alignment_1 (TREE_OPERAND (exp, 0),
+					  &align, &bitpos);
+      if (TREE_CODE (TREE_OPERAND (exp, 1)) == INTEGER_CST)
+	bitpos += TREE_INT_CST_LOW (TREE_OPERAND (exp, 1)) * BITS_PER_UNIT;
+      else
+	{
+	  unsigned int trailing_zeros = tree_ctz (TREE_OPERAND (exp, 1));
+	  if (trailing_zeros < HOST_BITS_PER_INT)
+	    {
+	      unsigned int inner = (1U << trailing_zeros) * BITS_PER_UNIT;
+	      if (inner)
+		align = MIN (align, inner);
+	    }
+	}
+      *alignp = align;
+      *bitposp = bitpos & (align - 1);
+      return res;
+    }
   else if (TREE_CODE (exp) == SSA_NAME
 	   && POINTER_TYPE_P (TREE_TYPE (exp)))
     {
@@ -870,10 +877,8 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
   emit_stack_save (SAVE_NONLOCAL, &stack_save);
 
   /* If there is further processing to do, do it.  */
-#ifdef HAVE_builtin_setjmp_setup
-  if (HAVE_builtin_setjmp_setup)
-    emit_insn (gen_builtin_setjmp_setup (buf_addr));
-#endif
+  if (targetm.have_builtin_setjmp_setup ())
+    emit_insn (targetm.gen_builtin_setjmp_setup (buf_addr));
 
   /* We have a nonlocal label.   */
   cfun->has_nonlocal_label = 1;
@@ -884,7 +889,7 @@ expand_builtin_setjmp_setup (rtx buf_addr, rtx receiver_label)
    If RECEIVER_LABEL is NULL, instead contruct a nonlocal goto handler.  */
 
 void
-expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
+expand_builtin_setjmp_receiver (rtx receiver_label)
 {
   rtx chain;
 
@@ -900,9 +905,7 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
 
   /* Now put in the code to restore the frame pointer, and argument
      pointer, if needed.  */
-#ifdef HAVE_nonlocal_goto
-  if (! HAVE_nonlocal_goto)
-#endif
+  if (! targetm.have_nonlocal_goto ())
     {
       /* First adjust our frame pointer to its actual value.  It was
 	 previously set to the start of the virtual area corresponding to
@@ -953,17 +956,12 @@ expand_builtin_setjmp_receiver (rtx receiver_label ATTRIBUTE_UNUSED)
     }
 #endif
 
-#ifdef HAVE_builtin_setjmp_receiver
-  if (receiver_label != NULL && HAVE_builtin_setjmp_receiver)
-    emit_insn (gen_builtin_setjmp_receiver (receiver_label));
+  if (receiver_label != NULL && targetm.have_builtin_setjmp_receiver ())
+    emit_insn (targetm.gen_builtin_setjmp_receiver (receiver_label));
+  else if (targetm.have_nonlocal_goto_receiver ())
+    emit_insn (targetm.gen_nonlocal_goto_receiver ());
   else
-#endif
-#ifdef HAVE_nonlocal_goto_receiver
-    if (HAVE_nonlocal_goto_receiver)
-      emit_insn (gen_nonlocal_goto_receiver ());
-    else
-#endif
-      { /* Nothing */ }
+    { /* Nothing */ }
 
   /* We must not allow the code we just generated to be reordered by
      scheduling.  Specifically, the update of the frame pointer must
@@ -1000,11 +998,9 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
   gcc_assert (value == const1_rtx);
 
   last = get_last_insn ();
-#ifdef HAVE_builtin_longjmp
-  if (HAVE_builtin_longjmp)
-    emit_insn (gen_builtin_longjmp (buf_addr));
+  if (targetm.have_builtin_longjmp ())
+    emit_insn (targetm.gen_builtin_longjmp (buf_addr));
   else
-#endif
     {
       fp = gen_rtx_MEM (Pmode, buf_addr);
       lab = gen_rtx_MEM (Pmode, plus_constant (Pmode, buf_addr,
@@ -1018,14 +1014,12 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
 
       /* Pick up FP, label, and SP from the block and jump.  This code is
 	 from expand_goto in stmt.c; see there for detailed comments.  */
-#ifdef HAVE_nonlocal_goto
-      if (HAVE_nonlocal_goto)
+      if (targetm.have_nonlocal_goto ())
 	/* We have to pass a value to the nonlocal_goto pattern that will
 	   get copied into the static_chain pointer, but it does not matter
 	   what that value is, because builtin_setjmp does not use it.  */
-	emit_insn (gen_nonlocal_goto (value, lab, stack, fp));
+	emit_insn (targetm.gen_nonlocal_goto (value, lab, stack, fp));
       else
-#endif
 	{
 	  lab = copy_to_reg (lab);
 
@@ -1147,12 +1141,10 @@ expand_builtin_nonlocal_goto (tree exp)
 
   crtl->has_nonlocal_goto = 1;
 
-#ifdef HAVE_nonlocal_goto
   /* ??? We no longer need to pass the static chain value, afaik.  */
-  if (HAVE_nonlocal_goto)
-    emit_insn (gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
+  if (targetm.have_nonlocal_goto ())
+    emit_insn (targetm.gen_nonlocal_goto (const0_rtx, r_label, r_sp, r_fp));
   else
-#endif
     {
       r_label = copy_to_reg (r_label);
 
@@ -1280,18 +1272,16 @@ expand_builtin_prefetch (tree exp)
       op2 = const0_rtx;
     }
 
-#ifdef HAVE_prefetch
-  if (HAVE_prefetch)
+  if (targetm.have_prefetch ())
     {
       struct expand_operand ops[3];
 
       create_address_operand (&ops[0], op0);
       create_integer_operand (&ops[1], INTVAL (op1));
       create_integer_operand (&ops[2], INTVAL (op2));
-      if (maybe_expand_insn (CODE_FOR_prefetch, 3, ops))
+      if (maybe_expand_insn (targetm.code_for_prefetch, 3, ops))
 	return;
     }
-#endif
 
   /* Don't do anything with direct references to volatile memory, but
      generate code to handle other side effects.  */
@@ -1444,7 +1434,6 @@ apply_result_size (void)
   return size;
 }
 
-#if defined (HAVE_untyped_call) || defined (HAVE_untyped_return)
 /* Create a vector describing the result block RESULT.  If SAVEP is true,
    the result block is used to save the values; otherwise it is used to
    restore the values.  */
@@ -1473,7 +1462,6 @@ result_vector (int savep, rtx result)
       }
   return gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (nelts, savevec));
 }
-#endif /* HAVE_untyped_call or HAVE_untyped_return */
 
 /* Save the state required to perform an untyped call with the same
    arguments as were passed to the current function.  */
@@ -1613,11 +1601,9 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   NO_DEFER_POP;
 
   /* Save the stack with nonlocal if available.  */
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
+  if (targetm.have_save_stack_nonlocal ())
     emit_stack_save (SAVE_NONLOCAL, &old_stack_level);
   else
-#endif
     emit_stack_save (SAVE_BLOCK, &old_stack_level);
 
   /* Allocate a block of memory onto the stack and copy the memory
@@ -1694,14 +1680,13 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
     function = memory_address (FUNCTION_MODE, function);
 
   /* Generate the actual call instruction and save the return value.  */
-#ifdef HAVE_untyped_call
-  if (HAVE_untyped_call)
-    emit_call_insn (gen_untyped_call (gen_rtx_MEM (FUNCTION_MODE, function),
-				      result, result_vector (1, result)));
-  else
-#endif
-#ifdef HAVE_call_value
-  if (HAVE_call_value)
+  if (targetm.have_untyped_call ())
+    {
+      rtx mem = gen_rtx_MEM (FUNCTION_MODE, function);
+      emit_call_insn (targetm.gen_untyped_call (mem, result,
+						result_vector (1, result)));
+    }
+  else if (targetm.have_call_value ())
     {
       rtx valreg = 0;
 
@@ -1712,19 +1697,18 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
 	if ((mode = apply_result_mode[regno]) != VOIDmode)
 	  {
-	    gcc_assert (!valreg); /* HAVE_untyped_call required.  */
+	    gcc_assert (!valreg); /* have_untyped_call required.  */
 
 	    valreg = gen_rtx_REG (mode, regno);
 	  }
 
-      emit_call_insn (GEN_CALL_VALUE (valreg,
-				      gen_rtx_MEM (FUNCTION_MODE, function),
-				      const0_rtx, NULL_RTX, const0_rtx));
+      emit_insn (targetm.gen_call_value (valreg,
+					 gen_rtx_MEM (FUNCTION_MODE, function),
+					 const0_rtx, NULL_RTX, const0_rtx));
 
       emit_move_insn (adjust_address (result, GET_MODE (valreg), 0), valreg);
     }
   else
-#endif
     gcc_unreachable ();
 
   /* Find the CALL insn we just emitted, and attach the register usage
@@ -1733,11 +1717,9 @@ expand_builtin_apply (rtx function, rtx arguments, rtx argsize)
   add_function_usage_to (call_insn, call_fusage);
 
   /* Restore the stack.  */
-#ifdef HAVE_save_stack_nonlocal
-  if (HAVE_save_stack_nonlocal)
+  if (targetm.have_save_stack_nonlocal ())
     emit_stack_restore (SAVE_NONLOCAL, old_stack_level);
   else
-#endif
     emit_stack_restore (SAVE_BLOCK, old_stack_level);
   fixup_args_size_notes (call_insn, get_last_insn (), 0);
 
@@ -1763,14 +1745,13 @@ expand_builtin_return (rtx result)
   apply_result_size ();
   result = gen_rtx_MEM (BLKmode, result);
 
-#ifdef HAVE_untyped_return
-  if (HAVE_untyped_return)
+  if (targetm.have_untyped_return ())
     {
-      emit_jump_insn (gen_untyped_return (result, result_vector (0, result)));
+      rtx vector = result_vector (0, result);
+      emit_jump_insn (targetm.gen_untyped_return (result, vector));
       emit_barrier ();
       return;
     }
-#endif
 
   /* Restore the return value and note that each value is used.  */
   size = 0;
@@ -3453,11 +3434,6 @@ expand_builtin_mempcpy_args (tree dest, tree src, tree len,
     }
 }
 
-#ifndef HAVE_movstr
-# define HAVE_movstr 0
-# define CODE_FOR_movstr CODE_FOR_nothing
-#endif
-
 /* Expand into a movstr instruction, if one is available.  Return NULL_RTX if
    we failed, the caller should emit a normal call, otherwise try to
    get the result in TARGET, if convenient.  If ENDP is 0 return the
@@ -3472,7 +3448,7 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
   rtx dest_mem;
   rtx src_mem;
 
-  if (!HAVE_movstr)
+  if (!targetm.have_movstr ())
     return NULL_RTX;
 
   dest_mem = get_memory_rtx (dest, NULL);
@@ -3486,7 +3462,7 @@ expand_movstr (tree dest, tree src, rtx target, int endp)
   create_output_operand (&ops[0], endp ? target : NULL_RTX, Pmode);
   create_fixed_operand (&ops[1], dest_mem);
   create_fixed_operand (&ops[2], src_mem);
-  if (!maybe_expand_insn (CODE_FOR_movstr, 3, ops))
+  if (!maybe_expand_insn (targetm.code_for_movstr, 3, ops))
     return NULL_RTX;
 
   if (endp && target != const0_rtx)
@@ -3937,17 +3913,61 @@ expand_builtin_bzero (tree exp)
 				     const0_rtx, VOIDmode, exp);
 }
 
-/* Expand expression EXP, which is a call to the memcmp built-in function.
-   Return NULL_RTX if we failed and the caller should emit a normal call,
-   otherwise try to get the result in TARGET, if convenient (and in mode
-   MODE, if that's convenient).  */
+/* Try to expand cmpstr operation ICODE with the given operands.
+   Return the result rtx on success, otherwise return null.  */
 
 static rtx
-expand_builtin_memcmp (tree exp, ATTRIBUTE_UNUSED rtx target,
-		       ATTRIBUTE_UNUSED machine_mode mode)
+expand_cmpstr (insn_code icode, rtx target, rtx arg1_rtx, rtx arg2_rtx,
+	       HOST_WIDE_INT align)
 {
-  location_t loc ATTRIBUTE_UNUSED = EXPR_LOCATION (exp);
+  machine_mode insn_mode = insn_data[icode].operand[0].mode;
 
+  if (target && (!REG_P (target) || HARD_REGISTER_P (target)))
+    target = NULL_RTX;
+
+  struct expand_operand ops[4];
+  create_output_operand (&ops[0], target, insn_mode);
+  create_fixed_operand (&ops[1], arg1_rtx);
+  create_fixed_operand (&ops[2], arg2_rtx);
+  create_integer_operand (&ops[3], align);
+  if (maybe_expand_insn (icode, 4, ops))
+    return ops[0].value;
+  return NULL_RTX;
+}
+
+/* Try to expand cmpstrn or cmpmem operation ICODE with the given operands.
+   ARG3_TYPE is the type of ARG3_RTX.  Return the result rtx on success,
+   otherwise return null.  */
+
+static rtx
+expand_cmpstrn_or_cmpmem (insn_code icode, rtx target, rtx arg1_rtx,
+			  rtx arg2_rtx, tree arg3_type, rtx arg3_rtx,
+			  HOST_WIDE_INT align)
+{
+  machine_mode insn_mode = insn_data[icode].operand[0].mode;
+
+  if (target && (!REG_P (target) || HARD_REGISTER_P (target)))
+    target = NULL_RTX;
+
+  struct expand_operand ops[5];
+  create_output_operand (&ops[0], target, insn_mode);
+  create_fixed_operand (&ops[1], arg1_rtx);
+  create_fixed_operand (&ops[2], arg2_rtx);
+  create_convert_operand_from (&ops[3], arg3_rtx, TYPE_MODE (arg3_type),
+			       TYPE_UNSIGNED (arg3_type));
+  create_integer_operand (&ops[4], align);
+  if (maybe_expand_insn (icode, 5, ops))
+    return ops[0].value;
+  return NULL_RTX;
+}
+
+/* Expand expression EXP, which is a call to the memcmp built-in function.
+   Return NULL_RTX if we failed and the caller should emit a normal call,
+   otherwise try to get the result in TARGET, if convenient.  */
+
+static rtx
+expand_builtin_memcmp (tree exp, rtx target)
+{
   if (!validate_arglist (exp,
  			 POINTER_TYPE, POINTER_TYPE, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
@@ -3955,78 +3975,66 @@ expand_builtin_memcmp (tree exp, ATTRIBUTE_UNUSED rtx target,
   /* Note: The cmpstrnsi pattern, if it exists, is not suitable for
      implementing memcmp because it will stop if it encounters two
      zero bytes.  */
-#if defined HAVE_cmpmemsi
-  {
-    rtx arg1_rtx, arg2_rtx, arg3_rtx;
-    rtx result;
-    rtx insn;
-    tree arg1 = CALL_EXPR_ARG (exp, 0);
-    tree arg2 = CALL_EXPR_ARG (exp, 1);
-    tree len = CALL_EXPR_ARG (exp, 2);
+  insn_code icode = direct_optab_handler (cmpmem_optab, SImode);
+  if (icode == CODE_FOR_nothing)
+    return NULL_RTX;
 
-    unsigned int arg1_align = get_pointer_alignment (arg1) / BITS_PER_UNIT;
-    unsigned int arg2_align = get_pointer_alignment (arg2) / BITS_PER_UNIT;
-    machine_mode insn_mode;
+  tree arg1 = CALL_EXPR_ARG (exp, 0);
+  tree arg2 = CALL_EXPR_ARG (exp, 1);
+  tree len = CALL_EXPR_ARG (exp, 2);
 
-    if (HAVE_cmpmemsi)
-      insn_mode = insn_data[(int) CODE_FOR_cmpmemsi].operand[0].mode;
-    else
-      return NULL_RTX;
+  unsigned int arg1_align = get_pointer_alignment (arg1) / BITS_PER_UNIT;
+  unsigned int arg2_align = get_pointer_alignment (arg2) / BITS_PER_UNIT;
 
-    /* If we don't have POINTER_TYPE, call the function.  */
-    if (arg1_align == 0 || arg2_align == 0)
-      return NULL_RTX;
+  /* If we don't have POINTER_TYPE, call the function.  */
+  if (arg1_align == 0 || arg2_align == 0)
+    return NULL_RTX;
 
-    /* Make a place to write the result of the instruction.  */
-    result = target;
-    if (! (result != 0
-	   && REG_P (result) && GET_MODE (result) == insn_mode
-	   && REGNO (result) >= FIRST_PSEUDO_REGISTER))
-      result = gen_reg_rtx (insn_mode);
+  machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
+  location_t loc = EXPR_LOCATION (exp);
+  rtx arg1_rtx = get_memory_rtx (arg1, len);
+  rtx arg2_rtx = get_memory_rtx (arg2, len);
+  rtx arg3_rtx = expand_normal (fold_convert_loc (loc, sizetype, len));
 
-    arg1_rtx = get_memory_rtx (arg1, len);
-    arg2_rtx = get_memory_rtx (arg2, len);
-    arg3_rtx = expand_normal (fold_convert_loc (loc, sizetype, len));
+  /* Set MEM_SIZE as appropriate.  */
+  if (CONST_INT_P (arg3_rtx))
+    {
+      set_mem_size (arg1_rtx, INTVAL (arg3_rtx));
+      set_mem_size (arg2_rtx, INTVAL (arg3_rtx));
+    }
 
-    /* Set MEM_SIZE as appropriate.  */
-    if (CONST_INT_P (arg3_rtx))
-      {
-	set_mem_size (arg1_rtx, INTVAL (arg3_rtx));
-	set_mem_size (arg2_rtx, INTVAL (arg3_rtx));
-      }
+  rtx result = expand_cmpstrn_or_cmpmem (icode, target, arg1_rtx, arg2_rtx,
+					 TREE_TYPE (len), arg3_rtx,
+					 MIN (arg1_align, arg2_align));
+  if (result)
+    {
+      /* Return the value in the proper mode for this function.  */
+      if (GET_MODE (result) == mode)
+	return result;
 
-    if (HAVE_cmpmemsi)
-      insn = gen_cmpmemsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
-			   GEN_INT (MIN (arg1_align, arg2_align)));
-    else
-      gcc_unreachable ();
+      if (target != 0)
+	{
+	  convert_move (target, result, 0);
+	  return target;
+	}
 
-    if (insn)
-      emit_insn (insn);
-    else
-      emit_library_call_value (memcmp_libfunc, result, LCT_PURE,
-			       TYPE_MODE (integer_type_node), 3,
-			       XEXP (arg1_rtx, 0), Pmode,
-			       XEXP (arg2_rtx, 0), Pmode,
-			       convert_to_mode (TYPE_MODE (sizetype), arg3_rtx,
-						TYPE_UNSIGNED (sizetype)),
-			       TYPE_MODE (sizetype));
-
-    /* Return the value in the proper mode for this function.  */
-    mode = TYPE_MODE (TREE_TYPE (exp));
-    if (GET_MODE (result) == mode)
-      return result;
-    else if (target != 0)
-      {
-	convert_move (target, result, 0);
-	return target;
-      }
-    else
       return convert_to_mode (mode, result, 0);
-  }
-#endif /* HAVE_cmpmemsi.  */
+    }
 
-  return NULL_RTX;
+  result = target;
+  if (! (result != 0
+	 && REG_P (result) && GET_MODE (result) == mode
+	 && REGNO (result) >= FIRST_PSEUDO_REGISTER))
+    result = gen_reg_rtx (mode);
+
+  emit_library_call_value (memcmp_libfunc, result, LCT_PURE,
+			   TYPE_MODE (integer_type_node), 3,
+			   XEXP (arg1_rtx, 0), Pmode,
+			   XEXP (arg2_rtx, 0), Pmode,
+			   convert_to_mode (TYPE_MODE (sizetype), arg3_rtx,
+					    TYPE_UNSIGNED (sizetype)),
+			   TYPE_MODE (sizetype));
+  return result;
 }
 
 /* Expand expression EXP, which is a call to the strcmp builtin.  Return NULL_RTX
@@ -4039,15 +4047,15 @@ expand_builtin_strcmp (tree exp, ATTRIBUTE_UNUSED rtx target)
   if (!validate_arglist (exp, POINTER_TYPE, POINTER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
-#if defined HAVE_cmpstrsi || defined HAVE_cmpstrnsi
-  if (direct_optab_handler (cmpstr_optab, SImode) != CODE_FOR_nothing
-      || direct_optab_handler (cmpstrn_optab, SImode) != CODE_FOR_nothing)
+  insn_code cmpstr_icode = direct_optab_handler (cmpstr_optab, SImode);
+  insn_code cmpstrn_icode = direct_optab_handler (cmpstrn_optab, SImode);
+  if (cmpstr_icode != CODE_FOR_nothing || cmpstrn_icode != CODE_FOR_nothing)
     {
       rtx arg1_rtx, arg2_rtx;
-      rtx result, insn = NULL_RTX;
       tree fndecl, fn;
       tree arg1 = CALL_EXPR_ARG (exp, 0);
       tree arg2 = CALL_EXPR_ARG (exp, 1);
+      rtx result = NULL_RTX;
 
       unsigned int arg1_align = get_pointer_alignment (arg1) / BITS_PER_UNIT;
       unsigned int arg2_align = get_pointer_alignment (arg2) / BITS_PER_UNIT;
@@ -4063,33 +4071,17 @@ expand_builtin_strcmp (tree exp, ATTRIBUTE_UNUSED rtx target)
       arg1_rtx = get_memory_rtx (arg1, NULL);
       arg2_rtx = get_memory_rtx (arg2, NULL);
 
-#ifdef HAVE_cmpstrsi
       /* Try to call cmpstrsi.  */
-      if (HAVE_cmpstrsi)
-	{
-	  machine_mode insn_mode
-	    = insn_data[(int) CODE_FOR_cmpstrsi].operand[0].mode;
+      if (cmpstr_icode != CODE_FOR_nothing)
+	result = expand_cmpstr (cmpstr_icode, target, arg1_rtx, arg2_rtx,
+				MIN (arg1_align, arg2_align));
 
-	  /* Make a place to write the result of the instruction.  */
-	  result = target;
-	  if (! (result != 0
-		 && REG_P (result) && GET_MODE (result) == insn_mode
-		 && REGNO (result) >= FIRST_PSEUDO_REGISTER))
-	    result = gen_reg_rtx (insn_mode);
-
-	  insn = gen_cmpstrsi (result, arg1_rtx, arg2_rtx,
-			       GEN_INT (MIN (arg1_align, arg2_align)));
-	}
-#endif
-#ifdef HAVE_cmpstrnsi
       /* Try to determine at least one length and call cmpstrnsi.  */
-      if (!insn && HAVE_cmpstrnsi)
+      if (!result && cmpstrn_icode != CODE_FOR_nothing)
 	{
 	  tree len;
 	  rtx arg3_rtx;
 
-	  machine_mode insn_mode
-	    = insn_data[(int) CODE_FOR_cmpstrnsi].operand[0].mode;
 	  tree len1 = c_strlen (arg1, 1);
 	  tree len2 = c_strlen (arg2, 1);
 
@@ -4123,30 +4115,19 @@ expand_builtin_strcmp (tree exp, ATTRIBUTE_UNUSED rtx target)
 	    len = len2;
 
 	  /* If both arguments have side effects, we cannot optimize.  */
-	  if (!len || TREE_SIDE_EFFECTS (len))
-	    goto do_libcall;
-
-	  arg3_rtx = expand_normal (len);
-
-	  /* Make a place to write the result of the instruction.  */
-	  result = target;
-	  if (! (result != 0
-		 && REG_P (result) && GET_MODE (result) == insn_mode
-		 && REGNO (result) >= FIRST_PSEUDO_REGISTER))
-	    result = gen_reg_rtx (insn_mode);
-
-	  insn = gen_cmpstrnsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
-				GEN_INT (MIN (arg1_align, arg2_align)));
+	  if (len && !TREE_SIDE_EFFECTS (len))
+	    {
+	      arg3_rtx = expand_normal (len);
+	      result = expand_cmpstrn_or_cmpmem
+		(cmpstrn_icode, target, arg1_rtx, arg2_rtx, TREE_TYPE (len),
+		 arg3_rtx, MIN (arg1_align, arg2_align));
+	    }
 	}
-#endif
 
-      if (insn)
+      if (result)
 	{
-	  machine_mode mode;
-	  emit_insn (insn);
-
 	  /* Return the value in the proper mode for this function.  */
-	  mode = TYPE_MODE (TREE_TYPE (exp));
+	  machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
 	  if (GET_MODE (result) == mode)
 	    return result;
 	  if (target == 0)
@@ -4157,16 +4138,12 @@ expand_builtin_strcmp (tree exp, ATTRIBUTE_UNUSED rtx target)
 
       /* Expand the library call ourselves using a stabilized argument
 	 list to avoid re-evaluating the function's arguments twice.  */
-#ifdef HAVE_cmpstrnsi
-    do_libcall:
-#endif
       fndecl = get_callee_fndecl (exp);
       fn = build_call_nofold_loc (EXPR_LOCATION (exp), fndecl, 2, arg1, arg2);
       gcc_assert (TREE_CODE (fn) == CALL_EXPR);
       CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
       return expand_call (fn, target, target == const0_rtx);
     }
-#endif
   return NULL_RTX;
 }
 
@@ -4187,12 +4164,12 @@ expand_builtin_strncmp (tree exp, ATTRIBUTE_UNUSED rtx target,
   /* If c_strlen can determine an expression for one of the string
      lengths, and it doesn't have side effects, then emit cmpstrnsi
      using length MIN(strlen(string)+1, arg3).  */
-#ifdef HAVE_cmpstrnsi
-  if (HAVE_cmpstrnsi)
+  insn_code cmpstrn_icode = direct_optab_handler (cmpstrn_optab, SImode);
+  if (cmpstrn_icode != CODE_FOR_nothing)
   {
     tree len, len1, len2;
     rtx arg1_rtx, arg2_rtx, arg3_rtx;
-    rtx result, insn;
+    rtx result;
     tree fndecl, fn;
     tree arg1 = CALL_EXPR_ARG (exp, 0);
     tree arg2 = CALL_EXPR_ARG (exp, 1);
@@ -4200,8 +4177,6 @@ expand_builtin_strncmp (tree exp, ATTRIBUTE_UNUSED rtx target,
 
     unsigned int arg1_align = get_pointer_alignment (arg1) / BITS_PER_UNIT;
     unsigned int arg2_align = get_pointer_alignment (arg2) / BITS_PER_UNIT;
-    machine_mode insn_mode
-      = insn_data[(int) CODE_FOR_cmpstrnsi].operand[0].mode;
 
     len1 = c_strlen (arg1, 1);
     len2 = c_strlen (arg2, 1);
@@ -4247,13 +4222,6 @@ expand_builtin_strncmp (tree exp, ATTRIBUTE_UNUSED rtx target,
     if (arg1_align == 0 || arg2_align == 0)
       return NULL_RTX;
 
-    /* Make a place to write the result of the instruction.  */
-    result = target;
-    if (! (result != 0
-	   && REG_P (result) && GET_MODE (result) == insn_mode
-	   && REGNO (result) >= FIRST_PSEUDO_REGISTER))
-      result = gen_reg_rtx (insn_mode);
-
     /* Stabilize the arguments in case gen_cmpstrnsi fails.  */
     arg1 = builtin_save_expr (arg1);
     arg2 = builtin_save_expr (arg2);
@@ -4262,12 +4230,11 @@ expand_builtin_strncmp (tree exp, ATTRIBUTE_UNUSED rtx target,
     arg1_rtx = get_memory_rtx (arg1, len);
     arg2_rtx = get_memory_rtx (arg2, len);
     arg3_rtx = expand_normal (len);
-    insn = gen_cmpstrnsi (result, arg1_rtx, arg2_rtx, arg3_rtx,
-			  GEN_INT (MIN (arg1_align, arg2_align)));
-    if (insn)
+    result = expand_cmpstrn_or_cmpmem (cmpstrn_icode, target, arg1_rtx,
+				       arg2_rtx, TREE_TYPE (len), arg3_rtx,
+				       MIN (arg1_align, arg2_align));
+    if (result)
       {
-	emit_insn (insn);
-
 	/* Return the value in the proper mode for this function.  */
 	mode = TYPE_MODE (TREE_TYPE (exp));
 	if (GET_MODE (result) == mode)
@@ -4287,7 +4254,6 @@ expand_builtin_strncmp (tree exp, ATTRIBUTE_UNUSED rtx target,
     CALL_EXPR_TAILCALL (fn) = CALL_EXPR_TAILCALL (exp);
     return expand_call (fn, target, target == const0_rtx);
   }
-#endif
   return NULL_RTX;
 }
 
@@ -4564,32 +4530,36 @@ expand_builtin_frame_address (tree fndecl, tree exp)
 {
   /* The argument must be a nonnegative integer constant.
      It counts the number of frames to scan up the stack.
-     The value is the return address saved in that frame.  */
+     The value is either the frame pointer value or the return
+     address saved in that frame.  */
   if (call_expr_nargs (exp) == 0)
     /* Warning about missing arg was already issued.  */
     return const0_rtx;
   else if (! tree_fits_uhwi_p (CALL_EXPR_ARG (exp, 0)))
     {
-      if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	error ("invalid argument to %<__builtin_frame_address%>");
-      else
-	error ("invalid argument to %<__builtin_return_address%>");
+      error ("invalid argument to %qD", fndecl);
       return const0_rtx;
     }
   else
     {
-      rtx tem
-	= expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl),
-				      tree_to_uhwi (CALL_EXPR_ARG (exp, 0)));
+      /* Number of frames to scan up the stack.  */
+      unsigned HOST_WIDE_INT count = tree_to_uhwi (CALL_EXPR_ARG (exp, 0));
+
+      rtx tem = expand_builtin_return_addr (DECL_FUNCTION_CODE (fndecl), count);
 
       /* Some ports cannot access arbitrary stack frames.  */
       if (tem == NULL)
 	{
-	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_FRAME_ADDRESS)
-	    warning (0, "unsupported argument to %<__builtin_frame_address%>");
-	  else
-	    warning (0, "unsupported argument to %<__builtin_return_address%>");
+	  warning (0, "unsupported argument to %qD", fndecl);
 	  return const0_rtx;
+	}
+
+      if (count)
+	{
+	  /* Warn since no effort is made to ensure that any frame
+	     beyond the current one exists or can be safely reached.  */
+	  warning (OPT_Wframe_address, "calling %qD with "
+		   "a nonzero argument is unsafe", fndecl);
 	}
 
       /* For __builtin_frame_address, return what we've got.  */
@@ -4739,10 +4709,9 @@ expand_builtin_assume_aligned (tree exp, rtx target)
 void
 expand_builtin_trap (void)
 {
-#ifdef HAVE_trap
-  if (HAVE_trap)
+  if (targetm.have_trap ())
     {
-      rtx_insn *insn = emit_insn (gen_trap ());
+      rtx_insn *insn = emit_insn (targetm.gen_trap ());
       /* For trap insns when not accumulating outgoing args force
 	 REG_ARGS_SIZE note to prevent crossjumping of calls with
 	 different args sizes.  */
@@ -4750,7 +4719,6 @@ expand_builtin_trap (void)
 	add_reg_note (insn, REG_ARGS_SIZE, GEN_INT (stack_pointer_delta));
     }
   else
-#endif
     emit_library_call (abort_libfunc, LCT_NORETURN, VOIDmode, 0);
   emit_barrier ();
 }
@@ -4815,20 +4783,22 @@ expand_builtin_copysign (tree exp, rtx target, rtx subtarget)
 /* Expand a call to __builtin___clear_cache.  */
 
 static rtx
-expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
+expand_builtin___clear_cache (tree exp)
 {
-#ifndef HAVE_clear_cache
+  if (!targetm.code_for_clear_cache)
+    {
 #ifdef CLEAR_INSN_CACHE
-  /* There is no "clear_cache" insn, and __clear_cache() in libgcc
-     does something.  Just do the default expansion to a call to
-     __clear_cache().  */
-  return NULL_RTX;
+      /* There is no "clear_cache" insn, and __clear_cache() in libgcc
+	 does something.  Just do the default expansion to a call to
+	 __clear_cache().  */
+      return NULL_RTX;
 #else
-  /* There is no "clear_cache" insn, and __clear_cache() in libgcc
-     does nothing.  There is no need to call it.  Do nothing.  */
-  return const0_rtx;
+      /* There is no "clear_cache" insn, and __clear_cache() in libgcc
+	 does nothing.  There is no need to call it.  Do nothing.  */
+      return const0_rtx;
 #endif /* CLEAR_INSN_CACHE */
-#else
+    }
+
   /* We have a "clear_cache" insn, and it will handle everything.  */
   tree begin, end;
   rtx begin_rtx, end_rtx;
@@ -4842,7 +4812,7 @@ expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
       return const0_rtx;
     }
 
-  if (HAVE_clear_cache)
+  if (targetm.have_clear_cache ())
     {
       struct expand_operand ops[2];
 
@@ -4854,11 +4824,10 @@ expand_builtin___clear_cache (tree exp ATTRIBUTE_UNUSED)
 
       create_address_operand (&ops[0], begin_rtx);
       create_address_operand (&ops[1], end_rtx);
-      if (maybe_expand_insn (CODE_FOR_clear_cache, 2, ops))
+      if (maybe_expand_insn (targetm.code_for_clear_cache, 2, ops))
 	return const0_rtx;
     }
   return const0_rtx;
-#endif /* HAVE_clear_cache */
 }
 
 /* Given a trampoline address, make sure it satisfies TRAMPOLINE_ALIGNMENT.  */
@@ -4963,11 +4932,9 @@ expand_builtin_adjust_trampoline (tree exp)
    function.  The function first checks whether the back end provides
    an insn to implement signbit for the respective mode.  If not, it
    checks whether the floating point format of the value is such that
-   the sign bit can be extracted.  If that is not the case, the
-   function returns NULL_RTX to indicate that a normal call should be
-   emitted rather than expanding the function in-line.  EXP is the
-   expression that is a call to the builtin function; if convenient,
-   the result should be placed in TARGET.  */
+   the sign bit can be extracted.  If that is not the case, error out.
+   EXP is the expression that is a call to the builtin function; if
+   convenient, the result should be placed in TARGET.  */
 static rtx
 expand_builtin_signbit (tree exp, rtx target)
 {
@@ -5010,8 +4977,7 @@ expand_builtin_signbit (tree exp, rtx target)
   if (bitpos < 0)
   {
     /* But we can't do this if the format supports signed zero.  */
-    if (fmt->has_signed_zero && HONOR_SIGNED_ZEROS (fmode))
-      return NULL_RTX;
+    gcc_assert (!fmt->has_signed_zero || !HONOR_SIGNED_ZEROS (fmode));
 
     arg = fold_build2_loc (loc, LT_EXPR, TREE_TYPE (exp), arg,
 		       build_real (TREE_TYPE (arg), dconst0));
@@ -5021,8 +4987,7 @@ expand_builtin_signbit (tree exp, rtx target)
   if (GET_MODE_SIZE (fmode) <= UNITS_PER_WORD)
     {
       imode = int_mode_for_mode (fmode);
-      if (imode == BLKmode)
-	return NULL_RTX;
+      gcc_assert (imode != BLKmode);
       temp = gen_lowpart (imode, temp);
     }
   else
@@ -5601,12 +5566,6 @@ expand_builtin_atomic_fetch_op (machine_mode mode, tree exp, rtx target,
   return ret;
 }
 
-
-#ifndef HAVE_atomic_clear
-# define HAVE_atomic_clear 0
-# define gen_atomic_clear(x,y) (gcc_unreachable (), NULL_RTX)
-#endif
-
 /* Expand an atomic clear operation.
 	void _atomic_clear (BOOL *obj, enum memmodel)
    EXP is the call expression.  */
@@ -5627,12 +5586,6 @@ expand_builtin_atomic_clear (tree exp)
       warning (OPT_Winvalid_memory_model,
 	       "invalid memory model for %<__atomic_store%>");
       model = MEMMODEL_SEQ_CST;
-    }
-
-  if (HAVE_atomic_clear)
-    {
-      emit_insn (gen_atomic_clear (mem, model));
-      return const0_rtx;
     }
 
   /* Try issuing an __atomic_store, and allow fallback to __sync_lock_release.
@@ -5704,7 +5657,7 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
       type_align = TYPE_ALIGN (ttype);
     }
 
-  /* If the object has smaller alignment, the the lock free routines cannot
+  /* If the object has smaller alignment, the lock free routines cannot
      be used.  */
   if (type_align < mode_align)
     return boolean_false_node;
@@ -5901,10 +5854,8 @@ expand_stack_save (void)
    acceleration device (ACCEL_COMPILER conditional).  */
 
 static rtx
-expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
-			      rtx target ATTRIBUTE_UNUSED)
+expand_builtin_acc_on_device (tree exp, rtx target)
 {
-#ifdef ACCEL_COMPILER
   if (!validate_arglist (exp, INTEGER_TYPE, VOID_TYPE))
     return NULL_RTX;
 
@@ -5913,8 +5864,13 @@ expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
   /* Return (arg == v1 || arg == v2) ? 1 : 0.  */
   machine_mode v_mode = TYPE_MODE (TREE_TYPE (arg));
   rtx v = expand_normal (arg), v1, v2;
+#ifdef ACCEL_COMPILER
   v1 = GEN_INT (GOMP_DEVICE_NOT_HOST);
   v2 = GEN_INT (ACCEL_COMPILER_acc_device);
+#else
+  v1 = GEN_INT (GOMP_DEVICE_NONE);
+  v2 = GEN_INT (GOMP_DEVICE_HOST);
+#endif
   machine_mode target_mode = TYPE_MODE (integer_type_node);
   if (!target || !register_operand (target, target_mode))
     target = gen_reg_rtx (target_mode);
@@ -5928,9 +5884,6 @@ expand_builtin_acc_on_device (tree exp ATTRIBUTE_UNUSED,
   emit_label (done_label);
 
   return target;
-#else
-  return NULL;
-#endif
 }
 
 
@@ -6374,7 +6327,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
-      target = expand_builtin_memcmp (exp, target, mode);
+      target = expand_builtin_memcmp (exp, target);
       if (target)
 	return target;
       break;

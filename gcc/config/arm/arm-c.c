@@ -21,14 +21,11 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tm_p.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "c-family/c-common.h"
 #include "target.h"
-#include "target-def.h"
 #include "c-family/c-pragma.h"
 
 /* Output C specific EABI object attributes.  These can not be done in
@@ -170,6 +167,11 @@ arm_cpu_builtins (struct cpp_reader* pfile, int flags)
     }
   if (arm_arch_iwmmxt2)
     builtin_define ("__IWMMXT2__");
+  /* ARMv6KZ was originally identified as the misspelled __ARM_ARCH_6ZK__.  To
+     preserve the existing behaviour, the misspelled feature macro must still be
+     defined.  */
+  if (arm_arch6kz)
+    builtin_define ("__ARM_ARCH_6ZK__");
   if (TARGET_AAPCS_BASED)
     {
       if (arm_pcs_default == ARM_PCS_AAPCS_VFP)

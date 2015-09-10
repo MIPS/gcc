@@ -45,14 +45,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "varasm.h"
-#include "hard-reg-set.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
+#include "varasm.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -62,16 +61,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "output.h"
 #include "except.h"
-#include "function.h"
 #include "rtl-error.h"
 #include "toplev.h" /* exact_log2, floor_log2 */
 #include "reload.h"
 #include "intl.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "target.h"
 #include "targhooks.h"
 #include "debug.h"
@@ -83,13 +77,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-ssa.h"
 #include "coverage.h"
-#include "df.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
@@ -1528,14 +1518,14 @@ asm_str_count (const char *templ)
 /* Structure recording the mapping from source file and directory
    names at compile time to those to be embedded in debug
    information.  */
-typedef struct debug_prefix_map
+struct debug_prefix_map
 {
   const char *old_prefix;
   const char *new_prefix;
   size_t old_len;
   size_t new_len;
   struct debug_prefix_map *next;
-} debug_prefix_map;
+};
 
 /* Linked list of such structures.  */
 static debug_prefix_map *debug_prefix_maps;
@@ -1807,12 +1797,8 @@ final_start_function (rtx_insn *first, FILE *file,
      if the profiling code comes after the prologue.  */
   if (targetm.profile_before_prologue () && crtl->profile)
     {
-      if (targetm.asm_out.function_prologue
-	  == default_function_pro_epilogue
-#ifdef HAVE_prologue
-	  && HAVE_prologue
-#endif
-	 )
+      if (targetm.asm_out.function_prologue == default_function_pro_epilogue
+	  && targetm.have_prologue ())
 	{
 	  rtx_insn *insn;
 	  for (insn = first; insn; insn = NEXT_INSN (insn))
@@ -1868,9 +1854,7 @@ final_start_function (rtx_insn *first, FILE *file,
 
   /* If the machine represents the prologue as RTL, the profiling code must
      be emitted when NOTE_INSN_PROLOGUE_END is scanned.  */
-#ifdef HAVE_prologue
-  if (! HAVE_prologue)
-#endif
+  if (! targetm.have_prologue ())
     profile_after_prologue (file);
 }
 
@@ -4761,7 +4745,7 @@ make_pass_clean_state (gcc::context *ctxt)
   return new pass_clean_state (ctxt);
 }
 
-/* Return true if INSN is a call to the the current function.  */
+/* Return true if INSN is a call to the current function.  */
 
 static bool
 self_recursive_call_p (rtx_insn *insn)

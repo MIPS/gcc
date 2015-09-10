@@ -103,17 +103,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
 #include "tm_p.h"
-#include "symtab.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -124,13 +122,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "conditions.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "regs.h"
 #include "recog.h"
-#include "obstack.h"
 #include "insn-attr.h"
 #include "resource.h"
 #include "except.h"
@@ -474,7 +467,7 @@ find_end_label (rtx kind)
 	}
       else
 	{
-	  if (HAVE_epilogue && ! HAVE_return)
+	  if (targetm.have_epilogue () && ! targetm.have_return ())
 	    /* The RETURN insn has its delay slot filled so we cannot
 	       emit the label just before it.  Since we already have
 	       an epilogue and cannot emit a new RETURN, we cannot
@@ -484,10 +477,10 @@ find_end_label (rtx kind)
 	  /* Otherwise, make a new label and emit a RETURN and BARRIER,
 	     if needed.  */
 	  emit_label (label);
-	  if (HAVE_return)
+	  if (targetm.have_return ())
 	    {
 	      /* The return we make may have delay slots too.  */
-	      rtx pat = gen_return ();
+	      rtx_insn *pat = targetm.gen_return ();
 	      rtx_insn *insn = emit_jump_insn (pat);
 	      set_return_jump_label (insn);
 	      emit_barrier ();
@@ -1404,12 +1397,12 @@ try_merge_delay_insns (rtx_insn *insn, rtx_insn *thread)
 	  rtx_insn *dtrial = pat->insn (i);
 
 	  CLEAR_RESOURCE (&modified);
-	  /* Account for resources set by the the insn following NEXT_TO_MATCH
+	  /* Account for resources set by the insn following NEXT_TO_MATCH
 	     inside INSN's delay list. */
 	  for (j = 1; slot_number + j < num_slots; j++)
 	    mark_set_resources (XVECEXP (PATTERN (insn), 0, slot_number + j),
 				&modified, 0, MARK_SRC_DEST_CALL);
-	  /* Account for resources set by the the insn before DTRIAL and inside
+	  /* Account for resources set by the insn before DTRIAL and inside
 	     TRIAL's delay list. */
 	  for (j = 1; j < i; j++)
 	    mark_set_resources (XVECEXP (pat, 0, j),
@@ -3452,15 +3445,13 @@ relax_delay_slots (rtx_insn *first)
 	  && ! condjump_in_parallel_p (delay_jump_insn)
 	  && prev_active_insn (target_label) == insn
 	  && ! BARRIER_P (prev_nonnote_insn (target_label))
-#if HAVE_cc0
 	  /* If the last insn in the delay slot sets CC0 for some insn,
 	     various code assumes that it is in a delay slot.  We could
 	     put it back where it belonged and delete the register notes,
 	     but it doesn't seem worthwhile in this uncommon case.  */
-	  && ! find_reg_note (XVECEXP (pat, 0, XVECLEN (pat, 0) - 1),
-			      REG_CC_USER, NULL_RTX)
-#endif
-	  )
+	  && (!HAVE_cc0
+	      || ! find_reg_note (XVECEXP (pat, 0, XVECLEN (pat, 0) - 1),
+				  REG_CC_USER, NULL_RTX)))
 	{
 	  rtx_insn *after;
 	  int i;
@@ -3816,8 +3807,9 @@ dbr_schedule (rtx_insn *first)
     delete_related_insns (function_simple_return_label);
 
   need_return_insns = false;
-  need_return_insns |= HAVE_return && function_return_label != 0;
-  need_return_insns |= HAVE_simple_return && function_simple_return_label != 0;
+  need_return_insns |= targetm.have_return () && function_return_label != 0;
+  need_return_insns |= (targetm.have_simple_return ()
+			&& function_simple_return_label != 0);
   if (need_return_insns)
     make_return_insns (first);
 

@@ -75,37 +75,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alloc-pool.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "tree.h"
-#include "fold-const.h"
+#include "backend.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "stor-layout.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "bitmap.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -119,8 +104,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -291,28 +274,13 @@ struct access
   /* Set when we discover that this pointer is not safe to dereference in the
      caller.  */
   unsigned grp_not_necessarilly_dereferenced : 1;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((access *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<access> pool;
 };
 
 typedef struct access *access_p;
 
 
 /* Alloc pool for allocating access structures.  */
-pool_allocator<struct access> access::pool ("SRA accesses", 16);
+static object_allocator<struct access> access_pool ("SRA accesses", 16);
 
 /* A structure linking lhs and rhs accesses from an aggregate assignment.  They
    are used to propagate subaccesses from rhs to lhs as long as they don't
@@ -321,35 +289,18 @@ struct assign_link
 {
   struct access *lacc, *racc;
   struct assign_link *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((assign_link *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<assign_link> pool;
 };
 
 /* Alloc pool for allocating assign link structures.  */
-pool_allocator<assign_link> assign_link::pool ("SRA links", 16);
+static object_allocator<assign_link> assign_link_pool ("SRA links", 16);
 
 /* Base (tree) -> Vector (vec<access_p> *) map.  */
 static hash_map<tree, auto_vec<access_p> > *base_access_vec;
 
 /* Candidate hash table helpers.  */
 
-struct uid_decl_hasher : typed_noop_remove <tree_node>
+struct uid_decl_hasher : nofree_ptr_hash <tree_node>
 {
-  typedef tree_node *value_type;
-  typedef tree_node *compare_type;
   static inline hashval_t hash (const tree_node *);
   static inline bool equal (const tree_node *, const tree_node *);
 };
@@ -730,8 +681,8 @@ sra_deinitialize (void)
   candidates = NULL;
   BITMAP_FREE (should_scalarize_away_bitmap);
   BITMAP_FREE (cannot_scalarize_away_bitmap);
-  access::pool.release ();
-  assign_link::pool.release ();
+  access_pool.release ();
+  assign_link_pool.release ();
   obstack_free (&name_obstack, NULL);
 
   delete base_access_vec;
@@ -883,7 +834,7 @@ mark_parm_dereference (tree base, HOST_WIDE_INT dist, gimple stmt)
 static struct access *
 create_access_1 (tree base, HOST_WIDE_INT offset, HOST_WIDE_INT size)
 {
-  struct access *access = new struct access ();
+  struct access *access = access_pool.allocate ();
 
   memset (access, 0, sizeof (struct access));
   access->base = base;
@@ -1036,12 +987,11 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset,
       }
 }
 
-/* Create total_scalarization accesses for all scalar type fields in VAR and
-   for VAR a a whole.  VAR must be of a RECORD_TYPE conforming to
-   type_consists_of_records_p.   */
+/* Create a total_scalarization access for VAR as a whole.  VAR must be of a
+   RECORD_TYPE conforming to type_consists_of_records_p.  */
 
 static void
-completely_scalarize_var (tree var)
+create_total_scalarization_access (tree var)
 {
   HOST_WIDE_INT size = tree_to_uhwi (DECL_SIZE (var));
   struct access *access;
@@ -1050,8 +1000,6 @@ completely_scalarize_var (tree var)
   access->expr = var;
   access->type = TREE_TYPE (var);
   access->grp_total_scalarization = 1;
-
-  completely_scalarize_record (var, var, 0, var);
 }
 
 /* Return true if REF has an VIEW_CONVERT_EXPR somewhere in it.  */
@@ -1267,7 +1215,7 @@ build_accesses_from_assign (gimple stmt)
     {
       struct assign_link *link;
 
-      link = new assign_link;
+      link = assign_link_pool.allocate ();
       memset (link, 0, sizeof (struct assign_link));
 
       link->lacc = lacc;
@@ -2429,7 +2377,7 @@ create_artificial_child_access (struct access *parent, struct access *model,
 
   gcc_assert (!model->grp_unscalarizable_region);
 
-  struct access *access = new struct access ();
+  struct access *access = access_pool.allocate ();
   memset (access, 0, sizeof (struct access));
   if (!build_user_friendly_ref_for_offset (&expr, TREE_TYPE (expr), new_offset,
 					   model->type))
@@ -2568,11 +2516,20 @@ analyze_all_variable_accesses (void)
   bitmap tmp = BITMAP_ALLOC (NULL);
   bitmap_iterator bi;
   unsigned i;
-  unsigned max_scalarization_size
-    = (optimize_function_for_size_p (cfun)
-	? PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE)
-	: PARAM_VALUE (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED))
-      * BITS_PER_UNIT;
+  bool optimize_speed_p = !optimize_function_for_size_p (cfun);
+
+  enum compiler_param param = optimize_speed_p
+			? PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED
+			: PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE;
+
+  /* If the user didn't set PARAM_SRA_MAX_SCALARIZATION_SIZE_<...>,
+     fall back to a target default.  */
+  unsigned HOST_WIDE_INT max_scalarization_size
+    = global_options_set.x_param_values[param]
+      ? PARAM_VALUE (param)
+      : get_move_ratio (optimize_speed_p) * UNITS_PER_WORD;
+
+  max_scalarization_size *= BITS_PER_UNIT;
 
   EXECUTE_IF_SET_IN_BITMAP (candidate_bitmap, 0, i, bi)
     if (bitmap_bit_p (should_scalarize_away_bitmap, i)
@@ -2586,7 +2543,8 @@ analyze_all_variable_accesses (void)
 	    if (tree_to_uhwi (TYPE_SIZE (TREE_TYPE (var)))
 		<= max_scalarization_size)
 	      {
-		completely_scalarize_var (var);
+		create_total_scalarization_access (var);
+		completely_scalarize_record (var, var, 0, var);
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  {
 		    fprintf (dump_file, "Will attempt to totally scalarize ");

@@ -21,24 +21,22 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -52,20 +50,14 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "reload.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "rl78-protos.h"
 #include "dumpfile.h"
@@ -75,6 +67,9 @@
 #include "insn-flags.h" /* for gen_*().  */
 #include "builtins.h"
 #include "stringpool.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static inline bool is_interrupt_func (const_tree decl);
 static inline bool is_brk_interrupt_func (const_tree decl);
@@ -362,6 +357,9 @@ rl78_option_override (void)
 
   if (TARGET_ES0
       && strcmp (lang_hooks.name, "GNU C")
+      && strcmp (lang_hooks.name, "GNU C11")
+      && strcmp (lang_hooks.name, "GNU C89")
+      && strcmp (lang_hooks.name, "GNU C99")
       /* Compiling with -flto results in a language of GNU GIMPLE being used... */
       && strcmp (lang_hooks.name, "GNU GIMPLE"))
     /* Address spaces are currently only supported by C.  */
@@ -609,13 +607,6 @@ rl78_force_nonfar_3 (rtx *operands, rtx (*gen)(rtx,rtx,rtx))
 {
   int did = 0;
   rtx temp_reg = NULL;
-
-  /* As an exception, we allow two far operands if they're identical
-     and the third operand is not a MEM.  This allows global variables
-     to be incremented, for example.  */
-  if (rtx_equal_p (operands[0], operands[1])
-      && ! MEM_P (operands[2]))
-    return 0;
 
   /* FIXME: Likewise.  */
   if (rl78_far_p (operands[1]))
@@ -4159,20 +4150,22 @@ rl78_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 #define TARGET_RTX_COSTS rl78_rtx_costs
 
 static bool
-rl78_rtx_costs (rtx   x,
-		int   code,
-		int   outer_code ATTRIBUTE_UNUSED,
-		int   opno ATTRIBUTE_UNUSED,
-		int * total,
-		bool  speed ATTRIBUTE_UNUSED)
+rl78_rtx_costs (rtx          x,
+		machine_mode mode,
+		int          outer_code ATTRIBUTE_UNUSED,
+		int          opno ATTRIBUTE_UNUSED,
+		int *        total,
+		bool         speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   if (code == IF_THEN_ELSE)
     {
       *total = COSTS_N_INSNS (10);
       return true;
     }
 
-  if (GET_MODE (x) == SImode)
+  if (mode == SImode)
     {
       switch (code)
 	{
@@ -4641,6 +4634,33 @@ rl78_flags_already_set (rtx op, rtx operand)
 
   return res;
 }
+
+const char *
+rl78_addsi3_internal (rtx * operands, unsigned int alternative)
+{
+  /* If we are adding in a constant symbolic address when -mes0
+     is active then we know that the address must be <64K and
+     that it is invalid to access anything above 64K relative to
+     this address.  So we can skip adding in the high bytes.  */
+  if (TARGET_ES0
+      && GET_CODE (operands[2]) == SYMBOL_REF
+      && TREE_CODE (SYMBOL_REF_DECL (operands[2])) == VAR_DECL
+      && TREE_READONLY (SYMBOL_REF_DECL (operands[2]))
+      && ! TREE_SIDE_EFFECTS (SYMBOL_REF_DECL (operands[2])))
+    return "movw ax, %h1\n\taddw ax, %h2\n\tmovw %h0, ax";
+
+  switch (alternative)
+    {
+    case 0:
+    case 1:
+      return "movw ax, %h1\n\taddw ax, %h2\n\tmovw %h0, ax\n\tmovw ax, %H1\n\tsknc\n\tincw ax\n\taddw ax, %H2\n\tmovw %H0, ax";
+    case 2:
+      return "movw ax, %h1\n\taddw ax,%h2\n\tmovw bc, ax\n\tmovw ax, %H1\n\tsknc\n\tincw ax\n\taddw ax, %H2\n\tmovw %H0, ax\n\tmovw ax, bc\n\tmovw %h0, ax";
+    default:
+      gcc_unreachable ();
+    }
+}
+
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS rl78_preferred_reload_class

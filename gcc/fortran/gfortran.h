@@ -50,7 +50,6 @@ not after.
 
 
 #include "intl.h"
-#include "input.h"
 #include "splay-tree.h"
 
 /* Major control parameters.  */
@@ -103,70 +102,61 @@ mstring;
 
 /* Used when matching and resolving data I/O transfer statements.  */
 
-typedef enum
-{ M_READ, M_WRITE, M_PRINT, M_INQUIRE }
-io_kind;
+enum io_kind
+{ M_READ, M_WRITE, M_PRINT, M_INQUIRE };
 
 
 /* These are flags for identifying whether we are reading a character literal
    between quotes or normal source code.  */
 
-typedef enum
-{ NONSTRING = 0, INSTRING_WARN, INSTRING_NOWARN }
-gfc_instring;
+enum gfc_instring
+{ NONSTRING = 0, INSTRING_WARN, INSTRING_NOWARN };
 
 /* This is returned by gfc_notification_std to know if, given the flags
    that were given (-std=, -pedantic) we should issue an error, a warning
    or nothing.  */
 
-typedef enum
-{ SILENT, WARNING, ERROR }
-notification;
+enum notification
+{ SILENT, WARNING, ERROR };
 
 /* Matchers return one of these three values.  The difference between
    MATCH_NO and MATCH_ERROR is that MATCH_ERROR means that a match was
    successful, but that something non-syntactic is wrong and an error
    has already been issued.  */
 
-typedef enum
-{ MATCH_NO = 1, MATCH_YES, MATCH_ERROR }
-match;
+enum match
+{ MATCH_NO = 1, MATCH_YES, MATCH_ERROR };
 
 /* Used for different Fortran source forms in places like scanner.c.  */
-typedef enum
-{ FORM_FREE, FORM_FIXED, FORM_UNKNOWN }
-gfc_source_form;
+enum gfc_source_form
+{ FORM_FREE, FORM_FIXED, FORM_UNKNOWN };
 
 /* Expression node types.  */
-typedef enum
+enum expr_t
 { EXPR_OP = 1, EXPR_FUNCTION, EXPR_CONSTANT, EXPR_VARIABLE,
   EXPR_SUBSTRING, EXPR_STRUCTURE, EXPR_ARRAY, EXPR_NULL, EXPR_COMPCALL, EXPR_PPC
-}
-expr_t;
+};
 
 /* Array types.  */
-typedef enum
+enum array_type
 { AS_EXPLICIT = 1, AS_ASSUMED_SHAPE, AS_DEFERRED,
   AS_ASSUMED_SIZE, AS_IMPLIED_SHAPE, AS_ASSUMED_RANK,
   AS_UNKNOWN
-}
-array_type;
+};
 
-typedef enum
-{ AR_FULL = 1, AR_ELEMENT, AR_SECTION, AR_UNKNOWN }
-ar_type;
+enum ar_type
+{ AR_FULL = 1, AR_ELEMENT, AR_SECTION, AR_UNKNOWN };
 
 /* Statement label types. ST_LABEL_DO_TARGET is used for obsolescent warnings
    related to shared DO terminations and DO targets which are neither END DO
    nor CONTINUE; otherwise it is identical to ST_LABEL_TARGET.  */
-typedef enum
+enum gfc_sl_type
 { ST_LABEL_UNKNOWN = 1, ST_LABEL_TARGET, ST_LABEL_DO_TARGET,
   ST_LABEL_BAD_TARGET, ST_LABEL_FORMAT
-}
-gfc_sl_type;
+};
 
 /* Intrinsic operators.  */
-typedef enum
+enum gfc_intrinsic_op
 { GFC_INTRINSIC_BEGIN = 0,
   INTRINSIC_NONE = -1, INTRINSIC_UPLUS = GFC_INTRINSIC_BEGIN,
   INTRINSIC_UMINUS, INTRINSIC_PLUS, INTRINSIC_MINUS, INTRINSIC_TIMES,
@@ -180,41 +170,39 @@ typedef enum
   INTRINSIC_LT_OS, INTRINSIC_LE_OS,
   INTRINSIC_NOT, INTRINSIC_USER, INTRINSIC_ASSIGN,
   INTRINSIC_PARENTHESES, GFC_INTRINSIC_END /* Sentinel */
-}
-gfc_intrinsic_op;
+};
 
 /* This macro is the number of intrinsic operators that exist.
    Assumptions are made about the numbering of the interface_op enums.  */
 #define GFC_INTRINSIC_OPS GFC_INTRINSIC_END
 
 /* Arithmetic results.  */
-typedef enum
+enum arith
 { ARITH_OK = 1, ARITH_OVERFLOW, ARITH_UNDERFLOW, ARITH_NAN,
   ARITH_DIV0, ARITH_INCOMMENSURATE, ARITH_ASYMMETRIC, ARITH_PROHIBIT
-}
-arith;
+};
 
 /* Statements.  */
-typedef enum
+enum gfc_statement
 {
   ST_ARITHMETIC_IF, ST_ALLOCATE, ST_ATTR_DECL, ST_ASSOCIATE,
   ST_BACKSPACE, ST_BLOCK, ST_BLOCK_DATA,
   ST_CALL, ST_CASE, ST_CLOSE, ST_COMMON, ST_CONTINUE, ST_CONTAINS, ST_CYCLE,
   ST_DATA, ST_DATA_DECL, ST_DEALLOCATE, ST_DO, ST_ELSE, ST_ELSEIF,
   ST_ELSEWHERE, ST_END_ASSOCIATE, ST_END_BLOCK, ST_END_BLOCK_DATA,
-  ST_ENDDO, ST_IMPLIED_ENDDO,
-  ST_END_FILE, ST_FINAL, ST_FLUSH, ST_END_FORALL, ST_END_FUNCTION, ST_ENDIF,
-  ST_END_INTERFACE, ST_END_MODULE, ST_END_PROGRAM, ST_END_SELECT,
-  ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE, ST_ENTRY, ST_EQUIVALENCE,
-  ST_ERROR_STOP, ST_EXIT, ST_FORALL, ST_FORALL_BLOCK, ST_FORMAT, ST_FUNCTION,
-  ST_GOTO, ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE, ST_IMPORT,
-  ST_INQUIRE, ST_INTERFACE, ST_SYNC_ALL, ST_SYNC_MEMORY, ST_SYNC_IMAGES,
-  ST_PARAMETER, ST_MODULE, ST_MODULE_PROC, ST_NAMELIST, ST_NULLIFY, ST_OPEN,
-  ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC, ST_READ, ST_RETURN, ST_REWIND,
-  ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE, ST_WHERE_BLOCK, ST_WHERE, ST_WAIT,
-  ST_WRITE, ST_ASSIGNMENT, ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE,
-  ST_SIMPLE_IF, ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT,
-  ST_ENUM, ST_ENUMERATOR, ST_END_ENUM, ST_SELECT_TYPE, ST_TYPE_IS, ST_CLASS_IS,
+  ST_ENDDO, ST_IMPLIED_ENDDO, ST_END_FILE, ST_FINAL, ST_FLUSH, ST_END_FORALL,
+  ST_END_FUNCTION, ST_ENDIF, ST_END_INTERFACE, ST_END_MODULE, ST_END_SUBMODULE,
+  ST_END_PROGRAM, ST_END_SELECT, ST_END_SUBROUTINE, ST_END_WHERE, ST_END_TYPE,
+  ST_ENTRY, ST_EQUIVALENCE, ST_ERROR_STOP, ST_EXIT, ST_FORALL, ST_FORALL_BLOCK,
+  ST_FORMAT, ST_FUNCTION, ST_GOTO, ST_IF_BLOCK, ST_IMPLICIT, ST_IMPLICIT_NONE,
+  ST_IMPORT, ST_INQUIRE, ST_INTERFACE, ST_SYNC_ALL, ST_SYNC_MEMORY,
+  ST_SYNC_IMAGES, ST_PARAMETER, ST_MODULE, ST_SUBMODULE, ST_MODULE_PROC,
+  ST_NAMELIST, ST_NULLIFY, ST_OPEN, ST_PAUSE, ST_PRIVATE, ST_PROGRAM, ST_PUBLIC,
+  ST_READ, ST_RETURN, ST_REWIND, ST_STOP, ST_SUBROUTINE, ST_TYPE, ST_USE,
+  ST_WHERE_BLOCK, ST_WHERE, ST_WAIT, ST_WRITE, ST_ASSIGNMENT,
+  ST_POINTER_ASSIGNMENT, ST_SELECT_CASE, ST_SEQUENCE, ST_SIMPLE_IF,
+  ST_STATEMENT_FUNCTION, ST_DERIVED_DECL, ST_LABEL_ASSIGNMENT, ST_ENUM,
+  ST_ENUMERATOR, ST_END_ENUM, ST_SELECT_TYPE, ST_TYPE_IS, ST_CLASS_IS,
   ST_OACC_PARALLEL_LOOP, ST_OACC_END_PARALLEL_LOOP, ST_OACC_PARALLEL,
   ST_OACC_END_PARALLEL, ST_OACC_KERNELS, ST_OACC_END_KERNELS, ST_OACC_DATA,
   ST_OACC_END_DATA, ST_OACC_HOST_DATA, ST_OACC_END_HOST_DATA, ST_OACC_LOOP,
@@ -253,62 +241,54 @@ typedef enum
   ST_OMP_END_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   ST_PROCEDURE, ST_GENERIC, ST_CRITICAL, ST_END_CRITICAL,
   ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_NONE
-}
-gfc_statement;
+};
 
 /* Types of interfaces that we can have.  Assignment interfaces are
    considered to be intrinsic operators.  */
-typedef enum
+enum interface_type
 {
   INTERFACE_NAMELESS = 1, INTERFACE_GENERIC,
   INTERFACE_INTRINSIC_OP, INTERFACE_USER_OP, INTERFACE_ABSTRACT
-}
-interface_type;
+};
 
 /* Symbol flavors: these are all mutually exclusive.
    10 elements = 4 bits.  */
-typedef enum sym_flavor
+enum sym_flavor
 {
   FL_UNKNOWN = 0, FL_PROGRAM, FL_BLOCK_DATA, FL_MODULE, FL_VARIABLE,
   FL_PARAMETER, FL_LABEL, FL_PROCEDURE, FL_DERIVED, FL_NAMELIST,
   FL_VOID
-}
-sym_flavor;
+};
 
 /* Procedure types.  7 elements = 3 bits.  */
-typedef enum procedure_type
+enum procedure_type
 { PROC_UNKNOWN, PROC_MODULE, PROC_INTERNAL, PROC_DUMMY,
   PROC_INTRINSIC, PROC_ST_FUNCTION, PROC_EXTERNAL
-}
-procedure_type;
+};
 
 /* Intent types.  */
-typedef enum sym_intent
+enum sym_intent
 { INTENT_UNKNOWN = 0, INTENT_IN, INTENT_OUT, INTENT_INOUT
-}
-sym_intent;
+};
 
 /* Access types.  */
-typedef enum gfc_access
+enum gfc_access
 { ACCESS_UNKNOWN = 0, ACCESS_PUBLIC, ACCESS_PRIVATE
-}
-gfc_access;
+};
 
 /* Flags to keep track of where an interface came from.
    3 elements = 2 bits.  */
-typedef enum ifsrc
+enum ifsrc
 { IFSRC_UNKNOWN = 0,	/* Interface unknown, only return type may be known.  */
   IFSRC_DECL,		/* FUNCTION or SUBROUTINE declaration.  */
   IFSRC_IFBODY		/* INTERFACE statement or PROCEDURE statement
 			   with explicit interface.  */
-}
-ifsrc;
+};
 
 /* Whether a SAVE attribute was set explicitly or implicitly.  */
-typedef enum save_state
+enum save_state
 { SAVE_NONE = 0, SAVE_EXPLICIT, SAVE_IMPLICIT
-}
-save_state;
+};
 
 /* Strings for all symbol attributes.  We use these for dumping the
    parse tree, in error messages, and also when reading and writing
@@ -603,38 +583,33 @@ enum gfc_isym_id
   GFC_ISYM_YN,
   GFC_ISYM_YN2
 };
-typedef enum gfc_isym_id gfc_isym_id;
 
-typedef enum
+enum init_local_logical
 {
   GFC_INIT_LOGICAL_OFF = 0,
   GFC_INIT_LOGICAL_FALSE,
   GFC_INIT_LOGICAL_TRUE
-}
-init_local_logical;
+};
 
-typedef enum
+enum init_local_character
 {
   GFC_INIT_CHARACTER_OFF = 0,
   GFC_INIT_CHARACTER_ON
-}
-init_local_character;
+};
 
-typedef enum
+enum init_local_integer
 {
   GFC_INIT_INTEGER_OFF = 0,
   GFC_INIT_INTEGER_ON
-}
-init_local_integer;
+};
 
-typedef enum
+enum gfc_reverse
 {
   GFC_ENABLE_REVERSE,
   GFC_FORWARD_SET,
   GFC_REVERSE_SET,
   GFC_INHIBIT_REVERSE
-}
-gfc_reverse;
+};
 
 /************************* Structures *****************************/
 
@@ -646,13 +621,12 @@ gfc_reverse;
 #define NAMED_FUNCTION(a,b,c,d) a,
 #define NAMED_SUBROUTINE(a,b,c,d) a,
 #define NAMED_DERIVED_TYPE(a,b,c,d) a,
-typedef enum
+enum iso_fortran_env_symbol
 {
   ISOFORTRANENV_INVALID = -1,
 #include "iso-fortran-env.def"
   ISOFORTRANENV_LAST, ISOFORTRANENV_NUMBER = ISOFORTRANENV_LAST
-}
-iso_fortran_env_symbol;
+};
 #undef NAMED_INTCST
 #undef NAMED_KINDARRAY
 #undef NAMED_FUNCTION
@@ -668,14 +642,13 @@ iso_fortran_env_symbol;
 #define DERIVED_TYPE(a,b,c) a,
 #define NAMED_FUNCTION(a,b,c,d) a,
 #define NAMED_SUBROUTINE(a,b,c,d) a,
-typedef enum
+enum iso_c_binding_symbol
 {
   ISOCBINDING_INVALID = -1,
 #include "iso-c-binding.def"
   ISOCBINDING_LAST,
   ISOCBINDING_NUMBER = ISOCBINDING_LAST
-}
-iso_c_binding_symbol;
+};
 #undef NAMED_INTCST
 #undef NAMED_REALCST
 #undef NAMED_CMPXCST
@@ -686,12 +659,11 @@ iso_c_binding_symbol;
 #undef NAMED_FUNCTION
 #undef NAMED_SUBROUTINE
 
-typedef enum
+enum intmod_id
 {
   INTMOD_NONE = 0, INTMOD_ISO_FORTRAN_ENV, INTMOD_ISO_C_BINDING,
   INTMOD_IEEE_FEATURES, INTMOD_IEEE_EXCEPTIONS, INTMOD_IEEE_ARITHMETIC
-}
-intmod_id;
+};
 
 typedef struct
 {
@@ -752,6 +724,9 @@ typedef struct
   unsigned data:1,		/* Symbol is named in a DATA statement.  */
     is_protected:1,		/* Symbol has been marked as protected.  */
     use_assoc:1,		/* Symbol has been use-associated.  */
+    used_in_submodule:1,	/* Symbol has been use-associated in a
+				   submodule. Needed since these entities must
+				   be set host associated to be compliant.  */
     use_only:1,			/* Symbol has been use-associated, with ONLY.  */
     use_rename:1,		/* Symbol has been use-associated and renamed.  */
     imported:1,			/* Symbol has been associated by IMPORT.  */
@@ -779,6 +754,11 @@ typedef struct
   /* Function/subroutine attributes */
   unsigned sequence:1, elemental:1, pure:1, recursive:1;
   unsigned unmaskable:1, masked:1, contained:1, mod_proc:1, abstract:1;
+
+  /* Set if this is a module function or subroutine. Note that it is an
+     attribute because it appears as a prefix in the declaration like
+     PURE, etc..  */
+  unsigned module_procedure:1;
 
   /* Set if a (public) symbol [e.g. generic name] exposes this symbol,
      which is relevant for private module procedures.  */
@@ -1088,7 +1068,7 @@ gfc_expr_list;
 
 #define gfc_get_expr_list() XCNEW (gfc_expr_list)
 
-typedef enum
+enum gfc_omp_reduction_op
 {
   OMP_REDUCTION_NONE = -1,
   OMP_REDUCTION_PLUS = INTRINSIC_PLUS,
@@ -1104,18 +1084,16 @@ typedef enum
   OMP_REDUCTION_IOR,
   OMP_REDUCTION_IEOR,
   OMP_REDUCTION_USER
-}
-gfc_omp_reduction_op;
+};
 
-typedef enum
+enum gfc_omp_depend_op
 {
   OMP_DEPEND_IN,
   OMP_DEPEND_OUT,
   OMP_DEPEND_INOUT
-}
-gfc_omp_depend_op;
+};
 
-typedef enum
+enum gfc_omp_map_op
 {
   OMP_MAP_ALLOC,
   OMP_MAP_TO,
@@ -1128,8 +1106,7 @@ typedef enum
   OMP_MAP_FORCE_TOFROM,
   OMP_MAP_FORCE_PRESENT,
   OMP_MAP_FORCE_DEVICEPTR
-}
-gfc_omp_map_op;
+};
 
 /* For use in OpenMP clauses in case we need extra information
    (aligned clause alignment, linear clause step, etc.).  */
@@ -1460,6 +1437,9 @@ typedef struct gfc_symbol
   unsigned forall_index:1;
   /* Used to avoid multiple resolutions of a single symbol.  */
   unsigned resolved:1;
+  /* Set if this is a module function or subroutine with the
+     abreviated declaration in a submodule.  */
+  unsigned abr_modproc_decl:1;
 
   int refs;
   struct gfc_namespace *ns;	/* namespace containing this symbol */
@@ -1546,6 +1526,7 @@ gfc_use_rename;
 typedef struct gfc_use_list
 {
   const char *module_name;
+  const char *submodule_name;
   bool intrinsic;
   bool non_intrinsic;
   bool only_flag;
@@ -1785,9 +1766,8 @@ gfc_array_ref;
    resolution.  The array_ref component may be present and comes
    before the component component.  */
 
-typedef enum
-  { REF_ARRAY, REF_COMPONENT, REF_SUBSTRING }
-ref_type;
+enum ref_type
+  { REF_ARRAY, REF_COMPONENT, REF_SUBSTRING };
 
 typedef struct gfc_ref
 {
@@ -2318,7 +2298,7 @@ gfc_association_list;
 
 
 /* Executable statements that fill gfc_code structures.  */
-typedef enum
+enum gfc_exec_op
 {
   EXEC_NOP = 1, EXEC_END_NESTED_BLOCK, EXEC_END_BLOCK, EXEC_ASSIGN,
   EXEC_LABEL_ASSIGN, EXEC_POINTER_ASSIGN, EXEC_CRITICAL, EXEC_ERROR_STOP,
@@ -2355,10 +2335,9 @@ typedef enum
   EXEC_OMP_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   EXEC_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_DO_SIMD,
   EXEC_OMP_TARGET_UPDATE
-}
-gfc_exec_op;
+};
 
-typedef enum
+enum gfc_omp_atomic_op
 {
   GFC_OMP_ATOMIC_UPDATE = 0,
   GFC_OMP_ATOMIC_READ = 1,
@@ -2367,8 +2346,7 @@ typedef enum
   GFC_OMP_ATOMIC_MASK = 3,
   GFC_OMP_ATOMIC_SEQ_CST = 4,
   GFC_OMP_ATOMIC_SWAP = 8
-}
-gfc_omp_atomic_op;
+};
 
 typedef struct gfc_code
 {
@@ -2395,6 +2373,9 @@ typedef struct gfc_code
     {
       gfc_typespec ts;
       gfc_alloc *list;
+      /* Take the array specification from expr3 to allocate arrays
+	 without an explicit array specification.  */
+      unsigned arr_spec_from_expr3:1;
     }
     alloc;
 
@@ -2784,7 +2765,7 @@ bool gfc_add_type (gfc_symbol *, gfc_typespec *, locus *);
 void gfc_clear_attr (symbol_attribute *);
 bool gfc_missing_attr (symbol_attribute *, locus *);
 bool gfc_copy_attr (symbol_attribute *, symbol_attribute *, locus *);
-
+int gfc_copy_dummy_sym (gfc_symbol **, gfc_symbol *, int);
 bool gfc_add_component (gfc_symbol *, const char *, gfc_component **);
 gfc_symbol *gfc_use_derived (gfc_symbol *);
 gfc_symtree *gfc_use_derived_tree (gfc_symtree *);
@@ -2866,8 +2847,6 @@ gfc_formal_arglist *gfc_sym_get_dummy_args (gfc_symbol *);
 
 /* intrinsic.c -- true if working in an init-expr, false otherwise.  */
 extern bool gfc_init_expr_flag;
-
-gfc_expr *gfc_simplify_ieee_selected_real_kind (gfc_expr *);
 
 /* Given a symbol that we have decided is intrinsic, mark it as such
    by placing it into a special module that is otherwise impossible to
@@ -3085,6 +3064,10 @@ bool gfc_ref_dimen_size (gfc_array_ref *, int dimen, mpz_t *, mpz_t *);
 void gfc_free_interface (gfc_interface *);
 int gfc_compare_derived_types (gfc_symbol *, gfc_symbol *);
 int gfc_compare_types (gfc_typespec *, gfc_typespec *);
+bool gfc_check_dummy_characteristics (gfc_symbol *, gfc_symbol *,
+				      bool, char *, int);
+bool gfc_check_result_characteristics (gfc_symbol *, gfc_symbol *,
+				       char *, int);
 int gfc_compare_interfaces (gfc_symbol*, gfc_symbol*, const char *, int, int,
 			    char *, int, const char *, const char *);
 void gfc_check_interfaces (gfc_namespace *);
@@ -3227,6 +3210,7 @@ int gfc_code_walker (gfc_code **, walk_code_fn_t, walk_expr_fn_t, void *);
 /* simplify.c */
 
 void gfc_convert_mpz_to_signed (mpz_t, int);
+gfc_expr *gfc_simplify_ieee_functions (gfc_expr *);
 
 /* trans-array.c  */
 

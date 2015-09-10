@@ -22,21 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl-error.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "rtl-error.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "stringpool.h"
 #include "flags.h"
 #include "except.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -58,12 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "df.h"
 #include "params.h"
 #include "bb-reorder.h"
 #include "shrink-wrap.h"
@@ -542,7 +535,7 @@ try_shrink_wrapping (edge *entry_edge, edge orig_entry_edge,
 	break;
       }
 
-  if (flag_shrink_wrap && HAVE_simple_return
+  if (SHRINK_WRAPPING_ENABLED
       && (targetm.profile_before_prologue () || !crtl->profile)
       && nonempty_prologue && !crtl->calls_eh_return)
     {
@@ -1005,8 +998,8 @@ convert_to_simple_return (edge entry_edge, edge orig_entry_edge,
 
 	      bb = create_basic_block (NULL, NULL, exit_pred);
 	      BB_COPY_PARTITION (bb, e->src);
-	      rtx_jump_insn *start = emit_jump_insn_after (gen_simple_return (),
-							   BB_END (bb));
+	      rtx_insn *ret = targetm.gen_simple_return ();
+	      rtx_jump_insn *start = emit_jump_insn_after (ret, BB_END (bb));
 	      JUMP_LABEL (start) = simple_return_rtx;
 	      emit_barrier_after (start);
 

@@ -28,9 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -689,7 +687,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
     }
 
   /* FIXME remove when moving to c_fully_fold model.  */
-  e = scalar_constant_value (e);
+  if (!CLASS_TYPE_P (type))
+    e = scalar_constant_value (e);
   if (error_operand_p (e))
     return error_mark_node;
 
@@ -709,7 +708,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	 conversion.  */
       else if (TREE_CODE (type) == COMPLEX_TYPE)
 	return fold_if_not_in_template (convert_to_complex (type, e));
-      else if (TREE_CODE (type) == VECTOR_TYPE)
+      else if (VECTOR_TYPE_P (type))
 	return fold_if_not_in_template (convert_to_vector (type, e));
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{

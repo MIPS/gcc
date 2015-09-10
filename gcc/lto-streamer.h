@@ -24,8 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_LTO_STREAMER_H
 
 #include "plugin-api.h"
-#include "target.h"
-#include "alloc-pool.h"
 #include "gcov-io.h"
 #include "diagnostic.h"
 
@@ -130,7 +128,7 @@ along with GCC; see the file COPYING3.  If not see
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.  */
 
-#define LTO_major_version 4
+#define LTO_major_version 5
 #define LTO_minor_version 0
 
 typedef unsigned char	lto_decl_flags_t;
@@ -347,6 +345,7 @@ private:
     const char *file;
     location_t *loc;
     int line, col;
+    bool sysp;
   };
 
   /* The location cache.  */
@@ -366,6 +365,7 @@ private:
   const char *current_file;
   int current_line;
   int current_col;
+  bool current_sysp;
   location_t current_loc;
 };
 
@@ -508,7 +508,7 @@ struct GTY((for_user)) lto_in_decl_state
 
 typedef struct lto_in_decl_state *lto_in_decl_state_ptr;
 
-struct decl_state_hasher : ggc_hasher<lto_in_decl_state *>
+struct decl_state_hasher : ggc_ptr_hash<lto_in_decl_state>
 {
   static hashval_t
   hash (lto_in_decl_state *s)
@@ -652,10 +652,8 @@ struct string_slot
 
 /* Hashtable helpers.  */
 
-struct string_slot_hasher : typed_noop_remove <string_slot>
+struct string_slot_hasher : nofree_ptr_hash <string_slot>
 {
-  typedef string_slot *value_type;
-  typedef string_slot *compare_type;
   static inline hashval_t hash (const string_slot *);
   static inline bool equal (const string_slot *, const string_slot *);
 };
@@ -715,6 +713,7 @@ struct output_block
   const char *current_file;
   int current_line;
   int current_col;
+  bool current_sysp;
 
   /* Cache of nodes written in this section.  */
   struct streamer_tree_cache_d *writer_cache;

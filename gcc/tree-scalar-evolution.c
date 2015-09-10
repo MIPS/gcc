@@ -256,16 +256,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -277,23 +275,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "gimple-pretty-print.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
@@ -341,7 +327,7 @@ tree chrec_dont_know;
    happen, then it qualifies it with chrec_known.  */
 tree chrec_known;
 
-struct scev_info_hasher : ggc_hasher<scev_info_str *>
+struct scev_info_hasher : ggc_ptr_hash<scev_info_str>
 {
   static hashval_t hash (scev_info_str *i);
   static bool equal (const scev_info_str *a, const scev_info_str *b);
@@ -909,11 +895,11 @@ get_loop_exit_condition (const struct loop *loop)
 
 /* Depth first search algorithm.  */
 
-typedef enum t_bool {
+enum t_bool {
   t_false,
   t_true,
   t_dont_know
-} t_bool;
+};
 
 
 static t_bool follow_ssa_edge (struct loop *loop, gimple, gphi *,

@@ -20,33 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "flags.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
 #include "tree-ssa.h"
 #include "tree-ssa-threadupdate.h"
-#include "ssa-iterators.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "dbgcnt.h"
@@ -128,7 +116,7 @@ struct el
    may have many incoming edges threaded to the same outgoing edge.  This
    can be naturally implemented with a hash table.  */
 
-struct redirection_data : typed_free_remove<redirection_data>
+struct redirection_data : free_ptr_hash<redirection_data>
 {
   /* We support wiring up two block duplicates in a jump threading path.
 
@@ -153,8 +141,6 @@ struct redirection_data : typed_free_remove<redirection_data>
   struct el *incoming_edges;
 
   /* hash_table support.  */
-  typedef redirection_data *value_type;
-  typedef redirection_data *compare_type;
   static inline hashval_t hash (const redirection_data *);
   static inline int equal (const redirection_data *, const redirection_data *);
 };
@@ -1380,8 +1366,8 @@ ssa_redirect_edges (struct redirection_data **slot,
   struct redirection_data *rd = *slot;
   struct el *next, *el;
 
-  /* Walk over all the incoming edges associated associated with this
-     hash table entry.  */
+  /* Walk over all the incoming edges associated with this hash table
+     entry.  */
   for (el = rd->incoming_edges; el; el = next)
     {
       edge e = el->e;
@@ -2144,7 +2130,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
      cases where the second path starts at a downstream edge on the same
      path).  First record all joiner paths, deleting any in the unexpected
      case where there is already a path for that incoming edge.  */
-  for (i = 0; i < paths.length (); i++)
+  for (i = 0; i < paths.length ();)
     {
       vec<jump_thread_edge *> *path = paths[i];
 
@@ -2154,6 +2140,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  if ((*path)[0]->e->aux == NULL)
 	    {
 	      (*path)[0]->e->aux = path;
+	      i++;
 	    }
 	  else
 	    {
@@ -2163,10 +2150,15 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	      delete_jump_thread_path (path);
 	    }
 	}
+      else
+	{
+	  i++;
+	}
     }
+
   /* Second, look for paths that have any other jump thread attached to
      them, and either finish converting them or cancel them.  */
-  for (i = 0; i < paths.length (); i++)
+  for (i = 0; i < paths.length ();)
     {
       vec<jump_thread_edge *> *path = paths[i];
       edge e = (*path)[0]->e;
@@ -2181,7 +2173,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  /* If we iterated through the entire path without exiting the loop,
 	     then we are good to go, record it.  */
 	  if (j == path->length ())
-	    bitmap_set_bit (tmp, e->dest->index);
+	    {
+	      bitmap_set_bit (tmp, e->dest->index);
+	      i++;
+	    }
 	  else
 	    {
 	      e->aux = NULL;
@@ -2190,6 +2185,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 		dump_jump_thread_path (dump_file, *path, false);
 	      delete_jump_thread_path (path);
 	    }
+	}
+      else
+	{
+	  i++;
 	}
     }
 
@@ -2494,6 +2493,12 @@ duplicate_thread_path (edge entry, edge exit,
 
   /* Remove the last branch in the jump thread path.  */
   remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
+
+  /* And fixup the flags on the single remaining edge.  */
+  edge fix_e = find_edge (region_copy[n_region - 1], exit->dest);
+  fix_e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
+  fix_e->flags |= EDGE_FALLTHRU;
+
   edge e = make_edge (region_copy[n_region - 1], exit->dest, EDGE_FALLTHRU);
 
   if (e) {

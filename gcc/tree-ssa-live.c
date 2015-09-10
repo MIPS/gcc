@@ -21,33 +21,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "gimple-pretty-print.h"
-#include "bitmap.h"
-#include "sbitmap.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -65,10 +48,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "debug.h"
 #include "tree-ssa.h"
-#include "lto-streamer.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
+#include "cfgloop.h"
 
 #ifdef ENABLE_CHECKING
 static void  verify_live_on_entry (tree_live_info_p);
@@ -87,90 +69,6 @@ static void  verify_live_on_entry (tree_live_info_p);
    The var_map data structure is used to manage these partitions.  It allows
    partitions to be combined, and determines which partition belongs to what
    ssa_name or variable, and vice versa.  */
-
-
-/* Hashtable helpers.  */
-
-struct tree_int_map_hasher : typed_noop_remove <tree_int_map>
-{
-  typedef tree_int_map *value_type;
-  typedef tree_int_map *compare_type;
-  static inline hashval_t hash (const tree_int_map *);
-  static inline bool equal (const tree_int_map *, const tree_int_map *);
-};
-
-inline hashval_t
-tree_int_map_hasher::hash (const tree_int_map *v)
-{
-  return tree_map_base_hash (v);
-}
-
-inline bool
-tree_int_map_hasher::equal (const tree_int_map *v, const tree_int_map *c)
-{
-  return tree_int_map_eq (v, c);
-}
-
-
-/* This routine will initialize the basevar fields of MAP.  */
-
-static void
-var_map_base_init (var_map map)
-{
-  int x, num_part;
-  tree var;
-  struct tree_int_map *m, *mapstorage;
-
-  num_part = num_var_partitions (map);
-  hash_table<tree_int_map_hasher> tree_to_index (num_part);
-  /* We can have at most num_part entries in the hash tables, so it's
-     enough to allocate so many map elements once, saving some malloc
-     calls.  */
-  mapstorage = m = XNEWVEC (struct tree_int_map, num_part);
-
-  /* If a base table already exists, clear it, otherwise create it.  */
-  free (map->partition_to_base_index);
-  map->partition_to_base_index = (int *) xmalloc (sizeof (int) * num_part);
-
-  /* Build the base variable list, and point partitions at their bases.  */
-  for (x = 0; x < num_part; x++)
-    {
-      struct tree_int_map **slot;
-      unsigned baseindex;
-      var = partition_to_var (map, x);
-      if (SSA_NAME_VAR (var)
-	  && (!VAR_P (SSA_NAME_VAR (var))
-	      || !DECL_IGNORED_P (SSA_NAME_VAR (var))))
-	m->base.from = SSA_NAME_VAR (var);
-      else
-	/* This restricts what anonymous SSA names we can coalesce
-	   as it restricts the sets we compute conflicts for.
-	   Using TREE_TYPE to generate sets is the easies as
-	   type equivalency also holds for SSA names with the same
-	   underlying decl. 
-
-	   Check gimple_can_coalesce_p when changing this code.  */
-	m->base.from = (TYPE_CANONICAL (TREE_TYPE (var))
-			? TYPE_CANONICAL (TREE_TYPE (var))
-			: TREE_TYPE (var));
-      /* If base variable hasn't been seen, set it up.  */
-      slot = tree_to_index.find_slot (m, INSERT);
-      if (!*slot)
-	{
-	  baseindex = m - mapstorage;
-	  m->to = baseindex;
-	  *slot = m;
-	  m++;
-	}
-      else
-	baseindex = (*slot)->to;
-      map->partition_to_base_index[x] = baseindex;
-    }
-
-  map->num_basevars = m - mapstorage;
-
-  free (mapstorage);
-}
 
 
 /* Remove the base table in MAP.  */
@@ -350,21 +248,17 @@ partition_view_fini (var_map map, bitmap selected)
 }
 
 
-/* Create a partition view which includes all the used partitions in MAP.  If
-   WANT_BASES is true, create the base variable map as well.  */
+/* Create a partition view which includes all the used partitions in MAP.  */
 
 void
-partition_view_normal (var_map map, bool want_bases)
+partition_view_normal (var_map map)
 {
   bitmap used;
 
   used = partition_view_init (map);
   partition_view_fini (map, used);
 
-  if (want_bases)
-    var_map_base_init (map);
-  else
-    var_map_base_fini (map);
+  var_map_base_fini (map);
 }
 
 
@@ -373,7 +267,7 @@ partition_view_normal (var_map map, bool want_bases)
    as well.  */
 
 void
-partition_view_bitmap (var_map map, bitmap only, bool want_bases)
+partition_view_bitmap (var_map map, bitmap only)
 {
   bitmap used;
   bitmap new_partitions = BITMAP_ALLOC (NULL);
@@ -389,10 +283,7 @@ partition_view_bitmap (var_map map, bitmap only, bool want_bases)
     }
   partition_view_fini (map, new_partitions);
 
-  if (want_bases)
-    var_map_base_init (map);
-  else
-    var_map_base_fini (map);
+  var_map_base_fini (map);
 }
 
 
@@ -929,6 +820,14 @@ remove_unused_locals (void)
 	    gsi_next (&gsi);
 	  }
       }
+
+  if (cfun->has_simduid_loops)
+    {
+      struct loop *loop;
+      FOR_EACH_LOOP (loop, 0)
+	if (loop->simduid && !is_used_p (loop->simduid))
+	  loop->simduid = NULL_TREE;
+    }
 
   cfun->has_local_explicit_reg_vars = false;
 

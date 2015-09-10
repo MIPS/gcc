@@ -21,21 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "tree-pretty-print.h"
 #include "tree-pass.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
-
-const_and_copies::const_and_copies (FILE *file, int flags)
-{
-  stack.create (20);
-  dump_file = file;
-  dump_flags = flags;
-}
 
 /* Pop entries off the stack until we hit the NULL marker.
    For each entry popped, use the SRC/DEST pair to restore

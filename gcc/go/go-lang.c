@@ -22,15 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "ansidecl.h"
 #include "coretypes.h"
 #include "opts.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "fold-const.h"
 #include "tm.h"
 #include "hard-reg-set.h"
-#include "input.h"
 #include "function.h"
 #include "gimple-expr.h"
 #include "gimplify.h"
@@ -157,10 +154,6 @@ go_langhook_init_options_struct (struct gcc_options *opts)
   /* The builtin math functions should not set errno.  */
   opts->x_flag_errno_math = 0;
   opts->frontend_set_flag_errno_math = true;
-
-  /* We turn on stack splitting if we can.  */
-  if (targetm_common.supports_split_stack (false, opts))
-    opts->x_flag_split_stack = 1;
 
   /* Exceptions are used to handle recovering from panics.  */
   opts->x_flag_exceptions = 1;
@@ -294,6 +287,11 @@ go_langhook_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (global_options.x_debug_info_level == DINFO_LEVEL_TERSE
       && global_options.x_write_symbols == NO_DEBUG)
     global_options.x_write_symbols = PREFERRED_DEBUGGING_TYPE;
+
+  /* We turn on stack splitting if we can.  */
+  if (!global_options_set.x_flag_split_stack
+      && targetm_common.supports_split_stack (false, &global_options))
+    global_options.x_flag_split_stack = 1;
 
   /* Returning false means that the backend should be used.  */
   return false;

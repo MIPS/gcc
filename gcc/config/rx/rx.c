@@ -25,23 +25,21 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -55,27 +53,21 @@
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "reload.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "opts.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 static unsigned int rx_gp_base_regnum_val = INVALID_REGNUM;
 static unsigned int rx_pid_base_regnum_val = INVALID_REGNUM;
@@ -379,8 +371,6 @@ rx_mode_dependent_address_p (const_rtx addr, addr_space_t as ATTRIBUTE_UNUSED)
 	  return true;
 
 	case MULT:
-	  gcc_assert (REG_P (XEXP (addr, 0)));
-	  gcc_assert (CONST_INT_P (XEXP (addr, 1)));
 	  /* REG+REG*SCALE is always mode dependent.  */
 	  return true;
 

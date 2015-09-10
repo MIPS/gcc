@@ -60,15 +60,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "hard-reg-set.h"
 #include "function.h"
 #include "emit-rtl.h"
 #include "version.h"
@@ -97,9 +94,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ira.h"
 #include "lra.h"
@@ -222,7 +216,7 @@ struct GTY((for_user)) indirect_string_node {
   unsigned int index;
 };
 
-struct indirect_string_hasher : ggc_hasher<indirect_string_node *>
+struct indirect_string_hasher : ggc_ptr_hash<indirect_string_node>
 {
   typedef const char *compare_type;
 
@@ -1264,7 +1258,7 @@ enum ate_kind {
   ate_kind_label
 };
 
-typedef struct GTY((for_user)) addr_table_entry_struct {
+struct GTY((for_user)) addr_table_entry {
   enum ate_kind kind;
   unsigned int refcount;
   unsigned int index;
@@ -1274,8 +1268,7 @@ typedef struct GTY((for_user)) addr_table_entry_struct {
       char * GTY ((tag ("1"))) label;
     }
   GTY ((desc ("%1.kind"))) addr;
-}
-addr_table_entry;
+};
 
 /* Location lists are ranges + location descriptions for that range,
    so you can track variables that are in different places over
@@ -2495,6 +2488,43 @@ const struct gcc_debug_hooks dwarf2_debug_hooks =
   1,                            /* start_end_main_source_file */
   TYPE_SYMTAB_IS_DIE            /* tree_type_symtab_field */
 };
+
+const struct gcc_debug_hooks dwarf2_lineno_debug_hooks =
+{
+  dwarf2out_init,
+  debug_nothing_charstar,
+  debug_nothing_void,
+  debug_nothing_void,
+  debug_nothing_int_charstar,
+  debug_nothing_int_charstar,
+  debug_nothing_int_charstar,
+  debug_nothing_int,
+  debug_nothing_int_int,	         /* begin_block */
+  debug_nothing_int_int,	         /* end_block */
+  debug_true_const_tree,	         /* ignore_block */
+  dwarf2out_source_line,	 /* source_line */
+  debug_nothing_int_charstar,	         /* begin_prologue */
+  debug_nothing_int_charstar,	         /* end_prologue */
+  debug_nothing_int_charstar,	         /* begin_epilogue */
+  debug_nothing_int_charstar,	         /* end_epilogue */
+  debug_nothing_tree,		         /* begin_function */
+  debug_nothing_int,		         /* end_function */
+  debug_nothing_tree,			 /* register_main_translation_unit */
+  debug_nothing_tree,		         /* function_decl */
+  debug_nothing_tree,		         /* early_global_decl */
+  debug_nothing_tree,		         /* late_global_decl */
+  debug_nothing_tree_int,		 /* type_decl */
+  debug_nothing_tree_tree_tree_bool,	 /* imported_module_or_decl */
+  debug_nothing_tree,		         /* deferred_inline_function */
+  debug_nothing_tree,		         /* outlining_inline_function */
+  debug_nothing_rtx_code_label,	         /* label */
+  debug_nothing_int,		         /* handle_pch */
+  debug_nothing_rtx_insn,	         /* var_location */
+  debug_nothing_void,                    /* switch_text_section */
+  debug_nothing_tree_tree,		 /* set_name */
+  0,                                     /* start_end_main_source_file */
+  TYPE_SYMTAB_IS_ADDRESS                 /* tree_type_symtab_field */
+};
 
 /* NOTE: In the comments in this file, many references are made to
    "Debugging Information Entries".  This term is abbreviated as `DIE'
@@ -2798,7 +2828,7 @@ static GTY(()) limbo_die_node *limbo_die_list;
    DW_AT_{,MIPS_}linkage_name once their DECL_ASSEMBLER_NAMEs are set.  */
 static GTY(()) limbo_die_node *deferred_asm_name;
 
-struct dwarf_file_hasher : ggc_hasher<dwarf_file_data *>
+struct dwarf_file_hasher : ggc_ptr_hash<dwarf_file_data>
 {
   typedef const char *compare_type;
 
@@ -2809,7 +2839,7 @@ struct dwarf_file_hasher : ggc_hasher<dwarf_file_data *>
 /* Filenames referenced by this compilation unit.  */
 static GTY(()) hash_table<dwarf_file_hasher> *file_table;
 
-struct decl_die_hasher : ggc_hasher<die_node *>
+struct decl_die_hasher : ggc_ptr_hash<die_node>
 {
   typedef tree compare_type;
 
@@ -2820,7 +2850,7 @@ struct decl_die_hasher : ggc_hasher<die_node *>
    The key is a DECL_UID() which is a unique number identifying each decl.  */
 static GTY (()) hash_table<decl_die_hasher> *decl_die_table;
 
-struct block_die_hasher : ggc_hasher<die_struct *>
+struct block_die_hasher : ggc_ptr_hash<die_struct>
 {
   static hashval_t hash (die_struct *);
   static bool equal (die_struct *, die_struct *);
@@ -2884,7 +2914,7 @@ struct GTY ((chain_next ("%h.next"))) call_arg_loc_node {
 };
 
 
-struct decl_loc_hasher : ggc_hasher<var_loc_list *>
+struct decl_loc_hasher : ggc_ptr_hash<var_loc_list>
 {
   typedef const_tree compare_type;
 
@@ -2914,7 +2944,7 @@ struct GTY ((for_user)) cached_dw_loc_list_def {
 };
 typedef struct cached_dw_loc_list_def cached_dw_loc_list;
 
-struct dw_loc_list_hasher : ggc_hasher<cached_dw_loc_list *>
+struct dw_loc_list_hasher : ggc_ptr_hash<cached_dw_loc_list>
 {
 
   typedef const_tree compare_type;
@@ -4240,7 +4270,7 @@ AT_loc_list_ptr (dw_attr_ref a)
   return &a->dw_attr_val.v.val_loc_list;
 }
 
-struct addr_hasher : ggc_hasher<addr_table_entry *>
+struct addr_hasher : ggc_ptr_hash<addr_table_entry>
 {
   static hashval_t hash (addr_table_entry *);
   static bool equal (addr_table_entry *, addr_table_entry *);
@@ -6960,9 +6990,8 @@ struct cu_hash_table_entry
 
 /* Helpers to manipulate hash table of CUs.  */
 
-struct cu_hash_table_entry_hasher
+struct cu_hash_table_entry_hasher : pointer_hash <cu_hash_table_entry>
 {
-  typedef cu_hash_table_entry *value_type;
   typedef die_struct *compare_type;
   static inline hashval_t hash (const cu_hash_table_entry *);
   static inline bool equal (const cu_hash_table_entry *, const die_struct *);
@@ -7297,9 +7326,8 @@ struct decl_table_entry
 
 /* Hashtable helpers.  */
 
-struct decl_table_entry_hasher : typed_free_remove <decl_table_entry>
+struct decl_table_entry_hasher : free_ptr_hash <decl_table_entry>
 {
-  typedef decl_table_entry *value_type;
   typedef die_struct *compare_type;
   static inline hashval_t hash (const decl_table_entry *);
   static inline bool equal (const decl_table_entry *, const die_struct *);
@@ -7839,10 +7867,8 @@ struct external_ref
 
 /* Hashtable helpers.  */
 
-struct external_ref_hasher : typed_free_remove <external_ref>
+struct external_ref_hasher : free_ptr_hash <external_ref>
 {
-  typedef external_ref *value_type;
-  typedef external_ref *compare_type;
   static inline hashval_t hash (const external_ref *);
   static inline bool equal (const external_ref *, const external_ref *);
 };
@@ -18024,18 +18050,14 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
 	    {
 	      /* FIXME: Reuse DIE even with a differing context.
 
-		 This happens when called through
-		 dwarf2out_abstract_function for formal parameter
-		 packs.  The issue is that we're calling
+		 This can happen when calling
 		 dwarf2out_abstract_function to build debug info for
 		 the abstract instance of a function for which we have
 		 already generated a DIE in
 		 dwarf2out_early_global_decl.
 
-	         Once we remove dwarf2out_abstract_function, this
-	         gcc_assert should be a gcc_unreachable.  */
-	      gcc_assert (parm_die->die_parent->die_tag
-			  == DW_TAG_GNU_formal_parameter_pack);
+	         Once we remove dwarf2out_abstract_function, we should
+	         have a call to gcc_unreachable here.  */
 	    }
 	}
 
@@ -18791,7 +18813,8 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 		   end function
 		 end module
 	   */
-	   || old_die->die_parent->die_tag == DW_TAG_module
+	   || (old_die->die_parent
+	       && old_die->die_parent->die_tag == DW_TAG_module)
 	   || context_die == NULL)
 	   && (DECL_ARTIFICIAL (decl)
 	       || (get_AT_file (old_die, DW_AT_decl_file) == file_index
@@ -19918,6 +19941,10 @@ gen_inlined_subroutine_die (tree stmt, dw_die_ref context_die)
   gcc_assert (! BLOCK_ABSTRACT (stmt));
 
   decl = block_ultimate_origin (stmt);
+
+  /* Make sure any inlined functions are known to be inlineable.  */
+  gcc_checking_assert (DECL_ABSTRACT_P (decl)
+		       || cgraph_function_possibly_inlined_p (decl));
 
   /* Emit info for the abstract instance first, if we haven't yet.  We
      must emit this even if the block is abstract, otherwise when we
@@ -22785,10 +22812,8 @@ dwarf2out_undef (unsigned int lineno ATTRIBUTE_UNUSED,
 
 /* Helpers to manipulate hash table of CUs.  */
 
-struct macinfo_entry_hasher : typed_noop_remove <macinfo_entry>
+struct macinfo_entry_hasher : nofree_ptr_hash <macinfo_entry>
 {
-  typedef macinfo_entry *value_type;
-  typedef macinfo_entry *compare_type;
   static inline hashval_t hash (const macinfo_entry *);
   static inline bool equal (const macinfo_entry *, const macinfo_entry *);
 };
@@ -23195,6 +23220,7 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
   /* Allocate the file_table.  */
   file_table = hash_table<dwarf_file_hasher>::create_ggc (50);
 
+#ifndef DWARF2_LINENO_DEBUGGING_INFO
   /* Allocate the decl_die_table.  */
   decl_die_table = hash_table<decl_die_hasher>::create_ggc (10);
 
@@ -23310,10 +23336,15 @@ dwarf2out_init (const char *filename ATTRIBUTE_UNUSED)
 
   switch_to_section (text_section);
   ASM_OUTPUT_LABEL (asm_out_file, text_section_label);
+#endif
 
   /* Make sure the line number table for .text always exists.  */
   text_section_line_info = new_line_info_table ();
   text_section_line_info->end_label = text_end_label;
+
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  cur_line_info_table = text_section_line_info;
+#endif
 
   /* If front-ends already registered a main translation unit but we were not
      ready to perform the association, do this now.  */
@@ -23877,10 +23908,8 @@ file_table_relative_p (dwarf_file_data **slot, bool *p)
 
 /* Helpers to manipulate hash table of comdat type units.  */
 
-struct comdat_type_hasher : typed_noop_remove <comdat_type_node>
+struct comdat_type_hasher : nofree_ptr_hash <comdat_type_node>
 {
-  typedef comdat_type_node *value_type;
-  typedef comdat_type_node *compare_type;
   static inline hashval_t hash (const comdat_type_node *);
   static inline bool equal (const comdat_type_node *, const comdat_type_node *);
 };
@@ -24990,10 +25019,8 @@ compare_locs (dw_loc_descr_ref x, dw_loc_descr_ref y)
 
 /* Hashtable helpers.  */
 
-struct loc_list_hasher : typed_noop_remove <dw_loc_list_struct>
+struct loc_list_hasher : nofree_ptr_hash <dw_loc_list_struct>
 {
-  typedef dw_loc_list_struct *value_type;
-  typedef dw_loc_list_struct *compare_type;
   static inline hashval_t hash (const dw_loc_list_struct *);
   static inline bool equal (const dw_loc_list_struct *,
 			    const dw_loc_list_struct *);
@@ -25101,6 +25128,62 @@ optimize_location_lists (dw_die_ref die)
   optimize_location_lists_1 (die, &htab);
 }
 
+/* Traverse the limbo die list, and add parent/child links.  The only
+   dies without parents that should be here are concrete instances of
+   inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
+   For concrete instances, we can get the parent die from the abstract
+   instance.  */
+
+static void
+flush_limbo_die_list (void)
+{
+  limbo_die_node *node, *next_node;
+
+  for (node = limbo_die_list; node; node = next_node)
+    {
+      dw_die_ref die = node->die;
+      next_node = node->next;
+
+      if (die->die_parent == NULL)
+	{
+	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
+
+	  if (origin && origin->die_parent)
+	    add_child_die (origin->die_parent, die);
+	  else if (is_cu_die (die))
+	    ;
+	  else if (seen_error ())
+	    /* It's OK to be confused by errors in the input.  */
+	    add_child_die (comp_unit_die (), die);
+	  else
+	    {
+	      /* In certain situations, the lexical block containing a
+		 nested function can be optimized away, which results
+		 in the nested function die being orphaned.  Likewise
+		 with the return type of that nested function.  Force
+		 this to be a child of the containing function.
+
+		 It may happen that even the containing function got fully
+		 inlined and optimized out.  In that case we are lost and
+		 assign the empty child.  This should not be big issue as
+		 the function is likely unreachable too.  */
+	      gcc_assert (node->created_for);
+
+	      if (DECL_P (node->created_for))
+		origin = get_context_die (DECL_CONTEXT (node->created_for));
+	      else if (TYPE_P (node->created_for))
+		origin = scope_die_for (node->created_for, comp_unit_die ());
+	      else
+		origin = comp_unit_die ();
+
+	      add_child_die (origin, die);
+	    }
+	}
+    }
+
+  limbo_die_list = NULL;
+}
+
 /* Output stuff that dwarf requires at the end of every file,
    and generate the DWARF-2 debugging info.  */
 
@@ -25111,7 +25194,11 @@ dwarf2out_finish (const char *filename)
   dw_die_ref main_comp_unit_die;
 
   /* Flush out any latecomers to the limbo party.  */
-  dwarf2out_early_finish ();
+  flush_limbo_die_list ();
+
+  /* We shouldn't have any symbols with delayed asm names for
+     DIEs generated after early finish.  */
+  gcc_assert (deferred_asm_name == NULL);
 
   /* PCH might result in DW_AT_producer string being restored from the
      header compilation, so always fill it with empty string initially
@@ -25186,8 +25273,8 @@ dwarf2out_finish (const char *filename)
   if (flag_eliminate_dwarf2_dups)
     break_out_includes (comp_unit_die ());
 
-  /* Traverse the DIE's and add add sibling attributes to those DIE's
-     that have children.  */
+  /* Traverse the DIE's and add sibling attributes to those DIE's that
+     have children.  */
   add_sibling_attributes (comp_unit_die ());
   limbo_die_node *node;
   for (node = limbo_die_list; node; node = node->next)
@@ -25457,7 +25544,7 @@ dwarf2out_finish (const char *filename)
 static void
 dwarf2out_early_finish (void)
 {
-  limbo_die_node *node, *next_node;
+  limbo_die_node *node;
 
   /* Add DW_AT_linkage_name for all deferred DIEs.  */
   for (node = deferred_asm_name; node; node = node->next)
@@ -25465,7 +25552,7 @@ dwarf2out_early_finish (void)
       tree decl = node->created_for;
       if (DECL_ASSEMBLER_NAME (decl) != DECL_NAME (decl)
 	  /* A missing DECL_ASSEMBLER_NAME can be a constant DIE that
-	     ended up in in deferred_asm_name before we knew it was
+	     ended up in deferred_asm_name before we knew it was
 	     constant and never written to disk.  */
 	  && DECL_ASSEMBLER_NAME (decl))
 	{
@@ -25475,57 +25562,9 @@ dwarf2out_early_finish (void)
     }
   deferred_asm_name = NULL;
 
-  /* Traverse the limbo die list, and add parent/child links.  The only
-     dies without parents that should be here are concrete instances of
-     inline functions, and the comp_unit_die.  We can ignore the comp_unit_die.
-     For concrete instances, we can get the parent die from the abstract
-     instance.
-
-     The point here is to flush out the limbo list so that it is empty
+  /* The point here is to flush out the limbo list so that it is empty
      and we don't need to stream it for LTO.  */
-  for (node = limbo_die_list; node; node = next_node)
-    {
-      dw_die_ref die = node->die;
-      next_node = node->next;
-
-      if (die->die_parent == NULL)
-	{
-	  dw_die_ref origin = get_AT_ref (die, DW_AT_abstract_origin);
-
-	  if (origin && origin->die_parent)
-	    add_child_die (origin->die_parent, die);
-	  else if (is_cu_die (die))
-	    ;
-	  else if (seen_error ())
-	    /* It's OK to be confused by errors in the input.  */
-	    add_child_die (comp_unit_die (), die);
-	  else
-	    {
-	      /* In certain situations, the lexical block containing a
-		 nested function can be optimized away, which results
-		 in the nested function die being orphaned.  Likewise
-		 with the return type of that nested function.  Force
-		 this to be a child of the containing function.
-
-		 It may happen that even the containing function got fully
-		 inlined and optimized out.  In that case we are lost and
-		 assign the empty child.  This should not be big issue as
-		 the function is likely unreachable too.  */
-	      gcc_assert (node->created_for);
-
-	      if (DECL_P (node->created_for))
-		origin = get_context_die (DECL_CONTEXT (node->created_for));
-	      else if (TYPE_P (node->created_for))
-		origin = scope_die_for (node->created_for, comp_unit_die ());
-	      else
-		origin = comp_unit_die ();
-
-	      add_child_die (origin, die);
-	    }
-	}
-    }
-
-  limbo_die_list = NULL;
+  flush_limbo_die_list ();
 }
 
 /* Reset all state within dwarf2out.c so that we can rerun the compiler

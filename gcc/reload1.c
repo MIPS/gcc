@@ -20,20 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
+#include "rtl.h"
+#include "df.h"
 
-#include "hard-reg-set.h"
 #include "rtl-error.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "insn-config.h"
 #include "flags.h"
-#include "input.h"
-#include "function.h"
-#include "symtab.h"
-#include "rtl.h"
 #include "alias.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -46,13 +43,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "regs.h"
 #include "addresses.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "basic-block.h"
-#include "df.h"
 #include "reload.h"
 #include "recog.h"
 #include "except.h"
@@ -425,9 +417,7 @@ static void delete_output_reload (rtx_insn *, int, int, rtx);
 static void delete_address_reloads (rtx_insn *, rtx_insn *);
 static void delete_address_reloads_1 (rtx_insn *, rtx, rtx_insn *);
 static void inc_for_reload (rtx, rtx, rtx, int);
-#ifdef AUTO_INC_DEC
 static void add_auto_inc_notes (rtx_insn *, rtx);
-#endif
 static void substitute (rtx *, const_rtx, rtx);
 static bool gen_reload_chain_without_interm_reg_p (int, int);
 static int reloads_conflict (int, int);
@@ -1258,9 +1248,8 @@ reload (rtx_insn *first, int global)
 	      pnote = &XEXP (*pnote, 1);
 	  }
 
-#ifdef AUTO_INC_DEC
-	add_auto_inc_notes (insn, PATTERN (insn));
-#endif
+	if (AUTO_INC_DEC)
+	  add_auto_inc_notes (insn, PATTERN (insn));
 
 	/* Simplify (subreg (reg)) if it appears as an operand.  */
 	cleanup_subreg_operands (insn);
@@ -1648,7 +1637,9 @@ calculate_elim_costs_all_insns (void)
 		    {
 		      rtx t = eliminate_regs_1 (SET_SRC (set), VOIDmode, insn,
 						false, true);
-		      int cost = set_src_cost (t, optimize_bb_for_speed_p (bb));
+		      machine_mode mode = GET_MODE (SET_DEST (set));
+		      int cost = set_src_cost (t, mode,
+					       optimize_bb_for_speed_p (bb));
 		      int freq = REG_FREQ_FROM_BB (bb);
 
 		      reg_equiv_init_cost[regno] = cost * freq;
@@ -2520,7 +2511,8 @@ note_reg_elim_costly (const_rtx x, rtx insn)
 	{
 	  rtx t = reg_equiv_invariant (REGNO (x));
 	  rtx new_rtx = eliminate_regs_1 (t, Pmode, insn, true, true);
-	  int cost = set_src_cost (new_rtx, optimize_bb_for_speed_p (elim_bb));
+	  int cost = set_src_cost (new_rtx, Pmode,
+				   optimize_bb_for_speed_p (elim_bb));
 	  int freq = REG_FREQ_FROM_BB (elim_bb);
 
 	  if (cost != 0)
@@ -2870,7 +2862,7 @@ eliminate_regs_1 (rtx x, machine_mode mem_mode, rtx insn,
 
 	  if (MEM_P (new_rtx)
 	      && ((x_size < new_size
-#ifdef WORD_REGISTER_OPERATIONS
+#if WORD_REGISTER_OPERATIONS
 		   /* On these machines, combine can create rtl of the form
 		      (set (subreg:m1 (reg:m2 R) 0) ...)
 		      where m1 < m2, and expects something interesting to
@@ -3716,10 +3708,12 @@ elimination_costs_in_insn (rtx_insn *insn)
   /* Eliminate all eliminable registers occurring in operands that
      can be handled by reload.  */
   extract_insn (insn);
-  for (i = 0; i < recog_data.n_dups; i++)
+  int n_dups = recog_data.n_dups;
+  for (i = 0; i < n_dups; i++)
     orig_dup[i] = *recog_data.dup_loc[i];
 
-  for (i = 0; i < recog_data.n_operands; i++)
+  int n_operands = recog_data.n_operands;
+  for (i = 0; i < n_operands; i++)
     {
       orig_operand[i] = recog_data.operand[i];
 
@@ -3764,7 +3758,7 @@ elimination_costs_in_insn (rtx_insn *insn)
 	}
     }
 
-  for (i = 0; i < recog_data.n_dups; i++)
+  for (i = 0; i < n_dups; i++)
     *recog_data.dup_loc[i]
       = *recog_data.operand_loc[(int) recog_data.dup_num[i]];
 
@@ -3772,9 +3766,9 @@ elimination_costs_in_insn (rtx_insn *insn)
   check_eliminable_occurrences (old_body);
 
   /* Restore the old body.  */
-  for (i = 0; i < recog_data.n_operands; i++)
+  for (i = 0; i < n_operands; i++)
     *recog_data.operand_loc[i] = orig_operand[i];
-  for (i = 0; i < recog_data.n_dups; i++)
+  for (i = 0; i < n_dups; i++)
     *recog_data.dup_loc[i] = orig_dup[i];
 
   /* Update all elimination pairs to reflect the status after the current
@@ -4586,7 +4580,7 @@ static void
 reload_as_needed (int live_known)
 {
   struct insn_chain *chain;
-#if defined (AUTO_INC_DEC)
+#if AUTO_INC_DEC
   int i;
 #endif
   rtx_note *marker;
@@ -4609,7 +4603,7 @@ reload_as_needed (int live_known)
       rtx_insn *prev = 0;
       rtx_insn *insn = chain->insn;
       rtx_insn *old_next = NEXT_INSN (insn);
-#ifdef AUTO_INC_DEC
+#if AUTO_INC_DEC
       rtx_insn *old_prev = PREV_INSN (insn);
 #endif
 
@@ -4754,7 +4748,7 @@ reload_as_needed (int live_known)
 	    if (NONJUMP_INSN_P (x) && GET_CODE (PATTERN (x)) == CLOBBER)
 	      note_stores (PATTERN (x), forget_old_reloads_1, NULL);
 
-#ifdef AUTO_INC_DEC
+#if AUTO_INC_DEC
 	  /* Likewise for regs altered by auto-increment in this insn.
 	     REG_INC notes have been changed by reloading:
 	     find_reloads_address_1 records substitutions for them,
@@ -5613,11 +5607,7 @@ reloads_unique_chain_p (int r1, int r2)
 
   /* The following loop assumes that r1 is the reload that feeds r2.  */
   if (r1 > r2)
-    {
-      int tmp = r2;
-      r2 = r1;
-      r1 = tmp;
-    }
+    std::swap (r1, r2);
 
   for (i = 0; i < n_reloads; i ++)
     /* Look for input reloads that aren't our two */
@@ -6615,7 +6605,7 @@ choose_reload_regs (struct insn_chain *chain)
 		    }
 		  mode = GET_MODE (rld[r].in_reg);
 		}
-#ifdef AUTO_INC_DEC
+#if AUTO_INC_DEC
 	      else if (GET_RTX_CLASS (GET_CODE (rld[r].in_reg)) == RTX_AUTOINC
 		       && REG_P (XEXP (rld[r].in_reg, 0)))
 		{
@@ -7406,10 +7396,7 @@ emit_input_reload_insns (struct insn_chain *chain, struct reload *rl,
 	     is ill-formed and we must reject this optimization.  */
 	  extract_insn (temp);
 	  if (constrain_operands (1, get_enabled_alternatives (temp))
-#ifdef AUTO_INC_DEC
-	      && ! find_reg_note (temp, REG_INC, reloadreg)
-#endif
-	      )
+	      && (!AUTO_INC_DEC || ! find_reg_note (temp, REG_INC, reloadreg)))
 	    {
 	      /* If the previous insn is an output reload, the source is
 		 a reload register, and its spill_reg_store entry will
@@ -8818,10 +8805,8 @@ gen_reload (rtx out, rtx in, int opnum, enum reload_type type)
       mark_jump_label (in, tem, 0);
     }
 
-#ifdef HAVE_reload_load_address
-  else if (HAVE_reload_load_address)
-    emit_insn (gen_reload_load_address (out, in));
-#endif
+  else if (targetm.have_reload_load_address ())
+    emit_insn (targetm.gen_reload_load_address (out, in));
 
   /* Otherwise, just write (set OUT IN) and hope for the best.  */
   else
@@ -8879,10 +8864,10 @@ delete_output_reload (rtx_insn *insn, int j, int last_reload_reg,
 	continue;
       if (MEM_P (reg2) || reload_override_in[k])
 	reg2 = rld[k].in_reg;
-#ifdef AUTO_INC_DEC
-      if (rld[k].out && ! rld[k].out_reg)
+
+      if (AUTO_INC_DEC && rld[k].out && ! rld[k].out_reg)
 	reg2 = XEXP (rld[k].in_reg, 0);
-#endif
+
       while (GET_CODE (reg2) == SUBREG)
 	reg2 = SUBREG_REG (reg2);
       if (rtx_equal_p (reg2, reg))
@@ -9275,7 +9260,6 @@ inc_for_reload (rtx reloadreg, rtx in, rtx value, int inc_amount)
     }
 }
 
-#ifdef AUTO_INC_DEC
 static void
 add_auto_inc_notes (rtx_insn *insn, rtx x)
 {
@@ -9300,4 +9284,3 @@ add_auto_inc_notes (rtx_insn *insn, rtx x)
 	  add_auto_inc_notes (insn, XVECEXP (x, i, j));
     }
 }
-#endif

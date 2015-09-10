@@ -81,20 +81,17 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
 #include "target.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -109,19 +106,11 @@
 #include "diagnostic-core.h"
 #include "toplev.h" /* user_defined_section_attribute */
 #include "tree-pass.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "bb-reorder.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 #include "fibonacci_heap.h"
@@ -153,7 +142,7 @@ typedef fibonacci_heap <long, basic_block_def> bb_heap_t;
 typedef fibonacci_node <long, basic_block_def> bb_heap_node_t;
 
 /* Structure to hold needed information for each basic block.  */
-typedef struct bbro_basic_block_data_def
+struct bbro_basic_block_data
 {
   /* Which trace is the bb start of (-1 means it is not a start of any).  */
   int start_of_trace;
@@ -172,7 +161,7 @@ typedef struct bbro_basic_block_data_def
 
   /* Which heap node is BB in (if any)?  */
   bb_heap_node_t *node;
-} bbro_basic_block_data;
+};
 
 /* The current size of the following dynamic array.  */
 static int array_size;
@@ -1389,7 +1378,7 @@ get_uncond_jump_length (void)
 
   start_sequence ();
   rtx_code_label *label = emit_label (gen_label_rtx ());
-  rtx_insn *jump = emit_jump_insn (gen_jump (label));
+  rtx_insn *jump = emit_jump_insn (targetm.gen_jump (label));
   length = get_attr_min_length (jump);
   end_sequence ();
 
@@ -1424,7 +1413,7 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   post_bb = BLOCK_FOR_INSN (old_lp->landing_pad);
   post_bb = single_succ (post_bb);
   rtx_code_label *post_label = block_label (post_bb);
-  jump = emit_jump_insn (gen_jump (post_label));
+  jump = emit_jump_insn (targetm.gen_jump (post_label));
   JUMP_LABEL (jump) = post_label;
 
   /* Create new basic block to be dest for lp.  */
@@ -1770,7 +1759,7 @@ add_labels_and_missing_jumps (vec<edge> crossing_edges)
       /* Make sure there's only one successor.  */
       gcc_assert (single_succ_p (src));
 
-      new_jump = emit_jump_insn_after (gen_jump (label), BB_END (src));
+      new_jump = emit_jump_insn_after (targetm.gen_jump (label), BB_END (src));
       BB_END (src) = new_jump;
       JUMP_LABEL (new_jump) = label;
       LABEL_NUSES (label) += 1;
@@ -2086,7 +2075,7 @@ fix_crossing_conditional_branches (void)
 		  gcc_assert (GET_CODE (old_label) == LABEL_REF);
 		  old_jump_target = old_jump_insn->jump_target ();
 		  new_jump = as_a <rtx_jump_insn *>
-				(emit_jump_insn (gen_jump (old_jump_target)));
+		    (emit_jump_insn (targetm.gen_jump (old_jump_target)));
 		  new_jump->set_jump_target (old_jump_target);
 
 		  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;

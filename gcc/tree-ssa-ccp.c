@@ -121,38 +121,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "value-prof.h"
@@ -1084,6 +1069,7 @@ ccp_visit_phi_node (gphi *phi)
   new_val.mask = 0;
 
   bool first = true;
+  bool non_exec_edge = false;
   for (i = 0; i < gimple_phi_num_args (phi); i++)
     {
       /* Compute the meet operator over all the PHI arguments flowing
@@ -1124,6 +1110,22 @@ ccp_visit_phi_node (gphi *phi)
 	  if (new_val.lattice_val == VARYING)
 	    break;
 	}
+      else
+	non_exec_edge = true;
+    }
+
+  /* In case there were non-executable edges and the value is a copy
+     make sure its definition dominates the PHI node.  */
+  if (non_exec_edge
+      && new_val.lattice_val == CONSTANT
+      && TREE_CODE (new_val.value) == SSA_NAME
+      && ! SSA_NAME_IS_DEFAULT_DEF (new_val.value)
+      && ! dominated_by_p (CDI_DOMINATORS, gimple_bb (phi),
+			   gimple_bb (SSA_NAME_DEF_STMT (new_val.value))))
+    {
+      new_val.lattice_val = VARYING;
+      new_val.value = NULL_TREE;
+      new_val.mask = -1;
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -1975,7 +1977,7 @@ evaluate_stmt (gimple stmt)
   return val;
 }
 
-typedef hash_table<pointer_hash<gimple_statement_base> > gimple_htab;
+typedef hash_table<nofree_ptr_hash<gimple_statement_base> > gimple_htab;
 
 /* Given a BUILT_IN_STACK_SAVE value SAVED_VAL, insert a clobber of VAR before
    each matching BUILT_IN_STACK_RESTORE.  Mark visited phis in VISITED.  */
@@ -2105,6 +2107,7 @@ fold_builtin_alloca_with_align (gimple stmt)
      as a declared array, so we allow a larger size.  */
   block = gimple_block (stmt);
   if (!(cfun->after_inlining
+	&& block
         && TREE_CODE (BLOCK_SUPERCONTEXT (block)) == FUNCTION_DECL))
     threshold /= 10;
   if (size > threshold)

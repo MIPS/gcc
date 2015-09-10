@@ -34,20 +34,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "diagnostic-core.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "diagnostic-core.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "tree-eh.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -62,14 +57,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "regs.h"
 #include "recog.h"
-#include "bitmap.h"
 #include "debug.h"
 #include "langhooks.h"
-#include "df.h"
 #include "params.h"
 #include "target.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+#include "stor-layout.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -141,7 +135,7 @@ rtx_insn *invalid_insn_rtx;
 /* A hash table storing CONST_INTs whose absolute value is greater
    than MAX_SAVED_CONST_INT.  */
 
-struct const_int_hasher : ggc_cache_hasher<rtx>
+struct const_int_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   typedef HOST_WIDE_INT compare_type;
 
@@ -151,7 +145,7 @@ struct const_int_hasher : ggc_cache_hasher<rtx>
 
 static GTY ((cache)) hash_table<const_int_hasher> *const_int_htab;
 
-struct const_wide_int_hasher : ggc_cache_hasher<rtx>
+struct const_wide_int_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x);
   static bool equal (rtx x, rtx y);
@@ -160,7 +154,7 @@ struct const_wide_int_hasher : ggc_cache_hasher<rtx>
 static GTY ((cache)) hash_table<const_wide_int_hasher> *const_wide_int_htab;
 
 /* A hash table storing register attribute structures.  */
-struct reg_attr_hasher : ggc_cache_hasher<reg_attrs *>
+struct reg_attr_hasher : ggc_cache_ptr_hash<reg_attrs>
 {
   static hashval_t hash (reg_attrs *x);
   static bool equal (reg_attrs *a, reg_attrs *b);
@@ -169,7 +163,7 @@ struct reg_attr_hasher : ggc_cache_hasher<reg_attrs *>
 static GTY ((cache)) hash_table<reg_attr_hasher> *reg_attrs_htab;
 
 /* A hash table storing all CONST_DOUBLEs.  */
-struct const_double_hasher : ggc_cache_hasher<rtx>
+struct const_double_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x);
   static bool equal (rtx x, rtx y);
@@ -178,7 +172,7 @@ struct const_double_hasher : ggc_cache_hasher<rtx>
 static GTY ((cache)) hash_table<const_double_hasher> *const_double_htab;
 
 /* A hash table storing all CONST_FIXEDs.  */
-struct const_fixed_hasher : ggc_cache_hasher<rtx>
+struct const_fixed_hasher : ggc_cache_ptr_hash<rtx_def>
 {
   static hashval_t hash (rtx x);
   static bool equal (rtx x, rtx y);
@@ -1166,9 +1160,10 @@ set_reg_attrs_from_value (rtx reg, rtx x)
 	 || GET_CODE (x) == TRUNCATE
 	 || (GET_CODE (x) == SUBREG && subreg_lowpart_p (x)))
     {
-#if defined(POINTERS_EXTEND_UNSIGNED) && !defined(HAVE_ptr_extend)
-      if ((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
-	  || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+#if defined(POINTERS_EXTEND_UNSIGNED)
+      if (((GET_CODE (x) == SIGN_EXTEND && POINTERS_EXTEND_UNSIGNED)
+	   || (GET_CODE (x) != SIGN_EXTEND && ! POINTERS_EXTEND_UNSIGNED))
+	  && !targetm.have_ptr_extend ())
 	can_be_reg_pointer = false;
 #endif
       x = XEXP (x, 0);
@@ -1239,6 +1234,9 @@ set_reg_attrs_for_parm (rtx parm_rtx, rtx mem)
 void
 set_reg_attrs_for_decl_rtl (tree t, rtx x)
 {
+  if (!t)
+    return;
+  tree tdecl = t;
   if (GET_CODE (x) == SUBREG)
     {
       gcc_assert (subreg_lowpart_p (x));
@@ -1247,7 +1245,9 @@ set_reg_attrs_for_decl_rtl (tree t, rtx x)
   if (REG_P (x))
     REG_ATTRS (x)
       = get_reg_attrs (t, byte_lowpart_offset (GET_MODE (x),
-					       DECL_MODE (t)));
+					       DECL_P (tdecl)
+					       ? DECL_MODE (tdecl)
+					       : TYPE_MODE (TREE_TYPE (tdecl))));
   if (GET_CODE (x) == CONCAT)
     {
       if (REG_P (XEXP (x, 0)))
@@ -1383,7 +1383,6 @@ gen_lowpart_common (machine_mode mode, rtx x)
 {
   int msize = GET_MODE_SIZE (mode);
   int xsize;
-  int offset = 0;
   machine_mode innermode;
 
   /* Unfortunately, this routine doesn't take a parameter for the mode of X,
@@ -1411,8 +1410,6 @@ gen_lowpart_common (machine_mode mode, rtx x)
   if (SCALAR_FLOAT_MODE_P (mode) && msize > xsize)
     return 0;
 
-  offset = subreg_lowpart_offset (mode, innermode);
-
   if ((GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND)
       && (GET_MODE_CLASS (mode) == MODE_INT
 	  || GET_MODE_CLASS (mode) == MODE_PARTIAL_INT))
@@ -1435,7 +1432,7 @@ gen_lowpart_common (machine_mode mode, rtx x)
   else if (GET_CODE (x) == SUBREG || REG_P (x)
 	   || GET_CODE (x) == CONCAT || GET_CODE (x) == CONST_VECTOR
 	   || CONST_DOUBLE_AS_FLOAT_P (x) || CONST_SCALAR_INT_P (x))
-    return simplify_gen_subreg (mode, x, innermode, offset);
+    return lowpart_subreg (mode, x, innermode);
 
   /* Otherwise, we can't do this.  */
   return 0;
@@ -3595,7 +3592,6 @@ prev_cc0_setter (rtx_insn *insn)
   return insn;
 }
 
-#ifdef AUTO_INC_DEC
 /* Find a RTX_AUTOINC class rtx which matches DATA.  */
 
 static int
@@ -3611,7 +3607,6 @@ find_auto_inc (const_rtx x, const_rtx reg)
     }
   return false;
 }
-#endif
 
 /* Increment the label uses for all labels present in rtx.  */
 
@@ -3783,8 +3778,10 @@ try_split (rtx pat, rtx_insn *trial, int last)
 	    }
 	  break;
 
-#ifdef AUTO_INC_DEC
 	case REG_INC:
+	  if (!AUTO_INC_DEC)
+	    break;
+
 	  for (insn = insn_last; insn != NULL_RTX; insn = PREV_INSN (insn))
 	    {
 	      rtx reg = XEXP (note, 0);
@@ -3793,7 +3790,6 @@ try_split (rtx pat, rtx_insn *trial, int last)
 		add_reg_note (insn, REG_INC, reg);
 	    }
 	  break;
-#endif
 
 	case REG_ARGS_SIZE:
 	  fixup_args_size_notes (NULL, insn_last, INTVAL (XEXP (note, 0)));
@@ -5229,7 +5225,8 @@ set_for_reg_notes (rtx insn)
   reg = SET_DEST (pat);
 
   /* Notes apply to the contents of a STRICT_LOW_PART.  */
-  if (GET_CODE (reg) == STRICT_LOW_PART)
+  if (GET_CODE (reg) == STRICT_LOW_PART
+      || GET_CODE (reg) == ZERO_EXTRACT)
     reg = XEXP (reg, 0);
 
   /* Check that we have a register.  */
@@ -5304,48 +5301,14 @@ set_dst_reg_note (rtx insn, enum reg_note kind, rtx datum, rtx dst)
   return NULL_RTX;
 }
 
-/* Return an indication of which type of insn should have X as a body.
-   The value is CODE_LABEL, INSN, CALL_INSN or JUMP_INSN.  */
+/* Emit the rtl pattern X as an appropriate kind of insn.  Also emit a
+   following barrier if the instruction needs one and if ALLOW_BARRIER_P
+   is true.
 
-static enum rtx_code
-classify_insn (rtx x)
-{
-  if (LABEL_P (x))
-    return CODE_LABEL;
-  if (GET_CODE (x) == CALL)
-    return CALL_INSN;
-  if (ANY_RETURN_P (x))
-    return JUMP_INSN;
-  if (GET_CODE (x) == SET)
-    {
-      if (SET_DEST (x) == pc_rtx)
-	return JUMP_INSN;
-      else if (GET_CODE (SET_SRC (x)) == CALL)
-	return CALL_INSN;
-      else
-	return INSN;
-    }
-  if (GET_CODE (x) == PARALLEL)
-    {
-      int j;
-      for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
-	if (GET_CODE (XVECEXP (x, 0, j)) == CALL)
-	  return CALL_INSN;
-	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
-		 && SET_DEST (XVECEXP (x, 0, j)) == pc_rtx)
-	  return JUMP_INSN;
-	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
-		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
-	  return CALL_INSN;
-    }
-  return INSN;
-}
-
-/* Emit the rtl pattern X as an appropriate kind of insn.
    If X is a label, it is simply added into the insn chain.  */
 
 rtx_insn *
-emit (rtx x)
+emit (rtx x, bool allow_barrier_p)
 {
   enum rtx_code code = classify_insn (x);
 
@@ -5358,7 +5321,8 @@ emit (rtx x)
     case  JUMP_INSN:
       {
 	rtx_insn *insn = emit_jump_insn (x);
-	if (any_uncondjump_p (insn) || GET_CODE (x) == RETURN)
+	if (allow_barrier_p
+	    && (any_uncondjump_p (insn) || GET_CODE (x) == RETURN))
 	  return emit_barrier ();
 	return insn;
       }

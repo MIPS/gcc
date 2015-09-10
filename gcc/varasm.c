@@ -28,19 +28,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "predict.h"
 #include "rtl.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "flags.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -58,13 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "targhooks.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "asan.h"
 #include "rtl-iter.h"
@@ -190,7 +180,7 @@ static GTY(()) section *unnamed_sections;
   ((TREE_CODE (DECL) == FUNCTION_DECL || TREE_CODE (DECL) == VAR_DECL) \
    && DECL_SECTION_NAME (DECL) != NULL)
 
-struct section_hasher : ggc_hasher<section *>
+struct section_hasher : ggc_ptr_hash<section>
 {
   typedef const char *compare_type;
 
@@ -201,7 +191,7 @@ struct section_hasher : ggc_hasher<section *>
 /* Hash table of named sections.  */
 static GTY(()) hash_table<section_hasher> *section_htab;
 
-struct object_block_hasher : ggc_hasher<object_block *>
+struct object_block_hasher : ggc_ptr_hash<object_block>
 {
   typedef const section *compare_type;
 
@@ -1053,7 +1043,6 @@ align_variable (tree decl, bool dont_output_data)
 	  if (! DECL_THREAD_LOCAL_P (decl) || data_align <= BITS_PER_WORD)
 	    align = data_align;
 #endif
-#ifdef CONSTANT_ALIGNMENT
 	  if (DECL_INITIAL (decl) != 0
 	      /* In LTO we have no errors in program; error_mark_node is used
 		 to mark offlined constructors.  */
@@ -1066,7 +1055,6 @@ align_variable (tree decl, bool dont_output_data)
 	      if (! DECL_THREAD_LOCAL_P (decl) || const_align <= BITS_PER_WORD)
 		align = const_align;
 	    }
-#endif
 	}
     }
 
@@ -1107,7 +1095,6 @@ get_variable_align (tree decl)
       if (! DECL_THREAD_LOCAL_P (decl) || data_align <= BITS_PER_WORD)
 	align = data_align;
 #endif
-#ifdef CONSTANT_ALIGNMENT
       if (DECL_INITIAL (decl) != 0
 	  /* In LTO we have no errors in program; error_mark_node is used
 	     to mark offlined constructors.  */
@@ -1120,7 +1107,6 @@ get_variable_align (tree decl)
 	  if (! DECL_THREAD_LOCAL_P (decl) || const_align <= BITS_PER_WORD)
 	    align = const_align;
 	}
-#endif
     }
 
   return align;
@@ -1948,12 +1934,12 @@ emit_local (tree decl ATTRIBUTE_UNUSED,
 	    unsigned HOST_WIDE_INT rounded ATTRIBUTE_UNUSED)
 {
 #if defined ASM_OUTPUT_ALIGNED_DECL_LOCAL
-  int align = symtab_node::get (decl)->definition_alignment ();
+  unsigned int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_DECL_LOCAL (asm_out_file, decl, name,
 				 size, align);
   return true;
 #elif defined ASM_OUTPUT_ALIGNED_LOCAL
-  int align = symtab_node::get (decl)->definition_alignment ();
+  unsigned int align = symtab_node::get (decl)->definition_alignment ();
   ASM_OUTPUT_ALIGNED_LOCAL (asm_out_file, name, size, align);
   return true;
 #else
@@ -3309,9 +3295,7 @@ build_constant_desc (tree exp)
      architectures so use DATA_ALIGNMENT as well, except for strings.  */
   if (TREE_CODE (exp) == STRING_CST)
     {
-#ifdef CONSTANT_ALIGNMENT
       DECL_ALIGN (decl) = CONSTANT_ALIGNMENT (exp, DECL_ALIGN (decl));
-#endif
     }
   else
     align_variable (decl, 0);
@@ -3554,7 +3538,7 @@ struct GTY((chain_next ("%h.next"), for_user)) constant_descriptor_rtx {
   int mark;
 };
 
-struct const_rtx_desc_hasher : ggc_hasher<constant_descriptor_rtx *>
+struct const_rtx_desc_hasher : ggc_ptr_hash<constant_descriptor_rtx>
 {
   static hashval_t hash (constant_descriptor_rtx *);
   static bool equal (constant_descriptor_rtx *, constant_descriptor_rtx *);
@@ -3766,13 +3750,10 @@ force_const_mem (machine_mode mode, rtx x)
 
   /* Align the location counter as required by EXP's data type.  */
   align = GET_MODE_ALIGNMENT (mode == VOIDmode ? word_mode : mode);
-#ifdef CONSTANT_ALIGNMENT
-  {
-    tree type = lang_hooks.types.type_for_mode (mode, 0);
-    if (type != NULL_TREE)
-      align = CONSTANT_ALIGNMENT (make_tree (type, x), align);
-  }
-#endif
+
+  tree type = lang_hooks.types.type_for_mode (mode, 0);
+  if (type != NULL_TREE)
+    align = CONSTANT_ALIGNMENT (make_tree (type, x), align);
 
   pool->offset += (align / BITS_PER_UNIT) - 1;
   pool->offset &= ~ ((align / BITS_PER_UNIT) - 1);
@@ -4667,10 +4648,10 @@ initializer_constant_valid_for_bitfield_p (tree value)
 /* output_constructor outer state of relevance in recursive calls, typically
    for nested aggregate bitfields.  */
 
-typedef struct {
+struct oc_outer_state {
   unsigned int bit_offset;  /* current position in ...  */
   int byte;                 /* ... the outer byte buffer.  */
-} oc_outer_state;
+};
 
 static unsigned HOST_WIDE_INT
 output_constructor (tree, unsigned HOST_WIDE_INT, unsigned int, bool,
@@ -4740,7 +4721,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	exp = build1 (ADDR_EXPR, saved_type, TREE_OPERAND (exp, 0));
       /* Likewise for constant ints.  */
       else if (TREE_CODE (exp) == INTEGER_CST)
-	exp = wide_int_to_tree (saved_type, exp);
+	exp = fold_convert (saved_type, exp);
 
     }
 
@@ -4921,7 +4902,7 @@ array_size_for_constructor (tree val)
 
 /* output_constructor local state to support interaction with helpers.  */
 
-typedef struct {
+struct oc_local_state {
 
   /* Received arguments.  */
   tree exp;                     /* Constructor expression.  */
@@ -4943,7 +4924,7 @@ typedef struct {
   tree val;        /* Current element value.  */
   tree index;      /* Current element index.  */
 
-} oc_local_state;
+};
 
 /* Helper for output_constructor.  From the current LOCAL state, output a
    RANGE_EXPR element.  */
@@ -5457,7 +5438,10 @@ declare_weak (tree decl)
 {
   gcc_assert (TREE_CODE (decl) != FUNCTION_DECL || !TREE_ASM_WRITTEN (decl));
   if (! TREE_PUBLIC (decl))
-    error ("weak declaration of %q+D must be public", decl);
+    {
+      error ("weak declaration of %q+D must be public", decl);
+      return;
+    }
   else if (!TARGET_SUPPORTS_WEAK)
     warning (0, "weak declaration of %q+D not supported", decl);
 
@@ -5827,21 +5811,15 @@ assemble_alias (tree decl, tree target)
    to its transaction aware clone.  Note that tm_pure functions are
    considered to be their own clone.  */
 
-struct tm_clone_hasher : ggc_cache_hasher<tree_map *>
+struct tm_clone_hasher : ggc_cache_ptr_hash<tree_map>
 {
   static hashval_t hash (tree_map *m) { return tree_map_hash (m); }
   static bool equal (tree_map *a, tree_map *b) { return tree_map_eq (a, b); }
 
-  static void
-  handle_cache_entry (tree_map *&e)
+  static int
+  keep_cache_entry (tree_map *&e)
   {
-    extern void gt_ggc_mx (tree_map *&);
-    if (e == HTAB_EMPTY_ENTRY || e == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (e->base.from))
-      gt_ggc_mx (e);
-    else
-      e = static_cast<tree_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (e->base.from);
   }
 };
 
@@ -5880,12 +5858,12 @@ get_tm_clone_pair (tree o)
   return NULL_TREE;
 }
 
-typedef struct tm_alias_pair
+struct tm_alias_pair
 {
   unsigned int uid;
   tree from;
   tree to;
-} tm_alias_pair;
+};
 
 
 /* Dump the actual pairs to the .tm_clone_table section.  */

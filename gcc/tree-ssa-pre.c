@@ -22,40 +22,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "tree.h"
-#include "fold-const.h"
+#include "backend.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -70,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
-#include "obstack.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "cfgloop.h"
@@ -79,8 +64,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "dbgcnt.h"
 #include "domwalk.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -201,23 +184,21 @@ enum pre_expr_kind
     CONSTANT
 };
 
-typedef union pre_expr_union_d
+union pre_expr_union
 {
   tree name;
   tree constant;
   vn_nary_op_t nary;
   vn_reference_t reference;
-} pre_expr_union;
+};
 
-typedef struct pre_expr_d : typed_noop_remove <pre_expr_d>
+typedef struct pre_expr_d : nofree_ptr_hash <pre_expr_d>
 {
   enum pre_expr_kind kind;
   unsigned int id;
   pre_expr_union u;
 
   /* hash_table support.  */
-  typedef pre_expr_d *value_type;
-  typedef pre_expr_d *compare_type;
   static inline hashval_t hash (const pre_expr_d *);
   static inline int equal (const pre_expr_d *, const pre_expr_d *);
 } *pre_expr;
@@ -368,7 +349,7 @@ clear_expression_ids (void)
   expressions.release ();
 }
 
-static pool_allocator<pre_expr_d> pre_expr_pool ("pre_expr nodes", 30);
+static object_allocator<pre_expr_d> pre_expr_pool ("pre_expr nodes", 30);
 
 /* Given an SSA_NAME NAME, get or create a pre_expr to represent it.  */
 
@@ -507,7 +488,7 @@ static unsigned int get_expr_value_id (pre_expr);
 /* We can add and remove elements and entries to and from sets
    and hash tables, so we use alloc pools for them.  */
 
-static pool_allocator<bitmap_set> bitmap_set_pool ("Bitmap sets", 30);
+static object_allocator<bitmap_set> bitmap_set_pool ("Bitmap sets", 30);
 static bitmap_obstack grand_bitmap_obstack;
 
 /* Set of blocks with statements that have had their EH properties changed.  */
@@ -519,7 +500,7 @@ static bitmap need_ab_cleanup;
 /* A three tuple {e, pred, v} used to cache phi translations in the
    phi_translate_table.  */
 
-typedef struct expr_pred_trans_d : typed_free_remove<expr_pred_trans_d>
+typedef struct expr_pred_trans_d : free_ptr_hash<expr_pred_trans_d>
 {
   /* The expression.  */
   pre_expr e;
@@ -535,8 +516,6 @@ typedef struct expr_pred_trans_d : typed_free_remove<expr_pred_trans_d>
   hashval_t hashcode;
 
   /* hash_table support.  */
-  typedef expr_pred_trans_d *value_type;
-  typedef expr_pred_trans_d *compare_type;
   static inline hashval_t hash (const expr_pred_trans_d *);
   static inline int equal (const expr_pred_trans_d *, const expr_pred_trans_d *);
 } *expr_pred_trans_t;
@@ -4316,7 +4295,31 @@ eliminate_dom_walker::before_dom_children (basic_block b)
               el_to_remove.safe_push (stmt);
 	      continue;
             }
-        }
+	}
+
+      /* If this is a control statement value numbering left edges
+	 unexecuted on force the condition in a way consistent with
+	 that.  */
+      if (gcond *cond = dyn_cast <gcond *> (stmt))
+	{
+	  if ((EDGE_SUCC (b, 0)->flags & EDGE_EXECUTABLE)
+	      ^ (EDGE_SUCC (b, 1)->flags & EDGE_EXECUTABLE))
+	    {
+              if (dump_file && (dump_flags & TDF_DETAILS))
+                {
+                  fprintf (dump_file, "Removing unexecutable edge from ");
+                  print_gimple_stmt (dump_file, stmt, 0, 0);
+                }
+	      if (((EDGE_SUCC (b, 0)->flags & EDGE_TRUE_VALUE) != 0)
+		  == ((EDGE_SUCC (b, 0)->flags & EDGE_EXECUTABLE) != 0))
+		gimple_cond_make_true (cond);
+	      else
+		gimple_cond_make_false (cond);
+	      update_stmt (cond);
+	      el_todo |= TODO_cleanup_cfg;
+	      continue;
+	    }
+	}
 
       bool can_make_abnormal_goto = stmt_can_make_abnormal_goto (stmt);
       bool was_noreturn = (is_gimple_call (stmt)
@@ -4378,7 +4381,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 						       (OBJ_TYPE_REF_TOKEN (fn)),
 						     context,
 						     &final);
-	      if (dump_enabled_p ())
+	      if (dump_file)
 		dump_possible_polymorphic_call_targets (dump_file, 
 							obj_type_ref_class (fn),
 							tree_to_uhwi

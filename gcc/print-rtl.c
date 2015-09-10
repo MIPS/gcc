@@ -33,15 +33,11 @@ along with GCC; see the file COPYING3.  If not see
 /* These headers all define things which are not available in
    generator programs.  */
 #ifndef GENERATOR_FILE
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "print-tree.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "predict.h"
-#include "input.h"
 #include "function.h"
 #include "basic-block.h"
 #include "diagnostic.h"
@@ -554,7 +550,7 @@ print_rtx (const_rtx in_rtx)
 	      }
 
 	    if (flag_dump_unnumbered
-		|| (flag_dump_unnumbered_links && (i == 1 || i == 2)
+		|| (flag_dump_unnumbered_links && i <= 1
 		    && (INSN_P (in_rtx) || NOTE_P (in_rtx)
 			|| LABEL_P (in_rtx) || BARRIER_P (in_rtx))))
 	      fputs (" #", outfile);

@@ -21,17 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
-#include "hard-reg-set.h"
+#include "df.h"
 #include "regs.h"
 #include "target.h"
-#include "symtab.h"
-#include "input.h"
-#include "function.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -47,14 +44,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tree-pass.h"
 #include "recog.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "cfgloop.h"
 #include "rtl-iter.h"
 #include "fibonacci_heap.h"
@@ -412,13 +404,13 @@ note_other_use_this_block (unsigned int regno, btr_user users_this_bb)
       user->other_use_this_block = 1;
 }
 
-typedef struct {
+struct defs_uses_info {
   btr_user users_this_bb;
   HARD_REG_SET btrs_written_in_block;
   HARD_REG_SET btrs_live_in_block;
   sbitmap bb_gen;
   sbitmap *btr_defset;
-} defs_uses_info;
+};
 
 /* Called via note_stores or directly to register stores into /
    clobbers of a branch target register DEST that are not recognized as

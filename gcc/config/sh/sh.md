@@ -135,6 +135,7 @@
   UNSPEC_PLT
   UNSPEC_CALLER
   UNSPEC_GOTPLT
+  UNSPEC_PCREL
   UNSPEC_ICACHE
   UNSPEC_INIT_TRAMP
   UNSPEC_FCOSA
@@ -7892,6 +7893,24 @@ label:
   ""
 {
   prepare_move_operands (operands, DImode);
+  if (TARGET_SH1)
+    {
+      /* When the dest operand is (R0, R1) register pair, split it to
+	 two movsi of which dest is R1 and R0 so as to lower R0-register
+	 pressure on the first movsi.  Apply only for simple source not
+	 to make complex rtl here.  */
+      if (REG_P (operands[0])
+	  && REGNO (operands[0]) == R0_REG
+	  && REG_P (operands[1])
+	  && REGNO (operands[1]) >= FIRST_PSEUDO_REGISTER)
+	{
+	  emit_insn (gen_movsi (gen_rtx_REG (SImode, R1_REG),
+			        gen_rtx_SUBREG (SImode, operands[1], 4)));
+	  emit_insn (gen_movsi (gen_rtx_REG (SImode, R0_REG),
+			        gen_rtx_SUBREG (SImode, operands[1], 0)));
+	  DONE;
+	}
+    }
 })
 
 (define_insn "movdf_media"
@@ -9452,11 +9471,8 @@ label:
   [(const_int 0)]
 {
   rtx lab = PATTERN (gen_call_site ());
-
-  if (SYMBOL_REF_LOCAL_P (operands[0]))
-    emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
-  else
-    emit_insn (gen_symPLT_label2reg (operands[2], operands[0], lab));
+  
+  sh_expand_sym_label2reg (operands[2], operands[0], lab, false);
   emit_call_insn (gen_calli_pcrel (operands[2], operands[1], copy_rtx (lab)));
   DONE;
 }
@@ -9587,10 +9603,7 @@ label:
 {
   rtx lab = PATTERN (gen_call_site ());
 
-  if (SYMBOL_REF_LOCAL_P (operands[1]))
-    emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
-  else
-    emit_insn (gen_symPLT_label2reg (operands[3], operands[1], lab));
+  sh_expand_sym_label2reg (operands[3], operands[1], lab, false);
   emit_call_insn (gen_call_valuei_pcrel (operands[0], operands[3],
 					 operands[2], copy_rtx (lab)));
   DONE;
@@ -9990,7 +10003,7 @@ label:
   rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
 
-  emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
+  sh_expand_sym_label2reg (operands[2], operands[0], lab, true);
   call_insn = emit_call_insn (gen_sibcalli_pcrel (operands[2], operands[1],
 						  copy_rtx (lab)));
   SIBLING_CALL_P (call_insn) = 1;
@@ -10182,7 +10195,7 @@ label:
   rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
 
-  emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
+  sh_expand_sym_label2reg (operands[3], operands[1], lab, true);
   call_insn = emit_call_insn (gen_sibcall_valuei_pcrel (operands[0],
 							operands[3],
 							operands[2],
@@ -10592,12 +10605,18 @@ label:
   [(set_attr "in_delay_slot" "no")
    (set_attr "type" "arith")])
 
+;; Loads of the GOTPC relocation values must not be optimized away
+;; by e.g. any kind of CSE and must stay as they are.  Although there
+;; are other various ways to ensure this, we use an artificial counter
+;; operand to generate unique symbols.
 (define_expand "GOTaddr2picreg"
   [(set (reg:SI R0_REG)
-	(unspec:SI [(const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC))]
-		   UNSPEC_MOVA))
-   (set (match_dup 0) (const:SI (unspec:SI [(match_dup 1)] UNSPEC_PIC)))
-   (set (match_dup 0) (plus:SI (match_dup 0) (reg:SI R0_REG)))]
+	(unspec:SI [(const:SI (unspec:SI [(match_dup 2)
+					  (match_operand:SI 0 "" "")]
+					 UNSPEC_PIC))] UNSPEC_MOVA))
+   (set (match_dup 1)
+	(const:SI (unspec:SI [(match_dup 2) (match_dup 0)] UNSPEC_PIC)))
+   (set (match_dup 1) (plus:SI (match_dup 1) (reg:SI R0_REG)))]
   ""
 {
   if (TARGET_VXWORKS_RTP)
@@ -10608,33 +10627,33 @@ label:
       DONE;
     }
 
-  operands[0] = gen_rtx_REG (Pmode, PIC_REG);
-  operands[1] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
+  operands[1] = gen_rtx_REG (Pmode, PIC_REG);
+  operands[2] = gen_rtx_SYMBOL_REF (VOIDmode, GOT_SYMBOL_NAME);
 
   if (TARGET_SHMEDIA)
     {
       rtx tr = gen_rtx_REG (Pmode, TR0_REG);
-      rtx pic = operands[0];
+      rtx pic = operands[1];
       rtx lab = PATTERN (gen_call_site ());
       rtx insn, equiv;
 
-      equiv = operands[1];
-      operands[1] = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, operands[1], lab),
+      equiv = operands[2];
+      operands[2] = gen_rtx_UNSPEC (Pmode, gen_rtvec (2, operands[2], lab),
 				    UNSPEC_PCREL_SYMOFF);
-      operands[1] = gen_rtx_CONST (Pmode, operands[1]);
+      operands[2] = gen_rtx_CONST (Pmode, operands[2]);
 
       if (Pmode == SImode)
 	{
-	  emit_insn (gen_movsi_const (pic, operands[1]));
+	  emit_insn (gen_movsi_const (pic, operands[2]));
 	  emit_insn (gen_ptrel_si (tr, pic, copy_rtx (lab)));
 	}
       else
 	{
-	  emit_insn (gen_movdi_const (pic, operands[1]));
+	  emit_insn (gen_movdi_const (pic, operands[2]));
 	  emit_insn (gen_ptrel_di (tr, pic, copy_rtx (lab)));
 	}
 
-      insn = emit_move_insn (operands[0], tr);
+      insn = emit_move_insn (operands[1], tr);
 
       set_unique_reg_note (insn, REG_EQUAL, equiv);
 
@@ -10688,7 +10707,7 @@ label:
   [(match_operand 0 "" "")]
   "flag_pic"
 {
-  emit_insn (gen_GOTaddr2picreg ());
+  emit_insn (gen_GOTaddr2picreg (const0_rtx));
   DONE;
 })
 
@@ -10724,6 +10743,16 @@ label:
 			     UNSPEC_SYMOFF)))]
   "TARGET_SH1" "")
 
+(define_expand "symPCREL_label2reg"
+  [(set (match_operand:SI 0 "" "")
+	(const:SI
+	 (unspec:SI
+	  [(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PCREL))
+	   (const:SI (plus:SI (match_operand:SI 2 "" "")
+			      (const_int 2)))] UNSPEC_PCREL_SYMOFF)))]
+  "TARGET_SH1"
+  "")
+
 (define_expand "symGOT_load"
   [(set (match_dup 2) (match_operand 1 "" ""))
    (set (match_dup 3) (plus (match_dup 2) (reg PIC_REG)))
@@ -10744,12 +10773,6 @@ label:
       && strcmp (XSTR (XVECEXP (XEXP (operands[1], 0), 0, 0), 0),
 		 "__stack_chk_guard") == 0)
     stack_chk_guard_p = true;
-
-  /* Use R0 to avoid long R0 liveness which stack-protector tends to
-     produce.  */
-  if (! sh_lra_flag
-      && stack_chk_guard_p && ! reload_in_progress && ! reload_completed)
-    operands[2] = gen_rtx_REG (Pmode, R0_REG);
 
   if (TARGET_SHMEDIA)
     {
@@ -11338,6 +11361,8 @@ label:
     LABEL_NUSES (operands[2])++;
 })
 
+;; This may be replaced with casesi_worker_2 in sh_reorg for PIC.
+;; The insn length is set to 8 for that case.
 (define_insn "casesi_worker_1"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
 	(unspec:SI [(reg:SI R0_REG)
@@ -11369,7 +11394,9 @@ label:
       gcc_unreachable ();
     }
 }
-  [(set_attr "length" "4")])
+  [(set_attr_alternative "length"
+     [(if_then_else (match_test "flag_pic") (const_int 8) (const_int 4))
+      (if_then_else (match_test "flag_pic") (const_int 8) (const_int 4))])])
 
 (define_insn "casesi_worker_2"
   [(set (match_operand:SI 0 "register_operand" "=r,r")
@@ -12709,7 +12736,7 @@ label:
   [(set (match_operand:SI 0 "register_operand")
 	(compare:SI (match_operand:BLK 1 "memory_operand")
 		    (match_operand:BLK 2 "memory_operand")))
-   (use (match_operand:SI 3 "immediate_operand"))
+   (use (match_operand:SI 3 "nonmemory_operand"))
    (use (match_operand:SI 4 "immediate_operand"))]
   "TARGET_SH1 && optimize"
 {
@@ -14727,8 +14754,19 @@ label:
   if (REGNO (operands[1]) == REGNO (operands[2]))
       operands[2] = gen_rtx_REG (SImode, REGNO (operands[0]));
 
-  sh_check_add_incdec_notes (emit_insn (gen_rtx_SET (operands[2],
-						     operands[3])));
+  // We don't know what the new set insn will be in detail.  Just make sure
+  // that it still can be recognized and the constraints are satisfied.
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
+						     
+  recog_data_d prev_recog_data = recog_data;
+  bool i_invalid = insn_invalid_p (i, false); 
+  recog_data = prev_recog_data;
+  
+  if (i_invalid)
+    FAIL;
+    
+  sh_check_add_incdec_notes (i);
+
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
 })
@@ -14755,8 +14793,19 @@ label:
        || REGNO (operands[2]) == REGNO (operands[5]))"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_insn (gen_rtx_SET (operands[2],
-						     operands[3])));
+  // We don't know what the new set insn will be in detail.  Just make sure
+  // that it still can be recognized and the constraints are satisfied.
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
+
+  recog_data_d prev_recog_data = recog_data;
+  bool i_invalid = insn_invalid_p (i, false); 
+  recog_data = prev_recog_data;
+  
+  if (i_invalid)
+    FAIL;
+    
+  sh_check_add_incdec_notes (i);
+  
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
 })

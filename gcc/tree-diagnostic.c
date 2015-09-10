@@ -22,11 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-diagnostic.h"
@@ -58,11 +56,11 @@ default_tree_diagnostic_starter (diagnostic_context *context,
 /* This is a pair made of a location and the line map it originated
    from.  It's used in the maybe_unwind_expanded_macro_loc function
    below.  */
-typedef struct
+struct loc_map_pair
 {
   const line_map_macro *map;
   source_location where;
-} loc_map_pair;
+};
 
 
 /* Unwind the different macro expansions that lead to the token which

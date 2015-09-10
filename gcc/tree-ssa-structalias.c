@@ -21,38 +21,20 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "obstack.h"
-#include "bitmap.h"
-#include "sbitmap.h"
-#include "flags.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "flags.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -68,8 +50,6 @@
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "tree-pretty-print.h"
 #include "gimple-walk.h"
 
@@ -342,7 +322,7 @@ static varinfo_t lookup_vi_for_tree (tree);
 static inline bool type_can_have_subvars (const_tree);
 
 /* Pool of variable info structures.  */
-static pool_allocator<variable_info> variable_info_pool
+static object_allocator<variable_info> variable_info_pool
   ("Variable info pool", 30);
 
 /* Map varinfo to final pt_solution.  */
@@ -499,7 +479,7 @@ get_call_clobber_vi (gcall *call)
 }
 
 
-typedef enum {SCALAR, DEREF, ADDRESSOF} constraint_expr_type;
+enum constraint_expr_type {SCALAR, DEREF, ADDRESSOF};
 
 /* An expression that appears in a constraint.  */
 
@@ -543,7 +523,7 @@ struct constraint
 /* List of constraints that we use to build the constraint graph from.  */
 
 static vec<constraint_t> constraints;
-static pool_allocator<constraint> constraint_pool ("Constraint pool", 30);
+static object_allocator<constraint> constraint_pool ("Constraint pool", 30);
 
 /* The constraint graph is represented as an array of bitmaps
    containing successor nodes.  */
@@ -1927,10 +1907,8 @@ typedef const struct equiv_class_label *const_equiv_class_label_t;
 
 /* Equiv_class_label hashtable helpers.  */
 
-struct equiv_class_hasher : typed_free_remove <equiv_class_label>
+struct equiv_class_hasher : free_ptr_hash <equiv_class_label>
 {
-  typedef equiv_class_label *value_type;
-  typedef equiv_class_label *compare_type;
   static inline hashval_t hash (const equiv_class_label *);
   static inline bool equal (const equiv_class_label *,
 			    const equiv_class_label *);
@@ -4739,7 +4717,7 @@ find_func_aliases (struct function *fn, gimple origt)
 	    }
 	  else if (truth_value_p (code))
 	    /* Truth value results are not pointer (parts).  Or at least
-	       very very unreasonable obfuscation of a part.  */
+	       very unreasonable obfuscation of a part.  */
 	    ;
 	  else
 	    {
@@ -5161,7 +5139,7 @@ first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
   while (start)
     {
       /* We may not find a variable in the field list with the actual
-	 offset when when we have glommed a structure to a variable.
+	 offset when we have glommed a structure to a variable.
 	 In that case, however, offset should still be within the size
 	 of the variable. */
       if (offset >= start->offset
@@ -5188,7 +5166,7 @@ first_or_preceding_vi_for_offset (varinfo_t start,
     start = get_varinfo (start->head);
 
   /* We may not find a variable in the field list with the actual
-     offset when when we have glommed a structure to a variable.
+     offset when we have glommed a structure to a variable.
      In that case, however, offset should still be within the size
      of the variable.
      If we got beyond the offset we look for return the field
@@ -5645,7 +5623,6 @@ create_variable_info_for_1 (tree decl, const char *name)
   auto_vec<fieldoff_s> fieldstack;
   fieldoff_s *fo;
   unsigned int i;
-  varpool_node *vnode;
 
   if (!declsize
       || !tree_fits_uhwi_p (declsize))
@@ -5663,12 +5640,10 @@ create_variable_info_for_1 (tree decl, const char *name)
   /* Collect field information.  */
   if (use_field_sensitive
       && var_can_have_subvars (decl)
-      /* ???  Force us to not use subfields for global initializers
-	 in IPA mode.  Else we'd have to parse arbitrary initializers.  */
+      /* ???  Force us to not use subfields for globals in IPA mode.
+	 Else we'd have to parse arbitrary initializers.  */
       && !(in_ipa_mode
-	   && is_global_var (decl)
-	   && (vnode = varpool_node::get (decl))
-	   && vnode->get_constructor ()))
+	   && is_global_var (decl)))
     {
       fieldoff_s *fo = NULL;
       bool notokay = false;
@@ -5800,13 +5775,13 @@ create_variable_info_for (tree decl, const char *name)
 
 	  /* If this is a global variable with an initializer and we are in
 	     IPA mode generate constraints for it.  */
-	  if (vnode->get_constructor ()
-	      && vnode->definition)
+	  ipa_ref *ref;
+	  for (unsigned idx = 0; vnode->iterate_reference (idx, ref); ++idx)
 	    {
 	      auto_vec<ce_s> rhsc;
 	      struct constraint_expr lhs, *rhsp;
 	      unsigned i;
-	      get_constraint_for_rhs (vnode->get_constructor (), &rhsc);
+	      get_constraint_for_address_of (ref->referred->decl, &rhsc);
 	      lhs.var = vi->id;
 	      lhs.offset = 0;
 	      lhs.type = SCALAR;
@@ -5956,10 +5931,8 @@ typedef const struct shared_bitmap_info *const_shared_bitmap_info_t;
 
 /* Shared_bitmap hashtable helpers.  */
 
-struct shared_bitmap_hasher : typed_free_remove <shared_bitmap_info>
+struct shared_bitmap_hasher : free_ptr_hash <shared_bitmap_info>
 {
-  typedef shared_bitmap_info *value_type;
-  typedef shared_bitmap_info *compare_type;
   static inline hashval_t hash (const shared_bitmap_info *);
   static inline bool equal (const shared_bitmap_info *,
 			    const shared_bitmap_info *);

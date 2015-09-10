@@ -21,30 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "symtab.h"
-#include "alias.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
 #include "flags.h"
@@ -97,7 +86,7 @@ along with GCC; see the file COPYING3.  If not see
    to indicate if lb and ub value are inclusive
    respectively.  */
 
-typedef struct input_domain
+struct inp_domain
 {
   int lb;
   int ub;
@@ -105,7 +94,7 @@ typedef struct input_domain
   bool has_ub;
   bool is_lb_inclusive;
   bool is_ub_inclusive;
-} inp_domain;
+};
 
 /* A helper function to construct and return an input
    domain object.  LB is the lower bound, HAS_LB is

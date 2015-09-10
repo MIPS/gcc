@@ -21,10 +21,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "options.h"
-#include "input.h"
+#include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -41,11 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
 #include "c-target.h"
-#include "tm.h"			/* For BYTES_BIG_ENDIAN,
-				   DOLLARS_IN_IDENTIFIERS,
-				   STDC_0_IN_SYSTEM_HEADERS,
-				   TARGET_FLT_EVAL_METHOD_NON_DEFAULT and
-				   TARGET_OPTF.  */
 #include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
 #include "dumpfile.h"
 
@@ -860,6 +853,10 @@ c_common_post_options (const char **pfilename)
   if (warn_implicit_int == -1)
     warn_implicit_int = flag_isoc99;
 
+  /* -Wshift-overflow is enabled by default in C99 and C++11 modes.  */
+  if (warn_shift_overflow == -1)
+    warn_shift_overflow = cxx_dialect >= cxx11 || flag_isoc99;
+
   /* -Wshift-negative-value is enabled by -Wextra in C99 and C++11 modes.  */
   if (warn_shift_negative_value == -1)
     warn_shift_negative_value = (extra_warnings
@@ -888,11 +885,11 @@ c_common_post_options (const char **pfilename)
   /* Change flag_abi_version to be the actual current ABI level for the
      benefit of c_cpp_builtins.  */
   if (flag_abi_version == 0)
-    flag_abi_version = 9;
+    flag_abi_version = 10;
 
-  /* Set C++ standard to C++98 if not specified on the command line.  */
+  /* Set C++ standard to C++14 if not specified on the command line.  */
   if (c_dialect_cxx () && cxx_dialect == cxx_unset)
-    set_std_cxx98 (/*ISO*/false);
+    set_std_cxx14 (/*ISO*/false);
 
   if (cxx_dialect >= cxx11)
     {
@@ -1561,6 +1558,8 @@ set_std_cxx1z (int iso)
   /* C++11 includes the C99 standard library.  */
   flag_isoc94 = 1;
   flag_isoc99 = 1;
+  /* Enable concepts by default. */
+  flag_concepts = 1;
   flag_isoc11 = 1;
   cxx_dialect = cxx1z;
   lang_hooks.name = "GNU C++14"; /* Pretend C++14 till standarization.  */

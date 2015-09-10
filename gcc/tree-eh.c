@@ -20,15 +20,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "hard-reg-set.h"
-#include "function.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -40,28 +39,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
@@ -200,10 +184,8 @@ struct finally_tree_node
 
 /* Hashtable helpers.  */
 
-struct finally_tree_hasher : typed_free_remove <finally_tree_node>
+struct finally_tree_hasher : free_ptr_hash <finally_tree_node>
 {
-  typedef finally_tree_node *value_type;
-  typedef finally_tree_node *compare_type;
   static inline hashval_t hash (const finally_tree_node *);
   static inline bool equal (const finally_tree_node *,
 			    const finally_tree_node *);
@@ -343,7 +325,7 @@ static gimple_seq eh_seq;
    indexed by EH region number.  */
 static bitmap eh_region_may_contain_throw_map;
 
-/* The GOTO_QUEUE is is an array of GIMPLE_GOTO and GIMPLE_RETURN
+/* The GOTO_QUEUE is an array of GIMPLE_GOTO and GIMPLE_RETURN
    statements that are seen to escape this GIMPLE_TRY_FINALLY node.
    The idea is to record a gimple statement for everything except for
    the conditionals, which get their labels recorded. Since labels are

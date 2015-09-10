@@ -210,6 +210,13 @@ enum var_init_status
   VAR_INIT_STATUS_INITIALIZED
 };
 
+/* The type of an alias set.  Code currently assumes that variables of
+   this type can take the values 0 (the alias set which aliases
+   everything) and -1 (sometimes indicating that the alias set is
+   unknown, sometimes indicating a memory barrier) and -2 (indicating
+   that the alias set should be set to a unique value but has not been
+   set yet).  */
+typedef int alias_set_type;
 
 struct edge_def;
 typedef struct edge_def *edge;
@@ -263,6 +270,16 @@ enum function_class {
   function_c11_misc
 };
 
+/* Enumerate visibility settings.  This is deliberately ordered from most
+   to least visibility.  */
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_PROTECTED,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_INTERNAL
+};
+
 /* Suppose that higher bits are target dependent. */
 #define MEMMODEL_MASK ((1<<16)-1)
 
@@ -309,6 +326,8 @@ typedef unsigned char uchar;
 #include "fixed-value.h"
 #include "hash-table.h"
 #include "hash-set.h"
+#include "input.h"
+#include "is-a.h"
 #endif /* GENERATOR_FILE && !USED_FOR_TARGET */
 
 #endif /* coretypes.h */

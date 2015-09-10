@@ -39,6 +39,7 @@
 #include <ext/atomicity.h>
 #include <ext/alloc_traits.h>
 #include <debug/debug.h>
+
 #if __cplusplus >= 201103L
 #include <initializer_list>
 #endif
@@ -829,7 +830,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       const_reference
       operator[] (size_type __pos) const _GLIBCXX_NOEXCEPT
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+	__glibcxx_assert(__pos <= size());
 	return _M_data()[__pos];
       }
 
@@ -848,7 +849,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
       {
         // Allow pos == size() both in C++98 mode, as v3 extension,
 	// and in C++11 mode.
-	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+	__glibcxx_assert(__pos <= size());
         // In pedantic mode be strict in C++98 mode.
 	_GLIBCXX_DEBUG_PEDASSERT(__cplusplus >= 201103L || __pos < size());
 	return _M_data()[__pos];
@@ -903,7 +904,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       reference
       front() noexcept
-      { return operator[](0); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -911,7 +915,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       const_reference
       front() const noexcept
-      { return operator[](0); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read/write reference to the data at the last
@@ -919,7 +926,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       reference
       back() noexcept
-      { return operator[](this->size() - 1); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](this->size() - 1);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the
@@ -927,7 +937,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       const_reference
       back() const noexcept
-      { return operator[](this->size() - 1); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](this->size() - 1);
+      }
 #endif
 
       // Modifiers:
@@ -1506,7 +1519,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CXX11
        */
       void
       pop_back() noexcept
-      { _M_erase(size()-1, 1); }
+      {
+	__glibcxx_assert(!empty());
+	_M_erase(size() - 1, 1);
+      }
 #endif // C++11
 
       /**
@@ -2585,11 +2601,32 @@ _GLIBCXX_END_NAMESPACE_CXX11
 
         bool
 	_M_is_leaked() const _GLIBCXX_NOEXCEPT
-        { return this->_M_refcount < 0; }
+        {
+#if defined(__GTHREADS)
+          // _M_refcount is mutated concurrently by _M_refcopy/_M_dispose,
+          // so we need to use an atomic load. However, _M_is_leaked
+          // predicate does not change concurrently (i.e. the string is either
+          // leaked or not), so a relaxed load is enough.
+          return __atomic_load_n(&this->_M_refcount, __ATOMIC_RELAXED) < 0;
+#else
+          return this->_M_refcount < 0;
+#endif
+        }
 
         bool
 	_M_is_shared() const _GLIBCXX_NOEXCEPT
-        { return this->_M_refcount > 0; }
+	{
+#if defined(__GTHREADS)
+          // _M_refcount is mutated concurrently by _M_refcopy/_M_dispose,
+          // so we need to use an atomic load. Another thread can drop last
+          // but one reference concurrently with this check, so we need this
+          // load to be acquire to synchronize with release fetch_and_add in
+          // _M_dispose.
+          return __atomic_load_n(&this->_M_refcount, __ATOMIC_ACQUIRE) > 0;
+#else
+          return this->_M_refcount > 0;
+#endif
+        }
 
         void
 	_M_set_leaked() _GLIBCXX_NOEXCEPT
@@ -2638,6 +2675,14 @@ _GLIBCXX_END_NAMESPACE_CXX11
 	    {
 	      // Be race-detector-friendly.  For more info see bits/c++config.
 	      _GLIBCXX_SYNCHRONIZATION_HAPPENS_BEFORE(&this->_M_refcount);
+              // Decrement of _M_refcount is acq_rel, because:
+              // - all but last decrements need to release to synchronize with
+              //   the last decrement that will delete the object.
+              // - the last decrement needs to acquire to synchronize with
+              //   all the previous decrements.
+              // - last but one decrement needs to release to synchronize with
+              //   the acquire load in _M_is_shared that will conclude that
+              //   the object is not shared anymore.
 	      if (__gnu_cxx::__exchange_and_add_dispatch(&this->_M_refcount,
 							 -1) <= 0)
 		{
@@ -3231,7 +3276,7 @@ _GLIBCXX_END_NAMESPACE_CXX11
       const_reference
       operator[] (size_type __pos) const _GLIBCXX_NOEXCEPT
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+	__glibcxx_assert(__pos <= size());
 	return _M_data()[__pos];
       }
 
@@ -3250,7 +3295,7 @@ _GLIBCXX_END_NAMESPACE_CXX11
       {
         // Allow pos == size() both in C++98 mode, as v3 extension,
 	// and in C++11 mode.
-	_GLIBCXX_DEBUG_ASSERT(__pos <= size());
+	__glibcxx_assert(__pos <= size());
         // In pedantic mode be strict in C++98 mode.
 	_GLIBCXX_DEBUG_PEDASSERT(__cplusplus >= 201103L || __pos < size());
 	_M_leak();
@@ -3308,7 +3353,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       reference
       front()
-      { return operator[](0); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the first
@@ -3316,7 +3364,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       const_reference
       front() const _GLIBCXX_NOEXCEPT
-      { return operator[](0); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](0);
+      }
 
       /**
        *  Returns a read/write reference to the data at the last
@@ -3324,7 +3375,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       reference
       back()
-      { return operator[](this->size() - 1); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](this->size() - 1);
+      }
 
       /**
        *  Returns a read-only (constant) reference to the data at the
@@ -3332,7 +3386,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       const_reference
       back() const _GLIBCXX_NOEXCEPT
-      { return operator[](this->size() - 1); }
+      {
+	__glibcxx_assert(!empty());
+	return operator[](this->size() - 1);
+      }
 #endif
 
       // Modifiers:
@@ -3819,7 +3876,10 @@ _GLIBCXX_END_NAMESPACE_CXX11
        */
       void
       pop_back() // FIXME C++11: should be noexcept.
-      { erase(size()-1, 1); }
+      {
+	__glibcxx_assert(!empty());
+	erase(size() - 1, 1);
+      }
 #endif // C++11
 
       /**

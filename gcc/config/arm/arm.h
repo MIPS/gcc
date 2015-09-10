@@ -193,11 +193,13 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_VFP_DOUBLE (TARGET_VFP && arm_fpu_desc->regs != VFP_REG_SINGLE)
 
 /* FPU supports half-precision floating-point with NEON element load/store.  */
-#define TARGET_NEON_FP16 \
-  (TARGET_VFP && arm_fpu_desc->neon && arm_fpu_desc->fp16)
+#define TARGET_NEON_FP16						\
+  (TARGET_VFP								\
+   && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_NEON | FPU_FL_FP16))
 
 /* FPU supports VFP half-precision floating-point.  */
-#define TARGET_FP16 (TARGET_VFP && arm_fpu_desc->fp16)
+#define TARGET_FP16							\
+  (TARGET_VFP && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_FP16))
 
 /* FPU supports fused-multiply-add operations.  */
 #define TARGET_FMA (TARGET_VFP && arm_fpu_desc->rev >= 4)
@@ -206,14 +208,18 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_FPU_ARMV8 (TARGET_VFP && arm_fpu_desc->rev >= 8)
 
 /* FPU supports Crypto extensions.  */
-#define TARGET_CRYPTO (TARGET_VFP && arm_fpu_desc->crypto)
+#define TARGET_CRYPTO							\
+  (TARGET_VFP && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_CRYPTO))
+
 
 /* FPU supports Neon instructions.  The setting of this macro gets
    revealed via __ARM_NEON__ so we add extra guards upon TARGET_32BIT
    and TARGET_HARD_FLOAT to ensure that NEON instructions are
    available.  */
-#define TARGET_NEON (TARGET_32BIT && TARGET_HARD_FLOAT \
-		     && TARGET_VFP && arm_fpu_desc->neon)
+#define TARGET_NEON							\
+  (TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP			\
+   && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_NEON))
+
 
 /* Q-bit is present.  */
 #define TARGET_ARM_QBIT_P(flags) \
@@ -318,6 +324,19 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
   {"mode", "%{!marm:%{!mthumb:-m%(VALUE)}}"}, \
   {"tls", "%{!mtls-dialect=*:-mtls-dialect=%(VALUE)}"},
 
+/* FPU feature sets.  */
+
+typedef unsigned long arm_fpu_feature_set;
+
+/* Test for an FPU feature.  */
+#define ARM_FPU_FSET_HAS(S,F) (((S) & (F)) == (F))
+
+/* FPU Features.  */
+#define FPU_FL_NONE	(0)
+#define FPU_FL_NEON	(1 << 0)	/* NEON instructions.  */
+#define FPU_FL_FP16	(1 << 1)	/* Half-precision.  */
+#define FPU_FL_CRYPTO	(1 << 2)	/* Crypto extensions.  */
+
 /* Which floating point model to use.  */
 enum arm_fp_model
 {
@@ -340,9 +359,7 @@ extern const struct arm_fpu_desc
   enum arm_fp_model model;
   int rev;
   enum vfp_reg_type regs;
-  int neon;
-  int fp16;
-  int crypto;
+  arm_fpu_feature_set features;
 } *arm_fpu_desc;
 
 /* Which floating point hardware to schedule for.  */
@@ -374,7 +391,7 @@ enum base_architecture
   BASE_ARCH_5TEJ = 5,
   BASE_ARCH_6 = 6,
   BASE_ARCH_6J = 6,
-  BASE_ARCH_6ZK = 6,
+  BASE_ARCH_6KZ = 6,
   BASE_ARCH_6K = 6,
   BASE_ARCH_6T2 = 6,
   BASE_ARCH_6M = 6,
@@ -999,7 +1016,7 @@ extern int arm_arch_crc;
 /* Modes valid for Neon Q registers.  */
 #define VALID_NEON_QREG_MODE(MODE) \
   ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
-   || (MODE) == V4SFmode || (MODE) == V2DImode)
+   || (MODE) == V8HFmode || (MODE) == V4SFmode || (MODE) == V2DImode)
 
 /* Structure modes valid for Neon registers.  */
 #define VALID_NEON_STRUCT_MODE(MODE) \
@@ -1904,7 +1921,7 @@ enum arm_auto_incmodes
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
-#define WORD_REGISTER_OPERATIONS
+#define WORD_REGISTER_OPERATIONS 1
 
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should

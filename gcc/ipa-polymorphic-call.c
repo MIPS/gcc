@@ -21,17 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "calls.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -43,19 +40,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-pass.h"
 #include "target.h"
-#include "tree-pretty-print.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -68,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "intl.h"
 #include "data-streamer.h"
-#include "lto-streamer.h"
 #include "streamer-hooks.h"
 #include "tree-ssa-operands.h"
 #include "tree-into-ssa.h"
@@ -1583,13 +1570,15 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 		    = get_ref_base_and_extent (ref_exp, &offset2, &size,
 					       &max_size, &reverse);
 
-		  /* Finally verify that what we found looks like read from OTR_OBJECT
-		     or from INSTANCE with offset OFFSET.  */
+		  /* Finally verify that what we found looks like read from
+		     OTR_OBJECT or from INSTANCE with offset OFFSET.  */
 		  if (base_ref
 		      && ((TREE_CODE (base_ref) == MEM_REF
 		           && ((offset2 == instance_offset
 		                && TREE_OPERAND (base_ref, 0) == instance)
-			       || (!offset2 && TREE_OPERAND (base_ref, 0) == otr_object)))
+			       || (!offset2
+				   && TREE_OPERAND (base_ref, 0)
+				      == otr_object)))
 			  || (DECL_P (instance) && base_ref == instance
 			      && offset2 == instance_offset)))
 		    {
@@ -1617,9 +1606,17 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
   /* We look for vtbl pointer read.  */
   ao.size = POINTER_SIZE;
   ao.max_size = ao.size;
+  /* We are looking for stores to vptr pointer within the instance of
+     outer type.
+     TODO: The vptr pointer type is globally known, we probably should
+     keep it and do that even when otr_type is unknown.  */
   if (otr_type)
-    ao.ref_alias_set
-      = get_deref_alias_set (TREE_TYPE (BINFO_VTABLE (TYPE_BINFO (otr_type))));
+    {
+      ao.base_alias_set
+	= get_alias_set (outer_type ? outer_type : otr_type);
+      ao.ref_alias_set
+        = get_alias_set (TREE_TYPE (BINFO_VTABLE (TYPE_BINFO (otr_type))));
+    }
 
   if (dump_file)
     {

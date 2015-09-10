@@ -204,13 +204,13 @@ extern rtx store_by_pieces (rtx, unsigned HOST_WIDE_INT,
 /* Emit insns to set X from Y.  */
 extern rtx_insn *emit_move_insn (rtx, rtx);
 extern rtx_insn *gen_move_insn (rtx, rtx);
-extern rtx gen_move_insn_uncast (rtx, rtx);
 
 /* Emit insns to set X from Y, with no frills.  */
 extern rtx_insn *emit_move_insn_1 (rtx, rtx);
 
 extern rtx_insn *emit_move_complex_push (machine_mode, rtx, rtx);
 extern rtx_insn *emit_move_complex_parts (rtx, rtx);
+extern rtx read_complex_part (rtx, bool);
 extern void write_complex_part (rtx, rtx, bool);
 extern rtx read_complex_part (rtx, bool);
 extern rtx emit_move_resolve_push (machine_mode, rtx);

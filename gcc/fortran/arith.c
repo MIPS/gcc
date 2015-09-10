@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "target-memory.h"
@@ -731,8 +731,28 @@ gfc_arith_divide (gfc_expr *op1, gfc_expr *op2, gfc_expr **resultp)
 	  break;
 	}
 
-      mpz_tdiv_q (result->value.integer, op1->value.integer,
-		  op2->value.integer);
+      if (warn_integer_division)
+	{
+	  mpz_t r;
+	  mpz_init (r);
+	  mpz_tdiv_qr (result->value.integer, r, op1->value.integer,
+		       op2->value.integer);
+
+	  if (mpz_cmp_si (r, 0) != 0)
+	    {
+	      char *p;
+	      p = mpz_get_str (NULL, 10, result->value.integer);
+	      gfc_warning_now (OPT_Winteger_division, "Integer division "
+			       "truncated to constant %qs at %L", p,
+			       &op1->where);
+	      free (p);
+	    }
+	  mpz_clear (r);
+	}
+      else
+	mpz_tdiv_q (result->value.integer, op1->value.integer,
+		    op2->value.integer);
+
       break;
 
     case BT_REAL:

@@ -21,48 +21,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "trans-mem.h"
 #include "stor-layout.h"
 #include "print-tree.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -87,6 +71,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "tree-cfgcleanup.h"
 #include "wide-int-print.h"
+#include "gimplify.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -125,6 +110,13 @@ struct cfg_stats_d
 
 static struct cfg_stats_d cfg_stats;
 
+/* Data to pass to replace_block_vars_by_duplicates_1.  */
+struct replace_decls_d
+{
+  hash_map<tree, tree> *vars_map;
+  tree to_context;
+};
+
 /* Hash table to store last discriminator assigned for each locus.  */
 struct locus_discrim_map
 {
@@ -134,10 +126,8 @@ struct locus_discrim_map
 
 /* Hashtable helpers.  */
 
-struct locus_discrim_hasher : typed_free_remove <locus_discrim_map>
+struct locus_discrim_hasher : free_ptr_hash <locus_discrim_map>
 {
-  typedef locus_discrim_map *value_type;
-  typedef locus_discrim_map *compare_type;
   static inline hashval_t hash (const locus_discrim_map *);
   static inline bool equal (const locus_discrim_map *,
 			    const locus_discrim_map *);
@@ -624,48 +614,6 @@ create_bb (void *h, void *e, basic_block after)
 				 Edge creation
 ---------------------------------------------------------------------------*/
 
-/* Fold COND_EXPR_COND of each COND_EXPR.  */
-
-void
-fold_cond_expr_cond (void)
-{
-  basic_block bb;
-
-  FOR_EACH_BB_FN (bb, cfun)
-    {
-      gimple stmt = last_stmt (bb);
-
-      if (stmt && gimple_code (stmt) == GIMPLE_COND)
-	{
-	  gcond *cond_stmt = as_a <gcond *> (stmt);
-	  location_t loc = gimple_location (stmt);
-	  tree cond;
-	  bool zerop, onep;
-
-	  fold_defer_overflow_warnings ();
-	  cond = fold_binary_loc (loc, gimple_cond_code (cond_stmt),
-				  boolean_type_node,
-				  gimple_cond_lhs (cond_stmt),
-				  gimple_cond_rhs (cond_stmt));
-	  if (cond)
-	    {
-	      zerop = integer_zerop (cond);
-	      onep = integer_onep (cond);
-	    }
-	  else
-	    zerop = onep = false;
-
-	  fold_undefer_overflow_warnings (zerop || onep,
-					  stmt,
-					  WARN_STRICT_OVERFLOW_CONDITIONAL);
-	  if (zerop)
-	    gimple_cond_make_false (cond_stmt);
-	  else if (onep)
-	    gimple_cond_make_true (cond_stmt);
-	}
-    }
-}
-
 /* If basic block BB has an abnormal edge to a basic block
    containing IFN_ABNORMAL_DISPATCHER internal call, return
    that the dispatcher's basic block, otherwise return NULL.  */
@@ -1018,9 +966,6 @@ make_edges (void)
   XDELETE (bb_to_omp_idx);
 
   free_omp_regions ();
-
-  /* Fold COND_EXPR_COND of each COND_EXPR.  */
-  fold_cond_expr_cond ();
 }
 
 /* Add SEQ after GSI.  Start new bb after GSI, and created further bbs as
@@ -2629,6 +2574,23 @@ delete_tree_cfg_annotations (void)
   vec_free (label_to_block_map_for_fn (cfun));
 }
 
+/* Return the virtual phi in BB.  */
+
+gphi *
+get_virtual_phi (basic_block bb)
+{
+  for (gphi_iterator gsi = gsi_start_phis (bb);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      gphi *phi = gsi.phi ();
+
+      if (virtual_operand_p (PHI_RESULT (phi)))
+	return phi;
+    }
+
+  return NULL;
+}
 
 /* Return the first statement in basic block BB.  */
 
@@ -4007,8 +3969,22 @@ verify_gimple_assign_ternary (gassign *stmt)
 	}
       break;
 
-    case COND_EXPR:
     case VEC_COND_EXPR:
+      if (!VECTOR_INTEGER_TYPE_P (rhs1_type)
+	  || TYPE_SIGN (rhs1_type) != SIGNED
+	  || TYPE_SIZE (rhs1_type) != TYPE_SIZE (lhs_type)
+	  || TYPE_VECTOR_SUBPARTS (rhs1_type)
+	     != TYPE_VECTOR_SUBPARTS (lhs_type))
+	{
+	  error ("the first argument of a VEC_COND_EXPR must be of a signed "
+		 "integral vector type of the same size and number of "
+		 "elements as the result");
+	  debug_generic_expr (lhs_type);
+	  debug_generic_expr (rhs1_type);
+	  return true;
+	}
+      /* Fallthrough.  */
+    case COND_EXPR:
       if (!useless_type_conversion_p (lhs_type, rhs2_type)
 	  || !useless_type_conversion_p (lhs_type, rhs3_type))
 	{
@@ -4076,10 +4052,8 @@ verify_gimple_assign_ternary (gassign *stmt)
     case SAD_EXPR:
       if (!useless_type_conversion_p (rhs1_type, rhs2_type)
 	  || !useless_type_conversion_p (lhs_type, rhs3_type)
-	  || 2 * GET_MODE_BITSIZE (GET_MODE_INNER
-				     (TYPE_MODE (TREE_TYPE (rhs1_type))))
-	       > GET_MODE_BITSIZE (GET_MODE_INNER
-				     (TYPE_MODE (TREE_TYPE (lhs_type)))))
+	  || 2 * GET_MODE_UNIT_BITSIZE (TYPE_MODE (TREE_TYPE (rhs1_type)))
+	       > GET_MODE_UNIT_BITSIZE (TYPE_MODE (TREE_TYPE (lhs_type))))
 	{
 	  error ("type mismatch in sad expression");
 	  debug_generic_expr (lhs_type);
@@ -6446,16 +6420,18 @@ replace_ssa_name (tree name, hash_map<tree, tree> *vars_map,
       tree decl = SSA_NAME_VAR (name);
       if (decl)
 	{
+	  gcc_assert (!SSA_NAME_IS_DEFAULT_DEF (name));
 	  replace_by_duplicate_decl (&decl, vars_map, to_context);
 	  new_name = make_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
 				       decl, SSA_NAME_DEF_STMT (name));
-	  if (SSA_NAME_IS_DEFAULT_DEF (name))
-	    set_ssa_default_def (DECL_STRUCT_FUNCTION (to_context),
-				 decl, new_name);
 	}
       else
 	new_name = copy_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
 				     name, SSA_NAME_DEF_STMT (name));
+
+      /* Now that we've used the def stmt to define new_name, make sure it
+	 doesn't define name anymore.  */
+      SSA_NAME_DEF_STMT (name) = NULL;
 
       vars_map->put (name, new_name);
     }
@@ -6508,6 +6484,9 @@ move_stmt_op (tree *tp, int *walk_subtrees, void *data)
     {
       if (TREE_CODE (t) == SSA_NAME)
 	*tp = replace_ssa_name (t, p->vars_map, p->to_context);
+      else if (TREE_CODE (t) == PARM_DECL
+	       && gimple_in_ssa_p (cfun))
+	*tp = *(p->vars_map->get (t));
       else if (TREE_CODE (t) == LABEL_DECL)
 	{
 	  if (p->new_label_map)
@@ -6885,6 +6864,31 @@ new_label_mapper (tree decl, void *data)
   return m->to;
 }
 
+/* Tree walker to replace the decls used inside value expressions by
+   duplicates.  */
+
+static tree
+replace_block_vars_by_duplicates_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  struct replace_decls_d *rd = (struct replace_decls_d *)data;
+
+  switch (TREE_CODE (*tp))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+      replace_by_duplicate_decl (tp, rd->vars_map, rd->to_context);
+      break;
+    default:
+      break;
+    }
+
+  if (IS_TYPE_OR_DECL_P (*tp))
+    *walk_subtrees = false;
+
+  return NULL;
+}
+
 /* Change DECL_CONTEXT of all BLOCK_VARS in block, including
    subblocks.  */
 
@@ -6904,7 +6908,11 @@ replace_block_vars_by_duplicates (tree block, hash_map<tree, tree> *vars_map,
 	{
 	  if (TREE_CODE (*tp) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (*tp))
 	    {
-	      SET_DECL_VALUE_EXPR (t, DECL_VALUE_EXPR (*tp));
+	      tree x = DECL_VALUE_EXPR (*tp);
+	      struct replace_decls_d rd = { vars_map, to_context };
+	      unshare_expr (x);
+	      walk_tree (&x, replace_block_vars_by_duplicates_1, &rd, NULL);
+	      SET_DECL_VALUE_EXPR (t, x);
 	      DECL_HAS_VALUE_EXPR_P (t) = 1;
 	    }
 	  DECL_CHAIN (t) = DECL_CHAIN (*tp);
@@ -6989,6 +6997,19 @@ verify_sese (basic_block entry, basic_block exit, vec<basic_block> *bbs_p)
   BITMAP_FREE (bbs);
 }
 
+/* If FROM is an SSA_NAME, mark the version in bitmap DATA.  */
+
+bool
+gather_ssa_name_hash_map_from (tree const &from, tree const &, void *data)
+{
+  bitmap release_names = (bitmap)data;
+
+  if (TREE_CODE (from) != SSA_NAME)
+    return true;
+
+  bitmap_set_bit (release_names, SSA_NAME_VERSION (from));
+  return true;
+}
 
 /* Move a single-entry, single-exit region delimited by ENTRY_BB and
    EXIT_BB to function DEST_CFUN.  The whole region is replaced by a
@@ -7006,7 +7027,11 @@ verify_sese (basic_block entry, basic_block exit, vec<basic_block> *bbs_p)
 
    All local variables referenced in the region are assumed to be in
    the corresponding BLOCK_VARS and unexpanded variable lists
-   associated with DEST_CFUN.  */
+   associated with DEST_CFUN.
+
+   TODO: investigate whether we can reuse gimple_duplicate_sese_region to
+   reimplement move_sese_region_to_fn by duplicating the region rather than
+   moving it.  */
 
 basic_block
 move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
@@ -7182,6 +7207,14 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   d.eh_map = eh_map;
   d.remap_decls_p = true;
 
+  if (gimple_in_ssa_p (cfun))
+    for (tree arg = DECL_ARGUMENTS (d.to_context); arg; arg = DECL_CHAIN (arg))
+      {
+	tree narg = make_ssa_name_fn (dest_cfun, arg, gimple_build_nop ());
+	set_ssa_default_def (dest_cfun, arg, narg);
+	vars_map.put (arg, narg);
+      }
+
   FOR_EACH_VEC_ELT (bbs, i, bb)
     {
       /* No need to update edge counts on the last block.  It has
@@ -7238,6 +7271,19 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
     htab_delete (new_label_map);
   if (eh_map)
     delete eh_map;
+
+  if (gimple_in_ssa_p (cfun))
+    {
+      /* We need to release ssa-names in a defined order, so first find them,
+	 and then iterate in ascending version order.  */
+      bitmap release_names = BITMAP_ALLOC (NULL);
+      vars_map.traverse<void *, gather_ssa_name_hash_map_from> (release_names);
+      bitmap_iterator bi;
+      unsigned i;
+      EXECUTE_IF_SET_IN_BITMAP (release_names, 0, i, bi)
+	release_ssa_name (ssa_name (i));
+      BITMAP_FREE (release_names);
+    }
 
   /* Rewire the entry and exit blocks.  The successor to the entry
      block turns into the successor of DEST_FN's ENTRY_BLOCK_PTR in

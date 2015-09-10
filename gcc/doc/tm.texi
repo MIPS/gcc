@@ -412,7 +412,7 @@ If defined, this macro is an additional prefix to try after
 @code{STANDARD_EXEC_PREFIX}.  @code{MD_EXEC_PREFIX} is not searched
 when the compiler is built as a cross
 compiler.  If you define @code{MD_EXEC_PREFIX}, then be sure to add it
-to the list of directories used to find the assembler in @file{configure.in}.
+to the list of directories used to find the assembler in @file{configure.ac}.
 @end defmac
 
 @defmac STANDARD_STARTFILE_PREFIX
@@ -1098,7 +1098,7 @@ that is being placed in memory.  @var{constant} is the constant and
 have.  The value of this macro is used instead of that alignment to
 align the object.
 
-If this macro is not defined, then @var{basic-align} is used.
+The default definition just returns @var{basic-align}.
 
 The typical use of this macro is to increase alignment for string
 constants to be word aligned so that @code{strcpy} calls that copy
@@ -5720,6 +5720,14 @@ The default is @code{NULL_TREE} which means to not vectorize gather
 loads.
 @end deftypefn
 
+@deftypefn {Target Hook} tree TARGET_VECTORIZE_BUILTIN_SCATTER (const_tree @var{vectype}, const_tree @var{index_type}, int @var{scale})
+Target builtin that implements vector scatter operation.  @var{vectype}
+is the vector type of the store and @var{index_type} is scalar type of
+the index, scaled by @var{scale}.
+The default is @code{NULL_TREE} which means to not vectorize scatter
+stores.
+@end deftypefn
+
 @deftypefn {Target Hook} int TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN (struct cgraph_node *@var{}, struct cgraph_simd_clone *@var{}, @var{tree}, @var{int})
 This hook should set @var{vecsize_mangle}, @var{vecsize_int}, @var{vecsize_float}
 fields in @var{simd_clone} structure pointed by @var{clone_info} argument and also
@@ -6357,7 +6365,7 @@ Define this macro if a non-short-circuit operation produced by
 @code{BRANCH_COST} is greater than or equal to the value 2.
 @end defmac
 
-@deftypefn {Target Hook} bool TARGET_RTX_COSTS (rtx @var{x}, int @var{code}, int @var{outer_code}, int @var{opno}, int *@var{total}, bool @var{speed})
+@deftypefn {Target Hook} bool TARGET_RTX_COSTS (rtx @var{x}, machine_mode @var{mode}, int @var{outer_code}, int @var{opno}, int *@var{total}, bool @var{speed})
 This target hook describes the relative costs of RTL expressions.
 
 The cost may depend on the precise form of the expression, which is
@@ -6368,8 +6376,8 @@ that @samp{GET_CODE (@var{y}) == @var{outer_code}} and such that
 either (a) @samp{XEXP (@var{y}, @var{opno}) == @var{x}} or
 (b) @samp{XVEC (@var{y}, @var{opno})} contains @var{x}.
 
-@var{code} is @var{x}'s expression code---redundant, since it can be
-obtained with @code{GET_CODE (@var{x})}.
+@var{mode} is @var{x}'s machine mode, or for cases like @code{const_int} that
+do not have a mode, the mode in which @var{x} is used.
 
 In implementing this hook, you can use the construct
 @code{COSTS_N_INSNS (@var{n})} to specify a cost equal to @var{n} fast
@@ -10377,7 +10385,7 @@ five otherwise.  This is best for most machines.
 @end deftypefn
 
 @defmac WORD_REGISTER_OPERATIONS
-Define this macro if operations between registers with integral mode
+Define this macro to 1 if operations between registers with integral mode
 smaller than a word are always performed on the entire register.
 Most RISC machines have this property and most CISC machines do not.
 @end defmac
@@ -10410,7 +10418,7 @@ is larger then @var{mem_mode} but still smaller than @code{word_mode}.
 @end defmac
 
 @defmac SHORT_IMMEDIATES_SIGN_EXTEND
-Define this macro if loading short immediate values into registers sign
+Define this macro to 1 if loading short immediate values into registers sign
 extends.
 @end defmac
 

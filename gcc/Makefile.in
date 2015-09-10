@@ -79,6 +79,9 @@ gcc_docdir = @srcdir@/doc
 abs_srcdir = @abs_srcdir@
 abs_docdir = @abs_srcdir@/doc
 
+# Directory where sources are, relative to here.
+top_srcdir = @top_srcdir@
+
 # Top build directory for this package, relative to here.
 top_builddir = .
 
@@ -176,6 +179,8 @@ C_STRICT_WARN = @c_strict_warn@
 NOCOMMON_FLAG = @nocommon_flag@
 
 NOEXCEPTION_FLAGS = @noexception_flags@
+
+ALIASING_FLAGS = @aliasing_flags@
 
 # This is set by --disable-maintainer-mode (default) to "#"
 # FIXME: 'MAINT' will always be set to an empty string, no matter if
@@ -866,7 +871,7 @@ DUMPFILE_H = $(srcdir)/../libcpp/include/line-map.h dumpfile.h
 VEC_H = vec.h statistics.h $(GGC_H)
 HASH_TABLE_H = $(HASHTAB_H) hash-table.h
 EXCEPT_H = except.h $(HASHTAB_H)
-TARGET_DEF = target.def target-hooks-macros.h
+TARGET_DEF = target.def target-hooks-macros.h target-insns.def
 C_TARGET_DEF = c-family/c-target.def target-hooks-macros.h
 COMMON_TARGET_DEF = common/common-target.def target-hooks-macros.h
 TARGET_H = $(TM_H) target.h $(TARGET_DEF) insn-modes.h insn-codes.h
@@ -983,7 +988,8 @@ ALL_CFLAGS = $(T_CFLAGS) $(CFLAGS-$@) \
 
 # The C++ version.
 ALL_CXXFLAGS = $(T_CFLAGS) $(CFLAGS-$@) $(CXXFLAGS) $(INTERNAL_CFLAGS) \
-  $(COVERAGE_FLAGS) $(NOEXCEPTION_FLAGS) $(WARN_CXXFLAGS) @DEFS@
+  $(COVERAGE_FLAGS) $(ALIASING_FLAGS) $(NOEXCEPTION_FLAGS) \
+  $(WARN_CXXFLAGS) @DEFS@
 
 # Likewise.  Put INCLUDES at the beginning: this way, if some autoconf macro
 # puts -I options in CPPFLAGS, our include files in the srcdir will always
@@ -1159,10 +1165,12 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o
 
 # Language-independent object files.
-# We put the insn-*.o files first so that a parallel make will build
-# them sooner, because they are large and otherwise tend to be the
-# last objects to finish building.
+# We put the *-match.o and insn-*.o files first so that a parallel make
+# will build them sooner, because they are large and otherwise tend to be
+# the last objects to finish building.
 OBJS = \
+	gimple-match.o \
+	generic-match.o \
 	insn-attrtab.o \
 	insn-automata.o \
 	insn-dfatab.o \
@@ -1255,9 +1263,8 @@ OBJS = \
 	gimple-expr.o \
 	gimple-iterator.o \
 	gimple-fold.o \
+	gimple-laddress.o \
 	gimple-low.o \
-	gimple-match.o \
-	generic-match.o \
 	gimple-pretty-print.o \
 	gimple-ssa-isolate-paths.o \
 	gimple-ssa-strength-reduction.o \
@@ -1270,10 +1277,8 @@ OBJS = \
 	graph.o \
 	graphds.o \
 	graphite.o \
-	graphite-blocking.o \
 	graphite-isl-ast-to-gimple.o \
 	graphite-dependences.o \
-	graphite-interchange.o \
 	graphite-optimize-isl.o \
 	graphite-poly.o \
 	graphite-scop-detection.o \
@@ -1343,7 +1348,6 @@ OBJS = \
 	mcf.o \
 	mode-switching.o \
 	modulo-sched.o \
-	omega.o \
 	omp-low.o \
 	optabs.o \
 	options-save.o \
@@ -1441,7 +1445,6 @@ OBJS = \
 	tree-ssa-ccp.o \
 	tree-ssa-coalesce.o \
 	tree-ssa-copy.o \
-	tree-ssa-copyrename.o \
 	tree-ssa-dce.o \
 	tree-ssa-dom.o \
 	tree-ssa-dse.o \
@@ -1522,7 +1525,7 @@ OBJS-libcommon-target = $(common_out_object_file) prefix.o params.o \
 ALL_HOST_FRONTEND_OBJS = $(foreach v,$(CONFIG_LANGUAGES),$($(v)_OBJS))
 
 ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
-  $(OBJS-libcommon-target) @TREEBROWSER@ main.o c-family/cppspec.o \
+  $(OBJS-libcommon-target) main.o c-family/cppspec.o \
   $(COLLECT2_OBJS) $(EXTRA_GCC_OBJS) $(GCOV_OBJS) $(GCOV_DUMP_OBJS) \
   $(GCOV_TOOL_OBJS) $(GENGTYPE_OBJS) gcc-ar.o gcc-nm.o gcc-ranlib.o \
   lto-wrapper.o collect-utils.o
@@ -1531,7 +1534,7 @@ ALL_HOST_BACKEND_OBJS = $(GCC_OBJS) $(OBJS) $(OBJS-libcommon) \
 # compilation or not.
 ALL_HOST_OBJS = $(ALL_HOST_FRONTEND_OBJS) $(ALL_HOST_BACKEND_OBJS)
 
-BACKEND = libbackend.a main.o @TREEBROWSER@ libcommon-target.a libcommon.a \
+BACKEND = libbackend.a main.o libcommon-target.a libcommon.a \
 	$(CPPLIB) $(LIBDECNUMBER)
 
 # This is defined to "yes" if Tree checking is enabled, which roughly means
@@ -2078,7 +2081,8 @@ $(common_out_object_file): $(common_out_file)
 .PRECIOUS: insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-emit.c insn-recog.c insn-extract.c insn-output.c insn-peep.c \
   insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
-  insn-latencytab.c insn-preds.c gimple-match.c generic-match.c
+  insn-latencytab.c insn-preds.c gimple-match.c generic-match.c \
+  insn-target-def.h
 
 # Dependencies for the md file.  The first time through, we just assume
 # the md file itself and the generated dependency file (in order to get
@@ -2099,7 +2103,7 @@ s-mddeps: $(md_file) $(MD_INCLUDES) build/genmddeps$(build_exeext)
 # the target file.
 
 simple_rtl_generated_h	= insn-attr.h insn-attr-common.h insn-codes.h \
-			  insn-config.h insn-flags.h
+			  insn-config.h insn-flags.h insn-target-def.h
 
 simple_rtl_generated_c	= insn-automata.c insn-emit.c \
 			  insn-extract.c insn-output.c \
@@ -2321,7 +2325,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/dwarf2cfi.c \
   $(srcdir)/dwarf2out.c \
   $(srcdir)/tree-vect-generic.c \
-  $(srcdir)/dojump.c \
+  $(srcdir)/dojump.c $(srcdir)/emit-rtl.h \
   $(srcdir)/emit-rtl.c $(srcdir)/except.h $(srcdir)/explow.c $(srcdir)/expr.c \
   $(srcdir)/expr.h \
   $(srcdir)/function.c $(srcdir)/except.c \
@@ -2411,7 +2415,7 @@ generated_files = config.h tm.h $(TM_P_H) $(TM_H) multilib.h \
        $(ALL_GTFILES_H) gtype-desc.c gtype-desc.h gcov-iov.h \
        options.h target-hooks-def.h insn-opinit.h \
        common/common-target-hooks-def.h pass-instances.def \
-       c-family/c-target-hooks-def.h
+       c-family/c-target-hooks-def.h params.list
 
 #
 # How to compile object files to run on the build machine.
@@ -2498,6 +2502,9 @@ build/genextract.o : genextract.c $(RTL_BASE_H) $(BCONFIG_H)		\
   $(SYSTEM_H) coretypes.h $(GTM_H) errors.h $(READ_MD_H) gensupport.h
 build/genflags.o : genflags.c $(RTL_BASE_H) $(OBSTACK_H) $(BCONFIG_H)	\
   $(SYSTEM_H) coretypes.h $(GTM_H) errors.h $(READ_MD_H) gensupport.h
+build/gentarget-def.o : gentarget-def.c $(BCONFIG_H) $(SYSTEM_H)	\
+  coretypes.h $(GTM_H) $(RTL_BASE_H) errors.h $(READ_MD_H) gensupport.h	\
+  $(HASH_TABLE_H) target-insns.def
 build/gengenrtl.o : gengenrtl.c $(BCONFIG_H) $(SYSTEM_H) rtl.def
 
 # The gengtype generator program is special: Two versions are built.
@@ -2562,7 +2569,7 @@ build/genmatch.o : genmatch.c $(BCONFIG_H) $(SYSTEM_H) \
 
 # All these programs use the RTL reader ($(BUILD_RTL)).
 genprogrtl = attr attr-common attrtab automata codes conditions config emit \
-	     extract flags opinit output peep preds recog mddump
+	     extract flags mddump opinit output peep preds recog target-def
 $(genprogrtl:%=build/gen%$(build_exeext)): $(BUILD_RTL)
 
 # All these programs use the MD reader ($(BUILD_MD)).
@@ -3064,7 +3071,7 @@ doc/%.7: %.pod
 	$(STAMP) $@
 	-$(TEXI2POD) -DBUGURL="$(BUGURL_TEXI)" $< > $@
 
-.INTERMEDIATE: cpp.pod gcc.pod gfdl.pod fsf-funding.pod
+.INTERMEDIATE: cpp.pod gcc.pod gfdl.pod fsf-funding.pod gpl.pod
 cpp.pod: cpp.texi cppenv.texi cppopts.texi
 
 # These next rules exist because the output name is not the same as
@@ -3228,6 +3235,12 @@ installdirs:
 	$(mkinstalldirs) $(DESTDIR)$(infodir)
 	$(mkinstalldirs) $(DESTDIR)$(man1dir)
 	$(mkinstalldirs) $(DESTDIR)$(man7dir)
+
+params.list: s-params.list; @true
+s-params.list: $(srcdir)/params-list.h $(srcdir)/params.def
+	$(CPP) $(srcdir)/params-list.h | sed 's/^#.*//;/^$$/d' > tmp-params.list
+	$(SHELL) $(srcdir)/../move-if-change tmp-params.list params.list
+	$(STAMP) s-params.list
 
 PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   toplev.h $(DIAGNOSTIC_CORE_H) $(BASIC_BLOCK_H) $(HASH_TABLE_H) \

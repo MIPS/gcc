@@ -77,27 +77,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "stringpool.h"
 #include "rtl.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
+#include "cfganal.h"
+#include "internal-fn.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -113,17 +103,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "target.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
@@ -138,11 +122,11 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Per basic block info.  */
 
-typedef struct
+struct split_bb_info
 {
   unsigned int size;
   unsigned int time;
-} split_bb_info;
+};
 
 static vec<split_bb_info> bb_info_vec;
 
@@ -1024,7 +1008,7 @@ visit_bb (basic_block bb, basic_block return_bb,
 
 /* Stack entry for recursive DFS walk in find_split_point.  */
 
-typedef struct
+struct stack_entry
 {
   /* Basic block we are examining.  */
   basic_block bb;
@@ -1050,7 +1034,7 @@ typedef struct
 
   /* When false we can not split on this BB.  */
   bool can_split;
-} stack_entry;
+};
 
 
 /* Find all articulations and call consider_split on them.

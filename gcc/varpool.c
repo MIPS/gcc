@@ -21,21 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
@@ -43,10 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "target.h"
 #include "output.h"
-#include "gimple-expr.h"
 #include "flags.h"
-#include "tree-ssa-alias.h"
-#include "gimple.h"
 #include "lto-streamer.h"
 #include "context.h"
 #include "omp-low.h"
@@ -597,6 +586,12 @@ varpool_node::assemble_decl (void)
       gcc_assert (TREE_ASM_WRITTEN (decl));
       gcc_assert (definition);
       assemble_aliases ();
+      /* After the parser has generated debugging information, augment
+	 this information with any new location/etc information that may
+	 have become available after the compilation proper.  */
+      timevar_start (TV_PHASE_DBGINFO);
+      debug_hooks->late_global_decl (decl);
+      timevar_stop (TV_PHASE_DBGINFO);
       return true;
     }
 

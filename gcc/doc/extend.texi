@@ -2191,6 +2191,7 @@ GCC plugins may provide their own attributes.
 
 @menu
 * Common Function Attributes::
+* AArch64 Function Attributes::
 * ARC Function Attributes::
 * ARM Function Attributes::
 * AVR Function Attributes::
@@ -3322,6 +3323,145 @@ easier to pack regions.
 
 @c This is the end of the target-independent attribute table
 
+@node AArch64 Function Attributes
+@subsection AArch64 Function Attributes
+
+The following target-specific function attributes are available for the
+AArch64 target.  For the most part, these options mirror the behavior of
+similar command-line options (@pxref{AArch64 Options}), but on a
+per-function basis.
+
+@table @code
+@item general-regs-only
+@cindex @code{general-regs-only} function attribute, AArch64
+Indicates that no floating-point or Advanced SIMD registers should be
+used when generating code for this function.  If the function explicitly
+uses floating-point code, then the compiler gives an error.  This is
+the same behavior as that of the command-line option
+@option{-mgeneral-regs-only}.
+
+@item fix-cortex-a53-835769
+@cindex @code{fix-cortex-a53-835769} function attribute, AArch64
+Indicates that the workaround for the Cortex-A53 erratum 835769 should be
+applied to this function.  To explicitly disable the workaround for this
+function specify the negated form: @code{no-fix-cortex-a53-835769}.
+This corresponds to the behavior of the command line options
+@option{-mfix-cortex-a53-835769} and @option{-mno-fix-cortex-a53-835769}.
+
+@item cmodel=
+@cindex @code{cmodel=} function attribute, AArch64
+Indicates that code should be generated for a particular code model for
+this function.  The behavior and permissible arguments are the same as
+for the command line option @option{-mcmodel=}.
+
+@item strict-align
+@cindex @code{strict-align} function attribute, AArch64
+Indicates that the compiler should not assume that unaligned memory references
+are handled by the system.  The behavior is the same as for the command-line
+option @option{-mstrict-align}.
+
+@item omit-leaf-frame-pointer
+@cindex @code{omit-leaf-frame-pointer} function attribute, AArch64
+Indicates that the frame pointer should be omitted for a leaf function call.
+To keep the frame pointer, the inverse attribute
+@code{no-omit-leaf-frame-pointer} can be specified.  These attributes have
+the same behavior as the command-line options @option{-momit-leaf-frame-pointer}
+and @option{-mno-omit-leaf-frame-pointer}.
+
+@item tls-dialect=
+@cindex @code{tls-dialect=} function attribute, AArch64
+Specifies the TLS dialect to use for this function.  The behavior and
+permissible arguments are the same as for the command-line option
+@option{-mtls-dialect=}.
+
+@item arch=
+@cindex @code{arch=} function attribute, AArch64
+Specifies the architecture version and architectural extensions to use
+for this function.  The behavior and permissible arguments are the same as
+for the @option{-march=} command-line option.
+
+@item tune=
+@cindex @code{tune=} function attribute, AArch64
+Specifies the core for which to tune the performance of this function.
+The behavior and permissible arguments are the same as for the @option{-mtune=}
+command-line option.
+
+@item cpu=
+@cindex @code{cpu=} function attribute, AArch64
+Specifies the core for which to tune the performance of this function and also
+whose architectural features to use.  The behavior and valid arguments are the
+same as for the @option{-mcpu=} command-line option.
+
+@end table
+
+The above target attributes can be specified as follows:
+
+@smallexample
+__attribute__((target("@var{attr-string}")))
+int
+f (int a)
+@{
+  return a + 5;
+@}
+@end smallexample
+
+where @code{@var{attr-string}} is one of the attribute strings specified above.
+
+Additionally, the architectural extension string may be specified on its
+own.  This can be used to turn on and off particular architectural extensions
+without having to specify a particular architecture version or core.  Example:
+
+@smallexample
+__attribute__((target("+crc+nocrypto")))
+int
+foo (int a)
+@{
+  return a + 5;
+@}
+@end smallexample
+
+In this example @code{target("+crc+nocrypto")} enables the @code{crc}
+extension and disables the @code{crypto} extension for the function @code{foo}
+without modifying an existing @option{-march=} or @option{-mcpu} option.
+
+Multiple target function attributes can be specified by separating them with
+a comma.  For example:
+@smallexample
+__attribute__((target("arch=armv8-a+crc+crypto,tune=cortex-a53")))
+int
+foo (int a)
+@{
+  return a + 5;
+@}
+@end smallexample
+
+is valid and compiles function @code{foo} for ARMv8-A with @code{crc}
+and @code{crypto} extensions and tunes it for @code{cortex-a53}.
+
+@subsubsection Inlining rules
+Specifying target attributes on individual functions or performing link-time
+optimization across translation units compiled with different target options
+can affect function inlining rules:
+
+In particular, a caller function can inline a callee function only if the
+architectural features available to the callee are a subset of the features
+available to the caller.
+For example: A function @code{foo} compiled with @option{-march=armv8-a+crc},
+or tagged with the equivalent @code{arch=armv8-a+crc} attribute,
+can inline a function @code{bar} compiled with @option{-march=armv8-a+nocrc}
+because the all the architectural features that function @code{bar} requires
+are available to function @code{foo}.  Conversely, function @code{bar} cannot
+inline function @code{foo}.
+
+Additionally inlining a function compiled with @option{-mstrict-align} into a
+function compiled without @code{-mstrict-align} is not allowed.
+However, inlining a function compiled without @option{-mstrict-align} into a
+function compiled with @option{-mstrict-align} is allowed.
+
+Note that CPU tuning options and attributes such as the @option{-mcpu=},
+@option{-mtune=} do not inhibit inlining unless the CPU specified by the
+@option{-mcpu=} option or the @code{cpu=} attribute conflicts with the
+architectural feature rules specified above.
 
 @node ARC Function Attributes
 @subsection ARC Function Attributes
@@ -4090,10 +4230,18 @@ These function attributes are supported by the MIPS back end:
 @table @code
 @item interrupt
 @cindex @code{interrupt} function attribute, MIPS
-Use this attribute to indicate
-that the specified function is an interrupt handler.  The compiler generates
-function entry and exit sequences suitable for use in an interrupt handler
-when this attribute is present.
+Use this attribute to indicate that the specified function is an interrupt
+handler.  The compiler generates function entry and exit sequences suitable
+for use in an interrupt handler when this attribute is present.
+An optional argument is supported for the interrupt attribute which allows
+the interrupt mode to be described.  By default GCC assumes the external
+interrupt controller (EIC) mode is in use, this can be explicitly set using
+@code{eic}.  When interrupts are non-masked then the requested Interrupt
+Priority Level (IPL) is copied to the current IPL which has the effect of only
+enabling higher priority interrupts.  To use vectored interrupt mode use
+the argument @code{vector=[sw0|sw1|hw0|hw1|hw2|hw3|hw4|hw5]}, this will change
+the behaviour of the non-masked interrupt support and GCC will arrange to mask
+all interrupts from sw0 up to and including the specified interrupt vector.
 
 You can use the following attributes to modify the behavior
 of an interrupt handler:
@@ -4101,7 +4249,9 @@ of an interrupt handler:
 @item use_shadow_register_set
 @cindex @code{use_shadow_register_set} function attribute, MIPS
 Assume that the handler uses a shadow register set, instead of
-the main general-purpose registers.
+the main general-purpose registers.  An optional argument @code{intstack} is
+supported to indicate that the shadow register set contains a valid stack
+pointer.
 
 @item keep_interrupts_masked
 @cindex @code{keep_interrupts_masked} function attribute, MIPS
@@ -4129,6 +4279,8 @@ void __attribute__ ((interrupt, keep_interrupts_masked,
 void __attribute__ ((interrupt, use_shadow_register_set,
                      keep_interrupts_masked,
                      use_debug_exception_return)) v7 ();
+void __attribute__ ((interrupt("eic"))) v8 ();
+void __attribute__ ((interrupt("vector=hw3"))) v9 ();
 @end smallexample
 
 @item long_call
@@ -7719,6 +7871,84 @@ pointed to by @code{e}
 in a register, you can enable it to choose the best location
 for @code{d} by specifying both constraints.
 
+@anchor{FlagOutputOperands}
+@subsection Flag Output Operands
+@cindex @code{asm} flag output operands
+
+Some targets have a special register that holds the ``flags'' for the
+result of an operation or comparison.  Normally, the contents of that
+register are either unmodifed by the asm, or the asm is considered to
+clobber the contents.
+
+On some targets, a special form of output operand exists by which
+conditions in the flags register may be outputs of the asm.  The set of
+conditions supported are target specific, but the general rule is that
+the output variable must be a scalar integer, and the value will be boolean.
+When supported, the target will define the preprocessor symbol
+@code{__GCC_ASM_FLAG_OUTPUTS__}.
+
+Because of the special nature of the flag output operands, the constraint
+may not include alternatives.
+
+Most often, the target has only one flags register, and thus is an implied
+operand of many instructions.  In this case, the operand should not be
+referenced within the assembler template via @code{%0} etc, as there's
+no corresponding text in the assembly language.
+
+@table @asis
+@item x86 family
+The flag output constraints for the x86 family are of the form
+@samp{=@@cc@var{cond}} where @var{cond} is one of the standard
+conditions defined in the ISA manual for @code{j@var{cc}} or
+@code{set@var{cc}}.
+
+@table @code
+@item a
+``above'' or unsigned greater than
+@item ae
+``above or equal'' or unsigned greater than or equal
+@item b
+``below'' or unsigned less than
+@item be
+``below or equal'' or unsigned less than or equal
+@item c
+carry flag set
+@item e
+@itemx z
+``equal'' or zero flag set
+@item g
+signed greater than
+@item ge
+signed greater than or equal
+@item l
+signed less than
+@item le
+signed less than or equal
+@item o
+overflow flag set
+@item p
+parity flag set
+@item s
+sign flag set
+@item na
+@itemx nae
+@itemx nb
+@itemx nbe
+@itemx nc
+@itemx ne
+@itemx ng
+@itemx nge
+@itemx nl
+@itemx nle
+@itemx no
+@itemx np
+@itemx ns
+@itemx nz
+``not'' @var{flag}, or inverted versions of those above
+@end table
+
+@end table
+
 @anchor{InputOperands}
 @subsubsection Input Operands
 @cindex @code{asm} input operands
@@ -8598,8 +8828,11 @@ to determine if the top of the stack has been reached.
 Additional post-processing of the returned value may be needed, see
 @code{__builtin_extract_return_addr}.
 
-This function should only be used with a nonzero argument for debugging
-purposes.
+Calling this function with a nonzero argument can have unpredictable
+effects, including crashing the calling program.  As a result, calls
+that are considered unsafe are diagnosed when the @option{-Wframe-address}
+option is in effect.  Such calls should only be made in debugging
+situations.
 @end deftypefn
 
 @deftypefn {Built-in Function} {void *} __builtin_extract_return_addr (void *@var{addr})
@@ -8637,8 +8870,11 @@ any function other than the current one; in such cases, or when the top
 of the stack has been reached, this function returns @code{0} if
 the first frame pointer is properly initialized by the startup code.
 
-This function should only be used with a nonzero argument for debugging
-purposes.
+Calling this function with a nonzero argument can have unpredictable
+effects, including crashing the calling program.  As a result, calls
+that are considered unsafe are diagnosed when the @option{-Wframe-address}
+option is in effect.  Such calls should only be made in debugging
+situations.
 @end deftypefn
 
 @node Vector Extensions
@@ -10116,14 +10352,22 @@ recommend general use of these functions.
 
 The remaining functions are provided for optimization purposes.
 
+With the exception of built-ins that have library equivalents such as
+the standard C library functions discussed below, or that expand to
+library calls, GCC built-in functions are always expanded inline and
+thus do not have corresponding entry points and their address cannot
+be obtained.  Attempting to use them in an expression other than
+a function call results in a compile-time error.
+
 @opindex fno-builtin
 GCC includes built-in versions of many of the functions in the standard
-C library.  The versions prefixed with @code{__builtin_} are always
-treated as having the same meaning as the C library function even if you
-specify the @option{-fno-builtin} option.  (@pxref{C Dialect Options})
-Many of these functions are only optimized in certain cases; if they are
-not optimized in a particular case, a call to the library function is
-emitted.
+C library.  These functions come in two forms: one whose names start with
+the @code{__builtin_} prefix, and the other without.  Both forms have the
+same type (including prototype), the same address (when their address is
+taken), and the same meaning as the C library functions even if you specify
+the @option{-fno-builtin} option @pxref{C Dialect Options}).  Many of these
+functions are only optimized in certain cases; if they are not optimized in
+a particular case, a call to the library function is emitted.
 
 @opindex ansi
 @opindex std
@@ -10248,7 +10492,7 @@ the same names as the standard macros ( @code{isgreater},
 prefixed.  We intend for a library implementor to be able to simply
 @code{#define} each standard macro to its built-in equivalent.
 In the same fashion, GCC provides @code{fpclassify}, @code{isfinite},
-@code{isinf_sign} and @code{isnormal} built-ins used with
+@code{isinf_sign}, @code{isnormal} and @code{signbit} built-ins used with
 @code{__builtin_} prefixed.  The @code{isinf} and @code{isnan}
 built-in functions appear both with and without the @code{__builtin_} prefix.
 
@@ -11003,7 +11247,16 @@ void __builtin_sthio (volatile void *, int)
 void __builtin_stwio (volatile void *, int)
 void __builtin_sync (void)
 int __builtin_rdctl (int) 
+int __builtin_rdprs (int, int)
 void __builtin_wrctl (int, int)
+void __builtin_flushd (volatile void *)
+void __builtin_flushda (volatile void *)
+int __builtin_wrpie (int);
+void __builtin_eni (int);
+int __builtin_ldex (volatile const void *)
+int __builtin_stex (volatile void *, int)
+int __builtin_ldsex (volatile const void *)
+int __builtin_stsex (volatile void *, int)
 @end example
 
 The following built-in functions are always available.  They
@@ -18101,6 +18354,7 @@ we do not recommend the use of pragmas; @xref{Function Attributes},
 for further explanation.
 
 @menu
+* AArch64 Pragmas::
 * ARM Pragmas::
 * M32C Pragmas::
 * MeP Pragmas::
@@ -18116,6 +18370,19 @@ for further explanation.
 * Function Specific Option Pragmas::
 * Loop-Specific Pragmas::
 @end menu
+
+@node AArch64 Pragmas
+@subsection AArch64 Pragmas
+
+The pragmas defined by the AArch64 target correspond to the AArch64
+target function attributes.  They can be specified as below:
+@smallexample
+#pragma GCC target("string")
+@end smallexample
+
+where @code{@var{string}} can be any string accepted as an AArch64 target
+attribute.  @xref{AArch64 Function Attributes}, for more details
+on the permissible values of @code{string}.
 
 @node ARM Pragmas
 @subsection ARM Pragmas
@@ -19070,7 +19337,8 @@ Predefined Macros,cpp,The GNU C Preprocessor}).
 * C++ Attributes::      Variable, function, and type attributes for C++ only.
 * Function Multiversioning::   Declaring multiple function versions.
 * Namespace Association:: Strong using-directives for namespace association.
-* Type Traits::         Compiler support for type traits
+* Type Traits::         Compiler support for type traits.
+* C++ Concepts::        Improved support for generic programming.
 * Java Exceptions::     Tweaking exception handling to work with Java.
 * Deprecated Features:: Things will disappear from G++.
 * Backwards Compatibility:: Compatibilities with earlier definitions of C++.
@@ -19865,6 +20133,52 @@ The underlying type of @code{type}.  Requires: @code{type} shall be
 an enumeration type ([dcl.enum]).
 
 @end table
+
+
+@node C++ Concepts
+@section C++ Concepts
+
+C++ concepts provide much-improved support for generic programming. In
+particular, they allow the specification of constraints on template arguments.
+The constraints are used to extend the usual overloading and partial
+specialization capabilities of the language, allowing generic data structures
+and algorithms to be ``refined'' based on their properties rather than their
+type names.
+
+The following keywords are reserved for concepts.
+
+@table @code
+@item assumes
+States an expression as an assumption, and if possible, verifies that the
+assumption is valid. For example, @code{assume(n > 0)}.
+
+@item axiom
+Introduces an axiom definition. Axioms introduce requirements on values.
+
+@item forall
+Introduces a universally quantified object in an axiom. For example,
+@code{forall (int n) n + 0 == n}).
+
+@item concept
+Introduces a concept definition. Concepts are sets of syntactic and semantic
+requirements on types and their values.
+
+@item requires
+Introduces constraints on template arguments or requirements for a member
+function of a class template.
+
+@end table
+
+The front end also exposes a number of internal mechanism that can be used
+to simplify the writing of type traits. Note that some of these traits are
+likely to be removed in the future.
+
+@table @code
+@item __is_same (type1, type2)
+A binary type trait: true whenever the type arguments are the same.
+
+@end table
+
 
 @node Java Exceptions
 @section Java Exceptions

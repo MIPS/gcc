@@ -54,11 +54,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "diagnostic.h"
 
 #include "jcf.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "java-tree.h"
 
 #include "version.h"

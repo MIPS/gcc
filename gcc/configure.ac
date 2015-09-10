@@ -121,6 +121,73 @@ if test x$local_prefix = x; then
 	local_prefix=/usr/local
 fi
 
+AC_ARG_WITH([native-system-header-dir],
+  [  --with-native-system-header-dir=dir
+                          use dir as the directory to look for standard
+                          system header files in.  Defaults to /usr/include.],
+[
+ case ${with_native_system_header_dir} in
+ yes|no) AC_MSG_ERROR([bad value ${withval} given for --with-native-system-header-dir]) ;;
+ /* | [[A-Za-z]]:[[\\/]]*) ;;
+ *) AC_MSG_ERROR([--with-native-system-header-dir argument ${withval} must be an absolute directory]) ;;
+ esac
+ configured_native_system_header_dir="${withval}"
+], [configured_native_system_header_dir=])
+
+AC_ARG_WITH(build-sysroot, 
+  [AS_HELP_STRING([--with-build-sysroot=sysroot],
+                  [use sysroot as the system root during the build])],
+  [if test x"$withval" != x ; then
+     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
+   fi],
+  [SYSROOT_CFLAGS_FOR_TARGET=])
+AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
+
+if test "x$prefix" = xNONE; then
+ test_prefix=/usr/local
+else
+ test_prefix=$prefix
+fi
+if test "x$exec_prefix" = xNONE; then
+ test_exec_prefix=$test_prefix
+else
+ test_exec_prefix=$exec_prefix
+fi
+
+AC_ARG_WITH(sysroot,
+[AS_HELP_STRING([[--with-sysroot[=DIR]]],
+		[search for usr/lib, usr/include, et al, within DIR])],
+[
+ case ${with_sysroot} in
+ /) ;;
+ */) with_sysroot=`echo $with_sysroot | sed 's,/$,,'` ;;
+ esac
+ case ${with_sysroot} in
+ yes) TARGET_SYSTEM_ROOT='${exec_prefix}/${target_noncanonical}/sys-root' ;;
+ *) TARGET_SYSTEM_ROOT=$with_sysroot ;;
+ esac
+   
+ TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
+ CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
+	
+ case ${TARGET_SYSTEM_ROOT} in
+ "${test_prefix}"|"${test_prefix}/"*|\
+ "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
+ '${prefix}'|'${prefix}/'*|\
+ '${exec_prefix}'|'${exec_prefix}/'*)
+   t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
+   TARGET_SYSTEM_ROOT_DEFINE="$t"
+   ;;
+ esac
+], [
+ TARGET_SYSTEM_ROOT=
+ TARGET_SYSTEM_ROOT_DEFINE=
+ CROSS_SYSTEM_HEADER_DIR='$(gcc_tooldir)/sys-include'
+])
+AC_SUBST(TARGET_SYSTEM_ROOT)
+AC_SUBST(TARGET_SYSTEM_ROOT_DEFINE)
+AC_SUBST(CROSS_SYSTEM_HEADER_DIR)
+
 # Don't set gcc_gxx_include_dir to gxx_include_dir since that's only
 # passed in by the toplevel make and thus we'd get different behavior
 # depending on where we built the sources.
@@ -152,7 +219,9 @@ gcc_gxx_include_dir_add_sysroot=0
 if test "${with_sysroot+set}" = set; then
   gcc_gxx_without_sysroot=`expr "${gcc_gxx_include_dir}" : "${with_sysroot}"'\(.*\)'`
   if test "${gcc_gxx_without_sysroot}"; then
-    gcc_gxx_include_dir="${gcc_gxx_without_sysroot}"
+    if test x${with_sysroot} != x/; then
+      gcc_gxx_include_dir="${gcc_gxx_without_sysroot}"
+    fi
     gcc_gxx_include_dir_add_sysroot=1
   fi
 fi
@@ -347,6 +416,32 @@ struct X<long long> { typedef long long t; };
 ]], [[X<int64_t>::t x;]])],[],[AC_MSG_ERROR([error verifying int64_t uses long long])])
 fi
 
+# Check whether compiler is affected by placement new aliasing bug (PR 29286).
+# If the host compiler is affected by the bug, and we build with optimization
+# enabled (which happens e.g. when cross-compiling), the pool allocator may
+# get miscompiled.  Use -fno-strict-aliasing to work around this problem.
+# Since there is no reliable feature check for the presence of this bug,
+# we simply use a GCC version number check.  (This should never trigger for
+# stages 2 or 3 of a native bootstrap.)
+aliasing_flags=
+if test "$GCC" = yes; then
+  saved_CXXFLAGS="$CXXFLAGS"
+
+  # The following test compilation will succeed if and only if $CXX accepts
+  # -fno-strict-aliasing *and* is older than GCC 4.3.
+  CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
+  AC_MSG_CHECKING([whether $CXX is affected by placement new aliasing bug])
+  AC_COMPILE_IFELSE([
+#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#error compiler not affected by placement new aliasing bug
+#endif
+],
+    [AC_MSG_RESULT([yes]); aliasing_flags='-fno-strict-aliasing'],
+    [AC_MSG_RESULT([no])])
+
+  CXXFLAGS="$saved_CXXFLAGS"
+fi
+AC_SUBST(aliasing_flags)
 
 
 
@@ -500,10 +595,8 @@ if test x$ac_tree_checking != x ; then
   AC_DEFINE(ENABLE_TREE_CHECKING, 1,
 [Define if you want all operations on trees (the basic data
    structure of the front ends) to be checked for dynamic type safety
-   at runtime.  This is moderately expensive.  The tree browser debugging
-   routines will also be enabled by this option.
+   at runtime.  This is moderately expensive.
    ])
-  TREEBROWSER=tree-browser.o
   TREECHECKING=yes
 fi
 if test x$ac_types_checking != x ; then
@@ -512,7 +605,6 @@ if test x$ac_types_checking != x ; then
    This is cheap.
    ])
 fi
-AC_SUBST(TREEBROWSER)
 AC_SUBST(TREECHECKING)
 if test x$ac_rtl_checking != x ; then
   AC_DEFINE(ENABLE_RTL_CHECKING, 1,
@@ -791,69 +883,6 @@ AC_ARG_ENABLE(shared,
   esac
 ], [enable_shared=yes])
 AC_SUBST(enable_shared)
-
-AC_ARG_WITH([native-system-header-dir],
-  [  --with-native-system-header-dir=dir
-                          use dir as the directory to look for standard
-                          system header files in.  Defaults to /usr/include.],
-[
- case ${with_native_system_header_dir} in
- yes|no) AC_MSG_ERROR([bad value ${withval} given for --with-native-system-header-dir]) ;;
- /* | [[A-Za-z]]:[[\\/]]*) ;;
- *) AC_MSG_ERROR([--with-native-system-header-dir argument ${withval} must be an absolute directory]) ;;
- esac
- configured_native_system_header_dir="${withval}"
-], [configured_native_system_header_dir=])
-
-AC_ARG_WITH(build-sysroot, 
-  [AS_HELP_STRING([--with-build-sysroot=sysroot],
-                  [use sysroot as the system root during the build])],
-  [if test x"$withval" != x ; then
-     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
-   fi],
-  [SYSROOT_CFLAGS_FOR_TARGET=])
-AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
-
-if test "x$prefix" = xNONE; then
- test_prefix=/usr/local
-else
- test_prefix=$prefix
-fi
-if test "x$exec_prefix" = xNONE; then
- test_exec_prefix=$test_prefix
-else
- test_exec_prefix=$exec_prefix
-fi
-
-AC_ARG_WITH(sysroot,
-[AS_HELP_STRING([[--with-sysroot[=DIR]]],
-		[search for usr/lib, usr/include, et al, within DIR])],
-[
- case ${with_sysroot} in
- yes) TARGET_SYSTEM_ROOT='${exec_prefix}/${target_noncanonical}/sys-root' ;;
- *) TARGET_SYSTEM_ROOT=$with_sysroot ;;
- esac
-   
- TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
- CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
-	
- case ${TARGET_SYSTEM_ROOT} in
- "${test_prefix}"|"${test_prefix}/"*|\
- "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
- '${prefix}'|'${prefix}/'*|\
- '${exec_prefix}'|'${exec_prefix}/'*)
-   t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
-   TARGET_SYSTEM_ROOT_DEFINE="$t"
-   ;;
- esac
-], [
- TARGET_SYSTEM_ROOT=
- TARGET_SYSTEM_ROOT_DEFINE=
- CROSS_SYSTEM_HEADER_DIR='$(gcc_tooldir)/sys-include'
-])
-AC_SUBST(TARGET_SYSTEM_ROOT)
-AC_SUBST(TARGET_SYSTEM_ROOT_DEFINE)
-AC_SUBST(CROSS_SYSTEM_HEADER_DIR)
 
 AC_ARG_WITH(specs,
   [AS_HELP_STRING([--with-specs=SPECS],
@@ -1191,6 +1220,9 @@ AM_ICONV
 
 # Until we have in-tree GNU iconv:
 LIBICONV_DEP=
+if test -f "$LTLIBICONV"; then
+  LIBICONV_DEP=$LTLIBICONV
+fi
 AC_SUBST(LIBICONV_DEP)
 
 AM_LC_MESSAGES
@@ -1763,7 +1795,7 @@ AS_HELP_STRING([--enable-win32-registry=KEY],
                 of the registry key])],,)
 
 case $host_os in
-  win32 | pe | cygwin* | mingw32* | uwin*)
+  win32 | pe | cygwin* | mingw32*)
     if test "x$enable_win32_registry" != xno; then
       AC_SEARCH_LIBS(RegOpenKeyExA, advapi32,, [enable_win32_registry=no])
     fi
@@ -2085,7 +2117,7 @@ m4_pattern_allow([AS_FOR_TARGET])dnl
 AS_VAR_SET_IF(gcc_cv_as,, [
 if test -x "$DEFAULT_ASSEMBLER"; then
 	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -f $gcc_cv_as_gas_srcdir/configure.in \
+elif test -f $gcc_cv_as_gas_srcdir/configure.ac \
      && test -f ../gas/Makefile \
      && test x$build = x$host; then
 	gcc_cv_as=../gas/as-new$build_exeext
@@ -2174,7 +2206,7 @@ elif test $install_gold_as_default = yes \
      && test -f ../gold/Makefile \
      && test x$build = x$host; then
 	gcc_cv_ld=../gold/ld-new$build_exeext
-elif test -f $gcc_cv_ld_gld_srcdir/configure.in \
+elif test -f $gcc_cv_ld_gld_srcdir/configure.ac \
      && test -f ../ld/Makefile \
      && test x$build = x$host; then
 	gcc_cv_ld=../ld/ld-new$build_exeext
@@ -2238,7 +2270,7 @@ if test "$gcc_cv_ld" = ../ld/ld-new$build_exeext \
 	elif test "$ld_is_gold" = yes; then
 	  in_tree_ld_is_elf=yes
 	fi
-	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.in $gcc_cv_ld_gld_srcdir/Makefile.in
+	for f in $gcc_cv_ld_bfd_srcdir/configure $gcc_cv_ld_gld_srcdir/configure $gcc_cv_ld_gld_srcdir/configure.ac $gcc_cv_ld_gld_srcdir/Makefile.in
 	do
 changequote(,)dnl
 		gcc_cv_gld_version=`sed -n -e 's/^[ 	]*VERSION=[^0-9A-Za-z_]*\([0-9]*\.[0-9]*.*\)/VERSION=\1/p' < $f`
@@ -2271,7 +2303,7 @@ AC_SUBST(ORIGINAL_LD_GOLD_FOR_TARGET)
 # Figure out what nm we will be using.
 gcc_cv_binutils_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/binutils
 AS_VAR_SET_IF(gcc_cv_nm,, [
-if test -f $gcc_cv_binutils_srcdir/configure.in \
+if test -f $gcc_cv_binutils_srcdir/configure.ac \
      && test -f ../binutils/Makefile \
      && test x$build = x$host; then
 	gcc_cv_nm=../binutils/nm-new$build_exeext
@@ -2303,7 +2335,7 @@ esac
 
 # Figure out what objdump we will be using.
 AS_VAR_SET_IF(gcc_cv_objdump,, [
-if test -f $gcc_cv_binutils_srcdir/configure.in \
+if test -f $gcc_cv_binutils_srcdir/configure.ac \
      && test -f ../binutils/Makefile \
      && test x$build = x$host; then
 	# Single tree build which includes binutils.
@@ -2328,7 +2360,7 @@ fi
 
 # Figure out what readelf we will be using.
 AS_VAR_SET_IF(gcc_cv_readelf,, [
-if test -f $gcc_cv_binutils_srcdir/configure.in \
+if test -f $gcc_cv_binutils_srcdir/configure.ac \
      && test -f ../binutils/Makefile \
      && test x$build = x$host; then
 	# Single tree build which includes binutils.
@@ -2720,7 +2752,7 @@ gcc_GAS_CHECK_FEATURE([cfi sections directive],
 	.cfi_startproc
 	.cfi_endproc],
 [case $target_os in
-  win32 | pe | cygwin* | mingw32* | uwin*)
+  win32 | pe | cygwin* | mingw32*)
     # Need to check that we generated the correct relocation for the
     # .debug_frame section.  This was fixed for binutils 2.21.
     gcc_cv_as_cfi_sections_directive=no
@@ -3562,6 +3594,13 @@ case "$target" in
         done
       fi
     fi
+    # Check if we have binutils support for relocations types needed by -fpic
+    gcc_GAS_CHECK_FEATURE([-fpic relocs], gcc_cv_as_aarch64_picreloc,,,
+    [
+	.text
+	ldr     x0, [[x2, #:gotpage_lo15:globalsym]]
+    ],,[AC_DEFINE(HAVE_AS_SMALL_PIC_RELOCS, 1,
+	[Define if your assembler supports relocs needed by -fpic.])])
     # Enable default workaround for AArch64 Cortex-A53 erratum 835769.
     AC_ARG_ENABLE(fix-cortex-a53-835769,
     [
@@ -3885,13 +3924,13 @@ foo:	nop
 
     gcc_GAS_CHECK_FEATURE([filds and fists mnemonics],
        gcc_cv_as_ix86_filds,,,
-       [filds mem; fists mem],,
+       [filds (%ebp); fists (%ebp)],,
        [AC_DEFINE(HAVE_AS_IX86_FILDS, 1,
          [Define if your assembler uses filds and fists mnemonics.])])
 
     gcc_GAS_CHECK_FEATURE([fildq and fistpq mnemonics],
        gcc_cv_as_ix86_fildq,,,
-       [fildq mem; fistpq mem],,
+       [fildq (%ebp); fistpq (%ebp)],,
        [AC_DEFINE(HAVE_AS_IX86_FILDQ, 1,
          [Define if your assembler uses fildq and fistq mnemonics.])])
 
@@ -4441,6 +4480,13 @@ pointers into PC-relative form.])
       AC_MSG_ERROR(
 	[Requesting --with-nan= requires assembler support for -mnan=])
     fi
+    ;;
+    s390*-*-*)
+    gcc_GAS_CHECK_FEATURE([.gnu_attribute support],
+      gcc_cv_as_s390_gnu_attribute, [2,18,0],,
+      [.gnu_attribute 8,1],,
+      [AC_DEFINE(HAVE_AS_GNU_ATTRIBUTE, 1,
+	  [Define if your assembler supports .gnu_attribute.])])
     ;;
 esac
 
@@ -5283,6 +5329,25 @@ if test x$gcc_cv_libc_provides_ssp = xyes; then
 	    [Define if your target C library provides stack protector support])
 fi
 
+# Check whether --enable-default-ssp was given.
+AC_ARG_ENABLE(default-ssp,
+[AS_HELP_STRING([--enable-default-ssp],
+  [enable Stack Smashing Protection as default])],[
+if test x$gcc_cv_libc_provides_ssp = xyes; then
+  case "$target" in
+    ia64*-*-*) enable_default_ssp=no ;;
+    *) enable_default_ssp=$enableval ;;
+  esac
+else
+  enable_default_ssp=no
+fi],
+enable_default_ssp=no)
+if test x$enable_default_ssp == xyes ; then
+  AC_DEFINE(ENABLE_DEFAULT_SSP, 1,
+      [Define if your target supports default stack protector and it is enabled.])
+fi
+AC_SUBST([enable_default_ssp])
+
 # Test for <sys/sdt.h> on the target.
 GCC_TARGET_TEMPLATE([HAVE_SYS_SDT_H])
 AC_MSG_CHECKING(sys/sdt.h in the target C library)
@@ -5371,15 +5436,7 @@ fi
 AC_SUBST(HOST_LIBS)
 
 # Use the system's zlib library.
-zlibdir=-L../zlib
-zlibinc="-I\$(srcdir)/../zlib"
-AC_ARG_WITH(system-zlib,
-[AS_HELP_STRING([--with-system-zlib], [use installed libz])],
-zlibdir=
-zlibinc=
-)
-AC_SUBST(zlibdir)
-AC_SUBST(zlibinc)
+AM_ZLIB
 
 dnl Very limited version of automake's enable-maintainer-mode
 
@@ -5711,6 +5768,8 @@ fi
 
 # Check whether isl_schedule_constraints_compute_schedule is available;
 # it's new in ISL-0.13.
+# Check whether isl_options_set_schedule_serialize_sccs is available;
+# it's new in ISL-0.15.
 if test "x${ISLLIBS}" != "x" ; then
   saved_CXXFLAGS="$CXXFLAGS"
   CXXFLAGS="$CXXFLAGS $ISLINC"
@@ -5724,12 +5783,35 @@ if test "x${ISLLIBS}" != "x" ; then
               [ac_has_isl_schedule_constraints_compute_schedule=no])
   AC_MSG_RESULT($ac_has_isl_schedule_constraints_compute_schedule)
 
+  AC_MSG_CHECKING([Checking for isl_options_set_schedule_serialize_sccs])
+  AC_TRY_LINK([#include <isl/schedule.h>],
+              [isl_options_set_schedule_serialize_sccs (NULL, 0);],
+              [ac_has_isl_options_set_schedule_serialize_sccs=yes],
+              [ac_has_isl_options_set_schedule_serialize_sccs=no])
+  AC_MSG_RESULT($ac_has_isl_options_set_schedule_serialize_sccs)
+
+  AC_MSG_CHECKING([Checking for isl_ctx_get_max_operations])
+  AC_TRY_LINK([#include <isl/ctx.h>],
+              [isl_ctx_get_max_operations (isl_ctx_alloc ());],
+              [ac_has_isl_ctx_get_max_operations=yes],
+              [ac_has_isl_ctx_get_max_operations=no])
+  AC_MSG_RESULT($ac_has_isl_ctx_get_max_operations)
+
   LIBS="$saved_LIBS"
   CXXFLAGS="$saved_CXXFLAGS"
 
   if test x"$ac_has_isl_schedule_constraints_compute_schedule" = x"yes"; then
      AC_DEFINE(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE, 1,
                [Define if isl_schedule_constraints_compute_schedule exists.])
+  fi
+
+  if test x"$ac_has_isl_options_set_schedule_serialize_sccs" = x"yes"; then
+     AC_DEFINE(HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS, 1,
+               [Define if isl_options_set_schedule_serialize_sccs exists.])
+  fi
+  if test x"$ac_has_isl_ctx_get_max_operations" = x"yes"; then
+     AC_DEFINE(HAVE_ISL_CTX_MAX_OPERATIONS, 1,
+               [Define if isl_ctx_get_max_operations exists.])
   fi
 fi
 
@@ -5858,6 +5940,27 @@ if test "$gcc_cv_no_pie" = "yes"; then
   NO_PIE_FLAG="-no-pie"
 fi
 AC_SUBST([NO_PIE_FLAG])
+
+# Check linker supports '-z bndplt'
+ld_bndplt_support=no
+AC_MSG_CHECKING(linker -z bndplt option)
+if test x"$ld_is_gold" = xno; then
+  if test $in_tree_ld = yes ; then
+    if test "$gcc_cv_gld_major_version" -eq 2 -a "$gcc_cv_gld_minor_version" -ge 25 -o "$gcc_cv_gld_major_version" -gt 2; then
+      ld_bndplt_support=yes
+    fi
+  elif test x$gcc_cv_ld != x; then
+    # Check if linker supports -a bndplt option
+    if $gcc_cv_ld --help 2>/dev/null | grep -- '-z bndplt' > /dev/null; then
+      ld_bndplt_support=yes
+    fi
+  fi
+fi
+if test x"$ld_bndplt_support" = xyes; then
+  AC_DEFINE(HAVE_LD_BNDPLT_SUPPORT, 1,
+	[Define if your linker supports -z bndplt])
+fi
+AC_MSG_RESULT($ld_bndplt_support)
 
 # Configure the subdirectories
 # AC_CONFIG_SUBDIRS($subdirs)

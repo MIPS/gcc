@@ -21,18 +21,17 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
@@ -40,7 +39,6 @@
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
-#include "function.h"
 #include "recog.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -51,19 +49,16 @@
 #include "expr.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "target.h"
-#include "target-def.h"
-#include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Definitions.  */
 
@@ -588,7 +583,7 @@ cr16_function_arg (cumulative_args_t cum_v, machine_mode mode,
   /* function_arg () is called with this type just after all the args have 
      had their registers assigned. The rtx that function_arg returns from 
      this type is supposed to pass to 'gen_call' but currently it is not 
-     implemented (see macro GEN_CALL).  */
+     implemented.  */
   if (type == void_type_node)
     return NULL_RTX;
 

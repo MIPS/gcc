@@ -83,36 +83,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
@@ -123,7 +110,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "tree-pass.h"
 #include "dbgcnt.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -135,6 +121,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
+#include "tree-hash-traits.h"
 
 /* List of basic blocks in if-conversion-suitable order.  */
 static basic_block *ifc_bbs;
@@ -656,7 +643,7 @@ memrefs_read_or_written_unconditionally (gimple stmt,
                    || TREE_CODE (ref_base_b) == REALPART_EXPR)
               ref_base_b = TREE_OPERAND (ref_base_b, 0);
 
-  	    if (!operand_equal_p (ref_base_a, ref_base_b, 0))
+  	    if (operand_equal_p (ref_base_a, ref_base_b, 0))
 	      {
 	        tree cb = bb_predicate (gimple_bb (DR_STMT (b)));
 
@@ -888,7 +875,7 @@ if_convertible_gimple_assign_stmt_p (gimple stmt,
       return true;
     }
 
-  if (gimple_assign_rhs_could_trap_p (stmt))
+  if (ifcvt_could_trap_p (stmt, refs))
     {
       if (ifcvt_can_use_mask_load_store (stmt))
 	{
@@ -1311,18 +1298,15 @@ if_convertible_loop_p_1 (struct loop *loop,
 	  }
     }
 
-  if (flag_tree_loop_if_convert_stores)
-    {
-      data_reference_p dr;
+  data_reference_p dr;
 
-      for (i = 0; refs->iterate (i, &dr); i++)
-	{
-	  dr->aux = XNEW (struct ifc_dr);
-	  DR_WRITTEN_AT_LEAST_ONCE (dr) = -1;
-	  DR_RW_UNCONDITIONALLY (dr) = -1;
-	}
-      predicate_bbs (loop);
+  for (i = 0; refs->iterate (i, &dr); i++)
+    {
+      dr->aux = XNEW (struct ifc_dr);
+      DR_WRITTEN_AT_LEAST_ONCE (dr) = -1;
+      DR_RW_UNCONDITIONALLY (dr) = -1;
     }
+  predicate_bbs (loop);
 
   for (i = 0; i < loop->num_nodes; i++)
     {
@@ -1337,9 +1321,8 @@ if_convertible_loop_p_1 (struct loop *loop,
 	    return false;
     }
 
-  if (flag_tree_loop_if_convert_stores)
-    for (i = 0; i < loop->num_nodes; i++)
-      free_bb_predicate (ifc_bbs[i]);
+  for (i = 0; i < loop->num_nodes; i++)
+    free_bb_predicate (ifc_bbs[i]);
 
   /* Checking PHIs needs to be done after stmts, as the fact whether there
      are any masked loads or stores affects the tests.  */
@@ -1413,14 +1396,10 @@ if_convertible_loop_p (struct loop *loop, bool *any_mask_load_store)
   res = if_convertible_loop_p_1 (loop, &loop_nest, &refs, &ddrs,
 				 any_mask_load_store);
 
-  if (flag_tree_loop_if_convert_stores)
-    {
-      data_reference_p dr;
-      unsigned int i;
-
-      for (i = 0; refs.iterate (i, &dr); i++)
-	free (dr->aux);
-    }
+  data_reference_p dr;
+  unsigned int i;
+  for (i = 0; refs.iterate (i, &dr); i++)
+    free (dr->aux);
 
   free_data_refs (refs);
   free_dependence_relations (ddrs);
@@ -1512,11 +1491,7 @@ is_cond_scalar_reduction (gimple phi, gimple *reduc, tree arg_0, tree arg_1,
   /* Make R_OP1 to hold reduction variable.  */
   if (r_op2 == PHI_RESULT (header_phi)
       && reduction_op == PLUS_EXPR)
-    {
-      tree tmp = r_op1;
-      r_op1 = r_op2;
-      r_op2 = tmp;
-    }
+    std::swap (r_op1, r_op2);
   else if (r_op1 != PHI_RESULT (header_phi))
     return false;
 
@@ -1594,27 +1569,7 @@ convert_scalar_cond_reduction (gimple reduc, gimple_stmt_iterator *gsi,
   return rhs;
 }
 
-/* Helpers for PHI arguments hashtable map.  */
-
-struct phi_args_hash_traits : default_hashmap_traits
-{
-  static inline hashval_t hash (tree);
-  static inline bool equal_keys (tree, tree);
-};
-
-inline hashval_t
-phi_args_hash_traits::hash (tree value)
-{
-  return iterative_hash_expr (value, 0);
-}
-
-inline bool
-phi_args_hash_traits::equal_keys (tree value1, tree value2)
-{
-  return operand_equal_p (value1, value2, 0);
-}
-
-  /* Produce condition for all occurrences of ARG in PHI node.  */
+/* Produce condition for all occurrences of ARG in PHI node.  */
 
 static tree
 gen_phi_arg_condition (gphi *phi, vec<int> *occur,
@@ -1710,11 +1665,7 @@ predicate_scalar_phi (gphi *phi, gimple_stmt_iterator *gsi)
       second_edge = EDGE_PRED (bb, 1);
       cond = bb_predicate (first_edge->src);
       if (TREE_CODE (cond) == TRUTH_NOT_EXPR)
-	{
-	  edge tmp_edge = first_edge;
-	  first_edge = second_edge;
-	  second_edge = tmp_edge;
-	}
+	std::swap (first_edge, second_edge);
       if (EDGE_COUNT (first_edge->src->succs) > 1)
 	{
 	  cond = bb_predicate (second_edge->src);
@@ -1764,7 +1715,7 @@ predicate_scalar_phi (gphi *phi, gimple_stmt_iterator *gsi)
   /* Create hashmap for PHI node which contain vector of argument indexes
      having the same value.  */
   bool swap = false;
-  hash_map<tree, auto_vec<int>, phi_args_hash_traits> phi_arg_map;
+  hash_map<tree_operand_hash, auto_vec<int> > phi_arg_map;
   unsigned int num_args = gimple_phi_num_args (phi);
   int max_ind = -1;
   /* Vector of different PHI argument values.  */
@@ -1797,11 +1748,7 @@ predicate_scalar_phi (gphi *phi, gimple_stmt_iterator *gsi)
 
   /* Put element with max number of occurences to the end of ARGS.  */
   if (max_ind != -1 && max_ind +1 != (int) args_len)
-    {
-      tree tmp = args[args_len - 1];
-      args[args_len - 1] = args[max_ind];
-      args[max_ind] = tmp;
-    }
+    std::swap (args[args_len - 1], args[max_ind]);
 
   /* Handle one special case when number of arguments with different values
      is equal 2 and one argument has the only occurrence.  Such PHI can be
@@ -2176,11 +2123,7 @@ predicate_mem_writes (loop_p loop)
 	    lhs = ifc_temp_var (type, unshare_expr (lhs), &gsi);
 	    rhs = ifc_temp_var (type, unshare_expr (rhs), &gsi);
 	    if (swap)
-	      {
-		tree tem = lhs;
-		lhs = rhs;
-		rhs = tem;
-	      }
+	      std::swap (lhs, rhs);
 	    cond = force_gimple_operand_gsi_1 (&gsi, unshare_expr (cond),
 					       is_gimple_condexpr, NULL_TREE,
 					       true, GSI_SAME_STMT);
@@ -2256,9 +2199,11 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
   /* Merge basic blocks: first remove all the edges in the loop,
      except for those from the exit block.  */
   exit_bb = NULL;
+  bool *predicated = XNEWVEC (bool, orig_loop_num_nodes);
   for (i = 0; i < orig_loop_num_nodes; i++)
     {
       bb = ifc_bbs[i];
+      predicated[i] = !is_true_predicate (bb_predicate (bb));
       free_bb_predicate (bb);
       if (bb_with_exit_edge_p (loop, bb))
 	{
@@ -2316,9 +2261,21 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
       if (bb == exit_bb || bb == loop->latch)
 	continue;
 
-      /* Make stmts member of loop->header.  */
+      /* Make stmts member of loop->header and clear range info from all stmts
+	 in BB which is now no longer executed conditional on a predicate we
+	 could have derived it from.  */
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	gimple_set_bb (gsi_stmt (gsi), merge_target_bb);
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  gimple_set_bb (stmt, merge_target_bb);
+	  if (predicated[i])
+	    {
+	      ssa_op_iter i;
+	      tree op;
+	      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_DEF)
+		reset_flow_sensitive_info (op);
+	    }
+	}
 
       /* Update stmt list.  */
       last = gsi_last_bb (merge_target_bb);
@@ -2338,10 +2295,11 @@ combine_blocks (struct loop *loop, bool any_mask_load_store)
 
   free (ifc_bbs);
   ifc_bbs = NULL;
+  free (predicated);
 }
 
-/* Version LOOP before if-converting it, the original loop
-   will be then if-converted, the new copy of the loop will not,
+/* Version LOOP before if-converting it; the original loop
+   will be if-converted, the new copy of the loop will not,
    and the LOOP_VECTORIZED internal call will be guarding which
    loop to execute.  The vectorizer pass will fold this
    internal call into either true or false.  */
@@ -2513,7 +2471,7 @@ ifcvt_walk_pattern_tree (tree var, vec<gimple> *defuse_list,
   return;
 }
 
-/* Returns true if STMT can be a root of bool pattern apllied
+/* Returns true if STMT can be a root of bool pattern applied
    by vectorizer.  */
 
 static bool
@@ -2543,7 +2501,7 @@ stmt_is_root_of_bool_pattern (gimple stmt)
   return false;
 }
 
-/*  Traverse all statements in BB which correspondent to loop header to
+/*  Traverse all statements in BB which correspond to loop header to
     find out all statements which can start bool pattern applied by
     vectorizer and convert multiple uses in it to conform pattern
     restrictions.  Such case can occur if the same predicate is used both
@@ -2624,7 +2582,7 @@ ifcvt_local_dce (basic_block bb)
       gimple_set_plf (phi, GF_PLF_2, true);
       worklist.safe_push (phi);
     }
-  /* Consider load/store statemnts, CALL and COND as live.  */
+  /* Consider load/store statements, CALL and COND as live.  */
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
       stmt = gsi_stmt (gsi);
@@ -2712,7 +2670,7 @@ tree_if_conversion (struct loop *loop)
   ifc_bbs = NULL;
   bool any_mask_load_store = false;
 
-  /* Set-up aggressive if-conversion for loops marked with simd pragma.  */
+  /* Set up aggressive if-conversion for loops marked with simd pragma.  */
   aggressive_if_conv = loop->force_vectorize;
   /* Check either outer loop was marked with simd pragma.  */
   if (!aggressive_if_conv)
@@ -2744,7 +2702,7 @@ tree_if_conversion (struct loop *loop)
   combine_blocks (loop, any_mask_load_store);
 
   /* Delete dead predicate computations and repair tree correspondent
-     to bool pattern to delete multiple uses of preidcates.  */
+     to bool pattern to delete multiple uses of predicates.  */
   if (aggressive_if_conv)
     {
       ifcvt_local_dce (loop->header);

@@ -6403,7 +6403,7 @@
 
   /* Pass constm1 to indicate that it may expect a structure value, but
      we don't know what size it is.  */
-  emit_call_insn (GEN_CALL (operands[0], const0_rtx, NULL, constm1_rtx));
+  emit_call_insn (gen_call (operands[0], const0_rtx, NULL, constm1_rtx));
 
   /* Save the function value registers.  */
   emit_move_insn (adjust_address (result, DImode, 0), valreg1);
@@ -6704,8 +6704,8 @@
    (set (match_dup 2) (match_dup 3))]
   ""
 {
-  operands[0] = adjust_address_nv (operands[0], Pmode, 0);
-  operands[2] = adjust_address_nv (operands[0], Pmode, GET_MODE_SIZE (Pmode));
+  operands[0] = adjust_address (operands[0], Pmode, 0);
+  operands[2] = adjust_address (operands[0], Pmode, GET_MODE_SIZE (Pmode));
   operands[3] = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
 })
 
@@ -6714,7 +6714,7 @@
 	(match_operand 1 "memory_operand" ""))]
   ""
 {
-  operands[1] = adjust_address_nv (operands[1], Pmode, 0);
+  operands[1] = adjust_address (operands[1], Pmode, 0);
 })
 
 (define_expand "nonlocal_goto"
@@ -6726,9 +6726,9 @@
 {
   rtx i7 = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
   rtx r_label = copy_to_reg (operands[1]);
-  rtx r_sp = adjust_address_nv (operands[2], Pmode, 0);
+  rtx r_sp = adjust_address (operands[2], Pmode, 0);
   rtx r_fp = operands[3];
-  rtx r_i7 = adjust_address_nv (operands[2], Pmode, GET_MODE_SIZE (Pmode));
+  rtx r_i7 = adjust_address (operands[2], Pmode, GET_MODE_SIZE (Pmode));
 
   /* We need to flush all the register windows so that their contents will
      be re-synchronized by the restore insn of the target function.  */

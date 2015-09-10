@@ -29,9 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
@@ -147,7 +145,7 @@ struct GTY((chain_next ("%h.next"), for_user)) pending_abstract_type {
   tree type;
 
   /* Kind of use in an unnamed declarator.  */
-  abstract_class_use use;
+  enum abstract_class_use use;
 
   /* Position of the declaration. This is only needed for IDENTIFIER_NODEs,
      because DECLs already carry locus information.  */
@@ -157,7 +155,7 @@ struct GTY((chain_next ("%h.next"), for_user)) pending_abstract_type {
   struct pending_abstract_type* next;
 };
 
-struct abstract_type_hasher : ggc_hasher<pending_abstract_type *>
+struct abstract_type_hasher : ggc_ptr_hash<pending_abstract_type>
 {
   typedef tree compare_type;
   static hashval_t hash (pending_abstract_type *);
@@ -391,7 +389,7 @@ abstract_virtuals_error_sfinae (tree decl, tree type, abstract_class_use use,
       FOR_EACH_VEC_ELT (*pure, ix, fn)
 	if (! DECL_CLONED_FUNCTION_P (fn)
 	    || DECL_COMPLETE_DESTRUCTOR_P (fn))
-	  inform (input_location, "\t%+#D", fn);
+	  inform (DECL_SOURCE_LOCATION (fn), "\t%#D", fn);
 
       /* Now truncate the vector.  This leaves it non-null, so we know
 	 there are pure virtuals, but empty so we don't list them out
@@ -475,8 +473,8 @@ cxx_incomplete_type_diagnostic (const_tree value, const_tree type,
 		     || TREE_CODE (value) == PARM_DECL
 		     || TREE_CODE (value) == FIELD_DECL))
     {
-      complained = emit_diagnostic (diag_kind, input_location, 0,
-				    "%q+D has incomplete type", value);
+      complained = emit_diagnostic (diag_kind, DECL_SOURCE_LOCATION (value), 0,
+				    "%qD has incomplete type", value);
       is_decl = true;
     } 
  retry:
@@ -1088,7 +1086,7 @@ digest_init_r (tree type, tree init, bool nested, int flags,
   /* Come here only for aggregates: records, arrays, unions, complex numbers
      and vectors.  */
   gcc_assert (TREE_CODE (type) == ARRAY_TYPE
-	      || TREE_CODE (type) == VECTOR_TYPE
+	      || VECTOR_TYPE_P (type)
 	      || TREE_CODE (type) == RECORD_TYPE
 	      || TREE_CODE (type) == UNION_TYPE
 	      || TREE_CODE (type) == COMPLEX_TYPE);
@@ -1100,7 +1098,8 @@ digest_init_r (tree type, tree init, bool nested, int flags,
   if (cxx_dialect >= cxx11
       && BRACE_ENCLOSED_INITIALIZER_P (init)
       && CONSTRUCTOR_NELTS (init) == 1
-      && (CLASS_TYPE_P (type) || VECTOR_TYPE_P (type)))
+      && ((CLASS_TYPE_P (type) && !CLASSTYPE_NON_AGGREGATE (type))
+	  || VECTOR_TYPE_P (type)))
     {
       tree elt = CONSTRUCTOR_ELT (init, 0)->value;
       if (reference_related_p (type, TREE_TYPE (elt)))
@@ -1240,7 +1239,7 @@ process_init_constructor_array (tree type, tree init,
   vec<constructor_elt, va_gc> *v = CONSTRUCTOR_ELTS (init);
 
   gcc_assert (TREE_CODE (type) == ARRAY_TYPE
-	      || TREE_CODE (type) == VECTOR_TYPE);
+	      || VECTOR_TYPE_P (type));
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
@@ -1576,7 +1575,7 @@ process_init_constructor (tree type, tree init, tsubst_flags_t complain)
 
   gcc_assert (BRACE_ENCLOSED_INITIALIZER_P (init));
 
-  if (TREE_CODE (type) == ARRAY_TYPE || TREE_CODE (type) == VECTOR_TYPE)
+  if (TREE_CODE (type) == ARRAY_TYPE || VECTOR_TYPE_P (type))
     flags = process_init_constructor_array (type, init, complain);
   else if (TREE_CODE (type) == RECORD_TYPE)
     flags = process_init_constructor_record (type, init, complain);
@@ -2116,6 +2115,7 @@ merge_exception_specifiers (tree list, tree add)
     return add;
   noex = TREE_PURPOSE (list);
   gcc_checking_assert (!TREE_PURPOSE (add)
+		       || errorcount
 		       || cp_tree_equal (noex, TREE_PURPOSE (add)));
 
   /* Combine the dynamic-exception-specifiers, if any.  */

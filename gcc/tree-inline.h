@@ -35,25 +35,7 @@ enum copy_body_cge_which
   CB_CGE_MOVE_CLONES
 };
 
-struct dependence_hasher : default_hashmap_traits
-{
-  template<typename T>
-  static void
-  mark_deleted (T &e)
-    { gcc_unreachable (); }
-
-  template<typename T>
-  static void
-  mark_empty (T &e)
-    { e.m_key = 0; }
-
-  template<typename T>
-  static bool
-  is_deleted (T &)
-    { return false; }
-
-  template<typename T> static bool is_empty (T &e) { return e.m_key == 0; }
-};
+typedef int_hash <unsigned short, 0> dependence_hash;
 
 /* Data required for function body duplication.  */
 
@@ -165,12 +147,12 @@ struct copy_body_data
 
   /* A map from the inlined functions dependence info cliques to
      equivalents in the function into which it is being inlined.  */
-  hash_map<unsigned short, unsigned short, dependence_hasher> *dependence_map;
+  hash_map<dependence_hash, unsigned short> *dependence_map;
 };
 
 /* Weights of constructions for estimate_num_insns.  */
 
-typedef struct eni_weights_d
+struct eni_weights
 {
   /* Cost per call.  */
   unsigned call_cost;
@@ -197,7 +179,7 @@ typedef struct eni_weights_d
      cost of a switch statement is logarithmic rather than linear in number
      of cases.  */
   bool time_based;
-} eni_weights;
+};
 
 /* Weights that estimate_num_insns uses for heuristics in inlining.  */
 

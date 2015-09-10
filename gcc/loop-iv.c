@@ -50,21 +50,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
-#include "hard-reg-set.h"
-#include "obstack.h"
-#include "predict.h"
-#include "input.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
+#include "df.h"
 #include "cfgloop.h"
-#include "symtab.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -76,7 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "intl.h"
 #include "diagnostic-core.h"
-#include "df.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
 
@@ -125,9 +116,8 @@ static struct loop *current_loop;
 
 /* Hashtable helper.  */
 
-struct biv_entry_hasher : typed_free_remove <biv_entry>
+struct biv_entry_hasher : free_ptr_hash <biv_entry>
 {
-  typedef biv_entry *value_type;
   typedef rtx_def *compare_type;
   static inline hashval_t hash (const biv_entry *);
   static inline bool equal (const biv_entry *, const rtx_def *);
@@ -213,17 +203,6 @@ dump_iv_info (FILE *file, struct rtx_iv *iv)
     }
   if (iv->first_special)
     fprintf (file, " (first special)");
-}
-
-/* Generates a subreg to get the least significant part of EXPR (in mode
-   INNER_MODE) to OUTER_MODE.  */
-
-rtx
-lowpart_subreg (machine_mode outer_mode, rtx expr,
-		machine_mode inner_mode)
-{
-  return simplify_gen_subreg (outer_mode, expr, inner_mode,
-			      subreg_lowpart_offset (outer_mode, inner_mode));
 }
 
 static void
@@ -665,7 +644,7 @@ get_biv_step_1 (df_ref def, rtx reg,
 		rtx *outer_step)
 {
   rtx set, rhs, op0 = NULL_RTX, op1 = NULL_RTX;
-  rtx next, nextr, tmp;
+  rtx next, nextr;
   enum rtx_code code;
   rtx_insn *insn = DF_REF_INSN (def);
   df_ref next_def;
@@ -695,9 +674,7 @@ get_biv_step_1 (df_ref def, rtx reg,
       op1 = XEXP (rhs, 1);
 
       if (code == PLUS && CONSTANT_P (op0))
-	{
-	  tmp = op0; op0 = op1; op1 = tmp;
-	}
+	std::swap (op0, op1);
 
       if (!simple_reg_p (op0)
 	  || !CONSTANT_P (op1))
@@ -2348,13 +2325,13 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
 			 struct niter_desc *desc)
 {
   rtx op0, op1, delta, step, bound, may_xform, tmp, tmp0, tmp1;
-  struct rtx_iv iv0, iv1, tmp_iv;
+  struct rtx_iv iv0, iv1;
   rtx assumption, may_not_xform;
   enum rtx_code cond;
   machine_mode mode, comp_mode;
   rtx mmin, mmax, mode_mmin, mode_mmax;
-  uint64_t s, size, d, inv, max;
-  int64_t up, down, inc, step_val;
+  uint64_t s, size, d, inv, max, up, down;
+  int64_t inc, step_val;
   int was_sharp = false;
   rtx old_niter;
   bool step_is_pow2;
@@ -2411,7 +2388,7 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
       case GT:
       case GEU:
       case GTU:
-	tmp_iv = iv0; iv0 = iv1; iv1 = tmp_iv;
+	std::swap (iv0, iv1);
 	cond = swap_condition (cond);
 	break;
       case NE:
@@ -2644,7 +2621,7 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
 	  down = INTVAL (CONST_INT_P (iv0.base)
 			 ? iv0.base
 			 : mode_mmin);
-	  max = (uint64_t) (up - down) / inc + 1;
+	  max = (up - down) / inc + 1;
 	  if (!desc->infinite
 	      && !desc->assumptions)
 	    record_niter_bound (loop, max, false, true);

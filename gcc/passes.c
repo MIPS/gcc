@@ -25,25 +25,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "line-map.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-attr.h"
 #include "insn-config.h"
 #include "insn-flags.h"
-#include "hard-reg-set.h"
 #include "recog.h"
 #include "output.h"
 #include "except.h"
-#include "function.h"
 #include "toplev.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -52,8 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "intl.h"
 #include "graph.h"
 #include "regs.h"
@@ -69,24 +66,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree-inline.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
-#include "df.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "plugin.h"
@@ -94,8 +81,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "context.h"
 #include "pass_manager.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
@@ -333,7 +318,10 @@ rest_of_decl_compilation (tree decl,
       && !decl_function_context (decl)
       && !current_function_decl
       && DECL_SOURCE_LOCATION (decl) != BUILTINS_LOCATION
-      && !decl_type_context (decl))
+      && !decl_type_context (decl)
+      /* Avoid confusing the debug information machinery when there are
+	 errors.  */
+      && !seen_error ())
     (*debug_hooks->early_global_decl) (decl);
 }
 
@@ -861,32 +849,7 @@ pass_manager::register_dump_files (opt_pass *pass)
   while (pass);
 }
 
-/* Helper for pass_registry hash table.  */
-
-struct pass_registry_hasher : default_hashmap_traits
-{
-  static inline hashval_t hash (const char *);
-  static inline bool equal_keys (const char *, const char *);
-};
-
-/* Pass registry hash function.  */
-
-inline hashval_t
-pass_registry_hasher::hash (const char *name)
-{
-  return htab_hash_string (name);
-}
-
-/* Hash equal function  */
-
-inline bool
-pass_registry_hasher::equal_keys (const char *s1, const char *s2)
-{
-  return !strcmp (s1, s2);
-}
-
-static hash_map<const char *, opt_pass *, pass_registry_hasher>
-  *name_to_pass_map;
+static hash_map<nofree_string_hash, opt_pass *> *name_to_pass_map;
 
 /* Register PASS with NAME.  */
 
@@ -894,8 +857,7 @@ static void
 register_pass_name (opt_pass *pass, const char *name)
 {
   if (!name_to_pass_map)
-    name_to_pass_map
-      = new hash_map<const char *, opt_pass *, pass_registry_hasher> (256);
+    name_to_pass_map = new hash_map<nofree_string_hash, opt_pass *> (256);
 
   if (name_to_pass_map->get (name))
     return; /* Ignore plugin passes.  */
@@ -1971,6 +1933,7 @@ execute_function_todo (function *fn, void *data)
   if (flags & TODO_rebuild_cgraph_edges)
     cgraph_edge::rebuild_edges ();
 
+  gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == DOM_NONE);
   /* If we've seen errors do not bother running any verifiers.  */
   if (!seen_error ())
     {

@@ -23,12 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "stringpool.h"
@@ -37,14 +38,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "except.h"
-#include "function.h"
 #include "recog.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -54,30 +53,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "reload.h"
 #include "diagnostic-core.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "target.h"
-#include "target-def.h"
 #include "debug.h"
 #include "langhooks.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
-#include "df.h"
 #include "params.h"
 #include "cfgloop.h"
 #include "opts.h"
@@ -86,9 +75,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "rtl-iter.h"
 #include "intl.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Define the specific costs for a given cpu.  */
 
@@ -454,23 +444,139 @@ struct GTY(()) machine_function
 #define PREDICT_DISTANCE (TARGET_Z10 ? 384 : 2048)
 
 
+/* Indicate which ABI has been used for passing vector args.
+   0 - no vector type arguments have been passed where the ABI is relevant
+   1 - the old ABI has been used
+   2 - a vector type argument has been passed either in a vector register
+       or on the stack by value  */
+static int s390_vector_abi = 0;
+
+/* Set the vector ABI marker if TYPE is subject to the vector ABI
+   switch.  The vector ABI affects only vector data types.  There are
+   two aspects of the vector ABI relevant here:
+
+   1. vectors >= 16 bytes have an alignment of 8 bytes with the new
+   ABI and natural alignment with the old.
+
+   2. vector <= 16 bytes are passed in VRs or by value on the stack
+   with the new ABI but by reference on the stack with the old.
+
+   If ARG_P is true TYPE is used for a function argument or return
+   value.  The ABI marker then is set for all vector data types.  If
+   ARG_P is false only type 1 vectors are being checked.  */
+
+static void
+s390_check_type_for_vector_abi (const_tree type, bool arg_p, bool in_struct_p)
+{
+  static hash_set<const_tree> visited_types_hash;
+
+  if (s390_vector_abi)
+    return;
+
+  if (type == NULL_TREE || TREE_CODE (type) == ERROR_MARK)
+    return;
+
+  if (visited_types_hash.contains (type))
+    return;
+
+  visited_types_hash.add (type);
+
+  if (VECTOR_TYPE_P (type))
+    {
+      int type_size = int_size_in_bytes (type);
+
+      /* Outside arguments only the alignment is changing and this
+	 only happens for vector types >= 16 bytes.  */
+      if (!arg_p && type_size < 16)
+	return;
+
+      /* In arguments vector types > 16 are passed as before (GCC
+	 never enforced the bigger alignment for arguments which was
+	 required by the old vector ABI).  However, it might still be
+	 ABI relevant due to the changed alignment if it is a struct
+	 member.  */
+      if (arg_p && type_size > 16 && !in_struct_p)
+	return;
+
+      s390_vector_abi = TARGET_VX_ABI ? 2 : 1;
+    }
+  else if (POINTER_TYPE_P (type) || TREE_CODE (type) == ARRAY_TYPE)
+    {
+      /* ARRAY_TYPE: Since with neither of the ABIs we have more than
+	 natural alignment there will never be ABI dependent padding
+	 in an array type.  That's why we do not set in_struct_p to
+	 true here.  */
+      s390_check_type_for_vector_abi (TREE_TYPE (type), arg_p, in_struct_p);
+    }
+  else if (TREE_CODE (type) == FUNCTION_TYPE || TREE_CODE (type) == METHOD_TYPE)
+    {
+      tree arg_chain;
+
+      /* Check the return type.  */
+      s390_check_type_for_vector_abi (TREE_TYPE (type), true, false);
+
+      for (arg_chain = TYPE_ARG_TYPES (type);
+	   arg_chain;
+	   arg_chain = TREE_CHAIN (arg_chain))
+	s390_check_type_for_vector_abi (TREE_VALUE (arg_chain), true, false);
+    }
+  else if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      tree field;
+
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	{
+	  if (TREE_CODE (field) != FIELD_DECL)
+	    continue;
+
+	  s390_check_type_for_vector_abi (TREE_TYPE (field), arg_p, true);
+	}
+    }
+}
+
+
 /* System z builtins.  */
 
 #include "s390-builtins.h"
 
-const unsigned int flags_builtin[S390_BUILTIN_MAX + 1] =
+const unsigned int bflags_builtin[S390_BUILTIN_MAX + 1] =
   {
 #undef B_DEF
 #undef OB_DEF
 #undef OB_DEF_VAR
-#define B_DEF(NAME, PATTERN, ATTRS, FLAGS, FNTYPE) FLAGS,
+#define B_DEF(NAME, PATTERN, ATTRS, BFLAGS, ...) BFLAGS,
 #define OB_DEF(...)
 #define OB_DEF_VAR(...)
 #include "s390-builtins.def"
     0
   };
 
-const unsigned int flags_overloaded_builtin_var[S390_OVERLOADED_BUILTIN_VAR_MAX + 1] =
+const unsigned int opflags_builtin[S390_BUILTIN_MAX + 1] =
+  {
+#undef B_DEF
+#undef OB_DEF
+#undef OB_DEF_VAR
+#define B_DEF(NAME, PATTERN, ATTRS, BFLAGS, OPFLAGS, ...) OPFLAGS,
+#define OB_DEF(...)
+#define OB_DEF_VAR(...)
+#include "s390-builtins.def"
+    0
+  };
+
+const unsigned int bflags_overloaded_builtin[S390_OVERLOADED_BUILTIN_MAX + 1] =
+  {
+#undef B_DEF
+#undef OB_DEF
+#undef OB_DEF_VAR
+#define B_DEF(...)
+#define OB_DEF(NAME, FIRST_VAR_NAME, LAST_VAR_NAME, BFLAGS, ...) BFLAGS,
+#define OB_DEF_VAR(...)
+#include "s390-builtins.def"
+    0
+  };
+
+const unsigned int
+opflags_overloaded_builtin_var[S390_OVERLOADED_BUILTIN_VAR_MAX + 1] =
   {
 #undef B_DEF
 #undef OB_DEF
@@ -508,6 +614,10 @@ s390_init_builtins (void)
 				       NULL, NULL);
   tree noreturn_attr = tree_cons (get_identifier ("noreturn"), NULL, NULL);
   tree c_uint64_type_node;
+  unsigned int bflags_mask = (BFLAGS_MASK_INIT);
+
+  bflags_mask |= (TARGET_VX)  ? B_VX  : 0;
+  bflags_mask |= (TARGET_HTM) ? B_HTM : 0;
 
   /* The uint64_type_node from tree.c is not compatible to the C99
      uint64_t data type.  What we want is c_uint64_type_node from
@@ -519,56 +629,64 @@ s390_init_builtins (void)
     c_uint64_type_node = long_long_unsigned_type_node;
 
 #undef DEF_TYPE
-#define DEF_TYPE(INDEX, NODE, CONST_P)			\
-  s390_builtin_types[INDEX] = (!CONST_P) ?		\
-    (NODE) : build_type_variant ((NODE), 1, 0);
+#define DEF_TYPE(INDEX, BFLAGS, NODE, CONST_P)		\
+  if ((BFLAGS) == 0 || ((BFLAGS) & bflags_mask))	\
+    s390_builtin_types[INDEX] = (!CONST_P) ?		\
+      (NODE) : build_type_variant ((NODE), 1, 0);
 
 #undef DEF_POINTER_TYPE
-#define DEF_POINTER_TYPE(INDEX, INDEX_BASE)				\
-  s390_builtin_types[INDEX] =						\
-    build_pointer_type (s390_builtin_types[INDEX_BASE]);
+#define DEF_POINTER_TYPE(INDEX, BFLAGS, INDEX_BASE)			\
+  if ((BFLAGS) == 0 || ((BFLAGS) & bflags_mask))			\
+    s390_builtin_types[INDEX] =						\
+      build_pointer_type (s390_builtin_types[INDEX_BASE]);
 
 #undef DEF_DISTINCT_TYPE
-#define DEF_DISTINCT_TYPE(INDEX, INDEX_BASE)				\
-  s390_builtin_types[INDEX] =						\
-    build_distinct_type_copy (s390_builtin_types[INDEX_BASE]);
+#define DEF_DISTINCT_TYPE(INDEX, BFLAGS, INDEX_BASE)			\
+  if ((BFLAGS) == 0 || ((BFLAGS) & bflags_mask))			\
+    s390_builtin_types[INDEX] =						\
+      build_distinct_type_copy (s390_builtin_types[INDEX_BASE]);
 
 #undef DEF_VECTOR_TYPE
-#define DEF_VECTOR_TYPE(INDEX, INDEX_BASE, ELEMENTS)			\
-  s390_builtin_types[INDEX] =						\
-    build_vector_type (s390_builtin_types[INDEX_BASE], ELEMENTS);
+#define DEF_VECTOR_TYPE(INDEX, BFLAGS, INDEX_BASE, ELEMENTS)		\
+  if ((BFLAGS) == 0 || ((BFLAGS) & bflags_mask))			\
+    s390_builtin_types[INDEX] =						\
+      build_vector_type (s390_builtin_types[INDEX_BASE], ELEMENTS);
 
 #undef DEF_OPAQUE_VECTOR_TYPE
-#define DEF_OPAQUE_VECTOR_TYPE(INDEX, INDEX_BASE, ELEMENTS)		\
-  s390_builtin_types[INDEX] =						\
-    build_opaque_vector_type (s390_builtin_types[INDEX_BASE], ELEMENTS);
+#define DEF_OPAQUE_VECTOR_TYPE(INDEX, BFLAGS, INDEX_BASE, ELEMENTS)	\
+  if ((BFLAGS) == 0 || ((BFLAGS) & bflags_mask))			\
+    s390_builtin_types[INDEX] =						\
+      build_opaque_vector_type (s390_builtin_types[INDEX_BASE], ELEMENTS);
 
 #undef DEF_FN_TYPE
-#define DEF_FN_TYPE(INDEX, args...)				\
-  s390_builtin_fn_types[INDEX] =				\
+#define DEF_FN_TYPE(INDEX, BFLAGS, args...)			\
+  if ((BFLAGS) == 0 || ((BFLAGS) & bflags_mask))		\
+    s390_builtin_fn_types[INDEX] =				\
     build_function_type_list (args, NULL_TREE);
 #undef DEF_OV_TYPE
 #define DEF_OV_TYPE(...)
 #include "s390-builtin-types.def"
 
 #undef B_DEF
-#define B_DEF(NAME, PATTERN, ATTRS, FLAGS, FNTYPE)			\
-  s390_builtin_decls[S390_BUILTIN_##NAME] =				\
-  add_builtin_function ("__builtin_" #NAME,				\
-			s390_builtin_fn_types[FNTYPE],			\
-			S390_BUILTIN_##NAME,				\
-			BUILT_IN_MD,					\
-			NULL,						\
-			ATTRS);
+#define B_DEF(NAME, PATTERN, ATTRS, BFLAGS, OPFLAGS, FNTYPE)		\
+  if (((BFLAGS) & ~bflags_mask) == 0)					\
+    s390_builtin_decls[S390_BUILTIN_##NAME] =				\
+      add_builtin_function ("__builtin_" #NAME,				\
+			    s390_builtin_fn_types[FNTYPE],		\
+			    S390_BUILTIN_##NAME,			\
+			    BUILT_IN_MD,				\
+			    NULL,					\
+			    ATTRS);
 #undef OB_DEF
-#define OB_DEF(NAME, FIRST_VAR_NAME, LAST_VAR_NAME, FNTYPE)		\
-  s390_builtin_decls[S390_OVERLOADED_BUILTIN_##NAME + S390_BUILTIN_MAX] = \
-  add_builtin_function ("__builtin_" #NAME,				\
-			s390_builtin_fn_types[FNTYPE],			\
-			S390_OVERLOADED_BUILTIN_##NAME + S390_BUILTIN_MAX, \
-			BUILT_IN_MD,					\
-			NULL,						\
-			0);
+#define OB_DEF(NAME, FIRST_VAR_NAME, LAST_VAR_NAME, BFLAGS, FNTYPE)	\
+  if (((BFLAGS) & ~bflags_mask) == 0)					\
+    s390_builtin_decls[S390_OVERLOADED_BUILTIN_##NAME + S390_BUILTIN_MAX] = \
+      add_builtin_function ("__builtin_" #NAME,				\
+			    s390_builtin_fn_types[FNTYPE],		\
+			    S390_OVERLOADED_BUILTIN_##NAME + S390_BUILTIN_MAX, \
+			    BUILT_IN_MD,				\
+			    NULL,					\
+			    0);
 #undef OB_DEF_VAR
 #define OB_DEF_VAR(...)
 #include "s390-builtins.def"
@@ -639,7 +757,7 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
   bool nonvoid;
   tree arg;
   call_expr_arg_iterator iter;
-  unsigned int all_op_flags = flags_for_builtin (fcode);
+  unsigned int all_op_flags = opflags_for_builtin (fcode);
   machine_mode last_vec_mode = VOIDmode;
 
   if (TARGET_DEBUG_ARG)
@@ -648,7 +766,6 @@ s390_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	       "s390_expand_builtin, code = %4d, %s\n",
 	       (int)fcode, IDENTIFIER_POINTER (DECL_NAME (fndecl)));
     }
-
 
   if (fcode >= S390_OVERLOADED_BUILTIN_VAR_OFFSET
       && fcode < S390_ALL_BUILTIN_MAX)
@@ -2141,23 +2258,14 @@ s390_contiguous_bitmask_vector_p (rtx op, int *start, int *end)
 {
   unsigned HOST_WIDE_INT mask;
   int length, size;
+  rtx elt;
 
-  if (!VECTOR_MODE_P (GET_MODE (op))
-      || GET_CODE (op) != CONST_VECTOR
-      || !CONST_INT_P (XVECEXP (op, 0, 0)))
+  if (!const_vec_duplicate_p (op, &elt)
+      || !CONST_INT_P (elt))
     return false;
 
-  if (GET_MODE_NUNITS (GET_MODE (op)) > 1)
-    {
-      int i;
-
-      for (i = 1; i < GET_MODE_NUNITS (GET_MODE (op)); ++i)
-	if (!rtx_equal_p (XVECEXP (op, 0, i), XVECEXP (op, 0, 0)))
-	  return false;
-    }
-
   size = GET_MODE_UNIT_BITSIZE (GET_MODE (op));
-  mask = UINTVAL (XVECEXP (op, 0, 0));
+  mask = UINTVAL (elt);
   if (s390_contiguous_bitmask_p (mask, size, start,
 				 end != NULL ? &length : NULL))
     {
@@ -3185,13 +3293,14 @@ s390_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.
-   CODE contains GET_CODE (x), OUTER_CODE contains the code
-   of the superexpression of x.  */
+   OUTER_CODE contains the code of the superexpression of x.  */
 
 static bool
-s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
+s390_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno ATTRIBUTE_UNUSED,
 		int *total, bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
   switch (code)
     {
     case CONST:
@@ -3203,13 +3312,26 @@ s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       *total = 0;
       return true;
 
+    case IOR:
+      /* risbg */
+      if (GET_CODE (XEXP (x, 0)) == AND
+	  && GET_CODE (XEXP (x, 1)) == ASHIFT
+	  && REG_P (XEXP (XEXP (x, 0), 0))
+	  && REG_P (XEXP (XEXP (x, 1), 0))
+	  && CONST_INT_P (XEXP (XEXP (x, 0), 1))
+	  && CONST_INT_P (XEXP (XEXP (x, 1), 1))
+	  && (UINTVAL (XEXP (XEXP (x, 0), 1)) ==
+	      (1UL << UINTVAL (XEXP (XEXP (x, 1), 1))) - 1))
+	{
+	  *total = COSTS_N_INSNS (2);
+	  return true;
+	}
     case ASHIFT:
     case ASHIFTRT:
     case LSHIFTRT:
     case ROTATE:
     case ROTATERT:
     case AND:
-    case IOR:
     case XOR:
     case NEG:
     case NOT:
@@ -3222,7 +3344,7 @@ s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case MULT:
-      switch (GET_MODE (x))
+      switch (mode)
 	{
 	case SImode:
 	  {
@@ -3281,7 +3403,7 @@ s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case FMA:
-      switch (GET_MODE (x))
+      switch (mode)
 	{
 	case DFmode:
 	  *total = s390_cost->madbr;
@@ -3295,18 +3417,18 @@ s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       /* Negate in the third argument is free: FMSUB.  */
       if (GET_CODE (XEXP (x, 2)) == NEG)
 	{
-	  *total += (rtx_cost (XEXP (x, 0), FMA, 0, speed)
-		     + rtx_cost (XEXP (x, 1), FMA, 1, speed)
-		     + rtx_cost (XEXP (XEXP (x, 2), 0), FMA, 2, speed));
+	  *total += (rtx_cost (XEXP (x, 0), mode, FMA, 0, speed)
+		     + rtx_cost (XEXP (x, 1), mode, FMA, 1, speed)
+		     + rtx_cost (XEXP (XEXP (x, 2), 0), mode, FMA, 2, speed));
 	  return true;
 	}
       return false;
 
     case UDIV:
     case UMOD:
-      if (GET_MODE (x) == TImode) 	       /* 128 bit division */
+      if (mode == TImode) 	       /* 128 bit division */
 	*total = s390_cost->dlgr;
-      else if (GET_MODE (x) == DImode)
+      else if (mode == DImode)
 	{
 	  rtx right = XEXP (x, 1);
 	  if (GET_CODE (right) == ZERO_EXTEND) /* 64 by 32 bit division */
@@ -3314,13 +3436,13 @@ s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  else 	                               /* 64 by 64 bit division */
 	    *total = s390_cost->dlgr;
 	}
-      else if (GET_MODE (x) == SImode)         /* 32 bit division */
+      else if (mode == SImode)         /* 32 bit division */
 	*total = s390_cost->dlr;
       return false;
 
     case DIV:
     case MOD:
-      if (GET_MODE (x) == DImode)
+      if (mode == DImode)
 	{
 	  rtx right = XEXP (x, 1);
 	  if (GET_CODE (right) == ZERO_EXTEND) /* 64 by 32 bit division */
@@ -3331,26 +3453,26 @@ s390_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  else 	                               /* 64 by 64 bit division */
 	    *total = s390_cost->dsgr;
 	}
-      else if (GET_MODE (x) == SImode)         /* 32 bit division */
+      else if (mode == SImode)         /* 32 bit division */
 	*total = s390_cost->dlr;
-      else if (GET_MODE (x) == SFmode)
+      else if (mode == SFmode)
 	{
 	  *total = s390_cost->debr;
 	}
-      else if (GET_MODE (x) == DFmode)
+      else if (mode == DFmode)
 	{
 	  *total = s390_cost->ddbr;
 	}
-      else if (GET_MODE (x) == TFmode)
+      else if (mode == TFmode)
 	{
 	  *total = s390_cost->dxbr;
 	}
       return false;
 
     case SQRT:
-      if (GET_MODE (x) == SFmode)
+      if (mode == SFmode)
 	*total = s390_cost->sqebr;
-      else if (GET_MODE (x) == DFmode)
+      else if (mode == DFmode)
 	*total = s390_cost->sqdbr;
       else /* TFmode */
 	*total = s390_cost->sqxbr;
@@ -3513,7 +3635,7 @@ legitimate_pic_operand_p (rtx op)
 static bool
 s390_legitimate_constant_p (machine_mode mode, rtx op)
 {
-  if (VECTOR_MODE_P (mode) && GET_CODE (op) == CONST_VECTOR)
+  if (TARGET_VX && VECTOR_MODE_P (mode) && GET_CODE (op) == CONST_VECTOR)
     {
       if (GET_MODE_SIZE (mode) != 16)
 	return 0;
@@ -3947,7 +4069,7 @@ s390_secondary_reload (bool in_p, rtx x, reg_class_t rclass_i,
       if (MEM_P (x)
 	  && s390_loadrelative_operand_p (XEXP (x, 0), NULL, NULL)
 	  && (mode == QImode
-	      || !reg_classes_intersect_p (GENERAL_REGS, rclass)
+	      || !reg_class_subset_p (rclass, GENERAL_REGS)
 	      || GET_MODE_SIZE (mode) > UNITS_PER_WORD
 	      || !s390_check_symref_alignment (XEXP (x, 0),
 					       GET_MODE_SIZE (mode))))
@@ -5721,8 +5843,17 @@ s390_expand_insv (rtx dest, rtx op1, rtx op2, rtx src)
 
       if (mode_s == VOIDmode)
 	{
-	  /* Assume const_int etc already in the proper mode.  */
-	  src = force_reg (mode, src);
+	  /* For constant zero values the representation with AND
+	     appears to be folded in more situations than the (set
+	     (zero_extract) ...).
+	     We only do this when the start and end of the bitfield
+	     remain in the same SImode chunk.  That way nihf or nilf
+	     can be used.
+	     The AND patterns might still generate a risbg for this.  */
+	  if (src == const0_rtx && bitpos / 32  == (bitpos + bitsize - 1) / 32)
+	    return false;
+	  else
+	    src = force_reg (mode, src);
 	}
       else if (mode_s != mode)
 	{
@@ -6356,6 +6487,10 @@ machine_mode
 s390_dwarf_frame_reg_mode (int regno)
 {
   machine_mode save_mode = default_dwarf_frame_reg_mode (regno);
+
+  /* Make sure not to return DImode for any GPR with -m31 -mzarch.  */
+  if (GENERAL_REGNO_P (regno))
+    save_mode = Pmode;
 
   /* The rightmost 64 bits of vector registers are call-clobbered.  */
   if (GET_MODE_SIZE (save_mode) > 8)
@@ -7152,12 +7287,7 @@ s390_adjust_priority (rtx_insn *insn, int priority)
   if (! INSN_P (insn))
     return priority;
 
-  if (s390_tune != PROCESSOR_2084_Z990
-      && s390_tune != PROCESSOR_2094_Z9_109
-      && s390_tune != PROCESSOR_2097_Z10
-      && s390_tune != PROCESSOR_2817_Z196
-      && s390_tune != PROCESSOR_2827_ZEC12
-      && s390_tune != PROCESSOR_2964_Z13)
+  if (s390_tune <= PROCESSOR_2064_Z900)
     return priority;
 
   switch (s390_safe_attr_type (insn))
@@ -7186,15 +7316,20 @@ s390_issue_rate (void)
     {
     case PROCESSOR_2084_Z990:
     case PROCESSOR_2094_Z9_109:
+    case PROCESSOR_2094_Z9_EC:
     case PROCESSOR_2817_Z196:
       return 3;
     case PROCESSOR_2097_Z10:
       return 2;
+    case PROCESSOR_9672_G5:
+    case PROCESSOR_9672_G6:
+    case PROCESSOR_2064_Z900:
       /* Starting with EC12 we use the sched_reorder hook to take care
 	 of instruction dispatch constraints.  The algorithm only
 	 picks the best instruction and assumes only a single
 	 instruction gets issued per cycle.  */
     case PROCESSOR_2827_ZEC12:
+    case PROCESSOR_2964_Z13:
     default:
       return 1;
     }
@@ -9226,7 +9361,10 @@ s390_init_frame_layout (void)
   HOST_WIDE_INT frame_size;
   int base_used;
 
-  gcc_assert (!reload_completed);
+  /* After LRA the frame layout is supposed to be read-only and should
+     not be re-computed.  */
+  if (reload_completed)
+    return;
 
   /* On S/390 machines, we may need to perform branch splitting, which
      will require both base and return address register.  We have no
@@ -9989,6 +10127,10 @@ s390_save_gprs_to_fprs (void)
 	    emit_move_insn (gen_rtx_REG (DImode, cfun_gpr_save_slot (i)),
 			    gen_rtx_REG (DImode, i));
 	  RTX_FRAME_RELATED_P (insn) = 1;
+	  /* This prevents dwarf2cfi from interpreting the set.  Doing
+	     so it might emit def_cfa_register infos setting an FPR as
+	     new CFA.  */
+	  add_reg_note (insn, REG_CFA_REGISTER, PATTERN (insn));
 	}
     }
 }
@@ -10209,6 +10351,7 @@ s390_emit_prologue (void)
 		       current_function_name(), cfun_frame_layout.frame_size,
 		       s390_stack_size);
 	      emit_insn (gen_trap ());
+	      emit_barrier ();
 	    }
 	  else
 	    {
@@ -10891,6 +11034,8 @@ s390_function_arg (cumulative_args_t cum_v, machine_mode mode,
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
 
+  if (!named)
+    s390_check_type_for_vector_abi (type, true, false);
 
   if (s390_function_arg_vector (mode, type))
     {
@@ -11282,6 +11427,8 @@ s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 
   size = int_size_in_bytes (type);
 
+  s390_check_type_for_vector_abi (type, true, false);
+
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
       if (TARGET_DEBUG_ARG)
@@ -11472,7 +11619,14 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
     }
 
   if (clobber_fprs_p)
-    emit_insn (gen_tbegin_1 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK), tdb));
+    {
+      if (TARGET_VX)
+	emit_insn (gen_tbegin_1_z13 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK),
+				     tdb));
+      else
+	emit_insn (gen_tbegin_1 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK),
+				 tdb));
+    }
   else
     emit_insn (gen_tbegin_nofloat_1 (gen_rtx_CONST_INT (VOIDmode, TBEGIN_MASK),
 				     tdb));
@@ -12793,10 +12947,7 @@ s390_reorg (void)
   s390_optimize_prologue ();
 
   /* Walk over the insns and do some >=z10 specific changes.  */
-  if (s390_tune == PROCESSOR_2097_Z10
-      || s390_tune == PROCESSOR_2817_Z196
-      || s390_tune == PROCESSOR_2827_ZEC12
-      || s390_tune == PROCESSOR_2964_Z13)
+  if (s390_tune >= PROCESSOR_2097_Z10)
     {
       rtx_insn *insn;
       bool insn_added_p = false;
@@ -13047,12 +13198,12 @@ static int
 s390_sched_reorder (FILE *file, int verbose,
 		    rtx_insn **ready, int *nreadyp, int clock ATTRIBUTE_UNUSED)
 {
-  if (s390_tune == PROCESSOR_2097_Z10)
-    if (reload_completed && *nreadyp > 1)
-      s390_z10_prevent_earlyload_conflicts (ready, nreadyp);
+  if (s390_tune == PROCESSOR_2097_Z10
+      && reload_completed
+      && *nreadyp > 1)
+    s390_z10_prevent_earlyload_conflicts (ready, nreadyp);
 
-  if ((s390_tune == PROCESSOR_2827_ZEC12
-       || s390_tune == PROCESSOR_2964_Z13)
+  if (s390_tune >= PROCESSOR_2827_ZEC12
       && reload_completed
       && *nreadyp > 1)
     {
@@ -13135,8 +13286,7 @@ s390_sched_variable_issue (FILE *file, int verbose, rtx_insn *insn, int more)
 {
   last_scheduled_insn = insn;
 
-  if ((s390_tune == PROCESSOR_2827_ZEC12
-       || s390_tune == PROCESSOR_2964_Z13)
+  if (s390_tune >= PROCESSOR_2827_ZEC12
       && reload_completed
       && recog_memoized (insn) >= 0)
     {
@@ -13214,10 +13364,7 @@ s390_loop_unroll_adjust (unsigned nunroll, struct loop *loop)
   unsigned i;
   unsigned mem_count = 0;
 
-  if (s390_tune != PROCESSOR_2097_Z10
-      && s390_tune != PROCESSOR_2817_Z196
-      && s390_tune != PROCESSOR_2827_ZEC12
-      && s390_tune != PROCESSOR_2964_Z13)
+  if (s390_tune < PROCESSOR_2097_Z10)
     return nunroll;
 
   /* Count the number of memory references within the loop body.  */
@@ -13396,6 +13543,7 @@ s390_option_override (void)
       s390_cost = &z990_cost;
       break;
     case PROCESSOR_2094_Z9_109:
+    case PROCESSOR_2094_Z9_EC:
       s390_cost = &z9_109_cost;
       break;
     case PROCESSOR_2097_Z10:
@@ -13431,10 +13579,7 @@ s390_option_override (void)
     target_flags |= MASK_LONG_DOUBLE_128;
 #endif
 
-  if (s390_tune == PROCESSOR_2097_Z10
-      || s390_tune == PROCESSOR_2817_Z196
-      || s390_tune == PROCESSOR_2827_ZEC12
-      || s390_tune == PROCESSOR_2964_Z13)
+  if (s390_tune >= PROCESSOR_2097_Z10)
     {
       maybe_set_param_value (PARAM_MAX_UNROLLED_INSNS, 100,
 			     global_options.x_param_values,
@@ -13626,7 +13771,11 @@ s390_support_vector_misalignment (machine_mode mode ATTRIBUTE_UNUSED,
 				  int misalignment ATTRIBUTE_UNUSED,
 				  bool is_packed ATTRIBUTE_UNUSED)
 {
-  return true;
+  if (TARGET_VX)
+    return true;
+
+  return default_builtin_support_vector_misalignment (mode, type, misalignment,
+						      is_packed);
 }
 
 /* The vector ABI requires vector types to be aligned on an 8 byte
@@ -13644,6 +13793,29 @@ s390_vector_alignment (const_tree type)
   return MIN (64, tree_to_shwi (TYPE_SIZE (type)));
 }
 
+/* Implement TARGET_ASM_FILE_END.  */
+static void
+s390_asm_file_end (void)
+{
+#ifdef HAVE_AS_GNU_ATTRIBUTE
+  varpool_node *vnode;
+  cgraph_node *cnode;
+
+  FOR_EACH_VARIABLE (vnode)
+    if (TREE_PUBLIC (vnode->decl))
+      s390_check_type_for_vector_abi (TREE_TYPE (vnode->decl), false, false);
+
+  FOR_EACH_FUNCTION (cnode)
+    if (TREE_PUBLIC (cnode->decl))
+      s390_check_type_for_vector_abi (TREE_TYPE (cnode->decl), false, false);
+
+
+  if (s390_vector_abi != 0)
+    fprintf (asm_out_file, "\t.gnu_attribute 8, %d\n",
+	     s390_vector_abi);
+#endif
+  file_end_indicate_exec_stack ();
+}
 
 /* Return true if TYPE is a vector bool type.  */
 static inline bool
@@ -13919,6 +14091,9 @@ s390_invalid_binary_op (int op ATTRIBUTE_UNUSED, const_tree type1, const_tree ty
 
 #undef TARGET_INVALID_BINARY_OP
 #define TARGET_INVALID_BINARY_OP s390_invalid_binary_op
+
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END s390_asm_file_end
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

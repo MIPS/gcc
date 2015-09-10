@@ -87,36 +87,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "flags.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "tree.h"
-#include "fold-const.h"
+#include "backend.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "flags.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimplify-me.h"
 #include "stor-layout.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -136,7 +122,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 
 /* FIXME: RTL headers have to be included here for optabs.  */
-#include "rtl.h"		/* Because optabs.h wants enum rtx_code.  */
 #include "expr.h"		/* Because optabs.h wants sepops.  */
 #include "insn-codes.h"
 #include "optabs.h"
@@ -219,7 +204,7 @@ static struct
 static struct occurrence *occ_head;
 
 /* Allocation pool for getting instances of "struct occurrence".  */
-static pool_allocator<occurrence> *occ_pool;
+static object_allocator<occurrence> *occ_pool;
 
 
 
@@ -562,7 +547,7 @@ pass_cse_reciprocals::execute (function *fun)
   basic_block bb;
   tree arg;
 
-  occ_pool = new pool_allocator<occurrence>
+  occ_pool = new object_allocator<occurrence>
     ("dominators for recip", n_basic_blocks_for_fn (fun) / 3 + 1);
 
   memset (&reciprocal_stats, 0, sizeof (reciprocal_stats));
@@ -2139,7 +2124,7 @@ perform_symbolic_merge (gimple source_stmt1, struct symbolic_number *n1,
      the same base (array, structure, ...).  */
   if (gimple_assign_rhs1 (source_stmt1) != gimple_assign_rhs1 (source_stmt2))
     {
-      int64_t inc;
+      uint64_t inc;
       HOST_WIDE_INT start_sub, end_sub, end1, end2, end;
       struct symbolic_number *toinc_n_ptr, *n_end;
 

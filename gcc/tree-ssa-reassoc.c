@@ -21,39 +21,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "tm_p.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "tm_p.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "flags.h"
@@ -223,7 +209,7 @@ typedef struct operand_entry
   unsigned int count;
 } *operand_entry_t;
 
-static pool_allocator<operand_entry> operand_entry_pool ("operand entry pool",
+static object_allocator<operand_entry> operand_entry_pool ("operand entry pool",
 							 30);
 
 /* This is used to assign a unique ID to each struct operand_entry
@@ -1005,12 +991,12 @@ static void linearize_expr_tree (vec<operand_entry_t> *, gimple,
 				 bool, bool);
 
 /* Structure for tracking and counting operands.  */
-typedef struct oecount_s {
+struct oecount {
   int cnt;
   int id;
   enum tree_code oecode;
   tree op;
-} oecount;
+};
 
 
 /* The heap for the oecount hashtable and the sorted list of operands.  */
@@ -1019,23 +1005,16 @@ static vec<oecount> cvec;
 
 /* Oecount hashtable helpers.  */
 
-struct oecount_hasher
+struct oecount_hasher : int_hash <int, 0, 1>
 {
-  typedef int value_type;
-  typedef int compare_type;
-  static inline hashval_t hash (const value_type &);
-  static inline bool equal (const value_type &, const compare_type &);
-  static bool is_deleted (int &v) { return v == 1; }
-  static void mark_deleted (int &e) { e = 1; }
-  static bool is_empty (int &v) { return v == 0; }
-  static void mark_empty (int &e) { e = 0; }
-  static void remove (int &) {}
+  static inline hashval_t hash (int);
+  static inline bool equal (int, int);
 };
 
 /* Hash function for oecount.  */
 
 inline hashval_t
-oecount_hasher::hash (const value_type &p)
+oecount_hasher::hash (int p)
 {
   const oecount *c = &cvec[p - 42];
   return htab_hash_pointer (c->op) ^ (hashval_t)c->oecode;
@@ -1044,7 +1023,7 @@ oecount_hasher::hash (const value_type &p)
 /* Comparison function for oecount.  */
 
 inline bool
-oecount_hasher::equal (const value_type &p1, const compare_type &p2)
+oecount_hasher::equal (int p1, int p2)
 {
   const oecount *c1 = &cvec[p1 - 42];
   const oecount *c2 = &cvec[p2 - 42];
@@ -2549,10 +2528,10 @@ optimize_range_tests_to_bit_test (enum tree_code opcode, int first, int length,
 						      GEN_INT (-m)), speed_p);
 	      rtx r = immed_wide_int_const (mask, word_mode);
 	      cost_diff += set_src_cost (gen_rtx_AND (word_mode, reg, r),
-					 speed_p);
+					 word_mode, speed_p);
 	      r = immed_wide_int_const (wi::lshift (mask, m), word_mode);
 	      cost_diff -= set_src_cost (gen_rtx_AND (word_mode, reg, r),
-					 speed_p);
+					 word_mode, speed_p);
 	      if (cost_diff > 0)
 		{
 		  mask = wi::lshift (mask, m);

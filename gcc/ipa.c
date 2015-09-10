@@ -20,26 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "input.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "alias.h"
+#include "options.h"
 #include "fold-const.h"
 #include "calls.h"
 #include "stringpool.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "is-a.h"
-#include "plugin-api.h"
-#include "hard-reg-set.h"
-#include "input.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "gimple-expr.h"
 #include "gimplify.h"
 #include "flags.h"
 #include "target.h"
@@ -53,8 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "profile.h"
 #include "params.h"
 #include "internal-fn.h"
-#include "tree-ssa-alias.h"
-#include "gimple.h"
 #include "dbgcnt.h"
 
 
@@ -928,6 +917,7 @@ cgraph_build_static_cdtor_1 (char which, tree body, int priority, bool final)
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;
   DECL_ARTIFICIAL (decl) = 1;
+  DECL_IGNORED_P (decl) = 1;
   DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
   DECL_SAVED_TREE (decl) = body;
   if (!targetm.have_ctors_dtors && final)

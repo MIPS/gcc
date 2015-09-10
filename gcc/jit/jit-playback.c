@@ -23,24 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "opts.h"
 #include "hashtab.h"
-#include "input.h"
 #include "statistics.h"
 #include "vec.h"
 #include "alias.h"
-#include "flags.h"
-#include "symtab.h"
-#include "tree-core.h"
-#include "inchash.h"
 #include "tree.h"
+#include "inchash.h"
 #include "hash-map.h"
-#include "is-a.h"
-#include "plugin-api.h"
 #include "vec.h"
 #include "hashtab.h"
 #include "tm.h"
 #include "hard-reg-set.h"
 #include "function.h"
-#include "ipa-ref.h"
 #include "dumpfile.h"
 #include "cgraph.h"
 #include "toplev.h"
@@ -1168,6 +1161,47 @@ dereference (location *loc)
   return new lvalue (get_context (), datum);
 }
 
+/* Mark EXP saying that we need to be able to take the
+   address of it; it should not be allocated in a register.
+   Compare with e.g. c/c-typeck.c: c_mark_addressable.  */
+
+static void
+jit_mark_addressable (tree exp)
+{
+  tree x = exp;
+
+  while (1)
+    switch (TREE_CODE (x))
+      {
+      case COMPONENT_REF:
+	/* (we don't yet support bitfields)  */
+	/* fallthrough */
+      case ADDR_EXPR:
+      case ARRAY_REF:
+      case REALPART_EXPR:
+      case IMAGPART_EXPR:
+	x = TREE_OPERAND (x, 0);
+	break;
+
+      case COMPOUND_LITERAL_EXPR:
+      case CONSTRUCTOR:
+	TREE_ADDRESSABLE (x) = 1;
+	return;
+
+      case VAR_DECL:
+      case CONST_DECL:
+      case PARM_DECL:
+      case RESULT_DECL:
+	/* (we don't have a concept of a "register" declaration) */
+	/* fallthrough */
+      case FUNCTION_DECL:
+	TREE_ADDRESSABLE (x) = 1;
+	/* fallthrough */
+      default:
+	return;
+      }
+}
+
 /* Construct a playback::rvalue instance (wrapping a tree) for an
    address-lookup.  */
 
@@ -1181,6 +1215,7 @@ get_address (location *loc)
   tree ptr = build1 (ADDR_EXPR, t_ptrtype, t_lvalue);
   if (loc)
     get_context ()->set_tree_location (ptr, loc);
+  jit_mark_addressable (t_lvalue);
   return new rvalue (get_context (), ptr);
 }
 
@@ -1580,6 +1615,80 @@ add_return (location *loc,
   add_stmt (return_stmt);
 }
 
+/* Helper function for playback::block::add_switch.
+   Construct a case label for the given range, followed by a goto stmt
+   to the given block, appending them to stmt list *ptr_t_switch_body.  */
+
+static void
+add_case (tree *ptr_t_switch_body,
+	  tree t_low_value,
+	  tree t_high_value,
+	  playback::block *dest_block)
+{
+  tree t_label = create_artificial_label (UNKNOWN_LOCATION);
+  DECL_CONTEXT (t_label) = dest_block->get_function ()->as_fndecl ();
+
+  tree t_case_label =
+    build_case_label (t_low_value, t_high_value, t_label);
+  append_to_statement_list (t_case_label, ptr_t_switch_body);
+
+  tree t_goto_stmt =
+    build1 (GOTO_EXPR, void_type_node, dest_block->as_label_decl ());
+  append_to_statement_list (t_goto_stmt, ptr_t_switch_body);
+}
+
+/* Add a switch statement to the function's statement list.
+
+   My initial attempt at implementing this constructed a TREE_VEC
+   of the cases and set it as SWITCH_LABELS (switch_expr).  However,
+   gimplify.c:gimplify_switch_expr is set up to deal with SWITCH_BODY, and
+   doesn't have any logic for gimplifying SWITCH_LABELS.
+
+   Hence we create a switch body, and populate it with case labels, each
+   followed by a goto to the desired block.  */
+
+void
+playback::block::
+add_switch (location *loc,
+	    rvalue *expr,
+	    block *default_block,
+	    const auto_vec <case_> *cases)
+{
+  /* Compare with:
+     - c/c-typeck.c: c_start_case
+     - c-family/c-common.c:c_add_case_label
+     - java/expr.c:expand_java_switch and expand_java_add_case
+     We've already rejected overlaps and duplicates in
+     libgccjit.c:case_range_validator::validate.  */
+
+  tree t_expr = expr->as_tree ();
+  tree t_type = TREE_TYPE (t_expr);
+
+  tree t_switch_body = alloc_stmt_list ();
+
+  int i;
+  case_ *c;
+  FOR_EACH_VEC_ELT (*cases, i, c)
+    {
+      tree t_low_value = c->m_min_value->as_tree ();
+      tree t_high_value = c->m_max_value->as_tree ();
+      add_case (&t_switch_body,
+		t_low_value,
+		t_high_value,
+		c->m_dest_block);
+    }
+  /* Default label. */
+  add_case (&t_switch_body,
+	    NULL_TREE, NULL_TREE,
+	    default_block);
+
+  tree switch_stmt = build3 (SWITCH_EXPR, t_type, t_expr,
+			     t_switch_body, NULL_TREE);
+  if (loc)
+    set_tree_location (switch_stmt, loc);
+  add_stmt (switch_stmt);
+}
+
 /* Constructor for gcc::jit::playback::block.  */
 
 playback::block::
@@ -1684,7 +1793,7 @@ compile ()
     }
 
   /* This runs the compiler.  */
-  toplev toplev (false, /* use_TV_TOTAL */
+  toplev toplev (get_timer (), /* external_timer */
 		 false); /* init_signals */
   enter_scope ("toplev::main");
   if (get_logger ())
@@ -1976,6 +2085,8 @@ static pthread_mutex_t jit_mutex = PTHREAD_MUTEX_INITIALIZER;
 void
 playback::context::acquire_mutex ()
 {
+  auto_timevar tv (get_timer (), TV_JIT_ACQUIRING_MUTEX);
+
   /* Acquire the big GCC mutex. */
   JIT_LOG_SCOPE (get_logger ());
   pthread_mutex_lock (&jit_mutex);
@@ -2143,6 +2254,13 @@ make_fake_args (vec <char *> *argvec,
       }
   }
 
+  if (get_timer ())
+    ADD_ARG ("-ftime-report");
+
+  /* Add any user-provided extra options, starting with any from
+     parent contexts.  */
+  m_recording_ctxt->append_command_line_options (argvec);
+
 #undef ADD_ARG
 #undef ADD_ARG_TAKE_OWNERSHIP
 }
@@ -2255,6 +2373,8 @@ convert_to_dso (const char *ctxt_progname)
 		 true);/* bool run_linker */
 }
 
+static const char * const gcc_driver_name = GCC_DRIVER_NAME;
+
 void
 playback::context::
 invoke_driver (const char *ctxt_progname,
@@ -2265,17 +2385,19 @@ invoke_driver (const char *ctxt_progname,
 	       bool run_linker)
 {
   JIT_LOG_SCOPE (get_logger ());
+
+  bool embedded_driver
+    = !get_inner_bool_option (INNER_BOOL_OPTION_USE_EXTERNAL_DRIVER);
+
   /* Currently this lumps together both assembling and linking into
      TV_ASSEMBLE.  */
-  auto_timevar assemble_timevar (tv_id);
-  const char *errmsg;
-  auto_vec <const char *> argvec;
-#define ADD_ARG(arg) argvec.safe_push (arg)
-  int exit_status = 0;
-  int err = 0;
-  const char *gcc_driver_name = GCC_DRIVER_NAME;
+  auto_timevar assemble_timevar (get_timer (), tv_id);
+  auto_argvec argvec;
+#define ADD_ARG(arg) argvec.safe_push (xstrdup (arg))
 
   ADD_ARG (gcc_driver_name);
+
+  add_multilib_driver_arguments (&argvec);
 
   if (shared)
     ADD_ARG ("-shared");
@@ -2296,8 +2418,19 @@ invoke_driver (const char *ctxt_progname,
      time.  */
   ADD_ARG ("-fno-use-linker-plugin");
 
-  /* pex argv arrays are NULL-terminated.  */
-  ADD_ARG (NULL);
+#if defined (DARWIN_X86) || defined (DARWIN_PPC)
+  /* OS X's linker defaults to treating undefined symbols as errors.
+     If the context has any imported functions or globals they will be
+     undefined until the .so is dynamically-linked into the process.
+     Ensure that the driver passes in "-undefined dynamic_lookup" to the
+     linker.  */
+  ADD_ARG ("-Wl,-undefined,dynamic_lookup");
+#endif
+
+  if (0)
+    ADD_ARG ("-v");
+
+#undef ADD_ARG
 
   /* pex_one's error-handling requires pname to be non-NULL.  */
   gcc_assert (ctxt_progname);
@@ -2306,9 +2439,42 @@ invoke_driver (const char *ctxt_progname,
     for (unsigned i = 0; i < argvec.length (); i++)
       get_logger ()->log ("argv[%i]: %s", i, argvec[i]);
 
+  if (embedded_driver)
+    invoke_embedded_driver (&argvec);
+  else
+    invoke_external_driver (ctxt_progname, &argvec);
+}
+
+void
+playback::context::
+invoke_embedded_driver (const vec <char *> *argvec)
+{
+  JIT_LOG_SCOPE (get_logger ());
+  driver d (true, /* can_finalize */
+	    false); /* debug */
+  int result = d.main (argvec->length (),
+		       const_cast <char **> (argvec->address ()));
+  d.finalize ();
+  if (result)
+    add_error (NULL, "error invoking gcc driver");
+}
+
+void
+playback::context::
+invoke_external_driver (const char *ctxt_progname,
+			vec <char *> *argvec)
+{
+  JIT_LOG_SCOPE (get_logger ());
+  const char *errmsg;
+  int exit_status = 0;
+  int err = 0;
+
+  /* pex argv arrays are NULL-terminated.  */
+  argvec->safe_push (NULL);
+
   errmsg = pex_one (PEX_SEARCH, /* int flags, */
 		    gcc_driver_name,
-		    const_cast <char *const *> (argvec.address ()),
+		    const_cast <char *const *> (argvec->address ()),
 		    ctxt_progname, /* const char *pname */
 		    NULL, /* const char *outname */
 		    NULL, /* const char *errname */
@@ -2335,7 +2501,36 @@ invoke_driver (const char *ctxt_progname,
 		 getenv ("PATH"));
       return;
     }
-#undef ADD_ARG
+}
+
+/* Extract the target-specific MULTILIB_DEFAULTS to
+   multilib_defaults_raw for use by
+   playback::context::add_multilib_driver_arguments ().  */
+
+#ifndef MULTILIB_DEFAULTS
+#define MULTILIB_DEFAULTS { "" }
+#endif
+
+static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
+
+/* Helper function for playback::context::invoke_driver ().
+
+   32-bit and 64-bit multilib peer builds of libgccjit.so may share
+   a driver binary.  We need to pass in options to the shared driver
+   to get the appropriate assembler/linker options for this multilib
+   peer.  */
+
+void
+playback::context::
+add_multilib_driver_arguments (vec <char *> *argvec)
+{
+  JIT_LOG_SCOPE (get_logger ());
+
+  /* Add copies of the arguments in multilib_defaults_raw to argvec,
+     prepending each with a "-".  */
+  for (size_t i = 0; i < ARRAY_SIZE (multilib_defaults_raw); i++)
+    if (multilib_defaults_raw[i][0])
+      argvec->safe_push (concat ("-", multilib_defaults_raw[i], NULL));
 }
 
 /* Dynamically-link the built DSO file into this process, using dlopen.
@@ -2347,7 +2542,7 @@ playback::context::
 dlopen_built_dso ()
 {
   JIT_LOG_SCOPE (get_logger ());
-  auto_timevar load_timevar (TV_LOAD);
+  auto_timevar load_timevar (get_timer (), TV_LOAD);
   void *handle = NULL;
   const char *error = NULL;
   result *result_obj = NULL;
@@ -2544,7 +2739,7 @@ location_comparator (const void *lhs, const void *rhs)
    linemap API requires locations to be created in ascending order
    as if we were tokenizing files.
 
-   This hook sorts all of the the locations that have been created, and
+   This hook sorts all of the locations that have been created, and
    calls into the linemap API, creating linemap entries in sorted order
    for our locations.  */
 

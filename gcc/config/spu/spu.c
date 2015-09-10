@@ -17,26 +17,24 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "obstack.h"
-#include "input.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -47,40 +45,32 @@
 #include "optabs.h"
 #include "except.h"
 #include "output.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "sched-int.h"
 #include "params.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "tm-constrs.h"
-#include "sbitmap.h"
-#include "df.h"
 #include "ddg.h"
 #include "timevar.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Builtin types, data and prototypes. */
 
@@ -3195,11 +3185,8 @@ classify_immediate (rtx op, machine_mode mode)
       && mode == V4SImode
       && GET_CODE (op) == CONST_VECTOR
       && GET_CODE (CONST_VECTOR_ELT (op, 0)) != CONST_INT
-      && GET_CODE (CONST_VECTOR_ELT (op, 0)) != CONST_DOUBLE
-      && CONST_VECTOR_ELT (op, 0) == CONST_VECTOR_ELT (op, 1)
-      && CONST_VECTOR_ELT (op, 1) == CONST_VECTOR_ELT (op, 2)
-      && CONST_VECTOR_ELT (op, 2) == CONST_VECTOR_ELT (op, 3))
-    op = CONST_VECTOR_ELT (op, 0);
+      && GET_CODE (CONST_VECTOR_ELT (op, 0)) != CONST_DOUBLE)
+    op = unwrap_const_vec_duplicate (op);
 
   switch (GET_CODE (op))
     {
@@ -3401,11 +3388,8 @@ arith_immediate_p (rtx op, machine_mode mode,
 
   constant_to_array (mode, op, arr);
 
-  if (VECTOR_MODE_P (mode))
-    mode = GET_MODE_INNER (mode);
-
-  bytes = GET_MODE_SIZE (mode);
-  mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
+  bytes = GET_MODE_UNIT_SIZE (mode);
+  mode = mode_for_size (GET_MODE_UNIT_BITSIZE (mode), MODE_INT, 0);
 
   /* Check that bytes are repeated. */
   for (i = bytes; i < 16; i += bytes)
@@ -3445,8 +3429,7 @@ exp2_immediate_p (rtx op, machine_mode mode, int low, int high)
 
   constant_to_array (mode, op, arr);
 
-  if (VECTOR_MODE_P (mode))
-    mode = GET_MODE_INNER (mode);
+  mode = GET_MODE_INNER (mode);
 
   bytes = GET_MODE_SIZE (mode);
   int_mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
@@ -3521,9 +3504,7 @@ spu_legitimate_constant_p (machine_mode mode, rtx x)
       && (GET_CODE (CONST_VECTOR_ELT (x, 0)) == SYMBOL_REF
 	  || GET_CODE (CONST_VECTOR_ELT (x, 0)) == LABEL_REF
 	  || GET_CODE (CONST_VECTOR_ELT (x, 0)) == CONST))
-    return CONST_VECTOR_ELT (x, 0) == CONST_VECTOR_ELT (x, 1)
-	   && CONST_VECTOR_ELT (x, 1) == CONST_VECTOR_ELT (x, 2)
-	   && CONST_VECTOR_ELT (x, 2) == CONST_VECTOR_ELT (x, 3);
+    return const_vec_duplicate_p (x);
 
   if (GET_CODE (x) == CONST_VECTOR
       && !const_vector_immediate_p (x))
@@ -5245,11 +5226,11 @@ spu_asm_globalize_label (FILE * file, const char *name)
 }
 
 static bool
-spu_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+spu_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 	       int opno ATTRIBUTE_UNUSED, int *total,
 	       bool speed ATTRIBUTE_UNUSED)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
   int cost = COSTS_N_INSNS (2);
 
   /* Folding to a CONST_VECTOR will use extra space but there might
