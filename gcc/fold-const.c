@@ -8055,9 +8055,9 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
          when one of the new casts will fold away. Conservatively we assume
 	 that this happens when X or Y is NOP_EXPR or Y is INTEGER_CST. */
       if (POINTER_TYPE_P (type)
-	  && (!TYPE_RESTRICT (type) || TYPE_RESTRICT (TREE_TYPE (arg0)))
 	  && TREE_CODE (arg0) == POINTER_PLUS_EXPR
-          && !upc_shared_type_p (TREE_TYPE (type))
+	  && (!TYPE_RESTRICT (type) || TYPE_RESTRICT (TREE_TYPE (arg0)))
+	  && !upc_shared_type_p (TREE_TYPE (type))
 	  && !upc_shared_type_p (TREE_TYPE (
 	                           TREE_TYPE (TREE_OPERAND (arg0, 0))))
 	  && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
