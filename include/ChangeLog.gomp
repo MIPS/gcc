@@ -1,3 +1,9 @@
+2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gomp-constants.h (GOMP_MAP_FLAG_GANGLOCAL): Delete.
+	(enum gomp_map_kind): Remove GOMP_MAP_GANGLOCAL,
+	GOMP_MAP_FORCE_TO_GANGLOCAL).
+
 2015-08-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gomp-constants.h (GOMP_DIM_MASK): Generate unsigned.

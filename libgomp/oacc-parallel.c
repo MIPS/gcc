@@ -57,33 +57,6 @@ find_pointer (int pos, size_t mapnum, unsigned short *kinds)
   return 0;
 }
 
-static void
-alloc_ganglocal_addrs (size_t mapnum, void **hostaddrs, size_t *sizes,
-		       unsigned short *kinds)
-{
-  int i;
-  const int typemask = 0xff;
-  void *t;
-
-  for (i = 0; i < mapnum; i++)
-    {
-      if ((kinds[i] & typemask) == GOMP_MAP_FORCE_TO_GANGLOCAL)
-	{
-	  t = malloc (sizes[i]);
-	  memcpy (t, hostaddrs[i], sizes[i]);
-	  hostaddrs[i] = t;
-
-	  if (i + 1 < mapnum && GOMP_MAP_POINTER_P (kinds[i+1] & typemask))
-	    {
-	      size_t *ptr = (size_t *) malloc (sizeof (size_t *));
-	      *ptr = (size_t)t;
-	      hostaddrs[i+1] = ptr;
-	      i++;
-	    }
-	}
-    }
-}
-
 static struct oacc_static
 {
   void *addr;
@@ -175,8 +148,6 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
   gomp_debug (0, "%s: mapnum=%lu, hostaddrs=%p, sizes=%p, kinds=%p\n",
 	      __FUNCTION__, (unsigned long) mapnum, hostaddrs, sizes, kinds);
 #endif
-
-  alloc_ganglocal_addrs (mapnum, hostaddrs, sizes, kinds);
 
   goacc_lazy_initialize ();
 
@@ -617,7 +588,6 @@ GOACC_update (int device, size_t mapnum,
 	  break;
 
 	case GOMP_MAP_FORCE_TO:
-	case GOMP_MAP_FORCE_TO_GANGLOCAL:
 	  acc_update_device (hostaddrs[i], sizes[i]);
 	  break;
 

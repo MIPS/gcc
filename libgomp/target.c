@@ -373,12 +373,7 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		k->tgt_offset = tgt_size;
 		tgt_size += k->host_end - k->host_start;
 		k->copy_from = GOMP_MAP_COPY_FROM_P (kind & typemask);
-		k->dealloc_host = (kind & typemask)
-		  == GOMP_MAP_FORCE_TO_GANGLOCAL;
-		if (GOMP_MAP_POINTER_P (kind & typemask) && i < 0 &&
-		    (get_kind (is_openacc, kinds, i-1) & typemask)
-		    == GOMP_MAP_FORCE_TO_GANGLOCAL)
-		  k->dealloc_host = true;
+		k->dealloc_host = false;
 		k->refcount = 1;
 		k->async_refcount = 0;
 		tgt->refcount++;
@@ -395,7 +390,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		  case GOMP_MAP_TO:
 		  case GOMP_MAP_TOFROM:
 		  case GOMP_MAP_FORCE_TO:
-		  case GOMP_MAP_FORCE_TO_GANGLOCAL:
 		  case GOMP_MAP_FORCE_TOFROM:
 		    /* FIXME: Perhaps add some smarts, like if copying
 		       several adjacent fields from host to target, use some

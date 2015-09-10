@@ -1,3 +1,11 @@
+2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* oacc-parallel.c (alloc_ganglocal_addrs): Delete.
+	(GOACC_parallel_keyed): Do not call it.
+	(GOACC_update): Remove GOMP_MAP_FORCE_TO_GANGLOCAL case.
+	* target.c (gomp_map_vars): Remove GOMP_MAP_FORCE_TO_GANGLOCAL
+	handling.
+
 2015-09-02  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/loop-reduction-gwv-np-2.c:
