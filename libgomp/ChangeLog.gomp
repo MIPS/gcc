@@ -1,5 +1,11 @@
 2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* plutin/plugin-nvptx.c (ARRAYSIZE): Delete.
+	(cuda_errlist): Delete.
+	(cuda_error): Use cuGetErrorString.
+
+2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* oacc-parallel.c (alloc_ganglocal_addrs): Delete.
 	(GOACC_parallel_keyed): Do not call it.
 	(GOACC_update): Remove GOMP_MAP_FORCE_TO_GANGLOCAL case.
