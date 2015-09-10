@@ -178,6 +178,8 @@ enum gomp_map_kind
 /* GOMP_target{_41,update_41,enter_exit_data} flags argument.  */
 #define GOMP_TARGET_FLAG_NOWAIT		(1 << 0)
 #define GOMP_TARGET_FLAG_EXIT_DATA	(1 << 1)
+/* Internal to libgomp.  */
+#define GOMP_TARGET_FLAG_UPDATE		(1U << 31)
 
 /* Versions of libgomp and device-specific plugins.  */
 #define GOMP_VERSION	0

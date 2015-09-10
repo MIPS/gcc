@@ -1,3 +1,7 @@
+2015-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (GOMP_TARGET_FLAG_UPDATE): Define.
+
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* gomp-constants.h (enum gomp_map_kind): Add
