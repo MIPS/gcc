@@ -26,6 +26,7 @@
 #include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "alias.h"
 #include "insn-flags.h"
 #include "output.h"
@@ -56,7 +57,6 @@
 #include "cfghooks.h"
 #include "cfgloop.h"
 #include "stor-layout.h"
-#include "df.h"
 #include "dumpfile.h"
 #include "builtins.h"
 #include "dominance.h"
@@ -295,6 +295,44 @@ nvptx_split_reg_p (machine_mode mode)
   if (mode == TImode)
     return true;
   return false;
+}
+
+/* Emit forking instructions for MASK.  */
+
+static void
+nvptx_emit_forking (unsigned mask, bool is_call)
+{
+  mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
+  if (mask)
+    {
+      rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
+      
+      /* Emit fork for worker level.  */
+      if (!is_call && mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+	emit_insn (gen_nvptx_fork (op));
+      emit_insn (gen_nvptx_forked (op));
+    }
+}
+
+/* Emit joining instructions for MASK.  */
+
+static void
+nvptx_emit_joining (unsigned mask, bool is_call)
+{
+  mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
+  if (mask)
+    {
+      rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
+
+      /* Emit joining for all non-call pars to ensure there's a single
+	 predecessor for the block the join insn ends up in.  This is
+	 needed for skipping entire loops.  */
+      if (!is_call)
+	emit_insn (gen_nvptx_joining (op));
+      emit_insn (gen_nvptx_join (op));
+    }
 }
 
 #define PASS_IN_REG_P(MODE, TYPE)				\
@@ -893,6 +931,128 @@ nvptx_end_call_args (void)
   free_EXPR_LIST_list (&cfun->machine->call_args);
 }
 
+/* Emit the sequence for a call to ADDRESS, setting RETVAL.  Keep
+   track of whether calls involving static chains or varargs were seen
+   in the current function.
+   For libcalls, maintain a hash table of decls we have seen, and
+   record a function decl for later when encountering a new one.  */
+
+void
+nvptx_expand_call (rtx retval, rtx address)
+{
+  int nargs = 0;
+  rtx callee = XEXP (address, 0);
+  rtx pat, t;
+  rtvec vec;
+  bool external_decl = false;
+  rtx varargs = NULL_RTX;
+  tree decl_type = NULL_TREE;
+  unsigned parallel = 0;
+
+  for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
+    nargs++;
+
+  if (!call_insn_operand (callee, Pmode))
+    {
+      callee = force_reg (Pmode, callee);
+      address = change_address (address, QImode, callee);
+    }
+
+  if (GET_CODE (callee) == SYMBOL_REF)
+    {
+      tree decl = SYMBOL_REF_DECL (callee);
+      if (decl != NULL_TREE)
+	{
+	  decl_type = TREE_TYPE (decl);
+	  if (DECL_STATIC_CHAIN (decl))
+	    cfun->machine->has_call_with_sc = true;
+	  if (DECL_EXTERNAL (decl))
+	    external_decl = true;
+	  tree attr = get_oacc_fn_attrib (decl);
+	  if (attr)
+	    {
+	      tree dims = TREE_VALUE (attr);
+
+	      parallel = GOMP_DIM_MASK (GOMP_DIM_MAX) - 1;
+	      for (int ix = 0; ix != GOMP_DIM_MAX; ix++)
+		{
+		  if (TREE_PURPOSE (dims)
+		      && !integer_zerop (TREE_PURPOSE (dims)))
+		    break;
+		  /* Not on this axis.  */
+		  parallel ^= GOMP_DIM_MASK (ix);
+		  dims = TREE_CHAIN (dims);
+		}
+	    }
+	}
+    }
+
+  if (cfun->machine->funtype
+      /* It's possible to construct testcases where we call a variable.
+	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
+	 in such a case.  */
+      && (TREE_CODE (cfun->machine->funtype) == FUNCTION_TYPE
+	  || TREE_CODE (cfun->machine->funtype) == METHOD_TYPE)
+      && stdarg_p (cfun->machine->funtype))
+    {
+      varargs = gen_reg_rtx (Pmode);
+      if (Pmode == DImode)
+	emit_move_insn (varargs, stack_pointer_rtx);
+      else
+	emit_move_insn (varargs, stack_pointer_rtx);
+      cfun->machine->has_call_with_varargs = true;
+    }
+  vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
+  pat = gen_rtx_PARALLEL (VOIDmode, vec);
+
+  int vec_pos = 0;
+  
+  rtx tmp_retval = retval;
+  t = gen_rtx_CALL (VOIDmode, address, const0_rtx);
+  if (retval != NULL_RTX)
+    {
+      if (!nvptx_register_operand (retval, GET_MODE (retval)))
+	tmp_retval = gen_reg_rtx (GET_MODE (retval));
+      t = gen_rtx_SET (tmp_retval, t);
+    }
+  XVECEXP (pat, 0, vec_pos++) = t;
+
+  /* Construct the call insn, including a USE for each argument pseudo
+     register.  These will be used when printing the insn.  */
+  for (rtx arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1))
+    {
+      rtx this_arg = XEXP (arg, 0);
+      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, this_arg);
+    }
+
+  if (varargs)
+      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
+
+  gcc_assert (vec_pos = XVECLEN (pat, 0));
+
+  /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
+     undeclared function, we'll have an external decl without arg types.
+     In either case we have to try to construct a ptx declaration from one of
+     the calls to the function.  */
+  if (!REG_P (callee)
+      && (decl_type == NULL_TREE
+	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
+    {
+      rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
+      if (*slot == NULL)
+	{
+	  *slot = callee;
+	  write_func_decl_from_insn (func_decls, retval, pat, callee);
+	}
+    }
+  nvptx_emit_forking (parallel, true);
+  emit_call_insn (pat);
+  nvptx_emit_joining (parallel, true);
+
+  if (tmp_retval != retval)
+    emit_move_insn (retval, tmp_retval);
+}
+
 /* Implement TARGET_FUNCTION_ARG.  */
 
 static rtx
@@ -1095,166 +1255,6 @@ nvptx_expand_compare (rtx compare)
 			    XEXP (compare, 0), XEXP (compare, 1));
   emit_insn (gen_rtx_SET (pred, cmp));
   return gen_rtx_NE (BImode, pred, const0_rtx);
-}
-
-/* Emit forking instructions for MASK.  */
-
-static void
-nvptx_emit_forking (unsigned mask, bool is_call)
-{
-  mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
-	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
-  if (mask)
-    {
-      rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
-      
-      /* Emit fork for worker level.  */
-      if (!is_call && mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
-	emit_insn (gen_nvptx_fork (op));
-      emit_insn (gen_nvptx_forked (op));
-    }
-}
-
-/* Emit joining instructions for MASK.  */
-
-static void
-nvptx_emit_joining (unsigned mask, bool is_call)
-{
-  mask &= (GOMP_DIM_MASK (GOMP_DIM_WORKER)
-	   | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
-  if (mask)
-    {
-      rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
-
-      /* Emit joining for all non-call pars to ensure there's a single
-	 predecessor for the block the join insn ends up in.  This is
-	 needed for skipping entire loops.  */
-      if (!is_call)
-	emit_insn (gen_nvptx_joining (op));
-      emit_insn (gen_nvptx_join (op));
-    }
-}
-
-/* Emit the sequence for a call to ADDRESS, setting RETVAL.  Keep
-   track of whether calls involving static chains or varargs were seen
-   in the current function.
-   For libcalls, maintain a hash table of decls we have seen, and
-   record a function decl for later when encountering a new one.  */
-
-void
-nvptx_expand_call (rtx retval, rtx address)
-{
-  int nargs = 0;
-  rtx callee = XEXP (address, 0);
-  rtx pat, t;
-  rtvec vec;
-  bool external_decl = false;
-  rtx varargs = NULL_RTX;
-  tree decl_type = NULL_TREE;
-  unsigned parallel = 0;
-
-  for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
-    nargs++;
-
-  if (!call_insn_operand (callee, Pmode))
-    {
-      callee = force_reg (Pmode, callee);
-      address = change_address (address, QImode, callee);
-    }
-
-  if (GET_CODE (callee) == SYMBOL_REF)
-    {
-      tree decl = SYMBOL_REF_DECL (callee);
-      if (decl != NULL_TREE)
-	{
-	  decl_type = TREE_TYPE (decl);
-	  if (DECL_STATIC_CHAIN (decl))
-	    cfun->machine->has_call_with_sc = true;
-	  if (DECL_EXTERNAL (decl))
-	    external_decl = true;
-	  tree attr = get_oacc_fn_attrib (decl);
-	  if (attr)
-	    {
-	      tree dims = TREE_VALUE (attr);
-
-	      parallel = GOMP_DIM_MASK (GOMP_DIM_MAX) - 1;
-	      for (int ix = 0; ix != GOMP_DIM_MAX; ix++)
-		{
-		  if (TREE_PURPOSE (dims)
-		      && !integer_zerop (TREE_PURPOSE (dims)))
-		    break;
-		  /* Not on this axis.  */
-		  parallel ^= GOMP_DIM_MASK (ix);
-		  dims = TREE_CHAIN (dims);
-		}
-	    }
-	}
-    }
-
-  if (cfun->machine->funtype
-      /* It's possible to construct testcases where we call a variable.
-	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
-	 in such a case.  */
-      && (TREE_CODE (cfun->machine->funtype) == FUNCTION_TYPE
-	  || TREE_CODE (cfun->machine->funtype) == METHOD_TYPE)
-      && stdarg_p (cfun->machine->funtype))
-    {
-      varargs = gen_reg_rtx (Pmode);
-      if (Pmode == DImode)
-	emit_move_insn (varargs, stack_pointer_rtx);
-      else
-	emit_move_insn (varargs, stack_pointer_rtx);
-      cfun->machine->has_call_with_varargs = true;
-    }
-  vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
-  pat = gen_rtx_PARALLEL (VOIDmode, vec);
-
-  int vec_pos = 0;
-  
-  rtx tmp_retval = retval;
-  t = gen_rtx_CALL (VOIDmode, address, const0_rtx);
-  if (retval != NULL_RTX)
-    {
-      if (!nvptx_register_operand (retval, GET_MODE (retval)))
-	tmp_retval = gen_reg_rtx (GET_MODE (retval));
-      t = gen_rtx_SET (tmp_retval, t);
-    }
-  XVECEXP (pat, 0, vec_pos++) = t;
-
-  /* Construct the call insn, including a USE for each argument pseudo
-     register.  These will be used when printing the insn.  */
-  for (rtx arg = cfun->machine->call_args; arg; arg = XEXP (arg, 1))
-    {
-      rtx this_arg = XEXP (arg, 0);
-      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, this_arg);
-    }
-
-  if (varargs)
-      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
-
-  gcc_assert (vec_pos = XVECLEN (pat, 0));
-
-  /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
-     undeclared function, we'll have an external decl without arg types.
-     In either case we have to try to construct a ptx declaration from one of
-     the calls to the function.  */
-  if (!REG_P (callee)
-      && (decl_type == NULL_TREE
-	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
-    {
-      rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
-      if (*slot == NULL)
-	{
-	  *slot = callee;
-	  write_func_decl_from_insn (func_decls, retval, pat, callee);
-	}
-    }
-  nvptx_emit_forking (parallel, true);
-  emit_call_insn (pat);
-  if (tmp_retval != retval)
-    emit_move_insn (retval, tmp_retval);
-
-  nvptx_emit_joining (parallel, true);
 }
 
 /* Expand the oacc fork & join primitive into ptx-required unspecs.  */
@@ -2145,7 +2145,7 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	fprintf (file, ".%s", kinds[kind]);
       }
       break;
-      
+
     case 't':
       op_mode = nvptx_underlying_object_mode (x);
       fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, true));
@@ -2340,7 +2340,7 @@ get_replacement (struct reg_replace *r)
    conversion copyin/copyout instructions.  */
 
 static void
-nvptx_reorg_subreg ()
+nvptx_reorg_subreg (void)
 {
   struct reg_replace qiregs, hiregs, siregs, diregs;
   rtx_insn *insn, *next;
@@ -2358,7 +2358,7 @@ nvptx_reorg_subreg ()
     {
       next = NEXT_INSN (insn);
       if (!NONDEBUG_INSN_P (insn)
-	  || asm_noperands (insn) >= 0
+	  || asm_noperands (PATTERN (insn)) >= 0
 	  || GET_CODE (PATTERN (insn)) == USE
 	  || GET_CODE (PATTERN (insn)) == CLOBBER)
 	continue;
@@ -2368,8 +2368,8 @@ nvptx_reorg_subreg ()
       siregs.n_in_use = 0;
       diregs.n_in_use = 0;
       extract_insn (insn);
-
       enum attr_subregs_ok s_ok = get_attr_subregs_ok (insn);
+
       for (int i = 0; i < recog_data.n_operands; i++)
 	{
 	  rtx op = recog_data.operand[i];
@@ -3219,9 +3219,16 @@ nvptx_reorg_reductions (void)
     }
 }
 
-/* NVPTX machine dependent reorg.
-   Insert vector and worker single neutering code and state
-   propagation when entering partioned mode.  Fixup subregs.  */
+/* PTX-specific reorganization
+   - Scan and release reduction buffers
+   - Split blocks at fork and join instructions
+   - Compute live registers
+   - Mark now-unused registers, so function begin doesn't declare
+   unused registers.
+   - Insert state propagation when entering partitioned mode
+   - Insert neutering instructions when in single mode
+   - Replace subregs with suitable sequences.
+*/
 
 static void
 nvptx_reorg (void)
@@ -3281,6 +3288,7 @@ nvptx_reorg (void)
       gcc_assert (!(mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
 		  || (mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR)));
 
+      /* Discover & process partitioned regions.  */
       parallel *pars = nvptx_discover_pars (&bb_insn_map);
       nvptx_process_pars (pars);
       nvptx_neuter_pars (pars, mask, 0);

@@ -1,5 +1,13 @@
 2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* config/nvptx/nvptx.c: Move df.h include earlier.
+	(nvptx_emit_forking, nvptx_emit_joining): Move earlier.
+	(nvptx_expand_call): Restore to earlier position in file.
+	(nvptx_reorg_subreg): Pass PATTERN to asm_noperands.
+	(nvptx_reorg): Expand some comments.
+
+2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_init_axis_predicate): New.
 	(nvptx_declare_function_name): Initialize axis predicates.
 	(nvptx_single): Use or init machine_function axis predicate.
