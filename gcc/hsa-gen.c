@@ -1546,18 +1546,9 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
   switch (TREE_CODE (ref))
     {
     case SSA_NAME:
-      /* The SSA_NAME and ADDR_EXPR cases cannot occur in a valid gimple memory
-	 reference but we also use this function to generate addresses of
-	 instructions representing operands of atomic memory access builtins
-	 which are just addresses and not references.  */
-      gcc_assert (!reg);
-      reg = hsa_reg_for_gimple_ssa_reqtype (ref, ssa_map, hbb, addrtype);
-      break;
-
     case ADDR_EXPR:
-      ref = TREE_OPERAND (ref, 0);
-      gcc_assert (DECL_P (ref));
-      /* Fall-through. */
+      gcc_unreachable ();
+
     case PARM_DECL:
     case VAR_DECL:
     case RESULT_DECL:
@@ -1642,6 +1633,12 @@ out:
 
   /* Calculate remaining bitsize offset (if presented).  */
   bitpos %= BITS_PER_UNIT;
+  /* If bitsize is a power of two that is greater or equal to BITS_PER_UNIT, it
+     is not a reason to think this is a bit-field access.  */
+  if (bitpos == 0
+      && (bitsize >= BITS_PER_UNIT)
+      && !(bitsize & (bitsize - 1)))
+    bitsize = 0;
 
   if ((bitpos || bitsize) && (output_bitpos == NULL || output_bitsize == NULL))
     sorry ("Support for HSA does not implement unhandled bit field reference "
@@ -3303,6 +3300,37 @@ gen_hsa_unaryop_for_builtin (int opcode, gimple stmt, hsa_bb *hbb,
   gen_hsa_unary_operation (opcode, dest, op, hbb);
 }
 
+/* Generate HSA address corresponding to a value VAL (as opposed to a memory
+   reference tree), for example an SSA_NAME or an ADDR_EXPR.  HBB is the HSA BB
+   to which the instruction should be added and SSA_MAP is used to map gimple
+   SSA names to HSA pseudoregisters.  */
+
+static hsa_op_address *
+get_address_from_value (tree val, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
+{
+  switch (TREE_CODE (val))
+    {
+    case SSA_NAME:
+      {
+	BrigType16_t addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
+	hsa_op_reg *reg = hsa_reg_for_gimple_ssa_reqtype (val, ssa_map,
+							hbb, addrtype);
+	return new hsa_op_address (NULL, reg, 0);
+      }
+    case ADDR_EXPR:
+      return gen_hsa_addr (TREE_OPERAND (val, 0), hbb, ssa_map);
+
+    case INTEGER_CST:
+      if (tree_fits_shwi_p (val))
+	return new hsa_op_address (NULL, NULL, tree_to_shwi (val));
+      /* Otherwise fall-through */
+
+    default:
+      sorry ("Support for HSA does not implement memory access to %E", val);
+      return new hsa_op_address (NULL, NULL, 0);
+    }
+}
+
 /* Helper function to create an HSA atomic binary operation instruction out of
    calls to atomic builtins.  RET_ORIG is true if the built-in is the variant
    that return s the value before applying operation, and false if it should
@@ -3343,7 +3371,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
   hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode,
 						   bit_type);
   hsa_op_address *addr;
-  addr = gen_hsa_addr (gimple_call_arg (stmt, 0), hbb, ssa_map);
+  addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
   hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1),
 						    hbb, ssa_map);
 
@@ -3526,8 +3554,8 @@ specialop:
       {
 	BrigType16_t mtype = mem_type_for_type (hsa_type_for_scalar_tree_type
 						(TREE_TYPE (lhs), false));
-	hsa_op_address *addr = gen_hsa_addr (gimple_call_arg (stmt, 0),
-					     hbb, ssa_map);
+	hsa_op_address *addr;
+	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
 	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
 	hsa_insn_atomic *atominsn
 	  = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD, mtype,
@@ -3663,7 +3691,7 @@ specialop:
 	hsa_insn_atomic *atominsn = new hsa_insn_atomic
 	  (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype);
 	hsa_op_address *addr;
-	addr = gen_hsa_addr (gimple_call_arg (stmt, 0), hbb, ssa_map);
+	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
 
 	if (lhs != NULL)
 	  dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
@@ -3715,8 +3743,8 @@ specialop:
 	tree dst = gimple_call_arg (stmt, 0);
 	tree src = gimple_call_arg (stmt, 1);
 
-	hsa_op_address *dst_addr = gen_hsa_addr (dst, hbb, ssa_map);
-	hsa_op_address *src_addr = gen_hsa_addr (src, hbb, ssa_map);
+	hsa_op_address *dst_addr = get_address_from_value (dst, hbb, ssa_map);
+	hsa_op_address *src_addr = get_address_from_value (src, hbb, ssa_map);
 	unsigned n = tree_to_uhwi (byte_size);
 
 	gen_hsa_memory_copy (hbb, dst_addr, src_addr, n);
@@ -3743,8 +3771,9 @@ specialop:
 	    return;
 	  }
 
-	hsa_op_address *dst_addr = gen_hsa_addr (gimple_call_arg (stmt, 0),
-						 hbb, ssa_map);
+	hsa_op_address *dst_addr;
+	dst_addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb,
+					   ssa_map);
 	unsigned n = tree_to_uhwi (byte_size);
 	unsigned HOST_WIDE_INT constant = tree_to_uhwi
 	  (fold_convert (unsigned_char_type_node, c));
