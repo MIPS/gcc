@@ -885,8 +885,9 @@ public:
   /* Vector of pointers to spill symbols.  */
   vec <struct hsa_symbol *> spill_symbols;
 
-  /* Vector of pointers to symbols for string constants.  */
-  vec <struct hsa_symbol *> string_constants;
+  /* Vector of pointers to symbols (string constants and global,
+     noni-addressable variables with a constructor).  */
+  vec <struct hsa_symbol *> readonly_variables;
 
   /* Vector of called function declarations.  */
   vec <tree> called_functions;

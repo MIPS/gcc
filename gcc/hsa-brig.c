@@ -548,17 +548,21 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VARIABLE);
   dirvar.allocation = BRIG_ALLOCATION_AUTOMATIC;
 
-  /* String readonly constant must have agent allocation.  */
+  /* Readonly variables must have agent allocation.  */
   if (symbol->cst_value)
     dirvar.allocation = BRIG_ALLOCATION_AGENT;
 
   if (symbol->decl && is_global_var (symbol->decl))
     {
       prefix = '&';
-      dirvar.allocation = BRIG_ALLOCATION_PROGRAM;
-      if (TREE_CODE (symbol->decl) == VAR_DECL)
-	warning (0, "referring to global symbol %q+D by name from HSA code "
-		 "won't work", symbol->decl);
+
+      if (!symbol->cst_value)
+	{
+	  dirvar.allocation = BRIG_ALLOCATION_PROGRAM;
+	  if (TREE_CODE (symbol->decl) == VAR_DECL)
+	    warning (0, "referring to global symbol %q+D by name from HSA code "
+		     "won't work", symbol->decl);
+	}
     }
   else if (symbol->cst_value)
     prefix = '&';
@@ -615,7 +619,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   hsa_symbol *sym;
 
   if (!f->declaration_p)
-    for (int i = 0; f->string_constants.iterate (i, &sym); i++)
+    for (int i = 0; f->readonly_variables.iterate (i, &sym); i++)
       {
 	emit_directive_variable (sym);
 	brig_insn_count++;
@@ -939,6 +943,18 @@ hsa_op_immed::emit_to_buffer (tree value)
       actual = emit_immediate_scalar_to_buffer
 	(TREE_IMAGPART (value), p, total_len / 2);
       gcc_assert (actual == total_len / 2);
+    }
+  else if (TREE_CODE (value) == CONSTRUCTOR)
+    {
+      unsigned len = vec_safe_length (CONSTRUCTOR_ELTS (value));
+      for (unsigned i = 0; i < len; i++)
+	{
+	  unsigned actual = emit_immediate_scalar_to_buffer
+	    (CONSTRUCTOR_ELT (value, i)->value, p, 0);
+	  total_len -= actual;
+	  p += actual;
+	}
+      gcc_assert (total_len == 0);
     }
   else
     emit_immediate_scalar_to_buffer (value, p, total_len);

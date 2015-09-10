@@ -1,5 +1,24 @@
 2015-09-10  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_directive_variable): Handle non-addressable, global
+	variables.
+	(emit_function_directives): Use newly changed member variable.
+	(hsa_op_immed::emit_to_buffer): Add support for CONSTRUCTORs
+	of an integer array.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Initialize readonly_variables.
+	(hsa_function_representation::~hsa_function_representation): Destroy
+	them.
+	(hsa_type_for_scalar_tree_type): Add support for CONSTRUCTORs of
+	an integer arrays.
+	(get_symbol_for_decl): Likewise.
+	(hsa_get_string_cst_symbol): Use a different variable.
+	(hsa_op_immed::hsa_op_immed): Add support for CONSTRUCTORs of
+	an integer arrays.
+	* hsa.h (hsa_function_representation): Rename a member variable.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_unary_operation): Change argument type.
 	(gen_hsa_insns_for_operation_assignment): Handle correctly
 	BRIG_OPCODE_CVT instruction. Change types of local variables.
