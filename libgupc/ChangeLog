@@ -1,3 +1,13 @@
+2015-09-09  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_barrier.upc (__upc_btree): Make this a UPC 'strict'
+	shared array in order to avoid potential race conditions
+	in the implementation of barrier.
+
+2015-08-25  Gary Funck  <gary@intrepid.com>
+
+	* configure.tgt: Add configure checking for supported targets.
+
 2015-08-15  Gary Funck  <gary@intrepid.com>
 
 	* testsuite/lib/libgupc.exp: Load target-utils.exp.

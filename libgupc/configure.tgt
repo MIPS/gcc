@@ -45,10 +45,25 @@ case "${target}" in
 	# Need to link with -lpthread so libgupc.so is self-contained.
 	XLDFLAGS="${XLDFLAGS} -lpthread"
 	;;
+
+  *-*-linux* | *-*-gnu* | *-*-k*bsd*-gnu | *-*-kopensolaris*-gnu)
+	;;
+
+  *-*-netbsd* | *-*-freebsd* | *-*-openbsd* | *-*-dragonfly*)
+	;;
+
+  *-*-solaris2* | *-*-hpux11*)
+	;;
+
+  *-*-aix*)
+	;;
+
   *)
+        UNSUPPORTED=1
 	;;
 
 esac
+
 #
 #  The logic above sets configuration directories that may
 #  be currently unsupported.  Remove non-existent directories
