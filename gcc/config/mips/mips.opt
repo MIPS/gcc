@@ -453,7 +453,7 @@ EnumValue
 Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
 
 mload-store-pairs
-Target Report Var(TARGET_LOAD_STORE_PAIRS) Undocumented
+Target Report Var(TARGET_LOAD_STORE_PAIRS) Init(1)
 Enable load/store bonding.
 
 msched-weight
