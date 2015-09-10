@@ -603,6 +603,20 @@ nvptx_record_needed_fndecl (tree decl)
     *slot = decl;
 }
 
+/* Emit code to initialize the REGNO predicate register to indicate
+   whether we are not lane zero on the NAME axis.  */
+
+static void
+nvptx_init_axis_predicate (FILE *file, int regno, const char *name)
+{
+  fprintf (file, "\t{\n");
+      
+  fprintf (file, "\t.reg.u32\t%%%s;\n", name);
+  fprintf (file, "\t\tmov.u32\t%%%s, %%tid.%s;\n", name, name);
+  fprintf (file, "\t\tsetp.ne.u32\t%%r%d, %%%s, 0;\n", regno, name);
+  fprintf (file, "\t}\n");
+}
+
 /* Implement ASM_DECLARE_FUNCTION_NAME.  Writes the start of a ptx
    function, including local var decls and copies from the arguments to
    local regs.  */
@@ -727,6 +741,14 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   if (stdarg_p (fntype))
     fprintf (file, "\tld.param.u%d %%argp, [%%in_argp];\n",
 	     GET_MODE_BITSIZE (Pmode));
+
+  /* Emit axis predicates. */
+  if (cfun->machine->axis_predicate[0])
+    nvptx_init_axis_predicate (file,
+			       REGNO (cfun->machine->axis_predicate[0]), "y");
+  if (cfun->machine->axis_predicate[1])
+    nvptx_init_axis_predicate (file,
+			       REGNO (cfun->machine->axis_predicate[1]), "x");
 }
 
 /* Output a return instruction.  Also copy the return value to its outgoing
@@ -2958,13 +2980,15 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
   for (mode = GOMP_DIM_WORKER; mode <= GOMP_DIM_VECTOR; mode++)
     if (GOMP_DIM_MASK (mode) & skip_mask)
       {
-	rtx id = gen_reg_rtx (SImode);
-	rtx pred = gen_reg_rtx (BImode);
 	rtx_code_label *label = gen_label_rtx ();
+	rtx pred = cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER];
 
-	emit_insn_before (gen_oacc_dim_pos (id, GEN_INT (mode)), head);
-	rtx cond = gen_rtx_SET (pred, gen_rtx_NE (BImode, id, const0_rtx));
-	emit_insn_before (cond, head);
+	if (!pred)
+	  {
+	    pred = gen_reg_rtx (BImode);
+	    cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER] = pred;
+	  }
+	
 	rtx br;
 	if (mode == GOMP_DIM_VECTOR)
 	  br = gen_br_true (pred, label);
