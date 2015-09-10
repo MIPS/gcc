@@ -8232,6 +8232,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   int i;
   machine_mode mode;
   rtx *regs;
+  bool bond_p = false;
 
   /* Work out how many bits to move at a time.  If both operands have
      half-word alignment, it is usually better to move in half words.
@@ -8260,12 +8261,54 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   /* Allocate a buffer for the temporary registers.  */
   regs = XALLOCAVEC (rtx, length / delta);
 
+  /* Initialize the temporary registers.  */
+  for (i = 0; i < length / delta; i++)
+    regs[i] = gen_reg_rtx (mode);
+
   /* Load as many BITS-sized chunks as possible.  Use a normal load if
      the source has enough alignment, otherwise use left/right pairs.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
-      regs[i] = gen_reg_rtx (mode);
-      if (MEM_ALIGN (src) >= bits)
+      rtx ops[4];
+
+      /* If load-load/store-store bonding is enabled then emit load and stores
+	 as pairs.  We only bond what we can and the remaining bytes are copied
+	 as normal.  */
+      if (ENABLE_LD_ST_PAIRS && i % 2 == 0 && offset + delta * 2 <= length)
+	{
+	  ops[0] = regs[i];
+	  ops[1] = adjust_address (src, mode, offset);
+	  ops[2] = regs[i + 1];
+	  ops[3] = adjust_address (src, mode, offset + delta);
+
+	  bond_p = mips_load_store_bonding_p (ops, mode);
+	}
+      else if (ENABLE_LD_ST_PAIRS && bond_p
+	       && i % 2 == 1 && offset + delta <= length)
+	{
+	  bond_p = false;
+	  continue;
+	}
+
+      if (bond_p)
+	{
+	  gcc_assert (i % 2 == 0);
+	  if (bits == 64)
+	    emit_insn (gen_join2_load_storedi (ops[0], ops[1],
+					       ops[2], ops[3]));
+	  else if (bits == 32)
+	    emit_insn (gen_join2_load_storesi (ops[0], ops[1],
+					       ops[2], ops[3]));
+	  else if (bits == 16)
+	    emit_insn (gen_join2_load_storehi (ops[0], ops[1],
+					       ops[2], ops[3]));
+	  else
+	    /* Other types of bonding are forbidden and should not be allowed
+	       by mips_load_store_bonding_p.  */
+	    gcc_unreachable ();
+	  continue;
+	}
+      else if (MEM_ALIGN (src) >= bits)
 	mips_emit_move (regs[i], adjust_address (src, mode, offset));
       else
 	{
@@ -8278,15 +8321,53 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
 
   /* Copy the chunks to the destination.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
-    if (MEM_ALIGN (dest) >= bits)
-      mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
-    else
-      {
-	rtx part = adjust_address (dest, BLKmode, offset);
-	set_mem_size (part, delta);
-	if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
-	  gcc_unreachable ();
-      }
+    {
+      rtx ops[4];
+
+      if (ENABLE_LD_ST_PAIRS && i % 2 == 0 && offset + delta * 2 <= length)
+	{
+	  ops[0] = adjust_address (dest, mode, offset);
+	  ops[1] = regs[i];
+	  ops[2] = adjust_address (dest, mode, offset + delta);
+	  ops[3] = regs[i + 1];
+
+	  bond_p = mips_load_store_bonding_p (ops, mode);
+	}
+      else if (ENABLE_LD_ST_PAIRS && bond_p
+	       && i % 2 == 1 && offset + delta <= length)
+	{
+	  bond_p = false;
+	  continue;
+	}
+
+      if (bond_p)
+	{
+	  gcc_assert (i % 2 == 0);
+	  if (bits == 64)
+	    emit_insn (gen_join2_load_storedi (ops[0], ops[1],
+					       ops[2], ops[3]));
+	  else if (bits == 32)
+	    emit_insn (gen_join2_load_storesi (ops[0], ops[1],
+					       ops[2], ops[3]));
+	  else if (bits == 16)
+	    emit_insn (gen_join2_load_storehi (ops[0], ops[1],
+					       ops[2], ops[3]));
+	  else
+	    /* Other types of bonding are forbidden and should not be allowed
+	       by mips_load_store_bonding_p.  */
+	    gcc_unreachable ();
+	  continue;
+	}
+      else if (MEM_ALIGN (dest) >= bits)
+	mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
+      else
+	{
+	  rtx part = adjust_address (dest, BLKmode, offset);
+	  set_mem_size (part, delta);
+	  if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
+	    gcc_unreachable ();
+	}
+    }
 
   /* Mop up any left-over bytes.  */
   if (offset < length)
@@ -20721,11 +20802,31 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
 }
 
 bool
-mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
+mips_load_store_bonding_p (rtx *operands, machine_mode mode)
 {
   rtx reg1, reg2, mem1, mem2, base1, base2;
   enum reg_class rc1, rc2;
   HOST_WIDE_INT offset1, offset2;
+  bool load_p;
+
+  /* Determine if we process a load or a store.  */
+  if (REG_P (operands[0]) && REG_P (operands[2])
+      && MEM_P (operands[1]) && MEM_P (operands[3])
+      && !MEM_VOLATILE_P (operands[1]) && !MEM_VOLATILE_P (operands[3])
+      && (GET_CODE (XEXP (operands[1], 0)) == PLUS
+	  || REG_P (XEXP (operands[1], 0)))
+      && (GET_CODE (XEXP (operands[3], 0)) == PLUS
+	  || REG_P (XEXP (operands[3], 0))))
+    load_p = true;
+  else if (REG_P (operands[1]) && REG_P (operands[3])
+	   && MEM_P (operands[0]) && MEM_P (operands[2])
+	   && (GET_CODE (XEXP (operands[0], 0)) == PLUS
+	       || REG_P (XEXP (operands[0], 0)))
+	   && (GET_CODE (XEXP (operands[2], 0)) == PLUS
+	       || REG_P (XEXP (operands[2], 0))))
+    load_p = false;
+  else
+    return false;
 
   if (load_p)
     {
@@ -20764,15 +20865,25 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode, bool load_p)
       && REGNO (reg1) == REGNO (reg2))
     return false;
 
-  /* The loads/stores are not of same type.  */
-  rc1 = REGNO_REG_CLASS (REGNO (reg1));
-  rc2 = REGNO_REG_CLASS (REGNO (reg2));
-  if (rc1 != rc2
-      && !reg_class_subset_p (rc1, rc2)
-      && !reg_class_subset_p (rc2, rc1))
+  /* Check if the loads/stores are of the same mode.  */
+  if (GET_MODE (reg1) != GET_MODE (reg2)
+      || GET_MODE (mem1) != GET_MODE (mem2)
+      || GET_MODE (base1) != GET_MODE (base2))
     return false;
 
-  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode))
+  /* The loads/stores are not of same type.  */
+  if (reload_completed)
+    {
+      rc1 = REGNO_REG_CLASS (REGNO (reg1));
+      rc2 = REGNO_REG_CLASS (REGNO (reg2));
+      if (rc1 != rc2
+	  && !reg_class_subset_p (rc1, rc2)
+	  && !reg_class_subset_p (rc2, rc1))
+	return false;
+    }
+
+  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode)
+      || GET_MODE_SIZE (mode) < 2)
     return false;
 
   return true;
