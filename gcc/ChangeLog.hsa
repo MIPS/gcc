@@ -1,5 +1,15 @@
 2015-09-10  Martin Liska  <mliska@suse.cz>
 
+	* hsa-dump.c (debug_hsa_operand): New function.
+	* hsa-gen.c (hsa_op_reg::verify): Add verification of a register uses.
+	(hsa_insn_basic::verify): New function.
+	(generate_hsa): Call the newly added verifier.
+	(hsa_insn_basic::set_op): Correctly handle HSA addresses.
+	* hsa.h (hsa_insn_basic::verify): New function.
+	* hsa.c (hsa_opcode_op_output_p): Handle BRIG_OPCODE_SIGNALNORET.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_basic_insn): Handle correctly packing and
 	rounding for a packed type insn.
 	* hsa-regalloc.c (hsa_num_def_ops): Remove implementation from

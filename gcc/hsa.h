@@ -174,7 +174,7 @@ public:
   void *operator new (size_t);
 
   /* Verify register operand.  */
-  void verify ();
+  void verify_ssa ();
 
   /* If NON-NULL, gimple SSA that we come from.  NULL if none.  */
   tree gimple_ssa;
@@ -351,6 +351,7 @@ public:
   hsa_op_base *get_op (int index);
   hsa_op_base **get_op_addr (int index);
   unsigned int operand_count ();
+  void verify ();
   unsigned input_count ();
   unsigned num_used_ops ();
 
@@ -1029,6 +1030,8 @@ unsigned hsa_get_imm_brig_type_len (BrigType16_t type);
 const char *hsa_seg_name (BrigSegment8_t);
 void dump_hsa_bb (FILE *, hsa_bb *);
 void dump_hsa_cfun (FILE *);
+DEBUG_FUNCTION void debug_hsa_operand (hsa_op_base *opc);
+DEBUG_FUNCTION void debug_hsa_insn (hsa_insn_basic *insn);
 
 union hsa_bytes
 {

@@ -1080,3 +1080,12 @@ debug_hsa_cfun (void)
 {
   dump_hsa_cfun (stderr);
 }
+
+/* Dump textual representation of an HSA operand to stderr.  */
+
+DEBUG_FUNCTION void
+debug_hsa_operand (hsa_op_base *opc)
+{
+  dump_hsa_operand (stderr, opc, true);
+  fprintf (stderr, "\n");
+}
