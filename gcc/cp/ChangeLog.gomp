@@ -1,3 +1,8 @@
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_ordered): Test tree_fits_shwi_p
+	before INTEGRAL_TYPE_P test.
+
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_array_sections): Set

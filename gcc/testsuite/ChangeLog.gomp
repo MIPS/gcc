@@ -1,3 +1,10 @@
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/pr67504.C (foo): Add test for ordered clause with
+	dependent argument.
+	* g++.dg/gomp/pr67522.C (foo): Add test for invalid array section
+	in reduction clause.
+
 2015-08-31  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/clauses-2.c: New test.
