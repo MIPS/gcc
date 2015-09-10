@@ -1409,6 +1409,13 @@ ref_at_iteration (data_reference_p dr, int iter, gimple_seq *stmts)
 			     addr, alias_ptr),
 		     DECL_SIZE (field), bitsize_zero_node);
     }
+  /* Generate an ARRAY_REF for array references rather than a MEM_REF so that
+     other passes can possibly optimize them.  */
+  else if (TREE_CODE (DR_REF (dr)) == ARRAY_REF)
+    {
+	return build4 (ARRAY_REF, TREE_TYPE (DR_REF (dr)), DR_BASE_OBJECT (dr), 
+		       TREE_OPERAND (DR_REF (dr), 1), NULL_TREE, NULL_TREE);
+    }
   else
     return fold_build2 (MEM_REF, TREE_TYPE (DR_REF (dr)), addr, alias_ptr);
 }
