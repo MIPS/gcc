@@ -73,6 +73,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "symbol-summary.h"
 #include "hsa.h"
 #include "cfghooks.h"
+#include "tree-cfg.h"
+#include "cfgloop.h"
 
 /* Following structures are defined in the final version
    of HSA specification.  */
@@ -4223,6 +4225,166 @@ hsa_generate_function_declaration (tree decl)
   return fun;
 }
 
+static void
+convert_switch_statements ()
+{
+  function *func = DECL_STRUCT_FUNCTION (current_function_decl);
+  basic_block bb;
+  push_cfun (func);
+
+  bool need_update = false;
+
+  FOR_EACH_BB_FN (bb, func)
+  {
+    gimple_stmt_iterator gsi = gsi_last_bb (bb);
+    if (gsi_end_p (gsi))
+      continue;
+
+    gimple stmt = gsi_stmt (gsi);
+
+    if (gimple_code (stmt) == GIMPLE_SWITCH)
+      {
+	need_update = true;
+
+	gswitch *s = as_a <gswitch *> (stmt);
+	unsigned labels = gimple_switch_num_labels (s);
+	tree index = gimple_switch_index (s);
+	tree default_label = gimple_switch_default_label (s);
+	basic_block default_label_bb = label_to_block_fn
+	  (func, CASE_LABEL (default_label));
+	basic_block cur_bb = bb;
+
+	hash_map<basic_block, tree> phi_defs;
+
+	/* Remove all edges for the current basic block.  */
+	for (int i = EDGE_COUNT (bb->succs) - 1; i >= 0; i--)
+	  {
+	    edge e = EDGE_SUCC (bb, i);
+	    gphi_iterator phi_gsi = gsi_start_phis (EDGE_SUCC (bb, i)->dest);
+
+	    /* Save PHI definitions that will be destroyed because of an edge
+	       is going to be removed.  */
+	    if (!gsi_end_p (phi_gsi))
+	      {
+		gphi *phi = phi_gsi.phi ();
+		for (unsigned i = 0; i < gimple_phi_num_args (phi); i++)
+		  {
+		    if (gimple_phi_arg_edge (phi, i) == e)
+		      {
+			phi_defs.put (e->dest, gimple_phi_arg_def (phi, i));
+			break;
+		      }
+		  }
+	      }
+
+	    remove_edge (e);
+	  }
+
+	/* Iterate all non-default labels.  */
+	for (unsigned i = 1; i < labels; i++)
+	  {
+	    tree label = gimple_switch_label (s, i);
+	    tree low = CASE_LOW (label);
+	    tree high = CASE_HIGH (label);
+
+	    gimple_stmt_iterator cond_gsi = gsi_last_bb (cur_bb);
+	    gimple c = NULL;
+	    if (high)
+	      {
+		tree tmp1 = make_temp_ssa_name (boolean_type_node, NULL,
+						"switch_cond_op1");
+		gimple assign1 = gimple_build_assign (tmp1, LE_EXPR, low,
+						      index);
+
+		tree tmp2 = make_temp_ssa_name (boolean_type_node, NULL,
+						"switch_cond_op2");
+		gimple assign2 = gimple_build_assign (tmp2, LE_EXPR, index,
+						      high);
+
+		tree tmp3 = make_temp_ssa_name (boolean_type_node, NULL,
+						"switch_cond_and");
+		gimple assign3 = gimple_build_assign (tmp3, BIT_AND_EXPR, tmp1,
+						      tmp2);
+
+		gsi_insert_before (&cond_gsi, assign1, GSI_SAME_STMT);
+		gsi_insert_before (&cond_gsi, assign2, GSI_SAME_STMT);
+		gsi_insert_before (&cond_gsi, assign3, GSI_SAME_STMT);
+
+		c = gimple_build_cond (NE_EXPR, tmp3, constant_boolean_node
+				       (false, boolean_type_node), NULL, NULL);
+	      }
+	    else
+	      c = gimple_build_cond (EQ_EXPR, index, low, NULL, NULL);
+
+	    gimple_set_location (c, gimple_location (stmt));
+
+	    gsi_insert_before (&cond_gsi, c, GSI_SAME_STMT);
+
+	    basic_block label_bb = label_to_block_fn
+	      (func, CASE_LABEL (label));
+	    make_edge (cur_bb, label_bb, EDGE_TRUE_VALUE);
+
+	    if (i < labels - 1)
+	      {
+		/* Prepare another basic block that will contain
+		   next condition.  */
+		basic_block next_bb = create_empty_bb (cur_bb);
+		if (current_loops)
+		  {
+		    add_bb_to_loop (next_bb, cur_bb->loop_father);
+		    loops_state_set (LOOPS_NEED_FIXUP);
+		  }
+
+		make_edge (cur_bb, next_bb, EDGE_FALSE_VALUE);
+		cur_bb = next_bb;
+	      }
+	    else /* Link last IF statement and default label
+		    of the switch.  */
+	      make_edge (cur_bb, default_label_bb, EDGE_FALSE_VALUE);
+	  }
+
+	  /* Restore original PHI immediate value.  */
+	  for (unsigned i = 1; i < labels; i++)
+	    {
+	      tree label = gimple_switch_label (s, i);
+	      basic_block label_bb = label_to_block_fn
+		(func, CASE_LABEL (label));
+	      gphi_iterator phi_gsi = gsi_start_phis (label_bb);
+
+	      if (!gsi_end_p (phi_gsi))
+		{
+		  gphi *phi = phi_gsi.phi ();
+
+		  for (unsigned j = 0; j < gimple_phi_num_args (phi); j++)
+		    {
+		      tree *slot = gimple_phi_arg_def_ptr (phi, j);
+		      if (!(*slot))
+			{
+			  basic_block dest = gimple_phi_arg_edge (phi, i)->dest;
+			  tree *imm = phi_defs.get (dest);
+			  gcc_assert (imm);
+			  *slot = *imm;
+			}
+		    }
+		}
+	    }
+
+
+	gsi_remove (&gsi, true);
+      }
+  }
+
+  if (dump_file)
+    dump_function_to_file (current_function_decl, dump_file, TDF_DETAILS);
+
+  if (need_update)
+    {
+      free_dominance_info (CDI_DOMINATORS);
+      calculate_dominance_info (CDI_DOMINATORS);
+    }
+}
+
+
 /* Generate HSAIL representation of the current function and write into a
    special section of the output file.  If KERNEL is set, the function will be
    considered an HSA kernel callable from the host, otherwise it will be
@@ -4337,6 +4499,7 @@ pass_gen_hsail::execute (function *)
 
   if (s->gpu_implementation_p)
     {
+      convert_switch_statements ();
       generate_hsa (s->kind == HSA_KERNEL);
       TREE_ASM_WRITTEN (current_function_decl) = 1;
       return TODO_stop_pass_execution;
