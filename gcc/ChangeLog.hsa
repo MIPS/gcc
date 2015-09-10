@@ -1,5 +1,10 @@
 2015-09-10  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): Fix instruction
+	type, add a TODO about segments.
+
+2015-09-10  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (get_address_from_value): New function.
 	(gen_hsa_ternary_atomic_for_builtin): Use it instead of
 	gen_hsa_addr.

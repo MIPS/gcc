@@ -3348,7 +3348,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 
   tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
   BrigType16_t hsa_type  = hsa_type_for_scalar_tree_type (type, false);
-  BrigType16_t bit_type  = hsa_bittype_for_type (hsa_type);
+  BrigType16_t mtype  = mem_type_for_type (hsa_type);
 
   hsa_op_reg *dest;
   int nops, opcode;
@@ -3368,10 +3368,11 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
       nops = 2;
     }
 
-  hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode,
-						   bit_type);
+  hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype);
   hsa_op_address *addr;
   addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
+  /* TODO: Warn if addr has private segment, because the finalizer will not
+     accept that (and it does not make much sense).  */
   hsa_op_base *op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1),
 						    hbb, ssa_map);
 
