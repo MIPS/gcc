@@ -1,3 +1,18 @@
+2015-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	Implement SESE block neutering optimization.
+	* config/nvptx/nvptx.c (bb_pair_t, bb_pair_vec_t,
+	pseudo_node_t): New typdefs.
+	(struct bracket): New struct.
+	(bracket_vec_t): New typedef.
+	(struct bb_sese): New struct.
+	(bb_sese:~bb_sese, bb_sese::append, bb_sese::remove): Member fns.
+	(BB_SET_SESE, BB_GET_SESE): Local accessors.
+	(nvptx_sese_number, nvptx_sese_pseudo, nvptx_sese_color): Worker
+	fns for finding SESE regions.
+	(nvptx_find_sese): SESE region finder.
+	(nvptx_neuter_pars): Find & neuter SESE regions when optimizing.
+
 2015-09-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (build_outer_var_ref):
