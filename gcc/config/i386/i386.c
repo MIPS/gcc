@@ -4503,16 +4503,6 @@ ix86_conditional_register_usage (void)
 {
   int i, c_mask;
 
-  /* For 32-bit targets, squash the REX registers.  */
-  if (! TARGET_64BIT)
-    {
-      for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)
-	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
-      for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
-	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
-      for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
-	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
-    }
 
   /*  See the definition of CALL_USED_REGISTERS in i386.h.  */
   c_mask = (TARGET_64BIT_MS_ABI ? (1 << 3)
@@ -4534,6 +4524,39 @@ ix86_conditional_register_usage (void)
 	  && call_used_regs[i])
 	SET_HARD_REG_BIT (reg_class_contents[(int)CLOBBERED_REGS], i);
     }
+
+  if (current_function_decl && ix86_is_interrupt_p ())
+    {
+      for (i = AX_REG; i <= DI_REG; i++)
+        {
+          call_used_regs[i] = 0;
+          fixed_regs[i] = 0;
+        }
+      for (i = XMM0_REG; i <= XMM7_REG; i++)
+        {
+          call_used_regs[i] = 0;
+          fixed_regs[i] =  0;
+        }
+      for (i = R8_REG; i <FIRST_PSEUDO_REGISTER; i++)
+        {
+          call_used_regs[i] = 0;
+          fixed_regs[i] =  0;
+        }
+    }
+
+
+  /* For 32-bit targets, squash the REX registers.  */
+  if (! TARGET_64BIT)
+    {
+      for (i = FIRST_REX_INT_REG; i <= LAST_REX_INT_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+      for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+      for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
+	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
+    }
+
+
 
   /* If MMX is disabled, squash the registers.  */
   if (! TARGET_MMX)
@@ -5562,6 +5585,10 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
   tree type, decl_or_type;
   rtx a, b;
 
+  if (ix86_is_interrupt_p ())
+    return false;
+
+
   /* If we are generating position-independent code, we cannot sibcall
      optimize direct calls to global functions, as the PLT requires
      %ebx be live. (Darwin does not have a PLT.)  */
@@ -6440,8 +6467,10 @@ ix86_call_abi_override (const_tree fndecl)
 static void
 ix86_maybe_switch_abi (void)
 {
-  if (TARGET_64BIT &&
-      call_used_regs[SI_REG] == (cfun->machine->call_abi == MS_ABI))
+  if (call_used_regs[AX_REG] == ix86_is_interrupt_p ())
+      reinit_regs ();
+  else if ((TARGET_64BIT &&
+      call_used_regs[SI_REG] == (cfun->machine->call_abi == MS_ABI)))
     reinit_regs ();
 }
 
@@ -10135,7 +10164,7 @@ ix86_nsaved_sseregs (void)
   int nregs = 0;
   int regno;
 
-  if (!TARGET_64BIT_MS_ABI)
+  if (!TARGET_64BIT_MS_ABI && !ix86_is_interrupt_p ())
     return 0;
   for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
     if (SSE_REGNO_P (regno) && ix86_save_reg (regno, true))
@@ -11466,6 +11495,14 @@ ix86_expand_prologue (void)
   /* DRAP should not coexist with stack_realign_fp */
   gcc_assert (!(crtl->drap_reg && stack_realign_fp));
 
+ if (ix86_is_interrupt_p () && ix86_using_red_zone ())
+    {
+      emit_insn (gen_adddi3 (
+                   gen_rtx_REG (DImode, SP_REG),
+                   gen_rtx_REG (DImode, SP_REG),
+                   GEN_INT (-128)));
+    }
+
   memset (&m->fs, 0, sizeof (m->fs));
 
   /* Initialize CFA state for before the prologue.  */
@@ -12437,7 +12474,29 @@ ix86_expand_epilogue (int style)
       return;
     }
 
-  if (crtl->args.pops_args && crtl->args.size)
+  if (ix86_is_interrupt_p ())
+    {
+      if (ix86_using_red_zone ())
+          emit_insn (gen_adddi3 (
+                   gen_rtx_REG (DImode, SP_REG),
+                   gen_rtx_REG (DImode, SP_REG),
+                   GEN_INT (128)));
+      if (ix86_is_exception_p ())
+        {
+          if (!TARGET_64BIT)
+            emit_insn (gen_addsi3 (
+                   gen_rtx_REG (SImode, SP_REG),
+                   gen_rtx_REG (SImode, SP_REG),
+                   GEN_INT (POINTER_SIZE_UNITS)));
+          else
+            emit_insn (gen_adddi3 (
+                   gen_rtx_REG (DImode, SP_REG),
+                   gen_rtx_REG (DImode, SP_REG),
+                   GEN_INT (POINTER_SIZE_UNITS)));
+        }
+      emit_jump_insn (gen_simple_return_interrupt ());
+    }
+  else if (crtl->args.pops_args && crtl->args.size)
     {
       rtx popc = GEN_INT (crtl->args.pops_args);
 
@@ -25752,12 +25811,23 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 	}
     }
 
+  if (ix86_is_interrupt_p ())
+    {
+      unsigned regno;
+      for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
+      {
+      if (!call_used_regs[regno] && !fixed_regs[regno] && !STACK_REGNO_P (regno) && !MMX_REGNO_P (regno))
+        {
+          clobber_reg(&use, gen_rtx_REG (GET_MODE(regno_reg_rtx[regno]), regno));
+        }
+      }
+    }
+
   if (vec_len > 1)
     call = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (vec_len, vec));
   call = emit_call_insn (call);
   if (use)
     CALL_INSN_FUNCTION_USAGE (call) = use;
-
   return call;
 }
 
@@ -42204,6 +42274,23 @@ ix86_hard_regno_mode_ok (int regno, machine_mode mode)
   return false;
 }
 
+bool
+ix86_is_interrupt_p ()
+{
+  return lookup_attribute ("interrupt",
+           DECL_ATTRIBUTES (current_function_decl)) ||
+         lookup_attribute ("exception",
+           DECL_ATTRIBUTES (current_function_decl));
+}
+
+bool
+ix86_is_exception_p ()
+{
+  return lookup_attribute ("exception",
+           DECL_ATTRIBUTES (current_function_decl));
+}
+
+
 /* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a
    tieable integer mode.  */
 
@@ -43125,6 +43212,51 @@ ix86_handle_fndecl_attribute (tree *node, tree name, tree, int,
     }
   return NULL_TREE;
 }
+
+
+static tree
+ix86_handle_interrupt_attribute (tree *node, tree name, tree, int,
+                                 bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+               name);
+      *no_add_attrs = true;
+    }
+
+  /* DECL_RESULT and DECL_ARGUMENTS do not exist there yet,
+     but the function type contains args and return type data.  */
+  tree func_type = TREE_TYPE (*node);
+  tree first_arg_type = TYPE_ARG_TYPES (func_type);
+  tree return_type = TREE_TYPE (func_type);
+  if (first_arg_type && ! VOID_TYPE_P ( TREE_VALUE (first_arg_type)))
+    error ("Interrupt service routine can't have arguments");
+  if (! VOID_TYPE_P (return_type))
+    error ("Interrupt service routine can't have non-void return value");
+
+  return NULL_TREE;
+}
+
+static tree
+ix86_handle_exception_attribute (tree *node, tree name, tree, int,
+                                 bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute only applies to functions",
+               name);
+      *no_add_attrs = true;
+    }
+
+  tree func_type = TREE_TYPE (*node);
+  tree return_type = TREE_TYPE (func_type);
+  if (! VOID_TYPE_P (return_type))
+    error ("Interrupt service routine can't have non-void return value");
+
+  return NULL_TREE;
+}
+
 
 static bool
 ix86_ms_bitfield_layout_p (const_tree record_type)
@@ -47127,6 +47259,11 @@ static const struct attribute_spec ix86_attribute_table[] =
     false },
   { "callee_pop_aggregate_return", 1, 1, false, true, true,
     ix86_handle_callee_pop_aggregate_return, true },
+{ "interrupt", 0, 0, true, false, false, ix86_handle_interrupt_attribute,
+    false },
+  { "exception", 0, 0, true, false, false, ix86_handle_exception_attribute,
+    false },
+
   /* End element.  */
   { NULL,        0, 0, false, false, false, NULL, false }
 };

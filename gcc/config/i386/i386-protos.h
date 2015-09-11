@@ -26,6 +26,8 @@ extern bool ix86_handle_option (struct gcc_options *opts,
 /* Functions in i386.c */
 extern bool ix86_target_stack_probe (void);
 extern bool ix86_can_use_return_insn_p (void);
+extern bool ix86_is_interrupt_p (void);
+extern bool ix86_is_exception_p (void);
 extern void ix86_setup_frame_addresses (void);
 
 extern HOST_WIDE_INT ix86_initial_elimination_offset (int, int);
