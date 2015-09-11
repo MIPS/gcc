@@ -15,7 +15,8 @@
 
 2015-09-11  Cesar Philippidis  <cesar@codesourcery.com>
 
-	* omp-low.c (build_outer_var_ref):
+	* omp-low.c (build_outer_var_ref): Don't scan for outer contexts
+	when the current context represents an acc parallel region.
 
 2015-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
