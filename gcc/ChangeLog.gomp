@@ -1,6 +1,14 @@
+2015-09-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_emit_forking): Always emit fork.
+	(bb_par_t, bb_par_vec_t): Delete.
+	(nvptx_find_par): New recursive function. Broken out of ...
+	(nvptx_discover_pars): ... here.  Call it.
+	(nvptx_optimize_inner): Write to dump_file.
+
 2015-09-11  James Norris  <jnorris@codesourcery.com>
 
-	* config/nvptx/nvptx.c: (nvptx_use_anchors_for_symbol): New
+	* config/nvptx/nvptx.c (nvptx_use_anchors_for_symbol): New
 	(TARGET_USE_ANCHORS_FOR_SYMBOL_P): Override.
 
 2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>

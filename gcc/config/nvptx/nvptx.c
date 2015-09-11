@@ -308,8 +308,8 @@ nvptx_emit_forking (unsigned mask, bool is_call)
     {
       rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
       
-      /* Emit fork for worker level.  */
-      if (!is_call && mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+      /* Emit fork at all levels, this helps form SESE regions..  */
+      if (!is_call)
 	emit_insn (gen_nvptx_fork (op));
       emit_insn (gen_nvptx_forked (op));
     }
@@ -2591,7 +2591,7 @@ nvptx_discover_pre (basic_block block, int expected)
   return pre_insn;
 }
 
-/*  Dump this parallel and all its inner parallels.  */
+/* Dump this parallel and all its inner parallels.  */
 
 static void
 nvptx_dump_pars (parallel *par, unsigned depth)
@@ -2614,110 +2614,114 @@ nvptx_dump_pars (parallel *par, unsigned depth)
     nvptx_dump_pars (par->next, depth);
 }
 
-typedef std::pair<basic_block, parallel *> bb_par_t;
-typedef auto_vec<bb_par_t> bb_par_vec_t;
+/* If BLOCK contains a fork/join marker, process it to create or
+   terminate a loop structure.  Add this block to the current loop,
+   and then walk successor blocks.   */
 
-/* Walk the BBG looking for fork & join markers.  Construct a
-   loop structure for the function.  MAP is a mapping of basic blocks
-   to head & taiol markers, discoveded when splitting blocks.  This
+static parallel *
+nvptx_find_par (bb_insn_map_t *map, parallel *par, basic_block block)
+{
+  if (block->flags & BB_VISITED)
+    return par;
+  block->flags |= BB_VISITED;
+
+  if (rtx_insn **endp = map->get (block))
+    {
+      rtx_insn *end = *endp;
+
+      /* This is a block head or tail, or return instruction.  */
+      switch (recog_memoized (end))
+	{
+	case CODE_FOR_return:
+	  /* Return instructions are in their own block, and we
+	     don't need to do anything more.  */
+	  return par;
+
+	case CODE_FOR_nvptx_forked:
+	  /* Loop head, create a new inner loop and add it into
+	     our parent's child list.  */
+	  {
+	    unsigned mask = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
+
+	    gcc_assert (mask);
+	    par = new parallel (par, mask);
+	    par->forked_block = block;
+	    par->forked_insn = end;
+	    if (!(mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
+		&& (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
+	      par->fork_insn
+		= nvptx_discover_pre (block, CODE_FOR_nvptx_fork);
+	  }
+	  break;
+
+	case CODE_FOR_nvptx_join:
+	  /* A loop tail.  Finish the current loop and return to
+	     parent.  */
+	  {
+	    unsigned mask = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
+
+	    gcc_assert (par->mask == mask);
+	    par->join_block = block;
+	    par->join_insn = end;
+	    if (!(mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
+		&& (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
+	      par->joining_insn
+		= nvptx_discover_pre (block, CODE_FOR_nvptx_joining);
+	    par = par->parent;
+	  }
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  if (par)
+    /* Add this block onto the current loop's list of blocks.  */
+    par->blocks.safe_push (block);
+  else
+    /* This must be the entry block.  Create a NULL parallel.  */
+    par = new parallel (0, 0);
+
+  /* Walk successor blocks.  */
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, block->succs)
+    nvptx_find_par (map, par, e->dest);
+
+  return par;
+}
+
+/* DFS walk the CFG looking for fork & join markers.  Construct
+   loop structures as we go.  MAP is a mapping of basic blocks
+   to head & tail markers, discovered when splitting blocks.  This
    speeds up the discovery.  We rely on the BB visited flag having
    been cleared when splitting blocks.  */
 
 static parallel *
 nvptx_discover_pars (bb_insn_map_t *map)
 {
-  parallel *outer_par = new parallel (0, 0);
-  bb_par_vec_t worklist;
   basic_block block;
 
-  // Mark entry and exit blocks as visited.
+  /* Mark exit blocks as visited.  */
   block = EXIT_BLOCK_PTR_FOR_FN (cfun);
   block->flags |= BB_VISITED;
+
+  /* And entry block as not.  */
   block = ENTRY_BLOCK_PTR_FOR_FN (cfun);
-  worklist.safe_push (bb_par_t (block, outer_par));
+  block->flags &= ~BB_VISITED;
 
-  while (worklist.length ())
-    {
-      bb_par_t bb_par = worklist.pop ();
-      parallel *l = bb_par.second;
-
-      block = bb_par.first;
-
-      // Have we met this block?
-      if (block->flags & BB_VISITED)
-	continue;
-      block->flags |= BB_VISITED;
-      
-      rtx_insn **endp = map->get (block);
-      if (endp)
-	{
-	  rtx_insn *end = *endp;
-	  
-	  /* This is a block head or tail, or return instruction.  */
-	  switch (recog_memoized (end))
-	    {
-	    case CODE_FOR_return:
-	      /* Return instructions are in their own block, and we
-		 don't need to do anything more.  */
-	      continue;
-
-	    case CODE_FOR_nvptx_forked:
-	      /* Loop head, create a new inner loop and add it into
-		 our parent's child list.  */
-	      {
-		unsigned mask = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
-
-		gcc_assert (mask);
-		l = new parallel (l, mask);
-		l->forked_block = block;
-		l->forked_insn = end;
-		if (!(mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
-		    && (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
-		  l->fork_insn
-		    = nvptx_discover_pre (block, CODE_FOR_nvptx_fork);
-	      }
-	      break;
-
-	    case CODE_FOR_nvptx_join:
-	      /* A loop tail.  Finish the current loop and return to
-		 parent.  */
-	      {
-		unsigned mask = UINTVAL (XVECEXP (PATTERN (end), 0, 0));
-
-		gcc_assert (l->mask == mask);
-		l->join_block = block;
-		l->join_insn = end;
-		if (!(mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
-		    && (mask & GOMP_DIM_MASK (GOMP_DIM_WORKER)))
-		  l->joining_insn
-		    = nvptx_discover_pre (block, CODE_FOR_nvptx_joining);
-		l = l->parent;
-	      }
-	      break;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-	}
-
-      /* Add this block onto the current loop's list of blocks.  */
-      l->blocks.safe_push (block);
-
-      /* Push each destination block onto the work list.  */
-      edge e;
-      edge_iterator ei;
-      FOR_EACH_EDGE (e, ei, block->succs)
-	worklist.safe_push (bb_par_t (e->dest, l));
-    }
+  parallel *par = nvptx_find_par (map, 0, block);
 
   if (dump_file)
     {
       fprintf (dump_file, "\nLoops\n");
-      nvptx_dump_pars (outer_par, 0);
+      nvptx_dump_pars (par, 0);
       fprintf (dump_file, "\n");
     }
   
-  return outer_par;
+  return par;
 }
 
 /* Propagate live state at the start of a partitioned region.  BLOCK
@@ -3107,6 +3111,12 @@ nvptx_optimize_inner (parallel *par)
       return;
 
   /* Preconditions met.  Swallow the inner par.  */
+  if (dump_file)
+    fprintf (dump_file, "Merging loop %x [%d,%d] into %x [%d,%d]\n",
+	     inner->mask, inner->forked_block->index,
+	     inner->join_block->index,
+	     par->mask, par->forked_block->index, par->join_block->index);
+
   par->mask |= inner->mask & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1);
 
   par->blocks.reserve (inner->blocks.length ());
