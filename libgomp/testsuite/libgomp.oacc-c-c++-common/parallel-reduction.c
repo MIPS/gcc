@@ -10,10 +10,14 @@ main ()
 {
   int s1 = 0, s2 = 0;
   int i;
+  int dummy = 0;
 
-#pragma acc parallel num_gangs (N) reduction (+:s1)
+#pragma acc data copy (dummy)
   {
-    s1++;
+#pragma acc parallel num_gangs (N) reduction (+:s1)
+    {
+      s1++;
+    }
   }
 
   if (acc_get_device_type () != acc_device_nvidia)

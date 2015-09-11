@@ -1,3 +1,7 @@
+2015-09-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (build_outer_var_ref):
+
 2015-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_emit_forking): Always emit fork.

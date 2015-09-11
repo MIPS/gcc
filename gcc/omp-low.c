@@ -1240,6 +1240,8 @@ build_outer_var_ref (tree var, omp_context *ctx)
       if (x == NULL_TREE)
 	x = var;
     }
+  else if (is_oacc_parallel (ctx))
+    x = var;
   else if (ctx->outer)
     {
       /* OpenACC may have multiple outer contexts (one per loop).  */
@@ -1256,7 +1258,7 @@ build_outer_var_ref (tree var, omp_context *ctx)
       else
 	x = lookup_decl (var, ctx->outer);
     }
-  else if (is_reference (var) || is_oacc_parallel (ctx)
+  else if (is_reference (var)
 	   || extract_oacc_routine_gwv (current_function_decl) != 0)
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */

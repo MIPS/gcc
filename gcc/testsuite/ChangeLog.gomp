@@ -1,3 +1,8 @@
+2015-09-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/parallel-reduction.c: Enclose the parallel
+	reduction inside an acc data region.
+
 2015-08-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/routine-6.c: New test.

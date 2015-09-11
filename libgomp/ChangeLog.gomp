@@ -1,3 +1,8 @@
+2015-09-11  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/parallel-reduction.c: Enclose
+	one parallel reduction inside a data region.
+
 2015-09-11  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/lib-12.f90: Update test.
