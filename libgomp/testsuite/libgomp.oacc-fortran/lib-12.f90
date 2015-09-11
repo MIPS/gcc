@@ -4,12 +4,14 @@ program main
   use openacc
   implicit none
 
-  integer :: i, n
+  integer :: i, j, n
 
+  j = 0
   n = 1000000
 
-  !$acc parallel async (0)
+  !$acc parallel async (0) copy (j)
     do i = 1, 1000000
+      j = j + 1
     end do
   !$acc end parallel
 

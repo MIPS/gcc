@@ -4,17 +4,22 @@ program main
   use openacc
   implicit none
 
-  integer :: i, j, nprocs
+  integer :: i, j
   integer, parameter :: N = 1000000
+  integer, parameter :: nprocs = 2
+  integer :: k(nprocs)
 
-  nprocs = 2
+  k(:) = 0
 
-  do j = 1, nprocs
-    !$acc parallel async (j)
-      do i = 1, N
-      end do
-    !$acc end parallel
-  end do
+  !$acc data copy (k(1:nprocs))
+    do j = 1, nprocs
+      !$acc parallel async (j)
+        do i = 1, N
+          k(j) = k(j) + 1
+        end do
+      !$acc end parallel
+    end do
+  !$acc end data
 
   if (acc_async_test (1) .neqv. .TRUE.) call abort
   if (acc_async_test (2) .neqv. .TRUE.) call abort

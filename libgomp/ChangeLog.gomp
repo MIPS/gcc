@@ -1,3 +1,8 @@
+2015-09-11  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/lib-12.f90: Update test.
+	* testsuite/libgomp.oacc-fortran/lib-13.f90: Likewise.
+
 2015-09-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* plutin/plugin-nvptx.c (ARRAYSIZE): Delete.
