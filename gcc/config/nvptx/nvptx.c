@@ -4340,6 +4340,14 @@ nvptx_goacc_reduction (gimple call)
       gcc_unreachable ();
     }
 }
+
+/* Don't allow use of anchored addresses.  */
+
+static bool
+nvptx_use_anchors_for_symbol (const_rtx ARG_UNUSED (symbol))
+{
+  return false;
+}
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE nvptx_option_override
@@ -4451,6 +4459,9 @@ nvptx_goacc_reduction (gimple call)
 
 #undef TARGET_GOACC_REDUCTION
 #define TARGET_GOACC_REDUCTION nvptx_goacc_reduction
+
+#undef TARGET_USE_ANCHORS_FOR_SYMBOL_P
+#define TARGET_USE_ANCHORS_FOR_SYMBOL_P nvptx_use_anchors_for_symbol
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
