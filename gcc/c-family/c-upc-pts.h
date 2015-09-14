@@ -31,8 +31,10 @@ along with GCC; see the file COPYING3.  If not see
   #define UPC_PTS_PHASE_SIZE      (LONG_TYPE_SIZE/2)
   #define UPC_PTS_THREAD_SIZE     (LONG_TYPE_SIZE/2)
   #define UPC_PTS_VADDR_SIZE      POINTER_SIZE
-  #define UPC_PTS_PHASE_TYPE      ((LONG_TYPE_SIZE == 64) ? "uint32_t" : "uint16_t")
-  #define UPC_PTS_THREAD_TYPE     ((LONG_TYPE_SIZE == 64) ? "uint32_t" : "uint16_t")
+  #define UPC_PTS_PHASE_TYPE      ((LONG_TYPE_SIZE == 64) \
+                                  ? "uint32_t" : "uint16_t")
+  #define UPC_PTS_THREAD_TYPE     ((LONG_TYPE_SIZE == 64) \
+                                  ? "uint32_t" : "uint16_t")
   #define UPC_PTS_VADDR_TYPE      "char *"
 #endif /* HAVE_UPC_PTS_PACKED_REP */
 

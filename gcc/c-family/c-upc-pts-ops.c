@@ -49,7 +49,8 @@ upc_pts_init (void)
 #elif HAVE_UPC_PTS_STRUCT_REP
     upc_pts = upc_pts_struct_ops;
 #else
-#  error either HAVE_UPC_PTS_PACKED_REP or HAVE_UPC_PTS_STRUCT_REP must be defined.
+#  error either HAVE_UPC_PTS_PACKED_REP or \
+         HAVE_UPC_PTS_STRUCT_REP must be defined.
 #endif
   /* Define the various pre-defined types and values, like 'upc_shared_ptr_t'
      that depend upon the representation of UPC pointer-to-shared type.  */

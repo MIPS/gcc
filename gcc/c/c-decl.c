@@ -4817,10 +4817,11 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	        {
 		  gcc_assert (!flag_upc_threads);
 		  if (TYPE_HAS_THREADS_FACTOR (TREE_TYPE (decl)))
-		    error ("in the UPC dynamic translation environment, "                                  "THREADS may not appear in declarations "
-		            "of shared arrays with indefinite block size; "
-		            "the storage size of %q+D cannot be calculated",
-			    decl);
+		    error ("in the UPC dynamic translation environment, "
+		           "THREADS may not appear in declarations "
+		           "of shared arrays with indefinite block size; "
+		           "the storage size of %q+D cannot be calculated",
+			   decl);
 		  else
 		    error ("in the UPC dynamic translation environment, "
 		           "THREADS must appear exactly once in "

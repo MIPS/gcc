@@ -1,3 +1,11 @@
+2015-09-13  Gary Funck  <gary@intrepid.com>
+
+	* c/c-decl.c: Fold long lines.
+	* c-family/c-upc-low.c: Ditto.
+	* c-family/c-upc-pts-ops.c: Ditto.
+	* c-family/c-upc-pts.h: Ditto.
+	* convert.c: Ditto.
+
 2015-09-04  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 227337 into gupc branch.
