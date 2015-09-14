@@ -11184,41 +11184,34 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
 
 static void
 lower_oacc_loop_enter_exit (bool enter_loop, tree clauses, gimple_seq *ilist,
-			     omp_context *ctx)
+			    omp_context *ctx)
 {
   unsigned loop_dim_mask = extract_oacc_loop_mask (ctx);
-  gimple_seq *seq;
-  enum internal_fn fork_join, f1, f2;
-  int dir;
 
   if (loop_dim_mask == 0)
     return;
 
   if (enter_loop)
     {
-      fork_join = IFN_GOACC_FORK;
-      f1 = IFN_GOACC_REDUCTION_SETUP;
-      f2 = IFN_GOACC_REDUCTION_INIT;
-      seq = &oacc_gang_reduction_init;
-      dir = 1;
+      for (int i = GOMP_DIM_GANG; i < GOMP_DIM_MAX; i++)
+	if (loop_dim_mask & GOMP_DIM_MASK (i))
+	  loop_dim_mask =
+	    lower_oacc_loop_helper (clauses, ilist, &oacc_gang_reduction_init,
+				    ctx, IFN_GOACC_REDUCTION_SETUP,
+				    IFN_GOACC_REDUCTION_INIT,
+				    IFN_GOACC_FORK, i, loop_dim_mask,
+				    enter_loop);
     }
   else
     {
-      fork_join = IFN_GOACC_JOIN;
-      f1 = IFN_GOACC_REDUCTION_FINI;
-      f2 = IFN_GOACC_REDUCTION_TEARDOWN;
-      seq = &oacc_gang_reduction_fini;
-      dir = -1;
-    }
-
-  for (int i = GOMP_DIM_GANG; i < GOMP_DIM_MAX; i++)
-    {
-      int dim = dir > 0 ? i : GOMP_DIM_MAX - (i + 1);
-      if (loop_dim_mask & GOMP_DIM_MASK (dim))
-	loop_dim_mask =
-	  lower_oacc_loop_helper (clauses, ilist, seq, ctx, f1, f2,
-				  fork_join, dim, loop_dim_mask,
-				  enter_loop);
+      for (int i = GOMP_DIM_MAX; i-- != GOMP_DIM_GANG;)
+	if (loop_dim_mask & GOMP_DIM_MASK (i))
+	  loop_dim_mask =
+	    lower_oacc_loop_helper (clauses, ilist, &oacc_gang_reduction_fini,
+				    ctx, IFN_GOACC_REDUCTION_FINI,
+				    IFN_GOACC_REDUCTION_TEARDOWN,
+				    IFN_GOACC_JOIN, i, loop_dim_mask,
+				    enter_loop);
     }
 }
 

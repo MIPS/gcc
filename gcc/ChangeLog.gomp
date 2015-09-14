@@ -1,6 +1,11 @@
+2015-09-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (lower_oacc_loop_enter_exit): Use separate loops for
+	entry and for exit.
+
 2015-09-14  James Norris  <jnorris@codesourcery.com>
 
-	* varpool.c (makee_offloadable): Handle link variable in routine.
+	* varpool.c (make_offloadable): Handle link variable in routine.
 
 2015-09-11  Nathan Sidwell  <nathan@codesourcery.com>
 
