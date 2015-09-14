@@ -489,7 +489,13 @@ buf_read (unix_stream * s, void * buf, ssize_t nbyte)
   /* Is the data we want in the buffer?  */
   if (s->logical_offset + nbyte <= s->buffer_offset + s->active
       && s->buffer_offset <= s->logical_offset)
-    memcpy (buf, s->buffer + (s->logical_offset - s->buffer_offset), nbyte);
+    {
+      /* When nbyte == 0, buf can be NULL which would lead to undefined
+	 behavior if we called memcpy().  */
+      if (nbyte != 0)
+	memcpy (buf, s->buffer + (s->logical_offset - s->buffer_offset),
+		nbyte);
+    }
   else
     {
       /* First copy the active bytes if applicable, then read the rest
@@ -1713,16 +1719,6 @@ flush_all_units (void)
 	}
     }
   while (1);
-}
-
-
-/* delete_file()-- Given a unit structure, delete the file associated
- * with the unit.  Returns nonzero if something went wrong. */
-
-int
-delete_file (gfc_unit * u)
-{
-  return unlink (u->filename);
 }
 
 
