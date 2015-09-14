@@ -1,3 +1,7 @@
+2015-09-14  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 227737 into gupc branch.
+
 2015-09-13  Gary Funck  <gary@intrepid.com>
 
 	* c/c-decl.c: Fold long lines.
