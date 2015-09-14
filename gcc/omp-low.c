@@ -11185,6 +11185,13 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		  gcc_unreachable ();
 		}
 	    }
+	  else if (code == GIMPLE_OMP_ORDERED
+		   && find_omp_clause (gimple_omp_ordered_clauses
+					 (as_a <gomp_ordered *> (stmt)),
+				       OMP_CLAUSE_DEPEND))
+	    /* #pragma omp ordered depend is also just a stand-alone
+	       directive.  */
+	    region = NULL;
 	  /* ..., this directive becomes the parent for a new region.  */
 	  if (region)
 	    parent = region;
@@ -12110,21 +12117,53 @@ lower_omp_taskgroup (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 /* Fold the OMP_ORDERED_CLAUSES for the OMP_ORDERED in STMT if possible.  */
 
 static void
-lower_omp_ordered_clauses (gomp_ordered *ord_stmt, omp_context *ctx)
+lower_omp_ordered_clauses (gimple_stmt_iterator *gsi_p, gomp_ordered *ord_stmt,
+			   omp_context *ctx)
 {
   struct omp_for_data fd;
   if (!ctx->outer || gimple_code (ctx->outer->stmt) != GIMPLE_OMP_FOR)
     return;
 
   unsigned int len = gimple_omp_for_collapse (ctx->outer->stmt);
-  if (!len)
-    return;
-  struct omp_for_data_loop *loops
-    = (struct omp_for_data_loop *)
-    alloca (len * sizeof (struct omp_for_data_loop));
+  struct omp_for_data_loop *loops = XALLOCAVEC (struct omp_for_data_loop, len);
   extract_omp_for_data (as_a <gomp_for *> (ctx->outer->stmt), &fd, loops);
   if (!fd.ordered)
     return;
+
+  tree *list_p = gimple_omp_ordered_clauses_ptr (ord_stmt);
+  tree c = gimple_omp_ordered_clauses (ord_stmt);
+  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+      && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
+    {
+      /* Merge depend clauses from multiple adjacent
+	 #pragma omp ordered depend(sink:...) constructs
+	 into one #pragma omp ordered depend(sink:...), so that
+	 we can optimize them together.  */
+      gimple_stmt_iterator gsi = *gsi_p;
+      gsi_next (&gsi);
+      while (!gsi_end_p (gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  if (is_gimple_debug (stmt)
+	      || gimple_code (stmt) == GIMPLE_NOP)
+	    {
+	      gsi_next (&gsi);
+	      continue;
+	    }
+	  if (gimple_code (stmt) != GIMPLE_OMP_ORDERED)
+	    break;
+	  gomp_ordered *ord_stmt2 = as_a <gomp_ordered *> (stmt);
+	  c = gimple_omp_ordered_clauses (ord_stmt2);
+	  if (c == NULL_TREE
+	      || OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
+	      || OMP_CLAUSE_DEPEND_KIND (c) != OMP_CLAUSE_DEPEND_SINK)
+	    break;
+	  while (*list_p)
+	    list_p = &OMP_CLAUSE_CHAIN (*list_p);
+	  *list_p = c;
+	  gsi_remove (&gsi, true);
+	}
+    }
 
   /* Canonicalize sink dependence clauses into one folded clause if
      possible.
@@ -12183,8 +12222,7 @@ lower_omp_ordered_clauses (gomp_ordered *ord_stmt, omp_context *ctx)
   tree *iter_vars = (tree *) alloca (sizeof (tree) * len);
   memset (iter_vars, 0, sizeof (tree) * len);
 
-  tree *list_p = gimple_omp_ordered_clauses_ptr (ord_stmt);
-  tree c;
+  list_p = gimple_omp_ordered_clauses_ptr (ord_stmt);
   unsigned int i;
   while ((c = *list_p) != NULL)
     {
@@ -12317,6 +12355,11 @@ lower_omp_ordered_clauses (gomp_ordered *ord_stmt, omp_context *ctx)
  lower_omp_ordered_ret:
   sbitmap_free (folded_deps_used);
   folded_deps.release ();
+
+  /* Ordered without clauses is #pragma omp threads, while we want
+     a nop instead if we remove all clauses.  */
+  if (gimple_omp_ordered_clauses (ord_stmt) == NULL_TREE)
+    gsi_replace (gsi_p, gimple_build_nop (), true);
 }
 
 
@@ -12333,7 +12376,12 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   bool simd
     = find_omp_clause (gimple_omp_ordered_clauses (ord_stmt), OMP_CLAUSE_SIMD);
 
-  lower_omp_ordered_clauses (ord_stmt, ctx);
+  if (find_omp_clause (gimple_omp_ordered_clauses (ord_stmt),
+		       OMP_CLAUSE_DEPEND))
+    {
+      lower_omp_ordered_clauses (gsi_p, ord_stmt, ctx);
+      return;
+    }
 
   push_gimplify_context ();
 
@@ -14979,11 +15027,19 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
     case GIMPLE_OMP_TEAMS:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
-    case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_SECTION:
       cur_region = new_omp_region (bb, code, cur_region);
       fallthru = true;
+      break;
+
+    case GIMPLE_OMP_ORDERED:
+      cur_region = new_omp_region (bb, code, cur_region);
+      fallthru = true;
+      if (find_omp_clause (gimple_omp_ordered_clauses
+			     (as_a <gomp_ordered *> (last)),
+			   OMP_CLAUSE_DEPEND))
+	cur_region = cur_region->outer;
       break;
 
     case GIMPLE_OMP_TARGET:

@@ -1,3 +1,15 @@
+2015-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_ordered_clauses): Add GSI_P argument.
+	Use XALLOCAVEC, don't check for gimple_omp_for_collapse 0.
+	Merge adjacent ordered depend(sink:) statements.  If removing
+	all depend clauses, replace also the ordered stmt with GIMPLE_NOP.
+	(lower_omp_ordered): Call lower_omp_ordered_clauses only if depend
+	clause is present.  Don't do anything else after that call.
+	(build_omp_regions_1): Treat GIMPLE_OMP_ORDERED with depend clause
+	as stand-alone directive.
+	(make_gimple_omp_edges): Likewise.
+
 2015-09-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* internal-fn.def (GOMP_SIMD_ORDERED_START, GOMP_SIMD_ORDERED_END):
