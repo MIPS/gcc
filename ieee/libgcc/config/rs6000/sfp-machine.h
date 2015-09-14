@@ -1,7 +1,26 @@
+/* Decide whether to use 64 or 32-bit types to do the emulation.  If we are
+   doing IEEE-128 with VSX, use 64-bit emulation even if we are compiling for a
+   32-bit target.  */
+
+#if defined(_ARCH_PPC64) || defined(__VSX__) || defined(__FLOAT128__)
+#define _FP_W_TYPE_SIZE		64
+#define _FP_W_TYPE		unsigned long long
+#define _FP_WS_TYPE		signed long long
+#define _FP_I_TYPE		long long
+
+#ifdef _ARCH_PPC64
+typedef int TItype __attribute__ ((mode (TI)));
+typedef unsigned int UTItype __attribute__ ((mode (TI)));
+
+#define TI_BITS (__CHAR_BIT__ * (int)sizeof(TItype))
+#endif
+
+#else	/* 32-bits  */
 #define _FP_W_TYPE_SIZE		32
-#define _FP_W_TYPE		unsigned long
-#define _FP_WS_TYPE		signed long
-#define _FP_I_TYPE		long
+#define _FP_W_TYPE		unsigned int
+#define _FP_WS_TYPE		signed int
+#define _FP_I_TYPE		int
+#endif	/* 32-bits  */
 
 /* The type of the result of a floating point comparison.  This must
    match `__libgcc_cmp_return__' in GCC for the target.  */
@@ -12,16 +31,34 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
   _FP_MUL_MEAT_1_wide(_FP_WFRACBITS_S,R,X,Y,umul_ppmm)
 #define _FP_MUL_MEAT_D(R,X,Y)				\
   _FP_MUL_MEAT_2_wide(_FP_WFRACBITS_D,R,X,Y,umul_ppmm)
+
+#if (_FP_W_TYPE_SIZE==64)
+#define _FP_MUL_MEAT_Q(R,X,Y)				\
+  _FP_MUL_MEAT_2_wide(_FP_WFRACBITS_Q,R,X,Y,umul_ppmm)
+
+#else
 #define _FP_MUL_MEAT_Q(R,X,Y)				\
   _FP_MUL_MEAT_4_wide(_FP_WFRACBITS_Q,R,X,Y,umul_ppmm)
+#endif
 
 #define _FP_DIV_MEAT_S(R,X,Y)	_FP_DIV_MEAT_1_loop(S,R,X,Y)
 #define _FP_DIV_MEAT_D(R,X,Y)	_FP_DIV_MEAT_2_udiv(D,R,X,Y)
+
+#if (_FP_W_TYPE_SIZE==64)
+#define _FP_DIV_MEAT_Q(R,X,Y)   _FP_DIV_MEAT_2_udiv(Q,R,X,Y)
+#else
 #define _FP_DIV_MEAT_Q(R,X,Y)	_FP_DIV_MEAT_4_udiv(Q,R,X,Y)
+#endif
 
 #define _FP_NANFRAC_S		((_FP_QNANBIT_S << 1) - 1)
 #define _FP_NANFRAC_D		((_FP_QNANBIT_D << 1) - 1), -1
+
+#if (_FP_W_TYPE_SIZE==64)
+#define _FP_NANFRAC_Q		((_FP_QNANBIT_Q << 1) - 1), -1
+#else
 #define _FP_NANFRAC_Q		((_FP_QNANBIT_Q << 1) - 1), -1, -1, -1
+#endif
+
 #define _FP_NANSIGN_S		0
 #define _FP_NANSIGN_D		0
 #define _FP_NANSIGN_Q		0
