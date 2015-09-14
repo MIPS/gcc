@@ -1,5 +1,21 @@
 2015-09-14  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gimple.h (gimple_call_internal_unique_p): Make inline.
+	* internal-fn.def (UNIQUE): New.
+	(GOACC_FORK, GOACC_JOIN): Delete.
+	(IFN_UNIQUE_UNSPEC, IFN_UNIQUE_OACC_FORK,
+	IFN_UNIQUE_OACC_JOIN): Define.
+	* internal-fn.c (gimple_call_internal_unique_p): Delete.
+	(expand_UNIQUE): New.  Absorb ...
+	(expand_GOACC_FORK, expand_GOACC_JOIN): ... these.  Delete.
+	* omp-low.c (lower_oacc_loop_helper): Emit IFN_UNIQUE call.
+	(lower_pacc_loop_enter_exit): Adjust.
+	(execute_oacc_transform): Check IFN_UNIQUE for fork & join.
+	* config/nvptx/nvptx.c (nvptx_xform_fork_join): Adjust arg
+	position.
+
+2015-09-14  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c (lower_oacc_loop_enter_exit): Use separate loops for
 	entry and for exit.
 

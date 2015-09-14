@@ -78,20 +78,6 @@ init_internal_fns ()
   internal_fn_fnspec_array[IFN_LAST] = 0;
 }
 
-/* Return true if this internal fn call is a unique marker -- it
-   should not be duplicated or merged.  */
-
-bool
-gimple_call_internal_unique_p (const_gimple gs)
-{
-  switch (gimple_call_internal_fn (gs))
-    {
-    default: return false;
-    case IFN_GOACC_FORK: return true;
-    case IFN_GOACC_JOIN: return true;
-    }
-}
-
 /* ARRAY_TYPE is an array of vector modes.  Return the associated insn
    for load-lanes-style optab OPTAB.  The insn must exist.  */
 
@@ -1956,6 +1942,45 @@ expand_VA_ARG (gcall *stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
+static void
+expand_UNIQUE (gcall *stmt)
+{
+  rtx pattern = NULL_RTX;
+
+  switch (TREE_INT_CST_LOW (gimple_call_arg (stmt, 0)))
+    {
+    default:
+      gcc_unreachable ();
+
+    case IFN_UNIQUE_UNSPEC:
+#ifdef HAVE_unique
+      pattern = gen_unique ();
+#endif
+      break;
+
+    case IFN_UNIQUE_OACC_FORK:
+#ifdef HAVE_oacc_fork
+      pattern = expand_normal (gimple_call_arg (stmt, 1));
+      pattern = gen_oacc_fork (pattern);
+#else
+      gcc_unreachable ();
+#endif
+      break;
+
+    case IFN_UNIQUE_OACC_JOIN:
+#ifdef HAVE_oacc_join
+      pattern = expand_normal (gimple_call_arg (stmt, 1));
+      pattern = gen_oacc_join (pattern);
+#else
+      gcc_unreachable ();
+#endif
+      break;
+    }
+
+  if (pattern)
+    emit_insn (pattern);
+}
+
 /* GOACC_DATA_END_WITH_ARG is supposed to be expanded at pass_late_lower_omp.
    So this dummy function should never be called.  */
 
@@ -1963,30 +1988,6 @@ static void
 expand_GOACC_DATA_END_WITH_ARG (gcall *stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
-}
-
-static void
-expand_GOACC_FORK (gcall *ARG_UNUSED (stmt))
-{
-#ifdef HAVE_oacc_fork
-  rtx dim = expand_normal (gimple_call_arg (stmt, 0));
-  
-  emit_insn (gen_oacc_fork (dim));
-#else
-  gcc_unreachable ();
-#endif
-}
-
-static void
-expand_GOACC_JOIN (gcall *ARG_UNUSED (stmt))
-{
-#ifdef HAVE_oacc_join
-  rtx dim = expand_normal (gimple_call_arg (stmt, 0));
-  
-  emit_insn (gen_oacc_join (dim));
-#else
-  gcc_unreachable ();
-#endif
 }
 
 static void

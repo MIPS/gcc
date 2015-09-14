@@ -65,15 +65,12 @@ DEF_INTERNAL_FN (TSAN_FUNC_EXIT, ECF_NOVOPS | ECF_LEAF | ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (VA_ARG, ECF_NOTHROW | ECF_LEAF, NULL)
 DEF_INTERNAL_FN (GOACC_DATA_END_WITH_ARG, ECF_NOTHROW, ".r")
 
-/* FORK and JOIN mark the points at which partitioned execution is
-   entered or exited.  We arrange for these two function to be
-   unduplicable and uncombinable in order to preserve the SESE CFG
-   property of partitioned loops.  These are non-const functions to prevent
-   optimizations migrating memory accesses across a partition change
-   boundary.  They take a single INTEGER_CST
-   argument and return nothing.  */
-DEF_INTERNAL_FN (GOACC_FORK, ECF_NOTHROW | ECF_LEAF, ".")
-DEF_INTERNAL_FN (GOACC_JOIN, ECF_NOTHROW | ECF_LEAF, ".")
+/* An unduplicable, uncombinable function.  Generally used to preserve
+   a CFG property in the face of jump threading, tail merging or
+   other such optimizations. The optional first argument distinguishes
+   between uses.  Other arguments are as needed for use.  The return
+   type depends on use too. */
+DEF_INTERNAL_FN (UNIQUE, ECF_NOTHROW | ECF_LEAF, NULL)
 
 /* DIM_SIZE and DIM_POS return the size of a particular compute
    dimension and the executing thread's position within that
@@ -109,3 +106,11 @@ DEF_INTERNAL_FN (GOACC_REDUCTION_INIT, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_REDUCTION_FINI, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_REDUCTION_TEARDOWN, ECF_NOTHROW, NULL)
 
+/* IFN_UNIQUE uses an INTEGER_CST first argument to discriminate use.  */
+#define IFN_UNIQUE_UNSPEC 0
+
+/* FORK and JOIN mark the points at which partitioned execution is
+   entered or exited.  They take an INTEGER_CST argument, indicating
+   the axis of forking or joining and return nothing.  */
+#define IFN_UNIQUE_OACC_FORK 1
+#define IFN_UNIQUE_OACC_JOIN 2

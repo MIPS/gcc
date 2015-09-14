@@ -2691,8 +2691,11 @@ gimple_call_internal_fn (const_gimple gs)
 
 /* Return true, if this internal gimple call is unique.  */
 
-extern bool
-gimple_call_internal_unique_p (const_gimple);
+inline bool
+gimple_call_internal_unique_p (const_gimple gs)
+{
+  return gimple_call_internal_fn (gs) == IFN_UNIQUE;
+}
 
 /* If CTRL_ALTERING_P is true, mark GIMPLE_CALL S to be a stmt
    that could alter control flow.  */

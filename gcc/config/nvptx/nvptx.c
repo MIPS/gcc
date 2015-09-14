@@ -4404,7 +4404,7 @@ static bool
 nvptx_xform_fork_join (gimple stmt, const int dims[],
 		       bool ARG_UNUSED (is_fork))
 {
-  tree arg = gimple_call_arg (stmt, 0);
+  tree arg = gimple_call_arg (stmt, 1);
   unsigned axis = TREE_INT_CST_LOW (arg);
 
   /* We only care about worker and vector partitioning.  */

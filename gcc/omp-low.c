@@ -4862,7 +4862,7 @@ oacc_fake_gang_reduction (omp_context *ctx)
 static unsigned
 lower_oacc_loop_helper (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 			 omp_context *ctx, enum internal_fn f1,
-			 enum internal_fn f2, enum internal_fn fork_join,
+			 enum internal_fn f2, unsigned fork_join,
 			 unsigned loop_dim, unsigned loop_mask,
 			 bool emit_f1)
 {
@@ -4872,7 +4872,8 @@ lower_oacc_loop_helper (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 
   lower_oacc_reductions (f1, loop_dim, clauses, ilist, ctx, emit_f1);
   gwv = build_int_cst (unsigned_type_node, loop_dim);
-  call = gimple_build_call_internal (fork_join, 1, gwv);
+  call = gimple_build_call_internal
+    (IFN_UNIQUE, 2, build_int_cst (unsigned_type_node, fork_join), gwv);
   gimple_seq_add_stmt (ilist, call);
   lower_oacc_reductions (f2, loop_dim, clauses, ilist, ctx, true);
   loop_mask = loop_mask & ~GOMP_DIM_MASK (loop_dim);
@@ -11199,7 +11200,7 @@ lower_oacc_loop_enter_exit (bool enter_loop, tree clauses, gimple_seq *ilist,
 	    lower_oacc_loop_helper (clauses, ilist, &oacc_gang_reduction_init,
 				    ctx, IFN_GOACC_REDUCTION_SETUP,
 				    IFN_GOACC_REDUCTION_INIT,
-				    IFN_GOACC_FORK, i, loop_dim_mask,
+				    IFN_UNIQUE_OACC_FORK, i, loop_dim_mask,
 				    enter_loop);
     }
   else
@@ -11210,7 +11211,7 @@ lower_oacc_loop_enter_exit (bool enter_loop, tree clauses, gimple_seq *ilist,
 	    lower_oacc_loop_helper (clauses, ilist, &oacc_gang_reduction_fini,
 				    ctx, IFN_GOACC_REDUCTION_FINI,
 				    IFN_GOACC_REDUCTION_TEARDOWN,
-				    IFN_GOACC_JOIN, i, loop_dim_mask,
+				    IFN_UNIQUE_OACC_JOIN, i, loop_dim_mask,
 				    enter_loop);
     }
 }
@@ -14907,18 +14908,26 @@ execute_oacc_transform ()
 		      needs_rescan = true;
 		    continue;
 
-		  case IFN_GOACC_FORK:
-		  case IFN_GOACC_JOIN:
-		    if (targetm.goacc.fork_join
-			(stmt, dims, ifn_code == IFN_GOACC_FORK))
-		      {
-		      remove:
-			replace_uses_by (gimple_vdef (stmt),
-					 gimple_vuse (stmt));
-			gsi_remove (&gsi, true);
-			/* Removal will have advanced the iterator.  */
-			continue;
-		      }
+		  case IFN_UNIQUE:
+		    {
+		      unsigned code;
+
+		      code = TREE_INT_CST_LOW (gimple_call_arg (stmt, 0));
+
+		      if ((code == IFN_UNIQUE_OACC_FORK
+			   || code == IFN_UNIQUE_OACC_JOIN)
+			  && (targetm.goacc.fork_join
+			      (stmt, dims, code == IFN_UNIQUE_OACC_FORK)))
+			{
+			remove:
+			  replace_uses_by (gimple_vdef (stmt),
+					   gimple_vuse (stmt));
+			  gsi_remove (&gsi, true);
+			  /* Removal will have advanced the iterator.  */
+			  continue;
+			}
+		    }
+		  
 		    break;
 		  }
 	      }
