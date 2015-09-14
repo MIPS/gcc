@@ -1410,13 +1410,20 @@ ref_at_iteration (data_reference_p dr, int iter, gimple_seq *stmts)
 		     DECL_SIZE (field), bitsize_zero_node);
     }
   /* Generate an ARRAY_REF for array references rather than a MEM_REF so that
-     other passes can possibly optimize them.  */
-  else if (TREE_CODE (DR_REF (dr)) == ARRAY_REF)
+     CSE passes can potientially optimize them.  */
+  else if (TREE_CODE (DR_REF (dr)) == ARRAY_REF
+	   && TREE_CODE (DR_STEP (dr)) == INTEGER_CST
+	   && TREE_CODE (DR_INIT (dr)) == INTEGER_CST
+	   && TREE_CODE (TREE_TYPE (DR_BASE_OBJECT (dr))) == ARRAY_TYPE)
     {
-	return build4 (ARRAY_REF, TREE_TYPE (DR_REF (dr)), DR_BASE_OBJECT (dr), 
-		       TREE_OPERAND (DR_REF (dr), 1), NULL_TREE, NULL_TREE);
+	tree offset = size_binop (MINUS_EXPR, coff, off);
+	tree sizdiv = TYPE_SIZE (TREE_TYPE (TREE_TYPE (DR_BASE_OBJECT (dr))));
+	sizdiv = div_if_zero_remainder (EXACT_DIV_EXPR, sizdiv, ssize_int (8));
+	tree element = div_if_zero_remainder (EXACT_DIV_EXPR, offset, sizdiv);
+	if (element != NULL_TREE)
+	  return build4 (ARRAY_REF, TREE_TYPE (DR_REF (dr)), DR_BASE_OBJECT (dr),
+			 element, NULL_TREE, NULL_TREE);
     }
-  else
     return fold_build2 (MEM_REF, TREE_TYPE (DR_REF (dr)), addr, alias_ptr);
 }
 
