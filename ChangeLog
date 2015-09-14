@@ -1,3 +1,19 @@
+2015-09-14  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* MAINTAINERS: Update my email address.
+
+2015-09-01  James Bowman  <james.bowman@ftdichip.com>
+
+	* MAINTAINERS (ft32 port): Add myself.
+
+2015-08-28  David Sherwood  <david.sherwood@arm.com>
+
+	* MAINTAINERS: Add myself.
+
+2015-08-27  Patrick Marlier  <patrick.marlier@gmail.com>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2015-08-23  Francois-Xavier Coudert  <fxcoudert@gcc.gnu.org>
 
 	PR libfortran/54572

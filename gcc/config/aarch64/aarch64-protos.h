@@ -73,8 +73,12 @@ enum aarch64_symbol_context
 
    SYMBOL_SMALL_TLSGD
    SYMBOL_SMALL_TLSDESC
-   SYMBOL_SMALL_GOTTPREL
-   SYMBOL_TLSLE
+   SYMBOL_SMALL_TLSIE
+   SYMBOL_TINY_TLSIE
+   SYMBOL_TLSLE12
+   SYMBOL_TLSLE24
+   SYMBOL_TLSLE32
+   SYMBOL_TLSLE48
    Each of these represents a thread-local symbol, and corresponds to the
    thread local storage relocation operator for the symbol being referred to.
 
@@ -108,10 +112,14 @@ enum aarch64_symbol_type
   SYMBOL_SMALL_GOT_4G,
   SYMBOL_SMALL_TLSGD,
   SYMBOL_SMALL_TLSDESC,
-  SYMBOL_SMALL_GOTTPREL,
+  SYMBOL_SMALL_TLSIE,
   SYMBOL_TINY_ABSOLUTE,
   SYMBOL_TINY_GOT,
-  SYMBOL_TLSLE,
+  SYMBOL_TINY_TLSIE,
+  SYMBOL_TLSLE12,
+  SYMBOL_TLSLE24,
+  SYMBOL_TLSLE32,
+  SYMBOL_TLSLE48,
   SYMBOL_FORCE_TO_MEM
 };
 
@@ -222,21 +230,25 @@ enum aarch64_fusion_pairs
 };
 #undef AARCH64_FUSION_PAIR
 
-#define AARCH64_EXTRA_TUNING_OPTION(x, name, index) \
-  AARCH64_EXTRA_TUNE_##name = (1 << index),
+#define AARCH64_EXTRA_TUNING_OPTION(x, name) \
+  AARCH64_EXTRA_TUNE_##name##_index,
+/* Supported tuning flags indexes.  */
+enum aarch64_extra_tuning_flags_index
+{
+#include "aarch64-tuning-flags.def"
+  AARCH64_EXTRA_TUNE_index_END
+};
+#undef AARCH64_EXTRA_TUNING_OPTION
+
+
+#define AARCH64_EXTRA_TUNING_OPTION(x, name) \
+  AARCH64_EXTRA_TUNE_##name = (1u << AARCH64_EXTRA_TUNE_##name##_index),
 /* Supported tuning flags.  */
 enum aarch64_extra_tuning_flags
 {
   AARCH64_EXTRA_TUNE_NONE = 0,
 #include "aarch64-tuning-flags.def"
-
-/* Hacky macro to build the "all" flag mask.
-   Expands to 0 | AARCH64_TUNE_index0 | AARCH64_TUNE_index1 , etc.  */
-#undef AARCH64_EXTRA_TUNING_OPTION
-#define AARCH64_EXTRA_TUNING_OPTION(x, name, y) \
-  | AARCH64_EXTRA_TUNE_##name
-  AARCH64_EXTRA_TUNE_ALL = 0
-#include "aarch64-tuning-flags.def"
+  AARCH64_EXTRA_TUNE_ALL = (1u << AARCH64_EXTRA_TUNE_index_END) - 1
 };
 #undef AARCH64_EXTRA_TUNING_OPTION
 
@@ -318,6 +330,7 @@ unsigned aarch64_trampoline_size (void);
 void aarch64_asm_output_labelref (FILE *, const char *);
 void aarch64_cpu_cpp_builtins (cpp_reader *);
 void aarch64_elf_asm_named_section (const char *, unsigned, tree);
+const char * aarch64_gen_far_branch (rtx *, int, const char *, const char *);
 void aarch64_err_no_fpadvsimd (machine_mode, const char *);
 void aarch64_expand_epilogue (bool);
 void aarch64_expand_mov_immediate (rtx, rtx);

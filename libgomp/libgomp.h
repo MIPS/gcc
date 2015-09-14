@@ -513,6 +513,8 @@ static inline struct gomp_task_icv *gomp_icv (bool write)
 /* The attributes to be used during thread creation.  */
 extern pthread_attr_t gomp_thread_attr;
 
+extern pthread_key_t gomp_thread_destructor;
+
 /* Function prototypes.  */
 
 /* affinity.c */
@@ -748,8 +750,9 @@ struct gomp_device_descr
   int (*get_num_devices_func) (void);
   void (*init_device_func) (int);
   void (*fini_device_func) (int);
-  int (*load_image_func) (int, const void *, struct addr_pair **);
-  void (*unload_image_func) (int, const void *);
+  unsigned (*version_func) (void);
+  int (*load_image_func) (int, unsigned, const void *, struct addr_pair **);
+  void (*unload_image_func) (int, unsigned, const void *);
   void *(*alloc_func) (int, size_t);
   void (*free_func) (int, void *);
   void *(*dev2host_func) (int, void *, const void *, size_t);

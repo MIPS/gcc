@@ -835,6 +835,12 @@ case ${target} in
   sol2_tm_file_head="dbxelf.h elfos.h ${cpu_type}/sysv4.h"
   sol2_tm_file_tail="${cpu_type}/sol2.h sol2.h"
   sol2_tm_file="${sol2_tm_file_head} ${sol2_tm_file_tail}"
+  case ${target} in
+    *-*-solaris2.1[2-9]*)
+      # __cxa_atexit was introduced in Solaris 12.
+      default_use_cxa_atexit=yes
+      ;;
+  esac
   use_gcc_stdint=wrap
   if test x$gnu_ld = xyes; then
     tm_file="usegld.h ${tm_file}"
@@ -3340,6 +3346,9 @@ if test x$with_cpu = x ; then
 	  ;;
       esac
       ;;
+    visium-*-*)
+      with_cpu=gr5
+      ;;
   esac
 
   # Avoid overriding --with-cpu-32 and --with-cpu-64 values.
@@ -4194,7 +4203,7 @@ case "${target}" in
 		esac
 		;;
 
-	sh[123456ble]-*-* | sh-*-*)
+	sh[123456ble]*-*-* | sh-*-*)
 		supported_defaults="cpu"
 		case "`echo $with_cpu | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ_ abcdefghijklmnopqrstuvwxyz- | sed s/sh/m/`" in
 		"" | m1 | m2 | m2e | m3 | m3e | m4 | m4-single | m4-single-only | m4-nofpu )
@@ -4285,6 +4294,16 @@ case "${target}" in
 			;;
 		*)
 			echo "Unknown cpu used in --with-cpu=$with_cpu" 1>&2
+			exit 1
+			;;
+		esac
+		;;
+	visium-*-*)
+		supported_defaults="cpu"
+		case $with_cpu in
+		  "" | gr5 | gr6)
+			;;
+		  *)    echo "Unknown cpu used in --with-cpu=$with_cpu" 1>&2
 			exit 1
 			;;
 		esac
@@ -4442,6 +4461,9 @@ case ${target} in
 			target_cpu_default2="TARGET_CPU_v850e1"
 			;;
 		esac
+		;;
+	visium-*-*)
+		target_cpu_default2="TARGET_CPU_$with_cpu"
 		;;
 esac
 

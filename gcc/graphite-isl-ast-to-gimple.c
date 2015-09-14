@@ -57,7 +57,9 @@ extern "C" {
 #include "tree-ssa-loop-manip.h"
 #include "tree-scalar-evolution.h"
 #include "gimple-ssa.h"
+#include "tree-phinodes.h"
 #include "tree-into-ssa.h"
+#include "ssa-iterators.h"
 #include <map>
 #include "graphite-isl-ast-to-gimple.h"
 
@@ -286,7 +288,12 @@ gcc_expression_from_isl_ast_expr_id (tree type,
   gcc_assert (res != ip.end () &&
 	      "Could not map isl_id to tree expression");
   isl_ast_expr_free (expr_id);
-  return fold_convert (type, res->second);
+  tree t = res->second;
+  tree *val = region->parameter_rename_map->get(t);
+
+  if (!val)
+   val = &t;
+  return fold_convert (type, *val);
 }
 
 /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
@@ -968,92 +975,6 @@ extend_schedule (__isl_take isl_map *schedule, int nb_schedule_dims)
   return schedule;
 }
 
-/* Set the separation_class option for unroll and jam. */
-
-static __isl_give isl_union_map *
-generate_luj_sepclass_opt (scop_p scop, __isl_take isl_union_set *domain, 
-			int dim, int cl)
-{
-  isl_map  *map;
-  isl_space *space, *space_sep;
-  isl_ctx *ctx;
-  isl_union_map *mapu;
-  int nsched = get_max_schedule_dimensions (scop);
- 
-  ctx = scop->ctx;
-  space_sep = isl_space_alloc (ctx, 0, 1, 1);
-  space_sep = isl_space_wrap (space_sep);
-  space_sep = isl_space_set_tuple_name (space_sep, isl_dim_set,
-				        "separation_class");
-  space = isl_set_get_space (scop->context);
-  space_sep = isl_space_align_params (space_sep, isl_space_copy(space));
-  space = isl_space_map_from_domain_and_range (space, space_sep);
-  space = isl_space_add_dims (space,isl_dim_in, nsched);
-  map = isl_map_universe (space);
-  isl_map_fix_si (map,isl_dim_out,0,dim);
-  isl_map_fix_si (map,isl_dim_out,1,cl);
-
-  mapu = isl_union_map_intersect_domain (isl_union_map_from_map (map), 
-					 domain);
-  return (mapu);
-}
-
-/* Compute the separation class for loop unroll and jam.  */
-
-static __isl_give isl_union_set *
-generate_luj_sepclass (scop_p scop)
-{
-  int i;
-  poly_bb_p pbb;
-  isl_union_set *domain_isl;
-
-  domain_isl = isl_union_set_empty (isl_set_get_space (scop->context));
-
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    {
-      isl_set *bb_domain;
-      isl_set *bb_domain_s;
-
-      if (pbb->map_sepclass == NULL)
-	continue;
-
-      if (isl_set_is_empty (pbb->domain))
-	continue;
-
-      bb_domain = isl_set_copy (pbb->domain);
-      bb_domain_s = isl_set_apply (bb_domain, pbb->map_sepclass);
-      pbb->map_sepclass = NULL;
-
-      domain_isl =
-	isl_union_set_union (domain_isl, isl_union_set_from_set (bb_domain_s));
-    }
-
-  return domain_isl;
-}
-
-/* Set the AST built options for loop unroll and jam. */
- 
-static __isl_give isl_union_map *
-generate_luj_options (scop_p scop)
-{
-  isl_union_set *domain_isl;
-  isl_union_map *options_isl_ss;
-  isl_union_map *options_isl =
-    isl_union_map_empty (isl_set_get_space (scop->context));
-  int dim = get_max_schedule_dimensions (scop) - 1;
-  int dim1 = dim - PARAM_VALUE (PARAM_LOOP_UNROLL_JAM_DEPTH);
-
-  if (!flag_loop_unroll_jam)
-    return options_isl;
-
-  domain_isl = generate_luj_sepclass (scop);
-
-  options_isl_ss = generate_luj_sepclass_opt (scop, domain_isl, dim1, 0);
-  options_isl = isl_union_map_union (options_isl, options_isl_ss);
-
-  return options_isl;
-}
-
 /* Generates a schedule, which specifies an order used to
    visit elements in a domain.  */
 
@@ -1102,13 +1023,11 @@ ast_build_before_for (__isl_keep isl_ast_build *build, void *user)
 }
 
 /* Set the separate option for all dimensions.
-   This helps to reduce control overhead.
-   Set the options for unroll and jam.  */
+   This helps to reduce control overhead.  */
 
 static __isl_give isl_ast_build *
 set_options (__isl_take isl_ast_build *control,
-	     __isl_keep isl_union_map *schedule,
-	     __isl_take isl_union_map *opt_luj)
+	     __isl_keep isl_union_map *schedule)
 {
   isl_ctx *ctx = isl_union_map_get_ctx (schedule);
   isl_space *range_space = isl_space_set_alloc (ctx, 0, 1);
@@ -1119,9 +1038,6 @@ set_options (__isl_take isl_ast_build *control,
   isl_union_set *domain = isl_union_map_range (isl_union_map_copy (schedule));
   domain = isl_union_set_universe (domain);
   isl_union_map *options = isl_union_map_from_domain_and_range (domain, range);
-
-  options = isl_union_map_union (options, opt_luj);
-
   return isl_ast_build_set_options (control, options);
 }
 
@@ -1135,14 +1051,9 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
   isl_options_set_ast_build_atomic_upper_bound (scop->ctx, true);
 
   add_parameters_to_ivs_params (scop, ip);
-
-  isl_union_map *options_luj = generate_luj_options (scop);
-
   isl_union_map *schedule_isl = generate_isl_schedule (scop);
   isl_ast_build *context_isl = generate_isl_context (scop);
-
-  context_isl = set_options (context_isl, schedule_isl, options_luj);
-
+  context_isl = set_options (context_isl, schedule_isl);
   isl_union_map *dependences = NULL;
   if (flag_loop_parallelize_all)
   {
@@ -1157,6 +1068,69 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
     isl_union_map_free (dependences);
   isl_ast_build_free (context_isl);
   return ast_isl;
+}
+
+/* Copy def from sese REGION to the newly created TO_REGION. TR is defined by
+   DEF_STMT. GSI points to entry basic block of the TO_REGION.  */
+
+static void
+copy_def(tree tr, gimple def_stmt, sese region, sese to_region, gimple_stmt_iterator *gsi)
+{
+  if (!defined_in_sese_p (tr, region))
+    return;
+  ssa_op_iter iter;
+  use_operand_p use_p;
+
+  FOR_EACH_SSA_USE_OPERAND (use_p, def_stmt, iter, SSA_OP_USE)
+    {
+      tree use_tr = USE_FROM_PTR (use_p);
+
+      /* Do not copy parameters that have been generated in the header of the
+	 scop.  */
+      if (region->parameter_rename_map->get(use_tr))
+	continue;
+
+      gimple def_of_use = SSA_NAME_DEF_STMT (use_tr);
+      if (!def_of_use)
+	continue;
+
+      copy_def (use_tr, def_of_use, region, to_region, gsi);
+    }
+
+  gimple copy = gimple_copy (def_stmt);
+  gsi_insert_after (gsi, copy, GSI_NEW_STMT);
+
+  /* Create new names for all the definitions created by COPY and
+     add replacement mappings for each new name.  */
+  def_operand_p def_p;
+  ssa_op_iter op_iter;
+  FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
+    {
+      tree old_name = DEF_FROM_PTR (def_p);
+      tree new_name = create_new_def_for (old_name, copy, def_p);
+      region->parameter_rename_map->put(old_name, new_name);
+    }
+
+  update_stmt (copy);
+}
+
+static void
+copy_internal_parameters(sese region, sese to_region)
+{
+  /* For all the parameters which definitino is in the if_region->false_region,
+     insert code on true_region (if_region->true_region->entry). */
+
+  int i;
+  tree tr;
+  gimple_stmt_iterator gsi = gsi_start_bb(to_region->entry->dest);
+
+  FOR_EACH_VEC_ELT (region->params, i, tr)
+    {
+      // If def is not in region.
+      gimple def_stmt = SSA_NAME_DEF_STMT (tr);
+      if (def_stmt)
+	copy_def (tr, def_stmt, region, to_region, &gsi);
+    }
 }
 
 /* GIMPLE Loop Generator: generates loops from STMT in GIMPLE form for
@@ -1198,10 +1172,13 @@ graphite_regenerate_ast_isl (scop_p scop)
 
   context_loop = SESE_ENTRY (region)->src->loop_father;
 
-  translate_isl_ast_to_gimple t (region);
+  /* Copy all the parameters which are defined in the region.  */
+  copy_internal_parameters(if_region->false_region, if_region->true_region);
 
-  t.translate_isl_ast (context_loop, root_node, if_region->true_region->entry,
-		     ip);
+  translate_isl_ast_to_gimple t(region);
+  edge e = single_succ_edge (if_region->true_region->entry->dest);
+  split_edge (e);
+  t.translate_isl_ast (context_loop, root_node, e, ip);
 
   mark_virtual_operands_for_renaming (cfun);
   update_ssa (TODO_update_ssa);

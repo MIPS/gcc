@@ -651,7 +651,7 @@ export_proto(store_exe_path);
 
 /* backtrace.c */
 
-extern void show_backtrace (int);
+extern void show_backtrace (bool);
 internal_proto(show_backtrace);
 
 
@@ -674,6 +674,9 @@ internal_proto(show_backtrace);
 
 extern _Noreturn void sys_abort (void);
 internal_proto(sys_abort);
+
+extern _Noreturn void exit_error (int);
+internal_proto(exit_error);
 
 extern ssize_t estr_write (const char *);
 internal_proto(estr_write);
@@ -790,14 +793,8 @@ internal_proto(xrealloc);
 
 /* environ.c */
 
-extern int check_buffered (int);
-internal_proto(check_buffered);
-
 extern void init_variables (void);
 internal_proto(init_variables);
-
-extern void show_variables (void);
-internal_proto(show_variables);
 
 unit_convert get_unformatted_convert (int);
 internal_proto(get_unformatted_convert);
@@ -843,6 +840,9 @@ internal_proto(fc_strdup);
 
 extern char *fc_strdup_notrim(const char *, gfc_charlen_type);
 internal_proto(fc_strdup_notrim);
+
+extern const char *gfc_itoa(GFC_INTEGER_LARGEST, char *, size_t);
+internal_proto(gfc_itoa);
 
 /* io/intrinsics.c */
 

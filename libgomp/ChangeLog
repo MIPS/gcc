@@ -1,3 +1,127 @@
+2015-09-08  Aditya Kumar  <hiraditya@msn.com>
+            Sebastian Pop  <s.pop@samsung.com>
+
+	* testsuite/libgomp.graphite/bounds.c (int foo): Modifed test case to
+	match o/p.
+	* testsuite/libgomp.graphite/force-parallel-1.c (void parloop): Same.
+	* testsuite/libgomp.graphite/force-parallel-4.c: Same.
+	* testsuite/libgomp.graphite/force-parallel-5.c: Same.
+	* testsuite/libgomp.graphite/force-parallel-7.c: Same.
+	* testsuite/libgomp.graphite/force-parallel-8.c: Same.
+
+2015-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* configure.tgt: Add missing ;; in between nvptx and rtems
+	snippets.
+
+2015-09-03  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/posix/pool.h (gomp_adjust_thread_attr): New.
+	* config/rtems/pool.h (gomp_adjust_thread_attr): Likewise.
+	(gomp_thread_pool_reservoir): Add priority member.
+	* confi/rtems/proc.c (allocate_thread_pool_reservoir): Add
+	priority.
+	(parse_thread_pools): Likewise.
+	* team.c (gomp_team_start): Call configuration provided
+	gomp_adjust_thread_attr(). Destroy thread attributes if
+	necessary.
+	* libgomp.texi: Document GOMP_RTEMS_THREAD_POOLS.
+
+2015-09-03  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/posix/pool.h: New.
+	* config/rtems/pool.h: Likewise.
+	* config/rtems/proc.c: Likewise.
+	* libgomp.h (gomp_thread_destructor): Declare.
+	* team.c: Include configuration provided "pool.h".
+	(gomp_get_thread_pool): Define in configuration.
+	(gomp_team_end): Call configuration defined
+	gomp_release_thread_pool().
+
+2015-09-03  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* config/rtems/bar.c: New.
+	* config/rtems/bar.h: Likewise.
+	* config/rtems/mutex.c: Likewise.
+	* config/rtems/mutex.h: Likewise.
+	* config/rtems/sem.c: Likewise.
+	* config/rtems/sem.h: Likewise.
+	* configure.ac (*-*-rtems*): Check that Newlib provides a proper
+	<sys/lock.h> header file.
+	* configure.tgt (*-*-rtems*): Enable RTEMS configuration if
+	supported by Newlib.
+	* configure: Regenerate.
+
+2015-09-03  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* team.c (gomp_new_thread_pool): Delete and move content to ...
+	(gomp_get_thread_pool): ... new function.  Allocate and
+	initialize thread pool on demand.
+	(get_last_team): Use gomp_get_thread_pool().
+	(gomp_team_start): Delete thread pool initialization.
+
+2015-09-03  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65637
+	* testsuite/libgomp.c/autopar-2.c: New test.
+
+2015-08-29  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/46193
+	* testsuite/libgomp.c/pr46193.c: New test.
+
+2015-08-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	libgomp/
+	* libgomp.map: Add 4.0.2 version.
+	* target.c (offload_image_descr): Add version field.
+	(gomp_load_image_to_device): Add version argument.  Adjust plugin
+	call.  Improve load mismatch diagnostic.
+	(gomp_unload_image_from_device): Add version argument.  Adjust plugin
+	call.
+	(GOMP_offload_regster): Make stub function, move bulk to ...
+	(GOMP_offload_register_ver): ... here.  Process version argument.
+	(GOMP_offload_unregister): Make stub function, move bulk to ...
+	(GOMP_offload_unregister_ver): ... here.  Process version argument.
+	(gomp_init_device): Process version field.
+	(gomp_unload_device): Process version field.
+	(gomp_load_plugin_for_device): Reimplement DLSYM & DLSYM_OPT
+	macros.  Check plugin version.
+	* libgomp.h (gomp_device_descr): Add version function field.  Adjust
+	loader and unloader types.
+	* oacc-host.c: Include gomp-constants.h.
+	(host_version): New.
+	(host_load_image, host_unload_image): Adjust.
+	(host_dispatch): Add host_version.
+	* plugin/plugin-nvptx.c: Include gomp-constants.h.
+	(GOMP_OFFLOAD_version): New.
+	(GOMP_OFFLOAD_load_image): Add version arg and check it.
+	(GOMP_OFFLOAD_unload_image): Likewise.
+	* plugin/plugin-host.c: Include gomp-constants.h.
+	(GOMP_OFFLOAD_version): New.
+	(GOMP_OFFLOAD_load_image): Add version arg.
+	(GOMP_OFFLOAD_unload_image): Likewise.
+
+2015-08-24  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65468
+	* testsuite/libgomp.oacc-c-c++-common/vector-loop.c: New test.
+
+2015-08-24  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/65468
+	* testsuite/libgomp.c/static-chunk-size-one.c: New test.
+
+2015-08-24  Joost VandeVondele  <vondele@gnu.gcc.org>
+
+	PR libgomp/66761
+	PR libgomp/67303
+	* iter.c (gomp_iter_dynamic_next): Employ an atomic load.
+	(gomp_iter_guided_next): Idem.
+	* iter_ull.c (gomp_iter_ull_dynamic_next): Idem.
+	(gomp_iter_ull_guided_next): Idem.
+	* config/linux/wait.h (do_spin): Idem.
+
 2015-08-10  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp-plugin.h (enum offload_target_type): Remove

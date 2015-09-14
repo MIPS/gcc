@@ -2482,15 +2482,18 @@ symbol_table::finalize_compilation_unit (void)
   /* Gimplify and lower thunks.  */
   analyze_functions (/*first_time=*/false);
 
-  /* Emit early debug for reachable functions, and by consequence,
-     locally scoped symbols.  */
-  struct cgraph_node *cnode;
-  FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
-    (*debug_hooks->early_global_decl) (cnode->decl);
+  if (!seen_error ())
+    {
+      /* Emit early debug for reachable functions, and by consequence,
+	 locally scoped symbols.  */
+      struct cgraph_node *cnode;
+      FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (cnode)
+	(*debug_hooks->early_global_decl) (cnode->decl);
 
-  /* Clean up anything that needs cleaning up after initial debug
-     generation.  */
-  (*debug_hooks->early_finish) ();
+      /* Clean up anything that needs cleaning up after initial debug
+	 generation.  */
+      (*debug_hooks->early_finish) ();
+    }
 
   /* Finally drive the pass manager.  */
   compile ();
@@ -2540,6 +2543,7 @@ cgraph_node::create_wrapper (cgraph_node *target)
   memset (&thunk, 0, sizeof (cgraph_thunk_info));
   thunk.thunk_p = true;
   create_edge (target, NULL, count, CGRAPH_FREQ_BASE);
+  callees->can_throw_external = !TREE_NOTHROW (target->decl);
 
   tree arguments = DECL_ARGUMENTS (decl);
 

@@ -4699,7 +4699,7 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
 	exp = build1 (ADDR_EXPR, saved_type, TREE_OPERAND (exp, 0));
       /* Likewise for constant ints.  */
       else if (TREE_CODE (exp) == INTEGER_CST)
-	exp = wide_int_to_tree (saved_type, exp);
+	exp = fold_convert (saved_type, exp);
 
     }
 
@@ -5403,7 +5403,10 @@ declare_weak (tree decl)
 {
   gcc_assert (TREE_CODE (decl) != FUNCTION_DECL || !TREE_ASM_WRITTEN (decl));
   if (! TREE_PUBLIC (decl))
-    error ("weak declaration of %q+D must be public", decl);
+    {
+      error ("weak declaration of %q+D must be public", decl);
+      return;
+    }
   else if (!TARGET_SUPPORTS_WEAK)
     warning (0, "weak declaration of %q+D not supported", decl);
 

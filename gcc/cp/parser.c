@@ -7596,8 +7596,9 @@ cp_parser_new_expression (cp_parser* parser)
     type = cp_parser_new_type_id (parser, &nelts);
 
   /* If the next token is a `(' or '{', then we have a new-initializer.  */
-  if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN)
-      || cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  if (token->type == CPP_OPEN_PAREN
+      || token->type == CPP_OPEN_BRACE)
     initializer = cp_parser_new_initializer (parser);
   else
     initializer = NULL;
@@ -7606,6 +7607,21 @@ cp_parser_new_expression (cp_parser* parser)
      expression.  */
   if (cp_parser_non_integral_constant_expression (parser, NIC_NEW))
     ret = error_mark_node;
+  /* 5.3.4/2: "If the auto type-specifier appears in the type-specifier-seq
+     of a new-type-id or type-id of a new-expression, the new-expression shall
+     contain a new-initializer of the form ( assignment-expression )".
+     Additionally, consistently with the spirit of DR 1467, we want to accept
+     'new auto { 2 }' too.  */
+  else if (type_uses_auto (type)
+	   && (vec_safe_length (initializer) != 1
+	       || (BRACE_ENCLOSED_INITIALIZER_P ((*initializer)[0])
+		   && CONSTRUCTOR_NELTS ((*initializer)[0]) != 1)))
+    {
+      error_at (token->location,
+		"initialization of new-expression for type %<auto%> "
+		"requires exactly one element");
+      ret = error_mark_node;
+    }
   else
     {
       /* Create a representation of the new-expression.  */
@@ -19633,11 +19649,12 @@ cp_parser_parameter_declaration (cp_parser *parser,
 	}
     }
 
-  /* If the next token is an ellipsis, and we have not seen a
-     declarator name, and the type of the declarator contains parameter
-     packs but it is not a TYPE_PACK_EXPANSION, then we actually have
-     a parameter pack expansion expression. Otherwise, leave the
-     ellipsis for a C-style variadic function. */
+  /* If the next token is an ellipsis, and we have not seen a declarator
+     name, and if either the type of the declarator contains parameter
+     packs but it is not a TYPE_PACK_EXPANSION or is null (this happens
+     for, eg, abbreviated integral type names), then we actually have a
+     parameter pack expansion expression. Otherwise, leave the ellipsis
+     for a C-style variadic function. */
   token = cp_lexer_peek_token (parser->lexer);
   if (cp_lexer_next_token_is (parser->lexer, CPP_ELLIPSIS))
     {
@@ -19646,11 +19663,12 @@ cp_parser_parameter_declaration (cp_parser *parser,
       if (type && DECL_P (type))
         type = TREE_TYPE (type);
 
-      if (type
-	  && TREE_CODE (type) != TYPE_PACK_EXPANSION
-	  && declarator_can_be_parameter_pack (declarator)
-          && (template_parm_p || uses_parameter_packs (type)))
-        {
+      if (((type
+	    && TREE_CODE (type) != TYPE_PACK_EXPANSION
+	    && (template_parm_p || uses_parameter_packs (type)))
+	   || (!type && template_parm_p))
+	  && declarator_can_be_parameter_pack (declarator))
+	{
 	  /* Consume the `...'. */
 	  cp_lexer_consume_token (parser->lexer);
 	  maybe_warn_variadic_templates ();
@@ -29253,8 +29271,8 @@ cp_parser_omp_clause_collapse (cp_parser *parser, tree list, location_t location
   if (num == error_mark_node)
     return list;
   num = fold_non_dependent_expr (num);
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (num))
-      || !tree_fits_shwi_p (num)
+  if (!tree_fits_shwi_p (num)
+      || !INTEGRAL_TYPE_P (TREE_TYPE (num))
       || (n = tree_to_shwi (num)) <= 0
       || (int) n != n)
     {
