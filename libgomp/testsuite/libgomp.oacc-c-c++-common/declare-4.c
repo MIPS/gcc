@@ -6,6 +6,15 @@
 float b;
 #pragma acc declare link (b)
 
+#pragma acc routine
+int
+func (int a)
+{
+  b = a + 1;
+
+  return b;
+}
+
 int
 main (int argc, char **argv)
 {
@@ -21,6 +30,11 @@ main (int argc, char **argv)
   }
 
   if (a != 3.0)
+    abort ();
+
+  a = func (a);
+
+  if (a != 4.0)
     abort ();
 
   return 0;

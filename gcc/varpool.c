@@ -173,23 +173,7 @@ make_offloadable (varpool_node *node, tree decl)
   attrs = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
   if (attrs)
     {
-      tree *t;
-      int total = 0, skip = 0;
-
-      gcc_assert (&TREE_VALUE (attrs));
-
-      for (t = &TREE_VALUE (attrs); *t; t = &TREE_CHAIN (*t))
-	{
-	  HOST_WIDE_INT kind = OMP_CLAUSE_MAP_KIND (TREE_VALUE (*t));
-
-	  total++;
-
-	  if (kind == GOMP_MAP_LINK)
-	    skip++;
-	}
-
-      if (total - skip > 0)
-	make_offloadable_1 (node, decl);
+      make_offloadable_1 (node, decl);
 
       DECL_ATTRIBUTES (decl)
 	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
