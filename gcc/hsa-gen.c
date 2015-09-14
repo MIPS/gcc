@@ -3266,21 +3266,31 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_op_address *dst_addr = new hsa_op_address (omp_data_memory_reg);
 
   tree argument = gimple_call_arg (call, 1);
-  gcc_assert (TREE_CODE (argument) == ADDR_EXPR);
-  tree d = TREE_TYPE (TREE_OPERAND (argument, 0));
-  unsigned omp_data_size = tree_to_uhwi
-    (TYPE_SIZE_UNIT (d));
-  gcc_checking_assert (omp_data_size > 0);
 
-  if (omp_data_size > hsa_cfun->maximum_omp_data_size)
-    hsa_cfun->maximum_omp_data_size = omp_data_size;
+  if (TREE_CODE (argument) == ADDR_EXPR)
+    {
+      /* Emit instructions that copy OMP arguments.  */
 
-  hsa_symbol *var_decl = get_symbol_for_decl (TREE_OPERAND (argument, 0));
+      tree d = TREE_TYPE (TREE_OPERAND (argument, 0));
+      unsigned omp_data_size = tree_to_uhwi (TYPE_SIZE_UNIT (d));
+      gcc_checking_assert (omp_data_size > 0);
 
-  hbb->append_insn (new hsa_insn_comment ("memory copy instructions"));
+      if (omp_data_size > hsa_cfun->maximum_omp_data_size)
+	hsa_cfun->maximum_omp_data_size = omp_data_size;
 
-  hsa_op_address *src_addr = new hsa_op_address (var_decl);
-  gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->dim);
+      hsa_symbol *var_decl = get_symbol_for_decl (TREE_OPERAND (argument, 0));
+
+      hbb->append_insn (new hsa_insn_comment ("memory copy instructions"));
+
+      hsa_op_address *src_addr = new hsa_op_address (var_decl);
+      gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->dim);
+    }
+  else if (integer_zerop (argument))
+    {
+      /* If NULL argument is passed, do nothing.  */
+    }
+  else
+    gcc_unreachable ();
 
   hbb->append_insn (new hsa_insn_comment
 		    ("write memory pointer to packet->kernarg_address"));

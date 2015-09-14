@@ -1,3 +1,8 @@
+2015-09-14  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Handle properly expansion
+	of __builtin_GOMP_parallel if second argument of the function is NULL.
+
 2015-09-10  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (emit_directive_variable): Handle non-addressable, global
