@@ -4527,23 +4527,19 @@ ix86_conditional_register_usage (void)
 
   if (current_function_decl && ix86_is_interrupt_p ())
     {
-      for (i = AX_REG; i <= DI_REG; i++)
-        {
-          call_used_regs[i] = 0;
-          fixed_regs[i] = 0;
-        }
-      for (i = XMM0_REG; i <= XMM7_REG; i++)
-        {
-          call_used_regs[i] = 0;
-          fixed_regs[i] =  0;
-        }
-      for (i = R8_REG; i <FIRST_PSEUDO_REGISTER; i++)
-        {
-          call_used_regs[i] = 0;
-          fixed_regs[i] =  0;
-        }
+      for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
+	{
+	  if (!STACK_REGNO_P (i) && !MMX_REGNO_P (i))
+	    {
+	      if (i == BP_REG || i == SP_REG)
+		continue;
+	      if (i >= ARGP_REG && i <= FRAME_REG)
+		continue;
+	      call_used_regs[i] = 0;
+	      fixed_regs[i] = 0;
+	    }
+	}
     }
-
 
   /* For 32-bit targets, squash the REX registers.  */
   if (! TARGET_64BIT)
@@ -4555,8 +4551,6 @@ ix86_conditional_register_usage (void)
       for (i = FIRST_EXT_REX_SSE_REG; i <= LAST_EXT_REX_SSE_REG; i++)
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
     }
-
-
 
   /* If MMX is disabled, squash the registers.  */
   if (! TARGET_MMX)
@@ -5587,7 +5581,6 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
 
   if (ix86_is_interrupt_p ())
     return false;
-
 
   /* If we are generating position-independent code, we cannot sibcall
      optimize direct calls to global functions, as the PLT requires
@@ -11495,14 +11488,6 @@ ix86_expand_prologue (void)
   /* DRAP should not coexist with stack_realign_fp */
   gcc_assert (!(crtl->drap_reg && stack_realign_fp));
 
- if (ix86_is_interrupt_p () && ix86_using_red_zone ())
-    {
-      emit_insn (gen_adddi3 (
-                   gen_rtx_REG (DImode, SP_REG),
-                   gen_rtx_REG (DImode, SP_REG),
-                   GEN_INT (-128)));
-    }
-
   memset (&m->fs, 0, sizeof (m->fs));
 
   /* Initialize CFA state for before the prologue.  */
@@ -12476,24 +12461,19 @@ ix86_expand_epilogue (int style)
 
   if (ix86_is_interrupt_p ())
     {
-      if (ix86_using_red_zone ())
-          emit_insn (gen_adddi3 (
-                   gen_rtx_REG (DImode, SP_REG),
-                   gen_rtx_REG (DImode, SP_REG),
-                   GEN_INT (128)));
       if (ix86_is_exception_p ())
-        {
-          if (!TARGET_64BIT)
-            emit_insn (gen_addsi3 (
-                   gen_rtx_REG (SImode, SP_REG),
-                   gen_rtx_REG (SImode, SP_REG),
-                   GEN_INT (POINTER_SIZE_UNITS)));
-          else
-            emit_insn (gen_adddi3 (
-                   gen_rtx_REG (DImode, SP_REG),
-                   gen_rtx_REG (DImode, SP_REG),
-                   GEN_INT (POINTER_SIZE_UNITS)));
-        }
+	{
+	  if (!TARGET_64BIT)
+	    emit_insn (gen_addsi3 (
+		   gen_rtx_REG (SImode, SP_REG),
+		   gen_rtx_REG (SImode, SP_REG),
+		   GEN_INT (POINTER_SIZE_UNITS)));
+	  else
+	    emit_insn (gen_adddi3 (
+		   gen_rtx_REG (DImode, SP_REG),
+		   gen_rtx_REG (DImode, SP_REG),
+		   GEN_INT (POINTER_SIZE_UNITS)));
+	}
       emit_jump_insn (gen_simple_return_interrupt ());
     }
   else if (crtl->args.pops_args && crtl->args.size)
@@ -25816,10 +25796,12 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
       unsigned regno;
       for (regno = 0; regno < FIRST_PSEUDO_REGISTER; regno++)
       {
-      if (!call_used_regs[regno] && !fixed_regs[regno] && !STACK_REGNO_P (regno) && !MMX_REGNO_P (regno))
-        {
-          clobber_reg(&use, gen_rtx_REG (GET_MODE(regno_reg_rtx[regno]), regno));
-        }
+      if (!call_used_regs[regno] && !fixed_regs[regno] &&
+	  !STACK_REGNO_P (regno) && !MMX_REGNO_P (regno))
+	{
+	  clobber_reg (&use, gen_rtx_REG (
+				GET_MODE (regno_reg_rtx[regno]), regno));
+	}
       }
     }
 
@@ -42278,18 +42260,17 @@ bool
 ix86_is_interrupt_p ()
 {
   return lookup_attribute ("interrupt",
-           DECL_ATTRIBUTES (current_function_decl)) ||
-         lookup_attribute ("exception",
-           DECL_ATTRIBUTES (current_function_decl));
+	   DECL_ATTRIBUTES (current_function_decl)) ||
+	 lookup_attribute ("exception",
+	   DECL_ATTRIBUTES (current_function_decl));
 }
 
 bool
 ix86_is_exception_p ()
 {
   return lookup_attribute ("exception",
-           DECL_ATTRIBUTES (current_function_decl));
+	   DECL_ATTRIBUTES (current_function_decl));
 }
-
 
 /* A subroutine of ix86_modes_tieable_p.  Return true if MODE is a
    tieable integer mode.  */
@@ -43216,12 +43197,12 @@ ix86_handle_fndecl_attribute (tree *node, tree name, tree, int,
 
 static tree
 ix86_handle_interrupt_attribute (tree *node, tree name, tree, int,
-                                 bool *no_add_attrs)
+				 bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
-               name);
+	       name);
       *no_add_attrs = true;
     }
 
@@ -43240,12 +43221,12 @@ ix86_handle_interrupt_attribute (tree *node, tree name, tree, int,
 
 static tree
 ix86_handle_exception_attribute (tree *node, tree name, tree, int,
-                                 bool *no_add_attrs)
+				 bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_DECL)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
-               name);
+	       name);
       *no_add_attrs = true;
     }
 
