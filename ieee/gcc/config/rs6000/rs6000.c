@@ -20258,7 +20258,6 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
   bool do_move = false;
   rtx libfunc = NULL_RTX;
   rtx dest2;
-  rtx di_tmp;
 
   if (dest_mode == src_mode)
     gcc_unreachable ();
@@ -20286,16 +20285,6 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
 	  break;
 
 	case SImode:
-	  di_tmp = gen_reg_rtx (DImode);
-	  if (unsigned_p)
-	    emit_insn (gen_zero_extendsidi2 (di_tmp, src));
-	  else
-	    emit_insn (gen_extendsidi2 (di_tmp, src));
-
-	  src = di_tmp;
-	  src_mode = DImode;
-	  /* fall through to DImode handling.  */
-
 	case DImode:
 	  cvt = (unsigned_p) ? ufloat_optab : sfloat_optab;
 	  break;
@@ -20364,6 +20353,7 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
   return;
 }
 
+
 /* Emit the RTL for an sISEL pattern.  */
 
 void
