@@ -137,7 +137,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
   splay_tree_key tgt_fn_key;
   void (*tgt_fn);
   int async = GOMP_ASYNC_SYNC;
-  unsigned dims[3];
+  unsigned dims[GOMP_DIM_MAX];
   unsigned tag;
 
   memset (dims, 0, sizeof (dims));
@@ -197,8 +197,8 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 	  {
 	    unsigned mask = GOMP_LAUNCH_OP (tag);
 
-	    for (i = 0; i != 3; i++)
-	      if (mask & (1 << i)) /* FIXME: move to gomp-constants. */
+	    for (i = 0; i != GOMP_DIM_MAX; i++)
+	      if (mask & GOMP_DIM_MASK (i))
 		dims[i] = va_arg (ap, unsigned);
 	  }
 	  break;

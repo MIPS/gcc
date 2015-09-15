@@ -1,3 +1,7 @@
+2015-09-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* oacc-parallel.c (GOACC_parallel_keyed): Use GOMP_DIM constants.
+
 2015-09-14  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/declare-4.c: Update test.
