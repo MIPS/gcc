@@ -74,6 +74,10 @@ mbranch-likely
 Target Report Mask(BRANCHLIKELY)
 Use Branch Likely instructions, overriding the architecture default
 
+munroll-short-loops=
+Target RejectNegative Joined UInteger Var(mips_short_unroll)
+-munroll-short-loops=COUNT	Unroll loops of COUNT length that may not be otherwise unrolled
+
 mflip-mips16
 Target Report Var(TARGET_FLIP_MIPS16)
 Switch on/off MIPS16 ASE on alternating functions for compiler testing

@@ -74,6 +74,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 #include "dumpfile.h"
+#include "cfgloop.h"
 
 /* Definitions used in ready queue reordering for first scheduling pass.  */
 
@@ -15501,6 +15502,30 @@ mips_use_eager_delay_filler_p ()
   return TARGET_CB_NEVER;
 }
 
+/* Implement UNROLL_BRANCHING_LOOP. */
+
+static bool
+mips_unroll_branching_loop (int branches, struct loop * l, unsigned * nunroll)
+{
+  /* When optimizing for size, make sure not to unroll.  */
+  if (optimize_size)
+    return false;
+
+  if (branches < 1)
+    return true;
+
+  if ((TUNE_M5100 || TUNE_M6200) && l->ninsns <= mips_short_unroll)
+    {
+      /* 2 is *magic* here to chop down the number of unrolls, otherwise
+         we might see a small code explosion.  */
+      *nunroll /= 2;
+      return true;
+    }
+
+  /* For processors with hardware branch predictors.  */
+  return false;
+}
+
 /* Update round-robin counters for ALU1/2 and FALU1/2.  */
 
 static void
@@ -22532,6 +22557,10 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_USE_EAGER_DELAY_FILLER_P
 #define TARGET_USE_EAGER_DELAY_FILLER_P mips_use_eager_delay_filler_p
+
+#undef TARGET_UNROLL_BRANCHING_LOOP
+#define TARGET_UNROLL_BRANCHING_LOOP mips_unroll_branching_loop
+
 
 #undef TARGET_MACHINE_DEPENDENT_REORG
 #define TARGET_MACHINE_DEPENDENT_REORG mips_reorg

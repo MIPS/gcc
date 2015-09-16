@@ -1728,4 +1728,10 @@ can_use_doloop_if_innermost (double_int, double_int,
   return loop_depth == 1;
 }
 
+bool
+default_unroll_branching_loop (int branches, struct loop *, unsigned *)
+{
+   return branches < 1;
+}
+
 #include "gt-targhooks.h"

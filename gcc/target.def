@@ -2346,6 +2346,15 @@ number of memory accesses.",
  unsigned, (unsigned nunroll, struct loop *loop),
  NULL)
 
+/* Return true if a loop with branches should be unrolled and how
+   many times it should be unrolled.  */
+DEFHOOK
+(unroll_branching_loop,
+ "This hook returns true if @var{loop} with @var{branches} should be unrolled\n\
+and writes the number of times that @var{loop} to @var{nunroll}.  The default\n\
+is for any loop with more than one branch to be unrolled.",
+bool, (int, struct loop *, unsigned *), default_unroll_branching_loop)
+
 /* True if X is a legitimate MODE-mode immediate operand.  */
 DEFHOOK
 (legitimate_constant_p,

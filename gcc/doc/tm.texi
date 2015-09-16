@@ -10940,6 +10940,12 @@ delay slot branches filled using the basic filler is often still desirable
 as the delay slot can hide a pipeline bubble.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_UNROLL_BRANCHING_LOOP (int, struct loop *@var{}, unsigned *@var{})
+This hook returns true if @var{loop} with @var{branches} should be unrolled
+and writes the number of times that @var{loop} to @var{nunroll}.  The default
+is for any loop with more than one branch to be unrolled.
+@end deftypefn
+
 @deftypefn {Target Hook} void TARGET_INIT_BUILTINS (void)
 Define this hook if you have any machine-specific built-in functions
 that need to be defined.  It should be a function that performs the

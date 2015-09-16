@@ -210,3 +210,5 @@ extern tree build_va_arg_indirect_ref (tree);
 extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 extern bool can_use_doloop_if_innermost (double_int, double_int,
 					 unsigned int, bool);
+
+extern bool default_unroll_branching_loop (int, struct loop *, int *);
