@@ -14781,6 +14781,64 @@ oacc_xform_dim (gimple stmt, const int dims[], bool is_pos)
   gsi_replace (&gsi, g, false);
 }
 
+/* Validate and update the dimensions for offloaded FN.  ATTRS is the
+   raw attribute.  DIMS is an array of dimensions, which is returned.
+   Returns the function level dimensionality --  the level at which an
+   offload routine wishes to partition a loop.  */
+
+static int
+oacc_validate_dims (tree fn, tree attrs, int *dims)
+{
+  tree purpose[GOMP_DIM_MAX];
+  unsigned ix;
+  tree pos = TREE_VALUE (attrs);
+  int fn_level = -1;
+
+  /* Make sure the attribute creator attached the dimension
+     information.  */
+  gcc_assert (pos);
+
+  for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+    {
+      purpose[ix] = TREE_PURPOSE (pos);
+
+      if (purpose[ix])
+	{
+	  if (integer_zerop (purpose[ix]))
+	    fn_level = ix + 1;
+	  else if (fn_level < 0)
+	    fn_level = ix;
+	}
+
+      tree val = TREE_VALUE (pos);
+      dims[ix] = val ? TREE_INT_CST_LOW (val) : -1;
+      pos = TREE_CHAIN (pos);
+    }
+
+  bool changed = targetm.goacc.validate_dims (fn, dims, fn_level);
+
+  /* Default anything left to 1.  */
+  for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+    if (dims[ix] < 0)
+      {
+	dims[ix] = 1;
+	changed = true;
+      }
+
+  if (changed)
+    {
+      /* Replace the attribute with new values.  */
+      pos = NULL_TREE;
+      for (ix = GOMP_DIM_MAX; ix--;)
+	pos = tree_cons (purpose[ix],
+			 build_int_cst (integer_type_node, dims[ix]),
+			 pos);
+      replace_oacc_fn_attrib (fn, pos);
+    }
+
+  return fn_level;
+}
+
 /* Main entry point for oacc transformations which run on the device
    compiler after LTO, so we know what the target device is at this
    point (including the host fallback).  */
@@ -14791,66 +14849,17 @@ execute_oacc_transform ()
   basic_block bb;
   tree attrs = get_oacc_fn_attrib (current_function_decl);
   int dims[GOMP_DIM_MAX];
-  tree purpose[GOMP_DIM_MAX];
   bool needs_rescan;
   
   if (!attrs)
     /* Not an offloaded function.  */
     return 0;
 
+  oacc_validate_dims (current_function_decl, attrs, dims);
+  
   /* Offloaded targets may introduce new basic blocks, which require
      dominance information to update SSA.  */
   calculate_dominance_info (CDI_DOMINATORS);
-
-  {
-    unsigned ix;
-    tree pos = TREE_VALUE (attrs);
-    int fn_level = -1;
-
-    /* Make sure the attribute creator attached the dimension
-       information.  */
-    gcc_assert (pos);
-    
-    for (ix = 0; ix != GOMP_DIM_MAX; ix++)
-      {
-	purpose[ix] = TREE_PURPOSE (pos);
-
-	if (purpose[ix])
-	  {
-	    if (integer_zerop (purpose[ix]))
-	      fn_level = ix + 1;
-	    else if (fn_level < 0)
-	      fn_level = ix;
-	  }
-	
-	tree val = TREE_VALUE (pos);
-
-	dims[ix] = val ? TREE_INT_CST_LOW (val) : -1;
-	pos = TREE_CHAIN (pos);
-      }
-
-    bool changed = targetm.goacc.validate_dims (current_function_decl,
-						dims, fn_level);
-
-    /* Default anything left to 1.  */
-    for (ix = 0; ix != GOMP_DIM_MAX; ix++)
-      if (dims[ix] < 0)
-	{
-	  dims[ix] = 1;
-	  changed = true;
-	}
-
-    if (changed)
-      {
-	/* Replace the attribute with new values.  */
-	pos = NULL_TREE;
-	for (ix = GOMP_DIM_MAX; ix--;)
-	  pos = tree_cons (purpose[ix],
-			   build_int_cst (integer_type_node, dims[ix]),
-			   pos);
-	replace_oacc_fn_attrib (current_function_decl, pos);
-      }
-  }
 
   do
     {

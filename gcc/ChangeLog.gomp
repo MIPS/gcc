@@ -1,5 +1,10 @@
 2015-09-16  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (oacc_validate_dims): New function, broken out of ...
+	(execute_oacc_transform): ... here.  Call it.
+
+2015-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c (lower_oacc_reductions): Remove dead initialization
 	and unreachable code.
 
