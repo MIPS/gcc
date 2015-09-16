@@ -4729,7 +4729,7 @@ static void
 lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
 		       gimple_seq *ilist, omp_context *ctx, bool write_back)
 {
-  tree orig, res, var, ref_to_res, call, dim;
+  tree orig, var, ref_to_res, call, dim;
   tree c, tcode, gwv, rid, lid = build_int_cst (integer_type_node, oacc_lid);
   int oacc_rid, i;
   unsigned mask = extract_oacc_loop_mask (ctx);
@@ -4783,12 +4783,6 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
       if (var == NULL_TREE)
 	var = orig;
 
-      res = build_outer_var_ref (orig, ctx);
-
-      if (res == orig)
-	ref_to_res = NULL_TREE;
-
-      ref_to_res = integer_zero_node;
       if (is_oacc_parallel (ctx))
 	{
 	  ref_to_res = build_receiver_ref (orig, false, ctx);
@@ -4797,11 +4791,9 @@ lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
 	    ref_to_res = build_simple_mem_ref (ref_to_res);
 	}
       else if (loop_dim == GOMP_DIM_GANG)
-	ref_to_res = build_fold_addr_expr (res);
-
-      /* Don't do anything for private gang reductions.  */
-      if (ref_to_res == NULL_TREE)
-	continue;
+	ref_to_res = build_fold_addr_expr (build_outer_var_ref (orig, ctx));
+      else
+	ref_to_res = integer_zero_node;
 
       rcode = OMP_CLAUSE_REDUCTION_CODE (c);
       if (rcode == MINUS_EXPR)

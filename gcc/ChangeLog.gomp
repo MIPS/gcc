@@ -1,3 +1,8 @@
+2015-09-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (lower_oacc_reductions): Remove dead initialization
+	and unreachable code.
+
 2015-09-14  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimple.h (gimple_call_internal_unique_p): Make inline.
