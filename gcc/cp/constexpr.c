@@ -3907,18 +3907,28 @@ fold_simple_1 (tree t)
       break;
 
     case ABS_EXPR:
+    case CONJ_EXPR:
+    case REALPART_EXPR:
+    case IMAGPART_EXPR:
     case NEGATE_EXPR:
     case BIT_NOT_EXPR:
     case TRUTH_NOT_EXPR:
     case NOP_EXPR:
     case VIEW_CONVERT_EXPR:
     case CONVERT_EXPR:
+    case FLOAT_EXPR:
+    case FIX_TRUNC_EXPR:
+    case FIXED_CONVERT_EXPR:
+    case ADDR_SPACE_CONVERT_EXPR:
 
       op1 = fold_simple_1 (TREE_OPERAND (t, 0));
       if (!op1 || (code == NOP_EXPR && TREE_OVERFLOW (op1)))
 	return NULL_TREE;
 
-      t = fold_build1_loc (EXPR_LOCATION (t), code, TREE_TYPE (t), op1);
+      t = const_unop (code, TREE_TYPE (t), op1);
+      if (!t)
+	return NULL_TREE;
+
       if (CONVERT_EXPR_CODE_P (code)
 	  && TREE_OVERFLOW_P (t) && !TREE_OVERFLOW_P (op1))
 	TREE_OVERFLOW (t) = false;
