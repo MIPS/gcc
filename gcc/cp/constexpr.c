@@ -4047,8 +4047,8 @@ fold_simple (tree t)
    Otherwise, if T does not have TREE_CONSTANT set, returns T.
    Otherwise, returns a version of T without TREE_CONSTANT.  */
 
-tree
-maybe_constant_value (tree t, tree decl)
+static tree
+maybe_constant_value_1 (tree t, tree decl)
 {
   tree r;
 
@@ -4074,6 +4074,59 @@ maybe_constant_value (tree t, tree decl)
 	      || !cp_tree_equal (r, t));
 #endif
   return r;
+}
+
+/* If T is a constant expression, returns its reduced value.
+   Otherwise, if T does not have TREE_CONSTANT set, returns T.
+   Otherwise, returns a version of T without TREE_CONSTANT.  */
+
+tree
+maybe_constant_value (tree t, tree decl)
+{
+  tree ret;
+  hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
+  hash_map<tree, tree> *cv = (scope_chain ? scope_chain->cv_map : NULL);
+
+  /* If current scope has a hash_map, but it was for different CFUN,
+     then destroy hash_map to avoid issues with ggc_collect.  */
+  if ((cv || ctx) && scope_chain->act_cfun != cfun)
+    {
+      if (ctx)
+	delete ctx;
+      if (cv)
+	delete cv;
+      ctx = NULL;
+      scope_chain->act_cfun = NULL;
+      scope_chain->fold_map = NULL;
+      scope_chain->cv_map = NULL;
+    }
+  if (cv && scope_chain && cfun)
+    {
+      cv = scope_chain->cv_map = new hash_map <tree, tree>;
+      scope_chain->act_cfun = cfun;
+    }
+
+  if (cv)
+    {
+      tree *slot = cv->get (t);
+      if (slot && *slot)
+	return *slot;
+    }
+
+  ret = maybe_constant_value_1 (t, decl);
+
+  if (cv)
+    {
+      tree *slot = &cv->get_or_insert (t);
+      *slot = ret;
+      if (ret != t)
+	{
+	  slot = &cv->get_or_insert (ret);
+	  *slot = ret;
+	}
+    }
+
+  return ret;
 }
 
 /* Like maybe_constant_value but first fully instantiate the argument.

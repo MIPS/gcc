@@ -1885,21 +1885,27 @@ tree
 cp_fully_fold (tree x)
 {
   hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
+  hash_map<tree, tree> *cv = (scope_chain ? scope_chain->cv_map : NULL);
 
   /* If current scope has a hash_map, but it was for different CFUN,
      then destroy hash_map to avoid issues with ggc_collect.  */
-  if (ctx && scope_chain->act_cfun != cfun)
-     {
-       delete ctx;
-       ctx = NULL;
-       scope_chain->act_cfun = NULL;
-     }
+  if ((cv || ctx) && scope_chain->act_cfun != cfun)
+    {
+      if (ctx)
+	delete ctx;
+      if (cv)
+	delete cv;
+      ctx = NULL;
+      scope_chain->act_cfun = NULL;
+      scope_chain->fold_map = NULL;
+      scope_chain->cv_map = NULL;
+    }
 
   /* If there is no hash_map, but there is a scope, and a set CFUN,
      then create the hash_map for scope.  */
   if (!ctx && scope_chain && cfun)
     {
-      ctx = scope_chain->fold_map = new hash_map <tree,tree>;
+      ctx = scope_chain->fold_map = new hash_map <tree, tree>;
       scope_chain->act_cfun = cfun;
     }
   /* Otherwise if there is no hash_map, use for folding temporary

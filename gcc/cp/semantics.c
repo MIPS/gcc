@@ -4078,11 +4078,16 @@ expand_or_defer_fn_1 (tree fn)
 {
   if (!function_depth)
     {
-      if (scope_chain && scope_chain->fold_map)
+      if (scope_chain && (scope_chain->fold_map || scope_chain->cv_map))
 	{
-	  hash_map<tree,tree> *fm = scope_chain->fold_map;
-	  delete fm;
+	  hash_map<tree, tree> *fm = scope_chain->fold_map;
+	  hash_map<tree, tree> *cv = scope_chain->cv_map;
+	  if (fm)
+	    delete fm;
+	  if (cv)
+	    delete cv;
 	  scope_chain->fold_map = NULL;
+	  scope_chain->cv_map = NULL;
 	  scope_chain->act_cfun = NULL;
 	}
     }
@@ -4168,12 +4173,17 @@ expand_or_defer_fn (tree fn)
 
       function_depth--;
       if (function_depth == 0
-	  && scope_chain && scope_chain->fold_map)
+	  && scope_chain && (scope_chain->fold_map || scope_chain->cv_map))
 	{
 	  hash_map<tree, tree> *fm = scope_chain->fold_map;
+	  hash_map<tree, tree> *cv = scope_chain->cv_map;
 	  scope_chain->fold_map = NULL;
+	  scope_chain->cv_map = NULL;
 	  scope_chain->act_cfun = NULL;
-	  delete fm;
+	  if (fm)
+	    delete fm;
+	  if (cv)
+	    delete cv;
 	}
     }
 }

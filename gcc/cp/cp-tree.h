@@ -1238,6 +1238,8 @@ struct GTY(()) saved_scope {
   hash_map<tree, tree> *GTY((skip)) x_local_specializations;
 
   hash_map<tree, tree> *GTY((skip)) fold_map;
+  hash_map<tree, tree> *GTY((skip)) cv_map;
+
   struct function *GTY((skip)) act_cfun;
 
   struct saved_scope *prev;

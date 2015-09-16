@@ -6186,9 +6186,15 @@ push_to_top_level (void)
   if (current_function_decl
       && scope_chain && scope_chain->function_decl == current_function_decl
       && cfun && scope_chain->act_cfun == cfun)
-    s->fold_map = scope_chain->fold_map;
+    {
+      s->fold_map = scope_chain->fold_map;
+      s->cv_map = scope_chain->cv_map;
+    }
   else
-    s->fold_map = NULL;
+    {
+      s->fold_map = NULL;
+      s->cv_map = NULL;
+    }
   s->act_cfun = cfun;
 
   scope_chain = s;
@@ -6208,6 +6214,7 @@ pop_from_top_level_1 (void)
   struct saved_scope *s = scope_chain;
   cxx_saved_binding *saved;
   hash_map<tree, tree> *fm = s->fold_map;
+  hash_map<tree, tree> *cv = s->cv_map;
   size_t i;
   bool same_fold_map = false;
 
@@ -6250,18 +6257,27 @@ pop_from_top_level_1 (void)
      scope_chain, then invalidate it.  */
   if (fm && (!same_fold_map || !scope_chain))
     delete fm;
+  if (cv && (!same_fold_map || !scope_chain))
+    delete cv;
 
   /* Invalidate explicit.  */
   s->fold_map = NULL;
+  s->cv_map = NULL;
   s->act_cfun = NULL;
 
   /* Invalidate new 'fold_map', if we aren't within nested
      function.  */
-  if (!same_fold_map && scope_chain && scope_chain->fold_map)
+  if (!same_fold_map && scope_chain
+      && (scope_chain->fold_map || scope_chain->cv_map))
     {
       fm = scope_chain->fold_map;
-      delete fm;
+      cv = scope_chain->cv_map;
+      if (fm)
+        delete fm;
+      if (cv)
+	delete cv;
       scope_chain->fold_map = NULL;
+      scope_chain->cv_map = NULL;
       scope_chain->act_cfun = NULL;
     }
 }
