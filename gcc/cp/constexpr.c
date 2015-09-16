@@ -4117,13 +4117,10 @@ maybe_constant_value (tree t, tree decl)
 
   if (cv)
     {
+      /* We don't need to cache RET, as it is a
+	 constant-value if it differs.  */
       tree *slot = &cv->get_or_insert (t);
       *slot = ret;
-      if (ret != t)
-	{
-	  slot = &cv->get_or_insert (ret);
-	  *slot = ret;
-	}
     }
 
   return ret;
