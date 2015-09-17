@@ -8129,9 +8129,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 		return error_mark_node;
 
 	      /* Perform the cast.  */
-	      /* We don't want to resolve cast too early.  Therefore we don't
-	         be able to use build_c_cast.  */
-	      expr = cp_build_c_cast (type, expr, tf_warning_or_error);
+	      expr = build_c_cast (input_location, type, expr);
 	      return expr;
 	    }
 	}
