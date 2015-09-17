@@ -929,6 +929,13 @@ struct cp_genericize_data
   bool no_sanitize_p;
 };
 
+/* Perform any pre-gimplification folding of C++ front end trees to
+   GENERIC.
+   Note:  The folding of none-omp cases is something to move into
+     the middle-end.  As for now we have most foldings only on GENERIC
+     in fold-const, we need to perform this before transformation to
+     GIMPLE-form.  */
+
 static tree
 cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
