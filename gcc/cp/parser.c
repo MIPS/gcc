@@ -29879,7 +29879,6 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
   if (colon)
     {
       alignment = cp_parser_constant_expression (parser);
-      alignment = alignment;
 
       if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
 	cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
