@@ -7431,13 +7431,20 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
 
   gcc_assert (j <= nargs);
   nargs = j;
-  {
-    tree *fargs = (!nargs ? argarray : (tree *) alloca (nargs * sizeof (tree)));
-    for (j = 0; j < nargs; j++)
-      fargs[j] = fold_non_dependent_expr (argarray[j]);
 
-    check_function_arguments (TREE_TYPE (fn), nargs, fargs);
-  }
+  /* Avoid to do argument-transformation, if warnings for format, and for
+     nonnull are disabled.  Just in case that at least one of them is active
+     the check_function_arguments function might warn about something.  */
+
+  if (warn_nonnull || warn_format)
+    {
+      tree *fargs = (!nargs ? argarray
+			    : (tree *) alloca (nargs * sizeof (tree)));
+      for (j = 0; j < nargs; j++)
+	fargs[j] = maybe_constant_value (argarray[j]);
+
+      check_function_arguments (TREE_TYPE (fn), nargs, fargs);
+    }
 
   /* Avoid actually calling copy constructors and copy assignment operators,
      if possible.  */
