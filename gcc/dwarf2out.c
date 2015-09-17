@@ -1859,8 +1859,7 @@ output_loc_operands (dw_loc_descr_ref loc, int for_eh_or_skip)
 	  }
 	  break;
 	case dw_val_class_addr:
-	  gcc_assert (val1->v.val_unsigned
-		      == (unsigned HOST_WIDE_INT) DWARF2_ADDR_SIZE);
+	  gcc_assert (val1->v.val_unsigned == DWARF2_ADDR_SIZE);
 	  dw2_asm_output_addr_rtx (DWARF2_ADDR_SIZE, val2->v.val_addr, NULL);
 	  break;
 	default:
