@@ -1,3 +1,7 @@
+2015-09-17  Gary Funck  <gary@intrepid.com>
+
+	Update copyright notices.
+
 2015-09-09  Gary Funck  <gary@intrepid.com>
 
 	* smp/upc_barrier.upc (__upc_btree): Make this a UPC 'strict'
