@@ -3871,7 +3871,7 @@ cxx_constant_value (tree t, tree decl)
   return cxx_eval_outermost_constant_expr (t, false, true, decl);
 }
 
-/* Helper routine for fold_simplet function.  Either return simplified
+/* Helper routine for fold_simple function.  Either return simplified
    expression T, otherwise NULL_TREE.
    In contrast to cp_fully_fold, and to maybe_constant_value, we try to fold
    even if we are within template-declaration.  So be careful on call, as in
