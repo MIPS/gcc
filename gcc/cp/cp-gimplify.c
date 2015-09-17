@@ -930,7 +930,7 @@ struct cp_genericize_data
 };
 
 static tree
-cp_fold_r (tree *stmt_p, int *walk_subtrees  ATTRIBUTE_UNUSED, void *data)
+cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
   tree stmt;
   struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
