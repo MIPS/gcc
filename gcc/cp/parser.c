@@ -31301,7 +31301,7 @@ cp_parser_omp_for_incr (cp_parser *parser, tree decl)
 		lhs = build_x_unary_op (input_location, NEGATE_EXPR, rhs,
 					tf_warning_or_error);
 	      if (op != PLUS_EXPR && CONSTANT_CLASS_P (rhs))
-		lhs = fold (lhs);
+		lhs = fold_simple (lhs);
 	    }
 	  else
 	    lhs = build_x_binary_op (input_location, op, lhs, ERROR_MARK, rhs,
