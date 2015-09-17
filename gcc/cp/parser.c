@@ -28938,11 +28938,11 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 						   CPP_CLOSE_SQUARE))
 			length = cp_parser_expression (parser);
 		    }
-		  /* So we need here fully folded values.  */
+		  /* So we need to fold for possible constant values.  */
 		  if (length)
-		    length = cp_fully_fold (length);
+		    length = maybe_constant_value (length);
 		  if (low_bound)
-		    low_bound = cp_fully_fold (low_bound);
+		    low_bound = maybe_constant_value (low_bound);
 		  /* Look for the closing `]'.  */
 		  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE,
 					  RT_CLOSE_SQUARE))
