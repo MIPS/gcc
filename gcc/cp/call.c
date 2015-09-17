@@ -7436,7 +7436,7 @@ build_over_call (struct z_candidate *cand, int flags, tsubst_flags_t complain)
      nonnull are disabled.  Just in case that at least one of them is active
      the check_function_arguments function might warn about something.  */
 
-  if (warn_nonnull || warn_format)
+  if (warn_nonnull || warn_format || warn_suggest_attribute_format)
     {
       tree *fargs = (!nargs ? argarray
 			    : (tree *) alloca (nargs * sizeof (tree)));
