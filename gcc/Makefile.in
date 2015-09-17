@@ -216,7 +216,6 @@ libgcov-driver-tool.o-warn = -Wno-error
 libgcov-merge-tool.o-warn = -Wno-error
 gimple-match.o-warn = -Wno-unused
 generic-match.o-warn = -Wno-unused
-insn-modes.o-warn = -Wno-error
 dfp.o-warn = -Wno-strict-aliasing
 
 # All warnings have to be shut off in stage1 if the compiler used then

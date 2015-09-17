@@ -397,7 +397,7 @@ convert_to_real (tree type, tree expr)
    EXPR must be pointer, integer, discrete (enum, char, or bool), float,
    fixed-point or vector; in other cases error is called.
 
-   If DOFOLD is TRZE, we try to simplify newly-created patterns by folding.
+   If DOFOLD is TRUE, we try to simplify newly-created patterns by folding.
 
    The result of this is always supposed to be a newly created tree node
    not in use in any existing structure.  */
