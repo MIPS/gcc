@@ -2551,8 +2551,11 @@ cxx_eval_indirect_ref (const constexpr_ctx *ctx, tree t,
 		       bool lval,
 		       bool *non_constant_p, bool *overflow_p)
 {
-  tree r, orig_op0 = TREE_OPERAND (t, 0);
+  tree orig_op0 = TREE_OPERAND (t, 0);
   bool empty_base = false;
+
+  /* We can handle a MEM_REF like an INDIRECT_REF, if MEM_REF's second
+     operand is an integer-zero.  Otherwise we need to reject the MEM_REF.  */
 
   if (TREE_CODE (t) == MEM_REF
       && (!TREE_OPERAND (t, 1) || !integer_zerop (TREE_OPERAND (t, 1))))
@@ -2562,8 +2565,8 @@ cxx_eval_indirect_ref (const constexpr_ctx *ctx, tree t,
     }
 
   /* First try to simplify it directly.  */
-  r = cxx_fold_indirect_ref (EXPR_LOCATION (t), TREE_TYPE (t), orig_op0,
-			     &empty_base);
+  tree r = cxx_fold_indirect_ref (EXPR_LOCATION (t), TREE_TYPE (t), orig_op0,
+				  &empty_base);
   if (!r)
     {
       /* If that didn't work, evaluate the operand first.  */
