@@ -3495,7 +3495,7 @@ build_vec_init (tree base, tree maxindex, tree init,
     }
 
   maxindex = cp_convert (ptrdiff_type_node, maxindex, complain);
-  maxindex = maybe_constant_value (maxindex);
+  maxindex = fold_simple (maxindex);
 
   if (TREE_CODE (atype) == ARRAY_TYPE)
     {
