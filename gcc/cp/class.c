@@ -428,7 +428,7 @@ build_base_path (enum tree_code code,
 
 	  t = TREE_TYPE (TYPE_VFIELD (current_class_type));
 	  t = build_pointer_type (t);
-	  v_offset = fold (convert (t, current_vtt_parm));
+	  v_offset = fold_convert (t, current_vtt_parm);
 	  v_offset = cp_build_indirect_ref (v_offset, RO_NULL, complain);
 	}
       else
