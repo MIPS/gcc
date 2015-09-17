@@ -2931,6 +2931,20 @@ if test x${enable_multilib} = x ; then
   target_configargs="--enable-multilib ${target_configargs}"
 fi
 
+# Select default multilib build variants
+if test x${with_multi_buildlist} = x ; then
+  buildlist=
+  case "$target" in
+    mips*-img-linux*) buildlist=gcc/config/mips/ml-img-linux ;;
+    mips*-mti-linux*) buildlist=gcc/config/mips/ml-mti-linux ;;
+    mips*-img-elf*) buildlist=gcc/config/mips/ml-img-elf ;;
+    mips*-mti-elf*) buildlist=gcc/config/mips/ml-mti-elf ;;
+  esac
+  if test -f "${srcdir}/${buildlist}" ; then
+    target_configargs="--with-multi-buildlist=${srcdir}/${buildlist} ${target_configargs}"
+  fi
+fi
+
 # Pass --with-newlib if appropriate.  Note that target_configdirs has
 # changed from the earlier setting of with_newlib.
 if test x${with_newlib} != xno && echo " ${target_configdirs} " | grep " newlib " > /dev/null 2>&1 && test -d ${srcdir}/newlib ; then
