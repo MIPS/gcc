@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-xfail-run-if "TODO" { *-*-* } { "-O0" } }
 
 ! subroutine reduction
 
@@ -7,7 +8,7 @@ program reduction
   integer               :: i, vsum, gs, ws, vs, cs
 
   call redsub_gang (gs, n, c)
-  call redsub_worker (gs, n, c)
+  call redsub_worker (ws, n, c)
   call redsub_vector (vs, n, c)
   call redsub_combined (cs, n, c)
 
@@ -19,7 +20,9 @@ program reduction
   end do
 
   if (gs .ne. vsum) call abort ()
+  if (ws .ne. vsum) call abort ()
   if (vs .ne. vsum) call abort ()
+  if (cs .ne. vsum) call abort ()
 end program reduction
 
 subroutine redsub_gang(sum, n, c)

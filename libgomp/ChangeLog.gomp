@@ -1,3 +1,8 @@
+2015-09-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/reduction-5.f90: Extend.  XFAIL
+	execution test for -O0.
+
 2015-09-15  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_parallel_keyed): Use GOMP_DIM constants.
