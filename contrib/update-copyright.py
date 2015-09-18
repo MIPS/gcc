@@ -578,6 +578,7 @@ class TestsuiteFilter (GenericFilter):
                 '.go',
                 '.inc',
                 '.java',
+                '.upc',
                 ])
 
     def skip_file (self, dir, filename):

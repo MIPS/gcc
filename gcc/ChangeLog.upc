@@ -1,5 +1,11 @@
 2015-09-17  Gary Funck  <gary@intrepid.com>
 
+	top-level/
+	* contrib/update-copyright.py: Add .upc to list of test file
+	extensions that should be ignored.
+
+2015-09-17  Gary Funck  <gary@intrepid.com>
+
 	* c/c-upc-lang.c: Remove spurious statement in comment.
 	* c/c-upc-lang.c, c/c-upc-lang.h, c/gupcspec.c, c-family/c-upc-gasp.c,
 	c-family/c-upc-gasp.h, c-family/c-upc-low.c, c-family/c-upc-low.h, 
