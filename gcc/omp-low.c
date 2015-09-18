@@ -15027,6 +15027,60 @@ default_goacc_lock (gimple ARG_UNUSED (stmt), const int*ARG_UNUSED (dims),
   return false;
 }
 
+/* Default goacc.reduction early expander.
+
+   LHS-opt = IFN_RED_<foo> (RES_PTR-opt, VAR, LEVEL, OP, LID, RID)
+   If RES_PTR is not integer-zerop:
+       SETUP - emit 'LHS = *RES_PTR', LHS = NULL
+       TEARDOWN - emit '*RES_PTR = VAR'
+   If LHS is not NULL
+       emit 'LHS = VAR'
+
+     Return false -- does not need a rescan.  */
+
+bool
+default_goacc_reduction (gimple call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  tree lhs = gimple_call_lhs (call);
+  tree var = gimple_call_arg (call, 1);
+  unsigned code = gimple_call_internal_fn (call);
+  gimple_seq seq = NULL;
+
+  /* Mark the function for SSA renaming.  */
+  mark_virtual_operands_for_renaming (cfun);
+
+  if (code == IFN_GOACC_REDUCTION_SETUP
+      || code == IFN_GOACC_REDUCTION_TEARDOWN)
+    {
+      /* Setup and Teardown need to copy from/to the receiver object,
+	 if there is one.  */
+      tree ref_to_res = gimple_call_arg (call, 0);
+      
+      if (!integer_zerop (ref_to_res))
+	{
+	  tree dst = build_simple_mem_ref (ref_to_res);
+	  tree src = var;
+	  
+	  if (code == IFN_GOACC_REDUCTION_SETUP)
+	    {
+	      src = dst;
+	      dst = lhs;
+	      lhs = NULL;
+	    }
+	  gimple_seq_add_stmt (&seq, gimple_build_assign (dst, src));
+	}
+    }
+
+  /* Copy VAR to LHS, if there is an LHS.  */
+  if (lhs)
+    gimple_seq_add_stmt (&seq, gimple_build_assign (lhs, var));
+
+  gsi_replace_with_seq (&gsi, seq, true);
+
+  return false;
+}
+
 namespace {
 
 const pass_data pass_data_oacc_transform =
@@ -15068,147 +15122,6 @@ gimple_opt_pass *
 make_pass_oacc_transform (gcc::context *ctxt)
 {
   return new pass_oacc_transform (ctxt);
-}
-
-/* Default implementation of targetm.goacc.reduction_setup.  This hook
-   provides a baseline implementation for the internal function
-   GOACC_REDUCTION_SETUP for a single-threaded target.  I.e. num_gangs =
-   num_workers = vector_length = 1.
-
-   Given:
-
-     V = IFN_RED_SETUP (RES_PTR, LOCAL, LEVEL, OP. LID, RID)
-
-   Expand to:
-
-     V = RES_PTR ? *RES_PTR : LOCAL;
-*/
-
-static bool
-default_goacc_reduction_setup (gimple call)
-{
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  tree v = gimple_call_lhs (call);
-  tree ref_to_res = gimple_call_arg (call, 0);
-  tree local_var = gimple_call_arg (call, 1);
-  gimple_seq seq = NULL;
-
-  push_gimplify_context (true);
-
-  if (!integer_zerop (ref_to_res))
-    {
-      tree x = build_simple_mem_ref (ref_to_res);
-      gimplify_assign (v, x, &seq);
-    }
-  else
-    gimplify_assign (v, local_var, &seq);
-
-  pop_gimplify_context (NULL);
-
-  gsi_replace_with_seq (&gsi, seq, true);
-
-  return false;
-}
-
-/* Default implementation for both targetm.goacc.reduction_init and
-   reduction_fini.  This hook provides a baseline implementation for the
-   internal functions GOACC_REDUCTION_INIT and GOACC_REDUCTION_FINI for a
-   single-threaded target.
-
-   Given:
-
-     V = IFN_RED_INIT (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
-
-   or
-
-     V = IFN_RED_FINI (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
-
-   Expand to:
-
-     V = LOCAL;
-*/
-
-static bool
-default_goacc_reduction_init_fini (gimple call)
-{
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  tree v = gimple_call_lhs (call);
-  tree local_var = gimple_call_arg (call, 1);
-  gimple g;
-
-  g = gimple_build_assign (v, local_var);
-  gsi_replace (&gsi, g, true);
-
-  return false;
-}
-
-/* Default implementation of targetm.goacc.reduction_teardown.  This hook
-   provides a baseline implementation for the internal function
-   GOACC_REDUCTION_TEARDOWN for a single-threaded target.
-
-   Given:
-
-     IFN_RED_TEARDOWN (RES_PTR, LOCAL, LEVEL, OP, LID, RID)
-
-   Expand to:
-
-     if (RES_PTR)
-       *RES_PTR = LOCAL;
-
-    V = LOCAL;
-*/
-
-static bool
-default_goacc_reduction_teardown (gimple call)
-{
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  tree lhs = gimple_call_lhs (call);
-  tree ref_to_res = gimple_call_arg (call, 0);
-  tree var = gimple_call_arg (call, 1);
-  gimple_seq seq = NULL;
-
-  push_gimplify_context (true);
-
-  if (!integer_zerop (ref_to_res))
-    {
-      tree x = build_simple_mem_ref (ref_to_res);
-      gimplify_assign (x, var, &seq);
-    }
-
-  if (lhs != NULL_TREE)
-    gimplify_assign (lhs, var, &seq);
-
-  pop_gimplify_context (NULL);
-
-  gsi_replace_with_seq (&gsi, seq, true);
-
-  return false;
-}
-
-/* Default goacc.reduction early expander.  */
-
-bool
-default_goacc_reduction (gimple call)
-{
-  /* Reductions modify the SSA names in complicated ways.  Let update_ssa
-     correct it.  */
-  mark_virtual_operands_for_renaming (cfun);
-
-  switch (gimple_call_internal_fn (call))
-    {
-    case IFN_GOACC_REDUCTION_SETUP:
-      return default_goacc_reduction_setup (call);
-
-    case IFN_GOACC_REDUCTION_INIT:
-    case IFN_GOACC_REDUCTION_FINI:
-      return default_goacc_reduction_init_fini (call);
-
-    case IFN_GOACC_REDUCTION_TEARDOWN:
-      return default_goacc_reduction_teardown (call);
-
-    default:
-      gcc_unreachable ();
-    }
 }
 
 #include "gt-omp-low.h"
