@@ -1,3 +1,18 @@
+2015-09-17  Gary Funck  <gary@intrepid.com>
+
+	* c/c-upc-lang.c: Remove spurious statement in comment.
+	* c/c-upc-lang.c, c/c-upc-lang.h, c/gupcspec.c, c-family/c-upc-gasp.c,
+	c-family/c-upc-gasp.h, c-family/c-upc-low.c, c-family/c-upc-low.h, 
+	c-family/c-upc-pts-ops.c, c-family/c-upc-pts-ops.h, 
+	c-family/c-upc-pts-packed.c, c-family/c-upc-pts-struct.c, 
+	c-family/c-upc-pts.h, c-family/c-upc-rts-names.h, 
+	c-family/c-upc.c, c-family/c-upc.h, tree-upc.c, tree-upc.h:
+	Update copyright notices.
+
+2015-09-17  Gary Funck  <gary@intrepid.com>
+
+	* tree-upc.c, tree-upc.h: Update copyright notices.
+
 2015-09-14  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 227737 into gupc branch.
