@@ -6,5 +6,5 @@ void Foo ()
 }
 
 /* { dg-final { scan-assembler-times ".atom.shared.cas.b32" 2 } } */
-/* { dg-final { scan-assember ".shared .u32 __shared_lock;" } } */
-/* { dg-final { scan-assember-not ".shared .u32 __shared_lock;" } } */
+/* { dg-final { scan-assembler ".shared .u32 __shared_lock;" } } */
+/* { dg-final { scan-assembler-not ".global .u32 __global_lock;" } } */

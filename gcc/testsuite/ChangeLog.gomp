@@ -1,3 +1,8 @@
+2015-09-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.target/nvptx/spinlock-1.c: Fix DejaGnu directives.
+	* gcc.target/nvptx/spinlock-2.c: Likewise.
+
 2015-09-11  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/parallel-reduction.c: Enclose the parallel
