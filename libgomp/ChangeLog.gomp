@@ -1,5 +1,8 @@
 2015-09-18  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.h (struct splay_tree_key_s): Remove dealloc_host member.
+	Adjust all users.
+
 	* testsuite/libgomp.oacc-fortran/reduction-5.f90: Extend.  XFAIL
 	execution test for -O0.
 

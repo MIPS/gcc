@@ -678,8 +678,6 @@ struct splay_tree_key_s {
   uintptr_t async_refcount;
   /* True if data should be copied from device to host at the end.  */
   bool copy_from;
-  /* True if data should be freed on the host, e.g. for ganglocal vars.  */
-  bool dealloc_host;
 };
 
 #include "splay-tree.h"

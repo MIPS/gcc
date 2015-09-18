@@ -373,7 +373,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		k->tgt_offset = tgt_size;
 		tgt_size += k->host_end - k->host_start;
 		k->copy_from = GOMP_MAP_COPY_FROM_P (kind & typemask);
-		k->dealloc_host = false;
 		k->refcount = 1;
 		k->async_refcount = 0;
 		tgt->refcount++;
@@ -569,8 +568,6 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
 	  devicep->dev2host_func (devicep->target_id, (void *) k->host_start,
 				  (void *) (k->tgt->tgt_start + k->tgt_offset),
 				  k->host_end - k->host_start);
-	if (k->dealloc_host)
-	  free ((void *)k->host_start);
 	splay_tree_remove (&devicep->mem_map, k);
 	if (k->tgt->refcount > 1)
 	  k->tgt->refcount--;
@@ -712,7 +709,6 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->refcount = 1;
       k->async_refcount = 0;
       k->copy_from = false;
-      k->dealloc_host = false;
       tgt->list[i] = k;
       tgt->refcount++;
       array->left = NULL;
@@ -741,7 +737,6 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->refcount = 1;
       k->async_refcount = 0;
       k->copy_from = false;
-      k->dealloc_host = false;
       tgt->list[i] = k;
       tgt->refcount++;
       array->left = NULL;
