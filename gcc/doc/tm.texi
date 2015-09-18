@@ -5740,32 +5740,32 @@ usable.  In that case, the smaller the number is, the more desirable it is
 to use it.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree, int @var{[]}, @var{int})
+@deftypefn {Target Hook} bool TARGET_GOACC_VALIDATE_DIMS (tree @var{decl}, int @var{dims[]}, int @var{fn_level})
 This hook should check the launch dimensions provided.  It should fill
-in anything that needs default to non-unity and verify non-defaults.
-Defaults are represented as -1.  Diagnostics should be issuedas 
-ppropriate.  Return true if changes have been made.  You must override
+in anything that needs to default to non-unity and verify non-defaults.
+Defaults are represented as -1.  Diagnostics should be issued as
+appropriate.  Return true if changes have been made.  You must override
 this hook to provide dimensions larger than 1.
 @end deftypefn
 
-@deftypefn {Target Hook} unsigned TARGET_GOACC_DIM_LIMIT (unsigned)
+@deftypefn {Target Hook} unsigned TARGET_GOACC_DIM_LIMIT (unsigned @var{axis})
 This hook should return the maximum size of a particular dimension,
 or zero if unbounded.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (gimple, const @var{int[]}, @var{bool})
+@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (gimple @var{stmt}, const int @var{dims[]}, bool @var{is_fork})
 This hook should convert IFN_GOACC_FORK and IFN_GOACC_JOIN function
 calls to target-specific gimple.  It is executed during the oacc_xform
 pass.  It should return true, if the functions should be deleted.  The
-default hook returns true, if there is no RTL expanders for them.
+default hook returns true, if there are no RTL expanders for them.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_LOCK (gimple, const @var{int[]}, @var{unsigned})
+@deftypefn {Target Hook} bool TARGET_GOACC_LOCK (gimple @var{stmt}, const int @var{dims[]}, unsigned @var{ifn_code})
 This hook should convert IFN_GOACC_LOCK, IFN_GOACC_UNLOCK,
-IFN_GOACC_LOCK_INIT  function calls to target-specific gimple.  It is
+IFN_GOACC_LOCK_INIT function calls to target-specific gimple.  It is
 executed during the oacc_xform pass.  It should return true, if the
 functions should be deleted.  The default hook returns true, if there
-is no RTL expanders for them.
+are no RTL expanders for them.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_GOACC_REDUCTION (gimple @var{call})

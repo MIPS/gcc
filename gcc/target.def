@@ -1647,18 +1647,18 @@ HOOK_VECTOR (TARGET_GOACC, goacc)
 DEFHOOK
 (validate_dims,
 "This hook should check the launch dimensions provided.  It should fill\n\
-in anything that needs default to non-unity and verify non-defaults.\n\
-Defaults are represented as -1.  Diagnostics should be issuedas \n\
-ppropriate.  Return true if changes have been made.  You must override\n\
+in anything that needs to default to non-unity and verify non-defaults.\n\
+Defaults are represented as -1.  Diagnostics should be issued as\n\
+appropriate.  Return true if changes have been made.  You must override\n\
 this hook to provide dimensions larger than 1.",
-bool, (tree, int [], int),
+bool, (tree decl, int dims[], int fn_level),
 default_goacc_validate_dims)
 
 DEFHOOK
 (dim_limit,
 "This hook should return the maximum size of a particular dimension,\n\
 or zero if unbounded.",
-unsigned, (unsigned),
+unsigned, (unsigned axis),
 default_goacc_dim_limit)
 
 DEFHOOK
@@ -1666,18 +1666,18 @@ DEFHOOK
 "This hook should convert IFN_GOACC_FORK and IFN_GOACC_JOIN function\n\
 calls to target-specific gimple.  It is executed during the oacc_xform\n\
 pass.  It should return true, if the functions should be deleted.  The\n\
-default hook returns true, if there is no RTL expanders for them.",
-bool, (gimple, const int[], bool),
+default hook returns true, if there are no RTL expanders for them.",
+bool, (gimple stmt, const int dims[], bool is_fork),
 default_goacc_fork_join)
 
 DEFHOOK
 (lock,
 "This hook should convert IFN_GOACC_LOCK, IFN_GOACC_UNLOCK,\n\
-IFN_GOACC_LOCK_INIT  function calls to target-specific gimple.  It is\n\
+IFN_GOACC_LOCK_INIT function calls to target-specific gimple.  It is\n\
 executed during the oacc_xform pass.  It should return true, if the\n\
 functions should be deleted.  The default hook returns true, if there\n\
-is no RTL expanders for them.",
-bool, (gimple, const int[], unsigned),
+are no RTL expanders for them.",
+bool, (gimple stmt, const int dims[], unsigned ifn_code),
 default_goacc_lock)
 
 DEFHOOK

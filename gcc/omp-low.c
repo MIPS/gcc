@@ -9412,7 +9412,7 @@ oacc_launch_pack (unsigned code, tree device, unsigned op)
    represented as a list of INTEGER_CST.  Those that are runtime
    expres are represented as an INTEGER_CST of zero.  Defaults are set
    as NULL_TREE and will be filled in later by the target hook
-   TARGET_OACC_VALIDATE_DIMS.
+   TARGET_GOACC_VALIDATE_DIMS.
 
    TOOO. Normally the attribute will just contain a single such list.  If
    however it contains a list of lists, this will represent the use of

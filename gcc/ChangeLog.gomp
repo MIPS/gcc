@@ -1,3 +1,9 @@
+2015-09-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* target.def <goacc> (validate_dims, dim_limit, fork_join, lock):
+	Spell out the formal parameters' names.  Fix typos.
+	* doc/tm.texi: Regenerate.
+
 2015-09-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (oacc_validate_dims): New function, broken out of ...
