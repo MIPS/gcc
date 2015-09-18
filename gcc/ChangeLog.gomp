@@ -1,3 +1,49 @@
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Push into
+	loop_iter_var vector both the original and new decl.
+	(gimplify_omp_ordered): Update the decl in TREE_VALUE
+	from the original to the new decl.
+	* omp-low.c (struct omp_region): Adjust comments,
+	add ord_stmt field.
+	(extract_omp_for_data): Canonicalize cond_code even for
+	ordered loops after collapsed ones.  If loops is non-NULL,
+	fd->collapse == 1 and fd->ordered > 1, treat the outermost
+	loop similarly to collapsed ones, n1 == 0, step == 1, n2 == constant
+	or variable number of iterations.
+	(check_omp_nesting_restrictions): Only check outer context
+	when verifying ordered depend construct is closely nested in
+	for ordered construct.
+	(expand_omp_for_init_counts): Rename zero_iter_bb argument to
+	zero_iter1_bb and first_zero_iter to first_zero_iter1, add
+	zero_iter2_bb and first_zero_iter2 arguments, handle computation
+	of counts even for ordered loops.
+	(expand_omp_ordered_source, expand_omp_ordered_sink,
+	expand_omp_ordered_source_sink): New functions.
+	(expand_omp_for_ordered_loops): Add counts argument, initialize
+	the counts vars if needed.  Fix up !gsi_end_p (gsi) handling,
+	use the right step for each loop.
+	(expand_omp_for_generic): Handle expansion of doacross loops.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk,
+	expand_omp_simd, expand_omp_taskloop_for_outer,
+	expand_omp_taskloop_for_inner): Adjust expand_omp_for_init_counts
+	callers.
+	(expand_omp_for): Handle doacross loops.
+	(expand_omp): Don't expand ordered depend constructs here, record
+	ord_stmt instead for later expand_omp_for_generic.
+	(lower_omp_ordered_clauses): Don't ICE on collapsed loops, just
+	give up on them for now.  For loops other than the first or
+	collapsed ones compute lexically latest loop rather than minimum
+	or maximum from each constant separately.  Simplify.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_DOACROSS_STATIC_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_RUNTIME_START,
+	BUILT_IN_GOMP_DOACROSS_POST, BUILT_IN_GOMP_DOACROSS_WAIT): New.
+	* builtin-types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_LONGPTR_LONG_LONGPTR_LONGPTR, BT_FN_VOID_LONG_VAR):
+	New.
+
 2015-09-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (lower_omp_ordered_clauses): Add GSI_P argument.

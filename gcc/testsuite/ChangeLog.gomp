@@ -1,3 +1,12 @@
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/sink-4.c: Don't expect the constant to have
+	pointer type.
+	* gcc.dg/gomp/sink-fold-3.c: Likewise.
+	* gcc.dg/gomp/sink-fold-1.c (k): New variable.
+	(funk): Add another ordered loop, use better test values and
+	adjust the expected result.
+
 2015-09-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/ordered-1.c: New test.

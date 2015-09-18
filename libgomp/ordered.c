@@ -26,6 +26,7 @@
 /* This file handles the ORDERED construct.  */
 
 #include "libgomp.h"
+#include <stdarg.h>
 
 
 /* This function is called when first allocating an iteration block.  That
@@ -249,4 +250,24 @@ GOMP_ordered_start (void)
 void
 GOMP_ordered_end (void)
 {
+}
+
+/* DOACROSS POST operation.  */
+
+void
+GOMP_doacross_post (long first, ...)
+{
+  va_list ap;
+  va_start (ap, first);
+  va_end (ap);
+}
+
+/* DOACROSS WAIT operation.  */
+
+void
+GOMP_doacross_wait (long first, ...)
+{
+  va_list ap;
+  va_start (ap, first);
+  va_end (ap);
 }

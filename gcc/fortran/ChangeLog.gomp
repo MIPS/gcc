@@ -1,3 +1,10 @@
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_LONGPTR_LONG_LONGPTR_LONGPTR, BT_FN_VOID_LONG_VAR):
+	New.
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_1): Define.
+
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def (BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,

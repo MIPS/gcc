@@ -71,6 +71,15 @@ extern bool GOMP_loop_ordered_dynamic_next (long *, long *);
 extern bool GOMP_loop_ordered_guided_next (long *, long *);
 extern bool GOMP_loop_ordered_runtime_next (long *, long *);
 
+extern bool GOMP_loop_doacross_static_start (unsigned, long *, long, long *,
+					     long *);
+extern bool GOMP_loop_doacross_dynamic_start (unsigned, long *, long, long *,
+					      long *);
+extern bool GOMP_loop_doacross_guided_start (unsigned, long *, long, long *,
+					     long *);
+extern bool GOMP_loop_doacross_runtime_start (unsigned, long *, long *,
+					      long *);
+
 extern void GOMP_parallel_loop_static_start (void (*)(void *), void *,
 					     unsigned, long, long, long, long);
 extern void GOMP_parallel_loop_dynamic_start (void (*)(void *), void *,
@@ -168,6 +177,8 @@ extern bool GOMP_loop_ull_ordered_runtime_next (unsigned long long *,
 
 extern void GOMP_ordered_start (void);
 extern void GOMP_ordered_end (void);
+extern void GOMP_doacross_post (long, ...);
+extern void GOMP_doacross_wait (long, ...);
 
 /* parallel.c */
 

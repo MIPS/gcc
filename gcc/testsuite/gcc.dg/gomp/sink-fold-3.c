@@ -22,4 +22,4 @@ funk (foo *begin, foo *end)
     }
 }
 
-/* { dg-final { scan-tree-dump-times "depend\\(sink:p\\+800B\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "depend\\(sink:p\\+800\\)" 1 "omplower" } } */
