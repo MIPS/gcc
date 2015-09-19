@@ -12671,7 +12671,7 @@ ix86_expand_epilogue (int style)
 	{
 	  rtx r = plus_constant (Pmode, stack_pointer_rtx,
 				 UNITS_PER_WORD);
-	  emit_insn (gen_rtx_SET (stack_pointer_rtx, r));
+	  emit_insn (gen_rtx_SET (VOIDmode, stack_pointer_rtx, r));
 	}
 
       rtx pat;
