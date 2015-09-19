@@ -566,7 +566,7 @@ reduc_stmt_res (gimple stmt)
 int
 initialize_reductions (reduction_info **slot, struct loop *loop)
 {
-  tree init, c;
+  tree init;
   tree bvar, type, arg;
   edge e;
 
@@ -582,12 +582,8 @@ initialize_reductions (reduction_info **slot, struct loop *loop)
   type = TREE_TYPE (PHI_RESULT (reduc->reduc_phi));
   bvar = create_tmp_var (type, "reduction");
 
-  c = build_omp_clause (gimple_location (reduc->reduc_stmt),
-			OMP_CLAUSE_REDUCTION);
-  OMP_CLAUSE_REDUCTION_CODE (c) = reduc->reduction_code;
-  OMP_CLAUSE_DECL (c) = SSA_NAME_VAR (reduc_stmt_res (reduc->reduc_stmt));
-
-  init = omp_reduction_init (c, TREE_TYPE (bvar));
+  init = omp_reduction_init_op (gimple_location (reduc->reduc_stmt),
+				reduc->reduction_code, type);
   reduc->init = init;
 
   /* Replace the argument representing the initialization value

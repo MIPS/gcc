@@ -1,5 +1,18 @@
 2015-09-18  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.h (omp_reduction_init_op): Declare.
+	* omp-low.c (omp_reduction_init_op): New, broken out of ...
+	(omp_reduction_init): ... here.  Call it.
+	* tree-parloops.c (initialize_reductions): Use
+	omp_redutction_init_op.
+	* config/nvptx/nvptx.c (nvptx_shuffle_reduction): Fold into only
+	caller.
+	(nvptx_goacc_reduction_setup, nvptx_goacc_reduction_init,
+	nvptx_goacc_reduction_fini, goacc_reduction_teardown): Reimplement
+	& simplify.
+
+2015-09-18  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c (default_goacc_reduction): Move to other default
 	handlers, reimplement to simplify.
 	(default_goacc_reduction_setup, default_goacc_reduction_teardown,
