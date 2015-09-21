@@ -158,7 +158,8 @@ static int reg_attrs_htab_eq (const void *, const void *);
 static reg_attrs *get_reg_attrs (tree, int);
 static rtx gen_const_vector (enum machine_mode, int);
 static void copy_rtx_if_shared_1 (rtx *orig);
-
+static bool mem_locations_match_p (const struct mem_attrs *, 
+				   const struct mem_attrs *);
 /* Probability of the conditional branch currently proceeded by try_split.
    Set to -1 otherwise.  */
 int split_branch_probability = -1;
@@ -243,6 +244,49 @@ const_fixed_htab_eq (const void *x, const void *y)
   return fixed_identical (CONST_FIXED_VALUE (a), CONST_FIXED_VALUE (b));
 }
 
+/* Return true if p and q reference the same location by the same name but
+   through VAR_DECL and MEM_REF.  */
+
+static bool
+mem_locations_match_p (const struct mem_attrs *p, const struct mem_attrs *q)
+{
+  HOST_WIDE_INT var_offset;
+  tree var, memref;
+
+  if (p->expr == NULL_TREE || q->expr == NULL_TREE)
+    return false;
+
+  if (TREE_CODE (p->expr) == MEM_REF && TREE_CODE (q->expr) == VAR_DECL)
+    {
+      var = q->expr;
+      var_offset = q->offset;
+      memref = p->expr;
+    }
+  else if (TREE_CODE (q->expr) == MEM_REF && TREE_CODE (p->expr) == VAR_DECL)
+    {
+      var = p->expr;
+      var_offset = p->offset;
+      memref = q->expr;
+    }
+  else 
+    return false;
+
+  if (TREE_OPERAND (TREE_OPERAND (memref, 0), 0) != var)
+    return false;
+
+  if (TREE_TYPE (TREE_TYPE (var)) != TREE_TYPE (memref))
+    return false;
+
+  tree offset = TREE_OPERAND (memref, 1);
+  if ((TREE_CODE (offset) == INTEGER_CST && tree_fits_shwi_p (offset)
+      && tree_to_shwi (offset) == var_offset)
+      || offset == NULL_TREE && var_offset == 0)
+    return true;
+
+  return false;
+  
+}
+
 /* Return true if the given memory attributes are equal.  */
 
 bool
@@ -254,16 +298,16 @@ mem_attrs_eq_p (const struct mem_attrs *p, const struct mem_attrs *q)
     return false;
   return (p->alias == q->alias
 	  && p->offset_known_p == q->offset_known_p
-	  && (!p->offset_known_p || p->offset == q->offset)
 	  && p->size_known_p == q->size_known_p
 	  && (!p->size_known_p || p->size == q->size)
 	  && p->align == q->align
 	  && p->addrspace == q->addrspace
-	  && (p->expr == q->expr
-	      || (p->expr != NULL_TREE && q->expr != NULL_TREE
-		  && operand_equal_p (p->expr, q->expr, 0))));
+	  && (mem_locations_match_p (p, q)
+	     || (!p->offset_known_p || p->offset == q->offset)
+	         && (p->expr == q->expr
+	             || (p->expr != NULL_TREE && q->expr != NULL_TREE
+		         && operand_equal_p (p->expr, q->expr, 0)))));
 }
-
 /* Set MEM's memory attributes so that they are the same as ATTRS.  */
 
 static void
