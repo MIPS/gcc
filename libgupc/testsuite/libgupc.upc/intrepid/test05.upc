@@ -48,7 +48,6 @@ test05()
   for (i = MYTHREAD; i < FACTOR*THREADS; i += THREADS)
     {
       struct data_struct * const s = (struct data_struct *)&array[i];
-      memset (s, '\0',  sizeof (struct data_struct));
       s->x1 = i*4 + 1;
       s->x2 = i*4 + 2;
       s->x3 = i*4 + 3;
@@ -63,14 +62,21 @@ test05()
 	{
 	  struct data_struct got = array[i];
 	  struct data_struct expected;
-          memset (&expected, '\0',  sizeof (struct data_struct));
 	  expected.x1 = i*4 + 1;
 	  expected.x2 = i*4 + 2;
 	  expected.x3 = i*4 + 3;
 	  expected.x4 = i*4 + 4;
 	  for (j = 0; j < 5; ++j)
 	    expected.x5[j] = i*4 + j + 5;
-	  if (memcmp(&got, &expected, sizeof(struct data_struct)))
+	  if ((got.x1 != expected.x1)
+	      || (got.x2 != expected.x2)
+	      || (got.x3 != expected.x3)
+	      || (got.x4 != expected.x4)
+	      || (got.x5[0] != expected.x5[0])
+	      || (got.x5[1] != expected.x5[1])
+	      || (got.x5[2] != expected.x5[2])
+	      || (got.x5[3] != expected.x5[3])
+	      || (got.x5[4] != expected.x5[4]))
 	    {
 	      fprintf(stderr, "test05: error at element %d."
 		" Expected (%d,%d,%d,%lld,%d,%d,%d,%d,%d),"

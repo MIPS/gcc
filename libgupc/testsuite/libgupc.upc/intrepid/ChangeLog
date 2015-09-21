@@ -1,3 +1,8 @@
+2015-09-21  Gary Funck  <gary@intrepid.com>
+
+	* test05.upc: Remove dependency upon stable values for gaps
+	in a struct.
+
 2014-04-16  Gary Funck  <gary@intrepid.com>
 
 	* test26..upc: Add test case for comparisons involving
