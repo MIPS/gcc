@@ -212,7 +212,7 @@ extern void maybe_apply_pending_pragma_weaks (void);
 extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
-extern enum cpp_ttype pragma_lex (tree *);
+extern enum cpp_ttype pragma_lex (tree *, location_t *loc = NULL);
 
 /* UPC-related pragma handling.  */
 extern void deny_pragma_upc (void);
