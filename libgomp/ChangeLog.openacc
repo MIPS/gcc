@@ -1,3 +1,8 @@
+2015-09-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/dummy-array.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reference-reductions.f90: New test.
+
 2015-07-24  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/vector-routine.f90: New test.
