@@ -2,7 +2,7 @@
 /* { dg-skip-if "" { powerpc*-*-darwin* } { "*" } { "" } } */
 /* { dg-require-effective-target powerpc_vsx_ok } */
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power7" } } */
-/* { dg-options "-O2 -mcpu=power7 -mfloat128-software -mno-regnames" } */
+/* { dg-options "-O2 -mcpu=power7 -mfloat128 -mno-regnames" } */
 
 #ifndef __FLOAT128_SOFTWARE__
 #error "-mfloat128-software is not supported."
