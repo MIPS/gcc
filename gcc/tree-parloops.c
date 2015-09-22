@@ -567,7 +567,7 @@ int
 initialize_reductions (reduction_info **slot, struct loop *loop)
 {
   tree init;
-  tree bvar, type, arg;
+  tree type, arg;
   edge e;
 
   struct reduction_info *const reduc = *slot;
@@ -578,10 +578,8 @@ initialize_reductions (reduction_info **slot, struct loop *loop)
   /* In the phi node at the header, replace the argument coming
      from the preheader with the reduction initialization value.  */
 
-  /* Create a new variable to initialize the reduction.  */
+  /* Initialize the reduction.  */
   type = TREE_TYPE (PHI_RESULT (reduc->reduc_phi));
-  bvar = create_tmp_var (type, "reduction");
-
   init = omp_reduction_init_op (gimple_location (reduc->reduc_stmt),
 				reduc->reduction_code, type);
   reduc->init = init;
