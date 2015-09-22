@@ -707,7 +707,7 @@ pa_symbolic_expression_p (rtx x)
 /* Accept any constant that can be moved in one instruction into a
    general register.  */
 int
-pa_cint_ok_for_move (HOST_WIDE_INT ival)
+pa_cint_ok_for_move (unsigned HOST_WIDE_INT ival)
 {
   /* OK if ldo, ldil, or zdepi, can be used.  */
   return (VAL_14_BITS_P (ival)
@@ -719,11 +719,12 @@ pa_cint_ok_for_move (HOST_WIDE_INT ival)
    significant 11 bits of the value must be zero and the value must
    not change sign when extended from 32 to 64 bits.  */
 int
-pa_ldil_cint_p (HOST_WIDE_INT ival)
+pa_ldil_cint_p (unsigned HOST_WIDE_INT ival)
 {
-  HOST_WIDE_INT x = ival & (((HOST_WIDE_INT) -1 << 31) | 0x7ff);
+  unsigned HOST_WIDE_INT x;
 
-  return x == 0 || x == ((HOST_WIDE_INT) -1 << 31);
+  x = ival & (((unsigned HOST_WIDE_INT) -1 << 31) | 0x7ff);
+  return x == 0 || x == ((unsigned HOST_WIDE_INT) -1 << 31);
 }
 
 /* True iff zdepi can be used to generate this CONST_INT.
@@ -1858,7 +1859,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 
       if (register_operand (operand1, mode)
 	  || (GET_CODE (operand1) == CONST_INT
-	      && pa_cint_ok_for_move (INTVAL (operand1)))
+	      && pa_cint_ok_for_move (UINTVAL (operand1)))
 	  || (operand1 == CONST0_RTX (mode))
 	  || (GET_CODE (operand1) == HIGH
 	      && !symbolic_operand (XEXP (operand1, 0), VOIDmode))
@@ -2134,7 +2135,7 @@ pa_emit_move_sequence (rtx *operands, machine_mode mode, rtx scratch_reg)
 	  operands[1] = tmp;
 	}
       else if (GET_CODE (operand1) != CONST_INT
-	       || !pa_cint_ok_for_move (INTVAL (operand1)))
+	       || !pa_cint_ok_for_move (UINTVAL (operand1)))
 	{
 	  rtx temp;
 	  rtx_insn *insn;
@@ -2464,6 +2465,7 @@ pa_output_move_double (rtx *operands)
   enum { REGOP, OFFSOP, MEMOP, CNSTOP, RNDOP } optype0, optype1;
   rtx latehalf[2];
   rtx addreg0 = 0, addreg1 = 0;
+  int highonly = 0;
 
   /* First classify both operands.  */
 
@@ -2674,7 +2676,14 @@ pa_output_move_double (rtx *operands)
   else if (optype1 == OFFSOP)
     latehalf[1] = adjust_address_nv (operands[1], SImode, 4);
   else if (optype1 == CNSTOP)
-    split_double (operands[1], &operands[1], &latehalf[1]);
+    {
+      if (GET_CODE (operands[1]) == HIGH)
+	{
+	  operands[1] = XEXP (operands[1], 0);
+	  highonly = 1;
+	}
+      split_double (operands[1], &operands[1], &latehalf[1]);
+    }
   else
     latehalf[1] = operands[1];
 
@@ -2727,8 +2736,11 @@ pa_output_move_double (rtx *operands)
   if (addreg1)
     output_asm_insn ("ldo 4(%0),%0", &addreg1);
 
-  /* Do that word.  */
-  output_asm_insn (pa_singlemove_string (latehalf), latehalf);
+  /* Do high-numbered word.  */
+  if (highonly)
+    output_asm_insn ("ldil L'%1,%0", latehalf);
+  else
+    output_asm_insn (pa_singlemove_string (latehalf), latehalf);
 
   /* Undo the adds we just did.  */
   if (addreg0)
@@ -8498,14 +8510,6 @@ pa_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
   if (TARGET_PORTABLE_RUNTIME)
     return false;
 
-  /* Sibcalls are ok for TARGET_ELF32 as along as the linker is used in
-     single subspace mode and the call is not indirect.  As far as I know,
-     there is no operating system support for the multiple subspace mode.
-     It might be possible to support indirect calls if we didn't use
-     $$dyncall (see the indirect sequence generated in pa_output_call).  */
-  if (TARGET_ELF32)
-    return (decl != NULL_TREE);
-
   /* Sibcalls are not ok because the arg pointer register is not a fixed
      register.  This prevents the sibcall optimization from occurring.  In
      addition, there are problems with stub placement using GNU ld.  This
@@ -10241,7 +10245,7 @@ pa_legitimate_constant_p (machine_mode mode, rtx x)
       && !reload_in_progress
       && !reload_completed
       && !LEGITIMATE_64BIT_CONST_INT_P (INTVAL (x))
-      && !pa_cint_ok_for_move (INTVAL (x)))
+      && !pa_cint_ok_for_move (UINTVAL (x)))
     return false;
 
   if (function_label_operand (x, mode))

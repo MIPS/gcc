@@ -213,7 +213,7 @@ extern tree maybe_apply_renaming_pragma (tree, tree);
 extern void maybe_apply_pragma_scalar_storage_order (tree);
 extern void add_to_renaming_pragma_list (tree, tree);
 
-extern enum cpp_ttype pragma_lex (tree *);
+extern enum cpp_ttype pragma_lex (tree *, location_t *loc = NULL);
 
 /* Flags for use with c_lex_with_flags.  The values here were picked
    so that 0 means to translate and join strings.  */

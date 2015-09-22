@@ -4692,9 +4692,6 @@ build_clone (tree fn, tree name)
   SET_DECL_RTL (clone, NULL);
   rest_of_decl_compilation (clone, /*top_level=*/1, at_eof);
 
-  if (pch_file)
-    note_decl_for_pch (clone);
-
   return clone;
 }
 
