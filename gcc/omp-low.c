@@ -245,10 +245,6 @@ static struct omp_region *root_omp_region;
 static bitmap task_shared_vars;
 static vec<omp_context *> taskreg_contexts;
 
-static int oacc_lid;
-static gimple_seq oacc_gang_reduction_init = NULL;
-static gimple_seq oacc_gang_reduction_fini = NULL;
-
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
 
@@ -4723,170 +4719,197 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
   return res;
 }
 
-/* Lowering code for OpenACC reductions.  This function takes as input an
-   internal function IFN (one of IFN_GOACC_REDUCTION_SETUP,
-   IFN_GOACC_REDUCTION_INIT, IFN_GOACC_REDUCTION_FINI or
-   IFN_GOACC_REDUCTION_TEARDOWN), a GOMP_DIM LOOP_DIM, the CLAUSES associated
-   with the acc construct, a gimple sequence ILIST, an omp_context CTX.
-   WRITE_BACK specifies whether code for a reduction should be emitted.
-   E.g., calls to GOACC_REDUCTION_FINI may need to be done in both
-   lower_omp_reductions and lower_omp_target and/or lower_omp_for due to
-   predication constraints.  */
+/* Lower the OpenACC reductions of CLAUSES for compute axis DIM.  INNER
+   is true if this is an inner axis of a multi-axis loop.  FORK and
+   JOIN are (optional) fork and join markers.  Generate the
+   before-loop forking sequence in FORK_SEQ and the after-loop joining
+   sequence to JOIN_SEQ.  The general form of these sequences is
+
+     GOACC_LOCK_INIT
+     GOACC_REDUCTION_SETUP
+     GOACC_FORK
+     GOACC_REDUCTION_INIT
+     ...
+     GOACC_LOCK
+     GOACC_REDUCTION_FINI
+     GOACC_UNLOCK
+     GOACC_JOIN
+     GOACC_REDUCTION_TEARDOWN.  */
 
 static void
-lower_oacc_reductions (enum internal_fn ifn, int loop_dim, tree clauses,
-		       gimple_seq *ilist, omp_context *ctx, bool write_back)
+lower_oacc_reductions (location_t loc, tree clauses, unsigned dim, bool inner,
+		       gcall *fork, gcall *join, gimple_seq *fork_seq,
+		       gimple_seq *join_seq, omp_context *ctx)
 {
-  tree orig, var, ref_to_res, call, dim;
-  tree c, tcode, gwv, rid, lid = build_int_cst (integer_type_node, oacc_lid);
-  int oacc_rid, i;
-  unsigned mask = extract_oacc_loop_mask (ctx);
-  gimple_seq red_seq = NULL;
-  int num_reductions = 0;
-  enum tree_code rcode;
+  static unsigned oacc_lid = 0;
+  
+  gimple_seq before_fork = NULL;
+  gimple_seq after_fork = NULL;
+  gimple_seq before_join = NULL;
+  gimple_seq after_join = NULL;
+  unsigned count = 0;
+  tree lid = build_int_cst (unsigned_type_node, oacc_lid++);
+  tree level = build_int_cst (unsigned_type_node, dim);
 
-  /* Remove the outer-most level of parallelism from the loop.  */
-  for (i = GOMP_DIM_MAX-1; i >= 0; i--)
-    if (GOMP_DIM_MASK (i) & mask)
+  for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
-        mask &= ~GOMP_DIM_MASK (i);
-	break;
+	tree orig = OMP_CLAUSE_DECL (c);
+	tree var = OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c);
+	tree ref_to_res = NULL_TREE;
+	
+	if (!var)
+	  var = maybe_lookup_decl (orig, ctx);
+	if (!var)
+	  var = orig;
+
+	if (!inner)
+	  {
+	    /* See if an outer construct also reduces this variable.  */
+	    omp_context *outer = ctx;
+
+	    while (omp_context *probe = outer->outer)
+	      {
+		enum gimple_code type = gimple_code (probe->stmt);
+		tree cls;
+
+		switch (type)
+		  {
+		  case GIMPLE_OMP_FOR:
+		    cls = gimple_omp_for_clauses (probe->stmt);
+		    break;
+
+		  case GIMPLE_OMP_TARGET:
+		    if (gimple_omp_target_kind (probe->stmt)
+			!= GF_OMP_TARGET_KIND_OACC_PARALLEL)
+		      goto do_lookup;
+
+		    cls = gimple_omp_target_clauses (probe->stmt);
+		    break;
+
+		  default:
+		    goto do_lookup;
+		  }
+		
+		outer = probe;
+		for (; cls;  cls = OMP_CLAUSE_CHAIN (cls))
+		  if (OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_REDUCTION
+		      && orig == OMP_CLAUSE_DECL (cls))
+		    goto has_outer_reduction;
+	      }
+
+	  do_lookup:
+	    
+	    /* This is the outermost construct with this reduction,
+	       see if there's a mapping for it.  */
+	    if (maybe_lookup_field (orig, outer))
+	      ref_to_res = build_receiver_ref (orig, false, outer);
+
+	  has_outer_reduction:;
+	  }
+	gcc_assert (!is_reference (var));
+	if (!ref_to_res)
+	  ref_to_res = integer_zero_node;
+	else if (is_reference (orig))
+	  ref_to_res = build_simple_mem_ref (ref_to_res);
+
+	unsigned rcode = OMP_CLAUSE_REDUCTION_CODE (c);
+	if (rcode == MINUS_EXPR)
+	  rcode = PLUS_EXPR;
+	tree op = build_int_cst (unsigned_type_node, rcode);
+	tree rid = build_int_cst (unsigned_type_node, count);	
+
+	tree setup = build_call_expr_internal_loc
+	  (loc, IFN_GOACC_REDUCTION_SETUP, TREE_TYPE (var), 6,
+	   unshare_expr (ref_to_res), var, level, op, lid, rid);
+	tree init = build_call_expr_internal_loc
+	  (loc, IFN_GOACC_REDUCTION_INIT, TREE_TYPE (var), 6,
+	   unshare_expr (ref_to_res), var, level, op, lid, rid);
+	tree fini = build_call_expr_internal_loc
+	  (loc, IFN_GOACC_REDUCTION_FINI, TREE_TYPE (var), 6,
+	   unshare_expr (ref_to_res), var, level, op, lid, rid);
+	tree teardown = build_call_expr_internal_loc
+	  (loc, IFN_GOACC_REDUCTION_TEARDOWN, TREE_TYPE (var), 6,
+	   ref_to_res, var, level, op, lid, rid);
+
+	gimplify_assign (var, setup, &before_fork);
+	gimplify_assign (var, init, &after_fork);
+	gimplify_assign (var, fini, &before_join);
+	gimplify_assign (var, teardown, &after_join);
+	count++;
       }
 
-  /* Update the write-back status if this loop contains more than one
-     level of parallelism associated with it.  */
-  if (!write_back && (mask & GOMP_DIM_MASK (loop_dim)))
-    write_back = true;
-
-  if (ctx->reductions == 0)
-    return;
-
-  dim = build_int_cst (integer_type_node, loop_dim);
-
-  /* Call GOACC_LOCK_INIT.  */
-  if (ifn == IFN_GOACC_REDUCTION_SETUP)
+  /* Now stitch things together.  */
+  if (count)
     {
-      call = build_call_expr_internal_loc (UNKNOWN_LOCATION,
-					   IFN_GOACC_LOCK_INIT,
-					   void_type_node, 2, dim, lid);
-      gimplify_and_add (call, ilist);
+      gcall *init = gimple_build_call_internal
+	(IFN_GOACC_LOCK_INIT, 2, level, lid);
+      gimple_seq_add_stmt (fork_seq, init);
     }
+  gimple_seq_add_seq (fork_seq, before_fork);
+  if (fork)
+    gimple_seq_add_stmt (fork_seq, fork);
+  gimple_seq_add_seq (fork_seq, after_fork);
 
-  for (c = clauses, oacc_rid = 0;
-       c && write_back;
-       c = OMP_CLAUSE_CHAIN (c), oacc_rid++)
+  if (count)
     {
-      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_REDUCTION)
-	continue;
-
-      orig = OMP_CLAUSE_DECL (c);
-
-      if (loop_dim == GOMP_DIM_GANG && is_oacc_reduction_private (orig, ctx)
-	  && !is_oacc_parallel (ctx))
-	continue;
-
-      var = OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c);
-      if (var == NULL_TREE)
-	var = maybe_lookup_decl (orig, ctx);
-      if (var == NULL_TREE)
-	var = orig;
-
-      if (is_oacc_parallel (ctx))
-	{
-	  ref_to_res = build_receiver_ref (orig, false, ctx);
-
-	  if (is_reference (orig))
-	    ref_to_res = build_simple_mem_ref (ref_to_res);
-	}
-      else if (loop_dim == GOMP_DIM_GANG)
-	ref_to_res = build_fold_addr_expr (build_outer_var_ref (orig, ctx));
-      else
-	ref_to_res = integer_zero_node;
-
-      rcode = OMP_CLAUSE_REDUCTION_CODE (c);
-      if (rcode == MINUS_EXPR)
-	rcode = PLUS_EXPR;
-
-      if (is_reference (var))
-	var = build_simple_mem_ref (var);
-
-      tcode = build_int_cst (integer_type_node, rcode);
-      rid = build_int_cst (integer_type_node, oacc_rid);
-      gwv = build_int_cst (integer_type_node, loop_dim);
-      call = build_call_expr_internal_loc (UNKNOWN_LOCATION, ifn,
-					   TREE_TYPE (var), 6, ref_to_res,
-					   var, gwv, tcode, lid, rid);
-      gimplify_assign (var, call, &red_seq);
-      num_reductions++;
+      gcall *init = gimple_build_call_internal
+	(IFN_GOACC_LOCK, 2, level, lid);
+      gimple_seq_add_stmt (join_seq, init);
     }
-
-  if (num_reductions)
+  gimple_seq_add_seq (join_seq, before_join);
+  if (count)
     {
-      /* Call GOACC_LOCK.  */
-      if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
-	{
-	  call = build_call_expr_internal_loc (UNKNOWN_LOCATION,
-					       IFN_GOACC_LOCK, void_type_node,
-					       2, dim, lid);
-	  gimplify_and_add (call, ilist);
-	}
-
-      gimple_seq_add_seq (ilist, red_seq);
-
-      /* Call GOACC_UNLOCK.  */
-      if (ifn == IFN_GOACC_REDUCTION_FINI && write_back)
-	{
-	  dim = build_int_cst (integer_type_node, loop_dim);
-	  call = build_call_expr_internal_loc (UNKNOWN_LOCATION,
-					       IFN_GOACC_UNLOCK,
-					       void_type_node, 2, dim, lid);
-	  gimplify_and_add (call, ilist);
-	}
+      gcall *init = gimple_build_call_internal
+	(IFN_GOACC_UNLOCK, 2, level, lid);
+      gimple_seq_add_stmt (join_seq, init);
     }
+  if (join)
+    gimple_seq_add_stmt (join_seq, join);
+  gimple_seq_add_seq (join_seq, after_join);
 }
 
-/* Determine if a fake gang loop is necessary for an OpenACC reduction.  */
+/* Generate the before and after OpenACC loop sequences.  CLAUSES are
+   the loop clauses, from which we extract reductions.  Initialize
+   HEAD and TAIL.  */
 
-static bool
-oacc_fake_gang_reduction (omp_context *ctx)
+static void
+lower_oacc_head_tail (location_t loc, tree clauses,
+		      gimple_seq *head, gimple_seq *tail, omp_context *ctx)
 {
-  if ((ctx->gwv_below & GOMP_DIM_MASK (GOMP_DIM_GANG)) == 0)
-    return true;
+  unsigned mask = ctx->gwv_this;
+  unsigned ix;
+  bool inner = false;
 
-  return false;
-}
+  if (ctx->outer &&  gimple_code (ctx->outer->stmt) == GIMPLE_OMP_FOR)
+    mask &= ~ctx->outer->gwv_this;
+  
+  for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
+    if (mask & GOMP_DIM_MASK (ix))
+      {
+	tree level = build_int_cst (unsigned_type_node, ix);
+	gcall *fork = gimple_build_call_internal
+	  (IFN_UNIQUE, 2,
+	   build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK), level);
+	gcall *join = gimple_build_call_internal
+	  (IFN_UNIQUE, 2,
+	   build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN), level);
+	gimple_seq fork_seq = NULL;
+	gimple_seq join_seq = NULL;
 
-/* Helper function for lower_goacc_loop_*. ILIST is the gimple sequence
-   corresponding to private reductions.  OLIST is for the copy reductions.  */
+	gimple_set_location (fork, loc);
+	gimple_set_location (join, loc);
+	lower_oacc_reductions (loc, clauses, ix, inner,
+			       fork, join, &fork_seq, &join_seq,  ctx);
 
-static unsigned
-lower_oacc_loop_helper (tree clauses, gimple_seq *ilist, gimple_seq *olist,
-			 omp_context *ctx, enum internal_fn f1,
-			 enum internal_fn f2, unsigned fork_join,
-			 unsigned loop_dim, unsigned loop_mask,
-			 bool emit_f1)
-{
-  tree gwv;
-  gcall *call;
-  unsigned orig_mask = extract_oacc_loop_mask (ctx);
+	/* Append this level to head. */
+	gimple_seq_add_seq (head, fork_seq);
+	/* Prepend it to tail.  */
+	gimple_seq_add_seq (&join_seq, *tail);
+	*tail = join_seq;
 
-  lower_oacc_reductions (f1, loop_dim, clauses, ilist, ctx, emit_f1);
-  gwv = build_int_cst (unsigned_type_node, loop_dim);
-  call = gimple_build_call_internal
-    (IFN_UNIQUE, 2, build_int_cst (unsigned_type_node, fork_join), gwv);
-  gimple_seq_add_stmt (ilist, call);
-  lower_oacc_reductions (f2, loop_dim, clauses, ilist, ctx, true);
-  loop_mask = loop_mask & ~GOMP_DIM_MASK (loop_dim);
-
-  if ((orig_mask & GOMP_DIM_MASK (GOMP_DIM_GANG)) == 0
-      && loop_dim != GOMP_DIM_GANG && loop_mask == 0
-      && oacc_fake_gang_reduction (ctx))
-    {
-      lower_oacc_reductions (f1, GOMP_DIM_GANG, clauses, olist, ctx, true);
-      lower_oacc_reductions (f2, GOMP_DIM_GANG, clauses, olist, ctx, true);
-    }
-
-  return loop_mask;
+	inner = true;
+      }
 }
 
 /* Generate code to implement the REDUCTION clauses.  OpenACC reductions
@@ -4903,21 +4926,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
   /* OpenACC loop reductions are handled elsewhere.  */
   if (is_gimple_omp_oacc (ctx->stmt))
-    {
-      unsigned loop_dim, loop_mask = extract_oacc_loop_mask (ctx);
-
-      if (loop_mask == 0)
-	return;
-
-      for (loop_dim = GOMP_DIM_MAX; --loop_dim; )
-	if (loop_mask & GOMP_DIM_MASK (loop_dim))
-	  break;
-
-      lower_oacc_reductions (IFN_GOACC_REDUCTION_FINI, loop_dim, clauses,
-			      stmt_seqp, ctx, true);
-
-      return;
-    }
+    return;
 
   /* SIMD reductions are handled in lower_rec_input_clauses.  */
   if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
@@ -11178,44 +11187,6 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
     }
 }
 
-/* Lower code for OpenACC for entry and exit to an oacc loop.  This function
-   is responsible for setting up reductions and placing markers to GOACC_FORK
-   and GOACC_JOIN.
-*/
-
-static void
-lower_oacc_loop_enter_exit (bool enter_loop, tree clauses, gimple_seq *ilist,
-			    omp_context *ctx)
-{
-  unsigned loop_dim_mask = extract_oacc_loop_mask (ctx);
-
-  if (loop_dim_mask == 0)
-    return;
-
-  if (enter_loop)
-    {
-      for (int i = GOMP_DIM_GANG; i < GOMP_DIM_MAX; i++)
-	if (loop_dim_mask & GOMP_DIM_MASK (i))
-	  loop_dim_mask =
-	    lower_oacc_loop_helper (clauses, ilist, &oacc_gang_reduction_init,
-				    ctx, IFN_GOACC_REDUCTION_SETUP,
-				    IFN_GOACC_REDUCTION_INIT,
-				    IFN_UNIQUE_OACC_FORK, i, loop_dim_mask,
-				    enter_loop);
-    }
-  else
-    {
-      for (int i = GOMP_DIM_MAX; i-- != GOMP_DIM_GANG;)
-	if (loop_dim_mask & GOMP_DIM_MASK (i))
-	  loop_dim_mask =
-	    lower_oacc_loop_helper (clauses, ilist, &oacc_gang_reduction_fini,
-				    ctx, IFN_GOACC_REDUCTION_FINI,
-				    IFN_GOACC_REDUCTION_TEARDOWN,
-				    IFN_UNIQUE_OACC_JOIN, i, loop_dim_mask,
-				    enter_loop);
-    }
-}
-
 /* Lower code for an OMP loop directive.  */
 
 static void
@@ -11225,12 +11196,9 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   struct omp_for_data fd, *fdp = NULL;
   gomp_for *stmt = as_a <gomp_for *> (gsi_stmt (*gsi_p));
   gbind *new_stmt;
-  gimple_seq omp_for_body, body, dlist, header, exit;
+  gimple_seq omp_for_body, body, dlist;
+  gimple_seq oacc_head = NULL, oacc_tail = NULL;
   size_t i;
-  int loop_mask = extract_oacc_loop_mask (ctx);
-
-  if (is_gimple_omp_oacc (ctx->stmt))
-    oacc_lid++;
 
   push_gimplify_context ();
 
@@ -11305,21 +11273,6 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* The pre-body and input clauses go before the lowered GIMPLE_OMP_FOR.  */
   dlist = NULL;
   body = NULL;
-  header = NULL;
-
-  if (is_gimple_omp_oacc (ctx->stmt))
-    {
-      lower_oacc_loop_enter_exit (true, gimple_omp_for_clauses (stmt),
-				   &header, ctx);
-      if (loop_mask & GOMP_DIM_MASK (GOMP_DIM_GANG)
-	  || (oacc_fake_gang_reduction (ctx) && loop_mask == ctx->gwv_this))
-	{
-	  gimple_seq_add_seq (&body, oacc_gang_reduction_init);
-	  oacc_gang_reduction_init = NULL;
-	}
-    }
-
-  gimple_seq_add_seq (&body, header);
 
   lower_rec_input_clauses (gimple_omp_for_clauses (stmt), &body, &dlist, ctx,
 			   fdp);
@@ -11352,6 +11305,15 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* Once lowered, extract the bounds and clauses.  */
   extract_omp_for_data (stmt, &fd, NULL);
 
+  if (is_gimple_omp_oacc (ctx->stmt))
+    lower_oacc_head_tail (gimple_location (stmt),
+			  gimple_omp_for_clauses (stmt),
+			  &oacc_head, &oacc_tail, ctx);
+
+  /* Add OpenACC partitioning & reduction markers just before the loop  */
+  if (oacc_head)
+    gimple_seq_add_seq (&body, oacc_head);
+  
   lower_omp_for_lastprivate (&fd, &body, &dlist, ctx);
 
   gimple_seq_add_stmt (&body, stmt);
@@ -11374,19 +11336,9 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
   maybe_add_implicit_barrier_cancel (ctx, &body);
 
-  if (is_gimple_omp_oacc (ctx->stmt))
-    {
-      exit = NULL;
-      lower_oacc_loop_enter_exit (false, gimple_omp_for_clauses (stmt),
-				   &exit, ctx);
-      gimple_seq_add_seq (&body, exit);
-      if (loop_mask & GOMP_DIM_MASK (GOMP_DIM_GANG)
-	  || (oacc_fake_gang_reduction (ctx) && loop_mask == ctx->gwv_this))
-	{
-	  gimple_seq_add_seq (&body, oacc_gang_reduction_fini);
-	  oacc_gang_reduction_fini = NULL;
-	}
-    }
+  /* Add OpenACC joining and reduction markers just after the loop.  */
+  if (oacc_tail)
+    gimple_seq_add_seq (&body, oacc_tail);
 
   pop_gimplify_context (new_stmt);
 
@@ -12072,18 +12024,13 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   irlist = NULL;
   orlist = NULL;
 
-  if (is_oacc_parallel (ctx) && ctx->reductions)
-    {
-      lower_oacc_reductions (IFN_GOACC_REDUCTION_SETUP, GOMP_DIM_GANG,
-			      clauses, &irlist, ctx, true);
-      lower_oacc_reductions (IFN_GOACC_REDUCTION_INIT, GOMP_DIM_GANG,
-			      clauses, &irlist, ctx, true);
-      lower_oacc_reductions (IFN_GOACC_REDUCTION_FINI, GOMP_DIM_GANG,
-			      clauses, &orlist, ctx, true);
-      lower_oacc_reductions (IFN_GOACC_REDUCTION_TEARDOWN, GOMP_DIM_GANG,
-			      clauses, &orlist, ctx, true);
-    }
-
+  if (is_oacc_parallel (ctx))
+    /* If there are reductions on the offloaded region itself, treat
+       them as a dummy GANG loop.  */
+    lower_oacc_reductions (gimple_location (ctx->stmt), clauses,
+			   GOMP_DIM_GANG, false, NULL, NULL,
+			   &irlist, &orlist, ctx);
+  
   if (offloaded)
     {
       /* Declare all the variables created by mapping and the variables

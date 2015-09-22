@@ -4581,6 +4581,14 @@ nvptx_goacc_reduction_setup (gimple call)
 
   push_gimplify_context (true);
 
+  if (level != GOMP_DIM_GANG)
+    {
+      tree ref_to_res = gimple_call_arg (call, 0);
+
+      if (!integer_zerop (ref_to_res))
+	var = build_simple_mem_ref (ref_to_res);
+    }
+  
   if (level == GOMP_DIM_WORKER)
     {
       tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (var)));
@@ -4687,7 +4695,16 @@ nvptx_goacc_reduction_init (gimple call)
       add_phi_arg (phi, var, nop_edge, gimple_location (call));
     }
   else
-    gimplify_assign (lhs, init, &seq);
+    {
+      if (level == GOMP_DIM_GANG)
+	{
+	  tree ref_to_res = gimple_call_arg (call, 0);
+	  if (integer_zerop (ref_to_res))
+	    init = var;
+	}
+      
+      gimplify_assign (lhs, init, &seq);
+    }
 
   pop_gimplify_context (NULL);
   gsi_replace_with_seq (&gsi, seq, true);
@@ -4763,11 +4780,9 @@ nvptx_goacc_reduction_fini (gimple call)
     }
   else
     {
-      tree accum;
+      tree accum = NULL_TREE;
 
-      if (level == GOMP_DIM_GANG)
-	accum = build_simple_mem_ref (ref_to_res);
-      else if (level == GOMP_DIM_WORKER)
+      if (level == GOMP_DIM_WORKER)
 	{
 	  tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (var)));
 	  tree call = nvptx_get_worker_red_addr_fn (var, rid, lid);
@@ -4775,13 +4790,19 @@ nvptx_goacc_reduction_fini (gimple call)
 	  gimplify_assign (ptr, call, &seq);
 	  accum = build_simple_mem_ref (ptr);
 	}
+      else if (integer_zerop (ref_to_res))
+	r = var;
       else
-	gcc_unreachable ();
+	accum = build_simple_mem_ref (ref_to_res);
 
-      TREE_THIS_VOLATILE (accum) = 1;
-      r = make_ssa_name (TREE_TYPE (var));
-      gimplify_assign (r, fold_build2 (op, TREE_TYPE (var), accum, var), &seq);
-      gimplify_assign (accum, r, &seq);
+      if (accum)
+	{
+	  TREE_THIS_VOLATILE (accum) = 1;
+	  r = make_ssa_name (TREE_TYPE (var));
+	  gimplify_assign (r, fold_build2 (op, TREE_TYPE (var), accum, var),
+			   &seq);
+	  gimplify_assign (accum, r, &seq);
+	}
     }
 
   if (lhs)
@@ -4842,6 +4863,14 @@ nvptx_goacc_reduction_teardown (gimple call)
     }
   else
     r = var;
+
+  if (level != GOMP_DIM_GANG)
+    {
+      tree ref_to_res = gimple_call_arg (call, 0);
+
+      if (!integer_zerop (ref_to_res))
+	gimplify_assign (build_simple_mem_ref (ref_to_res), r, &seq);
+    }
 
   if (lhs)
     gimplify_assign (lhs, r, &seq);

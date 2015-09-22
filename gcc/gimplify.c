@@ -7431,31 +7431,12 @@ localize_reductions_r (tree *tp, int *walk_subtrees, void *data)
    which are not associated with acc loops.  */
 
 static void
-localize_reductions (tree *expr_p, bool target = false)
+localize_reductions (tree *expr_p, bool target)
 {
   tree clauses = target ? OMP_CLAUSES (*expr_p) : OMP_FOR_CLAUSES (*expr_p);
   tree c, var, type, new_var;
   struct privatize_reduction pr;
-  int gwv_cur = 0;
-  int mask_wv =
-    GOMP_DIM_MASK (GOMP_DIM_WORKER) | GOMP_DIM_MASK (GOMP_DIM_VECTOR);
-
-  /* Non-vector and worker reduction do not need to be localized.  */
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      enum omp_clause_code cc = OMP_CLAUSE_CODE (c);
-
-      if (cc == OMP_CLAUSE_GANG)
-	gwv_cur |= GOMP_DIM_MASK (GOMP_DIM_GANG);
-      else if (cc == OMP_CLAUSE_WORKER)
-	gwv_cur |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
-      else if (cc == OMP_CLAUSE_VECTOR)
-	gwv_cur |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
-    }
-
-  if (!(gwv_cur & mask_wv) && target == false)
-    return;
-
+  
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
@@ -7525,7 +7506,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     }
 
   if (ork == ORK_OACC)
-    localize_reductions (expr_p);
+    localize_reductions (expr_p, false);
 
   /* Set OMP_CLAUSE_LINEAR_NO_COPYIN flag on explicit linear
      clause for the IV.  */

@@ -1,3 +1,26 @@
+2015-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (oacc_lid, oacc_gang_reduction_init,
+	oacc_gang_reduction_fini): Delete.
+	(lower_oacc_reductions): Reimplement to generate all 4 reduction
+	functions in one go.
+	(oacc_fake_gang_reduction): Delete.
+	(lower_oacc_head_tail): New. Create both head and tail sequences
+	in one go.
+	(lower_oacc_loop_helper): Delete.
+	(lower_reduction_clauses): Don't lower oacc reductions here.
+	(lower_oacc_loop_enter_exit): Delete.
+	(lower_omp_for): Update to use lower_oacc_head_tail.
+	(lower_omp_target): Update for lower_oacc_reductions change.
+	* gimplify.c (localize_reductions): Remove default arg, update
+	callers.  Always localize reference reductions.l
+	* config/nvptx/nvptx.c (nvptx_goacc_reduction_setup): Check for
+	receiver object read for non-gang reductions.
+	(nvptx_goacc_reduction_teardown): Likewise.
+	(nvptx_goacc_reduction_init): Copy var for gang reductions lacking
+	a receiver object.
+	(nvptx_goacc_reduction_fini): Likewise.
+
 2015-09-22  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-parloops.c (initialize_reductions): Remove local variable
