@@ -434,11 +434,8 @@ stripattributes (const char *s)
    for collect2 the first time around.  */
 
 static void
-switch_to_eh_frame_section (bool back)
+switch_to_eh_frame_section (bool back ATTRIBUTE_UNUSED)
 {
-  tree label;
-
-#ifdef EH_FRAME_SECTION_NAME
   if (eh_frame_section == 0)
     {
       int flags;
@@ -466,27 +463,29 @@ switch_to_eh_frame_section (bool back)
 	}
       else
 	flags = SECTION_WRITE;
+
+#ifdef EH_FRAME_SECTION_NAME
       eh_frame_section = get_section (EH_FRAME_SECTION_NAME, flags, NULL);
-    }
+#else
+      eh_frame_section = ((flags == SECTION_WRITE)
+			  ? data_section : readonly_data_section);
 #endif /* EH_FRAME_SECTION_NAME */
-
-  if (eh_frame_section)
-    switch_to_section (eh_frame_section);
-  else
-    {
-      /* We have no special eh_frame section.  Put the information in
-	 the data section and emit special labels to guide collect2.  */
-      switch_to_section (data_section);
-
-      if (!back)
-	{
-	  label = get_file_function_name ("F");
-	  ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
-	  targetm.asm_out.globalize_label (asm_out_file,
-					   IDENTIFIER_POINTER (label));
-	  ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
-	}
     }
+
+  switch_to_section (eh_frame_section);
+
+#ifdef EH_FRAME_THROUGH_COLLECT2
+  /* We have no special eh_frame section.  Emit special labels to guide
+     collect2.  */
+  if (!back)
+    {
+      tree label = get_file_function_name ("F");
+      ASM_OUTPUT_ALIGN (asm_out_file, floor_log2 (PTR_SIZE));
+      targetm.asm_out.globalize_label (asm_out_file,
+					IDENTIFIER_POINTER (label));
+      ASM_OUTPUT_LABEL (asm_out_file, IDENTIFIER_POINTER (label));
+    }
+#endif
 }
 
 /* Switch [BACK] to the eh or debug frame table section, depending on
@@ -3254,8 +3253,7 @@ static void insert_int (HOST_WIDE_INT, unsigned, unsigned char *);
 static void insert_wide_int (const wide_int &, unsigned char *, int);
 static void insert_float (const_rtx, unsigned char *);
 static rtx rtl_for_decl_location (tree);
-static bool add_location_or_const_value_attribute (dw_die_ref, tree, bool,
-						   enum dwarf_attribute);
+static bool add_location_or_const_value_attribute (dw_die_ref, tree, bool);
 static bool tree_add_const_value_attribute (dw_die_ref, tree);
 static bool tree_add_const_value_attribute_for_decl (dw_die_ref, tree);
 static void add_name_attribute (dw_die_ref, const char *);
@@ -16137,18 +16135,21 @@ fortran_common (tree decl, HOST_WIDE_INT *value)
    since we will need to refer to them each time the function is inlined.  */
 
 static bool
-add_location_or_const_value_attribute (dw_die_ref die, tree decl, bool cache_p,
-				       enum dwarf_attribute attr)
+add_location_or_const_value_attribute (dw_die_ref die, tree decl, bool cache_p)
 {
   rtx rtl;
   dw_loc_list_ref list;
   var_loc_list *loc_list;
   cached_dw_loc_list *cache;
 
+  if (early_dwarf)
+    return false;
+
   if (TREE_CODE (decl) == ERROR_MARK)
     return false;
 
-  if (get_AT (die, attr))
+  if (get_AT (die, DW_AT_location)
+      || get_AT (die, DW_AT_const_value))
     return true;
 
   gcc_assert (TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == PARM_DECL
@@ -16214,7 +16215,7 @@ add_location_or_const_value_attribute (dw_die_ref die, tree decl, bool cache_p,
     }
   if (list)
     {
-      add_AT_location_description (die, attr, list);
+      add_AT_location_description (die, DW_AT_location, list);
       return true;
     }
   /* None of that worked, so it must not really have a location;
@@ -18114,7 +18115,7 @@ gen_formal_parameter_die (tree node, tree origin, bool emit_name_p,
         equate_decl_number_to_die (node, parm_die);
       if (! DECL_ABSTRACT_P (node_or_origin))
 	add_location_or_const_value_attribute (parm_die, node_or_origin,
-					       node == NULL, DW_AT_location);
+					       node == NULL);
 
       break;
 
@@ -19660,7 +19661,7 @@ gen_variable_die (tree decl, tree origin, dw_die_ref context_die)
 	add_pubname (decl_or_origin, var_die);
       else
 	add_location_or_const_value_attribute (var_die, decl_or_origin,
-					       decl == NULL, DW_AT_location);
+					       decl == NULL);
     }
   else
     tree_add_const_value_attribute_for_decl (var_die, decl_or_origin);
@@ -21626,14 +21627,19 @@ dwarf2out_early_global_decl (tree decl)
 static void
 dwarf2out_late_global_decl (tree decl)
 {
-  /* Output any global decls we missed or fill-in any location
-     information we were unable to determine on the first pass.
+  /* We have to generate early debug late for LTO.  */
+  if (in_lto_p)
+    dwarf2out_early_global_decl (decl);
 
-     Skip over functions because they were handled by the
-     debug_hooks->function_decl() call in rest_of_handle_final.  */
-  if ((TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+    /* Fill-in any location information we were unable to determine
+       on the first pass.  */
+  if (TREE_CODE (decl) == VAR_DECL
       && !POINTER_BOUNDS_P (decl))
-    dwarf2out_decl (decl);
+    {
+      dw_die_ref die = lookup_decl_die (decl);
+      if (die)
+	add_location_or_const_value_attribute (die, decl, false);
+    }
 }
 
 /* Output debug information for type decl DECL.  Called from toplev.c
@@ -22091,6 +22097,8 @@ append_entry_to_tmpl_value_parm_die_table (dw_die_ref die, tree arg)
   if (!die || !arg)
     return;
 
+  gcc_assert (early_dwarf);
+
   if (!tmpl_value_parm_die_table)
     vec_alloc (tmpl_value_parm_die_table, 32);
 
@@ -22120,6 +22128,8 @@ schedule_generic_params_dies_gen (tree t)
   if (!generic_type_p (t))
     return;
 
+  gcc_assert (early_dwarf);
+
   if (!generic_type_instances)
     vec_alloc (generic_type_instances, 256);
 
@@ -22135,11 +22145,21 @@ gen_remaining_tmpl_value_param_die_attribute (void)
 {
   if (tmpl_value_parm_die_table)
     {
-      unsigned i;
+      unsigned i, j;
       die_arg_entry *e;
 
+      /* We do this in two phases - first get the cases we can
+	 handle during early-finish, preserving those we cannot
+	 (containing symbolic constants where we don't yet know
+	 whether we are going to output the referenced symbols).
+	 For those we try again at late-finish.  */
+      j = 0;
       FOR_EACH_VEC_ELT (*tmpl_value_parm_die_table, i, e)
-	tree_add_const_value_attribute (e->die, e->arg);
+	{
+	  if (!tree_add_const_value_attribute (e->die, e->arg))
+	    (*tmpl_value_parm_die_table)[j++] = *e;
+	}
+      tmpl_value_parm_die_table->truncate (j);
     }
 }
 
@@ -22157,9 +22177,15 @@ gen_scheduled_generic_parms_dies (void)
   if (!generic_type_instances)
     return;
   
+  /* We end up "recursing" into schedule_generic_params_dies_gen, so
+     pretend this generation is part of "early dwarf" as well.  */
+  set_early_dwarf s;
+
   FOR_EACH_VEC_ELT (*generic_type_instances, i, t)
     if (COMPLETE_TYPE_P (t))
       gen_generic_params_dies (t);
+
+  generic_type_instances = NULL;
 }
 
 
@@ -25193,7 +25219,6 @@ dwarf2out_finish (const char *filename)
   producer->dw_attr_val.v.val_str->refcount--;
   producer->dw_attr_val.v.val_str = find_AT_string (producer_string);
 
-  gen_scheduled_generic_parms_dies ();
   gen_remaining_tmpl_value_param_die_attribute ();
 
   /* Add the name for the main input file now.  We delayed this from
@@ -25550,6 +25575,9 @@ dwarf2out_early_finish (void)
   /* The point here is to flush out the limbo list so that it is empty
      and we don't need to stream it for LTO.  */
   flush_limbo_die_list ();
+
+  gen_scheduled_generic_parms_dies ();
+  gen_remaining_tmpl_value_param_die_attribute ();
 }
 
 /* Reset all state within dwarf2out.c so that we can rerun the compiler

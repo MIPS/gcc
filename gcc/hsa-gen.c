@@ -240,50 +240,41 @@ hsa_function_representation::get_shadow_reg ()
 static void
 hsa_init_data_for_cfun ()
 {
-  int sym_init_len;
-
   hsa_init_compilation_unit_data ();
   hsa_allocp_operand_address
-    = new object_allocator<hsa_op_address> ("HSA address operands", 8);
+    = new object_allocator<hsa_op_address> ("HSA address operands");
   hsa_allocp_operand_immed
-    = new object_allocator<hsa_op_immed> ("HSA immediate operands", 32);
+    = new object_allocator<hsa_op_immed> ("HSA immediate operands");
   hsa_allocp_operand_reg
-    = new object_allocator<hsa_op_reg> ("HSA register operands", 64);
+    = new object_allocator<hsa_op_reg> ("HSA register operands");
   hsa_allocp_operand_code_list
-    = new object_allocator<hsa_op_code_list> ("HSA code list operands", 64);
+    = new object_allocator<hsa_op_code_list> ("HSA code list operands");
   hsa_allocp_inst_basic
-    = new object_allocator<hsa_insn_basic> ("HSA basic instructions", 64);
+    = new object_allocator<hsa_insn_basic> ("HSA basic instructions");
   hsa_allocp_inst_phi
-    = new object_allocator<hsa_insn_phi> ("HSA phi operands", 16);
+    = new object_allocator<hsa_insn_phi> ("HSA phi operands");
   hsa_allocp_inst_mem
-    = new object_allocator<hsa_insn_mem> ("HSA memory instructions", 32);
+    = new object_allocator<hsa_insn_mem> ("HSA memory instructions");
   hsa_allocp_inst_atomic
-    = new object_allocator<hsa_insn_atomic> ("HSA atomic instructions", 32);
+    = new object_allocator<hsa_insn_atomic> ("HSA atomic instructions");
   hsa_allocp_inst_signal
-    = new object_allocator<hsa_insn_signal> ("HSA signal instructions", 32);
+    = new object_allocator<hsa_insn_signal> ("HSA signal instructions");
   hsa_allocp_inst_seg
-    = new object_allocator<hsa_insn_seg> ("HSA segment conversion instructions",
-					  16);
+    = new object_allocator<hsa_insn_seg> ("HSA segment conversion instructions");
   hsa_allocp_inst_cmp
-    = new object_allocator<hsa_insn_cmp> ("HSA comparison instructions", 16);
+    = new object_allocator<hsa_insn_cmp> ("HSA comparison instructions");
   hsa_allocp_inst_br
-    = new object_allocator<hsa_insn_br> ("HSA branching instructions", 16);
+    = new object_allocator<hsa_insn_br> ("HSA branching instructions");
   hsa_allocp_inst_call
-    = new object_allocator<hsa_insn_call> ("HSA call instructions", 16);
+    = new object_allocator<hsa_insn_call> ("HSA call instructions");
   hsa_allocp_inst_arg_block
-    = new object_allocator<hsa_insn_arg_block> ("HSA arg block instructions",
-						16);
+    = new object_allocator<hsa_insn_arg_block> ("HSA arg block instructions");
   hsa_allocp_inst_comment
-    = new object_allocator<hsa_insn_comment> ("HSA comment instructions",
-						16);
+    = new object_allocator<hsa_insn_comment> ("HSA comment instructions");
   hsa_allocp_inst_queue
-    = new object_allocator<hsa_insn_queue> ("HSA queue instructions", 16);
-  hsa_allocp_bb = new object_allocator<hsa_bb> ("HSA basic blocks", 8);
-
-  sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;
-  hsa_allocp_symbols = new object_allocator<hsa_symbol> ("HSA symbols",
-						       sym_init_len);
-
+    = new object_allocator<hsa_insn_queue> ("HSA queue instructions");
+  hsa_allocp_bb = new object_allocator<hsa_bb> ("HSA basic blocks");
+  hsa_allocp_symbols = new object_allocator<hsa_symbol> ("HSA symbols");
   hsa_cfun = new hsa_function_representation ();
 
   /* The entry/exit blocks don't contain incoming code,
@@ -2285,7 +2276,7 @@ gen_hsa_memory_set (hsa_bb *hbb, hsa_op_address *target,
    registers.  */
 
 static void
-gen_hsa_insns_for_single_assignment (gimple assign, hsa_bb *hbb,
+gen_hsa_insns_for_single_assignment (gimple *assign, hsa_bb *hbb,
 				     vec <hsa_op_reg_p> *ssa_map)
 {
   tree lhs = gimple_assign_lhs (assign);
@@ -2507,7 +2498,7 @@ gen_hsa_binary_operation (int opcode, hsa_op_reg *dest,
    registers.  */
 
 static void
-gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
+gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb,
 					vec <hsa_op_reg_p> *ssa_map)
 {
   tree_code code = gimple_assign_rhs_code (assign);
@@ -2790,7 +2781,7 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
    names to HSA pseudo registers.  */
 
 static void
-gen_hsa_insns_for_cond_stmt (gimple cond, hsa_bb *hbb,
+gen_hsa_insns_for_cond_stmt (gimple *cond, hsa_bb *hbb,
 			     vec <hsa_op_reg_p> *ssa_map)
 {
   hsa_op_reg *ctrl = new hsa_op_reg (BRIG_TYPE_B1);
@@ -2811,7 +2802,7 @@ gen_hsa_insns_for_cond_stmt (gimple cond, hsa_bb *hbb,
    names to HSA pseudo registers.  */
 
 static void
-gen_hsa_insns_for_direct_call (gimple stmt, hsa_bb *hbb,
+gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 			       vec <hsa_op_reg_p> *ssa_map)
 {
   tree decl = gimple_call_fndecl (stmt);
@@ -2938,7 +2929,7 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
    it and return true.  */
 
 static bool
-gen_hsa_insns_for_known_library_call (gimple stmt, hsa_bb *hbb,
+gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb,
 				      vec <hsa_op_reg_p> *ssa_map)
 {
   const char *name = hsa_get_declaration_name (gimple_call_fndecl (stmt));
@@ -3387,7 +3378,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
    pseudoregisters.  */
 
 static void
-gen_hsa_unaryop_for_builtin (int opcode, gimple stmt, hsa_bb *hbb,
+gen_hsa_unaryop_for_builtin (int opcode, gimple *stmt, hsa_bb *hbb,
 			     vec <hsa_op_reg_p> *ssa_map)
 {
   tree lhs = gimple_call_lhs (stmt);
@@ -3442,7 +3433,7 @@ get_address_from_value (tree val, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
 
 static void
 gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
- 				    enum BrigAtomicOperation acode, gimple stmt,
+ 				    enum BrigAtomicOperation acode, gimple *stmt,
 				    hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
 {
   tree lhs = gimple_call_lhs (stmt);
@@ -3529,7 +3520,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
    registers.  */
 
 static void
-gen_hsa_insns_for_call (gimple stmt, hsa_bb *hbb,
+gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 			vec <hsa_op_reg_p> *ssa_map)
 {
   tree lhs = gimple_call_lhs (stmt);
@@ -3895,7 +3886,7 @@ specialop:
    appended to HBB.  SSA_MAP maps gimple SSA names to HSA pseudo registers.  */
 
 static void
-gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
+gen_hsa_insns_for_gimple_stmt (gimple *stmt, hsa_bb *hbb,
 			       vec <hsa_op_reg_p> *ssa_map)
 {
   switch (gimple_code (stmt))
@@ -3942,7 +3933,7 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
    pseudo registers.  */
 
 static void
-gen_hsa_phi_from_gimple_phi (gimple phi_stmt, hsa_bb *hbb,
+gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
 			     vec <hsa_op_reg_p> *ssa_map)
 {
   hsa_insn_phi *hphi;
@@ -4255,7 +4246,7 @@ convert_switch_statements ()
     if (gsi_end_p (gsi))
       continue;
 
-    gimple stmt = gsi_stmt (gsi);
+    gimple *stmt = gsi_stmt (gsi);
 
     if (gimple_code (stmt) == GIMPLE_SWITCH)
       {
@@ -4303,22 +4294,22 @@ convert_switch_statements ()
 	    tree high = CASE_HIGH (label);
 
 	    gimple_stmt_iterator cond_gsi = gsi_last_bb (cur_bb);
-	    gimple c = NULL;
+	    gimple *c = NULL;
 	    if (high)
 	      {
 		tree tmp1 = make_temp_ssa_name (boolean_type_node, NULL,
 						"switch_cond_op1");
-		gimple assign1 = gimple_build_assign (tmp1, LE_EXPR, low,
+		gimple *assign1 = gimple_build_assign (tmp1, LE_EXPR, low,
 						      index);
 
 		tree tmp2 = make_temp_ssa_name (boolean_type_node, NULL,
 						"switch_cond_op2");
-		gimple assign2 = gimple_build_assign (tmp2, LE_EXPR, index,
+		gimple *assign2 = gimple_build_assign (tmp2, LE_EXPR, index,
 						      high);
 
 		tree tmp3 = make_temp_ssa_name (boolean_type_node, NULL,
 						"switch_cond_and");
-		gimple assign3 = gimple_build_assign (tmp3, BIT_AND_EXPR, tmp1,
+		gimple *assign3 = gimple_build_assign (tmp3, BIT_AND_EXPR, tmp1,
 						      tmp2);
 
 		gsi_insert_before (&cond_gsi, assign1, GSI_SAME_STMT);
