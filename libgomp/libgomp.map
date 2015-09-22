@@ -343,9 +343,3 @@ GOMP_PLUGIN_1.0 {
 	GOMP_PLUGIN_async_unmap_vars;
 	GOMP_PLUGIN_acc_thread;
 };
-
-HSA_1.0 {
-  global:
-	__hsa_launch_kernel;
-	__hsa_register_image;
-} GOMP_4.0.1;

@@ -2109,13 +2109,6 @@ hsa_output_kernel_mapping (tree brig_decl)
 
   /* Generate an initializer with a call to the registration routine.  */
 
-  /* __hsa_register_image is an a testing-only registration routine that will
-     go away once the transition to gomp plugin is complete.  However, at th
-     moment we support it too.  */
-  tree reg_fn_type = build_function_type_list (void_type_node, ptr_type_node,
-					       ptr_type_node, NULL_TREE);
-  tree reg_fn = build_fn_decl ("__hsa_register_image", reg_fn_type);
-
   tree offload_register = builtin_decl_explicit
     (BUILT_IN_GOMP_OFFLOAD_REGISTER);
   gcc_checking_assert (offload_register);
@@ -2126,11 +2119,6 @@ hsa_output_kernel_mapping (tree brig_decl)
 		      /* 7 stands for HSA.  */
 		      build_int_cst (integer_type_node, 7),
 		      build_fold_addr_expr (hsa_img_descriptor)),
-     &hsa_ctor_statements);
-  append_to_statement_list
-    (build_call_expr (reg_fn, 2,
-                      build_fold_addr_expr (hsa_libgomp_host_table),
-                      build_fold_addr_expr (hsa_img_descriptor)),
      &hsa_ctor_statements);
 
   cgraph_build_static_cdtor ('I', hsa_ctor_statements, DEFAULT_INIT_PRIORITY);
