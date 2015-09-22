@@ -1,3 +1,8 @@
+2015-09-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/dummy-array.f90: New test.
+	* testsuite/libgomp.oacc-fortran/reference-reductions.f90: New test.
+
 2015-09-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp.h (struct splay_tree_key_s): Remove dealloc_host member.

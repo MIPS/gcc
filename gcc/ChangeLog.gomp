@@ -1,3 +1,8 @@
+2015-09-22  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (oacc_default_clause): Inspect pointer types when
+	determining implicit data mappings.
+
 2015-09-22  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (oacc_lid, oacc_gang_reduction_init,

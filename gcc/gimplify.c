@@ -5948,7 +5948,8 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 	  {
 	    tree type = TREE_TYPE (decl);
 
-	    if (TREE_CODE (type) == REFERENCE_TYPE)
+	    if (TREE_CODE (type) == REFERENCE_TYPE
+		|| POINTER_TYPE_P (type))
 	      type = TREE_TYPE (type);
 	
 	    if (AGGREGATE_TYPE_P (type))
