@@ -1,3 +1,9 @@
+2015-09-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_file_start): Don't print declaration
+	of sdata.
+	* omp-low.c (align_and_expand): Remove function.
+
 2015-09-22  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gimplify.c (oacc_default_clause): Inspect pointer types when

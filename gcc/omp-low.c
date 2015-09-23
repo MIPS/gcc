@@ -1446,21 +1446,6 @@ omp_copy_decl (tree var, copy_body_data *cb)
   return error_mark_node;
 }
 
-/* Modify the old size *POLDSZ to align it up to ALIGN, and then return
-   a value with SIZE added to it.  */
-static tree ATTRIBUTE_UNUSED
-align_and_expand (tree *poldsz, tree size, unsigned int align)
-{
-  tree oldsz = *poldsz;
-  oldsz = fold_build2 (BIT_AND_EXPR, size_type_node,
-		       fold_build2 (PLUS_EXPR, size_type_node,
-				    oldsz, size_int (align - 1)),
-		       fold_build1 (BIT_NOT_EXPR, size_type_node,
-				    size_int (align - 1)));
-  *poldsz = oldsz;
-  return fold_build2 (PLUS_EXPR, size_type_node, oldsz, size);
-}
-
 /* Debugging dumps for parallel regions.  */
 void dump_omp_region (FILE *, struct omp_region *, int);
 void debug_omp_region (struct omp_region *);

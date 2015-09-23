@@ -4063,7 +4063,6 @@ nvptx_file_start (void)
   else
     fputs ("\t.target\tsm_30\n", asm_out_file);
   fprintf (asm_out_file, "\t.address_size %d\n", GET_MODE_BITSIZE (Pmode));
-  fprintf (asm_out_file, "\t.extern .shared .u8 sdata[];\n");
   fputs ("// END PREAMBLE\n", asm_out_file);
 }
 
