@@ -45,7 +45,9 @@
 #include "gstdint.h"
 #include "libgomp-plugin.h"
 
+#ifdef HAVE_PTHREAD_H
 #include <pthread.h>
+#endif
 #include <stdbool.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -669,17 +671,21 @@ static inline struct gomp_task_icv *gomp_icv (bool write)
     return &gomp_global_icv;
 }
 
+#ifdef LIBGOMP_USE_PTHREADS
 /* The attributes to be used during thread creation.  */
 extern pthread_attr_t gomp_thread_attr;
 
 extern pthread_key_t gomp_thread_destructor;
+#endif
 
 /* Function prototypes.  */
 
 /* affinity.c */
 
 extern void gomp_init_affinity (void);
+#ifdef LIBGOMP_USE_PTHREADS
 extern void gomp_init_thread_affinity (pthread_attr_t *, unsigned int);
+#endif
 extern void **gomp_affinity_alloc (unsigned long, bool);
 extern void gomp_affinity_init_place (void *);
 extern bool gomp_affinity_add_cpus (void *, unsigned long, unsigned long,

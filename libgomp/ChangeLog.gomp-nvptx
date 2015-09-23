@@ -1,5 +1,15 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* configure.ac [nvptx*-*-*] (libgomp_use_pthreads): Set and use it...
+	(LIBGOMP_USE_PTHREADS): ...here; new define.
+	* configure: Regenerate.
+	* config.h.in: Likewise.
+	* libgomp.h: Guard pthread.h inclusion.
+	(gomp_thread_attr): Guard by LIBGOMP_USE_PTHREADS.
+	(gomp_init_thread_affinity): Ditto.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/bar.h: New file.
 
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
