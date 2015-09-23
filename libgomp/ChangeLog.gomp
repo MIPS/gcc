@@ -1,3 +1,8 @@
+2015-09-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/reduction-5.f90: Remove XFAIL of
+	execution test for -O0.
+
 2015-09-22  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/dummy-array.f90: New test.

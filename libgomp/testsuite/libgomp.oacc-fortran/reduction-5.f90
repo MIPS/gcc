@@ -1,5 +1,4 @@
 ! { dg-do run }
-! { dg-xfail-run-if "TODO" { *-*-* } { "-O0" } }
 
 ! subroutine reduction
 
