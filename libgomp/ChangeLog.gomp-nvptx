@@ -1,0 +1,7 @@
+2015-12-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* plugin/plugin-nvptx.c (nvptx_host2dev): Allow NULL 'nvthd'.
+	(nvptx_dev2host): Ditto.
+	(GOMP_OFFLOAD_get_caps): Add GOMP_OFFLOAD_CAP_OPENMP_400.
+	(GOMP_OFFLOAD_run): New.
+

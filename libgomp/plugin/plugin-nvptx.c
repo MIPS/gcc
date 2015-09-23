@@ -1052,7 +1052,7 @@ nvptx_host2dev (void *d, const void *h, size_t s)
     GOMP_PLUGIN_fatal ("invalid size");
 
 #ifndef DISABLE_ASYNC
-  if (nvthd->current_stream != nvthd->ptx_dev->null_stream)
+  if (nvthd && nvthd->current_stream != nvthd->ptx_dev->null_stream)
     {
       CUevent *e;
 
@@ -1117,7 +1117,7 @@ nvptx_dev2host (void *h, const void *d, size_t s)
     GOMP_PLUGIN_fatal ("invalid size");
 
 #ifndef DISABLE_ASYNC
-  if (nvthd->current_stream != nvthd->ptx_dev->null_stream)
+  if (nvthd && nvthd->current_stream != nvthd->ptx_dev->null_stream)
     {
       CUevent *e;
 
@@ -1449,7 +1449,7 @@ GOMP_OFFLOAD_get_name (void)
 unsigned int
 GOMP_OFFLOAD_get_caps (void)
 {
-  return GOMP_OFFLOAD_CAP_OPENACC_200;
+  return GOMP_OFFLOAD_CAP_OPENACC_200 | GOMP_OFFLOAD_CAP_OPENMP_400;
 }
 
 int
@@ -1783,4 +1783,28 @@ int
 GOMP_OFFLOAD_openacc_set_cuda_stream (int async, void *stream)
 {
   return nvptx_set_cuda_stream (async, stream);
+}
+
+void
+GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars)
+{
+  CUfunction function = ((struct targ_fn_descriptor *) tgt_fn)->fn;
+  CUresult r;
+  struct ptx_device *ptx_dev = ptx_devices[ord];
+  const char *maybe_abort_msg = "(perhaps abort was called)";
+  void *args = &tgt_vars;
+
+  r = cuLaunchKernel (function,
+		      1, 1, 1,
+		      1, 1, 1,
+		      0, ptx_dev->null_stream->stream, &args, 0);
+  if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuLaunchKernel error: %s", cuda_error (r));
+
+  r = cuCtxSynchronize ();
+  if (r == CUDA_ERROR_LAUNCH_FAILED)
+    GOMP_PLUGIN_fatal ("cuCtxSynchronize error: %s %s\n", cuda_error (r),
+		       maybe_abort_msg);
+  else if (r != CUDA_SUCCESS)
+    GOMP_PLUGIN_fatal ("cuCtxSynchronize error: %s", cuda_error (r));
 }
