@@ -1,5 +1,9 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/icv-device.c: New file.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* Makefile.am (libgomp_la_SOURCES): Add icv.c and icv-device.c.
 	* Makefile.in: Regenerate.
 	* env.c: Split out ICV definitions into...
