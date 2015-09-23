@@ -4400,10 +4400,10 @@ nvptx_dim_limit (unsigned axis)
 /* Determine whether fork & joins are needed.  */
 
 static bool
-nvptx_xform_fork_join (gimple stmt, const int dims[],
+nvptx_xform_fork_join (gcall *call, const int dims[],
 		       bool ARG_UNUSED (is_fork))
 {
-  tree arg = gimple_call_arg (stmt, 1);
+  tree arg = gimple_call_arg (call, 1);
   unsigned axis = TREE_INT_CST_LOW (arg);
 
   /* We only care about worker and vector partitioning.  */
@@ -4421,9 +4421,9 @@ nvptx_xform_fork_join (gimple stmt, const int dims[],
  */
 
 static bool
-nvptx_xform_lock (gimple stmt, const int *ARG_UNUSED (dims), unsigned ifn_code)
+nvptx_xform_lock (gcall *call, const int *ARG_UNUSED (dims), unsigned ifn_code)
 {
-  tree arg = gimple_call_arg (stmt, 0);
+  tree arg = gimple_call_arg (call, 0);
   unsigned mode = TREE_INT_CST_LOW (arg);
   
   switch (ifn_code)
@@ -4542,7 +4542,7 @@ nvptx_generate_vector_shuffle (location_t loc,
 */
 
 static bool
-nvptx_goacc_reduction_setup (gimple call)
+nvptx_goacc_reduction_setup (gcall *call)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   tree lhs = gimple_call_lhs (call);
@@ -4611,7 +4611,7 @@ nvptx_goacc_reduction_setup (gimple call)
 */
 
 static bool
-nvptx_goacc_reduction_init (gimple call)
+nvptx_goacc_reduction_init (gcall *call)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   tree lhs = gimple_call_lhs (call);
@@ -4718,7 +4718,7 @@ nvptx_goacc_reduction_init (gimple call)
 */
 
 static bool
-nvptx_goacc_reduction_fini (gimple call)
+nvptx_goacc_reduction_fini (gcall *call)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   tree lhs = gimple_call_lhs (call);
@@ -4815,7 +4815,7 @@ nvptx_goacc_reduction_fini (gimple call)
 */
 
 static bool
-nvptx_goacc_reduction_teardown (gimple call)
+nvptx_goacc_reduction_teardown (gcall *call)
 {
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   tree lhs = gimple_call_lhs (call);
@@ -4860,12 +4860,8 @@ nvptx_goacc_reduction_teardown (gimple call)
 /* Default goacc.reduction early expander.  */
 
 bool
-nvptx_goacc_reduction (gimple call)
+nvptx_goacc_reduction (gcall *call)
 {
-  /* Reductions modify the SSA names in complicated ways.  Let update_ssa
-     correct it.  */
-  mark_virtual_operands_for_renaming (cfun);
-
   switch (gimple_call_internal_fn (call))
     {
     case IFN_GOACC_REDUCTION_SETUP:

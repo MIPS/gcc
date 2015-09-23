@@ -6,6 +6,24 @@
 
 2015-09-23  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* target.def: GOACC hooks take gcall arg.
+	* doc/tm.texi: Regenerate.
+	* targhooks.h (default_goacc_reduction, default_goacc_fork_join,
+	default_coacc_lock): Gimple is a gcall pointer.
+	* omp-low.c (oacc_xform_on_device): Arg is a gcall.  Adjust.
+	(oacc_xform_dim): Likewise.
+	(execute_oacc_transform): Adjust to pass gcall pointer to worker
+	functions.  Handle rescan immediately.
+	(default_goacc_reduction, default_goacc_fork_join,
+	default_coacc_lock): Gimple is a gcall pointer.
+	*  config/nvptx/nvptx.c (nvptx_xform_fork_join,
+	nvptx_xform_lock, nvptx_goacc_reduction_setup,
+	nvptx_goacc_reduction_init, nvptx_goacc_reduction_fini, 
+	nvptx_goacc_reduction_teardown, nvptx_goacc_reduction): Argument
+	is a gcall, adjust.
+
+2015-09-23  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_generate_vector_shuffle):
 	Reimplement using integer builtins and VIEW_CONVERT_EXPR.
 	(nvptx_goacc_reduction_fini): Pass location to

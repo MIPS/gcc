@@ -5753,14 +5753,14 @@ This hook should return the maximum size of a particular dimension,
 or zero if unbounded.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (gimple @var{stmt}, const int @var{dims[]}, bool @var{is_fork})
+@deftypefn {Target Hook} bool TARGET_GOACC_FORK_JOIN (gcall *@var{call}, const int @var{dims[]}, bool @var{is_fork})
 This hook should convert IFN_GOACC_FORK and IFN_GOACC_JOIN function
 calls to target-specific gimple.  It is executed during the oacc_xform
 pass.  It should return true, if the functions should be deleted.  The
 default hook returns true, if there are no RTL expanders for them.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_LOCK (gimple @var{stmt}, const int @var{dims[]}, unsigned @var{ifn_code})
+@deftypefn {Target Hook} bool TARGET_GOACC_LOCK (gcall *@var{call}, const int @var{dims[]}, unsigned @var{ifn_code})
 This hook should convert IFN_GOACC_LOCK, IFN_GOACC_UNLOCK,
 IFN_GOACC_LOCK_INIT function calls to target-specific gimple.  It is
 executed during the oacc_xform pass.  It should return true, if the
@@ -5768,7 +5768,7 @@ functions should be deleted.  The default hook returns true, if there
 are no RTL expanders for them.
 @end deftypefn
 
-@deftypefn {Target Hook} bool TARGET_GOACC_REDUCTION (gimple @var{call})
+@deftypefn {Target Hook} bool TARGET_GOACC_REDUCTION (gcall *@var{call})
 This hook is used by the oacc_transform pass to expand calls to the
 internal functions @var{GOACC_REDUCTION_SETUP},
 @var{GOACC_REDUCTION_INIT},
