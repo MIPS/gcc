@@ -1437,7 +1437,7 @@ reduced_constant_expression_p (tree t)
 
     case CONSTRUCTOR:
       /* And we need to handle PTRMEM_CST wrapped in a CONSTRUCTOR.  */
-      tree elt, reloc; unsigned HOST_WIDE_INT idx;
+      tree elt; unsigned HOST_WIDE_INT idx;
       FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (t), idx, elt)
 	switch (TREE_CODE (elt))
 	  {
@@ -1448,11 +1448,11 @@ reduced_constant_expression_p (tree t)
 	      return false;
 	    break;
 	  default:
-	    if (!(reloc = initializer_constant_valid_p (elt, TREE_TYPE (elt)))
-	        /* An absolute value is required with reverse SSO.  */
-		|| (reloc != null_pointer_node
-		    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (t))
-		    && !AGGREGATE_TYPE_P (TREE_TYPE (elt))))
+	    if (!initializer_constant_valid_p (elt,
+					       TREE_TYPE (elt),
+					       !VECTOR_TYPE_P (TREE_TYPE (t))
+					       && TYPE_REVERSE_STORAGE_ORDER
+						  (TREE_TYPE (t))))
 	      return false;
 	    break;
 	  }

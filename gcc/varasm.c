@@ -4602,9 +4602,18 @@ initializer_constant_valid_p_1 (tree value, tree endtype, tree *cache)
    therefore, we do not need to check for such things as
    arithmetic-combinations of integers.  */
 tree
-initializer_constant_valid_p (tree value, tree endtype)
+initializer_constant_valid_p (tree value, tree endtype, bool reverse)
 {
-  return initializer_constant_valid_p_1 (value, endtype, NULL);
+  tree reloc = initializer_constant_valid_p_1 (value, endtype, NULL);
+
+  /* An absolute value is required with reverse storage order.  */
+  if (reloc
+      && reloc != null_pointer_node
+      && reverse
+      && !AGGREGATE_TYPE_P (endtype))
+    reloc = NULL_TREE;
+
+  return reloc;
 }
 
 /* Return true if VALUE is a valid constant-valued expression

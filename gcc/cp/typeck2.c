@@ -592,7 +592,7 @@ static bool
 split_nonconstant_init_1 (tree dest, tree init)
 {
   unsigned HOST_WIDE_INT idx;
-  tree field_index, value, reloc;
+  tree field_index, value;
   tree type = TREE_TYPE (dest);
   tree inner_type = NULL;
   bool array_type_p = false;
@@ -648,11 +648,10 @@ split_nonconstant_init_1 (tree dest, tree init)
 		CONSTRUCTOR_ELTS (init)->ordered_remove (idx--);
 	      num_split_elts++;
 	    }
-	  else if (!(reloc = initializer_constant_valid_p (value, inner_type))
-		   /* An absolute value is required with reverse SSO.  */
-		   || (reloc != null_pointer_node
-		       && TYPE_REVERSE_STORAGE_ORDER (type)
-		       && !AGGREGATE_TYPE_P (inner_type)))
+	  else if (!initializer_constant_valid_p (value,
+						  inner_type,
+						  TYPE_REVERSE_STORAGE_ORDER
+						  (type)))
 	    {
 	      tree code;
 	      tree sub;
