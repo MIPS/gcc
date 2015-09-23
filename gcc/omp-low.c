@@ -11325,6 +11325,35 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   if (oacc_tail)
     gimple_seq_add_seq (&body, oacc_tail);
 
+  /* Update the variables inside any clauses which may be involved in loop
+     expansion later on.  */
+  for (tree c = gimple_omp_for_clauses (stmt); c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      int args;
+
+      switch (OMP_CLAUSE_CODE (c))
+	{
+	default:
+	  args = 0;
+	  break;
+	case OMP_CLAUSE_GANG:
+	  args = 2;
+	  break;
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_COLLAPSE:
+	  args = 1;
+	  break;
+	}
+
+      for (int i = 0; i < args; i++)
+	{
+	  tree expr = OMP_CLAUSE_OPERAND (c, i);
+	  if (expr && DECL_P (expr))
+	    OMP_CLAUSE_OPERAND (c, i) = build_outer_var_ref (expr, ctx);
+	}
+    }
+
   pop_gimplify_context (new_stmt);
 
   gimple_bind_append_vars (new_stmt, ctx->block_vars);

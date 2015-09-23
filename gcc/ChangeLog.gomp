@@ -1,3 +1,9 @@
+2015-09-23  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (lower_omp_for): Remap any variables present in
+	OMP_CLAUSE_GANG, OMP_CLAUSE_WORKER, OMP_CLAUSE_VECTOR and
+	OMP_CLAUSE_COLLAPSE becuase they will be used later by expand_omp_for.
+
 2015-09-23  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_generate_vector_shuffle):

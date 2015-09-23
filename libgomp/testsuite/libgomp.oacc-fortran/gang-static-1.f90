@@ -3,6 +3,7 @@
 program main
   integer, parameter :: n = 100
   integer i, a(n), b(n)
+  integer x
 
   do i = 1, n
      b(i) = i
@@ -48,6 +49,23 @@ program main
 
   call test (a, b, 20, n)
 
+  x = 5
+  !$acc parallel loop gang (static:0+x) num_gangs (10)
+  do i = 1, n
+     a(i) = b(i) + 5
+  end do
+  !$acc end parallel loop
+
+  call test (a, b, 5, n)
+
+  x = 10
+  !$acc parallel loop gang (static:x) num_gangs (10)
+  do i = 1, n
+     a(i) = b(i) + 10
+  end do
+  !$acc end parallel loop
+
+  call test (a, b, 10, n)
 end program main
 
 subroutine test (a, b, sarg, n)

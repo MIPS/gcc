@@ -39,7 +39,7 @@ int
 main ()
 {
   int a[N];
-  int i;
+  int i, x;
 
 #pragma acc parallel loop gang (static:*) num_gangs (10)
   for (i = 0; i < 100; i++)
@@ -77,6 +77,22 @@ main ()
     a[i] = GANG_ID (i);
 
   test_nonstatic (a, 10);
+
+  /* Static arguments with a variable expression.  */
+
+  x = 20;
+#pragma acc parallel loop gang (static:0+x) num_gangs (10)
+  for (i = 0; i < 100; i++)
+    a[i] = GANG_ID (i);
+
+  test_static (a, 10, 20);
+
+  x = 20;
+#pragma acc parallel loop gang (static:x) num_gangs (10)
+  for (i = 0; i < 100; i++)
+    a[i] = GANG_ID (i);
+
+  test_static (a, 10, 20);
 
   return 0;
 }

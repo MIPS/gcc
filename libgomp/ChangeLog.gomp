@@ -1,3 +1,9 @@
+2015-09-23  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c: Test if
+	static gang expressions containing variables work.
+	* testsuite/libgomp.oacc-fortran/gang-static-1.f90: Likewise.
+
 2015-09-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/reduction-5.f90: Remove XFAIL of
