@@ -1,3 +1,9 @@
+2015-09-23  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_gpu_implementation_p): New predicate.
+	* hsa-gen.c (pass_gen_hsail::gate): Use it.
+	(pass_gen_hsail::execute): Do not simulate gate predicate.
+
 2015-09-14  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Handle properly expansion

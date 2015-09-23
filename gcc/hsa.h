@@ -1042,4 +1042,17 @@ union hsa_bytes
   uint64_t b64;
 };
 
+/* Return true if a function DECL is an HSA implementation.  */
+
+static inline bool
+hsa_gpu_implementation_p (tree decl)
+{
+  if (hsa_summaries == NULL)
+    return false;
+
+  hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
+
+  return s->gpu_implementation_p;
+}
+
 #endif /* HSA_H */

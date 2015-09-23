@@ -4492,9 +4492,10 @@ public:
 /* Determine whether or not to run generation of HSAIL.  */
 
 bool
-pass_gen_hsail::gate (function *)
+pass_gen_hsail::gate (function *f)
 {
-  return hsa_gen_requested_p ();
+  return hsa_gen_requested_p ()
+    && hsa_gpu_implementation_p (f->decl);
 }
 
 unsigned int
@@ -4503,15 +4504,10 @@ pass_gen_hsail::execute (function *)
   hsa_function_summary *s = hsa_summaries->get
     (cgraph_node::get_create (current_function_decl));
 
-  if (s->gpu_implementation_p)
-    {
-      convert_switch_statements ();
-      generate_hsa (s->kind == HSA_KERNEL);
-      TREE_ASM_WRITTEN (current_function_decl) = 1;
-      return TODO_stop_pass_execution;
-    }
-
-  return 0;
+  convert_switch_statements ();
+  generate_hsa (s->kind == HSA_KERNEL);
+  TREE_ASM_WRITTEN (current_function_decl) = 1;
+  return TODO_stop_pass_execution;
 }
 
 } // anon namespace
