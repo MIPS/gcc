@@ -11341,7 +11341,6 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  break;
 	case OMP_CLAUSE_VECTOR:
 	case OMP_CLAUSE_WORKER:
-	case OMP_CLAUSE_COLLAPSE:
 	  args = 1;
 	  break;
 	}
