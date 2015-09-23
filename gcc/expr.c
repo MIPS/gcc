@@ -5825,8 +5825,15 @@ categorize_ctor_elements_1 (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
 	    init_elts += mult * tc;
 
 	    if (const_from_elts_p && const_p)
-	      const_p = initializer_constant_valid_p (value, elt_type)
-			!= NULL_TREE;
+	      {
+		tree reloc = initializer_constant_valid_p (value, elt_type);
+		if (!reloc
+		    /* An absolute value is required with reverse SSO.  */
+		    || (reloc != null_pointer_node
+			&& TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (ctor))
+			&& !AGGREGATE_TYPE_P (elt_type)))
+		  const_p = false;
+	      }
 	  }
 	  break;
 	}

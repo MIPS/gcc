@@ -8394,7 +8394,7 @@ output_init_element (location_t loc, tree value, tree origtype,
 		     bool strict_string, tree type, tree field, int pending,
 		     bool implicit, struct obstack * braced_init_obstack)
 {
-  tree semantic_type = NULL_TREE;
+  tree semantic_type = NULL_TREE, reloc;
   bool maybe_const = true;
   bool npc;
 
@@ -8438,7 +8438,11 @@ output_init_element (location_t loc, tree value, tree origtype,
     constructor_erroneous = 1;
   else if (!TREE_CONSTANT (value))
     constructor_constant = 0;
-  else if (!initializer_constant_valid_p (value, TREE_TYPE (value))
+  else if (!(reloc = initializer_constant_valid_p (value, TREE_TYPE (value)))
+	   /* An absolute value is required with reverse SSO.  */
+	   || (reloc != null_pointer_node
+	       && TYPE_REVERSE_STORAGE_ORDER (constructor_type)
+	       && !AGGREGATE_TYPE_P (TREE_TYPE (value)))
 	   || ((TREE_CODE (constructor_type) == RECORD_TYPE
 		|| TREE_CODE (constructor_type) == UNION_TYPE)
 	       && DECL_C_BIT_FIELD (field)
