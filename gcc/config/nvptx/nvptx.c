@@ -4477,68 +4477,43 @@ nvptx_get_worker_red_addr_fn (tree var, tree rid, tree lid)
    will cast the variable if necessary.  */
 
 static void
-nvptx_generate_vector_shuffle (tree dest_var, tree var, int shfl,
+nvptx_generate_vector_shuffle (location_t loc,
+			       tree dest_var, tree var, unsigned shift,
 			       gimple_seq *seq)
 {
-  tree vartype = TREE_TYPE (var);
-  enum nvptx_builtins fn = NVPTX_BUILTIN_SHUFFLE_DOWN;
-  machine_mode mode = TYPE_MODE (vartype);
-  tree casted_dest = dest_var;
-  tree casted_var = var;
-  tree call_arg_type;
+  unsigned fn = NVPTX_BUILTIN_SHUFFLE_DOWN;
+  tree_code code = NOP_EXPR;
+  tree type = unsigned_type_node;
 
-  switch (mode)
+  switch (TYPE_MODE (TREE_TYPE (var)))
     {
+    case SFmode:
+      code = VIEW_CONVERT_EXPR;
+      /* FALLTHROUGH */
     case QImode:
     case HImode:
     case SImode:
-      fn = NVPTX_BUILTIN_SHUFFLE_DOWN;
-      call_arg_type = unsigned_type_node;
       break;
-    case DImode:
-      fn = NVPTX_BUILTIN_SHUFFLE_DOWNLL;
-      call_arg_type = long_long_unsigned_type_node;
-      break;
+
     case DFmode:
-      fn = NVPTX_BUILTIN_SHUFFLE_DOWND;
-      call_arg_type = double_type_node;
+      code = VIEW_CONVERT_EXPR;
+      /* FALLTHROUGH  */
+    case DImode:
+      type = long_long_unsigned_type_node;
+      fn = NVPTX_BUILTIN_SHUFFLE_DOWNLL;
       break;
-    case SFmode:
-      fn = NVPTX_BUILTIN_SHUFFLE_DOWNF;
-      call_arg_type = float_type_node;
-      break;
+
     default:
       gcc_unreachable ();
     }
 
-  /* All of the integral types need to be unsigned.  Furthermore, small
-     integral types may need to be extended to 32-bits.  */
-  bool need_conversion = !types_compatible_p (vartype, call_arg_type);
+  tree call = build_call_expr_loc (loc, nvptx_builtin_decl (fn, true),
+				   2, build1 (code, type, var),
+				   build_int_cst (unsigned_type_node, shift));
 
-  if (need_conversion)
-    {
-      casted_var = make_ssa_name (call_arg_type);
-      tree t1 = fold_build1 (NOP_EXPR, call_arg_type, var);
-      gassign *conv1 = gimple_build_assign (casted_var, t1);
-      gimple_seq_add_stmt (seq, conv1);
-    }
+  call = fold_build1 (code, TREE_TYPE (dest_var), call);
 
-  tree fndecl = nvptx_builtin_decl (fn, true);
-  tree shift =  build_int_cst (unsigned_type_node, shfl);
-  gimple call = gimple_build_call (fndecl, 2, casted_var, shift);
-
-  gimple_seq_add_stmt (seq, call);
-
-  if (need_conversion)
-    {
-      casted_dest = make_ssa_name (call_arg_type);
-      tree t2 = fold_build1 (NOP_EXPR, vartype, casted_dest);
-      gassign *conv2 = gimple_build_assign (dest_var, t2);
-      gimple_seq_add_stmt (seq, conv2);
-    }
-
-  update_stmt (call);
-  gimple_call_set_lhs (call, casted_dest);
+  gimplify_assign (dest_var, call, seq);
 }
 
 /* NVPTX implementation of GOACC_REDUCTION_SETUP.  Reserve shared
@@ -4769,11 +4744,12 @@ nvptx_goacc_reduction_fini (gimple call)
       for (int shfl = PTX_VECTOR_LENGTH / 2; shfl > 0; shfl = shfl >> 1)
 	{
 	  tree other_var = make_ssa_name (TREE_TYPE (var));
-	  nvptx_generate_vector_shuffle (other_var, var, shfl, &seq);
+	  nvptx_generate_vector_shuffle (gimple_location (call),
+					 other_var, var, shfl, &seq);
 
 	  r = make_ssa_name (TREE_TYPE (var));
 	  gimplify_assign (r, fold_build2 (op, TREE_TYPE (var),
-					     var, other_var), &seq);
+					   var, other_var), &seq);
 	  var = r;
 	}
     }
