@@ -1,5 +1,9 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/bar.h: New file.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/mutex.h: New file.
 	* config/nvptx/ptrlock.h: New file.
 	* config/nvptx/sem.h: New file.
