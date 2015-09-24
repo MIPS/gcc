@@ -2942,6 +2942,7 @@ if test x${with_multi_buildlist} = x ; then
   esac
   if test -f "${srcdir}/${buildlist}" ; then
     target_configargs="--with-multi-buildlist=${srcdir}/${buildlist} ${target_configargs}"
+    host_configargs="--with-multi-buildlist=${srcdir}/${buildlist} ${host_configargs}"
   fi
 fi
 

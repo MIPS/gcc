@@ -772,6 +772,7 @@ SYSROOT_CFLAGS_FOR_TARGET
 enable_shared
 enable_fixed_point
 enable_decimal_float
+with_multi_buildlist
 with_float
 with_cpu
 enable_multiarch
@@ -6957,6 +6958,9 @@ $as_echo "$enable_multiarch$ma_msg_suffix" >&6; }
 
 # needed for setting the multiarch name for soft-float/hard-float ABIs
 
+
+
+# needed for restricting the fixedincludes multilibs that we install
 
 
 # Enable __cxa_atexit for C++.
@@ -17936,7 +17940,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17939 "configure"
+#line 17943 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18042,7 +18046,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18045 "configure"
+#line 18049 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
