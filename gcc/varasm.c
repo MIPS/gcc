@@ -4610,7 +4610,8 @@ initializer_constant_valid_p (tree value, tree endtype, bool reverse)
   if (reloc
       && reloc != null_pointer_node
       && reverse
-      && !AGGREGATE_TYPE_P (endtype))
+      && !AGGREGATE_TYPE_P (endtype)
+      && !VECTOR_TYPE_P (endtype))
     reloc = NULL_TREE;
 
   return reloc;

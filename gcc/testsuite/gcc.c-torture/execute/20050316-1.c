@@ -1,6 +1,7 @@
 /* PR rtl-optimization/16104 */
 /* { dg-require-effective-target int32plus } */
 /* { dg-options "-Wno-psabi" } */
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
 
 extern void abort (void);
 

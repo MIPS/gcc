@@ -1,4 +1,6 @@
 /* { dg-require-effective-target stdint_types } */
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
+
 #include <stdint.h>
 typedef int32_t __attribute__((vector_size(8))) v2si;
 int64_t s64;

@@ -1,4 +1,6 @@
 /* { dg-options "-Wno-psabi" } */
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
+
 extern void abort (void);
 
 typedef int V2SI __attribute__ ((vector_size (8)));

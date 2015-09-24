@@ -3,6 +3,7 @@
    Currently, there is no "emms" generated to switch between register sets,
    so the testcase fails for targets where MMX insns are enabled.  */
 /* { dg-options "-mno-mmx" { target { x86_64-*-* i?86-*-* } } } */
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
 
 extern void abort (void);
 

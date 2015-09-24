@@ -4229,7 +4229,8 @@ build_unary_op (location_t location,
 	case ARRAY_REF:
 	  if (TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (arg, 0))))
 	    {
-	      if (!AGGREGATE_TYPE_P (TREE_TYPE (arg)))
+	      if (!AGGREGATE_TYPE_P (TREE_TYPE (arg))
+		  && !VECTOR_TYPE_P (TREE_TYPE (arg)))
 		{
 		  error ("cannot take address of scalar with reverse storage "
 			 "order");

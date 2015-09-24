@@ -4,6 +4,8 @@
    regardless of if the target has SIMD instructions.
 */
 
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
+
 typedef int __attribute__((mode(SI))) __attribute__((vector_size (16))) vecint;
 typedef int __attribute__((mode(SI))) siint;
 

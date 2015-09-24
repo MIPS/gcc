@@ -3,6 +3,8 @@
    regardless of if the target has SIMD instructions.
 */
 
+/* { dg-skip-if "requires default endianness" { *-*-* } "-fsso-struct=*" "" } */
+
 typedef short __attribute__((vector_size (16))) vecint;
 
 vecint i = { 150, 100, 150, 200, 0, 0, 0, 0 };

@@ -5603,7 +5603,8 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
     case ARRAY_REF:
       if (TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (arg, 0))))
 	{
-	  if (!AGGREGATE_TYPE_P (TREE_TYPE (arg)))
+	  if (!AGGREGATE_TYPE_P (TREE_TYPE (arg))
+	      && !VECTOR_TYPE_P (TREE_TYPE (arg)))
 	    {
 	      if (complain & tf_error)
 		error ("attempt to take address of scalar with reverse "

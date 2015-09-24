@@ -1471,7 +1471,7 @@ set_reverse_storage_order_on_pad_type (tree type)
 #ifdef ENABLE_CHECKING
   /* If the inner type is not scalar then the function does nothing.  */
   tree inner_type = TREE_TYPE (TYPE_FIELDS (type));
-  gcc_assert (!AGGREGATE_TYPE_P (inner_type));
+  gcc_assert (!AGGREGATE_TYPE_P (inner_type) && !VECTOR_TYPE_P (inner_type));
 #endif
 
   /* This is required for the canonicalization.  */
