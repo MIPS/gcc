@@ -1,3 +1,21 @@
+2015-09-24  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_expand_work_red_addr): Args 0 & 1
+	are size and alignment of allocation.
+	(nvptx_types): Delete  NT_UINTPTR_UINT_UINT, NT_ULLPTR_UINT_UINT,
+	NT_FLTPTR_UINT_UINT, NT_DBLPTR_UINT_UINT.  Add
+	NT_PTR_UINT_UINT_UINT_UINT.
+	(nvptx_builtins): Delete __builtin_nvptx_work_red_addrll,
+	__builtin_nvptx_work_red_addrf,
+	_builtin_nvptx_work_red_addrd. Adjust
+	__builtin_nvptx_work_red_addr type.
+	(nvptx_init_builtins): Adjust.
+	(nvptx_get_worker_addr_fn): Rename to ...
+	(nvptx_get_worker_red_addr): ... here.  Use single builtin and
+	cast return type.
+	(nvptx_goacc_reduction_setup, nvptx_goacc_reduction_fini,
+	nvptx_goac_reduction_teardown): Adjust.
+
 2015-09-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_omp_for): Don't remap OMP_CLAUSE_COLLAPSE

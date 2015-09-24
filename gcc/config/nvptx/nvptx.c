@@ -4159,18 +4159,9 @@ nvptx_expand_work_red_addr (tree exp, rtx target,
 {
   if (ignore)
     return target;
-  
-  rtx loop_id = expand_expr (CALL_EXPR_ARG (exp, 0),
-			     NULL_RTX, mode, EXPAND_NORMAL);
-  rtx red_id = expand_expr (CALL_EXPR_ARG (exp, 1),
-			     NULL_RTX, mode, EXPAND_NORMAL);
-  gcc_assert (GET_CODE (loop_id) == CONST_INT
-	      && GET_CODE (red_id) == CONST_INT);
-  gcc_assert (REG_P (target));
 
-  unsigned lid = (unsigned)UINTVAL (loop_id);
-  unsigned rid = (unsigned)UINTVAL (red_id);
-
+  unsigned lid = TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 2));
+  unsigned rid = TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 3));
   unsigned ix;
 
   for (ix = 0; ix != loop_reds.length (); ix++)
@@ -4186,15 +4177,14 @@ nvptx_expand_work_red_addr (tree exp, rtx target,
 
   /* Allocate a new var. */
   {
-    tree type = TREE_TYPE (TREE_TYPE (exp));
-    enum machine_mode mode = TYPE_MODE (type);
-    unsigned align = GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT;
+    unsigned size = TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 0));
+    unsigned align = TREE_INT_CST_LOW (CALL_EXPR_ARG (exp, 1));
     unsigned off = loop.hwm;
 
     if (align > worker_red_align)
       worker_red_align = align;
     off = (off + align - 1) & ~(align -1);
-    loop.hwm = off + GET_MODE_SIZE (mode);
+    loop.hwm = off + size;
     loop.vars.safe_push (var_red_t (rid, off));
   }
  found_rid:
@@ -4221,10 +4211,7 @@ enum nvptx_types
     NT_ULL_ULL_INT,
     NT_FLT_FLT_INT,
     NT_DBL_DBL_INT,
-    NT_UINTPTR_UINT_UINT,
-    NT_ULLPTR_UINT_UINT,
-    NT_FLTPTR_UINT_UINT,
-    NT_DBLPTR_UINT_UINT,
+    NT_PTR_UINT_UINT_UINT_UINT,
     NT_MAX
   };
 
@@ -4236,9 +4223,6 @@ enum nvptx_builtins
   NVPTX_BUILTIN_SHUFFLE_DOWNF,
   NVPTX_BUILTIN_SHUFFLE_DOWND,
   NVPTX_BUILTIN_WORK_RED_ADDR,
-  NVPTX_BUILTIN_WORK_RED_ADDRLL,
-  NVPTX_BUILTIN_WORK_RED_ADDRF,
-  NVPTX_BUILTIN_WORK_RED_ADDRD,
   NVPTX_BUILTIN_MAX
 };
 
@@ -4252,13 +4236,7 @@ static const struct builtin_description builtins[] =
    nvptx_expand_shuffle_down},
   {"__builtin_nvptx_shuffle_downd", NT_DBL_DBL_INT,
    nvptx_expand_shuffle_down},
-  {"__builtin_nvptx_work_red_addr", NT_UINTPTR_UINT_UINT,
-   nvptx_expand_work_red_addr},
-  {"__builtin_nvptx_work_red_addrll", NT_ULLPTR_UINT_UINT,
-   nvptx_expand_work_red_addr},
-  {"__builtin_nvptx_work_red_addrf", NT_FLTPTR_UINT_UINT,
-   nvptx_expand_work_red_addr},
-  {"__builtin_nvptx_work_red_addrd", NT_DBLPTR_UINT_UINT,
+  {"__builtin_nvptx_work_red_addr", NT_PTR_UINT_UINT_UINT_UINT,
    nvptx_expand_work_red_addr},
 };
 
@@ -4294,24 +4272,9 @@ nvptx_init_builtins (void)
   types[NT_DBL_DBL_INT]
     = build_function_type_list (double_type_node, double_type_node,
 				integer_type_node, NULL_TREE);
-  types[NT_UINTPTR_UINT_UINT]
-    = build_function_type_list (build_pointer_type (unsigned_type_node),
+  types[NT_PTR_UINT_UINT_UINT_UINT]
+    = build_function_type_list (ptr_type_node,
 				unsigned_type_node, unsigned_type_node,
-				NULL_TREE);
-
-  types[NT_ULLPTR_UINT_UINT]
-    = build_function_type_list (build_pointer_type
-				(long_long_unsigned_type_node),
-				unsigned_type_node, unsigned_type_node,
-				NULL_TREE);
-
-  types[NT_FLTPTR_UINT_UINT]
-    = build_function_type_list (build_pointer_type (float_type_node),
-				unsigned_type_node, unsigned_type_node,
-				NULL_TREE);
-
-  types[NT_DBLPTR_UINT_UINT]
-    = build_function_type_list (build_pointer_type (double_type_node),
 				unsigned_type_node, unsigned_type_node,
 				NULL_TREE);
 
@@ -4440,37 +4403,18 @@ nvptx_xform_lock (gcall *call, const int *ARG_UNUSED (dims), unsigned ifn_code)
 }
 
 static tree
-nvptx_get_worker_red_addr_fn (tree var, tree rid, tree lid)
+nvptx_get_worker_red_addr (tree type, tree rid, tree lid)
 {
-  tree vartype = TREE_TYPE (var);
-  tree fndecl, call;
-  enum nvptx_builtins fn;
-  machine_mode mode = TYPE_MODE (vartype);
+  machine_mode mode = TYPE_MODE (type);
+  tree fndecl = nvptx_builtin_decl (NVPTX_BUILTIN_WORK_RED_ADDR, true);
 
-  switch (mode)
-    {
-    case QImode:
-    case HImode:
-    case SImode:
-      fn = NVPTX_BUILTIN_WORK_RED_ADDR;
-      break;
-    case DImode:
-      fn = NVPTX_BUILTIN_WORK_RED_ADDRLL;
-      break;
-    case DFmode:
-      fn = NVPTX_BUILTIN_WORK_RED_ADDRD;
-      break;
-    case SFmode:
-      fn = NVPTX_BUILTIN_WORK_RED_ADDRF;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  fndecl = nvptx_builtin_decl (fn, true);
-  call = build_call_expr (fndecl, 2, lid, rid);
-
-  return call;
+  PROMOTE_MODE (mode, NULL, type);
+  tree size = build_int_cst (unsigned_type_node, GET_MODE_SIZE (mode));
+  tree align = build_int_cst (unsigned_type_node,
+			      GET_MODE_ALIGNMENT (mode) / BITS_PER_UNIT);
+  tree call = build_call_expr (fndecl, 4, size, align, lid, rid);
+  
+  return fold_build1 (NOP_EXPR, build_pointer_type (type), call);
 }
 
 /* Emit a SHFL.DOWN using index SHFL of VAR into DEST_VAR.  This function
@@ -4565,12 +4509,11 @@ nvptx_goacc_reduction_setup (gcall *call)
   
   if (level == GOMP_DIM_WORKER)
     {
-      tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (var)));
-      tree call = nvptx_get_worker_red_addr_fn (var, rid, lid);
-      tree ref;
+      tree call = nvptx_get_worker_red_addr (TREE_TYPE (var), rid, lid);
+      tree ptr = make_ssa_name (TREE_TYPE (call));
 
       gimplify_assign (ptr, call, &seq);
-      ref = build_simple_mem_ref (ptr);
+      tree ref = build_simple_mem_ref (ptr);
       TREE_THIS_VOLATILE (ref) = 1;
       gimplify_assign (ref, var, &seq);
       r = var;
@@ -4759,8 +4702,8 @@ nvptx_goacc_reduction_fini (gcall *call)
 
       if (level == GOMP_DIM_WORKER)
 	{
-	  tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (var)));
-	  tree call = nvptx_get_worker_red_addr_fn (var, rid, lid);
+	  tree call = nvptx_get_worker_red_addr (TREE_TYPE (var), rid, lid);
+	  tree ptr = make_ssa_name (TREE_TYPE (call));
 
 	  gimplify_assign (ptr, call, &seq);
 	  accum = build_simple_mem_ref (ptr);
@@ -4829,8 +4772,8 @@ nvptx_goacc_reduction_teardown (gcall *call)
   push_gimplify_context (true);
   if (level == GOMP_DIM_WORKER)
     {
-      tree ptr = make_ssa_name (build_pointer_type (TREE_TYPE (var)));
-      tree call = nvptx_get_worker_red_addr_fn (var, rid, lid);
+      tree call = nvptx_get_worker_red_addr(TREE_TYPE (var), rid, lid);
+      tree ptr = make_ssa_name (TREE_TYPE (call));
 
       gimplify_assign (ptr, call, &seq);
       r = build_simple_mem_ref (ptr);
