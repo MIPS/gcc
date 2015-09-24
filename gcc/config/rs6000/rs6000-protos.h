@@ -31,6 +31,7 @@ extern void init_cumulative_args (CUMULATIVE_ARGS *, tree, rtx, int, int, int,
 #endif /* TREE_CODE */
 
 extern bool easy_altivec_constant (rtx, machine_mode);
+extern int vspltis_shifted (rtx);
 extern HOST_WIDE_INT const_vector_elt_as_int (rtx, unsigned int);
 extern bool macho_lo_sum_memory_operand (rtx, machine_mode);
 extern int num_insns_constant (rtx, machine_mode);
@@ -53,6 +54,7 @@ extern const char *output_vec_const_move (rtx *);
 extern const char *rs6000_output_move_128bit (rtx *);
 extern bool rs6000_move_128bit_ok_p (rtx []);
 extern bool rs6000_split_128bit_ok_p (rtx []);
+extern void rs6000_expand_float128_convert (rtx, rtx, bool);
 extern void rs6000_expand_vector_init (rtx, rtx);
 extern void paired_expand_vector_init (rtx, rtx);
 extern void rs6000_expand_vector_set (rtx, rtx, int);
@@ -201,6 +203,10 @@ extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
 extern HOST_WIDE_INT rs6000_builtin_mask_calculate (void);
+extern void rs6000_asm_output_dwarf_pcrel (FILE *file, int size,
+					   const char *label);
+extern void rs6000_asm_output_dwarf_datarel (FILE *file, int size,
+					     const char *label);
 
 /* Declare functions in rs6000-c.c */
 

@@ -239,6 +239,9 @@ const char *constant_string_class_name;
 
 /* C++ language option variables.  */
 
+/* The reference version of the ABI for -Wabi.  */
+
+int warn_abi_version = -1;
 
 /* Nonzero means generate separate instantiation control files and
    juggle them at link time.  */
@@ -6311,11 +6314,11 @@ build_va_arg (location_t loc, tree expr, tree type)
 
 /* Linked list of disabled built-in functions.  */
 
-typedef struct disabled_builtin
+struct disabled_builtin
 {
   const char *name;
   struct disabled_builtin *next;
-} disabled_builtin;
+};
 static disabled_builtin *disabled_builtins = NULL;
 
 static bool builtin_function_disabled_p (const char *);
@@ -8328,12 +8331,7 @@ handle_weak_attribute (tree *node, tree name,
       return NULL_TREE;
     }
   else if (VAR_OR_FUNCTION_DECL_P (*node))
-    {
-      struct symtab_node *n = symtab_node::get (*node);
-      if (n && n->refuse_visibility_changes)
-	error ("%+D declared weak after being used", *node);
-      declare_weak (*node);
-    }
+    declare_weak (*node);
   else
     warning (OPT_Wattributes, "%qE attribute ignored", name);
 
@@ -10151,6 +10149,7 @@ check_builtin_function_arguments (tree fndecl, int nargs, tree *args)
     case BUILT_IN_ISINF_SIGN:
     case BUILT_IN_ISNAN:
     case BUILT_IN_ISNORMAL:
+    case BUILT_IN_SIGNBIT:
       if (builtin_function_validate_nargs (fndecl, nargs, 1))
 	{
 	  if (TREE_CODE (TREE_TYPE (args[0])) != REAL_TYPE)
@@ -12146,7 +12145,7 @@ warn_for_sign_compare (location_t location,
           if (bits < TYPE_PRECISION (result_type)
               && bits < HOST_BITS_PER_LONG && unsignedp)
             {
-              mask = (~ (HOST_WIDE_INT) 0) << bits;
+              mask = (~ (unsigned HOST_WIDE_INT) 0) << bits;
               if ((mask & constant) != mask)
 		{
 		  if (constant == 0)
@@ -12442,9 +12441,10 @@ maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
   if (TYPE_UNSIGNED (type0))
     return false;
 
+  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
+			   + TREE_INT_CST_LOW (op1));
   /* Handle the left-shifting 1 into the sign bit case.  */
-  if (integer_onep (op0)
-      && compare_tree_int (op1, prec0 - 1) == 0)
+  if (min_prec == prec0 + 1)
     {
       /* Never warn for C++14 onwards.  */
       if (cxx_dialect >= cxx14)
@@ -12456,8 +12456,6 @@ maybe_warn_shift_overflow (location_t loc, tree op0, tree op1)
 	return true;
     }
 
-  unsigned int min_prec = (wi::min_precision (op0, SIGNED)
-			   + TREE_INT_CST_LOW (op1));
   bool overflowed = min_prec > prec0;
   if (overflowed && c_inhibit_evaluation_warnings == 0)
     warning_at (loc, OPT_Wshift_overflow_,
@@ -12885,6 +12883,43 @@ pointer_to_zero_sized_aggr_p (tree t)
     return false;
   t = TREE_TYPE (t);
   return (TYPE_SIZE (t) && integer_zerop (TYPE_SIZE (t)));
+}
+
+/* For an EXPR of a FUNCTION_TYPE that references a GCC built-in function
+   with no library fallback or for an ADDR_EXPR whose operand is such type
+   issues an error pointing to the location LOC.
+   Returns true when the expression has been diagnosed and false
+   otherwise.  */
+bool
+reject_gcc_builtin (const_tree expr, location_t loc /* = UNKNOWN_LOCATION */)
+{
+  if (TREE_CODE (expr) == ADDR_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+
+  if (TREE_TYPE (expr)
+      && TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
+      && DECL_P (expr)
+      /* The intersection of DECL_BUILT_IN and DECL_IS_BUILTIN avoids
+	 false positives for user-declared built-ins such as abs or
+	 strlen, and for C++ operators new and delete.
+	 The c_decl_implicit() test avoids false positives for implicitly
+	 declared built-ins with library fallbacks (such as abs).  */
+      && DECL_BUILT_IN (expr)
+      && DECL_IS_BUILTIN (expr)
+      && !c_decl_implicit (expr)
+      && !DECL_ASSEMBLER_NAME_SET_P (expr))
+    {
+      if (loc == UNKNOWN_LOCATION)
+	loc = EXPR_LOC_OR_LOC (expr, input_location);
+
+      /* Reject arguments that are built-in functions with
+	 no library fallback.  */
+      error_at (loc, "built-in function %qE must be directly called", expr);
+
+      return true;
+    }
+
+  return false;
 }
 
 #include "gt-c-family-c-common.h"

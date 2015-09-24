@@ -46,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 /* Include expr.h after insn-config.h so we get HAVE_conditional_move.  */
 #include "expr.h"
 #include "insn-codes.h"
+#include "optabs-tree.h"
 #include "optabs.h"
 #include "libfuncs.h"
 #include "recog.h"
@@ -2370,10 +2371,10 @@ use_group_regs (rtx *call_fusage, rtx regs)
    assigment and the code of the expresion on the RHS is CODE.  Return
    NULL otherwise.  */
 
-static gimple
+static gimple *
 get_def_for_expr (tree name, enum tree_code code)
 {
-  gimple def_stmt;
+  gimple *def_stmt;
 
   if (TREE_CODE (name) != SSA_NAME)
     return NULL;
@@ -2390,10 +2391,10 @@ get_def_for_expr (tree name, enum tree_code code)
    assigment and the class of the expresion on the RHS is CLASS.  Return
    NULL otherwise.  */
 
-static gimple
+static gimple *
 get_def_for_expr_class (tree name, enum tree_code_class tclass)
 {
-  gimple def_stmt;
+  gimple *def_stmt;
 
   if (TREE_CODE (name) != SSA_NAME)
     return NULL;
@@ -3022,7 +3023,7 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 /* Extract one of the components of the complex value CPLX.  Extract the
    real part if IMAG_P is false, and the imaginary part if it's true.  */
 
-static rtx
+rtx
 read_complex_part (rtx cplx, bool imag_p)
 {
   machine_mode cmode, imode;
@@ -4476,7 +4477,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
   tree op0, op1;
   rtx value, result;
   optab binop;
-  gimple srcstmt;
+  gimple *srcstmt;
   enum tree_code code;
 
   if (mode1 != VOIDmode
@@ -4506,7 +4507,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
      be from a bitfield load.  */
   if (TREE_CODE (op0) == SSA_NAME)
     {
-      gimple op0stmt = get_gimple_for_ssa_name (op0);
+      gimple *op0stmt = get_gimple_for_ssa_name (op0);
 
       /* We want to eventually have OP0 be the same as TO, which
 	 should be a bitfield.  */
@@ -6618,7 +6619,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	  && DECL_MODE (TREE_OPERAND (TREE_OPERAND (exp, 0), 0)) != BLKmode))
     {
       rtx temp;
-      gimple nop_def;
+      gimple *nop_def;
 
       /* If EXP is a NOP_EXPR of precision less than its mode, then that
 	 implies a mask operation.  If the precision is the same size as
@@ -7903,7 +7904,7 @@ expand_cond_expr_using_cmove (tree treeop0 ATTRIBUTE_UNUSED,
   rtx op00, op01, op1, op2;
   enum rtx_code comparison_code;
   machine_mode comparison_mode;
-  gimple srcstmt;
+  gimple *srcstmt;
   rtx temp;
   tree type = TREE_TYPE (treeop1);
   int unsignedp = TYPE_UNSIGNED (type);
@@ -8301,7 +8302,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	  && TYPE_MODE (TREE_TYPE (treeop0))
 	     == TYPE_MODE (TREE_TYPE (treeop1)))
 	{
-	  gimple def = get_def_for_expr (treeop1, NEGATE_EXPR);
+	  gimple *def = get_def_for_expr (treeop1, NEGATE_EXPR);
 	  if (def)
 	    {
 	      treeop1 = gimple_assign_rhs1 (def);
@@ -8489,7 +8490,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
     case FMA_EXPR:
       {
 	optab opt = fma_optab;
-	gimple def0, def2;
+	gimple *def0, *def2;
 
 	/* If there is no insn for FMA, emit it as __builtin_fma{,f,l}
 	   call.  */
@@ -8836,23 +8837,134 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 
     case LSHIFT_EXPR:
     case RSHIFT_EXPR:
-      /* If this is a fixed-point operation, then we cannot use the code
-	 below because "expand_shift" doesn't support sat/no-sat fixed-point
-         shifts.   */
-      if (ALL_FIXED_POINT_MODE_P (mode))
-	goto binop;
+      {
+	/* If this is a fixed-point operation, then we cannot use the code
+	   below because "expand_shift" doesn't support sat/no-sat fixed-point
+	   shifts.  */
+	if (ALL_FIXED_POINT_MODE_P (mode))
+	  goto binop;
 
-      if (! safe_from_p (subtarget, treeop1, 1))
-	subtarget = 0;
-      if (modifier == EXPAND_STACK_PARM)
-	target = 0;
-      op0 = expand_expr (treeop0, subtarget,
-			 VOIDmode, EXPAND_NORMAL);
-      temp = expand_variable_shift (code, mode, op0, treeop1, target,
-				    unsignedp);
-      if (code == LSHIFT_EXPR)
-	temp = REDUCE_BIT_FIELD (temp);
-      return temp;
+	if (! safe_from_p (subtarget, treeop1, 1))
+	  subtarget = 0;
+	if (modifier == EXPAND_STACK_PARM)
+	  target = 0;
+	op0 = expand_expr (treeop0, subtarget,
+			   VOIDmode, EXPAND_NORMAL);
+
+	/* Left shift optimization when shifting across word_size boundary.
+
+	   If mode == GET_MODE_WIDER_MODE (word_mode), then normally there isn't
+	   native instruction to support this wide mode left shift.  Given below
+	   scenario:
+
+	    Type A = (Type) B  << C
+
+	    |<		 T	    >|
+	    | dest_high  |  dest_low |
+
+			 | word_size |
+
+	   If the shift amount C caused we shift B to across the word size
+	   boundary, i.e part of B shifted into high half of destination
+	   register, and part of B remains in the low half, then GCC will use
+	   the following left shift expand logic:
+
+	   1. Initialize dest_low to B.
+	   2. Initialize every bit of dest_high to the sign bit of B.
+	   3. Logic left shift dest_low by C bit to finalize dest_low.
+	      The value of dest_low before this shift is kept in a temp D.
+	   4. Logic left shift dest_high by C.
+	   5. Logic right shift D by (word_size - C).
+	   6. Or the result of 4 and 5 to finalize dest_high.
+
+	   While, by checking gimple statements, if operand B is coming from
+	   signed extension, then we can simplify above expand logic into:
+
+	      1. dest_high = src_low >> (word_size - C).
+	      2. dest_low = src_low << C.
+
+	   We can use one arithmetic right shift to finish all the purpose of
+	   steps 2, 4, 5, 6, thus we reduce the steps needed from 6 into 2.  */
+
+	temp = NULL_RTX;
+	if (code == LSHIFT_EXPR
+	    && target
+	    && REG_P (target)
+	    && ! unsignedp
+	    && mode == GET_MODE_WIDER_MODE (word_mode)
+	    && GET_MODE_SIZE (mode) == 2 * GET_MODE_SIZE (word_mode)
+	    && TREE_CONSTANT (treeop1)
+	    && TREE_CODE (treeop0) == SSA_NAME)
+	  {
+	    gimple *def = SSA_NAME_DEF_STMT (treeop0);
+	    if (is_gimple_assign (def)
+		&& gimple_assign_rhs_code (def) == NOP_EXPR)
+	      {
+		machine_mode rmode = TYPE_MODE
+		  (TREE_TYPE (gimple_assign_rhs1 (def)));
+
+		if (GET_MODE_SIZE (rmode) < GET_MODE_SIZE (mode)
+		    && TREE_INT_CST_LOW (treeop1) < GET_MODE_BITSIZE (word_mode)
+		    && ((TREE_INT_CST_LOW (treeop1) + GET_MODE_BITSIZE (rmode))
+			>= GET_MODE_BITSIZE (word_mode)))
+		  {
+		    rtx_insn *seq, *seq_old;
+		    unsigned int high_off = subreg_highpart_offset (word_mode,
+								    mode);
+		    rtx low = lowpart_subreg (word_mode, op0, mode);
+		    rtx dest_low = lowpart_subreg (word_mode, target, mode);
+		    rtx dest_high = simplify_gen_subreg (word_mode, target,
+							 mode, high_off);
+		    HOST_WIDE_INT ramount = (BITS_PER_WORD
+					     - TREE_INT_CST_LOW (treeop1));
+		    tree rshift = build_int_cst (TREE_TYPE (treeop1), ramount);
+
+		    start_sequence ();
+		    /* dest_high = src_low >> (word_size - C).  */
+		    temp = expand_variable_shift (RSHIFT_EXPR, word_mode, low,
+						  rshift, dest_high, unsignedp);
+		    if (temp != dest_high)
+		      emit_move_insn (dest_high, temp);
+
+		    /* dest_low = src_low << C.  */
+		    temp = expand_variable_shift (LSHIFT_EXPR, word_mode, low,
+						  treeop1, dest_low, unsignedp);
+		    if (temp != dest_low)
+		      emit_move_insn (dest_low, temp);
+
+		    seq = get_insns ();
+		    end_sequence ();
+		    temp = target ;
+
+		    if (have_insn_for (ASHIFT, mode))
+		      {
+			bool speed_p = optimize_insn_for_speed_p ();
+			start_sequence ();
+			rtx ret_old = expand_variable_shift (code, mode, op0,
+							     treeop1, target,
+							     unsignedp);
+
+			seq_old = get_insns ();
+			end_sequence ();
+			if (seq_cost (seq, speed_p)
+			    >= seq_cost (seq_old, speed_p))
+			  {
+			    seq = seq_old;
+			    temp = ret_old;
+			  }
+		      }
+		      emit_insn (seq);
+		  }
+	      }
+	  }
+
+	if (temp == NULL_RTX)
+	  temp = expand_variable_shift (code, mode, op0, treeop1, target,
+					unsignedp);
+	if (code == LSHIFT_EXPR)
+	  temp = REDUCE_BIT_FIELD (temp);
+	return temp;
+      }
 
       /* Could determine the answer when only additive constants differ.  Also,
 	 the addition of one can be handled by changing the condition.  */
@@ -9008,7 +9120,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
            little-endian, or element N-1 if big-endian.  So pull the scalar
            result out of that element.  */
         int index = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (vec_mode) - 1 : 0;
-        int bitsize = GET_MODE_BITSIZE (GET_MODE_INNER (vec_mode));
+	int bitsize = GET_MODE_UNIT_BITSIZE (vec_mode);
         temp = extract_bit_field (temp, bitsize, bitsize * index, unsignedp,
 				  target, mode, mode);
         gcc_assert (temp);
@@ -9216,7 +9328,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
    into constant expressions.  */
 
 static bool
-stmt_is_replaceable_p (gimple stmt)
+stmt_is_replaceable_p (gimple *stmt)
 {
   if (ssa_is_replaceable_p (stmt))
     {
@@ -9236,7 +9348,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
   rtx op0, op1, temp, decl_rtl;
   tree type;
   int unsignedp;
-  machine_mode mode;
+  machine_mode mode, dmode;
   enum tree_code code = TREE_CODE (exp);
   rtx subtarget, original_target;
   int ignore;
@@ -9246,7 +9358,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
   struct separate_ops ops;
   tree treeop0, treeop1, treeop2;
   tree ssa_name = NULL_TREE;
-  gimple g;
+  gimple *g;
 
   type = TREE_TYPE (exp);
   mode = TYPE_MODE (type);
@@ -9367,12 +9479,17 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       if (g == NULL
 	  && modifier == EXPAND_INITIALIZER
 	  && !SSA_NAME_IS_DEFAULT_DEF (exp)
-	  && (optimize || DECL_IGNORED_P (SSA_NAME_VAR (exp)))
+	  && (optimize || !SSA_NAME_VAR (exp)
+	      || DECL_IGNORED_P (SSA_NAME_VAR (exp)))
 	  && stmt_is_replaceable_p (SSA_NAME_DEF_STMT (exp)))
 	g = SSA_NAME_DEF_STMT (exp);
       if (g)
 	{
 	  rtx r;
+	  location_t saved_loc = curr_insn_location ();
+	  location_t loc = gimple_location (g);
+	  if (loc != UNKNOWN_LOCATION)
+	    set_curr_insn_location (loc);
 	  ops.code = gimple_assign_rhs_code (g);
           switch (get_gimple_rhs_class (ops.code))
 	    {
@@ -9394,21 +9511,19 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    case GIMPLE_UNARY_RHS:
 	      ops.op0 = gimple_assign_rhs1 (g);
 	      ops.type = TREE_TYPE (gimple_assign_lhs (g));
-	      ops.location = gimple_location (g);
+	      ops.location = loc;
 	      r = expand_expr_real_2 (&ops, target, tmode, modifier);
 	      break;
 	    case GIMPLE_SINGLE_RHS:
 	      {
-		location_t saved_loc = curr_insn_location ();
-		set_curr_insn_location (gimple_location (g));
 		r = expand_expr_real (gimple_assign_rhs1 (g), target,
 				      tmode, modifier, NULL, inner_reference_p);
-		set_curr_insn_location (saved_loc);
 		break;
 	      }
 	    default:
 	      gcc_unreachable ();
 	    }
+	  set_curr_insn_location (saved_loc);
 	  if (REG_P (r) && !REG_EXPR (r))
 	    set_reg_attrs_for_decl_rtl (SSA_NAME_VAR (exp), r);
 	  return r;
@@ -9446,15 +9561,18 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       /* Ensure variable marked as used even if it doesn't go through
 	 a parser.  If it hasn't be used yet, write out an external
 	 definition.  */
-      TREE_USED (exp) = 1;
+      if (exp)
+	TREE_USED (exp) = 1;
 
       /* Show we haven't gotten RTL for this yet.  */
       temp = 0;
 
       /* Variables inherited from containing functions should have
 	 been lowered by this point.  */
-      context = decl_function_context (exp);
-      gcc_assert (SCOPE_FILE_SCOPE_P (context)
+      if (exp)
+	context = decl_function_context (exp);
+      gcc_assert (!exp
+		  || SCOPE_FILE_SCOPE_P (context)
 		  || context == current_function_decl
 		  || TREE_STATIC (exp)
 		  || DECL_EXTERNAL (exp)
@@ -9478,7 +9596,8 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  decl_rtl = use_anchored_address (decl_rtl);
 	  if (modifier != EXPAND_CONST_ADDRESS
 	      && modifier != EXPAND_SUM
-	      && !memory_address_addr_space_p (DECL_MODE (exp),
+	      && !memory_address_addr_space_p (exp ? DECL_MODE (exp)
+					       : GET_MODE (decl_rtl),
 					       XEXP (decl_rtl, 0),
 					       MEM_ADDR_SPACE (decl_rtl)))
 	    temp = replace_equiv_address (decl_rtl,
@@ -9489,11 +9608,16 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	 if the address is a register.  */
       if (temp != 0)
 	{
-	  if (MEM_P (temp) && REG_P (XEXP (temp, 0)))
+	  if (exp && MEM_P (temp) && REG_P (XEXP (temp, 0)))
 	    mark_reg_pointer (XEXP (temp, 0), DECL_ALIGN (exp));
 
 	  return temp;
 	}
+
+      if (exp)
+	dmode = DECL_MODE (exp);
+      else
+	dmode = TYPE_MODE (TREE_TYPE (ssa_name));
 
       /* If the mode of DECL_RTL does not match that of the decl,
 	 there are two cases: we are dealing with a BLKmode value
@@ -9502,22 +9626,23 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	 of the wanted mode, but mark it so that we know that it
 	 was already extended.  */
       if (REG_P (decl_rtl)
-	  && DECL_MODE (exp) != BLKmode
-	  && GET_MODE (decl_rtl) != DECL_MODE (exp))
+	  && dmode != BLKmode
+	  && GET_MODE (decl_rtl) != dmode)
 	{
 	  machine_mode pmode;
 
 	  /* Get the signedness to be used for this variable.  Ensure we get
 	     the same mode we got when the variable was declared.  */
-	  if (code == SSA_NAME
-	      && (g = SSA_NAME_DEF_STMT (ssa_name))
-	      && gimple_code (g) == GIMPLE_CALL
-	      && !gimple_call_internal_p (g))
+	  if (code != SSA_NAME)
+	    pmode = promote_decl_mode (exp, &unsignedp);
+	  else if ((g = SSA_NAME_DEF_STMT (ssa_name))
+		   && gimple_code (g) == GIMPLE_CALL
+		   && !gimple_call_internal_p (g))
 	    pmode = promote_function_mode (type, mode, &unsignedp,
 					   gimple_call_fntype (g),
 					   2);
 	  else
-	    pmode = promote_decl_mode (exp, &unsignedp);
+	    pmode = promote_ssa_mode (ssa_name, &unsignedp);
 	  gcc_assert (GET_MODE (decl_rtl) == pmode);
 
 	  temp = gen_lowpart_SUBREG (mode, decl_rtl);
@@ -9717,7 +9842,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
 	machine_mode address_mode;
 	tree base = TREE_OPERAND (exp, 0);
-	gimple def_stmt;
+	gimple *def_stmt;
 	enum insn_code icode;
 	unsigned align;
 	/* Handle expansion of non-aliased memory with non-BLKmode.  That
@@ -10995,7 +11120,7 @@ do_store_flag (sepops ops, rtx target, machine_mode mode)
       && integer_zerop (arg1)
       && (TYPE_PRECISION (ops->type) != 1 || TYPE_UNSIGNED (ops->type)))
     {
-      gimple srcstmt = get_def_for_expr (arg0, BIT_AND_EXPR);
+      gimple *srcstmt = get_def_for_expr (arg0, BIT_AND_EXPR);
       if (srcstmt
 	  && integer_pow2p (gimple_assign_rhs2 (srcstmt)))
 	{

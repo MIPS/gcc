@@ -171,6 +171,8 @@ lto_location_cache::cmp_loc (const void *pa, const void *pb)
     }
   if (a->file != b->file)
     return strcmp (a->file, b->file);
+  if (a->sysp != b->sysp)
+    return a->sysp ? 1 : -1;
   if (a->line != b->line)
     return a->line - b->line;
   return a->col - b->col;
@@ -194,7 +196,7 @@ lto_location_cache::apply_location_cache ()
 
       if (current_file != loc.file)
 	linemap_add (line_table, prev_file ? LC_RENAME : LC_ENTER,
-		     false, loc.file, loc.line);
+		     loc.sysp, loc.file, loc.line);
       else if (current_line != loc.line)
 	{
 	  int max = loc.col;
@@ -251,6 +253,7 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
   static const char *stream_file;
   static int stream_line;
   static int stream_col;
+  static bool stream_sysp;
   bool file_change, line_change, column_change;
 
   gcc_assert (current_cache == this);
@@ -268,7 +271,10 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
   column_change = bp_unpack_value (bp, 1);
 
   if (file_change)
-    stream_file = canon_file_name (bp_unpack_string (data_in, bp));
+    {
+      stream_file = canon_file_name (bp_unpack_string (data_in, bp));
+      stream_sysp = bp_unpack_value (bp, 1);
+    }
 
   if (line_change)
     stream_line = bp_unpack_var_len_unsigned (bp);
@@ -280,13 +286,14 @@ lto_location_cache::input_location (location_t *loc, struct bitpack_d *bp,
      streaming.  */
      
   if (current_file == stream_file && current_line == stream_line
-      && current_col == stream_col)
+      && current_col == stream_col && current_sysp == stream_sysp)
     {
       *loc = current_loc;
       return;
     }
 
-  struct cached_location entry = {stream_file, loc, stream_line, stream_col};
+  struct cached_location entry
+    = {stream_file, loc, stream_line, stream_col, stream_sysp};
   loc_cache.safe_push (entry);
 }
 
@@ -905,7 +912,7 @@ input_ssa_names (struct lto_input_block *ib, struct data_in *data_in,
    so they point to STMTS.  */
 
 static void
-fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple *stmts,
+fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple **stmts,
 			 struct function *fn)
 {
   struct cgraph_edge *cedge;
@@ -947,7 +954,7 @@ fixup_call_stmt_edges_1 (struct cgraph_node *node, gimple *stmts,
 /* Fixup call_stmt pointers in NODE and all clones.  */
 
 static void
-fixup_call_stmt_edges (struct cgraph_node *orig, gimple *stmts)
+fixup_call_stmt_edges (struct cgraph_node *orig, gimple **stmts)
 {
   struct cgraph_node *node;
   struct function *fn;
@@ -1040,7 +1047,7 @@ input_function (tree fn_decl, struct data_in *data_in,
 {
   struct function *fn;
   enum LTO_tags tag;
-  gimple *stmts;
+  gimple **stmts;
   basic_block bb;
   struct cgraph_node *node;
 
@@ -1097,29 +1104,29 @@ input_function (tree fn_decl, struct data_in *data_in,
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	}
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	}
     }
-  stmts = (gimple *) xcalloc (gimple_stmt_max_uid (fn), sizeof (gimple));
+  stmts = (gimple **) xcalloc (gimple_stmt_max_uid (fn), sizeof (gimple *));
   FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator bsi = gsi_start_phis (bb);
       while (!gsi_end_p (bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  gsi_next (&bsi);
 	  stmts[gimple_uid (stmt)] = stmt;
 	}
       bsi = gsi_start_bb (bb);
       while (!gsi_end_p (bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  /* If we're recompiling LTO objects with debug stmts but
 	     we're not supposed to have debug stmts, remove them now.
 	     We can't remove them earlier because this would cause uid

@@ -1749,6 +1749,9 @@ mark_vtable_entries (tree decl)
   tree fnaddr;
   unsigned HOST_WIDE_INT idx;
 
+  /* It's OK for the vtable to refer to deprecated virtual functions.  */
+  warning_sentinel w(warn_deprecated_decl);
+
   FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (DECL_INITIAL (decl)),
 			      idx, fnaddr)
     {
@@ -2563,10 +2566,25 @@ constrain_class_visibility (tree type)
 
 	if (subvis == VISIBILITY_ANON)
 	  {
-	    if (!in_main_input_context ())
-	      warning (0, "\
+	    if (!in_main_input_context())
+	      {
+		tree nlt = no_linkage_check (ftype, /*relaxed_p=*/false);
+		if (nlt)
+		  {
+		    if (same_type_p (TREE_TYPE (t), nlt))
+		      warning (OPT_Wsubobject_linkage, "\
+%qT has a field %qD whose type has no linkage",
+			       type, t);
+		    else
+		      warning (OPT_Wsubobject_linkage, "\
+%qT has a field %qD whose type depends on the type %qT which has no linkage",
+			       type, t, nlt);
+		  }
+		else
+		  warning (OPT_Wsubobject_linkage, "\
 %qT has a field %qD whose type uses the anonymous namespace",
-		       type, t);
+			   type, t);
+	      }
 	  }
 	else if (MAYBE_CLASS_TYPE_P (ftype)
 		 && vis < VISIBILITY_HIDDEN
@@ -2584,9 +2602,24 @@ constrain_class_visibility (tree type)
       if (subvis == VISIBILITY_ANON)
         {
 	  if (!in_main_input_context())
-	    warning (0, "\
+	    {
+	      tree nlt = no_linkage_check (TREE_TYPE (t), /*relaxed_p=*/false);
+	      if (nlt)
+		{
+		  if (same_type_p (TREE_TYPE (t), nlt))
+		    warning (OPT_Wsubobject_linkage, "\
+%qT has a base %qT whose type has no linkage",
+			     type, TREE_TYPE (t));
+		  else
+		    warning (OPT_Wsubobject_linkage, "\
+%qT has a base %qT whose type depends on the type %qT which has no linkage",
+			     type, TREE_TYPE (t), nlt);
+		}
+	      else
+		warning (OPT_Wsubobject_linkage, "\
 %qT has a base %qT whose type uses the anonymous namespace",
-		     type, TREE_TYPE (t));
+			 type, TREE_TYPE (t));
+	    }
 	}
       else if (vis < VISIBILITY_HIDDEN
 	       && subvis >= VISIBILITY_HIDDEN)
@@ -4480,6 +4513,12 @@ c_parse_final_cleanups (void)
      In that case we do not want to do anything else.  */
   if (pch_file)
     {
+      /* Mangle all symbols at PCH creation time.  */
+      symtab_node *node;
+      FOR_EACH_SYMBOL (node)
+	if (! is_a <varpool_node *> (node)
+	    || ! DECL_HARD_REGISTER (node->decl))
+	  DECL_ASSEMBLER_NAME (node->decl);
       c_common_write_pch ();
       dump_tu ();
       return;
@@ -4848,6 +4887,9 @@ c_parse_final_cleanups (void)
 
   timevar_stop (TV_PHASE_DEFERRED);
   timevar_start (TV_PHASE_PARSING);
+
+  /* Indicate that we're done with front end processing.  */
+  at_eof = 2;
 }
 
 /* Perform any post compilation-proper cleanups for the C++ front-end.

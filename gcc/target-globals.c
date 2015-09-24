@@ -39,18 +39,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "expr.h"
 #include "insn-codes.h"
-#include "optabs.h"
+#include "optabs-query.h"
 #include "libfuncs.h"
 #include "cfgloop.h"
 #include "ira.h"
 #include "alloc-pool.h"
-#include "recog.h"
 #include "ira-int.h"
 #include "builtins.h"
 #include "gcse.h"
 #include "bb-reorder.h"
 #include "lower-subreg.h"
-#include "recog.h"
 
 #if SWITCHABLE_TARGET
 struct target_globals default_target_globals = {

@@ -58,7 +58,7 @@ static void make_close_phi_nodes_unique (basic_block);
 
 /* The type of the analyzed basic block.  */
 
-typedef enum gbb_type {
+enum gbb_type {
   GBB_UNKNOWN,
   GBB_LOOP_SING_EXIT_HEADER,
   GBB_LOOP_MULT_EXIT_HEADER,
@@ -66,7 +66,7 @@ typedef enum gbb_type {
   GBB_COND_HEADER,
   GBB_SIMPLE,
   GBB_LAST
-} gbb_type;
+};
 
 /* Detect the type of BB.  Loop headers are only marked, if they are
    new.  This means their loop_father is different to LAST_LOOP.
@@ -128,7 +128,7 @@ get_bb_type (basic_block bb, struct loop *last_loop)
      9	<- exit  */
 
 
-typedef struct sd_region_p
+struct sd_region
 {
   /* The entry bb dominates all bbs in the sd_region.  It is part of
      the region.  */
@@ -137,7 +137,7 @@ typedef struct sd_region_p
   /* The exit bb postdominates all bbs in the sd_region, but is not
      part of the region.  */
   basic_block exit;
-} sd_region;
+};
 
 
 
@@ -288,7 +288,7 @@ graphite_can_represent_expr (basic_block scop_entry, loop_p loop,
 
 static bool
 stmt_has_simple_data_refs_p (loop_p outermost_loop ATTRIBUTE_UNUSED,
-			     gimple stmt)
+			     gimple *stmt)
 {
   data_reference_p dr;
   int j;
@@ -338,7 +338,7 @@ stmt_has_simple_data_refs_p (loop_p outermost_loop ATTRIBUTE_UNUSED,
 
 static bool
 stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
-			gimple stmt, basic_block bb)
+			gimple *stmt, basic_block bb)
 {
   loop_p loop = bb->loop_father;
 
@@ -409,8 +409,8 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
 	  {
 	    tree op = gimple_op (stmt, i);
 	    if (!graphite_can_represent_expr (scop_entry, loop, op)
-		/* We can not handle REAL_TYPE. Failed for pr39260.  */
-		|| TREE_CODE (TREE_TYPE (op)) == REAL_TYPE)
+		/* We can only constrain on integer type.  */
+		|| (TREE_CODE (TREE_TYPE (op)) != INTEGER_TYPE))
 	      {
 		if (dump_file && (dump_flags & TDF_DETAILS))
 		  {
@@ -450,7 +450,7 @@ stmt_simple_for_scop_p (basic_block scop_entry, loop_p outermost_loop,
    scop should end before this statement.  The evaluation is limited using
    OUTERMOST_LOOP as outermost loop that may change.  */
 
-static gimple
+static gimple *
 harmful_stmt_in_bb (basic_block scop_entry, loop_p outer_loop, basic_block bb)
 {
   gimple_stmt_iterator gsi;
@@ -471,6 +471,17 @@ graphite_can_represent_loop (basic_block scop_entry, loop_p loop)
 {
   tree niter;
   struct tree_niter_desc niter_desc;
+
+  if (!loop_nest_has_data_refs (loop))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "[scop-detection-fail] ");
+	  fprintf (dump_file, "Loop %d does not have any data reference.\n",
+		   loop->num);
+	}
+      return false;
+    }
 
   /* FIXME: For the moment, graphite cannot be used on loops that
      iterate using induction variables that wrap.  */
@@ -512,7 +523,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 {
   loop_p loop = bb->loop_father;
   struct scopdet_info result;
-  gimple stmt;
+  gimple *stmt;
 
   /* XXX: ENTRY_BLOCK_PTR could be optimized in later steps.  */
   basic_block entry_block = ENTRY_BLOCK_PTR_FOR_FN (cfun);
@@ -1155,8 +1166,17 @@ build_graphite_scops (vec<sd_region> regions,
       if (!exit)
 	continue;
 
-      scop = new_scop (new_sese (entry, exit));
-      scops->safe_push (scop);
+      sese sese_reg = new_sese (entry, exit);
+      scop = new_scop (sese_reg);
+
+      build_sese_loop_nests (sese_reg);
+
+      /* Scops with one or no loops are not interesting.  */
+      if (SESE_LOOP_NEST (sese_reg).length () > 1)
+	scops->safe_push (scop);
+      else if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "Discarded scop: %d loops\n",
+		 SESE_LOOP_NEST (sese_reg).length ());
 
       /* Are there overlapping SCoPs?  */
 #ifdef ENABLE_CHECKING
@@ -1170,151 +1190,6 @@ build_graphite_scops (vec<sd_region> regions,
 	}
 #endif
     }
-}
-
-/* Returns true when BB contains only close phi nodes.  */
-
-static bool
-contains_only_close_phi_nodes (basic_block bb)
-{
-  gimple_stmt_iterator gsi;
-
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    if (gimple_code (gsi_stmt (gsi)) != GIMPLE_LABEL)
-      return false;
-
-  return true;
-}
-
-/* Print statistics for SCOP to FILE.  */
-
-static void
-print_graphite_scop_statistics (FILE* file, scop_p scop)
-{
-  long n_bbs = 0;
-  long n_loops = 0;
-  long n_stmts = 0;
-  long n_conditions = 0;
-  long n_p_bbs = 0;
-  long n_p_loops = 0;
-  long n_p_stmts = 0;
-  long n_p_conditions = 0;
-
-  basic_block bb;
-
-  FOR_ALL_BB_FN (bb, cfun)
-    {
-      gimple_stmt_iterator psi;
-      loop_p loop = bb->loop_father;
-
-      if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
-	continue;
-
-      n_bbs++;
-      n_p_bbs += bb->count;
-
-      if (EDGE_COUNT (bb->succs) > 1)
-	{
-	  n_conditions++;
-	  n_p_conditions += bb->count;
-	}
-
-      for (psi = gsi_start_bb (bb); !gsi_end_p (psi); gsi_next (&psi))
-	{
-	  n_stmts++;
-	  n_p_stmts += bb->count;
-	}
-
-      if (loop->header == bb && loop_in_sese_p (loop, SCOP_REGION (scop)))
-	{
-	  n_loops++;
-	  n_p_loops += bb->count;
-	}
-
-    }
-
-  fprintf (file, "\nBefore limit_scops SCoP statistics (");
-  fprintf (file, "BBS:%ld, ", n_bbs);
-  fprintf (file, "LOOPS:%ld, ", n_loops);
-  fprintf (file, "CONDITIONS:%ld, ", n_conditions);
-  fprintf (file, "STMTS:%ld)\n", n_stmts);
-  fprintf (file, "\nBefore limit_scops SCoP profiling statistics (");
-  fprintf (file, "BBS:%ld, ", n_p_bbs);
-  fprintf (file, "LOOPS:%ld, ", n_p_loops);
-  fprintf (file, "CONDITIONS:%ld, ", n_p_conditions);
-  fprintf (file, "STMTS:%ld)\n", n_p_stmts);
-}
-
-/* Print statistics for SCOPS to FILE.  */
-
-static void
-print_graphite_statistics (FILE* file, vec<scop_p> scops)
-{
-  int i;
-  scop_p scop;
-
-  FOR_EACH_VEC_ELT (scops, i, scop)
-    print_graphite_scop_statistics (file, scop);
-}
-
-/* We limit all SCoPs to SCoPs, that are completely surrounded by a loop.
-
-   Example:
-
-   for (i      |
-     {         |
-       for (j  |  SCoP 1
-       for (k  |
-     }         |
-
-   * SCoP frontier, as this line is not surrounded by any loop. *
-
-   for (l      |  SCoP 2
-
-   This is necessary as scalar evolution and parameter detection need a
-   outermost loop to initialize parameters correctly.
-
-   TODO: FIX scalar evolution and parameter detection to allow more flexible
-         SCoP frontiers.  */
-
-static void
-limit_scops (vec<scop_p> *scops)
-{
-  auto_vec<sd_region, 3> regions;
-
-  int i;
-  scop_p scop;
-
-  FOR_EACH_VEC_ELT (*scops, i, scop)
-    {
-      int j;
-      loop_p loop;
-      sese region = SCOP_REGION (scop);
-      build_sese_loop_nests (region);
-
-      FOR_EACH_VEC_ELT (SESE_LOOP_NEST (region), j, loop)
-        if (!loop_in_sese_p (loop_outer (loop), region)
-	    && single_exit (loop))
-          {
-	    sd_region open_scop;
-	    open_scop.entry = loop->header;
-	    open_scop.exit = single_exit (loop)->dest;
-
-	    /* This is a hack on top of the limit_scops hack.  The
-	       limit_scops hack should disappear all together.  */
-	    if (single_succ_p (open_scop.exit)
-		&& contains_only_close_phi_nodes (open_scop.exit))
-	      open_scop.exit = single_succ_edge (open_scop.exit)->dest;
-
-	    regions.safe_push (open_scop);
-	  }
-    }
-
-  free_scops (*scops);
-  scops->create (3);
-
-  create_sese_edges (regions);
-  build_graphite_scops (regions, scops);
 }
 
 /* Returns true when P1 and P2 are close phis with the same
@@ -1333,7 +1208,7 @@ same_close_phi_node (gphi *p1, gphi *p2)
 static void
 remove_duplicate_close_phi (gphi *phi, gphi_iterator *gsi)
 {
-  gimple use_stmt;
+  gimple *use_stmt;
   use_operand_p use_p;
   imm_use_iterator imm_iter;
   tree res = gimple_phi_result (phi);
@@ -1501,10 +1376,6 @@ build_scops (vec<scop_p> *scops)
   create_sese_edges (regions);
   build_graphite_scops (regions, scops);
 
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    print_graphite_statistics (dump_file, *scops);
-
-  limit_scops (scops);
   regions.release ();
 
   if (dump_file && (dump_flags & TDF_DETAILS))

@@ -73,7 +73,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cselib.h"
 #include "debug.h"
 #include "sched-int.h"
-#include "fibheap.h"
 #include "opts.h"
 #include "diagnostic.h"
 #include "dumpfile.h"
@@ -437,7 +436,7 @@ struct processor_costs iamcu_cost = {
   COSTS_N_INSNS (3),			/* cost of movsx */
   COSTS_N_INSNS (2),			/* cost of movzx */
   8,					/* "large" insn */
-  6,					/* MOVE_RATIO */
+  9,					/* MOVE_RATIO */
   6,				     /* cost for loading QImode using movzbl */
   {2, 4, 2},				/* cost of loading integer registers
 					   in QImode, HImode and SImode.
@@ -2099,6 +2098,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BONNELL (1<<PROCESSOR_BONNELL)
 #define m_SILVERMONT (1<<PROCESSOR_SILVERMONT)
 #define m_KNL (1<<PROCESSOR_KNL)
+#define m_SKYLAKE_AVX512 (1<<PROCESSOT_SKYLAKE_AVX512)
 #define m_INTEL (1<<PROCESSOR_INTEL)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
@@ -2568,6 +2568,7 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {"bonnell", &atom_cost, 16, 15, 16, 7, 16},
   {"silvermont", &slm_cost, 16, 15, 16, 7, 16},
   {"knl", &slm_cost, 16, 15, 16, 7, 16},
+  {"skylake-avx512", &core_cost, 16, 10, 16, 10, 16},
   {"intel", &intel_cost, 16, 15, 16, 7, 16},
   {"geode", &geode_cost, 0, 0, 0, 0, 0},
   {"k6", &k6_cost, 32, 7, 32, 7, 32},
@@ -3285,6 +3286,11 @@ ix86_option_override_internal (bool main_args_p,
    | PTA_FMA | PTA_MOVBE | PTA_HLE)
 #define PTA_BROADWELL \
   (PTA_HASWELL | PTA_ADX | PTA_PRFCHW | PTA_RDSEED)
+#define PTA_SKYLAKE \
+  (PTA_BROADWELL | PTA_CLFLUSHOPT | PTA_XSAVEC | PTA_XSAVES)
+#define PTA_SKYLAKE_AVX512 \
+  (PTA_SKYLAKE | PTA_AVX512F | PTA_AVX512CD | PTA_AVX512VL \
+   | PTA_AVX512BW | PTA_AVX512DQ)
 #define PTA_KNL \
   (PTA_BROADWELL | PTA_AVX512PF | PTA_AVX512ER | PTA_AVX512F | PTA_AVX512CD)
 #define PTA_BONNELL \
@@ -3344,9 +3350,11 @@ ix86_option_override_internal (bool main_args_p,
 	PTA_IVYBRIDGE},
       {"core-avx-i", PROCESSOR_SANDYBRIDGE, CPU_NEHALEM,
 	PTA_IVYBRIDGE},
-      {"haswell", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_HASWELL},
-      {"core-avx2", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_HASWELL},
-      {"broadwell", PROCESSOR_HASWELL, CPU_NEHALEM, PTA_BROADWELL},
+      {"haswell", PROCESSOR_HASWELL, CPU_HASWELL, PTA_HASWELL},
+      {"core-avx2", PROCESSOR_HASWELL, CPU_HASWELL, PTA_HASWELL},
+      {"broadwell", PROCESSOR_HASWELL, CPU_HASWELL, PTA_BROADWELL},
+      {"skylake", PROCESSOR_HASWELL, CPU_HASWELL, PTA_SKYLAKE},
+      {"skylake-avx512", PROCESSOR_HASWELL, CPU_HASWELL, PTA_SKYLAKE_AVX512},
       {"bonnell", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"atom", PROCESSOR_BONNELL, CPU_ATOM, PTA_BONNELL},
       {"silvermont", PROCESSOR_SILVERMONT, CPU_SLM, PTA_SILVERMONT},
@@ -21786,7 +21794,7 @@ ix86_expand_int_vcond (rtx operands[])
 	  || (TARGET_AVX2 && GET_MODE_SIZE (data_mode) == 32)))
     {
       rtx negop = operands[2 - (code == LT)];
-      int shift = GET_MODE_BITSIZE (GET_MODE_INNER (data_mode)) - 1;
+      int shift = GET_MODE_UNIT_BITSIZE (data_mode) - 1;
       if (negop == CONST1_RTX (data_mode))
 	{
 	  rtx res = expand_simple_binop (mode, LSHIFTRT, cop0, GEN_INT (shift),
@@ -25529,7 +25537,7 @@ ix86_expand_strlensi_unroll_1 (rtx out, rtx src, rtx align_rtx)
 
   /* Avoid branch in fixing the byte.  */
   tmpreg = gen_lowpart (QImode, tmpreg);
-  emit_insn (gen_addqi3_cc (tmpreg, tmpreg, tmpreg));
+  emit_insn (gen_addqi3_cconly_overflow (tmpreg, tmpreg));
   tmp = gen_rtx_REG (CCmode, FLAGS_REG);
   cmp = gen_rtx_LTU (VOIDmode, tmp, const0_rtx);
   emit_insn (ix86_gen_sub3_carry (out, out, GEN_INT (3), tmp, cmp));
@@ -30386,6 +30394,10 @@ enum ix86_builtins
   IX86_BUILTIN_GATHER3SIV16SI,
   IX86_BUILTIN_GATHER3SIV8DF,
   IX86_BUILTIN_GATHER3SIV8DI,
+  IX86_BUILTIN_SCATTERALTSIV8DF,
+  IX86_BUILTIN_SCATTERALTDIV16SF,
+  IX86_BUILTIN_SCATTERALTSIV8DI,
+  IX86_BUILTIN_SCATTERALTDIV16SI,
   IX86_BUILTIN_SCATTERDIV16SF,
   IX86_BUILTIN_SCATTERDIV16SI,
   IX86_BUILTIN_SCATTERDIV8DF,
@@ -34202,6 +34214,21 @@ ix86_init_mmx_sse_builtins (void)
   def_builtin (OPTION_MASK_ISA_AVX512VL, "__builtin_ia32_scatterdiv2di",
 	       VOID_FTYPE_PLONGLONG_QI_V2DI_V2DI_INT,
 	       IX86_BUILTIN_SCATTERDIV2DI);
+  def_builtin (OPTION_MASK_ISA_AVX512F, "__builtin_ia32_scatteraltsiv8df ",
+	       VOID_FTYPE_PDOUBLE_QI_V16SI_V8DF_INT,
+	       IX86_BUILTIN_SCATTERALTSIV8DF);
+
+  def_builtin (OPTION_MASK_ISA_AVX512F, "__builtin_ia32_scatteraltdiv8sf ",
+	       VOID_FTYPE_PFLOAT_HI_V8DI_V16SF_INT,
+	       IX86_BUILTIN_SCATTERALTDIV16SF);
+
+  def_builtin (OPTION_MASK_ISA_AVX512F, "__builtin_ia32_scatteraltsiv8di ",
+	       VOID_FTYPE_PLONGLONG_QI_V16SI_V8DI_INT,
+	       IX86_BUILTIN_SCATTERALTSIV8DI);
+
+  def_builtin (OPTION_MASK_ISA_AVX512F, "__builtin_ia32_scatteraltdiv8si ",
+	       VOID_FTYPE_PINT_HI_V8DI_V16SI_INT,
+	       IX86_BUILTIN_SCATTERALTDIV16SI);
 
   /* AVX512PF */
   def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_gatherpfdpd",
@@ -34435,11 +34462,11 @@ static basic_block
 add_condition_to_bb (tree function_decl, tree version_decl,
 		     tree predicate_chain, basic_block new_bb)
 {
-  gimple return_stmt;
+  gimple *return_stmt;
   tree convert_expr, result_var;
-  gimple convert_stmt;
-  gimple call_cond_stmt;
-  gimple if_else_stmt;
+  gimple *convert_stmt;
+  gimple *call_cond_stmt;
+  gimple *if_else_stmt;
 
   basic_block bb1, bb2, bb3;
   edge e12, e23;
@@ -34490,7 +34517,7 @@ add_condition_to_bb (tree function_decl, tree version_decl,
         and_expr_var = cond_var;
       else
 	{
-	  gimple assign_stmt;
+	  gimple *assign_stmt;
 	  /* Use MIN_EXPR to check if any integer is zero?.
 	     and_expr_var = min_expr <cond_var, and_expr_var>  */
 	  assign_stmt = gimple_build_assign (and_expr_var,
@@ -34574,6 +34601,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
     P_PROC_SSE4_2,
     P_POPCNT,
     P_AES,
+    P_PCLMUL,
     P_AVX,
     P_PROC_AVX,
     P_BMI,
@@ -34612,6 +34640,7 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
       {"sse4.2", P_SSE4_2},
       {"popcnt", P_POPCNT},
       {"aes", P_AES},
+      {"pclmul", P_PCLMUL},
       {"avx", P_AVX},
       {"bmi", P_BMI},
       {"fma4", P_FMA4},
@@ -34855,7 +34884,7 @@ dispatch_function_versions (tree dispatch_decl,
 			    basic_block *empty_bb)
 {
   tree default_decl;
-  gimple ifunc_cpu_init_stmt;
+  gimple *ifunc_cpu_init_stmt;
   gimple_seq gseq;
   int ix;
   tree ele;
@@ -35600,6 +35629,13 @@ fold_builtin_cpu (tree fndecl, tree *args)
     F_BMI,
     F_BMI2,
     F_AES,
+    F_PCLMUL,
+    F_AVX512VL,
+    F_AVX512BW,
+    F_AVX512DQ,
+    F_AVX512CD,
+    F_AVX512ER,
+    F_AVX512PF,
     F_MAX
   };
 
@@ -35633,7 +35669,9 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_AMDFAM15H_BDVER4,
     M_INTEL_COREI7_IVYBRIDGE,
     M_INTEL_COREI7_HASWELL,
-    M_INTEL_COREI7_BROADWELL
+    M_INTEL_COREI7_BROADWELL,
+    M_INTEL_COREI7_SKYLAKE,
+    M_INTEL_COREI7_SKYLAKE_AVX512
   };
 
   static struct _arch_names_table
@@ -35655,6 +35693,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"ivybridge", M_INTEL_COREI7_IVYBRIDGE},
       {"haswell", M_INTEL_COREI7_HASWELL},
       {"broadwell", M_INTEL_COREI7_BROADWELL},
+      {"skylake", M_INTEL_COREI7_SKYLAKE},
+      {"skylake-avx512", M_INTEL_COREI7_SKYLAKE_AVX512},
       {"bonnell", M_INTEL_BONNELL},
       {"silvermont", M_INTEL_SILVERMONT},
       {"knl", M_INTEL_KNL},
@@ -35678,25 +35718,32 @@ fold_builtin_cpu (tree fndecl, tree *args)
     }
   const isa_names_table[] =
     {
-      {"cmov",   F_CMOV},
-      {"mmx",    F_MMX},
-      {"popcnt", F_POPCNT},
-      {"sse",    F_SSE},
-      {"sse2",   F_SSE2},
-      {"sse3",   F_SSE3},
-      {"ssse3",  F_SSSE3},
-      {"sse4a",  F_SSE4_A},
-      {"sse4.1", F_SSE4_1},
-      {"sse4.2", F_SSE4_2},
-      {"avx",    F_AVX},
-      {"fma4",   F_FMA4},
-      {"xop",    F_XOP},
-      {"fma",    F_FMA},
-      {"avx2",   F_AVX2},
-      {"avx512f",F_AVX512F},
-      {"bmi",    F_BMI},
-      {"bmi2",   F_BMI2},
-      {"aes",    F_AES}
+      {"cmov",    F_CMOV},
+      {"mmx",     F_MMX},
+      {"popcnt",  F_POPCNT},
+      {"sse",     F_SSE},
+      {"sse2",    F_SSE2},
+      {"sse3",    F_SSE3},
+      {"ssse3",   F_SSSE3},
+      {"sse4a",   F_SSE4_A},
+      {"sse4.1",  F_SSE4_1},
+      {"sse4.2",  F_SSE4_2},
+      {"avx",     F_AVX},
+      {"fma4",    F_FMA4},
+      {"xop",     F_XOP},
+      {"fma",     F_FMA},
+      {"avx2",    F_AVX2},
+      {"avx512f", F_AVX512F},
+      {"bmi",     F_BMI},
+      {"bmi2",    F_BMI2},
+      {"aes",     F_AES},
+      {"pclmul",  F_PCLMUL},
+      {"avx512vl",F_AVX512VL},
+      {"avx512bw",F_AVX512BW},
+      {"avx512dq",F_AVX512DQ},
+      {"avx512cd",F_AVX512CD},
+      {"avx512er",F_AVX512ER},
+      {"avx512pf",F_AVX512PF},
     };
 
   tree __processor_model_type = build_processor_model_struct ();
@@ -36218,7 +36265,7 @@ ix86_expand_multi_arg_builtin (enum insn_code icode, tree exp, rtx target,
 		xop_rotl:
 		  if (CONST_INT_P (op))
 		    {
-		      int mask = GET_MODE_BITSIZE (GET_MODE_INNER (tmode)) - 1;
+		      int mask = GET_MODE_UNIT_BITSIZE (tmode) - 1;
 		      op = GEN_INT (INTVAL (op) & mask);
 		      gcc_checking_assert
 			(insn_data[icode].operand[i + 1].predicate (op, mode));
@@ -39502,60 +39549,57 @@ rdseed_step:
       return target;
 
     case IX86_BUILTIN_SBB32:
-      icode = CODE_FOR_subsi3_carry;
+      icode = CODE_FOR_subborrowsi;
       mode0 = SImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_SBB64:
-      icode = CODE_FOR_subdi3_carry;
+      icode = CODE_FOR_subborrowdi;
       mode0 = DImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_ADDCARRYX32:
-      icode = TARGET_ADX ? CODE_FOR_adcxsi3 : CODE_FOR_addsi3_carry;
+      icode = CODE_FOR_addcarrysi;
       mode0 = SImode;
-      goto addcarryx;
+      goto handlecarry;
 
     case IX86_BUILTIN_ADDCARRYX64:
-      icode = TARGET_ADX ? CODE_FOR_adcxdi3 : CODE_FOR_adddi3_carry;
+      icode = CODE_FOR_addcarrydi;
       mode0 = DImode;
 
-addcarryx:
+    handlecarry:
       arg0 = CALL_EXPR_ARG (exp, 0); /* unsigned char c_in.  */
       arg1 = CALL_EXPR_ARG (exp, 1); /* unsigned int src1.  */
       arg2 = CALL_EXPR_ARG (exp, 2); /* unsigned int src2.  */
       arg3 = CALL_EXPR_ARG (exp, 3); /* unsigned int *sum_out.  */
 
-      op0 = gen_reg_rtx (QImode);
-
-      /* Generate CF from input operand.  */
       op1 = expand_normal (arg0);
       op1 = copy_to_mode_reg (QImode, convert_to_mode (QImode, op1, 1));
-      emit_insn (gen_addqi3_cc (op0, op1, constm1_rtx));
 
-      /* Gen ADCX instruction to compute X+Y+CF.  */
       op2 = expand_normal (arg1);
-      op3 = expand_normal (arg2);
-
-      if (!REG_P (op2))
+      if (!register_operand (op2, mode0))
 	op2 = copy_to_mode_reg (mode0, op2);
-      if (!REG_P (op3))
+
+      op3 = expand_normal (arg2);
+      if (!register_operand (op3, mode0))
 	op3 = copy_to_mode_reg (mode0, op3);
 
-      op0 = gen_reg_rtx (mode0);
-
-      op4 = gen_rtx_REG (CCCmode, FLAGS_REG);
-      pat = gen_rtx_LTU (VOIDmode, op4, const0_rtx);
-      emit_insn (GEN_FCN (icode) (op0, op2, op3, op4, pat));
-
-      /* Store the result.  */
       op4 = expand_normal (arg3);
       if (!address_operand (op4, VOIDmode))
 	{
 	  op4 = convert_memory_address (Pmode, op4);
 	  op4 = copy_addr_to_reg (op4);
 	}
-      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
+      /* Generate CF from input operand.  */
+      emit_insn (gen_addqi3_cconly_overflow (op1, constm1_rtx));
+
+      /* Generate instruction that consumes CF.  */
+      op0 = gen_reg_rtx (mode0);
+
+      op1 = gen_rtx_REG (CCCmode, FLAGS_REG);
+      pat = gen_rtx_LTU (mode0, op1, const0_rtx);
+      emit_insn (GEN_FCN (icode) (op0, op2, op3, op1, pat));
 
       /* Return current CF value.  */
       if (target == 0)
@@ -39563,6 +39607,10 @@ addcarryx:
 
       PUT_MODE (pat, QImode);
       emit_insn (gen_rtx_SET (target, pat));
+
+      /* Store the result.  */
+      emit_move_insn (gen_rtx_MEM (mode0, op4), op0);
+
       return target;
 
     case IX86_BUILTIN_READ_FLAGS:
@@ -39851,6 +39899,18 @@ addcarryx:
     case IX86_BUILTIN_GATHERPFDPD:
       icode = CODE_FOR_avx512pf_gatherpfv8sidf;
       goto vec_prefetch_gen;
+    case IX86_BUILTIN_SCATTERALTSIV8DF:
+      icode = CODE_FOR_avx512f_scattersiv8df;
+      goto scatter_gen;
+    case IX86_BUILTIN_SCATTERALTDIV16SF:
+      icode = CODE_FOR_avx512f_scatterdiv16sf;
+      goto scatter_gen;
+    case IX86_BUILTIN_SCATTERALTSIV8DI:
+      icode = CODE_FOR_avx512f_scattersiv8di;
+      goto scatter_gen;
+    case IX86_BUILTIN_SCATTERALTDIV16SI:
+      icode = CODE_FOR_avx512f_scatterdiv16si;
+      goto scatter_gen;
     case IX86_BUILTIN_GATHERPFDPS:
       icode = CODE_FOR_avx512pf_gatherpfv16sisf;
       goto vec_prefetch_gen;
@@ -40034,7 +40094,7 @@ addcarryx:
 		 as that is a cheaper way to load all ones into
 		 a register than having to load a constant from
 		 memory.  */
-	      gimple def_stmt = SSA_NAME_DEF_STMT (arg3);
+	      gimple *def_stmt = SSA_NAME_DEF_STMT (arg3);
 	      if (is_gimple_call (def_stmt))
 		{
 		  tree fndecl = gimple_call_fndecl (def_stmt);
@@ -40113,6 +40173,36 @@ addcarryx:
       mode2 = insn_data[icode].operand[2].mode;
       mode3 = insn_data[icode].operand[3].mode;
       mode4 = insn_data[icode].operand[4].mode;
+
+      /* Scatter instruction stores operand op3 to memory with
+	 indices from op2 and scale from op4 under writemask op1.
+	 If index operand op2 has more elements then source operand
+	 op3 one need to use only its low half. And vice versa.  */
+      switch (fcode)
+	{
+	case IX86_BUILTIN_SCATTERALTSIV8DF:
+	case IX86_BUILTIN_SCATTERALTSIV8DI:
+	  half = gen_reg_rtx (V8SImode);
+	  if (!nonimmediate_operand (op2, V16SImode))
+	    op2 = copy_to_mode_reg (V16SImode, op2);
+	  emit_insn (gen_vec_extract_lo_v16si (half, op2));
+	  op2 = half;
+	  break;
+	case IX86_BUILTIN_SCATTERALTDIV16SF:
+	case IX86_BUILTIN_SCATTERALTDIV16SI:
+	  half = gen_reg_rtx (mode3);
+	  if (mode3 == V8SFmode)
+	    gen = gen_vec_extract_lo_v16sf;
+	  else
+	    gen = gen_vec_extract_lo_v16si;
+	  if (!nonimmediate_operand (op3, GET_MODE (op3)))
+	    op3 = copy_to_mode_reg (GET_MODE (op3), op3);
+	  emit_insn (gen (half, op3));
+	  op3 = half;
+	  break;
+	default:
+	  break;
+	}
 
       /* Force memory operand only with base register here.  But we
 	 don't want to do it on memory operand for other builtin
@@ -41191,6 +41281,62 @@ ix86_vectorize_builtin_gather (const_tree mem_vectype,
     }
 
   return ix86_get_builtin (code);
+}
+
+/* Returns a decl of a function that implements scatter store with
+   register type VECTYPE and index type INDEX_TYPE and SCALE.
+   Return NULL_TREE if it is not available.  */
+
+static tree
+ix86_vectorize_builtin_scatter (const_tree vectype,
+				const_tree index_type, int scale)
+{
+  bool si;
+  enum ix86_builtins code;
+
+  if (!TARGET_AVX512F)
+    return NULL_TREE;
+
+  if ((TREE_CODE (index_type) != INTEGER_TYPE
+       && !POINTER_TYPE_P (index_type))
+      || (TYPE_MODE (index_type) != SImode
+	  && TYPE_MODE (index_type) != DImode))
+    return NULL_TREE;
+
+  if (TYPE_PRECISION (index_type) > POINTER_SIZE)
+    return NULL_TREE;
+
+  /* v*scatter* insn sign extends index to pointer mode.  */
+  if (TYPE_PRECISION (index_type) < POINTER_SIZE
+      && TYPE_UNSIGNED (index_type))
+    return NULL_TREE;
+
+  /* Scale can be 1, 2, 4 or 8.  */
+  if (scale <= 0
+      || scale > 8
+      || (scale & (scale - 1)) != 0)
+    return NULL_TREE;
+
+  si = TYPE_MODE (index_type) == SImode;
+  switch (TYPE_MODE (vectype))
+    {
+    case V8DFmode:
+      code = si ? IX86_BUILTIN_SCATTERALTSIV8DF : IX86_BUILTIN_SCATTERDIV8DF;
+      break;
+    case V8DImode:
+      code = si ? IX86_BUILTIN_SCATTERALTSIV8DI : IX86_BUILTIN_SCATTERDIV8DI;
+      break;
+    case V16SFmode:
+      code = si ? IX86_BUILTIN_SCATTERSIV16SF : IX86_BUILTIN_SCATTERALTDIV16SF;
+      break;
+    case V16SImode:
+      code = si ? IX86_BUILTIN_SCATTERSIV16SI : IX86_BUILTIN_SCATTERALTDIV16SI;
+      break;
+    default:
+      return NULL_TREE;
+    }
+
+  return ix86_builtins[code];
 }
 
 /* Returns a code for a target-specific builtin that implements
@@ -45562,12 +45708,12 @@ ix86_expand_reduc (rtx (*fn) (rtx, rtx, rtx), rtx dest, rtx in)
     }
 
   for (i = GET_MODE_BITSIZE (mode);
-       i > GET_MODE_BITSIZE (GET_MODE_INNER (mode));
+       i > GET_MODE_UNIT_BITSIZE (mode);
        i >>= 1)
     {
       half = gen_reg_rtx (mode);
       emit_reduc_half (half, vec, i);
-      if (i == GET_MODE_BITSIZE (GET_MODE_INNER (mode)) * 2)
+      if (i == GET_MODE_UNIT_BITSIZE (mode) * 2)
 	dst = dest;
       else
 	dst = gen_reg_rtx (mode);
@@ -47950,7 +48096,7 @@ expand_vec_perm_palignr (struct expand_vec_perm_d *d, bool single_insn_only_p)
       return expand_vec_perm_1 (&dcopy);
     }
 
-  shift = GEN_INT (min * GET_MODE_BITSIZE (GET_MODE_INNER (d->vmode)));
+  shift = GEN_INT (min * GET_MODE_UNIT_BITSIZE (d->vmode));
   if (GET_MODE_SIZE (d->vmode) == 16)
     {
       target = gen_reg_rtx (TImode);
@@ -50400,8 +50546,7 @@ ix86_expand_sse2_abs (rtx target, rtx input)
 	 value of X is (((signed) X >> (W-1)) ^ X) - ((signed) X >> (W-1)).  */
       case V4SImode:
 	tmp0 = expand_simple_binop (mode, ASHIFTRT, input,
-				    GEN_INT (GET_MODE_BITSIZE
-					     (GET_MODE_INNER (mode)) - 1),
+				    GEN_INT (GET_MODE_UNIT_BITSIZE (mode) - 1),
 				    NULL, 0, OPTAB_DIRECT);
 	tmp1 = expand_simple_binop (mode, XOR, tmp0, input,
 				    NULL, 0, OPTAB_DIRECT);
@@ -51607,7 +51752,7 @@ ix86_reassociation_width (unsigned int, machine_mode mode)
   if (INTEGRAL_MODE_P (mode) && TARGET_REASSOC_INT_TO_PARALLEL)
     return 2;
   else if (FLOAT_MODE_P (mode) && TARGET_REASSOC_FP_TO_PARALLEL)
-    return 2;
+    return ((TARGET_64BIT && ix86_tune == PROCESSOR_HASWELL)? 4 : 2);
   else
     return 1;
 }
@@ -52323,6 +52468,9 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 
 #undef TARGET_VECTORIZE_BUILTIN_GATHER
 #define TARGET_VECTORIZE_BUILTIN_GATHER ix86_vectorize_builtin_gather
+
+#undef TARGET_VECTORIZE_BUILTIN_SCATTER
+#define TARGET_VECTORIZE_BUILTIN_SCATTER ix86_vectorize_builtin_scatter
 
 #undef TARGET_BUILTIN_RECIPROCAL
 #define TARGET_BUILTIN_RECIPROCAL ix86_builtin_reciprocal

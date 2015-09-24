@@ -54,16 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
 #include "tree-ssa-threadupdate.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "insn-codes.h"
-#include "optabs.h"
+#include "optabs-tree.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
 #include "omp-low.h"
@@ -126,7 +118,7 @@ static tree vrp_evaluate_conditional_warnv_with_ops (enum tree_code,
    SSA name may have more than one assertion associated with it, these
    locations are kept in a linked list attached to the corresponding
    SSA name.  */
-struct assert_locus_d
+struct assert_locus
 {
   /* Basic block where the assertion would be inserted.  */
   basic_block bb;
@@ -148,10 +140,8 @@ struct assert_locus_d
   tree expr;
 
   /* Next node in the linked list.  */
-  struct assert_locus_d *next;
+  assert_locus *next;
 };
-
-typedef struct assert_locus_d *assert_locus_t;
 
 /* If bit I is present, it means that SSA name N_i has a list of
    assertions that should be inserted in the IL.  */
@@ -160,7 +150,7 @@ static bitmap need_assert_for;
 /* Array of locations lists where to insert assertions.  ASSERTS_FOR[I]
    holds a list of ASSERT_LOCUS_T nodes that describe where
    ASSERT_EXPRs for SSA name N_I should be inserted.  */
-static assert_locus_t *asserts_for;
+static assert_locus **asserts_for;
 
 /* Value range array.  After propagation, VR_VALUE[I] holds the range
    of values that SSA name N_I may take.  */
@@ -173,10 +163,10 @@ static bool values_propagated;
    node.  */
 static int *vr_phi_edge_counts;
 
-typedef struct {
+struct switch_update {
   gswitch *stmt;
   tree vec;
-} switch_update;
+};
 
 static vec<edge> to_remove_edges;
 static vec<switch_update> to_update_switch_stmts;
@@ -326,7 +316,7 @@ is_overflow_infinity (const_tree val)
 /* Return whether STMT has a constant rhs that is_overflow_infinity. */
 
 static inline bool
-stmt_overflow_infinity (gimple stmt)
+stmt_overflow_infinity (gimple *stmt)
 {
   if (is_gimple_assign (stmt)
       && get_gimple_rhs_class (gimple_assign_rhs_code (stmt)) ==
@@ -352,68 +342,6 @@ avoid_overflow_infinity (tree val)
       gcc_checking_assert (vrp_val_is_min (val));
       return vrp_val_min (TREE_TYPE (val));
     }
-}
-
-
-/* Return true if ARG is marked with the nonnull attribute in the
-   current function signature.  */
-
-static bool
-nonnull_arg_p (const_tree arg)
-{
-  tree t, attrs, fntype;
-  unsigned HOST_WIDE_INT arg_num;
-
-  gcc_assert (TREE_CODE (arg) == PARM_DECL && POINTER_TYPE_P (TREE_TYPE (arg)));
-
-  /* The static chain decl is always non null.  */
-  if (arg == cfun->static_chain_decl)
-    return true;
-
-  /* THIS argument of method is always non-NULL.  */
-  if (TREE_CODE (TREE_TYPE (current_function_decl)) == METHOD_TYPE
-      && arg == DECL_ARGUMENTS (current_function_decl)
-      && flag_delete_null_pointer_checks)
-    return true;
-
-  /* Values passed by reference are always non-NULL.  */
-  if (TREE_CODE (TREE_TYPE (arg)) == REFERENCE_TYPE
-      && flag_delete_null_pointer_checks)
-    return true;
-
-  fntype = TREE_TYPE (current_function_decl);
-  for (attrs = TYPE_ATTRIBUTES (fntype); attrs; attrs = TREE_CHAIN (attrs))
-    {
-      attrs = lookup_attribute ("nonnull", attrs);
-
-      /* If "nonnull" wasn't specified, we know nothing about the argument.  */
-      if (attrs == NULL_TREE)
-	return false;
-
-      /* If "nonnull" applies to all the arguments, then ARG is non-null.  */
-      if (TREE_VALUE (attrs) == NULL_TREE)
-	return true;
-
-      /* Get the position number for ARG in the function signature.  */
-      for (arg_num = 1, t = DECL_ARGUMENTS (current_function_decl);
-	   t;
-	   t = DECL_CHAIN (t), arg_num++)
-	{
-	  if (t == arg)
-	    break;
-	}
-
-      gcc_assert (t == arg);
-
-      /* Now see if ARG_NUM is mentioned in the nonnull list.  */
-      for (t = TREE_VALUE (attrs); t; t = TREE_CHAIN (t))
-	{
-	  if (compare_tree_int (TREE_VALUE (t), arg_num) == 0)
-	    return true;
-	}
-    }
-
-  return false;
 }
 
 
@@ -1088,7 +1016,7 @@ usable_range_p (value_range_t *vr, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_assign_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_assign_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   switch (get_gimple_rhs_class (code))
@@ -1122,7 +1050,7 @@ gimple_assign_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_call_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_call_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p)
 {
   tree arg0 = gimple_call_num_args (stmt) > 0 ?
     gimple_call_arg (stmt, 0) : NULL_TREE;
@@ -1142,7 +1070,7 @@ gimple_call_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_stmt_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_stmt_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p)
 {
   switch (gimple_code (stmt))
     {
@@ -1161,7 +1089,7 @@ gimple_stmt_nonnegative_warnv_p (gimple stmt, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_assign_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_assign_nonzero_warnv_p (gimple *stmt, bool *strict_overflow_p)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   switch (get_gimple_rhs_class (code))
@@ -1195,7 +1123,7 @@ gimple_assign_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
    *STRICT_OVERFLOW_P.*/
 
 static bool
-gimple_stmt_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
+gimple_stmt_nonzero_warnv_p (gimple *stmt, bool *strict_overflow_p)
 {
   switch (gimple_code (stmt))
     {
@@ -1228,7 +1156,7 @@ gimple_stmt_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
    obtained so far.  */
 
 static bool
-vrp_stmt_computes_nonzero (gimple stmt, bool *strict_overflow_p)
+vrp_stmt_computes_nonzero (gimple *stmt, bool *strict_overflow_p)
 {
   if (gimple_stmt_nonzero_warnv_p (stmt, strict_overflow_p))
     return true;
@@ -3939,7 +3867,7 @@ check_for_binary_op_overflow (enum tree_code subcode, tree type,
    Store the result in *VR */
 
 static void
-extract_range_basic (value_range_t *vr, gimple stmt)
+extract_range_basic (value_range_t *vr, gimple *stmt)
 {
   bool sop = false;
   tree type = gimple_expr_type (stmt);
@@ -4204,7 +4132,7 @@ extract_range_basic (value_range_t *vr, gimple stmt)
       tree op = gimple_assign_rhs1 (stmt);
       if (TREE_CODE (op) == code && TREE_CODE (TREE_OPERAND (op, 0)) == SSA_NAME)
 	{
-	  gimple g = SSA_NAME_DEF_STMT (TREE_OPERAND (op, 0));
+	  gimple *g = SSA_NAME_DEF_STMT (TREE_OPERAND (op, 0));
 	  if (is_gimple_call (g) && gimple_call_internal_p (g))
 	    {
 	      enum tree_code subcode = ERROR_MARK;
@@ -4326,7 +4254,7 @@ extract_range_from_assignment (value_range_t *vr, gassign *stmt)
 
 static void
 adjust_range_with_scev (value_range_t *vr, struct loop *loop,
-			gimple stmt, tree var)
+			gimple *stmt, tree var)
 {
   tree init, step, chrec, tmin, tmax, min, max, type, tem;
   enum ev_direction dir;
@@ -4897,7 +4825,7 @@ debug_all_value_ranges (void)
    create a new SSA name N and return the assertion assignment
    'N = ASSERT_EXPR <V, V OP W>'.  */
 
-static gimple
+static gimple *
 build_assert_expr_for (tree cond, tree v)
 {
   tree a;
@@ -4923,7 +4851,7 @@ build_assert_expr_for (tree cond, tree v)
    point values.  */
 
 static inline bool
-fp_predicate (gimple stmt)
+fp_predicate (gimple *stmt)
 {
   GIMPLE_CHECK (stmt, GIMPLE_COND);
 
@@ -4936,7 +4864,7 @@ fp_predicate (gimple stmt)
    inferred.  */
 
 static bool
-infer_value_range (gimple stmt, tree op, enum tree_code *comp_code_p, tree *val_p)
+infer_value_range (gimple *stmt, tree op, tree_code *comp_code_p, tree *val_p)
 {
   *val_p = NULL_TREE;
   *comp_code_p = ERROR_MARK;
@@ -4988,7 +4916,7 @@ void debug_all_asserts (void);
 void
 dump_asserts_for (FILE *file, tree name)
 {
-  assert_locus_t loc;
+  assert_locus *loc;
 
   fprintf (file, "Assertions to be inserted for ");
   print_generic_expr (file, name, 0);
@@ -5070,7 +4998,7 @@ register_new_assert_for (tree name, tree expr,
 			 edge e,
 			 gimple_stmt_iterator si)
 {
-  assert_locus_t n, loc, last_loc;
+  assert_locus *n, *loc, *last_loc;
   basic_block dest_bb;
 
   gcc_checking_assert (bb == NULL || e == NULL);
@@ -5145,7 +5073,7 @@ register_new_assert_for (tree name, tree expr,
   /* If we didn't find an assertion already registered for
      NAME COMP_CODE VAL, add a new one at the end of the list of
      assertions associated with NAME.  */
-  n = XNEW (struct assert_locus_d);
+  n = XNEW (struct assert_locus);
   n->bb = dest_bb;
   n->e = e;
   n->si = si;
@@ -5291,7 +5219,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       && TREE_CODE (val) == INTEGER_CST
       && TYPE_UNSIGNED (TREE_TYPE (val)))
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (name);
       tree cst2 = NULL_TREE, name2 = NULL_TREE, name3 = NULL_TREE;
 
       /* Extract CST2 from the (optional) addition.  */
@@ -5384,7 +5312,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
       && TREE_CODE (val) == INTEGER_CST)
     {
       imm_use_iterator ui;
-      gimple use_stmt;
+      gimple *use_stmt;
       FOR_EACH_IMM_USE_STMT (use_stmt, ui, name)
 	{
 	  if (!is_gimple_assign (use_stmt))
@@ -5432,7 +5360,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
   if (TREE_CODE_CLASS (comp_code) == tcc_comparison
       && TREE_CODE (val) == INTEGER_CST)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (name);
       tree name2 = NULL_TREE, names[2], cst2 = NULL_TREE;
       tree val2 = NULL_TREE;
       unsigned int prec = TYPE_PRECISION (TREE_TYPE (val));
@@ -5602,7 +5530,7 @@ register_edge_assert_for_2 (tree name, edge e, gimple_stmt_iterator bsi,
 	      && (nprec > 1
 		  || TYPE_UNSIGNED (TREE_TYPE (val))))
 	    {
-	      gimple def_stmt2 = SSA_NAME_DEF_STMT (name2);
+	      gimple *def_stmt2 = SSA_NAME_DEF_STMT (name2);
 	      if (gimple_assign_cast_p (def_stmt2))
 		{
 		  names[1] = gimple_assign_rhs1 (def_stmt2);
@@ -5826,7 +5754,7 @@ static void
 register_edge_assert_for_1 (tree op, enum tree_code code,
 			    edge e, gimple_stmt_iterator bsi)
 {
-  gimple op_def;
+  gimple *op_def;
   tree val;
   enum tree_code rhs_code;
 
@@ -5941,7 +5869,7 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
   if (((comp_code == EQ_EXPR && integer_onep (val))
        || (comp_code == NE_EXPR && integer_zerop (val))))
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (name);
 
       if (is_gimple_assign (def_stmt)
 	  && gimple_assign_rhs_code (def_stmt) == BIT_AND_EXPR)
@@ -5959,7 +5887,7 @@ register_edge_assert_for (tree name, edge e, gimple_stmt_iterator si,
   if (((comp_code == EQ_EXPR && integer_zerop (val))
        || (comp_code == NE_EXPR && integer_onep (val))))
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (name);
 
       /* For BIT_IOR_EXPR only if NAME == 0 both operands have
 	 necessarily zero value, or if type-precision is one.  */
@@ -6196,7 +6124,7 @@ find_switch_asserts (basic_block bb, gswitch *last)
 static void
 find_assert_locations_1 (basic_block bb, sbitmap live)
 {
-  gimple last;
+  gimple *last;
 
   last = last_stmt (bb);
 
@@ -6220,7 +6148,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
   for (gimple_stmt_iterator si = gsi_last_bb (bb); !gsi_end_p (si);
        gsi_prev (&si))
     {
-      gimple stmt;
+      gimple *stmt;
       tree op;
       ssa_op_iter i;
 
@@ -6254,7 +6182,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
 	      if (comp_code == NE_EXPR && integer_zerop (value))
 		{
 		  tree t = op;
-		  gimple def_stmt = SSA_NAME_DEF_STMT (t);
+		  gimple *def_stmt = SSA_NAME_DEF_STMT (t);
 
 		  while (is_gimple_assign (def_stmt)
 			 && CONVERT_EXPR_CODE_P
@@ -6424,12 +6352,12 @@ find_assert_locations (void)
    indicated by LOC.  Return true if we made any edge insertions.  */
 
 static bool
-process_assert_insertions_for (tree name, assert_locus_t loc)
+process_assert_insertions_for (tree name, assert_locus *loc)
 {
   /* Build the comparison expression NAME_i COMP_CODE VAL.  */
-  gimple stmt;
+  gimple *stmt;
   tree cond;
-  gimple assert_stmt;
+  gimple *assert_stmt;
   edge_iterator ei;
   edge e;
 
@@ -6492,12 +6420,12 @@ process_assert_insertions (void)
 
   EXECUTE_IF_SET_IN_BITMAP (need_assert_for, 0, i, bi)
     {
-      assert_locus_t loc = asserts_for[i];
+      assert_locus *loc = asserts_for[i];
       gcc_assert (loc);
 
       while (loc)
 	{
-	  assert_locus_t next = loc->next;
+	  assert_locus *next = loc->next;
 	  update_edges_p |= process_assert_insertions_for (ssa_name (i), loc);
 	  free (loc);
 	  loc = next;
@@ -6549,7 +6477,7 @@ static void
 insert_range_assertions (void)
 {
   need_assert_for = BITMAP_ALLOC (NULL);
-  asserts_for = XCNEWVEC (assert_locus_t, num_ssa_names);
+  asserts_for = XCNEWVEC (assert_locus *, num_ssa_names);
 
   calculate_dominance_info (CDI_DOMINATORS);
 
@@ -6813,7 +6741,7 @@ check_all_array_refs (void)
 
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 	  struct walk_stmt_info wi;
 	  if (!gimple_has_location (stmt)
 	      || is_gimple_debug (stmt))
@@ -6835,7 +6763,7 @@ check_all_array_refs (void)
    in basic block COND_BB.  */
 
 static bool
-all_imm_uses_in_stmt_or_feed_cond (tree var, gimple stmt, basic_block cond_bb)
+all_imm_uses_in_stmt_or_feed_cond (tree var, gimple *stmt, basic_block cond_bb)
 {
   use_operand_p use_p, use2_p;
   imm_use_iterator iter;
@@ -6843,7 +6771,7 @@ all_imm_uses_in_stmt_or_feed_cond (tree var, gimple stmt, basic_block cond_bb)
   FOR_EACH_IMM_USE_FAST (use_p, iter, var)
     if (USE_STMT (use_p) != stmt)
       {
-	gimple use_stmt = USE_STMT (use_p), use_stmt2;
+	gimple *use_stmt = USE_STMT (use_p), *use_stmt2;
 	if (is_gimple_debug (use_stmt))
 	  continue;
 	while (is_gimple_assign (use_stmt)
@@ -6877,7 +6805,7 @@ maybe_set_nonzero_bits (basic_block bb, tree var)
 {
   edge e = single_pred_edge (bb);
   basic_block cond_bb = e->src;
-  gimple stmt = last_stmt (cond_bb);
+  gimple *stmt = last_stmt (cond_bb);
   tree cst;
 
   if (stmt == NULL
@@ -6895,7 +6823,7 @@ maybe_set_nonzero_bits (basic_block bb, tree var)
     return;
   if (gimple_assign_rhs1 (stmt) != var)
     {
-      gimple stmt2;
+      gimple *stmt2;
 
       if (TREE_CODE (gimple_assign_rhs1 (stmt)) != SSA_NAME)
 	return;
@@ -6951,8 +6879,8 @@ remove_range_assertions (void)
   FOR_EACH_BB_FN (bb, cfun)
     for (si = gsi_after_labels (bb), is_unreachable = -1; !gsi_end_p (si);)
       {
-	gimple stmt = gsi_stmt (si);
-	gimple use_stmt;
+	gimple *stmt = gsi_stmt (si);
+	gimple *use_stmt;
 
 	if (is_gimple_assign (stmt)
 	    && gimple_assign_rhs_code (stmt) == ASSERT_EXPR)
@@ -7021,7 +6949,7 @@ remove_range_assertions (void)
 /* Return true if STMT is interesting for VRP.  */
 
 static bool
-stmt_interesting_for_vrp (gimple stmt)
+stmt_interesting_for_vrp (gimple *stmt)
 {
   if (gimple_code (stmt) == GIMPLE_PHI)
     {
@@ -7097,7 +7025,7 @@ vrp_initialize (void)
       for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
 	   gsi_next (&si))
         {
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 
  	  /* If the statement is a control insn, then we do not
  	     want to avoid simulating the statement once.  Failure
@@ -7145,7 +7073,7 @@ vrp_valueize_1 (tree name)
       /* If the definition may be simulated again we cannot follow
          this SSA edge as the SSA propagator does not necessarily
 	 re-visit the use.  */
-      gimple def_stmt = SSA_NAME_DEF_STMT (name);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (name);
       if (!gimple_nop_p (def_stmt)
 	  && prop_simulate_again_p (def_stmt))
 	return NULL_TREE;
@@ -7160,7 +7088,7 @@ vrp_valueize_1 (tree name)
    the SSA name in *OUTPUT_P.  */
 
 static enum ssa_prop_result
-vrp_visit_assignment_or_call (gimple stmt, tree *output_p)
+vrp_visit_assignment_or_call (gimple *stmt, tree *output_p)
 {
   tree def, lhs;
   ssa_op_iter iter;
@@ -7229,7 +7157,7 @@ vrp_visit_assignment_or_call (gimple stmt, tree *output_p)
 
 	    FOR_EACH_IMM_USE_FAST (use_p, iter, lhs)
 	      {
-		gimple use_stmt = USE_STMT (use_p);
+		gimple *use_stmt = USE_STMT (use_p);
 		if (!is_gimple_assign (use_stmt))
 		  continue;
 		enum tree_code rhs_code = gimple_assign_rhs_code (use_stmt);
@@ -7564,7 +7492,7 @@ vrp_evaluate_conditional_warnv_with_ops (enum tree_code code, tree op0,
    appropriate.  */
 
 static tree
-vrp_evaluate_conditional (enum tree_code code, tree op0, tree op1, gimple stmt)
+vrp_evaluate_conditional (tree_code code, tree op0, tree op1, gimple *stmt)
 {
   bool sop;
   tree ret;
@@ -8053,7 +7981,7 @@ vrp_visit_switch_stmt (gswitch *stmt, edge *taken_edge_p)
    If STMT produces a varying value, return SSA_PROP_VARYING.  */
 
 static enum ssa_prop_result
-vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
+vrp_visit_stmt (gimple *stmt, edge *taken_edge_p, tree *output_p)
 {
   tree def;
   ssa_op_iter iter;
@@ -9018,7 +8946,7 @@ varying:
 /* Simplify boolean operations if the source is known
    to be already a boolean.  */
 static bool
-simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple *stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs, op0, op1;
@@ -9088,7 +9016,7 @@ simplify_truth_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
    modulo.  */
 
 static bool
-simplify_div_or_mod_using_ranges (gimple stmt)
+simplify_div_or_mod_using_ranges (gimple *stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree val = NULL;
@@ -9179,7 +9107,7 @@ simplify_div_or_mod_using_ranges (gimple stmt)
    disjoint.   Return true if we do simplify.  */
 
 static bool
-simplify_min_or_max_using_ranges (gimple stmt)
+simplify_min_or_max_using_ranges (gimple *stmt)
 {
   tree op0 = gimple_assign_rhs1 (stmt);
   tree op1 = gimple_assign_rhs2 (stmt);
@@ -9228,39 +9156,27 @@ simplify_min_or_max_using_ranges (gimple stmt)
    ABS_EXPR into a NEGATE_EXPR.  */
 
 static bool
-simplify_abs_using_ranges (gimple stmt)
+simplify_abs_using_ranges (gimple *stmt)
 {
-  tree val = NULL;
   tree op = gimple_assign_rhs1 (stmt);
-  tree type = TREE_TYPE (op);
   value_range_t *vr = get_value_range (op);
 
-  if (TYPE_UNSIGNED (type))
+  if (vr)
     {
-      val = integer_zero_node;
-    }
-  else if (vr)
-    {
+      tree val = NULL;
       bool sop = false;
 
       val = compare_range_with_value (LE_EXPR, vr, integer_zero_node, &sop);
       if (!val)
 	{
+	  /* The range is neither <= 0 nor > 0.  Now see if it is
+	     either < 0 or >= 0.  */
 	  sop = false;
-	  val = compare_range_with_value (GE_EXPR, vr, integer_zero_node,
+	  val = compare_range_with_value (LT_EXPR, vr, integer_zero_node,
 					  &sop);
-
-	  if (val)
-	    {
-	      if (integer_zerop (val))
-		val = integer_one_node;
-	      else if (integer_onep (val))
-		val = integer_zero_node;
-	    }
 	}
 
-      if (val
-	  && (integer_onep (val) || integer_zerop (val)))
+      if (val)
 	{
 	  if (sop && issue_strict_overflow_warning (WARN_STRICT_OVERFLOW_MISC))
 	    {
@@ -9276,10 +9192,10 @@ simplify_abs_using_ranges (gimple stmt)
 	    }
 
 	  gimple_assign_set_rhs1 (stmt, op);
-	  if (integer_onep (val))
-	    gimple_assign_set_rhs_code (stmt, NEGATE_EXPR);
-	  else
+	  if (integer_zerop (val))
 	    gimple_assign_set_rhs_code (stmt, SSA_NAME);
+	  else
+	    gimple_assign_set_rhs_code (stmt, NEGATE_EXPR);
 	  update_stmt (stmt);
 	  return true;
 	}
@@ -9295,7 +9211,7 @@ simplify_abs_using_ranges (gimple stmt)
    operation is redundant.  */
 
 static bool
-simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_bit_ops_using_ranges (gimple_stmt_iterator *gsi, gimple *stmt)
 {
   tree op0 = gimple_assign_rhs1 (stmt);
   tree op1 = gimple_assign_rhs2 (stmt);
@@ -9618,7 +9534,7 @@ simplify_cond_using_ranges (gcond *stmt)
   if (TREE_CODE (op0) == SSA_NAME
       && TREE_CODE (op1) == INTEGER_CST)
     {
-      gimple def_stmt = SSA_NAME_DEF_STMT (op0);
+      gimple *def_stmt = SSA_NAME_DEF_STMT (op0);
       tree innerop;
 
       if (!is_gimple_assign (def_stmt)
@@ -9776,10 +9692,10 @@ simplify_switch_using_ranges (gswitch *stmt)
 /* Simplify an integral conversion from an SSA name in STMT.  */
 
 static bool
-simplify_conversion_using_ranges (gimple stmt)
+simplify_conversion_using_ranges (gimple *stmt)
 {
   tree innerop, middleop, finaltype;
-  gimple def_stmt;
+  gimple *def_stmt;
   value_range_t *innervr;
   signop inner_sgn, middle_sgn, final_sgn;
   unsigned inner_prec, middle_prec, final_prec;
@@ -9855,7 +9771,8 @@ simplify_conversion_using_ranges (gimple stmt)
 /* Simplify a conversion from integral SSA name to float in STMT.  */
 
 static bool
-simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi,
+					gimple *stmt)
 {
   tree rhs1 = gimple_assign_rhs1 (stmt);
   value_range_t *vr = get_value_range (rhs1);
@@ -9920,7 +9837,7 @@ simplify_float_conversion_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 /* Simplify an internal fn call using ranges if possible.  */
 
 static bool
-simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
+simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple *stmt)
 {
   enum tree_code subcode;
   bool is_ubsan = false;
@@ -9965,7 +9882,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
       || (is_ubsan && ovf))
     return false;
 
-  gimple g;
+  gimple *g;
   location_t loc = gimple_location (stmt);
   if (is_ubsan)
     g = gimple_build_assign (gimple_call_lhs (stmt), subcode, op0, op1);
@@ -10019,7 +9936,7 @@ simplify_internal_call_using_ranges (gimple_stmt_iterator *gsi, gimple stmt)
 static bool
 simplify_stmt_using_ranges (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
   if (is_gimple_assign (stmt))
     {
       enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
@@ -10106,7 +10023,7 @@ fold_predicate_in (gimple_stmt_iterator *si)
 {
   bool assignment_p = false;
   tree val;
-  gimple stmt = gsi_stmt (*si);
+  gimple *stmt = gsi_stmt (*si);
 
   if (is_gimple_assign (stmt)
       && TREE_CODE_CLASS (gimple_assign_rhs_code (stmt)) == tcc_comparison)
@@ -10179,7 +10096,8 @@ const_and_copies *equiv_stack;
    for any overflow warnings.  */
 
 static tree
-simplify_stmt_for_jump_threading (gimple stmt, gimple within_stmt)
+simplify_stmt_for_jump_threading (gimple *stmt, gimple *within_stmt,
+    class avail_exprs_stack *avail_exprs_stack ATTRIBUTE_UNUSED)
 {
   if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
     return vrp_evaluate_conditional (gimple_cond_code (cond_stmt),
@@ -10252,7 +10170,7 @@ identify_jump_threads (void)
 
   /* Allocate our unwinder stack to unwind any temporary equivalences
      that might be recorded.  */
-  equiv_stack = new const_and_copies (dump_file, dump_flags);
+  equiv_stack = new const_and_copies ();
 
   /* To avoid lots of silly node creation, we create a single
      conditional and just modify it in-place when attempting to
@@ -10269,7 +10187,7 @@ identify_jump_threads (void)
      point in compilation.  */
   FOR_EACH_BB_FN (bb, cfun)
     {
-      gimple last;
+      gimple *last;
 
       /* If the generic jump threading code does not find this block
 	 interesting, then there is nothing to do.  */
@@ -10310,7 +10228,7 @@ identify_jump_threads (void)
 	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
 		continue;
 
-	      thread_across_edge (dummy, e, true, equiv_stack,
+	      thread_across_edge (dummy, e, true, equiv_stack, NULL,
 				  simplify_stmt_for_jump_threading);
 	    }
 	}

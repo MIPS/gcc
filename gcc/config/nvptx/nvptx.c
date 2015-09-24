@@ -4629,10 +4629,10 @@ nvptx_goacc_reduction_init (gcall *call)
     {
       tree tid = make_ssa_name (integer_type_node);
       tree dim_vector = gimple_call_arg (call, 2);
-      gimple tid_call = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1,
-						    dim_vector);
-      gimple cond_stmt = gimple_build_cond (NE_EXPR, tid, integer_zero_node,
-					    NULL_TREE, NULL_TREE);
+      gimple *tid_call = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1,
+						     dim_vector);
+      gimple *cond_stmt = gimple_build_cond (NE_EXPR, tid, integer_zero_node,
+					     NULL_TREE, NULL_TREE);
 
       gimple_call_set_lhs (tid_call, tid);
       gimple_seq_add_stmt (&seq, tid_call);

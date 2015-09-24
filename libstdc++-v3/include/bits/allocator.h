@@ -78,6 +78,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // 2103. std::allocator propagate_on_container_move_assignment
       typedef true_type propagate_on_container_move_assignment;
 
+#define __cpp_lib_allocator_is_always_equal 201411
       typedef true_type is_always_equal;
 #endif
     };
@@ -208,15 +209,19 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       static bool
       _S_do_it(_Tp& __c) noexcept
       {
-	__try
+#if __cpp_exceptions
+	try
 	  {
 	    _Tp(__make_move_if_noexcept_iterator(__c.begin()),
 		__make_move_if_noexcept_iterator(__c.end()),
 		__c.get_allocator()).swap(__c);
 	    return true;
 	  }
-	__catch(...)
+	catch(...)
 	  { return false; }
+#else
+	return false;
+#endif
       }
     };
 #endif

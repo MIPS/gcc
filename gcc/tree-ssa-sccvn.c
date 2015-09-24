@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "domwalk.h"
 #include "cgraph.h"
+#include "gimple-iterator.h"
 #include "omp-low.h"
 
 /* This algorithm is based on the SCC algorithm presented by Keith
@@ -406,7 +407,7 @@ tree
 vn_get_expr_for (tree name)
 {
   vn_ssa_aux_t vn = VN_INFO (name);
-  gimple def_stmt;
+  gimple *def_stmt;
   tree expr = NULL_TREE;
   enum tree_code code;
 
@@ -489,7 +490,7 @@ vn_get_expr_for (tree name)
    associated with.  */
 
 enum vn_kind
-vn_get_stmt_kind (gimple stmt)
+vn_get_stmt_kind (gimple *stmt)
 {
   switch (gimple_code (stmt))
     {
@@ -953,9 +954,9 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
   unsigned i;
   tree base = NULL_TREE;
   tree *op0_p = &base;
-  HOST_WIDE_INT offset = 0;
-  HOST_WIDE_INT max_size;
-  HOST_WIDE_INT size = -1;
+  offset_int offset = 0;
+  offset_int max_size;
+  offset_int size = -1;
   tree size_tree = NULL_TREE;
   alias_set_type base_alias_set = -1;
 
@@ -971,15 +972,11 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (type);
       else
-        size = GET_MODE_BITSIZE (mode);
+	size = int (GET_MODE_BITSIZE (mode));
     }
-  if (size_tree != NULL_TREE)
-    {
-      if (!tree_fits_uhwi_p (size_tree))
-	size = -1;
-      else
-	size = tree_to_uhwi (size_tree);
-    }
+  if (size_tree != NULL_TREE
+      && TREE_CODE (size_tree) == INTEGER_CST)
+    size = wi::to_offset (size_tree);
 
   /* Initially, maxsize is the same as the accessed element size.
      In the following it will only grow (or become -1).  */
@@ -1034,7 +1031,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 
 	/* And now the usual component-reference style ops.  */
 	case BIT_FIELD_REF:
-	  offset += tree_to_shwi (op->op1);
+	  offset += wi::to_offset (op->op1);
 	  break;
 
 	case COMPONENT_REF:
@@ -1043,15 +1040,16 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	    /* We do not have a complete COMPONENT_REF tree here so we
 	       cannot use component_ref_field_offset.  Do the interesting
 	       parts manually.  */
+	    tree this_offset = DECL_FIELD_OFFSET (field);
 
-	    if (op->op1
-		|| !tree_fits_uhwi_p (DECL_FIELD_OFFSET (field)))
+	    if (op->op1 || TREE_CODE (this_offset) != INTEGER_CST)
 	      max_size = -1;
 	    else
 	      {
-		offset += (tree_to_uhwi (DECL_FIELD_OFFSET (field))
-			   * BITS_PER_UNIT);
-		offset += TREE_INT_CST_LOW (DECL_FIELD_BIT_OFFSET (field));
+		offset_int woffset = wi::lshift (wi::to_offset (this_offset),
+						 LOG2_BITS_PER_UNIT);
+		woffset += wi::to_offset (DECL_FIELD_BIT_OFFSET (field));
+		offset += woffset;
 	      }
 	    break;
 	  }
@@ -1059,17 +1057,18 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	case ARRAY_RANGE_REF:
 	case ARRAY_REF:
 	  /* We recorded the lower bound and the element size.  */
-	  if (!tree_fits_shwi_p (op->op0)
-	      || !tree_fits_shwi_p (op->op1)
-	      || !tree_fits_shwi_p (op->op2))
+	  if (TREE_CODE (op->op0) != INTEGER_CST
+	      || TREE_CODE (op->op1) != INTEGER_CST
+	      || TREE_CODE (op->op2) != INTEGER_CST)
 	    max_size = -1;
 	  else
 	    {
-	      HOST_WIDE_INT hindex = tree_to_shwi (op->op0);
-	      hindex -= tree_to_shwi (op->op1);
-	      hindex *= tree_to_shwi (op->op2);
-	      hindex *= BITS_PER_UNIT;
-	      offset += hindex;
+	      offset_int woffset
+		= wi::sext (wi::to_offset (op->op0) - wi::to_offset (op->op1),
+			    TYPE_PRECISION (TREE_TYPE (op->op0)));
+	      woffset *= wi::to_offset (op->op2);
+	      woffset = wi::lshift (woffset, LOG2_BITS_PER_UNIT);
+	      offset += woffset;
 	    }
 	  break;
 
@@ -1102,9 +1101,6 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 
   ref->ref = NULL_TREE;
   ref->base = base;
-  ref->offset = offset;
-  ref->size = size;
-  ref->max_size = max_size;
   ref->ref_alias_set = set;
   if (base_alias_set != -1)
     ref->base_alias_set = base_alias_set;
@@ -1112,6 +1108,30 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
     ref->base_alias_set = get_alias_set (base);
   /* We discount volatiles from value-numbering elsewhere.  */
   ref->volatile_p = false;
+
+  if (!wi::fits_shwi_p (size) || wi::neg_p (size))
+    {
+      ref->offset = 0;
+      ref->size = -1;
+      ref->max_size = -1;
+      return true;
+    }
+
+  ref->size = size.to_shwi ();
+
+  if (!wi::fits_shwi_p (offset))
+    {
+      ref->offset = 0;
+      ref->max_size = -1;
+      return true;
+    }
+
+  ref->offset = offset.to_shwi ();
+
+  if (!wi::fits_shwi_p (max_size) || wi::neg_p (max_size))
+    ref->max_size = -1;
+  else
+    ref->max_size = max_size.to_shwi ();
 
   return true;
 }
@@ -1165,7 +1185,7 @@ copy_reference_ops_from_call (gcall *call,
 
 /* Fold *& at position *I_P in a vn_reference_op_s vector *OPS.  Updates
    *I_P to point to the last element of the replacement.  */
-void
+static bool
 vn_reference_fold_indirect (vec<vn_reference_op_s> *ops,
 			    unsigned int *i_p)
 {
@@ -1191,30 +1211,32 @@ vn_reference_fold_indirect (vec<vn_reference_op_s> *ops,
 	mem_op->off = tree_to_shwi (mem_op->op0);
       else
 	mem_op->off = -1;
+      return true;
     }
+  return false;
 }
 
 /* Fold *& at position *I_P in a vn_reference_op_s vector *OPS.  Updates
    *I_P to point to the last element of the replacement.  */
-static void
+static bool
 vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 				     unsigned int *i_p)
 {
   unsigned int i = *i_p;
   vn_reference_op_t op = &(*ops)[i];
   vn_reference_op_t mem_op = &(*ops)[i - 1];
-  gimple def_stmt;
+  gimple *def_stmt;
   enum tree_code code;
   offset_int off;
 
   def_stmt = SSA_NAME_DEF_STMT (op->op0);
   if (!is_gimple_assign (def_stmt))
-    return;
+    return false;
 
   code = gimple_assign_rhs_code (def_stmt);
   if (code != ADDR_EXPR
       && code != POINTER_PLUS_EXPR)
-    return;
+    return false;
 
   off = offset_int::from (mem_op->op0, SIGNED);
 
@@ -1246,11 +1268,11 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
 	  ops->pop ();
 	  ops->safe_splice (tem);
 	  --*i_p;
-	  return;
+	  return true;
 	}
       if (!addr_base
 	  || TREE_CODE (addr_base) != MEM_REF)
-	return;
+	return false;
 
       off += addr_offset;
       off += mem_ref_offset (addr_base);
@@ -1263,7 +1285,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
       ptroff = gimple_assign_rhs2 (def_stmt);
       if (TREE_CODE (ptr) != SSA_NAME
 	  || TREE_CODE (ptroff) != INTEGER_CST)
-	return;
+	return false;
 
       off += wi::to_offset (ptroff);
       op->op0 = ptr;
@@ -1284,6 +1306,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
     vn_reference_maybe_forwprop_address (ops, i_p);
   else if (TREE_CODE (op->op0) == ADDR_EXPR)
     vn_reference_fold_indirect (ops, i_p);
+  return true;
 }
 
 /* Optimize the reference REF to a constant if possible or return
@@ -1456,11 +1479,17 @@ valueize_refs_1 (vec<vn_reference_op_s> orig, bool *valueized_anything)
 	  && vro->op0
 	  && TREE_CODE (vro->op0) == ADDR_EXPR
 	  && orig[i - 1].opcode == MEM_REF)
-	vn_reference_fold_indirect (&orig, &i);
+	{
+	  if (vn_reference_fold_indirect (&orig, &i))
+	    *valueized_anything = true;
+	}
       else if (i > 0
 	       && vro->opcode == SSA_NAME
 	       && orig[i - 1].opcode == MEM_REF)
-	vn_reference_maybe_forwprop_address (&orig, &i);
+	{
+	  if (vn_reference_maybe_forwprop_address (&orig, &i))
+	    *valueized_anything = true;
+	}
       /* If it transforms a non-constant ARRAY_REF into a constant
 	 one, adjust the constant offset.  */
       else if (vro->opcode == ARRAY_REF
@@ -1623,7 +1652,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 		       bool disambiguate_only)
 {
   vn_reference_t vr = (vn_reference_t)vr_;
-  gimple def_stmt = SSA_NAME_DEF_STMT (vuse);
+  gimple *def_stmt = SSA_NAME_DEF_STMT (vuse);
   tree base;
   HOST_WIDE_INT offset, maxsize;
   static vec<vn_reference_op_s>
@@ -1802,7 +1831,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	   && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME)
     {
       tree rhs1 = gimple_assign_rhs1 (def_stmt);
-      gimple def_stmt2 = SSA_NAME_DEF_STMT (rhs1);
+      gimple *def_stmt2 = SSA_NAME_DEF_STMT (rhs1);
       if (is_gimple_assign (def_stmt2)
 	  && (gimple_assign_rhs_code (def_stmt2) == COMPLEX_EXPR
 	      || gimple_assign_rhs_code (def_stmt2) == CONSTRUCTOR)
@@ -1861,7 +1890,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	       || handled_component_p (gimple_assign_rhs1 (def_stmt))))
     {
       tree base2;
-      HOST_WIDE_INT offset2, size2, maxsize2;
+      HOST_WIDE_INT maxsize2;
       int i, j;
       auto_vec<vn_reference_op_s> rhs;
       vn_reference_op_t vro;
@@ -1872,8 +1901,6 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 
       /* See if the assignment kills REF.  */
       base2 = ao_ref_base (&lhs_ref);
-      offset2 = lhs_ref.offset;
-      size2 = lhs_ref.size;
       maxsize2 = lhs_ref.max_size;
       if (maxsize2 == -1
 	  || (base != base2
@@ -1882,8 +1909,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 		  || TREE_OPERAND (base, 0) != TREE_OPERAND (base2, 0)
 		  || !tree_int_cst_equal (TREE_OPERAND (base, 1),
 					  TREE_OPERAND (base2, 1))))
-	  || offset2 > offset
-	  || offset2 + size2 < offset + maxsize)
+	  || !stmt_kills_ref_p (def_stmt, ref))
 	return (void *)-1;
 
       /* Find the common base of ref and the lhs.  lhs_ops already
@@ -2014,7 +2040,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_,
 	  lhs = SSA_VAL (lhs);
 	  if (TREE_CODE (lhs) == SSA_NAME)
 	    {
-	      gimple def_stmt = SSA_NAME_DEF_STMT (lhs);
+	      gimple *def_stmt = SSA_NAME_DEF_STMT (lhs);
 	      if (gimple_assign_single_p (def_stmt)
 		  && gimple_assign_rhs_code (def_stmt) == ADDR_EXPR)
 		lhs = gimple_assign_rhs1 (def_stmt);
@@ -2365,10 +2391,18 @@ vn_nary_op_compute_hash (const vn_nary_op_t vno1)
     if (TREE_CODE (vno1->op[i]) == SSA_NAME)
       vno1->op[i] = SSA_VAL (vno1->op[i]);
 
-  if (vno1->length == 2
-      && commutative_tree_code (vno1->opcode)
+  if (((vno1->length == 2
+	&& commutative_tree_code (vno1->opcode))
+       || (vno1->length == 3
+	   && commutative_ternary_tree_code (vno1->opcode)))
       && tree_swap_operands_p (vno1->op[0], vno1->op[1], false))
     std::swap (vno1->op[0], vno1->op[1]);
+  else if (TREE_CODE_CLASS (vno1->opcode) == tcc_comparison
+	   && tree_swap_operands_p (vno1->op[0], vno1->op[1], false))
+    {
+      std::swap (vno1->op[0], vno1->op[1]);
+      vno1->opcode = swap_tree_comparison  (vno1->opcode);
+    }
 
   hstate.add_int (vno1->opcode);
   for (i = 0; i < vno1->length; ++i)
@@ -2431,7 +2465,7 @@ init_vn_nary_op_from_op (vn_nary_op_t vno, tree op)
 /* Return the number of operands for a vn_nary ops structure from STMT.  */
 
 static unsigned int
-vn_nary_length_from_stmt (gimple stmt)
+vn_nary_length_from_stmt (gimple *stmt)
 {
   switch (gimple_assign_rhs_code (stmt))
     {
@@ -2454,7 +2488,7 @@ vn_nary_length_from_stmt (gimple stmt)
 /* Initialize VNO from STMT.  */
 
 static void
-init_vn_nary_op_from_stmt (vn_nary_op_t vno, gimple stmt)
+init_vn_nary_op_from_stmt (vn_nary_op_t vno, gimple *stmt)
 {
   unsigned i;
 
@@ -2555,7 +2589,7 @@ vn_nary_op_lookup (tree op, vn_nary_op_t *vnresult)
    vn_nary_op_t from the hashtable if it exists.  */
 
 tree
-vn_nary_op_lookup_stmt (gimple stmt, vn_nary_op_t *vnresult)
+vn_nary_op_lookup_stmt (gimple *stmt, vn_nary_op_t *vnresult)
 {
   vn_nary_op_t vno1
     = XALLOCAVAR (struct vn_nary_op_s,
@@ -2640,7 +2674,7 @@ vn_nary_op_insert (tree op, tree result)
    RESULT.  */
 
 vn_nary_op_t
-vn_nary_op_insert_stmt (gimple stmt, tree result)
+vn_nary_op_insert_stmt (gimple *stmt, tree result)
 {
   vn_nary_op_t vno1
     = alloc_vn_nary_op (vn_nary_length_from_stmt (stmt),
@@ -2655,17 +2689,24 @@ static inline hashval_t
 vn_phi_compute_hash (vn_phi_t vp1)
 {
   inchash::hash hstate (vp1->block->index);
-  int i;
   tree phi1op;
   tree type;
+  edge e;
+  edge_iterator ei;
 
   /* If all PHI arguments are constants we need to distinguish
      the PHI node via its type.  */
   type = vp1->type;
   hstate.merge_hash (vn_hash_type (type));
 
-  FOR_EACH_VEC_ELT (vp1->phiargs, i, phi1op)
+  FOR_EACH_EDGE (e, ei, vp1->block->preds)
     {
+      /* Don't hash backedge values they need to be handled as VN_TOP
+         for optimistic value-numbering.  */
+      if (e->flags & EDGE_DFS_BACK)
+	continue;
+
+      phi1op = vp1->phiargs[e->dest_idx];
       if (phi1op == VN_TOP)
 	continue;
       inchash::add_expr (phi1op, hstate);
@@ -2714,20 +2755,22 @@ static vec<tree> shared_lookup_phiargs;
    it does not exist in the hash table. */
 
 static tree
-vn_phi_lookup (gimple phi)
+vn_phi_lookup (gimple *phi)
 {
   vn_phi_s **slot;
   struct vn_phi_s vp1;
-  unsigned i;
+  edge e;
+  edge_iterator ei;
 
   shared_lookup_phiargs.truncate (0);
+  shared_lookup_phiargs.safe_grow (gimple_phi_num_args (phi));
 
   /* Canonicalize the SSA_NAME's to their value number.  */
-  for (i = 0; i < gimple_phi_num_args (phi); i++)
+  FOR_EACH_EDGE (e, ei, gimple_bb (phi)->preds)
     {
-      tree def = PHI_ARG_DEF (phi, i);
+      tree def = PHI_ARG_DEF_FROM_EDGE (phi, e);
       def = TREE_CODE (def) == SSA_NAME ? SSA_VAL (def) : def;
-      shared_lookup_phiargs.safe_push (def);
+      shared_lookup_phiargs[e->dest_idx] = def;
     }
   vp1.type = TREE_TYPE (gimple_phi_result (phi));
   vp1.phiargs = shared_lookup_phiargs;
@@ -2747,19 +2790,22 @@ vn_phi_lookup (gimple phi)
    RESULT.  */
 
 static vn_phi_t
-vn_phi_insert (gimple phi, tree result)
+vn_phi_insert (gimple *phi, tree result)
 {
   vn_phi_s **slot;
   vn_phi_t vp1 = current_info->phis_pool->allocate ();
-  unsigned i;
   vec<tree> args = vNULL;
+  edge e;
+  edge_iterator ei;
+
+  args.safe_grow (gimple_phi_num_args (phi));
 
   /* Canonicalize the SSA_NAME's to their value number.  */
-  for (i = 0; i < gimple_phi_num_args (phi); i++)
+  FOR_EACH_EDGE (e, ei, gimple_bb (phi)->preds)
     {
-      tree def = PHI_ARG_DEF (phi, i);
+      tree def = PHI_ARG_DEF_FROM_EDGE (phi, e);
       def = TREE_CODE (def) == SSA_NAME ? SSA_VAL (def) : def;
-      args.safe_push (def);
+      args[e->dest_idx] = def;
     }
   vp1->value_id = VN_INFO (result)->value_id;
   vp1->type = TREE_TYPE (gimple_phi_result (phi));
@@ -2880,7 +2926,7 @@ mark_use_processed (tree use)
 {
   ssa_op_iter iter;
   def_operand_p defp;
-  gimple stmt = SSA_NAME_DEF_STMT (use);
+  gimple *stmt = SSA_NAME_DEF_STMT (use);
 
   if (SSA_NAME_IS_DEFAULT_DEF (use) || gimple_code (stmt) == GIMPLE_PHI)
     {
@@ -2900,7 +2946,7 @@ mark_use_processed (tree use)
    Return true if a value number changed. */
 
 static bool
-defs_to_varying (gimple stmt)
+defs_to_varying (gimple *stmt)
 {
   bool changed = false;
   ssa_op_iter iter;
@@ -2937,7 +2983,7 @@ visit_copy (tree lhs, tree rhs)
    value number of LHS has changed as a result.  */
 
 static bool
-visit_nary_op (tree lhs, gimple stmt)
+visit_nary_op (tree lhs, gimple *stmt)
 {
   bool changed = false;
   tree result = vn_nary_op_lookup_stmt (stmt, NULL);
@@ -3017,7 +3063,7 @@ visit_reference_op_call (tree lhs, gcall *stmt)
    and return true if the value number of the LHS has changed as a result.  */
 
 static bool
-visit_reference_op_load (tree lhs, tree op, gimple stmt)
+visit_reference_op_load (tree lhs, tree op, gimple *stmt)
 {
   bool changed = false;
   tree last_vuse;
@@ -3117,7 +3163,7 @@ visit_reference_op_load (tree lhs, tree op, gimple stmt)
    and return true if the value number of the LHS has changed as a result.  */
 
 static bool
-visit_reference_op_store (tree lhs, tree op, gimple stmt)
+visit_reference_op_store (tree lhs, tree op, gimple *stmt)
 {
   bool changed = false;
   vn_reference_t vnresult = NULL;
@@ -3218,7 +3264,7 @@ visit_reference_op_store (tree lhs, tree op, gimple stmt)
    changed.  */
 
 static bool
-visit_phi (gimple phi)
+visit_phi (gimple *phi)
 {
   bool changed = false;
   tree result;
@@ -3244,28 +3290,28 @@ visit_phi (gimple phi)
 	if (def == VN_TOP)
 	  continue;
 	if (sameval == VN_TOP)
+	  sameval = def;
+	else if (!expressions_equal_p (def, sameval))
 	  {
-	    sameval = def;
-	  }
-	else
-	  {
-	    if (!expressions_equal_p (def, sameval))
-	      {
-		allsame = false;
-		break;
-	      }
+	    allsame = false;
+	    break;
 	  }
       }
+  
+  /* If none of the edges was executable or all incoming values are
+     undefined keep the value-number at VN_TOP.  */
+  if (sameval == VN_TOP)
+    return set_ssa_val_to (PHI_RESULT (phi), VN_TOP);
 
-  /* If all value numbered to the same value, the phi node has that
-     value.  */
-  if (allsame)
-    return set_ssa_val_to (PHI_RESULT (phi), sameval);
-
-  /* Otherwise, see if it is equivalent to a phi node in this block.  */
+  /* First see if it is equivalent to a phi node in this block.  We prefer
+     this as it allows IV elimination - see PRs 66502 and 67167.  */
   result = vn_phi_lookup (phi);
   if (result)
     changed = set_ssa_val_to (PHI_RESULT (phi), result);
+  /* Otherwise all value numbered to the same value, the phi node has that
+     value.  */
+  else if (allsame)
+    changed = set_ssa_val_to (PHI_RESULT (phi), sameval);
   else
     {
       vn_phi_insert (phi, PHI_RESULT (phi));
@@ -3304,7 +3350,7 @@ expr_has_constants (tree expr)
 /* Return true if STMT contains constants.  */
 
 static bool
-stmt_has_constants (gimple stmt)
+stmt_has_constants (gimple *stmt)
 {
   tree tem;
 
@@ -3348,7 +3394,7 @@ stmt_has_constants (gimple stmt)
    simplified. */
 
 static tree
-simplify_binary_expression (gimple stmt)
+simplify_binary_expression (gimple *stmt)
 {
   tree result = NULL_TREE;
   tree op0 = gimple_assign_rhs1 (stmt);
@@ -3524,7 +3570,7 @@ static bool
 visit_use (tree use)
 {
   bool changed = false;
-  gimple stmt = SSA_NAME_DEF_STMT (use);
+  gimple *stmt = SSA_NAME_DEF_STMT (use);
 
   mark_use_processed (use);
 
@@ -3801,8 +3847,8 @@ compare_ops (const void *pa, const void *pb)
 {
   const tree opa = *((const tree *)pa);
   const tree opb = *((const tree *)pb);
-  gimple opstmta = SSA_NAME_DEF_STMT (opa);
-  gimple opstmtb = SSA_NAME_DEF_STMT (opb);
+  gimple *opstmta = SSA_NAME_DEF_STMT (opa);
+  gimple *opstmtb = SSA_NAME_DEF_STMT (opb);
   basic_block bba;
   basic_block bbb;
 
@@ -4028,7 +4074,7 @@ DFS (tree name)
   vec<ssa_op_iter> itervec = vNULL;
   vec<tree> namevec = vNULL;
   use_operand_p usep = NULL;
-  gimple defstmt;
+  gimple *defstmt;
   tree use;
   ssa_op_iter iter;
 
@@ -4127,9 +4173,9 @@ allocate_vn_table (vn_tables_t table)
   table->references = new vn_reference_table_type (23);
 
   gcc_obstack_init (&table->nary_obstack);
-  table->phis_pool = new object_allocator<vn_phi_s> ("VN phis", 30);
+  table->phis_pool = new object_allocator<vn_phi_s> ("VN phis");
   table->references_pool = new object_allocator<vn_reference_s>
-    ("VN references", 30);
+    ("VN references");
 }
 
 /* Free a value number table.  */
@@ -4156,6 +4202,8 @@ init_scc_vn (void)
   int *rpo_numbers_temp;
 
   calculate_dominance_info (CDI_DOMINATORS);
+  mark_dfs_back_edges ();
+
   sccstack.create (0);
   constant_to_value_id = new hash_table<vn_constant_hasher> (23);
 
@@ -4187,19 +4235,6 @@ init_scc_vn (void)
 
   VN_TOP = create_tmp_var_raw (void_type_node, "vn_top");
 
-  /* Create the VN_INFO structures, and initialize value numbers to
-     TOP.  */
-  for (i = 0; i < num_ssa_names; i++)
-    {
-      tree name = ssa_name (i);
-      if (name)
-	{
-	  VN_INFO_GET (name)->valnum = VN_TOP;
-	  VN_INFO (name)->expr = NULL_TREE;
-	  VN_INFO (name)->value_id = 0;
-	}
-    }
-
   renumber_gimple_stmt_uids ();
 
   /* Create the valid and optimistic value numbering tables.  */
@@ -4207,6 +4242,65 @@ init_scc_vn (void)
   allocate_vn_table (valid_info);
   optimistic_info = XCNEW (struct vn_tables_s);
   allocate_vn_table (optimistic_info);
+  current_info = valid_info;
+
+  /* Create the VN_INFO structures, and initialize value numbers to
+     TOP or VARYING for parameters.  */
+  for (i = 1; i < num_ssa_names; i++)
+    {
+      tree name = ssa_name (i);
+      if (!name)
+	continue;
+
+      VN_INFO_GET (name)->valnum = VN_TOP;
+      VN_INFO (name)->expr = NULL_TREE;
+      VN_INFO (name)->value_id = 0;
+
+      if (!SSA_NAME_IS_DEFAULT_DEF (name))
+	continue;
+
+      switch (TREE_CODE (SSA_NAME_VAR (name)))
+	{
+	case VAR_DECL:
+	  /* Undefined vars keep TOP.  */
+	  break;
+
+	case PARM_DECL:
+	  /* Parameters are VARYING but we can record a condition
+	     if we know it is a non-NULL pointer.  */
+	  VN_INFO (name)->visited = true;
+	  VN_INFO (name)->valnum = name; 
+	  if (POINTER_TYPE_P (TREE_TYPE (name))
+	      && nonnull_arg_p (SSA_NAME_VAR (name)))
+	    {
+	      tree ops[2];
+	      ops[0] = name;
+	      ops[1] = build_int_cst (TREE_TYPE (name), 0);
+	      vn_nary_op_insert_pieces (2, NE_EXPR, boolean_type_node, ops,
+					boolean_true_node, 0);
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "Recording ");
+		  print_generic_expr (dump_file, name, TDF_SLIM);
+		  fprintf (dump_file, " != 0\n");
+		}
+	    }
+	  break;
+
+	case RESULT_DECL:
+	  /* If the result is passed by invisible reference the default
+	     def is initialized, otherwise it's uninitialized.  */
+	  if (DECL_BY_REFERENCE (SSA_NAME_VAR (name)))
+	    {
+	      VN_INFO (name)->visited = true;
+	      VN_INFO (name)->valnum = name; 
+	    }
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
 }
 
 void
@@ -4279,18 +4373,112 @@ set_hashtable_value_ids (void)
     set_value_id_for_result (vr->result, &vr->value_id);
 }
 
-class cond_dom_walker : public dom_walker
+class sccvn_dom_walker : public dom_walker
 {
 public:
-  cond_dom_walker () : dom_walker (CDI_DOMINATORS), fail (false) {}
+  sccvn_dom_walker ()
+    : dom_walker (CDI_DOMINATORS), fail (false), cond_stack (vNULL) {}
 
   virtual void before_dom_children (basic_block);
+  virtual void after_dom_children (basic_block);
+
+  void record_cond (basic_block,
+		    enum tree_code code, tree lhs, tree rhs, bool value);
+  void record_conds (basic_block,
+		     enum tree_code code, tree lhs, tree rhs, bool value);
 
   bool fail;
+  vec<std::pair <basic_block, std::pair <vn_nary_op_t, vn_nary_op_t> > >
+    cond_stack;
 };
 
+/* Record a temporary condition for the BB and its dominated blocks.  */
+
 void
-cond_dom_walker::before_dom_children (basic_block bb)
+sccvn_dom_walker::record_cond (basic_block bb,
+			       enum tree_code code, tree lhs, tree rhs,
+			       bool value)
+{
+  tree ops[2] = { lhs, rhs };
+  vn_nary_op_t old = NULL;
+  if (vn_nary_op_lookup_pieces (2, code, boolean_type_node, ops, &old))
+    current_info->nary->remove_elt_with_hash (old, old->hashcode);
+  vn_nary_op_t cond
+    = vn_nary_op_insert_pieces (2, code, boolean_type_node, ops,
+				value
+				? boolean_true_node
+				: boolean_false_node, 0);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "Recording temporarily ");
+      print_generic_expr (dump_file, ops[0], TDF_SLIM);
+      fprintf (dump_file, " %s ", get_tree_code_name (code));
+      print_generic_expr (dump_file, ops[1], TDF_SLIM);
+      fprintf (dump_file, " == %s%s\n",
+	       value ? "true" : "false",
+	       old ? " (old entry saved)" : "");
+    }
+  cond_stack.safe_push (std::make_pair (bb, std::make_pair (cond, old)));
+}
+
+/* Record temporary conditions for the BB and its dominated blocks
+   according to LHS CODE RHS == VALUE and its dominated conditions.  */
+
+void
+sccvn_dom_walker::record_conds (basic_block bb,
+				enum tree_code code, tree lhs, tree rhs,
+				bool value)
+{
+  /* Record the original condition.  */
+  record_cond (bb, code, lhs, rhs, value);
+
+  if (!value)
+    return;
+
+  /* Record dominated conditions if the condition is true.  Note that
+     the inversion is already recorded.  */
+  switch (code)
+    {
+    case LT_EXPR:
+    case GT_EXPR:
+      record_cond (bb, code == LT_EXPR ? LE_EXPR : GE_EXPR, lhs, rhs, true);
+      record_cond (bb, NE_EXPR, lhs, rhs, true);
+      record_cond (bb, EQ_EXPR, lhs, rhs, false);
+      break;
+
+    case EQ_EXPR:
+      record_cond (bb, LE_EXPR, lhs, rhs, true);
+      record_cond (bb, GE_EXPR, lhs, rhs, true);
+      record_cond (bb, LT_EXPR, lhs, rhs, false);
+      record_cond (bb, GT_EXPR, lhs, rhs, false);
+      break;
+
+    default:
+      break;
+    }
+}
+ 
+/* Restore expressions and values derived from conditionals.  */
+
+void
+sccvn_dom_walker::after_dom_children (basic_block bb)
+{
+  while (!cond_stack.is_empty ()
+	 && cond_stack.last ().first == bb)
+    {
+      vn_nary_op_t cond = cond_stack.last ().second.first;
+      vn_nary_op_t old = cond_stack.last ().second.second;
+      current_info->nary->remove_elt_with_hash (cond, cond->hashcode);
+      if (old)
+	vn_nary_op_insert_into (old, current_info->nary, false);
+      cond_stack.pop ();
+    }
+}
+
+/* Value number all statements in BB.  */
+
+void
+sccvn_dom_walker::before_dom_children (basic_block bb)
 {
   edge e;
   edge_iterator ei;
@@ -4307,7 +4495,7 @@ cond_dom_walker::before_dom_children (basic_block bb)
       reachable |= (e->flags & EDGE_EXECUTABLE);
 
   /* If the block is not reachable all outgoing edges are not
-     executable.  */
+     executable.  Neither are incoming edges with src dominated by us.  */
   if (!reachable)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4316,10 +4504,85 @@ cond_dom_walker::before_dom_children (basic_block bb)
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	e->flags &= ~EDGE_EXECUTABLE;
+
+      FOR_EACH_EDGE (e, ei, bb->preds)
+	{
+	  if (dominated_by_p (CDI_DOMINATORS, e->src, bb))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file, "Marking backedge from BB %d into "
+			 "unreachable BB %d as not executable\n",
+			 e->src->index, bb->index);
+	      e->flags &= ~EDGE_EXECUTABLE;
+	    }
+	}
       return;
     }
 
-  gimple stmt = last_stmt (bb);
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    fprintf (dump_file, "Visiting BB %d\n", bb->index);
+
+  /* If we have a single predecessor record the equivalence from a
+     possible condition on the predecessor edge.  */
+  if (single_pred_p (bb))
+    {
+      edge e = single_pred_edge (bb);
+      /* Check if there are multiple executable successor edges in
+	 the source block.  Otherwise there is no additional info
+	 to be recorded.  */
+      edge e2;
+      FOR_EACH_EDGE (e2, ei, e->src->succs)
+	if (e2 != e
+	    && e2->flags & EDGE_EXECUTABLE)
+	  break;
+      if (e2 && (e2->flags & EDGE_EXECUTABLE))
+	{
+	  gimple *stmt = last_stmt (e->src);
+	  if (stmt
+	      && gimple_code (stmt) == GIMPLE_COND)
+	    {
+	      enum tree_code code = gimple_cond_code (stmt);
+	      tree lhs = gimple_cond_lhs (stmt);
+	      tree rhs = gimple_cond_rhs (stmt);
+	      record_conds (bb, code, lhs, rhs,
+			    (e->flags & EDGE_TRUE_VALUE) != 0);
+	      code = invert_tree_comparison (code, HONOR_NANS (lhs));
+	      if (code != ERROR_MARK)
+		record_conds (bb, code, lhs, rhs,
+			      (e->flags & EDGE_TRUE_VALUE) == 0);
+	    }
+	}
+    }
+
+  /* Value-number all defs in the basic-block.  */
+  for (gphi_iterator gsi = gsi_start_phis (bb);
+       !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gphi *phi = gsi.phi ();
+      tree res = PHI_RESULT (phi);
+      if (!VN_INFO (res)->visited
+	  && !DFS (res))
+	{
+	  fail = true;
+	  return;
+	}
+    }
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+       !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      ssa_op_iter i;
+      tree op;
+      FOR_EACH_SSA_TREE_OPERAND (op, gsi_stmt (gsi), i, SSA_OP_ALL_DEFS)
+	if (!VN_INFO (op)->visited
+	    && !DFS (op))
+	  {
+	    fail = true;
+	    return;
+	  }
+    }
+
+  /* Finally look at the last stmt.  */
+  gimple *stmt = last_stmt (bb);
   if (!stmt)
     return;
 
@@ -4331,21 +4594,9 @@ cond_dom_walker::before_dom_children (basic_block bb)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      fprintf (dump_file, "Value-numbering operands of stmt ending BB %d: ",
-	       bb->index);
+      fprintf (dump_file, "Visiting control stmt ending BB %d: ", bb->index);
       print_gimple_stmt (dump_file, stmt, 0, 0);
     }
-
-  /* Value-number the last stmts SSA uses.  */
-  ssa_op_iter i;
-  tree op;
-  FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_USE)
-    if (VN_INFO (op)->visited == false
-	&& !DFS (op))
-      {
-	fail = true;
-	return;
-      }
 
   /* ???  We can even handle stmts with outgoing EH or ABNORMAL edges
      if value-numbering can prove they are not reachable.  Handling
@@ -4365,6 +4616,16 @@ cond_dom_walker::before_dom_children (basic_block bb)
 	  rhs = vn_get_expr_for (rhs);
 	val = fold_binary (gimple_cond_code (stmt),
 			   boolean_type_node, lhs, rhs);
+	/* If that didn't simplify to a constant see if we have recorded
+	   temporary expressions from taken edges.  */
+	if (!val || TREE_CODE (val) != INTEGER_CST)
+	  {
+	    tree ops[2];
+	    ops[0] = gimple_cond_lhs (stmt);
+	    ops[1] = gimple_cond_rhs (stmt);
+	    val = vn_nary_op_lookup_pieces (2, gimple_cond_code (stmt),
+					    boolean_type_node, ops, NULL);
+	  }
 	break;
       }
     case GIMPLE_SWITCH:
@@ -4401,24 +4662,10 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
 {
   basic_block bb;
   size_t i;
-  tree param;
 
   default_vn_walk_kind = default_vn_walk_kind_;
 
   init_scc_vn ();
-  current_info = valid_info;
-
-  for (param = DECL_ARGUMENTS (current_function_decl);
-       param;
-       param = DECL_CHAIN (param))
-    {
-      tree def = ssa_default_def (cfun, param);
-      if (def)
-	{
-	  VN_INFO (def)->visited = true;
-	  VN_INFO (def)->valnum = def;
-	}
-    }
 
   /* Mark all edges as possibly executable.  */
   FOR_ALL_BB_FN (bb, cfun)
@@ -4429,9 +4676,9 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
 	e->flags |= EDGE_EXECUTABLE;
     }
 
-  /* Walk all blocks in dominator order, value-numbering the last stmts
-     SSA uses and decide whether outgoing edges are not executable.  */
-  cond_dom_walker walker;
+  /* Walk all blocks in dominator order, value-numbering stmts
+     SSA defs and decide whether outgoing edges are not executable.  */
+  sccvn_dom_walker walker;
   walker.walk (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   if (walker.fail)
     {
@@ -4439,22 +4686,8 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
       return false;
     }
 
-  /* Value-number remaining SSA names.  */
-  for (i = 1; i < num_ssa_names; ++i)
-    {
-      tree name = ssa_name (i);
-      if (name
-	  && VN_INFO (name)->visited == false
-	  && !has_zero_uses (name))
-	if (!DFS (name))
-	  {
-	    free_scc_vn ();
-	    return false;
-	  }
-    }
-
-  /* Initialize the value ids.  */
-
+  /* Initialize the value ids and prune out remaining VN_TOPs
+     from dead code.  */
   for (i = 1; i < num_ssa_names; ++i)
     {
       tree name = ssa_name (i);
@@ -4462,6 +4695,8 @@ run_scc_vn (vn_lookup_kind default_vn_walk_kind_)
       if (!name)
 	continue;
       info = VN_INFO (name);
+      if (!info->visited)
+	info->valnum = name;
       if (info->valnum == name
 	  || info->valnum == VN_TOP)
 	info->value_id = get_next_value_id ();

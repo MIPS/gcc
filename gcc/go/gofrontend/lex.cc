@@ -600,8 +600,14 @@ Lex::next_token()
 		{
 		  this->lineoff_ = p + 2 - this->linebuf_;
 		  Location location = this->location();
-		  if (!this->skip_c_comment())
+                  bool found_newline = false;
+		  if (!this->skip_c_comment(&found_newline))
 		    return Token::make_invalid_token(location);
+                  if (found_newline && this->add_semi_at_eol_)
+                    {
+                      this->add_semi_at_eol_ = false;
+                      return this->make_operator(OPERATOR_SEMICOLON, 1);
+                    }
 		  p = this->linebuf_ + this->lineoff_;
 		  pend = this->linebuf_ + this->linesize_;
 		}
@@ -1041,7 +1047,7 @@ Lex::gather_number()
 	  pnum = p;
 	  while (p < pend)
 	    {
-	      if (*p < '0' || *p > '7')
+	      if (*p < '0' || *p > '9')
 		break;
 	      ++p;
 	    }
@@ -1054,7 +1060,13 @@ Lex::gather_number()
 	  std::string s(pnum, p - pnum);
 	  mpz_t val;
 	  int r = mpz_init_set_str(val, s.c_str(), base);
-	  go_assert(r == 0);
+          if (r != 0)
+            {
+              if (base == 8)
+                error_at(this->location(), "invalid octal literal");
+              else
+                error_at(this->location(), "invalid hex literal");
+            }
 
 	  if (neg)
 	    mpz_neg(val, val);
@@ -1621,7 +1633,7 @@ Lex::one_character_operator(char c)
 // Skip a C-style comment.
 
 bool
-Lex::skip_c_comment()
+Lex::skip_c_comment(bool* found_newline)
 {
   while (true)
     {
@@ -1641,6 +1653,9 @@ Lex::skip_c_comment()
 	      this->lineoff_ = p + 2 - this->linebuf_;
 	      return true;
 	    }
+
+          if (p[0] == '\n')
+            *found_newline = true;
 
 	  this->lineoff_ = p - this->linebuf_;
 	  unsigned int c;
@@ -1674,6 +1689,16 @@ Lex::skip_cpp_comment()
       && memcmp(p, "line ", 5) == 0)
     {
       p += 5;
+
+      // Before finding FILE:LINENO, make sure line has valid characters.
+      const char* pcheck = p;
+      while (pcheck < pend)
+        {
+          unsigned int c;
+          bool issued_error;
+          pcheck = this->advance_one_utf8_char(pcheck, &c, &issued_error);
+        }
+
       while (p < pend && *p == ' ')
 	++p;
       const char* pcolon = static_cast<const char*>(memchr(p, ':', pend - p));
@@ -1727,7 +1752,9 @@ Lex::skip_cpp_comment()
   // For field tracking analysis: a //go:nointerface comment means
   // that the next interface method should not be stored in the type
   // descriptor.  This permits it to be discarded if it is not needed.
-  if (this->lineoff_ == 2 && memcmp(p, "go:nointerface", 14) == 0)
+  if (this->lineoff_ == 2
+      && pend - p > 14
+      && memcmp(p, "go:nointerface", 14) == 0)
     this->saw_nointerface_ = true;
 
   while (p < pend)

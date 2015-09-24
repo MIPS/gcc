@@ -160,8 +160,6 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_THUMB1			(TARGET_THUMB && !arm_arch_thumb2)
 /* Arm or Thumb-2 32-bit code.  */
 #define TARGET_32BIT			(TARGET_ARM || arm_arch_thumb2)
-#define TARGET_32BIT_P(flags)		(TARGET_ARM_P (flags) \
-					 || arm_arch_thumb2)
 /* 32-bit Thumb-2 code.  */
 #define TARGET_THUMB2			(TARGET_THUMB && arm_arch_thumb2)
 /* Thumb-1 only.  */
@@ -193,11 +191,13 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_VFP_DOUBLE (TARGET_VFP && arm_fpu_desc->regs != VFP_REG_SINGLE)
 
 /* FPU supports half-precision floating-point with NEON element load/store.  */
-#define TARGET_NEON_FP16 \
-  (TARGET_VFP && arm_fpu_desc->neon && arm_fpu_desc->fp16)
+#define TARGET_NEON_FP16						\
+  (TARGET_VFP								\
+   && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_NEON | FPU_FL_FP16))
 
 /* FPU supports VFP half-precision floating-point.  */
-#define TARGET_FP16 (TARGET_VFP && arm_fpu_desc->fp16)
+#define TARGET_FP16							\
+  (TARGET_VFP && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_FP16))
 
 /* FPU supports fused-multiply-add operations.  */
 #define TARGET_FMA (TARGET_VFP && arm_fpu_desc->rev >= 4)
@@ -206,31 +206,30 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_FPU_ARMV8 (TARGET_VFP && arm_fpu_desc->rev >= 8)
 
 /* FPU supports Crypto extensions.  */
-#define TARGET_CRYPTO (TARGET_VFP && arm_fpu_desc->crypto)
+#define TARGET_CRYPTO							\
+  (TARGET_VFP && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_CRYPTO))
+
 
 /* FPU supports Neon instructions.  The setting of this macro gets
    revealed via __ARM_NEON__ so we add extra guards upon TARGET_32BIT
    and TARGET_HARD_FLOAT to ensure that NEON instructions are
    available.  */
-#define TARGET_NEON (TARGET_32BIT && TARGET_HARD_FLOAT \
-		     && TARGET_VFP && arm_fpu_desc->neon)
+#define TARGET_NEON							\
+  (TARGET_32BIT && TARGET_HARD_FLOAT && TARGET_VFP			\
+   && ARM_FPU_FSET_HAS (arm_fpu_desc->features, FPU_FL_NEON))
 
 /* Q-bit is present.  */
-#define TARGET_ARM_QBIT_P(flags) \
-  (TARGET_32BIT_P (flags) && arm_arch5e && (arm_arch_notm || arm_arch7))
-#define TARGET_ARM_QBIT TARGET_ARM_QBIT_P(target_flags)
+#define TARGET_ARM_QBIT \
+  (TARGET_32BIT && arm_arch5e && (arm_arch_notm || arm_arch7))
 /* Saturation operation, e.g. SSAT.  */
-#define TARGET_ARM_SAT_P(flags) \
-  (TARGET_32BIT_P (flags) && arm_arch6 && (arm_arch_notm || arm_arch7))
-#define TARGET_ARM_SAT TARGET_ARM_SAT_P(target_flags)
+#define TARGET_ARM_SAT \
+  (TARGET_32BIT && arm_arch6 && (arm_arch_notm || arm_arch7))
 /* "DSP" multiply instructions, eg. SMULxy.  */
-#define TARGET_DSP_MULTIPLY_P(flags) \
-  (TARGET_32BIT_P (flags) && arm_arch5e && (arm_arch_notm || arm_arch7em))
-#define TARGET_DSP_MULTIPLY TARGET_DSP_MULTIPLY_P(target_flags)
+#define TARGET_DSP_MULTIPLY \
+  (TARGET_32BIT && arm_arch5e && (arm_arch_notm || arm_arch7em))
 /* Integer SIMD instructions, and extend-accumulate instructions.  */
-#define TARGET_INT_SIMD_P(flags) \
-  (TARGET_32BIT_P (flags) && arm_arch6 && (arm_arch_notm || arm_arch7em))
-#define TARGET_INT_SIMD TARGET_INT_SIMD_P(target_flags)
+#define TARGET_INT_SIMD \
+  (TARGET_32BIT && arm_arch6 && (arm_arch_notm || arm_arch7em))
 
 /* Should MOVW/MOVT be used in preference to a constant pool.  */
 #define TARGET_USE_MOVT \
@@ -253,30 +252,21 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
 #define TARGET_HAVE_MEMORY_BARRIER (TARGET_HAVE_DMB || TARGET_HAVE_DMB_MCR)
 
 /* Nonzero if this chip supports ldrex and strex */
-#define TARGET_HAVE_LDREX_P(flags) ((arm_arch6 && TARGET_ARM_P (flags)) \
-				    || arm_arch7)
-#define TARGET_HAVE_LDREX	  TARGET_HAVE_LDREX_P (target_flags) 
+#define TARGET_HAVE_LDREX        ((arm_arch6 && TARGET_ARM) || arm_arch7)
 
 /* Nonzero if this chip supports ldrex{bh} and strex{bh}.  */
-#define TARGET_HAVE_LDREXBH_P(flags) ((arm_arch6k && TARGET_ARM_P (flags)) \
-				      || arm_arch7)
-#define TARGET_HAVE_LDREXBH	     TARGET_HAVE_LDREXBH_P (target_flags)
+#define TARGET_HAVE_LDREXBH ((arm_arch6k && TARGET_ARM) || arm_arch7)
 
 /* Nonzero if this chip supports ldrexd and strexd.  */
-#define TARGET_HAVE_LDREXD_P(flags) (((arm_arch6k && TARGET_ARM_P (flags)) \
-				      || arm_arch7) && arm_arch_notm)
-#define TARGET_HAVE_LDREXD	    TARGET_HAVE_LDREXD_P (target_flags)
-				
+#define TARGET_HAVE_LDREXD (((arm_arch6k && TARGET_ARM) \
+			     || arm_arch7) && arm_arch_notm)
 
 /* Nonzero if this chip supports load-acquire and store-release.  */
 #define TARGET_HAVE_LDACQ	(TARGET_ARM_ARCH >= 8)
 
 /* Nonzero if integer division instructions supported.  */
-#define TARGET_IDIV_P(flags)	((TARGET_ARM_P (flags) && arm_arch_arm_hwdiv) \
-				 || (TARGET_THUMB2_P (flags)                  \
-				     && arm_arch_thumb_hwdiv))
-#define TARGET_IDIV             TARGET_IDIV_P (target_flags)		
-
+#define TARGET_IDIV	((TARGET_ARM && arm_arch_arm_hwdiv)	\
+			 || (TARGET_THUMB2 && arm_arch_thumb_hwdiv))
 
 /* Nonzero if disallow volatile memory access in IT block.  */
 #define TARGET_NO_VOLATILE_CE		(arm_arch_no_volatile_ce)
@@ -318,6 +308,19 @@ extern void (*arm_lang_output_object_attributes_hook)(void);
   {"mode", "%{!marm:%{!mthumb:-m%(VALUE)}}"}, \
   {"tls", "%{!mtls-dialect=*:-mtls-dialect=%(VALUE)}"},
 
+/* FPU feature sets.  */
+
+typedef unsigned long arm_fpu_feature_set;
+
+/* Test for an FPU feature.  */
+#define ARM_FPU_FSET_HAS(S,F) (((S) & (F)) == (F))
+
+/* FPU Features.  */
+#define FPU_FL_NONE	(0)
+#define FPU_FL_NEON	(1 << 0)	/* NEON instructions.  */
+#define FPU_FL_FP16	(1 << 1)	/* Half-precision.  */
+#define FPU_FL_CRYPTO	(1 << 2)	/* Crypto extensions.  */
+
 /* Which floating point model to use.  */
 enum arm_fp_model
 {
@@ -340,9 +343,7 @@ extern const struct arm_fpu_desc
   enum arm_fp_model model;
   int rev;
   enum vfp_reg_type regs;
-  int neon;
-  int fp16;
-  int crypto;
+  arm_fpu_feature_set features;
 } *arm_fpu_desc;
 
 /* Which floating point hardware to schedule for.  */
@@ -999,7 +1000,7 @@ extern int arm_arch_crc;
 /* Modes valid for Neon Q registers.  */
 #define VALID_NEON_QREG_MODE(MODE) \
   ((MODE) == V4SImode || (MODE) == V8HImode || (MODE) == V16QImode \
-   || (MODE) == V4SFmode || (MODE) == V2DImode)
+   || (MODE) == V8HFmode || (MODE) == V4SFmode || (MODE) == V2DImode)
 
 /* Structure modes valid for Neon registers.  */
 #define VALID_NEON_STRUCT_MODE(MODE) \
@@ -2202,11 +2203,6 @@ extern int making_const_table;
   ((TARGET_HAVE_LDREX ? 4 : 0)					\
    | (TARGET_HAVE_LDREXBH ? 3 : 0)				\
    | (TARGET_HAVE_LDREXD ? 8 : 0))
-
-#define TARGET_ARM_FEATURE_LDREX_P(flags)			\
-  ((TARGET_HAVE_LDREX_P (flags) ? 4 : 0)			\
-   | (TARGET_HAVE_LDREXBH_P (flags) ? 3 : 0)			\
-   | (TARGET_HAVE_LDREXD_P (flags) ? 8 : 0))
 
 /* Set as a bit mask indicating the available widths of hardware floating
    point types.  Where bit 1 indicates 16-bit support, bit 2 indicates

@@ -33,11 +33,10 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Types used in equivalence statements.  */
 
-typedef enum seq_type
+enum seq_type
 {
   SEQ_NONDEFAULT, SEQ_NUMERIC, SEQ_CHARACTER, SEQ_MIXED
-}
-seq_type;
+};
 
 /* Stack to keep track of the nesting of blocks as we move through the
    code.  See resolve_branch() and gfc_resolve_code().  */
@@ -1438,9 +1437,8 @@ specific_sym (gfc_symbol *sym)
 
 /* Figure out if the procedure is specific, generic or unknown.  */
 
-typedef enum
-{ PTYPE_GENERIC = 1, PTYPE_SPECIFIC, PTYPE_UNKNOWN }
-proc_type;
+enum proc_type
+{ PTYPE_GENERIC = 1, PTYPE_SPECIFIC, PTYPE_UNKNOWN };
 
 static proc_type
 procedure_kind (gfc_symbol *sym)
@@ -3850,9 +3848,8 @@ bad_op:
 
 /************** Array resolution subroutines **************/
 
-typedef enum
-{ CMP_LT, CMP_EQ, CMP_GT, CMP_UNKNOWN }
-compare_result;
+enum compare_result
+{ CMP_LT, CMP_EQ, CMP_GT, CMP_UNKNOWN };
 
 /* Compare two integer expressions.  */
 
@@ -9850,8 +9847,8 @@ nonscalar_typebound_assign (gfc_symbol *derived, int depth)
    "An intrinsic assignment where the variable is of derived type is
    performed as if each component of the variable were assigned from the
    corresponding component of expr using pointer assignment (7.2.2) for
-   each pointer component, deﬁned assignment for each nonpointer
-   nonallocatable component of a type that has a type-bound deﬁned
+   each pointer component, defined assignment for each nonpointer
+   nonallocatable component of a type that has a type-bound defined
    assignment consistent with the component, intrinsic assignment for
    each other nonpointer nonallocatable component, ..."
 
@@ -10383,15 +10380,18 @@ gfc_resolve_code (gfc_code *code, gfc_namespace *ns)
 	  }
 
 	case EXEC_ARITHMETIC_IF:
-	  if (t
-	      && code->expr1->ts.type != BT_INTEGER
-	      && code->expr1->ts.type != BT_REAL)
-	    gfc_error ("Arithmetic IF statement at %L requires a numeric "
-		       "expression", &code->expr1->where);
+	  {
+	    gfc_expr *e = code->expr1;
 
-	  resolve_branch (code->label1, code);
-	  resolve_branch (code->label2, code);
-	  resolve_branch (code->label3, code);
+	    if (t && (e->rank > 0
+		      || !(e->ts.type == BT_REAL || e->ts.type == BT_INTEGER)))
+	      gfc_error ("Arithmetic IF statement at %L requires a scalar "
+			 "REAL or INTEGER expression", &code->expr1->where);
+
+	    resolve_branch (code->label1, code);
+	    resolve_branch (code->label2, code);
+	    resolve_branch (code->label3, code);
+	  }
 	  break;
 
 	case EXEC_IF:

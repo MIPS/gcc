@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "except.h"
-#include "recog.h"
 #include "emit-rtl.h"
 #include "cfgbuild.h"
 #include "sched-int.h"
@@ -4060,14 +4059,10 @@ sched_deps_init (bool global_p)
 
   if (global_p)
     {
-      dl_pool = new object_allocator<_deps_list> ("deps_list",
-                                   /* Allocate lists for one block at a time.  */
-                                   insns_in_block);
-      dn_pool = new object_allocator<_dep_node> ("dep_node",
-                                   /* Allocate nodes for one block at a time.
-                                      We assume that average insn has
-                                      5 producers.  */
-                                   5 * insns_in_block);
+      dl_pool = new object_allocator<_deps_list> ("deps_list");
+				/* Allocate lists for one block at a time.  */
+      dn_pool = new object_allocator<_dep_node> ("dep_node");
+				/* Allocate nodes for one block at a time.  */
     }
 }
 

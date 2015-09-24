@@ -1904,6 +1904,13 @@ Integer_expression::do_check_types(Gogo*)
 Bexpression*
 Integer_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type = NULL;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2266,6 +2273,13 @@ Float_expression::do_check_types(Gogo*)
 Bexpression*
 Float_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2448,6 +2462,13 @@ Complex_expression::do_check_types(Gogo*)
 Bexpression*
 Complex_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2826,8 +2847,12 @@ Const_expression::do_check_types(Gogo*)
 Bexpression*
 Const_expression::do_get_backend(Translate_context* context)
 {
-  if (this->type_ != NULL && this->type_->is_error())
-    return context->backend()->error_expression();
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error()))
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
 
   // If the type has been set for this expression, but the underlying
   // object is an abstract int or float, we try to get the abstract
@@ -3039,6 +3064,25 @@ Type_conversion_expression::do_lower(Gogo*, Named_object*,
 	}
     }
 
+  // According to the language specification on string conversions
+  // (http://golang.org/ref/spec#Conversions_to_and_from_a_string_type):
+  // When converting an integer into a string, the string will be a UTF-8
+  // representation of the integer and integers "outside the range of valid
+  // Unicode code points are converted to '\uFFFD'."
+  if (type->is_string_type())
+    {
+      Numeric_constant nc;
+      if (val->numeric_constant_value(&nc) && nc.is_int())
+        {
+          // An integer value doesn't fit in the Unicode code point range if it
+          // overflows the Go "int" type or is negative.
+          unsigned long ul;
+          if (!nc.set_type(Type::lookup_integer_type("int"), false, location)
+              || nc.to_unsigned_long(&ul) == Numeric_constant::NC_UL_NEGATIVE)
+            return Expression::make_string("\ufffd", location);
+        }
+    }
+
   if (type->is_slice_type())
     {
       Type* element_type = type->array_type()->element_type()->forwarded();
@@ -3101,6 +3145,12 @@ Expression*
 Type_conversion_expression::do_flatten(Gogo*, Named_object*,
                                        Statement_inserter* inserter)
 {
+  if (this->type()->is_error_type() || this->expr_->is_error_expression())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(this->location());
+    }
+
   if (((this->type()->is_string_type()
         && this->expr_->type()->is_slice_type())
        || this->expr_->type()->interface_type() != NULL)
@@ -3422,6 +3472,15 @@ Unsafe_type_conversion_expression::do_get_backend(Translate_context* context)
 
   Type* t = this->type_;
   Type* et = this->expr_->type();
+
+  if (t->is_error_type()
+      || this->expr_->is_error_expression()
+      || et->is_error_type())
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
+
   if (t->array_type() != NULL)
     go_assert(et->array_type() != NULL
               && t->is_slice_type() == et->is_slice_type());
@@ -3585,8 +3644,13 @@ Expression*
 Unary_expression::do_flatten(Gogo* gogo, Named_object*,
                              Statement_inserter* inserter)
 {
-  if (this->is_error_expression() || this->expr_->is_error_expression())
-    return Expression::make_error(this->location());
+  if (this->is_error_expression()
+      || this->expr_->is_error_expression()
+      || this->expr_->type()->is_error_type())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(this->location());
+    }
 
   Location location = this->location();
   if (this->op_ == OPERATOR_MULT
@@ -3596,8 +3660,13 @@ Unary_expression::do_flatten(Gogo* gogo, Named_object*,
       Type* ptype = this->expr_->type()->points_to();
       if (!ptype->is_void_type())
         {
-          Btype* pbtype = ptype->get_backend(gogo);
-          int64_t s = gogo->backend()->type_size(pbtype);
+          int64_t s;
+          bool ok = ptype->backend_type_size(gogo, &s);
+          if (!ok)
+            {
+              go_assert(saw_errors());
+              return Expression::make_error(this->location());
+            }
           if (s >= 4096 || this->issue_nil_check_)
             {
               Temporary_statement* temp =
@@ -3932,9 +4001,8 @@ Unary_expression::do_check_types(Gogo*)
       break;
 
     case OPERATOR_XOR:
-      if (type->integer_type() == NULL
-	  && !type->is_boolean_type())
-	this->report_error(_("expected integer or boolean type"));
+      if (type->integer_type() == NULL)
+	this->report_error(_("expected integer"));
       break;
 
     case OPERATOR_AND:
@@ -4102,7 +4170,13 @@ Unary_expression::do_get_backend(Translate_context* context)
         Btype* pbtype = ptype->get_backend(gogo);
         if (!ptype->is_void_type())
 	  {
-            int64_t s = gogo->backend()->type_size(pbtype);
+            int64_t s;
+            bool ok = ptype->backend_type_size(gogo, &s);
+            if (!ok)
+              {
+                go_assert(saw_errors());
+                return gogo->backend()->error_expression();
+              }
 	    if (s >= 4096 || this->issue_nil_check_)
 	      {
                 go_assert(this->expr_->is_variable());
@@ -4494,6 +4568,12 @@ Binary_expression::eval_constant(Operator op, Numeric_constant* left_nc,
     return false;
   if (!is_shift && !right_nc->set_type(type, true, location))
     return false;
+  if (is_shift
+      && ((left_type->integer_type() == NULL
+           && !left_type->is_abstract())
+          || (right_type->integer_type() == NULL
+              && !right_type->is_abstract())))
+    return false;
 
   bool r;
   if (type->complex_type() != NULL)
@@ -4538,6 +4618,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
       if (mpz_sizeinbase(val, 2) > 0x100000)
 	{
 	  error_at(location, "constant addition overflow");
+          nc->set_invalid();
 	  mpz_set_ui(val, 1);
 	}
       break;
@@ -4546,6 +4627,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
       if (mpz_sizeinbase(val, 2) > 0x100000)
 	{
 	  error_at(location, "constant subtraction overflow");
+          nc->set_invalid();
 	  mpz_set_ui(val, 1);
 	}
       break;
@@ -4560,6 +4642,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
       if (mpz_sizeinbase(val, 2) > 0x100000)
 	{
 	  error_at(location, "constant multiplication overflow");
+          nc->set_invalid();
 	  mpz_set_ui(val, 1);
 	}
       break;
@@ -4569,6 +4652,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
       else
 	{
 	  error_at(location, "division by zero");
+          nc->set_invalid();
 	  mpz_set_ui(val, 0);
 	}
       break;
@@ -4578,6 +4662,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
       else
 	{
 	  error_at(location, "division by zero");
+          nc->set_invalid();
 	  mpz_set_ui(val, 0);
 	}
       break;
@@ -4589,6 +4674,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
 	else
 	  {
 	    error_at(location, "shift count overflow");
+            nc->set_invalid();
 	    mpz_set_ui(val, 1);
 	  }
 	break;
@@ -4600,6 +4686,7 @@ Binary_expression::eval_integer(Operator op, const Numeric_constant* left_nc,
 	if (mpz_cmp_ui(right_val, shift) != 0)
 	  {
 	    error_at(location, "shift count overflow");
+            nc->set_invalid();
 	    mpz_set_ui(val, 1);
 	  }
 	else
@@ -4694,6 +4781,7 @@ Binary_expression::eval_float(Operator op, const Numeric_constant* left_nc,
       else
 	{
 	  error_at(location, "division by zero");
+          nc->set_invalid();
 	  mpfr_set_ui(val, 0, GMP_RNDN);
 	}
       break;
@@ -4758,6 +4846,7 @@ Binary_expression::eval_complex(Operator op, const Numeric_constant* left_nc,
       if (mpc_cmp_si(right_val, 0) == 0)
 	{
 	  error_at(location, "division by zero");
+          nc->set_invalid();
 	  mpc_set_ui(val, 0, MPC_RNDNN);
 	  break;
 	}
@@ -4820,7 +4909,14 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
 	    Numeric_constant nc;
 	    if (!Binary_expression::eval_constant(op, &left_nc, &right_nc,
 						  location, &nc))
-	      return this;
+              {
+                if (nc.is_invalid())
+                  {
+                    go_assert(saw_errors());
+                    return Expression::make_error(location);
+                  }
+                return this;
+              }
 	    return nc.expression(location);
 	  }
       }
@@ -5062,10 +5158,16 @@ Expression*
 Binary_expression::do_flatten(Gogo* gogo, Named_object*,
                               Statement_inserter* inserter)
 {
-  if (this->classification() == EXPRESSION_ERROR)
-    return this;
-
   Location loc = this->location();
+  if (this->left_->type()->is_error_type()
+      || this->right_->type()->is_error_type()
+      || this->left_->is_error_expression()
+      || this->right_->is_error_expression())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(loc);
+    }
+
   Temporary_statement* temp;
   if (this->left_->type()->is_string_type()
       && this->op_ == OPERATOR_PLUS)
@@ -5239,6 +5341,14 @@ Binary_expression::do_determine_type(const Type_context* context)
 			|| this->op_ == OPERATOR_GT
 			|| this->op_ == OPERATOR_GE);
 
+  // For constant expressions, the context of the result is not useful in
+  // determining the types of the operands.  It is only legal to use abstract
+  // boolean, numeric, and string constants as operands where it is legal to
+  // use non-abstract boolean, numeric, and string constants, respectively.
+  // Any issues with the operation will be resolved in the check_types pass.
+  bool is_constant_expr = (this->left_->is_constant()
+                           && this->right_->is_constant());
+
   Type_context subcontext(*context);
 
   if (is_comparison)
@@ -5283,7 +5393,8 @@ Binary_expression::do_determine_type(const Type_context* context)
 	subcontext.type = subcontext.type->make_non_abstract_type();
     }
 
-  this->left_->determine_type(&subcontext);
+  if (!is_constant_expr)
+    this->left_->determine_type(&subcontext);
 
   if (is_shift_op)
     {
@@ -5303,7 +5414,8 @@ Binary_expression::do_determine_type(const Type_context* context)
       subcontext.may_be_abstract = false;
     }
 
-  this->right_->determine_type(&subcontext);
+  if (!is_constant_expr)
+    this->right_->determine_type(&subcontext);
 
   if (is_comparison)
     {
@@ -5328,7 +5440,8 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
     {
     case OPERATOR_OROR:
     case OPERATOR_ANDAND:
-      if (!type->is_boolean_type())
+      if (!type->is_boolean_type()
+          || !otype->is_boolean_type())
 	{
 	  error_at(location, "expected boolean type");
 	  return false;
@@ -5363,10 +5476,8 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
 
     case OPERATOR_PLUS:
     case OPERATOR_PLUSEQ:
-      if (type->integer_type() == NULL
-	  && type->float_type() == NULL
-	  && type->complex_type() == NULL
-	  && !type->is_string_type())
+      if ((!type->is_numeric_type() && !type->is_string_type())
+          || (!otype->is_numeric_type() && !otype->is_string_type()))
 	{
 	  error_at(location,
 		   "expected integer, floating, complex, or string type");
@@ -5380,9 +5491,7 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
     case OPERATOR_MULTEQ:
     case OPERATOR_DIV:
     case OPERATOR_DIVEQ:
-      if (type->integer_type() == NULL
-	  && type->float_type() == NULL
-	  && type->complex_type() == NULL)
+      if (!type->is_numeric_type() || !otype->is_numeric_type())
 	{
 	  error_at(location, "expected integer, floating, or complex type");
 	  return false;
@@ -5399,7 +5508,7 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
     case OPERATOR_XOREQ:
     case OPERATOR_BITCLEAR:
     case OPERATOR_BITCLEAREQ:
-      if (type->integer_type() == NULL)
+      if (type->integer_type() == NULL || otype->integer_type() == NULL)
 	{
 	  error_at(location, "expected integer type");
 	  return false;
@@ -6572,7 +6681,11 @@ Builtin_call_expression::Builtin_call_expression(Gogo* gogo,
     recover_arg_is_set_(false)
 {
   Func_expression* fnexp = this->fn()->func_expression();
-  go_assert(fnexp != NULL);
+  if (fnexp == NULL)
+    {
+      this->code_ = BUILTIN_INVALID;
+      return;
+    }
   const std::string& name(fnexp->named_object()->name());
   if (name == "append")
     this->code_ = BUILTIN_APPEND;
@@ -6645,7 +6758,7 @@ Expression*
 Builtin_call_expression::do_lower(Gogo* gogo, Named_object* function,
 				  Statement_inserter* inserter, int)
 {
-  if (this->classification() == EXPRESSION_ERROR)
+  if (this->is_error_expression())
     return this;
 
   Location loc = this->location();
@@ -7479,11 +7592,13 @@ Builtin_call_expression::do_discarding_value()
 Type*
 Builtin_call_expression::do_type()
 {
+  if (this->is_error_expression())
+    return Type::make_error_type();
   switch (this->code_)
     {
     case BUILTIN_INVALID:
     default:
-      go_unreachable();
+      return Type::make_error_type();
 
     case BUILTIN_NEW:
     case BUILTIN_MAKE:
@@ -7978,6 +8093,13 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 {
   Gogo* gogo = context->gogo();
   Location location = this->location();
+
+  if (this->is_erroneous_call())
+    {
+      go_assert(saw_errors());
+      return gogo->backend()->error_expression();
+    }
+
   switch (this->code_)
     {
     case BUILTIN_INVALID:
@@ -8155,6 +8277,12 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
                                                       location);
 	  }
 
+        // There aren't any arguments to the print builtin.  The compiler
+        // issues a warning for this so we should avoid getting the backend
+        // representation for this call.  Instead, perform a no-op.
+        if (print_stmts == NULL)
+          return context->backend()->boolean_constant_expression(false);
+
         return print_stmts->get_backend(context);
       }
 
@@ -8265,8 +8393,14 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
             Expression::make_conditional(cond, arg1_len, arg2_len, location);
 
 	Type* element_type = at->element_type();
-	Btype* element_btype = element_type->get_backend(gogo);
-	int64_t element_size = gogo->backend()->type_size(element_btype);
+	int64_t element_size;
+        bool ok = element_type->backend_type_size(gogo, &element_size);
+        if (!ok)
+          {
+            go_assert(saw_errors());
+            return gogo->backend()->error_expression();
+          }
+
 	Expression* size_expr = Expression::make_integer_int64(element_size,
 							       length->type(),
 							       location);
@@ -8307,8 +8441,12 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 	  {
 	    arg2_val = at->get_value_pointer(gogo, arg2);
 	    arg2_len = at->get_length(gogo, arg2);
-	    Btype* element_btype = element_type->get_backend(gogo);
-	    size = gogo->backend()->type_size(element_btype);
+            bool ok = element_type->backend_type_size(gogo, &size);
+            if (!ok)
+              {
+                go_assert(saw_errors());
+                return gogo->backend()->error_expression();
+              }
 	  }
         Expression* element_size =
 	  Expression::make_integer_int64(size, NULL, location);
@@ -8733,8 +8871,11 @@ Expression*
 Call_expression::do_flatten(Gogo* gogo, Named_object*,
 			    Statement_inserter* inserter)
 {
-  if (this->classification() == EXPRESSION_ERROR)
-    return this;
+  if (this->is_erroneous_call())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(this->location());
+    }
 
   if (this->is_flattened_)
     return this;
@@ -8900,6 +9041,27 @@ Call_expression::issue_error()
       this->issued_error_ = true;
       return true;
     }
+}
+
+// Whether or not this call contains errors, either in the call or the
+// arguments to the call.
+
+bool
+Call_expression::is_erroneous_call()
+{
+  if (this->is_error_expression() || this->fn()->is_error_expression())
+    return true;
+
+  if (this->args() == NULL)
+    return false;
+  for (Expression_list::iterator pa = this->args()->begin();
+       pa != this->args()->end();
+       ++pa)
+    {
+      if ((*pa)->type()->is_error_type() || (*pa)->is_error_expression())
+        return true;
+    }
+  return false;
 }
 
 // Get the type.
@@ -9848,30 +10010,47 @@ Array_index_expression::do_flatten(Gogo*, Named_object*,
                                    Statement_inserter* inserter)
 {
   Location loc = this->location();
-  Temporary_statement* temp;
-  if (this->array_->type()->is_slice_type() && !this->array_->is_variable())
+  Expression* array = this->array_;
+  Expression* start = this->start_;
+  Expression* end = this->end_;
+  Expression* cap = this->cap_;
+  if (array->is_error_expression()
+      || array->type()->is_error_type()
+      || start->is_error_expression()
+      || start->type()->is_error_type()
+      || (end != NULL
+          && (end->is_error_expression() || end->type()->is_error_type()))
+      || (cap != NULL
+          && (cap->is_error_expression() || cap->type()->is_error_type())))
     {
-      temp = Statement::make_temporary(NULL, this->array_, loc);
+      go_assert(saw_errors());
+      return Expression::make_error(loc);
+    }
+
+  Temporary_statement* temp;
+  if (array->type()->is_slice_type() && !array->is_variable())
+    {
+      temp = Statement::make_temporary(NULL, array, loc);
       inserter->insert(temp);
       this->array_ = Expression::make_temporary_reference(temp, loc);
     }
-  if (!this->start_->is_variable())
+  if (!start->is_variable())
     {
-      temp = Statement::make_temporary(NULL, this->start_, loc);
+      temp = Statement::make_temporary(NULL, start, loc);
       inserter->insert(temp);
       this->start_ = Expression::make_temporary_reference(temp, loc);
     }
-  if (this->end_ != NULL
-      && !this->end_->is_nil_expression()
-      && !this->end_->is_variable())
+  if (end != NULL
+      && !end->is_nil_expression()
+      && !end->is_variable())
     {
-      temp = Statement::make_temporary(NULL, this->end_, loc);
+      temp = Statement::make_temporary(NULL, end, loc);
       inserter->insert(temp);
       this->end_ = Expression::make_temporary_reference(temp, loc);
     }
-  if (this->cap_ != NULL && !this->cap_->is_variable())
+  if (cap!= NULL && !cap->is_variable())
     {
-      temp = Statement::make_temporary(NULL, this->cap_, loc);
+      temp = Statement::make_temporary(NULL, cap, loc);
       inserter->insert(temp);
       this->cap_ = Expression::make_temporary_reference(temp, loc);
     }
@@ -10179,8 +10358,22 @@ Expression*
 String_index_expression::do_flatten(Gogo*, Named_object*,
                                     Statement_inserter* inserter)
 {
-  Temporary_statement* temp;
   Location loc = this->location();
+  Expression* string = this->string_;
+  Expression* start = this->start_;
+  Expression* end = this->end_;
+  if (string->is_error_expression()
+      || string->type()->is_error_type()
+      || start->is_error_expression()
+      || start->type()->is_error_type()
+      || (end != NULL
+          && (end->is_error_expression() || end->type()->is_error_type())))
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(loc);
+    }
+
+  Temporary_statement* temp;
   if (!this->string_->is_variable())
     {
       temp = Statement::make_temporary(NULL, this->string_, loc);
@@ -10258,7 +10451,10 @@ String_index_expression::do_check_types(Gogo*)
     {
       ival_valid = true;
       if (mpz_sgn(ival) < 0
-	  || (sval_valid && mpz_cmp_ui(ival, sval.length()) >= 0))
+	  || (sval_valid
+	      && (this->end_ == NULL
+		  ? mpz_cmp_ui(ival, sval.length()) >= 0
+		  : mpz_cmp_ui(ival, sval.length()) > 0)))
 	{
 	  error_at(this->start_->location(), "string index out of bounds");
 	  this->set_is_error();
@@ -10419,6 +10615,14 @@ Map_index_expression::do_flatten(Gogo* gogo, Named_object*,
 {
   Location loc = this->location();
   Map_type* mt = this->get_map_type();
+  if (this->index()->is_error_expression()
+      || this->index()->type()->is_error_type()
+      || mt->is_error_type())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(loc);
+    }
+
   if (!Type::are_identical(mt->key_type(), this->index_->type(), false, NULL))
     {
       if (this->index_->type()->interface_type() != NULL
@@ -10443,6 +10647,9 @@ Map_index_expression::do_flatten(Gogo* gogo, Named_object*,
 
   if (this->value_pointer_ == NULL)
     this->get_value_pointer(this->is_lvalue_);
+  if (this->value_pointer_->is_error_expression()
+      || this->value_pointer_->type()->is_error_type())
+    return Expression::make_error(loc);
   if (!this->value_pointer_->is_variable())
     {
       Temporary_statement* temp =
@@ -10819,6 +11026,13 @@ Expression*
 Interface_field_reference_expression::do_flatten(Gogo*, Named_object*,
 						 Statement_inserter* inserter)
 {
+  if (this->expr_->is_error_expression()
+      || this->expr_->type()->is_error_type())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(this->location());
+    }
+
   if (!this->expr_->is_variable())
     {
       Temporary_statement* temp =
@@ -11389,14 +11603,20 @@ Allocation_expression::do_get_backend(Translate_context* context)
   Gogo* gogo = context->gogo();
   Location loc = this->location();
 
-  Btype* btype = this->type_->get_backend(gogo);
   if (this->allocate_on_stack_)
     {
-      int64_t size = gogo->backend()->type_size(btype);
+      int64_t size;
+      bool ok = this->type_->backend_type_size(gogo, &size);
+      if (!ok)
+        {
+          go_assert(saw_errors());
+          return gogo->backend()->error_expression();
+        }
       return gogo->backend()->stack_allocation_expression(size, loc);
     }
 
-  Bexpression* space = 
+  Btype* btype = this->type_->get_backend(gogo);
+  Bexpression* space =
     gogo->allocate_memory(this->type_, loc)->get_backend(context);
   Btype* pbtype = gogo->backend()->pointer_type(btype);
   return gogo->backend()->convert_expression(pbtype, space, loc);
@@ -11598,6 +11818,11 @@ Struct_construction_expression::do_flatten(Gogo*, Named_object*,
     {
       if (*pv != NULL)
 	{
+          if ((*pv)->is_error_expression() || (*pv)->type()->is_error_type())
+            {
+              go_assert(saw_errors());
+              return Expression::make_error(loc);
+            }
 	  if (!(*pv)->is_variable())
 	    {
 	      Temporary_statement* temp =
@@ -11809,6 +12034,11 @@ Array_construction_expression::do_flatten(Gogo*, Named_object*,
     {
       if (*pv != NULL)
 	{
+          if ((*pv)->is_error_expression() || (*pv)->type()->is_error_type())
+            {
+              go_assert(saw_errors());
+              return Expression::make_error(loc);
+            }
 	  if (!(*pv)->is_variable())
 	    {
 	      Temporary_statement* temp =
@@ -12124,6 +12354,11 @@ Map_construction_expression::do_flatten(Gogo* gogo, Named_object*,
         {
           Expression_list* key_value_pair = new Expression_list();
           Expression* key = *pv;
+          if (key->is_error_expression() || key->type()->is_error_type())
+            {
+              go_assert(saw_errors());
+              return Expression::make_error(loc);
+            }
 	  if (key->type()->interface_type() != NULL && !key->is_variable())
 	    {
 	      Temporary_statement* temp =
@@ -12135,6 +12370,11 @@ Map_construction_expression::do_flatten(Gogo* gogo, Named_object*,
 
           ++pv;
           Expression* val = *pv;
+          if (val->is_error_expression() || val->type()->is_error_type())
+            {
+              go_assert(saw_errors());
+              return Expression::make_error(loc);
+            }
 	  if (val->type()->interface_type() != NULL && !val->is_variable())
 	    {
 	      Temporary_statement* temp =
@@ -13103,6 +13343,13 @@ Expression*
 Type_guard_expression::do_flatten(Gogo*, Named_object*,
                                   Statement_inserter* inserter)
 {
+  if (this->expr_->is_error_expression()
+      || this->expr_->type()->is_error_type())
+    {
+      go_assert(saw_errors());
+      return Expression::make_error(this->location());
+    }
+
   if (!this->expr_->is_variable())
     {
       Temporary_statement* temp = Statement::make_temporary(NULL, this->expr_,
@@ -13255,9 +13502,14 @@ Expression::make_heap_expression(Expression* expr, Location location)
 Type*
 Receive_expression::do_type()
 {
+  if (this->is_error_expression())
+    return Type::make_error_type();
   Channel_type* channel_type = this->channel_->type()->channel_type();
   if (channel_type == NULL)
-    return Type::make_error_type();
+    {
+      this->report_error(_("expected channel"));
+      return Type::make_error_type();
+    }
   return channel_type->element_type();
 }
 
@@ -13269,6 +13521,7 @@ Receive_expression::do_check_types(Gogo*)
   Type* type = this->channel_->type();
   if (type->is_error())
     {
+      go_assert(saw_errors());
       this->set_is_error();
       return;
     }
@@ -13297,6 +13550,11 @@ Receive_expression::do_flatten(Gogo*, Named_object*,
       go_assert(saw_errors());
       return this;
     }
+  else if (this->channel_->is_error_expression())
+   {
+     go_assert(saw_errors());
+     return Expression::make_error(this->location());
+   }
 
   Type* element_type = channel_type->element_type();
   if (this->temp_receiver_ == NULL)
@@ -13549,22 +13807,27 @@ Type_info_expression::do_type()
 Bexpression*
 Type_info_expression::do_get_backend(Translate_context* context)
 {
-  Btype* btype = this->type_->get_backend(context->gogo());
   Gogo* gogo = context->gogo();
+  bool ok = true;
   int64_t val;
   switch (this->type_info_)
     {
     case TYPE_INFO_SIZE:
-      val = gogo->backend()->type_size(btype);
+      ok = this->type_->backend_type_size(gogo, &val);
       break;
     case TYPE_INFO_ALIGNMENT:
-      val = gogo->backend()->type_alignment(btype);
+      ok = this->type_->backend_type_align(gogo, &val);
       break;
     case TYPE_INFO_FIELD_ALIGNMENT:
-      val = gogo->backend()->type_field_alignment(btype);
+      ok = this->type_->backend_type_field_align(gogo, &val);
       break;
     default:
       go_unreachable();
+    }
+  if (!ok)
+    {
+      go_assert(saw_errors());
+      return gogo->backend()->error_expression();
     }
   Expression* e = Expression::make_integer_int64(val, this->type(),
 						 this->location());
@@ -15015,7 +15278,11 @@ Numeric_constant::set_type(Type* type, bool issue_error, Location loc)
   else if (type->complex_type() != NULL)
     ret = this->check_complex_type(type->complex_type(), issue_error, loc);
   else
-    go_unreachable();
+    {
+      ret = false;
+      if (issue_error)
+        go_assert(saw_errors());
+    }
   if (ret)
     this->type_ = type;
   return ret;
@@ -15025,7 +15292,7 @@ Numeric_constant::set_type(Type* type, bool issue_error, Location loc)
 
 bool
 Numeric_constant::check_int_type(Integer_type* type, bool issue_error,
-				 Location location) const
+				 Location location)
 {
   mpz_t val;
   switch (this->classification_)
@@ -15039,7 +15306,11 @@ Numeric_constant::check_int_type(Integer_type* type, bool issue_error,
       if (!mpfr_integer_p(this->u_.float_val))
 	{
 	  if (issue_error)
-	    error_at(location, "floating point constant truncated to integer");
+            {
+              error_at(location,
+                       "floating point constant truncated to integer");
+              this->set_invalid();
+            }
 	  return false;
 	}
       mpz_init(val);
@@ -15051,7 +15322,10 @@ Numeric_constant::check_int_type(Integer_type* type, bool issue_error,
 	  || !mpfr_zero_p(mpc_imagref(this->u_.complex_val)))
 	{
 	  if (issue_error)
-	    error_at(location, "complex constant truncated to integer");
+            {
+              error_at(location, "complex constant truncated to integer");
+              this->set_invalid();
+            }
 	  return false;
 	}
       mpz_init(val);
@@ -15089,7 +15363,10 @@ Numeric_constant::check_int_type(Integer_type* type, bool issue_error,
     }
 
   if (!ret && issue_error)
-    error_at(location, "integer constant overflow");
+    {
+      error_at(location, "integer constant overflow");
+      this->set_invalid();
+    }
 
   return ret;
 }
@@ -15117,7 +15394,10 @@ Numeric_constant::check_float_type(Float_type* type, bool issue_error,
       if (!mpfr_zero_p(mpc_imagref(this->u_.complex_val)))
 	{
 	  if (issue_error)
-	    error_at(location, "complex constant truncated to float");
+            {
+              this->set_invalid();
+              error_at(location, "complex constant truncated to float");
+            }
 	  return false;
 	}
       mpfr_init_set(val, mpc_realref(this->u_.complex_val), GMP_RNDN);
@@ -15180,7 +15460,10 @@ Numeric_constant::check_float_type(Float_type* type, bool issue_error,
   mpfr_clear(val);
 
   if (!ret && issue_error)
-    error_at(location, "floating point constant overflow");
+    {
+      error_at(location, "floating point constant overflow");
+      this->set_invalid();
+    }
 
   return ret;
 } 
@@ -15235,7 +15518,10 @@ Numeric_constant::check_complex_type(Complex_type* type, bool issue_error,
       && mpfr_get_exp(mpc_realref(val)) > max_exp)
     {
       if (issue_error)
-	error_at(location, "complex real part overflow");
+        {
+          error_at(location, "complex real part overflow");
+          this->set_invalid();
+        }
       ret = false;
     }
 
@@ -15245,7 +15531,10 @@ Numeric_constant::check_complex_type(Complex_type* type, bool issue_error,
       && mpfr_get_exp(mpc_imagref(val)) > max_exp)
     {
       if (issue_error)
-	error_at(location, "complex imaginary part overflow");
+        {
+          error_at(location, "complex imaginary part overflow");
+          this->set_invalid();
+        }
       ret = false;
     }
 
@@ -15291,6 +15580,9 @@ Numeric_constant::expression(Location loc) const
       return Expression::make_float(&this->u_.float_val, this->type_, loc);
     case NC_COMPLEX:
       return Expression::make_complex(&this->u_.complex_val, this->type_, loc);
+    case NC_INVALID:
+      go_assert(saw_errors());
+      return Expression::make_error(loc);
     default:
       go_unreachable();
     }

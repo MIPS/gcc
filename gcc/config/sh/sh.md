@@ -135,6 +135,7 @@
   UNSPEC_PLT
   UNSPEC_CALLER
   UNSPEC_GOTPLT
+  UNSPEC_PCREL
   UNSPEC_ICACHE
   UNSPEC_INIT_TRAMP
   UNSPEC_FCOSA
@@ -2128,11 +2129,6 @@
 {
   if (TARGET_SHMEDIA)
     operands[1] = force_reg (SImode, operands[1]);
-  else if (! arith_operand (operands[2], SImode))
-    {
-      if (reg_overlap_mentioned_p (operands[0], operands[1]))
-	FAIL;
-    }
 })
 
 (define_insn "addsi3_media"
@@ -2171,10 +2167,7 @@
   [(set (match_operand:SI 0 "arith_reg_dest" "=r,&u")
 	(plus:SI (match_operand:SI 1 "arith_operand" "%0,r")
 		 (match_operand:SI 2 "arith_or_int_operand" "rI08,rn")))]
-  "TARGET_SH1
-   && ((rtx_equal_p (operands[0], operands[1])
-        && arith_operand (operands[2], SImode))
-       || ! reg_overlap_mentioned_p (operands[0], operands[1]))"
+  "TARGET_SH1"
   "@
 	add	%2,%0
 	#"
@@ -4203,7 +4196,7 @@ label:
 ;; Let combine see that we can get the MSB and LSB into the T bit
 ;; via shll and shlr.  This allows it to plug it into insns that can have
 ;; the T bit as an input (e.g. addc).
-;; FIXME: On SH2A use bld #0,Rn instead of shlr to avoid mutating the input.
+;; On SH2A use bld #0,Rn instead of shlr to avoid mutating the input.
 (define_insn_and_split "*reg_lsb_t"
   [(set (reg:SI T_REG)
 	(and:SI (match_operand:SI 0 "arith_reg_operand")
@@ -4213,7 +4206,8 @@ label:
   "&& 1"
   [(const_int 0)]
 {
-  emit_insn (gen_shlr (gen_reg_rtx (SImode), operands[0]));
+  emit_insn (TARGET_SH2A ? gen_bldsi_reg (operands[0], const0_rtx)
+			 : gen_shlr (gen_reg_rtx (SImode), operands[0]));
 })
 
 (define_insn_and_split "*reg_msb_t"
@@ -9463,18 +9457,15 @@ label:
    (use (reg:SI FPSCR_MODES_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
-   (clobber (match_scratch:SI 2 "=r"))]
+   (clobber (match_scratch:SI 2 "=&r"))]
   "TARGET_SH2"
   "#"
   "reload_completed"
   [(const_int 0)]
 {
   rtx lab = PATTERN (gen_call_site ());
-
-  if (SYMBOL_REF_LOCAL_P (operands[0]))
-    emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
-  else
-    emit_insn (gen_symPLT_label2reg (operands[2], operands[0], lab));
+  
+  sh_expand_sym_label2reg (operands[2], operands[0], lab, false);
   emit_call_insn (gen_calli_pcrel (operands[2], operands[1], copy_rtx (lab)));
   DONE;
 }
@@ -9597,7 +9588,7 @@ label:
    (use (reg:SI FPSCR_MODES_REG))
    (use (reg:SI PIC_REG))
    (clobber (reg:SI PR_REG))
-   (clobber (match_scratch:SI 3 "=r"))]
+   (clobber (match_scratch:SI 3 "=&r"))]
   "TARGET_SH2"
   "#"
   "reload_completed"
@@ -9605,10 +9596,7 @@ label:
 {
   rtx lab = PATTERN (gen_call_site ());
 
-  if (SYMBOL_REF_LOCAL_P (operands[1]))
-    emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
-  else
-    emit_insn (gen_symPLT_label2reg (operands[3], operands[1], lab));
+  sh_expand_sym_label2reg (operands[3], operands[1], lab, false);
   emit_call_insn (gen_call_valuei_pcrel (operands[0], operands[3],
 					 operands[2], copy_rtx (lab)));
   DONE;
@@ -9998,7 +9986,7 @@ label:
   [(call (mem:SI (match_operand:SI 0 "symbol_ref_operand" ""))
 	 (match_operand 1 "" ""))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 2 "=k"))
+   (clobber (match_scratch:SI 2 "=&k"))
    (return)]
   "TARGET_SH2"
   "#"
@@ -10008,7 +9996,7 @@ label:
   rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
 
-  emit_insn (gen_sym_label2reg (operands[2], operands[0], lab));
+  sh_expand_sym_label2reg (operands[2], operands[0], lab, true);
   call_insn = emit_call_insn (gen_sibcalli_pcrel (operands[2], operands[1],
 						  copy_rtx (lab)));
   SIBLING_CALL_P (call_insn) = 1;
@@ -10190,7 +10178,7 @@ label:
 	(call (mem:SI (match_operand:SI 1 "symbol_ref_operand" ""))
 	      (match_operand 2 "" "")))
    (use (reg:SI FPSCR_MODES_REG))
-   (clobber (match_scratch:SI 3 "=k"))
+   (clobber (match_scratch:SI 3 "=&k"))
    (return)]
   "TARGET_SH2"
   "#"
@@ -10200,7 +10188,7 @@ label:
   rtx lab = PATTERN (gen_call_site ());
   rtx call_insn;
 
-  emit_insn (gen_sym_label2reg (operands[3], operands[1], lab));
+  sh_expand_sym_label2reg (operands[3], operands[1], lab, true);
   call_insn = emit_call_insn (gen_sibcall_valuei_pcrel (operands[0],
 							operands[3],
 							operands[2],
@@ -10747,6 +10735,16 @@ label:
 					      (const_int 2)))]
 			     UNSPEC_SYMOFF)))]
   "TARGET_SH1" "")
+
+(define_expand "symPCREL_label2reg"
+  [(set (match_operand:SI 0 "" "")
+	(const:SI
+	 (unspec:SI
+	  [(const:SI (unspec:SI [(match_operand:SI 1 "" "")] UNSPEC_PCREL))
+	   (const:SI (plus:SI (match_operand:SI 2 "" "")
+			      (const_int 2)))] UNSPEC_PCREL_SYMOFF)))]
+  "TARGET_SH1"
+  "")
 
 (define_expand "symGOT_load"
   [(set (match_dup 2) (match_operand 1 "" ""))
@@ -11974,41 +11972,31 @@ label:
   [(set (match_dup 0) (reg:SI T_REG))
    (set (match_dup 0) (xor:SI (match_dup 0) (const_int 1)))])
 
-;; Use negc to store the T bit in a MSB of a reg in the following way:
-;;	T = 0: 0x80000000 -> reg
-;;	T = 1: 0x7FFFFFFF -> reg
-;; This works because 0 - 0x80000000 = 0x80000000.
-(define_insn_and_split "*mov_t_msb_neg"
-  [(set (match_operand:SI 0 "arith_reg_dest")
-	(minus:SI (const_int -2147483648)  ;; 0x80000000
-		  (match_operand 1 "treg_set_expr")))
-   (clobber (reg:SI T_REG))]
-  "TARGET_SH1 && can_create_pseudo_p ()"
-  "#"
-  "&& 1"
-  [(const_int 0)]
-{
-  if (negt_reg_operand (operands[1], VOIDmode))
-    {
-      emit_insn (gen_addc (operands[0],
-			   force_reg (SImode, const0_rtx),
-			   force_reg (SImode, GEN_INT (2147483647))));
-      DONE;
-    }
-
-  sh_treg_insns ti = sh_split_treg_set_expr (operands[1], curr_insn);
-  if (ti.remove_trailing_nott ())
-    emit_insn (gen_addc (operands[0],
-			 force_reg (SImode, const0_rtx),
-			 force_reg (SImode, GEN_INT (2147483647))));
-  else
-    emit_insn (gen_negc (operands[0],
-			 force_reg (SImode, GEN_INT (-2147483648LL))));
-  DONE;
-})
-
 ;; 0x7fffffff + T
 ;; 0x7fffffff + (1-T) = 0 - 0x80000000 - T
+;;
+;; Notice that 0 - 0x80000000 = 0x80000000.
+
+;; Single bit tests are usually done with zero_extract.  On non-SH2A this
+;; will use a tst-negc sequence.  On SH2A it will use a bld-addc sequence.
+;; The zeroth bit requires a special pattern, otherwise we get a shlr-addc.
+;; This is a special case of the generic treg_set_expr pattern and thus has
+;; to come first or it will never match.
+(define_insn_and_split "*mov_t_msb_neg"
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(plus:SI (and:SI (match_operand:SI 1 "arith_reg_operand")
+			 (const_int 1))
+		 (const_int 2147483647)))
+   (clobber (reg:SI T_REG))]
+  "TARGET_SH1"
+  "#"
+  "&& can_create_pseudo_p ()"
+  [(parallel [(set (match_dup 0)
+		   (plus:SI (zero_extract:SI (match_dup 1)
+					     (const_int 1) (const_int 0))
+			    (const_int 2147483647)))
+	      (clobber (reg:SI T_REG))])])
+
 (define_insn_and_split "*mov_t_msb_neg"
   [(set (match_operand:SI 0 "arith_reg_dest")
 	(plus:SI (match_operand 1 "treg_set_expr")
@@ -12731,7 +12719,7 @@ label:
   [(set (match_operand:SI 0 "register_operand")
 	(compare:SI (match_operand:BLK 1 "memory_operand")
 		    (match_operand:BLK 2 "memory_operand")))
-   (use (match_operand:SI 3 "immediate_operand"))
+   (use (match_operand:SI 3 "nonmemory_operand"))
    (use (match_operand:SI 4 "immediate_operand"))]
   "TARGET_SH1 && optimize"
 {
@@ -14685,7 +14673,7 @@ label:
   [(const_int 0)]
 {
   emit_insn (gen_addsi3 (operands[1], operands[1], operands[2]));
-  sh_check_add_incdec_notes (emit_move_insn (operands[3], operands[1]));
+  sh_peephole_emit_move_insn (operands[3], operands[1]);
 })
 
 ;;	mov.l	@(r0,r9),r1
@@ -14698,7 +14686,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+  sh_peephole_emit_move_insn (operands[2], operands[1]);
 })
 
 (define_peephole2
@@ -14709,7 +14697,7 @@ label:
   "TARGET_SH1 && peep2_reg_dead_p (2, operands[0])"
   [(const_int 0)]
 {
-  sh_check_add_incdec_notes (emit_move_insn (operands[2], operands[1]));
+  sh_peephole_emit_move_insn (operands[2], operands[1]);
 })
 
 (define_peephole2
@@ -14721,7 +14709,7 @@ label:
   [(const_int 0)]
 {
   sh_check_add_incdec_notes (emit_insn (gen_extend<mode>si2 (operands[2],
-							     operands[1])));
+		   sh_remove_overlapping_post_inc (operands[2], operands[1]))));
 })
 
 ;;	mov.w	@(18,r1),r0 (r0 = HImode)
@@ -14751,8 +14739,9 @@ label:
 
   // We don't know what the new set insn will be in detail.  Just make sure
   // that it still can be recognized and the constraints are satisfied.
-  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
-						     
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2],
+		    sh_remove_overlapping_post_inc (operands[2], operands[3])));
+
   recog_data_d prev_recog_data = recog_data;
   bool i_invalid = insn_invalid_p (i, false); 
   recog_data = prev_recog_data;
@@ -14790,7 +14779,8 @@ label:
 {
   // We don't know what the new set insn will be in detail.  Just make sure
   // that it still can be recognized and the constraints are satisfied.
-  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2], operands[3]));
+  rtx_insn* i = emit_insn (gen_rtx_SET (operands[2],
+		    sh_remove_overlapping_post_inc (operands[2], operands[3])));
 
   recog_data_d prev_recog_data = recog_data;
   bool i_invalid = insn_invalid_p (i, false); 

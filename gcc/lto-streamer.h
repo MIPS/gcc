@@ -320,7 +320,7 @@ public:
 		       struct data_in *data_in);
   lto_location_cache ()
      : loc_cache (), accepted_length (0), current_file (NULL), current_line (0),
-       current_col (0), current_loc (UNKNOWN_LOCATION)
+       current_col (0), current_sysp (false), current_loc (UNKNOWN_LOCATION)
   {
     gcc_assert (!current_cache);
     current_cache = this;
@@ -345,6 +345,7 @@ private:
     const char *file;
     location_t *loc;
     int line, col;
+    bool sysp;
   };
 
   /* The location cache.  */
@@ -364,6 +365,7 @@ private:
   const char *current_file;
   int current_line;
   int current_col;
+  bool current_sysp;
   location_t current_loc;
 };
 
@@ -711,6 +713,7 @@ struct output_block
   const char *current_file;
   int current_line;
   int current_col;
+  bool current_sysp;
 
   /* Cache of nodes written in this section.  */
   struct streamer_tree_cache_d *writer_cache;

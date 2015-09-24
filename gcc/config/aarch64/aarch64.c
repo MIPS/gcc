@@ -150,7 +150,6 @@ static void aarch64_elf_asm_constructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_elf_asm_destructor (rtx, int) ATTRIBUTE_UNUSED;
 static void aarch64_override_options_after_change (void);
 static bool aarch64_vector_mode_supported_p (machine_mode);
-static unsigned bit_count (unsigned HOST_WIDE_INT);
 static bool aarch64_vectorize_vec_perm_const_ok (machine_mode vmode,
 						 const unsigned char *sel);
 static int aarch64_address_cost (rtx, machine_mode, addr_space_t, bool);
@@ -172,7 +171,7 @@ struct aarch64_flag_desc
   unsigned int flag;
 };
 
-#define AARCH64_FUSION_PAIR(name, internal_name, y) \
+#define AARCH64_FUSION_PAIR(name, internal_name) \
   { name, AARCH64_FUSE_##internal_name },
 static const struct aarch64_flag_desc aarch64_fusible_pairs[] =
 {
@@ -183,7 +182,7 @@ static const struct aarch64_flag_desc aarch64_fusible_pairs[] =
 };
 #undef AARCH64_FUION_PAIR
 
-#define AARCH64_EXTRA_TUNING_OPTION(name, internal_name, y) \
+#define AARCH64_EXTRA_TUNING_OPTION(name, internal_name) \
   { name, AARCH64_EXTRA_TUNE_##internal_name },
 static const struct aarch64_flag_desc aarch64_tuning_flags[] =
 {
@@ -564,12 +563,6 @@ static const struct aarch64_option_extension all_extensions[] =
    increment address.  */
 static machine_mode aarch64_memory_reference_mode;
 
-/* A table of valid AArch64 "bitmask immediate" values for
-   logical instructions.  */
-
-#define AARCH64_NUM_BITMASKS  5334
-static unsigned HOST_WIDE_INT aarch64_bitmasks[AARCH64_NUM_BITMASKS];
-
 typedef enum aarch64_cond_code
 {
   AARCH64_EQ = 0, AARCH64_NE, AARCH64_CS, AARCH64_CC, AARCH64_MI, AARCH64_PL,
@@ -586,6 +579,29 @@ static const char * const aarch64_condition_codes[] =
   "eq", "ne", "cs", "cc", "mi", "pl", "vs", "vc",
   "hi", "ls", "ge", "lt", "gt", "le", "al", "nv"
 };
+
+/* Generate code to enable conditional branches in functions over 1 MiB.  */
+const char *
+aarch64_gen_far_branch (rtx * operands, int pos_label, const char * dest,
+			const char * branch_format)
+{
+    rtx_code_label * tmp_label = gen_label_rtx ();
+    char label_buf[256];
+    char buffer[128];
+    ASM_GENERATE_INTERNAL_LABEL (label_buf, dest,
+				 CODE_LABEL_NUMBER (tmp_label));
+    const char *label_ptr = targetm.strip_name_encoding (label_buf);
+    rtx dest_label = operands[pos_label];
+    operands[pos_label] = tmp_label;
+
+    snprintf (buffer, sizeof (buffer), "%s%s", branch_format, label_ptr);
+    output_asm_insn (buffer, operands);
+
+    snprintf (buffer, sizeof (buffer), "b\t%%l%d\n%s:", pos_label, label_ptr);
+    operands[pos_label] = dest_label;
+    output_asm_insn (buffer, operands);
+    return "";
+}
 
 void
 aarch64_err_no_fpadvsimd (machine_mode mode, const char *msg)
@@ -655,7 +671,8 @@ aarch64_array_mode_supported_p (machine_mode mode,
 				unsigned HOST_WIDE_INT nelems)
 {
   if (TARGET_SIMD
-      && AARCH64_VALID_SIMD_QREG_MODE (mode)
+      && (AARCH64_VALID_SIMD_QREG_MODE (mode)
+	  || AARCH64_VALID_SIMD_DREG_MODE (mode))
       && (nelems >= 2 && nelems <= 4))
     return true;
 
@@ -931,7 +948,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	       The generate instruction sequence for accessing global variable
 	       is:
 
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym]
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym]
 
 	       Only one instruction needed. But we must initialize
 	       pic_offset_table_rtx properly.  We generate initialize insn for
@@ -940,12 +957,12 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	       The final instruction sequences will look like the following
 	       for multiply global variables access.
 
-	         adrp pic_offset_table_rtx, _GLOBAL_OFFSET_TABLE_
+		 adrp pic_offset_table_rtx, _GLOBAL_OFFSET_TABLE_
 
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym1]
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym2]
-	         ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym3]
-	         ...  */
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym1]
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym2]
+		 ldr reg, [pic_offset_table_rtx, #:gotpage_lo15:sym3]
+		 ...  */
 
 	    rtx s = gen_rtx_SYMBOL_REF (Pmode, "_GLOBAL_OFFSET_TABLE_");
 	    crtl->uses_pic_offset_table = 1;
@@ -1081,7 +1098,7 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	return;
       }
 
-    case SYMBOL_SMALL_GOTTPREL:
+    case SYMBOL_SMALL_TLSIE:
       {
 	/* In ILP32, the mode of dest can be either SImode or DImode,
 	   while the got entry is always of SImode size.  The mode of
@@ -1115,14 +1132,43 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
 	return;
       }
 
-    case SYMBOL_TLSLE:
+    case SYMBOL_TLSLE12:
+    case SYMBOL_TLSLE24:
+    case SYMBOL_TLSLE32:
+    case SYMBOL_TLSLE48:
       {
+	machine_mode mode = GET_MODE (dest);
 	rtx tp = aarch64_load_tp (NULL);
 
-	if (GET_MODE (dest) != Pmode)
-	  tp = gen_lowpart (GET_MODE (dest), tp);
+	if (mode != Pmode)
+	  tp = gen_lowpart (mode, tp);
 
-	emit_insn (gen_tlsle (dest, tp, imm));
+	switch (type)
+	  {
+	  case SYMBOL_TLSLE12:
+	    emit_insn ((mode == DImode ? gen_tlsle12_di : gen_tlsle12_si)
+			(dest, tp, imm));
+	    break;
+	  case SYMBOL_TLSLE24:
+	    emit_insn ((mode == DImode ? gen_tlsle24_di : gen_tlsle24_si)
+			(dest, tp, imm));
+	  break;
+	  case SYMBOL_TLSLE32:
+	    emit_insn ((mode == DImode ? gen_tlsle32_di : gen_tlsle32_si)
+			(dest, imm));
+	    emit_insn ((mode == DImode ? gen_adddi3 : gen_addsi3)
+			(dest, dest, tp));
+	  break;
+	  case SYMBOL_TLSLE48:
+	    emit_insn ((mode == DImode ? gen_tlsle48_di : gen_tlsle48_si)
+			(dest, imm));
+	    emit_insn ((mode == DImode ? gen_adddi3 : gen_addsi3)
+			(dest, dest, tp));
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -1130,6 +1176,31 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
     case SYMBOL_TINY_GOT:
       emit_insn (gen_ldr_got_tiny (dest, imm));
       return;
+
+    case SYMBOL_TINY_TLSIE:
+      {
+	machine_mode mode = GET_MODE (dest);
+	rtx tp = aarch64_load_tp (NULL);
+
+	if (mode == ptr_mode)
+	  {
+	    if (mode == DImode)
+	      emit_insn (gen_tlsie_tiny_di (dest, imm, tp));
+	    else
+	      {
+		tp = gen_lowpart (mode, tp);
+		emit_insn (gen_tlsie_tiny_si (dest, imm, tp));
+	      }
+	  }
+	else
+	  {
+	    gcc_assert (mode == Pmode);
+	    emit_insn (gen_tlsie_tiny_sidi (dest, imm, tp));
+	  }
+
+	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
+	return;
+      }
 
     default:
       gcc_unreachable ();
@@ -1259,6 +1330,9 @@ aarch64_split_simd_combine (rtx dst, rtx src1, rtx src2)
 	case V2SImode:
 	  gen = gen_aarch64_simd_combinev2si;
 	  break;
+	case V4HFmode:
+	  gen = gen_aarch64_simd_combinev4hf;
+	  break;
 	case V2SFmode:
 	  gen = gen_aarch64_simd_combinev2sf;
 	  break;
@@ -1306,6 +1380,9 @@ aarch64_split_simd_move (rtx dst, rtx src)
 	  break;
 	case V2DImode:
 	  gen = gen_aarch64_split_simd_movv2di;
+	  break;
+	case V8HFmode:
+	  gen = gen_aarch64_split_simd_movv8hf;
 	  break;
 	case V4SFmode:
 	  gen = gen_aarch64_split_simd_movv4sf;
@@ -1356,264 +1433,95 @@ static int
 aarch64_internal_mov_immediate (rtx dest, rtx imm, bool generate,
 				machine_mode mode)
 {
-  unsigned HOST_WIDE_INT mask;
   int i;
-  bool first;
-  unsigned HOST_WIDE_INT val;
-  bool subtargets;
-  rtx subtarget;
-  int one_match, zero_match, first_not_ffff_match;
-  int num_insns = 0;
+  unsigned HOST_WIDE_INT val, val2, mask;
+  int one_match, zero_match;
+  int num_insns;
 
-  if (CONST_INT_P (imm) && aarch64_move_imm (INTVAL (imm), mode))
+  val = INTVAL (imm);
+
+  if (aarch64_move_imm (val, mode))
     {
       if (generate)
 	emit_insn (gen_rtx_SET (dest, imm));
-      num_insns++;
-      return num_insns;
+      return 1;
     }
 
-  if (mode == SImode)
+  if ((val >> 32) == 0 || mode == SImode)
     {
-      /* We know we can't do this in 1 insn, and we must be able to do it
-	 in two; so don't mess around looking for sequences that don't buy
-	 us anything.  */
       if (generate)
 	{
-	  emit_insn (gen_rtx_SET (dest, GEN_INT (INTVAL (imm) & 0xffff)));
-	  emit_insn (gen_insv_immsi (dest, GEN_INT (16),
-				     GEN_INT ((INTVAL (imm) >> 16) & 0xffff)));
+	  emit_insn (gen_rtx_SET (dest, GEN_INT (val & 0xffff)));
+	  if (mode == SImode)
+	    emit_insn (gen_insv_immsi (dest, GEN_INT (16),
+				       GEN_INT ((val >> 16) & 0xffff)));
+	  else
+	    emit_insn (gen_insv_immdi (dest, GEN_INT (16),
+				       GEN_INT ((val >> 16) & 0xffff)));
 	}
-      num_insns += 2;
-      return num_insns;
+      return 2;
     }
 
   /* Remaining cases are all for DImode.  */
 
-  val = INTVAL (imm);
-  subtargets = optimize && can_create_pseudo_p ();
-
-  one_match = 0;
-  zero_match = 0;
   mask = 0xffff;
-  first_not_ffff_match = -1;
+  zero_match = ((val & mask) == 0) + ((val & (mask << 16)) == 0) +
+    ((val & (mask << 32)) == 0) + ((val & (mask << 48)) == 0);
+  one_match = ((~val & mask) == 0) + ((~val & (mask << 16)) == 0) +
+    ((~val & (mask << 32)) == 0) + ((~val & (mask << 48)) == 0);
 
-  for (i = 0; i < 64; i += 16, mask <<= 16)
+  if (zero_match != 2 && one_match != 2)
     {
-      if ((val & mask) == mask)
-	one_match++;
-      else
+      /* Try emitting a bitmask immediate with a movk replacing 16 bits.
+	 For a 64-bit bitmask try whether changing 16 bits to all ones or
+	 zeroes creates a valid bitmask.  To check any repeated bitmask,
+	 try using 16 bits from the other 32-bit half of val.  */
+
+      for (i = 0; i < 64; i += 16, mask <<= 16)
 	{
-	  if (first_not_ffff_match < 0)
-	    first_not_ffff_match = i;
-	  if ((val & mask) == 0)
-	    zero_match++;
+	  val2 = val & ~mask;
+	  if (val2 != val && aarch64_bitmask_imm (val2, mode))
+	    break;
+	  val2 = val | mask;
+	  if (val2 != val && aarch64_bitmask_imm (val2, mode))
+	    break;
+	  val2 = val2 & ~mask;
+	  val2 = val2 | (((val2 >> 32) | (val2 << 32)) & mask);
+	  if (val2 != val && aarch64_bitmask_imm (val2, mode))
+	    break;
+	}
+      if (i != 64)
+	{
+	  if (generate)
+	    {
+	      emit_insn (gen_rtx_SET (dest, GEN_INT (val2)));
+	      emit_insn (gen_insv_immdi (dest, GEN_INT (i),
+					 GEN_INT ((val >> i) & 0xffff)));
+	    }
 	}
     }
 
-  if (one_match == 2)
+  /* Generate 2-4 instructions, skipping 16 bits of all zeroes or ones which
+     are emitted by the initial mov.  If one_match > zero_match, skip set bits,
+     otherwise skip zero bits.  */
+
+  num_insns = 1;
+  mask = 0xffff;
+  val2 = one_match > zero_match ? ~val : val;
+  i = (val2 & mask) != 0 ? 0 : (val2 & (mask << 16)) != 0 ? 16 : 32;
+
+  if (generate)
+    emit_insn (gen_rtx_SET (dest, GEN_INT (one_match > zero_match
+					   ? (val | ~(mask << i))
+					   : (val & (mask << i)))));
+  for (i += 16; i < 64; i += 16)
     {
-      /* Set one of the quarters and then insert back into result.  */
-      mask = 0xffffll << first_not_ffff_match;
+      if ((val2 & (mask << i)) == 0)
+	continue;
       if (generate)
-	{
-	  emit_insn (gen_rtx_SET (dest, GEN_INT (val | mask)));
-	  emit_insn (gen_insv_immdi (dest, GEN_INT (first_not_ffff_match),
-				     GEN_INT ((val >> first_not_ffff_match)
-					      & 0xffff)));
-	}
-      num_insns += 2;
-      return num_insns;
-    }
-
-  if (zero_match == 2)
-    goto simple_sequence;
-
-  mask = 0x0ffff0000UL;
-  for (i = 16; i < 64; i += 16, mask <<= 16)
-    {
-      HOST_WIDE_INT comp = mask & ~(mask - 1);
-
-      if (aarch64_uimm12_shift (val - (val & mask)))
-	{
-	  if (generate)
-	    {
-	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (subtarget, GEN_INT (val & mask)));
-	      emit_insn (gen_adddi3 (dest, subtarget,
-				     GEN_INT (val - (val & mask))));
-	    }
-	  num_insns += 2;
-	  return num_insns;
-	}
-      else if (aarch64_uimm12_shift (-(val - ((val + comp) & mask))))
-	{
-	  if (generate)
-	    {
-	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (subtarget,
-				      GEN_INT ((val + comp) & mask)));
-	      emit_insn (gen_adddi3 (dest, subtarget,
-				     GEN_INT (val - ((val + comp) & mask))));
-	    }
-	  num_insns += 2;
-	  return num_insns;
-	}
-      else if (aarch64_uimm12_shift (val - ((val - comp) | ~mask)))
-	{
-	  if (generate)
-	    {
-	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (subtarget,
-				      GEN_INT ((val - comp) | ~mask)));
-	      emit_insn (gen_adddi3 (dest, subtarget,
-				     GEN_INT (val - ((val - comp) | ~mask))));
-	    }
-	  num_insns += 2;
-	  return num_insns;
-	}
-      else if (aarch64_uimm12_shift (-(val - (val | ~mask))))
-	{
-	  if (generate)
-	    {
-	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (subtarget, GEN_INT (val | ~mask)));
-	      emit_insn (gen_adddi3 (dest, subtarget,
-				     GEN_INT (val - (val | ~mask))));
-	    }
-	  num_insns += 2;
-	  return num_insns;
-	}
-    }
-
-  /* See if we can do it by arithmetically combining two
-     immediates.  */
-  for (i = 0; i < AARCH64_NUM_BITMASKS; i++)
-    {
-      int j;
-      mask = 0xffff;
-
-      if (aarch64_uimm12_shift (val - aarch64_bitmasks[i])
-	  || aarch64_uimm12_shift (-val + aarch64_bitmasks[i]))
-	{
-	  if (generate)
-	    {
-	      subtarget = subtargets ? gen_reg_rtx (DImode) : dest;
-	      emit_insn (gen_rtx_SET (subtarget,
-				      GEN_INT (aarch64_bitmasks[i])));
-	      emit_insn (gen_adddi3 (dest, subtarget,
-				     GEN_INT (val - aarch64_bitmasks[i])));
-	    }
-	  num_insns += 2;
-	  return num_insns;
-	}
-
-      for (j = 0; j < 64; j += 16, mask <<= 16)
-	{
-	  if ((aarch64_bitmasks[i] & ~mask) == (val & ~mask))
-	    {
-	      if (generate)
-		{
-		  emit_insn (gen_rtx_SET (dest,
-					  GEN_INT (aarch64_bitmasks[i])));
-		  emit_insn (gen_insv_immdi (dest, GEN_INT (j),
-					     GEN_INT ((val >> j) & 0xffff)));
-		}
-	      num_insns += 2;
-	      return num_insns;
-	    }
-	}
-    }
-
-  /* See if we can do it by logically combining two immediates.  */
-  for (i = 0; i < AARCH64_NUM_BITMASKS; i++)
-    {
-      if ((aarch64_bitmasks[i] & val) == aarch64_bitmasks[i])
-	{
-	  int j;
-
-	  for (j = i + 1; j < AARCH64_NUM_BITMASKS; j++)
-	    if (val == (aarch64_bitmasks[i] | aarch64_bitmasks[j]))
-	      {
-		if (generate)
-		  {
-		    subtarget = subtargets ? gen_reg_rtx (mode) : dest;
-		    emit_insn (gen_rtx_SET (subtarget,
-					    GEN_INT (aarch64_bitmasks[i])));
-		    emit_insn (gen_iordi3 (dest, subtarget,
-					   GEN_INT (aarch64_bitmasks[j])));
-		  }
-		num_insns += 2;
-		return num_insns;
-	      }
-	}
-      else if ((val & aarch64_bitmasks[i]) == val)
-	{
-	  int j;
-
-	  for (j = i + 1; j < AARCH64_NUM_BITMASKS; j++)
-	    if (val == (aarch64_bitmasks[j] & aarch64_bitmasks[i]))
-	      {
-		if (generate)
-		  {
-		    subtarget = subtargets ? gen_reg_rtx (mode) : dest;
-		    emit_insn (gen_rtx_SET (subtarget,
-					    GEN_INT (aarch64_bitmasks[j])));
-		    emit_insn (gen_anddi3 (dest, subtarget,
-					   GEN_INT (aarch64_bitmasks[i])));
-		  }
-		num_insns += 2;
-		return num_insns;
-	      }
-	}
-    }
-
-  if (one_match > zero_match)
-    {
-      /* Set either first three quarters or all but the third.	 */
-      mask = 0xffffll << (16 - first_not_ffff_match);
-      if (generate)
-	emit_insn (gen_rtx_SET (dest,
-				GEN_INT (val | mask | 0xffffffff00000000ull)));
+	emit_insn (gen_insv_immdi (dest, GEN_INT (i),
+				   GEN_INT ((val >> i) & 0xffff)));
       num_insns ++;
-
-      /* Now insert other two quarters.	 */
-      for (i = first_not_ffff_match + 16, mask <<= (first_not_ffff_match << 1);
-	   i < 64; i += 16, mask <<= 16)
-	{
-	  if ((val & mask) != mask)
-	    {
-	      if (generate)
-		emit_insn (gen_insv_immdi (dest, GEN_INT (i),
-					   GEN_INT ((val >> i) & 0xffff)));
-	      num_insns ++;
-	    }
-	}
-      return num_insns;
-    }
-
- simple_sequence:
-  first = true;
-  mask = 0xffff;
-  for (i = 0; i < 64; i += 16, mask <<= 16)
-    {
-      if ((val & mask) != 0)
-	{
-	  if (first)
-	    {
-	      if (generate)
-		emit_insn (gen_rtx_SET (dest, GEN_INT (val & mask)));
-	      num_insns ++;
-	      first = false;
-	    }
-	  else
-	    {
-	      if (generate)
-		emit_insn (gen_insv_immdi (dest, GEN_INT (i),
-					   GEN_INT ((val >> i) & 0xffff)));
-	      num_insns ++;
-	    }
-	}
     }
 
   return num_insns;
@@ -1652,19 +1560,36 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 	      aarch64_emit_move (dest, base);
 	      return;
 	    }
+
 	  mem = force_const_mem (ptr_mode, imm);
 	  gcc_assert (mem);
+
+	  /* If we aren't generating PC relative literals, then
+	     we need to expand the literal pool access carefully.
+	     This is something that needs to be done in a number
+	     of places, so could well live as a separate function.  */
+	  if (nopcrelative_literal_loads)
+	    {
+	      gcc_assert (can_create_pseudo_p ());
+	      base = gen_reg_rtx (ptr_mode);
+	      aarch64_expand_mov_immediate (base, XEXP (mem, 0));
+	      mem = gen_rtx_MEM (ptr_mode, base);
+	    }
+
 	  if (mode != ptr_mode)
 	    mem = gen_rtx_ZERO_EXTEND (mode, mem);
+
 	  emit_insn (gen_rtx_SET (dest, mem));
+
 	  return;
 
         case SYMBOL_SMALL_TLSGD:
         case SYMBOL_SMALL_TLSDESC:
-        case SYMBOL_SMALL_GOTTPREL:
+	case SYMBOL_SMALL_TLSIE:
 	case SYMBOL_SMALL_GOT_28K:
 	case SYMBOL_SMALL_GOT_4G:
 	case SYMBOL_TINY_GOT:
+	case SYMBOL_TINY_TLSIE:
 	  if (offset != const0_rtx)
 	    {
 	      gcc_assert(can_create_pseudo_p ());
@@ -1677,7 +1602,10 @@ aarch64_expand_mov_immediate (rtx dest, rtx imm)
 
 	case SYMBOL_SMALL_ABSOLUTE:
 	case SYMBOL_TINY_ABSOLUTE:
-	case SYMBOL_TLSLE:
+	case SYMBOL_TLSLE12:
+	case SYMBOL_TLSLE24:
+	case SYMBOL_TLSLE32:
+	case SYMBOL_TLSLE48:
 	  aarch64_load_symref_appropriately (dest, imm, sty);
 	  return;
 
@@ -3210,67 +3138,6 @@ aarch64_tls_referenced_p (rtx x)
 }
 
 
-static int
-aarch64_bitmasks_cmp (const void *i1, const void *i2)
-{
-  const unsigned HOST_WIDE_INT *imm1 = (const unsigned HOST_WIDE_INT *) i1;
-  const unsigned HOST_WIDE_INT *imm2 = (const unsigned HOST_WIDE_INT *) i2;
-
-  if (*imm1 < *imm2)
-    return -1;
-  if (*imm1 > *imm2)
-    return +1;
-  return 0;
-}
-
-
-static void
-aarch64_build_bitmask_table (void)
-{
-  unsigned HOST_WIDE_INT mask, imm;
-  unsigned int log_e, e, s, r;
-  unsigned int nimms = 0;
-
-  for (log_e = 1; log_e <= 6; log_e++)
-    {
-      e = 1 << log_e;
-      if (e == 64)
-	mask = ~(HOST_WIDE_INT) 0;
-      else
-	mask = ((HOST_WIDE_INT) 1 << e) - 1;
-      for (s = 1; s < e; s++)
-	{
-	  for (r = 0; r < e; r++)
-	    {
-	      /* set s consecutive bits to 1 (s < 64) */
-	      imm = ((unsigned HOST_WIDE_INT)1 << s) - 1;
-	      /* rotate right by r */
-	      if (r != 0)
-		imm = ((imm >> r) | (imm << (e - r))) & mask;
-	      /* replicate the constant depending on SIMD size */
-	      switch (log_e) {
-	      case 1: imm |= (imm <<  2);
-	      case 2: imm |= (imm <<  4);
-	      case 3: imm |= (imm <<  8);
-	      case 4: imm |= (imm << 16);
-	      case 5: imm |= (imm << 32);
-	      case 6:
-		break;
-	      default:
-		gcc_unreachable ();
-	      }
-	      gcc_assert (nimms < AARCH64_NUM_BITMASKS);
-	      aarch64_bitmasks[nimms++] = imm;
-	    }
-	}
-    }
-
-  gcc_assert (nimms == AARCH64_NUM_BITMASKS);
-  qsort (aarch64_bitmasks, nimms, sizeof (aarch64_bitmasks[0]),
-	 aarch64_bitmasks_cmp);
-}
-
-
 /* Return true if val can be encoded as a 12-bit unsigned immediate with
    a left shift of 0 or 12 bits.  */
 bool
@@ -3302,19 +3169,63 @@ aarch64_movw_imm (HOST_WIDE_INT val, machine_mode mode)
 	  || (val & (((HOST_WIDE_INT) 0xffff) << 16)) == val);
 }
 
+/* Multipliers for repeating bitmasks of width 32, 16, 8, 4, and 2.  */
+
+static const unsigned HOST_WIDE_INT bitmask_imm_mul[] =
+  {
+    0x0000000100000001ull,
+    0x0001000100010001ull,
+    0x0101010101010101ull,
+    0x1111111111111111ull,
+    0x5555555555555555ull,
+  };
+
 
 /* Return true if val is a valid bitmask immediate.  */
+
 bool
-aarch64_bitmask_imm (HOST_WIDE_INT val, machine_mode mode)
+aarch64_bitmask_imm (HOST_WIDE_INT val_in, machine_mode mode)
 {
-  if (GET_MODE_SIZE (mode) < 8)
-    {
-      /* Replicate bit pattern.  */
-      val &= (HOST_WIDE_INT) 0xffffffff;
-      val |= val << 32;
-    }
-  return bsearch (&val, aarch64_bitmasks, AARCH64_NUM_BITMASKS,
-		  sizeof (aarch64_bitmasks[0]), aarch64_bitmasks_cmp) != NULL;
+  unsigned HOST_WIDE_INT val, tmp, mask, first_one, next_one;
+  int bits;
+
+  /* Check for a single sequence of one bits and return quickly if so.
+     The special cases of all ones and all zeroes returns false.  */
+  val = (unsigned HOST_WIDE_INT) val_in;
+  tmp = val + (val & -val);
+
+  if (tmp == (tmp & -tmp))
+    return (val + 1) > 1;
+
+  /* Replicate 32-bit immediates so we can treat them as 64-bit.  */
+  if (mode == SImode)
+    val = (val << 32) | (val & 0xffffffff);
+
+  /* Invert if the immediate doesn't start with a zero bit - this means we
+     only need to search for sequences of one bits.  */
+  if (val & 1)
+    val = ~val;
+
+  /* Find the first set bit and set tmp to val with the first sequence of one
+     bits removed.  Return success if there is a single sequence of ones.  */
+  first_one = val & -val;
+  tmp = val & (val + first_one);
+
+  if (tmp == 0)
+    return true;
+
+  /* Find the next set bit and compute the difference in bit position.  */
+  next_one = tmp & -tmp;
+  bits = clz_hwi (first_one) - clz_hwi (next_one);
+  mask = val ^ tmp;
+
+  /* Check the bit position difference is a power of 2, and that the first
+     sequence of one bits fits within 'bits' bits.  */
+  if ((mask >> bits) != 0 || bits != (bits & -bits))
+    return false;
+
+  /* Check the sequence of one bits is repeated 64/bits times.  */
+  return val == mask * bitmask_imm_mul[__builtin_clz (bits) - 26];
 }
 
 
@@ -3768,9 +3679,10 @@ aarch64_classify_address (struct aarch64_address_info *info,
 	  rtx sym, addend;
 
 	  split_const (x, &sym, &addend);
-	  return (GET_CODE (sym) == LABEL_REF
-		  || (GET_CODE (sym) == SYMBOL_REF
-		      && CONSTANT_POOL_ADDRESS_P (sym)));
+	  return ((GET_CODE (sym) == LABEL_REF
+		   || (GET_CODE (sym) == SYMBOL_REF
+		       && CONSTANT_POOL_ADDRESS_P (sym)
+		       && !nopcrelative_literal_loads)));
 	}
       return false;
 
@@ -4163,19 +4075,6 @@ aarch64_const_vec_all_same_int_p (rtx x, HOST_WIDE_INT val)
   return aarch64_const_vec_all_same_in_range_p (x, val, val);
 }
 
-static unsigned
-bit_count (unsigned HOST_WIDE_INT value)
-{
-  unsigned count = 0;
-
-  while (value)
-    {
-      count++;
-      value &= value - 1;
-    }
-
-  return count;
-}
 
 /* N Z C V.  */
 #define AARCH64_CC_V 1
@@ -4330,7 +4229,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  return;
 	}
 
-      asm_fprintf (f, "%u", bit_count (INTVAL (x)));
+      asm_fprintf (f, "%u", popcount_hwi (INTVAL (x)));
       break;
 
     case 'H':
@@ -4556,11 +4455,11 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  asm_fprintf (asm_out_file, ":tlsdesc:");
 	  break;
 
-	case SYMBOL_SMALL_GOTTPREL:
+	case SYMBOL_SMALL_TLSIE:
 	  asm_fprintf (asm_out_file, ":gottprel:");
 	  break;
 
-	case SYMBOL_TLSLE:
+	case SYMBOL_TLSLE24:
 	  asm_fprintf (asm_out_file, ":tprel:");
 	  break;
 
@@ -4589,16 +4488,24 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	  asm_fprintf (asm_out_file, ":tlsdesc_lo12:");
 	  break;
 
-	case SYMBOL_SMALL_GOTTPREL:
+	case SYMBOL_SMALL_TLSIE:
 	  asm_fprintf (asm_out_file, ":gottprel_lo12:");
 	  break;
 
-	case SYMBOL_TLSLE:
+	case SYMBOL_TLSLE12:
+	  asm_fprintf (asm_out_file, ":tprel_lo12:");
+	  break;
+
+	case SYMBOL_TLSLE24:
 	  asm_fprintf (asm_out_file, ":tprel_lo12_nc:");
 	  break;
 
 	case SYMBOL_TINY_GOT:
 	  asm_fprintf (asm_out_file, ":got:");
+	  break;
+
+	case SYMBOL_TINY_TLSIE:
+	  asm_fprintf (asm_out_file, ":gottprel:");
 	  break;
 
 	default:
@@ -4611,7 +4518,7 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 
       switch (aarch64_classify_symbolic_expression (x, SYMBOL_CONTEXT_ADR))
 	{
-	case SYMBOL_TLSLE:
+	case SYMBOL_TLSLE24:
 	  asm_fprintf (asm_out_file, ":tprel_hi12:");
 	  break;
 	default:
@@ -4958,12 +4865,69 @@ aarch64_legitimize_reload_address (rtx *x_p,
 }
 
 
+/* Return the reload icode required for a constant pool in mode.  */
+static enum insn_code
+aarch64_constant_pool_reload_icode (machine_mode mode)
+{
+  switch (mode)
+    {
+    case SFmode:
+      return CODE_FOR_aarch64_reload_movcpsfdi;
+
+    case DFmode:
+      return CODE_FOR_aarch64_reload_movcpdfdi;
+
+    case TFmode:
+      return CODE_FOR_aarch64_reload_movcptfdi;
+
+    case V8QImode:
+      return CODE_FOR_aarch64_reload_movcpv8qidi;
+
+    case V16QImode:
+      return CODE_FOR_aarch64_reload_movcpv16qidi;
+
+    case V4HImode:
+      return CODE_FOR_aarch64_reload_movcpv4hidi;
+
+    case V8HImode:
+      return CODE_FOR_aarch64_reload_movcpv8hidi;
+
+    case V2SImode:
+      return CODE_FOR_aarch64_reload_movcpv2sidi;
+
+    case V4SImode:
+      return CODE_FOR_aarch64_reload_movcpv4sidi;
+
+    case V2DImode:
+      return CODE_FOR_aarch64_reload_movcpv2didi;
+
+    case V2DFmode:
+      return CODE_FOR_aarch64_reload_movcpv2dfdi;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  gcc_unreachable ();
+}
 static reg_class_t
 aarch64_secondary_reload (bool in_p ATTRIBUTE_UNUSED, rtx x,
 			  reg_class_t rclass,
 			  machine_mode mode,
 			  secondary_reload_info *sri)
 {
+
+  /* If we have to disable direct literal pool loads and stores because the
+     function is too big, then we need a scratch register.  */
+  if (MEM_P (x) && GET_CODE (x) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (x)
+      && (SCALAR_FLOAT_MODE_P (GET_MODE (x))
+	  || targetm.vector_mode_supported_p (GET_MODE (x)))
+      && nopcrelative_literal_loads)
+    {
+      sri->icode = aarch64_constant_pool_reload_icode (mode);
+      return NO_REGS;
+    }
+
   /* Without the TARGET_SIMD instructions we cannot move a Q register
      to a Q register directly.  We need a scratch.  */
   if (REG_P (x) && (mode == TFmode || mode == TImode) && mode == GET_MODE (x)
@@ -6688,6 +6652,25 @@ cost_plus:
       return true;
 
     case MOD:
+    /* We can expand signed mod by power of 2 using a NEGS, two parallel
+       ANDs and a CSNEG.  Assume here that CSNEG is the same as the cost of
+       an unconditional negate.  This case should only ever be reached through
+       the set_smod_pow2_cheap check in expmed.c.  */
+      if (CONST_INT_P (XEXP (x, 1))
+	  && exact_log2 (INTVAL (XEXP (x, 1))) > 0
+	  && (mode == SImode || mode == DImode))
+	{
+	  /* We expand to 4 instructions.  Reset the baseline.  */
+	  *cost = COSTS_N_INSNS (4);
+
+	  if (speed)
+	    *cost += 2 * extra_cost->alu.logical
+		     + 2 * extra_cost->alu.arith;
+
+	  return true;
+	}
+
+    /* Fall-through.  */
     case UMOD:
       if (speed)
 	{
@@ -7506,6 +7489,40 @@ aarch64_parse_one_override_token (const char* token,
   return;
 }
 
+/* A checking mechanism for the implementation of the tls size.  */
+
+static void
+initialize_aarch64_tls_size (struct gcc_options *opts)
+{
+  if (aarch64_tls_size == 0)
+    aarch64_tls_size = 24;
+
+  switch (opts->x_aarch64_cmodel_var)
+    {
+    case AARCH64_CMODEL_TINY:
+      /* Both the default and maximum TLS size allowed under tiny is 1M which
+	 needs two instructions to address, so we clamp the size to 24.  */
+      if (aarch64_tls_size > 24)
+	aarch64_tls_size = 24;
+      break;
+    case AARCH64_CMODEL_SMALL:
+      /* The maximum TLS size allowed under small is 4G.  */
+      if (aarch64_tls_size > 32)
+	aarch64_tls_size = 32;
+      break;
+    case AARCH64_CMODEL_LARGE:
+      /* The maximum TLS size allowed under large is 16E.
+	 FIXME: 16E should be 64bit, we only support 48bit offset now.  */
+      if (aarch64_tls_size > 48)
+	aarch64_tls_size = 48;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  return;
+}
+
 /* Parse STRING looking for options in the format:
      string	:: option:string
      option	:: name=substring
@@ -7559,6 +7576,24 @@ aarch64_override_options_after_change_1 (struct gcc_options *opts)
       if (opts->x_align_functions <= 0)
 	opts->x_align_functions = aarch64_tune_params.function_align;
     }
+
+  /* If nopcrelative_literal_loads is set on the command line, this
+     implies that the user asked for PC relative literal loads.  */
+  if (nopcrelative_literal_loads == 1)
+    nopcrelative_literal_loads = 0;
+
+  /* If it is not set on the command line, we default to no
+     pc relative literal loads.  */
+  if (nopcrelative_literal_loads == 2)
+    nopcrelative_literal_loads = 1;
+
+  /* In the tiny memory model it makes no sense
+     to disallow non PC relative literal pool loads
+     as many other things will break anyway.  */
+  if (nopcrelative_literal_loads
+      && (aarch64_cmodel == AARCH64_CMODEL_TINY
+	  || aarch64_cmodel == AARCH64_CMODEL_TINY_PIC))
+    nopcrelative_literal_loads = 0;
 }
 
 /* 'Unpack' up the internal tuning structs and update the options
@@ -7598,6 +7633,7 @@ aarch64_override_options_internal (struct gcc_options *opts)
     }
 
   initialize_aarch64_code_model (opts);
+  initialize_aarch64_tls_size (opts);
 
   aarch64_override_options_after_change_1 (opts);
 }
@@ -7837,8 +7873,6 @@ aarch64_override_options (void)
        || (aarch64_arch_string && valid_arch))
     gcc_assert (explicit_arch != aarch64_no_arch);
 
-  aarch64_build_bitmask_table ();
-
   aarch64_override_options_internal (&global_options);
 
   /* Save these options as the default ones in case we push and pop them later
@@ -7895,26 +7929,13 @@ initialize_aarch64_code_model (struct gcc_options *opts)
 	 case AARCH64_CMODEL_LARGE:
 	   sorry ("code model %qs with -f%s", "large",
 		  opts->x_flag_pic > 1 ? "PIC" : "pic");
+	   break;
 	 default:
 	   gcc_unreachable ();
 	 }
      }
    else
      aarch64_cmodel = opts->x_aarch64_cmodel_var;
-}
-
-/* Print to F the architecture features specified by ISA_FLAGS.  */
-
-static void
-aarch64_print_extension (FILE *f, unsigned long isa_flags)
-{
-  const struct aarch64_option_extension *opt = NULL;
-
-  for (opt = all_extensions; opt->name != NULL; opt++)
-    if ((isa_flags & opt->flags_on) == opt->flags_on)
-      asm_fprintf (f, "+%s", opt->name);
-
-  asm_fprintf (f, "\n");
 }
 
 /* Implement TARGET_OPTION_SAVE.  */
@@ -7949,10 +7970,12 @@ aarch64_option_print (FILE *file, int indent, struct cl_target_option *ptr)
     = aarch64_get_tune_cpu (ptr->x_explicit_tune_core);
   unsigned long isa_flags = ptr->x_aarch64_isa_flags;
   const struct processor *arch = aarch64_get_arch (ptr->x_explicit_arch);
+  std::string extension
+    = aarch64_get_extension_string_for_isa_flags (isa_flags);
 
   fprintf (file, "%*sselected tune = %s\n", indent, "", cpu->name);
-  fprintf (file, "%*sselected arch = %s", indent, "", arch->name);
-  aarch64_print_extension (file, isa_flags);
+  fprintf (file, "%*sselected arch = %s%s\n", indent, "",
+	   arch->name, extension.c_str ());
 }
 
 static GTY(()) tree aarch64_previous_fndecl;
@@ -8010,6 +8033,23 @@ aarch64_set_current_function (tree fndecl)
 	  else
 	    TREE_TARGET_GLOBALS (new_tree)
 	      = save_target_globals_default_opts ();
+	}
+    }
+
+  if (!fndecl)
+    return;
+
+  /* If we turned on SIMD make sure that any vector parameters are re-laid out
+     so that they use proper vector modes.  */
+  if (TARGET_SIMD)
+    {
+      tree parms = DECL_ARGUMENTS (fndecl);
+      for (; parms && parms != void_list_node; parms = TREE_CHAIN (parms))
+	{
+	  if (TREE_CODE (parms) == PARM_DECL
+	      && VECTOR_TYPE_P (TREE_TYPE (parms))
+	      && DECL_MODE (parms) != TYPE_MODE (TREE_TYPE (parms)))
+	    relayout_decl (parms);
 	}
     }
 }
@@ -8682,10 +8722,26 @@ aarch64_classify_tls_symbol (rtx x)
       return TARGET_TLS_DESC ? SYMBOL_SMALL_TLSDESC : SYMBOL_SMALL_TLSGD;
 
     case TLS_MODEL_INITIAL_EXEC:
-      return SYMBOL_SMALL_GOTTPREL;
+      switch (aarch64_cmodel)
+	{
+	case AARCH64_CMODEL_TINY:
+	case AARCH64_CMODEL_TINY_PIC:
+	  return SYMBOL_TINY_TLSIE;
+	default:
+	  return SYMBOL_SMALL_TLSIE;
+	}
 
     case TLS_MODEL_LOCAL_EXEC:
-      return SYMBOL_TLSLE;
+      if (aarch64_tls_size == 12)
+	return SYMBOL_TLSLE12;
+      else if (aarch64_tls_size == 24)
+	return SYMBOL_TLSLE24;
+      else if (aarch64_tls_size == 32)
+	return SYMBOL_TLSLE32;
+      else if (aarch64_tls_size == 48)
+	return SYMBOL_TLSLE48;
+      else
+	gcc_unreachable ();
 
     case TLS_MODEL_EMULATED:
     case TLS_MODEL_NONE:
@@ -8727,7 +8783,16 @@ aarch64_classify_symbol (rtx x, rtx offset,
   if (GET_CODE (x) == SYMBOL_REF)
     {
       if (aarch64_cmodel == AARCH64_CMODEL_LARGE)
-	  return SYMBOL_FORCE_TO_MEM;
+	{
+	  /* This is alright even in PIC code as the constant
+	     pool reference is always PC relative and within
+	     the same translation unit.  */
+	  if (nopcrelative_literal_loads
+	      && CONSTANT_POOL_ADDRESS_P (x))
+	    return SYMBOL_SMALL_ABSOLUTE;
+	  else
+	    return SYMBOL_FORCE_TO_MEM;
+	}
 
       if (aarch64_tls_symbol_p (x))
 	return aarch64_classify_tls_symbol (x);
@@ -9648,6 +9713,7 @@ aarch64_vector_mode_supported_p (machine_mode mode)
 	  || mode == V2SImode  || mode == V4HImode
 	  || mode == V8QImode || mode == V2SFmode
 	  || mode == V4SFmode || mode == V2DFmode
+	  || mode == V4HFmode || mode == V8HFmode
 	  || mode == V1DFmode))
     return true;
 
@@ -9892,31 +9958,10 @@ sizetochar (int size)
 static bool
 aarch64_vect_float_const_representable_p (rtx x)
 {
-  int i = 0;
-  REAL_VALUE_TYPE r0, ri;
-  rtx x0, xi;
-
-  if (GET_MODE_CLASS (GET_MODE (x)) != MODE_VECTOR_FLOAT)
-    return false;
-
-  x0 = CONST_VECTOR_ELT (x, 0);
-  if (!CONST_DOUBLE_P (x0))
-    return false;
-
-  REAL_VALUE_FROM_CONST_DOUBLE (r0, x0);
-
-  for (i = 1; i < CONST_VECTOR_NUNITS (x); i++)
-    {
-      xi = CONST_VECTOR_ELT (x, i);
-      if (!CONST_DOUBLE_P (xi))
-	return false;
-
-      REAL_VALUE_FROM_CONST_DOUBLE (ri, xi);
-      if (!REAL_VALUES_EQUAL (r0, ri))
-	return false;
-    }
-
-  return aarch64_float_const_representable_p (x0);
+  rtx elt;
+  return (GET_MODE_CLASS (GET_MODE (x)) == MODE_VECTOR_FLOAT
+	  && const_vec_duplicate_p (x, &elt)
+	  && aarch64_float_const_representable_p (elt));
 }
 
 /* Return true for valid and false for invalid.  */
@@ -10339,7 +10384,7 @@ aarch64_simd_attr_length_move (rtx_insn *insn)
 }
 
 /* Compute and return the length of aarch64_simd_reglist<mode>, where <mode> is
-   one of VSTRUCT modes: OI, CI, EI, or XI.  */
+   one of VSTRUCT modes: OI, CI, or XI.  */
 int
 aarch64_simd_attr_length_rglist (enum machine_mode mode)
 {
@@ -10379,28 +10424,15 @@ aarch64_simd_dup_constant (rtx vals)
 {
   machine_mode mode = GET_MODE (vals);
   machine_mode inner_mode = GET_MODE_INNER (mode);
-  int n_elts = GET_MODE_NUNITS (mode);
-  bool all_same = true;
   rtx x;
-  int i;
 
-  if (GET_CODE (vals) != CONST_VECTOR)
-    return NULL_RTX;
-
-  for (i = 1; i < n_elts; ++i)
-    {
-      x = CONST_VECTOR_ELT (vals, i);
-      if (!rtx_equal_p (x, CONST_VECTOR_ELT (vals, 0)))
-	all_same = false;
-    }
-
-  if (!all_same)
+  if (!const_vec_duplicate_p (vals, &x))
     return NULL_RTX;
 
   /* We can load this constant by using DUP and a constant in a
      single ARM register.  This will be cheaper than a vector
      load.  */
-  x = copy_to_mode_reg (inner_mode, CONST_VECTOR_ELT (vals, 0));
+  x = copy_to_mode_reg (inner_mode, x);
   return gen_rtx_VEC_DUPLICATE (mode, x);
 }
 
@@ -10676,8 +10708,11 @@ aarch64_declare_function_name (FILE *stream, const char* name,
   const struct processor *this_arch
     = aarch64_get_arch (targ_options->x_explicit_arch);
 
-  asm_fprintf (asm_out_file, "\t.arch %s", this_arch->name);
-  aarch64_print_extension (asm_out_file, targ_options->x_aarch64_isa_flags);
+  unsigned long isa_flags = targ_options->x_aarch64_isa_flags;
+  std::string extension
+    = aarch64_get_extension_string_for_isa_flags (isa_flags);
+  asm_fprintf (asm_out_file, "\t.arch %s%s\n",
+	       this_arch->name, extension.c_str ());
 
   /* Print the cpu name we're tuning for in the comments, might be
      useful to readers of the generated asm.  */
@@ -10753,7 +10788,23 @@ aarch64_expand_compare_and_swap (rtx operands[])
 {
   rtx bval, rval, mem, oldval, newval, is_weak, mod_s, mod_f, x;
   machine_mode mode, cmp_mode;
-  rtx (*gen) (rtx, rtx, rtx, rtx, rtx, rtx, rtx);
+  typedef rtx (*gen_cas_fn) (rtx, rtx, rtx, rtx, rtx, rtx, rtx);
+  int idx;
+  gen_cas_fn gen;
+  const gen_cas_fn split_cas[] =
+  {
+    gen_aarch64_compare_and_swapqi,
+    gen_aarch64_compare_and_swaphi,
+    gen_aarch64_compare_and_swapsi,
+    gen_aarch64_compare_and_swapdi
+  };
+  const gen_cas_fn atomic_cas[] =
+  {
+    gen_aarch64_compare_and_swapqi_lse,
+    gen_aarch64_compare_and_swaphi_lse,
+    gen_aarch64_compare_and_swapsi_lse,
+    gen_aarch64_compare_and_swapdi_lse
+  };
 
   bval = operands[0];
   rval = operands[1];
@@ -10798,13 +10849,17 @@ aarch64_expand_compare_and_swap (rtx operands[])
 
   switch (mode)
     {
-    case QImode: gen = gen_atomic_compare_and_swapqi_1; break;
-    case HImode: gen = gen_atomic_compare_and_swaphi_1; break;
-    case SImode: gen = gen_atomic_compare_and_swapsi_1; break;
-    case DImode: gen = gen_atomic_compare_and_swapdi_1; break;
+    case QImode: idx = 0; break;
+    case HImode: idx = 1; break;
+    case SImode: idx = 2; break;
+    case DImode: idx = 3; break;
     default:
       gcc_unreachable ();
     }
+  if (TARGET_LSE)
+    gen = atomic_cas[idx];
+  else
+    gen = split_cas[idx];
 
   emit_insn (gen (rval, mem, oldval, newval, is_weak, mod_s, mod_f));
 
@@ -10814,6 +10869,32 @@ aarch64_expand_compare_and_swap (rtx operands[])
   x = gen_rtx_REG (CCmode, CC_REGNUM);
   x = gen_rtx_EQ (SImode, x, const0_rtx);
   emit_insn (gen_rtx_SET (bval, x));
+}
+
+/* Test whether the target supports using a atomic load-operate instruction.
+   CODE is the operation and AFTER is TRUE if the data in memory after the
+   operation should be returned and FALSE if the data before the operation
+   should be returned.  Returns FALSE if the operation isn't supported by the
+   architecture.  */
+
+bool
+aarch64_atomic_ldop_supported_p (enum rtx_code code)
+{
+  if (!TARGET_LSE)
+    return false;
+
+  switch (code)
+    {
+    case SET:
+    case AND:
+    case IOR:
+    case XOR:
+    case MINUS:
+    case PLUS:
+      return true;
+    default:
+      return false;
+    }
 }
 
 /* Emit a barrier, that is appropriate for memory model MODEL, at the end of a
@@ -10831,6 +10912,42 @@ aarch64_emit_post_barrier (enum memmodel model)
     {
       emit_insn (gen_mem_thread_fence (GEN_INT (MEMMODEL_SEQ_CST)));
     }
+}
+
+/* Emit an atomic compare-and-swap operation.  RVAL is the destination register
+   for the data in memory.  EXPECTED is the value expected to be in memory.
+   DESIRED is the value to store to memory.  MEM is the memory location.  MODEL
+   is the memory ordering to use.  */
+
+void
+aarch64_gen_atomic_cas (rtx rval, rtx mem,
+			rtx expected, rtx desired,
+			rtx model)
+{
+  rtx (*gen) (rtx, rtx, rtx, rtx);
+  machine_mode mode;
+
+  mode = GET_MODE (mem);
+
+  switch (mode)
+    {
+    case QImode: gen = gen_aarch64_atomic_casqi; break;
+    case HImode: gen = gen_aarch64_atomic_cashi; break;
+    case SImode: gen = gen_aarch64_atomic_cassi; break;
+    case DImode: gen = gen_aarch64_atomic_casdi; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  /* Move the expected value into the CAS destination register.  */
+  emit_insn (gen_rtx_SET (rval, expected));
+
+  /* Emit the CAS.  */
+  emit_insn (gen (rval, mem, desired, model));
+
+  /* Compare the expected value with the value loaded by the CAS, to establish
+     whether the swap was made.  */
+  aarch64_gen_compare_reg (EQ, rval, expected);
 }
 
 /* Split a compare and swap pattern.  */
@@ -10901,11 +11018,257 @@ aarch64_split_compare_and_swap (rtx operands[])
     aarch64_emit_post_barrier (model);
 }
 
+/* Emit a BIC instruction.  */
+
+static void
+aarch64_emit_bic (machine_mode mode, rtx dst, rtx s1, rtx s2, int shift)
+{
+  rtx shift_rtx = GEN_INT (shift);
+  rtx (*gen) (rtx, rtx, rtx, rtx);
+
+  switch (mode)
+    {
+    case SImode: gen = gen_and_one_cmpl_lshrsi3; break;
+    case DImode: gen = gen_and_one_cmpl_lshrdi3; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  emit_insn (gen (dst, s2, shift_rtx, s1));
+}
+
+/* Emit an atomic swap.  */
+
+static void
+aarch64_emit_atomic_swap (machine_mode mode, rtx dst, rtx value,
+			  rtx mem, rtx model)
+{
+  rtx (*gen) (rtx, rtx, rtx, rtx);
+
+  switch (mode)
+    {
+    case QImode: gen = gen_aarch64_atomic_swpqi; break;
+    case HImode: gen = gen_aarch64_atomic_swphi; break;
+    case SImode: gen = gen_aarch64_atomic_swpsi; break;
+    case DImode: gen = gen_aarch64_atomic_swpdi; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  emit_insn (gen (dst, mem, value, model));
+}
+
+/* Operations supported by aarch64_emit_atomic_load_op.  */
+
+enum aarch64_atomic_load_op_code
+{
+  AARCH64_LDOP_PLUS,	/* A + B  */
+  AARCH64_LDOP_XOR,	/* A ^ B  */
+  AARCH64_LDOP_OR,	/* A | B  */
+  AARCH64_LDOP_BIC	/* A & ~B  */
+};
+
+/* Emit an atomic load-operate.  */
+
+static void
+aarch64_emit_atomic_load_op (enum aarch64_atomic_load_op_code code,
+			     machine_mode mode, rtx dst, rtx src,
+			     rtx mem, rtx model)
+{
+  typedef rtx (*aarch64_atomic_load_op_fn) (rtx, rtx, rtx, rtx);
+  const aarch64_atomic_load_op_fn plus[] =
+  {
+    gen_aarch64_atomic_loadaddqi,
+    gen_aarch64_atomic_loadaddhi,
+    gen_aarch64_atomic_loadaddsi,
+    gen_aarch64_atomic_loadadddi
+  };
+  const aarch64_atomic_load_op_fn eor[] =
+  {
+    gen_aarch64_atomic_loadeorqi,
+    gen_aarch64_atomic_loadeorhi,
+    gen_aarch64_atomic_loadeorsi,
+    gen_aarch64_atomic_loadeordi
+  };
+  const aarch64_atomic_load_op_fn ior[] =
+  {
+    gen_aarch64_atomic_loadsetqi,
+    gen_aarch64_atomic_loadsethi,
+    gen_aarch64_atomic_loadsetsi,
+    gen_aarch64_atomic_loadsetdi
+  };
+  const aarch64_atomic_load_op_fn bic[] =
+  {
+    gen_aarch64_atomic_loadclrqi,
+    gen_aarch64_atomic_loadclrhi,
+    gen_aarch64_atomic_loadclrsi,
+    gen_aarch64_atomic_loadclrdi
+  };
+  aarch64_atomic_load_op_fn gen;
+  int idx = 0;
+
+  switch (mode)
+    {
+    case QImode: idx = 0; break;
+    case HImode: idx = 1; break;
+    case SImode: idx = 2; break;
+    case DImode: idx = 3; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  switch (code)
+    {
+    case AARCH64_LDOP_PLUS: gen = plus[idx]; break;
+    case AARCH64_LDOP_XOR: gen = eor[idx]; break;
+    case AARCH64_LDOP_OR: gen = ior[idx]; break;
+    case AARCH64_LDOP_BIC: gen = bic[idx]; break;
+    default:
+      gcc_unreachable ();
+    }
+
+  emit_insn (gen (dst, mem, src, model));
+}
+
+/* Emit an atomic load+operate.  CODE is the operation.  OUT_DATA is the
+   location to store the data read from memory.  OUT_RESULT is the location to
+   store the result of the operation.  MEM is the memory location to read and
+   modify.  MODEL_RTX is the memory ordering to use.  VALUE is the second
+   operand for the operation.  Either OUT_DATA or OUT_RESULT, but not both, can
+   be NULL.  */
+
+void
+aarch64_gen_atomic_ldop (enum rtx_code code, rtx out_data, rtx out_result,
+			 rtx mem, rtx value, rtx model_rtx)
+{
+  machine_mode mode = GET_MODE (mem);
+  machine_mode wmode = (mode == DImode ? DImode : SImode);
+  const bool short_mode = (mode < SImode);
+  aarch64_atomic_load_op_code ldop_code;
+  rtx src;
+  rtx x;
+
+  if (out_data)
+    out_data = gen_lowpart (mode, out_data);
+
+  if (out_result)
+    out_result = gen_lowpart (mode, out_result);
+
+  /* Make sure the value is in a register, putting it into a destination
+     register if it needs to be manipulated.  */
+  if (!register_operand (value, mode)
+      || code == AND || code == MINUS)
+    {
+      src = out_result ? out_result : out_data;
+      emit_move_insn (src, gen_lowpart (mode, value));
+    }
+  else
+    src = value;
+  gcc_assert (register_operand (src, mode));
+
+  /* Preprocess the data for the operation as necessary.  If the operation is
+     a SET then emit a swap instruction and finish.  */
+  switch (code)
+    {
+    case SET:
+      aarch64_emit_atomic_swap (mode, out_data, src, mem, model_rtx);
+      return;
+
+    case MINUS:
+      /* Negate the value and treat it as a PLUS.  */
+      {
+	rtx neg_src;
+
+	/* Resize the value if necessary.  */
+	if (short_mode)
+	  src = gen_lowpart (wmode, src);
+
+	neg_src = gen_rtx_NEG (wmode, src);
+	emit_insn (gen_rtx_SET (src, neg_src));
+
+	if (short_mode)
+	  src = gen_lowpart (mode, src);
+      }
+      /* Fall-through.  */
+    case PLUS:
+      ldop_code = AARCH64_LDOP_PLUS;
+      break;
+
+    case IOR:
+      ldop_code = AARCH64_LDOP_OR;
+      break;
+
+    case XOR:
+      ldop_code = AARCH64_LDOP_XOR;
+      break;
+
+    case AND:
+      {
+	rtx not_src;
+
+	/* Resize the value if necessary.  */
+	if (short_mode)
+	  src = gen_lowpart (wmode, src);
+
+	not_src = gen_rtx_NOT (wmode, src);
+	emit_insn (gen_rtx_SET (src, not_src));
+
+	if (short_mode)
+	  src = gen_lowpart (mode, src);
+      }
+      ldop_code = AARCH64_LDOP_BIC;
+      break;
+
+    default:
+      /* The operation can't be done with atomic instructions.  */
+      gcc_unreachable ();
+    }
+
+  aarch64_emit_atomic_load_op (ldop_code, mode, out_data, src, mem, model_rtx);
+
+  /* If necessary, calculate the data in memory after the update by redoing the
+     operation from values in registers.  */
+  if (!out_result)
+    return;
+
+  if (short_mode)
+    {
+      src = gen_lowpart (wmode, src);
+      out_data = gen_lowpart (wmode, out_data);
+      out_result = gen_lowpart (wmode, out_result);
+    }
+
+  x = NULL_RTX;
+
+  switch (code)
+    {
+    case MINUS:
+    case PLUS:
+      x = gen_rtx_PLUS (wmode, out_data, src);
+      break;
+    case IOR:
+      x = gen_rtx_IOR (wmode, out_data, src);
+      break;
+    case XOR:
+      x = gen_rtx_XOR (wmode, out_data, src);
+      break;
+    case AND:
+      aarch64_emit_bic (wmode, out_result, out_data, src, 0);
+      return;
+    default:
+      gcc_unreachable ();
+    }
+
+  emit_set_insn (out_result, x);
+
+  return;
+}
+
 /* Split an atomic operation.  */
 
 void
 aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
-		     rtx value, rtx model_rtx, rtx cond)
+			 rtx value, rtx model_rtx, rtx cond)
 {
   machine_mode mode = GET_MODE (mem);
   machine_mode wmode = (mode == DImode ? DImode : SImode);
@@ -10914,6 +11277,7 @@ aarch64_split_atomic_op (enum rtx_code code, rtx old_out, rtx new_out, rtx mem,
   rtx_code_label *label;
   rtx x;
 
+  /* Split the atomic operation into a sequence.  */
   label = gen_label_rtx ();
   emit_label (label);
 
@@ -11742,6 +12106,8 @@ aarch64_evpc_dup (struct expand_vec_perm_d *d)
     case V4SImode: gen = gen_aarch64_dup_lanev4si; break;
     case V2SImode: gen = gen_aarch64_dup_lanev2si; break;
     case V2DImode: gen = gen_aarch64_dup_lanev2di; break;
+    case V8HFmode: gen = gen_aarch64_dup_lanev8hf; break;
+    case V4HFmode: gen = gen_aarch64_dup_lanev4hf; break;
     case V4SFmode: gen = gen_aarch64_dup_lanev4sf; break;
     case V2SFmode: gen = gen_aarch64_dup_lanev2sf; break;
     case V2DFmode: gen = gen_aarch64_dup_lanev2df; break;

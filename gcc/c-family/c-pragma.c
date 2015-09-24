@@ -48,11 +48,11 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_BAD2(gmsgid, arg) \
   do { warning (OPT_Wpragmas, gmsgid, arg); return; } while (0)
 
-typedef struct GTY(()) align_stack {
+struct GTY(()) align_stack {
   int		       alignment;
   tree		       id;
   struct align_stack * prev;
-} align_stack;
+};
 
 static GTY(()) struct align_stack * alignment_stack;
 
@@ -236,11 +236,11 @@ handle_pragma_pack (cpp_reader * ARG_UNUSED (dummy))
     }
 }
 
-typedef struct GTY(()) pending_weak_d
+struct GTY(()) pending_weak
 {
   tree name;
   tree value;
-} pending_weak;
+};
 
 
 static GTY(()) vec<pending_weak, va_gc> *pending_weaks;
@@ -426,10 +426,10 @@ handle_pragma_weak (cpp_reader * ARG_UNUSED (dummy))
       if it appears afterward, we have no way of knowing whether a modified
       DECL_ASSEMBLER_NAME is due to #pragma extern_prefix.)  */
 
-typedef struct GTY(()) pending_redefinition_d {
+struct GTY(()) pending_redefinition {
   tree oldname;
   tree newname;
-} pending_redefinition;
+};
 
 
 static GTY(()) vec<pending_redefinition, va_gc> *pending_redefine_extname;
@@ -704,17 +704,19 @@ handle_pragma_visibility (cpp_reader *dummy ATTRIBUTE_UNUSED)
 static void
 handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
 {
-  const char *kind_string, *option_string;
-  unsigned int option_index;
-  enum cpp_ttype token;
-  diagnostic_t kind;
   tree x;
-  struct cl_option_handlers handlers;
-
-  token = pragma_lex (&x);
+  location_t loc;
+  enum cpp_ttype token = pragma_lex (&x, &loc);
   if (token != CPP_NAME)
-    GCC_BAD ("missing [error|warning|ignored] after %<#pragma GCC diagnostic%>");
-  kind_string = IDENTIFIER_POINTER (x);
+    {
+      warning_at (loc, OPT_Wpragmas,
+		  "missing [error|warning|ignored|push|pop]"
+		  " after %<#pragma GCC diagnostic%>");
+      return;
+    }
+
+  diagnostic_t kind;
+  const char *kind_string = IDENTIFIER_POINTER (x);
   if (strcmp (kind_string, "error") == 0)
     kind = DK_ERROR;
   else if (strcmp (kind_string, "warning") == 0)
@@ -732,23 +734,55 @@ handle_pragma_diagnostic(cpp_reader *ARG_UNUSED(dummy))
       return;
     }
   else
-    GCC_BAD ("expected [error|warning|ignored|push|pop] after %<#pragma GCC diagnostic%>");
+    {
+      warning_at (loc, OPT_Wpragmas,
+		  "expected [error|warning|ignored|push|pop]"
+		  " after %<#pragma GCC diagnostic%>");
+      return;
+    }
 
-  token = pragma_lex (&x);
+  token = pragma_lex (&x, &loc);
   if (token != CPP_STRING)
-    GCC_BAD ("missing option after %<#pragma GCC diagnostic%> kind");
-  option_string = TREE_STRING_POINTER (x);
+    {
+      warning_at (loc, OPT_Wpragmas,
+		  "missing option after %<#pragma GCC diagnostic%> kind");
+      return;
+    }
+
+  const char *option_string = TREE_STRING_POINTER (x);
+  unsigned int lang_mask = c_common_option_lang_mask () | CL_COMMON;
+  /* option_string + 1 to skip the initial '-' */
+  unsigned int option_index = find_opt (option_string + 1, lang_mask);
+  if (option_index == OPT_SPECIAL_unknown)
+    {
+      warning_at (loc, OPT_Wpragmas,
+		  "unknown option after %<#pragma GCC diagnostic%> kind");
+      return;
+    }
+  else if (!(cl_options[option_index].flags & CL_WARNING))
+    {
+      warning_at (loc, OPT_Wpragmas,
+		  "%qs is not an option that controls warnings", option_string);
+      return;
+    }
+  else if (!(cl_options[option_index].flags & lang_mask))
+    {
+      char *ok_langs = write_langs (cl_options[option_index].flags);
+      char *bad_lang = write_langs (c_common_option_lang_mask ());
+      warning_at (loc, OPT_Wpragmas,
+		  "option %qs is valid for %s but not for %s",
+		  option_string, ok_langs, bad_lang);
+      free (ok_langs);
+      free (bad_lang);
+      return;
+    }
+
+  struct cl_option_handlers handlers;
   set_default_handlers (&handlers);
-  for (option_index = 0; option_index < cl_options_count; option_index++)
-    if (strcmp (cl_options[option_index].opt_text, option_string) == 0)
-      {
-	control_warning_option (option_index, (int) kind, kind != DK_IGNORED,
-				input_location, c_family_lang_mask, &handlers,
-				&global_options, &global_options_set,
-				global_dc);
-	return;
-      }
-  GCC_BAD ("unknown option after %<#pragma GCC diagnostic%> kind");
+  control_warning_option (option_index, (int) kind, kind != DK_IGNORED,
+			  loc, lang_mask, &handlers,
+			  &global_options, &global_options_set,
+			  global_dc);
 }
 
 /*  Parse #pragma GCC target (xxx) to set target specific options.  */
@@ -894,13 +928,13 @@ handle_pragma_optimize (cpp_reader *ARG_UNUSED(dummy))
 /* Stack of the #pragma GCC options created with #pragma GCC push_option.  Save
    both the binary representation of the options and the TREE_LIST of
    strings that will be added to the function's attribute list.  */
-typedef struct GTY(()) opt_stack {
+struct GTY(()) opt_stack {
   struct opt_stack *prev;
   tree target_binary;
   tree target_strings;
   tree optimize_binary;
   tree optimize_strings;
-} opt_stack;
+};
 
 static GTY(()) struct opt_stack * options_stack;
 
@@ -1165,11 +1199,11 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 
 static vec<internal_pragma_handler> registered_pragmas;
 
-typedef struct
+struct pragma_ns_name
 {
   const char *space;
   const char *name;
-} pragma_ns_name;
+};
 
 
 static vec<pragma_ns_name> registered_pp_pragmas;

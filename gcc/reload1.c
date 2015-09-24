@@ -3636,6 +3636,8 @@ eliminate_regs_in_insn (rtx_insn *insn, int replace)
    eliminations in its operands and record cases where eliminating a reg with
    an invariant equivalence would add extra cost.  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic warning "-Wmaybe-uninitialized"
 static void
 elimination_costs_in_insn (rtx_insn *insn)
 {
@@ -3708,10 +3710,12 @@ elimination_costs_in_insn (rtx_insn *insn)
   /* Eliminate all eliminable registers occurring in operands that
      can be handled by reload.  */
   extract_insn (insn);
-  for (i = 0; i < recog_data.n_dups; i++)
+  int n_dups = recog_data.n_dups;
+  for (i = 0; i < n_dups; i++)
     orig_dup[i] = *recog_data.dup_loc[i];
 
-  for (i = 0; i < recog_data.n_operands; i++)
+  int n_operands = recog_data.n_operands;
+  for (i = 0; i < n_operands; i++)
     {
       orig_operand[i] = recog_data.operand[i];
 
@@ -3756,7 +3760,7 @@ elimination_costs_in_insn (rtx_insn *insn)
 	}
     }
 
-  for (i = 0; i < recog_data.n_dups; i++)
+  for (i = 0; i < n_dups; i++)
     *recog_data.dup_loc[i]
       = *recog_data.operand_loc[(int) recog_data.dup_num[i]];
 
@@ -3764,9 +3768,9 @@ elimination_costs_in_insn (rtx_insn *insn)
   check_eliminable_occurrences (old_body);
 
   /* Restore the old body.  */
-  for (i = 0; i < recog_data.n_operands; i++)
+  for (i = 0; i < n_operands; i++)
     *recog_data.operand_loc[i] = orig_operand[i];
-  for (i = 0; i < recog_data.n_dups; i++)
+  for (i = 0; i < n_dups; i++)
     *recog_data.dup_loc[i] = orig_dup[i];
 
   /* Update all elimination pairs to reflect the status after the current
@@ -3783,6 +3787,7 @@ elimination_costs_in_insn (rtx_insn *insn)
 
   return;
 }
+#pragma GCC diagnostic pop
 
 /* Loop through all elimination pairs.
    Recalculate the number not at initial offset.

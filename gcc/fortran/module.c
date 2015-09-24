@@ -193,6 +193,11 @@ static gzFile module_fp;
 static const char *module_name;
 /* The name of the .smod file that the submodule will write to.  */
 static const char *submodule_name;
+
+/* Suppress the output of a .smod file by module, if no module
+   procedures have been seen.  */
+static bool no_module_procedures;
+
 static gfc_use_list *module_list;
 
 /* If we're reading an intrinsic module, this is its ID.  */
@@ -798,7 +803,7 @@ gfc_match_submodule (void)
   /* Just retain the ultimate .(s)mod file for reading, since it
      contains all the information in its ancestors.  */
   use_list = module_list;
-  for (; module_list->next; use_list = use_list->next)
+  for (; module_list->next; use_list = module_list)
     {
       module_list = use_list->next;
       free (use_list);
@@ -1117,11 +1122,10 @@ gzopen_intrinsic_module (const char* name)
 }
 
 
-typedef enum
+enum atom_type
 {
   ATOM_NAME, ATOM_LPAREN, ATOM_RPAREN, ATOM_INTEGER, ATOM_STRING
-}
-atom_type;
+};
 
 static atom_type last_atom;
 
@@ -1971,7 +1975,7 @@ mio_internal_string (char *string)
 }
 
 
-typedef enum
+enum ab_attribute
 { AB_ALLOCATABLE, AB_DIMENSION, AB_EXTERNAL, AB_INTRINSIC, AB_OPTIONAL,
   AB_POINTER, AB_TARGET, AB_DUMMY, AB_RESULT, AB_DATA,
   AB_IN_NAMELIST, AB_IN_COMMON, AB_FUNCTION, AB_SUBROUTINE, AB_SEQUENCE,
@@ -1986,8 +1990,7 @@ typedef enum
   AB_ARRAY_OUTER_DEPENDENCY, AB_MODULE_PROCEDURE, AB_OACC_DECLARE_CREATE,
   AB_OACC_DECLARE_COPYIN, AB_OACC_DECLARE_DEVICEPTR,
   AB_OACC_DECLARE_DEVICE_RESIDENT, AB_OACC_DECLARE_LINK
-}
-ab_attribute;
+};
 
 static const mstring attr_bits[] =
 {
@@ -2231,7 +2234,10 @@ mio_symbol_attribute (symbol_attribute *attr)
       if (attr->array_outer_dependency)
 	MIO_NAME (ab_attribute) (AB_ARRAY_OUTER_DEPENDENCY, attr_bits);
       if (attr->module_procedure)
+	{
 	MIO_NAME (ab_attribute) (AB_MODULE_PROCEDURE, attr_bits);
+	  no_module_procedures = false;
+	}
       if (attr->oacc_declare_create)
 	MIO_NAME (ab_attribute) (AB_OACC_DECLARE_CREATE, attr_bits);
       if (attr->oacc_declare_copyin)
@@ -5166,7 +5172,8 @@ read_module (void)
 
 	  st = gfc_find_symtree (gfc_current_ns->sym_root, p);
 
-	  if (st != NULL)
+	  if (st != NULL
+	      && !(st->n.sym && st->n.sym->attr.used_in_submodule))
 	    {
 	      /* Check for ambiguous symbols.  */
 	      if (check_for_ambiguous (st, info))
@@ -5176,14 +5183,23 @@ read_module (void)
 	    }
 	  else
 	    {
-	      st = gfc_find_symtree (gfc_current_ns->sym_root, name);
-
-	      /* Create a symtree node in the current namespace for this
-		 symbol.  */
-	      st = check_unique_name (p)
-		   ? gfc_get_unique_symtree (gfc_current_ns)
-		   : gfc_new_symtree (&gfc_current_ns->sym_root, p);
-	      st->ambiguous = ambiguous;
+	      if (st)
+		{
+		  /* This symbol is host associated from a module in a
+		     submodule.  Hide it with a unique symtree.  */
+		  gfc_symtree *s = gfc_get_unique_symtree (gfc_current_ns);
+		  s->n.sym = st->n.sym;
+		  st->n.sym = NULL;
+		}
+	      else
+		{
+		  /* Create a symtree node in the current namespace for this
+		     symbol.  */
+		  st = check_unique_name (p)
+		       ? gfc_get_unique_symtree (gfc_current_ns)
+		       : gfc_new_symtree (&gfc_current_ns->sym_root, p);
+		  st->ambiguous = ambiguous;
+		}
 
 	      sym = info->u.rsym.sym;
 
@@ -6105,9 +6121,10 @@ gfc_dump_module (const char *name, int dump_flag)
   else
     dump_smod =false;
 
+  no_module_procedures = true;
   dump_module (name, dump_flag);
 
-  if (dump_smod)
+  if (no_module_procedures || dump_smod)
     return;
 
   /* Write a submodule file from a module.  The 'dump_smod' flag switches

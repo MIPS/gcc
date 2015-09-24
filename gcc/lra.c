@@ -533,7 +533,7 @@ lra_update_dups (lra_insn_recog_data_t id, signed char *nops)
    insns.  */
 
 /* Pools for insn reg info.  */
-object_allocator<lra_insn_reg> lra_insn_reg_pool ("insn regs", 100);
+object_allocator<lra_insn_reg> lra_insn_reg_pool ("insn regs");
 
 /* Create LRA insn related info about a reference to REGNO in INSN with
    TYPE (in/out/inout), biggest reference mode MODE, flag that it is
@@ -585,7 +585,7 @@ finish_insn_regs (void)
 
 /* Map INSN_CODE -> the static insn data.  This info is valid during
    all translation unit.  */
-struct lra_static_insn_data *insn_code_data[LAST_INSN_CODE];
+struct lra_static_insn_data *insn_code_data[NUM_INSN_CODES];
 
 /* Debug insns are represented as a special insn with one input
    operand which is RTL expression in var_location.  */
@@ -631,9 +631,7 @@ init_insn_code_data_once (void)
 static void
 finish_insn_code_data_once (void)
 {
-  int i;
-
-  for (i = 0; i < LAST_INSN_CODE; i++)
+  for (unsigned int i = 0; i < NUM_INSN_CODES; i++)
     {
       if (insn_code_data[i] != NULL)
 	free (insn_code_data[i]);
@@ -650,7 +648,7 @@ get_static_insn_data (int icode, int nop, int ndup, int nalt)
   struct lra_static_insn_data *data;
   size_t n_bytes;
 
-  lra_assert (icode < LAST_INSN_CODE);
+  lra_assert (icode < (int) NUM_INSN_CODES);
   if (icode >= 0 && (data = insn_code_data[icode]) != NULL)
     return data;
   lra_assert (nop >= 0 && ndup >= 0 && nalt >= 0);
@@ -746,7 +744,7 @@ free_insn_recog_data (lra_insn_recog_data_t data)
 }
 
 /* Pools for copies.  */
-static object_allocator<lra_copy> lra_copy_pool ("lra copies", 100);
+static object_allocator<lra_copy> lra_copy_pool ("lra copies");
 
 /* Finish LRA data about all insns.  */
 static void

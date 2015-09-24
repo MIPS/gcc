@@ -139,7 +139,7 @@ if test x"$enable_offload_targets" != x; then
   done
 fi
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
-  [Define to hold the list of offload targets, separated by colons.])
+  [Define to offload targets, separated by colons.])
 AM_CONDITIONAL([PLUGIN_NVPTX], [test $PLUGIN_NVPTX = 1])
 AC_DEFINE_UNQUOTED([PLUGIN_NVPTX], [$PLUGIN_NVPTX],
   [Define to 1 if the NVIDIA plugin is built, 0 if not.])

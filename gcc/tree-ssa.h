@@ -21,12 +21,11 @@ along with GCC; see the file COPYING3.  If not see
 #define GCC_TREE_SSA_H
 
 /* Mapping for redirected edges.  */
-struct _edge_var_map {
+struct edge_var_map {
   tree result;			/* PHI result.  */
   tree def;			/* PHI arg definition.  */
   source_location locus;        /* PHI arg location.  */
 };
-typedef struct _edge_var_map edge_var_map;
 
 /* A vector of var maps.  */
 typedef vec<edge_var_map, va_heap, vl_embed> edge_var_map_vector;
@@ -39,11 +38,11 @@ extern vec<edge_var_map> *redirect_edge_var_map_vector (edge);
 extern void redirect_edge_var_map_destroy (void);
 extern edge ssa_redirect_edge (edge, basic_block);
 extern void flush_pending_stmts (edge);
-extern void gimple_replace_ssa_lhs (gimple, tree);
+extern void gimple_replace_ssa_lhs (gimple *, tree);
 extern tree target_for_debug_bind (tree);
 extern void insert_debug_temp_for_var_def (gimple_stmt_iterator *, tree);
 extern void insert_debug_temps_for_defs (gimple_stmt_iterator *);
-extern void reset_debug_uses (gimple);
+extern void reset_debug_uses (gimple *);
 extern void release_defs_bitset (bitmap toremove);
 extern void verify_ssa (bool, bool);
 extern void init_tree_ssa (struct function *);

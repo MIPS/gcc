@@ -46,7 +46,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "ira.h"
 #include "alloc-pool.h"
-#include "recog.h"
 #include "ira-int.h"
 
 typedef struct allocno_hard_regs *allocno_hard_regs_t;
@@ -1158,7 +1157,7 @@ setup_profitable_hard_regs (void)
 
 /* Pool for update cost records.  */
 static object_allocator<update_cost_record> update_cost_record_pool
-  ("update cost records", 100);
+  ("update cost records");
 
 /* Return new update cost record with given params.  */
 static struct update_cost_record *

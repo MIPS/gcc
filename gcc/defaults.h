@@ -351,7 +351,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* If we have named sections, and we're using crtstuff to run ctors,
    use them for registering eh frame information.  */
 #if defined (TARGET_ASM_NAMED_SECTION) && DWARF2_UNWIND_INFO \
-    && !defined (EH_FRAME_IN_DATA_SECTION)
+    && !defined (EH_FRAME_THROUGH_COLLECT2)
 #ifndef EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"
 #endif
@@ -932,7 +932,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #elif defined SDB_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
 
-#elif defined DWARF2_DEBUGGING_INFO
+#elif defined DWARF2_DEBUGGING_INFO || defined DWARF2_LINENO_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 #elif defined VMS_DEBUGGING_INFO
@@ -1273,6 +1273,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define WORD_REGISTER_OPERATIONS 0
 #endif
 
+#ifndef CONSTANT_ALIGNMENT
+#define CONSTANT_ALIGNMENT(EXP, ALIGN) ALIGN
+#endif
+
 #ifdef GCC_INSN_FLAGS_H
 /* Dependent default target macro definitions
 
@@ -1359,6 +1363,18 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define STACK_SIZE_MODE word_mode
 #endif
 
+/* Default value for flag_stack_protect when flag_stack_protect is initialized to -1:
+   --enable-default-ssp: Default flag_stack_protect to -fstack-protector-strong.
+   --disable-default-ssp: Default flag_stack_protect to 0.
+ */
+#ifdef ENABLE_DEFAULT_SSP
+# ifndef DEFAULT_FLAG_SSP
+#  define DEFAULT_FLAG_SSP 3
+# endif
+#else
+# define DEFAULT_FLAG_SSP 0
+#endif
+
 /* Provide default values for the macros controlling stack checking.  */
 
 /* The default is neither full builtin stack checking...  */
@@ -1390,9 +1406,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define STACK_OLD_CHECK_PROTECT STACK_CHECK_PROTECT
 #else
 #define STACK_OLD_CHECK_PROTECT						\
- (targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
+ (!global_options.x_flag_exceptions					\
   ? 75 * UNITS_PER_WORD							\
-  : 8 * 1024)
+  : targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
+    ? 4 * 1024								\
+    : 8 * 1024)
 #endif
 
 /* Minimum amount of stack required to recover from an anticipated stack
@@ -1400,9 +1418,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    of stack required to propagate an exception.  */
 #ifndef STACK_CHECK_PROTECT
 #define STACK_CHECK_PROTECT						\
- (targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
-  ? 75 * UNITS_PER_WORD							\
-  : 12 * 1024)
+ (!global_options.x_flag_exceptions					\
+  ? 4 * 1024								\
+  : targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
+    ? 8 * 1024								\
+    : 12 * 1024)
 #endif
 
 /* Make the maximum frame size be the largest we can and still only need

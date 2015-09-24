@@ -1,3 +1,272 @@
+2015-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* decl.c (xref_basetypes): Check virtual and/or multiple
+	inheritance warning.
+	* parser.c (cp_parser_namespace_definition): Check namespaces
+	warning.
+	* pt.c (push_template_decl_real): Check templates warning.
+
+2015-09-22  Jason Merrill  <jason@redhat.com>
+
+	* mangle.c (abi_warn_or_compat_version_crosses): New.
+	Use it instead of abi_version_crosses.
+	(mangle_decl): Deal with -fabi-compat-version and -Wabi separately.
+
+2015-09-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Complete the implementation of N4230, Nested namespace definition.
+	* parser.c (cp_parser_namespace_definition): Support namespace
+	attributes both before and after the namespace identifier.
+
+2015-09-19  Trevor Saunders  <tbsaunde@tbsaunde.org>
+
+	* cp-gimplify.c (gimplify_must_not_throw_expr): Adjust.
+
+2015-09-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Implement nested namespace definitions.
+	* parser.c (cp_parser_namespace_definition): Grok nested namespace
+	definitions.
+
+2015-09-18  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* parser.c (pragma_lex): Add loc argument. Rearrange the code to
+	make it more similar to the C version.
+
+2015-09-17  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	Implement N4295 fold-expressions.
+	* cp-tree.def: Add UNARY_LEFT_FOLD_EXPR, UNARY_RIGHT_FOLD_EXPR,
+	BINARY_LEFT_FOLD_EXPR, BINARY_RIGHT_FOLD_EXPR.
+	* cp-objcp-common.c (cp_common_init_ts): Handle them.
+	* cp-tree.h (FOLD_EXPR_CHECK, BINARY_FOLD_EXPR_CHECK, FOLD_EXPR_P)
+	(FOLD_EXPR_MODIFY_P, FOLD_EXPR_OP, FOLD_EXPR_PACK, FOLD_EXPR_INIT): New.
+	* parser.c (cp_parser_skip_to_closing_parenthesis): Split out...
+	(cp_parser_skip_to_closing_parenthesis_1): This function.  Change
+	or_comma parameter to or_ttype.
+	(cp_parser_fold_operator, cp_parser_fold_expr_p)
+	(cp_parser_fold_expression): New.
+	(cp_parser_primary_expression): Use them.
+	* pt.c (expand_empty_fold, fold_expression, tsubst_fold_expr_pack)
+	(tsubst_fold_expr_init, expand_left_fold, tsubst_unary_left_fold)
+	(tsubst_binary_left_fold, expand_right_fold)
+	(tsubst_unary_right_fold, tsubst_binary_right_fold): New.
+	(tsubst_copy): Use them.
+	(type_dependent_expression_p): Handle fold-expressions.
+	* semantics.c (finish_unary_fold_expr)
+	(finish_left_unary_fold_expr, finish_right_unary_fold_expr)
+	(finish_binary_fold_expr): New.
+
+2015-09-17  Richard Biener  <rguenther@suse.de>
+
+	* cp-tree.h (note_decl_for_pch): Remove.
+	* class.c (build_clone): Do not call note_decl_for_pch.
+	* semantics.c (finish_member_declaration): Likewise.
+	(note_decl_for_pch): Remove.
+	* decl2.c (c_parse_final_cleanups): Mangle all globals before
+	writing the PCH.
+
+2015-09-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/44282
+	* mangle.c (write_CV_qualifiers_for_type): Also warn about regparm
+	mangling with lower -fabi-version.
+
+2015-09-14  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51911
+	* parser.c (cp_parser_new_expression): Enforce 5.3.4/2 (as amended
+	per the spirit of DR 1467).
+
+2015-09-11  Mark Wielaard  <mjw@redhat.com>
+
+	PR c/28901
+	* cp-objcp-common.c (cxx_warn_unused_global_decl): Remove hard-coded
+	VAR_P TREE_READONLY override.
+
+2015-09-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67318
+	* parser.c (cp_parser_parameter_declaration): Consume the ellipsis
+	and set template_parameter_pack_p also when the type is null.
+
+2015-09-09  Mark Wielaard  <mjw@redhat.com>
+
+	* typeck.c (cp_build_binary_op): Check and warn when nonnull arg
+	parm against NULL.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67522
+	* semantics.c (handle_omp_array_sections_1): Only run
+	type_dependent_expression_p on VAR_DECL/PARM_DECLs.
+	(finish_omp_clauses) <case OMP_CLAUSE_LINEAR>: Likewise.
+	Don't adjust OMP_CLAUSE_LINEAR_STEP if OMP_CLAUSE_DECL
+	is not a VAR_DECL/PARM_DECL.
+
+	PR c++/67511
+	* semantics.c (handle_omp_for_class_iterator): Don't wrap
+	error_mark_node into a NOP_EXPR to void_type_node.
+
+2015-09-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53184
+	* decl2.c (constrain_class_visibility): Use Wsubobject-linkage.
+
+2015-09-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67504
+	* parser.c (cp_parser_omp_clause_collapse): Test tree_fits_shwi_p
+	before INTEGRAL_TYPE_P test.
+
+2015-09-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67041
+	* pt.c (tsubst_copy_and_build): Handle variables like functions.
+
+2015-09-08  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67369
+	* pt.c (tsubst_copy, [case FUNCTION_DECL]): Do not call tsubst
+	if the first argument isn't a template.
+
+2015-09-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c/66516
+	* cp-tree.h (mark_rvalue_use, decay_conversion): Add new
+	argument(s).
+	* expr.c (mark_rvalue_use): Use new argument.
+	* call.c (build_addr_func): Call decay_conversion with new
+	argument.
+	* pt.c (convert_template_argument): Call reject_gcc_builtin.
+	* typeck.c (decay_conversion): Use new argument.
+	(c_decl_implicit): Define.
+
+2015-09-02  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR middle-end/60586
+	* cp-gimplify.c (cilk_cp_gimplify_call_params_in_spawned_fn): New
+	function.
+	(cp_gimplify_expr): Added a call to the function
+	cilk_cp_gimplify_call_params_in_spawned_fn.
+
+2015-09-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/61753
+	* decl.c (smallest_type_quals_location): New.
+	(check_special_function_return_type): Use the latter; add int and
+	const location_t* parameters.
+	(grokdeclarator): Adjust check_special_function_return_type call.
+
+2015-08-29  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/67371
+	* constexpr.c (potential_constant_expression_1): Remove IF_STMT
+	case. Move label to COND_EXPR case. Remove checking of
+	SWITCH_STMT_BODY.
+
+2015-08-22  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/63693
+	* pt.c (resolve_typename_type): Use CLASSTYPE_PRIMARY_TEMPLATE_TYPE
+	only on class types.
+
+2015-08-21  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67240
+	* constraint.cc (satisfy_implicit_conversion_constraint): Also
+	check for NULL_TREE.
+
+2015-08-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokvardecl): Simplify the latter.
+
+2015-08-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (grokvardecl): Complete check added for c++/67065.
+
+2015-08-20  Jason Merrill  <jason@redhat.com>
+
+	* name-lookup.c (hidden_name_p): Handle OVERLOAD.
+
+2015-08-20  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67065
+	* decl.c (grokvardecl): Reject 'main' as global variable.
+
+2015-08-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66957
+	* search.c (protected_accessible_p): Remove redundant access_in_type.
+	Add otype parm instead of walking binfo.
+	(friend_accessible_p): Check SCOPE itself.  Handle class
+	templates.  Pass through otype.
+	(dfs_accessible_post): Handle all accessibility cases.
+	(dfs_accessible_pre): New.
+	(accessible_p): Use it.  Don't check protected access here.  Pass
+	decl and otype to dfs_walk.
+	(member_declared_in_type, dfs_access_in_type_pre): New.
+	(access_in_type): Use dfs_access_in_type_pre.
+	* friend.c (add_friend): Fix multiple friends with the same name.
+
+	* lambda.c (current_nonlambda_scope): New.
+
+2015-08-18  Trevor Saunders  <tbsaunde@tbsaunde.org>
+
+	* call.c, class.c, cp-tree.h, decl.c, except.c, mangle.c,
+	method.c, name-lookup.h, parser.c, parser.h, rtti.c,
+	semantics.c, typeck2.c: Remove useless typedefs.
+
+2015-08-18  Jason Merrill  <jason@redhat.com>
+
+	DR 1155
+	* pt.c (convert_nontype_argument): Allow internal linkage in C++11
+	and up.
+
+2015-08-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67216
+	* call.c (null_ptr_cst_p): In C++11 return 'false' for 'false'.
+
+2015-08-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67244
+	* pt.c (tsubst_copy_and_build): Call insert_pending_capture_proxies.
+
+	PR c++/67104
+	* constexpr.c (array_index_cmp, find_array_ctor_elt): New.
+	(cxx_eval_array_reference, cxx_eval_store_expression): Use them.
+
+	* constexpr.c (cxx_eval_store_expression): Don't set
+	CONSTRUCTOR_NO_IMPLICIT_ZERO if we have an enclosing CONSTRUCTOR
+	without it.
+	(cxx_eval_array_reference): Check it.
+
+	* except.c (check_noexcept_r): Assert that fn is POINTER_TYPE_P.
+
+2015-08-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/65974
+	* decl2.c (mark_vtable_entries): Suppress -Wdeprecated.
+
+2015-08-12  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67104
+	* constexpr.c (cxx_eval_array_reference): Fix typo.
+
+	PR c++/67104
+	* constexpr.c (cxx_eval_array_reference): Handle sparse
+	CONSTRUCTORs.
+
+	PR c++/67108
+	* decl2.c (c_parse_final_cleanups): Set at_eof to 2 at end.
+	* error.c (dump_template_bindings): Don't tsubst in that case.
+
+	PR c++/67161
+	* error.c (dump_decl) [TEMPLATE_ID_EXPR]: Pass
+	TFF_NO_OMIT_DEFAULT_TEMPLATE_ARGUMENTS.
+
 2015-08-08  Jason Merrill  <jason@redhat.com>
 
 	PR c++/67152

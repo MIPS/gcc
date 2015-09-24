@@ -60,11 +60,11 @@ along with GCC; see the file COPYING3.  If not see
 /* Return TRUE if expression STMT is suitable for replacement.  */
 
 bool
-ssa_is_replaceable_p (gimple stmt)
+ssa_is_replaceable_p (gimple *stmt)
 {
   use_operand_p use_p;
   tree def;
-  gimple use_stmt;
+  gimple *use_stmt;
 
   /* Only consider modify stmts.  */
   if (!is_gimple_assign (stmt))
@@ -192,7 +192,7 @@ set_location_for_edge (edge e)
 	{
 	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gimple *stmt = gsi_stmt (gsi);
 	      if (is_gimple_debug (stmt))
 		continue;
 	      if (gimple_has_location (stmt) || gimple_block (stmt))
@@ -279,7 +279,6 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
   rtx dest_rtx, seq, x;
   machine_mode dest_mode, src_mode;
   int unsignedp;
-  tree var;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -301,12 +300,12 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
 
   start_sequence ();
 
-  var = SSA_NAME_VAR (partition_to_var (SA.map, dest));
+  tree name = partition_to_var (SA.map, dest);
   src_mode = TYPE_MODE (TREE_TYPE (src));
   dest_mode = GET_MODE (dest_rtx);
-  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (var)));
+  gcc_assert (src_mode == TYPE_MODE (TREE_TYPE (name)));
   gcc_assert (!REG_P (dest_rtx)
-	      || dest_mode == promote_decl_mode (var, &unsignedp));
+	      || dest_mode == promote_ssa_mode (name, &unsignedp));
 
   if (src_mode != dest_mode)
     {
@@ -682,13 +681,12 @@ elim_backward (elim_graph g, int T)
 static rtx
 get_temp_reg (tree name)
 {
-  tree var = TREE_CODE (name) == SSA_NAME ? SSA_NAME_VAR (name) : name;
-  tree type = TREE_TYPE (var);
+  tree type = TREE_TYPE (name);
   int unsignedp;
-  machine_mode reg_mode = promote_decl_mode (var, &unsignedp);
+  machine_mode reg_mode = promote_ssa_mode (name, &unsignedp);
   rtx x = gen_reg_rtx (reg_mode);
   if (POINTER_TYPE_P (type))
-    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (TREE_TYPE (var))));
+    mark_reg_pointer (x, TYPE_ALIGN (TREE_TYPE (type)));
   return x;
 }
 
@@ -808,7 +806,7 @@ remove_gimple_phi_args (gphi *phi)
 	  SET_USE (arg_p, NULL_TREE);
 	  if (has_zero_uses (arg))
 	    {
-	      gimple stmt;
+	      gimple *stmt;
 	      gimple_stmt_iterator gsi;
 
 	      stmt = SSA_NAME_DEF_STMT (arg);
@@ -988,7 +986,7 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 
   /* Return to viewing the variable list as just all reference variables after
      coalescing has been performed.  */
-  partition_view_normal (map, false);
+  partition_view_normal (map);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -1035,7 +1033,7 @@ maybe_renumber_stmts_bb (basic_block bb)
   bb->aux = NULL;
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gimple *stmt = gsi_stmt (gsi);
       gimple_set_uid (stmt, i);
       i++;
     }
@@ -1051,7 +1049,7 @@ trivially_conflicts_p (basic_block bb, tree result, tree arg)
 {
   use_operand_p use;
   imm_use_iterator imm_iter;
-  gimple defa = SSA_NAME_DEF_STMT (arg);
+  gimple *defa = SSA_NAME_DEF_STMT (arg);
 
   /* If ARG isn't defined in the same block it's too complicated for
      our little mind.  */
@@ -1060,7 +1058,7 @@ trivially_conflicts_p (basic_block bb, tree result, tree arg)
 
   FOR_EACH_IMM_USE_FAST (use, imm_iter, result)
     {
-      gimple use_stmt = USE_STMT (use);
+      gimple *use_stmt = USE_STMT (use);
       if (is_gimple_debug (use_stmt))
 	continue;
       /* Now, if there's a use of RESULT that lies outside this basic block,
@@ -1131,7 +1129,7 @@ insert_backedge_copies (void)
 		{
 		  tree name;
 		  gassign *stmt;
-		  gimple last = NULL;
+		  gimple *last = NULL;
 		  gimple_stmt_iterator gsi2;
 
 		  gsi2 = gsi_last_bb (gimple_phi_arg_edge (phi, i)->src);

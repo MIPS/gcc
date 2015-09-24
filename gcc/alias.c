@@ -134,7 +134,7 @@ along with GCC; see the file COPYING3.  If not see
 
 struct alias_set_hash : int_hash <int, INT_MIN, INT_MIN + 1> {};
 
-struct GTY(()) alias_set_entry_d {
+struct GTY(()) alias_set_entry {
   /* The alias set number, as stored in MEM_ALIAS_SET.  */
   alias_set_type alias_set;
 
@@ -158,7 +158,6 @@ struct GTY(()) alias_set_entry_d {
   /* Nonzero if is_pointer or if one of childs have has_pointer set.  */
   bool has_pointer;
 };
-typedef struct alias_set_entry_d *alias_set_entry;
 
 static int rtx_equal_for_memref_p (const_rtx, const_rtx);
 static int memrefs_conflict_p (int, rtx, int, rtx, HOST_WIDE_INT);
@@ -167,7 +166,7 @@ static int base_alias_check (rtx, rtx, rtx, rtx, machine_mode,
 			     machine_mode);
 static rtx find_base_value (rtx);
 static int mems_in_disjoint_alias_sets_p (const_rtx, const_rtx);
-static alias_set_entry get_alias_set_entry (alias_set_type);
+static alias_set_entry *get_alias_set_entry (alias_set_type);
 static tree decl_for_component_ref (tree);
 static int write_dependence_p (const_rtx,
 			       const_rtx, machine_mode, rtx,
@@ -288,7 +287,7 @@ static bool copying_arguments;
 
 
 /* The splay-tree used to store the various alias set entries.  */
-static GTY (()) vec<alias_set_entry, va_gc> *alias_sets;
+static GTY (()) vec<alias_set_entry *, va_gc> *alias_sets;
 
 /* Build a decomposed reference object for querying the alias-oracle
    from the MEM rtx and store it in *REF.
@@ -395,7 +394,7 @@ rtx_refs_may_alias_p (const_rtx x, const_rtx mem, bool tbaa_p)
 /* Returns a pointer to the alias set entry for ALIAS_SET, if there is
    such an entry, or NULL otherwise.  */
 
-static inline alias_set_entry
+static inline alias_set_entry *
 get_alias_set_entry (alias_set_type alias_set)
 {
   return (*alias_sets)[alias_set];
@@ -417,7 +416,7 @@ mems_in_disjoint_alias_sets_p (const_rtx mem1, const_rtx mem2)
 bool
 alias_set_subset_of (alias_set_type set1, alias_set_type set2)
 {
-  alias_set_entry ase2;
+  alias_set_entry *ase2;
 
   /* Everything is a subset of the "aliases everything" set.  */
   if (set2 == 0)
@@ -453,7 +452,7 @@ alias_set_subset_of (alias_set_type set1, alias_set_type set2)
      get_alias_set for more details.  */
   if (ase2 && ase2->has_pointer)
     {
-      alias_set_entry ase1 = get_alias_set_entry (set1);
+      alias_set_entry *ase1 = get_alias_set_entry (set1);
 
       if (ase1 && ase1->is_pointer)
 	{
@@ -477,8 +476,8 @@ alias_set_subset_of (alias_set_type set1, alias_set_type set2)
 int
 alias_sets_conflict_p (alias_set_type set1, alias_set_type set2)
 {
-  alias_set_entry ase1;
-  alias_set_entry ase2;
+  alias_set_entry *ase1;
+  alias_set_entry *ase2;
 
   /* The easy case.  */
   if (alias_sets_must_conflict_p (set1, set2))
@@ -808,10 +807,10 @@ alias_ptr_types_compatible_p (tree t1, tree t2)
 
 /* Create emptry alias set entry.  */
 
-alias_set_entry
+alias_set_entry *
 init_alias_set_entry (alias_set_type set)
 {
-  alias_set_entry ase = ggc_alloc<alias_set_entry_d> ();
+  alias_set_entry *ase = ggc_alloc<alias_set_entry> ();
   ase->alias_set = set;
   ase->children = NULL;
   ase->has_zero_child = false;
@@ -1057,7 +1056,7 @@ get_alias_set (tree t)
   /* We treat pointer types specially in alias_set_subset_of.  */
   if (POINTER_TYPE_P (t) && set)
     {
-      alias_set_entry ase = get_alias_set_entry (set);
+      alias_set_entry *ase = get_alias_set_entry (set);
       if (!ase)
 	ase = init_alias_set_entry (set);
       ase->is_pointer = true;
@@ -1075,8 +1074,8 @@ new_alias_set (void)
   if (flag_strict_aliasing)
     {
       if (alias_sets == 0)
-	vec_safe_push (alias_sets, (alias_set_entry) 0);
-      vec_safe_push (alias_sets, (alias_set_entry) 0);
+	vec_safe_push (alias_sets, (alias_set_entry *) NULL);
+      vec_safe_push (alias_sets, (alias_set_entry *) NULL);
       return alias_sets->length () - 1;
     }
   else
@@ -1099,8 +1098,8 @@ new_alias_set (void)
 void
 record_alias_subset (alias_set_type superset, alias_set_type subset)
 {
-  alias_set_entry superset_entry;
-  alias_set_entry subset_entry;
+  alias_set_entry *superset_entry;
+  alias_set_entry *subset_entry;
 
   /* It is possible in complex type situations for both sets to be the same,
      in which case we can ignore this operation.  */
@@ -2228,12 +2227,24 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
       rtx x0 = XEXP (x, 0);
       rtx x1 = XEXP (x, 1);
 
+      /* However, VALUEs might end up in different positions even in
+	 canonical PLUSes.  Comparing their addresses is enough.  */
+      if (x0 == y)
+	return memrefs_conflict_p (xsize, x1, ysize, const0_rtx, c);
+      else if (x1 == y)
+	return memrefs_conflict_p (xsize, x0, ysize, const0_rtx, c);
+
       if (GET_CODE (y) == PLUS)
 	{
 	  /* The fact that Y is canonicalized means that this
 	     PLUS rtx is canonicalized.  */
 	  rtx y0 = XEXP (y, 0);
 	  rtx y1 = XEXP (y, 1);
+
+	  if (x0 == y1)
+	    return memrefs_conflict_p (xsize, x1, ysize, y0, c);
+	  if (x1 == y0)
+	    return memrefs_conflict_p (xsize, x0, ysize, y1, c);
 
 	  if (rtx_equal_for_memref_p (x1, y1))
 	    return memrefs_conflict_p (xsize, x0, ysize, y0, c);
@@ -2262,6 +2273,11 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
 	 PLUS rtx is canonicalized.  */
       rtx y0 = XEXP (y, 0);
       rtx y1 = XEXP (y, 1);
+
+      if (x == y0)
+	return memrefs_conflict_p (xsize, const0_rtx, ysize, y1, c);
+      if (x == y1)
+	return memrefs_conflict_p (xsize, const0_rtx, ysize, y0, c);
 
       if (CONST_INT_P (y1))
 	return memrefs_conflict_p (xsize, x, ysize, y0, c + INTVAL (y1));
@@ -2506,6 +2522,23 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
 
   if (! DECL_P (exprx) || ! DECL_P (expry))
     return 0;
+
+  /* If we refer to different gimple registers, or one gimple register
+     and one non-gimple-register, we know they can't overlap.  First,
+     gimple registers don't have their addresses taken.  Now, there
+     could be more than one stack slot for (different versions of) the
+     same gimple register, but we can presumably tell they don't
+     overlap based on offsets from stack base addresses elsewhere.
+     It's important that we don't proceed to DECL_RTL, because gimple
+     registers may not pass DECL_RTL_SET_P, and make_decl_rtl won't be
+     able to do anything about them since no SSA information will have
+     remained to guide it.  */
+  if (is_gimple_reg (exprx) || is_gimple_reg (expry))
+    return exprx != expry
+      || (moffsetx_known_p && moffsety_known_p
+	  && MEM_SIZE_KNOWN_P (x) && MEM_SIZE_KNOWN_P (y)
+	  && !offset_overlap_p (moffsety - moffsetx,
+				MEM_SIZE (x), MEM_SIZE (y)));
 
   /* With invalid code we can end up storing into the constant pool.
      Bail out to avoid ICEing when creating RTL for this.

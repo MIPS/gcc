@@ -145,11 +145,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-streamer.h"
 
 /* Hash based set of pairs of types.  */
-typedef struct
+struct type_pair
 {
   tree first;
   tree second;
-} type_pair;
+};
 
 template <>
 struct default_hash_traits <type_pair> : typed_noop_remove <type_pair>
@@ -3466,7 +3466,7 @@ possible_polymorphic_call_target_p (tree otr_type,
 
 bool
 possible_polymorphic_call_target_p (tree ref,
-				    gimple stmt,
+				    gimple *stmt,
 				    struct cgraph_node *n)
 {
   ipa_polymorphic_call_context context (current_function_decl, ref, stmt);

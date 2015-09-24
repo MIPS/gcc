@@ -2320,7 +2320,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 static bool
 bb_ends_with_multiway_branch (basic_block bb ATTRIBUTE_UNUSED)
 {
-  gimple stmt = last_stmt (bb);
+  gimple *stmt = last_stmt (bb);
   if (stmt && gimple_code (stmt) == GIMPLE_SWITCH)
     return true;
   if (stmt && gimple_code (stmt) == GIMPLE_GOTO
@@ -2493,6 +2493,12 @@ duplicate_thread_path (edge entry, edge exit,
 
   /* Remove the last branch in the jump thread path.  */
   remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
+
+  /* And fixup the flags on the single remaining edge.  */
+  edge fix_e = find_edge (region_copy[n_region - 1], exit->dest);
+  fix_e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
+  fix_e->flags |= EDGE_FALLTHRU;
+
   edge e = make_edge (region_copy[n_region - 1], exit->dest, EDGE_FALLTHRU);
 
   if (e) {

@@ -1239,7 +1239,6 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
 #undef DLSYM
 #undef DLSYM_OPT
 
-
   return 1;
 
  dl_fail:

@@ -480,6 +480,9 @@ xtensa_valid_move (machine_mode mode, rtx *operands)
     {
       int dst_regnum = xt_true_regnum (operands[0]);
 
+      if (xtensa_tls_referenced_p (operands[1]))
+	return FALSE;
+
       /* The stack pointer can only be assigned with a MOVSP opcode.  */
       if (dst_regnum == STACK_POINTER_REGNUM)
 	return !TARGET_WINDOWED_ABI
@@ -1048,7 +1051,7 @@ xtensa_emit_move_sequence (rtx *operands, machine_mode mode)
 	  return 1;
 	}
 
-      if (! TARGET_CONST16)
+      if (! TARGET_AUTO_LITPOOLS && ! TARGET_CONST16)
 	{
 	  src = force_const_mem (SImode, src);
 	  operands[1] = src;
@@ -1871,23 +1874,23 @@ xtensa_tls_module_base (void)
 static rtx_insn *
 xtensa_call_tls_desc (rtx sym, rtx *retp)
 {
-  rtx fn, arg, a10;
+  rtx fn, arg, a_io;
   rtx_insn *call_insn, *insns;
 
   start_sequence ();
   fn = gen_reg_rtx (Pmode);
   arg = gen_reg_rtx (Pmode);
-  a10 = gen_rtx_REG (Pmode, 10);
+  a_io = gen_rtx_REG (Pmode, WINDOW_SIZE + 2);
 
   emit_insn (gen_tls_func (fn, sym));
   emit_insn (gen_tls_arg (arg, sym));
-  emit_move_insn (a10, arg);
-  call_insn = emit_call_insn (gen_tls_call (a10, fn, sym, const1_rtx));
-  use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), a10);
+  emit_move_insn (a_io, arg);
+  call_insn = emit_call_insn (gen_tls_call (a_io, fn, sym, const1_rtx));
+  use_reg (&CALL_INSN_FUNCTION_USAGE (call_insn), a_io);
   insns = get_insns ();
   end_sequence ();
 
-  *retp = a10;
+  *retp = a_io;
   return insns;
 }
 
@@ -2428,6 +2431,20 @@ print_operand (FILE *file, rtx x, int letter)
 	  fputs (letter == 't' ? "@h" : "@l", file);
 	}
       break;
+
+    case 'y':
+      if (GET_CODE (x) == CONST_DOUBLE &&
+	  GET_MODE (x) == SFmode)
+	{
+	  REAL_VALUE_TYPE r;
+	  long l;
+	  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+	  REAL_VALUE_TO_TARGET_SINGLE (r, l);
+	  fprintf (file, "0x%08lx", l);
+	  break;
+	}
+
+      /* fall through */
 
     default:
       if (GET_CODE (x) == REG || GET_CODE (x) == SUBREG)

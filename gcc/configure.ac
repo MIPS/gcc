@@ -941,11 +941,11 @@ for tgt in `echo $enable_offload_targets | sed 's/,/ /g'`; do
   if test x"$offload_targets" = x; then
     offload_targets=$tgt
   else
-    offload_targets="$offload_targets:$tgt"
+    offload_targets="$offload_targets,$tgt"
   fi
 done
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
-  [Define to hold the list of target names suitable for offloading.])
+  [Define to offload targets, separated by commas.])
 if test x"$offload_targets" != x; then
   AC_DEFINE(ENABLE_OFFLOADING, 1,
     [Define this to enable support for offloading.])
@@ -1247,7 +1247,7 @@ AC_CHECK_DECLS([basename(const char*), strstr(const char*,const char*)], , ,[
 
 gcc_AC_CHECK_DECLS(getenv atol atoll asprintf sbrk abort atof getcwd getwd \
 	madvise stpcpy strnlen strsignal strverscmp \
-	strtol strtoul strtoll strtoull \
+	strtol strtoul strtoll strtoull setenv unsetenv \
 	errno snprintf vsnprintf vasprintf malloc realloc calloc \
 	free getopt clock getpagesize ffs gcc_UNLOCKED_FUNCS, , ,[
 #include "ansidecl.h"
@@ -1795,7 +1795,7 @@ AS_HELP_STRING([--enable-win32-registry=KEY],
                 of the registry key])],,)
 
 case $host_os in
-  win32 | pe | cygwin* | mingw32* | uwin*)
+  win32 | pe | cygwin* | mingw32*)
     if test "x$enable_win32_registry" != xno; then
       AC_SEARCH_LIBS(RegOpenKeyExA, advapi32,, [enable_win32_registry=no])
     fi
@@ -2752,7 +2752,7 @@ gcc_GAS_CHECK_FEATURE([cfi sections directive],
 	.cfi_startproc
 	.cfi_endproc],
 [case $target_os in
-  win32 | pe | cygwin* | mingw32* | uwin*)
+  win32 | pe | cygwin* | mingw32*)
     # Need to check that we generated the correct relocation for the
     # .debug_frame section.  This was fixed for binutils 2.21.
     gcc_cv_as_cfi_sections_directive=no
@@ -3325,7 +3325,7 @@ foo:	.long	25
 	tls_first_minor=14
 	tls_as_opt="-m64 -Aesame --fatal-warnings"
 	;;
-  sh-*-* | sh[34]-*-*)
+  sh-*-* | sh[123456789lbe]*-*-*)
     conftest_s='
 	.section ".tdata","awT",@progbits
 foo:	.long	25
@@ -5329,6 +5329,25 @@ if test x$gcc_cv_libc_provides_ssp = xyes; then
 	    [Define if your target C library provides stack protector support])
 fi
 
+# Check whether --enable-default-ssp was given.
+AC_ARG_ENABLE(default-ssp,
+[AS_HELP_STRING([--enable-default-ssp],
+  [enable Stack Smashing Protection as default])],[
+if test x$gcc_cv_libc_provides_ssp = xyes; then
+  case "$target" in
+    ia64*-*-*) enable_default_ssp=no ;;
+    *) enable_default_ssp=$enableval ;;
+  esac
+else
+  enable_default_ssp=no
+fi],
+enable_default_ssp=no)
+if test x$enable_default_ssp == xyes ; then
+  AC_DEFINE(ENABLE_DEFAULT_SSP, 1,
+      [Define if your target supports default stack protector and it is enabled.])
+fi
+AC_SUBST([enable_default_ssp])
+
 # Test for <sys/sdt.h> on the target.
 GCC_TARGET_TEMPLATE([HAVE_SYS_SDT_H])
 AC_MSG_CHECKING(sys/sdt.h in the target C library)
@@ -5771,6 +5790,13 @@ if test "x${ISLLIBS}" != "x" ; then
               [ac_has_isl_options_set_schedule_serialize_sccs=no])
   AC_MSG_RESULT($ac_has_isl_options_set_schedule_serialize_sccs)
 
+  AC_MSG_CHECKING([Checking for isl_ctx_get_max_operations])
+  AC_TRY_LINK([#include <isl/ctx.h>],
+              [isl_ctx_get_max_operations (isl_ctx_alloc ());],
+              [ac_has_isl_ctx_get_max_operations=yes],
+              [ac_has_isl_ctx_get_max_operations=no])
+  AC_MSG_RESULT($ac_has_isl_ctx_get_max_operations)
+
   LIBS="$saved_LIBS"
   CXXFLAGS="$saved_CXXFLAGS"
 
@@ -5782,6 +5808,10 @@ if test "x${ISLLIBS}" != "x" ; then
   if test x"$ac_has_isl_options_set_schedule_serialize_sccs" = x"yes"; then
      AC_DEFINE(HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS, 1,
                [Define if isl_options_set_schedule_serialize_sccs exists.])
+  fi
+  if test x"$ac_has_isl_ctx_get_max_operations" = x"yes"; then
+     AC_DEFINE(HAVE_ISL_CTX_MAX_OPERATIONS, 1,
+               [Define if isl_ctx_get_max_operations exists.])
   fi
 fi
 

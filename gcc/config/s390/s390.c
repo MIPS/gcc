@@ -728,7 +728,7 @@ s390_const_operand_ok (tree arg, int argnum, int op_flags, tree decl)
 		HOST_WIDE_INT_PRINT_DEC ".."
 		HOST_WIDE_INT_PRINT_DEC ")",
 		argnum, decl,
-		-(HOST_WIDE_INT)1 << (bitwidth - 1),
+		-((HOST_WIDE_INT)1 << (bitwidth - 1)),
 		((HOST_WIDE_INT)1 << (bitwidth - 1)) - 1);
 	  return false;
 	}
@@ -2258,23 +2258,19 @@ s390_contiguous_bitmask_vector_p (rtx op, int *start, int *end)
 {
   unsigned HOST_WIDE_INT mask;
   int length, size;
+  rtx elt;
 
-  if (!VECTOR_MODE_P (GET_MODE (op))
-      || GET_CODE (op) != CONST_VECTOR
-      || !CONST_INT_P (XVECEXP (op, 0, 0)))
+  if (!const_vec_duplicate_p (op, &elt)
+      || !CONST_INT_P (elt))
     return false;
 
-  if (GET_MODE_NUNITS (GET_MODE (op)) > 1)
-    {
-      int i;
-
-      for (i = 1; i < GET_MODE_NUNITS (GET_MODE (op)); ++i)
-	if (!rtx_equal_p (XVECEXP (op, 0, i), XVECEXP (op, 0, 0)))
-	  return false;
-    }
-
   size = GET_MODE_UNIT_BITSIZE (GET_MODE (op));
-  mask = UINTVAL (XVECEXP (op, 0, 0));
+
+  /* We cannot deal with V1TI/V1TF. This would require a vgmq.  */
+  if (size > 64)
+    return false;
+
+  mask = UINTVAL (elt);
   if (s390_contiguous_bitmask_p (mask, size, start,
 				 end != NULL ? &length : NULL))
     {
@@ -7712,11 +7708,12 @@ replace_ltrel_base (rtx *x)
 /* We keep a list of constants which we have to add to internal
    constant tables in the middle of large functions.  */
 
-#define NR_C_MODES 31
+#define NR_C_MODES 32
 machine_mode constant_modes[NR_C_MODES] =
 {
   TFmode, TImode, TDmode,
-  V16QImode, V8HImode, V4SImode, V2DImode, V4SFmode, V2DFmode, V1TFmode,
+  V16QImode, V8HImode, V4SImode, V2DImode, V1TImode,
+  V4SFmode, V2DFmode, V1TFmode,
   DFmode, DImode, DDmode,
   V8QImode, V4HImode, V2SImode, V1DImode, V2SFmode, V1DFmode,
   SFmode, SImode, SDmode,
@@ -10360,6 +10357,7 @@ s390_emit_prologue (void)
 		       current_function_name(), cfun_frame_layout.frame_size,
 		       s390_stack_size);
 	      emit_insn (gen_trap ());
+	      emit_barrier ();
 	    }
 	  else
 	    {

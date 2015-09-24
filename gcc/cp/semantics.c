@@ -115,7 +115,7 @@ static tree capture_decltype (tree);
       In case of parsing error, we simply call `pop_deferring_access_checks'
       without `perform_deferred_access_checks'.  */
 
-typedef struct GTY(()) deferred_access {
+struct GTY(()) deferred_access {
   /* A vector representing name-lookups for which we have deferred
      checking access controls.  We cannot check the accessibility of
      names used in a decl-specifier-seq until we know what is being
@@ -134,7 +134,7 @@ typedef struct GTY(()) deferred_access {
   /* The current mode of access checks.  */
   enum deferring_kind deferring_access_checks_kind;
 
-} deferred_access;
+};
 
 /* Data for deferred access checking.  */
 static GTY(()) vec<deferred_access, va_gc> *deferred_access_stack;
@@ -2951,26 +2951,6 @@ finish_member_declaration (tree decl)
       maybe_add_class_template_decl_list (current_class_type, decl,
 					  /*friend_p=*/0);
     }
-
-  if (pch_file)
-    note_decl_for_pch (decl);
-}
-
-/* DECL has been declared while we are building a PCH file.  Perform
-   actions that we might normally undertake lazily, but which can be
-   performed now so that they do not have to be performed in
-   translation units which include the PCH file.  */
-
-void
-note_decl_for_pch (tree decl)
-{
-  gcc_assert (pch_file);
-
-  /* There's a good chance that we'll have to mangle names at some
-     point, even if only for emission in debugging information.  */
-  if (VAR_OR_FUNCTION_DECL_P (decl)
-      && !processing_template_decl)
-    mangle_decl (decl);
 }
 
 /* Finish processing a complete template declaration.  The PARMS are
@@ -4294,8 +4274,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
     {
       if (error_operand_p (t))
 	return error_mark_node;
-      if (type_dependent_expression_p (t))
-	return NULL_TREE;
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	{
 	  if (processing_template_decl)
@@ -4318,6 +4296,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
+      if (type_dependent_expression_p (t))
+	return NULL_TREE;
       t = convert_from_reference (t);
       return t;
     }
@@ -5349,7 +5329,8 @@ finish_omp_clauses (tree clauses, bool oacc)
 	  goto check_dup_generic;
 	case OMP_CLAUSE_LINEAR:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!type_dependent_expression_p (t)
+	  if ((VAR_P (t) || TREE_CODE (t) == PARM_DECL)
+	      && !type_dependent_expression_p (t)
 	      && !INTEGRAL_TYPE_P (TREE_TYPE (t))
 	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
 	    {
@@ -5376,7 +5357,9 @@ finish_omp_clauses (tree clauses, bool oacc)
 	  else
 	    {
 	      t = mark_rvalue_use (t);
-	      if (!processing_template_decl)
+	      if (!processing_template_decl
+		  && (VAR_P (OMP_CLAUSE_DECL (c))
+		      || TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL))
 		{
 		  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL)
 		    t = maybe_constant_value (t);
@@ -6593,7 +6576,8 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   iter_init = build_x_modify_expr (elocus,
 				   iter, PLUS_EXPR, iter_init,
 				   tf_warning_or_error);
-  iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
+  if (iter_init != error_mark_node)
+    iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
   finish_expr_stmt (iter_init);
   finish_expr_stmt (build_x_modify_expr (elocus,
 					 last, NOP_EXPR, decl,
@@ -7917,6 +7901,75 @@ capture_decltype (tree decl)
       type = build_reference_type (type);
     }
   return type;
+}
+
+/* Build a unary fold expression of EXPR over OP. If IS_RIGHT is true,
+   this is a right unary fold. Otherwise it is a left unary fold. */
+
+static tree
+finish_unary_fold_expr (tree expr, int op, tree_code dir)
+{
+  // Build a pack expansion (assuming expr has pack type).
+  if (!uses_parameter_packs (expr))
+    {
+      error_at (location_of (expr), "operand of fold expression has no "
+		"unexpanded parameter packs");
+      return error_mark_node;
+    }
+  tree pack = make_pack_expansion (expr);
+
+  // Build the fold expression.
+  tree code = build_int_cstu (integer_type_node, abs (op));
+  tree fold = build_min (dir, unknown_type_node, code, pack);
+  FOLD_EXPR_MODIFY_P (fold) = (op < 0);
+  return fold;
+}
+
+tree
+finish_left_unary_fold_expr (tree expr, int op)
+{
+  return finish_unary_fold_expr (expr, op, UNARY_LEFT_FOLD_EXPR);
+}
+
+tree
+finish_right_unary_fold_expr (tree expr, int op)
+{
+  return finish_unary_fold_expr (expr, op, UNARY_RIGHT_FOLD_EXPR);
+}
+
+/* Build a binary fold expression over EXPR1 and EXPR2. The
+   associativity of the fold is determined by EXPR1 and EXPR2 (whichever
+   has an unexpanded parameter pack). */
+
+tree
+finish_binary_fold_expr (tree pack, tree init, int op, tree_code dir)
+{
+  pack = make_pack_expansion (pack);
+  tree code = build_int_cstu (integer_type_node, abs (op));
+  tree fold = build_min (dir, unknown_type_node, code, pack, init);
+  FOLD_EXPR_MODIFY_P (fold) = (op < 0);
+  return fold;
+}
+
+tree
+finish_binary_fold_expr (tree expr1, tree expr2, int op)
+{
+  // Determine which expr has an unexpanded parameter pack and
+  // set the pack and initial term.
+  bool pack1 = uses_parameter_packs (expr1);
+  bool pack2 = uses_parameter_packs (expr2);
+  if (pack1 && !pack2)
+    return finish_binary_fold_expr (expr1, expr2, op, BINARY_RIGHT_FOLD_EXPR);
+  else if (pack2 && !pack1)
+    return finish_binary_fold_expr (expr2, expr1, op, BINARY_LEFT_FOLD_EXPR);
+  else
+    {
+      if (pack1)
+        error ("both arguments in binary fold have unexpanded parameter packs");
+      else
+        error ("no unexpanded parameter packs in binary fold");
+    }
+  return error_mark_node;
 }
 
 #include "gt-cp-semantics.h"

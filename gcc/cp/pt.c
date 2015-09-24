@@ -5088,6 +5088,8 @@ push_template_decl_real (tree decl, bool is_friend)
 
   if (is_primary)
     {
+      warning (OPT_Wtemplates, "template %qD declared", decl);
+      
       if (DECL_CLASS_SCOPE_P (decl))
 	member_template_p = true;
       if (TREE_CODE (decl) == TYPE_DECL
@@ -6469,16 +6471,18 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	{
 	  if (complain & tf_error)
 	    error ("%qE is not a valid template argument for type %qT "
-		   "because it is not an object with external linkage",
+		   "because it is not an object with linkage",
 		   expr, type);
 	  return NULL_TREE;
 	}
 
-      if (!DECL_EXTERNAL_LINKAGE_P (expr))
+      /* DR 1155 allows internal linkage in C++11 and up.  */
+      linkage_kind linkage = decl_linkage (expr);
+      if (linkage < (cxx_dialect >= cxx11 ? lk_internal : lk_external))
 	{
 	  if (complain & tf_error)
 	    error ("%qE is not a valid template argument for type %qT "
-		   "because object %qD has not external linkage",
+		   "because object %qD does not have linkage",
 		   expr, type, expr);
 	  return NULL_TREE;
 	}
@@ -7196,6 +7200,18 @@ convert_template_argument (tree parm,
 	val = error_mark_node;
       else if (val == error_mark_node && (complain & tf_error))
 	error ("could not convert template argument %qE to %qT",  orig_arg, t);
+
+      if (INDIRECT_REF_P (val))
+        {
+          /* Reject template arguments that are references to built-in
+             functions with no library fallbacks.  */
+          const_tree inner = TREE_OPERAND (val, 0);
+          if (TREE_CODE (TREE_TYPE (inner)) == REFERENCE_TYPE
+              && TREE_CODE (TREE_TYPE (TREE_TYPE (inner))) == FUNCTION_TYPE
+              && TREE_CODE (TREE_TYPE (inner)) == REFERENCE_TYPE
+              && reject_gcc_builtin (TREE_OPERAND (inner, 0)))
+              return error_mark_node;
+        }
 
       if (TREE_CODE (val) == SCOPE_REF)
 	{
@@ -10492,6 +10508,208 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
   return t;
 }
 
+/* When the unexpanded parameter pack in a fold expression expands to an empty
+   sequence, the value of the expression is as follows; the program is
+   ill-formed if the operator is not listed in this table.
+
+   *	1
+   +	0
+   &	-1
+   |	0
+   &&	true
+   ||	false
+   ,	void()  */
+
+tree
+expand_empty_fold (tree t, tsubst_flags_t complain)
+{
+  tree_code code = (tree_code)TREE_INT_CST_LOW (TREE_OPERAND (t, 0));
+  if (!FOLD_EXPR_MODIFY_P (t))
+    switch (code)
+      {
+      case MULT_EXPR:
+	return integer_one_node;
+      case PLUS_EXPR:
+	return integer_zero_node;
+      case BIT_AND_EXPR:
+	return integer_minus_one_node;
+      case BIT_IOR_EXPR:
+	return integer_zero_node;
+      case TRUTH_ANDIF_EXPR:
+	return boolean_true_node;
+      case TRUTH_ORIF_EXPR:
+	return boolean_false_node;
+      case COMPOUND_EXPR:
+	return void_node;
+      default:
+	break;
+      }
+
+  if (complain & tf_error)
+    error_at (location_of (t),
+	      "fold of empty expansion over %O", code);
+  return error_mark_node;
+}
+
+/* Given a fold-expression T and a current LEFT and RIGHT operand,
+   form an expression that combines the two terms using the
+   operator of T. */
+
+static tree
+fold_expression (tree t, tree left, tree right, tsubst_flags_t complain)
+{
+  tree op = FOLD_EXPR_OP (t);
+  tree_code code = (tree_code)TREE_INT_CST_LOW (op);
+
+  // Handle compound assignment operators.
+  if (FOLD_EXPR_MODIFY_P (t))
+    return build_x_modify_expr (input_location, left, code, right, complain);
+
+  switch (code)
+    {
+    case COMPOUND_EXPR:
+      return build_x_compound_expr (input_location, left, right, complain);
+    case DOTSTAR_EXPR:
+      return build_m_component_ref (left, right, complain);
+    default:
+      return build_x_binary_op (input_location, code,
+                                left, TREE_CODE (left),
+                                right, TREE_CODE (right),
+                                /*overload=*/NULL,
+                                complain);
+    }
+}
+
+/* Substitute ARGS into the pack of a fold expression T. */
+
+static inline tree
+tsubst_fold_expr_pack (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  return tsubst_pack_expansion (FOLD_EXPR_PACK (t), args, complain, in_decl);
+}
+
+/* Substitute ARGS into the pack of a fold expression T. */
+
+static inline tree
+tsubst_fold_expr_init (tree t, tree args, tsubst_flags_t complain, tree in_decl)
+{
+  return tsubst_expr (FOLD_EXPR_INIT (t), args, complain, in_decl, false);
+}
+
+/* Expand a PACK of arguments into a grouped as left fold.
+   Given a pack containing elements A0, A1, ..., An and an
+   operator @, this builds the expression:
+
+      ((A0 @ A1) @ A2) ... @ An
+
+   Note that PACK must not be empty.
+
+   The operator is defined by the original fold expression T. */
+
+static tree
+expand_left_fold (tree t, tree pack, tsubst_flags_t complain)
+{
+  tree left = TREE_VEC_ELT (pack, 0);
+  for (int i = 1; i < TREE_VEC_LENGTH (pack); ++i)
+    {
+      tree right = TREE_VEC_ELT (pack, i);
+      left = fold_expression (t, left, right, complain);
+    }
+  return left;
+}
+
+/* Substitute into a unary left fold expression. */
+
+static tree
+tsubst_unary_left_fold (tree t, tree args, tsubst_flags_t complain,
+                        tree in_decl)
+{
+  tree pack = tsubst_fold_expr_pack (t, args, complain, in_decl);
+  if (TREE_VEC_LENGTH (pack) == 0)
+    return expand_empty_fold (t, complain);
+  else
+    return expand_left_fold (t, pack, complain);
+}
+
+/* Substitute into a binary left fold expression.
+
+   Do ths by building a single (non-empty) vector of argumnts and
+   building the expression from those elements. */
+
+static tree
+tsubst_binary_left_fold (tree t, tree args, tsubst_flags_t complain,
+                         tree in_decl)
+{
+  tree pack = tsubst_fold_expr_pack (t, args, complain, in_decl);
+  tree init = tsubst_fold_expr_init (t, args, complain, in_decl);
+
+  tree vec = make_tree_vec (TREE_VEC_LENGTH (pack) + 1);
+  TREE_VEC_ELT (vec, 0) = init;
+  for (int i = 0; i < TREE_VEC_LENGTH (pack); ++i)
+    TREE_VEC_ELT (vec, i + 1) = TREE_VEC_ELT (pack, i);
+
+  return expand_left_fold (t, vec, complain);
+}
+
+/* Expand a PACK of arguments into a grouped as right fold.
+   Given a pack containing elementns A0, A1, ..., and an
+   operator @, this builds the expression:
+
+      A0@ ... (An-2 @ (An-1 @ An))
+
+   Note that PACK must not be empty.
+
+   The operator is defined by the original fold expression T. */
+
+tree
+expand_right_fold (tree t, tree pack, tsubst_flags_t complain)
+{
+  // Build the expression.
+  int n = TREE_VEC_LENGTH (pack);
+  tree right = TREE_VEC_ELT (pack, n - 1);
+  for (--n; n != 0; --n)
+    {
+      tree left = TREE_VEC_ELT (pack, n - 1);
+      right = fold_expression (t, left, right, complain);
+    }
+  return right;
+}
+
+/* Substitute into a unary right fold expression. */
+
+static tree
+tsubst_unary_right_fold (tree t, tree args, tsubst_flags_t complain,
+                         tree in_decl)
+{
+  tree pack = tsubst_fold_expr_pack (t, args, complain, in_decl);
+  if (TREE_VEC_LENGTH (pack) == 0)
+    return expand_empty_fold (t, complain);
+  else
+    return expand_right_fold (t, pack, complain);
+}
+
+/* Substitute into a binary right fold expression.
+
+   Do ths by building a single (non-empty) vector of arguments and
+   building the expression from those elements. */
+
+static tree
+tsubst_binary_right_fold (tree t, tree args, tsubst_flags_t complain,
+                         tree in_decl)
+{
+  tree pack = tsubst_fold_expr_pack (t, args, complain, in_decl);
+  tree init = tsubst_fold_expr_init (t, args, complain, in_decl);
+
+  int n = TREE_VEC_LENGTH (pack);
+  tree vec = make_tree_vec (n + 1);
+  for (int i = 0; i < n; ++i)
+    TREE_VEC_ELT (vec, i) = TREE_VEC_ELT (pack, i);
+  TREE_VEC_ELT (vec, n) = init;
+
+  return expand_right_fold (t, vec, complain);
+}
+
+
 /* Substitute ARGS into T, which is an pack expansion
    (i.e. TYPE_PACK_EXPANSION or EXPR_PACK_EXPANSION). Returns a
    TREE_VEC with the substituted arguments, a PACK_EXPANSION_* node
@@ -13585,8 +13803,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	      if (r)
 		{
 		  /* Make sure that the one we found is the one we want.  */
-		  tree ctx = tsubst (DECL_CONTEXT (t), args,
-				     complain, in_decl);
+		  tree ctx = DECL_CONTEXT (t);
+		  if (DECL_LANG_SPECIFIC (ctx) && DECL_TEMPLATE_INFO (ctx))
+		    ctx = tsubst (ctx, args, complain, in_decl);
 		  if (ctx != DECL_CONTEXT (r))
 		    r = NULL_TREE;
 		}
@@ -14034,6 +14253,15 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
 	 involve template parms.  */
       gcc_assert (!uses_template_parms (t));
       return t;
+
+    case UNARY_LEFT_FOLD_EXPR:
+      return tsubst_unary_left_fold (t, args, complain, in_decl);
+    case UNARY_RIGHT_FOLD_EXPR:
+      return tsubst_unary_right_fold (t, args, complain, in_decl);
+    case BINARY_LEFT_FOLD_EXPR:
+      return tsubst_binary_left_fold (t, args, complain, in_decl);
+    case BINARY_RIGHT_FOLD_EXPR:
+      return tsubst_binary_right_fold (t, args, complain, in_decl);
 
     default:
       /* We shouldn't get here, but keep going if !ENABLE_CHECKING.  */
@@ -16351,15 +16579,14 @@ tsubst_copy_and_build (tree t,
 	LAMBDA_EXPR_MUTABLE_P (r) = LAMBDA_EXPR_MUTABLE_P (t);
 	LAMBDA_EXPR_DISCRIMINATOR (r)
 	  = (LAMBDA_EXPR_DISCRIMINATOR (t));
-	/* For a function scope, we want to use tsubst so that we don't
-	   complain about referring to an auto function before its return
-	   type has been deduced.  Otherwise, we want to use tsubst_copy so
-	   that we look up the existing field/parameter/variable rather
-	   than build a new one.  */
 	tree scope = LAMBDA_EXPR_EXTRA_SCOPE (t);
-	if (scope && TREE_CODE (scope) == FUNCTION_DECL)
+	if (!scope)
+	  /* No substitution needed.  */;
+	else if (VAR_OR_FUNCTION_DECL_P (scope))
+	  /* For a function or variable scope, we want to use tsubst so that we
+	     don't complain about referring to an auto before deduction.  */
 	  scope = tsubst (scope, args, complain, in_decl);
-	else if (scope && TREE_CODE (scope) == PARM_DECL)
+	else if (TREE_CODE (scope) == PARM_DECL)
 	  {
 	    /* Look up the parameter we want directly, as tsubst_copy
 	       doesn't do what we need.  */
@@ -16372,8 +16599,12 @@ tsubst_copy_and_build (tree t,
 	    if (DECL_CONTEXT (scope) == NULL_TREE)
 	      DECL_CONTEXT (scope) = fn;
 	  }
-	else
+	else if (TREE_CODE (scope) == FIELD_DECL)
+	  /* For a field, use tsubst_copy so that we look up the existing field
+	     rather than build a new one.  */
 	  scope = RECUR (scope);
+	else
+	  gcc_unreachable ();
 	LAMBDA_EXPR_EXTRA_SCOPE (r) = scope;
 	LAMBDA_EXPR_RETURN_TYPE (r)
 	  = tsubst (LAMBDA_EXPR_RETURN_TYPE (t), args, complain, in_decl);
@@ -16388,6 +16619,8 @@ tsubst_copy_and_build (tree t,
 	complete_type (type);
 
 	LAMBDA_EXPR_THIS_CAPTURE (r) = NULL_TREE;
+
+	insert_pending_capture_proxies ();
 
 	RETURN (build_lambda_object (r));
       }
@@ -22077,6 +22310,13 @@ type_dependent_expression_p (tree expression)
       || TREE_CODE (expression) == WILDCARD_DECL)
     return true;
 
+  /* A fold expression is type-dependent. */
+  if (TREE_CODE (expression) == UNARY_LEFT_FOLD_EXPR
+      || TREE_CODE (expression) == UNARY_RIGHT_FOLD_EXPR
+      || TREE_CODE (expression) == BINARY_LEFT_FOLD_EXPR
+      || TREE_CODE (expression) == BINARY_RIGHT_FOLD_EXPR)
+    return true;
+
   /* Some expression forms are never type-dependent.  */
   if (TREE_CODE (expression) == PSEUDO_DTOR_EXPR
       || TREE_CODE (expression) == SIZEOF_EXPR
@@ -22714,7 +22954,8 @@ resolve_typename_type (tree type, bool only_current_p)
     return type;
   /* If SCOPE isn't the template itself, it will not have a valid
      TYPE_FIELDS list.  */
-  if (same_type_p (scope, CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope)))
+  if (CLASS_TYPE_P (scope)
+      && same_type_p (scope, CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope)))
     /* scope is either the template itself or a compatible instantiation
        like X<T>, so look up the name in the original template.  */
     scope = CLASSTYPE_PRIMARY_TEMPLATE_TYPE (scope);

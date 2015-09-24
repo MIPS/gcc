@@ -2223,6 +2223,17 @@ grow_tree_vec_stat (tree v, int len MEM_STAT_DECL)
   return v;
 }
 
+/* Return 1 if EXPR is the constant zero, whether it is integral, float or
+   fixed, and scalar, complex or vector.  */
+
+int
+zerop (const_tree expr)
+{
+  return (integer_zerop (expr)
+	  || real_zerop (expr)
+	  || fixed_zerop (expr));
+}
+
 /* Return 1 if EXPR is the integer constant zero or a complex constant
    of zero.  */
 
@@ -5786,7 +5797,7 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
 
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 
 	  if (is_gimple_call (stmt))
 	    find_decls_types (gimple_call_fntype (stmt), fld);
@@ -7520,6 +7531,8 @@ valid_constant_size_p (const_tree size)
 unsigned int
 element_precision (const_tree type)
 {
+  if (!TYPE_P (type))
+    type = TREE_TYPE (type);
   enum tree_code code = TREE_CODE (type);
   if (code == COMPLEX_TYPE || code == VECTOR_TYPE)
     type = TREE_TYPE (type);
@@ -13610,5 +13623,68 @@ verify_type (const_tree t)
       internal_error ("verify_type failed");
     }
 }
+
+
+/* Return true if ARG is marked with the nonnull attribute in the
+   current function signature.  */
+
+bool
+nonnull_arg_p (const_tree arg)
+{
+  tree t, attrs, fntype;
+  unsigned HOST_WIDE_INT arg_num;
+
+  gcc_assert (TREE_CODE (arg) == PARM_DECL && POINTER_TYPE_P (TREE_TYPE (arg)));
+
+  /* The static chain decl is always non null.  */
+  if (arg == cfun->static_chain_decl)
+    return true;
+
+  /* THIS argument of method is always non-NULL.  */
+  if (TREE_CODE (TREE_TYPE (cfun->decl)) == METHOD_TYPE
+      && arg == DECL_ARGUMENTS (cfun->decl)
+      && flag_delete_null_pointer_checks)
+    return true;
+
+  /* Values passed by reference are always non-NULL.  */
+  if (TREE_CODE (TREE_TYPE (arg)) == REFERENCE_TYPE
+      && flag_delete_null_pointer_checks)
+    return true;
+
+  fntype = TREE_TYPE (cfun->decl);
+  for (attrs = TYPE_ATTRIBUTES (fntype); attrs; attrs = TREE_CHAIN (attrs))
+    {
+      attrs = lookup_attribute ("nonnull", attrs);
+
+      /* If "nonnull" wasn't specified, we know nothing about the argument.  */
+      if (attrs == NULL_TREE)
+	return false;
+
+      /* If "nonnull" applies to all the arguments, then ARG is non-null.  */
+      if (TREE_VALUE (attrs) == NULL_TREE)
+	return true;
+
+      /* Get the position number for ARG in the function signature.  */
+      for (arg_num = 1, t = DECL_ARGUMENTS (cfun->decl);
+	   t;
+	   t = DECL_CHAIN (t), arg_num++)
+	{
+	  if (t == arg)
+	    break;
+	}
+
+      gcc_assert (t == arg);
+
+      /* Now see if ARG_NUM is mentioned in the nonnull list.  */
+      for (t = TREE_VALUE (attrs); t; t = TREE_CHAIN (t))
+	{
+	  if (compare_tree_int (TREE_VALUE (t), arg_num) == 0)
+	    return true;
+	}
+    }
+
+  return false;
+}
+
 
 #include "gt-tree.h"

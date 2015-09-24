@@ -53,7 +53,7 @@ static bool cfg_altered;
    This routine only makes a superficial check for a dereference.  Thus,
    it must only be used if it is safe to return a false negative.  */
 static bool
-check_loadstore (gimple stmt, tree op, tree, void *data)
+check_loadstore (gimple *stmt, tree op, tree, void *data)
 {
   if ((TREE_CODE (op) == MEM_REF || TREE_CODE (op) == TARGET_MEM_REF)
       && operand_equal_p (TREE_OPERAND (op, 0), (tree)data, 0))
@@ -66,10 +66,10 @@ check_loadstore (gimple stmt, tree op, tree, void *data)
   return false;
 }
 
-/* Insert a trap after SI and remove SI and all statements after the trap.  */
+/* Insert a trap after SI and split the block after the trap.  */
 
 static void
-insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
+insert_trap (gimple_stmt_iterator *si_p, tree op)
 {
   /* We want the NULL pointer dereference to actually occur so that
      code that wishes to catch the signal can do so.
@@ -80,7 +80,7 @@ insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
      If the dereference is a store and we can easily transform the RHS,
      then simplify the RHS to enable more DCE.   Note that we require the
      statement to be a GIMPLE_ASSIGN which filters out calls on the RHS.  */
-  gimple stmt = gsi_stmt (*si_p);
+  gimple *stmt = gsi_stmt (*si_p);
   if (walk_stmt_load_store_ops (stmt, (void *)op, NULL, check_loadstore)
       && is_gimple_assign (stmt)
       && INTEGRAL_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt))))
@@ -115,18 +115,8 @@ insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
   else
     gsi_insert_before (si_p, seq, GSI_NEW_STMT);
 
-  /* We must remove statements from the end of the block so that we
-     never reference a released SSA_NAME.  */
-  basic_block bb = gimple_bb (gsi_stmt (*si_p));
-  for (gimple_stmt_iterator si = gsi_last_bb (bb);
-       gsi_stmt (si) != gsi_stmt (*si_p);
-       si = gsi_last_bb (bb))
-    {
-      stmt = gsi_stmt (si);
-      unlink_stmt_vdef (stmt);
-      gsi_remove (&si, true);
-      release_defs (stmt);
-    }
+  split_block (gimple_bb (new_stmt), new_stmt);
+  *si_p = gsi_for_stmt (stmt);
 }
 
 /* BB when reached via incoming edge E will exhibit undefined behaviour
@@ -146,7 +136,7 @@ insert_trap_and_remove_trailing_statements (gimple_stmt_iterator *si_p, tree op)
 
 basic_block
 isolate_path (basic_block bb, basic_block duplicate,
-	      edge e, gimple stmt, tree op, bool ret_zero)
+	      edge e, gimple *stmt, tree op, bool ret_zero)
 {
   gimple_stmt_iterator si, si2;
   edge_iterator ei;
@@ -215,7 +205,7 @@ isolate_path (basic_block bb, basic_block duplicate,
 	  update_stmt (ret);
 	}
       else
-	insert_trap_and_remove_trailing_statements (&si2, op);
+	insert_trap (&si2, op);
     }
 
   return duplicate;
@@ -276,7 +266,7 @@ find_implicit_erroneous_behaviour (void)
 	      tree op = gimple_phi_arg_def (phi, i);
 	      edge e = gimple_phi_arg_edge (phi, i);
 	      imm_use_iterator iter;
-	      gimple use_stmt;
+	      gimple *use_stmt;
 
 	      next_i = i + 1;
 
@@ -397,7 +387,7 @@ find_explicit_erroneous_behaviour (void)
 	 because of jump threading and constant propagation.  */
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 
 	  /* By passing null_pointer_node, we can use the
 	     infer_nonnull_range functions to detect explicit NULL
@@ -422,14 +412,8 @@ find_explicit_erroneous_behaviour (void)
 		    continue;
 		}
 
-	      insert_trap_and_remove_trailing_statements (&si,
-							  null_pointer_node);
-
-	      /* And finally, remove all outgoing edges from BB.  */
-	      edge e;
-	      for (edge_iterator ei = ei_start (bb->succs);
-		   (e = ei_safe_edge (ei)); )
-		remove_edge (e);
+	      insert_trap (&si, null_pointer_node);
+	      bb = gimple_bb (gsi_stmt (si));
 
 	      /* Ignore any more operands on this statement and
 		 continue the statement iterator (which should

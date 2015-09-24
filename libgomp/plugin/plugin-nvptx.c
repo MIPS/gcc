@@ -1512,8 +1512,7 @@ GOMP_OFFLOAD_version (void)
    number ORD.  Allocate and return TARGET_TABLE.  */
 
 int
-GOMP_OFFLOAD_load_image (int ord, unsigned version,
-			 const void *target_data,
+GOMP_OFFLOAD_load_image (int ord, unsigned version, const void *target_data,
 			 struct addr_pair **target_table)
 {
   CUmodule module;

@@ -66,6 +66,7 @@ clear_line_info (struct output_block *ob)
   ob->current_file = NULL;
   ob->current_line = 0;
   ob->current_col = 0;
+  ob->current_sysp = false;
 }
 
 
@@ -191,8 +192,12 @@ lto_output_location (struct output_block *ob, struct bitpack_d *bp,
   bp_pack_value (bp, ob->current_col != xloc.column, 1);
 
   if (ob->current_file != xloc.file)
-    bp_pack_string (ob, bp, xloc.file, true);
+    {
+      bp_pack_string (ob, bp, xloc.file, true);
+      bp_pack_value (bp, xloc.sysp, 1);
+    }
   ob->current_file = xloc.file;
+  ob->current_sysp = xloc.sysp;
 
   if (ob->current_line != xloc.line)
     bp_pack_var_len_unsigned (bp, xloc.line);
@@ -2072,7 +2077,7 @@ output_function (struct cgraph_node *node)
 	  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gimple *stmt = gsi_stmt (gsi);
 	      gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	    }
 	}

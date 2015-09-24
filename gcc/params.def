@@ -830,21 +830,6 @@ DEFPARAM (PARAM_LOOP_BLOCK_TILE_SIZE,
 	  "size of tiles for loop blocking",
 	  51, 0, 0)
 
-/* Size of unrolling factor for unroll-and-jam.  */
- 
-DEFPARAM (PARAM_LOOP_UNROLL_JAM_SIZE,
- 	  "loop-unroll-jam-size",
- 	  "size of unrolling factor for unroll-and-jam",
- 	  4, 0, 0)
-
-/* Size of the band formed by the strip mined dimension and the most inner one for unroll-and-jam.  */
- 
-DEFPARAM (PARAM_LOOP_UNROLL_JAM_DEPTH,
- 	  "loop-unroll-jam-depth",
- 	  "depth of unrolled loop for unroll-and-jam",
- 	  2, 0, 0)
-
-
 /* Maximal number of parameters that we allow in a SCoP.  */
 
 DEFPARAM (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS,
@@ -858,6 +843,11 @@ DEFPARAM (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION,
 	  "graphite-max-bbs-per-function",
 	  "maximum number of basic blocks per function to be analyzed by Graphite",
 	  100, 0, 0)
+
+DEFPARAM (PARAM_MAX_ISL_OPERATIONS,
+	  "max-isl-operations",
+	  "maximum number of ISL operations, 0 means unlimited",
+	  350000, 0, 0)
 
 /* Avoid data dependence analysis on very large loops.  */
 DEFPARAM (PARAM_LOOP_MAX_DATAREFS_FOR_DATADEPS,
@@ -1150,6 +1140,11 @@ DEFPARAM (PARAM_MAX_FSM_THREAD_PATHS,
 	  "max-fsm-thread-paths",
 	  "Maximum number of new jump thread paths to create for a finite state automaton",
 	  50, 1, 999999)
+
+DEFPARAM (PARAM_PARLOOPS_CHUNK_SIZE,
+	  "parloops-chunk-size",
+	  "Chunk size of omp schedule for loops parallelized by parloops",
+	  0, 0, 0)
 /*
 
 Local variables:

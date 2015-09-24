@@ -87,7 +87,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "insn-codes.h"
-#include "optabs.h"
+#include "optabs-query.h"
+#include "optabs-libfuncs.h"
 #include "tree-chkp.h"
 #include "omp-low.h"
 
@@ -469,68 +470,6 @@ wrapup_global_declarations (tree *vec, int len)
   return output_something;
 }
 
-/* Issue appropriate warnings for the global declaration DECL.  */
-
-void
-check_global_declaration (tree decl)
-{
-  /* Warn about any function declared static but not defined.  We don't
-     warn about variables, because many programs have static variables
-     that exist only to get some text into the object file.  */
-  symtab_node *snode = symtab_node::get (decl);
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_INITIAL (decl) == 0
-      && DECL_EXTERNAL (decl)
-      && ! DECL_ARTIFICIAL (decl)
-      && ! TREE_NO_WARNING (decl)
-      && ! TREE_PUBLIC (decl)
-      && (warn_unused_function
-	  || snode->referred_to_p (/*include_self=*/false)))
-    {
-      if (snode->referred_to_p (/*include_self=*/false))
-	pedwarn (input_location, 0, "%q+F used but never defined", decl);
-      else
-	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
-      /* This symbol is effectively an "extern" declaration now.  */
-      TREE_PUBLIC (decl) = 1;
-    }
-
-  /* Warn about static fns or vars defined but not used.  */
-  if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-       /* We don't warn about "static const" variables because the
-	  "rcs_id" idiom uses that construction.  */
-       || (warn_unused_variable
-	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-      && ! DECL_IN_SYSTEM_HEADER (decl)
-      && ! snode->referred_to_p (/*include_self=*/false)
-      /* This TREE_USED check is needed in addition to referred_to_p
-	 above, because the `__unused__' attribute is not being
-	 considered for referred_to_p.  */
-      && ! TREE_USED (decl)
-      /* The TREE_USED bit for file-scope decls is kept in the identifier,
-	 to handle multiple external decls in different scopes.  */
-      && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
-      && ! DECL_EXTERNAL (decl)
-      && ! DECL_ARTIFICIAL (decl)
-      && ! DECL_ABSTRACT_ORIGIN (decl)
-      && ! TREE_PUBLIC (decl)
-      /* A volatile variable might be used in some non-obvious way.  */
-      && ! TREE_THIS_VOLATILE (decl)
-      /* Global register variables must be declared to reserve them.  */
-      && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-      /* Global ctors and dtors are called by the runtime.  */
-      && (TREE_CODE (decl) != FUNCTION_DECL
-	  || (!DECL_STATIC_CONSTRUCTOR (decl)
-	      && !DECL_STATIC_DESTRUCTOR (decl)))
-      /* Otherwise, ask the language.  */
-      && lang_hooks.decls.warn_unused_global (decl))
-    warning_at (DECL_SOURCE_LOCATION (decl),
-		(TREE_CODE (decl) == FUNCTION_DECL)
-		? OPT_Wunused_function
-		: OPT_Wunused_variable,
-		"%qD defined but not used", decl);
-}
-
 /* Compile an entire translation unit.  Write a file of assembly
    output and various debugging dumps.  */
 
@@ -579,15 +518,6 @@ compile_file (void)
 
   if (seen_error ())
     return;
-
-  /* After the parser has generated debugging information, augment
-     this information with any new location/etc information that may
-     have become available after the compilation proper.  */
-  timevar_start (TV_PHASE_DBGINFO);
-  symtab_node *node;
-  FOR_EACH_DEFINED_SYMBOL (node)
-    debug_hooks->late_global_decl (node->decl);
-  timevar_stop (TV_PHASE_DBGINFO);
 
   timevar_start (TV_PHASE_LATE_ASM);
 
@@ -1325,12 +1255,9 @@ process_options (void)
 
 #ifndef HAVE_isl
   if (flag_graphite
+      || flag_loop_optimize_isl
       || flag_graphite_identity
-      || flag_loop_block
-      || flag_loop_interchange
-      || flag_loop_strip_mine
-      || flag_loop_parallelize_all
-      || flag_loop_unroll_jam)
+      || flag_loop_parallelize_all)
     sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
 	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
@@ -1481,6 +1408,10 @@ process_options (void)
 #ifdef VMS_DEBUGGING_INFO
   else if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
+#endif
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  else if (write_symbols == DWARF2_DEBUG)
+    debug_hooks = &dwarf2_lineno_debug_hooks;
 #endif
   else
     error ("target system does not support the %qs debug format",

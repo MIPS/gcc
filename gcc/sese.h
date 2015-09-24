@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SESE_H
 #define GCC_SESE_H
 
+typedef hash_map<tree, tree> parameter_rename_map_t;
+
 /* A Single Entry, Single Exit region is a part of the CFG delimited
    by two edges.  */
 typedef struct sese_s
@@ -31,6 +33,9 @@ typedef struct sese_s
 
   /* Parameters used within the SCOP.  */
   vec<tree> params;
+
+  /* Parameters to be renamed.  */
+  parameter_rename_map_t *parameter_rename_map;
 
   /* Loops completely contained in the SCOP.  */
   bitmap loops;
@@ -114,7 +119,7 @@ bb_in_sese_p (basic_block bb, sese region)
 /* Returns true when STMT is defined in REGION.  */
 
 static inline bool
-stmt_in_sese_p (gimple stmt, sese region)
+stmt_in_sese_p (gimple *stmt, sese region)
 {
   basic_block bb = gimple_bb (stmt);
   return bb && bb_in_sese_p (bb, region);
@@ -125,7 +130,7 @@ stmt_in_sese_p (gimple stmt, sese region)
 static inline bool
 defined_in_sese_p (tree name, sese region)
 {
-  gimple stmt = SSA_NAME_DEF_STMT (name);
+  gimple *stmt = SSA_NAME_DEF_STMT (name);
   return stmt_in_sese_p (stmt, region);
 }
 
@@ -284,8 +289,8 @@ typedef struct gimple_bb
      corresponding element in CONDITION_CASES is not NULL_TREE.  For a
      SWITCH_EXPR the corresponding element in CONDITION_CASES is a
      CASE_LABEL_EXPR.  */
-  vec<gimple> conditions;
-  vec<gimple> condition_cases;
+  vec<gimple *> conditions;
+  vec<gimple *> condition_cases;
   vec<data_reference_p> data_refs;
 } *gimple_bb_p;
 

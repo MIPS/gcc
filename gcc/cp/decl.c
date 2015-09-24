@@ -114,7 +114,7 @@ static void end_cleanup_fn (void);
 static tree cp_make_fname_decl (location_t, tree, int);
 static void initialize_predefined_identifiers (void);
 static tree check_special_function_return_type
-	(special_function_kind, tree, tree);
+       (special_function_kind, tree, tree, int, const location_t*);
 static tree push_cp_library_fn (enum tree_code, tree, int);
 static tree build_cp_library_fn (tree, enum tree_code, tree, int);
 static void store_parm_decls (tree);
@@ -255,10 +255,10 @@ enum deprecated_states deprecated_state = DEPRECATED_NORMAL;
 /* A list of VAR_DECLs whose type was incomplete at the time the
    variable was declared.  */
 
-typedef struct GTY(()) incomplete_var_d {
+struct GTY(()) incomplete_var {
   tree decl;
   tree incomplete_type;
-} incomplete_var;
+};
 
 
 static GTY(()) vec<incomplete_var, va_gc> *incomplete_vars;
@@ -3828,7 +3828,7 @@ record_unknown_type (tree type, const char* name)
 /* A string for which we should create an IDENTIFIER_NODE at
    startup.  */
 
-typedef struct predefined_identifier
+struct predefined_identifier
 {
   /* The name of the identifier.  */
   const char *const name;
@@ -3836,7 +3836,7 @@ typedef struct predefined_identifier
   tree *const node;
   /* Nonzero if this is the name of a constructor or destructor.  */
   const int ctor_or_dtor_p;
-} predefined_identifier;
+};
 
 /* Create all the predefined identifiers.  */
 
@@ -5370,11 +5370,11 @@ check_for_uninitialized_const_var (tree decl)
 /* Structure holding the current initializer being processed by reshape_init.
    CUR is a pointer to the current element being processed, END is a pointer
    after the last element present in the initializer.  */
-typedef struct reshape_iterator_t
+struct reshape_iter
 {
   constructor_elt *cur;
   constructor_elt *end;
-} reshape_iter;
+};
 
 static tree reshape_init_r (tree, reshape_iter *, bool, tsubst_flags_t);
 
@@ -8356,6 +8356,11 @@ grokvardecl (tree type,
   else
     DECL_INTERFACE_KNOWN (decl) = 1;
 
+  if (DECL_NAME (decl)
+      && MAIN_NAME_P (DECL_NAME (decl))
+      && scope == global_namespace)
+    error ("cannot declare %<::main%> to be a global variable");
+
   /* Check that the variable can be safely declared as a concept.
      Note that this also forbids explicit specializations.  */
   if (conceptp)
@@ -8920,24 +8925,51 @@ create_array_type_for_decl (tree name, tree type, tree size)
   return build_cplus_array_type (type, itype);
 }
 
-/* Check that it's OK to declare a function with the indicated TYPE.
-   SFK indicates the kind of special function (if any) that this
-   function is.  OPTYPE is the type given in a conversion operator
-   declaration, or the class type for a constructor/destructor.
-   Returns the actual return type of the function; that
-   may be different than TYPE if an error occurs, or for certain
-   special functions.  */
+/* Returns the smallest location != UNKNOWN_LOCATION among the
+   three stored in LOCATIONS[ds_const], LOCATIONS[ds_volatile],
+   and LOCATIONS[ds_restrict].  */
+
+static location_t
+smallest_type_quals_location (int type_quals, const location_t* locations)
+{
+  location_t loc = UNKNOWN_LOCATION;
+
+  if (type_quals & TYPE_QUAL_CONST)
+    loc = locations[ds_const];
+
+  if ((type_quals & TYPE_QUAL_VOLATILE)
+      && (loc == UNKNOWN_LOCATION || locations[ds_volatile] < loc))
+    loc = locations[ds_volatile];
+
+  if ((type_quals & TYPE_QUAL_RESTRICT)
+      && (loc == UNKNOWN_LOCATION || locations[ds_restrict] < loc))
+    loc = locations[ds_restrict];
+
+  return loc;
+}
+
+/* Check that it's OK to declare a function with the indicated TYPE
+   and TYPE_QUALS.  SFK indicates the kind of special function (if any)
+   that this function is.  OPTYPE is the type given in a conversion
+   operator declaration, or the class type for a constructor/destructor.
+   Returns the actual return type of the function; that may be different
+   than TYPE if an error occurs, or for certain special functions.  */
 
 static tree
 check_special_function_return_type (special_function_kind sfk,
 				    tree type,
-				    tree optype)
+				    tree optype,
+				    int type_quals,
+				    const location_t* locations)
 {
   switch (sfk)
     {
     case sfk_constructor:
       if (type)
 	error ("return type specification for constructor invalid");
+      else if (type_quals != TYPE_UNQUALIFIED)
+	error_at (smallest_type_quals_location (type_quals, locations),
+		  "qualifiers are not allowed on constructor declaration");
 
       if (targetm.cxx.cdtor_returns_this () && !TYPE_FOR_JAVA (optype))
 	type = build_pointer_type (optype);
@@ -8948,6 +8980,10 @@ check_special_function_return_type (special_function_kind sfk,
     case sfk_destructor:
       if (type)
 	error ("return type specification for destructor invalid");
+      else if (type_quals != TYPE_UNQUALIFIED)
+	error_at (smallest_type_quals_location (type_quals, locations),
+		  "qualifiers are not allowed on destructor declaration");
+
       /* We can't use the proper return type here because we run into
 	 problems with ambiguous bases and covariant returns.
 	 Java classes are left unchanged because (void *) isn't a valid
@@ -8960,7 +8996,12 @@ check_special_function_return_type (special_function_kind sfk,
 
     case sfk_conversion:
       if (type)
-	error ("return type specified for %<operator %T%>",  optype);
+	error ("return type specified for %<operator %T%>", optype);
+      else if (type_quals != TYPE_UNQUALIFIED)
+	error_at (smallest_type_quals_location (type_quals, locations),
+		  "qualifiers are not allowed on declaration of "
+		  "%<operator %T%>", optype);
+
       type = optype;
       break;
 
@@ -9086,7 +9127,7 @@ grokdeclarator (const cp_declarator *declarator,
      a member function.  */
   cp_ref_qualifier rqual = REF_QUAL_NONE;
   /* cv-qualifiers that apply to the type specified by the DECLSPECS.  */
-  int type_quals;
+  int type_quals = TYPE_UNQUALIFIED;
   tree raises = NULL_TREE;
   int template_count = 0;
   tree returned_attrs = NULL_TREE;
@@ -9132,6 +9173,13 @@ grokdeclarator (const cp_declarator *declarator,
   bool concept_p = decl_spec_seq_has_spec_p (declspecs, ds_concept);
   if (concept_p)
     constexpr_p = true;
+
+  if (decl_spec_seq_has_spec_p (declspecs, ds_const))
+    type_quals |= TYPE_QUAL_CONST;
+  if (decl_spec_seq_has_spec_p (declspecs, ds_volatile))
+    type_quals |= TYPE_QUAL_VOLATILE;
+  if (decl_spec_seq_has_spec_p (declspecs, ds_restrict))
+    type_quals |= TYPE_QUAL_RESTRICT;
 
   if (decl_context == FUNCDEF)
     funcdef_flag = true, decl_context = NORMAL;
@@ -9458,8 +9506,13 @@ grokdeclarator (const cp_declarator *declarator,
     ctor_return_type = ctype;
 
   if (sfk != sfk_none)
-    type = check_special_function_return_type (sfk, type,
-					       ctor_return_type);
+    {
+      type = check_special_function_return_type (sfk, type,
+						 ctor_return_type,
+						 type_quals,
+						 declspecs->locations);
+      type_quals = TYPE_UNQUALIFIED;
+    }
   else if (type == NULL_TREE)
     {
       int is_main;
@@ -9643,17 +9696,6 @@ grokdeclarator (const cp_declarator *declarator,
       else
 	type = build_complex_type (type);
     }
-
-  type_quals = TYPE_UNQUALIFIED;
-  if (decl_spec_seq_has_spec_p (declspecs, ds_const))
-    type_quals |= TYPE_QUAL_CONST;
-  if (decl_spec_seq_has_spec_p (declspecs, ds_volatile))
-    type_quals |= TYPE_QUAL_VOLATILE;
-  if (decl_spec_seq_has_spec_p (declspecs, ds_restrict))
-    type_quals |= TYPE_QUAL_RESTRICT;
-  if (sfk == sfk_conversion && type_quals != TYPE_UNQUALIFIED)
-    error ("qualifiers are not allowed on declaration of %<operator %T%>",
-	   ctor_return_type);
 
   /* If we're using the injected-class-name to form a compound type or a
      declaration, replace it with the underlying class so we don't get
@@ -12688,6 +12730,7 @@ xref_basetypes (tree ref, tree base_list)
   tree binfo, base_binfo;
   unsigned max_vbases = 0; /* Maximum direct & indirect virtual bases.  */
   unsigned max_bases = 0;  /* Maximum direct bases.  */
+  unsigned max_dvbases = 0; /* Maximum direct virtual bases.  */
   int i;
   tree default_access;
   tree igo_prev; /* Track Inheritance Graph Order.  */
@@ -12725,12 +12768,13 @@ xref_basetypes (tree ref, tree base_list)
 	{
 	  max_bases++;
 	  if (TREE_TYPE (*basep))
-	    max_vbases++;
+	    max_dvbases++;
 	  if (CLASS_TYPE_P (basetype))
 	    max_vbases += vec_safe_length (CLASSTYPE_VBASECLASSES (basetype));
 	  basep = &TREE_CHAIN (*basep);
 	}
     }
+  max_vbases += max_dvbases;
 
   TYPE_MARKED_P (ref) = 1;
 
@@ -12773,6 +12817,9 @@ xref_basetypes (tree ref, tree base_list)
 	  error ("Java class %qT cannot have multiple bases", ref);
           return false;
         }
+      else
+	warning (OPT_Wmultiple_inheritance,
+		 "%qT defined with multiple direct bases", ref);
     }
 
   if (max_vbases)
@@ -12784,6 +12831,9 @@ xref_basetypes (tree ref, tree base_list)
 	  error ("Java class %qT cannot have virtual bases", ref);
           return false;
         }
+      else if (max_dvbases)
+	warning (OPT_Wvirtual_inheritance,
+		 "%qT defined with direct virtual base", ref);
     }
 
   for (igo_prev = binfo; base_list; base_list = TREE_CHAIN (base_list))
