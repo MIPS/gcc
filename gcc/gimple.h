@@ -615,6 +615,12 @@ struct GTY((tag("GSS_OMP_FOR")))
   /* [ WORD 11 ]
      Pre-body evaluated before the loop body begins.  */
   gimple_seq pre_body;
+
+  /* [ WORD 12 ]
+     If set, this statement is part of a gridified kernel, its clauses need to
+     be scanned and lowered but the statement should be discarded after
+     lowering.  */
+  bool kernel_phony;
 };
 
 
@@ -637,7 +643,7 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
      Shared data argument.  */
   tree data_arg;
 
-  /* TODO: These are only good for omp target, move there when the changes are
+  /* TODO: Revisit placement of the followinf three fields when the changes are
      final.  Also, add getter and setter methods.  */
 
   /* [ WORD 11 ] */
@@ -650,6 +656,12 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
 
   /* [ WORD 13 ] */
   struct gimple_omp_for_iter * GTY((length ("%h.kernel_collapse"))) kernel_iter;
+
+  /* [ WORD 9 ]  */
+  /* If set, this statement is part of a gridified kernel, its clauses need to
+     be scanned and lowered but the statement should be discarded after
+     lowering.  */
+  bool kernel_phony;
 };
 
 /* GIMPLE_OMP_PARALLEL or GIMPLE_TASK */
@@ -732,14 +744,14 @@ struct GTY((tag("GSS_OMP_CONTINUE")))
   tree control_use;
 };
 
-/* GIMPLE_OMP_SINGLE, GIMPLE_OMP_TEAMS */
+/* GIMPLE_OMP_SINGLE */
 
 struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
   gimple_statement_omp_single_layout : public gimple_statement_omp
 {
   /* [ WORD 1-7 ] : base class */
 
-  /* [ WORD 7 ]  */
+  /* [ WORD 8 ]  */
   tree clauses;
 };
 
@@ -750,13 +762,19 @@ struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
          stmt->code == GIMPLE_OMP_SINGLE.  */
 };
 
-struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
+/* GIMPLE_OMP_TEAMS */
+
+struct GTY((tag("GSS_OMP_TEAMS_LAYOUT")))
   gomp_teams : public gimple_statement_omp_single_layout
 {
-    /* No extra fields; adds invariant:
-         stmt->code == GIMPLE_OMP_TEAMS.  */
-};
+  /* [ WORD 1-8 ] : base class */
 
+  /* [ WORD 9 ]
+     If set, this statement is part of a gridified kernel, its clauses need to
+     be scanned and lowered but the statement should be discarded after
+     lowering.  */
+  bool kernel_phony;
+};
 
 /* GIMPLE_OMP_ATOMIC_LOAD.
    Note: This is based on gimple_statement_base, not g_s_omp, because g_s_omp
@@ -5018,6 +5036,21 @@ gimple_omp_for_set_pre_body (gimple *gs, gimple_seq pre_body)
   omp_for_stmt->pre_body = pre_body;
 }
 
+/* Return the kernel_phony of OMP_FOR statement.  */
+
+static inline bool
+gimple_omp_for_kernel_phony (const gomp_for *omp_for)
+{
+  return omp_for->kernel_phony;
+}
+
+/* Set kernel_phony flag of OMP_FOR to VALUE.  */
+
+static inline void
+gimple_omp_for_set_kernel_phony (gomp_for *omp_for, bool value)
+{
+  omp_for->kernel_phony = value;
+}
 
 /* Return the clauses associated with OMP_PARALLEL GS.  */
 
@@ -5104,6 +5137,22 @@ gimple_omp_parallel_set_data_arg (gomp_parallel *omp_parallel_stmt,
   omp_parallel_stmt->data_arg = data_arg;
 }
 
+/* Return the kernel_phony flag of OMP_PARALLEL_STMT.  */
+
+static inline bool
+gimple_omp_parallel_kernel_phony (const gomp_parallel *omp_parallel_stmt)
+{
+  return omp_parallel_stmt->kernel_phony;
+}
+
+/* Set kernel_phony flag of OMP_PARALLEL_STMT to VALUE.  */
+
+static inline void
+gimple_omp_parallel_set_kernel_phony (gomp_parallel *omp_parallel_stmt,
+				      bool value)
+{
+  omp_parallel_stmt->kernel_phony = value;
+}
 
 /* Return the clauses associated with OMP_TASK GS.  */
 
@@ -5552,6 +5601,21 @@ gimple_omp_teams_set_clauses (gomp_teams *omp_teams_stmt, tree clauses)
   omp_teams_stmt->clauses = clauses;
 }
 
+/* Return the kernel_phony flag of an OMP_TEAMS_STMT.  */
+
+static inline bool
+gimple_omp_teams_kernel_phony (const gomp_teams *omp_teams_stmt)
+{
+  return omp_teams_stmt->kernel_phony;
+}
+
+/* Set kernel_phony flag of an OMP_TEAMS_STMT to VALUE.  */
+
+static inline void
+gimple_omp_teams_set_kernel_phony (gomp_teams *omp_teams_stmt, bool value)
+{
+  omp_teams_stmt->kernel_phony = value;
+}
 
 /* Return the clauses associated with OMP_SECTIONS GS.  */
 

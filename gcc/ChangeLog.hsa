@@ -1,3 +1,44 @@
+2015-09-24  Martin Jambor  <mjambor@suse.cz>
+
+	* gsstruct.def (GSS_OMP_TEAMS_LAYOUT): New.
+	* gimple.def (GIMPLE_OMP_TEAMS): Change layout.
+	* gimple.h (gomp_for): New field kernel_phony.
+	(gimple_statement_omp_parallel_layout): Likewise.
+	(gimple_statement_omp_single_layout): Fixed offset in comment.
+	(gomp_teams): New field kernel_phony.
+	(gimple_omp_for_kernel_phony): New function.
+	(gimple_omp_for_set_kernel_phony): Likewise.
+	(gimple_omp_parallel_kernel_phony): Likewise.
+	(gimple_omp_parallel_set_kernel_phony): Likewise.
+	(gimple_omp_teams_kernel_phony): Likewise.
+	(gimple_omp_teams_set_kernel_phony): Likewise.
+	* omp-low.c (omp_context): Removed field kernel_inner_loop, added
+	field kernel_seq.
+	(fixup_child_record_type): Make sure receiver_decl exists before
+	modifying it.
+	(scan_omp_parallel): Only create child function if statement is
+	not phony.
+	(single_stmt_in_seq_skip_bind): Add asserts.
+	(kernel_remap_info): Removed.
+	(gather_inner_locals): Likewise.
+	(target_follows_kernelizable_pattern): Removed kri argument,
+	return bool.
+	(find_mark_kernel_components): New function.
+	(attempt_target_kernelization): Removed kri parameter, use
+	copy_gimple_seq_and_replace_locals for copying, and
+	find_mark_kernel_components for marking.  Fixup blocks.
+	(remap_kernel_blocks): Removed.
+	(scan_omp_kernel_loop): Likewise.
+	(scan_omp_target): Removed kri variable, scan kernel_seq as any
+	other gimple_seq.
+	(expand_target_kernel_body): Get block from appropriate place.  Remove
+	the correct edge.  Make sure also all simbling regions of inner for
+	loop are expanded.
+	(lower_omp_for): Do not emit phony constructs.
+	(lower_omp_taskreg): Likewise.
+	(lower_omp_target): Adjusted to use sequence in context.
+	(lower_omp_teams): Do not emit phony constructs.
+
 2015-09-23  Martin Liska  <mliska@suse.cz>
 
 	* hsa.h (hsa_gpu_implementation_p): New predicate.

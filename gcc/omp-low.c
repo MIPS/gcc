@@ -184,9 +184,10 @@ struct omp_context
      barriers should jump to during omplower pass.  */
   tree cancel_label;
 
-  /* For kernelized target construct, spointer to a copy of the inner loop
-     which is being turned into the body of the kernel.  */
-  gomp_for *kernel_inner_loop;
+  /* When we are about to produce a special gridified copy of a target
+     construct for a GPU, the copy is stored here between scanning and
+     lowering.  */
+  gimple_seq kernel_seq;
 
   /* What to do with variables with implicitly determined sharing
      attributes.  */
@@ -1651,8 +1652,9 @@ fixup_child_record_type (omp_context *ctx)
       layout_type (type);
     }
 
-  TREE_TYPE (ctx->receiver_decl)
-    = build_qualified_type (build_reference_type (type), TYPE_QUAL_RESTRICT);
+  if (ctx->receiver_decl)
+    TREE_TYPE (ctx->receiver_decl)
+      = build_qualified_type (build_reference_type (type), TYPE_QUAL_RESTRICT);
 }
 
 /* Instantiate decls as necessary in CTX to satisfy the data sharing
@@ -2346,8 +2348,11 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
-  create_omp_child_function (ctx, false);
-  gimple_omp_parallel_set_child_fn (stmt, ctx->cb.dst_fn);
+  if (!gimple_omp_parallel_kernel_phony (stmt))
+    {
+      create_omp_child_function (ctx, false);
+      gimple_omp_parallel_set_child_fn (stmt, ctx->cb.dst_fn);
+    }
 
   scan_sharing_clauses (gimple_omp_parallel_clauses (stmt), ctx);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
@@ -2663,6 +2668,7 @@ single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
     {
       if (!seq)
 	{
+	  gcc_assert (name);
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, target_loc,
 			     "Will not turn target construct into a simple "
@@ -2674,6 +2680,7 @@ single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
 
       if (!gimple_seq_singleton_p (seq))
 	{
+	  gcc_assert (name);
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, target_loc,
 			     "Will not turn target construct into a simple "
@@ -2696,68 +2703,22 @@ single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
   return stmt;
 }
 
-/* Structure keeping data necessary to create a duplicate of a loop for a bare
-   GPU kernel.  */
-
-struct kernel_remap_info
-{
-  /* local variables pertaining to binds that are in between target statement
-   and for statement.  */
-  vec <tree> inner_locals;
-  /* Hash mapping blocks to new copies.  */
-  hash_map<tree, tree> *block_map;
-  /* Copy body data of target context which also copies mappings for
-     inner_locals. */
-  struct copy_body_data *cb;
-  /* Block pertaining to the bind within the parallel construct.  */
-  tree par_block;
-  /* Block pertaining to the bind within the target construct.  */
-  tree tgt_block;
-};
-
-/* If SEQ contains a bind, add all variables pertaining to that bind statement
-   to vector inner_locals in KRI.  */
-
-static void
-gather_inner_locals (gimple_seq seq, kernel_remap_info *kri)
-{
-  while (true)
-    {
-      if (!seq)
-	return;
-      gcc_checking_assert (gimple_seq_singleton_p (seq));
-      gimple *stmt = gimple_seq_first_stmt (seq);
-      gbind *bind = dyn_cast <gbind *> (stmt);
-      if (!bind)
-	return;
-
-      tree var;
-      for (var = gimple_bind_vars (bind); var ; var = DECL_CHAIN (var))
-	kri->inner_locals.safe_push (var);
-      seq = gimple_bind_body (bind);
-    }
-}
-
 /* If TARGET follows a pattern that can be turned into a GPGPU kernel, return
-   the inner loop, otherwise return NULL.  In the case of success, also fill in
-   GROUP_SIZE_P with the requested group size or NULL if there is none, and
-   KRI fields inner_locals, par_block and tgt_block.  */
+   true, otherwise return false.  In the case of success, also fill in
+   GROUP_SIZE_P with the requested group size or NULL if there is none.  */
 
-static gomp_for *
-target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
-				     kernel_remap_info *kri)
+static bool
+target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p)
 {
   if (gimple_omp_target_kind (target) != GF_OMP_TARGET_KIND_REGION)
-    return NULL;
+    return false;
 
   location_t tloc = gimple_location (target);
   gimple *stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (target), tloc,
-					      "target");
+					       "target");
   if (!stmt)
-    return NULL;
-
-  gomp_teams *teams = NULL;
-  gomp_for *dist = NULL;
+    return false;
+  gomp_teams *teams;
   tree group_size = NULL;
   if ((teams = dyn_cast <gomp_teams *> (stmt)))
     {
@@ -2774,7 +2735,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 				 "Will not turn target construct into a "
 				 "simple GPGPU kernel because we cannot handle "
 				 "num_teams clause of teams construct\n ");
-	      return NULL;
+	      return false;
 	    case OMP_CLAUSE_THREAD_LIMIT:
 	      group_size = OMP_CLAUSE_OPERAND (clauses, 0);
 	      break;
@@ -2787,7 +2748,8 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
       stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc,
 					   "teams");
       if (!stmt)
-	return NULL;
+	return false;
+      gomp_for *dist = NULL;
       if ((dist = dyn_cast <gomp_for *> (stmt)))
 	{
 	  gcc_assert (gimple_omp_for_kind (dist) == GF_OMP_FOR_KIND_DISTRIBUTE);
@@ -2798,7 +2760,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 				 "Will not turn target construct into a "
 				 "simple GPGPU kernel because we cannot handle "
 				 "a standalone distribute construct\n ");
-	      return NULL;
+	      return false;
 	    }
 	  if (dist->collapse > 1)
 	    {
@@ -2807,7 +2769,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 				 "Will not turn target construct into a simple "
 				 "GPGPU kernel because the distribute construct "
 				 "contains collapse clause\n");
-	      return NULL;
+	      return false;
 	    }
 	  struct omp_for_data fd;
 	  extract_omp_for_data (dist, &fd, NULL);
@@ -2821,7 +2783,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 				     "simple GPGPU kernel because the teams "
 				     "thread limit is different from distribute "
 				     "schedule chunk\n");
-		  return NULL;
+		  return false;
 		}
 	      group_size = fd.chunk_size;
 	    }
@@ -2832,7 +2794,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 
   gomp_parallel *par;
   if (!stmt || !(par = dyn_cast <gomp_parallel *> (stmt)))
-    return NULL;
+    return false;
 
   tree clauses = gimple_omp_parallel_clauses (par);
   tree num_threads_clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
@@ -2844,7 +2806,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 			 "simple GPGPU kernel because there is a num_threads "
 			 "clause of the parallel construct that "
 			 "is likely to require looping \n");
-      return NULL;
+      return false;
     }
 
   stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (par), tloc, "parallel");
@@ -2853,7 +2815,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
      check they can be skipped.  */
   gomp_for *gfor;
   if (!stmt || !(gfor = dyn_cast <gomp_for *> (stmt)))
-    return NULL;
+    return false;
 
   if (gimple_omp_for_kind (gfor) != GF_OMP_FOR_KIND_FOR)
     {
@@ -2862,7 +2824,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 			 "Will not turn target construct into a simple GPGPU "
 			 "kernel because the inner loop is not a simple for "
 			 "loop\n");
-      return NULL;
+      return false;
     }
   if (gfor->collapse > 1)
     {
@@ -2871,7 +2833,7 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 			 "Will not turn target construct into a simple GPGPU "
 			 "kernel because the inner loop contains collapse "
 			 "clause\n");
-      return NULL;
+      return false;
     }
 
   clauses = gimple_omp_for_clauses (gfor);
@@ -2885,27 +2847,50 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p,
 			 "Will not turn target construct into a simple GPGPU "
 			 "kernel because the inner loop has non-automatic "
 			 "scheduling clause\n");
-      return NULL;
+      return false;
     }
 
-  if (teams)
-    gather_inner_locals (gimple_omp_body (teams), kri);
-  if (dist)
-    gather_inner_locals (gimple_omp_body (dist), kri);
-  gather_inner_locals (gimple_omp_body (par), kri);
-  kri->par_block = gimple_bind_block (as_a <gbind *> (gimple_omp_body (par)));
-  kri->tgt_block = gimple_bind_block (as_a <gbind *> (gimple_omp_body (target)));
   *group_size_p = group_size;
-  return gfor;
+  return true;
+}
+
+/* Given freshly copied top level kernel SEQ (which might a bind containing a
+   single gomp_parallel or gomp_teams, identify the individual components, mark
+   them as part of kernel and return the inner loop.  */
+
+static gomp_for *
+find_mark_kernel_components (gimple_seq seq)
+{
+  location_t tloc = UNKNOWN_LOCATION;
+  gimple *stmt = single_stmt_in_seq_skip_bind (seq, tloc, NULL);
+  gomp_teams *teams = NULL;
+  gomp_for *dist = NULL;
+  if ((teams = dyn_cast <gomp_teams *> (stmt)))
+    {
+      gimple_omp_teams_set_kernel_phony (teams, true);
+      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc, NULL);
+      gcc_checking_assert (stmt);
+      if ((dist = dyn_cast <gomp_for *> (stmt)))
+	{
+	  gimple_omp_for_set_kernel_phony (dist, true);
+	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
+					       NULL);
+	  gcc_checking_assert (stmt);
+	}
+    }
+  gomp_parallel *parallel = as_a <gomp_parallel *> (stmt);
+  gimple_omp_parallel_set_kernel_phony (parallel, true);
+  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (parallel), tloc, NULL);
+  gomp_for *inner_loop = as_a <gomp_for *> (stmt);
+  gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
+  return inner_loop;
 }
 
 /* Analyze TARGET body during its scanning and if it contains a loop which can
-   and should be turned into a GPGPU kernel, copy it aside for lowering.  If
-   successful, also fill in inner_locals, par_block and tgt_block in KRI.  */
+   and should be turned into a GPGPU kernel, copy it aside for lowering.  */
 
 static void
-attempt_target_kernelization (gomp_target *target, omp_context *ctx,
-			      kernel_remap_info *kri)
+attempt_target_kernelization (gomp_target *target, omp_context *ctx)
 {
   if (flag_disable_hsa_gridification)
     return;
@@ -2913,10 +2898,7 @@ attempt_target_kernelization (gomp_target *target, omp_context *ctx,
   if (!hsa_gen_requested_p ())
     return;
   tree group_size;
-  gomp_for *orig_inner_loop;
-  orig_inner_loop = target_follows_kernelizable_pattern (target, &group_size,
-							 kri);
-  if (!orig_inner_loop)
+  if (!target_follows_kernelizable_pattern (target, &group_size))
     return;
 
   if (dump_enabled_p ())
@@ -2924,115 +2906,28 @@ attempt_target_kernelization (gomp_target *target, omp_context *ctx,
 		     "Target construct will be turned into a simple GPGPU "
 		     "kernel\n");
 
-  gimple *copy = gimple_copy (orig_inner_loop);
-  gomp_for *kernel_inner_loop = as_a <gomp_for *> (copy);
-  gimple_omp_for_set_kind (kernel_inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
-  ctx->kernel_inner_loop = kernel_inner_loop;
+  ctx->kernel_seq = copy_gimple_seq_and_replace_locals
+    (gimple_omp_body (target));
+  gomp_for *inner_loop = find_mark_kernel_components (ctx->kernel_seq);
+
+  gbind *old_bind = as_a <gbind *> (gimple_seq_first (gimple_omp_body (target)));
+  gbind *new_bind = as_a <gbind *> (gimple_seq_first (ctx->kernel_seq));
+  tree new_block = gimple_bind_block (new_bind);
+  tree enc_block = BLOCK_SUPERCONTEXT (gimple_bind_block (old_bind));
+  BLOCK_CHAIN (new_block) = BLOCK_SUBBLOCKS (enc_block);
+  BLOCK_SUBBLOCKS (enc_block) = new_block;
+  BLOCK_SUPERCONTEXT (new_block) = enc_block;
 
   target->kernel_group_size = group_size;
-  size_t collapse = kernel_inner_loop->collapse;
+  size_t collapse = inner_loop->collapse;
   target->kernel_collapse = collapse;
   target->kernel_iter = ggc_cleared_vec_alloc<gimple_omp_for_iter> (collapse);
   for (size_t i = 0; i < collapse; i++)
     {
-      target->kernel_iter[i] = kernel_inner_loop->iter[i];
+      target->kernel_iter[i] = inner_loop->iter[i];
       scan_omp_op (&target->kernel_iter[i].initial, ctx);
       scan_omp_op (&target->kernel_iter[i].final, ctx);
     }
-}
-
-/* Remap all references to blocks in statement pointed at by GSI_P to a new
-   duplicate.  */
-
-static tree
-remap_kernel_blocks (gimple_stmt_iterator *gsi_p,
-		     bool *handled_ops_p,
-		     struct walk_stmt_info *wi)
-{
-  kernel_remap_info *kri = (kernel_remap_info *)wi->info;
-  gimple *stmt = gsi_stmt (*gsi_p);
-  gbind *bind = dyn_cast <gbind *> (stmt);
-  *handled_ops_p = true;
-  if (!bind)
-    return NULL;
-
-  tree new_block, old_block = gimple_bind_block (bind);
-  gcc_assert (old_block);
-  if (!old_block)
-    return NULL;
-  tree *n = kri->block_map->get (old_block);
-  if (!n)
-    {
-      new_block = make_node (BLOCK);
-      TREE_USED (new_block) = TREE_USED (old_block);
-      BLOCK_ABSTRACT_ORIGIN (new_block) = old_block;
-      BLOCK_SOURCE_LOCATION (new_block) = BLOCK_SOURCE_LOCATION (old_block);
-      BLOCK_NONLOCALIZED_VARS (new_block)
-	= vec_safe_copy (BLOCK_NONLOCALIZED_VARS (old_block));
-      tree new_decls = NULL_TREE;
-      tree bvars;
-      for (bvars = BLOCK_VARS (old_block); bvars; bvars = DECL_CHAIN (bvars))
-	{
-	  tree new_var = remap_decl (bvars, kri->cb);
-	  gcc_checking_assert (new_var);
-	  DECL_CHAIN (new_var) = new_decls;
-	}
-      BLOCK_VARS (new_block) = nreverse (new_decls);
-
-      tree super = BLOCK_SUPERCONTEXT (old_block);
-      if (super != kri->par_block)
-	{
-	  n = kri->block_map->get (super);
-	  gcc_assert (n);
-	  super = *n;
-	  gcc_assert (super);
-	}
-      else
-	super = kri->tgt_block;
-      BLOCK_SUPERCONTEXT (new_block) = super;
-      BLOCK_CHAIN (new_block) = BLOCK_SUBBLOCKS (super);
-      BLOCK_SUBBLOCKS (super) = new_block;
-    }
-  else
-    new_block = *n;
-  gcc_assert (new_block);
-  gimple_bind_set_block (bind, new_block);
-  return NULL;
-}
-
-/* If TARGET_CTX has a kernel inner loop, set up a context for it so that it
-   can be scanned and scan it.  KRI must already have its inner_locals,
-   par_block and tgt_block filled.  */
-
-static void
-scan_omp_kernel_loop (omp_context *target_ctx, kernel_remap_info *kri)
-{
-  gomp_for *kernel_inner_loop = target_ctx->kernel_inner_loop;
-  if (!kernel_inner_loop)
-    {
-      gcc_checking_assert (kri->inner_locals.is_empty ());
-      return;
-    }
-  unsigned count = kri->inner_locals.length ();
-  for (unsigned i = 0 ; i < count; i++)
-    {
-      tree old = kri->inner_locals[i];
-      tree copy = omp_copy_decl_1 (old, target_ctx);
-      insert_decl_map (&target_ctx->cb, old, copy);
-    }
-
-  scan_omp_for (kernel_inner_loop, target_ctx);
-
-  kri->block_map = new hash_map<tree, tree>;
-  kri->cb = &target_ctx->cb;
-  struct walk_stmt_info wi;
-  memset (&wi, 0, sizeof (wi));
-  wi.info = kri;
-  walk_gimple_seq (gimple_omp_body (kernel_inner_loop), remap_kernel_blocks,
-		   NULL, &wi);
-
-  kri->inner_locals.release ();
-  delete kri->block_map;
 }
 
 /* Scan a GIMPLE_OMP_TARGET.  */
@@ -3044,7 +2939,6 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   tree name;
   bool offloaded = is_gimple_omp_offloaded (stmt);
   tree clauses = gimple_omp_target_clauses (stmt);
-  kernel_remap_info kri;
 
   ctx = new_omp_context (stmt, outer_ctx);
   ctx->field_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
@@ -3058,8 +2952,7 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
 
-  memset (&kri, 0, sizeof (kri));
-  attempt_target_kernelization (stmt, ctx, &kri);
+  attempt_target_kernelization (stmt, ctx);
   if (offloaded)
     {
       if (is_gimple_omp_oacc (stmt))
@@ -3085,7 +2978,8 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
 
   scan_sharing_clauses (clauses, ctx);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
-  scan_omp_kernel_loop (ctx, &kri);
+  if (ctx->kernel_seq)
+    scan_omp (&ctx->kernel_seq, ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
     ctx->record_type = ctx->receiver_decl = NULL;
@@ -10077,18 +9971,21 @@ expand_target_kernel_body (struct omp_region *target)
     }
 
   gcc_assert (tgt_stmt->kernel_iter);
+  tree block = gimple_block (first_stmt (single_succ (gpukernel->entry)));
   *pp = gpukernel->next;
-
   for (pp = &gpukernel->inner; *pp; pp = &(*pp)->next)
-    if ((*pp)->type == GIMPLE_OMP_FOR
-	&& (gimple_omp_for_kind (last_stmt ((*pp)->entry))
-	    == GF_OMP_FOR_KIND_KERNEL_BODY))
+    if ((*pp)->type == GIMPLE_OMP_FOR)
       break;
 
   struct omp_region *kfor = *pp;
   gcc_assert (kfor);
+  gcc_assert (gimple_omp_for_kind (last_stmt ((kfor)->entry))
+	      == GF_OMP_FOR_KIND_KERNEL_BODY);
+  *pp = kfor->next;
   if (kfor->inner)
     expand_omp (kfor->inner);
+  if (gpukernel->inner)
+    expand_omp (gpukernel->inner);
 
   tree kern_fndecl = copy_node (orig_child_fndecl);
   DECL_NAME (kern_fndecl) = clone_function_name (kern_fndecl, "kernel");
@@ -10106,8 +10003,7 @@ expand_target_kernel_body (struct omp_region *target)
   struct function *kern_cfun = DECL_STRUCT_FUNCTION (kern_fndecl);
   kern_cfun->curr_properties = cfun->curr_properties;
 
-  remove_edge (find_edge (kfor->entry, kfor->exit));
-  tree block = gimple_block (last_stmt (kfor->entry));
+  remove_edge (BRANCH_EDGE (kfor->entry));
   /* FIXME: This should be set to something sensible, but currently all
      attempts maike -g fail.  However, we can't really debug HSA kernels at the
      moment anyway.  */
@@ -11579,11 +11475,13 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   lower_omp_for_lastprivate (&fd, &body, &dlist, ctx);
 
-  gimple_seq_add_stmt (&body, stmt);
+  if (!gimple_omp_for_kernel_phony (stmt))
+    gimple_seq_add_stmt (&body, stmt);
   gimple_seq_add_seq (&body, gimple_omp_body (stmt));
 
-  gimple_seq_add_stmt (&body, gimple_build_omp_continue (fd.loop.v,
-							 fd.loop.v));
+  if (!gimple_omp_for_kernel_phony (stmt))
+    gimple_seq_add_stmt (&body, gimple_build_omp_continue (fd.loop.v,
+							   fd.loop.v));
 
   /* After the loop, add exit clauses.  */
   lower_reduction_clauses (gimple_omp_for_clauses (stmt), &body, ctx);
@@ -11596,8 +11494,11 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   body = maybe_catch_exception (body);
 
   /* Region exit marker goes at the end of the loop body.  */
-  gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
-  maybe_add_implicit_barrier_cancel (ctx, &body);
+  if (!gimple_omp_for_kernel_phony (stmt))
+    {
+      gimple_seq_add_stmt (&body, gimple_build_omp_return (fd.have_nowait));
+      maybe_add_implicit_barrier_cancel (ctx, &body);
+    }
   pop_gimplify_context (new_stmt);
 
   gimple_bind_append_vars (new_stmt, ctx->block_vars);
@@ -12028,6 +11929,14 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   par_olist = NULL;
   par_ilist = NULL;
   par_rlist = NULL;
+  bool phony_construct = is_a <gomp_parallel *> (stmt)
+    && gimple_omp_parallel_kernel_phony (as_a <gomp_parallel *> (stmt));
+  if (phony_construct && ctx->record_type)
+    {
+      gcc_checking_assert (!ctx->receiver_decl);
+      ctx->receiver_decl = create_tmp_var
+	(build_reference_type (ctx->record_type), ".omp_rec");
+    }
   lower_rec_input_clauses (clauses, &par_ilist, &par_olist, ctx, NULL);
   lower_omp (&par_body, ctx);
   if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL)
@@ -12086,13 +11995,19 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     gimple_seq_add_stmt (&new_body,
 			 gimple_build_omp_continue (integer_zero_node,
 						    integer_zero_node));
-  gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
-  gimple_omp_set_body (stmt, new_body);
+  if (!phony_construct)
+    {
+      gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
+      gimple_omp_set_body (stmt, new_body);
+    }
 
   bind = gimple_build_bind (NULL, NULL, gimple_bind_block (par_bind));
   gsi_replace (gsi_p, dep_bind ? dep_bind : bind, true);
   gimple_bind_add_seq (bind, ilist);
-  gimple_bind_add_stmt (bind, stmt);
+  if (!phony_construct)
+    gimple_bind_add_stmt (bind, stmt);
+  else
+    gimple_bind_add_seq (bind, new_body);
   gimple_bind_add_seq (bind, olist);
 
   pop_gimplify_context (NULL);
@@ -12116,7 +12031,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree child_fn, t, c;
   gomp_target *stmt = as_a <gomp_target *> (gsi_stmt (*gsi_p));
   gbind *tgt_bind, *bind;
-  gimple_seq tgt_body, olist, ilist, orlist, irlist, new_body, kernel_seq;
+  gimple_seq tgt_body, olist, ilist, orlist, irlist, new_body;
   location_t loc = gimple_location (stmt);
   bool offloaded, data_region;
   unsigned int map_cnt = 0;
@@ -12155,7 +12070,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   push_gimplify_context ();
 
-  kernel_seq = NULL;
   irlist = NULL;
   orlist = NULL;
   if (offloaded
@@ -12237,14 +12151,14 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     {
       target_nesting_level++;
       lower_omp (&tgt_body, ctx);
-      if (ctx->kernel_inner_loop)
+      if (ctx->kernel_seq)
 	{
-	  gimple_seq_add_stmt (&kernel_seq, ctx->kernel_inner_loop);
-	  lower_omp (&kernel_seq, ctx);
-	  gimple_seq_add_stmt (&kernel_seq, gimple_build_omp_return (false));
-	  gimple *gpukernel = gimple_build_omp_gpukernel (kernel_seq);
-	  kernel_seq = NULL;
-	  gimple_seq_add_stmt (&kernel_seq, gpukernel);
+	  lower_omp (&ctx->kernel_seq, ctx);
+	  gimple_seq_add_stmt (&ctx->kernel_seq,
+			       gimple_build_omp_return (false));
+	  gimple *gpukernel = gimple_build_omp_gpukernel (ctx->kernel_seq);
+	  ctx->kernel_seq = NULL;
+	  gimple_seq_add_stmt (&ctx->kernel_seq, gpukernel);
 	}
       target_nesting_level--;
     }
@@ -12490,11 +12404,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     new_body = tgt_body;
   if (offloaded || data_region)
     {
-      if (kernel_seq)
-	/* TODO: We will probably want to enter this into some sort of special
-	   gimple bind (which will break basic blocks and be distinguishable,
-	   so that we can pick it up during expansion.    */
-	gimple_seq_add_seq (&new_body, kernel_seq);
+      if (ctx->kernel_seq)
+	gimple_seq_add_seq (&new_body, ctx->kernel_seq);
       gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
       gimple_omp_set_body (stmt, new_body);
     }
@@ -12553,19 +12464,22 @@ lower_omp_teams (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 			   &bind_body, &dlist, ctx, NULL);
   lower_omp (gimple_omp_body_ptr (teams_stmt), ctx);
   lower_reduction_clauses (gimple_omp_teams_clauses (teams_stmt), &olist, ctx);
-  gimple_seq_add_stmt (&bind_body, teams_stmt);
-
-  location_t loc = gimple_location (teams_stmt);
-  tree decl = builtin_decl_explicit (BUILT_IN_GOMP_TEAMS);
-  gimple *call = gimple_build_call (decl, 2, num_teams, thread_limit);
-  gimple_set_location (call, loc);
-  gimple_seq_add_stmt (&bind_body, call);
+  if (!gimple_omp_teams_kernel_phony (teams_stmt))
+    {
+      gimple_seq_add_stmt (&bind_body, teams_stmt);
+      location_t loc = gimple_location (teams_stmt);
+      tree decl = builtin_decl_explicit (BUILT_IN_GOMP_TEAMS);
+      gimple *call = gimple_build_call (decl, 2, num_teams, thread_limit);
+      gimple_set_location (call, loc);
+      gimple_seq_add_stmt (&bind_body, call);
+    }
 
   gimple_seq_add_seq (&bind_body, gimple_omp_body (teams_stmt));
   gimple_omp_set_body (teams_stmt, NULL);
   gimple_seq_add_seq (&bind_body, olist);
   gimple_seq_add_seq (&bind_body, dlist);
-  gimple_seq_add_stmt (&bind_body, gimple_build_omp_return (true));
+  if (!gimple_omp_teams_kernel_phony (teams_stmt))
+    gimple_seq_add_stmt (&bind_body, gimple_build_omp_return (true));
   gimple_bind_set_body (bind, bind_body);
 
   pop_gimplify_context (bind);
