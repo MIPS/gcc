@@ -1,5 +1,13 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* Makefile.am (libgomp_la_SOURCES): Add icv.c and icv-device.c.
+	* Makefile.in: Regenerate.
+	* env.c: Split out ICV definitions into...
+	* icv.c: ...here (new file) and...
+	* icv-device.c: ...here. New file.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* configure.ac [nvptx*-*-*] (libgomp_use_pthreads): Set and use it...
 	(LIBGOMP_USE_PTHREADS): ...here; new define.
 	* configure: Regenerate.
