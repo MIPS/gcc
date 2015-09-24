@@ -39,13 +39,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Used, in C++03 mode too, by allocators, etc.
   /**
-   *  @brief Same as C++11 std::addressof, except it is constexpr in C++11.
+   *  @brief Same as C++11 std::addressof
    *  @ingroup utilities
    */
   template<typename _Tp>
-#if __cplusplus >= 201103L
-    constexpr
-#endif
     inline _Tp*
     __addressof(_Tp& __r) _GLIBCXX_NOEXCEPT
     {

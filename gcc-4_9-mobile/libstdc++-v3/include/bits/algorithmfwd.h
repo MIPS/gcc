@@ -482,13 +482,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _FIter, typename _Tp>
     _FIter 
-    remove(_FIter, _FIter, const _Tp&)
-    __attribute__ ((warn_unused_result));
+    remove(_FIter, _FIter, const _Tp&);
 
   template<typename _FIter, typename _Predicate>
     _FIter 
-    remove_if(_FIter, _FIter, _Predicate)
-    __attribute__ ((warn_unused_result));
+    remove_if(_FIter, _FIter, _Predicate);
 
   template<typename _IIter, typename _OIter, typename _Tp>
     _OIter 
@@ -576,13 +574,11 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _FIter>
     _FIter 
-    unique(_FIter, _FIter)
-    __attribute__ ((warn_unused_result));
+    unique(_FIter, _FIter);
 
   template<typename _FIter, typename _BinaryPredicate>
     _FIter 
-    unique(_FIter, _FIter, _BinaryPredicate)
-    __attribute__ ((warn_unused_result));
+    unique(_FIter, _FIter, _BinaryPredicate);
 
   // unique_copy
 

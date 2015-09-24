@@ -928,7 +928,6 @@ extern void fancy_abort (const char *, int, const char *) ATTRIBUTE_NORETURN;
 	TARGET_HANDLE_PRAGMA_EXTERN_PREFIX \
 	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_EVEN \
 	TARGET_VECTORIZE_BUILTIN_MUL_WIDEN_ODD \
-        TARGET_RELAXED_ORDERING
 
 /* Arrays that were deleted in favor of a functional interface.  */
  #pragma GCC poison built_in_decls implicit_built_in_decls

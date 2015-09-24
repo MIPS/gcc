@@ -355,10 +355,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     private:
       typedef _ITp 	__int_type;
 
-      static constexpr int _S_alignment =
-	sizeof(_ITp) > alignof(_ITp) ? sizeof(_ITp) : alignof(_ITp);
-
-      alignas(_S_alignment) __int_type _M_i;
+      __int_type 	_M_i;
 
     public:
       __atomic_base() noexcept = default;
