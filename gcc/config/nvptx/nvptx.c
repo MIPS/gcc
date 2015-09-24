@@ -4115,36 +4115,28 @@ nvptx_file_end (void)
       }
 }
 
-/* Descriptor for a builtin.  */
+/* Expander for the shuffle builtins.  */
 
-struct builtin_description
-{
-  const char *name;
-  unsigned short type;
-  rtx (*expander) (tree, rtx, machine_mode, int);
-};
-
-/* Expander for the shuffle down builtins.  */
 static rtx
-nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
+nvptx_expand_shuffle (tree exp, rtx target, machine_mode mode, int ignore)
 {
   if (ignore)
     return target;
   
-  if (! target)
-    target = gen_reg_rtx (mode);
-
   rtx src = expand_expr (CALL_EXPR_ARG (exp, 0),
 			 NULL_RTX, mode, EXPAND_NORMAL);
   if (!REG_P (src))
     src = copy_to_mode_reg (mode, src);
 
   rtx idx = expand_expr (CALL_EXPR_ARG (exp, 1),
+			 NULL_RTX, SImode, EXPAND_NORMAL);
+  rtx op = expand_expr (CALL_EXPR_ARG  (exp, 2),
 			NULL_RTX, SImode, EXPAND_NORMAL);
+  
   if (!REG_P (idx) && GET_CODE (idx) != CONST_INT)
     idx = copy_to_mode_reg (SImode, idx);
 
-  rtx pat = nvptx_gen_shuffle (target, src, idx, SHUFFLE_DOWN);
+  rtx pat = nvptx_gen_shuffle (target, src, idx, INTVAL (op));
   if (pat)
     emit_insn (pat);
 
@@ -4152,10 +4144,10 @@ nvptx_expand_shuffle_down (tree exp, rtx target, machine_mode mode, int ignore)
 }
 
 /* Worker reduction address expander.  */
+
 static rtx
-nvptx_expand_work_red_addr (tree exp, rtx target,
-			    machine_mode ARG_UNUSED (mode),
-			    int ignore)
+nvptx_expand_worker_addr (tree exp, rtx target,
+			  machine_mode ARG_UNUSED (mode), int ignore)
 {
   if (ignore)
     return target;
@@ -4205,39 +4197,69 @@ nvptx_expand_work_red_addr (tree exp, rtx target,
   return target;
 }
 
-enum nvptx_types
-  {
-    NT_UINT_UINT_INT,
-    NT_ULL_ULL_INT,
-    NT_FLT_FLT_INT,
-    NT_DBL_DBL_INT,
-    NT_PTR_UINT_UINT_UINT_UINT,
-    NT_MAX
-  };
+static rtx
+nvptx_expand_swap (tree exp, rtx target,
+		   machine_mode mode, int ARG_UNUSED (ignore))
+{
+  if (!target)
+    target = gen_reg_rtx (mode);
+
+  rtx mem = expand_expr  (CALL_EXPR_ARG (exp, 0),
+			  NULL_RTX, Pmode, EXPAND_NORMAL);
+  rtx src = expand_expr (CALL_EXPR_ARG (exp, 1),
+			 NULL_RTX, mode, EXPAND_NORMAL);
+
+  rtx pat;
+  
+  if (mode == SImode)
+    pat = gen_atomic_exchangesi (target, mem, src, const0_rtx);
+  else
+    pat = gen_atomic_exchangedi (target, mem, src, const0_rtx);
+
+  emit_insn (pat);
+
+  return target;
+}
+
+static rtx
+nvptx_expand_cmp_swap (tree exp, rtx target,
+		       machine_mode mode, int ARG_UNUSED (ignore))
+{
+  if (!target)
+    target = gen_reg_rtx (mode);
+
+  rtx mem = expand_expr (CALL_EXPR_ARG (exp, 0),
+			 NULL_RTX, Pmode, EXPAND_NORMAL);
+  rtx cmp = expand_expr (CALL_EXPR_ARG (exp, 1),
+			 NULL_RTX, mode, EXPAND_NORMAL);
+  rtx src = expand_expr (CALL_EXPR_ARG (exp, 2),
+			 NULL_RTX, mode, EXPAND_NORMAL);
+  rtx pat;
+
+  mem = gen_rtx_MEM (mode, mem);
+  
+  if (mode == SImode)
+    pat = gen_atomic_compare_and_swapsi_1 (target, mem, cmp, src, const0_rtx);
+  else
+    pat = gen_atomic_compare_and_swapdi_1 (target, mem, cmp, src, const0_rtx);
+
+  emit_insn (pat);
+
+  return target;
+}
+
 
 /* Codes for all the NVPTX builtins.  */
 enum nvptx_builtins
 {
-  NVPTX_BUILTIN_SHUFFLE_DOWN,
-  NVPTX_BUILTIN_SHUFFLE_DOWNLL,
-  NVPTX_BUILTIN_SHUFFLE_DOWNF,
-  NVPTX_BUILTIN_SHUFFLE_DOWND,
-  NVPTX_BUILTIN_WORK_RED_ADDR,
+  NVPTX_BUILTIN_SHUFFLE,
+  NVPTX_BUILTIN_SHUFFLELL,
+  NVPTX_BUILTIN_WORKER_ADDR,
+  NVPTX_BUILTIN_SWAP,
+  NVPTX_BUILTIN_SWAPLL,
+  NVPTX_BUILTIN_CMP_SWAP,
+  NVPTX_BUILTIN_CMP_SWAPLL,
   NVPTX_BUILTIN_MAX
-};
-
-static const struct builtin_description builtins[] =
-{
-  {"__builtin_nvptx_shuffle_down", NT_UINT_UINT_INT,
-   nvptx_expand_shuffle_down},
-  {"__builtin_nvptx_shuffle_downll", NT_ULL_ULL_INT,
-   nvptx_expand_shuffle_down},
-  {"__builtin_nvptx_shuffle_downf", NT_FLT_FLT_INT,
-   nvptx_expand_shuffle_down},
-  {"__builtin_nvptx_shuffle_downd", NT_DBL_DBL_INT,
-   nvptx_expand_shuffle_down},
-  {"__builtin_nvptx_work_red_addr", NT_PTR_UINT_UINT_UINT_UINT,
-   nvptx_expand_work_red_addr},
 };
 
 static GTY(()) tree nvptx_builtin_decls[NVPTX_BUILTIN_MAX];
@@ -4256,32 +4278,28 @@ nvptx_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
 static void
 nvptx_init_builtins (void)
 {
-  tree types[NT_MAX];
-  unsigned ix;
+#define DEF(ID, NAME, T)						\
+  (nvptx_builtin_decls[NVPTX_BUILTIN_ ## ID] =				\
+   add_builtin_function ("__builtin_nvptx_" NAME,			\
+			 build_function_type_list T,			\
+			 NVPTX_BUILTIN_ ## ID, BUILT_IN_MD, NULL, NULL))
+#define UINT unsigned_type_node
+#define LLUINT long_long_unsigned_type_node
+#define PTRVOID ptr_type_node
 
-  types[NT_UINT_UINT_INT]
-    = build_function_type_list (unsigned_type_node, unsigned_type_node,
-				integer_type_node, NULL_TREE);
-  types[NT_ULL_ULL_INT]
-    = build_function_type_list (long_long_unsigned_type_node,
-				long_long_unsigned_type_node,
-				integer_type_node, NULL_TREE);
-  types[NT_FLT_FLT_INT]
-    = build_function_type_list (float_type_node, float_type_node,
-				integer_type_node, NULL_TREE);
-  types[NT_DBL_DBL_INT]
-    = build_function_type_list (double_type_node, double_type_node,
-				integer_type_node, NULL_TREE);
-  types[NT_PTR_UINT_UINT_UINT_UINT]
-    = build_function_type_list (ptr_type_node,
-				unsigned_type_node, unsigned_type_node,
-				unsigned_type_node, unsigned_type_node,
-				NULL_TREE);
+  DEF (SHUFFLE, "shuffle", (UINT, UINT, UINT, UINT, NULL_TREE));
+  DEF (SHUFFLELL, "shufflell", (LLUINT, LLUINT, UINT, UINT, NULL_TREE));
+  DEF (WORKER_ADDR, "worker_addr",
+       (PTRVOID, UINT, UINT, UINT, UINT, NULL_TREE));
+  DEF (SWAP, "swap", (UINT, PTRVOID, UINT, NULL_TREE));
+  DEF (SWAPLL, "swapll", (LLUINT, PTRVOID, LLUINT, NULL_TREE));
+  DEF (CMP_SWAP, "cmp_swap", (UINT, PTRVOID, UINT, UINT, NULL_TREE));
+  DEF (CMP_SWAPLL, "cmp_swapll", (LLUINT, PTRVOID, LLUINT, LLUINT, NULL_TREE));
 
-  for (ix = 0; ix != NVPTX_BUILTIN_MAX; ix++)
-    nvptx_builtin_decls[ix]
-      = add_builtin_function (builtins[ix].name, types[builtins[ix].type],
-			      ix, BUILT_IN_MD, NULL, NULL);
+#undef DEF
+#undef UINT
+#undef LLUINT
+#undef PTRVOID
 }
 
 /* Expand an expression EXP that calls a built-in function,
@@ -4297,9 +4315,25 @@ nvptx_expand_builtin (tree exp, rtx target,
 		     int ignore)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
-  const struct builtin_description *d = &builtins[DECL_FUNCTION_CODE (fndecl)];
+  switch (DECL_FUNCTION_CODE (fndecl))
+    {
+    case NVPTX_BUILTIN_SHUFFLE:
+    case NVPTX_BUILTIN_SHUFFLELL:
+      return nvptx_expand_shuffle (exp, target, mode, ignore);
 
-  return d->expander (exp, target, mode, ignore);
+    case NVPTX_BUILTIN_WORKER_ADDR:
+      return nvptx_expand_worker_addr (exp, target, mode, ignore);
+
+    case NVPTX_BUILTIN_SWAP:
+    case NVPTX_BUILTIN_SWAPLL:
+      return nvptx_expand_swap (exp, target, mode, ignore);
+
+    case NVPTX_BUILTIN_CMP_SWAP:
+    case NVPTX_BUILTIN_CMP_SWAPLL:
+      return nvptx_expand_cmp_swap (exp, target, mode, ignore);
+
+    default: gcc_unreachable ();
+    }
 }
 
 /* Define vector size for known hardware.  */
@@ -4406,7 +4440,7 @@ static tree
 nvptx_get_worker_red_addr (tree type, tree rid, tree lid)
 {
   machine_mode mode = TYPE_MODE (type);
-  tree fndecl = nvptx_builtin_decl (NVPTX_BUILTIN_WORK_RED_ADDR, true);
+  tree fndecl = nvptx_builtin_decl (NVPTX_BUILTIN_WORKER_ADDR, true);
 
   PROMOTE_MODE (mode, NULL, type);
   tree size = build_int_cst (unsigned_type_node, GET_MODE_SIZE (mode));
@@ -4425,7 +4459,7 @@ nvptx_generate_vector_shuffle (location_t loc,
 			       tree dest_var, tree var, unsigned shift,
 			       gimple_seq *seq)
 {
-  unsigned fn = NVPTX_BUILTIN_SHUFFLE_DOWN;
+  unsigned fn = NVPTX_BUILTIN_SHUFFLE;
   tree_code code = NOP_EXPR;
   tree type = unsigned_type_node;
 
@@ -4444,16 +4478,17 @@ nvptx_generate_vector_shuffle (location_t loc,
       /* FALLTHROUGH  */
     case DImode:
       type = long_long_unsigned_type_node;
-      fn = NVPTX_BUILTIN_SHUFFLE_DOWNLL;
+      fn = NVPTX_BUILTIN_SHUFFLELL;
       break;
 
     default:
       gcc_unreachable ();
     }
 
-  tree call = build_call_expr_loc (loc, nvptx_builtin_decl (fn, true),
-				   2, build1 (code, type, var),
-				   build_int_cst (unsigned_type_node, shift));
+  tree call = build_call_expr_loc
+    (loc, nvptx_builtin_decl (fn, true), 3, build1 (code, type, var),
+     build_int_cst (unsigned_type_node, shift),
+     build_int_cst (unsigned_type_node, SHUFFLE_DOWN));
 
   call = fold_build1 (code, TREE_TYPE (dest_var), call);
 

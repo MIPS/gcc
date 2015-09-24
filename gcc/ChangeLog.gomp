@@ -1,5 +1,24 @@
 2015-09-24  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* config/nvptx/nvptx.c (struct builtin_description): Delete.
+	(nvptx_expand_shuffle_down): Rename to ...
+	(nvptx_expand_shuffle): ... here.  add additional arg for type of
+	shuffle.
+	(nvptx_expand_work_red_addr): Rename to ...
+	(nvptx_expand_worker_addr): ... here.
+	(nvptx_expand_swap): New.
+	(nvptx_expand_cmp_swap): New.
+	(enum nvptx_types): Delete.
+	(enum nvptx_builtins): Rename builtins.  Remove float mode
+	shuffles, add SWAP and CMP_SWAP.
+	(builtins): Delete.
+	(nvptx_init_builtins): Reimplement.
+	(nvptx_expand_builtin): Likewise.
+	(nvptx_get_worker_red_addr): Adjust.
+	(nvptx_generate_vector_shuffle): Adjust.
+
+2015-09-24  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_expand_work_red_addr): Args 0 & 1
 	are size and alignment of allocation.
 	(nvptx_types): Delete  NT_UINTPTR_UINT_UINT, NT_ULLPTR_UINT_UINT,
