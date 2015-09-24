@@ -25,10 +25,12 @@
 #define RUNTIME_ROOT_PREFIX ""
 #endif
 #define GLIBC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/lib/ld-linux-aarch64%{mbig-endian:_be}.so.1"
+#define BIONIC_DYNAMIC_LINKER RUNTIME_ROOT_PREFIX "/system/bin/linker64"
+
 
 #define CPP_SPEC "%{pthread:-D_REENTRANT}"
 
-#define LINUX_TARGET_LINK_SPEC  "%{h*}		\
+#define LINUX_TARGET_LINK_SPEC0  "%{h*}		\
    %{static:-Bstatic}				\
    %{shared:-shared}				\
    %{symbolic:-Bsymbolic}			\
@@ -46,8 +48,9 @@
   " %{mfix-cortex-a53-835769:--fix-cortex-a53-835769}"
 #endif
 
-#define LINK_SPEC LINUX_TARGET_LINK_SPEC \
-                  CA53_ERR_835769_SPEC
+#define LINUX_TARGET_LINK_SPEC LINUX_TARGET_LINK_SPEC0 CA53_ERR_835769_SPEC
+
+#define LINK_SPEC LINUX_TARGET_LINK_SPEC
 
 #define TARGET_OS_CPP_BUILTINS()		\
   do						\

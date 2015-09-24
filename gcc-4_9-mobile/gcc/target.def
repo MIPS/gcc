@@ -3218,6 +3218,17 @@ If not defined, the default is to return @code{NULL_RTX}.",
  rtx, (rtx reg),
  hook_rtx_rtx_null)
 
+/* Given a register return the mode of the corresponding DWARF frame
+   register.  */
+DEFHOOK
+(dwarf_frame_reg_mode,
+ "Given a register, this hook should return the mode which the\n\
+corresponding Dwarf frame register should have.  This is normally\n\
+used to return a smaller mode than the raw mode to prevent call\n\
+clobbered parts of a register altering the frame register size",
+ enum machine_mode, (int regno),
+ default_dwarf_frame_reg_mode)
+
 /* If expand_builtin_init_dwarf_reg_sizes needs to fill in table
    entries not corresponding directly to registers below
    FIRST_PSEUDO_REGISTER, this hook should generate the necessary
@@ -5357,19 +5368,6 @@ DEFHOOKPOD
 for the primary source file, immediately after printing\n\
 @code{ASM_APP_OFF} (if that is enabled).  Most ELF assemblers expect\n\
 this to be done.  The default is false.",
- bool, false)
-
-/* True if the target is allowed to reorder memory accesses unless
-   synchronization is explicitly requested.  */
-DEFHOOKPOD
-(relaxed_ordering,
- "If set to @code{true}, means that the target's memory model does not\n\
-guarantee that loads which do not depend on one another will access\n\
-main memory in the order of the instruction stream; if ordering is\n\
-important, an explicit memory barrier must be used.  This is true of\n\
-many recent processors which implement a policy of ``relaxed,''\n\
-``weak,'' or ``release'' memory consistency, such as Alpha, PowerPC,\n\
-and ia64.  The default is @code{false}.",
  bool, false)
 
 /* Returns true if we should generate exception tables for use with the

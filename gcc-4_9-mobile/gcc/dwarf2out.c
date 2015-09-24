@@ -21506,8 +21506,14 @@ add_subprog_entry (tree decl, bool is_inlined)
       entry->subprog_num = 0;
       *slot = entry;
     }
-  else if (is_inlined)
-    (*slot)->is_inlined = true;
+  else if (is_inlined && !(*slot)->is_inlined)
+    {
+      /* If we've already output this subprogram entry as a non-inlined
+         subprogram, make sure it gets output again, so that we include
+         its linkage name.  */
+      (*slot)->is_inlined = true;
+      (*slot)->subprog_num = 0;
+    }
   return *slot;
 }
 
@@ -21617,7 +21623,10 @@ scan_blocks_for_inlined_calls (tree block, subprog_entry *subprog,
 
       for (i = 0; i < level; i++)
 	fprintf(stderr, "  ");
-      fprintf (stderr, "SCAN: block %d, subprog %s", BLOCK_NUMBER (block), dwarf2_name (subprog->decl, 0));
+      fprintf (stderr, "SCAN: [%p] block %d, subprog %s",
+	       (void *) block,
+	       BLOCK_NUMBER (block),
+	       dwarf2_name (subprog->decl, 0));
       if (caller != NULL)
 	{
 	  expanded_location loc = expand_location (caller_loc);
@@ -21670,6 +21679,21 @@ scan_blocks_for_inlined_calls (tree block, subprog_entry *subprog,
        subblock != NULL;
        subblock = BLOCK_FRAGMENT_CHAIN (subblock))
     {
+#ifdef DEBUG_TWO_LEVEL
+      if (level < 6)
+	{
+	  unsigned int i;
+
+	  for (i = 0; i < level; i++)
+	    fprintf(stderr, "  ");
+	  fprintf (stderr, "SCAN: [%p] block frag %d, origin %d\n",
+		   (void *) subblock,
+		   BLOCK_NUMBER (subblock),
+		   (BLOCK_FRAGMENT_ORIGIN (subblock)
+		    ? BLOCK_NUMBER (BLOCK_FRAGMENT_ORIGIN (subblock))
+		    : -1));
+	}
+#endif
       block_num = BLOCK_NUMBER (subblock);
       slot = block_table->find_slot_with_hash (&block_num, (hashval_t) block_num, INSERT);
       if (*slot == HTAB_EMPTY_ENTRY)
@@ -21717,6 +21741,7 @@ dwarf2out_begin_function (tree fun)
       subprog_entry *subprog;
 
       block_table->empty ();
+      logical_table->empty ();
 #ifdef DEBUG_TWO_LEVEL
       fprintf (stderr, "Begin function %s\n", dwarf2_name (fun, 0));
 #endif
@@ -21798,22 +21823,39 @@ out_subprog_directive (subprog_entry *subprog)
 {
   tree decl = subprog->decl;
   tree decl_name = DECL_NAME (decl);
-  const char *name;
+  tree origin = NULL_TREE;
+  const char *name = NULL;
   unsigned int file_num = 0;
   unsigned int line_num = 0;
 
   if (decl_name == NULL || IDENTIFIER_POINTER (decl_name) == NULL)
     return;
 
-  /* For inlined subroutines, use the linkage name.  */
-  if (subprog->is_inlined && DECL_ASSEMBLER_NAME (decl))
+  origin = decl_ultimate_origin (decl);
+  if (origin == NULL_TREE)
+    origin = decl;
+
+  /* For inlined subroutines, use the linkage name.
+     If -ftwo-level-all-subprogs is set, use the linkage name
+     for all subroutines.  */
+  if (subprog->is_inlined || flag_two_level_all_subprogs)
     {
-      name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-      if (name[0] == '*')
-        name++;
+      if (DECL_ASSEMBLER_NAME (origin))
+	{
+	  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (origin));
+	  if (name[0] == '*')
+	    name++;
+	}
+      else
+	name = dwarf2_name (origin, 0);
     }
   else
-    name = dwarf2_name (decl, 0);
+    {
+      /* To save space, we don't emit the name for non-inlined
+         subroutines, whose linkage names are available from the
+         object file's symbol table.  */
+      name = "";
+    }
 
   if (LOCATION_LOCUS (DECL_SOURCE_LOCATION (decl)) != UNKNOWN_LOCATION)
     {
@@ -21862,7 +21904,7 @@ out_logical_entry (dw_line_info_table *table, unsigned int file_num,
   /* Declare the subprogram if it hasn't already been declared.  */
   if (block != NULL)
     subprog = block->subprog;
-  if (subprog != NULL && subprog->subprog_num == 0 && context != NULL)
+  if (subprog != NULL && subprog->subprog_num == 0)
     out_subprog_directive (subprog);
   if (subprog != NULL)
     subprog_num = subprog->subprog_num;
