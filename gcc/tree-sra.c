@@ -975,7 +975,7 @@ scalarizable_type_p (tree type)
   }
 }
 
-static void scalarize_elem (tree, HOST_WIDE_INT, HOST_WIDE_INT, tree, tree);
+static void scalarize_elem (tree, HOST_WIDE_INT, HOST_WIDE_INT, bool, tree, tree);
 
 /* Create total_scalarization accesses for all scalar fields of a member
    of type DECL_TYPE conforming to scalarizable_type_p.  BASE
@@ -996,8 +996,9 @@ completely_scalarize (tree base, tree decl_type, HOST_WIDE_INT offset, tree ref)
 	    tree ft = TREE_TYPE (fld);
 	    tree nref = build3 (COMPONENT_REF, ft, ref, fld, NULL_TREE);
 
-	    scalarize_elem (base, pos, tree_to_uhwi (DECL_SIZE (fld)), nref,
-			    ft);
+	    scalarize_elem (base, pos, tree_to_uhwi (DECL_SIZE (fld)),
+			    TYPE_REVERSE_STORAGE_ORDER (decl_type),
+			    nref, ft);
 	  }
       break;
     case ARRAY_TYPE:
@@ -1023,7 +1024,9 @@ completely_scalarize (tree base, tree decl_type, HOST_WIDE_INT offset, tree ref)
 		tree nref = build4 (ARRAY_REF, elemtype, ref, size_int (idx),
 				    NULL_TREE, NULL_TREE);
 		int el_off = offset + idx * el_size;
-		scalarize_elem (base, el_off, el_size, nref, elemtype);
+		scalarize_elem (base, el_off, el_size,
+				TYPE_REVERSE_STORAGE_ORDER (decl_type),
+				nref, elemtype);
 	      }
 	    while (++idx <= lenp1);
 	  }
@@ -1037,11 +1040,12 @@ completely_scalarize (tree base, tree decl_type, HOST_WIDE_INT offset, tree ref)
 /* Create total_scalarization accesses for a member of type TYPE, which must
    satisfy either is_gimple_reg_type or scalarizable_type_p.  BASE must be the
    top-most VAR_DECL representing the variable; within that, POS and SIZE locate
-   the member and REF must be the reference expression for it.  */
+   the member, REVERSE gives its torage order. and REF must be the reference
+   expression for it.  */
 
 static void
-scalarize_elem (tree base, HOST_WIDE_INT pos, HOST_WIDE_INT size,
-		 tree ref, tree type)
+scalarize_elem (tree base, HOST_WIDE_INT pos, HOST_WIDE_INT size, bool reverse,
+		tree ref, tree type)
 {
   if (is_gimple_reg_type (type))
   {
@@ -1049,6 +1053,7 @@ scalarize_elem (tree base, HOST_WIDE_INT pos, HOST_WIDE_INT size,
     access->expr = ref;
     access->type = type;
     access->grp_total_scalarization = 1;
+    access->reverse = reverse;
     /* Accesses for intraprocedural SRA can have their stmt NULL.  */
   }
   else
