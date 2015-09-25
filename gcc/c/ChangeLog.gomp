@@ -1,3 +1,11 @@
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_depend_sink): Put - sign
+	into OMP_CLAUSE_DEPEND_SINK_NEGATIVE instead of negating the number.
+	(c_parser_omp_for_loop): Adjust for ordered clause counting
+	source loops before collapsing instead of after it.  Require
+	ordered clause parameter to be >= collapse parameter.
+
 2015-09-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (handle_omp_array_sections): Set

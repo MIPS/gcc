@@ -11913,14 +11913,13 @@ c_parser_omp_clause_depend_sink (c_parser *parser, location_t clause_loc,
 
       c_parser_consume_token (parser);
 
-      bool neg;
+      bool neg = false;
       if (c_parser_next_token_is (parser, CPP_MINUS))
 	neg = true;
-      else if (c_parser_next_token_is (parser, CPP_PLUS))
-	neg = false;
-      else
+      else if (!c_parser_next_token_is (parser, CPP_PLUS))
 	{
 	  addend = integer_zero_node;
+	  neg = false;
 	  goto add_to_vector;
 	}
       c_parser_consume_token (parser);
@@ -11937,21 +11936,15 @@ c_parser_omp_clause_depend_sink (c_parser *parser, location_t clause_loc,
 	  c_parser_error (parser, "expected integer");
 	  return list;
 	}
-      if (neg)
-	{
-	  bool overflow;
-	  wide_int offset = wi::neg (addend, &overflow);
-	  addend = wide_int_to_tree (TREE_TYPE (addend), offset);
-	  if (overflow)
-	    warning_at (c_parser_peek_token (parser)->location,
-			OPT_Woverflow,
-			"overflow in implicit constant conversion");
-	}
       c_parser_consume_token (parser);
 
     add_to_vector:
       if (t != error_mark_node)
-	vec = tree_cons (addend, t, vec);
+	{
+	  vec = tree_cons (addend, t, vec);
+	  if (neg)
+	    OMP_CLAUSE_DEPEND_SINK_NEGATIVE (vec) = 1;
+	}
 
       if (c_parser_next_token_is_not (parser, CPP_COMMA))
 	break;
@@ -13645,6 +13638,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
   tree declv, condv, incrv, initv, ret = NULL_TREE;
   tree pre_body = NULL_TREE, this_pre_body;
+  tree ordered_cl = NULL_TREE;
   bool fail = false, open_brace_parsed = false;
   int i, collapse = 1, ordered = 0, count, nbraces = 0;
   location_t for_loc;
@@ -13655,10 +13649,22 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
     else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_ORDERED
 	     && OMP_CLAUSE_ORDERED_EXPR (cl))
-      ordered = tree_to_shwi (OMP_CLAUSE_ORDERED_EXPR (cl));
+      {
+	ordered_cl = cl;
+	ordered = tree_to_shwi (OMP_CLAUSE_ORDERED_EXPR (cl));
+      }
+
+  if (ordered && ordered < collapse)
+    {
+      error_at (OMP_CLAUSE_LOCATION (ordered_cl),
+		"%<ordered%> clause parameter is less than %<collapse%>");
+      OMP_CLAUSE_ORDERED_EXPR (ordered_cl)
+	= build_int_cst (NULL_TREE, collapse);
+      ordered = collapse;
+    }
 
   gcc_assert (collapse >= 1 && ordered >= 0);
-  count = collapse + (ordered > 0 ? ordered - 1 : 0);
+  count = ordered ? ordered : collapse;
 
   declv = make_tree_vec (count);
   initv = make_tree_vec (count);

@@ -1,5 +1,8 @@
 2015-09-25  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/doacross-1.c (main): Adjust for new meaning of
+	ordered clause on collapse > 1 loops.
+
 	* ordered.c: Include string.h and doacross.h.
 	(gomp_doacross_init): New function.
 	(GOMP_doacross_wait): Implement.

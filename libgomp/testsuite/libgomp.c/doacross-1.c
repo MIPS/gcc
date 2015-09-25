@@ -79,7 +79,7 @@ main ()
 #define D(n) C(n##0) C(n##1) C(n##2) C(n##3)
     D(m)
 #undef A
-    #pragma omp for collapse (2) ordered(60) schedule(dynamic, 15)
+    #pragma omp for collapse (2) ordered(61) schedule(dynamic, 15)
     for (i = 0; i < N / 32; i++)
       for (j = 7; j > 1; j--)
 	for (k = 6; k >= 0; k -= 2)
@@ -119,7 +119,7 @@ main ()
 	      c[i][j][k] = 3;
 	    }
 
-    #pragma omp for collapse(2) ordered(3) lastprivate (i, j, k)
+    #pragma omp for collapse(2) ordered(4) lastprivate (i, j, k)
     for (i = 0; i < d + 1; i++)
       for (j = d + 1; j >= 0; j--)
 	for (k = 0; k < d; k++)
@@ -136,7 +136,7 @@ main ()
 	abort ();
       i = 8; j = 9; k = 10;
     }
-    #pragma omp for collapse(2) ordered(3) lastprivate (i, j, k, m)
+    #pragma omp for collapse(2) ordered(4) lastprivate (i, j, k, m)
     for (i = 0; i < d + 1; i++)
       for (j = d + 1; j >= 0; j--)
 	for (k = 0; k < d + 2; k++)
@@ -150,7 +150,7 @@ main ()
     #pragma omp single
     if (i != 1 || j != -1 || k != 2 || m != 0)
       abort ();
-    #pragma omp for collapse(2) ordered(3) nowait
+    #pragma omp for collapse(2) ordered(4) nowait
     for (i = 0; i < d + 1; i++)
       for (j = d; j > 0; j--)
 	for (k = 0; k < d + 2; k++)

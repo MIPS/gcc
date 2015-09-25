@@ -14086,7 +14086,10 @@ tsubst_omp_clause_decl (tree decl, tree args, tsubst_flags_t complain,
 	  && TREE_VALUE (decl) == length
 	  && TREE_CHAIN (decl) == chain)
 	return decl;
-      return tree_cons (low_bound, length, chain);
+      tree ret = tree_cons (low_bound, length, chain);
+      OMP_CLAUSE_DEPEND_SINK_NEGATIVE (ret)
+	= OMP_CLAUSE_DEPEND_SINK_NEGATIVE (decl);
+      return ret;
     }
   tree ret = tsubst_expr (decl, args, complain, in_decl,
 			  /*integral_constant_expression_p=*/false);

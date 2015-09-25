@@ -569,7 +569,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 		if (TREE_PURPOSE (t) != integer_zero_node)
 		  {
 		    tree p = TREE_PURPOSE (t);
-		    if (!wi::neg_p (p, TYPE_SIGN (TREE_TYPE (p))))
+		    if (OMP_CLAUSE_DEPEND_SINK_NEGATIVE (t))
+		      pp_minus (pp);
+		    else
 		      pp_plus (pp);
 		    dump_generic_node (pp, TREE_PURPOSE (t), spc, flags,
 				       false);

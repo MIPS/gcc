@@ -1,5 +1,19 @@
 2015-09-25  Jakub Jelinek  <jakub@redhat.com>
 
+	* tree.h (OMP_CLAUSE_DEPEND_SINK_NEGATIVE): Define.
+	* omp-low.c (extract_omp_for_data, expand_omp_for_init_counts,
+	expand_omp_ordered_source, expand_omp_ordered_sink,
+	expand_omp_for_ordered_loops, expand_omp_for_generic): Adjust
+	for fd->ordered being newly 0 when it used to be 0 before,
+	but otherwise being equal to fd->collapse - 1 + old fd->ordered.
+	expand_omp_ordered_source_sink): Likewise.  Warn for lexically
+	later iteration sink, or for sink on iteration never in iteration
+	space.  Use OMP_CLAUSE_DEPEND_SINK_NEGATIVE.
+	(lower_depend_clauses): Assert not seeing sink/source depend kinds.
+	* tree-pretty-print.c (dump_omp_clause): Use
+	OMP_CLAUSE_DEPEND_SINK_NEGATIVE for the +/- sign of sink vector
+	constants.
+
 	* gimplify.c (gimplify_omp_for): Don't adjust lastprivate
 	on ordered loops above collapse.
 	* omp-low.c (expand_omp_ordered_source): Rewritten to pass

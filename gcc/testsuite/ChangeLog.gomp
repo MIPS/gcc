@@ -1,5 +1,10 @@
 2015-09-25  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/gomp/sink-1.c (foo): Adjust for new meaning of
+	ordered clause on collapse > 1 loops.
+	* gcc.dg/gomp/sink-fold-2.c (funk): Remove xfails and adjust
+	for new diagnostics wording and only warnings, no errors.
+
 	* gcc.dg/gomp/sink-fold-1.c: Xfail.
 	* gcc.dg/gomp/sink-fold-2.c: Likewise.
 
