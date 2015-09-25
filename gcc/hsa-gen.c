@@ -75,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfghooks.h"
 #include "tree-cfg.h"
 #include "cfgloop.h"
+#include "cfganal.h"
 
 /* Following structures are defined in the final version
    of HSA specification.  */
@@ -4395,6 +4396,64 @@ transformable_switch_to_sbr_p (gswitch *s)
   return true;
 }
 
+/* Structure hold connection between PHI nodes and immediate
+   values hold by there nodes.  */
+
+struct phi_definition
+{
+  phi_definition (unsigned phi_i, unsigned label_i, tree imm):
+    phi_index (phi_i), label_index (label_i), phi_value (imm)
+  {}
+
+  unsigned phi_index;
+  unsigned label_index;
+  tree phi_value;
+};
+
+/* Function transforms GIMPLE SWITCH statements to a series of IF statements.
+   Let's assume following example:
+
+L0:
+   switch (index)
+     case C1:
+L1:    hard_work_1 ();
+       break;
+     case C2..C3:
+L2:    hard_work_2 ();
+       break;
+     default:
+LD:    hard_work_3 ();
+       break;
+
+  The tranformation encompases following steps:
+    1) all immediate values used by edges coming from the switch basic block
+       are saved
+    2) all these edges are removed
+    3) the switch statement (in L0) is replaced by:
+	 if (index == C1)
+	   goto L1;
+	 else
+	   goto L1';
+
+    4) newly created basic block Lx' is used for generation of
+       a next condition
+    5) else branch of the last condition goes to LD
+    6) fix all immediate values in PHI nodes that were propagated though
+       edges that were removed in step 2
+
+  Note: if a case is made by a range C1..C2, then process
+	following transformation:
+
+  switch_cond_op1 = C1 <= index;
+  switch_cond_op2 = index <= C2;
+  switch_cond_and = switch_cond_op1 & switch_cond_op2;
+  if (switch_cond_and != 0)
+    goto Lx;
+  else
+    goto Ly;
+
+*/
+
 static void
 convert_switch_statements ()
 {
@@ -4416,6 +4475,7 @@ convert_switch_statements ()
       {
 	gswitch *s = as_a <gswitch *> (stmt);
 
+	/* If the switch can utilize SBR insn, skip the statement.  */
 	if (transformable_switch_to_sbr_p (s))
 	  continue;
 
@@ -4428,29 +4488,43 @@ convert_switch_statements ()
 	  (func, CASE_LABEL (default_label));
 	basic_block cur_bb = bb;
 
-	hash_map<basic_block, tree> phi_defs;
+	auto_vec <edge> new_edges;
+	auto_vec <phi_definition *> phi_todo_list;
 
-	/* Remove all edges for the current basic block.  */
-	for (int i = EDGE_COUNT (bb->succs) - 1; i >= 0; i--)
+	/* Investigate all labels that and PHI nodes in these edges which
+	   should be fixed after we add new collection of edges.  */
+	for (unsigned i = 0; i < labels; i++)
 	  {
-	    edge e = EDGE_SUCC (bb, i);
-	    gphi_iterator phi_gsi = gsi_start_phis (EDGE_SUCC (bb, i)->dest);
+	    tree label = gimple_switch_label (s, i);
+	    basic_block label_bb = label_to_block_fn (func, CASE_LABEL (label));
+	    edge e = find_edge (bb, label_bb);
+	    gphi_iterator phi_gsi;
 
 	    /* Save PHI definitions that will be destroyed because of an edge
 	       is going to be removed.  */
-	    if (!gsi_end_p (phi_gsi))
+	    unsigned phi_index = 0;
+	    for (phi_gsi = gsi_start_phis (e->dest);
+		 !gsi_end_p (phi_gsi); gsi_next (&phi_gsi))
 	      {
 		gphi *phi = phi_gsi.phi ();
-		for (unsigned i = 0; i < gimple_phi_num_args (phi); i++)
+		for (unsigned j = 0; j < gimple_phi_num_args (phi); j++)
 		  {
-		    if (gimple_phi_arg_edge (phi, i) == e)
+		    if (gimple_phi_arg_edge (phi, j) == e)
 		      {
-			phi_defs.put (e->dest, gimple_phi_arg_def (phi, i));
+			tree imm = gimple_phi_arg_def (phi, j);
+			phi_todo_list.safe_push
+			  (new phi_definition (phi_index, i, imm));
 			break;
 		      }
 		  }
+		phi_index++;
 	      }
+	  }
 
+	/* Remove all edges for the current basic block.  */
+	for (int i = EDGE_COUNT (bb->succs) - 1; i >= 0; i--)
+ 	  {
+	    edge e = EDGE_SUCC (bb, i);
 	    remove_edge (e);
 	  }
 
@@ -4496,7 +4570,8 @@ convert_switch_statements ()
 
 	    basic_block label_bb = label_to_block_fn
 	      (func, CASE_LABEL (label));
-	    make_edge (cur_bb, label_bb, EDGE_TRUE_VALUE);
+	    edge new_edge = make_edge (cur_bb, label_bb, EDGE_TRUE_VALUE);
+	    new_edges.safe_push (new_edge);
 
 	    if (i < labels - 1)
 	      {
@@ -4514,36 +4589,27 @@ convert_switch_statements ()
 	      }
 	    else /* Link last IF statement and default label
 		    of the switch.  */
-	      make_edge (cur_bb, default_label_bb, EDGE_FALSE_VALUE);
+	      {
+		edge e = make_edge (cur_bb, default_label_bb, EDGE_FALSE_VALUE);
+		new_edges.safe_insert (0, e);
+	      }
 	  }
 
 	  /* Restore original PHI immediate value.  */
-	  for (unsigned i = 1; i < labels; i++)
+	  for (unsigned i = 0; i < phi_todo_list.length (); i++)
 	    {
-	      tree label = gimple_switch_label (s, i);
-	      basic_block label_bb = label_to_block_fn
-		(func, CASE_LABEL (label));
-	      gphi_iterator phi_gsi = gsi_start_phis (label_bb);
+	      phi_definition *phi_def = phi_todo_list[i];
+	      edge new_edge = new_edges[phi_def->label_index];
 
-	      if (!gsi_end_p (phi_gsi))
-		{
-		  gphi *phi = phi_gsi.phi ();
+	      gphi_iterator it = gsi_start_phis (new_edge->dest);
+	      for (unsigned i = 0; i < phi_def->phi_index; i++)
+		gsi_next (&it);
 
-		  for (unsigned j = 0; j < gimple_phi_num_args (phi); j++)
-		    {
-		      tree *slot = gimple_phi_arg_def_ptr (phi, j);
-		      if (!(*slot))
-			{
-			  basic_block dest = gimple_phi_arg_edge (phi, i)->dest;
-			  tree *imm = phi_defs.get (dest);
-			  gcc_assert (imm);
-			  *slot = *imm;
-			}
-		    }
-		}
+	      gphi *phi = it.phi ();
+	      add_phi_arg (phi, phi_def->phi_value, new_edge, UNKNOWN_LOCATION);
 	    }
 
-
+	/* Remove the original GIMPLE switch statement.  */
 	gsi_remove (&gsi, true);
       }
   }
@@ -4557,7 +4623,6 @@ convert_switch_statements ()
       calculate_dominance_info (CDI_DOMINATORS);
     }
 }
-
 
 /* Generate HSAIL representation of the current function and write into a
    special section of the output file.  If KERNEL is set, the function will be

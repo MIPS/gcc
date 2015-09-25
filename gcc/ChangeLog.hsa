@@ -1,5 +1,11 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (struct phi_definition): New structure.
+	(convert_switch_statements): Handle properly preserving of PHI
+	immediate values.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_unconditional_jump): New function.
 	(emit_switch_insn): Likewise.
 	(emit_insn): Add case for newly added hsa_insn_sbr.
