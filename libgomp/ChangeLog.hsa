@@ -1,3 +1,13 @@
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+        * hsa-traits.h: Add omp_num_threads to hsa_kernel_dispatch
+        structure.
+        * plugin/plugin-hsa.c (print_kernel_dispatch): Print the
+        struct field.
+        (create_kernel_dispatch_recursive): Set default value
+        to omp_num_threads
+        (GOMP_OFFLOAD_run): Add shadow_reg to all kernel dispatches.
+
 2015-09-04  Martin Liska  <mliska@suse.cz>
 
 	* plugin/plugin-hsa.c (GOMP_OFFLOAD_load_image): Enable having a module

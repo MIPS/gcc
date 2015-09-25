@@ -1,5 +1,14 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (struct hsa_kernel_dispatch): New field.
+	(gen_hsa_insns_for_kernel_call): Distribute hsa_num_threads
+	for a kernel dispatch.
+	(init_omp_in_prologue): Emit loading of shadow argument.
+	(gen_body_from_gimple): Remove usage of init_omp_in_prologue.
+	(generate_hsa): Move it to this function.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_directive_variable): Add support
 	for global scope.
 	(hsa_brig_emit_omp_symbols): New function.

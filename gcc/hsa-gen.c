@@ -101,6 +101,8 @@ struct hsa_kernel_dispatch
   uint32_t group_segment_size;
   /* Number of children kernel dispatches.  */
   uint64_t kernel_dispatch_count;
+  /* Number of threads.  */
+  uint32_t omp_num_threads;
   /* Debug purpose argument.  */
   uint64_t debug;
   /* Kernel dispatch structures created for children kernel dispatches.  */
@@ -3523,6 +3525,16 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 			  addr);
   hbb->append_insn (mem);
 
+  /* Write to shadow_reg->omp_num_threads = hsa_num_threads.  */
+  hbb->append_insn (new hsa_insn_comment
+		    ("set shadow_reg->omp_num_threads = hsa_num_threads"));
+
+  addr = new hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch,
+						   omp_num_threads));
+  hbb->append_insn
+    (new hsa_insn_mem (BRIG_OPCODE_ST, hsa_num_threads_reg->type,
+		       hsa_num_threads_reg, addr));
+
   /* Write to packet->workgroup_size_x.  */
   hbb->append_insn (new hsa_insn_comment
 		    ("set packet->workgroup_size_x = hsa_num_threads"));
@@ -4507,12 +4519,27 @@ hsa_init_new_bb (basic_block bb)
 /* Initialize OMP in an HSA basic block PROLOGUE.  */
 
 static void
-init_omp_in_prologue (hsa_bb *prologue)
+init_omp_in_prologue (void)
 {
-  BrigType16_t t = hsa_num_threads->type;
-  prologue->append_insn
-    (new hsa_insn_mem (BRIG_OPCODE_ST, t, new hsa_op_immed (64, t),
-		       new hsa_op_address (hsa_num_threads)));
+  if (!hsa_cfun->kern_p)
+    return;
+
+  hsa_bb *prologue = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+
+  /* Load a default value from shadow argument.  */
+  hsa_op_reg *shadow_reg_ptr = hsa_cfun->get_shadow_reg ();
+  hsa_op_address *addr = new hsa_op_address
+    (shadow_reg_ptr, offsetof (hsa_kernel_dispatch, omp_num_threads));
+
+  hsa_op_reg *threads = new hsa_op_reg (BRIG_TYPE_U32);
+  hsa_insn_basic *basic = new hsa_insn_mem
+    (BRIG_OPCODE_LD, threads->type, threads, addr);
+  prologue->append_insn (basic);
+
+  /* Save it to private variable hsa_num_threads.  */
+  basic = new hsa_insn_mem (BRIG_OPCODE_ST, hsa_num_threads->type, threads,
+			    new hsa_op_address (hsa_num_threads));
+  prologue->append_insn (basic);
 }
 
 /* Go over gimple representation and generate our internal HSA one.  SSA_MAP
@@ -4553,8 +4580,6 @@ gen_body_from_gimple (vec <hsa_op_reg_p> *ssa_map)
 	    return;
 	}
     }
-
-  init_omp_in_prologue (hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -5012,6 +5037,9 @@ generate_hsa (bool kernel)
   gen_function_def_parameters (hsa_cfun, &ssa_map);
   if (seen_error ())
     goto fail;
+
+  init_omp_in_prologue ();
+
   gen_body_from_gimple (&ssa_map);
   if (seen_error ())
     goto fail;

@@ -43,6 +43,8 @@ struct hsa_kernel_dispatch
   uint32_t group_segment_size;
   /* Number of children kernel dispatches.  */
   uint64_t kernel_dispatch_count;
+  /* Number of threads.  */
+  uint32_t omp_num_threads;
   /* Debug purpose argument.  */
   uint64_t debug;
   /* Kernel dispatch structures created for children kernel dispatches.  */

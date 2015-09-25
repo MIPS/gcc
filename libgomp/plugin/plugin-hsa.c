@@ -743,6 +743,9 @@ print_kernel_dispatch (struct hsa_kernel_dispatch *dispatch, unsigned indent)
   indent_stream (stderr, indent);
   fprintf (stderr, "children dispatches: %lu\n",
 	   dispatch->kernel_dispatch_count);
+  indent_stream (stderr, indent);
+  fprintf (stderr, "omp_num_threads: %u\n",
+	   dispatch->omp_num_threads);
   fprintf (stderr, "\n");
 
   for (unsigned i = 0; i < dispatch->kernel_dispatch_count; i++)
@@ -761,6 +764,7 @@ create_kernel_dispatch_recursive (struct kernel_info *kernel,
 
   struct hsa_kernel_dispatch *shadow = create_kernel_dispatch (kernel,
 							       omp_data_size);
+  shadow->omp_num_threads = 64;
   shadow->debug = 0;
 
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
@@ -926,15 +930,11 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
   hsa_signal_store_relaxed (s, 1);
   memcpy (shadow->kernarg_address, &vars, sizeof (vars));
 
-  /* Append shadow pointer to kernel arguments.  */
-  if (kernel->dependencies_count > 0)
-    {
-      memcpy (shadow->kernarg_address + sizeof (vars), &shadow,
-	      sizeof (struct hsa_kernel_runtime *));
+  memcpy (shadow->kernarg_address + sizeof (vars), &shadow,
+	  sizeof (struct hsa_kernel_runtime *));
 
-      if (debug)
-	fprintf (stderr, "Copying kernel runtime pointer to kernarg_address\n");
-    }
+  if (debug)
+    fprintf (stderr, "Copying kernel runtime pointer to kernarg_address\n");
 
   uint16_t header;
   header = HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE;
