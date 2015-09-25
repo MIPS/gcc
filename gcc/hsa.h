@@ -446,6 +446,49 @@ is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
     || p->opcode == BRIG_OPCODE_CBR;
 }
 
+class hsa_bb;
+
+/* HSA instruction for swtich branche.  */
+
+class hsa_insn_sbr : public hsa_insn_basic
+{
+public:
+  hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count);
+
+  void *operator new (size_t);
+
+  void replace_all_labels (basic_block old_bb, basic_block new_bb);
+
+  /* Width as described in HSA documentation.  */
+  BrigWidth8_t width;
+
+  /* Jump table.  */
+  vec <basic_block> jump_table;
+
+  /* Default label basic block.  */
+  basic_block default_bb;
+
+  /* Code list for label references.  */
+  hsa_op_code_list *label_code_list;
+
+private:
+  /* Make the default constructor inaccessible.  */
+  hsa_insn_sbr () : hsa_insn_basic (1, BRIG_OPCODE_SBR) {}
+  /* All objects are deallocated by destroying their pool, so make delete
+     inaccessible too.  */
+  void operator delete (void *) {}
+};
+
+/* Report whether P is a switch branching instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_sbr *>::test (hsa_insn_basic *p)
+{
+  return p->opcode == BRIG_OPCODE_SBR;
+}
+
 /* HSA instruction for comparisons.  */
 
 class hsa_insn_cmp : public hsa_insn_basic

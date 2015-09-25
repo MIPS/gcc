@@ -916,6 +916,23 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	  }
       fprintf (f, "BB %i\n", hsa_bb_for_bb (target)->index);
     }
+  else if (is_a <hsa_insn_sbr *> (insn))
+    {
+      hsa_insn_sbr *sbr = as_a <hsa_insn_sbr *> (insn);
+
+      fprintf (f, "%s ", hsa_opcode_name (sbr->opcode));
+      dump_hsa_reg (f, as_a <hsa_op_reg *> (sbr->get_op (0)));
+      fprintf (f, ", [");
+
+      for (unsigned i = 0; i < sbr->jump_table.length (); i++)
+	{
+	  fprintf (f, "BB %i", hsa_bb_for_bb (sbr->jump_table[i])->index);
+	  if (i != sbr->jump_table.length () - 1)
+	    fprintf (f, ", ");
+	}
+
+      fprintf (f, "]\n");
+    }
   else if (is_a <hsa_insn_arg_block *> (insn))
     {
       hsa_insn_arg_block *arg_block = as_a <hsa_insn_arg_block *> (insn);
@@ -1008,6 +1025,9 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
   for (insn = hbb->first_insn; insn; insn = insn->next)
     dump_hsa_insn (f, insn, &indent);
 
+  if (hbb->last_insn && is_a <hsa_insn_sbr *> (hbb->last_insn))
+    goto exit;
+
   FOR_EACH_EDGE (e, ei, hbb->bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)
       {
@@ -1037,6 +1057,7 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
 	   && hbb->last_insn->opcode != BRIG_OPCODE_RET)
     fprintf (f, "  WARNING: Fall through to a BB with no aux!\n");
 
+exit:
   fprintf (f, "\n");
 }
 

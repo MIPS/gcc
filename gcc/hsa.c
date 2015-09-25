@@ -168,6 +168,7 @@ hsa_opcode_op_output_p (int opcode, int opnum)
     {
     case HSA_OPCODE_PHI:
     case BRIG_OPCODE_CBR:
+    case BRIG_OPCODE_SBR:
     case BRIG_OPCODE_ST:
     case BRIG_OPCODE_SIGNALNORET:
       /* FIXME: There are probably missing cases here, double check.  */

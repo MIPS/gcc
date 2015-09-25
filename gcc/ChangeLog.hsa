@@ -1,3 +1,30 @@
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_unconditional_jump): New function.
+	(emit_switch_insn): Likewise.
+	(emit_insn): Add case for newly added hsa_insn_sbr.
+	(perhaps_emit_branch): Handle switch statements.
+	(hsa_brig_emit_function): Likewise.
+	* hsa-dump.c (dump_hsa_insn): Likewise.
+	(dump_hsa_bb): In case of switch, do not dump edges.
+	* hsa-gen.c (hsa_init_data_for_cfun): Initialize new object allocator.
+	(hsa_deinit_data_for_cfun): Delete it.
+	(hsa_insn_sbr::hsa_insn_sbr): New ctor.
+	(hsa_insn_sbr::operator new): New operator.
+	(hsa_insn_sbr::redirect_label): New function.
+	(HSA_MAXIMUM_SBR_LABELS): New macro definition.
+	(get_switch_high): New function.
+	(get_switch_low): Likewise.
+	(get_switch_size): Likewise.
+	(gen_hsa_insns_for_switch_stmt): New function.
+	(gen_hsa_insns_for_gimple_stmt): Handle GIMPLE_SWITCH.
+	(transformable_switch_to_sbr_p): New function.
+	(convert_switch_statements): Use the function.
+	* hsa-regalloc.c (naive_process_phi): Fix jump table of a switch if
+	we split an edge.
+	* hsa.c (hsa_opcode_op_output_p): Handle BRIG_OPCODE_SBR.
+	* hsa.h (hsa_insn_sbr): New class.
+
 2015-09-25  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (region_part_of_unkernelized_target_p): Renamed to

@@ -134,6 +134,9 @@ static hash_map<tree, BrigCodeOffset32_t> *function_offsets;
 /* Set of emitted function declarations.  */
 static hash_set <tree> *emitted_declarations;
 
+/* List of sbr instructions.  */
+static vec <hsa_insn_sbr *> *switch_instructions;
+
 struct function_linkage_pair
 {
   function_linkage_pair (tree decl, unsigned int off):
@@ -1384,7 +1387,7 @@ emit_branch_insn (hsa_insn_br *br)
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
   repr.base.opcode = htole16 (br->opcode);
   repr.width = BRIG_WIDTH_1;
-  /* For Conditional jumps the type is always B1 */
+  /* For Conditional jumps the type is always B1.  */
   repr.base.type = htole16 (BRIG_TYPE_B1);
 
   operand_offsets[0] = htole32 (enqueue_op (br->get_op (0)));
@@ -1404,11 +1407,74 @@ emit_branch_insn (hsa_insn_br *br)
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (&operand_offsets, sizeof (operand_offsets));
   brig_data.round_size_up (4);
-  repr.width = BRIG_WIDTH_1;
   memset (&repr.reserved, 0, sizeof (repr.reserved));
 
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;
+}
+
+/* Emit an HSA unconditional jump branching instruction that points to
+   a label REFERENCE.  */
+
+static void
+emit_unconditional_jump (hsa_op_code_ref *reference)
+{
+  struct BrigInstBr repr;
+  BrigOperandOffset32_t operand_offsets[1];
+  uint32_t byteCount;
+
+  repr.base.base.byteCount = htole16 (sizeof (repr));
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = htole16 (BRIG_OPCODE_BR);
+  repr.base.type = htole16 (BRIG_TYPE_NONE);
+  /* Direct branches to labels must be width(all).  */
+  repr.width = BRIG_WIDTH_ALL;
+
+  operand_offsets[0] = htole32 (enqueue_op (reference));
+  /* We have 1 operand so use 4 * 1 for the byteCount.  */
+  byteCount = htole32 (4 * 1);
+  repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  brig_data.add (&operand_offsets, sizeof (operand_offsets));
+  brig_data.round_size_up (4);
+  memset (&repr.reserved, 0, sizeof (repr.reserved));
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
+/* Emit an HSA switch jump instruction that uses a jump table to
+   jump to a destination label.  */
+
+static void
+emit_switch_insn (hsa_insn_sbr *sbr)
+{
+  struct BrigInstBr repr;
+  BrigOperandOffset32_t operand_offsets[2];
+  uint32_t byteCount;
+
+  gcc_assert (sbr->opcode == BRIG_OPCODE_SBR);
+  repr.base.base.byteCount = htole16 (sizeof (repr));
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
+  repr.base.opcode = htole16 (sbr->opcode);
+  repr.width = BRIG_WIDTH_1;
+  /* For Conditional jumps the type is always B1.  */
+  hsa_op_reg *index = as_a <hsa_op_reg *> (sbr->get_op (0));
+  repr.base.type = htole16 (index->type);
+  operand_offsets[0] = htole32 (enqueue_op (sbr->get_op (0)));
+  operand_offsets[1] = htole32 (enqueue_op (sbr->label_code_list));
+
+  /* We have 2 operands so use 4 * 2 for the byteCount.  */
+  byteCount = htole32 (4 * 2);
+  repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  brig_data.add (&operand_offsets, sizeof (operand_offsets));
+  brig_data.round_size_up (4);
+  memset (&repr.reserved, 0, sizeof (repr.reserved));
+
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+
+  /* Emit jump to default label.  */
+  hsa_bb *hbb = hsa_bb_for_bb (sbr->default_bb);
+  emit_unconditional_jump (&hbb->label_ref);
 }
 
 /* Emit a HSA convert instruction and all necessary directives, schedule
@@ -1715,6 +1781,16 @@ emit_insn (hsa_insn_basic *insn)
       emit_branch_insn (br);
       return;
     }
+  if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
+    {
+      if (switch_instructions == NULL)
+	switch_instructions = new vec <hsa_insn_sbr *> ();
+
+      switch_instructions->safe_push (sbr);
+      emit_switch_insn (sbr);
+      return;
+    }
+
   if (hsa_insn_arg_block *arg_block = dyn_cast <hsa_insn_arg_block *> (insn))
     {
       emit_arg_block_insn (arg_block);
@@ -1746,12 +1822,15 @@ static void
 perhaps_emit_branch (basic_block bb, basic_block next_bb)
 {
   basic_block t_bb = NULL, ff = NULL;
-  struct BrigInstBr repr;
-  BrigOperandOffset32_t operand_offsets[1];
-  uint32_t byteCount;
 
   edge_iterator ei;
   edge e;
+
+  /* If the last instruction of BB is a switch, ignore emission of all
+     edges.  */
+  if (hsa_bb_for_bb (bb)->last_insn
+      && is_a <hsa_insn_sbr *> (hsa_bb_for_bb (bb)->last_insn))
+    return;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)
@@ -1768,22 +1847,7 @@ perhaps_emit_branch (basic_block bb, basic_block next_bb)
   if (!ff || ff == next_bb || ff == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return;
 
-  repr.base.base.byteCount = htole16 (sizeof (repr));
-  repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (BRIG_OPCODE_BR);
-  repr.base.type = htole16 (BRIG_TYPE_NONE);
-  /* Direct branches to labels must be width(all).  */
-  repr.width = BRIG_WIDTH_ALL;
-
-  operand_offsets[0] = htole32 (enqueue_op (&hsa_bb_for_bb (ff)->label_ref));
-  /* We have 1 operand so use 4 * 1 for the byteCount.  */
-  byteCount = htole32 (4 * 1);
-  repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
-  brig_data.add (&operand_offsets, sizeof (operand_offsets));
-  brig_data.round_size_up (4);
-  memset (&repr.reserved, 0, sizeof (repr.reserved));
-  brig_code.add (&repr, sizeof (repr));
-  brig_insn_count++;
+  emit_unconditional_jump (&hsa_bb_for_bb (ff)->label_ref);
 }
 
 /* Emit the a function with name NAME to the various brig sections.  */
@@ -1835,6 +1899,24 @@ hsa_brig_emit_function (void)
     }
   perhaps_emit_branch (prev_bb, NULL);
   ptr_to_fndir->nextModuleEntry = brig_code.total_size;
+
+  /* Fill up label references for all sbr instructions.  */
+  if (switch_instructions)
+    {
+      for (unsigned i = 0; i < switch_instructions->length (); i++)
+	{
+	  hsa_insn_sbr *sbr = (*switch_instructions)[i];
+	  for (unsigned j = 0; j < sbr->jump_table.length (); j++)
+	    {
+	      hsa_bb *hbb = hsa_bb_for_bb (sbr->jump_table[j]);
+	      sbr->label_code_list->offsets[j] =
+		hbb->label_ref.directive_offset;
+	    }
+	}
+    }
+
+  delete switch_instructions;
+  switch_instructions = NULL;
 
   emit_queued_operands ();
 }

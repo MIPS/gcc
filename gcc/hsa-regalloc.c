@@ -94,7 +94,17 @@ naive_process_phi (hsa_insn_phi *phi)
       if (single_succ_p (e->src))
 	hbb = hsa_bb_for_bb (e->src);
       else
-	hbb = hsa_init_new_bb (split_edge (e));
+	{
+	  basic_block old_dest = e->dest;
+	  hbb = hsa_init_new_bb (split_edge (e));
+
+	  /* If switch insn used this edge, fix jump table.  */
+	  hsa_bb *source = hsa_bb_for_bb (e->src);
+	  hsa_insn_sbr *sbr;
+	  if (source->last_insn
+	      && (sbr = dyn_cast <hsa_insn_sbr *> (source->last_insn)))
+	    sbr->replace_all_labels (old_dest, hbb->bb);
+	}
 
       hsa_build_append_simple_mov (phi->dest, op, hbb);
     }
