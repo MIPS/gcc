@@ -1,5 +1,12 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_single_assignment): Change
+	arguments from a gimple assign to LHS and RHS. Emit insns
+	for return values of memcpy and memset functions.
+	(gen_hsa_insns_for_gimple_stmt): Use the newly added function.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_ctor_assignment): New function.
 	(gen_hsa_insns_for_single_assignment): Add support for
 	CONSTRUCTOR.

@@ -2346,20 +2346,15 @@ gen_hsa_ctor_assignment (hsa_op_address *addr_lhs, tree rhs, hsa_bb *hbb)
   gen_hsa_memory_set (hbb, addr_lhs, 0, size);
 }
 
-/* Generate HSA instructions for a single assignment.  HBB is the basic block
-   they will be appended to.  SSA_MAP maps gimple SSA names to HSA pseudo
-   registers.  */
+/* Generate HSA instructions for a single assignment of RHS to LHS.
+   HBB is the basic block they will be appended to.  SSA_MAP maps gimple
+   SSA names to HSA pseudo registers.  */
 
 static void
-gen_hsa_insns_for_single_assignment (gimple *assign, hsa_bb *hbb,
+gen_hsa_insns_for_single_assignment (tree lhs, tree rhs, hsa_bb *hbb,
 				     vec <hsa_op_reg_p> *ssa_map)
 {
-  tree lhs = gimple_assign_lhs (assign);
-  tree rhs = gimple_assign_rhs1 (assign);
-
-  if (gimple_clobber_p (assign))
-    ;
-  else if (TREE_CODE (lhs) == SSA_NAME)
+  if (TREE_CODE (lhs) == SSA_NAME)
     {
       hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
       gen_hsa_insns_for_load (dest, rhs, TREE_TYPE (lhs), hbb, ssa_map);
@@ -3698,6 +3693,8 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
     }
 }
 
+#define HSA_MEMORY_BUILTINS_LIMIT     128
+
 /* Generate HSA instructions for the given call statement STMT.  Instructions
    will be appended to HBB.  SSA_MAP maps gimple SSA names to HSA pseudo
    registers.  */
@@ -4016,19 +4013,34 @@ specialop:
 	    return;
 	  }
 
+	unsigned n = tree_to_uhwi (byte_size);
+
+	/* TODO: fallback to call to memcpy library function.  */
+	if (n > HSA_MEMORY_BUILTINS_LIMIT)
+	  {
+	    sorry ("Support for HSA does implement __builtin_memcpy with a size"
+		   " bigger than %u bytes, %u bytes are requested",
+		   HSA_MEMORY_BUILTINS_LIMIT, n);
+	    return;
+	  }
+
 	tree dst = gimple_call_arg (stmt, 0);
 	tree src = gimple_call_arg (stmt, 1);
 
 	hsa_op_address *dst_addr = get_address_from_value (dst, hbb, ssa_map);
 	hsa_op_address *src_addr = get_address_from_value (src, hbb, ssa_map);
-	unsigned n = tree_to_uhwi (byte_size);
 
 	gen_hsa_memory_copy (hbb, dst_addr, src_addr, n);
+
+	tree lhs = gimple_call_lhs (stmt);
+	if (lhs)
+	  gen_hsa_insns_for_single_assignment (lhs, dst, hbb, ssa_map);
 
 	break;
       }
     case BUILT_IN_MEMSET:
       {
+	tree dst = gimple_call_arg (stmt, 0);
 	tree c = gimple_call_arg (stmt, 1);
 
 	if (TREE_CODE (c) != INTEGER_CST)
@@ -4047,14 +4059,28 @@ specialop:
 	    return;
 	  }
 
-	hsa_op_address *dst_addr;
-	dst_addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb,
-					   ssa_map);
 	unsigned n = tree_to_uhwi (byte_size);
+
+	/* TODO: fallback to call to memset library function.  */
+	if (n > HSA_MEMORY_BUILTINS_LIMIT)
+	  {
+	    sorry ("Support for HSA does implement __builtin_memset with a size"
+		   " bigger than %u bytes, %u bytes are requested",
+		   HSA_MEMORY_BUILTINS_LIMIT, n);
+	    return;
+	  }
+
+	hsa_op_address *dst_addr;
+	dst_addr = get_address_from_value (dst, hbb,
+					   ssa_map);
 	unsigned HOST_WIDE_INT constant = tree_to_uhwi
 	  (fold_convert (unsigned_char_type_node, c));
 
 	gen_hsa_memory_set (hbb, dst_addr, constant, n);
+
+	tree lhs = gimple_call_lhs (stmt);
+	if (lhs)
+	  gen_hsa_insns_for_single_assignment (lhs, dst, hbb, ssa_map);
 
 	break;
       }
@@ -4075,8 +4101,15 @@ gen_hsa_insns_for_gimple_stmt (gimple *stmt, hsa_bb *hbb,
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
+      if (gimple_clobber_p (stmt))
+	break;
+
       if (gimple_assign_single_p (stmt))
-	gen_hsa_insns_for_single_assignment (stmt, hbb, ssa_map);
+	{
+	  tree lhs = gimple_assign_lhs (stmt);
+	  tree rhs = gimple_assign_rhs1 (stmt);
+	  gen_hsa_insns_for_single_assignment (lhs, rhs, hbb, ssa_map);
+	}
       else
 	gen_hsa_insns_for_operation_assignment (stmt, hbb, ssa_map);
       break;
