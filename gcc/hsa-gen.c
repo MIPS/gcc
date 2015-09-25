@@ -767,18 +767,34 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 		      hsa_type_for_tree_type (TREE_TYPE (tree_val), NULL,
 					      min32int))
 {
+  if (seen_error ())
+    return;
+
   gcc_checking_assert ((is_gimple_min_invariant (tree_val)
 		       && (!POINTER_TYPE_P (TREE_TYPE (tree_val))
 			   || TREE_CODE (tree_val) == INTEGER_CST))
 		       || TREE_CODE (tree_val) == CONSTRUCTOR);
   tree_value = tree_val;
-
   brig_repr_size = hsa_get_imm_brig_type_len (type);
 
   if (TREE_CODE (tree_value) == STRING_CST)
     brig_repr_size = TREE_STRING_LENGTH (tree_value);
   else if (TREE_CODE (tree_value) == CONSTRUCTOR)
-    brig_repr_size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (tree_value)));
+    {
+      brig_repr_size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (tree_value)));
+
+      /* Verify that all elements of a contructor are constants.  */
+      for (unsigned i = 0; i < vec_safe_length (CONSTRUCTOR_ELTS (tree_value));
+	   i++)
+	{
+	  tree v = CONSTRUCTOR_ELT (tree_value, i)->value;
+	  if (!CONSTANT_CLASS_P (v))
+	    {
+	      sorry ("HSA ctor should have only constants");
+	      return;
+	    }
+	}
+    }
 
   emit_to_buffer (tree_value);
   hsa_list_operand_immed.safe_push (this);
@@ -2977,6 +2993,23 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb,
   hbb->append_insn (sbr);
 }
 
+/* Verify that the function DECL can be handled by HSA.  */
+
+static void
+verify_function_arguments (tree decl)
+{
+  if (DECL_STATIC_CHAIN (decl))
+    {
+      sorry ("HSA does not support nested functions: %D", decl);
+      return;
+    }
+  else if (!TYPE_ARG_TYPES (TREE_TYPE (decl)))
+    {
+      sorry ("HSA does not support functions with variadic arguments "
+	     "(or unknown return type): %D", decl);
+      return;
+    }
+}
 
 /* Generate HSA instructions for a direct call instruction.
    Instructions will be appended to HBB, which also needs to be the
@@ -2988,6 +3021,10 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 			       vec <hsa_op_reg_p> *ssa_map)
 {
   tree decl = gimple_call_fndecl (stmt);
+  verify_function_arguments (decl);
+  if (seen_error ())
+    return;
+
   hsa_insn_call *call_insn = new hsa_insn_call (decl);
   hsa_cfun->called_functions.safe_push (call_insn->called_function);
 
@@ -4761,17 +4798,9 @@ convert_switch_statements ()
 static void
 generate_hsa (bool kernel)
 {
-  if (DECL_STATIC_CHAIN (cfun->decl))
-    {
-      sorry ("HSA does not support nested functions");
-      return;
-    }
-  else if (!TYPE_ARG_TYPES (TREE_TYPE (cfun->decl)))
-    {
-      sorry ("HSA does not support functions with variadic arguments "
-	     "(or unknown return type)");
-      return;
-    }
+  verify_function_arguments (cfun->decl);
+  if (seen_error ())
+    return;
 
   vec <hsa_op_reg_p> ssa_map = vNULL;
 

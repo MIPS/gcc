@@ -1,5 +1,16 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (hsa_op_immed::emit_to_buffer): Fix handling
+	of CTORs.
+	* hsa-gen.c (hsa_op_immed::hsa_op_immed): Add new CTOR
+	verification.
+	(verify_function_arguments): New function.
+	(gen_hsa_insns_for_direct_call): Use the function.
+	(generate_hsa): Use the newly added function.
+	* hsa.h: Declare a new function.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_single_assignment): Add
 	seen_error guard.
 

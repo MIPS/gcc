@@ -914,7 +914,10 @@ void
 hsa_op_immed::emit_to_buffer (tree value)
 {
   unsigned total_len = brig_repr_size;
-  brig_repr = XNEWVEC (char, total_len);
+
+  /* As we can have a constructor with fewer elements, fill the memory
+     with zeros.  */
+  brig_repr = XCNEWVEC (char, total_len);
   char *p = brig_repr;
 
   if (TREE_CODE (value) == VECTOR_CST)
@@ -957,7 +960,6 @@ hsa_op_immed::emit_to_buffer (tree value)
 	  total_len -= actual;
 	  p += actual;
 	}
-      gcc_assert (total_len == 0);
     }
   else
     emit_immediate_scalar_to_buffer (value, p, total_len);
