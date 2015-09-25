@@ -2329,6 +2329,23 @@ gen_hsa_memory_set (hsa_bb *hbb, hsa_op_address *target,
     }
 }
 
+/* Generate HSAIL instructions for a single assignment
+   of an empty constructor to an ADDR_LHS.  Constructor is passed as a
+   tree RHS and all instructions are appended to HBB.  */
+
+void
+gen_hsa_ctor_assignment (hsa_op_address *addr_lhs, tree rhs, hsa_bb *hbb)
+{
+  if (vec_safe_length (CONSTRUCTOR_ELTS (rhs)))
+    {
+      sorry ("Support for HSA does not implement load from constructor");
+      return;
+    }
+
+  unsigned size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (rhs)));
+  gen_hsa_memory_set (hbb, addr_lhs, 0, size);
+}
+
 /* Generate HSA instructions for a single assignment.  HBB is the basic block
    they will be appended to.  SSA_MAP maps gimple SSA names to HSA pseudo
    registers.  */
@@ -2360,10 +2377,16 @@ gen_hsa_insns_for_single_assignment (gimple *assign, hsa_bb *hbb,
   else
     {
       hsa_op_address *addr_lhs = gen_hsa_addr (lhs, hbb, ssa_map);
-      hsa_op_address *addr_rhs = gen_hsa_addr (rhs, hbb, ssa_map);
 
-      unsigned size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (rhs)));
-      gen_hsa_memory_copy (hbb, addr_lhs, addr_rhs, size);
+      if (TREE_CODE (rhs) == CONSTRUCTOR)
+	gen_hsa_ctor_assignment (addr_lhs, rhs, hbb);
+      else
+	{
+	  hsa_op_address *addr_rhs = gen_hsa_addr (rhs, hbb, ssa_map);
+
+	  unsigned size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (rhs)));
+	  gen_hsa_memory_copy (hbb, addr_lhs, addr_rhs, size);
+	}
     }
 }
 

@@ -1,5 +1,11 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_ctor_assignment): New function.
+	(gen_hsa_insns_for_single_assignment): Add support for
+	CONSTRUCTOR.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_addr): Handle in a separate
 	case BIT_FIELD_REFs with a SSA_NAME as the first argument.
 	(gen_hsa_insns_for_bitfield): New function.
