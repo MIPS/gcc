@@ -1,3 +1,10 @@
+2015-09-25  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (region_part_of_unkernelized_target_p): Renamed to
+	region_part_of_target_p, changed not to return false on kernelized
+	targets.  Updated all callers.
+	(expand_target_kernel_body): Bail out if orig_child_fndecl is NULL.
+
 2015-09-24  Martin Jambor  <mjambor@suse.cz>
 
 	* gsstruct.def (GSS_OMP_TEAMS_LAYOUT): New.

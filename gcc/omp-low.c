@@ -5128,29 +5128,18 @@ gimple_build_cond_empty (tree cond)
 }
 
 /* Return true if the REGION is within a declare target function or within a
-   target region that has not been turned into a simple GPGPU kernel.  */
+   target region.  */
 
 static bool
-region_part_of_unkernelized_target_p (struct omp_region *region)
+region_part_of_target_p (struct omp_region *region)
 {
   if (lookup_attribute ("omp declare target",
 			DECL_ATTRIBUTES (current_function_decl)))
     return true;
 
-  region = region->outer;
-  while (region)
-    {
-      if (region->type == GIMPLE_OMP_TARGET)
-	{
-	  gomp_target *tgt_stmt;
-	  tgt_stmt = as_a <gomp_target *> (last_stmt (region->entry));
-	  if (tgt_stmt->kernel_iter)
-	    return false;
-	  else
-	    return true;
-	}
-      region = region->outer;
-    }
+  for (region = region->outer; region; region = region->outer)
+    if (region->type == GIMPLE_OMP_TARGET)
+      return true;
   return false;
 }
 
@@ -5324,7 +5313,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 			    false, GSI_CONTINUE_LINKING);
 
   if (hsa_gen_requested_p ()
-      && region_part_of_unkernelized_target_p (region))
+      && region_part_of_target_p (region))
     {
       cgraph_node *child_cnode = cgraph_node::get (child_fndecl);
       hsa_register_kernel (child_cnode);
@@ -9958,6 +9947,9 @@ expand_target_kernel_body (struct omp_region *target)
   tree orig_child_fndecl = gimple_omp_target_child_fn (tgt_stmt);
   if (!gpukernel)
     {
+      /* OpenACC target regions can have NULL orig_child_fndecl.  */
+      if (!orig_child_fndecl)
+	return;
       gcc_assert (!tgt_stmt->kernel_iter);
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
 
