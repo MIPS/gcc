@@ -3619,7 +3619,18 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 
   tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
   BrigType16_t hsa_type  = hsa_type_for_scalar_tree_type (type, false);
-  BrigType16_t mtype  = mem_type_for_type (hsa_type);
+  BrigType16_t mtype = mem_type_for_type (hsa_type);
+
+  /* Certain atomic insns must have Bx memory types.  */
+  switch (acode)
+    {
+    case BRIG_ATOMIC_LD:
+    case BRIG_ATOMIC_ST:
+      mtype = hsa_bittype_for_type (mtype);
+      break;
+    default:
+      break;
+    }
 
   hsa_op_reg *dest;
   int nops, opcode;
@@ -3640,6 +3651,12 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
     }
 
   hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype);
+
+  /* Overwrite default memory order for ATOMIC_ST insn which can have just
+     RLX or SCREL memory order.  */
+  if (acode == BRIG_ATOMIC_ST)
+    atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+
   hsa_op_address *addr;
   addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
   /* TODO: Warn if addr has private segment, because the finalizer will not
@@ -3689,7 +3706,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 	default:
 	  gcc_unreachable ();
 	}
-      hsa_op_reg *real_dest = dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+      hsa_op_reg *real_dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
       gen_hsa_binary_operation (arith, real_dest, dest, op, hbb);
     }
 }
@@ -3826,11 +3843,23 @@ specialop:
     case BUILT_IN_ATOMIC_LOAD_8:
     case BUILT_IN_ATOMIC_LOAD_16:
       {
-	BrigType16_t mtype = mem_type_for_type (hsa_type_for_scalar_tree_type
-						(TREE_TYPE (lhs), false));
+	BrigType16_t mtype;
 	hsa_op_address *addr;
 	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
-	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+
+	if (lhs)
+	  {
+	    mtype = mem_type_for_type
+	      (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
+	    mtype = hsa_bittype_for_type (mtype);
+	    dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+	  }
+	else
+	  {
+	    mtype = BRIG_TYPE_B64;
+	    dest = new hsa_op_reg (mtype);
+	  }
+
 	hsa_insn_atomic *atominsn
 	  = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD, mtype,
 				 dest, addr);
