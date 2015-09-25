@@ -2656,7 +2656,8 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb,
 	BrigType16_t btype = hsa_type_for_scalar_tree_type (TREE_TYPE (lhs),
 							    true);
 
-	hsa_op_reg *src = hsa_reg_for_gimple_ssa (rhs1, ssa_map);
+	hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (rhs1, hbb,
+								ssa_map);
 	hsa_op_reg *op1 = new hsa_op_reg (btype);
 	hsa_op_reg *op2 = new hsa_op_reg (btype);
 	hsa_op_with_type *shift1 = hsa_reg_or_immed_for_gimple_op

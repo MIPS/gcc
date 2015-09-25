@@ -1,5 +1,10 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Consider
+	also an immediate value.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_single_assignment): Change
 	arguments from a gimple assign to LHS and RHS. Emit insns
 	for return values of memcpy and memset functions.
