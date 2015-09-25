@@ -4,8 +4,8 @@
 /* { dg-skip-if "do not override -mcpu" { powerpc*-*-* } { "-mcpu=*" } { "-mcpu=power7" } } */
 /* { dg-options "-O2 -mcpu=power7 -mfloat128 -mno-regnames" } */
 
-#ifndef __FLOAT128_SOFTWARE__
-#error "-mfloat128-software is not supported."
+#ifndef __FLOAT128__
+#error "-mfloat128 is not supported."
 #endif
 
 #ifdef __LONG_DOUBLE_IEEE128__
