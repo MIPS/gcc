@@ -43,6 +43,9 @@ hsa_gen_requested_p (void)
 class hsa_op_immed;
 class hsa_op_cst_list;
 class hsa_insn_basic;
+class hsa_op_address;
+class hsa_op_reg;
+class hsa_bb;
 typedef hsa_insn_basic *hsa_insn_basic_p;
 
 /* Class representing an input argument, output argument (result) or a
@@ -80,6 +83,9 @@ struct hsa_symbol
 
   /* Constant value, used for string constants.  */
   hsa_op_immed *cst_value;
+
+  /* Is in global scope.  */
+  bool global_scope_p;
 };
 
 /* Abstract class for HSA instruction operands. */
@@ -446,8 +452,6 @@ is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
     || p->opcode == BRIG_OPCODE_CBR;
 }
 
-class hsa_bb;
-
 /* HSA instruction for swtich branche.  */
 
 class hsa_insn_sbr : public hsa_insn_basic
@@ -494,7 +498,9 @@ is_a_helper <hsa_insn_sbr *>::test (hsa_insn_basic *p)
 class hsa_insn_cmp : public hsa_insn_basic
 {
 public:
-  hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t);
+  hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t,
+		hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
+		hsa_op_base *arg2 = NULL);
 
   void *operator new (size_t);
 
@@ -1025,6 +1031,7 @@ extern struct hsa_function_representation *hsa_cfun;
 extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 extern hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
 extern hsa_summary_t *hsa_summaries;
+extern hsa_symbol *hsa_num_threads;
 extern unsigned hsa_kernel_calls_counter;
 bool hsa_callable_function_p (tree fndecl);
 void hsa_init_compilation_unit_data (void);
@@ -1069,6 +1076,7 @@ void hsa_brig_emit_function (void);
 void hsa_output_brig (void);
 BrigType16_t bittype_for_type (BrigType16_t t);
 unsigned hsa_get_imm_brig_type_len (BrigType16_t type);
+void hsa_brig_emit_omp_symbols (void);
 
 /*  In hsa-dump.c.  */
 const char *hsa_seg_name (BrigSegment8_t);

@@ -567,7 +567,7 @@ emit_directive_variable (struct hsa_symbol *symbol)
 		     "won't work", symbol->decl);
 	}
     }
-  else if (symbol->cst_value)
+  else if (symbol->global_scope_p)
     prefix = '&';
   else
     prefix = '%';
@@ -1921,6 +1921,15 @@ hsa_brig_emit_function (void)
   switch_instructions = NULL;
 
   emit_queued_operands ();
+}
+
+/* Emit all OMP symbols related to OMP.  */
+
+void
+hsa_brig_emit_omp_symbols (void)
+{
+  brig_init ();
+  emit_directive_variable (hsa_num_threads);
 }
 
 /* Unit constructor and destructor statements.  */

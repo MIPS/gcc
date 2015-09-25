@@ -104,6 +104,9 @@ hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 /* HSA summaries.  */
 hsa_summary_t *hsa_summaries = NULL;
 
+/* HSA number of threads.  */
+hsa_symbol *hsa_num_threads = NULL;
+
 /* True if compilation unit-wide data are already allocated and initialized.  */
 static bool compilation_unit_data_initialized;
 
