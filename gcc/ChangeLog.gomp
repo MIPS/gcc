@@ -1,3 +1,8 @@
+2015-09-25  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (parallelize_loops): Skip inner loops in oacc kernels
+	region.
+
 2015-09-24  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (struct builtin_description): Delete.

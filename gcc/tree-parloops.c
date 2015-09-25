@@ -2797,7 +2797,8 @@ parallelize_loops (bool oacc_kernels_p)
     {
       if (loop == skip_loop)
 	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
+	  if (!loop->in_oacc_kernels_region
+	      && dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
 		     "Skipping loop %d as inner loop of parallelized loop\n",
 		     loop->num);
@@ -2814,6 +2815,10 @@ parallelize_loops (bool oacc_kernels_p)
 	{
 	  if (!loop->in_oacc_kernels_region)
 	    continue;
+
+	  /* Don't try to parallelize inner loops in an oacc kernels region.  */
+	  if (loop->inner)
+	    skip_loop = loop->inner;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
@@ -2897,6 +2902,7 @@ parallelize_loops (bool oacc_kernels_p)
 	}
 
       changed = true;
+      /* Skip inner loop(s) of parallelized loop.  */
       skip_loop = loop->inner;
       if (dump_file && (dump_flags & TDF_DETAILS))
       {

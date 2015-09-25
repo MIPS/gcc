@@ -1,3 +1,7 @@
+2015-09-25  Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-loop-inner.f95: New test.
+
 2015-09-23  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gcc.target/nvptx/spinlock-1.c: Remove file.
