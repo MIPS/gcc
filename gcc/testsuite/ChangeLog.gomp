@@ -1,3 +1,8 @@
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/sink-fold-1.c: Xfail.
+	* gcc.dg/gomp/sink-fold-2.c: Likewise.
+
 2015-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/sink-4.c: Don't expect the constant to have

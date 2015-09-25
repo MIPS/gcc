@@ -28,4 +28,4 @@ funk ()
     }
 }
 
-/* { dg-final { scan-tree-dump-times "omp ordered depend\\(sink:i-2,j-2,k\\+2\\)" 1 "omplower" } } */
+/* { dg-final { scan-tree-dump-times "omp ordered depend\\(sink:i-2,j-2,k\\+2\\)" 1 "omplower" { xfail *-*-* } } } */

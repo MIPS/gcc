@@ -78,6 +78,36 @@ enum gomp_schedule_type
   GFS_AUTO
 };
 
+struct gomp_doacross_work_share
+{
+  union {
+    /* chunk_size copy, as ws->chunk_size is multiplied by incr for
+       GFS_DYNAMIC.  */
+    long chunk_size;
+    /* For schedule(static,0) this is the number
+       of iterations assigned to the last thread, i.e. number of
+       iterations / number of threads.  */
+    long q;
+  };
+  /* Size of each array entry (padded to cache line size).  */
+  unsigned long elt_sz;
+  /* Number of dimensions in sink vectors.  */
+  unsigned int ncounts;
+  /* True if the iterations can be flattened.  */
+  bool flattened;
+  /* Actual array (of elt_sz sized units), aligned to cache line size.
+     This is indexed by team_id for GFS_STATIC and outermost iteration
+     / chunk_size for other schedules.  */
+  unsigned char *array;
+  /* These two are only used for schedule(static,0).  */
+  /* This one is number of iterations % number of threads.  */
+  long t;
+  /* And this one is cached t * (q + 1).  */
+  long boundary;
+  /* Array of shift counts for each dimension if they can be flattened.  */
+  unsigned int shift_counts[];
+};
+
 struct gomp_work_share
 {
   /* This member records the SCHEDULE clause to be used for this construct.
@@ -109,13 +139,18 @@ struct gomp_work_share
     };
   };
 
-  /* This is a circular queue that details which threads will be allowed
-     into the ordered region and in which order.  When a thread allocates
-     iterations on which it is going to work, it also registers itself at
-     the end of the array.  When a thread reaches the ordered region, it
-     checks to see if it is the one at the head of the queue.  If not, it
-     blocks on its RELEASE semaphore.  */
-  unsigned *ordered_team_ids;
+  union {
+    /* This is a circular queue that details which threads will be allowed
+       into the ordered region and in which order.  When a thread allocates
+       iterations on which it is going to work, it also registers itself at
+       the end of the array.  When a thread reaches the ordered region, it
+       checks to see if it is the one at the head of the queue.  If not, it
+       blocks on its RELEASE semaphore.  */
+    unsigned *ordered_team_ids;
+
+    /* This is a pointer to DOACROSS work share data.  */
+    struct gomp_doacross_work_share *doacross;
+  };
 
   /* This is the number of threads that have registered themselves in
      the circular queue ordered_team_ids.  */
@@ -647,6 +682,7 @@ extern void gomp_ordered_next (void);
 extern void gomp_ordered_static_init (void);
 extern void gomp_ordered_static_next (void);
 extern void gomp_ordered_sync (void);
+extern void gomp_doacross_init (unsigned, long *, long);
 
 /* parallel.c */
 

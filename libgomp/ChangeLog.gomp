@@ -1,3 +1,21 @@
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* ordered.c: Include string.h and doacross.h.
+	(gomp_doacross_init): New function.
+	(GOMP_doacross_wait): Implement.
+	(GOMP_doacross_post): Likewise.  Change arguments to
+	pointer to long array.
+	* loop.c (gomp_loop_doacross_static_start,
+	gomp_loop_doacross_dynamic_start,
+	gomp_loop_doacross_guided_start): Call gomp_doacross_init.
+	* libgomp_g.h (GOMP_doacross_post): Adjust prototype.
+	* libgomp.h (struct gomp_doacross_work_share): New type.
+	(struct gomp_work_share): Put ordered_team_ids into anonymous
+	union with new doacross field.
+	* config/linux/doacross.h: New file.
+	* config/posix/doacross.h: New file.
+	* testsuite/libgomp.c/doacross-1.c: New test.
+
 2015-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.map (GOMP_4.1): Add GOMP_loop_doacross_dynamic_start,

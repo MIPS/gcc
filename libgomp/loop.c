@@ -306,7 +306,7 @@ gomp_loop_doacross_static_start (unsigned ncounts, long *counts,
     {
       gomp_loop_init (thr->ts.work_share, 0, counts[0], 1,
 		      GFS_STATIC, chunk_size);
-      /* gomp_ordered_static_init (); */
+      gomp_doacross_init (ncounts, counts, chunk_size);
       gomp_work_share_init_done ();
     }
 
@@ -324,6 +324,7 @@ gomp_loop_doacross_dynamic_start (unsigned ncounts, long *counts,
     {
       gomp_loop_init (thr->ts.work_share, 0, counts[0], 1,
 		      GFS_DYNAMIC, chunk_size);
+      gomp_doacross_init (ncounts, counts, chunk_size);
       gomp_work_share_init_done ();
     }
 
@@ -349,6 +350,7 @@ gomp_loop_doacross_guided_start (unsigned ncounts, long *counts,
     {
       gomp_loop_init (thr->ts.work_share, 0, counts[0], 1,
 		      GFS_GUIDED, chunk_size);
+      gomp_doacross_init (ncounts, counts, chunk_size);
       gomp_work_share_init_done ();
     }
 

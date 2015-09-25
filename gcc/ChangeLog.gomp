@@ -1,3 +1,20 @@
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Don't adjust lastprivate
+	on ordered loops above collapse.
+	* omp-low.c (expand_omp_ordered_source): Rewritten to pass
+	address of an array of indices.
+	(expand_omp_ordered_source_sink): Create the VAR_DECL for it.
+	(expand_omp_for_ordered_loops): Initialize and update the
+	array elements.
+	(expand_omp_for_generic): Likewise.  Move counts array one
+	element back, so that collapsed loops are multiplied by correct
+	counts.
+	(lower_omp_ordered): Avoid the conservative dependence folding
+	for now, it has too many issues.
+	* omp-builtins.def (BUILT_IN_GOMP_DOACROSS_POST): Change
+	type to BT_FN_VOID_PTR.
+
 2015-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_omp_for): Push into

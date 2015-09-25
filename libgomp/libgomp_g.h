@@ -177,7 +177,7 @@ extern bool GOMP_loop_ull_ordered_runtime_next (unsigned long long *,
 
 extern void GOMP_ordered_start (void);
 extern void GOMP_ordered_end (void);
-extern void GOMP_doacross_post (long, ...);
+extern void GOMP_doacross_post (long *);
 extern void GOMP_doacross_wait (long, ...);
 
 /* parallel.c */
