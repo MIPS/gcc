@@ -1,5 +1,9 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa.c (hsa_type_integer_p): Add missing type.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (struct phi_definition): New structure.
 	(convert_switch_statements): Handle properly preserving of PHI
 	immediate values.

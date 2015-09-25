@@ -434,6 +434,7 @@ hsa_type_integer_p (BrigType16_t type)
 {
   switch (type & BRIG_TYPE_BASE_MASK)
     {
+    case BRIG_TYPE_U8:
     case BRIG_TYPE_U16:
     case BRIG_TYPE_U32:
     case BRIG_TYPE_U64:
