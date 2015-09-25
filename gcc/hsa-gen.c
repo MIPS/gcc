@@ -1673,7 +1673,6 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
 
   switch (TREE_CODE (ref))
     {
-    case SSA_NAME:
     case ADDR_EXPR:
       gcc_unreachable ();
 
@@ -1733,6 +1732,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
     case FUNCTION_DECL:
       sorry ("HSA does not support indirect calls");
       goto out;
+    case SSA_NAME:
     default:
       sorry ("Support for HSA does not implement memory access to %E", origref);
       goto out;
@@ -1898,25 +1898,20 @@ hsa_build_append_simple_mov (hsa_op_reg *dest, hsa_op_base *src, hsa_bb *hbb)
   hbb->append_insn (insn);
 }
 
-/* Generate HSAIL instructions loading a bit field into register DEST.  ADDR is
-   prepared memory address which is used to load the bit field.  To identify
-   a bit file,d BITPOS is offset to the loaded memory and BITSIZE is number
-   of bits of the bit field.  Add instructions to HBB.  */
+/* Generate HSAIL instructions loading a bit field into register DEST.
+   VALUE_REG is a register of a SSA name that is used in the bit field
+   reference.  To identify a bit field BITPOS is offset to the loaded memory
+   and BITSIZE is number of bits of the bit field.
+   Add instructions to HBB.  */
 
-void
-gen_hsa_insns_for_bitfield_load (hsa_op_reg *dest, hsa_op_address *addr,
-				HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
-				hsa_bb *hbb)
+static void
+gen_hsa_insns_for_bitfield (hsa_op_reg *dest, hsa_op_reg *value_reg,
+			    HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
+			    hsa_bb *hbb)
 {
   unsigned type_bitsize = hsa_type_bit_size (dest->type);
   unsigned left_shift = type_bitsize - (bitsize + bitpos);
   unsigned right_shift = left_shift + bitpos;
-
-  hsa_op_reg *value_reg = new hsa_op_reg (dest->type);
-
-  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, dest->type, value_reg,
-					addr);
-  hbb->append_insn (mem);
 
   if (left_shift)
     {
@@ -1947,6 +1942,24 @@ gen_hsa_insns_for_bitfield_load (hsa_op_reg *dest, hsa_op_address *addr,
     hsa_insn_basic *assignment = new hsa_insn_basic
       (2, BRIG_OPCODE_MOV, dest->type, dest, value_reg);
     hbb->append_insn (assignment);
+}
+
+
+/* Generate HSAIL instructions loading a bit field into register DEST.  ADDR is
+   prepared memory address which is used to load the bit field.  To identify
+   a bit field BITPOS is offset to the loaded memory and BITSIZE is number
+   of bits of the bit field.  Add instructions to HBB.  */
+
+static void
+gen_hsa_insns_for_bitfield_load (hsa_op_reg *dest, hsa_op_address *addr,
+				HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
+				hsa_bb *hbb)
+{
+  hsa_op_reg *value_reg = new hsa_op_reg (dest->type);
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, dest->type, value_reg,
+					addr);
+  hbb->append_insn (mem);
+  gen_hsa_insns_for_bitfield (dest, value_reg, bitsize, bitpos, hbb);
 }
 
 /* Generate HSAIL instructions loading something into register DEST.  RHS is
@@ -2036,6 +2049,16 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 
       hbb->append_insn (insn);
     }
+  else if (TREE_CODE (rhs) == BIT_FIELD_REF
+	   && TREE_CODE (TREE_OPERAND (rhs, 0)) == SSA_NAME)
+    {
+      tree ssa_name = TREE_OPERAND (rhs, 0);
+      HOST_WIDE_INT bitsize = tree_to_uhwi (TREE_OPERAND (rhs, 1));
+      HOST_WIDE_INT bitpos = tree_to_uhwi (TREE_OPERAND (rhs, 2));
+
+      hsa_op_reg *imm_value = hsa_reg_for_gimple_ssa (ssa_name, ssa_map);
+      gen_hsa_insns_for_bitfield (dest, imm_value, bitsize, bitpos, hbb);
+    }
   else if (DECL_P (rhs) || TREE_CODE (rhs) == MEM_REF
 	   || TREE_CODE (rhs) == TARGET_MEM_REF
 	   || handled_component_p (rhs))
@@ -2053,7 +2076,6 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 		 "bigger than 64 bits");
 	  return;
 	}
-
 
       if (bitsize || bitpos)
 	gen_hsa_insns_for_bitfield_load (dest, addr, bitsize, bitpos, hbb);
