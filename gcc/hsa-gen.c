@@ -2357,6 +2357,9 @@ gen_hsa_insns_for_single_assignment (tree lhs, tree rhs, hsa_bb *hbb,
   if (TREE_CODE (lhs) == SSA_NAME)
     {
       hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+      if (seen_error ())
+	return;
+
       gen_hsa_insns_for_load (dest, rhs, TREE_TYPE (lhs), hbb, ssa_map);
     }
   else if (TREE_CODE (rhs) == SSA_NAME

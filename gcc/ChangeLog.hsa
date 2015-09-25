@@ -1,5 +1,10 @@
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_single_assignment): Add
+	seen_error guard.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_body_from_gimple): Verify edges in CFG.
 
 2015-09-25  Martin Liska  <mliska@suse.cz>
