@@ -4309,6 +4309,24 @@ gen_body_from_gimple (vec <hsa_op_reg_p> *ssa_map)
 {
   basic_block bb;
 
+  /* Verify CFG for complex edges we are unable to handle.  */
+  edge_iterator ei;
+  edge e;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      FOR_EACH_EDGE (e, ei, bb->succs)
+	{
+	  /* Verify all unsupported flags for edges that point
+	     to the same basic block.  */
+	  if (e->flags & EDGE_EH)
+	    {
+	      sorry ("Support for HSA does not implement exception handling");
+	      return;
+	    }
+	}
+    }
+
   FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
