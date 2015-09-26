@@ -1,3 +1,7 @@
+2015-09-26  Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-loops-adjacent.f95: New test.
+
 2015-09-25  Tom de Vries  <tom@codesourcery.com>
 
 	* gfortran.dg/goacc/kernels-loop-inner.f95: New test.

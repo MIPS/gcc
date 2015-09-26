@@ -9392,8 +9392,23 @@ mark_loops_in_oacc_kernels_region (basic_block region_entry,
 	bitmap_set_bit (excludes_bitmap, bb->index);
     }
 
-  /* Mark the loops in the region.  */
+  /* Don't parallelize the kernels region if it contains more than one outer
+     loop.  */
+  unsigned int nr_outer_loops = 0;
   struct loop *loop;
+  FOR_EACH_LOOP (loop, 0)
+    {
+      if (loop_outer (loop) != current_loops->tree_root)
+	continue;
+
+      if (bitmap_bit_p (dominated_bitmap, loop->header->index)
+	  && !bitmap_bit_p (excludes_bitmap, loop->header->index))
+	nr_outer_loops++;
+    }
+  if (nr_outer_loops != 1)
+    return;
+
+  /* Mark the loop nest to parallelize in the region.  */
   FOR_EACH_LOOP (loop, 0)
     if (bitmap_bit_p (dominated_bitmap, loop->header->index)
 	&& !bitmap_bit_p (excludes_bitmap, loop->header->index))
