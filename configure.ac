@@ -2931,6 +2931,21 @@ if test x${enable_multilib} = x ; then
   target_configargs="--enable-multilib ${target_configargs}"
 fi
 
+# Select default multilib build variants
+if test x${with_multi_buildlist} = x ; then
+  case "$target" in
+    mips*-img-linux*) multi_buildlist=${srcdir}/gcc/config/mips/ml-img-linux ;;
+    mips*-mti-linux*) multi_buildlist=${srcdir}/gcc/config/mips/ml-mti-linux ;;
+    mips*-img-elf*) multi_buildlist=${srcdir}/gcc/config/mips/ml-img-elf ;;
+    mips*-mti-elf*) multi_buildlist=${srcdir}/gcc/config/mips/ml-mti-elf ;;
+  esac
+  # Verify the file exists before using it in case the gcc component is not
+  # present in the tree.
+  if test -f "${multi_buildlist}" ; then
+    with_multi_buildlist=$multi_buildlist
+  fi
+fi
+
 # Pass through with_multi_buildlist to host and target.  'gcc' needs it for the
 # fixed includes which are multilib'd and target libraries need it as they use
 # config-ml.in.

@@ -1,0 +1,7 @@
+mips-r6-hard/lib
+mips-r6-hard/lib32
+mips-r6-hard/lib64
+mipsel-r6-hard/lib
+mipsel-r6-hard/lib32
+mipsel-r6-hard/lib64
+micromipsel-r6-hard/lib
