@@ -122,21 +122,6 @@ static unsigned worker_bcast_align;
 #define worker_bcast_name "__worker_bcast"
 static GTY(()) rtx worker_bcast_sym;
 
-/* Global and shared lock variables.  Allocated at end of compilation,
-   if used.  Again, PTX lacks common blocks, so we can't share across
-   compilations.  */
-#define LOCK_GLOBAL 0
-#define LOCK_SHARED 1
-#define LOCK_MAX    2
-static const char *const lock_names[] = {"__global_lock", "__shared_lock"};
-static const unsigned lock_space[] = {ADDR_SPACE_GLOBAL, ADDR_SPACE_SHARED};
-static const unsigned lock_level[] = {BARRIER_GLOBAL, BARRIER_SHARED};
-static GTY(()) rtx lock_syms[LOCK_MAX];
-static bool lock_used[LOCK_MAX];
-
-/* FIXME: Temporary workaround for worker locks.  */
-static bool force_global_locks = true;
-
 /* Size of buffer needed for worker reductions.  This has to be
    disjoing from the worker broadcast array, as both may be live
    concurrently.  */
@@ -208,9 +193,6 @@ nvptx_option_override (void)
 
   worker_red_sym = gen_rtx_SYMBOL_REF (Pmode, worker_red_name);
   worker_red_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
-
-  for (unsigned ix = LOCK_MAX; ix--;)
-    lock_syms[ix] = gen_rtx_SYMBOL_REF (Pmode, lock_names[ix]);
 }
 
 /* Return the mode to be used when declaring a ptx object for OBJ.
@@ -1269,44 +1251,6 @@ void
 nvptx_expand_oacc_join (unsigned mode)
 {
   nvptx_emit_joining (GOMP_DIM_MASK (mode), false);
-}
-
-/* Expander for reduction locking and unlocking.  We expect SRC to be
-   gang or worker level.  */
-
-void
-nvptx_expand_oacc_lock (rtx src, int direction)
-{
-  unsigned HOST_WIDE_INT kind;
-  rtx pat;
-  
-  kind = INTVAL (src) == GOMP_DIM_GANG ? LOCK_GLOBAL : LOCK_SHARED;
-  kind = force_global_locks ? LOCK_GLOBAL : kind;
-  lock_used[kind] = true;
-
-  rtx mem = gen_rtx_MEM (SImode, lock_syms[kind]);
-  rtx space = GEN_INT (lock_space[kind]);
-  rtx barrier = NULL_RTX;
-  rtx tmp = gen_reg_rtx (SImode);
-
-  if (direction >= 0)
-    barrier = gen_nvptx_membar (GEN_INT (lock_level[kind]));
-
-  if (direction > 0)
-    emit_insn (barrier);
-  if (!direction)
-    {
-      rtx_code_label *label = gen_label_rtx ();
-
-      LABEL_NUSES (label)++;
-      pat = gen_nvptx_spin_lock (mem, space, tmp, gen_reg_rtx (BImode), label);
-    }
-  else
-    /* We can use reset for both unlock and initialization.  */
-    pat = gen_nvptx_spin_reset (mem, space, tmp);
-  emit_insn (pat);
-  if (!direction)
-    emit_insn (barrier);
 }
 
 /* Generate instruction(s) to unpack a 64 bit object into 2 32 bit
@@ -4103,16 +4047,6 @@ nvptx_file_end (void)
 	       worker_red_align,
 	       worker_red_name, worker_red_hwm);
     }
-
-  /* Emit lock variables.  */
-  for (unsigned ix = LOCK_MAX; ix--;)
-    if (lock_used[ix])
-      {
-	fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", lock_names[ix]);
-	fprintf (asm_out_file, "%s .u32 %s;\n",
-		 nvptx_section_from_addr_space (lock_space[ix]),
-		 lock_names[ix]);
-      }
 }
 
 /* Expander for the shuffle builtins.  */
@@ -4929,9 +4863,6 @@ nvptx_use_anchors_for_symbol (const_rtx ARG_UNUSED (symbol))
 
 #undef TARGET_GOACC_FORK_JOIN
 #define TARGET_GOACC_FORK_JOIN nvptx_xform_fork_join
-
-#undef TARGET_GOACC_LOCK
-#define TARGET_GOACC_LOCK nvptx_xform_lock
 
 #undef TARGET_GOACC_REDUCTION
 #define TARGET_GOACC_REDUCTION nvptx_goacc_reduction

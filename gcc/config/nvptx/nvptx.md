@@ -1371,36 +1371,6 @@
   return asms[INTVAL (operands[1])];
 })
 
-(define_expand "oacc_lock"
-  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")
-		        (match_operand:SI 1 "const_int_operand" "")]
-		       UNSPECV_LOCK)]
-  ""
-{
-  nvptx_expand_oacc_lock (operands[0], 0);
-  DONE;
-})
-
-(define_expand "oacc_unlock"
-  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")
-		        (match_operand:SI 1 "const_int_operand" "")]
-		       UNSPECV_LOCK)]
-  ""
-{
-  nvptx_expand_oacc_lock (operands[0], +1);
-  DONE;
-})
-
-(define_expand "oacc_lock_init"
-  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")
-		        (match_operand:SI 1 "const_int_operand" "")]
-		       UNSPECV_LOCK)]
-  ""
-{
-  nvptx_expand_oacc_lock (operands[0], -1);
-  DONE;
-})
-
 (define_insn "nvptx_fork"
   [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
 		       UNSPECV_FORK)]
@@ -1588,23 +1558,3 @@
 		    UNSPECV_MEMBAR)]
   ""
   "%.\\tmembar%B0;")
-
-;; spin lock and reset
-(define_insn "nvptx_spin_lock"
-   [(parallel
-     [(set (match_operand:SI 2 "register_operand" "=R")
-	   (unspec_volatile:SI [(match_operand:SI 0 "memory_operand" "m")
-			        (match_operand:SI 1 "const_int_operand" "i")]
-			       UNSPECV_LOCK))
-      (set (match_operand:BI 3 "register_operand" "=R") (const_int 0))
-      (label_ref (match_operand 4 "" ""))])]
-   ""
-   "%4:\\tatom%R1.cas.b32\\t%2, %0, 0, 1;\\n\\t\\tsetp.ne.u32\\t%3, %2, 0;\\n\\t@%3\\tbra.uni\\t%4;")
-
-(define_insn "nvptx_spin_reset"
-   [(set (match_operand:SI 2 "register_operand" "=R")
-	    (unspec_volatile:SI [(match_operand:SI 0 "memory_operand" "m")
-				 (match_operand:SI 1 "const_int_operand" "i")]
-				UNSPECV_LOCK))]
-   ""
-   "%.\\tatom%R1.exch.b32\\t%2, %0, 0;")

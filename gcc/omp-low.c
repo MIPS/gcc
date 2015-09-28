@@ -4718,14 +4718,11 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
    before-loop forking sequence in FORK_SEQ and the after-loop joining
    sequence to JOIN_SEQ.  The general form of these sequences is
 
-     GOACC_LOCK_INIT
      GOACC_REDUCTION_SETUP
      GOACC_FORK
      GOACC_REDUCTION_INIT
      ...
-     GOACC_LOCK
      GOACC_REDUCTION_FINI
-     GOACC_UNLOCK
      GOACC_JOIN
      GOACC_REDUCTION_TEARDOWN.  */
 
@@ -4833,30 +4830,12 @@ lower_oacc_reductions (location_t loc, tree clauses, unsigned dim, bool inner,
       }
 
   /* Now stitch things together.  */
-  if (count)
-    {
-      gcall *init = gimple_build_call_internal
-	(IFN_GOACC_LOCK_INIT, 2, level, lid);
-      gimple_seq_add_stmt (fork_seq, init);
-    }
   gimple_seq_add_seq (fork_seq, before_fork);
   if (fork)
     gimple_seq_add_stmt (fork_seq, fork);
   gimple_seq_add_seq (fork_seq, after_fork);
 
-  if (count)
-    {
-      gcall *init = gimple_build_call_internal
-	(IFN_GOACC_LOCK, 2, level, lid);
-      gimple_seq_add_stmt (join_seq, init);
-    }
   gimple_seq_add_seq (join_seq, before_join);
-  if (count)
-    {
-      gcall *init = gimple_build_call_internal
-	(IFN_GOACC_UNLOCK, 2, level, lid);
-      gimple_seq_add_stmt (join_seq, init);
-    }
   if (join)
     gimple_seq_add_stmt (join_seq, join);
   gimple_seq_add_seq (join_seq, after_join);
@@ -14914,13 +14893,6 @@ execute_oacc_transform ()
 		rescan = 0;
 		break;
 
-	      case IFN_GOACC_LOCK:
-	      case IFN_GOACC_UNLOCK:
-	      case IFN_GOACC_LOCK_INIT:
-		if (targetm.goacc.lock (call, dims, ifn_code))
-		  rescan = -1;
-		break;
-
 	      case IFN_GOACC_REDUCTION_SETUP:
 	      case IFN_GOACC_REDUCTION_INIT:
 	      case IFN_GOACC_REDUCTION_FINI:
@@ -15023,37 +14995,6 @@ default_goacc_fork_join (gcall *ARG_UNUSED (call),
 #ifndef HAVE_oacc_join
       return true;
 #endif
-    }
-
-  return false;
-}
-
-/* Default lock/unlock early expander.  Delete the function calls if
-   there is no RTL expander.  */
-
-bool
-default_goacc_lock (gcall *ARG_UNUSED (call), const int*ARG_UNUSED (dims),
-		    unsigned ifn_code)
-{
-  switch (ifn_code)
-    {
-    case IFN_GOACC_LOCK:
-#ifndef HAVE_oacc_lock
-      return true;
-#endif
-      break;
-    case IFN_GOACC_UNLOCK:
-#ifndef HAVE_oacc_unlock
-      return true;
-#endif
-      break;
-    case IFN_GOACC_LOCK_INIT:
-#ifndef HAVE_oacc_lock_init
-      return true;
-#endif
-      break;
-    default:
-      gcc_unreachable ();
     }
 
   return false;

@@ -1,5 +1,30 @@
 2015-09-28  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* target.def (GOACC_LOCK): Delete hook.
+	* doc/tm.texi.in (TARGET_GOACC_LOCK): Delete.
+	* doc/tm.texi: Rebuilt.
+	* targhooks.h (default_goacc_lock): Delete.
+	* internal-fn.def (GOACC_LOCK,  GOACC_UNLOCK, GOACC_LOCK_INIT): Delete.
+	* internal-fn.c (expand_GOACC_LOCK, expand_GOACC_UNLOCK,
+	expand_GOACC_LOCK_INIT): Delete.
+	* omp-low.c (lower_oacc_reductions): Remove locking.
+	(execute_oacc_transform): Remove lock transforming.
+	(default_goacc_lock): Delete.
+	
+	* config/nvptx/nvptx-protos.h (nvptx_expand_oacc_lock): Delete.
+	* config/nvptx/nvptx.md (oacc_lock, oacc_unlock, oacc_lock_init):
+	Delete.
+	(nvptx_spin_lock, nvptx_spin_reset): Delete.
+	* config/nvptx/nvptx.c (LOCK_GLOBAL, LOCK_SHARED, LOCK_MAX): Delete.
+	(lock_names, lock_space, lock_level, lock_used): Delete.
+	(force_global_locks): Delete.
+	(nvptx_option_override): Do not initialize lock syms.
+	(nvptx_expand_oacc_lock): Delete.
+	(nvptx_file_end): Do not finalize locks.
+	(TARGET_GOACC_LOCK): Delete.
+
+2015-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.md (atomic_compare_and_swap<mode>_1,
 	atomic_exchange<mode>): Incoming values can be constants.
 	* config/nvptx/nvptx.c (nvptx_expand_swap): Delete.

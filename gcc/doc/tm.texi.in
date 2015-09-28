@@ -4253,8 +4253,6 @@ address;  but often a machine-dependent strategy can generate better code.
 
 @hook TARGET_GOACC_FORK_JOIN
 
-@hook TARGET_GOACC_LOCK
-
 @hook TARGET_GOACC_REDUCTION
 
 @node Anchored Addresses
