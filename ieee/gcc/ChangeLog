@@ -1,3 +1,385 @@
+2015-09-28  Aditya Kumar  <aditya.k7@samsung.com>
+            Sebastian Pop  <s.pop@samsung.com>
+
+	* graphite-optimize-isl.c (optimize_isl): Use ISL_SCHEDULE_FUSE_MAX.
+	* graphite-scop-detection.c (struct sese_l): New type.
+	(get_entry_bb): API for getting entry bb of SESE.
+	(get_exit_bb): API for getting exit bb of SESE.
+	(class debug_printer): New type.  Simple printer in debug mode.
+	(trivially_empty_bb_p): New.  Return true when BB is empty or
+	contains only debug instructions.
+	(graphite_can_represent_expr): Call scalar_evoution_in_region
+	instead of analyze_scalar_evolution.  Pass in scop instead of only
+	the scop entry.
+	(stmt_has_simple_data_refs_p): Pass in scop instead of only the
+	scop entry.
+	(stmt_simple_for_scop_p): Same.
+	(harmful_stmt_in_bb): Same.
+	(graphite_can_represent_loop): Deleted.
+	(struct scopdet_info): Deleted.
+	(scopdet_basic_block_info): Deleted.
+	(build_scops_1): Deleted.
+	(bb_in_sd_region): Deleted.
+	(find_single_entry_edge): Deleted.
+	(find_single_exit_edge): Deleted.
+	(create_single_entry_edge): Deleted.
+	(sd_region_without_exit): Deleted.
+	(create_single_exit_edge): Deleted.
+	(unmark_exit_edges): Deleted.
+	(mark_exit_edges): Deleted.
+	(create_sese_edges): Deleted.
+	(build_graphite_scops): Deleted.
+	(canonicalize_loop_closed_ssa): Recompute all dominators at the
+	end.
+	(build_scops): Use the new scop_builder to build scops.
+	(dot_all_scops_1): Use the new pretty printer.  Print loop father
+	as well.
+	(loop_body_is_valid_scop): New.  Return true if loop body is a
+	valid scop.
+	(class scop_builder): New.  Builds SCoPs for polyhedral
+	optimizations.
+	(scop_builder): New constructor.
+	(static sese_l invalid_sese): sese_l with invalid edges.
+	(get_sese): Get an sese (from a loop) if possible, invalid_sese
+	otherwise.
+	(get_nearest_dom_with_single_entry): Get nearest dominator of a
+	basic_block with single entry.  Return NULL if we get to the
+	beginning of a function.
+	(get_nearest_pdom_with_single_exit): Get nearest post-dominator of
+	a basic_block with single exit.  Return NULL if we get to the
+	beginning of a function.
+	(print_sese): Pretty-print SESE.
+	(merge_sese): Merge two SESEs if possible and return the new SESE.
+	(build_scop_depth): Start building the SCoP within a loop nest.
+	(build_scop_breadth): Start building the SCoP at a single loop
+	depth.  Merge adjacent SESEs if valid.
+	(can_represent_loop_1): Returns true if Graphite can represent
+	loop inside SCoP.  Helper for can_represent_loop.
+	(can_represent_loop): Returns true if Graphite can represent LOOP
+	and all its nested loops in SCoP.
+	(loop_is_valid_scop): Returns true if LOOP and all its nests
+	constitute a valid SCoP.
+	(region_has_one_loop): Returns true of a region has only one loop.
+	(add_scop): Add SCoP to the list of valid scops.  Removes an
+	already existing scop if it intersects with or subsumed by this
+	one.
+	(harmful_stmt_in_region): Returns true if SCoP has any statment
+	which cannot be represented by Graphite.
+	(subsumes): Returns true of SCoP S1 subsumes SCoP S2.
+	(remove_subscops): Remove any SCoP from the list of already found
+	SCoPs, if subsumed by S1.
+	(intersects): Return true if region bounded by SCoPs S1 and S2
+	intersect.
+	(remove_intersecting_scops): Remove any SCoP which intersects with
+	S1.
+	* graphite.c (print_graphite_scop_statistics):
+	(print_graphite_statistics): Print SCoP info while debugging.
+	(graphite_initialize): Early exit in case number of loops in a
+	function is less than PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION or
+	basic blocks are more than PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION.
+	(graphite_finalize):
+	* params.def: Add PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION.
+	* sese.h (sese_loop_depth): Remove unnecessary gcc_assert.
+	(recompute_all_dominators): Recalculate POST_DOMINATORS.
+	* tree-cfg.c (print_loops): Print the function name while printing
+	loops.
+
+2015-09-28  Aditya Kumar  <aditya.k7@samsung.com>
+            Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/67700
+	* graphite-sese-to-poly.c (parameter_index_in_region): Call
+	invariant_in_sese_p_rec.
+	(extract_affine): Same.
+	(rewrite_cross_bb_scalar_deps): Call update_ssa.
+	* sese.c (invariant_in_sese_p_rec): Export.  Handle vdefs and vuses.
+	* sese.h (invariant_in_sese_p_rec): Declare.
+
+2015-09-28  David Wohlferd  <dw@LimeGreenSocks.com>
+
+        * doc/extend.texi (Asm Labels): Break out text for data vs
+	functions.
+
+2015-09-28  Jiong Wang  <jiong.wang@arm.com>
+
+	Revert:
+	2015-08-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+		    Jiong Wang  <jiong.wang@arm.com>
+
+	* config/aarch64/aarch64.d (tlsdesc_small_pseudo_<mode>): New pattern.
+	* config/aarch64/aarch64.h (reg_class): New enumeration FIXED_REG0.
+	(REG_CLASS_NAMES): Likewise.
+	(REG_CLASS_CONTENTS): Likewise.
+	* config/aarch64/aarch64.c (aarch64_class_max_nregs): Likewise.
+	(aarch64_register_move_cost): Likewise.
+	(aarch64_load_symref_appropriately): Invoke the new added pattern if
+	possible.
+	* config/aarch64/constraints.md (Uc0): New constraint.
+
+2015-09-28  Daniel Hellstrom  <daniel@gaisler.com>
+
+	* config/sparc/t-rtems: Remove -muser-mode. Add ut699, at697f and leon.
+
+2015-09-28  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config/rs6000/rs6000.c (rs6000_xcoff_asm_named_section): Place
+	SECTION_EXCLUDE in XO mapping class.
+
+2015-09-28  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/54236
+	* config/sh/predicates.md (t_reg_operand, negt_reg_operand): Allow
+	and handle ne and eq codes.
+	* config/sh/sh.c (sh_rtx_costs): Adjust matching of tst #imm,r0 insn.
+	(sh_recog_treg_set_expr): Early accept negt_reg_operand.  Eearly reject
+	CONST_INT_P.  Use reverse_condition.
+	(sh_split_treg_set_expr): Likewise.
+
+2015-09-28  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/types.md (type): Add rotate_imm.
+	* config/aarch64/aarch64.md (*ror<mode>3_insn): Split out the
+	ROR immediate case.
+	(*rorsi3_insn_uxtw): Likewise.
+	* config/aarch64/thunderx.md (thunderx_shift): Add rotate_imm.
+	* config/arm/cortex-a53.md (cortex_a53_alu_shift): Add rotate_imm.
+	* config/arm/cortex-a57.md (cortex_a53_alu): Add rotate_imm.
+
+2015-09-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/67481
+	* ifcvt.c (contains_ccmode_rtx_p): New function.
+	(insn_valid_noce_process_p): Use it.
+
+2015-09-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/67456
+	PR rtl-optimization/67464
+	PR rtl-optimization/67465
+	* ifcvt.c (noce_try_cmove_arith): Bail out if cannot conditionally
+	move in the mode of x.  Handle combination of complex and simple
+	block pairs as well as the case when one is empty.
+
+2015-09-28  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* doc/gimple.texi: Update references to gimple_statement_base.
+	* gdbhooks.py: Likewise.
+	* gimple.h: Likewise.
+
+2015-09-28  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/driver-sparc.c: map LEON to leon3
+
+2015-09-28  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sparc.opt: Rename mask from USER_MODE to SV_MODE
+	  and make it inverse to change default
+	* config/sparc/sync.md: Only use supervisor ASI for CASA when in
+	  supervisor mode
+	* doc/invoke.texi: Document change of default
+
+2015-09-28  Daniel Cederman  <cederman@gaisler.com>
+
+	* config/sparc/sparc.c (sparc_function_value_regno_p): Do not return
+	true on %f0 for a target without FPU.
+	* config/sparc/sparc.md (untyped_call): Do not save %f0 for a target
+	without FPU.
+	(untyped_return): Do not load %f0 for a target without FPU.
+
+2015-09-28  Andrew Pinski  <apinski@cavium.com>    
+
+	* config/aarch64/aarch64.md (prefetch):
+	Change the predicate of operand 0 to register_operand.
+
+2015-09-27  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/predicates.md (register_sse4nonimm_operand): New
+	predicate.
+	* config/i386/sse.md (PEXTR_MODE12): New mode iterator.
+	(*vec_extract<mode>): Use PEXTR_MODE12 instead of VI12_128 mode.
+	Use register_sse4nonimm_operand as operand 0 predicate.
+	(*vec_extractv8hi_sse2): Remove insn pattern.
+	(*vec_extract<PEXTR_MODE12:mode>_zext): Merge insn pattern from
+	*vec_extractv8hi_zext and *vec_extractv16qi_zext patterns.
+
+2015-09-27  Oleg Endo  <olegendo@gcc.gnu.org>
+	    Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/67391
+	* config/sh/sh-protos.h (sh_lra_p): Declare.
+	* config/sh/sh.c (sh_lra_p): Make non-static.
+	* config/sh/sh.md (addsi3): Use arith_reg_dest for operands[0] and
+	arith_reg_operand for operands[1].  Remove TARGET_SHMEDIA case.
+	Expand into addsi3_scr if operands[2] if needed.
+	(*addsi3_compact): Rename to *addsi3_compact_lra.  Use
+	arith_reg_operand for operands[1].  Allow it only when LRA is enabled.
+	(addsi3_scr, *addsi3): New insn_and_split patterns.
+
+2015-09-27  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	PR tree-optimization/67312
+	PR middle-end/67340
+	PR middle-end/67490
+	PR bootstrap/67597
+	* cfgexpand.c (parm_in_stack_slot_p): Remove.
+	(ssa_default_def_partition): Remove.
+	(get_rtl_for_parm_ssa_default_def): Remove.
+	(set_rtl): Check that RTL assignments match expectations.
+	Loop on SUBREGs, CONCATs and PARALLELs subexprs.  Set only the
+	default def location for params and results.  Record SSA names
+	or types in REG and MEM attrs, respectively.
+	(set_parm_rtl): New.
+	(expand_one_ssa_partition): Drop logic that assigned MEMs with
+	unassigned addresses.
+	(adjust_one_expanded_partition_var): Don't accept NULL RTL on
+	deferred stack alloc vars.
+	(expand_used_vars): Skip partitions holding parm default defs.
+	Move adjust_one_expanded_partition_var loop...
+	(pass_expand::execute): ... here.  Drop redundant assert.
+	Adjust comments before the final loop over all ssa names.
+	Require assigned rtl of parms and results to match exactly.
+	Reset its attributes to match them, not any other variables in
+	the same partition.
+	(expand_debug_expr): Use entry value for PARM's default defs
+	only iff they have zero nondebug uses.
+	* cfgexpand.h (parm_in_stack_slot_p): Remove.
+	(get_rtl_for_parm_ssa_default_def): Remove.
+	(set_parm_rtl): Declare.
+	* doc/invoke.texi: Improve wording.
+	* explow.c (promote_decl_mode): Fix promote_function_mode for
+	result decls not by reference.
+	(promote_ssa_mode): Disregard BLKmode from promote_decl, and
+	bypass TYPE_MODE to get the actual vector mode.
+	* function.c: Include tree-dfa.h.  Revert 2015-08-14's and
+	2015-08-19's changes as follows.  Drop include of
+	basic-block.h and df.h.
+	(rtl_for_parm): Remove.
+	(maybe_reset_rtl_for_parm): Remove.
+	(parm_in_unassigned_mem_p): Remove.
+	(use_register_for_decl): Add logic for RESULT_DECLs matching
+	assign_parms' behavior.
+	(split_complex_args): Revert.
+	(assign_parms_augmented_arg_list): Revert.  Add comment
+	referencing the logic above.
+	(assign_parm_adjust_stack_rtl): Revert.
+	(assign_parm_setup_block): Revert.  Use set_parm_rtl instead
+	of SET_DECL_RTL.  Set up a REG if the parm demands so.
+	(assign_parm_setup_reg): Revert.  Consolidated SET_DECL_RTL
+	calls into a single set_parm_rtl.  Set up a temporary RTL
+	temporarily for expand_assignment.
+	(assign_parm_setup_stack): Revert.  Use set_parm_rtl.
+	(assign_parms_unsplit_complex): Revert.  Use set_parm_rtl.
+	(assign_bounds): Revert.
+	(assign_parms): Revert.  Use set_parm_rtl.
+	(allocate_struct_function): Relayout result and parms of
+	non-abstruct functions.
+	(expand_function_start): Revert.  Use set_parm_rtl.  If the
+	result is not a hard reg, create a pseudo from the promoted
+	mode of the default def.  Promote static chain mode.
+	* tree-outof-ssa.c (remove_ssa_form): Drop unused
+	partition_has_default_def.  Set up
+	partitions_for_parm_default_defs.
+	(finish_out_of_ssa): Remove partition_has_default_def.
+	Release partitions_for_parm_default_defs.
+	* tree-outof-ssa.h (struct ssaexpand): Remove
+	partition_has_default_def.  Add
+	partitions_for_parm_default_defs.
+	* tree-ssa-coalesce.c: Include tree-dfa.h, tm_p.h and
+	stor-layout.h.
+	(build_ssa_conflict_graph): Fix conflict-detection of default
+	defs of even unused default defs of params and results.
+	(for_all_parms): New.
+	(create_default_def): New.
+	(register_default_def): New.
+	(coalesce_with_default): New.
+	(create_outofssa_var_map): Create default defs for all parms
+	and results, and register their partitions.  Add GIMPLE_RETURN
+	operands as coalesce candidates with results.  Add default
+	defs of each parm or result as coalesce candidates with its
+	other defs.  Mark each result def, and each default def of
+	parms, as used_in_copy.
+	(gimple_can_coalesce_p): Call it.  Call use_register_for_decl
+	with the ssa names, even anonymous ones.  Drop
+	parm_in_stack_slot_p calls.  Require same signedness and
+	alignment.
+	(coalesce_ssa_name): Add coalesce candidates for all defs of
+	each parm and result, even unused ones.
+	(parm_default_def_partition_arg): New type.
+	(set_parm_default_def_partition): New.
+	(get_parm_default_def_partitions): New.
+	* tree-ssa-coalesce.h (get_parm_default_def_partitions): New.
+	* tree-ssa-live.c (partition_view_init): Regard unused defs of
+	parms and results as used.
+	(verify_live_on_entry): Don't error out just because they're
+	not live.
+
+2015-09-26  David Edelsohn  <dje.gcc@gmail.com>
+
+	* dwarf2out.c (XCOFF_DEBUGGING_INFO): Default 0 definition.
+	(HAVE_XCOFF_DWARF_EXTRAS): Default to 0 definition.
+	(output_fde): Don't output length for debug_frame on AIX.
+	(output_call_frame_info): Don't output length for debug_frame on AIX.
+	(have_macinfo): Force to False for XCOFF_DEBUGGING_INFO and not
+	HAVE_XCOFF_DWARF_EXTRAS.
+	(add_AT_loc_list): Return early if XCOFF_DEBUGGING_INFO and not
+	HAVE_XCOFF_DWARF_EXTRAS.
+	(output_compilation_unit_header): Don't output length on AIX.
+	(output_pubnames): Don't output length on AIX.
+	(output_aranges): Delete argument. Compute length locally. Don't
+	output length on AIX.
+	(output_line_info): Don't output length on AIX.
+	(dwarf2out_finish): Don't compute aranges_length.
+	* dwarf2asm.c (XCOFF_DEBUGGING_INFO): Default 0 definition.
+	(dw2_asm_output_nstring): Emit .byte not .ascii on AIX.
+	* config/rs6000/rs6000.c (rs6000_output_dwarf_dtprel): Emit correct
+	symbol decoration for AIX.
+	(rs6000_xcoff_debug_unwind_info): New.
+	(rs6000_xcoff_asm_named_section): Emit .dwsect pseudo-op
+	for SECTION_DEBUG.
+	(rs6000_xcoff_declare_function_name): Emit different
+	.function pseudo-op when DWARF2_DEBUG. Don't call
+	xcoffout_declare_function for DWARF2_DEBUG.
+	* config/rs6000/xcoff.h (TARGET_DEBUG_UNWIND_INFO):
+	Redefine.
+	* config/rs6000/aix71.h: New.
+	* configure.ac (gcc_cv_as_aix_dwloc): Check AIX as for DWARF
+	locations support.
+	* configure: Regenerate.
+	* config.gcc (powerpc-ibm-aix[789]+): New stanza for AIX 7.1+ with
+	DWARF support.
+
+2015-09-26  Jeff Law  <law@redhat.com>
+
+	* config/arc/arc.c (arc_output_addsi): Fix left shift undefined
+	behaviour.
+	* config/arc/constraints.md (Cca, C2a): Fix left shift undefined
+	behaviour.
+
+	* config/sh/sh.h (CONST_OK_FOR_J16): Fix left shift undefined
+	behaviour
+
+	* config/mips/mips.c (mips_compute_frame_info): Fix left shift
+	undefined behaviour.
+
+	* config/cris/cris.md (asrandb): Fix left shift undefined
+	behaviour.
+	(asrandw): Likewise.
+
+2015-09-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR target/61578
+	* lra-constarints.c (match_reload): Check presence of the input pseudo
+	in the output operand.
+
+2015-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	* doc/invoke.texi (-fsanitize): Minor wording tweak.
+
+2015-09-25  Tobias Burnus  <burnus@net-b.de>
+
+	* doc/invoke.texi (-fsanitize): Update URLs.
+
 2015-09-25  Teresa Johnson  <tejohnson@google.com>
 
 	* opts.c (finish_options): Unset -freorder-blocks-and-partition
