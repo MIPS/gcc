@@ -478,9 +478,6 @@ for rrule in ${multilib_reuse}; do
     optout=`./tmpmultilib4 "${copts}" "${options}"`
     # Output the line with all appropriate matches.
     dirout="${dirout}" optout="${optout}" ./tmpmultilib2
-  else
-    echo "The rule ${rrule} is trying to reuse nonexistent multilib."
-    exit 1
   fi
 done
 
