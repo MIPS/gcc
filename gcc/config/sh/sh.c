@@ -216,7 +216,6 @@ static int sh_mode_after (int, int, rtx_insn *);
 static int sh_mode_entry (int);
 static int sh_mode_exit (int);
 static int sh_mode_priority (int entity, int n);
-static bool sh_lra_p (void);
 
 static rtx mark_constant_pool_use (rtx);
 static tree sh_handle_interrupt_handler_attribute (tree *, tree, tree,
@@ -13810,6 +13809,34 @@ sh_check_add_incdec_notes (rtx_insn* i)
   return i;
 }
 
+/* Given a move insn destiation and a source, make sure that the move source
+   operand is not a post-inc mem load with the same address reg as the
+   destination.  Returns the modified source operand with the post-inc removed
+   if necessary.  */
+rtx
+sh_remove_overlapping_post_inc (rtx dst, rtx src)
+{
+  if (!MEM_P (src))
+    return src;
+
+  rtx addr = XEXP (src, 0);
+
+  if (GET_CODE (addr) == POST_INC
+      && reg_overlap_mentioned_p (XEXP (addr, 0), dst))
+    return replace_equiv_address (src, XEXP (addr, 0));
+
+  gcc_assert (GET_CODE (addr) != POST_MODIFY);
+  return src;
+}
+
+/* Emit a move insn that is safe to be used in peephole patterns.  */
+rtx_insn*
+sh_peephole_emit_move_insn (rtx dst, rtx src)
+{
+  return sh_check_add_incdec_notes (
+	emit_move_insn (dst, sh_remove_overlapping_post_inc (dst, src)));
+}
+
 /* Given an op rtx and an insn, try to find out whether the result of the
    specified op consists only of logical operations on T bit stores.  */
 bool
@@ -14479,7 +14506,7 @@ sh_mode_priority (int entity ATTRIBUTE_UNUSED, int n)
 */
 
 /* Return true if we use LRA instead of reload pass.  */
-static bool
+bool
 sh_lra_p (void)
 {
   return sh_lra_flag;

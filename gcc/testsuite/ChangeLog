@@ -1,3 +1,295 @@
+2015-09-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/67456
+	PR rtl-optimization/67464
+	PR rtl-optimization/67465
+	* gcc.dg/pr67465.c: New test.
+
+2015-09-28  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/62171
+	* gcc.dg/vect/pr62171.c: New test.
+
+2015-09-27  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/debug/dwarf2/pr44641.C: Revert line number change. Remove
+	skip on AIX.  XFAIL individual line tests.
+
+2015-09-27  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/64164
+	PR tree-optimization/67312
+	* gcc.dg/pr67312.c: New.  From Zdenek Sojka.
+	* gcc.target/i386/stackalign/return-4.c: Add -O.
+
+2015-09-27  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/debug/dwarf2/pr44641.C: Add one to expected line numbers.
+
+2015-09-26  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67721
+	* gfortran.dg/alloc_comp_deep_copy_3.f03: New.
+
+2015-09-26  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/pr64935-1.c: XFAIL on AIX.
+	* gcc.dg/pr64935-2.c: XFAIL on AIX.
+	* gcc.dg/debug/dwarf2/dwarf2-macro2.c: XFAIL Start new file on AIX.
+	* gcc.dg/debug/dwarf2/dwarf2-macro2.c: XFAIL At line number on AIX.
+	* gcc.dg/debug/dwarf2/global-used-types.c: XFAIL ascii on AIX.
+	* gcc.dg/debug/dwarf2/noreturn-function-keyword.c: XFAIL
+	DW_AT_noreturn on AIX.
+	* gcc.dg/debug/dwarf2/noreturn-function-attribute.c: XFAIL
+	DW_AT_noreturn on AIX.
+	* gcc.dg/debug/dwarf2/lang-c89.c: XFAIL DW_AT_language on AIX.
+	* gcc.dg/debug/dwarf2/stacked-qualified-types-3.c: XFAIL DW_TAG on AIX.
+	* g++.dg/debug/dwarf2/deleted-member-function.C: XFAIL
+	DW_AT_GNU_deleted on AIX.
+	* g++.dg/debug/dwarf2/noreturn-function.C: XFAIL DW_AT_noreturn on AIX.
+	* g++.dg/debug/dwarf2/template-params-6.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/dwarf4-nested.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/pubnames-2.C: Skip on AIX.
+	* g++.dg/debug/dwarf2/pr44641.C: Skip on AIX.
+	* g++.dg/debug/dwarf2/pr46527.C: XFAIL on AIX.
+	* g++.dg/debug/dwarf2/imported-decl-2.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/namespace-1.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/global-used-types-1.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/lambda1.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/pubnames-3.C: Skip on AIX.
+	* g++.dg/debug/dwarf2/pr61433.C: XFAIL on AIX.
+	* g++.dg/debug/dwarf2/nested-4.C: XFAIL on AIX.
+	* g++.dg/debug/dwarf2/template-func-params-6.C: XFAIL ascii on AIX.
+	* g++.dg/debug/dwarf2/lineno-simple1.C: XFAIL on AIX.
+
+2015-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67614
+	* gfortran.dg/pr67614.f90: New test.
+
+2015-09-25  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67525
+	* gfortran.dg/pr67525.f90: New test.
+
+2015-09-25  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/55603
+	* gfortran.dg/allocatable_function_9.f90: New.
+
+2015-09-25  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/67675
+	* gcc.target/sh/pr67675.c: New.
+
+2015-09-25  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.target/aarch64/fpcr_fpsr_1.c: New file.
+
+2015-09-25  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pr66749.c (dg-options): Replace
+	-mtune=lakemount with -mtune=lakemont.
+	* gcc.target/i386/pr66821.c (dg-options): Likewise.
+	* gcc.target/i386/pr67329.c (dg-options): Likewise.
+
+2015-09-25  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/bounds-11.c: New test.
+	* c-c++-common/ubsan/bounds-12.c: New test.
+
+2015-09-25  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/64906
+	* c-c++-common/ubsan/pr64906.c: New test.
+
+2015-09-24  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/pr66749.c (dg-options): Replace -mtune=iamcu
+	with -mtune=lakemount.
+	* gcc.target/i386/pr66821.c (dg-options): Likewise.
+	* gcc.target/i386/pr67329.c (dg-options): Likewise.
+
+2015-09-24  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR driver/67640
+	* gcc.dg/Werror-13.c: New test.
+
+2015-09-24  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* gcc.target/aarch64/target_attr_10.c (foo): Use dg-message for note.
+
+2015-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR lto/67699
+	* g++.dg/pr67699.C: New testcase.
+
+2015-09-24  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR libgcc/67624
+	* gcc.target/arm/fp16-inf.c: New test.
+
+2015-09-24  Kirill Yukhin <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/avx512vbmi-check.h (main): Fix register
+	name while checking for AVX-512VBMI presence.
+
+2015-09-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* lib/target-supports.exp (check_effective_target_pie): Check for
+	PIE support on Solaris 11.x and 12.
+
+2015-09-24  Richard Biener  <rguenther@suse.de>
+
+	* g++.dg/tree-ssa/restrict3.C: New testcase.
+
+2015-09-24  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/48885
+	* gcc.dg/tree-ssa/restrict-6.c: New testcase.
+
+2015-09-24  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-c++-common/Wmisleading-indentation.c: Augment test.
+
+2015-09-23  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix small typos in the coding rule enforcement warnings.
+	* g++.dg/diagnostic/disable.C: Replace 'namepace'
+	with 'namespace'.
+
+2015-09-23  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/67662
+	* gcc.dg/ubsan/pr67662.c: New testcase.
+
+2015-09-23  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/49655
+	* gcc.dg/pragma-diag-6.c: New test.
+
+2015-09-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vcvt_high_1.c: New.
+
+2015-09-23  Richard Biener  <rguenther@suse.de>
+
+	* g++.dg/tree-ssa/restrict2.C: Un-XFAIL testcase.
+
+2015-09-22  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* c-c++-common/Wmisleading-indentation.c: Augment test.
+
+2015-09-22  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* g++.dg/diagostic/disable.C: New.
+
+2015-09-22  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67671
+	* g++.dg/pr67671.C: New test.
+
+2015-09-22  Alexander Fomin <alexander.fomin@intel.com>
+
+	PR target/67480
+	* gcc.target/i386/pr67480.c: New test.
+
+2015-09-22  Kirill Yukhin <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/funcspec-5.c: Test avx512vl, avx512bw,
+	avx512dq, avx512cd, avx512er, avx512pf and skylake-avx512.
+	* gcc.target/i386/builtin_target.c: Test  avx512vl, avx512bw,
+	avx512dq, avx512cd, avx512er and avx512pf.
+
+2015-09-22  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/atomic-inst-ldadd.c: Add tests for
+	update-fetch operations.
+	* gcc.target/aarch64/atomic-inst-ldlogic.c: Likewise.
+
+2015-09-22  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/atomic-inst-ldadd.c: New.
+	* gcc.target/aarch64/atomic-inst-ldlogic.c: New.
+
+2015-09-22  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/atomic-inst-ops.inc: (TEST_MODEL): New.
+	(TEST_ONE): New.
+	* gcc.target/aarch64/atomic-inst-swap.c: New.
+
+2015-09-22  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gcc.target/i386/inline_error.c (int bar): Use dg-message for note.
+	* gcc.target/i386/pr57756.c (static __inline int caller): Likewise.
+	* gcc.target/i386/pr59789.c (f1): Likewise.
+	* gcc.target/i386/intrinsics_5.c (__m128i foo): Likewise.
+	* gcc.target/i386/intrinsics_6.c: Likewise.
+	* gcc.dg/winline-5.c (int t): Likewise.
+	* gcc.dg/winline-9.c (t): Likewise.
+	* gcc.dg/always_inline2.c (q): Likewise.
+	* gcc.dg/winline-2.c (inline int t): Likewise.
+	* gcc.dg/winline-6.c: Likewise.
+	* gcc.dg/winline-10.c (void g): Likewise.
+	* gcc.dg/pr49243.c (void parse): Likewise.
+	* gcc.dg/always_inline3.c (q2): Likewise.
+	* gcc.dg/winline-3.c: Likewise.
+	* gcc.dg/winline-7.c (inline void *t): Likewise.
+
+2015-09-22  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67666
+	* g++.dg/pr67666.C: New test.
+
+2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67615
+	* gfortran.dg/pr67615.f90: new test.
+
+2015-09-21  Jeff Law  <law@redhat.com>
+
+	* gcc.target/h8300/andsi3_ashift_n_lower.c: New test.
+
+2015-09-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Complete the implementation of N4230, Nested namespace definition.
+	* g++.dg/cpp1y/feat-cxx11-neg.C: Add tests for C++17 namespace
+	attributes and nested namespace definitions.
+	* g++.dg/cpp1y/feat-cxx98-neg.C: Likewise.
+	* g++.dg/cpp1z/feat-cxx1z.C: Likewise.
+	* g++.dg/cpp1y/feat-cxx14-neg.C: New.
+	* g++.dg/cpp1z/namespace-attribs.C: Likewise.
+	* g++.dg/cpp1z/nested-namespace-def1.C: Add tests for attributes
+	appearing before the namespace identifier.
+
+2015-09-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c/66415
+	* gcc.dg/cpp/pr66415-1.c: Test column number.
+
+2015-09-21  Richard Biener  <rguenther@suse.de>
+
+	* g++.dg/ext/attr-alias-3.C: Add -g.
+
+2015-09-21  Richard Biener  <rguenther@suse.de>
+
+	PR debug/67664
+	* g++.dg/debug/dwarf2/pr67764.C: New testcase.
+
+2015-09-21  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/64345
+	* gcc.target/sh/pr64345-1.c: Adjust expected insn counts for SH2A.
+
+2015-09-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	* gcc.dg/pragma-diag-5.c: Fix excess warning.
+
+2015-09-21  Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR middle-end/60832
+	* gcc.dg/pr53265.c: Update.
+
 2015-09-21  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gcc.target/arm/stack-checking.c: Skip for Thumb1.
@@ -1346,7 +1638,7 @@
 	* gfortran.dg/norm2_4.f90: this.
 	* gfortran.dg/norm2_5.f90: New test.
 
-2015-08-14  Alexandre Oliva <aoliva@redhat.com>
+2015-08-14  Alexandre Oliva  <aoliva@redhat.com>
 
 	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
 	* gcc.dg/ssp-1.c: Make counter a register.
@@ -1968,7 +2260,7 @@
 2015-07-25  David Edelsohn  <dje.gcc@gmail.com>
 
 	Revert:
-	2015-07-23  Alexandre Oliva <aoliva@redhat.com>
+	2015-07-23  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR rtl-optimization/64164
 	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
@@ -2060,7 +2352,7 @@
 	PR c++/66572
 	* g++.dg/warn/Wlogical-op-2.C: New test.
 
-2015-07-23  Alexandre Oliva <aoliva@redhat.com>
+2015-07-23  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR rtl-optimization/64164
 	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
@@ -4058,10 +4350,10 @@
 	* gcc.target/arm/pr65710.c: Do not override -mfloat-abi directives
 	passed by the testsuite driver.
 
-2015-06-09  Alexandre Oliva <aoliva@redhat.com>
+2015-06-09  Alexandre Oliva  <aoliva@redhat.com>
 
 	Revert:
-	2015-06-09  Alexandre Oliva <aoliva@redhat.com>
+	2015-06-09  Alexandre Oliva  <aoliva@redhat.com>
 	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
 	* gcc.dg/ssp-1.c: Make counter a register.
 	* gcc.dg/ssp-2.c: Likewise.
@@ -4108,7 +4400,7 @@
 	PR middle-end/66413
 	* gcc.dg/torture/pr66413.c: New testcase.
 
-2015-06-09  Alexandre Oliva <aoliva@redhat.com>
+2015-06-09  Alexandre Oliva  <aoliva@redhat.com>
 
 	* gcc.dg/guality/pr54200.c: Add -fno-tree-coalesce-vars.
 	* gcc.dg/ssp-1.c: Make counter a register.
@@ -9109,7 +9401,7 @@
 	* gcc.dg/guality/pr41447-1.c: Remove xfail.
 	* gcc.dg/guality/pr41616-1.c: Ditto.
 
-2015-02-04  Alexandre Oliva <aoliva@redhat.com>
+2015-02-04  Alexandre Oliva  <aoliva@redhat.com>
 
 	PR debug/64817
 	* gcc.dg/pr64817-3.c: New.

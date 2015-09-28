@@ -466,7 +466,7 @@
 )
 
 (define_insn "prefetch"
-  [(prefetch (match_operand:DI 0 "address_operand" "r")
+  [(prefetch (match_operand:DI 0 "register_operand" "r")
             (match_operand:QI 1 "const_int_operand" "")
             (match_operand:QI 2 "const_int_operand" ""))]
   ""
@@ -3392,7 +3392,7 @@
   [(set_attr "type" "logics_reg")]
 )
 
-(define_insn "*<LOGICAL:optab>_one_cmpl_<SHIFT:optab><mode>3"
+(define_insn "<LOGICAL:optab>_one_cmpl_<SHIFT:optab><mode>3"
   [(set (match_operand:GPI 0 "register_operand" "=r")
 	(LOGICAL:GPI (not:GPI
 		      (SHIFT:GPI
