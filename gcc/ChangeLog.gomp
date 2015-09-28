@@ -1,3 +1,21 @@
+2015-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.md (atomic_compare_and_swap<mode>_1,
+	atomic_exchange<mode>): Incoming values can be constants.
+	* config/nvptx/nvptx.c (nvptx_expand_swap): Delete.
+	(nvptx_expand_cmp_swap): Force operands into regs.
+	(enum nvptx_builtins): Delete SWAP and SWAPLL.
+	(nvptx_init_builtins): Likewise.
+	(nvptx_expand_builtin): Likewise.
+	(nvptx_xform_lock): Always return true.
+	(nvptx_get_worker_red_addr): No need to deal with QI and HI modes.
+	(nvptx_generate_vector_shuffle): Tweak.
+	(nvptx_lockless_update): New.
+	(nvptx_goacc_reduction_setup): Remove bitrotted description, add
+	comments.
+	(nvptx_goacc_reduction_teardown, nvptx_goacc_reduction_init): Likewise.
+	(nvptx_goacc_reduction_fini): Likewise.  Call lockless update.
+
 2015-09-26  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (mark_loops_in_oacc_kernels_region): Don't parallelize the
