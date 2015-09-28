@@ -20,6 +20,7 @@ f_acc_kernels (void)
   }
 }
 
+#pragma acc routine
 void
 f_acc_loop (void)
 {

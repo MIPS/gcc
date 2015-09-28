@@ -2901,6 +2901,14 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
 	    }
 	  return true;
 	}
+      if (is_gimple_omp_oacc (stmt) && ctx == NULL
+	  && get_oacc_fn_attrib (current_function_decl) == NULL)
+	{
+	  error_at (gimple_location (stmt),
+		    "acc loops must be associated with an acc region or "
+		    "routine");
+	  return false;
+	}
       /* FALLTHRU */
     case GIMPLE_CALL:
       if (is_gimple_call (stmt)

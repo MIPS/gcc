@@ -361,72 +361,72 @@ f_acc_data (void)
 void
 f_acc_loop (void)
 {
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp parallel /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp parallel
       ;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp for /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp for
       for (i = 0; i < 3; i++)
 	;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp sections /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp sections
       {
 	;
       }
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp single /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp single
       ;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp task /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp task
       ;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp master /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp master
       ;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp critical /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp critical
       ;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp ordered /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp ordered
       ;
     }
 
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for (i = 0; i < 2; ++i)
     {
-#pragma omp target /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp target
       ;
-#pragma omp target data /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp target data
       ;
-#pragma omp target update to(i) /* { dg-error "non-OpenACC construct inside of OpenACC region" } */
+#pragma omp target update to(i)
     }
 }

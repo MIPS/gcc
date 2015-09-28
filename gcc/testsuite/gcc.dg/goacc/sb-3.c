@@ -1,7 +1,7 @@
 void f (void)
 {
   int i, j;
-#pragma acc loop
+#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
   for(i = 1; i < 30; i++)
     {
       if (i == 7) goto out; // { dg-error "invalid branch to/from OpenACC structured block" }

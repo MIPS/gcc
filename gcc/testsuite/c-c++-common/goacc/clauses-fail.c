@@ -16,3 +16,5 @@ f (void)
   for (i = 0; i < 2; ++i)
     ;
 }
+
+/* { dg-error "acc loops must be associated with an acc region or routine" "" { target *-*-* } 15 } */
