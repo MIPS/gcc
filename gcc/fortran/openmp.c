@@ -1755,14 +1755,6 @@ gfc_match_oacc_routine (void)
 	  return MATCH_ERROR;
 	}
 
-      if (!sym->attr.external && !sym->attr.function && !sym->attr.subroutine)
-	{
-	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, invalid"
-		     " function name %qs", sym->name);
-	  gfc_current_locus = old_loc;
-	  return MATCH_ERROR;
-	}
-
       if (gfc_match_char (')') != MATCH_YES)
 	{
 	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, expecting"
@@ -1798,8 +1790,6 @@ gfc_match_oacc_routine (void)
       gfc_current_ns->proc_name->attr.oacc_function
 	= gfc_oacc_routine_dims (c) + 1;
     }
-  else
-    gcc_unreachable ();
 
   if (n)
     n->clauses = c;
