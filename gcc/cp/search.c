@@ -2014,13 +2014,31 @@ check_final_overrider (tree overrider, tree basefn)
       return 0;
     }
 
-  /* Check for conflicting type attributes.  */
-  if (!comp_type_attributes (over_type, base_type))
+  /* Check for conflicting type attributes.  But leave most transactional
+     memory attributes for set_one_vmethod_tm_attributes.  */
+  if (!comp_type_attributes (over_type, base_type)
+      && !find_tm_attribute (TYPE_ATTRIBUTES (base_type))
+      && !find_tm_attribute (TYPE_ATTRIBUTES (over_type)))
     {
       error ("conflicting type attributes specified for %q+#D", overrider);
       error ("  overriding %q+#D", basefn);
       DECL_INVALID_OVERRIDER_P (overrider) = 1;
       return 0;
+    }
+
+  /* A function declared transaction_safe_dynamic that overrides a function
+     declared transaction_safe (but not transaction_safe_dynamic) is
+     ill-formed.  */
+  if (lookup_attribute ("transaction_safe_dynamic",
+			DECL_ATTRIBUTES (overrider))
+      && lookup_attribute ("transaction_safe", TYPE_ATTRIBUTES (base_type))
+      && !lookup_attribute ("transaction_safe_dynamic",
+			    DECL_ATTRIBUTES (basefn)))
+    {
+      error_at (DECL_SOURCE_LOCATION (overrider),
+		"%qD declared %<transaction_safe_dynamic%>", overrider);
+      inform (DECL_SOURCE_LOCATION (basefn),
+	      "overriding %qD declared %<transaction_safe%>", basefn);
     }
 
   if (DECL_DELETED_FN (basefn) != DECL_DELETED_FN (overrider))

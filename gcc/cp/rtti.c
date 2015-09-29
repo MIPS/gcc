@@ -983,6 +983,12 @@ ptr_initializer (tinfo_s *ti, tree target)
 
   if (incomplete)
     flags |= 8;
+  if (tx_safe_fn_type_p (to))
+    {
+      flags |= 0x20;
+      to = cp_build_type_attribute_variant
+	(to, remove_tm_attribute (TYPE_ATTRIBUTES (to)));
+    }
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (NULL_TREE, flags));
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,

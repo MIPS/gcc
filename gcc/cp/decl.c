@@ -230,6 +230,7 @@ struct GTY((for_user)) named_label_entry {
   bool in_try_scope;
   bool in_catch_scope;
   bool in_omp_scope;
+  bool in_transaction_scope;
 };
 
 #define named_labels cp_function_chain->x_named_labels
@@ -497,6 +498,9 @@ poplevel_named_label_1 (named_label_entry **slot, cp_binding_level *bl)
 	  break;
 	case sk_omp:
 	  ent->in_omp_scope = true;
+	  break;
+	case sk_transaction:
+	  ent->in_transaction_scope = true;
 	  break;
 	default:
 	  break;
@@ -2049,6 +2053,20 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	}
 
+      /* An explicit specialization of a function template or of a member
+	 function of a class template can be declared transaction_safe
+	 independently of whether the corresponding template entity is declared
+	 transaction_safe. */
+      if (flag_tm && TREE_CODE (newdecl) == FUNCTION_DECL
+	  && DECL_TEMPLATE_INSTANTIATION (olddecl)
+	  && DECL_TEMPLATE_SPECIALIZATION (newdecl)
+	  && find_tm_attribute (TYPE_ATTRIBUTES (newtype))
+	  && !find_tm_attribute (TYPE_ATTRIBUTES (TREE_TYPE (newdecl))))
+	{
+	  tree attrs = remove_tm_attribute (TYPE_ATTRIBUTES (newtype));
+	  newtype = cp_build_type_attribute_variant (newtype, attrs);
+	}
+
       TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = newtype;
 
       if (TREE_CODE (newdecl) == FUNCTION_DECL)
@@ -2975,7 +2993,7 @@ check_previous_goto_1 (tree decl, cp_binding_level* level, tree names,
 {
   cp_binding_level *b;
   bool identified = false, complained = false;
-  bool saw_eh = false, saw_omp = false;
+  bool saw_eh = false, saw_omp = false, saw_tm = false;
 
   if (exited_omp)
     {
@@ -3043,6 +3061,18 @@ check_previous_goto_1 (tree decl, cp_binding_level* level, tree names,
 	    inform (input_location, "  enters OpenMP structured block");
 	  saw_omp = true;
 	}
+      if (b->kind == sk_transaction && !saw_tm)
+	{
+	  if (!identified)
+	    {
+	      complained = identify_goto (decl, locus);
+	      identified = true;
+	    }
+	  if (complained)
+	    inform (input_location,
+		    "  enters synchronized or atomic statement");
+	  saw_tm = true;
+	}
     }
 
   return !identified;
@@ -3109,7 +3139,7 @@ check_goto (tree decl)
       return;
     }
 
-  if (ent->in_try_scope || ent->in_catch_scope
+  if (ent->in_try_scope || ent->in_catch_scope || ent->in_transaction_scope
       || ent->in_omp_scope || !vec_safe_is_empty (ent->bad_decls))
     {
       complained = permerror (DECL_SOURCE_LOCATION (decl),
@@ -3148,6 +3178,8 @@ check_goto (tree decl)
 	inform (input_location, "  enters try block");
       else if (ent->in_catch_scope && !saw_catch)
 	inform (input_location, "  enters catch block");
+      else if (ent->in_transaction_scope)
+	inform (input_location, "  enters synchronized or atomic statement");
     }
 
   if (ent->in_omp_scope)
@@ -9976,6 +10008,8 @@ grokdeclarator (const cp_declarator *declarator,
             virt_specifiers = declarator->u.function.virt_specifiers;
 	    /* And ref-qualifier, too */
 	    rqual = declarator->u.function.ref_qualifier;
+	    /* And tx-qualifier.  */
+	    tree tx_qual = declarator->u.function.tx_qualifier;
 	    /* Pick up the exception specifications.  */
 	    raises = declarator->u.function.exception_specification;
 	    /* If the exception-specification is ill-formed, let's pretend
@@ -10153,13 +10187,24 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 
 	    type = build_function_type (type, arg_types);
-	    if (declarator->std_attributes)
+
+	    tree attrs = declarator->std_attributes;
+	    if (tx_qual)
+	      {
+		tree att = build_tree_list (tx_qual, NULL_TREE);
+		/* transaction_safe applies to the type, but
+		   transaction_safe_dynamic applies to the function.  */
+		if (is_attribute_p ("transaction_safe", tx_qual))
+		  attrs = chainon (attrs, att);
+		else
+		  returned_attrs = chainon (returned_attrs, att);
+	      }
+	    if (attrs)
 	      /* [dcl.fct]/2:
 
 		 The optional attribute-specifier-seq appertains to
 		 the function type.  */
-	      decl_attributes (&type, declarator->std_attributes,
-			       0);
+	      decl_attributes (&type, attrs, 0);
 	  }
 	  break;
 
