@@ -144,8 +144,7 @@ main ()
 	    {
 	      #pragma omp ordered depend (source)
 	      #pragma omp ordered depend (sink:i - 2, j + 2, k - 2, m)
-	      if (!e)
-		abort ();
+	      abort ();
 	    }
     #pragma omp single
     if (i != 1 || j != -1 || k != 2 || m != 0)

@@ -7345,36 +7345,44 @@ expand_omp_for_ordered_loops (struct omp_for_data *fd, tree *counts,
       basic_block new_body = e1->dest;
       if (body_bb == cont_bb)
 	cont_bb = new_body;
-      gsi = gsi_last_bb (cont_bb);
-      if (POINTER_TYPE_P (type))
-	t = fold_build_pointer_plus (fd->loops[i].v,
-				     fold_convert (sizetype,
-						   fd->loops[i].step));
-      else
-	t = fold_build2 (PLUS_EXPR, type, fd->loops[i].v,
-			 fold_convert (type, fd->loops[i].step));
-      expand_omp_build_assign (&gsi, fd->loops[i].v, t);
-      if (counts[i])
+      edge e2 = NULL;
+      basic_block new_header;
+      if (EDGE_COUNT (cont_bb->preds) > 0)
 	{
-	  t = fold_build2 (PLUS_EXPR, fd->iter_type, counts[i],
-			   build_int_cst (fd->iter_type, 1));
-	  expand_omp_build_assign (&gsi, counts[i], t);
-	  t = counts[i];
+	  gsi = gsi_last_bb (cont_bb);
+	  if (POINTER_TYPE_P (type))
+	    t = fold_build_pointer_plus (fd->loops[i].v,
+					 fold_convert (sizetype,
+						       fd->loops[i].step));
+	  else
+	    t = fold_build2 (PLUS_EXPR, type, fd->loops[i].v,
+			     fold_convert (type, fd->loops[i].step));
+	  expand_omp_build_assign (&gsi, fd->loops[i].v, t);
+	  if (counts[i])
+	    {
+	      t = fold_build2 (PLUS_EXPR, fd->iter_type, counts[i],
+			       build_int_cst (fd->iter_type, 1));
+	      expand_omp_build_assign (&gsi, counts[i], t);
+	      t = counts[i];
+	    }
+	  else
+	    {
+	      t = fold_build2 (MINUS_EXPR, TREE_TYPE (fd->loops[i].v),
+			       fd->loops[i].v, fd->loops[i].n1);
+	      t = fold_convert (fd->iter_type, t);
+	      t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
+					    true, GSI_SAME_STMT);
+	    }
+	  aref = build4 (ARRAY_REF, fd->iter_type, counts[fd->ordered],
+			 size_int (i - fd->collapse + 1),
+			 NULL_TREE, NULL_TREE);
+	  expand_omp_build_assign (&gsi, aref, t);
+	  gsi_prev (&gsi);
+	  e2 = split_block (cont_bb, gsi_stmt (gsi));
+	  new_header = e2->dest;
 	}
       else
-	{
-	  t = fold_build2 (MINUS_EXPR, TREE_TYPE (fd->loops[i].v),
-			   fd->loops[i].v, fd->loops[i].n1);
-	  t = fold_convert (fd->iter_type, t);
-	  t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
-					true, GSI_SAME_STMT);
-	}
-      aref = build4 (ARRAY_REF, fd->iter_type, counts[fd->ordered],
-		     size_int (i - fd->collapse + 1), NULL_TREE, NULL_TREE);
-      expand_omp_build_assign (&gsi, aref, t);
-      gsi_prev (&gsi);
-      edge e2 = split_block (cont_bb, gsi_stmt (gsi));
-      basic_block new_header = e2->dest;
+	new_header = cont_bb;
       gsi = gsi_after_labels (new_header);
       tree v = force_gimple_operand_gsi (&gsi, fd->loops[i].v, true, NULL_TREE,
 					 true, GSI_SAME_STMT);
@@ -7395,10 +7403,13 @@ expand_omp_for_ordered_loops (struct omp_for_data *fd, tree *counts,
       set_immediate_dominator (CDI_DOMINATORS, new_header, body_bb);
       set_immediate_dominator (CDI_DOMINATORS, new_body, new_header);
 
-      struct loop *loop = alloc_loop ();
-      loop->header = new_header;
-      loop->latch = e2->src;
-      add_loop (loop, body_bb->loop_father);
+      if (e2)
+	{
+	  struct loop *loop = alloc_loop ();
+	  loop->header = new_header;
+	  loop->latch = e2->src;
+	  add_loop (loop, body_bb->loop_father);
+	}
     }
   return cont_bb;
 }
@@ -7943,6 +7954,33 @@ expand_omp_for_generic (struct omp_region *region,
 	 depend(source).  */
       if (fd->collapse > 1)
 	memmove (counts, counts + 1, (fd->collapse - 1) * sizeof (counts[0]));
+      if (broken_loop)
+	{
+	  int i;
+	  for (i = fd->collapse; i < fd->ordered; i++)
+	    {
+	      tree type = TREE_TYPE (fd->loops[i].v);
+	      tree this_cond
+		= fold_build2 (fd->loops[i].cond_code, boolean_type_node,
+			       fold_convert (type, fd->loops[i].n1),
+			       fold_convert (type, fd->loops[i].n2));
+	      if (!integer_onep (this_cond))
+		break;
+	    }
+	  if (i < fd->ordered)
+	    {
+	      cont_bb
+		= create_empty_bb (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
+	      add_bb_to_loop (cont_bb, l1_bb->loop_father);
+	      gimple_stmt_iterator gsi = gsi_after_labels (cont_bb);
+	      gimple g = gimple_build_omp_continue (fd->loop.v, fd->loop.v);
+	      gsi_insert_before (&gsi, g, GSI_SAME_STMT);
+	      make_edge (cont_bb, l3_bb, EDGE_FALLTHRU);
+	      make_edge (cont_bb, l1_bb, 0);
+	      l2_bb = create_empty_bb (cont_bb);
+	      broken_loop = false;
+	    }
+	}
       expand_omp_ordered_source_sink (region, fd, counts, cont_bb);
       cont_bb = expand_omp_for_ordered_loops (fd, counts, cont_bb, l1_bb);
       if (counts[fd->collapse - 1])
