@@ -2579,6 +2579,20 @@ oacc_loop_or_target_p (gimple *stmt)
 	      && gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_OACC_LOOP));
 }
 
+bool
+ctx_in_oacc_kernels_region (omp_context *ctx)
+{
+  for (;ctx != NULL; ctx = ctx->outer)
+    {
+      gimple *stmt = ctx->stmt;
+      if (gimple_code (stmt) == GIMPLE_OMP_TARGET
+	  && gimple_omp_target_kind (stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
+	return true;
+    }
+
+  return false;
+}
+
 /* Scan a GIMPLE_OMP_FOR.  */
 
 static void
@@ -2592,6 +2606,7 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
   bool auto_clause = false;
   bool seq_clause = false;
   int gwv_routine = 0;
+  bool in_oacc_kernels_region = ctx_in_oacc_kernels_region (outer_ctx);
 
   if (outer_ctx)
     outer_type = gimple_code (outer_ctx->stmt);
@@ -2665,7 +2680,8 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 
       /* Filter out any OpenACC clauses which aren't associated with
 	 gangs, workers or vectors.  Such reductions are no-ops.  */
-      if (extract_oacc_loop_mask (ctx) == 0)
+      if (extract_oacc_loop_mask (ctx) == 0
+	  || in_oacc_kernels_region)
 	{
 	  /* First filter out the clauses at the beginning of the chain.  */
 	  while (clauses && OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_REDUCTION)
