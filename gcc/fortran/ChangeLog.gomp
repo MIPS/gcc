@@ -1,3 +1,8 @@
+2015-09-29  James Norris  <jnorris@codesourcery.com>
+
+	* openmp.c (gfc_match_oacc_routine): Add additional attribute testing
+        and name option checking.
+
 2015-09-28  James Norris  <jnorris@codesourcery.com>
 
 	* openmp.c (gfc_match_oacc_routine): Remove erroneous attribute test

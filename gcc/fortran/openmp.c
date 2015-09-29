@@ -1745,11 +1745,35 @@ gfc_match_oacc_routine (void)
 
   if (m == MATCH_YES)
     {
-      /* Scan for a function name/string.  */
-      m = gfc_match_symbol (&sym, 0);
+      char buffer[GFC_MAX_SYMBOL_LEN + 1];
+      gfc_symtree *st;
 
-      if (m == MATCH_NO)
+      m = gfc_match_name (buffer);
+      if (m == MATCH_YES)
 	{
+	  st = gfc_find_symtree (gfc_current_ns->sym_root, buffer);
+	  if (st)
+	    {
+	      sym = st->n.sym;
+	      if (strcmp (sym->name, gfc_current_ns->proc_name->name) == 0)
+	        sym = NULL;
+	    }
+
+	  if (st == NULL
+	      || (sym
+		  && !sym->attr.external
+		  && !sym->attr.function
+		  && !sym->attr.subroutine))
+	    {
+	      gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C, "
+			 "invalid function name %s",
+			 (sym) ? sym->name : buffer);
+	      gfc_current_locus = old_loc;
+	      return MATCH_ERROR;
+	    }
+	}
+      else
+        {
 	  gfc_error ("Syntax error in !$ACC ROUTINE ( NAME ) at %C");
 	  gfc_current_locus = old_loc;
 	  return MATCH_ERROR;
@@ -1761,7 +1785,7 @@ gfc_match_oacc_routine (void)
 		     " ')' after NAME");
 	  gfc_current_locus = old_loc;
 	  return MATCH_ERROR;
-      }
+	}
     }
 
   if (gfc_match_omp_eos () != MATCH_YES
