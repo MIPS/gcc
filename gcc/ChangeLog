@@ -1,3 +1,9 @@
+2015-09-29  Jason Merrill  <jason@redhat.com>
+
+	* trans-mem.c (volatile_lvalue_p): Rename from volatile_var_p.
+	(diagnose_tm_1_op): Also diagnose volatile accesses in
+	transaction_safe function.
+
 2015-09-29  Jeff Law  <law@redhat.com>
 
 	* config/microblaze/microblaze.c (microblaze_version_to_int): Remove
