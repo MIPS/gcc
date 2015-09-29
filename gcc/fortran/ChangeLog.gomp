@@ -1,3 +1,9 @@
+2015-09-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_omp_finish_clause): Don't cast ptr into
+	a character pointer.
+	(gfc_trans_omp_clauses_1): Likewise.
+
 2015-09-29  James Norris  <jnorris@codesourcery.com>
 
 	* openmp.c (gfc_match_oacc_routine): Add additional attribute testing

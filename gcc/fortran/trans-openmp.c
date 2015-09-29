@@ -1065,7 +1065,6 @@ gfc_omp_finish_clause (tree c, gimple_seq *pre_p)
       gfc_start_block (&block);
       tree type = TREE_TYPE (decl);
       tree ptr = gfc_conv_descriptor_data_get (decl);
-      ptr = fold_convert (build_pointer_type (char_type_node), ptr);
       ptr = build_fold_indirect_ref (ptr);
       OMP_CLAUSE_DECL (c) = ptr;
       c2 = build_omp_clause (input_location, OMP_CLAUSE_MAP);
@@ -1972,8 +1971,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		    {
 		      tree type = TREE_TYPE (decl);
 		      tree ptr = gfc_conv_descriptor_data_get (decl);
-		      ptr = fold_convert (build_pointer_type (char_type_node),
-					  ptr);
 		      ptr = build_fold_indirect_ref (ptr);
 		      OMP_CLAUSE_DECL (node) = ptr;
 		      node2 = build_omp_clause (input_location,
@@ -2066,8 +2063,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 				       OMP_CLAUSE_SIZE (node), elemsz);
 		    }
 		  gfc_add_block_to_block (block, &se.post);
-		  ptr = fold_convert (build_pointer_type (char_type_node),
-				      ptr);
 		  OMP_CLAUSE_DECL (node) = build_fold_indirect_ref (ptr);
 
 		  if (POINTER_TYPE_P (TREE_TYPE (decl))
