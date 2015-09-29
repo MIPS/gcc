@@ -6551,7 +6551,7 @@ expand_omp_for_generic (struct omp_region *region,
   gassign *assign_stmt;
   bool in_combined_parallel = is_combined_parallel (region);
   bool broken_loop = region->cont == NULL;
-  bool seq_loop = (!start_fn || !next_fn);
+  bool seq_loop = (start_fn == BUILT_IN_NONE || next_fn == BUILT_IN_NONE);
   edge e, ne;
   tree *counts = NULL;
   int i;
@@ -6563,8 +6563,12 @@ expand_omp_for_generic (struct omp_region *region,
   type = TREE_TYPE (fd->loop.v);
   istart0 = create_tmp_var (fd->iter_type, ".istart0");
   iend0 = create_tmp_var (fd->iter_type, ".iend0");
-  TREE_ADDRESSABLE (istart0) = 1;
-  TREE_ADDRESSABLE (iend0) = 1;
+
+  if (!seq_loop)
+    {
+      TREE_ADDRESSABLE (istart0) = 1;
+      TREE_ADDRESSABLE (iend0) = 1;
+    }
 
   /* See if we need to bias by LLONG_MIN.  */
   if (fd->iter_type == long_long_unsigned_type_node
