@@ -1,5 +1,9 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* plugin/plugin-nvptx.c (link_ptx): Do not set CU_JIT_TARGET.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/icv-device.c: New file.
 
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
