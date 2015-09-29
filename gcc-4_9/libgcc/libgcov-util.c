@@ -180,7 +180,6 @@ tag_function (unsigned tag ATTRIBUTE_UNUSED, unsigned length ATTRIBUTE_UNUSED)
         fprintf (stderr, "Function id=%d fixed up\n", curr_fn_info->ident);
     }
 
-  curr_fn_info->key = curr_gcov_info;
   curr_fn_info->ident = gcov_read_unsigned ();
   curr_fn_info->lineno_checksum = gcov_read_unsigned ();
   curr_fn_info->cfg_checksum = gcov_read_unsigned ();
@@ -833,9 +832,9 @@ gcov_merge (struct gcov_info *info1, struct gcov_info *info2, int w)
       const struct gcov_fn_info *gfi_ptr2 = info2->functions[f_ix];
       const struct gcov_ctr_info *ci_ptr1, *ci_ptr2;
 
-      if (!gfi_ptr1 || gfi_ptr1->key != info1)
+      if (!gfi_ptr1)
         continue;
-      if (!gfi_ptr2 || gfi_ptr2->key != info2)
+      if (!gfi_ptr2)
         continue;
 
       if (gfi_ptr1->cfg_checksum != gfi_ptr2->cfg_checksum)
@@ -1136,7 +1135,7 @@ gcov_profile_scale (struct gcov_info *profile, float scale_factor, int n, int d)
         const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
         const struct gcov_ctr_info *ci_ptr;
 
-        if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+        if (!gfi_ptr)
           continue;
 
         ci_ptr = gfi_ptr->ctrs;
@@ -1178,7 +1177,7 @@ gcov_profile_normalize (struct gcov_info *profile, gcov_type max_val)
         const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
         const struct gcov_ctr_info *ci_ptr;
 
-        if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+        if (!gfi_ptr)
           continue;
 
         ci_ptr = gfi_ptr->ctrs;
@@ -1264,7 +1263,7 @@ compute_one_gcov (const struct gcov_info *gcov_info1,
       {
         unsigned t_ix;
         const struct gcov_fn_info *gfi_ptr = gcov_info->functions[f_ix];
-        if (!gfi_ptr || gfi_ptr->key != gcov_info)
+        if (!gfi_ptr)
           continue;
         const struct gcov_ctr_info *ci_ptr = gfi_ptr->ctrs;
         for (t_ix = 0; t_ix < GCOV_COUNTERS_SUMMABLE; t_ix++)
@@ -1296,9 +1295,9 @@ compute_one_gcov (const struct gcov_info *gcov_info1,
       const struct gcov_fn_info *gfi_ptr1 = gcov_info1->functions[f_ix];
       const struct gcov_fn_info *gfi_ptr2 = gcov_info2->functions[f_ix];
 
-      if (!gfi_ptr1 || gfi_ptr1->key != gcov_info1)
+      if (!gfi_ptr1)
         continue;
-      if (!gfi_ptr2 || gfi_ptr2->key != gcov_info2)
+      if (!gfi_ptr2)
         continue;
 
       const struct gcov_ctr_info *ci_ptr1 = gfi_ptr1->ctrs;
@@ -1358,7 +1357,7 @@ gcov_info_count_all_cold (const struct gcov_info *gcov_info,
       unsigned t_ix;
       const struct gcov_fn_info *gfi_ptr = gcov_info->functions[f_ix];
 
-      if (!gfi_ptr || gfi_ptr->key != gcov_info)
+      if (!gfi_ptr)
         continue;
       const struct gcov_ctr_info *ci_ptr = gfi_ptr->ctrs;
       for (t_ix = 0; t_ix < GCOV_COUNTERS_SUMMABLE; t_ix++)

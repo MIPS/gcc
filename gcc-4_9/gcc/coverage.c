@@ -189,7 +189,7 @@ static void read_counts_file (const char *, unsigned);
 static tree build_var (tree, tree, int);
 static void build_fn_info_type (tree, unsigned, tree);
 static void build_info_type (tree, tree);
-static tree build_fn_info (const struct coverage_data *, tree, tree);
+static tree build_fn_info (const struct coverage_data *, tree);
 static tree build_info (tree, tree);
 static bool coverage_obj_init (void);
 static vec<constructor_elt, va_gc> *coverage_obj_fn
@@ -1668,16 +1668,9 @@ build_fn_info_type (tree type, unsigned counters, tree gcov_info_type)
 
   finish_builtin_struct (ctr_info, "__gcov_ctr_info", fields, NULL_TREE);
 
-  /* key */
-  field = build_decl (BUILTINS_LOCATION, FIELD_DECL, NULL_TREE,
-		      build_pointer_type (build_qualified_type
-					  (gcov_info_type, TYPE_QUAL_CONST)));
-  fields = field;
-
   /* ident */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL, NULL_TREE,
 		      get_gcov_unsigned_t ());
-  DECL_CHAIN (field) = fields;
   fields = field;
 
   /* lineno_checksum */
@@ -1705,10 +1698,10 @@ build_fn_info_type (tree type, unsigned counters, tree gcov_info_type)
 
 /* Returns a CONSTRUCTOR for a gcov_fn_info.  DATA is
    the coverage data for the function and TYPE is the gcov_fn_info
-   RECORD_TYPE.  KEY is the object file key.  */
+   RECORD_TYPE.  */
 
 static tree
-build_fn_info (const struct coverage_data *data, tree type, tree key)
+build_fn_info (const struct coverage_data *data, tree type)
 {
   tree fields = TYPE_FIELDS (type);
   tree ctr_type;
@@ -1716,11 +1709,6 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
   vec<constructor_elt, va_gc> *v1 = NULL;
   vec<constructor_elt, va_gc> *v2 = NULL;
 
-  /* key */
-  CONSTRUCTOR_APPEND_ELT (v1, fields,
-			  build1 (ADDR_EXPR, TREE_TYPE (fields), key));
-  fields = DECL_CHAIN (fields);
-  
   /* ident */
   CONSTRUCTOR_APPEND_ELT (v1, fields,
 			  build_int_cstu (get_gcov_unsigned_t (),
@@ -2556,7 +2544,7 @@ static vec<constructor_elt, va_gc> *
 coverage_obj_fn (vec<constructor_elt, va_gc> *ctor, tree fn,
 		 struct coverage_data const *data)
 {
-  tree init = build_fn_info (data, gcov_fn_info_type, gcov_info_var);
+  tree init = build_fn_info (data, gcov_fn_info_type);
   tree var = build_var (fn, gcov_fn_info_type, -1);
   
   DECL_INITIAL (var) = init;

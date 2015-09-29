@@ -224,13 +224,10 @@ struct gcov_ctr_info
 
 /* Information about a single function.  This uses the trailing array
    idiom. The number of counters is determined from the merge pointer
-   array in gcov_info.  The key is used to detect which of a set of
-   comdat functions was selected -- it points to the gcov_info object
-   of the object file containing the selected comdat function.  */
+   array in gcov_info.  */
 
 struct gcov_fn_info
 {
-  const struct gcov_info *key;          /* comdat key */
   gcov_unsigned_t ident;                /* unique ident of function */
   gcov_unsigned_t lineno_checksum;      /* function lineo_checksum */
   gcov_unsigned_t cfg_checksum; /* function cfg checksum */

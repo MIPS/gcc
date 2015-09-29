@@ -380,7 +380,7 @@ gcov_compute_histogram (struct gcov_summary *sum)
         {
           gfi_ptr = gi_ptr->functions[f_ix];
 
-          if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+          if (!gfi_ptr)
             continue;
 
           ci_ptr = &gfi_ptr->ctrs[ctr_info_ix];
@@ -429,9 +429,6 @@ gcov_exit_compute_summary (struct gcov_summary *this_prg)
       for (f_ix = 0; (unsigned)f_ix != gi_ptr->n_functions; f_ix++)
         {
           gfi_ptr = gi_ptr->functions[f_ix];
-
-          if (gfi_ptr && gfi_ptr->key != gi_ptr)
-            gfi_ptr = 0;
 
           crc32 = crc32_unsigned (crc32, gfi_ptr ? gfi_ptr->cfg_checksum : 0);
           crc32 = crc32_unsigned (crc32,
@@ -688,7 +685,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
       if (length != GCOV_TAG_FUNCTION_LENGTH)
         goto read_mismatch;
 
-      if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+      if (!gfi_ptr)
         {
           /* This function appears in the other program.  We
              need to buffer the information in order to write
@@ -832,7 +829,7 @@ gcov_write_func_counters (struct gcov_info *gi_ptr)
       else
         {
           gfi_ptr = gi_ptr->functions[f_ix];
-          if (gfi_ptr && gfi_ptr->key == gi_ptr)
+          if (gfi_ptr)
             length = GCOV_TAG_FUNCTION_LENGTH;
           else
             length = 0;
@@ -1474,7 +1471,7 @@ gcov_clear (void)
           const struct gcov_fn_info *gfi_ptr = gi_ptr->functions[f_ix];
           const struct gcov_ctr_info *ci_ptr;
 
-          if (!gfi_ptr || gfi_ptr->key != gi_ptr)
+          if (!gfi_ptr)
             continue;
           ci_ptr = gfi_ptr->ctrs;
           for (t_ix = 0; t_ix != GCOV_COUNTERS; t_ix++)
