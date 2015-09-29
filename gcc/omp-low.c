@@ -2579,7 +2579,9 @@ oacc_loop_or_target_p (gimple *stmt)
 	      && gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_OACC_LOOP));
 }
 
-bool
+/* Return true if ctx is part of an oacc kernels region.  */
+
+static bool
 ctx_in_oacc_kernels_region (omp_context *ctx)
 {
   for (;ctx != NULL; ctx = ctx->outer)
