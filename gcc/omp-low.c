@@ -2923,8 +2923,8 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
 	  && get_oacc_fn_attrib (current_function_decl) == NULL)
 	{
 	  error_at (gimple_location (stmt),
-		    "acc loops must be associated with an acc region or "
-		    "routine");
+		    "loop directive must be associated with a compute "
+		    "region");
 	  return false;
 	}
       /* FALLTHRU */

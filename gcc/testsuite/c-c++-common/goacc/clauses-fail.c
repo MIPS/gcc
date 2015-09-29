@@ -17,4 +17,4 @@ f (void)
     ;
 }
 
-/* { dg-error "acc loops must be associated with an acc region or routine" "" { target *-*-* } 15 } */
+/* { dg-error "loop directive must be associated with a compute region" "" { target *-*-* } 15 } */

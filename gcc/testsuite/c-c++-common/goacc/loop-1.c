@@ -36,16 +36,16 @@ int test1()
       i = d;
       a[i] = 1;
     }
-  #pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+  #pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
   for (i = 1; i < 30; i++ )
     if (i == 16) break; /* { dg-error "break statement used" } */
 
 /* different types of for loop are allowed */
-  #pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+  #pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
   for (i = 1; i < 10; i++)
     {
     }
-  #pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+  #pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
   for (i = 1; i < 10; i+=2)
     {
       a[i] = i;

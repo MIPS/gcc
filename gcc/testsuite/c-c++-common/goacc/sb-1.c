@@ -11,7 +11,7 @@ void foo()
     goto bad1; // { dg-error "invalid branch to/from OpenACC structured block" }
   #pragma acc data
     goto bad1; // { dg-error "invalid branch to/from OpenACC structured block" }
-  #pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+  #pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
     for (l = 0; l < 2; ++l)
       goto bad1; // { dg-error "invalid branch to/from OpenACC structured block" }
 
@@ -34,7 +34,7 @@ void foo()
     }
 
   goto bad2_loop; // { dg-error "invalid entry to OpenACC structured block" }
-  #pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+  #pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
   for (l = 0; l < 2; ++l)
     {
       bad2_loop: ;
@@ -64,7 +64,7 @@ void foo()
 	{ ok1_data: break; }
     }
 
-  #pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+  #pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
     for (l = 0; l < 2; ++l)
       {
 	int i;

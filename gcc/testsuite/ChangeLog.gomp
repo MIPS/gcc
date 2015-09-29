@@ -1,3 +1,16 @@
+2015-09-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_omp): Revert changes and
+	mark the function as an acc routine.
+	* c-c++-common/goacc/clauses-fail.c: Likewise.
+	* c-c++-common/goacc/loop-1.c: Likewise.
+	* c-c++-common/goacc/non-routine.c: Likewise.
+	* c-c++-common/goacc/sb-1.c: Likewise.
+	* c-c++-common/goacc/sb-3.c: Likewise.
+	* gcc.dg/goacc/sb-1.c: Likewise.
+	* gcc.dg/goacc/sb-3.c: Likewise.
+	* gfortran.dg/goacc/loop-4.f95: New test.
+
 2015-08-29  James Norris  <jnorris@codesourcery.com>
 
 	* gfortran.dg/goacc/routine-6.f90: New test.

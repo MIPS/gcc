@@ -8,7 +8,7 @@ main ()
 {
   int i, v = 0;
 
-#pragma acc loop gang reduction (+:v) /* { dg-error "acc loops must be associated with an acc region or routine" } */
+#pragma acc loop gang reduction (+:v) /* { dg-error "loop directive must be associated with a compute region" } */
   for (i = 0; i < 10; i++)
     v++;
 

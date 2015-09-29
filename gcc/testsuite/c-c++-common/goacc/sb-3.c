@@ -3,7 +3,7 @@
 void f (void)
 {
   int i, j;
-#pragma acc loop /* { dg-error "acc loops must be associated with an acc region or routine" } */
+#pragma acc loop /* { dg-error "loop directive must be associated with a compute region" } */
   for(i = 1; i < 30; i++)
     {
       if (i == 7) goto out; // { dg-error "invalid branch to/from OpenACC structured block" }
