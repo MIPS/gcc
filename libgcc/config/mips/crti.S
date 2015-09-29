@@ -21,6 +21,12 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
+#include "config.h"
+#if HAVE_LD_MIPS_GNUSTACK
+/* An executable stack is *not* required for these functions.  */
+	.section .note.GNU-stack,"",%progbits
+#endif
+
 /* 4 slots for argument spill area.  1 for cpreturn, 1 for stack.
    Return spill offset of 40 and 20.  Aligned to 16 bytes for n32.  */
 

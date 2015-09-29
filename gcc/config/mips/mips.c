@@ -20194,6 +20194,11 @@ mips_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
 
+#if HAVE_LD_MIPS_GNUSTACK
+#undef TARGET_ASM_FILE_END
+#define TARGET_ASM_FILE_END file_end_indicate_exec_stack
+#endif
+
 struct gcc_target targetm = TARGET_INITIALIZER;
 
 #include "gt-mips.h"

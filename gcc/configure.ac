@@ -4562,6 +4562,30 @@ pointers into PC-relative form.])
       AC_MSG_ERROR(
 	[Requesting --with-nan= requires assembler support for -mnan=])
     fi
+
+    AC_CACHE_CHECK([linker for GNU-stack ABI support],
+      [gcc_cv_ld_mips_gnustack],
+      [gcc_cv_ld_mips_gnustack=no
+	if test x$gcc_cv_as != x \
+		 -a x$gcc_cv_ld != x \
+		 -a x$gcc_cv_readelf != x ; then
+	 cat > conftest.s <<EOF
+.section .note.GNU-stack,"",%progbits
+EOF
+	 if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1 \
+	    && $gcc_cv_ld -o conftest conftest.o > /dev/null 2>&1; then
+
+	    abi_version=`$gcc_cv_readelf -h conftest 2>&1 | grep "ABI Version:" | cut -d: -f2 | tr -d '[[:space:]]'`
+	    if test "$abi_version" -ge 5; then
+		gcc_cv_ld_mips_gnustack=yes
+	    fi
+	   fi
+	 fi
+       rm -f conftest.s conftest.o conftest])
+    if test x$gcc_cv_ld_mips_gnustack = xyes; then
+	    AC_DEFINE(HAVE_LD_MIPS_GNUSTACK, 1,
+      [Define if your linker can handle PT_GNU_STACK segments correctly.])
+    fi
     ;;
     s390*-*-*)
     gcc_GAS_CHECK_FEATURE([.gnu_attribute support],

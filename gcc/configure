@@ -27060,6 +27060,37 @@ fi
        && test x$with_nan != x; then
       as_fn_error "Requesting --with-nan= requires assembler support for -mnan=" "$LINENO" 5
     fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking linker for GNU-stack ABI support" >&5
+$as_echo_n "checking linker for GNU-stack ABI support... " >&6; }
+if test "${gcc_cv_ld_mips_gnustack+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  gcc_cv_ld_mips_gnustack=no
+	if test x$gcc_cv_as != x \
+		 -a x$gcc_cv_ld != x \
+		 -a x$gcc_cv_readelf != x ; then
+	 cat > conftest.s <<EOF
+.section .note.GNU-stack,"",%progbits
+EOF
+	 if $gcc_cv_as -o conftest.o conftest.s > /dev/null 2>&1 \
+	    && $gcc_cv_ld -o conftest conftest.o > /dev/null 2>&1; then
+
+	    abi_version=`$gcc_cv_readelf -h conftest 2>&1 | grep "ABI Version:" | cut -d: -f2 | tr -d '[:space:]'`
+	    if test "$abi_version" -ge 5; then
+		gcc_cv_ld_mips_gnustack=yes
+	    fi
+	   fi
+	 fi
+       rm -f conftest.s conftest.o conftest
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_ld_mips_gnustack" >&5
+$as_echo "$gcc_cv_ld_mips_gnustack" >&6; }
+    if test x$gcc_cv_ld_mips_gnustack = xyes; then
+
+$as_echo "#define HAVE_LD_MIPS_GNUSTACK 1" >>confdefs.h
+
+    fi
     ;;
     s390*-*-*)
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking assembler for .gnu_attribute support" >&5

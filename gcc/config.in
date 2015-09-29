@@ -1481,6 +1481,12 @@
 #endif
 
 
+/* Define if your linker can handle PT_GNU_STACK segments correctly. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_MIPS_GNUSTACK
+#endif
+
+
 /* Define if your PowerPC64 linker only needs function descriptor syms. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_NO_DOT_SYMS
