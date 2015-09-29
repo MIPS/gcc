@@ -28,13 +28,11 @@
 
 #include "openacc.h"
 
-/* The compiler always attempts to expand acc_on_device, but if the
-   user disables the builtin, or calls it via a pointer, we have this
-   version.  */
+/* Compile on_device with optimization, so that the compiler expands
+   this, rather than generating infinitely recursive code.  */
 
-int
+int __attribute__ ((__optimize__ ("O2")))
 acc_on_device (int dev)
 {
-  /* Just rely on the compiler builtin.  */
   return __builtin_acc_on_device (dev);
 }

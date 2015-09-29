@@ -1,3 +1,13 @@
+2015-09-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (oacc_xform_on_device): Delete.
+	(oacc_xform_dim): Return bool.
+	(execute_oacc_transform): Don't handle acc_on_device here.  Adjust
+	rescan logic.
+	* builtins.c (expand_builtin_acc_on_device): Delete.
+	(expand_builtin): Do not call it.
+	(fold_builtin_1): Fold acc_on_device.
+
 2015-09-29  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (ctx_in_oacc_kernels_region): Make static.  Add missing
@@ -5,8 +15,8 @@
 
 2015-09-29  Tom de Vries  <tom@codesourcery.com>
 
-	* omp-low.c (expand_omp_for_generic): Only set address taken for istart0
-	and end0 unless necessary.
+	* omp-low.c (expand_omp_for_generic): Only set address taken for
+	istart0 and end0 unless necessary.
 
 2015-09-29  Tom de Vries  <tom@codesourcery.com>
 

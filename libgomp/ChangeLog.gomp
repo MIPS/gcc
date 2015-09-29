@@ -1,3 +1,8 @@
+2015-09-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* oacc-init.c (acc_on_device): Compile with optimization.
+	* config/nvptx/oacc-init.c (acc_on_device): Compile with optimization.
+
 2015-09-23  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/gang-static-2.c: Test if

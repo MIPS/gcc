@@ -14741,45 +14741,10 @@ make_pass_late_lower_omp (gcc::context *ctxt)
   return new pass_late_lower_omp (ctxt);
 }
 
-/* Transform an acc_on_device call.  OpenACC 2.0a requires this folded at
-   compile time for constant operands.  We always fold it.  In an
-   offloaded function we're never 'none'.  */
-
-static void
-oacc_xform_on_device (gcall *call)
-{
-  tree arg = gimple_call_arg (call, 0);
-  unsigned val = GOMP_DEVICE_HOST;
-	      
-#ifdef ACCEL_COMPILER
-  val = GOMP_DEVICE_NOT_HOST;
-#endif
-  tree result = build2 (EQ_EXPR, boolean_type_node, arg,
-			build_int_cst (integer_type_node, val));
-#ifdef ACCEL_COMPILER
-  {
-    tree dev  = build2 (EQ_EXPR, boolean_type_node, arg,
-			build_int_cst (integer_type_node,
-				       ACCEL_COMPILER_acc_device));
-    result = build2 (TRUTH_OR_EXPR, boolean_type_node, result, dev);
-  }
-#endif
-  result = fold_convert (integer_type_node, result);
-  tree lhs = gimple_call_lhs (call);
-  gimple_seq seq = NULL;
-
-  push_gimplify_context (true);
-  gimplify_assign (lhs, result, &seq);
-  pop_gimplify_context (NULL);
-
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  gsi_replace_with_seq (&gsi, seq, false);
-}
-
 /* Transform oacc_dim_size and oacc_dim_pos internal function calls to
    constants, where possible.  */
 
-static void
+static bool
 oacc_xform_dim (gcall *call, const int dims[], bool is_pos)
 {
   tree arg = gimple_call_arg (call, 0);
@@ -14788,13 +14753,13 @@ oacc_xform_dim (gcall *call, const int dims[], bool is_pos)
 
   if (!size)
     /* Dimension size is dynamic.  */
-    return;
+    return false;
   
   if (is_pos)
     {
       if (size != 1)
 	/* Size is more than 1, so POS might be non-zero.  */
-	return;
+	return false;
       size = 0;
     }
 
@@ -14805,6 +14770,7 @@ oacc_xform_dim (gcall *call, const int dims[], bool is_pos)
 
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   gsi_replace (&gsi, g, false);
+  return true;
 }
 
 /* Validate and update the dimensions for offloaded FN.  ATTRS is the
@@ -14890,9 +14856,14 @@ execute_oacc_transform ()
     for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
       {
 	gimple *stmt = gsi_stmt (gsi);
-	int rescan = 0;
-	
 	if (!is_gimple_call (stmt))
+	  {
+	    gsi_next (&gsi);
+	    continue;
+	  }
+
+	gcall *call = as_a <gcall *> (stmt);
+	if (!gimple_call_internal_p (call))
 	  {
 	    gsi_next (&gsi);
 	    continue;
@@ -14900,54 +14871,42 @@ execute_oacc_transform ()
 
 	/* Rewind to allow rescan.  */
 	gsi_prev (&gsi);
+	int rescan = 0;
+	unsigned ifn_code = gimple_call_internal_fn (call);
 
-	gcall *call = as_a <gcall *> (stmt);
-	
-	if (gimple_call_builtin_p (call, BUILT_IN_ACC_ON_DEVICE))
-	  /* acc_on_device must be evaluated at compile time for
-	     constant arguments.  */
+	switch (ifn_code)
 	  {
-	    oacc_xform_on_device (call);
+	  default: break;
+
+	  case IFN_GOACC_DIM_POS:
+	  case IFN_GOACC_DIM_SIZE:
+	    if (oacc_xform_dim (call, dims, ifn_code == IFN_GOACC_DIM_POS))
+	      rescan = 1;
+	    break;
+
+	  case IFN_GOACC_REDUCTION_SETUP:
+	  case IFN_GOACC_REDUCTION_INIT:
+	  case IFN_GOACC_REDUCTION_FINI:
+	  case IFN_GOACC_REDUCTION_TEARDOWN:
+	    /* Mark the function for SSA renaming.  */
+	    mark_virtual_operands_for_renaming (cfun);
+	    targetm.goacc.reduction (call);
 	    rescan = 1;
+	    break;
+
+	  case IFN_UNIQUE:
+	    {
+	      unsigned code = TREE_INT_CST_LOW (gimple_call_arg (call, 0));
+
+	      if ((code == IFN_UNIQUE_OACC_FORK
+		   || code == IFN_UNIQUE_OACC_JOIN)
+		  && (targetm.goacc.fork_join
+		      (call, dims, code == IFN_UNIQUE_OACC_FORK)))
+		rescan = -1;
+	      break;
+	    }
 	  }
-	else if (gimple_call_internal_p (call))
-	  {
-	    unsigned ifn_code = gimple_call_internal_fn (call);
-	    switch (ifn_code)
-	      {
-	      default: break;
 
-	      case IFN_GOACC_DIM_POS:
-	      case IFN_GOACC_DIM_SIZE:
-		oacc_xform_dim (call, dims, ifn_code == IFN_GOACC_DIM_POS);
-		rescan = 0;
-		break;
-
-	      case IFN_GOACC_REDUCTION_SETUP:
-	      case IFN_GOACC_REDUCTION_INIT:
-	      case IFN_GOACC_REDUCTION_FINI:
-	      case IFN_GOACC_REDUCTION_TEARDOWN:
-		/* Mark the function for SSA renaming.  */
-		mark_virtual_operands_for_renaming (cfun);
-		if (targetm.goacc.reduction (call))
-		  rescan = 1;
-		break;
-
-	      case IFN_UNIQUE:
-		{
-		  unsigned code;
-
-		  code = TREE_INT_CST_LOW (gimple_call_arg (call, 0));
-
-		  if ((code == IFN_UNIQUE_OACC_FORK
-		       || code == IFN_UNIQUE_OACC_JOIN)
-		      && (targetm.goacc.fork_join
-			  (call, dims, code == IFN_UNIQUE_OACC_FORK)))
-		    rescan = -1;
-		  break;
-		}
-	      }
-	  }
 	if (gsi_end_p (gsi))
 	  /* We rewound past the beginning of the BB.  */
 	  gsi = gsi_start_bb (bb);
@@ -14956,12 +14915,8 @@ execute_oacc_transform ()
 	  gsi_next (&gsi);
 
 	if (!rescan)
-	  {
-	    /* If not rescanning, advance over the call.  */
-	    if (gsi_end_p (gsi))
-	      break;
-	    gsi_next (&gsi);
-	  }
+	  /* If not rescanning, advance over the call.  */
+	  gsi_next (&gsi);
 	else if (rescan < 0)
 	  {
 	    replace_uses_by (gimple_vdef (call),
