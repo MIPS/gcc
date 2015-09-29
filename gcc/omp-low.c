@@ -14836,7 +14836,7 @@ oacc_validate_dims (tree fn, tree attrs, int *dims)
    point (including the host fallback).  */
 
 static unsigned int
-execute_oacc_transform ()
+execute_oacc_device_lower ()
 {
   tree attrs = get_oacc_fn_attrib (current_function_decl);
   int dims[GOMP_DIM_MAX];
@@ -15036,10 +15036,10 @@ default_goacc_reduction (gcall *call)
 
 namespace {
 
-const pass_data pass_data_oacc_transform =
+const pass_data pass_data_oacc_device_lower =
 {
   GIMPLE_PASS, /* type */
-  "fold_oacc_transform", /* name */
+  "accdevlow", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */
@@ -15049,11 +15049,11 @@ const pass_data pass_data_oacc_transform =
   TODO_update_ssa | TODO_cleanup_cfg, /* todo_flags_finish */
 };
 
-class pass_oacc_transform : public gimple_opt_pass
+class pass_oacc_device_lower : public gimple_opt_pass
 {
 public:
-  pass_oacc_transform (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_oacc_transform, ctxt)
+  pass_oacc_device_lower (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_oacc_device_lower, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -15064,17 +15064,17 @@ public:
       if (!gate)
 	return 0;
 
-      return execute_oacc_transform ();
+      return execute_oacc_device_lower ();
     }
 
-}; // class pass_oacc_transform
+}; // class pass_oacc_device_lower
 
 } // anon namespace
 
 gimple_opt_pass *
-make_pass_oacc_transform (gcc::context *ctxt)
+make_pass_oacc_device_lower (gcc::context *ctxt)
 {
-  return new pass_oacc_transform (ctxt);
+  return new pass_oacc_device_lower (ctxt);
 }
 
 #include "gt-omp-low.h"
