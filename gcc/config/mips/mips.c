@@ -13865,7 +13865,6 @@ mips_adjust_insn_length (rtx insn, int length)
     switch (get_attr_hazard (insn))
       {
       case HAZARD_NONE:
-      case HAZARD_P6600_UBRANCH:
 	break;
 
       case HAZARD_DELAY:
@@ -18836,12 +18835,6 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
     nops = 1;
-  /* The P6600 will stall if there is a unconditional jump followed by any
-     other CTI in the same 64 bit fetch.  Inserting a nop will increase code
-     size but clear the stall.  */
-  else if (TUNE_P6600 && !optimize_size && (JUMP_P (insn) || CALL_P (insn))
-	   && (JUMP_P (after) || CALL_P (after)))
-    nops = 1;
   else
     nops = 0;
 
@@ -18875,12 +18868,6 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	gcc_assert (set);
 	*delayed_reg = SET_DEST (set);
 	break;
-
-      case HAZARD_P6600_UBRANCH:
-	if (TUNE_P6600 && TARGET_CB_MAYBE)
-	  *fs_delay = true;
-	break;
-
       }
 }
 
@@ -19092,7 +19079,9 @@ mips_reorg_process_insns (void)
 		     sequence and replace it with the delay slot instruction
 		     then the jump to clear the forbidden slot hazard.  */
 
-		  if (fs_delay)
+		  if (fs_delay || (TUNE_P6600
+				   && TARGET_CB_MAYBE
+				   && get_attr_jal (insn) == JAL_DIRECT))
 		    {
 		      /* Search onwards from the current position looking for
 			 a SEQUENCE.  We are looking for pipeline hazards here
