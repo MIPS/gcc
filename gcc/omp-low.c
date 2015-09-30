@@ -10571,10 +10571,11 @@ make_pass_expand_omp (gcc::context *ctxt)
   return new pass_expand_omp (ctxt);
 }
 
-/* After running pass_expand_omp_ssa to expand the oacc kernels directive, we
-   are left in the original function with anonymous SSA_NAMEs, with a NULL
-   defining statement.  This function finds those SSA_NAMEs and releases
-   them.  */
+/* After running pass_expand_omp_ssa to expand the oacc kernels
+   directive, we are left in the original function with anonymous
+   SSA_NAMEs, with a defining statement that has been deleted.  This
+   pass finds those SSA_NAMEs and releases them.
+   TODO: Either fix this elsewhere, or make the fix unnecessary.  */
 
 static void
 release_dangling_ssa_names (void)
@@ -10589,12 +10590,26 @@ release_dangling_ssa_names (void)
       gimple *stmt = SSA_NAME_DEF_STMT (name);
       if (stmt != NULL)
 	continue;
+      bool found = false;
 
-      release_ssa_name (name);
-      gcc_assert (SSA_NAME_IN_FREE_LIST (name));
-      if (dump_file
-	  && (dump_flags & TDF_DETAILS))
-	fprintf (dump_file, "Released dangling ssa name %u\n", i);
+      ssa_op_iter op_iter;
+      def_operand_p def_p;
+      FOR_EACH_PHI_OR_STMT_DEF (def_p, stmt, op_iter, SSA_OP_ALL_DEFS)
+	{
+	  tree def = DEF_FROM_PTR (def_p);
+	  if (def == name)
+	    {
+	      found = true;
+	      break;
+	    }
+	}
+
+      if (!found)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Released dangling ssa name %u\n", i);
+	  release_ssa_name (name);
+	}
     }
 }
 

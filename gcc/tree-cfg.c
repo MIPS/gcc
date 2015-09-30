@@ -6422,12 +6422,6 @@ replace_ssa_name (tree name, hash_map<tree, tree> *vars_map,
 	{
 	  gcc_assert (!SSA_NAME_IS_DEFAULT_DEF (name));
 	  replace_by_duplicate_decl (&decl, vars_map, to_context);
-	  /* If name is a default def, then we don't move the defining stmt
-	     (which is a nop).  Because (1) the nop doesn't belong to the sese
-	     region, and (2) while setting the def stmt of name to NULL would
-	     trigger release_ssa_name in release_dangling_ssa_names, it wouldn't
-	     be released since it's a default def, and subsequently cause an
-	     ssa verification failure.  */
 	  new_name = make_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
 				       decl, SSA_NAME_DEF_STMT (name));
 	  if (SSA_NAME_IS_DEFAULT_DEF (name))
@@ -6443,12 +6437,6 @@ replace_ssa_name (tree name, hash_map<tree, tree> *vars_map,
       SSA_NAME_DEF_STMT (name) = NULL;
 
       vars_map->put (name, new_name);
-
-      if (!SSA_NAME_IS_DEFAULT_DEF (name))
-	/* The statement has been moved to the child function.  It no longer
-	   defines name in the original function.  Mark the def stmt NULL, and
-	   let release_dangling_ssa_names deal with it.  */
-	SSA_NAME_DEF_STMT (name) = NULL;
     }
   else
     new_name = *loc;
