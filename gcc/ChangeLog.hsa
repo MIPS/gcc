@@ -1,5 +1,10 @@
 2015-09-30  Martin Jambor  <mjambor@suse.cz>
 
+	* tree-sra.c (ipa_sra_preliminary_function_checks): Remove the
+	extra TREE_USED check.
+
+2015-09-30  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (target_follows_kernelizable_pattern): Disable pre_body
 	gridification.
 

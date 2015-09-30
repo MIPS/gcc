@@ -5118,7 +5118,7 @@ ipa_sra_check_caller (struct cgraph_node *node, void *data)
 static bool
 ipa_sra_preliminary_function_checks (struct cgraph_node *node)
 {
-  if (TREE_USED (node->decl) || !node->can_be_local_p ())
+  if (!node->can_be_local_p ())
     {
       if (dump_file)
 	fprintf (dump_file, "Function not local to this compilation unit.\n");
