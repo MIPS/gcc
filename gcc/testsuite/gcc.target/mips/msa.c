@@ -404,9 +404,8 @@
 /* { dg-final { scan-assembler "test43_v2i64.*:.*insve.d.*test43_v2i64" } } */
 /* { dg-final { scan-assembler "test44_v16i8.*:.*copy_s.b.*test44_v16i8" } } */
 /* { dg-final { scan-assembler "test44_v8i16.*:.*copy_s.h.*test44_v8i16" } } */
-/* { dg-final { scan-assembler "test44_v4i32.*:.*copy_\(s|u\).w.*test44_v4i32" { target {! mips64 } } } } */
-/* { dg-final { scan-assembler "test44_v4i32.*:.*copy_s.w.*test44_v4i32" { target mips64 } } } */
-/* Note: insert.d only available on MIPS64, replaced with equivalent on MIPS32.  */
+/* { dg-final { scan-assembler "test44_v4i32.*:.*copy_s.w.*test44_v4i32" } } */
+/* Note: copy_s.d on MIPS64 but replaced with equivalent on MIPS32.  */
 /* { dg-final { scan-assembler "test44_v2i64.*:.*copy_s.d.*test44_v2i64" { target mips64 } } } */
 /* { dg-final { scan-assembler "test44_v2i64.*:.*\(.*copy_s.w\)\{2\}.*test44_v2i64" { target {! mips64 } } } } */
 /* Note: two outputs are possible for unsigned return types, copy unsigned or
@@ -414,9 +413,10 @@
    is equal to the register size for that target, logical AND is not emitted/needed.  */
 /* { dg-final { scan-assembler "test45_v16u8.*:.*\(copy_u.b|copy_s.b.*andi.*0x\(00\)?ff\).*test45_v16u8" } } */
 /* { dg-final { scan-assembler "test45_v8u16.*:.*\(copy_u.h|copy_s.h.*andi.*0xffff\).*test45_v8u16" } } */
-/* { dg-final { scan-assembler "test45_v4u32.*:.*\(copy_u.w|copy_s.w\).*test45_v4u32" } } */
-/* { dg-final { scan-assembler "test45_v2u64.*:.*\(copy_u.d|copy_s.d\).*test45_v2u64" { target mips64 } } } */
-/* { dg-final { scan-assembler "test45_v2u64.*:.*\(\(copy_u|copy_s\).w.*\)\{2\}.*test45_v2u64" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "test45_v4u32.*:.*copy_s.w.*test45_v4u32" } } */
+/* Note: copy_s.d on MIPS64 replaced with equivalent on MIPS32.  */
+/* { dg-final { scan-assembler "test45_v2u64.*:.*copy_s.d.*test45_v2u64" { target mips64 } } } */
+/* { dg-final { scan-assembler "test45_v2u64.*:.*\(.*copy_s.w\)\{2\}.*test45_v2u64" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "test46_v16i8.*:.*st.b.*test46_v16i8" } } */
 /* { dg-final { scan-assembler "test46_v8i16.*:.*st.h.*test46_v8i16" } } */
 /* { dg-final { scan-assembler "test46_v4i32.*:.*st.w.*test46_v4i32" } } */

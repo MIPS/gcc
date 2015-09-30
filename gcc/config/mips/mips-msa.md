@@ -141,6 +141,9 @@
 ;; Only used for splitting insert_d and copy_{u,s}.d.
 (define_mode_iterator MSA_D    [V2DI V2DF])
 
+;; Only used for copy_{u,s}.w.
+(define_mode_iterator MSA_W    [V4SI V4SF])
+
 ;; Only integer modes.
 (define_mode_iterator IMSA     [V2DI V4SI V8HI V16QI])
 
@@ -488,7 +491,7 @@
 	  (match_operand:MSA 1 "reg_or_m1_operand")
 	  (match_operand:MSA 2 "reg_or_0_operand")))]
   "ISA_HAS_MSA
-   && (GET_MODE_NUNITS (<MSA:MODE>mode) == GET_MODE_NUNITS (<MSA:MODE>mode))"
+   && (GET_MODE_NUNITS (<MSA:MODE>mode) == GET_MODE_NUNITS (<MSA_2:MODE>mode))"
 {
   mips_expand_vec_cond_expr (<MSA:MODE>mode, <MSA:VIMODE>mode, operands);
   DONE;
@@ -570,72 +573,6 @@
   DONE;
 })
 
-;; Used by combine to convert a copy_s + insert into an insve.
-(define_insn "msa_insve_s_insn_<msafmt>"
-  [(set (match_operand:IMSA_DW 0 "register_operand" "=f")
-	(vec_merge:IMSA_DW
-	  (vec_duplicate:IMSA_DW
-	    (sign_extend:<UNITMODE>
-	      (vec_select:<UNITMODE>
-		(match_operand:IMSA_DW 3 "register_operand" "f")
-		(parallel [(match_operand 4 "const_0_operand" "")]))))
-	  (match_operand:IMSA_DW 1 "register_operand" "0")
-	  (match_operand 2 "const_<bitmask>_operand" "")))]
-   "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%y2],%w3[0]"
-   [(set_attr "type" "simd_insert")
-    (set_attr "mode" "<MODE>")])
-
-;; Used by combine to convert a copy_u + insert into an insve.
-(define_insn "msa_insve_u_insn_<msafmt>"
-  [(set (match_operand:IMSA_DW 0 "register_operand" "=f")
-	(vec_merge:IMSA_DW
-	  (vec_duplicate:IMSA_DW
-	    (zero_extend:<UNITMODE>
-	      (vec_select:<UNITMODE>
-		(match_operand:IMSA_DW 3 "register_operand" "f")
-		(parallel [(match_operand 4 "const_0_operand" "")]))))
-	  (match_operand:IMSA_DW 1 "register_operand" "0")
-	  (match_operand 2 "const_<bitmask>_operand" "")))]
-   "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%y2],%w3[0]"
-   [(set_attr "type" "simd_insert")
-    (set_attr "mode" "<MODE>")])
-
-;; Used by combine to convert a copy_s + insert with subreg into an insve.
-(define_insn "*msa_insve_sext_insn_<msafmt>"
-  [(set (match_operand:IMSA_HB 0 "register_operand" "=f")
-	(vec_merge:IMSA_HB
-	  (vec_duplicate:IMSA_HB
-	    (subreg:<UNITMODE>
-	      (sign_extend:<RES>
-		(vec_select:<UNITMODE>
-		  (match_operand:IMSA_HB 3 "register_operand" "f")
-		  (parallel [(match_operand 4 "const_0_operand" "")]))) 0))
-	  (match_operand:IMSA_HB 1 "register_operand" "0")
-	  (match_operand 2 "const_<bitmask>_operand" "")))]
-   "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%y2],%w3[0]"
-   [(set_attr "type" "simd_insert")
-    (set_attr "mode" "<MODE>")])
-
-;; Used by combine to convert a copy_u + insert with subreg into an insve.
-(define_insn "*msa_insve_zext_insn_<msafmt>"
-  [(set (match_operand:IMSA_HB 0 "register_operand" "=f")
-	(vec_merge:IMSA_HB
-	  (vec_duplicate:IMSA_HB
-	    (subreg:<UNITMODE>
-	      (zero_extend:<RES>
-		(vec_select:<RES>
-		  (match_operand:IMSA_HB 3 "register_operand" "f")
-		  (parallel [(match_operand 4 "const_0_operand" "")]))) 0))
-	  (match_operand:IMSA_HB 1 "register_operand" "0")
-	  (match_operand 2 "const_<bitmask>_operand" "")))]
-   "ISA_HAS_MSA"
-   "insve.<msafmt>\t%w0[%y2],%w3[0]"
-   [(set_attr "type" "simd_insert")
-    (set_attr "mode" "<MODE>")])
-
 (define_expand "msa_insve_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand")
 	(vec_merge:MSA
@@ -677,57 +614,59 @@
   [(set_attr "type" "simd_insert")
    (set_attr "mode" "<MODE>")])
 
-;; Note that copy_s.d and copy_s.d_f will be split later if !TARGET_64BIT.
-(define_insn "msa_copy_s_<msafmt_f>"
+(define_insn "msa_copy_<su>_<msafmt>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
-	(sign_extend:<RES>
+	(any_extend:<RES>
 	  (vec_select:<UNITMODE>
-	    (match_operand:MSA 1 "register_operand" "f")
+	    (match_operand:IMSA_HB 1 "register_operand" "f")
 	    (parallel [(match_operand 2 "const_<indeximm>_operand" "")]))))]
+  "ISA_HAS_MSA"
+  "copy_<su>.<msafmt>\t%0,%w1[%2]"
+  [(set_attr "type" "simd_copy")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "msa_copy_u_w"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(zero_extend:DI
+	  (vec_select:SI
+	    (match_operand:V4SI 1 "register_operand" "f")
+	    (parallel [(match_operand 2 "const_0_to_3_operand" "")]))))]
+  "ISA_HAS_MSA && TARGET_64BIT"
+  "copy_u.w\t%0,%w1[%2]"
+  [(set_attr "type" "simd_copy")
+   (set_attr "mode" "V4SI")])
+
+(define_insn "msa_copy_s_<msafmt_f>"
+  [(set (match_operand:<UNITMODE> 0 "register_operand" "=d")
+	(vec_select:<UNITMODE>
+	  (match_operand:MSA_W 1 "register_operand" "f")
+	  (parallel [(match_operand 2 "const_<indeximm>_operand" "")])))]
   "ISA_HAS_MSA"
   "copy_s.<msafmt>\t%0,%w1[%2]"
   [(set_attr "type" "simd_copy")
    (set_attr "mode" "<MODE>")])
 
-(define_split
-  [(set (match_operand:<UNITMODE> 0 "register_operand")
-	(sign_extend:<UNITMODE>
-	  (vec_select:<UNITMODE>
-	    (match_operand:MSA_D 1 "register_operand")
-	    (parallel [(match_operand 2 "const_0_or_1_operand")]))))]
-  "reload_completed && TARGET_MSA && !TARGET_64BIT"
+(define_insn_and_split "msa_copy_s_<msafmt_f>"
+  [(set (match_operand:<UNITMODE> 0 "register_operand" "=d")
+	(vec_select:<UNITMODE>
+	  (match_operand:MSA_D 1 "register_operand" "f")
+	  (parallel [(match_operand 2 "const_<indeximm>_operand" "")])))]
+  "ISA_HAS_MSA"
+{
+  if (TARGET_64BIT)
+    return "copy_s.<msafmt>\t%0,%w1[%2]";
+  else
+    return "#";
+}
+  "reload_completed && ISA_HAS_MSA && !TARGET_64BIT"
   [(const_int 0)]
 {
   mips_split_msa_copy_d (operands[0], operands[1], operands[2],
 			 gen_msa_copy_s_w);
   DONE;
-})
-
-;; Note that copy_u.d and copy_u.d_f will be split later if !TARGET_64BIT.
-(define_insn "msa_copy_u_<msafmt_f>"
-  [(set (match_operand:<RES> 0 "register_operand" "=d")
-	(zero_extend:<RES>
-	  (vec_select:<UNITMODE>
-	    (match_operand:MSA 1 "register_operand" "f")
-	    (parallel [(match_operand 2 "const_<indeximm>_operand" "")]))))]
-  "ISA_HAS_MSA"
-  "copy_u.<msafmt>\t%0,%w1[%2]"
+}
   [(set_attr "type" "simd_copy")
    (set_attr "mode" "<MODE>")])
-
-(define_split
-  [(set (match_operand:<UNITMODE> 0 "register_operand")
-	(zero_extend:<UNITMODE>
-	  (vec_select:<UNITMODE>
-	    (match_operand:MSA_D 1 "register_operand")
-	    (parallel [(match_operand 2 "const_0_or_1_operand")]))))]
-  "reload_completed && TARGET_MSA && !TARGET_64BIT"
-  [(const_int 0)]
-{
-  mips_split_msa_copy_d (operands[0], operands[1], operands[2],
-			 gen_msa_copy_u_w);
-  DONE;
-})
 
 (define_expand "vec_perm<mode>"
   [(match_operand:MSA 0 "register_operand")

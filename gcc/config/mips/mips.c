@@ -15768,6 +15768,14 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
     "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT,			\
     FUNCTION_TYPE, mips_builtin_avail_msa }
 
+/* Define a remapped MSA MIPS_BUILTIN_DIRECT function __builtin_msa_<INSN>
+   for instruction CODE_FOR_msa_<INSN2>.  FUNCTION_TYPE is
+   a builtin_description field.  */
+#define MSA_BUILTIN_REMAP(INSN, INSN2, FUNCTION_TYPE)	\
+    { CODE_FOR_msa_ ## INSN2, MIPS_FP_COND_f,				\
+    "__builtin_msa_" #INSN,  MIPS_BUILTIN_DIRECT,			\
+    FUNCTION_TYPE, mips_builtin_avail_msa }
+
 /* Define a MSA MIPS_BUILTIN_DIRECT_NO_TARGET function __builtin_msa_<INSN>
    for instruction CODE_FOR_msa_<INSN>.  FUNCTION_TYPE is a builtin_description
    field.  */
@@ -16630,10 +16638,10 @@ static const struct mips_builtin_description mips_builtins[] = {
   MSA_BUILTIN (copy_s_h, MIPS_SI_FTYPE_V8HI_UQI),
   MSA_BUILTIN (copy_s_w, MIPS_SI_FTYPE_V4SI_UQI),
   MSA_BUILTIN (copy_s_d, MIPS_DI_FTYPE_V2DI_UQI),
-  MSA_BUILTIN (copy_u_b, MIPS_SI_FTYPE_V16QI_UQI),
-  MSA_BUILTIN (copy_u_h, MIPS_SI_FTYPE_V8HI_UQI),
-  MSA_BUILTIN (copy_u_w, MIPS_SI_FTYPE_V4SI_UQI),
-  MSA_BUILTIN (copy_u_d, MIPS_DI_FTYPE_V2DI_UQI),
+  MSA_BUILTIN (copy_u_b, MIPS_USI_FTYPE_V16QI_UQI),
+  MSA_BUILTIN (copy_u_h, MIPS_USI_FTYPE_V8HI_UQI),
+  MSA_BUILTIN_REMAP (copy_u_w, copy_s_w, MIPS_USI_FTYPE_V4SI_UQI),
+  MSA_BUILTIN_REMAP (copy_u_d, copy_s_d, MIPS_UDI_FTYPE_V2DI_UQI),
   MSA_BUILTIN (insert_b, MIPS_V16QI_FTYPE_V16QI_UQI_SI),
   MSA_BUILTIN (insert_h, MIPS_V8HI_FTYPE_V8HI_UQI_SI),
   MSA_BUILTIN (insert_w, MIPS_V4SI_FTYPE_V4SI_UQI_SI),

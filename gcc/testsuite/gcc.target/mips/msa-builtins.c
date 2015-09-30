@@ -493,9 +493,9 @@
 /* { dg-final { scan-assembler "msa_copy_s_d.*:.*\(copy_s\\.w.*\)\{2\}.*msa_copy_s_d" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "msa_copy_u_b.*:.*copy_u\\.b.*msa_copy_u_b" } } */
 /* { dg-final { scan-assembler "msa_copy_u_h.*:.*copy_u\\.h.*msa_copy_u_h" } } */
-/* { dg-final { scan-assembler "msa_copy_u_w.*:.*copy_u\\.w.*msa_copy_u_w" } } */
-/* { dg-final { scan-assembler "msa_copy_u_d.*:.*copy_u\\.d.*msa_copy_u_d" { target mips64 } } } */
-/* { dg-final { scan-assembler "msa_copy_u_d.*:.*\(copy_u\\.w.*\)\{2\}.*msa_copy_u_d" { target {! mips64 } } } } */
+/* { dg-final { scan-assembler "msa_copy_u_w.*:.*copy_s\\.w.*msa_copy_u_w" } } */
+/* { dg-final { scan-assembler "msa_copy_u_d.*:.*copy_s\\.d.*msa_copy_u_d" { target mips64 } } } */
+/* { dg-final { scan-assembler "msa_copy_u_d.*:.*\(copy_s\\.w.*\)\{2\}.*msa_copy_u_d" { target {! mips64 } } } } */
 /* { dg-final { scan-assembler "msa_st_b.*:.*st\\.b.*msa_st_b" } } */
 /* { dg-final { scan-assembler "msa_st_h.*:.*st\\.h.*msa_st_h" } } */
 /* { dg-final { scan-assembler "msa_st_w.*:.*st\\.w.*msa_st_w" } } */
