@@ -1,5 +1,11 @@
 2015-09-30  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (release_dangling_ssa_names): Remove.
+	(pass_omp_expand_ssa::execute): Remove call to
+	release_dangling_ssa_names.
+
+2015-09-30  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-08-05  Tom de Vries  <tom@codesourcery.com>
 
