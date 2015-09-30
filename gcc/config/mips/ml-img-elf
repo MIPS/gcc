@@ -14,12 +14,4 @@ micromips-r6-hard-newlib/lib
 micromipsel-r6-hard-newlib/lib
 micromips-r6-soft-newlib/lib
 micromipsel-r6-soft-newlib/lib
-mipsel-r6-hard-small/lib
-mipsel-r6-hard-tiny/lib
-mipsel-r6-soft-small/lib
-mipsel-r6-soft-tiny/lib
-micromipsel-r6-hard-small/lib
-micromipsel-r6-hard-tiny/lib
-micromipsel-r6-soft-small/lib
-micromipsel-r6-soft-tiny/lib
 mipsel-r6-singleshort-newlib/lib
