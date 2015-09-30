@@ -2835,6 +2835,15 @@ target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p)
 			 "clause\n");
       return false;
     }
+  if (gimple_omp_for_pre_body (gfor))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a simple GPGPU "
+			 "kernel because the inner loop contains has a pre_body "
+			 "statement sequencee\n");
+      return false;
+    }
 
   clauses = gimple_omp_for_clauses (gfor);
   tree for_sched_clause = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);

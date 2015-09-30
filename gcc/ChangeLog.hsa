@@ -1,5 +1,10 @@
 2015-09-30  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (target_follows_kernelizable_pattern): Disable pre_body
+	gridification.
+
+2015-09-30  Martin Jambor  <mjambor@suse.cz>
+
 	* tree-ssa-loop.c: Include cgraph.h, symbol-summary.h and hsa.h.
 	(pass_vectorize::gate): Return false for HSA GPU functions.
 	* tree-vectorizer.c: Include cgraph.h, symbol-summary.h and hsa.h.
