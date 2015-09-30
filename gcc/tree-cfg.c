@@ -6424,9 +6424,6 @@ replace_ssa_name (tree name, hash_map<tree, tree> *vars_map,
 	  replace_by_duplicate_decl (&decl, vars_map, to_context);
 	  new_name = make_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
 				       decl, SSA_NAME_DEF_STMT (name));
-	  if (SSA_NAME_IS_DEFAULT_DEF (name))
-	    set_ssa_default_def (DECL_STRUCT_FUNCTION (to_context),
-				 decl, new_name);
 	}
       else
 	new_name = copy_ssa_name_fn (DECL_STRUCT_FUNCTION (to_context),
