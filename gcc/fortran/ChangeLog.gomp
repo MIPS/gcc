@@ -1,3 +1,8 @@
+2015-09-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (resolve_oacc_loop_blocks): Represent astrisk tile
+	arguments as -1.
+
 2015-09-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_omp_finish_clause): Don't cast ptr into

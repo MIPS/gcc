@@ -4891,10 +4891,21 @@ resolve_oacc_loop_blocks (gfc_code *code)
 	{
 	  num++;
 	  if (el->expr == NULL)
-	    continue;
-	  resolve_oacc_positive_int_expr (el->expr, "TILE");
-	  if (el->expr->expr_type != EXPR_CONSTANT)
-	    gfc_error ("TILE requires constant expression at %L", &code->loc);
+	    {
+	      /* NULL expressions are used to represent '*' arguments.
+		 Convert those to a -1 expressions.  */
+	      el->expr = gfc_get_constant_expr (BT_INTEGER,
+						gfc_default_integer_kind,
+						&code->loc);
+	      mpz_set_si (el->expr->value.integer, -1);
+	    }
+	  else
+	    {
+	      resolve_oacc_positive_int_expr (el->expr, "TILE");
+	      if (el->expr->expr_type != EXPR_CONSTANT)
+		gfc_error ("TILE requires constant expression at %L",
+			   &code->loc);
+	    }
 	}
       resolve_oacc_nested_loops (code, code->block->next, num, "tiled");
     }
