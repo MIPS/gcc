@@ -1,3 +1,10 @@
+2015-09-30  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-ssa-loop.c: Include cgraph.h, symbol-summary.h and hsa.h.
+	(pass_vectorize::gate): Return false for HSA GPU functions.
+	* tree-vectorizer.c: Include cgraph.h, symbol-summary.h and hsa.h.
+	(pass_slp_vectorize::gate): Return false for HSA GPU functions.
+
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (struct hsa_kernel_dispatch): New field.
