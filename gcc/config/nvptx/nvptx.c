@@ -4248,12 +4248,12 @@ nvptx_expand_builtin (tree exp, rtx target,
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
 
-/* Validate compute dimensions, fill in non-unity defaults.  FN_LEVEL
-   indicates the level at which a routine might spawn a loop.  It is
-   negative for non-routines.  */
+/* Validate compute dimensions of an OpenACC offload or routine, fill
+   in non-unity defaults.  FN_LEVEL indicates the level at which a
+   routine might spawn a loop.  It is negative for non-routines.  */
 
 static bool
-nvptx_validate_dims (tree decl, int dims[], int fn_level)
+nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 {
   bool changed = false;
 
@@ -4847,7 +4847,7 @@ nvptx_use_anchors_for_symbol (const_rtx ARG_UNUSED (symbol))
 #define TARGET_BUILTIN_DECL nvptx_builtin_decl
 
 #undef TARGET_GOACC_VALIDATE_DIMS
-#define TARGET_GOACC_VALIDATE_DIMS nvptx_validate_dims
+#define TARGET_GOACC_VALIDATE_DIMS nvptx_goacc_validate_dims
 
 #undef TARGET_GOACC_DIM_LIMIT
 #define TARGET_GOACC_DIM_LIMIT nvptx_dim_limit

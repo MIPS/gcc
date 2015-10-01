@@ -14904,7 +14904,7 @@ execute_oacc_device_lower ()
    hook.  */
 
 bool
-default_goacc_validate_dims (tree ARG_UNUSED (decl), int *ARG_UNUSED (dims),
+default_goacc_validate_dims (tree ARG_UNUSED (decl), int *dims,
 			     int ARG_UNUSED (fn_level))
 {
   bool changed = false;

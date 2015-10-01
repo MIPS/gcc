@@ -1,3 +1,12 @@
+2015-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_validate_dims): Rename to ...
+	(nvptx_goacc_validate_dims): ... here.
+	(TARGET_GOACC_VALIDATE_DIMS): Update.
+	* target.def (validate_dims): Expand documentation.
+	* omp-low.c (default_goacc_validate_dims): Remove erroneous ARG_UNUSED.
+	* doc/tm.texi: Rebuild.
+
 2015-10-01  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_xform_lock): Remove function.
