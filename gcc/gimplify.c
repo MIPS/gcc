@@ -8108,9 +8108,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	  OMP_CLAUSE_LINEAR_STEP (c2) = OMP_CLAUSE_LINEAR_STEP (c);
 	}
 
-      if ((var != decl || collapse > 1)
-	  && orig_for_stmt == for_stmt
-	  && i < collapse)
+      if ((var != decl || collapse > 1) && orig_for_stmt == for_stmt)
 	{
 	  for (c = OMP_FOR_CLAUSES (for_stmt); c ; c = OMP_CLAUSE_CHAIN (c))
 	    if (((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
@@ -8120,16 +8118,22 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 		     && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c) == NULL))
 		&& OMP_CLAUSE_DECL (c) == decl)
 	      {
-		t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
-		gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
-		gcc_assert (TREE_OPERAND (t, 0) == var);
-		t = TREE_OPERAND (t, 1);
-		gcc_assert (TREE_CODE (t) == PLUS_EXPR
-			    || TREE_CODE (t) == MINUS_EXPR
-			    || TREE_CODE (t) == POINTER_PLUS_EXPR);
-		gcc_assert (TREE_OPERAND (t, 0) == var);
-		t = build2 (TREE_CODE (t), TREE_TYPE (decl), decl,
-			    TREE_OPERAND (t, 1));
+		if (is_doacross && (collapse == 1 || i >= collapse))
+		  t = var;
+		else
+		  {
+		    t = TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i);
+		    gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
+		    gcc_assert (TREE_OPERAND (t, 0) == var);
+		    t = TREE_OPERAND (t, 1);
+		    gcc_assert (TREE_CODE (t) == PLUS_EXPR
+				|| TREE_CODE (t) == MINUS_EXPR
+				|| TREE_CODE (t) == POINTER_PLUS_EXPR);
+		    gcc_assert (TREE_OPERAND (t, 0) == var);
+		    t = build2 (TREE_CODE (t), TREE_TYPE (decl),
+				is_doacross ? var : decl,
+				TREE_OPERAND (t, 1));
+		  }
 		gimple_seq *seq;
 		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE)
 		  seq = &OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c);

@@ -1,3 +1,15 @@
+2015-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Fix handling of lastprivate
+	iterators in doacross loops.
+	* omp-low.c (expand_omp_for_ordered_loops): Add ordered_lastprivate
+	argument.  If true, add extra initializers for IVs starting with the
+	one inner to the first >= collapse loop that could have zero
+	iterations.
+	(expand_omp_for_generic): Adjust caller.
+
+	* tree-pretty-print.c (dump_omp_clause): Remove unused variable.
+
 2015-09-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_for_ordered_loops): Handle the case

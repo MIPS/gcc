@@ -7303,7 +7303,8 @@ expand_omp_ordered_source_sink (struct omp_region *region,
 
 static basic_block
 expand_omp_for_ordered_loops (struct omp_for_data *fd, tree *counts,
-			      basic_block cont_bb, basic_block body_bb)
+			      basic_block cont_bb, basic_block body_bb,
+			      bool ordered_lastprivate)
 {
   if (fd->ordered == fd->collapse)
     return cont_bb;
@@ -7411,6 +7412,31 @@ expand_omp_for_ordered_loops (struct omp_for_data *fd, tree *counts,
 	  add_loop (loop, body_bb->loop_father);
 	}
     }
+
+  /* If there are any lastprivate clauses and it is possible some loops
+     might have zero iterations, ensure all the decls are initialized,
+     otherwise we could crash evaluating C++ class iterators with lastprivate
+     clauses.  */
+  bool need_inits = false;
+  for (int i = fd->collapse; ordered_lastprivate && i < fd->ordered; i++)
+    if (need_inits)
+      {
+	tree type = TREE_TYPE (fd->loops[i].v);
+	gimple_stmt_iterator gsi = gsi_after_labels (body_bb);
+	expand_omp_build_assign (&gsi, fd->loops[i].v,
+				 fold_convert (type, fd->loops[i].n1));
+      }
+    else
+      {
+	tree type = TREE_TYPE (fd->loops[i].v);
+	tree this_cond = fold_build2 (fd->loops[i].cond_code,
+				      boolean_type_node,
+				      fold_convert (type, fd->loops[i].n1),
+				      fold_convert (type, fd->loops[i].n2));
+	if (!integer_onep (this_cond))
+	  need_inits = true;
+      }
+
   return cont_bb;
 }
 
@@ -7524,6 +7550,7 @@ expand_omp_for_generic (struct omp_region *region,
   edge e, ne;
   tree *counts = NULL;
   int i;
+  bool ordered_lastprivate = false;
 
   gcc_assert (!broken_loop || !in_combined_parallel);
   gcc_assert (fd->iter_type == long_integer_type_node
@@ -7551,6 +7578,10 @@ expand_omp_for_generic (struct omp_region *region,
   gsi = gsi_last_bb (entry_bb);
 
   gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_FOR);
+  if (fd->ordered
+      && find_omp_clause (gimple_omp_for_clauses (gsi_stmt (gsi)),
+			  OMP_CLAUSE_LASTPRIVATE))
+    ordered_lastprivate = false;
   if (fd->collapse > 1 || fd->ordered)
     {
       int first_zero_iter1 = -1, first_zero_iter2 = -1;
@@ -7982,7 +8013,8 @@ expand_omp_for_generic (struct omp_region *region,
 	    }
 	}
       expand_omp_ordered_source_sink (region, fd, counts, cont_bb);
-      cont_bb = expand_omp_for_ordered_loops (fd, counts, cont_bb, l1_bb);
+      cont_bb = expand_omp_for_ordered_loops (fd, counts, cont_bb, l1_bb,
+					      ordered_lastprivate);
       if (counts[fd->collapse - 1])
 	{
 	  gcc_assert (fd->collapse == 1);

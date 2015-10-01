@@ -568,7 +568,6 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 		dump_generic_node (pp, TREE_VALUE (t), spc, flags, false);
 		if (TREE_PURPOSE (t) != integer_zero_node)
 		  {
-		    tree p = TREE_PURPOSE (t);
 		    if (OMP_CLAUSE_DEPEND_SINK_NEGATIVE (t))
 		      pp_minus (pp);
 		    else

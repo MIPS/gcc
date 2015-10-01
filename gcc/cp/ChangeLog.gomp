@@ -1,3 +1,10 @@
+2015-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_for_class_iterator): Add collapse and
+	ordered arguments.  Fix handling of lastprivate iterators in
+	doacross loops.
+	(finish_omp_for): Adjust caller.
+
 2015-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_clause_depend_sink): Put - sign

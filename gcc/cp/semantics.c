@@ -7202,7 +7202,7 @@ static bool
 handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 			       tree declv, tree initv, tree condv, tree incrv,
 			       tree *body, tree *pre_body, tree &clauses,
-			       tree *lastp)
+			       tree *lastp, int collapse, int ordered)
 {
   tree diff, iter_init, iter_incr = NULL, last;
   tree incr_var = NULL, orig_pre_body, orig_body, c;
@@ -7386,7 +7386,8 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
   last = create_temporary_var (TREE_TYPE (diff));
   pushdecl (last);
   add_decl_expr (last);
-  if (c && iter_incr == NULL && TREE_CODE (incr) != INTEGER_CST)
+  if (c && iter_incr == NULL && TREE_CODE (incr) != INTEGER_CST
+      && (!ordered || (i < collapse && collapse > 1)))
     {
       incr_var = create_temporary_var (TREE_TYPE (diff));
       pushdecl (incr_var);
@@ -7422,7 +7423,8 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 					   iter, NOP_EXPR, init,
 					   tf_warning_or_error));
   init = build_int_cst (TREE_TYPE (diff), 0);
-  if (c && iter_incr == NULL)
+  if (c && iter_incr == NULL
+      && (!ordered || (i < collapse && collapse > 1)))
     {
       if (incr_var)
 	{
@@ -7435,6 +7437,8 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 				       iter, PLUS_EXPR, incr,
 				       tf_warning_or_error);
     }
+  if (c && ordered && i < collapse && collapse > 1)
+    iter_incr = incr;
   finish_expr_stmt (build_x_modify_expr (elocus,
 					 last, NOP_EXPR, init,
 					 tf_warning_or_error));
@@ -7471,7 +7475,22 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
   if (c)
     {
       OMP_CLAUSE_LASTPRIVATE_STMT (c) = push_stmt_list ();
-      finish_expr_stmt (iter_incr);
+      if (!ordered)
+	finish_expr_stmt (iter_incr);
+      else
+	{
+	  iter_init = decl;
+	  if (i < collapse && collapse > 1 && !error_operand_p (iter_incr))
+	    iter_init = build2 (PLUS_EXPR, TREE_TYPE (diff),
+				iter_init, iter_incr);
+	  iter_init = build2 (MINUS_EXPR, TREE_TYPE (diff), iter_init, last);
+	  iter_init = build_x_modify_expr (elocus,
+					   iter, PLUS_EXPR, iter_init,
+					   tf_warning_or_error);
+	  if (iter_init != error_mark_node)
+	    iter_init = build1 (NOP_EXPR, void_type_node, iter_init);
+	  finish_expr_stmt (iter_init);
+	}
       OMP_CLAUSE_LASTPRIVATE_STMT (c)
 	= pop_stmt_list (OMP_CLAUSE_LASTPRIVATE_STMT (c));
     }
@@ -7502,10 +7521,20 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
   tree last = NULL_TREE;
   location_t elocus;
   int i;
+  int collapse = 1;
+  int ordered = 0;
 
   gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (initv));
   gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (condv));
   gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (incrv));
+  if (TREE_VEC_LENGTH (declv) > 1)
+    {
+      tree c = find_omp_clause (clauses, OMP_CLAUSE_COLLAPSE);
+      if (c)
+	collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (c));
+      if (collapse != TREE_VEC_LENGTH (declv))
+	ordered = TREE_VEC_LENGTH (declv);
+    }
   for (i = 0; i < TREE_VEC_LENGTH (declv); i++)
     {
       decl = TREE_VEC_ELT (declv, i);
@@ -7636,7 +7665,8 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	    orig_decl = decl;
 	  if (handle_omp_for_class_iterator (i, locus, code, declv, initv,
 					     condv, incrv, &body, &pre_body,
-					     clauses, &last))
+					     clauses, &last, collapse,
+					     ordered))
 	    return NULL;
 	  continue;
 	}
