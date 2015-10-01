@@ -16939,6 +16939,7 @@ mips_reorg_process_insns (void)
 		  && INSN_P (SEQ_BEGIN (insn))
 		  && INSN_P (SEQ_END (insn))
 		  && ((next_active
+		       && INSN_P (next_active)
 		       && GET_CODE (PATTERN (next_active)) != SEQUENCE
 		       && get_attr_can_delay (next_active) == CAN_DELAY_YES)
 		      || !optimize_size))
