@@ -388,6 +388,22 @@ msplit-addresses
 Target Report Mask(SPLIT_ADDRESSES)
 Optimize lui/addiu address loads
 
+masmacro-ext-ins
+Target Report Var(TARGET_ASMACRO_EXT_INS) Init(0)
+Enable the ASMACRO EXT/INS instructions.
+
+masmacro-lui
+Target Report Var(TARGET_ASMACRO_LUI) Init(0)
+Enable the ASMACRO LUI instruction.
+
+masmacro-andi
+Target Report Var(TARGET_ASMACRO_ANDI) Init(0)
+Enable the ASMACRO ANDI instruction.
+
+masmacro-ori
+Target Report Var(TARGET_ASMACRO_ORI) Init(0)
+Enable the ASMACRO ORI instruction.
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values
@@ -477,3 +493,6 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
