@@ -4322,15 +4322,6 @@ nvptx_xform_fork_join (gcall *call, const int dims[],
   return false;
 }
 
-/* Check lock & unlock.  We don't reqyire any locks.  */
-
-static bool
-nvptx_xform_lock (gcall *ARG_UNUSED (call),
-		  const int *ARG_UNUSED (dims), unsigned ARG_UNUSED (ifn_code))
-{
-  return true;
-}
-
 static tree
 nvptx_get_worker_red_addr (tree type, tree rid, tree lid)
 {

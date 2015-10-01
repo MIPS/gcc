@@ -1,3 +1,7 @@
+2015-10-01  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_xform_lock): Remove function.
+
 2015-09-30  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-cfg.c (replace_ssa_name): Revert obsolete changes.
