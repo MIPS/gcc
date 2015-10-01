@@ -1,5 +1,13 @@
 2015-10-01  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* builtins.c: Don't include gomp-constants.h.
+	(fold_builtin_1): Don't fold acc_on_device here.
+	* gimple-fold.c: Include gomp-constants.h.
+	(gimple_fold_builtin_acc_on_device): New.
+	(gimple_fold_builtin): Call it.
+
+2015-10-01  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* config/nvptx/nvptx.c (nvptx_validate_dims): Rename to ...
 	(nvptx_goacc_validate_dims): ... here.
 	(TARGET_GOACC_VALIDATE_DIMS): Update.
