@@ -1,3 +1,9 @@
+2015-10-01  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* dump-parse-tree.c (show_omp_clauses): Add missing omp list_types
+	and reorder the switch cases to match the enum in gfortran.h.
+
 2015-09-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_omp_finish_clause): Don't cast ptr into
