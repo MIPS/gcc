@@ -117,7 +117,7 @@ static int *consumer_luid = NULL;
    to save and restore registers, and to allocate and deallocate the top
    part of the frame.  */
 #define MIPS_MAX_FIRST_STACK_STEP					\
-  (!TARGET_COMPRESSION ? 0x7ff0						\
+  (!TARGET_COMPRESSION && !TARGET_USE_SAVE_RESTORE ? 0x7ff0	\
    : TARGET_MICROMIPS || GENERATE_MIPS16E_SAVE_RESTORE ? 0x7f8		\
    : TARGET_64BIT ? 0x100 : 0x400)
 
@@ -1634,7 +1634,10 @@ mips_build_lower (struct mips_integer_op *codes, unsigned HOST_WIDE_INT value)
       /* Either this is a simple LUI/ORI pair, or clearing the lowest 16
 	 bits gives a value with at least 17 trailing zeros.  */
       i = mips_build_integer (codes, high);
-      codes[i].code = IOR;
+      if (TARGET_MIPS16 && (value & 0x8000) == 0)
+	codes[i].code = PLUS;
+      else
+	codes[i].code = IOR;
       codes[i].value = value & 0xffff;
     }
   return i + 1;
@@ -2255,7 +2258,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 The final address is then $at + %lo(symbol).  With 32-bit
 	 symbols we just need a preparatory LUI for normal mode and
 	 a preparatory LI and SLL for MIPS16.  */
-      return ABI_HAS_64BIT_SYMBOLS ? 6 : TARGET_MIPS16 ? 3 : 2;
+      return ABI_HAS_64BIT_SYMBOLS ? 6 : (TARGET_MIPS16 && !TARGET_ASMACRO_LUI) ? 3 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -2831,7 +2834,7 @@ mips_const_insns (rtx x)
 
       /* This is simply an LUI for normal mode.  It is an extended
 	 LI followed by an extended SLL for MIPS16.  */
-      return TARGET_MIPS16 ? 4 : 1;
+      return TARGET_MIPS16 ? (TARGET_ASMACRO_LUI ? 2 : 4) : 1;
 
     case CONST_INT:
       if (TARGET_MIPS16)
@@ -2843,6 +2846,7 @@ mips_const_insns (rtx x)
 		: SMALL_OPERAND_UNSIGNED (INTVAL (x)) ? 2
 		: IN_RANGE (-INTVAL (x), 0, 255) ? 2
 		: SMALL_OPERAND_UNSIGNED (-INTVAL (x)) ? 3
+		: TARGET_ASMACRO_LUI ? (trunc_int_for_mode (INTVAL (x), SImode) == INTVAL (x) ? 4 : 8)
 		: 0);
 
       return mips_build_integer (codes, INTVAL (x));
@@ -3819,6 +3823,16 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
       if (IN_RANGE (x, -128, 127))
 	return 0;
       if (SMALL_OPERAND (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
+    case AND:
+      if (TARGET_ASMACRO_ANDI && SMALL_OPERAND_UNSIGNED (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
+    case IOR:
+      if (TARGET_ASMACRO_ORI && SMALL_OPERAND_UNSIGNED (x))
 	return COSTS_N_INSNS (1);
       return -1;
 
@@ -5178,6 +5192,9 @@ mips_output_move (rtx dest, rtx src)
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
+	  if (TARGET_ASMACRO_LUI && LUI_INT (src) && !SMALL_OPERAND_UNSIGNED (INTVAL (src)))
+	    return "lui\t%0,%%hi(%1)\t\t\t# %X1";
+
 	  if (SMALL_OPERAND_UNSIGNED (INTVAL (src)))
 	    return "li\t%0,%1";
 
@@ -5186,7 +5203,9 @@ mips_output_move (rtx dest, rtx src)
 	}
 
       if (src_code == HIGH)
-	return TARGET_MIPS16 ? "#" : "lui\t%0,%h1";
+        {
+	  return (TARGET_MIPS16 && !TARGET_ASMACRO_LUI) ? "#" : "lui\t%0,%h1";
+        }
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
