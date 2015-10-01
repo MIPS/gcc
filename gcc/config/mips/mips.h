@@ -104,7 +104,7 @@ struct mips_cpu_info {
 			     && !ISA_HAS_DELAY_SLOTS))
 
 #define ISA_HAS_JRC (ISA_HAS_COMPACT_BRANCHES		\
-		     || (TARGET_MICROMIPS		\
+		     || ((TARGET_MICROMIPS || TARGET_MIPS16) \
 			 && mips_cb == MIPS_CB_OPTIMAL))
 
 /* True if the output file is marked as ".abicalls; .option pic0"
@@ -212,7 +212,7 @@ struct mips_cpu_info {
 /* Generate mips16e code. Default 16bit ASE for mips32* and mips64* */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */
-#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
+#define GENERATE_MIPS16E_SAVE_RESTORE ((GENERATE_MIPS16E || TARGET_USE_SAVE_RESTORE) && mips_abi == ABI_32)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */
@@ -1147,15 +1147,15 @@ struct mips_cpu_info {
 #define ISA_HAS_SEB_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
 
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
-#define ISA_HAS_EXT_INS		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_EXT_INS		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
+				 || (TARGET_MIPS16 && TARGET_ASMACRO_EXT_INS))
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
 				 && mips_isa_rev >= 2)
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
-#define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
-				 && !TARGET_MIPS16)
+#define ISA_HAS_LWXS		(TARGET_SMARTMIPS || TARGET_MICROMIPS)
 
 /* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
 #define ISA_HAS_LBX		(TARGET_OCTEON2)
