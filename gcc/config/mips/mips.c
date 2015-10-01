@@ -10377,8 +10377,14 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
-  s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
-  s += strlen (s);
+  if (TARGET_USE_SAVE_RESTORE)
+    {
+      strcpy (buffer, adjust > 0 ? "udi0\t1" : "udi1\t1");
+    }
+ else
+    {
+      s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
+      s += strlen (s);
 
   /* Save the arguments.  */
   if (info.nargs > 1)
@@ -10418,6 +10424,7 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
   /* Save or restore $31.  */
   if (BITSET_P (info.mask, RETURN_ADDR_REGNUM))
     s += sprintf (s, ",%s", reg_names[RETURN_ADDR_REGNUM]);
+ }
 
   return buffer;
 }
