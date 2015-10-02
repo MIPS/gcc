@@ -333,13 +333,17 @@ GOACC_2.0 {
 	GOACC_get_num_threads;
 };
 
+GOACC_2.0.1 {
+  global:
+	GOACC_parallel_keyed;
+} GOACC_2.0;
+
 GOACC_2.0.GOMP_4_BRANCH {
   global:
 	GOACC_deviceptr;
-	GOACC_parallel_keyed;
 	GOACC_register_static;
 	GOMP_set_offload_targets;
-} GOACC_2.0;
+} GOACC_2.0.1;
 
 GOMP_PLUGIN_1.0 {
   global:

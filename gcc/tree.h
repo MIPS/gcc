@@ -1,3 +1,4 @@
+
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
    Copyright (C) 1989-2015 Free Software Foundation, Inc.
 

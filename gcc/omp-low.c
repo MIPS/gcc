@@ -86,7 +86,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "omp-low.h"
 
-
 /* Lowering of OMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
    and then for variables that must be replaced to satisfy data sharing
@@ -9498,12 +9497,17 @@ replace_oacc_fn_attrib (tree fn, tree dims)
   DECL_ATTRIBUTES (fn) = tree_cons (ident, dims, attribs);
 }
 
+/* Scan CLAUSES for launch dimensions and attach them to the oacc
+   function attribute.  Push any that are non-constant onto the ARGS
+   list, along with an appropriate GOMP_LAUNCH_DIM tag.  */
+
 static void
 set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
 {
   /* Must match GOMP_DIM ordering.  */
-  static const omp_clause_code ids[] = 
-    {OMP_CLAUSE_NUM_GANGS, OMP_CLAUSE_NUM_WORKERS, OMP_CLAUSE_VECTOR_LENGTH};
+  static const omp_clause_code ids[]
+    = { OMP_CLAUSE_NUM_GANGS, OMP_CLAUSE_NUM_WORKERS,
+	OMP_CLAUSE_VECTOR_LENGTH };
   unsigned ix;
   tree dims[GOMP_DIM_MAX];
   tree attr = NULL_TREE;
@@ -9582,6 +9586,9 @@ build_oacc_routine_dims (tree clauses)
   return dims;
 }
 
+/* Retrieve the oacc function attrib and return it.  Non-oacc
+   functions will return NULL.  */
+
 tree
 get_oacc_fn_attrib (tree fn)
 {
@@ -9611,10 +9618,10 @@ expand_omp_target (struct omp_region *region)
   offloaded = is_gimple_omp_offloaded (entry_stmt);
   switch (gimple_omp_target_kind (entry_stmt))
     {
-    case GF_OMP_TARGET_KIND_REGION:
-    case GF_OMP_TARGET_KIND_UPDATE:
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
+    case GF_OMP_TARGET_KIND_REGION:
+    case GF_OMP_TARGET_KIND_UPDATE:
     case GF_OMP_TARGET_KIND_OACC_UPDATE:
     case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
     case GF_OMP_TARGET_KIND_OACC_DECLARE:
@@ -10090,7 +10097,7 @@ expand_omp_target (struct omp_region *region)
 	if (c)
 	  sorry ("device_type clause is not supported yet");
 
-	/* ..., but if present, use the value specified by the respective
+	/* If present, use the value specified by the respective
 	   clause, making sure that is of the correct type.  */
 	c = find_omp_clause (clauses, OMP_CLAUSE_ASYNC);
 	if (c)
@@ -10124,7 +10131,7 @@ expand_omp_target (struct omp_region *region)
 	if (t_async)
 	  args.safe_push (t_async);
 
-	/* Save the argument index, and... */
+	/* Save the argument index, and ... */
 	unsigned t_wait_idx = args.length ();
 	unsigned num_waits = 0;
 	c = find_omp_clause (clauses, OMP_CLAUSE_WAIT);
@@ -10147,8 +10154,7 @@ expand_omp_target (struct omp_region *region)
 
 	    /* Now that we know the number, update the placeholder.  */
 	    if (tagging)
-	      len = oacc_launch_pack (GOMP_LAUNCH_WAIT,
-				      NULL_TREE, num_waits);
+	      len = oacc_launch_pack (GOMP_LAUNCH_WAIT, NULL_TREE, num_waits);
 	    else
 	      len = build_int_cst (integer_type_node, num_waits);
 	    len = fold_convert_loc (gimple_location (entry_stmt),
@@ -10161,7 +10167,8 @@ expand_omp_target (struct omp_region *region)
       gcc_unreachable ();
     }
   if (tagging)
-    args.safe_push (oacc_launch_pack (GOMP_LAUNCH_END, NULL_TREE, 0));
+    /*  Push terminal marker - zero.  */
+    args.safe_push (oacc_launch_pack (0, NULL_TREE, 0));
 
   g = gimple_build_call_vec (builtin_decl_explicit (start_ix), args);
   gimple_set_location (g, gimple_location (entry_stmt));
@@ -15010,7 +15017,7 @@ namespace {
 const pass_data pass_data_oacc_device_lower =
 {
   GIMPLE_PASS, /* type */
-  "accdevlow", /* name */
+  "oaccdevlow", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_cfg, /* properties_required */

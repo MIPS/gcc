@@ -75,7 +75,6 @@
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "gomp-constants.h"
-#include "gimple.h"
 
 /* This file should be included last.  */
 #include "target-def.h"

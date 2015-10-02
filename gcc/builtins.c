@@ -17,6 +17,10 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* Legacy warning!  Please add no further builtin simplifications here
+   (apart from pure constant folding) - builtin simplifications should go
+   to match.pd or gimple-fold.c instead.  */
+
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -64,6 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
+
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
 

@@ -72,6 +72,7 @@ main (int argc, char **argv)
       abort ();
     }
 
+  fprintf (stderr, "CheCKpOInT\n");
   acc_wait (1);
 
   gettimeofday (&tv2, NULL);
@@ -103,5 +104,6 @@ main (int argc, char **argv)
   return 0;
 }
 
+/* { dg-output "CheCKpOInT(\n|\r\n|\r).*" } */
 /* { dg-output "unknown async \[0-9\]+" } */
 /* { dg-shouldfail "" } */

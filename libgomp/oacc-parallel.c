@@ -121,10 +121,16 @@ goacc_deallocate_static (acc_device_t d)
 
 static void goacc_wait (int async, int num_waits, va_list *ap);
 
+
+/* Launch a possibly offloaded function on DEVICE.  FN is the host fn
+   address.  MAPNUM, HOSTADDRS, SIZES & KINDS  describe the memory
+   blocks to be copied to/from the device.  Varadic arguments are
+   keyed optional parameters terminated with a zero.  */
+
 void
-GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
-		      void **hostaddrs, size_t *sizes, unsigned short *kinds,
-		      ...)
+GOACC_parallel_keyed (int device, void (*fn) (void *),
+		      size_t mapnum, void **hostaddrs, size_t *sizes,
+		      unsigned short *kinds, ...)
 {
   bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   va_list ap;
@@ -141,6 +147,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
   unsigned tag;
 
   memset (dims, 0, sizeof (dims));
+
 #ifdef HAVE_INTTYPES_H
   gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p\n",
 	      __FUNCTION__, (uint64_t) mapnum, hostaddrs, sizes, kinds);
@@ -187,10 +194,12 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 
   va_start (ap, kinds);
   /* TODO: This will need amending when device_type is implemented.  */
-  while (GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0)
-	 != (tag = va_arg (ap, unsigned)))
+  while ((tag = va_arg (ap, unsigned)) != 0)
     {
-      assert (!GOMP_LAUNCH_DEVICE (tag));
+      if (GOMP_LAUNCH_DEVICE (tag))
+	gomp_fatal ("device_type '%d' offload parameters, libgomp is too old",
+		    GOMP_LAUNCH_DEVICE (tag));
+
       switch (GOMP_LAUNCH_CODE (tag))
 	{
 	case GOMP_LAUNCH_DIM:
@@ -221,10 +230,14 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
 	      goacc_wait (async, num_waits, &ap);
 	    break;
 	  }
+
+	default:
+	  gomp_fatal ("unrecognized offload code '%d',"
+		      " libgomp is too old", GOMP_LAUNCH_CODE (tag));
 	}
     }
   va_end (ap);
-
+  
   acc_dev->openacc.async_set_async_func (async);
 
   if (!(acc_dev->capabilities & GOMP_OFFLOAD_CAP_NATIVE_EXEC))
@@ -271,36 +284,18 @@ GOACC_parallel_keyed (int device, void (*fn) (void *), size_t mapnum,
   acc_dev->openacc.async_set_async_func (acc_async_sync);
 }
 
-/* Legacy entry point.   */
+/* Legacy entry point, only provide host execution.  */
 
 void
-GOACC_parallel (int device, void (*fn) (void *), size_t mapnum,
-		void **hostaddrs, size_t *sizes, unsigned short *kinds,
+GOACC_parallel (int device, void (*fn) (void *),
+		size_t mapnum, void **hostaddrs, size_t *sizes,
+		unsigned short *kinds,
 		int num_gangs, int num_workers, int vector_length,
 		int async, int num_waits, ...)
 {
-  int waits[9];
-  unsigned ix;
-  va_list ap;
-
-  if (num_waits > 8)
-    gomp_fatal ("too many waits for legacy interface");
-
-  va_start (ap, num_waits);
-  for (ix = 0; ix != num_waits; ix++)
-    waits[ix] = va_arg (ap, int);
-  va_end (ap);
-  waits[ix] = GOMP_LAUNCH_PACK (GOMP_LAUNCH_END, 0, 0);
-  
-  GOACC_parallel_keyed (device, fn, mapnum, hostaddrs, sizes, kinds,
-			GOMP_LAUNCH_PACK (GOMP_LAUNCH_DIM, 0,
-					  GOMP_DIM_MASK (GOMP_DIM_MAX) - 1),
-			num_gangs, num_workers, vector_length,
-			GOMP_LAUNCH_PACK (GOMP_LAUNCH_ASYNC, 0,
-					  GOMP_LAUNCH_OP_MAX), async,
-			GOMP_LAUNCH_PACK (GOMP_LAUNCH_WAIT, 0, num_waits),
-			async, waits[0], waits[1], waits[2], waits[3],
-			waits[4], waits[5], waits[6], waits[7], waits[8]);
+  goacc_save_and_set_bind (acc_device_host);
+  fn (hostaddrs);
+  goacc_restore_bind ();
 }
 
 void
