@@ -219,7 +219,7 @@ enum mips_ucbranch_type {
   /* May not even be a branch.  */
   UC_UNDEFINED,
   UC_BALC,
-  UC_OTHERC
+  UC_BOTHER
 };
 
 /* Macros to create an enumeration identifier for a function prototype.  */
@@ -18796,18 +18796,21 @@ mips_orphaned_high_part_p (mips_offset_table htab, rtx insn)
    in differentiating balc from jic,jalic and bc.  */
 
 static enum mips_ucbranch_type
-mips_classify_branch_p6600 (insn)
+mips_classify_branch_p6600 (rtx insn)
 {
-
-  if (USEFUL_INSN_P (insn)
+  if (insn
+      && USEFUL_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) != SEQUENCE
-      && ((CALL_P (INSN) && get_attr_jal == JAL_INDIRECT)
-	  || (JUMP_P (INSN))))
-    return UC_OTHER;
+      /* jic and jalic.  */
+      && ((get_attr_jal (insn) == JAL_INDIRECT)
+	  /* bc as it is a loose jump.  */
+	  || (get_attr_type (insn) == TYPE_JUMP)))
+    return UC_BOTHER;
 
-  if (USEFUL_INSN_P (insn)
+  if (insn
+      && USEFUL_INSN_P (insn)
       && GET_CODE (PATTERN (insn)) != SEQUENCE
-      && ((CALL_P (insn)) && get_attr_jal == JAL_DIRECT))
+      && ((CALL_P (insn)) && get_attr_jal (insn) == JAL_DIRECT))
     return UC_BALC;
 
   return UC_UNDEFINED;
@@ -18824,7 +18827,7 @@ mips_classify_branch_p6600 (insn)
    the number of instructions since the last MFLO or MFHI).
 
    After inserting nops for INSN, update *DELAYED_REG and *HILO_DELAY
-   for the next instruction.
+   for the next instruction
 
    LO_REG is an rtx for the LO register, used in dependence checking.  */
 
@@ -18841,7 +18844,9 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      an asm statement.  We don't know whether there will be hazards
      between the asm statement and the gcc-generated code.  */
   if (GET_CODE (pattern) == ASM_INPUT || asm_noperands (pattern) >= 0)
-    cfun->machine->all_noreorder_p = false;  /* Ignore zero-length instructions (barriers and the like).  */
+    cfun->machine->all_noreorder_p = false;
+
+  /* Ignore zero-length instructions (barriers and the like).  */
   ninsns = get_attr_length (insn) / 4;
   if (get_attr_length (insn) == 0)
     return;
@@ -18866,12 +18871,13 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
     nops = 1;
   /* The P6600 does not tolerate certain static sequences of back-to-back
      jumps well.  Inserting a no-op only costs space.  Here we handle the
-     cases of a predictable followed by a non-predictable and vice versa.  */
-  else if (TUNE_P6600 && !optimize_size
-	   && (CALL_P (prev) && get_attr_jal (prev) == JAL_DIRECT
-	       && mips_bad_p6600_branch (insn))
-	      || (CALL_P (insn) && get_attr_jal (insn) == JAL_DIRECT
-		  && mips_bad_p6600_branch (prev)))
+     cases of a hw-predictable branch followed by a non-hw-predictable branch
+     and vice-versa.  */
+  else if (TUNE_P6600 && TARGET_CB_MAYBE && !optimize_size
+	   && ((mips_classify_branch_p6600 (after) == UC_BALC
+		&& mips_classify_branch_p6600 (insn) == UC_BOTHER)
+	       || (mips_classify_branch_p6600 (insn) == UC_BALC
+		   && (mips_classify_branch_p6600 (after) == UC_BOTHER))))
     nops = 1;
   else
     nops = 0;
@@ -18879,8 +18885,17 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
   /* Insert the nops between this instruction and the previous one.
      Each new nop takes us further from the last hilo hazard.  */
   *hilo_delay += nops;
+
+  /* If we're tuning for the P6600, we come across an annoying GCC
+     assumption that debug information always follows a call.  Move
+     past any debug information in that case.  */
+  rtx real_after = after;
+  if (TUNE_P6600 && CALL_P (after)
+      && (NOTE_P (NEXT_INSN (after))))
+    real_after = NEXT_INSN (after);
+
   while (nops-- > 0)
-    emit_insn_after (gen_hazard_nop (), after);
+    emit_insn_after (gen_hazard_nop (), real_after);
 
   /* Set up the state for the next instruction.  */
   *hilo_delay += ninsns;
@@ -18890,6 +18905,13 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
     switch (get_attr_hazard (insn))
       {
       case HAZARD_NONE:
+	/* For the P6600, flag some unconditional branches as having a
+	pseudo-forbidden slot.  This will cause additional nop insertion
+        or SEQUENCE breaking as required.  */
+	if (TUNE_P6600 
+	    && TARGET_CB_MAYBE
+	    && mips_classify_branch_p6600 (insn) == UC_BOTHER)
+	  *fs_delay = true;
 	break;
 
       case HAZARD_FORBIDDEN_SLOT:
@@ -18907,13 +18929,6 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	*delayed_reg = SET_DEST (set);
 	break;
       }
-
-  /* Avoid the case of a delay slot branch after this instruction.  */
-  if (TUNE_P6600 
-      && TARGET_CB_MAYBE
-      && (mips_bad_p6600_branch (insn))
-	  || (CALL_P (insn) && get_attr_jal (insn) == JAL_DIRECT))
-      *fs_delay = true;
 
 }
 
@@ -19127,7 +19142,8 @@ mips_reorg_process_insns (void)
 
 		  if (fs_delay || (TUNE_P6600
 				   && TARGET_CB_MAYBE
-				   && get_attr_jal (insn) == JAL_DIRECT))
+				   && mips_classify_branch_p6600 (insn) 
+				      == UC_BALC))
 		    {
 		      /* Search onwards from the current position looking for
 			 a SEQUENCE.  We are looking for pipeline hazards here
