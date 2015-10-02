@@ -213,6 +213,15 @@ enum mips_address_type {
   ADDRESS_SYMBOLIC
 };
 
+/* Classifies a unconditional branch of interest for the P6600.  */
+
+enum mips_ucbranch_type {
+  /* May not even be a branch.  */
+  UC_UNDEFINED,
+  UC_BALC,
+  UC_OTHERC
+};
+
 /* Macros to create an enumeration identifier for a function prototype.  */
 #define MIPS_FTYPE_NAME1(A, B) MIPS_##A##_FTYPE_##B
 #define MIPS_FTYPE_NAME2(A, B, C) MIPS_##A##_FTYPE_##B##_##C
@@ -18782,6 +18791,28 @@ mips_orphaned_high_part_p (mips_offset_table htab, rtx insn)
   return false;
 }
 
+/* Subroutine of mips_avoid_hazard. We classify unconditional branches
+   of interest for the P6600 for performance reasons. We're interested
+   in differentiating balc from jic,jalic and bc.  */
+
+static enum mips_ucbranch_type
+mips_classify_branch_p6600 (insn)
+{
+
+  if (USEFUL_INSN_P (insn)
+      && GET_CODE (PATTERN (insn)) != SEQUENCE
+      && ((CALL_P (INSN) && get_attr_jal == JAL_INDIRECT)
+	  || (JUMP_P (INSN))))
+    return UC_OTHER;
+
+  if (USEFUL_INSN_P (insn)
+      && GET_CODE (PATTERN (insn)) != SEQUENCE
+      && ((CALL_P (insn)) && get_attr_jal == JAL_DIRECT))
+    return UC_BALC;
+
+  return UC_UNDEFINED;
+}
+
 /* Subroutine of mips_reorg_process_insns.  If there is a hazard between
    INSN and a previous instruction, avoid it by inserting nops after
    instruction AFTER.
@@ -18810,9 +18841,7 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      an asm statement.  We don't know whether there will be hazards
      between the asm statement and the gcc-generated code.  */
   if (GET_CODE (pattern) == ASM_INPUT || asm_noperands (pattern) >= 0)
-    cfun->machine->all_noreorder_p = false;
-
-  /* Ignore zero-length instructions (barriers and the like).  */
+    cfun->machine->all_noreorder_p = false;  /* Ignore zero-length instructions (barriers and the like).  */
   ninsns = get_attr_length (insn) / 4;
   if (get_attr_length (insn) == 0)
     return;
@@ -18834,6 +18863,15 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	   && GET_CODE (PATTERN (after)) != SEQUENCE
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
+    nops = 1;
+  /* The P6600 does not tolerate certain static sequences of back-to-back
+     jumps well.  Inserting a no-op only costs space.  Here we handle the
+     cases of a predictable followed by a non-predictable and vice versa.  */
+  else if (TUNE_P6600 && !optimize_size
+	   && (CALL_P (prev) && get_attr_jal (prev) == JAL_DIRECT
+	       && mips_bad_p6600_branch (insn))
+	      || (CALL_P (insn) && get_attr_jal (insn) == JAL_DIRECT
+		  && mips_bad_p6600_branch (prev)))
     nops = 1;
   else
     nops = 0;
@@ -18869,6 +18907,14 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	*delayed_reg = SET_DEST (set);
 	break;
       }
+
+  /* Avoid the case of a delay slot branch after this instruction.  */
+  if (TUNE_P6600 
+      && TARGET_CB_MAYBE
+      && (mips_bad_p6600_branch (insn))
+	  || (CALL_P (insn) && get_attr_jal (insn) == JAL_DIRECT))
+      *fs_delay = true;
+
 }
 
 /* Remove a SEQUENCE and replace it with the delay slot instruction
