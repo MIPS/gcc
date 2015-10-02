@@ -918,11 +918,6 @@ extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
 #undef SUPPORTS_INIT_PRIORITY
 #define SUPPORTS_INIT_PRIORITY 0
 
-/* UPC for darwin */
-
-/* Define main program rename */
-#define UPC_MAIN_NAME "_upc_main"
-
 /* UPC section names */
 #define UPC_SHARED_SECTION_NAME "__DATA,upc_shared"
 #define UPC_PGM_INFO_SECTION_NAME "__DATA,upc_pgm_info"
