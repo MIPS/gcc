@@ -173,12 +173,34 @@ extern bool GOMP_loop_ull_ordered_guided_next (unsigned long long *,
 extern bool GOMP_loop_ull_ordered_runtime_next (unsigned long long *,
 						unsigned long long *);
 
+extern bool GOMP_loop_ull_doacross_static_start (unsigned,
+						 unsigned long long *,
+						 unsigned long long,
+						 unsigned long long *,
+						 unsigned long long *);
+extern bool GOMP_loop_ull_doacross_dynamic_start (unsigned,
+						  unsigned long long *,
+						  unsigned long long,
+						  unsigned long long *,
+						  unsigned long long *);
+extern bool GOMP_loop_ull_doacross_guided_start (unsigned,
+						 unsigned long long *,
+						 unsigned long long,
+						 unsigned long long *,
+						 unsigned long long *);
+extern bool GOMP_loop_ull_doacross_runtime_start (unsigned,
+						  unsigned long long *,
+						  unsigned long long *,
+						  unsigned long long *);
+
 /* ordered.c */
 
 extern void GOMP_ordered_start (void);
 extern void GOMP_ordered_end (void);
 extern void GOMP_doacross_post (long *);
 extern void GOMP_doacross_wait (long, ...);
+extern void GOMP_doacross_ull_post (unsigned long long *);
+extern void GOMP_doacross_ull_wait (unsigned long long, ...);
 
 /* parallel.c */
 

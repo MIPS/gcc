@@ -7071,7 +7071,9 @@ static void
 expand_omp_ordered_source (gimple_stmt_iterator *gsi, struct omp_for_data *fd,
 			   tree *counts, location_t loc)
 {
-  enum built_in_function source_ix = BUILT_IN_GOMP_DOACROSS_POST;
+  enum built_in_function source_ix
+    = fd->iter_type == long_integer_type_node
+      ? BUILT_IN_GOMP_DOACROSS_POST : BUILT_IN_GOMP_DOACROSS_ULL_POST;
   gimple g
     = gimple_build_call (builtin_decl_explicit (source_ix), 1,
 			 build_fold_addr_expr (counts[fd->ordered]));
@@ -7086,7 +7088,9 @@ expand_omp_ordered_sink (gimple_stmt_iterator *gsi, struct omp_for_data *fd,
 			 tree *counts, tree c, location_t loc)
 {
   auto_vec<tree, 10> args;
-  enum built_in_function sink_ix = BUILT_IN_GOMP_DOACROSS_WAIT;
+  enum built_in_function sink_ix
+    = fd->iter_type == long_integer_type_node
+      ? BUILT_IN_GOMP_DOACROSS_WAIT : BUILT_IN_GOMP_DOACROSS_ULL_WAIT;
   tree t, off, coff = NULL_TREE, deps = OMP_CLAUSE_DECL (c), cond = NULL_TREE;
   int i;
   gimple_stmt_iterator gsi2 = *gsi;
@@ -7625,11 +7629,11 @@ expand_omp_for_generic (struct omp_region *region,
 	      gsi_prev (&gsi);
 	      e = split_block (entry_bb, gsi_stmt (gsi));
 	      entry_bb = e->dest;
-	      make_edge (zero_iter1_bb, entry_bb, EDGE_FALLTHRU);
+	      make_edge (zero_iter2_bb, entry_bb, EDGE_FALLTHRU);
 	      gsi = gsi_last_bb (entry_bb);
 	      set_immediate_dominator (CDI_DOMINATORS, entry_bb,
 				       get_immediate_dominator
-					 (CDI_DOMINATORS, zero_iter1_bb));
+					 (CDI_DOMINATORS, zero_iter2_bb));
 	    }
 	}
       if (fd->collapse == 1)
@@ -7762,7 +7766,7 @@ expand_omp_for_generic (struct omp_region *region,
 	      t0 = fold_build2 (PLUS_EXPR, fd->iter_type, t0, bias);
 	    }
 	}
-      if (fd->iter_type == long_integer_type_node)
+      if (fd->iter_type == long_integer_type_node || fd->ordered)
 	{
 	  if (fd->chunk_size)
 	    {
@@ -7801,14 +7805,8 @@ expand_omp_for_generic (struct omp_region *region,
 	      tree bfn_decl = builtin_decl_explicit (start_fn);
 	      t = fold_convert (fd->iter_type, fd->chunk_size);
 	      t = omp_adjust_chunk_size (t, fd->simd_schedule);
-	      if (fd->ordered)
-		t = build_call_expr (bfn_decl, 6, t5, t0, t1, t, t3, t4);
-	      else
-		t = build_call_expr (bfn_decl, 7, t5, t0, t1, t2, t, t3, t4);
+	      t = build_call_expr (bfn_decl, 7, t5, t0, t1, t2, t, t3, t4);
 	    }
-	  else if (fd->ordered)
-	    t = build_call_expr (builtin_decl_explicit (start_fn),
-				 5, t5, t0, t1, t3, t4);
 	  else
 	    t = build_call_expr (builtin_decl_explicit (start_fn),
 				 6, t5, t0, t1, t2, t3, t4);

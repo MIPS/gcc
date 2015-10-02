@@ -84,10 +84,14 @@ struct gomp_doacross_work_share
     /* chunk_size copy, as ws->chunk_size is multiplied by incr for
        GFS_DYNAMIC.  */
     long chunk_size;
+    /* Likewise, but for ull implementation.  */
+    unsigned long long chunk_size_ull;
     /* For schedule(static,0) this is the number
        of iterations assigned to the last thread, i.e. number of
        iterations / number of threads.  */
     long q;
+    /* Likewise, but for ull implementation.  */
+    unsigned long long q_ull;
   };
   /* Size of each array entry (padded to cache line size).  */
   unsigned long elt_sz;
@@ -102,8 +106,12 @@ struct gomp_doacross_work_share
   /* These two are only used for schedule(static,0).  */
   /* This one is number of iterations % number of threads.  */
   long t;
-  /* And this one is cached t * (q + 1).  */
-  long boundary;
+  union {
+    /* And this one is cached t * (q + 1).  */
+    long boundary;
+    /* Likewise, but for the ull implementation.  */
+    unsigned long long boundary_ull;
+  };
   /* Array of shift counts for each dimension if they can be flattened.  */
   unsigned int shift_counts[];
 };
@@ -683,6 +691,8 @@ extern void gomp_ordered_static_init (void);
 extern void gomp_ordered_static_next (void);
 extern void gomp_ordered_sync (void);
 extern void gomp_doacross_init (unsigned, long *, long);
+extern void gomp_doacross_ull_init (unsigned, unsigned long long *,
+				    unsigned long long);
 
 /* parallel.c */
 

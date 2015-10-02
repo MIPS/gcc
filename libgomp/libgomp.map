@@ -280,6 +280,12 @@ GOMP_4.1 {
 	GOMP_loop_doacross_static_start;
 	GOMP_doacross_post;
 	GOMP_doacross_wait;
+	GOMP_loop_ull_doacross_dynamic_start;
+	GOMP_loop_ull_doacross_guided_start;
+	GOMP_loop_ull_doacross_runtime_start;
+	GOMP_loop_ull_doacross_static_start;
+	GOMP_doacross_ull_post;
+	GOMP_doacross_ull_wait;
 } GOMP_4.0.1;
 
 OACC_2.0 {

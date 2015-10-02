@@ -1,3 +1,8 @@
+2015-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_BOOL_UINT_ULLPTR_ULLPTR_ULLPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULL_ULLPTR_ULLPTR, BT_FN_VOID_ULL_VAR): New.
+
 2015-09-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,

@@ -1,3 +1,21 @@
+2015-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_ordered_source): Use GOMP_doacross_ull_post
+	instead of GOMP_doacross_post if iter_type is unsigned long long.
+	(expand_omp_ordered_sink): Use GOMP_doacross_ull_wait
+	instead of GOMP_doacross_wait if iter_type is unsigned long long.
+	(expand_omp_for_generic): Fix up expansion if zero_iter1_bb is
+	NULL, but zero_iter2_bb is non-NULL.  Never pass the up bool argument
+	to GOMP_loop_ull_doacross_*_start entrypoints.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_ULL_DOACROSS_STATIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_RUNTIME_START,
+	BUILT_IN_GOMP_DOACROSS_ULL_POST, BUILT_IN_GOMP_DOACROSS_ULL_WAIT): New
+	built-ins.
+	* builtin-types.def (BT_FN_BOOL_UINT_ULLPTR_ULLPTR_ULLPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULL_ULLPTR_ULLPTR, BT_FN_VOID_ULL_VAR): New.
+
 2015-10-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_omp_for): Fix handling of lastprivate
