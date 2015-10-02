@@ -1,6 +1,6 @@
 2015-10-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	PR target/67808
+	PR target/65569
 	* config/rs6000/rs6000.md (extenddftf2): Do not allow memory
 	operands for the expander. Add support for explicit VSX extend
 	operation to use XXLXOR instead of loading 0.0 from memory. Merge
