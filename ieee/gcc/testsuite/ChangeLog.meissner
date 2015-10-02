@@ -1,3 +1,9 @@
+2015-10-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/65569
+	* gcc.target/powerpc/pr65569.c: New test, insure xxlxor is
+	generated.
+
 2015-10-02   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 228406

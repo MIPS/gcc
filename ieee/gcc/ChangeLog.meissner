@@ -1,7 +1,19 @@
+2015-10-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/67808
+	* config/rs6000/rs6000.md (extenddftf2): Do not allow memory
+	operands for the expander. Add support for explicit VSX extend
+	operation to use XXLXOR instead of loading 0.0 from memory. Merge
+	extenddftf2_fprs and extenddftf2_internal. Move loading 0.0 to the
+	temporary register from extenddftf2_fprs to extenddftf2.
+	(extenddftf2_fprs): Likewise.
+	(extenddftf2_internal): Likewise.
+	(extenddftf2_vsx): Likewise.
+
 2015-10-02  Peter Bergner  <bergner@vnet.ibm.com>
 	    Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	PR target/67201
+	PR target/67808
 	* config/rs6000/rs6000.md (extenddftf2_internal): Do not use ws
 	constraint for TFmode, only use it for DFmode.
 
