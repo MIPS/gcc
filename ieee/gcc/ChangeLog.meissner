@@ -1,3 +1,10 @@
+2015-10-02  Peter Bergner  <bergner@vnet.ibm.com>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/67201
+	* config/rs6000/rs6000.md (extenddftf2_internal): Do not use ws
+	constraint for TFmode, only use it for DFmode.
+
 2015-10-02   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 228406
