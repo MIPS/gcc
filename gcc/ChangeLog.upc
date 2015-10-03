@@ -1,6 +1,7 @@
 2015-10-02  Gary Funck  <gary@intrepid.com>
 
 	* config/darwin.h (UPC_MAIN_NAME): Delete (un-used).
+	* config/darwin.h (UPC_INIT_SECTION_NAME): Delete (un-used).
 
 2015-09-28  Gary Funck  <gary@intrepid.com>
 

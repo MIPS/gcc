@@ -921,7 +921,6 @@ extern void darwin_driver_init (unsigned int *,struct cl_decoded_option **);
 /* UPC section names */
 #define UPC_SHARED_SECTION_NAME "__DATA,upc_shared"
 #define UPC_PGM_INFO_SECTION_NAME "__DATA,upc_pgm_info"
-#define UPC_INIT_SECTION_NAME "__TEXT,upc_init"
 #define UPC_INIT_ARRAY_SECTION_NAME "__DATA,upc_init_array"
 
 /* When building cross-compilers (and native crosses) we shall default to 
