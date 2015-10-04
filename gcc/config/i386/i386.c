@@ -11132,7 +11132,8 @@ ix86_epilogue_uses (int regno)
      except for MMX and x87 registers which aren't supported when saving
      and restoring registers.  Don't explicitly save SP register since
      it is always preserved.  */
-  return (cfun->machine->no_caller_saved_registers
+  return (reload_completed
+	  && cfun->machine->no_caller_saved_registers
 	  && !fixed_regs[regno]
 	  && !STACK_REGNO_P (regno)
 	  && !MMX_REGNO_P (regno));
@@ -11161,7 +11162,7 @@ ix86_save_reg (unsigned int regno, bool maybe_eh_return)
      except for MMX and x87 registers which aren't supported when saving
      and restoring registers.  Don't explicitly save SP register since
      it is always preserved.  */
-  if (cfun->machine->no_caller_saved_registers && reload_completed)
+  if (reload_completed && cfun->machine->no_caller_saved_registers)
     return (df_regs_ever_live_p (regno)
 	    && ix86_reg_ever_defined_p (regno)
 	    && !fixed_regs[regno]
