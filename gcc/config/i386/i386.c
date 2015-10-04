@@ -11475,8 +11475,8 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
       /* The only ABI that has saved SSE registers (Win64) also has a
          16-byte aligned default stack, and thus we don't need to be
 	 within the re-aligned local stack frame to save them.  */
-      unsigned int incoming_stack_boundary
-	= MAX (crtl->parm_stack_boundary, ix86_incoming_stack_boundary);
+      unsigned int stack_boundary = MAX (crtl->stack_alignment_needed,
+					 ix86_incoming_stack_boundary);
       unsigned int vec_regsize;
 
       /* We must save full vector registers if there are no
@@ -11486,16 +11486,8 @@ ix86_compute_frame_layout (struct ix86_frame *frame)
       else
 	vec_regsize = 16;
 
-      if (cfun->machine->func_type == TYPE_NORMAL)
-	{
-	  /* Incoming stack may be 32-bit aligned in 32-bit mode.  */
-	  gcc_assert (!TARGET_64BIT || incoming_stack_boundary >= 128);
-	  /* Don't over-align vector register save area.  */
-	  incoming_stack_boundary /= BITS_PER_UNIT;
-	  if (incoming_stack_boundary > vec_regsize)
-	    incoming_stack_boundary = vec_regsize;
-	  offset = ROUND_UP (offset, incoming_stack_boundary);
-	}
+      gcc_assert (stack_boundary >= vec_regsize * BITS_PER_UNIT);
+      offset = ROUND_UP (offset, stack_boundary);
 
       offset += frame->nsseregs * vec_regsize;
     }
@@ -12075,6 +12067,16 @@ ix86_minimum_incoming_stack_boundary (bool sibcall)
   return incoming_stack_boundary;
 }
 
+static void
+ix86_check_use_ssereg (rtx *x, void *data)
+{
+  if (REG_P (*x) && SSE_REG_MODE_P (GET_MODE (*x)))
+    {
+      bool *used_p = (bool *) data;
+      *used_p = true;
+    }
+}
+
 /* Update incoming stack boundary and estimated stack alignment.  */
 
 static void
@@ -12082,6 +12084,62 @@ ix86_update_stack_boundary (void)
 {
   ix86_incoming_stack_boundary
     = ix86_minimum_incoming_stack_boundary (false);
+
+  if (TARGET_SSE && cfun->machine->no_caller_saved_registers)
+    {
+      rtx_insn *insn = get_first_nonnote_insn ();
+
+      do
+	{
+	  if (NONDEBUG_INSN_P (insn))
+	    {
+	      unsigned int i;
+	      bool use_ssereg;
+
+	      /* Check SET, USE and CLOBBER of hard SSE registers.  */
+	      for (i = FIRST_SSE_REG; i < LAST_SSE_REG; i++)
+		if (SSE_REGNO_P (i)
+		    && regno_use_in (i, PATTERN (insn)))
+		  goto align_ssereg;
+
+	      if (TARGET_64BIT)
+		{
+		  for (i = FIRST_REX_SSE_REG; i <= LAST_REX_SSE_REG; i++)
+		    if (SSE_REGNO_P (i)
+			&& regno_use_in (i, PATTERN (insn)))
+		      goto align_ssereg;
+
+		  if (TARGET_AVX512F)
+		    for (i = FIRST_EXT_REX_SSE_REG;
+			 i <= LAST_EXT_REX_SSE_REG; i++)
+		      if (SSE_REGNO_P (i)
+			  && regno_use_in (i, PATTERN (insn)))
+			goto align_ssereg;
+		}
+
+	      /* Check use of pseudo SSE registers.  */
+	      use_ssereg = false;
+	      note_uses (&PATTERN (insn), ix86_check_use_ssereg,
+			 &use_ssereg);
+	      if (use_ssereg)
+		{
+		  /* We must save full vector registers when there are
+		     no caller-saved registers.  */
+		  unsigned int vec_regsize;
+align_ssereg:
+		  vec_regsize = (TARGET_AVX512F
+				 ? 512 : (TARGET_AVX ? 256 : 128));
+		  if (crtl->stack_alignment_needed < vec_regsize)
+		    crtl->stack_alignment_needed = vec_regsize;
+		  if (crtl->stack_alignment_estimated < vec_regsize)
+		    crtl->stack_alignment_estimated = vec_regsize;
+		  break;
+		}
+	    }
+	  insn = next_nonnote_insn (insn);
+	}
+      while (insn);
+    }
 
   /* x86_64 vararg needs 16byte stack alignment for register save
      area.  */
