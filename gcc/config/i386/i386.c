@@ -7445,7 +7445,7 @@ ix86_maybe_switch_abi (void)
   /* AX register is only preserved if there are no caller-saved
      registers.  */
   if (cfun->machine->no_caller_saved_registers
-       != call_used_regs[AX_REG])
+      != call_used_regs[AX_REG])
     reinit_regs ();
 }
 
