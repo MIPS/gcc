@@ -12133,6 +12133,8 @@ align_ssereg:
 		    crtl->stack_alignment_needed = vec_regsize;
 		  if (crtl->stack_alignment_estimated < vec_regsize)
 		    crtl->stack_alignment_estimated = vec_regsize;
+		  if (crtl->max_used_stack_slot_alignment < vec_regsize)
+		    crtl->max_used_stack_slot_alignment = vec_regsize;
 		  break;
 		}
 	    }
