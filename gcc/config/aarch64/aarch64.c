@@ -1061,39 +1061,22 @@ aarch64_load_symref_appropriately (rtx dest, rtx imm,
       {
 	machine_mode mode = GET_MODE (dest);
 	rtx x0 = gen_rtx_REG (mode, R0_REGNUM);
-	rtx offset;
 	rtx tp;
 
 	gcc_assert (mode == Pmode || mode == ptr_mode);
 
-	if (can_create_pseudo_p ())
-	  {
-	    rtx reg = gen_reg_rtx (mode);
-
-	    if (TARGET_ILP32)
-	      emit_insn (gen_tlsdesc_small_pseudo_si (reg, imm));
-	    else
-	      emit_insn (gen_tlsdesc_small_pseudo_di (reg, imm));
-
-	    offset = reg;
-	  }
+	/* In ILP32, the got entry is always of SImode size.  Unlike
+	   small GOT, the dest is fixed at reg 0.  */
+	if (TARGET_ILP32)
+	  emit_insn (gen_tlsdesc_small_si (imm));
 	else
-	  {
-	    /* In ILP32, the got entry is always of SImode size.  Unlike
-	       small GOT, the dest is fixed at reg 0.  */
-	    if (TARGET_ILP32)
-	      emit_insn (gen_tlsdesc_small_si (imm));
-	    else
-	      emit_insn (gen_tlsdesc_small_di (imm));
-
-	    offset = x0;
-	  }
+	  emit_insn (gen_tlsdesc_small_di (imm));
 	tp = aarch64_load_tp (NULL);
 
 	if (mode != Pmode)
 	  tp = gen_lowpart (mode, tp);
 
-	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, offset)));
+	emit_insn (gen_rtx_SET (dest, gen_rtx_PLUS (mode, tp, x0)));
 	set_unique_reg_note (get_last_insn (), REG_EQUIV, imm);
 	return;
       }
@@ -5084,7 +5067,6 @@ aarch64_class_max_nregs (reg_class_t regclass, machine_mode mode)
 	aarch64_vector_mode_p (mode)
 	  ? (GET_MODE_SIZE (mode) + UNITS_PER_VREG - 1) / UNITS_PER_VREG
 	  : (GET_MODE_SIZE (mode) + UNITS_PER_WORD - 1) / UNITS_PER_WORD;
-    case FIXED_REG0:
     case STACK_REG:
       return 1;
 
@@ -6972,10 +6954,10 @@ aarch64_register_move_cost (machine_mode mode,
     = aarch64_tune_params.regmove_cost;
 
   /* Caller save and pointer regs are equivalent to GENERAL_REGS.  */
-  if (to == CALLER_SAVE_REGS || to == POINTER_REGS || to == FIXED_REG0)
+  if (to == CALLER_SAVE_REGS || to == POINTER_REGS)
     to = GENERAL_REGS;
 
-  if (from == CALLER_SAVE_REGS || from == POINTER_REGS || from == FIXED_REG0)
+  if (from == CALLER_SAVE_REGS || from == POINTER_REGS)
     from = GENERAL_REGS;
 
   /* Moving between GPR and stack cost is the same as GP2GP.  */
@@ -10584,80 +10566,6 @@ aarch64_shift_truncation_mask (machine_mode mode)
   return
     (aarch64_vector_mode_supported_p (mode)
      || aarch64_vect_struct_mode_p (mode)) ? 0 : (GET_MODE_BITSIZE (mode) - 1);
-}
-
-#ifndef TLS_SECTION_ASM_FLAG
-#define TLS_SECTION_ASM_FLAG 'T'
-#endif
-
-void
-aarch64_elf_asm_named_section (const char *name, unsigned int flags,
-			       tree decl ATTRIBUTE_UNUSED)
-{
-  char flagchars[10], *f = flagchars;
-
-  /* If we have already declared this section, we can use an
-     abbreviated form to switch back to it -- unless this section is
-     part of a COMDAT groups, in which case GAS requires the full
-     declaration every time.  */
-  if (!(HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-      && (flags & SECTION_DECLARED))
-    {
-      fprintf (asm_out_file, "\t.section\t%s\n", name);
-      return;
-    }
-
-  if (!(flags & SECTION_DEBUG))
-    *f++ = 'a';
-  if (flags & SECTION_WRITE)
-    *f++ = 'w';
-  if (flags & SECTION_CODE)
-    *f++ = 'x';
-  if (flags & SECTION_SMALL)
-    *f++ = 's';
-  if (flags & SECTION_MERGE)
-    *f++ = 'M';
-  if (flags & SECTION_STRINGS)
-    *f++ = 'S';
-  if (flags & SECTION_TLS)
-    *f++ = TLS_SECTION_ASM_FLAG;
-  if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-    *f++ = 'G';
-  *f = '\0';
-
-  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
-
-  if (!(flags & SECTION_NOTYPE))
-    {
-      const char *type;
-      const char *format;
-
-      if (flags & SECTION_BSS)
-	type = "nobits";
-      else
-	type = "progbits";
-
-#ifdef TYPE_OPERAND_FMT
-      format = "," TYPE_OPERAND_FMT;
-#else
-      format = ",@%s";
-#endif
-
-      fprintf (asm_out_file, format, type);
-
-      if (flags & SECTION_ENTSIZE)
-	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
-      if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-	{
-	  if (TREE_CODE (decl) == IDENTIFIER_NODE)
-	    fprintf (asm_out_file, ",%s,comdat", IDENTIFIER_POINTER (decl));
-	  else
-	    fprintf (asm_out_file, ",%s,comdat",
-		     IDENTIFIER_POINTER (DECL_COMDAT_GROUP (decl)));
-	}
-    }
-
-  putc ('\n', asm_out_file);
 }
 
 /* Select a format to encode pointers in exception handling data.  */

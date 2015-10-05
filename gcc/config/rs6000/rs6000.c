@@ -1513,6 +1513,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_REGISTER_MOVE_COST rs6000_register_move_cost
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST rs6000_memory_move_cost
+#undef TARGET_CANNOT_COPY_INSN_P
+#define TARGET_CANNOT_COPY_INSN_P rs6000_cannot_copy_insn_p
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rs6000_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -24148,13 +24150,13 @@ rs6000_emit_prologue (void)
 #define NOT_INUSE(R) do {} while (0)
 #endif
 
-  if (DEFAULT_ABI == ABI_ELFv2)
+  if (DEFAULT_ABI == ABI_ELFv2
+      && !TARGET_SINGLE_PIC_BASE)
     {
       cfun->machine->r2_setup_needed = df_regs_ever_live_p (TOC_REGNUM);
 
       /* With -mminimal-toc we may generate an extra use of r2 below.  */
-      if (!TARGET_SINGLE_PIC_BASE
-	  && TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
+      if (TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
 	cfun->machine->r2_setup_needed = true;
     }
 
@@ -26830,7 +26832,8 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Ensure we have a global entry point for the thunk.   ??? We could
      avoid that if the target routine doesn't need a global entry point,
      but we do not know whether this is the case at this point.  */
-  if (DEFAULT_ABI == ABI_ELFv2)
+  if (DEFAULT_ABI == ABI_ELFv2
+      && !TARGET_SINGLE_PIC_BASE)
     cfun->machine->r2_setup_needed = true;
 
   /* Run just enough of rest_of_compilation to get the insns emitted.
@@ -30875,14 +30878,16 @@ rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
 				tree decl ATTRIBUTE_UNUSED)
 {
   int smclass;
-  static const char * const suffix[4] = { "PR", "RO", "RW", "TL" };
+  static const char * const suffix[5] = { "PR", "RO", "RW", "TL", "XO" };
 
-  if (flags & SECTION_DEBUG)
+  if (flags & SECTION_EXCLUDE)
+    smclass = 4;
+  else if (flags & SECTION_DEBUG)
     {
       fprintf (asm_out_file, "\t.dwsect %s\n", name);
       return;
     }
-  if (flags & SECTION_CODE)
+  else if (flags & SECTION_CODE)
     smclass = 0;
   else if (flags & SECTION_TLS)
     smclass = 3;
@@ -31293,6 +31298,15 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
 }
 #endif /* HAVE_AS_TLS */
 #endif /* TARGET_XCOFF */
+
+/* Return true if INSN should not be copied.  */
+
+static bool
+rs6000_cannot_copy_insn_p (rtx_insn *insn)
+{
+  return recog_memoized (insn) >= 0
+	 && get_attr_cannot_copy (insn);
+}
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be

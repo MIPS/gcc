@@ -3052,7 +3052,7 @@
 	  tab_base = force_reg (DImode, tab_base);
 	}
       if (TARGET_DIVIDE_INV20U)
-	i2p27 = force_reg (DImode, GEN_INT (-2 << 27));
+	i2p27 = force_reg (DImode, GEN_INT ((unsigned HOST_WIDE_INT)-2 << 27));
       else
 	i2p27 = GEN_INT (0);
       if (TARGET_DIVIDE_INV20U || TARGET_DIVIDE_INV20L)
@@ -7875,7 +7875,7 @@ label:
 	      break;
 	    }
 	  /* Try movi / mshflo.l w/ r63.  */
-	  val2 = val + ((HOST_WIDE_INT) -1 << 32);
+	  val2 = val + ((HOST_WIDE_INT) (HOST_WIDE_INT_M1U << 32));
 	  if ((HOST_WIDE_INT) val2 < 0 && CONST_OK_FOR_I16 (val2))
 	    {
 	      operands[1] = gen_mshflo_l_di (operands[0], operands[0],
@@ -14858,6 +14858,46 @@ label:
   
   emit_insn (gen_tstsi_t (operands[2],
 			  gen_rtx_REG (SImode, (REGNO (operands[1])))));
+})
+
+;; This is not a peephole, but it's here because it's actually supposed
+;; to be one.  It tries to convert a sequence such as
+;;	movt	r2	->	movt	r2
+;;	movt	r13		mov	r2,r13
+;; This gives the schduler a bit more freedom to hoist a following
+;; comparison insn.  Moreover, it the reg-reg mov insn is MT group which has
+;; better chances for parallel execution.
+;; We can do this with a peephole2 pattern, but then the cprop_hardreg
+;; pass will revert the change.  See also PR 64331.
+;; Thus do it manually in one of the split passes after register allocation.
+;; Sometimes the cprop_hardreg pass might also eliminate the reg-reg copy.
+(define_split
+  [(set (match_operand:SI 0 "arith_reg_dest")
+	(match_operand:SI 1 "t_reg_operand"))]
+  "TARGET_SH1 && reload_completed"
+  [(set (match_dup 0) (match_dup 1))]
+{
+  rtx t_reg = get_t_reg_rtx ();
+
+  for (rtx_insn* i = prev_nonnote_insn_bb (curr_insn); i != NULL;
+       i = prev_nonnote_insn_bb (i))
+    {
+      if (!INSN_P (i) || DEBUG_INSN_P (i))
+	continue;
+
+      if (modified_in_p (t_reg, i) || BARRIER_P (i))
+	FAIL;
+
+      if (sh_is_movt_insn (i))
+	{
+	  rtx r = sh_movt_set_dest (i);
+	  if (!modified_between_p (r, i, curr_insn))
+	    {
+	      operands[1] = r;
+	      break;
+	   }
+	}
+    }
 })
 
 (define_peephole

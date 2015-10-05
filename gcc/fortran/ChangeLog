@@ -1,3 +1,86 @@
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* match.c (gfc_match_common): Remove dead variable old_blank_common.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67758
+	* match.c (gfc_match_common): Delay the common_block pointer
+	assignment after error checking.
+	Delay the call to gfc_add_in_common attribute after the handling
+	of array specs.
+	* resolve.c (resolve_common_vars): Call gfc_add_in_common again.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	* resolve.c (resolve_common_vars): Move access to the common
+	block's head symbol inside the function.
+	(resolve_common_blocks, resolve_types): Update callers.
+
+2015-10-01  Louis Krupp <louis.krupp@zoho.com>
+
+	PR fortran/62242
+	PR fortran/52332
+	* trans-array.c
+	(store_backend_decl): Create new gfc_charlen instance if requested
+	(get_array_ctor_all_strlen): Call store_backend_decl requesting
+	new gfc_charlen
+	(trans_array_constructor): Call store_backend_decl requesting
+	new gfc_charlen if get_array_ctor_strlen was called
+	(gfc_add_loop_ss_code): Don't try to convert non-constant length
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran.67802
+	* decl.c (add_init_expr_to_sym): Numeric constant for character
+	length must be an INTEGER.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/66979
+	* io.c (gfc_resolve_filepos): Check for a UNIT number.  Add a nearby
+	missing 'return false'.
+
+2015-10-01  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67616
+	* primary.c (gfc_match_structure_constructor): Use a possibly
+	host-associated symtree to prevent ICE.
+
+2015-09-28  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/40054
+	PR fortran/63921
+	* decl.c (get_proc_name): Return if statement function is
+	found.
+	* expr.c (gfc_check_vardef_context): Add error return for
+	derived type expression lacking the derived type itself.
+	* match.c (gfc_match_ptr_fcn_assign): New function.
+	* match.h : Add prototype for gfc_match_ptr_fcn_assign.
+	* parse.c : Add static flag 'in_specification_block'.
+	(decode_statement): If in specification block match a statement
+	function, then, if no error arising from statement function
+	matching, try to match pointer function assignment.
+	(parse_interface): Set 'in_specification_block' on exiting from
+	parse_spec.
+	(parse_spec): Set and then reset 'in_specification_block'.
+	(gfc_parse_file): Set 'in_specification_block'.
+	* resolve.c (get_temp_from_expr): Extend to include functions
+	and array constructors as rvalues..
+	(resolve_ptr_fcn_assign): New function.
+	(gfc_resolve_code): Call it on finding a pointer function as an
+	lvalue. If valid or on error, go back to start of resolve_code.
+	* symbol.c (gfc_add_procedure): Add a sentence to the error to
+	flag up the ambiguity between a statement function and pointer
+	function assignment at the end of the specification block.
+
+2015-09-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_6): New.
+	(DEF_FUNCTION_TYPE_VAR_11): Delete.
+	* types.def (DEF_FUNCTION_TYPE_VAR_6): New.
+	(DEF_FUNCTION_TYPE_VAR_11): Delete.
+
 2015-09-26  Mikael Morin  <mikael@gcc.gnu.org>
 
 	PR fortran/67721
@@ -31,7 +114,6 @@
 2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
 
 	* resolve.c (nonscalar_typebound_assign): Fix typos in comment.
-
 
 2015-09-21  Steven G. Kargl  <kargl@gcc.gnu.org>
 

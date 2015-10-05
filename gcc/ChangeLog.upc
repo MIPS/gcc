@@ -1,3 +1,7 @@
+2015-10-05  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 228465 into gupc branch.
+
 2015-10-04  Gary Funck  <gary@intrepid.com>
 
 	* defaults.h (UPC_SHARED_BEGIN_NAME, UPC_SHARED_END_NAME,

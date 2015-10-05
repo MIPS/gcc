@@ -667,7 +667,11 @@ proper position among the other output files.  */
    libgcc.  This is not yet a real spec, though it could become one;
    it is currently just stuffed into LINK_SPEC.  FIXME: This wrapping
    only works with GNU ld and gold.  */
+#ifdef HAVE_GOLD_NON_DEFAULT_SPLIT_STACK
+#define STACK_SPLIT_SPEC " %{fsplit-stack: -fuse-ld=gold --wrap=pthread_create}"
+#else
 #define STACK_SPLIT_SPEC " %{fsplit-stack: --wrap=pthread_create}"
+#endif
 
 #ifndef LIBASAN_SPEC
 #define STATIC_LIBASAN_LIBS \
@@ -4496,7 +4500,7 @@ process_command (unsigned int decoded_options_count,
     }
 
   gcc_assert (!IS_ABSOLUTE_PATH (tooldir_base_prefix));
-  tooldir_prefix2 = concat (tooldir_base_prefix, spec_host_machine,
+  tooldir_prefix2 = concat (tooldir_base_prefix, spec_machine,
 			    dir_separator_str, NULL);
 
   /* Look for tools relative to the location from which the driver is
