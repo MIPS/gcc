@@ -8,10 +8,7 @@ package SSO1 is
       B : Boolean;
    end record;
    for R'Bit_Order use System.Low_Order_First;
-   for R'Scalar_Storage_Order use System.High_Order_First;
-   for R use record
-      B at 0 range 0 .. 1;
-   end record;
+   for R'Scalar_Storage_Order use System.High_Order_First;  -- { dg-warning "no component clause" }
 
    type RW is record
       B : Boolean;
