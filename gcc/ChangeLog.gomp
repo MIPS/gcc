@@ -1,3 +1,8 @@
+2015-10-05  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* config/nvptx/mkoffload.c (main): Don't explicitly pass "-lgomp"
+	to the offload compiler.
+
 2015-10-01  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* builtins.c: Don't include gomp-constants.h.

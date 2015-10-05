@@ -488,7 +488,6 @@ main (int argc, char **argv)
     default:
       gcc_unreachable ();
     }
-  obstack_ptr_grow (&argv_obstack, "-lgomp");
   char *collect_mkoffload_opts = getenv ("COLLECT_MKOFFLOAD_OPTIONS");
   if (collect_mkoffload_opts)
     {
