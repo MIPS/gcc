@@ -18953,6 +18953,17 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
       }
 }
 
+/* A SEQUENCE is breakable iff the branch inside it has a compact form and
+   the target has compact branches.  */
+
+static bool
+mips_breakable_sequence_p (rtx insn)
+{
+  return (insn && GET_CODE (PATTERN (insn)) == SEQUENCE
+	  && TARGET_CB_MAYBE
+	  && get_attr_compact_form (SEQ_BEGIN (insn)) != COMPACT_FORM_NEVER);
+}
+
 /* Remove a SEQUENCE and replace it with the delay slot instruction
    followed by the branch and return the instruction in the delay slot.
    Return the first of the two new instructions.
@@ -19065,8 +19076,10 @@ mips_reorg_process_insns (void)
 	      rtx next_active = next_active_insn (insn);
 	      /* Undo delay slots to avoid bubbles if the next instruction can
 		 be placed in a forbidden slot or the cost of adding an
-		 explicit NOP in a forbidden slot is OK.  */
+		 explicit NOP in a forbidden slot is OK and if the sequence is
+		 breakable.  */
 	      if (TARGET_CB_MAYBE
+		  && mips_breakable_sequence_p (insn)
 		  && INSN_P (SEQ_BEGIN (insn))
 		  && INSN_P (SEQ_END (insn))
 		  && ((next_active
@@ -19173,7 +19186,8 @@ mips_reorg_process_insns (void)
 		      rtx next = next_active_insn (insn);
 		      if (next
 			  && USEFUL_INSN_P (next)
-			  && GET_CODE (PATTERN (next)) == SEQUENCE)
+			  && GET_CODE (PATTERN (next)) == SEQUENCE
+			  && mips_breakable_sequence_p (next))
 			{
 			  last_insn = insn;
 			  next_insn = mips_break_sequence (next);
