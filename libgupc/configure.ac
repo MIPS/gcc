@@ -478,6 +478,52 @@ if test "$GUPCR_PTS_VADDR_FIRST" -eq 1; then
     [Whether the 'vaddr' field comes first (ie, [[vaddr,thread,phase]])])
 fi
 
+AC_MSG_NOTICE([determine UPC target-dependent section names])
+cat > conftest.upc << _ACEOF
+#define _XSTR(X) #X
+#define _STR(S) _XSTR(S)
+
+#ifdef __UPC_INIT_ARRAY_SECTION_NAME__
+  GUPCR_INIT_ARRAY_SECTION_NAME=_STR(__UPC_INIT_ARRAY_SECTION_NAME__)
+#endif
+#ifdef __UPC_PGM_INFO_SECTION_NAME__
+  GUPCR_PGM_INFO_SECTION_NAME=_STR(__UPC_PGM_INFO_SECTION_NAME__)
+#endif
+#ifdef __UPC_SHARED_SECTION_NAME__
+  GUPCR_SHARED_SECTION_NAME=_STR(__UPC_SHARED_SECTION_NAME__)
+#endif
+_ACEOF
+eval `$UPC -fno-upc-pre-include -DNO_GCC_UPC_LIB=1 -E conftest.upc | \
+  grep '^ *GUPCR_[[A-Z0-9_]]*='`
+rm -f conftest.upc
+for cfg in \
+    GUPCR_INIT_ARRAY_SECTION_NAME \
+    GUPCR_PGM_INFO_SECTION_NAME \
+    GUPCR_SHARED_SECTION_NAME; do
+  eval "cval=\$$cfg"
+  if test -n "$cval"; then
+    AC_MSG_CHECKING([value of $cfg])
+    AC_MSG_RESULT($cval)
+  fi
+done
+if test -n "$GUPCR_INIT_ARRAY_SECTION_NAME"; then
+  AC_DEFINE_UNQUOTED(GUPCR_INIT_ARRAY_SECTION_NAME,
+  [$GUPCR_INIT_ARRAY_SECTION_NAME],
+  [Name of section that holds an array of addresses that points to
+  the UPC initialization routines.])
+fi
+if test -n "$GUPCR_PGM_INFO_SECTION_NAME"; then
+  AC_DEFINE_UNQUOTED(GUPCR_PGM_INFO_SECTION_NAME,
+  [$GUPCR_PGM_INFO_SECTION_NAME],
+  [Name of section used to hold information describing how
+  a UPC source file was compiled.])
+fi
+if test -n "$GUPCR_SHARED_SECTION_NAME"; then
+  AC_DEFINE_UNQUOTED(GUPCR_SHARED_SECTION_NAME,
+  [$GUPCR_SHARED_SECTION_NAME],
+  [Name of section used to assign addresses to UPC shared data items.])
+fi
+
 dnl Select target specific runtime implementation.
 
 AC_MSG_CHECKING([for UPC runtime model])
@@ -1271,7 +1317,6 @@ AC_SUBST(link_upc_spec)
 AC_SUBST(upc_crtstuff_cflags)
 AC_SUBST(upc_crtbegin_spec)
 AC_SUBST(upc_crtend_spec)
-AC_SUBST(upc_crtstuff_mak)
 AC_SUBST(upc_crtstuff_objs)
 
 dnl Define ARG_UNUSED macro

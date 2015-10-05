@@ -557,12 +557,11 @@ upc_contains_pts_refs_p (tree type)
 void
 upc_set_decl_section (tree decl)
 {
-  if (TREE_SHARED (decl))
+  if (TREE_SHARED (decl)
+      && targetm.upc.shared_section_name ())
     {
-#ifdef UPC_SHARED_SECTION_NAME
       /* UPC shared variables are placed in their own shared section */
-      set_decl_section_name (decl, UPC_SHARED_SECTION_NAME);
-#endif
+      set_decl_section_name (decl, targetm.upc.shared_section_name ());
     }
   else if (flag_upc_pthreads
 	   && ((TREE_STATIC (decl)

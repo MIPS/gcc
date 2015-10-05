@@ -19,15 +19,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* Target machine header files require this define.  */
-#define IN_LIBGCC2
-
-#undef USED_FOR_TARGET
-
-#include "tconfig.h"
-#include "tsystem.h"
-#include "coretypes.h"
-#include "tm.h"
 #include "config.h"
 #include "upc-crt-config.h"
 

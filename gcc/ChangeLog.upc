@@ -1,3 +1,28 @@
+2015-10-04  Gary Funck  <gary@intrepid.com>
+
+	* defaults.h (UPC_SHARED_BEGIN_NAME, UPC_SHARED_END_NAME,
+	UPC_PGM_INFO_BEGIN_NAME, UPC_PGM_INFO_END_NAME,
+	UPC_INIT_ARRAY_BEGIN_NAME, UPC_INIT_ARRAY_END_NAME):
+	Delete un-used definitions.
+	* target.def: Define UPC target hooks which replace
+	target macros.
+	* targhooks.c: Define default UPC target hooks.
+	* targhooks.h: Define prototypes for default UPC target hooks.
+	* c/c-upc-lang.c (upc_build_init_func):
+	Use UPC target hook, instead of macro.
+	* c-family/c-cppbuiltin.c (strip_section_prefix):
+	New static helper function.
+	* c-family/c-cppbuiltin.c (upc_cpp_builtins):
+	Emit builtin pre-processor definitions which communicate
+	linker section names used by UPC.
+	* c-family/c-upc.c (upc_set_decl_section): Use UPC target hooks
+	instead of target macros.
+	* varasm.c (default_section_type_flags):
+	Replace UPC target macros with target hooks.
+	* doc/tm.texi.in: Delete UPC target macro descriptions
+	and refer to newly defined UPC target hooks.
+	* doc/tm.texi: Re-generate.
+
 2015-10-02  Gary Funck  <gary@intrepid.com>
 
 	* config/darwin.h (UPC_MAIN_NAME): Delete (un-used).

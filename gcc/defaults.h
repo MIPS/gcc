@@ -1456,21 +1456,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #endif /* GCC_INSN_FLAGS_H  */
 
-/* UPC section names and begin/end labels.  */
+/* UPC section names.  */
 
 /* Name of section used to assign addresses to shared data items.  */
 #ifndef UPC_SHARED_SECTION_NAME
 #define UPC_SHARED_SECTION_NAME "upc_shared"
-#endif
-
-/* Used by upc-crtbegin to define the beginning of the shared section.  */
-#ifndef UPC_SHARED_BEGIN_NAME
-#define UPC_SHARED_BEGIN_NAME __upc_shared_start
-#endif
-
-/* Used by upc-crtend to define the end of the shared section.  */
-#ifndef UPC_SHARED_END_NAME
-#define UPC_SHARED_END_NAME __upc_shared_end
 #endif
 
 /* Name of section used to hold info. describing how
@@ -1479,30 +1469,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define UPC_PGM_INFO_SECTION_NAME "upc_pgm_info"
 #endif
 
-/* Used by upc-crtbegin to define the beginning of the shared section.  */
-#ifndef UPC_PGM_INFO_BEGIN_NAME
-#define UPC_PGM_INFO_BEGIN_NAME __upc_pgm_info_start
-#endif
-
-/* Used by upc-crtend to define the end of the shared section.  */
-#ifndef UPC_PGM_INFO_END_NAME
-#define UPC_PGM_INFO_END_NAME __upc_pgm_info_end
-#endif
-
 /* Name of section that holds an array of addresses that points to 
    the UPC initialization routines.  */
 #ifndef UPC_INIT_ARRAY_SECTION_NAME
 #define UPC_INIT_ARRAY_SECTION_NAME "upc_init_array"
-#endif
-
-/* Used by upc-crtbegin to define the beginning of UPC init. array section.  */
-#ifndef UPC_INIT_ARRAY_BEGIN_NAME
-#define UPC_INIT_ARRAY_BEGIN_NAME __upc_init_array_start
-#endif
-
-/* Used by upc-crtend to define the beginning of UPC init. array section.  */
-#ifndef UPC_INIT_ARRAY_END_NAME
-#define UPC_INIT_ARRAY_END_NAME __upc_init_array_end
 #endif
 
 #endif  /* ! GCC_DEFAULTS_H */

@@ -628,7 +628,6 @@ LIBGUPC_PORTALS4_RUNTIME_TRUE
 LIBGUPC_SMP_RUNTIME_FALSE
 LIBGUPC_SMP_RUNTIME_TRUE
 upc_crtstuff_objs
-upc_crtstuff_mak
 upc_crtend_spec
 upc_crtbegin_spec
 upc_crtstuff_cflags
@@ -11636,7 +11635,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11639 "configure"
+#line 11638 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11742,7 +11741,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11745 "configure"
+#line 11744 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -14967,6 +14966,59 @@ fi
 if test "$GUPCR_PTS_VADDR_FIRST" -eq 1; then
 
 $as_echo "#define GUPCR_PTS_VADDR_FIRST 1" >>confdefs.h
+
+fi
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: determine UPC target-dependent section names" >&5
+$as_echo "$as_me: determine UPC target-dependent section names" >&6;}
+cat > conftest.upc << _ACEOF
+#define _XSTR(X) #X
+#define _STR(S) _XSTR(S)
+
+#ifdef __UPC_INIT_ARRAY_SECTION_NAME__
+  GUPCR_INIT_ARRAY_SECTION_NAME=_STR(__UPC_INIT_ARRAY_SECTION_NAME__)
+#endif
+#ifdef __UPC_PGM_INFO_SECTION_NAME__
+  GUPCR_PGM_INFO_SECTION_NAME=_STR(__UPC_PGM_INFO_SECTION_NAME__)
+#endif
+#ifdef __UPC_SHARED_SECTION_NAME__
+  GUPCR_SHARED_SECTION_NAME=_STR(__UPC_SHARED_SECTION_NAME__)
+#endif
+_ACEOF
+eval `$UPC -fno-upc-pre-include -DNO_GCC_UPC_LIB=1 -E conftest.upc | \
+  grep '^ *GUPCR_[A-Z0-9_]*='`
+rm -f conftest.upc
+for cfg in \
+    GUPCR_INIT_ARRAY_SECTION_NAME \
+    GUPCR_PGM_INFO_SECTION_NAME \
+    GUPCR_SHARED_SECTION_NAME; do
+  eval "cval=\$$cfg"
+  if test -n "$cval"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking value of $cfg" >&5
+$as_echo_n "checking value of $cfg... " >&6; }
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $cval" >&5
+$as_echo "$cval" >&6; }
+  fi
+done
+if test -n "$GUPCR_INIT_ARRAY_SECTION_NAME"; then
+
+cat >>confdefs.h <<_ACEOF
+#define GUPCR_INIT_ARRAY_SECTION_NAME $GUPCR_INIT_ARRAY_SECTION_NAME
+_ACEOF
+
+fi
+if test -n "$GUPCR_PGM_INFO_SECTION_NAME"; then
+
+cat >>confdefs.h <<_ACEOF
+#define GUPCR_PGM_INFO_SECTION_NAME $GUPCR_PGM_INFO_SECTION_NAME
+_ACEOF
+
+fi
+if test -n "$GUPCR_SHARED_SECTION_NAME"; then
+
+cat >>confdefs.h <<_ACEOF
+#define GUPCR_SHARED_SECTION_NAME $GUPCR_SHARED_SECTION_NAME
+_ACEOF
 
 fi
 
@@ -20256,7 +20308,6 @@ fi #### End: Portals4 runtime configuration
 # configure.tgt sets these substitution variables.
 # It also sets 'upc_crtstuff=yes' if upc-crtstuff needs
 # to be compiled.
-
 
 
 

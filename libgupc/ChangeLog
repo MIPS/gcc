@@ -1,3 +1,32 @@
+2015-10-04  Gary Funck  <gary@intrepid.com>
+
+	* configure.ac: Extract UPC-related section names from
+	pre-defined's passed by the UPC compiler.
+	* configure.tgt: Remove logic for finding and setting
+	the UPC crt make file fragment ('upc_crtstuff_mak').
+	* Makefile.am: Re-do logic for generating UPC crtbegin/end files.
+	Removes dependency on libgcc and gcc build directories.
+	They are un-needed for UPC, because its "crt" files define
+	only section start/end symbols.
+	* upc-crtstuff.c: Removes dependency on libgcc and gcc source
+	and build directories.
+	* config/default/upc-crtstuff.mak: Remove.
+	* config/darwin/upc-crt-config.h: Parameterize by section
+	names passed by the UPC compiler as pre-defined's.
+	* config/default/upc-crt-config.h: Ditto.
+	* configure: Re-generate.
+	* config.h.in: Re-generate.
+	* Makefile.in: Re-generate.
+
+2015-09-26  Gary Funck  <gary@intrepid.com>
+
+	* config.h.in (GUPCR_SHARED_SECTION_NAME, GUPCR_SHARED_BEGIN_NAME,
+	GUPCR_SHARED_END_NAME, GUPCR_PGM_INFO_SECTION_NAME,
+	GUPCR_PGM_INFO_BEGIN_NAME, GUPCR_PGM_INFO_END_NAME,
+	GUPCR_INIT_ARRAY_SECTION_NAME, GUPCR_INIT_ARRAY_BEGIN_NAME,
+	GUPCR_INIT_ARRAY_END_NAME): Move from gcc/defaults.h
+	and rename UPC_* to GUPCR_*.
+
 2015-09-17  Gary Funck  <gary@intrepid.com>
 
 	Update copyright notices.

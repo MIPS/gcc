@@ -62,6 +62,10 @@
 /* Define to 1 if UPC runtime tracing is supported. */
 #undef GUPCR_HAVE_TRACE
 
+/* Name of section that holds an array of addresses that points to the UPC
+   initialization routines. */
+#undef GUPCR_INIT_ARRAY_SECTION_NAME
+
 /* Use SLURM for UPC Portals4 job launcher */
 #undef GUPCR_JOB_LAUNCHER_SLURM
 
@@ -85,6 +89,10 @@
 
 /* Define to 1 if UPC node local access uses Posix shared memory. */
 #undef GUPCR_NODE_LOCAL_MEM_POSIX
+
+/* Name of section used to hold information describing how a UPC source file
+   was compiled. */
+#undef GUPCR_PGM_INFO_SECTION_NAME
 
 /* Define to 1 if UPC runtime is based on Portals4. */
 #undef GUPCR_PORTALS_RUNTIME
@@ -121,6 +129,9 @@
 
 /* The data type of the 'vaddr' field in a UPC shared pointer */
 #undef GUPCR_PTS_VADDR_TYPE
+
+/* Name of section used to assign addresses to UPC shared data items. */
+#undef GUPCR_SHARED_SECTION_NAME
 
 /* Maximum number of children at each level of a collective operation tree. */
 #undef GUPCR_TREE_FANOUT

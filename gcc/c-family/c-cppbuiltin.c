@@ -771,6 +771,18 @@ cpp_iec_559_complex_value (void)
   return ret;
 }
 
+/* Return the section name with any leading "__DATA," or "__TEXT," removed.
+   (Darwin adds them to the section name).  */
+static const char *
+strip_section_prefix (const char *section_name)
+{
+  const char *name = section_name;
+  if ((strncmp (name, "__DATA,", 7) == 0)
+      || (strncmp (name, "__TEXT,", 7) == 0))
+    name += 7;
+  return name;
+}
+
 /* Generate UPC specific pre-defined macros. */
 
 static void
@@ -841,6 +853,12 @@ upc_cpp_builtins (cpp_reader * pfile)
     {
       cpp_define (parse_in, "__UPC_PUPC_INST__=1");
     }
+  builtin_define_with_value ("__UPC_SHARED_SECTION_NAME__",
+	 strip_section_prefix (targetm.upc.shared_section_name ()), 0);
+  builtin_define_with_value ("__UPC_PGM_INFO_SECTION_NAME__",
+	 strip_section_prefix (targetm.upc.pgm_info_section_name ()), 0);
+  builtin_define_with_value ("__UPC_INIT_ARRAY_SECTION_NAME__",
+	 strip_section_prefix (targetm.upc.init_array_section_name ()), 0);
 }
 
 /* Hook that registers front end and target-specific built-ins.  */

@@ -7488,44 +7488,13 @@ and is defined in @file{config.in}, based on the setting of the
 @option{--with-upc-pts=struct} option.
 @end defmac
 
-@defmac UPC_SHARED_SECTION_NAME
-Name of section used to assign addresses to UPC shared data items.
-@end defmac
+@hook TARGET_UPC_LINK_SCRIPT_P
 
-@defmac UPC_SHARED_BEGIN_NAME
-Used by @code{upc-crtbegin} to define the beginning of the shared section.
-@end defmac
+@hook TARGET_UPC_SHARED_SECTION_NAME
 
-@defmac UPC_SHARED_END_NAME
-Used by @code{upc-crtend} to define the end of the shared section.
-@end defmac
+@hook TARGET_UPC_PGM_INFO_SECTION_NAME
 
-@defmac UPC_PGM_INFO_SECTION_NAME
-Name of section used to hold info. describing how a UPC source file was compiled.
-@end defmac
-
-@defmac UPC_PGM_INFO_BEGIN_NAME
-Used by @code{upc-crtbegin} to define the beginning of the shared section.
-@end defmac
-
-@defmac UPC_PGM_INFO_END_NAME
-Used by @code{upc-crtend} to define the end of the shared section.
-@end defmac
-
-@defmac UPC_INIT_ARRAY_SECTION_NAME
-Name of section that holds an array of addresses that points to 
-the UPC initialization routines.
-@end defmac
-
-@defmac UPC_INIT_ARRAY_BEGIN_NAME
-Used by @code{upc-crtbegin} to define the beginning of UPC initialization
-array section.
-@end defmac
-
-@defmac UPC_INIT_ARRAY_END_NAME
-Used by @code{upc-crtend} to define the beginning of UPC initialization
-array section.
-@end defmac
+@hook TARGET_UPC_INIT_ARRAY_SECTION_NAME
 
 @node Misc
 @section Miscellaneous Parameters

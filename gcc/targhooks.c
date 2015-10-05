@@ -1922,4 +1922,32 @@ can_use_doloop_if_innermost (const widest_int &, const widest_int &,
   return loop_depth == 1;
 }
 
+bool
+default_upc_link_script_p (void)
+{
+#ifdef HAVE_UPC_LINK_SCRIPT
+  return true;
+#else
+  return false;
+#endif
+}
+
+const char *
+default_upc_shared_section_name (void)
+{
+  return UPC_SHARED_SECTION_NAME;
+}
+
+const char *
+default_upc_pgm_info_section_name (void)
+{
+  return UPC_PGM_INFO_SECTION_NAME;
+}
+
+const char *
+default_upc_init_array_section_name (void)
+{
+  return UPC_INIT_ARRAY_SECTION_NAME;
+}
+
 #include "gt-targhooks.h"

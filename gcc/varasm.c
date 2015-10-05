@@ -6204,18 +6204,20 @@ default_section_type_flags (tree decl, const char *name, int reloc)
 	  || strcmp (name, ".preinit_array") == 0))
     flags |= SECTION_NOTYPE;
 
-#ifdef UPC_SHARED_SECTION_NAME
   /* The UPC shared section is not loaded into memory.
-     It is used only to layout shared veriables.  */
-  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS))
-      && (strcmp (name, UPC_SHARED_SECTION_NAME) == 0))
+     It is used only to layout shared variables.  */
+  if (!(flags & (SECTION_CODE | SECTION_BSS | SECTION_TLS)))
     {
-      flags |= SECTION_BSS;
-# ifdef HAVE_UPC_LINK_SCRIPT
-      flags = SECTION_DEBUG | (flags & ~SECTION_WRITE);
-# endif
+      const char *upc_shared_section_name =
+                   targetm.upc.shared_section_name ();
+      if (upc_shared_section_name
+          && (strcmp (name, upc_shared_section_name) == 0))
+        {
+	  flags |= SECTION_BSS;
+	  if (targetm.upc.link_script_p ())
+	    flags = SECTION_DEBUG | (flags & ~SECTION_WRITE);
+        }
     }
-#endif
 
   return flags;
 }

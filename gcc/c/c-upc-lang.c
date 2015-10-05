@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-upc-rts-names.h"
 #include "common/common-target.h"
 #include "varasm.h"
+#include "target.h"
 
 static GTY (()) section *upc_init_array_section;
 
@@ -306,7 +307,8 @@ upc_build_init_func (tree stmt_list)
                                           "__upc_init_func_addr");
   DECL_INITIAL (init_func_addr) = build_unary_op (loc, ADDR_EXPR,
                                                   init_func, 0);
-  set_decl_section_name (init_func_addr, UPC_INIT_ARRAY_SECTION_NAME);
+  set_decl_section_name (init_func_addr,
+                         targetm.upc.init_array_section_name ());
 }
 
 /* Enable/Disable UPC keywords.

@@ -18,11 +18,7 @@ ACLOCAL_AMFLAGS = -I . -I .. -I ../config
 ## May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-gcc_objdir = $(MULTIBUILDTOP)../../$(host_subdir)/gcc
-
 config_path = @config_path@
-
-upc_crtstuff_mak = $(top_srcdir)/@upc_crtstuff_mak@
 
 libsubincludedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 
@@ -332,8 +328,37 @@ if LIBGUPC_CRTSTUFF
 
 toolexeclib_DATA = @upc_crtstuff_objs@
 
-include $(gcc_objdir)/libgcc.mvars
-include $(upc_crtstuff_mak)
+ALL_CRT_CFLAGS = $(CFLAGS) $(CRTSTUFF_CFLAGS) $(UPC_CRTSTUFF_CFLAGS)
+
+crt_compile = $(CC) $(ALL_CRT_CFLAGS) $(AM_CPPFLAGS)
+
+upc_crtstuff_src = $(top_srcdir)/upc-crtstuff.c
+
+#
+# UPC related begin/end files
+# Note: at the moment, $(CRTSTUFF_T_CFLAGS*) is empty.
+# Given that upc-crtstuff.c declares only data items,
+# there is no need for options such as -fpic.
+#
+upc-crtbegin.$(OBJEXT): $(upc_crtstuff_src)
+	$(crt_compile) -DCRT_BEGIN $(CRTSTUFF_T_CFLAGS) -c $< -o $@
+
+upc-crtend.$(OBJEXT): $(upc_crtstuff_src)
+	$(crt_compile) -DCRT_END $(CRTSTUFF_T_CFLAGS) -c $< -o $@
+
+# upc-crtbegin and upc-crtend for shared libraries
+upc-crtbeginS.$(OBJEXT): $(upc_crtstuff_src)
+	$(crt_compile) -DCRT_BEGIN $(CRTSTUFF_T_CFLAGS_S) -c $< -o $@
+
+upc-crtendS.$(OBJEXT): $(upc_crtstuff_src)
+	$(crt_compile) -DCRT_END $(CRTSTUFF_T_CFLAGS_S) -c $< -o $@
+
+# upc-crtbegin and upc-crtend for -static links
+upc-crtbeginT.$(OBJEXT): $(upc_crtstuff_src)
+	$(crt_compile) -DCRT_BEGIN $(CRTSTUFF_T_CFLAGS) -c $< -o $@
+
+upc-crtendT.$(OBJEXT): $(upc_crtstuff_src)
+	$(crt_compile) -DCRT_END $(CRTSTUFF_T_CFLAGS) -c $< -o $@
 
 endif
 

@@ -240,4 +240,9 @@ extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE
 						  tree type ATTRIBUTE_UNUSED,
 						  int *pretend_arg_size ATTRIBUTE_UNUSED,
 						  int second_time ATTRIBUTE_UNUSED);
+extern bool default_upc_link_script_p (void);
+extern const char *default_upc_shared_section_name (void);
+extern const char *default_upc_pgm_info_section_name (void);
+extern const char *default_upc_init_array_section_name (void);
+
 #endif /* GCC_TARGHOOKS_H */

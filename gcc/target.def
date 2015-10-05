@@ -5397,6 +5397,41 @@ DEFHOOK
 
 HOOK_VECTOR_END (cxx)
 
+/* Functions and data for UPC support.  */
+#undef HOOK_PREFIX
+#define HOOK_PREFIX "TARGET_UPC_"
+HOOK_VECTOR (TARGET_UPC, upc)
+
+DEFHOOK
+(link_script_p,
+"This hook returns true a linker script will be used to\
+origin the UPC shared section at 0.",
+ bool, (void),
+ default_upc_link_script_p)
+
+DEFHOOK
+(shared_section_name,
+"This hook returns the name of section used to assign addresses to\
+ UPC shared data items.",
+ const char *, (void),
+ default_upc_shared_section_name)
+
+DEFHOOK
+(pgm_info_section_name,
+"This hook returns the name of section used to hold info. describing\
+ how a UPC source file was compiled.",
+ const char *, (void),
+ default_upc_pgm_info_section_name)
+
+DEFHOOK
+(init_array_section_name,
+"This hook returns the name of section used to hold an arrary\
+ of addresses of UPC initialization routines.",
+ const char *, (void),
+ default_upc_init_array_section_name)
+
+HOOK_VECTOR_END (upc)
+
 /* Functions and data for emulated TLS support.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_EMUTLS_"
