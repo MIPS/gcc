@@ -18890,9 +18890,11 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
      assumption that debug information always follows a call.  Move
      past any debug information in that case.  */
   rtx real_after = after;
-  if (TUNE_P6600 && CALL_P (after)
-      && (NOTE_P (NEXT_INSN (after))))
-    real_after = NEXT_INSN (after);
+  if (real_after && nops && CALL_P (real_after))
+    while (TUNE_P6600 && real_after
+	   && (NOTE_P (NEXT_INSN (real_after))
+	       || BARRIER_P (NEXT_INSN (real_after))))
+      real_after = NEXT_INSN (real_after);
 
   while (nops-- > 0)
     emit_insn_after (gen_hazard_nop (), real_after);
@@ -18908,7 +18910,7 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	/* For the P6600, flag some unconditional branches as having a
 	pseudo-forbidden slot.  This will cause additional nop insertion
         or SEQUENCE breaking as required.  */
-	if (TUNE_P6600 
+	if (TUNE_P6600
 	    && TARGET_CB_MAYBE
 	    && mips_classify_branch_p6600 (insn) == UC_BOTHER)
 	  *fs_delay = true;
@@ -19142,7 +19144,7 @@ mips_reorg_process_insns (void)
 
 		  if (fs_delay || (TUNE_P6600
 				   && TARGET_CB_MAYBE
-				   && mips_classify_branch_p6600 (insn) 
+				   && mips_classify_branch_p6600 (insn)
 				      == UC_BALC))
 		    {
 		      /* Search onwards from the current position looking for
