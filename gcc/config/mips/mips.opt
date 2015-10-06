@@ -480,3 +480,6 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 
 muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
+
+mduplicate-loop-header
+Target Undocumented Var(TARGET_DUPLICATE_LOOP_HEADER) Init(1)
