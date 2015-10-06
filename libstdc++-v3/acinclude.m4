@@ -2518,7 +2518,7 @@ dnl Check for explicit debug flags.
 dnl
 dnl --enable-libstdcxx-debug-flags='-O1'
 dnl is a general method for passing flags to be used when
-dnl building debug libraries with --enable-debug.
+dnl building debug libraries with --enable-libstdcxx-debug.
 dnl
 dnl --disable-libstdcxx-debug-flags does nothing.
 dnl  +  Usage:  GLIBCXX_ENABLE_DEBUG_FLAGS(default flags)
@@ -3940,7 +3940,7 @@ dnl
       [glibcxx_cv_dirent_d_type=no])
   ])
   if test $glibcxx_cv_dirent_d_type = yes; then
-    AC_DEFINE(_GLIBCXX_HAVE_STRUCT_DIRENT_D_TYPE, 1, [Define to 1 if `d_type' is a member of `struct dirent'.])
+    AC_DEFINE(HAVE_STRUCT_DIRENT_D_TYPE, 1, [Define to 1 if `d_type' is a member of `struct dirent'.])
   fi
   AC_MSG_RESULT($glibcxx_cv_dirent_d_type)
 dnl

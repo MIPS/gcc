@@ -277,7 +277,7 @@ struct poly_bb
   bool is_reduction;
 };
 
-#define PBB_BLACK_BOX(PBB) ((gimple_bb_p) PBB->black_box)
+#define PBB_BLACK_BOX(PBB) ((gimple_poly_bb_p) PBB->black_box)
 #define PBB_SCOP(PBB) (PBB->scop)
 #define PBB_DRS(PBB) (PBB->drs)
 #define PBB_IS_REDUCTION(PBB) (PBB->is_reduction)
@@ -319,10 +319,10 @@ extern void debug_gmp_value (mpz_t);
 
 /* Returns a gimple_bb from BB.  */
 
-static inline gimple_bb_p
+static inline gimple_poly_bb_p
 gbb_from_bb (basic_block bb)
 {
-  return (gimple_bb_p) bb->aux;
+  return (gimple_poly_bb_p) bb->aux;
 }
 
 /* The poly_bb of the BB.  */
@@ -456,22 +456,6 @@ scop_set_nb_params (scop_p scop, graphite_dim_t nb_params)
 }
 
 bool graphite_legal_transform (scop_p);
-__isl_give isl_union_map *extend_schedule (__isl_take isl_union_map *);
-
-void
-compute_deps (scop_p scop, vec<poly_bb_p> pbbs,
-	      isl_union_map **must_raw,
-	      isl_union_map **may_raw,
-	      isl_union_map **must_raw_no_source,
-	      isl_union_map **may_raw_no_source,
-	      isl_union_map **must_war,
-	      isl_union_map **may_war,
-	      isl_union_map **must_war_no_source,
-	      isl_union_map **may_war_no_source,
-	      isl_union_map **must_waw,
-	      isl_union_map **may_waw,
-	      isl_union_map **must_waw_no_source,
-	      isl_union_map **may_waw_no_source);
 
 isl_union_map *
 scop_get_dependences (scop_p scop);

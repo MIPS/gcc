@@ -64,6 +64,7 @@ extern edge copy_bb_and_scalar_dependences (basic_block, sese, edge,
 					    vec<tree> , bool *);
 extern struct loop *outermost_loop_in_sese (sese, basic_block);
 extern tree scalar_evolution_in_region (sese, loop_p, tree);
+extern bool invariant_in_sese_p_rec (tree, sese);
 
 /* Check that SESE contains LOOP.  */
 
@@ -171,11 +172,6 @@ sese_loop_depth (sese region, loop_p loop)
 {
   unsigned int depth = 0;
 
-  gcc_assert ((!loop_in_sese_p (loop, region)
-	       && (SESE_ENTRY_BB (region)->loop_father == loop
-	           || SESE_EXIT (region)->src->loop_father == loop))
-              || loop_in_sese_p (loop, region));
-
   while (loop_in_sese_p (loop, region))
     {
       depth++;
@@ -262,9 +258,12 @@ recompute_all_dominators (void)
   mark_irreducible_loops ();
   free_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_DOMINATORS);
+
+  free_dominance_info (CDI_POST_DOMINATORS);
+  calculate_dominance_info (CDI_POST_DOMINATORS);
 }
 
-typedef struct gimple_bb
+typedef struct gimple_poly_bb
 {
   basic_block bb;
   struct poly_bb *pbb;
@@ -292,7 +291,7 @@ typedef struct gimple_bb
   vec<gimple *> conditions;
   vec<gimple *> condition_cases;
   vec<data_reference_p> data_refs;
-} *gimple_bb_p;
+} *gimple_poly_bb_p;
 
 #define GBB_BB(GBB) (GBB)->bb
 #define GBB_PBB(GBB) (GBB)->pbb
@@ -303,7 +302,7 @@ typedef struct gimple_bb
 /* Return the innermost loop that contains the basic block GBB.  */
 
 static inline struct loop *
-gbb_loop (struct gimple_bb *gbb)
+gbb_loop (gimple_poly_bb_p gbb)
 {
   return GBB_BB (gbb)->loop_father;
 }
@@ -312,7 +311,7 @@ gbb_loop (struct gimple_bb *gbb)
    If there is no corresponding gimple loop, we return NULL.  */
 
 static inline loop_p
-gbb_loop_at_index (gimple_bb_p gbb, sese region, int index)
+gbb_loop_at_index (gimple_poly_bb_p gbb, sese region, int index)
 {
   loop_p loop = gbb_loop (gbb);
   int depth = sese_loop_depth (region, loop);
@@ -328,7 +327,7 @@ gbb_loop_at_index (gimple_bb_p gbb, sese region, int index)
 /* The number of common loops in REGION for GBB1 and GBB2.  */
 
 static inline int
-nb_common_loops (sese region, gimple_bb_p gbb1, gimple_bb_p gbb2)
+nb_common_loops (sese region, gimple_poly_bb_p gbb1, gimple_poly_bb_p gbb2)
 {
   loop_p l1 = gbb_loop (gbb1);
   loop_p l2 = gbb_loop (gbb2);
