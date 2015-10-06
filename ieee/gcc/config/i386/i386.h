@@ -116,6 +116,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_SHA_P(x)	TARGET_ISA_SHA_P(x)
 #define TARGET_CLFLUSHOPT	TARGET_ISA_CLFLUSHOPT
 #define TARGET_CLFLUSHOPT_P(x)	TARGET_ISA_CLFLUSHOPT_P(x)
+#define TARGET_CLZERO	TARGET_ISA_CLZERO
+#define TARGET_CLZERO_P(x)	TARGET_ISA_CLZERO_P(x)
 #define TARGET_XSAVEC	TARGET_ISA_XSAVEC
 #define TARGET_XSAVEC_P(x)	TARGET_ISA_XSAVEC_P(x)
 #define TARGET_XSAVES	TARGET_ISA_XSAVES
@@ -350,6 +352,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_BDVER4 (ix86_tune == PROCESSOR_BDVER4)
 #define TARGET_BTVER1 (ix86_tune == PROCESSOR_BTVER1)
 #define TARGET_BTVER2 (ix86_tune == PROCESSOR_BTVER2)
+#define TARGET_ZNVER1 (ix86_tune == PROCESSOR_ZNVER1)
 
 /* Feature tests against the various tunings.  */
 enum ix86_tune_indices {
@@ -1596,8 +1599,7 @@ enum reg_class
    and -8 for 64bit targets, we need to make sure all stack pointer adjustments
    are in multiple of 4 for 32bit targets and 8 for 64bit targets.  */
 
-#define PUSH_ROUNDING(BYTES) \
-  (((BYTES) + UNITS_PER_WORD - 1) & -UNITS_PER_WORD)
+#define PUSH_ROUNDING(BYTES) ROUND_UP (BYTES, UNITS_PER_WORD)
 
 /* If defined, the maximum amount of space required for outgoing arguments
    will be computed and placed into the variable `crtl->outgoing_args_size'.
@@ -2304,6 +2306,7 @@ enum processor_type
   PROCESSOR_BDVER4,
   PROCESSOR_BTVER1,
   PROCESSOR_BTVER2,
+  PROCESSOR_ZNVER1,
   PROCESSOR_max
 };
 

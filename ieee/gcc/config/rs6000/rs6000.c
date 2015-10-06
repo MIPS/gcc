@@ -5342,24 +5342,20 @@ num_insns_constant (rtx op, machine_mode mode)
 	if (mode == SFmode || mode == SDmode)
 	  {
 	    long l;
-	    REAL_VALUE_TYPE rv;
 
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
 	    if (DECIMAL_FLOAT_MODE_P (mode))
-	      REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+	      REAL_VALUE_TO_TARGET_DECIMAL32
+		(*CONST_DOUBLE_REAL_VALUE (op), l);
 	    else
-	      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), l);
 	    return num_insns_constant_wide ((HOST_WIDE_INT) l);
 	  }
 
 	long l[2];
-	REAL_VALUE_TYPE rv;
-
-	REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
 	if (DECIMAL_FLOAT_MODE_P (mode))
-	  REAL_VALUE_TO_TARGET_DECIMAL64 (rv, l);
+	  REAL_VALUE_TO_TARGET_DECIMAL64 (*CONST_DOUBLE_REAL_VALUE (op), l);
 	else
-	  REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+	  REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), l);
 	high = l[WORDS_BIG_ENDIAN == 0];
 	low  = l[WORDS_BIG_ENDIAN != 0];
 
@@ -20927,7 +20923,6 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   enum rtx_code code = GET_CODE (op);
   rtx op0 = XEXP (op, 0);
   rtx op1 = XEXP (op, 1);
-  REAL_VALUE_TYPE c1;
   machine_mode compare_mode = GET_MODE (op0);
   machine_mode result_mode = GET_MODE (dest);
   rtx temp;
@@ -20988,9 +20983,6 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (code == UNEQ && HONOR_NANS (compare_mode))
     return 0;
 
-  if (GET_CODE (op1) == CONST_DOUBLE)
-    REAL_VALUE_FROM_CONST_DOUBLE (c1, op1);
-
   /* We're going to try to implement comparisons by performing
      a subtract, then comparing against zero.  Unfortunately,
      Inf - Inf is NaN which is not zero, and so if we don't
@@ -20998,7 +20990,8 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      would treat EQ different to UNORDERED, we can't do it.  */
   if (HONOR_INFINITIES (compare_mode)
       && code != GT && code != UNGE
-      && (GET_CODE (op1) != CONST_DOUBLE || real_isinf (&c1))
+      && (GET_CODE (op1) != CONST_DOUBLE
+	  || real_isinf (CONST_DOUBLE_REAL_VALUE (op1)))
       /* Constructs of the form (a OP b ? a : b) are safe.  */
       && ((! rtx_equal_p (op0, false_cond) && ! rtx_equal_p (op1, false_cond))
 	  || (! rtx_equal_p (op0, true_cond)
@@ -27299,14 +27292,12 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
       (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode
        || GET_MODE (x) == IFmode || GET_MODE (x) == KFmode))
     {
-      REAL_VALUE_TYPE rv;
       long k[4];
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
-	REAL_VALUE_TO_TARGET_DECIMAL128 (rv, k);
+	REAL_VALUE_TO_TARGET_DECIMAL128 (*CONST_DOUBLE_REAL_VALUE (x), k);
       else
-	REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+	REAL_VALUE_TO_TARGET_LONG_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), k);
 
       if (TARGET_64BIT)
 	{
@@ -27340,15 +27331,12 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
   else if (GET_CODE (x) == CONST_DOUBLE &&
 	   (GET_MODE (x) == DFmode || GET_MODE (x) == DDmode))
     {
-      REAL_VALUE_TYPE rv;
       long k[2];
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-
       if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
-	REAL_VALUE_TO_TARGET_DECIMAL64 (rv, k);
+	REAL_VALUE_TO_TARGET_DECIMAL64 (*CONST_DOUBLE_REAL_VALUE (x), k);
       else
-	REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
+	REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), k);
 
       if (TARGET_64BIT)
 	{
@@ -27377,14 +27365,12 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
   else if (GET_CODE (x) == CONST_DOUBLE &&
 	   (GET_MODE (x) == SFmode || GET_MODE (x) == SDmode))
     {
-      REAL_VALUE_TYPE rv;
       long l;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
-	REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+	REAL_VALUE_TO_TARGET_DECIMAL32 (*CONST_DOUBLE_REAL_VALUE (x), l);
       else
-	REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), l);
 
       if (TARGET_64BIT)
 	{
@@ -32060,19 +32046,19 @@ rs6000_load_constant_and_splat (machine_mode mode, REAL_VALUE_TYPE dconst)
 
   if (mode == SFmode || mode == DFmode)
     {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, mode);
+      rtx d = const_double_from_real_value (dconst, mode);
       reg = force_reg (mode, d);
     }
   else if (mode == V4SFmode)
     {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, SFmode);
+      rtx d = const_double_from_real_value (dconst, SFmode);
       rtvec v = gen_rtvec (4, d, d, d, d);
       reg = gen_reg_rtx (mode);
       rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
     }
   else if (mode == V2DFmode)
     {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, DFmode);
+      rtx d = const_double_from_real_value (dconst, DFmode);
       rtvec v = gen_rtvec (2, d, d);
       reg = gen_reg_rtx (mode);
       rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
@@ -32910,7 +32896,7 @@ rs6000_scale_v2df (rtx tgt, rtx src, int scale)
   rtx elt;
   rtx scale_vec = gen_reg_rtx (V2DFmode);
   (void)real_powi (&r_pow, DFmode, &dconst2, hwi_scale);
-  elt = CONST_DOUBLE_FROM_REAL_VALUE (r_pow, DFmode);
+  elt = const_double_from_real_value (r_pow, DFmode);
   RTVEC_ELT (v, 0) = elt;
   RTVEC_ELT (v, 1) = elt;
   rs6000_expand_vector_init (scale_vec, gen_rtx_PARALLEL (V2DFmode, v));
@@ -36723,8 +36709,8 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 	  DECL_EXTERNAL (atomic_update_decl) = 1;
 	}
 
-      tree fenv_var = create_tmp_var (double_type_node);
-      mark_addressable (fenv_var);
+      tree fenv_var = create_tmp_var_raw (double_type_node);
+      TREE_ADDRESSABLE (fenv_var) = 1;
       tree fenv_addr = build1 (ADDR_EXPR, double_ptr_type_node, fenv_var);
 
       *hold = build_call_expr (atomic_hold_decl, 1, fenv_addr);
@@ -36751,7 +36737,7 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   const unsigned HOST_WIDE_INT hold_exception_mask =
     HOST_WIDE_INT_C (0xffffffff00000007);
 
-  tree fenv_var = create_tmp_var (double_type_node);
+  tree fenv_var = create_tmp_var_raw (double_type_node);
 
   tree hold_mffs = build2 (MODIFY_EXPR, void_type_node, fenv_var, call_mffs);
 
@@ -36780,7 +36766,7 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   const unsigned HOST_WIDE_INT clear_exception_mask =
     HOST_WIDE_INT_C (0xffffffff00000000);
 
-  tree fenv_clear = create_tmp_var (double_type_node);
+  tree fenv_clear = create_tmp_var_raw (double_type_node);
 
   tree clear_mffs = build2 (MODIFY_EXPR, void_type_node, fenv_clear, call_mffs);
 
@@ -36812,7 +36798,7 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   const unsigned HOST_WIDE_INT new_exception_mask =
     HOST_WIDE_INT_C (0x1ff80fff);
 
-  tree old_fenv = create_tmp_var (double_type_node);
+  tree old_fenv = create_tmp_var_raw (double_type_node);
   tree update_mffs = build2 (MODIFY_EXPR, void_type_node, old_fenv, call_mffs);
 
   tree old_llu = build1 (VIEW_CONVERT_EXPR, uint64_type_node, old_fenv);

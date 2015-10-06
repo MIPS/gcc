@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 enum conversion_kind {
   ck_identity,
   ck_lvalue,
+  ck_tsafe,
   ck_qual,
   ck_std,
   ck_ptr,
@@ -1264,6 +1265,17 @@ standard_conversion (tree to, tree from, tree expr, bool c_cast_p,
 	  from = build_pointer_type (from);
 	  conv = build_conv (ck_ptr, from, conv);
 	  conv->base_p = true;
+	}
+      else if (tx_safe_fn_type_p (TREE_TYPE (from)))
+	{
+	  /* A prvalue of type "pointer to transaction_safe function" can be
+	     converted to a prvalue of type "pointer to function". */
+	  tree unsafe = tx_unsafe_fn_variant (TREE_TYPE (from));
+	  if (same_type_p (unsafe, TREE_TYPE (to)))
+	    {
+	      from = build_pointer_type (unsafe);
+	      conv = build_conv (ck_tsafe, from, conv);
+	    }
 	}
 
       if (tcode == POINTER_TYPE)
@@ -5132,7 +5144,7 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
     return error_mark_node;
 
  valid_operands:
-  result = build3 (COND_EXPR, result_type, arg1, arg2, arg3);
+  result = build3_loc (loc, COND_EXPR, result_type, arg1, arg2, arg3);
   if (!cp_unevaluated_operand)
     /* Avoid folding within decltype (c++/42013) and noexcept.  */
     result = fold_if_not_in_template (result);
@@ -6637,6 +6649,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 
     case ck_lvalue:
       return decay_conversion (expr, complain);
+
+    case ck_tsafe:
+      /* ??? Should the address of a transaction-safe pointer point to the TM
+	 clone, and this conversion look up the primary function?  */
+      return build_nop (totype, expr);
 
     case ck_qual:
       /* Warn about deprecated conversion if appropriate.  */

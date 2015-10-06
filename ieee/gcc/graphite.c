@@ -278,6 +278,20 @@ graphite_finalize (bool need_cfg_cleanup_p)
     print_loops (dump_file, 3);
 }
 
+/* Deletes all scops in SCOPS.  */
+
+static void
+free_scops (vec<scop_p> scops)
+{
+  int i;
+  scop_p scop;
+
+  FOR_EACH_VEC_ELT (scops, i, scop)
+    free_scop (scop);
+
+  scops.release ();
+}
+
 isl_ctx *the_isl_ctx;
 
 /* Perform a set of linear transforms on the loops of the current
@@ -314,7 +328,7 @@ graphite_transform_loops (void)
   FOR_EACH_VEC_ELT (scops, i, scop)
     if (dbg_cnt (graphite_scop))
       {
-	scop->ctx = ctx;
+	scop->isl_context = ctx;
 	build_poly_scop (scop);
 
 	if (dump_file && dump_flags)

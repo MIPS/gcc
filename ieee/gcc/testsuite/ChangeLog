@@ -1,3 +1,107 @@
+2015-10-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/67863
+	* c-c++-common/Wtautological-compare-4.c: New test.
+
+2015-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	PR target/67808
+	* gcc.target/powerpc/pr67808.c: New test.
+
+2015-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/msp430: New directory.
+	* gcc.target/msp430/msp430.exp: New file.  Runs MSP430 specific
+	tests.
+	* gcc.target/msp430/data-attributes.c: New file.  Checks the
+	noinit and persistent data attributes.
+
+2015-10-06  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Fix AVX-512VBMI detection.
+
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67859
+	* gcc.dg/torture/pr67859.c: New testcase.
+
+2015-10-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Add check for AES and PCLMUL.
+
+2015-10-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53856
+	* g++.dg/template/defarg19.C: New.
+	* g++.dg/template/defarg20.C: Likewise.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * gcc.dg/graphite/scop-sor.c: Un-xfail.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+        * gcc.dg/graphite/scop-sor.c: Xfail.
+
+2015-10-05  Martin Jambor  <mjambor@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/propalign-4.c: New test.
+	* gcc.dg/ipa/propalign-5.c: Likewise.
+
+2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67821
+	* gcc.dg/torture/pr67821-2.c: New test.
+	* gcc.dg/torture/pr67821.c: New test.
+
+2015-10-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Add check for "skylake-avx512".
+
+2015-10-05  Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.target/arm/attr_thumb-static2.c: Cleanup directives.
+
+2015-10-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vcvt_f16.c (TEST_MSG): Fix typo.
+	(exec_vcvt): Add comments.
+
+2015-10-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR rtl-optimization/67447
+	* gcc.target/i386/pr67447.c: New test.
+
+2015-10-04  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/vect-pack-trunc-1.c: Require avx512bw
+	effective target.
+	* gcc.target/i386/vect-pack-trunc-2.c: Ditto.
+	* gcc.target/i386/vect-perm-even-1.c: Ditto.
+	* gcc.target/i386/vect-perm-odd-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-1.c: Ditto.
+	* gcc.target/i386/vect-unpack-2.c: Ditto.
+
+2015-10-04  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67758
+	* gfortran.dg/common_24.f: New.
+
+2015-10-03  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* gcc.target/arm/pr67756.c: Fixed warnings.
+
+2015-10-02  Marek Polacek  <polacek@redhat.com>
+
+	PR c/67730
+	* gcc.dg/pr67730-1.c: New test.
+	* gcc.dg/pr67730-2.c: New test.
+	* gcc.dg/pr67730.h: New test.
+
 2015-10-02  Marek Polacek  <polacek@redhat.com>
 
 	* c-c++-common/Wduplicated-cond-2.c: Skip until PR67819 is resolved.
@@ -153,7 +257,6 @@
 	* gcc.dg/tree-ssa/ssa-fre-7.c: Adjust.
 	* gcc.dg/tree-ssa/ssa-fre-8.c: Likewise.
 
-2015-09-30  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/ssa-dom-branch-1.c: New test.
 
