@@ -367,6 +367,8 @@ compile_native (const char *infile, const char *outfile, const char *compiler)
     case OFFLOAD_ABI_ILP32:
       obstack_ptr_grow (&argv_obstack, "-m32");
       break;
+    case OFFLOAD_ABI_PPC64:
+      break;
     default:
       gcc_unreachable ();
     }
@@ -458,6 +460,8 @@ main (int argc, char **argv)
 	    offload_abi = OFFLOAD_ABI_LP64;
 	  else if (strcmp (argv[i] + strlen (STR), "ilp32") == 0)
 	    offload_abi = OFFLOAD_ABI_ILP32;
+	  else if (strcmp (argv[i] + strlen (STR), "ppc64") == 0)
+	    offload_abi = OFFLOAD_ABI_PPC64;
 	  else
 	    fatal_error (input_location,
 			 "unrecognizable argument of option " STR);
@@ -484,6 +488,8 @@ main (int argc, char **argv)
       break;
     case OFFLOAD_ABI_ILP32:
       obstack_ptr_grow (&argv_obstack, "-m32");
+      break;
+    case OFFLOAD_ABI_PPC64:
       break;
     default:
       gcc_unreachable ();
@@ -518,7 +524,8 @@ main (int argc, char **argv)
 
   /* PR libgomp/65099: Currently, we only support offloading in 64-bit
      configurations, and only for OpenACC offloading.  */
-  if (offload_abi == OFFLOAD_ABI_LP64 && fopenacc)
+  if ((offload_abi == OFFLOAD_ABI_LP64
+      || (offload_abi == OFFLOAD_ABI_PPC64)) && fopenacc)
     {
       ptx_name = make_temp_file (".mkoffload");
       obstack_ptr_grow (&argv_obstack, "-o");
