@@ -230,6 +230,9 @@ create_new_chain (unsigned this_regno, unsigned this_nregs, rtx *loc,
   head->nregs = this_nregs;
   head->need_caller_save_reg = 0;
   head->cannot_rename = 0;
+  head->terminated_dead = 0;
+  head->renamed = 0;
+  head->tied_chain = NULL;
 
   id_to_chain.safe_push (head);
   head->id = current_id++;
@@ -372,6 +375,13 @@ find_best_rename_reg (du_head_p this_head, enum reg_class super_class,
      in the chain.  */
   preferred_class
     = (enum reg_class) targetm.preferred_rename_class (super_class);
+
+  /* Pick and check the register from the tied chain iff the tied chain
+     is not renamed.  */
+  if (this_head->tied_chain && !this_head->tied_chain->renamed
+      && check_new_reg_p (old_reg, this_head->tied_chain->regno,
+			  this_head, *unavailable))
+    return this_head->tied_chain->regno;
 
   /* If PREFERRED_CLASS is not NO_REGS, we iterate in the first pass
      over registers that belong to PREFERRED_CLASS and try to find the
@@ -952,6 +962,7 @@ regrename_do_replace (struct du_head *head, int reg)
     }
 
   mode = GET_MODE (*head->first->loc);
+  head->renamed = 1;
   head->regno = reg;
   head->nregs = hard_regno_nregs[reg][mode];
 }
@@ -1035,7 +1046,40 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
   if (action == mark_write)
     {
       if (type == OP_OUT)
-	create_new_chain (this_regno, this_nregs, loc, insn, cl);
+	{
+	  int i;
+	  du_head_p c;
+	  du_head_p head;
+	  rtx pat = PATTERN (insn);
+
+	  c = create_new_chain (this_regno, this_nregs, loc, insn, cl);
+
+	  /* We try to tie chains in a move instruction for
+	     a single output.  */
+	  if (recog_data.n_operands == 2
+	      && GET_CODE (pat) == SET
+	      && GET_CODE (SET_DEST (pat)) == REG
+	      && GET_CODE (SET_SRC (pat)) == REG)
+	    {
+	      /* Find the input chain.  */
+	      for (i = c->id - 1; id_to_chain.iterate (i, &head); i--)
+		if (head->last && head->last->insn == insn
+		    && head->terminated_dead)
+		  {
+		    gcc_assert (head->regno == REGNO (recog_data.operand[1]));
+		    c->tied_chain = head;
+		    head->tied_chain = c;
+
+		    if (dump_file)
+		      fprintf (dump_file, "Tying chain %s (%d) with %s (%d)\n",
+			       reg_names[c->regno], c->id,
+			       reg_names[head->regno], head->id);
+		    /* Once tied, we're done.  */
+		    break;
+		  }
+	    }
+	}
+
       return;
     }
 
@@ -1143,6 +1187,8 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
 		SET_HARD_REG_BIT (live_hard_regs, head->regno + nregs);
 	    }
 
+	  if (action == terminate_dead)
+	    (*p)->terminated_dead = 1;
 	  *p = next;
 	  if (dump_file)
 	    fprintf (dump_file,
