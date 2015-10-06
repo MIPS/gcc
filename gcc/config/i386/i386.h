@@ -1735,6 +1735,11 @@ typedef struct ix86_args {
 
 #define EXIT_IGNORE_STACK 1
 
+/* Define this macro as a C expression that is nonzero for registers
+   used by the epilogue or the `return' pattern.  */
+
+#define EPILOGUE_USES(REGNO) ix86_epilogue_uses (REGNO)
+
 /* Output assembler code for a block containing the constant parts
    of a trampoline, leaving space for the variable parts.  */
 
@@ -2450,6 +2455,18 @@ struct GTY(()) machine_frame_state
 /* Private to winnt.c.  */
 struct seh_frame_state;
 
+enum function_type
+{
+  TYPE_NORMAL = 0,
+  /* The current function is an interrupt service routine with a
+     pointer argument as specified by the "interrupt" attribute.  */
+  TYPE_INTERRUPT,
+  /* The current function is an interrupt service routine with a
+     pointer argument and an integer argument as specified by the
+     "interrupt" attribute.  */
+  TYPE_EXCEPTION
+};
+
 struct GTY(()) machine_function {
   struct stack_local_entry *stack_locals;
   const char *some_ld_name;
@@ -2499,6 +2516,13 @@ struct GTY(()) machine_function {
 
   /* If true, it is safe to not save/restore DRAP register.  */
   BOOL_BITFIELD no_drap_save_restore : 1;
+
+  /* Function type.  */
+  ENUM_BITFIELD(function_type) func_type : 2;
+
+  /* If true, the current function is a function specified with
+     the "interrupt" or "no_caller_saved_registers" attribute.  */
+  BOOL_BITFIELD no_caller_saved_registers : 1;
 
   /* If true, there is register available for argument passing.  This
      is used only in ix86_function_ok_for_sibcall by 32-bit to determine
