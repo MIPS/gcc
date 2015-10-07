@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "tree-cfg.h"
 #include "tree-pass.h"
+#include "hash-table.h"
 
 /* Given a block B, update the CFG and SSA graph to reflect redirecting
    one or more in-edges to B to instead reach the destination of an
@@ -214,6 +215,20 @@ redirection_data::equal (const value_type *p1, const compare_type *p2)
 
   return true;
 }
+
+/* Rather than search all the edges in jump thread paths each time
+   DOM is able to simply if control statement, we build a hash table
+   with the deleted edges.  We only care about the address of the edge,
+   not its contents.  */
+struct removed_edges : typed_noop_remove <edge_def>
+{
+  typedef edge_def value_type;
+  typedef edge_def compare_type;
+  static hashval_t hash (const value_type *e) { return htab_hash_pointer (e); }
+  static bool equal (const value_type * e1, const value_type * e2) { return e1 == e2; }
+};
+
+static hash_table<removed_edges> removed_edges;
 
 /* Data structure of information to pass to hash table traversal routines.  */
 struct ssa_local_info_t
@@ -1803,6 +1818,40 @@ duplicate_seme_region (edge entry, edge exit,
   return true;
 }
 
+/* Return true when PATH is a valid jump-thread path.  */
+
+static bool
+valid_jump_thread_path (vec<jump_thread_edge *> *path)
+{
+  unsigned len = path->length ();
+
+  /* Check that the path is connected.  */
+  for (unsigned int j = 0; j < len - 1; j++)
+    if ((*path)[j]->e->dest != (*path)[j+1]->e->src)
+      return false;
+
+  return true;
+}
+
+/* Remove any queued jump threads that include edge E.
+
+   We don't actually remove them here, just record the edges into ax
+   hash table.  That way we can do the search once per iteration of
+   DOM/VRP rather than for every case where DOM optimizes away a COND_EXPR.  */
+
+void
+remove_jump_threads_including (edge_def *e)
+{
+  if (!paths.exists ())
+    return;
+
+  if (!removed_edges.is_created())
+    removed_edges.create (34);
+
+  edge *slot = removed_edges.find_slot (e, INSERT);
+  *slot = e;
+}
+
 /* Walk through all blocks and thread incoming edges to the appropriate
    outgoing edge for each edge pair recorded in THREADED_EDGES.
 
@@ -1827,10 +1876,36 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   gcc_assert (current_loops != NULL);
 
   if (!paths.exists ())
-    return false;
+    {
+      retval = false;
+      goto out;
+    }
 
   threaded_blocks = BITMAP_ALLOC (NULL);
   memset (&thread_stats, 0, sizeof (thread_stats));
+
+  /* Remove any paths that referenced removed edges.  */
+  if (removed_edges.is_created ())
+    for (i = 0; i < paths.length (); )
+      {
+	unsigned int j;
+	vec<jump_thread_edge *> *path = paths[i];
+
+	for (j = 0; j < path->length (); j++)
+	  {
+	    edge e = (*path)[j]->e;
+	    if (removed_edges.find_slot (e, NO_INSERT))
+	      break;
+	  }
+
+	if (j != path->length ())
+	  {
+	    delete_jump_thread_path (path);
+	    paths.unordered_remove (i);
+	    continue;
+	  }
+	i++;
+      }
 
   /* Jump-thread all FSM threads before other jump-threads.  */
   for (i = 0; i < paths.length ();)
@@ -2009,6 +2084,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   if (retval)
     loops_state_set (LOOPS_NEED_FIXUP);
 
+ out:
+  if (removed_edges.is_created ())
+    removed_edges.dispose ();
   return retval;
 }
 
