@@ -311,9 +311,19 @@ xvalue_p (const_tree ref)
 bool
 builtin_valid_in_constant_expr_p (const_tree decl)
 {
-  /* At present BUILT_IN_CONSTANT_P is the only builtin we're allowing
-     in constant-expressions.  We may want to add other builtins later. */
-  return DECL_IS_BUILTIN_CONSTANT_P (decl);
+  if (!(TREE_CODE (decl) == FUNCTION_DECL && DECL_BUILT_IN (decl)))
+    /* Not a built-in.  */
+    return false;
+  switch (DECL_FUNCTION_CODE (decl))
+    {
+    case BUILT_IN_CONSTANT_P:
+    case BUILT_IN_ATOMIC_ALWAYS_LOCK_FREE:
+      /* These have constant results even if their operands are
+	 non-constant.  */
+      return true;
+    default:
+      return false;
+    }
 }
 
 /* Build a TARGET_EXPR, initializing the DECL with the VALUE.  */

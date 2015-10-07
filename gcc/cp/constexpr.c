@@ -3679,9 +3679,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 			    non_constant_p, overflow_p, jump_target);
       break;
 
-    case ARRAY_NOTATION_REF:
-      break;
-
     case REQUIRES_EXPR:
       /* It's possible to get a requires-expression in a constant
          expression. For example:
@@ -4386,9 +4383,6 @@ potential_constant_expression_1 (tree t, bool want_rval, bool strict,
 	    else
 	      return false;
           }
-	/* Builtins might be constant in result.  */
-	if (is_builtin_fn (fun))
-	  return true;
         for (; i < nargs; ++i)
           {
             tree x = get_nth_callarg (t, i);
