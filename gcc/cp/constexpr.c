@@ -1087,10 +1087,7 @@ cxx_bind_parameters_in_call (const constexpr_ctx *ctx, tree t,
 	  && is_dummy_object (x))
 	{
 	  x = ctx->object;
-	  if (x)
-	    x = cp_build_addr_expr (x, tf_warning_or_error);
-	  else
-	    gcc_unreachable ();
+	  x = cp_build_addr_expr (x, tf_warning_or_error);
 	}
       bool lval = false;
       arg = cxx_eval_constant_expression (ctx, x, lval,
@@ -1594,7 +1591,6 @@ cxx_eval_unary_expression (const constexpr_ctx *ctx, tree t,
       else
 	r = build1_loc (loc, code, type, arg);
     }
-
   VERIFY_CONSTANT (r);
   return r;
 }
@@ -2518,7 +2514,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 			(TREE_TYPE (field), type)))
 		  {
 		    return fold_build3 (COMPONENT_REF, type, op00,
-				        field, NULL_TREE);
+				     field, NULL_TREE);
 		    break;
 		  }
 	    }
@@ -2540,7 +2536,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
       if (type_domain && TYPE_MIN_VALUE (type_domain))
 	min_val = TYPE_MIN_VALUE (type_domain);
       return build4_loc (loc, ARRAY_REF, type, sub, min_val, NULL_TREE,
-			      NULL_TREE);
+			 NULL_TREE);
     }
 
   return NULL_TREE;
@@ -3152,7 +3148,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       *non_constant_p = true;
       return t;
     }
-
   if (CONSTANT_CLASS_P (t))
     {
       if (TREE_CODE (t) == PTRMEM_CST)
@@ -3161,7 +3156,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	*overflow_p = true;
       return t;
     }
-
 
   switch (TREE_CODE (t))
     {
@@ -3398,10 +3392,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
       break;
 
     case SIZEOF_EXPR:
-      if (processing_template_decl
-	  && (!COMPLETE_TYPE_P (TREE_TYPE (t))
-	  || TREE_CODE (TYPE_SIZE (TREE_TYPE (t))) != INTEGER_CST))
-	return t;
       if (SIZEOF_EXPR_TYPE_P (t))
 	r = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (t, 0)),
 					SIZEOF_EXPR, false);
@@ -3547,7 +3537,6 @@ cxx_eval_constant_expression (const constexpr_ctx *ctx, tree t,
 	/* Don't re-process a constant CONSTRUCTOR, but do fold it to
 	   VECTOR_CST if applicable.  */
 	return fold (t);
-
       r = cxx_eval_bare_aggregate (ctx, t, lval,
 				   non_constant_p, overflow_p);
       break;
