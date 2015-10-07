@@ -1,3 +1,7 @@
+2015-10-06  Gary Funck  <gary@intrepid.com>
+
+	* configure: Re-generate.
+
 2015-10-05  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 228465 into gupc branch.
