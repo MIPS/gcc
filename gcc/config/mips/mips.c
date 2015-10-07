@@ -219,7 +219,7 @@ enum mips_ucbranch_type {
   /* May not even be a branch.  */
   UC_UNDEFINED,
   UC_BALC,
-  UC_BOTHER
+  UC_OTHER
 };
 
 /* Macros to create an enumeration identifier for a function prototype.  */
@@ -18793,24 +18793,21 @@ mips_orphaned_high_part_p (mips_offset_table htab, rtx insn)
 
 /* Subroutine of mips_avoid_hazard. We classify unconditional branches
    of interest for the P6600 for performance reasons. We're interested
-   in differentiating balc from jic,jalic and bc.  */
+   in differentiating BALC from JIC, JIALC and BC.  */
 
 static enum mips_ucbranch_type
 mips_classify_branch_p6600 (rtx insn)
 {
-  if (insn
+  if (!(insn
       && USEFUL_INSN_P (insn)
-      && GET_CODE (PATTERN (insn)) != SEQUENCE
-      /* jic and jalic.  */
-      && ((get_attr_jal (insn) == JAL_INDIRECT)
-	  /* bc as it is a loose jump.  */
-	  || (get_attr_type (insn) == TYPE_JUMP)))
-    return UC_BOTHER;
+      && GET_CODE (PATTERN (insn)) != SEQUENCE))
+    return UC_UNDEFINED;
 
-  if (insn
-      && USEFUL_INSN_P (insn)
-      && GET_CODE (PATTERN (insn)) != SEQUENCE
-      && ((CALL_P (insn)) && get_attr_jal (insn) == JAL_DIRECT))
+  if (get_attr_jal (insn) == JAL_INDIRECT /* JIC and JIALC.  */
+      || get_attr_type (insn) == TYPE_JUMP) /* BC as it is a loose jump.  */
+    return UC_OTHER;
+
+  if (CALL_P (insn) && get_attr_jal (insn) == JAL_DIRECT)
     return UC_BALC;
 
   return UC_UNDEFINED;
@@ -18827,7 +18824,7 @@ mips_classify_branch_p6600 (rtx insn)
    the number of instructions since the last MFLO or MFHI).
 
    After inserting nops for INSN, update *DELAYED_REG and *HILO_DELAY
-   for the next instruction
+   for the next instruction.
 
    LO_REG is an rtx for the LO register, used in dependence checking.  */
 
@@ -18869,15 +18866,16 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
     nops = 1;
-  /* The P6600 does not tolerate certain static sequences of back-to-back
-     jumps well.  Inserting a no-op only costs space.  Here we handle the
-     cases of a hw-predictable branch followed by a non-hw-predictable branch
-     and vice-versa.  */
+  /* The P6600's branch predictor does not handle certain static
+     sequences of back-to-back jumps well.  Inserting a no-op only
+     costs space as the dispatch unit will disregard the nop. 
+     Here we handle the cases of back to back unconditional branches
+     that are inefficent.  */
   else if (TUNE_P6600 && TARGET_CB_MAYBE && !optimize_size
 	   && ((mips_classify_branch_p6600 (after) == UC_BALC
-		&& mips_classify_branch_p6600 (insn) == UC_BOTHER)
+		&& mips_classify_branch_p6600 (insn) == UC_OTHER)
 	       || (mips_classify_branch_p6600 (insn) == UC_BALC
-		   && (mips_classify_branch_p6600 (after) == UC_BOTHER))))
+		   && (mips_classify_branch_p6600 (after) == UC_OTHER))))
     nops = 1;
   else
     nops = 0;
@@ -18911,8 +18909,9 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	pseudo-forbidden slot.  This will cause additional nop insertion
         or SEQUENCE breaking as required.  */
 	if (TUNE_P6600
+	    && !optimize_size
 	    && TARGET_CB_MAYBE
-	    && mips_classify_branch_p6600 (insn) == UC_BOTHER)
+	    && mips_classify_branch_p6600 (insn) == UC_OTHER)
 	  *fs_delay = true;
 	break;
 
@@ -18931,7 +18930,6 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
 	*delayed_reg = SET_DEST (set);
 	break;
       }
-
 }
 
 /* Remove a SEQUENCE and replace it with the delay slot instruction
