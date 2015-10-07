@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "flags.h"
 #include "tree-ssa-threadedge.h"
+#include "params.h"
 
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This
@@ -64,7 +65,8 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
      be true, since quite often it is possible to verify that the condition is
      satisfied in the first iteration and therefore to eliminate it.  Jump
      threading handles these cases now.  */
-  if (TARGET_DUPLICATE_LOOP_HEADER && optimize_loop_for_size_p (loop))
+  if (!TARGET_ALLOW_LOOP_HEADER_COPY_FOR_OS 
+      && optimize_loop_for_size_p (loop))
     return false;
 
   gcc_assert (EDGE_COUNT (header->succs) > 0);
@@ -83,6 +85,22 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
   if (gimple_code (last) != GIMPLE_COND)
     return false;
 
+  bsi = gsi_start_bb (header);
+  last = gsi_stmt (bsi);
+  /*if (0 && bsi.ptr->next == NULL && gimple_code (last) == GIMPLE_COND)
+    {
+      enum tree_code gimple_expr = gimple_cond_code (last);
+      enum tree_code op1_type = TREE_CODE (gimple_op (last, 0));
+      enum tree_code op2_type = TREE_CODE (gimple_op (last, 1));
+
+      if ((gimple_expr == EQ_EXPR || gimple_expr == NE_EXPR) 
+           && op1_type == VAR_DECL
+	   && (op2_type == VAR_DECL || (op2_type == INTEGER_CST
+					&& TREE_INT_CST_LOW (gimple_op (last, 1)) == 0 
+					&& TREE_INT_CST_HIGH (gimple_op (last, 1)) == 0)))
+        return true;
+     }*/
+
   /* Approximately copy the conditions that used to be used in jump.c --
      at most 20 insns and no calls.  */
   for (bsi = gsi_start_bb (header); !gsi_end_p (bsi); gsi_next (&bsi))
@@ -98,7 +116,20 @@ should_duplicate_loop_header_p (basic_block header, struct loop *loop,
       if (is_gimple_call (last))
 	return false;
 
+      if (optimize_size)
+	{
+	  /* Only allow one statement.  */
+	  if (!gsi_one_before_end_p (bsi))
+	    return false;
+
+	  if (!(gimple_code (last) == GIMPLE_COND
+		&& (gimple_cond_code (last) == EQ_EXPR
+		    || gimple_cond_code (last) == NE_EXPR)))
+	    return false;
+	}
+
       *limit -= estimate_num_insns (last, &eni_size_weights);
+
       if (*limit < 0)
 	return false;
     }
@@ -155,8 +186,7 @@ copy_loop_headers (void)
 
   FOR_EACH_LOOP (loop, 0)
     {
-      /* Copy at most 20 insns.  */
-      int limit = 20;
+      int limit = (optimize_size) ? 2 : MAX_LOOP_HEADER_COPY_INSNS;
 
       header = loop->header;
 
@@ -300,4 +330,46 @@ gimple_opt_pass *
 make_pass_ch (gcc::context *ctxt)
 {
   return new pass_ch (ctxt);
+}
+
+
+
+namespace {
+
+const pass_data pass_data_ch2 =
+{
+  GIMPLE_PASS, /* type */
+  "ch2", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_CH, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_verify_ssa
+    | TODO_verify_flow ), /* todo_flags_finish */
+};
+
+class pass_ch2 : public gimple_opt_pass
+{
+public:
+  pass_ch2 (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_ch2, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return (flag_tree_ch != 0 && optimize_size); }
+
+  unsigned int execute () { return copy_loop_headers (); }
+
+}; // class pass_ch
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_ch2 (gcc::context *ctxt)
+{
+  return new pass_ch2 (ctxt);
 }
