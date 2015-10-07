@@ -53,7 +53,7 @@ TFtype __subkf3 (TFtype, TFtype);
 TFtype __mulkf3 (TFtype, TFtype);
 TFtype __divkf3 (TFtype, TFtype);
 TFtype __negkf2 (TFtype);
-CMPtype __cmpkf2 (TFtype, TFtype);
+CMPtype __cmpukf2 (TFtype, TFtype);
 CMPtype __eqkf2 (TFtype, TFtype);
 CMPtype __gekf2 (TFtype, TFtype);
 CMPtype __lekf2 (TFtype, TFtype);

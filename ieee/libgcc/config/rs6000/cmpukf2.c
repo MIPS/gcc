@@ -68,7 +68,7 @@ static const unsigned char ppc_cr_map[] = {
    PowerPC conditon code register.  */
 
 CMPtype
-__cmpkf2 (TFtype a, TFtype b)
+__cmpukf2 (TFtype a, TFtype b)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);
