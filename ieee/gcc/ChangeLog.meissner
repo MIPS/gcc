@@ -163,6 +163,9 @@
 	Delete. Switch from -mfloat128-{none,software} to
 	-m{,no-}float128.
 
+	* config/rs6000/predicates.md (reg_or_indexed_operand): Allow
+	SUBREG's.
+
 	* doc/extend.texi (additional floating types): Document PowerPC
 	use of __float128 and __ibm128 types.
 
