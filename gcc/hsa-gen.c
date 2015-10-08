@@ -3338,14 +3338,6 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, shadow_reg, addr);
   hbb->append_insn (mem);
 
-  /* Emit store to debug argument.  */
-  addr = new hsa_op_address (shadow_reg, offsetof (hsa_kernel_dispatch, debug));
-
-  /* Create a magic number that is going to be printed by libgomp.  */
-  c = new hsa_op_immed (1000 + index, BRIG_TYPE_U64);
-  mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, c, addr);
-  hbb->append_insn (mem);
-
   /* Load an address of the command queue to a register.  */
   hbb->append_insn (new hsa_insn_comment
 		    ("load base address of command queue"));
@@ -4540,6 +4532,17 @@ init_omp_in_prologue (void)
   basic = new hsa_insn_mem (BRIG_OPCODE_ST, hsa_num_threads->type, threads,
 			    new hsa_op_address (hsa_num_threads));
   prologue->append_insn (basic);
+
+  /* Emit store to debug argument.  */
+  addr = new hsa_op_address (shadow_reg_ptr, offsetof (hsa_kernel_dispatch,
+						       debug));
+
+  /* Create a magic number that is going to be printed by libgomp.  */
+  unsigned index = hsa_get_number_decl_kernel_mappings ();
+  hsa_op_immed *c = new hsa_op_immed (1000 + index, BRIG_TYPE_U64);
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, c,
+					addr);
+  prologue->append_insn (mem);
 }
 
 /* Go over gimple representation and generate our internal HSA one.  SSA_MAP

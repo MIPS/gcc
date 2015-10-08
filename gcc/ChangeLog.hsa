@@ -1,3 +1,10 @@
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Remove
+	assignment of the defaul argument.
+	(init_omp_in_prologue): Assign it at the beginning of
+	a kernel function.
+
 2015-09-30  Martin Jambor  <mjambor@suse.cz>
 
 	* tree-sra.c (ipa_sra_preliminary_function_checks): Remove the
