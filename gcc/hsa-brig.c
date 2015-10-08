@@ -137,6 +137,9 @@ static hash_set <tree> *emitted_declarations;
 /* List of sbr instructions.  */
 static vec <hsa_insn_sbr *> *switch_instructions;
 
+/* List of comment instructions.  */
+static vec <hsa_insn_comment *> *comment_instructions;
+
 struct function_linkage_pair
 {
   function_linkage_pair (tree decl, unsigned int off):
@@ -1627,7 +1630,6 @@ emit_comment_insn (hsa_insn_comment *insn)
   repr.base.kind = htole16 (insn->opcode);
   repr.name = brig_emit_string (insn->comment, '\0', false);
   brig_code.add (&repr, sizeof (repr));
-  insn->release_string ();
 }
 
 /* Emit queue instruction INSN.  */
@@ -1748,6 +1750,9 @@ static void
 emit_insn (hsa_insn_basic *insn)
 {
   gcc_assert (!is_a <hsa_insn_phi *> (insn));
+
+  insn->brig_offset = brig_code.total_size;
+
   if (hsa_insn_signal *signal = dyn_cast <hsa_insn_signal *> (insn))
     {
       emit_signal_insn (signal);
@@ -1805,6 +1810,11 @@ emit_insn (hsa_insn_basic *insn)
     }
   if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
     {
+      if (comment_instructions == NULL)
+	comment_instructions = new vec <hsa_insn_comment *> ();
+
+      comment_instructions->safe_push (comment);
+
       emit_comment_insn (comment);
       return;
     }
@@ -1917,8 +1927,20 @@ hsa_brig_emit_function (void)
 	}
     }
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "------- After BRIG emission: -------\n");
+      dump_hsa_cfun (dump_file);
+    }
+
+  if (comment_instructions)
+    for (unsigned i = 0; i < comment_instructions->length (); i++)
+      (*comment_instructions)[i]->release_string ();
+
   delete switch_instructions;
   switch_instructions = NULL;
+  delete comment_instructions;
+  comment_instructions = NULL;
 
   emit_queued_operands ();
 }

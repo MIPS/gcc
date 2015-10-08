@@ -377,6 +377,9 @@ public:
   /* Type of the destination of the operations.  */
   BrigType16_t type;
 
+  /* BRIG offset of the instruction in code section.  */
+  unsigned int brig_offset;
+
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_basic () {}

@@ -1047,6 +1047,7 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc)
   bb = NULL;
   number = 0;
   type = BRIG_TYPE_NONE;
+  brig_offset = 0;
 
   if (nops > 0)
     operands.safe_grow_cleared (nops);
@@ -1117,6 +1118,7 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
   prev = next = NULL;
   bb = NULL;
   number = 0;
+  brig_offset = 0;
 
   if (nops > 0)
     operands.safe_grow_cleared (nops);

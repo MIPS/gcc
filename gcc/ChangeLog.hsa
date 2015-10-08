@@ -1,5 +1,18 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_comment_insn): Do not release comment's
+	string.
+	(emit_insn): Save BRIG offset.
+	(hsa_brig_emit_function): Dump generated HSAIL after BRIG
+	emission.
+	* hsa-dump.c (dump_hsa_insn): Dump BRIG offset of an
+	instruction.
+	* hsa-gen.c (hsa_insn_basic::hsa_insn_basic): Initialize
+	brig_offset to zero.
+	* hsa.h (hsa_insn_basic::brig_offset): New member variable.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (bool hsa_function_representation::has_shadow_reg_p):
 	New function.
 	(set_debug_value): New function.

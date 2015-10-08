@@ -791,7 +791,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	    first = false;
 	  dump_hsa_operand (f, phi->get_op (i), true);
 	}
-      fprintf (f, ">\n");
+      fprintf (f, ">");
     }
   else if (is_a <hsa_insn_signal *> (insn))
     {
@@ -804,7 +804,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "_%s ", hsa_type_name (mem->type));
 
       dump_hsa_operands (f, mem);
-      fprintf (f, "\n");
     }
 
   else if (is_a <hsa_insn_atomic *> (insn))
@@ -829,7 +828,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "_%s ", hsa_type_name (mem->type));
 
       dump_hsa_operands (f, mem);
-      fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_mem *> (insn))
     {
@@ -846,7 +844,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       dump_hsa_operand (f, mem->get_op (0));
       fprintf (f, ", ");
       dump_hsa_address (f, addr);
-      fprintf (f, "\n");
     }
   else if (insn->opcode == BRIG_OPCODE_LDA)
     {
@@ -860,7 +857,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       dump_hsa_operand (f, insn->get_op (0));
       fprintf (f, ", ");
       dump_hsa_address (f, addr);
-      fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_seg *> (insn))
     {
@@ -871,7 +867,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       dump_hsa_reg (f, as_a <hsa_op_reg *> (seg->get_op (0)));
       fprintf (f, ", ");
       dump_hsa_operand (f, seg->get_op (1));
-      fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_cmp *> (insn))
     {
@@ -891,7 +886,6 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       dump_hsa_operand (f, cmp->get_op (1));
       fprintf (f, ", ");
       dump_hsa_operand (f, cmp->get_op (2));
-      fprintf (f, "\n");
     }
   else if (is_a <hsa_insn_br *> (insn))
     {
@@ -914,7 +908,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	    target = e->dest;
 	    break;
 	  }
-      fprintf (f, "BB %i\n", hsa_bb_for_bb (target)->index);
+      fprintf (f, "BB %i", hsa_bb_for_bb (target)->index);
     }
   else if (is_a <hsa_insn_sbr *> (insn))
     {
@@ -931,7 +925,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	    fprintf (f, ", ");
 	}
 
-      fprintf (f, "]\n");
+      fprintf (f, "]");
     }
   else if (is_a <hsa_insn_arg_block *> (insn))
     {
@@ -948,7 +942,7 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
       if (!start_p)
 	*indent -= 2;
 
-      fprintf (f, "%c\n", c);
+      fprintf (f, "%c", c);
     }
   else if (is_a <hsa_insn_call *> (insn))
     {
@@ -968,11 +962,12 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	  if (i != call->args_symbols.length () - 1)
 	    fprintf (f, ", ");
 	}
-      fprintf (f, ")\n");
+      fprintf (f, ")");
     }
   else if (is_a <hsa_insn_comment *> (insn))
     {
-      fprintf (f, "%s\n", as_a <hsa_insn_comment *> (insn)->comment);
+      hsa_insn_comment *c = as_a <hsa_insn_comment *> (insn);
+      fprintf (f, "%s", c->comment);
     }
   else
     {
@@ -1001,8 +996,19 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
 	  else
 	    fprintf (f, "UNKNOWN_OP_KIND");
 	}
-      fprintf (f, "\n");
     }
+
+  if (insn->brig_offset)
+    {
+      fprintf (f, "             /* BRIG offset: %u", insn->brig_offset);
+
+      for (unsigned i = 0; i < insn->operand_count (); i++)
+	fprintf (f, ", op%u: %u", i, insn->get_op (i)->brig_op_offset);
+
+      fprintf (f, " */");
+    }
+
+  fprintf (f, "\n");
 }
 
 /* Dump textual representation of HSA IL in HBB to file F.  */
