@@ -1,5 +1,15 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* plugin/plugin-hsa.c (struct brig_library_info): New structure.
+	(struct agent_info): Add BRIG shared libraries.
+	(add_shared_library): New function.
+	(release_agent_shared_libraries): Likewise.
+	(create_and_finalize_hsa_program): Add loading of shared
+	libraries.
+	(GOMP_OFFLOAD_fini_device): Release allocated memory.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* libgomp.h (struct gomp_device_descr): Add new function
 	pointer (can_run_func).
 	* plugin/plugin-hsa.c (init_enviroment_variables): Rename this

@@ -4348,22 +4348,15 @@ specialop:
 
 	if (TREE_CODE (byte_size) != INTEGER_CST)
 	  {
-	    HSA_SORRY_AT (gimple_location (stmt),
-			  "support for HSA does not implement __builtin_memcpy "
-			  "with a non constant size");
+	    gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
 	    return;
 	  }
 
 	unsigned n = tree_to_uhwi (byte_size);
 
-	/* TODO: fallback to call to memcpy library function.  */
 	if (n > HSA_MEMORY_BUILTINS_LIMIT)
 	  {
-	    HSA_SORRY_ATV
-	      (gimple_location (stmt),
-	       "support for HSA does implement __builtin_memcpy with a size "
-	       "bigger than %u bytes, %u bytes are requested",
-	       HSA_MEMORY_BUILTINS_LIMIT, n);
+	    gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
 	    return;
 	  }
 
@@ -4388,10 +4381,7 @@ specialop:
 
 	if (TREE_CODE (c) != INTEGER_CST)
 	  {
-	    HSA_SORRY_AT
-	      (gimple_location (stmt),
-	       "support for HSA does not implement __builtin_memset with a "
-	       "non constant byte value that should be written");
+	    gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
 	    return;
 	  }
 
@@ -4399,22 +4389,15 @@ specialop:
 
 	if (TREE_CODE (byte_size) != INTEGER_CST)
 	  {
-	    HSA_SORRY_AT (gimple_location (stmt),
-			  "support for HSA does not implement "
-			  "__builtin_memset with a non constant size");
+	    gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
 	    return;
 	  }
 
 	unsigned n = tree_to_uhwi (byte_size);
 
-	/* TODO: fallback to call to memset library function.  */
 	if (n > HSA_MEMORY_BUILTINS_LIMIT)
 	  {
-	    HSA_SORRY_ATV
-	      (gimple_location (stmt),
-	       "support for HSA does implement __builtin_memset with a size "
-	       "bigger than %u bytes, %u bytes are requested",
-	       HSA_MEMORY_BUILTINS_LIMIT, n);
+	    gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
 	    return;
 	  }
 
@@ -4433,10 +4416,10 @@ specialop:
 	break;
       }
     default:
-      HSA_SORRY_ATV (gimple_location (stmt),
-		     "support for HSA does not implement calls to builtin %D",
-		     gimple_call_fndecl (stmt));
-      return;
+      {
+	gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
+	return;
+      }
     }
 }
 

@@ -7,7 +7,7 @@
 #include "hsa.h"
 #include "hsa-traits.h"
 #include "hsa_ext_finalize.h"
-
+#include "dlfcn.h"
 
 /* Part of the libgomp plugin interface.  Return the name of the accelerator,
    which is "hsa".  */
@@ -70,18 +70,27 @@ init_enviroment_variables (void)
     suppress_host_fallback = false;
 }
 
-/* Print a debug message to stderr if DEBUG value is set to true.  */
+/* Print a logging message with PREFIX to stderr if HSA_DEBUG value
+   is set to true.  */
 
-#define HSA_DEBUG(...) \
+#define HSA_LOG(prefix, ...) \
   do \
   { \
     if (debug) \
       { \
-	fprintf (stderr, "HSA debug: "); \
+	fprintf (stderr, prefix); \
 	fprintf (stderr, __VA_ARGS__); \
       } \
   } \
   while (false);
+
+/* Print a debugging message to stderr.  */
+
+#define HSA_DEBUG(...) HSA_LOG ("HSA debug: ", __VA_ARGS__)
+
+/* Print a warning message to stderr.  */
+
+#define HSA_WARNING(...) HSA_LOG ("HSA warning: ", __VA_ARGS__)
 
 /* Print HSA warning STR with an HSA STATUS code.  */
 
@@ -190,6 +199,14 @@ struct module_info
   struct kernel_info kernels[];
 };
 
+/* Information about shared brig library.  */
+
+struct brig_library_info
+{
+  char *file_name;
+  hsa_ext_module_t image;
+};
+
 /* Description of an HSA GPU agent and the program associated with it.  */
 
 struct agent_info
@@ -226,6 +243,10 @@ struct agent_info
   bool prog_finalized_error;
   /* HSA executable - the finalized program that is used to locate kernels.  */
   hsa_executable_t executable;
+  /* List of BRIG libraries.  */
+  struct brig_library_info **brig_libraries;
+  /* Number of loaded shared BRIG libraries.  */
+  unsigned brig_libraries_count;
 };
 
 /* Information about the whole HSA environment and all of its agents.  */
@@ -557,6 +578,50 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version  __attribute__ ((unused)),
   return kernel_count;
 }
 
+/* Add a shared BRIG library from a FILE_NAME to an AGENT.  */
+
+static struct brig_library_info *
+add_shared_library (const char *file_name, struct agent_info *agent)
+{
+  struct brig_library_info *library = NULL;
+
+  void *f = dlopen (file_name, RTLD_NOW);
+  void *start = dlsym (f, "__brig_start");
+  void *end = dlsym (f, "__brig_end");
+
+  if (start == NULL || end == NULL)
+    return NULL;
+
+  unsigned size = end - start;
+  char *buf = (char *) malloc (size);
+  memcpy (buf, start, size);
+
+  library = GOMP_PLUGIN_malloc (sizeof (struct agent_info));
+  library->file_name = (char *) GOMP_PLUGIN_malloc
+    ((strlen (file_name) + 1) * sizeof (char));
+  strcpy (library->file_name, file_name);
+  library->image = (hsa_ext_module_t) buf;
+
+  return library;
+}
+
+/* Release memory used for BRIG shared libraries that correspond
+   to an AGENT.  */
+
+static void
+release_agent_shared_libraries (struct agent_info *agent)
+{
+  for (unsigned i = 0; i < agent->brig_libraries_count; i++)
+    if (agent->brig_libraries[i])
+      {
+	free (agent->brig_libraries[i]->file_name);
+	free (agent->brig_libraries[i]->image);
+	free (agent->brig_libraries[i]);
+      }
+
+  free (agent->brig_libraries);
+}
+
 /* Create and finalize the program consisting of all loaded modules.  */
 
 static void
@@ -582,13 +647,42 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   struct module_info *module = agent->first_module;
   while (module)
     {
-      status = hsa_ext_program_add_module(prog_handle,
-					  module->image_desc->brig_module);
+      status = hsa_ext_program_add_module (prog_handle,
+					   module->image_desc->brig_module);
       if (status != HSA_STATUS_SUCCESS)
 	hsa_fatal ("Could not add a module to the HSA program", status);
       module = module->next;
       mi++;
     }
+
+  /* Load all shared libraries.  */
+  const char *libraries[] = { "libhsamath.so", "libhsastd.so" };
+  const unsigned libraries_count = sizeof (libraries) / sizeof (const char *);
+
+  agent->brig_libraries_count = libraries_count;
+  agent->brig_libraries = GOMP_PLUGIN_malloc_cleared
+    (sizeof (struct brig_library_info) * libraries_count);
+
+  for (unsigned i = 0; i < libraries_count; i++)
+    {
+      struct brig_library_info *library = add_shared_library (libraries[i],
+							      agent);
+      if (library == NULL)
+	{
+	  HSA_WARNING ("Could not open a shared BRIG library: %s\n",
+		       libraries[i]);
+	  continue;
+	}
+
+      status = hsa_ext_program_add_module (prog_handle, library->image);
+      if (status != HSA_STATUS_SUCCESS)
+	hsa_warn ("Could not add a shared BRIG library the HSA program",
+		  status);
+      else
+	HSA_DEBUG ("a shared BRIG library has been added to a program: %s\n",
+		   libraries[i]);
+    }
+
   hsa_ext_control_directives_t control_directives;
   memset (&control_directives, 0, sizeof (control_directives));
   hsa_code_object_t code_object;
@@ -625,6 +719,7 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   goto final;
 
 failure:
+  release_agent_shared_libraries (agent);
   agent->prog_finalized_error = true;
 
 final:
@@ -1111,6 +1206,8 @@ GOMP_OFFLOAD_fini_device (int n)
     }
   agent->first_module = NULL;
   destroy_hsa_program (agent);
+
+  release_agent_shared_libraries (agent);
 
   hsa_status_t status = hsa_queue_destroy (agent->command_q);
   if (status != HSA_STATUS_SUCCESS)

@@ -1,5 +1,11 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call): Expand unsupported
+	builtins to calls that are going to be resolved by BRIG shared
+	libraries.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* common.opt: Add new Whsa option.
 	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
 	Add new member seen_error.
