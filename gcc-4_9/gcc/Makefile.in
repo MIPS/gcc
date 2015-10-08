@@ -2583,7 +2583,7 @@ gcov$(exeext): $(GCOV_OBJS) $(LIBDEPS)
 GCOV_DUMP_OBJS = gcov-dump.o vec.o ggc-none.o
 gcov-dump$(exeext): $(GCOV_DUMP_OBJS) $(LIBDEPS)
 	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_DUMP_OBJS) \
-		$(LIBS) -o $@
+		$(LIBS)  $(ZLIB) -o $@
 
 GCOV_TOOL_DEP_FILES = $(srcdir)/../libgcc/libgcov-util.c gcov-io.c $(GCOV_IO_H) \
   $(srcdir)/../libgcc/libgcov-driver.c $(srcdir)/../libgcc/libgcov-driver-system.c \
@@ -2607,7 +2607,7 @@ gcov-tool-params.o: params.c $(CONFIG_H) $(SYSTEM_H) coretypes.h $(COMMON_TARGET
 GCOV_TOOL_OBJS = gcov-tool.o libgcov-util.o libgcov-driver-tool.o \
 		 libgcov-merge-tool.o gcov-tool-dyn-ipa.o gcov-tool-params.o
 gcov-tool$(exeext): $(GCOV_TOOL_OBJS) $(LIBDEPS)
-	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_TOOL_OBJS) $(LIBS) -o $@
+	+$(LINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) $(GCOV_TOOL_OBJS) $(LIBS)  $(ZLIB) -o $@
 #
 # Build the include directories.  The stamp files are stmp-* rather than
 # s-* so that mostlyclean does not force the include directory to

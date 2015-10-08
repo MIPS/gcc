@@ -86,8 +86,12 @@ extern tree get_const_string_type (void);
 /* Mark this module as containing asm statements.  */
 extern void coverage_has_asm_stmt (void);
 
-extern bool incompatible_cl_args (struct gcov_module_info *,
-				  struct gcov_module_info *);
+struct lipo_parsed_cc1_string;
+struct lipo_parsed_cc1_string * lipo_parse_saved_cc1_string (const char *src,
+                                        char *str, bool parse_cl_args_only);
+void free_parsed_string (struct lipo_parsed_cc1_string *string);
+extern bool incompatible_cl_args (struct lipo_parsed_cc1_string *,
+                                  struct lipo_parsed_cc1_string *);
 
 /* Defined in tree-profile.c.  */
 extern void tree_init_instrumentation_sampling (void);

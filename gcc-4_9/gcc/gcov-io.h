@@ -402,6 +402,35 @@ struct gcov_summary
 #define GCOV_MODULE_ASM_STMTS (1 << 16)
 #define GCOV_MODULE_LANG_MASK 0xffff
 
+/* The following defines are for the saved_cc1_strings encoding.  */
+
+#define LIPO_STR_DELIM      "["
+#define LIPO_STR_DELIM2     "]"
+#define QUOTE_PATH_FLAG     'Q'
+#define BRACKET_PATH_FLAG   'B'
+#define SYSTEM_PATH_FLAG    'S'
+#define D_U_OPTION_FLAG     'D'
+#define INCLUDE_OPTION_FLAG 'I'
+#define COMMAND_ARG_FLAG    'C'
+
+/* Define various kind of option for saved_cc1_strings.  */
+enum lipo_cc1_string_kind {
+  k_quote_paths = 0,
+  k_bracket_paths,
+  k_system_paths,
+  k_cpp_defines,
+  k_cpp_includes,
+  k_lipo_cl_args,
+  num_lipo_cc1_string_kind
+};
+
+/* The struct for parsed (decoding) string for saved_cc1_strings.  */
+struct lipo_parsed_cc1_string {
+  const char* source_filename;
+  unsigned num[num_lipo_cc1_string_kind];
+  char **strings[num_lipo_cc1_string_kind];
+};
+
 /* Source module info. The data structure is used in
    both runtime and profile-use phase. Make sure to allocate
    enough space for the variable length member.  */
@@ -421,13 +450,18 @@ struct gcov_module_info
   gcov_unsigned_t ggc_memory; /* memory needed for parsing in kb  */
   char *da_filename;
   char *source_filename;
-  gcov_unsigned_t num_quote_paths;
-  gcov_unsigned_t num_bracket_paths;
-  gcov_unsigned_t num_system_paths;
-  gcov_unsigned_t num_cpp_defines;
-  gcov_unsigned_t num_cpp_includes;
-  gcov_unsigned_t num_cl_args;
-  char *string_array[1];
+  /* we encode and compress various cc1 options to one string
+     to SAVED_CC1_STRINGS field.
+     For the encoding, all the string options are separated by ']'.
+     (as the original string can contain ' '. Quoted_paths start with
+     "[[Q". Bracket_paths start with "[[B". System_paths start with
+     "[[S". Cpp_defines start with "[[D". Cpp_includes start with
+     "[[I". Command line arguments (cl_args) start with "[[C".
+     COMBINED_STRLEN contains the compressed size and the original
+     (uncompressed) string length. Bit[0..15] is the compressed size and
+     bit [16,31] is the uncompressed string length.  */
+  gcov_unsigned_t combined_strlen;
+  char *saved_cc1_strings;
 };
 
 extern struct gcov_module_info **module_infos;

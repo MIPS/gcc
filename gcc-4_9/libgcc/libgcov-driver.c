@@ -1494,8 +1494,8 @@ gcov_write_module_info (const struct gcov_info *mod_info,
                         unsigned is_primary)
 {
   gcov_unsigned_t len = 0, filename_len = 0, src_filename_len = 0, i;
-  gcov_unsigned_t num_strings;
-  gcov_unsigned_t *aligned_fname;
+  gcov_unsigned_t cc1_strlen;
+  gcov_unsigned_t *aligned_fname, *aligned_string, saved_cc1_strings_len;
   struct gcov_module_info  *module_info = mod_info->mod_info;
   filename_len = (strlen (module_info->da_filename) +
 		  sizeof (gcov_unsigned_t)) / sizeof (gcov_unsigned_t);
@@ -1504,14 +1504,12 @@ gcov_write_module_info (const struct gcov_info *mod_info,
   len = filename_len + src_filename_len;
   len += 2; /* each name string is led by a length.  */
 
-  num_strings = module_info->num_quote_paths + module_info->num_bracket_paths
-    + module_info->num_system_paths
-    + module_info->num_cpp_defines + module_info->num_cpp_includes
-    + module_info->num_cl_args;
-  len += gcov_compute_string_array_len (module_info->string_array,
-                                        num_strings);
+  cc1_strlen = module_info->combined_strlen & 0xFFFF;
+  saved_cc1_strings_len = (cc1_strlen + sizeof (gcov_unsigned_t))
+                          / sizeof (gcov_unsigned_t);
+  len += saved_cc1_strings_len + 1; /* prepend the length.  */
 
-  len += 11; /* 11 more fields */
+  len += 6; /* 6 more fields */
 
   gcov_write_tag_length (GCOV_TAG_MODULE_INFO, len);
   gcov_write_unsigned (module_info->ident);
@@ -1519,12 +1517,6 @@ gcov_write_module_info (const struct gcov_info *mod_info,
   gcov_write_unsigned (module_info->flags);
   gcov_write_unsigned (module_info->lang);
   gcov_write_unsigned (module_info->ggc_memory);
-  gcov_write_unsigned (module_info->num_quote_paths);
-  gcov_write_unsigned (module_info->num_bracket_paths);
-  gcov_write_unsigned (module_info->num_system_paths);
-  gcov_write_unsigned (module_info->num_cpp_defines);
-  gcov_write_unsigned (module_info->num_cpp_includes);
-  gcov_write_unsigned (module_info->num_cl_args);
 
   /* Now write the filenames */
   aligned_fname = (gcov_unsigned_t *) alloca ((filename_len + src_filename_len + 2) *
@@ -1539,8 +1531,15 @@ gcov_write_module_info (const struct gcov_info *mod_info,
   for (i = 0; i < (filename_len + src_filename_len + 2); i++)
     gcov_write_unsigned (aligned_fname[i]);
 
-  /* Now write the string array.  */
-  gcov_write_string_array (module_info->string_array, num_strings);
+  gcov_write_unsigned (module_info->combined_strlen);
+  /* Now write the saved cc1 strings.  */
+  aligned_string = (gcov_unsigned_t *) alloca ((saved_cc1_strings_len + 1) *
+                                               sizeof (gcov_unsigned_t));
+  memset (aligned_string, 0, (saved_cc1_strings_len + 1) * sizeof (gcov_unsigned_t));
+  aligned_string[0] = saved_cc1_strings_len;
+  memcpy (aligned_string + 1, module_info->saved_cc1_strings, cc1_strlen);
+  for (i = 0; i < saved_cc1_strings_len + 1; i++)
+    gcov_write_unsigned (aligned_string[i]);
 }
 
 #endif /* L_gcov */

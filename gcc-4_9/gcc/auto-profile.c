@@ -947,7 +947,6 @@ autofdo_source_profile::get_function_instance_by_inline_stack (
   return s;
 }
 
-
 /* Member functions for autofdo_module_profile.  */
 
 bool
@@ -968,11 +967,15 @@ autofdo_module_profile::read ()
     {
       char *name = xstrdup (gcov_read_string ());
       unsigned total_num = 0;
-      unsigned num_array[7];
+      unsigned array_size = num_lipo_cc1_string_kind + 1;
+      unsigned num_array[num_lipo_cc1_string_kind + 1];
       unsigned exported = gcov_read_unsigned ();
       unsigned lang = gcov_read_unsigned ();
       unsigned ggc_memory = gcov_read_unsigned ();
-      for (unsigned j = 0; j < 7; j++)
+      unsigned j_end = 0, len = 0, k;
+      char **string_array, *saved_cc1_strings;
+
+      for (unsigned j = 0; j < array_size; j++)
         {
           num_array[j] = gcov_read_unsigned ();
           total_num += num_array[j];
@@ -988,19 +991,55 @@ autofdo_module_profile::read ()
       module->ident = i + 1;
       module->lang = lang;
       module->ggc_memory = ggc_memory;
-      module->num_quote_paths = num_array[1];
-      module->num_bracket_paths = num_array[2];
-      module->num_system_paths = num_array[3];
-      module->num_cpp_defines = num_array[4];
-      module->num_cpp_includes = num_array[5];
-      module->num_cl_args = num_array[6];
       module->source_filename = name;
       module->is_primary = strcmp (name, in_fnames[0]) == 0;
       module->flags = module->is_primary ? exported : 1;
       for (unsigned j = 0; j < num_array[0]; j++)
         ret.first->second.first.safe_push (xstrdup (gcov_read_string ()));
+
+      string_array = (char **) alloca ((total_num - num_array[0])
+                                       * sizeof (char*));
       for (unsigned j = 0; j < total_num - num_array[0]; j++)
-        module->string_array[j] = xstrdup (gcov_read_string ());
+        string_array[j] = xstrdup (gcov_read_string ());
+
+      k = 0;
+      for (unsigned j = 1; j < array_size; j++)
+        {
+          if (num_array[j] == 0)
+            continue;
+          j_end += num_array[j];
+          len += strlen (LIPO_STR_DELIM) + 1; /* [<FLAG>  */
+          for (; k < j_end; k++)
+            len += strlen (string_array[k]) + 1; /* 1 for delimiter of ']'  */
+        }
+      saved_cc1_strings = (char *) xmalloc (len + 1);
+      saved_cc1_strings[0] = 0;
+
+      j_end = 0;
+      k = 0;
+      for (unsigned j = 1; j < array_size; j++)
+        {
+          static const char lipo_string_flags[] = {
+            QUOTE_PATH_FLAG,
+            BRACKET_PATH_FLAG,
+            SYSTEM_PATH_FLAG,
+            D_U_OPTION_FLAG,
+            INCLUDE_OPTION_FLAG,
+            COMMAND_ARG_FLAG };
+
+          if (num_array[j] == 0)
+            continue;
+          j_end += num_array[j];
+          sprintf (saved_cc1_strings, "%s%s%c", saved_cc1_strings,
+                   LIPO_STR_DELIM, lipo_string_flags[j - 1]);
+          for (; k < j_end; k++)
+            {
+              sprintf (saved_cc1_strings, "%s%s%s", saved_cc1_strings,
+                       string_array[k], LIPO_STR_DELIM2);
+              free (string_array[k]);
+            }
+        }
+      module->saved_cc1_strings = saved_cc1_strings;
     }
   return true;
 }
@@ -1071,6 +1110,10 @@ read_aux_modules (void)
   record_module_name (module->ident, lbasename (in_fnames[0]));
   if (aux_modules == NULL)
     return;
+
+  struct lipo_parsed_cc1_string * module_cl_args =
+    lipo_parse_saved_cc1_string (module->source_filename,
+                                 module->saved_cc1_strings, true);
   unsigned curr_module = 1, max_group = PARAM_VALUE (PARAM_MAX_LIPO_GROUP);
   int i;
   char *str;
@@ -1107,17 +1150,23 @@ read_aux_modules (void)
           inform (0, "Not importing %s: maximum group size reached", str);
         continue;
       }
-    if (incompatible_cl_args (module, aux_module))
+    struct lipo_parsed_cc1_string * aux_module_cl_args =
+      lipo_parse_saved_cc1_string (aux_module->source_filename,
+                                   aux_module->saved_cc1_strings, true);
+    if (incompatible_cl_args (module_cl_args, aux_module_cl_args))
       {
         if (flag_opt_info)
           inform (0, "Not importing %s: command-line"
                   " arguments not compatible with primary module", str);
+        free_parsed_string (aux_module_cl_args);
         continue;
       }
     module_infos[curr_module++] = aux_module;
     add_input_filename (str);
     record_module_name (aux_module->ident, lbasename (str));
+    free_parsed_string (aux_module_cl_args);
   }
+  free_parsed_string (module_cl_args);
 }
 
 /* From AutoFDO profiles, find values inside STMT for that we want to measure

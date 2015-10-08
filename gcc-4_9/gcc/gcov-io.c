@@ -803,23 +803,22 @@ gcov_read_build_info (gcov_unsigned_t length, gcov_unsigned_t *num_strings)
 #if (!IN_LIBGCOV && IN_GCOV != 1) || defined (IN_GCOV_TOOL)
 /* Read LEN words (unsigned type) and construct MOD_INFO.  */
 
+#include "zlib.h"
+
 GCOV_LINKAGE void
 gcov_read_module_info (struct gcov_module_info *mod_info,
                        gcov_unsigned_t len)
 {
-  gcov_unsigned_t src_filename_len, filename_len, i, num_strings;
+  gcov_unsigned_t src_filename_len, filename_len, i;
+  char *compressed_array, *uncompressed_array;
+  gcov_unsigned_t tag_len;
+  unsigned long saved_compressed_len, saved_uncompressed_len, result_len;
   mod_info->ident = gcov_read_unsigned ();
   mod_info->is_primary = gcov_read_unsigned ();
   mod_info->flags = gcov_read_unsigned ();
   mod_info->lang = gcov_read_unsigned ();
   mod_info->ggc_memory = gcov_read_unsigned ();
-  mod_info->num_quote_paths = gcov_read_unsigned ();
-  mod_info->num_bracket_paths = gcov_read_unsigned ();
-  mod_info->num_system_paths = gcov_read_unsigned ();
-  mod_info->num_cpp_defines = gcov_read_unsigned ();
-  mod_info->num_cpp_includes = gcov_read_unsigned ();
-  mod_info->num_cl_args = gcov_read_unsigned ();
-  len -= 11;
+  len -= 5;
 
   filename_len = gcov_read_unsigned ();
   mod_info->da_filename = (char *) xmalloc (filename_len *
@@ -830,17 +829,28 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
 
   src_filename_len = gcov_read_unsigned ();
   mod_info->source_filename = (char *) xmalloc (src_filename_len *
-						sizeof (gcov_unsigned_t));
+                                                sizeof (gcov_unsigned_t));
   for (i = 0; i < src_filename_len; i++)
     ((gcov_unsigned_t *) mod_info->source_filename)[i] = gcov_read_unsigned ();
   len -= (src_filename_len + 1);
 
-  num_strings = mod_info->num_quote_paths + mod_info->num_bracket_paths
-    + mod_info->num_system_paths
-    + mod_info->num_cpp_defines + mod_info->num_cpp_includes
-    + mod_info->num_cl_args;
-  len -= gcov_read_string_array (mod_info->string_array, num_strings);
+  saved_compressed_len = (unsigned long) gcov_read_unsigned ();
+  saved_uncompressed_len  = saved_compressed_len >> 16;
+  saved_compressed_len &= 0xFFFF;
+  tag_len = gcov_read_unsigned ();
+  len -= (tag_len + 2);
   gcc_assert (!len);
+  compressed_array = (char *) xmalloc (tag_len * sizeof (gcov_unsigned_t));
+  uncompressed_array = (char *) xmalloc (saved_uncompressed_len);
+  for (i = 0; i < tag_len; i++)
+    ((gcov_unsigned_t *) compressed_array)[i] = gcov_read_unsigned ();
+
+  result_len = saved_uncompressed_len;
+  uncompress ((Bytef *)uncompressed_array, &result_len,
+              (const Bytef *)compressed_array, saved_compressed_len);
+  gcc_assert (result_len == saved_uncompressed_len);
+  mod_info->saved_cc1_strings = uncompressed_array;
+  free (compressed_array);
 }
 #endif
 

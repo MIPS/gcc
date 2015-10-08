@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "input.h"
 #include "pointer-set.h"
 #include "auto-profile.h"
+#include "zlib.h"
 
 struct GTY((chain_next ("%h.next"))) coverage_data
 {
@@ -187,7 +188,7 @@ static bool has_asm_statement;
 /* Forward declarations.  */
 static void read_counts_file (const char *, unsigned);
 static tree build_var (tree, tree, int);
-static void build_fn_info_type (tree, unsigned, tree);
+static void build_fn_info_type (tree, unsigned);
 static void build_info_type (tree, tree);
 static tree build_fn_info (const struct coverage_data *, tree);
 static tree build_info (tree, tree);
@@ -345,13 +346,18 @@ has_incompatible_cg_opts (bool *cg_opts1, bool *cg_opts2, unsigned num_cg_opts)
 /* Returns true if the command-line arguments stored in the given module-infos
    are incompatible.  */
 bool
-incompatible_cl_args (struct gcov_module_info* mod_info1,
-		      struct gcov_module_info* mod_info2)
+incompatible_cl_args (struct lipo_parsed_cc1_string* mod_info1,
+    struct lipo_parsed_cc1_string* mod_info2)
 {
-  char **warning_opts1 = XNEWVEC (char *, mod_info1->num_cl_args);
-  char **warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
-  char **non_warning_opts1 = XNEWVEC (char *, mod_info1->num_cl_args);
-  char **non_warning_opts2 = XNEWVEC (char *, mod_info2->num_cl_args);
+  unsigned num_cl_args_1 = mod_info1->num[k_lipo_cl_args];
+  unsigned num_cl_args_2 = mod_info2->num[k_lipo_cl_args];
+  char **string_array_1 = mod_info1->strings[k_lipo_cl_args];
+  char **string_array_2 = mod_info2->strings[k_lipo_cl_args];
+
+  char **warning_opts1 = XNEWVEC (char *, num_cl_args_1);
+  char **warning_opts2 = XNEWVEC (char *, num_cl_args_2);
+  char **non_warning_opts1 = XNEWVEC (char *, num_cl_args_1);
+  char **non_warning_opts2 = XNEWVEC (char *, num_cl_args_2);
   char *std_opts1 = NULL, *std_opts2 = NULL;
   unsigned arch_isa1 = 0, arch_isa2 = 0;
   unsigned int i, num_warning_opts1 = 0, num_warning_opts2 = 0;
@@ -359,12 +365,6 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   bool warning_mismatch = false;
   bool non_warning_mismatch = false;
   hash_table <string_hasher> option_tab1, option_tab2;
-  unsigned int start_index1 = mod_info1->num_quote_paths 
-    + mod_info1->num_bracket_paths + mod_info1->num_system_paths 
-    + mod_info1->num_cpp_defines + mod_info1->num_cpp_includes;
-  unsigned int start_index2 = mod_info2->num_quote_paths
-    + mod_info2->num_bracket_paths + mod_info2->num_system_paths
-    + mod_info2->num_cpp_defines + mod_info2->num_cpp_includes;
 
   bool *cg_opts1, *cg_opts2, has_any_incompatible_cg_opts, has_incompatible_std;
   bool has_incompatible_arch_isa;
@@ -387,14 +387,13 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
   option_tab2.create (10);
 
   /* First, separate the warning and non-warning options.  */
-  for (i = 0; i < mod_info1->num_cl_args; i++)
-    if (mod_info1->string_array[start_index1 + i][1] == 'W')
-      warning_opts1[num_warning_opts1++] =
-	mod_info1->string_array[start_index1 + i];
+  for (i = 0; i < num_cl_args_1; i++)
+    if (string_array_1[i][1] == 'W')
+      warning_opts1[num_warning_opts1++] = string_array_1[i];
     else
       {
         char **slot;
-        char *option_string = mod_info1->string_array[start_index1 + i];
+        char *option_string = string_array_1[i];
 
         check_cg_opts (cg_opts1, option_string);
 	if (strstr (option_string, "-std="))
@@ -411,14 +410,13 @@ incompatible_cl_args (struct gcov_module_info* mod_info1,
           }
       }
 
-  for (i = 0; i < mod_info2->num_cl_args; i++)
-    if (mod_info2->string_array[start_index2 + i][1] == 'W')
-      warning_opts2[num_warning_opts2++] =
-	mod_info2->string_array[start_index2 + i];
+  for (i = 0; i < num_cl_args_2; i++)
+    if (string_array_2[i][1] == 'W')
+      warning_opts2[num_warning_opts2++] = string_array_2[i];
     else
       {
         char **slot;
-        char *option_string = mod_info2->string_array[start_index2 + i];
+        char *option_string = string_array_2[i];
 
         check_cg_opts (cg_opts2, option_string);
 	if (strstr (option_string, "-std="))
@@ -710,6 +708,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
   unsigned lineno_checksum = 0;
   unsigned cfg_checksum = 0;
   const char *imports_filename;
+  struct lipo_parsed_cc1_string *primary_mod_info_cl_args = NULL;
 
   if (max_group == 0)
     max_group = (unsigned) -1;
@@ -891,6 +890,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
       else if (tag == GCOV_TAG_MODULE_INFO && flag_dyn_ipa && !module_id)
         {
 	  struct gcov_module_info* mod_info;
+          struct lipo_parsed_cc1_string *mod_info_cl_args = NULL;
           size_t info_sz;
           /* each string has at least 8 bytes, so MOD_INFO's
              persistent length >= in core size.  */
@@ -898,13 +898,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               = (struct gcov_module_info *) alloca ((length + 2)
                                                     * sizeof (gcov_unsigned_t));
 	  gcov_read_module_info (mod_info, length);
-          info_sz = (sizeof (struct gcov_module_info) +
-		     sizeof (void *) * (mod_info->num_quote_paths +
-					mod_info->num_bracket_paths +
-					mod_info->num_system_paths +
-					mod_info->num_cpp_defines +
-					mod_info->num_cpp_includes +
-					mod_info->num_cl_args));
+          info_sz = sizeof (struct gcov_module_info);
 	  /* The first MODULE_INFO record must be for the primary module.  */
 	  if (module_infos_read == 0)
 	    {
@@ -917,12 +911,16 @@ read_counts_file (const char *da_file_name, unsigned module_id)
               module_infos = XCNEWVEC (struct gcov_module_info *, 1);
               module_infos[0] = XCNEWVAR (struct gcov_module_info, info_sz);
               memcpy (module_infos[0], mod_info, info_sz);
+              primary_mod_info_cl_args = lipo_parse_saved_cc1_string (
+                  mod_info->source_filename, mod_info->saved_cc1_strings, true);
 	    }
 	  else
             {
 	      int fd;
 	      char *aux_da_filename = get_da_file_name (mod_info->da_filename);
               gcc_assert (!mod_info->is_primary);
+              mod_info_cl_args = lipo_parse_saved_cc1_string (
+                  mod_info->source_filename, mod_info->saved_cc1_strings, true);
 	      if (pointer_set_insert (modset, (void *)(size_t)mod_info->ident))
                 {
                   if (dump_enabled_p ())
@@ -950,7 +948,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
                                      "Not importing %s: maximum group size"
                                      " reached", mod_info->source_filename);
                 }
-	      else if (incompatible_cl_args (module_infos[0], mod_info))
+              else if (incompatible_cl_args (primary_mod_info_cl_args,
+                                             mod_info_cl_args))
                 {
                   if (dump_enabled_p ())
                     dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
@@ -1012,6 +1011,7 @@ read_counts_file (const char *da_file_name, unsigned module_id)
                                mod_info->source_filename,
                                mod_info->da_filename);
             }
+          free_parsed_string (mod_info_cl_args);
         }
       gcov_sync (offset, length);
       if ((is_error = gcov_is_error ()))
@@ -1022,6 +1022,8 @@ read_counts_file (const char *da_file_name, unsigned module_id)
 	  break;
 	}
     }
+
+  free_parsed_string (primary_mod_info_cl_args);
 
   if ((imports_filename = getenv ("LIPO_REORDER_GROUP"))
       && flag_dyn_ipa && !module_id)
@@ -1647,7 +1649,7 @@ build_var (tree fn_decl, tree type, int counter)
 /* Creates the gcov_fn_info RECORD_TYPE.  */
 
 static void
-build_fn_info_type (tree type, unsigned counters, tree gcov_info_type)
+build_fn_info_type (tree type, unsigned counters)
 {
   tree ctr_info = lang_hooks.types.make_type (RECORD_TYPE);
   tree field, fields;
@@ -1954,10 +1956,7 @@ static tree
 build_gcov_module_info_type (void)
 {
   tree type, field, fields = NULL_TREE;
-  tree string_type, index_type, string_array_type;
-
-  cpp_dir *quote_paths, *bracket_paths, *system_paths, *pdir;
-  int num_quote_paths = 0, num_bracket_paths = 0, num_system_paths = 0;
+  tree string_type;
 
   type = lang_hooks.types.make_type (RECORD_TYPE);
   string_type = build_pointer_type (
@@ -2011,76 +2010,144 @@ build_gcov_module_info_type (void)
   DECL_CHAIN (field) = fields;
   fields = field;
 
-  /* Num quote paths  */
+  /* combined_strlen field */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
                       NULL_TREE, get_gcov_unsigned_t ());
   DECL_CHAIN (field) = fields;
   fields = field;
 
-  /* Num bracket paths  */
+  /* Saved cc1 strings  */
   field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-                      NULL_TREE, get_gcov_unsigned_t ());
-  DECL_CHAIN (field) = fields;
-  fields = field;
-
-  /* Num system paths  */
-  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-                      NULL_TREE, get_gcov_unsigned_t ());
-  DECL_CHAIN (field) = fields;
-  fields = field;
-
-  /* Num -D/-U options.  */
-  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-                      NULL_TREE, get_gcov_unsigned_t ());
-  DECL_CHAIN (field) = fields;
-  fields = field;
-
-  /* Num -imacro/-include options.  */
-  field = build_decl (BUILTINS_LOCATION, FIELD_DECL, NULL_TREE,
-		      get_gcov_unsigned_t ());
-  DECL_CHAIN (field) = fields;
-  fields = field;
-
-  /* Num command-line args.  */
-  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-		      NULL_TREE, get_gcov_unsigned_t ());
-  DECL_CHAIN (field) = fields;
-  fields = field;
-
-  get_include_chains (&quote_paths, &bracket_paths, &system_paths);
-  for (pdir = quote_paths; pdir; pdir = pdir->next)
-    {
-      if (pdir == bracket_paths)
-        break;
-      num_quote_paths++;
-    }
-  for (pdir = bracket_paths; pdir; pdir = pdir->next)
-    {
-      if (pdir == system_paths)
-        break;
-      num_bracket_paths++;
-    }
-  for (pdir = system_paths; pdir; pdir = pdir->next)
-    num_system_paths++;
-
-  /* string array  */
-  index_type = build_index_type (build_int_cst (NULL_TREE,
-						num_quote_paths	+
-						num_bracket_paths +
-                                                num_system_paths +
-						num_cpp_defines +
-						num_cpp_includes +
-						num_lipo_cl_args));
-
-  string_array_type = build_array_type (string_type, index_type);
-  field = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-                      NULL_TREE, string_array_type);
+                      NULL_TREE, string_type);
   DECL_CHAIN (field) = fields;
   fields = field;
 
   finish_builtin_struct (type, "__gcov_module_info", fields, NULL_TREE);
 
   return type;
+}
+
+/* Free the malloc memory for struct lipo_parsed_cc1_string.  */
+
+void
+free_parsed_string (struct lipo_parsed_cc1_string *string)
+{
+  unsigned k;
+
+  if (string == NULL)
+    return;
+  for (k = 0; k < (int) num_lipo_cc1_string_kind; k++)
+    free (string->strings[k]);
+  free (string);
+}
+
+/* Find the next encoded string.  */
+
+static inline char *
+find_substr (char *str)
+{
+  char *substr = strstr(str, LIPO_STR_DELIM);
+  char ch;
+  size_t index = strlen (LIPO_STR_DELIM);
+
+  if (substr == NULL || strlen(substr) < index + 1)
+    return str + strlen(str);;
+  ch = substr[index];
+  if (ch == QUOTE_PATH_FLAG ||
+      ch == BRACKET_PATH_FLAG ||
+      ch == SYSTEM_PATH_FLAG ||
+      ch == D_U_OPTION_FLAG ||
+      ch == INCLUDE_OPTION_FLAG ||
+      ch == COMMAND_ARG_FLAG)
+    return substr;
+  return str + strlen(str);;
+}
+
+/* Parsing lipo cc1 strings in module info. Note that the STR is modified
+   after this function. The modification is to replace delimiter with \0.  */
+
+struct lipo_parsed_cc1_string *
+lipo_parse_saved_cc1_string (const char *src, char *str, bool parse_cl_args_only)
+{
+  char *substr_begin;
+  struct lipo_parsed_cc1_string *ret = XCNEW (struct lipo_parsed_cc1_string);
+
+  ret->source_filename = src;
+  substr_begin = find_substr (str);
+  if (*substr_begin == '\0')
+    return ret;
+  do {
+    char *p, *p1, *substr_end;
+    char **pp;
+    unsigned i;
+    enum lipo_cc1_string_kind k;
+
+    switch (substr_begin[strlen (LIPO_STR_DELIM)]) {
+      case QUOTE_PATH_FLAG:
+        k = k_quote_paths;
+        break;
+      case BRACKET_PATH_FLAG:
+        k = k_bracket_paths;
+        break;
+      case SYSTEM_PATH_FLAG:
+        k = k_system_paths;
+        break;
+      case D_U_OPTION_FLAG:
+        k = k_cpp_defines;
+        break;
+      case INCLUDE_OPTION_FLAG:
+        k = k_cpp_includes;
+        break;
+      case COMMAND_ARG_FLAG:
+        k = k_lipo_cl_args;
+        break;
+      default:
+        gcc_unreachable ();
+    }
+    substr_end = find_substr (substr_begin + 2);
+
+    if (!parse_cl_args_only || k == k_lipo_cl_args)
+      {
+        /* Count number of space char b/w start and end.  */
+        i = 0;
+        p = substr_begin + strlen (LIPO_STR_DELIM) + 1;
+        p1 = p;
+        while (p != substr_end) {
+          if (*p == ']')
+            i++;
+          p++;
+        }
+        ret->num[k] = i;
+        pp = (char **) xmalloc ((i + 1) * sizeof (char *));
+        ret->strings[k] = pp;
+        /* Replace the delimiter with \0.  */
+        *pp = p = p1;
+        while (p != substr_end) {
+          if (*p == ']')
+            {
+              *p = 0;
+              *(++pp) = p + 1;
+            }
+          p++;
+        }
+      }
+
+    substr_begin = substr_end;
+  } while (*substr_begin);
+
+  return ret;
+}
+
+/* Append TAG to string STRINGS.  */
+static inline void
+lipo_append_tag (char *strings, char tag)
+{
+  int i;
+
+  strcat (strings, LIPO_STR_DELIM);
+  i = strlen (strings);
+  strings[i] = tag;
+  strings[i + 1] = 0;
 }
 
 /* Returns the value of the module info associated with the
@@ -2092,12 +2159,17 @@ build_gcov_module_info_value (tree mod_type)
   tree info_fields, mod_info;
   tree value = NULL_TREE;
   int file_name_len;
-  tree filename_string, string_array_type,  string_type;
+  tree filename_string, string_type, saved_string;
   cpp_dir *quote_paths, *bracket_paths, *system_paths, *pdir;
-  int num_quote_paths = 0, num_bracket_paths = 0, num_system_paths = 0;
+  int num_quote_paths = 0, num_bracket_paths = 0, num_system_paths = 0, i;
   unsigned lang;
   char name_buf[50];
-  vec<constructor_elt,va_gc> *v = NULL, *path_v = NULL;
+  vec<constructor_elt,va_gc> *v = NULL;
+  unsigned string_len;
+  char *compressed_strings;
+  unsigned long dest_len, src_len, total_length, ui;
+  struct str_list *head;
+  char *strings;
 
   info_fields = TYPE_FIELDS (mod_type);
 
@@ -2181,57 +2253,127 @@ build_gcov_module_info_value (tree mod_type)
   for (pdir = system_paths; pdir; pdir = pdir->next)
     num_system_paths++;
 
-  /* Num quote paths  */
+  total_length = 1; /* space for \0.  */
+  /* quote paths  */
+  total_length += strlen (LIPO_STR_DELIM) + 1; /* 1 for tag flag.  */
+  for (i = 0, pdir = quote_paths; i < num_quote_paths; i++)
+    {
+      total_length += strlen (pdir->name) + 1;
+      pdir = pdir->next;
+    }
+
+  /* bracket paths  */
+  total_length += strlen (LIPO_STR_DELIM) + 1; /* 1 for tag flag.  */
+  for (i = 0, pdir = bracket_paths; i < num_bracket_paths; i++)
+    {
+      total_length += strlen (pdir->name) + 1;
+      pdir = pdir->next;
+    }
+
+  /* system paths  */
+  total_length += strlen (LIPO_STR_DELIM) + 1; /* 1 for tag flag.  */
+  for (i = 0, pdir = system_paths; i < num_system_paths; i++)
+    {
+      total_length += strlen (pdir->name) + 1;
+      pdir = pdir->next;
+    }
+
+  /* -D/-U options  */
+  total_length += strlen (LIPO_STR_DELIM) + 1; /* 1 for tag flag.  */
+  head = cpp_defines_head;
+  while (head)
+    {
+      total_length += strlen (head->str) + 1;
+      head = head->next;
+    }
+
+  /* -imacro/-include options  */
+  total_length += strlen (LIPO_STR_DELIM) + 1; /* 1 for tag flag.  */
+  head = cpp_includes_head;
+  while (head)
+    {
+      total_length += strlen (head->str) + 1;
+      head = head->next;
+    }
+
+  /* Num command-line args  */
+  total_length += strlen (LIPO_STR_DELIM) + 1; /* 1 for tag flag.  */
+  for (ui = 0; ui < num_lipo_cl_args; ui++)
+    total_length += strlen (lipo_cl_args[ui]) + 1;
+
+  strings = (char*) xmalloc (total_length);
+  *strings = 0;
+
+  lipo_append_tag (strings, QUOTE_PATH_FLAG);
+  for (i = 0, pdir = quote_paths; i < num_quote_paths; i++)
+    {
+      strcat(strings, pdir->name);
+      strcat(strings, LIPO_STR_DELIM2);
+      pdir = pdir->next;
+    }
+
+  lipo_append_tag (strings, BRACKET_PATH_FLAG);
+  for (i = 0, pdir = bracket_paths; i < num_bracket_paths; i++)
+    {
+      strcat(strings, pdir->name);
+      strcat(strings, LIPO_STR_DELIM2);
+      pdir = pdir->next;
+    }
+
+  lipo_append_tag (strings, SYSTEM_PATH_FLAG);
+  for (i = 0, pdir = system_paths; i < num_system_paths; i++)
+    {
+      strcat(strings, pdir->name);
+      strcat(strings, LIPO_STR_DELIM2);
+      pdir = pdir->next;
+    }
+
+  lipo_append_tag (strings, D_U_OPTION_FLAG);
+  head = cpp_defines_head;
+  while (head)
+    {
+      strcat(strings, head->str);
+      strcat(strings, LIPO_STR_DELIM2);
+      head = head->next;
+    }
+
+  lipo_append_tag (strings, INCLUDE_OPTION_FLAG);
+  head = cpp_includes_head;
+  while (head)
+    {
+      strcat(strings, head->str);
+      strcat(strings, LIPO_STR_DELIM2);
+      head = head->next;
+    }
+
+  lipo_append_tag (strings, COMMAND_ARG_FLAG);
+  for (ui = 0; ui < num_lipo_cl_args; ui++)
+    {
+      strcat(strings, lipo_cl_args[ui]);
+      strcat(strings, LIPO_STR_DELIM2);
+    }
+  string_len = strlen (strings) + 1;
+  compressed_strings = (char*) xmalloc (string_len);
+  dest_len = string_len;
+  src_len = string_len;
+  compress ((Bytef *)compressed_strings, &dest_len, (const Bytef *)strings, src_len);
+
+  gcc_assert (dest_len < 0xFFFF);
+  gcc_assert (src_len < 0xFFFF);
+  /* combined_strlen field */
   CONSTRUCTOR_APPEND_ELT (v, info_fields,
                           build_int_cstu (get_gcov_unsigned_t (),
-                                          num_quote_paths));
+                          (src_len << 16 | dest_len)));
   info_fields = DECL_CHAIN (info_fields);
 
-  /* Num bracket paths  */
+  strings = compressed_strings;
+  string_len = dest_len;
+  saved_string = build_string (string_len, strings);
+  TREE_TYPE (saved_string) = build_array_type
+    (char_type_node, build_index_type
+     (build_int_cst (NULL_TREE, string_len)));
   CONSTRUCTOR_APPEND_ELT (v, info_fields,
-                          build_int_cstu (get_gcov_unsigned_t (),
-                                          num_bracket_paths));
-  info_fields = DECL_CHAIN (info_fields);
-
-  /* Num system paths  */
-  CONSTRUCTOR_APPEND_ELT (v, info_fields,
-                          build_int_cstu (get_gcov_unsigned_t (),
-                                          num_system_paths));
-  info_fields = DECL_CHAIN (info_fields);
-
-  /* Num -D/-U options.  */
-  CONSTRUCTOR_APPEND_ELT (v, info_fields,
-                          build_int_cstu (get_gcov_unsigned_t (),
-                                          num_cpp_defines));
-  info_fields = DECL_CHAIN (info_fields);
-
-  /* Num -imacro/-include options.  */
-  CONSTRUCTOR_APPEND_ELT (v, info_fields,
-                          build_int_cstu (get_gcov_unsigned_t (),
-                                          num_cpp_includes));
-  info_fields = DECL_CHAIN (info_fields);
-
-  /* Num command-line args.  */
-  CONSTRUCTOR_APPEND_ELT (v, info_fields,
-                          build_int_cstu (get_gcov_unsigned_t (),
-                                          num_lipo_cl_args));
-  info_fields = DECL_CHAIN (info_fields);
-
-  /* string array  */
-  string_array_type = TREE_TYPE (info_fields);
-  build_inc_path_array_value (string_type, &path_v,
-                              quote_paths, num_quote_paths);
-  build_inc_path_array_value (string_type, &path_v,
-                              bracket_paths, num_bracket_paths);
-  build_inc_path_array_value (string_type, &path_v,
-                              system_paths, num_system_paths);
-  build_str_array_value (string_type, &path_v,
-                         cpp_defines_head);
-  build_str_array_value (string_type, &path_v,
-                         cpp_includes_head);
-  build_cl_args_array_value (string_type, &path_v);
-  CONSTRUCTOR_APPEND_ELT (v, info_fields,
-                          build_constructor (string_array_type, path_v));
+                          build1 (ADDR_EXPR, string_type, saved_string));
   info_fields = DECL_CHAIN (info_fields);
 
   gcc_assert (!info_fields);
@@ -2523,7 +2665,7 @@ coverage_obj_init (void)
   gcov_fn_info_type = lang_hooks.types.make_type (RECORD_TYPE);
   gcov_fn_info_ptr_type = build_pointer_type
     (build_qualified_type (gcov_fn_info_type, TYPE_QUAL_CONST));
-  build_fn_info_type (gcov_fn_info_type, n_counters, gcov_info_type);
+  build_fn_info_type (gcov_fn_info_type, n_counters);
   build_info_type (gcov_info_type, gcov_fn_info_ptr_type);
   
   /* Build the gcov info var, this is referred to in its own
@@ -2703,8 +2845,6 @@ add_module_info (unsigned module_id, bool is_primary, int index)
   cur_info = module_infos[index];
   cur_info->ident = module_id;
   SET_MODULE_EXPORTED (cur_info);
-  cur_info->num_quote_paths = 0;
-  cur_info->num_bracket_paths = 0;
   cur_info->da_filename = NULL;
   cur_info->source_filename = NULL;
   if (is_primary)
@@ -2748,21 +2888,20 @@ process_include (char **orig_inc_path, char* old_sub, char *new_sub)
    -fripa-inc-path-sub=OLD_SUB:NEW_SUB   */
 
 static void
-process_include_paths_1 (struct gcov_module_info *mod_info,
+process_include_paths_1 (struct lipo_parsed_cc1_string *mod_info_str,
                          char* old_sub, char *new_sub)
 {
-  unsigned i, j;
+  unsigned i;
+  enum lipo_cc1_string_kind k;
 
-  for (i = 0; i < mod_info->num_quote_paths; i++)
-    process_include (&mod_info->string_array[i], old_sub, new_sub);
+  for (i = 0, k = k_quote_paths; i < mod_info_str->num[k]; i++)
+    process_include (&mod_info_str->strings[k][i], old_sub, new_sub);
 
-  for (i = 0, j = mod_info->num_quote_paths;
-       i < mod_info->num_bracket_paths; i++, j++)
-    process_include (&mod_info->string_array[j], old_sub, new_sub);
+  for (i = 0, k = k_bracket_paths; i < mod_info_str->num[k]; i++)
+    process_include (&mod_info_str->strings[k][i], old_sub, new_sub);
 
-  for (i = 0, j = mod_info->num_quote_paths + mod_info->num_bracket_paths +
-       mod_info->num_cpp_defines; i < mod_info->num_cpp_includes; i++, j++)
-    process_include (&mod_info->string_array[j], old_sub, new_sub);
+  for (i = 0, k = k_cpp_includes; i < mod_info_str->num[k]; i++)
+    process_include (&mod_info_str->strings[k][i], old_sub, new_sub);
 
 }
 
@@ -2770,7 +2909,7 @@ process_include_paths_1 (struct gcov_module_info *mod_info,
    -fripa-inc-path-sub=old_sub1:new_sub1[,old_sub2:new_sub2]  */
 
 static void
-process_include_paths (struct gcov_module_info *mod_info)
+process_include_paths (struct lipo_parsed_cc1_string *mod_info_str)
 {
   char *sub_pattern, *cur, *next,  *new_sub;
 
@@ -2793,7 +2932,7 @@ process_include_paths (struct gcov_module_info *mod_info)
           return;
         }
       *new_sub++ = '\0';
-      process_include_paths_1 (mod_info, cur, new_sub);
+      process_include_paths_1 (mod_info_str, cur, new_sub);
       cur = next;
     } while (cur);
   free (sub_pattern);
@@ -2818,34 +2957,36 @@ set_lipo_c_parsing_context (struct cpp_reader *parse_in, int i, bool verbose)
 
   if (current_module_id != primary_module_id)
     {
-      unsigned i, j;
+      unsigned i;
+      enum lipo_cc1_string_kind k;
+      struct lipo_parsed_cc1_string *mod_info_str =
+        lipo_parse_saved_cc1_string (mod_info->source_filename,
+            mod_info->saved_cc1_strings, false);
 
-      process_include_paths (mod_info);
+      process_include_paths (mod_info_str);
       /* Setup include paths.  */
       clear_include_chains ();
-      for (i = 0; i < mod_info->num_quote_paths; i++)
-        add_path (xstrdup (mod_info->string_array[i]),
-                  QUOTE, 0, 1);
-      for (i = 0, j = mod_info->num_quote_paths;
-	   i < mod_info->num_bracket_paths; i++, j++)
-        add_path (xstrdup (mod_info->string_array[j]),
-                  BRACKET, 0, 1);
-      for (i = 0; i < mod_info->num_system_paths; i++, j++)
-        add_path (xstrdup (mod_info->string_array[j]),
-                  SYSTEM, 0, 1);
-      register_include_chains (parse_in, NULL, NULL, NULL,
-                               0, 0, verbose);
+      for (i = 0, k = k_quote_paths; i < mod_info_str->num[k]; i++)
+        add_path (xstrdup (mod_info_str->strings[k][i]), QUOTE, 0, 1);
+      for (i = 0, k = k_bracket_paths; i < mod_info_str->num[k]; i++)
+        add_path (xstrdup (mod_info_str->strings[k][i]), BRACKET, 0, 1);
+      for (i = 0, k = k_system_paths; i < mod_info_str->num[k]; i++)
+        add_path (xstrdup (mod_info_str->strings[k][i]), SYSTEM, 0, 1);
+      register_include_chains (parse_in, NULL, NULL, NULL, 0, 0, verbose);
 
       /* Setup defines/undefs.  */
-      for (i = 0; i < mod_info->num_cpp_defines; i++, j++)
-	if (mod_info->string_array[j][0] == 'D')
-	  cpp_define (parse_in, mod_info->string_array[j] + 1);
-	else
-	  cpp_undef (parse_in, mod_info->string_array[j] + 1);
+      for (i = 0, k = k_cpp_defines; i < mod_info_str->num[k]; i++)
+        if (mod_info_str->strings[k][i][0] == 'D')
+          cpp_define (parse_in, mod_info_str->strings[k][i] + 1);
+        else
+          cpp_undef (parse_in, mod_info_str->strings[k][i] + 1);
 
       /* Setup -imacro/-include.  */
-      for (i = 0; i < mod_info->num_cpp_includes; i++, j++)
-	cpp_push_include (parse_in, mod_info->string_array[j]);
+      for (i = 0, k = k_cpp_includes; i < mod_info_str->num[k]; i++)
+        cpp_push_include (parse_in, mod_info_str->strings[k][i]);
+
+      /* free mode_info_str  */
+      free_parsed_string (mod_info_str);
     }
 }
 

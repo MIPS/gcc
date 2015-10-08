@@ -2257,67 +2257,6 @@ gcov_compute_random_module_groups (unsigned max_group_size)
     }
 }
 
-#if 0
-/* Write out MOD_INFO into the gcda file. IS_PRIMARY is a flag
-   indicating if the module is the primary module in the group.  */
-
-static void
-gcov_write_module_info (const struct gcov_info *mod_info,
-                        unsigned is_primary)
-{
-  gcov_unsigned_t len = 0, filename_len = 0, src_filename_len = 0, i;
-  gcov_unsigned_t num_strings;
-  gcov_unsigned_t *aligned_fname;
-  struct gcov_module_info  *module_info = mod_info->mod_info;
-  filename_len = (strlen (module_info->da_filename) +
-		  sizeof (gcov_unsigned_t)) / sizeof (gcov_unsigned_t);
-  src_filename_len = (strlen (module_info->source_filename) +
-		      sizeof (gcov_unsigned_t)) / sizeof (gcov_unsigned_t);
-  len = filename_len + src_filename_len;
-  len += 2; /* each name string is led by a length.  */
-
-  num_strings = module_info->num_quote_paths + module_info->num_bracket_paths
-    + module_info->num_system_paths
-    + module_info->num_cpp_defines + module_info->num_cpp_includes
-    + module_info->num_cl_args;
-  len += gcov_compute_string_array_len (module_info->string_array,
-                                        num_strings);
-
-  len += 11; /* 11 more fields */
-
-  gcov_write_tag_length (GCOV_TAG_MODULE_INFO, len);
-  gcov_write_unsigned (module_info->ident);
-  gcov_write_unsigned (is_primary);
-  if (flag_alg_mode == INCLUSION_BASED_PRIORITY_ALGORITHM && is_primary)
-    SET_MODULE_INCLUDE_ALL_AUX (module_info);
-  gcov_write_unsigned (module_info->flags);
-  gcov_write_unsigned (module_info->lang);
-  gcov_write_unsigned (module_info->ggc_memory);
-  gcov_write_unsigned (module_info->num_quote_paths);
-  gcov_write_unsigned (module_info->num_bracket_paths);
-  gcov_write_unsigned (module_info->num_system_paths);
-  gcov_write_unsigned (module_info->num_cpp_defines);
-  gcov_write_unsigned (module_info->num_cpp_includes);
-  gcov_write_unsigned (module_info->num_cl_args);
-
-  /* Now write the filenames */
-  aligned_fname = (gcov_unsigned_t *) alloca ((filename_len + src_filename_len + 2) *
-					      sizeof (gcov_unsigned_t));
-  memset (aligned_fname, 0,
-          (filename_len + src_filename_len + 2) * sizeof (gcov_unsigned_t));
-  aligned_fname[0] = filename_len;
-  strcpy ((char*) (aligned_fname + 1), module_info->da_filename);
-  aligned_fname[filename_len + 1] = src_filename_len;
-  strcpy ((char*) (aligned_fname + filename_len + 2), module_info->source_filename);
-
-  for (i = 0; i < (filename_len + src_filename_len + 2); i++)
-    gcov_write_unsigned (aligned_fname[i]);
-
-  /* Now write the string array.  */
-  gcov_write_string_array (module_info->string_array, num_strings);
-}
-#endif
-
 /* Write out MOD_INFO and its imported modules into gcda file.  */
 
 void
@@ -2879,21 +2818,6 @@ static gcov_dyn_ipa_merge_fn ctr_merge_functions[GCOV_COUNTERS] = {
 #include "gcov-counter.def"
 };
 #undef DEF_GCOV_COUNTER
-
-#if 0
-static gcov_dyn_ipa_merge_fn ctr_merge_functions[GCOV_COUNTERS] = {
-    __gcov_dyn_ipa_merge_add,
-    __gcov_dyn_ipa_merge_add,
-    __gcov_dyn_ipa_merge_add,
-    __gcov_dyn_ipa_merge_single,
-    __gcov_dyn_ipa_merge_delta,
-    __gcov_dyn_ipa_merge_single,
-    __gcov_dyn_ipa_merge_add,
-    __gcov_dyn_ipa_merge_ior,
-    __gcov_dyn_ipa_merge_icall_topn,
-    __gcov_dyn_ipa_merge_dc,
-};
-#endif
 
 /* Copy counters from SRC_CTRS array to DEST_CTRS array, where SRC_CTRS is
    indexed by the GCOV_COUNTER type, and DEST_CTRS is an array holding only
