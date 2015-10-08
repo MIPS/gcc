@@ -713,19 +713,6 @@ get_symbol_for_decl (tree decl)
   return sym;
 }
 
-/* For a given function declaration, return a GPU function
-   of the function.  */
-
-static tree
-hsa_get_gpu_function (tree decl)
-{
-  hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
-  gcc_assert (s->kind != HSA_NONE);
-  gcc_assert (!s->gpu_implementation_p);
-
-  return s->binded_function->decl;
-}
-
 /* For a given HSA function declaration, return a host
    function declaration.  */
 
@@ -737,6 +724,15 @@ hsa_get_host_function (tree decl)
   gcc_assert (s->gpu_implementation_p);
 
   return s->binded_function->decl;
+}
+
+/* Return true if function DECL has a host equivalent function.  */
+
+static bool
+has_host_function_p (tree decl)
+{
+  hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
+  return s != NULL && s->kind != HSA_NONE && s->gpu_implementation_p;
 }
 
 /* Create a spill symbol of type TYPE.  */
@@ -4322,10 +4318,9 @@ specialop:
 	called = TREE_OPERAND (called, 0);
 	gcc_checking_assert (TREE_CODE (called) == FUNCTION_DECL);
 
-	const char *name = hsa_get_declaration_name
-	  (hsa_get_gpu_function (called));
-	hsa_add_kernel_dependency (hsa_cfun->decl,
-				   hsa_brig_function_name (name));
+	char *name = xstrdup (hsa_get_declaration_name (called));
+	hsa_add_kernel_dependency
+	  (hsa_cfun->decl, hsa_brig_function_name (name));
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
 
 	break;
@@ -4832,9 +4827,12 @@ hsa_generate_function_declaration (tree decl)
 {
   hsa_function_representation *fun = XCNEW (hsa_function_representation);
 
+  tree host_decl = has_host_function_p (decl) ? hsa_get_host_function (decl) :
+    decl;
+
   fun->declaration_p = true;
   fun->decl = decl;
-  fun->name = xstrdup (hsa_get_declaration_name (decl));
+  fun->name = xstrdup (hsa_get_declaration_name (host_decl));
   hsa_sanitize_name (fun->name);
 
   gen_function_decl_parameters (fun, decl);
@@ -5118,6 +5116,7 @@ static void
 generate_hsa (bool kernel)
 {
   vec <hsa_op_reg_p> ssa_map = vNULL;
+  tree host_decl = NULL_TREE;
 
   if (hsa_num_threads == NULL)
     emit_hsa_module_variables ();
@@ -5130,9 +5129,9 @@ generate_hsa (bool kernel)
   hsa_cfun->decl = cfun->decl;
   hsa_cfun->kern_p = kernel;
 
+  host_decl = hsa_get_host_function (current_function_decl);
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
-  hsa_cfun->name
-    = xstrdup (hsa_get_declaration_name (current_function_decl));
+  hsa_cfun->name = xstrdup (hsa_get_declaration_name (host_decl));
   hsa_sanitize_name (hsa_cfun->name);
 
   gen_function_def_parameters (hsa_cfun, &ssa_map);

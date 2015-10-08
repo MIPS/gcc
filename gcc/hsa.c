@@ -96,7 +96,7 @@ static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping
 
 /* Mapping between decls and corresponding HSA kernels
    called by the function.  */
-hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
+hash_map <tree, vec <const char *> *> *hsa_decl_kernel_dependencies;
 
 /* Hash function to lookup a symbol for a decl.  */
 hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
@@ -564,16 +564,16 @@ hsa_free_decl_kernel_mapping (void)
 /* Add new kernel dependency.  */
 
 void
-hsa_add_kernel_dependency (tree caller, char *called_function)
+hsa_add_kernel_dependency (tree caller, const char *called_function)
 {
   if (hsa_decl_kernel_dependencies == NULL)
-    hsa_decl_kernel_dependencies = new hash_map<tree, vec<char *> *> ();
+    hsa_decl_kernel_dependencies = new hash_map<tree, vec<const char *> *> ();
 
-  vec <char *> *s = NULL;
-  vec <char *> **slot = hsa_decl_kernel_dependencies->get (caller);
+  vec <const char *> *s = NULL;
+  vec <const char *> **slot = hsa_decl_kernel_dependencies->get (caller);
   if (slot == NULL)
     {
-      s = new vec <char *> ();
+      s = new vec <const char *> ();
       hsa_decl_kernel_dependencies->put (caller, s);
     }
   else

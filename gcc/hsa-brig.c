@@ -2057,10 +2057,11 @@ hsa_output_kernel_mapping (tree brig_decl)
       vec<constructor_elt, va_gc> *kernel_dependencies_vec = NULL;
       if (hsa_decl_kernel_dependencies)
 	{
-	  vec<char *> **slot = hsa_decl_kernel_dependencies->get (kernel);
+	  vec<const char *> **slot;
+	  slot = hsa_decl_kernel_dependencies->get (kernel);
 	  if (slot)
 	    {
-	      vec <char *> *dependencies = *slot;
+	      vec <const char *> *dependencies = *slot;
 	      count = dependencies->length ();
 
 	      kernel_dependencies_vector_type = build_array_type
@@ -2069,7 +2070,7 @@ hsa_output_kernel_mapping (tree brig_decl)
 
 	      for (unsigned j = 0; j < count; j++)
 		{
-		  char *d = (*dependencies)[j];
+		  const char *d = (*dependencies)[j];
 		  len = strlen (d);
 		  tree dependency_name = build_string (len, d);
 		  TREE_TYPE (dependency_name) = build_array_type

@@ -1039,7 +1039,7 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
 /* in hsa.c */
 extern struct hsa_function_representation *hsa_cfun;
 extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
-extern hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
+extern hash_map <tree, vec <const char *> *> *hsa_decl_kernel_dependencies;
 extern hsa_summary_t *hsa_summaries;
 extern hsa_symbol *hsa_num_threads;
 extern unsigned hsa_kernel_calls_counter;
@@ -1063,7 +1063,7 @@ tree hsa_get_decl_kernel_mapping_decl (unsigned i);
 char *hsa_get_decl_kernel_mapping_name (unsigned i);
 unsigned hsa_get_decl_kernel_mapping_omp_size (unsigned i);
 void hsa_free_decl_kernel_mapping (void);
-void hsa_add_kernel_dependency (tree caller, char *called_function);
+void hsa_add_kernel_dependency (tree caller, const char *called_function);
 void hsa_sanitize_name (char *p);
 char *hsa_brig_function_name (const char *p);
 const char *hsa_get_declaration_name (tree decl);

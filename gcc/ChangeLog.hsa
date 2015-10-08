@@ -1,5 +1,20 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (hsa_output_kernel_mapping): Change type of kernel
+	dependencies container.
+	* hsa-gen.c (has_host_function_p): New function.
+	(hsa_generate_function_declaration): Emit host implementation of
+	a function declaration.
+	(generate_hsa): Likewise.
+	(hsa_get_gpu_function): Remove unused function.
+	* hsa.c (hsa_add_kernel_dependency): Change type of a function
+	argument.
+	* hsa.h: Likewise.
+	* ipa-hsa.c (process_hsa_functions): Copy visibility from
+	a cloned function.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Surrender
 	if an error is seen.
 
