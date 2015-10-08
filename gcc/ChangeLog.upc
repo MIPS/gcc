@@ -1,3 +1,19 @@
+2015-10-07  Gary Funck  <gary@intrepid.com>
+
+	top-level/configure.ac: Remove --enable-upc-link-script option.
+	This option is now handled in gcc's configure script
+	and the value is communicated to libgupc via a
+	builtin preprocessor definition.
+	top-level/configure: Re-generate.
+	* c-family/c-cppbuiltin.c: define __UPC_LINK_SCRIPT__
+	as builtin preprocessor definition if UPC linker script
+	support is enabled.
+	* configure.ac: Improve handling of --enable-upc-link-script option.
+	When checking default behavior, ensure that this is a native build
+	with GNU ld of a proper version and that the system linker script
+	has the expected format.
+	* configure: Re-generate.
+
 2015-10-06  Gary Funck  <gary@intrepid.com>
 
 	* configure: Re-generate.

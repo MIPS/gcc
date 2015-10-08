@@ -860,6 +860,9 @@ else
 fi,
 objc_boehm_gc='')
 
+#
+# Process UPC-specific configuration options.
+#
 AC_ARG_WITH([upc-pts],
 AS_HELP_STRING(
   [--with-upc-pts={struct,packed}],
@@ -872,7 +875,6 @@ AS_HELP_STRING(
   esac
 ],
 [upc_pts_rep="packed"])
-
 
 # Perl is required for checking pts representation
 AC_CHECK_PROG(PERL, perl, perl)
@@ -898,11 +900,11 @@ AS_HELP_STRING(
 [
   if test x"$upc_pts_rep" = x"packed"; then
     UPC_PTS_PHASE_SIZE=`echo "$withval" | $PERL -ne 'm/^(\d+),(\d+),(\d+)$/;
-						  print $1 if ($1+$2+$3 == 64) && $1>=1;'`
+					  print $1 if ($1+$2+$3 == 64) && $1>=1;'`
     UPC_PTS_THREAD_SIZE=`echo "$withval" | $PERL -ne 'm/^(\d+),(\d+),(\d+)$/;
-						  print $2 if ($1+$2+$3 == 64) && $2>=1;'`
+					  print $2 if ($1+$2+$3 == 64) && $2>=1;'`
     UPC_PTS_VADDR_SIZE=`echo "$withval" | $PERL -ne 'm/^(\d+),(\d+),(\d+)$/;
-						  print $3 if ($1+$2+$3 == 64) && $3>=20;'`
+					  print $3 if ($1+$2+$3 == 64) && $3>=20;'`
     if test -z "$UPC_PTS_PHASE_SIZE" \
        || test -z "$UPC_PTS_THREAD_SIZE" \
        || test -z "$UPC_PTS_VADDR_SIZE" ; then
@@ -931,24 +933,6 @@ changequote(,)dnl
 changequote([,])dnl
 ])
 
-AC_ARG_ENABLE(upc-link-script,
-AS_HELP_STRING(
-  [--enable-upc-link-script],
-  [enable UPC's use of a custom linker script;
-  this will define the UPC shared section as a no load section on
-  targets where this feature is supported (requires GNU LD)]),
-[
-  case $enableval in
-  yes | no) ;;
-  *)
-    AC_MSG_ERROR([--enable-upc-link-script accepts only yes or no.])
-  esac
-],
-[enable_upc_link_script=no])
-
-#
-# Process UPC-specific configuration options.
-#
 AC_MSG_CHECKING([for UPC pointer-to-shared representation])
 AC_MSG_RESULT([$upc_pts_rep])
 case "$upc_pts_rep" in
@@ -981,14 +965,8 @@ if test x"$upc_pts_rep" = x"packed"; then
     [For packed UPC pointers-to-shared,
      the size of the address field (in bits).])
   AC_MSG_CHECKING([for packed UPC pointer-to-shared layout])
-  AC_MSG_RESULT(
-    ["phase=${UPC_PTS_PHASE_SIZE},thread=${UPC_PTS_THREAD_SIZE},
+  AC_MSG_RESULT(["phase=${UPC_PTS_PHASE_SIZE},thread=${UPC_PTS_THREAD_SIZE},\
 vaddr=${UPC_PTS_VADDR_SIZE}"])
-fi
-AC_MSG_CHECKING([for UPC link script support])
-AC_MSG_RESULT($enable_upc_link_script)
-if test "$enable_upc_link_script" = yes; then
-  AC_DEFINE(HAVE_UPC_LINK_SCRIPT, 1, [Define to 1 if UPC link script is supported.])
 fi
 
 AC_ARG_WITH(dwarf2,
@@ -1618,6 +1596,77 @@ AC_DEFINE_UNQUOTED(HAVE_GNU_LD, $gnu_ld_bool, [Define to 1 if using GNU ld.])
 
 gnu_as_bool=`if test x"$gas" = x"yes"; then echo 1; else echo 0; fi`
 AC_DEFINE_UNQUOTED(HAVE_GNU_AS, $gnu_as_bool, [Define to 1 if using GNU as.])
+
+#
+# UPC linker script check.
+# (Placed here because depends upon the previous checks for GNU ld.)
+#
+AC_ARG_ENABLE(upc-link-script,
+AS_HELP_STRING(
+  [--enable-upc-link-script],
+  [enable UPC's use of a custom linker script;
+  this will define the UPC shared section as a no load section on
+  targets where this feature is supported (requires GNU LD)]),
+[
+  case $enableval in
+  yes | no) ;;
+  *)
+    AC_MSG_ERROR([--enable-upc-link-script accepts only yes or no.])
+    ;;
+  esac
+],
+[
+  # Assume that by default UPC link scripts aren't supported.
+  enable_upc_link_script=no
+  if test -n "$gnu_ld" && test x$host = x$target; then
+    case "$target" in
+      # disable linker script for Apple Mac OS X
+      *-*-darwin*) ;;
+      *)
+	# Fedora Linux reports as:
+	#   GNU ld version 2.20.51.0.7-8.fc14 20100318
+	# SuSE (IA64) Linux reports as:
+	#   GNU ld (GNU Binutils; SUSE Linux Enterprise 11)
+	#   2.20.0.20100122-0.7.9
+changequote(,)dnl
+	ld_version=`${LD} --version | \
+	sed -ne '
+	  /^GNU ld version \([0-9][0-9]*\.[0-9][0-9]*\)/ \
+	  {s/^GNU ld version \([0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p; q}
+	  /^GNU ld ([^)]*) \([0-9][0-9]*\.[0-9][0-9]*\)/ \
+	  {s/^GNU ld ([^)]*) \([0-9][0-9]*\.[0-9][0-9]*\).*$/\1/p; q}'`
+changequote([,])dnl
+	# Get the major/minor version number.
+	ld_major=`echo $ld_version | sed -e 's/\..*//'`
+	ld_minor=`echo $ld_version | sed -e 's/.*\.//'`   
+	# Only GNU ld versions 2.18 and up are supported.
+	if (test $ld_major -eq 2 && test $ld_minor -ge 18) \
+	   || test $ld_major -gt 2; then
+	  # Tentatively enable the UPC link script.
+	  enable_upc_link_script=yes
+	fi
+        ;;
+    esac
+  fi
+])
+if test "$enable_upc_link_script" = yes; then
+  libgupc_srcdir=`cd ${srcdir}/../libgupc 2>/dev/null && pwd`
+  gen_ld_script="${libgupc_srcdir}/gen-upc-ld-script.pl"
+  if test -f "${gen_ld_script}" \
+     && ! ${LD} --verbose | ${PERL} "${gen_ld_script}" >/dev/null 2>&1; then
+    # if gen-upc-ld-script did not accept the output of the linker
+    # then disable UPC link script support.
+    AC_MSG_WARN([Cannot parse 'ld' output. Disabling UPC link scripts.])
+    enable_upc_link_script=no
+  fi
+fi
+AC_MSG_CHECKING([for UPC link script support])
+AC_MSG_RESULT($enable_upc_link_script)
+if test "$enable_upc_link_script" = yes; then
+  target_configargs="${target_configargs} --enable-upc-link-script"
+  host_configargs="${host_configargs} --enable-upc-link-script"
+  AC_DEFINE(HAVE_UPC_LINK_SCRIPT, 1, [Define to 1 if UPC link script is supported.])
+fi
 
 count=a
 for f in $host_xm_file; do

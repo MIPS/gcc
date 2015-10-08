@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "config.h"
 #include "upc-crt-config.h"
+#include "upc-crt-begin-end.h"
 
 /* Only define section start/end if no link script is used.   */
 

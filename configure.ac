@@ -3266,48 +3266,6 @@ case "${target}" in
     ;;
 esac
 
-# UPC linker script check
-AC_MSG_CHECKING([for UPC link script support])
-AC_ARG_ENABLE(upc-link-script,
-AS_HELP_STRING(
-  [--enable-upc-link-script],
-  [enable UPC's use of a custom linker script;
-  this will define the UPC shared section as a no load section on
-  targets where this feature is supported (requires GNU LD)]),
-[
-  case $enableval in
-  yes | no) ;;
-  *)
-    AC_MSG_ERROR([--enable-upc-link-script accepts only yes or no.])
-    ;;
-  esac
-],
-[
-  if test x${use_gnu_ld} != xno ; then
-    case "$target" in
-      # disable linker script for Apple Mac OS X
-      *-*-darwin*)
-        enable_upc_link_script=no
-        ;;
-      *)
-        enable_upc_link_script=yes
-        ;;
-    esac
-  else
-    enable_upc_link_script=no
-  fi
-  if test "$enable_upc_link_script" = yes; then
-    target_configargs="${target_configargs} --enable-upc-link-script"
-    host_configargs="${host_configargs} --enable-upc-link-script"
-  fi
-])
-if test "$enable_upc_link_script" = yes; then
-  AC_MSG_RESULT([yes]);
-else
-  AC_MSG_RESULT([no]);
-fi
-
-
 # Makefile fragments.
 for frag in host_makefile_frag target_makefile_frag alphaieee_frag ospace_frag;
 do

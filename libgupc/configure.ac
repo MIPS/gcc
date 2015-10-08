@@ -398,6 +398,11 @@ AC_MSG_CHECKING([UPC shared pointer representation])
 cat > conftest.upc << _ACEOF
 #define _XSTR(X) #X
 #define _STR(S) _XSTR(S)
+#ifdef __UPC_LINK_SCRIPT__
+  GUPCR_LINK_SCRIPT=1
+#else
+  GUPCR_LINK_SCRIPT=0
+#endif
 #ifdef __UPC_VADDR_FIRST__
   GUPCR_PTS_VADDR_FIRST=1
 #else
@@ -438,14 +443,16 @@ for cfg in \
      GUPCR_PTS_THREAD_TYPE \
      GUPCR_PTS_VADDR_FIRST \
      GUPCR_PTS_VADDR_SIZE \
-     GUPCR_PTS_VADDR_TYPE ; do
+     GUPCR_PTS_VADDR_TYPE \
+     GUPCR_LINK_SCRIPT; do
   eval "cval=\$$cfg"
   if test -n "$cval"; then
     AC_MSG_CHECKING([value of $cfg])
     AC_MSG_RESULT($cval)
   fi
 done
-if test "$with_upc_pts" -a "$with_upc_pts" != "$GUPCR_PTS_REP" ; then
+if test -n "$with_upc_pts" \
+   && test "$with_upc_pts" != "$GUPCR_PTS_REP" ; then
   AC_MSG_ERROR([--with-upc-pts=$with_upc_pts is incompatible with the
 UPC compiler's supported pointer-to-shared representation ($GUPCR_PTS_REP)])
 fi
@@ -656,35 +663,23 @@ AC_SUBST(enable_upc_runtime_debug)
 
 
 AC_MSG_CHECKING([for UPC link script support])
-AC_ARG_ENABLE(upc-link-script,
-[AS_HELP_STRING([--enable-upc-link-script],
-                [enable UPC's use of a custom linker script;
-                 this will define the UPC shared section as a
-		 no load section on targets where this feature
-		 is supported (requires GNU LD)])],
-[
-  case $enableval in
-  yes | no) ;;
-  *)
-    AC_MSG_ERROR([--enable-upc-link-script accepts only yes or no])
-  esac
-],
-[
-  enable_upc_link_script=no
-])
-if test "$enable_upc_link_script" = yes; then
-  if test "$with_gnu_ld" = yes; then
-    gen_ld_script=${srcdir}/${targ_runtime}/gen-upc-ld-script.pl
-    if ! ${LD} --verbose | ${PERL} $gen_ld_script 1>/dev/null ; then
-      # if gen-upc-ld-script did not accept the output of the linker
-      # then disable UPC link script support.
-      AC_MSG_ERROR([selected linker does not support linker scripts])
-    fi
+if test -n "$GUPCR_LINK_SCRIPT" \
+   && test "$GUPCR_LINK_SCRIPT" -eq 1; then
+  upc_link_script=yes
+else
+  upc_link_script=no
+fi
+if test x"$upc_link_script" = xyes; then
+  gen_ld_script=${srcdir}/gen-upc-ld-script.pl
+  if ! ${LD} --verbose | ${PERL} $gen_ld_script 1>/dev/null ; then
+    # if gen-upc-ld-script did not accept the output of the linker
+    # then disable UPC link script support.
+    AC_MSG_ERROR([selected linker does not support linker scripts])
   fi
 fi
-AC_MSG_RESULT($enable_upc_link_script)
-if test "$enable_upc_link_script" = yes; then
-  AC_DEFINE(HAVE_UPC_LINK_SCRIPT, 1,
+AC_MSG_RESULT($upc_link_script)
+if test x"$upc_link_script" = xyes; then
+  AC_DEFINE(use_upc_link_script, 1,
     [Define to 1 if UPC link script is supported.])
 fi
 
@@ -1332,7 +1327,7 @@ AM_CONDITIONAL(LIBGUPC_PORTALS4_RUNTIME, [test "$upc_runtime_model" = "portals4"
 AM_CONDITIONAL(LIBGUPC_RUNTIME_DEBUG, [test "$enable_upc_runtime_debug" = "yes"])
 
 AM_CONDITIONAL(LIBGUPC_CRTSTUFF, [test "$upc_crtstuff" = "yes"])
-AM_CONDITIONAL(LIBGUPC_LINK_SCRIPT, [test "$enable_upc_link_script" = "yes"])
+AM_CONDITIONAL(LIBGUPC_LINK_SCRIPT, [test "$use_upc_link_script" = "yes"])
 AM_CONDITIONAL(LIBGUPC_GENERIC_COLLECTIVES,
                [test "$use_generic_collectives" = "yes"])
 AM_CONDITIONAL(LIBGUPC_BACKTRACE, [test "$enable_upc_backtrace" = "yes"])

@@ -1,3 +1,16 @@
+2015-10-07  Gary Funck  <gary@intrepid.com>
+
+	* config/default/upc-crt-begin-end.h (GUPCR_SHARED_BEGIN_NAME,
+	GUPCR_SHARED_END_NAME, GUPCR_PGM_INFO_BEGIN_NAME,
+	GUPCR_PGM_INFO_END_NAME, GUPCR_INIT_ARRAY_BEGIN_NAME,
+	GUPCR_INIT_ARRAY_END_NAME): New.  Move from gcc/defaults.h
+	and rename UPC_* to GUPCR_*.
+	* configure.ac: Determine UPC linker support by querying
+	GUPC builtin preprocessor symbol.
+	Remove --enable-upc-link-script option.
+	* upc-crtstuff.c: Include upc-crt-begin-end.h.
+	* configure: Re-generate.
+
 2015-10-04  Gary Funck  <gary@intrepid.com>
 
 	* configure.ac: Extract UPC-related section names from
@@ -20,12 +33,9 @@
 
 2015-09-26  Gary Funck  <gary@intrepid.com>
 
-	* config.h.in (GUPCR_SHARED_SECTION_NAME, GUPCR_SHARED_BEGIN_NAME,
-	GUPCR_SHARED_END_NAME, GUPCR_PGM_INFO_SECTION_NAME,
-	GUPCR_PGM_INFO_BEGIN_NAME, GUPCR_PGM_INFO_END_NAME,
-	GUPCR_INIT_ARRAY_SECTION_NAME, GUPCR_INIT_ARRAY_BEGIN_NAME,
-	GUPCR_INIT_ARRAY_END_NAME): Move from gcc/defaults.h
-	and rename UPC_* to GUPCR_*.
+	* config.h.in (GUPCR_SHARED_SECTION_NAME,
+	GUPCR_PGM_INFO_SECTION_NAME, GUPCR_INIT_ARRAY_SECTION_NAMEA):
+	Move from gcc/defaults.h and rename UPC_* to GUPCR_*.
 
 2015-09-17  Gary Funck  <gary@intrepid.com>
 

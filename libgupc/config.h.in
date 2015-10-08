@@ -335,9 +335,6 @@
 /* Define to 1 if UPC backtrace signal is enabled. */
 #undef HAVE_UPC_BACKTRACE_SIGNAL
 
-/* Define to 1 if UPC link script is supported. */
-#undef HAVE_UPC_LINK_SCRIPT
-
 /* Define to 1 if you have the `vfork' function. */
 #undef HAVE_VFORK
 
@@ -438,6 +435,9 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
+
+/* Define to 1 if UPC link script is supported. */
+#undef use_upc_link_script
 
 /* Define as `fork' if `vfork' does not work. */
 #undef vfork

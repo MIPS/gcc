@@ -853,6 +853,10 @@ upc_cpp_builtins (cpp_reader * pfile)
     {
       cpp_define (parse_in, "__UPC_PUPC_INST__=1");
     }
+  if (targetm.upc.link_script_p ())
+    {
+      cpp_define (parse_in, "__UPC_LINK_SCRIPT__=1");
+    }
   builtin_define_with_value ("__UPC_SHARED_SECTION_NAME__",
 	 strip_section_prefix (targetm.upc.shared_section_name ()), 0);
   builtin_define_with_value ("__UPC_PGM_INFO_SECTION_NAME__",
