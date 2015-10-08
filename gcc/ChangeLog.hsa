@@ -1,5 +1,16 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (bool hsa_function_representation::has_shadow_reg_p):
+	New function.
+	(set_debug_value): New function.
+	(gen_hsa_insns_for_known_library_call): Handle hsa_set_debug_value
+	function.
+	(init_omp_in_prologue): Use set_debug_value function.
+	* hsa.h (hsa_function_representation::has_shadow_reg_p): Declare
+	a new function.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Remove
 	assignment of the defaul argument.
 	(init_omp_in_prologue): Assign it at the beginning of

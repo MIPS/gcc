@@ -911,6 +911,10 @@ public:
   /* Builds a shadow register that is utilized to a kernel dispatch.  */
   hsa_op_reg *get_shadow_reg ();
 
+  /* Return true if we are in a function that has kernel dispatch
+     shadow register.  */
+  bool has_shadow_reg_p ();
+
   /* Name of the function.  */
   char *name;
 

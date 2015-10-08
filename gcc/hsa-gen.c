@@ -239,6 +239,11 @@ hsa_function_representation::get_shadow_reg ()
   return r;
 }
 
+bool hsa_function_representation::has_shadow_reg_p ()
+{
+  return shadow_reg != NULL;
+}
+
 /* Allocate HSA structures that we need only while generating with this.  */
 
 static void
@@ -3259,6 +3264,21 @@ gen_get_team_num (gimple *stmt, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
   hbb->append_insn (basic);
 }
 
+/* Set VALUE to a shadow kernel debug argument and append a new instruction
+   to HBB basic block.  */
+
+static void
+set_debug_value (hsa_bb *hbb, hsa_op_with_type *value)
+{
+  hsa_op_reg *shadow_reg_ptr = hsa_cfun->get_shadow_reg ();
+
+  hsa_op_address *addr = new hsa_op_address
+    (shadow_reg_ptr, offsetof (hsa_kernel_dispatch, debug));
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, value,
+					addr);
+  hbb->append_insn (mem);
+}
+
 /* If STMT is a call of a known library function, generate code to perform
    it and return true.  */
 
@@ -3299,6 +3319,31 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb,
     {
       gen_get_team_num (stmt, hbb, ssa_map);
       return true;
+    }
+  else if (strcmp (name, "hsa_set_debug_value") == 0)
+    {
+      /* FIXME: show warning if user uses a different function description.  */
+
+      if (hsa_cfun->has_shadow_reg_p ())
+	{
+	  tree rhs1 = gimple_call_arg (stmt, 0);
+	  hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (rhs1, hbb,
+								  ssa_map);
+
+	  BrigType16_t dtype = BRIG_TYPE_U64;
+	  if (hsa_needs_cvt (dtype, src->type))
+	    {
+	      hsa_op_reg *tmp = new hsa_op_reg (dtype);
+	      hbb->append_insn (new hsa_insn_basic (2, BRIG_OPCODE_CVT,
+						    tmp->type, tmp, src));
+	      src = tmp;
+	    }
+	  else
+	    src->type = dtype;
+
+	  set_debug_value (hbb, src);
+	  return true;
+	}
     }
 
   return false;
@@ -4533,16 +4578,11 @@ init_omp_in_prologue (void)
 			    new hsa_op_address (hsa_num_threads));
   prologue->append_insn (basic);
 
-  /* Emit store to debug argument.  */
-  addr = new hsa_op_address (shadow_reg_ptr, offsetof (hsa_kernel_dispatch,
-						       debug));
-
   /* Create a magic number that is going to be printed by libgomp.  */
   unsigned index = hsa_get_number_decl_kernel_mappings ();
-  hsa_op_immed *c = new hsa_op_immed (1000 + index, BRIG_TYPE_U64);
-  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, c,
-					addr);
-  prologue->append_insn (mem);
+
+  /* Emit store to debug argument.  */
+  set_debug_value (prologue, new hsa_op_immed (1000 + index, BRIG_TYPE_U64));
 }
 
 /* Go over gimple representation and generate our internal HSA one.  SSA_MAP
