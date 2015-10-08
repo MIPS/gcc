@@ -1,3 +1,8 @@
+2015-10-08  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (fixup_child_record_type): Bail out early if
+	ctx->receiver_decl is NULL.
+
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (hsa_output_kernel_mapping): Change type of kernel

@@ -1613,6 +1613,8 @@ fixup_child_record_type (omp_context *ctx)
 {
   tree f, type = ctx->record_type;
 
+  if (!ctx->receiver_decl)
+    return;
   /* ??? It isn't sufficient to just call remap_type here, because
      variably_modified_type_p doesn't work the way we expect for
      record types.  Testing each field for whether it needs remapping
@@ -1652,9 +1654,8 @@ fixup_child_record_type (omp_context *ctx)
       layout_type (type);
     }
 
-  if (ctx->receiver_decl)
-    TREE_TYPE (ctx->receiver_decl)
-      = build_qualified_type (build_reference_type (type), TYPE_QUAL_RESTRICT);
+  TREE_TYPE (ctx->receiver_decl)
+    = build_qualified_type (build_reference_type (type), TYPE_QUAL_RESTRICT);
 }
 
 /* Instantiate decls as necessary in CTX to satisfy the data sharing
