@@ -1,3 +1,36 @@
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* libgomp.h (struct gomp_device_descr): Add new function
+	pointer (can_run_func).
+	* plugin/plugin-hsa.c (init_enviroment_variables): Rename this
+	function from init_debug.
+	(hsa_warn): New function.
+	(struct kernel_info): Add new member variable
+	initialization_failed.
+	(struct agent_info): Add new member variable
+	prog_finalized_error.
+	(get_kernel_in_module): Do not call GOMP_PLUGIN_fatal.
+	(init_hsa_context): Use HSA_DEBUG macro.
+	(GOMP_OFFLOAD_init_device): Likewise.
+	(destroy_hsa_program): Likewise.
+	(GOMP_OFFLOAD_load_image): Produce warnings instread
+	of failures.
+	(GOMP_OFFLOAD_unload_image): Do not check if the agent
+	is initialized, the check is in the called function.
+	(GOMP_OFFLOAD_fini_device): Likewise.
+	(create_and_finalize_hsa_program): Likewise.
+	(release_kernel_dispatch): Use HSA_DEBUG macro.
+	(init_single_kernel): Produce warnings instread of failures.
+	(init_kernel): Use HSA_DEBUG macro.
+	(parse_launch_attributes): Likewise.
+	(GOMP_OFFLOAD_can_run): New function.
+	(GOMP_OFFLOAD_run): Remove part of initialization that
+	is moved to GOMP_OFFLOAD_can_run.
+	(GOMP_OFFLOAD_fini_device): Fix coding style.
+	* target.c (run_on_host): New function.
+	(GOMP_target): Use the function.
+	(gomp_load_plugin_for_device): Dynamically load the new hook.
+
 2015-09-25  Martin Liska  <mliska@suse.cz>
 
         * hsa-traits.h: Add omp_num_threads to hsa_kernel_dispatch

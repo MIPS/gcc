@@ -49,15 +49,60 @@ GOMP_OFFLOAD_version (void)
 
 static bool debug;
 
-/* Initialize debug according to the environment.  */
+/* Flag to decide if the runtime should suppress a possible fallback to host
+   execution.  */
+
+static bool suppress_host_fallback;
+
+/* Initialize debug and supress_host_fallback according to the environment.  */
 
 static void
-init_debug (void)
+init_enviroment_variables (void)
 {
   if (getenv ("HSA_DEBUG"))
     debug = true;
   else
     debug = false;
+
+  if (getenv ("HSA_SUPPRESS_HOST_FALLBACK"))
+    suppress_host_fallback = true;
+  else
+    suppress_host_fallback = false;
+}
+
+/* Print a debug message to stderr if DEBUG value is set to true.  */
+
+#define HSA_DEBUG(...) \
+  do \
+  { \
+    if (debug) \
+      { \
+	fprintf (stderr, "HSA debug: "); \
+	fprintf (stderr, __VA_ARGS__); \
+      } \
+  } \
+  while (false);
+
+/* Print HSA warning STR with an HSA STATUS code.  */
+
+static void
+hsa_warn (const char *str, hsa_status_t status)
+{
+  if (!debug)
+    return;
+
+  const char* hsa_error;
+  hsa_status_string (status, &hsa_error);
+
+  unsigned l = strlen (hsa_error);
+
+  char *err = GOMP_PLUGIN_malloc (sizeof (char) * l);
+  memcpy (err, hsa_error, l - 1);
+  err[l] = '\0';
+
+  fprintf (stderr, "HSA warning: %s (%s)\n", str, err);
+
+  free (err);
 }
 
 /* Report a fatal error STR together with the HSA error corresponding to STATUS
@@ -111,6 +156,8 @@ struct kernel_info
   /* Flag indicating whether the kernel has been initialized and all fields
      below it contain valid data.  */
   bool initialized;
+  /* Flag indicating that the kernel has a problem that blocks an execution.  */
+  bool initialization_failed;
   /* The object to be put into the dispatch queue.  */
   uint64_t object;
   /* Required size of kernel arguments.  */
@@ -175,6 +222,8 @@ struct agent_info
   /* Flag whether the HSA program that consists of all the modules has been
      finalized.  */
   bool prog_finalized;
+  /* Flag whether the program was finalized but with a failture.  */
+  bool prog_finalized_error;
   /* HSA executable - the finalized program that is used to locate kernels.  */
   hsa_executable_t executable;
 };
@@ -204,7 +253,6 @@ get_kernel_in_module (struct module_info *module, const char *kernel_name)
     if (strcmp (module->kernels[i].name, kernel_name) == 0)
       return &module->kernels[i];
 
-  GOMP_PLUGIN_fatal ("Could not find kernel dependency: %s\n", kernel_name);
   return NULL;
 }
 
@@ -271,17 +319,15 @@ init_hsa_context (void)
 
   if (hsa_context.initialized)
     return;
-  init_debug ();
+  init_enviroment_variables ();
   status = hsa_init ();
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Run-time could not be initialized", status);
-  if (debug)
-    fprintf (stderr, "HSA run-time initialized\n");
+  HSA_DEBUG ("HSA run-time initialized\n");
   status = hsa_iterate_agents (count_gpu_agents, NULL);
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("HSA GPU devices could not be enumerated", status);
-  if (debug)
-    fprintf (stderr, "There are %i HSA GPU devices.\n", hsa_context.agent_count);
+  HSA_DEBUG ("There are %i HSA GPU devices.\n", hsa_context.agent_count);
 
   hsa_context.agents
     = GOMP_PLUGIN_malloc_cleared (hsa_context.agent_count
@@ -379,8 +425,7 @@ GOMP_OFFLOAD_init_device (int n)
   if (agent->kernarg_region.handle == (uint64_t) -1)
     GOMP_PLUGIN_fatal ("Could not find suitable memory region for kernel "
 		       "arguments");
-  if (debug)
-    fprintf (stderr, "HSA agent initialized, queue has id %llu\n",
+  HSA_DEBUG ("HSA agent initialized, queue has id %llu\n",
 	     (long long unsigned) agent->command_q->id);
   agent->initialized = true;
 }
@@ -431,10 +476,12 @@ remove_module_from_agent (struct agent_info *agent, struct module_info *module)
 static void
 destroy_hsa_program (struct agent_info *agent)
 {
+  if (!agent->prog_finalized || agent->prog_finalized_error)
+    return;
+
   hsa_status_t status;
 
-  if (debug)
-    fprintf (stderr, "Destroying the current HSA program.\n");
+  HSA_DEBUG ("Destroying the current HSA program.\n");
 
   status = hsa_executable_destroy (agent->executable);
   if (status != HSA_STATUS_SUCCESS)
@@ -473,8 +520,7 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version  __attribute__ ((unused)),
   if (agent->prog_finalized)
     destroy_hsa_program (agent);
 
-  if (debug)
-    fprintf (stderr, "Encountered %d kernels in an image\n", kernel_count);
+  HSA_DEBUG ("Encountered %d kernels in an image\n", kernel_count);
   pair = GOMP_PLUGIN_malloc (kernel_count * sizeof (struct addr_pair));
   *target_table = pair;
   module = (struct module_info *)
@@ -523,19 +569,15 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   if (pthread_mutex_lock (&agent->prog_mutex))
     GOMP_PLUGIN_fatal ("Could not lock an HSA agent program mutex");
   if (agent->prog_finalized)
-    {
-      if (pthread_mutex_unlock (&agent->prog_mutex))
-	GOMP_PLUGIN_fatal ("Could not unlock an HSA agent program mutex");
-      return;
-    }
+    goto final;
 
   status = hsa_ext_program_create (HSA_MACHINE_MODEL_LARGE, HSA_PROFILE_FULL,
 				   HSA_DEFAULT_FLOAT_ROUNDING_MODE_DEFAULT,
 				   NULL, &prog_handle);
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not create an HSA program", status);
-  if (debug)
-    fprintf (stderr, "Created a finalizer program\n");
+
+  HSA_DEBUG ("Created a finalized program\n");
 
   struct module_info *module = agent->first_module;
   while (module)
@@ -544,8 +586,6 @@ create_and_finalize_hsa_program (struct agent_info *agent)
 					  module->image_desc->brig_module);
       if (status != HSA_STATUS_SUCCESS)
 	hsa_fatal ("Could not add a module to the HSA program", status);
-      if (debug)
-	fprintf (stderr, "Added module %i to the HSA program\n", mi);
       module = module->next;
       mi++;
     }
@@ -558,9 +598,12 @@ create_and_finalize_hsa_program (struct agent_info *agent)
 				    HSA_CODE_OBJECT_TYPE_PROGRAM,
 				    &code_object);
   if (status != HSA_STATUS_SUCCESS)
-    hsa_fatal ("Finalization of the HSA program failed", status);
-  if (debug)
-    fprintf (stderr, "Finalization done\n");
+    {
+      hsa_warn ("Finalization of the HSA program failed", status);
+      goto failure;
+    }
+
+  HSA_DEBUG ("Finalization done\n");
   hsa_ext_program_destroy (prog_handle);
 
   status = hsa_executable_create(HSA_PROFILE_FULL, HSA_EXECUTABLE_STATE_UNFROZEN,
@@ -576,9 +619,17 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not freeze the HSA executable", status);
 
-  if (debug)
-    fprintf (stderr, "Froze HSA executable with the finalized code object\n");
+  HSA_DEBUG ("Froze HSA executable with the finalized code object\n");
+
+  /* If all goes good, jump to final.  */
+  goto final;
+
+failure:
+  agent->prog_finalized_error = true;
+
+final:
   agent->prog_finalized = true;
+
   if (pthread_mutex_unlock (&agent->prog_mutex))
     GOMP_PLUGIN_fatal ("Could not unlock an HSA agent program mutex");
 }
@@ -626,8 +677,7 @@ create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
 static void
 release_kernel_dispatch (struct hsa_kernel_dispatch *shadow)
 {
-  if (debug)
-    fprintf (stderr, "Released kernel dispatch: %p has value: %lu (%p)\n",
+  HSA_DEBUG ("Released kernel dispatch: %p has value: %lu (%p)\n",
 	     shadow, shadow->debug, (void *)shadow->debug);
 
   hsa_memory_free (shadow->kernarg_address);
@@ -657,9 +707,11 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
   status = hsa_executable_get_symbol (agent->executable, NULL, kernel->name,
 				      agent->id, 0, &kernel_symbol);
   if (status != HSA_STATUS_SUCCESS)
-    hsa_fatal ("Could not find symbol for kernel in the code object", status);
-  if (debug)
-    fprintf (stderr, "Located kernel %s\n", kernel->name);
+    {
+      hsa_warn ("Could not find symbol for kernel in the code object", status);
+      goto failure;
+    }
+  HSA_DEBUG ("Located kernel %s\n", kernel->name);
   status = hsa_executable_symbol_get_info
     (kernel_symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT, &kernel->object);
   if (status != HSA_STATUS_SUCCESS)
@@ -678,22 +730,18 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
     (kernel_symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE,
      &kernel->private_segment_size);
   if (status != HSA_STATUS_SUCCESS)
-    hsa_fatal ("Could not get info about kernel private segment size", status);
+    hsa_fatal ("Could not get info about kernel private segment size",
+	       status);
 
-  if (debug)
-    {
-      fprintf (stderr, "Kernel structure for %s fully initialized with "
-	       "following segment sizes: \n",
-	       kernel->name);
-      fprintf (stderr, "  group_segment_size: %u\n",
-	       (unsigned) kernel->group_segment_size);
-      fprintf (stderr, "  private_segment_size: %u\n",
-	       (unsigned) kernel->private_segment_size);
-      fprintf (stderr, "  kernarg_segment_size: %u\n",
-	       (unsigned) kernel->kernarg_segment_size);
-      fprintf (stderr, "  omp_data_size: %u\n",
-	       kernel->omp_data_size);
-    }
+  HSA_DEBUG ("Kernel structure for %s fully initialized with "
+	     "following segment sizes: \n", kernel->name);
+  HSA_DEBUG ("  group_segment_size: %u\n",
+	     (unsigned) kernel->group_segment_size);
+  HSA_DEBUG ("  private_segment_size: %u\n",
+	     (unsigned) kernel->private_segment_size);
+  HSA_DEBUG ("  kernarg_segment_size: %u\n",
+	     (unsigned) kernel->kernarg_segment_size);
+  HSA_DEBUG ("  omp_data_size: %u\n", kernel->omp_data_size);
 
   if (kernel->omp_data_size > *max_omp_data_size)
     *max_omp_data_size = kernel->omp_data_size;
@@ -704,8 +752,23 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
     {
       struct kernel_info *dependency = get_kernel_in_module
 	(module, kernel->dependencies[i]);
+
+      if (dependency == NULL)
+	{
+	  HSA_DEBUG ("Could not find a dependency for a kernel: %s, "
+		     "dependency name: %s\n", kernel->name,
+		     kernel->dependencies[i]);
+	  goto failure;
+	}
+
+
       init_single_kernel (dependency, max_omp_data_size);
     }
+
+  return;
+
+failure:
+  kernel->initialization_failed = true;
 }
 
 /* Indent stream F by INDENT spaces.  */
@@ -800,8 +863,8 @@ init_kernel (struct kernel_info *kernel)
      dispatch operation.  */
   init_single_kernel (kernel, &kernel->max_omp_data_size);
 
-  if (debug)
-    fprintf (stderr, "\n");
+  if (!kernel->initialization_failed)
+    HSA_DEBUG ("\n");
 
   kernel->initialized = true;
   if (pthread_mutex_unlock (&kernel->init_mutex))
@@ -840,8 +903,7 @@ parse_launch_attributes (const void *input,
       def->wdims[1] = 1;
       def->wdims[2] = 1;
       *result = def;
-      if (debug)
-	fprintf (stderr, "GOMP_OFFLOAD_run called with no launch attributes\n");
+      HSA_DEBUG ("GOMP_OFFLOAD_run called with no launch attributes\n");
       return true;
     }
 
@@ -854,11 +916,35 @@ parse_launch_attributes (const void *input,
   if (kla->gdims[0] == 0)
     return false;
 
-  if (debug)
-    fprintf (stderr, "GOMP_OFFLOAD_run called with grid size %u and group "
-	     "size %u\n", kla->gdims[0], kla->wdims[0]);
+  HSA_DEBUG ("GOMP_OFFLOAD_run called with grid size %u and group size %u\n",
+	     kla->gdims[0], kla->wdims[0]);
 
   return true;
+}
+
+/* Return true if the HSA runtime can run function FN_PTR.  */
+
+bool
+GOMP_OFFLOAD_can_run (void *fn_ptr)
+{
+  struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
+  struct agent_info *agent = kernel->agent;
+  create_and_finalize_hsa_program (agent);
+
+  if (agent->prog_finalized_error)
+    goto failure;
+
+  init_kernel (kernel);
+  if (kernel->initialization_failed)
+    goto failure;
+
+  return true;
+
+failure:
+  if (suppress_host_fallback)
+    GOMP_PLUGIN_fatal ("HSA host fallback has been suppressed");
+  HSA_DEBUG ("HSA target cannot be launched, doing a host fallback\n");
+  return false;
 }
 
 /* Part of the libgomp plugin interface.  Run a kernel on a device N and pass
@@ -874,16 +960,18 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
   const struct kernel_launch_attributes *kla;
   if (!parse_launch_attributes (kern_launch, &def, &kla))
     {
-      if (debug)
-	fprintf (stderr, "Will not run HSA kernel because the grid size is "
-		 "zero\n");
+      HSA_DEBUG ("Will not run HSA kernel because the grid size is zero\n");
       return;
     }
   if (pthread_rwlock_rdlock (&agent->modules_rwlock))
     GOMP_PLUGIN_fatal ("Unable to read-lock an HSA agent rwlock");
 
-  create_and_finalize_hsa_program (agent);
-  init_kernel (kernel) ;
+  if (!agent->initialized)
+    GOMP_PLUGIN_fatal ("Agent must be initialized");
+
+  if (!kernel->initialized)
+    GOMP_PLUGIN_fatal ("Called kernel must be initialized");
+
   struct hsa_kernel_dispatch *shadow = create_kernel_dispatch_recursive
     (kernel, kernel->max_omp_data_size);
 
@@ -894,8 +982,7 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
     }
 
   uint64_t index = hsa_queue_add_write_index_release (agent->command_q, 1);
-  if (debug)
-    fprintf (stderr, "Got AQL index %llu\n", (long long int) index);
+  HSA_DEBUG ("Got AQL index %llu\n", (long long int) index);
 
   /* Wait until the queue is not full before writing the packet.   */
   while (index - hsa_queue_load_read_index_acquire(agent->command_q)
@@ -933,22 +1020,19 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
   memcpy (shadow->kernarg_address + sizeof (vars), &shadow,
 	  sizeof (struct hsa_kernel_runtime *));
 
-  if (debug)
-    fprintf (stderr, "Copying kernel runtime pointer to kernarg_address\n");
+  HSA_DEBUG ("Copying kernel runtime pointer to kernarg_address\n");
 
   uint16_t header;
   header = HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE;
   header |= HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_ACQUIRE_FENCE_SCOPE;
   header |= HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE;
 
-  if (debug)
-    fprintf (stderr, "Going to dispatch kernel %s\n", kernel->name);
+  HSA_DEBUG ("Going to dispatch kernel %s\n", kernel->name);
 
   __atomic_store_n ((uint16_t*)(&packet->header), header, __ATOMIC_RELEASE);
   hsa_signal_store_release (agent->command_q->doorbell_signal, index);
 
-  if (debug)
-    fprintf (stderr, "Kernel dispatched, waiting for completion\n");
+  HSA_DEBUG ("Kernel dispatched, waiting for completion\n");
   hsa_signal_wait_acquire (s, HSA_SIGNAL_CONDITION_LT, 1,
 			   UINT64_MAX, HSA_WAIT_STATE_BLOCKED);
 
@@ -999,8 +1083,7 @@ GOMP_OFFLOAD_unload_image (int n, unsigned version  __attribute__ ((unused)),
   remove_module_from_agent (agent, module);
   destroy_module (module);
   free (module);
-  if (agent->prog_finalized)
-    destroy_hsa_program (agent);
+  destroy_hsa_program (agent);
   if (pthread_rwlock_unlock (&agent->modules_rwlock))
     GOMP_PLUGIN_fatal ("Unable to unlock an HSA agent rwlock");
 }
@@ -1027,8 +1110,7 @@ GOMP_OFFLOAD_fini_device (int n)
       free (module);
     }
   agent->first_module = NULL;
-  if (agent->prog_finalized)
-    destroy_hsa_program (agent);
+  destroy_hsa_program (agent);
 
   hsa_status_t status = hsa_queue_destroy (agent->command_q);
   if (status != HSA_STATUS_SUCCESS)
@@ -1037,7 +1119,7 @@ GOMP_OFFLOAD_fini_device (int n)
     GOMP_PLUGIN_fatal ("Failed to destroy an HSA agent program mutex");
   if (pthread_rwlock_destroy (&agent->modules_rwlock))
     GOMP_PLUGIN_fatal ("Failed to destroy an HSA agent rwlock");
-  agent->initialized =  false;
+  agent->initialized = false;
 }
 
 /* Part of the libgomp plugin interface.  Not implemented as it is not required

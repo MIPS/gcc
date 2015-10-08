@@ -138,10 +138,8 @@ hsa_init_compilation_unit_data (void)
 void
 hsa_deinit_compilation_unit_data (void)
 {
-  if (!compilation_unit_data_initialized)
-    return;
-
-  delete hsa_global_variable_symbols;
+  if (compilation_unit_data_initialized)
+    delete hsa_global_variable_symbols;
 }
 
 /* Return true if we are generating large HSA machine model.  */
@@ -645,6 +643,14 @@ hsa_register_kernel (cgraph_node *gpu, cgraph_node *host)
   if (hsa_summaries == NULL)
     hsa_summaries = new hsa_summary_t (symtab);
   hsa_summaries->link_functions (gpu, host, HSA_KERNEL);
+}
+
+/* Return true if expansion of the current HSA function has already failed.  */
+
+bool
+hsa_seen_error (void)
+{
+  return hsa_cfun->seen_error;
 }
 
 #include "gt-hsa.h"

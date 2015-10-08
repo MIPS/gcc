@@ -973,6 +973,9 @@ public:
      OMP data size is necessary memory that is used for copying before
      a kernel dispatch.  */
   unsigned maximum_omp_data_size;
+
+  /* Return true if there's an HSA-specific warning already seen.  */
+  bool seen_error;
 };
 
 enum hsa_function_kind
@@ -1064,6 +1067,7 @@ char *hsa_brig_function_name (const char *p);
 const char *hsa_get_declaration_name (tree decl);
 void hsa_register_kernel (cgraph_node *host);
 void hsa_register_kernel (cgraph_node *gpu, cgraph_node *host);
+bool hsa_seen_error (void);
 
 /* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);

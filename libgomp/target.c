@@ -945,6 +945,24 @@ gomp_fini_device (struct gomp_device_descr *devicep)
   devicep->is_initialized = false;
 }
 
+/* Execute a host function FN with HOSTADDRS.  */
+
+static void
+run_on_host (void (*fn) (void *), void **hostaddrs)
+{
+  struct gomp_thread old_thr, *thr = gomp_thread ();
+  old_thr = *thr;
+  memset (thr, '\0', sizeof (*thr));
+  if (gomp_places_list)
+    {
+      thr->place = old_thr.place;
+      thr->ts.place_partition_len = gomp_places_list_len;
+    }
+  fn (hostaddrs);
+  gomp_free_thread (thr);
+  *thr = old_thr;
+}
+
 /* Called when encountering a target directive.  If DEVICE
    is GOMP_DEVICE_ICV, it means use device-var ICV.  If it is
    GOMP_DEVICE_HOST_FALLBACK (or any value
@@ -966,17 +984,7 @@ GOMP_target (int device, void (*fn) (void *), const void *kernel_launch,
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
       /* Host fallback.  */
-      struct gomp_thread old_thr, *thr = gomp_thread ();
-      old_thr = *thr;
-      memset (thr, '\0', sizeof (*thr));
-      if (gomp_places_list)
-	{
-	  thr->place = old_thr.place;
-	  thr->ts.place_partition_len = gomp_places_list_len;
-	}
-      fn (hostaddrs);
-      gomp_free_thread (thr);
-      *thr = old_thr;
+      run_on_host (fn, hostaddrs);
       return;
     }
 
@@ -1006,6 +1014,12 @@ GOMP_target (int device, void (*fn) (void *), const void *kernel_launch,
       fn_addr = (void *) tgt_fn->tgt_offset;
     }
 
+  if (devicep->can_run_func && !devicep->can_run_func (fn_addr))
+    {
+      run_on_host (fn, hostaddrs);
+      return;
+    }
+
   struct target_mem_desc *tgt_vars;
   if (devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     tgt_vars = NULL;
@@ -1020,6 +1034,7 @@ GOMP_target (int device, void (*fn) (void *), const void *kernel_launch,
       thr->place = old_thr.place;
       thr->ts.place_partition_len = gomp_places_list_len;
     }
+
   devicep->run_func (devicep->target_id, fn_addr,
 		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs,
 		     kernel_launch);
@@ -1160,7 +1175,10 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   DLSYM (host2dev);
   device->capabilities = device->get_caps_func ();
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
-    DLSYM (run);
+    {
+      DLSYM (run);
+      DLSYM (can_run);
+    }
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENACC_200)
     {
       if (!DLSYM_OPT (openacc.exec, openacc_parallel)

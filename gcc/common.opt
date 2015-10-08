@@ -581,6 +581,10 @@ Wfree-nonheap-object
 Common Var(warn_free_nonheap_object) Init(1) Warning
 Warn when attempting to free a non-heap object
 
+Whsa
+Common Var(warn_hsa) Init(1) Warning
+Warn when a function cannot be expanded to HSAIL
+
 Winline
 Common Var(warn_inline) Warning
 Warn when an inlined function cannot be inlined

@@ -1,5 +1,36 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* common.opt: Add new Whsa option.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Add new member seen_error.
+	(hsa_type_for_scalar_tree_type): Use HSA_SORRY_AT{V} instread of
+	sorry.
+	(hsa_type_for_tree_type): Likewise.
+	(hsa_op_immed::hsa_op_immed): Likewise.
+	(process_mem_base): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_ctor_assignment): Likewise.
+	(gen_hsa_insns_for_single_assignment): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(verify_function_arguments): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(get_address_from_value): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_body_from_gimple): Use aforementioned hsa_cfun->seen_error.
+	(generate_hsa): Likewise.
+	* hsa.c (hsa_deinit_compilation_unit_data): Release
+	hsa_failed_functions.
+	(hsa_seen_error): New function.
+	* hsa.h (hsa_failed_functions): New variable.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_comment_insn): Do not release comment's
 	string.
 	(emit_insn): Save BRIG offset.

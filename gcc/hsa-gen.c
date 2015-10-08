@@ -77,6 +77,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "cfganal.h"
 
+/* Print a warning message and set that we have seen an error.  */
+
+#define HSA_SORRY_MSG "could not emit HSAIL for the function"
+
+#define HSA_SORRY_ATV(location, message, ...) \
+  do \
+  { \
+    hsa_cfun->seen_error = true; \
+    if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
+		    HSA_SORRY_MSG)) \
+      inform (location, message, ##__VA_ARGS__); \
+  } \
+  while (false);
+
+/* Same as previous, but highlight a location.  */
+
+#define HSA_SORRY_AT(location, message) \
+  do \
+  { \
+    hsa_cfun->seen_error = true; \
+    if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
+		    HSA_SORRY_MSG)) \
+      inform (location, message); \
+  } \
+  while (false);
+
 /* Following structures are defined in the final version
    of HSA specification.  */
 
@@ -196,6 +222,7 @@ hsa_function_representation::hsa_function_representation ()
   shadow_reg = NULL;
   kernel_dispatch_count = 0;
   maximum_omp_data_size = 0;
+  seen_error = false;
 }
 
 /* Destructor of class holding function/kernel-wide informaton and state.  */
@@ -439,8 +466,9 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
 
   if (!tree_fits_uhwi_p (TYPE_SIZE (base)))
     {
-      sorry ("Support for HSA does not implement huge or variable-sized type %T",
-	     type);
+      HSA_SORRY_ATV (EXPR_LOCATION (type),
+		     "support for HSA does not implement huge or "
+		     "variable-sized type %T", type);
       return res;
     }
 
@@ -468,7 +496,8 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
 
   if (res == BRIG_TYPE_NONE)
     {
-      sorry ("Support for HSA does not implement type %T", type);
+      HSA_SORRY_ATV (EXPR_LOCATION (type),
+		     "support for HSA does not implement type %T", type);
       return res;
     }
 
@@ -478,8 +507,9 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
 
       if (bsize == tsize)
 	{
-	  sorry ("Support for HSA does not implement a vector type where "
-		 "a type and unit size are equal: %T", type);
+	  HSA_SORRY_ATV (EXPR_LOCATION (type),
+			 "support for HSA does not implement a vector type "
+			 "where a type and unit size are equal: %T", type);
 	  return res;
 	}
 
@@ -495,7 +525,8 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
 	  res |= BRIG_TYPE_PACK_128;
 	  break;
 	default:
-	  sorry ("Support for HSA does not implement type %T", type);
+	  HSA_SORRY_ATV (EXPR_LOCATION (type),
+			 "support for HSA does not implement type %T", type);
 	}
     }
 
@@ -538,8 +569,8 @@ hsa_type_for_tree_type (const_tree type, unsigned HOST_WIDE_INT *dim_p = NULL,
   gcc_checking_assert (TYPE_P (type));
   if (!tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
-      sorry ("Support for HSA does not implement huge or variable-sized type %T",
-	     type);
+      HSA_SORRY_ATV (EXPR_LOCATION (type), "support for HSA does not "
+		     "implement huge or variable-sized type %T", type);
       return BRIG_TYPE_NONE;
     }
 
@@ -566,8 +597,9 @@ hsa_type_for_tree_type (const_tree type, unsigned HOST_WIDE_INT *dim_p = NULL,
 	      || !tree_fits_shwi_p (TYPE_MIN_VALUE (domain))
 	      || !tree_fits_shwi_p (TYPE_MAX_VALUE (domain)))
 	    {
-	      sorry ("Support for HSA does not implement array %T with unknown "
-		     "bounds", type);
+	      HSA_SORRY_ATV (EXPR_LOCATION (type),
+			     "support for HSA does not implement array %T with "
+			     "unknown bounds", type);
 	      return BRIG_TYPE_NONE;
 	    }
 	  HOST_WIDE_INT min = tree_to_shwi (TYPE_MIN_VALUE (domain));
@@ -775,7 +807,7 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 		      hsa_type_for_tree_type (TREE_TYPE (tree_val), NULL,
 					      min32int))
 {
-  if (seen_error ())
+  if (hsa_seen_error ())
     return;
 
   gcc_checking_assert ((is_gimple_min_invariant (tree_val)
@@ -798,7 +830,8 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 	  tree v = CONSTRUCTOR_ELT (tree_value, i)->value;
 	  if (!CONSTANT_CLASS_P (v))
 	    {
-	      sorry ("HSA ctor should have only constants");
+	      HSA_SORRY_AT (EXPR_LOCATION (tree_val),
+			    "HSA ctor should have only constants");
 	      return;
 	    }
 	}
@@ -1636,8 +1669,9 @@ process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
 
       if (!DECL_P (decl) || TREE_CODE (decl) == FUNCTION_DECL)
 	{
-	  sorry ("Support for HSA does not implement a memory reference to "
-		 "a non-declaration type");
+	  HSA_SORRY_AT (EXPR_LOCATION (base),
+			"support for HSA does not implement a memory reference "
+			"to a non-declaration type");
 	  return;
 	}
 
@@ -1682,8 +1716,9 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
 	   && ((tree_to_uhwi (TREE_OPERAND (ref, 1)) % BITS_PER_UNIT) != 0
 	       || (tree_to_uhwi (TREE_OPERAND (ref, 2)) % BITS_PER_UNIT) != 0))
     {
-      sorry ("Support for HSA does not implement bit field references "
-	     "such as %E", ref);
+      HSA_SORRY_ATV (EXPR_LOCATION (origref),
+		     "support for HSA does not implement "
+		     "bit field references such as %E", ref);
       goto out;
     }
 
@@ -1758,11 +1793,13 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
       offset += wi::to_offset (TMR_OFFSET (ref));
       break;
     case FUNCTION_DECL:
-      sorry ("HSA does not support indirect calls");
+      HSA_SORRY_AT (EXPR_LOCATION (origref),
+		    "support for HSA does not implement function pointers");
       goto out;
     case SSA_NAME:
     default:
-      sorry ("Support for HSA does not implement memory access to %E", origref);
+      HSA_SORRY_ATV (EXPR_LOCATION (origref), "support for HSA does "
+		     "not implement memory access to %E", origref);
       goto out;
     }
 
@@ -1797,8 +1834,8 @@ out:
     bitsize = 0;
 
   if ((bitpos || bitsize) && (output_bitpos == NULL || output_bitsize == NULL))
-    sorry ("Support for HSA does not implement unhandled bit field reference "
-	   "such as %E", ref);
+    HSA_SORRY_ATV (EXPR_LOCATION (origref), "support for HSA does not "
+		   "implement unhandled bit field reference such as %E", ref);
 
   if (output_bitsize != NULL && output_bitpos != NULL)
     {
@@ -2014,8 +2051,9 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 	{
 	  if (dest->type != hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT))
 	    {
-	      sorry ("Support for HSA does not implement conversion of %E to "
-		     "the requested non-pointer type.", rhs);
+	      HSA_SORRY_ATV (EXPR_LOCATION (rhs),
+			     "support for HSA does not implement conversion "
+			     "of %E to the requested non-pointer type.", rhs);
 	      return;
 	    }
 
@@ -2100,8 +2138,9 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
       /* Handle load of a bit field.  */
       if (bitsize > 64)
 	{
-	  sorry ("Support for HSA does not implement load from a bit field "
-		 "bigger than 64 bits");
+	  HSA_SORRY_AT (EXPR_LOCATION (rhs),
+			"support for HSA does not implement load from a bit "
+			"field bigger than 64 bits");
 	  return;
 	}
 
@@ -2119,8 +2158,9 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 	}
     }
   else
-    sorry ("Support for HSA does not implement loading of expression %E",
-	   rhs);
+    HSA_SORRY_ATV
+      (EXPR_LOCATION (rhs),
+       "support for HSA does not implement loading of expression %E", rhs);
 }
 
 /* Return number of bits necessary for representation of a bit field,
@@ -2158,8 +2198,9 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
   /* Handle store to a bit field.  */
   if (bitsize > 64)
     {
-      sorry ("Support for HSA does not implement store to a bit field "
-	     "bigger than 64 bits");
+      HSA_SORRY_AT (EXPR_LOCATION (lhs),
+		    "support for HSA does not implement store to a bit field "
+		    "bigger than 64 bits");
       return;
     }
 
@@ -2366,7 +2407,8 @@ gen_hsa_ctor_assignment (hsa_op_address *addr_lhs, tree rhs, hsa_bb *hbb)
 {
   if (vec_safe_length (CONSTRUCTOR_ELTS (rhs)))
     {
-      sorry ("Support for HSA does not implement load from constructor");
+      HSA_SORRY_AT (EXPR_LOCATION (rhs),
+		    "support for HSA does not implement load from constructor");
       return;
     }
 
@@ -2385,7 +2427,7 @@ gen_hsa_insns_for_single_assignment (tree lhs, tree rhs, hsa_bb *hbb,
   if (TREE_CODE (lhs) == SSA_NAME)
     {
       hsa_op_reg *dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
-      if (seen_error ())
+      if (hsa_seen_error ())
 	return;
 
       gen_hsa_insns_for_load (dest, rhs, TREE_TYPE (lhs), hbb, ssa_map);
@@ -2395,7 +2437,7 @@ gen_hsa_insns_for_single_assignment (tree lhs, tree rhs, hsa_bb *hbb,
     {
       /* Store to memory.  */
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (rhs, hbb, ssa_map);
-      if (seen_error ())
+      if (hsa_seen_error ())
 	return;
 
       gen_hsa_insns_for_store (lhs, src, hbb, ssa_map);
@@ -2541,8 +2583,9 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
       break;
 
     default:
-      sorry ("Support for HSA does not implement comparison tree code %s\n",
-	     get_tree_code_name (code));
+      HSA_SORRY_ATV (EXPR_LOCATION (lhs),
+		     "support for HSA does not implement comparison tree "
+		     "code %s\n", get_tree_code_name (code));
       return;
     }
 
@@ -2648,8 +2691,9 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb,
     case CEIL_DIV_EXPR:
     case FLOOR_DIV_EXPR:
     case ROUND_DIV_EXPR:
-      sorry ("Support for HSA does not implement CEIL_DIV_EXPR, FLOOR_DIV_EXPR "
-	     "or ROUND_DIV_EXPR");
+      HSA_SORRY_AT (gimple_location (assign),
+		    "support for HSA does not implement CEIL_DIV_EXPR, "
+		    "FLOOR_DIV_EXPR or ROUND_DIV_EXPR");
       return;
     case TRUNC_MOD_EXPR:
       opcode = BRIG_OPCODE_REM;
@@ -2657,8 +2701,9 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb,
     case CEIL_MOD_EXPR:
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
-      sorry ("Support for HSA does not implement CEIL_MOD_EXPR, FLOOR_MOD_EXPR "
-	     "or ROUND_MOD_EXPR");
+      HSA_SORRY_AT (gimple_location (assign),
+		    "support for HSA does not implement CEIL_MOD_EXPR, "
+		    "FLOOR_MOD_EXPR or ROUND_MOD_EXPR");
       return;
     case NEGATE_EXPR:
       opcode = BRIG_OPCODE_NEG;
@@ -2850,8 +2895,9 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb,
       }
     default:
       /* Implement others as we come across them.  */
-      sorry ("Support for HSA does not implement operation %s",
-	     get_tree_code_name (code));
+      HSA_SORRY_ATV (gimple_location (assign),
+		     "support for HSA does not implement operation %s",
+		     get_tree_code_name (code));
       return;
     }
 
@@ -3012,13 +3058,15 @@ verify_function_arguments (tree decl)
 {
   if (DECL_STATIC_CHAIN (decl))
     {
-      sorry ("HSA does not support nested functions: %D", decl);
+      HSA_SORRY_ATV (EXPR_LOCATION (decl),
+		     "HSA does not support nested functions: %D", decl);
       return;
     }
   else if (!TYPE_ARG_TYPES (TREE_TYPE (decl)))
     {
-      sorry ("HSA does not support functions with variadic arguments "
-	     "(or unknown return type): %D", decl);
+      HSA_SORRY_ATV (EXPR_LOCATION (decl),
+		     "HSA does not support functions with variadic arguments "
+		     "(or unknown return type): %D", decl);
       return;
     }
 }
@@ -3034,7 +3082,7 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 {
   tree decl = gimple_call_fndecl (stmt);
   verify_function_arguments (decl);
-  if (seen_error ())
+  if (hsa_seen_error ())
     return;
 
   hsa_insn_call *call_insn = new hsa_insn_call (decl);
@@ -3053,8 +3101,9 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 
       if (AGGREGATE_TYPE_P (TREE_TYPE (parm)))
 	{
-	  sorry ("Support for HSA does not implement an aggregate argument "
-		 "in a function call");
+	  HSA_SORRY_AT (gimple_location (stmt),
+			"support for HSA does not "
+			"implement an aggregate argument in a function call");
 	  return;
 	}
 
@@ -3081,8 +3130,9 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
     {
       if (AGGREGATE_TYPE_P (result_type))
 	{
-	  sorry ("Support for HSA does not implement returning a value "
-		 "which is of an aggregate type: %T", result_type);
+	  HSA_SORRY_ATV (gimple_location (stmt),
+			 "support for HSA does not implement returning a value "
+			 "which is of an aggregate type %T", result_type);
 	  return;
 	}
 
@@ -3109,8 +3159,9 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
     {
       if (result)
 	{
-	  sorry ("Support for HSA does not implement an assignment of return "
-		 "value from a void function");
+	  HSA_SORRY_AT (gimple_location (stmt),
+			"support for HSA does not implement an assignment of "
+			"return value from a void function");
 	  return;
 	}
 
@@ -3137,8 +3188,9 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
     {
       if (AGGREGATE_TYPE_P (TREE_TYPE (retval)))
 	{
-	  sorry ("HSA does not support return statement with an aggregate "
-		 "value type");
+	  HSA_SORRY_AT (gimple_location (stmt),
+			"HSA does not support return "
+			"statement with an aggregate value type");
 	  return;
 	}
 
@@ -3834,7 +3886,9 @@ get_address_from_value (tree val, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
       /* Otherwise fall-through */
 
     default:
-      sorry ("Support for HSA does not implement memory access to %E", val);
+      HSA_SORRY_ATV (EXPR_LOCATION (val),
+		     "support for HSA does not implement memory access to %E",
+		     val);
       return new hsa_op_address (NULL, NULL, 0);
     }
 }
@@ -3968,15 +4022,17 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
       tree function_decl = gimple_call_fndecl (stmt);
       if (function_decl == NULL_TREE)
 	{
-	  sorry ("HSA does not support indirect calls");
+	  HSA_SORRY_AT (gimple_location (stmt),
+			"support for HSA does not implement indirect calls");
 	  return;
 	}
 
       if (hsa_callable_function_p (function_decl))
         gen_hsa_insns_for_direct_call (stmt, hbb, ssa_map);
       else if (!gen_hsa_insns_for_known_library_call (stmt, hbb, ssa_map))
-	sorry ("HSA does support only call for functions with 'hsafunc' "
-	       "attribute");
+	HSA_SORRY_AT (gimple_location (stmt),
+		      "HSA does support only call of functions within omp "
+		      "declare target or with 'hsafunc' attribute");
       return;
     }
 
@@ -4292,8 +4348,9 @@ specialop:
 
 	if (TREE_CODE (byte_size) != INTEGER_CST)
 	  {
-	    sorry ("Support for HSA does not implement __builtin_memcpy with "
-		   "a non constant size");
+	    HSA_SORRY_AT (gimple_location (stmt),
+			  "support for HSA does not implement __builtin_memcpy "
+			  "with a non constant size");
 	    return;
 	  }
 
@@ -4302,9 +4359,11 @@ specialop:
 	/* TODO: fallback to call to memcpy library function.  */
 	if (n > HSA_MEMORY_BUILTINS_LIMIT)
 	  {
-	    sorry ("Support for HSA does implement __builtin_memcpy with a size"
-		   " bigger than %u bytes, %u bytes are requested",
-		   HSA_MEMORY_BUILTINS_LIMIT, n);
+	    HSA_SORRY_ATV
+	      (gimple_location (stmt),
+	       "support for HSA does implement __builtin_memcpy with a size "
+	       "bigger than %u bytes, %u bytes are requested",
+	       HSA_MEMORY_BUILTINS_LIMIT, n);
 	    return;
 	  }
 
@@ -4329,8 +4388,10 @@ specialop:
 
 	if (TREE_CODE (c) != INTEGER_CST)
 	  {
-	    sorry ("Support for HSA does not implement __builtin_memset with "
-		   "a non constant byte value that should be written");
+	    HSA_SORRY_AT
+	      (gimple_location (stmt),
+	       "support for HSA does not implement __builtin_memset with a "
+	       "non constant byte value that should be written");
 	    return;
 	  }
 
@@ -4338,8 +4399,9 @@ specialop:
 
 	if (TREE_CODE (byte_size) != INTEGER_CST)
 	  {
-	    sorry ("Support for HSA does not implement __builtin_memset with "
-		   "a non constant size");
+	    HSA_SORRY_AT (gimple_location (stmt),
+			  "support for HSA does not implement "
+			  "__builtin_memset with a non constant size");
 	    return;
 	  }
 
@@ -4348,9 +4410,11 @@ specialop:
 	/* TODO: fallback to call to memset library function.  */
 	if (n > HSA_MEMORY_BUILTINS_LIMIT)
 	  {
-	    sorry ("Support for HSA does implement __builtin_memset with a size"
-		   " bigger than %u bytes, %u bytes are requested",
-		   HSA_MEMORY_BUILTINS_LIMIT, n);
+	    HSA_SORRY_ATV
+	      (gimple_location (stmt),
+	       "support for HSA does implement __builtin_memset with a size "
+	       "bigger than %u bytes, %u bytes are requested",
+	       HSA_MEMORY_BUILTINS_LIMIT, n);
 	    return;
 	  }
 
@@ -4369,8 +4433,9 @@ specialop:
 	break;
       }
     default:
-      sorry ("Support for HSA does not implement calls to builtin %D",
-	     gimple_call_fndecl (stmt));
+      HSA_SORRY_ATV (gimple_location (stmt),
+		     "support for HSA does not implement calls to builtin %D",
+		     gimple_call_fndecl (stmt));
       return;
     }
 }
@@ -4413,8 +4478,9 @@ gen_hsa_insns_for_gimple_stmt (gimple *stmt, hsa_bb *hbb,
     {
       tree label = gimple_label_label (as_a <glabel *> (stmt));
       if (FORCED_LABEL (label))
-	sorry ("Support for HSA does not implement gimple label with address "
-	       "taken");
+	HSA_SORRY_AT (gimple_location (stmt),
+		      "support for HSA does not implement gimple label with "
+		      "address taken");
 
       break;
     }
@@ -4429,8 +4495,9 @@ gen_hsa_insns_for_gimple_stmt (gimple *stmt, hsa_bb *hbb,
       break;
     }
     default:
-      sorry ("Support for HSA does not implement gimple statement %s",
-	     gimple_code_name[(int) gimple_code (stmt)]);
+      HSA_SORRY_ATV (gimple_location (stmt),
+		     "support for HSA does not implement gimple statement %s",
+		     gimple_code_name[(int) gimple_code (stmt)]);
     }
 }
 
@@ -4490,8 +4557,9 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
 	    }
 	  else
 	    {
-	      sorry ("Support for HSA does not handle PHI nodes with constant "
-		     "address operands");
+	      HSA_SORRY_AT (gimple_location (phi_stmt),
+			    "support for HSA does not handle PHI nodes with "
+			    "constant address operands");
 	      return;
 	    }
 	}
@@ -4607,7 +4675,9 @@ gen_body_from_gimple (vec <hsa_op_reg_p> *ssa_map)
 	     to the same basic block.  */
 	  if (e->flags & EDGE_EH)
 	    {
-	      sorry ("Support for HSA does not implement exception handling");
+	      HSA_SORRY_AT
+		(UNKNOWN_LOCATION,
+		 "support for HSA does not implement exception handling");
 	      return;
 	    }
 	}
@@ -4621,7 +4691,7 @@ gen_body_from_gimple (vec <hsa_op_reg_p> *ssa_map)
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gen_hsa_insns_for_gimple_stmt (gsi_stmt (gsi), hbb, ssa_map);
-	  if (seen_error ())
+	  if (hsa_seen_error ())
 	    return;
 	}
     }
@@ -5061,16 +5131,16 @@ emit_hsa_module_variables (void)
 static void
 generate_hsa (bool kernel)
 {
+  vec <hsa_op_reg_p> ssa_map = vNULL;
+
   if (hsa_num_threads == NULL)
     emit_hsa_module_variables ();
 
-  verify_function_arguments (cfun->decl);
-  if (seen_error ())
-    return;
-
-  vec <hsa_op_reg_p> ssa_map = vNULL;
-
   hsa_init_data_for_cfun ();
+  verify_function_arguments (cfun->decl);
+  if (hsa_seen_error ())
+    goto fail;
+
   hsa_cfun->decl = cfun->decl;
   hsa_cfun->kern_p = kernel;
 
@@ -5080,13 +5150,13 @@ generate_hsa (bool kernel)
   hsa_sanitize_name (hsa_cfun->name);
 
   gen_function_def_parameters (hsa_cfun, &ssa_map);
-  if (seen_error ())
+  if (hsa_seen_error ())
     goto fail;
 
   init_omp_in_prologue ();
 
   gen_body_from_gimple (&ssa_map);
-  if (seen_error ())
+  if (hsa_seen_error ())
     goto fail;
 
   if (hsa_cfun->kern_p)
