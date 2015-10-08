@@ -132,7 +132,7 @@ static bool brig_initialized = false;
 static hash_map<tree, BrigCodeOffset32_t> *function_offsets;
 
 /* Set of emitted function declarations.  */
-static hash_set <tree> *emitted_declarations;
+static hash_map <tree, BrigDirectiveExecutable *> *emitted_declarations;
 
 /* List of sbr instructions.  */
 static vec <hsa_insn_sbr *> *switch_instructions;
@@ -1110,15 +1110,18 @@ emit_queued_operands (void)
 
 /* Emit directives describing the function that is used for
 a function declaration.  */
-static void
+
+static BrigDirectiveExecutable *
 emit_function_declaration (tree decl)
 {
   hsa_function_representation *f = hsa_generate_function_declaration (decl);
 
-  emit_function_directives (f, true);
+  BrigDirectiveExecutable *e = emit_function_directives (f, true);
   emit_queued_operands ();
 
   delete f;
+
+  return e;
 }
 
 /* Emit an HSA memory instruction and all necessary directives, schedule
@@ -1881,17 +1884,17 @@ hsa_brig_emit_function (void)
     function_offsets = new hash_map<tree, BrigCodeOffset32_t> ();
 
   if (!emitted_declarations)
-    emitted_declarations = new hash_set<tree> ();
+    emitted_declarations = new hash_map <tree, BrigDirectiveExecutable *> ();
 
   for (unsigned i = 0; i < hsa_cfun->called_functions.length (); i++)
     {
       tree called = hsa_cfun->called_functions[i];
 
       /* If the function has no definition, emit a declaration.  */
-      if (!emitted_declarations->contains (called))
+      if (!emitted_declarations->get (called))
 	{
-	  emit_function_declaration (called);
-	  emitted_declarations->add (called);
+	  BrigDirectiveExecutable *e = emit_function_declaration (called);
+	  emitted_declarations->put (called, e);
 	}
     }
 
@@ -2279,6 +2282,19 @@ hsa_output_brig (void)
       gcc_assert (code_ref->base.kind == BRIG_KIND_OPERAND_CODE_REF);
       code_ref->ref = htole32 (*func_offset);
     }
+
+  /* Iterate all function declarations and if we meet a function that should
+     have module linkage and we are unable to emit HSAIL for the function,
+     then change the linkage to program linkage.  Doing so, we will emit
+     a valid BRIG image.  */
+  if (hsa_failed_functions != NULL && emitted_declarations != NULL)
+    for (hash_map <tree, BrigDirectiveExecutable *>::iterator it =
+	 emitted_declarations->begin (); it != emitted_declarations->end ();
+	 ++it)
+      {
+	if (hsa_failed_functions->contains ((*it).first))
+	  (*it).second->linkage = BRIG_LINKAGE_PROGRAM;
+      }
 
   saved_section = in_section;
 

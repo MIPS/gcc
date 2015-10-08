@@ -107,6 +107,9 @@ hsa_summary_t *hsa_summaries = NULL;
 /* HSA number of threads.  */
 hsa_symbol *hsa_num_threads = NULL;
 
+/* HSA function that cannot be expanded to HSAIL.  */
+hash_set <tree> *hsa_failed_functions = NULL;
+
 /* True if compilation unit-wide data are already allocated and initialized.  */
 static bool compilation_unit_data_initialized;
 
@@ -140,6 +143,9 @@ hsa_deinit_compilation_unit_data (void)
 {
   if (compilation_unit_data_initialized)
     delete hsa_global_variable_symbols;
+
+  if (hsa_failed_functions)
+    delete hsa_failed_functions;
 }
 
 /* Return true if we are generating large HSA machine model.  */
@@ -651,6 +657,17 @@ bool
 hsa_seen_error (void)
 {
   return hsa_cfun->seen_error;
+}
+
+/* Mark current HSA function as failed.  */
+
+void
+hsa_fail_cfun (void)
+{
+  if (hsa_failed_functions == NULL)
+    hsa_failed_functions = new hash_set <tree> ();
+  hsa_failed_functions->add (hsa_cfun->decl);
+  hsa_cfun->seen_error = true;
 }
 
 #include "gt-hsa.h"

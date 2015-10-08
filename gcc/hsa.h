@@ -1043,6 +1043,8 @@ extern hash_map <tree, vec <char *> *> *hsa_decl_kernel_dependencies;
 extern hsa_summary_t *hsa_summaries;
 extern hsa_symbol *hsa_num_threads;
 extern unsigned hsa_kernel_calls_counter;
+extern hash_set <tree> *hsa_failed_functions;
+
 bool hsa_callable_function_p (tree fndecl);
 void hsa_init_compilation_unit_data (void);
 void hsa_deinit_compilation_unit_data (void);
@@ -1068,6 +1070,7 @@ const char *hsa_get_declaration_name (tree decl);
 void hsa_register_kernel (cgraph_node *host);
 void hsa_register_kernel (cgraph_node *gpu, cgraph_node *host);
 bool hsa_seen_error (void);
+void hsa_fail_cfun (void);
 
 /* In hsa-gen.c.  */
 void hsa_build_append_simple_mov (hsa_op_reg *, hsa_op_base *, hsa_bb *);

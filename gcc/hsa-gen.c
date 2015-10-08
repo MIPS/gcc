@@ -84,7 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #define HSA_SORRY_ATV(location, message, ...) \
   do \
   { \
-    hsa_cfun->seen_error = true; \
+    hsa_fail_cfun (); \
     if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
 		    HSA_SORRY_MSG)) \
       inform (location, message, ##__VA_ARGS__); \
@@ -96,7 +96,7 @@ along with GCC; see the file COPYING3.  If not see
 #define HSA_SORRY_AT(location, message) \
   do \
   { \
-    hsa_cfun->seen_error = true; \
+    hsa_fail_cfun (); \
     if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
 		    HSA_SORRY_MSG)) \
       inform (location, message); \

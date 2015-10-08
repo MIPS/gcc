@@ -1,5 +1,19 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_function_declaration): Return pointer to
+	BrigDirectiveExecutable structure.
+	(hsa_brig_emit_function): Save the structure for all emitted
+	declarations.
+	(hsa_output_brig): Fix function linkage, if needed.
+	* hsa-gen.c (HSA_SORRY_AT{V}): Put all failed functions
+	to a set.
+	* hsa.h (hsa_failed_functions): New global variable.
+	(hsa_fail_cfun): New function.
+	* hsa.c (hsa_failed_functions): Define the variable.
+	(hsa_fail_cfun): New function.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call): Expand unsupported
 	builtins to calls that are going to be resolved by BRIG shared
 	libraries.
