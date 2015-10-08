@@ -1,5 +1,11 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* plugin/plugin-hsa.c (get_kernel_for_agent): New function.
+	(init_single_kernel): Use it.
+	(create_kernel_dispatch_recursive): Dtto.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* plugin/plugin-hsa.c (struct brig_library_info): New structure.
 	(struct agent_info): Add BRIG shared libraries.
 	(add_shared_library): New function.

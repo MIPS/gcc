@@ -265,14 +265,21 @@ struct hsa_context_info
 
 static struct hsa_context_info hsa_context;
 
-/* Find kernel in MODULE by name provided in KERNEL_NAME.  */
+/* Find kernel for an AGENT by name provided in KERNEL_NAME.  */
 
 static struct kernel_info *
-get_kernel_in_module (struct module_info *module, const char *kernel_name)
+get_kernel_for_agent (struct agent_info *agent, const char *kernel_name)
 {
-  for (unsigned i = 0; i < module->kernel_count; i++)
-    if (strcmp (module->kernels[i].name, kernel_name) == 0)
-      return &module->kernels[i];
+  struct module_info *module = agent->first_module;
+
+  while (module)
+    {
+      for (unsigned i = 0; i < module->kernel_count; i++)
+	if (strcmp (module->kernels[i].name, kernel_name) == 0)
+	  return &module->kernels[i];
+
+      module = module->next;
+    }
 
   return NULL;
 }
@@ -841,12 +848,10 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
   if (kernel->omp_data_size > *max_omp_data_size)
     *max_omp_data_size = kernel->omp_data_size;
 
-  /* FIXME: do not consider all kernels to live in a same module.  */
-  struct module_info *module = kernel->agent->first_module;
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
     {
-      struct kernel_info *dependency = get_kernel_in_module
-	(module, kernel->dependencies[i]);
+      struct kernel_info *dependency = get_kernel_for_agent
+	(agent, kernel->dependencies[i]);
 
       if (dependency == NULL)
 	{
@@ -917,9 +922,6 @@ static struct hsa_kernel_dispatch *
 create_kernel_dispatch_recursive (struct kernel_info *kernel,
 				  unsigned omp_data_size)
 {
-  // TODO: find correct module
-  struct module_info *module = kernel->agent->first_module;
-
   struct hsa_kernel_dispatch *shadow = create_kernel_dispatch (kernel,
 							       omp_data_size);
   shadow->omp_num_threads = 64;
@@ -927,8 +929,8 @@ create_kernel_dispatch_recursive (struct kernel_info *kernel,
 
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
     {
-      struct kernel_info *dependency = get_kernel_in_module
-	(module, kernel->dependencies[i]);
+      struct kernel_info *dependency = get_kernel_for_agent
+	(kernel->agent, kernel->dependencies[i]);
       shadow->children_dispatches[i] = create_kernel_dispatch_recursive
 	(dependency, omp_data_size);
     }

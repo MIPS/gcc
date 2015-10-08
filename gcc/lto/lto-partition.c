@@ -196,36 +196,6 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
 			 "adding an HSA function (host/gpu) to the "
 			 "partition: %s\n",
 			 s->binded_function->name ());
-
-	      ipa_ref *ref;
-
-	      /* Add all parents nodes that have HSA type.  */
-	      for (unsigned i = 0; node->iterate_referring (i, ref); i++)
-		{
-		  cgraph_node *r = dyn_cast <cgraph_node *> (ref->referring);
-		  if (r && hsa_summaries->get (r)->kind != HSA_NONE)
-		    {
-		      add_symbol_to_partition_1 (part, r);
-		      if (symtab->dump_file)
-			fprintf (symtab->dump_file,
-				 "adding an HSA referring node: %s\n",
-				 r->name ());
-		    }
-		}
-
-	      /* Add all children nodes that have HSA type.  */
-	      for (unsigned i = 0; node->iterate_reference (i, ref); i++)
-		{
-		  cgraph_node *r = dyn_cast <cgraph_node *> (ref->referred);
-		  if (r && hsa_summaries->get (r)->kind != HSA_NONE)
-		    {
-		      add_symbol_to_partition_1 (part, r);
-		      if (symtab->dump_file)
-			fprintf (symtab->dump_file,
-				 "adding an HSA referred symbol: %s\n",
-				 r->name ());
-		    }
-		}
 	    }
 	}
     }
