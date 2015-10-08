@@ -2910,6 +2910,9 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb,
   hsa_op_with_type *op2 = rhs2 != NULL_TREE ?
     hsa_reg_or_immed_for_gimple_op (rhs2, hbb, ssa_map) : NULL;
 
+  if (hsa_seen_error ())
+    return;
+
   switch (rhs_class)
     {
     case GIMPLE_TERNARY_RHS:

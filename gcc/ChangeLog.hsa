@@ -1,5 +1,10 @@
 2015-10-08  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Surrender
+	if an error is seen.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_function_declaration): Return pointer to
 	BrigDirectiveExecutable structure.
 	(hsa_brig_emit_function): Save the structure for all emitted
