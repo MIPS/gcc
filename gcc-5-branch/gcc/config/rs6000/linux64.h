@@ -400,15 +400,9 @@ extern int dot_symbols;
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER32 "}}"
 
-#ifdef HAVE_LD_GOLD_SUPPORTS_SPLIT_STACK
-#define LINK_OS_LINUX_SPEC64 LINK_OS_LINUX_EMUL64 " %{!shared: %{!static: \
-  %{rdynamic:-export-dynamic} \
-  -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}} %{fsplit-stack:-fuse-ld=gold}"
-#else
 #define LINK_OS_LINUX_SPEC64 LINK_OS_LINUX_EMUL64 " %{!shared: %{!static: \
   %{rdynamic:-export-dynamic} \
   -dynamic-linker " GNU_USER_DYNAMIC_LINKER64 "}}"
-#endif
 
 #undef  TOC_SECTION_ASM_OP
 #define TOC_SECTION_ASM_OP \

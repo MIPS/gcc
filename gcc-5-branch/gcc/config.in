@@ -1404,9 +1404,9 @@
 #endif
 
 
-/* Define to 1 if there is a gold linker in the path which supports split stack. */
+/* Define to if the gold linker with split stack is available as a non-default. */
 #ifndef USED_FOR_TARGET
-#undef HAVE_LD_GOLD_SUPPORTS_SPLIT_STACK
+#undef HAVE_GOLD_NON_DEFAULT_SPLIT_STACK
 #endif
 
 
