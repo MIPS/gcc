@@ -1,3 +1,14 @@
+2015-10-09 James Norris  <jnorris@codesourcery.com>
+
+	Revert:
+	2015-10-06 James Norris  <jnorris@codesourcery.com>
+
+	* common.opt (OFFLOAD_ABI_PPC64): New enum.
+	* config/nvptx/mkoffload.c (compile_native): Handle new enum.
+	(main): Handle new option.
+	* config/rs6000/rs6000.c (rs6000_offload_options): New hook.
+	* gcc/coretypes.h (OFFLOAD_ABI_PPC64): New enum.
+
 2015-10-08  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (expand_omp_for_init_counts): Add inits for counters in

@@ -170,8 +170,7 @@ enum tls_model {
 enum offload_abi {
   OFFLOAD_ABI_UNSET,
   OFFLOAD_ABI_LP64,
-  OFFLOAD_ABI_ILP32,
-  OFFLOAD_ABI_PPC64
+  OFFLOAD_ABI_ILP32
 };
 
 /* Types of unwind/exception handling info that can be generated.  */
