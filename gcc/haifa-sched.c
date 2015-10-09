@@ -3023,7 +3023,7 @@ print_rank_for_schedule_stats (const char *prefix,
 	if (ready != NULL)
 	  /* Print out insns that won due to RFS_<I>.  */
 	  {
-	    rtx_insn **p = ready_lastpos (ready);
+	    rtx *p = ready_lastpos (ready);
 
 	    fprintf (sched_dump, ":");
 	    /* Start with 1 since least-priority insn didn't have any wins.  */
@@ -6004,7 +6004,7 @@ verify_shadows (void)
 	      if (t < queued_for)
 		{
 		  if (sched_verbose >= 2)
-		    fprintf (Sched_dump,
+		    fprintf (sched_dump,
 			     ";;\t\tfailed delay requirements for %d/%d"
 			     " (%d->%d), queued too late\n",
 			     INSN_UID (pair->i1), INSN_UID (pair->i2),
@@ -6062,7 +6062,7 @@ schedule_block (basic_block *target_bb, state_t init_state)
 
       if (sched_verbose >= 2)
 	{
-	  dump_insn_stream (head, tail);
+	  //dump_insn_stream (head, tail);
 	  memset (&rank_for_schedule_stats, 0,
 	  sizeof (rank_for_schedule_stats));
 	}
@@ -6658,7 +6658,7 @@ schedule_block (basic_block *target_bb, state_t init_state)
 
       if (sched_verbose >= 2)
 	{
-	  dump_insn_stream (head, tail);
+	  //dump_insn_stream (head, tail);
 	  print_rank_for_schedule_stats (";; TOTAL ", &rank_for_schedule_stats,
 					 NULL);
 	}
