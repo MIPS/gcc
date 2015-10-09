@@ -36,6 +36,11 @@
 #ifndef LIBGOMP_H 
 #define LIBGOMP_H 1
 
+#ifndef _LIBGOMP_CHECKING_
+/* Define to 1 to perform internal sanity checks.  */
+#define _LIBGOMP_CHECKING_ 0
+#endif
+
 #include "config.h"
 #include "gstdint.h"
 #include "libgomp-plugin.h"

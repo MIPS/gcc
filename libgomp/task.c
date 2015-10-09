@@ -567,10 +567,120 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
     gomp_team_barrier_wake (&team->barrier, 1);
 }
 
+#if _LIBGOMP_CHECKING
+/* Sanity check TASK to make sure it is in its parent's children
+   queue, and that the tasks therein are in the right order.
+
+   The expected order is:
+	parent_depends_on WAITING tasks
+	!parent_depends_on WAITING tasks
+	TIED tasks
+
+   PARENT is the alleged parent of TASK.  */
+
+static void
+verify_children_queue (struct gomp_task *task, struct gomp_task *parent)
+{
+  if (task->parent != parent)
+    gomp_fatal ("verify_children_queue: incompatible parents");
+  /* It's OK, Annie was an orphan and she turned out all right.  */
+  if (!parent)
+    return;
+
+  bool seen_tied = false;
+  bool seen_plain_waiting = false;
+  bool found = false;
+  struct gomp_task *t = parent->children;
+  while (1)
+    {
+      if (t == task)
+	found = true;
+      if (seen_tied && t->kind == GOMP_TASK_WAITING)
+	gomp_fatal ("verify_children_queue: WAITING task after TIED");
+      if (t->kind == GOMP_TASK_TIED)
+	seen_tied = true;
+      else if (t->kind == GOMP_TASK_WAITING)
+	{
+	  if (t->parent_depends_on)
+	    {
+	      if (seen_plain_waiting)
+		gomp_fatal ("verify_children_queue: parent_depends_on after "
+			    "!parent_depends_on");
+	    }
+	  else
+	    seen_plain_waiting = true;
+	}
+      t = t->next_child;
+      if (t == parent->children)
+	break;
+    }
+  if (!found)
+    gomp_fatal ("verify_children_queue: child not found in parent queue");
+}
+
+/* Sanity check TASK to make sure it is in its taskgroup queue (if
+   applicable), and that the tasks therein are in the right order.
+
+   The expected order is that GOMP_TASK_WAITING tasks must come before
+   GOMP_TASK_TIED tasks.
+
+   TASK is the task.  */
+
+static void
+verify_taskgroup_queue (struct gomp_task *task)
+{
+  struct gomp_taskgroup *taskgroup = task->taskgroup;
+  if (!taskgroup)
+    return;
+
+  bool seen_tied = false;
+  bool found = false;
+  struct gomp_task *t = taskgroup->children;
+  while (1)
+    {
+      if (t == task)
+	found = true;
+      if (t->kind == GOMP_TASK_WAITING && seen_tied)
+	gomp_fatal ("verify_taskgroup_queue: WAITING task after TIED");
+      if (t->kind == GOMP_TASK_TIED)
+	seen_tied = true;
+      t = t->next_taskgroup;
+      if (t == taskgroup->children)
+	break;
+    }
+  if (!found)
+    gomp_fatal ("verify_taskgroup_queue: child not found in parent queue");
+}
+
+/* Verify that TASK is in the team's task queue.  */
+
+static void
+verify_task_queue (struct gomp_task *task, struct gomp_team *team)
+{
+  struct gomp_task *t = team->task_queue;
+  if (team)
+    while (1)
+      {
+	if (t == task)
+	  return;
+	t = t->next_queue;
+	if (t == team->task_queue)
+	  break;
+      }
+  gomp_fatal ("verify_team_queue: child not in team");
+}
+#endif
+
 static inline bool
 gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
-		   struct gomp_taskgroup *taskgroup, struct gomp_team *team)
+		   struct gomp_team *team)
 {
+#if _LIBGOMP_CHECKING
+  verify_children_queue (child_task, parent);
+  verify_taskgroup_queue (child_task);
+  verify_task_queue (child_task, team);
+#endif
+
   if (parent)
     {
       /* Adjust children such that it will point to a next child,
@@ -583,6 +693,21 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 	 by GOMP_taskwait).  */
       if (parent->children == child_task)
 	parent->children = child_task->next_child;
+      /* TIED tasks cannot come before WAITING tasks.  If we're about
+	 to make this task TIED, rewire things appropriately.
+	 However, a TIED task at the end is perfectly fine.  */
+      else if (child_task->next_child->kind == GOMP_TASK_WAITING
+	       && child_task->next_child != parent->children)
+	{
+	  /* Remove from the list.  */
+	  child_task->prev_child->next_child = child_task->next_child;
+	  child_task->next_child->prev_child = child_task->prev_child;
+	  /* Rewire at the end of its siblings.  */
+	  child_task->next_child = parent->children;
+	  child_task->prev_child = parent->children->prev_child;
+	  parent->children->prev_child->next_child = child_task;
+	  parent->children->prev_child = child_task;
+	}
 
       /* If the current task (child_task) is at the top of the
 	 parent's last_parent_depends_on, it's about to be removed
@@ -610,8 +735,29 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
   /* Adjust taskgroup to point to the next taskgroup.  See note above
      regarding adjustment of children as to why the child_task is not
      removed entirely from the circular list.  */
-  if (taskgroup && taskgroup->children == child_task)
-    taskgroup->children = child_task->next_taskgroup;
+  struct gomp_taskgroup *taskgroup = child_task->taskgroup;
+  if (taskgroup)
+    {
+      if (taskgroup->children == child_task)
+	taskgroup->children = child_task->next_taskgroup;
+      /* TIED tasks cannot come before WAITING tasks.  If we're about
+	 to make this task TIED, rewire things appropriately.
+	 However, a TIED task at the end is perfectly fine.  */
+      else if (child_task->next_taskgroup->kind == GOMP_TASK_WAITING
+	       && child_task->next_taskgroup != taskgroup->children)
+	{
+	  /* Remove from the list.  */
+	  child_task->prev_taskgroup->next_taskgroup
+	    = child_task->next_taskgroup;
+	  child_task->next_taskgroup->prev_taskgroup
+	    = child_task->prev_taskgroup;
+	  /* Rewire at the end of its taskgroup.  */
+	  child_task->next_taskgroup = taskgroup->children;
+	  child_task->prev_taskgroup = taskgroup->children->prev_taskgroup;
+	  taskgroup->children->prev_taskgroup->next_taskgroup = child_task;
+	  taskgroup->children->prev_taskgroup = child_task;
+	}
+    }
 
   /* Remove child_task from the task_queue.  */
   child_task->prev_queue->next_queue = child_task->next_queue;
@@ -907,7 +1053,7 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 	{
 	  child_task = team->task_queue;
 	  cancelled = gomp_task_run_pre (child_task, child_task->parent,
-					 child_task->taskgroup, team);
+					 team);
 	  if (__builtin_expect (cancelled, 0))
 	    {
 	      if (to_free)
@@ -1020,8 +1166,7 @@ GOMP_taskwait (void)
 	{
 	  child_task = task->children;
 	  cancelled
-	    = gomp_task_run_pre (child_task, task, child_task->taskgroup,
-				 team);
+	    = gomp_task_run_pre (child_task, task, team);
 	  if (__builtin_expect (cancelled, 0))
 	    {
 	      if (to_free)
@@ -1222,8 +1367,7 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 	{
 	  child_task = task->children;
 	  cancelled
-	    = gomp_task_run_pre (child_task, task, child_task->taskgroup,
-				 team);
+	    = gomp_task_run_pre (child_task, task, team);
 	  if (__builtin_expect (cancelled, 0))
 	    {
 	      if (to_free)
@@ -1379,8 +1523,7 @@ GOMP_taskgroup_end (void)
       if (child_task->kind == GOMP_TASK_WAITING)
 	{
 	  cancelled
-	    = gomp_task_run_pre (child_task, child_task->parent, taskgroup,
-				 team);
+	    = gomp_task_run_pre (child_task, child_task->parent, team);
 	  if (__builtin_expect (cancelled, 0))
 	    {
 	      if (to_free)

@@ -1,3 +1,14 @@
+2015-10-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h (_LIBGOMP_CHECKING_): New macro.
+	* task.c (verify_children_queue): New.
+	(verify_taskgroup_queue): New.
+	(verify_task_queue): New.
+	(gomp_task_run_pre): Call verify_*_queue functions.
+	If an upcoming tied task is about to leave the sibling or
+	taskgroup queues in an invalid state, adjust appropriately.
+	(GOMP_taskgroup_end): Do not pass taskgroup to gomp_task_run_pre().
+
 2015-10-01  Aldy Hernandez  <aldyh@redhat.com>
 
 	* task.c (gomp_task_maybe_wait_for_dependencies): Fix scheduling
