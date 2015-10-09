@@ -629,8 +629,7 @@ static void
 nvptx_init_axis_predicate (FILE *file, int regno, const char *name)
 {
   fprintf (file, "\t{\n");
-      
-  fprintf (file, "\t.reg.u32\t%%%s;\n", name);
+  fprintf (file, "\t\t.reg.u32\t%%%s;\n", name);
   fprintf (file, "\t\tmov.u32\t%%%s, %%tid.%s;\n", name, name);
   fprintf (file, "\t\tsetp.ne.u32\t%%r%d, %%%s, 0;\n", regno, name);
   fprintf (file, "\t}\n");
