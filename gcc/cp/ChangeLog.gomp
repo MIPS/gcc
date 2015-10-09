@@ -1,3 +1,8 @@
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c: Adjust OpenMP version numbers from 4.1 to 4.5 in
+	all comments.
+
 2015-10-01  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_for_class_iterator): Add collapse and

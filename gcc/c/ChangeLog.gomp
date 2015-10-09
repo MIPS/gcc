@@ -1,3 +1,8 @@
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c: Adjust OpenMP version numbers from 4.1 to 4.5 in
+	all comments.
+
 2015-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_depend_sink): Put - sign

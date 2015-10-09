@@ -6225,7 +6225,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
     {
       ctx->target_map_pointers_as_0len_arrays = true;
       /* FIXME: For Fortran we want to set this too, when
-	 the Fortran FE is updated to OpenMP 4.1.  */
+	 the Fortran FE is updated to OpenMP 4.5.  */
       ctx->target_map_scalars_firstprivate = true;
     }
   if (!lang_GNU_Fortran ())

@@ -134,7 +134,7 @@ OMP_4.0 {
 	omp_is_initial_device_;
 } OMP_3.1;
 
-OMP_4.1 {
+OMP_4.5 {
   global:
 	omp_get_max_task_priority;
 	omp_get_max_task_priority_;
@@ -264,7 +264,7 @@ GOMP_4.0.1 {
 	GOMP_offload_unregister;
 } GOMP_4.0;
 
-GOMP_4.1 {
+GOMP_4.5 {
   global:
 	GOMP_target_41;
 	GOMP_target_data_41;

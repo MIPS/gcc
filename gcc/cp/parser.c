@@ -29389,7 +29389,7 @@ cp_parser_omp_clause_final (cp_parser *parser, tree list, location_t location)
 /* OpenMP 2.5:
    if ( expression )
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    if ( directive-name-modifier : expression )
 
    directive-name-modifier:
@@ -29638,7 +29638,7 @@ cp_parser_omp_clause_num_threads (cp_parser *parser, tree list,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    num_tasks ( expression ) */
 
 static tree
@@ -29668,7 +29668,7 @@ cp_parser_omp_clause_num_tasks (cp_parser *parser, tree list,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    grainsize ( expression ) */
 
 static tree
@@ -29698,7 +29698,7 @@ cp_parser_omp_clause_grainsize (cp_parser *parser, tree list,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    priority ( expression ) */
 
 static tree
@@ -29728,7 +29728,7 @@ cp_parser_omp_clause_priority (cp_parser *parser, tree list,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    hint ( expression ) */
 
 static tree
@@ -29757,7 +29757,7 @@ cp_parser_omp_clause_hint (cp_parser *parser, tree list,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    defaultmap ( tofrom : scalar ) */
 
 static tree
@@ -29856,7 +29856,7 @@ cp_parser_omp_clause_num_workers (cp_parser *parser, tree list)
 /* OpenMP 2.5:
    ordered
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    ordered ( constant-expression ) */
 
 static tree
@@ -30017,7 +30017,7 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
    schedule-kind:
      static | dynamic | guided | runtime | auto
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    schedule ( schedule-modifier : schedule-kind )
    schedule ( schedule-modifier : schedule-kind , expression )
 
@@ -30168,7 +30168,7 @@ cp_parser_omp_clause_cancelkind (cp_parser * /*parser*/,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    nogroup */
 
 static tree
@@ -30181,7 +30181,7 @@ cp_parser_omp_clause_nogroup (cp_parser * /*parser*/,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    simd
    threads */
 
@@ -30295,7 +30295,7 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
    linear ( variable-list )
    linear ( variable-list : expression )
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    linear ( modifier ( variable-list ) )
    linear ( modifier ( variable-list ) : expression ) */
 
@@ -30428,7 +30428,7 @@ cp_parser_omp_clause_simdlen (cp_parser *parser, tree list,
   return c;
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    vec:
      identifier [+/- integer]
      vec , identifier [+/- integer]
@@ -30519,7 +30519,7 @@ cp_parser_omp_clause_depend_sink (cp_parser *parser, location_t clause_loc,
    depend-kind:
      in | out | inout
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    depend ( source )
 
    depend ( sink : vec ) */
@@ -30600,7 +30600,7 @@ cp_parser_omp_clause_depend (cp_parser *parser, tree list, location_t loc)
    map-kind:
      alloc | to | from | tofrom
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    map-kind:
      alloc | to | from | tofrom | release | delete
 
@@ -31795,7 +31795,7 @@ cp_parser_omp_barrier (cp_parser *parser, cp_token *pragma_tok)
    # pragma omp critical [(name)] new-line
      structured-block
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    # pragma omp critical [(name) [hint(expression)]] new-line
      structured-block  */
 
@@ -32653,7 +32653,7 @@ cp_parser_omp_master (cp_parser *parser, cp_token *pragma_tok)
    # pragma omp ordered new-line
      structured-block
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    # pragma omp ordered ordered-clauses new-line
      structured-block  */
 
@@ -33311,7 +33311,7 @@ cp_parser_omp_target_data (cp_parser *parser, cp_token *pragma_tok)
   return add_stmt (stmt);
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    # pragma omp target enter data target-enter-data-clause[optseq] new-line
      structured-block  */
 
@@ -33397,7 +33397,7 @@ cp_parser_omp_target_enter_data (cp_parser *parser, cp_token *pragma_tok,
   return add_stmt (stmt);
 }
 
-/* OpenMP 4.1:
+/* OpenMP 4.5:
    # pragma omp target exit data target-enter-data-clause[optseq] new-line
      structured-block  */
 
@@ -34172,7 +34172,7 @@ cp_parser_late_parsing_omp_declare_simd (cp_parser *parser, tree attrs)
    declarations and definitions
    # pragma omp end declare target new-line
 
-   OpenMP 4.1:
+   OpenMP 4.5:
    # pragma omp declare target ( extended-list ) new-line
 
    # pragma omp declare target declare-target-clauses[seq] new-line  */
@@ -34716,8 +34716,8 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
   cp_parser_require_pragma_eol (parser, pragma_tok);
 }
 
-/* OpenMP 4.1:
-7   #pragma omp taskloop taskloop-clause[optseq] new-line
+/* OpenMP 4.5:
+   #pragma omp taskloop taskloop-clause[optseq] new-line
      for-loop
 
    #pragma omp taskloop simd taskloop-simd-clause[optseq] new-line

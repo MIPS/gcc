@@ -1,3 +1,11 @@
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.map (OMP_4.1): Renamed to ...
+	(OMP_4.5): ... this.
+	(GOMP_4.1): Renamed to ...
+	(GOMP_4.5): ... this.
+	* libgomp.texi: Adjust OpenMP version number from 4.1 to 4.5.
+
 2015-10-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* loop_ull.c (gomp_loop_ull_doacross_static_start,

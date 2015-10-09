@@ -1,3 +1,8 @@
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Adjust OpenMP version
+	number from 4.1 to 4.5 in a comment.
+
 2015-10-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_ordered_source): Use GOMP_doacross_ull_post
