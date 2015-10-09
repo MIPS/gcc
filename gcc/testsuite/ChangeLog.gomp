@@ -1,5 +1,9 @@
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/gomp/depend-4.c (main): Add tests for negative
+	lengths.
+	* c-c++-common/gomp/map-2.c (main): Likewise.
+
 	* c-c++-common/gomp/depend-4.c: New test.
 	* c-c++-common/gomp/map-2.c: New test.
 

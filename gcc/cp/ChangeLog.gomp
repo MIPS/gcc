@@ -1,5 +1,8 @@
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
+	* semantics.c (handle_omp_array_sections_1): Diagnose negative
+	length even for pointer based array sections.
+
 	* parser.c: Adjust OpenMP version numbers from 4.1 to 4.5 in
 	all comments.
 
