@@ -18868,7 +18868,7 @@ mips_avoid_hazard (rtx after, rtx insn, int *hilo_delay,
     nops = 1;
   /* The P6600's branch predictor does not handle certain static
      sequences of back-to-back jumps well.  Inserting a no-op only
-     costs space as the dispatch unit will disregard the nop. 
+     costs space as the dispatch unit will disregard the nop.
      Here we handle the cases of back to back unconditional branches
      that are inefficent.  */
   else if (TUNE_P6600 && TARGET_CB_MAYBE && !optimize_size
