@@ -1,3 +1,9 @@
+2015-10-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* task.c (gomp_task_maybe_wait_for_dependencies): Fix scheduling
+	problem such that the first non parent_depends_on task does not
+	end up at the end of the children queue.
+
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp.h.in (omp_target_is_present): Remove OFFSET argument.

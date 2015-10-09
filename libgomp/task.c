@@ -1140,17 +1140,37 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 	      {
 		tsk->parent_depends_on = true;
 		++num_awaited;
+		/* If a task we need to wait for is not already
+		   running and is ready to be scheduled, move it to
+		   front, so that we run it as soon as possible.
+
+		   We rearrange the children queue such that all
+		   parent_depends_on tasks are first, and
+		   last_parent_depends_on points to the last such task
+		   we rearranged.  For example, given the following
+		   children where PD[123] are the parent_depends_on
+		   tasks:
+
+			task->children
+			|
+			V
+			C1 -> C2 -> C3 -> PD1 -> PD2 -> PD3 -> C4
+
+		   We rearrange such that:
+
+			task->children
+			|	       +--- last_parent_depends_on
+			|	       |
+			V	       V
+			PD1 -> PD2 -> PD3 -> C1 -> C2 -> C3 -> C4
+		*/
+
 		if (tsk->num_dependees == 0 && tsk->kind == GOMP_TASK_WAITING)
 		  {
-		    /* If a task we need to wait for is not already
-		       running and is ready to be scheduled, move it
-		       to front, so that we run it as soon as possible.  */
 		    if (last_parent_depends_on)
 		      {
-			/* Remove tsk from the sibling list...  */
 			tsk->prev_child->next_child = tsk->next_child;
 			tsk->next_child->prev_child = tsk->prev_child;
-			/* ...and insert it into last_parent_depends_on.  */
 			tsk->prev_child = last_parent_depends_on;
 			tsk->next_child = last_parent_depends_on->next_child;
 			tsk->prev_child->next_child = tsk;
@@ -1158,20 +1178,13 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
 		      }
 		    else if (tsk != task->children)
 		      {
-			/* Remove tsk from the sibling list...  */
 			tsk->prev_child->next_child = tsk->next_child;
 			tsk->next_child->prev_child = tsk->prev_child;
-			/* ...and insert it into the running task's
-			   children.  */
-			tsk->prev_child = task->children;
-			tsk->next_child = task->children->next_child;
+			tsk->prev_child = task->children->prev_child;
+			tsk->next_child = task->children;
 			task->children = tsk;
 			tsk->prev_child->next_child = tsk;
 			tsk->next_child->prev_child = tsk;
-		      }
-		    else
-		      {
-			/* It's already in task->children.  Nothing to do.  */;
 		      }
 		    last_parent_depends_on = tsk;
 		  }
