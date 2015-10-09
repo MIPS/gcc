@@ -1688,6 +1688,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_LIBGCC_SHIFT_COUNT_MODE rs6000_abi_word_mode
 #undef TARGET_UNWIND_WORD_MODE
 #define TARGET_UNWIND_WORD_MODE rs6000_abi_word_mode
+
+#undef TARGET_OFFLOAD_OPTIONS
+#define TARGET_OFFLOAD_OPTIONS rs6000_offload_options
 
 
 /* Processor table.  */
@@ -9530,6 +9533,16 @@ static machine_mode
 rs6000_abi_word_mode (void)
 {
   return TARGET_32BIT ? SImode : DImode;
+}
+
+/* Implement the TARGET_OFFLOAD_OPTIONS hook.  */
+static char *
+rs6000_offload_options (void)
+{
+  if (TARGET_64BIT)
+    return xstrdup ("-foffload-abi=lp64");
+  else
+    return xstrdup ("-foffload-abi=ilp32");
 }
 
 /* On rs6000, function arguments are promoted, as are function return
