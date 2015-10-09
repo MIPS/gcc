@@ -1731,10 +1731,10 @@ omp_target_free (void *device_ptr, int device_num)
 }
 
 int
-omp_target_is_present (void *ptr, size_t offset, int device_num)
+omp_target_is_present (void *ptr, int device_num)
 {
   if (ptr == NULL)
-    return offset == 0;
+    return 1;
 
   if (device_num == GOMP_DEVICE_HOST_FALLBACK)
     return 1;
@@ -1753,7 +1753,7 @@ omp_target_is_present (void *ptr, size_t offset, int device_num)
   struct splay_tree_s *mem_map = &devicep->mem_map;
   struct splay_tree_key_s cur_node;
 
-  cur_node.host_start = (uintptr_t) ptr + offset;
+  cur_node.host_start = (uintptr_t) ptr;
   cur_node.host_end = cur_node.host_start;
   splay_tree_key n = gomp_map_lookup (mem_map, &cur_node);
   int ret = n != NULL;

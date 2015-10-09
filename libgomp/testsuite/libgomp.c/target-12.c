@@ -39,9 +39,9 @@ main ()
       if (omp_target_associate_ptr (q, p, 128 * sizeof (int), sizeof (int), d) != 0)
 	abort ();
 
-      if (omp_target_is_present (q, 0, d) != 1
-	  || omp_target_is_present (q, 32 * sizeof (int), d) != 1
-	  || omp_target_is_present (q, 128 * sizeof (int), d) != 1)
+      if (omp_target_is_present (q, d) != 1
+	  || omp_target_is_present (&q[32], d) != 1
+	  || omp_target_is_present (&q[128], d) != 1)
 	abort ();
 
       if (omp_target_memcpy (p, q, 128 * sizeof (int), sizeof (int), 0,
