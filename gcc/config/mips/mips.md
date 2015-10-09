@@ -72,6 +72,7 @@
   i6400
   m5100
   m6200
+  p6600
 ])
 
 (define_c_enum "unspec" [
