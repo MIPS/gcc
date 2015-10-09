@@ -202,7 +202,8 @@ static vec <hsa_op_immed*> hsa_list_operand_immed;
 
 /* TODO: Move more initialization here. */
 
-hsa_function_representation::hsa_function_representation ()
+hsa_function_representation::hsa_function_representation
+  (tree fdecl, bool kernel_p): kern_p (kernel_p), decl (fdecl)
 {
   name = NULL;
   input_args_count = 0;
@@ -216,7 +217,6 @@ hsa_function_representation::hsa_function_representation ()
   readonly_variables = vNULL;
   hbb_count = 0;
   in_ssa = true;	/* We start in SSA.  */
-  kern_p = false;
   declaration_p = false;
   called_functions = vNULL;
   shadow_reg = NULL;
@@ -313,7 +313,6 @@ hsa_init_data_for_cfun ()
     = new object_allocator<hsa_insn_queue> ("HSA queue instructions");
   hsa_allocp_bb = new object_allocator<hsa_bb> ("HSA basic blocks");
   hsa_allocp_symbols = new object_allocator<hsa_symbol> ("HSA symbols");
-  hsa_cfun = new hsa_function_representation ();
 
   /* The entry/exit blocks don't contain incoming code,
      but the HSA generator might use them to put code into,
@@ -5121,13 +5120,13 @@ generate_hsa (bool kernel)
   if (hsa_num_threads == NULL)
     emit_hsa_module_variables ();
 
+  /* Initialize hsa_cfun.  */
+  hsa_cfun = new hsa_function_representation (cfun->decl, kernel);
   hsa_init_data_for_cfun ();
+
   verify_function_arguments (cfun->decl);
   if (hsa_seen_error ())
     goto fail;
-
-  hsa_cfun->decl = cfun->decl;
-  hsa_cfun->kern_p = kernel;
 
   host_decl = hsa_get_host_function (current_function_decl);
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());

@@ -1,3 +1,13 @@
+2015-10-09  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Change arguments of the constructor.
+	(hsa_init_data_for_cfun): Remove creation of hsa_cfun from
+	this function.
+	(generate_hsa): Move it here.
+	* hsa.h (hsa_function_representation::hsa_function_representation):
+	Declare.
+
 2015-10-08  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (fixup_child_record_type): Bail out early if
