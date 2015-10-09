@@ -212,6 +212,15 @@ enum mips_address_type {
   ADDRESS_SYMBOLIC
 };
 
+/* Classifies a unconditional branch of interest for the P6600.  */
+
+enum mips_ucbranch_type {
+  /* May not even be a branch.  */
+  UC_UNDEFINED,
+  UC_BALC,
+  UC_OTHER
+};
+
 /* Macros to create an enumeration identifier for a function prototype.  */
 #define MIPS_FTYPE_NAME1(A, B) MIPS_##A##_FTYPE_##B
 #define MIPS_FTYPE_NAME2(A, B, C) MIPS_##A##_FTYPE_##B##_##C
@@ -1223,7 +1232,20 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
-   }
+  },
+  { /* P6600 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (5),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (17),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (8),            /* int_div_si */
+    COSTS_N_INSNS (8),            /* int_div_di */
+		    2,            /* branch_cost */
+		    4             /* memory_latency */
+  }
 };
 
 static rtx mips_find_pic_call_symbol (rtx_insn *, rtx, bool);
@@ -15160,6 +15182,7 @@ mips_issue_rate (void)
     case PROCESSOR_LOONGSON_2F:
     case PROCESSOR_LOONGSON_3A:
     case PROCESSOR_P5600:
+    case PROCESSOR_P6600:
       return 4;
 
     case PROCESSOR_XLP:
@@ -19476,6 +19499,28 @@ mips_orphaned_high_part_p (mips_offset_table *htab, rtx_insn *insn)
   return false;
 }
 
+/* Subroutine of mips_avoid_hazard. We classify unconditional branches
+   of interest for the P6600 for performance reasons. We're interested
+   in differentiating BALC from JIC, JIALC and BC.  */
+
+static enum mips_ucbranch_type
+mips_classify_branch_p6600 (rtx_insn *insn)
+{
+  if (!(insn
+      && USEFUL_INSN_P (insn)
+      && GET_CODE (PATTERN (insn)) != SEQUENCE))
+    return UC_UNDEFINED;
+
+  if (get_attr_jal (insn) == JAL_INDIRECT /* JIC and JIALC.  */
+      || get_attr_type (insn) == TYPE_JUMP) /* BC as it is a loose jump.  */
+    return UC_OTHER;
+
+  if (CALL_P (insn) && get_attr_jal (insn) == JAL_DIRECT)
+    return UC_BALC;
+
+  return UC_UNDEFINED;
+}
+
 /* Subroutine of mips_reorg_process_insns.  If there is a hazard between
    INSN and a previous instruction, avoid it by inserting nops after
    instruction AFTER.
@@ -19530,14 +19575,36 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
 	   && GET_CODE (pattern) != ASM_INPUT
 	   && asm_noperands (pattern) < 0)
     nops = 1;
+  /* The P6600's branch predictor does not handle certain static
+     sequences of back-to-back jumps well.  Inserting a no-op only
+     costs space as the dispatch unit will disregard the nop.
+     Here we handle the cases of back to back unconditional branches
+     that are inefficent.  */
+  else if (TUNE_P6600 && TARGET_CB_MAYBE && !optimize_size
+	   && ((mips_classify_branch_p6600 (after) == UC_BALC
+		&& mips_classify_branch_p6600 (insn) == UC_OTHER)
+	       || (mips_classify_branch_p6600 (insn) == UC_BALC
+		   && (mips_classify_branch_p6600 (after) == UC_OTHER))))
+    nops = 1;
   else
     nops = 0;
 
   /* Insert the nops between this instruction and the previous one.
      Each new nop takes us further from the last hilo hazard.  */
   *hilo_delay += nops;
+
+  /* If we're tuning for the P6600, we come across an annoying GCC
+     assumption that debug information always follows a call.  Move
+     past any debug information in that case.  */
+  rtx_insn *real_after = after;
+  if (real_after && nops && CALL_P (real_after))
+    while (TUNE_P6600 && real_after
+	   && (NOTE_P (NEXT_INSN (real_after))
+	       || BARRIER_P (NEXT_INSN (real_after))))
+      real_after = NEXT_INSN (real_after);
+
   while (nops-- > 0)
-    emit_insn_after (gen_hazard_nop (), after);
+    emit_insn_after (gen_hazard_nop (), real_after);
 
   /* Set up the state for the next instruction.  */
   *hilo_delay += ninsns;
@@ -19547,6 +19614,14 @@ mips_avoid_hazard (rtx_insn *after, rtx_insn *insn, int *hilo_delay,
     switch (get_attr_hazard (insn))
       {
       case HAZARD_NONE:
+	/* For the P6600, flag some unconditional branches as having a
+	   pseudo-forbidden slot.  This will cause additional nop insertion
+	   or SEQUENCE breaking as required.  */
+	if (TUNE_P6600
+	    && !optimize_size
+	    && TARGET_CB_MAYBE
+	    && mips_classify_branch_p6600 (insn) == UC_OTHER)
+	  *fs_delay = true;
 	break;
 
       case HAZARD_FORBIDDEN_SLOT:
@@ -19789,7 +19864,10 @@ mips_reorg_process_insns (void)
 		     sequence and replace it with the delay slot instruction
 		     then the jump to clear the forbidden slot hazard.  */
 
-		  if (fs_delay)
+		  if (fs_delay || (TUNE_P6600
+				   && TARGET_CB_MAYBE
+				   && mips_classify_branch_p6600 (insn)
+				      == UC_BALC))
 		    {
 		      /* Search onwards from the current position looking for
 			 a SEQUENCE.  We are looking for pipeline hazards here

@@ -325,7 +325,7 @@ struct mips_cpu_info {
 				     || mips_tune == PROCESSOR_SB1A)
 #define TUNE_P5600                  (mips_tune == PROCESSOR_P5600)
 #define TUNE_I6400                  (mips_tune == PROCESSOR_I6400)
-#define TUNE_P6600                  (mips_tune == PROCESSOR_P5600)
+#define TUNE_P6600                  (mips_tune == PROCESSOR_P6600)
 
 /* Whether vector modes and intrinsics for ST Microelectronics
    Loongson-2E/2F processors should be enabled.  In o32 pairs of
