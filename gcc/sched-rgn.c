@@ -3809,6 +3809,8 @@ const pass_data pass_data_sched_fusion =
   RTL_PASS, /* type */
   "sched_fusion", /* name */
   OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
   TV_SCHED_FUSION, /* tv_id */
   0, /* properties_required */
   0, /* properties_provided */
