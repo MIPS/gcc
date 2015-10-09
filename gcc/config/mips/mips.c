@@ -11408,6 +11408,20 @@ mips_compute_frame_info (bool recalculate, struct mips_frame_info *frame)
 	frame->mask |= 1 << (regno - GP_REG_FIRST);
       }
 
+  /* GCC will believe the GP pointer is live on entry to the function
+     if a UNSPEC_GOTLOAD in the body of the function is found.  However
+     if we're going to change the GP and we're LOADGP_ABSOLUTE, we'll
+     be saving and restoring some undefined value. */
+  if (mips_current_loadgp_style () == LOADGP_ABSOLUTE
+      && mips_cfun_has_flexible_gp_ref_p ()
+      && cfun->machine->global_pointer != GLOBAL_POINTER_REGNUM
+      && cfun->machine->global_pointer != INVALID_REGNUM
+      && frame->mask & 1 << GLOBAL_POINTER_REGNUM)
+    {
+      frame->num_gp++;
+      frame->mask ^= (1 << GLOBAL_POINTER_REGNUM);
+    }
+
   /* If this function calls eh_return, we must also save and restore the
      EH data registers.  */
   if (crtl->calls_eh_return)
