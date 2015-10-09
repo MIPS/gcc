@@ -1,0 +1,16 @@
+mips-r2-hard/lib
+mips-r2-soft/lib
+mips-r2-hard/lib32
+mips-r2-hard/lib64
+mips-r2-hard-nan2008/lib
+mipsel-r2-hard/lib
+mipsel-r2-soft/lib
+mipsel-r2-hard/lib32
+mipsel-r2-hard/lib64
+mipsel-r2-hard-nan2008/lib
+micromipsel-r2-hard-nan2008/lib
+micromipsel-r2-soft/lib
+mips-r2-hard-uclibc/lib
+mips-r2-hard-nan2008-uclibc/lib
+mipsel-r2-hard-uclibc/lib
+mipsel-r2-hard-nan2008-uclibc/lib

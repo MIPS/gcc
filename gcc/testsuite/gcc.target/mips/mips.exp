@@ -255,6 +255,7 @@ set mips_option_groups {
     madd "HAS_MADD"
     maddps "HAS_MADDPS"
     lsa "(|!)HAS_LSA"
+    stdlib "REQUIRES_STDLIB"
 }
 
 for { set option 0 } { $option < 32 } { incr option } {
@@ -267,6 +268,7 @@ foreach option {
     branch-likely
     dsp
     dspr2
+    dspr3
     explicit-relocs
     extern-sdata
     fix-r4000
@@ -414,6 +416,21 @@ proc mips_preprocess { options code } {
     puts $f $code
     close $f
     set output [${tool}_target_compile $src "" preprocess $options]
+    file delete $src
+
+    return $output
+}
+
+# Compile CODE using target_compile options OPTIONS.  Return the
+# compiler output.
+proc mips_compile { options code } {
+    global tool
+
+    set src dummy[pid].c
+    set f [open $src "w"]
+    puts $f $code
+    close $f
+    set output [${tool}_target_compile $src dummy[pid].o compile $options]
     file delete $src
 
     return $output
@@ -786,6 +803,12 @@ proc mips-dg-init {} {
 	    "-mno-abicalls",
 	    #endif
 
+	    #if __mips_dsp_rev >= 3
+	    "-mdspr3",
+	    #else
+	    "-mno-dspr3",
+	    #endif
+
 	    #if __mips_dsp_rev >= 2
 	    "-mdspr2",
 	    #else
@@ -1050,6 +1073,7 @@ proc mips-dg-options { args } {
     set arch [mips_option options arch]
     set isa [mips_arch_info $arch isa]
     set isa_rev [mips_arch_info $arch isa_rev]
+    set orig_isa_rev $isa_rev
 
     # If the test forces a 32-bit architecture, force -mgp32.
     # Force the current -mgp setting otherwise; if we don't,
@@ -1193,6 +1217,7 @@ proc mips-dg-options { args } {
 
     # Re-calculate the isa_rev for use in the abi handling code below
     set arch [mips_option options arch]
+    set isa [mips_arch_info $arch isa]
     set isa_rev [mips_arch_info $arch isa_rev]
 
     # Set an appropriate ABI, handling dependencies between the pre-abi
@@ -1283,8 +1308,11 @@ proc mips-dg-options { args } {
     }
 
     # Handle dependencies between the arch option and the post-arch options.
-    # This should mirror the arch and pre-arch code above.
-    if { $arch_test_option_p } {
+    # This should mirror the arch and pre-arch code above.  For pre-r6
+    # architectures this only needs to be done when we've moved down
+    # to a lower architecture and might need to turn features off,
+    # but moving up from pre-r6 to r6 can remove features too.
+    if { $arch_test_option_p || ($orig_isa_rev < 6 && $isa_rev >= 6) } {
 	if { $isa < 2 } {
 	    mips_make_test_option options "-mno-branch-likely"
 	    mips_make_test_option options "-mno-fix-r10000"
@@ -1319,10 +1347,6 @@ proc mips-dg-options { args } {
 	if { [regexp {^-march=octeon} $arch] } {
 	    mips_make_test_option options "-mno-micromips"
 	}
-
-	unset arch
-	unset isa
-	unset isa_rev
     }
 
     # Handle dependencies between options on the right of the diagram.
@@ -1345,6 +1369,14 @@ proc mips-dg-options { args } {
     mips_option_dependency options "-mfpxx" "-mno-paired-single"
     mips_option_dependency options "-msoft-float" "-mno-paired-single"
     mips_option_dependency options "-mno-paired-single" "-mno-mips3d"
+    mips_option_dependency options "-mmsa" "-mno-micromips"
+
+    if { $isa_rev >= 6
+         && [mips_have_option_p options "-mmicromips"]
+	 && ([mips_have_option_p options "-mdsp"]
+	     || [mips_have_option_p options "-mdspr2"]) } {
+      mips_make_test_option options "-mdspr3"
+    }
 
     # If the test requires an unsupported option, change run tests
     # to link tests.
@@ -1386,6 +1418,21 @@ proc mips-dg-options { args } {
 	    append extra_tool_flags " " $options(option,$group)
 	}
     }
+
+    # If the test is marked as requiring standard libraries check
+    # that the sysroot has support for the current set of test options.
+    if { [mips_have_test_option_p options "REQUIRES_STDLIB"] } {
+	mips_push_test_options saved_options $extra_tool_flags
+	set output [mips_compile "" {
+	      #include <stdlib.h>
+	}]
+	mips_pop_test_options saved_options
+
+	# If the stdlib.h file is not found mark the test as unsupported.
+	if { ![string match "" $output] } {
+	    set do_what [lreplace $do_what 1 1 "N"]
+	}
+     }
 
     # If the test is MIPS16-compatible, provide a counterpart to the
     # NOMIPS16 convenience macro.

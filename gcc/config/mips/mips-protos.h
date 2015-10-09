@@ -228,14 +228,14 @@ extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);
 extern void mips_save_gp_to_cprestore_slot (rtx, rtx, rtx, rtx);
 extern void mips_restore_gp_from_cprestore_slot (rtx);
+#ifdef RTX_CODE
 extern void mips_expand_scc (rtx *);
 extern void mips_expand_conditional_branch (rtx *);
-#ifdef RTX_CODE
 extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
-#endif
 extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (rtx);
 extern void mips_expand_msa_branch (rtx *operands, rtx (*gen_fn)(rtx, rtx, rtx));
+#endif
 extern bool mips_use_pic_fn_addr_reg_p (const_rtx);
 extern rtx mips_expand_call (enum mips_call_type, rtx, rtx, rtx, rtx, bool);
 extern void mips_split_call (rtx, rtx);
@@ -284,6 +284,7 @@ extern void mips_expand_prologue (void);
 extern void mips_expand_before_return (void);
 extern void mips_expand_epilogue (bool);
 extern bool mips_can_use_return_insn (void);
+
 extern bool mips_const_vector_same_val_p (rtx, machine_mode);
 extern bool mips_const_vector_same_byte_p (rtx, machine_mode);
 extern bool mips_const_vector_same_int_p (rtx, machine_mode, HOST_WIDE_INT,
@@ -317,6 +318,7 @@ extern unsigned int mips_sync_loop_insns (rtx, rtx *);
 extern const char *mips_output_division (const char *, rtx *);
 extern const char *mips_msa_output_division (const char *, rtx *);
 extern const char *mips_output_probe_stack_range (rtx, rtx);
+extern bool mips_hard_regno_rename_ok (unsigned int, unsigned int);
 extern unsigned int mips_hard_regno_nregs (int, machine_mode);
 extern bool mips_linked_madd_p (rtx, rtx);
 extern bool mips_store_data_bypass_p (rtx, rtx);
@@ -375,18 +377,13 @@ extern bool mips_epilogue_uses (unsigned int);
 extern void mips_final_prescan_insn (rtx, rtx *, int);
 extern int mips_trampoline_code_size (void);
 extern void mips_function_profiler (FILE *);
-extern bool mips_load_store_bonding_p (rtx *, machine_mode, bool);
+extern bool mips_load_store_bonding_p (rtx *, machine_mode);
 
 typedef rtx (*mulsidi3_gen_fn) (rtx, rtx, rtx);
 #ifdef RTX_CODE
 extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 #endif
 
-extern void mips_expand_vec_cond_expr (machine_mode,
-				       machine_mode,
-				       rtx *,
-				       rtx (*)(rtx, rtx, rtx),
-				       rtx (*)(rtx, rtx, rtx),
-				       rtx (*)(rtx, rtx, rtx));
+extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
 #endif /* ! GCC_MIPS_PROTOS_H */

@@ -428,15 +428,16 @@ modd-spreg
 Target Report Mask(ODD_SPREG)
 Enable use of odd-numbered single-precision registers
 
+mframe-header-opt
+Target Report Var(flag_frame_header_optimization) Optimization
+Optimize frame header
+
 noasmopt
 Driver
 
 mclib=
 Target RejectNegative Joined Var(mips_c_lib) ToLower Enum(mips_lib_setting) Init(MIPS_LIB_NEWLIB)
 Specify the C library to use with this application
-newlib      Use newlib
-small       Use SmallLib
-tiny        Use SmallLib optimised for size
 
 Enum
 Name(mips_lib_setting) Type(enum mips_lib_setting)
@@ -452,7 +453,7 @@ EnumValue
 Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
 
 mload-store-pairs
-Target Report Var(TARGET_LOAD_STORE_PAIRS) Undocumented
+Target Report Var(TARGET_LOAD_STORE_PAIRS) Init(1)
 Enable load/store bonding.
 
 msched-weight
@@ -461,13 +462,10 @@ Target Report Var(TARGET_SCHED_WEIGHT) Undocumented
 mcompact-branches=
 Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
 Specify the compact branch usage policy
-never	    Only use delay slot branches
-optimal	    Use compact branches where beneficial
-always	    Only use compact branches
 
 Enum
 Name(mips_cb_setting) Type(enum mips_cb_setting)
-Policies available for use with -mcompact-branches=
+Policies available for use with -mcompact-branches=:
 
 EnumValue
 Enum(mips_cb_setting) String(never) Value(MIPS_CB_NEVER)

@@ -2898,6 +2898,13 @@ as below:
 @end smallexample
 @end defmac
 
+@deftypefn {Target Hook} reg_class_t TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS (int, @var{reg_class_t})
+A target hook which can change allocno class for given pseudo from
+  allocno class calculated by IRA.
+  
+  The default version of this target hook always returns given class.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_LRA_P (void)
 A target hook which returns true if we use LRA instead of reload pass.  It means that LRA was ported to the target.    The default version of this target hook returns always false.
 @end deftypefn
@@ -10922,6 +10929,15 @@ Others use it as an opportunity to do some machine-dependent optimizations.
 
 You need not implement the hook if it has nothing to do.  The default
 definition is null.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_USE_EAGER_DELAY_FILLER_P (void)
+This predicate controls the use of the eager delay slot filler.  Targets
+such as certain MIPS architectures possess both branches with and without
+delay slots.  As the eager delay slot filler can increase code size,
+disabling it is beneficial when ordinary branches are available.  Use of
+delay slot branches filled using the basic filler is often still desirable
+as the delay slot can hide a pipeline bubble.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_INIT_BUILTINS (void)

@@ -106,9 +106,9 @@ struct mips_cpu_info {
 			 || (mips_cb == MIPS_CB_OPTIMAL \
 			     && !ISA_HAS_DELAY_SLOTS))
 
-#define ISA_HAS_JRC (ISA_HAS_COMPACT_BRANCHES		\
-		     || (TARGET_MICROMIPS		\
-			 && mips_cb == MIPS_CB_OPTIMAL))
+#define ISA_HAS_JRC ((ISA_HAS_COMPACT_BRANCHES		\
+		      || TARGET_MICROMIPS)		\
+		     && mips_cb != MIPS_CB_NEVER)
 
 /* True if the output file is marked as ".abicalls; .option pic0"
    (-call_nonpic).  */
@@ -805,8 +805,8 @@ struct mips_cpu_info {
 			  |mips64r3|mips64r5|mips64r6:-msynci;:-mno-synci}}"
 
 #define MIPS_ISA_NAN2008_SPEC \
-  "%{mnan*:;mips32r6|mips64r6:-mnan=2008;mmicromips|march=m51*: \
-					 %{!msoft-float:-mnan=2008}}"
+  "%{mnan*:;mips32r6|mips64r6:-mnan=2008; \
+     mmicromips|march=m51*|mclib=small|mclib=tiny:%{!msoft-float:-mnan=2008}}"
 
 #if (MIPS_ABI_DEFAULT == ABI_O64 \
      || MIPS_ABI_DEFAULT == ABI_N32 \
@@ -1163,7 +1163,8 @@ struct mips_cpu_info {
 				 && mips_isa_rev >= 2)
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
-#define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
+#define ISA_HAS_LWXS		((TARGET_SMARTMIPS \
+				 || (TARGET_MICROMIPS && mips_isa_rev <= 5)) \
 				 && !TARGET_MIPS16)
 
 /* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
@@ -1933,6 +1934,9 @@ struct mips_cpu_info {
 #define HARD_REGNO_MODE_OK(REGNO, MODE)					\
   mips_hard_regno_mode_ok[ (int)(MODE) ][ (REGNO) ]
 
+#define HARD_REGNO_RENAME_OK(OLD_REG, NEW_REG)				\
+  mips_hard_regno_rename_ok (OLD_REG, NEW_REG)
+
 /* Select a register mode required for caller save of hard regno REGNO.  */
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE) \
   mips_hard_regno_caller_save_mode (REGNO, NREGS, MODE)
@@ -2583,6 +2587,8 @@ typedef struct mips_args {
 
 #define MAX_REGS_PER_ADDRESS 1
 
+#define MAX_REGS_PER_OPERAND 2
+
 /* Check for constness inline but use mips_legitimate_address_p
    to check whether a constant really is an address.  */
 
@@ -3056,6 +3062,11 @@ while (0)
    least twice.  */
 #define MIPS_MAX_MOVE_BYTES_STRAIGHT \
   (MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER * 2)
+
+/* The maximum number of bytes that can be copied by any expanded block move;
+   see mips_expand_block_move.  */
+#define MIPS_MAX_MOVE_MEM_STRAIGHT \
+  (MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER * 3)
 
 /* The base cost of a memcpy call, for MOVE_RATIO and friends.  These
    values were determined experimentally by benchmarking with CSiBE.

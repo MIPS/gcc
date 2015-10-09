@@ -19,6 +19,8 @@ along with GCC; see the file COPYING3.  If not see
 
 /* This target is a multilib target, specify the sysroot paths.  */
 
+#undef MULTILIB_DEFAULTS
+
 #define MIPS_SYSVERSION_SPEC \
     "%{mips32|mips64:r1;mips32r6|mips64r6:r6;mips32r*|mips64r*:r2}%{mips16:-mips16}"
 

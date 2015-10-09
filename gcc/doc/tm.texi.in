@@ -2539,6 +2539,8 @@ as below:
 @end smallexample
 @end defmac
 
+@hook TARGET_IRA_CHANGE_PSEUDO_ALLOCNO_CLASS
+
 @hook TARGET_LRA_P
 
 @hook TARGET_REGISTER_PRIORITY
@@ -8206,6 +8208,8 @@ to by @var{ce_info}.
 @end defmac
 
 @hook TARGET_MACHINE_DEPENDENT_REORG
+
+@hook TARGET_USE_EAGER_DELAY_FILLER_P
 
 @hook TARGET_INIT_BUILTINS
 
