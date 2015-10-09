@@ -1,5 +1,8 @@
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
+	* env.c (handle_omp_display_env): Print _OPENMP = '201511'
+	instead of _OPENMP = '201307'.
+
 	* libgomp.map (OMP_4.1): Renamed to ...
 	(OMP_4.5): ... this.
 	(GOMP_4.1): Renamed to ...
