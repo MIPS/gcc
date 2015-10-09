@@ -60,11 +60,11 @@
 (define_register_constraint "j" "PIC_FN_ADDR_REG"
   "@internal")
 
+;; FIXME: Remove this comment and below once the MIPS backend can
+;; only be used with LRA.
 ;; Don't use this constraint in gcc code!  It runs the risk of
 ;; introducing a spill failure; see tls_get_tp_<mode>.
-(define_register_constraint "v" "V1_REG"
-  "Register @code{$3}.  Do not use this constraint in new code;
-   it is retained only for compatibility with glibc.")
+(define_register_constraint "v" "V1_REG" "@internal")
 
 (define_register_constraint "y" "GR_REGS"
   "Equivalent to @code{r}; retained for backwards compatibility.")
