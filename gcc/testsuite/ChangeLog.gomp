@@ -1,3 +1,7 @@
+2015-10-10  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-acc-on-device.c: New test.
+
 2015-10-08  Tom de Vries  <tom@codesourcery.com>
 
 	* gcc.dg/gomp/collapse-2.c: New test.
