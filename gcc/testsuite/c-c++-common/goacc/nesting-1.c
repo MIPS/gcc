@@ -92,10 +92,6 @@ f_acc_data (void)
 #pragma acc enter data copyin(i)
 
 #pragma acc exit data delete(i)
-
-#pragma acc loop
-      for (i = 0; i < 2; ++i)
-	;
     }
   }
 }
