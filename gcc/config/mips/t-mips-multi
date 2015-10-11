@@ -77,7 +77,7 @@ MULTILIB_REQUIRED   += mips64r6/mabi=64/EL/msoft-float/mnan=2008
 MULTILIB_OSDIRNAMES += mips64r6/mabi.64/EL/msoft-float/mnan.2008=!mipsel-r6-soft$(is_newlib)/lib64
 
 # microMIPS32R6 - We will not include any 64 bit microMIPS combinations
-MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/mnan.2008
+MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/mnan=2008
 MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EB/mnan.2008=!micromips-r6-hard$(is_newlib)/lib
 MULTILIB_REQUIRED   += mips32r6/mmicromips/mabi=32/EB/msoft-float/mnan=2008
 MULTILIB_OSDIRNAMES += mips32r6/mmicromips/mabi.32/EB/msoft-float/mnan.2008=!micromips-r6-soft$(is_newlib)/lib
