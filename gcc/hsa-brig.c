@@ -574,7 +574,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.segment = symbol->segment;
   /* TODO: Once we are able to access global variables, we must copy their
      alignment.  */
-  dirvar.align = MAX (hsa_natural_alignment (dirvar.type), BRIG_ALIGNMENT_4);
+  dirvar.align = MAX (hsa_natural_alignment (dirvar.type),
+		      (BrigAlignment8_t) BRIG_ALIGNMENT_4);
   dirvar.linkage = symbol->linkage;
   dirvar.dim.lo = (uint32_t) symbol->dim;
   dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->dim >> 32);

@@ -1,5 +1,9 @@
 2015-10-12  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (emit_directive_variable): Add typecast.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (get_alignment): Removed.
 	(emit_directive_variable): Use hsa_natural_alignment.
 	(emit_memory_insn): Use alignment from mem.
