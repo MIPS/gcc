@@ -1,3 +1,9 @@
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-acc-on-device.c: Remove openacc.h include.
+	(enum acc_device_t, acc_on_device): Declare.
+	(foo): Remove unused vars.  Use acc_device_X.
+
 2015-10-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/nesting-1.c: Remove another bogus loop.
