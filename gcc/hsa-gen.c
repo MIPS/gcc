@@ -77,6 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "cfganal.h"
 #include "builtins.h"
+#include "params.h"
 
 /* Print a warning message and set that we have seen an error.  */
 
@@ -4643,7 +4644,8 @@ init_omp_in_prologue (void)
   unsigned index = hsa_get_number_decl_kernel_mappings ();
 
   /* Emit store to debug argument.  */
-  set_debug_value (prologue, new hsa_op_immed (1000 + index, BRIG_TYPE_U64));
+  if (PARAM_VALUE (PARAM_HSA_GEN_DEBUG_STORES) > 0)
+    set_debug_value (prologue, new hsa_op_immed (1000 + index, BRIG_TYPE_U64));
 }
 
 /* Go over gimple representation and generate our internal HSA one.  SSA_MAP

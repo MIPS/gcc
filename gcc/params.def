@@ -1152,6 +1152,11 @@ DEFPARAM (PARAM_PARLOOPS_CHUNK_SIZE,
 	  "parloops-chunk-size",
 	  "Chunk size of omp schedule for loops parallelized by parloops",
 	  0, 0, 0)
+
+DEFPARAM (PARAM_HSA_GEN_DEBUG_STORES,
+	  "hsa-gen-debug-stores",
+	  "Level of hsa debug stores verbosity",
+	  0, 0, 1)
 /*
 
 Local variables:

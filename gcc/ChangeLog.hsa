@@ -1,5 +1,12 @@
 2015-10-12  Martin Jambor  <mjambor@suse.cz>
 
+	* params.def (PARAM_HSA_GEN_DEBUG_STORES): New parameter.
+	* hsa-gen.c: Include params.h.
+	(init_omp_in_prologue): Emit debug store only if
+	hsa-gen-debug-stores allow it.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-brig.c (emit_directive_variable): Add typecast.
 
 2015-10-12  Martin Jambor  <mjambor@suse.cz>
