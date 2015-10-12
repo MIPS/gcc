@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-dom.h"
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
+#include "cfgcleanup.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -550,7 +551,17 @@ public:
 
  protected:
   /* Return true if pass should perform jump threading.  */
-  virtual bool jump_threading_p (void) { return true; }
+  virtual bool jump_threading_p (void) { return !sese_mode_p (); }
+
+  /* Return true if pass should visit a series of seses rather than the whole
+     dominator tree.  */
+  virtual bool sese_mode_p (void) { return false; }
+
+  /* In sese mode, return true if there's another sese to visit.  Return the
+     sese to visit in SESE_ENTRY and SESE_EXIT.  */
+  virtual bool get_sese (basic_block *sese_entry ATTRIBUTE_UNUSED,
+			 basic_block *sese_exit ATTRIBUTE_UNUSED)
+    { gcc_unreachable (); }
 
 }; // class pass_dominator
 
@@ -583,11 +594,14 @@ pass_dominator::execute (function *fun)
      LOOPS_HAVE_PREHEADERS won't be needed here.  */
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES);
 
-  /* Initialize the value-handle array.  */
-  threadedge_initialize_values ();
+  if (!sese_mode_p ())
+    /* Initialize the value-handle array.  */
+    threadedge_initialize_values ();
 
   if (jump_threading_p ())
     {
+      gcc_assert (!sese_mode_p ());
+
       /* We need accurate information regarding back edges in the CFG
 	 for jump threading; this may include back edges that are not part of
 	 a single loop.  */
@@ -609,7 +623,29 @@ pass_dominator::execute (function *fun)
 			     const_and_copies,
 			     avail_exprs_stack,
 			     jump_threading_p ());
-  walker.walk (fun->cfg->x_entry_block_ptr);
+  if (!sese_mode_p ())
+    walker.walk (fun->cfg->x_entry_block_ptr);
+  else
+    {
+      basic_block sese_entry, sese_exit;
+      while (get_sese (&sese_entry, &sese_exit))
+	{
+	  threadedge_initialize_values ();
+	  avail_exprs_stack->push_marker ();
+	  const_and_copies->push_marker ();
+
+	  walker.walk_until (sese_entry, sese_exit, true);
+
+	  avail_exprs_stack->pop_to_marker ();
+	  const_and_copies->pop_to_marker ();
+	  threadedge_finalize_values ();
+
+	  /* KLUDGE: The dom_walker does not allow unreachable blocks when
+	     starting the walk, and during the dom_opt_dom_walker walk we may
+	     produce unreachable blocks, so we need to clean them up here.  */
+	  delete_unreachable_blocks ();
+	}
+    }
 
   {
     gimple_stmt_iterator gsi;
@@ -709,8 +745,9 @@ pass_dominator::execute (function *fun)
   delete avail_exprs_stack;
   delete const_and_copies;
 
-  /* Free the value-handle array.  */
-  threadedge_finalize_values ();
+  if (!sese_mode_p ())
+    /* Free the value-handle array.  */
+    threadedge_finalize_values ();
 
   return 0;
 }
