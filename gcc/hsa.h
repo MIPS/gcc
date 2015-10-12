@@ -1094,6 +1094,7 @@ void hsa_brig_emit_omp_symbols (void);
 
 /*  In hsa-dump.c.  */
 const char *hsa_seg_name (BrigSegment8_t);
+void dump_hsa_insn (FILE *f, hsa_insn_basic *insn);
 void dump_hsa_bb (FILE *, hsa_bb *);
 void dump_hsa_cfun (FILE *);
 DEBUG_FUNCTION void debug_hsa_operand (hsa_op_base *opc);

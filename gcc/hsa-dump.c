@@ -763,10 +763,12 @@ static void indent_stream (FILE *f, int indent)
     fputc (' ', f);
 }
 
-/* Dump textual representation of HSA IL instruction INSN to file F.  */
+/* Dump textual representation of HSA IL instruction INSN to file F.  Prepend
+   the instruction with *INDENT spaces and adjust the indentation for call
+   instructions as appropriate.  */
 
 static void
-dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
+dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 {
   gcc_checking_assert (insn);
   indent_stream (f, *indent);
@@ -1011,6 +1013,15 @@ dump_hsa_insn (FILE *f, hsa_insn_basic *insn, int *indent)
   fprintf (f, "\n");
 }
 
+/* Dump textual representation of HSA IL instruction INSN to file F.  */
+
+void
+dump_hsa_insn (FILE *f, hsa_insn_basic *insn)
+{
+  int indent = 0;
+  dump_hsa_insn_1 (f, insn, &indent);
+}
+
 /* Dump textual representation of HSA IL in HBB to file F.  */
 
 void
@@ -1026,10 +1037,10 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
 
   int indent = 2;
   for (insn = hbb->first_phi; insn; insn = insn->next)
-    dump_hsa_insn (f, insn, &indent);
+    dump_hsa_insn_1 (f, insn, &indent);
 
   for (insn = hbb->first_insn; insn; insn = insn->next)
-    dump_hsa_insn (f, insn, &indent);
+    dump_hsa_insn_1 (f, insn, &indent);
 
   if (hbb->last_insn && is_a <hsa_insn_sbr *> (hbb->last_insn))
     goto exit;
@@ -1088,8 +1099,7 @@ dump_hsa_cfun (FILE *f)
 DEBUG_FUNCTION void
 debug_hsa_insn (hsa_insn_basic *insn)
 {
-  int indentation = 0;
-  dump_hsa_insn (stderr, insn, &indentation);
+  dump_hsa_insn (stderr, insn);
 }
 
 /* Dump textual representation of HSA IL in HBB to stderr.  */
