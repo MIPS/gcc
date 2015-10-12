@@ -2026,7 +2026,7 @@ expand_GOACC_DIM_POS (gcall *ARG_UNUSED (stmt))
 #endif
 }
 
-/* This should get expanded in oacc_transform.  */
+/* All the GOACC_REDUCTION variants  get expanded in oacc_device_lower.  */
 
 static void
 expand_GOACC_REDUCTION_SETUP (gcall *stmt ATTRIBUTE_UNUSED)
@@ -2034,23 +2034,17 @@ expand_GOACC_REDUCTION_SETUP (gcall *stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
-/* This should get expanded in oacc_transform.  */
-
 static void
 expand_GOACC_REDUCTION_INIT (gcall *stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
 
-/* This should get expanded in oacc_transform.  */
-
 static void
 expand_GOACC_REDUCTION_FINI (gcall *stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
-
-/* This should get expanded in oacc_transform.  */
 
 static void
 expand_GOACC_REDUCTION_TEARDOWN (gcall *stmt ATTRIBUTE_UNUSED)

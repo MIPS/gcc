@@ -1,3 +1,9 @@
+2015-10-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* internal-fn.def (IFN_UNIQUE_UNSPEC, IFN_UNIQUE_OACC_FORK,
+	IFN_UNIQUE_OACC_JOIN): Move to IFN_UNIQUE definition.
+	* internal-fn.c (expand_GOACC_REDUCTION_*): Correct comments.
+
 2015-10-09  James Norris  <jnorris@codesourcery.com>
 
 	Backport from trunk:
