@@ -2031,9 +2031,11 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 
   /* Prepare the GIMPLE_OMP_PARALLEL statement.  */
   bb = loop_preheader_edge (loop)->src;
-  paral_bb = single_pred (bb);
   if (!oacc_kernels_p)
-    gsi = gsi_last_bb (paral_bb);
+    {
+      paral_bb = single_pred (bb);
+      gsi = gsi_last_bb (paral_bb);
+    }
   else
     /* Make sure the oacc parallel is inserted on top of the oacc kernels
        region.  */
@@ -2859,7 +2861,8 @@ ref_conflicts_with_region (gimple_stmt_iterator gsi, ao_ref *ref,
 static bool
 oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 		      tree omp_data_i,
-		      reduction_info_table_type *reduction_list)
+		      reduction_info_table_type *reduction_list,
+		      bitmap reduction_stores)
 {
   unsigned i;
   basic_block bb;
@@ -2919,6 +2922,9 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 			  single_imm_use (val, &use_p, &use_stmt);
 			  if (gimple_store_p (use_stmt))
 			    {
+			      unsigned int id
+				= SSA_NAME_VERSION (gimple_vdef (use_stmt));
+			      bitmap_set_bit (reduction_stores, id);
 			      skip_stmt = use_stmt;
 			      if (dump_file)
 				{
@@ -2948,6 +2954,9 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 		   && !gimple_vdef (stmt)
 		   && !gimple_vuse (stmt))
 	    continue;
+	  else if (gimple_call_internal_p (stmt)
+		   && gimple_call_internal_fn (stmt) == IFN_GOACC_DIM_POS)
+	    continue;
 	  else
 	    {
 	      if (dump_file)
@@ -2974,6 +2983,106 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
   return true;
 }
 
+/* Find stores inside REGION_BBS and outside IN_LOOP_BBS, and guard them with
+   GANG_POS == 0, except when the stores are REDUCTION_STORES.  Return true
+   if any changes were made.  */
+
+static bool
+oacc_entry_exit_single_gang (bitmap in_loop_bbs, vec<basic_block> region_bbs,
+			     bitmap reduction_stores, tree gang_pos)
+{
+  bool changed = false;
+
+  unsigned i;
+  basic_block bb;
+  FOR_EACH_VEC_ELT (region_bbs, i, bb)
+    {
+      if (bitmap_bit_p (in_loop_bbs, bb->index))
+	continue;
+
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+
+	  if (!gimple_store_p (stmt))
+	    {
+	      /* Update gsi to point to next stmt.  */
+	      gsi_next (&gsi);
+	      continue;
+	    }
+
+	  if (bitmap_bit_p (reduction_stores,
+			    SSA_NAME_VERSION (gimple_vdef (stmt))))
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file,
+			   "skipped reduction store for single-gang"
+			   " neutering: ");
+		  print_gimple_stmt (dump_file, stmt, 0, 0);
+		}
+
+	      /* Update gsi to point to next stmt.  */
+	      gsi_next (&gsi);
+	      continue;
+	    }
+
+	  changed = true;
+
+	  if (dump_file)
+	    {
+	      fprintf (dump_file,
+		       "found store that needs single-gang neutering: ");
+	      print_gimple_stmt (dump_file, stmt, 0, 0);
+	    }
+
+	  {
+	    /* Split block before store.  */
+	    gimple_stmt_iterator gsi2 = gsi;
+	    gsi_prev (&gsi2);
+	    edge e;
+	    if (gsi_end_p (gsi2))
+	      {
+		e = split_block_after_labels (bb);
+		gsi2 = gsi_last_bb (bb);
+	      }
+	    else
+	      e = split_block (bb, gsi_stmt (gsi2));
+	    basic_block bb2 = e->dest;
+
+	    /* Split block after store.  */
+	    gimple_stmt_iterator gsi3 = gsi_start_bb (bb2);
+	    edge e2 = split_block (bb2, gsi_stmt (gsi3));
+	    basic_block bb3 = e2->dest;
+
+	    gimple *cond
+	      = gimple_build_cond (EQ_EXPR, gang_pos, integer_zero_node,
+				   NULL_TREE, NULL_TREE);
+	    gsi_insert_after (&gsi2, cond, GSI_NEW_STMT);
+
+	    edge e3 = make_edge (bb, bb3, EDGE_FALSE_VALUE);
+	    e->flags = EDGE_TRUE_VALUE;
+
+	    tree vdef = gimple_vdef (stmt);
+	    tree vuse = gimple_vuse (stmt);
+
+	    tree phi_res = copy_ssa_name (vdef);
+	    gphi *new_phi = create_phi_node (phi_res, bb3);
+	    replace_uses_by (vdef, phi_res);
+	    add_phi_arg (new_phi, vuse, e3, UNKNOWN_LOCATION);
+	    add_phi_arg (new_phi, vdef, e2, UNKNOWN_LOCATION);
+
+	    /* Update gsi to point to next stmt.  */
+	    bb = bb3;
+	    gsi = gsi_start_bb (bb);
+	  }
+	}
+    }
+
+  return changed;
+}
+
 static bool
 oacc_entry_exit_ok (struct loop *loop, basic_block region_entry,
 		    reduction_info_table_type *reduction_list)
@@ -2986,17 +3095,39 @@ oacc_entry_exit_ok (struct loop *loop, basic_block region_entry,
   tree omp_data_i = get_omp_data_i (region_entry);
   gcc_assert (omp_data_i != NULL_TREE);
 
+  gimple_stmt_iterator gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (omp_data_i));
+  gsi_next_nondebug (&gsi);
+  gimple *stmt = gsi_stmt (gsi);
+  gcc_assert (gimple_call_internal_p (stmt)
+	      && gimple_call_internal_fn (stmt) == IFN_GOACC_DIM_POS);
+  tree gang_pos = make_ssa_name (integer_type_node);
+  gimple_call_set_lhs (stmt, gang_pos);
+
   bitmap in_loop_bbs = BITMAP_ALLOC (NULL);
   bitmap_clear (in_loop_bbs);
   for (unsigned int i = 0; i < loop->num_nodes; i++)
     bitmap_set_bit (in_loop_bbs, loop_bbs[i]->index);
 
+  bitmap reduction_stores = BITMAP_ALLOC (NULL);
   bool res = oacc_entry_exit_ok_1 (in_loop_bbs, region_bbs, omp_data_i,
-				   reduction_list);
+				   reduction_list, reduction_stores);
+
+  if (res)
+    {
+      bool changed
+	= oacc_entry_exit_single_gang (in_loop_bbs, region_bbs,
+				       reduction_stores, gang_pos);
+      if (changed)
+	{
+	  free_dominance_info (CDI_DOMINATORS);
+	  calculate_dominance_info (CDI_DOMINATORS);
+	}
+    }
 
   free (loop_bbs);
 
   BITMAP_FREE (in_loop_bbs);
+  BITMAP_FREE (reduction_stores);
 
   return res;
 }

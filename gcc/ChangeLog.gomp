@@ -1,5 +1,16 @@
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (is_oacc_kernels): New function.
+	(lower_omp_target): Insert gang-pos at start of kernels region.
+	(execute_oacc_device_lower): Handle IFN_GOACC_DIM_POS without result.
+	* tree-parloops.c (create_parallel_loop): Don't expect
+	single_pred_p (bb) if oacc_kernels_p.
+	(oacc_entry_exit_ok_1): Add and handle reduction_stores parameter.
+	(oacc_entry_exit_single_gang): New function.
+	(oacc_entry_exit_ok): Call oacc_entry_exit_single_gang.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (lower_omp_for): Don't call lower_oacc_head_tail for oacc
 	kernels regions.
 	* tree-parloops.c (try_create_reduction_list): Initialize keep_res

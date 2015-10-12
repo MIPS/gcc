@@ -294,6 +294,17 @@ is_oacc_parallel (omp_context *ctx)
 	      == GF_OMP_TARGET_KIND_OACC_PARALLEL));
 }
 
+/* Return true if CTX corresponds to an oacc kernels region.  */
+
+static bool
+is_oacc_kernels (omp_context *ctx)
+{
+  enum gimple_code outer_type = gimple_code (ctx->stmt);
+  return ((outer_type == GIMPLE_OMP_TARGET)
+	  && (gimple_omp_target_kind (ctx->stmt)
+	      == GF_OMP_TARGET_KIND_OACC_KERNELS));
+}
+
 /* Return true if VAR is a is private reduction variable.  A reduction
    variable is considered private if the variable is local to the
    offloaded region, or if it is the first reduction to use a mapped
@@ -12962,6 +12973,13 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   if (offloaded)
     {
+      if (is_oacc_kernels (ctx))
+	{
+	  tree arg = build_int_cst (integer_type_node, GOMP_DIM_GANG);
+	  gcall *gang_single
+	    = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
+	  gimple_seq_add_stmt (&new_body, gang_single);
+	}
       gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
       if (ctx->reductions)
 	{
@@ -15696,7 +15714,9 @@ execute_oacc_device_lower ()
 
 	  case IFN_GOACC_DIM_POS:
 	  case IFN_GOACC_DIM_SIZE:
-	    if (oacc_xform_dim (call, dims, ifn_code == IFN_GOACC_DIM_POS))
+	    if (gimple_call_lhs (call) == NULL_TREE)
+	      rescan = -1;
+	    else if (oacc_xform_dim (call, dims, ifn_code == IFN_GOACC_DIM_POS))
 	      rescan = 1;
 	    break;
 
@@ -15740,8 +15760,9 @@ execute_oacc_device_lower ()
 	  gsi_next (&gsi);
 	else if (rescan < 0)
 	  {
-	    replace_uses_by (gimple_vdef (call),
-			     gimple_vuse (call));
+	    if (gimple_vdef (call))
+	      replace_uses_by (gimple_vdef (call),
+			       gimple_vuse (call));
 	    gsi_remove (&gsi, true);
 	  }
       }
