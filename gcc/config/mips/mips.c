@@ -1369,6 +1369,7 @@ static int mips_register_move_cost (machine_mode, reg_class_t,
 				    reg_class_t);
 static unsigned int mips_function_arg_boundary (machine_mode, const_tree);
 static machine_mode mips_get_reg_raw_mode (int regno);
+static bool mips_load_store_insn_p (rtx, rtx *, HOST_WIDE_INT *, bool *);
 static void mips_load_store_bond_insns ();
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
@@ -11922,7 +11923,7 @@ mips_for_each_saved_gpr_and_fpr (HOST_WIDE_INT sp_offset,
   if (TARGET_MICROMIPS)
     umips_build_save_restore (fn, &mask, &offset);
 
-  if (TUNE_I6400)
+  if (ENABLE_LD_ST_PAIRS)
     increasing_order_p = true;
 
   if (BITSET_P (mask, (regno = GP_REG_LAST - GP_REG_FIRST)))
@@ -15427,6 +15428,48 @@ mips_set_sched_flags (spec_info_t spec_info ATTRIBUTE_UNUSED)
       unsigned int *flags = &(current_sched_info->flags);
       *flags |= DONT_BREAK_DEPENDENCIES;
     }
+}
+
+/* Implement the TARGET_SCHED_FUSION_PRIORITY hook.  */
+
+static void
+mips_sched_fusion_priority (rtx insn, int max_pri,
+			   int *fusion_pri, int *pri)
+{
+  int tmp, off_val;
+  bool is_load;
+  rtx base;
+  HOST_WIDE_INT offset;
+
+  gcc_assert (INSN_P (insn));
+
+  tmp = max_pri - 1;
+  if (!mips_load_store_insn_p (insn, &base, &offset, &is_load))
+    {
+      *pri = tmp;
+      *fusion_pri = tmp;
+      return;
+    }
+
+  /* Load goes first.  */
+  if (is_load)
+    *fusion_pri = tmp - 1;
+  else
+    *fusion_pri = tmp - 2;
+
+  tmp /= 2;
+
+  /* INSN with smaller base register goes first.  */
+  tmp -= ((REGNO (base) & 0xff) << 20);
+
+  /* INSN with smaller offset goes first.  */
+  if (offset >= 0)
+    tmp -= (offset & 0xfffff);
+  else
+    tmp += ((-offset) & 0xfffff);
+
+  *pri = tmp;
+  return;
 }
 
 static void
@@ -20905,6 +20948,27 @@ mips_load_store_p (rtx *operands, rtx *base, HOST_WIDE_INT *offset,
   return true;
 }
 
+/* Return TRUE if INSN represents a load or store of address in the form of
+   [BASE+OFFSET] that can be later bonded.  LOAD_P is set to TRUE
+   if it's a load.  Return FALSE otherwise.  */
+
+static bool
+mips_load_store_insn_p (rtx insn, rtx *base, HOST_WIDE_INT *offset,
+			bool *load_p)
+{
+  rtx op[2], x;
+
+  gcc_assert (INSN_P (insn));
+
+  x = PATTERN (insn);
+  if (GET_CODE (x) != SET)
+    return false;
+
+  op[0] = SET_DEST (x);
+  op[1] = SET_SRC (x);
+  return mips_load_store_p (op, base, offset, load_p);
+}
+
 /* Return TRUE if operands OPERANDS represent two consecutive instructions
    than can be bonded as load-load/store-store pair in mode MODE.
    Return FALSE otherwise.  */
@@ -23112,6 +23176,9 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_SCHED_SET_SCHED_FLAGS
 #define TARGET_SCHED_SET_SCHED_FLAGS mips_set_sched_flags
+
+#undef TARGET_SCHED_FUSION_PRIORITY
+#define TARGET_SCHED_FUSION_PRIORITY mips_sched_fusion_priority
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
