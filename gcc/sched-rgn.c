@@ -3674,6 +3674,19 @@ rest_of_handle_sched2 (void)
   return 0;
 }
 
+static bool
+gate_handle_fusion (void)
+{
+#ifdef INSN_SCHEDULING
+  /* Scheduling fusion relies on peephole2 to do real fusion work,
+     so only enable it if peephole2 is in effect.  */
+  return (optimize > 0 && flag_peephole2
+    && flag_schedule_fusion && targetm.sched.fusion_priority != NULL);
+#else
+  return 0;
+#endif
+}
+
 static unsigned int
 rest_of_handle_sched_fusion (void)
 {
@@ -3827,26 +3840,10 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual bool gate (function *);
-  virtual unsigned int execute (function *)
-    {
-      return rest_of_handle_sched_fusion ();
-    }
+  bool gate () { return gate_handle_fusion (); }
+  unsigned int execute () { return rest_of_handle_sched_fusion (); }
 
 }; // class pass_sched2
-
-bool
-pass_sched_fusion::gate (function *)
-{
-#ifdef INSN_SCHEDULING
-  /* Scheduling fusion relies on peephole2 to do real fusion work,
-     so only enable it if peephole2 is in effect.  */
-  return (optimize > 0 && flag_peephole2
-    && flag_schedule_fusion && targetm.sched.fusion_priority != NULL);
-#else
-  return 0;
-#endif
-}
 
 } // anon namespace
 
