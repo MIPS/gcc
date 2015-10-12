@@ -58,6 +58,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-ssa.h"
 #include "params.h"
+#include "tree-ssa-alias.h"
+#include "tree-eh.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
    The implementation is straightforward -- for each loop we test whether its
@@ -2672,6 +2674,7 @@ try_create_reduction_list (loop_p loop,
 			 "  FAILED: it is not a part of reduction.\n");
 	      return false;
 	    }
+	  red->keep_res = phi;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "reduction phi is  ");
@@ -2762,6 +2765,240 @@ try_create_reduction_list (loop_p loop,
     }
 
   return true;
+}
+
+/* Return true if STMT is a load of which the result is unused, and can be
+   safely deleted.  */
+
+static bool
+dead_load_p (gimple *stmt)
+{
+  if (!gimple_assign_load_p (stmt))
+    return false;
+
+  tree lhs = gimple_assign_lhs (stmt);
+  return (TREE_CODE (lhs) == SSA_NAME
+	  && has_zero_uses (lhs)
+	  && !gimple_has_side_effects (stmt)
+	  && !stmt_could_throw_p (stmt));
+}
+
+static bool
+ref_conflicts_with_region (gimple_stmt_iterator gsi, ao_ref *ref,
+			   bool ref_is_store, vec<basic_block> region_bbs,
+			   unsigned int i, gimple *skip_stmt)
+{
+  basic_block bb = region_bbs[i];
+  gsi_next (&gsi);
+
+  while (true)
+    {
+      for (; !gsi_end_p (gsi);
+	   gsi_next (&gsi))
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+	  if (stmt == skip_stmt)
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "skipping reduction store: ");
+		  print_gimple_stmt (dump_file, stmt, 0, 0);
+		}
+	      continue;
+	    }
+
+	  if (!gimple_vdef (stmt)
+	      && !gimple_vuse (stmt))
+	    continue;
+
+	  if (ref_is_store)
+	    {
+	      if (dead_load_p (stmt))
+		{
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, "skipping dead load: ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
+		  continue;
+		}
+
+	      if (ref_maybe_used_by_stmt_p (stmt, ref))
+		{
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, "Stmt ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
+		  return true;
+		}
+	    }
+	  else
+	    {
+	      if (stmt_may_clobber_ref_p_1 (stmt, ref))
+		{
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, "Stmt ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
+		  return true;
+		}
+	    }
+	}
+      i++;
+      if (i == region_bbs.length ())
+	break;
+      bb = region_bbs[i];
+      gsi = gsi_start_bb (bb);
+    }
+
+  return false;
+}
+
+static bool
+oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
+		      tree omp_data_i,
+		      reduction_info_table_type *reduction_list)
+{
+  unsigned i;
+  basic_block bb;
+  FOR_EACH_VEC_ELT (region_bbs, i, bb)
+    {
+      if (bitmap_bit_p (in_loop_bbs, bb->index))
+	continue;
+
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	   gsi_next (&gsi))
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+	  gimple *skip_stmt = NULL;
+
+	  if (is_gimple_debug (stmt)
+	      || gimple_code (stmt) == GIMPLE_COND)
+	    continue;
+
+	  ao_ref ref;
+	  bool ref_is_store = false;
+	  if (gimple_assign_load_p (stmt))
+	    {
+	      tree rhs = gimple_assign_rhs1 (stmt);
+	      tree base = get_base_address (rhs);
+	      if (TREE_CODE (base) == MEM_REF
+		  && operand_equal_p (TREE_OPERAND (base, 0), omp_data_i, 0))
+		continue;
+
+	      /* By testing for dead loads (here and in
+		 ref_conflicts_with_region), we avoid having to run pass_dce
+		 before pass_parallelize_loops_oacc_kernels.  */
+	      if (dead_load_p (stmt))
+		{
+		  if (dump_file)
+		    {
+		      fprintf (dump_file, "skipping dead load: ");
+		      print_gimple_stmt (dump_file, stmt, 0, 0);
+		    }
+		  continue;
+		}
+
+	      tree lhs = gimple_assign_lhs (stmt);
+	      if (TREE_CODE (lhs) == SSA_NAME
+		  && has_single_use (lhs))
+		{
+		  use_operand_p use_p;
+		  gimple *use_stmt;
+		  single_imm_use (lhs, &use_p, &use_stmt);
+		  if (gimple_code (use_stmt) == GIMPLE_PHI)
+		    {
+		      struct reduction_info *red;
+		      red = reduction_phi (reduction_list, use_stmt);
+		      tree val = PHI_RESULT (red->keep_res);
+		      if (has_single_use (val))
+			{
+			  single_imm_use (val, &use_p, &use_stmt);
+			  if (gimple_store_p (use_stmt))
+			    {
+			      skip_stmt = use_stmt;
+			      if (dump_file)
+				{
+				  fprintf (dump_file, "found reduction load: ");
+				  print_gimple_stmt (dump_file, stmt, 0, 0);
+				}
+			    }
+			}
+		    }
+		}
+
+	      ao_ref_init (&ref, rhs);
+	    }
+	  else if (gimple_store_p (stmt))
+	    {
+	      ao_ref ref;
+	      ao_ref_init (&ref, gimple_assign_lhs (stmt));
+	      ref_is_store = true;
+	    }
+	  else if (gimple_code (stmt) == GIMPLE_OMP_RETURN)
+	    continue;
+	  else if (gimple_stmt_omp_data_i_init_p (stmt))
+	    continue;
+	  else if (!gimple_has_side_effects (stmt)
+		   && !gimple_could_trap_p (stmt)
+		   && !stmt_could_throw_p (stmt)
+		   && !gimple_vdef (stmt)
+		   && !gimple_vuse (stmt))
+	    continue;
+	  else
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "Unhandled stmt in entry/exit: ");
+		  print_gimple_stmt (dump_file, stmt, 0, 0);
+		}
+	      return false;
+	    }
+
+	  if (ref_conflicts_with_region (gsi, &ref, ref_is_store, region_bbs,
+					 i, skip_stmt))
+	    {
+	      if (dump_file)
+		{
+		  fprintf (dump_file, "conflicts with entry/exit stmt: ");
+		  print_gimple_stmt (dump_file, stmt, 0, 0);
+		}
+	      return false;
+	    }
+	}
+    }
+
+  return true;
+}
+
+static bool
+oacc_entry_exit_ok (struct loop *loop, basic_block region_entry,
+		    reduction_info_table_type *reduction_list)
+{
+  basic_block *loop_bbs = get_loop_body_in_dom_order (loop);
+  basic_block region_exit
+    = get_oacc_kernels_region_exit (single_succ (region_entry));
+  vec<basic_block> region_bbs
+    = get_bbs_in_oacc_kernels_region (region_entry, region_exit);
+  tree omp_data_i = get_omp_data_i (region_entry);
+  gcc_assert (omp_data_i != NULL_TREE);
+
+  bitmap in_loop_bbs = BITMAP_ALLOC (NULL);
+  bitmap_clear (in_loop_bbs);
+  for (unsigned int i = 0; i < loop->num_nodes; i++)
+    bitmap_set_bit (in_loop_bbs, loop_bbs[i]->index);
+
+  bool res = oacc_entry_exit_ok_1 (in_loop_bbs, region_bbs, omp_data_i,
+				   reduction_list);
+
+  free (loop_bbs);
+
+  BITMAP_FREE (in_loop_bbs);
+
+  return res;
 }
 
 /* Detect parallel loops and generate parallel code using libgomp
@@ -2899,6 +3136,14 @@ parallelize_loops (bool oacc_kernels_p)
 
 	  if (!independent)
 	    continue;
+	}
+
+      if (oacc_kernels_p
+	  && !oacc_entry_exit_ok (loop, region_entry, &reduction_list))
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "entry/exit not ok: FAILED\n");
+	  continue;
 	}
 
       changed = true;

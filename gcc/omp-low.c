@@ -11949,7 +11949,8 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* Once lowered, extract the bounds and clauses.  */
   extract_omp_for_data (stmt, &fd, NULL);
 
-  if (is_gimple_omp_oacc (ctx->stmt))
+  if (is_gimple_omp_oacc (ctx->stmt)
+      && !ctx_in_oacc_kernels_region (ctx))
     lower_oacc_head_tail (gimple_location (stmt),
 			  gimple_omp_for_clauses (stmt),
 			  &oacc_head, &oacc_tail, ctx);
