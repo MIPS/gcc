@@ -1884,6 +1884,14 @@ build_real (tree type, REAL_VALUE_TYPE d)
   return v;
 }
 
+/* Like build_real, but first truncate D to the type.  */
+
+tree
+build_real_truncate (tree type, REAL_VALUE_TYPE d)
+{
+  return build_real (type, real_value_truncate (TYPE_MODE (type), d));
+}
+
 /* Return a new REAL_CST node whose type is TYPE
    and whose value is the integer value of the INTEGER_CST node I.  */
 
@@ -2553,7 +2561,7 @@ real_zerop (const_tree expr)
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst0)
+      return real_equal (&TREE_REAL_CST (expr), &dconst0)
 	     && !(DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (expr))));
     case COMPLEX_CST:
       return real_zerop (TREE_REALPART (expr))
@@ -2583,7 +2591,7 @@ real_onep (const_tree expr)
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst1)
+      return real_equal (&TREE_REAL_CST (expr), &dconst1)
 	     && !(DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (expr))));
     case COMPLEX_CST:
       return real_onep (TREE_REALPART (expr))
@@ -2612,7 +2620,7 @@ real_minus_onep (const_tree expr)
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconstm1)
+      return real_equal (&TREE_REAL_CST (expr), &dconstm1)
 	     && !(DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (expr))));
     case COMPLEX_CST:
       return real_minus_onep (TREE_REALPART (expr))
@@ -7416,7 +7424,7 @@ simple_cst_equal (const_tree t1, const_tree t2)
       return wi::to_widest (t1) == wi::to_widest (t2);
 
     case REAL_CST:
-      return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+      return real_identical (&TREE_REAL_CST (t1), &TREE_REAL_CST (t2));
 
     case FIXED_CST:
       return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1), TREE_FIXED_CST (t2));
@@ -12174,7 +12182,7 @@ strip_float_extensions (tree exp)
 	       && exact_real_truncate (TYPE_MODE (double_type_node), &orig))
 	type = double_type_node;
       if (type)
-	return build_real (type, real_value_truncate (TYPE_MODE (type), orig));
+	return build_real_truncate (type, orig);
     }
 
   if (!CONVERT_EXPR_P (exp))
@@ -13200,6 +13208,23 @@ verify_type_variant (const_tree t, tree tv)
    back to pointer-comparison of TYPE_CANONICAL for aggregates
    for example.  */
 
+/* Return true if TYPE_UNSIGNED of TYPE should be ignored for canonical
+   type calculation because we need to allow inter-operability between signed
+   and unsigned variants.  */
+
+bool
+type_with_interoperable_signedness (const_tree type)
+{
+  /* Fortran standard require C_SIGNED_CHAR to be interoperable with both
+     signed char and unsigned char.  Similarly fortran FE builds
+     C_SIZE_T as signed type, while C defines it unsigned.  */
+
+  return tree_code_for_canonical_type_merging (TREE_CODE (type))
+	   == INTEGER_TYPE
+         && (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node)
+	     || TYPE_PRECISION (type) == TYPE_PRECISION (size_type_node));
+}
+
 /* Return true iff T1 and T2 are structurally identical for what
    TBAA is concerned.  
    This function is used both by lto.c canonical type merging and by the
@@ -13250,8 +13275,8 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
     return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
 
   /* Can't be the same type if the types don't have the same code.  */
-  if (tree_code_for_canonical_type_merging (TREE_CODE (t1))
-      != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
+  enum tree_code code = tree_code_for_canonical_type_merging (TREE_CODE (t1));
+  if (code != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
     return false;
 
   /* Qualifiers do not matter for canonical type comparison purposes.  */
@@ -13274,9 +13299,14 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
       || TREE_CODE (t1) == OFFSET_TYPE
       || POINTER_TYPE_P (t1))
     {
-      /* Can't be the same type if they have different sign or precision.  */
-      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2)
-	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
+      /* Can't be the same type if they have different recision.  */
+      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2))
+	return false;
+
+      /* In some cases the signed and unsigned types are required to be
+	 inter-operable.  */
+      if (TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2)
+	  && !type_with_interoperable_signedness (t1))
 	return false;
 
       /* Fortran's C_SIGNED_CHAR is !TYPE_STRING_FLAG but needs to be

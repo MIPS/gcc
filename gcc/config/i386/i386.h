@@ -116,6 +116,8 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_SHA_P(x)	TARGET_ISA_SHA_P(x)
 #define TARGET_CLFLUSHOPT	TARGET_ISA_CLFLUSHOPT
 #define TARGET_CLFLUSHOPT_P(x)	TARGET_ISA_CLFLUSHOPT_P(x)
+#define TARGET_CLZERO	TARGET_ISA_CLZERO
+#define TARGET_CLZERO_P(x)	TARGET_ISA_CLZERO_P(x)
 #define TARGET_XSAVEC	TARGET_ISA_XSAVEC
 #define TARGET_XSAVEC_P(x)	TARGET_ISA_XSAVEC_P(x)
 #define TARGET_XSAVES	TARGET_ISA_XSAVES
@@ -350,6 +352,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_BDVER4 (ix86_tune == PROCESSOR_BDVER4)
 #define TARGET_BTVER1 (ix86_tune == PROCESSOR_BTVER1)
 #define TARGET_BTVER2 (ix86_tune == PROCESSOR_BTVER2)
+#define TARGET_ZNVER1 (ix86_tune == PROCESSOR_ZNVER1)
 
 /* Feature tests against the various tunings.  */
 enum ix86_tune_indices {
@@ -752,7 +755,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define MAIN_STACK_BOUNDARY (TARGET_64BIT ? 128 : 32)
 
 /* Minimum stack boundary.  */
-#define MIN_STACK_BOUNDARY (TARGET_64BIT ? (TARGET_SSE ? 128 : 64) : 32)
+#define MIN_STACK_BOUNDARY BITS_PER_WORD
 
 /* Boundary (in *bits*) on which the stack pointer prefers to be
    aligned; the compiler cannot rely on having this alignment.  */
@@ -1014,6 +1017,9 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    Bit three is set if the register is call used on TARGET_64BIT_MS_ABI.
 
    Proper values are computed in TARGET_CONDITIONAL_REGISTER_USAGE.  */
+
+#define CALL_USED_REGISTERS_MASK(IS_64BIT_MS_ABI) \
+  ((IS_64BIT_MS_ABI) ? (1 << 3) : TARGET_64BIT ? (1 << 2) : (1 << 1))
 
 #define CALL_USED_REGISTERS					\
 /*ax,dx,cx,bx,si,di,bp,sp,st,st1,st2,st3,st4,st5,st6,st7*/	\
@@ -2303,6 +2309,7 @@ enum processor_type
   PROCESSOR_BDVER4,
   PROCESSOR_BTVER1,
   PROCESSOR_BTVER2,
+  PROCESSOR_ZNVER1,
   PROCESSOR_max
 };
 

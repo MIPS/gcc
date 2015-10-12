@@ -1,3 +1,201 @@
+2015-10-12  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/58566
+	* g++.dg/cpp0x/lambda/lambda-58566.C: New.
+
+2015-10-10  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gfortran.dg/lto/bind_c-2_0.f90: New testcase.
+	* gfortran.dg/lto/bind_c-2_1.c: New testcase.
+	* gfortran.dg/lto/bind_c-3_0.f90: New testcase.
+	* gfortran.dg/lto/bind_c-3_1.c: New testcase.
+	* gfortran.dg/lto/bind_c-4_0.f90: New testcase.
+	* gfortran.dg/lto/bind_c-4_1.c: New testcase.
+	* gfortran.dg/lto/bind_c-5_0.f90: New testcase.
+	* gfortran.dg/lto/bind_c-5_1.c: New testcase.
+
+2015-10-09  Steve Ellcey  <sellcey@imgtec.com>
+
+	* gcc.target/mips/mips.exp (mips_option_groups): Add -mframe-header-opt
+	and -mno-frame-header-opt options.
+	* gcc.target/mips/frame-header-1.c: New file.
+	* gcc.target/mips/frame-header-2.c: New file.
+	* gcc.target/mips/frame-header-3.c: New file.
+
+2015-10-09  Andre Vieira  <andre.simoesdiasvieira@arm.com>
+	    Hale Wang  <hale.wang@arm.com>
+
+	* gcc.dg/tree-ssa/forwprop-33.c: New.
+
+2015-10-09  Alexander Fomin  <alexander.fomin@intel.com>
+
+	PR target/67895
+	* gcc.target/i386/avx512dq-vrangepd-1.c: Adjust assembly regexp.
+	* gcc.target/i386/avx512dq-vrangeps-1.c: Likewise.
+	* gcc.target/i386/avx512dq-vrangesd-1.c: Likewise.
+	* gcc.target/i386/avx512dq-vrangess-1.c: Likewise.
+	* gcc.target/i386/avx512f-vcvtsi2sd64-1.c: Likewise.
+	* gcc.target/i386/avx512f-vcvtsi2ss-1.c: Likewise.
+	* gcc.target/i386/avx512f-vcvtsi2ss64-1.c: Likewise.
+	* gcc.target/i386/avx512f-vcvtusi2sd64-1.c: Likewise.
+	* gcc.target/i386/avx512f-vcvtusi2ss-1.c: Likewise.
+	* gcc.target/i386/avx512f-vcvtusi2ss64-1.c: Likewise.
+
+2015-10-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* lib/multiline.exp: New file.
+	* lib/prune.exp: Load multiline.exp.
+	(prune_gcc_output): Call into multiline.exp to handle any
+	multiline output directives.
+	* lib/libgo.exp: Load multiline.exp before prune.exp, using
+	load_gcc_lib.
+
+2015-10-09  Martin Jambor  <mjambor@suse.cz>
+
+	tree-optimization/67794
+        * gcc.dg/ipa/ipa-sra-10.c: Nw test.
+        * gcc.dg/torture/pr67794.c: Likewise.
+
+2015-10-09  Alexandre Oliva <aoliva@redhat.com>
+
+	PR rtl-optimization/67828
+	* gcc.dg/torture/pr67828.c: New.
+
+2015-10-09  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	PR target/67366
+	* lib/target-supports.exp (check_effective_target_non_strict_align):
+	Adjust for arm*-*-*.
+	* gcc.target/arm/pr67366.c: New test.
+
+2015-10-09  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67891
+	* gcc.dg/tree-ssa/pr67891.c: New testcase.
+
+2015-10-08  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gcc.dg/builtins-47.c: Test the optimized dump instead.
+
+2015-10-08  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc.dg/vect/vect-outer-simd-3.c: New test.
+
+2015-10-08  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* gcc.dg/loop-unswitch-2.c: New test.
+	* gcc.dg/loop-unswitch-3.c: Likewise.
+	* gcc.dg/loop-unswitch-4.c: Likewise.
+
+2015-10-08  Tom de Vries  <tom@codesourcery.com>
+
+	* gcc.dg/dse.c: Only dump in dse1 pass.
+	* gcc.dg/tree-ssa/pr30375.c: Same.
+
+2015-10-07  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/66697
+	* gcc.target/i386/20060512-1.c: Remove ia32 requirement.
+	(PUSH, POP): New defines.
+	(sse2_test): Use PUSH and POP to misalign runtime stack.
+	* gcc.target/i386/20060512-2.c: Remove ia32 requirement.
+
+2015-10-07  James Norris  <jnorris@codesourcery.com>
+
+	* lib/atomic-dg.exp (atomic_link_flags): Move flag setting
+	to atomic_init. (atomic_init): Restrict flags usage.
+
+2015-10-07  Andre Vehreschild  <vehre@gcc.gnu.org>
+
+	PR fortran/65889
+	* gfortran.dg/sizeof_5.f90: New test.
+
+2015-10-06  Jeff Law  <law@redhat.com>
+
+	* gcc.c-torture/compile/pr67816.c: New test.
+
+2015-10-07  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* gcc.target/aarch64/get_lane_f16_1.c: New test.
+
+2015-10-06  Louis Krupp     <louis.krupp@zoho.com>
+
+	PR fortran/65766
+	* gfortran.dg/substr_alloc_string_comp_1.f90: New.
+
+2015-10-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/67863
+	* c-c++-common/Wtautological-compare-4.c: New test.
+
+2015-10-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+	    Peter Bergner <bergner@vnet.ibm.com>
+
+	PR target/67808
+	* gcc.target/powerpc/pr67808.c: New test.
+
+2015-10-06  Nick Clifton  <nickc@redhat.com>
+
+	* gcc.target/msp430: New directory.
+	* gcc.target/msp430/msp430.exp: New file.  Runs MSP430 specific
+	tests.
+	* gcc.target/msp430/data-attributes.c: New file.  Checks the
+	noinit and persistent data attributes.
+
+2015-10-06  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Fix AVX-512VBMI detection.
+
+2015-10-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67859
+	* gcc.dg/torture/pr67859.c: New testcase.
+
+2015-10-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Add check for AES and PCLMUL.
+
+2015-10-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/53856
+	* g++.dg/template/defarg19.C: New.
+	* g++.dg/template/defarg20.C: Likewise.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* gcc.dg/graphite/scop-sor.c: Un-xfail.
+
+2015-10-05  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	* gcc.dg/graphite/scop-sor.c: Xfail.
+
+2015-10-05  Martin Jambor  <mjambor@suse.cz>
+	    Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.dg/ipa/propalign-4.c: New test.
+	* gcc.dg/ipa/propalign-5.c: Likewise.
+
+2015-10-05  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67821
+	* gcc.dg/torture/pr67821-2.c: New test.
+	* gcc.dg/torture/pr67821.c: New test.
+
+2015-10-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/i386/builtin_target.c: Add check for "skylake-avx512".
+
+2015-10-05  Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.target/arm/attr_thumb-static2.c: Cleanup directives.
+
+2015-10-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vcvt_f16.c (TEST_MSG): Fix typo.
+	(exec_vcvt): Add comments.
+
 2015-10-04  Uros Bizjak  <ubizjak@gmail.com>
 
 	PR rtl-optimization/67447

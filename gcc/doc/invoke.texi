@@ -821,7 +821,8 @@ Objective-C and Objective-C++ Dialects}.
 -mbranch-cost=@var{num}  -mbranch-likely  -mno-branch-likely @gol
 -mfp-exceptions -mno-fp-exceptions @gol
 -mvr4130-align -mno-vr4130-align -msynci -mno-synci @gol
--mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address}
+-mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address @gol
+-mframe-header-opt -mno-frame-header-opt}
 
 @emph{MMIX Options}
 @gccoptlist{-mlibfuncs  -mno-libfuncs  -mepsilon  -mno-epsilon  -mabi=gnu @gol
@@ -2153,11 +2154,11 @@ regardless of what language your program is in.  For example, you
 might compile a file @file{firstClass.C} like this:
 
 @smallexample
-g++ -g -frepo -O -c firstClass.C
+g++ -g -fstrict-enums -O -c firstClass.C
 @end smallexample
 
 @noindent
-In this example, only @option{-frepo} is an option meant
+In this example, only @option{-fstrict-enums} is an option meant
 only for C++ programs; you can use the other options with any
 language supported by GCC@.
 
@@ -11200,6 +11201,10 @@ automaton.  The default is 50.
 Chunk size of omp schedule for loops parallelized by parloops.  The default
 is 0.
 
+@item max-ssa-name-query-depth
+Maximum depth of recursion when querying properties of SSA names in things
+like fold routines.  One level of recursion corresponds to following a
+use-def chain.
 @end table
 @end table
 
@@ -18172,6 +18177,17 @@ if @var{ra-address} is nonnull.
 
 The default is @option{-mno-mcount-ra-address}.
 
+@item -mframe-header-opt
+@itemx -mno-frame-header-opt
+@opindex mframe-header-opt
+Enable (disable) frame header optimization in the o32 ABI.  When using the
+o32 ABI, calling functions will allocate 16 bytes on the stack for the called
+function to write out register arguments.  When enabled, this optimization
+will suppress the allocation of the frame header if it can be determined that
+it is unused.
+
+This optimization is off by default at all optimization levels.
+
 @end table
 
 @node MMIX Options
@@ -18603,13 +18619,14 @@ Do not generate GP-relative accesses.
 
 @item local
 Generate GP-relative accesses for small data objects that are not 
-external or weak.  Also use GP-relative addressing for objects that
+external, weak, or uninitialized common symbols.  
+Also use GP-relative addressing for objects that
 have been explicitly placed in a small data section via a @code{section}
 attribute.
 
 @item global
 As for @samp{local}, but also generate GP-relative accesses for
-small data objects that are external or weak.  If you use this option,
+small data objects that are external, weak, or common.  If you use this option,
 you must ensure that all parts of your program (including libraries) are
 compiled with the same @option{-G} setting.
 
@@ -22475,6 +22492,13 @@ AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
 supersets BMI, BMI2, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, AVX2, XOP, LWP, 
 AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, 
 SSE4.2, ABM and 64-bit instruction set extensions.
+
+@item znver1
+AMD Family 17h core based CPUs with x86-64 instruction set support.  (This
+supersets BMI, BMI2, F16C, FMA, FSGSBASE, AVX, AVX2, ADCX, RDSEED, MWAITX,
+SHA, CLZERO, AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3,
+SSE4.1, SSE4.2, ABM, XSAVEC, XSAVES, CLFLUSHOPT, POPCNT, and 64-bit
+instruction set extensions.
 
 @item btver1
 CPUs based on AMD Family 14h cores with x86-64 instruction set support.  (This

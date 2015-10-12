@@ -5372,8 +5372,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 	       || TREE_CODE (expr) == COMPLEX_CST)))
       value = build1 (NOP_EXPR, type, value);
 
-  if (CAN_HAVE_LOCATION_P (value))
-    SET_EXPR_LOCATION (value, loc);
+  protected_set_expr_location (value, loc);
   return value;
 }
 
@@ -5411,8 +5410,8 @@ c_cast_expr (location_t loc, struct c_type_name *type_name, tree expr)
       SET_EXPR_LOCATION (ret, loc);
     }
 
-  if (CAN_HAVE_LOCATION_P (ret) && !EXPR_HAS_LOCATION (ret))
-    SET_EXPR_LOCATION (ret, loc);
+  if (!EXPR_HAS_LOCATION (ret))
+    protected_set_expr_location (ret, loc);
 
   /* C++ does not permits types to be defined in a cast, but it
      allows references to incomplete types.  */
@@ -13097,7 +13096,7 @@ c_tree_equal (tree t1, tree t2)
       return wi::eq_p (t1, t2);
 
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+      return real_equal (&TREE_REAL_CST (t1), &TREE_REAL_CST (t2));
 
     case STRING_CST:
       return TREE_STRING_LENGTH (t1) == TREE_STRING_LENGTH (t2)

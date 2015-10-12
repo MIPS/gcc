@@ -1,3 +1,7 @@
+2015-10-12  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 228706 into gupc branch.
+
 2015-10-07  Gary Funck  <gary@intrepid.com>
 
 	top-level/configure.ac: Remove --enable-upc-link-script option.
