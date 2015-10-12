@@ -10758,7 +10758,9 @@ mips_insn_has_inflexible_gp_ref_p (rtx insn)
   /* Uses of pic_offset_table_rtx in CALL_INSN_FUNCTION_USAGE
      indicate that the target could be a traditional MIPS
      lazily-binding stub.  */
-  return find_reg_fusage (insn, USE, pic_offset_table_rtx);
+  return (find_reg_fusage (insn, USE, pic_offset_table_rtx)
+	  || asm_operands_mention_regno_p (PATTERN (insn),
+					   GLOBAL_POINTER_REGNUM));
 }
 
 /* Return true if the current function refers to the global pointer

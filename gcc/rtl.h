@@ -2166,6 +2166,7 @@ extern void finish_subregs_of_mode (void);
 
 /* recog.c */
 extern rtx extract_asm_operands (rtx);
+extern int asm_operands_mention_regno_p (rtx, unsigned int);
 extern int asm_noperands (const_rtx);
 extern const char *decode_asm_operands (rtx, rtx *, rtx **, const char **,
 					enum machine_mode *, location_t *);

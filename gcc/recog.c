@@ -1435,6 +1435,29 @@ extract_asm_operands (rtx body)
   return NULL;
 }
 
+/* True if REGNO occurs in the inputs of BODY.  */
+
+int
+asm_operands_mention_regno_p (rtx body, unsigned int regno)
+{
+  int i,n;
+  rtx tmp, operands;
+  operands = extract_asm_operands (body);
+
+  if (!operands || GET_CODE (operands) != ASM_OPERANDS)
+    return 0;
+
+  n = ASM_OPERANDS_INPUT_LENGTH (operands);
+  for (i = 0; i < n; i++)
+    {
+      tmp = ASM_OPERANDS_INPUT (operands, i);
+      if (REG_P (tmp) && REGNO (tmp) == regno)
+	return 1;
+    }
+
+  return 0;
+}
+
 /* If BODY is an insn body that uses ASM_OPERANDS,
    return the number of operands (both input and output) in the insn.
    Otherwise return -1.  */
