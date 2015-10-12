@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
 #include "cfgcleanup.h"
+#include "omp-low.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -526,32 +527,15 @@ private:
 
 namespace {
 
-const pass_data pass_data_dominator =
+class dominator_base : public gimple_opt_pass
 {
-  GIMPLE_PASS, /* type */
-  "dom", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_TREE_SSA_DOMINATOR_OPTS, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  ( TODO_cleanup_cfg | TODO_update_ssa ), /* todo_flags_finish */
-};
-
-class pass_dominator : public gimple_opt_pass
-{
-public:
-  pass_dominator (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_dominator, ctxt)
+ protected:
+  dominator_base (pass_data data, gcc::context *ctxt)
+    : gimple_opt_pass (data, ctxt)
   {}
 
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dominator (m_ctxt); }
-  virtual bool gate (function *) { return flag_tree_dom != 0; }
-  virtual unsigned int execute (function *);
+  unsigned int execute (function *);
 
- protected:
   /* Return true if pass should perform jump threading.  */
   virtual bool jump_threading_p (void) { return !sese_mode_p (); }
 
@@ -566,11 +550,35 @@ public:
 			 basic_block *sese_exit ATTRIBUTE_UNUSED,
 			 gimple **skip_stmt ATTRIBUTE_UNUSED)
     { gcc_unreachable (); }
+}; // class dominator_base
 
+const pass_data pass_data_dominator =
+{
+  GIMPLE_PASS, /* type */
+  "dom", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_TREE_SSA_DOMINATOR_OPTS, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_update_ssa ), /* todo_flags_finish */
+};
+
+class pass_dominator : public dominator_base
+{
+public:
+  pass_dominator (gcc::context *ctxt)
+    : dominator_base (pass_data_dominator, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_dominator (m_ctxt); }
+  virtual bool gate (function *) { return flag_tree_dom != 0; }
 }; // class pass_dominator
 
 unsigned int
-pass_dominator::execute (function *fun)
+dominator_base::execute (function *fun)
 {
   memset (&opt_stats, 0, sizeof (opt_stats));
 
@@ -759,6 +767,68 @@ pass_dominator::execute (function *fun)
   return 0;
 }
 
+const pass_data pass_data_dominator_oacc_kernels =
+{
+  GIMPLE_PASS, /* type */
+  "dom_oacc_kernels", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_TREE_SSA_DOMINATOR_OPTS, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  ( TODO_cleanup_cfg | TODO_update_ssa ), /* todo_flags_finish */
+};
+
+class pass_dominator_oacc_kernels : public dominator_base
+{
+public:
+  pass_dominator_oacc_kernels (gcc::context *ctxt)
+    : dominator_base (pass_data_dominator_oacc_kernels, ctxt), m_regions (NULL)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *) { return true; }
+
+ private:
+  bitmap m_regions;
+
+protected:
+  /* dominator_base methods: */
+  virtual bool sese_mode_p (void) { return true; }
+  virtual bool get_sese (basic_block *sese_entry, basic_block *sese_exit,
+			 gimple **skip_stmt)
+  {
+    if (m_regions == NULL)
+      {
+	m_regions = BITMAP_ALLOC (NULL);
+	basic_block bb;
+	FOR_EACH_BB_FN (bb, cfun)
+	  if (oacc_kernels_region_entry_p (bb, NULL))
+	    bitmap_set_bit (m_regions, bb->index);
+      }
+
+    if (bitmap_empty_p (m_regions))
+      {
+	BITMAP_FREE (m_regions);
+	return false;
+      }
+
+    unsigned int index = bitmap_first_set_bit (m_regions);
+    bitmap_clear_bit (m_regions, index);
+
+    *sese_entry = BASIC_BLOCK_FOR_FN (cfun, index);
+    *sese_exit = get_oacc_kernels_region_exit (*sese_entry);
+
+    tree omp_data_i = get_omp_data_i (single_pred (*sese_entry));
+    if (omp_data_i != NULL_TREE)
+      *skip_stmt = SSA_NAME_DEF_STMT (omp_data_i);
+
+    return true;
+  }
+
+}; // class pass_dominator_oacc_kernels
+
 } // anon namespace
 
 gimple_opt_pass *
@@ -767,6 +837,11 @@ make_pass_dominator (gcc::context *ctxt)
   return new pass_dominator (ctxt);
 }
 
+gimple_opt_pass *
+make_pass_dominator_oacc_kernels (gcc::context *ctxt)
+{
+  return new pass_dominator_oacc_kernels (ctxt);
+}
 
 /* Given a conditional statement CONDSTMT, convert the
    condition to a canonical form.  */

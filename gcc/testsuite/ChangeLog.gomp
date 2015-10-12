@@ -1,5 +1,9 @@
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-counter-var-redundant-load.c: New test.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-acc-on-device.c: Remove openacc.h include.
 	(enum acc_device_t, acc_on_device): Declare.
 	(foo): Remove unused vars.  Use acc_device_X.

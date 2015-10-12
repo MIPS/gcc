@@ -1,5 +1,15 @@
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_dominator_oacc_kernels to pass group pass_oacc_kernels.
+	Add pass_tree_loop_done before, and pass_tree_loop_init after.
+	* tree-pass.h (make_pass_dominator_oacc_kernels): Declare.
+	* tree-ssa-dom.c (class dominator_base): New class.  Factor out of ...
+	(class pass_dominator): ... here.
+	(pass_dominator_oacc_kernels): New pass.
+	(make_pass_dominator_oacc_kernels): New function.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (get_oacc_kernels_region_exit, get_omp_data_i): New
 	function.
 	(oacc_kernels_region_entry_p): New function. Factor out of ...
