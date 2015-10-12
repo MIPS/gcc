@@ -15434,6 +15434,89 @@ mips_set_sched_flags (spec_info_t spec_info ATTRIBUTE_UNUSED)
     }
 }
 
+/* If INSN is a load or store of address in the form of [base+offset],
+   extract the two parts and set to BASE and OFFSET.  IS_LOAD is set
+   to TRUE if it's a load.  Return TRUE if INSN is such an instruction,
+   otherwise return FALSE.  */
+
+static bool
+mips_load_store_fusion_p (rtx insn, rtx *base, HOST_WIDE_INT *offset,
+			  bool *is_load)
+{
+  rtx x, dest, src;
+
+  gcc_assert (INSN_P (insn));
+  x = PATTERN (insn);
+  if (GET_CODE (x) != SET)
+    return false;
+
+  src = SET_SRC (x);
+  dest = SET_DEST (x);
+  if (GET_CODE (src) == REG && GET_CODE (dest) == MEM)
+    {
+      *is_load = false;
+      mips_split_plus (XEXP (dest, 0), base, offset);
+    }
+  else if (GET_CODE (src) == MEM && GET_CODE (dest) == REG)
+    {
+      *is_load = true;
+      mips_split_plus (XEXP (src, 0), base, offset);
+    }
+  else
+    return false;
+
+  return (*base != NULL_RTX && *offset != 0);
+}
+
+/* Implement the TARGET_SCHED_FUSION_PRIORITY hook.
+
+   Currently we only support to fuse ldr or str instructions, so FUSION_PRI
+   and PRI are only calculated for these instructions.  For other instruction,
+   FUSION_PRI and PRI are simply set to MAX_PRI.  In the future, other kind
+   instruction fusion can be supported by returning different priorities.
+
+   It's important that irrelevant instructions get the largest FUSION_PRI.  */
+
+static void
+mips_sched_fusion_priority (rtx insn, int max_pri,
+			   int *fusion_pri, int *pri)
+{
+  int tmp, off_val;
+  bool is_load;
+  rtx base;
+  HOST_WIDE_INT offset;
+
+  gcc_assert (INSN_P (insn));
+
+  tmp = max_pri - 1;
+  if (!mips_load_store_fusion_p (insn, &base, &offset, &is_load))
+    {
+      *pri = tmp;
+      *fusion_pri = tmp;
+      return;
+    }
+
+  /* Load goes first.  */
+  if (is_load)
+    *fusion_pri = tmp - 1;
+  else
+    *fusion_pri = tmp - 2;
+
+  tmp /= 2;
+
+  /* INSN with smaller base register goes first.  */
+  tmp -= ((REGNO (base) & 0xff) << 20);
+
+  /* INSN with smaller offset goes first.  */
+  if (offset >= 0)
+    tmp -= (offset & 0xfffff);
+  else
+    tmp += ((- offset) & 0xfffff);
+
+  *pri = tmp;
+  return;
+}
+
 static void
 mips_weight_finish_global ()
 {
@@ -20372,6 +20455,10 @@ mips_option_override (void)
   if (!TARGET_USE_GOT || !TARGET_EXPLICIT_RELOCS)
     target_flags &= ~MASK_RELAX_PIC_CALLS;
 
+  /* Enable scheduling fusion by default for load-load/store-store pairs.  */
+  if (ENABLE_LD_ST_PAIRS)
+    flag_schedule_fusion = 2;
+
   /* Save base state of options.  */
   mips_base_target_flags = target_flags;
   mips_base_schedule_insns = flag_schedule_insns;
@@ -22871,6 +22958,9 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_SCHED_SET_SCHED_FLAGS
 #define TARGET_SCHED_SET_SCHED_FLAGS mips_set_sched_flags
+
+#undef TARGET_SCHED_FUSION_PRIORITY
+#define TARGET_SCHED_FUSION_PRIORITY mips_sched_fusion_priority
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
