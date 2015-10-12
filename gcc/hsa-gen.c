@@ -76,6 +76,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "cfgloop.h"
 #include "cfganal.h"
+#include "builtins.h"
 
 /* Print a warning message and set that we have seen an error.  */
 
@@ -1323,6 +1324,7 @@ hsa_insn_mem::hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0,
   gcc_checking_assert (opc == BRIG_OPCODE_LD || opc == BRIG_OPCODE_ST
 		       || opc == BRIG_OPCODE_EXPAND);
 
+  align = hsa_natural_alignment (t);
   equiv_class = 0;
 }
 
@@ -1336,6 +1338,7 @@ hsa_insn_mem::hsa_insn_mem (unsigned nops, int opc, BrigType16_t t,
 			    hsa_op_base *arg2, hsa_op_base *arg3)
   : hsa_insn_basic (nops, opc, t, arg0, arg1, arg2, arg3)
 {
+  align = hsa_natural_alignment (t);
   equiv_class = 0;
 }
 
@@ -2006,18 +2009,20 @@ gen_hsa_insns_for_bitfield (hsa_op_reg *dest, hsa_op_reg *value_reg,
 
 
 /* Generate HSAIL instructions loading a bit field into register DEST.  ADDR is
-   prepared memory address which is used to load the bit field.  To identify
-   a bit field BITPOS is offset to the loaded memory and BITSIZE is number
-   of bits of the bit field.  Add instructions to HBB.  */
+   prepared memory address which is used to load the bit field.  To identify a
+   bit field BITPOS is offset to the loaded memory and BITSIZE is number of
+   bits of the bit field.  Add instructions to HBB.  Load must be performaed in
+   alignment ALIGN.  */
 
 static void
 gen_hsa_insns_for_bitfield_load (hsa_op_reg *dest, hsa_op_address *addr,
-				HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
-				hsa_bb *hbb)
+				 HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
+				 hsa_bb *hbb, BrigAlignment8_t align)
 {
   hsa_op_reg *value_reg = new hsa_op_reg (dest->type);
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, dest->type, value_reg,
 					addr);
+  mem->set_align (align);
   hbb->append_insn (mem);
   gen_hsa_insns_for_bitfield (dest, value_reg, bitsize, bitpos, hbb);
 }
@@ -2139,8 +2144,11 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 	  return;
 	}
 
+      BrigAlignment8_t req_align;
+      req_align = hsa_alignment_encoding (get_object_alignment (rhs));
       if (bitsize || bitpos)
-	gen_hsa_insns_for_bitfield_load (dest, addr, bitsize, bitpos, hbb);
+	gen_hsa_insns_for_bitfield_load (dest, addr, bitsize, bitpos, hbb,
+					 req_align);
       else
 	{
 	  BrigType16_t mtype;
@@ -2149,6 +2157,7 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 								    false));
 	  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dest,
 						addr);
+	  mem->set_align (req_align);
 	  hbb->append_insn (mem);
 	}
     }
@@ -2220,6 +2229,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
       /* Load value from memory.  */
       hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mem_type,
 					    value_reg, addr);
+      mem->set_align (hsa_alignment_encoding (get_object_alignment (lhs)));
       hbb->append_insn (mem);
 
       /* AND the loaded value with prepared mask.  */
@@ -2262,6 +2272,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
     }
 
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
+  mem->set_align (hsa_alignment_encoding (get_object_alignment (lhs)));
 
   /* XXX The HSAIL disasm has another constraint: if the source
      is an immediate then it must match the destination type.  If

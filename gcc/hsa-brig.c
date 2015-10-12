@@ -477,29 +477,6 @@ brig_release_data (void)
   brig_initialized = 0;
 }
 
-/* Find the alignment base on the type.  */
-
-static BrigAlignment8_t
-get_alignment (BrigType16_t type)
-{
-  unsigned bit_size ;
-  bit_size = hsa_type_bit_size (type & ~BRIG_TYPE_ARRAY);
-
-  if (bit_size == 1)
-    return BRIG_ALIGNMENT_1;
-  if (bit_size == 8)
-    return BRIG_ALIGNMENT_1;
-  if (bit_size == 16)
-    return BRIG_ALIGNMENT_2;
-  if (bit_size == 32)
-    return BRIG_ALIGNMENT_4;
-  if (bit_size == 64)
-    return BRIG_ALIGNMENT_8;
-  if (bit_size == 128)
-    return BRIG_ALIGNMENT_16;
-  gcc_unreachable ();
-}
-
 /* Enqueue operation OP.  Return the offset at which it will be stored.  */
 
 static unsigned int
@@ -595,7 +572,9 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.init = 0;
   dirvar.type = htole16 (symbol->type);
   dirvar.segment = symbol->segment;
-  dirvar.align = get_alignment (dirvar.type);
+  /* TODO: Once we are able to access global variables, we must copy their
+     alignment.  */
+  dirvar.align = MAX (hsa_natural_alignment (dirvar.type), BRIG_ALIGNMENT_4);
   dirvar.linkage = symbol->linkage;
   dirvar.dim.lo = (uint32_t) symbol->dim;
   dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->dim >> 32);
@@ -1161,7 +1140,7 @@ emit_memory_insn (hsa_insn_mem *mem)
     repr.segment = BRIG_SEGMENT_FLAT;
   repr.modifier.allBits = 0 ;
   repr.equivClass = mem->equiv_class;
-  repr.align = BRIG_ALIGNMENT_1;
+  repr.align = mem->align;
   if (mem->opcode == BRIG_OPCODE_LD)
     repr.width = BRIG_WIDTH_1;
   else

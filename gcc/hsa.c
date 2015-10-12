@@ -327,6 +327,21 @@ hsa_insn_basic::num_used_ops ()
   return operand_count () - input_count ();
 }
 
+/* Set alignment to VALUE.  */
+
+void
+hsa_insn_mem::set_align (BrigAlignment8_t value)
+{
+  /* TODO: Perhaps remove this dump later on:  */
+  if (dump_file && (dump_flags & TDF_DETAILS)
+      && value < align)
+    {
+      fprintf (dump_file, "Decreasing alignment to %u in instruction ", value);
+      dump_hsa_insn (dump_file, this);
+    }
+  align = value;
+}
+
 /* Return size of HSA type T in bits.  */
 
 unsigned
@@ -453,6 +468,40 @@ hsa_type_integer_p (BrigType16_t type)
     default:
       return false;
     }
+}
+
+/* Return HSA alignment encoding alignment to N bits.  */
+
+BrigAlignment8_t
+hsa_alignment_encoding (unsigned n)
+{
+  gcc_assert (n >= 8 && !(n & (n - 1)));
+  if (n >= 256)
+    return BRIG_ALIGNMENT_32;
+
+  switch (n)
+    {
+    case 8:
+      return BRIG_ALIGNMENT_1;
+    case 16:
+      return BRIG_ALIGNMENT_2;
+    case 32:
+      return BRIG_ALIGNMENT_4;
+    case 64:
+      return BRIG_ALIGNMENT_8;
+    case 128:
+      return BRIG_ALIGNMENT_16;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return natural alignment of HSA TYPE.  */
+
+BrigAlignment8_t
+hsa_natural_alignment (BrigType16_t type)
+{
+  return hsa_alignment_encoding (hsa_type_bit_size (type & ~BRIG_TYPE_ARRAY));
 }
 
 /* Call the correct destructor on a statement STMT.  */

@@ -1,5 +1,21 @@
 2015-10-12  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig.c (get_alignment): Removed.
+	(emit_directive_variable): Use hsa_natural_alignment.
+	(emit_memory_insn): Use alignment from mem.
+	* hsa-gen.c (hsa_insn_mem::hsa_insn_mem): Initialize align.
+	(gen_hsa_insns_for_bitfield_load): New argument, set alignment.
+	(gen_hsa_insns_for_load): Set alignment.
+	(gen_hsa_insns_for_store): Likewise.
+	* hsa.c (hsa_alignment_encoding): New function.
+	(hsa_natural_alignment): Likewise.
+	(hsa_insn_mem::set_align): Likewise.
+	* hsa.h (hsa_insn_mem): New members align and set_align.
+	(hsa_alignment_encoding): Declare.
+	(hsa_natural_alignment): Likewise.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-dump.c (dump_hsa_insn): Rename to dump_hsa_insn_1.
 	(dump_hsa_insn): New function.
 	(dump_hsa_bb): Use dump_hsa_insn_1.

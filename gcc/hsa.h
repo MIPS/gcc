@@ -541,8 +541,15 @@ public:
 
   void *operator new (size_t);
 
+  /* Set alignment to VALUE.  */
+
+  void set_align (BrigAlignment8_t value);
+
   /* The segment is of the memory access is either the segment of the symbol in
      the address operand or flat address is there is no symbol there.  */
+
+  /* Required alignment of the memory operation. */
+  BrigAlignment8_t align;
 
   /* HSA equiv class, basically an alias set number. */
   uint8_t equiv_class;
@@ -1056,6 +1063,8 @@ unsigned hsa_type_bit_size (BrigType16_t t);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 bool hsa_type_float_p (BrigType16_t type);
 bool hsa_type_integer_p (BrigType16_t type);
+BrigAlignment8_t hsa_alignment_encoding (unsigned n);
+BrigAlignment8_t hsa_natural_alignment (BrigType16_t type);
 void hsa_destroy_insn (hsa_insn_basic *insn);
 void hsa_add_kern_decl_mapping (tree decl, char *name, unsigned);
 unsigned hsa_get_number_decl_kernel_mappings (void);
