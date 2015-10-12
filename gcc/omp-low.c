@@ -9959,6 +9959,46 @@ mark_loops_in_oacc_kernels_region (basic_block region_entry,
       loop->in_oacc_kernels_region = true;
 }
 
+/* Return blocks in oacc kernels region delimited by REGION_ENTRY and
+   REGION_EXIT.  */
+
+vec<basic_block>
+get_bbs_in_oacc_kernels_region (basic_block region_entry,
+				 basic_block region_exit)
+{
+  bitmap excludes_bitmap = BITMAP_GGC_ALLOC ();
+  unsigned di;
+  basic_block bb;
+
+  bitmap_clear (excludes_bitmap);
+
+  /* Get all the blocks dominated by the region entry.  That will include the
+     entire region.  */
+  vec<basic_block> dominated
+    = get_all_dominated_blocks (CDI_DOMINATORS, region_entry);
+
+  bitmap_set_bit (excludes_bitmap, region_entry->index);
+
+  /* Exclude all the blocks which are not in the region: the blocks dominated by
+     the region exit.  */
+  if (region_exit != NULL)
+    {
+      vec<basic_block> excludes
+	= get_all_dominated_blocks (CDI_DOMINATORS, region_exit);
+      FOR_EACH_VEC_ELT (excludes, di, bb)
+	bitmap_set_bit (excludes_bitmap, bb->index);
+      bitmap_clear_bit (excludes_bitmap, region_exit->index);
+    }
+
+  vec<basic_block> bbs = vNULL;
+
+  FOR_EACH_VEC_ELT (dominated, di, bb)
+    if (!bitmap_bit_p (excludes_bitmap, bb->index))
+      bbs.safe_push (bb);
+
+  return bbs;
+}
+
 /* Return the entry basic block of the oacc kernels region containing LOOP.  */
 
 basic_block

@@ -1,5 +1,10 @@
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (get_bbs_in_oacc_kernels_region): New function.
+	* omp-low.h (get_bbs_in_oacc_kernels_region): Declare.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
 	* passes.def: Add pass_dominator_oacc_kernels to pass group pass_oacc_kernels.
 	Add pass_tree_loop_done before, and pass_tree_loop_init after.
 	* tree-pass.h (make_pass_dominator_oacc_kernels): Declare.
