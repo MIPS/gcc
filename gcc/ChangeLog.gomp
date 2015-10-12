@@ -1,5 +1,14 @@
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (get_oacc_kernels_region_exit, get_omp_data_i): New
+	function.
+	(oacc_kernels_region_entry_p): New function. Factor out of ...
+	(gimple_stmt_omp_data_i_init_p): ... here.
+	* omp-low.h (get_oacc_kernels_region_exit, oacc_kernels_region_entry_p)
+	(get_omp_data_i): Declare.
+
+2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-ssa-dom.c (dom_opt_dom_walker::set_skip_stmt): New function.
 	(dom_opt_dom_walker::m_skip_stmt): New private var.
 	(pass_dominator::get_sese): Add skip_stmt parameters.

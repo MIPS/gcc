@@ -9981,6 +9981,53 @@ loop_get_oacc_kernels_region_entry (struct loop *loop)
     }
 }
 
+/* Return the oacc kernels region exit corresponding to REGION_ENTRY.  */
+
+basic_block
+get_oacc_kernels_region_exit (basic_block region_entry)
+{
+  gcc_checking_assert (oacc_kernels_region_entry_p (region_entry, NULL));
+
+  bitmap to_visit = BITMAP_ALLOC (NULL);
+  bitmap visited = BITMAP_ALLOC (NULL);
+  bitmap_clear (to_visit);
+  bitmap_clear (visited);
+
+  bitmap_set_bit (to_visit, region_entry->index);
+
+  basic_block bb;
+  while (true)
+    {
+      if (bitmap_empty_p (to_visit))
+	{
+	  bb = NULL;
+	  break;
+	}
+
+      unsigned int index = bitmap_first_set_bit (to_visit);
+      bitmap_clear_bit (to_visit, index);
+      bitmap_set_bit (visited, index);
+      bb = BASIC_BLOCK_FOR_FN (cfun, index);
+
+      gimple *last = last_stmt (bb);
+      if (last != NULL
+	  && gimple_code (last) == GIMPLE_OMP_RETURN)
+	break;
+
+      edge_iterator ei;
+      for (ei = ei_start (bb->succs); !ei_end_p (ei); ei_next (&ei))
+	{
+	  edge e = ei_edge (ei);
+	  unsigned int dest_index = e->dest->index;
+	  if (!bitmap_bit_p (visited, dest_index))
+	    bitmap_set_bit (to_visit, dest_index);
+	}
+    }
+
+  BITMAP_FREE (to_visit);
+  return bb;
+}
+
 /* Encode an oacc launch argument.  This matches the GOMP_LAUNCH_PACK
    macro on gomp-constants.h.  We do not check for overflow.  */
 
@@ -15154,6 +15201,31 @@ omp_finish_file (void)
     }
 }
 
+/* Return true if BB is an oacc kernels region entry.  If DIRECTIVE is non-null,
+   return the corresponding kernels directive in *DIRECTIVE.  */
+
+bool
+oacc_kernels_region_entry_p (basic_block bb, gomp_target **directive)
+{
+  /* Check that the last statement in the preceding bb is an oacc kernels
+     stmt.  */
+  if (!single_pred_p (bb))
+    return false;
+  gimple *last = last_stmt (single_pred (bb));
+  if (last == NULL
+      || gimple_code (last) != GIMPLE_OMP_TARGET)
+    return false;
+  gomp_target *kernels = as_a <gomp_target *> (last);
+
+  bool res = (gimple_omp_target_kind (kernels)
+	      == GF_OMP_TARGET_KIND_OACC_KERNELS);
+
+  if (res && directive)
+    *directive = kernels;
+
+  return res;
+}
+
 /* Return true if STMT is copy assignment .omp_data_i = &.omp_data_arr.  */
 
 bool
@@ -15171,15 +15243,8 @@ gimple_stmt_omp_data_i_init_p (gimple *stmt)
   /* Check that the last statement in the preceding bb is an oacc kernels
      stmt.  */
   basic_block bb = gimple_bb (stmt);
-  if (!single_pred_p (bb))
-    return false;
-  gimple *last = last_stmt (single_pred (bb));
-  if (last == NULL
-      || gimple_code (last) != GIMPLE_OMP_TARGET)
-    return false;
-  gomp_target *kernels = as_a <gomp_target *> (last);
-  if (gimple_omp_target_kind (kernels)
-      != GF_OMP_TARGET_KIND_OACC_KERNELS)
+  gomp_target *kernels;
+  if (!oacc_kernels_region_entry_p (bb, &kernels))
     return false;
 
   /* Get omp_data_arr from the oacc kernels stmt.  */
@@ -15188,6 +15253,25 @@ gimple_stmt_omp_data_i_init_p (gimple *stmt)
 
   /* If obj is omp_data_arr, we've found the .omp_data_i init statement.  */
   return operand_equal_p (obj, omp_data_arr, 0);
+}
+
+
+/* Return omp_data_i corresponding to the assignment
+   .omp_data_i = &.omp_data_arr in oacc kernels region entry REGION_ENTRY.  */
+
+tree
+get_omp_data_i (basic_block region_entry)
+{
+  if (!single_succ_p (region_entry))
+    return NULL_TREE;
+  basic_block bb = single_succ (region_entry);
+  gimple_stmt_iterator gsi = gsi_start_bb (bb);
+  if (gsi_end_p (gsi))
+    return NULL_TREE;
+  gimple *stmt = gsi_stmt (gsi);
+  if (!gimple_stmt_omp_data_i_init_p (stmt))
+    return NULL_TREE;
+  return gimple_assign_lhs (stmt);
 }
 
 namespace {
