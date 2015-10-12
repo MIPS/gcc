@@ -106,3 +106,28 @@ DEF_INTERNAL_FN (GOACC_REDUCTION_INIT, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_REDUCTION_FINI, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_REDUCTION_TEARDOWN, ECF_NOTHROW, NULL)
 
+/* OpenACC looping abstraction.  Allows the precise stepping of
+   the compute geometry over the loop iterations to be deferred until
+   it is known which compiler is generating the code.  The action is
+   encoded in a constant first argument.
+
+     CHUNK_MAX = LOOP (CODE_CHUNKS, DIR, RANGE, STEP, CHUNK_SIZE, MASK)
+     STEP = LOOP (CODE_STEP, DIR, RANGE, STEP, CHUNK_SIZE, MASK)
+     OFFSET = LOOP (CODE_OFFSET, DIR, RANGE, STEP, CHUNK_SIZE, MASK, CHUNK_NO)
+     BOUND = LOOP (CODE_BOUND, DIR, RANGE, STEP, CHUNK_SIZE, MASK, OFFSET)
+
+     DIR - +1 for up loop, -1 for down loop
+     RANGE - Range of loop (END - BASE)
+     STEP - iteration step size
+     CHUNKING - size of chunking, (constant zero for no chunking)
+     CHUNK_NO - chunk number
+     MASK - partitioning mask.
+
+   TODO: The partitioning mask and chunk size are a transition stage,
+   they will be removed once the required infrastructure is in place.  */
+
+DEF_INTERNAL_FN (GOACC_LOOP, ECF_PURE | ECF_NOTHROW, NULL)
+#define IFN_GOACC_LOOP_CHUNKS 0  /* Number  of chunks.  */
+#define IFN_GOACC_LOOP_STEP 1    /* Size of each thread's step.  */
+#define IFN_GOACC_LOOP_OFFSET 2  /* Initial iteration value.  */
+#define IFN_GOACC_LOOP_BOUND 3   /* Limit of iteration value.  */

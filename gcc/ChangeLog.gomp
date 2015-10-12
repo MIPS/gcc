@@ -1,3 +1,19 @@
+2015-10-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (expand_omp_for_static_nochunk): Remove OpenACC
+	pieces.
+	(expand_omp_for_static_chunk): Likewise,
+	(struct oacc_collapse): New.
+	(expand_oacc_collapse_init, expand_oacc_collapse_vars): New.
+	(expand_oacc_for): New.
+	(expand_omp_for): Call expand_oacc_for for OpenACC loops.
+	(oacc_xform_loop): New.
+	(execute_oacc_device_lower): Call it.
+	* internal-fn.def (GOACC_LOOP): New internal fn.
+	(IFN_GOACC_LOOP_CHUNKS, IFN_GOACC_LOOP_STEP,
+	IFN_GOACC_LOOP_OFFSET, IFN_GOACC_LOOP_BOUND): New.
+	* internal-fn.c (expand_GOACC_LOOP): New.
+
 2015-10-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* internal-fn.def (IFN_UNIQUE_UNSPEC, IFN_UNIQUE_OACC_FORK,

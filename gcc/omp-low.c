@@ -7002,11 +7002,6 @@ expand_omp_for_generic (struct omp_region *region,
 	V += STEP;
 	if (V cond e) goto L1;
     L2:
-
- For OpenACC the above is wrapped in an OACC_FORK/OACC_JOIN pair.
- Currently we wrap the whole sequence, but it'd be better to place the
- markers just inside the outer conditional, so they can be entirely
- eliminated if the loop is unreachable.
 */
 
 static void
@@ -7025,9 +7020,8 @@ expand_omp_for_static_nochunk (struct omp_region *region,
   tree *counts = NULL;
   tree n1, n2, step;
 
-  gcc_checking_assert ((gimple_omp_for_kind (fd->for_stmt)
-			!= GF_OMP_FOR_KIND_OACC_LOOP)
-		       || !inner_stmt);
+  gcc_checking_assert (gimple_omp_for_kind (fd->for_stmt)
+		       != GF_OMP_FOR_KIND_OACC_LOOP);
 
   itype = type = TREE_TYPE (fd->loop.v);
   if (POINTER_TYPE_P (type))
@@ -7125,14 +7119,6 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       nthreads = build_call_expr (nthreads, 0);
       threadid = builtin_decl_explicit (BUILT_IN_OMP_GET_TEAM_NUM);
       threadid = build_call_expr (threadid, 0);
-      break;
-    case GF_OMP_FOR_KIND_OACC_LOOP:
-      {
-	gimple_seq seq = NULL;
-	nthreads = expand_oacc_get_num_threads (&seq, region->gwv_this);
-	threadid = expand_oacc_get_thread_num (&seq, region->gwv_this);
-	gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
-      }
       break;
     default:
       gcc_unreachable ();
@@ -7312,8 +7298,7 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
-  if (gimple_omp_for_kind (fd->for_stmt) != GF_OMP_FOR_KIND_OACC_LOOP
-      && !gimple_omp_return_nowait_p (gsi_stmt (gsi)))
+  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     {
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
@@ -7437,11 +7422,6 @@ find_phi_with_arg_on_edge (tree arg, edge e)
 	trip += 1;
 	goto L0;
     L4:
-
- For OpenACC the above is wrapped in an OACC_FORK/OACC_JOIN pair.
- Currently we wrap the whole sequence, but it'd be better to place the
- markers just inside the outer conditional, so they can be entirely
- eliminated if the loop is unreachable.
 */
 
 static void
@@ -7459,9 +7439,8 @@ expand_omp_for_static_chunk (struct omp_region *region,
   tree *counts = NULL;
   tree n1, n2, step;
 
-  gcc_checking_assert ((gimple_omp_for_kind (fd->for_stmt)
-			!= GF_OMP_FOR_KIND_OACC_LOOP)
-		       || !inner_stmt);
+  gcc_checking_assert (gimple_omp_for_kind (fd->for_stmt)
+		       != GF_OMP_FOR_KIND_OACC_LOOP);
 
   itype = type = TREE_TYPE (fd->loop.v);
   if (POINTER_TYPE_P (type))
@@ -7564,14 +7543,6 @@ expand_omp_for_static_chunk (struct omp_region *region,
       nthreads = build_call_expr (nthreads, 0);
       threadid = builtin_decl_explicit (BUILT_IN_OMP_GET_TEAM_NUM);
       threadid = build_call_expr (threadid, 0);
-      break;
-    case GF_OMP_FOR_KIND_OACC_LOOP:
-      {
-	gimple_seq seq = NULL;
-	nthreads = expand_oacc_get_num_threads (&seq, region->gwv_this);
-	threadid = expand_oacc_get_thread_num (&seq, region->gwv_this);
-	gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
-      }
       break;
     default:
       gcc_unreachable ();
@@ -7774,8 +7745,7 @@ expand_omp_for_static_chunk (struct omp_region *region,
   /* Replace the GIMPLE_OMP_RETURN with a barrier, or nothing.  */
   gsi = gsi_last_bb (exit_bb);
 
-  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi))
-      && gimple_omp_for_kind (fd->for_stmt) != GF_OMP_FOR_KIND_OACC_LOOP)
+  if (!gimple_omp_return_nowait_p (gsi_stmt (gsi)))
     {
       t = gimple_omp_return_lhs (gsi_stmt (gsi));
       gsi_insert_after (&gsi, build_omp_barrier (t), GSI_SAME_STMT);
@@ -8429,6 +8399,555 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
     cfun->has_simduid_loops = true;
 }
 
+/* Information about members of an OpenACC collapsed loop nest.  */
+
+struct oacc_collapse
+{
+  tree base;  /* Base value. */
+  tree iters; /* Number of steps.  */
+  tree step;  /* step size.  */
+};
+
+/* Helper for expand_oacc_for.  Determine collapsed loop information.
+   Fill in COUNTS array.  Emit any initialization code before GSI.
+   Return the calculated outer loop bound of BOUND_TYPE.  */
+
+static tree
+expand_oacc_collapse_init (const struct omp_for_data *fd,
+			   gimple_stmt_iterator *gsi,
+			   oacc_collapse *counts, tree bound_type)
+{
+  tree total = build_int_cst (bound_type, 1);
+  int ix;
+  
+  gcc_assert (integer_onep (fd->loop.step));
+  gcc_assert (integer_zerop (fd->loop.n1));
+
+  for (ix = 0; ix != fd->collapse; ix++)
+    {
+      const omp_for_data_loop *loop = &fd->loops[ix];
+
+      tree iter_type = TREE_TYPE (loop->v);
+      tree diff_type = iter_type;
+      tree plus_type = iter_type;
+
+      gcc_assert (loop->cond_code == fd->loop.cond_code);
+      
+      if (POINTER_TYPE_P (iter_type))
+	plus_type = sizetype;
+      if (POINTER_TYPE_P (diff_type) || TYPE_UNSIGNED (diff_type))
+	diff_type = signed_type_for (diff_type);
+
+      tree b = loop->n1;
+      tree e = loop->n2;
+      tree s = loop->step;
+      bool up = loop->cond_code == LT_EXPR;
+      tree dir = build_int_cst (diff_type, up ? +1 : -1);
+      bool negating;
+      tree expr;
+
+      b = force_gimple_operand_gsi (gsi, b, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+      e = force_gimple_operand_gsi (gsi, e, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+
+      /* Convert the step, avoiding possible unsigned->signed overflow. */
+      negating = !up && TYPE_UNSIGNED (TREE_TYPE (s));
+      if (negating)
+	s = fold_build1 (NEGATE_EXPR, TREE_TYPE (s), s);
+      s = fold_convert (diff_type, s);
+      if (negating)
+	s = fold_build1 (NEGATE_EXPR, diff_type, s);
+      s = force_gimple_operand_gsi (gsi, s, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+
+      /* Determine the range, avoiding possible unsigned->signed overflow. */
+      negating = !up && TYPE_UNSIGNED (iter_type);
+      expr = fold_build2 (MINUS_EXPR, plus_type,
+			  fold_convert (plus_type, negating ? b : e),
+			  fold_convert (plus_type, negating ? e : b));
+      expr = fold_convert (diff_type, expr);
+      if (negating)
+	expr = fold_build1 (NEGATE_EXPR, diff_type, expr);
+      tree range = force_gimple_operand_gsi
+	(gsi, expr, true, NULL_TREE, true, GSI_SAME_STMT);
+
+      /* Determine number of iterations.  */
+      expr = fold_build2 (MINUS_EXPR, diff_type, range, dir);
+      expr = fold_build2 (PLUS_EXPR, diff_type, expr, s);
+      expr = fold_build2 (TRUNC_DIV_EXPR, diff_type, expr, s);
+
+      tree iters = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
+					     true, GSI_SAME_STMT);
+
+      counts[ix].base = b;
+      counts[ix].iters = iters;
+      counts[ix].step = s;
+
+      total = fold_build2 (MULT_EXPR, bound_type, total,
+			   fold_convert (bound_type, iters));
+    }
+
+  return total;
+}
+
+/* Emit initializers for collapsed loop members.  IVAR is the outer
+   loop iteration variable, from which collapsed loop iteration values
+   are  calculated.  COUNTS array has been initialized by
+   expand_oacc_collapse_inits.  */
+
+static void
+expand_oacc_collapse_vars (const struct omp_for_data *fd,
+			   gimple_stmt_iterator *gsi,
+			   const oacc_collapse *counts, tree ivar)
+{
+  tree ivar_type = TREE_TYPE (ivar);
+
+  /*  The most rapidly changing iteration variable is the innermost
+      one.  */
+  for (int ix = fd->collapse; ix--;)
+    {
+      const omp_for_data_loop *loop = &fd->loops[ix];
+      const oacc_collapse *collapse = &counts[ix];
+      tree iter_type = TREE_TYPE (loop->v);
+      tree diff_type = TREE_TYPE (collapse->step);
+      tree plus_type = iter_type;
+      enum tree_code plus_code = PLUS_EXPR;
+      tree expr;
+
+      if (POINTER_TYPE_P (iter_type))
+	{
+	  plus_code = POINTER_PLUS_EXPR;
+	  plus_type = sizetype;
+	}
+
+      expr = build2 (TRUNC_MOD_EXPR, ivar_type, ivar,
+		     fold_convert (ivar_type, collapse->iters));
+      expr = build2 (MULT_EXPR, diff_type, fold_convert (diff_type, expr),
+		     collapse->step);
+      expr = build2 (plus_code, iter_type, collapse->base,
+		     fold_convert (plus_type, expr));
+      expr = force_gimple_operand_gsi (gsi, expr, false, NULL_TREE,
+				       true, GSI_SAME_STMT);
+      gassign *ass = gimple_build_assign (loop->v, expr);
+      gsi_insert_before (gsi, ass, GSI_SAME_STMT);
+
+      if (ix)
+	{
+	  expr = build2 (TRUNC_DIV_EXPR, ivar_type, ivar,
+			 fold_convert (ivar_type, collapse->iters));
+	  ivar = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
+					   true, GSI_SAME_STMT);
+	}
+    }
+}
+
+/* A subroutine of expand_omp_for.  Generate code for an OpenACC
+   partitioned loop.  The lowering here is abstracted, in that the
+   loop parameters are passed through internal functions, which are
+   further lowered by oacc_device_lower, once we get to the target
+   compiler.  The loop is of the form:
+
+   for (V = B; V LTGT E; V += S) {BODY}
+
+   where LTGT is < or >.  We may have a specified chunking size, CHUNKING
+   (constant 0 for no chunking) and we will have a GWV partitioning
+   mask, specifying dimensions over which the loop is to be
+   partitioned (see note below).  We generate code that looks like:
+
+   <entry_bb> [incoming FALL->body, BRANCH->exit]
+     typedef signedintify (typeof (V)) T;  // underlying signed integral type
+     T range = E - B;
+     T chunk_no = 0;
+     T DIR = LTGT == '<' ? +1 : -1;
+     T chunk_max = GOACC_LOOP_CHUNK (dir, range, S, CHUNK_SIZE, GWV);
+     T step = GOACC_LOOP_STEP (dir, range, S, CHUNK_SIZE, GWV);
+
+   <head_bb> [created by splitting end of entry_bb]
+     T offset = GOACC_LOOP_OFFSET (dir, range, S, CHUNK_SIZE, GWV, chunk_no);
+     T bound = GOACC_LOOP_BOUND (dir, range, S, CHUNK_SIZE, GWV, offset);
+     if (!(offset LTGT bound)) goto bottom_bb;
+
+   <body_bb> [incoming]
+     V = B + offset;
+     {BODY}
+
+   <cont_bb> [incoming, may == body_bb FALL->exit_bb, BRANCH->body_bb]
+     offset += step;
+     if (offset LTGT bound) goto body_bb; [*]
+
+   <bottom_bb> [created by splitting start of exit_bb] insert BRANCH->head_bb
+     chunk_no++;
+     if (chunk < chunk_max) goto head_bb;
+
+   <exit_bb> [incoming]
+     V = B + ((range -/+ 1) / S +/- 1) * S [*]
+
+   [*] Needed if V live at end of loop
+
+   Note: CHUNKING & GWV mask are specified explicitly here.  This is a
+   transition, and will be specified by a more general mechanism shortly.
+ */
+
+static void
+expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
+{
+  tree v = fd->loop.v;
+  enum tree_code cond_code = fd->loop.cond_code;
+  enum tree_code plus_code = PLUS_EXPR;
+
+  tree chunk_size = fd->chunk_size;
+  tree gwv = build_int_cst (integer_type_node, region->gwv_this);
+  tree iter_type = TREE_TYPE (v);
+  tree diff_type = iter_type;
+  tree plus_type = iter_type;
+  struct oacc_collapse *counts = NULL;
+
+  gcc_checking_assert (gimple_omp_for_kind (fd->for_stmt)
+		       == GF_OMP_FOR_KIND_OACC_LOOP);
+  gcc_assert (!gimple_omp_for_combined_into_p (fd->for_stmt));
+  gcc_assert (cond_code == LT_EXPR || cond_code == GT_EXPR);
+
+  if (POINTER_TYPE_P (iter_type))
+    {
+      plus_code = POINTER_PLUS_EXPR;
+      plus_type = sizetype;
+    }
+  if (POINTER_TYPE_P (diff_type) || TYPE_UNSIGNED (diff_type))
+    diff_type = signed_type_for (diff_type);
+
+  basic_block entry_bb = region->entry; /* BB ending in OMP_FOR */
+  basic_block exit_bb = region->exit; /* BB ending in OMP_RETURN */
+  basic_block cont_bb = region->cont; /* BB ending in OMP_CONTINUE  */
+  basic_block bottom_bb = NULL;
+
+  /* entry_bb has two sucessors; the branch edge is to the exit
+     block,  fallthrough edge to body.  */
+  gcc_assert (EDGE_COUNT (entry_bb->succs) == 2
+	      && BRANCH_EDGE (entry_bb)->dest == exit_bb);
+
+  /* If cont_bb non-NULL, it has 2 successors.  The branch successor is
+     body_bb, or to a block whose only successor is the body_bb.  Its
+     fallthrough successor is the final block (same as the branch
+     successor of the entry_bb).  */
+  if (cont_bb)
+    {
+      basic_block body_bb = FALLTHRU_EDGE (entry_bb)->dest;
+      basic_block bed = BRANCH_EDGE (cont_bb)->dest;
+
+      gcc_assert (FALLTHRU_EDGE (cont_bb)->dest == exit_bb);
+      gcc_assert (bed == body_bb || single_succ_edge (bed)->dest == body_bb);
+    }
+  else
+    gcc_assert (!gimple_in_ssa_p (cfun));
+
+  /* The exit block only has entry_bb and cont_bb as predecessors.  */
+  gcc_assert (EDGE_COUNT (exit_bb->preds) == 1 + (cont_bb != NULL));
+
+  tree chunk_no;
+  tree chunk_max = NULL_TREE;
+  tree bound, offset;
+  tree step = create_tmp_var (diff_type, ".step");
+  bool up = cond_code == LT_EXPR;
+  tree dir = build_int_cst (diff_type, up ? +1 : -1);
+  bool chunking = chunk_size != NULL_TREE;
+  bool negating;
+
+  /* SSA instances.  */
+  tree offset_incr = NULL_TREE;
+  tree offset_init = NULL_TREE;
+
+  gimple_stmt_iterator gsi;
+  gassign *ass;
+  gcall *call;
+  gimple *stmt;
+  tree expr;
+  location_t loc;
+  edge split, be, fte;
+
+  /* Split the end of entry_bb to create head_bb.  */
+  split = split_block (entry_bb, last_stmt (entry_bb));
+  basic_block head_bb = split->dest;
+  entry_bb = split->src;
+
+  /* Chunk setup goes at end of entry_bb, replacing the omp_for.  */
+  gsi = gsi_last_bb (entry_bb);
+  gomp_for *for_stmt = as_a <gomp_for *> (gsi_stmt (gsi));
+  loc = gimple_location (for_stmt);
+
+  if (gimple_in_ssa_p (cfun))
+    {
+      offset_init = gimple_omp_for_index (for_stmt, 0);
+      gcc_assert (integer_zerop (fd->loop.n1));
+    }
+
+  if (fd->collapse > 1)
+    {
+      counts = XALLOCAVEC (struct oacc_collapse, fd->collapse);
+      tree total = expand_oacc_collapse_init (fd, &gsi, counts,
+					      TREE_TYPE (fd->loop.n2));
+
+      if (SSA_VAR_P (fd->loop.n2))
+	{
+	  total = force_gimple_operand_gsi (&gsi, total, false, NULL_TREE,
+					    true, GSI_SAME_STMT);
+	  ass = gimple_build_assign (fd->loop.n2, total);
+	  gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
+	}
+      
+    }
+
+  tree b = fd->loop.n1;
+  tree e = fd->loop.n2;
+  tree s = fd->loop.step;
+
+  b = force_gimple_operand_gsi (&gsi, b, true, NULL_TREE, true, GSI_SAME_STMT);
+  e = force_gimple_operand_gsi (&gsi, e, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  /* Convert the step, avoiding possible unsigned->signed overflow. */
+  negating = !up && TYPE_UNSIGNED (TREE_TYPE (s));
+  if (negating)
+    s = fold_build1 (NEGATE_EXPR, TREE_TYPE (s), s);
+  s = fold_convert (diff_type, s);
+  if (negating)
+    s = fold_build1 (NEGATE_EXPR, diff_type, s);
+  s = force_gimple_operand_gsi (&gsi, s, true, NULL_TREE, true, GSI_SAME_STMT);
+
+  if (!chunking)
+    chunk_size = integer_zero_node;
+  expr = fold_convert (diff_type, chunk_size);
+  chunk_size = force_gimple_operand_gsi (&gsi, expr, true,
+					 NULL_TREE, true, GSI_SAME_STMT);
+
+  /* Determine the range, avoiding possible unsigned->signed overflow. */
+  negating = !up && TYPE_UNSIGNED (iter_type);
+  expr = fold_build2 (MINUS_EXPR, plus_type,
+		      fold_convert (plus_type, negating ? b : e),
+		      fold_convert (plus_type, negating ? e : b));
+  expr = fold_convert (diff_type, expr);
+  if (negating)
+    expr = fold_build1 (NEGATE_EXPR, diff_type, expr);
+  tree range = force_gimple_operand_gsi (&gsi, expr, true,
+					 NULL_TREE, true, GSI_SAME_STMT);
+
+  chunk_no = build_int_cst (diff_type, 0);
+  if (chunking)
+    {
+      gcc_assert (!gimple_in_ssa_p (cfun));
+
+      expr = chunk_no;
+      chunk_max = create_tmp_var (diff_type, ".chunk_max");
+      chunk_no = create_tmp_var (diff_type, ".chunk_no");
+
+      ass = gimple_build_assign (chunk_no, expr);
+      gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
+
+      expr = fold_convert (diff_type, chunk_size);
+      chunk_size = force_gimple_operand_gsi (&gsi, expr, true,
+					     NULL_TREE, true, GSI_SAME_STMT);
+
+      call = gimple_build_call_internal (IFN_GOACC_LOOP, 6,
+					 build_int_cst (integer_type_node,
+							IFN_GOACC_LOOP_CHUNKS),
+					 dir, range, s, chunk_size, gwv);
+      gimple_call_set_lhs (call, chunk_max);
+      gimple_set_location (call, loc);
+      gsi_insert_before (&gsi, call, GSI_SAME_STMT);
+    }
+  else
+    chunk_size = chunk_no;
+
+  call = gimple_build_call_internal (IFN_GOACC_LOOP, 6,
+				     build_int_cst (integer_type_node,
+						    IFN_GOACC_LOOP_STEP),
+				     dir, range, s, chunk_size, gwv);
+  gimple_call_set_lhs (call, step);
+  gimple_set_location (call, loc);
+  gsi_insert_before (&gsi, call, GSI_SAME_STMT);
+
+  /* Remove the GIMPLE_OMP_FOR.  */
+  gsi_remove (&gsi, true);
+
+  /* Fixup edges from head_bb */
+  be = BRANCH_EDGE (head_bb);
+  fte = FALLTHRU_EDGE (head_bb);
+  be->flags |= EDGE_FALSE_VALUE;
+  fte->flags ^= EDGE_FALLTHRU | EDGE_TRUE_VALUE;
+
+  basic_block body_bb = fte->dest;
+
+  if (gimple_in_ssa_p (cfun))
+    {
+      gsi = gsi_last_bb (cont_bb);
+      gomp_continue *cont_stmt = as_a <gomp_continue *> (gsi_stmt (gsi));
+
+      offset = gimple_omp_continue_control_use (cont_stmt);
+      offset_incr = gimple_omp_continue_control_def (cont_stmt);
+    }
+  else
+    {
+      offset = create_tmp_var (diff_type, ".offset");
+      offset_init = offset_incr = offset;
+    }
+  bound = create_tmp_var (TREE_TYPE (offset), ".bound");
+
+  /* Loop offset & bound go into head_bb.  */
+  gsi = gsi_start_bb (head_bb);
+
+  call = gimple_build_call_internal (IFN_GOACC_LOOP, 7,
+				     build_int_cst (integer_type_node,
+						    IFN_GOACC_LOOP_OFFSET),
+				     dir, range, s,
+				     chunk_size, gwv, chunk_no);
+  gimple_call_set_lhs (call, offset_init);
+  gimple_set_location (call, loc);
+  gsi_insert_after (&gsi, call, GSI_CONTINUE_LINKING);
+
+  call = gimple_build_call_internal (IFN_GOACC_LOOP, 7,
+				     build_int_cst (integer_type_node,
+						    IFN_GOACC_LOOP_BOUND),
+				     dir, range, s,
+				     chunk_size, gwv, offset_init);
+  gimple_call_set_lhs (call, bound);
+  gimple_set_location (call, loc);
+  gsi_insert_after (&gsi, call, GSI_CONTINUE_LINKING);
+
+  expr = build2 (cond_code, boolean_type_node, offset_init, bound);
+  gsi_insert_after (&gsi, gimple_build_cond_empty (expr),
+		    GSI_CONTINUE_LINKING);
+
+  /* V assignment goes into body_bb.  */
+  if (!gimple_in_ssa_p (cfun))
+    {
+      gsi = gsi_start_bb (body_bb);
+
+      expr = build2 (plus_code, iter_type, b,
+		     fold_convert (plus_type, offset));
+      expr = force_gimple_operand_gsi (&gsi, expr, false, NULL_TREE,
+				       true, GSI_SAME_STMT);
+      ass = gimple_build_assign (v, expr);
+      gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
+      if (fd->collapse > 1)
+	expand_oacc_collapse_vars (fd, &gsi, counts, v);
+    }
+
+  /* Loop increment goes into cont_bb.  If this is not a loop, we
+     will have spawned threads as if it was, and each one will
+     execute one iteration.  The specification is not explicit about
+     whether such constructs are ill-formed or not, and they can
+     occur, especially when noreturn routines are involved.  */
+  if (cont_bb)
+    {
+      gsi = gsi_last_bb (cont_bb);
+      gomp_continue *cont_stmt = as_a <gomp_continue *> (gsi_stmt (gsi));
+      loc = gimple_location (cont_stmt);
+
+      /* Increment offset.  */
+      if (gimple_in_ssa_p (cfun))
+	expr= build2 (plus_code, iter_type, offset,
+		      fold_convert (plus_type, step));
+      else
+	expr = build2 (PLUS_EXPR, diff_type, offset, step);
+      expr = force_gimple_operand_gsi (&gsi, expr, false, NULL_TREE,
+				       true, GSI_SAME_STMT);
+      ass = gimple_build_assign (offset_incr, expr);
+      gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
+      expr = build2 (cond_code, boolean_type_node, offset_incr, bound);
+      gsi_insert_before (&gsi, gimple_build_cond_empty (expr), GSI_SAME_STMT);
+
+      /*  Remove the GIMPLE_OMP_CONTINUE.  */
+      gsi_remove (&gsi, true);
+
+      /* Fixup edges from cont_bb */
+      be = BRANCH_EDGE (cont_bb);
+      fte = FALLTHRU_EDGE (cont_bb);
+      be->flags |= EDGE_TRUE_VALUE;
+      fte->flags ^= EDGE_FALLTHRU | EDGE_FALSE_VALUE;
+
+      if (chunking)
+	{
+	  /* Split the beginning of exit_bb to make bottom_bb.  We
+	     need to insert a nop at the start, because splitting is
+  	     after a stmt, not before.  */
+	  gsi = gsi_start_bb (exit_bb);
+	  stmt = gimple_build_nop ();
+	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+	  split = split_block (exit_bb, stmt);
+	  bottom_bb = split->src;
+	  exit_bb = split->dest;
+	  gsi = gsi_last_bb (bottom_bb);
+
+	  /* Chunk increment and test goes into bottom_bb.  */
+	  expr = build2 (PLUS_EXPR, diff_type, chunk_no,
+			 build_int_cst (diff_type, 1));
+	  ass = gimple_build_assign (chunk_no, expr);
+	  gsi_insert_after (&gsi, ass, GSI_CONTINUE_LINKING);
+
+	  /* Chunk test at end of bottom_bb.  */
+	  expr = build2 (LT_EXPR, boolean_type_node, chunk_no, chunk_max);
+	  gsi_insert_after (&gsi, gimple_build_cond_empty (expr),
+			    GSI_CONTINUE_LINKING);
+
+	  /* Fixup edges from bottom_bb. */
+	  split->flags ^= EDGE_FALLTHRU | EDGE_FALSE_VALUE;
+	  make_edge (bottom_bb, head_bb, EDGE_TRUE_VALUE);
+	}
+    }
+
+  gsi = gsi_last_bb (exit_bb);
+  gcc_assert (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_RETURN);
+  loc = gimple_location (gsi_stmt (gsi));
+
+  if (!gimple_in_ssa_p (cfun))
+    {
+      /* Insert the final value of V, in case it is live.  This is the
+	 value for the only thread that survives past the join.  */
+      expr = fold_build2 (MINUS_EXPR, diff_type, range, dir);
+      expr = fold_build2 (PLUS_EXPR, diff_type, expr, s);
+      expr = fold_build2 (TRUNC_DIV_EXPR, diff_type, expr, s);
+      expr = fold_build2 (MULT_EXPR, diff_type, expr, s);
+      expr = build2 (plus_code, iter_type, b, fold_convert (plus_type, expr));
+      expr = force_gimple_operand_gsi (&gsi, expr, false, NULL_TREE,
+				       true, GSI_SAME_STMT);
+      ass = gimple_build_assign (v, expr);
+      gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
+    }
+
+  /* Remove the OMP_RETURN. */
+  gsi_remove (&gsi, true);
+
+  if (cont_bb)
+    {
+      /* We now have one or two nested loops.  Update the loop
+	 structures.  */
+      struct loop *parent = entry_bb->loop_father;
+      struct loop *body = body_bb->loop_father;
+      
+      if (chunking)
+	{
+	  struct loop *chunk_loop = alloc_loop ();
+	  chunk_loop->header = head_bb;
+	  chunk_loop->latch = bottom_bb;
+	  add_loop (chunk_loop, parent);
+	  parent = chunk_loop;
+	}
+      else if (parent != body)
+	{
+	  gcc_assert (body->header == body_bb);
+	  gcc_assert (body->latch == cont_bb
+		      || single_pred (body->latch) == cont_bb);
+	  parent = NULL;
+	}
+
+      if (parent)
+	{
+	  struct loop *body_loop = alloc_loop ();
+	  body_loop->header = body_bb;
+	  body_loop->latch = cont_bb;
+	  add_loop (body_loop, parent);
+	}
+    }
+}
 
 /* Expand the OMP loop defined by REGION.  */
 
@@ -8476,6 +8995,11 @@ expand_omp_for (struct omp_region *region, gimple *inner_stmt)
     expand_omp_simd (region, &fd);
   else if (gimple_omp_for_kind (fd.for_stmt) == GF_OMP_FOR_KIND_CILKFOR)
     expand_cilk_for (region, &fd);
+  else if (gimple_omp_for_kind (fd.for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
+    {
+      gcc_assert (!inner_stmt);
+      expand_oacc_for (region, &fd);
+    }
   else if (fd.sched_kind == OMP_CLAUSE_SCHEDULE_STATIC
 	   && !fd.have_ordered)
     {
@@ -14731,6 +15255,183 @@ make_pass_late_lower_omp (gcc::context *ctxt)
   return new pass_late_lower_omp (ctxt);
 }
 
+/* Transform IFN_GOACC_LOOP calls to actual code.  See
+   expand_oacc_for for where these are generated.  At the vector
+   level, we stride loops, such that each  member of a warp will
+   operate on adjacent iterations.  At the worker and gang level,
+   each gang/warp executes a set of contiguous iterations.  Chunking
+   can override this such that each iteration engine executes a
+   contiguous chunk, and then moves on to stride to the next chunk.
+
+   TODO: As with expand_oacc_for, the presence of GWV and CHUNK_SIZE
+   parameters here is an intermediate step.  */
+
+static void
+oacc_xform_loop (gcall *call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  unsigned code = (unsigned)TREE_INT_CST_LOW (gimple_call_arg (call, 0));
+  tree dir = gimple_call_arg (call, 1);
+  tree range = gimple_call_arg (call, 2);
+  tree step = gimple_call_arg (call, 3);
+  tree chunk_size = gimple_call_arg (call, 4);
+  unsigned mask = (unsigned)TREE_INT_CST_LOW (gimple_call_arg (call, 5));
+  tree lhs = gimple_call_lhs (call);
+  tree type = TREE_TYPE (lhs);
+  tree diff_type = TREE_TYPE (range);
+  tree r = NULL_TREE;
+  gimple_seq seq = NULL;
+  bool chunking, striding;
+  unsigned outer_mask = mask & (~mask + 1); // Outermost partitioning
+  unsigned inner_mask = mask & ~outer_mask; // Inner partitioning (if any)
+
+  if (integer_zerop (chunk_size))
+    {
+      /* If we're at the gang or worker level, we want each to execute
+	 a contiguous run of iterations.  Otherwise we want each
+	 element to stride.  */
+      striding = !(outer_mask & (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+				 | GOMP_DIM_MASK (GOMP_DIM_GANG)));
+      chunking = false;
+    }
+  else
+    {
+      /* Chunk of size 1 is striding.  */
+      striding = integer_onep (chunk_size);
+      chunking = !striding;
+    }
+
+  push_gimplify_context (true);
+
+  switch (code)
+    {
+    default: gcc_unreachable ();
+
+    case IFN_GOACC_LOOP_CHUNKS:
+      if (!chunking)
+	r = build_int_cst (type, 1);
+      else
+	{
+	  /* chunk_max
+	     = (range - dir) / (chunks * step * num_threads) + dir  */
+	  tree per = expand_oacc_get_num_threads (&seq, mask);
+	  per = fold_convert (type, per);
+	  per = fold_build2 (MULT_EXPR, type, per, chunk_size);
+	  per = fold_build2 (MULT_EXPR, type, per, step);
+	  r = build2 (MINUS_EXPR, type, range, dir);
+	  r = build2 (PLUS_EXPR, type, r, per);
+	  r = build2 (TRUNC_DIV_EXPR, type, r, per);
+	}
+      break;
+
+    case IFN_GOACC_LOOP_STEP:
+      {
+	/* If striding, step by the entire compute volume, otherwise
+	   step by the inner volume.  */
+	unsigned volume = striding ? mask : inner_mask;
+
+	r = expand_oacc_get_num_threads (&seq, volume);
+	r = build2 (MULT_EXPR, type, fold_convert (type, r), step);
+      }
+      break;
+
+    case IFN_GOACC_LOOP_OFFSET:
+      if (striding)
+	{
+	  r = expand_oacc_get_thread_num (&seq, mask);
+	  r = fold_convert (diff_type, r);
+	}
+      else
+	{
+	  tree span;
+	  tree inner_size = expand_oacc_get_num_threads (&seq, inner_mask);
+	  tree outer_size = expand_oacc_get_num_threads (&seq, outer_mask);
+	  tree volume = fold_build2 (MULT_EXPR, TREE_TYPE (inner_size),
+				     inner_size, outer_size);
+
+	  if (chunking)
+	    {
+	      span = inner_size;
+	      span = fold_convert (type, span);
+	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
+	    }
+	  else
+	    {
+	      tree per = fold_convert (diff_type, volume);
+	      per = fold_build2 (MULT_EXPR, diff_type, per, step);
+
+	      span = build2 (MINUS_EXPR, diff_type, range, dir);
+	      span = build2 (PLUS_EXPR, diff_type, span, per);
+	      span = build2 (TRUNC_DIV_EXPR, diff_type, span, per);
+	      span = build2 (MULT_EXPR, diff_type, span, inner_size);
+	    }
+
+	  r = expand_oacc_get_thread_num (&seq, outer_mask);
+	  r = fold_convert (diff_type, r);
+	  r = build2 (MULT_EXPR, diff_type, r, span);
+
+	  tree inner = expand_oacc_get_thread_num (&seq, inner_mask);
+	  inner = fold_convert (diff_type, inner);
+	  r = fold_build2 (PLUS_EXPR, diff_type, r, inner);
+
+	  if (chunking)
+	    {
+	      tree chunk = gimple_call_arg (call, 6);
+	      tree per = fold_convert (diff_type, volume);
+	      per = fold_build2 (MULT_EXPR, diff_type, per, chunk_size);
+	      per = build2 (MULT_EXPR, diff_type, per, chunk);
+
+	      r = build2 (PLUS_EXPR, diff_type, r, per);
+	    }
+	}
+      r = fold_build2 (MULT_EXPR, diff_type, r, step);
+      if (type != diff_type)
+	r = fold_convert (type, r);
+      break;
+
+    case IFN_GOACC_LOOP_BOUND:
+      if (striding)
+	r = range;
+      else
+	{
+	  tree offset = gimple_call_arg (call, 6);
+	  tree span;
+	  
+	  if (chunking)
+	    {
+	      span = expand_oacc_get_num_threads (&seq, inner_mask);
+	      span = fold_convert (diff_type, span);
+	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
+	    }
+	  else
+	    {
+	      tree per = expand_oacc_get_num_threads (&seq, mask);
+	      per = fold_convert (diff_type, per);
+	      per = build2 (MULT_EXPR, diff_type, per, step);
+	      span = build2 (MINUS_EXPR, diff_type, range, dir);
+	      span = build2 (PLUS_EXPR, diff_type, span, per);
+	      span = build2 (TRUNC_DIV_EXPR, diff_type, span, per);
+	    }
+
+	  r = fold_build2 (MULT_EXPR, diff_type, span, step);
+
+	  r = build2 (PLUS_EXPR, diff_type, r,
+		      fold_convert (diff_type, offset));
+	  r = build2 (integer_onep (dir) ? MIN_EXPR : MAX_EXPR,
+		      diff_type, r, range);
+	}
+      if (diff_type != type)
+	r = fold_convert (type, r);
+      break;
+    }
+
+  gimplify_assign (lhs, r, &seq);
+
+  pop_gimplify_context (NULL);
+
+  gsi_replace_with_seq (&gsi, seq, true);
+}
+
 /* Transform oacc_dim_size and oacc_dim_pos internal function calls to
    constants, where possible.  */
 
@@ -14874,6 +15575,11 @@ execute_oacc_device_lower ()
 	      rescan = 1;
 	    break;
 
+	  case IFN_GOACC_LOOP:
+	    oacc_xform_loop (call);
+	    rescan = 1;
+	    break;
+	    
 	  case IFN_GOACC_REDUCTION_SETUP:
 	  case IFN_GOACC_REDUCTION_INIT:
 	  case IFN_GOACC_REDUCTION_FINI:
