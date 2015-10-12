@@ -144,11 +144,18 @@ cmp_bb_postorder (const void *a, const void *b)
 }
 
 /* Recursively walk the dominator tree.
-   BB is the basic block we are currently visiting.  */
+   BB is the basic block we are currently visiting.  UNTIL is a basic_block that
+   is the root of a subtree that we won't visit.  If UNTIL_INCLUSIVE, we visit
+   UNTIL, but not it's children.  Otherwise don't visit UNTIL and its
+   children.  */
 
 void
-dom_walker::walk (basic_block bb)
+dom_walker::walk_until (basic_block bb, basic_block until, bool until_inclusive)
 {
+  bool skip_self = (bb == until && !until_inclusive);
+  if (skip_self)
+    return;
+
   basic_block dest;
   basic_block *worklist = XNEWVEC (basic_block,
 				   n_basic_blocks_for_fn (cfun) * 2);
@@ -182,9 +189,15 @@ dom_walker::walk (basic_block bb)
 	  worklist[sp++] = NULL;
 
 	  int saved_sp = sp;
-	  for (dest = first_dom_son (m_dom_direction, bb);
-	       dest; dest = next_dom_son (m_dom_direction, dest))
-	    worklist[sp++] = dest;
+	  bool skip_children = bb == until && until_inclusive;
+	  if (!skip_children)
+	    for (dest = first_dom_son (m_dom_direction, bb);
+		 dest; dest = next_dom_son (m_dom_direction, dest))
+	      {
+		bool skip_child = (dest == until && !until_inclusive);
+		if (!skip_child)
+		  worklist[sp++] = dest;
+	      }
 	  if (m_dom_direction == CDI_DOMINATORS)
 	    switch (sp - saved_sp)
 	      {
@@ -217,4 +230,13 @@ dom_walker::walk (basic_block bb)
       bb_postorder = NULL;
     }
   free (worklist);
+}
+
+/* Recursively walk the dominator tree.
+   BB is the basic block we are currently visiting.  */
+
+void
+dom_walker::walk (basic_block bb)
+{
+  walk_until (bb, NULL, true);
 }
