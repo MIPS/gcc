@@ -1,5 +1,13 @@
 2015-10-13  Tom de Vries  <tom@codesourcery.com>
 
+	Revert:
+	2015-04-21  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-sccvn.c: Include omp-low.h.
+	(visit_use): Handle .omp_data_i init conservatively.
+
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-ssa-dom.c (pass_dominator_oacc_kernels::clone): New function.
 	* passes.def: Move pass group pass_oacc_kernels to before pass_fre. Add
 	pass_dominator_oacc_kernels twice in the pass_oacc_kernels pass group.

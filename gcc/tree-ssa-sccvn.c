@@ -58,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "domwalk.h"
 #include "cgraph.h"
 #include "gimple-iterator.h"
-#include "omp-low.h"
 
 /* This algorithm is based on the SCC algorithm presented by Keith
    Cooper and L. Taylor Simpson in "SCC-Based Value numbering"
@@ -3623,8 +3622,7 @@ visit_use (tree use)
     {
       if (gimple_code (stmt) == GIMPLE_PHI)
 	changed = visit_phi (stmt);
-      else if (gimple_has_volatile_ops (stmt)
-	       || gimple_stmt_omp_data_i_init_p (stmt))
+      else if (gimple_has_volatile_ops (stmt))
 	changed = defs_to_varying (stmt);
       else if (is_gimple_assign (stmt))
 	{
