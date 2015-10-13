@@ -44,6 +44,8 @@ void gfc_trans_g77_array (gfc_symbol *, gfc_wrapped_block *);
 /* Generate code to deallocate an array, if it is allocated.  */
 tree gfc_trans_dealloc_allocated (tree, bool, gfc_expr *);
 
+tree gfc_trans_array_bounds (tree, gfc_symbol *, tree *, stmtblock_t *, bool);
+
 tree gfc_full_array_size (stmtblock_t *, tree, int);
 
 tree gfc_duplicate_allocatable (tree, tree, tree, int, tree);

@@ -1,3 +1,21 @@
+2015-10-13  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-array.c (gfc_trans_array_bounds): Add an INIT_VLA argument
+	to control whether VLAs should be initialized.  Don't mark this
+	function as static.
+	(gfc_trans_auto_array_allocation): Update call to
+	gfc_trans_array_bounds.
+	(gfc_trans_g77_array): Likewise.
+	* trans-array.h: Declare gfc_trans_array_bounds.
+	* trans-openmp.c (gfc_scan_nodesc_arrays): New function.
+	(gfc_privatize_nodesc_arrays_1): New function.
+	(gfc_privatize_nodesc_arrays): New function.
+	(gfc_init_nodesc_arrays): New function.
+	(gfc_trans_oacc_construct): Initialize any internal variables for
+	arrays without array descriptors inside the offloaded parallel and
+	kernels region.
+	(gfc_trans_oacc_combined_directive): Likewise.
+
 2015-10-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* dump-parse-tree.c (show_omp_clauses): Add missing omp list_types
