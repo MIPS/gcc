@@ -39,6 +39,8 @@ void gfc_trans_dummy_array_bias (gfc_symbol *, tree, gfc_wrapped_block *);
 /* Generate entry and exit code for g77 calling convention arrays.  */
 void gfc_trans_g77_array (gfc_symbol *, gfc_wrapped_block *);
 
+tree gfc_trans_array_bounds (tree, gfc_symbol *, tree *, stmtblock_t *, bool);
+
 tree gfc_full_array_size (stmtblock_t *, tree, int);
 
 tree gfc_duplicate_allocatable (tree, tree, tree, int, tree);

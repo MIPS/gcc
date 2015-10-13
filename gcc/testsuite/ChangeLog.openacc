@@ -1,3 +1,7 @@
+2016-01-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/mod-array.f90: New test.
+
 2018-05-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/deviceptr-4.c: Update expected data mapping.
