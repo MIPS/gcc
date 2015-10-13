@@ -1,3 +1,84 @@
+2015-10-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wF constraint): New constraint for
+	extended fusion.
+	(wG constraint): Likewise.
+
+	* config/rs6000/predicates.md (upper16_cint_operand): New
+	predicate for extended fusion.
+	(fpr_reg_operand): Likewise.
+	(offsettable_reg_operand): Likewise.
+	(fusion_toc_mem_raw): Likewise.
+	(fusion_toc_mem_wrapped): Likewise.
+	(fusion_gpr_addis): For EXTRA fusion, ignore Power8's requirement
+	that fused addresses are all 0 or 1's.
+	(fusion_gpr_mem_combo): Rename fusion_gpr_mem_combo to
+	fusion_gpr_mem_combo_load to support extra fusion. Add support for
+	doing write fusion with extra fusion.
+	(fusion_gpr_mem_combo_load): Likewise.
+	(fusion_gpr_mem_combo_store): Likewise.
+	(fusion_offsettable_mem_operand): New extra fusion predicate.
+
+	* config/rs6000/rs6000-protos.h (emit_fusion_addis): New
+	declaration for extra fusion.
+	(emit_fusion_load_store): Likewise.
+	(fusion_extra_p): Likewise.
+	(expand_fusion_extra_load): Likewise.
+	(expand_fusion_extra_store): Likewise.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
+	(fusion_wrap_memory_address): Likewise.
+
+	* config/rs6000/rs6000.opt (-mfusion-toc): New switch, fuse TOC
+	references.
+	(-mfusion-extra): New switch, add extra fusion support.
+
+	* config/rs6000/rs6000.c (struct rs6000_reg_addr): Add extra
+	fields for toc/extra fusion.
+	(rs6000_debug_print_mode): Enhance debug support for extra
+	fusion.
+	(rs6000_setup_reg_addr_masks): Setup for power8, toc, and extra
+	fusion support.
+	(rs6000_option_override_internal): Extra/toc fusion support.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_opt_masks): Add extra/toc fusion switches.
+	(emit_fusion_gpr_load): Rewrite, move common code to
+	emit_fusion_load_store.
+	to handle fusion of both loads and stores.
+	(emit_fusion_addis): New support for extra/toc fusion.
+	(emit_fusion_load_store): Likewise.
+	(fusion_wrap_memory_address): Likewise.
+	(fusion_split_address): Likewise.
+	(fusion_extra_p): Likewise.
+	(expand_fusion_extra_load): Likewise.
+	(expand_fusion_extra_store): Likewise.
+	(emit_fusion_extra_load): Likewise.
+	(emit_fusion_extra_store): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_FUSION_TOC_INT): New macros for
+	toc fusion support.
+	(TARGET_FUSION_TOC_FP): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_EXTRA): New unspecs for
+	extra/toc fusion.
+	(UNSPEC_FUSION_ADDIS): Likewise.
+	(QHSI iterator): New iterator for 8/16/32/64 bit int support.
+	(GPR_FUSION): New iterator for types that can be fused.
+	(FPR_FUSION): Likewise.
+	(Ff attribute): Add DImode.
+	(Fv attribute): Likewise.
+	(fuse_ldf attribute): New extra/toc fusion attributes.
+	(fuse_stf attribute): Likewise.
+	(fusion splitters): Add new splitters for extra/toc fusion.
+	(fusion_tocload_<mode>): Likewise.
+	(fusion_tocload_di): Likewise.
+	(fusion_gpr_load_<mode>): Update for extra/toc fusion.
+	(fusion peephole2s): New peepholes for extra fusion support.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_load): New extra/toc fusion
+	support.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_store): Likewise.
+	(fusion_extra_<mode>_constant): Likewise.
+
 2015-10-13   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 228776
