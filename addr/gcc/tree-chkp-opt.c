@@ -22,38 +22,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "target.h"
 #include "tree-cfg.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
-#include "stringpool.h"
-#include "tree-ssa-alias.h"
-#include "tree-ssanames.h"
-#include "tree-ssa-operands.h"
 #include "tree-ssa-address.h"
 #include "tree-ssa.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "tree-ssa-loop-niter.h"
-#include "gimple-expr.h"
-#include "gimple.h"
-#include "tree-phinodes.h"
-#include "gimple-ssa.h"
-#include "ssa-iterators.h"
 #include "gimple-pretty-print.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimplify-me.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -95,7 +81,7 @@ struct check_info
   /* Bounds used for the check.  */
   tree bounds;
   /* Check statement.  Can be NULL for removed checks.  */
-  gimple stmt;
+  gimple *stmt;
 };
 
 /* Structure to hold checks information for BB.  */
@@ -368,7 +354,7 @@ chkp_collect_addr_value (tree ptr, address_t &res)
 static void
 chkp_collect_value (tree ptr, address_t &res)
 {
-  gimple def_stmt;
+  gimple *def_stmt;
   enum gimple_code code;
   enum tree_code rhs_code;
   address_t addr;
@@ -457,7 +443,7 @@ chkp_collect_value (tree ptr, address_t &res)
 /* Fill check_info structure *CI with information about
    check STMT.  */
 static void
-chkp_fill_check_info (gimple stmt, struct check_info *ci)
+chkp_fill_check_info (gimple *stmt, struct check_info *ci)
 {
   ci->addr.pol.create (0);
   ci->bounds = gimple_call_arg (stmt, 1);
@@ -530,7 +516,7 @@ chkp_gather_checks_info (void)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
         {
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 
 	  if (gimple_code (stmt) != GIMPLE_CALL)
 	    continue;
@@ -564,7 +550,7 @@ chkp_gather_checks_info (void)
 static int
 chkp_get_check_result (struct check_info *ci, tree bounds)
 {
-  gimple bnd_def;
+  gimple *bnd_def;
   address_t bound_val;
   int sign, res = 0;
 
@@ -762,7 +748,7 @@ chkp_remove_check_if_pass (struct check_info *ci)
 static void
 chkp_use_outer_bounds_if_possible (struct check_info *ci)
 {
-  gimple bnd_def;
+  gimple *bnd_def;
   tree bnd1, bnd2, bnd_res = NULL;
   int check_res1, check_res2;
 
@@ -992,7 +978,7 @@ chkp_optimize_string_function_calls (void)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
         {
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 	  tree fndecl;
 
 	  if (gimple_code (stmt) != GIMPLE_CALL
@@ -1076,11 +1062,11 @@ chkp_optimize_string_function_calls (void)
 		 checks only when size is not zero.  */
 	      if (!known)
 		{
-		  gimple check = gimple_build_cond (NE_EXPR,
-						    size,
-						    size_zero_node,
-						    NULL_TREE,
-						    NULL_TREE);
+		  gimple *check = gimple_build_cond (NE_EXPR,
+						     size,
+						     size_zero_node,
+						     NULL_TREE,
+						     NULL_TREE);
 
 		  /* Split block before string function call.  */
 		  gsi_prev (&i);
@@ -1133,7 +1119,7 @@ chkp_reduce_bounds_lifetime (void)
 
   for (i = gsi_start_bb (bb); !gsi_end_p (i); )
     {
-      gimple dom_use, use_stmt, stmt = gsi_stmt (i);
+      gimple *dom_use, *use_stmt, *stmt = gsi_stmt (i);
       basic_block dom_bb;
       ssa_op_iter iter;
       imm_use_iterator use_iter;
@@ -1296,6 +1282,8 @@ static void
 chkp_opt_fini (void)
 {
   chkp_fix_cfg ();
+
+  free_dominance_info (CDI_POST_DOMINATORS);
 }
 
 /* Checker optimization pass function.  */

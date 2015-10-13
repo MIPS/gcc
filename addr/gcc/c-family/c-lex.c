@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "stor-layout.h"
@@ -524,11 +523,11 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
 	cppchar_t c = tok->val.str.text[0];
 
 	if (c == '"' || c == '\'')
-	  error ("missing terminating %c character", (int) c);
+	  error_at (*loc, "missing terminating %c character", (int) c);
 	else if (ISGRAPH (c))
-	  error ("stray %qc in program", (int) c);
+	  error_at (*loc, "stray %qc in program", (int) c);
 	else
-	  error ("stray %<\\%o%> in program", (int) c);
+	  error_at (*loc, "stray %<\\%o%> in program", (int) c);
       }
       goto retry;
 
@@ -536,6 +535,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_WCHAR_USERDEF:
     case CPP_CHAR16_USERDEF:
     case CPP_CHAR32_USERDEF:
+    case CPP_UTF8CHAR_USERDEF:
       {
 	tree literal;
 	cpp_token temp_tok = *tok;
@@ -553,6 +553,7 @@ c_lex_with_flags (tree *value, location_t *loc, unsigned char *cpp_flags,
     case CPP_WCHAR:
     case CPP_CHAR16:
     case CPP_CHAR32:
+    case CPP_UTF8CHAR:
       *value = lex_charconst (tok);
       break;
 
@@ -772,7 +773,7 @@ interpret_integer (const cpp_token *token, unsigned int flags,
 }
 
 /* Interpret TOKEN, a floating point number with FLAGS as classified
-   by cpplib.  For C++0X SUFFIX may contain a user-defined literal suffix.  */
+   by cpplib.  For C++11 SUFFIX may contain a user-defined literal suffix.  */
 static tree
 interpret_float (const cpp_token *token, unsigned int flags,
 		 const char *suffix, enum overflow_type *overflow)
@@ -913,9 +914,9 @@ interpret_float (const cpp_token *token, unsigned int flags,
 	}
     }
   /* We also give a warning if the value underflows.  */
-  else if (REAL_VALUES_EQUAL (real, dconst0)
+  else if (real_equal (&real, &dconst0)
 	   || (const_type != type
-	       && REAL_VALUES_EQUAL (real_trunc, dconst0)))
+	       && real_equal (&real_trunc, &dconst0)))
     {
       REAL_VALUE_TYPE realvoidmode;
       int oflow = real_from_string (&realvoidmode, copy);
@@ -923,7 +924,7 @@ interpret_float (const cpp_token *token, unsigned int flags,
 			      : (oflow < 0 ? OT_UNDERFLOW : OT_OVERFLOW));
       if (!(flags & CPP_N_USERDEF))
 	{
-	  if (oflow < 0 || !REAL_VALUES_EQUAL (realvoidmode, dconst0))
+	  if (oflow < 0 || !real_equal (&realvoidmode, &dconst0))
 	    warning (OPT_Woverflow, "floating constant truncated to zero");
 	}
     }
@@ -1250,6 +1251,8 @@ lex_charconst (const cpp_token *token)
     type = char32_type_node;
   else if (token->type == CPP_CHAR16)
     type = char16_type_node;
+  else if (token->type == CPP_UTF8CHAR)
+    type = char_type_node;
   /* In C, a character constant has type 'int'.
      In C++ 'char', but multi-char charconsts have type 'int'.  */
   else if (!c_dialect_cxx () || chars_seen > 1)

@@ -1366,8 +1366,8 @@ Target supports a vector misalign access.
 @item vect_no_align
 Target does not support a vector alignment mechanism.
 
-@item vect_no_int_max
-Target does not support a vector max instruction on @code{int}.
+@item vect_no_int_min_max
+Target does not support a vector min and max instruction on @code{int}.
 
 @item vect_no_int_add
 Target does not support a vector add instruction on @code{int}.
@@ -1549,7 +1549,12 @@ options.  Some multilibs may be incompatible with these options.
 @item arm_neon_fp16_ok
 @anchor{arm_neon_fp16_ok}
 ARM Target supports @code{-mfpu=neon-fp16 -mfloat-abi=softfp} or compatible
-options.  Some multilibs may be incompatible with these options.
+options, including @code{-mfp16-format=ieee} if necessary to obtain the
+@code{__fp16} type.  Some multilibs may be incompatible with these options.
+
+@item arm_neon_fp16_hw
+Test system supports executing Neon half-precision float instructions.
+(Implies previous.)
 
 @item arm_thumb1_ok
 ARM target generates Thumb-1 code for @code{-mthumb}.
@@ -1577,6 +1582,25 @@ Some multilibs may be incompatible with these options.
 @item arm_prefer_ldrd_strd
 ARM target prefers @code{LDRD} and @code{STRD} instructions over
 @code{LDM} and @code{STM} instructions.
+
+@end table
+
+@subsubsection AArch64-specific attributes
+
+@table @code
+@item aarch64_tiny
+AArch64 target which generates instruction sequences for tiny memory model.
+@item aarch64_small
+AArch64 target which generates instruction sequences for small memory model.
+@item aarch64_large
+AArch64 target which generates instruction sequences for large memory model.
+@item aarch64_little_endian
+AArch64 target which generates instruction sequences for little endian.
+@item aarch64_big_endian
+AArch64 target which generates instruction sequences for big endian.
+@item aarch64_small_fpic
+Binutils installed on test system supports relocation types required by -fpic
+for AArch64 small memory model.
 
 @end table
 
@@ -2016,7 +2040,7 @@ keyword}.
 @item arm_neon_fp16
 NEON and half-precision floating point support.  Only ARM targets
 support this feature, and only then in certain modes; see
-the @ref{arm_neon_ok,,arm_neon_fp16_ok effective target keyword}.
+the @ref{arm_neon_fp16_ok,,arm_neon_fp16_ok effective target keyword}.
 
 @item arm_vfp3
 arm vfp3 floating point support; see

@@ -31,9 +31,8 @@
 #include "tm.h"
 #include "vec.h"
 #include "alias.h"
-#include "symtab.h"
-#include "inchash.h"
 #include "tree.h"
+#include "inchash.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "print-tree.h"
@@ -48,7 +47,7 @@
 #include "plugin.h"
 #include "hashtab.h"
 #include "hard-reg-set.h"
-#include "function.h"	/* For pass_by_reference.  */
+#include "calls.h"	/* For pass_by_reference.  */
 #include "dwarf2out.h"
 
 #include "ada.h"
@@ -113,7 +112,8 @@ gnat_parse_file (void)
   /* Call the front end.  */
   _ada_gnat1drv ();
 
-  note_types_used_by_globals ();
+  /* Write the global declarations.  */
+  gnat_write_global_declarations ();
 }
 
 /* Return language mask for option processing.  */
@@ -162,6 +162,11 @@ gnat_handle_option (size_t scode, const char *arg ATTRIBUTE_UNUSED, int value,
 
     case OPT_fshort_enums:
       /* This is handled by the middle-end.  */
+      break;
+
+    case OPT_fbuiltin_printf:
+      /* This is ignored in Ada but needs to be accepted so it can be
+	 defaulted.  */
       break;
 
     default:
@@ -261,9 +266,6 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
     sorry ("-fexcess-precision=standard for Ada");
   flag_excess_precision_cmdline = EXCESS_PRECISION_FAST;
 
-  /* ??? The warning machinery is outsmarted by Ada.  */
-  warn_unused_parameter = 0;
-
   /* No psABI change warnings for Ada.  */
   warn_psabi = 0;
 
@@ -271,6 +273,13 @@ gnat_post_options (const char **pfilename ATTRIBUTE_UNUSED)
   if (!global_options_set.x_flag_diagnostics_show_caret)
     global_dc->show_caret = false;
 
+  /* Warn only if STABS is not the default: we don't want to emit a warning if
+     the user did not use a -gstabs option.  */
+  if (PREFERRED_DEBUGGING_TYPE != DBX_DEBUG && write_symbols == DBX_DEBUG)
+    warning (0, "STABS debugging information for Ada is obsolete and not "
+		"supported anymore");
+
+  /* Copy global settings to local versions.  */
   optimize = global_options.x_optimize;
   optimize_size = global_options.x_optimize_size;
   flag_compare_debug = global_options.x_flag_compare_debug;
@@ -661,7 +670,7 @@ gnat_get_array_descr_info (const_tree type, struct array_descr_info *info)
   info->ndimensions = i;
   convention_fortran_p = TYPE_CONVENTION_FORTRAN_P (type);
 
-  /* TODO: For row major ordering, we probably want to emit nothing and
+  /* TODO: for row major ordering, we probably want to emit nothing and
      instead specify it as the default in Dw_TAG_compile_unit.  */
   info->ordering = (convention_fortran_p
 		    ? array_descr_ordering_column_major
@@ -1002,6 +1011,8 @@ gnat_init_ts (void)
 #define LANG_HOOKS_DEEP_UNSHARING	true
 #undef  LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS		gnat_init_ts
+#undef  LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL
+#define LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL hook_bool_const_tree_false
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 

@@ -22,18 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "dumpfile.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "rtl.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "tree-ssa.h"
 #include "timevar.h"
 #include "diagnostic-core.h"
@@ -539,7 +533,7 @@ split_block_1 (basic_block bb, void *i)
 }
 
 edge
-split_block (basic_block bb, gimple i)
+split_block (basic_block bb, gimple *i)
 {
   return split_block_1 (bb, i);
 }

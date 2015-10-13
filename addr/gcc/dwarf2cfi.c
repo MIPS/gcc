@@ -25,10 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stor-layout.h"
-#include "hard-reg-set.h"
 #include "function.h"
 #include "cfgbuild.h"
 #include "dwarf2.h"
@@ -70,7 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #define MAX_ARTIFICIAL_LABEL_BYTES	30
 
 /* A collected description of an entire row of the abstract CFI table.  */
-typedef struct GTY(()) dw_cfi_row_struct
+struct GTY(()) dw_cfi_row
 {
   /* The expression that computes the CFA, expressed in two different ways.
      The CFA member for the simple cases, and the full CFI expression for
@@ -80,13 +78,13 @@ typedef struct GTY(()) dw_cfi_row_struct
 
   /* The expressions for any register column that is saved.  */
   cfi_vec reg_save;
-} dw_cfi_row;
+};
 
 /* The caller's ORIG_REG is saved in SAVED_IN_REG.  */
-typedef struct GTY(()) reg_saved_in_data_struct {
+struct GTY(()) reg_saved_in_data {
   rtx orig_reg;
   rtx saved_in_reg;
-} reg_saved_in_data;
+};
 
 
 /* Since we no longer have a proper CFG, we're going to create a facsimile
@@ -106,7 +104,7 @@ typedef struct GTY(()) reg_saved_in_data_struct {
    All save points are present in the TRACE_INDEX hash, mapping the insn
    starting a trace to the dw_trace_info describing the trace.  */
 
-typedef struct
+struct dw_trace_info
 {
   /* The insn that begins the trace.  */
   rtx_insn *head;
@@ -159,18 +157,13 @@ typedef struct
 
   /* True if we've seen different values incoming to beg_true_args_size.  */
   bool args_size_undefined;
-} dw_trace_info;
-
-
-typedef dw_trace_info *dw_trace_info_ref;
+};
 
 
 /* Hashtable helpers.  */
 
-struct trace_info_hasher : typed_noop_remove <dw_trace_info>
+struct trace_info_hasher : nofree_ptr_hash <dw_trace_info>
 {
-  typedef dw_trace_info *value_type;
-  typedef dw_trace_info *compare_type;
   static inline hashval_t hash (const dw_trace_info *);
   static inline bool equal (const dw_trace_info *, const dw_trace_info *);
 };
@@ -190,7 +183,7 @@ trace_info_hasher::equal (const dw_trace_info *a, const dw_trace_info *b)
 
 /* The variables making up the pseudo-cfg, as described above.  */
 static vec<dw_trace_info> trace_info;
-static vec<dw_trace_info_ref> trace_work_list;
+static vec<dw_trace_info *> trace_work_list;
 static hash_table<trace_info_hasher> *trace_index;
 
 /* A vector of call frame insns for the CIE.  */
@@ -224,11 +217,11 @@ static dw_cfa_location *cur_cfa;
    of the prologue or (b) the register is clobbered.  This clusters
    register saves so that there are fewer pc advances.  */
 
-typedef struct {
+struct queued_reg_save {
   rtx reg;
   rtx saved_reg;
   HOST_WIDE_INT cfa_offset;
-} queued_reg_save;
+};
 
 
 static vec<queued_reg_save> queued_reg_saves;
@@ -265,7 +258,7 @@ init_return_column_size (machine_mode mode, rtx mem, unsigned int c)
    init_one_dwarf_reg_size to communicate on what has been done by the
    latter.  */
 
-typedef struct
+struct init_one_dwarf_reg_state
 {
   /* Whether the dwarf return column was initialized.  */
   bool wrote_return_column;
@@ -274,7 +267,7 @@ typedef struct
      was given REGNO to process already.  */
   bool processed_regno [FIRST_PSEUDO_REGISTER];
 
-} init_one_dwarf_reg_state;
+};
 
 /* Helper for expand_builtin_init_dwarf_reg_sizes.  Generate code to
    initialize the dwarf register size table entry corresponding to register
@@ -3478,11 +3471,10 @@ public:
 bool
 pass_dwarf2_frame::gate (function *)
 {
-#ifndef HAVE_prologue
   /* Targets which still implement the prologue in assembler text
      cannot use the generic dwarf2 unwinding.  */
-  return false;
-#endif
+  if (!targetm.have_prologue ())
+    return false;
 
   /* ??? What to do for UI_TARGET unwinding?  They might be able to benefit
      from the optimized shrink-wrapping annotations that we will compute.

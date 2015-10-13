@@ -27,19 +27,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "fold-const.h"
 #include "tree-pretty-print.h"
+#include "backend.h"
 #include "cfgloop.h"
-#include "predict.h"
-#include "tm.h"
 #include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-expr.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-niter.h"
@@ -1179,7 +1173,7 @@ nb_vars_in_chrec (tree chrec)
 
 bool
 convert_affine_scev (struct loop *loop, tree type,
-		     tree *base, tree *step, gimple at_stmt,
+		     tree *base, tree *step, gimple *at_stmt,
 		     bool use_overflow_semantics)
 {
   tree ct = TREE_TYPE (*step);
@@ -1280,7 +1274,7 @@ convert_affine_scev (struct loop *loop, tree type,
    The increment for a pointer type is always sizetype.  */
 
 tree
-chrec_convert_rhs (tree type, tree chrec, gimple at_stmt)
+chrec_convert_rhs (tree type, tree chrec, gimple *at_stmt)
 {
   if (POINTER_TYPE_P (type))
     type = sizetype;
@@ -1301,7 +1295,7 @@ chrec_convert_rhs (tree type, tree chrec, gimple at_stmt)
    tests, but also to enforce that the result follows them.  */
 
 static tree
-chrec_convert_1 (tree type, tree chrec, gimple at_stmt,
+chrec_convert_1 (tree type, tree chrec, gimple *at_stmt,
 		 bool use_overflow_semantics)
 {
   tree ct, res;
@@ -1408,7 +1402,7 @@ keep_cast:
    tests, but also to enforce that the result follows them.  */
 
 tree
-chrec_convert (tree type, tree chrec, gimple at_stmt,
+chrec_convert (tree type, tree chrec, gimple *at_stmt,
 	       bool use_overflow_semantics)
 {
   return chrec_convert_1 (type, chrec, at_stmt, use_overflow_semantics);

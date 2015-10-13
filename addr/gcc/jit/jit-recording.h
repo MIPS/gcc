@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "jit-common.h"
 #include "jit-logging.h"
 
+class timer;
+
 namespace gcc {
 
 namespace jit {
@@ -183,6 +185,11 @@ public:
 		    rvalue *ptr,
 		    rvalue *index);
 
+  case_ *
+  new_case (rvalue *min_value,
+	    rvalue *max_value,
+	    block *block);
+
   void
   set_str_option (enum gcc_jit_str_option opt,
 		  const char *value);
@@ -194,6 +201,16 @@ public:
   void
   set_bool_option (enum gcc_jit_bool_option opt,
 		   int value);
+
+  void
+  set_inner_bool_option (enum inner_bool_option inner_opt,
+			 int value);
+
+  void
+  add_command_line_option (const char *optname);
+
+  void
+  append_command_line_options (vec <char *> *argvec);
 
   void
   enable_dump (const char *dumpname,
@@ -215,6 +232,12 @@ public:
   get_bool_option (enum gcc_jit_bool_option opt) const
   {
     return m_bool_options[opt];
+  }
+
+  int
+  get_inner_bool_option (enum inner_bool_option opt) const
+  {
+    return m_inner_bool_options[opt];
   }
 
   result *
@@ -255,11 +278,15 @@ public:
   void
   get_all_requested_dumps (vec <recording::requested_dump> *out);
 
+  void set_timer (timer *t) { m_timer = t; }
+  timer *get_timer () const { return m_timer; }
+
 private:
   void log_all_options () const;
   void log_str_option (enum gcc_jit_str_option opt) const;
   void log_int_option (enum gcc_jit_int_option opt) const;
   void log_bool_option (enum gcc_jit_bool_option opt) const;
+  void log_inner_bool_option (enum inner_bool_option opt) const;
 
   void validate ();
 
@@ -269,6 +296,8 @@ private:
   /* The ultimate ancestor of the contexts within a family tree of
      contexts.  This has itself as its own m_toplevel_ctxt.  */
   context *m_toplevel_ctxt;
+
+  timer *m_timer;
 
   int m_error_count;
 
@@ -281,6 +310,8 @@ private:
   char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
   int m_int_options[GCC_JIT_NUM_INT_OPTIONS];
   bool m_bool_options[GCC_JIT_NUM_BOOL_OPTIONS];
+  bool m_inner_bool_options[NUM_INNER_BOOL_OPTIONS];
+  auto_vec <char *> m_command_line_options;
 
   /* Dumpfiles that were requested via gcc_jit_context_enable_dump.  */
   auto_vec<requested_dump> m_requested_dumps;
@@ -473,6 +504,7 @@ public:
   virtual type *is_pointer () = 0;
   virtual type *is_array () = 0;
   virtual bool is_void () const { return false; }
+  virtual bool has_known_size () const { return true; }
 
   bool is_numeric () const
   {
@@ -771,6 +803,8 @@ public:
   type *is_pointer () { return NULL; }
   type *is_array () { return NULL; }
 
+  bool has_known_size () const { return m_fields != NULL; }
+
   playback::compound_type *
   playback_compound_type ()
   {
@@ -934,6 +968,9 @@ public:
   /* Get the debug string, wrapped in parentheses.  */
   const char *
   get_debug_string_parens (enum precedence outer_prec);
+
+  virtual bool is_constant () const { return false; }
+  virtual bool get_wide_int (wide_int *) const { return false; }
 
 private:
   virtual enum precedence get_precedence () const = 0;
@@ -1133,6 +1170,13 @@ public:
   end_with_return (location *loc,
 		   rvalue *rvalue);
 
+  statement *
+  end_with_switch (location *loc,
+		   rvalue *expr,
+		   block *default_block,
+		   int num_cases,
+		   case_ **cases);
+
   playback::block *
   playback_block () const
   {
@@ -1148,7 +1192,7 @@ public:
   statement *get_first_statement () const;
   statement *get_last_statement () const;
 
-  int get_successor_blocks (block **next1, block **next2) const;
+  vec <block *> get_successor_blocks () const;
 
 private:
   string * make_debug_string ();
@@ -1213,6 +1257,10 @@ public:
   void replay_into (replayer *r);
 
   void visit_children (rvalue_visitor *) {}
+
+  bool is_constant () const { return true; }
+
+  bool get_wide_int (wide_int *out) const;
 
 private:
   string * make_debug_string ();
@@ -1577,8 +1625,7 @@ private:
 class statement : public memento
 {
 public:
-  virtual int get_successor_blocks (block **out_next1,
-				    block **out_next2) const;
+  virtual vec <block *> get_successor_blocks () const;
 
   void write_to_dump (dump &d);
 
@@ -1702,8 +1749,7 @@ public:
 
   void replay_into (replayer *r);
 
-  int get_successor_blocks (block **out_next1,
-			    block **out_next2) const;
+  vec <block *> get_successor_blocks () const;
 
 private:
   string * make_debug_string ();
@@ -1726,8 +1772,7 @@ public:
 
   void replay_into (replayer *r);
 
-  int get_successor_blocks (block **out_next1,
-			    block **out_next2) const;
+  vec <block *> get_successor_blocks () const;
 
 private:
   string * make_debug_string ();
@@ -1748,8 +1793,7 @@ public:
 
   void replay_into (replayer *r);
 
-  int get_successor_blocks (block **out_next1,
-			    block **out_next2) const;
+  vec <block *> get_successor_blocks () const;
 
 private:
   string * make_debug_string ();
@@ -1757,6 +1801,60 @@ private:
 
 private:
   rvalue *m_rvalue;
+};
+
+class case_ : public memento
+{
+ public:
+  case_ (context *ctxt,
+	 rvalue *min_value,
+	 rvalue *max_value,
+	 block *dest_block)
+  : memento (ctxt),
+    m_min_value (min_value),
+    m_max_value (max_value),
+    m_dest_block (dest_block)
+  {}
+
+  rvalue *get_min_value () const { return m_min_value; }
+  rvalue *get_max_value () const { return m_max_value; }
+  block *get_dest_block () const { return m_dest_block; }
+
+  void replay_into (replayer *) { /* empty */ }
+
+  void write_reproducer (reproducer &r);
+
+private:
+  string * make_debug_string ();
+
+ private:
+  rvalue *m_min_value;
+  rvalue *m_max_value;
+  block *m_dest_block;
+};
+
+class switch_ : public statement
+{
+public:
+  switch_ (block *b,
+	   location *loc,
+	   rvalue *expr,
+	   block *default_block,
+	   int num_cases,
+	   case_ **cases);
+
+  void replay_into (replayer *r);
+
+  vec <block *> get_successor_blocks () const;
+
+private:
+  string * make_debug_string ();
+  void write_reproducer (reproducer &r);
+
+private:
+  rvalue *m_expr;
+  block *m_default_block;
+  auto_vec <case_ *> m_cases;
 };
 
 } // namespace gcc::jit::recording

@@ -101,16 +101,47 @@ enum gomp_map_kind
 
 /* Device codes.  Keep in sync with
    libgomp/{openacc.h,openacc.f90,openacc_lib.h}:acc_device_t as well as
-   libgomp/libgomp_target.h.  */
+   libgomp/libgomp-plugin.h.  */
 #define GOMP_DEVICE_NONE		0
 #define GOMP_DEVICE_DEFAULT		1
 #define GOMP_DEVICE_HOST		2
-#define GOMP_DEVICE_HOST_NONSHM		3
+/* #define GOMP_DEVICE_HOST_NONSHM	3 removed.  */
 #define GOMP_DEVICE_NOT_HOST		4
 #define GOMP_DEVICE_NVIDIA_PTX		5
 #define GOMP_DEVICE_INTEL_MIC		6
 
 #define GOMP_DEVICE_ICV			-1
 #define GOMP_DEVICE_HOST_FALLBACK	-2
+
+/* Versions of libgomp and device-specific plugins.  */
+#define GOMP_VERSION	0
+#define GOMP_VERSION_NVIDIA_PTX 1
+#define GOMP_VERSION_INTEL_MIC 0
+
+#define GOMP_VERSION_PACK(LIB, DEV) (((LIB) << 16) | (DEV))
+#define GOMP_VERSION_LIB(PACK) (((PACK) >> 16) & 0xffff)
+#define GOMP_VERSION_DEV(PACK) ((PACK) & 0xffff)
+
+#define GOMP_DIM_GANG	0
+#define GOMP_DIM_WORKER	1
+#define GOMP_DIM_VECTOR	2
+#define GOMP_DIM_MAX	3
+#define GOMP_DIM_MASK(X) (1u << (X))
+
+/* Varadic launch arguments.  End of list is marked by a zero.  */
+#define GOMP_LAUNCH_DIM		1  /* Launch dimensions, op = mask */
+#define GOMP_LAUNCH_ASYNC	2  /* Async, op = cst val if not MAX  */
+#define GOMP_LAUNCH_WAIT	3  /* Waits, op = num waits.  */
+#define GOMP_LAUNCH_CODE_SHIFT	28
+#define GOMP_LAUNCH_DEVICE_SHIFT 16
+#define GOMP_LAUNCH_OP_SHIFT 0
+#define GOMP_LAUNCH_PACK(CODE,DEVICE,OP)	\
+  (((CODE) << GOMP_LAUNCH_CODE_SHIFT)		\
+   | ((DEVICE) << GOMP_LAUNCH_DEVICE_SHIFT)	\
+   | ((OP) << GOMP_LAUNCH_OP_SHIFT))
+#define GOMP_LAUNCH_CODE(X) (((X) >> GOMP_LAUNCH_CODE_SHIFT) & 0xf)
+#define GOMP_LAUNCH_DEVICE(X) (((X) >> GOMP_LAUNCH_DEVICE_SHIFT) & 0xfff)
+#define GOMP_LAUNCH_OP(X) (((X) >> GOMP_LAUNCH_OP_SHIFT) & 0xffff)
+#define GOMP_LAUNCH_OP_MAX 0xffff
 
 #endif

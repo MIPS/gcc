@@ -26,10 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "calls.h"
@@ -40,21 +42,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "debug.h"
 #include "target.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "plugin-api.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "intl.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "timevar.h"
 #include "dumpfile.h"
@@ -64,7 +55,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "except.h"
 #include "diagnostic-core.h"
-#include "rtl.h"
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "alloc-pool.h"
@@ -126,7 +116,7 @@ struct cgraph_2node_hook_list {
 
 /* Hash descriptor for cgraph_function_version_info.  */
 
-struct function_version_hasher : ggc_hasher<cgraph_function_version_info *>
+struct function_version_hasher : ggc_ptr_hash<cgraph_function_version_info>
 {
   static hashval_t hash (cgraph_function_version_info *);
   static bool equal (cgraph_function_version_info *,
@@ -158,6 +148,29 @@ function_version_hasher::equal (cgraph_function_version_info *n1,
 /* Mark as GC root all allocated nodes.  */
 static GTY(()) struct cgraph_function_version_info *
   version_info_node = NULL;
+
+/* Return true if NODE's address can be compared.  */
+
+bool
+symtab_node::address_can_be_compared_p ()
+{
+  /* Address of virtual tables and functions is never compared.  */
+  if (DECL_VIRTUAL_P (decl))
+    return false;
+  /* Address of C++ cdtors is never compared.  */
+  if (is_a <cgraph_node *> (this)
+      && (DECL_CXX_CONSTRUCTOR_P (decl)
+	  || DECL_CXX_DESTRUCTOR_P (decl)))
+    return false;
+  /* Constant pool symbols addresses are never compared.
+     flag_merge_constants permits us to assume the same on readonly vars.  */
+  if (is_a <varpool_node *> (this)
+      && (DECL_IN_CONSTANT_POOL (decl)
+	  || (flag_merge_constants >= 2
+	      && TREE_READONLY (decl) && !TREE_THIS_VOLATILE (decl))))
+    return false;
+  return true;
+}
 
 /* Get the cgraph_function_version_info node corresponding to node.  */
 cgraph_function_version_info *
@@ -657,17 +670,17 @@ cgraph_edge_hasher::hash (cgraph_edge *e)
 /* Returns a hash value for X (which really is a cgraph_edge).  */
 
 hashval_t
-cgraph_edge_hasher::hash (gimple call_stmt)
+cgraph_edge_hasher::hash (gimple *call_stmt)
 {
   /* This is a really poor hash function, but it is what htab_hash_pointer
      uses.  */
   return (hashval_t) ((intptr_t)call_stmt >> 3);
 }
 
-/* Return nonzero if the call_stmt of of cgraph_edge X is stmt *Y.  */
+/* Return nonzero if the call_stmt of cgraph_edge X is stmt *Y.  */
 
 inline bool
-cgraph_edge_hasher::equal (cgraph_edge *x, gimple y)
+cgraph_edge_hasher::equal (cgraph_edge *x, gimple *y)
 {
   return x->call_stmt == y;
 }
@@ -677,7 +690,7 @@ cgraph_edge_hasher::equal (cgraph_edge *x, gimple y)
 static inline void
 cgraph_update_edge_in_call_site_hash (cgraph_edge *e)
 {
-  gimple call = e->call_stmt;
+  gimple *call = e->call_stmt;
   *e->caller->call_site_hash->find_slot_with_hash
       (call, cgraph_edge_hasher::hash (call), INSERT) = e;
 }
@@ -708,7 +721,7 @@ cgraph_add_edge_to_call_site_hash (cgraph_edge *e)
    CALL_STMT.  */
 
 cgraph_edge *
-cgraph_node::get_edge (gimple call_stmt)
+cgraph_node::get_edge (gimple *call_stmt)
 {
   cgraph_edge *e, *e2;
   int n = 0;
@@ -1259,7 +1272,7 @@ cgraph_edge::make_direct (cgraph_node *callee)
 /* If necessary, change the function declaration in the call statement
    associated with E so that it corresponds to the edge callee.  */
 
-gimple
+gimple *
 cgraph_edge::redirect_call_stmt_to_callee (void)
 {
   cgraph_edge *e = this;
@@ -1462,7 +1475,7 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 					TREE_TYPE (lhs), NULL);
 	  var = get_or_create_ssa_default_def
 		  (DECL_STRUCT_FUNCTION (e->caller->decl), var);
-	  gimple set_stmt = gimple_build_assign (lhs, var);
+	  gimple *set_stmt = gimple_build_assign (lhs, var);
           gsi = gsi_for_stmt (new_stmt);
 	  gsi_insert_before_without_update (&gsi, set_stmt, GSI_SAME_STMT);
 	  update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), set_stmt);
@@ -1499,8 +1512,8 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 
 static void
 cgraph_update_edges_for_call_stmt_node (cgraph_node *node,
-					gimple old_stmt, tree old_call,
-					gimple new_stmt)
+					gimple *old_stmt, tree old_call,
+					gimple *new_stmt)
 {
   tree new_call = (new_stmt && is_gimple_call (new_stmt))
 		  ? gimple_call_fndecl (new_stmt) : 0;
@@ -1583,7 +1596,8 @@ cgraph_update_edges_for_call_stmt_node (cgraph_node *node,
    of OLD_STMT before it was updated (updating can happen inplace).  */
 
 void
-cgraph_update_edges_for_call_stmt (gimple old_stmt, tree old_decl, gimple new_stmt)
+cgraph_update_edges_for_call_stmt (gimple *old_stmt, tree old_decl,
+				   gimple *new_stmt)
 {
   cgraph_node *orig = cgraph_node::get (cfun->decl);
   cgraph_node *node;
@@ -1726,8 +1740,8 @@ cgraph_node::release_body (bool keep_arguments)
       if (!keep_arguments)
 	DECL_ARGUMENTS (decl) = NULL;
     }
-  /* If the node is abstract and needed, then do not clear DECL_INITIAL
-     of its associated function function declaration because it's
+  /* If the node is abstract and needed, then do not clear
+     DECL_INITIAL of its associated function declaration because it's
      needed to emit debug info later.  */
   if (!used_as_abstract_origin && DECL_INITIAL (decl))
     DECL_INITIAL (decl) = error_mark_node;
@@ -1892,7 +1906,10 @@ cgraph_node::rtl_info (tree decl)
   if (node->decl != current_function_decl
       && !TREE_ASM_WRITTEN (node->decl))
     return NULL;
-  return &node->ultimate_alias_target ()->rtl;
+  /* Allocate if it doesnt exist.  */
+  if (node->ultimate_alias_target ()->rtl == NULL)
+    node->ultimate_alias_target ()->rtl = ggc_cleared_alloc<cgraph_rtl_info> ();
+  return node->ultimate_alias_target ()->rtl;
 }
 
 /* Return a string describing the failure REASON.  */
@@ -2679,7 +2696,7 @@ cgraph_edge::verify_count_and_frequency ()
 
 /* Switch to THIS_CFUN if needed and print STMT to stderr.  */
 static void
-cgraph_debug_gimple_stmt (function *this_cfun, gimple stmt)
+cgraph_debug_gimple_stmt (function *this_cfun, gimple *stmt)
 {
   bool fndecl_was_null = false;
   /* debug_gimple_stmt needs correct cfun */
@@ -3068,7 +3085,7 @@ cgraph_node::verify_node (void)
     {
       if (this_cfun->cfg)
 	{
-	  hash_set<gimple> stmts;
+	  hash_set<gimple *> stmts;
 	  int i;
 	  ipa_ref *ref = NULL;
 
@@ -3083,7 +3100,7 @@ cgraph_node::verify_node (void)
 		   !gsi_end_p (gsi);
 		   gsi_next (&gsi))
 		{
-		  gimple stmt = gsi_stmt (gsi);
+		  gimple *stmt = gsi_stmt (gsi);
 		  stmts.add (stmt);
 		  if (is_gimple_call (stmt))
 		    {
@@ -3340,7 +3357,7 @@ cgraph_node::get_fun (void)
    return false.  */
 
 static bool
-gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
+gimple_check_call_args (gimple *stmt, tree fndecl, bool args_count_match)
 {
   tree parms, p;
   unsigned int i, nargs;
@@ -3415,7 +3432,7 @@ gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
    If we cannot verify this or there is a mismatch, return false.  */
 
 bool
-gimple_check_call_matching_types (gimple call_stmt, tree callee,
+gimple_check_call_matching_types (gimple *call_stmt, tree callee,
 				  bool args_count_match)
 {
   tree lhs;

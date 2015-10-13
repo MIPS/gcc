@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"		/* For UNITS_PER_WORD.  */
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
@@ -676,6 +675,11 @@ gfc_build_intrinsic_lib_fndecls (void)
 #undef LIB_FUNCTION
 #undef DEFINE_MATH_BUILTIN
 #undef DEFINE_MATH_BUILTIN_C
+
+    /* There is one built-in we defined manually, because it gets called
+       with builtin_decl_for_precision() or builtin_decl_for_float_type()
+       even though it is not an OTHER_BUILTIN: it is SQRT.  */
+    quad_decls[BUILT_IN_SQRT] = define_quad_builtin ("sqrtq", func_1, true);
 
   }
 
@@ -2650,6 +2654,27 @@ gfc_conv_intrinsic_fdate (gfc_se * se, gfc_expr * expr)
 
   se->expr = var;
   se->string_length = len;
+}
+
+
+/* Generate a direct call to free() for the FREE subroutine.  */
+
+static tree
+conv_intrinsic_free (gfc_code *code)
+{
+  stmtblock_t block;
+  gfc_se argse;
+  tree arg, call;
+
+  gfc_init_se (&argse, NULL);
+  gfc_conv_expr (&argse, code->ext.actual->expr);
+  arg = fold_convert (ptr_type_node, argse.expr);
+
+  gfc_init_block (&block);
+  call = build_call_expr_loc (input_location,
+			      builtin_decl_explicit (BUILT_IN_FREE), 1, arg);
+  gfc_add_expr_to_block (&block, call);
+  return gfc_finish_block (&block);
 }
 
 
@@ -5912,11 +5937,16 @@ gfc_conv_intrinsic_sizeof (gfc_se *se, gfc_expr *expr)
     }
   else if (arg->ts.type == BT_CLASS)
     {
-      /* For deferred length arrays, conv_expr_descriptor returns an
-	 indirect_ref to the component.  */
+      /* Conv_expr_descriptor returns a component_ref to _data component of the
+	 class object.  The class object may be a non-pointer object, e.g.
+	 located on the stack, or a memory location pointed to, e.g. a
+	 parameter, i.e., an indirect_ref.  */
       if (arg->rank < 0
 	  || (arg->rank > 0 && !VAR_P (argse.expr)
-	      && GFC_DECL_CLASS (TREE_OPERAND (argse.expr, 0))))
+	      && ((INDIRECT_REF_P (TREE_OPERAND (argse.expr, 0))
+		   && GFC_DECL_CLASS (TREE_OPERAND (
+					TREE_OPERAND (argse.expr, 0), 0)))
+		  || GFC_DECL_CLASS (TREE_OPERAND (argse.expr, 0)))))
 	byte_size = gfc_class_vtab_size_get (TREE_OPERAND (argse.expr, 0));
       else if (arg->rank > 0)
 	/* The scalarizer added an additional temp.  To get the class' vptr
@@ -6234,7 +6264,7 @@ gfc_conv_intrinsic_transfer (gfc_se * se, gfc_expr * expr)
 
 	  /* Free the temporary.  */
 	  gfc_start_block (&block);
-	  tmp = gfc_call_free (convert (pvoid_type_node, source));
+	  tmp = gfc_call_free (source);
 	  gfc_add_expr_to_block (&block, tmp);
 	  stmt = gfc_finish_block (&block);
 
@@ -6668,6 +6698,8 @@ gfc_conv_associated (gfc_se *se, gfc_expr *expr)
 						       arg2se.expr);
 	  gfc_add_block_to_block (&se->pre, &arg1se.pre);
 	  gfc_add_block_to_block (&se->post, &arg1se.post);
+	  gfc_add_block_to_block (&se->pre, &arg2se.pre);
+	  gfc_add_block_to_block (&se->post, &arg2se.post);
           tmp = fold_build2_loc (input_location, EQ_EXPR, boolean_type_node,
 				 arg1se.expr, arg2se.expr);
           tmp2 = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
@@ -7416,8 +7448,7 @@ conv_intrinsic_ieee_is_normal (gfc_se * se, gfc_expr * expr)
 static void
 conv_intrinsic_ieee_is_negative (gfc_se * se, gfc_expr * expr)
 {
-  tree arg, signbit, isnan, decl;
-  int argprec;
+  tree arg, signbit, isnan;
 
   /* Convert arg, evaluate it only once.  */
   conv_ieee_function_args (se, expr, &arg, 1);
@@ -7428,9 +7459,9 @@ conv_intrinsic_ieee_is_negative (gfc_se * se, gfc_expr * expr)
 			       1, arg);
   STRIP_TYPE_NOPS (isnan);
 
-  argprec = TYPE_PRECISION (TREE_TYPE (arg));
-  decl = builtin_decl_for_precision (BUILT_IN_SIGNBIT, argprec);
-  signbit = build_call_expr_loc (input_location, decl, 1, arg);
+  signbit = build_call_expr_loc (input_location,
+				 builtin_decl_explicit (BUILT_IN_SIGNBIT),
+				 1, arg);
   signbit = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			     signbit, integer_zero_node);
 
@@ -7578,9 +7609,9 @@ conv_intrinsic_ieee_copy_sign (gfc_se * se, gfc_expr * expr)
   conv_ieee_function_args (se, expr, args, 2);
 
   /* Get the sign of the second argument.  */
-  argprec = TYPE_PRECISION (TREE_TYPE (args[1]));
-  decl = builtin_decl_for_precision (BUILT_IN_SIGNBIT, argprec);
-  sign = build_call_expr_loc (input_location, decl, 1, args[1]);
+  sign = build_call_expr_loc (input_location,
+			      builtin_decl_explicit (BUILT_IN_SIGNBIT),
+			      1, args[1]);
   sign = fold_build2_loc (input_location, NE_EXPR, boolean_type_node,
 			  sign, integer_zero_node);
 
@@ -7640,6 +7671,22 @@ gfc_conv_ieee_arithmetic_function (gfc_se * se, gfc_expr * expr)
 #undef STARTS_WITH
 
   return true;
+}
+
+
+/* Generate a direct call to malloc() for the MALLOC intrinsic.  */
+
+static void
+gfc_conv_intrinsic_malloc (gfc_se * se, gfc_expr * expr)
+{
+  tree arg, res, restype;
+
+  gfc_conv_intrinsic_function_args (se, expr, &arg, 1);
+  arg = fold_convert (size_type_node, arg);
+  res = build_call_expr_loc (input_location,
+			     builtin_decl_explicit (BUILT_IN_MALLOC), 1, arg);
+  restype = gfc_typenode_for_spec (&expr->ts);
+  se->expr = fold_convert (restype, res);
 }
 
 
@@ -8073,6 +8120,10 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
       gfc_conv_intrinsic_strcmp (se, expr, LT_EXPR);
       break;
 
+    case GFC_ISYM_MALLOC:
+      gfc_conv_intrinsic_malloc (se, expr);
+      break;
+
     case GFC_ISYM_MASKL:
       gfc_conv_intrinsic_mask (se, expr, 1);
       break;
@@ -8262,7 +8313,6 @@ gfc_conv_intrinsic_function (gfc_se * se, gfc_expr * expr)
     case GFC_ISYM_JN2:
     case GFC_ISYM_LINK:
     case GFC_ISYM_LSTAT:
-    case GFC_ISYM_MALLOC:
     case GFC_ISYM_MATMUL:
     case GFC_ISYM_MCLOCK:
     case GFC_ISYM_MCLOCK8:
@@ -8805,7 +8855,7 @@ conv_co_collective (gfc_code *code)
 	}
       opr_flags = build_int_cst (integer_type_node, opr_flag_int);
       gfc_conv_expr (&argse, opr_expr);
-      opr = gfc_build_addr_expr (NULL_TREE, argse.expr);
+      opr = argse.expr;
       fndecl = build_call_expr_loc (input_location, fndecl, 8, array, opr, opr_flags,
 				    image_index, stat, errmsg, strlen, errmsg_len);
     }
@@ -9529,6 +9579,10 @@ gfc_conv_intrinsic_subroutine (gfc_code *code)
     case GFC_ISYM_CO_REDUCE:
     case GFC_ISYM_CO_SUM:
       res = conv_co_collective (code);
+      break;
+
+    case GFC_ISYM_FREE:
+      res = conv_intrinsic_free (code);
       break;
 
     case GFC_ISYM_SYSTEM_CLOCK:

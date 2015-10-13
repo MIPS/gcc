@@ -21,34 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "tree-pass.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "langhooks.h"
 #include "target.h"
 #include "targhooks.h"
@@ -493,7 +479,7 @@ lower_emutls_1 (tree *ptr, int *walk_subtrees, void *cb_data)
 	     new assignment statement, and substitute yet another SSA_NAME.  */
 	  if (wi->changed)
 	    {
-	      gimple x;
+	      gimple *x;
 
 	      addr = create_tmp_var (TREE_TYPE (t));
 	      x = gimple_build_assign (addr, t);
@@ -553,7 +539,7 @@ lower_emutls_1 (tree *ptr, int *walk_subtrees, void *cb_data)
 /* Lower all of the operands of STMT.  */
 
 static void
-lower_emutls_stmt (gimple stmt, struct lower_emutls_data *d)
+lower_emutls_stmt (gimple *stmt, struct lower_emutls_data *d)
 {
   struct walk_stmt_info wi;
 

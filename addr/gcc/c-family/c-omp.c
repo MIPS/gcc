@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
@@ -212,7 +211,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   addr = save_expr (addr);
   if (TREE_CODE (addr) != SAVE_EXPR
       && (TREE_CODE (addr) != ADDR_EXPR
-	  || TREE_CODE (TREE_OPERAND (addr, 0)) != VAR_DECL))
+	  || !VAR_P (TREE_OPERAND (addr, 0))))
     {
       /* Make sure LHS is simple enough so that goa_lhs_expr_p can recognize
 	 it even after unsharing function body.  */
@@ -264,8 +263,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   /* Generally it is hard to prove lhs1 and lhs are the same memory
      location, just diagnose different variables.  */
   if (rhs1
-      && TREE_CODE (rhs1) == VAR_DECL
-      && TREE_CODE (lhs) == VAR_DECL
+      && VAR_P (rhs1)
+      && VAR_P (lhs)
       && rhs1 != lhs)
     {
       if (code == OMP_ATOMIC)
@@ -279,7 +278,7 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
     {
       /* Generally it is hard to prove lhs1 and lhs are the same memory
 	 location, just diagnose different variables.  */
-      if (lhs1 && TREE_CODE (lhs1) == VAR_DECL && TREE_CODE (lhs) == VAR_DECL)
+      if (lhs1 && VAR_P (lhs1) && VAR_P (lhs))
 	{
 	  if (lhs1 != lhs)
 	    {
@@ -1041,6 +1040,8 @@ c_omp_declare_simd_clauses_to_numbers (tree parms, tree clauses)
       for (i = 0; i < len; i++)
 	OMP_CLAUSE_CHAIN (clvec[i]) = (i < len - 1) ? clvec[i + 1] : NULL_TREE;
     }
+  else
+    clauses = NULL_TREE;
   clvec.release ();
   return clauses;
 }

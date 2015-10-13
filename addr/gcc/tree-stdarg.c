@@ -21,35 +21,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "function.h"
+#include "ssa.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "langhooks.h"
 #include "gimple-pretty-print.h"
 #include "target.h"
-#include "bitmap.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
 #include "gimplify.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "sbitmap.h"
 #include "tree-cfg.h"
 #include "tree-pass.h"
 #include "tree-stdarg.h"
@@ -136,7 +122,7 @@ va_list_counter_bump (struct stdarg_info *si, tree counter, tree rhs,
 		      bool gpr_p)
 {
   tree lhs, orig_lhs;
-  gimple stmt;
+  gimple *stmt;
   unsigned HOST_WIDE_INT ret = 0, val, counter_val;
   unsigned int max_size;
 
@@ -582,7 +568,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
       for (gimple_stmt_iterator i = gsi_start_bb (bb); !gsi_end_p (i);
 	   gsi_next (&i))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 	  tree use;
 	  ssa_op_iter iter;
 
@@ -706,7 +692,7 @@ optimize_va_list_gpr_fpr_size (function *fun)
 
       for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 	  tree callee, ap;
 
 	  if (!is_gimple_call (stmt))
@@ -879,7 +865,7 @@ optimize_va_list_gpr_fpr_size (function *fun)
 	   !gsi_end_p (i) && !va_list_escapes;
 	   gsi_next (&i))
 	{
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 
 	  /* Don't look at __builtin_va_{start,end}, they are ok.  */
 	  if (is_gimple_call (stmt))
@@ -1013,7 +999,7 @@ finish:
 /* Return true if STMT is IFN_VA_ARG.  */
 
 static bool
-gimple_call_ifn_va_arg_p (gimple stmt)
+gimple_call_ifn_va_arg_p (gimple *stmt)
 {
   return (is_gimple_call (stmt)
 	  && gimple_call_internal_p (stmt)
@@ -1033,7 +1019,7 @@ expand_ifn_va_arg_1 (function *fun)
   FOR_EACH_BB_FN (bb, fun)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       {
-	gimple stmt = gsi_stmt (i);
+	gimple *stmt = gsi_stmt (i);
 	tree ap, expr, lhs, type;
 	gimple_seq pre = NULL, post = NULL;
 
@@ -1094,6 +1080,8 @@ expand_ifn_va_arg_1 (function *fun)
 
 	/* Remove the IFN_VA_ARG gimple_call.  It's the last stmt in the
 	   bb.  */
+	unlink_stmt_vdef (stmt);
+	release_ssa_name_fn (fun, gimple_vdef (stmt));
 	gsi_remove (&i, true);
 	gcc_assert (gsi_end_p (i));
 

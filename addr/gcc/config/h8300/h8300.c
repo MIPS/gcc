@@ -22,24 +22,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
 #include "stringpool.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -53,18 +52,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Classifies a h8300_src_operand or h8300_dst_operand.
 
@@ -896,6 +892,12 @@ h8300_expand_prologue (void)
 
   /* Leave room for locals.  */
   h8300_emit_stack_adjustment (-1, round_frame_size (get_frame_size ()), true);
+
+  if (flag_stack_usage_info)
+    current_function_static_stack_size
+      = round_frame_size (get_frame_size ())
+      + (__builtin_popcount (saved_regs) * UNITS_PER_WORD)
+      + (frame_pointer_needed ? UNITS_PER_WORD : 0);
 }
 
 /* Return nonzero if we can use "rts" for the function currently being
@@ -1239,9 +1241,11 @@ h8300_shift_costs (rtx x)
 /* Worker function for TARGET_RTX_COSTS.  */
 
 static bool
-h8300_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
-		 int *total, bool speed)
+h8300_rtx_costs (rtx x, machine_mode mode ATTRIBUTE_UNUSED, int outer_code,
+		 int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
+  int code = GET_CODE (x);
+
   if (TARGET_H8300SX && outer_code == MEM)
     {
       /* Estimate the number of execution states needed to calculate
@@ -1592,9 +1596,7 @@ h8300_print_operand (FILE *file, rtx x, int code)
 	case CONST_DOUBLE:
 	  {
 	    long val;
-	    REAL_VALUE_TYPE rv;
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+	    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
 	    fprintf (file, "#%ld", ((val >> 16) & 0xffff));
 	    break;
 	  }
@@ -1622,9 +1624,7 @@ h8300_print_operand (FILE *file, rtx x, int code)
 	case CONST_DOUBLE:
 	  {
 	    long val;
-	    REAL_VALUE_TYPE rv;
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+	    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
 	    fprintf (file, "#%ld", (val & 0xffff));
 	    break;
 	  }
@@ -1781,9 +1781,7 @@ h8300_print_operand (FILE *file, rtx x, int code)
 	case CONST_DOUBLE:
 	  {
 	    long val;
-	    REAL_VALUE_TYPE rv;
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+	    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
 	    fprintf (file, "#%ld", val);
 	    break;
 	  }

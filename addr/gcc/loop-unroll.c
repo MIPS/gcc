@@ -20,20 +20,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
-#include "hard-reg-set.h"
-#include "obstack.h"
 #include "profile.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "insn-codes.h"
@@ -112,10 +105,8 @@ struct var_to_expand
 
 /* Hashtable helper for iv_to_split.  */
 
-struct iv_split_hasher : typed_free_remove <iv_to_split>
+struct iv_split_hasher : free_ptr_hash <iv_to_split>
 {
-  typedef iv_to_split *value_type;
-  typedef iv_to_split *compare_type;
   static inline hashval_t hash (const iv_to_split *);
   static inline bool equal (const iv_to_split *, const iv_to_split *);
 };
@@ -139,10 +130,8 @@ iv_split_hasher::equal (const iv_to_split *i1, const iv_to_split *i2)
 
 /* Hashtable helper for iv_to_split.  */
 
-struct var_expand_hasher : typed_free_remove <var_to_expand>
+struct var_expand_hasher : free_ptr_hash <var_to_expand>
 {
-  typedef var_to_expand *value_type;
-  typedef var_to_expand *compare_type;
   static inline hashval_t hash (const var_to_expand *);
   static inline bool equal (const var_to_expand *, const var_to_expand *);
 };

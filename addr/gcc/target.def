@@ -1639,6 +1639,27 @@ int, (struct cgraph_node *), NULL)
 
 HOOK_VECTOR_END (simd_clone)
 
+/* Functions relating to openacc.  */
+#undef HOOK_PREFIX
+#define HOOK_PREFIX "TARGET_GOACC_"
+HOOK_VECTOR (TARGET_GOACC, goacc)
+
+DEFHOOK
+(validate_dims,
+"This hook should check the launch dimensions provided for an OpenACC\n\
+compute region, or routine.  Defaulted values are represented as -1\n\
+and non-constant values as 0. The @var{fn_level} is negative for the\n\
+function corresponding to the compute region.  For a routine is is the\n\
+outermost level at which partitioned execution may be spawned.  It\n\
+should fill in anything that needs to default to non-unity and verify\n\
+non-defaults.  Diagnostics should be issued as appropriate.  Return\n\
+true, if changes have been made.  You must override this hook to\n\
+provide dimensions larger than 1.",
+bool, (tree decl, int dims[], int fn_level),
+default_goacc_validate_dims)
+
+HOOK_VECTOR_END (goacc)
+
 /* Functions relating to vectorization.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_VECTORIZE_"
@@ -1799,6 +1820,18 @@ The default is @code{NULL_TREE} which means to not vectorize gather\n\
 loads.",
  tree,
  (const_tree mem_vectype, const_tree index_type, int scale),
+ NULL)
+
+/* Target builtin that implements vector scatter operation.  */
+DEFHOOK
+(builtin_scatter,
+"Target builtin that implements vector scatter operation.  @var{vectype}\n\
+is the vector type of the store and @var{index_type} is scalar type of\n\
+the index, scaled by @var{scale}.\n\
+The default is @code{NULL_TREE} which means to not vectorize scatter\n\
+stores.",
+ tree,
+ (const_tree vectype, const_tree index_type, int scale),
  NULL)
 
 /* Target function to initialize the cost model for a loop or block.  */
@@ -3390,7 +3423,7 @@ DEFHOOKPOD
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
-/* Note that CODE and OUTER_CODE ought to be RTX_CODE, but that's
+/* Note that OUTER_CODE ought to be RTX_CODE, but that's
    not necessarily defined at this point.  */
 DEFHOOK
 (rtx_costs,
@@ -3404,8 +3437,8 @@ that @samp{GET_CODE (@var{y}) == @var{outer_code}} and such that\n\
 either (a) @samp{XEXP (@var{y}, @var{opno}) == @var{x}} or\n\
 (b) @samp{XVEC (@var{y}, @var{opno})} contains @var{x}.\n\
 \n\
-@var{code} is @var{x}'s expression code---redundant, since it can be\n\
-obtained with @code{GET_CODE (@var{x})}.\n\
+@var{mode} is @var{x}'s machine mode, or for cases like @code{const_int} that\n\
+do not have a mode, the mode in which @var{x} is used.\n\
 \n\
 In implementing this hook, you can use the construct\n\
 @code{COSTS_N_INSNS (@var{n})} to specify a cost equal to @var{n} fast\n\
@@ -3423,8 +3456,8 @@ size cost of an expression, again relative to @code{COSTS_N_INSNS}.\n\
 \n\
 The hook returns true when all subexpressions of @var{x} have been\n\
 processed, and false when @code{rtx_cost} should recurse.",
- bool, (rtx x, int code, int outer_code, int opno, int *total, bool speed),
- hook_bool_rtx_int_int_int_intp_bool_false)
+ bool, (rtx x, machine_mode mode, int outer_code, int opno, int *total, bool speed),
+ hook_bool_rtx_mode_int_int_intp_bool_false)
 
 /* Compute the cost of X, used as an address.  Never called with
    invalid addresses.  */
@@ -3802,7 +3835,7 @@ DEFHOOK_UNDOC
 "Perform architecture specific checking of statements gimplified\
  from @code{VA_ARG_EXPR}.  @var{stmt} is the statement.  Returns true if\
  the statement doesn't need to be checked for @code{va_list} references.",
- bool, (struct stdarg_info *ai, const_gimple stmt), NULL)
+ bool, (struct stdarg_info *ai, const gimple *stmt), NULL)
 
 /* This target hook allows the operating system to override the DECL
    that represents the external variable that contains the stack
@@ -5863,6 +5896,24 @@ DEFHOOK
  int, (int entity, int n), NULL)
 
 HOOK_VECTOR_END (mode_switching)
+
+#undef HOOK_PREFIX
+#define HOOK_PREFIX "TARGET_"
+
+#define DEF_TARGET_INSN(NAME, PROTO) \
+  DEFHOOK_UNDOC (have_##NAME, "", bool, (void), false)
+#include "target-insns.def"
+#undef DEF_TARGET_INSN
+
+#define DEF_TARGET_INSN(NAME, PROTO) \
+  DEFHOOK_UNDOC (gen_##NAME, "", rtx_insn *, PROTO, NULL)
+#include "target-insns.def"
+#undef DEF_TARGET_INSN
+
+#define DEF_TARGET_INSN(NAME, PROTO) \
+  DEFHOOKPOD (code_for_##NAME, "*", enum insn_code, CODE_FOR_nothing)
+#include "target-insns.def"
+#undef DEF_TARGET_INSN
 
 /* Close the 'struct gcc_target' definition.  */
 HOOK_VECTOR_END (C90_EMPTY_HACK)

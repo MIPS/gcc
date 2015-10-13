@@ -35,25 +35,7 @@ enum copy_body_cge_which
   CB_CGE_MOVE_CLONES
 };
 
-struct dependence_hasher : default_hashmap_traits
-{
-  template<typename T>
-  static void
-  mark_deleted (T &e)
-    { gcc_unreachable (); }
-
-  template<typename T>
-  static void
-  mark_empty (T &e)
-    { e.m_key = 0; }
-
-  template<typename T>
-  static bool
-  is_deleted (T &)
-    { return false; }
-
-  template<typename T> static bool is_empty (T &e) { return e.m_key == 0; }
-};
+typedef int_hash <unsigned short, 0> dependence_hash;
 
 /* Data required for function body duplication.  */
 
@@ -85,7 +67,7 @@ struct copy_body_data
   tree retbnd;
 
   /* Assign statements that need bounds copy.  */
-  vec<gimple> assign_stmts;
+  vec<gimple *> assign_stmts;
 
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
@@ -99,7 +81,7 @@ struct copy_body_data
 
   /* GIMPLE_CALL if va arg parameter packs should be expanded or NULL
      is not.  */
-  gimple call_stmt;
+  gimple *call_stmt;
 
   /* Exception landing pad the inlined call lies in.  */
   int eh_lp_nr;
@@ -141,7 +123,7 @@ struct copy_body_data
   void (*transform_lang_insert_block) (tree);
 
   /* Statements that might be possibly folded.  */
-  hash_set<gimple> *statements_to_fold;
+  hash_set<gimple *> *statements_to_fold;
 
   /* Entry basic block to currently copied body.  */
   basic_block entry_bb;
@@ -165,12 +147,12 @@ struct copy_body_data
 
   /* A map from the inlined functions dependence info cliques to
      equivalents in the function into which it is being inlined.  */
-  hash_map<unsigned short, unsigned short, dependence_hasher> *dependence_map;
+  hash_map<dependence_hash, unsigned short> *dependence_map;
 };
 
 /* Weights of constructions for estimate_num_insns.  */
 
-typedef struct eni_weights_d
+struct eni_weights
 {
   /* Cost per call.  */
   unsigned call_cost;
@@ -197,7 +179,7 @@ typedef struct eni_weights_d
      cost of a switch statement is logarithmic rather than linear in number
      of cases.  */
   bool time_based;
-} eni_weights;
+};
 
 /* Weights that estimate_num_insns uses for heuristics in inlining.  */
 
@@ -223,9 +205,9 @@ bool tree_inlinable_function_p (tree);
 tree copy_tree_r (tree *, int *, void *);
 tree copy_decl_no_change (tree decl, copy_body_data *id);
 int estimate_move_cost (tree type, bool);
-int estimate_num_insns (gimple, eni_weights *);
+int estimate_num_insns (gimple *, eni_weights *);
 int estimate_num_insns_fn (tree, eni_weights *);
-int count_insns_seq (gimple_seq, eni_weights *);
+int estimate_num_insns_seq (gimple_seq, eni_weights *);
 bool tree_versionable_function_p (tree);
 extern tree remap_decl (tree decl, copy_body_data *id);
 extern tree remap_type (tree type, copy_body_data *id);

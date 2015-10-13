@@ -21,36 +21,20 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "obstack.h"
-#include "bitmap.h"
-#include "sbitmap.h"
-#include "flags.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "flags.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -66,8 +50,6 @@
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "tree-pretty-print.h"
 #include "gimple-walk.h"
 
@@ -340,8 +322,8 @@ static varinfo_t lookup_vi_for_tree (tree);
 static inline bool type_can_have_subvars (const_tree);
 
 /* Pool of variable info structures.  */
-static pool_allocator<variable_info> variable_info_pool
-  ("Variable info pool", 30);
+static object_allocator<variable_info> variable_info_pool
+  ("Variable info pool");
 
 /* Map varinfo to final pt_solution.  */
 static hash_map<varinfo_t, pt_solution *> *final_solutions;
@@ -420,7 +402,7 @@ new_var_info (tree t, const char *name)
 
 /* A map mapping call statements to per-stmt variables for uses
    and clobbers specific to the call.  */
-static hash_map<gimple, varinfo_t> *call_stmt_vars;
+static hash_map<gimple *, varinfo_t> *call_stmt_vars;
 
 /* Lookup or create the variable for the call statement CALL.  */
 
@@ -497,7 +479,7 @@ get_call_clobber_vi (gcall *call)
 }
 
 
-typedef enum {SCALAR, DEREF, ADDRESSOF} constraint_expr_type;
+enum constraint_expr_type {SCALAR, DEREF, ADDRESSOF};
 
 /* An expression that appears in a constraint.  */
 
@@ -541,7 +523,7 @@ struct constraint
 /* List of constraints that we use to build the constraint graph from.  */
 
 static vec<constraint_t> constraints;
-static pool_allocator<constraint> constraint_pool ("Constraint pool", 30);
+static object_allocator<constraint> constraint_pool ("Constraint pool");
 
 /* The constraint graph is represented as an array of bitmaps
    containing successor nodes.  */
@@ -1925,10 +1907,8 @@ typedef const struct equiv_class_label *const_equiv_class_label_t;
 
 /* Equiv_class_label hashtable helpers.  */
 
-struct equiv_class_hasher : typed_free_remove <equiv_class_label>
+struct equiv_class_hasher : free_ptr_hash <equiv_class_label>
 {
-  typedef equiv_class_label *value_type;
-  typedef equiv_class_label *compare_type;
   static inline hashval_t hash (const equiv_class_label *);
   static inline bool equal (const equiv_class_label *,
 			    const equiv_class_label *);
@@ -4637,9 +4617,9 @@ find_func_aliases_for_call (struct function *fn, gcall *t)
    when building alias sets and computing alias grouping heuristics.  */
 
 static void
-find_func_aliases (struct function *fn, gimple origt)
+find_func_aliases (struct function *fn, gimple *origt)
 {
-  gimple t = origt;
+  gimple *t = origt;
   auto_vec<ce_s, 16> lhsc;
   auto_vec<ce_s, 16> rhsc;
   struct constraint_expr *c;
@@ -4733,7 +4713,7 @@ find_func_aliases (struct function *fn, gimple origt)
 	    }
 	  else if (truth_value_p (code))
 	    /* Truth value results are not pointer (parts).  Or at least
-	       very very unreasonable obfuscation of a part.  */
+	       very unreasonable obfuscation of a part.  */
 	    ;
 	  else
 	    {
@@ -4866,9 +4846,9 @@ process_ipa_clobber (varinfo_t fi, tree ptr)
    IPA constraint builder.  */
 
 static void
-find_func_clobbers (struct function *fn, gimple origt)
+find_func_clobbers (struct function *fn, gimple *origt)
 {
-  gimple t = origt;
+  gimple *t = origt;
   auto_vec<ce_s, 16> lhsc;
   auto_vec<ce_s, 16> rhsc;
   varinfo_t fi;
@@ -5155,7 +5135,7 @@ first_vi_for_offset (varinfo_t start, unsigned HOST_WIDE_INT offset)
   while (start)
     {
       /* We may not find a variable in the field list with the actual
-	 offset when when we have glommed a structure to a variable.
+	 offset when we have glommed a structure to a variable.
 	 In that case, however, offset should still be within the size
 	 of the variable. */
       if (offset >= start->offset
@@ -5182,7 +5162,7 @@ first_or_preceding_vi_for_offset (varinfo_t start,
     start = get_varinfo (start->head);
 
   /* We may not find a variable in the field list with the actual
-     offset when when we have glommed a structure to a variable.
+     offset when we have glommed a structure to a variable.
      In that case, however, offset should still be within the size
      of the variable.
      If we got beyond the offset we look for return the field
@@ -5639,7 +5619,6 @@ create_variable_info_for_1 (tree decl, const char *name)
   auto_vec<fieldoff_s> fieldstack;
   fieldoff_s *fo;
   unsigned int i;
-  varpool_node *vnode;
 
   if (!declsize
       || !tree_fits_uhwi_p (declsize))
@@ -5657,12 +5636,10 @@ create_variable_info_for_1 (tree decl, const char *name)
   /* Collect field information.  */
   if (use_field_sensitive
       && var_can_have_subvars (decl)
-      /* ???  Force us to not use subfields for global initializers
-	 in IPA mode.  Else we'd have to parse arbitrary initializers.  */
+      /* ???  Force us to not use subfields for globals in IPA mode.
+	 Else we'd have to parse arbitrary initializers.  */
       && !(in_ipa_mode
-	   && is_global_var (decl)
-	   && (vnode = varpool_node::get (decl))
-	   && vnode->get_constructor ()))
+	   && is_global_var (decl)))
     {
       fieldoff_s *fo = NULL;
       bool notokay = false;
@@ -5698,7 +5675,7 @@ create_variable_info_for_1 (tree decl, const char *name)
 
   /* If we didn't end up collecting sub-variables create a full
      variable for the decl.  */
-  if (fieldstack.length () <= 1
+  if (fieldstack.length () == 0
       || fieldstack.length () > MAX_FIELDS_FOR_FIELD_SENSITIVE)
     {
       vi = new_var_info (decl, name);
@@ -5707,6 +5684,9 @@ create_variable_info_for_1 (tree decl, const char *name)
       vi->fullsize = tree_to_uhwi (declsize);
       vi->size = vi->fullsize;
       vi->is_full_var = true;
+      if (POINTER_TYPE_P (TREE_TYPE (decl))
+	  && TYPE_RESTRICT (TREE_TYPE (decl)))
+	vi->only_restrict_pointers = 1;
       fieldstack.release ();
       return vi;
     }
@@ -5717,19 +5697,26 @@ create_variable_info_for_1 (tree decl, const char *name)
        fieldstack.iterate (i, &fo);
        ++i, newvi = vi_next (newvi))
     {
-      const char *newname = "NULL";
+      const char *newname = NULL;
       char *tempname;
 
       if (dump_file)
 	{
-	  tempname
-	    = xasprintf ("%s." HOST_WIDE_INT_PRINT_DEC
-			 "+" HOST_WIDE_INT_PRINT_DEC, name,
-			 fo->offset, fo->size);
-	  newname = ggc_strdup (tempname);
-	  free (tempname);
+	  if (fieldstack.length () != 1)
+	    {
+	      tempname
+		= xasprintf ("%s." HOST_WIDE_INT_PRINT_DEC
+			     "+" HOST_WIDE_INT_PRINT_DEC, name,
+			     fo->offset, fo->size);
+	      newname = ggc_strdup (tempname);
+	      free (tempname);
+	    }
 	}
-      newvi->name = newname;
+      else
+	newname = "NULL";
+
+      if (newname)
+	  newvi->name = newname;
       newvi->offset = fo->offset;
       newvi->size = fo->size;
       newvi->fullsize = vi->fullsize;
@@ -5794,13 +5781,13 @@ create_variable_info_for (tree decl, const char *name)
 
 	  /* If this is a global variable with an initializer and we are in
 	     IPA mode generate constraints for it.  */
-	  if (vnode->get_constructor ()
-	      && vnode->definition)
+	  ipa_ref *ref;
+	  for (unsigned idx = 0; vnode->iterate_reference (idx, ref); ++idx)
 	    {
 	      auto_vec<ce_s> rhsc;
 	      struct constraint_expr lhs, *rhsp;
 	      unsigned i;
-	      get_constraint_for_rhs (vnode->get_constructor (), &rhsc);
+	      get_constraint_for_address_of (ref->referred->decl, &rhsc);
 	      lhs.var = vi->id;
 	      lhs.offset = 0;
 	      lhs.type = SCALAR;
@@ -5870,12 +5857,12 @@ intra_create_variable_infos (struct function *fn)
     {
       varinfo_t p = get_vi_for_tree (t);
 
-      /* For restrict qualified pointers to objects passed by
-         reference build a real representative for the pointed-to object.
-	 Treat restrict qualified references the same.  */
-      if (TYPE_RESTRICT (TREE_TYPE (t))
-	  && ((DECL_BY_REFERENCE (t) && POINTER_TYPE_P (TREE_TYPE (t)))
-	      || TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+      /* For restrict qualified pointers build a representative for
+	 the pointed-to object.  Note that this ends up handling
+	 out-of-bound references conservatively by aggregating them
+	 in the first/last subfield of the object.  */
+      if (POINTER_TYPE_P (TREE_TYPE (t))
+	  && TYPE_RESTRICT (TREE_TYPE (t))
 	  && !type_contains_placeholder_p (TREE_TYPE (TREE_TYPE (t))))
 	{
 	  struct constraint_expr lhsc, rhsc;
@@ -5950,10 +5937,8 @@ typedef const struct shared_bitmap_info *const_shared_bitmap_info_t;
 
 /* Shared_bitmap hashtable helpers.  */
 
-struct shared_bitmap_hasher : typed_free_remove <shared_bitmap_info>
+struct shared_bitmap_hasher : free_ptr_hash <shared_bitmap_info>
 {
-  typedef shared_bitmap_info *value_type;
-  typedef shared_bitmap_info *compare_type;
   static inline hashval_t hash (const shared_bitmap_info *);
   static inline bool equal (const shared_bitmap_info *,
 			    const shared_bitmap_info *);
@@ -6671,7 +6656,7 @@ init_alias_vars (void)
   constraints.create (8);
   varmap.create (8);
   vi_for_tree = new hash_map<tree, varinfo_t>;
-  call_stmt_vars = new hash_map<gimple, varinfo_t>;
+  call_stmt_vars = new hash_map<gimple *, varinfo_t>;
 
   memset (&stats, 0, sizeof (stats));
   shared_bitmap_table = new hash_table<shared_bitmap_hasher> (511);
@@ -6823,7 +6808,7 @@ compute_points_to_sets (void)
       for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	   gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 
 	  find_func_aliases (cfun, stmt);
 	}
@@ -6960,17 +6945,18 @@ delete_points_to_sets (void)
    base zero.  */
 
 static bool
-visit_loadstore (gimple, tree base, tree ref, void *clique_)
+visit_loadstore (gimple *, tree base, tree ref, void *clique_)
 {
   unsigned short clique = (uintptr_t)clique_;
   if (TREE_CODE (base) == MEM_REF
       || TREE_CODE (base) == TARGET_MEM_REF)
     {
       tree ptr = TREE_OPERAND (base, 0);
-      if (TREE_CODE (ptr) == SSA_NAME)
+      if (TREE_CODE (ptr) == SSA_NAME
+	  && ! SSA_NAME_IS_DEFAULT_DEF (ptr))
 	{
 	  /* ???  We need to make sure 'ptr' doesn't include any of
-	     the restrict tags in its points-to set.  */
+	     the restrict tags we added bases for in its points-to set.  */
 	  return false;
 	}
 
@@ -7102,7 +7088,7 @@ compute_dependence_clique (void)
 	{
 	  /* Now look at possible dereferences of ptr.  */
 	  imm_use_iterator ui;
-	  gimple use_stmt;
+	  gimple *use_stmt;
 	  FOR_EACH_IMM_USE_STMT (use_stmt, ui, ptr)
 	    {
 	      /* ???  Calls and asms.  */
@@ -7131,7 +7117,7 @@ compute_dependence_clique (void)
     for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
 	 !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple stmt = gsi_stmt (gsi);
+	gimple *stmt = gsi_stmt (gsi);
 	walk_stmt_load_store_ops (stmt, (void *)(uintptr_t)clique,
 				  visit_loadstore, visit_loadstore);
       }
@@ -7397,7 +7383,7 @@ ipa_pta_execute (void)
 	  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gimple *stmt = gsi_stmt (gsi);
 
 	      find_func_aliases (func, stmt);
 	      find_func_clobbers (func, stmt);

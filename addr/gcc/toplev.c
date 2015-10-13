@@ -25,26 +25,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "tree-inline.h"
 #include "realmpfr.h"	/* For GMP/MPFR/MPC versions, in print_version.  */
 #include "version.h"
-#include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-attr.h"
 #include "insn-config.h"
 #include "insn-flags.h"
-#include "hard-reg-set.h"
 #include "recog.h"
 #include "output.h"
 #include "except.h"
-#include "function.h"
 #include "toplev.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -70,10 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h" /* for init_set_costs */
 #include "hosthooks.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "opts.h"
 #include "opts-diagnostic.h"
@@ -82,22 +76,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "asan.h"
 #include "tsan.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "plugin.h"
 #include "context.h"
 #include "pass_manager.h"
 #include "auto-profile.h"
 #include "dwarf2out.h"
-#include "bitmap.h"
 #include "ipa-reference.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "gcse.h"
 #include "insn-codes.h"
-#include "optabs.h"
+#include "optabs-query.h"
+#include "optabs-libfuncs.h"
 #include "tree-chkp.h"
 #include "omp-low.h"
 
@@ -112,10 +103,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
 				   declarations for e.g. AIX 4.x.  */
-#endif
-
-#ifndef HAVE_prologue
-#define HAVE_prologue 0
 #endif
 
 #include <new>
@@ -483,67 +470,6 @@ wrapup_global_declarations (tree *vec, int len)
   return output_something;
 }
 
-/* Issue appropriate warnings for the global declaration DECL.  */
-
-void
-check_global_declaration (tree decl)
-{
-  /* Warn about any function declared static but not defined.  We don't
-     warn about variables, because many programs have static variables
-     that exist only to get some text into the object file.  */
-  symtab_node *snode = symtab_node::get (decl);
-  if (TREE_CODE (decl) == FUNCTION_DECL
-      && DECL_INITIAL (decl) == 0
-      && DECL_EXTERNAL (decl)
-      && ! DECL_ARTIFICIAL (decl)
-      && ! TREE_NO_WARNING (decl)
-      && ! TREE_PUBLIC (decl)
-      && (warn_unused_function
-	  || snode->referred_to_p (/*include_self=*/false)))
-    {
-      if (snode->referred_to_p (/*include_self=*/false))
-	pedwarn (input_location, 0, "%q+F used but never defined", decl);
-      else
-	warning (OPT_Wunused_function, "%q+F declared %<static%> but never defined", decl);
-      /* This symbol is effectively an "extern" declaration now.  */
-      TREE_PUBLIC (decl) = 1;
-    }
-
-  /* Warn about static fns or vars defined but not used.  */
-  if (((warn_unused_function && TREE_CODE (decl) == FUNCTION_DECL)
-       /* We don't warn about "static const" variables because the
-	  "rcs_id" idiom uses that construction.  */
-       || (warn_unused_variable
-	   && TREE_CODE (decl) == VAR_DECL && ! TREE_READONLY (decl)))
-      && ! DECL_IN_SYSTEM_HEADER (decl)
-      && ! snode->referred_to_p (/*include_self=*/false)
-      /* This TREE_USED check is needed in addition to referred_to_p
-	 above, because the `__unused__' attribute is not being
-	 considered for referred_to_p.  */
-      && ! TREE_USED (decl)
-      /* The TREE_USED bit for file-scope decls is kept in the identifier,
-	 to handle multiple external decls in different scopes.  */
-      && ! (DECL_NAME (decl) && TREE_USED (DECL_NAME (decl)))
-      && ! DECL_EXTERNAL (decl)
-      && ! DECL_ARTIFICIAL (decl)
-      && ! DECL_ABSTRACT_ORIGIN (decl)
-      && ! TREE_PUBLIC (decl)
-      /* A volatile variable might be used in some non-obvious way.  */
-      && ! TREE_THIS_VOLATILE (decl)
-      /* Global register variables must be declared to reserve them.  */
-      && ! (TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-      /* Global ctors and dtors are called by the runtime.  */
-      && (TREE_CODE (decl) != FUNCTION_DECL
-	  || (!DECL_STATIC_CONSTRUCTOR (decl)
-	      && !DECL_STATIC_DESTRUCTOR (decl)))
-      /* Otherwise, ask the language.  */
-      && lang_hooks.decls.warn_unused_global (decl))
-    warning ((TREE_CODE (decl) == FUNCTION_DECL)
-	     ? OPT_Wunused_function
-             : OPT_Wunused_variable,
-	     "%q+D defined but not used", decl);
-}
-
 /* Compile an entire translation unit.  Write a file of assembly
    output and various debugging dumps.  */
 
@@ -567,6 +493,11 @@ compile_file (void)
 
   if (flag_syntax_only || flag_wpa)
     return;
+ 
+  /* Reset maximum_field_alignment, it can be adjusted by #pragma pack
+     and this shouldn't influence any types built by the middle-end
+     from now on (like gcov_info_type).  */
+  maximum_field_alignment = initial_max_fld_align * BITS_PER_UNIT;
 
   ggc_protect_identifiers = false;
 
@@ -587,15 +518,6 @@ compile_file (void)
 
   if (seen_error ())
     return;
-
-  /* After the parser has generated debugging information, augment
-     this information with any new location/etc information that may
-     have become available after the compilation proper.  */
-  timevar_start (TV_PHASE_DBGINFO);
-  symtab_node *node;
-  FOR_EACH_DEFINED_SYMBOL (node)
-    debug_hooks->late_global_decl (node->decl);
-  timevar_stop (TV_PHASE_DBGINFO);
 
   timevar_start (TV_PHASE_LATE_ASM);
 
@@ -1301,20 +1223,6 @@ process_options (void)
      so we can correctly initialize debug output.  */
   no_backend = lang_hooks.post_options (&main_input_filename);
 
-  /* Set default values for parameters relation to the Scalar Reduction
-     of Aggregates passes (SRA and IP-SRA).  We must do this here, rather
-     than in opts.c:default_options_optimization as historically these
-     tuning heuristics have been based on MOVE_RATIO, which on some
-     targets requires other symbols from the backend.  */
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SPEED,
-     get_move_ratio (true) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-  maybe_set_param_value
-    (PARAM_SRA_MAX_SCALARIZATION_SIZE_SIZE,
-     get_move_ratio (false) * UNITS_PER_WORD,
-     global_options.x_param_values, global_options_set.x_param_values);
-
   /* Some machines may reject certain combinations of options.  */
   targetm.target_option.override ();
 
@@ -1347,12 +1255,9 @@ process_options (void)
 
 #ifndef HAVE_isl
   if (flag_graphite
+      || flag_loop_optimize_isl
       || flag_graphite_identity
-      || flag_loop_block
-      || flag_loop_interchange
-      || flag_loop_strip_mine
-      || flag_loop_parallelize_all
-      || flag_loop_unroll_jam)
+      || flag_loop_parallelize_all)
     sorry ("Graphite loop optimizations cannot be used (ISL is not available)" 
 	   "(-fgraphite, -fgraphite-identity, -floop-block, "
 	   "-floop-interchange, -floop-strip-mine, -floop-parallelize-all, "
@@ -1504,6 +1409,10 @@ process_options (void)
   else if (write_symbols == VMS_DEBUG || write_symbols == VMS_AND_DWARF2_DEBUG)
     debug_hooks = &vmsdbg_debug_hooks;
 #endif
+#ifdef DWARF2_LINENO_DEBUGGING_INFO
+  else if (write_symbols == DWARF2_DEBUG)
+    debug_hooks = &dwarf2_lineno_debug_hooks;
+#endif
   else
     error ("target system does not support the %qs debug format",
 	   debug_type_names[write_symbols]);
@@ -1591,19 +1500,16 @@ process_options (void)
 	}
     }
 
-#ifndef HAVE_prefetch
-  if (flag_prefetch_loop_arrays > 0)
+  if (flag_prefetch_loop_arrays > 0 && !targetm.code_for_prefetch)
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target");
       flag_prefetch_loop_arrays = 0;
     }
-#else
-  if (flag_prefetch_loop_arrays > 0 && !HAVE_prefetch)
+  else if (flag_prefetch_loop_arrays > 0 && !targetm.have_prefetch ())
     {
       warning (0, "-fprefetch-loop-arrays not supported for this target (try -march switches)");
       flag_prefetch_loop_arrays = 0;
     }
-#endif
 
   /* This combination of options isn't handled for i386 targets and doesn't
      make much sense anyway, so don't allow it.  */
@@ -1662,7 +1568,7 @@ process_options (void)
 
  /* Do not use IPA optimizations for register allocation if profiler is active
     or port does not emit prologue and epilogue as RTL.  */
-  if (profile_flag || !HAVE_prologue || !HAVE_epilogue)
+  if (profile_flag || !targetm.have_prologue () || !targetm.have_epilogue ())
     flag_ipa_ra = 0;
 
   /* Enable -Werror=coverage-mismatch when -Werror and -Wno-error
@@ -1806,7 +1712,7 @@ static int rtl_initialized;
 void
 initialize_rtl (void)
 {
-  auto_timevar tv (TV_INITIALIZE_RTL);
+  auto_timevar tv (g_timer, TV_INITIALIZE_RTL);
 
   /* Initialization done just once per compilation, but delayed
      till code generation.  */
@@ -2079,22 +1985,28 @@ do_compile ()
     }
 }
 
-toplev::toplev (bool use_TV_TOTAL, bool init_signals)
-  : m_use_TV_TOTAL (use_TV_TOTAL),
+toplev::toplev (timer *external_timer,
+		bool init_signals)
+  : m_use_TV_TOTAL (external_timer == NULL),
     m_init_signals (init_signals)
 {
-  if (!m_use_TV_TOTAL)
-    start_timevars ();
+  if (external_timer)
+    g_timer = external_timer;
 }
 
 toplev::~toplev ()
 {
-  if (g_timer)
+  if (g_timer && m_use_TV_TOTAL)
     {
       g_timer->stop (TV_TOTAL);
       g_timer->print (stderr);
+      delete g_timer;
+      g_timer = NULL;
     }
 }
+
+/* Potentially call timevar_init (which will create g_timevars if it
+   doesn't already exist).  */
 
 void
 toplev::start_timevars ()

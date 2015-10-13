@@ -24,26 +24,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "insn-config.h"
 #include "recog.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "flags.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "sbitmap.h"
-#include "bitmap.h"
 #include "target.h"
 #include "timevar.h"
-#include "df.h"
 #include "except.h"
 #include "dce.h"
 #include "valtrack.h"
@@ -1317,22 +1309,23 @@ df_lr_verify_transfer_functions (void)
 
 
 /*----------------------------------------------------------------------------
-   LIVE AND MUST-INITIALIZED REGISTERS.
+   LIVE AND MAY-INITIALIZED REGISTERS.
 
    This problem first computes the IN and OUT bitvectors for the
-   must-initialized registers problems, which is a forward problem.
-   It gives the set of registers for which we MUST have an available
-   definition on any path from the entry block to the entry/exit of
-   a basic block.  Sets generate a definition, while clobbers kill
+   may-initialized registers problems, which is a forward problem.
+   It gives the set of registers for which we MAY have an available
+   definition, i.e. for which there is an available definition on
+   at least one path from the entry block to the entry/exit of a
+   basic block.  Sets generate a definition, while clobbers kill
    a definition.
 
    In and out bitvectors are built for each basic block and are indexed by
    regnum (see df.h for details).  In and out bitvectors in struct
-   df_live_bb_info actually refers to the must-initialized problem;
+   df_live_bb_info actually refers to the may-initialized problem;
 
    Then, the in and out sets for the LIVE problem itself are computed.
    These are the logical AND of the IN and OUT sets from the LR problem
-   and the must-initialized problem.
+   and the may-initialized problem.
 ----------------------------------------------------------------------------*/
 
 /* Private data used to verify the solution for this problem.  */
@@ -1539,7 +1532,7 @@ df_live_confluence_n (edge e)
 }
 
 
-/* Transfer function for the forwards must-initialized problem.  */
+/* Transfer function for the forwards may-initialized problem.  */
 
 static bool
 df_live_transfer_function (int bb_index)
@@ -1563,7 +1556,7 @@ df_live_transfer_function (int bb_index)
 }
 
 
-/* And the LR info with the must-initialized registers, to produce the LIVE info.  */
+/* And the LR info with the may-initialized registers to produce the LIVE info.  */
 
 static void
 df_live_finalize (bitmap all_blocks)
@@ -2005,8 +1998,7 @@ static void
 df_chain_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
 {
   df_chain_remove_problem ();
-  df_chain->block_pool = new pool_allocator<df_link> ("df_chain_block pool",
-						      50);
+  df_chain->block_pool = new object_allocator<df_link> ("df_chain_block pool");
   df_chain->optional_p = true;
 }
 

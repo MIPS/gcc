@@ -572,7 +572,7 @@ extern rtx hppa_pic_save_rtx (void);
    The INCOMING field tracks whether this is an "incoming" or
    "outgoing" argument.
    
-   The INDIRECT field indicates whether this is is an indirect
+   The INDIRECT field indicates whether this is an indirect
    call or not.
    
    The NARGS_PROTOTYPE field indicates that an argument does not
@@ -814,7 +814,8 @@ extern int may_call_alloca;
    this range are forced to the constant pool prior to reload.  */
 
 #define MAX_LEGIT_64BIT_CONST_INT ((HOST_WIDE_INT) 32 << 31)
-#define MIN_LEGIT_64BIT_CONST_INT ((HOST_WIDE_INT) -32 << 31)
+#define MIN_LEGIT_64BIT_CONST_INT \
+  ((HOST_WIDE_INT)((unsigned HOST_WIDE_INT) -32 << 31))
 #define LEGITIMATE_64BIT_CONST_INT_P(X) \
   ((X) >= MIN_LEGIT_64BIT_CONST_INT && (X) < MAX_LEGIT_64BIT_CONST_INT)
 
@@ -1011,7 +1012,7 @@ do {									     \
 
 /* Define if operations between registers always perform the operation
    on the full register even if a narrower mode is specified.  */
-#define WORD_REGISTER_OPERATIONS
+#define WORD_REGISTER_OPERATIONS 1
 
 /* Define if loading in MODE, an integral mode narrower than BITS_PER_WORD
    will either zero-extend or sign-extend.  The value of this macro should

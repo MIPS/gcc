@@ -54,9 +54,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -65,11 +66,8 @@ along with GCC; see the file COPYING3.	If not see
 #include "output.h"
 #include "addresses.h"
 #include "target.h"
-#include "function.h"
-#include "symtab.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -78,15 +76,12 @@ along with GCC; see the file COPYING3.	If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
-#include "df.h"
 #include "ira.h"
 #include "rtl-error.h"
+#include "lra.h"
+#include "insn-attr.h"
 #include "lra-int.h"
 
 /* This structure is used to record information about hard register
@@ -220,7 +215,6 @@ setup_elimination_map (void)
 static rtx
 form_sum (rtx x, rtx y)
 {
-  rtx tem;
   machine_mode mode = GET_MODE (x);
 
   if (mode == VOIDmode)
@@ -234,7 +228,7 @@ form_sum (rtx x, rtx y)
   else if (CONST_INT_P (y))
     return plus_constant (mode, x, INTVAL (y));
   else if (CONSTANT_P (x))
-    tem = x, x = y, y = tem;
+    std::swap (x, y);
 
   if (GET_CODE (x) == PLUS && CONSTANT_P (XEXP (x, 1)))
     return form_sum (XEXP (x, 0), form_sum (XEXP (x, 1), y));

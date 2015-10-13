@@ -441,7 +441,7 @@ rtx_equal_p_cb (const_rtx x, const_rtx y, rtx_equal_p_callback_function cb)
 
     case DEBUG_PARAMETER_REF:
       return DEBUG_PARAMETER_REF_DECL (x)
-	     == DEBUG_PARAMETER_REF_DECL (x);
+	     == DEBUG_PARAMETER_REF_DECL (y);
 
     case ENTRY_VALUE:
       return rtx_equal_p_cb (ENTRY_VALUE_EXP (x), ENTRY_VALUE_EXP (y), cb);
@@ -657,6 +657,31 @@ rtx_equal_p (const_rtx x, const_rtx y)
   return 1;
 }
 
+/* Return true if all elements of VEC are equal.  */
+
+bool
+rtvec_all_equal_p (const_rtvec vec)
+{
+  const_rtx first = RTVEC_ELT (vec, 0);
+  /* Optimize the important special case of a vector of constants.
+     The main use of this function is to detect whether every element
+     of CONST_VECTOR is the same.  */
+  switch (GET_CODE (first))
+    {
+    CASE_CONST_UNIQUE:
+      for (int i = 1, n = GET_NUM_ELEM (vec); i < n; ++i)
+	if (first != RTVEC_ELT (vec, i))
+	  return false;
+      return true;
+
+    default:
+      for (int i = 1, n = GET_NUM_ELEM (vec); i < n; ++i)
+	if (!rtx_equal_p (first, RTVEC_ELT (vec, i)))
+	  return false;
+      return true;
+    }
+}
+
 /* Return an indication of which type of insn should have X as a body.
    In generator files, this can be UNKNOWN if the answer is only known
    at (GCC) runtime.  Otherwise the value is CODE_LABEL, INSN, CALL_INSN
@@ -683,15 +708,20 @@ classify_insn (rtx x)
   if (GET_CODE (x) == PARALLEL)
     {
       int j;
+      bool has_return_p = false;
       for (j = XVECLEN (x, 0) - 1; j >= 0; j--)
 	if (GET_CODE (XVECEXP (x, 0, j)) == CALL)
 	  return CALL_INSN;
+	else if (ANY_RETURN_P (XVECEXP (x, 0, j)))
+	  has_return_p = true;
 	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
 		 && GET_CODE (SET_DEST (XVECEXP (x, 0, j))) == PC)
 	  return JUMP_INSN;
 	else if (GET_CODE (XVECEXP (x, 0, j)) == SET
 		 && GET_CODE (SET_SRC (XVECEXP (x, 0, j))) == CALL)
 	  return CALL_INSN;
+      if (has_return_p)
+	return JUMP_INSN;
     }
 #ifdef GENERATOR_FILE
   if (GET_CODE (x) == MATCH_OPERAND

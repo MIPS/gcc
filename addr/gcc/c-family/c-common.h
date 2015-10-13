@@ -23,8 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "cpplib.h"
 #include "alias.h"
-#include "flags.h"
-#include "symtab.h"
 #include "tree.h"
 #include "fold-const.h"
 
@@ -144,6 +142,7 @@ enum rid
   RID_IS_EMPTY,                RID_IS_ENUM,
   RID_IS_FINAL,                RID_IS_LITERAL_TYPE,
   RID_IS_POD,                  RID_IS_POLYMORPHIC,
+  RID_IS_SAME_AS,
   RID_IS_STD_LAYOUT,           RID_IS_TRIVIAL,
   RID_IS_TRIVIALLY_ASSIGNABLE, RID_IS_TRIVIALLY_CONSTRUCTIBLE,
   RID_IS_TRIVIALLY_COPYABLE,
@@ -151,6 +150,12 @@ enum rid
 
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
+
+  /* C++ concepts */
+  RID_CONCEPT, RID_REQUIRES,
+
+  /* C++ transactional memory.  */
+  RID_ATOMIC_NOEXCEPT, RID_ATOMIC_CANCEL, RID_SYNCHRONIZED,
 
   /* Cilk Plus keywords.  */
   RID_CILK_SPAWN, RID_CILK_SYNC, RID_CILK_FOR,
@@ -214,8 +219,8 @@ enum rid
   RID_FIRST_MODIFIER = RID_STATIC,
   RID_LAST_MODIFIER = RID_ONEWAY,
 
-  RID_FIRST_CXX0X = RID_CONSTEXPR,
-  RID_LAST_CXX0X = RID_STATIC_ASSERT,
+  RID_FIRST_CXX11 = RID_CONSTEXPR,
+  RID_LAST_CXX11 = RID_STATIC_ASSERT,
   RID_FIRST_AT = RID_AT_ENCODE,
   RID_LAST_AT = RID_AT_IMPLEMENTATION,
   RID_FIRST_PQ = RID_IN,
@@ -244,7 +249,7 @@ enum rid
    is found elsewhere, it follows the rules of the C/C++ language.
  */
 #define OBJC_IS_CXX_KEYWORD(rid) \
-  (rid == RID_CLASS							\
+  (rid == RID_CLASS || rid == RID_SYNCHRONIZED			\
    || rid == RID_PUBLIC || rid == RID_PROTECTED || rid == RID_PRIVATE	\
    || rid == RID_TRY || rid == RID_THROW || rid == RID_CATCH)
 
@@ -381,13 +386,17 @@ extern machine_mode c_default_pointer_mode;
 #define D_CONLY		0x001	/* C only (not in C++).  */
 #define D_CXXONLY	0x002	/* C++ only (not in C).  */
 #define D_C99		0x004	/* In C, C99 only.  */
-#define D_CXX0X         0x008	/* In C++, C++0X only.  */
+#define D_CXX11         0x008	/* In C++, C++11 only.  */
 #define D_EXT		0x010	/* GCC extension.  */
 #define D_EXT89		0x020	/* GCC extension incorporated in C99.  */
 #define D_ASM		0x040	/* Disabled by -fno-asm.  */
 #define D_OBJC		0x080	/* In Objective C and neither C nor C++.  */
 #define D_CXX_OBJC	0x100	/* In Objective C, and C++, but not C.  */
 #define D_CXXWARN	0x200	/* In C warn with -Wcxx-compat.  */
+#define D_CXX_CONCEPTS  0x400   /* In C++, only with concepts. */
+#define D_TRANSMEM	0X800   /* C++ transactional memory TS.  */
+
+#define D_CXX_CONCEPTS_FLAGS D_CXXONLY | D_CXX_CONCEPTS
 
 /* The reserved keyword table.  */
 extern const struct c_common_resword c_common_reswords[];
@@ -469,14 +478,13 @@ struct GTY(()) sorted_fields_type {
    These may be shadowed, and may be referenced from nested functions.  */
 #define C_DECLARED_LABEL_FLAG(label) TREE_LANG_FLAG_1 (label)
 
-typedef enum c_language_kind
+enum c_language_kind
 {
   clk_c		= 0,		/* C90, C94, C99 or C11 */
   clk_objc	= 1,		/* clk_c with ObjC features.  */
   clk_cxx	= 2,		/* ANSI/ISO C++ */
   clk_objcxx	= 3		/* clk_cxx with ObjC features.  */
-}
-c_language_kind;
+};
 
 /* To test for a specific language use c_language, defined by each
    front end.  For "ObjC features" or "not C++" use the macros.  */
@@ -486,7 +494,7 @@ extern c_language_kind c_language;
 #define c_dialect_objc()	((c_language & clk_objc) != 0)
 
 /* The various name of operator that appears in error messages. */
-typedef enum ref_operator {
+enum ref_operator {
   /* NULL */
   RO_NULL,
   /* array indexing */
@@ -499,7 +507,7 @@ typedef enum ref_operator {
   RO_IMPLICIT_CONVERSION,
   /* ->* */
   RO_ARROW_STAR
-} ref_operator;
+};
 
 /* Information about a statement tree.  */
 
@@ -568,6 +576,7 @@ extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator,
 				  void *);
 extern bool has_c_linkage (const_tree decl);
+extern bool c_decl_implicit (const_tree);
 
 /* Switches common to the C front ends.  */
 
@@ -643,13 +652,23 @@ extern const char *constant_string_class_name;
 
 /* C++ language option variables.  */
 
+/* The reference version of the ABI for -Wabi.  */
+
+extern int warn_abi_version;
 
 /* Return TRUE if one of {flag_abi_version,flag_abi_compat_version} is
-   less than N and the other is at least N, for use by -Wabi.  */
-#define abi_version_crosses(N)			\
+   less than N and the other is at least N.  */
+#define abi_compat_version_crosses(N)		\
   (abi_version_at_least(N)			\
    != (flag_abi_compat_version == 0		\
        || flag_abi_compat_version >= (N)))
+
+/* Return TRUE if one of {flag_abi_version,warn_abi_version} is
+   less than N and the other is at least N, for use by -Wabi.  */
+#define abi_version_crosses(N)			\
+  (abi_version_at_least(N)			\
+   != (warn_abi_version == 0			\
+       || warn_abi_version >= (N)))
 
 /* Nonzero means generate separate instantiation control files and
    juggle them at link time.  */
@@ -814,6 +833,7 @@ extern bool warn_if_unused_value (const_tree, location_t);
 extern void warn_logical_operator (location_t, enum tree_code, tree,
 				   enum tree_code, tree, enum tree_code, tree);
 extern void warn_logical_not_parentheses (location_t, enum tree_code, tree);
+extern void warn_tautological_cmp (location_t, enum tree_code, tree, tree);
 extern void check_main_parameter_types (tree decl);
 extern bool c_determine_visibility (tree);
 extern bool vector_types_compatible_elements_p (tree, tree);
@@ -946,9 +966,11 @@ extern tree boolean_increment (enum tree_code, tree);
 
 extern int case_compare (splay_tree_key, splay_tree_key);
 
-extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree);
+extern tree c_add_case_label (location_t, splay_tree, tree, tree, tree, tree,
+			      bool *);
 
-extern void c_do_switch_warnings (splay_tree, location_t, tree, tree);
+extern void c_do_switch_warnings (splay_tree, location_t, tree, tree, bool,
+				  bool);
 
 extern tree build_function_call (location_t, tree, tree);
 
@@ -1043,6 +1065,7 @@ extern void warn_for_sign_compare (location_t,
 				   tree op0, tree op1,
 				   tree result_type,
 				   enum tree_code resultcode);
+extern void do_warn_unused_parameter (tree);
 extern void do_warn_double_promotion (tree, tree, tree, const char *, 
 				      location_t);
 extern void set_underlying_type (tree);
@@ -1051,6 +1074,7 @@ extern void record_locally_defined_typedef (tree);
 extern void maybe_record_typedef_use (tree);
 extern void maybe_warn_unused_local_typedefs (void);
 extern void maybe_warn_bool_compare (location_t, enum tree_code, tree, tree);
+extern bool maybe_warn_shift_overflow (location_t, tree, tree);
 extern vec<tree, va_gc> *make_tree_vector (void);
 extern void release_tree_vector (vec<tree, va_gc> *);
 extern vec<tree, va_gc> *make_tree_vector_single (tree);
@@ -1415,6 +1439,8 @@ extern vec <tree, va_gc> *fix_sec_implicit_args
 extern tree insert_cilk_frame (tree);
 extern void cilk_init_builtins (void);
 extern int gimplify_cilk_spawn (tree *);
+extern void cilk_gimplify_call_params_in_spawned_fn (tree *, gimple_seq *,
+						     gimple_seq *);
 extern void cilk_install_body_with_frame_cleanup (tree, tree, void *);
 extern bool cilk_detect_spawn_and_unwrap (tree *);
 extern bool cilk_set_spawn_marker (location_t, tree);
@@ -1428,12 +1454,7 @@ extern bool contains_cilk_spawn_stmt (tree);
 extern tree cilk_for_number_of_iterations (tree);
 extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
-/* In c-indentation.c.  */
-extern void
-warn_for_misleading_indentation (location_t guard_loc,
-				 location_t body_loc,
-				 location_t next_stmt_loc,
-				 enum cpp_ttype next_tok_type,
-				 const char *guard_kind);
+extern bool reject_gcc_builtin (const_tree, location_t = UNKNOWN_LOCATION);
+extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
 
 #endif /* ! GCC_C_COMMON_H */

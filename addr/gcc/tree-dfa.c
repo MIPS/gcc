@@ -21,34 +21,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "langhooks.h"
 #include "flags.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -99,12 +86,12 @@ renumber_gimple_stmt_uids (void)
       gimple_stmt_iterator bsi;
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	}
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	}
     }
@@ -125,12 +112,12 @@ renumber_gimple_stmt_uids_in_blocks (basic_block *blocks, int n_blocks)
       gimple_stmt_iterator bsi;
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	}
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  gimple_set_uid (stmt, inc_gimple_stmt_max_uid (cfun));
 	}
     }
@@ -308,7 +295,7 @@ collect_dfa_stats (struct dfa_stats_d *dfa_stats_p ATTRIBUTE_UNUSED)
       for (gimple_stmt_iterator si = gsi_start_bb (bb); !gsi_end_p (si);
 	   gsi_next (&si))
 	{
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 	  dfa_stats_p->num_defs += NUM_SSA_OPERANDS (stmt, SSA_OP_DEF);
 	  dfa_stats_p->num_uses += NUM_SSA_OPERANDS (stmt, SSA_OP_USE);
 	  dfa_stats_p->num_vdefs += gimple_vdef (stmt) ? 1 : 0;
@@ -828,7 +815,7 @@ get_addr_base_and_unit_offset (tree exp, HOST_WIDE_INT *poffset)
    SSA_NAME_OCCURS_IN_ABNORMAL_PHI set, otherwise false.  */
 
 bool
-stmt_references_abnormal_ssa_name (gimple stmt)
+stmt_references_abnormal_ssa_name (gimple *stmt)
 {
   ssa_op_iter oi;
   use_operand_p use_p;
@@ -843,12 +830,11 @@ stmt_references_abnormal_ssa_name (gimple stmt)
 }
 
 /* Pair of tree and a sorting index, for dump_enumerated_decls.  */
-struct GTY(()) numbered_tree_d
+struct GTY(()) numbered_tree
 {
   tree t;
   int num;
 };
-typedef struct numbered_tree_d numbered_tree;
 
 
 /* Compare two declarations references by their DECL_UID / sequence number.

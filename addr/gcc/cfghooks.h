@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_CFGHOOKS_H
 #define GCC_CFGHOOKS_H
 
-/* Only basic-block.h includes this.  */
+#include "predict.h"
 
 /* Structure to gather statistic about profile consistency, per pass.
    An array of this structure, indexed by pass static number, is allocated
@@ -197,7 +197,7 @@ extern bool can_remove_branch_p (const_edge);
 extern void remove_branch (edge);
 extern void remove_edge (edge);
 extern edge split_block (basic_block, rtx);
-extern edge split_block (basic_block, gimple);
+extern edge split_block (basic_block, gimple *);
 extern edge split_block_after_labels (basic_block);
 extern bool move_block_after (basic_block, basic_block);
 extern void delete_basic_block (basic_block);

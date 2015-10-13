@@ -21,7 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 
 #ifdef HAVE_isl
+/* Workaround for GMP 5.1.3 bug, see PR56019.  */
+#include <stddef.h>
+
+#include <isl/constraint.h>
 #include <isl/set.h>
+#include <isl/union_set.h>
 #include <isl/map.h>
 #include <isl/union_map.h>
 #include <isl/ast_build.h>
@@ -34,40 +39,28 @@ extern "C" {
 #if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
 }
 #endif
-#endif
 
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "params.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
-#include "sese.h"
+#include "graphite-poly.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-scalar-evolution.h"
 #include "gimple-ssa.h"
+#include "tree-phinodes.h"
 #include "tree-into-ssa.h"
+#include "ssa-iterators.h"
 #include <map>
-
-#ifdef HAVE_isl
-#include "graphite-poly.h"
 #include "graphite-isl-ast-to-gimple.h"
 
 /* This flag is set when an error occurred during the translation of
@@ -136,9 +129,142 @@ void ivs_params_clear (ivs_params &ip)
     }
 }
 
-static tree
-gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *,
-				    ivs_params &ip);
+class translate_isl_ast_to_gimple
+{
+ public:
+  translate_isl_ast_to_gimple (sese_info_p r)
+    : region (r)
+  { }
+
+  /* Translates an ISL AST node NODE to GCC representation in the
+     context of a SESE.  */
+  edge translate_isl_ast (loop_p context_loop, __isl_keep isl_ast_node *node,
+			  edge next_e, ivs_params &ip);
+
+  /* Translates an isl_ast_node_for to Gimple.  */
+  edge translate_isl_ast_node_for (loop_p context_loop,
+				   __isl_keep isl_ast_node *node,
+				   edge next_e, ivs_params &ip);
+
+  /* Create the loop for a isl_ast_node_for.
+
+     - NEXT_E is the edge where new generated code should be attached.  */
+  edge translate_isl_ast_for_loop (loop_p context_loop,
+				   __isl_keep isl_ast_node *node_for,
+				   edge next_e,
+				   tree type, tree lb, tree ub,
+				   ivs_params &ip);
+
+  /* Translates an isl_ast_node_if to Gimple.  */
+  edge translate_isl_ast_node_if (loop_p context_loop,
+				  __isl_keep isl_ast_node *node,
+				  edge next_e, ivs_params &ip);
+
+  /* Translates an isl_ast_node_user to Gimple.
+
+     FIXME: We should remove iv_map.create (loop->num + 1), if it is
+     possible.  */
+  edge translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
+				    edge next_e, ivs_params &ip);
+
+  /* Translates an isl_ast_node_block to Gimple.  */
+  edge translate_isl_ast_node_block (loop_p context_loop,
+				     __isl_keep isl_ast_node *node,
+				     edge next_e, ivs_params &ip);
+
+  /* Converts a unary isl_ast_expr_op expression E to a GCC expression tree of
+     type TYPE.  */
+  tree unary_op_to_tree (tree type, __isl_take isl_ast_expr *expr,
+			 ivs_params &ip);
+
+  /* Converts a binary isl_ast_expr_op expression E to a GCC expression tree of
+     type TYPE.  */
+  tree binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr,
+			  ivs_params &ip);
+
+  /* Converts a ternary isl_ast_expr_op expression E to a GCC expression tree of
+     type TYPE.  */
+  tree ternary_op_to_tree (tree type, __isl_take isl_ast_expr *expr,
+			   ivs_params &ip);
+
+  /* Converts an isl_ast_expr_op expression E with unknown number of arguments
+     to a GCC expression tree of type TYPE.  */
+  tree nary_op_to_tree (tree type, __isl_take isl_ast_expr *expr,
+			ivs_params &ip);
+
+  /* Converts an ISL AST expression E back to a GCC expression tree of
+     type TYPE.  */
+  tree gcc_expression_from_isl_expression (tree type,
+					   __isl_take isl_ast_expr *,
+					   ivs_params &ip);
+
+  /* Return the tree variable that corresponds to the given isl ast identifier
+     expression (an isl_ast_expr of type isl_ast_expr_id).
+
+     FIXME: We should replace blind conversation of id's type with derivation
+     of the optimal type when we get the corresponding isl support.  Blindly
+     converting type sizes may be problematic when we switch to smaller
+     types.  */
+  tree gcc_expression_from_isl_ast_expr_id (tree type,
+					    __isl_keep isl_ast_expr *expr_id,
+					    ivs_params &ip);
+
+  /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
+     type TYPE.  */
+  tree gcc_expression_from_isl_expr_int (tree type,
+					 __isl_take isl_ast_expr *expr);
+
+  /* Converts an isl_ast_expr_op expression E to a GCC expression tree of
+     type TYPE.  */
+  tree gcc_expression_from_isl_expr_op (tree type,
+					__isl_take isl_ast_expr *expr,
+					ivs_params &ip);
+
+  /* Creates a new LOOP corresponding to isl_ast_node_for.  Inserts an
+     induction variable for the new LOOP.  New LOOP is attached to CFG
+     starting at ENTRY_EDGE.  LOOP is inserted into the loop tree and
+     becomes the child loop of the OUTER_LOOP.  NEWIVS_INDEX binds
+     ISL's scattering name to the induction variable created for the
+     loop of STMT.  The new induction variable is inserted in the NEWIVS
+     vector and is of type TYPE.  */
+  struct loop *graphite_create_new_loop (edge entry_edge,
+					 __isl_keep isl_ast_node *node_for,
+					 loop_p outer, tree type,
+					 tree lb, tree ub, ivs_params &ip);
+
+  /* All loops generated by create_empty_loop_on_edge have the form of
+     a post-test loop:
+
+     do
+
+     {
+     body of the loop;
+     } while (lower bound < upper bound);
+
+     We create a new if region protecting the loop to be executed, if
+     the execution count is zero (lower bound > upper bound).  */
+  edge graphite_create_new_loop_guard (edge entry_edge,
+				       __isl_keep isl_ast_node *node_for,
+				       tree *type,
+				       tree *lb, tree *ub, ivs_params &ip);
+
+  /* Creates a new if region corresponding to ISL's cond.  */
+  edge graphite_create_new_guard (edge entry_edge,
+				  __isl_take isl_ast_expr *if_cond,
+				  ivs_params &ip);
+
+  /* Inserts in iv_map a tuple (OLD_LOOP->num, NEW_NAME) for the induction
+     variables of the loops around GBB in SESE.
+
+     FIXME: Instead of using a vec<tree> that maps each loop id to a possible
+     chrec, we could consider using a map<int, tree> that maps loop ids to the
+     corresponding tree expressions.  */
+  void build_iv_mapping (vec<tree> iv_map, gimple_poly_bb_p gbb,
+			 __isl_keep isl_ast_expr *user_expr, ivs_params &ip,
+			 sese_l &region);
+private:
+  sese_info_p region;
+};
 
 /* Return the tree variable that corresponds to the given isl ast identifier
    expression (an isl_ast_expr of type isl_ast_expr_id).
@@ -148,7 +274,8 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *,
    converting type sizes may be problematic when we switch to smaller
    types.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 gcc_expression_from_isl_ast_expr_id (tree type,
 				     __isl_keep isl_ast_expr *expr_id,
 				     ivs_params &ip)
@@ -159,15 +286,21 @@ gcc_expression_from_isl_ast_expr_id (tree type,
   res = ip.find (tmp_isl_id);
   isl_id_free (tmp_isl_id);
   gcc_assert (res != ip.end () &&
-              "Could not map isl_id to tree expression");
+	      "Could not map isl_id to tree expression");
   isl_ast_expr_free (expr_id);
-  return fold_convert (type, res->second);
+  tree t = res->second;
+  tree *val = region->parameter_rename_map->get(t);
+
+  if (!val)
+   val = &t;
+  return fold_convert (type, *val);
 }
 
 /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
    type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 gcc_expression_from_isl_expr_int (tree type, __isl_take isl_ast_expr *expr)
 {
   gcc_assert (isl_ast_expr_get_type (expr) == isl_ast_expr_int);
@@ -188,7 +321,8 @@ gcc_expression_from_isl_expr_int (tree type, __isl_take isl_ast_expr *expr)
 /* Converts a binary isl_ast_expr_op expression E to a GCC expression tree of
    type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 {
   isl_ast_expr *arg_expr = isl_ast_expr_get_op_arg (expr, 0);
@@ -250,7 +384,8 @@ binary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 /* Converts a ternary isl_ast_expr_op expression E to a GCC expression tree of
    type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 ternary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 {
   gcc_assert (isl_ast_expr_get_op_type (expr) == isl_ast_op_minus);
@@ -271,7 +406,8 @@ ternary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 /* Converts a unary isl_ast_expr_op expression E to a GCC expression tree of
    type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 unary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 {
   gcc_assert (isl_ast_expr_get_op_type (expr) == isl_ast_op_minus);
@@ -284,7 +420,8 @@ unary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 /* Converts an isl_ast_expr_op expression E with unknown number of arguments
    to a GCC expression tree of type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 nary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
 {
   enum tree_code op_code;
@@ -314,11 +451,11 @@ nary_op_to_tree (tree type, __isl_take isl_ast_expr *expr, ivs_params &ip)
   return res;
 }
 
-
 /* Converts an isl_ast_expr_op expression E to a GCC expression tree of
    type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 gcc_expression_from_isl_expr_op (tree type, __isl_take isl_ast_expr *expr,
 				 ivs_params &ip)
 {
@@ -369,7 +506,8 @@ gcc_expression_from_isl_expr_op (tree type, __isl_take isl_ast_expr *expr,
 /* Converts an ISL AST expression E back to a GCC expression tree of
    type TYPE.  */
 
-static tree
+tree
+translate_isl_ast_to_gimple::
 gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *expr,
 				    ivs_params &ip)
 {
@@ -399,7 +537,8 @@ gcc_expression_from_isl_expression (tree type, __isl_take isl_ast_expr *expr,
    loop of STMT.  The new induction variable is inserted in the NEWIVS
    vector and is of type TYPE.  */
 
-static struct loop *
+struct loop *
+translate_isl_ast_to_gimple::
 graphite_create_new_loop (edge entry_edge, __isl_keep isl_ast_node *node_for,
 			  loop_p outer, tree type, tree lb, tree ub,
 			  ivs_params &ip)
@@ -423,15 +562,12 @@ graphite_create_new_loop (edge entry_edge, __isl_keep isl_ast_node *node_for,
   return loop;
 }
 
-static edge
-translate_isl_ast (loop_p context_loop, __isl_keep isl_ast_node *node,
-		   edge next_e, ivs_params &ip);
-
 /* Create the loop for a isl_ast_node_for.
 
    - NEXT_E is the edge where new generated code should be attached.  */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 translate_isl_ast_for_loop (loop_p context_loop,
 			    __isl_keep isl_ast_node *node_for, edge next_e,
 			    tree type, tree lb, tree ub,
@@ -535,7 +671,8 @@ get_upper_bound (__isl_keep isl_ast_node *node_for)
    We create a new if region protecting the loop to be executed, if
    the execution count is zero (lower bound > upper bound).  */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 graphite_create_new_loop_guard (edge entry_edge,
 				__isl_keep isl_ast_node *node_for, tree *type,
 				tree *lb, tree *ub, ivs_params &ip)
@@ -577,7 +714,8 @@ graphite_create_new_loop_guard (edge entry_edge,
 
 /* Translates an isl_ast_node_for to Gimple. */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 translate_isl_ast_node_for (loop_p context_loop, __isl_keep isl_ast_node *node,
 			    edge next_e, ivs_params &ip)
 {
@@ -599,32 +737,33 @@ translate_isl_ast_node_for (loop_p context_loop, __isl_keep isl_ast_node *node,
    chrec, we could consider using a map<int, tree> that maps loop ids to the
    corresponding tree expressions.  */
 
-static void
-build_iv_mapping (vec<tree> iv_map, gimple_bb_p gbb,
+void
+translate_isl_ast_to_gimple::
+build_iv_mapping (vec<tree> iv_map, gimple_poly_bb_p gbb,
 		  __isl_keep isl_ast_expr *user_expr, ivs_params &ip,
-		  sese region)
+		  sese_l &region)
 {
   gcc_assert (isl_ast_expr_get_type (user_expr) == isl_ast_expr_op &&
-              isl_ast_expr_get_op_type (user_expr) == isl_ast_op_call);
+	      isl_ast_expr_get_op_type (user_expr) == isl_ast_op_call);
   int i;
   isl_ast_expr *arg_expr;
   for (i = 1; i < isl_ast_expr_get_op_n_arg (user_expr); i++)
     {
       arg_expr = isl_ast_expr_get_op_arg (user_expr, i);
       tree type =
-        build_nonstandard_integer_type (graphite_expression_type_precision, 0);
+	build_nonstandard_integer_type (graphite_expression_type_precision, 0);
       tree t = gcc_expression_from_isl_expression (type, arg_expr, ip);
       loop_p old_loop = gbb_loop_at_index (gbb, region, i - 1);
       iv_map[old_loop->num] = t;
     }
-
 }
 
 /* Translates an isl_ast_node_user to Gimple.
 
    FIXME: We should remove iv_map.create (loop->num + 1), if it is possible.  */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
 			     edge next_e, ivs_params &ip)
 {
@@ -635,7 +774,7 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
   isl_id *name_id = isl_ast_expr_get_id (name_expr);
   poly_bb_p pbb = (poly_bb_p) isl_id_get_user (name_id);
   gcc_assert (pbb);
-  gimple_bb_p gbb = PBB_BLACK_BOX (pbb);
+  gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
   vec<tree> iv_map;
   isl_ast_expr_free (name_expr);
   isl_id_free (name_id);
@@ -647,10 +786,10 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
   iv_map.create (nb_loops);
   iv_map.safe_grow_cleared (nb_loops);
 
-  build_iv_mapping (iv_map, gbb, user_expr, ip, SCOP_REGION (pbb->scop));
+  build_iv_mapping (iv_map, gbb, user_expr, ip, pbb->scop->region->region);
   isl_ast_expr_free (user_expr);
   next_e = copy_bb_and_scalar_dependences (GBB_BB (gbb),
-					   SCOP_REGION (pbb->scop), next_e,
+					   pbb->scop->region, next_e,
 					   iv_map,
 					   &graphite_regenerate_error);
   iv_map.release ();
@@ -661,7 +800,8 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
 
 /* Translates an isl_ast_node_block to Gimple. */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 translate_isl_ast_node_block (loop_p context_loop,
 			      __isl_keep isl_ast_node *node,
 			      edge next_e, ivs_params &ip)
@@ -681,7 +821,8 @@ translate_isl_ast_node_block (loop_p context_loop,
  
 /* Creates a new if region corresponding to ISL's cond.  */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 graphite_create_new_guard (edge entry_edge, __isl_take isl_ast_expr *if_cond,
 			   ivs_params &ip)
 {
@@ -694,7 +835,8 @@ graphite_create_new_guard (edge entry_edge, __isl_take isl_ast_expr *if_cond,
 
 /* Translates an isl_ast_node_if to Gimple.  */
 
-static edge
+edge
+translate_isl_ast_to_gimple::
 translate_isl_ast_node_if (loop_p context_loop,
 			   __isl_keep isl_ast_node *node,
 			   edge next_e, ivs_params &ip)
@@ -719,9 +861,10 @@ translate_isl_ast_node_if (loop_p context_loop,
 /* Translates an ISL AST node NODE to GCC representation in the
    context of a SESE.  */
 
-static edge
-translate_isl_ast (loop_p context_loop, __isl_keep isl_ast_node *node,
-		   edge next_e, ivs_params &ip)
+edge
+translate_isl_ast_to_gimple::translate_isl_ast (loop_p context_loop,
+						__isl_keep isl_ast_node *node,
+						edge next_e, ivs_params &ip)
 {
   switch (isl_ast_node_get_type (node))
     {
@@ -766,13 +909,14 @@ print_isl_ast_node (FILE *file, __isl_keep isl_ast_node *node,
 static void
 add_parameters_to_ivs_params (scop_p scop, ivs_params &ip)
 {
-  sese region = SCOP_REGION (scop);
-  unsigned nb_parameters = isl_set_dim (scop->context, isl_dim_param);
+  sese_info_p region = scop->region;
+  unsigned nb_parameters = isl_set_dim (scop->param_context, isl_dim_param);
   gcc_assert (nb_parameters == SESE_PARAMS (region).length ());
   unsigned i;
   for (i = 0; i < nb_parameters; i++)
     {
-      isl_id *tmp_id = isl_set_get_dim_id (scop->context, isl_dim_param, i);
+      isl_id *tmp_id = isl_set_get_dim_id (scop->param_context,
+                                           isl_dim_param, i);
       ip[tmp_id] = SESE_PARAMS (region)[i];
     }
 }
@@ -783,7 +927,7 @@ add_parameters_to_ivs_params (scop_p scop, ivs_params &ip)
 static __isl_give isl_ast_build *
 generate_isl_context (scop_p scop)
 {
-  isl_set *context_isl = isl_set_params (isl_set_copy (scop->context));
+  isl_set *context_isl = isl_set_params (isl_set_copy (scop->param_context));
   return isl_ast_build_from_context (context_isl);
 }
 
@@ -796,7 +940,7 @@ int get_max_schedule_dimensions (scop_p scop)
   poly_bb_p pbb;
   int schedule_dims = 0;
 
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     {
       int pbb_schedule_dims = isl_map_dim (pbb->transformed, isl_dim_out);
       if (pbb_schedule_dims > schedule_dims)
@@ -831,92 +975,6 @@ extend_schedule (__isl_take isl_map *schedule, int nb_schedule_dims)
   return schedule;
 }
 
-/* Set the separation_class option for unroll and jam. */
-
-static __isl_give isl_union_map *
-generate_luj_sepclass_opt (scop_p scop, __isl_take isl_union_set *domain, 
-			int dim, int cl)
-{
-  isl_map  *map;
-  isl_space *space, *space_sep;
-  isl_ctx *ctx;
-  isl_union_map *mapu;
-  int nsched = get_max_schedule_dimensions (scop);
- 
-  ctx = scop->ctx;
-  space_sep = isl_space_alloc (ctx, 0, 1, 1);
-  space_sep = isl_space_wrap (space_sep);
-  space_sep = isl_space_set_tuple_name (space_sep, isl_dim_set,
-				        "separation_class");
-  space = isl_set_get_space (scop->context);
-  space_sep = isl_space_align_params (space_sep, isl_space_copy(space));
-  space = isl_space_map_from_domain_and_range (space, space_sep);
-  space = isl_space_add_dims (space,isl_dim_in, nsched);
-  map = isl_map_universe (space);
-  isl_map_fix_si (map,isl_dim_out,0,dim);
-  isl_map_fix_si (map,isl_dim_out,1,cl);
-
-  mapu = isl_union_map_intersect_domain (isl_union_map_from_map (map), 
-					 domain);
-  return (mapu);
-}
-
-/* Compute the separation class for loop unroll and jam.  */
-
-static __isl_give isl_union_set *
-generate_luj_sepclass (scop_p scop)
-{
-  int i;
-  poly_bb_p pbb;
-  isl_union_set *domain_isl;
-
-  domain_isl = isl_union_set_empty (isl_set_get_space (scop->context));
-
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    {
-      isl_set *bb_domain;
-      isl_set *bb_domain_s;
-
-      if (pbb->map_sepclass == NULL)
-	continue;
-
-      if (isl_set_is_empty (pbb->domain))
-	continue;
-
-      bb_domain = isl_set_copy (pbb->domain);
-      bb_domain_s = isl_set_apply (bb_domain, pbb->map_sepclass);
-      pbb->map_sepclass = NULL;
-
-      domain_isl =
-	isl_union_set_union (domain_isl, isl_union_set_from_set (bb_domain_s));
-    }
-
-  return domain_isl;
-}
-
-/* Set the AST built options for loop unroll and jam. */
- 
-static __isl_give isl_union_map *
-generate_luj_options (scop_p scop)
-{
-  isl_union_set *domain_isl;
-  isl_union_map *options_isl_ss;
-  isl_union_map *options_isl =
-    isl_union_map_empty (isl_set_get_space (scop->context));
-  int dim = get_max_schedule_dimensions (scop) - 1;
-  int dim1 = dim - PARAM_VALUE (PARAM_LOOP_UNROLL_JAM_DEPTH);
-
-  if (!flag_loop_unroll_jam)
-    return options_isl;
-
-  domain_isl = generate_luj_sepclass (scop);
-
-  options_isl_ss = generate_luj_sepclass_opt (scop, domain_isl, dim1, 0);
-  options_isl = isl_union_map_union (options_isl, options_isl_ss);
-
-  return options_isl;
-}
-
 /* Generates a schedule, which specifies an order used to
    visit elements in a domain.  */
 
@@ -927,9 +985,9 @@ generate_isl_schedule (scop_p scop)
   int i;
   poly_bb_p pbb;
   isl_union_map *schedule_isl =
-    isl_union_map_empty (isl_set_get_space (scop->context));
+    isl_union_map_empty (isl_set_get_space (scop->param_context));
 
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     {
       /* Dead code elimination: when the domain of a PBB is empty,
 	 don't generate code for the PBB.  */
@@ -965,13 +1023,11 @@ ast_build_before_for (__isl_keep isl_ast_build *build, void *user)
 }
 
 /* Set the separate option for all dimensions.
-   This helps to reduce control overhead.
-   Set the options for unroll and jam.  */
+   This helps to reduce control overhead.  */
 
 static __isl_give isl_ast_build *
 set_options (__isl_take isl_ast_build *control,
-	     __isl_keep isl_union_map *schedule,
-	     __isl_take isl_union_map *opt_luj)
+	     __isl_keep isl_union_map *schedule)
 {
   isl_ctx *ctx = isl_union_map_get_ctx (schedule);
   isl_space *range_space = isl_space_set_alloc (ctx, 0, 1);
@@ -982,9 +1038,6 @@ set_options (__isl_take isl_ast_build *control,
   isl_union_set *domain = isl_union_map_range (isl_union_map_copy (schedule));
   domain = isl_union_set_universe (domain);
   isl_union_map *options = isl_union_map_from_domain_and_range (domain, range);
-
-  options = isl_union_map_union (options, opt_luj);
-
   return isl_ast_build_set_options (control, options);
 }
 
@@ -995,17 +1048,12 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
   an operator (< or <=) and an expression not involving the iterator.
   If this option is not set, then the current loop iterator may appear several
   times in the upper bound. See the isl manual for more details.  */
-  isl_options_set_ast_build_atomic_upper_bound (scop->ctx, true);
+  isl_options_set_ast_build_atomic_upper_bound (scop->isl_context, true);
 
   add_parameters_to_ivs_params (scop, ip);
-
-  isl_union_map *options_luj = generate_luj_options (scop);
-
   isl_union_map *schedule_isl = generate_isl_schedule (scop);
   isl_ast_build *context_isl = generate_isl_context (scop);
-
-  context_isl = set_options (context_isl, schedule_isl, options_luj);
-
+  context_isl = set_options (context_isl, schedule_isl);
   isl_union_map *dependences = NULL;
   if (flag_loop_parallelize_all)
   {
@@ -1022,6 +1070,70 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
   return ast_isl;
 }
 
+/* Copy def from sese REGION to the newly created TO_REGION. TR is defined by
+   DEF_STMT. GSI points to entry basic block of the TO_REGION.  */
+
+static void
+copy_def (tree tr, gimple *def_stmt, sese_info_p region, sese_info_p to_region,
+	  gimple_stmt_iterator *gsi)
+{
+  if (!defined_in_sese_p (tr, region->region))
+    return;
+
+  ssa_op_iter iter;
+  use_operand_p use_p;
+  FOR_EACH_SSA_USE_OPERAND (use_p, def_stmt, iter, SSA_OP_USE)
+    {
+      tree use_tr = USE_FROM_PTR (use_p);
+
+      /* Do not copy parameters that have been generated in the header of the
+	 scop.  */
+      if (region->parameter_rename_map->get(use_tr))
+	continue;
+
+      gimple *def_of_use = SSA_NAME_DEF_STMT (use_tr);
+      if (!def_of_use)
+	continue;
+
+      copy_def (use_tr, def_of_use, region, to_region, gsi);
+    }
+
+  gimple *copy = gimple_copy (def_stmt);
+  gsi_insert_after (gsi, copy, GSI_NEW_STMT);
+
+  /* Create new names for all the definitions created by COPY and
+     add replacement mappings for each new name.  */
+  def_operand_p def_p;
+  ssa_op_iter op_iter;
+  FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
+    {
+      tree old_name = DEF_FROM_PTR (def_p);
+      tree new_name = create_new_def_for (old_name, copy, def_p);
+      region->parameter_rename_map->put(old_name, new_name);
+    }
+
+  update_stmt (copy);
+}
+
+static void
+copy_internal_parameters (sese_info_p region, sese_info_p to_region)
+{
+  /* For all the parameters which definitino is in the if_region->false_region,
+     insert code on true_region (if_region->true_region->entry). */
+
+  int i;
+  tree tr;
+  gimple_stmt_iterator gsi = gsi_start_bb(to_region->region.entry->dest);
+
+  FOR_EACH_VEC_ELT (region->params, i, tr)
+    {
+      // If def is not in region.
+      gimple *def_stmt = SSA_NAME_DEF_STMT (tr);
+      if (def_stmt)
+	copy_def (tr, def_stmt, region, to_region, &gsi);
+    }
+}
+
 /* GIMPLE Loop Generator: generates loops from STMT in GIMPLE form for
    the given SCOP.  Return true if code generation succeeded.
 
@@ -1032,7 +1144,7 @@ bool
 graphite_regenerate_ast_isl (scop_p scop)
 {
   loop_p context_loop;
-  sese region = SCOP_REGION (scop);
+  sese_info_p region = scop->region;
   ifsese if_region = NULL;
   isl_ast_node *root_node;
   ivs_params ip;
@@ -1044,7 +1156,7 @@ graphite_regenerate_ast_isl (scop_p scop)
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "\nISL AST generated by ISL: \n");
-      print_isl_ast_node (dump_file, root_node, scop->ctx);
+      print_isl_ast_node (dump_file, root_node, scop->isl_context);
       fprintf (dump_file, "\n");
     }
 
@@ -1053,16 +1165,21 @@ graphite_regenerate_ast_isl (scop_p scop)
 
   if_region = move_sese_in_condition (region);
   sese_insert_phis_for_liveouts (region,
-				 if_region->region->exit->src,
-				 if_region->false_region->exit,
-				 if_region->true_region->exit);
+				 if_region->region->region.exit->src,
+				 if_region->false_region->region.exit,
+				 if_region->true_region->region.exit);
   recompute_all_dominators ();
   graphite_verify ();
 
-  context_loop = SESE_ENTRY (region)->src->loop_father;
+  context_loop = region->region.entry->src->loop_father;
 
-  translate_isl_ast (context_loop, root_node, if_region->true_region->entry,
-		     ip);
+  /* Copy all the parameters which are defined in the region.  */
+  copy_internal_parameters(if_region->false_region, if_region->true_region);
+
+  translate_isl_ast_to_gimple t(region);
+  edge e = single_succ_edge (if_region->true_region->region.entry->dest);
+  split_edge (e);
+  t.translate_isl_ast (context_loop, root_node, e, ip);
 
   mark_virtual_operands_for_renaming (cfun);
   update_ssa (TODO_update_ssa);
@@ -1098,4 +1215,4 @@ graphite_regenerate_ast_isl (scop_p scop)
 
   return !graphite_regenerate_error;
 }
-#endif
+#endif  /* HAVE_isl */

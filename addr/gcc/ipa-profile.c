@@ -42,30 +42,21 @@ along with GCC; see the file COPYING3.  If not see
      of inliner. 
    - Finally we propagate the following flags: unlikely executed, executed
      once, executed at startup and executed at exit.  These flags are used to
-     control code size/performance threshold and and code placement (by producing
+     control code size/performance threshold and code placement (by producing
      .text.unlikely/.text.hot/.text.startup/.text.exit subsections).  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
-#include "tree.h"
-#include "fold-const.h"
+#include "backend.h"
 #include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "plugin-api.h"
+#include "tree.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "function.h"
-#include "ipa-ref.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "cgraph.h"
 #include "tree-pass.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "flags.h"
 #include "target.h"
@@ -76,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "alloc-pool.h"
 #include "tree-inline.h"
-#include "lto-streamer.h"
 #include "data-streamer.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -97,15 +87,12 @@ struct histogram_entry
    duplicate entries.  */
 
 vec<histogram_entry *> histogram;
-static pool_allocator<histogram_entry> histogram_pool
-  ("IPA histogram", 10);
+static object_allocator<histogram_entry> histogram_pool ("IPA histogram");
 
 /* Hashtable support for storing SSA names hashed by their SSA_NAME_VAR.  */
 
-struct histogram_hash : typed_noop_remove <histogram_entry>
+struct histogram_hash : nofree_ptr_hash <histogram_entry>
 {
-  typedef histogram_entry *value_type;
-  typedef histogram_entry *compare_type;
   static inline hashval_t hash (const histogram_entry *);
   static inline int equal (const histogram_entry *, const histogram_entry *);
 };
@@ -204,7 +191,7 @@ ipa_profile_generate_summary (void)
 	int size = 0;
         for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	  {
-	    gimple stmt = gsi_stmt (gsi);
+	    gimple *stmt = gsi_stmt (gsi);
 	    if (gimple_code (stmt) == GIMPLE_CALL
 		&& !gimple_call_fndecl (stmt))
 	      {

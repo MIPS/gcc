@@ -880,7 +880,11 @@ endif
 endif
 
 if LIBGO_IS_SOLARIS
+if HAVE_STAT_TIMESPEC
+go_os_stat_file = go/os/stat_atim.go
+else
 go_os_stat_file = go/os/stat_solaris.go
+endif
 else
 if LIBGO_IS_LINUX
 go_os_stat_file = go/os/stat_atim.go
@@ -1676,7 +1680,17 @@ endif # !LIBGO_IS_LINUX
 # Define socket sizes and types.
 if LIBGO_IS_LINUX
 syscall_socket_file = go/syscall/socket_linux.go epoll.go
+if LIBGO_IS_PPC64LE
+syscall_socket_type_file = go/syscall/socket_linux_ppc64x_type.go
 else
+if LIBGO_IS_PPC64
+syscall_socket_type_file = go/syscall/socket_linux_ppc64x_type.go
+else
+syscall_socket_type_file = go/syscall/socket_linux_type.go
+endif
+endif
+else
+syscall_socket_type_file =
 if LIBGO_IS_SOLARIS
 syscall_socket_file = go/syscall/socket_solaris.go
 else
@@ -1728,6 +1742,17 @@ else
 syscall_lsf_file =
 endif
 
+# GNU/Linux specific ustat support.
+if LIBGO_IS_LINUX
+if LIBGO_IS_ARM64
+syscall_ustat_file =
+else
+syscall_ustat_file = go/syscall/libcall_linux_ustat.go
+endif
+else
+syscall_ustat_file =
+endif
+
 # GNU/Linux specific utimesnano support.
 if LIBGO_IS_LINUX
 syscall_utimesnano_file = go/syscall/libcall_linux_utimesnano.go
@@ -1762,9 +1787,11 @@ go_base_syscall_files = \
 	$(syscall_size_file) \
 	$(syscall_socket_file) \
 	$(syscall_socket_os_file) \
+	$(syscall_socket_type_file) \
 	$(syscall_uname_file) \
 	$(syscall_netlink_file) \
 	$(syscall_lsf_file) \
+	$(syscall_ustat_file) \
 	$(syscall_utimesnano_file) \
 	$(GO_LIBCALL_OS_FILE) \
 	$(GO_LIBCALL_OS_ARCH_FILE) \
@@ -2047,7 +2074,7 @@ libnetgo_a_LIBADD = netgo.o
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
 
 GOCFLAGS = $(CFLAGS)
-AM_GOCFLAGS = $(STRINGOPS_FLAG)
+AM_GOCFLAGS = $(STRINGOPS_FLAG) $(GO_SPLIT_STACK)
 GOCOMPILE = $(GOC) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_GOCFLAGS) $(GOCFLAGS)
 
 LTGOCOMPILE = $(LIBTOOL) --tag GO --mode=compile $(GOC) $(INCLUDES) \

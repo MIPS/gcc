@@ -21,10 +21,12 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-attr.h"
@@ -32,8 +34,6 @@
 #include "flags.h"
 #include "reload.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "print-tree.h"
@@ -41,7 +41,6 @@
 #include "stor-layout.h"
 #include "stringpool.h"
 #include "output.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -50,27 +49,23 @@
 #include "expr.h"
 #include "c-family/c-common.h"
 #include "diagnostic-core.h"
-#include "obstack.h"
 #include "recog.h"
 #include "optabs.h"
 #include "langhooks.h"
 #include "tm_p.h"
 #include "target.h"
-#include "target-def.h"
 #include "params.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "builtins.h"
 #include "context.h"
 #include "tree-pass.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Maximal allowed offset for an address in the LD command */
 #define MAX_LD_OFFSET(MODE) (64 - (signed)GET_MODE_SIZE (MODE))
@@ -174,7 +169,7 @@ static struct machine_function * avr_init_machine_status (void);
 
 /* Prototypes for hook implementors if needed before their implementation.  */
 
-static bool avr_rtx_costs (rtx, int, int, int, int*, bool);
+static bool avr_rtx_costs (rtx, machine_mode, int, int, int*, bool);
 
 
 /* Allocate registers from r25 to r8 for parameters for function calls.  */
@@ -2436,11 +2431,9 @@ avr_print_operand (FILE *file, rtx x, int code)
   else if (GET_CODE (x) == CONST_DOUBLE)
     {
       long val;
-      REAL_VALUE_TYPE rv;
       if (GET_MODE (x) != SFmode)
         fatal_insn ("internal compiler error.  Unknown mode:", x);
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
       fprintf (file, "0x%lx", val);
     }
   else if (GET_CODE (x) == CONST_STRING)
@@ -2702,10 +2695,11 @@ avr_final_prescan_insn (rtx_insn *insn, rtx *operand ATTRIBUTE_UNUSED,
 
       if (set)
         fprintf (asm_out_file, "/* DEBUG: cost = %d.  */\n",
-                 set_src_cost (SET_SRC (set), optimize_insn_for_speed_p ()));
+                 set_src_cost (SET_SRC (set), GET_MODE (SET_DEST (set)),
+			       optimize_insn_for_speed_p ()));
       else
         fprintf (asm_out_file, "/* DEBUG: pattern-cost = %d.  */\n",
-                 rtx_cost (PATTERN (insn), INSN, 0,
+                 rtx_cost (PATTERN (insn), VOIDmode, INSN, 0,
                            optimize_insn_for_speed_p()));
     }
 }
@@ -9073,6 +9067,8 @@ avr_eval_addr_attrib (rtx x)
       if (SYMBOL_REF_FLAGS (x) & SYMBOL_FLAG_IO)
 	{
 	  attr = lookup_attribute ("io", DECL_ATTRIBUTES (decl));
+         if (!attr || !TREE_VALUE (attr))
+           attr = lookup_attribute ("io_low", DECL_ATTRIBUTES (decl));
 	  gcc_assert (attr);
 	}
       if (!attr || !TREE_VALUE (attr))
@@ -9259,10 +9255,10 @@ avr_pgm_check_var_decl (tree node)
         {
           if (TYPE_P (node))
             error ("%qT uses address space %qs beyond flash of %d KiB",
-                   node, avr_addrspace[as].name, avr_n_flash);
+                   node, avr_addrspace[as].name, 64 * avr_n_flash);
           else
             error ("%s %q+D uses address space %qs beyond flash of %d KiB",
-                   reason, node, avr_addrspace[as].name, avr_n_flash);
+                   reason, node, avr_addrspace[as].name, 64 * avr_n_flash);
         }
       else
         {
@@ -9309,7 +9305,7 @@ avr_insert_attributes (tree node, tree *attributes)
       if (avr_addrspace[as].segment >= avr_n_flash)
         {
           error ("variable %q+D located in address space %qs beyond flash "
-                 "of %d KiB", node, avr_addrspace[as].name, avr_n_flash);
+                 "of %d KiB", node, avr_addrspace[as].name, 64 * avr_n_flash);
         }
       else if (!AVR_HAVE_LPM && avr_addrspace[as].pointer_size > 2)
 	{
@@ -9915,7 +9911,7 @@ avr_operand_rtx_cost (rtx x, machine_mode mode, enum rtx_code outer,
     }
 
   total = 0;
-  avr_rtx_costs (x, code, outer, opno, &total, speed);
+  avr_rtx_costs (x, mode, outer, opno, &total, speed);
   return total;
 }
 
@@ -9926,11 +9922,10 @@ avr_operand_rtx_cost (rtx x, machine_mode mode, enum rtx_code outer,
    In either case, *TOTAL contains the cost result.  */
 
 static bool
-avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
+avr_rtx_costs_1 (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
                  int opno ATTRIBUTE_UNUSED, int *total, bool speed)
 {
-  enum rtx_code code = (enum rtx_code) codearg;
-  machine_mode mode = GET_MODE (x);
+  enum rtx_code code = GET_CODE (x);
   HOST_WIDE_INT val;
 
   switch (code)
@@ -9991,13 +9986,15 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
     case ZERO_EXTEND:
       *total = COSTS_N_INSNS (GET_MODE_SIZE (mode)
 			      - GET_MODE_SIZE (GET_MODE (XEXP (x, 0))));
-      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+      *total += avr_operand_rtx_cost (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
+				      code, 0, speed);
       return true;
 
     case SIGN_EXTEND:
       *total = COSTS_N_INSNS (GET_MODE_SIZE (mode) + 2
 			      - GET_MODE_SIZE (GET_MODE (XEXP (x, 0))));
-      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+      *total += avr_operand_rtx_cost (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
+				      code, 0, speed);
       return true;
 
     case PLUS:
@@ -10703,13 +10700,15 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
 	case QImode:
 	  *total = COSTS_N_INSNS (1);
 	  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-	    *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, 1, speed);
+	    *total += avr_operand_rtx_cost (XEXP (x, 1), QImode, code,
+					    1, speed);
 	  break;
 
         case HImode:
 	  *total = COSTS_N_INSNS (2);
 	  if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-            *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, 1, speed);
+            *total += avr_operand_rtx_cost (XEXP (x, 1), HImode, code,
+					    1, speed);
 	  else if (INTVAL (XEXP (x, 1)) != 0)
 	    *total += COSTS_N_INSNS (1);
           break;
@@ -10723,7 +10722,8 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
         case SImode:
           *total = COSTS_N_INSNS (4);
           if (GET_CODE (XEXP (x, 1)) != CONST_INT)
-            *total += avr_operand_rtx_cost (XEXP (x, 1), mode, code, 1, speed);
+            *total += avr_operand_rtx_cost (XEXP (x, 1), SImode, code,
+					    1, speed);
 	  else if (INTVAL (XEXP (x, 1)) != 0)
 	    *total += COSTS_N_INSNS (3);
           break;
@@ -10731,7 +10731,8 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
 	default:
 	  return false;
 	}
-      *total += avr_operand_rtx_cost (XEXP (x, 0), mode, code, 0, speed);
+      *total += avr_operand_rtx_cost (XEXP (x, 0), GET_MODE (XEXP (x, 0)),
+				      code, 0, speed);
       return true;
 
     case TRUNCATE:
@@ -10758,10 +10759,10 @@ avr_rtx_costs_1 (rtx x, int codearg, int outer_code ATTRIBUTE_UNUSED,
 /* Implement `TARGET_RTX_COSTS'.  */
 
 static bool
-avr_rtx_costs (rtx x, int codearg, int outer_code,
+avr_rtx_costs (rtx x, machine_mode mode, int outer_code,
 	       int opno, int *total, bool speed)
 {
-  bool done = avr_rtx_costs_1 (x, codearg, outer_code,
+  bool done = avr_rtx_costs_1 (x, mode, outer_code,
                                opno, total, speed);
 
   if (avr_log.rtx_costs)

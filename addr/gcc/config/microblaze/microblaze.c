@@ -22,22 +22,21 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "insn-flags.h"
 #include "insn-attr.h"
 #include "recog.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "function.h"
 #include "flags.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -48,27 +47,22 @@
 #include "reload.h"
 #include "output.h"
 #include "target.h"
-#include "target-def.h"
 #include "tm_p.h"
 #include "gstab.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "insn-codes.h"
 #include "optabs.h"
 #include "diagnostic-core.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 #define MICROBLAZE_VERSION_COMPARE(VA,VB) strcasecmp (VA, VB)
 
@@ -276,7 +270,7 @@ microblaze_const_double_ok (rtx op, machine_mode mode)
   if (op == CONST0_RTX (mode))
     return 1;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (d, op);
+  d = *CONST_DOUBLE_REAL_VALUE (op);
 
   if (REAL_VALUE_ISNAN (d))
     return FALSE;
@@ -286,12 +280,12 @@ microblaze_const_double_ok (rtx op, machine_mode mode)
 
   if (mode == DFmode)
     {
-      if (REAL_VALUES_LESS (d, dfhigh) && REAL_VALUES_LESS (dflow, d))
+      if (real_less (&d, &dfhigh) && real_less (&dflow, &d))
 	return 1;
     }
   else
     {
-      if (REAL_VALUES_LESS (d, sfhigh) && REAL_VALUES_LESS (sflow, d))
+      if (real_less (&d, &sfhigh) && real_less (&sflow, &d))
 	return 1;
     }
 
@@ -667,7 +661,7 @@ microblaze_classify_unspec (struct microblaze_address_info *info, rtx x)
   else if (XINT (x, 1) == UNSPEC_TLS)
     {
       info->type = ADDRESS_TLS;
-      info->tls_type = tls_reloc INTVAL(XVECEXP(x, 0, 1));
+      info->tls_type = tls_reloc (INTVAL (XVECEXP (x, 0, 1)));
     }
   else
     {
@@ -1238,11 +1232,11 @@ microblaze_expand_block_move (rtx dest, rtx src, rtx length, rtx align_rtx)
 }
 
 static bool
-microblaze_rtx_costs (rtx x, int code, int outer_code ATTRIBUTE_UNUSED,
+microblaze_rtx_costs (rtx x, machine_mode mode, int outer_code ATTRIBUTE_UNUSED,
 		      int opno ATTRIBUTE_UNUSED, int *total,
 		      bool speed ATTRIBUTE_UNUSED)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
 
   switch (code)
     {
@@ -1646,7 +1640,7 @@ microblaze_version_to_int (const char *version)
 	{			/* Looking for major  */
           if (*p == '.')
             {
-              *v++;
+              v++;
             }
           else
             {
@@ -2360,11 +2354,7 @@ print_operand (FILE * file, rtx op, int letter)
       if (code == CONST_DOUBLE)
 	{
 	  if (GET_MODE (op) == DFmode)
-	    {
-	      REAL_VALUE_TYPE value;
-	      REAL_VALUE_FROM_CONST_DOUBLE (value, op);
-	      REAL_VALUE_TO_TARGET_DOUBLE (value, val);
-	    }
+	    REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), val);
 	  else
 	    {
 	      val[0] = CONST_DOUBLE_HIGH (op);
@@ -2386,9 +2376,8 @@ print_operand (FILE * file, rtx op, int letter)
       if (letter == 'F')
 	{
 	  unsigned long value_long;
-	  REAL_VALUE_TYPE value;
-	  REAL_VALUE_FROM_CONST_DOUBLE (value, op);
-	  REAL_VALUE_TO_TARGET_SINGLE (value, value_long);
+	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op),
+				       value_long);
 	  fprintf (file, HOST_WIDE_INT_PRINT_HEX, value_long);
 	}
       else

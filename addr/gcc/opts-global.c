@@ -23,28 +23,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "diagnostic.h"
 #include "opts.h"
+#include "options.h"
 #include "flags.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h" /* Required by langhooks.h.  */
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
+#include "backend.h"
+#include "tree.h"
 #include "gimple.h"
-#include "langhooks.h"
 #include "rtl.h"
+#include "fold-const.h"
+#include "internal-fn.h"
+#include "langhooks.h"
 #include "dbgcnt.h"
 #include "debug.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "lto-streamer.h"
+#include "target.h"
 #include "output.h"
 #include "plugin.h"
 #include "toplev.h"
@@ -62,7 +54,7 @@ unsigned num_in_fnames;
 
 /* Return a malloced slash-separated list of languages in MASK.  */
 
-static char *
+char *
 write_langs (unsigned int mask)
 {
   unsigned int n = 0, len = 0;

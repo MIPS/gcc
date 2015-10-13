@@ -78,24 +78,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
-#include "stringpool.h"
 #include "rtl.h"
+#include "ssa.h"
+#include "options.h"
+#include "fold-const.h"
+#include "cfganal.h"
+#include "internal-fn.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -111,17 +103,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "target.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
@@ -136,11 +122,11 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Per basic block info.  */
 
-typedef struct
+struct split_bb_info
 {
   unsigned int size;
   unsigned int time;
-} split_bb_info;
+};
 
 static vec<split_bb_info> bb_info_vec;
 
@@ -180,7 +166,7 @@ static tree find_retbnd (basic_block return_bb);
    variable, check it if it is present in bitmap passed via DATA.  */
 
 static bool
-test_nonssa_use (gimple, tree t, tree, void *data)
+test_nonssa_use (gimple *, tree t, tree, void *data)
 {
   t = get_base_address (t);
 
@@ -265,7 +251,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
       for (gimple_stmt_iterator bsi = gsi_start_bb (bb); !gsi_end_p (bsi);
 	   gsi_next (&bsi))
 	{
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 	  if (is_gimple_debug (stmt))
 	    continue;
 	  if (walk_stmt_load_store_addr_ops
@@ -355,7 +341,7 @@ done:
    to optimize away an unused function call.  */
 
 static void
-check_forbidden_calls (gimple stmt)
+check_forbidden_calls (gimple *stmt)
 {
   imm_use_iterator use_iter;
   use_operand_p use_p;
@@ -784,7 +770,7 @@ find_return_bb (void)
   e = single_pred_edge (EXIT_BLOCK_PTR_FOR_FN (cfun));
   for (bsi = gsi_last_bb (e->src); !gsi_end_p (bsi); gsi_prev (&bsi))
     {
-      gimple stmt = gsi_stmt (bsi);
+      gimple *stmt = gsi_stmt (bsi);
       if (gimple_code (stmt) == GIMPLE_LABEL
 	  || is_gimple_debug (stmt)
 	  || gimple_clobber_p (stmt))
@@ -850,7 +836,7 @@ find_retbnd (basic_block return_bb)
    Return true when access to T prevents splitting the function.  */
 
 static bool
-mark_nonssa_use (gimple, tree t, tree, void *data)
+mark_nonssa_use (gimple *, tree t, tree, void *data)
 {
   t = get_base_address (t);
 
@@ -910,7 +896,7 @@ visit_bb (basic_block bb, basic_block return_bb,
   for (gimple_stmt_iterator bsi = gsi_start_bb (bb); !gsi_end_p (bsi);
        gsi_next (&bsi))
     {
-      gimple stmt = gsi_stmt (bsi);
+      gimple *stmt = gsi_stmt (bsi);
       tree op;
       ssa_op_iter iter;
       tree decl;
@@ -1022,7 +1008,7 @@ visit_bb (basic_block bb, basic_block return_bb,
 
 /* Stack entry for recursive DFS walk in find_split_point.  */
 
-typedef struct
+struct stack_entry
 {
   /* Basic block we are examining.  */
   basic_block bb;
@@ -1048,7 +1034,7 @@ typedef struct
 
   /* When false we can not split on this BB.  */
   bool can_split;
-} stack_entry;
+};
 
 
 /* Find all articulations and call consider_split on them.
@@ -1235,7 +1221,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
   tree retval = NULL, real_retval = NULL, retbnd = NULL;
   bool split_part_return_p = false;
   bool with_bounds = chkp_function_instrumented_p (current_function_decl);
-  gimple last_stmt = NULL;
+  gimple *last_stmt = NULL;
   unsigned int i;
   tree arg, ddef;
   vec<tree, va_gc> **debug_args = NULL;
@@ -1358,7 +1344,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 	     !gsi_end_p (gsi);
 	     gsi_next (&gsi))
 	  {
-	    gimple stmt = gsi_stmt (gsi);
+	    gimple *stmt = gsi_stmt (gsi);
 	    if (gimple_vuse (stmt))
 	      {
 		gimple_set_vuse (stmt, NULL_TREE);
@@ -1445,7 +1431,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 	  && is_gimple_reg (parm))
 	{
 	  tree ddecl;
-	  gimple def_temp;
+	  gimple *def_temp;
 
 	  /* This needs to be done even without MAY_HAVE_DEBUG_STMTS,
 	     otherwise if it didn't exist before, we'd end up with
@@ -1479,7 +1465,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
       unsigned int i;
       tree var, vexpr;
       gimple_stmt_iterator cgsi;
-      gimple def_temp;
+      gimple *def_temp;
 
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
       var = BLOCK_VARS (DECL_INITIAL (node->decl));
@@ -1616,7 +1602,7 @@ split_function (basic_block return_bb, struct split_point *split_point,
 		  gsi_insert_after (&gsi, call, GSI_NEW_STMT);
 		  if (!useless_type_conversion_p (TREE_TYPE (retval), restype))
 		    {
-		      gimple cpy;
+		      gimple *cpy;
 		      tree tem = create_tmp_reg (restype);
 		      tem = make_ssa_name (tem, call);
 		      cpy = gimple_build_assign (retval, NOP_EXPR, tem);
@@ -1800,7 +1786,7 @@ execute_split_functions (void)
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
 	  int this_time, this_size;
-	  gimple stmt = gsi_stmt (bsi);
+	  gimple *stmt = gsi_stmt (bsi);
 
 	  this_size = estimate_num_insns (stmt, &eni_size_weights);
 	  this_time = estimate_num_insns (stmt, &eni_time_weights) * freq;

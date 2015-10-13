@@ -351,7 +351,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* If we have named sections, and we're using crtstuff to run ctors,
    use them for registering eh frame information.  */
 #if defined (TARGET_ASM_NAMED_SECTION) && DWARF2_UNWIND_INFO \
-    && !defined (EH_FRAME_IN_DATA_SECTION)
+    && !defined (EH_FRAME_THROUGH_COLLECT2)
 #ifndef EH_FRAME_SECTION_NAME
 #define EH_FRAME_SECTION_NAME ".eh_frame"
 #endif
@@ -932,7 +932,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #elif defined SDB_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE SDB_DEBUG
 
-#elif defined DWARF2_DEBUGGING_INFO
+#elif defined DWARF2_DEBUGGING_INFO || defined DWARF2_LINENO_DEBUGGING_INFO
 #define PREFERRED_DEBUGGING_TYPE DWARF2_DEBUG
 
 #elif defined VMS_DEBUGGING_INFO
@@ -1265,6 +1265,38 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define TARGET_SUPPORTS_WIDE_INT 0
 #endif
 
+#ifndef SHORT_IMMEDIATES_SIGN_EXTEND
+#define SHORT_IMMEDIATES_SIGN_EXTEND 0
+#endif
+
+#ifndef WORD_REGISTER_OPERATIONS
+#define WORD_REGISTER_OPERATIONS 0
+#endif
+
+#ifndef CONSTANT_ALIGNMENT
+#define CONSTANT_ALIGNMENT(EXP, ALIGN) ALIGN
+#endif
+
+#ifndef INITIAL_FRAME_ADDRESS_RTX
+#define INITIAL_FRAME_ADDRESS_RTX NULL
+#endif
+
+#ifndef SETUP_FRAME_ADDRESSES
+#define SETUP_FRAME_ADDRESSES() do { } while (0)
+#endif
+
+#ifndef DYNAMIC_CHAIN_ADDRESS
+#define DYNAMIC_CHAIN_ADDRESS(x) (x)
+#endif
+
+#ifndef FRAME_ADDR_RTX
+#define FRAME_ADDR_RTX(x) (x)
+#endif
+
+#ifndef REVERSE_CONDITION
+#define REVERSE_CONDITION(code, mode) reverse_condition (code)
+#endif
+
 #ifdef GCC_INSN_FLAGS_H
 /* Dependent default target macro definitions
 
@@ -1351,6 +1383,18 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define STACK_SIZE_MODE word_mode
 #endif
 
+/* Default value for flag_stack_protect when flag_stack_protect is initialized to -1:
+   --enable-default-ssp: Default flag_stack_protect to -fstack-protector-strong.
+   --disable-default-ssp: Default flag_stack_protect to 0.
+ */
+#ifdef ENABLE_DEFAULT_SSP
+# ifndef DEFAULT_FLAG_SSP
+#  define DEFAULT_FLAG_SSP 3
+# endif
+#else
+# define DEFAULT_FLAG_SSP 0
+#endif
+
 /* Provide default values for the macros controlling stack checking.  */
 
 /* The default is neither full builtin stack checking...  */
@@ -1382,9 +1426,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define STACK_OLD_CHECK_PROTECT STACK_CHECK_PROTECT
 #else
 #define STACK_OLD_CHECK_PROTECT						\
- (targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
+ (!global_options.x_flag_exceptions					\
   ? 75 * UNITS_PER_WORD							\
-  : 8 * 1024)
+  : targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
+    ? 4 * 1024								\
+    : 8 * 1024)
 #endif
 
 /* Minimum amount of stack required to recover from an anticipated stack
@@ -1392,9 +1438,11 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    of stack required to propagate an exception.  */
 #ifndef STACK_CHECK_PROTECT
 #define STACK_CHECK_PROTECT						\
- (targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
-  ? 75 * UNITS_PER_WORD							\
-  : 12 * 1024)
+ (!global_options.x_flag_exceptions					\
+  ? 4 * 1024								\
+  : targetm_common.except_unwind_info (&global_options) == UI_SJLJ	\
+    ? 8 * 1024								\
+    : 12 * 1024)
 #endif
 
 /* Make the maximum frame size be the largest we can and still only need
@@ -1424,96 +1472,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    pointer to a function.  */
 #ifndef TARGET_VTABLE_USES_DESCRIPTORS
 #define TARGET_VTABLE_USES_DESCRIPTORS 0
-#endif
-
-#ifndef HAVE_simple_return
-#define HAVE_simple_return 0
-static inline rtx
-gen_simple_return ()
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_return
-#define HAVE_return 0
-static inline rtx
-gen_return ()
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_epilogue
-#define HAVE_epilogue 0
-static inline rtx
-gen_epilogue ()
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_mem_thread_fence
-#define HAVE_mem_thread_fence 0
-static inline rtx
-gen_mem_thread_fence (rtx)
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_memory_barrier
-#define HAVE_memory_barrier 0
-static inline rtx
-gen_memory_barrier ()
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_mem_signal_fence
-#define HAVE_mem_signal_fence 0
-static inline rtx
-gen_mem_signal_fence (rtx)
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_load_multiple
-#define HAVE_load_multiple 0
-static inline rtx
-gen_load_multiple (rtx, rtx, rtx)
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_store_multiple
-#define HAVE_store_multiple 0
-static inline rtx
-gen_store_multiple (rtx, rtx, rtx)
-{
-  gcc_unreachable ();
-  return NULL;
-}
-#endif
-
-#ifndef HAVE_tablejump
-#define HAVE_tablejump 0
-static inline rtx
-gen_tablejump (rtx, rtx)
-{
-  gcc_unreachable ();
-  return NULL;
-}
 #endif
 
 #endif /* GCC_INSN_FLAGS_H  */

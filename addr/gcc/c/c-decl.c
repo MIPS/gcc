@@ -29,9 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "intl.h"
-#include "symtab.h"
-#include "alias.h"
 #include "tree.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "stor-layout.h"
@@ -59,8 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "langhooks-def.h"
 #include "plugin.h"
@@ -669,14 +666,14 @@ decl_jump_unsafe (tree decl)
     return false;
 
   /* Always warn about crossing variably modified types.  */
-  if ((TREE_CODE (decl) == VAR_DECL || TREE_CODE (decl) == TYPE_DECL)
+  if ((VAR_P (decl) || TREE_CODE (decl) == TYPE_DECL)
       && variably_modified_type_p (TREE_TYPE (decl), NULL_TREE))
     return true;
 
   /* Otherwise, only warn if -Wgoto-misses-init and this is an
      initialized automatic decl.  */
   if (warn_jump_misses_init
-      && TREE_CODE (decl) == VAR_DECL
+      && VAR_P (decl)
       && !TREE_STATIC (decl)
       && DECL_INITIAL (decl) != NULL_TREE)
     return true;
@@ -817,7 +814,7 @@ bind_label (tree name, tree label, struct c_scope *scope,
 void
 c_finish_incomplete_decl (tree decl)
 {
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     {
       tree type = TREE_TYPE (decl);
       if (type != error_mark_node
@@ -1599,7 +1596,7 @@ c_bind (location_t loc, tree decl, bool is_global)
   struct c_scope *scope;
   bool nested = false;
 
-  if (TREE_CODE (decl) != VAR_DECL || current_function_scope == NULL)
+  if (!VAR_P (decl) || current_function_scope == NULL)
     {
       /* Types and functions are always considered to be global.  */
       scope = file_scope;
@@ -1662,7 +1659,19 @@ match_builtin_function_types (tree newtype, tree oldtype)
     }
 
   trytype = build_function_type (newrettype, tryargs);
-  return build_type_attribute_variant (trytype, TYPE_ATTRIBUTES (oldtype));
+
+  /* Allow declaration to change transaction_safe attribute.  */
+  tree oldattrs = TYPE_ATTRIBUTES (oldtype);
+  tree oldtsafe = lookup_attribute ("transaction_safe", oldattrs);
+  tree newattrs = TYPE_ATTRIBUTES (newtype);
+  tree newtsafe = lookup_attribute ("transaction_safe", newattrs);
+  if (oldtsafe && !newtsafe)
+    oldattrs = remove_attribute ("transaction_safe", oldattrs);
+  else if (newtsafe && !oldtsafe)
+    oldattrs = tree_cons (get_identifier ("transaction_safe"),
+			  NULL_TREE, oldattrs);
+
+  return build_type_attribute_variant (trytype, oldattrs);
 }
 
 /* Subroutine of diagnose_mismatched_decls.  Check for function type
@@ -2111,7 +2120,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
 	    }
 	}
     }
-  else if (TREE_CODE (newdecl) == VAR_DECL)
+  else if (VAR_P (newdecl))
     {
       /* Only variables can be thread-local, and all declarations must
 	 agree on this property.  */
@@ -2306,7 +2315,7 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
       && !(TREE_CODE (newdecl) == PARM_DECL
 	   && TREE_ASM_WRITTEN (olddecl) && !TREE_ASM_WRITTEN (newdecl))
       /* Don't warn about a variable definition following a declaration.  */
-      && !(TREE_CODE (newdecl) == VAR_DECL
+      && !(VAR_P (newdecl)
 	   && DECL_INITIAL (newdecl) && !DECL_INITIAL (olddecl)))
     {
       warned = warning (OPT_Wredundant_decls, "redundant redeclaration of %q+D",
@@ -2427,7 +2436,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     DECL_INITIAL (newdecl) = DECL_INITIAL (olddecl);
 
   /* Merge the threadprivate attribute.  */
-  if (TREE_CODE (olddecl) == VAR_DECL && C_DECL_THREADPRIVATE_P (olddecl))
+  if (VAR_P (olddecl) && C_DECL_THREADPRIVATE_P (olddecl))
     C_DECL_THREADPRIVATE_P (newdecl) = 1;
 
   if (CODE_CONTAINS_STRUCT (TREE_CODE (olddecl), TS_DECL_WITH_VIS))
@@ -2611,7 +2620,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     TREE_USED (newdecl) = 1;
   else if (TREE_USED (newdecl))
     TREE_USED (olddecl) = 1;
-  if (TREE_CODE (olddecl) == VAR_DECL || TREE_CODE (olddecl) == PARM_DECL)
+  if (VAR_P (olddecl) || TREE_CODE (olddecl) == PARM_DECL)
     DECL_READ_P (newdecl) |= DECL_READ_P (olddecl);
   if (DECL_PRESERVE_P (olddecl))
     DECL_PRESERVE_P (newdecl) = 1;
@@ -2660,8 +2669,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
 		int __thread x attribute ((tls_model ("local-exec")));
 		extern int __thread x;
 	     as we'll lose the "local-exec" model.  */
-	  if (TREE_CODE (olddecl) == VAR_DECL
-	      && DECL_THREAD_LOCAL_P (newdecl))
+	  if (VAR_P (olddecl) && DECL_THREAD_LOCAL_P (newdecl))
 	    set_decl_tls_model (olddecl, DECL_TLS_MODEL (newdecl));
 	  break;
 	}
@@ -2694,8 +2702,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
      flags and attributes.  */
   if (DECL_RTL_SET_P (olddecl)
       && (TREE_CODE (olddecl) == FUNCTION_DECL
-	  || (TREE_CODE (olddecl) == VAR_DECL
-	      && TREE_STATIC (olddecl))))
+	  || (VAR_P (olddecl) && TREE_STATIC (olddecl))))
     make_decl_rtl (olddecl);
 }
 
@@ -2944,7 +2951,7 @@ pushdecl (tree x)
 	      type_saved = true;
 	    }
 	  if (B_IN_FILE_SCOPE (b)
-	      && TREE_CODE (b->decl) == VAR_DECL
+	      && VAR_P (b->decl)
 	      && TREE_STATIC (b->decl)
 	      && TREE_CODE (TREE_TYPE (b->decl)) == ARRAY_TYPE
 	      && !TYPE_DOMAIN (TREE_TYPE (b->decl))
@@ -3075,7 +3082,7 @@ pushdecl_top_level (tree x)
 {
   tree name;
   bool nested = false;
-  gcc_assert (TREE_CODE (x) == VAR_DECL || TREE_CODE (x) == CONST_DECL);
+  gcc_assert (VAR_P (x) || TREE_CODE (x) == CONST_DECL);
 
   name = DECL_NAME (x);
 
@@ -3479,7 +3486,7 @@ lookup_label (tree name)
   if (current_function_scope == 0)
     {
       error ("label %qE referenced outside of any function", name);
-      return 0;
+      return NULL_TREE;
     }
 
   /* Use a label already defined or ref'd with this name, but not if
@@ -3816,14 +3823,14 @@ c_check_switch_jump_warnings (struct c_spot_bindings *switch_bindings,
    If the wrong kind of type is found, an error is reported.  */
 
 static tree
-lookup_tag (enum tree_code code, tree name, int thislevel_only,
+lookup_tag (enum tree_code code, tree name, bool thislevel_only,
 	    location_t *ploc)
 {
   struct c_binding *b = I_TAG_BINDING (name);
-  int thislevel = 0;
+  bool thislevel = false;
 
   if (!b || !b->decl)
-    return 0;
+    return NULL_TREE;
 
   /* We only care about whether it's in this level if
      thislevel_only was set or it might be a type clash.  */
@@ -3835,11 +3842,11 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only,
 	 file scope is created.)  */
       if (B_IN_CURRENT_SCOPE (b)
 	  || (current_scope == file_scope && B_IN_EXTERNAL_SCOPE (b)))
-	thislevel = 1;
+	thislevel = true;
     }
 
   if (thislevel_only && !thislevel)
-    return 0;
+    return NULL_TREE;
 
   if (TREE_CODE (b->decl) != code)
     {
@@ -3859,6 +3866,18 @@ lookup_tag (enum tree_code code, tree name, int thislevel_only,
     *ploc = b->locus;
 
   return b->decl;
+}
+
+/* Return true if a definition exists for NAME with code CODE.  */
+
+bool
+tag_exists_p (enum tree_code code, tree name)
+{
+  struct c_binding *b = I_TAG_BINDING (name);
+
+  if (b == NULL || b->decl == NULL_TREE)
+    return false;
+  return TREE_CODE (b->decl) == code;
 }
 
 /* Print an error message now
@@ -3890,7 +3909,7 @@ lookup_name (tree name)
       maybe_record_typedef_use (b->decl);
       return b->decl;
     }
-  return 0;
+  return NULL_TREE;
 }
 
 /* Similar to `lookup_name' but look only at the indicated scope.  */
@@ -3903,7 +3922,7 @@ lookup_name_in_scope (tree name, struct c_scope *scope)
   for (b = I_SYMBOL_BINDING (name); b; b = b->shadowed)
     if (B_IN_SCOPE (b, scope))
       return b->decl;
-  return 0;
+  return NULL_TREE;
 }
 
 /* Create the predefined scalar types of C,
@@ -4143,9 +4162,9 @@ shadow_tag_warned (const struct c_declspecs *declspecs, int warned)
 	  else
 	    {
 	      pending_invalid_xref = 0;
-	      t = lookup_tag (code, name, 1, NULL);
+	      t = lookup_tag (code, name, true, NULL);
 
-	      if (t == 0)
+	      if (t == NULL_TREE)
 		{
 		  t = make_node (code);
 		  pushtag (input_location, name, t);
@@ -4394,17 +4413,16 @@ c_decl_attributes (tree *node, tree attributes, int flags)
 {
   /* Add implicit "omp declare target" attribute if requested.  */
   if (current_omp_declare_target_attribute
-      && ((TREE_CODE (*node) == VAR_DECL
-	   && (TREE_STATIC (*node) || DECL_EXTERNAL (*node)))
+      && ((VAR_P (*node) && is_global_var (*node))
 	  || TREE_CODE (*node) == FUNCTION_DECL))
     {
-      if (TREE_CODE (*node) == VAR_DECL
+      if (VAR_P (*node)
 	  && ((DECL_CONTEXT (*node)
 	       && TREE_CODE (DECL_CONTEXT (*node)) == FUNCTION_DECL)
 	      || (current_function_decl && !DECL_EXTERNAL (*node))))
 	error ("%q+D in block scope inside of declare target directive",
 	       *node);
-      else if (TREE_CODE (*node) == VAR_DECL
+      else if (VAR_P (*node)
 	       && !lang_hooks.types.omp_mappable_type (TREE_TYPE (*node)))
 	error ("%q+D in declare target directive does not have mappable type",
 	       *node);
@@ -4542,7 +4560,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
      body of code to break, and it allows more efficient variable references
      in the presence of dynamic linking.  */
 
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && !initialized
       && TREE_PUBLIC (decl)
       && !DECL_THREAD_LOCAL_P (decl)
@@ -4595,7 +4613,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
   /* C99 6.7.4p3: An inline definition of a function with external
      linkage shall not contain a definition of a modifiable object
      with static storage duration...  */
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && current_scope != file_scope
       && TREE_STATIC (decl)
       && !TREE_READONLY (decl)
@@ -4673,7 +4691,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
   if (asmspec_tree)
     asmspec = TREE_STRING_POINTER (asmspec_tree);
 
-  if (TREE_CODE (decl) == VAR_DECL
+  if (VAR_P (decl)
       && TREE_STATIC (decl)
       && global_bindings_p ())
     /* So decl is a global variable. Record the types it uses
@@ -4766,7 +4784,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
       relayout_decl (decl);
     }
 
-  if (TREE_CODE (decl) == VAR_DECL)
+  if (VAR_P (decl))
     {
       if (init && TREE_CODE (init) == CONSTRUCTOR)
 	add_flexible_array_elts_to_size (decl, init);
@@ -4794,8 +4812,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	   TREE_TYPE (decl) = error_mark_node;
 	 }
 
-      if ((DECL_EXTERNAL (decl) || TREE_STATIC (decl))
-	  && DECL_SIZE (decl) != 0)
+      if (is_global_var (decl) && DECL_SIZE (decl) != 0)
 	{
 	  if (TREE_CODE (DECL_SIZE (decl)) == INTEGER_CST)
 	    constant_expression_warning (DECL_SIZE (decl));
@@ -4848,7 +4865,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	     GCC has accepted -- but ignored -- the ASMSPEC in
 	     this case.  */
 	  if (!DECL_FILE_SCOPE_P (decl)
-	      && TREE_CODE (decl) == VAR_DECL
+	      && VAR_P (decl)
 	      && !C_DECL_REGISTER (decl)
 	      && !TREE_STATIC (decl))
 	    warning (0, "ignoring asm-specifier for non-static local "
@@ -4911,8 +4928,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
 	{
 	  /* Recompute the RTL of a local array now
 	     if it used to be an incomplete type.  */
-	  if (was_incomplete
-	      && !TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
+	  if (was_incomplete && !is_global_var (decl))
 	    {
 	      /* If we used it already as memory, it must stay in memory.  */
 	      TREE_ADDRESSABLE (decl) = TREE_USED (decl);
@@ -4933,7 +4949,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
     }
 
   /* Install a cleanup (aka destructor) if one was given.  */
-  if (TREE_CODE (decl) == VAR_DECL && !TREE_STATIC (decl))
+  if (VAR_P (decl) && !TREE_STATIC (decl))
     {
       tree attr = lookup_attribute ("cleanup", DECL_ATTRIBUTES (decl));
       if (attr)
@@ -4961,7 +4977,7 @@ finish_decl (tree decl, location_t init_loc, tree init,
     }
 
   if (warn_cxx_compat
-      && TREE_CODE (decl) == VAR_DECL
+      && VAR_P (decl)
       && !DECL_EXTERNAL (decl)
       && DECL_INITIAL (decl) == NULL_TREE)
     {
@@ -5161,8 +5177,10 @@ flexible_array_type_p (tree type)
 
 /* Performs sanity checks on the TYPE and WIDTH of the bit-field NAME,
    replacing with appropriate values if they are invalid.  */
+
 static void
-check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
+check_bitfield_type_and_width (location_t loc, tree *type, tree *width,
+			       tree orig_name)
 {
   tree type_mv;
   unsigned int max_width;
@@ -5175,7 +5193,7 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
      field widths.  */
   if (!INTEGRAL_TYPE_P (TREE_TYPE (*width)))
     {
-      error ("bit-field %qs width not an integer constant", name);
+      error_at (loc, "bit-field %qs width not an integer constant", name);
       *width = integer_one_node;
     }
   else
@@ -5184,24 +5202,24 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
 	{
 	  *width = c_fully_fold (*width, false, NULL);
 	  if (TREE_CODE (*width) == INTEGER_CST)
-	    pedwarn (input_location, OPT_Wpedantic,
+	    pedwarn (loc, OPT_Wpedantic,
 		     "bit-field %qs width not an integer constant expression",
 		     name);
 	}
       if (TREE_CODE (*width) != INTEGER_CST)
 	{
-	  error ("bit-field %qs width not an integer constant", name);
+	  error_at (loc, "bit-field %qs width not an integer constant", name);
 	  *width = integer_one_node;
 	}
       constant_expression_warning (*width);
       if (tree_int_cst_sgn (*width) < 0)
 	{
-	  error ("negative width in bit-field %qs", name);
+	  error_at (loc, "negative width in bit-field %qs", name);
 	  *width = integer_one_node;
 	}
       else if (integer_zerop (*width) && orig_name)
 	{
-	  error ("zero width for bit-field %qs", name);
+	  error_at (loc, "zero width for bit-field %qs", name);
 	  *width = integer_one_node;
 	}
     }
@@ -5211,7 +5229,7 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
       && TREE_CODE (*type) != BOOLEAN_TYPE
       && TREE_CODE (*type) != ENUMERAL_TYPE)
     {
-      error ("bit-field %qs has invalid type", name);
+      error_at (loc, "bit-field %qs has invalid type", name);
       *type = unsigned_type_node;
     }
 
@@ -5220,14 +5238,14 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
       && type_mv != integer_type_node
       && type_mv != unsigned_type_node
       && type_mv != boolean_type_node)
-    pedwarn_c90 (input_location, OPT_Wpedantic,
+    pedwarn_c90 (loc, OPT_Wpedantic,
 		 "type of bit-field %qs is a GCC extension", name);
 
   max_width = TYPE_PRECISION (*type);
 
   if (0 < compare_tree_int (*width, max_width))
     {
-      error ("width of %qs exceeds its type", name);
+      error_at (loc, "width of %qs exceeds its type", name);
       w = max_width;
       *width = build_int_cst (integer_type_node, w);
     }
@@ -5240,7 +5258,7 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
       if (!lt
 	  || w < tree_int_cst_min_precision (lt->enum_min, TYPE_SIGN (*type))
 	  || w < tree_int_cst_min_precision (lt->enum_max, TYPE_SIGN (*type)))
-	warning (0, "%qs is narrower than values of its type", name);
+	warning_at (loc, 0, "%qs is narrower than values of its type", name);
     }
 }
 
@@ -6232,16 +6250,16 @@ grokdeclarator (const struct c_declarator *declarator,
   /* Check the type and width of a bit-field.  */
   if (bitfield)
     {
-      check_bitfield_type_and_width (&type, width, name);
+      check_bitfield_type_and_width (loc, &type, width, name);
       /* C11 makes it implementation-defined (6.7.2.1#5) whether
 	 atomic types are permitted for bit-fields; we have no code to
 	 make bit-field accesses atomic, so disallow them.  */
       if (type_quals & TYPE_QUAL_ATOMIC)
 	{
 	  if (name)
-	    error ("bit-field %qE has atomic type", name);
+	    error_at (loc, "bit-field %qE has atomic type", name);
 	  else
-	    error ("bit-field has atomic type");
+	    error_at (loc, "bit-field has atomic type");
 	  type_quals &= ~TYPE_QUAL_ATOMIC;
 	}
     }
@@ -6638,7 +6656,7 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	    if (global_decl
 		&& global_decl != visible_decl
-		&& TREE_CODE (global_decl) == VAR_DECL
+		&& VAR_P (global_decl)
 		&& !TREE_PUBLIC (global_decl))
 	      error_at (loc, "variable previously declared %<static%> "
 			"redeclared %<extern%>");
@@ -6717,7 +6735,7 @@ grokdeclarator (const struct c_declarator *declarator,
        will be ignored, and would even crash the compiler.
        Of course, this only makes sense on  VAR,PARM, and RESULT decl's.   */
     if (C_TYPE_FIELDS_VOLATILE (TREE_TYPE (decl))
-	&& (TREE_CODE (decl) == VAR_DECL ||  TREE_CODE (decl) == PARM_DECL
+	&& (VAR_P (decl) ||  TREE_CODE (decl) == PARM_DECL
 	  || TREE_CODE (decl) == RESULT_DECL))
       {
 	/* It is not an error for a structure with volatile fields to
@@ -6735,7 +6753,7 @@ grokdeclarator (const struct c_declarator *declarator,
     gcc_assert (!DECL_ASSEMBLER_NAME_SET_P (decl));
 
     if (warn_cxx_compat
-	&& TREE_CODE (decl) == VAR_DECL
+	&& VAR_P (decl)
 	&& TREE_PUBLIC (decl)
 	&& TREE_STATIC (decl)
 	&& (TREE_CODE (TREE_TYPE (decl)) == RECORD_TYPE
@@ -6905,7 +6923,6 @@ get_parm_info (bool ellipsis, tree expr)
   tree types    = 0;
   tree others   = 0;
 
-  static bool explained_incomplete_types = false;
   bool gave_void_only_once_err = false;
 
   arg_info->had_vla_unspec = current_scope->had_vla_unspec;
@@ -7008,19 +7025,16 @@ get_parm_info (bool ellipsis, tree expr)
 	    {
 	      if (b->id)
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
-		warning (0, "%<%s %E%> declared inside parameter list",
-			 keyword, b->id);
+		warning_at (input_location, 0,
+			    "%<%s %E%> declared inside parameter list"
+			    " will not be visible outside of this definition or"
+			    " declaration", keyword, b->id);
 	      else
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
-		warning (0, "anonymous %s declared inside parameter list",
-			 keyword);
-
-	      if (!explained_incomplete_types)
-		{
-		  warning (0, "its scope is only this definition or declaration,"
-			   " which is probably not what you want");
-		  explained_incomplete_types = true;
-		}
+		warning_at (input_location, 0,
+			    "anonymous %s declared inside parameter list"
+			    " will not be visible outside of this definition or"
+			    " declaration", keyword);
 	    }
 
 	  tag.id = b->id;
@@ -7092,7 +7106,7 @@ parser_xref_tag (location_t loc, enum tree_code code, tree name)
   /* If a cross reference is requested, look up the type
      already defined for this tag and return it.  */
 
-  ref = lookup_tag (code, name, 0, &refloc);
+  ref = lookup_tag (code, name, false, &refloc);
   /* If this is the right type of tag, return what we found.
      (This reference will be shadowed by shadow_tag later if appropriate.)
      If this is the wrong type of tag, do not return it.  If it was the
@@ -7196,7 +7210,7 @@ start_struct (location_t loc, enum tree_code code, tree name,
   location_t refloc = UNKNOWN_LOCATION;
 
   if (name != NULL_TREE)
-    ref = lookup_tag (code, name, 1, &refloc);
+    ref = lookup_tag (code, name, true, &refloc);
   if (ref && TREE_CODE (ref) == code)
     {
       if (TYPE_SIZE (ref))
@@ -7404,7 +7418,7 @@ is_duplicate_field (tree x, tree y)
 
 static void
 detect_field_duplicates_hash (tree fieldlist,
-			      hash_table<pointer_hash <tree_node> > *htab)
+			      hash_table<nofree_ptr_hash <tree_node> > *htab)
 {
   tree x, y;
   tree_node **slot;
@@ -7504,7 +7518,7 @@ detect_field_duplicates (tree fieldlist)
     }
   else
     {
-      hash_table<pointer_hash <tree_node> > htab (37);
+      hash_table<nofree_ptr_hash <tree_node> > htab (37);
       detect_field_duplicates_hash (fieldlist, &htab);
     }
 }
@@ -7915,9 +7929,9 @@ start_enum (location_t loc, struct c_enum_contents *the_enum, tree name)
      forward reference.  */
 
   if (name != NULL_TREE)
-    enumtype = lookup_tag (ENUMERAL_TYPE, name, 1, &enumloc);
+    enumtype = lookup_tag (ENUMERAL_TYPE, name, true, &enumloc);
 
-  if (enumtype == 0 || TREE_CODE (enumtype) != ENUMERAL_TYPE)
+  if (enumtype == NULL_TREE || TREE_CODE (enumtype) != ENUMERAL_TYPE)
     {
       enumtype = make_node (ENUMERAL_TYPE);
       pushtag (loc, name, enumtype);
@@ -8922,7 +8936,8 @@ temp_pop_parm_decls (void)
   current_scope->bindings = NULL;
   for (; b; b = free_binding_and_advance (b))
     {
-      gcc_assert (TREE_CODE (b->decl) == PARM_DECL);
+      gcc_assert (TREE_CODE (b->decl) == PARM_DECL
+		  || b->decl == error_mark_node);
       gcc_assert (I_SYMBOL_BINDING (b->id) == b);
       I_SYMBOL_BINDING (b->id) = b->shadowed;
       if (b->shadowed && b->shadowed->u.type)
@@ -9034,6 +9049,10 @@ finish_function (void)
   /* Complain about locally defined typedefs that are not used in this
      function.  */
   maybe_warn_unused_local_typedefs ();
+
+  /* Possibly warn about unused parameters.  */
+  if (warn_unused_parameter)
+    do_warn_unused_parameter (fndecl);
 
   /* Store the end of the function, so that we get good line number
      info for the epilogue.  */

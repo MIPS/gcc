@@ -295,6 +295,10 @@ Wbool-compare
 C ObjC C++ ObjC++ Var(warn_bool_compare) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn about boolean expression compared with an integer value different from true/false
 
+Wframe-address
+C ObjC C++ ObjC++ Var(warn_frame_address) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
+Warn when __builtin_frame_address or __builtin_return_address is used unsafely
+
 Wbuiltin-macro-redefined
 C ObjC C++ ObjC++ CPP(warn_builtin_macro_redefined) CppReason(CPP_W_BUILTIN_MACRO_REDEFINED) Var(cpp_warn_builtin_macro_redefined) Init(1) Warning
 Warn when a built-in preprocessor macro is undefined or redefined
@@ -331,7 +335,7 @@ C ObjC C++ ObjC++ Var(warn_char_subscripts) Warning LangEnabledBy(C ObjC C++ Obj
 Warn about subscripts whose type is \"char\"
 
 Wchkp
-C ObjC C++ ObjC++ Var(warn_chkp) Warning EnabledBy(Wall)
+C ObjC C++ ObjC++ Var(warn_chkp) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn about memory access errors found by Pointer Bounds Checker
 
 Wclobbered
@@ -401,6 +405,10 @@ Warn if type qualifiers on pointers are discarded
 Wdiv-by-zero
 C ObjC C++ ObjC++ Var(warn_div_by_zero) Init(1) Warning
 Warn about compile-time integer division by zero
+
+Wduplicated-cond
+C ObjC C++ ObjC++ Var(warn_duplicated_cond) Init(0) Warning
+Warn about duplicated conditions in an if-else-if chain
 
 Weffc++
 C++ ObjC++ Var(warn_ecpp) Warning
@@ -569,6 +577,14 @@ Wmissing-field-initializers
 C ObjC C++ ObjC++ Var(warn_missing_field_initializers) Warning EnabledBy(Wextra)
 Warn about missing fields in struct initializers
 
+Wmultiple-inheritance
+C++ ObjC++ Var(warn_multiple_inheritance) Warning
+Warn on direct multiple inheritance
+
+Wnamespaces
+C++ ObjC++ Var(warn_namespaces) Warning
+Warn on namespace definition
+
 Wsized-deallocation
 C++ ObjC++ Var(warn_sized_deallocation) Warning EnabledBy(Wextra)
 Warn about missing sized deallocation functions
@@ -605,6 +621,10 @@ Warn about all enumerated switches missing a specific case
 Wswitch-bool
 C ObjC C++ ObjC++ Var(warn_switch_bool) Warning Init(1)
 Warn about switches with boolean controlling expression
+
+Wtemplates
+C++ ObjC++ Var(warn_templates) Warning
+Warn on primary template declaration
 
 Wmissing-format-attribute
 C ObjC C++ ObjC++ Alias(Wsuggest-attribute=format)
@@ -780,6 +800,14 @@ Wshadow-ivar
 ObjC ObjC++ Var(warn_shadow_ivar) EnabledBy(Wshadow) Init(1) Warning
 Warn if a local declaration hides an instance variable
 
+Wshift-overflow
+C ObjC C++ ObjC++ Warning Alias(Wshift-overflow=, 1, 0)
+Warn if left shift of a signed value overflows
+
+Wshift-overflow=
+C ObjC C++ ObjC++ Joined RejectNegative UInteger Var(warn_shift_overflow) Init(-1) Warning
+Warn if left shift of a signed value overflows
+
 Wshift-count-negative
 C ObjC C++ ObjC++ Var(warn_shift_count_negative) Init(1) Warning
 Warn if shift count is negative
@@ -840,6 +868,10 @@ Wsystem-headers
 C ObjC C++ ObjC++ Warning
 ; Documented in common.opt
 
+Wtautological-compare
+C ObjC C++ ObjC++ Var(warn_tautological_compare) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
+Warn if a comparison always evaluates to true or false
+
 Wterminate
 C++ ObjC++ Warning Var(warn_terminate) Init(1)
 Warn if a throw expression will always result in a call to terminate()
@@ -896,6 +928,14 @@ Wunused-result
 C ObjC C++ ObjC++ Var(warn_unused_result) Init(1) Warning
 Warn if a caller of a function, marked with attribute warn_unused_result, does not use its return value
 
+Wunused-variable
+C ObjC C++ ObjC++ LangEnabledBy(C ObjC C++ ObjC++,Wunused)
+; documented in common.opt
+
+Wunused-const-variable
+C ObjC C++ ObjC++ Var(warn_unused_const_variable) Warning LangEnabledBy(C ObjC,Wunused-variable)
+Warn when a const variable is unused
+
 Wvariadic-macros
 C ObjC C++ ObjC++ CPP(warn_variadic_macros) CppReason(CPP_W_VARIADIC_MACROS) Var(cpp_warn_variadic_macros) Init(0) Warning LangEnabledBy(C ObjC C++ ObjC++,Wpedantic || Wtraditional)
 Warn about using variadic macros
@@ -912,6 +952,10 @@ Wvolatile-register-var
 C ObjC C++ ObjC++ Var(warn_volatile_register_var) Warning LangEnabledBy(C ObjC C++ ObjC++,Wall)
 Warn when a register variable is declared volatile
 
+Wvirtual-inheritance
+C++ ObjC++ Var(warn_virtual_inheritance) Warning
+Warn on direct virtual inheritance
+
 Wvirtual-move-assign
 C++ ObjC++ Var(warn_virtual_move_assign) Warning Init(1)
 Warn if a virtual base has a non-trivial move assignment operator
@@ -927,6 +971,11 @@ Warn when a literal '0' is used as null pointer
 Wuseless-cast
 C++ ObjC++ Var(warn_useless_cast) Warning
 Warn about useless casts
+
+Wsubobject-linkage
+C++ ObjC++ Var(warn_subobject_linkage) Warning Init(1)
+Warn if a class type has a base or a field whose type uses the anonymous
+namespace or depends on a type with no linkage
 
 ansi
 C ObjC C++ ObjC++
@@ -1069,6 +1118,10 @@ Driver
 fcilkplus
 C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
 Enable Cilk Plus
+
+fconcepts
+C++ ObjC++ Var(flag_concepts)
+Enable support for C++ concepts
 
 fcond-mismatch
 C ObjC C++ ObjC++
@@ -1607,7 +1660,7 @@ C++ ObjC++ Alias(std=c++1z) Undocumented
 
 std=c11
 C ObjC
-Conform to the ISO 2011 C standard (experimental and incomplete support)
+Conform to the ISO 2011 C standard
 
 std=c1x
 C ObjC Alias(std=c11)
@@ -1664,7 +1717,7 @@ C++ ObjC++ Alias(std=gnu++1z) Undocumented
 
 std=gnu11
 C ObjC
-Conform to the ISO 2011 C standard with GNU extensions (experimental and incomplete support)
+Conform to the ISO 2011 C standard with GNU extensions
 
 std=gnu1x
 C ObjC Alias(std=gnu11)
@@ -1704,7 +1757,7 @@ Deprecated in favor of -std=iso9899:1999
 
 std=iso9899:2011
 C ObjC Alias(std=c11)
-Conform to the ISO 2011 C standard (experimental and incomplete support)
+Conform to the ISO 2011 C standard
 
 traditional
 Driver

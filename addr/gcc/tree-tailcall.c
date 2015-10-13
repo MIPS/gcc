@@ -20,32 +20,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -65,8 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cfgloop.h"
 #include "common/common-target.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
 
@@ -212,7 +199,7 @@ suitable_for_tail_call_opt_p (void)
    containing the value of EXPR at GSI.  */
 
 static tree
-independent_of_stmt_p (tree expr, gimple at, gimple_stmt_iterator gsi)
+independent_of_stmt_p (tree expr, gimple *at, gimple_stmt_iterator gsi)
 {
   basic_block bb, call_bb, at_bb;
   edge e;
@@ -422,7 +409,7 @@ static void
 find_tail_calls (basic_block bb, struct tailcall **ret)
 {
   tree ass_var = NULL_TREE, ret_var, func, param;
-  gimple stmt;
+  gimple *stmt;
   gcall *call = NULL;
   gimple_stmt_iterator gsi, agsi;
   bool tail_recursion;
@@ -831,7 +818,7 @@ static void
 eliminate_tail_call (struct tailcall *t)
 {
   tree param, rslt;
-  gimple stmt, call;
+  gimple *stmt, *call;
   tree arg;
   size_t idx;
   basic_block bb, first;
@@ -839,7 +826,7 @@ eliminate_tail_call (struct tailcall *t)
   gphi *phi;
   gphi_iterator gpi;
   gimple_stmt_iterator gsi;
-  gimple orig_stmt;
+  gimple *orig_stmt;
 
   stmt = orig_stmt = gsi_stmt (t->call_gsi);
   bb = gsi_bb (t->call_gsi);
@@ -863,7 +850,7 @@ eliminate_tail_call (struct tailcall *t)
   gsi_next (&gsi);
   while (!gsi_end_p (gsi))
     {
-      gimple t = gsi_stmt (gsi);
+      gimple *t = gsi_stmt (gsi);
       /* Do not remove the return statement, so that redirect_edge_and_branch
 	 sees how the block ends.  */
       if (gimple_code (t) == GIMPLE_RETURN)
@@ -985,7 +972,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   bool changed = false;
   basic_block first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   tree param;
-  gimple stmt;
+  gimple *stmt;
   edge_iterator ei;
 
   if (!suitable_for_tail_opt_p ())

@@ -20,34 +20,24 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "tree-iterator.h"
-#include "bitmap.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -446,7 +436,7 @@ static tree
 init_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 {
   tree t;
-  gimple stmt;
+  gimple *stmt;
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (t, exp);
@@ -477,7 +467,7 @@ static tree
 save_tmp_var (struct nesting_info *info, tree exp, gimple_stmt_iterator *gsi)
 {
   tree t;
-  gimple stmt;
+  gimple *stmt;
 
   t = create_tmp_var_for (info, TREE_TYPE (exp), NULL);
   stmt = gimple_build_assign (exp, t);
@@ -777,10 +767,12 @@ get_static_chain (struct nesting_info *info, tree target_context,
   if (info->context == target_context)
     {
       x = build_addr (info->frame_decl, target_context);
+      info->static_chain_added |= 1;
     }
   else
     {
       x = get_chain_decl (info);
+      info->static_chain_added |= 2;
 
       for (i = info->outer; i->context != target_context; i = i->outer)
 	{
@@ -812,10 +804,12 @@ get_frame_field (struct nesting_info *info, tree target_context,
       /* Make sure frame_decl gets created.  */
       (void) get_frame_type (info);
       x = info->frame_decl;
+      info->static_chain_added |= 1;
     }
   else
     {
       x = get_chain_decl (info);
+      info->static_chain_added |= 2;
 
       for (i = info->outer; i->context != target_context; i = i->outer)
 	{
@@ -861,10 +855,12 @@ get_nonlocal_debug_decl (struct nesting_info *info, tree decl)
       (void) get_frame_type (info);
       x = info->frame_decl;
       i = info;
+      info->static_chain_added |= 1;
     }
   else
     {
       x = get_chain_decl (info);
+      info->static_chain_added |= 2;
       for (i = info->outer; i->context != target_context; i = i->outer)
 	{
 	  field = get_chain_field (i);
@@ -1315,7 +1311,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   struct nesting_info *info = (struct nesting_info *) wi->info;
   tree save_local_var_chain;
   bitmap save_suppress;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
     {
@@ -1896,7 +1892,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   struct nesting_info *info = (struct nesting_info *) wi->info;
   tree save_local_var_chain;
   bitmap save_suppress;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
     {
@@ -2083,7 +2079,7 @@ convert_nl_goto_reference (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   struct nesting_info *const info = (struct nesting_info *) wi->info, *i;
   tree label, new_label, target_context, x, field;
   gcall *call;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
 
   if (gimple_code (stmt) != GIMPLE_GOTO)
     {
@@ -2176,7 +2172,7 @@ convert_nl_goto_receiver (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   gsi_prev (&tmp_gsi);
   if (gsi_end_p (tmp_gsi) || gimple_stmt_may_fallthru (gsi_stmt (tmp_gsi)))
     {
-      gimple stmt = gimple_build_goto (label);
+      gimple *stmt = gimple_build_goto (label);
       gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
     }
 
@@ -2273,7 +2269,7 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 			      struct walk_stmt_info *wi)
 {
   struct nesting_info *info = (struct nesting_info *) wi->info;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
     {
@@ -2298,17 +2294,55 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
       {
-	tree save_local_var_chain;
+	tree save_local_var_chain = info->new_local_var_chain;
         walk_gimple_op (stmt, convert_tramp_reference_op, wi);
-	save_local_var_chain = info->new_local_var_chain;
 	info->new_local_var_chain = NULL;
+	char save_static_chain_added = info->static_chain_added;
+	info->static_chain_added = 0;
         walk_body (convert_tramp_reference_stmt, convert_tramp_reference_op,
 		   info, gimple_omp_body_ptr (stmt));
 	if (info->new_local_var_chain)
 	  declare_vars (info->new_local_var_chain,
 			gimple_seq_first_stmt (gimple_omp_body (stmt)),
 			false);
+	for (int i = 0; i < 2; i++)
+	  {
+	    tree c, decl;
+	    if ((info->static_chain_added & (1 << i)) == 0)
+	      continue;
+	    decl = i ? get_chain_decl (info) : info->frame_decl;
+	    /* Don't add CHAIN.* or FRAME.* twice.  */
+	    for (c = gimple_omp_taskreg_clauses (stmt);
+		 c;
+		 c = OMP_CLAUSE_CHAIN (c))
+	      if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		   || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED)
+		  && OMP_CLAUSE_DECL (c) == decl)
+		break;
+	      if (c == NULL && gimple_code (stmt) != GIMPLE_OMP_TARGET)
+		{
+		  c = build_omp_clause (gimple_location (stmt),
+					i ? OMP_CLAUSE_FIRSTPRIVATE
+					  : OMP_CLAUSE_SHARED);
+		  OMP_CLAUSE_DECL (c) = decl;
+		  OMP_CLAUSE_CHAIN (c) = gimple_omp_taskreg_clauses (stmt);
+		  gimple_omp_taskreg_set_clauses (stmt, c);
+		}
+	      else if (c == NULL)
+		{
+		  c = build_omp_clause (gimple_location (stmt),
+					OMP_CLAUSE_MAP);
+		  OMP_CLAUSE_DECL (c) = decl;
+		  OMP_CLAUSE_SET_MAP_KIND (c,
+					   i ? GOMP_MAP_TO : GOMP_MAP_TOFROM);
+		  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
+		  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
+		  gimple_omp_target_set_clauses (as_a <gomp_target *> (stmt),
+						 c);
+		}
+	  }
 	info->new_local_var_chain = save_local_var_chain;
+	info->static_chain_added |= save_static_chain_added;
       }
       break;
 
@@ -2335,7 +2369,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   tree decl, target_context;
   char save_static_chain_added;
   int i;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
 
   switch (gimple_code (stmt))
     {
@@ -2687,7 +2721,7 @@ static void
 finalize_nesting_tree_1 (struct nesting_info *root)
 {
   gimple_seq stmt_list;
-  gimple stmt;
+  gimple *stmt;
   tree context = root->context;
   struct function *sf;
 

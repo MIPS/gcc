@@ -22,14 +22,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
 #include "tree.h"
+#include "options.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "c-family/c-common.h"
 #include "target.h"
-#include "target-def.h"
 #include "cpplib.h"
 #include "c-family/c-pragma.h"
 
@@ -65,6 +63,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__i486");
       def_or_undef (parse_in, "__i486__");
       break;
+    case PROCESSOR_LAKEMONT:
+      /* Intel MCU is based on Intel Pentium CPU.  */
     case PROCESSOR_PENTIUM:
       def_or_undef (parse_in, "__i586");
       def_or_undef (parse_in, "__i586__");
@@ -123,6 +123,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__bdver4");
       def_or_undef (parse_in, "__bdver4__");
       break;
+    case PROCESSOR_ZNVER1:
+      def_or_undef (parse_in, "__znver1");
+      def_or_undef (parse_in, "__znver1__");
+      break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__btver1");
       def_or_undef (parse_in, "__btver1__");
@@ -176,6 +180,10 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_KNL:
       def_or_undef (parse_in, "__knl");
       def_or_undef (parse_in, "__knl__");
+      break;
+    case PROCESSOR_SKYLAKE_AVX512:
+      def_or_undef (parse_in, "__skylake_avx512");
+      def_or_undef (parse_in, "__skylake_avx512__");
       break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
@@ -248,6 +256,9 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_BDVER4:
       def_or_undef (parse_in, "__tune_bdver4__");
       break;
+    case PROCESSOR_ZNVER1:
+      def_or_undef (parse_in, "__tune_znver1__");
+      break;
     case PROCESSOR_BTVER1:
       def_or_undef (parse_in, "__tune_btver1__");
       break;
@@ -285,6 +296,12 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       break;
     case PROCESSOR_KNL:
       def_or_undef (parse_in, "__tune_knl__");
+      break;
+    case PROCESSOR_SKYLAKE_AVX512:
+      def_or_undef (parse_in, "__tune_skylake_avx512__");
+      break;
+    case PROCESSOR_LAKEMONT:
+      def_or_undef (parse_in, "__tune_lakemont__");
       break;
     case PROCESSOR_INTEL:
     case PROCESSOR_GENERIC:
@@ -414,6 +431,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE2_MATH__");
   if (isa_flag & OPTION_MASK_ISA_CLFLUSHOPT)
     def_or_undef (parse_in, "__CLFLUSHOPT__");
+  if (isa_flag & OPTION_MASK_ISA_CLZERO)
+    def_or_undef (parse_in, "__CLZERO__");
   if (isa_flag & OPTION_MASK_ISA_XSAVEC)
     def_or_undef (parse_in, "__XSAVEC__");
   if (isa_flag & OPTION_MASK_ISA_XSAVES)
@@ -426,6 +445,11 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__CLWB__");
   if (isa_flag & OPTION_MASK_ISA_MWAITX)
     def_or_undef (parse_in, "__MWAITX__");
+  if (TARGET_IAMCU)
+    {
+      def_or_undef (parse_in, "__iamcu");
+      def_or_undef (parse_in, "__iamcu__");
+    }
 }
 
 
@@ -560,6 +584,8 @@ ix86_target_macros (void)
 
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_ACQUIRE=%d", IX86_HLE_ACQUIRE);
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_RELEASE=%d", IX86_HLE_RELEASE);
+
+  cpp_define (parse_in, "__GCC_ASM_FLAG_OUTPUTS__");
 
   ix86_target_macros_internal (ix86_isa_flags,
 			       ix86_arch,

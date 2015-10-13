@@ -36,24 +36,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
-#include "hard-reg-set.h"
 #include "regs.h"
 #include "insn-config.h"
 #include "insn-attr.h"
 #include "recog.h"
-#include "function.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
-#include "symtab.h"
-#include "alias.h"
 #include "tree.h"
+#include "alias.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -395,13 +389,7 @@ reversed_comparison_code_parts (enum rtx_code code, const_rtx arg0,
      machine description to do tricks.  */
   if (GET_MODE_CLASS (mode) == MODE_CC
       && REVERSIBLE_CC_MODE (mode))
-    {
-#ifdef REVERSE_CONDITION
-      return REVERSE_CONDITION (code, mode);
-#else
-      return reverse_condition (code);
-#endif
-    }
+    return REVERSE_CONDITION (code, mode);
 
   /* Try a few special cases based on the comparison code.  */
   switch (code)

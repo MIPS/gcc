@@ -574,7 +574,6 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 %{R*} \
 %(link_shlib) \
 %{!T*: %(link_start) } \
-%(link_target) \
 %(link_os)"
 
 /* Shared libraries are not default.  */
@@ -583,10 +582,6 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 %{static: } \
 %{shared:-G -dy -z text } \
 %{symbolic:-Bsymbolic -G -dy -z text }"
-
-/* Override the default target of the linker.  */
-#define	LINK_TARGET_SPEC \
-  ENDIAN_SELECT("", " --oformat elf32-powerpcle", "")
 
 /* Any specific OS flags.  */
 #define LINK_OS_SPEC "\
@@ -914,7 +909,6 @@ extern const char *rs6000_extra_static_libdirs (int argc, const char **argv);
   { "endfile_openbsd",		ENDFILE_OPENBSD_SPEC },			\
   { "endfile_default",		ENDFILE_DEFAULT_SPEC },			\
   { "link_shlib",		LINK_SHLIB_SPEC },			\
-  { "link_target",		LINK_TARGET_SPEC },			\
   { "link_start",		LINK_START_SPEC },			\
   { "link_start_ads",		LINK_START_ADS_SPEC },			\
   { "link_start_yellowknife",	LINK_START_YELLOWKNIFE_SPEC },		\
@@ -986,6 +980,14 @@ extern const char *rs6000_extra_static_libdirs (int argc, const char **argv);
 
 #undef TARGET_ASAN_SHADOW_OFFSET
 #define TARGET_ASAN_SHADOW_OFFSET rs6000_asan_shadow_offset
+
+/* On ppc64 and ppc64le, split stack is only support for
+   64 bit. */
+#undef TARGET_CAN_SPLIT_STACK_64BIT
+#if TARGET_GLIBC_MAJOR > 2 \
+  || (TARGET_GLIBC_MAJOR == 2 && TARGET_GLIBC_MINOR >= 18)
+#define TARGET_CAN_SPLIT_STACK_64BIT
+#endif
 
 /* This target uses the sysv4.opt file.  */
 #define TARGET_USES_SYSV4_OPT 1

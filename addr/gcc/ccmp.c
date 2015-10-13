@@ -20,18 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "df.h"
+#include "ssa.h"
 #include "tm_p.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "regs.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -45,24 +44,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "tree-iterator.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
-#include "tree-ssanames.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "df.h"
 #include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
 #include "cfgexpand.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
 #include "ccmp.h"
 
 /* The following functions expand conditional compare (CCMP) instructions.
@@ -92,11 +79,11 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Check whether G is a potential conditional compare candidate.  */
 static bool
-ccmp_candidate_p (gimple g)
+ccmp_candidate_p (gimple *g)
 {
   tree rhs = gimple_assign_rhs_to_tree (g);
   tree lhs, op0, op1;
-  gimple gs0, gs1;
+  gimple *gs0, *gs1;
   enum tree_code tcode, tcode0, tcode1;
   tcode = TREE_CODE (rhs);
 
@@ -148,7 +135,7 @@ ccmp_candidate_p (gimple g)
    PREP_SEQ returns all insns to prepare opearands for compare.
    GEN_SEQ returnss all compare insns.  */
 static rtx
-expand_ccmp_next (gimple g, enum tree_code code, rtx prev,
+expand_ccmp_next (gimple *g, enum tree_code code, rtx prev,
 		  rtx *prep_seq, rtx *gen_seq)
 {
   enum rtx_code rcode;
@@ -176,12 +163,12 @@ expand_ccmp_next (gimple g, enum tree_code code, rtx prev,
    PREP_SEQ returns all insns to prepare opearand.
    GEN_SEQ returns all compare insns.  */
 static rtx
-expand_ccmp_expr_1 (gimple g, rtx *prep_seq, rtx *gen_seq)
+expand_ccmp_expr_1 (gimple *g, rtx *prep_seq, rtx *gen_seq)
 {
   tree exp = gimple_assign_rhs_to_tree (g);
   enum tree_code code = TREE_CODE (exp);
-  gimple gs0 = get_gimple_for_ssa_name (TREE_OPERAND (exp, 0));
-  gimple gs1 = get_gimple_for_ssa_name (TREE_OPERAND (exp, 1));
+  gimple *gs0 = get_gimple_for_ssa_name (TREE_OPERAND (exp, 0));
+  gimple *gs1 = get_gimple_for_ssa_name (TREE_OPERAND (exp, 1));
   rtx tmp;
   enum tree_code code0 = gimple_assign_rhs_code (gs0);
   enum tree_code code1 = gimple_assign_rhs_code (gs1);
@@ -243,7 +230,7 @@ expand_ccmp_expr_1 (gimple g, rtx *prep_seq, rtx *gen_seq)
    Return NULL_RTX if G is not a legal candidate or expand fail.
    Otherwise return the target.  */
 rtx
-expand_ccmp_expr (gimple g)
+expand_ccmp_expr (gimple *g)
 {
   rtx_insn *last;
   rtx tmp;

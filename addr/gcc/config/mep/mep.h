@@ -499,8 +499,6 @@ typedef struct
 
 #define DEFAULT_PCC_STRUCT_RETURN 0
 
-#define STRUCT_VALUE 0
-
 #define FUNCTION_OK_FOR_SIBCALL(DECL) mep_function_ok_for_sibcall(DECL)
 
 /* Prologue and epilogues are all handled via RTL.  */
@@ -762,10 +760,10 @@ typedef struct
 
 #define CASE_VECTOR_MODE SImode
 
-#define WORD_REGISTER_OPERATIONS
+#define WORD_REGISTER_OPERATIONS 1
 #define LOAD_EXTEND_OP(MODE) SIGN_EXTEND
 
-#define SHORT_IMMEDIATES_SIGN_EXTEND
+#define SHORT_IMMEDIATES_SIGN_EXTEND 1
 
 #define MOVE_MAX 4
 

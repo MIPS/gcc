@@ -82,9 +82,8 @@ typedef const struct hwivec_def *const_hwivec;
 union tree_node;
 typedef union tree_node *tree;
 typedef const union tree_node *const_tree;
-typedef struct gimple_statement_base *gimple;
-typedef const struct gimple_statement_base *const_gimple;
-typedef gimple gimple_seq;
+struct gimple;
+typedef gimple *gimple_seq;
 struct gimple_stmt_iterator;
 
 /* Forward decls for leaf gimple subclasses (for individual gimple codes).
@@ -210,6 +209,13 @@ enum var_init_status
   VAR_INIT_STATUS_INITIALIZED
 };
 
+/* The type of an alias set.  Code currently assumes that variables of
+   this type can take the values 0 (the alias set which aliases
+   everything) and -1 (sometimes indicating that the alias set is
+   unknown, sometimes indicating a memory barrier) and -2 (indicating
+   that the alias set should be set to a unique value but has not been
+   set yet).  */
+typedef int alias_set_type;
 
 struct edge_def;
 typedef struct edge_def *edge;
@@ -218,9 +224,16 @@ struct basic_block_def;
 typedef struct basic_block_def *basic_block;
 typedef const struct basic_block_def *const_basic_block;
 
-#define obstack_chunk_alloc	xmalloc
-#define obstack_chunk_free	free
-#define OBSTACK_CHUNK_SIZE	0
+#if !defined (GENERATOR_FILE)
+# define OBSTACK_CHUNK_SIZE     memory_block_pool::block_size
+# define obstack_chunk_alloc    mempool_obstack_chunk_alloc
+# define obstack_chunk_free     mempool_obstack_chunk_free
+#else
+# define OBSTACK_CHUNK_SIZE     0
+# define obstack_chunk_alloc    xmalloc
+# define obstack_chunk_free     free
+#endif
+
 #define gcc_obstack_init(OBSTACK)				\
   obstack_specify_allocation ((OBSTACK), OBSTACK_CHUNK_SIZE, 0,	\
 			      obstack_chunk_alloc,		\
@@ -261,6 +274,16 @@ enum function_class {
   function_c99_math_complex,
   function_sincos,
   function_c11_misc
+};
+
+/* Enumerate visibility settings.  This is deliberately ordered from most
+   to least visibility.  */
+enum symbol_visibility
+{
+  VISIBILITY_DEFAULT,
+  VISIBILITY_PROTECTED,
+  VISIBILITY_HIDDEN,
+  VISIBILITY_INTERNAL
 };
 
 /* Suppose that higher bits are target dependent. */
@@ -311,6 +334,7 @@ typedef unsigned char uchar;
 #include "hash-set.h"
 #include "input.h"
 #include "is-a.h"
+#include "memory-block.h"
 #endif /* GENERATOR_FILE && !USED_FOR_TARGET */
 
 #endif /* coretypes.h */

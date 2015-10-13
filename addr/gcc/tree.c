@@ -30,20 +30,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
 #include "flags.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "tm_p.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "obstack.h"
 #include "toplev.h" /* get_random_seed */
 #include "filenames.h"
 #include "output.h"
@@ -52,25 +51,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "bitmap.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "tree-phinodes.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "rtl.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -196,21 +180,15 @@ struct GTY((for_user)) type_hash {
 /* Initial size of the hash table (rounded to next prime).  */
 #define TYPE_HASH_INITIAL_SIZE 1000
 
-struct type_cache_hasher : ggc_cache_hasher<type_hash *>
+struct type_cache_hasher : ggc_cache_ptr_hash<type_hash>
 {
   static hashval_t hash (type_hash *t) { return t->hash; }
   static bool equal (type_hash *a, type_hash *b);
 
-  static void
-  handle_cache_entry (type_hash *&t)
+  static int
+  keep_cache_entry (type_hash *&t)
   {
-    extern void gt_ggc_mx (type_hash *&);
-    if (t == HTAB_DELETED_ENTRY || t == HTAB_EMPTY_ENTRY)
-      return;
-    else if (ggc_marked_p (t->type))
-      gt_ggc_mx (t);
-    else
-      t = static_cast<type_hash *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (t->type);
   }
 };
 
@@ -226,7 +204,7 @@ static GTY ((cache)) hash_table<type_cache_hasher> *type_hash_table;
 /* Hash table and temporary node for larger integer const values.  */
 static GTY (()) tree int_cst_node;
 
-struct int_cst_hasher : ggc_cache_hasher<tree>
+struct int_cst_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t);
   static bool equal (tree x, tree y);
@@ -242,7 +220,7 @@ static GTY ((cache)) hash_table<int_cst_hasher> *int_cst_hash_table;
 static GTY (()) tree cl_optimization_node;
 static GTY (()) tree cl_target_option_node;
 
-struct cl_option_hasher : ggc_cache_hasher<tree>
+struct cl_option_hasher : ggc_cache_ptr_hash<tree_node>
 {
   static hashval_t hash (tree t);
   static bool equal (tree x, tree y);
@@ -259,7 +237,7 @@ static GTY ((cache))
 static GTY ((cache))
      hash_table<tree_decl_map_cache_hasher> *value_expr_for_decl;
 
-     struct tree_vec_map_cache_hasher : ggc_cache_hasher<tree_vec_map *>
+struct tree_vec_map_cache_hasher : ggc_cache_ptr_hash<tree_vec_map>
 {
   static hashval_t hash (tree_vec_map *m) { return DECL_UID (m->base.from); }
 
@@ -269,16 +247,10 @@ static GTY ((cache))
     return a->base.from == b->base.from;
   }
 
-  static void
-  handle_cache_entry (tree_vec_map *&m)
+  static int
+  keep_cache_entry (tree_vec_map *&m)
   {
-    extern void gt_ggc_mx (tree_vec_map *&);
-    if (m == HTAB_EMPTY_ENTRY || m == HTAB_DELETED_ENTRY)
-      return;
-    else if (ggc_marked_p (m->base.from))
-      gt_ggc_mx (m);
-    else
-      m = static_cast<tree_vec_map *> (HTAB_DELETED_ENTRY);
+    return ggc_marked_p (m->base.from);
   }
 };
 
@@ -720,8 +692,8 @@ decl_section_name (const_tree node)
   return snode->get_section ();
 }
 
-/* Set section section name of NODE to VALUE (that is expected to
-   be identifier node)  */
+/* Set section name of NODE to VALUE (that is expected to be
+   identifier node) */
 void
 set_decl_section_name (tree node, const char *value)
 {
@@ -1095,9 +1067,20 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
       break;
 
     case tcc_exceptional:
-      if (code == TARGET_OPTION_NODE)
-	{
-	  TREE_TARGET_OPTION(t) = ggc_cleared_alloc<struct cl_target_option> ();
+      switch (code)
+        {
+	case TARGET_OPTION_NODE:
+	  TREE_TARGET_OPTION(t)
+			    = ggc_cleared_alloc<struct cl_target_option> ();
+	  break;
+
+	case OPTIMIZATION_NODE:
+	  TREE_OPTIMIZATION (t)
+			    = ggc_cleared_alloc<struct cl_optimization> ();
+	  break;
+
+	default:
+	  break;
 	}
       break;
 
@@ -1187,6 +1170,12 @@ copy_node_stat (tree node MEM_STAT_DECL)
 	TREE_TARGET_OPTION (t) = ggc_alloc<struct cl_target_option>();
 	memcpy (TREE_TARGET_OPTION (t), TREE_TARGET_OPTION (node),
 		sizeof (struct cl_target_option));
+      }
+    else if (code == OPTIMIZATION_NODE)
+      {
+	TREE_OPTIMIZATION (t) = ggc_alloc<struct cl_optimization>();
+	memcpy (TREE_OPTIMIZATION (t), TREE_OPTIMIZATION (node),
+		sizeof (struct cl_optimization));
       }
 
   return t;
@@ -1341,7 +1330,7 @@ force_fit_type (tree type, const wide_int_ref &cst,
 /* These are the hash table functions for the hash table of INTEGER_CST
    nodes of a sizetype.  */
 
-/* Return the hash code code X, an INTEGER_CST.  */
+/* Return the hash code X, an INTEGER_CST.  */
 
 hashval_t
 int_cst_hasher::hash (tree x)
@@ -1888,6 +1877,14 @@ build_real (tree type, REAL_VALUE_TYPE d)
   return v;
 }
 
+/* Like build_real, but first truncate D to the type.  */
+
+tree
+build_real_truncate (tree type, REAL_VALUE_TYPE d)
+{
+  return build_real (type, real_value_truncate (TYPE_MODE (type), d));
+}
+
 /* Return a new REAL_CST node whose type is TYPE
    and whose value is the integer value of the INTEGER_CST node I.  */
 
@@ -1963,6 +1960,21 @@ build_complex (tree type, tree real, tree imag)
   TREE_TYPE (t) = type ? type : build_complex_type (TREE_TYPE (real));
   TREE_OVERFLOW (t) = TREE_OVERFLOW (real) | TREE_OVERFLOW (imag);
   return t;
+}
+
+/* Return the constant 1 in type TYPE.  If TYPE has several elements, each
+   element is set to 1.  In particular, this is 1 + i for complex types.  */
+
+tree
+build_each_one_cst (tree type)
+{
+  if (TREE_CODE (type) == COMPLEX_TYPE)
+    {
+      tree scalar = build_one_cst (TREE_TYPE (type));
+      return build_complex (type, scalar, scalar);
+    }
+  else
+    return build_one_cst (type);
 }
 
 /* Return a constant of arithmetic type TYPE which is the
@@ -2211,6 +2223,17 @@ grow_tree_vec_stat (tree v, int len MEM_STAT_DECL)
   return v;
 }
 
+/* Return 1 if EXPR is the constant zero, whether it is integral, float or
+   fixed, and scalar, complex or vector.  */
+
+int
+zerop (const_tree expr)
+{
+  return (integer_zerop (expr)
+	  || real_zerop (expr)
+	  || fixed_zerop (expr));
+}
+
 /* Return 1 if EXPR is the integer constant zero or a complex constant
    of zero.  */
 
@@ -2531,7 +2554,7 @@ real_zerop (const_tree expr)
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst0)
+      return real_equal (&TREE_REAL_CST (expr), &dconst0)
 	     && !(DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (expr))));
     case COMPLEX_CST:
       return real_zerop (TREE_REALPART (expr))
@@ -2561,7 +2584,7 @@ real_onep (const_tree expr)
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconst1)
+      return real_equal (&TREE_REAL_CST (expr), &dconst1)
 	     && !(DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (expr))));
     case COMPLEX_CST:
       return real_onep (TREE_REALPART (expr))
@@ -2590,7 +2613,7 @@ real_minus_onep (const_tree expr)
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
-      return REAL_VALUES_EQUAL (TREE_REAL_CST (expr), dconstm1)
+      return real_equal (&TREE_REAL_CST (expr), &dconstm1)
 	     && !(DECIMAL_FLOAT_MODE_P (TYPE_MODE (TREE_TYPE (expr))));
     case COMPLEX_CST:
       return real_minus_onep (TREE_REALPART (expr))
@@ -5002,6 +5025,8 @@ comp_type_attributes (const_tree type1, const_tree type2)
       if (!a)
         return 1;
     }
+  if (lookup_attribute ("transaction_safe", CONST_CAST_TREE (a)))
+    return 0;
   /* As some type combinations - like default calling-convention - might
      be compatible, we have to call the target hook to get the final result.  */
   return targetm.comp_type_attributes (type1, type2);
@@ -5774,7 +5799,7 @@ find_decls_types_in_node (struct cgraph_node *n, struct free_lang_data_d *fld)
 
       for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
 	{
-	  gimple stmt = gsi_stmt (si);
+	  gimple *stmt = gsi_stmt (si);
 
 	  if (is_gimple_call (stmt))
 	    find_decls_types (gimple_call_fntype (stmt), fld);
@@ -7345,7 +7370,7 @@ simple_cst_equal (const_tree t1, const_tree t2)
       return wi::to_widest (t1) == wi::to_widest (t2);
 
     case REAL_CST:
-      return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+      return real_identical (&TREE_REAL_CST (t1), &TREE_REAL_CST (t2));
 
     case FIXED_CST:
       return FIXED_VALUES_IDENTICAL (TREE_FIXED_CST (t1), TREE_FIXED_CST (t2));
@@ -7508,6 +7533,8 @@ valid_constant_size_p (const_tree size)
 unsigned int
 element_precision (const_tree type)
 {
+  if (!TYPE_P (type))
+    type = TREE_TYPE (type);
   enum tree_code code = TREE_CODE (type);
   if (code == COMPLEX_TYPE || code == VECTOR_TYPE)
     type = TREE_TYPE (type);
@@ -7591,6 +7618,75 @@ commutative_ternary_tree_code (enum tree_code code)
       break;
     }
   return false;
+}
+
+/* Returns true if CODE can overflow.  */
+
+bool
+operation_can_overflow (enum tree_code code)
+{
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case LSHIFT_EXPR:
+      /* Can overflow in various ways.  */
+      return true;
+    case TRUNC_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+      /* For INT_MIN / -1.  */
+      return true;
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+      /* For -INT_MIN.  */
+      return true;
+    default:
+      /* These operators cannot overflow.  */
+      return false;
+    }
+}
+
+/* Returns true if CODE operating on operands of type TYPE doesn't overflow, or
+   ftrapv doesn't generate trapping insns for CODE.  */
+
+bool
+operation_no_trapping_overflow (tree type, enum tree_code code)
+{
+  gcc_checking_assert (ANY_INTEGRAL_TYPE_P (type));
+
+  /* We don't generate instructions that trap on overflow for complex or vector
+     types.  */
+  if (!INTEGRAL_TYPE_P (type))
+    return true;
+
+  if (!TYPE_OVERFLOW_TRAPS (type))
+    return true;
+
+  switch (code)
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+      /* These operators can overflow, and -ftrapv generates trapping code for
+	 these.  */
+      return false;
+    case TRUNC_DIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case LSHIFT_EXPR:
+      /* These operators can overflow, but -ftrapv does not generate trapping
+	 code for these.  */
+      return true;
+    default:
+      /* These operators cannot overflow.  */
+      return true;
+    }
 }
 
 namespace inchash
@@ -10322,7 +10418,7 @@ build_common_builtin_nodes (void)
   ftype = build_function_type_list (ptr_type_node,
 				    integer_type_node, NULL_TREE);
   ecf_flags = ECF_PURE | ECF_NOTHROW | ECF_LEAF;
-  /* Only use TM_PURE if we we have TM language support.  */
+  /* Only use TM_PURE if we have TM language support.  */
   if (builtin_decl_explicit_p (BUILT_IN_TM_LOAD_1))
     ecf_flags |= ECF_TM_PURE;
   local_define_builtin ("__builtin_eh_pointer", ftype, BUILT_IN_EH_POINTER,
@@ -11719,7 +11815,7 @@ tree_nonartificial_location (tree exp)
 /* These are the hash table functions for the hash table of OPTIMIZATION_NODEq
    nodes.  */
 
-/* Return the hash code code X, an OPTIMIZATION_NODE or TARGET_OPTION code.  */
+/* Return the hash code X, an OPTIMIZATION_NODE or TARGET_OPTION code.  */
 
 hashval_t
 cl_option_hasher::hash (tree x)
@@ -12005,7 +12101,7 @@ strip_float_extensions (tree exp)
 	       && exact_real_truncate (TYPE_MODE (double_type_node), &orig))
 	type = double_type_node;
       if (type)
-	return build_real (type, real_value_truncate (TYPE_MODE (type), orig));
+	return build_real_truncate (type, orig);
     }
 
   if (!CONVERT_EXPR_P (exp))
@@ -12916,6 +13012,23 @@ verify_type_variant (const_tree t, tree tv)
    back to pointer-comparison of TYPE_CANONICAL for aggregates
    for example.  */
 
+/* Return true if TYPE_UNSIGNED of TYPE should be ignored for canonical
+   type calculation because we need to allow inter-operability between signed
+   and unsigned variants.  */
+
+bool
+type_with_interoperable_signedness (const_tree type)
+{
+  /* Fortran standard require C_SIGNED_CHAR to be interoperable with both
+     signed char and unsigned char.  Similarly fortran FE builds
+     C_SIZE_T as signed type, while C defines it unsigned.  */
+
+  return tree_code_for_canonical_type_merging (TREE_CODE (type))
+	   == INTEGER_TYPE
+         && (TYPE_PRECISION (type) == TYPE_PRECISION (signed_char_type_node)
+	     || TYPE_PRECISION (type) == TYPE_PRECISION (size_type_node));
+}
+
 /* Return true iff T1 and T2 are structurally identical for what
    TBAA is concerned.  
    This function is used both by lto.c canonical type merging and by the
@@ -12966,8 +13079,8 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
     return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
 
   /* Can't be the same type if the types don't have the same code.  */
-  if (tree_code_for_canonical_type_merging (TREE_CODE (t1))
-      != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
+  enum tree_code code = tree_code_for_canonical_type_merging (TREE_CODE (t1));
+  if (code != tree_code_for_canonical_type_merging (TREE_CODE (t2)))
     return false;
 
   /* Qualifiers do not matter for canonical type comparison purposes.  */
@@ -12990,9 +13103,14 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
       || TREE_CODE (t1) == OFFSET_TYPE
       || POINTER_TYPE_P (t1))
     {
-      /* Can't be the same type if they have different sign or precision.  */
-      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2)
-	  || TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2))
+      /* Can't be the same type if they have different recision.  */
+      if (TYPE_PRECISION (t1) != TYPE_PRECISION (t2))
+	return false;
+
+      /* In some cases the signed and unsigned types are required to be
+	 inter-operable.  */
+      if (TYPE_UNSIGNED (t1) != TYPE_UNSIGNED (t2)
+	  && !type_with_interoperable_signedness (t1))
 	return false;
 
       /* Fortran's C_SIGNED_CHAR is !TYPE_STRING_FLAG but needs to be
@@ -13497,5 +13615,68 @@ verify_type (const_tree t)
       internal_error ("verify_type failed");
     }
 }
+
+
+/* Return true if ARG is marked with the nonnull attribute in the
+   current function signature.  */
+
+bool
+nonnull_arg_p (const_tree arg)
+{
+  tree t, attrs, fntype;
+  unsigned HOST_WIDE_INT arg_num;
+
+  gcc_assert (TREE_CODE (arg) == PARM_DECL && POINTER_TYPE_P (TREE_TYPE (arg)));
+
+  /* The static chain decl is always non null.  */
+  if (arg == cfun->static_chain_decl)
+    return true;
+
+  /* THIS argument of method is always non-NULL.  */
+  if (TREE_CODE (TREE_TYPE (cfun->decl)) == METHOD_TYPE
+      && arg == DECL_ARGUMENTS (cfun->decl)
+      && flag_delete_null_pointer_checks)
+    return true;
+
+  /* Values passed by reference are always non-NULL.  */
+  if (TREE_CODE (TREE_TYPE (arg)) == REFERENCE_TYPE
+      && flag_delete_null_pointer_checks)
+    return true;
+
+  fntype = TREE_TYPE (cfun->decl);
+  for (attrs = TYPE_ATTRIBUTES (fntype); attrs; attrs = TREE_CHAIN (attrs))
+    {
+      attrs = lookup_attribute ("nonnull", attrs);
+
+      /* If "nonnull" wasn't specified, we know nothing about the argument.  */
+      if (attrs == NULL_TREE)
+	return false;
+
+      /* If "nonnull" applies to all the arguments, then ARG is non-null.  */
+      if (TREE_VALUE (attrs) == NULL_TREE)
+	return true;
+
+      /* Get the position number for ARG in the function signature.  */
+      for (arg_num = 1, t = DECL_ARGUMENTS (cfun->decl);
+	   t;
+	   t = DECL_CHAIN (t), arg_num++)
+	{
+	  if (t == arg)
+	    break;
+	}
+
+      gcc_assert (t == arg);
+
+      /* Now see if ARG_NUM is mentioned in the nonnull list.  */
+      for (t = TREE_VALUE (attrs); t; t = TREE_CHAIN (t))
+	{
+	  if (compare_tree_int (TREE_VALUE (t), arg_num) == 0)
+	    return true;
+	}
+    }
+
+  return false;
+}
+
 
 #include "gt-tree.h"

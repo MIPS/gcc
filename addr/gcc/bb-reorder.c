@@ -17,6 +17,18 @@
    along with GCC; see the file COPYING3.  If not see
    <http://www.gnu.org/licenses/>.  */
 
+/* This file contains the "reorder blocks" pass, which changes the control
+   flow of a function to encounter fewer branches; the "partition blocks"
+   pass, which divides the basic blocks into "hot" and "cold" partitions,
+   which are kept separate; and the "duplicate computed gotos" pass, which
+   duplicates blocks ending in an indirect jump.
+
+   There are two algorithms for "reorder blocks": the "simple" algorithm,
+   which just rearranges blocks, trying to minimize the number of executed
+   unconditional branches; and the "software trace cache" algorithm, which
+   also copies code, and in general tries a lot harder to have long linear
+   pieces of machine code executed.  This algorithm is described next.  */
+
 /* This (greedy) algorithm constructs traces in several rounds.
    The construction starts from "seeds".  The seed for the first round
    is the entry point of the function.  When there are more than one seed,
@@ -81,19 +93,17 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
 #include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "regs.h"
 #include "flags.h"
 #include "output.h"
 #include "target.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "tm_p.h"
-#include "obstack.h"
 #include "insn-config.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -108,18 +118,11 @@
 #include "diagnostic-core.h"
 #include "toplev.h" /* user_defined_section_attribute */
 #include "tree-pass.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "bb-reorder.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "except.h"
 #include "fibonacci_heap.h"
@@ -151,7 +154,7 @@ typedef fibonacci_heap <long, basic_block_def> bb_heap_t;
 typedef fibonacci_node <long, basic_block_def> bb_heap_node_t;
 
 /* Structure to hold needed information for each basic block.  */
-typedef struct bbro_basic_block_data_def
+struct bbro_basic_block_data
 {
   /* Which trace is the bb start of (-1 means it is not a start of any).  */
   int start_of_trace;
@@ -170,7 +173,7 @@ typedef struct bbro_basic_block_data_def
 
   /* Which heap node is BB in (if any)?  */
   bb_heap_node_t *node;
-} bbro_basic_block_data;
+};
 
 /* The current size of the following dynamic array.  */
 static int array_size;
@@ -1387,7 +1390,7 @@ get_uncond_jump_length (void)
 
   start_sequence ();
   rtx_code_label *label = emit_label (gen_label_rtx ());
-  rtx_insn *jump = emit_jump_insn (gen_jump (label));
+  rtx_insn *jump = emit_jump_insn (targetm.gen_jump (label));
   length = get_attr_min_length (jump);
   end_sequence ();
 
@@ -1422,7 +1425,7 @@ fix_up_crossing_landing_pad (eh_landing_pad old_lp, basic_block old_bb)
   post_bb = BLOCK_FOR_INSN (old_lp->landing_pad);
   post_bb = single_succ (post_bb);
   rtx_code_label *post_label = block_label (post_bb);
-  jump = emit_jump_insn (gen_jump (post_label));
+  jump = emit_jump_insn (targetm.gen_jump (post_label));
   JUMP_LABEL (jump) = post_label;
 
   /* Create new basic block to be dest for lp.  */
@@ -1768,7 +1771,7 @@ add_labels_and_missing_jumps (vec<edge> crossing_edges)
       /* Make sure there's only one successor.  */
       gcc_assert (single_succ_p (src));
 
-      new_jump = emit_jump_insn_after (gen_jump (label), BB_END (src));
+      new_jump = emit_jump_insn_after (targetm.gen_jump (label), BB_END (src));
       BB_END (src) = new_jump;
       JUMP_LABEL (new_jump) = label;
       LABEL_NUSES (label) += 1;
@@ -2084,7 +2087,7 @@ fix_crossing_conditional_branches (void)
 		  gcc_assert (GET_CODE (old_label) == LABEL_REF);
 		  old_jump_target = old_jump_insn->jump_target ();
 		  new_jump = as_a <rtx_jump_insn *>
-				(emit_jump_insn (gen_jump (old_jump_target)));
+		    (emit_jump_insn (targetm.gen_jump (old_jump_target)));
 		  new_jump->set_jump_target (old_jump_target);
 
 		  last_bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
@@ -2235,23 +2238,17 @@ update_crossing_jump_flags (void)
 	}
 }
 
-/* Reorder basic blocks.  The main entry point to this file.  FLAGS is
-   the set of flags to pass to cfg_layout_initialize().  */
+/* Reorder basic blocks using the software trace cache (STC) algorithm.  */
 
 static void
-reorder_basic_blocks (void)
+reorder_basic_blocks_software_trace_cache (void)
 {
+  if (dump_file)
+    fprintf (dump_file, "\nReordering with the STC algorithm.\n\n");
+
   int n_traces;
   int i;
   struct trace *traces;
-
-  gcc_assert (current_ir_type () == IR_RTL_CFGLAYOUT);
-
-  if (n_basic_blocks_for_fn (cfun) <= NUM_FIXED_BLOCKS + 1)
-    return;
-
-  set_edge_can_fallthru_flag ();
-  mark_dfs_back_edges ();
 
   /* We are estimating the length of uncond jump insn only once since the code
      for getting the insn length always returns the minimal length now.  */
@@ -2277,6 +2274,197 @@ reorder_basic_blocks (void)
   connect_traces (n_traces, traces);
   FREE (traces);
   FREE (bbd);
+}
+
+/* Return true if edge E1 is more desirable as a fallthrough edge than
+   edge E2 is.  */
+
+static bool
+edge_order (edge e1, edge e2)
+{
+  return EDGE_FREQUENCY (e1) > EDGE_FREQUENCY (e2);
+}
+
+/* Reorder basic blocks using the "simple" algorithm.  This tries to
+   maximize the dynamic number of branches that are fallthrough, without
+   copying instructions.  The algorithm is greedy, looking at the most
+   frequently executed branch first.  */
+
+static void
+reorder_basic_blocks_simple (void)
+{
+  if (dump_file)
+    fprintf (dump_file, "\nReordering with the \"simple\" algorithm.\n\n");
+
+  edge *edges = new edge[2 * n_basic_blocks_for_fn (cfun)];
+
+  /* First, collect all edges that can be optimized by reordering blocks:
+     simple jumps and conditional jumps, as well as the function entry edge.  */
+
+  int n = 0;
+  edges[n++] = EDGE_SUCC (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0);
+
+  basic_block bb;
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      rtx_insn *end = BB_END (bb);
+
+      if (computed_jump_p (end) || tablejump_p (end, NULL, NULL))
+	continue;
+
+      /* We cannot optimize asm goto.  */
+      if (JUMP_P (end) && extract_asm_operands (end))
+	continue;
+
+      if (any_condjump_p (end))
+	{
+	  edge e0 = EDGE_SUCC (bb, 0);
+	  edge e1 = EDGE_SUCC (bb, 1);
+	  /* When optimizing for size it is best to keep the original
+	     fallthrough edges.  */
+	  if (e1->flags & EDGE_FALLTHRU)
+	    std::swap (e0, e1);
+	  edges[n++] = e0;
+	  edges[n++] = e1;
+	}
+      else if (single_succ_p (bb))
+	edges[n++] = EDGE_SUCC (bb, 0);
+    }
+
+  /* Sort the edges, the most desirable first.  When optimizing for size
+     all edges are equally desirable.  */
+
+  if (optimize_function_for_speed_p (cfun))
+    std::stable_sort (edges, edges + n, edge_order);
+
+  /* Now decide which of those edges to make fallthrough edges.  We set
+     BB_VISITED if a block already has a fallthrough successor assigned
+     to it.  We make ->AUX of an endpoint point to the opposite endpoint
+     of a sequence of blocks that fall through, and ->AUX will be NULL
+     for a block that is in such a sequence but not an endpoint anymore.
+
+     To start with, everything points to itself, nothing is assigned yet.  */
+
+  FOR_ALL_BB_FN (bb, cfun)
+    bb->aux = bb;
+
+  EXIT_BLOCK_PTR_FOR_FN (cfun)->aux = 0;
+
+  /* Now for all edges, the most desirable first, see if that edge can
+     connect two sequences.  If it can, update AUX and BB_VISITED; if it
+     cannot, zero out the edge in the table.  */
+
+  for (int j = 0; j < n; j++)
+    {
+      edge e = edges[j];
+
+      basic_block tail_a = e->src;
+      basic_block head_b = e->dest;
+      basic_block head_a = (basic_block) tail_a->aux;
+      basic_block tail_b = (basic_block) head_b->aux;
+
+      /* An edge cannot connect two sequences if:
+	 - it crosses partitions;
+	 - its src is not a current endpoint;
+	 - its dest is not a current endpoint;
+	 - or, it would create a loop.  */
+
+      if (e->flags & EDGE_CROSSING
+	  || tail_a->flags & BB_VISITED
+	  || !tail_b
+	  || (!(head_b->flags & BB_VISITED) && head_b != tail_b)
+	  || tail_a == tail_b)
+	{
+	  edges[j] = 0;
+	  continue;
+	}
+
+      tail_a->aux = 0;
+      head_b->aux = 0;
+      head_a->aux = tail_b;
+      tail_b->aux = head_a;
+      tail_a->flags |= BB_VISITED;
+    }
+
+  /* Put the pieces together, in the same order that the start blocks of
+     the sequences already had.  The hot/cold partitioning gives a little
+     complication: as a first pass only do this for blocks in the same
+     partition as the start block, and (if there is anything left to do)
+     in a second pass handle the other partition.  */
+
+  basic_block last_tail = (basic_block) ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux;
+
+  int current_partition = BB_PARTITION (last_tail);
+  bool need_another_pass = true;
+
+  for (int pass = 0; pass < 2 && need_another_pass; pass++)
+    {
+      need_another_pass = false;
+
+      FOR_EACH_BB_FN (bb, cfun)
+	if ((bb->flags & BB_VISITED && bb->aux) || bb->aux == bb)
+	  {
+	    if (BB_PARTITION (bb) != current_partition)
+	      {
+		need_another_pass = true;
+		continue;
+	      }
+
+	    last_tail->aux = bb;
+	    last_tail = (basic_block) bb->aux;
+	  }
+
+      current_partition ^= BB_HOT_PARTITION | BB_COLD_PARTITION;
+    }
+
+  last_tail->aux = 0;
+
+  /* Finally, link all the chosen fallthrough edges.  */
+
+  for (int j = 0; j < n; j++)
+    if (edges[j])
+      edges[j]->src->aux = edges[j]->dest;
+
+  delete[] edges;
+
+  /* If the entry edge no longer falls through we have to make a new
+     block so it can do so again.  */
+
+  edge e = EDGE_SUCC (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0);
+  if (e->dest != ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux)
+    {
+      force_nonfallthru (e);
+      e->src->aux = ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux;
+      BB_COPY_PARTITION (e->src, e->dest);
+    }
+}
+
+/* Reorder basic blocks.  The main entry point to this file.  */
+
+static void
+reorder_basic_blocks (void)
+{
+  gcc_assert (current_ir_type () == IR_RTL_CFGLAYOUT);
+
+  if (n_basic_blocks_for_fn (cfun) <= NUM_FIXED_BLOCKS + 1)
+    return;
+
+  set_edge_can_fallthru_flag ();
+  mark_dfs_back_edges ();
+
+  switch (flag_reorder_blocks_algorithm)
+    {
+    case REORDER_BLOCKS_ALGORITHM_SIMPLE:
+      reorder_basic_blocks_simple ();
+      break;
+
+    case REORDER_BLOCKS_ALGORITHM_STC:
+      reorder_basic_blocks_software_trace_cache ();
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
 
   relink_block_chain (/*stay_in_cfglayout_mode=*/true);
 

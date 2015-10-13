@@ -95,6 +95,13 @@
 #endif
 
 
+/* Define if your target supports default stack protector and it is enabled.
+   */
+#ifndef USED_FOR_TARGET
+#undef ENABLE_DEFAULT_SSP
+#endif
+
+
 /* Define if you want more run-time sanity checks for dataflow. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_DF_CHECKING
@@ -194,8 +201,7 @@
 
 /* Define if you want all operations on trees (the basic data structure of the
    front ends) to be checked for dynamic type safety at runtime. This is
-   moderately expensive. The tree browser debugging routines will also be
-   enabled by this option. */
+   moderately expensive. */
 #ifndef USED_FOR_TARGET
 #undef ENABLE_TREE_CHECKING
 #endif
@@ -574,6 +580,12 @@
 #endif
 
 
+/* Define if your assembler supports relocs needed by -fpic. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_AS_SMALL_PIC_RELOCS
+#endif
+
+
 /* Define if your assembler supports SPARC4 instructions. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_AS_SPARC4
@@ -922,6 +934,13 @@
 #endif
 
 
+/* Define to 1 if we found a declaration for 'setenv', otherwise define to 0.
+   */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_SETENV
+#endif
+
+
 /* Define to 1 if we found a declaration for 'setrlimit', otherwise define to
    0. */
 #ifndef USED_FOR_TARGET
@@ -1010,6 +1029,13 @@
    */
 #ifndef USED_FOR_TARGET
 #undef HAVE_DECL_TIMES
+#endif
+
+
+/* Define to 1 if we found a declaration for 'unsetenv', otherwise define to
+   0. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_DECL_UNSETENV
 #endif
 
 
@@ -1284,6 +1310,13 @@
 #endif
 
 
+/* Define if the gold linker supports split stack and is available as a
+   non-default */
+#ifndef USED_FOR_TARGET
+#undef HAVE_GOLD_NON_DEFAULT_SPLIT_STACK
+#endif
+
+
 /* Define if you have the iconv() function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_ICONV
@@ -1317,6 +1350,18 @@
 /* Define if you have a working <inttypes.h> header file. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_INTTYPES_H
+#endif
+
+
+/* Define if isl_ctx_get_max_operations exists. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_ISL_CTX_MAX_OPERATIONS
+#endif
+
+
+/* Define if isl_options_set_schedule_serialize_sccs exists. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_ISL_OPTIONS_SET_SCHEDULE_SERIALIZE_SCCS
 #endif
 
 
@@ -1360,6 +1405,12 @@
    options. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_AS_NEEDED
+#endif
+
+
+/* Define if your linker supports -z bndplt */
+#ifndef USED_FOR_TARGET
+#undef HAVE_LD_BNDPLT_SUPPORT
 #endif
 
 
@@ -1430,7 +1481,7 @@
 #endif
 
 
-/* Define if your linker supports -pie option. */
+/* Define if your linker supports PIE option. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_LD_PIE
 #endif
@@ -1584,6 +1635,12 @@
 /* Define to 1 if you have the `setrlimit' function. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_SETRLIMIT
+#endif
+
+
+/* Define if the system-provided CRTs are present on Solaris. */
+#ifndef USED_FOR_TARGET
+#undef HAVE_SOLARIS_CRTS
 #endif
 
 
@@ -1789,6 +1846,12 @@
 #endif
 
 
+/* Define if your assembler supports .dwsect 0xB0000 */
+#ifndef USED_FOR_TARGET
+#undef HAVE_XCOFF_DWARF_EXTRAS
+#endif
+
+
 /* Define if isl is in use. */
 #ifndef USED_FOR_TARGET
 #undef HAVE_isl
@@ -1869,7 +1932,7 @@
 #endif
 
 
-/* Define to hold the list of target names suitable for offloading. */
+/* Define to offload targets, separated by commas. */
 #ifndef USED_FOR_TARGET
 #undef OFFLOAD_TARGETS
 #endif

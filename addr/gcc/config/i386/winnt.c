@@ -22,13 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "function.h"
+#include "cfghooks.h"
+#include "basic-block.h"
+#include "cfg.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "output.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -38,25 +41,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "target.h"
 #include "except.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
+#include "emit-rtl.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
+#include "alloc-pool.h"
 #include "lto-streamer.h"
 #include "lto-section-names.h"
 #include "builtins.h"
@@ -94,17 +89,23 @@ tree
 ix86_handle_selectany_attribute (tree *node, tree name, tree, int,
 				 bool *no_add_attrs)
 {
+  tree decl = *node;
   /* The attribute applies only to objects that are initialized and have
      external linkage.  However, we may not know about initialization
-     until the language frontend has processed the decl. We'll check for
-     initialization later in encode_section_info.  */
-  if (TREE_CODE (*node) != VAR_DECL || !TREE_PUBLIC (*node))
-    {	
-      error ("%qE attribute applies only to initialized variables"
-       	     " with external linkage", name);
-      *no_add_attrs = true;
+     until the language frontend has processed the decl.   Therefore
+     we make sure that variable isn't initialized as common.  */
+  if (TREE_CODE (decl) != VAR_DECL || !TREE_PUBLIC (decl))
+    error ("%qE attribute applies only to initialized variables"
+       	   " with external linkage", name);
+  else
+    {
+      make_decl_one_only (decl, DECL_ASSEMBLER_NAME (decl));
+      /* A variable with attribute selectany never can be common.  */
+      DECL_COMMON (decl) = 0;
     }
 
+  /* We don't need to keep attribute itself.  */
+  *no_add_attrs = true;
   return NULL_TREE;
 }
 
@@ -325,23 +326,7 @@ i386_pe_encode_section_info (tree decl, rtx rtl, int first)
   switch (TREE_CODE (decl))
     {
     case FUNCTION_DECL:
-      break;
-
     case VAR_DECL:
-      if (lookup_attribute ("selectany", DECL_ATTRIBUTES (decl)))
-	{
-	  if (DECL_INITIAL (decl)
-	      /* If an object is initialized with a ctor, the static
-		 initialization and destruction code for it is present in
-		 each unit defining the object.  The code that calls the
-		 ctor is protected by a link-once guard variable, so that
-		 the object still has link-once semantics,  */
-	      || TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (decl)))
-	    make_decl_one_only (decl, DECL_ASSEMBLER_NAME (decl));
-	  else
-	    error ("%q+D:'selectany' attribute applies only to "
-		   "initialized objects", decl);
-	}
       break;
 
     default:
@@ -706,31 +691,6 @@ i386_pe_record_stub (const char *name)
 
 #ifdef CXX_WRAP_SPEC_LIST
 
-/* Hashtable helpers.  */
-
-struct wrapped_symbol_hasher : typed_noop_remove <char>
-{
-  typedef const char *value_type;
-  typedef const char *compare_type;
-  static inline hashval_t hash (const char *);
-  static inline bool equal (const char *, const char *);
-  static inline void remove (const char *);
-};
-
-inline hashval_t
-wrapped_symbol_hasher::hash (const char *v)
-{
-  return htab_hash_string (v);
-}
-
-/*  Hash table equality helper function.  */
-
-inline bool
-wrapped_symbol_hasher::equal (const char *x, const char *y)
-{
-  return !strcmp (x, y);
-}
-
 /* Search for a function named TARGET in the list of library wrappers
    we are using, returning a pointer to it if found or NULL if not.
    This function might be called on quite a few symbols, and we only
@@ -742,7 +702,7 @@ static const char *
 i386_find_on_wrapper_list (const char *target)
 {
   static char first_time = 1;
-  static hash_table<wrapped_symbol_hasher> *wrappers;
+  static hash_table<nofree_string_hash> *wrappers;
 
   if (first_time)
     {
@@ -755,7 +715,7 @@ i386_find_on_wrapper_list (const char *target)
       char *bufptr;
       /* Breaks up the char array into separated strings
          strings and enter them into the hash table.  */
-      wrappers = new hash_table<wrapped_symbol_hasher> (8);
+      wrappers = new hash_table<nofree_string_hash> (8);
       for (bufptr = wrapper_list_buffer; *bufptr; ++bufptr)
 	{
 	  char *found = NULL;

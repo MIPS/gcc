@@ -536,7 +536,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       const_reference
       operator[] (size_type __pos) const _GLIBCXX_NOEXCEPT
       {
-	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+	__glibcxx_assert(__pos <= this->size());
 	return this->_M_data()[__pos];
       }
 
@@ -555,7 +555,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       {
         // Allow pos == size() both in C++98 mode, as v3 extension,
 	// and in C++11 mode.
-	_GLIBCXX_DEBUG_ASSERT(__pos <= this->size());
+	__glibcxx_assert(__pos <= this->size());
         // In pedantic mode be strict in C++98 mode.
 	_GLIBCXX_DEBUG_PEDASSERT(__cplusplus >= 201103L
 				 || __pos < this->size());
@@ -613,7 +613,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  element of the %string.
        */
       reference
-      front() _GLIBCXX_NOEXCEPT
+      front() noexcept
       { return operator[](0); }
 
       /**
@@ -621,7 +621,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  element of the %string.
        */
       const_reference
-      front() const _GLIBCXX_NOEXCEPT
+      front() const noexcept
       { return operator[](0); }
 
       /**
@@ -629,7 +629,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  element of the %string.
        */
       reference
-      back() _GLIBCXX_NOEXCEPT
+      back() noexcept
       { return operator[](this->size() - 1); }
 
       /**
@@ -637,7 +637,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  last element of the %string.
        */
       const_reference
-      back() const _GLIBCXX_NOEXCEPT
+      back() const noexcept
       { return operator[](this->size() - 1); }
 #endif
 

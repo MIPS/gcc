@@ -21,30 +21,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
 #include "rtl.h"
 #include "alias.h"
-#include "symtab.h"
-#include "tree.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "varasm.h"
-#include "hard-reg-set.h"
-#include "function.h"
 #include "emit-rtl.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
+#include "target.h"
 #include "lto-streamer.h"
 #include "output.h"
 #include "ipa-utils.h"
@@ -486,7 +478,7 @@ symtab_node::create_reference (symtab_node *referred_node,
 
 ipa_ref *
 symtab_node::create_reference (symtab_node *referred_node,
-			       enum ipa_ref_use use_type, gimple stmt)
+			       enum ipa_ref_use use_type, gimple *stmt)
 {
   ipa_ref *ref = NULL, *ref2 = NULL;
   ipa_ref_list *list, *list2;
@@ -541,7 +533,7 @@ symtab_node::create_reference (symtab_node *referred_node,
 
 ipa_ref *
 symtab_node::maybe_create_reference (tree val, enum ipa_ref_use use_type,
-				     gimple stmt)
+				     gimple *stmt)
 {
   STRIP_NOPS (val);
   if (TREE_CODE (val) != ADDR_EXPR)
@@ -596,7 +588,7 @@ symtab_node::clone_referring (symtab_node *node)
 /* Clone reference REF to this symtab_node and set its stmt to STMT.  */
 
 ipa_ref *
-symtab_node::clone_reference (ipa_ref *ref, gimple stmt)
+symtab_node::clone_reference (ipa_ref *ref, gimple *stmt)
 {
   bool speculative = ref->speculative;
   unsigned int stmt_uid = ref->lto_stmt_uid;
@@ -613,7 +605,7 @@ symtab_node::clone_reference (ipa_ref *ref, gimple stmt)
 
 ipa_ref *
 symtab_node::find_reference (symtab_node *referred_node,
-			     gimple stmt, unsigned int lto_stmt_uid)
+			     gimple *stmt, unsigned int lto_stmt_uid)
 {
   ipa_ref *r = NULL;
   int i;
@@ -631,7 +623,7 @@ symtab_node::find_reference (symtab_node *referred_node,
 /* Remove all references that are associated with statement STMT.  */
 
 void
-symtab_node::remove_stmt_references (gimple stmt)
+symtab_node::remove_stmt_references (gimple *stmt)
 {
   ipa_ref *r = NULL;
   int i = 0;
@@ -1878,7 +1870,7 @@ symtab_node::call_for_symbol_and_aliases_1 (bool (*callback) (symtab_node *,
   return false;
 }
 
-/* Return ture if address of N is possibly compared.  */
+/* Return true if address of N is possibly compared.  */
 
 static bool
 address_matters_1 (symtab_node *n, void *)
@@ -1906,7 +1898,7 @@ symtab_node::address_matters_p ()
   return call_for_symbol_and_aliases (address_matters_1, NULL, true);
 }
 
-/* Return ture if symbol's alignment may be increased.  */
+/* Return true if symbol's alignment may be increased.  */
 
 bool
 symtab_node::can_increase_alignment_p (void)

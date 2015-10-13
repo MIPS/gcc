@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stringpool.h"
 #include "varasm.h"
@@ -280,7 +279,7 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
       /* Build a constructor to contain the initializations.  */
       init = build_constructor (type, v);
     }
-  else if (TREE_CODE (type) == VECTOR_TYPE)
+  else if (VECTOR_TYPE_P (type))
     init = build_zero_cst (type);
   else
     gcc_assert (TREE_CODE (type) == REFERENCE_TYPE);
@@ -322,7 +321,7 @@ build_value_init (tree type, tsubst_flags_t complain)
 
      - if T is a class type (clause 9) with either no default constructor
        (12.1) or a default constructor that is user-provided or deleted,
-       then then the object is default-initialized;
+       then the object is default-initialized;
 
      - if T is a (possibly cv-qualified) class type without a user-provided
        or deleted default constructor, then the object is zero-initialized
@@ -589,8 +588,7 @@ get_nsdmi (tree member, bool in_ctor)
 	}
       /* Strip redundant TARGET_EXPR so we don't need to remap it, and
 	 so the aggregate init code below will see a CONSTRUCTOR.  */
-      if (init && TREE_CODE (init) == TARGET_EXPR
-	  && !VOID_TYPE_P (TREE_TYPE (TARGET_EXPR_INITIAL (init))))
+      if (init && SIMPLE_TARGET_EXPR_P (init))
 	init = TARGET_EXPR_INITIAL (init);
       init = break_out_target_exprs (init);
     }
@@ -937,13 +935,15 @@ sort_mem_initializers (tree t, tree mem_inits)
       if (warn_reorder && !subobject_init)
 	{
 	  if (TREE_CODE (TREE_PURPOSE (next_subobject)) == FIELD_DECL)
-	    warning (OPT_Wreorder, "%q+D will be initialized after",
-		     TREE_PURPOSE (next_subobject));
+	    warning_at (DECL_SOURCE_LOCATION (TREE_PURPOSE (next_subobject)),
+			OPT_Wreorder, "%qD will be initialized after",
+			TREE_PURPOSE (next_subobject));
 	  else
 	    warning (OPT_Wreorder, "base %qT will be initialized after",
 		     TREE_PURPOSE (next_subobject));
 	  if (TREE_CODE (subobject) == FIELD_DECL)
-	    warning (OPT_Wreorder, "  %q+#D", subobject);
+	    warning_at (DECL_SOURCE_LOCATION (subobject),
+			OPT_Wreorder, "  %q#D", subobject);
 	  else
 	    warning (OPT_Wreorder, "  base %qT", subobject);
 	  warning_at (DECL_SOURCE_LOCATION (current_function_decl),
@@ -3384,6 +3384,18 @@ get_temp_regvar (tree type, tree init)
   return decl;
 }
 
+/* Subroutine of build_vec_init.  Returns true if assigning to an array of
+   INNER_ELT_TYPE from INIT is trivial.  */
+
+static bool
+vec_copy_assign_is_trivial (tree inner_elt_type, tree init)
+{
+  tree fromtype = inner_elt_type;
+  if (real_lvalue_p (init))
+    fromtype = cp_build_reference_type (fromtype, /*rval*/false);
+  return is_trivially_xible (MODIFY_EXPR, inner_elt_type, fromtype);
+}
+
 /* `build_vec_init' returns tree structure that performs
    initialization of a vector of aggregate types.
 
@@ -3460,8 +3472,7 @@ build_vec_init (tree base, tree maxindex, tree init,
       && TREE_CODE (atype) == ARRAY_TYPE
       && TREE_CONSTANT (maxindex)
       && (from_array == 2
-	  ? (!CLASS_TYPE_P (inner_elt_type)
-	     || !TYPE_HAS_COMPLEX_COPY_ASSIGN (inner_elt_type))
+	  ? vec_copy_assign_is_trivial (inner_elt_type, init)
 	  : !TYPE_NEEDS_CONSTRUCTING (type))
       && ((TREE_CODE (init) == CONSTRUCTOR
 	   /* Don't do this if the CONSTRUCTOR might contain something
@@ -3589,7 +3600,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 
       if (length_check)
 	{
-	  tree nelts = size_int (CONSTRUCTOR_NELTS (init) - 1);
+	  tree nelts = build_int_cst (ptrdiff_type_node,
+				      CONSTRUCTOR_NELTS (init) - 1);
 	  if (TREE_CODE (atype) != ARRAY_TYPE)
 	    {
 	      if (flag_exceptions)

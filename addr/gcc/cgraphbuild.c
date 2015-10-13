@@ -21,29 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
+#include "gimple.h"
 #include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "langhooks.h"
 #include "intl.h"
 #include "tree-pass.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
 #include "except.h"
@@ -230,7 +220,7 @@ compute_call_stmt_bb_frequency (tree decl, basic_block bb)
 /* Mark address taken in STMT.  */
 
 static bool
-mark_address (gimple stmt, tree addr, tree, void *data)
+mark_address (gimple *stmt, tree addr, tree, void *data)
 {
   addr = get_base_address (addr);
   if (TREE_CODE (addr) == FUNCTION_DECL)
@@ -253,7 +243,7 @@ mark_address (gimple stmt, tree addr, tree, void *data)
 /* Mark load of T.  */
 
 static bool
-mark_load (gimple stmt, tree t, tree, void *data)
+mark_load (gimple *stmt, tree t, tree, void *data)
 {
   t = get_base_address (t);
   if (t && TREE_CODE (t) == FUNCTION_DECL)
@@ -277,7 +267,7 @@ mark_load (gimple stmt, tree t, tree, void *data)
 /* Mark store of T.  */
 
 static bool
-mark_store (gimple stmt, tree t, tree, void *data)
+mark_store (gimple *stmt, tree t, tree, void *data)
 {
   t = get_base_address (t);
   if (t && TREE_CODE (t) == VAR_DECL
@@ -293,7 +283,7 @@ mark_store (gimple stmt, tree t, tree, void *data)
 /* Record all references from cgraph_node that are taken in statement STMT.  */
 
 void
-cgraph_node::record_stmt_references (gimple stmt)
+cgraph_node::record_stmt_references (gimple *stmt)
 {
   walk_stmt_load_store_addr_ops (stmt, this, mark_load, mark_store,
 				 mark_address);
@@ -344,7 +334,7 @@ pass_build_cgraph_edges::execute (function *fun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  tree decl;
 
 	  if (is_gimple_debug (stmt))
@@ -442,7 +432,7 @@ cgraph_edge::rebuild_edges (void)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  tree decl;
 
 	  if (gcall *call_stmt = dyn_cast <gcall *> (stmt))

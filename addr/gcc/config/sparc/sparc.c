@@ -23,25 +23,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "rtl.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "insn-codes.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
-#include "function.h"
 #include "except.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -55,33 +55,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "debug.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "params.h"
-#include "df.h"
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
 #include "builtins.h"
 #include "rtl-iter.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* Processor costs */
 
@@ -595,7 +589,7 @@ static rtx sparc_tls_get_addr (void);
 static rtx sparc_tls_got (void);
 static int sparc_register_move_cost (machine_mode,
 				     reg_class_t, reg_class_t);
-static bool sparc_rtx_costs (rtx, int, int, int, int *, bool);
+static bool sparc_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 static rtx sparc_function_value (const_tree, const_tree, bool);
 static rtx sparc_libcall_value (machine_mode, const_rtx);
 static bool sparc_function_value_regno_p (const unsigned int);
@@ -1656,11 +1650,9 @@ fp_sethi_p (rtx op)
 {
   if (GET_CODE (op) == CONST_DOUBLE)
     {
-      REAL_VALUE_TYPE r;
       long i;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), i);
       return !SPARC_SIMM13_P (i) && SPARC_SETHI_P (i);
     }
 
@@ -1676,11 +1668,9 @@ fp_mov_p (rtx op)
 {
   if (GET_CODE (op) == CONST_DOUBLE)
     {
-      REAL_VALUE_TYPE r;
       long i;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), i);
       return SPARC_SIMM13_P (i);
     }
 
@@ -1699,11 +1689,9 @@ fp_high_losum_p (rtx op)
      be moved using a single insn will do.  */
   if (GET_CODE (op) == CONST_DOUBLE)
     {
-      REAL_VALUE_TYPE r;
       long i;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (r, op);
-      REAL_VALUE_TO_TARGET_SINGLE (r, i);
+      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), i);
       return !SPARC_SIMM13_P (i) && !SPARC_SETHI_P (i);
     }
 
@@ -4993,11 +4981,11 @@ sparc_compute_frame_size (HOST_WIDE_INT size, int leaf_function)
   else
     {
       /* We subtract STARTING_FRAME_OFFSET, remember it's negative.  */
-      apparent_frame_size = (size - STARTING_FRAME_OFFSET + 7) & -8;
+      apparent_frame_size = ROUND_UP (size - STARTING_FRAME_OFFSET, 8);
       apparent_frame_size += n_global_fp_regs * 4;
 
       /* We need to add the size of the outgoing argument area.  */
-      frame_size = apparent_frame_size + ((args_size + 7) & -8);
+      frame_size = apparent_frame_size + ROUND_UP (args_size, 8);
 
       /* And that of the register window save area.  */
       frame_size += FIRST_PARM_OFFSET (cfun->decl);
@@ -5128,7 +5116,7 @@ sparc_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      rounded_size = size & -PROBE_INTERVAL;
+      rounded_size = ROUND_DOWN (size, PROBE_INTERVAL);
       emit_move_insn (g4, GEN_INT (rounded_size));
 
 
@@ -5328,8 +5316,9 @@ emit_save_or_restore_regs (unsigned int low, unsigned int high, rtx base,
 	  else  /* action_true == SORR_RESTORE */
 	    emit_move_insn (gen_rtx_REG (mode, regno), mem);
 
-	  /* Always preserve double-word alignment.  */
-	  offset = (offset + 8) & -8;
+	  /* Bump and round down to double word
+	     in case we already bumped by 4.  */
+	  offset = ROUND_DOWN (offset + 8, 8);
 	}
     }
 
@@ -6451,8 +6440,8 @@ function_arg_record_value_1 (const_tree type, HOST_WIDE_INT startbitpos,
 		  unsigned int startbit, endbit;
 		  int intslots, this_slotno;
 
-		  startbit = parms->intoffset & -BITS_PER_WORD;
-		  endbit   = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+		  startbit = ROUND_DOWN (parms->intoffset, BITS_PER_WORD);
+		  endbit   = ROUND_UP (bitpos, BITS_PER_WORD);
 
 		  intslots = (endbit - startbit) / BITS_PER_WORD;
 		  this_slotno = parms->slotno + parms->intoffset
@@ -6507,8 +6496,8 @@ function_arg_record_value_3 (HOST_WIDE_INT bitpos,
   intoffset = parms->intoffset;
   parms->intoffset = -1;
 
-  startbit = intoffset & -BITS_PER_WORD;
-  endbit = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+  startbit = ROUND_DOWN (intoffset, BITS_PER_WORD);
+  endbit = ROUND_UP (bitpos, BITS_PER_WORD);
   intslots = (endbit - startbit) / BITS_PER_WORD;
   this_slotno = parms->slotno + intoffset / BITS_PER_WORD;
 
@@ -6681,8 +6670,8 @@ function_arg_record_value (const_tree type, machine_mode mode,
       unsigned int startbit, endbit;
       int intslots, this_slotno;
 
-      startbit = parms.intoffset & -BITS_PER_WORD;
-      endbit = (typesize*BITS_PER_UNIT + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+      startbit = ROUND_DOWN (parms.intoffset, BITS_PER_WORD);
+      endbit = ROUND_UP (typesize*BITS_PER_UNIT, BITS_PER_WORD);
       intslots = (endbit - startbit) / BITS_PER_WORD;
       this_slotno = slotno + parms.intoffset / BITS_PER_WORD;
 
@@ -7401,7 +7390,7 @@ sparc_libcall_value (machine_mode mode,
 static bool
 sparc_function_value_regno_p (const unsigned int regno)
 {
-  return (regno == 8 || regno == 32);
+  return (regno == 8 || (TARGET_FPU && regno == 32));
 }
 
 /* Do what is necessary for `va_start'.  We look at the current function
@@ -7463,7 +7452,7 @@ sparc_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
     {
       indirect = false;
       size = int_size_in_bytes (type);
-      rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
+      rsize = ROUND_UP (size, UNITS_PER_WORD);
       align = 0;
 
       if (TARGET_ARCH64)
@@ -8073,7 +8062,7 @@ sparc_emit_fixunsdi (rtx *operands, machine_mode mode)
   f0 = gen_reg_rtx (mode);
 
   emit_move_insn (limit,
-		  CONST_DOUBLE_FROM_REAL_VALUE (
+		  const_double_from_real_value (
 		    REAL_VALUE_ATOF ("9223372036854775808.0", mode), mode));
   emit_cmp_and_jump_insns (in, limit, GE, NULL_RTX, mode, 0, neglab);
 
@@ -10932,10 +10921,11 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
    ??? the latencies and then CSE will just use that.  */
 
 static bool
-sparc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
+sparc_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		 int opno ATTRIBUTE_UNUSED,
 		 int *total, bool speed ATTRIBUTE_UNUSED)
 {
-  machine_mode mode = GET_MODE (x);
+  int code = GET_CODE (x);
   bool float_mode_p = FLOAT_MODE_P (mode);
 
   switch (code)
@@ -10959,7 +10949,7 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return true;
 
     case CONST_DOUBLE:
-      if (GET_MODE (x) == VOIDmode
+      if (mode == VOIDmode
 	  && ((CONST_DOUBLE_HIGH (x) == 0
 	       && CONST_DOUBLE_LOW (x) < 0x1000)
 	      || (CONST_DOUBLE_HIGH (x) == -1
@@ -11011,12 +11001,12 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	sub = XEXP (x, 0);
 	if (GET_CODE (sub) == NEG)
 	  sub = XEXP (sub, 0);
-	*total += rtx_cost (sub, FMA, 0, speed);
+	*total += rtx_cost (sub, mode, FMA, 0, speed);
 
 	sub = XEXP (x, 2);
 	if (GET_CODE (sub) == NEG)
 	  sub = XEXP (sub, 0);
-	*total += rtx_cost (sub, FMA, 2, speed);
+	*total += rtx_cost (sub, mode, FMA, 2, speed);
 	return true;
       }
 
@@ -11135,7 +11125,7 @@ sparc_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     case IOR:
       /* Handle the NAND vector patterns.  */
-      if (sparc_vector_mode_supported_p (GET_MODE (x))
+      if (sparc_vector_mode_supported_p (mode)
 	  && GET_CODE (XEXP (x, 0)) == NOT
 	  && GET_CODE (XEXP (x, 1)) == NOT)
 	{
@@ -12551,20 +12541,23 @@ sparc_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __builtin_load_fsr (&tmp1_var);  */
 
-  tree fenv_var = create_tmp_var (unsigned_type_node);
-  mark_addressable (fenv_var);
+  tree fenv_var = create_tmp_var_raw (unsigned_type_node);
+  TREE_ADDRESSABLE (fenv_var) = 1;
   tree fenv_addr = build_fold_addr_expr (fenv_var);
   tree stfsr = sparc_builtins[SPARC_BUILTIN_STFSR];
-  tree hold_stfsr = build_call_expr (stfsr, 1, fenv_addr);
+  tree hold_stfsr
+    = build4 (TARGET_EXPR, unsigned_type_node, fenv_var,
+	      build_call_expr (stfsr, 1, fenv_addr), NULL_TREE, NULL_TREE);
 
-  tree tmp1_var = create_tmp_var (unsigned_type_node);
-  mark_addressable (tmp1_var);
+  tree tmp1_var = create_tmp_var_raw (unsigned_type_node);
+  TREE_ADDRESSABLE (tmp1_var) = 1;
   tree masked_fenv_var
     = build2 (BIT_AND_EXPR, unsigned_type_node, fenv_var,
 	      build_int_cst (unsigned_type_node,
 			     ~(accrued_exception_mask | trap_enable_mask)));
   tree hold_mask
-    = build2 (MODIFY_EXPR, void_type_node, tmp1_var, masked_fenv_var);
+    = build4 (TARGET_EXPR, unsigned_type_node, tmp1_var, masked_fenv_var,
+	      NULL_TREE, NULL_TREE);
 
   tree tmp1_addr = build_fold_addr_expr (tmp1_var);
   tree ldfsr = sparc_builtins[SPARC_BUILTIN_LDFSR];
@@ -12589,10 +12582,12 @@ sparc_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
          tmp2_var >>= 5;
        __atomic_feraiseexcept ((int) tmp2_var);  */
 
-  tree tmp2_var = create_tmp_var (unsigned_type_node);
-  mark_addressable (tmp2_var);
-  tree tmp3_addr = build_fold_addr_expr (tmp2_var);
-  tree update_stfsr = build_call_expr (stfsr, 1, tmp3_addr);
+  tree tmp2_var = create_tmp_var_raw (unsigned_type_node);
+  TREE_ADDRESSABLE (tmp2_var) = 1;
+  tree tmp2_addr = build_fold_addr_expr (tmp2_var);
+  tree update_stfsr
+    = build4 (TARGET_EXPR, unsigned_type_node, tmp2_var,
+	      build_call_expr (stfsr, 1, tmp2_addr), NULL_TREE, NULL_TREE);
 
   tree update_ldfsr = build_call_expr (ldfsr, 1, fenv_addr);
 

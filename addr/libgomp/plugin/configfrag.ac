@@ -33,7 +33,6 @@ AC_CHECK_LIB(dl, dlsym, , [plugin_support=no])
 if test x"$plugin_support" = xyes; then
   AC_DEFINE(PLUGIN_SUPPORT, 1,
     [Define if all infrastructure, needed for plugins, is supported.])
-  offload_targets=host_nonshm
 elif test "x${enable_offload_targets-no}" != xno; then
   AC_MSG_ERROR([Can't support offloading without support for plugins])
 fi
@@ -142,7 +141,7 @@ if test x"$enable_offload_targets" != x; then
   done
 fi
 AC_DEFINE_UNQUOTED(OFFLOAD_TARGETS, "$offload_targets",
-  [Define to hold the list of target names suitable for offloading.])
+  [Define to offload targets, separated by commas.])
 AM_CONDITIONAL([PLUGIN_NVPTX], [test $PLUGIN_NVPTX = 1])
 AC_DEFINE_UNQUOTED([PLUGIN_NVPTX], [$PLUGIN_NVPTX],
   [Define to 1 if the NVIDIA plugin is built, 0 if not.])

@@ -139,6 +139,7 @@ output_buffer_formatted_text (output_buffer *buff)
 static inline void
 output_buffer_append_r (output_buffer *buff, const char *start, int length)
 {
+  gcc_checking_assert (start);
   obstack_grow (buff->obstack, start, length);
   buff->line_length += length;
 }
@@ -187,7 +188,7 @@ struct pp_wrapping_mode_t
 /* Get or set the wrapping mode as a single entity.  */
 #define pp_wrapping_mode(PP) (PP)->wrapping
 
-/* The type of a hook that formats client-specific data onto a pretty_pinter.
+/* The type of a hook that formats client-specific data onto a pretty_printer.
    A client-supplied formatter returns true if everything goes well,
    otherwise it returns false.  */
 typedef bool (*printer_fn) (pretty_printer *, text_info *, const char *,

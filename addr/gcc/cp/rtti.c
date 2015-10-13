@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "tm_p.h"
 #include "stringpool.h"
@@ -65,7 +64,7 @@ along with GCC; see the file COPYING3.  If not see
    translation, when we are emitting the type info objects.  */
 
 /* Auxiliary data we hold for each type_info derived object we need.  */
-typedef struct GTY (()) tinfo_s {
+struct GTY (()) tinfo_s {
   tree type;  /* The RECORD_TYPE for this type_info object */
 
   tree vtable; /* The VAR_DECL of the vtable.  Only filled at end of
@@ -73,10 +72,10 @@ typedef struct GTY (()) tinfo_s {
 
   tree name;  /* IDENTIFIER_NODE for the ABI specified name of
 		 the type_info derived type.  */
-} tinfo_s;
+};
 
 
-typedef enum tinfo_kind
+enum tinfo_kind
 {
   TK_TYPE_INFO_TYPE,    /* abi::__type_info_pseudo */
   TK_BASE_TYPE,		/* abi::__base_class_type_info */
@@ -90,7 +89,7 @@ typedef enum tinfo_kind
   TK_SI_CLASS_TYPE,	/* abi::__si_class_type_info */
   TK_FIXED		/* end of fixed descriptors. */
   /* ...		   abi::__vmi_type_info<I> */
-} tinfo_kind;
+};
 
 /* Helper macro to get maximum scalar-width of pointer or of the 'long'-type.
    This of interest for llp64 targets.  */
@@ -984,6 +983,11 @@ ptr_initializer (tinfo_s *ti, tree target)
 
   if (incomplete)
     flags |= 8;
+  if (tx_safe_fn_type_p (to))
+    {
+      flags |= 0x20;
+      to = tx_unsafe_fn_variant (to);
+    }
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, init);
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, build_int_cst (NULL_TREE, flags));
   CONSTRUCTOR_APPEND_ELT (v, NULL_TREE,

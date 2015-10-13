@@ -23,21 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
-#include "tree.h"
-#include "fold-const.h"
-#include "stringpool.h"
+#include "backend.h"
 #include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
+#include "tree.h"
 #include "gimple.h"
 #include "rtl.h"
+#include "alias.h"
+#include "fold-const.h"
+#include "stringpool.h"
+#include "internal-fn.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -50,15 +44,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "params.h"
 #include "langhooks.h"
-#include "bitmap.h"
 #include "diagnostic-core.h"
 #include "except.h"
 #include "timevar.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
-#include "lto-streamer.h"
-#include "data-streamer.h"
 #include "tree-streamer.h"
 #include "gcov-io.h"
 #include "tree-pass.h"
@@ -906,14 +895,6 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, node);
       create_references (encoder, node);
-      /* For proper debug info, we need to ship the origins, too.  */
-      if (DECL_ABSTRACT_ORIGIN (node->decl))
-	{
-	  struct cgraph_node *origin_node
-	  = cgraph_node::get_create (DECL_ABSTRACT_ORIGIN (node->decl));
-	  origin_node->used_as_abstract_origin = true;
-	  add_node_to (encoder, origin_node, true);
-	}
     }
   for (lsei = lsei_start_variable_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
@@ -925,13 +906,6 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       lto_set_symtab_encoder_in_partition (encoder, vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       create_references (encoder, vnode);
-      /* For proper debug info, we need to ship the origins, too.  */
-      if (DECL_ABSTRACT_ORIGIN (vnode->decl))
-	{
-	  varpool_node *origin_node
-	    = varpool_node::get (DECL_ABSTRACT_ORIGIN (vnode->decl));
-	  lto_set_symtab_encoder_in_partition (encoder, origin_node);
-	}
     }
   /* Pickle in also the initializer of all referenced readonly variables
      to help folding.  Constant pool variables are not shared, so we must

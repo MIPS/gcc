@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "stringpool.h"
@@ -833,7 +832,7 @@ c_cpp_builtins (cpp_reader *pfile)
 
       if (cxx_dialect >= cxx11)
 	{
-	  /* Set feature test macros for C++11  */
+	  /* Set feature test macros for C++11.  */
 	  cpp_define (pfile, "__cpp_unicode_characters=200704");
 	  cpp_define (pfile, "__cpp_raw_strings=200710");
 	  cpp_define (pfile, "__cpp_unicode_literals=200710");
@@ -842,7 +841,8 @@ c_cpp_builtins (cpp_reader *pfile)
 	  if (cxx_dialect == cxx11)
 	    cpp_define (pfile, "__cpp_constexpr=200704");
 	  cpp_define (pfile, "__cpp_range_based_for=200907");
-	  cpp_define (pfile, "__cpp_static_assert=200410");
+	  if (cxx_dialect <= cxx14)
+	    cpp_define (pfile, "__cpp_static_assert=200410");
 	  cpp_define (pfile, "__cpp_decltype=200707");
 	  cpp_define (pfile, "__cpp_attributes=200809");
 	  cpp_define (pfile, "__cpp_rvalue_reference=200610");
@@ -856,7 +856,7 @@ c_cpp_builtins (cpp_reader *pfile)
 	}
       if (cxx_dialect > cxx11)
 	{
-	  /* Set feature test macros for C++14  */
+	  /* Set feature test macros for C++14.  */
 	  cpp_define (pfile, "__cpp_return_type_deduction=201304");
 	  cpp_define (pfile, "__cpp_init_captures=201304");
 	  cpp_define (pfile, "__cpp_generic_lambdas=201304");
@@ -866,6 +866,21 @@ c_cpp_builtins (cpp_reader *pfile)
 	  cpp_define (pfile, "__cpp_variable_templates=201304");
 	  cpp_define (pfile, "__cpp_digit_separators=201309");
 	}
+      if (cxx_dialect > cxx14)
+	{
+	  /* Set feature test macros for C++1z.  */
+	  cpp_define (pfile, "__cpp_static_assert=201411");
+	  cpp_define (pfile, "__cpp_namespace_attributes=201411");
+	  cpp_define (pfile, "__cpp_nested_namespace_definitions=201411");
+	}
+      if (flag_concepts)
+	/* Use a value smaller than the 201507 specified in
+	   the TS, since we don't yet support extended auto.  */
+	cpp_define (pfile, "__cpp_concepts=201500");
+      if (flag_tm)
+	/* Use a value smaller than the 201505 specified in
+	   the TS, since we don't yet support atomic_cancel.  */
+	cpp_define (pfile, "__cpp_transactional_memory=210500");
       if (flag_sized_deallocation)
 	cpp_define (pfile, "__cpp_sized_deallocation=201309");
     }

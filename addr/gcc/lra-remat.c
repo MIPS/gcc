@@ -55,9 +55,10 @@ along with GCC; see the file COPYING3.	If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "target.h"
@@ -65,11 +66,8 @@ along with GCC; see the file COPYING3.	If not see
 #include "recog.h"
 #include "output.h"
 #include "regs.h"
-#include "function.h"
-#include "symtab.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -78,15 +76,13 @@ along with GCC; see the file COPYING3.	If not see
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "except.h"
-#include "df.h"
 #include "ira.h"
 #include "sparseset.h"
 #include "params.h"
+#include "lra.h"
+#include "insn-attr.h"
+#include "insn-codes.h"
 #include "lra-int.h"
 
 /* Number of candidates for rematerialization.  */
@@ -421,6 +417,16 @@ operand_to_remat (rtx_insn *insn)
 	  return -1;
 	found_reg = reg;
       }
+    /* IRA calculates conflicts separately for subregs of two words
+       pseudo.  Even if the pseudo lives, e.g. one its subreg can be
+       used lately, another subreg hard register can be already used
+       for something else.  In such case, it is not safe to
+       rematerialize the insn.  */
+    else if (reg->type == OP_IN && reg->subreg_p
+	     && reg->regno >= FIRST_PSEUDO_REGISTER
+	     && (GET_MODE_SIZE (PSEUDO_REGNO_MODE (reg->regno))
+		 == 2 * UNITS_PER_WORD))
+      return -1;
   if (found_reg == NULL)
     return -1;
   if (found_reg->regno < FIRST_PSEUDO_REGISTER)

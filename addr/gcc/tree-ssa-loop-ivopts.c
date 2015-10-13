@@ -64,42 +64,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -161,6 +147,8 @@ struct iv
   bool biv_p;		/* Is it a biv?  */
   bool have_use_for;	/* Do we already have a use for it?  */
   bool no_overflow;	/* True if the iv doesn't overflow.  */
+  bool have_address_use;/* For biv, indicate if it's used in any address
+			   type use.  */
 };
 
 /* Per-ssa version information (induction variable descriptions, etc.).  */
@@ -183,14 +171,14 @@ enum use_type
 };
 
 /* Cost of a computation.  */
-typedef struct
+struct comp_cost
 {
   int cost;		/* The runtime cost.  */
   unsigned complexity;	/* The estimate of the complexity of the code for
 			   the computation (in no concrete units --
 			   complexity field should be larger for more
 			   complex expressions and addressing modes).  */
-} comp_cost;
+};
 
 static const comp_cost no_cost = {0, 0};
 static const comp_cost infinite_cost = {INFTY, INFTY};
@@ -216,7 +204,7 @@ struct iv_use
   unsigned sub_id;	/* The id of the sub use.  */
   enum use_type type;	/* Type of the use.  */
   struct iv *iv;	/* The induction variable it is based on.  */
-  gimple stmt;		/* Statement in that it occurs.  */
+  gimple *stmt;		/* Statement in that it occurs.  */
   tree *op_p;		/* The place where it occurs.  */
   bitmap related_cands;	/* The set of "related" iv candidates, plus the common
 			   important ones.  */
@@ -251,7 +239,7 @@ struct iv_cand
   bool important;	/* Whether this is an "important" candidate, i.e. such
 			   that it should be considered by all uses.  */
   ENUM_BITFIELD(iv_position) pos : 8;	/* Where it is computed.  */
-  gimple incremented_at;/* For original biv, the statement where it is
+  gimple *incremented_at;/* For original biv, the statement where it is
 			   incremented.  */
   tree var_before;	/* The variable used for it before increment.  */
   tree var_after;	/* The variable used for it after increment.  */
@@ -265,6 +253,8 @@ struct iv_cand
 			      where it is incremented.  */
   bitmap depends_on;	/* The list of invariants that are used in step of the
 			   biv.  */
+  struct iv *orig_iv;	/* The original iv if this cand is added from biv with
+			   smaller type.  */
 };
 
 /* Loop invariant expression hashtable entry.  */
@@ -277,16 +267,10 @@ struct iv_inv_expr_ent
 
 /* The data used by the induction variable optimizations.  */
 
-typedef struct iv_use *iv_use_p;
-
-typedef struct iv_cand *iv_cand_p;
-
 /* Hashtable helpers.  */
 
-struct iv_inv_expr_hasher : typed_free_remove <iv_inv_expr_ent>
+struct iv_inv_expr_hasher : free_ptr_hash <iv_inv_expr_ent>
 {
-  typedef iv_inv_expr_ent *value_type;
-  typedef iv_inv_expr_ent *compare_type;
   static inline hashval_t hash (const iv_inv_expr_ent *);
   static inline bool equal (const iv_inv_expr_ent *, const iv_inv_expr_ent *);
 };
@@ -338,10 +322,10 @@ struct ivopts_data
   bitmap relevant;
 
   /* The uses of induction variables.  */
-  vec<iv_use_p> iv_uses;
+  vec<iv_use *> iv_uses;
 
   /* The candidates.  */
-  vec<iv_cand_p> iv_candidates;
+  vec<iv_cand *> iv_candidates;
 
   /* A bitmap of important candidates.  */
   bitmap important_candidates;
@@ -351,6 +335,12 @@ struct ivopts_data
 
   /* The maximum invariant id.  */
   unsigned max_inv_id;
+
+  /* Number of no_overflow BIVs which are not used in memory address.  */
+  unsigned bivs_not_used_in_addr;
+
+  /* Obstack for iv structure.  */
+  struct obstack iv_obstack;
 
   /* Whether to consider just related and important candidates when replacing a
      use.  */
@@ -542,6 +532,9 @@ dump_iv (FILE *file, struct iv *iv, bool dump_name)
 
   if (iv->biv_p)
     fprintf (file, "  is a biv\n");
+
+  if (iv->no_overflow)
+    fprintf (file, "  iv doesn't overflow wrto loop niter\n");
 }
 
 /* Dumps information about the USE to FILE.  */
@@ -693,7 +686,7 @@ name_info (struct ivopts_data *data, tree name)
    emitted in LOOP.  */
 
 static bool
-stmt_after_ip_normal_pos (struct loop *loop, gimple stmt)
+stmt_after_ip_normal_pos (struct loop *loop, gimple *stmt)
 {
   basic_block bb = ip_normal_pos (loop), sbb = gimple_bb (stmt);
 
@@ -713,7 +706,7 @@ stmt_after_ip_normal_pos (struct loop *loop, gimple stmt)
    if the positions are identical.  */
 
 static bool
-stmt_after_inc_pos (struct iv_cand *cand, gimple stmt, bool true_if_equal)
+stmt_after_inc_pos (struct iv_cand *cand, gimple *stmt, bool true_if_equal)
 {
   basic_block cand_bb = gimple_bb (cand->incremented_at);
   basic_block stmt_bb = gimple_bb (stmt);
@@ -734,7 +727,7 @@ stmt_after_inc_pos (struct iv_cand *cand, gimple stmt, bool true_if_equal)
    CAND is incremented in LOOP.  */
 
 static bool
-stmt_after_increment (struct loop *loop, struct iv_cand *cand, gimple stmt)
+stmt_after_increment (struct loop *loop, struct iv_cand *cand, gimple *stmt)
 {
   switch (cand->pos)
     {
@@ -912,6 +905,7 @@ tree_ssa_iv_optimize_init (struct ivopts_data *data)
   data->inv_expr_id = 0;
   data->name_expansion_cache = NULL;
   decl_rtl_to_reset.create (20);
+  gcc_obstack_init (&data->iv_obstack);
 }
 
 /* Returns a memory object to that EXPR points.  In case we are able to
@@ -995,10 +989,12 @@ contain_complex_addr_expr (tree expr)
    for loop LOOP.  NO_OVERFLOW implies the iv doesn't overflow.  */
 
 static struct iv *
-alloc_iv (tree base, tree step, bool no_overflow = false)
+alloc_iv (struct ivopts_data *data, tree base, tree step,
+	  bool no_overflow = false)
 {
   tree expr = base;
-  struct iv *iv = XCNEW (struct iv);
+  struct iv *iv = (struct iv*) obstack_alloc (&data->iv_obstack,
+					      sizeof (struct iv));
   gcc_assert (step != NULL_TREE);
 
   /* Lower address expression in base except ones with DECL_P as operand.
@@ -1023,6 +1019,7 @@ alloc_iv (tree base, tree step, bool no_overflow = false)
   iv->use_id = 0;
   iv->ssa_name = NULL_TREE;
   iv->no_overflow = no_overflow;
+  iv->have_address_use = false;
 
   return iv;
 }
@@ -1039,7 +1036,7 @@ set_iv (struct ivopts_data *data, tree iv, tree base, tree step,
   gcc_assert (!info->iv);
 
   bitmap_set_bit (data->relevant, SSA_NAME_VERSION (iv));
-  info->iv = alloc_iv (base, step, no_overflow);
+  info->iv = alloc_iv (data, base, step, no_overflow);
   info->iv->ssa_name = iv;
 }
 
@@ -1158,13 +1155,14 @@ static void
 mark_bivs (struct ivopts_data *data)
 {
   gphi *phi;
-  gimple def;
+  gimple *def;
   tree var;
   struct iv *iv, *incr_iv;
   struct loop *loop = data->current_loop;
   basic_block incr_bb;
   gphi_iterator psi;
 
+  data->bivs_not_used_in_addr = 0;
   for (psi = gsi_start_phis (loop->header); !gsi_end_p (psi); gsi_next (&psi))
     {
       phi = psi.phi ();
@@ -1193,6 +1191,10 @@ mark_bivs (struct ivopts_data *data)
 
       iv->biv_p = true;
       incr_iv->biv_p = true;
+      if (iv->no_overflow)
+	data->bivs_not_used_in_addr++;
+      if (incr_iv->no_overflow)
+	data->bivs_not_used_in_addr++;
     }
 }
 
@@ -1200,7 +1202,7 @@ mark_bivs (struct ivopts_data *data)
    parameters to IV.  */
 
 static bool
-find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
+find_givs_in_stmt_scev (struct ivopts_data *data, gimple *stmt, affine_iv *iv)
 {
   tree lhs, stop;
   struct loop *loop = data->current_loop;
@@ -1241,7 +1243,7 @@ find_givs_in_stmt_scev (struct ivopts_data *data, gimple stmt, affine_iv *iv)
 /* Finds general ivs in statement STMT.  */
 
 static void
-find_givs_in_stmt (struct ivopts_data *data, gimple stmt)
+find_givs_in_stmt (struct ivopts_data *data, gimple *stmt)
 {
   affine_iv iv;
 
@@ -1326,7 +1328,7 @@ find_induction_variables (struct ivopts_data *data)
 
 static struct iv_use *
 record_use (struct ivopts_data *data, tree *use_p, struct iv *iv,
-	    gimple stmt, enum use_type use_type, tree addr_base = NULL,
+	    gimple *stmt, enum use_type use_type, tree addr_base = NULL,
 	    unsigned HOST_WIDE_INT addr_offset = 0)
 {
   struct iv_use *use = XCNEW (struct iv_use);
@@ -1352,7 +1354,7 @@ record_use (struct ivopts_data *data, tree *use_p, struct iv *iv,
 
 static struct iv_use *
 record_sub_use (struct ivopts_data *data, tree *use_p,
-		    struct iv *iv, gimple stmt, enum use_type use_type,
+		    struct iv *iv, gimple *stmt, enum use_type use_type,
 		    tree addr_base, unsigned HOST_WIDE_INT addr_offset,
 		    unsigned int id_group)
 {
@@ -1390,10 +1392,6 @@ record_sub_use (struct ivopts_data *data, tree *use_p,
       pre->next = use;
     }
 
-  /* To avoid showing ssa name in the dumps, if it was not reset by the
-     caller.  */
-  iv->ssa_name = NULL_TREE;
-
   return use;
 }
 
@@ -1430,8 +1428,7 @@ static struct iv_use *
 find_interesting_uses_op (struct ivopts_data *data, tree op)
 {
   struct iv *iv;
-  struct iv *civ;
-  gimple stmt;
+  gimple *stmt;
   struct iv_use *use;
 
   if (TREE_CODE (op) != SSA_NAME)
@@ -1456,14 +1453,11 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
     }
   iv->have_use_for = true;
 
-  civ = XNEW (struct iv);
-  *civ = *iv;
-
   stmt = SSA_NAME_DEF_STMT (op);
   gcc_assert (gimple_code (stmt) == GIMPLE_PHI
 	      || is_gimple_assign (stmt));
 
-  use = record_use (data, NULL, civ, stmt, USE_NONLINEAR_EXPR);
+  use = record_use (data, NULL, iv, stmt, USE_NONLINEAR_EXPR);
   iv->use_id = use->id;
 
   return use;
@@ -1478,15 +1472,15 @@ find_interesting_uses_op (struct ivopts_data *data, tree op)
    condition and false is returned.  */
 
 static bool
-extract_cond_operands (struct ivopts_data *data, gimple stmt,
+extract_cond_operands (struct ivopts_data *data, gimple *stmt,
 		       tree **control_var, tree **bound,
 		       struct iv **iv_var, struct iv **iv_bound)
 {
   /* The objects returned when COND has constant operands.  */
   static struct iv const_iv;
   static tree zero;
-  tree *op0 = &zero, *op1 = &zero, *tmp_op;
-  struct iv *iv0 = &const_iv, *iv1 = &const_iv, *tmp_iv;
+  tree *op0 = &zero, *op1 = &zero;
+  struct iv *iv0 = &const_iv, *iv1 = &const_iv;
   bool ret = false;
 
   if (gimple_code (stmt) == GIMPLE_COND)
@@ -1517,8 +1511,8 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
   if (integer_zerop (iv0->step))
     {
       /* Control variable may be on the other side.  */
-      tmp_op = op0; op0 = op1; op1 = tmp_op;
-      tmp_iv = iv0; iv0 = iv1; iv1 = tmp_iv;
+      std::swap (op0, op1);
+      std::swap (iv0, iv1);
     }
   ret = !integer_zerop (iv0->step) && integer_zerop (iv1->step);
 
@@ -1539,10 +1533,10 @@ end:
    records it.  */
 
 static void
-find_interesting_uses_cond (struct ivopts_data *data, gimple stmt)
+find_interesting_uses_cond (struct ivopts_data *data, gimple *stmt)
 {
   tree *var_p, *bound_p;
-  struct iv *var_iv, *civ;
+  struct iv *var_iv;
 
   if (!extract_cond_operands (data, stmt, &var_p, &bound_p, &var_iv, NULL))
     {
@@ -1551,9 +1545,7 @@ find_interesting_uses_cond (struct ivopts_data *data, gimple stmt)
       return;
     }
 
-  civ = XNEW (struct iv);
-  *civ = *var_iv;
-  record_use (data, NULL, civ, stmt, USE_COMPARE);
+  record_use (data, NULL, var_iv, stmt, USE_COMPARE);
 }
 
 /* Returns the outermost loop EXPR is obviously invariant in
@@ -1641,6 +1633,144 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   return true;
 }
 
+/* Given expression EXPR which computes inductive values with respect
+   to loop recorded in DATA, this function returns biv from which EXPR
+   is derived by tracing definition chains of ssa variables in EXPR.  */
+
+static struct iv*
+find_deriving_biv_for_expr (struct ivopts_data *data, tree expr)
+{
+  struct iv *iv;
+  unsigned i, n;
+  tree e2, e1;
+  enum tree_code code;
+  gimple *stmt;
+
+  if (expr == NULL_TREE)
+    return NULL;
+
+  if (is_gimple_min_invariant (expr))
+    return NULL;
+
+  code = TREE_CODE (expr);
+  if (IS_EXPR_CODE_CLASS (TREE_CODE_CLASS (code)))
+    {
+      n = TREE_OPERAND_LENGTH (expr);
+      for (i = 0; i < n; i++)
+	{
+	  iv = find_deriving_biv_for_expr (data, TREE_OPERAND (expr, i));
+	  if (iv)
+	    return iv;
+	}
+    }
+
+  /* Stop if it's not ssa name.  */
+  if (code != SSA_NAME)
+    return NULL;
+
+  iv = get_iv (data, expr);
+  if (!iv || integer_zerop (iv->step))
+    return NULL;
+  else if (iv->biv_p)
+    return iv;
+
+  stmt = SSA_NAME_DEF_STMT (expr);
+  if (gphi *phi = dyn_cast <gphi *> (stmt))
+    {
+      ssa_op_iter iter;
+      use_operand_p use_p;
+
+      if (virtual_operand_p (gimple_phi_result (phi)))
+	return NULL;
+
+      FOR_EACH_PHI_ARG (use_p, phi, iter, SSA_OP_USE)
+	{
+	  tree use = USE_FROM_PTR (use_p);
+	  iv = find_deriving_biv_for_expr (data, use);
+	  if (iv)
+	    return iv;
+	}
+      return NULL;
+    }
+  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+    return NULL;
+
+  e1 = gimple_assign_rhs1 (stmt);
+  code = gimple_assign_rhs_code (stmt);
+  if (get_gimple_rhs_class (code) == GIMPLE_SINGLE_RHS)
+    return find_deriving_biv_for_expr (data, e1);
+
+  switch (code)
+    {
+    case MULT_EXPR:
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case POINTER_PLUS_EXPR:
+      /* Increments, decrements and multiplications by a constant
+	 are simple.  */
+      e2 = gimple_assign_rhs2 (stmt);
+      iv = find_deriving_biv_for_expr (data, e2);
+      if (iv)
+	return iv;
+
+      /* Fallthru.  */
+    CASE_CONVERT:
+      /* Casts are simple.  */
+      return find_deriving_biv_for_expr (data, e1);
+
+    default:
+      break;
+    }
+
+  return NULL;
+}
+
+/* Record BIV, its predecessor and successor that they are used in
+   address type uses.  */
+
+static void
+record_biv_for_address_use (struct ivopts_data *data, struct iv *biv)
+{
+  unsigned i;
+  tree type, base_1, base_2;
+  bitmap_iterator bi;
+
+  if (!biv || !biv->biv_p || integer_zerop (biv->step)
+      || biv->have_address_use || !biv->no_overflow)
+    return;
+
+  type = TREE_TYPE (biv->base);
+  if (!INTEGRAL_TYPE_P (type))
+    return;
+
+  biv->have_address_use = true;
+  data->bivs_not_used_in_addr--;
+  base_1 = fold_build2 (PLUS_EXPR, type, biv->base, biv->step);
+  EXECUTE_IF_SET_IN_BITMAP (data->relevant, 0, i, bi)
+    {
+      struct iv *iv = ver_info (data, i)->iv;
+
+      if (!iv || !iv->biv_p || integer_zerop (iv->step)
+	  || iv->have_address_use || !iv->no_overflow)
+	continue;
+
+      if (type != TREE_TYPE (iv->base)
+	  || !INTEGRAL_TYPE_P (TREE_TYPE (iv->base)))
+	continue;
+
+      if (!operand_equal_p (biv->step, iv->step, 0))
+	continue;
+
+      base_2 = fold_build2 (PLUS_EXPR, type, iv->base, iv->step);
+      if (operand_equal_p (base_1, iv->base, 0)
+	  || operand_equal_p (base_2, biv->base, 0))
+	{
+	  iv->have_address_use = true;
+	  data->bivs_not_used_in_addr--;
+	}
+    }
+}
+
 /* Cumulates the steps of indices into DATA and replaces their values with the
    initial ones.  Returns false when the value of the index cannot be determined.
    Callback for for_each_index.  */
@@ -1648,7 +1778,7 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
 struct ifs_ivopts_data
 {
   struct ivopts_data *ivopts_data;
-  gimple stmt;
+  gimple *stmt;
   tree step;
 };
 
@@ -1731,6 +1861,13 @@ idx_find_step (tree base, tree *idx, void *data)
   step = fold_build2 (MULT_EXPR, sizetype, step, iv_step);
   dta->step = fold_build2 (PLUS_EXPR, sizetype, dta->step, step);
 
+  if (dta->ivopts_data->bivs_not_used_in_addr)
+    {
+      if (!iv->biv_p)
+	iv = find_deriving_biv_for_expr (dta->ivopts_data, iv->ssa_name);
+
+      record_biv_for_address_use (dta->ivopts_data, iv);
+    }
   return true;
 }
 
@@ -1895,7 +2032,7 @@ strip_offset (tree expr, unsigned HOST_WIDE_INT *offset);
 
 static struct iv_use *
 record_group_use (struct ivopts_data *data, tree *use_p,
-		  struct iv *iv, gimple stmt, enum use_type use_type)
+		  struct iv *iv, gimple *stmt, enum use_type use_type)
 {
   unsigned int i;
   struct iv_use *use;
@@ -1932,7 +2069,8 @@ record_group_use (struct ivopts_data *data, tree *use_p,
 /* Finds addresses in *OP_P inside STMT.  */
 
 static void
-find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p)
+find_interesting_uses_address (struct ivopts_data *data, gimple *stmt,
+			       tree *op_p)
 {
   tree base = *op_p, step = size_zero_node;
   struct iv *civ;
@@ -2038,7 +2176,7 @@ find_interesting_uses_address (struct ivopts_data *data, gimple stmt, tree *op_p
 	}
     }
 
-  civ = alloc_iv (base, step);
+  civ = alloc_iv (data, base, step);
   record_group_use (data, op_p, civ, stmt, USE_ADDRESS);
   return;
 
@@ -2049,7 +2187,7 @@ fail:
 /* Finds and records invariants used in STMT.  */
 
 static void
-find_invariants_stmt (struct ivopts_data *data, gimple stmt)
+find_invariants_stmt (struct ivopts_data *data, gimple *stmt)
 {
   ssa_op_iter iter;
   use_operand_p use_p;
@@ -2065,7 +2203,7 @@ find_invariants_stmt (struct ivopts_data *data, gimple stmt)
 /* Finds interesting uses of induction variables in the statement STMT.  */
 
 static void
-find_interesting_uses_stmt (struct ivopts_data *data, gimple stmt)
+find_interesting_uses_stmt (struct ivopts_data *data, gimple *stmt)
 {
   struct iv *iv;
   tree op, *lhs, *rhs;
@@ -2623,7 +2761,8 @@ find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
 static struct iv_cand *
 add_candidate_1 (struct ivopts_data *data,
 		 tree base, tree step, bool important, enum iv_position pos,
-		 struct iv_use *use, gimple incremented_at)
+		 struct iv_use *use, gimple *incremented_at,
+		 struct iv *orig_iv = NULL)
 {
   unsigned i;
   struct iv_cand *cand = NULL;
@@ -2681,7 +2820,7 @@ add_candidate_1 (struct ivopts_data *data,
       if (!base && !step)
 	cand->iv = NULL;
       else
-	cand->iv = alloc_iv (base, step);
+	cand->iv = alloc_iv (data, base, step);
 
       cand->pos = pos;
       if (pos != IP_ORIGINAL && cand->iv)
@@ -2705,6 +2844,7 @@ add_candidate_1 (struct ivopts_data *data,
       else
 	cand->ainc_use = NULL;
 
+      cand->orig_iv = orig_iv;
       if (dump_file && (dump_flags & TDF_DETAILS))
 	dump_cand (dump_file, cand);
     }
@@ -2808,22 +2948,22 @@ add_autoinc_candidates (struct ivopts_data *data, tree base, tree step,
 
 /* Adds a candidate BASE + STEP * i.  Important field is set to IMPORTANT and
    position to POS.  If USE is not NULL, the candidate is set as related to
-   it.  The candidate computation is scheduled on all available positions.  */
+   it.  The candidate computation is scheduled before exit condition and at
+   the end of loop.  */
 
 static void
 add_candidate (struct ivopts_data *data,
-	       tree base, tree step, bool important, struct iv_use *use)
+	       tree base, tree step, bool important, struct iv_use *use,
+	       struct iv *orig_iv = NULL)
 {
   gcc_assert (use == NULL || use->sub_id == 0);
 
   if (ip_normal_pos (data->current_loop))
-    add_candidate_1 (data, base, step, important, IP_NORMAL, use, NULL);
+    add_candidate_1 (data, base, step, important,
+		     IP_NORMAL, use, NULL, orig_iv);
   if (ip_end_pos (data->current_loop)
       && allow_ip_end_pos_p (data->current_loop))
-    add_candidate_1 (data, base, step, important, IP_END, use, NULL);
-
-  if (use != NULL && use->type == USE_ADDRESS)
-    add_autoinc_candidates (data, base, step, important, use);
+    add_candidate_1 (data, base, step, important, IP_END, use, NULL, orig_iv);
 }
 
 /* Adds standard iv candidates.  */
@@ -2852,13 +2992,28 @@ add_standard_iv_candidates (struct ivopts_data *data)
 /* Adds candidates bases on the old induction variable IV.  */
 
 static void
-add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
+add_iv_candidate_for_biv (struct ivopts_data *data, struct iv *iv)
 {
-  gimple phi;
+  gimple *phi;
   tree def;
   struct iv_cand *cand;
 
-  add_candidate (data, iv->base, iv->step, true, NULL);
+  /* Check if this biv is used in address type use.  */
+  if (iv->no_overflow  && iv->have_address_use
+      && INTEGRAL_TYPE_P (TREE_TYPE (iv->base))
+      && TYPE_PRECISION (TREE_TYPE (iv->base)) < TYPE_PRECISION (sizetype))
+    {
+      tree base = fold_convert (sizetype, iv->base);
+      tree step = fold_convert (sizetype, iv->step);
+
+      /* Add iv cand of same precision as index part in TARGET_MEM_REF.  */
+      add_candidate (data, base, step, true, NULL, iv);
+      /* Add iv cand of the original type only if it has nonlinear use.  */
+      if (iv->have_use_for)
+	add_candidate (data, iv->base, iv->step, true, NULL);
+    }
+  else
+    add_candidate (data, iv->base, iv->step, true, NULL);
 
   /* The same, but with initial value zero.  */
   if (POINTER_TYPE_P (TREE_TYPE (iv->base)))
@@ -2892,7 +3047,7 @@ add_old_iv_candidates (struct ivopts_data *data, struct iv *iv)
 /* Adds candidates based on the old induction variables.  */
 
 static void
-add_old_ivs_candidates (struct ivopts_data *data)
+add_iv_candidate_for_bivs (struct ivopts_data *data)
 {
   unsigned i;
   struct iv *iv;
@@ -2902,19 +3057,19 @@ add_old_ivs_candidates (struct ivopts_data *data)
     {
       iv = ver_info (data, i)->iv;
       if (iv && iv->biv_p && !integer_zerop (iv->step))
-	add_old_iv_candidates (data, iv);
+	add_iv_candidate_for_biv (data, iv);
     }
 }
 
-/* Adds candidates based on the value of the induction variable IV and USE.  */
+/* Adds candidates based on the value of USE's iv.  */
 
 static void
-add_iv_value_candidates (struct ivopts_data *data,
-			 struct iv *iv, struct iv_use *use)
+add_iv_candidate_for_use (struct ivopts_data *data, struct iv_use *use)
 {
   unsigned HOST_WIDE_INT offset;
   tree base;
   tree basetype;
+  struct iv *iv = use->iv;
 
   add_candidate (data, iv->base, iv->step, false, use);
 
@@ -2924,21 +3079,25 @@ add_iv_value_candidates (struct ivopts_data *data,
   basetype = TREE_TYPE (iv->base);
   if (POINTER_TYPE_P (basetype))
     basetype = sizetype;
-  add_candidate (data, build_int_cst (basetype, 0),
-		 iv->step, true, use);
+  add_candidate (data, build_int_cst (basetype, 0), iv->step, true, use);
 
   /* Third, try removing the constant offset.  Make sure to even
      add a candidate for &a[0] vs. (T *)&a.  */
   base = strip_offset (iv->base, &offset);
-  if (offset
-      || base != iv->base)
+  if (offset || base != iv->base)
     add_candidate (data, base, iv->step, false, use);
+
+  /* At last, add auto-incremental candidates.  Make such variables
+     important since other iv uses with same base object may be based
+     on it.  */
+  if (use != NULL && use->type == USE_ADDRESS)
+    add_autoinc_candidates (data, iv->base, iv->step, true, use);
 }
 
 /* Adds candidates based on the uses.  */
 
 static void
-add_derived_ivs_candidates (struct ivopts_data *data)
+add_iv_candidate_for_uses (struct ivopts_data *data)
 {
   unsigned i;
 
@@ -2955,7 +3114,7 @@ add_derived_ivs_candidates (struct ivopts_data *data)
 	case USE_COMPARE:
 	case USE_ADDRESS:
 	  /* Just add the ivs based on the value of the iv used here.  */
-	  add_iv_value_candidates (data, use->iv, use);
+	  add_iv_candidate_for_use (data, use);
 	  break;
 
 	default:
@@ -3293,7 +3452,7 @@ computation_cost (tree expr, bool speed)
     cost += address_cost (XEXP (rslt, 0), TYPE_MODE (type),
 			  TYPE_ADDR_SPACE (type), speed);
   else if (!REG_P (rslt))
-    cost += set_src_cost (rslt, speed);
+    cost += set_src_cost (rslt, TYPE_MODE (type), speed);
 
   return cost;
 }
@@ -3301,7 +3460,7 @@ computation_cost (tree expr, bool speed)
 /* Returns variable containing the value of candidate CAND at statement AT.  */
 
 static tree
-var_at_stmt (struct loop *loop, struct iv_cand *cand, gimple stmt)
+var_at_stmt (struct loop *loop, struct iv_cand *cand, gimple *stmt)
 {
   if (stmt_after_increment (loop, cand, stmt))
     return cand->var_after;
@@ -3351,7 +3510,7 @@ determine_common_wider_type (tree *a, tree *b)
 
 static bool
 get_computation_aff (struct loop *loop,
-		     struct iv_use *use, struct iv_cand *cand, gimple at,
+		     struct iv_use *use, struct iv_cand *cand, gimple *at,
 		     struct aff_tree *aff)
 {
   tree ubase = use->iv->base;
@@ -3376,6 +3535,28 @@ get_computation_aff (struct loop *loop,
   /* If the conversion is not noop, perform it.  */
   if (TYPE_PRECISION (utype) < TYPE_PRECISION (ctype))
     {
+      if (cand->orig_iv != NULL && CONVERT_EXPR_P (cbase)
+	  && (CONVERT_EXPR_P (cstep) || TREE_CODE (cstep) == INTEGER_CST))
+	{
+	  tree inner_base, inner_step, inner_type;
+	  inner_base = TREE_OPERAND (cbase, 0);
+	  if (CONVERT_EXPR_P (cstep))
+	    inner_step = TREE_OPERAND (cstep, 0);
+	  else
+	    inner_step = cstep;
+
+	  inner_type = TREE_TYPE (inner_base);
+	  /* If candidate is added from a biv whose type is smaller than
+	     ctype, we know both candidate and the biv won't overflow.
+	     In this case, it's safe to skip the convertion in candidate.
+	     As an example, (unsigned short)((unsigned long)A) equals to
+	     (unsigned short)A, if A has a type no larger than short.  */
+	  if (TYPE_PRECISION (inner_type) <= TYPE_PRECISION (uutype))
+	    {
+	      cbase = inner_base;
+	      cstep = inner_step;
+	    }
+	}
       cstep = fold_convert (uutype, cstep);
       cbase = fold_convert (uutype, cbase);
       var = fold_convert (uutype, var);
@@ -3448,7 +3629,7 @@ get_use_type (struct iv_use *use)
 
 static tree
 get_computation_at (struct loop *loop,
-		    struct iv_use *use, struct iv_cand *cand, gimple at)
+		    struct iv_use *use, struct iv_cand *cand, gimple *at)
 {
   aff_tree aff;
   tree type = get_use_type (use);
@@ -3562,12 +3743,12 @@ enum ainc_type
   AINC_NONE		/* Also the number of auto increment types.  */
 };
 
-typedef struct address_cost_data_s
+struct address_cost_data
 {
   HOST_WIDE_INT min_offset, max_offset;
   unsigned costs[2][2][2][2];
   unsigned ainc_costs[AINC_NONE];
-} *address_cost_data;
+};
 
 
 static comp_cost
@@ -3578,9 +3759,9 @@ get_address_cost (bool symbol_present, bool var_present,
 		  bool stmt_after_inc, bool *may_autoinc)
 {
   machine_mode address_mode = targetm.addr_space.address_mode (as);
-  static vec<address_cost_data> address_cost_data_list;
+  static vec<address_cost_data *> address_cost_data_list;
   unsigned int data_index = (int) as * MAX_MACHINE_MODE + (int) mem_mode;
-  address_cost_data data;
+  address_cost_data *data;
   static bool has_preinc[MAX_MACHINE_MODE], has_postinc[MAX_MACHINE_MODE];
   static bool has_predec[MAX_MACHINE_MODE], has_postdec[MAX_MACHINE_MODE];
   unsigned cost, acost, complexity;
@@ -3604,7 +3785,7 @@ get_address_cost (bool symbol_present, bool var_present,
       rtx addr, base;
       rtx reg0, reg1;
 
-      data = (address_cost_data) xcalloc (1, sizeof (*data));
+      data = (address_cost_data *) xcalloc (1, sizeof (*data));
 
       reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
 
@@ -3907,6 +4088,7 @@ get_shiftadd_cost (tree expr, machine_mode mode, comp_cost cost0,
   if (!(m >= 0 && m < maxm))
     return false;
 
+  STRIP_NOPS (op1);
   mult_in_op1 = operand_equal_p (op1, mult, 0);
 
   as_cost = add_cost (speed, mode) + shift_cost (speed, mode, m);
@@ -4417,7 +4599,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
 static comp_cost
 get_computation_cost_at (struct ivopts_data *data,
 			 struct iv_use *use, struct iv_cand *cand,
-			 bool address_p, bitmap *depends_on, gimple at,
+			 bool address_p, bitmap *depends_on, gimple *at,
 			 bool *can_autoinc,
                          int *inv_expr_id)
 {
@@ -4543,6 +4725,13 @@ get_computation_cost_at (struct ivopts_data *data,
 		(ratio, mem_mode,
 			TYPE_ADDR_SPACE (TREE_TYPE (utype))))
     {
+      if (cstepi == 0 && stmt_is_after_inc)
+	{
+	  if (POINTER_TYPE_P (ctype))
+	    cbase = fold_build2 (POINTER_PLUS_EXPR, ctype, cbase, cstep);
+	  else
+	    cbase = fold_build2 (PLUS_EXPR, ctype, cbase, cstep);
+	}
       cbase
 	= fold_build2 (MULT_EXPR, ctype, cbase, build_int_cst (ctype, ratio));
       cost = difference_cost (data,
@@ -4734,7 +4923,7 @@ determine_use_iv_cost_address (struct ivopts_data *data,
    stores it to VAL.  */
 
 static void
-cand_value_at (struct loop *loop, struct iv_cand *cand, gimple at, tree niter,
+cand_value_at (struct loop *loop, struct iv_cand *cand, gimple *at, tree niter,
 	       aff_tree *val)
 {
   aff_tree step, delta, nit;
@@ -4826,7 +5015,7 @@ difference_cannot_overflow_p (struct ivopts_data *data, tree base, tree offset)
 
   if (TREE_CODE (base) == SSA_NAME)
     {
-      gimple stmt = SSA_NAME_DEF_STMT (base);
+      gimple *stmt = SSA_NAME_DEF_STMT (base);
 
       if (gimple_code (stmt) != GIMPLE_ASSIGN)
 	return false;
@@ -5116,7 +5305,7 @@ may_eliminate_iv (struct ivopts_data *data,
 }
 
  /* Calculates the cost of BOUND, if it is a PARM_DECL.  A PARM_DECL must
-    be copied, if is is used in the loop body and DATA->body_includes_call.  */
+    be copied, if it is used in the loop body and DATA->body_includes_call.  */
 
 static int
 parm_decl_cost (struct ivopts_data *data, tree bound)
@@ -5340,10 +5529,10 @@ find_iv_candidates (struct ivopts_data *data)
   add_standard_iv_candidates (data);
 
   /* Add old induction variables.  */
-  add_old_ivs_candidates (data);
+  add_iv_candidate_for_bivs (data);
 
   /* Add induction variables derived from uses.  */
-  add_derived_ivs_candidates (data);
+  add_iv_candidate_for_uses (data);
 
   set_autoinc_for_original_candidates (data);
 
@@ -6811,7 +7000,7 @@ static void
 adjust_iv_update_pos (struct iv_cand *cand, struct iv_use *use)
 {
   tree var_after;
-  gimple iv_update, stmt;
+  gimple *iv_update, *stmt;
   basic_block bb;
   gimple_stmt_iterator gsi, gsi_iv;
 
@@ -7053,7 +7242,7 @@ remove_unused_ivs (struct ivopts_data *data)
 	    {
 	      imm_use_iterator imm_iter;
 	      use_operand_p use_p;
-	      gimple stmt;
+	      gimple *stmt;
 	      int count = 0;
 
 	      FOR_EACH_IMM_USE_STMT (stmt, imm_iter, def)
@@ -7188,7 +7377,6 @@ free_loop_data (struct ivopts_data *data)
       struct version_info *info;
 
       info = ver_info (data, i);
-      free (info->iv);
       info->iv = NULL;
       info->has_nonlin_use = false;
       info->preserve_biv = false;
@@ -7207,13 +7395,11 @@ free_loop_data (struct ivopts_data *data)
 	  gcc_assert (sub->related_cands == NULL);
 	  gcc_assert (sub->n_map_members == 0 && sub->cost_map == NULL);
 
-	  free (sub->iv);
 	  pre = sub;
 	  sub = sub->next;
 	  free (pre);
 	}
 
-      free (use->iv);
       BITMAP_FREE (use->related_cands);
       for (j = 0; j < use->n_map_members; j++)
 	if (use->cost_map[j].depends_on)
@@ -7227,7 +7413,6 @@ free_loop_data (struct ivopts_data *data)
     {
       struct iv_cand *cand = iv_cand (data, i);
 
-      free (cand->iv);
       if (cand->depends_on)
 	BITMAP_FREE (cand->depends_on);
       free (cand);
@@ -7269,6 +7454,7 @@ tree_ssa_iv_optimize_finalize (struct ivopts_data *data)
   delete data->inv_expr_tab;
   data->inv_expr_tab = NULL;
   free_affine_expand_cache (&data->name_expansion_cache);
+  obstack_free (&data->iv_obstack, NULL);
 }
 
 /* Returns true if the loop body BODY includes any function calls.  */
@@ -7282,7 +7468,7 @@ loop_body_includes_call (basic_block *body, unsigned num_nodes)
   for (i = 0; i < num_nodes; i++)
     for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple stmt = gsi_stmt (gsi);
+	gimple *stmt = gsi_stmt (gsi);
 	if (is_gimple_call (stmt)
 	    && !is_inexpensive_builtin (gimple_call_fndecl (stmt)))
 	  return true;

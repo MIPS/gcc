@@ -36,28 +36,20 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
+#include "gimple.h"
 #include "rtl.h"
-#include "hard-reg-set.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "profile.h"
-#include "predict.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "params.h"
 #include "coverage.h"
 #include "tree-pass.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
 #include "tree-ssa.h"
@@ -101,7 +93,7 @@ bb_seen_p (basic_block bb)
 static bool
 ignore_bb_p (const_basic_block bb)
 {
-  gimple g;
+  gimple *g;
 
   if (bb->index < NUM_FIXED_BLOCKS)
     return true;
@@ -123,7 +115,7 @@ static int
 count_insns (basic_block bb)
 {
   gimple_stmt_iterator gsi;
-  gimple stmt;
+  gimple *stmt;
   int n = 0;
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))

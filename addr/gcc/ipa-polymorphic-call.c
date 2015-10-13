@@ -21,16 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "calls.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -42,18 +40,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-pass.h"
 #include "target.h"
-#include "tree-pretty-print.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "ipa-utils.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
@@ -66,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "intl.h"
 #include "data-streamer.h"
-#include "lto-streamer.h"
 #include "streamer-hooks.h"
 #include "tree-ssa-operands.h"
 #include "tree-into-ssa.h"
@@ -551,7 +540,7 @@ inlined_polymorphic_ctor_dtor_block_p (tree block, bool check_clones)
 
 bool
 decl_maybe_in_construction_p (tree base, tree outer_type,
-			      gimple call, tree function)
+			      gimple *call, tree function)
 {
   if (outer_type)
     outer_type = TYPE_MAIN_VARIANT (outer_type);
@@ -838,7 +827,7 @@ walk_ssa_copies (tree op, hash_set<tree> **global_visited = NULL)
 	 undefined anyway.  */
       if (gimple_code (SSA_NAME_DEF_STMT (op)) == GIMPLE_PHI)
 	{
-	  gimple phi = SSA_NAME_DEF_STMT (op);
+	  gimple *phi = SSA_NAME_DEF_STMT (op);
 
 	  if (gimple_phi_num_args (phi) > 2)
 	    goto done;
@@ -884,7 +873,7 @@ ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree cst,
 
 ipa_polymorphic_call_context::ipa_polymorphic_call_context (tree fndecl,
 							    tree ref,
-							    gimple stmt,
+							    gimple *stmt,
 							    tree *instance)
 {
   tree otr_type = NULL;
@@ -1130,7 +1119,7 @@ struct type_change_info
    and destructor functions.  */
 
 static bool
-noncall_stmt_may_be_vtbl_ptr_store (gimple stmt)
+noncall_stmt_may_be_vtbl_ptr_store (gimple *stmt)
 {
   if (is_gimple_assign (stmt))
     {
@@ -1176,7 +1165,7 @@ noncall_stmt_may_be_vtbl_ptr_store (gimple stmt)
    in unknown way or ERROR_MARK_NODE if type is unchanged.  */
 
 static tree
-extr_type_from_vtbl_ptr_store (gimple stmt, struct type_change_info *tci,
+extr_type_from_vtbl_ptr_store (gimple *stmt, struct type_change_info *tci,
 			       HOST_WIDE_INT *type_offset)
 {
   HOST_WIDE_INT offset, size, max_size;
@@ -1366,7 +1355,7 @@ record_known_type (struct type_change_info *tci, tree type, HOST_WIDE_INT offset
 static bool
 check_stmt_for_type_change (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
 {
-  gimple stmt = SSA_NAME_DEF_STMT (vdef);
+  gimple *stmt = SSA_NAME_DEF_STMT (vdef);
   struct type_change_info *tci = (struct type_change_info *) data;
   tree fn;
 
@@ -1497,13 +1486,13 @@ bool
 ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 						tree otr_object,
 						tree otr_type,
-						gimple call)
+						gimple *call)
 {
   struct type_change_info tci;
   ao_ref ao;
   bool function_entry_reached = false;
   tree instance_ref = NULL;
-  gimple stmt = call;
+  gimple *stmt = call;
   /* Remember OFFSET before it is modified by restrict_to_inner_class.
      This is because we do not update INSTANCE when walking inwards.  */
   HOST_WIDE_INT instance_offset = offset;
@@ -1574,13 +1563,15 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 		  tree base_ref = get_ref_base_and_extent
 				   (ref_exp, &offset2, &size, &max_size);
 
-		  /* Finally verify that what we found looks like read from OTR_OBJECT
-		     or from INSTANCE with offset OFFSET.  */
+		  /* Finally verify that what we found looks like read from
+		     OTR_OBJECT or from INSTANCE with offset OFFSET.  */
 		  if (base_ref
 		      && ((TREE_CODE (base_ref) == MEM_REF
 		           && ((offset2 == instance_offset
 		                && TREE_OPERAND (base_ref, 0) == instance)
-			       || (!offset2 && TREE_OPERAND (base_ref, 0) == otr_object)))
+			       || (!offset2
+				   && TREE_OPERAND (base_ref, 0)
+				      == otr_object)))
 			  || (DECL_P (instance) && base_ref == instance
 			      && offset2 == instance_offset)))
 		    {
@@ -1608,9 +1599,17 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
   /* We look for vtbl pointer read.  */
   ao.size = POINTER_SIZE;
   ao.max_size = ao.size;
+  /* We are looking for stores to vptr pointer within the instance of
+     outer type.
+     TODO: The vptr pointer type is globally known, we probably should
+     keep it and do that even when otr_type is unknown.  */
   if (otr_type)
-    ao.ref_alias_set
-      = get_deref_alias_set (TREE_TYPE (BINFO_VTABLE (TYPE_BINFO (otr_type))));
+    {
+      ao.base_alias_set
+	= get_alias_set (outer_type ? outer_type : otr_type);
+      ao.ref_alias_set
+        = get_alias_set (TREE_TYPE (BINFO_VTABLE (TYPE_BINFO (otr_type))));
+    }
 
   if (dump_file)
     {

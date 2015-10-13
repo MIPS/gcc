@@ -25,28 +25,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "stmt.h"
 #include "stor-layout.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 
 
 /* Expand EXPR to list of gimple statements STMTS.  GIMPLE_TEST_F specifies
@@ -163,12 +155,12 @@ force_gimple_operand_gsi (gimple_stmt_iterator *gsi, tree expr,
    GIMPLE statements are inserted before *GSI_P.  */
 
 void
-gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
+gimple_regimplify_operands (gimple *stmt, gimple_stmt_iterator *gsi_p)
 {
   size_t i, num_ops;
   tree lhs;
   gimple_seq pre = NULL;
-  gimple post_stmt = NULL;
+  gimple *post_stmt = NULL;
 
   push_gimplify_context (gimple_in_ssa_p (cfun));
 

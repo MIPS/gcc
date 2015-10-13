@@ -18,7 +18,7 @@
 // <http://www.gnu.org/licenses/>.
 
 // { dg-do compile }
-// { dg-prune-output 1682 }
+// { dg-prune-output 1692 }
 
 #include <list>
 

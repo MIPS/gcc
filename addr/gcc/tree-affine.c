@@ -21,14 +21,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
+#include "gimple.h"
 #include "rtl.h"
+#include "options.h"
+#include "fold-const.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -41,12 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-pretty-print.h"
 #include "tree-affine.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "dumpfile.h"
 #include "cfgexpand.h"
@@ -641,7 +634,7 @@ aff_combination_expand (aff_tree *comb ATTRIBUTE_UNUSED,
   unsigned i;
   aff_tree to_add, current, curre;
   tree e, rhs;
-  gimple def;
+  gimple *def;
   widest_int scale;
   struct name_expansion *exp;
 

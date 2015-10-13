@@ -25,16 +25,15 @@ along with GCC; see the file COPYING3.  If not see
    An early description of this pass can be found in the GCC Summit'06
    paper "GRAPHITE: Polyhedral Analyses and Optimizations for GCC".
    The wiki page http://gcc.gnu.org/wiki/Graphite contains pointers to
-   the related work.
-
-   One important document to read is CLooG's internal manual:
-   http://repo.or.cz/w/cloog-ppl.git?a=blob_plain;f=doc/cloog.texi;hb=HEAD
-   that describes the data structure of loops used in this file, and
-   the functions that are used for transforming the code.  */
+   the related work.  */
 
 #include "config.h"
 
 #ifdef HAVE_isl
+/* Workaround for GMP 5.1.3 bug, see PR56019.  */
+#include <stddef.h>
+
+#include <isl/constraint.h>
 #include <isl/set.h>
 #include <isl/map.h>
 #include <isl/options.h>
@@ -43,40 +42,27 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "system.h"
 #include "coretypes.h"
+#include "backend.h"
 #include "diagnostic-core.h"
-#include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "cfgloop.h"
+#include "tree-pass.h"
+#include "params.h"
+#include "pretty-print.h"
+
+#ifdef HAVE_isl
+#include "cfghooks.h"
 #include "tree.h"
-#include "fold-const.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
 #include "gimple.h"
+#include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
 #include "tree-ssa-loop.h"
-#include "tree-dump.h"
-#include "cfgloop.h"
-#include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
-#include "sese.h"
+#include "graphite-poly.h"
 #include "dbgcnt.h"
 #include "tree-parloops.h"
-#include "tree-pass.h"
 #include "tree-cfgcleanup.h"
-
-#ifdef HAVE_isl
-
-#include "graphite-poly.h"
 #include "graphite-scop-detection.h"
 #include "graphite-isl-ast-to-gimple.h"
 #include "graphite-sese-to-poly.h"
@@ -158,7 +144,7 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
       gimple_stmt_iterator psi;
       loop_p loop = bb->loop_father;
 
-      if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
+      if (!bb_in_sese_p (bb, scop->region->region))
 	continue;
 
       n_bbs++;
@@ -176,12 +162,22 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
 	  n_p_stmts += bb->count;
 	}
 
-      if (loop->header == bb && loop_in_sese_p (loop, SCOP_REGION (scop)))
+      if (loop->header == bb && loop_in_sese_p (loop, scop->region->region))
 	{
 	  n_loops++;
 	  n_p_loops += bb->count;
 	}
     }
+
+  fprintf (file, "\nFunction Name: %s\n", current_function_name ());
+
+  edge scop_begin = scop->region->region.entry;
+  edge scop_end = scop->region->region.exit;
+
+  fprintf (file, "\nSCoP (entry_edge (bb_%d, bb_%d), ",
+	   scop_begin->src->index, scop_begin->dest->index);
+  fprintf (file, "exit_edge (bb_%d, bb_%d))",
+	   scop_end->src->index, scop_end->dest->index);
 
   fprintf (file, "\nSCoP statistics (");
   fprintf (file, "BBS:%ld, ", n_bbs);
@@ -206,6 +202,10 @@ print_graphite_statistics (FILE* file, vec<scop_p> scops)
 
   FOR_EACH_VEC_ELT (scops, i, scop)
     print_graphite_scop_statistics (file, scop);
+
+  /* Print the loop structure.  */
+  print_loops (file, 2);
+  print_loops (file, 3);
 }
 
 /* Initialize graphite: when there are no loops returns false.  */
@@ -213,14 +213,30 @@ print_graphite_statistics (FILE* file, vec<scop_p> scops)
 static bool
 graphite_initialize (isl_ctx *ctx)
 {
-  if (number_of_loops (cfun) <= 1
+  int min_loops = PARAM_VALUE (PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION);
+  int max_bbs = PARAM_VALUE (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION);
+  int nbbs = n_basic_blocks_for_fn (cfun);
+  int nloops = number_of_loops (cfun);
+
+  if (nloops <= min_loops
       /* FIXME: This limit on the number of basic blocks of a function
 	 should be removed when the SCOP detection is faster.  */
-      || (n_basic_blocks_for_fn (cfun) >
-	  PARAM_VALUE (PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION)))
+      || (nbbs > max_bbs))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
-	print_global_statistics (dump_file);
+	{
+	  if (nloops <= min_loops)
+	    fprintf (dump_file, "\nFunction does not have enough loops: "
+		     "PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION = %d.\n",
+		     min_loops);
+
+	  else if (nbbs > max_bbs)
+	    fprintf (dump_file, "\nFunction has too many basic blocks: "
+		     "PARAM_GRAPHITE_MAX_BBS_PER_FUNCTION = %d.\n", max_bbs);
+
+	  fprintf (dump_file, "\nnumber of SCoPs: 0\n");
+	  print_global_statistics (dump_file);
+	}
 
       isl_ctx_free (ctx);
       return false;
@@ -231,7 +247,10 @@ graphite_initialize (isl_ctx *ctx)
   initialize_original_copy_tables ();
 
   if (dump_file && dump_flags)
-    dump_function_to_file (current_function_decl, dump_file, dump_flags);
+    {
+      dump_function_to_file (current_function_decl, dump_file, dump_flags);
+      print_loops (dump_file, 3);
+    }
 
   return true;
 }
@@ -242,8 +261,10 @@ graphite_initialize (isl_ctx *ctx)
 static void
 graphite_finalize (bool need_cfg_cleanup_p)
 {
+  free_dominance_info (CDI_POST_DOMINATORS);
   if (need_cfg_cleanup_p)
     {
+      free_dominance_info (CDI_DOMINATORS);
       scev_reset ();
       cleanup_tree_cfg ();
       profile_status_for_fn (cfun) = PROFILE_ABSENT;
@@ -255,6 +276,20 @@ graphite_finalize (bool need_cfg_cleanup_p)
 
   if (dump_file && dump_flags)
     print_loops (dump_file, 3);
+}
+
+/* Deletes all scops in SCOPS.  */
+
+static void
+free_scops (vec<scop_p> scops)
+{
+  int i;
+  scop_p scop;
+
+  FOR_EACH_VEC_ELT (scops, i, scop)
+    free_scop (scop);
+
+  scops.release ();
 }
 
 isl_ctx *the_isl_ctx;
@@ -293,8 +328,11 @@ graphite_transform_loops (void)
   FOR_EACH_VEC_ELT (scops, i, scop)
     if (dbg_cnt (graphite_scop))
       {
-	scop->ctx = ctx;
+	scop->isl_context = ctx;
 	build_poly_scop (scop);
+
+	if (dump_file && dump_flags)
+	  print_scop (dump_file, scop);
 
 	if (POLY_SCOP_P (scop)
 	    && apply_poly_transforms (scop)
@@ -336,13 +374,9 @@ gate_graphite_transforms (void)
 {
   /* Enable -fgraphite pass if any one of the graphite optimization flags
      is turned on.  */
-  if (flag_loop_block
-      || flag_loop_interchange
-      || flag_loop_strip_mine
-      || flag_graphite_identity
+  if (flag_graphite_identity
       || flag_loop_parallelize_all
-      || flag_loop_optimize_isl
-      || flag_loop_unroll_jam)
+      || flag_loop_optimize_isl)
     flag_graphite = 1;
 
   return flag_graphite != 0;

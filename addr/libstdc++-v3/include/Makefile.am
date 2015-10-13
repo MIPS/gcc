@@ -122,6 +122,7 @@ bits_headers = \
 	${bits_srcdir}/mask_array.h \
 	${bits_srcdir}/memoryfwd.h \
 	${bits_srcdir}/move.h \
+	${bits_srcdir}/mutex.h \
 	${bits_srcdir}/ostream.tcc \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
@@ -646,9 +647,9 @@ experimental_builddir = ./experimental
 experimental_headers = \
 	${experimental_srcdir}/algorithm \
 	${experimental_srcdir}/any \
+	${experimental_srcdir}/array \
 	${experimental_srcdir}/chrono \
 	${experimental_srcdir}/deque \
-	${experimental_srcdir}/erase_if.h \
 	${experimental_srcdir}/forward_list \
 	${experimental_srcdir}/functional \
 	${experimental_srcdir}/iterator \
@@ -657,11 +658,11 @@ experimental_headers = \
 	${experimental_srcdir}/memory \
 	${experimental_srcdir}/numeric \
 	${experimental_srcdir}/optional \
+	${experimental_srcdir}/propagate_const \
 	${experimental_srcdir}/ratio \
 	${experimental_srcdir}/set \
 	${experimental_srcdir}/string \
 	${experimental_srcdir}/string_view \
-	${experimental_srcdir}/string_view.tcc \
 	${experimental_srcdir}/system_error \
 	${experimental_srcdir}/tuple \
 	${experimental_srcdir}/type_traits \
@@ -670,15 +671,24 @@ experimental_headers = \
 	${experimental_srcdir}/vector \
 	${experimental_filesystem_headers}
 
+experimental_bits_srcdir = ${glibcxx_srcdir}/include/experimental/bits
+experimental_bits_builddir = ./experimental/bits
+experimental_bits_headers = \
+	${experimental_bits_srcdir}/erase_if.h \
+	${experimental_bits_srcdir}/string_view.tcc \
+	${experimental_bits_filesystem_headers}
+
 if ENABLE_FILESYSTEM_TS
 experimental_filesystem_headers = \
-	${experimental_srcdir}/filesystem \
-	${experimental_srcdir}/fs_dir.h \
-	${experimental_srcdir}/fs_fwd.h \
-	${experimental_srcdir}/fs_ops.h \
-	${experimental_srcdir}/fs_path.h
+	${experimental_srcdir}/filesystem
+experimental_bits_filesystem_headers = \
+	${experimental_bits_srcdir}/fs_dir.h \
+	${experimental_bits_srcdir}/fs_fwd.h \
+	${experimental_bits_srcdir}/fs_ops.h \
+	${experimental_bits_srcdir}/fs_path.h
 else
 experimental_filesystem_headers =
+experimental_bits_filesystem_headers =
 endif
 
 # This is the common subset of C++ files that all three "C" header models use.
@@ -708,6 +718,7 @@ c_base_headers = \
 	${c_base_srcdir}/cstring \
 	${c_base_srcdir}/ctgmath \
 	${c_base_srcdir}/ctime \
+	${c_base_srcdir}/cuchar \
 	${c_base_srcdir}/cwchar \
 	${c_base_srcdir}/cwctype
 
@@ -750,6 +761,7 @@ c_compatibility_headers = \
 	${c_compatibility_srcdir}/string.h \
 	${c_compatibility_srcdir}/tgmath.h \
 	${c_compatibility_srcdir}/time.h \
+	${c_compatibility_srcdir}/uchar.h \
 	${c_compatibility_srcdir}/wchar.h \
 	${c_compatibility_srcdir}/wctype.h
 endif
@@ -766,6 +778,7 @@ debug_headers = \
 	${debug_srcdir}/formatter.h \
 	${debug_srcdir}/forward_list \
 	${debug_srcdir}/functions.h \
+	${debug_srcdir}/helper_functions.h \
 	${debug_srcdir}/list \
 	${debug_srcdir}/map \
 	${debug_srcdir}/macros.h \
@@ -785,6 +798,7 @@ debug_headers = \
 	${debug_srcdir}/safe_unordered_container.tcc \
 	${debug_srcdir}/set \
 	${debug_srcdir}/set.h \
+	${debug_srcdir}/stl_iterator.h \
 	${debug_srcdir}/string \
 	${debug_srcdir}/unordered_map \
 	${debug_srcdir}/unordered_set \
@@ -961,8 +975,8 @@ endif
 allstamped = \
 	stamp-std stamp-bits stamp-bits-sup stamp-c_base stamp-c_compatibility \
 	stamp-backward stamp-ext stamp-pb stamp-tr1 stamp-tr2 stamp-decimal \
-	stamp-experimental stamp-debug stamp-parallel stamp-profile \
-	stamp-profile-impl stamp-host
+	stamp-experimental stamp-experimental-bits stamp-debug stamp-parallel \
+	stamp-profile stamp-profile-impl stamp-host
 
 # List of all files that are created by explicit building, editing, or
 # catenation.
@@ -1089,6 +1103,11 @@ stamp-experimental: ${experimental_headers}
 	@-mkdir -p ${experimental_builddir}
 	@-cd ${experimental_builddir} && $(LN_S) $? . 2>/dev/null
 	@$(STAMP) stamp-experimental
+
+stamp-experimental-bits: ${experimental_bits_headers}
+	@-mkdir -p ${experimental_bits_builddir}
+	@-cd ${experimental_bits_builddir} && $(LN_S) $? . 2>/dev/null
+	@$(STAMP) stamp-experimental-bits
 
 stamp-debug: ${debug_headers}
 	@-mkdir -p ${debug_builddir}
@@ -1362,6 +1381,9 @@ install-headers:
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${experimental_builddir}
 	for file in ${experimental_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${experimental_builddir}; done
+	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${experimental_bits_builddir}
+	for file in ${experimental_bits_headers}; do \
+	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${experimental_bits_builddir}; done
 	$(mkinstalldirs) $(DESTDIR)${gxx_include_dir}/${c_base_builddir}
 	for file in ${c_base_headers}; do \
 	  $(INSTALL_DATA) $${file} $(DESTDIR)${gxx_include_dir}/${c_base_builddir}; done
@@ -1408,9 +1430,11 @@ clean-local:
 # be made.)
 .PRECIOUS: $(std_headers) $(c_base_headers) $(tr1_headers) $(tr2_headers)
 	   $(decimal_headers) $(ext_headers) $(experimental_headers)
+	   $(experimental_bits_headers)
 $(std_headers): ; @:
 $(c_base_headers): ; @:
 $(tr1_headers): ; @:
 $(decimal_headers): ; @:
 $(ext_headers): ; @:
 $(experimental_headers): ; @:
+$(experimental_bits_headers): ; @:

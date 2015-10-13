@@ -187,38 +187,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "tm_p.h"
 #include "cfgloop.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
-#include "rtl.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "expmed.h"
@@ -255,7 +243,7 @@ typedef struct dref_d
   struct data_reference *ref;
 
   /* The statement in that the reference appears.  */
-  gimple stmt;
+  gimple *stmt;
 
   /* In case that STMT is a phi node, this field is set to the SSA name
      defined by it in replace_phis_by_defined_names (in order to avoid
@@ -1134,7 +1122,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
 {
   tree name, init, init_ref;
   gphi *phi = NULL;
-  gimple init_stmt;
+  gimple *init_stmt;
   edge latch = loop_latch_edge (loop);
   struct data_reference init_dr;
   gphi_iterator psi;
@@ -1307,7 +1295,7 @@ determine_roots (struct loop *loop,
    is in the lhs of STMT, false if it is in rhs.  */
 
 static void
-replace_ref_with (gimple stmt, tree new_tree, bool set, bool in_lhs)
+replace_ref_with (gimple *stmt, tree new_tree, bool set, bool in_lhs)
 {
   tree val;
   gassign *new_stmt;
@@ -1636,12 +1624,12 @@ execute_load_motion (struct loop *loop, chain_p chain, bitmap tmp_vars)
    the looparound phi nodes contained in one of the chains.  If there is no
    such statement, or more statements, NULL is returned.  */
 
-static gimple
+static gimple *
 single_nonlooparound_use (tree name)
 {
   use_operand_p use;
   imm_use_iterator it;
-  gimple stmt, ret = NULL;
+  gimple *stmt, *ret = NULL;
 
   FOR_EACH_IMM_USE_FAST (use, it, name)
     {
@@ -1672,10 +1660,10 @@ single_nonlooparound_use (tree name)
    used.  */
 
 static void
-remove_stmt (gimple stmt)
+remove_stmt (gimple *stmt)
 {
   tree name;
-  gimple next;
+  gimple *next;
   gimple_stmt_iterator psi;
 
   if (gimple_code (stmt) == GIMPLE_PHI)
@@ -1897,7 +1885,7 @@ execute_pred_commoning_cbck (struct loop *loop, void *data)
 static void
 base_names_in_chain_on (struct loop *loop, tree name, tree var)
 {
-  gimple stmt, phi;
+  gimple *stmt, *phi;
   imm_use_iterator iter;
 
   replace_ssa_name_symbol (name, var);
@@ -1932,7 +1920,7 @@ eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
 {
   edge e;
   gphi *phi;
-  gimple stmt;
+  gimple *stmt;
   tree name, use, var;
   gphi_iterator psi;
 
@@ -1979,10 +1967,10 @@ chain_can_be_combined_p (chain_p chain)
    statements, NAME is replaced with the actual name used in the returned
    statement.  */
 
-static gimple
+static gimple *
 find_use_stmt (tree *name)
 {
-  gimple stmt;
+  gimple *stmt;
   tree rhs, lhs;
 
   /* Skip over assignments.  */
@@ -2032,11 +2020,11 @@ may_reassociate_p (tree type, enum tree_code code)
    tree of the same operations and returns its root.  Distance to the root
    is stored in DISTANCE.  */
 
-static gimple
-find_associative_operation_root (gimple stmt, unsigned *distance)
+static gimple *
+find_associative_operation_root (gimple *stmt, unsigned *distance)
 {
   tree lhs;
-  gimple next;
+  gimple *next;
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree type = TREE_TYPE (gimple_assign_lhs (stmt));
   unsigned dist = 0;
@@ -2069,10 +2057,10 @@ find_associative_operation_root (gimple stmt, unsigned *distance)
    tree formed by this operation instead of the statement that uses NAME1 or
    NAME2.  */
 
-static gimple
+static gimple *
 find_common_use_stmt (tree *name1, tree *name2)
 {
-  gimple stmt1, stmt2;
+  gimple *stmt1, *stmt2;
 
   stmt1 = find_use_stmt (name1);
   if (!stmt1)
@@ -2107,7 +2095,7 @@ combinable_refs_p (dref r1, dref r2,
   bool aswap;
   tree atype;
   tree name1, name2;
-  gimple stmt;
+  gimple *stmt;
 
   name1 = name_for_ref (r1);
   name2 = name_for_ref (r2);
@@ -2144,7 +2132,7 @@ combinable_refs_p (dref r1, dref r2,
    an assignment of the remaining operand.  */
 
 static void
-remove_name_from_operation (gimple stmt, tree op)
+remove_name_from_operation (gimple *stmt, tree op)
 {
   tree other_op;
   gimple_stmt_iterator si;
@@ -2168,10 +2156,10 @@ remove_name_from_operation (gimple stmt, tree op)
 /* Reassociates the expression in that NAME1 and NAME2 are used so that they
    are combined in a single statement, and returns this statement.  */
 
-static gimple
+static gimple *
 reassociate_to_the_same_stmt (tree name1, tree name2)
 {
-  gimple stmt1, stmt2, root1, root2, s1, s2;
+  gimple *stmt1, *stmt2, *root1, *root2, *s1, *s2;
   gassign *new_stmt, *tmp_stmt;
   tree new_name, tmp_name, var, r1, r2;
   unsigned dist1, dist2;
@@ -2253,10 +2241,10 @@ reassociate_to_the_same_stmt (tree name1, tree name2)
    associative and commutative operation in the same expression, reassociate
    the expression so that they are used in the same statement.  */
 
-static gimple
+static gimple *
 stmt_combining_refs (dref r1, dref r2)
 {
-  gimple stmt1, stmt2;
+  gimple *stmt1, *stmt2;
   tree name1 = name_for_ref (r1);
   tree name2 = name_for_ref (r2);
 
@@ -2279,7 +2267,7 @@ combine_chains (chain_p ch1, chain_p ch2)
   bool swap = false;
   chain_p new_chain;
   unsigned i;
-  gimple root_stmt;
+  gimple *root_stmt;
   tree rslt_type = NULL_TREE;
 
   if (ch1 == ch2)
@@ -2301,11 +2289,7 @@ combine_chains (chain_p ch1, chain_p ch2)
     }
 
   if (swap)
-    {
-      chain_p tmp = ch1;
-      ch1 = ch2;
-      ch2 = tmp;
-    }
+    std::swap (ch1, ch2);
 
   new_chain = XCNEW (struct chain);
   new_chain->type = CT_COMBINATION;

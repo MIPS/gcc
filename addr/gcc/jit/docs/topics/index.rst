@@ -28,3 +28,5 @@ Topic Reference
    functions.rst
    locations.rst
    compilation.rst
+   compatibility.rst
+   performance.rst

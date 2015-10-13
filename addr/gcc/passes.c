@@ -25,23 +25,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-attr.h"
 #include "insn-config.h"
 #include "insn-flags.h"
-#include "hard-reg-set.h"
 #include "recog.h"
 #include "output.h"
 #include "except.h"
-#include "function.h"
 #include "toplev.h"
 #include "expmed.h"
 #include "dojump.h"
@@ -50,8 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "basic-block.h"
 #include "intl.h"
 #include "graph.h"
 #include "regs.h"
@@ -67,23 +66,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree-inline.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
-#include "gimple-ssa.h"
 #include "tree-cfg.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
-#include "df.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "lto-streamer.h"
 #include "plugin.h"
@@ -91,11 +81,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "context.h"
 #include "pass_manager.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
+#include "tree-ssanames.h"
 
 using namespace gcc;
 
@@ -330,7 +319,21 @@ rest_of_decl_compilation (tree decl,
       && !decl_function_context (decl)
       && !current_function_decl
       && DECL_SOURCE_LOCATION (decl) != BUILTINS_LOCATION
-      && !decl_type_context (decl))
+      && (!decl_type_context (decl)
+	  /* If we created a varpool node for the decl make sure to
+	     call early_global_decl.  Otherwise we miss changes
+	     introduced by member definitions like
+		struct A { static int staticdatamember; };
+		int A::staticdatamember;
+	     and thus have incomplete early debug and late debug
+	     called from varpool node removal fails to handle it
+	     properly.  */
+	  || (finalize
+	      && TREE_CODE (decl) == VAR_DECL
+	      && TREE_STATIC (decl) && !DECL_EXTERNAL (decl)))
+      /* Avoid confusing the debug information machinery when there are
+	 errors.  */
+      && !seen_error ())
     (*debug_hooks->early_global_decl) (decl);
 }
 
@@ -858,32 +861,7 @@ pass_manager::register_dump_files (opt_pass *pass)
   while (pass);
 }
 
-/* Helper for pass_registry hash table.  */
-
-struct pass_registry_hasher : default_hashmap_traits
-{
-  static inline hashval_t hash (const char *);
-  static inline bool equal_keys (const char *, const char *);
-};
-
-/* Pass registry hash function.  */
-
-inline hashval_t
-pass_registry_hasher::hash (const char *name)
-{
-  return htab_hash_string (name);
-}
-
-/* Hash equal function  */
-
-inline bool
-pass_registry_hasher::equal_keys (const char *s1, const char *s2)
-{
-  return !strcmp (s1, s2);
-}
-
-static hash_map<const char *, opt_pass *, pass_registry_hasher>
-  *name_to_pass_map;
+static hash_map<nofree_string_hash, opt_pass *> *name_to_pass_map;
 
 /* Register PASS with NAME.  */
 
@@ -891,8 +869,7 @@ static void
 register_pass_name (opt_pass *pass, const char *name)
 {
   if (!name_to_pass_map)
-    name_to_pass_map
-      = new hash_map<const char *, opt_pass *, pass_registry_hasher> (256);
+    name_to_pass_map = new hash_map<nofree_string_hash, opt_pass *> (256);
 
   if (name_to_pass_map->get (name))
     return; /* Ignore plugin passes.  */
@@ -1937,6 +1914,14 @@ execute_function_todo (function *fn, void *data)
     {
       cleanup_tree_cfg ();
 
+      /* Once unreachable nodes have been removed from the CFG,
+	 there can't be any lingering references to released
+	 SSA_NAMES (because there is no more unreachable code).
+
+	 Thus, now is the time to flush the SSA_NAMEs freelist.  */
+      if (fn->gimple_df)
+	flush_ssaname_freelist ();
+
       /* When cleanup_tree_cfg merges consecutive blocks, it may
 	 perform some simplistic propagation when removing single
 	 valued PHI nodes.  This propagation may, in turn, cause the
@@ -1968,6 +1953,7 @@ execute_function_todo (function *fn, void *data)
   if (flags & TODO_rebuild_cgraph_edges)
     cgraph_edge::rebuild_edges ();
 
+  gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == DOM_NONE);
   /* If we've seen errors do not bother running any verifiers.  */
   if (!seen_error ())
     {
@@ -2780,7 +2766,7 @@ execute_ipa_pass_list (opt_pass *pass)
 
 static void
 execute_ipa_stmt_fixups (opt_pass *pass,
-			 struct cgraph_node *node, gimple *stmts)
+			 struct cgraph_node *node, gimple **stmts)
 {
   while (pass)
     {
@@ -2815,7 +2801,7 @@ execute_ipa_stmt_fixups (opt_pass *pass,
 /* Execute stmt fixup hooks of all IPA passes for NODE and STMTS.  */
 
 void
-execute_all_ipa_stmt_fixups (struct cgraph_node *node, gimple *stmts)
+execute_all_ipa_stmt_fixups (struct cgraph_node *node, gimple **stmts)
 {
   pass_manager *passes = g->get_passes ();
   execute_ipa_stmt_fixups (passes->all_regular_ipa_passes, node, stmts);

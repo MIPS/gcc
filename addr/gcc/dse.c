@@ -25,29 +25,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "predict.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "regset.h"
 #include "flags.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "cselib.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "insn-config.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -62,10 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "target.h"
 #include "params.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-ssa.h"
 #include "rtl-iter.h"
 #include "cfgcleanup.h"
@@ -83,7 +75,7 @@ along with GCC; see the file COPYING3.  If not see
    frame_pointer.
 
    * The third technique, (which is only done after register allocation)
-   processes the spill spill slots.  This differs from the second
+   processes the spill slots.  This differs from the second
    technique because it takes advantage of the fact that spilling is
    completely free from the effects of aliasing.
 
@@ -315,12 +307,9 @@ lowpart_bitmask (int n)
   return mask >> (HOST_BITS_PER_WIDE_INT - n);
 }
 
-typedef struct store_info *store_info_t;
-static pool_allocator<store_info> cse_store_info_pool ("cse_store_info_pool",
-						       100);
+static object_allocator<store_info> cse_store_info_pool ("cse_store_info_pool");
 
-static pool_allocator<store_info> rtx_store_info_pool ("rtx_store_info_pool",
-						       100);
+static object_allocator<store_info> rtx_store_info_pool ("rtx_store_info_pool");
 
 /* This structure holds information about a load.  These are only
    built for rtx bases.  */
@@ -342,25 +331,10 @@ struct read_info_type
 
   /* The next read_info for this insn.  */
   struct read_info_type *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((read_info_type *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<read_info_type> pool;
 };
 typedef struct read_info_type *read_info_t;
 
-pool_allocator<read_info_type> read_info_type::pool ("read_info_pool", 100);
+static object_allocator<read_info_type> read_info_type_pool ("read_info_pool");
 
 /* One of these records is created for each insn.  */
 
@@ -422,7 +396,7 @@ struct insn_info_type
      But it could also contain clobbers.  Insns that contain more than
      one mem set are not deletable, but each of those mems are here in
      order to provide info to delete other insns.  */
-  store_info_t store_rec;
+  store_info *store_rec;
 
   /* The linked list of mem uses in this insn.  Only the reads from
      rtx bases are listed here.  The reads to cselib bases are
@@ -446,25 +420,10 @@ struct insn_info_type
      time it is guaranteed to be correct is when the traversal starts
      at active_local_stores.  */
   struct insn_info_type * next_local_store;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((insn_info_type *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<insn_info_type> pool;
 };
 typedef struct insn_info_type *insn_info_t;
 
-pool_allocator<insn_info_type> insn_info_type::pool ("insn_info_pool", 100);
+static object_allocator<insn_info_type> insn_info_type_pool ("insn_info_pool");
 
 /* The linked list of stores that are under consideration in this
    basic block.  */
@@ -526,25 +485,12 @@ struct dse_bb_info_type
      to assure that shift and/or add sequences that are inserted do not
      accidentally clobber live hard regs.  */
   bitmap regs_live;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((dse_bb_info_type *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<dse_bb_info_type> pool;
 };
 
 typedef struct dse_bb_info_type *bb_info_t;
-pool_allocator<dse_bb_info_type> dse_bb_info_type::pool ("bb_info_pool", 100);
+
+static object_allocator<dse_bb_info_type> dse_bb_info_type_pool
+  ("bb_info_pool");
 
 /* Table to hold all bb_infos.  */
 static bb_info_t *bb_table;
@@ -612,32 +558,15 @@ struct group_info
      care about.  */
   int *offset_map_n, *offset_map_p;
   int offset_map_size_n, offset_map_size_p;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((group_info *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<group_info> pool;
 };
-typedef struct group_info *group_info_t;
-typedef const struct group_info *const_group_info_t;
 
-pool_allocator<group_info> group_info::pool ("rtx_group_info_pool", 100);
+static object_allocator<group_info> group_info_pool ("rtx_group_info_pool");
 
 /* Index into the rtx_group_vec.  */
 static int rtx_group_next_id;
 
 
-static vec<group_info_t> rtx_group_vec;
+static vec<group_info *> rtx_group_vec;
 
 
 /* This structure holds the set of changes that are being deferred
@@ -652,32 +581,15 @@ struct deferred_change
   rtx reg;
 
   struct deferred_change *next;
-
-  /* Pool allocation new operator.  */
-  inline void *operator new (size_t)
-  {
-    return pool.allocate ();
-  }
-
-  /* Delete operator utilizing pool allocation.  */
-  inline void operator delete (void *ptr)
-  {
-    pool.remove ((deferred_change *) ptr);
-  }
-
-  /* Memory allocation pool.  */
-  static pool_allocator<deferred_change> pool;
 };
 
-typedef struct deferred_change *deferred_change_t;
+static object_allocator<deferred_change> deferred_change_pool
+  ("deferred_change_pool");
 
-pool_allocator<deferred_change> deferred_change::pool
-  ("deferred_change_pool", 10);
-
-static deferred_change_t deferred_change_list = NULL;
+static deferred_change *deferred_change_list = NULL;
 
 /* The group that holds all of the clear_alias_sets.  */
-static group_info_t clear_alias_group;
+static group_info *clear_alias_group;
 
 /* The modes of the clear_alias_sets.  */
 static htab_t clear_alias_mode_table;
@@ -732,10 +644,8 @@ clear_alias_set_lookup (alias_set_type alias_set)
 /* Hashtable callbacks for maintaining the "bases" field of
    store_group_info, given that the addresses are function invariants.  */
 
-struct invariant_group_base_hasher : typed_noop_remove <group_info>
+struct invariant_group_base_hasher : nofree_ptr_hash <group_info>
 {
-  typedef group_info *value_type;
-  typedef group_info *compare_type;
   static inline hashval_t hash (const group_info *);
   static inline bool equal (const group_info *, const group_info *);
 };
@@ -760,11 +670,11 @@ static hash_table<invariant_group_base_hasher> *rtx_group_table;
 
 /* Get the GROUP for BASE.  Add a new group if it is not there.  */
 
-static group_info_t
+static group_info *
 get_group_info (rtx base)
 {
   struct group_info tmp_gi;
-  group_info_t gi;
+  group_info *gi;
   group_info **slot;
 
   if (base)
@@ -773,13 +683,13 @@ get_group_info (rtx base)
 	 if necessary.  */
       tmp_gi.rtx_base = base;
       slot = rtx_group_table->find_slot (&tmp_gi, INSERT);
-      gi = (group_info_t) *slot;
+      gi = *slot;
     }
   else
     {
       if (!clear_alias_group)
 	{
-	  clear_alias_group = gi = new group_info;
+	  clear_alias_group = gi = group_info_pool.allocate ();
 	  memset (gi, 0, sizeof (struct group_info));
 	  gi->id = rtx_group_next_id++;
 	  gi->store1_n = BITMAP_ALLOC (&dse_bitmap_obstack);
@@ -801,7 +711,7 @@ get_group_info (rtx base)
 
   if (gi == NULL)
     {
-      *slot = gi = new group_info;
+      *slot = gi = group_info_pool.allocate ();
       gi->rtx_base = base;
       gi->id = rtx_group_next_id++;
       gi->base_mem = gen_rtx_MEM (BLKmode, base);
@@ -870,17 +780,17 @@ dse_step0 (void)
 static void
 free_store_info (insn_info_t insn_info)
 {
-  store_info_t store_info = insn_info->store_rec;
-  while (store_info)
+  store_info *cur = insn_info->store_rec;
+  while (cur)
     {
-      store_info_t next = store_info->next;
-      if (store_info->is_large)
-	BITMAP_FREE (store_info->positions_needed.large.bmap);
-      if (store_info->cse_base)
-	cse_store_info_pool.remove (store_info);
+      store_info *next = cur->next;
+      if (cur->is_large)
+	BITMAP_FREE (cur->positions_needed.large.bmap);
+      if (cur->cse_base)
+	cse_store_info_pool.remove (cur);
       else
-	rtx_store_info_pool.remove (store_info);
-      store_info = next;
+	rtx_store_info_pool.remove (cur);
+      cur = next;
     }
 
   insn_info->cannot_delete = true;
@@ -888,12 +798,12 @@ free_store_info (insn_info_t insn_info)
   insn_info->store_rec = NULL;
 }
 
-typedef struct
+struct note_add_store_info
 {
   rtx_insn *first, *current;
   regset fixed_regs_live;
   bool failure;
-} note_add_store_info;
+};
 
 /* Callback for emit_inc_dec_insn_before via note_stores.
    Check if a register is clobbered which is live afterwards.  */
@@ -1037,7 +947,7 @@ delete_dead_store_insn (insn_info_t insn_info)
   while (read_info)
     {
       read_info_t next = read_info->next;
-      delete read_info;
+      read_info_type_pool.remove (read_info);
       read_info = next;
     }
   insn_info->read_rec = NULL;
@@ -1095,7 +1005,7 @@ can_escape (tree expr)
    OFFSET and WIDTH.  */
 
 static void
-set_usage_bits (group_info_t group, HOST_WIDE_INT offset, HOST_WIDE_INT width,
+set_usage_bits (group_info *group, HOST_WIDE_INT offset, HOST_WIDE_INT width,
                 tree expr)
 {
   HOST_WIDE_INT i;
@@ -1161,7 +1071,7 @@ free_read_records (bb_info_t bb_info)
       read_info_t next = (*ptr)->next;
       if ((*ptr)->alias_set == 0)
         {
-	  delete *ptr;
+	  read_info_type_pool.remove (*ptr);
           *ptr = next;
         }
       else
@@ -1320,7 +1230,7 @@ canon_address (rtx mem,
       if (ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (mem))
 	  && const_or_frame_p (address))
 	{
-	  group_info_t group = get_group_info (address);
+	  group_info *group = get_group_info (address);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  gid=%d offset=%d \n",
@@ -1356,7 +1266,7 @@ clear_rhs_from_active_local_stores (void)
 
   while (ptr)
     {
-      store_info_t store_info = ptr->store_rec;
+      store_info *store_info = ptr->store_rec;
       /* Skip the clobbers.  */
       while (!store_info->is_set)
 	store_info = store_info->next;
@@ -1372,7 +1282,7 @@ clear_rhs_from_active_local_stores (void)
 /* Mark byte POS bytes from the beginning of store S_INFO as unneeded.  */
 
 static inline void
-set_position_unneeded (store_info_t s_info, int pos)
+set_position_unneeded (store_info *s_info, int pos)
 {
   if (__builtin_expect (s_info->is_large, false))
     {
@@ -1387,7 +1297,7 @@ set_position_unneeded (store_info_t s_info, int pos)
 /* Mark the whole store S_INFO as unneeded.  */
 
 static inline void
-set_all_positions_unneeded (store_info_t s_info)
+set_all_positions_unneeded (store_info *s_info)
 {
   if (__builtin_expect (s_info->is_large, false))
     {
@@ -1403,7 +1313,7 @@ set_all_positions_unneeded (store_info_t s_info)
 /* Return TRUE if any bytes from S_INFO store are needed.  */
 
 static inline bool
-any_positions_needed_p (store_info_t s_info)
+any_positions_needed_p (store_info *s_info)
 {
   if (__builtin_expect (s_info->is_large, false))
     return (s_info->positions_needed.large.count
@@ -1417,7 +1327,7 @@ any_positions_needed_p (store_info_t s_info)
    store are needed.  */
 
 static inline bool
-all_positions_needed_p (store_info_t s_info, int start, int width)
+all_positions_needed_p (store_info *s_info, int start, int width)
 {
   if (__builtin_expect (s_info->is_large, false))
     {
@@ -1435,7 +1345,7 @@ all_positions_needed_p (store_info_t s_info, int start, int width)
 }
 
 
-static rtx get_stored_val (store_info_t, machine_mode, HOST_WIDE_INT,
+static rtx get_stored_val (store_info *, machine_mode, HOST_WIDE_INT,
 			   HOST_WIDE_INT, basic_block, bool);
 
 
@@ -1451,7 +1361,7 @@ record_store (rtx body, bb_info_t bb_info)
   HOST_WIDE_INT width = 0;
   alias_set_type spill_alias_set;
   insn_info_t insn_info = bb_info->last_insn;
-  store_info_t store_info = NULL;
+  store_info *store_info = NULL;
   int group_id;
   cselib_val *base = NULL;
   insn_info_t ptr, last, redundant_reason;
@@ -1547,7 +1457,7 @@ record_store (rtx body, bb_info_t bb_info)
       /* In the restrictive case where the base is a constant or the
 	 frame pointer we can do global analysis.  */
 
-      group_info_t group
+      group_info *group
 	= rtx_group_vec[group_id];
       tree expr = MEM_EXPR (mem);
 
@@ -1617,7 +1527,7 @@ record_store (rtx body, bb_info_t bb_info)
 	mem_addr = base->val_rtx;
       else
 	{
-	  group_info_t group
+	  group_info *group
 	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
@@ -1632,7 +1542,7 @@ record_store (rtx body, bb_info_t bb_info)
   while (ptr)
     {
       insn_info_t next = ptr->next_local_store;
-      store_info_t s_info = ptr->store_rec;
+      struct store_info *s_info = ptr->store_rec;
       bool del = true;
 
       /* Skip the clobbers. We delete the active insn if this insn
@@ -1802,7 +1712,7 @@ dump_insn_info (const char * start, insn_info_t insn_info)
 
 static rtx
 find_shift_sequence (int access_size,
-		     store_info_t store_info,
+		     store_info *store_info,
 		     machine_mode read_mode,
 		     int shift, bool speed, bool require_cst)
 {
@@ -1843,7 +1753,8 @@ find_shift_sequence (int access_size,
 		  byte = subreg_lowpart_offset (read_mode, new_mode);
 		  ret = simplify_subreg (read_mode, ret, new_mode, byte);
 		  if (ret && CONSTANT_P (ret)
-		      && set_src_cost (ret, speed) <= COSTS_N_INSNS (1))
+		      && (set_src_cost (ret, read_mode, speed)
+			  <= COSTS_N_INSNS (1)))
 		    return ret;
 		}
 	    }
@@ -1933,7 +1844,7 @@ look_for_hardregs (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
    if not successful.  If REQUIRE_CST is true, return always constant.  */
 
 static rtx
-get_stored_val (store_info_t store_info, machine_mode read_mode,
+get_stored_val (store_info *store_info, machine_mode read_mode,
 		HOST_WIDE_INT read_begin, HOST_WIDE_INT read_end,
 		basic_block bb, bool require_cst)
 {
@@ -2033,7 +1944,7 @@ get_stored_val (store_info_t store_info, machine_mode read_mode,
    went ok.  */
 
 static bool
-replace_read (store_info_t store_info, insn_info_t store_insn,
+replace_read (store_info *store_info, insn_info_t store_insn,
 	      read_info_t read_info, insn_info_t read_insn, rtx *loc,
 	      bitmap regs_live)
 {
@@ -2108,7 +2019,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
 
   if (validate_change (read_insn->insn, loc, read_reg, 0))
     {
-      deferred_change_t change = new deferred_change;
+      deferred_change *change = deferred_change_pool.allocate ();
 
       /* Insert this right before the store insn where it will be safe
 	 from later insns that might change it before the read.  */
@@ -2146,7 +2057,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
       /* Get rid of the read_info, from the point of view of the
 	 rest of dse, play like this read never happened.  */
       read_insn->read_rec = read_info->next;
-      delete read_info;
+      read_info_type_pool.remove (read_info);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, " -- replaced the loaded MEM with ");
@@ -2212,7 +2123,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
   else
     width = GET_MODE_SIZE (GET_MODE (mem));
 
-  read_info = new read_info_type;
+  read_info = read_info_type_pool.allocate ();
   read_info->group_id = group_id;
   read_info->mem = mem;
   read_info->alias_set = spill_alias_set;
@@ -2229,7 +2140,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
 	mem_addr = base->val_rtx;
       else
 	{
-	  group_info_t group
+	  group_info *group
 	    = rtx_group_vec[group_id];
 	  mem_addr = group->canon_base_addr;
 	}
@@ -2255,7 +2166,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
 
       while (i_ptr)
 	{
-	  store_info_t store_info = i_ptr->store_rec;
+	  store_info *store_info = i_ptr->store_rec;
 
 	  /* Skip the clobbers.  */
 	  while (!store_info->is_set)
@@ -2297,7 +2208,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
       while (i_ptr)
 	{
 	  bool remove = false;
-	  store_info_t store_info = i_ptr->store_rec;
+	  store_info *store_info = i_ptr->store_rec;
 
 	  /* Skip the clobbers.  */
 	  while (!store_info->is_set)
@@ -2381,7 +2292,7 @@ check_mem_read_rtx (rtx *loc, bb_info_t bb_info)
       while (i_ptr)
 	{
 	  bool remove = false;
-	  store_info_t store_info = i_ptr->store_rec;
+	  store_info *store_info = i_ptr->store_rec;
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, " processing cselib load against insn %d\n",
@@ -2528,7 +2439,7 @@ static void
 scan_insn (bb_info_t bb_info, rtx_insn *insn)
 {
   rtx body;
-  insn_info_type *insn_info = new insn_info_type;
+  insn_info_type *insn_info = insn_info_type_pool.allocate ();
   int mems_found = 0;
   memset (insn_info, 0, sizeof (struct insn_info_type));
 
@@ -2611,7 +2522,7 @@ scan_insn (bb_info_t bb_info, rtx_insn *insn)
 	      /* If the frame is read, the frame related stores are killed.  */
 	      else if (insn_info->frame_read)
 		{
-		  store_info_t store_info = i_ptr->store_rec;
+		  store_info *store_info = i_ptr->store_rec;
 
 		  /* Skip the clobbers.  */
 		  while (!store_info->is_set)
@@ -2738,7 +2649,7 @@ remove_useless_values (cselib_val *base)
 
   while (insn_info)
     {
-      store_info_t store_info = insn_info->store_rec;
+      store_info *store_info = insn_info->store_rec;
       bool del = false;
 
       /* If ANY of the store_infos match the cselib group that is
@@ -2787,7 +2698,7 @@ dse_step1 (void)
   FOR_ALL_BB_FN (bb, cfun)
     {
       insn_info_t ptr;
-      bb_info_t bb_info = new dse_bb_info_type;
+      bb_info_t bb_info = dse_bb_info_type_pool.allocate ();
 
       memset (bb_info, 0, sizeof (dse_bb_info_type));
       bitmap_set_bit (all_blocks, bb->index);
@@ -2835,7 +2746,7 @@ dse_step1 (void)
 	      insn_info_t i_ptr = active_local_stores;
 	      while (i_ptr)
 		{
-		  store_info_t store_info = i_ptr->store_rec;
+		  store_info *store_info = i_ptr->store_rec;
 
 		  /* Skip the clobbers.  */
 		  while (!store_info->is_set)
@@ -2845,7 +2756,7 @@ dse_step1 (void)
 		  else
 		    if (store_info->group_id >= 0)
 		      {
-			group_info_t group
+			group_info *group
 			  = rtx_group_vec[store_info->group_id];
 			if (group->frame_related && !i_ptr->cannot_delete)
 			  delete_dead_store_insn (i_ptr);
@@ -2859,12 +2770,12 @@ dse_step1 (void)
 	     replace_read.  Cselib is finished with this block.  */
 	  while (deferred_change_list)
 	    {
-	      deferred_change_t next = deferred_change_list->next;
+	      deferred_change *next = deferred_change_list->next;
 
 	      /* There is no reason to validate this change.  That was
 		 done earlier.  */
 	      *deferred_change_list->loc = deferred_change_list->reg;
-	      delete deferred_change_list;
+	      deferred_change_pool.remove (deferred_change_list);
 	      deferred_change_list = next;
 	    }
 
@@ -2876,7 +2787,7 @@ dse_step1 (void)
 	    {
 	      if (ptr->contains_cselib_groups)
 		{
-		  store_info_t s_info = ptr->store_rec;
+		  store_info *s_info = ptr->store_rec;
 		  while (s_info && !s_info->is_set)
 		    s_info = s_info->next;
 		  if (s_info
@@ -2897,7 +2808,7 @@ dse_step1 (void)
 		}
 	      else
 		{
-		  store_info_t s_info;
+		  store_info *s_info;
 
 		  /* Free at least positions_needed bitmaps.  */
 		  for (s_info = ptr->store_rec; s_info; s_info = s_info->next)
@@ -2933,7 +2844,7 @@ static void
 dse_step2_init (void)
 {
   unsigned int i;
-  group_info_t group;
+  group_info *group;
 
   FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
     {
@@ -2984,7 +2895,7 @@ static bool
 dse_step2_nospill (void)
 {
   unsigned int i;
-  group_info_t group;
+  group_info *group;
   /* Position 0 is unused because 0 is used in the maps to mean
      unused.  */
   current_position = 1;
@@ -3033,7 +2944,7 @@ dse_step2_nospill (void)
    there, return 0.  */
 
 static int
-get_bitmap_index (group_info_t group_info, HOST_WIDE_INT offset)
+get_bitmap_index (group_info *group_info, HOST_WIDE_INT offset)
 {
   if (offset < 0)
     {
@@ -3055,12 +2966,12 @@ get_bitmap_index (group_info_t group_info, HOST_WIDE_INT offset)
    may be NULL. */
 
 static void
-scan_stores_nospill (store_info_t store_info, bitmap gen, bitmap kill)
+scan_stores_nospill (store_info *store_info, bitmap gen, bitmap kill)
 {
   while (store_info)
     {
       HOST_WIDE_INT i;
-      group_info_t group_info
+      group_info *group_info
 	= rtx_group_vec[store_info->group_id];
       if (group_info->process_globally)
 	for (i = store_info->begin; i < store_info->end; i++)
@@ -3082,7 +2993,7 @@ scan_stores_nospill (store_info_t store_info, bitmap gen, bitmap kill)
    may be NULL. */
 
 static void
-scan_stores_spill (store_info_t store_info, bitmap gen, bitmap kill)
+scan_stores_spill (store_info *store_info, bitmap gen, bitmap kill)
 {
   while (store_info)
     {
@@ -3110,7 +3021,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 {
   read_info_t read_info = insn_info->read_rec;
   int i;
-  group_info_t group;
+  group_info *group;
 
   /* If this insn reads the frame, kill all the frame related stores.  */
   if (insn_info->frame_read)
@@ -3318,7 +3229,7 @@ dse_step3_exit_block_scan (bb_info_t bb_info)
   if (stores_off_frame_dead_at_return)
     {
       unsigned int i;
-      group_info_t group;
+      group_info *group;
 
       FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	{
@@ -3399,7 +3310,7 @@ dse_step3 (bool for_spills)
 	  if (!all_ones)
 	    {
 	      unsigned int j;
-	      group_info_t group;
+	      group_info *group;
 
 	      all_ones = BITMAP_ALLOC (&dse_bitmap_obstack);
 	      FOR_EACH_VEC_ELT (rtx_group_vec, j, group)
@@ -3603,7 +3514,7 @@ dse_step5_nospill (void)
 	      && (!insn_info->cannot_delete)
 	      && (!bitmap_empty_p (v)))
 	    {
-	      store_info_t store_info = insn_info->store_rec;
+	      store_info *store_info = insn_info->store_rec;
 
 	      /* Try to delete the current insn.  */
 	      deleted = true;
@@ -3617,7 +3528,7 @@ dse_step5_nospill (void)
 	      else
 		{
 		  HOST_WIDE_INT i;
-		  group_info_t group_info
+		  group_info *group_info
 		    = rtx_group_vec[store_info->group_id];
 
 		  for (i = store_info->begin; i < store_info->end; i++)
@@ -3703,7 +3614,7 @@ dse_step6 (void)
 	      && INSN_P (insn_info->insn)
 	      && !insn_info->cannot_delete)
 	    {
-	      store_info_t s_info = insn_info->store_rec;
+	      store_info *s_info = insn_info->store_rec;
 
 	      while (s_info && !s_info->is_set)
 		s_info = s_info->next;
@@ -3749,11 +3660,11 @@ dse_step7 (void)
   BITMAP_FREE (scratch);
 
   rtx_store_info_pool.release ();
-  read_info_type::pool.release ();
-  insn_info_type::pool.release ();
-  dse_bb_info_type::pool.release ();
-  group_info::pool.release ();
-  deferred_change::pool.release ();
+  read_info_type_pool.release ();
+  insn_info_type_pool.release ();
+  dse_bb_info_type_pool.release ();
+  group_info_pool.release ();
+  deferred_change_pool.release ();
 }
 
 

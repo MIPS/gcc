@@ -20,9 +20,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "backend.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "rtl.h"
 #include "tm_p.h"
@@ -31,15 +30,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc-internal.h"
 #include "timevar.h"
 #include "params.h"
-#include "plugin-api.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "cfgloop.h"
 #include "plugin.h"
-#include "predict.h"
-#include "basic-block.h"
 
 /* Prefer MAP_ANON(YMOUS) to /dev/zero, since we don't need to keep a
    file open.  Prefer either to valloc.  */
@@ -223,13 +216,9 @@ static const size_t extra_order_size_table[] = {
 
 #define ROUND_UP_VALUE(x, f) ((f) - 1 - ((f) - 1 + (x)) % (f))
 
-/* Compute the smallest multiple of F that is >= X.  */
-
-#define ROUND_UP(x, f) (CEIL (x, f) * (f))
-
 /* Round X to next multiple of the page size */
 
-#define PAGE_ALIGN(x) (((x) + G.pagesize - 1) & ~(G.pagesize - 1))
+#define PAGE_ALIGN(x) ROUND_UP ((x), G.pagesize)
 
 /* The Ith entry is the number of objects on a page or order I.  */
 
@@ -252,7 +241,7 @@ inverse_table[NUM_ORDERS];
 
 /* A page_entry records the status of an allocation page.  This
    structure is dynamically sized to fit the bitmap in_use_p.  */
-typedef struct page_entry
+struct page_entry
 {
   /* The next page-entry with objects of the same size, or NULL if
      this is the last page-entry.  */
@@ -299,12 +288,12 @@ typedef struct page_entry
      Nth bit is one if the Nth object on this page is allocated.  This
      array is dynamically sized.  */
   unsigned long in_use_p[1];
-} page_entry;
+};
 
 #ifdef USING_MALLOC_PAGE_GROUPS
 /* A page_group describes a large allocation from malloc, from which
    we parcel out aligned pages.  */
-typedef struct page_group
+struct page_group
 {
   /* A linked list of all extant page groups.  */
   struct page_group *next;
@@ -317,7 +306,7 @@ typedef struct page_group
 
   /* A bitmask of pages in use.  */
   unsigned int in_use;
-} page_group;
+};
 #endif
 
 #if HOST_BITS_PER_PTR <= 32

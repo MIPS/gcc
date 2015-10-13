@@ -109,9 +109,11 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "hard-reg-set.h"
+#include "backend.h"
+#include "predict.h"
+#include "tree.h"
 #include "rtl.h"
+#include "df.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -120,11 +122,8 @@
 #include "output.h"
 #include "addresses.h"
 #include "target.h"
-#include "function.h"
-#include "symtab.h"
 #include "flags.h"
 #include "alias.h"
-#include "tree.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -133,17 +132,14 @@
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
-#include "basic-block.h"
 #include "except.h"
 #include "optabs.h"
-#include "df.h"
 #include "ira.h"
 #include "rtl-error.h"
 #include "params.h"
+#include "lra.h"
+#include "insn-attr.h"
 #include "lra-int.h"
 
 /* Value of LRA_CURR_RELOAD_NUM at the beginning of BB of the current
@@ -859,10 +855,11 @@ narrow_reload_pseudo_class (rtx reg, enum reg_class cl)
    numbers with end marker -1) with reg class GOAL_CLASS.  Add input
    and output reloads correspondingly to the lists *BEFORE and *AFTER.
    OUT might be negative.  In this case we generate input reloads for
-   matched input operands INS.  */
+   matched input operands INS.  EARLY_CLOBBER_P is a flag that the
+   output operand is early clobbered for chosen alternative.  */
 static void
 match_reload (signed char out, signed char *ins, enum reg_class goal_class,
-	      rtx_insn **before, rtx_insn **after)
+	      rtx_insn **before, rtx_insn **after, bool early_clobber_p)
 {
   int i, in;
   rtx new_in_reg, new_out_reg, reg;
@@ -932,20 +929,34 @@ match_reload (signed char out, signed char *ins, enum reg_class goal_class,
 	 they live in the same place.  When we create a pseudo we
 	 assign value of original pseudo (if any) from which we
 	 created the new pseudo.  If we create the pseudo from the
-	 input pseudo, the new pseudo will no conflict with the input
-	 pseudo which is wrong when the input pseudo lives after the
-	 insn and as the new pseudo value is changed by the insn
-	 output.  Therefore we create the new pseudo from the output.
+	 input pseudo, the new pseudo will have no conflict with the
+	 input pseudo which is wrong when the input pseudo lives after
+	 the insn and as the new pseudo value is changed by the insn
+	 output.  Therefore we create the new pseudo from the output
+	 except the case when we have single matched dying input
+	 pseudo.
 
 	 We cannot reuse the current output register because we might
 	 have a situation like "a <- a op b", where the constraints
 	 force the second input operand ("b") to match the output
 	 operand ("a").  "b" must then be copied into a new register
-	 so that it doesn't clobber the current value of "a".  */
+	 so that it doesn't clobber the current value of "a".
+
+	 We can not use the same value if the output pseudo is
+	 early clobbered or the input pseudo is mentioned in the
+	 output, e.g. as an address part in memory, because
+	 output reload will actually extend the pseudo liveness.
+	 We don't care about eliminable hard regs here as we are
+	 interesting only in pseudos.  */
 
       new_in_reg = new_out_reg
-	= lra_create_new_reg_with_unique_value (outmode, out_rtx,
-						goal_class, "");
+	= (! early_clobber_p && ins[1] < 0 && REG_P (in_rtx)
+	   && (int) REGNO (in_rtx) < lra_new_regno_start
+	   && find_regno_note (curr_insn, REG_DEAD, REGNO (in_rtx))
+	   && (out < 0 || regno_use_in (REGNO (in_rtx), out_rtx) == NULL_RTX)
+	   ? lra_create_new_reg (inmode, in_rtx, goal_class, "")
+	   : lra_create_new_reg_with_unique_value (outmode, out_rtx,
+						   goal_class, ""));
     }
   /* In operand can be got from transformations before processing insn
      constraints.  One example of such transformations is subreg
@@ -1331,7 +1342,7 @@ process_addr_reg (rtx *loc, bool check_only_p, rtx_insn **before, rtx_insn **aft
   if (after != NULL)
     {
       start_sequence ();
-      lra_emit_move (reg, new_reg);
+      lra_emit_move (before_p ? copy_rtx (reg) : reg, new_reg);
       emit_insn (*after);
       *after = get_insns ();
       end_sequence ();
@@ -1543,7 +1554,7 @@ simplify_operand_subreg (int nop, machine_mode reg_mode)
 	  bool insert_before, insert_after;
 
 	  PUT_MODE (new_reg, mode);
-          subreg = simplify_gen_subreg (innermode, new_reg, mode, 0);
+          subreg = gen_lowpart_SUBREG (innermode, new_reg);
 	  bitmap_set_bit (&lra_subreg_reload_pseudos, REGNO (new_reg));
 
 	  insert_before = (type != OP_OUT);
@@ -3859,13 +3870,18 @@ curr_insn_transform (bool check_only_p)
 	  match_inputs[0] = i;
 	  match_inputs[1] = -1;
 	  match_reload (goal_alt_matched[i][0], match_inputs,
-			goal_alt[i], &before, &after);
+			goal_alt[i], &before, &after,
+			curr_static_id->operand_alternative
+			[goal_alt_number * n_operands + goal_alt_matched[i][0]]
+			.earlyclobber);
 	}
       else if (curr_static_id->operand[i].type == OP_OUT
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
 		   == OP_IN))
 	/* Generate reloads for output and matched inputs.  */
-	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after);
+	match_reload (i, goal_alt_matched[i], goal_alt[i], &before, &after,
+		      curr_static_id->operand_alternative
+		      [goal_alt_number * n_operands + i].earlyclobber);
       else if (curr_static_id->operand[i].type == OP_IN
 	       && (curr_static_id->operand[goal_alt_matched[i][0]].type
 		   == OP_IN))
@@ -3875,7 +3891,7 @@ curr_insn_transform (bool check_only_p)
 	  for (j = 0; (k = goal_alt_matched[i][j]) >= 0; j++)
 	    match_inputs[j + 1] = k;
 	  match_inputs[j + 1] = -1;
-	  match_reload (-1, match_inputs, goal_alt[i], &before, &after);
+	  match_reload (-1, match_inputs, goal_alt[i], &before, &after, false);
 	}
       else
 	/* We must generate code in any case when function
@@ -4711,7 +4727,7 @@ inherit_reload_reg (bool def_p, int original_regno,
 	}
       return false;
     }
-  lra_substitute_pseudo_within_insn (insn, original_regno, new_reg);
+  lra_substitute_pseudo_within_insn (insn, original_regno, new_reg, false);
   lra_update_insn_regno_info (insn);
   if (! def_p)
     /* We now have a new usage insn for original regno.  */
@@ -4743,7 +4759,7 @@ inherit_reload_reg (bool def_p, int original_regno,
 	  lra_assert (DEBUG_INSN_P (usage_insn));
 	  next_usage_insns = XEXP (next_usage_insns, 1);
 	}
-      lra_substitute_pseudo (&usage_insn, original_regno, new_reg);
+      lra_substitute_pseudo (&usage_insn, original_regno, new_reg, false);
       lra_update_insn_regno_info (as_a <rtx_insn *> (usage_insn));
       if (lra_dump_file != NULL)
 	{
@@ -5005,7 +5021,7 @@ split_reg (bool before_p, int original_regno, rtx_insn *insn,
       usage_insn = XEXP (next_usage_insns, 0);
       lra_assert (DEBUG_INSN_P (usage_insn));
       next_usage_insns = XEXP (next_usage_insns, 1);
-      lra_substitute_pseudo (&usage_insn, original_regno, new_reg);
+      lra_substitute_pseudo (&usage_insn, original_regno, new_reg, false);
       lra_update_insn_regno_info (as_a <rtx_insn *> (usage_insn));
       if (lra_dump_file != NULL)
 	{
@@ -5154,6 +5170,11 @@ update_ebb_live_info (rtx_insn *head, rtx_insn *tail)
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && ! reg->subreg_p)
 	  bitmap_clear_bit (&live_regs, reg->regno);
+      if (curr_id->arg_hard_regs != NULL)
+	/* Make clobbered argument hard registers die.  */
+	for (i = 0; (regno = curr_id->arg_hard_regs[i]) >= 0; i++)
+	  if (regno >= FIRST_PSEUDO_REGISTER)
+	    bitmap_clear_bit (&live_regs, regno - FIRST_PSEUDO_REGISTER);
       /* Mark each used value as live.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type != OP_OUT
@@ -5164,9 +5185,10 @@ update_ebb_live_info (rtx_insn *head, rtx_insn *tail)
 	    && bitmap_bit_p (&check_only_regs, reg->regno))
 	  bitmap_set_bit (&live_regs, reg->regno);
       if (curr_id->arg_hard_regs != NULL)
-	/* Make argument hard registers live.  */
+	/* Make used argument hard registers live.  */
 	for (i = 0; (regno = curr_id->arg_hard_regs[i]) >= 0; i++)
-	  if (bitmap_bit_p (&check_only_regs, regno))
+	  if (regno < FIRST_PSEUDO_REGISTER
+	      && bitmap_bit_p (&check_only_regs, regno))
 	    bitmap_set_bit (&live_regs, regno);
       /* It is quite important to remove dead move insns because it
 	 means removing dead store.  We don't need to process them for
@@ -5476,6 +5498,12 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 			}
 		    }
 		}
+	  /* Process clobbered call regs.  */
+	  if (curr_id->arg_hard_regs != NULL)
+	    for (i = 0; (dst_regno = curr_id->arg_hard_regs[i]) >= 0; i++)
+	      if (dst_regno >= FIRST_PSEUDO_REGISTER)
+		usage_insns[dst_regno - FIRST_PSEUDO_REGISTER].check
+		  = -(int) INSN_UID (curr_insn);
 	  if (! JUMP_P (curr_insn))
 	    for (i = 0; i < to_inherit_num; i++)
 	      if (inherit_reload_reg (true, to_inherit[i].regno,
@@ -5583,7 +5611,7 @@ inherit_in_ebb (rtx_insn *head, rtx_insn *tail)
 		      add_next_usage_insn (src_regno, use_insn, reloads_num);
 		    }
 		}
-	  /* Process call args.  */
+	  /* Process used call regs.  */
 	  if (curr_id->arg_hard_regs != NULL)
 	    for (i = 0; (src_regno = curr_id->arg_hard_regs[i]) >= 0; i++)
 	      if (src_regno < FIRST_PSEUDO_REGISTER)
@@ -5925,8 +5953,9 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
 		    {
 		      if (change_p && bitmap_bit_p (remove_pseudos, regno))
 			{
-			  lra_substitute_pseudo_within_insn (
-			    curr_insn, regno, regno_reg_rtx[restore_regno]);
+			  lra_substitute_pseudo_within_insn
+			    (curr_insn, regno, regno_reg_rtx[restore_regno],
+			     false);
 			  restored_regs_p = true;
 			}
 		      else
@@ -6049,9 +6078,9 @@ undo_optional_reloads (void)
 		 we remove the inheritance pseudo and the optional
 		 reload.  */
 	    }
-	  lra_substitute_pseudo_within_insn (
-	    insn, regno,
-	    regno_reg_rtx[lra_reg_info[regno].restore_regno]);
+	  lra_substitute_pseudo_within_insn
+	    (insn, regno, regno_reg_rtx[lra_reg_info[regno].restore_regno],
+	     false);
 	  lra_update_insn_regno_info (insn);
 	  if (lra_dump_file != NULL)
 	    {

@@ -271,9 +271,14 @@ namespace __debug
 	void
 	insert(_InputIterator __first, _InputIterator __last)
 	{
-	  __glibcxx_check_valid_range(__first, __last);
-	  _Base::insert(__gnu_debug::__base(__first),
-			__gnu_debug::__base(__last));
+	  typename __gnu_debug::_Distance_traits<_InputIterator>::__type __dist;
+	  __glibcxx_check_valid_range2(__first, __last, __dist);
+
+	  if (__dist.second >= __gnu_debug::__dp_sign)
+	    _Base::insert(__gnu_debug::__unsafe(__first),
+			  __gnu_debug::__unsafe(__last));
+	  else
+	    _Base::insert(__first, __last);
 	}
 
 #if __cplusplus >= 201103L
@@ -356,9 +361,7 @@ namespace __debug
 
       void
       swap(multiset& __x)
-#if __cplusplus >= 201103L
-	noexcept( noexcept(declval<_Base>().swap(__x)) )
-#endif
+      _GLIBCXX_NOEXCEPT_IF( noexcept(declval<_Base&>().swap(__x)) )
       {
 	_Safe::_M_swap(__x);
 	_Base::swap(__x);
@@ -545,6 +548,7 @@ namespace __debug
     void
     swap(multiset<_Key, _Compare, _Allocator>& __x,
 	 multiset<_Key, _Compare, _Allocator>& __y)
+    _GLIBCXX_NOEXCEPT_IF(noexcept(__x.swap(__y)))
     { return __x.swap(__y); }
 
 } // namespace __debug

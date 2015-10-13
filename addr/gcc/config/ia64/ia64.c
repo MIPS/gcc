@@ -22,25 +22,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "recog.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -50,33 +50,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-codes.h"
 #include "optabs.h"
 #include "except.h"
-#include "predict.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "basic-block.h"
 #include "libfuncs.h"
 #include "diagnostic-core.h"
 #include "sched-int.h"
 #include "timevar.h"
 #include "target.h"
-#include "target-def.h"
 #include "common/common-target.h"
 #include "tm_p.h"
 #include "langhooks.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "intl.h"
-#include "df.h"
 #include "debug.h"
 #include "params.h"
 #include "dbgcnt.h"
@@ -86,6 +77,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "dumpfile.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* This is used for communication between ASM_OUTPUT_LABEL and
    ASM_OUTPUT_LABELREF.  */
@@ -240,7 +234,7 @@ static int ia64_register_move_cost (machine_mode, reg_class_t,
                                     reg_class_t);
 static int ia64_memory_move_cost (machine_mode mode, reg_class_t,
 				  bool);
-static bool ia64_rtx_costs (rtx, int, int, int, int *, bool);
+static bool ia64_rtx_costs (rtx, machine_mode, int, int, int *, bool);
 static int ia64_unspec_may_trap_p (const_rtx, unsigned);
 static void fix_range (const char *);
 static struct machine_function * ia64_init_machine_status (void);
@@ -1421,12 +1415,10 @@ ia64_split_tmode (rtx out[2], rtx in, bool reversed, bool dead)
 	/* split_double does not understand how to split a TFmode
 	   quantity into a pair of DImode constants.  */
 	{
-	  REAL_VALUE_TYPE r;
 	  unsigned HOST_WIDE_INT p[2];
 	  long l[4];  /* TFmode is 128 bits */
 
-	  REAL_VALUE_FROM_CONST_DOUBLE (r, in);
-	  real_to_target (l, &r, TFmode);
+	  real_to_target (l, CONST_DOUBLE_REAL_VALUE (in), TFmode);
 
 	  if (FLOAT_WORDS_BIG_ENDIAN)
 	    {
@@ -5368,9 +5360,7 @@ ia64_print_operand (FILE * file, rtx x, int code)
     case 'G':
       {
 	long val[4];
-	REAL_VALUE_TYPE rv;
-	REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-	real_to_target (val, &rv, GET_MODE (x));
+	real_to_target (val, CONST_DOUBLE_REAL_VALUE (x), GET_MODE (x));
 	if (GET_MODE (x) == SFmode)
 	  fprintf (file, "0x%08lx", val[0] & 0xffffffff);
 	else if (GET_MODE (x) == DFmode)
@@ -5597,9 +5587,12 @@ ia64_print_operand_punct_valid_p (unsigned char code)
 /* ??? This is incomplete.  */
 
 static bool
-ia64_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
+ia64_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		int opno ATTRIBUTE_UNUSED,
 		int *total, bool speed ATTRIBUTE_UNUSED)
 {
+  int code = GET_CODE (x);
+
   switch (code)
     {
     case CONST_INT:
@@ -5643,9 +5636,9 @@ ia64_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
          which normally involves copies.  Plus there's the latency
          of the multiply itself, and the latency of the instructions to
          transfer integer regs to FP regs.  */
-      if (FLOAT_MODE_P (GET_MODE (x)))
+      if (FLOAT_MODE_P (mode))
 	*total = COSTS_N_INSNS (4);
-      else if (GET_MODE_SIZE (GET_MODE (x)) > 2)
+      else if (GET_MODE_SIZE (mode) > 2)
         *total = COSTS_N_INSNS (10);
       else
 	*total = COSTS_N_INSNS (2);
@@ -5653,7 +5646,7 @@ ia64_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 
     case PLUS:
     case MINUS:
-      if (FLOAT_MODE_P (GET_MODE (x)))
+      if (FLOAT_MODE_P (mode))
 	{
 	  *total = COSTS_N_INSNS (4);
 	  return true;
@@ -8579,10 +8572,8 @@ finish_bundle_states (void)
 
 /* Hashtable helpers.  */
 
-struct bundle_state_hasher : typed_noop_remove <bundle_state>
+struct bundle_state_hasher : nofree_ptr_hash <bundle_state>
 {
-  typedef bundle_state *value_type;
-  typedef bundle_state *compare_type;
   static inline hashval_t hash (const bundle_state *);
   static inline bool equal (const bundle_state *, const bundle_state *);
 };
@@ -10478,7 +10469,7 @@ ia64_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
 	rtx tmp;
 
 	real_inf (&inf);
-	tmp = CONST_DOUBLE_FROM_REAL_VALUE (inf, target_mode);
+	tmp = const_double_from_real_value (inf, target_mode);
 
 	tmp = validize_mem (force_const_mem (target_mode, tmp));
 

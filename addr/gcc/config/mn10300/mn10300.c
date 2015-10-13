@@ -21,16 +21,16 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "rtl.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "rtl.h"
+#include "df.h"
+#include "alias.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "calls.h"
 #include "regs.h"
-#include "hard-reg-set.h"
 #include "insn-config.h"
 #include "conditions.h"
 #include "output.h"
@@ -38,7 +38,6 @@
 #include "flags.h"
 #include "recog.h"
 #include "reload.h"
-#include "function.h"
 #include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
@@ -47,26 +46,22 @@
 #include "expr.h"
 #include "insn-codes.h"
 #include "optabs.h"
-#include "obstack.h"
 #include "diagnostic-core.h"
 #include "tm_p.h"
 #include "tm-constrs.h"
 #include "target.h"
-#include "target-def.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "lcm.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "predict.h"
-#include "basic-block.h"
-#include "df.h"
 #include "opts.h"
 #include "cfgloop.h"
 #include "dumpfile.h"
 #include "builtins.h"
+
+/* This file should be included last.  */
+#include "target-def.h"
 
 /* This is used in the am33_2.0-linux-gnu port, in which global symbol
    names are not prefixed by underscores, to tell whether to prefix a
@@ -290,18 +285,17 @@ mn10300_print_operand (FILE *file, rtx x, int code)
 	case CONST_DOUBLE:
 	  {
 	    long val[2];
-	    REAL_VALUE_TYPE rv;
 
 	    switch (GET_MODE (x))
 	      {
 	      case DFmode:
-		REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-		REAL_VALUE_TO_TARGET_DOUBLE (rv, val);
+		REAL_VALUE_TO_TARGET_DOUBLE
+		  (*CONST_DOUBLE_REAL_VALUE (x), val);
 		fprintf (file, "0x%lx", val[0]);
 		break;;
 	      case SFmode:
-		REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-		REAL_VALUE_TO_TARGET_SINGLE (rv, val[0]);
+		REAL_VALUE_TO_TARGET_SINGLE
+		  (*CONST_DOUBLE_REAL_VALUE (x), val[0]);
 		fprintf (file, "0x%lx", val[0]);
 		break;;
 	      case VOIDmode:
@@ -350,13 +344,12 @@ mn10300_print_operand (FILE *file, rtx x, int code)
 	case CONST_DOUBLE:
 	  {
 	    long val[2];
-	    REAL_VALUE_TYPE rv;
 
 	    switch (GET_MODE (x))
 	      {
 	      case DFmode:
-		REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-		REAL_VALUE_TO_TARGET_DOUBLE (rv, val);
+		REAL_VALUE_TO_TARGET_DOUBLE
+		  (*CONST_DOUBLE_REAL_VALUE (x), val);
 		fprintf (file, "0x%lx", val[1]);
 		break;;
 	      case SFmode:
@@ -441,10 +434,8 @@ mn10300_print_operand (FILE *file, rtx x, int code)
 	case CONST_DOUBLE:
 	  {
 	    unsigned long val;
-	    REAL_VALUE_TYPE rv;
 
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+	    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
 	    fprintf (file, "0x%lx", val);
 	    break;
 	  }
@@ -2232,7 +2223,7 @@ mn10300_address_cost (rtx x, machine_mode mode ATTRIBUTE_UNUSED,
       return speed ? 2 : 6;
 
     default:
-      return rtx_cost (x, MEM, 0, speed);
+      return rtx_cost (x, Pmode, MEM, 0, speed);
     }
 }
 
@@ -2346,13 +2337,14 @@ mn10300_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
    to represent cycles.  Size-relative costs are in bytes.  */
 
 static bool
-mn10300_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
-		   int *ptotal, bool speed)
+mn10300_rtx_costs (rtx x, machine_mode mode, int outer_code,
+		   int opno ATTRIBUTE_UNUSED, int *ptotal, bool speed)
 {
   /* This value is used for SYMBOL_REF etc where we want to pretend
      we have a full 32-bit constant.  */
   HOST_WIDE_INT i = 0x12345678;
   int total;
+  int code = GET_CODE (x);
 
   switch (code)
     {
@@ -2438,7 +2430,7 @@ mn10300_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  i = INTVAL (XEXP (x, 1));
 	  if (i == 1 || i == 4)
 	    {
-	      total = 1 + rtx_cost (XEXP (x, 0), PLUS, 0, speed);
+	      total = 1 + rtx_cost (XEXP (x, 0), mode, PLUS, 0, speed);
 	      goto alldone;
 	    }
 	}
@@ -2494,7 +2486,7 @@ mn10300_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case MEM:
-      total = mn10300_address_cost (XEXP (x, 0), GET_MODE (x),
+      total = mn10300_address_cost (XEXP (x, 0), mode,
 				    MEM_ADDR_SPACE (x), speed);
       if (speed)
 	total = COSTS_N_INSNS (2 + total);

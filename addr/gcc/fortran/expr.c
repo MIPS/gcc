@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "flags.h"
+#include "options.h"
 #include "gfortran.h"
 #include "arith.h"
 #include "match.h"
@@ -2474,13 +2474,14 @@ gfc_check_init_expr (gfc_expr *e)
 	gfc_intrinsic_sym* isym;
 	gfc_symbol* sym = e->symtree->n.sym;
 
-	/* Special case for IEEE_SELECTED_REAL_KIND from the intrinsic
-	   module IEEE_ARITHMETIC, which is allowed in initialization
-	   expressions.  */
-	if (!strcmp(sym->name, "ieee_selected_real_kind")
-	    && sym->from_intmod == INTMOD_IEEE_ARITHMETIC)
+	/* Simplify here the intrinsics from the IEEE_ARITHMETIC and
+	   IEEE_EXCEPTIONS modules.  */
+	int mod = sym->from_intmod;
+	if (mod == INTMOD_NONE && sym->generic)
+	  mod = sym->generic->sym->from_intmod;
+	if (mod == INTMOD_IEEE_ARITHMETIC || mod == INTMOD_IEEE_EXCEPTIONS)
 	  {
-	    gfc_expr *new_expr = gfc_simplify_ieee_selected_real_kind (e);
+	    gfc_expr *new_expr = gfc_simplify_ieee_functions (e);
 	    if (new_expr)
 	      {
 		gfc_replace_expr (e, new_expr);
@@ -2599,14 +2600,18 @@ gfc_check_init_expr (gfc_expr *e)
       break;
 
     case EXPR_SUBSTRING:
-      t = gfc_check_init_expr (e->ref->u.ss.start);
-      if (!t)
-	break;
+      if (e->ref)
+	{
+	  t = gfc_check_init_expr (e->ref->u.ss.start);
+	  if (!t)
+	    break;
 
-      t = gfc_check_init_expr (e->ref->u.ss.end);
-      if (t)
-	t = gfc_simplify_expr (e, 0);
-
+	  t = gfc_check_init_expr (e->ref->u.ss.end);
+	  if (t)
+	    t = gfc_simplify_expr (e, 0);
+	}
+      else
+	t = false;
       break;
 
     case EXPR_STRUCTURE:
@@ -2738,6 +2743,29 @@ external_spec_function (gfc_expr *e)
 
   f = e->value.function.esym;
 
+  /* IEEE functions allowed are "a reference to a transformational function
+     from the intrinsic module IEEE_ARITHMETIC or IEEE_EXCEPTIONS", and
+     "inquiry function from the intrinsic modules IEEE_ARITHMETIC and
+     IEEE_EXCEPTIONS".  */
+  if (f->from_intmod == INTMOD_IEEE_ARITHMETIC
+      || f->from_intmod == INTMOD_IEEE_EXCEPTIONS)
+    {
+      if (!strcmp (f->name, "ieee_selected_real_kind")
+	  || !strcmp (f->name, "ieee_support_rounding")
+	  || !strcmp (f->name, "ieee_support_flag")
+	  || !strcmp (f->name, "ieee_support_halting")
+	  || !strcmp (f->name, "ieee_support_datatype")
+	  || !strcmp (f->name, "ieee_support_denormal")
+	  || !strcmp (f->name, "ieee_support_divide")
+	  || !strcmp (f->name, "ieee_support_inf")
+	  || !strcmp (f->name, "ieee_support_io")
+	  || !strcmp (f->name, "ieee_support_nan")
+	  || !strcmp (f->name, "ieee_support_sqrt")
+	  || !strcmp (f->name, "ieee_support_standard")
+	  || !strcmp (f->name, "ieee_support_underflow_control"))
+	goto function_allowed;
+    }
+
   if (f->attr.proc == PROC_ST_FUNCTION)
     {
       gfc_error ("Specification function %qs at %L cannot be a statement "
@@ -2766,6 +2794,7 @@ external_spec_function (gfc_expr *e)
       return false;
     }
 
+function_allowed:
   return restricted_args (e->value.function.actual);
 }
 
@@ -4790,6 +4819,15 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (context)
 	gfc_error ("Non-POINTER in pointer association context (%s)"
 		   " at %L", context, &e->where);
+      return false;
+    }
+
+  if (e->ts.type == BT_DERIVED
+      && e->ts.u.derived == NULL)
+    {
+      if (context)
+	gfc_error ("Type inaccessible in variable definition context (%s) "
+		   "at %L", context, &e->where);
       return false;
     }
 

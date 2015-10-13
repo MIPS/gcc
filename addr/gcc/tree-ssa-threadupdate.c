@@ -21,29 +21,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "alias.h"
-#include "symtab.h"
-#include "options.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "options.h"
 #include "fold-const.h"
 #include "flags.h"
-#include "predict.h"
-#include "tm.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
 #include "cfganal.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "tree-phinodes.h"
 #include "tree-ssa.h"
 #include "tree-ssa-threadupdate.h"
-#include "ssa-iterators.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "dbgcnt.h"
@@ -125,7 +116,7 @@ struct el
    may have many incoming edges threaded to the same outgoing edge.  This
    can be naturally implemented with a hash table.  */
 
-struct redirection_data : typed_free_remove<redirection_data>
+struct redirection_data : free_ptr_hash<redirection_data>
 {
   /* We support wiring up two block duplicates in a jump threading path.
 
@@ -150,8 +141,6 @@ struct redirection_data : typed_free_remove<redirection_data>
   struct el *incoming_edges;
 
   /* hash_table support.  */
-  typedef redirection_data *value_type;
-  typedef redirection_data *compare_type;
   static inline hashval_t hash (const redirection_data *);
   static inline int equal (const redirection_data *, const redirection_data *);
 };
@@ -226,6 +215,18 @@ redirection_data::equal (const redirection_data *p1, const redirection_data *p2)
   return true;
 }
 
+/* Rather than search all the edges in jump thread paths each time
+   DOM is able to simply if control statement, we build a hash table
+   with the deleted edges.  We only care about the address of the edge,
+   not its contents.  */
+struct removed_edges : nofree_ptr_hash<edge_def>
+{
+  static hashval_t hash (edge e) { return htab_hash_pointer (e); }
+  static bool equal (edge e1, edge e2) { return e1 == e2; }
+};
+
+static hash_table<removed_edges> *removed_edges;
+
 /* Data structure of information to pass to hash table traversal routines.  */
 struct ssa_local_info_t
 {
@@ -271,7 +272,7 @@ struct thread_stats_d thread_stats;
    Also remove all outgoing edges except the edge which reaches DEST_BB.
    If DEST_BB is NULL, then remove all outgoing edges.  */
 
-static void
+void
 remove_ctrl_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
 {
   gimple_stmt_iterator gsi;
@@ -299,6 +300,17 @@ remove_ctrl_stmt_and_useless_edges (basic_block bb, basic_block dest_bb)
       else
 	ei_next (&ei);
     }
+
+  /* If the remaining edge is a loop exit, there must have
+     a removed edge that was not a loop exit.
+
+     In that case BB and possibly other blocks were previously
+     in the loop, but are now outside the loop.  Thus, we need
+     to update the loop structures.  */
+  if (single_succ_p (bb)
+      && loop_outer (bb->loop_father)
+      && loop_exit_edge_p (bb->loop_father, single_succ_edge (bb)))
+    loops_state_set (LOOPS_NEED_FIXUP);
 }
 
 /* Create a duplicate of BB.  Record the duplicate block in an array
@@ -1377,8 +1389,8 @@ ssa_redirect_edges (struct redirection_data **slot,
   struct redirection_data *rd = *slot;
   struct el *next, *el;
 
-  /* Walk over all the incoming edges associated associated with this
-     hash table entry.  */
+  /* Walk over all the incoming edges associated with this hash table
+     entry.  */
   for (el = rd->incoming_edges; el; el = next)
     {
       edge e = el->e;
@@ -2141,7 +2153,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
      cases where the second path starts at a downstream edge on the same
      path).  First record all joiner paths, deleting any in the unexpected
      case where there is already a path for that incoming edge.  */
-  for (i = 0; i < paths.length (); i++)
+  for (i = 0; i < paths.length ();)
     {
       vec<jump_thread_edge *> *path = paths[i];
 
@@ -2151,6 +2163,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  if ((*path)[0]->e->aux == NULL)
 	    {
 	      (*path)[0]->e->aux = path;
+	      i++;
 	    }
 	  else
 	    {
@@ -2160,10 +2173,15 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	      delete_jump_thread_path (path);
 	    }
 	}
+      else
+	{
+	  i++;
+	}
     }
+
   /* Second, look for paths that have any other jump thread attached to
      them, and either finish converting them or cancel them.  */
-  for (i = 0; i < paths.length (); i++)
+  for (i = 0; i < paths.length ();)
     {
       vec<jump_thread_edge *> *path = paths[i];
       edge e = (*path)[0]->e;
@@ -2178,7 +2196,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	  /* If we iterated through the entire path without exiting the loop,
 	     then we are good to go, record it.  */
 	  if (j == path->length ())
-	    bitmap_set_bit (tmp, e->dest->index);
+	    {
+	      bitmap_set_bit (tmp, e->dest->index);
+	      i++;
+	    }
 	  else
 	    {
 	      e->aux = NULL;
@@ -2187,6 +2208,10 @@ mark_threaded_blocks (bitmap threaded_blocks)
 		dump_jump_thread_path (dump_file, *path, false);
 	      delete_jump_thread_path (path);
 	    }
+	}
+      else
+	{
+	  i++;
 	}
     }
 
@@ -2318,7 +2343,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 static bool
 bb_ends_with_multiway_branch (basic_block bb ATTRIBUTE_UNUSED)
 {
-  gimple stmt = last_stmt (bb);
+  gimple *stmt = last_stmt (bb);
   if (stmt && gimple_code (stmt) == GIMPLE_SWITCH)
     return true;
   if (stmt && gimple_code (stmt) == GIMPLE_GOTO
@@ -2491,6 +2516,12 @@ duplicate_thread_path (edge entry, edge exit,
 
   /* Remove the last branch in the jump thread path.  */
   remove_ctrl_stmt_and_useless_edges (region_copy[n_region - 1], exit->dest);
+
+  /* And fixup the flags on the single remaining edge.  */
+  edge fix_e = find_edge (region_copy[n_region - 1], exit->dest);
+  fix_e->flags &= ~(EDGE_TRUE_VALUE | EDGE_FALSE_VALUE | EDGE_ABNORMAL);
+  fix_e->flags |= EDGE_FALLTHRU;
+
   edge e = make_edge (region_copy[n_region - 1], exit->dest, EDGE_FALLTHRU);
 
   if (e) {
@@ -2531,6 +2562,25 @@ valid_jump_thread_path (vec<jump_thread_edge *> *path)
   return true;
 }
 
+/* Remove any queued jump threads that include edge E.
+
+   We don't actually remove them here, just record the edges into ax
+   hash table.  That way we can do the search once per iteration of
+   DOM/VRP rather than for every case where DOM optimizes away a COND_EXPR.  */
+
+void
+remove_jump_threads_including (edge_def *e)
+{
+  if (!paths.exists ())
+    return;
+
+  if (!removed_edges)
+    removed_edges = new hash_table<struct removed_edges> (17);
+
+  edge *slot = removed_edges->find_slot (e, INSERT);
+  *slot = e;
+}
+
 /* Walk through all blocks and thread incoming edges to the appropriate
    outgoing edge for each edge pair recorded in THREADED_EDGES.
 
@@ -2552,10 +2602,36 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   struct loop *loop;
 
   if (!paths.exists ())
-    return false;
+    {
+      retval = false;
+      goto out;
+    }
 
   threaded_blocks = BITMAP_ALLOC (NULL);
   memset (&thread_stats, 0, sizeof (thread_stats));
+
+  /* Remove any paths that referenced removed edges.  */
+  if (removed_edges)
+    for (i = 0; i < paths.length (); )
+      {
+	unsigned int j;
+	vec<jump_thread_edge *> *path = paths[i];
+
+	for (j = 0; j < path->length (); j++)
+	  {
+	    edge e = (*path)[j]->e;
+	    if (removed_edges->find_slot (e, NO_INSERT))
+	      break;
+	  }
+
+	if (j != path->length ())
+	  {
+	    delete_jump_thread_path (path);
+	    paths.unordered_remove (i);
+	    continue;
+	  }
+	i++;
+      }
 
   /* Jump-thread all FSM threads before other jump-threads.  */
   for (i = 0; i < paths.length ();)
@@ -2739,6 +2815,9 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   if (retval)
     loops_state_set (LOOPS_NEED_FIXUP);
 
+ out:
+  delete removed_edges;
+  removed_edges = NULL;
   return retval;
 }
 

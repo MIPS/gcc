@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "alias.h"
-#include "symtab.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -688,7 +687,8 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
     }
 
   /* FIXME remove when moving to c_fully_fold model.  */
-  e = scalar_constant_value (e);
+  if (!CLASS_TYPE_P (type))
+    e = scalar_constant_value (e);
   if (error_operand_p (e))
     return error_mark_node;
 
@@ -708,7 +708,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 	 conversion.  */
       else if (TREE_CODE (type) == COMPLEX_TYPE)
 	return fold_if_not_in_template (convert_to_complex (type, e));
-      else if (TREE_CODE (type) == VECTOR_TYPE)
+      else if (VECTOR_TYPE_P (type))
 	return fold_if_not_in_template (convert_to_vector (type, e));
       else if (TREE_CODE (e) == TARGET_EXPR)
 	{
@@ -1789,4 +1789,37 @@ perform_qualification_conversions (tree type, tree expr)
     return build_nop (type, expr);
   else
     return error_mark_node;
+}
+
+/* True iff T is a transaction-safe function type.  */
+
+bool
+tx_safe_fn_type_p (tree t)
+{
+  if (TREE_CODE (t) != FUNCTION_TYPE
+      && TREE_CODE (t) != METHOD_TYPE)
+    return false;
+  return !!lookup_attribute ("transaction_safe", TYPE_ATTRIBUTES (t));
+}
+
+/* Return the transaction-unsafe variant of transaction-safe function type
+   T.  */
+
+tree
+tx_unsafe_fn_variant (tree t)
+{
+  gcc_assert (tx_safe_fn_type_p (t));
+  tree attrs = remove_attribute ("transaction_safe",
+				 TYPE_ATTRIBUTES (t));
+  return cp_build_type_attribute_variant (t, attrs);
+}
+
+/* Return true iff FROM can convert to TO by a transaction-safety
+   conversion.  */
+
+bool
+can_convert_tx_safety (tree to, tree from)
+{
+  return (flag_tm && tx_safe_fn_type_p (from)
+	  && same_type_p (to, tx_unsafe_fn_variant (from)));
 }

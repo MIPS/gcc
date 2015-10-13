@@ -38,36 +38,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
-#include "symtab.h"
+#include "backend.h"
+#include "cfghooks.h"
 #include "tree.h"
+#include "gimple.h"
+#include "hard-reg-set.h"
+#include "ssa.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "tm_p.h"
 #include "profile.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
-#include "gimple-expr.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
-#include "gimple-ssa.h"
-#include "plugin-api.h"
-#include "ipa-ref.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-phinodes.h"
-#include "ssa-iterators.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
@@ -174,7 +161,7 @@ struct loop_size
 /* Return true if OP in STMT will be constant after peeling LOOP.  */
 
 static bool
-constant_after_peeling (tree op, gimple stmt, struct loop *loop)
+constant_after_peeling (tree op, gimple *stmt, struct loop *loop)
 {
   affine_iv iv;
 
@@ -259,7 +246,7 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 
       for (gsi = gsi_start_bb (body[i]); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  int num = estimate_num_insns (stmt, &eni_size_weights);
 	  bool likely_eliminated = false;
 	  bool likely_eliminated_last = false;
@@ -351,7 +338,7 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
       basic_block bb = path.pop ();
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  if (gimple_code (stmt) == GIMPLE_CALL)
 	    {
 	      int flags = gimple_call_flags (stmt);
@@ -1189,7 +1176,7 @@ static void
 propagate_into_all_uses (tree ssa_name, tree val)
 {
   imm_use_iterator iter;
-  gimple use_stmt;
+  gimple *use_stmt;
 
   FOR_EACH_IMM_USE_STMT (use_stmt, iter, ssa_name)
     {
@@ -1240,7 +1227,7 @@ propagate_constants_for_unrolling (basic_block bb)
   /* Look for assignments to SSA names with constant RHS.  */
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi); )
     {
-      gimple stmt = gsi_stmt (gsi);
+      gimple *stmt = gsi_stmt (gsi);
       tree lhs;
 
       if (is_gimple_assign (stmt)
