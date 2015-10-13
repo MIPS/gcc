@@ -79,6 +79,9 @@
 	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_store): Likewise.
 	(fusion_extra_<mode>_constant): Likewise.
 
+	* config/rs6000/rs6000-cpus.def (POWERPC_MASKS): Add extra/toc
+	fusion switches.
+
 2015-10-13   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 228776
