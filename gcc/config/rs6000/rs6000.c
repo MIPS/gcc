@@ -9346,7 +9346,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
   /* TYPE is a UPC pointer-to-shared type
      and its underlying representation is an aggregate.  */
   bool upc_struct_pts_p = (POINTER_TYPE_P (type)
-			     && upc_shared_type_p (TREE_TYPE (type)))
+			     && SHARED_TYPE_P (TREE_TYPE (type)))
 			   && AGGREGATE_TYPE_P (upc_pts_rep_type_node);
   /* If TYPE is a UPC struct PTS type, handle it as an aggregate type.  */
   bool aggregate_p = AGGREGATE_TYPE_P (type)
@@ -9690,7 +9690,7 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
       if (upc_pts_rep_type_node
           && AGGREGATE_TYPE_P (upc_pts_rep_type_node)
           && ((POINTER_TYPE_P (type)
-	       && upc_shared_type_p (TREE_TYPE (type)))
+	       && SHARED_TYPE_P (TREE_TYPE (type)))
               || (TYPE_MAIN_VARIANT (type) == upc_pts_rep_type_node)))
 	return 128;
 
@@ -10972,7 +10972,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
   /* TYPE is a UPC pointer-to-shared type
      and its underlying representation is an aggregate.  */
   bool upc_struct_pts_p = (POINTER_TYPE_P (type)
-                             && upc_shared_type_p (TREE_TYPE (type)))
+                             && SHARED_TYPE_P (TREE_TYPE (type)))
                            && AGGREGATE_TYPE_P (upc_pts_rep_type_node);
   /* If TYPE is a UPC struct PTS type, handle it as an aggregate type.  */
   bool aggregate_p = AGGREGATE_TYPE_P (type)
@@ -32860,7 +32860,7 @@ rs6000_function_value (const_tree valtype,
   if ((INTEGRAL_TYPE_P (valtype)
        && GET_MODE_BITSIZE (mode) < (TARGET_32BIT ? 32 : 64))
       || (POINTER_TYPE_P (valtype)
-          && !upc_shared_type_p (TREE_TYPE (valtype))))
+          && !SHARED_TYPE_P (TREE_TYPE (valtype))))
     mode = TARGET_32BIT ? SImode : DImode;
 
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)

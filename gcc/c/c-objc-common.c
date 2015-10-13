@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "alias.h"
 #include "options.h"
-#include "tree-upc.h"
 #include "c-tree.h"
 #include "intl.h"
 #include "c-family/c-pretty-print.h"
@@ -235,7 +234,7 @@ upc_types_compatible_p (tree x, tree y)
     {
       const tree ttx = TREE_TYPE (x);
       const tree tty = TREE_TYPE (y);
-      if (upc_shared_type_p (ttx) && upc_shared_type_p (tty))
+      if (SHARED_TYPE_P (ttx) && SHARED_TYPE_P (tty))
 	{
 	  tree bx, by, sx, sy;
 	  int x_has_zero_phase, y_has_zero_phase;
@@ -255,8 +254,8 @@ upc_types_compatible_p (tree x, tree y)
 	     equivalent.  */
 	  if (VOID_TYPE_P (ttx) != VOID_TYPE_P (tty))
 	    return 0;
-	  bx = upc_get_block_factor (ttx);
-	  by = upc_get_block_factor (tty);
+	  bx = get_block_factor (ttx);
+	  by = get_block_factor (tty);
 	  sx = TYPE_SIZE (ttx);
 	  sy = TYPE_SIZE (tty);
 	  x_has_zero_phase = (integer_zerop (bx) || integer_onep (bx));
@@ -279,16 +278,16 @@ upc_types_compatible_p (tree x, tree y)
       /* If one operand has a UPC shared type,
          and the other operand's type is not a UPC shared type,
          then they aren't equivalent.  */
-      else if (upc_shared_type_p (ttx) != upc_shared_type_p (tty))
+      else if (SHARED_TYPE_P (ttx) != SHARED_TYPE_P (tty))
 	return 0;
     }
-  else if (upc_shared_type_p (x) || upc_shared_type_p (y))
+  else if (SHARED_TYPE_P (x) || SHARED_TYPE_P (y))
     {
       /* In UPC, blocking factors can be applied to
          non-pointer objects/types. They're compatible
          if the block sizes are equal.  */
-      const tree bx = upc_get_block_factor (x);
-      const tree by = upc_get_block_factor (y);
+      const tree bx = get_block_factor (x);
+      const tree by = get_block_factor (y);
       return tree_int_cst_equal (bx, by)
 	&& c_types_compatible_p (TYPE_MAIN_VARIANT (x),
 				 TYPE_MAIN_VARIANT (y));

@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "tree-upc.h"
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "output.h"
@@ -118,7 +117,7 @@ upc_sizeof_type_check (const char *op_name, tree type)
       error ("UPC operator %s applied to a void type", op_name);
       return 0;
     }
-  else if (!upc_shared_type_p (type))
+  else if (!SHARED_TYPE_P (type))
     {
       error ("UPC operator %s applied to a non-shared type", op_name);
       return 0;
@@ -144,7 +143,7 @@ upc_blocksizeof (location_t ARG_UNUSED (loc), tree type)
   if (!type || TREE_CODE (type) == ERROR_MARK)
     return error_mark_node;
   if (upc_sizeof_type_check ("upc_blocksizeof", type))
-    block_factor = upc_get_block_factor (type);
+    block_factor = get_block_factor (type);
   return block_factor;
 }
 
@@ -496,7 +495,7 @@ upc_check_decl (tree decl)
 {
   if (decl
       && TREE_CODE (decl) == VAR_DECL
-      && TREE_TYPE (decl) && upc_shared_type_p (TREE_TYPE (decl)))
+      && TREE_TYPE (decl) && SHARED_TYPE_P (TREE_TYPE (decl)))
     {
       TREE_USED (decl) = 1;
       TREE_ADDRESSABLE (decl) = 1;
@@ -524,7 +523,7 @@ upc_contains_pts_refs_p (tree type)
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      return upc_shared_type_p (TREE_TYPE (type));
+      return SHARED_TYPE_P (TREE_TYPE (type));
 
     case RECORD_TYPE:
     case UNION_TYPE:
@@ -691,7 +690,7 @@ upc_pts_int_sum (location_t loc,
 
   const tree ttype = TREE_TYPE (ptrop);
   const int shared_quals =
-    (TYPE_QUAL_UPC_SHARED | TYPE_QUAL_UPC_STRICT | TYPE_QUAL_UPC_RELAXED);
+    (TYPE_QUAL_SHARED | TYPE_QUAL_STRICT | TYPE_QUAL_RELAXED);
   const int quals_minus_shared = TYPE_QUALS (ttype) & ~shared_quals;
   const tree result_type = c_build_qualified_type (ttype, quals_minus_shared);
   const tree result_targ_type = TREE_TYPE (result_type);
@@ -766,10 +765,10 @@ upc_pts_diff (tree op0, tree op1)
 
   /* The two pointers must both point to shared objects.  */
 
-  if ((upc_shared_type_p (target_type)
-       && !upc_shared_type_p (TREE_TYPE (TREE_TYPE (op1))))
-      || (upc_shared_type_p (TREE_TYPE (TREE_TYPE (op1)))
-	  && !upc_shared_type_p (target_type)))
+  if ((SHARED_TYPE_P (target_type)
+       && !SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (op1))))
+      || (SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (op1)))
+	  && !SHARED_TYPE_P (target_type)))
     {
       error ("attempt to take the difference of a UPC pointer-to-shared "
 	     "and a local pointer");
@@ -796,5 +795,5 @@ upc_pts_is_valid_p (tree exp)
 {
   tree type = TREE_TYPE (exp);
   return (TREE_CODE (type) == POINTER_TYPE)
-    && upc_shared_type_p (TREE_TYPE (type));
+    && SHARED_TYPE_P (TREE_TYPE (type));
 }

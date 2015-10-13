@@ -29,7 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "alias.h"
-#include "tree-upc.h"
 #include "flags.h"
 #include "convert.h"
 #include "c-family/c-common.h"
@@ -96,8 +95,8 @@ convert (tree type, tree expr)
 
   /* Drop 'shared' qualifier when considering conversions
      of expression values.  */
-  if (upc_shared_type_p (type))
-    type = build_upc_unshared_type(type);
+  if (SHARED_TYPE_P (type))
+    type = build_unshared_type(type);
 
   if (TYPE_MAIN_VARIANT (type) == TYPE_MAIN_VARIANT (TREE_TYPE (expr))
       && (TREE_CODE (TREE_TYPE (expr)) != COMPLEX_TYPE

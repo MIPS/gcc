@@ -760,7 +760,7 @@ along with GCC; see the file COPYING3.  If not see
    because they are not directly convertible to integers.)  */
 (simplify
   (pointer_plus (pointer_plus:s@2 @0 @1) @3)
-  (if (!upc_shared_type_p (TREE_TYPE (TREE_TYPE (@2))))
+  (if (!SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (@2))))
    (pointer_plus @0 (plus @1 @3))))
 
 /* Pattern match
@@ -1185,10 +1185,10 @@ along with GCC; see the file COPYING3.  If not see
   (view_convert @0)
   (if ((INTEGRAL_TYPE_P (type)
         || (POINTER_TYPE_P (type)
-	    && !upc_shared_type_p (TREE_TYPE (type))))
+	    && !SHARED_TYPE_P (TREE_TYPE (type))))
        && (INTEGRAL_TYPE_P (TREE_TYPE (@0))
            || (POINTER_TYPE_P (TREE_TYPE (@0))
-	       && !upc_shared_type_p (TREE_TYPE (TREE_TYPE (@0)))))
+	       && !SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (@0)))))
        && TYPE_PRECISION (type) == TYPE_PRECISION (TREE_TYPE (@0)))
    (convert @0)))
 
@@ -1199,10 +1199,10 @@ along with GCC; see the file COPYING3.  If not see
   (view_convert (convert@0 @1))
   (if ((INTEGRAL_TYPE_P (TREE_TYPE (@0))
         || (POINTER_TYPE_P (TREE_TYPE (@0))
-	    && !upc_shared_type_p (TREE_TYPE (TREE_TYPE (@0)))))
+	    && !SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (@0)))))
        && (INTEGRAL_TYPE_P (TREE_TYPE (@1))
            || (POINTER_TYPE_P (TREE_TYPE (@1))
-	       && !upc_shared_type_p (TREE_TYPE (TREE_TYPE (@1)))))
+	       && !SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (@1)))))
        && (TYPE_PRECISION (TREE_TYPE (@0)) == TYPE_PRECISION (TREE_TYPE (@1)))
        && (TYPE_SIZE (TREE_TYPE (@0)) == TYPE_SIZE (TREE_TYPE (@1))))
    (view_convert @1)))
@@ -1244,11 +1244,11 @@ along with GCC; see the file COPYING3.  If not see
       unsigned int final_prec = TYPE_PRECISION (type);
       int final_unsignedp = TYPE_UNSIGNED (type);
       int final_pts = final_ptr
-                      && upc_shared_type_p (TREE_TYPE (type));
+                      && SHARED_TYPE_P (TREE_TYPE (type));
       int inter_pts = inter_ptr
-                      && upc_shared_type_p (TREE_TYPE (inter_type));
+                      && SHARED_TYPE_P (TREE_TYPE (inter_type));
       int inside_pts = inside_ptr
-                        && upc_shared_type_p (TREE_TYPE (inside_type));
+                        && SHARED_TYPE_P (TREE_TYPE (inside_type));
     }
    (switch
     /* In addition to the cases of two conversions in a row

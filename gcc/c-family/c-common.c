@@ -26,7 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "intl.h"
 #include "tree.h"
-#include "tree-upc.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
@@ -1497,7 +1496,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
 	  && code == ADDR_EXPR
 	  && (op1 = get_base_address (op0)) != NULL_TREE
 	  && INDIRECT_REF_P (op1)
-	  && !upc_shared_type_p (TREE_TYPE (op1))
+	  && !SHARED_TYPE_P (TREE_TYPE (op1))
 	  && TREE_CONSTANT (TREE_OPERAND (op1, 0)))
 	ret = fold_convert_loc (loc, TREE_TYPE (expr), fold_offsetof_1 (op0));
       else if (op0 != orig_op0 || in_init)
@@ -4813,8 +4812,8 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
 
   /* If the pointer lives in UPC shared memory, then
      drop the 'shared' qualifier.  */
-  if (TREE_SHARED (ptrop) || upc_shared_type_p (result_type))
-    result_type = build_upc_unshared_type (result_type);
+  if (TREE_SHARED (ptrop) || SHARED_TYPE_P (result_type))
+    result_type = build_unshared_type (result_type);
 
   if (TREE_CODE (TREE_TYPE (result_type)) == VOID_TYPE)
     {
@@ -5232,16 +5231,16 @@ c_apply_type_quals_to_decl (int type_quals, tree decl)
 	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type)))
 	error ("invalid use of %<restrict%>");
     }
-  if (type_quals & TYPE_QUAL_UPC_SHARED)
+  if (type_quals & TYPE_QUAL_SHARED)
     {
       TREE_SHARED (decl) = 1;
-      if (type_quals & TYPE_QUAL_UPC_STRICT)
+      if (type_quals & TYPE_QUAL_STRICT)
 	TREE_STRICT(decl) = 1;
-      else if (type_quals & TYPE_QUAL_UPC_RELAXED)
+      else if (type_quals & TYPE_QUAL_RELAXED)
 	TREE_RELAXED(decl) = 1;
       /* The declaration's type should have been previously defined
 	 as a UPC shared type.  */
-      gcc_assert (upc_shared_type_p (type));
+      gcc_assert (SHARED_TYPE_P (type));
     }
 }
 
@@ -5365,10 +5364,10 @@ c_common_get_alias_set (tree t)
      the UPC pointer-to-shared (i.e., upc_pts_rep_type_node).  */
 
   if (TYPE_P (t) ? (TREE_CODE (t) == POINTER_TYPE
-		    && upc_shared_type_p (TREE_TYPE (t)))
+		    && SHARED_TYPE_P (TREE_TYPE (t)))
                  : (TREE_TYPE(t)
 		    && TREE_CODE (TREE_TYPE (t)) == POINTER_TYPE
-		    && upc_shared_type_p (TREE_TYPE (TREE_TYPE (t)))))
+		    && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (t)))))
     return 0;
 
   /* Handle the case of multiple type nodes referring to "the same" type,
@@ -5518,7 +5517,7 @@ c_sizeof_or_alignof_type (location_t loc,
     {
       if (complain)
         {
-	  if (type_code == VOID_TYPE && upc_shared_type_p (type))
+	  if (type_code == VOID_TYPE && SHARED_TYPE_P (type))
 	    error_at (loc, "invalid application of %qs"
 	                   " to %<shared void%> type", op_name);
           else if (type_code == VOID_TYPE && warn_pointer_arith)
@@ -5559,7 +5558,7 @@ c_sizeof_or_alignof_type (location_t loc,
     }
 
   if (is_sizeof && (TREE_CODE (type) == ARRAY_TYPE)
-      && upc_shared_type_p (type)
+      && SHARED_TYPE_P (type)
       && TYPE_HAS_THREADS_FACTOR (type))
     {
       const tree n_threads = convert (sizetype, upc_num_threads ());
@@ -11039,8 +11038,8 @@ complete_array_type (tree *ptype, tree initial_value, bool do_default)
 
   type = *ptype;
   /* Force an indefinite layout factor.  */ 
-  if (upc_shared_type_p (type))
-    type = c_build_qualified_type_1 (type, TYPE_QUAL_UPC_SHARED,
+  if (SHARED_TYPE_P (type))
+    type = c_build_qualified_type_1 (type, TYPE_QUAL_SHARED,
                                      size_zero_node);
   elt = TREE_TYPE (type);
   quals = TYPE_QUALS (strip_array_types (elt));

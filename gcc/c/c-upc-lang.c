@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "alias.h"
-#include "tree-upc.h"
 #include "stringpool.h"
 #include "tree-iterator.h"
 #include "c/c-tree.h"
@@ -81,7 +80,7 @@ upc_lang_layout_decl_p (tree decl, tree type)
 	  tree tt = TREE_TYPE (t);
 	  tree tt_size = TYPE_SIZE (tt);
           need_to_size_shared_array_decl =
-	    upc_shared_type_p (tt)
+	    SHARED_TYPE_P (tt)
 	    && tt_size != NULL_TREE
             && !integer_zerop (tt_size);
         }
@@ -105,8 +104,8 @@ upc_lang_layout_decl (tree decl, tree type)
   {
     const tree elt_type = TREE_TYPE (t);
     const tree elt_size = TYPE_SIZE (elt_type);
-    const tree block_factor = TYPE_HAS_UPC_BLOCK_FACTOR (elt_type)
-      ? convert (bitsizetype, TYPE_UPC_BLOCK_FACTOR (elt_type)) : NULL;
+    const tree block_factor = TYPE_HAS_BLOCK_FACTOR (elt_type)
+      ? convert (bitsizetype, TYPE_BLOCK_FACTOR (elt_type)) : NULL;
     if (block_factor && integer_zerop (block_factor))
       {
 	/* Allocate the entire UPC shared array on thread 0.  */

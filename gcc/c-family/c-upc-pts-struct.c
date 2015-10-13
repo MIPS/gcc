@@ -25,7 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "alias.h"
-#include "tree-upc.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "c/c-tree.h"
@@ -68,11 +67,11 @@ upc_pts_struct_init_type (void)
   tree shared_void_type, shared_char_type;
   lang_hooks.upc.pts_struct_init_type ();
   shared_void_type = c_build_qualified_type_1 (void_type_node,
-                                               TYPE_QUAL_UPC_SHARED,
+                                               TYPE_QUAL_SHARED,
 					       NULL_TREE);
   upc_pts_type_node = build_pointer_type (shared_void_type);
   shared_char_type = c_build_qualified_type_1 (char_type_node,
-                                               TYPE_QUAL_UPC_SHARED,
+                                               TYPE_QUAL_SHARED,
 					       size_zero_node);
   upc_char_pts_type_node = build_pointer_type (shared_char_type);
   upc_null_pts_node = upc_pts_struct_build_value (UNKNOWN_LOCATION,
@@ -210,7 +209,7 @@ upc_pts_struct_build_sum (location_t loc, tree exp)
   const tree elem_type = strip_array_types (targ_type);
   const tree elem_size = !VOID_TYPE_P (elem_type)
     ? size_in_bytes (elem_type) : integer_one_node;
-  const tree block_factor = upc_get_block_factor (elem_type);
+  const tree block_factor = get_block_factor (elem_type);
   const int has_phase = !(integer_zerop (block_factor)
 			  || integer_onep (block_factor));
   const tree elem_per_block = block_factor;
@@ -334,7 +333,7 @@ upc_pts_struct_build_diff (location_t loc, tree exp)
   const tree target_type = TREE_TYPE (TREE_TYPE (op0));
   const tree n_threads = upc_num_threads ();
   const tree elem_size = convert (ssizetype, size_in_bytes (target_type));
-  const tree block_factor = upc_get_block_factor (target_type);
+  const tree block_factor = get_block_factor (target_type);
   tree thread0, thread1, thread_diff;
   tree phase_diff;
   tree off0, off1, offset_diff, elem_diff;
@@ -343,10 +342,10 @@ upc_pts_struct_build_diff (location_t loc, tree exp)
   /* The two pointers must both point to shared objects, and we
      have to perform the reverse of addition on UPC pointers-to-shared */
 
-  if ((upc_shared_type_p (target_type)
-       && !upc_shared_type_p (TREE_TYPE (TREE_TYPE (op1))))
-      || (upc_shared_type_p (TREE_TYPE (TREE_TYPE (op1)))
-	  && !upc_shared_type_p (target_type)))
+  if ((SHARED_TYPE_P (target_type)
+       && !SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (op1))))
+      || (SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (op1)))
+	  && !SHARED_TYPE_P (target_type)))
     {
       error ("attempt to take the difference of a UPC pointer-to-shared "
 	 "and a local pointer");
@@ -421,11 +420,11 @@ upc_pts_struct_build_cvt (location_t loc, tree exp)
 
   tt1 = TREE_TYPE (TREE_TYPE (exp));
   tt2 = TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0)));
-  b1 = upc_get_block_factor (tt1);
-  b2 = upc_get_block_factor (tt2);
-  if (upc_shared_type_p (tt1) != upc_shared_type_p (tt2))
+  b1 = get_block_factor (tt1);
+  b2 = get_block_factor (tt2);
+  if (SHARED_TYPE_P (tt1) != SHARED_TYPE_P (tt2))
     {
-      if (upc_shared_type_p (tt1))
+      if (SHARED_TYPE_P (tt1))
 	{
 	  /* Error: local -> shared */
 	  result = error_mark_node;
@@ -454,7 +453,7 @@ upc_pts_struct_build_cvt (location_t loc, tree exp)
 	  result = build1 (VIEW_CONVERT_EXPR, type, lib_call);
 	}
     }
-  else if ((upc_shared_type_p (tt1) && !VOID_TYPE_P (tt1))
+  else if ((SHARED_TYPE_P (tt1) && !VOID_TYPE_P (tt1))
 	   && !(integer_zerop (b1) && integer_zerop (b2)))
     {
       /* below, we handle the case of conversions to non-generic

@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree-upc.h"
 #include "tree.h"
 #include "alias.h"
 #include "fold-const.h"
@@ -112,8 +111,8 @@ upc_create_tmp_var (tree type)
   gcc_assert (!TREE_ADDRESSABLE (type) && COMPLETE_TYPE_P (type));
   /* The temp. must not be shared qualified.  If it is, then 
      remove the 'shared' qualifier.  */
-  if (upc_shared_type_p (type))
-    type = build_upc_unshared_type (type);
+  if (SHARED_TYPE_P (type))
+    type = build_unshared_type (type);
   tmp_var = create_tmp_var_raw (type, "UPC");
   DECL_CONTEXT (tmp_var) = current_function_decl;
   DECL_SEEN_IN_BIND_EXPR_P (tmp_var) = 1;
@@ -158,8 +157,8 @@ upc_expand_get (location_t loc, tree src, int want_stable_value)
   tree type = TREE_TYPE (src);
   /* Drop the shared qualifier.  */
   tree result_type = TYPE_MAIN_VARIANT (type);
-  int strict_mode = TYPE_UPC_STRICT (type)
-    || (!TYPE_UPC_RELAXED (type) && get_upc_consistency_mode ());
+  int strict_mode = TYPE_STRICT (type)
+    || (!TYPE_RELAXED (type) && get_upc_consistency_mode ());
   int doprofcall = flag_upc_debug
                    || (flag_upc_instrument && get_upc_pupc_mode ());
   machine_mode mode = TYPE_MODE (type);
@@ -239,14 +238,14 @@ static tree
 upc_expand_put (location_t loc, tree dest, tree src, int want_value)
 {
   tree type = TREE_TYPE (dest);
-  int strict_mode = TYPE_UPC_STRICT (type)
-    || (!TYPE_UPC_RELAXED (type) && get_upc_consistency_mode ());
+  int strict_mode = TYPE_STRICT (type)
+    || (!TYPE_RELAXED (type) && get_upc_consistency_mode ());
   int doprofcall = flag_upc_debug
                    || (flag_upc_instrument && get_upc_pupc_mode ());
   machine_mode mode = TYPE_MODE (type);
   machine_mode op_mode = (mode == TImode) ? BLKmode : mode;
   int is_src_shared = (TREE_SHARED (src)
-		       || upc_shared_type_p (TREE_TYPE (src)));
+		       || SHARED_TYPE_P (TREE_TYPE (src)));
   int local_copy = want_value
     || (op_mode == BLKmode
 	&& !(is_src_shared && INDIRECT_REF_P (src))
@@ -369,7 +368,7 @@ upc_simplify_shared_ref (location_t loc, tree exp)
   tree offset = NULL_TREE;
   base = get_inner_reference (exp, &bitsize, &bitpos, &offset,
 			      &mode, &unsignedp, &volatilep, false);
-  gcc_assert (upc_shared_type_p (TREE_TYPE (base)));
+  gcc_assert (SHARED_TYPE_P (TREE_TYPE (base)));
   base_addr = build_fold_addr_expr (base);
   if (bitpos)
     {
@@ -402,17 +401,17 @@ upc_simplify_shared_ref (location_t loc, tree exp)
   /* We need to construct a pointer-to-shared type that
      will be used to point to the referenced value.  However,
      for a COMPONENT_REF, the original type will likely not have
-     upc_shared_type_p() asserted, but rather, the expression node itself
+     SHARED_TYPE_P() asserted, but rather, the expression node itself
      will have TREE_SHARED asserted.  We need to first propagate
      this information into a new shared type, which will in turn be
      used to build the required pointer-to-shared type.  Further,
      any pointer to a shared component must be constrained to have
      a blocking factor of zero.  */
-  if (!upc_shared_type_p (ref_type))
+  if (!SHARED_TYPE_P (ref_type))
     {
       const int shared_quals = TYPE_QUALS (TREE_TYPE (exp))
                                | TREE_QUALS (exp);
-      gcc_assert (shared_quals & TYPE_QUAL_UPC_SHARED);
+      gcc_assert (shared_quals & TYPE_QUAL_SHARED);
       ref_type = c_build_qualified_type_1 (ref_type, shared_quals,
                                            size_zero_node);
     }
@@ -438,7 +437,7 @@ create_unshared_var (location_t loc, const tree var)
   tree u_name, u_type, u;
   gcc_assert (var && TREE_CODE (var) == VAR_DECL);
   u_name = unshared_var_name (var);
-  u_type = build_upc_unshared_type (TREE_TYPE (var));
+  u_type = build_unshared_type (TREE_TYPE (var));
   u = build_decl (loc, VAR_DECL, u_name, u_type);
   TREE_USED (u) = 1;
   TREE_ADDRESSABLE (u) = 1;
@@ -796,7 +795,7 @@ upc_genericize_pts_to_int_cvt (location_t loc, tree *expr_p)
   pts = *pts_p;
   ref_type = TREE_TYPE (TREE_TYPE (pts));
   shared_quals = TYPE_QUALS (ref_type) | TREE_QUALS (pts);
-  gcc_assert (shared_quals & TYPE_QUAL_UPC_SHARED);
+  gcc_assert (shared_quals & TYPE_QUAL_SHARED);
   if ((shared_quals & TYPE_QUAL_CONST) != 0)
     {
       /* drop 'const' qualifier to arg. type mis-match.  */
@@ -963,13 +962,13 @@ upc_genericize_modify_expr (location_t loc, tree *expr_p, int want_value)
   const tree dest = TREE_OPERAND (*expr_p, 0);
   tree src = TREE_OPERAND (*expr_p, 1);
   if (TREE_SHARED (dest)
-      || (TREE_TYPE (dest) && upc_shared_type_p (TREE_TYPE (dest))))
+      || (TREE_TYPE (dest) && SHARED_TYPE_P (TREE_TYPE (dest))))
     {
       /* <shared dest> = <(shared|unshared) src> */
       *expr_p = upc_expand_put (loc, dest, src, want_value);
     }
   else if (TREE_SHARED (src)
-	   || (TREE_TYPE (src) && upc_shared_type_p (TREE_TYPE (src))))
+	   || (TREE_TYPE (src) && SHARED_TYPE_P (TREE_TYPE (src))))
     {
       /* <unshared dest> = <shared src> */
       /* We could check for BLKmode and in
@@ -1028,7 +1027,7 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
 
     case ADDR_EXPR:
       if (POINTER_TYPE_P (type) && TREE_TYPE (type)
-	  && upc_shared_type_p (TREE_TYPE (type)))
+	  && SHARED_TYPE_P (TREE_TYPE (type)))
 	upc_genericize_addr_expr (loc, expr_p);
       break;
 
@@ -1046,7 +1045,7 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
 
     case INDIRECT_REF:
       if (type0 && (TREE_CODE (type0) == POINTER_TYPE)
-	  && upc_shared_type_p (TREE_TYPE (type0)))
+	  && SHARED_TYPE_P (TREE_TYPE (type0)))
 	upc_genericize_indirect_ref (loc, expr_p);
       break;
 
@@ -1057,13 +1056,13 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
       break;
 
     case VAR_DECL:
-      if (type && upc_shared_type_p (type))
+      if (type && SHARED_TYPE_P (type))
 	upc_genericize_shared_var_ref (loc, expr_p);
       break;
 
     case VIEW_CONVERT_EXPR:
-      if (type && upc_shared_type_p (type))
-	TREE_TYPE (expr) = build_upc_unshared_type (type);
+      if (type && SHARED_TYPE_P (type))
+	TREE_TYPE (expr) = build_unshared_type (type);
       gcc_assert (!TREE_SHARED (expr));
       break;
 
@@ -1077,13 +1076,13 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
          then the conversion target type is 'shared' qualified.
          We unshare the type in order to produce a
          valid tree.  */
-      if (type && upc_shared_type_p (type))
-	TREE_TYPE (expr) = build_upc_unshared_type (type);
-      if (upc_pts_cvt_op_p (expr))
+      if (type && SHARED_TYPE_P (type))
+	TREE_TYPE (expr) = build_unshared_type (type);
+      if (PTS_CVT_OP_P (expr))
 	upc_genericize_pts_cvt (loc, expr_p);
       else if (code == CONVERT_EXPR && TREE_CODE (type) == INTEGER_TYPE
 	       && POINTER_TYPE_P (type0)
-	       && upc_shared_type_p (TREE_TYPE (type0)))
+	       && SHARED_TYPE_P (TREE_TYPE (type0)))
 	upc_genericize_pts_to_int_cvt (loc, expr_p);
       break;
 
@@ -1094,9 +1093,9 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
     case LT_EXPR:
     case NE_EXPR:
       if ((type0 && (TREE_CODE (type0) == POINTER_TYPE)
-	   && upc_shared_type_p (TREE_TYPE (type0)))
+	   && SHARED_TYPE_P (TREE_TYPE (type0)))
 	  || (type1 && (TREE_CODE (type1) == POINTER_TYPE)
-	      && upc_shared_type_p (TREE_TYPE (type1))))
+	      && SHARED_TYPE_P (TREE_TYPE (type1))))
 	upc_genericize_pts_cond_expr (loc, expr_p);
       break;
 
@@ -1104,15 +1103,15 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
     case PLUS_EXPR:
     case POINTER_PLUS_EXPR:
       if ((type0 && (TREE_CODE (type0) == POINTER_TYPE)
-	   && upc_shared_type_p (TREE_TYPE (type0)))
+	   && SHARED_TYPE_P (TREE_TYPE (type0)))
 	  || (type1 && (TREE_CODE (type1) == POINTER_TYPE)
-	      && upc_shared_type_p (TREE_TYPE (type1))))
+	      && SHARED_TYPE_P (TREE_TYPE (type1))))
 	upc_genericize_pts_arith_expr (loc, expr_p);
       break;
 
     case MODIFY_EXPR:
     case INIT_EXPR:
-      if (POINTER_TYPE_P (type0) && upc_shared_type_p (TREE_TYPE (type0))
+      if (POINTER_TYPE_P (type0) && SHARED_TYPE_P (TREE_TYPE (type0))
 	  && VOID_TYPE_P (TREE_TYPE (type0))
 	  && TREE_CODE (op1) == CONVERT_EXPR
 	  && POINTER_TYPE_P (type1) && VOID_TYPE_P (TREE_TYPE (type1)))
@@ -1124,9 +1123,9 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
 	  type1 = TREE_TYPE (op1);
 	}
       if ((op0 && (TREE_SHARED (op0)
-		   || (type0 && upc_shared_type_p (type0))))
+		   || (type0 && SHARED_TYPE_P (type0))))
 	  || (op1 && (TREE_SHARED (op1)
-		      || (type1 && upc_shared_type_p (type1)))))
+		      || (type1 && SHARED_TYPE_P (type1)))))
 	upc_genericize_modify_expr (loc, expr_p, want_value);
       break;
 
@@ -1135,9 +1134,9 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
     case PREDECREMENT_EXPR:
     case PREINCREMENT_EXPR:
       if ((op0 && TREE_SHARED (op0))
-	  || (type0 && (upc_shared_type_p (type0)
+	  || (type0 && (SHARED_TYPE_P (type0)
 			|| (POINTER_TYPE_P (type0)
-			    && upc_shared_type_p (TREE_TYPE (type0))))))
+			    && SHARED_TYPE_P (TREE_TYPE (type0))))))
 	upc_genericize_shared_inc_dec_expr (loc, expr_p, want_value);
       break;
 
@@ -1152,9 +1151,9 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
          basis.  Thus, we can't rewrite TREE_TYPE() directly.
          We re-create the constant with its unshared type to
          ensure that the hash table is updated.  */
-      if (type && upc_shared_type_p (type))
+      if (type && SHARED_TYPE_P (type))
 	{
-	  const tree u_type = build_upc_unshared_type (type);
+	  const tree u_type = build_unshared_type (type);
 	  *expr_p = wide_int_to_tree (u_type, expr);
 	}
       gcc_assert (!TREE_SHARED (expr));
@@ -1172,8 +1171,8 @@ upc_genericize_expr (tree *expr_p, int *walk_subtrees, void *data)
          then the converted constant's type will be shared.
          We unshare the type in order to produce a
          valid constant.  */
-      if (type && upc_shared_type_p (type))
-	TREE_TYPE (expr) = build_upc_unshared_type (type);
+      if (type && SHARED_TYPE_P (type))
+	TREE_TYPE (expr) = build_unshared_type (type);
       gcc_assert (!TREE_SHARED (expr));
       break;
 
@@ -1388,7 +1387,7 @@ upc_check_decl_init (tree decl, tree init)
     return 0;
   init_type = TREE_TYPE (init);
   is_shared_var_decl_init = (TREE_CODE (decl) == VAR_DECL)
-    && TREE_TYPE (decl) && upc_shared_type_p (TREE_TYPE (decl));
+    && TREE_TYPE (decl) && SHARED_TYPE_P (TREE_TYPE (decl));
   is_decl_init_with_shared_addr_refs = TREE_STATIC (decl)
     && upc_contains_pts_refs_p (init_type);
   is_upc_decl = (is_shared_var_decl_init

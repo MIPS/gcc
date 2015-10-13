@@ -7939,7 +7939,7 @@ classify_argument (machine_mode mode, const_tree type,
   /* Special case check for pointer to shared, on 64-bit target. */
   if (TARGET_64BIT && mode == TImode
       && type && TREE_CODE (type) == POINTER_TYPE
-      && upc_shared_type_p (TREE_TYPE (type)))
+      && SHARED_TYPE_P (TREE_TYPE (type)))
     {
       classes[0] = classes[1] = X86_64_INTEGER_CLASS;
       return 2;
@@ -9539,7 +9539,7 @@ function_value_64 (machine_mode orig_mode, machine_mode mode,
       return gen_rtx_REG (mode, regno);
     }
   else if (POINTER_TYPE_P (valtype)
-           && !upc_shared_type_p (TREE_TYPE (valtype)))
+           && !SHARED_TYPE_P (TREE_TYPE (valtype)))
     {
       /* Pointers are always returned in word_mode.  */
       mode = word_mode;
@@ -9683,7 +9683,7 @@ ix86_promote_function_mode (const_tree type, machine_mode mode,
 {
   if (type != NULL_TREE && POINTER_TYPE_P (type))
     {
-      if (upc_shared_type_p (TREE_TYPE (type)))
+      if (SHARED_TYPE_P (TREE_TYPE (type)))
         {
           *punsignedp = 1;
           return TYPE_MODE (upc_pts_rep_type_node);

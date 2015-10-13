@@ -3862,7 +3862,7 @@ find_param_candidates (void)
 
 	  if (TREE_CODE (type) == FUNCTION_TYPE
 	      || TYPE_VOLATILE (type)
-	      || upc_shared_type_p (type)
+	      || SHARED_TYPE_P (type)
 	      || (TREE_CODE (type) == ARRAY_TYPE
 		  && TYPE_NONALIASED_COMPONENT (type))
 	      || !is_gimple_reg (parm)

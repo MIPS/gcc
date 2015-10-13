@@ -7723,8 +7723,8 @@ fold_unary_loc (location_t loc, enum tree_code code, tree type, tree op0)
       if (POINTER_TYPE_P (type)
 	  && TREE_CODE (arg0) == POINTER_PLUS_EXPR
 	  && (!TYPE_RESTRICT (type) || TYPE_RESTRICT (TREE_TYPE (arg0)))
-	  && !upc_shared_type_p (TREE_TYPE (type))
-	  && !upc_shared_type_p (TREE_TYPE (
+	  && !SHARED_TYPE_P (TREE_TYPE (type))
+	  && !SHARED_TYPE_P (TREE_TYPE (
 	                           TREE_TYPE (TREE_OPERAND (arg0, 0))))
 	  && (TREE_CODE (TREE_OPERAND (arg0, 1)) == INTEGER_CST
 	      || TREE_CODE (TREE_OPERAND (arg0, 0)) == NOP_EXPR
@@ -9238,9 +9238,9 @@ fold_binary_loc (location_t loc,
       /* Disable further optimizations involving UPC shared pointers,
          because integers are not interoperable with shared pointers.  */
       if ((TREE_TYPE (arg0) && POINTER_TYPE_P (TREE_TYPE (arg0))
-          && upc_shared_type_p (TREE_TYPE (TREE_TYPE (arg0))))
+          && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (arg0))))
          || (TREE_TYPE (arg1) && POINTER_TYPE_P (TREE_TYPE (arg1))
-             && upc_shared_type_p (TREE_TYPE (TREE_TYPE (arg1)))))
+             && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (arg1)))))
         return NULL_TREE;
 
       if (INTEGRAL_TYPE_P (type) || VECTOR_INTEGER_TYPE_P (type))
@@ -9700,7 +9700,7 @@ fold_binary_loc (location_t loc,
 	 shared pointers, which cannot be folded.  */
 
       if (TREE_TYPE (arg0) && POINTER_TYPE_P (TREE_TYPE (arg0))
-          && upc_shared_type_p (TREE_TYPE (TREE_TYPE (arg0))))
+          && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (arg0))))
         return NULL_TREE;
 
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */

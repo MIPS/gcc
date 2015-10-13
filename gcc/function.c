@@ -2087,7 +2087,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
      This occurs when using the 'struct' representation
      of a shared pointer.  */
   if (flag_pcc_struct_return && POINTER_TYPE_P (type)
-      && upc_shared_type_p (TREE_TYPE (type))
+      && SHARED_TYPE_P (TREE_TYPE (type))
       && AGGREGATE_TYPE_P (upc_pts_rep_type_node))
     return 1;
 
@@ -3338,7 +3338,7 @@ assign_parm_setup_reg (struct assign_parm_data_all *all, tree parm,
   /* Do not target UPC pointers-to-shared values into a pointer
      register if they are represented as struct's.  */
   if (POINTER_TYPE_P (TREE_TYPE (parm))
-      && upc_shared_type_p (TREE_TYPE (TREE_TYPE (parm)))
+      && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (parm)))
       && AGGREGATE_TYPE_P (upc_pts_rep_type_node))
     return;
 

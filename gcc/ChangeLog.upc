@@ -1,5 +1,28 @@
 2015-10-13  Gary Funck  <gary@intrepid.com>
 
+	* tree-upc.h: Delete.  Move UPC support into tree.h.
+	* tree-upc.c: Delete.  Move UPC support into tree.c.
+	* Makefile.in: Remove references to tree-upc.c and tree-upc.h.
+	* c/c-convert.c, c/c-decl.c, c/c-objc-common.c, c/c-typeck.c,
+	c/c-upc-lang.c, c-family/c-common.c, c-family/c-upc.c,
+	c-family/c-upc-low.c, c-family/c-upc-pts-packed.c,
+	c-family/c-upc-pts-struct.c, convert.c,	dwarf2out.c, print-tree.c,
+	tree.c, tree-pretty-print.c: Delete #include of tree-upc.h.
+
+	* c/c-convert.c, c/c-decl.c, c/c-objc-common.c, c/c-parser.c,
+	c/c-typeck.c, c/c-upc-lang.c, c-family/c-common.c,
+	c-family/c-pretty-print.c, c-family/c-upc.c, c-family/c-upc-low.c,
+	c-family/c-upc-pts-packed.c, c-family/c-upc-pts-struct.c,
+	config/i386/i386.c, config/rs6000/rs6000.c, convert.c, dojump.c,
+	dwarf2out.c, explow.c, fold-const.c, function.c, gimple-expr.c,
+	Makefile.in, match.pd, print-tree.c, tree.c, tree-core.h,
+	tree-dump.c, tree.h, tree-pretty-print.c, tree-sra.c:
+	Rename identifiers defined in tree-core.h and tree.h
+	that have 'UPC' or 'upc' in their name into names that do not
+	refer to UPC (or upc).  Identifiers in those files should be generic.
+
+2015-10-13  Gary Funck  <gary@intrepid.com>
+
 	* doc/passes.texi: fix typo.
 
 2015-10-12  Gary Funck  <gary@intrepid.com>

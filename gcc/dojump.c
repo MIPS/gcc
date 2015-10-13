@@ -479,7 +479,7 @@ do_jump (tree exp, rtx_code_label *if_false_label,
     case NON_LVALUE_EXPR:
       /* if a shared pointer conversion that will change representation,
 	 then we have to compare in the result type.  */
-      if (upc_pts_cvt_op_p (exp))
+      if (PTS_CVT_OP_P (exp))
 	goto normal;
     case ABS_EXPR:
     case NEGATE_EXPR:

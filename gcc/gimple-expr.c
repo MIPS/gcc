@@ -69,8 +69,8 @@ useless_type_conversion_p (tree outer_type, tree inner_type)
   if (POINTER_TYPE_P (inner_type)
       && POINTER_TYPE_P (outer_type))
     {
-      int i_shared = upc_shared_type_p (TREE_TYPE (inner_type));
-      int o_shared = upc_shared_type_p (TREE_TYPE (outer_type));
+      int i_shared = SHARED_TYPE_P (TREE_TYPE (inner_type));
+      int o_shared = SHARED_TYPE_P (TREE_TYPE (outer_type));
 
       /* Retain conversions from a UPC shared pointer to
          a regular C pointer.  */

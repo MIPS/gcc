@@ -192,11 +192,11 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
   if (qualifiers & TYPE_QUAL_RESTRICT)
     pp_c_ws_string (pp, (flag_isoc99 && !c_dialect_cxx ()
 			 ? "restrict" : "__restrict__"));
-  if (qualifiers & TYPE_QUAL_UPC_RELAXED)
+  if (qualifiers & TYPE_QUAL_RELAXED)
     pp_c_ws_string (pp, "relaxed");
-  if (qualifiers & TYPE_QUAL_UPC_STRICT)
+  if (qualifiers & TYPE_QUAL_STRICT)
     pp_c_ws_string (pp, "strict");
-  if (qualifiers & TYPE_QUAL_UPC_SHARED)
+  if (qualifiers & TYPE_QUAL_SHARED)
     pp_c_ws_string (pp, "shared");
 
 }

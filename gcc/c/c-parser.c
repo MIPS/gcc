@@ -9990,7 +9990,7 @@ upc_affinity_test (location_t loc, tree affinity)
   gcc_assert (affinity != NULL_TREE);
 
   if (TREE_CODE (TREE_TYPE (affinity)) == POINTER_TYPE
-      && upc_shared_type_p (TREE_TYPE (TREE_TYPE (affinity))))
+      && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (affinity))))
     {
       /* We have a pointer to a UPC shared object and the affinity is
          determined by the thread component of the address.  */

@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "alias.h"
 #include "tree.h"
-#include "tree-upc.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "flags.h"
@@ -50,10 +49,10 @@ convert_to_pointer (tree type, tree expr)
     return expr;
 
   if (integer_zerop (expr) && POINTER_TYPE_P (type)
-      && upc_shared_type_p (TREE_TYPE (type)))
+      && SHARED_TYPE_P (TREE_TYPE (type)))
     {
       expr = copy_node (upc_null_pts_node);
-      TREE_TYPE (expr) = build_upc_unshared_type (type);
+      TREE_TYPE (expr) = build_unshared_type (type);
       return expr;
     }
 
@@ -430,8 +429,8 @@ convert_to_integer (tree type, tree expr)
   if (ex_form == MINUS_EXPR
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 0)))
       && POINTER_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1)))
-      && upc_shared_type_p (TREE_TYPE (TREE_TYPE (TREE_OPERAND (expr, 0))))
-      && upc_shared_type_p (TREE_TYPE (TREE_TYPE (TREE_OPERAND (expr, 1)))))
+      && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (TREE_OPERAND (expr, 0))))
+      && SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (TREE_OPERAND (expr, 1)))))
   {
       return build1 (CONVERT_EXPR, type, expr);
   }
@@ -580,7 +579,7 @@ convert_to_integer (tree type, tree expr)
     {
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      if (upc_shared_type_p (TREE_TYPE (intype)))
+      if (SHARED_TYPE_P (TREE_TYPE (intype)))
         {
           error ("invalid conversion from a UPC pointer-to-shared "
 	         "to an integer");
