@@ -3375,12 +3375,19 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		  || gimple_code (ctx->stmt) != GIMPLE_OMP_FOR
 		  || (oclause
 			= find_omp_clause (gimple_omp_for_clauses (ctx->stmt),
-					   OMP_CLAUSE_ORDERED)) == NULL_TREE
-		  || OMP_CLAUSE_ORDERED_EXPR (oclause) == NULL_TREE)
+					   OMP_CLAUSE_ORDERED)) == NULL_TREE)
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%<depend%> clause must be closely nested "
 			    "inside an ordered loop");
+		  return false;
+		}
+	      else if (OMP_CLAUSE_ORDERED_EXPR (oclause) == NULL_TREE)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<depend%> clause must be closely nested "
+			    "inside a loop with %<ordered%> clause with "
+			    "a parameter");
 		  return false;
 		}
 	    }

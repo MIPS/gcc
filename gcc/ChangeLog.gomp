@@ -1,5 +1,10 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (gimplify_omp_ordered): Diagnose ordered depend
+	inside loop without ordered(n) clause.
+	* omp-low.c (check_omp_nesting_restrictions): Use a different
+	wording if ordered clause is present, but without parameter.
+
 	* gimplify.c (gimplify_omp_ordered): Disallow multiple
 	depend(source) clauses on the same construct.  Disallow depend(source)
 	combined with depend(sink:vec) on the same construct.

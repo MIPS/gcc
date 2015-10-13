@@ -14009,13 +14009,21 @@ c_parser_omp_simd (location_t loc, c_parser *parser,
 
   strcat (p_name, " simd");
   mask |= OMP_SIMD_CLAUSE_MASK;
-  mask &= ~(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_ORDERED);
 
   clauses = c_parser_omp_all_clauses (parser, mask, p_name, cclauses == NULL);
   if (cclauses)
     {
       omp_split_clauses (loc, OMP_SIMD, mask, clauses, cclauses);
       clauses = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
+      tree c = find_omp_clause (cclauses[C_OMP_CLAUSE_SPLIT_FOR],
+				OMP_CLAUSE_ORDERED);
+      if (c && OMP_CLAUSE_ORDERED_EXPR (c))
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c),
+		    "%<ordered%> clause with parameter may not be specified "
+		    "on %qs construct", p_name);
+	  OMP_CLAUSE_ORDERED_EXPR (c) = NULL_TREE;
+	}
     }
 
   block = c_begin_compound_stmt (true);

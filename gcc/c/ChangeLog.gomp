@@ -1,5 +1,8 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-parser.c (c_parser_omp_simd): Allow ordered clause on
+	for simd, but ensure no parameter is specified for it.
+
 	* c-typeck.c (c_finish_omp_clauses): Disallow modifiers on simd/for
 	constructs.
 

@@ -8749,7 +8749,18 @@ gimplify_omp_ordered (tree expr, gimple_seq body)
   if (gimplify_omp_ctxp)
     for (c = OMP_ORDERED_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
       if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
-	  && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
+	  && gimplify_omp_ctxp->loop_iter_var.is_empty ()
+	  && (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK
+	      || OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE))
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c),
+		    "%<depend%> clause must be closely nested "
+		    "inside a loop with %<ordered%> clause with "
+		    "a parameter");
+	  failures++;
+	}
+      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	       && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
 	{
 	  bool fail = false;
 	  for (decls = OMP_CLAUSE_DECL (c), i = 0;

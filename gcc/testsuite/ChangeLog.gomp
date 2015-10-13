@@ -1,5 +1,7 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/gomp/ordered-3.c: New test.
+
 	* c-c++-common/gomp/doacross-1.c: New test.
 
 	* c-c++-common/gomp/linear-1.c: New test.
