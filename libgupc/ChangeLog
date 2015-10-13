@@ -1,3 +1,8 @@
+2015-10-13  Gary Funck  <gary@intrepid.com>
+
+	* testsuite/lib/libgupc.exp: Load multiline.exp before prune.exp,
+	using load_gcc_lib.
+
 2015-10-07  Gary Funck  <gary@intrepid.com>
 
 	* config/default/upc-crt-begin-end.h (GUPCR_SHARED_BEGIN_NAME,
