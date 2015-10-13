@@ -118,7 +118,7 @@ remove_simple_copy_phi (gphi_iterator *psi)
    loop ENTRY edge the assignment RES = INIT.  */
 
 static void
-remove_invariant_phi (sese region, gphi_iterator *psi)
+remove_invariant_phi (sese_l &region, gphi_iterator *psi)
 {
   gphi *phi = psi->phi ();
   loop_p loop = loop_containing_stmt (phi);
@@ -161,7 +161,7 @@ simple_copy_phi_p (gphi *phi)
    be considered.  */
 
 static bool
-reduction_phi_p (sese region, gphi_iterator *psi)
+reduction_phi_p (sese_l &region, gphi_iterator *psi)
 {
   loop_p loop;
   gphi *phi = psi->phi ();
@@ -329,13 +329,13 @@ build_scop_scattering (scop_p scop)
 
   int i;
   poly_bb_p pbb;
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     {
       gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
       int prefix = 0;
 
       if (previous_gbb)
-	prefix = nb_common_loops (SCOP_REGION (scop), previous_gbb, gbb);
+	prefix = nb_common_loops (scop->region->region, previous_gbb, gbb);
 
       previous_gbb = gbb;
 
@@ -357,7 +357,7 @@ extract_affine_chrec (scop_p s, tree e, __isl_take isl_space *space)
   isl_pw_aff *lhs = extract_affine (s, CHREC_LEFT (e), isl_space_copy (space));
   isl_pw_aff *rhs = extract_affine (s, CHREC_RIGHT (e), isl_space_copy (space));
   isl_local_space *ls = isl_local_space_from_space (space);
-  unsigned pos = sese_loop_depth (SCOP_REGION (s), get_chrec_loop (e)) - 1;
+  unsigned pos = sese_loop_depth (s->region->region, get_chrec_loop (e)) - 1;
   isl_aff *loop = isl_aff_set_coefficient_si
     (isl_aff_zero_on_domain (ls), isl_dim_in, pos, 1);
   isl_pw_aff *l = isl_pw_aff_from_aff (loop);
@@ -482,7 +482,7 @@ wrap (isl_pw_aff *pwaff, unsigned width)
    Otherwise returns -1.  */
 
 static inline int
-parameter_index_in_region_1 (tree name, sese region)
+parameter_index_in_region_1 (tree name, sese_info_p region)
 {
   int i;
   tree p;
@@ -540,7 +540,7 @@ extract_affine (scop_p s, tree e, __isl_take isl_space *space)
 
     case SSA_NAME:
       gcc_assert (-1 != parameter_index_in_region_1 (e, s->region)
-		  || !invariant_in_sese_p_rec (e, s->region));
+		  || !invariant_in_sese_p_rec (e, s->region->region));
       res = extract_affine_name (s, e, space);
       break;
 
@@ -571,7 +571,7 @@ extract_affine (scop_p s, tree e, __isl_take isl_space *space)
 static void
 set_scop_parameter_dim (scop_p scop)
 {
-  sese region = SCOP_REGION (scop);
+  sese_info_p region = scop->region;
   unsigned nbp = sese_nb_params (region);
   isl_space *space = isl_space_set_alloc (scop->isl_context, nbp, 0);
 
@@ -594,7 +594,7 @@ build_loop_iteration_domains (scop_p scop, struct loop *loop,
 {
 
   tree nb_iters = number_of_latch_executions (loop);
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
   gcc_assert (loop_in_sese_p (loop, region));
 
   isl_set *inner = isl_set_copy (outer);
@@ -704,7 +704,7 @@ create_pw_aff_from_tree (poly_bb_p pbb, tree t)
 {
   scop_p scop = PBB_SCOP (pbb);
 
-  t = scalar_evolution_in_region (SCOP_REGION (scop), pbb_loop (pbb), t);
+  t = scalar_evolution_in_region (scop->region->region, pbb_loop (pbb), t);
   gcc_assert (!automatically_generated_chrec_p (t));
 
   return extract_affine (scop, t, isl_set_get_space (pbb->domain));
@@ -808,7 +808,7 @@ add_conditions_to_constraints (scop_p scop)
   int i;
   poly_bb_p pbb;
 
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     add_conditions_to_domain (pbb);
 }
 
@@ -818,7 +818,7 @@ add_conditions_to_constraints (scop_p scop)
 static void
 add_param_constraints (scop_p scop, graphite_dim_t p)
 {
-  tree parameter = SESE_PARAMS (SCOP_REGION (scop))[p];
+  tree parameter = SESE_PARAMS (scop->region)[p];
   tree type = TREE_TYPE (parameter);
   tree lb = NULL_TREE;
   tree ub = NULL_TREE;
@@ -892,19 +892,19 @@ build_scop_context (scop_p scop)
 static void
 build_scop_iteration_domain (scop_p scop)
 {
-  sese region = SCOP_REGION (scop);
+  sese_info_p region = scop->region;
   int nb_loops = number_of_loops (cfun);
   isl_set **doms = XCNEWVEC (isl_set *, nb_loops);
 
   int i;
   struct loop *loop;
   FOR_EACH_VEC_ELT (SESE_LOOP_NEST (region), i, loop)
-    if (!loop_in_sese_p (loop_outer (loop), region))
+    if (!loop_in_sese_p (loop_outer (loop), region->region))
       build_loop_iteration_domains (scop, loop, 0,
 				    isl_set_copy (scop->param_context), doms);
 
   poly_bb_p pbb;
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
     {
       loop = pbb_loop (pbb);
 
@@ -930,18 +930,11 @@ build_scop_iteration_domain (scop_p scop)
    domain.  */
 
 static isl_map *
-pdr_add_alias_set (isl_map *acc, data_reference_p dr)
+pdr_add_alias_set (isl_map *acc, dr_info &dri)
 {
-  isl_constraint *c;
-  int alias_set_num = 0;
-  base_alias_pair *bap = (base_alias_pair *)(dr->aux);
-
-  if (bap && bap->alias_set)
-    alias_set_num = *(bap->alias_set);
-
-  c = isl_equality_alloc
+  isl_constraint *c = isl_equality_alloc
       (isl_local_space_from_space (isl_map_get_space (acc)));
-  c = isl_constraint_set_constant_si (c, -alias_set_num);
+  c = isl_constraint_set_constant_si (c, -dri.alias_set);
   c = isl_constraint_set_coefficient_si (c, isl_dim_out, 0, 1);
 
   return isl_map_add_constraint (acc, c);
@@ -975,8 +968,10 @@ set_index (isl_map *map, int pos, isl_pw_aff *index)
    PBB is the poly_bb_p that contains the data reference DR.  */
 
 static isl_map *
-pdr_add_memory_accesses (isl_map *acc, data_reference_p dr, poly_bb_p pbb)
+pdr_add_memory_accesses (isl_map *acc, dr_info &dri)
 {
+  data_reference_p dr = dri.dr;
+  poly_bb_p pbb = dri.pbb;
   int i, nb_subscripts = DR_NUM_DIMENSIONS (dr);
   scop_p scop = PBB_SCOP (pbb);
 
@@ -1063,11 +1058,12 @@ pdr_add_data_dimensions (isl_set *subscript_sizes, scop_p scop,
 /* Build data accesses for DR in PBB.  */
 
 static void
-build_poly_dr (data_reference_p dr, poly_bb_p pbb)
+build_poly_dr (dr_info &dri)
 {
-  int dr_base_object_set;
   isl_map *acc;
   isl_set *subscript_sizes;
+  poly_bb_p pbb = dri.pbb;
+  data_reference_p dr = dri.dr;
   scop_p scop = PBB_SCOP (pbb);
 
   {
@@ -1080,308 +1076,56 @@ build_poly_dr (data_reference_p dr, poly_bb_p pbb)
     acc = isl_map_set_tuple_id (acc, isl_dim_out, isl_id_for_dr (scop, dr));
   }
 
-  acc = pdr_add_alias_set (acc, dr);
-  acc = pdr_add_memory_accesses (acc, dr, pbb);
+  acc = pdr_add_alias_set (acc, dri);
+  acc = pdr_add_memory_accesses (acc, dri);
 
   {
     isl_id *id = isl_id_for_dr (scop, dr);
     int nb = 1 + DR_NUM_DIMENSIONS (dr);
     isl_space *space = isl_space_set_alloc (scop->isl_context, 0, nb);
-    int alias_set_num = 0;
-    base_alias_pair *bap = (base_alias_pair *)(dr->aux);
-
-    if (bap && bap->alias_set)
-      alias_set_num = *(bap->alias_set);
 
     space = isl_space_set_tuple_id (space, isl_dim_set, id);
     subscript_sizes = isl_set_nat_universe (space);
     subscript_sizes = isl_set_fix_si (subscript_sizes, isl_dim_set, 0,
-				      alias_set_num);
+				      dri.alias_set);
     subscript_sizes = pdr_add_data_dimensions (subscript_sizes, scop, dr);
   }
 
-  gcc_assert (dr->aux);
-  dr_base_object_set = ((base_alias_pair *)(dr->aux))->base_obj_set;
-
-  new_poly_dr (pbb, dr_base_object_set,
+  new_poly_dr (pbb,
 	       DR_IS_READ (dr) ? PDR_READ : PDR_WRITE,
 	       dr, DR_NUM_DIMENSIONS (dr), acc, subscript_sizes);
 }
 
-/* Write to FILE the alias graph of data references in DIMACS format.  */
+/* Compute alias-sets for all data references in DRS.  */
 
-static inline bool
-write_alias_graph_to_ascii_dimacs (FILE *file, char *comment,
-				   vec<data_reference_p> drs)
+static void
+build_alias_set (scop_p scop)
 {
-  int num_vertex = drs.length ();
-  int edge_num = 0;
-  data_reference_p dr1, dr2;
-  int i, j;
-
-  if (num_vertex == 0)
-    return true;
-
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    for (j = i + 1; drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1, dr2, true))
-	edge_num++;
-
-  fprintf (file, "$\n");
-
-  if (comment)
-    fprintf (file, "c %s\n", comment);
-
-  fprintf (file, "p edge %d %d\n", num_vertex, edge_num);
-
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    for (j = i + 1; drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1, dr2, true))
-	fprintf (file, "e %d %d\n", i + 1, j + 1);
-
-  return true;
-}
-
-/* Write to FILE the alias graph of data references in DOT format.  */
-
-static inline bool
-write_alias_graph_to_ascii_dot (FILE *file, char *comment,
-				vec<data_reference_p> drs)
-{
-  int num_vertex = drs.length ();
-  data_reference_p dr1, dr2;
-  int i, j;
-
-  if (num_vertex == 0)
-    return true;
-
-  fprintf (file, "$\n");
-
-  if (comment)
-    fprintf (file, "c %s\n", comment);
-
-  /* First print all the vertices.  */
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    fprintf (file, "n%d;\n", i);
-
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    for (j = i + 1; drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1, dr2, true))
-	fprintf (file, "n%d n%d\n", i, j);
-
-  return true;
-}
-
-/* Write to FILE the alias graph of data references in ECC format.  */
-
-static inline bool
-write_alias_graph_to_ascii_ecc (FILE *file, char *comment,
-				vec<data_reference_p> drs)
-{
-  int num_vertex = drs.length ();
-  data_reference_p dr1, dr2;
-  int i, j;
-
-  if (num_vertex == 0)
-    return true;
-
-  fprintf (file, "$\n");
-
-  if (comment)
-    fprintf (file, "c %s\n", comment);
-
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    for (j = i + 1; drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1, dr2, true))
-	fprintf (file, "%d %d\n", i, j);
-
-  return true;
-}
-
-/* Check if DR1 and DR2 are in the same object set.  */
-
-static bool
-dr_same_base_object_p (const struct data_reference *dr1,
-		       const struct data_reference *dr2)
-{
-  return operand_equal_p (DR_BASE_OBJECT (dr1), DR_BASE_OBJECT (dr2), 0);
-}
-
-/* Uses DFS component number as representative of alias-sets. Also tests for
-   optimality by verifying if every connected component is a clique. Returns
-   true (1) if the above test is true, and false (0) otherwise.  */
-
-static int
-build_alias_set_optimal_p (vec<data_reference_p> drs)
-{
-  int num_vertices = drs.length ();
+  int num_vertices = scop->drs.length ();
   struct graph *g = new_graph (num_vertices);
-  data_reference_p dr1, dr2;
+  dr_info dr1 (0), dr2 (0);
   int i, j;
-  int num_connected_components;
-  int v_indx1, v_indx2, num_vertices_in_component;
   int *all_vertices;
-  int *vertices;
-  struct graph_edge *e;
-  int this_component_is_clique;
-  int all_components_are_cliques = 1;
 
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    for (j = i+1; drs.iterate (j, &dr2); j++)
-      if (dr_may_alias_p (dr1, dr2, true))
+  FOR_EACH_VEC_ELT (scop->drs, i, dr1)
+    for (j = i+1; scop->drs.iterate (j, &dr2); j++)
+      if (dr_may_alias_p (dr1.dr, dr2.dr, true))
 	{
 	  add_edge (g, i, j);
 	  add_edge (g, j, i);
 	}
 
   all_vertices = XNEWVEC (int, num_vertices);
-  vertices = XNEWVEC (int, num_vertices);
   for (i = 0; i < num_vertices; i++)
     all_vertices[i] = i;
 
-  num_connected_components = graphds_dfs (g, all_vertices, num_vertices,
-					  NULL, true, NULL);
-  for (i = 0; i < g->n_vertices; i++)
-    {
-      data_reference_p dr = drs[i];
-      base_alias_pair *bap;
-
-      gcc_assert (dr->aux);
-      bap = (base_alias_pair *)(dr->aux);
-
-      bap->alias_set = XNEW (int);
-      *(bap->alias_set) = g->vertices[i].component + 1;
-    }
-
-  /* Verify if the DFS numbering results in optimal solution.  */
-  for (i = 0; i < num_connected_components; i++)
-    {
-      num_vertices_in_component = 0;
-      /* Get all vertices whose DFS component number is the same as i.  */
-      for (j = 0; j < num_vertices; j++)
-	if (g->vertices[j].component == i)
-	  vertices[num_vertices_in_component++] = j;
-
-      /* Now test if the vertices in 'vertices' form a clique, by testing
-	 for edges among each pair.  */
-      this_component_is_clique = 1;
-      for (v_indx1 = 0; v_indx1 < num_vertices_in_component; v_indx1++)
-	{
-	  for (v_indx2 = v_indx1+1; v_indx2 < num_vertices_in_component; v_indx2++)
-	    {
-	      /* Check if the two vertices are connected by iterating
-		 through all the edges which have one of these are source.  */
-	      e = g->vertices[vertices[v_indx2]].pred;
-	      while (e)
-		{
-		  if (e->src == vertices[v_indx1])
-		    break;
-		  e = e->pred_next;
-		}
-	      if (!e)
-		{
-		  this_component_is_clique = 0;
-		  break;
-		}
-	    }
-	  if (!this_component_is_clique)
-	    all_components_are_cliques = 0;
-	}
-    }
-
+  graphds_dfs (g, all_vertices, num_vertices, NULL, true, NULL);
   free (all_vertices);
-  free (vertices);
-  free_graph (g);
-  return all_components_are_cliques;
-}
-
-/* Group each data reference in DRS with its base object set num.  */
-
-static void
-build_base_obj_set_for_drs (vec<data_reference_p> drs)
-{
-  int num_vertex = drs.length ();
-  struct graph *g = new_graph (num_vertex);
-  data_reference_p dr1, dr2;
-  int i, j;
-  int *queue;
-
-  FOR_EACH_VEC_ELT (drs, i, dr1)
-    for (j = i + 1; drs.iterate (j, &dr2); j++)
-      if (dr_same_base_object_p (dr1, dr2))
-	{
-	  add_edge (g, i, j);
-	  add_edge (g, j, i);
-	}
-
-  queue = XNEWVEC (int, num_vertex);
-  for (i = 0; i < num_vertex; i++)
-    queue[i] = i;
-
-  graphds_dfs (g, queue, num_vertex, NULL, true, NULL);
 
   for (i = 0; i < g->n_vertices; i++)
-    {
-      data_reference_p dr = drs[i];
-      base_alias_pair *bap;
+    scop->drs[i].alias_set = g->vertices[i].component + 1;
 
-      gcc_assert (dr->aux);
-      bap = (base_alias_pair *)(dr->aux);
-
-      bap->base_obj_set = g->vertices[i].component + 1;
-    }
-
-  free (queue);
   free_graph (g);
-}
-
-/* Build the data references for PBB.  */
-
-static void
-build_pbb_drs (poly_bb_p pbb)
-{
-  int j;
-  data_reference_p dr;
-  vec<data_reference_p> gbb_drs = GBB_DATA_REFS (PBB_BLACK_BOX (pbb));
-
-  FOR_EACH_VEC_ELT (gbb_drs, j, dr)
-    build_poly_dr (dr, pbb);
-}
-
-/* Dump to file the alias graphs for the data references in DRS.  */
-
-static void
-dump_alias_graphs (vec<data_reference_p> drs)
-{
-  char comment[100];
-  FILE *file_dimacs, *file_ecc, *file_dot;
-
-  file_dimacs = fopen ("/tmp/dr_alias_graph_dimacs", "ab");
-  if (file_dimacs)
-    {
-      snprintf (comment, sizeof (comment), "%s %s", main_input_filename,
-		current_function_name ());
-      write_alias_graph_to_ascii_dimacs (file_dimacs, comment, drs);
-      fclose (file_dimacs);
-    }
-
-  file_ecc = fopen ("/tmp/dr_alias_graph_ecc", "ab");
-  if (file_ecc)
-    {
-      snprintf (comment, sizeof (comment), "%s %s", main_input_filename,
-		current_function_name ());
-      write_alias_graph_to_ascii_ecc (file_ecc, comment, drs);
-      fclose (file_ecc);
-    }
-
-  file_dot = fopen ("/tmp/dr_alias_graph_dot", "ab");
-  if (file_dot)
-    {
-      snprintf (comment, sizeof (comment), "%s %s", main_input_filename,
-		current_function_name ());
-      write_alias_graph_to_ascii_dot (file_dot, comment, drs);
-      fclose (file_dot);
-    }
 }
 
 /* Build data references in SCOP.  */
@@ -1394,41 +1138,26 @@ build_scop_drs (scop_p scop)
 
   /* Remove all the PBBs that do not have data references: these basic
      blocks are not handled in the polyhedral representation.  */
-  for (i = 0; SCOP_BBS (scop).iterate (i, &pbb); i++)
+  for (i = 0; scop->pbbs.iterate (i, &pbb); i++)
     if (GBB_DATA_REFS (PBB_BLACK_BOX (pbb)).is_empty ())
       {
 	free_gimple_poly_bb (PBB_BLACK_BOX (pbb));
 	free_poly_bb (pbb);
-	SCOP_BBS (scop).ordered_remove (i);
+	scop->pbbs.ordered_remove (i);
 	i--;
       }
 
   data_reference_p dr;
-  auto_vec<data_reference_p, 3> drs;
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    for (j = 0; GBB_DATA_REFS (PBB_BLACK_BOX (pbb)).iterate (j, &dr); j++)
-      drs.safe_push (dr);
+  FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
+    if (pbb)
+      FOR_EACH_VEC_ELT (GBB_DATA_REFS (PBB_BLACK_BOX (pbb)), j, dr)
+	scop->drs.safe_push (dr_info (dr, -1, pbb));
 
-  FOR_EACH_VEC_ELT (drs, i, dr)
-    dr->aux = XNEW (base_alias_pair);
+  build_alias_set (scop);
 
-  if (!build_alias_set_optimal_p (drs))
-    {
-      /* TODO: Add support when building alias set is not optimal.  */
-      ;
-    }
-
-  build_base_obj_set_for_drs (drs);
-
-  /* When debugging, enable the following code.  This cannot be used
-     in production compilers.  */
-  if (0)
-    dump_alias_graphs (drs);
-
-  drs.release ();
-
-  FOR_EACH_VEC_ELT (SCOP_BBS (scop), i, pbb)
-    build_pbb_drs (pbb);
+  dr_info dri (0);
+  FOR_EACH_VEC_ELT (scop->drs, i, dri)
+    build_poly_dr (dri);
 }
 
 /* Analyze all the data references of STMTS and add them to the
@@ -1437,7 +1166,7 @@ build_scop_drs (scop_p scop)
 static void
 analyze_drs_in_stmts (scop_p scop, basic_block bb, vec<gimple *> stmts)
 {
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
   if (!bb_in_sese_p (bb, region))
     return;
 
@@ -1519,11 +1248,10 @@ new_pbb_from_pbb (scop_p scop, poly_bb_p pbb, basic_block bb)
   gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
   gimple_poly_bb_p gbb1 = new_gimple_poly_bb (bb, drs);
   poly_bb_p pbb1 = new_poly_bb (scop, gbb1);
-  int index, n = SCOP_BBS (scop).length ();
+  int index, n = scop->pbbs.length ();
 
-  /* The INDEX of PBB in SCOP_BBS.  */
   for (index = 0; index < n; index++)
-    if (SCOP_BBS (scop)[index] == pbb)
+    if (scop->pbbs[index] == pbb)
       break;
 
   pbb1->domain = isl_set_copy (pbb->domain);
@@ -1533,7 +1261,7 @@ new_pbb_from_pbb (scop_p scop, poly_bb_p pbb, basic_block bb)
   GBB_PBB (gbb1) = pbb1;
   GBB_CONDITIONS (gbb1) = GBB_CONDITIONS (gbb).copy ();
   GBB_CONDITION_CASES (gbb1) = GBB_CONDITION_CASES (gbb).copy ();
-  SCOP_BBS (scop).safe_insert (index + 1, pbb1);
+  scop->pbbs.safe_insert (index + 1, pbb1);
 }
 
 /* Insert on edge E the assignment "RES := EXPR".  */
@@ -1555,7 +1283,7 @@ insert_out_of_ssa_copy_on_edge (scop_p scop, edge e, tree res, tree expr)
   gsi_commit_edge_inserts ();
   basic_block bb = gimple_bb (stmt);
 
-  if (!bb_in_sese_p (bb, SCOP_REGION (scop)))
+  if (!bb_in_sese_p (bb, scop->region->region))
     return;
 
   if (!gbb_from_bb (bb))
@@ -1597,7 +1325,7 @@ scalar_close_phi_node_p (gimple *phi)
    all the uses of DEF outside REGION.  */
 
 static void
-propagate_expr_outside_region (tree def, tree expr, sese region)
+propagate_expr_outside_region (tree def, tree expr, sese_l &region)
 {
   gimple_seq stmts;
   bool replaced_once = false;
@@ -1626,7 +1354,7 @@ propagate_expr_outside_region (tree def, tree expr, sese region)
 
   if (replaced_once)
     {
-      gsi_insert_seq_on_edge (SESE_ENTRY (region), stmts);
+      gsi_insert_seq_on_edge (region.entry, stmts);
       gsi_commit_edge_inserts ();
     }
 }
@@ -1637,7 +1365,7 @@ propagate_expr_outside_region (tree def, tree expr, sese region)
 static void
 rewrite_close_phi_out_of_ssa (scop_p scop, gimple_stmt_iterator *psi)
 {
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
   gimple *phi = gsi_stmt (*psi);
   tree res = gimple_phi_result (phi);
   basic_block bb = gimple_bb (phi);
@@ -1770,7 +1498,7 @@ static void
 rewrite_reductions_out_of_ssa (scop_p scop)
 {
   basic_block bb;
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
 
   FOR_EACH_BB_FN (bb, cfun)
     if (bb_in_sese_p (bb, region))
@@ -1835,7 +1563,7 @@ handle_scalar_deps_crossing_scop_limits (scop_p scop, tree def, gimple *stmt)
   tree var = create_tmp_reg (TREE_TYPE (def));
   tree new_name = make_ssa_name (var, stmt);
   bool needs_copy = false;
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
 
   imm_use_iterator imm_iter;
   gimple *use_stmt;
@@ -1859,7 +1587,7 @@ handle_scalar_deps_crossing_scop_limits (scop_p scop, tree def, gimple *stmt)
   if (needs_copy)
     {
       gimple *assign = gimple_build_assign (new_name, def);
-      gimple_stmt_iterator psi = gsi_after_labels (SESE_EXIT (region)->dest);
+      gimple_stmt_iterator psi = gsi_after_labels (region.exit->dest);
 
       update_stmt (assign);
       gsi_insert_before (&psi, assign, GSI_SAME_STMT);
@@ -1873,7 +1601,7 @@ handle_scalar_deps_crossing_scop_limits (scop_p scop, tree def, gimple *stmt)
 static bool
 rewrite_cross_bb_scalar_deps (scop_p scop, gimple_stmt_iterator *gsi)
 {
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
   gimple *stmt = gsi_stmt (*gsi);
   imm_use_iterator imm_iter;
   tree def;
@@ -1958,11 +1686,11 @@ rewrite_cross_bb_scalar_deps_out_of_ssa (scop_p scop)
 {
   basic_block bb;
   gimple_stmt_iterator psi;
-  sese region = SCOP_REGION (scop);
+  sese_l region = scop->region->region;
   bool changed = false;
 
   /* Create an extra empty BB after the scop.  */
-  split_edge (SESE_EXIT (region));
+  split_edge (region.exit);
 
   FOR_EACH_BB_FN (bb, cfun)
     if (bb_in_sese_p (bb, region))

@@ -8033,10 +8033,10 @@ void
 free_stmt_vec_info_vec (void)
 {
   unsigned int i;
-  vec_void_p info;
+  stmt_vec_info info;
   FOR_EACH_VEC_ELT (stmt_vec_info_vec, i, info)
     if (info != NULL)
-      free_stmt_vec_info (STMT_VINFO_STMT ((stmt_vec_info) info));
+      free_stmt_vec_info (STMT_VINFO_STMT (info));
   gcc_assert (stmt_vec_info_vec.exists ());
   stmt_vec_info_vec.release ();
 }
@@ -8075,7 +8075,7 @@ free_stmt_vec_info (gimple *stmt)
 		{
 		  gimple *seq_stmt = gsi_stmt (si);
 		  gimple_set_bb (seq_stmt, NULL);
-		  lhs = gimple_get_lhs (patt_stmt);
+		  lhs = gimple_get_lhs (seq_stmt);
 		  if (TREE_CODE (lhs) == SSA_NAME)
 		    release_ssa_name (lhs);
 		  free_stmt_vec_info (seq_stmt);
