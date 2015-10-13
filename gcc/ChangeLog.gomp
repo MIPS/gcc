@@ -1,5 +1,7 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimple.c (gimple_copy): Unshare clauses on GIMPLE_OMP_ORDERED.
+
 	* gimplify.c (gimplify_scan_omp_clauses): Diagnose linear
 	clause on combined distribute {, parallel for} simd construct,
 	unless it is the loop iterator.
