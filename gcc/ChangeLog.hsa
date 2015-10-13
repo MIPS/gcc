@@ -1,5 +1,22 @@
 2015-10-13  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_insn_basic::set_output_in_type): New function.
+	(query_hsa_grid): Likewise.
+	(gen_set_num_threads): Save the value without any value range
+	checking.
+	(gen_num_threads_for_dispatch): New function.
+	(gen_hsa_insns_for_known_library_call): Use the newly added
+	function query_hsa_grid.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_kernel_call): Use the newly added function
+	gen_num_threads_for_dispatch.
+	(init_omp_in_prologue): Initialize hsa_num_threads to 0.
+	(init_prologue): New function.
+	(init_hsa_num_threads): Likewise.
+	* hsa.h: Declare a new function.
+
+2015-10-13  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_op_with_type::get_in_type): New function.
 	(gen_hsa_insns_for_switch_stmt): Use it.
 	(gen_set_num_threads): Dtto.

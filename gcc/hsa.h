@@ -364,6 +364,7 @@ public:
   void verify ();
   unsigned input_count ();
   unsigned num_used_ops ();
+  void set_output_in_type (hsa_op_reg *dest, unsigned op_index, hsa_bb *hbb);
 
   /* The previous and next instruction in the basic block.  */
   hsa_insn_basic *prev, *next;
