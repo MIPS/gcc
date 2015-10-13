@@ -1513,6 +1513,8 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_REGISTER_MOVE_COST rs6000_register_move_cost
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST rs6000_memory_move_cost
+#undef TARGET_CANNOT_COPY_INSN_P
+#define TARGET_CANNOT_COPY_INSN_P rs6000_cannot_copy_insn_p
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS rs6000_rtx_costs
 #undef TARGET_ADDRESS_COST
@@ -1688,6 +1690,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 #define TARGET_LIBGCC_SHIFT_COUNT_MODE rs6000_abi_word_mode
 #undef TARGET_UNWIND_WORD_MODE
 #define TARGET_UNWIND_WORD_MODE rs6000_abi_word_mode
+
+#undef TARGET_OFFLOAD_OPTIONS
+#define TARGET_OFFLOAD_OPTIONS rs6000_offload_options
 
 
 /* Processor table.  */
@@ -4676,7 +4681,7 @@ rs6000_density_test (rs6000_cost_data *data)
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
 
 	  if (!STMT_VINFO_RELEVANT_P (stmt_info)
@@ -5323,24 +5328,20 @@ num_insns_constant (rtx op, machine_mode mode)
 	if (mode == SFmode || mode == SDmode)
 	  {
 	    long l;
-	    REAL_VALUE_TYPE rv;
 
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
 	    if (DECIMAL_FLOAT_MODE_P (mode))
-	      REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+	      REAL_VALUE_TO_TARGET_DECIMAL32
+		(*CONST_DOUBLE_REAL_VALUE (op), l);
 	    else
-	      REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	      REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), l);
 	    return num_insns_constant_wide ((HOST_WIDE_INT) l);
 	  }
 
 	long l[2];
-	REAL_VALUE_TYPE rv;
-
-	REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
 	if (DECIMAL_FLOAT_MODE_P (mode))
-	  REAL_VALUE_TO_TARGET_DECIMAL64 (rv, l);
+	  REAL_VALUE_TO_TARGET_DECIMAL64 (*CONST_DOUBLE_REAL_VALUE (op), l);
 	else
-	  REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+	  REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (op), l);
 	high = l[WORDS_BIG_ENDIAN == 0];
 	low  = l[WORDS_BIG_ENDIAN != 0];
 
@@ -7204,7 +7205,28 @@ rs6000_output_dwarf_dtprel (FILE *file, int size, rtx x)
       gcc_unreachable ();
     }
   output_addr_const (file, x);
-  fputs ("@dtprel+0x8000", file);
+  if (TARGET_ELF)
+    fputs ("@dtprel+0x8000", file);
+  else if (TARGET_XCOFF && GET_CODE (x) == SYMBOL_REF)
+    {
+      switch (SYMBOL_REF_TLS_MODEL (x))
+	{
+	case 0:
+	  break;
+	case TLS_MODEL_LOCAL_EXEC:
+	  fputs ("@le", file);
+	  break;
+	case TLS_MODEL_INITIAL_EXEC:
+	  fputs ("@ie", file);
+	  break;
+	case TLS_MODEL_GLOBAL_DYNAMIC:
+	case TLS_MODEL_LOCAL_DYNAMIC:
+	  fputs ("@m", file);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
 }
 
 /* Return true if X is a symbol that refers to real (rather than emulated)
@@ -9511,6 +9533,16 @@ rs6000_abi_word_mode (void)
   return TARGET_32BIT ? SImode : DImode;
 }
 
+/* Implement the TARGET_OFFLOAD_OPTIONS hook.  */
+static char *
+rs6000_offload_options (void)
+{
+  if (TARGET_64BIT)
+    return xstrdup ("-foffload-abi=lp64");
+  else
+    return xstrdup ("-foffload-abi=ilp32");
+}
+
 /* On rs6000, function arguments are promoted, as are function return
    values.  */
 
@@ -9758,12 +9790,12 @@ rs6000_darwin64_record_arg_advance_flush (CUMULATIVE_ARGS *cum,
 	     e.g., in packed structs when there are 3 bytes to load.
 	     Back intoffset back to the beginning of the word in this
 	     case.  */
-	  intoffset = intoffset & -BITS_PER_WORD;
+	  intoffset = ROUND_DOWN (intoffset, BITS_PER_WORD);
 	}
     }
 
-  startbit = intoffset & -BITS_PER_WORD;
-  endbit = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+  startbit = ROUND_DOWN (intoffset, BITS_PER_WORD);
+  endbit = ROUND_UP (bitpos, BITS_PER_WORD);
   intregs = (endbit - startbit) / BITS_PER_WORD;
   cum->words += intregs;
   /* words should be unsigned. */
@@ -10223,15 +10255,15 @@ rs6000_darwin64_record_arg_flush (CUMULATIVE_ARGS *cum,
 	     e.g., in packed structs when there are 3 bytes to load.
 	     Back intoffset back to the beginning of the word in this
 	     case.  */
-	 intoffset = intoffset & -BITS_PER_WORD;
-	 mode = word_mode;
+	  intoffset = ROUND_DOWN (intoffset, BITS_PER_WORD);
+	  mode = word_mode;
 	}
     }
   else
     mode = word_mode;
 
-  startbit = intoffset & -BITS_PER_WORD;
-  endbit = (bitpos + BITS_PER_WORD - 1) & -BITS_PER_WORD;
+  startbit = ROUND_DOWN (intoffset, BITS_PER_WORD);
+  endbit = ROUND_UP (bitpos, BITS_PER_WORD);
   intregs = (endbit - startbit) / BITS_PER_WORD;
   this_regno = cum->words + intoffset / BITS_PER_WORD;
 
@@ -10590,7 +10622,7 @@ rs6000_function_arg (cumulative_args_t cum_v, machine_mode mode,
 	 save area?  */
       if (TARGET_64BIT && ! cum->prototype)
 	{
-	  int align_words = (cum->words + 1) & ~1;
+	  int align_words = ROUND_UP (cum->words, 2);
 	  k = rs6000_psave_function_arg (mode, type, align_words, rvec);
 	}
 
@@ -11480,7 +11512,7 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   int align;
   tree ptrtype = build_pointer_type_for_mode (type, ptr_mode, true);
   int regalign = 0;
-  gimple stmt;
+  gimple *stmt;
 
   if (pass_by_reference (NULL, TYPE_MODE (type), type, false))
     {
@@ -20708,7 +20740,6 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   enum rtx_code code = GET_CODE (op);
   rtx op0 = XEXP (op, 0);
   rtx op1 = XEXP (op, 1);
-  REAL_VALUE_TYPE c1;
   machine_mode compare_mode = GET_MODE (op0);
   machine_mode result_mode = GET_MODE (dest);
   rtx temp;
@@ -20769,9 +20800,6 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   if (code == UNEQ && HONOR_NANS (compare_mode))
     return 0;
 
-  if (GET_CODE (op1) == CONST_DOUBLE)
-    REAL_VALUE_FROM_CONST_DOUBLE (c1, op1);
-
   /* We're going to try to implement comparisons by performing
      a subtract, then comparing against zero.  Unfortunately,
      Inf - Inf is NaN which is not zero, and so if we don't
@@ -20779,7 +20807,8 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      would treat EQ different to UNORDERED, we can't do it.  */
   if (HONOR_INFINITIES (compare_mode)
       && code != GT && code != UNGE
-      && (GET_CODE (op1) != CONST_DOUBLE || real_isinf (&c1))
+      && (GET_CODE (op1) != CONST_DOUBLE
+	  || real_isinf (CONST_DOUBLE_REAL_VALUE (op1)))
       /* Constructs of the form (a OP b ? a : b) are safe.  */
       && ((! rtx_equal_p (op0, false_cond) && ! rtx_equal_p (op1, false_cond))
 	  || (! rtx_equal_p (op0, true_cond)
@@ -22703,7 +22732,7 @@ debug_stack_info (rs6000_stack_t *info)
     fprintf (stderr, "\taltivec_save_offset = %5d\n",
 	     info->altivec_save_offset);
 
-  if (info->spe_gp_size == 0)
+  if (info->spe_gp_size)
     fprintf (stderr, "\tspe_gp_save_offset  = %5d\n",
 	     info->spe_gp_save_offset);
 
@@ -23307,7 +23336,7 @@ rs6000_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* Step 1: round SIZE to the previous multiple of the interval.  */
 
-      rounded_size = size & -PROBE_INTERVAL;
+      rounded_size = ROUND_DOWN (size, PROBE_INTERVAL);
 
 
       /* Step 2: compute initial and final value of the loop counter.  */
@@ -24097,13 +24126,13 @@ rs6000_emit_prologue (void)
 #define NOT_INUSE(R) do {} while (0)
 #endif
 
-  if (DEFAULT_ABI == ABI_ELFv2)
+  if (DEFAULT_ABI == ABI_ELFv2
+      && !TARGET_SINGLE_PIC_BASE)
     {
       cfun->machine->r2_setup_needed = df_regs_ever_live_p (TOC_REGNUM);
 
       /* With -mminimal-toc we may generate an extra use of r2 below.  */
-      if (!TARGET_SINGLE_PIC_BASE
-	  && TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
+      if (TARGET_TOC && TARGET_MINIMAL_TOC && get_pool_size () != 0)
 	cfun->machine->r2_setup_needed = true;
     }
 
@@ -26779,7 +26808,8 @@ rs6000_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
   /* Ensure we have a global entry point for the thunk.   ??? We could
      avoid that if the target routine doesn't need a global entry point,
      but we do not know whether this is the case at this point.  */
-  if (DEFAULT_ABI == ABI_ELFv2)
+  if (DEFAULT_ABI == ABI_ELFv2
+      && !TARGET_SINGLE_PIC_BASE)
     cfun->machine->r2_setup_needed = true;
 
   /* Run just enough of rest_of_compilation to get the insns emitted.
@@ -27079,14 +27109,12 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
       (GET_MODE (x) == TFmode || GET_MODE (x) == TDmode
        || GET_MODE (x) == IFmode || GET_MODE (x) == KFmode))
     {
-      REAL_VALUE_TYPE rv;
       long k[4];
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
-	REAL_VALUE_TO_TARGET_DECIMAL128 (rv, k);
+	REAL_VALUE_TO_TARGET_DECIMAL128 (*CONST_DOUBLE_REAL_VALUE (x), k);
       else
-	REAL_VALUE_TO_TARGET_LONG_DOUBLE (rv, k);
+	REAL_VALUE_TO_TARGET_LONG_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), k);
 
       if (TARGET_64BIT)
 	{
@@ -27120,15 +27148,12 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
   else if (GET_CODE (x) == CONST_DOUBLE &&
 	   (GET_MODE (x) == DFmode || GET_MODE (x) == DDmode))
     {
-      REAL_VALUE_TYPE rv;
       long k[2];
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-
       if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
-	REAL_VALUE_TO_TARGET_DECIMAL64 (rv, k);
+	REAL_VALUE_TO_TARGET_DECIMAL64 (*CONST_DOUBLE_REAL_VALUE (x), k);
       else
-	REAL_VALUE_TO_TARGET_DOUBLE (rv, k);
+	REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), k);
 
       if (TARGET_64BIT)
 	{
@@ -27157,14 +27182,12 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
   else if (GET_CODE (x) == CONST_DOUBLE &&
 	   (GET_MODE (x) == SFmode || GET_MODE (x) == SDmode))
     {
-      REAL_VALUE_TYPE rv;
       long l;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
       if (DECIMAL_FLOAT_MODE_P (GET_MODE (x)))
-	REAL_VALUE_TO_TARGET_DECIMAL32 (rv, l);
+	REAL_VALUE_TO_TARGET_DECIMAL32 (*CONST_DOUBLE_REAL_VALUE (x), l);
       else
-	REAL_VALUE_TO_TARGET_SINGLE (rv, l);
+	REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), l);
 
       if (TARGET_64BIT)
 	{
@@ -27316,17 +27339,21 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
     output_addr_const (file, x);
 
 #if HAVE_AS_TLS
-  if (TARGET_XCOFF && GET_CODE (base) == SYMBOL_REF
-      && SYMBOL_REF_TLS_MODEL (base) != 0)
+  if (TARGET_XCOFF && GET_CODE (base) == SYMBOL_REF)
     {
-      if (SYMBOL_REF_TLS_MODEL (base) == TLS_MODEL_LOCAL_EXEC)
-	fputs ("@le", file);
-      else if (SYMBOL_REF_TLS_MODEL (base) == TLS_MODEL_INITIAL_EXEC)
-	fputs ("@ie", file);
-      /* Use global-dynamic for local-dynamic.  */
-      else if (SYMBOL_REF_TLS_MODEL (base) == TLS_MODEL_GLOBAL_DYNAMIC
-	       || SYMBOL_REF_TLS_MODEL (base) == TLS_MODEL_LOCAL_DYNAMIC)
+      switch (SYMBOL_REF_TLS_MODEL (base))
 	{
+	case 0:
+	  break;
+	case TLS_MODEL_LOCAL_EXEC:
+	  fputs ("@le", file);
+	  break;
+	case TLS_MODEL_INITIAL_EXEC:
+	  fputs ("@ie", file);
+	  break;
+	/* Use global-dynamic for local-dynamic.  */
+	case TLS_MODEL_GLOBAL_DYNAMIC:
+	case TLS_MODEL_LOCAL_DYNAMIC:
 	  putc ('\n', file);
 	  (*targetm.asm_out.internal_label) (file, "LCM", labelno);
 	  fputs ("\t.tc .", file);
@@ -27334,6 +27361,9 @@ output_toc (FILE *file, rtx x, int labelno, machine_mode mode)
 	  fputs ("[TC],", file);
 	  output_addr_const (file, x);
 	  fputs ("@m", file);
+	  break;
+	default:
+	  gcc_unreachable ();
 	}
     }
 #endif
@@ -30684,6 +30714,17 @@ rs6000_elf_file_end (void)
 #endif
 
 #if TARGET_XCOFF
+
+#ifndef HAVE_XCOFF_DWARF_EXTRAS
+#define HAVE_XCOFF_DWARF_EXTRAS 0
+#endif
+
+static enum unwind_info_type
+rs6000_xcoff_debug_unwind_info (void)
+{
+  return UI_NONE;
+}
+
 static void
 rs6000_xcoff_asm_output_anchor (rtx symbol)
 {
@@ -30790,7 +30831,6 @@ rs6000_xcoff_asm_init_sections (void)
     = get_unnamed_section (0, rs6000_xcoff_output_toc_section_asm_op, NULL);
 
   readonly_data_section = read_only_data_section;
-  exception_section = data_section;
 }
 
 static int
@@ -30804,9 +30844,16 @@ rs6000_xcoff_asm_named_section (const char *name, unsigned int flags,
 				tree decl ATTRIBUTE_UNUSED)
 {
   int smclass;
-  static const char * const suffix[4] = { "PR", "RO", "RW", "TL" };
+  static const char * const suffix[5] = { "PR", "RO", "RW", "TL", "XO" };
 
-  if (flags & SECTION_CODE)
+  if (flags & SECTION_EXCLUDE)
+    smclass = 4;
+  else if (flags & SECTION_DEBUG)
+    {
+      fprintf (asm_out_file, "\t.dwsect %s\n", name);
+      return;
+    }
+  else if (flags & SECTION_CODE)
     smclass = 0;
   else if (flags & SECTION_TLS)
     smclass = 3;
@@ -31141,8 +31188,16 @@ rs6000_xcoff_declare_function_name (FILE *file, const char *name, tree decl)
   fputs (":\n", file);
   data.function_descriptor = true;
   symtab_node::get (decl)->call_for_symbol_and_aliases (rs6000_declare_alias, &data, true);
-  if (write_symbols != NO_DEBUG && !DECL_IGNORED_P (decl))
-    xcoffout_declare_function (file, decl, buffer);
+  if (!DECL_IGNORED_P (decl))
+    {
+      if (write_symbols == DBX_DEBUG || write_symbols == XCOFF_DEBUG)
+	xcoffout_declare_function (file, decl, buffer);
+      else if (write_symbols == DWARF2_DEBUG)
+	{
+	  name = (*targetm.strip_name_encoding) (name);
+	  fprintf (file, "\t.function .%s,.%s,2,0\n", name, name);
+	}
+    }
   return;
 }
 
@@ -31157,6 +31212,31 @@ rs6000_xcoff_declare_object_name (FILE *file, const char *name, tree decl)
   RS6000_OUTPUT_BASENAME (file, name);
   fputs (":\n", file);
   symtab_node::get (decl)->call_for_symbol_and_aliases (rs6000_declare_alias, &data, true);
+}
+
+/* Overide the default 'SYMBOL-.' syntax with AIX compatible 'SYMBOL-$'. */
+
+void
+rs6000_asm_output_dwarf_pcrel (FILE *file, int size, const char *label)
+{
+  fputs (integer_asm_op (size, FALSE), file);
+  assemble_name (file, label);
+  fputs ("-$", file);
+}
+
+/* Output a symbol offset relative to the dbase for the current object.
+   We use __gcc_unwind_dbase as an arbitrary base for dbase and assume
+   signed offsets.
+
+   __gcc_unwind_dbase is embedded in all executables/libraries through
+   libgcc/config/rs6000/crtdbase.S.  */
+
+void
+rs6000_asm_output_dwarf_datarel (FILE *file, int size, const char *label)
+{
+  fputs (integer_asm_op (size, FALSE), file);
+  assemble_name (file, label);
+  fputs("-__gcc_unwind_dbase", file);
 }
 
 #ifdef HAVE_AS_TLS
@@ -31184,6 +31264,15 @@ rs6000_xcoff_encode_section_info (tree decl, rtx rtl, int first)
 }
 #endif /* HAVE_AS_TLS */
 #endif /* TARGET_XCOFF */
+
+/* Return true if INSN should not be copied.  */
+
+static bool
+rs6000_cannot_copy_insn_p (rtx_insn *insn)
+{
+  return recog_memoized (insn) >= 0
+	 && get_attr_cannot_copy (insn);
+}
 
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
@@ -31756,19 +31845,19 @@ rs6000_load_constant_and_splat (machine_mode mode, REAL_VALUE_TYPE dconst)
 
   if (mode == SFmode || mode == DFmode)
     {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, mode);
+      rtx d = const_double_from_real_value (dconst, mode);
       reg = force_reg (mode, d);
     }
   else if (mode == V4SFmode)
     {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, SFmode);
+      rtx d = const_double_from_real_value (dconst, SFmode);
       rtvec v = gen_rtvec (4, d, d, d, d);
       reg = gen_reg_rtx (mode);
       rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
     }
   else if (mode == V2DFmode)
     {
-      rtx d = CONST_DOUBLE_FROM_REAL_VALUE (dconst, DFmode);
+      rtx d = const_double_from_real_value (dconst, DFmode);
       rtvec v = gen_rtvec (2, d, d);
       reg = gen_reg_rtx (mode);
       rs6000_expand_vector_init (reg, gen_rtx_PARALLEL (mode, v));
@@ -32606,7 +32695,7 @@ rs6000_scale_v2df (rtx tgt, rtx src, int scale)
   rtx elt;
   rtx scale_vec = gen_reg_rtx (V2DFmode);
   (void)real_powi (&r_pow, DFmode, &dconst2, hwi_scale);
-  elt = CONST_DOUBLE_FROM_REAL_VALUE (r_pow, DFmode);
+  elt = const_double_from_real_value (r_pow, DFmode);
   RTVEC_ELT (v, 0) = elt;
   RTVEC_ELT (v, 1) = elt;
   rs6000_expand_vector_init (scale_vec, gen_rtx_PARALLEL (V2DFmode, v));
@@ -34943,10 +35032,8 @@ emit_fusion_gpr_load (rtx target, rtx mem)
    throughout the computation, we can get correct behavior by replacing
    M with M' as follows:
 
-            { M[i+8]+8 : i < 8, M[i+8] in [0,7] U [16,23]
-    M'[i] = { M[i+8]-8 : i < 8, M[i+8] in [8,15] U [24,31]
-            { M[i-8]+8 : i >= 8, M[i-8] in [0,7] U [16,23]
-            { M[i-8]-8 : i >= 8, M[i-8] in [8,15] U [24,31]
+    M'[i] = { (M[i]+8)%16      : M[i] in [0,15]
+            { ((M[i]+8)%16)+16 : M[i] in [16,31]
 
    This seems promising at first, since we are just replacing one mask
    with another.  But certain masks are preferable to others.  If M
@@ -34964,7 +35051,11 @@ emit_fusion_gpr_load (rtx target, rtx mem)
    mask to be produced by an UNSPEC_LVSL, in which case the mask 
    cannot be known at compile time.  In such a case we would have to
    generate several instructions to compute M' as above at run time,
-   and a cost model is needed again.  */
+   and a cost model is needed again.
+
+   However, when the mask M for an UNSPEC_VPERM is loaded from the
+   constant pool, we can replace M with M' as above at no cost
+   beyond adding a constant pool entry.  */
 
 /* This is based on the union-find logic in web.c.  web_entry_base is
    defined in df.h.  */
@@ -35016,7 +35107,8 @@ enum special_handling_values {
   SH_EXTRACT,
   SH_SPLAT,
   SH_XXPERMDI,
-  SH_CONCAT
+  SH_CONCAT,
+  SH_VPERM
 };
 
 /* Union INSN with all insns containing definitions that reach USE.
@@ -35149,6 +35241,64 @@ insn_is_swap_p (rtx insn)
 	return 0;
     }
   return 1;
+}
+
+/* Return TRUE if insn is a swap fed by a load from the constant pool.  */
+static bool
+const_load_sequence_p (swap_web_entry *insn_entry, rtx insn)
+{
+  unsigned uid = INSN_UID (insn);
+  if (!insn_entry[uid].is_swap || insn_entry[uid].is_load)
+    return false;
+
+  /* Find the unique use in the swap and locate its def.  If the def
+     isn't unique, punt.  */
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_ref use;
+  FOR_EACH_INSN_INFO_USE (use, insn_info)
+    {
+      struct df_link *def_link = DF_REF_CHAIN (use);
+      if (!def_link || def_link->next)
+	return false;
+
+      rtx def_insn = DF_REF_INSN (def_link->ref);
+      unsigned uid2 = INSN_UID (def_insn);
+      if (!insn_entry[uid2].is_load || !insn_entry[uid2].is_swap)
+	return false;
+
+      rtx body = PATTERN (def_insn);
+      if (GET_CODE (body) != SET
+	  || GET_CODE (SET_SRC (body)) != VEC_SELECT
+	  || GET_CODE (XEXP (SET_SRC (body), 0)) != MEM)
+	return false;
+
+      rtx mem = XEXP (SET_SRC (body), 0);
+      rtx base_reg = XEXP (mem, 0);
+
+      df_ref base_use;
+      insn_info = DF_INSN_INFO_GET (def_insn);
+      FOR_EACH_INSN_INFO_USE (base_use, insn_info)
+	{
+	  if (!rtx_equal_p (DF_REF_REG (base_use), base_reg))
+	    continue;
+
+	  struct df_link *base_def_link = DF_REF_CHAIN (base_use);
+	  if (!base_def_link || base_def_link->next)
+	    return false;
+
+	  rtx tocrel_insn = DF_REF_INSN (base_def_link->ref);
+	  rtx tocrel_body = PATTERN (tocrel_insn);
+	  rtx base, offset;
+	  if (GET_CODE (tocrel_body) != SET)
+	    return false;
+	  if (!toc_relative_expr_p (SET_SRC (tocrel_body), false))
+	    return false;
+	  split_const (XVECEXP (tocrel_base, 0, 0), &base, &offset);
+	  if (GET_CODE (base) != SYMBOL_REF || !CONSTANT_POOL_ADDRESS_P (base))
+	    return false;
+	}
+    }
+  return true;
 }
 
 /* Return 1 iff OP is an operand that will not be affected by having
@@ -35408,6 +35558,32 @@ insn_is_swappable_p (swap_web_entry *insn_entry, rtx insn,
     {
       *special = SH_CONCAT;
       return 1;
+    }
+
+  /* An UNSPEC_VPERM is ok if the mask operand is loaded from the
+     constant pool.  */
+  if (GET_CODE (body) == SET
+      && GET_CODE (SET_SRC (body)) == UNSPEC
+      && XINT (SET_SRC (body), 1) == UNSPEC_VPERM
+      && XVECLEN (SET_SRC (body), 0) == 3
+      && GET_CODE (XVECEXP (SET_SRC (body), 0, 2)) == REG)
+    {
+      rtx mask_reg = XVECEXP (SET_SRC (body), 0, 2);
+      struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+      df_ref use;
+      FOR_EACH_INSN_INFO_USE (use, insn_info)
+	if (rtx_equal_p (DF_REF_REG (use), mask_reg))
+	  {
+	    struct df_link *def_link = DF_REF_CHAIN (use);
+	    /* Punt if multiple definitions for this reg.  */
+	    if (def_link && !def_link->next &&
+		const_load_sequence_p (insn_entry,
+				       DF_REF_INSN (def_link->ref)))
+	      {
+		*special = SH_VPERM;
+		return 1;
+	      }
+	  }
     }
 
   /* Otherwise check the operands for vector lane violations.  */
@@ -35742,6 +35918,105 @@ adjust_concat (rtx_insn *insn)
     fprintf (dump_file, "Reversing inputs for concat %d\n", INSN_UID (insn));
 }
 
+/* Given an UNSPEC_VPERM insn, modify the mask loaded from the
+   constant pool to reflect swapped doublewords.  */
+static void
+adjust_vperm (rtx_insn *insn)
+{
+  /* We previously determined that the UNSPEC_VPERM was fed by a
+     swap of a swapping load of a TOC-relative constant pool symbol.
+     Find the MEM in the swapping load and replace it with a MEM for
+     the adjusted mask constant.  */
+  rtx set = PATTERN (insn);
+  rtx mask_reg = XVECEXP (SET_SRC (set), 0, 2);
+
+  /* Find the swap.  */
+  struct df_insn_info *insn_info = DF_INSN_INFO_GET (insn);
+  df_ref use;
+  rtx_insn *swap_insn = 0;
+  FOR_EACH_INSN_INFO_USE (use, insn_info)
+    if (rtx_equal_p (DF_REF_REG (use), mask_reg))
+      {
+	struct df_link *def_link = DF_REF_CHAIN (use);
+	gcc_assert (def_link && !def_link->next);
+	swap_insn = DF_REF_INSN (def_link->ref);
+	break;
+      }
+  gcc_assert (swap_insn);
+  
+  /* Find the load.  */
+  insn_info = DF_INSN_INFO_GET (swap_insn);
+  rtx_insn *load_insn = 0;
+  FOR_EACH_INSN_INFO_USE (use, insn_info)
+    {
+      struct df_link *def_link = DF_REF_CHAIN (use);
+      gcc_assert (def_link && !def_link->next);
+      load_insn = DF_REF_INSN (def_link->ref);
+      break;
+    }
+  gcc_assert (load_insn);
+
+  /* Find the TOC-relative symbol access.  */
+  insn_info = DF_INSN_INFO_GET (load_insn);
+  rtx_insn *tocrel_insn = 0;
+  FOR_EACH_INSN_INFO_USE (use, insn_info)
+    {
+      struct df_link *def_link = DF_REF_CHAIN (use);
+      gcc_assert (def_link && !def_link->next);
+      tocrel_insn = DF_REF_INSN (def_link->ref);
+      break;
+    }
+  gcc_assert (tocrel_insn);
+
+  /* Find the embedded CONST_VECTOR.  We have to call toc_relative_expr_p
+     to set tocrel_base; otherwise it would be unnecessary as we've
+     already established it will return true.  */
+  rtx base, offset;
+  if (!toc_relative_expr_p (SET_SRC (PATTERN (tocrel_insn)), false))
+    gcc_unreachable ();
+  split_const (XVECEXP (tocrel_base, 0, 0), &base, &offset);
+  rtx const_vector = get_pool_constant (base);
+  gcc_assert (GET_CODE (const_vector) == CONST_VECTOR);
+
+  /* Create an adjusted mask from the initial mask.  */
+  unsigned int new_mask[16], i, val;
+  for (i = 0; i < 16; ++i) {
+    val = INTVAL (XVECEXP (const_vector, 0, i));
+    if (val < 16)
+      new_mask[i] = (val + 8) % 16;
+    else
+      new_mask[i] = ((val + 8) % 16) + 16;
+  }
+
+  /* Create a new CONST_VECTOR and a MEM that references it.  */
+  rtx vals = gen_rtx_PARALLEL (V16QImode, rtvec_alloc (16));
+  for (i = 0; i < 16; ++i)
+    XVECEXP (vals, 0, i) = GEN_INT (new_mask[i]);
+  rtx new_const_vector = gen_rtx_CONST_VECTOR (V16QImode, XVEC (vals, 0));
+  rtx new_mem = force_const_mem (V16QImode, new_const_vector);
+  /* This gives us a MEM whose base operand is a SYMBOL_REF, which we
+     can't recognize.  Force the SYMBOL_REF into a register.  */
+  if (!REG_P (XEXP (new_mem, 0))) {
+    rtx base_reg = force_reg (Pmode, XEXP (new_mem, 0));
+    XEXP (new_mem, 0) = base_reg;
+    /* Move the newly created insn ahead of the load insn.  */
+    rtx_insn *force_insn = get_last_insn ();
+    remove_insn (force_insn);
+    rtx_insn *before_load_insn = PREV_INSN (load_insn);
+    add_insn_after (force_insn, before_load_insn, BLOCK_FOR_INSN (load_insn));
+    df_insn_rescan (before_load_insn);
+    df_insn_rescan (force_insn);
+  }
+
+  /* Replace the MEM in the load instruction and rescan it.  */
+  XEXP (SET_SRC (PATTERN (load_insn)), 0) = new_mem;
+  INSN_CODE (load_insn) = -1; /* Force re-recognition.  */
+  df_insn_rescan (load_insn);
+
+  if (dump_file)
+    fprintf (dump_file, "Adjusting mask for vperm %d\n", INSN_UID (insn));
+}
+
 /* The insn described by INSN_ENTRY[I] can be swapped, but only
    with special handling.  Take care of that here.  */
 static void
@@ -35795,6 +36070,10 @@ handle_special_swappables (swap_web_entry *insn_entry, unsigned i)
     case SH_CONCAT:
       /* Reverse the order of a concatenation operation.  */
       adjust_concat (insn);
+      break;
+    case SH_VPERM:
+      /* Change the mask loaded from the constant pool for a VPERM.  */
+      adjust_vperm (insn);
       break;
     }
 }
@@ -35872,6 +36151,8 @@ dump_swap_insn_table (swap_web_entry *insn_entry)
 	      fputs ("special:xxpermdi ", dump_file);
 	    else if (insn_entry[i].special_handling == SH_CONCAT)
 	      fputs ("special:concat ", dump_file);
+	    else if (insn_entry[i].special_handling == SH_VPERM)
+	      fputs ("special:vperm ", dump_file);
 	  }
 	if (insn_entry[i].web_not_optimizable)
 	  fputs ("unoptimizable ", dump_file);
@@ -36204,8 +36485,8 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 	  DECL_EXTERNAL (atomic_update_decl) = 1;
 	}
 
-      tree fenv_var = create_tmp_var (double_type_node);
-      mark_addressable (fenv_var);
+      tree fenv_var = create_tmp_var_raw (double_type_node);
+      TREE_ADDRESSABLE (fenv_var) = 1;
       tree fenv_addr = build1 (ADDR_EXPR, double_ptr_type_node, fenv_var);
 
       *hold = build_call_expr (atomic_hold_decl, 1, fenv_addr);
@@ -36232,7 +36513,7 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   const unsigned HOST_WIDE_INT hold_exception_mask =
     HOST_WIDE_INT_C (0xffffffff00000007);
 
-  tree fenv_var = create_tmp_var (double_type_node);
+  tree fenv_var = create_tmp_var_raw (double_type_node);
 
   tree hold_mffs = build2 (MODIFY_EXPR, void_type_node, fenv_var, call_mffs);
 
@@ -36261,7 +36542,7 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   const unsigned HOST_WIDE_INT clear_exception_mask =
     HOST_WIDE_INT_C (0xffffffff00000000);
 
-  tree fenv_clear = create_tmp_var (double_type_node);
+  tree fenv_clear = create_tmp_var_raw (double_type_node);
 
   tree clear_mffs = build2 (MODIFY_EXPR, void_type_node, fenv_clear, call_mffs);
 
@@ -36293,7 +36574,7 @@ rs6000_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   const unsigned HOST_WIDE_INT new_exception_mask =
     HOST_WIDE_INT_C (0x1ff80fff);
 
-  tree old_fenv = create_tmp_var (double_type_node);
+  tree old_fenv = create_tmp_var_raw (double_type_node);
   tree update_mffs = build2 (MODIFY_EXPR, void_type_node, old_fenv, call_mffs);
 
   tree old_llu = build1 (VIEW_CONVERT_EXPR, uint64_type_node, old_fenv);

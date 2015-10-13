@@ -77,7 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "rtl-iter.h"
 
-/* Which cpu we're compiling for (A5, ARC600, ARC601, ARC700).  */
+/* Which cpu we're compiling for (ARC600, ARC601, ARC700).  */
 static const char *arc_cpu_string = "";
 
 /* ??? Loads can handle any constant, stores can only handle small ones.  */
@@ -702,11 +702,7 @@ arc_init (void)
 {
   enum attr_tune tune_dflt = TUNE_NONE;
 
-  if (TARGET_A5)
-    {
-      arc_cpu_string = "A5";
-    }
-  else if (TARGET_ARC600)
+  if (TARGET_ARC600)
     {
       arc_cpu_string = "ARC600";
       tune_dflt = TUNE_ARC600;
@@ -755,7 +751,7 @@ arc_init (void)
 	break;
       }
 
-  /* Support mul64 generation only for A5 and ARC600.  */
+  /* Support mul64 generation only for ARC600.  */
   if (TARGET_MUL64_SET && TARGET_ARC700)
       error ("-mmul64 not supported for ARC700");
 
@@ -1280,7 +1276,7 @@ arc_conditional_register_usage (void)
 	   i <= ARC_LAST_SIMD_DMA_CONFIG_REG; i++)
 	reg_alloc_order [i] = i;
     }
-  /* For Arctangent-A5 / ARC600, lp_count may not be read in an instruction
+  /* For ARC600, lp_count may not be read in an instruction
      following immediately after another one setting it to a new value.
      There was some discussion on how to enforce scheduling constraints for
      processors with missing interlocks on the gcc mailing list:
@@ -2093,7 +2089,7 @@ arc_compute_frame_size (int size)	/* size = # of var. bytes allocated.  */
   total_size = ARC_STACK_ALIGN (total_size);
 
   /* Compute offset of register save area from stack pointer:
-     A5 Frame: pretend_size <blink> reg_size <fp> var_size args_size <--sp
+     Frame: pretend_size <blink> reg_size <fp> var_size args_size <--sp
   */
   reg_offset = (total_size - (pretend_size + reg_size + extra_size)
 		+ (frame_pointer_needed ? 4 : 0));
@@ -3182,11 +3178,9 @@ arc_print_operand (FILE *file, rtx x, int code)
       /* We handle SFmode constants here as output_addr_const doesn't.  */
       if (GET_MODE (x) == SFmode)
 	{
-	  REAL_VALUE_TYPE d;
 	  long l;
 
-	  REAL_VALUE_FROM_CONST_DOUBLE (d, x);
-	  REAL_VALUE_TO_TARGET_SINGLE (d, l);
+	  REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), l);
 	  fprintf (file, "0x%08lx", l);
 	  break;
 	}
@@ -7397,7 +7391,7 @@ arc_output_addsi (rtx *operands, bool cond_p, bool output_p)
       int range_factor = neg_intval & intval;
       int shift;
 
-      if (intval == -1 << 31)
+      if (intval == (HOST_WIDE_INT) (HOST_WIDE_INT_M1U << 31))
 	ADDSI_OUTPUT1 ("bxor%? %0,%1,31");
 
       /* If we can use a straight add / sub instead of a {add,sub}[123] of
@@ -9324,7 +9318,9 @@ arc_legitimize_reload_address (rtx *p, machine_mode mode, int opnum,
       if ((scale-1) & offset)
 	scale = 1;
       shift = scale >> 1;
-      offset_base = (offset + (256 << shift)) & (-512 << shift);
+      offset_base
+	= ((offset + (256 << shift))
+	   & ((HOST_WIDE_INT)((unsigned HOST_WIDE_INT) -512 << shift)));
       /* Sometimes the normal form does not suit DImode.  We
 	 could avoid that by using smaller ranges, but that
 	 would give less optimized code when SImode is

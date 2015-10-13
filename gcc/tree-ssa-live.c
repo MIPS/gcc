@@ -200,7 +200,9 @@ partition_view_init (var_map map)
       tmp = partition_find (map->var_partition, x);
       if (ssa_name (tmp) != NULL_TREE && !virtual_operand_p (ssa_name (tmp))
 	  && (!has_zero_uses (ssa_name (tmp))
-	      || !SSA_NAME_IS_DEFAULT_DEF (ssa_name (tmp))))
+	      || !SSA_NAME_IS_DEFAULT_DEF (ssa_name (tmp))
+	      || (SSA_NAME_VAR (ssa_name (tmp))
+		  && !VAR_P (SSA_NAME_VAR (ssa_name (tmp))))))
 	bitmap_set_bit (used, tmp);
     }
 
@@ -607,7 +609,7 @@ clear_unused_block_pointer (void)
       {
 	unsigned i;
 	tree b;
-	gimple stmt = gsi_stmt (gsi);
+	gimple *stmt = gsi_stmt (gsi);
 
 	if (!is_gimple_debug (stmt) && !gimple_clobber_p (stmt))
 	  continue;
@@ -730,7 +732,7 @@ remove_unused_locals (void)
       /* Walk the statements.  */
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  tree b = gimple_block (stmt);
 
 	  if (is_gimple_debug (stmt))
@@ -793,7 +795,7 @@ remove_unused_locals (void)
 
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	  {
-	    gimple stmt = gsi_stmt (gsi);
+	    gimple *stmt = gsi_stmt (gsi);
 	    tree b = gimple_block (stmt);
 
 	    if (gimple_clobber_p (stmt))
@@ -1012,7 +1014,7 @@ static void
 set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
 {
   int p;
-  gimple stmt;
+  gimple *stmt;
   use_operand_p use;
   basic_block def_bb = NULL;
   imm_use_iterator imm_iter;
@@ -1041,7 +1043,7 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
      add it to the list of live on entry blocks.  */
   FOR_EACH_IMM_USE_FAST (use, imm_iter, ssa_name)
     {
-      gimple use_stmt = USE_STMT (use);
+      gimple *use_stmt = USE_STMT (use);
       basic_block add_block = NULL;
 
       if (gimple_code (use_stmt) == GIMPLE_PHI)
@@ -1314,7 +1316,7 @@ verify_live_on_entry (tree_live_info_p live)
 {
   unsigned i;
   tree var;
-  gimple stmt;
+  gimple *stmt;
   basic_block bb;
   edge e;
   int num;
@@ -1403,6 +1405,12 @@ verify_live_on_entry (tree_live_info_p live)
 			}
 		  }
 		if (ok)
+		  continue;
+		/* Expand adds unused default defs for PARM_DECLs and
+		   RESULT_DECLs.  They're ok.  */
+		if (has_zero_uses (var)
+		    && SSA_NAME_VAR (var)
+		    && !VAR_P (SSA_NAME_VAR (var)))
 		  continue;
 	        num++;
 		print_generic_expr (stderr, var, TDF_SLIM);

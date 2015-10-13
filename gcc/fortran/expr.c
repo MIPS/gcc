@@ -2600,14 +2600,18 @@ gfc_check_init_expr (gfc_expr *e)
       break;
 
     case EXPR_SUBSTRING:
-      t = gfc_check_init_expr (e->ref->u.ss.start);
-      if (!t)
-	break;
+      if (e->ref)
+	{
+	  t = gfc_check_init_expr (e->ref->u.ss.start);
+	  if (!t)
+	    break;
 
-      t = gfc_check_init_expr (e->ref->u.ss.end);
-      if (t)
-	t = gfc_simplify_expr (e, 0);
-
+	  t = gfc_check_init_expr (e->ref->u.ss.end);
+	  if (t)
+	    t = gfc_simplify_expr (e, 0);
+	}
+      else
+	t = false;
       break;
 
     case EXPR_STRUCTURE:
@@ -4815,6 +4819,15 @@ gfc_check_vardef_context (gfc_expr* e, bool pointer, bool alloc_obj,
       if (context)
 	gfc_error ("Non-POINTER in pointer association context (%s)"
 		   " at %L", context, &e->where);
+      return false;
+    }
+
+  if (e->ts.type == BT_DERIVED
+      && e->ts.u.derived == NULL)
+    {
+      if (context)
+	gfc_error ("Type inaccessible in variable definition context (%s) "
+		   "at %L", context, &e->where);
       return false;
     }
 

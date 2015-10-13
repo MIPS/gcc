@@ -1,3 +1,4 @@
+
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
    Copyright (C) 1989-2015 Free Software Foundation, Inc.
 
@@ -590,6 +591,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is complete or is an array with unspecified bound.  */
 #define COMPLETE_OR_UNBOUND_ARRAY_TYPE_P(NODE) \
   (COMPLETE_TYPE_P (TREE_CODE (NODE) == ARRAY_TYPE ? TREE_TYPE (NODE) : (NODE)))
+
+#define FUNC_OR_METHOD_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == FUNCTION_TYPE || TREE_CODE (NODE) == METHOD_TYPE)
 
 /* Define many boolean fields that all tree nodes have.  */
 
@@ -1415,6 +1419,8 @@ extern void protected_set_expr_location (tree, location_t);
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PRIORITY),0)
 
 /* OpenACC clause expressions  */
+#define OMP_CLAUSE_EXPR(NODE, CLAUSE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, CLAUSE), 0)
 #define OMP_CLAUSE_GANG_EXPR(NODE) \
   OMP_CLAUSE_OPERAND ( \
     OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_GANG), 0)
@@ -4672,6 +4678,7 @@ extern int tree_map_base_marked_p (const void *);
 extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
+extern bool type_with_interoperable_signedness (const_tree);
 /* Return simplified tree code of type that is used for canonical type merging.  */
 inline enum tree_code
 tree_code_for_canonical_type_merging (enum tree_code code)

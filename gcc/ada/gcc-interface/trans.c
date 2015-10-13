@@ -75,13 +75,6 @@
    instead.  */
 #define ALLOCA_THRESHOLD 1000
 
-/* In configurations where blocks have no end_locus attached, just
-   sink assignments into a dummy global.  */
-#ifndef BLOCK_SOURCE_END_LOCATION
-static location_t block_end_locus_sink;
-#define BLOCK_SOURCE_END_LOCATION(BLOCK) block_end_locus_sink
-#endif
-
 /* Pointers to front-end tables accessed through macros.  */
 struct Node *Nodes_Ptr;
 struct Flags *Flags_Ptr;
@@ -103,10 +96,6 @@ Node_Id error_gnat_node;
    tree, and the only purpose of the call is to properly annotate
    types with representation information.  */
 bool type_annotate_only;
-
-/* Current filename without path.  */
-const char *ref_filename;
-
 
 /* List of N_Validate_Unchecked_Conversion nodes in the unit.  */
 static vec<Node_Id> gnat_validate_uc_list;
@@ -255,11 +244,9 @@ static tree extract_values (tree, tree);
 static tree pos_to_constructor (Node_Id, tree, Entity_Id);
 static void validate_unchecked_conversion (Node_Id);
 static tree maybe_implicit_deref (tree);
-static void set_expr_location_from_node (tree, Node_Id);
-static void set_expr_location_from_node1 (tree, Node_Id, bool);
-static bool Sloc_to_locus1 (Source_Ptr, location_t *, bool);
-static bool set_end_locus_from_node (tree, Node_Id);
+static void set_expr_location_from_node (tree, Node_Id, bool = false);
 static void set_gnu_expr_location_from_node (tree, Node_Id);
+static bool set_end_locus_from_node (tree, Node_Id);
 static int lvalue_required_p (Node_Id, tree, bool, bool, bool);
 static tree build_raise_check (int, enum exception_info_kind);
 static tree create_init_temporary (const char *, tree, tree *, Node_Id);
@@ -1455,21 +1442,28 @@ Pragma_to_gnu (Node_Id gnat_node)
 	  gcc_unreachable ();
 
 	/* This is the same implementation as in the C family of compilers.  */
+	const unsigned int lang_mask = CL_Ada | CL_COMMON;
 	if (Present (gnat_expr))
 	  {
 	    tree gnu_expr = gnat_to_gnu (gnat_expr);
-	    const char *opt_string = TREE_STRING_POINTER (gnu_expr);
+	    const char *option_string = TREE_STRING_POINTER (gnu_expr);
 	    const int len = TREE_STRING_LENGTH (gnu_expr);
-	    if (len < 3 || opt_string[0] != '-' || opt_string[1] != 'W')
+	    if (len < 3 || option_string[0] != '-' || option_string[1] != 'W')
 	      break;
-	    for (option_index = 0;
-		 option_index < cl_options_count;
-		 option_index++)
-	      if (strcmp (cl_options[option_index].opt_text, opt_string) == 0)
-		break;
-	    if (option_index == cl_options_count)
+	    option_index = find_opt (option_string + 1, lang_mask);
+	    if (option_index == OPT_SPECIAL_unknown)
 	      {
-		post_error ("unknown -W switch", gnat_node);
+		post_error ("?unknown -W switch", gnat_node);
+		break;
+	      }
+	    else if (!(cl_options[option_index].flags & CL_WARNING))
+	      {
+		post_error ("?-W switch does not control warning", gnat_node);
+		break;
+	      }
+	    else if (!(cl_options[option_index].flags & lang_mask))
+	      {
+		post_error ("?-W switch not valid for Ada", gnat_node);
 		break;
 	      }
 	  }
@@ -1478,7 +1472,7 @@ Pragma_to_gnu (Node_Id gnat_node)
 
 	set_default_handlers (&handlers);
 	control_warning_option (option_index, (int) kind, imply, location,
-				CL_Ada, &handlers, &global_options,
+				lang_mask, &handlers, &global_options,
 				&global_options_set, global_dc);
       }
       break;
@@ -2657,9 +2651,7 @@ find_loop_for (tree var)
 
   gcc_assert (vec_safe_length (gnu_loop_stack) > 0);
 
-  for (i = vec_safe_length (gnu_loop_stack) - 1;
-       vec_safe_iterate (gnu_loop_stack, i, &iter);
-       i--)
+  FOR_EACH_VEC_ELT_REVERSE (*gnu_loop_stack, i, iter)
     if (var == iter->loop_var)
       break;
 
@@ -2727,6 +2719,89 @@ can_be_lower_p (tree val1, tree val2)
     return true;
 
   return tree_int_cst_lt (val1, val2);
+}
+
+/* Helper function for walk_tree, used by independent_iterations_p below.  */
+
+static tree
+scan_rhs_r (tree *tp, int *walk_subtrees, void *data)
+{
+  bitmap *params = (bitmap *)data;
+  tree t = *tp;
+
+  /* No need to walk into types or decls.  */
+  if (IS_TYPE_OR_DECL_P (t))
+    *walk_subtrees = 0;
+
+  if (TREE_CODE (t) == PARM_DECL && bitmap_bit_p (*params, DECL_UID (t)))
+    return t;
+
+  return NULL_TREE;
+}
+
+/* Return true if STMT_LIST generates independent iterations in a loop.  */
+
+static bool
+independent_iterations_p (tree stmt_list)
+{
+  tree_stmt_iterator tsi;
+  bitmap params = BITMAP_GGC_ALLOC();
+  auto_vec<tree> rhs;
+  tree iter;
+  int i;
+
+  if (TREE_CODE (stmt_list) == BIND_EXPR)
+    stmt_list = BIND_EXPR_BODY (stmt_list);
+
+  /* Scan the list and return false on anything that is not either a check
+     or an assignment to a parameter with restricted aliasing.  */
+  for (tsi = tsi_start (stmt_list); !tsi_end_p (tsi); tsi_next (&tsi))
+    {
+      tree stmt = tsi_stmt (tsi);
+
+      switch (TREE_CODE (stmt))
+	{
+	case COND_EXPR:
+	  {
+	    if (COND_EXPR_ELSE (stmt))
+	      return false;
+	    if (TREE_CODE (COND_EXPR_THEN (stmt)) != CALL_EXPR)
+	      return false;
+	    tree func = get_callee_fndecl (COND_EXPR_THEN (stmt));
+	    if (!(func && TREE_THIS_VOLATILE (func)))
+	      return false;
+	    break;
+	  }
+
+	case MODIFY_EXPR:
+	  {
+	    tree lhs = TREE_OPERAND (stmt, 0);
+	    while (handled_component_p (lhs))
+	      lhs = TREE_OPERAND (lhs, 0);
+	    if (TREE_CODE (lhs) != INDIRECT_REF)
+	      return false;
+	    lhs = TREE_OPERAND (lhs, 0);
+	    if (!(TREE_CODE (lhs) == PARM_DECL
+		  && DECL_RESTRICTED_ALIASING_P (lhs)))
+	      return false;
+	    bitmap_set_bit (params, DECL_UID (lhs));
+	    rhs.safe_push (TREE_OPERAND (stmt, 1));
+	    break;
+	  }
+
+	default:
+	  return false;
+	}
+    }
+
+  /* At this point we know that the list contains only statements that will
+     modify parameters with restricted aliasing.  Check that the statements
+     don't at the time read from these parameters.  */
+  FOR_EACH_VEC_ELT (rhs, i, iter)
+    if (walk_tree_without_duplicates (&iter, scan_rhs_r, &params))
+      return false;
+
+  return true;
 }
 
 /* Subroutine of gnat_to_gnu to translate gnat_node, an N_Loop_Statement,
@@ -3027,9 +3102,7 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
 	       - the front-end quickly generates useless or redundant checks
 		 that can be entirely optimized away in the end.  */
       if (1 <= n_checks && n_checks <= 4)
-	for (i = 0;
-	     vec_safe_iterate (gnu_loop_info->checks, i, &rci);
-	     i++)
+	FOR_EACH_VEC_ELT (*gnu_loop_info->checks, i, rci)
 	  {
 	    tree low_ok
 	      = rci->low_bound
@@ -3054,6 +3127,13 @@ Loop_Statement_to_gnu (Node_Id gnat_node)
 
 	    add_stmt_with_node_force (rci->invariant_cond, gnat_node);
 	  }
+
+      /* Second, if loop vectorization is enabled and the iterations of the
+	 loop can easily be proved as independent, mark the loop.  */
+      if (optimize
+	  && flag_tree_loop_vectorize
+	  && independent_iterations_p (LOOP_STMT_BODY (gnu_loop_stmt)))
+	LOOP_STMT_IVDEP (gnu_loop_stmt) = 1;
 
       add_stmt (gnu_loop_stmt);
       gnat_poplevel ();
@@ -3439,8 +3519,9 @@ finalize_nrv (tree fndecl, bitmap nrv, vec<tree, va_gc> *other, Node_Id gnat_ret
   /* Prune the candidates that are referenced by other return values.  */
   data.nrv = nrv;
   data.result = NULL_TREE;
+  data.gnat_ret = Empty;
   data.visited = NULL;
-  for (i = 0; vec_safe_iterate (other, i, &iter); i++)
+  FOR_EACH_VEC_SAFE_ELT (other, i, iter)
     walk_tree_without_duplicates (&iter, prune_nrv_r, &data);
   if (bitmap_empty_p (nrv))
     return;
@@ -5014,7 +5095,7 @@ Handled_Sequence_Of_Statements_to_gnu (Node_Id gnat_node)
            implicit transient block does not incorrectly inherit the slocs
            of a decision, which would otherwise confuse control flow based
            coverage analysis tools.  */
-	set_expr_location_from_node1 (gnu_result, gnat_node, true);
+	set_expr_location_from_node (gnu_result, gnat_node, true);
     }
   else
     gnu_result = gnu_inner_block;
@@ -7772,7 +7853,7 @@ add_decl_expr (tree gnu_decl, Entity_Id gnat_entity)
     add_stmt_with_node (gnu_stmt, gnat_entity);
 
   /* If this is a variable and an initializer is attached to it, it must be
-     valid for the context.  Similar to init_const in create_var_decl_1.  */
+     valid for the context.  Similar to init_const in create_var_decl.  */
   if (TREE_CODE (gnu_decl) == VAR_DECL
       && (gnu_init = DECL_INITIAL (gnu_decl)) != NULL_TREE
       && (!gnat_types_compatible_p (type, TREE_TYPE (gnu_init))
@@ -7840,7 +7921,7 @@ static void
 add_cleanup (tree gnu_cleanup, Node_Id gnat_node)
 {
   if (Present (gnat_node))
-    set_expr_location_from_node1 (gnu_cleanup, gnat_node, true);
+    set_expr_location_from_node (gnu_cleanup, gnat_node, true);
   append_to_statement_list (gnu_cleanup, &current_stmt_group->cleanups);
 }
 
@@ -7918,10 +7999,12 @@ static tree
 build_stmt_group (List_Id gnat_list, bool binding_p)
 {
   start_stmt_group ();
+
   if (binding_p)
     gnat_pushlevel ();
 
   add_stmt_list (gnat_list);
+
   if (binding_p)
     gnat_poplevel ();
 
@@ -8811,29 +8894,32 @@ emit_index_check (tree gnu_array_object, tree gnu_expr, tree gnu_low,
      gnu_expr, CE_Index_Check_Failed, gnat_node);
 }
 
-/* GNU_COND contains the condition corresponding to an access, discriminant or
-   range check of value GNU_EXPR.  Build a COND_EXPR that returns GNU_EXPR if
-   GNU_COND is false and raises a CONSTRAINT_ERROR if GNU_COND is true.
-   REASON is the code that says why the exception was raised.  GNAT_NODE is
-   the GNAT node conveying the source location for which the error should be
-   signaled.  */
+/* GNU_COND contains the condition corresponding to an index, overflow or
+   range check of value GNU_EXPR.  Build a COND_EXPR that returns GNU_EXPR
+   if GNU_COND is false and raises a CONSTRAINT_ERROR if GNU_COND is true.
+   REASON is the code that says why the exception is raised.  GNAT_NODE is
+   the node conveying the source location for which the error should be
+   signaled.
+
+   We used to propagate TREE_SIDE_EFFECTS from GNU_EXPR to the COND_EXPR,
+   overwriting the setting inherited from the call statement, on the ground
+   that the expression need not be evaluated just for the check.  However
+   that's incorrect because, in the GCC type system, its value is presumed
+   to be valid so its comparison against the type bounds always yields true
+   and, therefore, could be done without evaluating it; given that it can
+   be a computation that overflows the bounds, the language may require the
+   check to fail and thus the expression to be evaluated in this case.  */
 
 static tree
 emit_check (tree gnu_cond, tree gnu_expr, int reason, Node_Id gnat_node)
 {
   tree gnu_call
     = build_call_raise (reason, gnat_node, N_Raise_Constraint_Error);
-  tree gnu_result
-    = fold_build3 (COND_EXPR, TREE_TYPE (gnu_expr), gnu_cond,
-		   build2 (COMPOUND_EXPR, TREE_TYPE (gnu_expr), gnu_call,
-			   convert (TREE_TYPE (gnu_expr), integer_zero_node)),
-		   gnu_expr);
-
-  /* GNU_RESULT has side effects if and only if GNU_EXPR has:
-     we don't need to evaluate it just for the check.  */
-  TREE_SIDE_EFFECTS (gnu_result) = TREE_SIDE_EFFECTS (gnu_expr);
-
-  return gnu_result;
+  return
+    fold_build3 (COND_EXPR, TREE_TYPE (gnu_expr), gnu_cond,
+		 build2 (COMPOUND_EXPR, TREE_TYPE (gnu_expr), gnu_call,
+			 convert (TREE_TYPE (gnu_expr), integer_zero_node)),
+		 gnu_expr);
 }
 
 /* Return an expression that converts GNU_EXPR to GNAT_TYPE, doing overflow
@@ -8913,8 +8999,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       if (INTEGRAL_TYPE_P (gnu_in_basetype)
 	  ? tree_int_cst_lt (gnu_in_lb, gnu_out_lb)
 	  : (FLOAT_TYPE_P (gnu_base_type)
-	     ? REAL_VALUES_LESS (TREE_REAL_CST (gnu_in_lb),
-				 TREE_REAL_CST (gnu_out_lb))
+	     ? real_less (&TREE_REAL_CST (gnu_in_lb),
+			  &TREE_REAL_CST (gnu_out_lb))
 	     : 1))
 	gnu_cond
 	  = invert_truthvalue
@@ -8925,8 +9011,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       if (INTEGRAL_TYPE_P (gnu_in_basetype)
 	  ? tree_int_cst_lt (gnu_out_ub, gnu_in_ub)
 	  : (FLOAT_TYPE_P (gnu_base_type)
-	     ? REAL_VALUES_LESS (TREE_REAL_CST (gnu_out_ub),
-				 TREE_REAL_CST (gnu_in_lb))
+	     ? real_less (&TREE_REAL_CST (gnu_out_ub),
+			  &TREE_REAL_CST (gnu_in_lb))
 	     : 1))
 	gnu_cond
 	  = build_binary_op (TRUTH_ORIF_EXPR, boolean_type_node, gnu_cond,
@@ -8962,8 +9048,8 @@ convert_with_check (Entity_Id gnat_type, tree gnu_expr, bool overflowp,
       /* Compute the exact value calc_type'Pred (0.5) at compile time.  */
       fmt = REAL_MODE_FORMAT (TYPE_MODE (calc_type));
       real_2expN (&half_minus_pred_half, -(fmt->p) - 1, TYPE_MODE (calc_type));
-      REAL_ARITHMETIC (pred_half, MINUS_EXPR, dconsthalf,
-		       half_minus_pred_half);
+      real_arithmetic (&pred_half, MINUS_EXPR, &dconsthalf,
+		       &half_minus_pred_half);
       gnu_pred_half = build_real (calc_type, pred_half);
 
       /* If the input is strictly negative, subtract this value
@@ -9507,12 +9593,11 @@ maybe_implicit_deref (tree exp)
 }
 
 /* Convert SLOC into LOCUS.  Return true if SLOC corresponds to a source code
-   location and false if it doesn't.  In the former case, set the Gigi global
-   variable REF_FILENAME to the simple debug file name as given by sinput.
-   If clear_column is true, set column information to 0.  */
+   location and false if it doesn't.  If CLEAR_COLUMN is true, set the column
+   information to 0.  */
 
-static bool
-Sloc_to_locus1 (Source_Ptr Sloc, location_t *locus, bool clear_column)
+bool
+Sloc_to_locus (Source_Ptr Sloc, location_t *locus, bool clear_column)
 {
   if (Sloc == No_Location)
     return false;
@@ -9522,57 +9607,35 @@ Sloc_to_locus1 (Source_Ptr Sloc, location_t *locus, bool clear_column)
       *locus = BUILTINS_LOCATION;
       return false;
     }
-  else
-    {
-      Source_File_Index file = Get_Source_File_Index (Sloc);
-      Logical_Line_Number line = Get_Logical_Line_Number (Sloc);
-      Column_Number column = (clear_column ? 0 : Get_Column_Number (Sloc));
-      line_map_ordinary *map = LINEMAPS_ORDINARY_MAP_AT (line_table, file - 1);
 
-      /* We can have zero if pragma Source_Reference is in effect.  */
-      if (line < 1)
-	line = 1;
+  Source_File_Index file = Get_Source_File_Index (Sloc);
+  Logical_Line_Number line = Get_Logical_Line_Number (Sloc);
+  Column_Number column = (clear_column ? 0 : Get_Column_Number (Sloc));
+  line_map_ordinary *map = LINEMAPS_ORDINARY_MAP_AT (line_table, file - 1);
 
-      /* Translate the location.  */
-      *locus = linemap_position_for_line_and_column (map, line, column);
-    }
+  /* We can have zero if pragma Source_Reference is in effect.  */
+  if (line < 1)
+    line = 1;
 
-  ref_filename
-    = IDENTIFIER_POINTER
-      (get_identifier
-       (Get_Name_String (Debug_Source_Name (Get_Source_File_Index (Sloc)))));;
+  /* Translate the location.  */
+  *locus = linemap_position_for_line_and_column (map, line, column);
 
   return true;
 }
 
-/* Similar to the above, not clearing the column information.  */
-
-bool
-Sloc_to_locus (Source_Ptr Sloc, location_t *locus)
-{
-  return Sloc_to_locus1 (Sloc, locus, false);
-}
-
 /* Similar to set_expr_location, but start with the Sloc of GNAT_NODE and
-   don't do anything if it doesn't correspond to a source location.  */
+   don't do anything if it doesn't correspond to a source location.  And,
+   if CLEAR_COLUMN is true, set the column information to 0.  */
 
 static void
-set_expr_location_from_node1 (tree node, Node_Id gnat_node, bool clear_column)
+set_expr_location_from_node (tree node, Node_Id gnat_node, bool clear_column)
 {
   location_t locus;
 
-  if (!Sloc_to_locus1 (Sloc (gnat_node), &locus, clear_column))
+  if (!Sloc_to_locus (Sloc (gnat_node), &locus, clear_column))
     return;
 
   SET_EXPR_LOCATION (node, locus);
-}
-
-/* Similar to the above, not clearing the column information.  */
-
-static void
-set_expr_location_from_node (tree node, Node_Id gnat_node)
-{
-  set_expr_location_from_node1 (node, gnat_node, false);
 }
 
 /* More elaborate version of set_expr_location_from_node to be used in more
@@ -9607,6 +9670,65 @@ set_gnu_expr_location_from_node (tree node, Node_Id gnat_node)
 	  set_end_locus_from_node (node, gnat_node);
 	}
       break;
+    }
+}
+
+/* Set the end_locus information for GNU_NODE, if any, from an explicit end
+   location associated with GNAT_NODE or GNAT_NODE itself, whichever makes
+   most sense.  Return true if a sensible assignment was performed.  */
+
+static bool
+set_end_locus_from_node (tree gnu_node, Node_Id gnat_node)
+{
+  Node_Id gnat_end_label;
+  location_t end_locus;
+
+  /* Pick the GNAT node of which we'll take the sloc to assign to the GCC node
+     end_locus when there is one.  We consider only GNAT nodes with a possible
+     End_Label attached.  If the End_Label actually was unassigned, fallback
+     on the original node.  We'd better assign an explicit sloc associated with
+     the outer construct in any case.  */
+
+  switch (Nkind (gnat_node))
+    {
+    case N_Package_Body:
+    case N_Subprogram_Body:
+    case N_Block_Statement:
+      gnat_end_label = End_Label (Handled_Statement_Sequence (gnat_node));
+      break;
+
+    case N_Package_Declaration:
+      gnat_end_label = End_Label (Specification (gnat_node));
+      break;
+
+    default:
+      return false;
+    }
+
+  if (Present (gnat_end_label))
+    gnat_node = gnat_end_label;
+
+  /* Some expanded subprograms have neither an End_Label nor a Sloc
+     attached.  Notify that to callers.  For a block statement with no
+     End_Label, clear column information, so that the tree for a
+     transient block does not receive the sloc of a source condition.  */
+  if (!Sloc_to_locus (Sloc (gnat_node), &end_locus,
+                      No (gnat_end_label)
+                      && (Nkind (gnat_node) == N_Block_Statement)))
+    return false;
+
+  switch (TREE_CODE (gnu_node))
+    {
+    case BIND_EXPR:
+      BLOCK_SOURCE_END_LOCATION (BIND_EXPR_BLOCK (gnu_node)) = end_locus;
+      return true;
+
+    case FUNCTION_DECL:
+      DECL_STRUCT_FUNCTION (gnu_node)->function_end_locus = end_locus;
+      return true;
+
+    default:
+      return false;
     }
 }
 
@@ -9679,65 +9801,6 @@ post_error_ne_num (const char *msg, Node_Id node, Entity_Id ent, int num)
   post_error_ne (msg, node, ent);
 }
 
-/* Set the end_locus information for GNU_NODE, if any, from an explicit end
-   location associated with GNAT_NODE or GNAT_NODE itself, whichever makes
-   most sense.  Return true if a sensible assignment was performed.  */
-
-static bool
-set_end_locus_from_node (tree gnu_node, Node_Id gnat_node)
-{
-  Node_Id gnat_end_label = Empty;
-  location_t end_locus;
-
-  /* Pick the GNAT node of which we'll take the sloc to assign to the GCC node
-     end_locus when there is one.  We consider only GNAT nodes with a possible
-     End_Label attached.  If the End_Label actually was unassigned, fallback
-     on the original node.  We'd better assign an explicit sloc associated with
-     the outer construct in any case.  */
-
-  switch (Nkind (gnat_node))
-    {
-    case N_Package_Body:
-    case N_Subprogram_Body:
-    case N_Block_Statement:
-      gnat_end_label = End_Label (Handled_Statement_Sequence (gnat_node));
-      break;
-
-    case N_Package_Declaration:
-      gnat_end_label = End_Label (Specification (gnat_node));
-      break;
-
-    default:
-      return false;
-    }
-
-  gnat_node = Present (gnat_end_label) ? gnat_end_label : gnat_node;
-
-  /* Some expanded subprograms have neither an End_Label nor a Sloc
-     attached.  Notify that to callers.  For a block statement with no
-     End_Label, clear column information, so that the tree for a
-     transient block does not receive the sloc of a source condition.  */
-
-  if (!Sloc_to_locus1 (Sloc (gnat_node), &end_locus,
-                       No (gnat_end_label) &&
-                       (Nkind (gnat_node) == N_Block_Statement)))
-    return false;
-
-  switch (TREE_CODE (gnu_node))
-    {
-    case BIND_EXPR:
-      BLOCK_SOURCE_END_LOCATION (BIND_EXPR_BLOCK (gnu_node)) = end_locus;
-      return true;
-
-    case FUNCTION_DECL:
-      DECL_STRUCT_FUNCTION (gnu_node)->function_end_locus = end_locus;
-      return true;
-
-    default:
-      return false;
-    }
-}
-
 /* Similar to post_error_ne, but T is a GCC tree representing the number to
    write.  If T represents a constant, the text inside curly brackets in
    MSG will be output (presumably including a '^').  Otherwise it will not

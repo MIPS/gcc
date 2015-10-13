@@ -521,8 +521,8 @@ sem_item::compare_symbol_references (
   n1 = n1->ultimate_alias_target (&avail1);
   n2 = n2->ultimate_alias_target (&avail2);
 
-  if (avail1 >= AVAIL_INTERPOSABLE && ignored_nodes.get (n1)
-      && avail2 >= AVAIL_INTERPOSABLE && ignored_nodes.get (n2))
+  if (avail1 > AVAIL_INTERPOSABLE && ignored_nodes.get (n1)
+      && avail2 > AVAIL_INTERPOSABLE && ignored_nodes.get (n2))
     return true;
 
   return return_false_with_msg ("different references");
@@ -1425,7 +1425,7 @@ sem_function::init (void)
 	for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
 	     gsi_next (&gsi))
 	  {
-	    gimple stmt = gsi_stmt (gsi);
+	    gimple *stmt = gsi_stmt (gsi);
 
 	    if (gimple_code (stmt) != GIMPLE_DEBUG
 		&& gimple_code (stmt) != GIMPLE_PREDICT)
@@ -1615,7 +1615,7 @@ sem_item::add_type (const_tree type, inchash::hash &hstate)
 /* Improve accumulated hash for HSTATE based on a gimple statement STMT.  */
 
 void
-sem_function::hash_stmt (gimple stmt, inchash::hash &hstate)
+sem_function::hash_stmt (gimple *stmt, inchash::hash &hstate)
 {
   enum gimple_code code = gimple_code (stmt);
 
@@ -2030,8 +2030,8 @@ sem_variable::equals (tree t1, tree t2)
       /* Real constants are the same only if the same width of type.  */
       if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
         return return_false_with_msg ("REAL_CST precision mismatch");
-      return return_with_debug (REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1),
-						       TREE_REAL_CST (t2)));
+      return return_with_debug (real_identical (&TREE_REAL_CST (t1),
+						&TREE_REAL_CST (t2)));
     case VECTOR_CST:
       {
 	unsigned i;

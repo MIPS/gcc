@@ -87,7 +87,7 @@ along with GCC; see the file COPYING3.  If not see
 source_location vect_location;
 
 /* Vector mapping GIMPLE stmt to stmt_vec_info. */
-vec<vec_void_p> stmt_vec_info_vec;
+vec<stmt_vec_info> stmt_vec_info_vec;
 
 /* For mapping simduid to vectorization factor.  */
 
@@ -166,7 +166,7 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
 	{
 	  unsigned int vf = 1;
 	  enum internal_fn ifn;
-	  gimple stmt = gsi_stmt (i);
+	  gimple *stmt = gsi_stmt (i);
 	  tree t;
 	  if (!is_gimple_call (stmt)
 	      || !gimple_call_internal_p (stmt))
@@ -281,7 +281,7 @@ note_simd_array_uses (hash_table<simd_array_to_simduid> **htab)
   FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
-	gimple stmt = gsi_stmt (gsi);
+	gimple *stmt = gsi_stmt (gsi);
 	if (!is_gimple_call (stmt) || !gimple_call_internal_p (stmt))
 	  continue;
 	switch (gimple_call_internal_fn (stmt))
@@ -297,7 +297,7 @@ note_simd_array_uses (hash_table<simd_array_to_simduid> **htab)
 	if (lhs == NULL_TREE)
 	  continue;
 	imm_use_iterator use_iter;
-	gimple use_stmt;
+	gimple *use_stmt;
 	ns.simduid = DECL_UID (SSA_NAME_VAR (gimple_call_arg (stmt, 0)));
 	FOR_EACH_IMM_USE_STMT (use_stmt, use_iter, lhs)
 	  if (!is_gimple_debug (use_stmt))
@@ -340,36 +340,30 @@ shrink_simd_arrays
 /* A helper function to free data refs.  */
 
 void
-vect_destroy_datarefs (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
+vect_destroy_datarefs (vec_info *vinfo)
 {
-  vec<data_reference_p> datarefs;
   struct data_reference *dr;
   unsigned int i;
 
- if (loop_vinfo)
-    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-  else
-    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
-
-  FOR_EACH_VEC_ELT (datarefs, i, dr)
+  FOR_EACH_VEC_ELT (vinfo->datarefs, i, dr)
     if (dr->aux)
       {
         free (dr->aux);
         dr->aux = NULL;
       }
 
-  free_data_refs (datarefs);
+  free_data_refs (vinfo->datarefs);
 }
 
 
 /* If LOOP has been versioned during ifcvt, return the internal call
    guarding it.  */
 
-static gimple
+static gimple *
 vect_loop_vectorized_call (struct loop *loop)
 {
   basic_block bb = loop_preheader_edge (loop)->src;
-  gimple g;
+  gimple *g;
   do
     {
       g = last_stmt (bb);
@@ -402,12 +396,12 @@ vect_loop_vectorized_call (struct loop *loop)
    update any immediate uses of it's LHS.  */
 
 static void
-fold_loop_vectorized_call (gimple g, tree value)
+fold_loop_vectorized_call (gimple *g, tree value)
 {
   tree lhs = gimple_call_lhs (g);
   use_operand_p use_p;
   imm_use_iterator iter;
-  gimple use_stmt;
+  gimple *use_stmt;
   gimple_stmt_iterator gsi = gsi_for_stmt (g);
 
   update_call_from_tree (&gsi, value);
@@ -422,7 +416,7 @@ fold_loop_vectorized_call (gimple g, tree value)
    represented by LOOP_VINFO. LOOP_VECTORIZED_CALL is the internal
    call guarding the loop which has been if converted.  */
 static void
-set_uid_loop_bbs (loop_vec_info loop_vinfo, gimple loop_vectorized_call)
+set_uid_loop_bbs (loop_vec_info loop_vinfo, gimple *loop_vectorized_call)
 {
   tree arg = gimple_call_arg (loop_vectorized_call, 1);
   basic_block *bbs;
@@ -440,12 +434,12 @@ set_uid_loop_bbs (loop_vec_info loop_vinfo, gimple loop_vectorized_call)
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple *phi = gsi_stmt (gsi);
 	  gimple_set_uid (phi, 0);
 	}
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple *stmt = gsi_stmt (gsi);
 	  gimple_set_uid (stmt, 0);
 	}
     }
@@ -508,7 +502,7 @@ vectorize_loops (void)
         if (!dbg_cnt (vect_loop))
 	  break;
 
-	gimple loop_vectorized_call = vect_loop_vectorized_call (loop);
+	gimple *loop_vectorized_call = vect_loop_vectorized_call (loop);
 	if (loop_vectorized_call)
 	  set_uid_loop_bbs (loop_vinfo, loop_vectorized_call);
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION
@@ -556,7 +550,7 @@ vectorize_loops (void)
 	loop = get_loop (cfun, i);
 	if (loop && loop->dont_vectorize)
 	  {
-	    gimple g = vect_loop_vectorized_call (loop);
+	    gimple *g = vect_loop_vectorized_call (loop);
 	    if (g)
 	      {
 		fold_loop_vectorized_call (g, boolean_false_node);

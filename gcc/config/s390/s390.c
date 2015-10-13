@@ -728,7 +728,7 @@ s390_const_operand_ok (tree arg, int argnum, int op_flags, tree decl)
 		HOST_WIDE_INT_PRINT_DEC ".."
 		HOST_WIDE_INT_PRINT_DEC ")",
 		argnum, decl,
-		-(HOST_WIDE_INT)1 << (bitwidth - 1),
+		-((HOST_WIDE_INT)1 << (bitwidth - 1)),
 		((HOST_WIDE_INT)1 << (bitwidth - 1)) - 1);
 	  return false;
 	}
@@ -2265,6 +2265,11 @@ s390_contiguous_bitmask_vector_p (rtx op, int *start, int *end)
     return false;
 
   size = GET_MODE_UNIT_BITSIZE (GET_MODE (op));
+
+  /* We cannot deal with V1TI/V1TF. This would require a vgmq.  */
+  if (size > 64)
+    return false;
+
   mask = UINTVAL (elt);
   if (s390_contiguous_bitmask_p (mask, size, start,
 				 end != NULL ? &length : NULL))
@@ -7703,11 +7708,12 @@ replace_ltrel_base (rtx *x)
 /* We keep a list of constants which we have to add to internal
    constant tables in the middle of large functions.  */
 
-#define NR_C_MODES 31
+#define NR_C_MODES 32
 machine_mode constant_modes[NR_C_MODES] =
 {
   TFmode, TImode, TDmode,
-  V16QImode, V8HImode, V4SImode, V2DImode, V4SFmode, V2DFmode, V1TFmode,
+  V16QImode, V8HImode, V4SImode, V2DImode, V1TImode,
+  V4SFmode, V2DFmode, V1TFmode,
   DFmode, DImode, DDmode,
   V8QImode, V4HImode, V2SImode, V1DImode, V2SFmode, V1DFmode,
   SFmode, SImode, SDmode,
@@ -8713,16 +8719,13 @@ s390_chunkify_cancel (struct constant_pool *pool_list)
 void
 s390_output_pool_entry (rtx exp, machine_mode mode, unsigned int align)
 {
-  REAL_VALUE_TYPE r;
-
   switch (GET_MODE_CLASS (mode))
     {
     case MODE_FLOAT:
     case MODE_DECIMAL_FLOAT:
       gcc_assert (GET_CODE (exp) == CONST_DOUBLE);
 
-      REAL_VALUE_FROM_CONST_DOUBLE (r, exp);
-      assemble_real (r, mode, align);
+      assemble_real (*CONST_DOUBLE_REAL_VALUE (exp), mode, align);
       break;
 
     case MODE_INT:
@@ -13675,7 +13678,7 @@ s390_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   tree sfpc = s390_builtin_decls[S390_BUILTIN_s390_sfpc];
   tree efpc = s390_builtin_decls[S390_BUILTIN_s390_efpc];
   tree call_efpc = build_call_expr (efpc, 0);
-  tree fenv_var = create_tmp_var (unsigned_type_node);
+  tree fenv_var = create_tmp_var_raw (unsigned_type_node);
 
 #define FPC_EXCEPTION_MASK	 HOST_WIDE_INT_UC (0xf8000000)
 #define FPC_FLAGS_MASK		 HOST_WIDE_INT_UC (0x00f80000)
@@ -13711,7 +13714,7 @@ s390_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   __builtin_s390_sfpc (fenv_var);
   __atomic_feraiseexcept ((old_fpc & FPC_FLAGS_MASK) >> FPC_FLAGS_SHIFT);  */
 
-  old_fpc = create_tmp_var (unsigned_type_node);
+  old_fpc = create_tmp_var_raw (unsigned_type_node);
   tree store_old_fpc = build2 (MODIFY_EXPR, void_type_node,
 			       old_fpc, call_efpc);
 

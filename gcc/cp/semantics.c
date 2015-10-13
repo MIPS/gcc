@@ -1361,7 +1361,14 @@ begin_compound_stmt (unsigned int flags)
       keep_next_level (false);
     }
   else
-    r = do_pushlevel (flags & BCS_TRY_BLOCK ? sk_try : sk_block);
+    {
+      scope_kind sk = sk_block;
+      if (flags & BCS_TRY_BLOCK)
+	sk = sk_try;
+      else if (flags & BCS_TRANSACTION)
+	sk = sk_transaction;
+      r = do_pushlevel (sk);
+    }
 
   /* When processing a template, we need to remember where the braces were,
      so that we can set up identical scopes when instantiating the template
@@ -2966,26 +2973,6 @@ finish_member_declaration (tree decl)
       maybe_add_class_template_decl_list (current_class_type, decl,
 					  /*friend_p=*/0);
     }
-
-  if (pch_file)
-    note_decl_for_pch (decl);
-}
-
-/* DECL has been declared while we are building a PCH file.  Perform
-   actions that we might normally undertake lazily, but which can be
-   performed now so that they do not have to be performed in
-   translation units which include the PCH file.  */
-
-void
-note_decl_for_pch (tree decl)
-{
-  gcc_assert (pch_file);
-
-  /* There's a good chance that we'll have to mangle names at some
-     point, even if only for emission in debugging information.  */
-  if (VAR_OR_FUNCTION_DECL_P (decl)
-      && !processing_template_decl)
-    mangle_decl (decl);
 }
 
 /* Finish processing a complete template declaration.  The PARMS are
@@ -8215,9 +8202,8 @@ finish_transaction_stmt (tree stmt, tree compound_stmt, int flags, tree noex)
     {
       tree body = build_must_not_throw_expr (TRANSACTION_EXPR_BODY (stmt),
 					     noex);
-      /* This may not be true when the STATEMENT_LIST is empty.  */
-      if (EXPR_P (body))
-        SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
+      protected_set_expr_location
+	(body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
       TREE_SIDE_EFFECTS (body) = 1;
       TRANSACTION_EXPR_BODY (stmt) = body;
     }
@@ -8237,8 +8223,7 @@ build_transaction_expr (location_t loc, tree expr, int flags, tree noex)
   if (noex)
     {
       expr = build_must_not_throw_expr (expr, noex);
-      if (EXPR_P (expr))
-	SET_EXPR_LOCATION (expr, loc);
+      protected_set_expr_location (expr, loc);
       TREE_SIDE_EFFECTS (expr) = 1;
     }
   ret = build1 (TRANSACTION_EXPR, TREE_TYPE (expr), expr);
@@ -8897,6 +8882,75 @@ capture_decltype (tree decl)
       type = build_reference_type (type);
     }
   return type;
+}
+
+/* Build a unary fold expression of EXPR over OP. If IS_RIGHT is true,
+   this is a right unary fold. Otherwise it is a left unary fold. */
+
+static tree
+finish_unary_fold_expr (tree expr, int op, tree_code dir)
+{
+  // Build a pack expansion (assuming expr has pack type).
+  if (!uses_parameter_packs (expr))
+    {
+      error_at (location_of (expr), "operand of fold expression has no "
+		"unexpanded parameter packs");
+      return error_mark_node;
+    }
+  tree pack = make_pack_expansion (expr);
+
+  // Build the fold expression.
+  tree code = build_int_cstu (integer_type_node, abs (op));
+  tree fold = build_min (dir, unknown_type_node, code, pack);
+  FOLD_EXPR_MODIFY_P (fold) = (op < 0);
+  return fold;
+}
+
+tree
+finish_left_unary_fold_expr (tree expr, int op)
+{
+  return finish_unary_fold_expr (expr, op, UNARY_LEFT_FOLD_EXPR);
+}
+
+tree
+finish_right_unary_fold_expr (tree expr, int op)
+{
+  return finish_unary_fold_expr (expr, op, UNARY_RIGHT_FOLD_EXPR);
+}
+
+/* Build a binary fold expression over EXPR1 and EXPR2. The
+   associativity of the fold is determined by EXPR1 and EXPR2 (whichever
+   has an unexpanded parameter pack). */
+
+tree
+finish_binary_fold_expr (tree pack, tree init, int op, tree_code dir)
+{
+  pack = make_pack_expansion (pack);
+  tree code = build_int_cstu (integer_type_node, abs (op));
+  tree fold = build_min (dir, unknown_type_node, code, pack, init);
+  FOLD_EXPR_MODIFY_P (fold) = (op < 0);
+  return fold;
+}
+
+tree
+finish_binary_fold_expr (tree expr1, tree expr2, int op)
+{
+  // Determine which expr has an unexpanded parameter pack and
+  // set the pack and initial term.
+  bool pack1 = uses_parameter_packs (expr1);
+  bool pack2 = uses_parameter_packs (expr2);
+  if (pack1 && !pack2)
+    return finish_binary_fold_expr (expr1, expr2, op, BINARY_RIGHT_FOLD_EXPR);
+  else if (pack2 && !pack1)
+    return finish_binary_fold_expr (expr2, expr1, op, BINARY_LEFT_FOLD_EXPR);
+  else
+    {
+      if (pack1)
+        error ("both arguments in binary fold have unexpanded parameter packs");
+      else
+        error ("no unexpanded parameter packs in binary fold");
+    }
+  return error_mark_node;
 }
 
 #include "gt-cp-semantics.h"

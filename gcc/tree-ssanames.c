@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "hard-reg-set.h"
 #include "ssa.h"
 #include "alias.h"
@@ -69,6 +70,7 @@ unsigned int ssa_name_nodes_reused;
 unsigned int ssa_name_nodes_created;
 
 #define FREE_SSANAMES(fun) (fun)->gimple_df->free_ssanames
+#define FREE_SSANAMES_QUEUE(fun) (fun)->gimple_df->free_ssanames_queue
 
 
 /* Initialize management of SSA_NAMEs to default SIZE.  If SIZE is
@@ -91,6 +93,7 @@ init_ssanames (struct function *fn, int size)
      least 50 elements reserved in it.  */
   SSANAMES (fn)->quick_push (NULL_TREE);
   FREE_SSANAMES (fn) = NULL;
+  FREE_SSANAMES_QUEUE (fn) = NULL;
 
   fn->gimple_df->ssa_renaming_needed = 0;
   fn->gimple_df->rename_vops = 0;
@@ -103,6 +106,7 @@ fini_ssanames (void)
 {
   vec_free (SSANAMES (cfun));
   vec_free (FREE_SSANAMES (cfun));
+  vec_free (FREE_SSANAMES_QUEUE (cfun));
 }
 
 /* Dump some simple statistics regarding the re-use of SSA_NAME nodes.  */
@@ -114,13 +118,26 @@ ssanames_print_statistics (void)
   fprintf (stderr, "SSA_NAME nodes reused: %u\n", ssa_name_nodes_reused);
 }
 
+/* Move all SSA_NAMEs from FREE_SSA_NAMES_QUEUE to FREE_SSA_NAMES.
+
+   We do not, but should have a mode to verify the state of the SSA_NAMEs
+   lists.  In particular at this point every name must be in the IL,
+   on the free list or in the queue.  Anything else is an error.  */
+
+void
+flush_ssaname_freelist (void)
+{
+  vec_safe_splice (FREE_SSANAMES (cfun), FREE_SSANAMES_QUEUE (cfun));
+  vec_safe_truncate (FREE_SSANAMES_QUEUE (cfun), 0);
+}
+
 /* Return an SSA_NAME node for variable VAR defined in statement STMT
    in function FN.  STMT may be an empty statement for artificial
    references (e.g., default definitions created when a variable is
    used without a preceding definition).  */
 
 tree
-make_ssa_name_fn (struct function *fn, tree var, gimple stmt)
+make_ssa_name_fn (struct function *fn, tree var, gimple *stmt)
 {
   tree t;
   use_operand_p imm;
@@ -348,8 +365,8 @@ release_ssa_name_fn (struct function *fn, tree var)
       /* Note this SSA_NAME is now in the first list.  */
       SSA_NAME_IN_FREE_LIST (var) = 1;
 
-      /* And finally put it on the free list.  */
-      vec_safe_push (FREE_SSANAMES (fn), var);
+      /* And finally queue it so that it will be put on the free list.  */
+      vec_safe_push (FREE_SSANAMES_QUEUE (fn), var);
     }
 }
 
@@ -437,7 +454,7 @@ get_ptr_info (tree t)
    statement STMT in function FN.  */
 
 tree
-copy_ssa_name_fn (struct function *fn, tree name, gimple stmt)
+copy_ssa_name_fn (struct function *fn, tree name, gimple *stmt)
 {
   tree new_name;
 
@@ -483,7 +500,6 @@ duplicate_ssa_name_range_info (tree name, enum value_range_type range_type,
 
   gcc_assert (!POINTER_TYPE_P (TREE_TYPE (name)));
   gcc_assert (!SSA_NAME_RANGE_INFO (name));
-  gcc_assert (!SSA_NAME_ANTI_RANGE_P (name));
 
   if (!range_info)
     return;
@@ -505,7 +521,7 @@ duplicate_ssa_name_range_info (tree name, enum value_range_type range_type,
    in function FN.  */
 
 tree
-duplicate_ssa_name_fn (struct function *fn, tree name, gimple stmt)
+duplicate_ssa_name_fn (struct function *fn, tree name, gimple *stmt)
 {
   tree new_name = copy_ssa_name_fn (fn, name, stmt);
   if (POINTER_TYPE_P (TREE_TYPE (name)))
@@ -544,11 +560,34 @@ reset_flow_sensitive_info (tree name)
     SSA_NAME_RANGE_INFO (name) = NULL;
 }
 
+/* Clear all flow sensitive data from all statements and PHI definitions
+   in BB.  */
+
+void
+reset_flow_sensitive_info_in_bb (basic_block bb)
+{
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      ssa_op_iter i;
+      tree op;
+      FOR_EACH_SSA_TREE_OPERAND (op, stmt, i, SSA_OP_DEF)
+	reset_flow_sensitive_info (op);
+    }
+
+  for (gphi_iterator gsi = gsi_start_phis (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      tree phi_def = gimple_phi_result (gsi.phi ());
+      reset_flow_sensitive_info (phi_def);
+    }
+}
 
 /* Release all the SSA_NAMEs created by STMT.  */
 
 void
-release_defs (gimple stmt)
+release_defs (gimple *stmt)
 {
   tree def;
   ssa_op_iter iter;
@@ -607,6 +646,7 @@ unsigned int
 pass_release_ssa_names::execute (function *fun)
 {
   unsigned i, j;
+  flush_ssaname_freelist ();
   int n = vec_safe_length (FREE_SSANAMES (fun));
 
   /* Now release the freelist.  */

@@ -56,6 +56,8 @@
 #include "cfgrtl.h"
 #include "stor-layout.h"
 #include "builtins.h"
+#include "omp-low.h"
+#include "gomp-constants.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -529,13 +531,8 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   nvptx_write_function_decl (s, name, decl);
   fprintf (file, "%s", s.str().c_str());
 
-  bool return_in_mem = false;
-  if (TYPE_MODE (result_type) != VOIDmode)
-    {
-      machine_mode mode = TYPE_MODE (result_type);
-      if (!RETURN_IN_REG_P (mode))
-	return_in_mem = true;
-    }
+  bool return_in_mem = (TYPE_MODE (result_type) != VOIDmode
+			&& !RETURN_IN_REG_P (TYPE_MODE (result_type)));
 
   fprintf (file, "\n{\n");
 
@@ -545,9 +542,13 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 		       false, return_in_mem);
   if (return_in_mem)
     fprintf (file, "\t.reg.u%d %%ar1;\n", GET_MODE_BITSIZE (Pmode));
-  else if (TYPE_MODE (result_type) != VOIDmode)
+
+  /* C++11 ABI causes us to return a reference to the passed in
+     pointer for return_in_mem.  */
+  if (cfun->machine->ret_reg_mode != VOIDmode)
     {
-      machine_mode mode = arg_promotion (TYPE_MODE (result_type));
+      machine_mode mode = arg_promotion
+	((machine_mode)cfun->machine->ret_reg_mode);
       fprintf (file, "\t.reg%s %%retval;\n",
 	       nvptx_ptx_type_from_mode (mode, false));
     }
@@ -633,17 +634,13 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 const char *
 nvptx_output_return (void)
 {
-  tree fntype = TREE_TYPE (current_function_decl);
-  tree result_type = TREE_TYPE (fntype);
-  if (TYPE_MODE (result_type) != VOIDmode)
+  machine_mode mode = (machine_mode)cfun->machine->ret_reg_mode;
+
+  if (mode != VOIDmode)
     {
-      machine_mode mode = TYPE_MODE (result_type);
-      if (RETURN_IN_REG_P (mode))
-	{
-	  mode = arg_promotion (mode);
-	  fprintf (asm_out_file, "\tst.param%s\t[%%out_retval], %%retval;\n",
-		   nvptx_ptx_type_from_mode (mode, false));
-	}
+      mode = arg_promotion (mode);
+      fprintf (asm_out_file, "\tst.param%s\t[%%out_retval], %%retval;\n",
+	       nvptx_ptx_type_from_mode (mode, false));
     }
 
   return "ret;";
@@ -807,6 +804,7 @@ nvptx_expand_call (rtx retval, rtx address)
 	    external_decl = true;
 	}
     }
+
   if (cfun->machine->funtype
       /* It's possible to construct testcases where we call a variable.
 	 See compile/20020129-1.c.  stdarg_p will crash so avoid calling it
@@ -1854,9 +1852,7 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 
 	case CONST_DOUBLE:
 	  long vals[2];
-	  REAL_VALUE_TYPE real;
-	  REAL_VALUE_FROM_CONST_DOUBLE (real, x);
-	  real_to_target (vals, &real, GET_MODE (x));
+	  real_to_target (vals, CONST_DOUBLE_REAL_VALUE (x), GET_MODE (x));
 	  vals[0] &= 0xffffffff;
 	  vals[1] &= 0xffffffff;
 	  if (GET_MODE (x) == SFmode)
@@ -1981,9 +1977,10 @@ nvptx_reorg_subreg (void)
 }
 
 /* PTX-specific reorganization
-   1) mark now-unused registers, so function begin doesn't declare
+   - Compute live registers
+   - Mark now-unused registers, so function begin doesn't declare
    unused registers.
-   2) replace subregs with suitable sequences.
+   - Replace subregs with suitable sequences.
 */
 
 static void
@@ -1995,6 +1992,7 @@ nvptx_reorg (void)
 
   thread_prologue_and_epilogue_insns ();
 
+  /* Compute live regs */
   df_clear_flags (DF_LR_RUN_DCE);
   df_set_flags (DF_NO_INSN_RESCAN | DF_NO_HARD_REGS);
   df_analyze ();
@@ -2063,9 +2061,51 @@ nvptx_vector_alignment (const_tree type)
 static void
 nvptx_record_offload_symbol (tree decl)
 {
-  fprintf (asm_out_file, "//:%s_MAP %s\n",
-	   TREE_CODE (decl) == VAR_DECL ? "VAR" : "FUNC",
-	   IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+  switch (TREE_CODE (decl))
+    {
+    case VAR_DECL:
+      fprintf (asm_out_file, "//:VAR_MAP \"%s\"\n",
+	       IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+      break;
+
+    case FUNCTION_DECL:
+      {
+	tree attr = get_oacc_fn_attrib (decl);
+	tree dims = NULL_TREE;
+	unsigned ix;
+
+	if (attr)
+	  dims = TREE_VALUE (attr);
+	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
+		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
+
+	for (ix = 0; ix != GOMP_DIM_MAX; ix++)
+	  {
+	    int size = 1;
+
+	    /* TODO: This check can go away once the dimension default
+	       machinery is merged to trunk.  */
+	    if (dims)
+	      {
+		tree dim = TREE_VALUE (dims);
+
+		if (dim)
+		  size = TREE_INT_CST_LOW (dim);
+
+		gcc_assert (!TREE_PURPOSE (dims));
+		dims = TREE_CHAIN (dims);
+	      }
+	    
+	    fprintf (asm_out_file, ", %#x", size);
+	  }
+	
+	fprintf (asm_out_file, "\n");
+      }
+      break;
+  
+    default:
+      gcc_unreachable ();
+    }
 }
 
 /* Implement TARGET_ASM_FILE_START.  Write the kinds of things ptxas expects
@@ -2092,6 +2132,22 @@ nvptx_file_end (void)
   FOR_EACH_HASH_TABLE_ELEMENT (*needed_fndecls_htab, decl, tree, iter)
     nvptx_record_fndecl (decl, true);
   fputs (func_decls.str().c_str(), asm_out_file);
+}
+
+/* Validate compute dimensions of an OpenACC offload or routine, fill
+   in non-unity defaults.  FN_LEVEL indicates the level at which a
+   routine might spawn a loop.  It is negative for non-routines.  */
+
+static bool
+nvptx_goacc_validate_dims (tree ARG_UNUSED (decl), int *ARG_UNUSED (dims),
+			   int ARG_UNUSED (fn_level))
+{
+  bool changed = false;
+
+  /* TODO: Leave dimensions unaltered.  Partitioned execution needs
+     porting before filtering dimensions makes sense.  */
+
+  return changed;
 }
 
 #undef TARGET_OPTION_OVERRIDE
@@ -2179,6 +2235,9 @@ nvptx_file_end (void)
 
 #undef TARGET_VECTOR_ALIGNMENT
 #define TARGET_VECTOR_ALIGNMENT nvptx_vector_alignment
+
+#undef TARGET_GOACC_VALIDATE_DIMS
+#define TARGET_GOACC_VALIDATE_DIMS nvptx_goacc_validate_dims
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

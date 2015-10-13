@@ -886,10 +886,8 @@ rx_print_operand (FILE * file, rtx op, int letter)
 	case CONST_DOUBLE:
 	  {
 	    unsigned long val;
-	    REAL_VALUE_TYPE rv;
 
-	    REAL_VALUE_FROM_CONST_DOUBLE (rv, op);
-	    REAL_VALUE_TO_TARGET_SINGLE (rv, val);
+	    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (op), val);
 	    if (print_hash)
 	      fprintf (file, "#");
 	    fprintf (file, TARGET_AS100_SYNTAX ? "0%lxH" : "0x%lx", val);
@@ -1561,7 +1559,7 @@ rx_get_stack_layout (unsigned int * lowest,
      PUSHM.
 
      FIXME: Is it worth improving this heuristic ?  */
-  pushed_mask = (-1 << low) & ~(-1 << (high + 1));
+  pushed_mask = (HOST_WIDE_INT_M1U << low) & ~(HOST_WIDE_INT_M1U << (high + 1));
   unneeded_pushes = (pushed_mask & (~ save_mask)) & pushed_mask;
 
   if ((fixed_reg && fixed_reg <= high)
@@ -1667,7 +1665,7 @@ ok_for_max_constant (HOST_WIDE_INT val)
 
   /* rx_max_constant_size specifies the maximum number
      of bytes that can be used to hold a signed value.  */
-  return IN_RANGE (val, (-1 << (rx_max_constant_size * 8)),
+  return IN_RANGE (val, (HOST_WIDE_INT_M1U << (rx_max_constant_size * 8)),
 		        ( 1 << (rx_max_constant_size * 8)));
 }
 

@@ -390,6 +390,7 @@ c_lex_one_token (c_parser *parser, c_token *token)
 	case RID_THROW:     token->keyword = RID_AT_THROW; break;
 	case RID_TRY:       token->keyword = RID_AT_TRY; break;
 	case RID_CATCH:     token->keyword = RID_AT_CATCH; break;
+	case RID_SYNCHRONIZED: token->keyword = RID_AT_SYNCHRONIZED; break;
 	default:            token->keyword = C_RID_CODE (token->value);
 	}
       break;
@@ -1198,8 +1199,8 @@ static tree c_parser_compound_statement (c_parser *);
 static void c_parser_compound_statement_nostart (c_parser *);
 static void c_parser_label (c_parser *);
 static void c_parser_statement (c_parser *);
-static void c_parser_statement_after_labels (c_parser *);
-static void c_parser_if_statement (c_parser *);
+static void c_parser_statement_after_labels (c_parser *, vec<tree> * = NULL);
+static void c_parser_if_statement (c_parser *, vec<tree> *);
 static void c_parser_switch_statement (c_parser *);
 static void c_parser_while_statement (c_parser *, bool);
 static void c_parser_do_statement (c_parser *, bool);
@@ -1540,8 +1541,16 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
           || c_parser_peek_2nd_token (parser)->type == CPP_MULT)
       && (!nested || !lookup_name (c_parser_peek_token (parser)->value)))
     {
-      error_at (here, "unknown type name %qE",
-                c_parser_peek_token (parser)->value);
+      tree name = c_parser_peek_token (parser)->value;
+      error_at (here, "unknown type name %qE", name);
+      /* Give a hint to the user.  This is not C++ with its implicit
+	 typedef.  */
+      if (tag_exists_p (RECORD_TYPE, name))
+	inform (here, "use %<struct%> keyword to refer to the type");
+      else if (tag_exists_p (UNION_TYPE, name))
+	inform (here, "use %<union%> keyword to refer to the type");
+      else if (tag_exists_p (ENUMERAL_TYPE, name))
+	inform (here, "use %<enum%> keyword to refer to the type");
 
       /* Parse declspecs normally to get a correct pointer type, but avoid
          a further "fails to be a type name" error.  Refuse nested functions
@@ -4954,10 +4963,11 @@ c_parser_statement (c_parser *parser)
   c_parser_statement_after_labels (parser);
 }
 
-/* Parse a statement, other than a labeled statement.  */
+/* Parse a statement, other than a labeled statement.  CHAIN is a vector
+   of if-else-if conditions.  */
 
 static void
-c_parser_statement_after_labels (c_parser *parser)
+c_parser_statement_after_labels (c_parser *parser, vec<tree> *chain)
 {
   location_t loc = c_parser_peek_token (parser)->location;
   tree stmt = NULL_TREE;
@@ -4972,7 +4982,7 @@ c_parser_statement_after_labels (c_parser *parser)
       switch (c_parser_peek_token (parser)->keyword)
 	{
 	case RID_IF:
-	  c_parser_if_statement (parser);
+	  c_parser_if_statement (parser, chain);
 	  break;
 	case RID_SWITCH:
 	  c_parser_switch_statement (parser);
@@ -5132,9 +5142,8 @@ c_parser_statement_after_labels (c_parser *parser)
      (recursively) all of the component statements should already have
      line numbers assigned.  ??? Can we discard no-op statements
      earlier?  */
-  if (CAN_HAVE_LOCATION_P (stmt)
-      && EXPR_LOCATION (stmt) == UNKNOWN_LOCATION)
-    SET_EXPR_LOCATION (stmt, loc);
+  if (EXPR_LOCATION (stmt) == UNKNOWN_LOCATION)
+    protected_set_expr_location (stmt, loc);
 
   parser->in_if_block = in_if_block;
 }
@@ -5223,10 +5232,12 @@ c_parser_if_body (c_parser *parser, bool *if_p,
 
 /* Parse the else body of an if statement.  This is just parsing a
    statement but (a) it is a block in C99, (b) we handle an empty body
-   specially for the sake of -Wempty-body warnings.  */
+   specially for the sake of -Wempty-body warnings.  CHAIN is a vector
+   of if-else-if conditions.  */
 
 static tree
-c_parser_else_body (c_parser *parser, const token_indent_info &else_tinfo)
+c_parser_else_body (c_parser *parser, const token_indent_info &else_tinfo,
+		    vec<tree> *chain)
 {
   location_t body_loc = c_parser_peek_token (parser)->location;
   tree block = c_begin_compound_stmt (flag_isoc99);
@@ -5244,7 +5255,7 @@ c_parser_else_body (c_parser *parser, const token_indent_info &else_tinfo)
       c_parser_consume_token (parser);
     }
   else
-    c_parser_statement_after_labels (parser);
+    c_parser_statement_after_labels (parser, chain);
 
   token_indent_info next_tinfo
     = get_token_indent_info (c_parser_peek_token (parser));
@@ -5258,10 +5269,11 @@ c_parser_else_body (c_parser *parser, const token_indent_info &else_tinfo)
    if-statement:
      if ( expression ) statement
      if ( expression ) statement else statement
-*/
+
+  CHAIN is a vector of if-else-if conditions.  */
 
 static void
-c_parser_if_statement (c_parser *parser)
+c_parser_if_statement (c_parser *parser, vec<tree> *chain)
 {
   tree block;
   location_t loc;
@@ -5287,15 +5299,47 @@ c_parser_if_statement (c_parser *parser)
   parser->in_if_block = true;
   first_body = c_parser_if_body (parser, &first_if, if_tinfo);
   parser->in_if_block = in_if_block;
+
+  if (warn_duplicated_cond)
+    warn_duplicated_cond_add_or_warn (EXPR_LOCATION (cond), cond, &chain);
+
   if (c_parser_next_token_is_keyword (parser, RID_ELSE))
     {
       token_indent_info else_tinfo
 	= get_token_indent_info (c_parser_peek_token (parser));
       c_parser_consume_token (parser);
-      second_body = c_parser_else_body (parser, else_tinfo);
+      if (warn_duplicated_cond)
+	{
+	  if (c_parser_next_token_is_keyword (parser, RID_IF)
+	      && chain == NULL)
+	    {
+	      /* We've got "if (COND) else if (COND2)".  Start the
+		 condition chain and add COND as the first element.  */
+	      chain = new vec<tree> ();
+	      if (!CONSTANT_CLASS_P (cond) && !TREE_SIDE_EFFECTS (cond))
+		chain->safe_push (cond);
+	    }
+	  else if (!c_parser_next_token_is_keyword (parser, RID_IF))
+	    {
+	      /* This is if-else without subsequent if.  Zap the condition
+		 chain; we would have already warned at this point.  */
+	      delete chain;
+	      chain = NULL;
+	    }
+	}
+      second_body = c_parser_else_body (parser, else_tinfo, chain);
     }
   else
-    second_body = NULL_TREE;
+    {
+      second_body = NULL_TREE;
+      if (warn_duplicated_cond)
+	{
+	  /* This if statement does not have an else clause.  We don't
+	     need the condition chain anymore.  */
+	  delete chain;
+	  chain = NULL;
+	}
+    }
   c_finish_if_stmt (loc, cond, first_body, second_body, first_if);
   if_stmt = c_end_compound_stmt (loc, block, flag_isoc99);
 
@@ -9843,12 +9887,15 @@ c_parser_pragma (c_parser *parser, enum pragma_context context)
 /* The interface the pragma parsers have to the lexer.  */
 
 enum cpp_ttype
-pragma_lex (tree *value)
+pragma_lex (tree *value, location_t *loc)
 {
   c_token *tok = c_parser_peek_token (the_parser);
   enum cpp_ttype ret = tok->type;
 
   *value = tok->value;
+  if (loc)
+    *loc = tok->location;
+
   if (ret == CPP_PRAGMA_EOL || ret == CPP_EOF)
     ret = CPP_EOF;
   else
@@ -10797,8 +10844,7 @@ c_parser_omp_clause_num_gangs (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
 		       build_int_cst (TREE_TYPE (t), 0));
-      if (CAN_HAVE_LOCATION_P (c))
-	SET_EXPR_LOCATION (c, expr_loc);
+      protected_set_expr_location (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0,
@@ -10842,8 +10888,7 @@ c_parser_omp_clause_num_threads (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
 		       build_int_cst (TREE_TYPE (t), 0));
-      if (CAN_HAVE_LOCATION_P (c))
-	SET_EXPR_LOCATION (c, expr_loc);
+      protected_set_expr_location (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0,
@@ -11120,8 +11165,7 @@ c_parser_omp_clause_num_workers (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
 		       build_int_cst (TREE_TYPE (t), 0));
-      if (CAN_HAVE_LOCATION_P (c))
-	SET_EXPR_LOCATION (c, expr_loc);
+      protected_set_expr_location (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0,
@@ -11529,8 +11573,7 @@ c_parser_omp_clause_vector_length (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
 		       build_int_cst (TREE_TYPE (t), 0));
-      if (CAN_HAVE_LOCATION_P (c))
-	SET_EXPR_LOCATION (c, expr_loc);
+      protected_set_expr_location (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0,
@@ -11633,8 +11676,7 @@ c_parser_omp_clause_num_teams (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
 			   build_int_cst (TREE_TYPE (t), 0));
-      if (CAN_HAVE_LOCATION_P (c))
-	SET_EXPR_LOCATION (c, expr_loc);
+      protected_set_expr_location (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0, "%<num_teams%> value must be positive");
@@ -11677,8 +11719,7 @@ c_parser_omp_clause_thread_limit (c_parser *parser, tree list)
       /* Attempt to statically determine when the number isn't positive.  */
       c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
 			   build_int_cst (TREE_TYPE (t), 0));
-      if (CAN_HAVE_LOCATION_P (c))
-	SET_EXPR_LOCATION (c, expr_loc);
+      protected_set_expr_location (c, expr_loc);
       if (c == boolean_true_node)
 	{
 	  warning_at (expr_loc, 0, "%<thread_limit%> value must be positive");

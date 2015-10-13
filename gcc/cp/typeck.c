@@ -715,6 +715,22 @@ composite_pointer_type (tree t1, tree t2, tree arg1, tree arg2,
           return error_mark_node;
         }
     }
+  else if (TYPE_PTR_P (t1) && TYPE_PTR_P (t2)
+	   && FUNC_OR_METHOD_TYPE_P (TREE_TYPE (t1))
+	   && TREE_CODE (TREE_TYPE (t2)) == TREE_CODE (TREE_TYPE (t1)))
+    {
+      /* ...if T1 is "pointer to transaction_safe function" and T2 is "pointer
+	 to function", where the function types are otherwise the same, T2, and
+	 vice versa.... */
+      tree f1 = TREE_TYPE (t1);
+      tree f2 = TREE_TYPE (t2);
+      bool safe1 = tx_safe_fn_type_p (f1);
+      bool safe2 = tx_safe_fn_type_p (f2);
+      if (safe1 && !safe2)
+	t1 = build_pointer_type (tx_unsafe_fn_variant (f1));
+      else if (safe2 && !safe1)
+	t2 = build_pointer_type (tx_unsafe_fn_variant (f2));
+    }
 
   return composite_pointer_type_r (t1, t2, operation, complain);
 }
@@ -4438,6 +4454,11 @@ cp_build_binary_op (location_t location,
 	       || (code0 == POINTER_TYPE
 		   && TYPE_PTR_P (type1) && integer_zerop (op1)))
 	{
+	  if (warn_nonnull
+	      && TREE_CODE (op0) == PARM_DECL && nonnull_arg_p (op0))
+	    warning_at (location, OPT_Wnonnull,
+			"nonnull argument %qD compared to NULL", op0);
+
 	  if (TYPE_PTR_P (type1))
 	    result_type = composite_pointer_type (type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);
@@ -4477,6 +4498,11 @@ cp_build_binary_op (location_t location,
 	       || (code1 == POINTER_TYPE
 		   && TYPE_PTR_P (type0) && integer_zerop (op0)))
 	{
+	  if (warn_nonnull
+	      && TREE_CODE (op1) == PARM_DECL && nonnull_arg_p (op1))
+	    warning_at (location, OPT_Wnonnull,
+			"nonnull argument %qD compared to NULL", op1);
+
 	  if (TYPE_PTR_P (type0))
 	    result_type = composite_pointer_type (type0, type1, op0, op1,
 						  CPO_COMPARISON, complain);

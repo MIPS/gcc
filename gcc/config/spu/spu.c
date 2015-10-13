@@ -472,7 +472,7 @@ spu_expand_insv (rtx ops[])
 {
   HOST_WIDE_INT width = INTVAL (ops[1]);
   HOST_WIDE_INT start = INTVAL (ops[2]);
-  HOST_WIDE_INT maskbits;
+  unsigned HOST_WIDE_INT maskbits;
   machine_mode dst_mode;
   rtx dst = ops[0], src = ops[3];
   int dst_size;
@@ -527,15 +527,15 @@ spu_expand_insv (rtx ops[])
   switch (dst_size)
     {
     case 32:
-      maskbits = (-1ll << (32 - width - start));
+      maskbits = (~(unsigned HOST_WIDE_INT)0 << (32 - width - start));
       if (start)
-	maskbits += (1ll << (32 - start));
+	maskbits += ((unsigned HOST_WIDE_INT)1 << (32 - start));
       emit_move_insn (mask, GEN_INT (maskbits));
       break;
     case 64:
-      maskbits = (-1ll << (64 - width - start));
+      maskbits = (~(unsigned HOST_WIDE_INT)0 << (64 - width - start));
       if (start)
-	maskbits += (1ll << (64 - start));
+	maskbits += ((unsigned HOST_WIDE_INT)1 << (64 - start));
       emit_move_insn (mask, GEN_INT (maskbits));
       break;
     case 128:
@@ -997,17 +997,12 @@ HOST_WIDE_INT
 const_double_to_hwint (rtx x)
 {
   HOST_WIDE_INT val;
-  REAL_VALUE_TYPE rv;
   if (GET_MODE (x) == SFmode)
-    {
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_SINGLE (rv, val);
-    }
+    REAL_VALUE_TO_TARGET_SINGLE (*CONST_DOUBLE_REAL_VALUE (x), val);
   else if (GET_MODE (x) == DFmode)
     {
       long l[2];
-      REAL_VALUE_FROM_CONST_DOUBLE (rv, x);
-      REAL_VALUE_TO_TARGET_DOUBLE (rv, l);
+      REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (x), l);
       val = l[0];
       val = (val << 32) | (l[1] & 0xffffffff);
     }
@@ -1031,7 +1026,7 @@ hwint_to_const_double (machine_mode mode, HOST_WIDE_INT v)
       tv[0] = v >> 32;
     }
   real_from_target (&rv, tv, mode);
-  return CONST_DOUBLE_FROM_REAL_VALUE (rv, mode);
+  return const_double_from_real_value (rv, mode);
 }
 
 void
@@ -3075,7 +3070,7 @@ spu_float_const (const char *string, machine_mode mode)
 {
   REAL_VALUE_TYPE value;
   value = REAL_VALUE_ATOF (string, mode);
-  return CONST_DOUBLE_FROM_REAL_VALUE (value, mode);
+  return const_double_from_real_value (value, mode);
 }
 
 int
@@ -7121,6 +7116,41 @@ spu_canonicalize_comparison (int *code, rtx *op0, rtx *op1,
       *code = (int)swap_condition ((enum rtx_code)*code);
     }
 }
+
+/* Expand an atomic fetch-and-operate pattern.  CODE is the binary operation
+   to perform.  MEM is the memory on which to operate.  VAL is the second
+   operand of the binary operator.  BEFORE and AFTER are optional locations to
+   return the value of MEM either before of after the operation.  */
+void
+spu_expand_atomic_op (enum rtx_code code, rtx mem, rtx val,
+		      rtx orig_before, rtx orig_after)
+{
+  machine_mode mode = GET_MODE (mem);
+  rtx before = orig_before, after = orig_after;
+
+  if (before == NULL_RTX)
+    before = gen_reg_rtx (mode);
+
+  emit_move_insn (before, mem);
+
+  if (code == MULT)  /* NAND operation */
+    {
+      rtx x = expand_simple_binop (mode, AND, before, val,
+				   NULL_RTX, 1, OPTAB_LIB_WIDEN);
+      after = expand_simple_unop (mode, NOT, x, after, 1);
+    }
+  else
+    {
+      after = expand_simple_binop (mode, code, before, val,
+				   after, 1, OPTAB_LIB_WIDEN);
+    }
+
+  emit_move_insn (mem, after);
+
+  if (orig_after && after != orig_after)
+    emit_move_insn (orig_after, after);
+}
+
 
 /*  Table of machine attributes.  */
 static const struct attribute_spec spu_attribute_table[] =
