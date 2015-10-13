@@ -2028,6 +2028,38 @@ gen_hsa_insns_for_bitfield_load (hsa_op_reg *dest, hsa_op_address *addr,
   gen_hsa_insns_for_bitfield (dest, value_reg, bitsize, bitpos, hbb);
 }
 
+/* Return the alignment of base memory accesses we issue to perform bit-field
+   memory access REF.  */
+
+static BrigAlignment8_t
+hsa_bitmemref_alignment (tree ref)
+{
+  unsigned HOST_WIDE_INT bit_offset = 0;
+
+  while (true)
+    {
+      if (TREE_CODE (ref) == BIT_FIELD_REF)
+	{
+	  if (!tree_fits_uhwi_p (TREE_OPERAND (ref, 2)))
+	    return BRIG_ALIGNMENT_1;
+	  bit_offset += tree_to_uhwi (TREE_OPERAND (ref, 2));
+	}
+      else if (TREE_CODE (ref) == COMPONENT_REF
+	       && DECL_BIT_FIELD (TREE_OPERAND (ref, 1)))
+	bit_offset += int_bit_position (TREE_OPERAND (ref, 1));
+      else
+	break;
+      ref = TREE_OPERAND (ref, 0);
+    }
+
+  unsigned HOST_WIDE_INT bits = bit_offset % BITS_PER_UNIT;
+  unsigned HOST_WIDE_INT byte_bits = bit_offset - bits;
+  BrigAlignment8_t base = hsa_alignment_encoding (get_object_alignment (ref));
+  if (byte_bits == 0)
+    return base;
+  return MIN (base, hsa_alignment_encoding (byte_bits & -byte_bits));
+}
+
 /* Generate HSAIL instructions loading something into register DEST.  RHS is
    tree representation of the loaded data, which are loaded as type TYPE.  Add
    instructions to HBB, use SSA_MAP for HSA SSA lookup.  */
@@ -2145,11 +2177,9 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 	  return;
 	}
 
-      BrigAlignment8_t req_align;
-      req_align = hsa_alignment_encoding (get_object_alignment (rhs));
       if (bitsize || bitpos)
 	gen_hsa_insns_for_bitfield_load (dest, addr, bitsize, bitpos, hbb,
-					 req_align);
+					 hsa_bitmemref_alignment (rhs));
       else
 	{
 	  BrigType16_t mtype;
@@ -2158,7 +2188,7 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb,
 								    false));
 	  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dest,
 						addr);
-	  mem->set_align (req_align);
+	  mem->set_align (hsa_alignment_encoding (get_object_alignment (rhs)));
 	  hbb->append_insn (mem);
 	}
     }
@@ -2194,6 +2224,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
 			 vec <hsa_op_reg_p> *ssa_map)
 {
   HOST_WIDE_INT bitsize = 0, bitpos = 0;
+  BrigAlignment8_t req_align;
   BrigType16_t mtype;
   mtype = mem_type_for_type (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs),
 							    false));
@@ -2227,10 +2258,11 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
 
       hsa_op_reg *value_reg = new hsa_op_reg (mem_type);
 
+      req_align = hsa_bitmemref_alignment (lhs);
       /* Load value from memory.  */
       hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mem_type,
 					    value_reg, addr);
-      mem->set_align (hsa_alignment_encoding (get_object_alignment (lhs)));
+      mem->set_align (req_align);
       hbb->append_insn (mem);
 
       /* AND the loaded value with prepared mask.  */
@@ -2271,9 +2303,11 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
       src = prepared_reg;
       mtype = mem_type;
     }
+  else
+    req_align = hsa_alignment_encoding (get_object_alignment (lhs));
 
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
-  mem->set_align (hsa_alignment_encoding (get_object_alignment (lhs)));
+  mem->set_align (req_align);
 
   /* XXX The HSAIL disasm has another constraint: if the source
      is an immediate then it must match the destination type.  If
