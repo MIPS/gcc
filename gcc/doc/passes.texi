@@ -156,7 +156,7 @@ The number of UPC threads specified for the current
 program execution.
 @end table
 
-The major components of the UPC language extension transform passe are:
+The major components of the UPC language extension transform passes are:
 @itemize @bullet
 @item UPC shared memory accesses:
 Read accesses to UPC shared memory are translated into calls

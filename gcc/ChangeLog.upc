@@ -1,3 +1,7 @@
+2015-10-13  Gary Funck  <gary@intrepid.com>
+
+	* doc/passes.texi: fix typo.
+
 2015-10-12  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 228706 into gupc branch.
