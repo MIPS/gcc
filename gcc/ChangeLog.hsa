@@ -1,3 +1,11 @@
+2015-10-13  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_op_with_type::get_in_type): New function.
+	(gen_hsa_insns_for_switch_stmt): Use it.
+	(gen_set_num_threads): Dtto.
+	(gen_hsa_insns_for_known_library_call): Dtto.
+	* hsa.h (hsa_op_with_type::get_in_type): Declarate the function.
+
 2015-10-13  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (hsa_bitref_alignment): New function

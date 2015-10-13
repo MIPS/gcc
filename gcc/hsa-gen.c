@@ -795,6 +795,34 @@ hsa_op_with_type::hsa_op_with_type (BrigKind16_t k, BrigType16_t t)
   type = t;
 }
 
+hsa_op_with_type *
+hsa_op_with_type::get_in_type (BrigType16_t dtype, hsa_bb *hbb)
+{
+  if (type == dtype)
+    return this;
+
+  hsa_op_reg *dest;
+
+  if (hsa_needs_cvt (dtype, type))
+    {
+      dest = new hsa_op_reg (dtype);
+      hbb->append_insn (new hsa_insn_basic (2, BRIG_OPCODE_CVT,
+					    dest->type, dest, this));
+    }
+  else
+    {
+      dest = new hsa_op_reg (type);
+      hbb->append_insn (new hsa_insn_basic (2, BRIG_OPCODE_MOV,
+					    dest->type, dest, this));
+
+      /* We cannot simply for instance: 'mov_u32 $_3, 48 (s32)' because
+	 type of the operand must be same as type of the instruction.  */
+      dest->type = dtype;
+    }
+
+  return dest;
+}
+
 /* Constructor of class representing HSA immediate values.  TREE_VAL is the
    tree representation of the immediate value.  If min32int is true,
    always expand integer types to one that has at least 32 bits.  */
@@ -3050,16 +3078,8 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb,
 					sub_index, index,
 					new hsa_op_immed (lowest)));
 
-  if (hsa_needs_cvt (BRIG_TYPE_U64, sub_index->type))
-    {
-      hsa_op_reg *sub_index_cvt = new hsa_op_reg (BRIG_TYPE_U64);
-      hbb->append_insn (new hsa_insn_basic (2, BRIG_OPCODE_CVT,
-					    sub_index_cvt->type,
-					    sub_index_cvt, sub_index));
-
-      sub_index = sub_index_cvt;
-    }
-
+  hsa_op_base *tmp = sub_index->get_in_type (BRIG_TYPE_U64, hbb);
+  sub_index = as_a <hsa_op_reg *> (tmp);
   unsigned labels = gimple_switch_num_labels (s);
   unsigned HOST_WIDE_INT size = tree_to_uhwi (get_switch_size (s));
 
@@ -3285,17 +3305,7 @@ gen_set_num_threads (tree value, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
   hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (value, hbb,
 							  ssa_map);
 
-  BrigType16_t dtype = hsa_num_threads->type;
-  if (hsa_needs_cvt (dtype, src->type))
-    {
-      hsa_op_reg *tmp = new hsa_op_reg (dtype);
-      hbb->append_insn (new hsa_insn_basic (2, BRIG_OPCODE_CVT, tmp->type,
-					    tmp, src));
-      src = tmp;
-    }
-  else
-    src->type = dtype;
-
+  src = src->get_in_type (hsa_num_threads->type, hbb);
   hsa_op_address *addr = new hsa_op_address (hsa_num_threads);
 
   hsa_op_immed *limit = new hsa_op_immed (64, BRIG_TYPE_U32);
@@ -3428,17 +3438,7 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb,
 	  hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (rhs1, hbb,
 								  ssa_map);
 
-	  BrigType16_t dtype = BRIG_TYPE_U64;
-	  if (hsa_needs_cvt (dtype, src->type))
-	    {
-	      hsa_op_reg *tmp = new hsa_op_reg (dtype);
-	      hbb->append_insn (new hsa_insn_basic (2, BRIG_OPCODE_CVT,
-						    tmp->type, tmp, src));
-	      src = tmp;
-	    }
-	  else
-	    src->type = dtype;
-
+	  src = src->get_in_type (BRIG_TYPE_U64, hbb);
 	  set_debug_value (hbb, src);
 	  return true;
 	}

@@ -120,6 +120,10 @@ public:
   /* The type.  */
   BrigType16_t type;
 
+  /* Convert an operand to a destination type DTYPE and attach insns
+     to HBB if needed.  */
+  hsa_op_with_type *get_in_type (BrigType16_t dtype, hsa_bb *hbb);
+
 protected:
   hsa_op_with_type (BrigKind16_t k, BrigType16_t t);
 private:
