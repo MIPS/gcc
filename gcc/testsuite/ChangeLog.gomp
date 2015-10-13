@@ -1,3 +1,8 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/linear-1.c: New test.
+	* g++.dg/gomp/linear-1.C: New test.
+
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/depend-4.c (main): Add tests for negative

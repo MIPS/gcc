@@ -1,3 +1,8 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses): Disallow modifiers on simd/for
+	constructs.
+
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_array_sections_1): Diagnose negative
