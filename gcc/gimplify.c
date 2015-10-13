@@ -8743,6 +8743,8 @@ gimplify_omp_ordered (tree expr, gimple_seq body)
   tree c, decls;
   int failures = 0;
   unsigned int i;
+  tree source_c = NULL_TREE;
+  tree sink_c = NULL_TREE;
 
   if (gimplify_omp_ctxp)
     for (c = OMP_ORDERED_CLAUSES (expr); c; c = OMP_CLAUSE_CHAIN (c))
@@ -8772,13 +8774,33 @@ gimplify_omp_ordered (tree expr, gimple_seq body)
 	  if (!fail && i != gimplify_omp_ctxp->loop_iter_var.length () / 2)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
-			"number of variables in depend(sink) "
+			"number of variables in %<depend(sink)%> "
 			"clause does not match number of "
 			"iteration variables");
-	      fail = true;
 	      failures++;
 	    }
+	  sink_c = c;
 	}
+      else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
+	       && OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE)
+	{
+	  if (source_c)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"more than one %<depend(source)%> clause on an "
+			"%<ordered%> construct");
+	      failures++;
+	    }
+	  else
+	    source_c = c;
+	}
+  if (source_c && sink_c)
+    {
+      error_at (OMP_CLAUSE_LOCATION (source_c),
+		"%<depend(source)%> clause specified together with "
+		"%<depend(sink:)%> clauses on the same construct");
+      failures++;
+    }
 
   if (failures)
     return gimple_build_nop ();

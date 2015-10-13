@@ -1,3 +1,11 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_ordered): Disallow multiple
+	depend(source) clauses on the same construct.  Disallow depend(source)
+	combined with depend(sink:vec) on the same construct.
+	* omp-low.c (check_omp_nesting_restrictions): Remove pointless
+	asserts.
+
 2015-10-09  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Adjust OpenMP version

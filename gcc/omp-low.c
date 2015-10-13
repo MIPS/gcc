@@ -3348,8 +3348,6 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		|| OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK))
 	  {
 	    enum omp_clause_depend_kind kind = OMP_CLAUSE_DEPEND_KIND (c);
-	    gcc_assert (kind == OMP_CLAUSE_DEPEND_SOURCE
-			|| kind == OMP_CLAUSE_DEPEND_SINK);
 	    error_at (OMP_CLAUSE_LOCATION (c),
 		      "%<depend(%s)%> is only allowed in %<omp ordered%>",
 		      kind == OMP_CLAUSE_DEPEND_SOURCE ? "source" : "sink");
@@ -3455,8 +3453,6 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		|| OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK))
 	  {
 	    enum omp_clause_depend_kind kind = OMP_CLAUSE_DEPEND_KIND (c);
-	    gcc_assert (kind == OMP_CLAUSE_DEPEND_SOURCE
-			|| kind == OMP_CLAUSE_DEPEND_SINK);
 	    error_at (OMP_CLAUSE_LOCATION (c),
 		      "%<depend(%s)%> is only allowed in %<omp ordered%>",
 		      kind == OMP_CLAUSE_DEPEND_SOURCE ? "source" : "sink");
