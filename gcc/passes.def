@@ -86,12 +86,13 @@ along with GCC; see the file COPYING3.  If not see
 	  /* pass_build_ealias is a dummy pass that ensures that we
 	     execute TODO_rebuild_alias at this point.  */
 	  NEXT_PASS (pass_build_ealias);
-	  NEXT_PASS (pass_fre);
 	  /* Pass group that runs when there are oacc kernels in the
 	     function.  */
 	  NEXT_PASS (pass_oacc_kernels);
 	  PUSH_INSERT_PASSES_WITHIN (pass_oacc_kernels)
+	      NEXT_PASS (pass_dominator_oacc_kernels);
 	      NEXT_PASS (pass_ch_oacc_kernels);
+	      NEXT_PASS (pass_dominator_oacc_kernels);
 	      NEXT_PASS (pass_tree_loop_init);
 	      NEXT_PASS (pass_lim);
 	      NEXT_PASS (pass_copy_prop);
@@ -105,6 +106,7 @@ along with GCC; see the file COPYING3.  If not see
 	      NEXT_PASS (pass_expand_omp_ssa);
 	      NEXT_PASS (pass_tree_loop_done);
 	  POP_INSERT_PASSES ()
+	  NEXT_PASS (pass_fre);
 	  NEXT_PASS (pass_merge_phi);
           NEXT_PASS (pass_dse);
 	  NEXT_PASS (pass_cd_dce);

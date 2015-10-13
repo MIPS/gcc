@@ -1,5 +1,5 @@
 /* { dg-additional-options "-O2" } */
-/* { dg-additional-options "-fdump-tree-dom_oacc_kernels" } */
+/* { dg-additional-options "-fdump-tree-dom_oacc_kernels3" } */
 
 #include <stdlib.h>
 
@@ -28,7 +28,9 @@ foo (unsigned int *c)
    _15 = .omp_data_i_10->c;
    c.1_16 = *_15;
 
-   Check that there's only one load from anonymous ssa-name (which we assume to
-   be the one to read c), and that there's no such load for ii.  */
+   Check that there are two loads from anonymous ssa-names, which we assume to
+   be:
+   - the one to read c
+   - the one to read ii after the kernels region.  */
 
-/* { dg-final { scan-tree-dump-times "(?n)\\*_\[0-9\]\[0-9\]*;$" 1 "dom_oacc_kernels" } } */
+/* { dg-final { scan-tree-dump-times "(?n)\\*_\[0-9\]\[0-9\]*;$" 2 "dom_oacc_kernels3" } } */

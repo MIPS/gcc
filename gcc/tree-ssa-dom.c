@@ -788,6 +788,7 @@ public:
   {}
 
   /* opt_pass methods: */
+  opt_pass * clone () { return new pass_dominator_oacc_kernels (m_ctxt); }
   virtual bool gate (function *) { return true; }
 
  private:

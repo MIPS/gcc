@@ -1,3 +1,9 @@
+2015-10-13  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-dom.c (pass_dominator_oacc_kernels::clone): New function.
+	* passes.def: Move pass group pass_oacc_kernels to before pass_fre. Add
+	pass_dominator_oacc_kernels twice in the pass_oacc_kernels pass group.
+
 2015-10-13  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* internal-fn.def (IFN_UNIQUE_OACC_HEAD_MARK,
