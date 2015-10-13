@@ -1,5 +1,9 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (gimplify_scan_omp_clauses): Diagnose linear
+	clause on combined distribute {, parallel for} simd construct,
+	unless it is the loop iterator.
+
 	* gimplify.c (gimplify_omp_ordered): Diagnose ordered depend
 	inside loop without ordered(n) clause.
 	* omp-low.c (check_omp_nesting_restrictions): Use a different

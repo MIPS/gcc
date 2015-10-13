@@ -1,5 +1,13 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-parser.c (c_parser_omp_for_loop): Disallow linear clause
+	if ordered(n) is present.
+	(c_parser_omp_for): Disallow ordered clause if combined with
+	distribute.  Disallow linear clause if not combined with
+	simd and combined with distribute.
+	(c_parser_omp_parallel): Disallow copyin clause on
+	target parallel{, for, for simd}.
+
 	* c-parser.c (c_parser_omp_simd): Allow ordered clause on
 	for simd, but ensure no parameter is specified for it.
 

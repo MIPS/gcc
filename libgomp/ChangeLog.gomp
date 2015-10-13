@@ -1,3 +1,12 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/pr66199-2.c (f2): Adjust for linear clause
+	only allowed on the loop iterator.
+	* testsuite/libgomp.c/pr66199-4.c (f2): Adjust for linear clause
+	no longer allowed.
+	* testsuite/libgomp.c/linear-2.c: Remove.
+	* testsuite/libgomp.c++/linear-2.C: Remove.
+
 2015-10-09  Aldy Hernandez  <aldyh@redhat.com>
 
 	* libgomp.h (_LIBGOMP_CHECKING_): New macro.
