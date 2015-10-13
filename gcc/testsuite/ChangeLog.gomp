@@ -1,5 +1,11 @@
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/cpp/openmp-define-3.c: Adjust for the new
+	value of _OPENMP macro.
+	* c-c++-common/cilk-plus/PS/body.c (foo): Adjust expected diagnostics.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_acc_parallel,
+	f_acc_kernels, f_acc_data, f_acc_loop): Add map clause to target data.
+
 	* c-c++-common/gomp/clauses-1.c (bar): Remove linear
 	and/or ordered clauses where they are no longer allowed.
 	* c-c++-common/gomp/clauses-4.c: New test.
