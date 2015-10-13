@@ -78,6 +78,10 @@ DEF_INTERNAL_FN (UNIQUE, ECF_NOTHROW | ECF_LEAF, NULL)
    indicating the axis of forking or joining and return nothing.  */
 #define IFN_UNIQUE_OACC_FORK 1
 #define IFN_UNIQUE_OACC_JOIN 2
+/* HEAD_MARK and TAIL_MARK are used to demark the sequence entering or
+   leaving partitioned execution.  */
+#define IFN_UNIQUE_OACC_HEAD_MARK 3
+#define IFN_UNIQUE_OACC_TAIL_MARK 4
 
 /* DIM_SIZE and DIM_POS return the size of a particular compute
    dimension and the executing thread's position within that

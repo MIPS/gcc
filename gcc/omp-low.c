@@ -236,6 +236,26 @@ struct omp_for_data
   struct omp_for_data_loop *loops;
 };
 
+/* Describe the OpenACC looping structure of a function.  The entire
+   function is held in a 'NULL' loop.  */
+
+struct oacc_loop
+{
+  oacc_loop *parent; /* Containing loop.  */
+
+  oacc_loop *child; /* First inner loop.  */
+
+  oacc_loop *sibling; /* Next loop within same parent.  */
+
+  location_t loc; /* Location of the loop start.  */
+
+  /* Start of head and tail.  */
+  gcall *head;  /* Head marker function. */
+  gcall *tail;  /* Tail marker function.  */
+
+  /* Partitioning level.  */
+  unsigned level;
+};
 
 static splay_tree all_contexts;
 static int taskreg_nesting_level;
@@ -4748,11 +4768,12 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
   return res;
 }
 
-/* Lower the OpenACC reductions of CLAUSES for compute axis DIM.  INNER
-   is true if this is an inner axis of a multi-axis loop.  FORK and
-   JOIN are (optional) fork and join markers.  Generate the
-   before-loop forking sequence in FORK_SEQ and the after-loop joining
-   sequence to JOIN_SEQ.  The general form of these sequences is
+/* Lower the OpenACC reductions of CLAUSES for compute axis LEVEL
+   (which might be a placeholder).  INNER is true if this is an inner
+   axis of a multi-axis loop.  FORK and JOIN are (optional) fork and
+   join markers.  Generate the before-loop forking sequence in
+   FORK_SEQ and the after-loop joining sequence to JOIN_SEQ.  The
+   general form of these sequences is
 
      GOACC_REDUCTION_SETUP
      GOACC_FORK
@@ -4763,7 +4784,7 @@ expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
      GOACC_REDUCTION_TEARDOWN.  */
 
 static void
-lower_oacc_reductions (location_t loc, tree clauses, unsigned dim, bool inner,
+lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		       gcall *fork, gcall *join, gimple_seq *fork_seq,
 		       gimple_seq *join_seq, omp_context *ctx)
 {
@@ -4775,7 +4796,6 @@ lower_oacc_reductions (location_t loc, tree clauses, unsigned dim, bool inner,
   gimple_seq after_join = NULL;
   unsigned count = 0;
   tree lid = build_int_cst (unsigned_type_node, oacc_lid++);
-  tree level = build_int_cst (unsigned_type_node, dim);
 
   for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
@@ -4877,6 +4897,22 @@ lower_oacc_reductions (location_t loc, tree clauses, unsigned dim, bool inner,
   gimple_seq_add_seq (join_seq, after_join);
 }
 
+/* Emit an OpenACC lopp head or tail marker to SEQ.  LEVEL is the
+   partitioning level of the enclosed region.  */ 
+
+static void
+lower_oacc_loop_marker (location_t loc, bool head, tree level,
+			gimple_seq *seq)
+{
+  tree marker = build_int_cst
+    (integer_type_node, (head ? IFN_UNIQUE_OACC_HEAD_MARK
+			 : IFN_UNIQUE_OACC_TAIL_MARK));
+  gcall *call = gimple_build_call_internal
+    (IFN_UNIQUE, 1 + (level != NULL_TREE), marker, level);
+  gimple_set_location (call, loc);
+  gimple_seq_add_stmt (seq, call);
+}
+
 /* Generate the before and after OpenACC loop sequences.  CLAUSES are
    the loop clauses, from which we extract reductions.  Initialize
    HEAD and TAIL.  */
@@ -4895,19 +4931,25 @@ lower_oacc_head_tail (location_t loc, tree clauses,
   for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
     if (mask & GOMP_DIM_MASK (ix))
       {
-	tree level = build_int_cst (unsigned_type_node, ix);
+	tree place = build_int_cst (integer_type_node, -1);
+	tree level = build_int_cst (integer_type_node, ix);
 	gcall *fork = gimple_build_call_internal
 	  (IFN_UNIQUE, 2,
-	   build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK), level);
+	   build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK), place);
 	gcall *join = gimple_build_call_internal
 	  (IFN_UNIQUE, 2,
-	   build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN), level);
+	   build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN), place);
 	gimple_seq fork_seq = NULL;
 	gimple_seq join_seq = NULL;
 
 	gimple_set_location (fork, loc);
 	gimple_set_location (join, loc);
-	lower_oacc_reductions (loc, clauses, ix, inner,
+
+	/* Mark the beginning of this level sequence.  */
+	lower_oacc_loop_marker (loc, true, level, &fork_seq);
+	lower_oacc_loop_marker (loc, false, level, &join_seq);
+
+	lower_oacc_reductions (loc, clauses, place, inner,
 			       fork, join, &fork_seq, &join_seq,  ctx);
 
 	/* Append this level to head. */
@@ -4918,6 +4960,10 @@ lower_oacc_head_tail (location_t loc, tree clauses,
 
 	inner = true;
       }
+
+  /* Mark the end of the sequence.  */
+  lower_oacc_loop_marker (loc, true, NULL_TREE, head);
+  lower_oacc_loop_marker (loc, false, NULL_TREE, tail);
 }
 
 /* Generate code to implement the REDUCTION clauses.  OpenACC reductions
@@ -12712,9 +12758,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     /* If there are reductions on the offloaded region itself, treat
        them as a dummy GANG loop.  */
     lower_oacc_reductions (gimple_location (ctx->stmt), clauses,
-			   GOMP_DIM_GANG, false, NULL, NULL,
-			   &irlist, &orlist, ctx);
-  
+			   build_int_cst (unsigned_type_node, GOMP_DIM_GANG),
+			   false, NULL, NULL, &irlist, &orlist, ctx);
+
   if (offloaded)
     {
       /* Declare all the variables created by mapping and the variables
@@ -15665,6 +15711,286 @@ oacc_validate_dims (tree fn, tree attrs, int *dims)
   return fn_level;
 }
 
+/* Create an empty OpenACC loop structure at LOC.  */
+
+static oacc_loop *
+new_oacc_loop_raw (oacc_loop *parent, location_t loc)
+{
+  oacc_loop *loop = XCNEW (oacc_loop);
+
+  loop->parent = parent;
+  loop->child = loop->sibling = NULL;
+
+  if (parent)
+    {
+      loop->sibling = parent->child;
+      parent->child = loop;
+    }
+
+  loop->head = loop->tail = NULL;
+  
+  loop->loc = loc;
+  
+  loop->level = 0;
+
+  return loop;
+}
+
+/* Create an outermost, dummy OpenACC loop for offloaded function
+   DECL.  */
+
+static oacc_loop *
+new_oacc_loop_outer (tree decl)
+{
+  return new_oacc_loop_raw (NULL, DECL_SOURCE_LOCATION (decl));
+}
+
+/* Start a new OpenACC loop  structure beginning at head marker HEAD.
+   Link into PARENT loop.  Return the new loop.  */
+
+static oacc_loop *
+new_oacc_loop (oacc_loop *parent, gcall *head)
+{
+  oacc_loop *loop = new_oacc_loop_raw (parent, gimple_location (head));
+
+  loop->head = head;
+
+  loop->level = TREE_INT_CST_LOW (gimple_call_arg (head, 1));
+
+  return loop;
+}
+
+/* Finish off the current OpenACC loop ending at tail marker TAIL.
+   Return the parent loop.  */
+
+static oacc_loop *
+finish_oacc_loop (oacc_loop *loop, gcall *tail)
+{
+  loop->tail = tail;
+
+  gcc_assert (TREE_INT_CST_LOW (gimple_call_arg (tail, 1)) == loop->level);
+
+  return loop->parent;
+}
+
+/* Free all OpenACC loop structures within LOOP (inclusive).  */
+
+static void
+free_oacc_loop (oacc_loop *loop)
+{
+  if (loop->sibling)
+    free_oacc_loop (loop->sibling);
+  if (loop->child)
+    free_oacc_loop (loop->child);
+
+  free (loop);
+}
+
+/* Dump out the OpenACC loop head or tail beginning at FROM.  */
+
+static void
+dump_oacc_loop_part (FILE *file, gcall *from, int depth,  const char *title)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (from);
+  unsigned code = TREE_INT_CST_LOW (gimple_call_arg (from, 0));
+
+  fprintf (file, "%*s%s:\n", depth * 2, "", title);
+  for (gimple *stmt = from; ;)
+    {
+      print_gimple_stmt (file, stmt, depth * 2 + 2, 0);
+      gsi_next (&gsi);
+      stmt = gsi_stmt (gsi);
+
+      if (!is_gimple_call (stmt))
+	continue;
+
+      gcall *call = as_a <gcall *> (stmt);
+      
+      if (gimple_call_internal_p (call)
+	  && gimple_call_internal_fn (call) == IFN_UNIQUE
+	  && code == TREE_INT_CST_LOW (gimple_call_arg (call, 0)))
+	break;
+    }
+}
+
+/* Dump OpenACC loops LOOP, its siblings and its children.  */
+
+static void
+dump_oacc_loop (FILE *file, oacc_loop *loop, int depth)
+{
+  fprintf (file, "%*sLoop %d %s:%u\n", depth * 2, "",
+	   loop->level,
+	   LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc));
+
+  if (loop->head)
+    dump_oacc_loop_part (file, loop->head, depth, "Head");
+  if (loop->tail)
+    dump_oacc_loop_part (file, loop->tail, depth, "Tail");
+  
+  if (loop->child)
+    dump_oacc_loop (file, loop->child, depth + 1);
+  if (loop->sibling)
+    dump_oacc_loop (file, loop->sibling, depth);
+}
+
+void debug_oacc_loop (oacc_loop *);
+
+/* Dump loops to stderr.  */
+
+DEBUG_FUNCTION void
+debug_oacc_loop (oacc_loop *loop)
+{
+  dump_oacc_loop (stderr, loop, 0);
+}
+
+/* DFS walk of basic blocks BB onwards, creating OpenACC loop
+   structures as we go.  By construction these loops are properly
+   nested.  */
+
+static void
+oacc_loop_walk (oacc_loop *loop, basic_block bb)
+{
+  if (bb->flags & BB_VISITED)
+    return;
+  bb->flags |= BB_VISITED;
+
+  /* Scan for loop markers.  */
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+       gsi_next (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+
+      if (!is_gimple_call (stmt))
+	continue;
+
+      gcall *call = as_a <gcall *> (stmt);
+      
+      if (!gimple_call_internal_p (call))
+	continue;
+
+      if (gimple_call_internal_fn (call) != IFN_UNIQUE)
+	continue;
+
+      if (gimple_call_num_args (call) == 1)
+	continue;
+
+      unsigned code = TREE_INT_CST_LOW (gimple_call_arg (call, 0));
+      switch (code)
+	{
+	case IFN_UNIQUE_OACC_HEAD_MARK:
+	  loop = new_oacc_loop (loop, call);
+	  break;
+	case IFN_UNIQUE_OACC_TAIL_MARK:
+	  loop = finish_oacc_loop (loop, call);
+	default: break;
+	}
+    }
+
+  /* Walk successor blocks.  */
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    oacc_loop_walk (loop, e->dest);
+}
+
+/* Discover the OpenACC loops marked up by HEAD and TAIL markers for
+   the current function.  */
+
+static oacc_loop *
+oacc_loop_discovery ()
+{
+  basic_block bb;
+  
+  oacc_loop *top = new_oacc_loop_outer (current_function_decl);
+  oacc_loop_walk (top, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+
+  /* Reset the visited flags.  */
+  FOR_ALL_BB_FN (bb, cfun)
+    bb->flags &= ~BB_VISITED;
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "OpenACC loops\n");
+      dump_oacc_loop (dump_file, top, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  return top;
+}
+
+/* Transform the abstract internal function markers starting at FROM
+   to be for partitioning level LEVEL.  Stop when we meet another HEAD
+   or TAIL  marker.  */
+
+static void
+oacc_loop_transform (gcall *from, int level)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (from);
+  unsigned code = TREE_INT_CST_LOW (gimple_call_arg (from, 0));
+  tree replacement  = build_int_cst (unsigned_type_node, level);
+
+  for (gimple *stmt = from; ;)
+    {
+      gsi_next (&gsi);
+      stmt = gsi_stmt (gsi);
+
+      if (!is_gimple_call (stmt))
+	continue;
+
+      gcall *call = as_a <gcall *> (stmt);
+      
+      if (!gimple_call_internal_p (call))
+	continue;
+
+      switch (gimple_call_internal_fn (call))
+	{
+	case IFN_UNIQUE:
+	  {
+	    unsigned c = TREE_INT_CST_LOW (gimple_call_arg (call, 0));
+
+	    if (c == code)
+	      goto break2;
+
+	    if (c == IFN_UNIQUE_OACC_FORK || c == IFN_UNIQUE_OACC_JOIN)
+	      *gimple_call_arg_ptr (call, 1) = replacement;
+	  }
+	  break;
+
+	case IFN_GOACC_REDUCTION_SETUP:
+	case IFN_GOACC_REDUCTION_INIT:
+	case IFN_GOACC_REDUCTION_FINI:
+	case IFN_GOACC_REDUCTION_TEARDOWN:
+	  *gimple_call_arg_ptr (call, 2) = replacement;
+	  break;
+
+	default:
+	  break;
+	}
+    }
+
+ break2:;
+}
+
+/* Process the discovered OpenACC loops, setting the correct
+   partitioning level etc.  */
+
+static void
+oacc_loop_process (oacc_loop *loop)
+{
+  if (loop->child)
+    oacc_loop_process (loop->child);
+
+  if (loop->head)
+    {
+      oacc_loop_transform (loop->head, loop->level);
+      oacc_loop_transform (loop->tail, loop->level);
+    }
+
+  if (loop->sibling)
+    oacc_loop_process (loop->sibling);
+}
+
 /* Main entry point for oacc transformations which run on the device
    compiler after LTO, so we know what the target device is at this
    point (including the host fallback).  */
@@ -15680,11 +16006,17 @@ execute_oacc_device_lower ()
     return 0;
 
   oacc_validate_dims (current_function_decl, attrs, dims);
-  
+
+  /* Discover and process the loops.  */
+  oacc_loop *loops = oacc_loop_discovery ();
+  oacc_loop_process (loops);
+
   /* Offloaded targets may introduce new basic blocks, which require
      dominance information to update SSA.  */
   calculate_dominance_info (CDI_DOMINATORS);
 
+  /* Now lower internal loop functions to target-specific code
+     sequences.  */
   basic_block bb;
   FOR_ALL_BB_FN (bb, cfun)
     for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
@@ -15744,6 +16076,9 @@ execute_oacc_device_lower ()
 		  && (targetm.goacc.fork_join
 		      (call, dims, code == IFN_UNIQUE_OACC_FORK)))
 		rescan = -1;
+	      else if (code == IFN_UNIQUE_OACC_HEAD_MARK
+		       || code == IFN_UNIQUE_OACC_TAIL_MARK)
+		rescan = -1;
 	      break;
 	    }
 	  }
@@ -15767,6 +16102,8 @@ execute_oacc_device_lower ()
 	  }
       }
 
+  free_oacc_loop (loops);
+  
   return 0;
 }
 

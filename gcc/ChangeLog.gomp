@@ -1,3 +1,19 @@
+2015-10-13  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* internal-fn.def (IFN_UNIQUE_OACC_HEAD_MARK,
+	IFN_UNIQUE_TAIL_MARK): New.
+	* omp-low.c (struct oacc_loop): New.
+	(lower_oacc_reductions): Change DIM argument to LEVEL.
+	(lower_oacc_loop_marker): New.
+	(lower_oacc_head_tail): Insert loop head and tail markers.
+	(lower_omp_target): Adjust lower_oacc_reductions call.
+	(new_oacc_loop_raw, new_oacc_loop_outer, new_oacc_loop,
+	finish_oacc_loop, free_oacc_loop): New.
+	(dump_oacc_loop_part, dump_oacc_loop, debug_oacc_loop): New.
+	(oacc_loop_walk, oacc_loop_discovery): New.
+	(oacc_loop_transform, oacc_loop_process): New.
+	(execute_oacc_device_lower): Discover and process loops.
+
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (is_oacc_kernels): New function.
@@ -26,7 +42,8 @@
 
 2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
-	* passes.def: Add pass_dominator_oacc_kernels to pass group pass_oacc_kernels.
+	* passes.def: Add pass_dominator_oacc_kernels to pass group
+	pass_oacc_kernels.
 	Add pass_tree_loop_done before, and pass_tree_loop_init after.
 	* tree-pass.h (make_pass_dominator_oacc_kernels): Declare.
 	* tree-ssa-dom.c (class dominator_base): New class.  Factor out of ...
