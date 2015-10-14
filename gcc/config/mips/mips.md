@@ -870,6 +870,11 @@
    (V8QI "!TARGET_64BIT && TARGET_LOONGSON_VECTORS")
    (TF "TARGET_64BIT && TARGET_FLOAT64")])
 
+
+;; A list of all modes for peephole load/store/load elimination.
+(define_mode_iterator LSL_MODE [QI HI SI DI SF DF V16QI V8HI V4SI V2DI
+				 V4SF V2DF])
+
 ;; In GPR templates, a string like "<d>subu" will expand to "subu" in the
 ;; 32-bit version and "dsubu" in the 64-bit version.
 (define_mode_attr d [(SI "") (DI "d")
@@ -7610,6 +7615,20 @@
 		   (any_extend:SI (match_dup 3)))])]
   "")
 
+(define_peephole2
+  [(set (match_operand:LSL_MODE 0 "register_operand")
+	(match_operand:LSL_MODE 1 "non_volatile_mem_operand"))
+   (set (match_operand:LSL_MODE 2 "non_volatile_mem_operand")
+	(match_dup 0))
+   (set (match_operand:LSL_MODE 3 "register_operand")
+	(match_dup 1))]
+  "mips_replace_lsl_p (operands)"
+  [(set (match_dup 0)
+	(match_dup 1))
+   (set (match_dup 2)
+	(match_dup 0))
+   (set (match_dup 3)
+	(match_dup 0))])
 
 ;; Synchronization instructions.
 

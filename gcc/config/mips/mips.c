@@ -15479,16 +15479,25 @@ mips_load_store_fusion_p (rtx insn, rtx *base, HOST_WIDE_INT *offset,
     {
       *is_load = false;
       mips_split_plus (XEXP (dest, 0), base, offset);
+      return true;
+    }
+  else if (GET_CODE (src) == CONST_INT
+      && INTVAL (src) == 0
+      && GET_CODE (dest) == MEM)
+    {
+      *is_load = false;
+      mips_split_plus (XEXP (dest, 0), base, offset);
+      return true;
     }
   else if (GET_CODE (src) == MEM && GET_CODE (dest) == REG)
     {
       *is_load = true;
       mips_split_plus (XEXP (src, 0), base, offset);
+      return true;
     }
   else
     return false;
 
-  return (*base != NULL_RTX && *offset != 0);
 }
 
 /* Implement the TARGET_SCHED_FUSION_PRIORITY hook.
@@ -15504,7 +15513,7 @@ static void
 mips_sched_fusion_priority (rtx insn, int max_pri,
 			   int *fusion_pri, int *pri)
 {
-  int tmp, off_val;
+  int tmp;
   bool is_load;
   rtx base;
   HOST_WIDE_INT offset;
@@ -15527,8 +15536,8 @@ mips_sched_fusion_priority (rtx insn, int max_pri,
 
   tmp /= 2;
 
-  /* INSN with smaller base register goes first.  */
-  tmp -= ((REGNO (base) & 0xff) << 20);
+  /* INSN with bigger base register goes first.  */
+  tmp -= ((REGNO (base) && 0xff) << 20);
 
   /* INSN with smaller offset goes first.  */
   if (offset >= 0)
@@ -21075,6 +21084,25 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
     return false;
 
   return true;
+}
+
+/* OPERANDS describes the operands to a triple of a load, a store,
+   followed by a load.  Return true if the last load can be replaced
+   with a register-register move.  */
+
+bool
+mips_replace_lsl_p (rtx * operands)
+{
+  gcc_assert (!MEM_VOLATILE_P (operands[1]));
+
+  /*  Iff we have a load of value V from location A, a store of value V
+      to location B followed by a load from location A, the value loaded
+      must be V if all locations are naturally aligned.  */
+  if (GET_MODE_BITSIZE (GET_MODE (operands[0])) == MEM_ALIGN (operands[1])
+      && MEM_ALIGN (operands[1]) == MEM_ALIGN (operands[2]))
+    return true;
+
+  return false;
 }
 
 /* OPERANDS describes the operands to a pair of SETs, in the order
