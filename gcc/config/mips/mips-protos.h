@@ -378,6 +378,8 @@ extern void mips_final_prescan_insn (rtx, rtx *, int);
 extern int mips_trampoline_code_size (void);
 extern void mips_function_profiler (FILE *);
 extern bool mips_load_store_bonding_p (rtx *, machine_mode);
+extern void mips_load_store_bond_insns_in_range (rtx, rtx);
+extern void mips_load_store_bond_insns ();
 
 typedef rtx (*mulsidi3_gen_fn) (rtx, rtx, rtx);
 #ifdef RTX_CODE
