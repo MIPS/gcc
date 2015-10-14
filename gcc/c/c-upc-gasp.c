@@ -24,7 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "stringpool.h"
-#include "c/c-tree.h"
+#include "c-tree.h"
 #include "tree-iterator.h"
 #include "c-upc-gasp.h"
 #include "c-upc-rts-names.h"

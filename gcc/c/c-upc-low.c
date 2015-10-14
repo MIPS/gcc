@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "fold-const.h"
 #include "stringpool.h"
 #include "hard-reg-set.h"
-#include "c/c-tree.h"
+#include "c-tree.h"
 #include "c-family/c-pragma.h"
 #include "output.h"
 #include "langhooks.h"
@@ -44,10 +44,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "timevar.h"
 #include "tree-iterator.h"
 #include "c-upc-low.h"
-#include "c-family/c-upc.h"
-#include "c-family/c-upc-gasp.h"
-#include "c-family/c-upc-pts-ops.h"
-#include "c-family/c-upc-rts-names.h"
+#include "c-upc.h"
+#include "c-upc-gasp.h"
+#include "c-upc-pts-ops.h"
+#include "c-upc-rts-names.h"
 
 static GTY (()) tree upc_init_stmt_list;
 
@@ -1451,4 +1451,4 @@ upc_genericize_init (void)
   upc_init_stmt_list = NULL;
 }
 
-#include "gt-c-family-c-upc-low.h"
+#include "gt-c-c-upc-low.h"

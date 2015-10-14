@@ -19,8 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef GCC_C_FAMILY_C_UPC_RTS_NAMES_H
-#define GCC_C_FAMILY_C_UPC_RTS_NAMES_H 1
+#ifndef GCC_C_C_UPC_RTS_NAMES_H
+#define GCC_C_C_UPC_RTS_NAMES_H 1
 
 /* Name of initialization routine that is called to initialize
    shared variables and calculate shared address.  Both of these
@@ -61,4 +61,4 @@ along with GCC; see the file COPYING3.  If not see
    when -fupc-instrument-functions is asserted.  */
 #define UPC_INSTRUMENT_FUNC "__upc_funcg"
 
-#endif  /* !GCC_C_FAMILY_C_UPC_RTS_NAMES_H */
+#endif  /* !GCC_C_C_UPC_RTS_NAMES_H */

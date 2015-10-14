@@ -1,5 +1,34 @@
 2015-10-13  Gary Funck  <gary@intrepid.com>
 
+	Move most UPC-specific files from 'c-family' to 'c'.
+	This accommodates a dependency upon c/c-tree.h.
+	* Makefile.in: Revert to trunk.
+	* langhooks.h (write_global_declarations): New UPC hook.
+	* langhooks-def.h (LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS): New.
+	* c-family/c-opts.c (c_common_parse_file):
+	Call UPC write_global_declarations hook.
+	* c/c-lang.c: define LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS
+	as upc_write_global_declarations.
+	* c/c-convert.c, c/c-decl.c, c/c-lang.c, c/c-objc-common.c,
+	c/c-parser.c, c/c-typeck.c:
+	Adjust UPC #include's moved from 'c-family' to 'c'.
+	* c-family/c-pragma.c: Delete un-needed #include of c-upc.h.
+	* c/Make-lang.in: Adjust for UPC files moved from c-family.
+	* c/config-lang.in: Ditto.
+	* c/c-upc.c moved from c-family/c-upc.c.
+	* c/c-upc.h moved from c-family/c-upc.h.
+	* c/c-upc-gasp.c moved from c-family/c-upc-gasp.c.
+	* c/c-upc-gasp.h moved from c-family/c-upc-gasp.h.
+	* c/c-upc-low.c moved from c-family/c-upc-low.c.
+	* c/c-upc-low.h moved from c-family/c-upc-low.h.
+	* c/c-upc-pts-ops.c moved from c-family/c-upc-pts-ops.c.
+	* c/c-upc-pts-ops.h moved from c-family/c-upc-pts-ops.h.
+	* c/c-upc-pts-packed.c moved from c-family/c-upc-pts-packed.c.
+	* c/c-upc-pts-struct.c moved from c-family/c-upc-pts-struct.c.
+	* c/c-upc-rts-names.h moved from c-family/c-upc-rts-names.h.
+
+2015-10-13  Gary Funck  <gary@intrepid.com>
+
 	* tree-upc.h: Delete.  Move UPC support into tree.h.
 	* tree-upc.c: Delete.  Move UPC support into tree.c.
 	* Makefile.in: Remove references to tree-upc.c and tree-upc.h.

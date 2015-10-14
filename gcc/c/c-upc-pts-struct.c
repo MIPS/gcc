@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alias.h"
 #include "fold-const.h"
 #include "stringpool.h"
-#include "c/c-tree.h"
+#include "c-tree.h"
 #include "langhooks.h"
 #include "gimplify.h"
 #include "c-upc.h"

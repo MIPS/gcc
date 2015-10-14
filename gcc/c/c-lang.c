@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-objc-common.h"
 #include "c-family/c-pragma.h"
 #include "c-upc-lang.h"
+#include "c-upc-low.h"
 
 enum c_language_kind c_language = clk_c;
 
@@ -51,6 +52,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_UPC_PTS_STRUCT_INIT_TYPE upc_pts_struct_init_type
 #undef LANG_HOOKS_UPC_BUILD_INIT_FUNC
 #define LANG_HOOKS_UPC_BUILD_INIT_FUNC upc_build_init_func
+#undef LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS
+#define LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS upc_write_global_declarations
 #undef LANG_HOOKS_LAYOUT_DECL_P
 #define LANG_HOOKS_LAYOUT_DECL_P upc_lang_layout_decl_p
 #undef LANG_HOOKS_LAYOUT_DECL

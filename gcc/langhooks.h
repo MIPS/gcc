@@ -281,6 +281,9 @@ struct lang_hooks_for_upc
   /* Build a function that will be called by the UPC runtime
      to initialize UPC shared variables.  */
   void (*build_init_func) (tree);
+
+  /* For the current compilation unit, write */
+  void (*write_global_declarations) (void);
 };
 
 /* Language-specific hooks.  See langhooks-def.h for defaults.  */

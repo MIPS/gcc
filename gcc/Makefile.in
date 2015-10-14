@@ -901,7 +901,7 @@ TREE_CORE_H = tree-core.h coretypes.h all-tree.def tree.def \
 	$(VEC_H) treestruct.def $(HASHTAB_H) \
 	double-int.h alias.h $(SYMTAB_H) $(FLAGS_H) \
 	$(REAL_H) $(FIXED_VALUE_H)
-TREE_H = tree.h $(TREE_CORE_H) tree-check.h
+TREE_H = tree.h $(TREE_CORE_H)  tree-check.h
 REGSET_H = regset.h $(BITMAP_H) hard-reg-set.h
 BASIC_BLOCK_H = basic-block.h $(PREDICT_H) $(VEC_H) $(FUNCTION_H) \
 	cfg-flags.def cfghooks.h
@@ -1162,10 +1162,7 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
   c-family/c-semantics.o c-family/c-ada-spec.o \
   c-family/c-cilkplus.o \
-  c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o \
-  c-family/c-upc.o c-family/c-upc-gasp.o \
-  c-family/c-upc-low.o c-family/c-upc-pts-ops.o \
-  c-family/c-upc-pts-packed.o c-family/c-upc-pts-struct.o
+  c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o
 
 # Language-independent object files.
 # We put the *-match.o and insn-*.o files first so that a parallel make
@@ -2343,9 +2340,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/profile.c $(srcdir)/mcf.c \
   $(srcdir)/reg-stack.c $(srcdir)/cfgrtl.c \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
-  $(srcdir)/stringpool.c \
-  $(srcdir)/tree.c \
-  $(srcdir)/varasm.c \
+  $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/gimple.h \
   $(srcdir)/gimple-ssa.h \
   $(srcdir)/tree-chkp.c \

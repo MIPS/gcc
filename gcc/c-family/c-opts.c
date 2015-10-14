@@ -26,8 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "c-common.h"
 #include "c-pragma.h"
-#include "c-upc-low.h"
-#include "c-upc.h"
 #include "c-upc-pts.h"
 #include "flags.h"
 #include "toplev.h"
@@ -1201,7 +1199,7 @@ c_common_parse_file (void)
       c_parse_file ();
       /* Generate UPC global initialization code, if required.  */
       if (flag_upc)
-        upc_write_global_declarations ();
+        (*lang_hooks.upc.write_global_declarations) ();
       pop_file_scope ();
       /* And end the main input file, if the debug writer wants it  */
       if (debug_hooks->start_end_main_source_file)

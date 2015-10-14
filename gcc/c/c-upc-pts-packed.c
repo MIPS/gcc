@@ -29,10 +29,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "stor-layout.h"
 #include "target.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "c-upc.h"
 #include "c-upc-gasp.h"
-#include "c-upc-pts.h"
+#include "c-family/c-upc-pts.h"
 #include "c-upc-pts-ops.h"
 #include "c-upc-rts-names.h"
 

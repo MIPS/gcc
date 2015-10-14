@@ -31,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "c-objc-common.h"
 #include "c-upc-lang.h"
-#include "c-family/c-upc.h"
+#include "c-upc.h"
 
 #include <new>                          // For placement new.
 

@@ -19,8 +19,8 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-#ifndef GCC_C_FAMILY_UPC_PTS_OPS_H
-#define GCC_C_FAMILY_UPC_PTS_OPS_H 1
+#ifndef GCC_C_UPC_PTS_OPS_H
+#define GCC_C_UPC_PTS_OPS_H 1
 
 typedef struct upc_pts_ops_struct
   {
@@ -44,4 +44,4 @@ extern const upc_pts_ops_t upc_pts_packed_ops;
 /* In c/c-upc-pts-struct.c */
 extern const upc_pts_ops_t upc_pts_struct_ops;
 
-#endif /* !GCC_C_FAMILY_UPC_PTS_OPS_H */
+#endif /* !GCC_C_UPC_PTS_OPS_H */

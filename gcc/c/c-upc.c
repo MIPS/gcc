@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "c-common.h"
+#include "c-family/c-common.h"
 #include "langhooks.h"
 #include "tree.h"
 #include "alias.h"
@@ -37,7 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "varasm.h"
 #include "c-upc.h"
-#include "c-upc-pts.h"
+#include "c-family/c-upc-pts.h"
 #include "c-upc-pts-ops.h"
 #include "c-upc-rts-names.h"
 

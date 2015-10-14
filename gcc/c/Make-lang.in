@@ -65,12 +65,17 @@ gupc$(exeext): $(GUPC_D_OBJS) $(EXTRA_GCC_OBJS) \
 	  $(GUPC_D_OBJS) $(EXTRA_GCC_OBJS) libcommon-target.a \
 	  $(EXTRA_GCC_LIBS) $(LIBS)
 
+# UPC specific object files.  Presently, available only for C.
+UPC_OBJS = c/c-upc-gasp.o c/c-upc-lang.o c/c-upc-low.o \
+	c/c-upc-pts-ops.o c/c-upc-pts-packed.o c/c-upc-pts-struct.o \
+	c/c-upc.o
+
 # The C compiler itself.
 
 # Language-specific object files for C and Objective C.
 C_AND_OBJC_OBJS = attribs.o c/c-errors.o c/c-decl.o c/c-typeck.o \
   c/c-convert.o c/c-aux-info.o c/c-objc-common.o c/c-parser.o \
-  c/c-array-notation.o c/c-upc-lang.o $(C_COMMON_OBJS) $(C_TARGET_OBJS)
+  c/c-array-notation.o $(C_COMMON_OBJS) $(UPC_OBJS) $(C_TARGET_OBJS)
 
 # Language-specific object files for C.
 C_OBJS = c/c-lang.o c-family/stub-objc.o $(C_AND_OBJC_OBJS)
