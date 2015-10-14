@@ -128,6 +128,9 @@ struct omp_region
   /* Schedule kind, only used for GIMPLE_OMP_FOR type regions.  */
   enum omp_clause_schedule_kind sched_kind;
 
+  /* Schedule modifiers.  */
+  unsigned char sched_modifiers;
+
   /* True if this is a combined parallel+workshare region.  */
   bool is_combined_parallel;
 
@@ -229,6 +232,7 @@ struct omp_for_data
   int collapse;
   int ordered;
   bool have_nowait, have_ordered, simd_schedule;
+  unsigned char sched_modifiers;
   enum omp_clause_schedule_kind sched_kind;
   struct omp_for_data_loop *loops;
 };
@@ -493,6 +497,7 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
   fd->collapse = 1;
   fd->ordered = 0;
   fd->sched_kind = OMP_CLAUSE_SCHEDULE_STATIC;
+  fd->sched_modifiers = 0;
   fd->chunk_size = NULL_TREE;
   fd->simd_schedule = false;
   if (gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_CILKFOR)
@@ -513,7 +518,11 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
 	break;
       case OMP_CLAUSE_SCHEDULE:
 	gcc_assert (!distribute && !taskloop);
-	fd->sched_kind = OMP_CLAUSE_SCHEDULE_KIND (t);
+	fd->sched_kind
+	  = (enum omp_clause_schedule_kind)
+	    (OMP_CLAUSE_SCHEDULE_KIND (t) & OMP_CLAUSE_SCHEDULE_MASK);
+	fd->sched_modifiers = (OMP_CLAUSE_SCHEDULE_KIND (t)
+			       & ~OMP_CLAUSE_SCHEDULE_MASK);
 	fd->chunk_size = OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (t);
 	fd->simd_schedule = OMP_CLAUSE_SCHEDULE_SIMD (t);
 	break;
@@ -1011,7 +1020,8 @@ determine_parallel_type (struct omp_region *region)
 	  tree clauses = gimple_omp_for_clauses (ws_stmt);
 	  tree c = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
 	  if (c == NULL
-	      || OMP_CLAUSE_SCHEDULE_KIND (c) == OMP_CLAUSE_SCHEDULE_STATIC
+	      || ((OMP_CLAUSE_SCHEDULE_KIND (c) & OMP_CLAUSE_SCHEDULE_MASK)
+		  == OMP_CLAUSE_SCHEDULE_STATIC)
 	      || find_omp_clause (clauses, OMP_CLAUSE_ORDERED))
 	    {
 	      region->is_combined_parallel = false;
@@ -5817,11 +5827,26 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 	{
 	case GIMPLE_OMP_FOR:
 	  gcc_assert (region->inner->sched_kind != OMP_CLAUSE_SCHEDULE_AUTO);
-	  start_ix2 = ((int)BUILT_IN_GOMP_PARALLEL_LOOP_STATIC
-		       + (region->inner->sched_kind
-			  == OMP_CLAUSE_SCHEDULE_RUNTIME
-			  ? 3 : region->inner->sched_kind));
-	  start_ix = (enum built_in_function)start_ix2;
+	  switch (region->inner->sched_kind)
+	    {
+	    case OMP_CLAUSE_SCHEDULE_RUNTIME:
+	      start_ix2 = 3;
+	      break;
+	    case OMP_CLAUSE_SCHEDULE_DYNAMIC:
+	    case OMP_CLAUSE_SCHEDULE_GUIDED:
+	      if (region->inner->sched_modifiers
+		  & OMP_CLAUSE_SCHEDULE_NONMONOTONIC)
+		{
+		  start_ix2 = 3 + region->inner->sched_kind;
+		  break;
+		}
+	      /* FALLTHRU */
+	    default:
+	      start_ix2 = region->inner->sched_kind;
+	      break;
+	    }
+	  start_ix2 += (int) BUILT_IN_GOMP_PARALLEL_LOOP_STATIC;
+	  start_ix = (enum built_in_function) start_ix2;
 	  break;
 	case GIMPLE_OMP_SECTIONS:
 	  start_ix = BUILT_IN_GOMP_PARALLEL_SECTIONS;
@@ -10225,6 +10250,7 @@ expand_omp_for (struct omp_region *region, gimple *inner_stmt)
   extract_omp_for_data (as_a <gomp_for *> (last_stmt (region->entry)),
 			&fd, loops);
   region->sched_kind = fd.sched_kind;
+  region->sched_modifiers = fd.sched_modifiers;
 
   gcc_assert (EDGE_COUNT (region->entry->succs) == 2);
   BRANCH_EDGE (region->entry)->flags &= ~EDGE_ABNORMAL;
@@ -10270,10 +10296,27 @@ expand_omp_for (struct omp_region *region, gimple *inner_stmt)
 	  && fd.sched_kind == OMP_CLAUSE_SCHEDULE_STATIC)
 	fd.chunk_size = integer_zero_node;
       gcc_assert (fd.sched_kind != OMP_CLAUSE_SCHEDULE_AUTO);
-      fn_index = (fd.sched_kind == OMP_CLAUSE_SCHEDULE_RUNTIME)
-		  ? 3 : fd.sched_kind;
+      switch (fd.sched_kind)
+	{
+	case OMP_CLAUSE_SCHEDULE_RUNTIME:
+	  fn_index = 3;
+	  break;
+	case OMP_CLAUSE_SCHEDULE_DYNAMIC:
+	case OMP_CLAUSE_SCHEDULE_GUIDED:
+	  if ((fd.sched_modifiers & OMP_CLAUSE_SCHEDULE_NONMONOTONIC)
+	      && !fd.ordered
+	      && !fd.have_ordered)
+	    {
+	      fn_index = 3 + fd.sched_kind;
+	      break;
+	    }
+	  /* FALLTHRU */
+	default:
+	  fn_index = fd.sched_kind;
+	  break;
+	}
       if (!fd.ordered)
-	fn_index += fd.have_ordered * 4;
+	fn_index += fd.have_ordered * 6;
       if (fd.ordered)
 	start_ix = ((int)BUILT_IN_GOMP_LOOP_DOACROSS_STATIC_START) + fn_index;
       else

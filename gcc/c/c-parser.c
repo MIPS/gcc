@@ -11417,33 +11417,56 @@ c_parser_omp_clause_reduction (c_parser *parser, tree list)
 
    OpenMP 4.5:
    schedule ( schedule-modifier : schedule-kind )
-   schedule ( schedule-modifier : schedule-kind , expression )
+   schedule ( schedule-modifier [ , schedule-modifier ] : schedule-kind , expression )
 
    schedule-modifier:
-     simd  */
+     simd
+     monotonic
+     nonmonotonic  */
 
 static tree
 c_parser_omp_clause_schedule (c_parser *parser, tree list)
 {
   tree c, t;
   location_t loc = c_parser_peek_token (parser)->location;
+  int modifiers = 0, nmodifiers = 0;
 
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
     return list;
 
   c = build_omp_clause (loc, OMP_CLAUSE_SCHEDULE);
 
-  if (c_parser_next_token_is (parser, CPP_NAME))
+  while (c_parser_next_token_is (parser, CPP_NAME))
     {
       tree kind = c_parser_peek_token (parser)->value;
       const char *p = IDENTIFIER_POINTER (kind);
-      if (strcmp ("simd", p) == 0
-	  && c_parser_peek_2nd_token (parser)->type == CPP_COLON)
+      if (strcmp ("simd", p) == 0)
+	OMP_CLAUSE_SCHEDULE_SIMD (c) = 1;
+      else if (strcmp ("monotonic", p) == 0)
+	modifiers |= OMP_CLAUSE_SCHEDULE_MONOTONIC;
+      else if (strcmp ("nonmonotonic", p) == 0)
+	modifiers |= OMP_CLAUSE_SCHEDULE_NONMONOTONIC;
+      else
+	break;
+      c_parser_consume_token (parser);
+      if (nmodifiers++ == 0
+	  && c_parser_next_token_is (parser, CPP_COMMA))
+	c_parser_consume_token (parser);
+      else
 	{
-	  OMP_CLAUSE_SCHEDULE_SIMD (c) = 1;
-	  c_parser_consume_token (parser);
-	  c_parser_consume_token (parser);
+	  c_parser_require (parser, CPP_COLON, "expected %<:%>");
+	  break;
 	}
+    }
+
+  if ((modifiers & (OMP_CLAUSE_SCHEDULE_MONOTONIC
+		    | OMP_CLAUSE_SCHEDULE_NONMONOTONIC))
+      == (OMP_CLAUSE_SCHEDULE_MONOTONIC
+	  | OMP_CLAUSE_SCHEDULE_NONMONOTONIC))
+    {
+      error_at (loc, "both %<monotonic%> and %<nonmonotonic%> modifiers "
+		     "specified");
+      modifiers = 0;
     }
 
   if (c_parser_next_token_is (parser, CPP_NAME))
@@ -11510,6 +11533,10 @@ c_parser_omp_clause_schedule (c_parser *parser, tree list)
   else
     c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 			       "expected %<,%> or %<)%>");
+
+  OMP_CLAUSE_SCHEDULE_KIND (c)
+    = (enum omp_clause_schedule_kind)
+      (OMP_CLAUSE_SCHEDULE_KIND (c) | modifiers);
 
   check_no_duplicate_clause (list, OMP_CLAUSE_SCHEDULE, "schedule");
   OMP_CLAUSE_CHAIN (c) = list;

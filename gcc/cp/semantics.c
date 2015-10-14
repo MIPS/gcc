@@ -5652,6 +5652,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
   tree safelen = NULL_TREE;
   bool branch_seen = false;
   bool copyprivate_seen = false;
+  bool ordered_seen = false;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
@@ -5988,6 +5989,30 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  break;
 
 	case OMP_CLAUSE_SCHEDULE:
+	  if (OMP_CLAUSE_SCHEDULE_KIND (c) & OMP_CLAUSE_SCHEDULE_NONMONOTONIC)
+	    {
+	      const char *p = NULL;
+	      switch (OMP_CLAUSE_SCHEDULE_KIND (c) & OMP_CLAUSE_SCHEDULE_MASK)
+		{
+		case OMP_CLAUSE_SCHEDULE_STATIC: p = "static"; break;
+		case OMP_CLAUSE_SCHEDULE_DYNAMIC: break;
+		case OMP_CLAUSE_SCHEDULE_GUIDED: break;
+		case OMP_CLAUSE_SCHEDULE_AUTO: p = "auto"; break;
+		case OMP_CLAUSE_SCHEDULE_RUNTIME: p = "runtime"; break;
+		default: gcc_unreachable ();
+		}
+	      if (p)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<nonmonotonic%> modifier specified for %qs "
+			    "schedule kind", p);
+		  OMP_CLAUSE_SCHEDULE_KIND (c)
+		    = (enum omp_clause_schedule_kind)
+		      (OMP_CLAUSE_SCHEDULE_KIND (c)
+		       & ~OMP_CLAUSE_SCHEDULE_NONMONOTONIC);
+		}
+	    }
+
 	  t = OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (c);
 	  if (t == NULL)
 	    ;
@@ -6672,7 +6697,6 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_NOWAIT:
-	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
@@ -6687,6 +6711,10 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
+	  break;
+
+	case OMP_CLAUSE_ORDERED:
+	  ordered_seen = true;
 	  break;
 
 	case OMP_CLAUSE_INBRANCH:
@@ -6768,6 +6796,21 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 			"%<safelen%> clause value");
 	      OMP_CLAUSE_SIMDLEN_EXPR (c)
 		= OMP_CLAUSE_SAFELEN_EXPR (safelen);
+	    }
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+	case OMP_CLAUSE_SCHEDULE:
+	  if (ordered_seen
+	      && (OMP_CLAUSE_SCHEDULE_KIND (c)
+		  & OMP_CLAUSE_SCHEDULE_NONMONOTONIC))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<nonmonotonic%> schedule modifier specified "
+			"together with %<ordered%> clause");
+	      OMP_CLAUSE_SCHEDULE_KIND (c)
+		= (enum omp_clause_schedule_kind)
+		  (OMP_CLAUSE_SCHEDULE_KIND (c)
+		   & ~OMP_CLAUSE_SCHEDULE_NONMONOTONIC);
 	    }
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;

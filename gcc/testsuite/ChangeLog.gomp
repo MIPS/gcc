@@ -1,0 +1,14 @@
+2015-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/schedule-modifiers-1.c: New test.
+	* gcc.dg/gomp/for-20.c: New test.
+	* gcc.dg/gomp/for-21.c: New test.
+	* gcc.dg/gomp/for-22.c: New test.
+	* gcc.dg/gomp/for-23.c: New test.
+	* gcc.dg/gomp/for-24.c: New test.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

@@ -30440,31 +30440,44 @@ cp_parser_omp_clause_reduction (cp_parser *parser, tree list)
 
    OpenMP 4.5:
    schedule ( schedule-modifier : schedule-kind )
-   schedule ( schedule-modifier : schedule-kind , expression )
+   schedule ( schedule-modifier [ , schedule-modifier ] : schedule-kind , expression )
 
    schedule-modifier:
-     simd  */
+     simd
+     monotonic
+     nonmonotonic  */
 
 static tree
 cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location)
 {
   tree c, t;
+  int modifiers = 0, nmodifiers = 0;
 
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     return list;
 
   c = build_omp_clause (location, OMP_CLAUSE_SCHEDULE);
 
-  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
+  while (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
-      if (strcmp ("simd", p) == 0
-	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_COLON))
+      if (strcmp ("simd", p) == 0)
+	OMP_CLAUSE_SCHEDULE_SIMD (c) = 1;
+      else if (strcmp ("monotonic", p) == 0)
+	modifiers |= OMP_CLAUSE_SCHEDULE_MONOTONIC;
+      else if (strcmp ("nonmonotonic", p) == 0)
+	modifiers |= OMP_CLAUSE_SCHEDULE_NONMONOTONIC;
+      else
+	break;
+      cp_lexer_consume_token (parser->lexer);
+      if (nmodifiers++ == 0
+	  && cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
+	cp_lexer_consume_token (parser->lexer);
+      else
 	{
-	  OMP_CLAUSE_SCHEDULE_SIMD (c) = 1;
-	  cp_lexer_consume_token (parser->lexer);
-	  cp_lexer_consume_token (parser->lexer);
+	  cp_parser_require (parser, CPP_COLON, RT_COLON);
+	  break;
 	}
     }
 
@@ -30505,6 +30518,16 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
     goto invalid_kind;
   cp_lexer_consume_token (parser->lexer);
 
+  if ((modifiers & (OMP_CLAUSE_SCHEDULE_MONOTONIC
+		    | OMP_CLAUSE_SCHEDULE_NONMONOTONIC))
+      == (OMP_CLAUSE_SCHEDULE_MONOTONIC
+	  | OMP_CLAUSE_SCHEDULE_NONMONOTONIC))
+    {
+      error_at (location, "both %<monotonic%> and %<nonmonotonic%> modifiers "
+			  "specified");
+      modifiers = 0;
+    }
+
   if (cp_lexer_next_token_is (parser->lexer, CPP_COMMA))
     {
       cp_token *token;
@@ -30529,6 +30552,10 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
     }
   else if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_COMMA_CLOSE_PAREN))
     goto resync_fail;
+
+  OMP_CLAUSE_SCHEDULE_KIND (c)
+    = (enum omp_clause_schedule_kind)
+      (OMP_CLAUSE_SCHEDULE_KIND (c) | modifiers);
 
   check_no_duplicate_clause (list, OMP_CLAUSE_SCHEDULE, "schedule", location);
   OMP_CLAUSE_CHAIN (c) = list;
