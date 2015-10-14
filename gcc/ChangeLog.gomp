@@ -4,6 +4,14 @@
 	PR tree-optimization/67476
 	2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (expand_omp_for_generic): Add missing phis.
+
+2015-10-14  Tom de Vries  <tom@codesourcery.com>
+
+	backport from trunk:
+	PR tree-optimization/67476
+	2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (expand_omp_for_generic): Handle simple latch.
 
 2015-10-14  Nathan Sidwell  <nathan@codesourcery.com>
