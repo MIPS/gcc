@@ -1,3 +1,22 @@
+2015-10-14  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (struct oacc_loop): Add more fields.
+	(enum oacc_loop_flags): New.
+	(lower_oacc_head_mark): New.
+	(lower_oacc_loop_marker): Change meaning of 2nd parameter.
+	(lower_oacc_head_tail): Call lower_oacc_head_mark, adjust.
+	(new_oacc_loop_raw): Initialize new fields.
+	(new_oacc_loop): Extract flags and mask from marker function.
+	(new_oacc_loop_routine): New.
+	(finish_oacc_loop): Remove tail parameter.
+	(dump_oacc_loop_part, dump_oacc_loop): Adjust for new fields.
+	(oacc_loop_walk): Collect markers for same loop into single loop
+	structure.  Notice routines.
+	(oacc_loop_transform): Rename to ...
+	(oacc_loop_xform_head_tail): ... here.
+	(oacc_loop_process): Assign partitioning levels to head & tail
+	sequences.
+
 2015-10-13  Tom de Vries  <tom@codesourcery.com>
 
 	Revert:
