@@ -884,7 +884,6 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
     }
 
   init = fold_non_dependent_expr (init);
-  init = cp_fully_fold (init);
 
   if (TREE_CODE (type) == INTEGER_TYPE
       && TREE_CODE (ftype) == REAL_TYPE)
@@ -934,19 +933,35 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	}
     }
 
+  bool almost_ok = ok;
+  if (!ok && !CONSTANT_CLASS_P (init) && (complain & tf_warning_or_error))
+    {
+      tree folded = cp_fully_fold (init);
+      if (TREE_CONSTANT (folded) && check_narrowing (type, folded, tf_none))
+	almost_ok = true;
+    }
+
   if (!ok)
     {
+      location_t loc = EXPR_LOC_OR_LOC (init, input_location);
       if (cxx_dialect == cxx98)
-	warning_at (EXPR_LOC_OR_LOC (init, input_location), OPT_Wnarrowing,
-		    "narrowing conversion of %qE from %qT to %qT inside { } "
-		    "is ill-formed in C++11", init, ftype, type);
-      else if (!TREE_CONSTANT (init))
+	{
+	  if (complain & tf_warning)
+	    warning_at (loc, OPT_Wnarrowing, "narrowing conversion of %qE "
+			"from %qT to %qT inside { } is ill-formed in C++11",
+			init, ftype, type);
+	  ok = true;
+	}
+      else if (!CONSTANT_CLASS_P (init))
 	{
 	  if (complain & tf_warning_or_error)
 	    {
-	      pedwarn (EXPR_LOC_OR_LOC (init, input_location), OPT_Wnarrowing,
-		       "narrowing conversion of %qE from %qT to %qT inside { }",
-		       init, ftype, type);
+	      if (!almost_ok || pedantic)
+		pedwarn (loc, OPT_Wnarrowing, "narrowing conversion of %qE "
+			 "from %qT to %qT inside { }", init, ftype, type);
+	      if (pedantic && almost_ok)
+		inform (loc, " the expression has a constant value but is not "
+			"a C++ constant-expression");
 	      ok = true;
 	    }
 	}
@@ -954,7 +969,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	{
 	  int savederrorcount = errorcount;
 	  global_dc->pedantic_errors = 1;
-	  pedwarn (EXPR_LOC_OR_LOC (init, input_location), OPT_Wnarrowing,
+	  pedwarn (loc, OPT_Wnarrowing,
 		   "narrowing conversion of %qE from %qT to %qT "
 		   "inside { }", init, ftype, type);
 	  if (errorcount == savederrorcount)
@@ -963,7 +978,7 @@ check_narrowing (tree type, tree init, tsubst_flags_t complain)
 	}
     }
 
-  return cxx_dialect == cxx98 || ok; 
+  return ok;
 }
 
 /* Process the initializer INIT for a variable of type TYPE, emitting
