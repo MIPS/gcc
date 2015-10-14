@@ -13439,7 +13439,7 @@ incremented enumerator value is too large for %<long%>");
 		   "type %<%T%>", value, ENUM_UNDERLYING_TYPE (enumtype));
 
           /* Convert the value to the appropriate type.  */
-          value = fold (convert (ENUM_UNDERLYING_TYPE (enumtype), value));
+          value = fold_convert (ENUM_UNDERLYING_TYPE (enumtype), value);
         }
     }
 

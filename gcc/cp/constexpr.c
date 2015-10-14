@@ -2553,11 +2553,12 @@ cxx_eval_indirect_ref (const constexpr_ctx *ctx, tree t,
   bool empty_base = false;
 
   /* We can handle a MEM_REF like an INDIRECT_REF, if MEM_REF's second
-     operand is an integer-zero.  Otherwise we need to reject the MEM_REF.  */
+     operand is an integer-zero.  Otherwise reject the MEM_REF for now.  */
 
   if (TREE_CODE (t) == MEM_REF
       && (!TREE_OPERAND (t, 1) || !integer_zerop (TREE_OPERAND (t, 1))))
     {
+      gcc_assert (ctx->quiet);
       *non_constant_p = true;
       return t;
     }

@@ -3505,6 +3505,7 @@ handle_init_priority_attribute (tree* node,
   if (!initp_expr || TREE_CODE (initp_expr) != INTEGER_CST)
     {
       error ("requested init_priority is not an integer constant");
+      cxx_constant_value (initp_expr);
       *no_add_attrs = true;
       return NULL_TREE;
     }
