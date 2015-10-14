@@ -5089,9 +5089,7 @@ lower_oacc_head_tail (location_t loc, tree clauses,
   lower_oacc_loop_marker (loc, false, NULL_TREE, tail);
 }
 
-/* Generate code to implement the REDUCTION clauses.  OpenACC reductions
-   are usually executed in parallel, but they fallback to sequential code for
-   known single-threaded regions.  */
+/* Generate code to implement the REDUCTION clauses.  */
 
 static void
 lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
@@ -5154,23 +5152,11 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
 	  addr = save_expr (addr);
 
-	  if (is_gimple_omp_oacc (ctx->stmt)
-	      && (ctx->gwv_this == 0))
-	    {
-	      /* This reduction is done sequentially in OpenACC by a single
-		 thread.  There is no need to use atomics.  */
-	      x = build2 (code, TREE_TYPE (ref), ref, new_var);
-	      ref = build_outer_var_ref (var, ctx);
-	      gimplify_assign (ref, x, stmt_seqp);
-	    }
-	  else
-	    {
-	      ref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (addr)), addr);
-	      x = fold_build2_loc (clause_loc, code, TREE_TYPE (ref), ref,
-				   new_var);
-	      x = build2 (OMP_ATOMIC, void_type_node, addr, x);
-	      gimplify_and_add (x, stmt_seqp);
-	    }
+	  ref = build1 (INDIRECT_REF, TREE_TYPE (TREE_TYPE (addr)), addr);
+	  x = fold_build2_loc (clause_loc, code, TREE_TYPE (ref), ref,
+			       new_var);
+	  x = build2 (OMP_ATOMIC, void_type_node, addr, x);
+	  gimplify_and_add (x, stmt_seqp);
 
 	  return;
 	}
