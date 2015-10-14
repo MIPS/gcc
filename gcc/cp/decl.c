@@ -8646,17 +8646,26 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       return itype;
     }
 
-  tree size_constant = cp_fully_fold (size);
+  if (TREE_CODE (size) != INTEGER_CST)
+    {
+      tree folded = cp_fully_fold (size);
+      if (TREE_CODE (folded) == INTEGER_CST)
+	pedwarn (location_of (size), OPT_Wpedantic,
+		 "size of array is not an integral constant-expression");
+      /* Use the folded result for VLAs, too; it will have resolved
+	 SIZEOF_EXPR.  */
+      size = folded;
+    }
 
   /* Normally, the array-bound will be a constant.  */
-  if (TREE_CODE (size_constant) == INTEGER_CST)
+  if (TREE_CODE (size) == INTEGER_CST)
     {
       /* Check to see if the array bound overflowed.  Make that an
 	 error, no matter how generous we're being.  */
-      constant_expression_error (size_constant);
+      constant_expression_error (size);
 
       /* An array must have a positive number of elements.  */
-      if (tree_int_cst_lt (size_constant, integer_zero_node))
+      if (tree_int_cst_lt (size, integer_zero_node))
 	{
 	  if (!(complain & tf_error))
 	    return error_mark_node;
@@ -8667,7 +8676,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	  size = integer_one_node;
 	}
       /* As an extension we allow zero-sized arrays.  */
-      else if (integer_zerop (size_constant))
+      else if (integer_zerop (size))
 	{
 	  if (!(complain & tf_error))
 	    /* We must fail if performing argument deduction (as
@@ -8682,7 +8691,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	    pedwarn (input_location, OPT_Wpedantic, "ISO C++ forbids zero-size array");
 	}
     }
-  else if (TREE_CONSTANT (size_constant)
+  else if (TREE_CONSTANT (size)
 	   /* We don't allow VLAs at non-function scopes, or during
 	      tentative template substitution.  */
 	   || !at_function_scope_p ()
@@ -8696,7 +8705,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	       name);
       else
 	error ("size of array is not an integral constant-expression");
-      size_constant = size = integer_one_node;
+      size = integer_one_node;
     }
   else if (pedantic && warn_vla != 0)
     {
@@ -8715,7 +8724,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
                  "variable length array is used");
     }
 
-  if (processing_template_decl && !TREE_CONSTANT (size_constant))
+  if (processing_template_decl && !TREE_CONSTANT (size))
     /* A variable sized array.  */
     itype = build_min (MINUS_EXPR, sizetype, size, integer_one_node);
   else
@@ -8730,7 +8739,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
       processing_template_decl = 0;
       itype = cp_build_binary_op (input_location,
 				  MINUS_EXPR,
-				  cp_convert (ssizetype, size_constant, complain),
+				  cp_convert (ssizetype, size, complain),
 				  cp_convert (ssizetype, integer_one_node,
 					      complain),
 				  complain);
