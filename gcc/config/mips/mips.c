@@ -20902,31 +20902,53 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   return true;
 }
 
+/* Return TRUE if OPERANDS represents a load or store of address in
+   the form of [base+offset] that can be later bonded.  LOAD_P is set to TRUE
+   if it's a load.  Return FALSE otherwise.  */
+
+static bool
+mips_load_store_p (rtx *operands, bool *load_p)
+{
+  rtx mem;
+  rtx mem_base;
+  HOST_WIDE_INT mem_offset;
+  rtx dest = operands[0];
+  rtx src = operands[1];
+
+  if ((GET_CODE (src) == REG || src == const0_rtx)
+      && GET_CODE ((mem = dest)) == MEM)
+    *load_p = false;
+  else if (GET_CODE ((mem = src)) == MEM && GET_CODE (dest) == REG)
+    *load_p = true;
+  else
+    return false;
+
+  mips_split_plus (XEXP (mem, 0), &mem_base, &mem_offset);
+
+  if (GET_CODE (mem_base) != REG)
+    return false;
+
+  if (*load_p && MEM_VOLATILE_P (mem))
+    return false;
+
+  return true;
+}
+
+/* Return TRUE if operands OPERANDS represent two consecutive instructions
+   than can be bonded as load-load/store-store pair in mode MODE.
+   Return FALSE otherwise.  */
+
 bool
 mips_load_store_bonding_p (rtx *operands, machine_mode mode)
 {
   rtx reg1, reg2, mem1, mem2, base1, base2;
   enum reg_class rc1, rc2;
   HOST_WIDE_INT offset1, offset2;
-  bool load_p;
+  bool load_p, load_p2;
 
-  /* Determine if we process a load or a store.  */
-  if (REG_P (operands[0]) && REG_P (operands[2])
-      && MEM_P (operands[1]) && MEM_P (operands[3])
-      && !MEM_VOLATILE_P (operands[1]) && !MEM_VOLATILE_P (operands[3])
-      && (GET_CODE (XEXP (operands[1], 0)) == PLUS
-	  || REG_P (XEXP (operands[1], 0)))
-      && (GET_CODE (XEXP (operands[3], 0)) == PLUS
-	  || REG_P (XEXP (operands[3], 0))))
-    load_p = true;
-  else if (REG_P (operands[1]) && REG_P (operands[3])
-	   && MEM_P (operands[0]) && MEM_P (operands[2])
-	   && (GET_CODE (XEXP (operands[0], 0)) == PLUS
-	       || REG_P (XEXP (operands[0], 0)))
-	   && (GET_CODE (XEXP (operands[2], 0)) == PLUS
-	       || REG_P (XEXP (operands[2], 0))))
-    load_p = false;
-  else
+  if (!mips_load_store_p (&operands[0], &load_p)
+      || !mips_load_store_p (&operands[2], &load_p2)
+      || load_p != load_p2)
     return false;
 
   if (load_p)
