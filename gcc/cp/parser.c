@@ -28937,11 +28937,6 @@ cp_parser_omp_var_list_no_open (cp_parser *parser, enum omp_clause_code kind,
 						   CPP_CLOSE_SQUARE))
 			length = cp_parser_expression (parser);
 		    }
-		  /* So we need to fold for possible constant values.  */
-		  if (length)
-		    length = maybe_constant_value (length);
-		  if (low_bound)
-		    low_bound = maybe_constant_value (low_bound);
 		  /* Look for the closing `]'.  */
 		  if (!cp_parser_require (parser, CPP_CLOSE_SQUARE,
 					  RT_CLOSE_SQUARE))
@@ -31298,8 +31293,6 @@ cp_parser_omp_for_incr (cp_parser *parser, tree decl)
 	      else
 		lhs = build_x_unary_op (input_location, NEGATE_EXPR, rhs,
 					tf_warning_or_error);
-	      if (op != PLUS_EXPR && CONSTANT_CLASS_P (rhs))
-		lhs = fold_simple (lhs);
 	    }
 	  else
 	    lhs = build_x_binary_op (input_location, op, lhs, ERROR_MARK, rhs,
@@ -34023,7 +34016,7 @@ cp_parser_cilk_grainsize (cp_parser *parser, cp_token *pragma_tok)
 
       /* Make sure the next token is _Cilk_for, it is invalid otherwise.  */
       if (cp_lexer_next_token_is_keyword (parser->lexer, RID_CILK_FOR))
-	cp_parser_cilk_for (parser, fold_simple (exp));
+	cp_parser_cilk_for (parser, exp);
       else
 	warning_at (cp_lexer_peek_token (parser->lexer)->location, 0,
 		    "%<#pragma cilk grainsize%> is not followed by "
