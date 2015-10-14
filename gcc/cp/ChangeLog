@@ -572,12 +572,6 @@
 	PR c++/66572
 	* pt.c (tsubst_copy_and_build): Add warn_logical_op sentinel.
 
-2015-07-23  Jason Merrill  <jason@redhat.com>
-
-	* constexpr.c (potential_constant_expression_1): Handle RESULT_DECL.
-	(cxx_eval_call_expression): Don't add to the hash table if !depth_ok.
-
-
 2015-07-23  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/52987

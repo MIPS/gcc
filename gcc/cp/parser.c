@@ -18267,7 +18267,6 @@ cp_parser_direct_declarator (cp_parser* parser,
 	  if (token->type != CPP_CLOSE_SQUARE)
 	    {
 	      bool non_constant_p;
-
 	      bounds
 		= cp_parser_constant_expression (parser,
 						 /*allow_non_constant=*/true,
@@ -21560,7 +21559,6 @@ cp_parser_member_declaration (cp_parser* parser)
 
 	      /* Consume the `:' token.  */
 	      cp_lexer_consume_token (parser->lexer);
-
 	      /* Get the width of the bitfield.  */
 	      width
 		= cp_parser_constant_expression (parser);
@@ -22152,6 +22150,7 @@ cp_parser_noexcept_specification_opt (cp_parser* parser,
 	      = G_("types may not be defined in an exception-specification");
 
 	      expr = cp_parser_constant_expression (parser);
+
 	      /* Restore the saved message.  */
 	      parser->type_definition_forbidden_message = saved_message;
 	    }

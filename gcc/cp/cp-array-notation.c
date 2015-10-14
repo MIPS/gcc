@@ -564,7 +564,6 @@ expand_an_in_modify_expr (location_t location, tree lhs,
     }
   lhs_rank = 0;
   rhs_rank = 0;
-
   if (!find_rank (location, lhs, lhs, true, &lhs_rank)
       || !find_rank (location, rhs, rhs, true, &rhs_rank))
     {

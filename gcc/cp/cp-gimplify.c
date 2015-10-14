@@ -568,10 +568,9 @@ int
 cp_gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 {
   int saved_stmts_are_full_exprs_p = 0;
-  enum tree_code code;
+  enum tree_code code = TREE_CODE (*expr_p);
   enum gimplify_status ret;
 
-  code = TREE_CODE (*expr_p);
   if (STATEMENT_CODE_P (code))
     {
       saved_stmts_are_full_exprs_p = stmts_are_full_exprs_p ();

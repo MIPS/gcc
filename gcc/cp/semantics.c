@@ -4406,7 +4406,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		length);
       return error_mark_node;
     }
-
   if (low_bound)
     low_bound = mark_rvalue_use (low_bound);
   if (length)
@@ -6346,7 +6345,6 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
       cond = error_mark_node;
       break;
     }
-
   if (cond == error_mark_node)
     {
       error_at (elocus, "invalid controlling predicate");
@@ -6382,7 +6380,7 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
       if (error_operand_p (iter_incr))
 	return true;
       else if (TREE_CODE (incr) == PREINCREMENT_EXPR
-	  || TREE_CODE (incr) == POSTINCREMENT_EXPR)
+	       || TREE_CODE (incr) == POSTINCREMENT_EXPR)
 	incr = integer_one_node;
       else
 	incr = integer_minus_one_node;

@@ -635,7 +635,6 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
 
   if (TREE_TYPE (expr) == type)
     return expr;
-
   if (expr == error_mark_node)
     return expr;
   result = cp_convert (type, expr, complain);
