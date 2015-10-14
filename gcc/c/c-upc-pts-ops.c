@@ -37,9 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 
 upc_pts_ops_t upc_pts;
 
-/*  Initialize the handler table for the UPC pointer-to-shared
-    representation that was selected when the compiler
-    was configured.  */
+/* Initialize the handler table for the UPC pointer-to-shared
+   representation that was selected when the compiler
+   was configured.  */
 
 void
 upc_pts_init (void)

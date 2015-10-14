@@ -345,7 +345,7 @@ upc_pts_packed_build_sum (location_t loc, tree exp)
 	      phase_diff = build_binary_op (loc, MINUS_EXPR,
 					    phase, old_phase, 0);
 	      /* vaddr = old_vaddr + (t1 * elem_per_block + phase_diff)
-	       *                     * elem_size; */
+				     * elem_size; */
 	      vaddr = build_binary_op (loc, PLUS_EXPR,
 	                  old_vaddr,
 		          build_binary_op (loc, MULT_EXPR,

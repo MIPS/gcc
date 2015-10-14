@@ -787,7 +787,6 @@ enable_linker_plugin_configure_flags
 enable_linker_plugin_flags
 enable_stage1_languages
 enable_objc_gc
-with_upc_pts
 with_build_sysroot
 with_debug_prefix_map
 with_build_config
@@ -1555,9 +1554,6 @@ Optional Packages:
                           --with-isl-lib=PATH/lib
   --with-isl-include=PATH Specify directory for installed ISL include files
   --with-isl-lib=PATH     Specify the directory for the installed ISL library
-  --with-upc-pts={struct,packed}
-                          choose the default representation of a UPC
-                          pointer-to-shared
   --with-build-sysroot=SYSROOT
                           use sysroot as the system root during the build
   --with-debug-prefix-map='A=B C=D ...'
@@ -6503,17 +6499,6 @@ case ,${enable_languages},:${enable_objc_gc} in
     fi
     ;;
 esac
-
-
-# Check whether --with-upc-pts was given.
-if test "${with_upc_pts+set}" = set; then :
-  withval=$with_upc_pts;
-  if test "$withval"x != "struct"x && test "$withval"x != "packed"x; then \
-    as_fn_error "$withval is an invalid option to --with-upc-pts" "$LINENO" 5
-  fi
-
-fi
-
 
 # Disable libcilkrts, libitm, libsanitizer, libvtv, liboffloadmic if we're not building C++
 case ,${enable_languages}, in

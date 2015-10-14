@@ -189,9 +189,8 @@ upc_parse_init (void)
   upc_genericize_init ();
 }
 
-/*
- * Build the internal representation of UPC's pointer-to-shared type.
- */
+/* Build the internal representation of UPC's pointer-to-shared type.  */
+
 void
 upc_pts_struct_init_type (void)
 {
@@ -243,8 +242,8 @@ upc_pts_struct_init_type (void)
 #if !HAVE_UPC_PTS_VADDR_FIRST
   fields = nreverse (fields);
 #endif
-  /* avoid spurious complaints regarding the definition
-   * `phase' and `thread'.  */
+  /* Avoid spurious complaints regarding the definition of
+     `phase' and `thread'.  */
   pedantic = 0;
   upc_pts_rep_type_node = finish_struct (loc, ref, fields, NULL_TREE,
 					 null_struct_parse_info);

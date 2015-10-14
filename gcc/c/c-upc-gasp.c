@@ -82,7 +82,7 @@ upc_instrument_forall (location_t loc, int start)
 }
 
 /* If UPC function profiling has been enabled, rewrite the
-   body of FNDECL so that the GASP intrumentation function
+   body of FNDECL so that the GASP instrumentation function
    is called before the body of the function is executed,
    and then after it is executed (as a TRY_FINALLY_EXPR).  */
 

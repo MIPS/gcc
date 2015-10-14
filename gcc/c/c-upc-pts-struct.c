@@ -58,9 +58,8 @@ const upc_pts_ops_t upc_pts_struct_ops =
     upc_pts_struct_build_threadof
   };
 
-/*
- * Build the internal representation of UPC's pointer-to-shared type.
- */
+/* Build the internal representation of UPC's pointer-to-shared type.  */
+
 static void
 upc_pts_struct_init_type (void)
 {
@@ -282,7 +281,7 @@ upc_pts_struct_build_sum (location_t loc, tree exp)
 	  phase_diff =
 	    build_binary_op (loc, MINUS_EXPR, phase, old_phase, 0);
 	  /* vaddr = old_vaddr + (t1 * elem_per_block + phase_diff)
-	   * elem_size; */
+				 * elem_size; */
 	  vaddr = build_binary_op (loc, PLUS_EXPR,
 				   old_vaddr,
 				   build_binary_op (loc, MULT_EXPR,

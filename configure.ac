@@ -2187,16 +2187,6 @@ case ,${enable_languages},:${enable_objc_gc} in
     ;;
 esac
 
-AC_ARG_WITH([upc-pts],
-AS_HELP_STRING(
-[[--with-upc-pts=[{struct,packed}]]],
- [choose the default representation of a UPC pointer-to-shared]),
-[
-  if test "$withval"x != "struct"x && test "$withval"x != "packed"x; then \
-    AC_MSG_ERROR([$withval is an invalid option to --with-upc-pts])
-  fi
-],[])
-
 # Disable libcilkrts, libitm, libsanitizer, libvtv, liboffloadmic if we're not building C++
 case ,${enable_languages}, in
   *,c++,*)

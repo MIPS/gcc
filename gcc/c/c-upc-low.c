@@ -737,6 +737,8 @@ upc_genericize_indirect_ref (location_t loc, tree *expr_p)
   *expr_p = upc_expand_get (loc, src, 0);
 }
 
+/* Expand .real and .imag applied to a UPC shared object.  */
+
 static void
 upc_genericize_real_imag_ref (location_t loc ATTRIBUTE_UNUSED,
 			      tree *expr_p ATTRIBUTE_UNUSED)
@@ -1437,12 +1439,16 @@ upc_write_global_declarations (void)
   upc_genericize_finish ();
 }
 
+/* Clean up resources used by the UPC genericize pass.  */
+
 void
 upc_genericize_finish (void)
 {
   upc_free_unshared_var_table ();
   upc_init_stmt_list = NULL;
 }
+
+/* Initialize/allocate resources used by the UPC genericize pass.  */
 
 void
 upc_genericize_init (void)

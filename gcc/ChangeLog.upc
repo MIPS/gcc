@@ -1,3 +1,12 @@
+2015-10-14  Gary Funck  <gary@intrepid.com>
+
+	* top-level/configure.ac: Remove handling of --with-upc-pts.
+	This is done in the gcc configure script.
+	* top-level/configure: Re-generate.
+	* c/c-upc-gasp.c, c/c-upc-lang.c, c/c-upc-low.c,
+	c/c-upc-pts-ops.c, c/c-upc-pts-packed.c, c/c-upc-pts-struct.c:
+	Fix/add comments.
+
 2015-10-13  Gary Funck  <gary@intrepid.com>
 
 	Move most UPC-specific files from 'c-family' to 'c'.
