@@ -2232,11 +2232,24 @@ diagnose_mismatched_decls (tree newdecl, tree olddecl,
   /* warnings */
   /* All decls must agree on a visibility.  */
   if (CODE_CONTAINS_STRUCT (TREE_CODE (newdecl), TS_DECL_WITH_VIS)
-      && DECL_VISIBILITY_SPECIFIED (newdecl) && DECL_VISIBILITY_SPECIFIED (olddecl)
-      && DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
+      && DECL_VISIBILITY_SPECIFIED (newdecl))
     {
-      warned |= warning (0, "redeclaration of %q+D with different visibility "
-			 "(old visibility preserved)", newdecl);
+      if (DECL_VISIBILITY_SPECIFIED (olddecl))
+	{
+	  if (DECL_VISIBILITY (newdecl) != DECL_VISIBILITY (olddecl))
+	    warned |= warning (0, "redeclaration of %q+D with different "
+			       "visibility (old visibility preserved)",
+			       newdecl);
+	}
+      else if (TREE_CODE (olddecl) == FUNCTION_DECL
+	       && DECL_BUILT_IN (olddecl))
+	{
+	  enum built_in_function fncode = DECL_FUNCTION_CODE (olddecl);
+	  tree fndecl = builtin_decl_explicit (fncode);
+	  gcc_assert (fndecl && !DECL_VISIBILITY_SPECIFIED (fndecl));
+	  DECL_VISIBILITY (fndecl) = DECL_VISIBILITY (newdecl);
+	  DECL_VISIBILITY_SPECIFIED (fndecl) = 1;
+	}
     }
 
   if (TREE_CODE (newdecl) == FUNCTION_DECL)

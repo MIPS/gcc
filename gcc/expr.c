@@ -1390,7 +1390,11 @@ init_block_move_fn (const char *asmspec)
       TREE_PUBLIC (fn) = 1;
       DECL_ARTIFICIAL (fn) = 1;
       TREE_NOTHROW (fn) = 1;
-      DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
+      tree fndecl = builtin_decl_explicit (BUILT_IN_MEMCPY);
+      if (fndecl)
+	DECL_VISIBILITY (fn) = DECL_VISIBILITY (fndecl);
+      else
+	DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
       DECL_VISIBILITY_SPECIFIED (fn) = 1;
 
       attr_args = build_tree_list (NULL_TREE, build_string (1, "1"));
@@ -2846,7 +2850,11 @@ init_block_clear_fn (const char *asmspec)
       TREE_PUBLIC (fn) = 1;
       DECL_ARTIFICIAL (fn) = 1;
       TREE_NOTHROW (fn) = 1;
-      DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
+      tree fndecl = builtin_decl_explicit (BUILT_IN_MEMSET);
+      if (fndecl)
+	DECL_VISIBILITY (fn) = DECL_VISIBILITY (fndecl);
+      else
+	DECL_VISIBILITY (fn) = VISIBILITY_DEFAULT;
       DECL_VISIBILITY_SPECIFIED (fn) = 1;
 
       block_clear_fn = fn;
