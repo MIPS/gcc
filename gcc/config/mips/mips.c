@@ -8024,6 +8024,16 @@ mips_expand_call (enum mips_call_type type, rtx result, rtx addr,
   rtx orig_addr, pattern, insn;
   int fp_code;
 
+  /* When a call is expanded, a new sequence is started forbidding access
+     to arguments.  We temporarily end an empty sequence to restore
+     the previous state and bond loads/stores in the arguments.  */
+  if (get_insns () == NULL_RTX)
+    {
+      end_sequence ();
+      mips_load_store_bond_insns ();
+      start_sequence ();
+    }
+
   fp_code = aux == 0 ? 0 : (int) GET_MODE (aux);
   insn = mips16_build_call_stub (result, &addr, args_size, fp_code);
   if (insn)
@@ -12763,6 +12773,8 @@ mips_expand_prologue (void)
      the call to mcount.  */
   if (crtl->profile)
     emit_insn (gen_blockage ());
+
+  mips_load_store_bond_insns ();
 }
 
 /* Attach all pending register saves to the previous instruction.
@@ -13103,6 +13115,8 @@ mips_expand_epilogue (bool sibcall_p)
       emit_insn_before (gen_mips_di (), insn);
       emit_insn_before (gen_mips_ehb (), insn);
     }
+
+  mips_load_store_bond_insns ();
 }
 
 /* Return nonzero if this function is known to have a null epilogue.
@@ -20956,6 +20970,28 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
   HOST_WIDE_INT offset1, offset2;
   bool load_p, load_p2;
 
+  /* Check the supported modes.  */
+  switch (mode)
+    {
+    case HImode:
+    case SImode:
+      break;
+    case DImode:
+      if (!TARGET_64BIT)
+	return false;
+      break;
+    case SFmode:
+      if (!TARGET_HARD_FLOAT)
+	return false;
+      break;
+    case DFmode:
+      if (!(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT))
+	return false;
+      break;
+    default:
+      return false;
+    }
+
   if (!mips_load_store_p (&operands[0], &load_p)
       || !mips_load_store_p (&operands[2], &load_p2)
       || load_p != load_p2)
@@ -20998,8 +21034,10 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       && REGNO (reg1) == REGNO (reg2))
     return false;
 
-  /* Check if the loads/stores are of the same mode.  */
-  if (GET_MODE (reg1) != GET_MODE (reg2)
+  /* Check if the loads/stores are of the same mode.
+     Skip the mode check for stores where we have $0 as source registers.  */
+  if ((GET_MODE (reg1) != GET_MODE (reg2)
+       && !(!load_p && (reg1 == const0_rtx || reg2 == const0_rtx)))
       || GET_MODE (mem1) != GET_MODE (mem2)
       || GET_MODE (base1) != GET_MODE (base2))
     return false;
@@ -21015,11 +21053,92 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
 	return false;
     }
 
-  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode)
-      || GET_MODE_SIZE (mode) < 2)
+  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode))
     return false;
 
   return true;
+}
+
+/* Return TRUE if INSN1 and INSN2 can be bonded, FALSE otherwise.  */
+
+bool
+mips_load_store_bonding_insn_p (rtx insn1, rtx insn2)
+{
+  rtx operands[4];
+  rtx pat1, pat2;
+
+  gcc_assert (INSN_P (insn1) && INSN_P (insn2));
+
+  pat1 = PATTERN (insn1);
+  pat2 = PATTERN (insn2);
+
+  if (GET_CODE (pat1) == SET && GET_CODE (pat2) == SET)
+    {
+      machine_mode mode;
+
+      operands[0] = SET_DEST (pat1);
+      operands[1] = SET_SRC (pat1);
+      operands[2] = SET_DEST (pat2);
+      operands[3] = SET_SRC (pat2);
+
+      /* We take the mode from either SET_DESTs and the remaining operands
+	 and modes will be checked later.  */
+      mode = GET_MODE (operands[0]);
+
+      return mips_load_store_bonding_p (operands, mode);
+    }
+
+  return false;
+}
+
+/* Find and bond load/store pairs in range FROM to TO.  */
+
+void
+mips_load_store_bond_insns_in_range (rtx from, rtx to)
+{
+  rtx cur, next;
+
+  if (!ENABLE_LD_ST_PAIRS)
+    return;
+
+  if (from == NULL || to == NULL || from == to)
+    return;
+
+  for (cur = from, next = NEXT_INSN (cur);
+       next;
+       cur = next, next = NEXT_INSN (next))
+    {
+      if (INSN_P (cur) && INSN_P (next)
+	  && mips_load_store_bonding_insn_p (cur, next))
+	{
+	  rtx bonded, par;
+	  rtvec sets;
+
+	  sets = gen_rtvec (2, PATTERN (cur), PATTERN (next));
+	  par = gen_rtx_PARALLEL (VOIDmode, sets);
+	  bonded = emit_insn_before (par, cur);
+
+	  if (RTX_FRAME_RELATED_P (cur) || RTX_FRAME_RELATED_P (next))
+	    {
+	      RTX_FRAME_RELATED_P (bonded) = 1;
+	      REG_NOTES (bonded) = alloc_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+						    par, REG_NOTES (bonded));
+	    }
+
+	  remove_insn (cur);
+	  remove_insn (next);
+	  cur = PREV_INSN (cur);
+	  next = bonded;
+	}
+    }
+}
+
+/* Find and bond load/store pairs for the entire sequence.  */
+
+void
+mips_load_store_bond_insns ()
+{
+  mips_load_store_bond_insns_in_range (get_insns (), get_last_insn ());
 }
 
 /* OPERANDS describes the operands to a pair of SETs, in the order
