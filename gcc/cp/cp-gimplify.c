@@ -945,7 +945,8 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
   *stmt_p = stmt = cp_fold (*stmt_p, wtd->fold_hash);
 
   code = TREE_CODE (stmt);
-  if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE)
+  if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE
+      || code == CILK_FOR || code == CILK_SIMD)
     {
       tree x;
       int i, n;
