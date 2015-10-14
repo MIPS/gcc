@@ -8057,35 +8057,35 @@ expand_ptrmemfunc_cst (tree cst, tree *delta, tree *pfn)
 	 fn; the call will do the opposite adjustment.  */
       tree orig_class = DECL_CONTEXT (fn);
       tree binfo = binfo_or_else (orig_class, fn_class);
-      *delta = build2 (PLUS_EXPR, TREE_TYPE (*delta),
-		       *delta, BINFO_OFFSET (binfo));
+      *delta = fold_build2 (PLUS_EXPR, TREE_TYPE (*delta),
+			    *delta, BINFO_OFFSET (binfo));
 
       /* We set PFN to the vtable offset at which the function can be
 	 found, plus one (unless ptrmemfunc_vbit_in_delta, in which
 	 case delta is shifted left, and then incremented).  */
       *pfn = DECL_VINDEX (fn);
-      *pfn = build2 (MULT_EXPR, integer_type_node, *pfn,
-		     TYPE_SIZE_UNIT (vtable_entry_type));
+      *pfn = fold_build2 (MULT_EXPR, integer_type_node, *pfn,
+			  TYPE_SIZE_UNIT (vtable_entry_type));
 
       switch (TARGET_PTRMEMFUNC_VBIT_LOCATION)
 	{
 	case ptrmemfunc_vbit_in_pfn:
-	  *pfn = build2 (PLUS_EXPR, integer_type_node, *pfn,
-			 integer_one_node);
+	  *pfn = fold_build2 (PLUS_EXPR, integer_type_node, *pfn,
+			      integer_one_node);
 	  break;
 
 	case ptrmemfunc_vbit_in_delta:
-	  *delta = build2 (LSHIFT_EXPR, TREE_TYPE (*delta),
-			   *delta, integer_one_node);
-	  *delta = build2 (PLUS_EXPR, TREE_TYPE (*delta),
-			   *delta, integer_one_node);
+	  *delta = fold_build2 (LSHIFT_EXPR, TREE_TYPE (*delta),
+				*delta, integer_one_node);
+	  *delta = fold_build2 (PLUS_EXPR, TREE_TYPE (*delta),
+				*delta, integer_one_node);
 	  break;
 
 	default:
 	  gcc_unreachable ();
 	}
 
-      *pfn = build_nop (TYPE_PTRMEMFUNC_FN_TYPE (type), *pfn);
+      *pfn = fold_convert (TYPE_PTRMEMFUNC_FN_TYPE (type), *pfn);
     }
 }
 
