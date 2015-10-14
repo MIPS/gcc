@@ -1038,6 +1038,8 @@ cxx_eval_builtin_function_call (const constexpr_ctx *ctx, tree t, tree fun,
   force_folding_builtin_constant_p = true;
   new_call = fold_build_call_array_loc (EXPR_LOCATION (t), TREE_TYPE (t),
 					CALL_EXPR_FN (t), nargs, args);
+  /* Fold away the NOP_EXPR from fold_builtin_n.  */
+  new_call = fold (new_call);
   force_folding_builtin_constant_p = save_ffbcp;
   VERIFY_CONSTANT (new_call);
   return new_call;
