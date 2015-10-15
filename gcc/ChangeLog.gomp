@@ -1,3 +1,20 @@
+2015-10-15  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (struct oacc_loop): Add chunk_size and head_end
+	fields.
+	(extract_omp_for_data): Don't extract OpenACC partitioning or
+	chunk size here.
+	(lower_oacc_head_mark): Substitute gang_static size.
+	(expand_oacc_for): Don't specify parallel region chunking or
+	partitioning here.
+	(oacc_xform_loop): Stride a single worker partition.  Add
+	conversions for chunk size.
+	(new_oacc_loop_raw): Initialize new fields.
+	(new_oacc_loop): Set chunk_size.
+	(oacc_loop_walk): Set head_end.
+	(oacc_loop_xform_loop): New.
+	(oacc_loop_process): Call it.
+
 2015-10-14  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (lower_reduction_clauses): Correct comment, remove

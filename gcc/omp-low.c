@@ -255,11 +255,10 @@ struct oacc_loop
 
   tree routine;  /* Pseudo-loop enclosing a routine.  */
 
-  /* Partitioning mask.  */
-  unsigned mask;
-
-  /* Partitioning flags.  */
-  unsigned flags;
+  unsigned mask;   /* Partitioning mask.  */
+  unsigned flags;   /* Partitioning flags.  */
+  tree chunk_size;   /* Chunk size.  */
+  gcall *head_end; /* Final marker of head sequence.  */
 };
 
 /*  Flags for an OpenACC loop.  */
@@ -790,31 +789,6 @@ extract_omp_for_data (gomp_for *for_stmt, struct omp_for_data *fd,
       fd->loop.n2 = *collapse_count;
       fd->loop.step = build_int_cst (TREE_TYPE (fd->loop.v), 1);
       fd->loop.cond_code = LT_EXPR;
-    }
-
-  /* For OpenACC loops, force a chunk size of one, unless a gang loop
-     contains a static argument.  This avoids the default scheduling where
-     several subsequent iterations are being executed by the same thread.  */
-  if (gimple_omp_for_kind (for_stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-    {
-      gcc_assert (fd->chunk_size == NULL_TREE);
-
-      tree gang = find_omp_clause (gimple_omp_for_clauses (for_stmt),
-				   OMP_CLAUSE_GANG);
-      tree chunk_size = NULL_TREE;
-
-      if (gang)
-	{
-	  chunk_size = OMP_CLAUSE_GANG_STATIC_EXPR (gang);
-
-	  /* gang (static:*) is represented by -1.  */
-	  if (chunk_size == integer_minus_one_node)
-	    chunk_size = NULL_TREE;
-	}
-      else
-	chunk_size = build_int_cst (TREE_TYPE (fd->loop.v), 1);
-
-      fd->chunk_size = chunk_size;
     }
 }
 
@@ -4944,11 +4918,15 @@ lower_oacc_head_mark (location_t loc, tree clauses,
 	case OMP_CLAUSE_GANG:
 	  tag |= OLF_DIM_GANG;
 	  gang_static = OMP_CLAUSE_GANG_STATIC_EXPR (c);
+	  /* static:* is represented by -1, and we can ignore it, as
+	     scheduling is always static.  */
+	  if (gang_static && integer_minus_onep (gang_static))
+	    gang_static = NULL_TREE;
 	  levels++;
 	  break;
 
 	case OMP_CLAUSE_WORKER:
-	  tag |=  OLF_DIM_WORKER;
+	  tag |= OLF_DIM_WORKER;
 	  levels++;
 	  break;
 
@@ -4980,7 +4958,11 @@ lower_oacc_head_mark (location_t loc, tree clauses,
 
  done:
   if (gang_static)
-    tag |= OLF_GANG_STATIC;
+    {
+      if (DECL_P  (gang_static))
+	gang_static = build_outer_var_ref (gang_static, ctx);
+      tag |= OLF_GANG_STATIC;
+    }
 
   /* In a parallel region, loops are implicitly INDEPENDENT.  */
   if (is_oacc_parallel (ctx))
@@ -8819,8 +8801,8 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
   enum tree_code cond_code = fd->loop.cond_code;
   enum tree_code plus_code = PLUS_EXPR;
 
-  tree chunk_size = fd->chunk_size;
-  tree gwv = build_int_cst (integer_type_node, region->gwv_this);
+  tree chunk_size = integer_one_node;
+  tree gwv = integer_zero_node;
   tree iter_type = TREE_TYPE (v);
   tree diff_type = iter_type;
   tree plus_type = iter_type;
@@ -8873,7 +8855,7 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
   tree step = create_tmp_var (diff_type, ".step");
   bool up = cond_code == LT_EXPR;
   tree dir = build_int_cst (diff_type, up ? +1 : -1);
-  bool chunking = chunk_size != NULL_TREE;
+  bool chunking = !gimple_in_ssa_p (cfun);;
   bool negating;
 
   /* SSA instances.  */
@@ -8902,6 +8884,8 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
     {
       offset_init = gimple_omp_for_index (for_stmt, 0);
       gcc_assert (integer_zerop (fd->loop.n1));
+      /* The SSA parallelizer does gang parallelism.  */
+      gwv = build_int_cst (integer_type_node, GOMP_DIM_MASK (GOMP_DIM_GANG));
     }
 
   if (fd->collapse > 1)
@@ -15642,11 +15626,12 @@ oacc_xform_loop (gcall *call)
 
   if (integer_zerop (chunk_size))
     {
-      /* If we're at the gang or worker level, we want each to execute
-	 a contiguous run of iterations.  Otherwise we want each
-	 element to stride.  */
-      striding = !(outer_mask & (GOMP_DIM_MASK (GOMP_DIM_WORKER)
-				 | GOMP_DIM_MASK (GOMP_DIM_GANG)));
+      /* If we're at the gang or (worker with vector), we want each to
+	 execute a contiguous run of iterations.  Otherwise we want
+	 each element to stride.  */
+      striding = !((outer_mask & GOMP_DIM_MASK (GOMP_DIM_GANG))
+		   || ((outer_mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
+		       && (outer_mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))));
       chunking = false;
     }
   else
@@ -15671,6 +15656,7 @@ oacc_xform_loop (gcall *call)
 	     = (range - dir) / (chunks * step * num_threads) + dir  */
 	  tree per = expand_oacc_get_num_threads (&seq, mask);
 	  per = fold_convert (type, per);
+	  chunk_size = fold_convert (type, chunk_size);
 	  per = fold_build2 (MULT_EXPR, type, per, chunk_size);
 	  per = fold_build2 (MULT_EXPR, type, per, step);
 	  r = build2 (MINUS_EXPR, type, range, dir);
@@ -15706,8 +15692,10 @@ oacc_xform_loop (gcall *call)
 
 	  if (chunking)
 	    {
+	      chunk_size = fold_convert (diff_type, chunk_size);
+
 	      span = inner_size;
-	      span = fold_convert (type, span);
+	      span = fold_convert (diff_type, span);
 	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
 	    }
 	  else
@@ -15754,6 +15742,8 @@ oacc_xform_loop (gcall *call)
 	  
 	  if (chunking)
 	    {
+	      chunk_size = fold_convert (diff_type, chunk_size);
+
 	      span = expand_oacc_get_num_threads (&seq, inner_mask);
 	      span = fold_convert (diff_type, span);
 	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
@@ -15899,6 +15889,8 @@ new_oacc_loop_raw (oacc_loop *parent, location_t loc)
   loop->routine = NULL_TREE;
 
   loop->mask = loop->flags = 0;
+  loop->chunk_size = 0;
+  loop->head_end = NULL;
 
   return loop;
 }
@@ -15921,6 +15913,11 @@ new_oacc_loop (oacc_loop *parent, gcall *head)
   oacc_loop *loop = new_oacc_loop_raw (parent, gimple_location (head));
 
   loop->flags = TREE_INT_CST_LOW (gimple_call_arg (head, 2));
+
+  tree chunk_size = integer_zero_node;
+  if (loop->flags & OLF_GANG_STATIC)
+    chunk_size = gimple_call_arg (head,3);
+  loop->chunk_size = chunk_size;
 
   /* Set the mask from the incoming flags.
      TODO: Be smarter and more flexible.  */
@@ -16086,6 +16083,8 @@ oacc_loop_walk (oacc_loop *loop, basic_block bb)
 	      marker = 0;
 	      if (code == IFN_UNIQUE_OACC_TAIL_MARK)
 		loop = finish_oacc_loop (loop);
+	      else
+		loop->head_end = call;
 	    }
 	  else
 	    {
@@ -16113,7 +16112,6 @@ oacc_loop_walk (oacc_loop *loop, basic_block bb)
 	    }
 	}
     }
-
   gcc_assert (!remaining && !marker);
 
   /* Walk successor blocks.  */
@@ -16202,6 +16200,47 @@ oacc_loop_xform_head_tail (gcall *from, int level)
  break2:;
 }
 
+/* Transform the IFN_GOACC_LOOP internal functions by providing the
+   determined partitioning mask and chunking argument.  */
+
+static void
+oacc_loop_xform_loop (gcall *end_marker, tree mask_arg, tree chunk_arg)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (end_marker);
+  
+  for (;;)
+    {
+      for (; !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+
+	  if (!is_gimple_call (stmt))
+	    continue;
+
+	  gcall *call = as_a <gcall *> (stmt);
+      
+	  if (!gimple_call_internal_p (call))
+	    continue;
+
+	  if (gimple_call_internal_fn (call) != IFN_GOACC_LOOP)
+	    continue;
+
+	  *gimple_call_arg_ptr (call, 5) = mask_arg;
+	  *gimple_call_arg_ptr (call, 4) = chunk_arg;
+	  if (TREE_INT_CST_LOW (gimple_call_arg (call, 0))
+	      == IFN_GOACC_LOOP_BOUND)
+	    goto break2;
+	}
+
+      /* If we didn't see LOOP_BOUND, it should be in the single
+	 successor block.  */
+      basic_block bb = single_succ (gsi_bb (gsi));
+      gsi = gsi_start_bb (bb);
+    }
+
+ break2:;
+}
+
 /* Process the discovered OpenACC loops, setting the correct
    partitioning level etc.  */
 
@@ -16215,19 +16254,26 @@ oacc_loop_process (oacc_loop *loop)
   unsigned mask = loop->mask;
   unsigned dim = GOMP_DIM_GANG;
 
-  if (mask)
-    for (ix = 0; ix != GOMP_DIM_MAX && loop->heads[ix]; ix++)
-      {
-	gcc_assert (mask);
+  if (mask && !loop->routine)
+    {
+      tree mask_arg = build_int_cst (unsigned_type_node, mask);
+      tree chunk_arg = loop->chunk_size;
 
-	while (!(GOMP_DIM_MASK (dim) & mask))
-	  dim++;
+      oacc_loop_xform_loop (loop->head_end, mask_arg, chunk_arg);
 
-	oacc_loop_xform_head_tail (loop->heads[ix], dim);
-	oacc_loop_xform_head_tail (loop->tails[ix], dim);
+      for (ix = 0; ix != GOMP_DIM_MAX && loop->heads[ix]; ix++)
+	{
+	  gcc_assert (mask);
 
-	mask ^= GOMP_DIM_MASK (dim);
-      }
+	  while (!(GOMP_DIM_MASK (dim) & mask))
+	    dim++;
+
+	  oacc_loop_xform_head_tail (loop->heads[ix], dim);
+	  oacc_loop_xform_head_tail (loop->tails[ix], dim);
+
+	  mask ^= GOMP_DIM_MASK (dim);
+	}
+    }
   else
     gcc_assert (!loop->heads[1] && !loop->tails[1]
 		&& (loop->routine || !loop->parent
