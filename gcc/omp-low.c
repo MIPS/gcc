@@ -4846,7 +4846,8 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	    
 	    /* This is the outermost construct with this reduction,
 	       see if there's a mapping for it.  */
-	    if (maybe_lookup_field (orig, outer))
+	    if (gimple_code (outer->stmt) == GIMPLE_OMP_TARGET
+		&& maybe_lookup_field (orig, outer))
 	      ref_to_res = build_receiver_ref (orig, false, outer);
 
 	  has_outer_reduction:;

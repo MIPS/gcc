@@ -1,5 +1,10 @@
 2015-10-15  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (lower_oacc_reductions): Check outer context is a
+	target before lookup.
+
+2015-10-15  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c (struct oacc_loop): Add chunk_size and head_end
 	fields.
 	(extract_omp_for_data): Don't extract OpenACC partitioning or
