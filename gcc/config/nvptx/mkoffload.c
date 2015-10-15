@@ -58,7 +58,22 @@ enum offload_abi offload_abi = OFFLOAD_ABI_UNSET;
 
 /* Delete tempfiles.  */
 
-/* Unlink a temporary file unless requested otherwise.  */
+void
+tool_cleanup (bool from_signal ATTRIBUTE_UNUSED)
+{
+  if (ptx_cfile_name)
+    maybe_unlink (ptx_cfile_name);
+  if (ptx_name)
+    maybe_unlink (ptx_name);
+}
+
+static void
+mkoffload_cleanup (void)
+{
+  tool_cleanup (false);
+}
+
+/* Unlink FILE unless requested otherwise.  */
 
 void
 maybe_unlink (const char *file)
@@ -69,17 +84,8 @@ maybe_unlink (const char *file)
 	  && errno != ENOENT)
 	fatal_error (input_location, "deleting file %s: %m", file);
     }
-  else
+  else if (verbose)
     fprintf (stderr, "[Leaving %s]\n", file);
-}
-
-void
-tool_cleanup (bool)
-{
-  if (ptx_cfile_name)
-    maybe_unlink (ptx_cfile_name);
-  if (ptx_name)
-    maybe_unlink (ptx_name);
 }
 
 /* Add or change the value of an environment variable, outputting the
@@ -236,7 +242,7 @@ process (FILE *in, FILE *out)
   for (size_t i = 0; i != len;)
     {
       char c;
-      
+
       fprintf (out, "static const char ptx_code_%u[] =\n\t\"", obj_count++);
       while ((c = input[i++]))
 	{
@@ -357,6 +363,8 @@ compile_native (const char *infile, const char *outfile, const char *compiler)
   struct obstack argv_obstack;
   obstack_init (&argv_obstack);
   obstack_ptr_grow (&argv_obstack, compiler);
+  if (save_temps)
+    obstack_ptr_grow (&argv_obstack, "-save-temps");
   if (verbose)
     obstack_ptr_grow (&argv_obstack, "-v");
   switch (offload_abi)
@@ -390,6 +398,9 @@ main (int argc, char **argv)
 
   progname = "mkoffload";
   diagnostic_initialize (global_dc, 0);
+
+  if (atexit (mkoffload_cleanup) != 0)
+    fatal_error (input_location, "atexit failed");
 
   char *collect_gcc = getenv ("COLLECT_GCC");
   if (collect_gcc == NULL)
@@ -448,7 +459,7 @@ main (int argc, char **argv)
   expandargv (&argc, &argv);
 
   /* Scan the argument vector.  */
-  bool fopenacc = false;
+  bool fopenmp = false;
   for (int i = 1; i < argc; i++)
     {
 #define STR "-foffload-abi="
@@ -463,8 +474,8 @@ main (int argc, char **argv)
 			 "unrecognizable argument of option " STR);
 	}
 #undef STR
-      else if (strcmp (argv[i], "-fopenacc") == 0)
-	fopenacc = true;
+      else if (strcmp (argv[i], "-fopenmp") == 0)
+	fopenmp = true;
       else if (strcmp (argv[i], "-save-temps") == 0)
 	save_temps = true;
       else if (strcmp (argv[i], "-v") == 0)
@@ -474,6 +485,8 @@ main (int argc, char **argv)
   struct obstack argv_obstack;
   obstack_init (&argv_obstack);
   obstack_ptr_grow (&argv_obstack, driver);
+  if (save_temps)
+    obstack_ptr_grow (&argv_obstack, "-save-temps");
   if (verbose)
     obstack_ptr_grow (&argv_obstack, "-v");
   obstack_ptr_grow (&argv_obstack, "-xlto");
@@ -517,8 +530,8 @@ main (int argc, char **argv)
     fatal_error (input_location, "cannot open '%s'", ptx_cfile_name);
 
   /* PR libgomp/65099: Currently, we only support offloading in 64-bit
-     configurations, and only for OpenACC offloading.  */
-  if (offload_abi == OFFLOAD_ABI_LP64 && fopenacc)
+     configurations.  PR target/67822: OpenMP offloading to nvptx fails.  */
+  if (offload_abi == OFFLOAD_ABI_LP64 && !fopenmp)
     {
       ptx_name = make_temp_file (".mkoffload");
       obstack_ptr_grow (&argv_obstack, "-o");
@@ -550,8 +563,6 @@ main (int argc, char **argv)
   fclose (out);
 
   compile_native (ptx_cfile_name, outname, collect_gcc);
-
-  utils_cleanup (false);
 
   return 0;
 }

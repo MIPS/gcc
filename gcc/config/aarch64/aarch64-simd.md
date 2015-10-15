@@ -2530,23 +2530,33 @@
 ;; dest vector.
 
 (define_insn "*aarch64_combinez<mode>"
-  [(set (match_operand:<VDBL> 0 "register_operand" "=&w")
+  [(set (match_operand:<VDBL> 0 "register_operand" "=w,w,w")
         (vec_concat:<VDBL>
-	   (match_operand:VD_BHSI 1 "register_operand" "w")
-	   (match_operand:VD_BHSI 2 "aarch64_simd_imm_zero" "Dz")))]
+	   (match_operand:VD_BHSI 1 "general_operand" "w,r,m")
+	   (match_operand:VD_BHSI 2 "aarch64_simd_imm_zero" "Dz,Dz,Dz")))]
   "TARGET_SIMD && !BYTES_BIG_ENDIAN"
-  "mov\\t%0.8b, %1.8b"
-  [(set_attr "type" "neon_move<q>")]
+  "@
+   mov\\t%0.8b, %1.8b
+   fmov\t%d0, %1
+   ldr\\t%d0, %1"
+  [(set_attr "type" "neon_move<q>, neon_from_gp, neon_load1_1reg")
+   (set_attr "simd" "yes,*,yes")
+   (set_attr "fp" "*,yes,*")]
 )
 
 (define_insn "*aarch64_combinez_be<mode>"
-  [(set (match_operand:<VDBL> 0 "register_operand" "=&w")
+  [(set (match_operand:<VDBL> 0 "register_operand" "=w,w,w")
         (vec_concat:<VDBL>
-	   (match_operand:VD_BHSI 2 "aarch64_simd_imm_zero" "Dz")
-	   (match_operand:VD_BHSI 1 "register_operand" "w")))]
+	   (match_operand:VD_BHSI 2 "aarch64_simd_imm_zero" "Dz,Dz,Dz")
+	   (match_operand:VD_BHSI 1 "general_operand" "w,r,m")))]
   "TARGET_SIMD && BYTES_BIG_ENDIAN"
-  "mov\\t%0.8b, %1.8b"
-  [(set_attr "type" "neon_move<q>")]
+  "@
+   mov\\t%0.8b, %1.8b
+   fmov\t%d0, %1
+   ldr\\t%d0, %1"
+  [(set_attr "type" "neon_move<q>, neon_from_gp, neon_load1_1reg")
+   (set_attr "simd" "yes,*,yes")
+   (set_attr "fp" "*,yes,*")]
 )
 
 (define_expand "aarch64_combine<mode>"
@@ -4717,6 +4727,27 @@
   "TARGET_SIMD"
   "tbl\\t%0.16b, {%S1.16b - %T1.16b}, %2.16b"
   [(set_attr "type" "neon_tbl2_q")]
+)
+
+(define_insn "aarch64_tbl3v8qi"
+  [(set (match_operand:V8QI 0 "register_operand" "=w")
+	(unspec:V8QI [(match_operand:OI 1 "register_operand" "w")
+		      (match_operand:V8QI 2 "register_operand" "w")]
+		      UNSPEC_TBL))]
+  "TARGET_SIMD"
+  "tbl\\t%S0.8b, {%S1.16b - %T1.16b}, %S2.8b"
+  [(set_attr "type" "neon_tbl3")]
+)
+
+(define_insn "aarch64_tbx4v8qi"
+  [(set (match_operand:V8QI 0 "register_operand" "=w")
+	(unspec:V8QI [(match_operand:V8QI 1 "register_operand" "0")
+		      (match_operand:OI 2 "register_operand" "w")
+		      (match_operand:V8QI 3 "register_operand" "w")]
+		      UNSPEC_TBX))]
+  "TARGET_SIMD"
+  "tbx\\t%S0.8b, {%S2.16b - %T2.16b}, %S3.8b"
+  [(set_attr "type" "neon_tbl4")]
 )
 
 (define_insn_and_split "aarch64_combinev16qi"

@@ -73,7 +73,7 @@ module openacc_internal
       integer (c_int) :: acc_on_device_l
       integer (c_int), value :: d
     end function
- end interface
+  end interface
 end module
 
 module openacc

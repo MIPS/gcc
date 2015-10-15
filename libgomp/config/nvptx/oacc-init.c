@@ -28,7 +28,11 @@
 
 #include "openacc.h"
 
-/* Compile on_device with optimization, so that the compiler expands
+/* For -O and higher, the compiler always attempts to expand acc_on_device, but
+   if the user disables the builtin, or calls it via a pointer, we'll need this
+   version.
+
+   Compile this with optimization, so that the compiler expands
    this, rather than generating infinitely recursive code.  */
 
 int __attribute__ ((__optimize__ ("O2")))

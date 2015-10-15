@@ -1860,8 +1860,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 
   /* Size in bytes, rounded to the nearest multiple of 8 bytes.  */
   size
-    = AARCH64_ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
-			UNITS_PER_WORD);
+    = ROUND_UP (type ? int_size_in_bytes (type) : GET_MODE_SIZE (mode),
+		UNITS_PER_WORD);
 
   allocate_ncrn = (type) ? !(FLOAT_TYPE_P (type)) : !FLOAT_MODE_P (mode);
   allocate_nvrn = aarch64_vfp_is_call_candidate (pcum_v,
@@ -1969,8 +1969,8 @@ aarch64_layout_arg (cumulative_args_t pcum_v, machine_mode mode,
 on_stack:
   pcum->aapcs_stack_words = size / UNITS_PER_WORD;
   if (aarch64_function_arg_alignment (mode, type) == 16 * BITS_PER_UNIT)
-    pcum->aapcs_stack_size = AARCH64_ROUND_UP (pcum->aapcs_stack_size,
-					       16 / UNITS_PER_WORD);
+    pcum->aapcs_stack_size = ROUND_UP (pcum->aapcs_stack_size,
+				       16 / UNITS_PER_WORD);
   return;
 }
 
@@ -2237,21 +2237,21 @@ aarch64_layout_frame (void)
       }
 
   cfun->machine->frame.padding0 =
-    (AARCH64_ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT) - offset);
-  offset = AARCH64_ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT);
+    (ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT) - offset);
+  offset = ROUND_UP (offset, STACK_BOUNDARY / BITS_PER_UNIT);
 
   cfun->machine->frame.saved_regs_size = offset;
 
   cfun->machine->frame.hard_fp_offset
-    = AARCH64_ROUND_UP (cfun->machine->frame.saved_varargs_size
-			+ get_frame_size ()
-			+ cfun->machine->frame.saved_regs_size,
-			STACK_BOUNDARY / BITS_PER_UNIT);
+    = ROUND_UP (cfun->machine->frame.saved_varargs_size
+		+ get_frame_size ()
+		+ cfun->machine->frame.saved_regs_size,
+		STACK_BOUNDARY / BITS_PER_UNIT);
 
   cfun->machine->frame.frame_size
-    = AARCH64_ROUND_UP (cfun->machine->frame.hard_fp_offset
-			+ crtl->outgoing_args_size,
-			STACK_BOUNDARY / BITS_PER_UNIT);
+    = ROUND_UP (cfun->machine->frame.hard_fp_offset
+		+ crtl->outgoing_args_size,
+		STACK_BOUNDARY / BITS_PER_UNIT);
 
   cfun->machine->frame.laid_out = true;
 }
@@ -3763,15 +3763,12 @@ aarch64_legitimate_address_p (machine_mode mode, rtx x,
 bool
 aarch64_float_const_zero_rtx_p (rtx x)
 {
-  REAL_VALUE_TYPE r;
-
   if (GET_MODE (x) == VOIDmode)
     return false;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-  if (REAL_VALUE_MINUS_ZERO (r))
+  if (REAL_VALUE_MINUS_ZERO (*CONST_DOUBLE_REAL_VALUE (x)))
     return !HONOR_SIGNED_ZEROS (GET_MODE (x));
-  return REAL_VALUES_EQUAL (r, dconst0);
+  return real_equal (CONST_DOUBLE_REAL_VALUE (x), &dconst0);
 }
 
 /* Return the fixed registers used for condition codes.  */
@@ -4401,9 +4398,8 @@ aarch64_print_operand (FILE *f, rtx x, char code)
 	    {
 #define buf_size 20
 	      char float_buf[buf_size] = {'\0'};
-	      REAL_VALUE_TYPE r;
-	      REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-	      real_to_decimal_for_mode (float_buf, &r,
+	      real_to_decimal_for_mode (float_buf,
+					CONST_DOUBLE_REAL_VALUE (x),
 					buf_size, buf_size,
 					1, GET_MODE (x));
 	      asm_fprintf (asm_out_file, "%s", float_buf);
@@ -9028,8 +9024,8 @@ aarch64_expand_builtin_va_start (tree valist, rtx nextarg ATTRIBUTE_UNUSED)
      This address is gr_save_area_bytes below GRTOP, rounded
      down to the next 16-byte boundary.  */
   t = make_tree (TREE_TYPE (vrtop), virtual_incoming_args_rtx);
-  vr_offset = AARCH64_ROUND_UP (gr_save_area_size,
-			     STACK_BOUNDARY / BITS_PER_UNIT);
+  vr_offset = ROUND_UP (gr_save_area_size,
+			STACK_BOUNDARY / BITS_PER_UNIT);
 
   if (vr_offset)
     t = fold_build_pointer_plus_hwi (t, -vr_offset);
@@ -9122,7 +9118,7 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 		      unshare_expr (valist), f_grtop, NULL_TREE);
       f_off = build3 (COMPONENT_REF, TREE_TYPE (f_groff),
 		      unshare_expr (valist), f_groff, NULL_TREE);
-      rsize = (size + UNITS_PER_WORD - 1) & -UNITS_PER_WORD;
+      rsize = ROUND_UP (size, UNITS_PER_WORD);
       nregs = rsize / UNITS_PER_WORD;
 
       if (align > 8)
@@ -9361,8 +9357,8 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
 	  /* Set OFF to the offset from virtual_incoming_args_rtx of
 	     the first vector register.  The VR save area lies below
 	     the GR one, and is aligned to 16 bytes.  */
-	  off = -AARCH64_ROUND_UP (gr_saved * UNITS_PER_WORD,
-				   STACK_BOUNDARY / BITS_PER_UNIT);
+	  off = -ROUND_UP (gr_saved * UNITS_PER_WORD,
+			   STACK_BOUNDARY / BITS_PER_UNIT);
 	  off -= vr_saved * UNITS_PER_VREG;
 
 	  for (i = local_cum.aapcs_nvrn; i < NUM_FP_ARG_REGS; ++i)
@@ -9381,8 +9377,8 @@ aarch64_setup_incoming_varargs (cumulative_args_t cum_v, machine_mode mode,
   /* We don't save the size into *PRETEND_SIZE because we want to avoid
      any complication of having crtl->args.pretend_args_size changed.  */
   cfun->machine->frame.saved_varargs_size
-    = (AARCH64_ROUND_UP (gr_saved * UNITS_PER_WORD,
-		      STACK_BOUNDARY / BITS_PER_UNIT)
+    = (ROUND_UP (gr_saved * UNITS_PER_WORD,
+		 STACK_BOUNDARY / BITS_PER_UNIT)
        + vr_saved * UNITS_PER_VREG);
 }
 
@@ -10568,80 +10564,6 @@ aarch64_shift_truncation_mask (machine_mode mode)
      || aarch64_vect_struct_mode_p (mode)) ? 0 : (GET_MODE_BITSIZE (mode) - 1);
 }
 
-#ifndef TLS_SECTION_ASM_FLAG
-#define TLS_SECTION_ASM_FLAG 'T'
-#endif
-
-void
-aarch64_elf_asm_named_section (const char *name, unsigned int flags,
-			       tree decl ATTRIBUTE_UNUSED)
-{
-  char flagchars[10], *f = flagchars;
-
-  /* If we have already declared this section, we can use an
-     abbreviated form to switch back to it -- unless this section is
-     part of a COMDAT groups, in which case GAS requires the full
-     declaration every time.  */
-  if (!(HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-      && (flags & SECTION_DECLARED))
-    {
-      fprintf (asm_out_file, "\t.section\t%s\n", name);
-      return;
-    }
-
-  if (!(flags & SECTION_DEBUG))
-    *f++ = 'a';
-  if (flags & SECTION_WRITE)
-    *f++ = 'w';
-  if (flags & SECTION_CODE)
-    *f++ = 'x';
-  if (flags & SECTION_SMALL)
-    *f++ = 's';
-  if (flags & SECTION_MERGE)
-    *f++ = 'M';
-  if (flags & SECTION_STRINGS)
-    *f++ = 'S';
-  if (flags & SECTION_TLS)
-    *f++ = TLS_SECTION_ASM_FLAG;
-  if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-    *f++ = 'G';
-  *f = '\0';
-
-  fprintf (asm_out_file, "\t.section\t%s,\"%s\"", name, flagchars);
-
-  if (!(flags & SECTION_NOTYPE))
-    {
-      const char *type;
-      const char *format;
-
-      if (flags & SECTION_BSS)
-	type = "nobits";
-      else
-	type = "progbits";
-
-#ifdef TYPE_OPERAND_FMT
-      format = "," TYPE_OPERAND_FMT;
-#else
-      format = ",@%s";
-#endif
-
-      fprintf (asm_out_file, format, type);
-
-      if (flags & SECTION_ENTSIZE)
-	fprintf (asm_out_file, ",%d", flags & SECTION_ENTSIZE);
-      if (HAVE_COMDAT_GROUP && (flags & SECTION_LINKONCE))
-	{
-	  if (TREE_CODE (decl) == IDENTIFIER_NODE)
-	    fprintf (asm_out_file, ",%s,comdat", IDENTIFIER_POINTER (decl));
-	  else
-	    fprintf (asm_out_file, ",%s,comdat",
-		     IDENTIFIER_POINTER (DECL_COMDAT_GROUP (decl)));
-	}
-    }
-
-  putc ('\n', asm_out_file);
-}
-
 /* Select a format to encode pointers in exception handling data.  */
 int
 aarch64_asm_preferred_eh_data_format (int code ATTRIBUTE_UNUSED, int global)
@@ -11383,7 +11305,7 @@ aarch64_float_const_representable_p (rtx x)
   if (GET_MODE (x) == VOIDmode || GET_MODE (x) == HFmode)
     return false;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+  r = *CONST_DOUBLE_REAL_VALUE (x);
 
   /* We cannot represent infinities, NaNs or +/-zero.  We won't
      know if we have +zero until we analyse the mantissa, but we
@@ -11475,10 +11397,10 @@ aarch64_output_simd_mov_immediate (rtx const_vector,
       else
 	{
 #define buf_size 20
-	  REAL_VALUE_TYPE r;
-	  REAL_VALUE_FROM_CONST_DOUBLE (r, info.value);
 	  char float_buf[buf_size] = {'\0'};
-	  real_to_decimal_for_mode (float_buf, &r, buf_size, buf_size, 1, mode);
+	  real_to_decimal_for_mode (float_buf,
+				    CONST_DOUBLE_REAL_VALUE (info.value),
+				    buf_size, buf_size, 1, mode);
 #undef buf_size
 
 	  if (lane_count == 1)

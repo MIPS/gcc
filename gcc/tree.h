@@ -592,6 +592,9 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define COMPLETE_OR_UNBOUND_ARRAY_TYPE_P(NODE) \
   (COMPLETE_TYPE_P (TREE_CODE (NODE) == ARRAY_TYPE ? TREE_TYPE (NODE) : (NODE)))
 
+#define FUNC_OR_METHOD_TYPE_P(NODE) \
+  (TREE_CODE (NODE) == FUNCTION_TYPE || TREE_CODE (NODE) == METHOD_TYPE)
+
 /* Define many boolean fields that all tree nodes have.  */
 
 /* In VAR_DECL, PARM_DECL and RESULT_DECL nodes, nonzero means address
@@ -4614,6 +4617,7 @@ extern int tree_map_base_marked_p (const void *);
 extern void DEBUG_FUNCTION verify_type (const_tree t);
 extern bool gimple_canonical_types_compatible_p (const_tree, const_tree,
 						 bool trust_type_canonical = true);
+extern bool type_with_interoperable_signedness (const_tree);
 /* Return simplified tree code of type that is used for canonical type merging.  */
 inline enum tree_code
 tree_code_for_canonical_type_merging (enum tree_code code)
