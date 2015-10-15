@@ -21065,6 +21065,10 @@ mips_load_store_bonding_insn_p (rtx insn1, rtx insn2)
 	 and modes will be checked later.  */
       mode = GET_MODE (operands[0]);
 
+      /* Don't pre-bond loads and stores for floating-point mode.  */
+      if (FLOAT_MODE_P (mode))
+	return false;
+
       return mips_load_store_bonding_p (operands, mode);
     }
 
