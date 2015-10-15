@@ -1,5 +1,9 @@
 2015-10-14  Gary Funck  <gary@intrepid.com>
 
+	Merge trunk version 228829 into gupc branch.
+
+2015-10-14  Gary Funck  <gary@intrepid.com>
+
 	* top-level/configure.ac: Remove handling of --with-upc-pts.
 	This is done in the gcc configure script.
 	* top-level/configure: Re-generate.
