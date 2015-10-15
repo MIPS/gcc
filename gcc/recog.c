@@ -1841,6 +1841,17 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 
 	case 'X':
 	  result = 1;
+	  /* Although the asm itself doesn't impose any restrictions on
+	     the operand, we still need to restrict it to something that
+	     can be reloaded and printed.
+
+	     MEM operands are always reloaded to make them legitimate,
+	     regardless of the constraint, so we need to handle them
+	     in the same way as for 'm' and 'g'.  Since 'X' is not treated
+	     as an address constraint, the only other valid operand types
+	     are constants and registers.  */
+	  result = (CONSTANT_P (op)
+		    || general_operand (op, VOIDmode));
 	  break;
 
 	case 'g':
