@@ -1,3 +1,8 @@
+2015-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/target-28.c: New test.
+	* testsuite/libgomp.c++/target-13.C: New test.
+
 2015-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.map (GOMP_4.5): Export

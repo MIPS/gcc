@@ -1,3 +1,13 @@
+2015-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_declare_target): Call c_finish_omp_clauses
+	in the parenthesized extended-list syntax case.
+	* c-decl.c (c_decl_attributes): Don't diagnose block scope vars inside
+	declare target.
+	* c-typeck.c (c_finish_omp_clauses): Diagnose the same var or function
+	appearing multiple times on the same directive.  Fix up wording for
+	the to clause if t is neither a FUNCTION_DECL nor a VAR_DECL.
+
 2015-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_clause_schedule): Parse schedule

@@ -34673,11 +34673,12 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
     {
       clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_TO_DECLARE,
 					clauses);
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      clauses = finish_omp_clauses (clauses, true);
+      cp_parser_require_pragma_eol (parser, pragma_tok);
     }
   else
     {
-      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      cp_parser_require_pragma_eol (parser, pragma_tok);
       scope_chain->omp_declare_target_attribute++;
       return;
     }
@@ -34744,7 +34745,7 @@ cp_parser_omp_end_declare_target (cp_parser *parser, cp_token *pragma_tok)
       cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       return;
     }
-  cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+  cp_parser_require_pragma_eol (parser, pragma_tok);
   if (!scope_chain->omp_declare_target_attribute)
     error_at (pragma_tok->location,
 	      "%<#pragma omp end declare target%> without corresponding "

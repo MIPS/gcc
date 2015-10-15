@@ -1,3 +1,9 @@
+2015-10-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/declare-target-2.c: Add various new tests.  Adjust
+	expected diagnostics wording in one case.
+	* g++.dg/gomp/declare-target-1.C: New test.
+
 2015-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/schedule-modifiers-1.c: New test.

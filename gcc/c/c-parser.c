@@ -15531,6 +15531,7 @@ c_parser_omp_declare_target (c_parser *parser)
     {
       clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_TO_DECLARE,
 					      clauses);
+      clauses = c_finish_omp_clauses (clauses, true);
       c_parser_skip_to_pragma_eol (parser);
     }
   else
