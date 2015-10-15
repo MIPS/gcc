@@ -8014,16 +8014,6 @@ mips_expand_call (enum mips_call_type type, rtx result, rtx addr,
   rtx orig_addr, pattern, insn;
   int fp_code;
 
-  /* When a call is expanded, a new sequence is started forbidding access
-     to arguments.  We temporarily end an empty sequence to restore
-     the previous state and bond loads/stores in the arguments.  */
-  if (get_insns () == NULL_RTX)
-    {
-      end_sequence ();
-      mips_load_store_bond_insns ();
-      start_sequence ();
-    }
-
   fp_code = aux == 0 ? 0 : (int) GET_MODE (aux);
   insn = mips16_build_call_stub (result, &addr, args_size, fp_code);
   if (insn)
@@ -21103,10 +21093,18 @@ mips_load_store_bond_insns_in_range (rtx from, rtx to)
 	{
 	  rtx bonded, par;
 	  rtvec sets;
+	  int code;
 
 	  sets = gen_rtvec (2, PATTERN (cur), PATTERN (next));
 	  par = gen_rtx_PARALLEL (VOIDmode, sets);
+
 	  bonded = emit_insn_before (par, cur);
+	  code = recog_memoized (bonded);
+	  if (code < 0)
+	    {
+	      delete_insn (bonded);
+	      continue;
+	    }
 
 	  if (RTX_FRAME_RELATED_P (cur) || RTX_FRAME_RELATED_P (next))
 	    {
