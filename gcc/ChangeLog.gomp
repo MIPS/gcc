@@ -1,5 +1,7 @@
 2015-10-15  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (execute_oacc_device_lower): Move later in file.
+
 	* omp-low.c (lower_oacc_reductions): Check outer context is a
 	target before lookup.
 

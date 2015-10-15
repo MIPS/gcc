@@ -16286,6 +16286,112 @@ oacc_loop_process (oacc_loop *loop)
     oacc_loop_process (loop->sibling);
 }
 
+/* Default launch dimension validator.  Force everything to 1.  A
+   backend that wants to provide larger dimensions must override this
+   hook.  */
+
+bool
+default_goacc_validate_dims (tree ARG_UNUSED (decl), int *dims,
+			     int ARG_UNUSED (fn_level))
+{
+  bool changed = false;
+
+  for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)
+    {
+      if (dims[ix] != 1)
+	{
+	  dims[ix] = 1;
+	  changed = true;
+	}
+    }
+
+  return changed;
+}
+
+/* Default dimension bound is unknown on accelerator and 1 on host. */
+
+unsigned
+default_goacc_dim_limit (unsigned ARG_UNUSED (axis))
+{
+#ifdef ACCEL_COMPILER
+  return 0;
+#else
+  return 1;
+#endif
+}
+
+/* Default fork/join early expander.  Delete the function calls if
+   there is no RTL expander.  */
+
+bool
+default_goacc_fork_join (gcall *ARG_UNUSED (call),
+			 const int *ARG_UNUSED (dims), bool is_fork)
+{
+  if (is_fork)
+    {
+#ifndef HAVE_oacc_fork
+      return true;
+#endif
+    }
+  else
+    {
+#ifndef HAVE_oacc_join
+      return true;
+#endif
+    }
+
+  return false;
+}
+
+/* Default goacc.reduction early expander.
+
+   LHS-opt = IFN_RED_<foo> (RES_PTR-opt, VAR, LEVEL, OP, LID, RID)
+   If RES_PTR is not integer-zerop:
+       SETUP - emit 'LHS = *RES_PTR', LHS = NULL
+       TEARDOWN - emit '*RES_PTR = VAR'
+   If LHS is not NULL
+       emit 'LHS = VAR'   */
+
+bool
+default_goacc_reduction (gcall *call)
+{
+  gimple_stmt_iterator gsi = gsi_for_stmt (call);
+  tree lhs = gimple_call_lhs (call);
+  tree var = gimple_call_arg (call, 1);
+  unsigned code = gimple_call_internal_fn (call);
+  gimple_seq seq = NULL;
+
+  if (code == IFN_GOACC_REDUCTION_SETUP
+      || code == IFN_GOACC_REDUCTION_TEARDOWN)
+    {
+      /* Setup and Teardown need to copy from/to the receiver object,
+	 if there is one.  */
+      tree ref_to_res = gimple_call_arg (call, 0);
+      
+      if (!integer_zerop (ref_to_res))
+	{
+	  tree dst = build_simple_mem_ref (ref_to_res);
+	  tree src = var;
+	  
+	  if (code == IFN_GOACC_REDUCTION_SETUP)
+	    {
+	      src = dst;
+	      dst = lhs;
+	      lhs = NULL;
+	    }
+	  gimple_seq_add_stmt (&seq, gimple_build_assign (dst, src));
+	}
+    }
+
+  /* Copy VAR to LHS, if there is an LHS.  */
+  if (lhs)
+    gimple_seq_add_stmt (&seq, gimple_build_assign (lhs, var));
+
+  gsi_replace_with_seq (&gsi, seq, true);
+
+  return false;
+}
+
 /* Main entry point for oacc transformations which run on the device
    compiler after LTO, so we know what the target device is at this
    point (including the host fallback).  */
@@ -16400,112 +16506,6 @@ execute_oacc_device_lower ()
   free_oacc_loop (loops);
   
   return 0;
-}
-
-/* Default launch dimension validator.  Force everything to 1.  A
-   backend that wants to provide larger dimensions must override this
-   hook.  */
-
-bool
-default_goacc_validate_dims (tree ARG_UNUSED (decl), int *dims,
-			     int ARG_UNUSED (fn_level))
-{
-  bool changed = false;
-
-  for (unsigned ix = 0; ix != GOMP_DIM_MAX; ix++)
-    {
-      if (dims[ix] != 1)
-	{
-	  dims[ix] = 1;
-	  changed = true;
-	}
-    }
-
-  return changed;
-}
-
-/* Default dimension bound is unknown on accelerator and 1 on host. */
-
-unsigned
-default_goacc_dim_limit (unsigned ARG_UNUSED (axis))
-{
-#ifdef ACCEL_COMPILER
-  return 0;
-#else
-  return 1;
-#endif
-}
-
-/* Default fork/join early expander.  Delete the function calls if
-   there is no RTL expander.  */
-
-bool
-default_goacc_fork_join (gcall *ARG_UNUSED (call),
-			 const int *ARG_UNUSED (dims), bool is_fork)
-{
-  if (is_fork)
-    {
-#ifndef HAVE_oacc_fork
-      return true;
-#endif
-    }
-  else
-    {
-#ifndef HAVE_oacc_join
-      return true;
-#endif
-    }
-
-  return false;
-}
-
-/* Default goacc.reduction early expander.
-
-   LHS-opt = IFN_RED_<foo> (RES_PTR-opt, VAR, LEVEL, OP, LID, RID)
-   If RES_PTR is not integer-zerop:
-       SETUP - emit 'LHS = *RES_PTR', LHS = NULL
-       TEARDOWN - emit '*RES_PTR = VAR'
-   If LHS is not NULL
-       emit 'LHS = VAR'   */
-
-bool
-default_goacc_reduction (gcall *call)
-{
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  tree lhs = gimple_call_lhs (call);
-  tree var = gimple_call_arg (call, 1);
-  unsigned code = gimple_call_internal_fn (call);
-  gimple_seq seq = NULL;
-
-  if (code == IFN_GOACC_REDUCTION_SETUP
-      || code == IFN_GOACC_REDUCTION_TEARDOWN)
-    {
-      /* Setup and Teardown need to copy from/to the receiver object,
-	 if there is one.  */
-      tree ref_to_res = gimple_call_arg (call, 0);
-      
-      if (!integer_zerop (ref_to_res))
-	{
-	  tree dst = build_simple_mem_ref (ref_to_res);
-	  tree src = var;
-	  
-	  if (code == IFN_GOACC_REDUCTION_SETUP)
-	    {
-	      src = dst;
-	      dst = lhs;
-	      lhs = NULL;
-	    }
-	  gimple_seq_add_stmt (&seq, gimple_build_assign (dst, src));
-	}
-    }
-
-  /* Copy VAR to LHS, if there is an LHS.  */
-  if (lhs)
-    gimple_seq_add_stmt (&seq, gimple_build_assign (lhs, var));
-
-  gsi_replace_with_seq (&gsi, seq, true);
-
-  return false;
 }
 
 namespace {
