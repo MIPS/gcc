@@ -1227,6 +1227,44 @@ gomp_target_fallback (void (*fn) (void *), void **hostaddrs)
   *thr = old_thr;
 }
 
+/* Host fallback with firstprivate map-type handling.  */
+
+static void
+gomp_target_fallback_firstprivate (void (*fn) (void *), size_t mapnum,
+				   void **hostaddrs, size_t *sizes,
+				   unsigned short *kinds)
+{
+  size_t i, tgt_align = 0, tgt_size = 0;
+  char *tgt = NULL;
+  for (i = 0; i < mapnum; i++)
+    if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
+      {
+	size_t align = (size_t) 1 << (kinds[i] >> 8);
+	if (tgt_align < align)
+	  tgt_align = align;
+	tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	tgt_size += sizes[i];
+      }
+  if (tgt_align)
+    {
+      tgt = gomp_alloca (tgt_size + tgt_align - 1);
+      uintptr_t al = (uintptr_t) tgt & (tgt_align - 1);
+      if (al)
+	tgt += tgt_align - al;
+      tgt_size = 0;
+      for (i = 0; i < mapnum; i++)
+	if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
+	  {
+	    size_t align = (size_t) 1 << (kinds[i] >> 8);
+	    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	    memcpy (tgt + tgt_size, hostaddrs[i], sizes[i]);
+	    hostaddrs[i] = tgt + tgt_size;
+	    tgt_size = tgt_size + sizes[i];
+	  }
+    }
+  gomp_target_fallback (fn, hostaddrs);
+}
+
 /* Helper function of GOMP_target{,_41} routines.  */
 
 static void *
@@ -1311,35 +1349,7 @@ GOMP_target_41 (int device, void (*fn) (void *), size_t mapnum,
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     {
-      size_t i, tgt_align = 0, tgt_size = 0;
-      char *tgt = NULL;
-      for (i = 0; i < mapnum; i++)
-	if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
-	  {
-	    size_t align = (size_t) 1 << (kinds[i] >> 8);
-	    if (tgt_align < align)
-	      tgt_align = align;
-	    tgt_size = (tgt_size + align - 1) & ~(align - 1);
-	    tgt_size += sizes[i];
-	  }
-      if (tgt_align)
-	{
-	  tgt = gomp_alloca (tgt_size + tgt_align - 1);
-	  uintptr_t al = (uintptr_t) tgt & (tgt_align - 1);
-	  if (al)
-	    tgt += tgt_align - al;
-	  tgt_size = 0;
-	  for (i = 0; i < mapnum; i++)
-	    if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
-	      {
-		size_t align = (size_t) 1 << (kinds[i] >> 8);
-		tgt_size = (tgt_size + align - 1) & ~(align - 1);
-		memcpy (tgt + tgt_size, hostaddrs[i], sizes[i]);
-		hostaddrs[i] = tgt + tgt_size;
-		tgt_size = tgt_size + sizes[i];
-	      }
-	}
-      gomp_target_fallback (fn, hostaddrs);
+      gomp_target_fallback_firstprivate (fn, mapnum, hostaddrs, sizes, kinds);
       return;
     }
 

@@ -1,3 +1,8 @@
+2015-10-15  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* target.c (gomp_target_fallback_firstprivate): New static function.
+	(GOMP_target_41): Move firstprivate fallback handling into new function.
+
 2015-10-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/target-28.c: New test.
