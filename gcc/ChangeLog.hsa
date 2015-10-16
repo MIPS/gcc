@@ -1,5 +1,9 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c: Do not use ##__VA_ARGS__.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_known_library_call):
 	Small refactoring.
 

@@ -89,7 +89,7 @@ along with GCC; see the file COPYING3.  If not see
     hsa_fail_cfun (); \
     if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
 		    HSA_SORRY_MSG)) \
-      inform (location, message, ##__VA_ARGS__); \
+      inform (location, message, __VA_ARGS__); \
   } \
   while (false);
 
