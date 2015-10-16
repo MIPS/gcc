@@ -1,5 +1,11 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_function_def_parameters): Add new hsa_seen_error
+	guards.
+	(gen_hsa_insns_for_direct_call): Likewise.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-dump.c (dump_hsa_insn_1): Fix emission if insns have assigned
 	numbers.
 

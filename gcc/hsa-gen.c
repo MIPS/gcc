@@ -3189,6 +3189,10 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 
       BrigType16_t mtype = mem_type_for_type (hsa_type_for_scalar_tree_type
 					      (TREE_TYPE (parm), false));
+
+      if (hsa_seen_error ())
+	return;
+
       hsa_op_address *addr = gen_hsa_addr_for_arg (TREE_TYPE (parm), i);
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (parm, hbb, ssa_map);
       hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
@@ -3222,8 +3226,21 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 	 declaration for the result.  */
       if (result)
 	{
+	  tree lhs_type = TREE_TYPE (result);
+	  if (AGGREGATE_TYPE_P (lhs_type))
+	    {
+	      HSA_SORRY_ATV (gimple_location (stmt), "support for HSA does not "
+			     "implement assignment of a returned value "
+			     "which is of an aggregate type %T", lhs_type);
+	      return;
+	    }
+
 	  BrigType16_t mtype = mem_type_for_type
-	    (hsa_type_for_scalar_tree_type (TREE_TYPE (result), false));
+	    (hsa_type_for_scalar_tree_type (lhs_type, false));
+
+	  if (hsa_seen_error ())
+	    return;
+
 	  hsa_op_reg *dst = hsa_reg_for_gimple_ssa (result, ssa_map);
 
 	  result_insn = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dst, addr);
@@ -4873,6 +4890,10 @@ gen_function_def_parameters (hsa_function_representation *f,
       struct hsa_symbol **slot;
 
       fillup_sym_for_decl (parm, &f->input_args[i]);
+
+      if (hsa_seen_error ())
+	return;
+
       f->input_args[i].segment = f->kern_p ? BRIG_SEGMENT_KERNARG :
 				       BRIG_SEGMENT_ARG;
 
@@ -4909,6 +4930,10 @@ gen_function_def_parameters (hsa_function_representation *f,
 
       f->output_arg = XCNEW (hsa_symbol);
       fillup_sym_for_decl (DECL_RESULT (cfun->decl), f->output_arg);
+
+      if (hsa_seen_error ())
+	return;
+
       f->output_arg->segment = BRIG_SEGMENT_ARG;
       f->output_arg->linkage = BRIG_LINKAGE_FUNCTION;
       f->output_arg->name = "res";
