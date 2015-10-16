@@ -745,11 +745,23 @@ hsa_get_host_function (tree decl)
 
 /* Return true if function DECL has a host equivalent function.  */
 
-static bool
-has_host_function_p (tree decl)
+static char *
+get_brig_function_name (tree decl)
 {
-  hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
-  return s != NULL && s->kind != HSA_NONE && s->gpu_implementation_p;
+  tree d = decl;
+
+  hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (d));
+  if (s->kind != HSA_NONE && s->gpu_implementation_p)
+    d = s->binded_function->decl;
+
+  /* IPA split can create a function that has no host equivalent.  */
+  if (d == NULL)
+    d = decl;
+
+  char *name = xstrdup (hsa_get_declaration_name (d));
+  hsa_sanitize_name (name);
+
+  return name;
 }
 
 /* Create a spill symbol of type TYPE.  */
@@ -4951,14 +4963,9 @@ hsa_generate_function_declaration (tree decl)
 {
   hsa_function_representation *fun = XCNEW (hsa_function_representation);
 
-  tree host_decl = has_host_function_p (decl) ? hsa_get_host_function (decl) :
-    decl;
-
   fun->declaration_p = true;
   fun->decl = decl;
-  fun->name = xstrdup (hsa_get_declaration_name (host_decl));
-  hsa_sanitize_name (fun->name);
-
+  fun->name = get_brig_function_name (decl);
   gen_function_decl_parameters (fun, decl);
 
   return fun;
@@ -5248,7 +5255,6 @@ static void
 generate_hsa (bool kernel)
 {
   vec <hsa_op_reg_p> ssa_map = vNULL;
-  tree host_decl = NULL_TREE;
 
   if (hsa_num_threads == NULL)
     emit_hsa_module_variables ();
@@ -5268,10 +5274,8 @@ generate_hsa (bool kernel)
   if (hsa_seen_error ())
     goto fail;
 
-  host_decl = hsa_get_host_function (current_function_decl);
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
-  hsa_cfun->name = xstrdup (hsa_get_declaration_name (host_decl));
-  hsa_sanitize_name (hsa_cfun->name);
+  hsa_cfun->name = get_brig_function_name (cfun->decl);
 
   gen_function_def_parameters (hsa_cfun, &ssa_map);
   if (hsa_seen_error ())

@@ -1,5 +1,16 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (get_brig_function_name): New function.
+	(hsa_generate_function_declaration): Use it.
+	(generate_hsa): Likewise.
+	* ipa-hsa.c (process_hsa_functions): Mark all cloned kernels
+	as flatten.
+	* omp-low.c (expand_parallel_call): Do not mark original kernels
+	as flatten.
+	(expand_target_kernel_body): Likewise.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call): Improve sorry message.
 	* hsa.c (hsa_callable_function_p): Do not handle hsafunc
 	attribute.

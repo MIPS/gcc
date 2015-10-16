@@ -186,7 +186,7 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
       if (hsa_summaries != NULL)
 	{
 	  hsa_function_summary *s = hsa_summaries->get (cnode);
-	  if (s->kind != HSA_NONE)
+	  if (s->kind == HSA_KERNEL)
 	    {
 	      /* Add binded function.  */
 	      bool added = add_symbol_to_partition_1 (part, s->binded_function);

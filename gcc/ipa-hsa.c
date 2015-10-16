@@ -102,6 +102,10 @@ process_hsa_functions (void)
 	  cgraph_node *clone = node->create_virtual_clone
 	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
+	  if (s->kind == HSA_KERNEL)
+	    DECL_ATTRIBUTES (clone->decl)
+	      = tree_cons (get_identifier ("flatten"), NULL_TREE,
+			   DECL_ATTRIBUTES (clone->decl));
 
 	  clone->force_output = true;
 	  hsa_summaries->link_functions (clone, node, s->kind);

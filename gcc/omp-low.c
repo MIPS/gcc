@@ -5335,12 +5335,6 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
     {
       cgraph_node *child_cnode = cgraph_node::get (child_fndecl);
       hsa_register_kernel (child_cnode);
-
-      /* FIXME: Flatten should be set on HSA-only clones created by an IPA
-	 pass.  */
-      DECL_ATTRIBUTES (child_fndecl)
-	= tree_cons (get_identifier ("flatten"), NULL_TREE,
-		     DECL_ATTRIBUTES (child_fndecl));
     }
 }
 
@@ -10075,11 +10069,6 @@ expand_target_kernel_body (struct omp_region *target)
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
 
       hsa_register_kernel (n);
-      /* FIXME: Flatten should be set on HSA-only clones created by an IPA
-	 pass.  */
-      DECL_ATTRIBUTES (orig_child_fndecl)
-	= tree_cons (get_identifier ("flatten"), NULL_TREE,
-		     DECL_ATTRIBUTES (orig_child_fndecl));
       return;
     }
 
@@ -10144,12 +10133,6 @@ expand_target_kernel_body (struct omp_region *target)
   cgraph_node *orig_child = cgraph_node::get (orig_child_fndecl);
 
   hsa_register_kernel (kcn, orig_child);
-
-  /* FIXME: Flatten should be set on HSA-only clones created by an IPA
-     pass.  */
-  DECL_ATTRIBUTES (kern_fndecl)
-    = tree_cons (get_identifier ("flatten"), NULL_TREE,
-		 DECL_ATTRIBUTES (kern_fndecl));
 
   cgraph_node::add_new_function (kern_fndecl, true);
   push_cfun (kern_cfun);
