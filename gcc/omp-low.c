@@ -2457,9 +2457,16 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   if (cgraph_node::get_create (decl)->offloadable
       && !lookup_attribute ("omp declare target",
                            DECL_ATTRIBUTES (current_function_decl)))
-    DECL_ATTRIBUTES (decl)
-      = tree_cons (get_identifier ("omp target entrypoint"),
-                   NULL_TREE, DECL_ATTRIBUTES (decl));
+    {
+      const char *target_attr = (is_gimple_omp_offloaded (ctx->stmt)
+				 ? (is_gimple_omp_oacc (ctx->stmt)
+				    ? "omp acc target entrypoint"
+				    : "omp target entrypoint")
+				 : "omp declare target");
+      DECL_ATTRIBUTES (decl)
+	= tree_cons (get_identifier (target_attr),
+		     NULL_TREE, DECL_ATTRIBUTES (decl));
+    }
 
   t = build_decl (DECL_SOURCE_LOCATION (decl),
 		  RESULT_DECL, NULL_TREE, void_type_node);

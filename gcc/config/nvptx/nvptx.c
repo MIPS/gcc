@@ -486,7 +486,10 @@ static bool
 write_as_kernel (tree attrs)
 {
   return (lookup_attribute ("kernel", attrs) != NULL_TREE
-	  || lookup_attribute ("omp target entrypoint", attrs) != NULL_TREE);
+	  || lookup_attribute ("omp acc target entrypoint", attrs) != NULL_TREE);
+  /* Ignore "omp target entrypoint" here: OpenMP target region functions are
+     called from gomp_nvptx_main.  The corresponding kernel entry is emitted
+     from write_libgomp_anchor.  */
 }
 
 /* Emit a linker marker for a function decl or defn.  */

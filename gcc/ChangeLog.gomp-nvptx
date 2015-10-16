@@ -1,3 +1,12 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* omp-low.c (create_omp_child_function): Set "omp target entrypoint",
+	"omp acc target entrypoint" or "omp declare target" attribute based on
+	is_gimple_omp_offloaded and is_gimple_omp_oacc.
+	* config/nvptx/nvptx.c (write_as_kernel): Test OpenACC-specific
+	attribute "omp acc target entrypoint".  Add a comment about the OpenMP
+	attribute handling.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/mkoffload.c (main): Allow -fopenmp.
