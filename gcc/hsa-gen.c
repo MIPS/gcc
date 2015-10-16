@@ -708,8 +708,8 @@ get_symbol_for_decl (tree decl)
 	  hsa_cfun->readonly_variables.safe_push (sym);
 	}
       else
-	warning (0, "referring to global symbol %q+D by name from HSA code "
-		 "won't work", decl);
+	HSA_SORRY_ATV (EXPR_LOCATION (decl), "referring to global symbol "
+		       "%q+D by name from HSA code won't work", decl);
     }
   else
     {

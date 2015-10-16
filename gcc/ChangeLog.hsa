@@ -1,5 +1,10 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (get_symbol_for_decl): Replace warning with
+	HSA_SORRY_ATV.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (fillup_sym_for_decl): Add new seen_error guard.
 	(get_symbol_for_decl): Mark all functions that use a problematic
 	symbol as problematic too.

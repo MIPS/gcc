@@ -1004,12 +1004,18 @@ GOMP_target (int device, void (*fn) (void *), const void *kernel_launch,
       k.host_start = (uintptr_t) fn;
       k.host_end = k.host_start + 1;
       splay_tree_key tgt_fn = splay_tree_lookup (&devicep->mem_map, &k);
-      if (tgt_fn == NULL)
-	{
-	  gomp_mutex_unlock (&devicep->lock);
-	  gomp_fatal ("Target function wasn't mapped");
-	}
       gomp_mutex_unlock (&devicep->lock);
+
+      if (tgt_fn == NULL )
+	{
+	  if (devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
+	    {
+	      run_on_host (fn, hostaddrs);
+	      return;
+	    }
+	  else
+	    gomp_fatal ("Target function wasn't mapped");
+	}
 
       fn_addr = (void *) tgt_fn->tgt_offset;
     }
