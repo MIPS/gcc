@@ -1,5 +1,9 @@
 2015-10-16  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-pretty-print.c (dump_omp_clause): Handle bind clause.
+
+2015-10-16  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE_NOHOST.  Fix
 	infinite recursion in default label.
 
