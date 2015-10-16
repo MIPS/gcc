@@ -118,8 +118,7 @@ static bool compilation_unit_data_initialized;
 bool
 hsa_callable_function_p (tree fndecl)
 {
-  return lookup_attribute ("hsafunc", DECL_ATTRIBUTES (fndecl))
-    || lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl));
+  return lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl));
 }
 
 /* Allocate HSA structures that are are used when dealing with different

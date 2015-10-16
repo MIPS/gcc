@@ -1,3 +1,7 @@
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c (handle_hsa_attribute): Remove.
+
 2015-09-04  Martin Liska  <mliska@suse.cz>
 
 	* c-common.c (handle_hsa_attribute): Do not handle hsakernel attribute.

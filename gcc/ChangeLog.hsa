@@ -1,5 +1,11 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call): Improve sorry message.
+	* hsa.c (hsa_callable_function_p): Do not handle hsafunc
+	attribute.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* cgraphclones.c (cgraph_node::create_virtual_clone):
 	Verify cgraph_node.local.versionable instead of calling
 	tree_versionable_function_p.

@@ -4168,7 +4168,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
       else if (!gen_hsa_insns_for_known_library_call (stmt, hbb, ssa_map))
 	HSA_SORRY_AT (gimple_location (stmt),
 		      "HSA does support only call of functions within omp "
-		      "declare target or with 'hsafunc' attribute");
+		      "declare target");
       return;
     }
 
