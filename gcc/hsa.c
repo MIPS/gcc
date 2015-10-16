@@ -404,7 +404,7 @@ hsa_type_bit_size (BrigType16_t t)
       return 128;
 
     default:
-      gcc_assert (seen_error ());
+      gcc_assert (hsa_seen_error ());
       return t;
     }
 }

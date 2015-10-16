@@ -86,6 +86,9 @@ struct hsa_symbol
 
   /* Is in global scope.  */
   bool global_scope_p;
+
+  /* True if an error has been seen for the symbol.  */
+  bool seen_error;
 };
 
 /* Abstract class for HSA instruction operands. */

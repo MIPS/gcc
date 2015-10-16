@@ -1,5 +1,13 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (fillup_sym_for_decl): Add new seen_error guard.
+	(get_symbol_for_decl): Mark all functions that use a problematic
+	symbol as problematic too.
+	* hsa.c (hsa_type_bit_size): Use correct seen_error function.
+	* hsa.h (struct hsa_symbol): New member flag.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (convert_switch_statements): Generate fold_convert
 	for situations where index type and label value types are different.
 

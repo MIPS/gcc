@@ -658,6 +658,9 @@ fillup_sym_for_decl (tree decl, struct hsa_symbol *sym)
 {
   sym->decl = decl;
   sym->type = hsa_type_for_tree_type (TREE_TYPE (decl), &sym->dim);
+
+  if (hsa_seen_error ())
+    sym->seen_error = true;
 }
 
 /* Lookup or create the associated hsa_symbol structure with a given VAR_DECL
@@ -680,7 +683,16 @@ get_symbol_for_decl (tree decl)
       slot = hsa_global_variable_symbols->find_slot (&dummy, INSERT);
       gcc_checking_assert (slot);
       if (*slot)
-	return *slot;
+	{
+	  sym = *slot;
+
+	  /* If the symbol is problematic, mark current function also as
+	     problematic.  */
+	  if (sym->seen_error)
+	    hsa_fail_cfun ();
+
+	  return sym;
+	}
       sym = XCNEW (struct hsa_symbol);
       sym->segment = BRIG_SEGMENT_GLOBAL;
       sym->linkage = BRIG_LINKAGE_FUNCTION;
