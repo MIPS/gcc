@@ -18,9 +18,10 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* This implements the loop invariant motion pass.  It is very simple
-   (no calls, no loads/stores, etc.).  This should be sufficient to cleanup
-   things like address arithmetics -- other more complicated invariants should
-   be eliminated on GIMPLE either in tree-ssa-loop-im.c or in tree-ssa-pre.c.
+   (no calls, no general loads/stores, etc.).  This should be sufficient to
+   cleanup things like address arithmetics -- other more complicated invariants
+   should be eliminated on GIMPLE either in tree-ssa-loop-im.c or in
+   tree-ssa-pre.c.
 
    We proceed loop by loop -- it is simpler than trying to handle things
    globally and should not lose much.  First we inspect all sets inside loop
@@ -223,6 +224,14 @@ check_maybe_invariant (rtx x)
       /* Just handle the most trivial case where we load from an unchanging
 	 location (most importantly, pic tables).  */
       if (MEM_READONLY_P (x) && !MEM_VOLATILE_P (x))
+	break;
+
+      /* Consider also the cases of frame and stack pointer related mems.
+	 "elsewhere" appears to miss these types of moves.  */
+      if (GET_CODE (XEXP (x, 0)) == PLUS
+	  && (GET_CODE (XEXP (XEXP (x,0), 0)) == REG)
+	  && ((XEXP (XEXP (x,0), 0) == frame_pointer_rtx)
+	      || (XEXP (XEXP (x,0), 0) == stack_pointer_rtx)))
 	break;
 
       return false;
