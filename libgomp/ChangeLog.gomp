@@ -1,3 +1,13 @@
+2015-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/reduction-11.c: New test.
+	* testsuite/libgomp.c/reduction-12.c: New test.
+	* testsuite/libgomp.c/reduction-13.c: New test.
+	* testsuite/libgomp.c/reduction-14.c: New test.
+	* testsuite/libgomp.c/reduction-15.c: New test.
+	* testsuite/libgomp.c++/reduction-11.C: New test.
+	* testsuite/libgomp.c++/reduction-12.C: New test.
+
 2015-10-15  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* target.c (gomp_target_fallback_firstprivate): New static function.

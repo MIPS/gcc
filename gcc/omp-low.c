@@ -1919,6 +1919,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      && TREE_CODE (decl) == MEM_REF)
 	    {
 	      tree t = TREE_OPERAND (decl, 0);
+	      if (TREE_CODE (t) == POINTER_PLUS_EXPR)
+		t = TREE_OPERAND (t, 0);
 	      if (TREE_CODE (t) == INDIRECT_REF
 		  || TREE_CODE (t) == ADDR_EXPR)
 		t = TREE_OPERAND (t, 0);
@@ -4247,6 +4249,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	  if (c_kind == OMP_CLAUSE_REDUCTION && TREE_CODE (var) == MEM_REF)
 	    {
 	      var = TREE_OPERAND (var, 0);
+	      if (TREE_CODE (var) == POINTER_PLUS_EXPR)
+		var = TREE_OPERAND (var, 0);
 	      if (TREE_CODE (var) == INDIRECT_REF
 		  || TREE_CODE (var) == ADDR_EXPR)
 		var = TREE_OPERAND (var, 0);
@@ -4275,7 +4279,28 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      if (pass == 0)
 		continue;
 
+	      tree bias = TREE_OPERAND (OMP_CLAUSE_DECL (c), 1);
 	      tree orig_var = TREE_OPERAND (OMP_CLAUSE_DECL (c), 0);
+	      if (TREE_CODE (orig_var) == POINTER_PLUS_EXPR)
+		{
+		  tree b = TREE_OPERAND (orig_var, 1);
+		  b = maybe_lookup_decl (b, ctx);
+		  if (b == NULL)
+		    {
+		      b = TREE_OPERAND (orig_var, 1);
+		      b = maybe_lookup_decl_in_outer_ctx (b, ctx);
+		    }
+		  if (integer_zerop (bias))
+		    bias = b;
+		  else
+		    {
+		      bias = fold_convert_loc (clause_loc,
+					       TREE_TYPE (b), bias);
+		      bias = fold_build2_loc (clause_loc, PLUS_EXPR,
+					      TREE_TYPE (b), b, bias);
+		    }
+		  orig_var = TREE_OPERAND (orig_var, 0);
+		}
 	      if (TREE_CODE (orig_var) == INDIRECT_REF
 		  || TREE_CODE (orig_var) == ADDR_EXPR)
 		orig_var = TREE_OPERAND (orig_var, 0);
@@ -4316,7 +4341,24 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      tree y = create_tmp_var (ptype, name);
 	      gimplify_assign (y, x, ilist);
 	      x = y;
-	      if (TREE_CODE (TREE_OPERAND (d, 0)) == ADDR_EXPR)
+	      tree yb = y;
+
+	      if (!integer_zerop (bias))
+		{
+		  bias = fold_convert_loc (clause_loc, sizetype, bias);
+		  bias = fold_build1_loc (clause_loc, NEGATE_EXPR,
+					  sizetype, bias);
+		  x = fold_build2_loc (clause_loc, POINTER_PLUS_EXPR,
+				       TREE_TYPE (x), x, bias);
+		  yb = create_tmp_var (ptype, name);
+		  gimplify_assign (yb, x, ilist);
+		  x = yb;
+		}
+
+	      d = TREE_OPERAND (d, 0);
+	      if (TREE_CODE (d) == POINTER_PLUS_EXPR)
+		d = TREE_OPERAND (d, 0);
+	      if (TREE_CODE (d) == ADDR_EXPR)
 		{
 		  if (orig_var != var)
 		    {
@@ -4342,11 +4384,11 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      else
 		{
 		  gcc_assert (orig_var == var);
-		  if (TREE_CODE (TREE_OPERAND (d, 0)) == INDIRECT_REF)
+		  if (TREE_CODE (d) == INDIRECT_REF)
 		    {
 		      x = create_tmp_var (ptype, name);
 		      TREE_ADDRESSABLE (x) = 1;
-		      gimplify_assign (x, y, ilist);
+		      gimplify_assign (x, yb, ilist);
 		      x = build_fold_addr_expr_loc (clause_loc, x);
 		    }
 		  x = fold_convert_loc (clause_loc, TREE_TYPE (new_var), x);
@@ -4363,9 +4405,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		  gimplify_assign (y2, y, ilist);
 		  tree ref = build_outer_var_ref (var, ctx);
 		  /* For ref build_outer_var_ref already performs this.  */
-		  if (TREE_CODE (TREE_OPERAND (d, 0)) == INDIRECT_REF)
+		  if (TREE_CODE (d) == INDIRECT_REF)
 		    gcc_assert (is_reference (var));
-		  else if (TREE_CODE (TREE_OPERAND (d, 0)) == ADDR_EXPR)
+		  else if (TREE_CODE (d) == ADDR_EXPR)
 		    ref = build_fold_addr_expr (ref);
 		  else if (is_reference (var))
 		    ref = build_fold_addr_expr (ref);
@@ -5338,6 +5380,8 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
       if (TREE_CODE (var) == MEM_REF)
 	{
 	  var = TREE_OPERAND (var, 0);
+	  if (TREE_CODE (var) == POINTER_PLUS_EXPR)
+	    var = TREE_OPERAND (var, 0);
 	  if (TREE_CODE (var) == INDIRECT_REF
 	      || TREE_CODE (var) == ADDR_EXPR)
 	    var = TREE_OPERAND (var, 0);
@@ -5386,14 +5430,35 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	  tree v = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
 	  tree i = create_tmp_var (TREE_TYPE (v), NULL);
 	  tree ptype = build_pointer_type (TREE_TYPE (type));
+	  tree bias = TREE_OPERAND (d, 1);
+	  d = TREE_OPERAND (d, 0);
+	  if (TREE_CODE (d) == POINTER_PLUS_EXPR)
+	    {
+	      tree b = TREE_OPERAND (d, 1);
+	      b = maybe_lookup_decl (b, ctx);
+	      if (b == NULL)
+		{
+		  b = TREE_OPERAND (d, 1);
+		  b = maybe_lookup_decl_in_outer_ctx (b, ctx);
+		}
+	      if (integer_zerop (bias))
+		bias = b;
+	      else
+		{
+		  bias = fold_convert_loc (clause_loc, TREE_TYPE (b), bias);
+		  bias = fold_build2_loc (clause_loc, PLUS_EXPR,
+					  TREE_TYPE (b), b, bias);
+		}
+	      d = TREE_OPERAND (d, 0);
+	    }
 	  /* For ref build_outer_var_ref already performs this, so
 	     only new_var needs a dereference.  */
-	  if (TREE_CODE (TREE_OPERAND (d, 0)) == INDIRECT_REF)
+	  if (TREE_CODE (d) == INDIRECT_REF)
 	    {
 	      new_var = build_simple_mem_ref_loc (clause_loc, new_var);
 	      gcc_assert (is_reference (var) && var == orig_var);
 	    }
-	  else if (TREE_CODE (TREE_OPERAND (d, 0)) == ADDR_EXPR)
+	  else if (TREE_CODE (d) == ADDR_EXPR)
 	    {
 	      if (orig_var == var)
 		{
@@ -5415,6 +5480,15 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 	      else
 		v = maybe_lookup_decl_in_outer_ctx (v, ctx);
 	      gimplify_expr (&v, stmt_seqp, NULL, is_gimple_val, fb_rvalue);
+	    }
+	  if (!integer_zerop (bias))
+	    {
+	      bias = fold_convert_loc (clause_loc, sizetype, bias);
+	      new_var = fold_build2_loc (clause_loc, POINTER_PLUS_EXPR,
+					 TREE_TYPE (new_var), new_var,
+					 unshare_expr (bias));
+	      ref = fold_build2_loc (clause_loc, POINTER_PLUS_EXPR,
+					 TREE_TYPE (ref), ref, bias);
 	    }
 	  new_var = fold_convert_loc (clause_loc, ptype, new_var);
 	  ref = fold_convert_loc (clause_loc, ptype, ref);
@@ -5608,6 +5682,8 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 	  && TREE_CODE (val) == MEM_REF)
 	{
 	  val = TREE_OPERAND (val, 0);
+	  if (TREE_CODE (val) == POINTER_PLUS_EXPR)
+	    val = TREE_OPERAND (val, 0);
 	  if (TREE_CODE (val) == INDIRECT_REF
 	      || TREE_CODE (val) == ADDR_EXPR)
 	    val = TREE_OPERAND (val, 0);

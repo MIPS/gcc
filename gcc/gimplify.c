@@ -6326,6 +6326,23 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  omp_notice_variable (ctx, v, true);
 		}
 	      decl = TREE_OPERAND (decl, 0);
+	      if (TREE_CODE (decl) == POINTER_PLUS_EXPR)
+		{
+		  if (gimplify_expr (&TREE_OPERAND (decl, 1), pre_p,
+				     NULL, is_gimple_val, fb_rvalue)
+		      == GS_ERROR)
+		    {
+		      remove = true;
+		      break;
+		    }
+		  v = TREE_OPERAND (decl, 1);
+		  if (DECL_P (v))
+		    {
+		      omp_firstprivatize_variable (ctx, v);
+		      omp_notice_variable (ctx, v, true);
+		    }
+		  decl = TREE_OPERAND (decl, 0);
+		}
 	      if (TREE_CODE (decl) == ADDR_EXPR
 		  || TREE_CODE (decl) == INDIRECT_REF)
 		decl = TREE_OPERAND (decl, 0);
@@ -6925,7 +6942,12 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  || decl == OMP_CLAUSE_DECL (c)
 		  || (TREE_CODE (OMP_CLAUSE_DECL (c)) == MEM_REF
 		      && (TREE_CODE (TREE_OPERAND (OMP_CLAUSE_DECL (c), 0))
-			  == ADDR_EXPR)))
+			  == ADDR_EXPR
+			  || (TREE_CODE (TREE_OPERAND (OMP_CLAUSE_DECL (c), 0))
+			      == POINTER_PLUS_EXPR
+			      && (TREE_CODE (TREE_OPERAND (TREE_OPERAND
+						(OMP_CLAUSE_DECL (c), 0), 0))
+				  == ADDR_EXPR)))))
 	      && omp_check_private (ctx, decl, false))
 	    {
 	      error ("%s variable %qE is private in outer context",

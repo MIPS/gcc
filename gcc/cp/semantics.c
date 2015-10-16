@@ -4519,13 +4519,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	  && (TREE_CODE (length) != INTEGER_CST || integer_onep (length)))
 	first_non_one++;
     }
-  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
-      && !integer_zerop (low_bound))
-    {
-      error_at (OMP_CLAUSE_LOCATION (c),
-		"%<reduction%> array section has to be zero-based");
-      return error_mark_node;
-    }
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       if (length == NULL_TREE
@@ -4866,7 +4859,24 @@ handle_omp_array_sections (tree c, bool is_omp)
 		t = convert_from_reference (t);
 	      else if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
 		t = build_fold_addr_expr (t);
-	      t = build2 (MEM_REF, type, t, build_int_cst (ptype, 0));
+	      tree t2 = build_fold_addr_expr (first);
+	      t2 = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+				     ptrdiff_type_node, t2);
+	      t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
+				    ptrdiff_type_node, t2,
+				    fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+						      ptrdiff_type_node, t));
+	      if (tree_fits_shwi_p (t2))
+		t = build2 (MEM_REF, type, t,
+			    build_int_cst (ptype, tree_to_shwi (t2)));
+	      else
+		{
+		  t2 = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					 sizetype, t2);
+		  t = build2_loc (OMP_CLAUSE_LOCATION (c), POINTER_PLUS_EXPR,
+				  TREE_TYPE (t), t, t2);
+		  t = build2 (MEM_REF, type, t, build_int_cst (ptype, 0));
+		}
 	      OMP_CLAUSE_DECL (c) = t;
 	      return false;
 	    }
@@ -5694,6 +5704,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		{
 		  gcc_assert (TREE_CODE (t) == MEM_REF);
 		  t = TREE_OPERAND (t, 0);
+		  if (TREE_CODE (t) == POINTER_PLUS_EXPR)
+		    t = TREE_OPERAND (t, 0);
 		  if (TREE_CODE (t) == ADDR_EXPR
 		      || TREE_CODE (t) == INDIRECT_REF)
 		    t = TREE_OPERAND (t, 0);

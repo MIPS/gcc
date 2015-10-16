@@ -1,3 +1,15 @@
+2015-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Gimplify variable
+	low-bound for array reduction.  Look through POINTER_PLUS_EXPR
+	when looking for ADDR_EXPR for array section reductions.
+	* omp-low.c (scan_sharing_clauses): Look through POINTER_PLUS_EXPR
+	for array section reductions.
+	(lower_send_clauses): Likewise.
+	(lower_rec_input_clauses): Handle non-zero low-bound on array
+	section reductions.
+	(lower_reduction_clauses): Likewise.
+
 2015-10-14  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-core.h (enum omp_clause_schedule_kind): Add

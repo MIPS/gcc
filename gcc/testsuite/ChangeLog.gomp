@@ -1,3 +1,9 @@
+2015-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/reduction-1.c (foo): Don't expect diagnostics
+	on non-zero low-bound in reduction array sections.  Add further
+	tests.
+
 2015-10-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/declare-target-2.c: Add various new tests.  Adjust

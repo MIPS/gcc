@@ -1,3 +1,13 @@
+2015-10-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Allow non-zero low-bound
+	on OMP_CLAUSE_REDUCTION array sections.
+	(handle_omp_array_sections): Encode low-bound into the MEM_REF,
+	either into the constant offset, or for variable low-bound
+	using POINTER_PLUS_EXPR.
+	(c_finish_omp_clauses): Look through POINTER_PLUS_EXPR
+	for array section reductions.
+
 2015-10-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_declare_target): Call c_finish_omp_clauses
