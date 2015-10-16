@@ -1,5 +1,10 @@
 2015-10-16  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-pretty-print.c (dump_omp_clause): Handle device-resident and link
+	map kinds.
+
+2015-10-16  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (check_omp_nesting_restrictions): Check for oacc region in
 	oacc routine.
 
