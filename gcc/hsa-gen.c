@@ -5257,6 +5257,13 @@ generate_hsa (bool kernel)
   hsa_cfun = new hsa_function_representation (cfun->decl, kernel);
   hsa_init_data_for_cfun ();
 
+  if (flag_tm)
+    {
+      HSA_SORRY_AT (UNKNOWN_LOCATION,
+		    "support for HSA does not implement transactional memory");
+      goto fail;
+    }
+
   verify_function_arguments (cfun->decl);
   if (hsa_seen_error ())
     goto fail;
