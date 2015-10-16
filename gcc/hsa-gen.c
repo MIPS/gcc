@@ -3503,28 +3503,15 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb,
       hsa_op_immed *imm = new hsa_op_immed (build_zero_cst (TREE_TYPE (lhs)));
 
       hsa_build_append_simple_mov (dest, imm, hbb);
-      return true;
     }
   else if (strcmp (name, "omp_set_num_threads") == 0)
-    {
-      gen_set_num_threads (gimple_call_arg (stmt, 0), hbb, ssa_map);
-      return true;
-    }
+    gen_set_num_threads (gimple_call_arg (stmt, 0), hbb, ssa_map);
   else if (strcmp (name, "omp_get_num_threads") == 0)
-    {
-      query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb, ssa_map);
-      return true;
-    }
+    query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb, ssa_map);
   else if (strcmp (name, "omp_get_num_teams") == 0)
-    {
-      gen_get_num_teams (stmt, hbb, ssa_map);
-      return true;
-    }
+    gen_get_num_teams (stmt, hbb, ssa_map);
   else if (strcmp (name, "omp_get_team_num") == 0)
-    {
-      gen_get_team_num (stmt, hbb, ssa_map);
-      return true;
-    }
+    gen_get_team_num (stmt, hbb, ssa_map);
   else if (strcmp (name, "hsa_set_debug_value") == 0)
     {
       /* FIXME: show warning if user uses a different function description.  */
@@ -3537,11 +3524,12 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb,
 
 	  src = src->get_in_type (BRIG_TYPE_U64, hbb);
 	  set_debug_value (hbb, src);
-	  return true;
 	}
     }
+  else
+    return false;
 
-  return false;
+  return true;
 }
 
 /* Generate HSA instructions for the given kernel call statement CALL.

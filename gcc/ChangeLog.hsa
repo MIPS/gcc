@@ -1,5 +1,10 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call):
+	Small refactoring.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (get_symbol_for_decl): Replace warning with
 	HSA_SORRY_ATV.
 
