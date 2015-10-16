@@ -1,3 +1,25 @@
+2015-10-16  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple-walk.c (walk_gimple_stmt): Also handle GIMPLE_OMP_GPUKERNEL.
+	* omp-low.c (omp_context): Removed field kernel_seq.
+	(single_stmt_in_seq_skip_bind): Moved down in the file.
+	(seq_only_contains_local_assignments): Likewise.
+	(target_follows_kernelizable_pattern): Removed.
+	(find_mark_kernel_components): Moved down in the file.
+	(attempt_target_kernelization): Removed.
+	(scan_omp_target): Scan kernel bounds.  Do not handle ctx->kernel_seq.
+	(check_omp_nesting_restrictions): Do not check GIMPLE_OMP_GPUKERNEL.
+	(scan_omp_1_stmt):  Also handle GIMPLE_OMP_GPUKERNEL.
+	(lower_omp_target): Do not process ctx->kernel_seq.
+	(lower_omp_gpukernel): New function.
+	(lower_omp_1): Call it.
+	(target_follows_gridifiable_pattern): New function.
+	(remap_prebody_decls): New function.
+	(attempt_target_gridification): Likewise.
+	(create_target_gpukernel_stmt): Likewise.
+	(create_target_gpukernels): Likewise.
+	(execute_lower_omp): Call create_target_gpukernels.
+
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (get_brig_function_name): New function.

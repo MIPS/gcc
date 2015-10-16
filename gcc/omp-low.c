@@ -184,11 +184,6 @@ struct omp_context
      barriers should jump to during omplower pass.  */
   tree cancel_label;
 
-  /* When we are about to produce a special gridified copy of a target
-     construct for a GPU, the copy is stored here between scanning and
-     lowering.  */
-  gimple_seq kernel_seq;
-
   /* What to do with variables with implicitly determined sharing
      attributes.  */
   enum omp_clause_default_kind default_kind;
@@ -2654,292 +2649,6 @@ scan_omp_single (gomp_single *stmt, omp_context *outer_ctx)
     layout_type (ctx->record_type);
 }
 
-/* If SEQ is a sequence containing only one statement or a bind statement which
-   itself contains only one statement, return that statement.  Otherwise return
-   NULL.  TARGET_LOC must be location of the target statement and NAME the name
-   of the currently processed statement, both are used for dumping.  */
-
-static gimple *
-single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
-			      const char *name)
-{
-  gimple *stmt;
-  bool loop;
-  do
-    {
-      if (!seq)
-	{
-	  gcc_assert (name);
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, target_loc,
-			     "Will not turn target construct into a simple "
-			     "GPGPU kernel because %s construct has empty "
-			     "body\n",
-			     name);
-	  return NULL;
-	}
-
-      if (!gimple_seq_singleton_p (seq))
-	{
-	  gcc_assert (name);
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, target_loc,
-			     "Will not turn target construct into a simple "
-			     "GPGPU kernel because %s construct contains "
-			     "multiple statements\n", name);
-	  return NULL;
-	}
-
-      stmt = gimple_seq_first_stmt (seq);
-      if (is_a <gbind *> (stmt))
-	{
-	  loop = true;
-	  gbind *bind = as_a <gbind *> (stmt);
-	  seq = gimple_bind_body (bind);
-	}
-      else
-	loop = false;
-    }
-  while (loop);
-  return stmt;
-}
-
-/* If TARGET follows a pattern that can be turned into a GPGPU kernel, return
-   true, otherwise return false.  In the case of success, also fill in
-   GROUP_SIZE_P with the requested group size or NULL if there is none.  */
-
-static bool
-target_follows_kernelizable_pattern (gomp_target *target, tree *group_size_p)
-{
-  if (gimple_omp_target_kind (target) != GF_OMP_TARGET_KIND_REGION)
-    return false;
-
-  location_t tloc = gimple_location (target);
-  gimple *stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (target), tloc,
-					       "target");
-  if (!stmt)
-    return false;
-  gomp_teams *teams;
-  tree group_size = NULL;
-  if ((teams = dyn_cast <gomp_teams *> (stmt)))
-    {
-      tree clauses = gimple_omp_teams_clauses (teams);
-      while (clauses)
-	{
-	  switch (OMP_CLAUSE_CODE (clauses))
-	    {
-	    case OMP_CLAUSE_NUM_TEAMS:
-	      /* TODO: Maybe this is not an insurmountable obstacle but it is
-		 weird, let's deal with it later.  */
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, tloc,
-				 "Will not turn target construct into a "
-				 "simple GPGPU kernel because we cannot handle "
-				 "num_teams clause of teams construct\n ");
-	      return false;
-	    case OMP_CLAUSE_THREAD_LIMIT:
-	      group_size = OMP_CLAUSE_OPERAND (clauses, 0);
-	      break;
-	    default:
-	      break;
-	    }
-	  clauses = OMP_CLAUSE_CHAIN (clauses);
-	}
-
-      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc,
-					   "teams");
-      if (!stmt)
-	return false;
-      gomp_for *dist = NULL;
-      if ((dist = dyn_cast <gomp_for *> (stmt)))
-	{
-	  gcc_assert (gimple_omp_for_kind (dist) == GF_OMP_FOR_KIND_DISTRIBUTE);
-	  if (!gimple_omp_for_combined_p (dist))
-	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, tloc,
-				 "Will not turn target construct into a "
-				 "simple GPGPU kernel because we cannot handle "
-				 "a standalone distribute construct\n ");
-	      return false;
-	    }
-	  if (dist->collapse > 1)
-	    {
-	      if (dump_enabled_p ())
-		dump_printf_loc (MSG_NOTE, tloc,
-				 "Will not turn target construct into a simple "
-				 "GPGPU kernel because the distribute construct "
-				 "contains collapse clause\n");
-	      return false;
-	    }
-	  struct omp_for_data fd;
-	  extract_omp_for_data (dist, &fd, NULL);
-	  if (fd.chunk_size)
-	    {
-	      if (group_size && !operand_equal_p (group_size, fd.chunk_size, 0))
-		{
-		  if (dump_enabled_p ())
-		    dump_printf_loc (MSG_NOTE, tloc,
-				     "Will not turn target construct into a "
-				     "simple GPGPU kernel because the teams "
-				     "thread limit is different from distribute "
-				     "schedule chunk\n");
-		  return false;
-		}
-	      group_size = fd.chunk_size;
-	    }
-	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
-					       "distribute");
-	}
-    }
-
-  gomp_parallel *par;
-  if (!stmt || !(par = dyn_cast <gomp_parallel *> (stmt)))
-    return false;
-
-  tree clauses = gimple_omp_parallel_clauses (par);
-  tree num_threads_clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
-  if (num_threads_clause)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a "
-			 "simple GPGPU kernel because there is a num_threads "
-			 "clause of the parallel construct that "
-			 "is likely to require looping \n");
-      return false;
-    }
-
-  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (par), tloc, "parallel");
-  /* FIXME: We are currently ignoring parallel sharing clauses and potentially
-     also sharing clauses of teams and distribute, if there are any. We need to
-     check they can be skipped.  */
-  gomp_for *gfor;
-  if (!stmt || !(gfor = dyn_cast <gomp_for *> (stmt)))
-    return false;
-
-  if (gimple_omp_for_kind (gfor) != GF_OMP_FOR_KIND_FOR)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a simple GPGPU "
-			 "kernel because the inner loop is not a simple for "
-			 "loop\n");
-      return false;
-    }
-  if (gfor->collapse > 1)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a simple GPGPU "
-			 "kernel because the inner loop contains collapse "
-			 "clause\n");
-      return false;
-    }
-  if (gimple_omp_for_pre_body (gfor))
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a simple GPGPU "
-			 "kernel because the inner loop contains has a pre_body "
-			 "statement sequencee\n");
-      return false;
-    }
-
-  clauses = gimple_omp_for_clauses (gfor);
-  tree for_sched_clause = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
-
-  if (for_sched_clause
-      && OMP_CLAUSE_SCHEDULE_KIND (for_sched_clause) != OMP_CLAUSE_SCHEDULE_AUTO)
-    {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a simple GPGPU "
-			 "kernel because the inner loop has non-automatic "
-			 "scheduling clause\n");
-      return false;
-    }
-
-  *group_size_p = group_size;
-  return true;
-}
-
-/* Given freshly copied top level kernel SEQ (which might a bind containing a
-   single gomp_parallel or gomp_teams, identify the individual components, mark
-   them as part of kernel and return the inner loop.  */
-
-static gomp_for *
-find_mark_kernel_components (gimple_seq seq)
-{
-  location_t tloc = UNKNOWN_LOCATION;
-  gimple *stmt = single_stmt_in_seq_skip_bind (seq, tloc, NULL);
-  gomp_teams *teams = NULL;
-  gomp_for *dist = NULL;
-  if ((teams = dyn_cast <gomp_teams *> (stmt)))
-    {
-      gimple_omp_teams_set_kernel_phony (teams, true);
-      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc, NULL);
-      gcc_checking_assert (stmt);
-      if ((dist = dyn_cast <gomp_for *> (stmt)))
-	{
-	  gimple_omp_for_set_kernel_phony (dist, true);
-	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
-					       NULL);
-	  gcc_checking_assert (stmt);
-	}
-    }
-  gomp_parallel *parallel = as_a <gomp_parallel *> (stmt);
-  gimple_omp_parallel_set_kernel_phony (parallel, true);
-  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (parallel), tloc, NULL);
-  gomp_for *inner_loop = as_a <gomp_for *> (stmt);
-  gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
-  return inner_loop;
-}
-
-/* Analyze TARGET body during its scanning and if it contains a loop which can
-   and should be turned into a GPGPU kernel, copy it aside for lowering.  */
-
-static void
-attempt_target_kernelization (gomp_target *target, omp_context *ctx)
-{
-  if (flag_disable_hsa_gridification)
-    return;
-
-  if (!hsa_gen_requested_p ())
-    return;
-  tree group_size;
-  if (!target_follows_kernelizable_pattern (target, &group_size))
-    return;
-
-  if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, gimple_location (target),
-		     "Target construct will be turned into a simple GPGPU "
-		     "kernel\n");
-
-  ctx->kernel_seq = copy_gimple_seq_and_replace_locals
-    (gimple_omp_body (target));
-  gomp_for *inner_loop = find_mark_kernel_components (ctx->kernel_seq);
-
-  gbind *old_bind = as_a <gbind *> (gimple_seq_first (gimple_omp_body (target)));
-  gbind *new_bind = as_a <gbind *> (gimple_seq_first (ctx->kernel_seq));
-  tree new_block = gimple_bind_block (new_bind);
-  tree enc_block = BLOCK_SUPERCONTEXT (gimple_bind_block (old_bind));
-  BLOCK_CHAIN (new_block) = BLOCK_SUBBLOCKS (enc_block);
-  BLOCK_SUBBLOCKS (enc_block) = new_block;
-  BLOCK_SUPERCONTEXT (new_block) = enc_block;
-
-  target->kernel_group_size = group_size;
-  size_t collapse = inner_loop->collapse;
-  target->kernel_collapse = collapse;
-  target->kernel_iter = ggc_cleared_vec_alloc<gimple_omp_for_iter> (collapse);
-  for (size_t i = 0; i < collapse; i++)
-    {
-      target->kernel_iter[i] = inner_loop->iter[i];
-      scan_omp_op (&target->kernel_iter[i].initial, ctx);
-      scan_omp_op (&target->kernel_iter[i].final, ctx);
-    }
-}
-
 /* Scan a GIMPLE_OMP_TARGET.  */
 
 static void
@@ -2962,7 +2671,13 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
 
-  attempt_target_kernelization (stmt, ctx);
+  /* FIXME: Needs proper accessors.  */
+  for (size_t i = 0; i < stmt->kernel_collapse; i++)
+    {
+      scan_omp_op (&stmt->kernel_iter[i].initial, ctx);
+      scan_omp_op (&stmt->kernel_iter[i].final, ctx);
+    }
+
   if (offloaded)
     {
       if (is_gimple_omp_oacc (stmt))
@@ -2988,8 +2703,6 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
 
   scan_sharing_clauses (clauses, ctx);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
-  if (ctx->kernel_seq)
-    scan_omp (&ctx->kernel_seq, ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
     ctx->record_type = ctx->receiver_decl = NULL;
@@ -3025,6 +2738,11 @@ scan_omp_teams (gomp_teams *stmt, omp_context *outer_ctx)
 static bool
 check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
 {
+  if (ctx && gimple_code (ctx->stmt) == GIMPLE_OMP_GPUKERNEL)
+    /* GPUKERNEL is an artificial construct, nesting rules will be checked in
+       the original copy of its contents.  */
+    return true;
+
   /* No nesting of non-OpenACC STMT (that is, an OpenMP one, or a GOMP builtin)
      inside an OpenACC CTX.  */
   if (!(is_gimple_omp (stmt)
@@ -3529,6 +3247,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_GPUKERNEL:
       ctx = new_omp_context (stmt, ctx);
       scan_omp (gimple_omp_body_ptr (stmt), ctx);
       break;
@@ -12247,15 +11966,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     {
       target_nesting_level++;
       lower_omp (&tgt_body, ctx);
-      if (ctx->kernel_seq)
-	{
-	  lower_omp (&ctx->kernel_seq, ctx);
-	  gimple_seq_add_stmt (&ctx->kernel_seq,
-			       gimple_build_omp_return (false));
-	  gimple *gpukernel = gimple_build_omp_gpukernel (ctx->kernel_seq);
-	  ctx->kernel_seq = NULL;
-	  gimple_seq_add_stmt (&ctx->kernel_seq, gpukernel);
-	}
       target_nesting_level--;
     }
   else if (data_region)
@@ -12500,8 +12210,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     new_body = tgt_body;
   if (offloaded || data_region)
     {
-      if (ctx->kernel_seq)
-	gimple_seq_add_seq (&new_body, ctx->kernel_seq);
       gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
       gimple_omp_set_body (stmt, new_body);
     }
@@ -12584,6 +12292,17 @@ lower_omp_teams (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   BLOCK_VARS (block) = ctx->block_vars;
   if (BLOCK_VARS (block))
     TREE_USED (block) = 1;
+}
+
+/* Expand code within an artificial GPUKERNELS OMP construct.  */
+
+static void
+lower_omp_gpukernel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
+{
+  gimple *stmt = gsi_stmt (*gsi_p);
+  lower_omp (gimple_omp_body_ptr (stmt), ctx);
+  gimple_seq_add_stmt (gimple_omp_body_ptr (stmt),
+		       gimple_build_omp_return (false));
 }
 
 
@@ -12734,6 +12453,11 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       gcc_assert (ctx);
       lower_omp_teams (gsi_p, ctx);
       break;
+    case GIMPLE_OMP_GPUKERNEL:
+      ctx = maybe_lookup_ctx (stmt);
+      gcc_assert (ctx);
+      lower_omp_gpukernel (gsi_p, ctx);
+      break;
     case GIMPLE_CALL:
       tree fndecl;
       call_stmt = as_a <gcall *> (stmt);
@@ -12823,7 +12547,415 @@ lower_omp (gimple_seq *body, omp_context *ctx)
       fold_stmt (&gsi);
   input_location = saved_location;
 }
-
+
+/* If SEQ is a sequence containing only one statement or a bind statement which
+   itself contains only one statement, return that statement.  Otherwise return
+   NULL.  TARGET_LOC must be location of the target statement and NAME the name
+   of the currently processed statement, both are used for dumping.  */
+
+static gimple *
+single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
+			      const char *name)
+{
+  gimple *stmt;
+  bool loop;
+  do
+    {
+      if (!seq)
+	{
+	  gcc_assert (name);
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, target_loc,
+			     "Will not turn target construct into a simple "
+			     "GPGPU kernel because %s construct has empty "
+			     "body\n",
+			     name);
+	  return NULL;
+	}
+
+      if (!gimple_seq_singleton_p (seq))
+	{
+	  gcc_assert (name);
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, target_loc,
+			     "Will not turn target construct into a simple "
+			     "GPGPU kernel because %s construct contains "
+			     "multiple statements\n", name);
+	  return NULL;
+	}
+
+      stmt = gimple_seq_first_stmt (seq);
+      if (is_a <gbind *> (stmt))
+	{
+	  loop = true;
+	  gbind *bind = as_a <gbind *> (stmt);
+	  seq = gimple_bind_body (bind);
+	}
+      else
+	loop = false;
+    }
+  while (loop);
+  return stmt;
+}
+
+/* Return true if all statements in SEQ are assignments to local variables.  */
+
+static bool
+seq_only_contains_local_assignments (gimple_seq seq)
+{
+  if (!seq)
+    return true;
+
+  gimple_stmt_iterator gsi;
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
+      if (!stmt)
+	return false;
+      tree lhs = gimple_assign_lhs (stmt);
+      if (TREE_CODE (lhs) != VAR_DECL
+	  || is_global_var (lhs))
+	return false;
+    }
+  return true;
+}
+
+/* If TARGET follows a pattern that can be turned into a gridified GPGPU
+   kernel, return true, otherwise return false.  In the case of success, also
+   fill in GROUP_SIZE_P with the requested group size or NULL if there is
+   none.  */
+
+static bool
+target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
+{
+  if (gimple_omp_target_kind (target) != GF_OMP_TARGET_KIND_REGION)
+    return false;
+
+  location_t tloc = gimple_location (target);
+  gimple *stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (target), tloc,
+					       "target");
+  if (!stmt)
+    return false;
+  gomp_teams *teams;
+  tree group_size = NULL;
+  if ((teams = dyn_cast <gomp_teams *> (stmt)))
+    {
+      tree clauses = gimple_omp_teams_clauses (teams);
+      while (clauses)
+	{
+	  switch (OMP_CLAUSE_CODE (clauses))
+	    {
+	    case OMP_CLAUSE_NUM_TEAMS:
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_NOTE, tloc,
+				 "Will not turn target construct into a "
+				 "gridified GPGPU kernel because we cannot "
+				 "handle num_teams clause of teams "
+				 "construct\n ");
+	      return false;
+	    case OMP_CLAUSE_THREAD_LIMIT:
+	      group_size = OMP_CLAUSE_OPERAND (clauses, 0);
+	      break;
+	    default:
+	      break;
+	    }
+	  clauses = OMP_CLAUSE_CHAIN (clauses);
+	}
+
+      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc,
+					   "teams");
+      if (!stmt)
+	return false;
+      gomp_for *dist = NULL;
+      if ((dist = dyn_cast <gomp_for *> (stmt)))
+	{
+	  gcc_assert (gimple_omp_for_kind (dist) == GF_OMP_FOR_KIND_DISTRIBUTE);
+	  if (!gimple_omp_for_combined_p (dist))
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_NOTE, tloc,
+				 "Will not turn target construct into a "
+				 "gridified GPGPU kernel because we cannot "
+				 "handle a standalone distribute construct\n ");
+	      return false;
+	    }
+	  if (dist->collapse > 1)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_NOTE, tloc,
+				 "Will not turn target construct into a "
+				 "gridified GPGPU kernel because the distribute "
+				 "construct contains collapse clause\n");
+	      return false;
+	    }
+	  struct omp_for_data fd;
+	  extract_omp_for_data (dist, &fd, NULL);
+	  if (fd.chunk_size)
+	    {
+	      if (group_size && !operand_equal_p (group_size, fd.chunk_size, 0))
+		{
+		  if (dump_enabled_p ())
+		    dump_printf_loc (MSG_NOTE, tloc,
+				     "Will not turn target construct into a "
+				     "gridified GPGPU kernel because the teams "
+				     "thread limit is different from distribute "
+				     "schedule chunk\n");
+		  return false;
+		}
+	      group_size = fd.chunk_size;
+	    }
+	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
+					       "distribute");
+	}
+    }
+
+  gomp_parallel *par;
+  if (!stmt || !(par = dyn_cast <gomp_parallel *> (stmt)))
+    return false;
+
+  tree clauses = gimple_omp_parallel_clauses (par);
+  tree num_threads_clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
+  if (num_threads_clause)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a gridified"
+			 "GPGPU kernel because there is a num_threads "
+			 "clause of the parallel construct that "
+			 "is likely to require looping \n");
+      return false;
+    }
+
+  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (par), tloc, "parallel");
+  gomp_for *gfor;
+  if (!stmt || !(gfor = dyn_cast <gomp_for *> (stmt)))
+    return false;
+
+  if (gimple_omp_for_kind (gfor) != GF_OMP_FOR_KIND_FOR)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a gridified GPGPU "
+			 "kernel because the inner loop is not a simple for "
+			 "loop\n");
+      return false;
+    }
+  if (gfor->collapse > 1)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a gridified GPGPU "
+			 "kernel because the inner loop contains collapse "
+			 "clause\n");
+      return false;
+    }
+
+  if (!seq_only_contains_local_assignments (gimple_omp_for_pre_body (gfor)))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a gridified GPGPU "
+			 "kernel because the inner loop pre_body contains"
+			 "a complex instruction\n");
+      return false;
+    }
+
+  clauses = gimple_omp_for_clauses (gfor);
+  tree for_sched_clause = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
+
+  if (for_sched_clause
+      && OMP_CLAUSE_SCHEDULE_KIND (for_sched_clause) != OMP_CLAUSE_SCHEDULE_AUTO)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, tloc,
+			 "Will not turn target construct into a gridified GPGPU "
+			 "kernel because the inner loop has non-automatic "
+			 "scheduling clause\n");
+      return false;
+    }
+
+  *group_size_p = group_size;
+  return true;
+}
+
+/* Given freshly copied top level kernel SEQ (which might a bind containing a
+   single gomp_parallel or gomp_teams, identify the individual components, mark
+   them as part of kernel and return the inner loop.  */
+
+static gomp_for *
+find_mark_kernel_components (gimple_seq seq)
+{
+  location_t tloc = UNKNOWN_LOCATION;
+  gimple *stmt = single_stmt_in_seq_skip_bind (seq, tloc, NULL);
+  gomp_teams *teams = NULL;
+  gomp_for *dist = NULL;
+  if ((teams = dyn_cast <gomp_teams *> (stmt)))
+    {
+      gimple_omp_teams_set_kernel_phony (teams, true);
+      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc, NULL);
+      gcc_checking_assert (stmt);
+      if ((dist = dyn_cast <gomp_for *> (stmt)))
+	{
+	  gimple_omp_for_set_kernel_phony (dist, true);
+	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
+					       NULL);
+	  gcc_checking_assert (stmt);
+	}
+    }
+  gomp_parallel *parallel = as_a <gomp_parallel *> (stmt);
+  gimple_omp_parallel_set_kernel_phony (parallel, true);
+  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (parallel), tloc, NULL);
+  gomp_for *inner_loop = as_a <gomp_for *> (stmt);
+  gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
+  return inner_loop;
+}
+
+/* Operand walker, used to remap pre-body declarations according to a hash map
+   provided in DATA.  */
+
+static tree
+remap_prebody_decls (tree *tp, int *walk_subtrees, void *data)
+{
+  tree t = *tp;
+
+  if (DECL_P (t) || TYPE_P (t))
+    *walk_subtrees = 0;
+  else
+    *walk_subtrees = 1;
+
+  if (TREE_CODE (t) == VAR_DECL)
+    {
+      struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+      hash_map<tree, tree> *declmap = (hash_map<tree, tree> *) wi->info;
+      tree *repl = declmap->get (t);
+      if (repl)
+	*tp = *repl;
+    }
+  return NULL_TREE;
+}
+
+/* If TARGET points to a GOMP_TARGET which follows a gridifiable pattern,
+   create a GPU kernel for it.  GSI must point to the same statement, TGT_BIND
+   is the bind into which temporaries inserted before TARGET should be
+   added.  */
+
+static tree
+attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
+			      gbind *tgt_bind)
+{
+  tree group_size;
+  if (!target || !target_follows_gridifiable_pattern (target, &group_size))
+    return NULL_TREE;
+
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, gimple_location (target),
+		     "Target construct will be turned into a gridified GPGPU "
+		     "kernel\n");
+
+  /* Copy target body to a GPUKERNEL construct:  */
+  gimple_seq kernel_seq = copy_gimple_seq_and_replace_locals
+    (gimple_omp_body (target));
+  gomp_for *inner_loop = find_mark_kernel_components (kernel_seq);
+
+  gbind *old_bind = as_a <gbind *> (gimple_seq_first (gimple_omp_body (target)));
+  gbind *new_bind = as_a <gbind *> (gimple_seq_first (kernel_seq));
+  tree new_block = gimple_bind_block (new_bind);
+  tree enc_block = BLOCK_SUPERCONTEXT (gimple_bind_block (old_bind));
+  BLOCK_CHAIN (new_block) = BLOCK_SUBBLOCKS (enc_block);
+  BLOCK_SUBBLOCKS (enc_block) = new_block;
+  BLOCK_SUPERCONTEXT (new_block) = enc_block;
+  gimple *gpukernel = gimple_build_omp_gpukernel (kernel_seq);
+  gimple_seq_add_stmt
+    (gimple_bind_body_ptr (as_a <gbind *> (gimple_omp_body (target))),
+     gpukernel);
+
+  /* Copy loop pre-body before target: */
+  hash_map<tree, tree> *declmap = new hash_map<tree, tree>;
+  gimple_seq prebody = gimple_omp_for_pre_body (inner_loop);
+  gimple_seq pretarget = NULL;
+  gimple_stmt_iterator pbi;
+  struct walk_stmt_info wi;
+  memset (&wi, 0, sizeof (struct walk_stmt_info));
+  wi.info = declmap;
+  for (pbi = gsi_start (prebody); !gsi_end_p (pbi); gsi_next (&pbi))
+    {
+      gassign *stmt = as_a <gassign *> (gsi_stmt (pbi));
+      tree lhs = gimple_assign_lhs (stmt);
+      tree repl = copy_var_decl (lhs, create_tmp_var_name (NULL),
+				 TREE_TYPE (lhs));
+      DECL_CONTEXT (repl) = current_function_decl;
+      gimple_bind_append_vars (tgt_bind, repl);
+
+      declmap->put (lhs, repl);
+      gassign *copy = as_a <gassign *> (gimple_copy (stmt));
+      walk_gimple_op (copy, remap_prebody_decls, &wi);
+      gimple_seq_add_stmt (&pretarget, copy);
+    }
+  gsi_insert_seq_before (gsi, pretarget, GSI_SAME_STMT);
+
+  target->kernel_group_size = group_size;
+  size_t collapse = inner_loop->collapse;
+  target->kernel_collapse = collapse;
+  target->kernel_iter = ggc_cleared_vec_alloc<gimple_omp_for_iter> (collapse);
+  for (size_t i = 0; i < collapse; i++)
+    {
+      target->kernel_iter[i] = inner_loop->iter[i];
+      walk_tree (&target->kernel_iter[i].initial, remap_prebody_decls, &wi,
+		 NULL);
+      walk_tree (&target->kernel_iter[i].final, remap_prebody_decls, &wi, NULL);
+    }
+
+  delete declmap;
+  return NULL_TREE;
+}
+
+/* Walker function doing all the work for create_target_kernels. */
+
+static tree
+create_target_gpukernel_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			      struct walk_stmt_info *incoming)
+{
+  *handled_ops_p = false;
+
+  gimple *stmt = gsi_stmt (*gsi);
+  gomp_target *target = dyn_cast <gomp_target *> (stmt);
+  if (target)
+    {
+      gbind *tgt_bind = (gbind *) incoming->info;
+      gcc_checking_assert (tgt_bind);
+      attempt_target_gridification (target, gsi, tgt_bind);
+      return NULL_TREE;
+    }
+  gbind *bind = dyn_cast <gbind *> (stmt);
+  if (bind)
+    {
+      *handled_ops_p = true;
+      struct walk_stmt_info wi;
+      memset (&wi, 0, sizeof (wi));
+      wi.info = bind;
+      walk_gimple_seq_mod (gimple_bind_body_ptr (bind),
+			   create_target_gpukernel_stmt, NULL, &wi);
+    }
+  return NULL_TREE;
+}
+
+/* Prepare all target constructs in BODY_P for GPU kernel generation, if they
+   follow a gridifiable pattern.  All such targets will have their bodies
+   duplicated, with the new copy being put into a gpukernel.  All
+   kernel-related construct within the gpukernel will be marked with phony
+   flags or kernel kinds.  Moreover, some re-structuring is often needed, such
+   as copying pre-bodies before the target construct so that kernel grid sizes
+   can be computed.  */
+
+static void
+create_target_gpukernels (gimple_seq *body_p)
+{
+  struct walk_stmt_info wi;
+  memset (&wi, 0, sizeof (wi));
+  walk_gimple_seq_mod (body_p, create_target_gpukernel_stmt, NULL, &wi);
+}
+
+
 /* Main entry point.  */
 
 static unsigned int
@@ -12843,6 +12975,10 @@ execute_lower_omp (void)
 				 delete_omp_context);
 
   body = gimple_body (current_function_decl);
+
+  if (hsa_gen_requested_p () && !flag_disable_hsa_gridification)
+    create_target_gpukernels (&body);
+
   scan_omp (&body, NULL);
   gcc_assert (taskreg_nesting_level == 0);
   FOR_EACH_VEC_ELT (taskreg_contexts, i, ctx)
