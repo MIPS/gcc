@@ -1,5 +1,9 @@
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
+	* passes.def: Move IPA-HSA before inliner.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (generate_hsa): Produce seen error if
 	-fgnu-tm is passed.
 
