@@ -1,3 +1,10 @@
+2015-10-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (build_outer_var_ref): Just check for openacc function
+	attrib.
+	(pass_oacc_device_lower::execute): Don't inhibit if errors have
+	happened.
+
 2015-10-16  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-pretty-print.c (dump_omp_clause): Handle bind clause.
@@ -9,8 +16,8 @@
 
 2015-10-16  Tom de Vries  <tom@codesourcery.com>
 
-	* tree-pretty-print.c (dump_omp_clause): Handle device-resident and link
-	map kinds.
+	* tree-pretty-print.c (dump_omp_clause): Handle device-resident
+	and link map kinds.
 
 2015-10-16  Tom de Vries  <tom@codesourcery.com>
 

@@ -1283,7 +1283,7 @@ build_outer_var_ref (tree var, omp_context *ctx)
 	x = lookup_decl (var, ctx->outer);
     }
   else if (is_reference (var)
-	   || extract_oacc_routine_gwv (current_function_decl) != 0)
+	   || get_oacc_fn_attrib (current_function_decl))
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */
     x = var;
@@ -16542,7 +16542,7 @@ public:
   /* opt_pass methods: */
   virtual unsigned int execute (function *)
     {
-      bool gate = (flag_openacc != 0 && !seen_error ());
+      bool gate = (flag_openacc != 0);
 
       if (!gate)
 	return 0;
