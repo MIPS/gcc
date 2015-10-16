@@ -489,7 +489,7 @@ write_as_kernel (tree attrs)
 	  || lookup_attribute ("omp acc target entrypoint", attrs) != NULL_TREE);
   /* Ignore "omp target entrypoint" here: OpenMP target region functions are
      called from gomp_nvptx_main.  The corresponding kernel entry is emitted
-     from write_libgomp_anchor.  */
+     from write_omp_entry.  */
 }
 
 /* Emit a linker marker for a function decl or defn.  */
@@ -726,6 +726,45 @@ nvptx_init_axis_predicate (FILE *file, int regno, const char *name)
   fprintf (file, "\t}\n");
 }
 
+/* Emit kernel NAME for function ORIG outlined for an OpenMP 'target' region:
+
+   extern void gomp_nvptx_main (void (*fn)(void*), void *fnarg);
+   void __attribute__((kernel)) NAME(void *arg)
+   {
+     gomp_nvptx_main (ORIG, arg);
+   }
+   ORIG itself should not be emitted as a PTX .entry function.  */
+
+static void
+write_omp_entry (std::stringstream &s, const char *name, const char *orig)
+{
+  /* Pointer-sized PTX integer type, .u32 or .u64 depending on target ABI.  */
+  const char *sfx = nvptx_ptx_type_from_mode (Pmode, false);
+
+  /* OpenMP target regions are entered via gomp_nvptx_main.  */
+  static bool gomp_nvptx_main_declared;
+  if (!gomp_nvptx_main_declared)
+    {
+      gomp_nvptx_main_declared = true;
+      s << "// BEGIN GLOBAL FUNCTION DECL: gomp_nvptx_main\n";
+      s << ".extern .func gomp_nvptx_main";
+      s << "(.param" << sfx << " %in_ar1, .param" << sfx << " %in_ar2);\n";
+    }
+  s << ".visible .entry " << name << "(.param" << sfx << " %in_ar1)\n";
+  s << "{\n";
+  s << "\t.reg" << sfx << " %ar1;\n";
+  s << "\tld.param" << sfx << " %ar1, [%in_ar1];\n";
+  s << "\t{\n";
+  s << "\t\t.param" << sfx << " %out_arg0;\n";
+  s << "\t\t.param" << sfx << " %out_arg1;\n";
+  s << "\t\tst.param" << sfx << " [%out_arg0], " << orig << ";\n";
+  s << "\t\tst.param" << sfx << " [%out_arg1], %ar1;\n";
+  s << "\t\tcall.uni gomp_nvptx_main, (%out_arg0, %out_arg1);\n";
+  s << "\t}\n";
+  s << "\tret;\n";
+  s << "}\n";
+}
+
 /* Implement ASM_DECLARE_FUNCTION_NAME.  Writes the start of a ptx
    function, including local var decls and copies from the arguments to
    local regs.  */
@@ -740,6 +779,14 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   /* We construct the initial part of the function into a string
      stream, in order to share the prototype writing code.  */
   std::stringstream s;
+  if (flag_openmp
+      && lookup_attribute ("omp target entrypoint", DECL_ATTRIBUTES (decl)))
+    {
+      char *buf = (char *) alloca (strlen (name) + sizeof ("$impl"));
+      sprintf (buf, "%s$impl", name);
+      write_omp_entry (s, name, buf);
+      name = buf;
+    }
   write_fn_proto (s, true, name, decl);
   s << "{\n";
 

@@ -1,5 +1,10 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c: (write_omp_entry): New.  Use it...
+	(nvptx_declare_function_name): ...here to emit pointers for libgomp.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* omp-low.c (create_omp_child_function): Set "omp target entrypoint",
 	"omp acc target entrypoint" or "omp declare target" attribute based on
 	is_gimple_omp_offloaded and is_gimple_omp_oacc.
