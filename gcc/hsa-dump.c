@@ -771,10 +771,11 @@ static void
 dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 {
   gcc_checking_assert (insn);
-  indent_stream (f, *indent);
 
   if (insn->number)
     fprintf (f, "%5d: ", insn->number);
+
+  indent_stream (f, *indent);
 
   if (is_a <hsa_insn_phi *> (insn))
     {
