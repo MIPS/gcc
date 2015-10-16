@@ -1,3 +1,8 @@
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (convert_switch_statements): Generate fold_convert
+	for situations where index type and label value types are different.
+
 2015-10-13  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (hsa_insn_basic::set_output_in_type): New function.

@@ -5048,6 +5048,7 @@ convert_switch_statements ()
 
 	unsigned labels = gimple_switch_num_labels (s);
 	tree index = gimple_switch_index (s);
+	tree index_type = TREE_TYPE (index);
 	tree default_label = gimple_switch_default_label (s);
 	basic_block default_label_bb = label_to_block_fn
 	  (func, CASE_LABEL (default_label));
@@ -5100,17 +5101,24 @@ convert_switch_statements ()
 	    tree low = CASE_LOW (label);
 	    tree high = CASE_HIGH (label);
 
+	    if (!useless_type_conversion_p (TREE_TYPE (low), index_type))
+	      low = fold_convert (index_type, low);
+
 	    gimple_stmt_iterator cond_gsi = gsi_last_bb (cur_bb);
 	    gimple *c = NULL;
 	    if (high)
 	      {
 		tree tmp1 = make_temp_ssa_name (boolean_type_node, NULL,
 						"switch_cond_op1");
+
 		gimple *assign1 = gimple_build_assign (tmp1, LE_EXPR, low,
 						      index);
 
 		tree tmp2 = make_temp_ssa_name (boolean_type_node, NULL,
 						"switch_cond_op2");
+
+		if (!useless_type_conversion_p (TREE_TYPE (high), index_type))
+		  high = fold_convert (index_type, high);
 		gimple *assign2 = gimple_build_assign (tmp2, LE_EXPR, index,
 						      high);
 
