@@ -1,3 +1,7 @@
+2015-10-16  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/parallel-in-routine.c: New test.
+
 2015-10-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/default_none.f95: New test.
