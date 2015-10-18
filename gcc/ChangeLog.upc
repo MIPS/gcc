@@ -1,5 +1,33 @@
 2015-10-18  Gary Funck  <gary@intrepid.com>
 
+	Remove support for packed PTS, vaddr order and the
+	ability to choose differing PTS formats.
+	Use only 'struct PTS'.
+	* c/c-upc-pts-packed.c: Delete.
+	* c/c-upc-pts-ops.c: moved from c/c-upc-pts-struct.c. 
+	* c/Make-lang.in (c/c-upc-pts-packed.o, c/c-upc-pts-struct.o):
+	Delete references.
+	* configure.ac: Remove support for --with-upc-pts,
+	--with-upc-pts-vaddr-order, --with-upc-pts-packed-bits
+	* langhooks.h, langhooks-def.h, c/c-upc-lang.c, c/c-upc-lang.h,
+	c/c-lang.c, c/c-upc-lang.c, c/c-upc-lang.h, c/c-upc-pts-ops.c:
+	Rename UPC_PTS_INIT_TYPE from UPC_PTS_STRUCT_INIT_TYPE
+	and upc_pts_init_type from upc_pts_struct_init_type.
+	* c/c-upc-lang.c, c-family/c-cppbuiltin.c, c-family/c-upc-pts.h,
+	config.in, configure.ac, configure, c/c-upc-lang.c:
+	Delete references to HAVE_UPC_PTS_VADDR_FIRST.
+	* c/c-parser.c, c/c-upc-low.c, c/c-upc-pts-ops.c, c/c-upc-pts-ops.h,
+	c/c-upc.c: Change (*upc_pts.<pts_op>) to upc_pts_<pts_op>.
+	* c/c-upc-low.c, c/c-upc-pts-ops.c, c-family/c-cppbuiltin.c,
+	c-family/c-upc-pts.h, config.in, doc/tm.texi.in:
+	Delete references to HAVE_UPC_PTS_PACKED_REP
+	and HAVE_UPC_PTS_STRUCT_REP.
+	* configure: Re-generate.
+	* config.in: Re-generate.
+	* doc/tm.texi: Re-generate.
+
+2015-10-18  Gary Funck  <gary@intrepid.com>
+
 	* c/c-upc-low.c: Fix typo in comment.
 
 2015-10-17  Gary Funck  <gary@intrepid.com>

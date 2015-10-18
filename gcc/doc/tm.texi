@@ -10326,31 +10326,6 @@ as determined by the @code{TARGET_ADDR_SPACE_SUBSET_P} target hook.
 @section UPC Language Support
 @cindex UPC, pointer-to-shared, libgupc
 
-@defmac HAVE_UPC_PTS_VADDR_FIRST
-If non-zero, the @var{vaddr} (virtual address) field of the UPC
-pointer-to-shared representation is first.  Typically, this macro
-is set by @command{configure} and is defined in @file{config.in},
-based on the setting of the @option{--with-upc-pts-vaddr-order} option.
-By default, the @var{vaddr} is first.
-@end defmac
-
-@defmac HAVE_UPC_PTS_PACKED_REP
-If defined, the UPC pointer-to-shared representation is a packed
-unsigned 64-bit integer.  This macro is determined by
-@command{configure} and is defined in @file{config.in},
-based on the setting of the @option{--with-upc-pts=packed} option.
-(The default representation is `packed'.)
-@end defmac
-
-@defmac HAVE_UPC_PTS_STRUCT_REP
-If defined, the UPC pointer-to-shared representation is a structure
-with three fields: @var{vaddr} (virtual address), @var{thread}
-(UPC thread number), and @var{phased} (UPC block offset).
-This macro is determined by @command{configure}
-and is defined in @file{config.in}, based on the setting of the
-@option{--with-upc-pts=struct} option.
-@end defmac
-
 @deftypefn {Target Hook} bool TARGET_UPC_LINK_SCRIPT_P (void)
 This hook returns true a linker script will be used toorigin the UPC shared section at 0.
 @end deftypefn

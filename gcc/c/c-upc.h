@@ -42,7 +42,6 @@ extern int upc_is_null_pts_p (tree);
 extern tree upc_localsizeof (location_t, tree);
 extern tree upc_pts_diff (tree, tree);
 extern tree upc_pts_increment (location_t, enum tree_code, tree);
-extern void upc_pts_init (void);
 extern tree upc_pts_int_sum (location_t, enum tree_code, tree, tree);
 extern int upc_pts_is_valid_p (tree);
 extern tree upc_rts_forall_depth_var (void);

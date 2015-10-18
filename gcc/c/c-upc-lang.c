@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "c-upc.h"
 #include "c-upc-low.h"
+#include "c-upc-pts-ops.h"
 #include "c-upc-rts-names.h"
 #include "c-family/c-upc-pts.h"
 #include "common/common-target.h"
@@ -192,7 +193,7 @@ upc_parse_init (void)
 /* Build the internal representation of UPC's pointer-to-shared type.  */
 
 void
-upc_pts_struct_init_type (void)
+upc_pts_init_type (void)
 {
   tree fields = NULL_TREE;
   tree name = NULL_TREE;
@@ -239,9 +240,6 @@ upc_pts_struct_init_type (void)
       DECL_NONADDRESSABLE_P (upc_phase_field_node) = 1;
       DECL_INITIAL (upc_phase_field_node) = size_int (UPC_PTS_PHASE_SIZE);
     }
-#if !HAVE_UPC_PTS_VADDR_FIRST
-  fields = nreverse (fields);
-#endif
   /* Avoid spurious complaints regarding the definition of
      `phase' and `thread'.  */
   pedantic = 0;

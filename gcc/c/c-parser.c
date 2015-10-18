@@ -9997,7 +9997,7 @@ upc_affinity_test (location_t loc, tree affinity)
          determined by the thread component of the address.  */
       const tree pts_rep = build1 (VIEW_CONVERT_EXPR, upc_pts_rep_type_node,
 				   save_expr (affinity));
-      affinity = (*upc_pts.threadof) (loc, pts_rep);
+      affinity = upc_pts_build_threadof (loc, pts_rep);
     }
   else if (TREE_CODE (TREE_TYPE (affinity)) == INTEGER_TYPE)
     {

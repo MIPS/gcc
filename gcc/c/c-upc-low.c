@@ -570,33 +570,8 @@ upc_build_shared_var_addr (location_t loc, tree var)
   /* Refer to a shadow variable that has the same type as VAR, but
      with the shared qualifier removed.  */
   var_addr = unshared_var_addr (loc, var);
-#ifdef HAVE_UPC_PTS_PACKED_REP
-  {
-    const tree char_ptr_type = build_pointer_type (char_type_node);
-    tree shared_vaddr_base;
-    /* Subtract off the shared section base address so that the
-       resulting quantity will fit into the vaddr field.  */
-    shared_vaddr_base =
-      identifier_global_value (get_identifier ("__upc_shared_start"));
-    if (!shared_vaddr_base)
-      shared_vaddr_base =
-	identifier_global_value (get_identifier ("UPCRL_shared_begin"));
-    if (!shared_vaddr_base)
-      fatal_error (input_location,
-                   "UPC shared section start address not found; "
-		   "cannot find a definition for either "
-		   "__upc_shared_start or UPCRL_shared_begin");
-    assemble_external (shared_vaddr_base);
-    TREE_USED (shared_vaddr_base) = 1;
-    shared_vaddr_base = build1 (ADDR_EXPR, char_ptr_type, shared_vaddr_base);
-    var_addr = build_binary_op (loc, MINUS_EXPR,
-				convert (ptrdiff_type_node, var_addr),
-				convert (ptrdiff_type_node,
-					 shared_vaddr_base), 0);
-  }
-#endif
-  val = (*upc_pts.build) (loc, build_pointer_type (TREE_TYPE (var)),
-                          var_addr, integer_zero_node, integer_zero_node);
+  val = upc_pts_build_value (loc, build_pointer_type (TREE_TYPE (var)),
+                             var_addr, integer_zero_node, integer_zero_node);
   return val;
 }
 
@@ -778,7 +753,7 @@ upc_genericize_array_ref (location_t loc, tree *expr_p)
 static void
 upc_genericize_pts_cvt (location_t loc, tree *expr_p)
 {
-  *expr_p = (*upc_pts.cvt) (loc, *expr_p);
+  *expr_p = upc_pts_build_cvt (loc, *expr_p);
 }
 
 /* Handle conversions from a UPC pointer-to-shared into
@@ -818,7 +793,7 @@ upc_genericize_pts_to_int_cvt (location_t loc, tree *expr_p)
 static void
 upc_genericize_pts_cond_expr (location_t loc, tree *expr_p)
 {
-  *expr_p = (*upc_pts.cond_expr) (loc, *expr_p);
+  *expr_p = upc_pts_build_cond_expr (loc, *expr_p);
 }
 
 /* Rewrite a reference to a bit field within a UPC shared struct/union.
@@ -854,7 +829,7 @@ upc_genericize_pts_arith_expr (location_t loc, tree *expr_p)
   tree exp = *expr_p;
   if (TREE_CODE (exp) == PLUS_EXPR || TREE_CODE (exp) == POINTER_PLUS_EXPR)
     {
-      *expr_p = (*upc_pts.sum) (loc, exp);
+      *expr_p = upc_pts_build_sum (loc, exp);
     }
   else if (TREE_CODE (exp) == MINUS_EXPR)
     {
@@ -882,10 +857,10 @@ upc_genericize_pts_arith_expr (location_t loc, tree *expr_p)
 	    int_op = convert (ssizetype, int_op);
 	  TREE_OPERAND (exp, 1) =
 	    build_unary_op (loc, NEGATE_EXPR, int_op, 0);
-	  *expr_p = (*upc_pts.sum) (loc, exp);
+	  *expr_p = upc_pts_build_sum (loc, exp);
 	}
       else
-	*expr_p = (*upc_pts.diff) (loc, exp);
+	*expr_p = upc_pts_build_diff (loc, exp);
     }
   else
     gcc_unreachable ();

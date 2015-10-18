@@ -67,8 +67,7 @@ gupc$(exeext): $(GUPC_D_OBJS) $(EXTRA_GCC_OBJS) \
 
 # UPC specific object files.  Presently, available only for C.
 UPC_OBJS = c/c-upc-gasp.o c/c-upc-lang.o c/c-upc-low.o \
-	c/c-upc-pts-ops.o c/c-upc-pts-packed.o c/c-upc-pts-struct.o \
-	c/c-upc.o
+	c/c-upc-pts-ops.o c/c-upc.o
 
 # The C compiler itself.
 

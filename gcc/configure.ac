@@ -860,115 +860,6 @@ else
 fi,
 objc_boehm_gc='')
 
-#
-# Process UPC-specific configuration options.
-#
-AC_ARG_WITH([upc-pts],
-AS_HELP_STRING(
-  [--with-upc-pts={struct,packed}],
-  [choose the representation of a UPC pointer-to-shared]),
-[
-  case "$withval" in
-    packed|struct) upc_pts_rep="$withval" ;;
-    *) AC_MSG_ERROR([$withval is an invalid option to --with-upc-pts])
-      ;;
-  esac
-],
-[upc_pts_rep="packed"])
-
-# Perl is required for checking pts representation
-AC_CHECK_PROG(PERL, perl, perl)
-
-AC_ARG_WITH([upc-pts-vaddr-order],
-AS_HELP_STRING(
-[--with-upc-pts-vaddr-order={last,first}],
-[choose position of the address field in UPC pointer-to-shared representation]),
-[
-  upc_vaddr_order="$withval"
-  case "$upc_vaddr_order" in
-    first|last) ;;
-    *) AC_MSG_ERROR(
-	 [$withval is an invalid option to --with-upc-pts-vaddr-order]) ;;
-  esac
-],
-[upc_vaddr_order="first"])
-
-AC_ARG_WITH([upc-pts-packed-bits],
-AS_HELP_STRING(
-[--with-upc-pts-packed-bits=phase,thread,vaddr],
-[choose bit distribution in packed UPC pointer-to-shared representation]),
-[
-  if test x"$upc_pts_rep" = x"packed"; then
-    UPC_PTS_PHASE_SIZE=`echo "$withval" | $PERL -ne 'm/^(\d+),(\d+),(\d+)$/;
-					  print $1 if ($1+$2+$3 == 64) && $1>=1;'`
-    UPC_PTS_THREAD_SIZE=`echo "$withval" | $PERL -ne 'm/^(\d+),(\d+),(\d+)$/;
-					  print $2 if ($1+$2+$3 == 64) && $2>=1;'`
-    UPC_PTS_VADDR_SIZE=`echo "$withval" | $PERL -ne 'm/^(\d+),(\d+),(\d+)$/;
-					  print $3 if ($1+$2+$3 == 64) && $3>=20;'`
-    if test -z "$UPC_PTS_PHASE_SIZE" \
-       || test -z "$UPC_PTS_THREAD_SIZE" \
-       || test -z "$UPC_PTS_VADDR_SIZE" ; then
-      AC_MSG_ERROR([--with-upc-pts-packed-bits=phase,thread,vaddr requires
-  phase+thread+vaddr=64 and phase >= 1 and thread >= 1 and vaddr >= 20])
-    fi
-  else
-    AC_MSG_ERROR([--with-upc-pts-packed-bits is only supported for
-the packed UPC pointer-to-shared representation])
-  fi
-],
-[
-  # GNU UPC packed pointer representation defaults.
-changequote(,)dnl
-  case "$target" in
-    i[356]86* )
-      UPC_PTS_PHASE_SIZE=20
-      UPC_PTS_THREAD_SIZE=12
-      UPC_PTS_VADDR_SIZE=32
-      ;;
-    * )
-      UPC_PTS_PHASE_SIZE=20
-      UPC_PTS_THREAD_SIZE=10
-      UPC_PTS_VADDR_SIZE=34
-  esac
-changequote([,])dnl
-])
-
-AC_MSG_CHECKING([for UPC pointer-to-shared representation])
-AC_MSG_RESULT([$upc_pts_rep])
-case "$upc_pts_rep" in
-  packed)
-    AC_DEFINE(HAVE_UPC_PTS_PACKED_REP,[1],
-      [Define to 1 if UPC pointer-to-shared representation
-       is a packed 64 bit word.])
-    ;;
-  struct)
-    AC_DEFINE(HAVE_UPC_PTS_STRUCT_REP,[1],
-      [Define to 1 if UPC pointer-to-shared representation
-       is a structure.])
-    ;;
-esac
-AC_MSG_CHECKING([for UPC pointer-to-shared address field position])
-AC_MSG_RESULT([$upc_vaddr_order])
-if test x"$upc_vaddr_order" = x"first"; then
-  AC_DEFINE(HAVE_UPC_PTS_VADDR_FIRST,[1],
-    [Define to 1 if the 'vaddr' field is the first field
-in the UPC pointer-to-shared representation.])
-fi
-if test x"$upc_pts_rep" = x"packed"; then
-  AC_DEFINE_UNQUOTED(UPC_PTS_PHASE_SIZE,$UPC_PTS_PHASE_SIZE,
-    [For packed UPC pointers-to-shared,
-     the size of the phase field (in bits).])
-  AC_DEFINE_UNQUOTED(UPC_PTS_THREAD_SIZE,$UPC_PTS_THREAD_SIZE,
-    [For packed UPC pointers-to-shared,
-     the size of the thread field (in bits).])
-  AC_DEFINE_UNQUOTED(UPC_PTS_VADDR_SIZE,$UPC_PTS_VADDR_SIZE,
-    [For packed UPC pointers-to-shared,
-     the size of the address field (in bits).])
-  AC_MSG_CHECKING([for packed UPC pointer-to-shared layout])
-  AC_MSG_RESULT(["phase=${UPC_PTS_PHASE_SIZE},thread=${UPC_PTS_THREAD_SIZE},\
-vaddr=${UPC_PTS_VADDR_SIZE}"])
-fi
-
 AC_ARG_WITH(dwarf2,
 [AS_HELP_STRING([--with-dwarf2], [force the default debug format to be DWARF 2])],
 dwarf2="$with_dwarf2",
@@ -1649,11 +1540,14 @@ changequote([,])dnl
     esac
   fi
 ])
+# Perl is required for checking the linker script.
+AC_CHECK_PROG(PERL, perl, perl)
 if test "$enable_upc_link_script" = yes; then
   libgupc_srcdir=`cd ${srcdir}/../libgupc 2>/dev/null && pwd`
   gen_ld_script="${libgupc_srcdir}/gen-upc-ld-script.pl"
-  if test -f "${gen_ld_script}" \
-     && ! ${LD} --verbose | ${PERL} "${gen_ld_script}" >/dev/null 2>&1; then
+  if ! (test -f "${gen_ld_script}" \
+        && test -n "$PERL" \
+        && ${LD} --verbose | ${PERL} "${gen_ld_script}" >/dev/null 2>&1); then
     # if gen-upc-ld-script did not accept the output of the linker
     # then disable UPC link script support.
     AC_MSG_WARN([Cannot parse 'ld' output. Disabling UPC link scripts.])
@@ -1663,8 +1557,6 @@ fi
 AC_MSG_CHECKING([for UPC link script support])
 AC_MSG_RESULT($enable_upc_link_script)
 if test "$enable_upc_link_script" = yes; then
-  target_configargs="${target_configargs} --enable-upc-link-script"
-  host_configargs="${host_configargs} --enable-upc-link-script"
   AC_DEFINE(HAVE_UPC_LINK_SCRIPT, 1, [Define to 1 if UPC link script is supported.])
 fi
 

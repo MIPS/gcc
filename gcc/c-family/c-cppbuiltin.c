@@ -797,9 +797,6 @@ upc_cpp_builtins (cpp_reader * pfile)
   (void) sprintf (def_buf, "UPC_MAX_BLOCK_SIZE=%lu",
 		  (unsigned long) UPC_MAX_BLOCK_SIZE);
   cpp_define (pfile, def_buf);
-#if defined(HAVE_UPC_PTS_PACKED_REP)
-  cpp_define (pfile, "__UPC_PTS_PACKED_REP__=1");
-#elif defined(HAVE_UPC_PTS_STRUCT_REP)
   cpp_define (pfile, "__UPC_PTS_STRUCT_REP__=1");
   (void) sprintf (def_buf, "__UPC_VADDR_TYPE__=%s", UPC_PTS_VADDR_TYPE);
   cpp_define (pfile, def_buf);
@@ -810,12 +807,7 @@ upc_cpp_builtins (cpp_reader * pfile)
   (void) sprintf (def_buf, "__UPC_PTS_ALIGN__=%d",
 			   (2 * POINTER_SIZE) / BITS_PER_UNIT);
   cpp_define (pfile, def_buf);
-#else
-#error cannot determine UPC pointer-to-shared representation
-#endif
-#ifdef HAVE_UPC_PTS_VADDR_FIRST
   cpp_define (pfile, "__UPC_VADDR_FIRST__=1");
-#endif
   (void) sprintf (def_buf, "__UPC_PTS_SIZE__=%d", UPC_PTS_SIZE);
   cpp_define (pfile, def_buf);
   (void) sprintf (def_buf, "__UPC_VADDR_SIZE__=%d", UPC_PTS_VADDR_SIZE);

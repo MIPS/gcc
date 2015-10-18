@@ -234,13 +234,8 @@ upc_init_options ()
 			  &handlers, &global_options, &global_options_set,
 			  global_dc);
 
-#ifdef ENABLE_UPC_DWARF2_SUPPORT
-  /* Some targets support UPC's DWARF2 extensions by default.  */
-  use_upc_dwarf2_extensions = 1;
-#else
+  /* By default, don't generate UPC's DWARF2 extensions.  */
   use_upc_dwarf2_extensions = 0;
-#endif
-
   flag_upc = 1;
   flag_upc_threads = 0;
   flag_upc_pthreads = 0;
@@ -251,8 +246,8 @@ upc_init_options ()
   flag_upc_instrument = 0;
   flag_upc_instrument_functions = 0;
   /* By default, optimization level > 0 defines shared access routines
-     inlining, otherwise use the user specified flag for unconditional 
-     enable/disable of inlining (0 - disable, 1 - enable).  */
+     inlining, otherwise use the user specified flag to unconditionally
+     enable/disable inlining of the UPC shared memory access routines.  */
   flag_upc_inline_lib = -1;
   /* Disable section anchors. The presence of an unshared equivalent of the
      shared variables causes a double definition of the symbol names in the

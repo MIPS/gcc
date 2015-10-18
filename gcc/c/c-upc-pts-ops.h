@@ -22,26 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_C_UPC_PTS_OPS_H
 #define GCC_C_UPC_PTS_OPS_H 1
 
-typedef struct upc_pts_ops_struct
-  {
-    tree (*build) (location_t, tree, tree, tree, tree);
-    tree (*cond_expr) (location_t, tree);
-    tree (*constant) (location_t, tree);
-    tree (*cvt) (location_t, tree);
-    tree (*diff) (location_t, tree);
-    void (*init) (void);
-    int (*is_null_p) (tree);
-    tree (*sum) (location_t, tree);
-    tree (*threadof) (location_t, tree);
-  } upc_pts_ops_t;
-
-/* Export the representation-specific handlers.  */
-extern upc_pts_ops_t upc_pts;
-
-/* In c/c-upc-pts-packed.c */
-extern const upc_pts_ops_t upc_pts_packed_ops;
-
-/* In c/c-upc-pts-struct.c */
-extern const upc_pts_ops_t upc_pts_struct_ops;
+extern tree upc_pts_build_cond_expr (location_t, tree);
+extern tree upc_pts_build_constant (location_t, tree);
+extern tree upc_pts_build_cvt (location_t, tree);
+extern tree upc_pts_build_diff (location_t, tree);
+extern tree upc_pts_build_sum (location_t, tree);
+extern tree upc_pts_build_threadof (location_t, tree);
+extern tree upc_pts_build_value (location_t, tree, tree, tree, tree);
+extern void upc_pts_init (void);
+extern int upc_pts_is_null_p (tree);
 
 #endif /* !GCC_C_UPC_PTS_OPS_H */

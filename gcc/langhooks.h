@@ -274,9 +274,8 @@ struct lang_hooks_for_upc
   /* Enable/Disable UPC keywords.  */
   void (*toggle_keywords) (bool);
 
-  /* For UPC pointers-to-shared that are represented using
-     a 'struct', declare and define the PTS representation type.  */
-  void (*pts_struct_init_type) (void);
+  /* Define the UPC pointer-to-shared representation type.  */
+  void (*pts_init_type) (void);
 
   /* Build a function that will be called by the UPC runtime
      to initialize UPC shared variables.  */

@@ -785,7 +785,7 @@ upc_pts_diff (tree op0, tree op1)
 int
 upc_is_null_pts_p (tree exp)
 {
-  return (*upc_pts.is_null_p) (exp);
+  return upc_pts_is_null_p (exp);
 }
 
 /* Return TRUE if the type of EXP is a UPC pointer-to-shared type.  */

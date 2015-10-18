@@ -48,8 +48,8 @@ enum c_language_kind c_language = clk_c;
 #define LANG_HOOKS_INIT_TS c_common_init_ts
 #undef LANG_HOOKS_UPC_TOGGLE_KEYWORDS
 #define LANG_HOOKS_UPC_TOGGLE_KEYWORDS upc_toggle_keywords
-#undef LANG_HOOKS_UPC_PTS_STRUCT_INIT_TYPE
-#define LANG_HOOKS_UPC_PTS_STRUCT_INIT_TYPE upc_pts_struct_init_type
+#undef LANG_HOOKS_UPC_PTS_INIT_TYPE
+#define LANG_HOOKS_UPC_PTS_INIT_TYPE upc_pts_init_type
 #undef LANG_HOOKS_UPC_BUILD_INIT_FUNC
 #define LANG_HOOKS_UPC_BUILD_INIT_FUNC upc_build_init_func
 #undef LANG_HOOKS_UPC_WRITE_GLOBAL_DECLS
