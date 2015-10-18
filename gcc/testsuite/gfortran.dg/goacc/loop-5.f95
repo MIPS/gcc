@@ -123,64 +123,6 @@ program test
 
 
   !$acc parallel
-    !$acc loop auto
-    DO i = 1,10
-    ENDDO
-    !$acc loop gang
-    DO i = 1,10
-    ENDDO
-    !$acc loop gang(static:5)
-    DO i = 1,10
-    ENDDO
-    !$acc loop gang(static:*)
-    DO i = 1,10
-    ENDDO
-    !$acc loop gang
-    DO i = 1,10
-      !$acc loop vector
-      DO j = 1,10
-      ENDDO
-      !$acc loop worker
-      DO j = 1,10
-      ENDDO
-    ENDDO
-
-    !$acc loop worker
-    DO i = 1,10
-    ENDDO
-    !$acc loop worker
-    DO i = 1,10
-      !$acc loop vector
-      DO j = 1,10
-      ENDDO
-    ENDDO
-    !$acc loop gang worker
-    DO i = 1,10
-    ENDDO
-
-    !$acc loop vector
-    DO i = 1,10
-    ENDDO
-    !$acc loop vector(5) ! { dg-error "no arguments allowed to gang, worker and vector clauses inside parallel" }
-    DO i = 1,10
-    ENDDO
-    !$acc loop vector(length:5) ! { dg-error "no arguments allowed to gang, worker and vector clauses inside parallel" }
-    DO i = 1,10
-    ENDDO
-    !$acc loop vector
-    DO i = 1,10
-    ENDDO
-    !$acc loop gang vector
-    DO i = 1,10
-    ENDDO
-    !$acc loop worker vector
-    DO i = 1,10
-    ENDDO
-
-    !$acc loop auto
-    DO i = 1,10
-    ENDDO
-
     !$acc loop tile(1)
     DO i = 1,10
     ENDDO
@@ -362,15 +304,6 @@ program test
   DO i = 1,10
   ENDDO
 
-  !$acc parallel loop vector
-  DO i = 1,10
-  ENDDO
-  !$acc parallel loop vector(5) ! { dg-error "no arguments allowed to gang, worker and vector clauses inside parallel" }
-  DO i = 1,10
-  ENDDO
-  !$acc parallel loop vector(length:5) ! { dg-error "no arguments allowed to gang, worker and vector clauses inside parallel" }
-  DO i = 1,10
-  ENDDO
   !$acc parallel loop vector
   DO i = 1,10
     !$acc parallel loop vector ! { dg-error "OpenACC construct inside of non-OpenACC region" }
