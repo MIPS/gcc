@@ -524,7 +524,7 @@ map_unshared_var (const tree var, const tree u_var)
    The address expression returned will point to a "shadow
    variable" declaration that is created from the UPC shared
    variable declaration, VAR.  This shadow variable has the same
-   type and other attributes as VAR, with the UPS shared type
+   type and other attributes as VAR, with the UPC shared type
    qualifiers removed.  */
 
 static tree

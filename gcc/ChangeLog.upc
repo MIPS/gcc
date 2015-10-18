@@ -1,3 +1,7 @@
+2015-10-18  Gary Funck  <gary@intrepid.com>
+
+	* c/c-upc-low.c: Fix typo in comment.
+
 2015-10-17  Gary Funck  <gary@intrepid.com>
 
 	* testsuite/gcc.dg/gupc/max-block-size-exceeded.upc:
