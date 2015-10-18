@@ -1,3 +1,11 @@
+2015-10-17  Gary Funck  <gary@intrepid.com>
+
+	* testsuite/gcc.dg/gupc/max-block-size-exceeded.upc:
+	Adjust expected error pattern so that it accepts an
+	arbitrary number range for UPC_MAX_BLOCK_SIZE, and
+	run only one thread to avoid possible overflow in
+	array dimension.
+
 2015-10-14  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 228829 into gupc branch.
