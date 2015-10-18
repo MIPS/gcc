@@ -1,4 +1,6 @@
-! { dg-do compile }
+! { dg-xfail-if "" { *-*-* } { "*" } { "" } }
+! { dg-excess-errors "internal compiler error" }
+! { dg-do compile  }
 
 program reduction
   integer, parameter    :: n = 40, c = 10
@@ -13,7 +15,7 @@ subroutine redsub(sum, n, c)
   sum = 0
 
   !$acc parallel vector_length(n) copyin (n, c)
-  !$acc loop reduction(+:sum)
+  !$acc loop vector reduction(+:sum)
   do i = 1, n
      sum = sum + c
   end do
