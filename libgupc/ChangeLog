@@ -1,3 +1,9 @@
+2015-10-17  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_sup.h (upc_shared_ptr_alias_t): Delete.
+	Remove this type, no longer needed because the runtime is
+	built with -fno-strict-aliasing.
+
 2015-10-13  Gary Funck  <gary@intrepid.com>
 
 	* testsuite/lib/libgupc.exp: Load multiline.exp before prune.exp,

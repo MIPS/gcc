@@ -108,9 +108,7 @@ __upc_sptr_to_addr (upc_shared_ptr_t p)
 }
 
 #ifdef __UPC__
-  typedef upc_shared_ptr_t
-          __attribute__((__may_alias__)) upc_shared_ptr_alias_t;
-  #define __upc_map_to_local(P)(__upc_sptr_to_addr(*(upc_shared_ptr_alias_t *)&(P)))
+  #define __upc_map_to_local(P)(__upc_sptr_to_addr(*(upc_shared_ptr_t *)&(P)))
 #endif
 
 //end lib_sptr_to_addr
