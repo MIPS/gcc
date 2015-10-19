@@ -1006,7 +1006,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "             /* BRIG offset: %u", insn->brig_offset);
 
       for (unsigned i = 0; i < insn->operand_count (); i++)
-	fprintf (f, ", op%u: %u", i, insn->get_op (i)->brig_op_offset);
+	fprintf (f, ", op%u: %u", i, insn->get_op (i)->m_brig_op_offset);
 
       fprintf (f, " */");
     }

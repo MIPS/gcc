@@ -96,17 +96,16 @@ struct hsa_symbol
 class hsa_op_base
 {
 public:
-
   /* Next operand scheduled to be written when writing BRIG operand
      section.  */
-  hsa_op_base *next;
+  hsa_op_base *m_next;
 
   /* Offset to which the associated operand structure will be written.  Zero if
      yet not scheduled for writing.  */
-  unsigned brig_op_offset;
+  unsigned m_brig_op_offset;
 
   /* The type of a particular operand.  */
-  BrigKind16_t kind;
+  BrigKind16_t m_kind;
 
 protected:
   hsa_op_base (BrigKind16_t k);
@@ -173,7 +172,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_immed *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_CONSTANT_BYTES;
+  return p->m_kind == BRIG_KIND_OPERAND_CONSTANT_BYTES;
 }
 
 /* HSA register operand.  */
@@ -232,7 +231,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_reg *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_REGISTER;
+  return p->m_kind == BRIG_KIND_OPERAND_REGISTER;
 }
 
 /* An address HSA operand.  */
@@ -282,7 +281,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_address *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_ADDRESS;
+  return p->m_kind == BRIG_KIND_OPERAND_ADDRESS;
 }
 
 /* A reference to code HSA operand. It can be either reference
@@ -304,7 +303,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_code_ref *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_CODE_REF;
+  return p->m_kind == BRIG_KIND_OPERAND_CODE_REF;
 }
 
 /* Code list HSA operand.  */
@@ -333,7 +332,7 @@ template <>
 inline bool
 is_a_helper <hsa_op_code_list *>::test (hsa_op_base *p)
 {
-  return p->kind == BRIG_KIND_OPERAND_CODE_LIST;
+  return p->m_kind == BRIG_KIND_OPERAND_CODE_LIST;
 }
 
 /* Opcodes of instructions that are not part of HSA but that we use to

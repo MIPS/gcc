@@ -484,16 +484,16 @@ enqueue_op (hsa_op_base *op)
 {
   unsigned ret;
 
-  if (op->brig_op_offset)
-    return op->brig_op_offset;
+  if (op->m_brig_op_offset)
+    return op->m_brig_op_offset;
 
   ret = op_queue.projected_size;
-  op->brig_op_offset = op_queue.projected_size;
+  op->m_brig_op_offset = op_queue.projected_size;
 
   if (!op_queue.first_op)
     op_queue.first_op = op;
   else
-    op_queue.last_op->next = op;
+    op_queue.last_op->m_next = op;
   op_queue.last_op = op;
 
   if (is_a <hsa_op_immed *> (op))
@@ -1070,9 +1070,9 @@ emit_code_list_operand (hsa_op_code_list *code_list)
 static void
 emit_queued_operands (void)
 {
-  for (hsa_op_base *op = op_queue.first_op; op; op = op->next)
+  for (hsa_op_base *op = op_queue.first_op; op; op = op->m_next)
     {
-      gcc_assert (op->brig_op_offset == brig_operand.total_size);
+      gcc_assert (op->m_brig_op_offset == brig_operand.total_size);
       if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (op))
 	emit_immediate_operand (imm);
       else if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))

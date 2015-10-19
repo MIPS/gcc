@@ -807,11 +807,9 @@ hsa_get_string_cst_symbol (tree string_cst)
 /* Constructor of the ancetor if all operands.  K is BRIG kind that identified
    what the operator is.  */
 
-hsa_op_base::hsa_op_base (BrigKind16_t k)
+hsa_op_base::hsa_op_base (BrigKind16_t k): m_next (NULL), m_brig_op_offset (0),
+  m_kind (k)
 {
-  next = NULL;
-  brig_op_offset = 0;
-  kind = k;
 }
 
 /* Constructor of ancestor of all operands which have a type.  K is BRIG kind
