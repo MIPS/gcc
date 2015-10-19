@@ -203,10 +203,26 @@ static vec <hsa_op_code_list *> hsa_list_operand_code_list;
 static vec <hsa_op_reg *> hsa_list_operand_reg;
 static vec <hsa_op_immed*> hsa_list_operand_immed;
 
+hsa_symbol::hsa_symbol ()
+: m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
+  m_directive_offset (0), m_type (BRIG_TYPE_NONE),
+  m_segment (BRIG_SEGMENT_NONE), m_linkage (BRIG_LINKAGE_NONE), m_dim (0),
+  m_cst_value (NULL), m_global_scope_p (false), m_seen_error (false)
+{
+}
+
+
+hsa_symbol::hsa_symbol (BrigType16_t type, BrigSegment8_t segment,
+			BrigLinkage8_t linkage)
+: m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
+  m_directive_offset (0), m_type (type), m_segment (segment),
+  m_linkage (linkage), m_dim (0), m_cst_value (NULL), m_global_scope_p (false),
+  m_seen_error (false)
+{
+}
+
 /* Constructor of class representing global HSA function/kernel information and
    state.  */
-
-/* TODO: Move more initialization here. */
 
 hsa_function_representation::hsa_function_representation
   (tree fdecl, bool kernel_p): m_name (NULL),
@@ -709,10 +725,8 @@ get_symbol_for_decl (tree decl)
       if (*slot)
 	return *slot;
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      sym = hsa_allocp_symbols->allocate ();
-      memset (sym, 0, sizeof (hsa_symbol));
-      sym->m_segment = BRIG_SEGMENT_PRIVATE;
-      sym->m_linkage = BRIG_LINKAGE_FUNCTION;
+      sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_PRIVATE,
+			    BRIG_LINKAGE_FUNCTION);
     }
 
   fillup_sym_for_decl (decl, sym);
@@ -760,11 +774,8 @@ get_brig_function_name (tree decl)
 hsa_symbol *
 hsa_get_spill_symbol (BrigType16_t type)
 {
-  hsa_symbol *sym = hsa_allocp_symbols->allocate ();
-  memset (sym, 0, sizeof (hsa_symbol));
-  sym->m_segment = BRIG_SEGMENT_SPILL;
-  sym->m_linkage = BRIG_LINKAGE_FUNCTION;
-  sym->m_type = type;
+  hsa_symbol *sym = new hsa_symbol (type, BRIG_SEGMENT_SPILL,
+				    BRIG_LINKAGE_FUNCTION);
   hsa_cfun->m_spill_symbols.safe_push (sym);
   return sym;
 }
@@ -779,13 +790,10 @@ hsa_get_string_cst_symbol (tree string_cst)
   if (slot)
     return *slot;
 
-  hsa_symbol *sym = hsa_allocp_symbols->allocate ();
-  memset (sym, 0, sizeof (hsa_symbol));
-
-  sym->m_segment = BRIG_SEGMENT_GLOBAL;
-  sym->m_linkage = BRIG_LINKAGE_MODULE;
-  sym->m_cst_value = new hsa_op_immed (string_cst);
-  sym->m_type = sym->m_cst_value->m_type;
+  hsa_op_immed *cst = new hsa_op_immed (string_cst);
+  hsa_symbol *sym = new hsa_symbol (cst->m_type,
+				    BRIG_SEGMENT_GLOBAL, BRIG_LINKAGE_MODULE);
+  sym->m_cst_value = cst;
   sym->m_dim = TREE_STRING_LENGTH (string_cst);
   sym->m_name_number = hsa_cfun->m_readonly_variables.length ();
   sym->m_global_scope_p = true;
@@ -5195,13 +5203,10 @@ convert_switch_statements ()
 static void
 emit_hsa_module_variables (void)
 {
-  hsa_num_threads = new hsa_symbol ();
-  memset (hsa_num_threads, 0, sizeof (hsa_symbol));
+  hsa_num_threads = new hsa_symbol (BRIG_TYPE_U32, BRIG_SEGMENT_PRIVATE,
+				    BRIG_LINKAGE_MODULE);
 
   hsa_num_threads->m_name = "hsa_num_threads";
-  hsa_num_threads->m_type = BRIG_TYPE_U32;
-  hsa_num_threads->m_segment = BRIG_SEGMENT_PRIVATE;
-  hsa_num_threads->m_linkage = BRIG_LINKAGE_MODULE;
   hsa_num_threads->m_global_scope_p = true;
 
   hsa_brig_emit_omp_symbols ();

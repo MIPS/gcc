@@ -1,5 +1,13 @@
 2015-10-19  Martin Liska  <mliska@suse.cz>
 
+	* hsa.h (struct hsa_symbol): Add new ctors.
+	* hsa-gen.c (get_symbol_for_decl): Use the ctor.
+	(hsa_get_spill_symbol): Likewise.
+	(hsa_get_string_cst_symbol): Likewise.
+	(emit_hsa_module_variables): Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
 	* hsa.h (hsa_function_summary): Prefix all member variables.
 	* hsa-gen.c: Likewise.
 	* hsa.c: Likewise.
