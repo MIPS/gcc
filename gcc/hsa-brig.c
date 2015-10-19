@@ -1613,7 +1613,7 @@ emit_comment_insn (hsa_insn_comment *insn)
 
   repr.base.byteCount = htole16 (sizeof (repr));
   repr.base.kind = htole16 (insn->m_opcode);
-  repr.name = brig_emit_string (insn->comment, '\0', false);
+  repr.name = brig_emit_string (insn->m_comment, '\0', false);
   brig_code.add (&repr, sizeof (repr));
 }
 

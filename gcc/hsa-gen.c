@@ -1498,7 +1498,7 @@ hsa_insn_comment::hsa_insn_comment (const char *s)
   /* Append '// ' to the string.  */
   char *buf = XNEWVEC (char, l + 4);
   sprintf (buf, "// %s", s);
-  comment = buf;
+  m_comment = buf;
 }
 
 /* New operator to allocate comment instruction from pool alloc.  */
@@ -1512,9 +1512,9 @@ hsa_insn_comment::operator new (size_t)
 void
 hsa_insn_comment::release_string ()
 {
-  gcc_checking_assert (comment);
-  free (comment);
-  comment = NULL;
+  gcc_checking_assert (m_comment);
+  free (m_comment);
+  m_comment = NULL;
 }
 
 /* Constructor of class representing the queue instruction in HSAIL.  */
