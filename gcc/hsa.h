@@ -443,7 +443,7 @@ public:
   void *operator new (size_t);
 
   /* Width as described in HSA documentation.  */
-  BrigWidth8_t width;
+  BrigWidth8_t m_width;
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_br () : hsa_insn_basic (1, BRIG_OPCODE_CBR) {}

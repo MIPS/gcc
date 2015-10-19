@@ -1287,9 +1287,9 @@ hsa_insn_phi::operator new (size_t)
    new instruction is automatically added to its uses list.  */
 
 hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
-: hsa_insn_basic (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, ctrl)
+: hsa_insn_basic (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, ctrl),
+  m_width (BRIG_WIDTH_1)
 {
-  width = BRIG_WIDTH_1;
 }
 
 /* New operator to allocate branch instruction from pool alloc.  */
