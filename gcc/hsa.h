@@ -599,13 +599,13 @@ public:
   void *operator new (size_t);
 
   /* The operation itself.  */
-  enum BrigAtomicOperation atomicop;
+  enum BrigAtomicOperation m_atomicop;
 
   /* Things like acquire/release/aligned.  */
-  enum BrigMemoryOrder memoryorder;
+  enum BrigMemoryOrder m_memoryorder;
 
   /* Scope of the atomic operation. */
-  enum BrigMemoryScope memoryscope;
+  enum BrigMemoryScope m_memoryscope;
 
 private:
   /* Make the default constructor inaccessible.  */

@@ -1185,8 +1185,8 @@ emit_signal_insn (hsa_insn_signal *mem)
   brig_data.round_size_up (4);
   free (operand_offsets);
 
-  repr.memoryOrder = mem->memoryorder;
-  repr.signalOperation = mem->atomicop;
+  repr.memoryOrder = mem->m_memoryorder;
+  repr.signalOperation = mem->m_atomicop;
   repr.signalType = BRIG_TYPE_SIG64;
 
   brig_code.add (&repr, sizeof (repr));
@@ -1237,9 +1237,9 @@ emit_atomic_insn (hsa_insn_atomic *mem)
     repr.segment = addr->m_symbol->m_segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
-  repr.memoryOrder = mem->memoryorder;
-  repr.memoryScope = mem->memoryscope;
-  repr.atomicOperation = mem->atomicop;
+  repr.memoryOrder = mem->m_memoryorder;
+  repr.memoryScope = mem->m_memoryscope;
+  repr.atomicOperation = mem->m_atomicop;
 
   brig_code.add (&repr, sizeof (repr));
   brig_insn_count++;

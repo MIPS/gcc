@@ -1391,17 +1391,17 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 				  BrigType16_t t, hsa_op_base *arg0,
 				  hsa_op_base *arg1, hsa_op_base *arg2,
 				  hsa_op_base *arg3)
-  : hsa_insn_mem (nops, opc, t, arg0, arg1, arg2, arg3)
+  : hsa_insn_mem (nops, opc, t, arg0, arg1, arg2, arg3), m_atomicop (aop),
+  m_memoryorder (BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE),
+  m_memoryscope (BRIG_MEMORY_SCOPE_SYSTEM)
 {
   gcc_checking_assert (opc == BRIG_OPCODE_ATOMICNORET ||
 		       opc == BRIG_OPCODE_ATOMIC ||
 		       opc == BRIG_OPCODE_SIGNAL ||
 		       opc == BRIG_OPCODE_SIGNALNORET);
-  atomicop = aop;
+
   /* TODO: Review the following defaults (together with the few overriddes we
      have in the code).  */
-  memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
-  memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
 }
 
 /* New operator to allocate signal instruction from pool alloc.  */
@@ -3621,8 +3621,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_insn_signal *signal= new hsa_insn_signal (2, BRIG_OPCODE_SIGNALNORET,
 						BRIG_ATOMIC_ST, BRIG_TYPE_B64,
 						signal_reg, c);
-  signal->memoryorder = BRIG_MEMORY_ORDER_RELAXED;
-  signal->memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+  signal->m_memoryorder = BRIG_MEMORY_ORDER_RELAXED;
+  signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
   hbb->append_insn (signal);
 
   /* Get private segment size.  */
@@ -3926,8 +3926,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_insn_atomic *atomic = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMICNORET,
 						 BRIG_ATOMIC_ST, BRIG_TYPE_B32,
 						 addr, c);
-  atomic->memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
-  atomic->memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+  atomic->m_memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+  atomic->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
 
   hbb->append_insn (atomic);
 
@@ -3943,8 +3943,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   signal = new hsa_insn_signal (2, BRIG_OPCODE_SIGNALNORET, BRIG_ATOMIC_ST,
 				BRIG_TYPE_B64, doorbell_signal_reg,
 				queue_index_reg);
-  signal->memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
-  signal->memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+  signal->m_memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+  signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
   hbb->append_insn (signal);
 
   /* Emit blocking signal waiting instruction.  */
@@ -3956,8 +3956,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   signal = new hsa_insn_signal (4, BRIG_OPCODE_SIGNAL,
 				BRIG_ATOMIC_WAITTIMEOUT_LT, BRIG_TYPE_S64);
-  signal->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
-  signal->memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
+  signal->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+  signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
   signal->set_op (0, signal_result_reg);
   signal->set_op (1, signal_reg);
   signal->set_op (2, c);
@@ -4074,7 +4074,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
   /* Overwrite default memory order for ATOMIC_ST insn which can have just
      RLX or SCREL memory order.  */
   if (acode == BRIG_ATOMIC_ST)
-    atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+    atominsn->m_memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
 
   hsa_op_address *addr;
   addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
@@ -4263,7 +4263,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 	  = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD, mtype,
 				 dest, addr);
 
-	atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+	atominsn->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
 
 	hbb->append_insn (atominsn);
 	break;
@@ -4401,7 +4401,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 	  dest = new hsa_op_reg (atype);
 
 	/* Should check what the memory scope is */
-	atominsn->memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
+	atominsn->m_memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
 	atominsn->set_op (0, dest);
 	atominsn->set_op (1, addr);
 	atominsn->set_op
@@ -4410,7 +4410,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 	atominsn->set_op
 	  (3, hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 2),
 					      hbb, ssa_map));
-	atominsn->memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+	atominsn->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
 
 	hbb->append_insn (atominsn);
 	break;

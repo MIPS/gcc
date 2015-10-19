@@ -608,7 +608,7 @@ hsa_memscope_name (enum BrigMemoryScope scope)
 /* Return textual name for atomic operation.  */
 
 static const char *
-hsa_atomicop_name (enum BrigAtomicOperation op)
+hsa_m_atomicop_name (enum BrigAtomicOperation op)
 {
   switch (op)
     {
@@ -801,9 +801,9 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_insn_signal *mem = as_a <hsa_insn_signal *> (insn);
 
       fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
-      fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
-      if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
-	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
+      fprintf (f, "_%s", hsa_m_atomicop_name (mem->m_atomicop));
+      if (mem->m_memoryorder != BRIG_MEMORY_ORDER_NONE)
+	fprintf (f, "_%s", hsa_memsem_name (mem->m_memoryorder));
       fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operands (f, mem);
@@ -821,13 +821,13 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	addr = as_a <hsa_op_address *> (mem->get_op (1));
 
       fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
-      fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
+      fprintf (f, "_%s", hsa_m_atomicop_name (mem->m_atomicop));
       if (addr->m_symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
-      if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
-	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
-      if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
-	fprintf (f, "_%s", hsa_memscope_name (mem->memoryscope));
+      if (mem->m_memoryorder != BRIG_MEMORY_ORDER_NONE)
+	fprintf (f, "_%s", hsa_memsem_name (mem->m_memoryorder));
+      if (mem->m_memoryscope != BRIG_MEMORY_SCOPE_NONE)
+	fprintf (f, "_%s", hsa_memscope_name (mem->m_memoryscope));
       fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operands (f, mem);
