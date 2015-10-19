@@ -705,7 +705,7 @@ emit_bb_label_directive (hsa_bb *hbb)
   sprintf (buf, "BB_%u_%i", DECL_UID (current_function_decl), hbb->index);
   lbldir.name = htole32 (brig_emit_string (buf, '@'));
 
-  hbb->label_ref.directive_offset = brig_code.add (&lbldir, sizeof (lbldir));
+  hbb->label_ref.m_directive_offset = brig_code.add (&lbldir, sizeof (lbldir));
   brig_insn_count++;
 }
 
@@ -1040,7 +1040,7 @@ emit_code_ref_operand (hsa_op_code_ref *ref)
 
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CODE_REF);
-  out.ref = htole32 (ref->directive_offset);
+  out.ref = htole32 (ref->m_directive_offset);
   brig_operand.add (&out, sizeof (out));
 }
 
@@ -1907,7 +1907,7 @@ hsa_brig_emit_function (void)
 	    {
 	      hsa_bb *hbb = hsa_bb_for_bb (sbr->jump_table[j]);
 	      sbr->label_code_list->offsets[j] =
-		hbb->label_ref.directive_offset;
+		hbb->label_ref.m_directive_offset;
 	    }
 	}
     }

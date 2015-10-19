@@ -293,7 +293,7 @@ public:
   hsa_op_code_ref ();
 
   /* Offset in the code section that this refers to.  */
-  unsigned directive_offset;
+  unsigned m_directive_offset;
 };
 
 /* Report whether or not P is a code reference operand.  */

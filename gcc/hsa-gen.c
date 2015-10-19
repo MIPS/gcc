@@ -1057,9 +1057,9 @@ hsa_op_address::operator new (size_t)
 
 /* Constructor of an operand referring to HSAIL code.  */
 
-hsa_op_code_ref::hsa_op_code_ref () : hsa_op_base (BRIG_KIND_OPERAND_CODE_REF)
+hsa_op_code_ref::hsa_op_code_ref () : hsa_op_base (BRIG_KIND_OPERAND_CODE_REF),
+  m_directive_offset (0)
 {
-  directive_offset = 0;
 }
 
 /* Constructor of an operand representing a code list.  Set it up so that it
