@@ -666,9 +666,9 @@ public:
   void *operator new (size_t);
 
   /* Source type.  Depends on the source addressing/segment.  */
-  BrigType16_t src_type;
+  BrigType16_t m_src_type;
   /* The segment we are converting from or to.  */
-  BrigSegment8_t segment;
+  BrigSegment8_t m_segment;
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_seg () : hsa_insn_basic (1, BRIG_OPCODE_STOF) {}

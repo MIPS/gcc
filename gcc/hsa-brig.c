@@ -1310,7 +1310,7 @@ emit_segment_insn (hsa_insn_seg *seg)
   brig_data.round_size_up (4);
 
   repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->get_op (1))->m_type);
-  repr.segment = seg->segment;
+  repr.segment = seg->m_segment;
   repr.modifier.allBits = 0;
 
   brig_code.add (&repr, sizeof (repr));

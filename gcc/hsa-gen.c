@@ -1442,11 +1442,10 @@ hsa_insn_signal::operator new (size_t)
 hsa_insn_seg::hsa_insn_seg (int opc, BrigType16_t dest, BrigType16_t srct,
 			    BrigSegment8_t seg, hsa_op_base *arg0,
 			    hsa_op_base *arg1)
-  : hsa_insn_basic (2, opc, dest, arg0, arg1)
+  : hsa_insn_basic (2, opc, dest, arg0, arg1), m_src_type (srct),
+  m_segment (seg)
 {
   gcc_checking_assert (opc == BRIG_OPCODE_STOF || opc == BRIG_OPCODE_FTOS);
-  src_type = srct;
-  segment = seg;
 }
 
 /* New operator to allocate address conversion instruction from pool alloc.  */

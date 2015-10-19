@@ -865,8 +865,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
     {
       hsa_insn_seg *seg = as_a <hsa_insn_seg *> (insn);
       fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (seg->m_opcode),
-	       hsa_seg_name (seg->segment),
-	       hsa_type_name (seg->m_type), hsa_type_name (seg->src_type));
+	       hsa_seg_name (seg->m_segment),
+	       hsa_type_name (seg->m_type), hsa_type_name (seg->m_src_type));
       dump_hsa_reg (f, as_a <hsa_op_reg *> (seg->get_op (0)));
       fprintf (f, ", ");
       dump_hsa_operand (f, seg->get_op (1));
