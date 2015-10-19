@@ -571,13 +571,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	 coexistence of multiple valid pointer sizes, so fetch the one we need
 	 from the type.  */
       if (!dofold)
-        {
-	  expr = build1 (CONVERT_EXPR,
-			 lang_hooks.types.type_for_size
-			   (TYPE_PRECISION (intype), 0),
-			 expr);
-	  return build1 (CONVERT_EXPR, type, expr);
-	}
+	return build1 (CONVERT_EXPR, type, expr);
       expr = fold_build1 (CONVERT_EXPR,
 			  lang_hooks.types.type_for_size
 			    (TYPE_PRECISION (intype), 0),
@@ -622,6 +616,8 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	  else
 	    code = NOP_EXPR;
 
+	  if (!dofold)
+	    return build1 (code, type, expr);
 	  return fold_build1 (code, type, expr);
 	}
 
@@ -828,6 +824,8 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 			if (TYPE_UNSIGNED (typex))
 			  typex = signed_type_for (typex);
 		      }
+		    /* We should do away with all this once we have a proper
+		       type promotion/demotion pass, see PR45397.  */
 		    if (dofold)
 		      return convert (type,
 				      fold_build2 (ex_form, typex,
@@ -847,6 +845,9 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	  /* This is not correct for ABS_EXPR,
 	     since we must test the sign before truncation.  */
 	  {
+	    if (!dofold)
+	      break;
+
 	    /* Do the arithmetic in type TYPEX,
 	       then convert result to TYPE.  */
 	    tree typex = type;
@@ -860,11 +861,6 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 
 	    if (!TYPE_UNSIGNED (typex))
 	      typex = unsigned_type_for (typex);
-	    if (!dofold)
-	      return build1 (CONVERT_EXPR, type,
-			     build1 (ex_form, typex,
-				     build1 (CONVERT_EXPR, typex,
-					     TREE_OPERAND (expr, 0))));
 	    return convert (type,
 			    fold_build1 (ex_form, typex,
 					  convert (typex,
@@ -887,21 +883,15 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	     the conditional and never loses.  A COND_EXPR may have a throw
 	     as one operand, which then has void type.  Just leave void
 	     operands as they are.  */
-	  if (!dofold)
-	    return build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
+	  if (dofold)
+	    return
+	      fold_build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
 			   VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1)))
 			   ? TREE_OPERAND (expr, 1)
-			   : build1 (CONVERT_EXPR, type, TREE_OPERAND (expr, 1)),
+			   : convert (type, TREE_OPERAND (expr, 1)),
 			   VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 2)))
 			   ? TREE_OPERAND (expr, 2)
-			   : build1 (CONVERT_EXPR, type, TREE_OPERAND (expr, 2)));
-	  return fold_build3 (COND_EXPR, type, TREE_OPERAND (expr, 0),
-			      VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 1)))
-			      ? TREE_OPERAND (expr, 1)
-			      : convert (type, TREE_OPERAND (expr, 1)),
-			      VOID_TYPE_P (TREE_TYPE (TREE_OPERAND (expr, 2)))
-			      ? TREE_OPERAND (expr, 2)
-			      : convert (type, TREE_OPERAND (expr, 2)));
+			   : convert (type, TREE_OPERAND (expr, 2)));
 
 	default:
 	  break;
@@ -934,9 +924,9 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 
     case COMPLEX_TYPE:
       if (!dofold)
-	return build1 (CONVERT_EXPR, type,
-		       build1 (REALPART_EXPR,
-			       TREE_TYPE (TREE_TYPE (expr)), expr));
+	return convert (type,
+			build1 (REALPART_EXPR,
+				TREE_TYPE (TREE_TYPE (expr)), expr));
       return convert (type,
 		      fold_build1 (REALPART_EXPR,
 				   TREE_TYPE (TREE_TYPE (expr)), expr));
