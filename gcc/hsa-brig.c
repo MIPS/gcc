@@ -523,8 +523,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   static unsigned res_name_offset;
   char prefix;
 
-  if (symbol->directive_offset)
-    return symbol->directive_offset;
+  if (symbol->m_directive_offset)
+    return symbol->m_directive_offset;
 
   memset (&dirvar, 0, sizeof (dirvar));
   dirvar.base.byteCount = htole16 (sizeof (dirvar));
@@ -532,64 +532,64 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.allocation = BRIG_ALLOCATION_AUTOMATIC;
 
   /* Readonly variables must have agent allocation.  */
-  if (symbol->cst_value)
+  if (symbol->m_cst_value)
     dirvar.allocation = BRIG_ALLOCATION_AGENT;
 
-  if (symbol->decl && is_global_var (symbol->decl))
+  if (symbol->m_decl && is_global_var (symbol->m_decl))
     {
       prefix = '&';
 
-      if (!symbol->cst_value)
+      if (!symbol->m_cst_value)
 	{
 	  dirvar.allocation = BRIG_ALLOCATION_PROGRAM;
-	  if (TREE_CODE (symbol->decl) == VAR_DECL)
+	  if (TREE_CODE (symbol->m_decl) == VAR_DECL)
 	    warning (0, "referring to global symbol %q+D by name from HSA code "
-		     "won't work", symbol->decl);
+		     "won't work", symbol->m_decl);
 	}
     }
-  else if (symbol->global_scope_p)
+  else if (symbol->m_global_scope_p)
     prefix = '&';
   else
     prefix = '%';
 
-  if (symbol->decl && TREE_CODE (symbol->decl) == RESULT_DECL)
+  if (symbol->m_decl && TREE_CODE (symbol->m_decl) == RESULT_DECL)
     {
       if (res_name_offset == 0)
-	res_name_offset = brig_emit_string (symbol->name, '%');
+	res_name_offset = brig_emit_string (symbol->m_name, '%');
       name_offset = res_name_offset;
     }
-  else if (symbol->name)
-    name_offset = brig_emit_string (symbol->name, prefix);
+  else if (symbol->m_name)
+    name_offset = brig_emit_string (symbol->m_name, prefix);
   else
     {
       char buf[64];
-      sprintf (buf, "__%s_%i", hsa_seg_name (symbol->segment),
-	       symbol->name_number);
+      sprintf (buf, "__%s_%i", hsa_seg_name (symbol->m_segment),
+	       symbol->m_name_number);
       name_offset = brig_emit_string (buf, prefix);
     }
 
   dirvar.name = htole32 (name_offset);
   dirvar.init = 0;
-  dirvar.type = htole16 (symbol->type);
-  dirvar.segment = symbol->segment;
+  dirvar.type = htole16 (symbol->m_type);
+  dirvar.segment = symbol->m_segment;
   /* TODO: Once we are able to access global variables, we must copy their
      alignment.  */
   dirvar.align = MAX (hsa_natural_alignment (dirvar.type),
 		      (BrigAlignment8_t) BRIG_ALIGNMENT_4);
-  dirvar.linkage = symbol->linkage;
-  dirvar.dim.lo = (uint32_t) symbol->dim;
-  dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->dim >> 32);
+  dirvar.linkage = symbol->m_linkage;
+  dirvar.dim.lo = (uint32_t) symbol->m_dim;
+  dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->m_dim >> 32);
   dirvar.modifier.allBits |= BRIG_VARIABLE_DEFINITION;
   dirvar.reserved = 0;
 
-  if (symbol->cst_value)
+  if (symbol->m_cst_value)
     {
       dirvar.modifier.allBits |= BRIG_VARIABLE_CONST;
-      dirvar.init = htole32 (enqueue_op (symbol->cst_value));
+      dirvar.init = htole32 (enqueue_op (symbol->m_cst_value));
     }
 
-  symbol->directive_offset = brig_code.add (&dirvar, sizeof (dirvar));
-  return symbol->directive_offset;
+  symbol->m_directive_offset = brig_code.add (&dirvar, sizeof (dirvar));
+  return symbol->m_directive_offset;
 }
 
 /* Emit directives describing either a function declaration or
@@ -623,7 +623,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
 	     = f->local_symbols->begin ();
 	   iter != f->local_symbols->end ();
 	   ++iter)
-	if (TREE_CODE ((*iter)->decl) == VAR_DECL)
+	if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
 	  count++;
       count += f->spill_symbols.length ();
     }
@@ -676,7 +676,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
 	   iter != f->local_symbols->end ();
 	   ++iter)
 	{
-	  if (TREE_CODE ((*iter)->decl) == VAR_DECL)
+	  if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
 	    brig_insn_count++;
 	  emit_directive_variable (*iter);
 	}
@@ -1136,7 +1136,7 @@ emit_memory_insn (hsa_insn_mem *mem)
   brig_data.round_size_up (4);
 
   if (addr->symbol)
-    repr.segment = addr->symbol->segment;
+    repr.segment = addr->symbol->m_segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
   repr.modifier.allBits = 0 ;
@@ -1233,7 +1233,7 @@ emit_atomic_insn (hsa_insn_atomic *mem)
   free (operand_offsets);
 
   if (addr->symbol)
-    repr.segment = addr->symbol->segment;
+    repr.segment = addr->symbol->m_segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
   repr.memoryOrder = mem->memoryorder;
@@ -1274,7 +1274,7 @@ emit_addr_insn (hsa_insn_basic *insn)
   free (operand_offsets);
 
   if (addr->symbol)
-    repr.segment = addr->symbol->segment;
+    repr.segment = addr->symbol->m_segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
   memset (&repr.reserved, 0, sizeof (repr.reserved));

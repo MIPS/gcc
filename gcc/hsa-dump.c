@@ -706,11 +706,11 @@ dump_hsa_address (FILE *f, hsa_op_address *addr)
   if (addr->symbol)
     {
       sth = true;
-      if (addr->symbol->name)
-	fprintf (f, "[%%%s]", addr->symbol->name);
+      if (addr->symbol->m_name)
+	fprintf (f, "[%%%s]", addr->symbol->m_name);
       else
-	fprintf (f, "[%%__%s_%i]", hsa_seg_name(addr->symbol->segment),
-		 addr->symbol->name_number);
+	fprintf (f, "[%%__%s_%i]", hsa_seg_name (addr->symbol->m_segment),
+		 addr->symbol->m_name_number);
     }
 
   if (addr->reg)
@@ -823,7 +823,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
       if (addr->symbol)
-	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
+	fprintf (f, "_%s", hsa_seg_name (addr->symbol->m_segment));
       if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
 	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
       if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
@@ -839,7 +839,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       if (addr->symbol)
-	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
+	fprintf (f, "_%s", hsa_seg_name (addr->symbol->m_segment));
       if (mem->equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->type));
@@ -854,7 +854,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 
       fprintf (f, "%s", hsa_opcode_name (insn->opcode));
       if (addr->symbol)
-	fprintf (f, "_%s", hsa_seg_name (addr->symbol->segment));
+	fprintf (f, "_%s", hsa_seg_name (addr->symbol->m_segment));
       fprintf (f, "_%s ", hsa_type_name (insn->type));
 
       dump_hsa_operand (f, insn->get_op (0));

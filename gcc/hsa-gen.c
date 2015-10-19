@@ -257,10 +257,10 @@ hsa_function_representation::get_shadow_reg ()
 
   /* Append the shadow argument.  */
   hsa_symbol *shadow = &input_args[input_args_count++];
-  shadow->type = BRIG_TYPE_U64;
-  shadow->segment = BRIG_SEGMENT_KERNARG;
-  shadow->linkage = BRIG_LINKAGE_FUNCTION;
-  shadow->name = "hsa_runtime_shadow";
+  shadow->m_type = BRIG_TYPE_U64;
+  shadow->m_segment = BRIG_SEGMENT_KERNARG;
+  shadow->m_linkage = BRIG_LINKAGE_FUNCTION;
+  shadow->m_name = "hsa_runtime_shadow";
 
   hsa_op_reg *r = new hsa_op_reg (BRIG_TYPE_U64);
   hsa_op_address *addr = new hsa_op_address (shadow);
@@ -656,11 +656,11 @@ hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
 static void
 fillup_sym_for_decl (tree decl, struct hsa_symbol *sym)
 {
-  sym->decl = decl;
-  sym->type = hsa_type_for_tree_type (TREE_TYPE (decl), &sym->dim);
+  sym->m_decl = decl;
+  sym->m_type = hsa_type_for_tree_type (TREE_TYPE (decl), &sym->m_dim);
 
   if (hsa_seen_error ())
-    sym->seen_error = true;
+    sym->m_seen_error = true;
 }
 
 /* Lookup or create the associated hsa_symbol structure with a given VAR_DECL
@@ -676,7 +676,7 @@ get_symbol_for_decl (tree decl)
 	      || TREE_CODE (decl) == RESULT_DECL
 	      || TREE_CODE (decl) == VAR_DECL);
 
-  dummy.decl = decl;
+  dummy.m_decl = decl;
 
   if (TREE_CODE (decl) == VAR_DECL && is_global_var (decl))
     {
@@ -688,23 +688,23 @@ get_symbol_for_decl (tree decl)
 
 	  /* If the symbol is problematic, mark current function also as
 	     problematic.  */
-	  if (sym->seen_error)
+	  if (sym->m_seen_error)
 	    hsa_fail_cfun ();
 
 	  return sym;
 	}
       sym = XCNEW (struct hsa_symbol);
-      sym->segment = BRIG_SEGMENT_GLOBAL;
-      sym->linkage = BRIG_LINKAGE_FUNCTION;
+      sym->m_segment = BRIG_SEGMENT_GLOBAL;
+      sym->m_linkage = BRIG_LINKAGE_FUNCTION;
 
       /* Following type of global variables can be handled.  */
       if (TREE_READONLY (decl) && !TREE_ADDRESSABLE (decl)
 	  && DECL_INITIAL (decl) && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
 	  && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == INTEGER_TYPE)
 	{
-	  sym->segment = BRIG_SEGMENT_READONLY;
-	  sym->linkage = BRIG_LINKAGE_MODULE;
-	  sym->cst_value = new hsa_op_immed (DECL_INITIAL (decl), false);
+	  sym->m_segment = BRIG_SEGMENT_READONLY;
+	  sym->m_linkage = BRIG_LINKAGE_MODULE;
+	  sym->m_cst_value = new hsa_op_immed (DECL_INITIAL (decl), false);
 	  hsa_cfun->readonly_variables.safe_push (sym);
 	}
       else
@@ -720,12 +720,12 @@ get_symbol_for_decl (tree decl)
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
       sym = hsa_allocp_symbols->allocate ();
       memset (sym, 0, sizeof (hsa_symbol));
-      sym->segment = BRIG_SEGMENT_PRIVATE;
-      sym->linkage = BRIG_LINKAGE_FUNCTION;
+      sym->m_segment = BRIG_SEGMENT_PRIVATE;
+      sym->m_linkage = BRIG_LINKAGE_FUNCTION;
     }
 
   fillup_sym_for_decl (decl, sym);
-  sym->name = hsa_get_declaration_name (decl);
+  sym->m_name = hsa_get_declaration_name (decl);
   *slot = sym;
   return sym;
 }
@@ -771,9 +771,9 @@ hsa_get_spill_symbol (BrigType16_t type)
 {
   hsa_symbol *sym = hsa_allocp_symbols->allocate ();
   memset (sym, 0, sizeof (hsa_symbol));
-  sym->segment = BRIG_SEGMENT_SPILL;
-  sym->linkage = BRIG_LINKAGE_FUNCTION;
-  sym->type = type;
+  sym->m_segment = BRIG_SEGMENT_SPILL;
+  sym->m_linkage = BRIG_LINKAGE_FUNCTION;
+  sym->m_type = type;
   hsa_cfun->spill_symbols.safe_push(sym);
   return sym;
 }
@@ -791,13 +791,13 @@ hsa_get_string_cst_symbol (tree string_cst)
   hsa_symbol *sym = hsa_allocp_symbols->allocate ();
   memset (sym, 0, sizeof (hsa_symbol));
 
-  sym->segment = BRIG_SEGMENT_GLOBAL;
-  sym->linkage = BRIG_LINKAGE_MODULE;
-  sym->cst_value = new hsa_op_immed (string_cst);
-  sym->type = sym->cst_value->type;
-  sym->dim = TREE_STRING_LENGTH (string_cst);
-  sym->name_number = hsa_cfun->readonly_variables.length ();
-  sym->global_scope_p = true;
+  sym->m_segment = BRIG_SEGMENT_GLOBAL;
+  sym->m_linkage = BRIG_LINKAGE_MODULE;
+  sym->m_cst_value = new hsa_op_immed (string_cst);
+  sym->m_type = sym->m_cst_value->type;
+  sym->m_dim = TREE_STRING_LENGTH (string_cst);
+  sym->m_name_number = hsa_cfun->readonly_variables.length ();
+  sym->m_global_scope_p = true;
 
   hsa_cfun->readonly_variables.safe_push (sym);
   hsa_cfun->string_constants_map.put (string_cst, sym);
@@ -1733,7 +1733,7 @@ process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
       gcc_assert (!*symbol);
 
       *symbol = get_symbol_for_decl (decl);
-      *addrtype = hsa_get_segment_addr_type ((*symbol)->segment);
+      *addrtype = hsa_get_segment_addr_type ((*symbol)->m_segment);
     }
   else if (TREE_CODE (base) == INTEGER_CST)
     *offset += wi::to_offset (base);
@@ -1799,7 +1799,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
     case RESULT_DECL:
       gcc_assert (!symbol);
       symbol = get_symbol_for_decl (ref);
-      addrtype = hsa_get_segment_addr_type (symbol->segment);
+      addrtype = hsa_get_segment_addr_type (symbol->m_segment);
       break;
 
     case MEM_REF:
@@ -1872,7 +1872,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
 
   gcc_checking_assert ((symbol
 			&& addrtype
-			== hsa_get_segment_addr_type (symbol->segment))
+			== hsa_get_segment_addr_type (symbol->m_segment))
 		       || (!symbol
 			   && addrtype
 			   == hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT)));
@@ -1910,17 +1910,16 @@ gen_hsa_addr_for_arg (tree tree_type, int index)
 {
   hsa_symbol *sym = hsa_allocp_symbols->allocate ();
   memset (sym, 0, sizeof (hsa_symbol));
-  sym->segment = BRIG_SEGMENT_ARG;
-  sym->linkage = BRIG_LINKAGE_ARG;
-
-  sym->type = hsa_type_for_tree_type (tree_type, &sym->dim);
+  sym->m_segment = BRIG_SEGMENT_ARG;
+  sym->m_linkage = BRIG_LINKAGE_ARG;
+  sym->m_type = hsa_type_for_tree_type (tree_type, &sym->m_dim);
 
   if (index == -1) /* Function result.  */
-    sym->name = "res";
+    sym->m_name = "res";
   else /* Function call arguments.  */
     {
-      sym->name = NULL;
-      sym->name_number = index;
+      sym->m_name = NULL;
+      sym->m_name_number = index;
     }
 
   return new hsa_op_address (sym);
@@ -1954,16 +1953,17 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
   addr = gen_hsa_addr (val, hbb, ssa_map);
   hsa_insn_basic *insn = new hsa_insn_basic (2, BRIG_OPCODE_LDA);
   insn->set_op (1, addr);
-  if (addr->symbol && addr->symbol->segment != BRIG_SEGMENT_GLOBAL)
+  if (addr->symbol && addr->symbol->m_segment != BRIG_SEGMENT_GLOBAL)
     {
       /* LDA produces segment-relative address, we need to convert
 	 it to the flat one.  */
       hsa_op_reg *tmp;
-      tmp = new hsa_op_reg (hsa_get_segment_addr_type (addr->symbol->segment));
+      tmp = new hsa_op_reg (hsa_get_segment_addr_type
+			    (addr->symbol->m_segment));
       hsa_insn_seg *seg;
       seg = new hsa_insn_seg (BRIG_OPCODE_STOF,
 			      hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT),
-			      tmp->type, addr->symbol->segment, dest, tmp);
+			      tmp->type, addr->symbol->m_segment, dest, tmp);
 
       insn->set_op (0, tmp);
       insn->type = tmp->type;
@@ -2565,10 +2565,10 @@ hsa_op_reg *
 hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 {
   hsa_symbol *spill_sym = spill_reg->spill_sym;
-  hsa_op_reg *reg = new hsa_op_reg (spill_sym->type);
+  hsa_op_reg *reg = new hsa_op_reg (spill_sym->m_type);
   hsa_op_address *addr = new hsa_op_address (spill_sym);
 
-  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, spill_sym->type,
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, spill_sym->m_type,
 					reg, addr);
   hsa_insert_insn_before (mem, insn);
 
@@ -2595,7 +2595,7 @@ hsa_op_reg *
 hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 {
   hsa_symbol *spill_sym = spill_reg->spill_sym;
-  hsa_op_reg *reg = new hsa_op_reg (spill_sym->type);
+  hsa_op_reg *reg = new hsa_op_reg (spill_sym->m_type);
   hsa_op_address *addr = new hsa_op_address (spill_sym);
   hsa_op_reg *returnreg;
 
@@ -2604,18 +2604,18 @@ hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
   if (spill_reg->type == BRIG_TYPE_B1)
     {
       hsa_insn_basic *cvtinsn;
-      *ptmp2 = new hsa_op_reg (spill_sym->type);
+      *ptmp2 = new hsa_op_reg (spill_sym->m_type);
       reg->type = spill_reg->type;
 
-      cvtinsn = new hsa_insn_basic (2, BRIG_OPCODE_CVT, spill_sym->type, *ptmp2,
-				    returnreg);
+      cvtinsn = new hsa_insn_basic (2, BRIG_OPCODE_CVT, spill_sym->m_type,
+				    *ptmp2, returnreg);
 
       hsa_append_insn_after (cvtinsn, insn);
       insn = cvtinsn;
       reg = *ptmp2;
     }
 
-  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, spill_sym->type, reg,
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, spill_sym->m_type, reg,
 					addr);
   hsa_append_insn_after (mem, insn);
   return returnreg;
@@ -3389,11 +3389,11 @@ gen_set_num_threads (tree value, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
   hbb->append_insn (new hsa_insn_comment ("omp_set_num_threads"));
   hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (value, hbb, ssa_map);
 
-  src = src->get_in_type (hsa_num_threads->type, hbb);
+  src = src->get_in_type (hsa_num_threads->m_type, hbb);
   hsa_op_address *addr = new hsa_op_address (hsa_num_threads);
 
   hsa_insn_basic *basic = new hsa_insn_mem
-    (BRIG_OPCODE_ST, hsa_num_threads->type, src, addr);
+    (BRIG_OPCODE_ST, hsa_num_threads->m_type, src, addr);
   hbb->append_insn (basic);
 }
 
@@ -3405,7 +3405,7 @@ gen_num_threads_for_dispatch (hsa_bb *hbb)
 {
   /* Step 1) Assign to number of threads:
      MIN (HSA_DEFAULT_NUM_THREADS, hsa_num_threads).  */
-  hsa_op_reg *threads = new hsa_op_reg (hsa_num_threads->type);
+  hsa_op_reg *threads = new hsa_op_reg (hsa_num_threads->m_type);
   hsa_op_address *addr = new hsa_op_address (hsa_num_threads);
 
   hbb->append_insn (new hsa_insn_mem (BRIG_OPCODE_LD, threads->type,
@@ -3892,7 +3892,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
       hbb->append_insn (new hsa_insn_comment ("memory copy instructions"));
 
       hsa_op_address *src_addr = new hsa_op_address (var_decl);
-      gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->dim);
+      gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->m_dim);
     }
   else if (integer_zerop (argument))
     {
@@ -4758,8 +4758,8 @@ init_hsa_num_threads (void)
 
   /* Save the default value to private variable hsa_num_threads.  */
   hsa_insn_basic *basic = new hsa_insn_mem
-    (BRIG_OPCODE_ST, hsa_num_threads->type,
-     new hsa_op_immed (0, hsa_num_threads->type),
+    (BRIG_OPCODE_ST, hsa_num_threads->m_type,
+     new hsa_op_immed (0, hsa_num_threads->m_type),
      new hsa_op_address (hsa_num_threads));
   prologue->append_insn (basic);
 }
@@ -4855,21 +4855,22 @@ gen_function_decl_parameters (hsa_function_representation *f,
 	break;
 
       tree v = TREE_VALUE (parm);
-      f->input_args[i].type = hsa_type_for_tree_type (v, &f->input_args[i].dim);
-      f->input_args[i].segment = BRIG_SEGMENT_ARG;
-      f->input_args[i].linkage = BRIG_LINKAGE_NONE;
-      f->input_args[i].name_number = i;
+      f->input_args[i].m_type = hsa_type_for_tree_type
+	(v, &f->input_args[i].m_dim);
+      f->input_args[i].m_segment = BRIG_SEGMENT_ARG;
+      f->input_args[i].m_linkage = BRIG_LINKAGE_NONE;
+      f->input_args[i].m_name_number = i;
     }
 
   tree result_type = TREE_TYPE (TREE_TYPE (decl));
   if (!VOID_TYPE_P (result_type))
     {
       f->output_arg = XCNEW (hsa_symbol);
-      f->output_arg->type = hsa_type_for_tree_type (result_type,
-						   &f->output_arg->dim);
-      f->output_arg->segment = BRIG_SEGMENT_ARG;
-      f->output_arg->linkage = BRIG_LINKAGE_NONE;
-      f->output_arg->name = "res";
+      f->output_arg->m_type = hsa_type_for_tree_type (result_type,
+						      &f->output_arg->m_dim);
+      f->output_arg->m_segment = BRIG_SEGMENT_ARG;
+      f->output_arg->m_linkage = BRIG_LINKAGE_NONE;
+      f->output_arg->m_name = "res";
     }
 }
 
@@ -4906,11 +4907,11 @@ gen_function_def_parameters (hsa_function_representation *f,
       if (hsa_seen_error ())
 	return;
 
-      f->input_args[i].segment = f->kern_p ? BRIG_SEGMENT_KERNARG :
+      f->input_args[i].m_segment = f->kern_p ? BRIG_SEGMENT_KERNARG :
 				       BRIG_SEGMENT_ARG;
 
-      f->input_args[i].linkage = BRIG_LINKAGE_FUNCTION;
-      f->input_args[i].name = hsa_get_declaration_name (parm);
+      f->input_args[i].m_linkage = BRIG_LINKAGE_FUNCTION;
+      f->input_args[i].m_name = hsa_get_declaration_name (parm);
 
       slot = f->local_symbols->find_slot (&f->input_args[i],
 						INSERT);
@@ -4946,9 +4947,9 @@ gen_function_def_parameters (hsa_function_representation *f,
       if (hsa_seen_error ())
 	return;
 
-      f->output_arg->segment = BRIG_SEGMENT_ARG;
-      f->output_arg->linkage = BRIG_LINKAGE_FUNCTION;
-      f->output_arg->name = "res";
+      f->output_arg->m_segment = BRIG_SEGMENT_ARG;
+      f->output_arg->m_linkage = BRIG_LINKAGE_FUNCTION;
+      f->output_arg->m_name = "res";
       slot = f->local_symbols->find_slot (f->output_arg, INSERT);
       gcc_assert (!*slot);
       *slot = f->output_arg;
@@ -5237,11 +5238,11 @@ emit_hsa_module_variables (void)
   hsa_num_threads = new hsa_symbol ();
   memset (hsa_num_threads, 0, sizeof (hsa_symbol));
 
-  hsa_num_threads->name = "hsa_num_threads";
-  hsa_num_threads->type = BRIG_TYPE_U32;
-  hsa_num_threads->segment = BRIG_SEGMENT_PRIVATE;
-  hsa_num_threads->linkage = BRIG_LINKAGE_MODULE;
-  hsa_num_threads->global_scope_p = true;
+  hsa_num_threads->m_name = "hsa_num_threads";
+  hsa_num_threads->m_type = BRIG_TYPE_U32;
+  hsa_num_threads->m_segment = BRIG_SEGMENT_PRIVATE;
+  hsa_num_threads->m_linkage = BRIG_LINKAGE_MODULE;
+  hsa_num_threads->m_global_scope_p = true;
 
   hsa_brig_emit_omp_symbols ();
 }

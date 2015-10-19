@@ -431,7 +431,7 @@ spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
     type = BRIG_TYPE_U8;
   cand->reg_class = 0;
   cand->spill_sym = hsa_get_spill_symbol (type);
-  cand->spill_sym->name_number = cand->order;
+  cand->spill_sym->m_name_number = cand->order;
 }
 
 /* Given the global register state CLASSES allocate all HSA virtual
@@ -642,8 +642,8 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	    fprintf (dump_file, "$%c%i", reg->reg_class, reg->hard_num);
 	  else
 	    fprintf (dump_file, "[%%__%s_%i]",
-		     hsa_seg_name(reg->spill_sym->segment),
-		     reg->spill_sym->name_number);
+		     hsa_seg_name (reg->spill_sym->m_segment),
+		     reg->spill_sym->m_name_number);
 	  for (int cl = 0; cl < 4; cl++)
 	    {
 	      bool first = true;
@@ -681,8 +681,8 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	    fprintf (dump_file, "$%c%i\n", reg->reg_class, reg->hard_num);
 	  else
 	    fprintf (dump_file, "[%%__%s_%i]\n",
-		     hsa_seg_name(reg->spill_sym->segment),
-		     reg->spill_sym->name_number);
+		     hsa_seg_name (reg->spill_sym->m_segment),
+		     reg->spill_sym->m_name_number);
 	}
     }
 

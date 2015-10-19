@@ -55,40 +55,40 @@ struct hsa_symbol
 {
   /* Pointer to the original tree, which is PARM_DECL for input parameters and
      RESULT_DECL for the output parameters.  */
-  tree decl;
+  tree m_decl;
 
   /* Name of the symbol, that will be written into output and dumps.  Can be
      NULL, see name_number below.*/
-  const char *name;
+  const char *m_name;
 
   /* If name is NULL, artificial name will be formed from the segment name and
      this number.  */
-  int name_number;
+  int m_name_number;
 
   /* Once written, this is the offset of the associated symbol directive.  Zero
      means the symbol has not been written yet.  */
-  unsigned directive_offset;
+  unsigned m_directive_offset;
 
   /* HSA type of the parameter.  */
-  BrigType16_t type;
+  BrigType16_t m_type;
 
   /* The HSA segment this will eventually end up in.  */
-  BrigSegment8_t segment;
+  BrigSegment8_t m_segment;
 
   /* The HSA kind of linkage.  */
-  BrigLinkage8_t linkage;
+  BrigLinkage8_t m_linkage;
 
   /* Array dimension, if non-zero.  */
-  unsigned HOST_WIDE_INT dim;
+  unsigned HOST_WIDE_INT m_dim;
 
   /* Constant value, used for string constants.  */
-  hsa_op_immed *cst_value;
+  hsa_op_immed *m_cst_value;
 
   /* Is in global scope.  */
-  bool global_scope_p;
+  bool m_global_scope_p;
 
   /* True if an error has been seen for the symbol.  */
-  bool seen_error;
+  bool m_seen_error;
 };
 
 /* Abstract class for HSA instruction operands. */
@@ -882,7 +882,7 @@ struct hsa_noop_symbol_hasher : nofree_ptr_hash <hsa_symbol>
 inline hashval_t
 hsa_noop_symbol_hasher::hash (const value_type item)
 {
-  return DECL_UID (item->decl);
+  return DECL_UID (item->m_decl);
 }
 
 /* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
@@ -890,7 +890,7 @@ hsa_noop_symbol_hasher::hash (const value_type item)
 inline bool
 hsa_noop_symbol_hasher::equal (const value_type a, const compare_type b)
 {
-  return (DECL_UID (a->decl) == DECL_UID (b->decl));
+  return (DECL_UID (a->m_decl) == DECL_UID (b->m_decl));
 }
 
 /* Class for hashing global hsa_symbols.  */
@@ -906,7 +906,7 @@ struct hsa_free_symbol_hasher : free_ptr_hash <hsa_symbol>
 inline hashval_t
 hsa_free_symbol_hasher::hash (const value_type item)
 {
-  return DECL_UID (item->decl);
+  return DECL_UID (item->m_decl);
 }
 
 /* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
@@ -914,7 +914,7 @@ hsa_free_symbol_hasher::hash (const value_type item)
 inline bool
 hsa_free_symbol_hasher::equal (const value_type a, const compare_type b)
 {
-  return (DECL_UID (a->decl) == DECL_UID (b->decl));
+  return (DECL_UID (a->m_decl) == DECL_UID (b->m_decl));
 }
 
 /* Structure that encapsulates intermediate representation of a HSA
