@@ -1186,7 +1186,16 @@ build_outer_var_ref (tree var, omp_context *ctx)
 	x = var;
     }
   else if (ctx->outer)
-    x = lookup_decl (var, ctx->outer);
+    {
+      omp_context *outer = ctx->outer;
+      if (gimple_code (outer->stmt) == GIMPLE_OMP_GPUKERNEL)
+	{
+	  outer = outer->outer;
+	  gcc_assert (outer
+		      && gimple_code (outer->stmt) != GIMPLE_OMP_GPUKERNEL);
+	}
+	x = lookup_decl (var, outer);
+    }
   else if (is_reference (var))
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */
