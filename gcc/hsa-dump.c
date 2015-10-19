@@ -911,7 +911,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	    target = e->dest;
 	    break;
 	  }
-      fprintf (f, "BB %i", hsa_bb_for_bb (target)->index);
+      fprintf (f, "BB %i", hsa_bb_for_bb (target)->m_index);
     }
   else if (is_a <hsa_insn_sbr *> (insn))
     {
@@ -923,7 +923,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 
       for (unsigned i = 0; i < sbr->m_jump_table.length (); i++)
 	{
-	  fprintf (f, "BB %i", hsa_bb_for_bb (sbr->m_jump_table[i])->index);
+	  fprintf (f, "BB %i", hsa_bb_for_bb (sbr->m_jump_table[i])->m_index);
 	  if (i != sbr->m_jump_table.length () - 1)
 	    fprintf (f, ", ");
 	}
@@ -1034,19 +1034,19 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
   basic_block true_bb = NULL, other = NULL;
 
   /* FIXME: Dump a label or something instead.  */
-  fprintf (f, "BB %i:\n", hbb->index);
+  fprintf (f, "BB %i:\n", hbb->m_index);
 
   int indent = 2;
-  for (insn = hbb->first_phi; insn; insn = insn->m_next)
+  for (insn = hbb->m_first_phi; insn; insn = insn->m_next)
     dump_hsa_insn_1 (f, insn, &indent);
 
-  for (insn = hbb->first_insn; insn; insn = insn->m_next)
+  for (insn = hbb->m_first_insn; insn; insn = insn->m_next)
     dump_hsa_insn_1 (f, insn, &indent);
 
-  if (hbb->last_insn && is_a <hsa_insn_sbr *> (hbb->last_insn))
+  if (hbb->m_last_insn && is_a <hsa_insn_sbr *> (hbb->m_last_insn))
     goto exit;
 
-  FOR_EACH_EDGE (e, ei, hbb->bb->succs)
+  FOR_EACH_EDGE (e, ei, hbb->m_bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)
       {
 	gcc_assert (!true_bb);
@@ -1060,19 +1060,19 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
 
   if (true_bb)
     {
-      if (!hbb->last_insn
-	  || hbb->last_insn->m_opcode != BRIG_OPCODE_CBR)
+      if (!hbb->m_last_insn
+	  || hbb->m_last_insn->m_opcode != BRIG_OPCODE_CBR)
 	fprintf (f, "WARNING: No branch insn for a true edge. \n");
     }
-  else if (hbb->last_insn
-	   && hbb->last_insn->m_opcode == BRIG_OPCODE_CBR)
+  else if (hbb->m_last_insn
+	   && hbb->m_last_insn->m_opcode == BRIG_OPCODE_CBR)
     fprintf (f, "WARNING: No true edge for a cbr statement\n");
 
   if (other && other->aux)
     fprintf (f, "  Fall-through to BB %i\n",
-	     hsa_bb_for_bb (other)->index);
-  else if (hbb->last_insn
-	   && hbb->last_insn->m_opcode != BRIG_OPCODE_RET)
+	     hsa_bb_for_bb (other)->m_index);
+  else if (hbb->m_last_insn
+	   && hbb->m_last_insn->m_opcode != BRIG_OPCODE_RET)
     fprintf (f, "  WARNING: Fall through to a BB with no aux!\n");
 
 exit:

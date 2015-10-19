@@ -339,11 +339,11 @@ hsa_deinit_data_for_cfun (void)
       {
 	hsa_bb *hbb = hsa_bb_for_bb (bb);
 	hsa_insn_phi *phi;
-	for (phi = hbb->first_phi;
+	for (phi = hbb->m_first_phi;
 	     phi;
 	     phi = phi->m_next ? as_a <hsa_insn_phi *> (phi->m_next): NULL)
 	  phi->~hsa_insn_phi ();
-	for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->m_next)
+	for (hsa_insn_basic *insn = hbb->m_first_insn; insn; insn = insn->m_next)
 	  hsa_destroy_insn (insn);
 
 	hbb->~hsa_bb ();
@@ -1531,14 +1531,14 @@ hsa_bb::append_insn (hsa_insn_basic *insn)
   gcc_assert (insn->m_opcode != 0 || insn->operand_count () == 0);
   gcc_assert (!insn->m_bb);
 
-  insn->m_bb = bb;
-  insn->m_prev = last_insn;
+  insn->m_bb = m_bb;
+  insn->m_prev = m_last_insn;
   insn->m_next = NULL;
-  if (last_insn)
-    last_insn->m_next = insn;
-  last_insn = insn;
-  if (!first_insn)
-    first_insn = insn;
+  if (m_last_insn)
+    m_last_insn->m_next = insn;
+  m_last_insn = insn;
+  if (!m_first_insn)
+    m_first_insn = insn;
 }
 
 /* Insert HSA instruction NEW_INSN immediately before an existing instruction
@@ -1549,8 +1549,8 @@ hsa_insert_insn_before (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
 {
   hsa_bb *hbb = hsa_bb_for_bb (old_insn->m_bb);
 
-  if (hbb->first_insn == old_insn)
-    hbb->first_insn = new_insn;
+  if (hbb->m_first_insn == old_insn)
+    hbb->m_first_insn = new_insn;
   new_insn->m_prev = old_insn->m_prev;
   new_insn->m_next = old_insn;
   if (old_insn->m_prev)
@@ -1566,8 +1566,8 @@ hsa_append_insn_after (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
 {
   hsa_bb *hbb = hsa_bb_for_bb (old_insn->m_bb);
 
-  if (hbb->last_insn == old_insn)
-    hbb->last_insn = new_insn;
+  if (hbb->m_last_insn == old_insn)
+    hbb->m_last_insn = new_insn;
   new_insn->m_prev = old_insn;
   new_insn->m_next = old_insn->m_next;
   if (old_insn->m_next)
@@ -4597,7 +4597,7 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
   hsa_op_reg *dest = hsa_reg_for_gimple_ssa (gimple_phi_result (phi_stmt),
 					     ssa_map);
   hphi = new hsa_insn_phi (count, dest);
-  hphi->m_bb = hbb->bb;
+  hphi->m_bb = hbb->m_bb;
 
   tree lhs = gimple_phi_result (phi_stmt);
 
@@ -4648,13 +4648,13 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
 	}
     }
 
-  hphi->m_prev = hbb->last_phi;
+  hphi->m_prev = hbb->m_last_phi;
   hphi->m_next = NULL;
-  if (hbb->last_phi)
-    hbb->last_phi->m_next = hphi;
-  hbb->last_phi = hphi;
-  if (!hbb->first_phi)
-    hbb->first_phi = hphi;
+  if (hbb->m_last_phi)
+    hbb->m_last_phi->m_next = hphi;
+  hbb->m_last_phi = hphi;
+  if (!hbb->m_first_phi)
+    hbb->m_first_phi = hphi;
 }
 
 /* Constructor of class containing HSA-specific information about a basic
@@ -4662,39 +4662,33 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
    index of this BB (so that the constructor does not attempt to use
    hsa_cfun during its construction).  */
 
-hsa_bb::hsa_bb (basic_block cfg_bb, int idx)
+hsa_bb::hsa_bb (basic_block cfg_bb, int idx): m_bb (cfg_bb),
+  m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
+  m_last_phi (NULL), m_index (idx), m_liveout (BITMAP_ALLOC (NULL)),
+  m_livein (BITMAP_ALLOC (NULL))
 {
   gcc_assert (!cfg_bb->aux);
   cfg_bb->aux = this;
-  bb = cfg_bb;
-  first_insn = last_insn = NULL;
-  first_phi = last_phi = NULL;
-  index = idx;
-  livein = BITMAP_ALLOC (NULL);
-  liveout = BITMAP_ALLOC (NULL);
 }
 
 /* Constructor of class containing HSA-specific information about a basic
    block.  CFG_BB is the CFG BB this HSA BB is associated with.  */
 
-hsa_bb::hsa_bb (basic_block cfg_bb)
+hsa_bb::hsa_bb (basic_block cfg_bb): m_bb (cfg_bb),
+  m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
+  m_last_phi (NULL), m_index (hsa_cfun->hbb_count++),
+  m_liveout (BITMAP_ALLOC (NULL)), m_livein (BITMAP_ALLOC (NULL))
 {
   gcc_assert (!cfg_bb->aux);
   cfg_bb->aux = this;
-  bb = cfg_bb;
-  first_insn = last_insn = NULL;
-  first_phi = last_phi = NULL;
-  index = hsa_cfun->hbb_count++;
-  livein = BITMAP_ALLOC (NULL);
-  liveout = BITMAP_ALLOC (NULL);
 }
 
 /* Destructor of class representing HSA BB.  */
 
 hsa_bb::~hsa_bb ()
 {
-  BITMAP_FREE (livein);
-  BITMAP_FREE (liveout);
+  BITMAP_FREE (m_livein);
+  BITMAP_FREE (m_liveout);
 }
 
 /* Create and initialize and return a new hsa_bb structure for a given CFG
@@ -5282,7 +5276,7 @@ generate_hsa (bool kernel)
     {
       hsa_bb *hbb = hsa_bb_for_bb (bb);
 
-      for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->m_next)
+      for (hsa_insn_basic *insn = hbb->m_first_insn; insn; insn = insn->m_next)
 	insn->verify ();
     }
 

@@ -838,20 +838,20 @@ public:
   void append_insn (hsa_insn_basic *insn);
 
   /* The real CFG BB that this HBB belongs to.  */
-  basic_block bb;
+  basic_block m_bb;
 
   /* The operand that refers to the label to this BB.  */
-  hsa_op_code_ref label_ref;
+  hsa_op_code_ref m_label_ref;
 
   /* The first and last instruction.  */
-  hsa_insn_basic *first_insn, *last_insn;
+  hsa_insn_basic *m_first_insn, *m_last_insn;
   /* The first and last phi node.  */
-  hsa_insn_phi *first_phi, *last_phi;
+  hsa_insn_phi *m_first_phi, *m_last_phi;
 
   /* Just a number to construct names from.  */
-  int index;
+  int m_index;
 
-  bitmap liveout, livein;
+  bitmap m_liveout, m_livein;
 private:
   /* Make the default constructor inaccessible.  */
   hsa_bb ();

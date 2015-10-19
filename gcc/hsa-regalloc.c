@@ -101,9 +101,9 @@ naive_process_phi (hsa_insn_phi *phi)
 	  /* If switch insn used this edge, fix jump table.  */
 	  hsa_bb *source = hsa_bb_for_bb (e->src);
 	  hsa_insn_sbr *sbr;
-	  if (source->last_insn
-	      && (sbr = dyn_cast <hsa_insn_sbr *> (source->last_insn)))
-	    sbr->replace_all_labels (old_dest, hbb->bb);
+	  if (source->m_last_insn
+	      && (sbr = dyn_cast <hsa_insn_sbr *> (source->m_last_insn)))
+	    sbr->replace_all_labels (old_dest, hbb->m_bb);
 	}
 
       hsa_build_append_simple_mov (phi->m_dest, op, hbb);
@@ -124,14 +124,14 @@ naive_outof_ssa (void)
     hsa_bb *hbb = hsa_bb_for_bb (bb);
     hsa_insn_phi *phi;
 
-    for (phi = hbb->first_phi;
+    for (phi = hbb->m_first_phi;
 	 phi;
 	 phi = phi->m_next ? as_a <hsa_insn_phi *> (phi->m_next): NULL)
       naive_process_phi (phi);
 
     /* Zap PHI nodes, they will be deallocated when everything else will.  */
-    hbb->first_phi = NULL;
-    hbb->last_phi = NULL;
+    hbb->m_first_phi = NULL;
+    hbb->m_last_phi = NULL;
   }
 }
 
@@ -233,7 +233,7 @@ rewrite_code_bb (basic_block bb, struct m_reg_class_desc *classes)
   hsa_bb *hbb = hsa_bb_for_bb (bb);
   hsa_insn_basic *insn, *next_insn;
 
-  for (insn = hbb->first_insn; insn; insn = next_insn)
+  for (insn = hbb->m_first_insn; insn; insn = next_insn)
     {
       next_insn = insn->m_next;
       unsigned count = insn->operand_count ();
@@ -284,9 +284,9 @@ dump_hsa_cfun_regalloc (FILE *f)
   FOR_ALL_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = (struct hsa_bb *) bb->aux;
-    bitmap_print (dump_file, hbb->livein, "livein  ", "\n");
+    bitmap_print (dump_file, hbb->m_livein, "m_livein  ", "\n");
     dump_hsa_bb (f, hbb);
-    bitmap_print (dump_file, hbb->liveout, "liveout ", "\n");
+    bitmap_print (dump_file, hbb->m_liveout, "m_liveout ", "\n");
   }
 }
 
@@ -448,7 +448,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
   bitmap work = BITMAP_ALLOC (NULL);
   vec<hsa_op_reg*> ind2reg = vNULL;
   vec<hsa_op_reg*> active[4] = {vNULL, vNULL, vNULL, vNULL};
-  hsa_insn_basic *last_insn;
+  hsa_insn_basic *m_last_insn;
 
   /* We will need the reverse post order for linearization,
      and the post order for liveness analysis, which is the same
@@ -464,7 +464,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bbs[i]);
       hsa_bb *hbb = hsa_bb_for_bb (bb);
       hsa_insn_basic *insn;
-      for (insn = hbb->first_insn; insn; insn = insn->m_next)
+      for (insn = hbb->m_first_insn; insn; insn = insn->m_next)
 	{
 	  unsigned opi;
 	  insn->m_number = insn_order++;
@@ -484,8 +484,8 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       ind2reg[i]->m_lr_begin = insn_order, ind2reg[i]->m_lr_end = 0;
 
   /* Classic liveness analysis, as long as something changes:
-       liveout is union (livein of successors)
-       livein is liveout minus defs plus uses.  */
+       m_liveout is union (m_livein of successors)
+       m_livein is m_liveout minus defs plus uses.  */
   do
     {
       changed = false;
@@ -496,7 +496,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bbs[i]);
 	  hsa_bb *hbb = hsa_bb_for_bb (bb);
 
-	  /* Union of successors livein (or empty if none).  */
+	  /* Union of successors m_livein (or empty if none).  */
 	  bool first = true;
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
@@ -504,20 +504,20 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 		hsa_bb *succ = hsa_bb_for_bb (e->dest);
 		if (first)
 		  {
-		    bitmap_copy (work, succ->livein);
+		    bitmap_copy (work, succ->m_livein);
 		    first = false;
 		  }
 		else
-		  bitmap_ior_into (work, succ->livein);
+		  bitmap_ior_into (work, succ->m_livein);
 	      }
 	  if (first)
 	    bitmap_clear (work);
 
-	  bitmap_copy (hbb->liveout, work);
+	  bitmap_copy (hbb->m_liveout, work);
 
 	  /* Remove defs, include uses in a backward insn walk.  */
 	  hsa_insn_basic *insn;
-	  for (insn = hbb->last_insn; insn; insn = insn->m_prev)
+	  for (insn = hbb->m_last_insn; insn; insn = insn->m_prev)
 	    {
 	      unsigned opi;
 	      unsigned ndefs = insn->input_count ();
@@ -538,7 +538,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 	    }
 
 	  /* Note if that changed something.  */
-	  if (bitmap_ior_into (hbb->livein, work))
+	  if (bitmap_ior_into (hbb->m_livein, work))
 	    changed = true;
 	}
     }
@@ -546,7 +546,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 
   /* Make one pass through all instructions in linear order,
      noting and merging possible live range start and end points.  */
-  last_insn = NULL;
+  m_last_insn = NULL;
   for (i = n - 1; i >= 0; i--)
     {
       basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bbs[i]);
@@ -556,16 +556,16 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       unsigned bit;
       bitmap_iterator bi;
 
-      if (last_insn)
-	after_end_number = last_insn->m_number;
+      if (m_last_insn)
+	after_end_number = m_last_insn->m_number;
       else
 	after_end_number = insn_order;
       /* Everything live-out in this BB has at least an end point
          after us. */
-      EXECUTE_IF_SET_IN_BITMAP (hbb->liveout, 0, bit, bi)
+      EXECUTE_IF_SET_IN_BITMAP (hbb->m_liveout, 0, bit, bi)
 	note_lr_end (ind2reg[bit], after_end_number);
 
-      for (insn = hbb->last_insn; insn; insn = insn->m_prev)
+      for (insn = hbb->m_last_insn; insn; insn = insn->m_prev)
 	{
 	  unsigned opi;
 	  unsigned ndefs = insn->input_count ();
@@ -587,16 +587,16 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       /* Everything live-in in this BB has a start point before
          our first insn.  */
       int before_start_number;
-      if (hbb->first_insn)
-	before_start_number = hbb->first_insn->m_number;
+      if (hbb->m_first_insn)
+	before_start_number = hbb->m_first_insn->m_number;
       else
 	before_start_number = after_end_number;
       before_start_number--;
-      EXECUTE_IF_SET_IN_BITMAP (hbb->livein, 0, bit, bi)
+      EXECUTE_IF_SET_IN_BITMAP (hbb->m_livein, 0, bit, bi)
 	note_lr_begin (ind2reg[bit], before_start_number);
 
-      if (hbb->first_insn)
-	last_insn = hbb->first_insn;
+      if (hbb->m_first_insn)
+	m_last_insn = hbb->m_first_insn;
     }
 
   /* All regs that have still their start at after all code actually

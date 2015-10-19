@@ -702,10 +702,10 @@ emit_bb_label_directive (hsa_bb *hbb)
 
   lbldir.base.byteCount = htole16 (sizeof (lbldir));
   lbldir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_LABEL);
-  sprintf (buf, "BB_%u_%i", DECL_UID (current_function_decl), hbb->index);
+  sprintf (buf, "BB_%u_%i", DECL_UID (current_function_decl), hbb->m_index);
   lbldir.name = htole32 (brig_emit_string (buf, '@'));
 
-  hbb->label_ref.m_directive_offset = brig_code.add (&lbldir, sizeof (lbldir));
+  hbb->m_label_ref.m_directive_offset = brig_code.add (&lbldir, sizeof (lbldir));
   brig_insn_count++;
 }
 
@@ -1389,7 +1389,7 @@ emit_branch_insn (hsa_insn_br *br)
       }
   gcc_assert (target);
   operand_offsets[1] = htole32 (enqueue_op
-				(&hsa_bb_for_bb (target)->label_ref));
+				(&hsa_bb_for_bb (target)->m_label_ref));
 
   /* We have 2 operands so use 4 * 2 for the byteCount.  */
   byteCount = htole32 (4 * 2);
@@ -1463,7 +1463,7 @@ emit_switch_insn (hsa_insn_sbr *sbr)
 
   /* Emit jump to default label.  */
   hsa_bb *hbb = hsa_bb_for_bb (sbr->m_default_bb);
-  emit_unconditional_jump (&hbb->label_ref);
+  emit_unconditional_jump (&hbb->m_label_ref);
 }
 
 /* Emit a HSA convert instruction and all necessary directives, schedule
@@ -1825,8 +1825,8 @@ perhaps_emit_branch (basic_block bb, basic_block next_bb)
 
   /* If the last instruction of BB is a switch, ignore emission of all
      edges.  */
-  if (hsa_bb_for_bb (bb)->last_insn
-      && is_a <hsa_insn_sbr *> (hsa_bb_for_bb (bb)->last_insn))
+  if (hsa_bb_for_bb (bb)->m_last_insn
+      && is_a <hsa_insn_sbr *> (hsa_bb_for_bb (bb)->m_last_insn))
     return;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
@@ -1844,7 +1844,7 @@ perhaps_emit_branch (basic_block bb, basic_block next_bb)
   if (!ff || ff == next_bb || ff == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return;
 
-  emit_unconditional_jump (&hsa_bb_for_bb (ff)->label_ref);
+  emit_unconditional_jump (&hsa_bb_for_bb (ff)->m_label_ref);
 }
 
 /* Emit the a function with name NAME to the various brig sections.  */
@@ -1881,7 +1881,7 @@ hsa_brig_emit_function (void)
     }
 
   ptr_to_fndir = emit_function_directives (hsa_cfun, false);
-  for (insn = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->first_insn;
+  for (insn = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->m_first_insn;
        insn;
        insn = insn->m_next)
     emit_insn (insn);
@@ -1890,7 +1890,7 @@ hsa_brig_emit_function (void)
     {
       perhaps_emit_branch (prev_bb, bb);
       emit_bb_label_directive (hsa_bb_for_bb (bb));
-      for (insn = hsa_bb_for_bb (bb)->first_insn; insn; insn = insn->m_next)
+      for (insn = hsa_bb_for_bb (bb)->m_first_insn; insn; insn = insn->m_next)
 	emit_insn (insn);
       prev_bb = bb;
     }
@@ -1907,7 +1907,7 @@ hsa_brig_emit_function (void)
 	    {
 	      hsa_bb *hbb = hsa_bb_for_bb (sbr->m_jump_table[j]);
 	      sbr->m_label_code_list->m_offsets[j] =
-		hbb->label_ref.m_directive_offset;
+		hbb->m_label_ref.m_directive_offset;
 	    }
 	}
     }
