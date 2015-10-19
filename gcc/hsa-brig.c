@@ -1050,10 +1050,10 @@ static void
 emit_code_list_operand (hsa_op_code_list *code_list)
 {
   struct BrigOperandCodeList out;
-  unsigned args = code_list->offsets.length ();
+  unsigned args = code_list->m_offsets.length ();
 
   for (unsigned i = 0; i < args; i++)
-    gcc_assert (code_list->offsets[i]);
+    gcc_assert (code_list->m_offsets[i]);
 
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CODE_LIST);
@@ -1061,7 +1061,7 @@ emit_code_list_operand (hsa_op_code_list *code_list)
   uint32_t byteCount = htole32 (4 * args);
 
   out.elements = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
-  brig_data.add (code_list->offsets.address (), args * sizeof (uint32_t));
+  brig_data.add (code_list->m_offsets.address (), args * sizeof (uint32_t));
   brig_data.round_size_up (4);
   brig_operand.add (&out, sizeof (out));
 }
@@ -1574,14 +1574,14 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
 
 	for (unsigned i = 0; i < insn->call_insn->input_args.length (); i++)
 	  {
-	    insn->call_insn->args_code_list->offsets[i] = htole32
+	    insn->call_insn->args_code_list->m_offsets[i] = htole32
 	      (emit_directive_variable (insn->call_insn->input_args[i]));
 	    brig_insn_count++;
 	  }
 
 	if (insn->call_insn->result_symbol)
 	  {
-	    insn->call_insn->result_code_list->offsets[0] = htole32
+	    insn->call_insn->result_code_list->m_offsets[0] = htole32
 	      (emit_directive_variable (insn->call_insn->output_arg));
 	    brig_insn_count++;
 	  }
@@ -1906,7 +1906,7 @@ hsa_brig_emit_function (void)
 	  for (unsigned j = 0; j < sbr->jump_table.length (); j++)
 	    {
 	      hsa_bb *hbb = hsa_bb_for_bb (sbr->jump_table[j]);
-	      sbr->label_code_list->offsets[j] =
+	      sbr->label_code_list->m_offsets[j] =
 		hbb->label_ref.m_directive_offset;
 	    }
 	}

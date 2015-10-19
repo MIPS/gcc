@@ -1068,8 +1068,8 @@ hsa_op_code_ref::hsa_op_code_ref () : hsa_op_base (BRIG_KIND_OPERAND_CODE_REF),
 hsa_op_code_list::hsa_op_code_list (unsigned elements)
   : hsa_op_base (BRIG_KIND_OPERAND_CODE_LIST)
 {
-  offsets.create (1);
-  offsets.safe_grow_cleared (elements);
+  m_offsets.create (1);
+  m_offsets.safe_grow_cleared (elements);
 
   hsa_list_operand_code_list.safe_push (this);
 }

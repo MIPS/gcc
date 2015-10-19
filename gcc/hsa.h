@@ -316,7 +316,7 @@ public:
 
   /* Offset to variable-sized array in hsa_data section, where
      are offsets to entries in the hsa_code section.  */
-  auto_vec<unsigned> offsets;
+  auto_vec<unsigned> m_offsets;
 private:
   /* Make the default constructor inaccessible.  */
   hsa_op_code_list () : hsa_op_base (BRIG_KIND_NONE) {}
