@@ -963,7 +963,7 @@ emit_immediate_operand (hsa_op_immed *imm)
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
   uint32_t byteCount = htole32 (imm->brig_repr_size);
-  out.type = htole16 (imm->type);
+  out.type = htole16 (imm->m_type);
   out.bytes = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_operand.add (&out, sizeof(out));
   brig_data.add (imm->brig_repr, imm->brig_repr_size);
@@ -981,7 +981,7 @@ emit_register_operand (hsa_op_reg *reg)
   out.base.kind = htole16 (BRIG_KIND_OPERAND_REGISTER);
   out.regNum = htole32 (reg->hard_num);
 
-  switch (regtype_for_type (reg->type))
+  switch (regtype_for_type (reg->m_type))
     {
     case BRIG_TYPE_B32:
       out.regKind = BRIG_REGISTER_KIND_SINGLE;
@@ -1308,7 +1308,7 @@ emit_segment_insn (hsa_insn_seg *seg)
   brig_data.add (&operand_offsets, sizeof (operand_offsets));
   brig_data.round_size_up (4);
 
-  repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->get_op (1))->type);
+  repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->get_op (1))->m_type);
   repr.segment = seg->segment;
   repr.modifier.allBits = 0;
 
@@ -1344,9 +1344,9 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   brig_data.round_size_up (4);
 
   if (is_a <hsa_op_reg *> (cmp->get_op (1)))
-    repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->get_op (1))->type);
+    repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->get_op (1))->m_type);
   else
-    repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->type);
+    repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
   repr.modifier.allBits = 0;
   repr.compare = cmp->compare;
   repr.pack = 0;
@@ -1446,7 +1446,7 @@ emit_switch_insn (hsa_insn_sbr *sbr)
   repr.width = BRIG_WIDTH_1;
   /* For Conditional jumps the type is always B1.  */
   hsa_op_reg *index = as_a <hsa_op_reg *> (sbr->get_op (0));
-  repr.base.type = htole16 (index->type);
+  repr.base.type = htole16 (index->m_type);
   operand_offsets[0] = htole32 (enqueue_op (sbr->get_op (0)));
   operand_offsets[1] = htole32 (enqueue_op (sbr->label_code_list));
 
@@ -1494,9 +1494,9 @@ emit_cvt_insn (hsa_insn_basic *insn)
 		 operand_count * sizeof (BrigOperandOffset32_t));
 
   if (is_a <hsa_op_reg *> (insn->get_op (1)))
-    srctype = as_a <hsa_op_reg *> (insn->get_op (1))->type;
+    srctype = as_a <hsa_op_reg *> (insn->get_op (1))->m_type;
   else
-    srctype = as_a <hsa_op_immed *> (insn->get_op (1))->type;
+    srctype = as_a <hsa_op_immed *> (insn->get_op (1))->m_type;
   repr.sourceType = htole16 (srctype);
   repr.modifier.allBits = 0;
   /* float to smaller float requires a rounding setting (we default

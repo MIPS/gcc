@@ -249,7 +249,7 @@ rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
 		continue;
 	      gcc_assert (reg->spill_sym);
 
-	      int cl = reg_class_for_type (reg->type);
+	      int cl = reg_class_for_type (reg->m_type);
 	      hsa_op_reg *tmp, *tmp2;
 	      if (hsa_opcode_op_output_p (insn->opcode, i))
 		tmp = hsa_spill_out (insn, reg, &tmp2);
@@ -298,7 +298,7 @@ dump_hsa_cfun_regalloc (FILE *f)
 static int
 try_alloc_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
 {
-  int cl = reg_class_for_type (reg->type);
+  int cl = reg_class_for_type (reg->m_type);
   int ret = -1;
   if (classes[1].used_num + classes[2].used_num * 2 + classes[3].used_num * 4
       >= 128 - 5)
@@ -325,7 +325,7 @@ try_alloc_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
 static void
 free_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
 {
-  int cl = reg_class_for_type (reg->type);
+  int cl = reg_class_for_type (reg->m_type);
   int ret = reg->hard_num;
   gcc_assert (reg->reg_class == classes[cl].cl_char);
   classes[cl].used_num--;
@@ -411,7 +411,7 @@ expire_old_intervals (hsa_op_reg *reg, vec<hsa_op_reg*> *active,
 static void
 spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
 {
-  int cl = reg_class_for_type (reg->type);
+  int cl = reg_class_for_type (reg->m_type);
   gcc_assert (!active[cl].is_empty ());
   hsa_op_reg *cand = active[cl][0];
   if (cand->lr_end > reg->lr_end)
@@ -426,7 +426,7 @@ spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
     cand = reg;
 
   gcc_assert (!cand->spill_sym);
-  BrigType16_t type = cand->type;
+  BrigType16_t type = cand->m_type;
   if (type == BRIG_TYPE_B1)
     type = BRIG_TYPE_U8;
   cand->reg_class = 0;
@@ -624,7 +624,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
       if (!reg)
 	continue;
       expire_old_intervals (reg, active, classes);
-      int cl = reg_class_for_type (reg->type);
+      int cl = reg_class_for_type (reg->m_type);
       if (try_alloc_reg (classes, reg) >= 0)
 	{
 	  unsigned place = active[cl].lower_bound (reg, cmp_end);

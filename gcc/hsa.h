@@ -120,7 +120,7 @@ class hsa_op_with_type : public hsa_op_base
 {
 public:
   /* The type.  */
-  BrigType16_t type;
+  BrigType16_t m_type;
 
   /* Convert an operand to a destination type DTYPE and attach insns
      to HBB if needed.  */

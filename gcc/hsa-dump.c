@@ -669,7 +669,7 @@ dump_hsa_reg (FILE *f, hsa_op_reg *reg, bool dump_type = false)
   else
     fprintf (f, "$_%i", reg->order);
   if (dump_type)
-    fprintf (f, " (%s)", hsa_type_name (reg->type));
+    fprintf (f, " (%s)", hsa_type_name (reg->m_type));
 }
 
 /* Dump textual representation of HSA IL immediate operand IMM to file F.  */
@@ -678,7 +678,7 @@ static void
 dump_hsa_immed (FILE *f, hsa_op_immed *imm)
 {
   bool unsigned_int_type = (BRIG_TYPE_U8 | BRIG_TYPE_U16 | BRIG_TYPE_U32
-    | BRIG_TYPE_U64) & imm->type;
+    | BRIG_TYPE_U64) & imm->m_type;
 
   if (imm->tree_value)
     print_generic_expr (f, imm->tree_value, 0);
@@ -693,7 +693,7 @@ dump_hsa_immed (FILE *f, hsa_op_immed *imm)
 		 (unsigned HOST_WIDE_INT)imm->int_value);
     }
 
-  fprintf (f, " (%s)", hsa_type_name (imm->type));
+  fprintf (f, " (%s)", hsa_type_name (imm->m_type));
 }
 
 /* Dump textual representation of HSA IL address operand ADDR to file F.  */
@@ -877,9 +877,9 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       BrigType16_t src_type;
 
       if (is_a <hsa_op_reg *> (cmp->get_op (1)))
-	src_type = as_a <hsa_op_reg *> (cmp->get_op (1))->type;
+	src_type = as_a <hsa_op_reg *> (cmp->get_op (1))->m_type;
       else
-	src_type = as_a <hsa_op_immed *> (cmp->get_op (1))->type;
+	src_type = as_a <hsa_op_immed *> (cmp->get_op (1))->m_type;
 
       fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (cmp->opcode),
 	       hsa_cmpop_name (cmp->compare),
