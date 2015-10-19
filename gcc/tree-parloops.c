@@ -3191,6 +3191,11 @@ parallelize_loops (bool oacc_kernels_p)
   /* Do not parallelize loops in the functions created by parallelization.  */
   if (parallelized_function_p (cfun->decl))
     return false;
+
+  /* Do not parallelize loops in offloaded functions.  */
+  if (get_oacc_fn_attrib (cfun->decl) != NULL)
+    return false;
+
   if (cfun->has_nonlocal_label)
     return false;
 
