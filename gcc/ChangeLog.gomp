@@ -1,5 +1,12 @@
 2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (scan_omp_for): Combine OpenACC conditional.
+	(expand_oacc_get_num_threads, expand_oacc_get_thread_num): Delete.
+	(oacc_thread_numbers): New.
+	(oacc_xform_loop): Correct comment, Use oacc_thread_numbers.
+
+2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c (oacc_loop_auto_partitions): New.
 	(oacc_loop_partition): Call it.
 

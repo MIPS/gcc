@@ -2911,11 +2911,7 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 			"argument not permitted on %<%s%> clause in"
 			" OpenACC %<parallel%>", check);
 	  }
-    }
 
-  if (is_gimple_omp_oacc (stmt))
-    {
-      omp_context *tgt = enclosing_target_ctx (ctx);
       if (tgt && is_oacc_kernels (tgt))
 	{
 	  /* Strip out reductions, as they are not  handled yet.  */
@@ -5130,80 +5126,6 @@ is_atomic_compatible_reduction (tree var, omp_context *ctx)
   return true;
 }
 
-
-/* Find the total number of threads used by a region partitioned by
-   GWV_BITS.  Setup code required for the calculation is added to SEQ.  Note
-   that this is currently used from both OMP-lowering and OMP-expansion phases,
-   and uses builtins specific to NVidia PTX: this will need refactoring into a
-   generic interface when support for other targets is added.   */
-
-static tree
-expand_oacc_get_num_threads (gimple_seq *seq, int gwv_bits)
-{
-  tree res = build_int_cst (unsigned_type_node, 1);
-  unsigned ix;
-
-  for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
-    if (GOMP_DIM_MASK(ix) & gwv_bits)
-      {
-	tree arg = build_int_cst (integer_type_node, ix);
-	tree count = create_tmp_var (integer_type_node);
-	gimple *call = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
-	
-	gimple_call_set_lhs (call, count);
-	gimple_seq_add_stmt (seq, call);
-	res = fold_build2 (MULT_EXPR, integer_type_node, res, count);
-      }
-  
-  return res;
-}
-
-/* Find the current thread number to use within a region partitioned by
-   GWV_BITS.  Setup code required for the calculation is added to SEQ.  See
-   note for expand_oacc_get_num_threads above re: builtin usage.  */
-
-static tree
-expand_oacc_get_thread_num (gimple_seq *seq, int gwv_bits)
-{
-  tree res = NULL_TREE;
-  unsigned ix;
-
-  /* Start at gang level, and examine relevant dimension indices.  */
-  for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
-    if (GOMP_DIM_MASK (ix) & gwv_bits)
-      {
-	tree arg = build_int_cst (unsigned_type_node, ix);
-
-	if (res)
-	  {
-	    /* We had an outer index, so scale that by the size of
-	       this dimension.  */
-	    tree n = create_tmp_var (integer_type_node);
-	    gimple *call
-	      = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
-	    
-	    gimple_call_set_lhs (call, n);
-	    gimple_seq_add_stmt (seq, call);
-	    res = fold_build2 (MULT_EXPR, integer_type_node, res, n);
-	  }
-
-	/* Determine index in this dimension.  */
-	tree id = create_tmp_var (integer_type_node);
-	gimple *call = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
-	
-	gimple_call_set_lhs (call, id);
-	gimple_seq_add_stmt (seq, call);
-	if (res)
-	  res = fold_build2 (PLUS_EXPR, integer_type_node, res, id);
-	else
-	  res = id;
-      }
-
-  if (res == NULL_TREE)
-    res = build_int_cst (integer_type_node, 0);
-
-  return res;
-}
 
 /* Lower the OpenACC reductions of CLAUSES for compute axis LEVEL
    (which might be a placeholder).  INNER is true if this is an inner
@@ -16904,16 +16826,63 @@ make_pass_late_lower_omp (gcc::context *ctxt)
   return new pass_late_lower_omp (ctxt);
 }
 
+/* Find the number of threads (POS = false), or thread number (POS =
+   tre) for an OpenACC region partitioned as MASK.  Setup code
+   required for the calculation is added to SEQ.  */
+
+static tree
+oacc_thread_numbers (bool pos, int mask, gimple_seq *seq)
+{
+  tree res = pos ? NULL_TREE :  build_int_cst (unsigned_type_node, 1);
+  unsigned ix;
+
+  /* Start at gang level, and examine relevant dimension indices.  */
+  for (ix = GOMP_DIM_GANG; ix != GOMP_DIM_MAX; ix++)
+    if (GOMP_DIM_MASK (ix) & mask)
+      {
+	tree arg = build_int_cst (unsigned_type_node, ix);
+
+	if (res)
+	  {
+	    /* We had an outer index, so scale that by the size of
+	       this dimension.  */
+	    tree n = create_tmp_var (integer_type_node);
+	    gimple *call
+	      = gimple_build_call_internal (IFN_GOACC_DIM_SIZE, 1, arg);
+	    
+	    gimple_call_set_lhs (call, n);
+	    gimple_seq_add_stmt (seq, call);
+	    res = fold_build2 (MULT_EXPR, integer_type_node, res, n);
+	  }
+	if (pos)
+	  {
+	    /* Determine index in this dimension.  */
+	    tree id = create_tmp_var (integer_type_node);
+	    gimple *call = gimple_build_call_internal
+	      (IFN_GOACC_DIM_POS, 1, arg);
+
+	    gimple_call_set_lhs (call, id);
+	    gimple_seq_add_stmt (seq, call);
+	    if (res)
+	      res = fold_build2 (PLUS_EXPR, integer_type_node, res, id);
+	    else
+	      res = id;
+	  }
+      }
+
+  if (res == NULL_TREE)
+    res = build_int_cst (integer_type_node, 0);
+
+  return res;
+}
+
 /* Transform IFN_GOACC_LOOP calls to actual code.  See
    expand_oacc_for for where these are generated.  At the vector
    level, we stride loops, such that each  member of a warp will
    operate on adjacent iterations.  At the worker and gang level,
    each gang/warp executes a set of contiguous iterations.  Chunking
    can override this such that each iteration engine executes a
-   contiguous chunk, and then moves on to stride to the next chunk.
-
-   TODO: As with expand_oacc_for, the presence of GWV and CHUNK_SIZE
-   parameters here is an intermediate step.  */
+   contiguous chunk, and then moves on to stride to the next chunk.  */
 
 static void
 oacc_xform_loop (gcall *call)
@@ -16964,7 +16933,7 @@ oacc_xform_loop (gcall *call)
 	{
 	  /* chunk_max
 	     = (range - dir) / (chunks * step * num_threads) + dir  */
-	  tree per = expand_oacc_get_num_threads (&seq, mask);
+	  tree per = oacc_thread_numbers (false, mask, &seq);
 	  per = fold_convert (type, per);
 	  chunk_size = fold_convert (type, chunk_size);
 	  per = fold_build2 (MULT_EXPR, type, per, chunk_size);
@@ -16981,7 +16950,7 @@ oacc_xform_loop (gcall *call)
 	   step by the inner volume.  */
 	unsigned volume = striding ? mask : inner_mask;
 
-	r = expand_oacc_get_num_threads (&seq, volume);
+	r = oacc_thread_numbers (false, volume, &seq);
 	r = build2 (MULT_EXPR, type, fold_convert (type, r), step);
       }
       break;
@@ -16989,14 +16958,14 @@ oacc_xform_loop (gcall *call)
     case IFN_GOACC_LOOP_OFFSET:
       if (striding)
 	{
-	  r = expand_oacc_get_thread_num (&seq, mask);
+	  r = oacc_thread_numbers (true, mask, &seq);
 	  r = fold_convert (diff_type, r);
 	}
       else
 	{
 	  tree span;
-	  tree inner_size = expand_oacc_get_num_threads (&seq, inner_mask);
-	  tree outer_size = expand_oacc_get_num_threads (&seq, outer_mask);
+	  tree inner_size = oacc_thread_numbers (false, inner_mask, &seq);
+	  tree outer_size = oacc_thread_numbers (false, outer_mask, &seq);
 	  tree volume = fold_build2 (MULT_EXPR, TREE_TYPE (inner_size),
 				     inner_size, outer_size);
 
@@ -17019,11 +16988,11 @@ oacc_xform_loop (gcall *call)
 	      span = build2 (MULT_EXPR, diff_type, span, inner_size);
 	    }
 
-	  r = expand_oacc_get_thread_num (&seq, outer_mask);
+	  r = oacc_thread_numbers (true, outer_mask, &seq);
 	  r = fold_convert (diff_type, r);
 	  r = build2 (MULT_EXPR, diff_type, r, span);
 
-	  tree inner = expand_oacc_get_thread_num (&seq, inner_mask);
+	  tree inner = oacc_thread_numbers (true, inner_mask, &seq);
 	  inner = fold_convert (diff_type, inner);
 	  r = fold_build2 (PLUS_EXPR, diff_type, r, inner);
 
@@ -17054,13 +17023,13 @@ oacc_xform_loop (gcall *call)
 	    {
 	      chunk_size = fold_convert (diff_type, chunk_size);
 
-	      span = expand_oacc_get_num_threads (&seq, inner_mask);
+	      span = oacc_thread_numbers (false, inner_mask, &seq);
 	      span = fold_convert (diff_type, span);
 	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
 	    }
 	  else
 	    {
-	      tree per = expand_oacc_get_num_threads (&seq, mask);
+	      tree per = oacc_thread_numbers (false, mask, &seq);
 	      per = fold_convert (diff_type, per);
 	      per = build2 (MULT_EXPR, diff_type, per, step);
 	      span = build2 (MINUS_EXPR, diff_type, range, dir);
