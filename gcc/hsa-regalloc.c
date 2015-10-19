@@ -140,7 +140,7 @@ naive_outof_ssa (void)
    and 3 for 'q' 128 bit class.  */
 
 static int
-reg_class_for_type (BrigType16_t type)
+m_reg_class_for_type (BrigType16_t type)
 {
   switch (type)
     {
@@ -216,7 +216,7 @@ insn_reg_addr (hsa_insn_basic *insn, int i)
   return NULL;
 }
 
-struct reg_class_desc
+struct m_reg_class_desc
 {
   unsigned next_avail, max_num;
   unsigned used_num, max_used;
@@ -228,7 +228,7 @@ struct reg_class_desc
    CLASSES is the global register class state.  */
 
 static void
-rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
+rewrite_code_bb (basic_block bb, struct m_reg_class_desc *classes)
 {
   hsa_bb *hbb = hsa_bb_for_bb (bb);
   hsa_insn_basic *insn, *next_insn;
@@ -245,11 +245,11 @@ rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
 	  if (regaddr)
 	    {
 	      hsa_op_reg *reg = *regaddr;
-	      if (reg->reg_class)
+	      if (reg->m_reg_class)
 		continue;
-	      gcc_assert (reg->spill_sym);
+	      gcc_assert (reg->m_spill_sym);
 
-	      int cl = reg_class_for_type (reg->m_type);
+	      int cl = m_reg_class_for_type (reg->m_type);
 	      hsa_op_reg *tmp, *tmp2;
 	      if (hsa_opcode_op_output_p (insn->opcode, i))
 		tmp = hsa_spill_out (insn, reg, &tmp2);
@@ -258,13 +258,13 @@ rewrite_code_bb (basic_block bb, struct reg_class_desc *classes)
 
 	      *regaddr = tmp;
 
-	      tmp->reg_class = classes[cl].cl_char;
-	      tmp->hard_num = (char) (classes[cl].max_num + i);
+	      tmp->m_reg_class = classes[cl].cl_char;
+	      tmp->m_hard_num = (char) (classes[cl].max_num + i);
 	      if (tmp2)
 		{
 		  gcc_assert (cl == 0);
-		  tmp2->reg_class = classes[1].cl_char;
-		  tmp2->hard_num = (char) (classes[1].max_num + i);
+		  tmp2->m_reg_class = classes[1].cl_char;
+		  tmp2->m_hard_num = (char) (classes[1].max_num + i);
 		}
 	    }
 	}
@@ -296,9 +296,9 @@ dump_hsa_cfun_regalloc (FILE *f)
    Also changes CLASSES to accomodate for the allocated register.  */
 
 static int
-try_alloc_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
+try_alloc_reg (struct m_reg_class_desc *classes, hsa_op_reg *reg)
 {
-  int cl = reg_class_for_type (reg->m_type);
+  int cl = m_reg_class_for_type (reg->m_type);
   int ret = -1;
   if (classes[1].used_num + classes[2].used_num * 2 + classes[3].used_num * 4
       >= 128 - 5)
@@ -314,8 +314,8 @@ try_alloc_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
 	  break;
       ret = i;
       classes[cl].used[i / 64] |= (((uint64_t)1) << (i & 63));
-      reg->reg_class = classes[cl].cl_char;
-      reg->hard_num = i;
+      reg->m_reg_class = classes[cl].cl_char;
+      reg->m_hard_num = i;
     }
   return ret;
 }
@@ -323,11 +323,11 @@ try_alloc_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
 /* Free up hardregs used by REG, into allocation state CLASSES.  */
 
 static void
-free_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
+free_reg (struct m_reg_class_desc *classes, hsa_op_reg *reg)
 {
-  int cl = reg_class_for_type (reg->m_type);
-  int ret = reg->hard_num;
-  gcc_assert (reg->reg_class == classes[cl].cl_char);
+  int cl = m_reg_class_for_type (reg->m_type);
+  int ret = reg->m_hard_num;
+  gcc_assert (reg->m_reg_class == classes[cl].cl_char);
   classes[cl].used_num--;
   classes[cl].used[ret / 64] &= ~(((uint64_t)1) << (ret & 63));
 }
@@ -337,8 +337,8 @@ free_reg (struct reg_class_desc *classes, hsa_op_reg *reg)
 static void
 note_lr_end (hsa_op_reg *reg, int end)
 {
-  if (reg->lr_end < end)
-    reg->lr_end = end;
+  if (reg->m_lr_end < end)
+    reg->m_lr_end = end;
 }
 
 /* Note that the live range for REG starts at least at BEGIN.  */
@@ -346,8 +346,8 @@ note_lr_end (hsa_op_reg *reg, int end)
 static void
 note_lr_begin (hsa_op_reg *reg, int begin)
 {
-  if (reg->lr_begin > begin)
-    reg->lr_begin = begin;
+  if (reg->m_lr_begin > begin)
+    reg->m_lr_begin = begin;
 }
 
 /* Given two registers A and B, return -1, 0 or 1 if A's live range
@@ -361,10 +361,10 @@ cmp_begin (const void *a, const void *b)
   int ret;
   if (rega == regb)
     return 0;
-  ret = (*rega)->lr_begin - (*regb)->lr_begin;
+  ret = (*rega)->m_lr_begin - (*regb)->m_lr_begin;
   if (ret)
     return ret;
-  return ((*rega)->order - (*regb)->order);
+  return ((*rega)->m_order - (*regb)->m_order);
 }
 
 /* Given two registers REGA and REGB, return true if REGA's
@@ -377,10 +377,10 @@ cmp_end (hsa_op_reg * const &rega, hsa_op_reg * const &regb)
   int ret;
   if (rega == regb)
     return false;
-  ret = (regb)->lr_end - (rega)->lr_end;
+  ret = (regb)->m_lr_end - (rega)->m_lr_end;
   if (ret)
     return ret < 0;
-  return (((regb)->order - (rega)->order)) < 0;
+  return (((regb)->m_order - (rega)->m_order)) < 0;
 }
 
 /* Expire all old intervals in ACTIVE (a per-regclass vector),
@@ -389,13 +389,13 @@ cmp_end (hsa_op_reg * const &rega, hsa_op_reg * const &regb)
 
 static void
 expire_old_intervals (hsa_op_reg *reg, vec<hsa_op_reg*> *active,
-		      struct reg_class_desc *classes)
+		      struct m_reg_class_desc *classes)
 {
   for (int i = 0; i < 4; i++)
     while (!active[i].is_empty ())
       {
 	hsa_op_reg *a = active[i].pop ();
-	if (a->lr_end > reg->lr_begin)
+	if (a->m_lr_end > reg->m_lr_begin)
 	  {
 	    active[i].quick_push (a);
 	    break;
@@ -411,13 +411,13 @@ expire_old_intervals (hsa_op_reg *reg, vec<hsa_op_reg*> *active,
 static void
 spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
 {
-  int cl = reg_class_for_type (reg->m_type);
+  int cl = m_reg_class_for_type (reg->m_type);
   gcc_assert (!active[cl].is_empty ());
   hsa_op_reg *cand = active[cl][0];
-  if (cand->lr_end > reg->lr_end)
+  if (cand->m_lr_end > reg->m_lr_end)
     {
-      reg->reg_class = cand->reg_class;
-      reg->hard_num = cand->hard_num;
+      reg->m_reg_class = cand->m_reg_class;
+      reg->m_hard_num = cand->m_hard_num;
       active[cl].ordered_remove (0);
       unsigned place = active[cl].lower_bound (reg, cmp_end);
       active[cl].quick_insert (place, reg);
@@ -425,20 +425,20 @@ spill_at_interval (hsa_op_reg *reg, vec<hsa_op_reg*> *active)
   else
     cand = reg;
 
-  gcc_assert (!cand->spill_sym);
+  gcc_assert (!cand->m_spill_sym);
   BrigType16_t type = cand->m_type;
   if (type == BRIG_TYPE_B1)
     type = BRIG_TYPE_U8;
-  cand->reg_class = 0;
-  cand->spill_sym = hsa_get_spill_symbol (type);
-  cand->spill_sym->m_name_number = cand->order;
+  cand->m_reg_class = 0;
+  cand->m_spill_sym = hsa_get_spill_symbol (type);
+  cand->m_spill_sym->m_name_number = cand->m_order;
 }
 
 /* Given the global register state CLASSES allocate all HSA virtual
    registers either to hardregs or to a spill symbol.  */
 
 static void
-linear_scan_regalloc (struct reg_class_desc *classes)
+linear_scan_regalloc (struct m_reg_class_desc *classes)
 {
   /* Compute liveness.  */
   bool changed;
@@ -473,7 +473,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	      gcc_checking_assert (insn->get_op (opi));
 	      hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 	      if (regaddr)
-		ind2reg[(*regaddr)->order] = *regaddr;
+		ind2reg[(*regaddr)->m_order] = *regaddr;
 	    }
 	}
     }
@@ -481,7 +481,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
   /* Initialize all live ranges to [after-end, 0).  */
   for (i = 0; i < hsa_cfun->reg_count; i++)
     if (ind2reg[i])
-      ind2reg[i]->lr_begin = insn_order, ind2reg[i]->lr_end = 0;
+      ind2reg[i]->m_lr_begin = insn_order, ind2reg[i]->m_lr_end = 0;
 
   /* Classic liveness analysis, as long as something changes:
        liveout is union (livein of successors)
@@ -526,14 +526,14 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 		  gcc_checking_assert (insn->get_op (opi));
 		  hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 		  if (regaddr)
-		    bitmap_clear_bit (work, (*regaddr)->order);
+		    bitmap_clear_bit (work, (*regaddr)->m_order);
 		}
 	      for (; opi < insn->operand_count (); opi++)
 		{
 		  gcc_checking_assert (insn->get_op (opi));
 		  hsa_op_reg **regaddr = insn_reg_addr (insn, opi);
 		  if (regaddr)
-		    bitmap_set_bit (work, (*regaddr)->order);
+		    bitmap_set_bit (work, (*regaddr)->m_order);
 		}
 	    }
 
@@ -602,8 +602,8 @@ linear_scan_regalloc (struct reg_class_desc *classes)
   /* All regs that have still their start at after all code actually
      are defined at the start of the routine (prologue).  */
   for (i = 0; i < hsa_cfun->reg_count; i++)
-    if (ind2reg[i] && ind2reg[i]->lr_begin == insn_order)
-      ind2reg[i]->lr_begin = 0;
+    if (ind2reg[i] && ind2reg[i]->m_lr_begin == insn_order)
+      ind2reg[i]->m_lr_begin = 0;
 
   /* Sort all intervals by increasing start point.  */
   gcc_assert (ind2reg.length () == (size_t) hsa_cfun->reg_count);
@@ -624,7 +624,7 @@ linear_scan_regalloc (struct reg_class_desc *classes)
       if (!reg)
 	continue;
       expire_old_intervals (reg, active, classes);
-      int cl = reg_class_for_type (reg->m_type);
+      int cl = m_reg_class_for_type (reg->m_type);
       if (try_alloc_reg (classes, reg) >= 0)
 	{
 	  unsigned place = active[cl].lower_bound (reg, cmp_end);
@@ -637,13 +637,13 @@ linear_scan_regalloc (struct reg_class_desc *classes)
       if (dump_file)
 	{
 	  fprintf (dump_file, "  reg%d: [%5d, %5d)->",
-		   reg->order, reg->lr_begin, reg->lr_end);
-	  if (reg->reg_class)
-	    fprintf (dump_file, "$%c%i", reg->reg_class, reg->hard_num);
+		   reg->m_order, reg->m_lr_begin, reg->m_lr_end);
+	  if (reg->m_reg_class)
+	    fprintf (dump_file, "$%c%i", reg->m_reg_class, reg->m_hard_num);
 	  else
 	    fprintf (dump_file, "[%%__%s_%i]",
-		     hsa_seg_name (reg->spill_sym->m_segment),
-		     reg->spill_sym->m_name_number);
+		     hsa_seg_name (reg->m_spill_sym->m_segment),
+		     reg->m_spill_sym->m_name_number);
 	  for (int cl = 0; cl < 4; cl++)
 	    {
 	      bool first = true;
@@ -652,11 +652,11 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	      for (int j = 0; active[cl].iterate (j, &r); j++)
 		if (first)
 		  {
-		    fprintf (dump_file, "%d", r->order);
+		    fprintf (dump_file, "%d", r->m_order);
 		    first = false;
 		  }
 		else
-		  fprintf (dump_file, ", %d", r->order);
+		  fprintf (dump_file, ", %d", r->m_order);
 	      fprintf (dump_file, "}");
 	    }
 	  fprintf (dump_file, "\n");
@@ -676,13 +676,14 @@ linear_scan_regalloc (struct reg_class_desc *classes)
 	  hsa_op_reg *reg = ind2reg[i];
 	  if (!reg)
 	    continue;
-	  fprintf (dump_file, "  reg%d: [%5d, %5d)->", reg->order, reg->lr_begin, reg->lr_end);
-	  if (reg->reg_class)
-	    fprintf (dump_file, "$%c%i\n", reg->reg_class, reg->hard_num);
+	  fprintf (dump_file, "  reg%d: [%5d, %5d)->", reg->m_order,
+		   reg->m_lr_begin, reg->m_lr_end);
+	  if (reg->m_reg_class)
+	    fprintf (dump_file, "$%c%i\n", reg->m_reg_class, reg->m_hard_num);
 	  else
 	    fprintf (dump_file, "[%%__%s_%i]\n",
-		     hsa_seg_name (reg->spill_sym->m_segment),
-		     reg->spill_sym->m_name_number);
+		     hsa_seg_name (reg->m_spill_sym->m_segment),
+		     reg->m_spill_sym->m_name_number);
 	}
     }
 
@@ -697,7 +698,7 @@ static void
 regalloc (void)
 {
   basic_block bb;
-  reg_class_desc classes[4];
+  m_reg_class_desc classes[4];
 
   /* If there are no registers used in the function, exit right away. */
   if (hsa_cfun->reg_count == 0)

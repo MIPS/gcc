@@ -189,26 +189,26 @@ public:
   void verify_ssa ();
 
   /* If NON-NULL, gimple SSA that we come from.  NULL if none.  */
-  tree gimple_ssa;
+  tree m_gimple_ssa;
 
   /* Defining instruction while still in the SSA.  */
-  hsa_insn_basic *def_insn;
+  hsa_insn_basic *m_def_insn;
 
   /* If the register allocator decides to spill the register, this is the
      appropriate spill symbol.  */
-  hsa_symbol *spill_sym;
+  hsa_symbol *m_spill_sym;
 
   /* Number of this register structure in the order in which they were
      allocated.  */
-  int order;
-  int lr_begin, lr_end;
+  int m_order;
+  int m_lr_begin, m_lr_end;
 
   /* Zero if the register is not yet allocated.  After, allocation, this must
      be 'c', 's', 'd' or 'q'.  */
-  char reg_class;
+  char m_reg_class;
   /* If allocated, the number of the HW register (within its HSA register
      class). */
-  char hard_num;
+  char m_hard_num;
 
 private:
   /* Make the default constructor inaccessible.  */

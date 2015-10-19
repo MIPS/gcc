@@ -664,10 +664,10 @@ hsa_atomicop_name (enum BrigAtomicOperation op)
 static void
 dump_hsa_reg (FILE *f, hsa_op_reg *reg, bool dump_type = false)
 {
-  if (reg->reg_class)
-    fprintf (f, "$%c%i", reg->reg_class, reg->hard_num);
+  if (reg->m_reg_class)
+    fprintf (f, "$%c%i", reg->m_reg_class, reg->m_hard_num);
   else
-    fprintf (f, "$_%i", reg->order);
+    fprintf (f, "$_%i", reg->m_order);
   if (dump_type)
     fprintf (f, " (%s)", hsa_type_name (reg->m_type));
 }

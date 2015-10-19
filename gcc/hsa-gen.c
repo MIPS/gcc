@@ -955,16 +955,10 @@ hsa_op_immed::set_type (BrigType16_t t)
    the BRIG type fo the new register.  */
 
 hsa_op_reg::hsa_op_reg (BrigType16_t t)
-  : hsa_op_with_type (BRIG_KIND_OPERAND_REGISTER, t)
+  : hsa_op_with_type (BRIG_KIND_OPERAND_REGISTER, t), m_gimple_ssa (NULL_TREE),
+  m_def_insn (NULL), m_spill_sym (NULL), m_order (hsa_cfun->reg_count++),
+  m_lr_begin (0), m_lr_end (0), m_reg_class (0), m_hard_num (0)
 {
-  gimple_ssa = NULL_TREE;
-  def_insn = NULL;
-  spill_sym = NULL;
-  order = hsa_cfun->reg_count++;
-  lr_begin = lr_end = 0;
-  reg_class = 0;
-  hard_num = 0;
-
   hsa_list_operand_reg.safe_push (this);
 }
 
@@ -984,12 +978,12 @@ hsa_op_reg::verify_ssa ()
   /* Verify that each HSA register has a definition assigned.
      Exceptions are VAR_DECL and PARM_DECL that are a default
      definition.  */
-  gcc_checking_assert (def_insn
-		       || (gimple_ssa != NULL
-			   && (!SSA_NAME_VAR (gimple_ssa)
-		               || (TREE_CODE (SSA_NAME_VAR (gimple_ssa))
+  gcc_checking_assert (m_def_insn
+		       || (m_gimple_ssa != NULL
+			   && (!SSA_NAME_VAR (m_gimple_ssa)
+			       || (TREE_CODE (SSA_NAME_VAR (m_gimple_ssa))
 				   != PARM_DECL))
-			   && SSA_NAME_IS_DEFAULT_DEF (gimple_ssa)));
+			   && SSA_NAME_IS_DEFAULT_DEF (m_gimple_ssa)));
 
   /* Verify that every use of the register is really present
      in an instruction.  */
@@ -1101,7 +1095,7 @@ hsa_reg_for_gimple_ssa (tree ssa, vec <hsa_op_reg_p> *ssa_map)
 
   hreg = new  hsa_op_reg (hsa_type_for_scalar_tree_type (TREE_TYPE (ssa),
 							 true));
-  hreg->gimple_ssa = ssa;
+  hreg->m_gimple_ssa = ssa;
   (*ssa_map)[SSA_NAME_VERSION (ssa)] = hreg;
 
   return hreg;
@@ -1112,11 +1106,11 @@ hsa_op_reg::set_definition (hsa_insn_basic *insn)
 {
   if (hsa_cfun->in_ssa)
     {
-      gcc_checking_assert (!def_insn);
-      def_insn = insn;
+      gcc_checking_assert (!m_def_insn);
+      m_def_insn = insn;
     }
   else
-    def_insn = NULL;
+    m_def_insn = NULL;
 }
 
 /* Constructor of the class which is the bases of all instructions and directly
@@ -1257,7 +1251,7 @@ hsa_insn_basic::verify ()
 
       if ((addr = dyn_cast <hsa_op_address *> (use)) && addr->reg)
 	{
-	  gcc_assert (addr->reg->def_insn != this);
+	  gcc_assert (addr->reg->m_def_insn != this);
 	  use = addr->reg;
 	}
 
@@ -2563,7 +2557,7 @@ gen_hsa_insns_for_single_assignment (tree lhs, tree rhs, hsa_bb *hbb,
 hsa_op_reg *
 hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 {
-  hsa_symbol *spill_sym = spill_reg->spill_sym;
+  hsa_symbol *spill_sym = spill_reg->m_spill_sym;
   hsa_op_reg *reg = new hsa_op_reg (spill_sym->m_type);
   hsa_op_address *addr = new hsa_op_address (spill_sym);
 
@@ -2594,7 +2588,7 @@ hsa_spill_in (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 hsa_op_reg *
 hsa_spill_out (hsa_insn_basic *insn, hsa_op_reg *spill_reg, hsa_op_reg **ptmp2)
 {
-  hsa_symbol *spill_sym = spill_reg->spill_sym;
+  hsa_symbol *spill_sym = spill_reg->m_spill_sym;
   hsa_op_reg *reg = new hsa_op_reg (spill_sym->m_type);
   hsa_op_address *addr = new hsa_op_address (spill_sym);
   hsa_op_reg *returnreg;

@@ -980,7 +980,7 @@ emit_register_operand (hsa_op_reg *reg)
 
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_REGISTER);
-  out.regNum = htole32 (reg->hard_num);
+  out.regNum = htole32 (reg->m_hard_num);
 
   switch (regtype_for_type (reg->m_type))
     {
