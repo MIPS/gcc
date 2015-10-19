@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef LIBGOMP_USE_PTHREADS
 /* This attribute contains PTHREAD_CREATE_DETACHED.  */
 pthread_attr_t gomp_thread_attr;
 
@@ -134,6 +135,7 @@ gomp_thread_start (void *xdata)
   thr->task = NULL;
   return NULL;
 }
+#endif
 
 static inline struct gomp_team *
 get_last_team (unsigned nthreads)
@@ -228,7 +230,13 @@ gomp_free_pool_helper (void *thread_pool)
   gomp_sem_destroy (&thr->release);
   thr->thread_pool = NULL;
   thr->task = NULL;
+#ifdef LIBGOMP_USE_PTHREADS
   pthread_exit (NULL);
+#elif defined(__nvptx__)
+  asm ("exit;");
+#else
+#error gomp_free_pool_helper must terminate the thread
+#endif
 }
 
 /* Free a thread pool and release its threads. */
@@ -284,6 +292,7 @@ gomp_free_thread (void *arg __attribute__((unused)))
 
 /* Launch a team.  */
 
+#ifdef LIBGOMP_USE_PTHREADS
 void
 gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 		 unsigned flags, struct gomp_team *team)
@@ -847,6 +856,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
       && team->prev_ts.place_partition_len > 64)
     free (affinity_thr);
 }
+#endif
 
 
 /* Terminate the current team.  This is only to be called by the master
@@ -922,6 +932,7 @@ gomp_team_end (void)
     }
 }
 
+#ifdef LIBGOMP_USE_PTHREADS
 
 /* Constructors for this file.  */
 
@@ -946,6 +957,7 @@ team_destructor (void)
      crashes.  */
   pthread_key_delete (gomp_thread_destructor);
 }
+#endif
 
 struct gomp_task_icv *
 gomp_new_icv (void)
@@ -954,6 +966,8 @@ gomp_new_icv (void)
   struct gomp_task *task = gomp_malloc (sizeof (struct gomp_task));
   gomp_init_task (task, NULL, &gomp_global_icv);
   thr->task = task;
+#ifdef LIBGOMP_USE_PTHREADS
   pthread_setspecific (gomp_thread_destructor, thr);
+#endif
   return &task->icv;
 }

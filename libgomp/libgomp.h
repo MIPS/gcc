@@ -643,7 +643,15 @@ enum gomp_cancel_kind
 
 /* ... and here is that TLS data.  */
 
-#if defined HAVE_TLS || defined USE_EMUTLS
+#if defined __nvptx__
+extern struct gomp_thread *nvptx_thrs;
+static inline struct gomp_thread *gomp_thread (void)
+{
+  int tid;
+  asm ("mov.u32 %0, %%tid.y;" : "=r" (tid));
+  return nvptx_thrs + tid;
+}
+#elif defined HAVE_TLS || defined USE_EMUTLS
 extern __thread struct gomp_thread gomp_tls_data;
 static inline struct gomp_thread *gomp_thread (void)
 {

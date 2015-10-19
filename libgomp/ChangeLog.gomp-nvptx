@@ -1,3 +1,12 @@
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
+	* libgomp.h [__nvptx__] (gomp_thread): New implementation.
+	* config/nvptx/team.c (gomp_nvptx_main): New.
+	(gomp_thread_start): New (NVPTX-specific implementation).
+	(gomp_team_start): Ditto.
+	* team.c: Guard uses of PThreads-specific interfaces by
+	LIBGOMP_USE_PTHREADS.
+
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/simple-bar.h: New file.
