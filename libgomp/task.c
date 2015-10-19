@@ -29,6 +29,7 @@
 #include "libgomp.h"
 #include <stdlib.h>
 #include <string.h>
+#include "gomp-constants.h"
 
 typedef struct gomp_task_depend_entry *hash_entry_type;
 
@@ -114,7 +115,7 @@ static void gomp_task_maybe_wait_for_dependencies (void **depend);
 void
 GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	   long arg_size, long arg_align, bool if_clause, unsigned flags,
-	   void **depend)
+	   void **depend, int priority)
 {
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
@@ -126,8 +127,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
      might be running on different thread than FN.  */
   if (cpyfn)
     if_clause = false;
-  if (flags & 1)
-    flags &= ~1;
+  flags &= ~GOMP_TASK_FLAG_UNTIED;
 #endif
 
   /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
@@ -135,6 +135,11 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       && (gomp_team_barrier_cancelled (&team->barrier)
 	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
     return;
+
+  if ((flags & GOMP_TASK_FLAG_PRIORITY) == 0)
+    priority = 0;
+  /* FIXME, use priority.  */
+  (void) priority;
 
   if (!if_clause || team == NULL
       || (thr->task && thr->task->final_task)
@@ -148,12 +153,14 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	 depend clauses for non-deferred tasks other than this, because
 	 the parent task is suspended until the child task finishes and thus
 	 it can't start further child tasks.  */
-      if ((flags & 8) && thr->task && thr->task->depend_hash)
+      if ((flags & GOMP_TASK_FLAG_DEPEND)
+	  && thr->task && thr->task->depend_hash)
 	gomp_task_maybe_wait_for_dependencies (depend);
 
       gomp_init_task (&task, thr->task, gomp_icv (false));
       task.kind = GOMP_TASK_IFFALSE;
-      task.final_task = (thr->task && thr->task->final_task) || (flags & 2);
+      task.final_task = (thr->task && thr->task->final_task)
+			|| (flags & GOMP_TASK_FLAG_FINAL);
       if (thr->task)
 	{
 	  task.in_tied_task = thr->task->in_tied_task;
@@ -196,7 +203,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       bool do_wake;
       size_t depend_size = 0;
 
-      if (flags & 8)
+      if (flags & GOMP_TASK_FLAG_DEPEND)
 	depend_size = ((uintptr_t) depend[0]
 		       * sizeof (struct gomp_task_depend_entry));
       task = gomp_malloc (sizeof (*task) + depend_size
@@ -219,7 +226,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       task->kind = GOMP_TASK_WAITING;
       task->fn = fn;
       task->fn_data = arg;
-      task->final_task = (flags & 2) >> 1;
+      task->final_task = (flags & GOMP_TASK_FLAG_FINAL) >> 1;
       gomp_mutex_lock (&team->task_lock);
       /* If parallel or taskgroup has been cancelled, don't start new
 	 tasks.  */
@@ -411,6 +418,25 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	gomp_team_barrier_wake (&team->barrier, 1);
     }
 }
+
+ialias (GOMP_taskgroup_start)
+ialias (GOMP_taskgroup_end)
+
+#define TYPE long
+#define UTYPE unsigned long
+#define TYPE_is_long 1
+#include "taskloop.c"
+#undef TYPE
+#undef UTYPE
+#undef TYPE_is_long
+
+#define TYPE unsigned long long
+#define UTYPE TYPE
+#define GOMP_taskloop GOMP_taskloop_ull
+#include "taskloop.c"
+#undef TYPE
+#undef UTYPE
+#undef GOMP_taskloop
 
 static inline bool
 gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,

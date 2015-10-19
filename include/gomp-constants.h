@@ -41,6 +41,8 @@
 #define GOMP_MAP_FLAG_SPECIAL_1		(1 << 3)
 #define GOMP_MAP_FLAG_SPECIAL		(GOMP_MAP_FLAG_SPECIAL_1 \
 					 | GOMP_MAP_FLAG_SPECIAL_0)
+/* OpenMP always flag.  */
+#define GOMP_MAP_FLAG_ALWAYS		(1 << 6)
 /* Flag to force a specific behavior (or else, trigger a run-time error).  */
 #define GOMP_MAP_FLAG_FORCE		(1 << 7)
 
@@ -81,7 +83,21 @@ enum gomp_map_kind
     /* ..., and copy from device.  */
     GOMP_MAP_FORCE_FROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_FROM),
     /* ..., and copy to and from device.  */
-    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM)
+    GOMP_MAP_FORCE_TOFROM =		(GOMP_MAP_FLAG_FORCE | GOMP_MAP_TOFROM),
+    /* If not already present, allocate.  And unconditionally copy to
+       device.  */
+    GOMP_MAP_ALWAYS_TO =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_TO),
+    /* If not already present, allocate.  And unconditionally copy from
+       device.  */
+    GOMP_MAP_ALWAYS_FROM =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_FROM),
+    /* If not already present, allocate.  And unconditionally copy to and from
+       device.  */
+    GOMP_MAP_ALWAYS_TOFROM =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_TOFROM),
+    /* OpenMP 4.1 alias for forced deallocation.  */
+    GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
+    /* Decrement usage count and deallocate if zero.  */
+    GOMP_MAP_RELEASE =			(GOMP_MAP_FLAG_ALWAYS
+					 | GOMP_MAP_FORCE_DEALLOC)
   };
 
 #define GOMP_MAP_COPY_TO_P(X) \
@@ -116,6 +132,17 @@ enum gomp_map_kind
 
 #define GOMP_DEVICE_ICV			-1
 #define GOMP_DEVICE_HOST_FALLBACK	-2
+
+/* GOMP_task/GOMP_taskloop* flags argument.  */
+#define GOMP_TASK_FLAG_UNTIED		(1 << 0)
+#define GOMP_TASK_FLAG_FINAL		(1 << 1)
+#define GOMP_TASK_FLAG_MERGEABLE	(1 << 2)
+#define GOMP_TASK_FLAG_DEPEND		(1 << 3)
+#define GOMP_TASK_FLAG_PRIORITY		(1 << 4)
+#define GOMP_TASK_FLAG_UP		(1 << 8)
+#define GOMP_TASK_FLAG_GRAINSIZE	(1 << 9)
+#define GOMP_TASK_FLAG_IF		(1 << 10)
+#define GOMP_TASK_FLAG_NOGROUP		(1 << 11)
 
 /* Versions of libgomp and device-specific plugins.  */
 #define GOMP_VERSION	0

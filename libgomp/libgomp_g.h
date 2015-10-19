@@ -180,7 +180,15 @@ extern bool GOMP_cancellation_point (int);
 /* task.c */
 
 extern void GOMP_task (void (*) (void *), void *, void (*) (void *, void *),
-		       long, long, bool, unsigned, void **);
+		       long, long, bool, unsigned, void **, int);
+extern void GOMP_taskloop (void (*) (void *), void *,
+			   void (*) (void *, void *), long, long, unsigned,
+			   unsigned long, int, long, long, long);
+extern void GOMP_taskloop_ull (void (*) (void *), void *,
+			       void (*) (void *, void *), long, long,
+			       unsigned, unsigned long, int,
+			       unsigned long long, unsigned long long,
+			       unsigned long long);
 extern void GOMP_taskwait (void);
 extern void GOMP_taskyield (void);
 extern void GOMP_taskgroup_start (void);
@@ -209,11 +217,17 @@ extern void GOMP_single_copy_end (void *);
 extern void GOMP_set_offload_targets (const char *);
 extern void GOMP_target (int, void (*) (void *), const void *,
 			 size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_41 (int, void (*) (void *), size_t, void **, size_t *,
+			  unsigned short *);
 extern void GOMP_target_data (int, const void *,
 			      size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_data_41 (int, size_t, void **, size_t *,
+			       unsigned short *);
 extern void GOMP_target_end_data (void);
 extern void GOMP_target_update (int, const void *,
 				size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_enter_exit_data (int, size_t, void **, size_t *,
+					 unsigned short *);
 extern void GOMP_teams (unsigned int, unsigned int);
 
 /* oacc-parallel.c */

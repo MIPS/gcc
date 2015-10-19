@@ -29,6 +29,7 @@ extern tree omp_reduction_init_op (location_t, enum tree_code, tree);
 extern tree omp_reduction_init (tree, tree);
 extern bool make_gimple_omp_edges (basic_block, struct omp_region **, int *);
 extern void omp_finish_file (void);
+extern tree omp_member_access_dummy_var (tree);
 extern bool gimple_stmt_omp_data_i_init_p (gimple *);
 extern tree get_omp_data_i (basic_block);
 extern bool oacc_kernels_region_entry_p (basic_block, gomp_target **);

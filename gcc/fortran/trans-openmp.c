@@ -2352,6 +2352,7 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
   if (clauses->ordered)
     {
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_ORDERED);
+      OMP_CLAUSE_ORDERED_EXPR (c) = NULL_TREE;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 
@@ -3321,7 +3322,8 @@ gfc_trans_omp_critical (gfc_code *code)
   if (code->ext.omp_name != NULL)
     name = get_identifier (code->ext.omp_name);
   stmt = gfc_trans_code (code->block->next);
-  return build2_loc (input_location, OMP_CRITICAL, void_type_node, stmt, name);
+  return build3_loc (input_location, OMP_CRITICAL, void_type_node, stmt,
+		     NULL_TREE, name);
 }
 
 typedef struct dovar_init_d {
@@ -3733,7 +3735,8 @@ gfc_trans_omp_master (gfc_code *code)
 static tree
 gfc_trans_omp_ordered (gfc_code *code)
 {
-  return build1_v (OMP_ORDERED, gfc_trans_code (code->block->next));
+  return build2_loc (input_location, OMP_ORDERED, void_type_node,
+		     gfc_trans_code (code->block->next), NULL_TREE);
 }
 
 static tree

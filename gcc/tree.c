@@ -280,7 +280,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_SHARED  */
   1, /* OMP_CLAUSE_FIRSTPRIVATE  */
   2, /* OMP_CLAUSE_LASTPRIVATE  */
-  5, /* OMP_CLAUSE_REDUCTION  */
+  6, /* OMP_CLAUSE_REDUCTION  */
   1, /* OMP_CLAUSE_COPYIN  */
   1, /* OMP_CLAUSE_COPYPRIVATE  */
   3, /* OMP_CLAUSE_LINEAR  */
@@ -303,7 +303,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_NUM_THREADS  */
   1, /* OMP_CLAUSE_SCHEDULE  */
   0, /* OMP_CLAUSE_NOWAIT  */
-  0, /* OMP_CLAUSE_ORDERED  */
+  1, /* OMP_CLAUSE_ORDERED  */
   0, /* OMP_CLAUSE_DEFAULT  */
   3, /* OMP_CLAUSE_COLLAPSE  */
   0, /* OMP_CLAUSE_UNTIED   */
@@ -322,6 +322,13 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_PARALLEL  */
   0, /* OMP_CLAUSE_SECTIONS  */
   0, /* OMP_CLAUSE_TASKGROUP  */
+  1, /* OMP_CLAUSE_PRIORITY  */
+  1, /* OMP_CLAUSE_GRAINSIZE  */
+  1, /* OMP_CLAUSE_NUM_TASKS  */
+  0, /* OMP_CLAUSE_NOGROUP  */
+  0, /* OMP_CLAUSE_THREADS  */
+  0, /* OMP_CLAUSE_SIMD  */
+  1, /* OMP_CLAUSE_HINT  */
   1, /* OMP_CLAUSE__SIMDUID_  */
   1, /* OMP_CLAUSE__CILK_FOR_COUNT_  */
   0, /* OMP_CLAUSE_INDEPENDENT  */
@@ -385,6 +392,13 @@ const char * const omp_clause_code_name[] =
   "parallel",
   "sections",
   "taskgroup",
+  "priority",
+  "grainsize",
+  "num_tasks",
+  "nogroup",
+  "threads",
+  "simd",
+  "hint",
   "_simduid_",
   "_Cilk_for_count_",
   "independent",
@@ -11490,6 +11504,11 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_SAFELEN:
 	case OMP_CLAUSE_SIMDLEN:
+	case OMP_CLAUSE_ORDERED:
+	case OMP_CLAUSE_PRIORITY:
+	case OMP_CLAUSE_GRAINSIZE:
+	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__SIMDUID_:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
@@ -11499,7 +11518,6 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_NOWAIT:
-	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
@@ -11510,6 +11528,9 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_PARALLEL:
 	case OMP_CLAUSE_SECTIONS:
 	case OMP_CLAUSE_TASKGROUP:
+	case OMP_CLAUSE_NOGROUP:
+	case OMP_CLAUSE_THREADS:
+	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_NOHOST:
@@ -11552,7 +11573,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_REDUCTION:
 	  {
 	    int i;
-	    for (i = 0; i < 4; i++)
+	    for (i = 0; i < 6; i++)
 	      WALK_SUBTREE (OMP_CLAUSE_OPERAND (*tp, i));
 	    WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 	  }

@@ -1,0 +1,114 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (OMP_TASKLOOP_CLAUSE_MASK): Add priority clause.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Parse hint clause.
+	(c_parser_omp_clause_num_tasks, c_parser_omp_clause_grainsize,
+	c_parser_omp_clause_priority): Fix up pastos in *_loc variable
+	names.
+	(c_parser_omp_clause_hint): New function.
+	(c_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_HINT.
+	(OMP_CRITICAL_CLAUSE_MASK): Define.
+	(c_parser_omp_critical): Parse optional hint clause.  Adjust
+	c_finish_omp_critical caller.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_HINT.
+
+	* c-parser.c (c_parser_omp_clause_schedule): Parse optional
+	simd: modifier in schedule clause.
+
+2015-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_linear): Handle linear clause
+	modifiers.
+
+	* c-parser.c (c_parser_omp_clause_map): Handle release
+	map kind.  Adjust to use GOMP_MAP_ALWAYS_* and only on
+	clauses where it makes sense.
+	(c_parser_omp_target_data): Diagnose invalid map-kind
+	for the construct.
+	(c_parser_omp_target_enter_data): Adjust for new encoding
+	of always,from, always,to and always,tofrom.  Accept
+	GOMP_MAP_POINTER.
+	(c_parser_omp_target_exit_data): Likewise.
+	(c_parser_omp_target): Diagnose invalid map-kind for the
+	construct.
+
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_variable_list): Allow array sections
+	for OMP_CLAUSE_REDUCTION.
+	(c_parser_omp_clause_reduction): Compute element type even for
+	arrays and array sections.
+	(c_parser_omp_declare_reduction): STRIP_NOPS before checking
+	for &omp_priv.
+	* c-typeck.c (handle_omp_array_sections_1): Fix a comment typo.
+	Handle OMP_CLAUSE_REDUCTION array sections.  Report zero size
+	array sections on OMP_CLAUSE_DEPEND.
+	(handle_omp_array_sections): Use auto_vec for types, drop
+	types.release () calls.  Handle OMP_CLAUSE_REDUCTION array sections.
+	(c_finish_omp_clauses): Handle OMP_CLAUSE_REDUCTION array sections
+	and arrays.
+
+2015-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_pragma): Return result of
+	c_parser_omp_ordered instead of always returning false.
+	(c_parser_omp_ordered): Return false or true depending
+	on if it is a standalone directive or construct with body.
+	(OMP_TARGET_UPDATE_CLAUSE_MASK): Allow depend and nowait
+	clauses.
+	(c_parser_omp_target): Return false for enter data and
+	exit data.
+	(c_parser_omp_taskloop): Mention composite taskloop simd
+	construct.
+
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (OMP_TASKLOOP_CLAUSE_MASK): Add untied clause.
+
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Allow NULL OMP_CLAUSE_DECL
+	for OMP_CLAUSE_DEPEND_SOURCE.  Diagnose simdlen > safelen.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	* c-parser.c (c_parser_pragma): Handle PRAGMA_OMP_ORDERED.
+	(c_parser_omp_clause_name): Handle grainsize, nogroup, num_tasks,
+	priority, simd and threads clauses.
+	(c_parser_omp_clause_num_tasks, c_parser_omp_clause_grainsize,
+	c_parser_omp_clause_priority): New functions.
+	(c_parser_omp_clause_ordered): Handle parsing of optional argument.
+	(c_parser_omp_clause_nogroup, c_parser_omp_clause_orderedkind):
+	New functions.
+	(c_parser_omp_clause_depend): Handle parsing of depend(source)
+	and partially handle depend(sink:vec).
+	(c_parser_omp_clause_map): Parse optional always map type modifier.
+	Handle parsing of delete map kind.
+	(c_parser_omp_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_{GRAINSIZE,NUM_TASKS,PRIORITY,NOGROUP,THREADS,SIMD}.
+	(OMP_SIMD_CLAUSE_MASK): Add simdlen clause.
+	(OMP_FOR_CLAUSE_MASK): Add linear clause.
+	(OMP_ORDERED_CLAUSE_MASK, OMP_ORDERED_DEPEND_CLAUSE_MASK): Define.
+	(c_parser_omp_ordered): Handle parsing of the clauses, and if depend
+	clause is present, parse it as standalone directive.  Remove LOC
+	argument, add CONTEXT argument.
+	(OMP_TASK_CLAUSE_MASK): Add priority clause.
+	(c_parser_omp_target_data): Diagnose if no map clauses are present.
+	(OMP_TARGET_ENTER_DATA_CLAUSE_MASK): Define.
+	(c_parser_omp_target_enter_data): New function.
+	(OMP_TARGET_EXIT_DATA_CLAUSE_MASK): Define.
+	(c_parser_omp_target_exit_data): New function.
+	(OMP_TARGET_CLAUSE_MASK): Add nowait and depend clauses.
+	(c_parser_omp_target): Handle #pragma omp target {enter,exit} data.
+	(OMP_TASKLOOP_CLAUSE_MASK): Define.
+	(c_parser_omp_taskloop): New function.
+	(c_parser_omp_construct): Don't handle PRAGMA_OMP_ORDERED here.
+	Handle PRAGMA_OMP_TASKLOOP.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

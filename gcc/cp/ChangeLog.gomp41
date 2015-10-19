@@ -1,0 +1,180 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (OMP_TASKLOOP_CLAUSE_MASK): Add priority clause.
+
+	PR c++/66571
+	* pt.c (tsubst_omp_clause_decl): Use tsubst_expr instead of
+	tsubst_copy.  Undo convert_from_reference if non-REFERENCE_REF_P
+	became REFERENCE_REF_P after tsubst_expr.
+	(tsubst_omp_clauses): Use tsubst_omp_clause_decl instead of
+	tsubst_copy for OMP_CLAUSE_DECL on all clauses.  Remove earlier
+	INDIRECT_REF adjustments in the allow_fields handling.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Parse hint clause.
+	(cp_parser_omp_clause_hint): New function.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_HINT.
+	(OMP_CRITICAL_CLAUSE_MASK): Define.
+	(cp_parser_omp_critical): Parse optional hint clause.  Adjust
+	c_finish_omp_critical caller.
+	* pt.c (tsubst_expr): Handle OMP_CRITICAL like OMP_SECTIONS.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_HINT.
+
+	* parser.c (cp_parser_omp_clause_schedule): Parse optional
+	simd: modifier in schedule clause.
+
+2015-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_linear): Handle linear clause
+	modifiers.
+	* semantics.c (finish_omp_clauses): Diagnose linear(ref(var))
+	where var isn't a reference.  Don't use pointer_sum
+	for ref(var), just multiply by size of pointer.
+
+2015-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_map): Handle release
+	map kind.  Adjust to use GOMP_MAP_ALWAYS_* and only on
+	clauses where it makes sense.
+	(cp_parser_omp_target_data): Diagnose invalid map-kind
+	for the construct.
+	(cp_parser_omp_target_enter_data): Adjust for new encoding
+	of always,from, always,to and always,tofrom.  Accept
+	GOMP_MAP_POINTER.
+	(cp_parser_omp_target_exit_data): Likewise.
+	(cp_parser_omp_target): Diagnose invalid map-kind for the
+	construct.
+
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Allow array sections
+	for OMP_CLAUSE_REDUCTION.
+	* semantics.c (omp_clause_decl_field, omp_note_field_privatization,
+	omp_privatize_field): New functions.
+	(omp_clause_printable_decl): Use omp_clause_decl_field, move
+	earlier.
+	(handle_omp_array_sections_1): Fix a comment typo.
+	Handle OMP_CLAUSE_REDUCTION array sections.  Report zero size
+	array sections on OMP_CLAUSE_DEPEND.
+	(handle_omp_array_sections): Handle OMP_CLAUSE_REDUCTION array
+	sections.
+	(finish_omp_reduction_clause): Handle OMP_CLAUSE_REDUCTION array
+	sections and arrays.
+	(finish_omp_clauses): Likewise.  Use omp_note_field_privatization,
+	omp_clause_decl_field and omp_privatize_field.
+
+2015-06-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (omp_clause_printable_decl): New function.
+	(finish_omp_reduction_clause, finish_omp_clauses): Use it.
+
+2015-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_lambda_body): Call
+	save_omp_privatization_clauses and restore_omp_privatization_clauses
+	around lambda body parsing.
+	(cp_parser_oacc_all_clauses, cp_parser_omp_all_clauses,
+	cp_parser_omp_for_loop, cp_omp_split_clauses, cp_parser_oacc_cache,
+	cp_parser_cilk_for): Adjust finish_omp_clauses callers.
+	(cp_parser_pragma): Call push_omp_privatization_clauses and
+	pop_omp_privatization_clauses around OpenMP pragma parsing.
+	* cp-gimplify.c (cxx_omp_disregard_value_expr): New function.
+	* pt.c (apply_late_template_attributes): Adjust finish_omp_clauses
+	and tsubst_omp_clauses callers.
+	(tsubst_omp_clauses): Add ALLOW_FIELDS argument, adjust possible
+	non-static data member arguments and pass ALLOW_FIELDS down to
+	finish_omp_clauses.
+	(tsubst_omp_for_iterator): Adjust finish_omp_clauses caller.
+	(tsubst_expr): Adjust tsubst_omp_clauses caller, call
+	push_omp_privatization_clauses and pop_omp_privatization_clauses
+	around instantiation of the constructs.
+	* cp-tree.h (DECL_OMP_PRIVATIZED_MEMBER): Define.
+	(finish_omp_clauses): Add ALLOW_FIELDS argument to prototype.
+	(push_omp_privatization_clauses, pop_omp_privatization_clauses,
+	save_omp_privatization_clauses, restore_omp_privatization_clauses,
+	cxx_omp_disregard_value_expr): New prototypes.
+	* cp-objcp-common.h (LANG_HOOKS_OMP_DISREGARD_VALUE_EXPR): Redefine.
+	* semantics.c (omp_private_member_map, omp_private_member_vec): New
+	variables.
+	(finish_non_static_data_member): Return dummy decl for privatized
+	non-static data members.
+	(finish_omp_clauses): Add ALLOW_FIELDS argument.  Handle
+	non-static data member privatization in {,first,last,copy}private,
+	reduction and linear clauses.  Diagnose linear with predetermined
+	decls.
+	(push_omp_privatization_clauses, pop_omp_privatization_clauses,
+	save_omp_privatization_clauses, restore_omp_privatization_clauses):
+	New functions.
+	(finish_omp_for): Adjust finish_omp_clauses caller.
+
+2015-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-gimplify.c (cxx_omp_finish_clause): Don't complain about
+	reference type here.
+	* semantics.c (finish_omp_clauses): Allow references in
+	{{,first,last}private,linear} clauses.
+
+2015-05-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle grainsize, nogroup,
+	num_tasks, priority, simd and threads clauses.
+	(cp_parser_omp_clause_num_tasks, cp_parser_omp_clause_grainsize,
+	cp_parser_omp_clause_priority): New functions.
+	(cp_parser_omp_clause_ordered): Handle parsing of optional argument.
+	(cp_parser_omp_clause_nogroup, cp_parser_omp_clause_orderedkind):
+	New functions.
+	(cp_parser_omp_clause_depend): Add LOC argument.  Handle parsing of
+	depend(source) and partially handle depend(sink:vec).
+	(cp_parser_omp_clause_map): Parse optional always map type modifier.
+	Handle parsing of delete map kind.
+	(cp_parser_omp_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_{GRAINSIZE,NUM_TASKS,PRIORITY,NOGROUP,THREADS,SIMD}.
+	(OMP_SIMD_CLAUSE_MASK): Add simdlen clause.
+	(OMP_FOR_CLAUSE_MASK): Add linear clause.
+	(OMP_ORDERED_CLAUSE_MASK, OMP_ORDERED_DEPEND_CLAUSE_MASK): Define.
+	(cp_parser_omp_ordered): Handle parsing of the clauses, and if depend
+	clause is present, parse it as standalone directive.  Add CONTEXT
+	argument.
+	(OMP_TASK_CLAUSE_MASK): Add priority clause.
+	(cp_parser_omp_target_data): Diagnose if no map clauses are present.
+	(OMP_TARGET_ENTER_DATA_CLAUSE_MASK): Define.
+	(cp_parser_omp_target_enter_data): New function.
+	(OMP_TARGET_EXIT_DATA_CLAUSE_MASK): Define.
+	(cp_parser_omp_target_exit_data): New function.
+	(OMP_TARGET_UPDATE_CLAUSE_MASK, OMP_TARGET_CLAUSE_MASK): Add nowait
+	and depend clauses.
+	(cp_parser_omp_target): Handle #pragma omp target {enter,exit} data.
+	(OMP_TASKLOOP_CLAUSE_MASK): Define.
+	(cp_parser_omp_taskloop): New function.
+	(cp_parser_omp_construct): Don't handle PRAGMA_OMP_ORDERED here.
+	Handle PRAGMA_OMP_TASKLOOP.
+	(cp_parser_pragma): Handle PRAGMA_OMP_ORDERED directly.  Handle
+	PRAGMA_OMP_TASKLOOP.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_NUM_TASKS,
+	OMP_CLAUSE_GRAINSIZE, OMP_CLAUSE_PRIORITY, OMP_CLAUSE_NOGROUP,
+	OMP_CLAUSE_THREADS, OMP_CLAUSE_SIMD.  Handle argument
+	of OMP_CLAUSE_ORDERED.
+	(tsubst_expr): Handle OMP_TASKLOOP.
+	* semantics.c (finish_omp_clauses): Allow NULL OMP_CLAUSE_DECL
+	for OMP_CLAUSE_DEPEND_SOURCE.  Diagnose simdlen > safelen.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.  Warn about non-positive num_threads/num_teams/thread_limit
+	arguments.
+	* cp-gimplify.c (cp_gimplify_expr, cp_genericize_r): Handle
+	OMP_TASKLOOP.
+	* cp-tree.h (OMP_FOR_GIMPLIFYING_P): Adjust comment to
+	include OMP_TASKLOOP.
+
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_ordered): Clear
+	OMP_CLAUSE_ORDERED_EXPR.
+	(cp_parser_omp_ordered): Pass NULL_TREE as clauses
+	to c_finish_omp_ordered.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

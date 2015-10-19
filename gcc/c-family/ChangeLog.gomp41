@@ -1,0 +1,52 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Split OMP_CLAUSE_PRIORITY
+	to OMP_TASKLOOP.
+	* c-common.c (DEF_FUNCTION_TYPE_9, DEF_FUNCTION_TYPE_11): Define.
+	(DEF_FUNCTION_TYPE_10): Fix up a pasto.
+
+	* c-omp.c (c_omp_split_clauses): Fix up a comment.  Put
+	OMP_CLAUSE_LINEAR on OMP_FOR if not combined with OMP_SIMD.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (c_finish_omp_critical): Add CLAUSES argument
+	to the prototype.
+	* c-omp.c (c_finish_omp_critical): Likewise.  Set
+	OMP_CRITICAL_CLAUSES to it.
+	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_HINT.
+
+	* c-omp.c (c_omp_split_clauses): Clear OMP_CLAUSE_SCHEDULE_SIMD
+	when not combined with simd construct.
+
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Copy over also
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER.
+
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_for): Clear DECL_INITIAL.
+
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.c (omp_pragmas_simd): Add taskloop.
+	* c-common.c (DEF_FUNCTION_TYPE_10): Define.
+
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_ordered): Add CLAUSES argument, adjust
+	for building 2 operand tree instead of single operand tree.
+	(c_omp_split_clauses): Add taskloop simd splitting support.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OMP_TASKLOOP.
+	(enum pragma_omp_clause): Add
+	PRAGMA_OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	* c-common.h (enum c_omp_clause_split): Add C_OMP_CLAUSE_SPLIT_TASKLOOP
+	as alias to C_OMP_CLAUSE_SPLIT_FOR.
+	(c_finish_omp_ordered): Adjust prototype for CLAUSES argument addition.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

@@ -1134,6 +1134,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gomp_for *gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  kind = " distribute";
 	  break;
+	case GF_OMP_FOR_KIND_TASKLOOP:
+	  kind = " taskloop";
+	  break;
 	case GF_OMP_FOR_KIND_CILKFOR:
 	  kind = " _Cilk_for";
 	  break;
@@ -1173,6 +1176,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gomp_for *gs, int spc, int flags)
 	  break;
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  pp_string (buffer, "#pragma omp distribute");
+	  break;
+	case GF_OMP_FOR_KIND_TASKLOOP:
+	  pp_string (buffer, "#pragma omp taskloop");
 	  break;
 	case GF_OMP_FOR_KIND_CILKFOR:
 	  break;
@@ -1329,6 +1335,12 @@ dump_gimple_omp_target (pretty_printer *buffer, gomp_target *gs,
       break;
     case GF_OMP_TARGET_KIND_UPDATE:
       kind = " update";
+      break;
+    case GF_OMP_TARGET_KIND_ENTER_DATA:
+      kind = " enter data";
+      break;
+    case GF_OMP_TARGET_KIND_EXIT_DATA:
+      kind = " exit data";
       break;
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
       kind = " oacc_kernels";
@@ -1520,6 +1532,7 @@ dump_gimple_omp_critical (pretty_printer *buffer, gomp_critical *gs,
 			     flags, false);
 	  pp_right_paren (buffer);
 	}
+      dump_omp_clauses (buffer, gimple_omp_critical_clauses (gs), spc, flags);
       if (!gimple_seq_empty_p (gimple_omp_body (gs)))
 	{
 	  newline_and_indent (buffer, spc + 2);
@@ -1972,7 +1985,10 @@ dump_gimple_omp_task (pretty_printer *buffer, gomp_task *gs, int spc,
   else
     {
       gimple_seq body;
-      pp_string (buffer, "#pragma omp task");
+      if (gimple_omp_task_taskloop_p (gs))
+	pp_string (buffer, "#pragma omp taskloop");
+      else
+	pp_string (buffer, "#pragma omp task");
       dump_omp_clauses (buffer, gimple_omp_task_clauses (gs), spc, flags);
       if (gimple_omp_task_child_fn (gs))
 	{

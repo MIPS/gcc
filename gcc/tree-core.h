@@ -233,7 +233,10 @@ enum omp_clause_code {
                 into the shared one.
      Operand 3: OMP_CLAUSE_REDUCTION_PLACEHOLDER: A dummy VAR_DECL
                 placeholder used in OMP_CLAUSE_REDUCTION_{INIT,MERGE}.
-     Operand 4: OMP_CLAUSE_REDUCTION_PRIVATE_DECL: A private VAR_DECL of
+     Operand 4: OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER: Another dummy
+		VAR_DECL placeholder, used like the above for C/C++ array
+		reductions.
+     Operand 5: OMP_CLAUSE_REDUCTION_PRIVATE_DECL: A private VAR_DECL of
                 the original DECL associated with the reduction clause.  */
   OMP_CLAUSE_REDUCTION,
 
@@ -314,7 +317,7 @@ enum omp_clause_code {
   /* OpenMP clause: nowait.  */
   OMP_CLAUSE_NOWAIT,
 
-  /* OpenMP clause: ordered.  */
+  /* OpenMP clause: ordered [(constant-integer-expression)].  */
   OMP_CLAUSE_ORDERED,
 
   /* OpenMP clause: default.  */
@@ -370,6 +373,27 @@ enum omp_clause_code {
 
   /* OpenMP clause: taskgroup.  */
   OMP_CLAUSE_TASKGROUP,
+
+  /* OpenMP clause: priority (integer-expression).  */
+  OMP_CLAUSE_PRIORITY,
+
+  /* OpenMP clause: grainsize (integer-expression).  */
+  OMP_CLAUSE_GRAINSIZE,
+
+  /* OpenMP clause: num_tasks (integer-expression).  */
+  OMP_CLAUSE_NUM_TASKS,
+
+  /* OpenMP clause: nogroup.  */
+  OMP_CLAUSE_NOGROUP,
+
+  /* OpenMP clause: threads.  */
+  OMP_CLAUSE_THREADS,
+
+  /* OpenMP clause: simd.  */
+  OMP_CLAUSE_SIMD,
+
+  /* OpenMP clause: hint (integer-expression).  */
+  OMP_CLAUSE_HINT,
 
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_,
@@ -1232,6 +1256,8 @@ enum omp_clause_depend_kind
   OMP_CLAUSE_DEPEND_IN,
   OMP_CLAUSE_DEPEND_OUT,
   OMP_CLAUSE_DEPEND_INOUT,
+  OMP_CLAUSE_DEPEND_SOURCE,
+  OMP_CLAUSE_DEPEND_SINK,
   OMP_CLAUSE_DEPEND_LAST
 };
 
@@ -1244,6 +1270,14 @@ enum omp_clause_proc_bind_kind
   OMP_CLAUSE_PROC_BIND_CLOSE = 3,
   OMP_CLAUSE_PROC_BIND_SPREAD = 4,
   OMP_CLAUSE_PROC_BIND_LAST
+};
+
+enum omp_clause_linear_kind
+{
+  OMP_CLAUSE_LINEAR_DEFAULT,
+  OMP_CLAUSE_LINEAR_REF,
+  OMP_CLAUSE_LINEAR_VAL,
+  OMP_CLAUSE_LINEAR_UVAL
 };
 
 struct GTY(()) tree_exp {
@@ -1310,6 +1344,7 @@ struct GTY(()) tree_omp_clause {
     unsigned char		   map_kind;
     enum omp_clause_proc_bind_kind proc_bind_kind;
     enum tree_code                 reduction_code;
+    enum omp_clause_linear_kind    linear_kind;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's

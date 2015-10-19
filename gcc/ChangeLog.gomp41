@@ -1,0 +1,305 @@
+2015-06-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_TASK,
+	BUILT_IN_GOMP_TASKLOOP, BUILT_IN_GOMP_TASKLOOP_ULL): Add
+	priority argument (BT_INT).
+	* gcc/builtin-types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_ULL_ULL_ULL):
+	Removed.
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR_INT,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_INT_ULL_ULL_ULL):
+	New.
+	* omp-low.c (expand_task_call): Add priority argument to
+	GOMP_task* calls.  Or in GOMP_TASK_FLAG_PRIORITY into flags
+	if priority is present for GOMP_task call.
+
+	* gimplify.c (gimplify_scan_omp_clauses): For linear clause
+	on worksharing loop combined with parallel add shared clause
+	on the parallel.
+	* omp-low.c (lower_rec_input_clauses): Set lastprivate_firstprivate
+	flag for linear that needs copyin and copyout.
+	(expand_omp_for_generic, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk): Handle linear clauses on worksharing
+	loop.
+	(lower_omp_for): Adjust OMP_CLAUSE_DECL and OMP_CLAUSE_LINEAR_STEP
+	so that expand_omp_for_* can use it during expansion for linear
+	adjustments.
+
+2015-06-16  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* builtin-types.def (BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): New.
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR): Remove.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET): Replace GOMP_target with
+	GOMP_target_41.
+	(BUILT_IN_GOMP_TARGET_DATA): Replace GOMP_target_data with
+	GOMP_target_data_41.
+	(BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA): New.
+	* omp-low.c (expand_omp_target): Use
+	BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA for GF_OMP_TARGET_KIND_ENTER_DATA
+	and GF_OMP_TARGET_KIND_EXIT_DATA.
+	Do not pass obsolete pointer to new builtins.
+	(lower_omp_target): Use unsigned short for map kinds, except
+	BUILT_IN_GOMP_TARGET_UPDATE.
+
+2015-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.def (OMP_CRITICAL): Move before OMP_SINGLE.  Add
+	OMP_CRITICAL_CLAUSES operand.
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_HINT.
+	* tree.h (OMP_BODY): Replace OMP_CRITICAL with OMP_TASKGROUP.
+	(OMP_CRITICAL_CLAUSES): Define.
+	(OMP_CRITICAL_NAME): Adjust to be 3rd operand instead of 2nd.
+	(OMP_CLAUSE_NUM_TASKS_EXPR): Formatting fix.
+	(OMP_CLAUSE_HINT_EXPR): Define.
+	* tree.c (omp_clause_num_ops): Add entry for OMP_CLAUSE_HINT.
+	(omp_clause_code_name): Likewise.
+	(walk_tree_1): Handle OMP_CLAUSE_HINT clause.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	(dump_generic_node): Dump OMP_CRITICAL_CLAUSES for OMP_CRITICAL.
+	* gimple.h (gomp_critical): Add clauses field before name.
+	(gimple_build_omp_critical): Adjust prototype.
+	(gimple_omp_critical_name_ptr, gimple_omp_critical_set_name): Fix
+	up function comments.
+	(gimple_omp_critical_clauses, gimple_omp_critical_clauses_ptr,
+	gimple_omp_critical_set_clauses): New functions.
+	* gimple.c (gimple_build_omp_critical): Add CLAUSES argument,
+	set it.
+	(gimple_copy): Unshare and copy gimple_omp_critical_clauses.
+	* gimple-pretty-print.c (dump_gimple_omp_critical): Print
+	gimple_omp_critical_clauses.
+	* gimple-walk.c (walk_gimple_op): Walk
+	gimple_omp_critical_clauses_ptr.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_HINT.
+	(gimplify_expr): Gimplify OMP_CRITICAL_CLAUSES, adjust
+	gimple_build_omp_critical caller.
+	* tree-inline.c (remap_gimple_stmt): Adjust
+	gimple_build_omp_critical caller.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Handle OMP_CLAUSE_HINT clause.
+
+	* tree.h (OMP_CLAUSE_SCHEDULE_SIMD): Define.
+	* omp-low.c (struct omp_for_data): Add simd_schedule field.
+	(extract_omp_for_data): Initialize it.
+	(omp_adjust_chunk_size): New function.
+	(get_ws_args_for, expand_omp_for_generic,
+	expand_omp_for_static_chunk): Use it.
+	* tree-pretty-print.c (dump_omp_clause): Print simd: modifier
+	on OMP_CLAUSE_SCHEDULE.
+
+2015-06-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (enum omp_clause_linear_kind): New.
+	(struct tree_omp_clause): Add subcode.linear_kind.
+	* tree.h (OMP_CLAUSE_LINEAR_KIND): Define.
+	* tree-pretty-print.h (dump_omp_clause): Dump linear
+	clause modifiers.
+
+	* omp-low.c (lower_omp_target): Accept GOMP_MAP_RELEASE,
+	GOMP_MAP_ALWAYS_TO, GOMP_MAP_ALWAYS_FROM and GOMP_MAP_ALWAYS_TOFROM.
+	Accept GOMP_MAP_FORCE* except for FORCE_DEALLOC only for OpenACC.
+	* tree-pretty-print.c (dump_omp_clause): Print GOMP_MAP_FORCE_*
+	as force_*, handle GOMP_MAP_ALWAYS_*.
+
+2015-06-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (omp_clause_num_ops): Bump number of OMP_CLAUSE_REDUCTION
+	arguments to 5.
+	(walk_tree_1): Adjust for 5 instead of 4 OMP_CLAUSE_REDUCTION
+	arguments.
+	* tree-core.h (OMP_CLAUSE_REDUCTION): Document
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER.
+	* tree.h (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER): Define.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Temporarily adjust context of
+	OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER too if non-NULL.
+	* gimplify.c (omp_add_variable): Call omp_notice_variable
+	on TYPE_SIZE_UNIT only if it is a DECL_P.
+	(find_decl_expr): New function.
+	(gimplify_scan_omp_clauses): Handle OMP_CLAUSE_REDUCTION
+	with MEM_REF OMP_CLAUSE_DECL.
+	* omp-low.c (scan_sharing_clauses, lower_rec_input_clauses,
+	lower_reduction_clauses, lower_send_clauses): Likewise.
+
+2015-06-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (omp_check_private): Handle
+	omp_member_access_dummy_var vars.
+	(gimplify_scan_omp_clauses): Set DECL_NAME on
+	omp_member_access_dummy_var vars.
+	* omp-low.c (omp_member_access_dummy_var, unshare_and_remap_1,
+	unshare_and_remap): New functions.
+	(use_pointer_for_field): omp_member_access_dummy_var vars
+	don't need to be made addressable.
+	(build_outer_var_ref): Handle omp_member_access_dummy_var vars.
+	Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE references.
+	(lower_send_clauses): Likewise.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE
+	references.
+	(lower_send_shared_vars): Handle omp_member_access_dummy_var vars.
+	(create_task_copyfn): Fix up handling of
+	OMP_CLAUSE_SHARED_FIRSTPRIVATE decls.
+	(lower_omp_regimplify_p): Use IS_TYPE_OR_DECL_P macro.
+	(struct lower_omp_regimplify_operands_data): New type.
+	(lower_omp_regimplify_operands_p, lower_omp_regimplify_operands): New
+	functions.
+	(lower_omp_1): Use lower_omp_regimplify_operands instead of
+	gimple_regimplify_operands.
+	* omp-low.h (omp_member_access_dummy_var): New prototype.
+
+2015-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_rec_input_clauses): Unshare new_var
+	before passing it to omp_clause_{default,copy}_ctor.
+
+2015-05-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_STANDALONE_CLAUSES): Adjust to cover
+	OMP_TARGET_{ENTER,EXIT}_DATA.
+	(OMP_CLAUSE_SHARED_FIRSTPRIVATE): Define.
+	* gimplify.c (gimplify_scan_omp_clauses): Add lastprivate
+	clause to outer taskloop if needed.
+	(gimplify_omp_for): Fix a typo.  Fixup OMP_TASKLOOP
+	gimplification.
+	* omp-low.c (omp_copy_decl_2): If var is TREE_ADDRESSABLE
+	listed in task_shared_vars, clear TREE_ADDRESSABLE on the
+	copy.
+	(build_outer_var_ref): Add lastprivate argument, pass it through
+	recursively.  Handle lastprivate on taskloop construct.
+	(install_var_field): Allow multiple fields for a single
+	decl - one for firstprivate, another for shared clauses
+	on task.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(add_taskreg_looptemp_clauses): Add one more _looptemp_ clause
+	for taskloop GIMPLE_OMP_TASK, if it is collapse > 1 with
+	non-constant iteration count and there is lastprivate clause
+	on the inner GIMPLE_OMP_FOR.
+	(finish_taskreg_scan): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(lower_rec_input_clauses): Likewise.  Ignore all
+	OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE clauses on taskloop construct.
+	(lower_lastprivate_clauses): For OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE
+	on taskloop lookup decl in outer context.  Pass true
+	to build_outer_var_ref lastprivate argument.
+	(lower_send_clauses): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+	(lower_send_shared_vars): Ignore fields with NULL or
+	FIELD_DECL abstract origin.
+	(expand_task_call): Use GOMP_TASK_* defines instead of
+	hardcoded integers.
+	(expand_omp_simd): Handle addressable fd->loop.v.
+	(expand_omp_taskloop_for_outer): Initialize the last
+	_looptemp_ with total iteration count if needed.
+	(expand_omp_taskloop_for_inner): Handle bias and broken_loop.
+	(lower_omp_for_lastprivate): Use last _looptemp_ clause
+	on taskloop for comparison.
+	(create_task_copyfn): Handle OMP_CLAUSE_SHARED_FIRSTPRIVATE.
+
+2015-05-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (enum gf_mask): Add GF_OMP_TASK_TASKLOOP.
+	Add GF_OMP_FOR_KIND_TASKLOOP and renumber GF_OMP_FOR_*.
+	(gimple_omp_task_taskloop_p, gimple_omp_task_set_taskloop_p): New
+	functions.
+	* gimplify.c (is_gimple_stmt): Return true for  OMP_TARGET,
+	OMP_TARGET_DATA, OMP_TARGET_UPDATE, OMP_TARGET_ENTER_DATA,
+	OMP_TARGET_EXIT_DATA, OMP_TASKLOOP and OMP_TEAMS.
+	(gimplify_omp_for): Handle OMP_TASKLOOP.
+	(gimplify_expr): Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Handle taskloop.
+	(dump_gimple_omp_task): Likewise.
+	* omp-low.c (is_taskloop_ctx): New function.
+	(is_taskreg_ctx): Use is_parallel_ctx and is_task_ctx helpers.
+	(extract_omp_for_data): Use OMP_CLAUSE_SCHEDULE_RUNTIME for
+	taskloop.
+	(scan_sharing_clauses): Allow _LOOPTEMP_ clause on GOMP_TASK.
+	(find_combined_for): Allow searching for different GIMPLE_OMP_FOR
+	kinds.
+	(add_taskreg_looptemp_clauses): New function.
+	(scan_omp_parallel): Use it.
+	(scan_omp_task): Likewise.
+	(finish_taskreg_scan): For taskloop, move fields for the first two
+	_LOOPTEMP_ clauses first.
+	(check_omp_nesting_restrictions): Allow the sandwiched taskloop
+	constructs.
+	(lower_rec_input_clauses): Allow _LOOPTEMP_ clause on GOMP_TASK.
+	(lower_send_clauses): Ignore first two _LOOPTEMP_ clauses in
+	taskloop GOMP_TASK.
+	(expand_task_call): Handle taskloop construct expansion.  Add
+	REGION argument.
+	(expand_omp_taskreg): Adjust caller.
+	(expand_omp_for_init_vars): Handle GOMP_TASK inner_stmt.
+	(expand_omp_taskloop_for_outer, expand_omp_taskloop_for_inner): New
+	functions.
+	(expand_omp_for): Call them.
+	(lower_omp_for): Handle taskloop constructs.
+	* omp-builtins.def (BUILT_IN_GOMP_TASKLOOP,
+	BUILT_IN_GOMP_TASKLOOP_ULL): New builtins.
+	* builtin-types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_UINT_LONG_ULL_ULL_ULL): New.
+
+2015-04-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (enum gf_mask): Increment GF_OMP_TARGET_KIND_MASK
+	to 15 from 7.  Add GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA, renumber GF_OMP_TARGET_KIND_OACC*.
+	* tree.h (OMP_ORDERED_CLAUSES, OMP_TARGET_ENTER_DATA_CLAUSES,
+	OMP_TARGET_EXIT_DATA_CLAUSES, OMP_CLAUSE_NUM_TASKS_EXPR,
+	OMP_CLAUSE_GRAINSIZE_EXPR, OMP_CLAUSE_PRIORITY_EXPR,
+	OMP_CLAUSE_ORDERED_EXPR): Define.
+	* tree.def (OMP_TASKLOOP, OMP_TARGET_ENTER_DATA,
+	OMP_TARGET_EXIT_DATA): New tree codes.
+	(OMP_ORDERED): Add second operand - OMP_ORDERED_CLAUSES.  Move
+	before OMP_SINGLE, so that OMP_CLAUSES can be used on it too.
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(gimplify_adjust_omp_clauses): Likewise.
+	(gimplify_omp_target_update): Handle OMP_TARGET_ENTER_DATA
+	and OMP_TARGET_EXIT_DATA.
+	(gimplify_expr): Likewise.
+	* tree.c (omp_clause_num_ops): Change OMP_CLAUSE_ORDERED operand
+	count to 1 from 0.  Add entries for
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	(omp_clause_code_name): Add names for
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	(walk_tree_1): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.  Handle OMP_CLAUSE_ORDERED as other 1 operand clauses.
+	* tree-nested.c (convert_nonlocal_omp_clauses): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(convert_local_omp_clauses): Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Handle
+	GF_OMP_TARGET_KIND_ENTER_DATA and GF_OMP_TARGET_KIND_EXIT_DATA.
+	* tree-core.h (enum omp_clause_code): Add
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}.
+	(enum omp_clause_depend_kind): Add OMP_CLAUSE_DEPEND_{SOURCE,SINK}.
+	* omp-low.c (scan_sharing_clauses): Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD,SIMDLEN}
+	clauses.
+	(check_omp_nesting_restrictions): Handle
+	GF_OMP_TARGET_KIND_ENTER_DATA and GF_OMP_TARGET_KIND_EXIT_DATA.
+	Formatting fixes.
+	(expand_omp_target): Handle GF_OMP_TARGET_KIND_ENTER_DATA and
+	GF_OMP_TARGET_KIND_EXIT_DATA.
+	(build_omp_regions_1, make_gimple_omp_edges): Likewise.
+	(lower_omp_target): Likewise.  Don't assert is_gimple_omp_oacc
+	for certain OpenMP 4.1 map kinds + modifiers.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	OMP_CLAUSE_ORDERED_EXPR on OMP_CLAUSE_ORDERED.  Handle
+	OMP_CLAUSE_DEPEND_SOURCE on OMP_CLAUSE_DEPEND.  Adjust printing
+	OpenMP 4.1 new map kinds and modifiers.  Handle
+	OMP_CLAUSE_{PRIORITY,GRAINSIZE,NUM_TASKS,NOGROUP,THREADS,SIMD}
+	clauses.
+	(dump_generic_node): Handle OMP_{TASKLOOP,TARGET_{ENTER,EXIT}_DATA}.
+	Dump OMP_ORDERED_CLAUSES for OMP_ORDERED.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
