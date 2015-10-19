@@ -1459,12 +1459,10 @@ hsa_insn_seg::operator new (size_t)
 /* Constructor of class representing a call instruction.  CALLEE is the tree
    representation of the function being called.  */
 
-hsa_insn_call::hsa_insn_call (tree callee) : hsa_insn_basic (0, BRIG_OPCODE_CALL)
+hsa_insn_call::hsa_insn_call (tree callee)
+  : hsa_insn_basic (0, BRIG_OPCODE_CALL), m_called_function (callee),
+  m_args_code_list (NULL), m_result_symbol (NULL), m_result_code_list (NULL)
 {
-  called_function = callee;
-  args_code_list = NULL;
-  result_symbol = NULL;
-  result_code_list = NULL;
 }
 
 /* New operator to allocate call instruction from pool alloc.  */
@@ -3155,7 +3153,7 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
     return;
 
   hsa_insn_call *call_insn = new hsa_insn_call (decl);
-  hsa_cfun->called_functions.safe_push (call_insn->called_function);
+  hsa_cfun->called_functions.safe_push (call_insn->m_called_function);
 
   /* Argument block start.  */
   hsa_insn_arg_block *arg_start = new hsa_insn_arg_block
@@ -3186,13 +3184,13 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (parm, hbb, ssa_map);
       hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
 
-      call_insn->input_args.safe_push (addr->m_symbol);
+      call_insn->m_input_args.safe_push (addr->m_symbol);
       hbb->append_insn (mem);
 
-      call_insn->args_symbols.safe_push (addr->m_symbol);
+      call_insn->m_args_symbols.safe_push (addr->m_symbol);
     }
 
-  call_insn->args_code_list = new hsa_op_code_list (args);
+  call_insn->m_args_code_list = new hsa_op_code_list (args);
   hbb->append_insn (call_insn);
 
   tree result_type = TREE_TYPE (TREE_TYPE (decl));
@@ -3237,9 +3235,9 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 	  hbb->append_insn (result_insn);
 	}
 
-      call_insn->output_arg = addr->m_symbol;
-      call_insn->result_symbol = addr->m_symbol;
-      call_insn->result_code_list = new hsa_op_code_list (1);
+      call_insn->m_output_arg = addr->m_symbol;
+      call_insn->m_result_symbol = addr->m_symbol;
+      call_insn->m_result_code_list = new hsa_op_code_list (1);
     }
   else
     {
@@ -3251,7 +3249,7 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 	  return;
 	}
 
-      call_insn->result_code_list = new hsa_op_code_list (0);
+      call_insn->m_result_code_list = new hsa_op_code_list (0);
     }
 
   /* Argument block start.  */

@@ -1535,16 +1535,16 @@ emit_call_insn (hsa_insn_basic *insn)
   repr.base.type = htole16 (BRIG_TYPE_NONE);
 
   /* Operand 0: out-args.  */
-  operand_offsets[0] = htole32 (enqueue_op (call->result_code_list));
+  operand_offsets[0] = htole32 (enqueue_op (call->m_result_code_list));
 
   /* Operand 1: func */
-  unsigned int offset = enqueue_op (&call->func);
+  unsigned int offset = enqueue_op (&call->m_func);
   function_call_linkage.safe_push
-    (function_linkage_pair (call->called_function, offset));
+    (function_linkage_pair (call->m_called_function, offset));
 
   operand_offsets[1] = htole32 (offset);
   /* Operand 2: in-args.  */
-  operand_offsets[2] = htole32 (enqueue_op (call->args_code_list));
+  operand_offsets[2] = htole32 (enqueue_op (call->m_args_code_list));
 
   /* We have 3 operands so use 3 * 4 for the byteCount.  */
   byteCount = htole32 (3 * 4);
@@ -1572,17 +1572,17 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
 	repr.base.kind = htole16 (insn->kind);
 	brig_code.add (&repr, sizeof (repr));
 
-	for (unsigned i = 0; i < insn->call_insn->input_args.length (); i++)
+	for (unsigned i = 0; i < insn->call_insn->m_input_args.length (); i++)
 	  {
-	    insn->call_insn->args_code_list->m_offsets[i] = htole32
-	      (emit_directive_variable (insn->call_insn->input_args[i]));
+	    insn->call_insn->m_args_code_list->m_offsets[i] = htole32
+	      (emit_directive_variable (insn->call_insn->m_input_args[i]));
 	    brig_insn_count++;
 	  }
 
-	if (insn->call_insn->result_symbol)
+	if (insn->call_insn->m_result_symbol)
 	  {
-	    insn->call_insn->result_code_list->m_offsets[0] = htole32
-	      (emit_directive_variable (insn->call_insn->output_arg));
+	    insn->call_insn->m_result_code_list->m_offsets[0] = htole32
+	      (emit_directive_variable (insn->call_insn->m_output_arg));
 	    brig_insn_count++;
 	  }
 

@@ -698,31 +698,31 @@ public:
   void *operator new (size_t);
 
   /* Called function */
-  tree called_function;
+  tree m_called_function;
 
   /* Input formal arguments.  */
-  auto_vec <hsa_symbol *> input_args;
+  auto_vec <hsa_symbol *> m_input_args;
 
   /* Input arguments store instructions.  */
-  auto_vec <hsa_insn_mem *> input_arg_insns;
+  auto_vec <hsa_insn_mem *> m_input_arg_insns;
 
   /* Output argument, can be NULL for void functions.  */
-  hsa_symbol *output_arg;
+  hsa_symbol *m_output_arg;
 
   /* Called function code reference.  */
-  hsa_op_code_ref func;
+  hsa_op_code_ref m_func;
 
   /* Argument symbols.  */
-  auto_vec <hsa_symbol *> args_symbols;
+  auto_vec <hsa_symbol *> m_args_symbols;
 
   /* Code list for arguments of the function.  */
-  hsa_op_code_list *args_code_list;
+  hsa_op_code_list *m_args_code_list;
 
   /* Result symbol.  */
-  hsa_symbol *result_symbol;
+  hsa_symbol *m_result_symbol;
 
   /* Code list for result of the function.  */
-  hsa_op_code_list *result_code_list;
+  hsa_op_code_list *m_result_code_list;
 private:
   /* Make the default constructor inaccessible.  */
   hsa_insn_call () : hsa_insn_basic (0, BRIG_OPCODE_CALL) {}
