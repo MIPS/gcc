@@ -933,7 +933,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
   else if (is_a <hsa_insn_arg_block *> (insn))
     {
       hsa_insn_arg_block *arg_block = as_a <hsa_insn_arg_block *> (insn);
-      bool start_p = arg_block->kind == BRIG_KIND_DIRECTIVE_ARG_BLOCK_START;
+      bool start_p = arg_block->m_kind == BRIG_KIND_DIRECTIVE_ARG_BLOCK_START;
       char c = start_p ? '{' : '}';
 
       if (start_p)

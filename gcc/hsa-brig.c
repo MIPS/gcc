@@ -1521,7 +1521,7 @@ emit_cvt_insn (hsa_insn_basic *insn)
    within a call block instruction.  */
 
 static void
-emit_call_insn (hsa_insn_basic *insn)
+emit_m_call_insn (hsa_insn_basic *insn)
 {
   hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn);
   struct BrigInstBr repr;
@@ -1563,26 +1563,26 @@ emit_call_insn (hsa_insn_basic *insn)
 static void
 emit_arg_block_insn (hsa_insn_arg_block *insn)
 {
-  switch (insn->kind)
+  switch (insn->m_kind)
     {
     case BRIG_KIND_DIRECTIVE_ARG_BLOCK_START:
       {
 	struct BrigDirectiveArgBlockStart repr;
 	repr.base.byteCount = htole16 (sizeof (repr));
-	repr.base.kind = htole16 (insn->kind);
+	repr.base.kind = htole16 (insn->m_kind);
 	brig_code.add (&repr, sizeof (repr));
 
-	for (unsigned i = 0; i < insn->call_insn->m_input_args.length (); i++)
+	for (unsigned i = 0; i < insn->m_call_insn->m_input_args.length (); i++)
 	  {
-	    insn->call_insn->m_args_code_list->m_offsets[i] = htole32
-	      (emit_directive_variable (insn->call_insn->m_input_args[i]));
+	    insn->m_call_insn->m_args_code_list->m_offsets[i] = htole32
+	      (emit_directive_variable (insn->m_call_insn->m_input_args[i]));
 	    brig_insn_count++;
 	  }
 
-	if (insn->call_insn->m_result_symbol)
+	if (insn->m_call_insn->m_result_symbol)
 	  {
-	    insn->call_insn->m_result_code_list->m_offsets[0] = htole32
-	      (emit_directive_variable (insn->call_insn->m_output_arg));
+	    insn->m_call_insn->m_result_code_list->m_offsets[0] = htole32
+	      (emit_directive_variable (insn->m_call_insn->m_output_arg));
 	    brig_insn_count++;
 	  }
 
@@ -1592,7 +1592,7 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
       {
 	struct BrigDirectiveArgBlockEnd repr;
 	repr.base.byteCount = htole16 (sizeof (repr));
-	repr.base.kind = htole16 (insn->kind);
+	repr.base.kind = htole16 (insn->m_kind);
 	brig_code.add (&repr, sizeof (repr));
 	break;
       }
@@ -1790,7 +1790,7 @@ emit_insn (hsa_insn_basic *insn)
     }
   if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
     {
-      emit_call_insn (call);
+      emit_m_call_insn (call);
       return;
     }
   if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))

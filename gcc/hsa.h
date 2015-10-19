@@ -755,10 +755,10 @@ public:
   void *operator new (size_t);
 
   /* Kind of argument block.  */
-  BrigKind kind;
+  BrigKind m_kind;
 
   /* Call instruction.  */
-  hsa_insn_call *call_insn;
+  hsa_insn_call *m_call_insn;
 private:
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */

@@ -1477,8 +1477,8 @@ hsa_insn_call::operator new (size_t)
    a call in HSAIL.  */
 hsa_insn_arg_block::hsa_insn_arg_block (BrigKind brig_kind,
 					hsa_insn_call * call)
-  : hsa_insn_basic (0, HSA_OPCODE_ARG_BLOCK), kind (brig_kind),
-  call_insn (call)
+  : hsa_insn_basic (0, HSA_OPCODE_ARG_BLOCK), m_kind (brig_kind),
+  m_call_insn (call)
 {
 }
 
