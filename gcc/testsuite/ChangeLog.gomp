@@ -1,3 +1,13 @@
+2015-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/pr67521.c: Add dg-error directives.
+	* gcc.dg/gomp/loop-1.c: New test.
+	* g++.dg/gomp/pr38639.C (foo): Adjust dg-error.
+	(bar): Remove dg-message.
+	* g++.dg/gomp/loop-1.C: New test.
+	* g++.dg/gomp/loop-2.C: New test.
+	* g++.dg/gomp/loop-3.C: New test.
+
 2015-10-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/reduction-1.c (foo): Don't expect diagnostics

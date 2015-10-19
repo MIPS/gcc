@@ -32447,6 +32447,7 @@ cp_parser_omp_for_loop_init (cp_parser *parser,
 			     tree &this_pre_body,
 			     vec<tree, va_gc> *for_block,
 			     tree &init,
+			     tree &orig_init,
 			     tree &decl,
 			     tree &real_decl)
 {
@@ -32544,6 +32545,7 @@ cp_parser_omp_for_loop_init (cp_parser *parser,
 	      cp_finish_decl (decl, init, !is_non_constant_init,
 			      asm_specification,
 			      LOOKUP_ONLYCONVERTING);
+	      orig_init = init;
 	      if (CLASS_TYPE_P (TREE_TYPE (decl)))
 		{
 		  vec_safe_push (for_block, this_pre_body);
@@ -32621,6 +32623,7 @@ cp_parser_omp_for_loop_init (cp_parser *parser,
 	  cp_parser_parse_definitely (parser);
 	  cp_parser_require (parser, CPP_EQ, RT_EQ);
 	  rhs = cp_parser_assignment_expression (parser);
+	  orig_init = rhs;
 	  finish_expr_stmt (build_x_modify_expr (EXPR_LOCATION (rhs),
 						 decl, NOP_EXPR,
 						 rhs,
@@ -32650,13 +32653,14 @@ static tree
 cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
 			tree *cclauses)
 {
-  tree init, cond, incr, body, decl, pre_body = NULL_TREE, ret;
+  tree init, orig_init, cond, incr, body, decl, pre_body = NULL_TREE, ret;
   tree real_decl, initv, condv, incrv, declv;
   tree this_pre_body, cl, ordered_cl = NULL_TREE;
   location_t loc_first;
   bool collapse_err = false;
   int i, collapse = 1, ordered = 0, count, nbraces = 0;
   vec<tree, va_gc> *for_block = make_tree_vector ();
+  auto_vec<tree, 4> orig_inits;
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
@@ -32723,13 +32727,13 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
       if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
 	return NULL;
 
-      init = decl = real_decl = NULL;
+      init = orig_init = decl = real_decl = NULL;
       this_pre_body = push_stmt_list ();
 
       add_private_clause
 	= cp_parser_omp_for_loop_init (parser, code,
 				       this_pre_body, for_block,
-				       init, decl, real_decl);
+				       init, orig_init, decl, real_decl);
 
       cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
       if (this_pre_body)
@@ -32861,6 +32865,11 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
       TREE_VEC_ELT (initv, i) = init;
       TREE_VEC_ELT (condv, i) = cond;
       TREE_VEC_ELT (incrv, i) = incr;
+      if (orig_init)
+	{
+	  orig_inits.safe_grow_cleared (i + 1);
+	  orig_inits[i] = orig_init;
+	}
 
       if (i == count - 1)
 	break;
@@ -32918,7 +32927,7 @@ cp_parser_omp_for_loop (cp_parser *parser, enum tree_code code, tree clauses,
     ret = NULL_TREE;
   else
     ret = finish_omp_for (loc_first, code, declv, NULL, initv, condv, incrv,
-			  body, pre_body, clauses);
+			  body, pre_body, &orig_inits, clauses);
 
   while (nbraces)
     {

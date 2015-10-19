@@ -683,12 +683,171 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
       OMP_FOR_INCR (t) = incrv;
       OMP_FOR_BODY (t) = body;
       OMP_FOR_PRE_BODY (t) = pre_body;
-      if (code == OMP_FOR)
-	OMP_FOR_ORIG_DECLS (t) = orig_declv;
+      OMP_FOR_ORIG_DECLS (t) = orig_declv;
 
       SET_EXPR_LOCATION (t, locus);
-      return add_stmt (t);
+      return t;
     }
+}
+
+/* Type for passing data in between c_omp_check_loop_iv and
+   c_omp_check_loop_iv_r.  */
+
+struct c_omp_check_loop_iv_data
+{
+  tree declv;
+  bool fail;
+  location_t stmt_loc;
+  location_t expr_loc;
+  int kind;
+  walk_tree_lh lh;
+  hash_set<tree> *ppset;
+};
+
+/* Helper function called via walk_tree, to diagnose uses
+   of associated loop IVs inside of lb, b and incr expressions
+   of OpenMP loops.  */
+   
+static tree
+c_omp_check_loop_iv_r (tree *tp, int *walk_subtrees, void *data)
+{
+  struct c_omp_check_loop_iv_data *d
+    = (struct c_omp_check_loop_iv_data *) data;
+  if (DECL_P (*tp))
+    {
+      int i;
+      for (i = 0; i < TREE_VEC_LENGTH (d->declv); i++)
+	if (*tp == TREE_VEC_ELT (d->declv, i))
+	  {
+	    location_t loc = d->expr_loc;
+	    if (loc == UNKNOWN_LOCATION)
+	      loc = d->stmt_loc;
+	    switch (d->kind)
+	      {
+	      case 0:
+		error_at (loc, "initializer expression refers to "
+			       "iteration variable %qD", *tp);
+		break;
+	      case 1:
+		error_at (loc, "condition expression refers to "
+			       "iteration variable %qD", *tp);
+		break;
+	      case 2:
+		error_at (loc, "increment expression refers to "
+			       "iteration variable %qD", *tp);
+		break;
+	      }
+	    d->fail = true;
+	  }
+    }
+  /* Don't walk dtors added by C++ wrap_cleanups_r.  */
+  else if (TREE_CODE (*tp) == TRY_CATCH_EXPR
+	   && TRY_CATCH_IS_CLEANUP (*tp))
+    {
+      *walk_subtrees = 0;
+      return walk_tree_1 (&TREE_OPERAND (*tp, 0), c_omp_check_loop_iv_r, data,
+			  d->ppset, d->lh);
+    }
+
+  return NULL_TREE;
+}
+
+/* Diagnose invalid references to loop iterators in lb, b and incr
+   expressions.  */
+
+bool
+c_omp_check_loop_iv (tree stmt, tree declv, walk_tree_lh lh)
+{
+  hash_set<tree> pset;
+  struct c_omp_check_loop_iv_data data;
+  int i;
+
+  data.declv = declv;
+  data.fail = false;
+  data.stmt_loc = EXPR_LOCATION (stmt);
+  data.lh = lh;
+  data.ppset = &pset;
+  for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INIT (stmt)); i++)
+    {
+      tree init = TREE_VEC_ELT (OMP_FOR_INIT (stmt), i);
+      gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+      tree decl = TREE_OPERAND (init, 0);
+      tree cond = TREE_VEC_ELT (OMP_FOR_COND (stmt), i);
+      gcc_assert (COMPARISON_CLASS_P (cond));
+      gcc_assert (TREE_OPERAND (cond, 0) == decl);
+      tree incr = TREE_VEC_ELT (OMP_FOR_INCR (stmt), i);
+      data.expr_loc = EXPR_LOCATION (TREE_OPERAND (init, 1));
+      data.kind = 0;
+      walk_tree_1 (&TREE_OPERAND (init, 1),
+		   c_omp_check_loop_iv_r, &data, &pset, lh);
+      /* Don't warn for C++ random access iterators here, the
+	 expression then involves the subtraction and always refers
+	 to the original value.  The C++ FE needs to warn on those
+	 earlier.  */
+      if (decl == TREE_VEC_ELT (declv, i))
+	{
+	  data.expr_loc = EXPR_LOCATION (cond);
+	  data.kind = 1;
+	  walk_tree_1 (&TREE_OPERAND (cond, 1),
+		       c_omp_check_loop_iv_r, &data, &pset, lh);
+	}
+      if (TREE_CODE (incr) == MODIFY_EXPR)
+	{
+	  gcc_assert (TREE_OPERAND (incr, 0) == decl);
+	  incr = TREE_OPERAND (incr, 1);
+	  data.kind = 2;
+	  if (TREE_CODE (incr) == PLUS_EXPR
+	      && TREE_OPERAND (incr, 1) == decl)
+	    {
+	      data.expr_loc = EXPR_LOCATION (TREE_OPERAND (incr, 0));
+	      walk_tree_1 (&TREE_OPERAND (incr, 0),
+			   c_omp_check_loop_iv_r, &data, &pset, lh);
+	    }
+	  else
+	    {
+	      data.expr_loc = EXPR_LOCATION (TREE_OPERAND (incr, 1));
+	      walk_tree_1 (&TREE_OPERAND (incr, 1),
+			   c_omp_check_loop_iv_r, &data, &pset, lh);
+	    }
+	}
+    }
+  return !data.fail;
+}
+
+/* Similar, but allows to check the init or cond expressions individually.  */
+
+bool
+c_omp_check_loop_iv_exprs (location_t stmt_loc, tree declv, tree decl,
+			   tree init, tree cond, walk_tree_lh lh)
+{
+  hash_set<tree> pset;
+  struct c_omp_check_loop_iv_data data;
+
+  data.declv = declv;
+  data.fail = false;
+  data.stmt_loc = stmt_loc;
+  data.lh = lh;
+  data.ppset = &pset;
+  if (init)
+    {
+      data.expr_loc = EXPR_LOCATION (init);
+      data.kind = 0;
+      walk_tree_1 (&init,
+		   c_omp_check_loop_iv_r, &data, &pset, lh);
+    }
+  if (cond)
+    {
+      gcc_assert (COMPARISON_CLASS_P (cond));
+      data.expr_loc = EXPR_LOCATION (init);
+      data.kind = 1;
+      if (TREE_OPERAND (cond, 0) == decl)
+	walk_tree_1 (&TREE_OPERAND (cond, 1),
+		     c_omp_check_loop_iv_r, &data, &pset, lh);
+      else
+	walk_tree_1 (&TREE_OPERAND (cond, 0),
+		     c_omp_check_loop_iv_r, &data, &pset, lh);
+    }
+  return !data.fail;
 }
 
 /* Right now we have 21 different combined/composite constructs, this

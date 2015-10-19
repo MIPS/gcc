@@ -1,3 +1,8 @@
+2015-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Call c_omp_check_loop_iv.
+	Call add_stmt here.
+
 2015-10-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (handle_omp_array_sections_1): Allow non-zero low-bound

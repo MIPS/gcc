@@ -1,3 +1,20 @@
+2015-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* cp-tree.h (finish_omp_for): Add ORIG_INITS argument.
+	* parser.c (cp_parser_omp_for_loop_init): Add ORIG_INIT argument,
+	initialize it.
+	(cp_parser_omp_for_loop): Compute orig_inits, pass it's address
+	to finish_omp_for.
+	* pt.c (tsubst_expr): Use OMP_FOR_ORIG_DECLS for all
+	OpenMP/OpenACC/Cilk+ looping constructs.  Adjust finish_omp_for
+	caller.
+	* semantics.c (handle_omp_for_class_iterator): Add ORIG_DECLS
+	argument.  Call c_omp_check_loop_iv_exprs on cond.
+	(finish_omp_for): Add ORIG_INITS argument.  Call
+	c_omp_check_loop_iv_exprs on ORIG_INITS elements.  Adjust
+	handle_omp_for_class_iterator caller.  Call c_omp_check_loop_iv.
+	Call add_stmt.
+
 2015-10-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (handle_omp_array_sections_1): Allow non-zero low-bound

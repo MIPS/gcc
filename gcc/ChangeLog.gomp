@@ -1,3 +1,10 @@
+2015-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_FOR_ORIG_DECLS): Use OMP_LOOP_CHECK instead of
+	OMP_FOR_CHECK.  Remove comment.
+	* tree.def (OMP_SIMD, CILK_SIMD, CILK_FOR, OMP_DISTRIBUTE,
+	OMP_TASKLOOP, OACC_LOOP): Add OMP_FOR_ORIG_DECLS argument.
+
 2015-10-16  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Gimplify variable

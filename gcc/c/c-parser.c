@@ -13991,8 +13991,15 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
     {
       stmt = c_finish_omp_for (loc, code, declv, NULL, initv, condv,
 			       incrv, body, pre_body);
+
+      /* Check for iterators appearing in lb, b or incr expressions.  */
+      if (stmt && !c_omp_check_loop_iv (stmt, declv, NULL))
+	stmt = NULL_TREE;
+
       if (stmt)
 	{
+	  add_stmt (stmt);
+
 	  if (cclauses != NULL
 	      && cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL] != NULL)
 	    {

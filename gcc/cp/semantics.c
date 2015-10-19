@@ -7286,9 +7286,10 @@ finish_omp_task (tree clauses, tree body)
 
 static bool
 handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
-			       tree declv, tree initv, tree condv, tree incrv,
-			       tree *body, tree *pre_body, tree &clauses,
-			       tree *lastp, int collapse, int ordered)
+			       tree declv, tree orig_declv, tree initv,
+			       tree condv, tree incrv, tree *body,
+			       tree *pre_body, tree &clauses, tree *lastp,
+			       int collapse, int ordered)
 {
   tree diff, iter_init, iter_incr = NULL, last;
   tree incr_var = NULL, orig_pre_body, orig_body, c;
@@ -7345,6 +7346,10 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 		TREE_OPERAND (cond, 1), iter);
       return true;
     }
+  if (!c_omp_check_loop_iv_exprs (locus, orig_declv,
+				  TREE_VEC_ELT (declv, i), NULL_TREE,
+				  cond, cp_walk_subtrees))
+    return true;
 
   switch (TREE_CODE (incr))
     {
@@ -7600,7 +7605,7 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 tree
 finish_omp_for (location_t locus, enum tree_code code, tree declv,
 		tree orig_declv, tree initv, tree condv, tree incrv,
-		tree body, tree pre_body, tree clauses)
+		tree body, tree pre_body, vec<tree> *orig_inits, tree clauses)
 {
   tree omp_for = NULL, orig_incr = NULL;
   tree decl = NULL, init, cond, incr, orig_decl = NULL_TREE, block = NULL_TREE;
@@ -7676,6 +7681,20 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
       TREE_VEC_ELT (initv, i) = init;
     }
 
+  if (orig_inits)
+    {
+      bool fail = false;
+      tree orig_init;
+      FOR_EACH_VEC_ELT (*orig_inits, i, orig_init)
+	if (orig_init
+	    && !c_omp_check_loop_iv_exprs (locus, declv,
+					   TREE_VEC_ELT (declv, i), orig_init,
+					   NULL_TREE, cp_walk_subtrees))
+	  fail = true;
+      if (fail)
+	return NULL;
+    }
+
   if (dependent_omp_for_p (declv, initv, condv, incrv))
     {
       tree stmt;
@@ -7749,10 +7768,10 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
 	    }
 	  if (code == CILK_FOR && i == 0)
 	    orig_decl = decl;
-	  if (handle_omp_for_class_iterator (i, locus, code, declv, initv,
-					     condv, incrv, &body, &pre_body,
-					     clauses, &last, collapse,
-					     ordered))
+	  if (handle_omp_for_class_iterator (i, locus, code, declv, orig_declv,
+					     initv, condv, incrv, &body,
+					     &pre_body, clauses, &last,
+					     collapse, ordered))
 	    return NULL;
 	  continue;
 	}
@@ -7811,12 +7830,18 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv,
   omp_for = c_finish_omp_for (locus, code, declv, orig_declv, initv, condv,
 			      incrv, body, pre_body);
 
+  /* Check for iterators appearing in lb, b or incr expressions.  */
+  if (omp_for && !c_omp_check_loop_iv (omp_for, orig_declv, cp_walk_subtrees))
+    omp_for = NULL_TREE;
+
   if (omp_for == NULL)
     {
       if (block)
 	pop_stmt_list (block);
       return NULL;
     }
+
+  add_stmt (omp_for);
 
   for (i = 0; i < TREE_VEC_LENGTH (OMP_FOR_INCR (omp_for)); i++)
     {
