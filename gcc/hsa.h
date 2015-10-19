@@ -518,7 +518,7 @@ public:
   /* Source type should be derived from operand types.  */
 
   /* The comparison operation.  */
-  BrigCompareOperation8_t compare;
+  BrigCompareOperation8_t m_compare;
 
   /* TODO: Modifiers and packing control are missing but so are everywhere
      else.  */

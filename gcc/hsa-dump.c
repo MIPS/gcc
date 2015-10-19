@@ -882,7 +882,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	src_type = as_a <hsa_op_immed *> (cmp->get_op (1))->m_type;
 
       fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (cmp->m_opcode),
-	       hsa_cmpop_name (cmp->compare),
+	       hsa_cmpop_name (cmp->m_compare),
 	       hsa_type_name (cmp->m_type), hsa_type_name (src_type));
       dump_hsa_reg (f, as_a <hsa_op_reg *> (cmp->get_op (0)));
       fprintf (f, ", ");

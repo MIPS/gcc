@@ -1335,9 +1335,8 @@ hsa_insn_sbr::replace_all_labels (basic_block old_bb, basic_block new_bb)
 hsa_insn_cmp::hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t,
 			    hsa_op_base *arg0, hsa_op_base *arg1,
 			    hsa_op_base *arg2)
-  : hsa_insn_basic (3 , BRIG_OPCODE_CMP, t, arg0, arg1, arg2)
+  : hsa_insn_basic (3 , BRIG_OPCODE_CMP, t, arg0, arg1, arg2), m_compare (cmp)
 {
-  compare = cmp;
 }
 
 /* New operator to allocate compare instruction from pool alloc.  */

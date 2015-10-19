@@ -1349,7 +1349,7 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   else
     repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
   repr.modifier.allBits = 0;
-  repr.compare = cmp->compare;
+  repr.compare = cmp->m_compare;
   repr.pack = 0;
 
   brig_code.add (&repr, sizeof (repr));
