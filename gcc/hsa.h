@@ -475,16 +475,16 @@ public:
   void replace_all_labels (basic_block old_bb, basic_block new_bb);
 
   /* Width as described in HSA documentation.  */
-  BrigWidth8_t width;
+  BrigWidth8_t m_width;
 
   /* Jump table.  */
-  vec <basic_block> jump_table;
+  vec <basic_block> m_jump_table;
 
   /* Default label basic block.  */
-  basic_block default_bb;
+  basic_block m_default_bb;
 
   /* Code list for label references.  */
-  hsa_op_code_list *label_code_list;
+  hsa_op_code_list *m_label_code_list;
 
 private:
   /* Make the default constructor inaccessible.  */

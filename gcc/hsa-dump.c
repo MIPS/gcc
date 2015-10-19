@@ -921,10 +921,10 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       dump_hsa_reg (f, as_a <hsa_op_reg *> (sbr->get_op (0)));
       fprintf (f, ", [");
 
-      for (unsigned i = 0; i < sbr->jump_table.length (); i++)
+      for (unsigned i = 0; i < sbr->m_jump_table.length (); i++)
 	{
-	  fprintf (f, "BB %i", hsa_bb_for_bb (sbr->jump_table[i])->index);
-	  if (i != sbr->jump_table.length () - 1)
+	  fprintf (f, "BB %i", hsa_bb_for_bb (sbr->m_jump_table[i])->index);
+	  if (i != sbr->m_jump_table.length () - 1)
 	    fprintf (f, ", ");
 	}
 

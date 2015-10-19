@@ -1449,7 +1449,7 @@ emit_switch_insn (hsa_insn_sbr *sbr)
   hsa_op_reg *index = as_a <hsa_op_reg *> (sbr->get_op (0));
   repr.base.type = htole16 (index->m_type);
   operand_offsets[0] = htole32 (enqueue_op (sbr->get_op (0)));
-  operand_offsets[1] = htole32 (enqueue_op (sbr->label_code_list));
+  operand_offsets[1] = htole32 (enqueue_op (sbr->m_label_code_list));
 
   /* We have 2 operands so use 4 * 2 for the byteCount.  */
   byteCount = htole32 (4 * 2);
@@ -1462,7 +1462,7 @@ emit_switch_insn (hsa_insn_sbr *sbr)
   brig_insn_count++;
 
   /* Emit jump to default label.  */
-  hsa_bb *hbb = hsa_bb_for_bb (sbr->default_bb);
+  hsa_bb *hbb = hsa_bb_for_bb (sbr->m_default_bb);
   emit_unconditional_jump (&hbb->label_ref);
 }
 
@@ -1903,10 +1903,10 @@ hsa_brig_emit_function (void)
       for (unsigned i = 0; i < switch_instructions->length (); i++)
 	{
 	  hsa_insn_sbr *sbr = (*switch_instructions)[i];
-	  for (unsigned j = 0; j < sbr->jump_table.length (); j++)
+	  for (unsigned j = 0; j < sbr->m_jump_table.length (); j++)
 	    {
-	      hsa_bb *hbb = hsa_bb_for_bb (sbr->jump_table[j]);
-	      sbr->label_code_list->m_offsets[j] =
+	      hsa_bb *hbb = hsa_bb_for_bb (sbr->m_jump_table[j]);
+	      sbr->m_label_code_list->m_offsets[j] =
 		hbb->label_ref.m_directive_offset;
 	    }
 	}

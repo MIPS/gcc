@@ -1304,12 +1304,10 @@ hsa_insn_br::operator new (size_t)
    the index register.  */
 
 hsa_insn_sbr::hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count)
-: hsa_insn_basic (1, BRIG_OPCODE_SBR, BRIG_TYPE_B1, index)
+: hsa_insn_basic (1, BRIG_OPCODE_SBR, BRIG_TYPE_B1, index),
+  m_width (BRIG_WIDTH_1), m_jump_table (vNULL), m_default_bb (NULL),
+  m_label_code_list (new hsa_op_code_list (jump_count))
 {
-  width = BRIG_WIDTH_1;
-  jump_table = vNULL;
-  default_bb = NULL;
-  label_code_list = new hsa_op_code_list (jump_count);
 }
 
 /* New operator to allocate switch branch instruction from pool alloc.  */
@@ -1326,9 +1324,9 @@ hsa_insn_sbr::operator new (size_t)
 void
 hsa_insn_sbr::replace_all_labels (basic_block old_bb, basic_block new_bb)
 {
-  for (unsigned i = 0; i < jump_table.length (); i++)
-    if (jump_table[i] == old_bb)
-      jump_table[i] = new_bb;
+  for (unsigned i = 0; i < m_jump_table.length (); i++)
+    if (m_jump_table[i] == old_bb)
+      m_jump_table[i] = new_bb;
 }
 
 /* Constructor of comparison instructin.  CMP is the comparison operation and T
@@ -3100,11 +3098,11 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb,
   basic_block default_label_bb = label_to_block_fn
     (func, CASE_LABEL (default_label));
 
-  sbr->default_bb = default_label_bb;
+  sbr->m_default_bb = default_label_bb;
 
   /* Prepare array with default label destination.  */
   for (unsigned HOST_WIDE_INT i = 0; i <= size; i++)
-    sbr->jump_table.safe_push (default_label_bb);
+    sbr->m_jump_table.safe_push (default_label_bb);
 
   /* Iterate all labels and fill up the jump table.  */
   for (unsigned i = 1; i < labels; i++)
@@ -3121,7 +3119,7 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb,
 	sub_high = tree_to_uhwi (int_const_binop (MINUS_EXPR, high, lowest));
 
       for (unsigned HOST_WIDE_INT j = sub_low; j <= sub_high; j++)
-	sbr->jump_table[j] = bb;
+	sbr->m_jump_table[j] = bb;
     }
 
   hbb->append_insn (sbr);
