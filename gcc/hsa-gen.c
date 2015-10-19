@@ -1269,9 +1269,8 @@ hsa_insn_basic::verify ()
    of operands (equal to the number of predecessors).  */
 
 hsa_insn_phi::hsa_insn_phi (unsigned nops, hsa_op_reg *dst)
-  : hsa_insn_basic (nops, HSA_OPCODE_PHI)
+  : hsa_insn_basic (nops, HSA_OPCODE_PHI), m_dest (dst)
 {
-  dest = dst;
   dst->set_definition (this);
 }
 

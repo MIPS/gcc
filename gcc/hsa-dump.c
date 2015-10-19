@@ -781,7 +781,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
     {
       hsa_insn_phi *phi = as_a <hsa_insn_phi *> (insn);
       bool first = true;
-      dump_hsa_reg (f, phi->dest, true);
+      dump_hsa_reg (f, phi->m_dest, true);
       fprintf (f, " = PHI <");
       unsigned count = phi->operand_count ();
       for (unsigned i = 0; i < count; i++)

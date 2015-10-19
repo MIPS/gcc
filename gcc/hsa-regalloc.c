@@ -106,7 +106,7 @@ naive_process_phi (hsa_insn_phi *phi)
 	    sbr->replace_all_labels (old_dest, hbb->bb);
 	}
 
-      hsa_build_append_simple_mov (phi->dest, op, hbb);
+      hsa_build_append_simple_mov (phi->m_dest, op, hbb);
     }
 }
 
