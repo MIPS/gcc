@@ -703,27 +703,27 @@ dump_hsa_address (FILE *f, hsa_op_address *addr)
 {
   bool sth = false;
 
-  if (addr->symbol)
+  if (addr->m_symbol)
     {
       sth = true;
-      if (addr->symbol->m_name)
-	fprintf (f, "[%%%s]", addr->symbol->m_name);
+      if (addr->m_symbol->m_name)
+	fprintf (f, "[%%%s]", addr->m_symbol->m_name);
       else
-	fprintf (f, "[%%__%s_%i]", hsa_seg_name (addr->symbol->m_segment),
-		 addr->symbol->m_name_number);
+	fprintf (f, "[%%__%s_%i]", hsa_seg_name (addr->m_symbol->m_segment),
+		 addr->m_symbol->m_name_number);
     }
 
-  if (addr->reg)
+  if (addr->m_reg)
     {
       fprintf (f, "[");
-      dump_hsa_reg (f, addr->reg);
-      if (addr->imm_offset != 0)
-	fprintf (f, " + " HOST_WIDE_INT_PRINT_DEC "]", addr->imm_offset);
+      dump_hsa_reg (f, addr->m_reg);
+      if (addr->m_imm_offset != 0)
+	fprintf (f, " + " HOST_WIDE_INT_PRINT_DEC "]", addr->m_imm_offset);
       else
 	fprintf (f, "]");
     }
-  else if (!sth || addr->imm_offset != 0)
-    fprintf (f, "[" HOST_WIDE_INT_PRINT_DEC "]", addr->imm_offset);
+  else if (!sth || addr->m_imm_offset != 0)
+    fprintf (f, "[" HOST_WIDE_INT_PRINT_DEC "]", addr->m_imm_offset);
 }
 
 /* Dump textual representation of HSA IL operand OP to file F.  */
@@ -822,8 +822,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
       fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
-      if (addr->symbol)
-	fprintf (f, "_%s", hsa_seg_name (addr->symbol->m_segment));
+      if (addr->m_symbol)
+	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
       if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
 	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
       if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
@@ -838,8 +838,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_op_address *addr = as_a <hsa_op_address *> (mem->get_op (1));
 
       fprintf (f, "%s", hsa_opcode_name (mem->opcode));
-      if (addr->symbol)
-	fprintf (f, "_%s", hsa_seg_name (addr->symbol->m_segment));
+      if (addr->m_symbol)
+	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
       if (mem->equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->type));
@@ -853,8 +853,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_op_address *addr = as_a <hsa_op_address *> (insn->get_op (1));
 
       fprintf (f, "%s", hsa_opcode_name (insn->opcode));
-      if (addr->symbol)
-	fprintf (f, "_%s", hsa_seg_name (addr->symbol->m_segment));
+      if (addr->m_symbol)
+	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
       fprintf (f, "_%s ", hsa_type_name (insn->type));
 
       dump_hsa_operand (f, insn->get_op (0));

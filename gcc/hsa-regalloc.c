@@ -211,8 +211,8 @@ insn_reg_addr (hsa_insn_basic *insn, int i)
   if (reg)
     return (hsa_op_reg **) insn->get_op_addr (i);
   hsa_op_address *addr = dyn_cast <hsa_op_address *> (op);
-  if (addr && addr->reg)
-    return &addr->reg;
+  if (addr && addr->m_reg)
+    return &addr->m_reg;
   return NULL;
 }
 

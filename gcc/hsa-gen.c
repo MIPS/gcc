@@ -996,8 +996,8 @@ hsa_op_reg::verify_ssa ()
 	{
 	  hsa_op_base *u = use->get_op (j);
 	  hsa_op_address *addr; addr = dyn_cast <hsa_op_address *> (u);
-	  if (addr && addr->reg)
-	    u = addr->reg;
+	  if (addr && addr->m_reg)
+	    u = addr->m_reg;
 
 	  if (u == this)
 	    {
@@ -1029,20 +1029,20 @@ hsa_op_reg::verify_ssa ()
 
 hsa_op_address::hsa_op_address (hsa_symbol *sym, hsa_op_reg *r,
 				HOST_WIDE_INT offset)
-  : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), symbol (sym), reg (r),
-  imm_offset (offset)
+  : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), m_symbol (sym), m_reg (r),
+  m_imm_offset (offset)
 {
 }
 
 hsa_op_address::hsa_op_address (hsa_symbol *sym, HOST_WIDE_INT offset)
-  : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), symbol (sym), reg (NULL),
-  imm_offset (offset)
+  : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), m_symbol (sym), m_reg (NULL),
+  m_imm_offset (offset)
 {
 }
 
 hsa_op_address::hsa_op_address (hsa_op_reg *r, HOST_WIDE_INT offset)
-  : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), symbol (NULL), reg (r),
-  imm_offset (offset)
+  : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), m_symbol (NULL), m_reg (r),
+  m_imm_offset (offset)
 {
 }
 
@@ -1142,8 +1142,8 @@ hsa_insn_basic::set_op (int index, hsa_op_base *op)
 {
   /* Each address operand is always use.  */
   hsa_op_address *addr = dyn_cast <hsa_op_address *> (op);
-  if (addr && addr->reg)
-    addr->reg->uses.safe_push (this);
+  if (addr && addr->m_reg)
+    addr->m_reg->uses.safe_push (this);
   else
     {
       hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op);
@@ -1249,10 +1249,10 @@ hsa_insn_basic::verify ()
     {
       hsa_op_base *use = get_op (i);
 
-      if ((addr = dyn_cast <hsa_op_address *> (use)) && addr->reg)
+      if ((addr = dyn_cast <hsa_op_address *> (use)) && addr->m_reg)
 	{
-	  gcc_assert (addr->reg->m_def_insn != this);
-	  use = addr->reg;
+	  gcc_assert (addr->m_reg->m_def_insn != this);
+	  use = addr->m_reg;
 	}
 
       if ((reg = dyn_cast <hsa_op_reg *> (use))
@@ -1946,17 +1946,18 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
   addr = gen_hsa_addr (val, hbb, ssa_map);
   hsa_insn_basic *insn = new hsa_insn_basic (2, BRIG_OPCODE_LDA);
   insn->set_op (1, addr);
-  if (addr->symbol && addr->symbol->m_segment != BRIG_SEGMENT_GLOBAL)
+  if (addr->m_symbol && addr->m_symbol->m_segment != BRIG_SEGMENT_GLOBAL)
     {
       /* LDA produces segment-relative address, we need to convert
 	 it to the flat one.  */
       hsa_op_reg *tmp;
       tmp = new hsa_op_reg (hsa_get_segment_addr_type
-			    (addr->symbol->m_segment));
+			    (addr->m_symbol->m_segment));
       hsa_insn_seg *seg;
       seg = new hsa_insn_seg (BRIG_OPCODE_STOF,
 			      hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT),
-			      tmp->m_type, addr->symbol->m_segment, dest, tmp);
+			      tmp->m_type, addr->m_symbol->m_segment, dest,
+			      tmp);
 
       insn->set_op (0, tmp);
       insn->type = tmp->m_type;
@@ -2421,13 +2422,13 @@ gen_hsa_memory_copy (hsa_bb *hbb, hsa_op_address *target, hsa_op_address *src,
       BrigType16_t t = get_integer_type_by_bytes (s, false);
 
       hsa_op_reg *tmp = new hsa_op_reg (t);
-      addr = new hsa_op_address (src->symbol, src->reg,
-				 src->imm_offset + offset);
+      addr = new hsa_op_address (src->m_symbol, src->m_reg,
+				 src->m_imm_offset + offset);
       mem = new hsa_insn_mem (BRIG_OPCODE_LD, t, tmp, addr);
       hbb->append_insn (mem);
 
-      addr = new hsa_op_address (target->symbol, target->reg,
-				 target->imm_offset + offset);
+      addr = new hsa_op_address (target->m_symbol, target->m_reg,
+				 target->m_imm_offset + offset);
       mem = new hsa_insn_mem (BRIG_OPCODE_ST, t, tmp, addr);
       hbb->append_insn (mem);
       offset += s;
@@ -2474,8 +2475,8 @@ gen_hsa_memory_set (hsa_bb *hbb, hsa_op_address *target,
       else
 	s = 1;
 
-      addr = new hsa_op_address (target->symbol, target->reg,
-				 target->imm_offset + offset);
+      addr = new hsa_op_address (target->m_symbol, target->m_reg,
+				 target->m_imm_offset + offset);
 
       BrigType16_t t = get_integer_type_by_bytes (s, false);
       HOST_WIDE_INT c = build_memset_value (constant, s);
@@ -3205,10 +3206,10 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (parm, hbb, ssa_map);
       hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
 
-      call_insn->input_args.safe_push (addr->symbol);
+      call_insn->input_args.safe_push (addr->m_symbol);
       hbb->append_insn (mem);
 
-      call_insn->args_symbols.safe_push (addr->symbol);
+      call_insn->args_symbols.safe_push (addr->m_symbol);
     }
 
   call_insn->args_code_list = new hsa_op_code_list (args);
@@ -3256,8 +3257,8 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
 	  hbb->append_insn (result_insn);
 	}
 
-      call_insn->output_arg = addr->symbol;
-      call_insn->result_symbol = addr->symbol;
+      call_insn->output_arg = addr->m_symbol;
+      call_insn->result_symbol = addr->m_symbol;
       call_insn->result_code_list = new hsa_op_code_list (1);
     }
   else
@@ -4927,7 +4928,7 @@ gen_function_def_parameters (hsa_function_representation *f,
 	      addr = gen_hsa_addr (parm, prologue, ssa_map);
 	      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mtype,
 						    dest, addr);
-	      gcc_assert (!addr->reg);
+	      gcc_assert (!addr->m_reg);
 	      prologue->append_insn (mem);
 	    }
 	}

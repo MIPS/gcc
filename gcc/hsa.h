@@ -258,13 +258,13 @@ public:
   hsa_op_address (hsa_op_reg *reg, HOST_WIDE_INT offset = 0);
 
   /* Symbol base of the address.  Can be NULL if there is none.  */
-  hsa_symbol *symbol;
+  hsa_symbol *m_symbol;
 
   /* Register offset.  Can be NULL if there is none.  */
-  hsa_op_reg *reg;
+  hsa_op_reg *m_reg;
 
   /* Immediate byte offset.  */
-  HOST_WIDE_INT imm_offset;
+  HOST_WIDE_INT m_imm_offset;
 
 private:
   /* Make the default constructor inaccessible.  */
