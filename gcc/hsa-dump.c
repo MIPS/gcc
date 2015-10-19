@@ -680,17 +680,17 @@ dump_hsa_immed (FILE *f, hsa_op_immed *imm)
   bool unsigned_int_type = (BRIG_TYPE_U8 | BRIG_TYPE_U16 | BRIG_TYPE_U32
     | BRIG_TYPE_U64) & imm->m_type;
 
-  if (imm->tree_value)
-    print_generic_expr (f, imm->tree_value, 0);
+  if (imm->m_tree_value)
+    print_generic_expr (f, imm->m_tree_value, 0);
   else
     {
-      gcc_checking_assert (imm->brig_repr_size <= 8);
+      gcc_checking_assert (imm->m_brig_repr_size <= 8);
 
       if (unsigned_int_type)
-	fprintf (f, HOST_WIDE_INT_PRINT_DEC, imm->int_value);
+	fprintf (f, HOST_WIDE_INT_PRINT_DEC, imm->m_int_value);
       else
 	fprintf (f, HOST_WIDE_INT_PRINT_UNSIGNED,
-		 (unsigned HOST_WIDE_INT)imm->int_value);
+		 (unsigned HOST_WIDE_INT)imm->m_int_value);
     }
 
   fprintf (f, " (%s)", hsa_type_name (imm->m_type));

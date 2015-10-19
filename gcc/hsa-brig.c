@@ -896,12 +896,12 @@ emit_immediate_scalar_to_buffer (tree value, char *data, unsigned need_len)
 void
 hsa_op_immed::emit_to_buffer (tree value)
 {
-  unsigned total_len = brig_repr_size;
+  unsigned total_len = m_brig_repr_size;
 
   /* As we can have a constructor with fewer elements, fill the memory
      with zeros.  */
-  brig_repr = XCNEWVEC (char, total_len);
-  char *p = brig_repr;
+  m_brig_repr = XCNEWVEC (char, total_len);
+  char *p = m_brig_repr;
 
   if (TREE_CODE (value) == VECTOR_CST)
     {
@@ -918,7 +918,8 @@ hsa_op_immed::emit_to_buffer (tree value)
       gcc_assert (total_len == 0);
     }
   else if (TREE_CODE (value) == STRING_CST)
-    memcpy (brig_repr, TREE_STRING_POINTER (value), TREE_STRING_LENGTH (value));
+    memcpy (m_brig_repr, TREE_STRING_POINTER (value),
+	    TREE_STRING_LENGTH (value));
   else if (TREE_CODE (value) == COMPLEX_CST)
     {
       gcc_assert (total_len % 2 == 0);
@@ -962,11 +963,11 @@ emit_immediate_operand (hsa_op_immed *imm)
   memset (&out, 0, sizeof (out));
   out.base.byteCount = htole16 (sizeof (out));
   out.base.kind = htole16 (BRIG_KIND_OPERAND_CONSTANT_BYTES);
-  uint32_t byteCount = htole32 (imm->brig_repr_size);
+  uint32_t byteCount = htole32 (imm->m_brig_repr_size);
   out.type = htole16 (imm->m_type);
   out.bytes = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_operand.add (&out, sizeof(out));
-  brig_data.add (imm->brig_repr, imm->brig_repr_size);
+  brig_data.add (imm->m_brig_repr, imm->m_brig_repr_size);
   brig_data.round_size_up (4);
 }
 
@@ -1473,7 +1474,8 @@ emit_cvt_insn (hsa_insn_basic *insn)
 {
   struct BrigInstCvt repr;
   BrigType16_t srctype;
-  auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS> operand_offsets;
+  auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS>
+    operand_offsets;
   uint32_t byteCount, operand_count = insn->operand_count ();
 
   repr.base.base.byteCount = htole16 (sizeof (repr));

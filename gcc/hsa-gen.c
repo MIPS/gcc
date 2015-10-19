@@ -864,20 +864,21 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 		       && (!POINTER_TYPE_P (TREE_TYPE (tree_val))
 			   || TREE_CODE (tree_val) == INTEGER_CST))
 		       || TREE_CODE (tree_val) == CONSTRUCTOR);
-  tree_value = tree_val;
-  brig_repr_size = hsa_get_imm_brig_type_len (m_type);
+  m_tree_value = tree_val;
+  m_brig_repr_size = hsa_get_imm_brig_type_len (m_type);
 
-  if (TREE_CODE (tree_value) == STRING_CST)
-    brig_repr_size = TREE_STRING_LENGTH (tree_value);
-  else if (TREE_CODE (tree_value) == CONSTRUCTOR)
+  if (TREE_CODE (m_tree_value) == STRING_CST)
+    m_brig_repr_size = TREE_STRING_LENGTH (m_tree_value);
+  else if (TREE_CODE (m_tree_value) == CONSTRUCTOR)
     {
-      brig_repr_size = tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (tree_value)));
+      m_brig_repr_size = tree_to_uhwi
+	(TYPE_SIZE_UNIT (TREE_TYPE (m_tree_value)));
 
       /* Verify that all elements of a contructor are constants.  */
-      for (unsigned i = 0; i < vec_safe_length (CONSTRUCTOR_ELTS (tree_value));
-	   i++)
+      for (unsigned i = 0;
+	   i < vec_safe_length (CONSTRUCTOR_ELTS (m_tree_value)); i++)
 	{
-	  tree v = CONSTRUCTOR_ELT (tree_value, i)->value;
+	  tree v = CONSTRUCTOR_ELT (m_tree_value, i)->value;
 	  if (!CONSTANT_CLASS_P (v))
 	    {
 	      HSA_SORRY_AT (EXPR_LOCATION (tree_val),
@@ -887,7 +888,7 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 	}
     }
 
-  emit_to_buffer (tree_value);
+  emit_to_buffer (m_tree_value);
   hsa_list_operand_immed.safe_push (this);
 }
 
@@ -895,34 +896,35 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
    integer representation of the immediate value.  TYPE is BRIG type.  */
 
 hsa_op_immed::hsa_op_immed (HOST_WIDE_INT integer_value, BrigKind16_t type)
-  : hsa_op_with_type (BRIG_KIND_OPERAND_CONSTANT_BYTES, type), tree_value (NULL)
+  : hsa_op_with_type (BRIG_KIND_OPERAND_CONSTANT_BYTES, type),
+  m_tree_value (NULL)
 {
   gcc_assert (hsa_type_integer_p (type));
-  int_value = integer_value;
-  brig_repr_size = hsa_type_bit_size (type) / BITS_PER_UNIT;
+  m_int_value = integer_value;
+  m_brig_repr_size = hsa_type_bit_size (type) / BITS_PER_UNIT;
 
   hsa_bytes bytes;
 
-  switch (brig_repr_size)
+  switch (m_brig_repr_size)
     {
     case 1:
-      bytes.b8 = (uint8_t) int_value;
+      bytes.b8 = (uint8_t) m_int_value;
       break;
     case 2:
-      bytes.b16 = (uint16_t) int_value;
+      bytes.b16 = (uint16_t) m_int_value;
       break;
     case 4:
-      bytes.b32 = (uint32_t) int_value;
+      bytes.b32 = (uint32_t) m_int_value;
       break;
     case 8:
-      bytes.b64 = (uint64_t) int_value;
+      bytes.b64 = (uint64_t) m_int_value;
       break;
     default:
       gcc_unreachable ();
     }
 
-  brig_repr = XNEWVEC (char, brig_repr_size);
-  memcpy (brig_repr, &bytes, brig_repr_size);
+  m_brig_repr = XNEWVEC (char, m_brig_repr_size);
+  memcpy (m_brig_repr, &bytes, m_brig_repr_size);
   hsa_list_operand_immed.safe_push (this);
 }
 
@@ -938,7 +940,7 @@ hsa_op_immed::operator new (size_t)
 
 hsa_op_immed::~hsa_op_immed ()
 {
-  free (brig_repr);
+  free (m_brig_repr);
 }
 
 /* Change type of the immediate value to T.  */

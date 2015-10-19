@@ -145,16 +145,16 @@ public:
   void set_type (BrigKind16_t t);
 
   /* Value as represented by middle end.  */
-  tree tree_value;
+  tree m_tree_value;
 
   /* Integer value representation.  */
-  HOST_WIDE_INT int_value;
+  HOST_WIDE_INT m_int_value;
 
   /* Brig data representation.  */
-  char *brig_repr;
+  char *m_brig_repr;
 
   /* Brig data representation size in bytes.  */
-  unsigned brig_repr_size;
+  unsigned m_brig_repr_size;
 
 private:
   /* Make the default constructor inaccessible.  */
