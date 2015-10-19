@@ -87,7 +87,7 @@ along with GCC; see the file COPYING3.  If not see
   do \
   { \
     hsa_fail_cfun (); \
-    if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
+    if (warning_at (EXPR_LOCATION (hsa_cfun->m_decl), OPT_Whsa, \
 		    HSA_SORRY_MSG)) \
       inform (location, message, __VA_ARGS__); \
   } \
@@ -99,7 +99,7 @@ along with GCC; see the file COPYING3.  If not see
   do \
   { \
     hsa_fail_cfun (); \
-    if (warning_at (EXPR_LOCATION (hsa_cfun->decl), OPT_Whsa, \
+    if (warning_at (EXPR_LOCATION (hsa_cfun->m_decl), OPT_Whsa, \
 		    HSA_SORRY_MSG)) \
       inform (location, message); \
   } \
@@ -209,54 +209,45 @@ static vec <hsa_op_immed*> hsa_list_operand_immed;
 /* TODO: Move more initialization here. */
 
 hsa_function_representation::hsa_function_representation
-  (tree fdecl, bool kernel_p): kern_p (kernel_p), decl (fdecl)
+  (tree fdecl, bool kernel_p): m_name (NULL),
+  m_input_args_count (0), m_reg_count (0), m_input_args (NULL),
+  m_output_arg (NULL), m_spill_symbols (vNULL), m_readonly_variables (vNULL),
+  m_called_functions (vNULL), m_hbb_count (0), m_in_ssa (true),
+  m_kern_p (kernel_p), m_declaration_p (false), m_decl (fdecl),
+  m_shadow_reg (NULL), m_kernel_dispatch_count (0), m_maximum_omp_data_size (0),
+  m_seen_error (false)
 {
-  name = NULL;
-  input_args_count = 0;
-  reg_count = 0;
-  input_args = NULL;
-  output_arg = NULL;
-
   int sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;;
-  local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
-  spill_symbols = vNULL;
-  readonly_variables = vNULL;
-  hbb_count = 0;
-  in_ssa = true;	/* We start in SSA.  */
-  declaration_p = false;
-  called_functions = vNULL;
-  shadow_reg = NULL;
-  kernel_dispatch_count = 0;
-  maximum_omp_data_size = 0;
-  seen_error = false;
+  m_local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
 }
 
 /* Destructor of class holding function/kernel-wide informaton and state.  */
 
 hsa_function_representation::~hsa_function_representation ()
 {
-  delete local_symbols;
-  free (input_args);
-  free (output_arg);
+  delete m_local_symbols;
+  free (m_input_args);
+  free (m_output_arg);
   /* Kernel names are deallocated at the end of BRIG output when deallocating
      hsa_decl_kernel_mapping.  */
-  if (!kern_p)
-    free (name);
-  spill_symbols.release ();
-  readonly_variables.release ();
-  called_functions.release ();
+  if (!m_kern_p)
+    free (m_name);
+
+  m_spill_symbols.release ();
+  m_readonly_variables.release ();
+  m_called_functions.release ();
 }
 
 hsa_op_reg *
 hsa_function_representation::get_shadow_reg ()
 {
-  gcc_assert (kern_p);
+  gcc_assert (m_kern_p);
 
-  if (shadow_reg)
-    return shadow_reg;
+  if (m_shadow_reg)
+    return m_shadow_reg;
 
   /* Append the shadow argument.  */
-  hsa_symbol *shadow = &input_args[input_args_count++];
+  hsa_symbol *shadow = &m_input_args[m_input_args_count++];
   shadow->m_type = BRIG_TYPE_U64;
   shadow->m_segment = BRIG_SEGMENT_KERNARG;
   shadow->m_linkage = BRIG_LINKAGE_FUNCTION;
@@ -267,14 +258,14 @@ hsa_function_representation::get_shadow_reg ()
 
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, r, addr);
   hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->append_insn (mem);
-  shadow_reg = r;
+  m_shadow_reg = r;
 
   return r;
 }
 
 bool hsa_function_representation::has_shadow_reg_p ()
 {
-  return shadow_reg != NULL;
+  return m_shadow_reg != NULL;
 }
 
 /* Allocate HSA structures that we need only while generating with this.  */
@@ -705,7 +696,7 @@ get_symbol_for_decl (tree decl)
 	  sym->m_segment = BRIG_SEGMENT_READONLY;
 	  sym->m_linkage = BRIG_LINKAGE_MODULE;
 	  sym->m_cst_value = new hsa_op_immed (DECL_INITIAL (decl), false);
-	  hsa_cfun->readonly_variables.safe_push (sym);
+	  hsa_cfun->m_readonly_variables.safe_push (sym);
 	}
       else
 	HSA_SORRY_ATV (EXPR_LOCATION (decl), "referring to global symbol "
@@ -713,7 +704,7 @@ get_symbol_for_decl (tree decl)
     }
   else
     {
-      slot = hsa_cfun->local_symbols->find_slot (&dummy, INSERT);
+      slot = hsa_cfun->m_local_symbols->find_slot (&dummy, INSERT);
       gcc_checking_assert (slot);
       if (*slot)
 	return *slot;
@@ -774,7 +765,7 @@ hsa_get_spill_symbol (BrigType16_t type)
   sym->m_segment = BRIG_SEGMENT_SPILL;
   sym->m_linkage = BRIG_LINKAGE_FUNCTION;
   sym->m_type = type;
-  hsa_cfun->spill_symbols.safe_push(sym);
+  hsa_cfun->m_spill_symbols.safe_push (sym);
   return sym;
 }
 
@@ -784,7 +775,7 @@ hsa_get_string_cst_symbol (tree string_cst)
 {
   gcc_checking_assert (TREE_CODE (string_cst) == STRING_CST);
 
-  hsa_symbol **slot = hsa_cfun->string_constants_map.get (string_cst);
+  hsa_symbol **slot = hsa_cfun->m_string_constants_map.get (string_cst);
   if (slot)
     return *slot;
 
@@ -796,11 +787,11 @@ hsa_get_string_cst_symbol (tree string_cst)
   sym->m_cst_value = new hsa_op_immed (string_cst);
   sym->m_type = sym->m_cst_value->m_type;
   sym->m_dim = TREE_STRING_LENGTH (string_cst);
-  sym->m_name_number = hsa_cfun->readonly_variables.length ();
+  sym->m_name_number = hsa_cfun->m_readonly_variables.length ();
   sym->m_global_scope_p = true;
 
-  hsa_cfun->readonly_variables.safe_push (sym);
-  hsa_cfun->string_constants_map.put (string_cst, sym);
+  hsa_cfun->m_readonly_variables.safe_push (sym);
+  hsa_cfun->m_string_constants_map.put (string_cst, sym);
   return sym;
 }
 
@@ -956,7 +947,7 @@ hsa_op_immed::set_type (BrigType16_t t)
 
 hsa_op_reg::hsa_op_reg (BrigType16_t t)
   : hsa_op_with_type (BRIG_KIND_OPERAND_REGISTER, t), m_gimple_ssa (NULL_TREE),
-  m_def_insn (NULL), m_spill_sym (NULL), m_order (hsa_cfun->reg_count++),
+  m_def_insn (NULL), m_spill_sym (NULL), m_order (hsa_cfun->m_reg_count++),
   m_lr_begin (0), m_lr_end (0), m_reg_class (0), m_hard_num (0)
 {
   hsa_list_operand_reg.safe_push (this);
@@ -1104,7 +1095,7 @@ hsa_reg_for_gimple_ssa (tree ssa, vec <hsa_op_reg_p> *ssa_map)
 void
 hsa_op_reg::set_definition (hsa_insn_basic *insn)
 {
-  if (hsa_cfun->in_ssa)
+  if (hsa_cfun->m_in_ssa)
     {
       gcc_checking_assert (!m_def_insn);
       m_def_insn = insn;
@@ -3153,7 +3144,7 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
     return;
 
   hsa_insn_call *call_insn = new hsa_insn_call (decl);
-  hsa_cfun->called_functions.safe_push (call_insn->m_called_function);
+  hsa_cfun->m_called_functions.safe_push (call_insn->m_called_function);
 
   /* Argument block start.  */
   hsa_insn_arg_block *arg_start = new hsa_insn_arg_block
@@ -3281,7 +3272,7 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
       /* Store of return value.  */
       BrigType16_t mtype = mem_type_for_type
 	(hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
-      hsa_op_address *addr = new hsa_op_address (hsa_cfun->output_arg);
+      hsa_op_address *addr = new hsa_op_address (hsa_cfun->m_output_arg);
       hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (retval, hbb, ssa_map);
       hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
       hbb->append_insn (mem);
@@ -3561,7 +3552,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 			  addr);
   hbb->append_insn (mem);
 
-  unsigned index = hsa_cfun->kernel_dispatch_count;
+  unsigned index = hsa_cfun->m_kernel_dispatch_count;
   unsigned byte_offset = index * sizeof (hsa_kernel_dispatch *);
 
   addr = new hsa_op_address (shadow_reg_base_ptr, byte_offset);
@@ -3859,8 +3850,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
       unsigned omp_data_size = tree_to_uhwi (TYPE_SIZE_UNIT (d));
       gcc_checking_assert (omp_data_size > 0);
 
-      if (omp_data_size > hsa_cfun->maximum_omp_data_size)
-	hsa_cfun->maximum_omp_data_size = omp_data_size;
+      if (omp_data_size > hsa_cfun->m_maximum_omp_data_size)
+	hsa_cfun->m_maximum_omp_data_size = omp_data_size;
 
       hsa_symbol *var_decl = get_symbol_for_decl (TREE_OPERAND (argument, 0));
 
@@ -3961,7 +3952,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   signal->set_op (3, c2);
   hbb->append_insn (signal);
 
-  hsa_cfun->kernel_dispatch_count++;
+  hsa_cfun->m_kernel_dispatch_count++;
 }
 
 /* Helper functions to create a single unary HSA operations out of calls to
@@ -4422,7 +4413,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 
 	char *name = xstrdup (hsa_get_declaration_name (called));
 	hsa_add_kernel_dependency
-	  (hsa_cfun->decl, hsa_brig_function_name (name));
+	  (hsa_cfun->m_decl, hsa_brig_function_name (name));
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
 
 	break;
@@ -4676,7 +4667,7 @@ hsa_bb::hsa_bb (basic_block cfg_bb, int idx): m_bb (cfg_bb),
 
 hsa_bb::hsa_bb (basic_block cfg_bb): m_bb (cfg_bb),
   m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
-  m_last_phi (NULL), m_index (hsa_cfun->hbb_count++),
+  m_last_phi (NULL), m_index (hsa_cfun->m_hbb_count++),
   m_liveout (BITMAP_ALLOC (NULL)), m_livein (BITMAP_ALLOC (NULL))
 {
   gcc_assert (!cfg_bb->aux);
@@ -4705,7 +4696,7 @@ hsa_init_new_bb (basic_block bb)
 static void
 init_prologue (void)
 {
-  if (!hsa_cfun->kern_p)
+  if (!hsa_cfun->m_kern_p)
     return;
 
   hsa_bb *prologue = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
@@ -4813,33 +4804,33 @@ gen_function_decl_parameters (hsa_function_representation *f,
   tree parm;
   unsigned i;
 
-  f->input_args_count = get_function_arg_count (decl);
-  f->input_args = XCNEWVEC (hsa_symbol, f->input_args_count);
+  f->m_input_args_count = get_function_arg_count (decl);
+  f->m_input_args = XCNEWVEC (hsa_symbol, f->m_input_args_count);
   for (parm = TYPE_ARG_TYPES (TREE_TYPE (decl)), i = 0;
        parm;
        parm = TREE_CHAIN (parm), i++)
     {
       /* Result type if last in the tree list.  */
-      if (i == f->input_args_count)
+      if (i == f->m_input_args_count)
 	break;
 
       tree v = TREE_VALUE (parm);
-      f->input_args[i].m_type = hsa_type_for_tree_type
-	(v, &f->input_args[i].m_dim);
-      f->input_args[i].m_segment = BRIG_SEGMENT_ARG;
-      f->input_args[i].m_linkage = BRIG_LINKAGE_NONE;
-      f->input_args[i].m_name_number = i;
+      f->m_input_args[i].m_type = hsa_type_for_tree_type
+	(v, &f->m_input_args[i].m_dim);
+      f->m_input_args[i].m_segment = BRIG_SEGMENT_ARG;
+      f->m_input_args[i].m_linkage = BRIG_LINKAGE_NONE;
+      f->m_input_args[i].m_name_number = i;
     }
 
   tree result_type = TREE_TYPE (TREE_TYPE (decl));
   if (!VOID_TYPE_P (result_type))
     {
-      f->output_arg = XCNEW (hsa_symbol);
-      f->output_arg->m_type = hsa_type_for_tree_type (result_type,
-						      &f->output_arg->m_dim);
-      f->output_arg->m_segment = BRIG_SEGMENT_ARG;
-      f->output_arg->m_linkage = BRIG_LINKAGE_NONE;
-      f->output_arg->m_name = "res";
+      f->m_output_arg = XCNEW (hsa_symbol);
+      f->m_output_arg->m_type = hsa_type_for_tree_type (result_type,
+						      &f->m_output_arg->m_dim);
+      f->m_output_arg->m_segment = BRIG_SEGMENT_ARG;
+      f->m_output_arg->m_linkage = BRIG_LINKAGE_NONE;
+      f->m_output_arg->m_name = "res";
     }
 }
 
@@ -4857,11 +4848,11 @@ gen_function_def_parameters (hsa_function_representation *f,
   for (parm = DECL_ARGUMENTS (cfun->decl); parm; parm = DECL_CHAIN (parm))
     count++;
 
-  f->input_args_count = count;
+  f->m_input_args_count = count;
 
   /* Allocate one more argument which can be potentially used for a kernel
      dispatching.  */
-  f->input_args = XCNEWVEC (hsa_symbol, f->input_args_count + 1);
+  f->m_input_args = XCNEWVEC (hsa_symbol, f->m_input_args_count + 1);
 
   hsa_bb *prologue = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
@@ -4871,21 +4862,21 @@ gen_function_def_parameters (hsa_function_representation *f,
     {
       struct hsa_symbol **slot;
 
-      fillup_sym_for_decl (parm, &f->input_args[i]);
+      fillup_sym_for_decl (parm, &f->m_input_args[i]);
 
       if (hsa_seen_error ())
 	return;
 
-      f->input_args[i].m_segment = f->kern_p ? BRIG_SEGMENT_KERNARG :
+      f->m_input_args[i].m_segment = f->m_kern_p ? BRIG_SEGMENT_KERNARG :
 				       BRIG_SEGMENT_ARG;
 
-      f->input_args[i].m_linkage = BRIG_LINKAGE_FUNCTION;
-      f->input_args[i].m_name = hsa_get_declaration_name (parm);
+      f->m_input_args[i].m_linkage = BRIG_LINKAGE_FUNCTION;
+      f->m_input_args[i].m_name = hsa_get_declaration_name (parm);
 
-      slot = f->local_symbols->find_slot (&f->input_args[i],
+      slot = f->m_local_symbols->find_slot (&f->m_input_args[i],
 						INSERT);
       gcc_assert (!*slot);
-      *slot = &f->input_args[i];
+      *slot = &f->m_input_args[i];
 
       if (is_gimple_reg (parm))
 	{
@@ -4910,18 +4901,18 @@ gen_function_def_parameters (hsa_function_representation *f,
     {
       struct hsa_symbol **slot;
 
-      f->output_arg = XCNEW (hsa_symbol);
-      fillup_sym_for_decl (DECL_RESULT (cfun->decl), f->output_arg);
+      f->m_output_arg = XCNEW (hsa_symbol);
+      fillup_sym_for_decl (DECL_RESULT (cfun->decl), f->m_output_arg);
 
       if (hsa_seen_error ())
 	return;
 
-      f->output_arg->m_segment = BRIG_SEGMENT_ARG;
-      f->output_arg->m_linkage = BRIG_LINKAGE_FUNCTION;
-      f->output_arg->m_name = "res";
-      slot = f->local_symbols->find_slot (f->output_arg, INSERT);
+      f->m_output_arg->m_segment = BRIG_SEGMENT_ARG;
+      f->m_output_arg->m_linkage = BRIG_LINKAGE_FUNCTION;
+      f->m_output_arg->m_name = "res";
+      slot = f->m_local_symbols->find_slot (f->m_output_arg, INSERT);
       gcc_assert (!*slot);
-      *slot = f->output_arg;
+      *slot = f->m_output_arg;
     }
 }
 
@@ -4933,9 +4924,9 @@ hsa_generate_function_declaration (tree decl)
 {
   hsa_function_representation *fun = XCNEW (hsa_function_representation);
 
-  fun->declaration_p = true;
-  fun->decl = decl;
-  fun->name = get_brig_function_name (decl);
+  fun->m_declaration_p = true;
+  fun->m_decl = decl;
+  fun->m_name = get_brig_function_name (decl);
   gen_function_decl_parameters (fun, decl);
 
   return fun;
@@ -5245,7 +5236,7 @@ generate_hsa (bool kernel)
     goto fail;
 
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
-  hsa_cfun->name = get_brig_function_name (cfun->decl);
+  hsa_cfun->m_name = get_brig_function_name (cfun->decl);
 
   gen_function_def_parameters (hsa_cfun, &ssa_map);
   if (hsa_seen_error ())
@@ -5257,13 +5248,13 @@ generate_hsa (bool kernel)
   if (hsa_seen_error ())
     goto fail;
 
-  if (hsa_cfun->kernel_dispatch_count)
+  if (hsa_cfun->m_kernel_dispatch_count)
     init_hsa_num_threads ();
 
-  if (hsa_cfun->kern_p)
+  if (hsa_cfun->m_kern_p)
     {
-      hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->name,
-				 hsa_cfun->maximum_omp_data_size);
+      hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->m_name,
+				 hsa_cfun->m_maximum_omp_data_size);
     }
 
 #ifdef ENABLE_CHECKING

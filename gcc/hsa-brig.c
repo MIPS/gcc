@@ -604,53 +604,53 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   BrigDirectiveExecutable *ptr_to_fndir;
   hsa_symbol *sym;
 
-  if (!f->declaration_p)
-    for (int i = 0; f->readonly_variables.iterate (i, &sym); i++)
+  if (!f->m_declaration_p)
+    for (int i = 0; f->m_readonly_variables.iterate (i, &sym); i++)
       {
 	emit_directive_variable (sym);
 	brig_insn_count++;
       }
 
-  name_offset = brig_emit_string (f->name, '&');
+  name_offset = brig_emit_string (f->m_name, '&');
   inarg_off = brig_code.total_size + sizeof(fndir)
-    + (f->output_arg ? sizeof (struct BrigDirectiveVariable) : 0);
+    + (f->m_output_arg ? sizeof (struct BrigDirectiveVariable) : 0);
   scoped_off = inarg_off
-    + f->input_args_count * sizeof (struct BrigDirectiveVariable);
+    + f->m_input_args_count * sizeof (struct BrigDirectiveVariable);
 
-  if (!f->declaration_p)
+  if (!f->m_declaration_p)
     {
       for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	     = f->local_symbols->begin ();
-	   iter != f->local_symbols->end ();
+	     = f->m_local_symbols->begin ();
+	   iter != f->m_local_symbols->end ();
 	   ++iter)
 	if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
 	  count++;
-      count += f->spill_symbols.length ();
+      count += f->m_spill_symbols.length ();
     }
 
   next_toplev_off = scoped_off + count * sizeof (struct BrigDirectiveVariable);
 
   memset (&fndir, 0, sizeof (fndir));
   fndir.base.byteCount = htole16 (sizeof (fndir));
-  fndir.base.kind = htole16 (f->kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
+  fndir.base.kind = htole16 (f->m_kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
 			     : BRIG_KIND_DIRECTIVE_FUNCTION);
   fndir.name = htole32 (name_offset);
-  fndir.inArgCount = htole16 (f->input_args_count);
-  fndir.outArgCount = htole16 (f->output_arg ? 1 : 0);
+  fndir.inArgCount = htole16 (f->m_input_args_count);
+  fndir.outArgCount = htole16 (f->m_output_arg ? 1 : 0);
   fndir.firstInArg = htole32 (inarg_off);
   fndir.firstCodeBlockEntry = htole32 (scoped_off);
   fndir.nextModuleEntry = htole32 (next_toplev_off);
-  fndir.linkage = f->kern_p || TREE_PUBLIC (f->decl) ? BRIG_LINKAGE_PROGRAM :
-    BRIG_LINKAGE_MODULE;
+  fndir.linkage = f->m_kern_p || TREE_PUBLIC (f->m_decl) ?
+    BRIG_LINKAGE_PROGRAM : BRIG_LINKAGE_MODULE;
 
-  if (!f->declaration_p)
+  if (!f->m_declaration_p)
     fndir.modifier.allBits |= BRIG_EXECUTABLE_DEFINITION;
   memset (&fndir.reserved, 0, sizeof (fndir.reserved));
 
   /* Once we put a definition of function_offsets, we should not overwrite
      it with a declaration of the function.  */
-  if (!function_offsets->get (f->decl) || !is_declaration)
-    function_offsets->put (f->decl, brig_code.total_size);
+  if (!function_offsets->get (f->m_decl) || !is_declaration)
+    function_offsets->put (f->m_decl, brig_code.total_size);
 
   brig_code.add (&fndir, sizeof (fndir));
   /* XXX terrible hack: we need to set instCount after we emit all
@@ -664,23 +664,23 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
                                     + brig_code.cur_chunk->size
                                     - sizeof (fndir));
 
-  if (f->output_arg)
-    emit_directive_variable (f->output_arg);
-  for (unsigned i = 0; i < f->input_args_count; i++)
-    emit_directive_variable (&f->input_args[i]);
+  if (f->m_output_arg)
+    emit_directive_variable (f->m_output_arg);
+  for (unsigned i = 0; i < f->m_input_args_count; i++)
+    emit_directive_variable (&f->m_input_args[i]);
 
-  if (!f->declaration_p)
+  if (!f->m_declaration_p)
     {
       for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	     = f->local_symbols->begin ();
-	   iter != f->local_symbols->end ();
+	     = f->m_local_symbols->begin ();
+	   iter != f->m_local_symbols->end ();
 	   ++iter)
 	{
 	  if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
 	    brig_insn_count++;
 	  emit_directive_variable (*iter);
 	}
-      for (int i = 0; f->spill_symbols.iterate (i, &sym); i++)
+      for (int i = 0; f->m_spill_symbols.iterate (i, &sym); i++)
 	{
 	  emit_directive_variable (sym);
 	  brig_insn_count++;
@@ -1868,9 +1868,9 @@ hsa_brig_emit_function (void)
   if (!emitted_declarations)
     emitted_declarations = new hash_map <tree, BrigDirectiveExecutable *> ();
 
-  for (unsigned i = 0; i < hsa_cfun->called_functions.length (); i++)
+  for (unsigned i = 0; i < hsa_cfun->m_called_functions.length (); i++)
     {
-      tree called = hsa_cfun->called_functions[i];
+      tree called = hsa_cfun->m_called_functions[i];
 
       /* If the function has no definition, emit a declaration.  */
       if (!emitted_declarations->get (called))

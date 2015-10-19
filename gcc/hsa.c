@@ -703,7 +703,7 @@ hsa_register_kernel (cgraph_node *gpu, cgraph_node *host)
 bool
 hsa_seen_error (void)
 {
-  return hsa_cfun->seen_error;
+  return hsa_cfun->m_seen_error;
 }
 
 /* Mark current HSA function as failed.  */
@@ -713,8 +713,8 @@ hsa_fail_cfun (void)
 {
   if (hsa_failed_functions == NULL)
     hsa_failed_functions = new hash_set <tree> ();
-  hsa_failed_functions->add (hsa_cfun->decl);
-  hsa_cfun->seen_error = true;
+  hsa_failed_functions->add (hsa_cfun->m_decl);
+  hsa_cfun->m_seen_error = true;
 }
 
 #include "gt-hsa.h"

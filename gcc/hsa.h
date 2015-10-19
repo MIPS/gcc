@@ -934,63 +934,63 @@ public:
   bool has_shadow_reg_p ();
 
   /* Name of the function.  */
-  char *name;
+  char *m_name;
 
   /* Input arguments of the function.  */
   /* FIXME: Normally we'd use a vector, however our C++ vectors seem to have
      problems with derived classes, so for now we'll use a simple array.  */
-  unsigned input_args_count;
+  unsigned m_input_args_count;
 
   /* Number of allocated register structures.  */
-  int reg_count;
+  int m_reg_count;
 
-  struct hsa_symbol *input_args;
+  hsa_symbol *m_input_args;
   /* Output argument or NULL if there is none.  */
-  struct hsa_symbol *output_arg;
+  hsa_symbol *m_output_arg;
   /* Hash table of local variable symbols.  */
-  hash_table <hsa_noop_symbol_hasher> *local_symbols;
+  hash_table <hsa_noop_symbol_hasher> *m_local_symbols;
 
   /* Hash map for string constants.  */
-  hash_map <tree, hsa_symbol *> string_constants_map;
+  hash_map <tree, hsa_symbol *> m_string_constants_map;
 
   /* Vector of pointers to spill symbols.  */
-  vec <struct hsa_symbol *> spill_symbols;
+  vec <struct hsa_symbol *> m_spill_symbols;
 
   /* Vector of pointers to symbols (string constants and global,
      noni-addressable variables with a constructor).  */
-  vec <struct hsa_symbol *> readonly_variables;
+  vec <struct hsa_symbol *> m_readonly_variables;
 
   /* Vector of called function declarations.  */
-  vec <tree> called_functions;
+  vec <tree> m_called_functions;
 
   /* Number of HBB BBs.  */
-  int hbb_count;
+  int m_hbb_count;
 
   /* Whether or not we could check and enforce SSA properties.  */
-  bool in_ssa;
+  bool m_in_ssa;
 
   /* True if the function is kernel function.  */
-  bool kern_p;
+  bool m_kern_p;
 
   /* True if the function representation is a declaration.  */
-  bool declaration_p;
+  bool m_declaration_p;
 
   /* Function declaration tree.  */
-  tree decl;
+  tree m_decl;
 
   /* Runtime shadow register.  */
-  hsa_op_reg *shadow_reg;
+  hsa_op_reg *m_shadow_reg;
 
   /* Number of kernel dispatched which take place in the function.  */
-  unsigned kernel_dispatch_count;
+  unsigned m_kernel_dispatch_count;
 
   /* If the function representation contains a kernel dispatch,
      OMP data size is necessary memory that is used for copying before
      a kernel dispatch.  */
-  unsigned maximum_omp_data_size;
+  unsigned m_maximum_omp_data_size;
 
   /* Return true if there's an HSA-specific warning already seen.  */
-  bool seen_error;
+  bool m_seen_error;
 };
 
 enum hsa_function_kind

@@ -117,7 +117,7 @@ naive_outof_ssa (void)
 {
   basic_block bb;
 
-  hsa_cfun->in_ssa = false;
+  hsa_cfun->m_in_ssa = false;
 
   FOR_ALL_BB_FN (bb, cfun)
   {
@@ -279,7 +279,7 @@ dump_hsa_cfun_regalloc (FILE *f)
 {
   basic_block bb;
 
-  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->name);
+  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->m_name);
 
   FOR_ALL_BB_FN (bb, cfun)
   {
@@ -454,7 +454,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
      and the post order for liveness analysis, which is the same
      backward.  */
   n = pre_and_rev_post_order_compute (NULL, bbs, true);
-  ind2reg.safe_grow_cleared (hsa_cfun->reg_count);
+  ind2reg.safe_grow_cleared (hsa_cfun->m_reg_count);
 
   /* Give all instructions a linearized number, at the same time
      build a mapping from register index to register.  */
@@ -479,7 +479,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
     }
 
   /* Initialize all live ranges to [after-end, 0).  */
-  for (i = 0; i < hsa_cfun->reg_count; i++)
+  for (i = 0; i < hsa_cfun->m_reg_count; i++)
     if (ind2reg[i])
       ind2reg[i]->m_lr_begin = insn_order, ind2reg[i]->m_lr_end = 0;
 
@@ -601,12 +601,12 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 
   /* All regs that have still their start at after all code actually
      are defined at the start of the routine (prologue).  */
-  for (i = 0; i < hsa_cfun->reg_count; i++)
+  for (i = 0; i < hsa_cfun->m_reg_count; i++)
     if (ind2reg[i] && ind2reg[i]->m_lr_begin == insn_order)
       ind2reg[i]->m_lr_begin = 0;
 
   /* Sort all intervals by increasing start point.  */
-  gcc_assert (ind2reg.length () == (size_t) hsa_cfun->reg_count);
+  gcc_assert (ind2reg.length () == (size_t) hsa_cfun->m_reg_count);
 
 #ifdef ENABLE_CHECKING
   for (unsigned i = 0; i < ind2reg.length (); i++)
@@ -615,10 +615,10 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 
   ind2reg.qsort (cmp_begin);
   for (i = 0; i < 4; i++)
-    active[i].reserve_exact (hsa_cfun->reg_count);
+    active[i].reserve_exact (hsa_cfun->m_reg_count);
 
   /* Now comes the linear scan allocation.  */
-  for (i = 0; i < hsa_cfun->reg_count; i++)
+  for (i = 0; i < hsa_cfun->m_reg_count; i++)
     {
       hsa_op_reg *reg = ind2reg[i];
       if (!reg)
@@ -671,7 +671,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       fprintf (dump_file, "------- After liveness: -------\n");
       dump_hsa_cfun_regalloc (dump_file);
       fprintf (dump_file, "  ----- Intervals:\n");
-      for (i = 0; i < hsa_cfun->reg_count; i++)
+      for (i = 0; i < hsa_cfun->m_reg_count; i++)
 	{
 	  hsa_op_reg *reg = ind2reg[i];
 	  if (!reg)
@@ -701,7 +701,7 @@ regalloc (void)
   m_reg_class_desc classes[4];
 
   /* If there are no registers used in the function, exit right away. */
-  if (hsa_cfun->reg_count == 0)
+  if (hsa_cfun->m_reg_count == 0)
     return;
 
   memset (classes, 0, sizeof (classes));

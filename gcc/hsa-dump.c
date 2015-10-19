@@ -1086,7 +1086,7 @@ dump_hsa_cfun (FILE *f)
 {
   basic_block bb;
 
-  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->name);
+  fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->m_name);
 
   FOR_ALL_BB_FN (bb, cfun)
   {
