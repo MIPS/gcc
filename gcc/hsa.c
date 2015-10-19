@@ -332,13 +332,12 @@ void
 hsa_insn_mem::set_align (BrigAlignment8_t value)
 {
   /* TODO: Perhaps remove this dump later on:  */
-  if (dump_file && (dump_flags & TDF_DETAILS)
-      && value < align)
+  if (dump_file && (dump_flags & TDF_DETAILS) && value < m_align)
     {
       fprintf (dump_file, "Decreasing alignment to %u in instruction ", value);
       dump_hsa_insn (dump_file, this);
     }
-  align = value;
+  m_align = value;
 }
 
 /* Return size of HSA type T in bits.  */

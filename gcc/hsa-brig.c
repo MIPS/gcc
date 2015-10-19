@@ -1141,8 +1141,8 @@ emit_memory_insn (hsa_insn_mem *mem)
   else
     repr.segment = BRIG_SEGMENT_FLAT;
   repr.modifier.allBits = 0 ;
-  repr.equivClass = mem->equiv_class;
-  repr.align = mem->align;
+  repr.equivClass = mem->m_equiv_class;
+  repr.align = mem->m_align;
   if (mem->m_opcode == BRIG_OPCODE_LD)
     repr.width = BRIG_WIDTH_1;
   else

@@ -840,8 +840,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
       if (addr->m_symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
-      if (mem->equiv_class != 0)
-	fprintf (f, "_equiv(%i)", mem->equiv_class);
+      if (mem->m_equiv_class != 0)
+	fprintf (f, "_equiv(%i)", mem->m_equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operand (f, mem->get_op (0));

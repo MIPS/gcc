@@ -557,10 +557,10 @@ public:
      the address operand or flat address is there is no symbol there.  */
 
   /* Required alignment of the memory operation. */
-  BrigAlignment8_t align;
+  BrigAlignment8_t m_align;
 
   /* HSA equiv class, basically an alias set number. */
-  uint8_t equiv_class;
+  uint8_t m_equiv_class;
 
   /* TODO:  Add width modifier, perhaps also other things.  */
 protected:
