@@ -1,3 +1,8 @@
+2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/collapse-2.c: Force
+	serialization.
+
 2015-10-14  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:

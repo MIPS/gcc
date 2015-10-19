@@ -17718,6 +17718,50 @@ oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
   return has_auto;
 }
 
+/* Walk the OpenACC loop heirarchy to assign auto-partitioned loops.
+   OUTER_MASK is the partitioning this loop is contained within.
+   Return the cumulative partitioning used by this loop, siblings and
+   children.  */
+
+static unsigned
+oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
+{
+  unsigned inner_mask = 0;
+  bool noisy = true;
+
+#ifdef ACCEL_COMPILER
+  /* When device_type is supported, we want the device compiler to be
+     noisy, if the loop parameters are device_type-specific.  */
+  noisy = false;
+#endif
+
+  if (loop->child)
+    inner_mask |= oacc_loop_auto_partitions (loop->child,
+					     outer_mask | loop->mask);
+
+  if ((loop->flags & OLF_AUTO) && (loop->flags & OLF_INDEPENDENT))
+    {
+      unsigned this_mask = 0;
+      
+      /* Pick the innermost free partitioning.  */
+      this_mask = inner_mask | GOMP_DIM_MASK (GOMP_DIM_MAX);
+      this_mask = (this_mask & -this_mask) >> 1;
+      this_mask &= ~outer_mask;
+
+      if (!this_mask && noisy)
+	warning_at (loop->loc, 0,
+		    "insufficient parallelism available to partition loop");
+
+      loop->mask = this_mask;
+    }
+  inner_mask |= loop->mask;
+  
+  if (loop->sibling)
+    inner_mask |= oacc_loop_auto_partitions (loop->sibling, outer_mask);
+  
+  return inner_mask;
+}
+
 /* Walk the OpenACC loop heirarchy to check and assign partitioning
    axes.  */
 
@@ -17729,7 +17773,8 @@ oacc_loop_partition (oacc_loop *loop, int fn_level)
   if (fn_level >= 0)
     outer_mask = GOMP_DIM_MASK (fn_level) - 1;
 
-  oacc_loop_fixed_partitions (loop, outer_mask);
+  if (oacc_loop_fixed_partitions (loop, outer_mask))
+    oacc_loop_auto_partitions (loop, outer_mask);
 }
 
 /* Default launch dimension validator.  Force everything to 1.  A

@@ -1,5 +1,13 @@
 2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* gfortran.dg/goacc/routine-4.f90: Add diagnostic.
+	* gfortran.dg/goacc/routine-5.f90: Add diagnostic.
+	* c-c++-common/goacc-gomp/nesting-1.c: Add diagnostic.
+	* c-c++-common/goacc/routine-6.c: Add diagnostic.
+	* c-c++-common/goacc/routine-7.c: Add diagnostic.
+
+2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* gcc/testsuite/c-c++-common/goacc/routine-7.c: Adjust diagnostics.
 	* gcc/testsuite/c-c++-common/goacc/loop-3.c: Adjust diagnostics.
 	* gcc/testsuite/c-c++-common/goacc/routine-6.c: Adjust diagnostics.

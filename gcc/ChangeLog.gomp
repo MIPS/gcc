@@ -1,3 +1,8 @@
+2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (oacc_loop_auto_partitions): New.
+	(oacc_loop_partition): Call it.
+
 2015-10-19  Tom de Vries  <tom@codesourcery.com>
 
 	* tree-parloops.c (parallelize_loops): Do not parallelize loops in
