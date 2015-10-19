@@ -186,16 +186,17 @@ add_symbol_to_partition_1 (ltrans_partition part, symtab_node *node)
       if (hsa_summaries != NULL)
 	{
 	  hsa_function_summary *s = hsa_summaries->get (cnode);
-	  if (s->kind == HSA_KERNEL)
+	  if (s->m_kind == HSA_KERNEL)
 	    {
 	      /* Add binded function.  */
-	      bool added = add_symbol_to_partition_1 (part, s->binded_function);
+	      bool added = add_symbol_to_partition_1 (part,
+						      s->m_binded_function);
 	      gcc_assert (added);
 	      if (symtab->dump_file)
 		fprintf (symtab->dump_file,
 			 "adding an HSA function (host/gpu) to the "
 			 "partition: %s\n",
-			 s->binded_function->name ());
+			 s->m_binded_function->name ());
 	    }
 	}
     }

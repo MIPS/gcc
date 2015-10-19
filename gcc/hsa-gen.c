@@ -728,10 +728,10 @@ tree
 hsa_get_host_function (tree decl)
 {
   hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
-  gcc_assert (s->kind != HSA_NONE);
-  gcc_assert (s->gpu_implementation_p);
+  gcc_assert (s->m_kind != HSA_NONE);
+  gcc_assert (s->m_gpu_implementation_p);
 
-  return s->binded_function->decl;
+  return s->m_binded_function->decl;
 }
 
 /* Return true if function DECL has a host equivalent function.  */
@@ -742,8 +742,8 @@ get_brig_function_name (tree decl)
   tree d = decl;
 
   hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (d));
-  if (s->kind != HSA_NONE && s->gpu_implementation_p)
-    d = s->binded_function->decl;
+  if (s->m_kind != HSA_NONE && s->m_gpu_implementation_p)
+    d = s->m_binded_function->decl;
 
   /* IPA split can create a function that has no host equivalent.  */
   if (d == NULL)
@@ -5327,7 +5327,7 @@ pass_gen_hsail::execute (function *)
     (cgraph_node::get_create (current_function_decl));
 
   convert_switch_statements ();
-  generate_hsa (s->kind == HSA_KERNEL);
+  generate_hsa (s->m_kind == HSA_KERNEL);
   TREE_ASM_WRITTEN (current_function_decl) = 1;
   return TODO_stop_pass_execution;
 }

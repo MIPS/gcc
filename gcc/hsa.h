@@ -1006,20 +1006,20 @@ struct hsa_function_summary
   hsa_function_summary ();
 
   /* Kind of GPU/hostfunction.  */
-  hsa_function_kind kind;
+  hsa_function_kind m_kind;
 
   /* Pointer to a cgraph node which is a HSA implementation of the function.
      In case of the function is a HSA function, the binded function points
      to the host function.  */
-  cgraph_node *binded_function;
+  cgraph_node *m_binded_function;
 
   /* Identifies if the function is an HSA function or a host function.  */
-  bool gpu_implementation_p;
+  bool m_gpu_implementation_p;
 };
 
 inline
-hsa_function_summary::hsa_function_summary (): kind (HSA_NONE),
-  binded_function (NULL), gpu_implementation_p (false)
+hsa_function_summary::hsa_function_summary (): m_kind (HSA_NONE),
+  m_binded_function (NULL), m_gpu_implementation_p (false)
 {
 }
 
@@ -1041,14 +1041,14 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
   hsa_function_summary *gpu_summary = get (gpu);
   hsa_function_summary *host_summary = get (host);
 
-  gpu_summary->kind = kind;
-  host_summary->kind = kind;
+  gpu_summary->m_kind = kind;
+  host_summary->m_kind = kind;
 
-  gpu_summary->gpu_implementation_p = true;
-  host_summary->gpu_implementation_p = false;
+  gpu_summary->m_gpu_implementation_p = true;
+  host_summary->m_gpu_implementation_p = false;
 
-  gpu_summary->binded_function = host;
-  host_summary->binded_function = gpu;
+  gpu_summary->m_binded_function = host;
+  host_summary->m_binded_function = gpu;
 }
 
 /* in hsa.c */
@@ -1135,7 +1135,7 @@ hsa_gpu_implementation_p (tree decl)
 
   hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
 
-  return s->gpu_implementation_p;
+  return s->m_gpu_implementation_p;
 }
 
 #endif /* HSA_H */

@@ -684,7 +684,7 @@ hsa_register_kernel (cgraph_node *host)
   if (hsa_summaries == NULL)
     hsa_summaries = new hsa_summary_t (symtab);
   hsa_function_summary *s = hsa_summaries->get (host);
-  s->kind = HSA_KERNEL;
+  s->m_kind = HSA_KERNEL;
 }
 
 /* Add a pair of functions to HSA summaries.  GPU is an HSA implementation of

@@ -94,26 +94,26 @@ process_hsa_functions (void)
       hsa_function_summary *s = hsa_summaries->get (node);
 
       /* A linked function is skipped.  */
-      if (s->binded_function != NULL)
+      if (s->m_binded_function != NULL)
 	continue;
 
-      if (s->kind != HSA_NONE)
+      if (s->m_kind != HSA_NONE)
 	{
 	  cgraph_node *clone = node->create_virtual_clone
 	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
-	  if (s->kind == HSA_KERNEL)
+	  if (s->m_kind == HSA_KERNEL)
 	    DECL_ATTRIBUTES (clone->decl)
 	      = tree_cons (get_identifier ("flatten"), NULL_TREE,
 			   DECL_ATTRIBUTES (clone->decl));
 
 	  clone->force_output = true;
-	  hsa_summaries->link_functions (clone, node, s->kind);
+	  hsa_summaries->link_functions (clone, node, s->m_kind);
 
 	  if (dump_file)
 	    fprintf (dump_file, "HSA creates a new clone: %s, type: %s\n",
 		     clone->name (),
-		     s->kind == HSA_KERNEL ? "kernel" : "function");
+		     s->m_kind == HSA_KERNEL ? "kernel" : "function");
 	}
       else if (hsa_callable_function_p (node->decl))
 	{
@@ -139,12 +139,12 @@ process_hsa_functions (void)
       while (e)
 	{
 	  hsa_function_summary *src = hsa_summaries->get (node);
-	  if (src->kind != HSA_NONE && src->gpu_implementation_p)
+	  if (src->m_kind != HSA_NONE && src->m_gpu_implementation_p)
 	    {
 	      hsa_function_summary *dst = hsa_summaries->get (e->callee);
-	      if (dst->kind != HSA_NONE && !dst->gpu_implementation_p)
+	      if (dst->m_kind != HSA_NONE && !dst->m_gpu_implementation_p)
 		{
-		  e->redirect_callee (dst->binded_function);
+		  e->redirect_callee (dst->m_binded_function);
 		  if (dump_file)
 		    fprintf (dump_file,
 			     "Redirecting edge to HSA function: %s->%s\n",
@@ -182,7 +182,7 @@ ipa_hsa_write_summary (void)
       node = lsei_cgraph_node (lsei);
       hsa_function_summary *s = hsa_summaries->get (node);
 
-      if (s->kind != HSA_NONE)
+      if (s->m_kind != HSA_NONE)
 	count++;
     }
 
@@ -195,19 +195,19 @@ ipa_hsa_write_summary (void)
       node = lsei_cgraph_node (lsei);
       hsa_function_summary *s = hsa_summaries->get (node);
 
-      if (s->kind != HSA_NONE)
+      if (s->m_kind != HSA_NONE)
 	{
 	  encoder = ob->decl_state->symtab_node_encoder;
 	  int node_ref = lto_symtab_encoder_encode (encoder, node);
 	  streamer_write_uhwi (ob, node_ref);
 
 	  bp = bitpack_create (ob->main_stream);
-	  bp_pack_value (&bp, s->kind, 2);
-	  bp_pack_value (&bp, s->gpu_implementation_p, 1);
-	  bp_pack_value (&bp, s->binded_function != NULL, 1);
+	  bp_pack_value (&bp, s->m_kind, 2);
+	  bp_pack_value (&bp, s->m_gpu_implementation_p, 1);
+	  bp_pack_value (&bp, s->m_binded_function != NULL, 1);
 	  streamer_write_bitpack (&bp);
-	  if (s->binded_function)
-	    stream_write_tree (ob, s->binded_function->decl, true);
+	  if (s->m_binded_function)
+	    stream_write_tree (ob, s->m_binded_function->decl, true);
 	}
     }
 
@@ -251,14 +251,14 @@ ipa_hsa_read_section (struct lto_file_decl_data *file_data, const char *data,
       hsa_function_summary *s = hsa_summaries->get (node);
 
       struct bitpack_d bp = streamer_read_bitpack (&ib_main);
-      s->kind = (hsa_function_kind) bp_unpack_value (&bp, 2);
-      s->gpu_implementation_p = bp_unpack_value (&bp, 1);
+      s->m_kind = (hsa_function_kind) bp_unpack_value (&bp, 2);
+      s->m_gpu_implementation_p = bp_unpack_value (&bp, 1);
       bool has_tree = bp_unpack_value (&bp, 1);
 
       if (has_tree)
 	{
 	  tree decl = stream_read_tree (&ib_main, data_in);
-	  s->binded_function = cgraph_node::get_create (decl);
+	  s->m_binded_function = cgraph_node::get_create (decl);
 	}
     }
   lto_free_section_data (file_data, LTO_section_ipa_hsa, NULL, data,

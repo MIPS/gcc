@@ -1,5 +1,13 @@
 2015-10-19  Martin Liska  <mliska@suse.cz>
 
+	* hsa.h (hsa_function_summary): Prefix all member variables.
+	* hsa-gen.c: Likewise.
+	* hsa.c: Likewise.
+	* ipa-hsa.c: Likewise.
+	* lto-partition.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
 	* hsa.h (hsa_function_representation): Prefix all member variables.
 	* hsa-brig.c: Likewise.
 	* hsa-dump.c: Likewise.
