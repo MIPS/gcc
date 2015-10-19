@@ -32,7 +32,7 @@ worker (int red)
   for (int i = 0; i < 10; i++)
     red ++;
 
-#pragma acc loop gang reduction (+:red) // { dg-error "invalid parallelism inside acc routine" }
+#pragma acc loop gang reduction (+:red) // { dg-error "disallowed by containing routine" }
   for (int i = 0; i < 10; i++)
     red ++;
 
@@ -55,11 +55,11 @@ vector (int red)
   for (int i = 0; i < 10; i++)
     red ++;
 
-#pragma acc loop gang reduction (+:red) // { dg-error "invalid parallelism inside acc routine" }
+#pragma acc loop gang reduction (+:red) // { dg-error "disallowed by containing routine" }
   for (int i = 0; i < 10; i++)
     red ++;
 
-#pragma acc loop worker reduction (+:red) // { dg-error "invalid parallelism inside acc routine" }
+#pragma acc loop worker reduction (+:red) // { dg-error "disallowed by containing routine" }
   for (int i = 0; i < 10; i++)
     red ++;
 
@@ -78,15 +78,15 @@ seq (int red)
   for (int i = 0; i < 10; i++)
     red ++;
 
-#pragma acc loop gang reduction (+:red) // { dg-error "invalid parallelism inside acc routine" }
+#pragma acc loop gang reduction (+:red) // { dg-error "disallowed by containing routine" }
   for (int i = 0; i < 10; i++)
     red ++;
 
-#pragma acc loop worker reduction (+:red) // { dg-error "invalid parallelism inside acc routine" }
+#pragma acc loop worker reduction (+:red) // { dg-error "disallowed by containing routine" }
   for (int i = 0; i < 10; i++)
     red ++;
 
-#pragma acc loop vector reduction (+:red) // { dg-error "invalid parallelism inside acc routine" }
+#pragma acc loop vector reduction (+:red) // { dg-error "disallowed by containing routine" }
   for (int i = 0; i < 10; i++)
     red ++;
 

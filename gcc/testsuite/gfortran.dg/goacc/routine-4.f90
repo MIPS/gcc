@@ -49,19 +49,19 @@ program main
      call gang (a)
   end do
 
-  !$acc loop gang
+  !$acc loop gang ! { dg-message "containing loop" }
   do i = 1, N
-     call gang (a) ! { dg-error "incompatible parallelism with acc routine" }
+     call gang (a) ! { dg-error "routine call uses same" }
   end do
 
-  !$acc loop worker
+  !$acc loop worker ! { dg-message "containing loop" }
   do i = 1, N
-     call gang (a) ! { dg-error "incompatible parallelism with acc routine" }
+     call gang (a)  ! { dg-error "routine call uses same" }
   end do
 
-  !$acc loop vector
+  !$acc loop vector ! { dg-message "containing loop" }
   do i = 1, N
-     call gang (a) ! { dg-error "incompatible parallelism with acc routine" }
+     call gang (a)   ! { dg-error "routine call uses same" }
   end do
   !$acc end parallel
 
@@ -80,14 +80,14 @@ program main
      call worker (a)
   end do
 
-  !$acc loop worker
+  !$acc loop worker ! { dg-message "containing loop" }
   do i = 1, N
-     call worker (a) ! { dg-error "incompatible parallelism with acc routine" }
+     call worker (a) ! { dg-error "routine call uses same" }
   end do
 
-  !$acc loop vector
+  !$acc loop vector ! { dg-message "containing loop" }
   do i = 1, N
-     call worker (a) ! { dg-error "incompatible parallelism with acc routine" }
+     call worker (a) ! { dg-error "routine call uses same" }
   end do
   !$acc end parallel
 
@@ -111,14 +111,14 @@ program main
      call vector (a)
   end do
 
-  !$acc loop vector
+  !$acc loop vector ! { dg-message "containing loop" }
   do i = 1, N
-     call vector (a) ! { dg-error "incompatible parallelism with acc routine" }
+     call vector (a) ! { dg-error "routine call uses same" }
   end do
   !$acc end parallel
 contains
 
-  subroutine gang (a)
+  subroutine gang (a) ! { dg-message "declared here" 3 }
     !$acc routine gang
     integer, intent (inout) :: a(N)
     integer :: i
@@ -128,7 +128,7 @@ contains
     end do
   end subroutine gang
 
-  subroutine worker (a)
+  subroutine worker (a) ! { dg-message "declared here" 2 }
     !$acc routine worker
     integer, intent (inout) :: a(N)
     integer :: i
@@ -138,7 +138,7 @@ contains
     end do
   end subroutine worker
 
-  subroutine vector (a)
+  subroutine vector (a) ! { dg-message "declared here" }
     !$acc routine vector
     integer, intent (inout) :: a(N)
     integer :: i

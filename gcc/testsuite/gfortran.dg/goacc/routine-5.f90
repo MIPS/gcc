@@ -40,7 +40,7 @@ subroutine worker (a)
      a(i) = a(i) - a(i)
   end do
 
-  !$acc loop gang ! { dg-error "invalid parallelism inside acc routine" }
+  !$acc loop gang ! { dg-error "disallowed by containing routine" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do
@@ -66,12 +66,12 @@ subroutine vector (a)
      a(i) = a(i) - a(i)
   end do
 
-  !$acc loop gang ! { dg-error "invalid parallelism inside acc routine" }
+  !$acc loop gang  ! { dg-error "disallowed by containing routine" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do
 
-  !$acc loop worker ! { dg-error "invalid parallelism inside acc routine" }
+  !$acc loop worker ! { dg-error "disallowed by containing routine" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do
@@ -92,17 +92,17 @@ subroutine seq (a)
      a(i) = a(i) - a(i)
   end do
 
-  !$acc loop gang ! { dg-error "invalid parallelism inside acc routine" }
+  !$acc loop gang ! { dg-error "disallowed by containing routine" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do
 
-  !$acc loop worker ! { dg-error "invalid parallelism inside acc routine" }
+  !$acc loop worker ! { dg-error "disallowed by containing routine" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do
 
-  !$acc loop vector ! { dg-error "invalid parallelism inside acc routine" }
+  !$acc loop vector ! { dg-error "disallowed by containing routine" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do

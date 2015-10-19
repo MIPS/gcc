@@ -20,7 +20,7 @@ main ()
 #pragma acc loop gang(static:*)
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang // { dg-error "gang, worker and vector may occur only once in a loop nest" }
+#pragma acc loop gang // { dg-message "containing loop" }
     for (i = 0; i < 10; i++)
       {
 #pragma acc loop vector
@@ -29,31 +29,31 @@ main ()
 #pragma acc loop worker 
 	for (j = 1; j < 10; j++)
 	  { }
-#pragma acc loop gang
+#pragma acc loop gang // { dg-error "inner loop uses same" }
 	for (j = 1; j < 10; j++)
 	  { }
       }
-#pragma acc loop seq gang // { dg-error "incompatible use of clause" }
+#pragma acc loop seq gang // { dg-error "'seq' overrides" }
     for (i = 0; i < 10; i++)
       { }
 
 #pragma acc loop worker
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop worker // { dg-error "gang, worker and vector may occur only once in a loop nest" }
+#pragma acc loop worker // { dg-message "containing loop" 2 }
     for (i = 0; i < 10; i++)
       {
 #pragma acc loop vector 
 	for (j = 1; j < 10; j++)
 	  { }
-#pragma acc loop worker
+#pragma acc loop worker // { dg-error "inner loop uses same" }
 	for (j = 1; j < 10; j++)
 	  { }
-#pragma acc loop gang
+#pragma acc loop gang // { dg-error "incorrectly nested" }
 	for (j = 1; j < 10; j++)
 	  { }
       }
-#pragma acc loop seq worker // { dg-error "incompatible use of clause" }
+#pragma acc loop seq worker // { dg-error "'seq' overrides" }
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop gang worker
@@ -65,20 +65,20 @@ main ()
       { }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector // { dg-error "gang, worker and vector may occur only once in a loop nest" }
+#pragma acc loop vector // { dg-message "containing loop" 3 }
     for (i = 0; i < 10; i++)
       {
-#pragma acc loop vector
+#pragma acc loop vector // { dg-error "inner loop uses same" }
 	for (j = 1; j < 10; j++)
 	  { }
-#pragma acc loop worker
+#pragma acc loop worker // { dg-error "incorrectly nested" }
 	for (j = 1; j < 10; j++)
 	  { }
-#pragma acc loop gang
+#pragma acc loop gang // { dg-error "incorrectly nested" }
 	for (j = 1; j < 10; j++)
 	  { }
       }
-#pragma acc loop seq vector // { dg-error "incompatible use of clause" }
+#pragma acc loop seq vector // { dg-error "'seq' overrides" }
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop gang vector
@@ -91,16 +91,16 @@ main ()
 #pragma acc loop auto
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop seq auto // { dg-error "incompatible use of clause" }
+#pragma acc loop seq auto // { dg-error "'seq' overrides" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop gang auto // { dg-error "incompatible use of clause" }
+#pragma acc loop gang auto // { dg-error "'auto' conflicts" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop worker auto // { dg-error "incompatible use of clause" }
+#pragma acc loop worker auto // { dg-error "'auto' conflicts" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop vector auto // { dg-error "incompatible use of clause" }
+#pragma acc loop vector auto // { dg-error "'auto' conflicts" }
     for (i = 0; i < 10; i++)
       { }
 
@@ -119,16 +119,16 @@ main ()
   for (i = 0; i < 10; i++)
     { }
 
-#pragma acc parallel loop seq gang // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop seq gang // { dg-error "'seq' overrides" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'seq' overrides" "" { target c++ } }
     { }
 
 #pragma acc parallel loop worker
   for (i = 0; i < 10; i++)
     { }
 
-#pragma acc parallel loop seq worker // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop seq worker // { dg-error "'seq' overrides" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'seq' overrides" "" { target c++ } }
     { }
 #pragma acc parallel loop gang worker
   for (i = 0; i < 10; i++)
@@ -138,8 +138,8 @@ main ()
   for (i = 0; i < 10; i++)
     { }
 
-#pragma acc parallel loop seq vector // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop seq vector // { dg-error "'seq' overrides" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'seq' overrides" "" { target c++ } }
     { }
 #pragma acc parallel loop gang vector
   for (i = 0; i < 10; i++)
@@ -151,18 +151,19 @@ main ()
 #pragma acc parallel loop auto
   for (i = 0; i < 10; i++)
     { }
-#pragma acc parallel loop seq auto // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop seq auto // { dg-error "'seq' overrides" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'seq' overrides" "" { target c++ } }
     { }
-#pragma acc parallel loop gang auto // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop gang auto // { dg-error "'auto' conflicts" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'auto' conflicts" "" { target c++ } }
     { }
-#pragma acc parallel loop worker auto // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop worker auto // { dg-error "'auto' conflicts" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'auto' conflicts" "" { target c++ } }
     { }
-#pragma acc parallel loop vector auto // { dg-error "incompatible use of clause" "" { target c } }
-  for (i = 0; i < 10; i++) // { dg-error "incompatible use of clause" "" { target c++ } }
+#pragma acc parallel loop vector auto // { dg-error "'auto' conflicts" "" { target c } }
+  for (i = 0; i < 10; i++) // { dg-error "'auto' conflicts" "" { target c++ } }
     { }
+
 
   return 0;
 }

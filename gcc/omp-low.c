@@ -141,9 +141,6 @@ struct omp_region
   /* Records a generic kind field.  */
   int kind;
 
-  /* For an OpenACC loop, the level of parallelism requested.  */
-  int gwv_this;
-
   /* For an OpenACC loop directive, true if has the 'independent' clause.  */
   bool independent;
 };
@@ -203,14 +200,6 @@ struct omp_context
 
   /* The number of reductions in a loop.  */
   int reductions;
-
-  /* For OpenACC loops, a mask of gang, worker and vector used at
-     levels below this one.  */
-  int gwv_below;
-  /* For OpenACC loops, a mask of gang, worker and vector used at
-     this level and above.  For parallel and kernels clauses, a mask
-     indicating which of num_gangs/num_workers/num_vectors was used.  */
-  int gwv_this;
 };
 
 /* A structure holding the elements of:
@@ -249,7 +238,8 @@ struct oacc_loop
 
   location_t loc; /* Location of the loop start.  */
 
-  /* Start of head and tail.  */
+  gcall *marker; /* Initial head marker.  */
+  
   gcall *heads[GOMP_DIM_MAX];  /* Head marker functions. */
   gcall *tails[GOMP_DIM_MAX];  /* Tail marker functions. */
 
@@ -271,7 +261,7 @@ enum oacc_loop_flags
     OLF_GANG_STATIC = 1u << 3,	/* Gang partitioning is static (has op). */
 
     /* Explicitly specified loop axes.  */
-    OLF_DIM_BASE = 4 - GOMP_DIM_GANG,
+    OLF_DIM_BASE = 4,
     OLF_DIM_GANG   = 1u << (OLF_DIM_BASE + GOMP_DIM_GANG),
     OLF_DIM_WORKER = 1u << (OLF_DIM_BASE + GOMP_DIM_WORKER),
     OLF_DIM_VECTOR = 1u << (OLF_DIM_BASE + GOMP_DIM_VECTOR),
@@ -299,34 +289,6 @@ static gphi *find_phi_with_arg_on_edge (tree, edge);
       /* The sub-statements for these should be walked.  */ \
       *handled_ops_p = false; \
       break;
-
-/* Extract the gang, worker and vector clauses associated with CTX.
-
-  GWV_THIS contains the current level of parallelism the loop nest.
-  I.e. if the loop above contains a gang clause, and the current loop
-  contains a vector clause, gwv_this will have the GOM_DIM_GANG and
-  GOMP_DIM_VECTOR bits set.  This function extracts the level of
-  parallelism only associated with the current loop, e.g.
-  GOMP_DIM_VECTOR.  */
-
-static int
-extract_oacc_loop_mask (omp_context *ctx)
-{
-  int loop_flags = 0;
-
-  if (is_gimple_omp_oacc (ctx->stmt))
-    {
-      omp_context *outer = ctx->outer;
-
-      if (outer && gimple_code (outer->stmt) != GIMPLE_OMP_FOR)
-	outer = NULL;
-
-      loop_flags = outer ? ctx->gwv_this & (~outer->gwv_this)
-	: ctx->gwv_this;
-    }
-
-  return loop_flags;
-}
 
 static bool
 is_oacc_parallel (omp_context *ctx)
@@ -463,36 +425,6 @@ is_combined_parallel (struct omp_region *region)
 {
   return region->is_combined_parallel;
 }
-
-/* Return the gang, worker and vector attributes from associated with
-   FNDECL.  Returns a GOMP_DIM for the lowest level of parallelism beginning
-   with GOMP_DIM_GANG, or -1 if the routine is a SEQ. Otherwise, return 0 if
-   the FNDECL is not an acc routine.
-*/
-
-static int
-extract_oacc_routine_gwv (tree fndecl)
-{
-  tree attrs = get_oacc_fn_attrib (fndecl);
-  tree pos;
-  unsigned gwv = 0;
-  int i;
-  int ret = 0;
-
-  if (attrs != NULL_TREE)
-    {
-      for (i = 0, pos = TREE_VALUE (attrs);
-	   gwv == 0 && i != GOMP_DIM_MAX;
-	   i++, pos = TREE_CHAIN (pos))
-	if (TREE_PURPOSE (pos) != boolean_false_node)
-	  return 1 << i;
-
-      ret = -1;
-    }
-
-  return ret;
-}
-
 
 /* Extract the header elements of parallel loop FOR_STMT and store
    them into *FD.  */
@@ -2594,19 +2526,6 @@ enclosing_target_ctx (omp_context *ctx)
   return ctx;
 }
 
-static bool
-oacc_loop_or_target_p (gimple *stmt)
-{
-  enum gimple_code outer_type = gimple_code (stmt);
-  return ((outer_type == GIMPLE_OMP_TARGET
-	   && ((gimple_omp_target_kind (stmt)
-		== GF_OMP_TARGET_KIND_OACC_PARALLEL)
-	       || (gimple_omp_target_kind (stmt)
-		   == GF_OMP_TARGET_KIND_OACC_KERNELS)))
-	  || (outer_type == GIMPLE_OMP_FOR
-	      && gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_OACC_LOOP));
-}
-
 /* Return true if ctx is part of an oacc kernels region.  */
 
 static bool
@@ -2623,126 +2542,133 @@ ctx_in_oacc_kernels_region (omp_context *ctx)
   return false;
 }
 
+/* Check the parallelism clauses inside a kernels regions.
+   Until kernels handling moves to use the same loop indirection
+   scheme as parallel, we need to do this checking early.  */
+
+static unsigned
+check_oacc_kernel_gwv (gomp_for *stmt, omp_context *ctx)
+{
+  bool checking = true;
+  unsigned outer_mask = 0;
+  unsigned this_mask = 0;
+  bool has_seq = false, has_auto = false;
+
+  if (ctx->outer)
+    outer_mask = check_oacc_kernel_gwv (NULL,  ctx->outer);
+  if (!stmt)
+    {
+      checking = false;
+      if (gimple_code (ctx->stmt) != GIMPLE_OMP_FOR)
+	return outer_mask;
+      stmt = as_a <gomp_for *> (ctx->stmt);
+    }
+
+  for (tree c = gimple_omp_for_clauses (stmt); c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      switch (OMP_CLAUSE_CODE (c))
+	{
+	case OMP_CLAUSE_GANG:
+	  this_mask |= GOMP_DIM_MASK (GOMP_DIM_GANG);
+	  break;
+	case OMP_CLAUSE_WORKER:
+	  this_mask |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
+	  break;
+	case OMP_CLAUSE_VECTOR:
+	  this_mask |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
+	  break;
+	case OMP_CLAUSE_SEQ:
+	  has_seq = true;
+	  break;
+	case OMP_CLAUSE_AUTO:
+	  has_auto = true;
+	  break;
+	default:
+	  break;
+	}
+    }
+
+  if (checking)
+    {
+      if (has_seq && (this_mask || has_auto))
+	error_at (gimple_location (stmt), "%<seq%> overrides other OpenACC loop specifiers");
+      else if (has_auto && this_mask)
+	error_at (gimple_location (stmt), "%<auto%> conflicts with other OpenACC loop specifiers");
+
+      if (this_mask & outer_mask)
+	error_at (gimple_location (stmt), "inner loop uses same  OpenACC parallelism as containing loop");
+    }
+
+  return outer_mask | this_mask;
+}
+
 /* Scan a GIMPLE_OMP_FOR.  */
 
 static void
 scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 {
-  enum gimple_code outer_type = GIMPLE_ERROR_MARK;
   omp_context *ctx;
   size_t i;
   tree clauses = gimple_omp_for_clauses (stmt);
-  bool gwv_clause = false;
-  bool auto_clause = false;
-  bool seq_clause = false;
-  int gwv_routine = 0;
-  bool in_oacc_kernels_region = ctx_in_oacc_kernels_region (outer_ctx);
-
-  if (outer_ctx)
-    outer_type = gimple_code (outer_ctx->stmt);
-  else
-    {
-      gwv_routine = extract_oacc_routine_gwv (current_function_decl);
-      if (gwv_routine > 0)
-	gwv_routine = gwv_routine >> 1;
-    }
 
   ctx = new_omp_context (stmt, outer_ctx);
 
   if (is_gimple_omp_oacc (stmt))
     {
-      if (outer_ctx && outer_type == GIMPLE_OMP_FOR)
-	ctx->gwv_this = outer_ctx->gwv_this;
-      for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-	{
-	  int val;
-	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_GANG)
-	    {
-	      val = GOMP_DIM_MASK (GOMP_DIM_GANG);
-	      gwv_clause = true;
-	    }
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_WORKER)
-	    {
-	      val = GOMP_DIM_MASK (GOMP_DIM_WORKER);
-	      gwv_clause = true;
-	    }
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR)
-	    {
-	      val = GOMP_DIM_MASK (GOMP_DIM_VECTOR);
-	      gwv_clause = true;
-	    }
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SEQ)
-	    {
-	      seq_clause = true;
-	      continue;
-	    }
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_AUTO)
-	    {
-	      auto_clause = true;
-	      continue;
-	    }
-	  else
-	    continue;
-	  ctx->gwv_this |= val;
-	  if (!outer_ctx)
-	    {
-	      /* Skip; not nested inside a region.  */
-	      continue;
-	    }
-	  if (!oacc_loop_or_target_p (outer_ctx->stmt))
-	    {
-	      /* Skip; not nested inside an OpenACC region.  */
-	      continue;
-	    }
-	  if (outer_type == GIMPLE_OMP_FOR)
-	    outer_ctx->gwv_below |= val;
-	  if (OMP_CLAUSE_OPERAND (c, 0) != NULL_TREE)
-	    {
-	      omp_context *enclosing = enclosing_target_ctx (outer_ctx);
-	      /* Enclosing may be null if we are inside an acc routine. If
-		 that's the case, treat this loop as a parallel.  */
-	      if (enclosing == NULL || gimple_omp_target_kind (enclosing->stmt)
-		  == GF_OMP_TARGET_KIND_OACC_PARALLEL)
-		error_at (gimple_location (stmt),
-			  "no arguments allowed to gang, worker and vector clauses inside parallel");
-	    }
-	}
+      omp_context *tgt = enclosing_target_ctx (outer_ctx);
 
-      /* Filter out any OpenACC clauses which aren't associated with
-	 gangs, workers or vectors.  Such reductions are no-ops.  */
-      if (extract_oacc_loop_mask (ctx) == 0
-	  || in_oacc_kernels_region)
-	{
-	  /* First filter out the clauses at the beginning of the chain.  */
-	  while (clauses && OMP_CLAUSE_CODE (clauses) == OMP_CLAUSE_REDUCTION)
-	    {
-	      clauses = OMP_CLAUSE_CHAIN (clauses);
-	    }
+      if (!tgt || is_oacc_parallel (tgt))
+	for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+	  {
+	    char const *check = NULL;
 
-	  if (clauses != NULL)
+	    switch (OMP_CLAUSE_CODE (c))
+	      {
+	      case OMP_CLAUSE_GANG:
+		check = "gang";
+		break;
+
+	      case OMP_CLAUSE_WORKER:
+		check = "worker";
+		break;
+
+	      case OMP_CLAUSE_VECTOR:
+		check = "vector";
+		break;
+
+	      default:
+		break;
+	      }
+
+	    if (check && OMP_CLAUSE_OPERAND (c, 0))
+	      error_at (gimple_location (stmt),
+			"argument not permitted on %<%s%> clause in"
+			" OpenACC %<parallel%>", check);
+	  }
+    }
+
+  if (is_gimple_omp_oacc (stmt))
+    {
+      omp_context *tgt = enclosing_target_ctx (ctx);
+      if (tgt && is_oacc_kernels (tgt))
+	{
+	  /* Strip out reductions, as they are not  handled yet.  */
+	  tree *prev_ptr = &clauses;
+
+	  while (tree probe = *prev_ptr)
 	    {
-	      /* Filter out the remaining clauses.  */
-	      for (tree c = OMP_CLAUSE_CHAIN (clauses), prev = clauses;
-		   c; c = OMP_CLAUSE_CHAIN (c))
-		{
-		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
-		    {
-		      tree t = OMP_CLAUSE_CHAIN (c);
-		      OMP_CLAUSE_CHAIN (prev) = t;
-		    }
-		  else
-		    prev = c;
-		}
+	      tree *next_ptr = &OMP_CLAUSE_CHAIN (probe);
+	      
+	      if (OMP_CLAUSE_CODE (probe) == OMP_CLAUSE_REDUCTION)
+		*prev_ptr = *next_ptr;
+	      else
+		prev_ptr = next_ptr;
 	    }
 
 	  gimple_omp_for_set_clauses (stmt, clauses);
+	  check_oacc_kernel_gwv (stmt, ctx);
 	}
     }
-
-  if ((gwv_clause && auto_clause) || (auto_clause && seq_clause))
-    error_at (gimple_location (stmt), "incompatible use of clause auto");
-  else if (gwv_clause && seq_clause)
-    error_at (gimple_location (stmt), "incompatible use of clause seq");
 
   scan_sharing_clauses (clauses, ctx);
 
@@ -2755,25 +2681,6 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
       scan_omp_op (gimple_omp_for_incr_ptr (stmt, i), ctx);
     }
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
-
-  if (is_gimple_omp_oacc (stmt))
-    {
-      if (ctx->gwv_this & ctx->gwv_below)
-	error_at (gimple_location (stmt),
-		  "gang, worker and vector may occur only once in a loop nest");
-      else if (ctx->gwv_below != 0
-	       && ctx->gwv_this > ctx->gwv_below)
-	error_at (gimple_location (stmt),
-		  "gang, worker and vector must occur in this order in a loop nest");
-      else if (!outer_ctx && ctx->gwv_this != 0 && gwv_routine != 0
-	       && ((ffs (ctx->gwv_this) <= gwv_routine)
-		   || gwv_routine < 0))
-	error_at (gimple_location (stmt),
-		  "invalid parallelism inside acc routine");
-
-      if (outer_ctx && outer_type == GIMPLE_OMP_FOR)
-	outer_ctx->gwv_below |= ctx->gwv_below;
-    }
 }
 
 /* Scan an OpenMP sections directive.  */
@@ -2838,19 +2745,6 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
     {
       create_omp_child_function (ctx, false);
       gimple_omp_target_set_child_fn (stmt, ctx->cb.dst_fn);
-    }
-
-  if (is_gimple_omp_oacc (stmt))
-    {
-      for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-	{
-	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_GANGS)
-	    ctx->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_GANG);
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_WORKERS)
-	    ctx->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
-	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_VECTOR_LENGTH)
-	    ctx->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
-	}
     }
 
   scan_sharing_clauses (clauses, ctx);
@@ -3376,16 +3270,6 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	      default:
 		break;
 	      }
-	  else if (ctx && is_gimple_omp_oacc (ctx->stmt)
-		   && !is_oacc_parallel (ctx))
-	    {
-	      /* Is this a call to an acc routine?  */
-	      int gwv = extract_oacc_routine_gwv (fndecl);
-
-	      if (gwv > 0 && ffs (ctx->gwv_this) >= ffs (gwv))
-		error_at (gimple_location (stmt),
-			  "incompatible parallelism with acc routine");
-	    }
 	}
     }
   if (remove)
@@ -4975,28 +4859,18 @@ lower_oacc_head_mark (location_t loc, tree clauses,
     }
 
   /* In a parallel region, loops are implicitly INDEPENDENT.  */
-  if (is_oacc_parallel (ctx))
+  omp_context *tgt = enclosing_target_ctx (ctx);
+  if (!tgt || is_oacc_parallel (tgt))
     tag |= OLF_INDEPENDENT;
 
-  /* In a kernels region, a loop lacking SEQ, GANG, WORKER and/or
-     VECTOR is implicitly AUTO.  */
-  if (is_oacc_kernels (ctx)
-      && !(tag & (((GOMP_DIM_MASK (GOMP_DIM_MAX) - 1) << OLF_DIM_BASE)
-		  | OLF_SEQ)))
+  /* A loop lacking SEQ, GANG, WORKER and/or VECTOR is implicitly AUTO.  */
+  if (!(tag & (((GOMP_DIM_MASK (GOMP_DIM_MAX) - 1) << OLF_DIM_BASE)
+	       | OLF_SEQ)))
       tag |= OLF_AUTO;
 
-  {
-    /* Check we didn't discover any different partitioning from the
-       existing scheme.  */
-    unsigned mask = ctx->gwv_this;
-    if (ctx->outer &&  gimple_code (ctx->outer->stmt) == GIMPLE_OMP_FOR)
-      mask &= ~ctx->outer->gwv_this;
-
-    gcc_assert (mask == ((tag >> OLF_DIM_BASE)
-			 & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1)));
-  }
-
-  /* TODO: allocate at least one level, for auto allocation.  */
+  /* Ensure at least one level.  */
+  if (!levels)
+    levels++;
 
   args.safe_push (build_int_cst (integer_type_node, levels));
   args.safe_push (build_int_cst (integer_type_node, tag));
@@ -11121,32 +10995,9 @@ expand_omp (struct omp_region *region)
 /* Map each basic block to an omp_region.  */
 static hash_map<basic_block, omp_region *> *bb_region_map;
 
-/* Return a mask of GWV bits for region REGION associated with an
-   OMP_FOR STMT.  */
-
-static int
-find_omp_for_region_gwv (gimple *stmt)
-{
-  int tmp = 0;
-
-  if (!is_gimple_omp_oacc (stmt))
-    return 0;
-
-  tree clauses = gimple_omp_for_clauses (stmt);
-  if (find_omp_clause (clauses, OMP_CLAUSE_GANG))
-    tmp |= GOMP_DIM_MASK (GOMP_DIM_GANG);
-  if (find_omp_clause (clauses, OMP_CLAUSE_WORKER))
-    tmp |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
-  if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR))
-    tmp |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
-
-  return tmp;
-}
-
 static void
 find_omp_for_region_data (struct omp_region *region, gomp_for *stmt)
 {
-  region->gwv_this = find_omp_for_region_gwv (stmt);
   region->kind = gimple_omp_for_kind (stmt);
 
   if (region->kind == GF_OMP_FOR_KIND_OACC_LOOP)
@@ -11160,35 +11011,10 @@ find_omp_for_region_data (struct omp_region *region, gomp_for *stmt)
 
       tree clauses = gimple_omp_for_clauses (stmt);
 
-      if (target_region->kind == GF_OMP_TARGET_KIND_OACC_PARALLEL
-	  && !find_omp_clause (clauses, OMP_CLAUSE_SEQ))
-	/* In OpenACC parallel constructs, 'independent' is implied on all
-	   loop directives without a 'seq' clause.  */
-	region->independent = true;
-      else if (target_region->kind == GF_OMP_TARGET_KIND_OACC_KERNELS
-	       && find_omp_clause (clauses, OMP_CLAUSE_INDEPENDENT))
+      if (target_region->kind == GF_OMP_TARGET_KIND_OACC_KERNELS
+	  && find_omp_clause (clauses, OMP_CLAUSE_INDEPENDENT))
 	region->independent = true;
     }
-}
-
-/* Fill in additional data for a region REGION associated with an
-   OMP_TARGET STMT.  */
-
-static void
-find_omp_target_region_data (struct omp_region *region,
-			     gomp_target *stmt)
-{
-  if (!is_gimple_omp_oacc (stmt))
-    return;
-
-  tree clauses = gimple_omp_target_clauses (stmt);
-  if (find_omp_clause (clauses, OMP_CLAUSE_NUM_GANGS))
-    region->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_GANG);
-  if (find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS))
-    region->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_WORKER);
-  if (find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH))
-    region->gwv_this |= GOMP_DIM_MASK (GOMP_DIM_VECTOR);
-  region->kind = gimple_omp_target_kind (stmt);
 }
 
 /* Helper for build_omp_regions.  Scan the dominator tree starting at
@@ -11260,8 +11086,8 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
 		case GF_OMP_TARGET_KIND_OACC_PARALLEL:
 		case GF_OMP_TARGET_KIND_OACC_KERNELS:
 		case GF_OMP_TARGET_KIND_OACC_DATA:
-		  find_omp_target_region_data (region,
-					       as_a <gomp_target *> (stmt));
+		  if (is_gimple_omp_oacc (stmt))
+		    region->kind = gimple_omp_target_kind (stmt);
 		  break;
 		case GF_OMP_TARGET_KIND_UPDATE:
 		case GF_OMP_TARGET_KIND_OACC_UPDATE:
@@ -15894,6 +15720,7 @@ new_oacc_loop_raw (oacc_loop *parent, location_t loc)
     }
 
   loop->loc = loc;
+  loop->marker = NULL;
   memset (loop->heads, 0, sizeof (loop->heads));
   memset (loop->tails, 0, sizeof (loop->tails));
   loop->routine = NULL_TREE;
@@ -15918,21 +15745,21 @@ new_oacc_loop_outer (tree decl)
    Link into PARENT loop.  Return the new loop.  */
 
 static oacc_loop *
-new_oacc_loop (oacc_loop *parent, gcall *head)
+new_oacc_loop (oacc_loop *parent, gcall *marker)
 {
-  oacc_loop *loop = new_oacc_loop_raw (parent, gimple_location (head));
+  oacc_loop *loop = new_oacc_loop_raw (parent, gimple_location (marker));
 
-  loop->flags = TREE_INT_CST_LOW (gimple_call_arg (head, 2));
+  loop->marker = marker;
+  
+  /* TODO: This is where device_type flattening would occur for the loop
+     flags.   */
+
+  loop->flags = TREE_INT_CST_LOW (gimple_call_arg (marker, 2));
 
   tree chunk_size = integer_zero_node;
   if (loop->flags & OLF_GANG_STATIC)
-    chunk_size = gimple_call_arg (head,3);
+    chunk_size = gimple_call_arg (marker, 3);
   loop->chunk_size = chunk_size;
-
-  /* Set the mask from the incoming flags.
-     TODO: Be smarter and more flexible.  */
-  loop->mask = ((loop->flags >> OLF_DIM_BASE)
-		& (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1));
 
   return loop;
 }
@@ -15948,7 +15775,8 @@ new_oacc_loop_routine (oacc_loop *parent, gcall *call, tree decl, tree attrs)
   int level = oacc_validate_dims (decl, attrs, dims);
 
   gcc_assert (level >= 0);
-  
+
+  loop->marker = call;
   loop->routine = decl;
   loop->mask = ((GOMP_DIM_MASK (GOMP_DIM_MAX) - 1)
 		^ (GOMP_DIM_MASK (level) - 1));
@@ -16015,6 +15843,9 @@ dump_oacc_loop (FILE *file, oacc_loop *loop, int depth)
 	   loop->flags, loop->mask,
 	   LOCATION_FILE (loop->loc), LOCATION_LINE (loop->loc));
 
+  if (loop->marker)
+    print_gimple_stmt (file, loop->marker, depth * 2, 0);
+
   if (loop->routine)
     fprintf (file, "%*sRoutine %s:%u:%s\n",
 	     depth * 2, "", DECL_SOURCE_FILE (loop->routine),
@@ -16049,7 +15880,7 @@ debug_oacc_loop (oacc_loop *loop)
    nested.  */
 
 static void
-oacc_loop_walk (oacc_loop *loop, basic_block bb)
+oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
 {
   if (bb->flags & BB_VISITED)
     return;
@@ -16105,19 +15936,16 @@ oacc_loop_walk (oacc_loop *loop, basic_block bb)
 		  if (code == IFN_UNIQUE_OACC_HEAD_MARK)
 		    loop = new_oacc_loop (loop, call);
 		  remaining = count;
-		  if (remaining)
-		    remaining--;
 		}
-	      else
+	      gcc_assert (count == remaining);
+	      if (remaining)
 		{
-		  gcc_assert (count == remaining);
 		  remaining--;
+		  if (code == IFN_UNIQUE_OACC_HEAD_MARK)
+		    loop->heads[marker] = call;
+		  else
+		    loop->tails[remaining] = call;
 		}
-
-	      if (code == IFN_UNIQUE_OACC_HEAD_MARK)
-		loop->heads[marker] = call;
-	      else
-		loop->tails[remaining] = call;
 	      marker++;
 	    }
 	}
@@ -16129,7 +15957,29 @@ oacc_loop_walk (oacc_loop *loop, basic_block bb)
   edge_iterator ei;
 
   FOR_EACH_EDGE (e, ei, bb->succs)
-    oacc_loop_walk (loop, e->dest);
+    oacc_loop_discover_walk (loop, e->dest);
+}
+
+/* LOOP is the first sibling.  Reverse the order in place and return
+   the new first sibling.  Recurse to child loops.  */
+
+static oacc_loop *
+oacc_loop_sibling_nreverse (oacc_loop *loop)
+{
+  oacc_loop *last = NULL;
+  do
+    {
+      if (loop->child)
+	loop->child = oacc_loop_sibling_nreverse  (loop->child);
+
+      oacc_loop *next = loop->sibling;
+      loop->sibling = last;
+      last = loop;
+      loop = next;
+    }
+  while (loop);
+
+  return last;
 }
 
 /* Discover the OpenACC loops marked up by HEAD and TAIL markers for
@@ -16141,18 +15991,15 @@ oacc_loop_discovery ()
   basic_block bb;
   
   oacc_loop *top = new_oacc_loop_outer (current_function_decl);
-  oacc_loop_walk (top, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  oacc_loop_discover_walk (top, ENTRY_BLOCK_PTR_FOR_FN (cfun));
+
+  /* The siblings were constructed in reverse order, reverse them so
+     that diagnostics come out in an unsurprising order.  */
+  top = oacc_loop_sibling_nreverse (top);
 
   /* Reset the visited flags.  */
   FOR_ALL_BB_FN (bb, cfun)
     bb->flags &= ~BB_VISITED;
-
-  if (dump_file)
-    {
-      fprintf (dump_file, "OpenACC loops\n");
-      dump_oacc_loop (dump_file, top, 0);
-      fprintf (dump_file, "\n");
-    }
 
   return top;
 }
@@ -16260,12 +16107,11 @@ oacc_loop_process (oacc_loop *loop)
   if (loop->child)
     oacc_loop_process (loop->child);
 
-  int ix;
-  unsigned mask = loop->mask;
-  unsigned dim = GOMP_DIM_GANG;
-
-  if (mask && !loop->routine)
+  if (loop->mask && !loop->routine)
     {
+      int ix;
+      unsigned mask = loop->mask;
+      unsigned dim = GOMP_DIM_GANG;
       tree mask_arg = build_int_cst (unsigned_type_node, mask);
       tree chunk_arg = loop->chunk_size;
 
@@ -16284,15 +16130,132 @@ oacc_loop_process (oacc_loop *loop)
 	  mask ^= GOMP_DIM_MASK (dim);
 	}
     }
-  else
-    gcc_assert (!loop->heads[1] && !loop->tails[1]
-		&& (loop->routine || !loop->parent
-		    || integer_zerop (gimple_call_arg (loop->heads[0], 1))));
-
-  gcc_assert (loop->routine || !mask);
 
   if (loop->sibling)
     oacc_loop_process (loop->sibling);
+}
+
+/* Walk the OpenACC loop heirarchy checking and assigning the
+   programmer-specified partitionings.  OUTER_MASK is the partitioning
+   this loop is contained within.  Return partitiong mask used within
+   this loop nest.  */
+
+static unsigned
+oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
+{
+  unsigned this_mask = loop->mask;
+  bool has_auto = false;
+  bool noisy = true;
+
+#ifdef ACCEL_COMPILER
+  /* When device_type is supported, we want the device compiler to be
+     noisy, if the loop parameters are device_type-specific.  */
+  noisy = false;
+#endif
+
+  if (!loop->routine)
+    {
+      bool auto_par = (loop->flags & OLF_AUTO) != 0;
+      bool seq_par = (loop->flags & OLF_SEQ) != 0;
+
+      this_mask = ((loop->flags >> OLF_DIM_BASE)
+		   & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1));
+
+      if ((this_mask != 0) + auto_par + seq_par > 1)
+	{
+	  if (noisy)
+	    error_at (loop->loc,
+		      seq_par
+		      ? "%<seq%> overrides other OpenACC loop specifiers"
+		      : "%<auto%> conflicts with other OpenACC loop specifiers");
+	  auto_par = false;
+	  loop->flags &= ~OLF_AUTO;
+	  if (seq_par)
+	    {
+	      loop->flags &=
+		~((GOMP_DIM_MASK (GOMP_DIM_MAX) - 1) << OLF_DIM_BASE);
+	      this_mask = 0;
+	    }
+	}
+      if (auto_par && (loop->flags & OLF_INDEPENDENT))
+	has_auto = true;
+    }
+
+  if (this_mask & outer_mask)
+    {
+      const oacc_loop *outer;
+      for (outer = loop->parent; outer; outer = outer->parent)
+	if (outer->mask & this_mask)
+	  break;
+
+      if (noisy)
+	{
+	  if (outer)
+	    {
+	      error_at (loop->loc,
+			"%s uses same OpenACC parallelism as containing loop",
+			loop->routine ? "routine call" : "inner loop");
+	      inform (outer->loc, "containing loop here");
+	    }
+	  else
+	    error_at (loop->loc,
+		      "%s uses OpenACC parallelism disallowed by containing routine",
+		      loop->routine ? "routine call" : "loop");
+      
+	  if (loop->routine)
+	    inform (DECL_SOURCE_LOCATION (loop->routine),
+		    "routine %qD declared here", loop->routine);
+	}
+      this_mask &= ~outer_mask;
+    }
+  else
+    {
+      unsigned outermost = this_mask & -this_mask;
+
+      if (outermost && outermost <= outer_mask)
+	{
+	  if (noisy)
+	    {
+	      error_at (loop->loc,
+			"incorrectly nested OpenACC loop parallelism");
+
+	      const oacc_loop *outer;
+	      for (outer = loop->parent;
+		   outer->flags && outer->flags < outermost;
+		   outer = outer->parent)
+		continue;
+	      inform (outer->loc, "containing loop here");
+	    }
+
+	  this_mask &= ~outermost;
+	}
+    }
+
+  loop->mask = this_mask;
+
+  if (loop->child
+      && oacc_loop_fixed_partitions (loop->child, outer_mask | this_mask))
+    has_auto = true;
+
+  if (loop->sibling
+      && oacc_loop_fixed_partitions (loop->sibling, outer_mask))
+    has_auto = true;
+
+  return has_auto;
+}
+
+/* Walk the OpenACC loop heirarchy to check and assign partitioning
+   axes.  */
+
+static void
+oacc_loop_partition (oacc_loop *loop, int fn_level)
+{
+  unsigned outer_mask = 0;
+
+  if (fn_level >= 0)
+    outer_mask = GOMP_DIM_MASK (fn_level) - 1;
+
+  oacc_loop_fixed_partitions (loop, outer_mask);
 }
 
 /* Default launch dimension validator.  Force everything to 1.  A
@@ -16415,11 +16378,18 @@ execute_oacc_device_lower ()
     /* Not an offloaded function.  */
     return 0;
 
-  oacc_validate_dims (current_function_decl, attrs, dims);
+  int fn_level = oacc_validate_dims (current_function_decl, attrs, dims);
 
-  /* Discover and process the loops.  */
+  /* Discover, partition and process the loops.  */
   oacc_loop *loops = oacc_loop_discovery ();
+  oacc_loop_partition (loops, fn_level);
   oacc_loop_process (loops);
+  if (dump_file)
+    {
+      fprintf (dump_file, "OpenACC loops\n");
+      dump_oacc_loop (dump_file, loops, 0);
+      fprintf (dump_file, "\n");
+    }
 
   /* Offloaded targets may introduce new basic blocks, which require
      dominance information to update SSA.  */
@@ -16473,7 +16443,13 @@ execute_oacc_device_lower ()
 	  case IFN_GOACC_REDUCTION_TEARDOWN:
 	    /* Mark the function for SSA renaming.  */
 	    mark_virtual_operands_for_renaming (cfun);
-	    targetm.goacc.reduction (call);
+
+	    /* If the level is -1, this ended up being an unused
+	       axis.  Handle as a default.  */
+	    if (integer_minus_onep (gimple_call_arg (call, 2)))
+	      default_goacc_reduction (call);
+	    else
+	      targetm.goacc.reduction (call);
 	    rescan = 1;
 	    break;
 
@@ -16481,14 +16457,22 @@ execute_oacc_device_lower ()
 	    {
 	      unsigned code = TREE_INT_CST_LOW (gimple_call_arg (call, 0));
 
-	      if ((code == IFN_UNIQUE_OACC_FORK
-		   || code == IFN_UNIQUE_OACC_JOIN)
-		  && (targetm.goacc.fork_join
-		      (call, dims, code == IFN_UNIQUE_OACC_FORK)))
-		rescan = -1;
-	      else if (code == IFN_UNIQUE_OACC_HEAD_MARK
-		       || code == IFN_UNIQUE_OACC_TAIL_MARK)
-		rescan = -1;
+	      switch (code)
+		{
+		case IFN_UNIQUE_OACC_FORK:
+		case IFN_UNIQUE_OACC_JOIN:
+		  if (integer_minus_onep (gimple_call_arg (call, 1)))
+		    rescan = -1;
+		  else if (targetm.goacc.fork_join
+			   (call, dims, code == IFN_UNIQUE_OACC_FORK))
+		    rescan = -1;
+		  break;
+
+		case IFN_UNIQUE_OACC_HEAD_MARK:
+		case IFN_UNIQUE_OACC_TAIL_MARK:
+		  rescan = -1;
+		  break;
+		}
 	      break;
 	    }
 	  }

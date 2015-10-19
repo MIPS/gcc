@@ -1,3 +1,38 @@
+2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (struct omp_region): Remove gwv_this field.
+	(struct omp_context): Remove gwv_this and gwv_belop fields.
+	(struct oacc_loop): Add marker field.
+	(enum oacc_loop): Adjust OLF_DIM_BASE initializer.
+	(extract_oacc_loop_mask): Delete.
+	(extrac_oacc_routine_gwv): Delete.
+	(oacc_loop_or_target_p): Delete.
+	(check_oacc_kernel_gwv): New.
+	(scan_omp_for): Remove OpenACC gwv mask handling.  Check gang,
+	worker, vector argments.
+	(scan_omp_1_stmt): Remove OpenACC gwv mask checking.
+	(lower_oacc_head_mask): Set OLF_AUTO whenever possible. Ensure 1
+	level of headers.
+	(find_omp_for_region_gwv): Delete.
+	(find_omp_for_region_data): Remove gwv setting.  Only set
+	independent field for kernels.
+	(find_omp_target_region_data): Delete.
+	(build_omp_regions_1): Set region kind here.
+	(new_oacc_loop_raw): Initialize marker field.
+	(new_oacc_loop): Likewise.  Don't set mask here.
+	(new_oacc_loop_routine): Set marker field.
+	(dump_oacc_loop): Dump marker.
+	(oacc_loop_walk): Rename to ...
+	(oacc_loop_discover_walk): ... here.  Adjust head & tail
+	recording.
+	(oacc_loop_sibling_nreverse): New.
+	(oacc_loop_discovery): Reverse siblings.  Don't dump loops here.
+	(oacc_loop_process): Adjust & remove asserts.
+	(oacc_loop_fixed_partitions): New.
+	(oacc_loop_partition): New.
+	(execute_oacc_device_lower): Partition loops, neuter unused loop
+	heads & tails.
+
 2015-10-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (build_outer_var_ref): Just check for openacc function

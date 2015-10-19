@@ -46,10 +46,10 @@ program test
     !$acc loop vector
     DO i = 1,10
     ENDDO
-    !$acc loop vector(5) ! { dg-error "no arguments allowed to gang" }
+    !$acc loop vector(5) ! { dg-error "argument not permitted" }
     DO i = 1,10
     ENDDO
-    !$acc loop vector(length:5) ! { dg-error "no arguments allowed to gang" }
+    !$acc loop vector(length:5) ! { dg-error "argument not permitted" }
     DO i = 1,10
     ENDDO
     !$acc loop vector
@@ -70,10 +70,10 @@ program test
   !$acc parallel loop vector
   DO i = 1,10
   ENDDO
-  !$acc parallel loop vector(5) ! { dg-error "no arguments allowed to gang" }
+  !$acc parallel loop vector(5) ! { dg-error "argument not permitted" }
   DO i = 1,10
   ENDDO
-  !$acc parallel loop vector(length:5) ! { dg-error "no arguments allowed to gang" }
+  !$acc parallel loop vector(length:5) ! { dg-error "argument not permitted" }
   DO i = 1,10
   ENDDO
 end

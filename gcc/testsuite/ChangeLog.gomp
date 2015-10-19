@@ -1,3 +1,14 @@
+2015-10-19  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc/testsuite/c-c++-common/goacc/routine-7.c: Adjust diagnostics.
+	* gcc/testsuite/c-c++-common/goacc/loop-3.c: Adjust diagnostics.
+	* gcc/testsuite/c-c++-common/goacc/routine-6.c: Adjust diagnostics.
+	* gcc/testsuite/c-c++-common/goacc/loop-2.c: Adjust diagnostics.
+	* gcc/testsuite/c-c++-common/goacc/loop-4.c: Adjust diagnostics.
+	* gcc/testsuite/gfortran.dg/goacc/loop-6.f95: Adjust diagnostics.
+	* gcc/testsuite/gfortran.dg/goacc/routine-4.f90: Adjust diagnostics.
+	* gcc/testsuite/gfortran.dg/goacc/routine-5.f90: Adjust diagnostics.
+
 2015-10-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gfortran.dg/goacc/reduction-2.f95: Force loop partitioning and

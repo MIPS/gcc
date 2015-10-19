@@ -3,21 +3,21 @@
 
 #pragma acc routine gang
 int
-gang ()
+gang () /* { dg-message "declared here" 3 } */
 {
   return 1;
 }
 
 #pragma acc routine worker
 int
-worker ()
+worker () /* { dg-message "declared here" 2 } */
 {
   return 1;
 }
 
 #pragma acc routine vector
 int
-vector ()
+vector () /* { dg-message "declared here" } */
 {
   return 1;
 }
@@ -49,30 +49,30 @@ main ()
       red += vector ();
 
     /* Gang routine tests.  */
-#pragma acc loop gang reduction (+:red)
+#pragma acc loop gang reduction (+:red)  /* { dg-message "containing loop" } */
     for (int i = 0; i < 10; i++)
-      red += gang (); // { dg-error "incompatible parallelism with acc routine" }
+      red += gang (); // { dg-error "routine call uses same" }
 
-#pragma acc loop worker reduction (+:red)
+#pragma acc loop worker reduction (+:red)  /* { dg-message "containing loop" } */
     for (int i = 0; i < 10; i++)
-      red += gang (); // { dg-error "incompatible parallelism with acc routine" }
+      red += gang (); // { dg-error "routine call uses same" }
 
-#pragma acc loop vector reduction (+:red)
+#pragma acc loop vector reduction (+:red)  /* { dg-message "containing loop" } */
     for (int i = 0; i < 10; i++)
-      red += gang (); // { dg-error "incompatible parallelism with acc routine" }
+      red += gang (); // { dg-error "routine call uses same" }
 
     /* Worker routine tests.  */
 #pragma acc loop gang reduction (+:red)
     for (int i = 0; i < 10; i++)
       red += worker ();
 
-#pragma acc loop worker reduction (+:red)
+#pragma acc loop worker reduction (+:red)  /* { dg-message "containing loop" } */
     for (int i = 0; i < 10; i++)
-      red += worker (); // { dg-error "incompatible parallelism with acc routine" }
+      red += worker (); // { dg-error "routine call uses same" }
 
-#pragma acc loop vector reduction (+:red)
+#pragma acc loop vector reduction (+:red)  /* { dg-message "containing loop" } */
     for (int i = 0; i < 10; i++)
-      red += worker (); // { dg-error "incompatible parallelism with acc routine" }
+      red += worker (); // { dg-error "routine call uses same" }
 
     /* Vector routine tests.  */
 #pragma acc loop gang reduction (+:red)
@@ -83,9 +83,9 @@ main ()
     for (int i = 0; i < 10; i++)
       red += vector ();
 
-#pragma acc loop vector reduction (+:red)
+#pragma acc loop vector reduction (+:red)  /* { dg-message "containing loop" } */
     for (int i = 0; i < 10; i++)
-      red += vector (); // { dg-error "incompatible parallelism with acc routine" }
+      red += vector (); // { dg-error "routine call uses same" }
 
     /* Seq routine tests.  */
 #pragma acc loop gang reduction (+:red)
