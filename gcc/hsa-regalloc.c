@@ -90,7 +90,7 @@ naive_process_phi (hsa_insn_phi *phi)
       if (!op)
 	break;
 
-      e = EDGE_PRED (phi->bb, i);
+      e = EDGE_PRED (phi->m_bb, i);
       if (single_succ_p (e->src))
 	hbb = hsa_bb_for_bb (e->src);
       else
@@ -126,7 +126,7 @@ naive_outof_ssa (void)
 
     for (phi = hbb->first_phi;
 	 phi;
-	 phi = phi->next ? as_a <hsa_insn_phi *> (phi->next): NULL)
+	 phi = phi->m_next ? as_a <hsa_insn_phi *> (phi->m_next): NULL)
       naive_process_phi (phi);
 
     /* Zap PHI nodes, they will be deallocated when everything else will.  */
@@ -235,7 +235,7 @@ rewrite_code_bb (basic_block bb, struct m_reg_class_desc *classes)
 
   for (insn = hbb->first_insn; insn; insn = next_insn)
     {
-      next_insn = insn->next;
+      next_insn = insn->m_next;
       unsigned count = insn->operand_count ();
       for (unsigned i = 0; i < count; i++)
 	{
@@ -251,7 +251,7 @@ rewrite_code_bb (basic_block bb, struct m_reg_class_desc *classes)
 
 	      int cl = m_reg_class_for_type (reg->m_type);
 	      hsa_op_reg *tmp, *tmp2;
-	      if (hsa_opcode_op_output_p (insn->opcode, i))
+	      if (hsa_opcode_op_output_p (insn->m_opcode, i))
 		tmp = hsa_spill_out (insn, reg, &tmp2);
 	      else
 		tmp = hsa_spill_in (insn, reg, &tmp2);
@@ -464,10 +464,10 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bbs[i]);
       hsa_bb *hbb = hsa_bb_for_bb (bb);
       hsa_insn_basic *insn;
-      for (insn = hbb->first_insn; insn; insn = insn->next)
+      for (insn = hbb->first_insn; insn; insn = insn->m_next)
 	{
 	  unsigned opi;
-	  insn->number = insn_order++;
+	  insn->m_number = insn_order++;
 	  for (opi = 0; opi < insn->operand_count (); opi++)
 	    {
 	      gcc_checking_assert (insn->get_op (opi));
@@ -517,7 +517,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 
 	  /* Remove defs, include uses in a backward insn walk.  */
 	  hsa_insn_basic *insn;
-	  for (insn = hbb->last_insn; insn; insn = insn->prev)
+	  for (insn = hbb->last_insn; insn; insn = insn->m_prev)
 	    {
 	      unsigned opi;
 	      unsigned ndefs = insn->input_count ();
@@ -557,7 +557,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       bitmap_iterator bi;
 
       if (last_insn)
-	after_end_number = last_insn->number;
+	after_end_number = last_insn->m_number;
       else
 	after_end_number = insn_order;
       /* Everything live-out in this BB has at least an end point
@@ -565,7 +565,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       EXECUTE_IF_SET_IN_BITMAP (hbb->liveout, 0, bit, bi)
 	note_lr_end (ind2reg[bit], after_end_number);
 
-      for (insn = hbb->last_insn; insn; insn = insn->prev)
+      for (insn = hbb->last_insn; insn; insn = insn->m_prev)
 	{
 	  unsigned opi;
 	  unsigned ndefs = insn->input_count ();
@@ -577,9 +577,9 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 		{
 		  hsa_op_reg *reg = *regaddr;
 		  if (opi < ndefs)
-		    note_lr_begin (reg, insn->number);
+		    note_lr_begin (reg, insn->m_number);
 		  else
-		    note_lr_end (reg, insn->number);
+		    note_lr_end (reg, insn->m_number);
 		}
 	    }
 	}
@@ -588,7 +588,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
          our first insn.  */
       int before_start_number;
       if (hbb->first_insn)
-	before_start_number = hbb->first_insn->number;
+	before_start_number = hbb->first_insn->m_number;
       else
 	before_start_number = after_end_number;
       before_start_number--;

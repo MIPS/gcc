@@ -1,5 +1,14 @@
 2015-10-19  Martin Liska  <mliska@suse.cz>
 
+	* hsa.h (hsa_basic_insn): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+	* hsa.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
 	* hsa.h (hsa_op_code_list): Prefix all member variables.
 	* hsa-brig.c: Likewise.
 	* hsa-gen.c: Likewise.

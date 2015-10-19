@@ -341,9 +341,9 @@ hsa_deinit_data_for_cfun (void)
 	hsa_insn_phi *phi;
 	for (phi = hbb->first_phi;
 	     phi;
-	     phi = phi->next ? as_a <hsa_insn_phi *> (phi->next): NULL)
+	     phi = phi->m_next ? as_a <hsa_insn_phi *> (phi->m_next): NULL)
 	  phi->~hsa_insn_phi ();
-	for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->next)
+	for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->m_next)
 	  hsa_destroy_insn (insn);
 
 	hbb->~hsa_bb ();
@@ -1001,7 +1001,7 @@ hsa_op_reg::verify_ssa ()
 
 	  if (u == this)
 	    {
-	      bool r = !addr && hsa_opcode_op_output_p (use->opcode, j);
+	      bool r = !addr && hsa_opcode_op_output_p (use->m_opcode, j);
 
 	      if (r)
 		{
@@ -1118,16 +1118,10 @@ hsa_op_reg::set_definition (hsa_insn_basic *insn)
    operand vector will contain (and which will be cleared).  OP is the opcode
    of the instruction.  This constructor does not set type.  */
 
-hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc)
+hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc): m_prev (NULL),
+  m_next (NULL), m_bb (NULL), m_opcode (opc), m_number (0),
+  m_type (BRIG_TYPE_NONE), m_brig_offset (0)
 {
-  opcode = opc;
-
-  prev = next = NULL;
-  bb = NULL;
-  number = 0;
-  type = BRIG_TYPE_NONE;
-  brig_offset = 0;
-
   if (nops > 0)
     operands.safe_grow_cleared (nops);
 }
@@ -1149,7 +1143,7 @@ hsa_insn_basic::set_op (int index, hsa_op_base *op)
       hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op);
       if (reg)
 	{
-	  if (hsa_opcode_op_output_p (opcode, index))
+	  if (hsa_opcode_op_output_p (m_opcode, index))
 	    reg->set_definition (this);
 	  else
 	    reg->uses.safe_push (this);
@@ -1189,16 +1183,10 @@ hsa_insn_basic::operand_count ()
 
 hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
 				hsa_op_base *arg0, hsa_op_base *arg1,
-				hsa_op_base *arg2, hsa_op_base *arg3)
+				hsa_op_base *arg2, hsa_op_base *arg3):
+  m_prev (NULL), m_next (NULL), m_bb (NULL), m_opcode (opc),m_number (0),
+  m_type (t),  m_brig_offset (0)
 {
-  opcode = opc;
-  type = t;
-
-  prev = next = NULL;
-  bb = NULL;
-  number = 0;
-  brig_offset = 0;
-
   if (nops > 0)
     operands.safe_grow_cleared (nops);
 
@@ -1256,7 +1244,7 @@ hsa_insn_basic::verify ()
 	}
 
       if ((reg = dyn_cast <hsa_op_reg *> (use))
-	  && !hsa_opcode_op_output_p (opcode, i))
+	  && !hsa_opcode_op_output_p (m_opcode, i))
 	{
 	  unsigned j;
 	  for (j = 0; j < reg->uses.length (); j++)
@@ -1550,14 +1538,14 @@ hsa_insn_queue::hsa_insn_queue (int nops, BrigOpcode opcode)
 void
 hsa_bb::append_insn (hsa_insn_basic *insn)
 {
-  gcc_assert (insn->opcode != 0 || insn->operand_count () == 0);
-  gcc_assert (!insn->bb);
+  gcc_assert (insn->m_opcode != 0 || insn->operand_count () == 0);
+  gcc_assert (!insn->m_bb);
 
-  insn->bb = bb;
-  insn->prev = last_insn;
-  insn->next = NULL;
+  insn->m_bb = bb;
+  insn->m_prev = last_insn;
+  insn->m_next = NULL;
   if (last_insn)
-    last_insn->next = insn;
+    last_insn->m_next = insn;
   last_insn = insn;
   if (!first_insn)
     first_insn = insn;
@@ -1569,15 +1557,15 @@ hsa_bb::append_insn (hsa_insn_basic *insn)
 static void
 hsa_insert_insn_before (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
 {
-  hsa_bb *hbb = hsa_bb_for_bb (old_insn->bb);
+  hsa_bb *hbb = hsa_bb_for_bb (old_insn->m_bb);
 
   if (hbb->first_insn == old_insn)
     hbb->first_insn = new_insn;
-  new_insn->prev = old_insn->prev;
-  new_insn->next = old_insn;
-  if (old_insn->prev)
-    old_insn->prev->next = new_insn;
-  old_insn->prev = new_insn;
+  new_insn->m_prev = old_insn->m_prev;
+  new_insn->m_next = old_insn;
+  if (old_insn->m_prev)
+    old_insn->m_prev->m_next = new_insn;
+  old_insn->m_prev = new_insn;
 }
 
 /* Append HSA instruction NEW_INSN immediately after an existing instruction
@@ -1586,15 +1574,15 @@ hsa_insert_insn_before (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
 static void
 hsa_append_insn_after (hsa_insn_basic *new_insn, hsa_insn_basic *old_insn)
 {
-  hsa_bb *hbb = hsa_bb_for_bb (old_insn->bb);
+  hsa_bb *hbb = hsa_bb_for_bb (old_insn->m_bb);
 
   if (hbb->last_insn == old_insn)
     hbb->last_insn = new_insn;
-  new_insn->prev = old_insn;
-  new_insn->next = old_insn->next;
-  if (old_insn->next)
-    old_insn->next->prev = new_insn;
-  old_insn->next = new_insn;
+  new_insn->m_prev = old_insn;
+  new_insn->m_next = old_insn->m_next;
+  if (old_insn->m_next)
+    old_insn->m_next->m_prev = new_insn;
+  old_insn->m_next = new_insn;
 }
 
 /* Lookup or create a HSA pseudo register for a given gimple SSA name and if
@@ -1960,14 +1948,14 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
 			      tmp);
 
       insn->set_op (0, tmp);
-      insn->type = tmp->m_type;
+      insn->m_type = tmp->m_type;
       hbb->append_insn (insn);
       hbb->append_insn (seg);
     }
   else
     {
       insn->set_op (0, dest);
-      insn->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
+      insn->m_type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
       hbb->append_insn (insn);
     }
 }
@@ -2367,13 +2355,13 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb,
   if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (src))
     {
       if ((imm->m_type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_NONE)
-	imm->m_type = mem->type;
+	imm->m_type = mem->m_type;
       else
 	{
 	  /* ...and all vector immediates apparently need to be vectors of
 	     unsigned bytes. */
 	  unsigned bs = hsa_type_bit_size (imm->m_type);
-	  gcc_assert (bs == hsa_type_bit_size (mem->type));
+	  gcc_assert (bs == hsa_type_bit_size (mem->m_type));
 	  switch (bs)
 	    {
 	    case 32:
@@ -2703,14 +2691,14 @@ gen_hsa_unary_operation (int opcode, hsa_op_reg *dest,
   if (opcode == BRIG_OPCODE_ABS || opcode == BRIG_OPCODE_NEG)
     {
       /* ABS and NEG only exist in _s form :-/  */
-      if (insn->type == BRIG_TYPE_U32)
-	insn->type = BRIG_TYPE_S32;
-      else if (insn->type == BRIG_TYPE_U64)
-	insn->type = BRIG_TYPE_S64;
+      if (insn->m_type == BRIG_TYPE_U32)
+	insn->m_type = BRIG_TYPE_S32;
+      else if (insn->m_type == BRIG_TYPE_U64)
+	insn->m_type = BRIG_TYPE_S64;
     }
   else if (opcode == BRIG_OPCODE_MOV && hsa_needs_cvt (dest->m_type,
 						       op1->m_type))
-    insn->opcode = BRIG_OPCODE_CVT;
+    insn->m_opcode = BRIG_OPCODE_CVT;
 
   hbb->append_insn (insn);
 }
@@ -3323,15 +3311,15 @@ hsa_insn_basic::set_output_in_type (hsa_op_reg *dest, unsigned op_index,
 				    hsa_bb *hbb)
 {
   hsa_insn_basic *insn;
-  gcc_checking_assert (hsa_opcode_op_output_p (opcode, op_index));
+  gcc_checking_assert (hsa_opcode_op_output_p (m_opcode, op_index));
 
-  if (dest->m_type == type)
+  if (dest->m_type == m_type)
     set_op (op_index, dest);
 
-  hsa_op_reg *tmp = new hsa_op_reg (type);
+  hsa_op_reg *tmp = new hsa_op_reg (m_type);
   set_op (op_index, tmp);
 
-  if (hsa_needs_cvt (dest->m_type, type))
+  if (hsa_needs_cvt (dest->m_type, m_type))
     insn = new hsa_insn_basic (2, BRIG_OPCODE_CVT, dest->m_type,
 			       dest, tmp);
   else
@@ -4619,7 +4607,7 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
   hsa_op_reg *dest = hsa_reg_for_gimple_ssa (gimple_phi_result (phi_stmt),
 					     ssa_map);
   hphi = new hsa_insn_phi (count, dest);
-  hphi->bb = hbb->bb;
+  hphi->m_bb = hbb->bb;
 
   tree lhs = gimple_phi_result (phi_stmt);
 
@@ -4670,10 +4658,10 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb,
 	}
     }
 
-  hphi->prev = hbb->last_phi;
-  hphi->next = NULL;
+  hphi->m_prev = hbb->last_phi;
+  hphi->m_next = NULL;
   if (hbb->last_phi)
-    hbb->last_phi->next = hphi;
+    hbb->last_phi->m_next = hphi;
   hbb->last_phi = hphi;
   if (!hbb->first_phi)
     hbb->first_phi = hphi;
@@ -5304,7 +5292,7 @@ generate_hsa (bool kernel)
     {
       hsa_bb *hbb = hsa_bb_for_bb (bb);
 
-      for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->next)
+      for (hsa_insn_basic *insn = hbb->first_insn; insn; insn = insn->m_next)
 	insn->verify ();
     }
 

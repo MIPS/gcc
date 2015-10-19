@@ -772,8 +772,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 {
   gcc_checking_assert (insn);
 
-  if (insn->number)
-    fprintf (f, "%5d: ", insn->number);
+  if (insn->m_number)
+    fprintf (f, "%5d: ", insn->m_number);
 
   indent_stream (f, *indent);
 
@@ -800,11 +800,11 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
     {
       hsa_insn_signal *mem = as_a <hsa_insn_signal *> (insn);
 
-      fprintf (f, "%s", hsa_opcode_name (mem->opcode));
+      fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
       fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
       if (mem->memoryorder != BRIG_MEMORY_ORDER_NONE)
 	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
-      fprintf (f, "_%s ", hsa_type_name (mem->type));
+      fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operands (f, mem);
     }
@@ -820,7 +820,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       else
 	addr = as_a <hsa_op_address *> (mem->get_op (1));
 
-      fprintf (f, "%s", hsa_opcode_name (mem->opcode));
+      fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
       fprintf (f, "_%s", hsa_atomicop_name (mem->atomicop));
       if (addr->m_symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
@@ -828,7 +828,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	fprintf (f, "_%s", hsa_memsem_name (mem->memoryorder));
       if (mem->memoryscope != BRIG_MEMORY_SCOPE_NONE)
 	fprintf (f, "_%s", hsa_memscope_name (mem->memoryscope));
-      fprintf (f, "_%s ", hsa_type_name (mem->type));
+      fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operands (f, mem);
     }
@@ -837,25 +837,25 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_insn_mem *mem = as_a <hsa_insn_mem *> (insn);
       hsa_op_address *addr = as_a <hsa_op_address *> (mem->get_op (1));
 
-      fprintf (f, "%s", hsa_opcode_name (mem->opcode));
+      fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
       if (addr->m_symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
       if (mem->equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->equiv_class);
-      fprintf (f, "_%s ", hsa_type_name (mem->type));
+      fprintf (f, "_%s ", hsa_type_name (mem->m_type));
 
       dump_hsa_operand (f, mem->get_op (0));
       fprintf (f, ", ");
       dump_hsa_address (f, addr);
     }
-  else if (insn->opcode == BRIG_OPCODE_LDA)
+  else if (insn->m_opcode == BRIG_OPCODE_LDA)
     {
       hsa_op_address *addr = as_a <hsa_op_address *> (insn->get_op (1));
 
-      fprintf (f, "%s", hsa_opcode_name (insn->opcode));
+      fprintf (f, "%s", hsa_opcode_name (insn->m_opcode));
       if (addr->m_symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
-      fprintf (f, "_%s ", hsa_type_name (insn->type));
+      fprintf (f, "_%s ", hsa_type_name (insn->m_type));
 
       dump_hsa_operand (f, insn->get_op (0));
       fprintf (f, ", ");
@@ -864,9 +864,9 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
   else if (is_a <hsa_insn_seg *> (insn))
     {
       hsa_insn_seg *seg = as_a <hsa_insn_seg *> (insn);
-      fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (seg->opcode),
+      fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (seg->m_opcode),
 	       hsa_seg_name (seg->segment),
-	       hsa_type_name (seg->type), hsa_type_name (seg->src_type));
+	       hsa_type_name (seg->m_type), hsa_type_name (seg->src_type));
       dump_hsa_reg (f, as_a <hsa_op_reg *> (seg->get_op (0)));
       fprintf (f, ", ");
       dump_hsa_operand (f, seg->get_op (1));
@@ -881,9 +881,9 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       else
 	src_type = as_a <hsa_op_immed *> (cmp->get_op (1))->m_type;
 
-      fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (cmp->opcode),
+      fprintf (f, "%s_%s_%s_%s ", hsa_opcode_name (cmp->m_opcode),
 	       hsa_cmpop_name (cmp->compare),
-	       hsa_type_name (cmp->type), hsa_type_name (src_type));
+	       hsa_type_name (cmp->m_type), hsa_type_name (src_type));
       dump_hsa_reg (f, as_a <hsa_op_reg *> (cmp->get_op (0)));
       fprintf (f, ", ");
       dump_hsa_operand (f, cmp->get_op (1));
@@ -898,14 +898,14 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       edge e;
 
       /* FIXME: We onlu assume direct jumps now.  */
-      fprintf (f, "%s ", hsa_opcode_name (br->opcode));
-      if (br->opcode == BRIG_OPCODE_CBR)
+      fprintf (f, "%s ", hsa_opcode_name (br->m_opcode));
+      if (br->m_opcode == BRIG_OPCODE_CBR)
 	{
 	  dump_hsa_reg (f, as_a <hsa_op_reg *> (br->get_op (0)));
 	  fprintf (f, ", ");
 	}
 
-      FOR_EACH_EDGE (e, ei, br->bb->succs)
+      FOR_EACH_EDGE (e, ei, br->m_bb->succs)
 	if (e->flags & EDGE_TRUE_VALUE)
 	  {
 	    target = e->dest;
@@ -917,7 +917,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
     {
       hsa_insn_sbr *sbr = as_a <hsa_insn_sbr *> (insn);
 
-      fprintf (f, "%s ", hsa_opcode_name (sbr->opcode));
+      fprintf (f, "%s ", hsa_opcode_name (sbr->m_opcode));
       dump_hsa_reg (f, as_a <hsa_op_reg *> (sbr->get_op (0)));
       fprintf (f, ", [");
 
@@ -975,8 +975,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
   else
     {
       bool first = true;
-      fprintf (f, "%s_%s ", hsa_opcode_name (insn->opcode),
-	       hsa_type_name (insn->type));
+      fprintf (f, "%s_%s ", hsa_opcode_name (insn->m_opcode),
+	       hsa_type_name (insn->m_type));
 
       unsigned count = insn->operand_count ();
       for (unsigned i = 0; i < count; i++)
@@ -1001,9 +1001,9 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	}
     }
 
-  if (insn->brig_offset)
+  if (insn->m_brig_offset)
     {
-      fprintf (f, "             /* BRIG offset: %u", insn->brig_offset);
+      fprintf (f, "             /* BRIG offset: %u", insn->m_brig_offset);
 
       for (unsigned i = 0; i < insn->operand_count (); i++)
 	fprintf (f, ", op%u: %u", i, insn->get_op (i)->m_brig_op_offset);
@@ -1037,10 +1037,10 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
   fprintf (f, "BB %i:\n", hbb->index);
 
   int indent = 2;
-  for (insn = hbb->first_phi; insn; insn = insn->next)
+  for (insn = hbb->first_phi; insn; insn = insn->m_next)
     dump_hsa_insn_1 (f, insn, &indent);
 
-  for (insn = hbb->first_insn; insn; insn = insn->next)
+  for (insn = hbb->first_insn; insn; insn = insn->m_next)
     dump_hsa_insn_1 (f, insn, &indent);
 
   if (hbb->last_insn && is_a <hsa_insn_sbr *> (hbb->last_insn))
@@ -1061,18 +1061,18 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
   if (true_bb)
     {
       if (!hbb->last_insn
-	  || hbb->last_insn->opcode != BRIG_OPCODE_CBR)
+	  || hbb->last_insn->m_opcode != BRIG_OPCODE_CBR)
 	fprintf (f, "WARNING: No branch insn for a true edge. \n");
     }
   else if (hbb->last_insn
-	   && hbb->last_insn->opcode == BRIG_OPCODE_CBR)
+	   && hbb->last_insn->m_opcode == BRIG_OPCODE_CBR)
     fprintf (f, "WARNING: No true edge for a cbr statement\n");
 
   if (other && other->aux)
     fprintf (f, "  Fall-through to BB %i\n",
 	     hsa_bb_for_bb (other)->index);
   else if (hbb->last_insn
-	   && hbb->last_insn->opcode != BRIG_OPCODE_RET)
+	   && hbb->last_insn->m_opcode != BRIG_OPCODE_RET)
     fprintf (f, "  WARNING: Fall through to a BB with no aux!\n");
 
 exit:

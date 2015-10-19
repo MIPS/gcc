@@ -369,23 +369,24 @@ public:
   void set_output_in_type (hsa_op_reg *dest, unsigned op_index, hsa_bb *hbb);
 
   /* The previous and next instruction in the basic block.  */
-  hsa_insn_basic *prev, *next;
+  hsa_insn_basic *m_prev, *m_next;
 
   /* Basic block this instruction belongs to.  */
-  basic_block bb;
+  basic_block m_bb;
 
   /* Operand code distinguishing different types of instructions.  Eventually
      these should only be BRIG_INST_* values from the BrigOpcode16_t range but
      initially we use negative values for PHI nodes and such.  */
-  int opcode;
+  int m_opcode;
 
-  int number;			/* FIXME: What is this for? */
+  /* Linearized number assigned to the instruction by HSA RA.  */
+  int m_number;
 
   /* Type of the destination of the operations.  */
-  BrigType16_t type;
+  BrigType16_t m_type;
 
   /* BRIG offset of the instruction in code section.  */
-  unsigned int brig_offset;
+  unsigned int m_brig_offset;
 
 private:
   /* Make the default constructor inaccessible.  */
@@ -428,7 +429,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_phi *>::test (hsa_insn_basic *p)
 {
-  return p->opcode == HSA_OPCODE_PHI;
+  return p->m_opcode == HSA_OPCODE_PHI;
 }
 
 /* HSA instruction for branches.  Currently we explicitely represent only
@@ -458,8 +459,8 @@ template <>
 inline bool
 is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
 {
-  return p->opcode == BRIG_OPCODE_BR
-    || p->opcode == BRIG_OPCODE_CBR;
+  return p->m_opcode == BRIG_OPCODE_BR
+    || p->m_opcode == BRIG_OPCODE_CBR;
 }
 
 /* HSA instruction for swtich branche.  */
@@ -500,7 +501,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_sbr *>::test (hsa_insn_basic *p)
 {
-  return p->opcode == BRIG_OPCODE_SBR;
+  return p->m_opcode == BRIG_OPCODE_SBR;
 }
 
 /* HSA instruction for comparisons.  */
@@ -536,7 +537,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_cmp *>::test (hsa_insn_basic *p)
 {
-  return p->opcode == BRIG_OPCODE_CMP;
+  return p->m_opcode == BRIG_OPCODE_CMP;
 }
 
 /* HSA instruction for memory operations.  */
@@ -582,8 +583,8 @@ template <>
 inline bool
 is_a_helper <hsa_insn_mem *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_OPCODE_LD
-	  || p->opcode == BRIG_OPCODE_ST);
+  return (p->m_opcode == BRIG_OPCODE_LD
+	  || p->m_opcode == BRIG_OPCODE_ST);
 }
 
 /* HSA instruction for atomic operations.  */
@@ -621,8 +622,8 @@ template <>
 inline bool
 is_a_helper <hsa_insn_atomic *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_OPCODE_ATOMIC
-	  || p->opcode == BRIG_OPCODE_ATOMICNORET);
+  return (p->m_opcode == BRIG_OPCODE_ATOMIC
+	  || p->m_opcode == BRIG_OPCODE_ATOMICNORET);
 }
 
 /* HSA instruction for signal operations.  */
@@ -650,8 +651,8 @@ template <>
 inline bool
 is_a_helper <hsa_insn_signal *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_OPCODE_SIGNAL
-	  || p->opcode == BRIG_OPCODE_SIGNALNORET);
+  return (p->m_opcode == BRIG_OPCODE_SIGNAL
+	  || p->m_opcode == BRIG_OPCODE_SIGNALNORET);
 }
 
 /* HSA instruction to convert between flat addressing and segments.  */
@@ -683,8 +684,8 @@ template <>
 inline bool
 is_a_helper <hsa_insn_seg *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_OPCODE_STOF
-	  || p->opcode == BRIG_OPCODE_FTOS);
+  return (p->m_opcode == BRIG_OPCODE_STOF
+	  || p->m_opcode == BRIG_OPCODE_FTOS);
 }
 
 /* HSA instruction for function call.  */
@@ -737,7 +738,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_call *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_OPCODE_CALL);
+  return (p->m_opcode == BRIG_OPCODE_CALL);
 }
 
 /* HSA call instruction block encapsulates definition of arguments,
@@ -771,7 +772,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_arg_block *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == HSA_OPCODE_ARG_BLOCK);
+  return (p->m_opcode == HSA_OPCODE_ARG_BLOCK);
 }
 
 /* HSA comment instruction.  */
@@ -800,7 +801,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_comment *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_KIND_DIRECTIVE_COMMENT);
+  return (p->m_opcode == BRIG_KIND_DIRECTIVE_COMMENT);
 }
 
 /* HSA queue instruction.  */
@@ -821,7 +822,7 @@ template <>
 inline bool
 is_a_helper <hsa_insn_queue *>::test (hsa_insn_basic *p)
 {
-  return (p->opcode == BRIG_OPCODE_ADDQUEUEWRITEINDEX);
+  return (p->m_opcode == BRIG_OPCODE_ADDQUEUEWRITEINDEX);
 }
 
 /* Basic block of HSA instructions.  */

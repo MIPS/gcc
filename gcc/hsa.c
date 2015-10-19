@@ -206,7 +206,7 @@ hsa_opcode_floating_bit_insn_p (BrigOpcode16_t opcode)
 unsigned
 hsa_insn_basic::input_count ()
 {
-  switch (opcode)
+  switch (m_opcode)
     {
       default:
 	return 1;

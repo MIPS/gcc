@@ -1124,8 +1124,8 @@ emit_memory_insn (hsa_insn_mem *mem)
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_MEM);
-  repr.base.opcode = htole16 (mem->opcode);
-  repr.base.type = htole16 (mem->type);
+  repr.base.opcode = htole16 (mem->m_opcode);
+  repr.base.type = htole16 (mem->m_type);
 
   operand_offsets[0] = htole32 (enqueue_op (mem->get_op (0)));
   operand_offsets[1] = htole32 (enqueue_op (mem->get_op (1)));
@@ -1143,7 +1143,7 @@ emit_memory_insn (hsa_insn_mem *mem)
   repr.modifier.allBits = 0 ;
   repr.equivClass = mem->equiv_class;
   repr.align = mem->align;
-  if (mem->opcode == BRIG_OPCODE_LD)
+  if (mem->m_opcode == BRIG_OPCODE_LD)
     repr.width = BRIG_WIDTH_1;
   else
     repr.width = BRIG_WIDTH_NONE;
@@ -1170,8 +1170,8 @@ emit_signal_insn (hsa_insn_signal *mem)
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_SIGNAL);
-  repr.base.opcode = htole16 (mem->opcode);
-  repr.base.type = htole16 (mem->type);
+  repr.base.opcode = htole16 (mem->m_opcode);
+  repr.base.type = htole16 (mem->m_type);
 
   for (unsigned i = 0; i < mem->operand_count (); i++)
     operand_offsets[i] = htole32 (enqueue_op (mem->get_op (i)));
@@ -1218,8 +1218,8 @@ emit_atomic_insn (hsa_insn_atomic *mem)
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_ATOMIC);
-  repr.base.opcode = htole16 (mem->opcode);
-  repr.base.type = htole16 (mem->type);
+  repr.base.opcode = htole16 (mem->m_opcode);
+  repr.base.type = htole16 (mem->m_type);
 
   for (unsigned i = 0; i < mem->operand_count (); i++)
     operand_offsets[i] = htole32 (enqueue_op (mem->get_op (i)));
@@ -1260,8 +1260,8 @@ emit_addr_insn (hsa_insn_basic *insn)
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_ADDR);
-  repr.base.opcode = htole16 (insn->opcode);
-  repr.base.type = htole16 (insn->type);
+  repr.base.opcode = htole16 (insn->m_opcode);
+  repr.base.type = htole16 (insn->m_type);
 
   for (unsigned i = 0; i < insn->operand_count (); i++)
     operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
@@ -1296,8 +1296,8 @@ emit_segment_insn (hsa_insn_seg *seg)
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_SEG_CVT);
-  repr.base.opcode = htole16 (seg->opcode);
-  repr.base.type = htole16 (seg->type);
+  repr.base.opcode = htole16 (seg->m_opcode);
+  repr.base.type = htole16 (seg->m_type);
 
   operand_offsets[0] = htole32 (enqueue_op (seg->get_op (0)));
   operand_offsets[1] = htole32 (enqueue_op (seg->get_op (1)));
@@ -1331,8 +1331,8 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_CMP);
-  repr.base.opcode = htole16 (cmp->opcode);
-  repr.base.type = htole16 (cmp->type);
+  repr.base.opcode = htole16 (cmp->m_opcode);
+  repr.base.type = htole16 (cmp->m_type);
 
   operand_offsets[0] = htole32 (enqueue_op (cmp->get_op (0)));
   operand_offsets[1] = htole32 (enqueue_op (cmp->get_op (1)));
@@ -1371,17 +1371,17 @@ emit_branch_insn (hsa_insn_br *br)
   edge e;
 
   /* At the moment we only handle direct conditional jumps.  */
-  gcc_assert (br->opcode == BRIG_OPCODE_CBR);
+  gcc_assert (br->m_opcode == BRIG_OPCODE_CBR);
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (br->opcode);
+  repr.base.opcode = htole16 (br->m_opcode);
   repr.width = BRIG_WIDTH_1;
   /* For Conditional jumps the type is always B1.  */
   repr.base.type = htole16 (BRIG_TYPE_B1);
 
   operand_offsets[0] = htole32 (enqueue_op (br->get_op (0)));
 
-  FOR_EACH_EDGE (e, ei, br->bb->succs)
+  FOR_EACH_EDGE (e, ei, br->m_bb->succs)
     if (e->flags & EDGE_TRUE_VALUE)
       {
 	target = e->dest;
@@ -1440,10 +1440,10 @@ emit_switch_insn (hsa_insn_sbr *sbr)
   BrigOperandOffset32_t operand_offsets[2];
   uint32_t byteCount;
 
-  gcc_assert (sbr->opcode == BRIG_OPCODE_SBR);
+  gcc_assert (sbr->m_opcode == BRIG_OPCODE_SBR);
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BR);
-  repr.base.opcode = htole16 (sbr->opcode);
+  repr.base.opcode = htole16 (sbr->m_opcode);
   repr.width = BRIG_WIDTH_1;
   /* For Conditional jumps the type is always B1.  */
   hsa_op_reg *index = as_a <hsa_op_reg *> (sbr->get_op (0));
@@ -1480,8 +1480,8 @@ emit_cvt_insn (hsa_insn_basic *insn)
 
   repr.base.base.byteCount = htole16 (sizeof (repr));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_CVT);
-  repr.base.opcode = htole16 (insn->opcode);
-  repr.base.type = htole16 (insn->type);
+  repr.base.opcode = htole16 (insn->m_opcode);
+  repr.base.type = htole16 (insn->m_type);
 
   operand_offsets.safe_grow_cleared (operand_count);
   for (unsigned i = 0; i < operand_count; i++)
@@ -1503,12 +1503,12 @@ emit_cvt_insn (hsa_insn_basic *insn)
   repr.modifier.allBits = 0;
   /* float to smaller float requires a rounding setting (we default
      to 'near'.  */
-  if (hsa_type_float_p (insn->type)
+  if (hsa_type_float_p (insn->m_type)
       && (!hsa_type_float_p (srctype)
-         || ((insn->type & BRIG_TYPE_BASE_MASK)
-             < (srctype & BRIG_TYPE_BASE_MASK))))
+	  || ((insn->m_type & BRIG_TYPE_BASE_MASK)
+	      < (srctype & BRIG_TYPE_BASE_MASK))))
     repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
-  else if (hsa_type_integer_p (insn->type) &&
+  else if (hsa_type_integer_p (insn->m_type) &&
 	   hsa_type_float_p (srctype))
     repr.round = BRIG_ROUND_INTEGER_ZERO;
   else
@@ -1612,7 +1612,7 @@ emit_comment_insn (hsa_insn_comment *insn)
   memset (&repr, 0, sizeof (repr));
 
   repr.base.byteCount = htole16 (sizeof (repr));
-  repr.base.kind = htole16 (insn->opcode);
+  repr.base.kind = htole16 (insn->m_opcode);
   repr.name = brig_emit_string (insn->comment, '\0', false);
   brig_code.add (&repr, sizeof (repr));
 }
@@ -1631,8 +1631,8 @@ emit_queue_insn (hsa_insn_queue *insn)
 
   repr.base.base.byteCount = htole16 (sizeof (BrigInstQueue));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_QUEUE);
-  repr.base.opcode = htole16 (insn->opcode);
-  repr.base.type = htole16 (insn->type);
+  repr.base.opcode = htole16 (insn->m_opcode);
+  repr.base.type = htole16 (insn->m_type);
   repr.segment = BRIG_SEGMENT_GLOBAL;
   repr.memoryOrder = BRIG_MEMORY_ORDER_SC_RELEASE;
 
@@ -1666,7 +1666,7 @@ emit_basic_insn (hsa_insn_basic *insn)
     operand_offsets;
   uint32_t byteCount, operand_count = insn->operand_count ();
 
-  if (insn->opcode == BRIG_OPCODE_CVT)
+  if (insn->m_opcode == BRIG_OPCODE_CVT)
     {
       emit_cvt_insn (insn);
       return;
@@ -1675,8 +1675,8 @@ emit_basic_insn (hsa_insn_basic *insn)
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (BrigInstBasic));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BASIC);
-  repr.base.opcode = htole16 (insn->opcode);
-  switch (insn->opcode)
+  repr.base.opcode = htole16 (insn->m_opcode);
+  switch (insn->m_opcode)
     {
       /* And the bit-logical operations need bit types and whine about
          arithmetic types :-/  */
@@ -1684,10 +1684,10 @@ emit_basic_insn (hsa_insn_basic *insn)
       case BRIG_OPCODE_OR:
       case BRIG_OPCODE_XOR:
       case BRIG_OPCODE_NOT:
-	type = regtype_for_type (insn->type);
+	type = regtype_for_type (insn->m_type);
 	break;
       default:
-	type = insn->type;
+	type = insn->m_type;
 	break;
     }
   repr.base.type = htole16 (type);
@@ -1708,7 +1708,7 @@ emit_basic_insn (hsa_insn_basic *insn)
   if ((type & BRIG_TYPE_PACK_MASK) != BRIG_TYPE_PACK_NONE)
     {
       if (hsa_type_float_p (type)
-	  && !hsa_opcode_floating_bit_insn_p (insn->opcode))
+	  && !hsa_opcode_floating_bit_insn_p (insn->m_opcode))
 	repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
       else
 	repr.round = 0;
@@ -1736,7 +1736,7 @@ emit_insn (hsa_insn_basic *insn)
 {
   gcc_assert (!is_a <hsa_insn_phi *> (insn));
 
-  insn->brig_offset = brig_code.total_size;
+  insn->m_brig_offset = brig_code.total_size;
 
   if (hsa_insn_signal *signal = dyn_cast <hsa_insn_signal *> (insn))
     {
@@ -1753,7 +1753,7 @@ emit_insn (hsa_insn_basic *insn)
       emit_memory_insn (mem);
       return;
     }
-  if (insn->opcode == BRIG_OPCODE_LDA)
+  if (insn->m_opcode == BRIG_OPCODE_LDA)
     {
       emit_addr_insn (insn);
       return;
@@ -1883,14 +1883,14 @@ hsa_brig_emit_function (void)
   ptr_to_fndir = emit_function_directives (hsa_cfun, false);
   for (insn = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->first_insn;
        insn;
-       insn = insn->next)
+       insn = insn->m_next)
     emit_insn (insn);
   prev_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
   FOR_EACH_BB_FN (bb, cfun)
     {
       perhaps_emit_branch (prev_bb, bb);
       emit_bb_label_directive (hsa_bb_for_bb (bb));
-      for (insn = hsa_bb_for_bb (bb)->first_insn; insn; insn = insn->next)
+      for (insn = hsa_bb_for_bb (bb)->first_insn; insn; insn = insn->m_next)
 	emit_insn (insn);
       prev_bb = bb;
     }
