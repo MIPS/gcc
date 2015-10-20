@@ -1,3 +1,17 @@
+2015-10-20  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (single_stmt_in_seq_skip_bind): Removed.
+	(reg_assignment_to_local_var_p): New function.
+	(seq_only_contains_local_assignments): Use it.
+	(find_single_omp_among_assignments_1): New function.
+	(find_single_omp_among_assignments): Likewise.
+	(target_follows_gridifiable_pattern): Use it.
+	(copy_leading_local_assignments): New function.
+	(find_mark_kernel_components): Renamed to process_kernel_body_copy,
+	use copy_leading_local_assignments to copy assignments leading to OMP
+	statements.
+	(attempt_target_gridification): Use the above new functions.
+
 2015-10-20  Martin Liska  <mliska@suse.cz>
 
 	* cgraphclones.c (cgraph_node::create_virtual_clone): Merge with

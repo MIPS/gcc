@@ -84,7 +84,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "symbol-summary.h"
 #include "hsa.h"
 
-
 /* Lowering of OMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
    and then for variables that must be replaced to satisfy data sharing
@@ -12557,57 +12556,25 @@ lower_omp (gimple_seq *body, omp_context *ctx)
   input_location = saved_location;
 }
 
-/* If SEQ is a sequence containing only one statement or a bind statement which
-   itself contains only one statement, return that statement.  Otherwise return
-   NULL.  TARGET_LOC must be location of the target statement and NAME the name
-   of the currently processed statement, both are used for dumping.  */
+/* Returen true if STMT is an assignment of a register-type into a local
+   VAR_DECL.  */
 
-static gimple *
-single_stmt_in_seq_skip_bind (gimple_seq seq, location_t target_loc,
-			      const char *name)
+static bool
+reg_assignment_to_local_var_p (gimple *stmt)
 {
-  gimple *stmt;
-  bool loop;
-  do
-    {
-      if (!seq)
-	{
-	  gcc_assert (name);
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, target_loc,
-			     "Will not turn target construct into a simple "
-			     "GPGPU kernel because %s construct has empty "
-			     "body\n",
-			     name);
-	  return NULL;
-	}
-
-      if (!gimple_seq_singleton_p (seq))
-	{
-	  gcc_assert (name);
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_NOTE, target_loc,
-			     "Will not turn target construct into a simple "
-			     "GPGPU kernel because %s construct contains "
-			     "multiple statements\n", name);
-	  return NULL;
-	}
-
-      stmt = gimple_seq_first_stmt (seq);
-      if (is_a <gbind *> (stmt))
-	{
-	  loop = true;
-	  gbind *bind = as_a <gbind *> (stmt);
-	  seq = gimple_bind_body (bind);
-	}
-      else
-	loop = false;
-    }
-  while (loop);
-  return stmt;
+  gassign *assign = dyn_cast <gassign *> (stmt);
+  if (!assign)
+    return false;
+  tree lhs = gimple_assign_lhs (assign);
+  if (TREE_CODE (lhs) != VAR_DECL
+      || !is_gimple_reg_type (TREE_TYPE (lhs))
+      || is_global_var (lhs))
+    return false;
+  return true;
 }
 
-/* Return true if all statements in SEQ are assignments to local variables.  */
+/* Return true if all statements in SEQ are assignments to local register-type
+   variables.  */
 
 static bool
 seq_only_contains_local_assignments (gimple_seq seq)
@@ -12617,16 +12584,94 @@ seq_only_contains_local_assignments (gimple_seq seq)
 
   gimple_stmt_iterator gsi;
   for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
+    if (!reg_assignment_to_local_var_p (gsi_stmt (gsi)))
+      return false;
+  return true;
+}
+
+
+/* Scan statements in SEQ and call itself recursively on any bind.  If during
+   whole search only assignments to register-type local variables and one
+   single OMP statement is encountered, return true, otherwise return false.
+   8RET is where we store any OMP statement encountered.  TARGET_LOC and NAME
+   are used for dumping a note about a failure.  */
+
+static bool
+find_single_omp_among_assignments_1 (gimple_seq seq, location_t target_loc,
+				     const char *name, gimple **ret)
+{
+  gimple_stmt_iterator gsi;
+  for (gsi = gsi_start (seq); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gassign *stmt = dyn_cast <gassign *> (gsi_stmt (gsi));
-      if (!stmt)
-	return false;
-      tree lhs = gimple_assign_lhs (stmt);
-      if (TREE_CODE (lhs) != VAR_DECL
-	  || is_global_var (lhs))
-	return false;
+      gimple *stmt = gsi_stmt (gsi);
+
+      if (reg_assignment_to_local_var_p (stmt))
+	continue;
+      if (gbind *bind = dyn_cast <gbind *> (stmt))
+	{
+	  if (!find_single_omp_among_assignments_1 (gimple_bind_body (bind),
+						    target_loc, name, ret))
+	      return false;
+	}
+      else if (is_gimple_omp (stmt))
+	{
+	  if (*ret)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_NOTE, target_loc,
+				 "Will not turn target construct into a simple "
+				 "GPGPU kernel because %s construct contains "
+				 "multiple OpenMP constructs\n", name);
+	      return false;
+	    }
+	  *ret = stmt;
+	}
+      else
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, target_loc,
+			     "Will not turn target construct into a simple "
+			     "GPGPU kernel because %s construct contains "
+			     "a complex statement\n", name);
+	  return false;
+	}
     }
   return true;
+}
+
+/* Scan statements in SEQ and make sure that it and any binds in it contain
+   only assignments to local register-type variables and one OMP construct.  If
+   so, return that construct, otherwise return NULL.  If dumping is enabled and
+   function fails, use TARGET_LOC and NAME to dump a note with the reason for
+   failure.  */
+
+static gimple *
+find_single_omp_among_assignments (gimple_seq seq, location_t target_loc,
+				   const char *name)
+{
+  if (!seq)
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, target_loc,
+			 "Will not turn target construct into a simple "
+			 "GPGPU kernel because %s construct has empty "
+			 "body\n",
+			 name);
+      return NULL;
+    }
+
+  gimple *ret = NULL;
+  if (find_single_omp_among_assignments_1 (seq, target_loc, name, &ret))
+    {
+      if (!ret && dump_enabled_p ())
+	dump_printf_loc (MSG_NOTE, target_loc,
+			 "Will not turn target construct into a simple "
+			 "GPGPU kernel because %s construct does not contain"
+			 "any other OpenMP construct\n", name);
+      return ret;
+    }
+  else
+    return NULL;
 }
 
 /* If TARGET follows a pattern that can be turned into a gridified GPGPU
@@ -12641,8 +12686,8 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
     return false;
 
   location_t tloc = gimple_location (target);
-  gimple *stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (target), tloc,
-					       "target");
+  gimple *stmt = find_single_omp_among_assignments (gimple_omp_body (target),
+						    tloc, "target");
   if (!stmt)
     return false;
   gomp_teams *teams;
@@ -12671,8 +12716,8 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
 	  clauses = OMP_CLAUSE_CHAIN (clauses);
 	}
 
-      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc,
-					   "teams");
+      stmt = find_single_omp_among_assignments (gimple_omp_body (teams), tloc,
+						"teams");
       if (!stmt)
 	return false;
       gomp_for *dist = NULL;
@@ -12713,8 +12758,8 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
 		}
 	      group_size = fd.chunk_size;
 	    }
-	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
-					       "distribute");
+	  stmt = find_single_omp_among_assignments (gimple_omp_body (dist), tloc,
+						    "distribute");
 	}
     }
 
@@ -12735,7 +12780,8 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
       return false;
     }
 
-  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (par), tloc, "parallel");
+  stmt = find_single_omp_among_assignments (gimple_omp_body (par), tloc,
+					    "parallel");
   gomp_for *gfor;
   if (!stmt || !(gfor = dyn_cast <gomp_for *> (stmt)))
     return false;
@@ -12787,38 +12833,6 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
   return true;
 }
 
-/* Given freshly copied top level kernel SEQ (which might a bind containing a
-   single gomp_parallel or gomp_teams, identify the individual components, mark
-   them as part of kernel and return the inner loop.  */
-
-static gomp_for *
-find_mark_kernel_components (gimple_seq seq)
-{
-  location_t tloc = UNKNOWN_LOCATION;
-  gimple *stmt = single_stmt_in_seq_skip_bind (seq, tloc, NULL);
-  gomp_teams *teams = NULL;
-  gomp_for *dist = NULL;
-  if ((teams = dyn_cast <gomp_teams *> (stmt)))
-    {
-      gimple_omp_teams_set_kernel_phony (teams, true);
-      stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (teams), tloc, NULL);
-      gcc_checking_assert (stmt);
-      if ((dist = dyn_cast <gomp_for *> (stmt)))
-	{
-	  gimple_omp_for_set_kernel_phony (dist, true);
-	  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (dist), tloc,
-					       NULL);
-	  gcc_checking_assert (stmt);
-	}
-    }
-  gomp_parallel *parallel = as_a <gomp_parallel *> (stmt);
-  gimple_omp_parallel_set_kernel_phony (parallel, true);
-  stmt = single_stmt_in_seq_skip_bind (gimple_omp_body (parallel), tloc, NULL);
-  gomp_for *inner_loop = as_a <gomp_for *> (stmt);
-  gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
-  return inner_loop;
-}
-
 /* Operand walker, used to remap pre-body declarations according to a hash map
    provided in DATA.  */
 
@@ -12843,6 +12857,81 @@ remap_prebody_decls (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Copy leading register-type assignments to local variables in SRC to just
+   before DST, Creating temporaries, adjusting mapping of operands in WI and
+   remapping operands as necessary.  Add any new temporaries to TGT_BIND.
+   Return the first statement that does not conform to
+   reg_assignment_to_local_var_p or NULL.  */
+
+static gimple *
+copy_leading_local_assignments (gimple_seq src, gimple_stmt_iterator *dst,
+				gbind *tgt_bind, struct walk_stmt_info *wi)
+{
+  hash_map<tree, tree> *declmap = (hash_map<tree, tree> *) wi->info;
+  gimple_stmt_iterator gsi;
+  for (gsi = gsi_start (src); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple *stmt = gsi_stmt (gsi);
+      if (gbind *bind = dyn_cast <gbind *> (stmt))
+	{
+	  gimple *r = copy_leading_local_assignments (gimple_bind_body (bind),
+						      dst, tgt_bind, wi);
+	  if (r)
+	    return r;
+	  else
+	    continue;
+	}
+      if (!reg_assignment_to_local_var_p (stmt))
+	return stmt;
+      tree lhs = gimple_assign_lhs (as_a <gassign *> (stmt));
+      tree repl = copy_var_decl (lhs, create_tmp_var_name (NULL),
+				 TREE_TYPE (lhs));
+      DECL_CONTEXT (repl) = current_function_decl;
+      gimple_bind_append_vars (tgt_bind, repl);
+
+      declmap->put (lhs, repl);
+      gassign *copy = as_a <gassign *> (gimple_copy (stmt));
+      walk_gimple_op (copy, remap_prebody_decls, wi);
+      gsi_insert_before (dst, copy, GSI_SAME_STMT);
+    }
+  return NULL;
+}
+
+/* Given freshly copied top level kernel SEQ, identify the individual OMP
+   components, mark them as part of kernel and return the inner loop, and copy
+   assignment leading to them just before DST, remapping them using WI and
+   adding new temporaries to TGT_BIND.  */
+
+static gomp_for *
+process_kernel_body_copy (gimple_seq seq, gimple_stmt_iterator *dst,
+			  gbind *tgt_bind, struct walk_stmt_info *wi)
+{
+  gimple *stmt = copy_leading_local_assignments (seq, dst, tgt_bind, wi);
+  gomp_teams *teams;
+  if ((teams = dyn_cast <gomp_teams *> (stmt)))
+    {
+      gimple_omp_teams_set_kernel_phony (teams, true);
+      stmt = copy_leading_local_assignments (gimple_omp_body (teams), dst,
+					     tgt_bind, wi);
+      gcc_checking_assert (stmt);
+      gomp_for *dist;
+      if ((dist = dyn_cast <gomp_for *> (stmt)))
+	{
+	  gimple_omp_for_set_kernel_phony (dist, true);
+	  stmt = copy_leading_local_assignments (gimple_omp_body (dist), dst,
+						 tgt_bind, wi);
+	  gcc_checking_assert (stmt);
+	}
+    }
+  gomp_parallel *parallel = as_a <gomp_parallel *> (stmt);
+  gimple_omp_parallel_set_kernel_phony (parallel, true);
+  stmt = copy_leading_local_assignments (gimple_omp_body (parallel), dst,
+					 tgt_bind, wi);
+  gomp_for *inner_loop = as_a <gomp_for *> (stmt);
+  gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
+  return inner_loop;
+}
+
 /* If TARGET points to a GOMP_TARGET which follows a gridifiable pattern,
    create a GPU kernel for it.  GSI must point to the same statement, TGT_BIND
    is the bind into which temporaries inserted before TARGET should be
@@ -12864,7 +12953,16 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
   /* Copy target body to a GPUKERNEL construct:  */
   gimple_seq kernel_seq = copy_gimple_seq_and_replace_locals
     (gimple_omp_body (target));
-  gomp_for *inner_loop = find_mark_kernel_components (kernel_seq);
+
+  hash_map<tree, tree> *declmap = new hash_map<tree, tree>;
+  struct walk_stmt_info wi;
+  memset (&wi, 0, sizeof (struct walk_stmt_info));
+  wi.info = declmap;
+
+  /* Copy assignments in between OMP statements before target, mark OMP
+     statements within copy appropriatly.  */
+  gomp_for *inner_loop = process_kernel_body_copy (kernel_seq, gsi, tgt_bind,
+						   &wi);
 
   gbind *old_bind = as_a <gbind *> (gimple_seq_first (gimple_omp_body (target)));
   gbind *new_bind = as_a <gbind *> (gimple_seq_first (kernel_seq));
@@ -12879,28 +12977,9 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
      gpukernel);
 
   /* Copy loop pre-body before target: */
-  hash_map<tree, tree> *declmap = new hash_map<tree, tree>;
   gimple_seq prebody = gimple_omp_for_pre_body (inner_loop);
-  gimple_seq pretarget = NULL;
-  gimple_stmt_iterator pbi;
-  struct walk_stmt_info wi;
-  memset (&wi, 0, sizeof (struct walk_stmt_info));
-  wi.info = declmap;
-  for (pbi = gsi_start (prebody); !gsi_end_p (pbi); gsi_next (&pbi))
-    {
-      gassign *stmt = as_a <gassign *> (gsi_stmt (pbi));
-      tree lhs = gimple_assign_lhs (stmt);
-      tree repl = copy_var_decl (lhs, create_tmp_var_name (NULL),
-				 TREE_TYPE (lhs));
-      DECL_CONTEXT (repl) = current_function_decl;
-      gimple_bind_append_vars (tgt_bind, repl);
-
-      declmap->put (lhs, repl);
-      gassign *copy = as_a <gassign *> (gimple_copy (stmt));
-      walk_gimple_op (copy, remap_prebody_decls, &wi);
-      gimple_seq_add_stmt (&pretarget, copy);
-    }
-  gsi_insert_seq_before (gsi, pretarget, GSI_SAME_STMT);
+  if (prebody)
+    copy_leading_local_assignments (prebody, gsi, tgt_bind, &wi);
 
   target->kernel_group_size = group_size;
   size_t collapse = inner_loop->collapse;
