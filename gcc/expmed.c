@@ -739,7 +739,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
       int outer_mode_size = GET_MODE_SIZE (GET_MODE (op0));
       int byte_offset = 0;
 
-      /* Paradoxical subregs need special handling on big endian machines.  */
+      /* Paradoxical subregs need special handling on big-endian machines.  */
       if (SUBREG_BYTE (op0) == 0 && inner_mode_size < outer_mode_size)
 	{
 	  int difference = inner_mode_size - outer_mode_size;
@@ -932,7 +932,7 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	    MIN (BITS_PER_WORD, bitsize - i * BITS_PER_WORD);
 
 	  /* If the remaining chunk doesn't have full wordsize we have
-	     to make sure that for big endian machines the higher order
+	     to make sure that for big-endian machines the higher order
 	     bits are used.  */
 	  if (new_bitsize < BITS_PER_WORD && BYTES_BIG_ENDIAN && !backwards)
 	    value_word = simplify_expand_binop (word_mode, lshr_optab,

@@ -5174,7 +5174,7 @@ output_constructor_bitfield (oc_local_state *local, unsigned int bit_offset)
       this_time = MIN (end_offset - next_offset, BITS_PER_UNIT - next_bit);
       if (local->reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
 	{
-	  /* On big-endian machine, take the most significant bits (of the
+	  /* For big-endian data, take the most significant bits (of the
 	     bits that are significant) first and put them into bytes from
 	     the most significant end.  */
 	  shift = end_offset - next_offset - this_time;

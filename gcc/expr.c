@@ -6687,7 +6687,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       temp = expand_normal (exp);
 
       /* If the value has a record type and an integral mode then, if BITSIZE
-	 is narrower than this mode and this is a big-endian machine, we must
+	 is narrower than this mode and this is for big-endian data, we must
 	 first put the value into the low-order bits.  Moreover, the field may
 	 be not aligned on a byte boundary; in this case, if it has reverse
 	 storage order, it needs to be accessed as a scalar field with reverse
@@ -10454,7 +10454,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 
 	    /* If the result has a record type and the mode of OP0 is an
 	       integral mode then, if BITSIZE is narrower than this mode
-	       and this is a big-endian machine, we must put the field
+	       and this is for big-endian data, we must put the field
 	       into the high-order bits.  And we must also put it back
 	       into memory order if it has been previously reversed.  */
 	    if (TREE_CODE (type) == RECORD_TYPE
