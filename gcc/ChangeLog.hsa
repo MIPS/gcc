@@ -1,3 +1,10 @@
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Add waiting
+	for the signal in a loop.
+	(gen_body_from_gimple): Skip HSA basic blocks with already
+	created HBB.
+
 2015-10-20  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (region_part_of_target_p): Renamed to

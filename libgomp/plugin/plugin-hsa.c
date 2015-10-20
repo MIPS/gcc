@@ -220,6 +220,8 @@ struct agent_info
   hsa_isa_t isa;
   /* Command queue of the agent.  */
   hsa_queue_t* command_q;
+  /* Kernel from kernel dispatch command queue.  */
+  hsa_queue_t* kernel_dispatch_command_q;
   /* The HSA memory region from which to allocate kernel arguments.  */
   hsa_region_t kernarg_region;
 
@@ -447,6 +449,12 @@ GOMP_OFFLOAD_init_device (int n)
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Error creating command queue", status);
 
+  status = hsa_queue_create (agent->id, queue_size, HSA_QUEUE_TYPE_MULTI,
+			     queue_callback, NULL, UINT32_MAX, UINT32_MAX,
+			     &agent->kernel_dispatch_command_q);
+  if (status != HSA_STATUS_SUCCESS)
+    hsa_fatal ("Error creating kernel dispatch command queue", status);
+
   agent->kernarg_region.handle = (uint64_t) -1;
   status = hsa_agent_iterate_regions (agent->id, get_kernarg_memory_region,
 				      &agent->kernarg_region);
@@ -455,6 +463,8 @@ GOMP_OFFLOAD_init_device (int n)
 		       "arguments");
   HSA_DEBUG ("HSA agent initialized, queue has id %llu\n",
 	     (long long unsigned) agent->command_q->id);
+  HSA_DEBUG ("HSA agent initialized, kernel dispatch queue has id %llu\n",
+	     (long long unsigned) agent->kernel_dispatch_command_q->id);
   agent->initialized = true;
 }
 
@@ -739,7 +749,8 @@ final:
 /* Create kernel dispatch data structure for given KERNEL.  */
 
 static struct hsa_kernel_dispatch *
-create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
+create_single_kernel_dispatch (struct kernel_info *kernel,
+			       unsigned omp_data_size)
 {
   struct agent_info *agent = kernel->agent;
   struct hsa_kernel_dispatch *shadow = GOMP_PLUGIN_malloc_cleared
@@ -861,6 +872,12 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
 	  goto failure;
 	}
 
+      if (dependency->dependencies_count > 0)
+	{
+	  HSA_DEBUG ("HSA does not allow kernel dispatching code with "
+		     "a depth bigger than one\n")
+	  goto failure;
+	}
 
       init_single_kernel (dependency, max_omp_data_size);
     }
@@ -919,20 +936,23 @@ print_kernel_dispatch (struct hsa_kernel_dispatch *dispatch, unsigned indent)
    dependencies.  */
 
 static struct hsa_kernel_dispatch *
-create_kernel_dispatch_recursive (struct kernel_info *kernel,
-				  unsigned omp_data_size)
+create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
 {
-  struct hsa_kernel_dispatch *shadow = create_kernel_dispatch (kernel,
-							       omp_data_size);
+  struct hsa_kernel_dispatch *shadow = create_single_kernel_dispatch
+    (kernel, omp_data_size);
   shadow->omp_num_threads = 64;
   shadow->debug = 0;
 
+  /* Create kernel dispatch data structures.  We do not allow to have
+     a kernel dispatch with depth bigger than one.  */
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
     {
       struct kernel_info *dependency = get_kernel_for_agent
 	(kernel->agent, kernel->dependencies[i]);
-      shadow->children_dispatches[i] = create_kernel_dispatch_recursive
+      shadow->children_dispatches[i] = create_single_kernel_dispatch
 	(dependency, omp_data_size);
+      shadow->children_dispatches[i]->queue =
+	kernel->agent->kernel_dispatch_command_q;
     }
 
   return shadow;
@@ -1069,7 +1089,7 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
   if (!kernel->initialized)
     GOMP_PLUGIN_fatal ("Called kernel must be initialized");
 
-  struct hsa_kernel_dispatch *shadow = create_kernel_dispatch_recursive
+  struct hsa_kernel_dispatch *shadow = create_kernel_dispatch
     (kernel, kernel->max_omp_data_size);
 
   if (debug)
@@ -1129,9 +1149,24 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
   __atomic_store_n ((uint16_t*)(&packet->header), header, __ATOMIC_RELEASE);
   hsa_signal_store_release (agent->command_q->doorbell_signal, index);
 
+  /* TODO: fixup, following workaround is necessary to run kernel from
+     kernel dispatch mechanism on a Carrizo machine.  */
+
+  for (unsigned i = 0; i < shadow->kernel_dispatch_count; i++)
+    {
+      hsa_signal_t child_s;
+      child_s.handle = shadow->children_dispatches[i]->signal;
+
+      HSA_DEBUG ("Waiting for children completion signal: %lu\n",
+		 shadow->children_dispatches[i]->signal);
+      while (hsa_signal_wait_acquire
+	     (child_s, HSA_SIGNAL_CONDITION_LT, 1, UINT64_MAX,
+	      HSA_WAIT_STATE_BLOCKED) != 0);
+    }
+
   HSA_DEBUG ("Kernel dispatched, waiting for completion\n");
-  hsa_signal_wait_acquire (s, HSA_SIGNAL_CONDITION_LT, 1,
-			   UINT64_MAX, HSA_WAIT_STATE_BLOCKED);
+  while (hsa_signal_wait_acquire (s, HSA_SIGNAL_CONDITION_LT, 1,
+				  UINT64_MAX, HSA_WAIT_STATE_BLOCKED) != 0);
 
   release_kernel_dispatch (shadow);
 
@@ -1214,6 +1249,9 @@ GOMP_OFFLOAD_fini_device (int n)
   hsa_status_t status = hsa_queue_destroy (agent->command_q);
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Error destroying command queue", status);
+  status = hsa_queue_destroy (agent->kernel_dispatch_command_q);
+  if (status != HSA_STATUS_SUCCESS)
+    hsa_fatal ("Error destroying kernel dispatch command queue", status);
   if (pthread_mutex_destroy (&agent->prog_mutex))
     GOMP_PLUGIN_fatal ("Failed to destroy an HSA agent program mutex");
   if (pthread_rwlock_destroy (&agent->modules_rwlock))

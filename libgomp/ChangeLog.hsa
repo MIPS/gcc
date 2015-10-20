@@ -1,3 +1,15 @@
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct agent_info): Add new
+	kernel_dispatch_command_q member.
+	(GOMP_OFFLOAD_init_device): Initialize the queue.
+	(init_single_kernel): Verify that kernel dispatching
+	is not run with a big depth.
+	(create_kernel_dispatch): Rename from
+	create_kernel_dispatch_recursive.
+	(GOMP_OFFLOAD_run): Add signal waiting workaround.
+	(GOMP_OFFLOAD_fini_device): Destroy the newly added queue.
+
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
 	* target.c (GOMP_target): Add new case where we want to process

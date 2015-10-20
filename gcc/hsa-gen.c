@@ -3943,22 +3943,41 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
   hbb->append_insn (signal);
 
+  /* Prepare CFG for waiting loop.  */
+  edge e = split_block (hbb->m_bb, call);
+
+  basic_block dest = split_edge (e);
+  edge false_e = EDGE_SUCC (dest, 0);
+
+  false_e->flags &= ~EDGE_FALLTHRU;
+  false_e->flags |= EDGE_FALSE_VALUE;
+
+  make_edge (e->dest, dest, EDGE_TRUE_VALUE);
+
   /* Emit blocking signal waiting instruction.  */
+  hsa_bb *new_hbb = hsa_init_new_bb (dest);
+
   hbb->append_insn (new hsa_insn_comment ("wait for the signal"));
 
-  hsa_op_reg *signal_result_reg = new hsa_op_reg (BRIG_TYPE_U64);
+  hsa_op_reg *signal_result_reg = new hsa_op_reg (BRIG_TYPE_S64);
   c = new hsa_op_immed (1, BRIG_TYPE_S64);
-  hsa_op_immed *c2 = new hsa_op_immed (UINT64_MAX, BRIG_TYPE_U64);
 
-  signal = new hsa_insn_signal (4, BRIG_OPCODE_SIGNAL,
-				BRIG_ATOMIC_WAITTIMEOUT_LT, BRIG_TYPE_S64);
+  signal = new hsa_insn_signal (3, BRIG_OPCODE_SIGNAL,
+				BRIG_ATOMIC_WAIT_LT, BRIG_TYPE_S64);
   signal->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
   signal->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
   signal->set_op (0, signal_result_reg);
   signal->set_op (1, signal_reg);
   signal->set_op (2, c);
-  signal->set_op (3, c2);
-  hbb->append_insn (signal);
+  new_hbb->append_insn (signal);
+
+  hsa_op_reg *ctrl = new hsa_op_reg (BRIG_TYPE_B1);
+  hsa_insn_cmp *cmp = new hsa_insn_cmp
+    (BRIG_COMPARE_EQ, ctrl->m_type, ctrl, signal_result_reg,
+     new hsa_op_immed (1, signal_result_reg->m_type));
+
+  new_hbb->append_insn (cmp);
+  new_hbb->append_insn (new hsa_insn_br (ctrl));
 
   hsa_cfun->m_kernel_dispatch_count++;
 }
@@ -4763,7 +4782,11 @@ gen_body_from_gimple (vec <hsa_op_reg_p> *ssa_map)
   FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
-      hsa_bb *hbb = hsa_init_new_bb (bb);
+      hsa_bb *hbb = hsa_bb_for_bb (bb);
+      if (hbb)
+	continue;
+
+      hbb = hsa_init_new_bb (bb);
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -4777,6 +4800,7 @@ gen_body_from_gimple (vec <hsa_op_reg_p> *ssa_map)
     {
       gimple_stmt_iterator gsi;
       hsa_bb *hbb = hsa_bb_for_bb (bb);
+      gcc_assert (hbb != NULL);
 
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	if (!virtual_operand_p (gimple_phi_result (gsi_stmt (gsi))))
