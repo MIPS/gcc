@@ -7656,7 +7656,8 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
   type = *node;
 
   if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
-    error ("scalar_storage_order is not supported");
+    error ("scalar_storage_order is not supported because endianness "
+	   "is not uniform");
 
   if (RECORD_OR_UNION_TYPE_P (type))
     {
