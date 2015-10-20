@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/target.c: New.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/error.c: New.
 
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
