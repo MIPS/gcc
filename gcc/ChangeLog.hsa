@@ -1,3 +1,8 @@
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* cgraphclones.c (cgraph_node::create_virtual_clone): Merge with
+	trunk.
+
 2015-10-19  Martin Liska  <mliska@suse.cz>
 
 	* hsa.h (struct hsa_symbol): Add new ctors.
