@@ -1,0 +1,15 @@
+2015-10-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (c_omp_check_loop_iv, c_omp_check_loop_iv_exprs): New
+	prototypes.
+	* c-omp.c (c_finish_omp_for): Store OMP_FOR_ORIG_DECLS always.
+	Don't call add_stmt here.
+	(struct c_omp_check_loop_iv_data): New type.
+	(c_omp_check_loop_iv_r, c_omp_check_loop_iv,
+	c_omp_check_loop_iv_exprs): New functions.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
