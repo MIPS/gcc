@@ -9962,7 +9962,7 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
   enum tree_code cond_code = fd->loop.cond_code;
   enum tree_code plus_code = PLUS_EXPR;
 
-  tree chunk_size = integer_one_node;
+  tree chunk_size = integer_minus_one_node;
   tree gwv = integer_zero_node;
   tree iter_type = TREE_TYPE (v);
   tree diff_type = iter_type;
@@ -10109,10 +10109,6 @@ expand_oacc_for (struct omp_region *region, struct omp_for_data *fd)
 
       ass = gimple_build_assign (chunk_no, expr);
       gsi_insert_before (&gsi, ass, GSI_SAME_STMT);
-
-      expr = fold_convert (diff_type, chunk_size);
-      chunk_size = force_gimple_operand_gsi (&gsi, expr, true,
-					     NULL_TREE, true, GSI_SAME_STMT);
 
       call = gimple_build_call_internal (IFN_GOACC_LOOP, 6,
 					 build_int_cst (integer_type_node,
@@ -16892,25 +16888,26 @@ oacc_xform_loop (gcall *call)
   tree dir = gimple_call_arg (call, 1);
   tree range = gimple_call_arg (call, 2);
   tree step = gimple_call_arg (call, 3);
-  tree chunk_size = gimple_call_arg (call, 4);
+  tree chunk_size = NULL_TREE;
   unsigned mask = (unsigned)TREE_INT_CST_LOW (gimple_call_arg (call, 5));
   tree lhs = gimple_call_lhs (call);
   tree type = TREE_TYPE (lhs);
   tree diff_type = TREE_TYPE (range);
   tree r = NULL_TREE;
   gimple_seq seq = NULL;
-  bool chunking, striding;
+  bool chunking = false, striding = true;
   unsigned outer_mask = mask & (~mask + 1); // Outermost partitioning
   unsigned inner_mask = mask & ~outer_mask; // Inner partitioning (if any)
 
-  if (integer_zerop (chunk_size))
+#ifdef ACCEL_COMPILER
+  chunk_size = gimple_call_arg (call, 4);
+  if (integer_minus_onep (chunk_size)  /* Force static allocation.  */
+      || integer_zerop (chunk_size))   /* Default (also static).  */
     {
-      /* If we're at the gang or (worker with vector), we want each to
-	 execute a contiguous run of iterations.  Otherwise we want
-	 each element to stride.  */
-      striding = !((outer_mask & GOMP_DIM_MASK (GOMP_DIM_GANG))
-		   || ((outer_mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
-		       && (outer_mask & GOMP_DIM_MASK (GOMP_DIM_VECTOR))));
+      /* If we're at the gang level, we want each to execute a
+	 contiguous run of iterations.  Otherwise we want each element
+	 to stride.  */
+      striding = !(outer_mask & GOMP_DIM_MASK (GOMP_DIM_GANG));
       chunking = false;
     }
   else
@@ -16919,7 +16916,16 @@ oacc_xform_loop (gcall *call)
       striding = integer_onep (chunk_size);
       chunking = !striding;
     }
+#endif
 
+  /* striding=true, chunking=true
+       -> invalid.
+     striding=true, chunking=false
+       -> chunks=1
+     striding=false,chunking=true
+       -> chunks=ceil (range/(chunksize*threads*step))
+     striding=false,chunking=false
+       -> chunk_size=ceil(range/(threads*step)),chunks=1  */
   push_gimplify_context (true);
 
   switch (code)
@@ -16963,31 +16969,25 @@ oacc_xform_loop (gcall *call)
 	}
       else
 	{
-	  tree span;
 	  tree inner_size = oacc_thread_numbers (false, inner_mask, &seq);
 	  tree outer_size = oacc_thread_numbers (false, outer_mask, &seq);
 	  tree volume = fold_build2 (MULT_EXPR, TREE_TYPE (inner_size),
 				     inner_size, outer_size);
 
+	  volume = fold_convert (diff_type, volume);
 	  if (chunking)
-	    {
-	      chunk_size = fold_convert (diff_type, chunk_size);
-
-	      span = inner_size;
-	      span = fold_convert (diff_type, span);
-	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
-	    }
+	    chunk_size = fold_convert (diff_type, chunk_size);
 	  else
 	    {
-	      tree per = fold_convert (diff_type, volume);
-	      per = fold_build2 (MULT_EXPR, diff_type, per, step);
+	      tree per = fold_build2 (MULT_EXPR, diff_type, volume, step);
 
-	      span = build2 (MINUS_EXPR, diff_type, range, dir);
-	      span = build2 (PLUS_EXPR, diff_type, span, per);
-	      span = build2 (TRUNC_DIV_EXPR, diff_type, span, per);
-	      span = build2 (MULT_EXPR, diff_type, span, inner_size);
+	      chunk_size = build2 (MINUS_EXPR, diff_type, range, dir);
+	      chunk_size = build2 (PLUS_EXPR, diff_type, chunk_size, per);
+	      chunk_size = build2 (TRUNC_DIV_EXPR, diff_type, chunk_size, per);
 	    }
 
+	  tree span = build2 (MULT_EXPR, diff_type, chunk_size,
+			      fold_convert (diff_type, inner_size));
 	  r = oacc_thread_numbers (true, outer_mask, &seq);
 	  r = fold_convert (diff_type, r);
 	  r = build2 (MULT_EXPR, diff_type, r, span);
@@ -16998,9 +16998,9 @@ oacc_xform_loop (gcall *call)
 
 	  if (chunking)
 	    {
-	      tree chunk = gimple_call_arg (call, 6);
-	      tree per = fold_convert (diff_type, volume);
-	      per = fold_build2 (MULT_EXPR, diff_type, per, chunk_size);
+	      tree chunk = fold_convert (diff_type, gimple_call_arg (call, 6));
+	      tree per
+		= fold_build2 (MULT_EXPR, diff_type, volume, chunk_size);
 	      per = build2 (MULT_EXPR, diff_type, per, chunk);
 
 	      r = build2 (PLUS_EXPR, diff_type, r, per);
@@ -17016,29 +17016,29 @@ oacc_xform_loop (gcall *call)
 	r = range;
       else
 	{
-	  tree offset = gimple_call_arg (call, 6);
-	  tree span;
-	  
-	  if (chunking)
-	    {
-	      chunk_size = fold_convert (diff_type, chunk_size);
+	  tree inner_size = oacc_thread_numbers (false, inner_mask, &seq);
+	  tree outer_size = oacc_thread_numbers (false, outer_mask, &seq);
+	  tree volume = fold_build2 (MULT_EXPR, TREE_TYPE (inner_size),
+				     inner_size, outer_size);
 
-	      span = oacc_thread_numbers (false, inner_mask, &seq);
-	      span = fold_convert (diff_type, span);
-	      span = fold_build2 (MULT_EXPR, diff_type, span, chunk_size);
-	    }
+	  volume = fold_convert (diff_type, volume);
+	  if (chunking)
+	    chunk_size = fold_convert (diff_type, chunk_size);
 	  else
 	    {
-	      tree per = oacc_thread_numbers (false, mask, &seq);
-	      per = fold_convert (diff_type, per);
-	      per = build2 (MULT_EXPR, diff_type, per, step);
-	      span = build2 (MINUS_EXPR, diff_type, range, dir);
-	      span = build2 (PLUS_EXPR, diff_type, span, per);
-	      span = build2 (TRUNC_DIV_EXPR, diff_type, span, per);
+	      tree per = fold_build2 (MULT_EXPR, diff_type, volume, step);
+
+	      chunk_size = build2 (MINUS_EXPR, diff_type, range, dir);
+	      chunk_size = build2 (PLUS_EXPR, diff_type, chunk_size, per);
+	      chunk_size = build2 (TRUNC_DIV_EXPR, diff_type, chunk_size, per);
 	    }
+
+	  tree span = build2 (MULT_EXPR, diff_type, chunk_size,
+			      fold_convert (diff_type, inner_size));
 
 	  r = fold_build2 (MULT_EXPR, diff_type, span, step);
 
+	  tree offset = gimple_call_arg (call, 6);
 	  r = build2 (PLUS_EXPR, diff_type, r,
 		      fold_convert (diff_type, offset));
 	  r = build2 (integer_onep (dir) ? MIN_EXPR : MAX_EXPR,
