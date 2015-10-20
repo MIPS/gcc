@@ -240,6 +240,7 @@ static vec<omp_context *> taskreg_contexts;
 
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
+static gphi *find_phi_with_arg_on_edge (tree, edge);
 
 #define WALK_SUBSTMTS  \
     case GIMPLE_BIND: \
@@ -6241,7 +6242,9 @@ expand_omp_for_generic (struct omp_region *region,
   if (!broken_loop)
     {
       l2_bb = create_empty_bb (cont_bb);
-      gcc_assert (BRANCH_EDGE (cont_bb)->dest == l1_bb);
+      gcc_assert (BRANCH_EDGE (cont_bb)->dest == l1_bb
+		  || (single_succ_edge (BRANCH_EDGE (cont_bb)->dest)->dest
+		      == l1_bb));
       gcc_assert (EDGE_COUNT (cont_bb->succs) == 2);
     }
   else
@@ -6515,8 +6518,12 @@ expand_omp_for_generic (struct omp_region *region,
       remove_edge (e);
 
       make_edge (cont_bb, l2_bb, EDGE_FALSE_VALUE);
-      add_bb_to_loop (l2_bb, cont_bb->loop_father);
       e = find_edge (cont_bb, l1_bb);
+      if (e == NULL)
+	{
+	  e = BRANCH_EDGE (cont_bb);
+	  gcc_assert (single_succ (e->dest) == l1_bb);
+	}
       if (gimple_omp_for_combined_p (fd->for_stmt))
 	{
 	  remove_edge (e);
@@ -6541,6 +6548,43 @@ expand_omp_for_generic (struct omp_region *region,
 	}
       make_edge (l2_bb, l0_bb, EDGE_TRUE_VALUE);
 
+      if (gimple_in_ssa_p (cfun))
+	{
+	  /* Add phis to the outer loop that connect to the phis in the inner,
+	     original loop, and move the loop entry value of the inner phi to
+	     the loop entry value of the outer phi.  */
+	  gphi_iterator psi;
+	  for (psi = gsi_start_phis (l3_bb); !gsi_end_p (psi); gsi_next (&psi))
+	    {
+	      source_location locus;
+	      gphi *nphi;
+	      gphi *exit_phi = psi.phi ();
+
+	      edge l2_to_l3 = find_edge (l2_bb, l3_bb);
+	      tree exit_res = PHI_ARG_DEF_FROM_EDGE (exit_phi, l2_to_l3);
+
+	      basic_block latch = BRANCH_EDGE (cont_bb)->dest;
+	      edge latch_to_l1 = find_edge (latch, l1_bb);
+	      gphi *inner_phi
+		= find_phi_with_arg_on_edge (exit_res, latch_to_l1);
+
+	      tree t = gimple_phi_result (exit_phi);
+	      tree new_res = copy_ssa_name (t, NULL);
+	      nphi = create_phi_node (new_res, l0_bb);
+
+	      edge l0_to_l1 = find_edge (l0_bb, l1_bb);
+	      t = PHI_ARG_DEF_FROM_EDGE (inner_phi, l0_to_l1);
+	      locus = gimple_phi_arg_location_from_edge (inner_phi, l0_to_l1);
+	      edge entry_to_l0 = find_edge (entry_bb, l0_bb);
+	      add_phi_arg (nphi, t, entry_to_l0, locus);
+
+	      edge l2_to_l0 = find_edge (l2_bb, l0_bb);
+	      add_phi_arg (nphi, exit_res, l2_to_l0, UNKNOWN_LOCATION);
+
+	      add_phi_arg (inner_phi, new_res, l0_to_l1, UNKNOWN_LOCATION);
+	    };
+	}
+
       set_immediate_dominator (CDI_DOMINATORS, l2_bb,
 			       recompute_dominator (CDI_DOMINATORS, l2_bb));
       set_immediate_dominator (CDI_DOMINATORS, l3_bb,
@@ -6550,17 +6594,30 @@ expand_omp_for_generic (struct omp_region *region,
       set_immediate_dominator (CDI_DOMINATORS, l1_bb,
 			       recompute_dominator (CDI_DOMINATORS, l1_bb));
 
-      struct loop *outer_loop = alloc_loop ();
-      outer_loop->header = l0_bb;
-      outer_loop->latch = l2_bb;
-      add_loop (outer_loop, l0_bb->loop_father);
+      /* We enter expand_omp_for_generic with a loop.  This original loop may
+	 have its own loop struct, or it may be part of an outer loop struct
+	 (which may be the fake loop).  */
+      struct loop *outer_loop = entry_bb->loop_father;
+      bool orig_loop_has_loop_struct = l1_bb->loop_father != outer_loop;
 
-      if (!gimple_omp_for_combined_p (fd->for_stmt))
+      add_bb_to_loop (l2_bb, outer_loop);
+
+      /* We've added a new loop around the original loop.  Allocate the
+	 corresponding loop struct.  */
+      struct loop *new_loop = alloc_loop ();
+      new_loop->header = l0_bb;
+      new_loop->latch = l2_bb;
+      add_loop (new_loop, outer_loop);
+
+      /* Allocate a loop structure for the original loop unless we already
+	 had one.  */
+      if (!orig_loop_has_loop_struct
+	  && !gimple_omp_for_combined_p (fd->for_stmt))
 	{
-	  struct loop *loop = alloc_loop ();
-	  loop->header = l1_bb;
+	  struct loop *orig_loop = alloc_loop ();
+	  orig_loop->header = l1_bb;
 	  /* The loop may have multiple latches.  */
-	  add_loop (loop, outer_loop);
+	  add_loop (orig_loop, new_loop);
 	}
     }
 }
