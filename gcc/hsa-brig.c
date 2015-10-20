@@ -427,7 +427,7 @@ brig_init (void)
 	part = main_input_filename;
       else
 	part++;
-      asprintf (&modname, "&%s", part);
+      asprintf (&modname, "&__hsa_module_%s", part);
       char* extension = strchr (modname, '.');
       if (extension)
 	*extension = '\0';
@@ -451,7 +451,7 @@ brig_init (void)
       free (modname);
     }
   else
-    moddir.name = brig_emit_string ("unnamed_brig_module", '&');
+    moddir.name = brig_emit_string ("__hsa_module_unnamed", '&');
   moddir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_MODULE);
   moddir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR) ;
   moddir.hsailMinor = htole32 (BRIG_VERSION_HSAIL_MINOR);
