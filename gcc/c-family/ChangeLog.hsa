@@ -1,3 +1,8 @@
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c: Move back removed blank line.
+	* cgraph.h: Revert change made in the branch.
+
 2015-10-16  Martin Liska  <mliska@suse.cz>
 
 	* c-common.c (handle_hsa_attribute): Remove.

@@ -524,7 +524,7 @@ public:
   /* Section name. Again can be private, if allowed.  */
   section_hash_entry *x_section;
 
- protected:
+protected:
   /* Dump base fields of symtab nodes to F.  Not to be used directly.  */
   void dump_base (FILE *);
 

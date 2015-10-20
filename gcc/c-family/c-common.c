@@ -7354,6 +7354,7 @@ handle_noicf_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+
 /* Handle a "always_inline" attribute; arguments as in
    struct attribute_spec.handler.  */
 
