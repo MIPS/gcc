@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/error.c: New.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* task.c (GOMP_task): Use a fixed-size on-stack buffer or a heap
 	allocation instead of a variable-size on-stack allocation.
 
