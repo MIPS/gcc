@@ -1,5 +1,19 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/alloc.c: Delete.
+	* config/nvptx/barrier.c: Ditto.
+	* config/nvptx/iter.c: Ditto.
+	* config/nvptx/iter_ull.c: Ditto.
+	* config/nvptx/loop.c: Ditto.
+	* config/nvptx/loop_ull.c: Ditto.
+	* config/nvptx/ordered.c: Ditto.
+	* config/nvptx/parallel.c: Ditto.
+	* config/nvptx/single.c: Ditto.
+	* config/nvptx/task.c: Ditto.
+	* config/nvptx/work.c: Ditto.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* Makefile.am (libgomp_la_SOURCES): Add atomic.c.
 	* Makefile.in: Regenerate.
 	* critical.c: Split out GOMP_atomic_{start,end} into...
