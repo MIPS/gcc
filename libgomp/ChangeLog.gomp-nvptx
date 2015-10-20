@@ -1,5 +1,10 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* task.c (GOMP_task): Use a fixed-size on-stack buffer or a heap
+	allocation instead of a variable-size on-stack allocation.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* libgomp.h [__nvptx__] (gomp_thread): New implementation.
 	* config/nvptx/team.c (gomp_nvptx_main): New.
 	(gomp_thread_start): New (NVPTX-specific implementation).
