@@ -4872,19 +4872,32 @@ gimple_build_cond_empty (tree cond)
   return gimple_build_cond (pred_code, lhs, rhs, NULL_TREE, NULL_TREE);
 }
 
-/* Return true if the REGION is within a declare target function or within a
-   target region.  */
+/* Return true if a parallel REGION is within a declare target function or
+   within a target region and is not a part of a gridified kernel.  */
 
 static bool
-region_part_of_target_p (struct omp_region *region)
+region_needs_kernel_p (struct omp_region *region)
 {
+  bool indirect = false;
+  for (region = region->outer; region; region = region->outer)
+    {
+      if (region->type == GIMPLE_OMP_PARALLEL)
+	indirect = true;
+      else if (region->type == GIMPLE_OMP_TARGET)
+	{
+	  gomp_target *tgt_stmt;
+	  tgt_stmt = as_a <gomp_target *> (last_stmt (region->entry));
+	  if (tgt_stmt->kernel_iter)
+	    return indirect;
+	  else
+	    return true;
+	}
+    }
+
   if (lookup_attribute ("omp declare target",
 			DECL_ATTRIBUTES (current_function_decl)))
     return true;
 
-  for (region = region->outer; region; region = region->outer)
-    if (region->type == GIMPLE_OMP_TARGET)
-      return true;
   return false;
 }
 
@@ -5058,7 +5071,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
 			    false, GSI_CONTINUE_LINKING);
 
   if (hsa_gen_requested_p ()
-      && region_part_of_target_p (region))
+      && region_needs_kernel_p (region))
     {
       cgraph_node *child_cnode = cgraph_node::get (child_fndecl);
       hsa_register_kernel (child_cnode);

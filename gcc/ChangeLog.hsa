@@ -1,5 +1,11 @@
 2015-10-20  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (region_part_of_target_p): Renamed to
+	region_needs_kernel_p, return false for parts of gridified kernels.
+	(expand_parallel_call): Adjusted.
+
+2015-10-20  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (single_stmt_in_seq_skip_bind): Removed.
 	(reg_assignment_to_local_var_p): New function.
 	(seq_only_contains_local_assignments): Use it.
