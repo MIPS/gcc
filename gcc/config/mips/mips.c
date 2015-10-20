@@ -6684,6 +6684,16 @@ mips_function_value_1 (const_tree valtype, const_tree fn_decl_or_type,
   return gen_rtx_REG (mode, GP_RETURN);
 }
 
+/* Implement TARGET_PROMOTE_PROTOTYPES.  */
+
+static bool
+mips_promote_prototypes (const_tree fntype ATTRIBUTE_UNUSED)
+{
+  if (mips_abi == ABI_32 && !TARGET_PROMOTE_FUNCTION_PROTOTYPES)
+    return false;
+  return true;
+}
+
 /* Implement TARGET_FUNCTION_VALUE.  */
 
 static rtx
@@ -22780,7 +22790,7 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 #undef  TARGET_PROMOTE_FUNCTION_MODE
 #define TARGET_PROMOTE_FUNCTION_MODE default_promote_function_mode_always_promote
 #undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
+#define TARGET_PROMOTE_PROTOTYPES mips_promote_prototypes
 
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE mips_function_value

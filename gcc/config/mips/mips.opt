@@ -54,6 +54,10 @@ mabicalls
 Target Report Mask(ABICALLS)
 Generate code that can be used in SVR4-style dynamic objects
 
+mpromote-prototypes
+Target Report Var(TARGET_PROMOTE_FUNCTION_PROTOTYPES) Init(1)
+Promote arguments declared in a prototype for O32 ABI. Enabled by default.
+
 mmad
 Target Report Var(TARGET_MAD)
 Use PMC-style 'mad' instructions
