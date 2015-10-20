@@ -7275,6 +7275,8 @@ on this implementation detail.
 
 @hook TARGET_CAN_INLINE_P
 
+@hook TARGET_RELAYOUT_FUNCTION
+
 @node Emulated TLS
 @section Emulating TLS
 @cindex Emulated TLS

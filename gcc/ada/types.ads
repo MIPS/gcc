@@ -827,9 +827,8 @@ package Types is
    --  To add a new code, you need to do the following:
 
    --    1. Assign a new number to the reason. Do not renumber existing codes,
-   --       since this causes compatibility/bootstrap issues, and problems in
-   --       the CIL/JVM backends. So always add the new code at the end of the
-   --       list.
+   --       since this causes compatibility/bootstrap issues, so always add the
+   --       new code at the end of the list.
 
    --    2. Update the contents of the array Kind
 
@@ -845,10 +844,7 @@ package Types is
    --  Note on ordering of references. For the tables in Ada.Exceptions units,
    --  usually the ordering does not matter, and we use the same ordering as
    --  is used here (note the requirement in the ordering here that CE/PE/SE
-   --  codes be kept together, so the subtype declarations work OK). However,
-   --  there is an important exception, which is in a-except-2005.adb, where
-   --  ordering of the Rcheck routines must correspond to the ordering of the
-   --  Rmsg_xx messages. This is required by the .NET scripts.
+   --  codes be kept together, so the subtype declarations work OK).
 
    type RT_Exception_Code is
      (CE_Access_Check_Failed,            -- 00

@@ -2556,9 +2556,8 @@ package body Sem_Ch3 is
    -----------------------------------
 
    procedure Analyze_Full_Type_Declaration (N : Node_Id) is
-      Def    : constant Node_Id         := Type_Definition (N);
-      Def_Id : constant Entity_Id       := Defining_Identifier (N);
-      GM     : constant Ghost_Mode_Type := Ghost_Mode;
+      Def    : constant Node_Id   := Type_Definition (N);
+      Def_Id : constant Entity_Id := Defining_Identifier (N);
       T      : Entity_Id;
       Prev   : Entity_Id;
 
@@ -2575,9 +2574,6 @@ package body Sem_Ch3 is
       --  primitives will be added to the full type's primitive operations
       --  list later in Sem_Disp.Check_Operation_From_Incomplete_Type (which
       --  is called from Process_Incomplete_Dependents).
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
 
       ------------------------------------
       -- Check_Ops_From_Incomplete_Type --
@@ -2616,25 +2612,10 @@ package body Sem_Ch3 is
          end if;
       end Check_Ops_From_Incomplete_Type;
 
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
-
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
-
    --  Start of processing for Analyze_Full_Type_Declaration
 
    begin
       Prev := Find_Type_Name (N);
-
-      --  The type declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N, Prev);
 
       --  The full view, if present, now points to the current type. If there
       --  is an incomplete partial view, set a link to it, to simplify the
@@ -2773,7 +2754,6 @@ package body Sem_Ch3 is
       end if;
 
       if Etype (T) = Any_Type then
-         Restore_Globals;
          return;
       end if;
 
@@ -2914,8 +2894,6 @@ package body Sem_Ch3 is
             Analyze_Aspect_Specifications (N, Def_Id);
          end if;
       end if;
-
-      Restore_Globals;
    end Analyze_Full_Type_Declaration;
 
    ----------------------------------
@@ -2923,18 +2901,12 @@ package body Sem_Ch3 is
    ----------------------------------
 
    procedure Analyze_Incomplete_Type_Decl (N : Node_Id) is
-      F  : constant Boolean         := Is_Pure (Current_Scope);
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
-      T  : Entity_Id;
+      F : constant Boolean := Is_Pure (Current_Scope);
+      T : Entity_Id;
 
    begin
       Check_SPARK_05_Restriction ("incomplete type is not allowed", N);
 
-      --  The incomplete type declaration may be subject to pragma Ghost with
-      --  policy Ignore. Set the mode now to ensure that any nodes generated
-      --  during analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
       Generate_Definition (Defining_Identifier (N));
 
       --  Process an incomplete declaration. The identifier must not have been
@@ -2984,11 +2956,6 @@ package body Sem_Ch3 is
 
       Set_Private_Dependents (T, New_Elmt_List);
       Set_Is_Pure            (T, F);
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Incomplete_Type_Decl;
 
    -----------------------------------
@@ -3035,10 +3002,9 @@ package body Sem_Ch3 is
 
       --  Check runtime support for synchronized interfaces
 
-      if VM_Target = No_VM
-        and then (Is_Task_Interface (T)
-                   or else Is_Protected_Interface (T)
-                   or else Is_Synchronized_Interface (T))
+      if (Is_Task_Interface (T)
+           or else Is_Protected_Interface (T)
+           or else Is_Synchronized_Interface (T))
         and then not RTE_Available (RE_Select_Specific_Data)
       then
          Error_Msg_CRT ("synchronized interfaces", T);
@@ -3063,37 +3029,13 @@ package body Sem_Ch3 is
    --------------------------------
 
    procedure Analyze_Number_Declaration (N : Node_Id) is
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
-
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
-
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
-
-      --  Local variables
-
       E     : constant Node_Id   := Expression (N);
       Id    : constant Entity_Id := Defining_Identifier (N);
       Index : Interp_Index;
       It    : Interp;
       T     : Entity_Id;
 
-   --  Start of processing for Analyze_Number_Declaration
-
    begin
-      --  The number declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
-
       Generate_Definition (Id);
       Enter_Name (Id);
 
@@ -3113,8 +3055,6 @@ package body Sem_Ch3 is
          Set_Etype     (Id, Universal_Integer);
          Set_Ekind     (Id, E_Named_Integer);
          Set_Is_Frozen (Id, True);
-
-         Restore_Globals;
          return;
       end if;
 
@@ -3216,8 +3156,6 @@ package body Sem_Ch3 is
          Set_Ekind               (Id, E_Constant);
          Set_Never_Set_In_Source (Id, True);
          Set_Is_True_Constant    (Id, True);
-
-         Restore_Globals;
          return;
       end if;
 
@@ -3231,8 +3169,6 @@ package body Sem_Ch3 is
          Rewrite (E, Make_Integer_Literal (Sloc (N), 1));
          Set_Etype (E, Any_Type);
       end if;
-
-      Restore_Globals;
    end Analyze_Number_Declaration;
 
    -----------------------------
@@ -3406,9 +3342,8 @@ package body Sem_Ch3 is
    --------------------------------
 
    procedure Analyze_Object_Declaration (N : Node_Id) is
-      Loc   : constant Source_Ptr      := Sloc (N);
-      GM    : constant Ghost_Mode_Type := Ghost_Mode;
-      Id    : constant Entity_Id       := Defining_Identifier (N);
+      Loc   : constant Source_Ptr := Sloc (N);
+      Id    : constant Entity_Id  := Defining_Identifier (N);
       Act_T : Entity_Id;
       T     : Entity_Id;
 
@@ -3436,9 +3371,6 @@ package body Sem_Ch3 is
       --  before the analysis of the object declaration is complete.
 
       --  Any other relevant delayed aspects on object declarations ???
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
 
       -----------------
       -- Count_Tasks --
@@ -3518,14 +3450,9 @@ package body Sem_Ch3 is
          return False;
       end Delayed_Aspect_Present;
 
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
+      --  Local variables
 
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -3580,9 +3507,10 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  The object declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  analysis and expansion are properly flagged as ignored Ghost.
+      --  The object declaration is Ghost when it is subject to pragma Ghost or
+      --  completes a deferred Ghost constant. Set the mode now to ensure that
+      --  any nodes generated during analysis and expansion are properly marked
+      --  as Ghost.
 
       Set_Ghost_Mode (N, Prev_Entity);
 
@@ -3866,7 +3794,7 @@ package body Sem_Ch3 is
            and then Analyzed (N)
            and then No (Expression (N))
          then
-            Restore_Globals;
+            Ghost_Mode := Save_Ghost_Mode;
             return;
          end if;
 
@@ -4139,7 +4067,7 @@ package body Sem_Ch3 is
                Freeze_Before (N, T);
                Set_Is_Frozen (Id);
 
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return;
 
             else
@@ -4522,7 +4450,7 @@ package body Sem_Ch3 is
          Check_No_Hidden_State (Id);
       end if;
 
-      Restore_Globals;
+      Ghost_Mode := Save_Ghost_Mode;
    end Analyze_Object_Declaration;
 
    ---------------------------
@@ -4543,19 +4471,12 @@ package body Sem_Ch3 is
    -------------------------------------------
 
    procedure Analyze_Private_Extension_Declaration (N : Node_Id) is
-      GM          : constant Ghost_Mode_Type := Ghost_Mode;
-      Indic       : constant Node_Id         := Subtype_Indication (N);
-      T           : constant Entity_Id       := Defining_Identifier (N);
+      Indic       : constant Node_Id   := Subtype_Indication (N);
+      T           : constant Entity_Id := Defining_Identifier (N);
       Parent_Base : Entity_Id;
       Parent_Type : Entity_Id;
 
    begin
-      --  The private extension declaration may be subject to pragma Ghost with
-      --  policy Ignore. Set the mode now to ensure that any nodes generated
-      --  during analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
-
       --  Ada 2005 (AI-251): Decorate all names in list of ancestor interfaces
 
       if Is_Non_Empty_List (Interface_List (N)) then
@@ -4769,11 +4690,6 @@ package body Sem_Ch3 is
       if Has_Aspects (N) then
          Analyze_Aspect_Specifications (N, T);
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Private_Extension_Declaration;
 
    ---------------------------------
@@ -4784,18 +4700,11 @@ package body Sem_Ch3 is
      (N    : Node_Id;
       Skip : Boolean := False)
    is
-      GM       : constant Ghost_Mode_Type := Ghost_Mode;
       Id       : constant Entity_Id := Defining_Identifier (N);
       R_Checks : Check_Result;
       T        : Entity_Id;
 
    begin
-      --  The subtype declaration may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
-
       Generate_Definition (Id);
       Set_Is_Pure (Id, Is_Pure (Current_Scope));
       Init_Size_Align (Id);
@@ -5393,11 +5302,6 @@ package body Sem_Ch3 is
       end if;
 
       Analyze_Dimension (N);
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Subtype_Declaration;
 
    --------------------------------
@@ -6009,16 +5913,24 @@ package body Sem_Ch3 is
 
       Mark_Rewrite_Insertion (Comp);
 
-      if Nkind_In (N, N_Object_Declaration, N_Access_Function_Definition) then
+      if Nkind_In (N, N_Object_Declaration, N_Access_Function_Definition)
+        or else (Nkind (Parent (N)) = N_Full_Type_Declaration
+                  and then not Is_Type (Current_Scope))
+      then
+
+         --  Declaration can be analyzed in the current scope.
+
          Analyze (Decl);
 
       else
          --  Temporarily remove the current scope (record or subprogram) from
          --  the stack to add the new declarations to the enclosing scope.
+         --  The anonymous entity is an Itype with the proper attributes.
 
          Scope_Stack.Decrement_Last;
          Analyze (Decl);
          Set_Is_Itype (Anon);
+         Set_Associated_Node_For_Itype (Anon, N);
          Scope_Stack.Append (Curr_Scope);
       end if;
 
@@ -10120,9 +10032,6 @@ package body Sem_Ch3 is
          --  operations used in dispatching selects since we always provide
          --  automatic overridings for these subprograms.
 
-         --  Also ignore this rule for convention CIL since .NET libraries
-         --  do bizarre things with interfaces???
-
          --  The partial view of T may have been a private extension, for
          --  which inherited functions dispatching on result are abstract.
          --  If the full view is a null extension, there is no need for
@@ -10156,7 +10065,6 @@ package body Sem_Ch3 is
            and then not Is_TSS (Subp, TSS_Stream_Input)
            and then not Is_TSS (Subp, TSS_Stream_Output)
            and then not Is_Abstract_Type (T)
-           and then Convention (T) /= Convention_CIL
            and then not Is_Predefined_Interface_Primitive (Subp)
 
             --  Ada 2005 (AI-251): Do not consider hidden entities associated
@@ -17945,9 +17853,9 @@ package body Sem_Ch3 is
      (C : Entity_Id;
       N : Node_Id := Empty) return Boolean
    is
-      Original_Comp  : Entity_Id := Empty;
+      Original_Comp : Entity_Id := Empty;
       Original_Type : Entity_Id;
-      Type_Scope     : Entity_Id;
+      Type_Scope    : Entity_Id;
 
       function Is_Local_Type (Typ : Entity_Id) return Boolean;
       --  Check whether parent type of inherited component is declared locally,
@@ -18088,9 +17996,9 @@ package body Sem_Ch3 is
                if Ancestor = Original_Type then
                   return True;
 
-               --  The ancestor may have a partial view of the original
-               --  type, but if the full view is in scope, as in a child
-               --  body, the component is visible.
+               --  The ancestor may have a partial view of the original type,
+               --  but if the full view is in scope, as in a child body, the
+               --  component is visible.
 
                elsif In_Private_Part (Scope (Original_Type))
                  and then Full_View (Ancestor) = Original_Type
@@ -18099,7 +18007,7 @@ package body Sem_Ch3 is
 
                elsif Ancestor = Etype (Ancestor) then
 
-                  --  No further ancestors to examine.
+                  --  No further ancestors to examine
 
                   return False;
                end if;

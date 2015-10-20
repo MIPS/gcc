@@ -1,3 +1,546 @@
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* aspects.adb Add an entry for Constant_After_Elaboration in
+	table Canonical_Aspect.
+	* aspects.ads Add entries for Constant_After_Elaboration in
+	tables Aspect_Argument, Aspect_Delay, Aspect_Id, Aspect_Names
+	and Implementation_Defined_Aspect.
+	* par-prag.adb Pragma Constant_After_Elaboration does not require
+	special processing by the parser.
+	* sem_ch13.adb Add an entry for Constant_After_Elaboration
+	in table Sig_Flags.
+	(Analyze_Aspect_Specifications):
+	Add processing for aspect Constant_After_Elaboration.
+	(Check_Aspect_At_Freeze_Point): Aspect Constant_After_Elaboration
+	does not require special processing at freeze time.
+	* sem_prag.adb (Analyze_Pragma): Add processing for pragma
+	Constant_After_Elaboration. Use routine Find_Related_Context to
+	retrieve the context of pragma Part_Of.
+	(Duplication_Error): Update comment on usage.
+	(Find_Related_Context): New routine.
+	* sem_prag.ads Add an entry for Constant_After_Elaboration
+	in table Aspect_Specifying_Pragma.
+	(Analyze_Contract_Cases_In_Decl_Part): Update the comment on usage.
+	* sem_util.adb (Add_Contract_Item): Add processing for pragma
+	Constant_After_Elaboration.
+	* sem_util.ads (Add_Contract_Item): Update the comment on usage.
+	* snames.ads-tmpl Add new predefined name and aspect id for
+	Constant_After_Elaboration.
+
+2015-10-16  Vincent Celier  <celier@adacore.com>
+
+	* prj-pp.adb (Pretty_Print.Print): Correctly display extending
+	packages, instead of making them renamed packages.
+
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* sem_ch12.adb (Analyze_Package_Instantiation):
+	Treat a missing SPARK_Mode annotation as having mode "Off".
+	(Analyze_Subprogram_Instantiation): Treat a missing SPARK_Mode
+	annotation as having mode "Off".
+	(Instantiate_Package_Body): Code
+	reformatting. Treat a missing SPARK_Mode annotation as having mode
+	"Off".
+	(Instantiate_Subprogram_Body): Code reformatting. Treat
+	a missing SPARK_Mode annotation as having mode "Off".
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb: Code clean up.
+	* sem_ch13.adb: Minor fix in comment.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* a-exexda.adb: Change format of Exception_Information to be
+	more like what we print for unhandled exceptions.
+	* a-exstat.adb: Parse new format.
+	* a-except-2005.adb, a-except.adb: Document new format.
+
+2015-10-16  Javier Miranda  <miranda@adacore.com>
+
+	* sem_ch5.adb (Analyze_Iterator_Specification): Associate a
+	transient scope with the renaming object declararation.
+	* exp_util.adb (Insert_Actions): if the enclosing interator
+	loop is marked as requiring the secondary stack then attach the
+	actions to the transient scope.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* exp_ch7.adb: Minor spelling fixes.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Replace_Anonymous_Access_To_Protected_Subprogram):
+	If anonymous type is component type of array type declaration,
+	analyze its declaration in the current scope, not the enclosing
+	one.
+
+2015-10-16  Gary Dismukes  <dismukes@adacore.com>
+
+	* prj.adb, sem_util.adb, exp_ch6.adb: Minor reformatting.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb (Expand_Formal_Container_Element_Loop): Modify
+	expansion to allow element iteration over formal containers
+	whose elements are indefinite types.
+
+2015-10-16  Doug Rupp  <rupp@adacore.com>
+
+	* s-taprop-linux.adb (Monotonic_Clock): Call clock_gettime
+	instead of gettimeofday.
+	* s-osinte-android.ads, s-osinte-android.adb, s-osinte-linux.ads
+	(clock_gettime): New imported subprogram.
+
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch6.adb (Make_Build_In_Place_Call_In_Object_Declaration):
+	Indefinite or limited library level objects are now returned on
+	the heap.
+	* exp_ch7.adb (Build_Finalization_Master): Add formal
+	parameter For_Lib_Level. Add context specific insertion for a
+	finalization master created for an access result type related
+	to a build-in-place function call used to initialize a library
+	level object.
+	* exp_ch7.ads (Build_Finalization_Master): Add formal parameter
+	For_Lib_Level. Update the comment on usage.
+	* sem_util.adb (Mark_Coextensions): Code cleanup.
+
+2015-10-16  Emmanuel Briot  <briot@adacore.com>
+
+	* prj.adb (For_Every_Project_Imported_Context): Fix handling
+	of aggregated projects with duplicate names.
+	* a-ngelfu.ads: Minor whitespace fix.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch13.adb (Build_Predicate_Functions): The expression for
+	the predicate is side-effect free if it does not contain any
+	variable references.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* a-convec.adb ("="): Previous version depended
+	on "=" composing, but that doesn't quite work -- we want the "="
+	operator passed in to the generic. So we need a loop after all.
+
+2015-10-16  Yannick Moy  <moy@adacore.com>
+
+	* sem_util.adb (Is_Object_Reference): Attribute 'Loop_Entry produces
+	an object.
+	* sem_ch6.adb: Minor fix in comment.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* a-contai.ads: Add two check names: Container_Checks and
+	Tampering_Check.  Move the tampering check machinery from
+	Ada.Containers.Vectors to Ada.Containers. Later we can share it
+	with other containers.
+	Disable the tampering machinery in the presence of
+	Suppress(Tampering_Check).
+	Simplify the implementation of tampering checks. E.g. use RAII
+	to make incrementing/decrementing of the counts more concise.
+	* a-contai.adb: New package body, implementing the above.
+	* a-convec.ads, a-convec.adb: Use tampering check machinery
+	in Ada.Containers.
+	Disable all checking code when checks are suppressed.
+	Simplify many of the operations. Implement "&" in terms of Append,
+	rather than "by hand".
+	Remove: function "=" (L, R : Elements_Array) return Boolean is
+	abstract; so we can call the predefined "=" on Elements_Array.
+	For "=" on Vectors: Previously, we returned True immediately if
+	Left'Address = Right'Address.  That seems like a non-optimization
+	("if X = X" is unusual), so removed that.  Simplify by using
+	slice comparison ("=" on Element_Array will automatically call
+	"=" on the components, even if user defined).
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch13.adb (Chek_Record_Representation_Clause): When
+	iterating over components, skip anonymous subtypes created for
+	constrained array components.
+
+2015-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* a-tags.ads (Parent_Size): Remove obsolete pragma Export.
+	* s-finmas.ads (Header_Offset): Delete.
+	* s-finmas.adb (Header_Offset): Likewise.
+	(Finalize): Call Header_Size instead of Header_Offset.
+	* s-stposu.adb (Allocate_Any_Controlled): Likewise.
+	(Deallocate_Any_Controlled): Likewise.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* a-exetim.ads, a-exetim-mingw.ads, a-exetim-default.ads: Whitespace
+	cleanup.
+	* s-osprim-mingw.adb, einfo.ads, sem_util.adb, sem_util.ads,
+	sem_ch4.adb, sem_ch13.adb, s-trasym.adb, s-trasym.ads,
+	s-taprop-posix.adb: Minor reformatting.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* adadecode.h, adadecode.c (ada_demangle): Remove
+	ada_demangle, no longer used.
+	* a-except-2005.adb: Bring System.Traceback.Symbolic into the
+	closure.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb, sem_util.ads (Get_Reference_Discriminant): Utility to
+	locate the access discriminant that supports implicit dereference on a
+	record type.
+	(Is_OK_Variable_For_Out_Parameter): Reject other illegal uses
+	of Implicit_Dereference on an access_to_constant when actual
+	parameter is a rewritten variable or function call.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* a-tags.adb, s-trasym.adb, s-trasym.ads: Make sure we don't get
+	elaboration circularities when polling is turned on.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch3.adb (Replace_Anonymous_Access_To_Protected_Subprogram):
+	When creating a full declaration for a formal parameter, the
+	entity is labelled as an Itype, so set Associated_Node_For_Itype
+	accordingly.
+	* einfo.ads: Clarify use of Associated_Node_For_Itype.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* bindgen: Move pragmas Warnings earlier, otherwise
+	we can get warnings on with_clauses.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-osprim-mingw.adb, s-osprim-x32.adb, s-taprop-mingw.adb,
+	s-taprop-posix.adb (Monotonic_Clock): Removed, not used.
+	Remove remaining references to OS_Primitives.Monotonic_Clock.
+	Keep it only on windows which is a special case.
+
+2015-10-16  Javier Miranda  <miranda@adacore.com>
+
+	* a-textio.adb (Get_Line): Fix documentation.
+	* einfo.ads (Interface_Name): Fix documentation.
+	* exp_aggr.adb (Backend_Processing_Possible): Fix documentation.
+	* exp_ch4.adb (Expand_N_In): Fix documentation.
+
+2015-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* inline.adb (Subp_Info): Remove Listed component.
+	(Add_Inlined_Subprogram): Take an entity instead of an index.
+	Do not set Listed component to True.
+	(New_Entry): Do not initialize Listed component to False.
+	(Analyze_Inlined_Bodies): Do not test Listed component
+	(Must_Inline): Add calls not in the main unit only
+	if they are in a subprogram that can be inlined outside its unit.
+	(Add_Inlined_Body): Move test around and add comment.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* sinfo.ads, einfo.ads: monir clean ups.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* usage.adb, debug.adb, a-except.adb, a-except.ads, a-except-2005.adb,
+	a-except-2005.ads, s-imgrea.adb: Minor code clean ups related to
+	jgnat/dotnet removal.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* s-osprim-vxworks.adb, s-osprim-darwin.adb, s-tadeca.adb,
+	s-osprim-unix.adb, s-osprim-solaris.adb, s-osprim-posix.adb,
+	s-osprim.ads (Monotonic_Clock): Removed, unused.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch4.adb (Try_Object_Operation, Try_One_Interpretation):
+	Do not reset the Obj_Type of the prefix if an interpretation
+	involves an untagged type, to prevent a crash when analyzing an
+	illegal program in All_Errors mode.
+
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch4.adb (Expand_N_Expression_With_Actions):
+	Force the evaluation of the expression when its type is Boolean.
+	(Force_Boolean_Evaluation): New routine.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* sem_util.adb (Has_Discrim_Dep_Array): Remove
+	this function, and the call. No longer needed now that the back
+	end can handle such things. Should result in further speedups
+	in some cases.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch13.adb (Build_Predicate_Functions): If expression for
+	predicate is side-effect free, indicate that the predicate
+	function is pure, to allow for optimization of redundant
+	predicate checks.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* checks.adb: Fix typo.
+	* s-osinte-linux.ads: Add header.
+	* projects.texi: Removed, no longer used.
+	* gcc-interface/Make-lang.in: Update dependencies
+	* s-multip.adb: Minor: fix header.
+	* sem_ch3.adb, exp_ch7.adb, g-dirope.ads, sinfo.ads, types.ads,
+	a-textio.adb, s-exctra.adb, ali.adb, back_end.ads, exp_intr.adb,
+	a-tigeli.adb, exp_ch3.adb, s-os_lib.ads: Remove further references to
+	.NET.
+	* gnatlink.adb, opt.ads, exp_aggr.adb, s-solita.adb: Minor comment
+	updates.
+
+2015-10-16  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_ch9.adb (Build_Simple_Entry_Call): Set_Is_Internal on
+	the temporary object used for a by-copy entry parameter, to
+	ensure that the object doesn't get its No_Initialization flag
+	reset later in Default_Initialize_Object. Also, generate the
+	assignment of the actual to the temporary in the additional case
+	of a scalar out parameter whose type has a Default_Value aspect.
+	* exp_ch3.adb: Fix minor typo in comment.
+
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_util.adb, sem_util.ads, sem_ch6.adb, sem_ch7.adb, sem_ch8.adb:
+	Minor reformatting.
+	* sem_ch12.adb (Analyze_Formal_Package_Declaration): Set the
+	SPARK_Mode from the context.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* sem_util.adb (Requires_Transient_Scope):
+	If Typ is a generic formal incomplete type, look at the actual
+	type. Otherwise, we don't notice that the actual type is tagged,
+	has a variant part, etc, causing a mismatch of calling conventions
+	between caller and callee.
+
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* einfo.ads: Move the declaration of enumeration
+	literal E_Abstract_State above E_Entry.  Update the upper bound
+	of subtype Overloadable_Kind.
+
+2015-10-16  Gary Dismukes  <dismukes@adacore.com>
+
+	* exp_attr.adb: Minor editorial changes.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* exp_ch5.adb, sem_ch3.adb, frontend.adb, exp_ch7.adb, exp_ch7.ads,
+	sem_ch5.adb, sem_type.adb, exp_util.adb, exp_util.ads, comperr.adb,
+	exp_attr.adb, sinfo.ads, exp_ch9.adb, make.adb, usage.adb,
+	lib-writ.adb, sem_ch9.adb, bindgen.adb, debug.adb, einfo.adb,
+	einfo.ads, types.ads, checks.adb, sem_prag.adb, s-tasini.adb,
+	rtsfind.ads, freeze.adb, sem_util.adb, sem_util.ads, exp_dbug.adb,
+	gnatlink.adb, gnat1drv.adb, targparm.adb, targparm.ads, exp_ch4.adb,
+	exp_ch11.adb, repinfo.adb, s-soflin.adb, s-soflin.ads, exp_ch6.adb,
+	exp_ch13.adb, sem_mech.adb, sem_ch6.adb, par-prag.adb, exp_disp.adb,
+	sem_ch8.adb, exp_disp.ads, snames.adb-tmpl, exp_aggr.adb, sem_eval.adb,
+	exp_intr.adb, sem_ch13.adb, snames.ads-tmpl, sem_disp.adb, exp_ch3.adb:
+	Code clean up: remove special handling for .NET and JVM.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem_ch12.adb: Minor punctuation fix in comment
+	* s-rident.ads: Minor consistency fix in comment
+	* exp_attr.adb, g-spipat.ads: punctuation fixes in comments.
+	* restrict.ads: Style fix in comments.
+	* sem_prag.adb: Minor grammar fix in comment
+
+2015-10-16  Gary Dismukes  <dismukes@adacore.com>
+
+	* sem_ch12.adb: Minor reformatting/rewording.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* einfo.ads: Minor fix of duplicate words
+	* rident.ads: Minor style fix in comment
+
+2015-10-16  Hristian Kirtchev  <kirtchev@adacore.com>
+
+	* exp_ch3.adb (Expand_N_Full_Type_Declaration): Do not capture,
+	set and restore the Ghost mode.
+	(Expand_N_Object_Declaration): Do not capture, set and restore the
+	Ghost mode.
+	(Freeze_Type): Redo the capture and restore of the Ghost mode.
+	(Restore_Globals): Removed.
+	* exp_ch5.adb (Expand_N_Assignment_Statement): Redo the capture
+	and restore of the Ghost mode.
+	(Restore_Globals): Removed.
+	* exp_ch6.adb (Expand_N_Procedure_Call_Statement):
+	Redo the capture and restore of the Ghost mode.
+	(Expand_N_Subprogram_Body): Redo the capture, set and restore
+	of the Ghost mode.
+	(Expand_N_Subprogram_Declaration): Do not
+	capture, set and restore the Ghost mode.
+	(Restore_Globals): Removed.
+	* exp_ch7.adb (Expand_N_Package_Body): Redo the capture, set
+	and restore of the Ghost mode.
+	(Expand_N_Package_Declaration): Do not capture, set and restore the
+	Ghost mode.
+	* exp_ch8.adb (Expand_N_Exception_Renaming_Declaration):
+	Redo the capture and restore of the Ghost mode.
+	(Expand_N_Object_Renaming_Declaration): Redo
+	the capture and restore of the Ghost mode.
+	(Expand_N_Package_Renaming_Declaration):
+	Redo the capture and restore of the Ghost mode.
+	(Expand_N_Subprogram_Renaming_Declaration): Redo the capture
+	and restore of the Ghost mode.
+	* exp_ch11.adb Remove with and use clauses for Ghost.
+	(Expand_N_Exception_Declaration): Do not capture, set and restore
+	the Ghost mode.
+	* exp_disp.adb (Make_DT): Redo the capture and restore of the
+	Ghost mode.
+	(Restore_Globals): Removed.
+	* exp_prag.adb (Expand_Pragma_Check): Do not capture, set
+	and restore the Ghost mode.
+	(Expand_Pragma_Contract_Cases):
+	Redo the capture and restore of the Ghost mode.  Preserve the
+	original context of contract cases by setting / resetting the
+	In_Assertion_Expr counter.
+	(Expand_Pragma_Initial_Condition):
+	Redo the capture and restore of the Ghost mode.
+	(Expand_Pragma_Loop_Variant): Redo the capture and restore of
+	the Ghost mode.
+	(Restore_Globals): Removed.
+	* exp_util.adb (Make_Predicate_Call): Redo the capture and
+	restore of the Ghost mode.
+	(Restore_Globals): Removed.
+	* freeze.adb (Freeze_Entity): Redo the capture and restore of
+	the Ghost mode.
+	(Restore_Globals): Removed.
+	* ghost.adb (Check_Ghost_Context): Remove the RM reference from
+	the error message.
+	(Is_OK_Statement): Account for statements
+	that appear in assertion expressions.
+	(Is_Subject_To_Ghost):
+	Moved from spec.
+	* ghost.ads (Is_Subject_To_Ghost): Moved to body.
+	* rtsfind.ads (Load_RTU): Redo the capture and restore of the
+	Ghost mode.
+	* sem.adb Add with and use clauses for Ghost.
+	(Analyze): Redo
+	the capture and restore of the Ghost mode. Set the Ghost mode
+	when analyzing a declaration.
+	(Do_Analyze): Redo the capture
+	and restore of the Ghost mode.
+	* sem_ch3.adb (Analyze_Full_Type_Declaration): Do not capture, set
+	and restore the Ghost mode.
+	(Analyze_Incomplete_Type_Decl):
+	Do not capture, set and restore the Ghost mode.
+	(Analyze_Number_Declaration): Do not capture, set and restore the
+	Ghost mode.
+	(Analyze_Object_Declaration): Do not capture, set and
+	restore the Ghost mode.
+	(Analyze_Private_Extension_Declaration):
+	Do not capture, set and restore the Ghost mode.
+	(Analyze_Subtype_Declaration): Do not capture, set and restore
+	the Ghost mode.
+	(Restore_Globals): Removed.
+	* sem_ch5.adb (Analyze_Assignment): Redo the capture and restore
+	of the Ghost mode.
+	(Restore_Globals): Removed.
+	* sem_ch6.adb (Analyze_Abstract_Subprogram_Declaration):
+	Do not capture, set and restore the Ghost mode.
+	(Analyze_Procedure_Call): Redo the capture and restore of the
+	Ghost mode.
+	(Analyze_Subprogram_Body_Helper): Redo the capture
+	and restore of the Ghost mode.	(Analyze_Subprogram_Declaration):
+	Do not capture, set and restore the Ghost mode.
+	(Restore_Globals): Removed.
+	* sem_ch7.adb (Analyze_Package_Body_Helper): Redo the capture and
+	restore of the Ghost mode.
+	(Analyze_Package_Declaration):
+	Do not capture, set and restore the Ghost mode.
+	(Analyze_Private_Type_Declaration): Do not capture, set and
+	restore the Ghost mode.
+	(Restore_Globals): Removed.
+	* sem_ch8.adb (Analyze_Exception_Renaming): Do not capture,
+	set and restore the Ghost mode.
+	(Analyze_Generic_Renaming): Do not capture, set and restore the Ghost
+	mode.
+	(Analyze_Object_Renaming): Do not capture, set and restore the
+	Ghost mode.
+	(Analyze_Package_Renaming): Do not capture, set and restore the Ghost
+	mode.
+	(Analyze_Subprogram_Renaming): Do not capture, set and restore the
+	Ghost mode.
+	(Restore_Globals): Removed.
+	* sem_ch11.adb (Analyze_Exception_Declaration): Do not capture,
+	set and restore the Ghost mode.
+	* sem_ch12.adb (Analyze_Generic_Package_Declaration):
+	Do not capture, set and restore the Ghost mode.
+	(Analyze_Generic_Subprogram_Declaration): Do not capture, set
+	and restore the Ghost mode.
+	* sem_ch13.adb (Build_Invariant_Procedure_Declaration): Redo
+	the capture and restore of the Ghost mode.
+	* sem_prag.adb (Analyze_Contract_Cases_In_Decl_Part):
+	Redo the capture and restore of the Ghost mode.
+	(Analyze_External_Property_In_Decl_Part):
+	Redo the capture and restore of the Ghost mode.
+	(Analyze_Initial_Condition_In_Decl_Part): Redo the
+	capture and restore of the Ghost mode.	(Analyze_Pragma):
+	Do not capture, set and restore the Ghost mode for Assert.
+	Redo the capture and restore of the Ghost mode for Check. Do
+	not capture and restore the Ghost mode for Invariant.
+	(Analyze_Pre_Post_Condition_In_Decl_Part): Redo the capture and
+	restore of the Ghost mode.
+	* sem_res.adb (Resolve): Capture, set and restore the Ghost mode
+	when resolving a declaration.
+	* sem_util.adb (Build_Default_Init_Cond_Procedure_Body):
+	Redo the capture and restore of the Ghost mode.
+	(Build_Default_Init_Cond_Procedure_Declaration): Redo the capture
+	and restore of the Ghost mode.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* debug.adb: Document -gnatdQ switch.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_ch12.adb (Analyze_Formal_Subprogram): Implement rule that
+	a formal abstract subprogram cannot have a null default: RM 12.6
+	(4 1.2).
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* sem_util.ads, sinput.ads, bcheck.adb: Minor comment fixes.
+
+2015-10-16  Javier Miranda  <miranda@adacore.com>
+
+	* inline.adb (Add_Inlined_Body): Ensure that
+	Analyze_Inlined_Bodies will be invoked after completing the
+	analysis of the current unit.
+
+2015-10-16  Arnaud Charlet  <charlet@adacore.com>
+
+	* sem_ch13.adb (Adjust_Record_For_Reverse_Bit_Order): Fix error
+	message for bad last bit position.
+	* sem_ch3.adb, sem_util.adb, sem_util.ads: Minor reformatting.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* exp_ch5.adb (Expand_N_Case_Statement): If expression is
+	compile-time known but does not obey a static predicate on
+	its type, replace the case statement with a raise statement,
+	as with other statically detected constraint violations.
+
+2015-10-16  Bob Duff  <duff@adacore.com>
+
+	* s-traceb.adb, s-traceb.ads, s-traceb-hpux.adb, s-traceb-mastop.adb:
+	Reinstate code.
+	* opt.ads: Minor typo.
+
+2015-10-16  Ed Schonberg  <schonberg@adacore.com>
+
+	* sem_util.adb (Gather_Components): When gathering components
+	of a nested variant, the record type used in legality checks is
+	the enclosing record type.
+
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc-interface/utils.c (DEF_FUNCTION_TYPE_9, DEF_FUNCTION_TYPE_10,

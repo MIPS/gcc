@@ -1,3 +1,7 @@
+2015-10-19  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 228959 into gupc branch.
+
 2015-10-18  Gary Funck  <gary@intrepid.com>
 
 	Remove support for packed PTS, vaddr order and the

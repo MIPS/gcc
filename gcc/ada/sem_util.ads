@@ -56,6 +56,7 @@ package Sem_Util is
    --    Abstract_State
    --    Async_Readers
    --    Async_Writers
+   --    Constant_After_Elaboration
    --    Contract_Cases
    --    Depends
    --    Effective_Reads
@@ -307,11 +308,6 @@ package Sem_Util is
    --  distinction between initial and later declarative items, the distinction
    --  remains in the Examiner (JB01-005). Note that the Examiner does not
    --  count package declarations in later declarative items.
-
-   procedure Check_Nested_Access (Ent : Entity_Id);
-   --  Check whether Ent denotes an entity declared in an uplevel scope, which
-   --  is accessed inside a nested procedure, and set Has_Uplevel_Reference
-   --  flag accordingly. This is currently only enabled for if on a VM target.
 
    procedure Check_No_Hidden_State (Id : Entity_Id);
    --  Determine whether object or state Id introduces a hidden state. If this
@@ -823,7 +819,7 @@ package Sem_Util is
    --  returned. Otherwise the Etype of the node is returned.
 
    function Get_Body_From_Stub (N : Node_Id) return Node_Id;
-   --  Return the body node for a stub.
+   --  Return the body node for a stub
 
    function Get_Cursor_Type
      (Aspect : Node_Id;
@@ -913,6 +909,10 @@ package Sem_Util is
    --  Store_String_Chars. The reason argument is expected to be a string
    --  literal or concatenation of string literals. An error is given for
    --  any other form.
+
+   function Get_Reference_Discriminant (Typ : Entity_Id) return Entity_Id;
+   --  If Typ has Implicit_Dereference, return discriminant specified in the
+   --  corresponding aspect.
 
    function Get_Referenced_Object (N : Node_Id) return Node_Id;
    --  Given a node, return the renamed object if the node represents a renamed
@@ -1256,11 +1256,6 @@ package Sem_Util is
    function Is_Declaration (N : Node_Id) return Boolean;
    --  Determine whether arbitrary node N denotes a declaration
 
-   function Is_Delegate (T : Entity_Id) return Boolean;
-   --  Returns true if type T represents a delegate. A Delegate is the CIL
-   --  object used to represent access-to-subprogram types. This is only
-   --  relevant to CIL, will always return false for other targets.
-
    function Is_Dependent_Component_Of_Mutable_Object
      (Object : Node_Id) return Boolean;
    --  Returns True if Object is the name of a subcomponent that depends on
@@ -1325,7 +1320,7 @@ package Sem_Util is
    function Is_Fully_Initialized_Type (Typ : Entity_Id) return Boolean;
    --  Typ is a type entity. This function returns true if this type is fully
    --  initialized, meaning that an object of the type is fully initialized.
-   --  Note that initialization resulting from use of pragma Normalized_Scalars
+   --  Note that initialization resulting from use of pragma Normalize_Scalars
    --  does not count. Note that this is only used for the purpose of issuing
    --  warnings for objects that are potentially referenced uninitialized. This
    --  means that the result returned is not crucial, but should err on the
@@ -1400,7 +1395,7 @@ package Sem_Util is
    --  initialized, meaning that an object of the type is at least partly
    --  initialized (in particular in the record case, that at least one
    --  component has an initialization expression). Note that initialization
-   --  resulting from the use of pragma Normalized_Scalars does not count.
+   --  resulting from the use of pragma Normalize_Scalars does not count.
    --  Include_Implicit controls whether implicit initialization of access
    --  values to null, and of discriminant values, is counted as making the
    --  type be partially initialized. For the default setting of True, these
@@ -1527,12 +1522,6 @@ package Sem_Util is
    function Is_Universal_Numeric_Type (T : Entity_Id) return Boolean;
    pragma Inline (Is_Universal_Numeric_Type);
    --  True if T is Universal_Integer or Universal_Real
-
-   function Is_Value_Type (T : Entity_Id) return Boolean;
-   --  Returns true if type T represents a value type. This is only relevant to
-   --  CIL, will always return false for other targets. A value type is a CIL
-   --  object that is accessed directly, as opposed to the other CIL objects
-   --  that are accessed through managed pointers.
 
    function Is_Variable_Size_Array (E : Entity_Id) return Boolean;
    --  Returns true if E has variable size components

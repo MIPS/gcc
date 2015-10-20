@@ -122,7 +122,7 @@ package body Sem_Ch13 is
    --  to generate appropriate semantic checks that are delayed until this
    --  point (they had to be delayed this long for cases of delayed aspects,
    --  e.g. analysis of statically predicated subtypes in choices, for which
-   --  we have to be sure the subtypes in question are frozen before checking.
+   --  we have to be sure the subtypes in question are frozen before checking).
 
    function Get_Alignment_Value (Expr : Node_Id) return Uint;
    --  Given the expression for an alignment value, returns the corresponding
@@ -471,10 +471,10 @@ package body Sem_Ch13 is
                              ("machine scalar rules not followed for&",
                               First_Bit (CC), Comp);
 
-                           Error_Msg_Uint_1 := Lbit;
+                           Error_Msg_Uint_1 := Lbit + 1;
                            Error_Msg_Uint_2 := Max_Machine_Scalar_Size;
                            Error_Msg_F
-                             ("\last bit (^) exceeds maximum machine "
+                             ("\last bit + 1 (^) exceeds maximum machine "
                               & "scalar size (^)",
                               First_Bit (CC));
 
@@ -482,7 +482,7 @@ package body Sem_Ch13 is
                               Error_Msg_Uint_1 := SSU;
                               Error_Msg_F
                                 ("\and is not a multiple of Storage_Unit (^) "
-                                 & "(RM 13.4.1(10))",
+                                 & "(RM 13.5.1(10))",
                                  First_Bit (CC));
 
                            else
@@ -2262,6 +2262,22 @@ package body Sem_Ch13 is
 
                   goto Continue;
                end Abstract_State;
+
+               --  Aspect Constant_After_Elaboration is never delayed because
+               --  it is equivalent to a source pragma which appears after the
+               --  related object declaration.
+
+               when Aspect_Constant_After_Elaboration =>
+                  Make_Aitem_Pragma
+                    (Pragma_Argument_Associations => New_List (
+                       Make_Pragma_Argument_Association (Loc,
+                         Expression => Relocate_Node (Expr))),
+                     Pragma_Name                  =>
+                       Name_Constant_After_Elaboration);
+
+                  Decorate (Aspect, Aitem);
+                  Insert_Pragma (Aitem);
+                  goto Continue;
 
                --  Aspect Default_Internal_Condition is never delayed because
                --  it is equivalent to a source pragma which appears after the
@@ -4924,48 +4940,35 @@ package body Sem_Ch13 is
                --  will be used to represent the biased subtype that reflects
                --  the biased representation of components. We need the subtype
                --  to get proper conversions on referencing elements of the
-               --  array. Note: component size clauses are ignored in VM mode.
+               --  array.
 
-               if VM_Target = No_VM then
-                  if Biased then
-                     New_Ctyp :=
-                       Make_Defining_Identifier (Loc,
-                         Chars =>
-                           New_External_Name (Chars (U_Ent), 'C', 0, 'T'));
+               if Biased then
+                  New_Ctyp :=
+                    Make_Defining_Identifier (Loc,
+                      Chars =>
+                        New_External_Name (Chars (U_Ent), 'C', 0, 'T'));
 
-                     Decl :=
-                       Make_Subtype_Declaration (Loc,
-                         Defining_Identifier => New_Ctyp,
-                         Subtype_Indication  =>
-                           New_Occurrence_Of (Component_Type (Btype), Loc));
+                  Decl :=
+                    Make_Subtype_Declaration (Loc,
+                      Defining_Identifier => New_Ctyp,
+                      Subtype_Indication  =>
+                        New_Occurrence_Of (Component_Type (Btype), Loc));
 
-                     Set_Parent (Decl, N);
-                     Analyze (Decl, Suppress => All_Checks);
+                  Set_Parent (Decl, N);
+                  Analyze (Decl, Suppress => All_Checks);
 
-                     Set_Has_Delayed_Freeze        (New_Ctyp, False);
-                     Set_Esize                     (New_Ctyp, Csize);
-                     Set_RM_Size                   (New_Ctyp, Csize);
-                     Init_Alignment                (New_Ctyp);
-                     Set_Is_Itype                  (New_Ctyp, True);
-                     Set_Associated_Node_For_Itype (New_Ctyp, U_Ent);
+                  Set_Has_Delayed_Freeze        (New_Ctyp, False);
+                  Set_Esize                     (New_Ctyp, Csize);
+                  Set_RM_Size                   (New_Ctyp, Csize);
+                  Init_Alignment                (New_Ctyp);
+                  Set_Is_Itype                  (New_Ctyp, True);
+                  Set_Associated_Node_For_Itype (New_Ctyp, U_Ent);
 
-                     Set_Component_Type (Btype, New_Ctyp);
-                     Set_Biased (New_Ctyp, N, "component size clause");
-                  end if;
-
-                  Set_Component_Size (Btype, Csize);
-
-               --  For VM case, we ignore component size clauses
-
-               else
-                  --  Give a warning unless we are in GNAT mode, in which case
-                  --  the warning is suppressed since it is not useful.
-
-                  if not GNAT_Mode then
-                     Error_Msg_N
-                       ("component size ignored in this configuration??", N);
-                  end if;
+                  Set_Component_Type (Btype, New_Ctyp);
+                  Set_Biased (New_Ctyp, N, "component size clause");
                end if;
+
+               Set_Component_Size (Btype, Csize);
 
                --  Deal with warning on overridden size
 
@@ -5140,12 +5143,6 @@ package body Sem_Ch13 is
                if not Is_OK_Static_Expression (Expr) then
                   Flag_Non_Static_Expr
                     ("static string required for tag name!", Nam);
-               end if;
-
-               if VM_Target /= No_VM then
-                  Error_Msg_Name_1 := Attr;
-                  Error_Msg_N
-                    ("% attribute unsupported in this configuration", Nam);
                end if;
 
                if not Is_Library_Level_Entity (U_Ent) then
@@ -5463,16 +5460,6 @@ package body Sem_Ch13 is
                  ("size cannot be given for unconstrained array", Nam);
 
             elsif Size /= No_Uint then
-               if VM_Target /= No_VM and then not GNAT_Mode then
-
-                  --  Size clause is not handled properly on VM targets.
-                  --  Display a warning unless we are in GNAT mode, in which
-                  --  case this is useless.
-
-                  Error_Msg_N
-                    ("size clauses are ignored in this configuration??", N);
-               end if;
-
                if Is_Type (U_Ent) then
                   Etyp := U_Ent;
                else
@@ -7763,11 +7750,12 @@ package body Sem_Ch13 is
    function Build_Invariant_Procedure_Declaration
      (Typ : Entity_Id) return Node_Id
    is
-      Loc    : constant Source_Ptr      := Sloc (Typ);
-      GM     : constant Ghost_Mode_Type := Ghost_Mode;
+      Loc    : constant Source_Ptr := Sloc (Typ);
       Decl   : Node_Id;
       Obj_Id : Entity_Id;
       SId    : Entity_Id;
+
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
    begin
       --  Check for duplicate definitions
@@ -7776,9 +7764,8 @@ package body Sem_Ch13 is
          return Empty;
       end if;
 
-      --  The related type may be subject to pragma Ghost with policy Ignore.
-      --  Set the mode now to ensure that the predicate functions are properly
-      --  flagged as ignored Ghost.
+      --  The related type may be subject to pragma Ghost. Set the mode now to
+      --  ensure that the predicate functions are properly marked as Ghost.
 
       Set_Ghost_Mode_From_Entity (Typ);
 
@@ -7810,10 +7797,7 @@ package body Sem_Ch13 is
                 Defining_Identifier => Obj_Id,
                 Parameter_Type      => New_Occurrence_Of (Typ, Loc)))));
 
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
+      Ghost_Mode := Save_Ghost_Mode;
 
       return Decl;
    end Build_Invariant_Procedure_Declaration;
@@ -8563,7 +8547,7 @@ package body Sem_Ch13 is
 
       --  Local variables
 
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
    --  Start of processing for Build_Predicate_Functions
 
@@ -8576,9 +8560,8 @@ package body Sem_Ch13 is
          return;
       end if;
 
-      --  The related type may be subject to pragma Ghost with policy Ignore.
-      --  Set the mode now to ensure that the predicate functions are properly
-      --  flagged as ignored Ghost.
+      --  The related type may be subject to pragma Ghost. Set the mode now to
+      --  ensure that the predicate functions are properly marked as Ghost.
 
       Set_Ghost_Mode_From_Entity (Typ);
 
@@ -8735,6 +8718,18 @@ package body Sem_Ch13 is
 
             Insert_Before_And_Analyze (N, FDecl);
             Insert_After_And_Analyze  (N, FBody);
+
+            --  Static predicate functions are always side-effect free, and
+            --  in most cases dynamic predicate functions are as well. Mark
+            --  them as such whenever possible, so redundant predicate checks
+            --  can be optimized. If there is a variable reference within the
+            --  expression, the function is not pure.
+
+            if Expander_Active then
+               Set_Is_Pure (SId,
+                 Side_Effect_Free (Expr, Variable_Ref => True));
+               Set_Is_Inlined (SId);
+            end if;
          end;
 
          --  Test for raise expressions present and if so build M version
@@ -8927,10 +8922,7 @@ package body Sem_Ch13 is
          end;
       end if;
 
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
+      Ghost_Mode := Save_Ghost_Mode;
    end Build_Predicate_Functions;
 
    -----------------------------------------
@@ -9270,32 +9262,33 @@ package body Sem_Ch13 is
 
          --  Here is the list of aspects that don't require delay analysis
 
-         when Aspect_Abstract_State            |
-              Aspect_Annotate                  |
-              Aspect_Contract_Cases            |
-              Aspect_Default_Initial_Condition |
-              Aspect_Depends                   |
-              Aspect_Dimension                 |
-              Aspect_Dimension_System          |
-              Aspect_Extensions_Visible        |
-              Aspect_Ghost                     |
-              Aspect_Global                    |
-              Aspect_Implicit_Dereference      |
-              Aspect_Initial_Condition         |
-              Aspect_Initializes               |
-              Aspect_Obsolescent               |
-              Aspect_Part_Of                   |
-              Aspect_Post                      |
-              Aspect_Postcondition             |
-              Aspect_Pre                       |
-              Aspect_Precondition              |
-              Aspect_Refined_Depends           |
-              Aspect_Refined_Global            |
-              Aspect_Refined_Post              |
-              Aspect_Refined_State             |
-              Aspect_SPARK_Mode                |
-              Aspect_Test_Case                 |
-              Aspect_Unimplemented             =>
+         when Aspect_Abstract_State             |
+              Aspect_Annotate                   |
+              Aspect_Constant_After_Elaboration |
+              Aspect_Contract_Cases             |
+              Aspect_Default_Initial_Condition  |
+              Aspect_Depends                    |
+              Aspect_Dimension                  |
+              Aspect_Dimension_System           |
+              Aspect_Extensions_Visible         |
+              Aspect_Ghost                      |
+              Aspect_Global                     |
+              Aspect_Implicit_Dereference       |
+              Aspect_Initial_Condition          |
+              Aspect_Initializes                |
+              Aspect_Obsolescent                |
+              Aspect_Part_Of                    |
+              Aspect_Post                       |
+              Aspect_Postcondition              |
+              Aspect_Pre                        |
+              Aspect_Precondition               |
+              Aspect_Refined_Depends            |
+              Aspect_Refined_Global             |
+              Aspect_Refined_Post               |
+              Aspect_Refined_State              |
+              Aspect_SPARK_Mode                 |
+              Aspect_Test_Case                  |
+              Aspect_Unimplemented              =>
             raise Program_Error;
 
       end case;
@@ -9864,9 +9857,15 @@ package body Sem_Ch13 is
                          (Parent_Last_Bit,
                           Component_Bit_Offset (Pcomp) + Esize (Pcomp) - 1);
                   end if;
+               else
 
-                  Next_Entity (Pcomp);
+                  --  Skip anonymous types generated for constrained array
+                  --  or record components.
+
+                  null;
                end if;
+
+               Next_Entity (Pcomp);
             end loop;
          end if;
       end;
@@ -11363,7 +11362,7 @@ package body Sem_Ch13 is
       Address_Clause_Checks.Init;
       Unchecked_Conversions.Init;
 
-      if VM_Target /= No_VM or else AAMP_On_Target then
+      if AAMP_On_Target then
          Independence_Checks.Init;
       end if;
    end Initialize;
@@ -12419,17 +12418,7 @@ package body Sem_Ch13 is
            and then Known_Component_Size (T2)
            and then Component_Size (T1) = Component_Size (T2)
          then
-            if VM_Target = No_VM then
-               return True;
-
-            --  In VM targets the representation of arrays with aliased
-            --  components differs from arrays with non-aliased components
-
-            else
-               return Has_Aliased_Components (Base_Type (T1))
-                        =
-                      Has_Aliased_Components (Base_Type (T2));
-            end if;
+            return True;
          end if;
       end if;
 

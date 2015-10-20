@@ -1,3 +1,283 @@
+2015-10-18  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	PR other/65800
+	* gengtype.c (dump_type): Handle TYPE_UNDEFINED correctly.
+
+2015-10-18  Iain Sandoe  <iain@codesourcery.com>
+
+	* config/darwin.h (TARGET_SYSTEM_ROOT): Remove this from here,
+	(HAVE_LD_SYSROOT): New.  (SYSROOT_SPEC): New. 
+	(LINK_SYSROOT_SPEC): Revise to remove the default for target sysroot.
+	(STANDARD_STARTFILE_PREFIX_1): New.
+	(STANDARD_STARTFILE_PREFIX_2): New.
+
+2015-10-18  Iain Sandoe  <iain@codesourcery.com>
+
+	* config/darwin-driver.c (darwin_default_min_version): Refactor code.
+	(darwin_driver_init): Note a version-min when provided on the c/l.
+	* config/darwin.h (%darwin_minversion): Remove.
+	* config/i386/darwin.h: Likewise.
+	* config/rs6000/darwin.h: Likewise.
+	* config/darwin.opt (mmacosx-version-min=): Use the configured default,
+	rather than an arbitrary constant.
+
+2015-10-18  Iain Sandoe  <iain@codesourcery.com>
+
+	* config/darwin-driver.c (darwin_driver_init): Handle '-arch' for
+	PPC, detect conflicts between -arch and multilib settings.  Detect
+	and warn about conflicts between multiple -arch definitions.
+
+2015-10-18  Iain Sandoe  <iain@codesourcery.com>
+
+	* config/darwin-driver.c: Adjust includes to add diagnostic-core.
+
+2015-10-16  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* lra-constraints.c (add_next_usage_insn): Change argument type
+	from rtx to rtx_insn *.
+
+2015-10-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* i386/x86-tune.def (X86_TUNE_ALWAYS_FANCY_MATH_387): Disable
+	for Lakemont.
+
+2015-10-16  Andrew MacLeod  <amacleod@redhat.com>
+
+	* config/tilepro/gen-mul-tables.cc: Adjust include files.
+	* config/tilegx/mul-tables.c: Regenerate.
+	* config/tilepro/mul-tables.c: Regenerate.
+
+	* config/tilegx/tilegx-c.c: Adjust include files.
+	* config/tilegx/tilegx.c: Likewise.
+	* config/tilepro/tilepro-c.c: Likewise.
+	* config/tilepro/tilepro.c: Likewise.
+	* config/aarch64/aarch64-builtins.c: Likewise.
+	* config/aarch64/aarch64.c: Likewise.
+	* config/aarch64/cortex-a57-fma-steering.c: Likewise.
+	* config/alpha/alpha.c: Likewise.
+	* config/arc/arc.c: Likewise.
+	* config/arm/aarch-common.c: Likewise.
+	* config/arm/arm-builtins.c: Likewise.
+	* config/arm/arm-c.c: Likewise.
+	* config/arm/arm.c: Likewise.
+	* config/avr/avr-c.c: Likewise.
+	* config/avr/avr-devices.c: Likewise.
+	* config/avr/avr-log.c: Likewise.
+	* config/avr/avr.c: Likewise.
+	* config/bfin/bfin.c: Likewise.
+	* config/c6x/c6x.c: Likewise.
+	* config/cr16/cr16.c: Likewise.
+	* config/cris/cris.c: Likewise.
+	* config/darwin-c.c: Likewise.
+	* config/darwin-driver.c: Likewise.
+	* config/darwin.c: Likewise.
+	* config/default-c.c: Likewise.
+	* config/epiphany/epiphany.c: Likewise.
+	* config/epiphany/mode-switch-use.c: Likewise.
+	* config/epiphany/resolve-sw-modes.c: Likewise.
+	* config/fr30/fr30.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* config/ft32/ft32.c: Likewise.
+	* config/glibc-c.c: Likewise.
+	* config/h8300/h8300.c: Likewise.
+	* config/i386/host-cygwin.c: Likewise.
+	* config/i386/host-mingw32.c: Likewise.
+	* config/i386/i386-c.c: Likewise.
+	* config/i386/i386.c: Likewise.
+	* config/i386/msformat-c.c: Likewise.
+	* config/i386/winnt-cxx.c: Likewise.
+	* config/i386/winnt-stubs.c: Likewise.
+	* config/i386/winnt.c: Likewise.
+	* config/ia64/ia64-c.c: Likewise.
+	* config/ia64/ia64.c: Likewise.
+	* config/iq2000/iq2000.c: Likewise.
+	* config/lm32/lm32.c: Likewise.
+	* config/m32c/m32c-pragma.c: Likewise.
+	* config/m32c/m32c.c: Likewise.
+	* config/m32r/m32r.c: Likewise.
+	* config/mcore/mcore.c: Likewise.
+	* config/mep/mep-pragma.c: Likewise.
+	* config/mep/mep.c: Likewise.
+	* config/microblaze/microblaze-c.c: Likewise.
+	* config/microblaze/microblaze.c: Likewise.
+	* config/mips/mips-tables.opt
+	* config/mips/mips.c: Likewise.
+	* config/mmix/mmix.c: Likewise.
+	* config/mn10300/mn10300.c: Likewise.
+	* config/moxie/moxie.c: Likewise.
+	* config/msp430/msp430-c.c: Likewise.
+	* config/msp430/msp430.c: Likewise.
+	* config/nds32/nds32-cost.c: Likewise.
+	* config/nds32/nds32-fp-as-gp.c: Likewise.
+	* config/nds32/nds32-intrinsic.c: Likewise.
+	* config/nds32/nds32-isr.c: Likewise.
+	* config/nds32/nds32-md-auxiliary.c: Likewise.
+	* config/nds32/nds32-memory-manipulation.c: Likewise.
+	* config/nds32/nds32-pipelines-auxiliary.c: Likewise.
+	* config/nds32/nds32-predicates.c: Likewise.
+	* config/nds32/nds32.c: Likewise.
+	* config/nios2/nios2.c: Likewise.
+	* config/nvptx/mkoffload.c: Likewise.
+	* config/nvptx/nvptx.c: Likewise.
+	* config/pa/pa.c: Likewise.
+	* config/pdp11/pdp11.c: Likewise.
+	* config/rl78/rl78-c.c: Likewise.
+	* config/rl78/rl78.c: Likewise.
+	* config/rs6000/host-darwin.c: Likewise.
+	* config/rs6000/rs6000-c.c: Likewise.
+	* config/rs6000/rs6000-linux.c: Likewise.
+	* config/rs6000/rs6000.c: Likewise.
+	* config/rx/rx.c: Likewise.
+	* config/s390/s390-c.c: Likewise.
+	* config/s390/s390.c: Likewise.
+	* config/sh/sh-c.c: Likewise.
+	* config/sh/sh-mem.cc: Likewise.
+	* config/sh/sh.c: Likewise.
+	* config/sh/sh_optimize_sett_clrt.cc: Likewise.
+	* config/sh/sh_treg_combine.cc: Likewise.
+	* config/sol2-c.c: Likewise.
+	* config/sol2-cxx.c: Likewise.
+	* config/sol2-stubs.c: Likewise.
+	* config/sol2.c: Likewise.
+	* config/sparc/sparc-c.c: Likewise.
+	* config/sparc/sparc.c: Likewise.
+	* config/spu/spu-c.c: Likewise.
+	* config/spu/spu.c: Likewise.
+	* config/stormy16/stormy16.c: Likewise.
+	* config/v850/v850-c.c: Likewise.
+	* config/v850/v850.c: Likewise.
+	* config/vax/vax.c: Likewise.
+	* config/visium/visium.c: Likewise.
+	* config/vms/vms-c.c: Likewise.
+	* config/vms/vms.c: Likewise.
+	* config/vxworks.c: Likewise.
+	* config/winnt-c.c: Likewise.
+	* config/xtensa/xtensa.c: Likewise.
+
+2015-10-16  Christian Bruel  <christian.bruel@st.com>
+
+ 	PR target/67745
+ 	* config/arm/arm.h (FUNCTION_BOUNDARY): Use FUNCTION_BOUNDARY_P.
+ 	(FUNCTION_BOUNDARY_P): New macro:
+ 	* config/arm/arm.c (TARGET_RELAYOUT_FUNCTION, arm_relayout_function): 
+ 	New hook.
+ 	* doc/tm.texi.in (TARGET_RELAYOUT_FUNCTION): Document.
+ 	* doc/tm.texi (TARGET_RELAYOUT_FUNCTION): New hook.
+ 	* gcc/target.def (TARGET_RELAYOUT_FUNCTION): Likewise.
+ 	* gcc/function.c (allocate_struct_function): Call relayout_function hook.
+ 	* gcc/passes.c (rest_of_decl_compilation): Likewise.
+
+2015-10-16  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/67745
+	* config/arm/arm.h (FUNCTION_BOUNDARY): Move optimize_size condition to:
+	* config/arm/arm.c (arm_option_override_internal): Call
+	arm_override_options_after_change_1.
+	(arm_override_options_after_change): New function.
+	(arm_override_options_after_change_1): Likewise.
+	(TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE): Define hook.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	Revert:
+	* ipa-icf-gimple.c (func_checker::compare_operand): Compare only
+	empty constructors.
+
+2015-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* tree.c (recompute_tree_invariant_for_addr_expr): Assert that the
+	argument is an ADDR_EXPR.
+
+2015-10-16  Richard Biener  <rguenther@suse.de>
+
+	* gimple-fold.c (gimple_fold_builtin_memory_op): Use gimple_build
+	and get rid of force_gimple_operand_gsi.
+	(gimple_fold_builtin_memory_chk): Likewise.
+	(gimple_fold_builtin_stxcpy_chk): Likewise.
+	(rewrite_to_defined_overflow): Likewise.
+	(gimple_convert_to_ptrofftype): New function.
+	* gimple-fold.h (gimple_convert_to_ptrofftype): New overload,
+	declare.
+
+2015-10-16  Richard Biener  <rguenther@suse.de>
+
+	* tree-nested.h (build_addr): Adjust prototype.
+	* tree-nested.c (build_addr): Remove context argument and use
+	mark_addressable.
+	(get_static_chain): Adjust calls to build_addr.
+	(convert_nl_goto_reference): Likewise.
+	(convert_tramp_reference_op): Likewise.
+	(finalize_nesting_tree_1): Likewise.
+	* value-prof.c (gimple_ic): Likewise.
+	* gimple-low.c (lower_builtin_setjmp): Likewise.
+	* tree-parloops.c (take_address_of): Likewise.
+	(create_call_for_reduction_1): Likewise.
+	* tree-profile.c (gimple_gen_interval_profiler): Likewise.
+	(gimple_gen_ic_func_profiler): Likewise.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-icf-gimple.c (func_checker::compare_operand): Compare only
+	empty constructors.
+
+2015-10-16  Michael Collison  <michael.collison@linaro.org>
+	    Andrew Pinski <andrew.pinski@caviumnetworks.com>
+
+	* match.pd ((x < y) && (x < z) -> x < min (y,z),
+	(x > y) and (x > z) -> x > max (y,z))
+
+2015-10-15  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/microblaze/linux.h (MUSL_DYNAMIC_LINKER): Define.
+	(DYNAMIC_LINKER): Renamed to ...
+	(GLIBC_DYNAMIC_LINKER): This.
+	(SUBTARGET_EXTRA_SPECS): Use GNU_USER_DYNAMIC_LINKER.
+
+2015-10-15  Marek Polacek  <polacek@redhat.com>
+
+	* tree-ssa-reassoc.c (attempt_builtin_copysign): Call
+	gimple_call_builtin instead of is_gimple_call.
+
+2015-10-15  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-stmts.c (vect_init_vector): Remove unused vars.
+
+2015-10-15  Richard Biener  <rguenther@suse.de>
+
+	* tree-vectorizer.h (vect_get_new_ssa_name): Declare.
+	* tree-vect-data-refs.c (vect_get_new_ssa_name): New helper.
+	* tree-vect-loop.c (get_initial_def_for_induction): Drop
+	use of force_gimple_operand in favor of gimple_build.
+	Use vect_get_new_ssa_name.
+	* tree-vect-stmts.c (vect_init_vector): Use vect_get_new_ssa_name.
+	(vectorizable_mask_load_store): Likewise.
+	(vectorizable_call): Likewise.
+	(vectorizable_store): Likewise.
+	(vectorizable_load): Likewise.
+	(vect_get_vec_def_for_stmt_copy): Remove redundant stmt.
+
+2015-10-15  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR tree-optimization/67945
+	* tree-pass.h (PROP_gimple_opt_math): New property flag.
+	* generic-match-head.c (canonicalize_math_p): New function.
+	* gimple-match-head.c: Include tree-pass.h.
+	(canonicalize_math_p): New function.
+	* match.pd: Group math built-in rules into simplifications
+	and canonicalizations.  Guard the latter with canonicalize_math_p.
+	* tree-ssa-math-opts.c (pass_data_cse_sincos): Provide the
+	PROP_gimple_opt_math property.
+
+2015-10-15  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67953
+	* match.pd (X - (X / Y) * Y): Don't change signedness of @0.
+
+2015-10-15  Jiong Wang  <jiong.wang@arm.com>
+
+	* config.gcc: Recognize "." in architecture base name for AArch64.
+
 2015-10-14  Uros Bizjak  <ubizjak@gmail.com>
 
 	* config/mips/mips.h (MIPS_STACK_ALIGN): Implement using
@@ -15,6 +295,7 @@
 2015-10-14  Peter Bergner  <bergner@vnet.ibm.com>
 	    Torvald Riegel  <triegel@redhat.com>
 
+	PR target/67281
 	* config/rs6000/htm.md (UNSPEC_HTM_FENCE): New.
 	(tabort, tabort<wd>c, tabort<wd>ci, tbegin, tcheck, tend,
 	trechkpt, treclaim, tsr, ttest): Rename define_insns from this...

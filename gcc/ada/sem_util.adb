@@ -23,6 +23,8 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Treepr; -- ???For debugging code below
+
 with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Casing;   use Casing;
@@ -422,6 +424,7 @@ package body Sem_Util is
       --  Contract items related to variables. Applicable pragmas are:
       --    Async_Readers
       --    Async_Writers
+      --    Constant_After_Elaboration
       --    Effective_Reads
       --    Effective_Writes
       --    Part_Of
@@ -429,6 +432,7 @@ package body Sem_Util is
       elsif Ekind (Id) = E_Variable then
          if Nam_In (Prag_Nam, Name_Async_Readers,
                               Name_Async_Writers,
+                              Name_Constant_After_Elaboration,
                               Name_Effective_Reads,
                               Name_Effective_Writes,
                               Name_Part_Of)
@@ -1314,7 +1318,6 @@ package body Sem_Util is
 
          --  Local variables
 
-         GM        : constant Ghost_Mode_Type := Ghost_Mode;
          Loc       : constant Source_Ptr := Sloc (Typ);
          Prag      : constant Node_Id    :=
                        Get_Pragma (Typ, Pragma_Default_Initial_Condition);
@@ -1323,6 +1326,8 @@ package body Sem_Util is
          Body_Decl : Node_Id;
          Expr      : Node_Id;
          Stmt      : Node_Id;
+
+         Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
 
       --  Start of processing for Build_Default_Init_Cond_Procedure_Body
 
@@ -1341,8 +1346,8 @@ package body Sem_Util is
             return;
          end if;
 
-         --  Ensure that the analysis and expansion produce Ghost nodes if the
-         --  type itself is Ghost.
+         --  The related type may be subject to pragma Ghost. Set the mode now
+         --  to ensure that the analysis and expansion produce Ghost nodes.
 
          Set_Ghost_Mode_From_Entity (Typ);
 
@@ -1412,11 +1417,7 @@ package body Sem_Util is
          Set_Corresponding_Spec (Body_Decl, Proc_Id);
 
          Insert_After_And_Analyze (Declaration_Node (Typ), Body_Decl);
-
-         --  Restore the original Ghost mode once analysis and expansion have
-         --  taken place.
-
-         Ghost_Mode := GM;
+         Ghost_Mode := Save_Ghost_Mode;
       end Build_Default_Init_Cond_Procedure_Body;
 
       --  Local variables
@@ -1465,10 +1466,12 @@ package body Sem_Util is
    ---------------------------------------------------
 
    procedure Build_Default_Init_Cond_Procedure_Declaration (Typ : Entity_Id) is
-      GM      : constant Ghost_Mode_Type := Ghost_Mode;
-      Loc     : constant Source_Ptr := Sloc (Typ);
-      Prag    : constant Node_Id    :=
+      Loc  : constant Source_Ptr := Sloc (Typ);
+      Prag : constant Node_Id    :=
                   Get_Pragma (Typ, Pragma_Default_Initial_Condition);
+
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+
       Proc_Id : Entity_Id;
 
    begin
@@ -1485,8 +1488,8 @@ package body Sem_Util is
          return;
       end if;
 
-      --  Ensure that the analysis and expansion produce Ghost nodes if the
-      --  type itself is Ghost.
+      --  The related type may be subject to pragma Ghost. Set the mode now to
+      --  ensure that the analysis and expansion produce Ghost nodes.
 
       Set_Ghost_Mode_From_Entity (Typ);
 
@@ -1520,10 +1523,7 @@ package body Sem_Util is
                   Defining_Identifier => Make_Temporary (Loc, 'I'),
                   Parameter_Type      => New_Occurrence_Of (Typ, Loc))))));
 
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
+      Ghost_Mode := Save_Ghost_Mode;
    end Build_Default_Init_Cond_Procedure_Declaration;
 
    ---------------------------
@@ -2348,9 +2348,9 @@ package body Sem_Util is
          return Id;
       end Get_Function_Id;
 
-      ---------------------------
-      -- Preanalyze_Expression --
-      ---------------------------
+      -------------------------------
+      -- Preanalyze_Without_Errors --
+      -------------------------------
 
       procedure Preanalyze_Without_Errors (N : Node_Id) is
          Status : constant Boolean := Get_Ignore_Errors;
@@ -3054,48 +3054,6 @@ package body Sem_Util is
          end if;
       end loop Outer;
    end Check_Later_Vs_Basic_Declarations;
-
-   -------------------------
-   -- Check_Nested_Access --
-   -------------------------
-
-   procedure Check_Nested_Access (Ent : Entity_Id) is
-      Scop         : constant Entity_Id := Current_Scope;
-      Current_Subp : Entity_Id;
-      Enclosing    : Entity_Id;
-
-   begin
-      --  Currently only enabled for VM back-ends for efficiency
-
-      if VM_Target /= No_VM
-        and then Ekind_In (Ent, E_Variable, E_Constant, E_Loop_Parameter)
-        and then Scope (Ent) /= Empty
-        and then not Is_Library_Level_Entity (Ent)
-
-        --  Comment the exclusion of imported entities ???
-
-        and then not Is_Imported (Ent)
-      then
-         --  Get current subprogram that is relevant
-
-         if Is_Subprogram (Scop)
-           or else Is_Generic_Subprogram (Scop)
-           or else Is_Entry (Scop)
-         then
-            Current_Subp := Scop;
-         else
-            Current_Subp := Current_Subprogram;
-         end if;
-
-         Enclosing := Enclosing_Subprogram (Ent);
-
-         --  Set flag if uplevel reference
-
-         if Enclosing /= Empty and then Enclosing /= Current_Subp then
-            Set_Has_Uplevel_Reference (Ent, True);
-         end if;
-      end if;
-   end Check_Nested_Access;
 
    ---------------------------
    -- Check_No_Hidden_State --
@@ -7292,10 +7250,11 @@ package body Sem_Util is
       end  if;
 
       --  If we have found the corresponding choice, recursively add its
-      --  components to the Into list.
+      --  components to the Into list. The nested components are part of
+      --  the same record type.
 
       Gather_Components
-        (Empty, Component_List (Variant), Governed_By, Into, Report_Errors);
+        (Typ, Component_List (Variant), Governed_By, Into, Report_Errors);
    end Gather_Components;
 
    ------------------------
@@ -7836,6 +7795,27 @@ package body Sem_Util is
          return;
       end if;
    end Get_Reason_String;
+
+   --------------------------------
+   -- Get_Reference_Discriminant --
+   --------------------------------
+
+   function Get_Reference_Discriminant (Typ : Entity_Id) return Entity_Id is
+      D : Entity_Id;
+
+   begin
+      D := First_Discriminant (Typ);
+      while Present (D) loop
+         if Has_Implicit_Dereference (D) then
+            return D;
+         end if;
+         Next_Discriminant (D);
+      end loop;
+
+      --  Type must have a proper access discriminant.
+
+      pragma Assert (False);
+   end Get_Reference_Discriminant;
 
    ---------------------------
    -- Get_Referenced_Object --
@@ -11111,54 +11091,6 @@ package body Sem_Util is
       end case;
    end Is_Declaration;
 
-   -----------------
-   -- Is_Delegate --
-   -----------------
-
-   function Is_Delegate (T : Entity_Id) return Boolean is
-      Desig_Type : Entity_Id;
-
-   begin
-      if VM_Target /= CLI_Target then
-         return False;
-      end if;
-
-      --  Access-to-subprograms are delegates in CIL
-
-      if Ekind (T) = E_Access_Subprogram_Type then
-         return True;
-      end if;
-
-      if not Is_Access_Type (T) then
-
-         --  A delegate is a managed pointer. If no designated type is defined
-         --  it means that it's not a delegate.
-
-         return False;
-      end if;
-
-      Desig_Type := Etype (Directly_Designated_Type (T));
-
-      if not Is_Tagged_Type (Desig_Type) then
-         return False;
-      end if;
-
-      --  Test if the type is inherited from [mscorlib]System.Delegate
-
-      while Etype (Desig_Type) /= Desig_Type loop
-         if Chars (Scope (Desig_Type)) /= No_Name
-           and then Is_Imported (Scope (Desig_Type))
-           and then Get_Name_String (Chars (Scope (Desig_Type))) = "delegate"
-         then
-            return True;
-         end if;
-
-         Desig_Type := Etype (Desig_Type);
-      end loop;
-
-      return False;
-   end Is_Delegate;
-
    ----------------------------------------------
    -- Is_Dependent_Component_Of_Mutable_Object --
    ----------------------------------------------
@@ -11574,7 +11506,7 @@ package body Sem_Util is
       then
          return Is_EVF_Expression (Expression (N));
 
-      --  Attributes 'Loop_Entry, 'Old and 'Update are an EVF expression when
+      --  Attributes 'Loop_Entry, 'Old, and 'Update are EVF expressions when
       --  their prefix denotes an EVF expression.
 
       elsif Nkind (N) = N_Attribute_Reference
@@ -12171,12 +12103,15 @@ package body Sem_Util is
             when N_Function_Call =>
                return Etype (N) /= Standard_Void_Type;
 
-            --  Attributes 'Input, 'Old and 'Result produce objects
+            --  Attributes 'Input, 'Loop_Entry, 'Old and 'Result produce
+            --  objects.
 
             when N_Attribute_Reference =>
                return
-                 Nam_In
-                   (Attribute_Name (N), Name_Input, Name_Old, Name_Result);
+                 Nam_In (Attribute_Name (N), Name_Input,
+                                             Name_Loop_Entry,
+                                             Name_Old,
+                                             Name_Result);
 
             when N_Selected_Component =>
                return
@@ -12324,7 +12259,15 @@ package body Sem_Util is
            and then
              Has_Implicit_Dereference (Etype (Name (Original_Node (AV))))
          then
-            return True;
+
+            --  Check that this is not a constant reference.
+
+            return not Is_Access_Constant (Etype (Prefix (AV)));
+
+         elsif Has_Implicit_Dereference (Etype (Original_Node (AV))) then
+            return
+              not Is_Access_Constant (Etype
+                (Get_Reference_Discriminant (Etype (Original_Node (AV)))));
 
          else
             return Is_OK_Variable_For_Out_Formal (Original_Node (AV));
@@ -13254,18 +13197,6 @@ package body Sem_Util is
    begin
       return T = Universal_Integer or else T = Universal_Real;
    end Is_Universal_Numeric_Type;
-
-   -------------------
-   -- Is_Value_Type --
-   -------------------
-
-   function Is_Value_Type (T : Entity_Id) return Boolean is
-   begin
-      return VM_Target = CLI_Target
-        and then Nkind (T) in N_Has_Chars
-        and then Chars (T) /= No_Name
-        and then Get_Name_String (Chars (T)) = "valuetype";
-   end Is_Value_Type;
 
    ----------------------------
    -- Is_Variable_Size_Array --
@@ -14285,41 +14216,55 @@ package body Sem_Util is
    --  Start of processing Mark_Coextensions
 
    begin
-      case Nkind (Context_Nod) is
+      --  An allocator that appears on the right-hand side of an assignment is
+      --  treated as a potentially dynamic coextension when the right-hand side
+      --  is an allocator or a qualified expression.
 
-         --  Comment here ???
+      --    Obj := new ...'(new Coextension ...);
 
-         when N_Assignment_Statement    =>
-            Is_Dynamic := Nkind (Expression (Context_Nod)) = N_Allocator;
+      if Nkind (Context_Nod) = N_Assignment_Statement then
+         Is_Dynamic :=
+           Nkind_In (Expression (Context_Nod), N_Allocator,
+                                               N_Qualified_Expression);
 
-         --  An allocator that is a component of a returned aggregate
-         --  must be dynamic.
+      --  An allocator that appears within the expression of a simple return
+      --  statement is treated as a potentially dynamic coextension when the
+      --  expression is either aggregate, allocator, or qualified expression.
 
-         when N_Simple_Return_Statement =>
-            declare
-               Expr : constant Node_Id := Expression (Context_Nod);
-            begin
-               Is_Dynamic :=
-                 Nkind (Expr) = N_Allocator
-                   or else
-                     (Nkind (Expr) = N_Qualified_Expression
-                       and then Nkind (Expression (Expr)) = N_Aggregate);
-            end;
+      --    return (new Coextension ...);
+      --    return new ...'(new Coextension ...);
 
-         --  An alloctor within an object declaration in an extended return
-         --  statement is of necessity dynamic.
+      elsif Nkind (Context_Nod) = N_Simple_Return_Statement then
+         Is_Dynamic :=
+           Nkind_In (Expression (Context_Nod), N_Aggregate,
+                                               N_Allocator,
+                                               N_Qualified_Expression);
 
-         when N_Object_Declaration =>
-            Is_Dynamic := Nkind (Root_Nod) = N_Allocator
-              or else
-                Nkind (Parent (Context_Nod)) = N_Extended_Return_Statement;
+      --  An alloctor that appears within the initialization expression of an
+      --  object declaration is considered a potentially dynamic coextension
+      --  when the initialization expression is an allocator or a qualified
+      --  expression.
 
-         --  This routine should not be called for constructs which may not
-         --  contain coextensions.
+      --    Obj : ... := new ...'(new Coextension ...);
 
-         when others =>
-            raise Program_Error;
-      end case;
+      --  A similar case arises when the object declaration is part of an
+      --  extended return statement.
+
+      --    return Obj : ... := new ...'(new Coextension ...);
+      --    return Obj : ... := (new Coextension ...);
+
+      elsif Nkind (Context_Nod) = N_Object_Declaration then
+         Is_Dynamic :=
+           Nkind_In (Root_Nod, N_Allocator, N_Qualified_Expression)
+             or else
+               Nkind (Parent (Context_Nod)) = N_Extended_Return_Statement;
+
+      --  This routine should not be called with constructs that cannot contain
+      --  coextensions.
+
+      else
+         raise Program_Error;
+      end if;
 
       Mark_Allocators (Root_Nod);
    end Mark_Coextensions;
@@ -15859,8 +15804,6 @@ package body Sem_Util is
                      end;
                   end if;
                end if;
-
-               Check_Nested_Access (Ent);
             end if;
 
             Kill_Checks (Ent);
@@ -16963,6 +16906,24 @@ package body Sem_Util is
    --  efficiency. Note: when this temporary code is removed, the documentation
    --  of dQ in debug.adb should be removed.
 
+   procedure Results_Differ (Id : Entity_Id);
+   --  ???Debugging code. Called when the Old_ and New_ results differ. Will be
+   --  removed when New_Requires_Transient_Scope becomes
+   --  Requires_Transient_Scope and Old_Requires_Transient_Scope is eliminated.
+
+   procedure Results_Differ (Id : Entity_Id) is
+   begin
+      if False then -- False to disable; True for debugging
+         Treepr.Print_Tree_Node (Id);
+
+         if Old_Requires_Transient_Scope (Id) =
+           New_Requires_Transient_Scope (Id)
+         then
+            raise Program_Error;
+         end if;
+      end if;
+   end Results_Differ;
+
    function Requires_Transient_Scope (Id : Entity_Id) return Boolean is
       Old_Result : constant Boolean := Old_Requires_Transient_Scope (Id);
 
@@ -16984,6 +16945,10 @@ package body Sem_Util is
             null;
          end if;
 
+         if New_Result /= Old_Result then
+            Results_Differ (Id);
+         end if;
+
          return New_Result;
       end;
    end Requires_Transient_Scope;
@@ -16998,7 +16963,7 @@ package body Sem_Util is
    begin
       --  This is a private type which is not completed yet. This can only
       --  happen in a default expression (of a formal parameter or of a
-      --  record component). Do not expand transient scope in this case
+      --  record component). Do not expand transient scope in this case.
 
       if No (Typ) then
          return False;
@@ -17026,7 +16991,7 @@ package body Sem_Util is
       --  type temporaries need finalization.
 
       elsif Is_Tagged_Type (Typ) or else Has_Controlled_Component (Typ) then
-         return not Is_Value_Type (Typ);
+         return True;
 
       --  Record type
 
@@ -17103,10 +17068,9 @@ package body Sem_Util is
       --  could be nested inside some other record that is constrained by
       --  nondiscriminants). That is, the recursive calls are too conservative.
 
-      function Has_Discrim_Dep_Array (Typ : Entity_Id) return Boolean;
-      --  True if we find certain discriminant-dependent array
-      --  subcomponents. This shouldn't be necessary, but without this check,
-      --  we crash in gimplify. ???
+      ------------------------------
+      -- Caller_Known_Size_Record --
+      ------------------------------
 
       function Caller_Known_Size_Record (Typ : Entity_Id) return Boolean is
          pragma Assert (Typ = Underlying_Type (Typ));
@@ -17117,9 +17081,10 @@ package body Sem_Util is
          end if;
 
          declare
-            Comp : Entity_Id := First_Entity (Typ);
+            Comp : Entity_Id;
 
          begin
+            Comp := First_Entity (Typ);
             while Present (Comp) loop
 
                --  Only look at E_Component entities. No need to look at
@@ -17155,48 +17120,6 @@ package body Sem_Util is
          return True;
       end Caller_Known_Size_Record;
 
-      function Has_Discrim_Dep_Array (Typ : Entity_Id) return Boolean is
-         pragma Assert (Typ = Underlying_Type (Typ));
-
-      begin
-         if Is_Array_Type (Typ) then
-            return Size_Depends_On_Discriminant (Typ);
-         end if;
-
-         if Is_Record_Type (Typ)
-           or else
-           Is_Protected_Type (Typ)
-         then
-            declare
-               Comp : Entity_Id := First_Entity (Typ);
-
-            begin
-               while Present (Comp) loop
-
-                  --  Only look at E_Component entities. No need to look at
-                  --  E_Discriminant entities, and we must ignore internal
-                  --  subtypes generated for constrained components.
-
-                  if Ekind (Comp) = E_Component then
-                     declare
-                        Comp_Type : constant Entity_Id :=
-                                      Underlying_Type (Etype (Comp));
-
-                     begin
-                        if Has_Discrim_Dep_Array (Comp_Type) then
-                           return True;
-                        end if;
-                     end;
-                  end if;
-
-                  Next_Entity (Comp);
-               end loop;
-            end;
-         end if;
-
-         return False;
-      end Has_Discrim_Dep_Array;
-
       --  Local declarations
 
       Typ : constant Entity_Id := Underlying_Type (Id);
@@ -17206,7 +17129,7 @@ package body Sem_Util is
    begin
       --  This is a private type which is not completed yet. This can only
       --  happen in a default expression (of a formal parameter or of a
-      --  record component). Do not expand transient scope in this case
+      --  record component). Do not expand transient scope in this case.
 
       if No (Typ) then
          return False;
@@ -17219,6 +17142,14 @@ package body Sem_Util is
       then
          return False;
 
+      --  If Typ is a generic formal incomplete type, then we want to look at
+      --  the actual type.
+
+      elsif Ekind (Typ) = E_Record_Subtype
+        and then Present (Cloned_Subtype (Typ))
+      then
+         return New_Requires_Transient_Scope (Cloned_Subtype (Typ));
+
       --  Functions returning tagged types may dispatch on result so their
       --  returned value is allocated on the secondary stack, even in the
       --  definite case. Is_Tagged_Type includes controlled types and
@@ -17229,21 +17160,13 @@ package body Sem_Util is
       --  since they can't be called via dispatching.
 
       elsif Is_Tagged_Type (Typ) or else Has_Controlled_Component (Typ) then
-         return not Is_Value_Type (Typ);
+         return True;
 
       --  Untagged definite subtypes are known size. This includes all
       --  elementary [sub]types. Tasks are known size even if they have
       --  discriminants.
 
       elsif Is_Definite_Subtype (Typ) or else Is_Task_Type (Typ) then
-         if Is_Record_Type (Typ) or else Is_Protected_Type (Typ) then
-            if not Has_Discriminants (Typ) then
-               if Has_Discrim_Dep_Array (Typ) then
-                  return True; -- ???Shouldn't be necessary
-               end if;
-            end if;
-         end if;
-
          return False;
 
       --  Indefinite (discriminated) untagged record or protected type

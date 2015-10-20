@@ -1,3 +1,78 @@
+2015-10-18  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/67758
+	* gfortran.dg/common_25.f90: New file.
+
+2015-10-18  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/67177
+	* gfortran.dg/move_alloc_15.f90: New test
+	* gfortran.dg/move_alloc_16.f90: New test
+
+	PR fortran/67977
+	* gfortran.dg/deferred_character_assignment_1.f90: New test
+
+2015-10-17  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/67987
+	* gfortran.df/pr67987.f90: New test.
+	* gfortran.dg/char_length_2.f90: Update testcase.
+
+2015-10-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/iamcu/test_basic_returning.c
+	(def_test_returning_type): Use union to check float return bits.
+
+2015-10-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/iamcu/test_basic_64bit_returning.c (main):
+	Replace printf with __builtin_printf.
+
+2015-10-16  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc.target/i386/iamcu/test_passing_unions.c (main): Properly
+	initialize u5.
+
+2015-10-16  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/67966
+	* gnat.dg/pack21.adb: New test.
+	* gnat.dg/pack22.adb: Likewise.
+	* gnat.dg/pack22_pkg.ad[sb]: New helper.
+
+2015-10-16  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/67745
+	* gcc.target/arm/no-align.c: New test.
+	* gcc.target/arm/attr-align1.c: New test.
+	* gcc.target/arm/attr-align2.c: New test.
+	* gcc.target/arm/attr-align3.c: New test.
+
+2015-10-11  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gcc.c-torture/compile/icfmatch.c: Add testcase
+
+2015-10-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67926
+	* g++.dg/cpp1z/fold-ice1.C: New.
+
+2015-10-16  Michael Collison  <michael.collison@linaro.org>
+	    Andrew Pinski <andrew.pinski@caviumnetworks.com>
+
+	* gcc.dg/tree-ssa/minmax-loopend.c: New test.
+
+2015-10-15  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/tree-ssa/reassoc-42.c: New test.
+
+2015-10-15  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/67953
+	* gcc.dg/fold-minus-6.c (fn4): Change the type of A to
+	unsigned.
+	* gcc.dg/torture/pr67953.c: New test.
+
 2015-10-14  Jeff Law  <law@redhat.com>
 
 	* gcc.dg/tree-ssa/ssa-dom-thread-2.c: Deleted.  The six functions

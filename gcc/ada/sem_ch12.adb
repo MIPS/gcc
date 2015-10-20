@@ -1075,7 +1075,7 @@ package body Sem_Ch12 is
       --  package. As usual an other association must be last in the list.
 
       procedure Check_Overloaded_Formal_Subprogram (Formal : Entity_Id);
-      --  Apply RM 12.3 (9): if a formal subprogram is overloaded, the instance
+      --  Apply RM 12.3(9): if a formal subprogram is overloaded, the instance
       --  cannot have a named association for it. AI05-0025 extends this rule
       --  to formals of formal packages by AI05-0025, and it also applies to
       --  box-initialized formals.
@@ -2645,6 +2645,14 @@ package body Sem_Ch12 is
       Set_Inner_Instances (Formal, New_Elmt_List);
       Push_Scope  (Formal);
 
+      --  Manually set the SPARK_Mode from the context because the package
+      --  declaration is never analyzed.
+
+      Set_SPARK_Pragma               (Formal, SPARK_Mode_Pragma);
+      Set_SPARK_Aux_Pragma           (Formal, SPARK_Mode_Pragma);
+      Set_SPARK_Pragma_Inherited     (Formal);
+      Set_SPARK_Aux_Pragma_Inherited (Formal);
+
       if Is_Child_Unit (Gen_Unit) and then Parent_Installed then
 
          --  Similarly, we have to make the name of the formal visible in the
@@ -2820,7 +2828,18 @@ package body Sem_Ch12 is
 
       if Nkind (N) = N_Formal_Abstract_Subprogram_Declaration then
          Set_Is_Abstract_Subprogram (Nam);
+
          Set_Is_Dispatching_Operation (Nam);
+
+         --  A formal abstract procedure cannot have a null default
+         --  (RM 12.6(4.1/2)).
+
+         if Nkind (Spec) = N_Procedure_Specification
+           and then Null_Present (Spec)
+         then
+            Error_Msg_N
+              ("a formal abstract subprogram cannot default to null", Spec);
+         end if;
 
          declare
             Ctrl_Type : constant Entity_Id := Find_Dispatching_Type (Nam);
@@ -3124,7 +3143,6 @@ package body Sem_Ch12 is
    ------------------------------------------
 
    procedure Analyze_Generic_Package_Declaration (N : Node_Id) is
-      GM          : constant Ghost_Mode_Type := Ghost_Mode;
       Loc         : constant Source_Ptr := Sloc (N);
       Decls       : constant List_Id :=
                       Visible_Declarations (Specification (N));
@@ -3135,11 +3153,6 @@ package body Sem_Ch12 is
       Save_Parent : Node_Id;
 
    begin
-      --  The generic package declaration may be subject to pragma Ghost with
-      --  policy Ignore. Set the mode now to ensure that any nodes generated
-      --  during analysis and expansion are properly flagged as ignored Ghost.
-
-      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("generic is not allowed", N);
 
       --  We introduce a renaming of the enclosing package, to have a usable
@@ -3291,11 +3304,6 @@ package body Sem_Ch12 is
             end if;
          end;
       end if;
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Generic_Package_Declaration;
 
    --------------------------------------------
@@ -3303,7 +3311,6 @@ package body Sem_Ch12 is
    --------------------------------------------
 
    procedure Analyze_Generic_Subprogram_Declaration (N : Node_Id) is
-      GM          : constant Ghost_Mode_Type := Ghost_Mode;
       Formals     : List_Id;
       Id          : Entity_Id;
       New_N       : Node_Id;
@@ -3313,12 +3320,6 @@ package body Sem_Ch12 is
       Typ         : Entity_Id;
 
    begin
-      --  The generic subprogram declaration may be subject to pragma Ghost
-      --  with policy Ignore. Set the mode now to ensure that any nodes
-      --  generated during analysis and expansion are properly flagged as
-      --  ignored Ghost.
-
-      Set_Ghost_Mode (N);
       Check_SPARK_05_Restriction ("generic is not allowed", N);
 
       --  Create copy of generic unit, and save for instantiation. If the unit
@@ -3467,11 +3468,6 @@ package body Sem_Ch12 is
       Generate_Reference_To_Formals (Id);
 
       List_Inherited_Pre_Post_Aspects (Id);
-
-      --  Restore the original Ghost mode once analysis and expansion have
-      --  taken place.
-
-      Ghost_Mode := GM;
    end Analyze_Generic_Subprogram_Declaration;
 
    -----------------------------------
@@ -3727,11 +3723,12 @@ package body Sem_Ch12 is
          goto Leave;
 
       else
-         --  If the context of the instance is subject to SPARK_Mode "off",
-         --  set the global flag which signals Analyze_Pragma to ignore all
-         --  SPARK_Mode pragmas within the instance.
+         --  If the context of the instance is subject to SPARK_Mode "off" or
+         --  the annotation is altogether missing, set the global flag which
+         --  signals Analyze_Pragma to ignore all SPARK_Mode pragmas within
+         --  the instance.
 
-         if SPARK_Mode = Off then
+         if SPARK_Mode /= On then
             Ignore_Pragma_SPARK_Mode := True;
          end if;
 
@@ -5102,11 +5099,12 @@ package body Sem_Ch12 is
          Error_Msg_NE ("instantiation of & within itself", N, Gen_Unit);
 
       else
-         --  If the context of the instance is subject to SPARK_Mode "off",
-         --  set the global flag which signals Analyze_Pragma to ignore all
-         --  SPARK_Mode pragmas within the instance.
+         --  If the context of the instance is subject to SPARK_Mode "off" or
+         --  the annotation is altogether missing, set the global flag which
+         --  signals Analyze_Pragma to ignore all SPARK_Mode pragmas within
+         --  the instance.
 
-         if SPARK_Mode = Off then
+         if SPARK_Mode /= On then
             Ignore_Pragma_SPARK_Mode := True;
          end if;
 
@@ -9443,7 +9441,7 @@ package body Sem_Ch12 is
       --  no one-to-one correspondence between the two lists (for example,
       --  the actual may include subtypes, itypes, and inherited primitive
       --  operations, interspersed among the renaming declarations for the
-      --  actuals) . We retrieve the corresponding actual by name because each
+      --  actuals). We retrieve the corresponding actual by name because each
       --  actual has the same name as the formal, and they do appear in the
       --  same order.
 
@@ -10636,17 +10634,18 @@ package body Sem_Ch12 is
       Act_Spec    : constant Node_Id    := Specification (Act_Decl);
       Act_Decl_Id : constant Entity_Id  := Defining_Entity (Act_Spec);
 
+      Save_IPSM        : constant Boolean := Ignore_Pragma_SPARK_Mode;
+      Save_Style_Check : constant Boolean := Style_Check;
+
+      Act_Body      : Node_Id;
+      Act_Body_Id   : Entity_Id;
       Act_Body_Name : Node_Id;
       Gen_Body      : Node_Id;
       Gen_Body_Id   : Node_Id;
-      Act_Body      : Node_Id;
-      Act_Body_Id   : Entity_Id;
+      Par_Ent       : Entity_Id := Empty;
+      Par_Vis       : Boolean   := False;
 
       Parent_Installed : Boolean := False;
-      Save_Style_Check : constant Boolean := Style_Check;
-
-      Par_Ent : Entity_Id := Empty;
-      Par_Vis : Boolean   := False;
 
       Vis_Prims_List : Elist_Id := No_Elist;
       --  List of primitives made temporarily visible in the instantiation
@@ -10737,7 +10736,7 @@ package body Sem_Ch12 is
       --  Re-establish the state of information on which checks are suppressed.
       --  This information was set in Body_Info at the point of instantiation,
       --  and now we restore it so that the instance is compiled using the
-      --  check status at the instantiation (RM 11.5 (7.2/2), AI95-00224-01).
+      --  check status at the instantiation (RM 11.5(7.2/2), AI95-00224-01).
 
       Local_Suppress_Stack_Top := Body_Info.Local_Suppress_Stack_Top;
       Scope_Suppress           := Body_Info.Scope_Suppress;
@@ -10787,8 +10786,17 @@ package body Sem_Ch12 is
       if Present (Gen_Body_Id) then
          Save_Env (Gen_Unit, Act_Decl_Id);
          Style_Check := False;
-         Current_Sem_Unit := Body_Info.Current_Sem_Unit;
 
+         --  If the context of the instance is subject to SPARK_Mode "off" or
+         --  the annotation is altogether missing, set the global flag which
+         --  signals Analyze_Pragma to ignore all SPARK_Mode pragmas within
+         --  the instance.
+
+         if SPARK_Mode /= On then
+            Ignore_Pragma_SPARK_Mode := True;
+         end if;
+
+         Current_Sem_Unit := Body_Info.Current_Sem_Unit;
          Gen_Body := Unit_Declaration_Node (Gen_Body_Id);
 
          Create_Instantiation_Source
@@ -10947,6 +10955,7 @@ package body Sem_Ch12 is
          end if;
 
          Restore_Env;
+         Ignore_Pragma_SPARK_Mode := Save_IPSM;
          Style_Check := Save_Style_Check;
 
       --  If we have no body, and the unit requires a body, then complain. This
@@ -11023,6 +11032,7 @@ package body Sem_Ch12 is
       Pack_Id     : constant Entity_Id  :=
                       Defining_Unit_Name (Parent (Act_Decl));
 
+      Saved_IPSM        : constant Boolean        := Ignore_Pragma_SPARK_Mode;
       Saved_Style_Check : constant Boolean        := Style_Check;
       Saved_Warnings    : constant Warning_Record := Save_Warnings;
 
@@ -11052,7 +11062,7 @@ package body Sem_Ch12 is
       --  Re-establish the state of information on which checks are suppressed.
       --  This information was set in Body_Info at the point of instantiation,
       --  and now we restore it so that the instance is compiled using the
-      --  check status at the instantiation (RM 11.5 (7.2/2), AI95-00224-01).
+      --  check status at the instantiation (RM 11.5(7.2/2), AI95-00224-01).
 
       Local_Suppress_Stack_Top := Body_Info.Local_Suppress_Stack_Top;
       Scope_Suppress           := Body_Info.Scope_Suppress;
@@ -11108,6 +11118,16 @@ package body Sem_Ch12 is
 
          Save_Env (Gen_Unit, Anon_Id);
          Style_Check := False;
+
+         --  If the context of the instance is subject to SPARK_Mode "off" or
+         --  the annotation is altogether missing, set the global flag which
+         --  signals Analyze_Pragma to ignore all SPARK_Mode pragmas within
+         --  the instance.
+
+         if SPARK_Mode /= On then
+            Ignore_Pragma_SPARK_Mode := True;
+         end if;
+
          Current_Sem_Unit := Body_Info.Current_Sem_Unit;
          Create_Instantiation_Source
            (Inst_Node,
@@ -11207,6 +11227,7 @@ package body Sem_Ch12 is
          end if;
 
          Restore_Env;
+         Ignore_Pragma_SPARK_Mode := Saved_IPSM;
          Style_Check := Saved_Style_Check;
          Restore_Warnings (Saved_Warnings);
 
@@ -11272,9 +11293,10 @@ package body Sem_Ch12 is
                           (Make_Simple_Return_Statement (Loc, Ret_Expr))));
          end if;
 
-         Pack_Body := Make_Package_Body (Loc,
-           Defining_Unit_Name => New_Copy (Pack_Id),
-           Declarations       => New_List (Act_Body));
+         Pack_Body :=
+           Make_Package_Body (Loc,
+             Defining_Unit_Name => New_Copy (Pack_Id),
+             Declarations       => New_List (Act_Body));
 
          Insert_After (Inst_Node, Pack_Body);
          Set_Corresponding_Spec (Pack_Body, Pack_Id);
@@ -11970,7 +11992,7 @@ package body Sem_Ch12 is
          --  If the formal and actual types are abstract, check that there
          --  are no abstract primitives of the actual type that correspond to
          --  nonabstract primitives of the formal type (second sentence of
-         --  RM95-3.9.3(9)).
+         --  RM95 3.9.3(9)).
 
          if Is_Abstract_Type (A_Gen_T) and then Is_Abstract_Type (Act_T) then
             Check_Abstract_Primitives : declare
