@@ -1209,16 +1209,11 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
 
   if (!success)
     {
-      if (flag_openacc)
-	{
-	  if (TREE_CODE (node->decl) == FUNCTION_DECL)
-	    error ("Missing routine function %<%s%>", node->name ());
-	  else
-	    error ("Missing declared variable %<%s%>", node->name ());
-	}
-
+      gcc_assert (flag_openacc);
+      if (TREE_CODE (node->decl) == FUNCTION_DECL)
+	error ("missing OpenACC %<routine%> function %qD", node->decl);
       else
-	gcc_unreachable ();
+	error ("missing OpenACC %<declare%> variable %qD", node->decl);
     }
 }
 
