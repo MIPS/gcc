@@ -50,7 +50,7 @@
 // <complex.h> is defined to provide only what C++11's <ccomplex> does in a
 // different namespace.
 #ifdef _GLIBCXX_C99_COMPLEX_H
-#error Cannot include both <complex> and C99's <complex.h>
+#error "Cannot include both <complex> and C99 <complex.h>"
 #endif
 
 namespace std _GLIBCXX_VISIBILITY(default)
