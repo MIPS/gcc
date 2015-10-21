@@ -1,3 +1,8 @@
+2015-10-21  Gary Funck  <gary@intrepid.com>
+
+	* upc-crtbegin.spec.in, upc-crtend.spec.in:
+	Refer to -fupc, not -fupc-link, in comment.
+
 2015-10-17  Gary Funck  <gary@intrepid.com>
 
 	* smp/upc_sup.h (upc_shared_ptr_alias_t): Delete.
