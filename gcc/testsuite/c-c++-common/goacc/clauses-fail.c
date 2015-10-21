@@ -17,4 +17,4 @@ f (void)
     ;
 }
 
-/* { dg-error "loop directive must be associated with a compute region" "" { target *-*-* } 15 } */
+/* { dg-error "loop directive must be associated with an OpenACC compute region" "" { target *-*-* } 15 } */

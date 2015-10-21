@@ -3106,13 +3106,42 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
       /* We split taskloop into task and nested taskloop in it.  */
       if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_TASKLOOP)
 	return true;
-      if (is_gimple_omp_oacc (stmt) && ctx == NULL
-	  && get_oacc_fn_attrib (current_function_decl) == NULL)
+      if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
 	{
-	  error_at (gimple_location (stmt),
-		    "loop directive must be associated with a compute "
-		    "region");
-	  return false;
+	  bool ok = false;
+	  
+	  if (ctx)
+	    switch (gimple_code (ctx->stmt))
+	      {
+	      case GIMPLE_OMP_FOR:
+		ok = (gimple_omp_for_kind (ctx->stmt)
+		      == GF_OMP_FOR_KIND_OACC_LOOP);
+		break;
+
+	      case GIMPLE_OMP_TARGET:
+		switch (gimple_omp_target_kind (ctx->stmt))
+		  {
+		  case GF_OMP_TARGET_KIND_OACC_PARALLEL:
+		  case GF_OMP_TARGET_KIND_OACC_KERNELS:
+		    ok = true;
+		    break;
+
+		  default:
+		    break;
+		  }
+
+	      default:
+		break;
+	      }
+	  else if (get_oacc_fn_attrib (current_function_decl))
+	    ok = true;
+	  if (!ok)
+	    {
+	      error_at (gimple_location (stmt),
+			"OpenACC loop directive must be associated with"
+			" an OpenACC compute region");
+	      return false;
+	    }
 	}
       /* FALLTHRU */
     case GIMPLE_CALL:
