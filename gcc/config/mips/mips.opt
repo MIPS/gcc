@@ -480,3 +480,14 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 
 muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
+
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mcompress-list=
+Target RejectNegative Joined Var(mips_compress_list)
+Specify a list of functions to compress
+
+mno-compress-list=
+Target RejectNegative Joined Var(mips_no_compress_list)
+Specify a list of functions to use MIPS32
