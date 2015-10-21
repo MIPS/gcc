@@ -496,3 +496,42 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 
 muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
+
+mforbidden-slots
+Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mcompress-list=
+Target RejectNegative Joined Var(mips_compress_list)
+Specify a list of functions to compress
+
+mno-compress-list=
+Target RejectNegative Joined Var(mips_no_compress_list)
+Specify a list of functions to use MIPS32
+
+moptimize-size-list=
+Target RejectNegative Joined Var(mips_optimize_size_list)
+Specify a list of functions to optimize for size
+
+moptimize-O3-list=
+Target RejectNegative Joined Var(mips_optimize_O3_list)
+Specify a list of functions to optimize with -O3
+
+moptimize-O2-list=
+Target RejectNegative Joined Var(mips_optimize_O2_list)
+Specify a list of functions to optimize with -O2
+
+moptimize-O1-list=
+Target RejectNegative Joined Var(mips_optimize_O1_list)
+Specify a list of functions to optimize with -O1
+
+moptimize-inline-list=
+Target RejectNegative Joined Var(mips_optimize_inline_list)
+Specify a list of functions to clear noinline flag to enable.
+
+moptimize-sdata-list=
+Target RejectNegative Joined Var(mips_optimize_sdata_list)
+Specify a list of global variables to be marked with section(\".sdata\") attribute.
+
+minline-intermix
+Target Report Var(TARGET_INLINE_INTERMIX)
+Allow inlining even if the compression flags differ between caller and callee
