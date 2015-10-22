@@ -1,5 +1,13 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7j>
+	* config/rs6000/rs6000.c (TARGET_C_MODE_FOR_SUFFIX): Define 'q'
+	and 'Q' as the suffix to use for IEEE 128-bit floating point
+	constants with -mfloat128.
+	(rs6000_c_mode_for_suffix): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7i>
 	* config/rs6000/rs6000.c (rs6000_generate_compare): For IEEE
 	128-bit floating point comparisons, call the unordered comparison
