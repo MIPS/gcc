@@ -8290,7 +8290,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
 	  continue;
 	}
 
-      if (MEM_ALIGN (src) >= bits && bond_p)
+      if (bond_p)
 	{
 	  gcc_assert (i % 2 == 0);
 	  if (bits == 64)
@@ -8340,7 +8340,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
 	  continue;
 	}
 
-      if (MEM_ALIGN (dest) >= bits && bond_p)
+      if (bond_p)
 	{
 	  gcc_assert (i % 2 == 0);
 	  if (bits == 64)
