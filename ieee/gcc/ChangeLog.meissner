@@ -1,3 +1,13 @@
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<patch #7c>
+	* config/rs6000/rs6000.h (ALTIVEC_VECTOR_MODE): Add IEEE 128-bit
+	floating point modes that can go in vector registers.
+	(MODES_TIEABLE_P): Move tests for vector modes before tests for
+	scalar floating point, so that IEEE 128-bit floating point that
+	can go in vector registers bind with vectors and not FP.
+	(struct rs6000_args): Add libcall field.
+
 2015-10-22   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 229181
