@@ -71,3 +71,81 @@ GCC_4.2.0 {
   __gcc_qunord
 %endif
 }
+
+
+# IEEE 128-bit support (__float128) was introduced with GCC 6.0.
+
+%exclude {
+  __addkf3
+  __cmpukf2
+  __divkf3
+  __eqkf2
+  __extenddfkf2
+  __extendkftf2
+  __extendsfkf2
+  __fixkfdi
+  __fixkfsi
+  __fixkfti
+  __fixunskfdi
+  __fixunskfsi
+  __fixunskfti
+  __floattikf
+  __floatuntikf
+  __gekf2
+  __gtkf2
+  __lekf2
+  __ltkf2
+  __mulkf3
+  __negkf3
+  __nekf2
+  __orderedkf2
+  __sqrtkf3
+  __subkf3
+  __trunckfdf2
+  __trunckfsf2
+  __trunctfkf2
+  __uneqkf2
+  __ungekf2
+  __ungtkf2
+  __unlekf2
+  __unltkf2
+  __unordkf2
+}
+
+GCC_6.0.0 {
+  __addkf3
+  __cmpukf2
+  __divkf3
+  __eqkf2
+  __extenddfkf2
+  __extendkftf2
+  __extendsfkf2
+  __fixkfdi
+  __fixkfsi
+  __fixkfti
+  __fixunskfdi
+  __fixunskfsi
+  __fixunskfti
+  __floattikf
+  __floatuntikf
+  __gekf2
+  __gtkf2
+  __lekf2
+  __ltkf2
+  __mulkf3
+  __negkf3
+  __nekf2
+  __orderedkf2
+  __sqrtkf3
+  __subkf3
+  __trunckfdf2
+  __trunckfsf2
+  __trunctfkf2
+  __uneqkf2
+  __ungekf2
+  __ungtkf2
+  __unlekf2
+  __unltkf2
+  __unordkf2
+}
+
