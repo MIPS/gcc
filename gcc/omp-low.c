@@ -12987,6 +12987,9 @@ process_kernel_body_copy (gimple_seq seq, gimple_stmt_iterator *dst,
       gomp_for *dist;
       if ((dist = dyn_cast <gomp_for *> (stmt)))
 	{
+          gimple_seq prebody = gimple_omp_for_pre_body (dist);
+          if (prebody)
+            copy_leading_local_assignments (prebody, dst, tgt_bind, wi);
 	  gimple_omp_for_set_kernel_phony (dist, true);
 	  stmt = copy_leading_local_assignments (gimple_omp_body (dist), dst,
 						 tgt_bind, wi);
@@ -12999,6 +13002,10 @@ process_kernel_body_copy (gimple_seq seq, gimple_stmt_iterator *dst,
 					 tgt_bind, wi);
   gomp_for *inner_loop = as_a <gomp_for *> (stmt);
   gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_KERNEL_BODY);
+  gimple_seq prebody = gimple_omp_for_pre_body (inner_loop);
+  if (prebody)
+    copy_leading_local_assignments (prebody, dst, tgt_bind, wi);
+
   return inner_loop;
 }
 
@@ -13045,11 +13052,6 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
   gimple_seq_add_stmt
     (gimple_bind_body_ptr (as_a <gbind *> (gimple_omp_body (target))),
      gpukernel);
-
-  /* Copy loop pre-body before target: */
-  gimple_seq prebody = gimple_omp_for_pre_body (inner_loop);
-  if (prebody)
-    copy_leading_local_assignments (prebody, gsi, tgt_bind, &wi);
 
   target->kernel_group_size = group_size;
   size_t collapse = inner_loop->collapse;

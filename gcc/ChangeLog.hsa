@@ -1,3 +1,9 @@
+2015-10-22  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (process_kernel_body_copy): Also copy pre-bodies of
+	distribute and inner loop to before target.
+	(attempt_target_gridification): Do not copy inner loop pre-body.
+
 2015-10-20  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (brig_init): Prepand '__hsa_module_' prefix
