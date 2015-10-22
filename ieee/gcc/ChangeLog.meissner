@@ -1,5 +1,15 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7g>
+	* config/rs6000/rs6000.c (init_cumulative_args): Initialize
+	libcall field in CUMULATIVE_ARGS.
+	(rs6000_function_arg): Treat library functions as if they had
+	prototypes to prevent IEEE 128-bit support functions from passing
+	arguments in both GPRs and vector registers.
+	(rs6000_arg_partial_bytes): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7f>
 	* config/rs6000/predicates.md (reg_or_indexed_operand): Allow
 	SUBREGs.
