@@ -1369,6 +1369,7 @@ static int mips_register_move_cost (machine_mode, reg_class_t,
 				    reg_class_t);
 static unsigned int mips_function_arg_boundary (machine_mode, const_tree);
 static machine_mode mips_get_reg_raw_mode (int regno);
+static void mips_load_store_bond_insns ();
 
 /* This hash table keeps track of implicit "mips16" and "nomips16" attributes
    for -mflip_mips16.  It maps decl names onto a boolean mode setting.  */
@@ -8254,7 +8255,6 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   int i;
   machine_mode mode;
   rtx *regs;
-  bool bond_p = false;
 
   /* Work out how many bits to move at a time.  If both operands have
      half-word alignment, it is usually better to move in half words.
@@ -8283,54 +8283,12 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   /* Allocate a buffer for the temporary registers.  */
   regs = XALLOCAVEC (rtx, length / delta);
 
-  /* Initialize the temporary registers.  */
-  for (i = 0; i < length / delta; i++)
-    regs[i] = gen_reg_rtx (mode);
-
   /* Load as many BITS-sized chunks as possible.  Use a normal load if
      the source has enough alignment, otherwise use left/right pairs.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
-      rtx ops[4];
-
-      /* If load-load/store-store bonding is enabled then emit load and stores
-	 as pairs.  We only bond what we can and the remaining bytes are copied
-	 as normal.  */
-      if (ENABLE_LD_ST_PAIRS && i % 2 == 0 && offset + delta * 2 <= length)
-	{
-	  ops[0] = regs[i];
-	  ops[1] = adjust_address (src, mode, offset);
-	  ops[2] = regs[i + 1];
-	  ops[3] = adjust_address (src, mode, offset + delta);
-
-	  bond_p = mips_load_store_bonding_p (ops, mode);
-	}
-      else if (ENABLE_LD_ST_PAIRS && bond_p
-	       && i % 2 == 1 && offset + delta <= length)
-	{
-	  bond_p = false;
-	  continue;
-	}
-
-      if (bond_p)
-	{
-	  gcc_assert (i % 2 == 0);
-	  if (bits == 64)
-	    emit_insn (gen_join2_load_storedi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 32)
-	    emit_insn (gen_join2_load_storesi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 16)
-	    emit_insn (gen_join2_load_storehi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else
-	    /* Other types of bonding are forbidden and should not be allowed
-	       by mips_load_store_bonding_p.  */
-	    gcc_unreachable ();
-	  continue;
-	}
-      else if (MEM_ALIGN (src) >= bits)
+      regs[i] = gen_reg_rtx (mode);
+      if (MEM_ALIGN (src) >= bits)
 	mips_emit_move (regs[i], adjust_address (src, mode, offset));
       else
 	{
@@ -8343,53 +8301,15 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
 
   /* Copy the chunks to the destination.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
-    {
-      rtx ops[4];
-
-      if (ENABLE_LD_ST_PAIRS && i % 2 == 0 && offset + delta * 2 <= length)
-	{
-	  ops[0] = adjust_address (dest, mode, offset);
-	  ops[1] = regs[i];
-	  ops[2] = adjust_address (dest, mode, offset + delta);
-	  ops[3] = regs[i + 1];
-
-	  bond_p = mips_load_store_bonding_p (ops, mode);
-	}
-      else if (ENABLE_LD_ST_PAIRS && bond_p
-	       && i % 2 == 1 && offset + delta <= length)
-	{
-	  bond_p = false;
-	  continue;
-	}
-
-      if (bond_p)
-	{
-	  gcc_assert (i % 2 == 0);
-	  if (bits == 64)
-	    emit_insn (gen_join2_load_storedi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 32)
-	    emit_insn (gen_join2_load_storesi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 16)
-	    emit_insn (gen_join2_load_storehi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else
-	    /* Other types of bonding are forbidden and should not be allowed
-	       by mips_load_store_bonding_p.  */
-	    gcc_unreachable ();
-	  continue;
-	}
-      else if (MEM_ALIGN (dest) >= bits)
-	mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
-      else
-	{
-	  rtx part = adjust_address (dest, BLKmode, offset);
-	  set_mem_size (part, delta);
-	  if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
-	    gcc_unreachable ();
-	}
-    }
+    if (MEM_ALIGN (dest) >= bits)
+      mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
+    else
+      {
+	rtx part = adjust_address (dest, BLKmode, offset);
+	set_mem_size (part, delta);
+	if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
+	  gcc_unreachable ();
+      }
 
   /* Mop up any left-over bytes.  */
   if (offset < length)
@@ -8399,6 +8319,9 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
       move_by_pieces (dest, src, length - offset,
 		      MIN (MEM_ALIGN (src), MEM_ALIGN (dest)), 0);
     }
+
+  if (ENABLE_LD_ST_PAIRS)
+    mips_load_store_bond_insns ();
 }
 
 /* Helper function for doing a loop-based block operation on memory
@@ -20902,31 +20825,75 @@ umips_load_store_pair_p_1 (bool load_p, bool swap_p,
   return true;
 }
 
+/* Return TRUE if OPERANDS represents a load or store of address in
+   the form of [base+offset] that can be later bonded.  LOAD_P is set to TRUE
+   if it's a load.  Return FALSE otherwise.  */
+
+static bool
+mips_load_store_p (rtx *operands, bool *load_p)
+{
+  rtx mem;
+  rtx mem_base;
+  HOST_WIDE_INT mem_offset;
+  rtx dest = operands[0];
+  rtx src = operands[1];
+
+  if ((GET_CODE (src) == REG || src == const0_rtx)
+      && GET_CODE ((mem = dest)) == MEM)
+    *load_p = false;
+  else if (GET_CODE ((mem = src)) == MEM && GET_CODE (dest) == REG)
+    *load_p = true;
+  else
+    return false;
+
+  mips_split_plus (XEXP (mem, 0), &mem_base, &mem_offset);
+
+  if (GET_CODE (mem_base) != REG)
+    return false;
+
+  if (*load_p && MEM_VOLATILE_P (mem))
+    return false;
+
+  return true;
+}
+
+/* Return TRUE if operands OPERANDS represent two consecutive instructions
+   than can be bonded as load-load/store-store pair in mode MODE.
+   Return FALSE otherwise.  */
+
 bool
 mips_load_store_bonding_p (rtx *operands, machine_mode mode)
 {
   rtx reg1, reg2, mem1, mem2, base1, base2;
   enum reg_class rc1, rc2;
   HOST_WIDE_INT offset1, offset2;
-  bool load_p;
+  bool load_p, load_p2;
 
-  /* Determine if we process a load or a store.  */
-  if (REG_P (operands[0]) && REG_P (operands[2])
-      && MEM_P (operands[1]) && MEM_P (operands[3])
-      && !MEM_VOLATILE_P (operands[1]) && !MEM_VOLATILE_P (operands[3])
-      && (GET_CODE (XEXP (operands[1], 0)) == PLUS
-	  || REG_P (XEXP (operands[1], 0)))
-      && (GET_CODE (XEXP (operands[3], 0)) == PLUS
-	  || REG_P (XEXP (operands[3], 0))))
-    load_p = true;
-  else if (REG_P (operands[1]) && REG_P (operands[3])
-	   && MEM_P (operands[0]) && MEM_P (operands[2])
-	   && (GET_CODE (XEXP (operands[0], 0)) == PLUS
-	       || REG_P (XEXP (operands[0], 0)))
-	   && (GET_CODE (XEXP (operands[2], 0)) == PLUS
-	       || REG_P (XEXP (operands[2], 0))))
-    load_p = false;
-  else
+  /* Check the supported modes.  */
+  switch (mode)
+    {
+    case HImode:
+    case SImode:
+      break;
+    case DImode:
+      if (!TARGET_64BIT)
+	return false;
+      break;
+    case SFmode:
+      if (!TARGET_HARD_FLOAT)
+	return false;
+      break;
+    case DFmode:
+      if (!(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT))
+	return false;
+      break;
+    default:
+      return false;
+    }
+
+  if (!mips_load_store_p (&operands[0], &load_p)
+      || !mips_load_store_p (&operands[2], &load_p2)
+      || load_p != load_p2)
     return false;
 
   if (load_p)
@@ -20943,6 +20910,10 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       mem1 = operands[0];
       mem2 = operands[2];
     }
+
+  if (MEM_ALIGN (mem1) < GET_MODE_BITSIZE (GET_MODE (mem1))
+      || MEM_ALIGN (mem2) < GET_MODE_BITSIZE (GET_MODE (mem2)))
+    return false;
 
   if (!mips_address_insns (XEXP (mem1, 0), mode, false)
       || !mips_address_insns (XEXP (mem2, 0), mode, false))
@@ -20966,8 +20937,10 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       && REGNO (reg1) == REGNO (reg2))
     return false;
 
-  /* Check if the loads/stores are of the same mode.  */
-  if (GET_MODE (reg1) != GET_MODE (reg2)
+  /* Check if the loads/stores are of the same mode.
+     Skip the mode check for stores where we have $0 as source registers.  */
+  if ((GET_MODE (reg1) != GET_MODE (reg2)
+       && !(!load_p && (reg1 == const0_rtx || reg2 == const0_rtx)))
       || GET_MODE (mem1) != GET_MODE (mem2)
       || GET_MODE (base1) != GET_MODE (base2))
     return false;
@@ -20983,11 +20956,100 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
 	return false;
     }
 
-  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode)
-      || GET_MODE_SIZE (mode) < 2)
+  if (abs(offset1 - offset2) != GET_MODE_SIZE (mode))
     return false;
 
   return true;
+}
+
+/* Return TRUE if INSN1 and INSN2 can be bonded, FALSE otherwise.  */
+
+bool
+mips_load_store_bonding_insn_p (rtx insn1, rtx insn2)
+{
+  rtx operands[4];
+  rtx pat1, pat2;
+
+  gcc_assert (INSN_P (insn1) && INSN_P (insn2));
+
+  pat1 = PATTERN (insn1);
+  pat2 = PATTERN (insn2);
+
+  if (GET_CODE (pat1) == SET && GET_CODE (pat2) == SET)
+    {
+      machine_mode mode;
+
+      operands[0] = SET_DEST (pat1);
+      operands[1] = SET_SRC (pat1);
+      operands[2] = SET_DEST (pat2);
+      operands[3] = SET_SRC (pat2);
+
+      /* We take the mode from either SET_DESTs and the remaining operands
+	 and modes will be checked later.  */
+      mode = GET_MODE (operands[0]);
+
+      return mips_load_store_bonding_p (operands, mode);
+    }
+
+  return false;
+}
+
+/* Find and bond load/store pairs in range FROM to TO.  */
+
+static void
+mips_load_store_bond_insns_in_range (rtx from, rtx to)
+{
+  rtx cur, next;
+
+  if (!ENABLE_LD_ST_PAIRS)
+    return;
+
+  if (from == NULL || to == NULL || from == to)
+    return;
+
+  for (cur = from, next = NEXT_INSN (cur);
+       next;
+       cur = next, next = NEXT_INSN (next))
+    {
+      if (INSN_P (cur) && INSN_P (next)
+	  && mips_load_store_bonding_insn_p (cur, next))
+	{
+	  rtx bonded, par;
+	  rtvec sets;
+	  int code;
+
+	  sets = gen_rtvec (2, PATTERN (cur), PATTERN (next));
+	  par = gen_rtx_PARALLEL (VOIDmode, sets);
+
+	  bonded = emit_insn_before (par, cur);
+	  code = recog_memoized (bonded);
+	  if (code < 0)
+	    {
+	      delete_insn (bonded);
+	      continue;
+	    }
+
+	  if (RTX_FRAME_RELATED_P (cur) || RTX_FRAME_RELATED_P (next))
+	    {
+	      RTX_FRAME_RELATED_P (bonded) = 1;
+	      REG_NOTES (bonded) = alloc_EXPR_LIST (REG_FRAME_RELATED_EXPR,
+						    par, REG_NOTES (bonded));
+	    }
+
+	  remove_insn (cur);
+	  remove_insn (next);
+	  cur = PREV_INSN (cur);
+	  next = bonded;
+	}
+    }
+}
+
+/* Find and bond load/store pairs for the entire sequence.  */
+
+static void
+mips_load_store_bond_insns ()
+{
+  mips_load_store_bond_insns_in_range (get_insns (), get_last_insn ());
 }
 
 /* OPERANDS describes the operands to a pair of SETs, in the order

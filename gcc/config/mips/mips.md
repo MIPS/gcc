@@ -7520,9 +7520,9 @@
 
 (define_insn "join2_load_store<JOIN_MODE:mode>"
   [(set (match_operand:JOIN_MODE 0 "nonimmediate_operand" "=d,f,m,m")
-	(match_operand:JOIN_MODE 1 "nonimmediate_operand" "m,m,d,f"))
+	(match_operand:JOIN_MODE 1 "nonimmediate_or_0_operand" "m,m,dJ,f"))
    (set (match_operand:JOIN_MODE 2 "nonimmediate_operand" "=d,f,m,m")
-	(match_operand:JOIN_MODE 3 "nonimmediate_operand" "m,m,d,f"))]
+	(match_operand:JOIN_MODE 3 "nonimmediate_or_0_operand" "m,m,dJ,f"))]
   "ENABLE_LD_ST_PAIRS
    && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode)"
   {
@@ -7561,9 +7561,9 @@
 ;; P5600 does not support bonding of two SBs, hence QI mode is not included.
 (define_peephole2
   [(set (match_operand:JOIN_MODE 0 "memory_operand")
-	(match_operand:JOIN_MODE 1 "register_operand"))
+	(match_operand:JOIN_MODE 1 "reg_or_0_operand"))
    (set (match_operand:JOIN_MODE 2 "memory_operand")
-	(match_operand:JOIN_MODE 3 "register_operand"))]
+	(match_operand:JOIN_MODE 3 "reg_or_0_operand"))]
   "ENABLE_LD_ST_PAIRS
    && mips_load_store_bonding_p (operands, <JOIN_MODE:MODE>mode)"
   [(parallel [(set (match_dup 0)
