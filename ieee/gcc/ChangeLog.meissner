@@ -1,5 +1,37 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7d>
+	* config/rs6000/rs6000.opt (-mfloat128-*): Delete old
+	-mfloat128-none and -mfloat128-software switches, and replace it
+	with a binary -mfloat128 switch.
+	(-mfloat128): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow
+	128-bit floating point types in GPRs, even if the appropriate
+	option enabling the type was not used.
+	(rs6000_debug_reg_global): Remove -mfloat128-{software,none}
+	debugging.
+	(rs6000_setup_reg_addr_masks): Do not allow pre-increment and
+	pre-decrement on IEEE 128-bit floating point values.
+	(rs6000_init_hard_regno_mode_ok): Change test for whether TFmode
+	is IEEE 128-bit floating point.
+	(rs6000_init_hard_regno_mode_ok): Add reload handlers for IEEE
+	128-bit floating point types that can go in vector registers.
+	(rs6000_option_override_internal): Change -mfloat128-none and
+	-mfloat128-software to -mfloat128, and move code to be near other
+	VSX option handling.
+	(rs6000_option_override_internal): Disable -mfloat128 if we don't
+	have the Altivec ABI.
+	(rs6000_init_builtins): Don't make TFmode use either IFmode or
+	KFmode floating point nodes. Instead, have three separate nodes.
+	(rs6000_scalar_mode_supported_p): Add support for IFmode to allow
+	eventually moving the long double default to IEEE 128-bit floating
+	point.
+	(rs6000_opt_masks): Add -mfloat128.
+	(struct rs6000_opt_var): Fix typo.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7c>
 	* config/rs6000/rs6000.h (ALTIVEC_VECTOR_MODE): Add IEEE 128-bit
 	floating point modes that can go in vector registers.
