@@ -1,5 +1,18 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7h>
+	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Split libfunc
+	setup into 3 functions: init_float128_ibm, init_float128_ieee, and
+	rs6000_init_libfuncs. If -mfloat128, add IFmode functions for all
+	of the traditional names that TFmode uses for handling IEEE
+	extended double. If -mfloat128, add KFmode functions for all of
+	the emulation functions. If -mabi=ieeelongdouble and -mfloat128,
+	make TFmode use the same emulation functions as KFmode.
+	(init_float128_ibm): Likewise.
+	(init_float128_ieee): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7g>
 	* config/rs6000/rs6000.c (init_cumulative_args): Initialize
 	libcall field in CUMULATIVE_ARGS.
