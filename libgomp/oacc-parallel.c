@@ -262,9 +262,9 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
   devaddrs = gomp_alloca (sizeof (void *) * mapnum);
   for (i = 0; i < mapnum; i++)
     {
-      if (tgt->list[i] != NULL)
-	devaddrs[i] = (void *) (tgt->list[i]->tgt->tgt_start
-				+ tgt->list[i]->tgt_offset);
+      if (tgt->list[i].key != NULL)
+	devaddrs[i] = (void *) (tgt->list[i].key->tgt->tgt_start
+				+ tgt->list[i].key->tgt_offset);
       else
 	devaddrs[i] = NULL;
     }

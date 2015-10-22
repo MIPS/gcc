@@ -1,3 +1,21 @@
+2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (struct target_var_desc): New.
+	(struct target_mem_desc): Replace array of splay_tree_key with array of
+	target_var_desc.
+	(struct splay_tree_key_s): Move copy_from to target_var_desc.
+	* oacc-mem.c (gomp_acc_remove_pointer): Use copy_from from
+	target_var_desc.
+	* oacc-parallel.c (GOACC_parallel): Use copy_from from target_var_desc.
+	* target.c (gomp_map_vars_existing): Copy data to device if map-type is
+	'always to' or 'always tofrom'.
+	(gomp_map_vars): Use key from target_var_desc.  Set copy_from and
+	always_copy_from.
+	(gomp_copy_from_async): Use key and copy_from from target_var_desc.
+	(gomp_unmap_vars): Copy data from device if always_copy_from is set.
+	(gomp_offload_image_to_device): Do not use copy_from.
+	* testsuite/libgomp.c/target-11.c: New test.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp_g.h (GOMP_task): Add priority argument to the prototype.
