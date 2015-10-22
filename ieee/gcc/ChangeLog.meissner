@@ -1,5 +1,13 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7k>
+	* config/rs6000/rs6000.c (TARGET_INVALID_BINARY_OP): Do not allow
+	inter-mixing of IEEE 128-bit floating point with IBM extended
+	double floating point.
+	(rs6000_invalid_binary_op): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7j>
 	* config/rs6000/rs6000.c (TARGET_C_MODE_FOR_SUFFIX): Define 'q'
 	and 'Q' as the suffix to use for IEEE 128-bit floating point

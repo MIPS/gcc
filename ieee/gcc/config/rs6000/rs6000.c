@@ -1677,6 +1677,9 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_C_MODE_FOR_SUFFIX
 #define TARGET_C_MODE_FOR_SUFFIX rs6000_c_mode_for_suffix
+
+#undef TARGET_INVALID_BINARY_OP
+#define TARGET_INVALID_BINARY_OP rs6000_invalid_binary_op
 
 
 /* Processor table.  */
@@ -20283,6 +20286,47 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
   return gen_rtx_fmt_ee (code, VOIDmode, compare_result, const0_rtx);
 }
 
+
+/* Return the diagnostic message string if the binary operation OP is
+   not permitted on TYPE1 and TYPE2, NULL otherwise.  */
+
+static const char*
+rs6000_invalid_binary_op (int op ATTRIBUTE_UNUSED,
+			  const_tree type1,
+			  const_tree type2)
+{
+  enum machine_mode mode1 = TYPE_MODE (type1);
+  enum machine_mode mode2 = TYPE_MODE (type2);
+
+  /* For complex modes, use the inner type.  */
+  if (COMPLEX_MODE_P (mode1))
+    mode1 = GET_MODE_INNER (mode1);
+
+  if (COMPLEX_MODE_P (mode2))
+    mode2 = GET_MODE_INNER (mode2);
+
+  /* Don't allow IEEE 754R 128-bit binary floating point and IBM extended
+     double to intermix.  */
+  if (mode1 == mode2)
+    return NULL;
+
+  if ((mode1 == KFmode && mode2 == IFmode)
+      || (mode1 == IFmode && mode2 == KFmode))
+    return N_("__float128 and __ibm128 cannot be used in the same expression");
+
+  if (TARGET_IEEEQUAD
+      && ((mode1 == IFmode && mode2 == TFmode)
+	  || (mode1 == TFmode && mode2 == IFmode)))
+    return N_("__ibm128 and long double cannot be used in the same expression");
+
+  if (!TARGET_IEEEQUAD
+      && ((mode1 == KFmode && mode2 == TFmode)
+	  || (mode1 == TFmode && mode2 == KFmode)))
+    return N_("__float128 and long double cannot be used in the same "
+	      "expression");
+
+  return NULL;
+}
 
 
 /* Expand floating point conversion to/from __float128 and __ibm128.  */
