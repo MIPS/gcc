@@ -1,3 +1,14 @@
+2015-10-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c: Include tree-pretty-print.h.
+	(omp_any_child_fn_dumped): New variable.
+	(expand_omp_taskreg, expand_omp_target): Call
+	assign_assembler_name_if_neeeded on child_fn if current_function_decl
+	has assembler name set, but child_fn does not.  Dump the header
+	and IL of the child function when not in SSA form.
+	(expand_omp): Clear omp_any_child_fn_dumped.  Dump function header
+	again if we have dumped any child functions.
+
 2015-10-19  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_FOR_ORIG_DECLS): Use OMP_LOOP_CHECK instead of

@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "lto-section-names.h"
 #include "gomp-constants.h"
+#include "tree-pretty-print.h"
 
 /* Lowering of OMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
@@ -244,6 +245,7 @@ static int target_nesting_level;
 static struct omp_region *root_omp_region;
 static bitmap task_shared_vars;
 static vec<omp_context *> taskreg_contexts;
+static bool omp_any_child_fn_dumped;
 
 static void scan_omp (gimple_seq *, omp_context *);
 static tree scan_omp_1_op (tree *, int *, void *);
@@ -6739,9 +6741,15 @@ expand_omp_taskreg (struct omp_region *region)
       node->parallelized_function = 1;
       cgraph_node::add_new_function (child_fn, true);
 
+      bool need_asm = DECL_ASSEMBLER_NAME_SET_P (current_function_decl)
+		      && !DECL_ASSEMBLER_NAME_SET_P (child_fn);
+
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
+      if (need_asm)
+	assign_assembler_name_if_neeeded (child_fn);
+
       if (optimize)
 	optimize_omp_library_calls (entry_stmt);
       cgraph_edge::rebuild_edges ();
@@ -6767,6 +6775,13 @@ expand_omp_taskreg (struct omp_region *region)
 	verify_loop_structure ();
 #endif
       pop_cfun ();
+
+      if (dump_file && !gimple_in_ssa_p (cfun))
+	{
+	  omp_any_child_fn_dumped = true;
+	  dump_function_header (dump_file, child_fn, dump_flags);
+	  dump_function_to_file (child_fn, dump_file, dump_flags);
+	}
     }
 
   /* Emit a library call to launch the children threads.  */
@@ -11575,9 +11590,14 @@ expand_omp_target (struct omp_region *region)
       vec_safe_push (offload_funcs, child_fn);
 #endif
 
+      bool need_asm = DECL_ASSEMBLER_NAME_SET_P (current_function_decl)
+		      && !DECL_ASSEMBLER_NAME_SET_P (child_fn);
+
       /* Fix the callgraph edges for child_cfun.  Those for cfun will be
 	 fixed in a following pass.  */
       push_cfun (child_cfun);
+      if (need_asm)
+	assign_assembler_name_if_neeeded (child_fn);
       cgraph_edge::rebuild_edges ();
 
 #ifdef ENABLE_OFFLOADING
@@ -11605,6 +11625,13 @@ expand_omp_target (struct omp_region *region)
 	verify_loop_structure ();
 #endif
       pop_cfun ();
+
+      if (dump_file && !gimple_in_ssa_p (cfun))
+	{
+	  omp_any_child_fn_dumped = true;
+	  dump_function_header (dump_file, child_fn, dump_flags);
+	  dump_function_to_file (child_fn, dump_file, dump_flags);
+	}
     }
 
   /* Emit a library call to launch the offloading region, or do data
@@ -11892,6 +11919,7 @@ expand_omp_target (struct omp_region *region)
 static void
 expand_omp (struct omp_region *region)
 {
+  omp_any_child_fn_dumped = false;
   while (region)
     {
       location_t saved_location;
@@ -11974,6 +12002,12 @@ expand_omp (struct omp_region *region)
 
       input_location = saved_location;
       region = region->next;
+    }
+  if (omp_any_child_fn_dumped)
+    {
+      if (dump_file)
+	dump_function_header (dump_file, current_function_decl, dump_flags);
+      omp_any_child_fn_dumped = false;
     }
 }
 
