@@ -1,5 +1,49 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7o>
+	* config/rs6000/rs6000.md (FP iterator): Allow TFmode to be IEEE
+	128-bit floating point.
+	(extenddftf2): Rework 128-bit floating point conversions to
+	properly handle -mabi=ieeelongdouble. Merge IFmode, TFmode, and
+	KFmode expanders into one function.
+	(extenddf<mode>2): Likewise.
+	(extenddftf2_fprs): Likewise.
+	(extenddf<mode>2_fprs): Likewise.
+	(extenddftf2_vsx): Likewise.
+	(extenddf<mode>2_vsx): Likewise.
+	(extendsftf2): Likewise.
+	(extendsf<mode>2): Likewise.
+	(trunctfdf2): Likewise.
+	(trunc<mode>df2): Likewise.
+	(trunctfdf2_internal1): Likewise.
+	(trunc<mode>df2_internal1): Likewise.
+	(trunctfdf2_internal2): Likewise.
+	(trunc<mode>df2_internal2): Likewise.
+	(trunctfsf2): Likewise.
+	(trunc<mode>sf2): Likewise.
+	(trunctfsf2_fprs): Likewise.
+	(trunc<mode>sf2_fprs): Likewise.
+	(floatsit2f): Likewise.
+	(floatsi<mode>2): Likewise.
+	(fix_trunc_helper): Likewise.
+	(fix_trunc_helper<mode>): Likewise.
+	(fix_trunctfsi2): Likewise.
+	(fix_trunc<mode>si2): Likewise.
+	(fix_trunctfsi2_fprs): Likewise.
+	(fix_trunc<mode>si2_fprs): Likewise.
+	(fix_trunctfsi2_internal): Likewise.
+	(fix_trunc<mode>si2_internal): Likewise.
+	(fix_trunctfdi2): Likewise.
+	(fix_trunc<mode>di2): Likewise.
+	(fixuns_trunctf<mode>2): Likewise.
+	(fixuns_trunc<IEEE128:mode><SDI:mode>2): Likewise.
+	(floatditf2): Likewise.
+	(floatdi<mode>2): Likewise.
+	(floatuns<mode>tf2): Likewise.
+	(floatuns<SDI:mode><IEEE128:mode>): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7n>
 	* config/rs6000/rs6000.md (FLOAT128_SFDFTF): Delete iterator,
 	rework IEEE 128-bit floating point insns to deal with TFmode being
