@@ -1,5 +1,48 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7n>
+	* config/rs6000/rs6000.md (FLOAT128_SFDFTF): Delete iterator,
+	rework IEEE 128-bit floating point insns to deal with TFmode being
+	either IBM extended double or IEEE 128-bit floating point.
+	(IFKF): Likewise.
+	(IBM128): Update iterator to add condition that the mode is IBM
+	extended double.
+	(IEEE128): New iterator for IEEE 128-bit floating point.
+	(TFIFKF): Rename TFIFKF iterator to FLOAT128.
+	(FLOAT128): Likewise.
+	(signbit<mode>2): FLOAT128_IBM_P condition test moved into IBM128
+	iterator.
+	(neg<mode>2): Replace TFIFKF iterator with FLOAT128. Add support
+	for TFmode being IEEE 128-bit floating point. Use IEEE128 iterator
+	instead of hard coding TFmode or KFmode.
+	(negtf2_internal): Likewise.
+	(neg<mode>2_internal): Likewise.
+	(abs<mode>2): Likewise.
+	(abstf2_internal): Likewise.
+	(abs<mode>2_internal): Likewise.
+	(ieee_128bit_neg<mode>2): Likewise.
+	(ieee_128bit_neg<mode>2_internal): Likewise.
+	(ieee_128bit_abs<mode>2): Likewise.
+	(ieee_128bit_abs<mode>2_internal): Likewise.
+	(ieee_128bit_nabs<mode>2): Likewise.
+	(ieee_128bit_nabs<mode>2_internal): Likewise.
+	(extendiftf2): Add explicit conversions between 128-bit floating
+	point types. Drop the old conversions that had become unwieldy.
+	(extend<FLOAT128_SFDFTF:mode><IFKF:mode>2): Likewise.
+	(extendifkf2): Likewise.
+	(trunc<IFKF:mode><FLOAT128_SFDFTF:mode>2): Likewise.
+	(extendtfkf2): Likewise.
+	(fix_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(trunciftf2): Likewise.
+	(fixuns_trunc<IFKF:mode><SDI:mode>2): Likewise.
+	(truncifkf2): Likewise.
+	(float<SDI:mode><IFKF:mode>2): Likewise.
+	(trunckftf2): Likewise.
+	(floatuns<SDI:mode><IFKF:mode>2): Likewise.
+	(trunctfif2): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7m>
 	* config/rs6000/rs6000.c (rs6000_mangle_type): Use U10__float128
 	for IEEE 128-bit floating point.
