@@ -1,5 +1,18 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7l>
+	* config/rs6000/rs6000.c (rs6000_gen_le_vsx_permute): On little
+	endian systems generate a ROTATE insn instead of VEC_SELECT for
+	IEEE 128-bit floating point types that can go in vector
+	registers.
+	(chain_contains_only_swaps): Properly swap IEEE 128-bit floating
+	point types that can go in vector registers on little endian
+	PowerPC systems.
+	(mark_swaps_for_removal): Likewise.
+	(rs6000_analyze_swaps): Likewise.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7k>
 	* config/rs6000/rs6000.c (TARGET_INVALID_BINARY_OP): Do not allow
 	inter-mixing of IEEE 128-bit floating point with IBM extended
