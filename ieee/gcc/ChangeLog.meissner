@@ -1,5 +1,19 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7f>
+	* config/rs6000/predicates.md (reg_or_indexed_operand): Allow
+	SUBREGs.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<patch #7e>
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__FLOAT128__ if -mfloat128. Define __LONG_DOUBLE_IEEE128__ if long
+	double is IEEE 128-bit. Define __LONG_DOUBLE_IBM128__ if long
+	double is IBM extended double.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7d>
 	* config/rs6000/rs6000.opt (-mfloat128-*): Delete old
 	-mfloat128-none and -mfloat128-software switches, and replace it
