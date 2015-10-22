@@ -1,5 +1,17 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7i>
+	* config/rs6000/rs6000.c (rs6000_generate_compare): For IEEE
+	128-bit floating point comparisons, call the unordered comparison
+	function instead of the ordered comparison function.
+	(rs6000_expand_float128_convert): Deal with operands that are
+	memory operands. Restructure the code to use a switch statement on
+	the mode. Add support for TFmode defaulting to either IBM extended
+	double or IEEE 128-bit floating point. If the underlying types are
+	the same, use a move instead of a conversion function.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7h>
 	* config/rs6000/rs6000.c (rs6000_init_libfuncs): Split libfunc
 	setup into 3 functions: init_float128_ibm, init_float128_ieee, and

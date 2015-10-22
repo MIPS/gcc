@@ -20098,17 +20098,18 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
       emit_insn (cmp);
     }
 
-  /* IEEE 128-bit support in VSX registers.  The comparison function (__cmpkf2)
-     returns 0..15 that is laid out the same way as the PowerPC CR register
-     would for a normal floating point comparison.  */
+  /* IEEE 128-bit support in VSX registers.  The comparison functions
+     (__cmpokf2 and __cmpukf2) returns 0..15 that is laid out the same way as
+     the PowerPC CR register would for a normal floating point comparison from
+     the fcmpo and fcmpu instructions.  */
   else if (FLOAT128_IEEE_P (mode))
     {
       rtx and_reg = gen_reg_rtx (SImode);
       rtx dest = gen_reg_rtx (SImode);
-      rtx libfunc = optab_libfunc (cmp_optab, mode);
+      rtx libfunc = optab_libfunc (ucmp_optab, mode);
       HOST_WIDE_INT mask_value = 0;
 
-      /* Values that __cmpkf2 returns.  */
+      /* Values that __cmpokf2/__cmpukf2 returns.  */
 #define PPC_CMP_UNORDERED	0x1		/* isnan (a) || isnan (b).  */
 #define PPC_CMP_EQUAL		0x2		/* a == b.  */
 #define PPC_CMP_GREATER_THEN	0x4		/* a > b.  */
@@ -20280,6 +20281,7 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 }
 
 
+
 /* Expand floating point conversion to/from __float128 and __ibm128.  */
 
 void
@@ -20288,60 +20290,121 @@ rs6000_expand_float128_convert (rtx dest, rtx src, bool unsigned_p)
   machine_mode dest_mode = GET_MODE (dest);
   machine_mode src_mode = GET_MODE (src);
   convert_optab cvt = unknown_optab;
+  bool do_move = false;
   rtx libfunc = NULL_RTX;
   rtx dest2;
 
   if (dest_mode == src_mode)
     gcc_unreachable ();
 
-  if (FLOAT128_IEEE_P (dest_mode))
+  /* Eliminate memory operations.  */
+  if (MEM_P (src))
+    src = force_reg (src_mode, src);
+
+  if (MEM_P (dest))
     {
-      if (src_mode == SFmode
-	  || src_mode == DFmode
-	  || FLOAT128_IBM_P (src_mode))
-	cvt = sext_optab;
-
-      else if (GET_MODE_CLASS (src_mode) == MODE_INT)
-	cvt = (unsigned_p) ? ufloat_optab : sfloat_optab;
-
-      else if (FLOAT128_IEEE_P (src_mode))
-	emit_move_insn (dest, gen_lowpart (dest_mode, src));
-
-      else
-	gcc_unreachable ();
+      rtx tmp = gen_reg_rtx (dest_mode);
+      rs6000_expand_float128_convert (tmp, src, unsigned_p);
+      rs6000_emit_move (dest, tmp, dest_mode);
+      return;
     }
 
+  /* Convert to IEEE 128-bit floating point.  */
+  if (FLOAT128_IEEE_P (dest_mode))
+    {
+      switch (src_mode)
+	{
+	case DFmode:
+	  cvt = sext_optab;
+	  break;
+
+	case SFmode:
+	  cvt = sext_optab;
+	  break;
+
+	case KFmode:
+	case IFmode:
+	case TFmode:
+	  if (FLOAT128_IBM_P (src_mode))
+	    cvt = sext_optab;
+	  else
+	    do_move = true;
+	  break;
+
+	case SImode:
+	case DImode:
+	  cvt = (unsigned_p) ? ufloat_optab : sfloat_optab;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Convert from IEEE 128-bit floating point.  */
   else if (FLOAT128_IEEE_P (src_mode))
     {
-      if (dest_mode == SFmode
-	  || dest_mode == DFmode
-	  || FLOAT128_IBM_P (dest_mode))
-	cvt = trunc_optab;
+      switch (dest_mode)
+	{
+	case DFmode:
+	  cvt = trunc_optab;
+	  break;
 
-      else if (GET_MODE_CLASS (dest_mode) == MODE_INT)
-	cvt = (unsigned_p) ? ufix_optab : sfix_optab;
+	case SFmode:
+	  cvt = trunc_optab;
+	  break;
 
-      else
-	gcc_unreachable ();
+	case KFmode:
+	case IFmode:
+	case TFmode:
+	  if (FLOAT128_IBM_P (dest_mode))
+	    cvt = trunc_optab;
+	  else
+	    do_move = true;
+	  break;
+
+	case SImode:
+	case DImode:
+	  cvt = (unsigned_p) ? ufix_optab : sfix_optab;
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+    }
+
+  /* Both IBM format.  */
+  else if (FLOAT128_IBM_P (dest_mode) && FLOAT128_IBM_P (src_mode))
+    do_move = true;
+
+  else
+    gcc_unreachable ();
+
+  /* Handle conversion between TFmode/KFmode.  */
+  if (do_move)
+    emit_move_insn (dest, gen_lowpart (dest_mode, src));
+
+  /* Call an external function to do the conversion.  */
+  else if (cvt != unknown_optab)
+    {
+      libfunc = convert_optab_libfunc (cvt, dest_mode, src_mode);
+      gcc_assert (libfunc != NULL_RTX);
+
+      dest2 = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode, 1, src,
+				       src_mode);
+
+      gcc_assert (dest2 != NULL_RTX);
+      if (!rtx_equal_p (dest, dest2))
+	emit_move_insn (dest, dest2);
     }
 
   else
     gcc_unreachable ();
 
-  gcc_assert (cvt != unknown_optab);
-  libfunc = convert_optab_libfunc (cvt, dest_mode, src_mode);
-  gcc_assert (libfunc != NULL_RTX);
-
-  dest2 = emit_library_call_value (libfunc, dest, LCT_CONST, dest_mode, 1, src,
-				   src_mode);
-
-  gcc_assert (dest != NULL_RTX);
-  if (!rtx_equal_p (dest, dest2))
-    emit_move_insn (dest, dest2);
-
   return;
 }
 
+
 /* Emit the RTL for an sISEL pattern.  */
 
 void
