@@ -1,5 +1,11 @@
 2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #7m>
+	* config/rs6000/rs6000.c (rs6000_mangle_type): Use U10__float128
+	for IEEE 128-bit floating point.
+
+2015-10-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #7l>
 	* config/rs6000/rs6000.c (rs6000_gen_le_vsx_permute): On little
 	endian systems generate a ROTATE insn instead of VEC_SELECT for
