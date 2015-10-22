@@ -21002,6 +21002,10 @@ mips_load_store_bonding_p (rtx *operands, machine_mode mode)
       mem2 = operands[2];
     }
 
+  if (MEM_ALIGN (mem1) < GET_MODE_BITSIZE (GET_MODE (mem1))
+      && MEM_ALIGN (mem2) < GET_MODE_BITSIZE (GET_MODE (mem2)))
+    return false;
+
   if (!mips_address_insns (XEXP (mem1, 0), mode, false)
       || !mips_address_insns (XEXP (mem2, 0), mode, false))
     return false;
