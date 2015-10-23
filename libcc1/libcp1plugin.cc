@@ -496,7 +496,7 @@ plugin_new_decl (cc1_plugin::connection *self,
   else if (class_member_p)
     {
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
-      if (TREE_CODE (sym_type) == VAR_DECL)
+      if (TREE_CODE (decl) == VAR_DECL)
 	{
 	  DECL_THIS_STATIC (decl) = 1;
 	  // The remainder of this block does the same as:
