@@ -45,6 +45,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "dumpfile.h"
 
+#define KELVIN_PATCH
+#define KELVIN_NOISE
+#ifdef KELVIN_NOISE
+#include "kelvin-debugs.c"
+#endif
+
+
 /* This pass performs loop unrolling.  We only perform this
    optimization on innermost loops (with single exception) because
    the impact on performance is greatest here, and we want to avoid
@@ -479,6 +486,26 @@ unroll_loop_constant_iterations (struct loop *loop)
   struct opt_info *opt_info = NULL;
   bool ok;
 
+#ifdef KELVIN_NOISE
+  basic_block *body;
+  body = get_loop_body (loop);
+  fprintf(stderr, "At top of unroll_loop_constant_iterations() with loop:");
+  kdn_dump_loop(stderr, loop);
+  fprintf(stderr, "  this loop is comprised of %d basic blocks\n",
+	  loop->num_nodes);
+
+  /* kdn: body is a newly allocated (XNEWVEC) array of basic_block
+   * references.  Note that basic_block is "struct basic_block_def *".
+   * The number of values held in the body array is given by
+   * loop->num_nodes.
+   */
+  for (unsigned int _i_ = 0; _i_ < loop->num_nodes; _i_++) {
+    fprintf(stderr, "body block[%d]:\n", _i_);
+    kdn_dump_block(stderr, body[_i_]);
+  }
+  free(body);
+#endif
+
   niter = desc->niter;
 
   /* Should not get here (such loop should be peeled instead).  */
@@ -633,6 +660,27 @@ unroll_loop_constant_iterations (struct loop *loop)
   /* Remove the edges.  */
   FOR_EACH_VEC_ELT (remove_edges, i, e)
     remove_path (e);
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "At bottom of unroll_loop_constant_iterations(), ");
+  fprintf(stderr, "having unrolled %d times\n", max_unroll);
+  fprintf(stderr, "  Loop has %d instructions, ", num_loop_insns(loop));
+  fprintf(stderr, " distributed across %d basic blocks.\n", loop->num_nodes);
+  kdn_dump_loop(stderr, loop);
+
+  body = get_loop_body(loop);
+  
+  /* kdn: body is a newly allocated (XNEWVEC) array of basic_block
+   * references.  Note that basic_block is "struct basic_block_def *".
+   * The number of values held in the body array is given by
+   * loop->num_nodes.
+   */
+  for (unsigned int _i_ = 0; _i_ < loop->num_nodes; _i_++) {
+    fprintf(stderr, "body block[%d]:\n", _i_);
+    kdn_dump_block(stderr, body[_i_]);
+  }
+  free(body);
+#endif
 
   if (dump_file)
     fprintf (dump_file,
@@ -876,6 +924,26 @@ unroll_loop_runtime_iterations (struct loop *loop)
   auto_vec<basic_block> dom_bbs;
 
   body = get_loop_body (loop);
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "At top of unroll_loop_runtime_iterations() with loop:");
+  kdn_dump_loop(stderr, loop);
+  fprintf(stderr, "  this loop is comprised of %d basic blocks\n",
+	  loop->num_nodes);
+  /*
+  fprintf(stderr, "  loop desc is represented by:\n");
+  kdn_dump_niter_desc(stderr, desc);
+  */
+  /* kdn: body is a newly allocated (XNEWVEC) array of basic_block
+   * references.  Note that basic_block is "struct basic_block_def *".
+   * The number of values held in the body array is given by
+   * loop->num_nodes.
+   */
+  for (unsigned int _i_ = 0; _i_ < loop->num_nodes; _i_++) {
+    fprintf(stderr, "body block[%d]:\n", _i_);
+    kdn_dump_block(stderr, body[_i_]);
+  }
+#endif
+
   for (i = 0; i < loop->num_nodes; i++)
     {
       vec<basic_block> ldom;
@@ -929,6 +997,10 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   /* Precondition the loop.  */
   split_edge_and_insert (loop_preheader_edge (loop), init_code);
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "After preconditioning the loop, the loop looks like:\n");
+  kdn_dump_loop(stderr, loop);
+#endif
 
   auto_vec<edge> remove_edges;
 
@@ -943,14 +1015,46 @@ unroll_loop_runtime_iterations (struct loop *loop)
       && !desc->noloop_assumptions)
     bitmap_set_bit (wont_exit, 1);
   ezc_swtch = loop_preheader_edge (loop)->src;
+
+#ifdef KELVIN_NOISE
+  /* extra zero check switch (ezc) processing */
+  fprintf(stderr,
+	  "ezc_switch loop preheader before calling duplicate_loop...\n");
+  kdn_dump_block(stderr, ezc_swtch);
+#endif
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 				      1, wont_exit, desc->out_edge,
 				      &remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ);
   gcc_assert (ok);
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "After duplicating loop to header edge, the loop is\n");
+  kdn_dump_loop(stderr, loop);
+#endif
 
   /* Record the place where switch will be built for preconditioning.  */
   swtch = split_edge (loop_preheader_edge (loop));
+
+#ifdef KELVIN_PATCH
+  /* kelvin: next three lines inserted by PTH */
+  int iter_freq, new_freq;
+  iter_freq = new_freq = swtch->frequency / (n_peel+1);
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "\n  Before overwriting, swtch->frequency is %d\n",
+	  swtch->frequency);
+  /* Overwriting swtch->frequency below is what causes B11 to have the
+   * correct frequency.  But I have to scale the frequencies for each of
+   * the loop's blocks that are copied as well.
+   */
+#endif
+  swtch->frequency = new_freq;
+#endif
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "\n  n_peel is %d, iter_freq is %d\n", n_peel, iter_freq);
+  fprintf(stderr, "  The newly created swtch block is given by:\n");
+  kdn_dump_block(stderr, swtch);
+#endif
 
   for (i = 0; i < n_peel; i++)
     {
@@ -958,17 +1062,123 @@ unroll_loop_runtime_iterations (struct loop *loop)
       bitmap_clear (wont_exit);
       if (i != n_peel - 1 || !last_may_exit)
 	bitmap_set_bit (wont_exit, 1);
+#ifdef KELVIN_PATCH      
+      /* kelvin: up to ok below is all new */
+      // PTH - Need to adjust freq of pred block before duplicating loop
+      // preheader->src didn't work (didn't see any change)
+      // preheader->dest didn't work (peeled blocks had freq = 0)
+      // preheader->dest + not passing FLAG_UPDATE_FREQ fixed peeled copies
+      //     but screwed up loop block bb5=558 (bb8(exit,
+      //      due to bb5 freq) and bb23(freq=7536))
+      // kelvin says PTH had commented out the following line,
+      // apparently because it creates some problems with frequency of
+      // bb5.
+      // loop_preheader_edge (loop)->dest->frequency = new_freq;
+#ifdef KELVIN_NOISE
+      fprintf(stderr,
+    "preparing to invoke duplicate_loop_to_header_edge, new_freq: %d\n",
+    new_freq);
+      fprintf(stderr, "loop_preheader_edge(loop) is:\n");
+    kdn_dump_edge(stderr, loop_preheader_edge(loop), TRUE, TRUE);
+#endif
+
+    /* kelvin patch begins here */
+    int saved_header_frequency = loop->header->frequency;
+    int saved_latch_frequency = loop->latch->frequency;
+    loop->header->frequency /= (n_peel + 1);
+    loop->latch->frequency /= (n_peel + 1);
+
+    loop->header->frequency *= (i + 1);
+    loop->latch->frequency *= (i + 1);
+
+#ifdef KELVIN_NOISE
+    fprintf(stderr,
+	"Temporarily setting header and latch frequencies to %d and %d\n",
+	loop->header->frequency, loop->latch->frequency);
+#endif
+    /* kelvin patch ends here */
+#endif
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					  1, wont_exit, desc->out_edge,
 					  &remove_edges,
 					  DLTHE_FLAG_UPDATE_FREQ);
+#ifdef KELVIN_PATCH
+    loop->header->frequency = saved_header_frequency;
+    loop->latch->frequency = saved_latch_frequency;
+    fprintf(stderr, "Restoring header and latch frequencies to %d and %d\n",
+	    loop->header->frequency, loop->latch->frequency);
+#endif
       gcc_assert (ok);
 
       /* Create item for switch.  */
       j = n_peel - i - (extra_zero_check ? 0 : 1);
       p = REG_BR_PROB_BASE / (i + 2);
 
+#ifdef KELVIN_NOISE
+      fprintf(stderr,
+	      "Before splitting the next edge, loop_preaheader_edge is:\n");
+      kdn_dump_edge(stderr, loop_preheader_edge (loop), TRUE, TRUE);
+#endif
       preheader = split_edge (loop_preheader_edge (loop));
+#ifdef KELVIN_NOISE
+      fprintf(stderr, "In peel loop, i: %d, j: %d, preheader is:\n", i, j);
+      kdn_dump_block(stderr, preheader);
+      /* note that the preheader has the correct frequency, but the
+       * nodes created by duplicate_loop_to_header_edge have an incorrect
+       * frequency.
+       *
+       * Kelvin questions: how does preheader get its frequency?  It
+       * is copied from the original loop, and then overwritten below.
+       */
+      fprintf(stderr, "Refined loop definition is:\n");
+      kdn_dump_loop(stderr, loop);
+
+      /* kelvin believes the following code is responsible for assigning
+       * frequencies on B14, B18, and B22.
+       */
+      fprintf(stderr, "Processing preheader block: ");
+      kdn_dump_block_id(stderr, preheader);
+      fprintf(stderr,
+	      "Before overwriting the preheader, frequency is %d, ",
+	      preheader->frequency);
+      fprintf(stderr, "to be overwritten with %d (or not!)*\n",
+	      new_freq + iter_freq);
+
+      /*
+       * note that each time we peel another loop iteration, we
+       * increment new_freq by the value of iter_freq, so the
+       * first iteration has value 186, the second 372, the third,
+       * 558, an so on.
+       */
+
+#endif
+#ifdef KELVIN_PATCH
+      /* Pat Haugen's patch below is not quite correct.  In the
+       * case that the duplicated blocks include an "exit" which
+       * circumvents execution of the loop, we need to subtract
+       * from preheader->frequency the cumulative frequencies
+       * associated with the duplicated "loop" exit edges.
+       */
+
+
+      /* kelvin: the following two lines constitute a patch provided
+       * by Pat Haugen.  This works most of the time, but it doesn't
+       * work in the case that the copied blocks include conditional
+       * branches that circumvent execution of the loop that follows.
+       * To do this right, I need to calculate the frequency of this
+       * preheader in a different way.  Basically, I need to calculate
+       * the preheader frequency by summing frequences of predecessor
+       * nodes, AFTER we create and establish the frequencies for the
+       * new swtch block.
+       *
+       * new_freq = new_freq + iter_freq;
+       * preheader->frequency = new_freq;
+       */
+
+      /* kelvin is suspicious of the code above, which is calculating
+       * the preheader->frequency.
+       */
+#endif
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p,
 					  NULL);
@@ -978,13 +1188,58 @@ unroll_loop_runtime_iterations (struct loop *loop)
       gcc_assert (branch_code != NULL_RTX);
 
       swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
+#ifdef KELVIN_NOISE
+      fprintf(stderr, "The newly created swtch is:\n");
+      kdn_dump_block(stderr, swtch);
+#endif
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
+#ifdef KELVIN_PATCH
+      /* kelvin: following line modified by pth, was single_pred_edge */
+      single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+#else
       single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+#endif
       e = make_edge (swtch, preheader,
 		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->count = RDIV (preheader->count * REG_BR_PROB_BASE, p);
       e->probability = p;
+
+#ifdef KELVIN_NOISE      
+      fprintf(stderr, "The newly created edge is:\n");
+      kdn_dump_edge(stderr, e, TRUE, TRUE);
+#endif
+#ifdef KELVIN_PATCH
+      /* kelvin: following line inserted by PTH is replaced with
+       * the alternative sequence of instructions crafted by kelvin.
+       *  swtch->frequency = new_freq;
+       */
+      new_freq = new_freq + iter_freq;
+      swtch->frequency = new_freq;
+
+      int prehead_frequency = 0;
+      for (unsigned int i = 0; i < EDGE_COUNT(preheader->preds); i++) {
+	edge an_edge = EDGE_PRED(preheader, i);
+	int the_edge_frequency = EDGE_FREQUENCY(an_edge);
+#ifdef KELVIN_NOISE
+	fprintf(stderr, "Summing predecessor edge: ");
+	kdn_dump_edge(stderr, an_edge, TRUE, TRUE);
+	fprintf(stderr, " which has frequency %d\n", the_edge_frequency);
+#endif
+	prehead_frequency += the_edge_frequency;
+      }
+#ifdef KELVIN_NOISE
+      fprintf(stderr, "Overwriting preheader block ");
+      kdn_dump_block_id(stderr, preheader);
+      fprintf(stderr, " with frequency %d\n", prehead_frequency);
+#endif
+      preheader->frequency = prehead_frequency;
+
+#endif
     }
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "\nAt midpoint of unroll_loop_runtime_iterations() with loop:");
+  kdn_dump_loop(stderr, loop);
+#endif 
 
   if (extra_zero_check)
     {
@@ -1015,6 +1270,24 @@ unroll_loop_runtime_iterations (struct loop *loop)
   bitmap_clear_bit (wont_exit, may_exit_copy);
   opt_info_start_duplication (opt_info);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr,
+	  "Invoking duplicate_loop_to_header_edge for unrolling loop\n");
+#endif
+#ifdef KELVIN_PATCH
+  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
+				      max_unroll,
+				      wont_exit, desc->out_edge,
+				      &remove_edges,
+/* kelvin: following code commented out and replaced by PTH
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0));
+*/				      opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0);
+#else
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
 				      wont_exit, desc->out_edge,
@@ -1023,8 +1296,15 @@ unroll_loop_runtime_iterations (struct loop *loop)
 				      | (opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0));
+#endif
   gcc_assert (ok);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "After duplicating loop to header edge for the loop body\n");
+  fprintf(stderr, "  exit_at_end is %d\n", exit_at_end);
+  fprintf(stderr, " Kelvin is wondering when we remove orig out edge\n");
+  kdn_dump_all_blocks(stderr, loop);
+#endif
   if (opt_info)
     {
       apply_opt_in_copies (opt_info, max_unroll, true, true);
@@ -1053,7 +1333,17 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   /* Remove the edges.  */
   FOR_EACH_VEC_ELT (remove_edges, i, e)
+#ifdef KELVIN_PATCH
+    {
+#ifdef KELVIN_NOISE
+      fprintf(stderr, "Removing an edge from the loop\n");
+      kdn_dump_edge(stderr, e, TRUE, TRUE);
+#endif
+      remove_path (e);
+    }
+#else
     remove_path (e);
+#endif
 
   /* We must be careful when updating the number of iterations due to
      preconditioning and the fact that the value must be valid at entry
@@ -1080,6 +1370,27 @@ unroll_loop_runtime_iterations (struct loop *loop)
       else
 	loop->any_estimate = false;
     }
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "\nAt bottom of unroll_loop_runtime_iterations(), ");
+  fprintf(stderr, "having unrolled %d times\n", max_unroll);
+  fprintf(stderr, "  Loop has %d instructions, ", num_loop_insns(loop));
+  fprintf(stderr, " distributed across %d basic blocks.\n", loop->num_nodes);
+  kdn_dump_loop(stderr, loop);
+
+  body = get_loop_body(loop);
+  
+  /* kdn: body is a newly allocated (XNEWVEC) array of basic_block
+   * references.  Note that basic_block is "struct basic_block_def *".
+   * The number of values held in the body array is given by
+   * loop->num_nodes.
+   */
+  for (unsigned int _i_ = 0; _i_ < loop->num_nodes; _i_++) {
+    fprintf(stderr, "body block[%d]:\n", _i_);
+    kdn_dump_block(stderr, body[_i_]);
+  }
+  free(body);
+#endif
 
   if (dump_file)
     fprintf (dump_file,
