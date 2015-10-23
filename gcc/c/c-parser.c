@@ -11881,8 +11881,6 @@ c_parser_omp_clause_linear (c_parser *parser, tree list, bool is_cilk_simd_fn)
       const char *p = IDENTIFIER_POINTER (tok->value);
       if (strcmp ("val", p) == 0)
 	kind = OMP_CLAUSE_LINEAR_VAL;
-      else if (strcmp ("uval", p) == 0)
-	kind = OMP_CLAUSE_LINEAR_UVAL;
       if (c_parser_peek_2nd_token (parser)->type != CPP_OPEN_PAREN)
 	kind = OMP_CLAUSE_LINEAR_DEFAULT;
       if (kind != OMP_CLAUSE_LINEAR_DEFAULT)
@@ -12580,7 +12578,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
   c_parser_skip_to_pragma_eol (parser);
 
   if (finish_p)
-    return c_finish_omp_clauses (clauses, true);
+    return c_finish_omp_clauses (clauses, true, false);
 
   return clauses;
 }
@@ -12843,7 +12841,11 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
   c_parser_skip_to_pragma_eol (parser);
 
   if (finish_p)
-    return c_finish_omp_clauses (clauses, false);
+    {
+      if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_UNIFORM)) != 0)
+	return c_finish_omp_clauses (clauses, false, true);
+      return c_finish_omp_clauses (clauses, false, false);
+    }
 
   return clauses;
 }
@@ -12874,7 +12876,7 @@ c_parser_oacc_cache (location_t loc, c_parser *parser)
   tree stmt, clauses;
 
   clauses = c_parser_omp_var_list_parens (parser, OMP_CLAUSE__CACHE_, NULL);
-  clauses = c_finish_omp_clauses (clauses, true);
+  clauses = c_finish_omp_clauses (clauses, true, false);
 
   c_parser_skip_to_pragma_eol (parser);
 
@@ -13335,10 +13337,10 @@ c_parser_oacc_loop (location_t loc, c_parser *parser, char *p_name,
       clauses = c_oacc_split_loop_clauses (clauses, cclauses);
 
       if (*cclauses)
-	c_finish_omp_clauses (*cclauses, true);
+	c_finish_omp_clauses (*cclauses, true, false);
 
       if (clauses)
-	c_finish_omp_clauses (clauses, true);
+	c_finish_omp_clauses (clauses, true, false);
     }
 
   block = c_begin_compound_stmt (true);
@@ -14188,20 +14190,24 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   tree declv, condv, incrv, initv, ret = NULL_TREE;
   tree pre_body = NULL_TREE, this_pre_body;
   bool fail = false, open_brace_parsed = false;
-  int i, collapse = 1, nbraces = 0;
+  int i, collapse = 1, ordered = 0, count, nbraces = 0;
   location_t for_loc;
   vec<tree, va_gc> *for_block = make_tree_vector ();
 
   for (cl = clauses; cl; cl = OMP_CLAUSE_CHAIN (cl))
     if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_COLLAPSE)
       collapse = tree_to_shwi (OMP_CLAUSE_COLLAPSE_EXPR (cl));
+    else if (OMP_CLAUSE_CODE (cl) == OMP_CLAUSE_ORDERED
+	     && OMP_CLAUSE_ORDERED_EXPR (cl))
+      ordered = tree_to_shwi (OMP_CLAUSE_ORDERED_EXPR (cl));
 
-  gcc_assert (collapse >= 1);
+  gcc_assert (collapse >= 1 && ordered >= 0);
+  count = collapse + (ordered > 0 ? ordered - 1 : 0);
 
-  declv = make_tree_vec (collapse);
-  initv = make_tree_vec (collapse);
-  condv = make_tree_vec (collapse);
-  incrv = make_tree_vec (collapse);
+  declv = make_tree_vec (count);
+  initv = make_tree_vec (count);
+  condv = make_tree_vec (count);
+  incrv = make_tree_vec (count);
 
   if (code != CILK_FOR
       && !c_parser_next_token_is_keyword (parser, RID_FOR))
@@ -14218,7 +14224,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
   for_loc = c_parser_peek_token (parser)->location;
   c_parser_consume_token (parser);
 
-  for (i = 0; i < collapse; i++)
+  for (i = 0; i < count; i++)
     {
       int bracecount = 0;
 
@@ -14342,7 +14348,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 	}
 
     parse_next:
-      if (i == collapse - 1)
+      if (i == count - 1)
 	break;
 
       /* FIXME: OpenMP 3.0 draft isn't very clear on what exactly is allowed
@@ -14373,7 +14379,7 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 		  bracecount--;
 		}
 	      fail = true;
-	      collapse = 0;
+	      count = 0;
 	      break;
 	    }
 	}
@@ -14454,10 +14460,10 @@ c_parser_omp_for_loop (location_t loc, c_parser *parser, enum tree_code code,
 		  c = &OMP_CLAUSE_CHAIN (*c);
 		else
 		  {
-		    for (i = 0; i < collapse; i++)
+		    for (i = 0; i < count; i++)
 		      if (TREE_VEC_ELT (declv, i) == OMP_CLAUSE_DECL (*c))
 			break;
-		    if (i == collapse)
+		    if (i == count)
 		      c = &OMP_CLAUSE_CHAIN (*c);
 		    else if (OMP_CLAUSE_CODE (*c) == OMP_CLAUSE_FIRSTPRIVATE)
 		      {
@@ -14513,7 +14519,7 @@ omp_split_clauses (location_t loc, enum tree_code code,
   c_omp_split_clauses (loc, code, mask, clauses, cclauses);
   for (i = 0; i < C_OMP_CLAUSE_SPLIT_COUNT; i++)
     if (cclauses[i])
-      cclauses[i] = c_finish_omp_clauses (cclauses[i], false);
+      cclauses[i] = c_finish_omp_clauses (cclauses[i], false, false);
 }
 
 /* OpenMP 4.0:
@@ -16891,7 +16897,7 @@ c_parser_cilk_for (c_parser *parser, tree grain)
   tree clauses = build_omp_clause (EXPR_LOCATION (grain), OMP_CLAUSE_SCHEDULE);
   OMP_CLAUSE_SCHEDULE_KIND (clauses) = OMP_CLAUSE_SCHEDULE_CILKFOR;
   OMP_CLAUSE_SCHEDULE_CHUNK_EXPR (clauses) = grain;
-  clauses = c_finish_omp_clauses (clauses, false);
+  clauses = c_finish_omp_clauses (clauses, false, false);
 
   tree block = c_begin_compound_stmt (true);
   tree sb = push_stmt_list ();
@@ -16956,7 +16962,7 @@ c_parser_cilk_for (c_parser *parser, tree grain)
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par) = c_finish_omp_clauses (c, false);
+      OMP_PARALLEL_CLAUSES (omp_par) = c_finish_omp_clauses (c, false, false);
       add_stmt (omp_par);
     }
 

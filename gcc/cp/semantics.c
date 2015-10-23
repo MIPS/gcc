@@ -67,6 +67,7 @@ static tree capture_decltype (tree);
 
 static hash_map<tree, tree> *omp_private_member_map;
 static vec<tree> omp_private_member_vec;
+static bool omp_private_member_ignore_next;
 
 
 /* Deferred Access Checking Overview
@@ -4324,7 +4325,7 @@ omp_note_field_privatization (tree f, tree t)
 /* Privatize FIELD_DECL T, return corresponding DECL_OMP_PRIVATIZED_MEMBER
    dummy VAR_DECL.  */
 
-static tree
+tree
 omp_privatize_field (tree t)
 {
   tree m = finish_non_static_data_member (t, NULL_TREE, NULL_TREE);
@@ -5501,7 +5502,7 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
    Remove any elements from the list that are invalid.  */
 
 tree
-finish_omp_clauses (tree clauses, bool allow_fields, bool oacc)
+finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head, oacc_data_head, oacc_reduction_head;
@@ -5591,12 +5592,14 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool oacc)
 	      && !type_dependent_expression_p (t))
 	    {
 	      tree type = TREE_TYPE (t);
-	      if (OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+	      if ((OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+		   || OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_UVAL)
 		  && TREE_CODE (type) != REFERENCE_TYPE)
 		{
-		  error ("linear clause with %<ref%> modifier applied to "
+		  error ("linear clause with %qs modifier applied to "
 			 "non-reference variable with %qT type",
-			 TREE_TYPE (t));
+			 OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF
+			 ? "ref" : "uval", TREE_TYPE (t));
 		  remove = true;
 		  break;
 		}
@@ -5641,12 +5644,17 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool oacc)
 		    type = TREE_TYPE (type);
 		  if (OMP_CLAUSE_LINEAR_KIND (c) == OMP_CLAUSE_LINEAR_REF)
 		    {
-		      type = TREE_TYPE (OMP_CLAUSE_DECL (c));
-		      t = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
-					    sizetype, t);
+		      type = build_pointer_type (type);
+		      tree d = fold_convert (type, OMP_CLAUSE_DECL (c));
+		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
+					   d, t);
 		      t = fold_build2_loc (OMP_CLAUSE_LOCATION (c),
-					   MULT_EXPR, sizetype, t,
-					   TYPE_SIZE_UNIT (type));
+					   MINUS_EXPR, sizetype, t, d);
+		      if (t == error_mark_node)
+			{
+			  remove = true;
+			  break;
+			}
 		    }
 		  else if (TREE_CODE (type) == POINTER_TYPE)
 		    {
@@ -6434,7 +6442,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool oacc)
 
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
-	    = finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), false, oacc);
+	    = finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), oacc,
+				  false, false);
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
@@ -6494,8 +6503,11 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool oacc)
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
-	case OMP_CLAUSE_LINEAR:
 	  need_implicitly_determined = true;
+	  break;
+	case OMP_CLAUSE_LINEAR:
+	  if (!declare_simd)
+	    need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  need_copy_assignment = true;
@@ -6648,8 +6660,14 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool oacc)
    privatization clauses for non-static data members.  */
 
 tree
-push_omp_privatization_clauses (void)
+push_omp_privatization_clauses (bool ignore_next)
 {
+  if (omp_private_member_ignore_next)
+    {
+      omp_private_member_ignore_next = ignore_next;
+      return NULL_TREE;
+    }
+  omp_private_member_ignore_next = ignore_next;
   if (omp_private_member_map)
     omp_private_member_vec.safe_push (error_mark_node);
   return push_stmt_list ();
@@ -6661,6 +6679,8 @@ push_omp_privatization_clauses (void)
 void
 pop_omp_privatization_clauses (tree stmt)
 {
+  if (stmt == NULL_TREE)
+    return;
   stmt = pop_stmt_list (stmt);
   if (omp_private_member_map)
     {
@@ -6694,8 +6714,12 @@ void
 save_omp_privatization_clauses (vec<tree> &save)
 {
   save = vNULL;
+  if (omp_private_member_ignore_next)
+    save.safe_push (integer_one_node);
+  omp_private_member_ignore_next = false;
   if (!omp_private_member_map)
     return;
+
   while (!omp_private_member_vec.is_empty ())
     {
       tree t = omp_private_member_vec.pop ();
@@ -6725,8 +6749,16 @@ void
 restore_omp_privatization_clauses (vec<tree> &save)
 {
   gcc_assert (omp_private_member_vec.is_empty ());
+  omp_private_member_ignore_next = false;
   if (save.is_empty ())
     return;
+  if (save.length () == 1 && save[0] == integer_one_node)
+    {
+      omp_private_member_ignore_next = true;
+      save.release ();
+      return;
+    }
+    
   omp_private_member_map = new hash_map <tree, tree>;
   while (!save.is_empty ())
     {
@@ -6734,6 +6766,12 @@ restore_omp_privatization_clauses (vec<tree> &save)
       tree n = t;
       if (t != error_mark_node)
 	{
+	  if (t == integer_one_node)
+	    {
+	      omp_private_member_ignore_next = true;
+	      gcc_assert (save.is_empty ());
+	      break;
+	    }
 	  if (t == integer_zero_node)
 	    t = save.pop ();
 	  tree &v = omp_private_member_map->get_or_insert (t);
@@ -6941,9 +6979,10 @@ finish_omp_task (tree clauses, tree body)
    into integral iterator.  Return FALSE if successful.  */
 
 static bool
-handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
-			       tree condv, tree incrv, tree *body,
-			       tree *pre_body, tree clauses, tree *lastp)
+handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
+			       tree declv, tree initv, tree condv, tree incrv,
+			       tree *body, tree *pre_body, tree &clauses,
+			       tree *lastp)
 {
   tree diff, iter_init, iter_incr = NULL, last;
   tree incr_var = NULL, orig_pre_body, orig_body, c;
@@ -7101,10 +7140,25 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
     }
 
   incr = cp_convert (TREE_TYPE (diff), incr, tf_warning_or_error);
+  bool taskloop_iv_seen = false;
   for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LASTPRIVATE
 	&& OMP_CLAUSE_DECL (c) == iter)
-      break;
+      {
+	if (code == OMP_TASKLOOP)
+	  {
+	    taskloop_iv_seen = true;
+	    OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV (c) = 1;
+	  }
+	break;
+      }
+    else if (code == OMP_TASKLOOP
+	     && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+	     && OMP_CLAUSE_DECL (c) == iter)
+      {
+	taskloop_iv_seen = true;
+	OMP_CLAUSE_PRIVATE_TASKLOOP_IV (c) = 1;
+      }
 
   decl = create_temporary_var (TREE_TYPE (diff));
   pushdecl (decl);
@@ -7112,13 +7166,32 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   last = create_temporary_var (TREE_TYPE (diff));
   pushdecl (last);
   add_decl_expr (last);
-  if (c && iter_incr == NULL)
+  if (c && iter_incr == NULL && TREE_CODE (incr) != INTEGER_CST)
     {
       incr_var = create_temporary_var (TREE_TYPE (diff));
       pushdecl (incr_var);
       add_decl_expr (incr_var);
     }
   gcc_assert (stmts_are_full_exprs_p ());
+  tree diffvar = NULL_TREE;
+  if (code == OMP_TASKLOOP)
+    {
+      if (!taskloop_iv_seen)
+	{
+	  tree ivc = build_omp_clause (locus, OMP_CLAUSE_FIRSTPRIVATE);
+	  OMP_CLAUSE_DECL (ivc) = iter;
+	  cxx_omp_finish_clause (ivc, NULL);
+	  OMP_CLAUSE_CHAIN (ivc) = clauses;
+	  clauses = ivc;
+	}
+      tree lvc = build_omp_clause (locus, OMP_CLAUSE_FIRSTPRIVATE);
+      OMP_CLAUSE_DECL (lvc) = last;
+      OMP_CLAUSE_CHAIN (lvc) = clauses;
+      clauses = lvc;
+      diffvar = create_temporary_var (TREE_TYPE (diff));
+      pushdecl (diffvar);
+      add_decl_expr (diffvar);
+    }
 
   orig_pre_body = *pre_body;
   *pre_body = push_stmt_list ();
@@ -7131,10 +7204,13 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   init = build_int_cst (TREE_TYPE (diff), 0);
   if (c && iter_incr == NULL)
     {
-      finish_expr_stmt (build_x_modify_expr (elocus,
-					     incr_var, NOP_EXPR,
-					     incr, tf_warning_or_error));
-      incr = incr_var;
+      if (incr_var)
+	{
+	  finish_expr_stmt (build_x_modify_expr (elocus,
+						 incr_var, NOP_EXPR,
+						 incr, tf_warning_or_error));
+	  incr = incr_var;
+	}
       iter_incr = build_x_modify_expr (elocus,
 				       iter, PLUS_EXPR, incr,
 				       tf_warning_or_error);
@@ -7142,6 +7218,13 @@ handle_omp_for_class_iterator (int i, location_t locus, tree declv, tree initv,
   finish_expr_stmt (build_x_modify_expr (elocus,
 					 last, NOP_EXPR, init,
 					 tf_warning_or_error));
+  if (diffvar)
+    {
+      finish_expr_stmt (build_x_modify_expr (elocus,
+					     diffvar, NOP_EXPR,
+					     diff, tf_warning_or_error));
+      diff = diffvar;
+    }
   *pre_body = pop_stmt_list (*pre_body);
 
   cond = cp_build_binary_op (elocus,
@@ -7327,8 +7410,8 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
 	    }
 	  if (code == CILK_FOR && i == 0)
 	    orig_decl = decl;
-	  if (handle_omp_for_class_iterator (i, locus, declv, initv, condv,
-					     incrv, &body, &pre_body,
+	  if (handle_omp_for_class_iterator (i, locus, code, declv, initv,
+					     condv, incrv, &body, &pre_body,
 					     clauses, &last))
 	    return NULL;
 	  continue;
@@ -7429,6 +7512,68 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
     }
   OMP_FOR_CLAUSES (omp_for) = clauses;
 
+  /* For simd loops with non-static data member iterators, we could have added
+     OMP_CLAUSE_LINEAR clauses without OMP_CLAUSE_LINEAR_STEP.  As we know the
+     step at this point, fill it in.  */
+  if (code == OMP_SIMD && !processing_template_decl
+      && TREE_VEC_LENGTH (OMP_FOR_INCR (omp_for)) == 1)
+    for (tree c = find_omp_clause (clauses, OMP_CLAUSE_LINEAR); c;
+	 c = find_omp_clause (OMP_CLAUSE_CHAIN (c), OMP_CLAUSE_LINEAR))
+      if (OMP_CLAUSE_LINEAR_STEP (c) == NULL_TREE)
+	{
+	  decl = TREE_OPERAND (TREE_VEC_ELT (OMP_FOR_INIT (omp_for), 0), 0);
+	  gcc_assert (decl == OMP_CLAUSE_DECL (c));
+	  incr = TREE_VEC_ELT (OMP_FOR_INCR (omp_for), 0);
+	  tree step, stept;
+	  switch (TREE_CODE (incr))
+	    {
+	    case PREINCREMENT_EXPR:
+	    case POSTINCREMENT_EXPR:
+	      /* c_omp_for_incr_canonicalize_ptr() should have been
+		 called to massage things appropriately.  */
+	      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (decl)));
+	      OMP_CLAUSE_LINEAR_STEP (c) = build_int_cst (TREE_TYPE (decl), 1);
+	      break;
+	    case PREDECREMENT_EXPR:
+	    case POSTDECREMENT_EXPR:
+	      /* c_omp_for_incr_canonicalize_ptr() should have been
+		 called to massage things appropriately.  */
+	      gcc_assert (!POINTER_TYPE_P (TREE_TYPE (decl)));
+	      OMP_CLAUSE_LINEAR_STEP (c)
+		= build_int_cst (TREE_TYPE (decl), -1);
+	      break;
+	    case MODIFY_EXPR:
+	      gcc_assert (TREE_OPERAND (incr, 0) == decl);
+	      incr = TREE_OPERAND (incr, 1);
+	      switch (TREE_CODE (incr))
+		{
+		case PLUS_EXPR:
+		  if (TREE_OPERAND (incr, 1) == decl)
+		    step = TREE_OPERAND (incr, 0);
+		  else
+		    step = TREE_OPERAND (incr, 1);
+		  break;
+		case MINUS_EXPR:
+		case POINTER_PLUS_EXPR:
+		  gcc_assert (TREE_OPERAND (incr, 0) == decl);
+		  step = TREE_OPERAND (incr, 1);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      stept = TREE_TYPE (decl);
+	      if (POINTER_TYPE_P (stept))
+		stept = sizetype;
+	      step = fold_convert (stept, step);
+	      if (TREE_CODE (incr) == MINUS_EXPR)
+		step = fold_build1 (NEGATE_EXPR, stept, step);
+	      OMP_CLAUSE_LINEAR_STEP (c) = step;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+
   if (block)
     {
       tree omp_par = make_node (OMP_PARALLEL);
@@ -7515,7 +7660,8 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par) = finish_omp_clauses (c, false, false);
+      OMP_PARALLEL_CLAUSES (omp_par)
+	= finish_omp_clauses (c, false, false, false);
       add_stmt (omp_par);
       return omp_par;
     }

@@ -68,6 +68,12 @@ ialias_redirect (omp_get_active_level)
 ialias_redirect (omp_in_final)
 ialias_redirect (omp_get_cancellation)
 ialias_redirect (omp_get_proc_bind)
+ialias_redirect (omp_get_num_places)
+ialias_redirect (omp_get_place_num_procs)
+ialias_redirect (omp_get_place_proc_ids)
+ialias_redirect (omp_get_place_num)
+ialias_redirect (omp_get_partition_num_places)
+ialias_redirect (omp_get_partition_place_nums)
 ialias_redirect (omp_set_default_device)
 ialias_redirect (omp_get_default_device)
 ialias_redirect (omp_get_num_devices)
@@ -451,6 +457,69 @@ int32_t
 omp_get_proc_bind_ (void)
 {
   return omp_get_proc_bind ();
+}
+
+int32_t
+omp_get_num_places_ (void)
+{
+  return omp_get_num_places ();
+}
+
+int32_t
+omp_get_place_num_procs_ (const int32_t *place_num)
+{
+  return omp_get_place_num_procs (*place_num);
+}
+
+int32_t
+omp_get_place_num_procs_8_ (const int64_t *place_num)
+{
+  return omp_get_place_num_procs (TO_INT (*place_num));
+}
+
+void
+omp_get_place_proc_ids_ (const int32_t *place_num, int32_t *ids)
+{
+  omp_get_place_proc_ids (*place_num, ids);
+}
+
+void
+omp_get_place_proc_ids_8_ (const int64_t *place_num, int64_t *ids)
+{
+  gomp_get_place_proc_ids_8 (TO_INT (*place_num), ids);
+}
+
+int32_t
+omp_get_place_num_ (void)
+{
+  return omp_get_place_num ();
+}
+
+int32_t
+omp_get_partition_num_places_ (void)
+{
+  return omp_get_partition_num_places ();
+}
+
+void
+omp_get_partition_place_nums_ (int32_t *place_nums)
+{
+  omp_get_partition_place_nums (place_nums);
+}
+
+void
+omp_get_partition_place_nums_8_ (int64_t *place_nums)
+{
+  if (gomp_places_list == NULL)
+    return;
+
+  struct gomp_thread *thr = gomp_thread ();
+  if (thr->place == 0)
+    gomp_init_affinity ();
+
+  unsigned int i;
+  for (i = 0; i < thr->ts.place_partition_len; i++)
+    *place_nums++ = (int64_t) thr->ts.place_partition_off + i;
 }
 
 void

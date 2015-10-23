@@ -12188,7 +12188,7 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
    Remove any elements from the list that are invalid.  */
 
 tree
-c_finish_omp_clauses (tree clauses, bool oacc)
+c_finish_omp_clauses (tree clauses, bool oacc, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head, oacc_data_head, oacc_reduction_head;
@@ -12464,6 +12464,8 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_LINEAR:
+	  if (!declare_simd)
+	    need_implicitly_determined = true;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
 	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
@@ -12809,7 +12811,8 @@ c_finish_omp_clauses (tree clauses, bool oacc)
 
         case OMP_CLAUSE_DEVICE_TYPE:
 	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
-	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), oacc);
+	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), oacc,
+				    false);
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 

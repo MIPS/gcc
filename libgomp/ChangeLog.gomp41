@@ -1,3 +1,80 @@
+2015-06-26  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.texi: Document omp_get_max_task_priority and
+	OMP_MAX_TASK_PRIORITY.
+
+2015-06-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/member-1.C: Remove dg-options.
+	* testsuite/libgomp.c++/member-2.C: Remove dg-options.
+	* testsuite/libgomp.c++/member-3.C: New test.
+	* testsuite/libgomp.c++/member-4.C: New test.
+	* testsuite/libgomp.c++/member-5.C: New test.
+
+2015-06-25  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (struct target_var_desc): Add offset and length.
+	* target.c (gomp_map_vars_existing): New argument tgt_var, fill it.
+	(gomp_map_vars): Move filling of tgt->list[i] into
+	gomp_map_vars_existing.  Add missed case GOMP_MAP_ALWAYS_FROM.
+	(gomp_unmap_vars): Add list[i].offset to host and target addresses,
+	use list[i].length instead of k->host_end - k->host_start.
+	* testsuite/libgomp.c/target-11.c: Extend for testing array sections.
+
+2015-06-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_get_num_places, omp_get_place_num_procs,
+	omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	prototypes.
+	* omp_lib.f90.in (omp_get_num_places, omp_get_place_num_procs,
+	omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	interfaces.
+	* omp_lib.h.in (omp_get_num_places, omp_get_place_num_procs,
+	omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	externs.
+	* libgomp.map (OMP_4.1): Export omp_get_num_places,
+	omp_get_place_num_procs, omp_get_place_proc_ids, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums,
+	omp_get_num_places_, omp_get_place_num_procs_,
+	omp_get_place_num_procs_8_, omp_get_place_proc_ids_,
+	omp_get_place_proc_ids_8_, omp_get_place_num_,
+	omp_get_partition_num_places_, omp_get_partition_place_nums_
+	and omp_get_partition_place_nums_8_.
+	* libgomp.h (gomp_get_place_proc_ids_8): New prototype.
+	* env.c (omp_get_num_places, omp_get_place_num,
+	omp_get_partition_num_places, omp_get_partition_place_nums): New
+	functions, add ialias for them.
+	* fortran.c (omp_get_num_places, omp_get_place_num, 
+	omp_get_partition_num_places, omp_get_partition_place_nums,
+	omp_get_place_num_procs, omp_get_place_proc_ids): New
+	ialias_redirects.
+	(omp_get_num_places_, omp_get_place_num_procs_,
+	omp_get_place_num_procs_8_, omp_get_place_proc_ids_,
+	omp_get_place_proc_ids_8_, omp_get_place_num_,
+	omp_get_partition_num_places_, omp_get_partition_place_nums_,
+	omp_get_partition_place_nums_8_): New functions.
+	* config/linux/affinity.c (omp_get_place_num_procs,
+	omp_get_place_proc_ids, gomp_get_place_proc_ids_8): New functions.
+	* config/posix/affinity.c (omp_get_place_num_procs,
+	omp_get_place_proc_ids, gomp_get_place_proc_ids_8): New functions.
+	* testsuite/libgomp.c/affinity-2.c: New test.
+	* testsuite/libgomp.fortran/affinity1.f90: New test.
+	* testsuite/libgomp.fortran/affinity2.f90: New test.
+
+2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/libgomp.c/target-11.c (main): Remove dd from target region.
+
+2015-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/taskloop-6.C: New test.
+	* testsuite/libgomp.c++/taskloop-7.C: New test.
+	* testsuite/libgomp.c++/taskloop-8.C: New test.
+	* testsuite/libgomp.c++/taskloop-9.C: New test.
+
 2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.h (struct target_var_desc): New.

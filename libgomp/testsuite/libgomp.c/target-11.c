@@ -1,6 +1,19 @@
 /* { dg-require-effective-target offload_device } */
 
+#include <stdlib.h>
 #include <assert.h>
+
+#define N 32
+
+void test_array_section (int *p)
+{
+  #pragma omp target data map(alloc: p[0:N])
+    {
+      #pragma omp target map(always from:p[7:9])
+	for (int i = 0; i < N; i++)
+	  p[i] = i;
+    }
+}
 
 int main ()
 {
@@ -13,7 +26,7 @@ int main ()
 
       /* Set dd on target to 0 for the further check.  */
       #pragma omp target map(always to: dd)
-	{ dd; }
+	;
 
       dd = 1;
       #pragma omp target map(tofrom: aa) map(always to: bb) \
@@ -47,5 +60,16 @@ int main ()
   assert (cc == 4);
   assert (dd == 4);
 
+  int *array = calloc (N, sizeof (int));
+  test_array_section (array);
+
+  for (int i = 0; i < 7; i++)
+    assert (array[i] == 0);
+  for (int i = 7; i < 7 + 9; i++)
+    assert (array[i] == i);
+  for (int i = 7 + 9; i < N; i++)
+    assert (array[i] == 0);
+
+  free (array);
   return 0;
 }

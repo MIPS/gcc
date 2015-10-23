@@ -1,3 +1,58 @@
+2015-07-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (struct omp_for_data): Add ordered field.
+	(extract_omp_for_data): Handle loops with ordered(n) clause.
+	(expand_omp_for_ordered_loops): New function.
+	(expand_omp_for_generic): Call it.
+
+2015-07-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.h (enum cgraph_simd_clone_arg_type): Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP,
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP,
+	and SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP.
+	(struct cgraph_simd_clone_arg): Adjust comment.
+	* omp-low.c (simd_clone_clauses_extract): Honor
+	OMP_CLAUSE_LINEAR_KIND.
+	(simd_clone_mangle): Mangle the various linear kinds
+	per the new ABI.
+	(simd_clone_adjust_argument_types): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_*_CONSTANT_STEP.
+	(simd_clone_init_simd_arrays): Don't do anything
+	for uval.
+	(simd_clone_adjust): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_CONSTANT_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP.
+	Handle SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP.
+
+2015-06-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (enum omp_region_type): Add ORT_NONE.
+	(gimplify_bind_expr, omp_firstprivatize_variable,
+	omp_add_variable, omp_notice_variable): Handle ORT_NONE.
+	(gimplify_omp_for): For OMP_FOR_PRE_BODY of taskloop,
+	temporarily switch on ORT_NONE gimplify_omp_ctxp
+	if it is NULL.
+
+2015-06-23  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* gimplify.c (gimplify_adjust_omp_clauses): Don't remove map clause if
+	it has map-type-modifier always.
+
+2015-06-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_PRIVATE_TASKLOOP_IV,
+	OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV): Define.
+	* gimplify.c (gimplify_omp_for): Handle gimplification of
+	OMP_TASKLOOP with C++ random access iterator clauses.
+	* omp-low.c (scan_sharing_clauses): Ignore
+	OMP_CLAUSE_SHARED with OMP_CLAUSE_SHARED_FIRSTPRIVATE if
+	it is a global var outside of the outer taskloop for.
+	(lower_lastprivate_clauses): Handle
+	OMP_CLAUSE_LASTPRIVATE_TASKLOOP_IV lastprivate if the
+	decl is global outside of outer taskloop for.
+	(lower_send_clauses): Look beyond the outer taskloop for.
+
 2015-06-18  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-builtins.def (BUILT_IN_GOMP_TASK,
