@@ -491,3 +491,7 @@ Specify a list of functions to compress
 mno-compress-list=
 Target RejectNegative Joined Var(mips_no_compress_list)
 Specify a list of functions to use MIPS32
+
+minline-intermix
+Target Report Var(TARGET_INLINE_INTERMIX)
+Allow inlining even if the compression flags differ between caller and callee
