@@ -1,3 +1,24 @@
+2015-10-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (omp_default_clause): Tweak for
+	* private/firstprivate/is_device_ptr variables on target
+	construct and use_device_ptr on target data.
+	(omp_check_private): Likewise.
+	(omp_no_lastprivate): Return true only for Fortran.
+	(gimplify_scan_omp_clauses): Fix up handling of lastprivate
+	and linear when combined with distribute.
+	(gimplify_adjust_omp_clauses): Diagnose the same var
+	on both firstprivate and lastprivate on distribute construct.
+	(gimplify_omp_for): Fix up handling of predetermined
+	lastprivate or linear iter vars when combined with distribute.
+	* omp-low.c (add_taskreg_looptemp_clauses): Add one extra
+	_looptemp_ clause even for distribute parallel for, if there
+	are lastprivate clauses on the for.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk):
+	Initialize the extra _looptemp_ clause to fd->loop.n2.
+	(lower_omp_for_lastprivate): Determine the right count variable
+	for distribute simd, or distribute parallel for{, simd}.
+
 2015-10-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c: Include tree-pretty-print.h.

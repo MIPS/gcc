@@ -2646,12 +2646,15 @@ add_taskreg_looptemp_clauses (enum gf_mask msk, gimple *stmt,
 	  && TREE_CODE (fd.loop.n2) != INTEGER_CST)
 	{
 	  count += fd.collapse - 1;
-	  /* For taskloop, if there are lastprivate clauses on the inner
+	  /* If there are lastprivate clauses on the inner
 	     GIMPLE_OMP_FOR, add one more temporaries for the total number
 	     of iterations (product of count1 ... countN-1).  */
-	  if (msk == GF_OMP_FOR_KIND_TASKLOOP
-	      && find_omp_clause (gimple_omp_for_clauses (for_stmt),
-				  OMP_CLAUSE_LASTPRIVATE))
+	  if (find_omp_clause (gimple_omp_for_clauses (for_stmt),
+			       OMP_CLAUSE_LASTPRIVATE))
+	    count++;
+	  else if (msk == GF_OMP_FOR_KIND_FOR
+		   && find_omp_clause (gimple_omp_parallel_clauses (stmt),
+				       OMP_CLAUSE_LASTPRIVATE))
 	    count++;
 	}
       for (i = 0; i < count; i++)
@@ -8648,6 +8651,30 @@ expand_omp_for_static_nochunk (struct omp_region *region,
 				OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
       endvar = OMP_CLAUSE_DECL (innerc);
+      if (fd->collapse > 1 && TREE_CODE (fd->loop.n2) != INTEGER_CST
+	  && gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_DISTRIBUTE)
+	{
+	  int i;
+	  for (i = 1; i < fd->collapse; i++)
+	    {
+	      innerc = find_omp_clause (OMP_CLAUSE_CHAIN (innerc),
+					OMP_CLAUSE__LOOPTEMP_);
+	      gcc_assert (innerc);
+	    }
+	  innerc = find_omp_clause (OMP_CLAUSE_CHAIN (innerc),
+				    OMP_CLAUSE__LOOPTEMP_);
+	  if (innerc)
+	    {
+	      /* If needed (distribute parallel for with lastprivate),
+		 propagate down the total number of iterations.  */
+	      tree t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (innerc)),
+				     fd->loop.n2);
+	      t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE, false,
+					    GSI_CONTINUE_LINKING);
+	      assign_stmt = gimple_build_assign (OMP_CLAUSE_DECL (innerc), t);
+	      gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
+	    }
+	}
     }
   t = fold_convert (itype, s0);
   t = fold_build2 (MULT_EXPR, itype, t, step);
@@ -9133,6 +9160,30 @@ expand_omp_for_static_chunk (struct omp_region *region,
 				OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
       endvar = OMP_CLAUSE_DECL (innerc);
+      if (fd->collapse > 1 && TREE_CODE (fd->loop.n2) != INTEGER_CST
+	  && gimple_omp_for_kind (fd->for_stmt) == GF_OMP_FOR_KIND_DISTRIBUTE)
+	{
+	  int i;
+	  for (i = 1; i < fd->collapse; i++)
+	    {
+	      innerc = find_omp_clause (OMP_CLAUSE_CHAIN (innerc),
+					OMP_CLAUSE__LOOPTEMP_);
+	      gcc_assert (innerc);
+	    }
+	  innerc = find_omp_clause (OMP_CLAUSE_CHAIN (innerc),
+				    OMP_CLAUSE__LOOPTEMP_);
+	  if (innerc)
+	    {
+	      /* If needed (distribute parallel for with lastprivate),
+		 propagate down the total number of iterations.  */
+	      tree t = fold_convert (TREE_TYPE (OMP_CLAUSE_DECL (innerc)),
+				     fd->loop.n2);
+	      t = force_gimple_operand_gsi (&gsi, t, false, NULL_TREE, false,
+					    GSI_CONTINUE_LINKING);
+	      assign_stmt = gimple_build_assign (OMP_CLAUSE_DECL (innerc), t);
+	      gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
+	    }
+	}
     }
 
   t = fold_convert (itype, s0);
@@ -13456,26 +13507,36 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
       && TREE_CODE (n2) != INTEGER_CST
       && gimple_omp_for_combined_into_p (fd->for_stmt))
     {
-      struct omp_context *task_ctx = NULL;
+      struct omp_context *taskreg_ctx = NULL;
       if (gimple_code (ctx->outer->stmt) == GIMPLE_OMP_FOR)
 	{
 	  gomp_for *gfor = as_a <gomp_for *> (ctx->outer->stmt);
-	  if (gimple_omp_for_kind (gfor) == GF_OMP_FOR_KIND_FOR)
+	  if (gimple_omp_for_kind (gfor) == GF_OMP_FOR_KIND_FOR
+	      || gimple_omp_for_kind (gfor) == GF_OMP_FOR_KIND_DISTRIBUTE)
 	    {
-	      struct omp_for_data outer_fd;
-	      extract_omp_for_data (gfor, &outer_fd, NULL);
-	      n2 = fold_convert (TREE_TYPE (n2), outer_fd.loop.n2);
+	      if (gimple_omp_for_combined_into_p (gfor))
+		{
+		  gcc_assert (ctx->outer->outer
+			      && is_parallel_ctx (ctx->outer->outer));
+		  taskreg_ctx = ctx->outer->outer;
+		}
+	      else
+		{
+		  struct omp_for_data outer_fd;
+		  extract_omp_for_data (gfor, &outer_fd, NULL);
+		  n2 = fold_convert (TREE_TYPE (n2), outer_fd.loop.n2);
+		}
 	    }
 	  else if (gimple_omp_for_kind (gfor) == GF_OMP_FOR_KIND_TASKLOOP)
-	    task_ctx = ctx->outer->outer;
+	    taskreg_ctx = ctx->outer->outer;
 	}
-      else if (is_task_ctx (ctx->outer))
-	task_ctx = ctx->outer;
-      if (task_ctx)
+      else if (is_taskreg_ctx (ctx->outer))
+	taskreg_ctx = ctx->outer;
+      if (taskreg_ctx)
 	{
 	  int i;
 	  tree innerc
-	    = find_omp_clause (gimple_omp_task_clauses (task_ctx->stmt),
+	    = find_omp_clause (gimple_omp_taskreg_clauses (taskreg_ctx->stmt),
 			       OMP_CLAUSE__LOOPTEMP_);
 	  gcc_assert (innerc);
 	  for (i = 0; i < fd->collapse; i++)
@@ -13489,7 +13550,7 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
 	  if (innerc)
 	    n2 = fold_convert (TREE_TYPE (n2),
 			       lookup_decl (OMP_CLAUSE_DECL (innerc),
-					    task_ctx));
+					    taskreg_ctx));
 	}
     }
   cond = build2 (cond_code, boolean_type_node, fd->loop.v, n2);

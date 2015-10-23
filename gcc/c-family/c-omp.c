@@ -1097,10 +1097,24 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	      s = C_OMP_CLAUSE_SPLIT_FOR;
 	    }
 	  break;
-	/* Lastprivate is allowed on for, sections and simd.  In
+	/* Lastprivate is allowed on distribute, for, sections and simd.  In
 	   parallel {for{, simd},sections} we actually want to put it on
 	   parallel rather than for or sections.  */
 	case OMP_CLAUSE_LASTPRIVATE:
+	  if (code == OMP_DISTRIBUTE)
+	    {
+	      s = C_OMP_CLAUSE_SPLIT_DISTRIBUTE;
+	      break;
+	    }
+	  if ((mask & (OMP_CLAUSE_MASK_1
+		       << PRAGMA_OMP_CLAUSE_DIST_SCHEDULE)) != 0)
+	    {
+	      c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+				    OMP_CLAUSE_LASTPRIVATE);
+	      OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
+	      OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_DISTRIBUTE];
+	      cclauses[C_OMP_CLAUSE_SPLIT_DISTRIBUTE] = c;
+	    }
 	  if (code == OMP_FOR || code == OMP_SECTIONS)
 	    {
 	      if ((mask & (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NUM_THREADS))

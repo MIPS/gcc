@@ -5849,9 +5849,10 @@ omp_default_clause (struct gimplify_omp_ctx *ctx, tree decl,
 	    {
 	      splay_tree_node n2;
 
-	      if ((octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)) != 0)
-		continue;
 	      n2 = splay_tree_lookup (octx->variables, (splay_tree_key) decl);
+	      if ((octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)) != 0
+		  && (n2 == NULL || (n2->value & GOVD_DATA_SHARE_CLASS) == 0))
+		continue;
 	      if (n2 && (n2->value & GOVD_DATA_SHARE_CLASS) != GOVD_SHARED)
 		{
 		  flags |= GOVD_FIRSTPRIVATE;
@@ -6143,10 +6144,12 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl, bool copyprivate)
 	  return true;
 	}
 
-      if ((ctx->region_type & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
+      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+
+      if ((ctx->region_type & (ORT_TARGET | ORT_TARGET_DATA)) != 0
+	  && (n == NULL || (n->value & GOVD_DATA_SHARE_CLASS) == 0))
 	continue;
 
-      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
       if (n != NULL)
 	{
 	  if ((n->value & GOVD_LOCAL) != 0
@@ -6177,12 +6180,12 @@ omp_no_lastprivate (struct gimplify_omp_ctx *ctx)
 	  if (!ctx->combined_loop)
 	    return false;
 	  if (ctx->distribute)
-	    return true;
+	    return lang_GNU_Fortran ();
 	  break;
 	case ORT_COMBINED_PARALLEL:
 	  break;
 	case ORT_COMBINED_TEAMS:
-	  return true;
+	  return lang_GNU_Fortran ();
 	default:
 	  return false;
 	}
@@ -6279,16 +6282,25 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  else if (error_operand_p (decl))
 	    goto do_add;
 	  else if (outer_ctx
-		   && outer_ctx->region_type == ORT_COMBINED_PARALLEL
+		   && (outer_ctx->region_type == ORT_COMBINED_PARALLEL
+		       || outer_ctx->region_type == ORT_COMBINED_TEAMS)
 		   && splay_tree_lookup (outer_ctx->variables,
 					 (splay_tree_key) decl) == NULL)
-	    omp_add_variable (outer_ctx, decl, GOVD_SHARED | GOVD_SEEN);
+	    {
+	      omp_add_variable (outer_ctx, decl, GOVD_SHARED | GOVD_SEEN);
+	      if (outer_ctx->outer_context)
+		omp_notice_variable (outer_ctx->outer_context, decl, true);
+	    }
 	  else if (outer_ctx
 		   && (outer_ctx->region_type & ORT_TASK) != 0
 		   && outer_ctx->combined_loop
 		   && splay_tree_lookup (outer_ctx->variables,
 					 (splay_tree_key) decl) == NULL)
-	    omp_add_variable (outer_ctx, decl, GOVD_LASTPRIVATE | GOVD_SEEN);
+	    {
+	      omp_add_variable (outer_ctx, decl, GOVD_LASTPRIVATE | GOVD_SEEN);
+	      if (outer_ctx->outer_context)
+		omp_notice_variable (outer_ctx->outer_context, decl, true);
+	    }
 	  else if (outer_ctx
 		   && outer_ctx->region_type == ORT_WORKSHARE
 		   && outer_ctx->combined_loop
@@ -6302,8 +6314,14 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      == ORT_COMBINED_PARALLEL)
 		  && splay_tree_lookup (outer_ctx->outer_context->variables,
 					(splay_tree_key) decl) == NULL)
-		omp_add_variable (outer_ctx->outer_context, decl,
-				  GOVD_SHARED | GOVD_SEEN);
+		{
+		  struct gimplify_omp_ctx *octx = outer_ctx->outer_context;
+		  omp_add_variable (octx, decl, GOVD_SHARED | GOVD_SEEN);
+		  if (octx->outer_context)
+		    omp_notice_variable (octx->outer_context, decl, true);
+		}
+	      else if (outer_ctx->outer_context)
+		omp_notice_variable (outer_ctx->outer_context, decl, true);
 	    }
 	  goto do_add;
 	case OMP_CLAUSE_REDUCTION:
@@ -6416,9 +6434,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		    {
 		      if (octx->outer_context
 			  && (octx->outer_context->region_type
-			      == ORT_COMBINED_PARALLEL
-			      || (octx->outer_context->region_type
-				  == ORT_COMBINED_TEAMS)))
+			      == ORT_COMBINED_PARALLEL))
 			octx = octx->outer_context;
 		      else if (omp_check_private (octx, decl, false))
 			break;
@@ -6433,8 +6449,15 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			   && octx == outer_ctx)
 		    flags = GOVD_SEEN | GOVD_SHARED;
 		  else if (octx
+			   && octx->region_type == ORT_COMBINED_TEAMS)
+		    flags = GOVD_SEEN | GOVD_SHARED;
+		  else if (octx
 			   && octx->region_type == ORT_COMBINED_TARGET)
-		    flags &= ~GOVD_LASTPRIVATE;
+		    {
+		      flags &= ~GOVD_LASTPRIVATE;
+		      if (flags == GOVD_SEEN)
+			break;
+		    }
 		  else
 		    break;
 		  splay_tree_node on
@@ -7289,6 +7312,15 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p,
 	      else
 		OMP_CLAUSE_CODE (c) = OMP_CLAUSE_PRIVATE;
 	    }
+	  else if (code == OMP_DISTRIBUTE
+		   && OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
+	    {
+	      remove = true;
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"same variable used in %<firstprivate%> and "
+			"%<lastprivate%> clauses on %<distribute%> "
+			"construct");
+	    }
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -7902,6 +7934,26 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 			  OMP_CLAUSE_LINEAR_NO_COPYOUT (c) = 1;
 			  flags |= GOVD_LINEAR_LASTPRIVATE_NO_OUTER;
 			}
+		      else
+			{
+			  struct gimplify_omp_ctx *octx = outer->outer_context;
+			  if (octx
+			      && octx->region_type == ORT_COMBINED_PARALLEL
+			      && octx->outer_context
+			      && (octx->outer_context->region_type
+				  == ORT_WORKSHARE)
+			      && octx->outer_context->combined_loop)
+			    {
+			      octx = octx->outer_context;
+			      n = splay_tree_lookup (octx->variables,
+						     (splay_tree_key)decl);
+			      if (n != NULL && (n->value & GOVD_LOCAL) != 0)
+				{
+				  OMP_CLAUSE_LINEAR_NO_COPYOUT (c) = 1;
+				  flags |= GOVD_LINEAR_LASTPRIVATE_NO_OUTER;
+				}
+			    }
+			}
 		    }
 		}
 
@@ -7936,7 +7988,41 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 			{
 			  omp_add_variable (outer, decl,
 					    GOVD_LASTPRIVATE | GOVD_SEEN);
-			  if (outer->outer_context)
+			  if (outer->region_type == ORT_COMBINED_PARALLEL
+			      && outer->outer_context
+			      && (outer->outer_context->region_type
+				  == ORT_WORKSHARE)
+			      && outer->outer_context->combined_loop)
+			    {
+			      outer = outer->outer_context;
+			      n = splay_tree_lookup (outer->variables,
+						     (splay_tree_key)decl);
+			      if (omp_check_private (outer, decl, false))
+				outer = NULL;
+			      else if (n == NULL
+				       || ((n->value & GOVD_DATA_SHARE_CLASS)
+					   == 0))
+				omp_add_variable (outer, decl,
+						  GOVD_LASTPRIVATE
+						  | GOVD_SEEN);
+			      else
+				outer = NULL;
+			    }
+			  if (outer && outer->outer_context
+			      && (outer->outer_context->region_type
+				  == ORT_COMBINED_TEAMS))
+			    {
+			      outer = outer->outer_context;
+			      n = splay_tree_lookup (outer->variables,
+						     (splay_tree_key)decl);
+			      if (n == NULL
+				  || (n->value & GOVD_DATA_SHARE_CLASS) == 0)
+				omp_add_variable (outer, decl,
+						  GOVD_SHARED | GOVD_SEEN);
+			      else
+				outer = NULL;
+			    }
+			  if (outer && outer->outer_context)
 			    omp_notice_variable (outer->outer_context, decl,
 						 true);
 			}
@@ -7985,7 +8071,41 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 			{
 			  omp_add_variable (outer, decl,
 					    GOVD_LASTPRIVATE | GOVD_SEEN);
-			  if (outer->outer_context)
+			  if (outer->region_type == ORT_COMBINED_PARALLEL
+			      && outer->outer_context
+			      && (outer->outer_context->region_type
+				  == ORT_WORKSHARE)
+			      && outer->outer_context->combined_loop)
+			    {
+			      outer = outer->outer_context;
+			      n = splay_tree_lookup (outer->variables,
+						     (splay_tree_key)decl);
+			      if (omp_check_private (outer, decl, false))
+				outer = NULL;
+			      else if (n == NULL
+				       || ((n->value & GOVD_DATA_SHARE_CLASS)
+					   == 0))
+				omp_add_variable (outer, decl,
+						  GOVD_LASTPRIVATE
+						  | GOVD_SEEN);
+			      else
+				outer = NULL;
+			    }
+			  if (outer && outer->outer_context
+			      && (outer->outer_context->region_type
+				  == ORT_COMBINED_TEAMS))
+			    {
+			      outer = outer->outer_context;
+			      n = splay_tree_lookup (outer->variables,
+						     (splay_tree_key)decl);
+			      if (n == NULL
+				  || (n->value & GOVD_DATA_SHARE_CLASS) == 0)
+				omp_add_variable (outer, decl,
+						  GOVD_SHARED | GOVD_SEEN);
+			      else
+				outer = NULL;
+			    }
+			  if (outer && outer->outer_context)
 			    omp_notice_variable (outer->outer_context, decl,
 						 true);
 			}
