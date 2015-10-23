@@ -649,11 +649,9 @@ struct target_var_desc {
   bool copy_from;
   /* True if data always should be copied from device to host at the end.  */
   bool always_copy_from;
-  /* Used for unmapping of array sections, can be nonzero only when
-     always_copy_from is true.  */
+  /* Relative offset against key host_start.  */
   uintptr_t offset;
-  /* Used for unmapping of array sections, can be less than the size of the
-     whole object only when always_copy_from is true.  */
+  /* Actual length.  */
   uintptr_t length;
 };
 
@@ -680,6 +678,9 @@ struct target_mem_desc {
      at the end of region.  */
   struct target_var_desc list[];
 };
+
+/* Special value for refcount - infinity.  */
+#define REFCOUNT_INFINITY (~(uintptr_t) 0)
 
 struct splay_tree_key_s {
   /* Address of the host object.  */
@@ -771,6 +772,7 @@ struct gomp_device_descr
   void (*free_func) (int, void *);
   void *(*dev2host_func) (int, void *, const void *, size_t);
   void *(*host2dev_func) (int, void *, const void *, size_t);
+  void *(*dev2dev_func) (int, void *, const void *, size_t);
   void (*run_func) (int, void *, void *);
 
   /* Splay tree containing information about mapped memory regions.  */
@@ -788,12 +790,22 @@ struct gomp_device_descr
   acc_dispatch_t openacc;
 };
 
+/* Kind of the pragma, for which gomp_map_vars () is called.  */
+enum gomp_map_vars_kind
+{
+  GOMP_MAP_VARS_OPENACC,
+  GOMP_MAP_VARS_TARGET,
+  GOMP_MAP_VARS_DATA,
+  GOMP_MAP_VARS_ENTER_DATA
+};
+
 extern void gomp_acc_insert_pointer (size_t, void **, size_t *, void *);
 extern void gomp_acc_remove_pointer (void *, bool, int, int);
 
 extern struct target_mem_desc *gomp_map_vars (struct gomp_device_descr *,
 					      size_t, void **, void **,
-					      size_t *, void *, bool, bool);
+					      size_t *, void *, bool,
+					      enum gomp_map_vars_kind);
 extern void gomp_copy_from_async (struct target_mem_desc *);
 extern void gomp_unmap_vars (struct target_mem_desc *, bool);
 extern void gomp_init_device (struct gomp_device_descr *);

@@ -287,9 +287,13 @@ unsigned const char omp_clause_num_ops[] =
   2, /* OMP_CLAUSE_ALIGNED  */
   1, /* OMP_CLAUSE_DEPEND  */
   1, /* OMP_CLAUSE_UNIFORM  */
+  1, /* OMP_CLAUSE_TO_DECLARE  */
+  1, /* OMP_CLAUSE_LINK  */
   2, /* OMP_CLAUSE_FROM  */
   2, /* OMP_CLAUSE_TO  */
   2, /* OMP_CLAUSE_MAP  */
+  1, /* OMP_CLAUSE_USE_DEVICE_PTR  */
+  1, /* OMP_CLAUSE_IS_DEVICE_PTR  */
   2, /* OMP_CLAUSE__CACHE_  */
   1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
   1, /* OMP_CLAUSE_USE_DEVICE  */
@@ -329,6 +333,7 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_THREADS  */
   0, /* OMP_CLAUSE_SIMD  */
   1, /* OMP_CLAUSE_HINT  */
+  0, /* OMP_CLAUSE_DEFALTMAP  */
   1, /* OMP_CLAUSE__SIMDUID_  */
   1, /* OMP_CLAUSE__CILK_FOR_COUNT_  */
   0, /* OMP_CLAUSE_INDEPENDENT  */
@@ -357,9 +362,13 @@ const char * const omp_clause_code_name[] =
   "aligned",
   "depend",
   "uniform",
+  "to",
+  "link",
   "from",
   "to",
   "map",
+  "use_device_ptr",
+  "is_device_ptr",
   "_cache_",
   "device_resident",
   "use_device",
@@ -399,6 +408,7 @@ const char * const omp_clause_code_name[] =
   "threads",
   "simd",
   "hint",
+  "defaultmap",
   "_simduid_",
   "_Cilk_for_count_",
   "independent",
@@ -11509,6 +11519,10 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_GRAINSIZE:
 	case OMP_CLAUSE_NUM_TASKS:
 	case OMP_CLAUSE_HINT:
+	case OMP_CLAUSE_TO_DECLARE:
+	case OMP_CLAUSE_LINK:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE__SIMDUID_:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
@@ -11531,6 +11545,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
+	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_NOHOST:

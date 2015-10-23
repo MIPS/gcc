@@ -1,3 +1,94 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-tree.h (c_finish_omp_clauses): Add is_omp argument.
+	* c-parser.c (c_parser_oacc_all_clauses, c_parser_omp_all_clauses,
+	c_parser_oacc_cache, omp_split_clauses, c_parser_cilk_for): Adjust
+	c_finish_omp_clauses callers.
+	(c_parser_omp_target_data, c_parser_omp_target_enter_data,
+	c_parser_omp_target_exit_data): Disallow GOMP_MAP_POINTER, allow
+	GOMP_MAP_FIRSTPRIVATE_POINTER but don't set map_seen for it.
+	(c_parser_omp_target): Set OMP_TARGET_COMBINED if combined.
+	Disallow GOMP_MAP_POINTER, allow GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* c-typeck.c (handle_omp_array_sections): Add is_omp argument.
+	Set OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION if needed.
+	Use GOMP_MAP_FIRSTPRIVATE_POINTER instead of GOMP_MAP_POINTER
+	if is_omp.
+	(c_finish_omp_clauses): Add is_omp argument, pass it down to
+	handle_omp_array_sections.  Handle GOMP_MAP_FIRSTPRIVATE_POINTER.
+	For is_device_ptr/use_device_ptr clauses allow ARRAY_TYPE.
+
+2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Adjust pointer offsets for
+	OMP_CLAUSE_DEPEND_SINK.
+
+2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_depend_sink): Handle multiple
+	undeclared sink variables gracefully.
+
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Handle link clause.
+	(c_parser_omp_variable_list): Formatting fix.
+	(c_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_LINK.
+	For PRAGMA_OMP_CLAUSE_TO, parse it as OMP_CLAUSE_TO_DECLARE
+	rather than OMP_CLAUSE_TO if it is a declare target directive clause.
+	(OMP_DECLARE_TARGET_CLAUSE_MASK): Define.
+	(c_parser_omp_declare_target): Parse directive with clauses forms.
+	* c-typeck.c (c_finish_omp_clauses): Handle
+	OMP_CLAUSE_{TO_DECLARE,LINK}.
+
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_parallel): Allow parsing
+	#pragma omp target parallel.
+	(c_parser_omp_target): Allow parsing #pragma omp target simd
+	and #pragma omp target parallel{, for{, simd}}.
+
+2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Pass new argument to
+	c_finish_omp_for.
+
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_if): Add IS_OMP argument.  Parse
+	and diagnose directive-name-modifier.
+	(c_parser_oacc_all_clauses, c_parser_omp_all_clauses): Adjust
+	callers.
+
+2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_depend_sink): New.
+	(c_parser_omp_clause_depend): Call it.
+	* c-typeck.c (c_finish_omp_clauses): Handle
+	OMP_CLAUSE_DEPEND_SINK.
+
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Parse use_device_ptr
+	and is_device_ptr.
+	(c_parser_omp_clause_use_device_ptr,
+	c_parser_omp_clause_is_device_ptr): New functions.
+	(c_parser_omp_all_clauses): Handle
+	PRAGMA_OMP_CLAUSE_{IS,USE}_DEVICE_PTR.
+	(OMP_TARGET_DATA_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR.
+	(OMP_TARGET_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR.
+	* c-typeck.c (c_finish_omp_clauses): Handle
+	OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+
+2015-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_name): Handle defaultmap clause.
+	(c_parser_omp_clause_defaultmap): New function.
+	(c_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_DEFAULTMAP.
+	(OMP_TARGET_CLAUSE_MASK): Add private, firstprivate and defaultmap
+	clauses.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_DEFAULTMAP.
+	Track map, to and from clause decl uids separately from data sharing
+	clauses.
+
 2015-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (c_parser_omp_for_loop): Parse collapse + ordered - 1

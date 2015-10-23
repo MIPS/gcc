@@ -1,3 +1,187 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_TARGET_COMBINED): Define.
+	(OMP_CLAUSE_SET_MAP_KIND): Cast to unsigned int rather than unsigned
+	char.
+	(OMP_CLAUSE_MAP_PRIVATE,
+	OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION): Define.
+	* tree-core.h (struct tree_omp_clause): Change type of map_kind
+	from unsigned char to unsigned int.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_0LEN_ARRAY.
+	(enum omp_region_type): Add ORT_COMBINED_TARGET.
+	(struct gimplify_omp_ctx): Add target_map_scalars_firstprivate,
+	target_map_pointers_as_0len_arrays and
+	target_firstprivatize_array_bases fields.
+	(maybe_fold_stmt): Adjust check for ORT_TARGET for the addition of
+	ORT_COMBINED_TARGET.
+	(omp_notice_threadprivate_variable): Likewise.
+	(omp_firstprivatize_variable): Likewise. 
+	If ctx->target_map_scalars_firstprivate is set, firstprivatize
+	as GOVD_FIRSTPRIVATE.
+	(omp_add_variable): Allow map clause together with data sharing
+	clauses.  For data sharing clause with VLA decl
+	on omp target/target data don't add firstprivate for the pointer.
+	(omp_notice_variable): Adjust check for ORT_TARGET for the addition
+	of ORT_COMBINED_TARGET.  Handle implicit mapping of pointers
+	as zero length array sections and
+	ctx->target_map_scalars_firstprivate mapping of scalars as
+	firstprivate data sharing.
+	(gimplify_scan_omp_clauses): Initialize
+	ctx->target_map_scalars_firstprivate,
+	ctx->target_firstprivatize_array_bases and
+	ctx->target_map_pointers_as_0len_arrays.  Add firstprivate for
+	linear clause even to target region if combined.  Remove
+	map clauses with GOMP_MAP_FIRSTPRIVATE_POINTER kind from
+	OMP_TARGET_{,ENTER_,EXIT_}DATA.  For GOMP_MAP_FIRSTPRIVATE_POINTER
+	map kind with non-INTEGER_CST OMP_CLAUSE_SIZE firstprivatize
+	the bias.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_MAP_0LEN_ARRAY.
+	If gimplify_omp_ctxp->target_firstprivatize_array_bases, use
+	GOMP_MAP_FIRSTPRIVATE_POINTER map kind instead of
+	GOMP_MAP_POINTER.
+	(gimplify_adjust_omp_clauses): Adjust check for ORT_TARGET for the
+	addition of ORT_COMBINED_TARGET.  Use
+	GOMP_MAP_FIRSTPRIVATE_POINTER instead of GOMP_MAP_POINTER if
+	ctx->target_firstprivatize_array_bases for VLAs.  Set
+	OMP_CLAUSE_MAP_PRIVATE if both data sharing and map clause
+	appear together.
+	(gimplify_omp_workshare): Adjust check for ORT_TARGET for the
+	addition of ORT_COMBINED_TARGET.  Use ORT_COMBINED_TARGET if
+	OMP_TARGET_COMBINED.
+	* omp-low.c (lookup_sfield): Change first argument to
+	splay_tree_key, add overload with tree first argument.
+	(maybe_lookup_field): Likewise.
+	(build_sender_ref): Likewise.
+	(scan_sharing_clauses): Handle VLAs in target firstprivate and
+	is_device_ptr clauses.  Fix up variable shadowing.  Handle
+	OMP_CLAUSE_USE_DEVICE_PTR.  Handle OMP_CLAUSE_MAP_PRIVATE.  Handle
+	GOMP_MAP_FIRSTPRIVATE_POINTER map kind.
+	(handle_simd_reference): Use get_name.
+	(lower_rec_input_clauses): Likewise.  Use BUILT_IN_ALLOCA_WITH_ALIGN
+	instead of BUILT_IN_ALLOCA.
+	(lower_send_clauses): Use new lookup_sfield overload.
+	(lower_omp_target): Handle GOMP_MAP_FIRSTPRIVATE_POINTER map kind.
+	Handle OMP_CLAUSE_PRIVATE VLAs.  Handle OMP_CLAUSE_USE_DEVICE_PTR,
+	handle arrays and references to arrays in OMP_CLAUSE_IS_DEVICE_PTR
+	clause.  Handle OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+
+2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-pretty-print.c (dump_omp_clause): Pass TYPE_SIGN to
+	wi::neg_p.
+
+2015-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_sharing_clauses): Handle firstprivate
+	and is_device_ptr clauses on target region.
+	(lower_omp_target): Handle OMP_CLAUSE_FIRSTPRIVATE,
+	OMP_CLAUSE_IS_DEVICE_PTR and OMP_CLAUSE_PRIVATE.
+
+2015-07-20  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-pretty-print.c (dump_omp_clause): Print '+' for positive
+	numbers.
+
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_TO_DECLARE
+	and OMP_CLAUSE_LINK.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add entries for
+	OMP_CLAUSE_{TO_DECLARE,LINK}.
+	(walk_tree_1): Handle OMP_CLAUSE_{TO_DECLARE,LINK}.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_build_assign): Add prototype.  Add AFTER
+	argument, if true emit statements after *GSI_P and continue linking.
+	(expand_parallel_call): Use expand_omp_build_assign.
+
+2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Use OMP_FOR_ORIG_DECLS.
+	* tree.def (omp_for): Add new operand.
+	* tree.h (OMP_FOR_ORIG_DECLS): New macro.
+
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (struct tree_omp_clause): Add subcode.if_modifier
+	field.
+	* tree.h (OMP_CLAUSE_IF_MODIFIER): Define.
+	* gimplify.c (gimplify_scan_omp_clauses): Add CODE argument.
+	For OMP_CLAUSE_IF complain if OMP_CLAUSE_IF_MODIFIER is present
+	and does not match code.  Handle OMP_CLAUSE_GANG separately.
+	(gimplify_oacc_cache, gimplify_omp_parallel, gimplify_omp_task,
+	gimplify_omp_for, gimplify_omp_workshare, gimplify_omp_target_update,
+	gimplify_expr): Adjust gimplify_scan_omp_clauses callers.
+	* tree-pretty-print.c (dump_omp_clause): Print OMP_CLAUSE_IF_MODIFIER.
+
+2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* coretypes.h (struct gomp_ordered): Define.
+	* gimple-pretty-print.c (dump_gimple_omp_block): Do not handle
+	GIMPLE_OMP_ORDERED.
+	(dump_gimple_omp_ordered): New.
+	(pp_gimple_stmt_1): Handle GIMPLE_OMP_ORDERED.
+	* gimple-walk.c (walk_gimple_op): Same.
+	* gimple.c (gimple_build_omp_ordered): Generate gimple_ordered.
+	* gimple.def (GIMPLE_OMP_ORDERED): Add clauses.
+	* gimple.h (struct gomp_ordered): New.
+	(is_a_helper<gomp_ordered *>::test): New.
+	(is_a_helper<gomp_ordered *>): New.
+	(gimple_omp_ordered_clauses): New.
+	(gimple_omp_ordered_clauses_ptr): New.
+	(gimple_omp_ordered_set_clauses): New.
+	* gimplify.c (struct gimplify_omp_ctx): Add iter_vars field.
+	(delete_omp_context): Release iter_vars.
+	(gimplify_scan_omp_clauses): Handle OMP_CLAUSE_DEPEND_{SINK,SOURCE}.
+	(gimplify_omp_for): Initialize iter_vars.
+	(gimplify_expr): Handle OMP_ORDERED clauses.
+	* omp-low.c (check_omp_nesting_restrictions): Type check
+	OMP_CLAUSE_DEPEND_{KIND,SOURCE}.
+	(lower_depend_clauses): Add cases for OMP_CLAUSE_DEPEND_{SOURCE,SINK}.
+	* tree-inline.c (remap_gimple_stmt): Call gimple_build_omp_ordered
+	with clauses.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	OMP_CLAUSE_DEPEND_SINK.
+
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (enum omp_clause_code): Add
+	OMP_CLAUSE_USE_DEVICE_PTR and OMP_CLAUSE_IS_DEVICE_PTR.
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	OMP_CLAUSE_USE_DEVICE_PTR and OMP_CLAUSE_IS_DEVICE_PTR
+	like OMP_CLAUSE_FIRSTPRIVATE.
+	(gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+	* tree.c (omp_clause_num_ops): Add entries for
+	OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+	(omp_clause_code_name): Likewise.
+	(walk_tree_1): Handle OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_{REF,VAL,UVAL}_CONSTANT_STEP.
+
+2015-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_DEFAULTMAP.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add entries
+	for defaultmap clause.
+	(walk_tree_1): Handle OMP_CLAUSE_DEFAULTMAP.
+	* tree-nested.c (convert_nonlocal_omp_clauses,
+	convert_local_omp_clauses): Likewise.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	* gimplify.c (gimplify_scan_omp_clauses,
+	gimplify_adjust_omp_clauses): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+
 2015-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (struct omp_for_data): Add ordered field.

@@ -1,3 +1,116 @@
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_target_data, cp_parser_omp_target_enter_data,
+	cp_parser_omp_target_exit_data): Formatting fixes.  Disallow
+	GOMP_MAP_POINTER, allow GOMP_MAP_FIRSTPRIVATE_POINTER but don't set
+	map_seen for it.
+	(cp_parser_omp_target): Set OMP_TARGET_COMBINED if combined.
+	Disallow GOMP_MAP_POINTER, allow GOMP_MAP_FIRSTPRIVATE_POINTER.
+	* semantics.c (handle_omp_array_sections): Add is_omp argument.
+	Set OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION if needed.
+	Use GOMP_MAP_FIRSTPRIVATE_POINTER instead of GOMP_MAP_POINTER
+	if is_omp.
+	(finish_omp_clauses): Handle GOMP_MAP_FIRSTPRIVATE_POINTER.
+	For is_device_ptr/use_device_ptr clauses allow ARRAY_TYPE
+	and REFERENCE_TYPE to ARRAY_TYPE.
+
+2015-07-21  Aldy Hernandez  <aldyh@redhat.com>
+
+	* semantics.c (cp_finish_omp_clause_depend_sink): New.
+	(finish_omp_clauses): Call cp_finish_omp_clause_depend_sink.
+
+2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_depend_sink): Handle multiple
+	undeclared sink variables gracefully.
+
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle link clause.
+	(cp_parser_omp_var_list_no_open): Formatting fix.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_LINK.
+	For PRAGMA_OMP_CLAUSE_TO, parse it as OMP_CLAUSE_TO_DECLARE
+	rather than OMP_CLAUSE_TO if it is a declare target directive clause.
+	(OMP_DECLARE_TARGET_CLAUSE_MASK): Define.
+	(cp_parser_omp_declare_target): Parse directive with clauses forms.
+	* semantics.c (finish_omp_clauses): Handle
+	OMP_CLAUSE_{TO_DECLARE,LINK}.
+
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_priority): Fix typo.
+	(cp_parser_omp_parallel): Allow parsing
+	#pragma omp target parallel.
+	(cp_parser_omp_target): Allow parsing #pragma omp target simd
+	and #pragma omp target parallel{, for{, simd}}.
+
+2015-07-16  Aldy Hernandez  <aldyh@redhat.com>
+
+	* cp-tree.h (finish_omp_for): Add new argument.
+	* parser.c (cp_parser_omp_for_loop): Pass new argument to
+	finish_omp_for.
+	* pt.c (tsubst_omp_for_iterator): New argument orig_declv.
+	Set OMP_FOR_ORIG_DECLS from orig_declv if available.
+	(tsubst_expr): Pass new vector to tsubst_omp_for_iterator.
+	* semantics.c (finish_omp_for): Pass original DECLs to
+	c_finish_omp_for.
+	Set OMP_FOR_ORIG_DECLS.
+
+2015-07-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Don't process
+	RID_THIS for kind == 0.  Don't call cp_parser_name_lookup_error
+	if finish_this_expr returned error_mark_node.
+
+	* parser.c (cp_parser_omp_clause_if): Add IS_OMP argument.  Parse
+	and diagnose directive-name-modifier.
+	(cp_parser_oacc_all_clauses, cp_parser_omp_all_clauses): Adjust
+	callers.
+
+2015-07-14  Aldy Hernandez  <aldyh@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_depend_sink): New.
+	(cp_parser_omp_clause_depend): Call it.
+	* pt.c (tsubst_omp_clause_decl): Handle OMP_CLAUSE_DEPEND_KIND.
+	(tsubst_expr): Handle OMP_ORDERED_CLAUSES.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_DEPEND_KIND.
+
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Parse use_device_ptr
+	and is_device_ptr.
+	(cp_parser_omp_all_clauses): Handle OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+	(OMP_TARGET_DATA_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR.
+	(OMP_TARGET_CLAUSE_MASK): Add PRAGMA_OMP_CLAUSE_IS_DEVICE_PTR.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_{USE,IS}_DEVICE_PTR.
+	* semantics.c (finish_omp_clauses): Likewise.
+
+2015-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Parse this.
+	* cp-tree.h (finish_omp_declare_simd_methods): New prototype.
+	* semantics.c (handle_omp_array_sections_1): Disallow this based
+	array sections for OpenMP.
+	(finish_omp_declare_simd_methods): New function.
+	(finish_omp_clauses): Don't attempt to adjust linear step of
+	this if it points to TYPE_BEING_DEFINED.  Disallow this in
+	all clauses expecting variable lists, except for declare simd
+	linear/uniform/aligned clauses.
+	(finish_struct_1): Call finish_omp_declare_simd_methods.
+
+2015-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Handle defaultmap clause.
+	(cp_parser_omp_clause_defaultmap): New function.
+	(cp_parser_omp_all_clauses): Handle PRAGMA_OMP_CLAUSE_DEFAULTMAP.
+	(OMP_TARGET_CLAUSE_MASK): Add private, firstprivate and defaultmap
+	clauses.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_HINT and
+	OMP_CLAUSE_DEFAULTMAP.
+	* semantics.c (finish_omp_clauses): Handle OMP_CLAUSE_DEFAULTMAP.
+	Track map, to and from clause decl uids separately from data sharing
+	clauses.
+
 2015-07-02  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_for_loop): Parse collapse + ordered - 1

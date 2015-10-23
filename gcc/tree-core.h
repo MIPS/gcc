@@ -258,6 +258,13 @@ enum omp_clause_code {
   /* OpenMP clause: uniform (argument-list).  */
   OMP_CLAUSE_UNIFORM,
 
+  /* OpenMP clause: to (extended-list).
+     Only when it appears in declare target.  */
+  OMP_CLAUSE_TO_DECLARE,
+
+  /* OpenMP clause: link (variable-list).  */
+  OMP_CLAUSE_LINK,
+
   /* OpenMP clause: from (variable-list).  */
   OMP_CLAUSE_FROM,
 
@@ -271,6 +278,12 @@ enum omp_clause_code {
 
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
   OMP_CLAUSE_MAP,
+
+  /* OpenMP clause: use_device_ptr (variable-list).  */
+  OMP_CLAUSE_USE_DEVICE_PTR,
+
+  /* OpenMP clause: is_device_ptr (variable-list).  */
+  OMP_CLAUSE_IS_DEVICE_PTR,
 
   /* Internal structure to hold OpenACC cache directive's variable-list.
      #pragma acc cache (variable-list).  */
@@ -394,6 +407,9 @@ enum omp_clause_code {
 
   /* OpenMP clause: hint (integer-expression).  */
   OMP_CLAUSE_HINT,
+
+  /* OpenMP clause: defaultmap (tofrom: scalar).  */
+  OMP_CLAUSE_DEFAULTMAP,
 
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_,
@@ -1341,10 +1357,11 @@ struct GTY(()) tree_omp_clause {
     enum omp_clause_schedule_kind  schedule_kind;
     enum omp_clause_depend_kind    depend_kind;
     /* See include/gomp-constants.h for enum gomp_map_kind's values.  */
-    unsigned char		   map_kind;
+    unsigned int		   map_kind;
     enum omp_clause_proc_bind_kind proc_bind_kind;
     enum tree_code                 reduction_code;
     enum omp_clause_linear_kind    linear_kind;
+    enum tree_code                 if_modifier;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's

@@ -422,6 +422,12 @@
         end interface
 
         interface
+          function omp_get_initial_device ()
+            integer (4) :: omp_get_initial_device
+          end function omp_get_initial_device
+        end interface
+
+        interface
           function omp_get_max_task_priority ()
             integer (4) :: omp_get_max_task_priority
           end function omp_get_max_task_priority

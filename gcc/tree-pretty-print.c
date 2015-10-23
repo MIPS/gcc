@@ -330,6 +330,12 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
     case OMP_CLAUSE_UNIFORM:
       name = "uniform";
       goto print_remap;
+    case OMP_CLAUSE_USE_DEVICE_PTR:
+      name = "use_device_ptr";
+      goto print_remap;
+    case OMP_CLAUSE_IS_DEVICE_PTR:
+      name = "is_device_ptr";
+      goto print_remap;
     case OMP_CLAUSE__LOOPTEMP_:
       name = "_looptemp_";
       goto print_remap;
@@ -338,6 +344,12 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       goto print_remap;
     case OMP_CLAUSE_USE_DEVICE:
       name = "use_device";
+      goto print_remap;
+    case OMP_CLAUSE_TO_DECLARE:
+      name = "to";
+      goto print_remap;
+    case OMP_CLAUSE_LINK:
+      name = "link";
       goto print_remap;
   print_remap:
       pp_string (pp, name);
@@ -362,6 +374,20 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 
     case OMP_CLAUSE_IF:
       pp_string (pp, "if(");
+      switch (OMP_CLAUSE_IF_MODIFIER (clause))
+	{
+	case ERROR_MARK: break;
+	case OMP_PARALLEL: pp_string (pp, "parallel:"); break;
+	case OMP_TASK: pp_string (pp, "task:"); break;
+	case OMP_TASKLOOP: pp_string (pp, "taskloop:"); break;
+	case OMP_TARGET_DATA: pp_string (pp, "target data:"); break;
+	case OMP_TARGET: pp_string (pp, "target:"); break;
+	case OMP_TARGET_UPDATE: pp_string (pp, "target update:"); break;
+	case OMP_TARGET_ENTER_DATA:
+	  pp_string (pp, "target enter data:"); break;
+	case OMP_TARGET_EXIT_DATA: pp_string (pp, "target exit data:"); break;
+	default: gcc_unreachable ();
+	}
       dump_generic_node (pp, OMP_CLAUSE_IF_EXPR (clause),
 			 spc, flags, false);
       pp_right_paren (pp);
@@ -534,6 +560,27 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case OMP_CLAUSE_DEPEND_SOURCE:
 	  pp_string (pp, "source)");
 	  return;
+	case OMP_CLAUSE_DEPEND_SINK:
+	  pp_string (pp, "sink:");
+	  for (tree t = OMP_CLAUSE_DECL (clause); t; t = TREE_CHAIN (t))
+	    if (TREE_CODE (t) == TREE_LIST)
+	      {
+		dump_generic_node (pp, TREE_VALUE (t), spc, flags, false);
+		if (TREE_PURPOSE (t) != integer_zero_node)
+		  {
+		    tree p = TREE_PURPOSE (t);
+		    if (!wi::neg_p (p, TYPE_SIGN (TREE_TYPE (p))))
+		      pp_plus (pp);
+		    dump_generic_node (pp, TREE_PURPOSE (t), spc, flags,
+				       false);
+		  }
+		if (TREE_CHAIN (t))
+		  pp_comma (pp);
+	      }
+	    else
+	      gcc_unreachable ();
+	  pp_right_paren (pp);
+	  return;
 	default:
 	  gcc_unreachable ();
 	}
@@ -600,6 +647,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case GOMP_MAP_RELEASE:
 	  pp_string (pp, "release");
 	  break;
+	case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  pp_string (pp, "firstprivate");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -610,7 +660,9 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       if (OMP_CLAUSE_SIZE (clause))
 	{
 	  if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
-	      && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_POINTER)
+	      && (OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_POINTER
+		  || OMP_CLAUSE_MAP_KIND (clause)
+		     == GOMP_MAP_FIRSTPRIVATE_POINTER))
 	    pp_string (pp, " [pointer assign, bias: ");
 	  else if (OMP_CLAUSE_CODE (clause) == OMP_CLAUSE_MAP
 		   && OMP_CLAUSE_MAP_KIND (clause) == GOMP_MAP_TO_PSET)
@@ -734,6 +786,10 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       dump_generic_node (pp, OMP_CLAUSE_HINT_EXPR (clause),
 			 spc, flags, false);
       pp_right_paren (pp);
+      break;
+
+    case OMP_CLAUSE_DEFAULTMAP:
+      pp_string (pp, "defaultmap(tofrom:scalar)");
       break;
 
     case OMP_CLAUSE__SIMDUID_:

@@ -1,3 +1,152 @@
+2015-07-31  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (enum gomp_map_vars_kind): New.
+	(gomp_map_vars): Change type of the argument from bool to enum
+	gomp_map_vars_kind.
+	* oacc-mem.c (acc_map_data, present_create_copy,
+	gomp_acc_insert_pointer): Pass GOMP_MAP_VARS_OPENACC instead of false to
+	gomp_map_vars.
+	* oacc-parallel.c (GOACC_parallel, GOACC_data_start): Likewise.
+	* target.c (gomp_map_vars_existing): Fix target address for 'always to'
+	array sections.
+	(gomp_map_vars): Change type of the argument from bool to enum
+	gomp_map_vars_kind, fixup its usage.  Set tgt->refcount to 0 if called
+	from GOMP_target_enter_exit_data.  Free tgt if called from
+	GOMP_target_enter_exit_data and nothing has been mapped.
+	(gomp_unmap_vars): Decrement k->refcount when it is 1 and
+	k->async_refcount is 0.
+	(gomp_offload_image_to_device): Set tgt's refcount to infinity.
+	(GOMP_target, GOMP_target_41): Pass GOMP_MAP_VARS_TARGET instead of true
+	to gomp_map_vars.
+	(gomp_target_data_fallback, GOMP_target_data, GOMP_target_data_41): Pass
+	GOMP_MAP_VARS_DATA instead of false to gomp_map_vars.
+	(gomp_exit_data): New static function.
+	(GOMP_target_enter_exit_data): Support mapping/unmapping.
+	* testsuite/libgomp.c/target-11.c: Extend for testing 'always to' array
+	sections.
+	* testsuite/libgomp.c/target-20.c: New test.
+
+2015-07-30  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* testsuite/lib/libgomp.exp
+	(check_effective_target_offload_device_nonshared_as): New.
+	* testsuite/libgomp.c++/examples-4/e.53.2.C: Replace offload_device with
+	offload_device_nonshared_as.
+	* testsuite/libgomp.c/target-11.c: Ditto.
+
+2015-07-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct target_var_desc): Fix up comments
+	about offset and length fields.
+	* target.c (gomp_map_lookup): New function.
+	(gomp_map_pointer): Use it.
+	(gomp_map_vars): Handle GOMP_MAP_FIRSTPRIVATE_INT,
+	GOMP_MAP_USE_DEVICE_PTR and GOMP_MAP_ZERO_LEN_ARRAY_SECTION.
+	Add tgt->list[i].offset for mappings with non-NULL
+	tgt->list[i].key.
+	(GOMP_target_41): Handle GOMP_MAP_FIRSTPRIVATE even
+	for host fallback.
+	(omp_target_is_present): Use gomp_map_lookup.
+	(omp_target_associate_ptr): Likewise.
+	(omp_target_disassociate_ptr): Likewise.
+	* testsuite/libgomp.c++/target-2.C (fn2): Add map(tofrom: s).
+	* testsuite/libgomp.c++/target-7.C: New test.
+	* testsuite/libgomp.c++/target-8.C: New test.
+	* testsuite/libgomp.c++/target-9.C: New test.
+	* testsuite/libgomp.c/target-1.c (fn2, fn3, fn4): Add
+	map(tofrom:s).
+	* testsuite/libgomp.c/target-2.c (fn2, fn3, fn4): Likewise.
+	* testsuite/libgomp.c/target-7.c (foo): Add map(h) where needed.
+	* testsuite/libgomp.c/target-15.c: New test.
+	* testsuite/libgomp.c/target-16.c: New test.
+	* testsuite/libgomp.c/target-17.c: New test.
+	* testsuite/libgomp.c/target-18.c: New test.
+	* testsuite/libgomp.c/target-19.c: New test.
+	* testsuite/libgomp.c/examples-4/e.51.3.c (gramSchmidt): Add
+	map(tofrom:tmp).
+	* testsuite/libgomp.c/examples-4/e.53.1.c (fib_wrapper): Add
+	map(from:x).
+	* testsuite/libgomp.c/examples-4/e.53.4.c (accum): Add
+	map(tofrom:tmp).
+	* testsuite/libgomp.c/examples-4/e.53.5.c (accum): Likewise.
+	* testsuite/libgomp.c/examples-4/e.54.2.c (dotprod): Add
+	map(tofrom: sum).
+	* testsuite/libgomp.c/examples-4/e.54.3.c (dotprod): Likewise.
+	* testsuite/libgomp.c/examples-4/e.54.4.c (dotprod): Likewise.
+	* testsuite/libgomp.c/examples-4/e.57.1.c (main): Add
+	map(from: c) and map(from: b, d) where needed.
+	* testsuite/libgomp.c/examples-4/e.57.3.c (main): Add
+	map(from: res).
+
+2015-07-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_map_vars): Handle GOMP_MAP_FIRSTPRIVATE.
+	* testsuite/libgomp.c/target-13.c: New test.
+	* testsuite/libgomp.c/target-14.c: New test.
+	* testsuite/libgomp.c++/target-5.C: New test.
+	* testsuite/libgomp.c++/target-6.C: New test.
+
+2015-07-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/linear-2.c (verify): New function.
+	(TEST): Use it.
+	* testsuite/libgomp.c++/linear-2.C (verify): New function.
+	(TEST): Use it.
+
+2015-07-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/for-2.h (OMPTGT, OMPTO, OMPFROM): Define
+	if not already defined.
+	(N(f0), N(f1), N(f2), N(f3), N(f4), N(f5), N(f6), N(f7), N(f8),
+	N(f9), N(f10), N(f11), N(f12), N(f13), N(f14)): Use OMPTGT macro.
+	(N(test)): Use OMPTO and OMPFROM macros.
+	* testsuite/libgomp.c/for-5.c: New test.
+	* testsuite/libgomp.c/for-6.c: New test.
+	* testsuite/libgomp.c++/for-13.C: New test.
+	* testsuite/libgomp.c++/for-14.C: New test.
+
+2015-07-14  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.h (struct gomp_device_descr): Add dev2dev_func.
+	* target.c (omp_target_memcpy): Support device-to-device.
+	(omp_target_memcpy_rect_worker): Likewise.
+	(omp_target_memcpy_rect): Likewise.
+	(gomp_load_plugin_for_device): Check for GOMP_OFFLOAD_dev2dev.
+	* testsuite/libgomp.c/target-12.c (main): Extend for testing
+	device-to-device memcpy.
+
+2015-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (REFCOUNT_INFINITY): Define.
+	* target.c (gomp_map_vars_existing, gomp_map_vars, gomp_unmap_vars,
+	gomp_offload_image_to_device, omp_target_associate_ptr,
+	omp_target_disassociate_ptr): Use REFCOUNT_INFINITY instead of
+	INT_MAX.
+
+2015-07-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_get_initial_device,
+	omp_target_alloc, omp_target_free, omp_target_is_present,
+	omp_target_memcpy, omp_target_memcpy_rect, omp_target_associate_ptr,
+	omp_target_disassociate_ptr): New prototypes.
+	* omp_lib.f90.in (omp_get_initial_device): New interface.
+	* omp_lib.h.in (omp_get_initial_device): New extern.
+	* libgomp.map (OMP_4.1): Add omp_get_initial_device,
+	omp_get_initial_device_, omp_target_alloc, omp_target_free,
+	omp_target_is_present, omp_target_memcpy, omp_target_memcpy_rect,
+	omp_target_associate_ptr and omp_target_disassociate_ptr symbols.
+	* env.c (omp_get_initial_device): New function.  Add ialias.
+	* fortran.c (omp_get_initial_device): Add iredirect.
+	(omp_get_initial_device_): New function.
+	* target.c (gomp_map_vars_existing, gomp_map_vars, gomp_unmap_vars):
+	Handle refcount of INT_MAX as infinite.
+	(gomp_offload_image_to_device): Set refcount to INT_MAX.
+	(omp_target_alloc, omp_target_free, omp_target_is_present,
+	omp_target_memcpy, omp_target_memcpy_rect_worker,
+	omp_target_memcpy_rect, omp_target_associate_ptr,
+	omp_target_disassociate_ptr): New functions.
+	* testsuite/libgomp.c/target-12.c: New test.
+
 2015-06-26  Aldy Hernandez  <aldyh@redhat.com>
 
 	* libgomp.texi: Document omp_get_max_task_priority and

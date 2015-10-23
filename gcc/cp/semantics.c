@@ -4374,7 +4374,8 @@ omp_privatize_field (tree t)
 
 static tree
 handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
-			     bool &maybe_zero_len, unsigned int &first_non_one)
+			     bool &maybe_zero_len, unsigned int &first_non_one,
+			     bool is_omp)
 {
   tree ret, low_bound, length, type;
   if (TREE_CODE (t) != TREE_LIST)
@@ -4395,6 +4396,16 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 		      omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	  return error_mark_node;
 	}
+      else if (is_omp
+	       && TREE_CODE (t) == PARM_DECL
+	       && DECL_ARTIFICIAL (t)
+	       && DECL_NAME (t) == this_identifier)
+	{
+	  error_at (OMP_CLAUSE_LOCATION (c),
+		    "%<this%> allowed in OpenMP only in %<declare simd%>"
+		    " clauses");
+	  return error_mark_node;
+	}
       else if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_DEPEND
 	       && VAR_P (t) && CP_DECL_THREAD_LOCAL_P (t))
 	{
@@ -4413,7 +4424,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
       && TREE_CODE (TREE_CHAIN (t)) == FIELD_DECL)
     TREE_CHAIN (t) = omp_privatize_field (TREE_CHAIN (t));
   ret = handle_omp_array_sections_1 (c, TREE_CHAIN (t), types,
-				     maybe_zero_len, first_non_one);
+				     maybe_zero_len, first_non_one, is_omp);
   if (ret == error_mark_node || ret == NULL_TREE)
     return ret;
 
@@ -4649,13 +4660,14 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 /* Handle array sections for clause C.  */
 
 static bool
-handle_omp_array_sections (tree c)
+handle_omp_array_sections (tree c, bool is_omp)
 {
   bool maybe_zero_len = false;
   unsigned int first_non_one = 0;
   auto_vec<tree, 10> types;
   tree first = handle_omp_array_sections_1 (c, OMP_CLAUSE_DECL (c), types,
-					    maybe_zero_len, first_non_one);
+					    maybe_zero_len, first_non_one,
+					    is_omp);
   if (first == error_mark_node)
     return true;
   if (first == NULL_TREE)
@@ -4825,10 +4837,26 @@ handle_omp_array_sections (tree c)
 	  OMP_CLAUSE_SIZE (c) = size;
 	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 	    return false;
+	  if (is_omp)
+	    switch (OMP_CLAUSE_MAP_KIND (c))
+	      {
+	      case GOMP_MAP_ALLOC:
+	      case GOMP_MAP_TO:
+	      case GOMP_MAP_FROM:
+	      case GOMP_MAP_TOFROM:
+	      case GOMP_MAP_ALWAYS_TO:
+	      case GOMP_MAP_ALWAYS_FROM:
+	      case GOMP_MAP_ALWAYS_TOFROM:
+		OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION (c) = 1;
+		break;
+	      default:
+		break;
+	      }
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
-	  if (!cxx_mark_addressable (t, true))
+	  OMP_CLAUSE_SET_MAP_KIND (c2, is_omp ? GOMP_MAP_FIRSTPRIVATE_POINTER
+					      : GOMP_MAP_POINTER);
+	  if (!is_omp && !cxx_mark_addressable (t, true))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
 	  t = build_fold_addr_expr (first);
@@ -4846,7 +4874,8 @@ handle_omp_array_sections (tree c)
 	  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
 	  OMP_CLAUSE_CHAIN (c) = c2;
 	  ptr = OMP_CLAUSE_DECL (c2);
-	  if (TREE_CODE (TREE_TYPE (ptr)) == REFERENCE_TYPE
+	  if (!is_omp
+	      && TREE_CODE (TREE_TYPE (ptr)) == REFERENCE_TYPE
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (ptr))))
 	    {
 	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
@@ -5498,14 +5527,87 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
   return false;
 }
 
+/* Called from finish_struct_1.  linear(this) or linear(this:step)
+   clauses might not be finalized yet because the class has been incomplete
+   when parsing #pragma omp declare simd methods.  Fix those up now.  */
+
+void
+finish_omp_declare_simd_methods (tree t)
+{
+  if (processing_template_decl)
+    return;
+
+  for (tree x = TYPE_METHODS (t); x; x = DECL_CHAIN (x))
+    {
+      if (TREE_CODE (TREE_TYPE (x)) != METHOD_TYPE)
+	continue;
+      tree ods = lookup_attribute ("omp declare simd", DECL_ATTRIBUTES (x));
+      if (!ods || !TREE_VALUE (ods))
+	continue;
+      for (tree c = TREE_VALUE (TREE_VALUE (ods)); c; c = OMP_CLAUSE_CHAIN (c))
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	    && integer_zerop (OMP_CLAUSE_DECL (c))
+	    && OMP_CLAUSE_LINEAR_STEP (c)
+	    && TREE_CODE (TREE_TYPE (OMP_CLAUSE_LINEAR_STEP (c)))
+	       == POINTER_TYPE)
+	  {
+	    tree s = OMP_CLAUSE_LINEAR_STEP (c);
+	    s = fold_convert_loc (OMP_CLAUSE_LOCATION (c), sizetype, s);
+	    s = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MULT_EXPR,
+				 sizetype, s, TYPE_SIZE_UNIT (t));
+	    OMP_CLAUSE_LINEAR_STEP (c) = s;
+	  }
+    }
+}
+
+/* Adjust sink depend clause to take into account pointer offsets.
+
+   Return TRUE if there was a problem processing the offset, and the
+   whole clause should be removed.  */
+
+static bool
+cp_finish_omp_clause_depend_sink (tree sink_clause)
+{
+  tree t = OMP_CLAUSE_DECL (sink_clause);
+  gcc_assert (TREE_CODE (t) == TREE_LIST);
+
+  /* Make sure we don't adjust things twice for templates.  */
+  if (processing_template_decl)
+    return false;
+
+  for (; t; t = TREE_CHAIN (t))
+    {
+      tree decl = TREE_VALUE (t);
+      if (TREE_CODE (TREE_TYPE (decl)) == POINTER_TYPE)
+	{
+	  tree offset = TREE_PURPOSE (t);
+	  bool neg = wi::neg_p ((wide_int) offset);
+	  offset = fold_unary (ABS_EXPR, TREE_TYPE (offset), offset);
+	  decl = mark_rvalue_use (decl);
+	  decl = convert_from_reference (decl);
+	  tree t2 = pointer_int_sum (OMP_CLAUSE_LOCATION (sink_clause),
+				     neg ? MINUS_EXPR : PLUS_EXPR,
+				     decl, offset);
+	  t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (sink_clause),
+				MINUS_EXPR, sizetype, t2,
+				decl);
+	  if (t2 == error_mark_node)
+	    return true;
+	  TREE_PURPOSE (t) = t2;
+	}
+    }
+  return false;
+}
+
 /* For all elements of CLAUSES, validate them vs OpenMP constraints.
    Remove any elements from the list that are invalid.  */
 
 tree
-finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_simd)
+finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
+		    bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, oacc_data_head, oacc_reduction_head;
+  bitmap_head aligned_head, map_head, oacc_data_head, oacc_reduction_head;
   tree c, t, *pc;
   tree safelen = NULL_TREE;
   bool branch_seen = false;
@@ -5516,6 +5618,7 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
   bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
+  bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_data_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
@@ -5531,7 +5634,7 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	case OMP_CLAUSE_SHARED:
 	  goto check_dup_generic;
 	case OMP_CLAUSE_PRIVATE:
-	  if (oacc)
+	  if (is_oacc)
 	    {
 	      oacc_data = true;
 	      goto check_dup_oacc;
@@ -5542,14 +5645,14 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	      goto check_dup_generic;
 	    }
 	case OMP_CLAUSE_REDUCTION:
-	  if (oacc)
+	  if (is_oacc)
 	      reduction = true;
 	  else
 	      field_ok = allow_fields;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c))
+	      if (handle_omp_array_sections (c, allow_fields))
 		{
 		  remove = true;
 		  break;
@@ -5570,12 +5673,12 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	      tree n = omp_clause_decl_field (t);
 	      if (n)
 		t = n;
-	      if (oacc)
+	      if (is_oacc)
 		goto check_dup_oacc_t;
 	      else
 		goto check_dup_generic_t;
 	    }
-	  if (oacc)
+	  if (is_oacc)
 	    goto check_dup_oacc;
 	  else
 	    goto check_dup_generic;
@@ -5656,7 +5759,15 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 			  break;
 			}
 		    }
-		  else if (TREE_CODE (type) == POINTER_TYPE)
+		  else if (TREE_CODE (type) == POINTER_TYPE
+			   /* Can't multiply the step yet if *this
+			      is still incomplete type.  */
+			   && (!declare_simd
+			       || TREE_CODE (OMP_CLAUSE_DECL (c)) != PARM_DECL
+			       || !DECL_ARTIFICIAL (OMP_CLAUSE_DECL (c))
+			       || DECL_NAME (OMP_CLAUSE_DECL (c))
+				  != this_identifier
+			       || !TYPE_BEING_DEFINED (TREE_TYPE (type))))
 		    {
 		      tree d = convert_from_reference (OMP_CLAUSE_DECL (c));
 		      t = pointer_int_sum (OMP_CLAUSE_LOCATION (c), PLUS_EXPR,
@@ -5685,6 +5796,16 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	  else
 	    t = OMP_CLAUSE_DECL (c);
 	check_dup_generic_t:
+	  if (t == current_class_ptr
+	      && (!declare_simd
+		  || (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_LINEAR
+		      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE_UNIFORM)))
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!field_ok || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5747,7 +5868,7 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	    }
 	  else if (reduction)
 	    {
-	      if (oacc && bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
+	      if (is_oacc && bitmap_bit_p (&oacc_reduction_head, DECL_UID (t)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE appears in multiple reduction clauses", t);
@@ -5776,6 +5897,14 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	    omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
 	  else
 	    t = OMP_CLAUSE_DECL (c);
+	  if (!is_oacc
+	      && t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -5834,6 +5963,13 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	    omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
 	  else
 	    t = OMP_CLAUSE_DECL (c);
+	  if (t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL
 	      && (!allow_fields || TREE_CODE (t) != FIELD_DECL))
 	    {
@@ -6119,6 +6255,13 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 
 	case OMP_CLAUSE_ALIGNED:
 	  t = OMP_CLAUSE_DECL (c);
+	  if (t == current_class_ptr && !declare_simd)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
 	    {
 	      if (processing_template_decl)
@@ -6187,9 +6330,15 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 			  == OMP_CLAUSE_DEPEND_SOURCE);
 	      break;
 	    }
+	  if (OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SINK)
+	    {
+	      if (cp_finish_omp_clause_depend_sink (c))
+		remove = true;
+	      break;
+	    }
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c))
+	      if (handle_omp_array_sections (c, allow_fields))
 		remove = true;
 	      break;
 	    }
@@ -6205,6 +6354,12 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 		error ("%qE is not a variable in %<depend%> clause", t);
 	      remove = true;
 	    }
+	  else if (t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	    }
 	  else if (!processing_template_decl
 		   && !cxx_mark_addressable (t, true))
 	    remove = true;
@@ -6217,14 +6372,14 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) == TREE_LIST)
 	    {
-	      if (handle_omp_array_sections (c))
+	      if (handle_omp_array_sections (c, allow_fields))
 		remove = true;
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
 		  if (TREE_CODE (t) != TREE_LIST
 		      && !type_dependent_expression_p (t)
-		      && !cp_omp_mappable_type (TREE_TYPE (t), oacc))
+		      && !cp_omp_mappable_type (TREE_TYPE (t), is_oacc))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -6235,7 +6390,7 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 		}
 	      break;
 	    }
-	  if (oacc && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
+	  if (is_oacc && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"reference types are not supported in OpenACC");
@@ -6263,24 +6418,34 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
+	  else if (!is_oacc
+		   && t == current_class_ptr)
+	    {
+	      error ("%<this%> allowed in OpenMP only in %<declare simd%>"
+		     " clauses");
+	      remove = true;
+	      break;
+	    }
 	  else if (!processing_template_decl
 		   && TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE
 		   && !cxx_mark_addressable (t, true))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
+		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
+			 || (OMP_CLAUSE_MAP_KIND (c)
+			     == GOMP_MAP_FIRSTPRIVATE_POINTER)))
 		   && !type_dependent_expression_p (t)
 		   && !cp_omp_mappable_type (((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))
-					     : TREE_TYPE (t)), oacc))
+					     : TREE_TYPE (t)), is_oacc))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t)))
+	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {
 	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 		error ("%qD appears more than once in motion clauses", t);
@@ -6289,7 +6454,37 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&generic_head, DECL_UID (t));
+	    bitmap_set_bit (&map_head, DECL_UID (t));
+	  break;
+
+	case OMP_CLAUSE_TO_DECLARE:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (TREE_CODE (t) == FUNCTION_DECL)
+	    break;
+	  /* FALLTHRU */
+	case OMP_CLAUSE_LINK:
+	  t = OMP_CLAUSE_DECL (c);
+	  if (!VAR_P (t))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE is not a variable in clause %qs", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  else if (DECL_THREAD_LOCAL_P (t))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qD is threadprivate variable in %qs clause", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
+	  else if (!cp_omp_mappable_type (TREE_TYPE (t), is_oacc))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qD does not have a mappable type in %qs clause", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      remove = true;
+	    }
 	  break;
 
 	case OMP_CLAUSE_UNIFORM:
@@ -6416,6 +6611,28 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	    }
 	  break;
 
+	case OMP_CLAUSE_IS_DEVICE_PTR:
+	case OMP_CLAUSE_USE_DEVICE_PTR:
+	  field_ok = allow_fields;
+	  t = OMP_CLAUSE_DECL (c);
+	  if (!type_dependent_expression_p (t))
+	    {
+	      tree type = TREE_TYPE (t);
+	      if (TREE_CODE (type) != POINTER_TYPE
+		  && TREE_CODE (type) != ARRAY_TYPE
+		  && (TREE_CODE (type) != REFERENCE_TYPE
+		      || (TREE_CODE (TREE_TYPE (type)) != POINTER_TYPE
+			  && TREE_CODE (TREE_TYPE (type)) != ARRAY_TYPE)))
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qs variable is neither a pointer, nor an array"
+			    "nor reference to pointer or array",
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+		  remove = true;
+		}
+	    }
+	  goto check_dup_generic;
+
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
@@ -6430,6 +6647,7 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
+	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_AUTO:
@@ -6442,8 +6660,8 @@ finish_omp_clauses (tree clauses, bool oacc, bool allow_fields, bool declare_sim
 
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
-	    = finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), oacc,
-				  false, false);
+	    = finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c), is_oacc,
+				  false);
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
@@ -7273,8 +7491,9 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
    sk_omp scope.  */
 
 tree
-finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
-		tree condv, tree incrv, tree body, tree pre_body, tree clauses)
+finish_omp_for (location_t locus, enum tree_code code, tree declv,
+		tree orig_declv, tree initv, tree condv, tree incrv,
+		tree body, tree pre_body, tree clauses)
 {
   tree omp_for = NULL, orig_incr = NULL;
   tree decl = NULL, init, cond, incr, orig_decl = NULL_TREE, block = NULL_TREE;
@@ -7367,6 +7586,9 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
       SET_EXPR_LOCATION (stmt, locus);
       return add_stmt (stmt);
     }
+
+  if (!orig_declv)
+    orig_declv = copy_node (declv);
 
   if (processing_template_decl)
     orig_incr = make_tree_vec (TREE_VEC_LENGTH (incrv));
@@ -7468,8 +7690,8 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
   if (code == CILK_FOR && !processing_template_decl)
     block = push_stmt_list ();
 
-  omp_for = c_finish_omp_for (locus, code, declv, initv, condv, incrv,
-			      body, pre_body);
+  omp_for = c_finish_omp_for (locus, code, declv, orig_declv, initv, condv,
+			      incrv, body, pre_body);
 
   if (omp_for == NULL)
     {
@@ -7660,8 +7882,7 @@ finish_omp_for (location_t locus, enum tree_code code, tree declv, tree initv,
       OMP_CLAUSE_OPERAND (c, 0)
 	= cilk_for_number_of_iterations (omp_for);
       OMP_CLAUSE_CHAIN (c) = clauses;
-      OMP_PARALLEL_CLAUSES (omp_par)
-	= finish_omp_clauses (c, false, false, false);
+      OMP_PARALLEL_CLAUSES (omp_par) = finish_omp_clauses (c, false, false);
       add_stmt (omp_par);
       return omp_par;
     }

@@ -1266,6 +1266,8 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 3)
 #define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 4)
 #define OMP_FOR_PRE_BODY(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 5)
+/* Note that this is only available for OMP_FOR, hence OMP_FOR_CHECK.  */
+#define OMP_FOR_ORIG_DECLS(NODE)   TREE_OPERAND (OMP_FOR_CHECK (NODE), 6)
 
 #define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
 #define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
@@ -1336,6 +1338,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_TEAMS_COMBINED(NODE) \
   (OMP_TEAMS_CHECK (NODE)->base.private_flag)
 
+/* True on an OMP_TARGET statement if it represents explicit
+   combined target teams, target parallel or target simd constructs.  */
+#define OMP_TARGET_COMBINED(NODE) \
+  (OMP_TARGET_CHECK (NODE)->base.private_flag)
+
 /* True if OMP_ATOMIC* is supposed to be sequentially consistent
    as opposed to relaxed.  */
 #define OMP_ATOMIC_SEQ_CST(NODE) \
@@ -1381,6 +1388,9 @@ extern void protected_set_expr_location (tree, location_t);
    with FIRSTPRIVATE/LASTPRIVATE on it originally.  */
 #define OMP_CLAUSE_SHARED_FIRSTPRIVATE(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SHARED)->base.public_flag)
+
+#define OMP_CLAUSE_IF_MODIFIER(NODE)	\
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_IF)->omp_clause.subcode.if_modifier)
 
 #define OMP_CLAUSE_FINAL_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_FINAL), 0)
@@ -1442,13 +1452,21 @@ extern void protected_set_expr_location (tree, location_t);
   ((enum gomp_map_kind) OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
 #define OMP_CLAUSE_SET_MAP_KIND(NODE, MAP_KIND) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind \
-   = (unsigned char) (MAP_KIND))
+   = (unsigned int) (MAP_KIND))
 
 /* Nonzero if this map clause is for array (rather than pointer) based array
    section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and corresponding
    OMP_CLAUSE_MAP with GOMP_MAP_POINTER are marked with this flag.  */
 #define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
+/* Nonzero if the same decl appears both in OMP_CLAUSE_MAP and either
+   OMP_CLAUSE_PRIVATE or OMP_CLAUSE_FIRSTPRIVATE.  */
+#define OMP_CLAUSE_MAP_PRIVATE(NODE) \
+  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
+/* Nonzero if this is a mapped array section, that might need special
+   treatment if OMP_CLAUSE_SIZE is zero.  */
+#define OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION(NODE) \
+  TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
 
 #define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
