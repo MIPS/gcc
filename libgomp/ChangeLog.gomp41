@@ -1,3 +1,221 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/pr66199-2.c (f2): Adjust for linear clause
+	only allowed on the loop iterator.
+	* testsuite/libgomp.c/pr66199-4.c (f2): Adjust for linear clause
+	no longer allowed.
+	* testsuite/libgomp.c/linear-2.c: Remove.
+	* testsuite/libgomp.c++/linear-2.C: Remove.
+
+2015-10-09  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h (_LIBGOMP_CHECKING_): New macro.
+	* task.c (verify_children_queue): New.
+	(verify_taskgroup_queue): New.
+	(verify_task_queue): New.
+	(gomp_task_run_pre): Call verify_*_queue functions.
+	If an upcoming tied task is about to leave the sibling or
+	taskgroup queues in an invalid state, adjust appropriately.
+	(GOMP_taskgroup_end): Do not pass taskgroup to gomp_task_run_pre().
+
+2015-10-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* task.c (gomp_task_maybe_wait_for_dependencies): Fix scheduling
+	problem such that the first non parent_depends_on task does not
+	end up at the end of the children queue.
+
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp.h.in (omp_target_is_present): Remove OFFSET argument.
+	* target.c (omp_target_is_present): Likewise.
+	* testsuite/libgomp.c/target-12.c (main): Adjust for removal
+	of the middle argument of omp_target_is_present.
+	* testsuite/libgomp.c/target-24.c (main): Likewise.
+
+	* env.c (handle_omp_display_env): Print _OPENMP = '201511'
+	instead of _OPENMP = '201307'.
+
+	* libgomp.map (OMP_4.1): Renamed to ...
+	(OMP_4.5): ... this.
+	(GOMP_4.1): Renamed to ...
+	(GOMP_4.5): ... this.
+	* libgomp.texi: Adjust OpenMP version number from 4.1 to 4.5.
+
+2015-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* loop_ull.c (gomp_loop_ull_doacross_static_start,
+	gomp_loop_ull_doacross_dynamic_start,
+	gomp_loop_ull_doacross_guided_start,
+	GOMP_loop_ull_doacross_runtime_start,
+	GOMP_loop_ull_doacross_static_start,
+	GOMP_loop_ull_doacross_dynamic_start,
+	GOMP_loop_ull_doacross_guided_start): New functions.
+	* ordered.c (gomp_doacross_init): Don't initialize boundary
+	if not static scheduling.
+	(gomp_doacross_ull_init, GOMP_doacross_ull_post,
+	GOMP_doacross_ull_wait): New functions.
+	* libgomp.map (GOMP_4.1): Export GOMP_loop_ull_doacross_dynamic_start,
+	GOMP_loop_ull_doacross_guided_start,
+	GOMP_loop_ull_doacross_runtime_start,
+	GOMP_loop_ull_doacross_static_start,
+	GOMP_doacross_ull_post and GOMP_doacross_ull_wait.
+	* libgomp_g.h (GOMP_loop_ull_doacross_guided_start,
+	GOMP_loop_ull_doacross_runtime_start,
+	GOMP_loop_ull_doacross_static_start,
+	GOMP_doacross_ull_post, GOMP_doacross_ull_wait): New prototypes.
+	* libgomp.h (struct gomp_doacross_work_share): Add
+	chunk_size_ull, q_ull and boundary_ull fields.
+	(gomp_doacross_ull_init): New prototype.
+	* testsuite/libgomp.c/doacross-2.c: New test.
+
+2015-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/doacross-1.C: New test.
+
+2015-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/doacross-1.c (main): Adjust, so that one
+	of the doacross loops has noreturn loop body.
+
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/doacross-1.c (main): Adjust for new meaning of
+	ordered clause on collapse > 1 loops.
+
+	* ordered.c: Include string.h and doacross.h.
+	(gomp_doacross_init): New function.
+	(GOMP_doacross_wait): Implement.
+	(GOMP_doacross_post): Likewise.  Change arguments to
+	pointer to long array.
+	* loop.c (gomp_loop_doacross_static_start,
+	gomp_loop_doacross_dynamic_start,
+	gomp_loop_doacross_guided_start): Call gomp_doacross_init.
+	* libgomp_g.h (GOMP_doacross_post): Adjust prototype.
+	* libgomp.h (struct gomp_doacross_work_share): New type.
+	(struct gomp_work_share): Put ordered_team_ids into anonymous
+	union with new doacross field.
+	* config/linux/doacross.h: New file.
+	* config/posix/doacross.h: New file.
+	* testsuite/libgomp.c/doacross-1.c: New test.
+
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.map (GOMP_4.1): Add GOMP_loop_doacross_dynamic_start,
+	GOMP_loop_doacross_guided_start, GOMP_loop_doacross_runtime_start,
+	GOMP_loop_doacross_static_start, GOMP_doacross_post and
+	GOMP_doacross_wait exports.
+	* ordered.c: Include stdarg.h.
+	(GOMP_doacross_post, GOMP_doacross_wait): New functions.
+	* loop.c (gomp_loop_doacross_static_start,
+	gomp_loop_doacross_dynamic_start, gomp_loop_doacross_guided_start,
+	GOMP_loop_doacross_runtime_start, GOMP_loop_doacross_static_start,
+	GOMP_loop_doacross_dynamic_start, GOMP_loop_doacross_guided_start):
+	New functions.
+	* libgomp_g.h (GOMP_loop_doacross_runtime_start,
+	GOMP_loop_doacross_static_start, GOMP_loop_doacross_dynamic_start,
+	GOMP_loop_doacross_guided_start, GOMP_doacross_post,
+	GOMP_doacross_wait): New prototypes.
+
+2015-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_update): Remove fatal error if object is not mapped.
+
+	* target.c (GOMP_target_update_41): Handle nowait update with
+	dependencies.  Don't call gomp_update if parallel or taskgroup has
+	been cancelled.
+	(GOMP_target_enter_exit_data): Likewise.
+	(gomp_target_task_fn): New function.
+	* task.c (gomp_task_handle_depend): New function, copied from...
+	(GOMP_task): ... here.  Use gomp_task_handle_depend.
+	(gomp_create_target_task): New function.
+	* libgomp.h (struct gomp_target_task): New type.
+	(gomp_create_target_task, gomp_target_task_fn): New prototypes.
+	* testsuite/libgomp.c/target-27.c: New test.
+
+2015-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/target-26.c: New test.
+
+2015-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/target-25.c (main): Add missing
+	map(from: err) clauses to target constructs.
+
+2015-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/target-25.c: New test.
+
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp_g.h (GOMP_target_41, GOMP_target_enter_exit_data): Add
+	flags and depend arguments.
+	(GOMP_target_update_41): New prototype.
+	* libgomp.h (gomp_task_maybe_wait_for_dependencies): New prototype.
+	* libgomp.map (GOMP_4.1): Add GOMP_target_update_41.
+	* task.c (gomp_task_maybe_wait_for_dependencies): Remove prototype.
+	No longer static.
+	* target.c (GOMP_target_41): Add flags and depend arguments.  If
+	depend is non-NULL, wait until all dependencies are satisfied.
+	(GOMP_target_enter_exit_data): Likewise.  Use
+	flags & GOMP_TARGET_FLAG_EXIT_DATA to determine if it is enter
+	or exit data construct, instead of analysing kinds.
+	(gomp_exit_data): Handle GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION.
+	(GOMP_target_update_41): New function.
+	* testsuite/libgomp.c/target-24.c: New test.
+
+	* testsuite/libgomp.c/ordered-4.c: New test.
+	* testsuite/libgomp.c++/ordered-1.C: New test.
+
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (GOMP_target_enter_exit_data): Allow GOMP_MAP_STRUCT
+	for enter data and handle it properly.
+	* testsuite/libgomp.c++/target-10.C: New test.
+	* testsuite/libgomp.c++/target-11.C: New test.
+	* testsuite/libgomp.c++/target-12.C: New test.
+	* testsuite/libgomp.c/target-21.c (z): New variable.
+	(struct S, main): Add tests for struct element array based array
+	sections.
+	* testsuite/libgomp.c/target-22.c: New test.
+	* testsuite/libgomp.c/target-23.c: New test.
+
+2015-08-28  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h: Document gomp_task_depend_entry, gomp_task,
+	gomp_taskgroup.
+	* task.c (gomp_task_run_pre): Add comments.
+	(gomp_task_run_post_handle_dependers): Same.
+	(GOMP_taskwait): Same.
+
+2015-08-27  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h (enum gomp_task_kind): Comment fields.
+	(struct gomp_task): Comment some fields.
+	* task.c (GOMP_task): Add comments.
+	Rename GOMP_TASK_IFFALSE to GOMP_TASK_UNDEFERRED.
+	(gomp_task_run_pre): Add comments.
+	(GOMP_taskgroup_start): Rename GOMP_TASK_IFFALSE to
+	GOMP_TASK_UNDEFERRED.
+	* taskloop.c (GOMP_taskloop): Same.
+
+2015-08-25  Aldy Hernandez  <aldyh@redhat.com>
+
+	* libgomp.h (struct gomp_task_depend_entry): Add comment.
+	* task.c (gomp_clear_parent): Document function.
+	(GOMP_task): Same.
+	(gomp_task_run_pre): Add comments.
+	(gomp_task_run_post_handle_dependers): Same.
+	(gomp_task_run_post_remove_parent): Same.
+	(gomp_task_run_post_remove_taskgroup): Same.
+	(GOMP_taskwait): Same.
+	(gomp_task_maybe_wait_for_dependencies): Same.
+
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_map_fields_existing): New function.
+	(gomp_map_vars): Handle GOMP_MAP_STRUCT.
+	* testsuite/libgomp.c/target-21.c: New test.
+
 2015-07-31  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* libgomp.h (enum gomp_map_vars_kind): New.

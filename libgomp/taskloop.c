@@ -175,7 +175,7 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	  for (i = 0; i < num_tasks; i++)
 	    {
 	      gomp_init_task (&task[i], parent, gomp_icv (false));
-	      task[i].kind = GOMP_TASK_IFFALSE;
+	      task[i].kind = GOMP_TASK_UNDEFERRED;
 	      task[i].final_task = (thr->task && thr->task->final_task)
 				   || (flags & GOMP_TASK_FLAG_FINAL);
 	      if (thr->task)
@@ -213,7 +213,7 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	    struct gomp_task task;
 
 	    gomp_init_task (&task, thr->task, gomp_icv (false));
-	    task.kind = GOMP_TASK_IFFALSE;
+	    task.kind = GOMP_TASK_UNDEFERRED;
 	    task.final_task = (thr->task && thr->task->final_task)
 			      || (flags & GOMP_TASK_FLAG_FINAL);
 	    if (thr->task)
@@ -254,7 +254,7 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	  arg = (char *) (((uintptr_t) (task + 1) + arg_align - 1)
 			  & ~(uintptr_t) (arg_align - 1));
 	  gomp_init_task (task, parent, gomp_icv (false));
-	  task->kind = GOMP_TASK_IFFALSE;
+	  task->kind = GOMP_TASK_UNDEFERRED;
 	  task->in_tied_task = parent->in_tied_task;
 	  task->taskgroup = taskgroup;
 	  thr->task = task;

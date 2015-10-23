@@ -1071,7 +1071,7 @@ handle_omp_display_env (unsigned long stacksize, int wait_policy)
 
   fputs ("\nOPENMP DISPLAY ENVIRONMENT BEGIN\n", stderr);
 
-  fputs ("  _OPENMP = '201307'\n", stderr);
+  fputs ("  _OPENMP = '201511'\n", stderr);
   fprintf (stderr, "  OMP_DYNAMIC = '%s'\n",
 	   gomp_global_icv.dyn_var ? "TRUE" : "FALSE");
   fprintf (stderr, "  OMP_NESTED = '%s'\n",

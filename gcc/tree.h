@@ -1448,6 +1448,9 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_DEPEND_KIND(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND)->omp_clause.subcode.depend_kind)
 
+#define OMP_CLAUSE_DEPEND_SINK_NEGATIVE(NODE) \
+  TREE_PUBLIC (TREE_LIST_CHECK (NODE))
+
 #define OMP_CLAUSE_MAP_KIND(NODE) \
   ((enum gomp_map_kind) OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
 #define OMP_CLAUSE_SET_MAP_KIND(NODE, MAP_KIND) \

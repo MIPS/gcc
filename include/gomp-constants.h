@@ -106,6 +106,18 @@ enum gomp_map_kind
     /* If not already present, allocate.  And unconditionally copy to and from
        device.  */
     GOMP_MAP_ALWAYS_TOFROM =		(GOMP_MAP_FLAG_ALWAYS | GOMP_MAP_TOFROM),
+    /* Map a sparse struct; the address is the base of the structure, alignment
+       it's required alignment, and size is the number of adjacent entries
+       that belong to the struct.  The adjacent entries should be sorted by
+       increasing address, so it is easy to determine lowest needed address
+       (address of the first adjacent entry) and highest needed address
+       (address of the last adjacent entry plus its size).  */
+    GOMP_MAP_STRUCT =			(GOMP_MAP_FLAG_ALWAYS
+					 | GOMP_MAP_FLAG_SPECIAL | 0),
+    /* Forced deallocation of zero length array section.  */
+    GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION
+      =					(GOMP_MAP_FLAG_ALWAYS
+					 | GOMP_MAP_FLAG_SPECIAL | 3),
     /* OpenMP 4.1 alias for forced deallocation.  */
     GOMP_MAP_DELETE =			GOMP_MAP_FORCE_DEALLOC,
     /* Decrement usage count and deallocate if zero.  */
@@ -166,6 +178,12 @@ enum gomp_map_kind
 #define GOMP_TASK_FLAG_GRAINSIZE	(1 << 9)
 #define GOMP_TASK_FLAG_IF		(1 << 10)
 #define GOMP_TASK_FLAG_NOGROUP		(1 << 11)
+
+/* GOMP_target{_41,update_41,enter_exit_data} flags argument.  */
+#define GOMP_TARGET_FLAG_NOWAIT		(1 << 0)
+#define GOMP_TARGET_FLAG_EXIT_DATA	(1 << 1)
+/* Internal to libgomp.  */
+#define GOMP_TARGET_FLAG_UPDATE		(1U << 31)
 
 /* Versions of libgomp and device-specific plugins.  */
 #define GOMP_VERSION	0

@@ -1,3 +1,82 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/cpp/openmp-define-3.c: Adjust for the new
+	value of _OPENMP macro.
+	* c-c++-common/cilk-plus/PS/body.c (foo): Adjust expected diagnostics.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_acc_parallel,
+	f_acc_kernels, f_acc_data, f_acc_loop): Add map clause to target data.
+
+	* c-c++-common/gomp/clauses-1.c (bar): Remove linear
+	and/or ordered clauses where they are no longer allowed.
+	* c-c++-common/gomp/clauses-4.c: New test.
+	* c-c++-common/gomp/pr61486-1.c (foo): Remove linear clause
+	on non-iterator.
+	* c-c++-common/gomp/pr61486-2.c (test, test2): Remove ordered
+	clause and ordered construct where no longer allowed.
+
+	* gcc.dg/vect/vect-simd-clone-15.c: New test.
+
+	* c-c++-common/gomp/map-3.c: New test.
+
+	* c-c++-common/gomp/ordered-3.c: New test.
+
+	* c-c++-common/gomp/doacross-1.c: New test.
+
+	* c-c++-common/gomp/linear-1.c: New test.
+	* g++.dg/gomp/linear-1.C: New test.
+
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/depend-4.c (main): Add tests for negative
+	lengths.
+	* c-c++-common/gomp/map-2.c (main): Likewise.
+
+	* c-c++-common/gomp/depend-4.c: New test.
+	* c-c++-common/gomp/map-2.c: New test.
+
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/sink-1.c (foo): Adjust for new meaning of
+	ordered clause on collapse > 1 loops.
+	* gcc.dg/gomp/sink-fold-2.c (funk): Remove xfails and adjust
+	for new diagnostics wording and only warnings, no errors.
+
+	* gcc.dg/gomp/sink-fold-1.c: Xfail.
+	* gcc.dg/gomp/sink-fold-2.c: Likewise.
+
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/sink-4.c: Don't expect the constant to have
+	pointer type.
+	* gcc.dg/gomp/sink-fold-3.c: Likewise.
+	* gcc.dg/gomp/sink-fold-1.c (k): New variable.
+	(funk): Add another ordered loop, use better test values and
+	adjust the expected result.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/ordered-1.c: New test.
+	* c-c++-common/gomp/ordered-2.c: New test.
+
+	* g++.dg/gomp/pr67504.C (foo): Add test for ordered clause with
+	dependent argument.
+	* g++.dg/gomp/pr67522.C (foo): Add test for invalid array section
+	in reduction clause.
+
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/clauses-2.c: New test.
+	* c-c++-common/gomp/clauses-3.c: New test.
+
+2015-07-31  Aldy Hernandez  <aldyh@redhat.com>
+
+	* gcc.dg/gomp/sink-fold-1.c: New.
+	* gcc.dg/gomp/sink-fold-2.c: New.
+	* gcc.dg/gomp/sink-fold-3.c: New.
+	* c-c++-common/gomp/sink-4.c: Look in omplower dump file instead.
+	* g++.dg/gomp/sink-3.C: Have sink offset be in the opposite
+	direction.  Make variables more readable.
+
 2015-07-17  Aldy Hernandez  <aldyh@redhat.com>
 
 	* c-c++-common/gomp/sink-3.c: New test.

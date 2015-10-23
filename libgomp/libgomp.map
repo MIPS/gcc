@@ -134,7 +134,7 @@ OMP_4.0 {
 	omp_is_initial_device_;
 } OMP_3.1;
 
-OMP_4.1 {
+OMP_4.5 {
   global:
 	omp_get_max_task_priority;
 	omp_get_max_task_priority_;
@@ -264,15 +264,28 @@ GOMP_4.0.1 {
 	GOMP_offload_unregister;
 } GOMP_4.0;
 
-GOMP_4.1 {
+GOMP_4.5 {
   global:
 	GOMP_target_41;
 	GOMP_target_data_41;
+	GOMP_target_update_41;
 	GOMP_target_enter_exit_data;
 	GOMP_taskloop;
 	GOMP_taskloop_ull;
 	GOMP_offload_register_ver;
 	GOMP_offload_unregister_ver;
+	GOMP_loop_doacross_dynamic_start;
+	GOMP_loop_doacross_guided_start;
+	GOMP_loop_doacross_runtime_start;
+	GOMP_loop_doacross_static_start;
+	GOMP_doacross_post;
+	GOMP_doacross_wait;
+	GOMP_loop_ull_doacross_dynamic_start;
+	GOMP_loop_ull_doacross_guided_start;
+	GOMP_loop_ull_doacross_runtime_start;
+	GOMP_loop_ull_doacross_static_start;
+	GOMP_doacross_ull_post;
+	GOMP_doacross_ull_wait;
 } GOMP_4.0.1;
 
 OACC_2.0 {

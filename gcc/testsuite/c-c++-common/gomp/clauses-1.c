@@ -15,19 +15,19 @@ foo (int d, int m, int i1, int i2, int p, int *idp, int s,
   #pragma omp distribute parallel for \
     private (p) firstprivate (f) collapse(1) dist_schedule(static, 16) \
     if (parallel: i2) default(shared) shared(s) reduction(+:r) num_threads (nth) proc_bind(spread) \
-    lastprivate (l) linear (ll:1) ordered schedule(static, 4)
+    lastprivate (l) schedule(static, 4)
   for (int i = 0; i < 64; i++)
     ll++;
   #pragma omp distribute parallel for simd \
     private (p) firstprivate (f) collapse(1) dist_schedule(static, 16) \
     if (parallel: i2) default(shared) shared(s) reduction(+:r) num_threads (nth) proc_bind(spread) \
-    lastprivate (l) linear (ll:1) schedule(static, 4) \
+    lastprivate (l) schedule(static, 4) \
     safelen(8) simdlen(4) aligned(q: 32)
   for (int i = 0; i < 64; i++)
     ll++;
   #pragma omp distribute simd \
     private (p) firstprivate (f) collapse(1) dist_schedule(static, 16) \
-    safelen(8) simdlen(4) linear(ll: 1) aligned(q: 32) reduction(+:r)
+    safelen(8) simdlen(4) aligned(q: 32) reduction(+:r)
   for (int i = 0; i < 64; i++)
     ll++;
 }
@@ -94,7 +94,7 @@ bar (int d, int m, int i1, int i2, int p, int *idp, int s,
     shared(s) default(shared) reduction(+:r) num_teams(nte) thread_limit(tl) \
     collapse(1) dist_schedule(static, 16) \
     if (parallel: i2) num_threads (nth) proc_bind(spread) \
-    lastprivate (l) linear (ll:1) ordered schedule(static, 4)
+    lastprivate (l) schedule(static, 4)
   for (int i = 0; i < 64; i++)
     ll++;
   #pragma omp target teams distribute parallel for simd \
@@ -102,7 +102,7 @@ bar (int d, int m, int i1, int i2, int p, int *idp, int s,
     shared(s) default(shared) reduction(+:r) num_teams(nte) thread_limit(tl) \
     collapse(1) dist_schedule(static, 16) \
     if (parallel: i2) num_threads (nth) proc_bind(spread) \
-    lastprivate (l) linear (ll:1) schedule(static, 4) \
+    lastprivate (l) schedule(static, 4) \
     safelen(8) simdlen(4) aligned(q: 32)
   for (int i = 0; i < 64; i++)
     ll++;
@@ -110,7 +110,7 @@ bar (int d, int m, int i1, int i2, int p, int *idp, int s,
     device(d) map (tofrom: m) if (target: i1) private (p) firstprivate (f) defaultmap(tofrom: scalar) is_device_ptr (idp) \
     shared(s) default(shared) reduction(+:r) num_teams(nte) thread_limit(tl) \
     collapse(1) dist_schedule(static, 16) \
-    safelen(8) simdlen(4) linear(ll: 1) aligned(q: 32)
+    safelen(8) simdlen(4) aligned(q: 32)
   for (int i = 0; i < 64; i++)
     ll++;
   #pragma omp target simd \
@@ -140,7 +140,7 @@ bar (int d, int m, int i1, int i2, int p, int *idp, int s,
     private(p) firstprivate (f) shared(s) default(shared) reduction(+:r) num_teams(nte) thread_limit(tl) \
     collapse(1) dist_schedule(static, 16) \
     if (parallel: i2) num_threads (nth) proc_bind(spread) \
-    lastprivate (l) linear (ll:1) ordered schedule(static, 4)
+    lastprivate (l) schedule(static, 4)
   for (int i = 0; i < 64; i++)
     ll++;
   #pragma omp target
@@ -148,7 +148,7 @@ bar (int d, int m, int i1, int i2, int p, int *idp, int s,
     private(p) firstprivate (f) shared(s) default(shared) reduction(+:r) num_teams(nte) thread_limit(tl) \
     collapse(1) dist_schedule(static, 16) \
     if (parallel: i2) num_threads (nth) proc_bind(spread) \
-    lastprivate (l) linear (ll:1) schedule(static, 4) \
+    lastprivate (l) schedule(static, 4) \
     safelen(8) simdlen(4) aligned(q: 32)
   for (int i = 0; i < 64; i++)
     ll++;
@@ -156,7 +156,7 @@ bar (int d, int m, int i1, int i2, int p, int *idp, int s,
   #pragma omp teams distribute simd \
     private(p) firstprivate (f) shared(s) default(shared) reduction(+:r) num_teams(nte) thread_limit(tl) \
     collapse(1) dist_schedule(static, 16) \
-    safelen(8) simdlen(4) linear(ll: 1) aligned(q: 32)
+    safelen(8) simdlen(4) aligned(q: 32)
   for (int i = 0; i < 64; i++)
     ll++;
 }

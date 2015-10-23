@@ -1816,6 +1816,12 @@ gimple_copy (gimple *stmt)
 	  gimple_omp_critical_set_clauses (as_a <gomp_critical *> (copy), t);
 	  goto copy_omp_body;
 
+	case GIMPLE_OMP_ORDERED:
+	  t = unshare_expr (gimple_omp_ordered_clauses
+				(as_a <gomp_ordered *> (stmt)));
+	  gimple_omp_ordered_set_clauses (as_a <gomp_ordered *> (copy), t);
+	  goto copy_omp_body;
+
 	case GIMPLE_OMP_SECTIONS:
 	  t = unshare_expr (gimple_omp_sections_clauses (stmt));
 	  gimple_omp_sections_set_clauses (copy, t);
@@ -1829,7 +1835,6 @@ gimple_copy (gimple *stmt)
 	case GIMPLE_OMP_SECTION:
 	case GIMPLE_OMP_MASTER:
 	case GIMPLE_OMP_TASKGROUP:
-	case GIMPLE_OMP_ORDERED:
 	copy_omp_body:
 	  new_seq = gimple_seq_copy (gimple_omp_body (stmt));
 	  gimple_omp_set_body (copy, new_seq);

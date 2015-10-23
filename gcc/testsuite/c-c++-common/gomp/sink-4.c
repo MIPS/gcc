@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-fopenmp -fdump-tree-gimple" } */
+/* { dg-options "-fopenmp -fdump-tree-omplower" } */
 
 /* Test that we adjust pointer offsets for sink variables
    correctly.  */
@@ -22,4 +22,4 @@ funk (foo *begin, foo *end)
     }
 }
 
-/* { dg-final { scan-tree-dump-times "depend\\(sink:p\\+400\\)" 1 "gimple" } } */
+/* { dg-final { scan-tree-dump-times "depend\\(sink:p\\+400\\)" 1 "omplower" } } */

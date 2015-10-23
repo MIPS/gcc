@@ -1,3 +1,263 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.c (gimple_copy): Unshare clauses on GIMPLE_OMP_ORDERED.
+
+	* gimplify.c (gimplify_scan_omp_clauses): Diagnose linear
+	clause on combined distribute {, parallel for} simd construct,
+	unless it is the loop iterator.
+
+	* gimplify.c (gimplify_omp_ordered): Diagnose ordered depend
+	inside loop without ordered(n) clause.
+	* omp-low.c (check_omp_nesting_restrictions): Use a different
+	wording if ordered clause is present, but without parameter.
+
+	* gimplify.c (gimplify_omp_ordered): Disallow multiple
+	depend(source) clauses on the same construct.  Disallow depend(source)
+	combined with depend(sink:vec) on the same construct.
+	* omp-low.c (check_omp_nesting_restrictions): Remove pointless
+	asserts.
+
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Adjust OpenMP version
+	number from 4.1 to 4.5 in a comment.
+
+2015-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_ordered_source): Use GOMP_doacross_ull_post
+	instead of GOMP_doacross_post if iter_type is unsigned long long.
+	(expand_omp_ordered_sink): Use GOMP_doacross_ull_wait
+	instead of GOMP_doacross_wait if iter_type is unsigned long long.
+	(expand_omp_for_generic): Fix up expansion if zero_iter1_bb is
+	NULL, but zero_iter2_bb is non-NULL.  Never pass the up bool argument
+	to GOMP_loop_ull_doacross_*_start entrypoints.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_ULL_DOACROSS_STATIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_ULL_DOACROSS_RUNTIME_START,
+	BUILT_IN_GOMP_DOACROSS_ULL_POST, BUILT_IN_GOMP_DOACROSS_ULL_WAIT): New
+	built-ins.
+	* builtin-types.def (BT_FN_BOOL_UINT_ULLPTR_ULLPTR_ULLPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULL_ULLPTR_ULLPTR, BT_FN_VOID_ULL_VAR): New.
+
+2015-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Fix handling of lastprivate
+	iterators in doacross loops.
+	* omp-low.c (expand_omp_for_ordered_loops): Add ordered_lastprivate
+	argument.  If true, add extra initializers for IVs starting with the
+	one inner to the first >= collapse loop that could have zero
+	iterations.
+	(expand_omp_for_generic): Adjust caller.
+
+	* tree-pretty-print.c (dump_omp_clause): Remove unused variable.
+
+2015-09-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_for_ordered_loops): Handle the case
+	when cont_bb has no predecessors.
+	(expand_omp_for_generic): If any of the ordered loops above
+	collapsed loops could have zero iterations for broken_loop,
+	create a cont_bb and continue as if the loop is not broken.
+
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_DEPEND_SINK_NEGATIVE): Define.
+	* omp-low.c (extract_omp_for_data, expand_omp_for_init_counts,
+	expand_omp_ordered_source, expand_omp_ordered_sink,
+	expand_omp_for_ordered_loops, expand_omp_for_generic): Adjust
+	for fd->ordered being newly 0 when it used to be 0 before,
+	but otherwise being equal to fd->collapse - 1 + old fd->ordered.
+	expand_omp_ordered_source_sink): Likewise.  Warn for lexically
+	later iteration sink, or for sink on iteration never in iteration
+	space.  Use OMP_CLAUSE_DEPEND_SINK_NEGATIVE.
+	(lower_depend_clauses): Assert not seeing sink/source depend kinds.
+	* tree-pretty-print.c (dump_omp_clause): Use
+	OMP_CLAUSE_DEPEND_SINK_NEGATIVE for the +/- sign of sink vector
+	constants.
+
+	* gimplify.c (gimplify_omp_for): Don't adjust lastprivate
+	on ordered loops above collapse.
+	* omp-low.c (expand_omp_ordered_source): Rewritten to pass
+	address of an array of indices.
+	(expand_omp_ordered_source_sink): Create the VAR_DECL for it.
+	(expand_omp_for_ordered_loops): Initialize and update the
+	array elements.
+	(expand_omp_for_generic): Likewise.  Move counts array one
+	element back, so that collapsed loops are multiplied by correct
+	counts.
+	(lower_omp_ordered): Avoid the conservative dependence folding
+	for now, it has too many issues.
+	* omp-builtins.def (BUILT_IN_GOMP_DOACROSS_POST): Change
+	type to BT_FN_VOID_PTR.
+
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_omp_for): Push into
+	loop_iter_var vector both the original and new decl.
+	(gimplify_omp_ordered): Update the decl in TREE_VALUE
+	from the original to the new decl.
+	* omp-low.c (struct omp_region): Adjust comments,
+	add ord_stmt field.
+	(extract_omp_for_data): Canonicalize cond_code even for
+	ordered loops after collapsed ones.  If loops is non-NULL,
+	fd->collapse == 1 and fd->ordered > 1, treat the outermost
+	loop similarly to collapsed ones, n1 == 0, step == 1, n2 == constant
+	or variable number of iterations.
+	(check_omp_nesting_restrictions): Only check outer context
+	when verifying ordered depend construct is closely nested in
+	for ordered construct.
+	(expand_omp_for_init_counts): Rename zero_iter_bb argument to
+	zero_iter1_bb and first_zero_iter to first_zero_iter1, add
+	zero_iter2_bb and first_zero_iter2 arguments, handle computation
+	of counts even for ordered loops.
+	(expand_omp_ordered_source, expand_omp_ordered_sink,
+	expand_omp_ordered_source_sink): New functions.
+	(expand_omp_for_ordered_loops): Add counts argument, initialize
+	the counts vars if needed.  Fix up !gsi_end_p (gsi) handling,
+	use the right step for each loop.
+	(expand_omp_for_generic): Handle expansion of doacross loops.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk,
+	expand_omp_simd, expand_omp_taskloop_for_outer,
+	expand_omp_taskloop_for_inner): Adjust expand_omp_for_init_counts
+	callers.
+	(expand_omp_for): Handle doacross loops.
+	(expand_omp): Don't expand ordered depend constructs here, record
+	ord_stmt instead for later expand_omp_for_generic.
+	(lower_omp_ordered_clauses): Don't ICE on collapsed loops, just
+	give up on them for now.  For loops other than the first or
+	collapsed ones compute lexically latest loop rather than minimum
+	or maximum from each constant separately.  Simplify.
+	* omp-builtins.def (BUILT_IN_GOMP_LOOP_DOACROSS_STATIC_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_DYNAMIC_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_GUIDED_START,
+	BUILT_IN_GOMP_LOOP_DOACROSS_RUNTIME_START,
+	BUILT_IN_GOMP_DOACROSS_POST, BUILT_IN_GOMP_DOACROSS_WAIT): New.
+	* builtin-types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_LONGPTR_LONG_LONGPTR_LONGPTR, BT_FN_VOID_LONG_VAR):
+	New.
+
+2015-09-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_ordered_clauses): Add GSI_P argument.
+	Use XALLOCAVEC, don't check for gimple_omp_for_collapse 0.
+	Merge adjacent ordered depend(sink:) statements.  If removing
+	all depend clauses, replace also the ordered stmt with GIMPLE_NOP.
+	(lower_omp_ordered): Call lower_omp_ordered_clauses only if depend
+	clause is present.  Don't do anything else after that call.
+	(build_omp_regions_1): Treat GIMPLE_OMP_ORDERED with depend clause
+	as stand-alone directive.
+	(make_gimple_omp_edges): Likewise.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* internal-fn.def (GOMP_SIMD_ORDERED_START, GOMP_SIMD_ORDERED_END):
+	New internal functions.
+	* omp-low.c (lower_omp_ordered): For ordered simd construct expand
+	GOMP_SIMD_ORDERED_{START,END} internal calls around the body
+	instead of GOMP_ordered_{start,end}, and set cfun->has_simduid_loops.
+	* passes.def (pass_simduid_cleanup): Schedule another copy of the
+	pass after all optimizations.
+	* tree-inline.c (remap_gimple_stmt): Set has_simduid_loops if
+	remapping GOMP_SIMD_ORDERED_{START,END} internal call.
+	* tree-vectorizer.c (adjust_simduid_builtins): Remove
+	GOMP_SIMD_ORDERED_{START,END} calls.
+	(vectorize_loops, pass_simduid_cleanup::execute): Adjust comments.
+	* internal-fn.c (expand_GOMP_SIMD_ORDERED_START,
+	expand_GOMP_SIMD_ORDERED_END): New functions.
+
+2015-09-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_sharing_clauses): Don't ignore map with
+	declare target vars for GOMP_MAP_FIRSTPRIVATE_POINTER,
+	unless the decl is an array.
+	(lower_omp_target): Ignore GOMP_MAP_FIRSTPRIVATE_POINTER map with
+	declare target var if it is an array.
+
+2015-09-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_target): If target has depend
+	clauses, avoid using GOMP_MAP_FIRSTPRIVATE_INT unless the
+	var is non-addressable and private in the current task.
+	Even for GOMP_MAP_FIRSTPRIVATE, if the var is non-addressable,
+	but shared or threadprivate, take address of the shared var
+	rather than initializing a temporary with the current value.
+
+2015-09-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_depend_clauses): Set TREE_ADDRESSABLE on array.
+	(lower_omp_target): Use gimple_omp_target_clauses_ptr instead of
+	gimple_omp_task_clauses_ptr.
+
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Initialize sc
+	to NULL to avoid false positive warnings.
+	* omp-low.c (check_omp_nesting_restrictions): Diagnose
+	depend(source) or depend(sink:...) on #pragma omp target *.
+	(expand_omp_target): Pass flags and depend arguments to
+	GOMP_target_{41,update_41,enter_exit_data} libcalls.
+	(lower_depend_clauses): Change first argument from gimple
+	to tree * pointing to the stmt's clauses.
+	(lower_omp_taskreg): Adjust caller.
+	(lower_omp_target): Lower depend clauses.  Always use 16-bit
+	kinds and 8 as align shift.  Use
+	GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION for zero length array
+	section in map clause with delete kind.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET,
+	BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA): Add flags and depend arguments.
+	(BUILT_IN_GOMP_TARGET_UPDATE): Change library function name
+	to GOMP_target_update_41.  Add flags and depend arguments,
+	remove unused argument.
+	* builtin-types.def (BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR): New.
+
+	* omp-low.c (check_omp_nesting_restrictions): Allow ordered simd
+	instead of simd region.  Don't assume that all ordered construct
+	clauses must be depend clauses.
+
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	struct element GOMP_MAP_FIRSTPRIVATE_POINTER.
+	(gimplify_adjust_omp_clauses): Add CODE argument.
+	Handle removal of GOMP_MAP_FIRSTPRIVATE_POINTER
+	struct elements for struct not seen in target body.
+	Handle removal of struct mapping if struct is not
+	seen in target body.  Remove GOMP_MAP_STRUCT
+	map clause on OMP_TARGET_EXIT_DATA.
+	(gimplify_oacc_cache, gimplify_omp_parallel, gimplify_omp_task,
+	gimplify_omp_for, gimplify_omp_workshare, gimplify_omp_target_update,
+	gimplify_expr): Adjust callers.
+	* omp-low.c (scan_sharing_clauses): Handle struct element
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	(lower_omp_target): Likewise.
+
+2015-07-31  Aldy Hernandez  <aldyh@redhat.com>
+
+	* wide-int.h (wi::gcd): New.
+	* gimplify.c (struct gimplify_omp_ctx): Rename iter_vars to
+	loop_iter_var.
+	(delete_omp_context): Same.
+	(gimplify_expr): Move code handling OMP_ORDERED into...
+	(gimplify_omp_ordered): ...here.  New.
+	* omp-low.c (lower_omp_ordered_clauses): New.
+	(lower_omp_ordered): Call lower_omp_ordered_clauses.
+
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (fixup_child_record_type): Const qualify *.omp_data_i.
+	(create_omp_child_function): Set TREE_READONLY on .omp_data_i.
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	map clauses with COMPONENT_REF.
+	* omp-low.c (lower_omp_target): Handle GOMP_MAP_STRUCT.
+	Handle GOMP_MAP_RELEASE for zero-length array sections.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	GOMP_MAP_STRUCT.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree.h (OMP_TARGET_COMBINED): Define.

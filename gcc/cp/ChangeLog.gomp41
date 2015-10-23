@@ -1,3 +1,75 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_for_loop): Disallow linear clause
+	if ordered(n) is present.
+	(cp_parser_omp_for): Disallow ordered clause if combined with
+	distribute.  Disallow linear clause if not combined with
+	simd and combined with distribute.
+	(cp_parser_omp_parallel): Disallow copyin clause on
+	target parallel{, for, for simd}.
+
+	* parser.c (cp_parser_omp_simd): Allow ordered clause on
+	for simd, but ensure no parameter is specified for it.
+
+	* semantics.c (finish_omp_clauses): Disallow modifiers on simd/for
+	constructs.
+
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_array_sections_1): Diagnose negative
+	length even for pointer based array sections.
+
+	* parser.c: Adjust OpenMP version numbers from 4.1 to 4.5 in
+	all comments.
+
+2015-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_for_class_iterator): Add collapse and
+	ordered arguments.  Fix handling of lastprivate iterators in
+	doacross loops.
+	(finish_omp_for): Adjust caller.
+
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_depend_sink): Put - sign
+	into OMP_CLAUSE_DEPEND_SINK_NEGATIVE instead of negating the number.
+	(cp_parser_omp_for_loop): Adjust for ordered clause counting
+	source loops before collapsing instead of after it.  Require
+	ordered clause parameter to be >= collapse parameter.
+	* pt.c (tsubst_omp_clause_decl): Copy
+	OMP_CLAUSE_DEPEND_SINK_NEGATIVE flag.
+
+2015-09-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_ordered): Test tree_fits_shwi_p
+	before INTEGRAL_TYPE_P test.
+
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_array_sections): Set
+	OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION even for
+	GOMP_MAP_DELETE kinds.
+
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_var_list_no_open): Parse struct element
+	on map/to/from clauses.
+	(cp_parser_omp_clause_map): Fix up parsing of delete kind.
+	* pt.c (tsubst_expr): For OMP_TARGET{,_DATA} pass true instead of
+	false to allows_field.
+	* semantics.c (handle_omp_array_sections_1): Add IS_OMP argument,
+	pass it down recursively.  Handle struct element based array sections.
+	(handle_omp_array_sections): Adjust caller.  Handle struct element
+	based array sections.
+	(finish_omp_clauses): Handle struct element mappings and struct
+	element based array sections.  Use generic_head instead of map_head
+	for GOMP_MAP_FIRSTPRIVATE_POINTER duplicate testing.
+
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (handle_omp_array_sections): Handle
+	GOMP_MAP_RELEASE for zero-length array sections.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_target_data, cp_parser_omp_target_enter_data,

@@ -1,3 +1,22 @@
+2015-10-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_BOOL_UINT_ULLPTR_ULLPTR_ULLPTR,
+	BT_FN_BOOL_UINT_ULLPTR_ULL_ULLPTR_ULLPTR, BT_FN_VOID_ULL_VAR): New.
+
+2015-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_BOOL_UINT_LONGPTR_LONGPTR_LONGPTR,
+	BT_FN_BOOL_UINT_LONGPTR_LONG_LONGPTR_LONGPTR, BT_FN_VOID_LONG_VAR):
+	New.
+	* f95-lang.c (DEF_FUNCTION_TYPE_VAR_1): Define.
+
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_SIZE_PTR_PTR_PTR_UINT_PTR,
+	BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR): New.
+
 2015-07-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_trans_omp_clauses): Set OMP_CLAUSE_IF_MODIFIER

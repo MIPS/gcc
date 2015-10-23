@@ -1,3 +1,11 @@
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Predefine _OPENMP as
+	201511 instead of 201307.
+
+	* c-pragma.h (enum pragma_omp_clause): Adjust OpenMP version
+	number from 4.1 to 4.5 in a comment.
+
 2015-07-17  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-pragma.h (enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_LINK.

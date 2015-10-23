@@ -71,6 +71,15 @@ extern bool GOMP_loop_ordered_dynamic_next (long *, long *);
 extern bool GOMP_loop_ordered_guided_next (long *, long *);
 extern bool GOMP_loop_ordered_runtime_next (long *, long *);
 
+extern bool GOMP_loop_doacross_static_start (unsigned, long *, long, long *,
+					     long *);
+extern bool GOMP_loop_doacross_dynamic_start (unsigned, long *, long, long *,
+					      long *);
+extern bool GOMP_loop_doacross_guided_start (unsigned, long *, long, long *,
+					     long *);
+extern bool GOMP_loop_doacross_runtime_start (unsigned, long *, long *,
+					      long *);
+
 extern void GOMP_parallel_loop_static_start (void (*)(void *), void *,
 					     unsigned, long, long, long, long);
 extern void GOMP_parallel_loop_dynamic_start (void (*)(void *), void *,
@@ -164,10 +173,34 @@ extern bool GOMP_loop_ull_ordered_guided_next (unsigned long long *,
 extern bool GOMP_loop_ull_ordered_runtime_next (unsigned long long *,
 						unsigned long long *);
 
+extern bool GOMP_loop_ull_doacross_static_start (unsigned,
+						 unsigned long long *,
+						 unsigned long long,
+						 unsigned long long *,
+						 unsigned long long *);
+extern bool GOMP_loop_ull_doacross_dynamic_start (unsigned,
+						  unsigned long long *,
+						  unsigned long long,
+						  unsigned long long *,
+						  unsigned long long *);
+extern bool GOMP_loop_ull_doacross_guided_start (unsigned,
+						 unsigned long long *,
+						 unsigned long long,
+						 unsigned long long *,
+						 unsigned long long *);
+extern bool GOMP_loop_ull_doacross_runtime_start (unsigned,
+						  unsigned long long *,
+						  unsigned long long *,
+						  unsigned long long *);
+
 /* ordered.c */
 
 extern void GOMP_ordered_start (void);
 extern void GOMP_ordered_end (void);
+extern void GOMP_doacross_post (long *);
+extern void GOMP_doacross_wait (long, ...);
+extern void GOMP_doacross_ull_post (unsigned long long *);
+extern void GOMP_doacross_ull_wait (unsigned long long, ...);
 
 /* parallel.c */
 
@@ -218,7 +251,7 @@ extern void GOMP_set_offload_targets (const char *);
 extern void GOMP_target (int, void (*) (void *), const void *,
 			 size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_41 (int, void (*) (void *), size_t, void **, size_t *,
-			  unsigned short *);
+			  unsigned short *, unsigned int, void **);
 extern void GOMP_target_data (int, const void *,
 			      size_t, void **, size_t *, unsigned char *);
 extern void GOMP_target_data_41 (int, size_t, void **, size_t *,
@@ -226,8 +259,11 @@ extern void GOMP_target_data_41 (int, size_t, void **, size_t *,
 extern void GOMP_target_end_data (void);
 extern void GOMP_target_update (int, const void *,
 				size_t, void **, size_t *, unsigned char *);
+extern void GOMP_target_update_41 (int, size_t, void **, size_t *,
+				   unsigned short *, unsigned int, void **);
 extern void GOMP_target_enter_exit_data (int, size_t, void **, size_t *,
-					 unsigned short *);
+					 unsigned short *, unsigned int,
+					 void **);
 extern void GOMP_teams (unsigned int, unsigned int);
 
 /* oacc-parallel.c */

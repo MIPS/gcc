@@ -255,6 +255,66 @@ gomp_map_pointer (struct target_mem_desc *tgt, uintptr_t host_ptr,
 			  sizeof (void *));
 }
 
+static void
+gomp_map_fields_existing (struct target_mem_desc *tgt, splay_tree_key n,
+			  size_t first, size_t i, void **hostaddrs,
+			  size_t *sizes, void *kinds)
+{
+  struct gomp_device_descr *devicep = tgt->device_descr;
+  struct splay_tree_s *mem_map = &devicep->mem_map;
+  struct splay_tree_key_s cur_node;
+  int kind;
+  const bool short_mapkind = true;
+  const int typemask = short_mapkind ? 0xff : 0x7;
+
+  cur_node.host_start = (uintptr_t) hostaddrs[i];
+  cur_node.host_end = cur_node.host_start + sizes[i];
+  splay_tree_key n2 = splay_tree_lookup (mem_map, &cur_node);
+  kind = get_kind (short_mapkind, kinds, i);
+  if (n2
+      && n2->tgt == n->tgt
+      && n2->host_start - n->host_start == n2->tgt_offset - n->tgt_offset)
+    {
+      gomp_map_vars_existing (devicep, n2, &cur_node,
+			      &tgt->list[i], kind & typemask);
+      return;
+    }
+  if (sizes[i] == 0)
+    {
+      if (cur_node.host_start > (uintptr_t) hostaddrs[first - 1])
+	{
+	  cur_node.host_start--;
+	  n2 = splay_tree_lookup (mem_map, &cur_node);
+	  cur_node.host_start++;
+	  if (n2
+	      && n2->tgt == n->tgt
+	      && n2->host_start - n->host_start
+		 == n2->tgt_offset - n->tgt_offset)
+	    {
+	      gomp_map_vars_existing (devicep, n2, &cur_node, &tgt->list[i],
+				      kind & typemask);
+	      return;
+	    }
+	}
+      cur_node.host_end++;
+      n2 = splay_tree_lookup (mem_map, &cur_node);
+      cur_node.host_end--;
+      if (n2
+	  && n2->tgt == n->tgt
+	  && n2->host_start - n->host_start == n2->tgt_offset - n->tgt_offset)
+	{
+	  gomp_map_vars_existing (devicep, n2, &cur_node, &tgt->list[i],
+				  kind & typemask);
+	  return;
+	}
+    }
+  gomp_mutex_unlock (&devicep->lock);
+  gomp_fatal ("Trying to map into device [%p..%p) structure element when "
+	      "other mapped elements from the same structure weren't mapped "
+	      "together with it", (void *) cur_node.host_start,
+	      (void *) cur_node.host_end);
+}
+
 attribute_hidden struct target_mem_desc *
 gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	       void **hostaddrs, void **devaddrs, size_t *sizes, void *kinds,
@@ -312,6 +372,37 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 			+ cur_node.host_start);
 	  tgt->list[i].key = NULL;
 	  tgt->list[i].offset = ~(uintptr_t) 0;
+	  continue;
+	}
+      else if ((kind & typemask) == GOMP_MAP_STRUCT)
+	{
+	  size_t first = i + 1;
+	  size_t last = i + sizes[i];
+	  cur_node.host_start = (uintptr_t) hostaddrs[i];
+	  cur_node.host_end = (uintptr_t) hostaddrs[last]
+			      + sizes[last];
+	  tgt->list[i].key = NULL;
+	  tgt->list[i].offset = ~(uintptr_t) 2;
+	  splay_tree_key n = splay_tree_lookup (mem_map, &cur_node);
+	  if (n == NULL)
+	    {
+	      size_t align = (size_t) 1 << (kind >> rshift);
+	      if (tgt_align < align)
+		tgt_align = align;
+	      tgt_size -= (uintptr_t) hostaddrs[first]
+			  - (uintptr_t) hostaddrs[i];
+	      tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	      tgt_size += cur_node.host_end - (uintptr_t) hostaddrs[i];
+	      not_found_cnt += last - i;
+	      for (i = first; i <= last; i++)
+		tgt->list[i].key = NULL;
+	      i--;
+	      continue;
+	    }
+	  for (i = first; i <= last; i++)
+	    gomp_map_fields_existing (tgt, n, first, i, hostaddrs,
+				      sizes, kinds);
+	  i--;
 	  continue;
 	}
       cur_node.host_start = (uintptr_t) hostaddrs[i];
@@ -416,7 +507,8 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
       if (not_found_cnt)
 	tgt->array = gomp_malloc (not_found_cnt * sizeof (*tgt->array));
       splay_tree_node array = tgt->array;
-      size_t j;
+      size_t j, field_tgt_offset = 0, field_tgt_clear = ~(size_t) 0;
+      uintptr_t field_tgt_base = 0;
 
       for (i = 0; i < mapnum; i++)
 	if (tgt->list[i].key == NULL)
@@ -424,23 +516,52 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	    int kind = get_kind (short_mapkind, kinds, i);
 	    if (hostaddrs[i] == NULL)
 	      continue;
-	    if ((kind & typemask) == GOMP_MAP_FIRSTPRIVATE)
+	    switch (kind & typemask)
 	      {
-		size_t align = (size_t) 1 << (kind >> rshift);
+		size_t align, len, first, last;
+		splay_tree_key n;
+	      case GOMP_MAP_FIRSTPRIVATE:
+		align = (size_t) 1 << (kind >> rshift);
 		tgt_size = (tgt_size + align - 1) & ~(align - 1);
 		tgt->list[i].offset = tgt_size;
-		size_t len = sizes[i];
+		len = sizes[i];
 		devicep->host2dev_func (devicep->target_id,
 					(void *) (tgt->tgt_start + tgt_size),
 					(void *) hostaddrs[i], len);
 		tgt_size += len;
 		continue;
-	      }
-	    switch (kind & typemask)
-	      {
 	      case GOMP_MAP_FIRSTPRIVATE_INT:
 	      case GOMP_MAP_USE_DEVICE_PTR:
 	      case GOMP_MAP_ZERO_LEN_ARRAY_SECTION:
+		continue;
+	      case GOMP_MAP_STRUCT:
+		first = i + 1;
+		last = i + sizes[i];
+		cur_node.host_start = (uintptr_t) hostaddrs[i];
+		cur_node.host_end = (uintptr_t) hostaddrs[last]
+				    + sizes[last];
+		if (tgt->list[first].key != NULL)
+		  continue;
+		n = splay_tree_lookup (mem_map, &cur_node);
+		if (n == NULL)
+		  {
+		    size_t align = (size_t) 1 << (kind >> rshift);
+		    tgt_size -= (uintptr_t) hostaddrs[first]
+				- (uintptr_t) hostaddrs[i];
+		    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+		    tgt_size += (uintptr_t) hostaddrs[first]
+				- (uintptr_t) hostaddrs[i];
+		    field_tgt_base = (uintptr_t) hostaddrs[first];
+		    field_tgt_offset = tgt_size;
+		    field_tgt_clear = last;
+		    tgt_size += cur_node.host_end
+				- (uintptr_t) hostaddrs[first];
+		    continue;
+		  }
+		for (i = first; i <= last; i++)
+		  gomp_map_fields_existing (tgt, n, first, i, hostaddrs,
+					    sizes, kinds);
+		i--;
 		continue;
 	      default:
 		break;
@@ -459,10 +580,20 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 	      {
 		size_t align = (size_t) 1 << (kind >> rshift);
 		tgt->list[i].key = k;
-		tgt_size = (tgt_size + align - 1) & ~(align - 1);
 		k->tgt = tgt;
-		k->tgt_offset = tgt_size;
-		tgt_size += k->host_end - k->host_start;
+		if (field_tgt_clear != ~(size_t) 0)
+		  {
+		    k->tgt_offset = k->host_start - field_tgt_base
+				    + field_tgt_offset;
+		    if (i == field_tgt_clear)
+		      field_tgt_clear = ~(size_t) 0;
+		  }
+		else
+		  {
+		    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+		    k->tgt_offset = tgt_size;
+		    tgt_size += k->host_end - k->host_start;
+		  }
 		tgt->list[i].copy_from = GOMP_MAP_COPY_FROM_P (kind & typemask);
 		tgt->list[i].always_copy_from
 		  = GOMP_MAP_ALWAYS_FROM_P (kind & typemask);
@@ -581,6 +712,12 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		cur_node.tgt_offset = (uintptr_t) hostaddrs[i];
 	      else if (tgt->list[i].offset == ~(uintptr_t) 1)
 		cur_node.tgt_offset = 0;
+	      else if (tgt->list[i].offset == ~(uintptr_t) 2)
+		cur_node.tgt_offset = tgt->list[i + 1].key->tgt->tgt_start
+				      + tgt->list[i + 1].key->tgt_offset
+				      + tgt->list[i + 1].offset
+				      + (uintptr_t) hostaddrs[i]
+				      - (uintptr_t) hostaddrs[i + 1];
 	      else
 		cur_node.tgt_offset = tgt->tgt_start
 				      + tgt->list[i].offset;
@@ -770,13 +907,6 @@ gomp_update (struct gomp_device_descr *devicep, size_t mapnum, void **hostaddrs,
 						+ cur_node.host_start
 						- n->host_start),
 				      cur_node.host_end - cur_node.host_start);
-	  }
-	else
-	  {
-	    gomp_mutex_unlock (&devicep->lock);
-	    gomp_fatal ("Trying to update [%p..%p) object that is not mapped",
-			(void *) cur_node.host_start,
-			(void *) cur_node.host_end);
 	  }
       }
   gomp_mutex_unlock (&devicep->lock);
@@ -1204,9 +1334,21 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
 
 void
 GOMP_target_41 (int device, void (*fn) (void *), size_t mapnum,
-		void **hostaddrs, size_t *sizes, unsigned short *kinds)
+		void **hostaddrs, size_t *sizes, unsigned short *kinds,
+		unsigned int flags, void **depend)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
+
+  /* If there are depend clauses, but nowait is not present,
+     block the parent task until the dependencies are resolved
+     and then just continue with the rest of the function as if it
+     is a merged task.  */
+  if (depend != NULL)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      if (thr->task && thr->task->depend_hash)
+	gomp_task_maybe_wait_for_dependencies (depend);
+    }
 
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
@@ -1343,6 +1485,63 @@ GOMP_target_update (int device, const void *unused, size_t mapnum,
   gomp_update (devicep, mapnum, hostaddrs, sizes, kinds, false);
 }
 
+void
+GOMP_target_update_41 (int device, size_t mapnum, void **hostaddrs,
+		       size_t *sizes, unsigned short *kinds,
+		       unsigned int flags, void **depend)
+{
+  struct gomp_device_descr *devicep = resolve_device (device);
+
+  /* If there are depend clauses, but nowait is not present,
+     block the parent task until the dependencies are resolved
+     and then just continue with the rest of the function as if it
+     is a merged task.  Until we are able to schedule task during
+     variable mapping or unmapping, ignore nowait if depend clauses
+     are not present.  */
+  if (depend != NULL)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      if (thr->task && thr->task->depend_hash)
+	{
+	  if ((flags & GOMP_TARGET_FLAG_NOWAIT)
+	      && thr->ts.team
+	      && !thr->task->final_task)
+	    {
+	      gomp_create_target_task (devicep, (void (*) (void *)) NULL,
+				       mapnum, hostaddrs, sizes, kinds,
+				       flags | GOMP_TARGET_FLAG_UPDATE,
+				       depend);
+	      return;
+	    }
+
+	  struct gomp_team *team = thr->ts.team;
+	  /* If parallel or taskgroup has been cancelled, don't start new
+	     tasks.  */
+	  if (team
+	      && (gomp_team_barrier_cancelled (&team->barrier)
+		  || (thr->task->taskgroup
+		      && thr->task->taskgroup->cancelled)))
+	    return;
+
+	  gomp_task_maybe_wait_for_dependencies (depend);
+	}
+    }
+
+  if (devicep == NULL
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return;
+
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (team
+      && (gomp_team_barrier_cancelled (&team->barrier)
+	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
+    return;
+
+  gomp_update (devicep, mapnum, hostaddrs, sizes, kinds, true);
+}
+
 static void
 gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 		void **hostaddrs, size_t *sizes, unsigned short *kinds)
@@ -1361,9 +1560,11 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 	case GOMP_MAP_DELETE:
 	case GOMP_MAP_RELEASE:
 	case GOMP_MAP_ZERO_LEN_ARRAY_SECTION:
+	case GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION:
 	  cur_node.host_start = (uintptr_t) hostaddrs[i];
 	  cur_node.host_end = cur_node.host_start + sizes[i];
-	  splay_tree_key k = kind == GOMP_MAP_ZERO_LEN_ARRAY_SECTION
+	  splay_tree_key k = (kind == GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION
+			      || kind == GOMP_MAP_ZERO_LEN_ARRAY_SECTION)
 	    ? gomp_map_lookup (&devicep->mem_map, &cur_node)
 	    : splay_tree_lookup (&devicep->mem_map, &cur_node);
 	  if (!k)
@@ -1371,7 +1572,9 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 
 	  if (k->refcount > 0 && k->refcount != REFCOUNT_INFINITY)
 	    k->refcount--;
-	  if (kind == GOMP_MAP_DELETE && k->refcount != REFCOUNT_INFINITY)
+	  if ((kind == GOMP_MAP_DELETE
+	       || kind == GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION)
+	      && k->refcount != REFCOUNT_INFINITY)
 	    k->refcount = 0;
 
 	  if ((kind == GOMP_MAP_FROM && k->refcount == 0)
@@ -1404,46 +1607,105 @@ gomp_exit_data (struct gomp_device_descr *devicep, size_t mapnum,
 
 void
 GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
-			     size_t *sizes, unsigned short *kinds)
+			     size_t *sizes, unsigned short *kinds,
+			     unsigned int flags, void **depend)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
+
+  /* If there are depend clauses, but nowait is not present,
+     block the parent task until the dependencies are resolved
+     and then just continue with the rest of the function as if it
+     is a merged task.  Until we are able to schedule task during
+     variable mapping or unmapping, ignore nowait if depend clauses
+     are not present.  */
+  if (depend != NULL)
+    {
+      struct gomp_thread *thr = gomp_thread ();
+      if (thr->task && thr->task->depend_hash)
+	{
+	  if ((flags & GOMP_TARGET_FLAG_NOWAIT)
+	      && thr->ts.team
+	      && !thr->task->final_task)
+	    {
+	      gomp_create_target_task (devicep, (void (*) (void *)) NULL,
+				       mapnum, hostaddrs, sizes, kinds,
+				       flags, depend);
+	      return;
+	    }
+
+	  struct gomp_team *team = thr->ts.team;
+	  /* If parallel or taskgroup has been cancelled, don't start new
+	     tasks.  */
+	  if (team
+	      && (gomp_team_barrier_cancelled (&team->barrier)
+		  || (thr->task->taskgroup
+		      && thr->task->taskgroup->cancelled)))
+	    return;
+
+	  gomp_task_maybe_wait_for_dependencies (depend);
+	}
+    }
 
   if (devicep == NULL
       || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
     return;
 
-  /* Determine if this is an "omp target enter data".  */
-  const int typemask = 0xff;
-  bool is_enter_data = false;
+  struct gomp_thread *thr = gomp_thread ();
+  struct gomp_team *team = thr->ts.team;
+  /* If parallel or taskgroup has been cancelled, don't start new tasks.  */
+  if (team
+      && (gomp_team_barrier_cancelled (&team->barrier)
+	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
+    return;
+
   size_t i;
-  for (i = 0; i < mapnum; i++)
-    {
-      unsigned char kind = kinds[i] & typemask;
-
-      if (kind == GOMP_MAP_ALLOC
-	  || kind == GOMP_MAP_TO
-	  || kind == GOMP_MAP_ALWAYS_TO)
-	{
-	  is_enter_data = true;
-	  break;
-	}
-
-      if (kind == GOMP_MAP_FROM
-	  || kind == GOMP_MAP_ALWAYS_FROM
-	  || kind == GOMP_MAP_DELETE
-	  || kind == GOMP_MAP_RELEASE
-	  || kind == GOMP_MAP_ZERO_LEN_ARRAY_SECTION)
-	break;
-
-      gomp_fatal ("GOMP_target_enter_exit_data unhandled kind 0x%.2x", kind);
-    }
-
-  if (is_enter_data)
+  if ((flags & GOMP_TARGET_FLAG_EXIT_DATA) == 0)
     for (i = 0; i < mapnum; i++)
-      gomp_map_vars (devicep, 1, &hostaddrs[i], NULL, &sizes[i], &kinds[i],
-		     true, GOMP_MAP_VARS_ENTER_DATA);
+      if ((kinds[i] & 0xff) == GOMP_MAP_STRUCT)
+	{
+	  gomp_map_vars (devicep, sizes[i] + 1, &hostaddrs[i], NULL, &sizes[i],
+			 &kinds[i], true, GOMP_MAP_VARS_ENTER_DATA);
+	  i += sizes[i];
+	}
+      else
+	gomp_map_vars (devicep, 1, &hostaddrs[i], NULL, &sizes[i], &kinds[i],
+		       true, GOMP_MAP_VARS_ENTER_DATA);
   else
     gomp_exit_data (devicep, mapnum, hostaddrs, sizes, kinds);
+}
+
+void
+gomp_target_task_fn (void *data)
+{
+  struct gomp_target_task *ttask = (struct gomp_target_task *) data;
+  if (ttask->fn != NULL)
+    {
+      /* GOMP_target_41 */
+    }
+  else if (ttask->devicep == NULL
+	   || !(ttask->devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    return;
+
+  size_t i;
+  if (ttask->flags & GOMP_TARGET_FLAG_UPDATE)
+    gomp_update (ttask->devicep, ttask->mapnum, ttask->hostaddrs, ttask->sizes,
+		 ttask->kinds, true);
+  else if ((ttask->flags & GOMP_TARGET_FLAG_EXIT_DATA) == 0)
+    for (i = 0; i < ttask->mapnum; i++)
+      if ((ttask->kinds[i] & 0xff) == GOMP_MAP_STRUCT)
+	{
+	  gomp_map_vars (ttask->devicep, ttask->sizes[i] + 1,
+			 &ttask->hostaddrs[i], NULL, &ttask->sizes[i],
+			 &ttask->kinds[i], true, GOMP_MAP_VARS_ENTER_DATA);
+	  i += ttask->sizes[i];
+	}
+      else
+	gomp_map_vars (ttask->devicep, 1, &ttask->hostaddrs[i], NULL,
+		       &ttask->sizes[i], &ttask->kinds[i],
+		       true, GOMP_MAP_VARS_ENTER_DATA);
+  else
+    gomp_exit_data (ttask->devicep, ttask->mapnum, ttask->hostaddrs,
+		    ttask->sizes, ttask->kinds);
 }
 
 void
@@ -1511,10 +1773,10 @@ omp_target_free (void *device_ptr, int device_num)
 }
 
 int
-omp_target_is_present (void *ptr, size_t offset, int device_num)
+omp_target_is_present (void *ptr, int device_num)
 {
   if (ptr == NULL)
-    return offset == 0;
+    return 1;
 
   if (device_num == GOMP_DEVICE_HOST_FALLBACK)
     return 1;
@@ -1533,7 +1795,7 @@ omp_target_is_present (void *ptr, size_t offset, int device_num)
   struct splay_tree_s *mem_map = &devicep->mem_map;
   struct splay_tree_key_s cur_node;
 
-  cur_node.host_start = (uintptr_t) ptr + offset;
+  cur_node.host_start = (uintptr_t) ptr;
   cur_node.host_end = cur_node.host_start;
   splay_tree_key n = gomp_map_lookup (mem_map, &cur_node);
   int ret = n != NULL;

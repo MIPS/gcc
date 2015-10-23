@@ -1619,6 +1619,11 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	    gimple_call_set_tail (call_stmt, false);
 	  if (gimple_call_from_thunk_p (call_stmt))
 	    gimple_call_set_from_thunk (call_stmt, false);
+	  if (gimple_call_internal_p (call_stmt)
+	      && IN_RANGE (gimple_call_internal_fn (call_stmt),
+			   IFN_GOMP_SIMD_ORDERED_START,
+			   IFN_GOMP_SIMD_ORDERED_END))
+	    DECL_STRUCT_FUNCTION (id->dst_fn)->has_simduid_loops = true;
 	}
 
       /* Remap the region numbers for __builtin_eh_{pointer,filter},

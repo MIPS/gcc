@@ -1,3 +1,17 @@
+2015-09-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (GOMP_TARGET_FLAG_UPDATE): Define.
+
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (enum gomp_map_kind): Add
+	GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION.
+	(GOMP_TARGET_FLAG_NOWAIT, GOMP_TARGET_FLAG_EXIT_DATA): Define.
+
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (enum gomp_map_kind): Add GOMP_MAP_STRUCT.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* gomp-constants.h (enum gomp_map_kind): Add

@@ -14318,7 +14318,10 @@ tsubst_omp_clause_decl (tree decl, tree args, tsubst_flags_t complain,
 	  && TREE_VALUE (decl) == length
 	  && TREE_CHAIN (decl) == chain)
 	return decl;
-      return tree_cons (low_bound, length, chain);
+      tree ret = tree_cons (low_bound, length, chain);
+      OMP_CLAUSE_DEPEND_SINK_NEGATIVE (ret)
+	= OMP_CLAUSE_DEPEND_SINK_NEGATIVE (decl);
+      return ret;
     }
   tree ret = tsubst_expr (decl, args, complain, in_decl,
 			  /*integral_constant_expression_p=*/false);
@@ -15333,7 +15336,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
     case OACC_DATA:
     case OMP_TARGET_DATA:
     case OMP_TARGET:
-      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, false,
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false,
+				TREE_CODE (t) != OACC_DATA,
 				args, complain, in_decl);
       keep_next_level (true);
       stmt = begin_omp_structured_block ();
@@ -15359,6 +15363,15 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       break;
 
     case OMP_TARGET_UPDATE:
+    case OMP_TARGET_ENTER_DATA:
+    case OMP_TARGET_EXIT_DATA:
+      tmp = tsubst_omp_clauses (OMP_STANDALONE_CLAUSES (t), false, true,
+				args, complain, in_decl);
+      t = copy_node (t);
+      OMP_STANDALONE_CLAUSES (t) = tmp;
+      add_stmt (t);
+      break;
+
     case OACC_ENTER_DATA:
     case OACC_EXIT_DATA:
     case OACC_UPDATE:

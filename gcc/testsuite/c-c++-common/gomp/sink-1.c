@@ -68,7 +68,7 @@ void
 foo (int n, int m, int o)
 {
   int i, j, k;
-  #pragma omp for collapse(2) ordered(2)
+  #pragma omp for collapse(2) ordered(3)
   for (i = 0; i < m; i++)
     {
       for (j = 0; j < n; j++)

@@ -1,3 +1,60 @@
+2015-10-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for_loop): Disallow linear clause
+	if ordered(n) is present.
+	(c_parser_omp_for): Disallow ordered clause if combined with
+	distribute.  Disallow linear clause if not combined with
+	simd and combined with distribute.
+	(c_parser_omp_parallel): Disallow copyin clause on
+	target parallel{, for, for simd}.
+
+	* c-parser.c (c_parser_omp_simd): Allow ordered clause on
+	for simd, but ensure no parameter is specified for it.
+
+	* c-typeck.c (c_finish_omp_clauses): Disallow modifiers on simd/for
+	constructs.
+
+2015-10-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Diagnose negative
+	length even for pointer based array sections.
+
+	* c-parser.c: Adjust OpenMP version numbers from 4.1 to 4.5 in
+	all comments.
+
+2015-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_clause_depend_sink): Put - sign
+	into OMP_CLAUSE_DEPEND_SINK_NEGATIVE instead of negating the number.
+	(c_parser_omp_for_loop): Adjust for ordered clause counting
+	source loops before collapsing instead of after it.  Require
+	ordered clause parameter to be >= collapse parameter.
+
+2015-09-02  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections): Set
+	OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION even for
+	GOMP_MAP_DELETE kinds.
+
+2015-08-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Add IS_OMP argument, pass
+	it down recursively.  Handle struct element based array sections.
+	(handle_omp_array_sections): Adjust caller.  Handle struct element
+	based array sections.
+	(c_finish_omp_clauses): Handle struct element based array sections.
+	Use generic_head instead of map_head for GOMP_MAP_FIRSTPRIVATE_POINTER
+	duplicate testing.
+
+2015-07-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_variable_list): Parse struct
+	elements in map/to/from clauses.
+	* c-typeck.c (handle_omp_array_sections): Handle
+	GOMP_MAP_RELEASE for zero-length array sections.
+	(c_finish_omp_clauses): Handle struct elements in
+	map/to/from OpenMP clauses.
+
 2015-07-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-tree.h (c_finish_omp_clauses): Add is_omp argument.
