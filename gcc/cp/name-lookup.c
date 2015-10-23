@@ -85,9 +85,26 @@ get_anonymous_namespace_name (void)
 
 static GTY((deletable)) binding_entry free_binding_entry = NULL;
 
-/* The bindin oracle; see cp-tree.h.  */
+/* The binding oracle; see cp-tree.h.  */
 
 cp_binding_oracle_function *cp_binding_oracle;
+
+/* If we have a binding oracle, ask it for all namespace-scoped
+   definitions of NAME.  */
+
+static inline void
+query_oracle (tree name)
+{
+  // FIXME: we need a more space-efficient representation for
+  // oracle_looked_up.
+  if (cp_binding_oracle && !LANG_IDENTIFIER_CAST (name)->oracle_looked_up)
+    {
+      LANG_IDENTIFIER_CAST (name)->oracle_looked_up = true;
+      // FIXME: unify CP_ORACLE_SYMBOL and CP_ORACLE_TAG for C++.
+      cp_binding_oracle (CP_ORACLE_SYMBOL, name);
+      cp_binding_oracle (CP_ORACLE_TAG, name);
+    }
+}
 
 /* Create a binding_entry object for (NAME, TYPE).  */
 
@@ -4622,6 +4639,8 @@ qualified_lookup_using_namespace (tree name, tree scope,
   /* Look through namespace aliases.  */
   scope = ORIGINAL_NAMESPACE (scope);
 
+  query_oracle (name);
+
   /* Algorithm: Starting with SCOPE, walk through the set of used
      namespaces.  For each used namespace, look through its inline
      namespace set for any bindings and usings.  If no bindings are
@@ -4830,14 +4849,7 @@ lookup_name_real_1 (tree name, int prefer_type, int nonclass, bool block_p,
   cxx_binding *iter;
   tree val = NULL_TREE;
 
-  // FIXME: we need a more space-efficient representation for
-  // oracle_looked_up.
-  if (cp_binding_oracle && !LANG_IDENTIFIER_CAST (name)->oracle_looked_up)
-    {
-      LANG_IDENTIFIER_CAST (name)->oracle_looked_up = true;
-      cp_binding_oracle (CP_ORACLE_SYMBOL, name);
-      cp_binding_oracle (CP_ORACLE_TAG, name);
-    }
+  query_oracle (name);
 
   /* Conversion operators are handled specially because ordinary
      unqualified name lookup will not find template conversion
