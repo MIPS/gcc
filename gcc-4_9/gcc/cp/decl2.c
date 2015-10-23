@@ -1702,8 +1702,22 @@ mark_vtable_entries (tree decl)
 void
 comdat_linkage (tree decl)
 {
-  if (flag_weak)
-    make_decl_one_only (decl, cxx_comdat_group (decl));
+  if (flag_weak
+      && (flag_vague_linkage_functions
+	  || TREE_CODE (decl) != FUNCTION_DECL
+	  || DECL_VIRTUAL_P (decl)))
+    {
+      make_decl_one_only (decl, cxx_comdat_group (decl));
+      /* Warn when -fno-vague-linkage-functions is used and we found virtual
+	 comdat functions.  Virtual comdat functions must still use vague
+	 linkage.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL
+	  && DECL_VIRTUAL_P (decl)
+	  && !flag_vague_linkage_functions)
+	warning_at (DECL_SOURCE_LOCATION (decl), 0,
+		    "fno-vague-linkage-functions: Comdat linkage of virtual "
+		    "function %q#D preserved.", decl);
+    }
   else if (TREE_CODE (decl) == FUNCTION_DECL
 	   || (VAR_P (decl) && DECL_ARTIFICIAL (decl)))
     /* We can just emit function and compiler-generated variables

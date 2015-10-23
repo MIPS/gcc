@@ -1037,6 +1037,7 @@ function_and_variable_visibility (bool whole_program)
 	}
       gcc_assert ((!DECL_WEAK (node->decl)
 		  && !DECL_COMDAT (node->decl))
+		  || !flag_vague_linkage_functions
       	          || TREE_PUBLIC (node->decl)
 		  || node->weakref
 		  || DECL_EXTERNAL (node->decl));

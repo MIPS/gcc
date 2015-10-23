@@ -189,7 +189,7 @@ in the following sections.
 -fno-pretty-templates @gol
 -frepo  -fno-rtti  -fstats  -ftemplate-backtrace-limit=@var{n} @gol
 -ftemplate-depth=@var{n} @gol
--fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak  -nostdinc++ @gol
+-fno-threadsafe-statics -fuse-cxa-atexit  -fno-weak -fno-vague-linkage-functions -nostdinc++ @gol
 -fvisibility-inlines-hidden @gol
 -fvtable-verify=@var{std|preinit|none} @gol
 -fvtv-counts -fvtv-debug @gol
@@ -2447,6 +2447,18 @@ By default, G++ uses weak symbols if they are available.  This
 option exists only for testing, and should not be used by end-users;
 it results in inferior code and has no benefits.  This option may
 be removed in a future release of G++.
+
+@item -fno-vague-linkage-functions
+@opindex fno-vague-linkage-functions
+Do not use vague linkage for comdat non-virtual functions, even if it
+is provided by the linker.  This option is useful when comdat functions
+generated in certain compilation units need to be kept local to the
+respective units and not exposed globally.  This does not apply to virtual
+comdat functions as their pointers may be taken via virtual tables.
+This can cause unintended behavior if the addresses of the comdat functions
+that are made local are used in comparisons, which are not warned about.
+This option may technically break the C++ ODR and users of this flag should
+know what they are doing.
 
 @item -nostdinc++
 @opindex nostdinc++

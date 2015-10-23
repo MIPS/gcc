@@ -1236,6 +1236,16 @@ fweak
 C++ ObjC++ Var(flag_weak) Init(1)
 Emit common-like symbols as weak symbols
 
+fvague-linkage-functions
+C++ Var(flag_vague_linkage_functions) Init(1)
+Option -fno-vague-linkage-functions makes comdat functions static and local
+to the module. With -fno-vague-linkage-functions, virtual comdat functions
+still use vague linkage.  With -fno-vague-linkage-functions, the address of
+the comdat functions that are made local will be unique and this can cause
+unintended behavior when addresses of these comdat functions are used in
+comparisons.  This option may technically break the C++ ODR and users of
+this flag should know what they are doing.
+
 fwide-exec-charset=
 C ObjC C++ ObjC++ Joined RejectNegative
 -fwide-exec-charset=<cset>	Convert all wide strings and character constants to character set <cset>
