@@ -544,7 +544,7 @@ take_address_of (tree obj, tree type, edge entry,
   if (gsi == NULL)
     return build_fold_addr_expr_with_type (obj, type);
 
-  name = force_gimple_operand (build_addr (obj, current_function_decl),
+  name = force_gimple_operand (build_addr (obj),
 			       &stmts, true, NULL_TREE);
   if (!gimple_seq_empty_p (stmts))
     gsi_insert_seq_before (gsi, stmts, GSI_SAME_STMT);
@@ -1100,7 +1100,7 @@ create_call_for_reduction_1 (reduction_info **slot, struct clsn_data *clsn_data)
       load_struct = build_simple_mem_ref (clsn_data->load);
       t = build3 (COMPONENT_REF, type, load_struct, reduc->field, NULL_TREE);
 
-      addr = build_addr (t, current_function_decl);
+      addr = build_addr (t);
     }
   else
     {
@@ -1118,7 +1118,6 @@ create_call_for_reduction_1 (reduction_info **slot, struct clsn_data *clsn_data)
       gimple_stmt_iterator gsi = gsi_for_stmt (stmt);
       gsi_remove (&gsi, true);
     }
-
 
   /* Create phi node.  */
   bb = clsn_data->load_bb;
