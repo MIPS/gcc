@@ -127,6 +127,7 @@ static void asm_output_aligned_bss (FILE *, tree, const char *,
 #endif /* BSS_SECTION_ASM_OP */
 static void mark_weak (tree);
 static void output_constant_pool (const char *, tree);
+static void handle_vtv_comdat_section (section *, const_tree);
 
 /* Well-known sections, each one associated with some sort of *_ASM_OP.  */
 section *text_section;
@@ -2231,56 +2232,10 @@ assemble_variable (tree decl, int top_level ATTRIBUTE_UNUSED,
     assemble_noswitch_variable (decl, name, sect, align);
   else
     {
-      /* The following bit of code ensures that vtable_map 
-         variables are not only in the comdat section, but that
-         each variable has its own unique comdat name.  If this
-         code is removed, the variables end up in the same section
-         with a single comdat name.
-
-         FIXME:  resolve_unique_section needs to deal better with
-         decls with both DECL_SECTION_NAME and DECL_ONE_ONLY.  Once
-         that is fixed, this if-else statement can be replaced with
-         a single call to "switch_to_section (sect)".  */
+      /* Special-case handling of vtv comdat sections.  */
       if (sect->named.name
 	  && (strcmp (sect->named.name, ".vtable_map_vars") == 0))
-	{
-#if defined (OBJECT_FORMAT_ELF)
-          targetm.asm_out.named_section (sect->named.name,
-					 sect->named.common.flags
-				         | SECTION_LINKONCE,
-			    	         DECL_NAME (decl));
-          in_section = sect;
-#elif defined (TARGET_PECOFF)
-          /* Neither OBJECT_FORMAT_PE, nor OBJECT_FORMAT_COFF is set here.
-             Therefore the following check is used.
-             In case a the target is PE or COFF a comdat group section
-             is created, e.g. .vtable_map_vars$foo. The linker places
-             everything in .vtable_map_vars at the end.
-
-             A fix could be made in
-             gcc/config/i386/winnt.c: i386_pe_unique_section. */
-          if (TARGET_PECOFF)
-          {
-            char *name;
-            
-            if (TREE_CODE (DECL_NAME (decl)) == IDENTIFIER_NODE)
-              name = ACONCAT ((sect->named.name, "$",
-                               IDENTIFIER_POINTER (DECL_NAME (decl)), NULL));
-            else
-              name = ACONCAT ((sect->named.name, "$",
-                    IDENTIFIER_POINTER (DECL_COMDAT_GROUP (DECL_NAME (decl))),
-                    NULL));
-
-            targetm.asm_out.named_section (name,
-                                           sect->named.common.flags
-                                           | SECTION_LINKONCE,
-                                           DECL_NAME (decl));
-            in_section = sect;
-        }
-#else
-          switch_to_section (sect);
-#endif
-        }
+	handle_vtv_comdat_section (sect, decl);
       else
 	switch_to_section (sect);
       if (align > BITS_PER_UNIT)
@@ -2788,6 +2743,10 @@ assemble_integer (rtx x, unsigned int size, unsigned int align, int force)
   return false;
 }
 
+/* Assemble the floating-point constant D into an object of size MODE.  ALIGN
+   is the alignment of the constant in bits.  If REVERSE is true, D is output
+   in reverse storage order.  */
+
 void
 assemble_real (REAL_VALUE_TYPE d, machine_mode mode, unsigned int align,
 	       bool reverse)
@@ -3087,7 +3046,7 @@ compare_constant (const tree t1, const tree t2)
       if (TYPE_PRECISION (TREE_TYPE (t1)) != TYPE_PRECISION (TREE_TYPE (t2)))
 	return 0;
 
-      return REAL_VALUES_IDENTICAL (TREE_REAL_CST (t1), TREE_REAL_CST (t2));
+      return real_identical (&TREE_REAL_CST (t1), &TREE_REAL_CST (t2));
 
     case FIXED_CST:
       /* Fixed constants are the same only if the same width of type.  */
@@ -3854,11 +3813,8 @@ output_constant_pool_2 (machine_mode mode, rtx x, unsigned int align)
     case MODE_FLOAT:
     case MODE_DECIMAL_FLOAT:
       {
-	REAL_VALUE_TYPE r;
-
 	gcc_assert (CONST_DOUBLE_AS_FLOAT_P (x));
-	REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-	assemble_real (r, mode, align, false);
+	assemble_real (*CONST_DOUBLE_REAL_VALUE (x), mode, align, false);
 	break;
       }
 
@@ -4689,8 +4645,7 @@ output_constructor (tree, unsigned HOST_WIDE_INT, unsigned int, bool,
 
    ALIGN is the alignment of the data in bits.
 
-   If REVERSE is true, EXP is interpreted in reverse storage order wrt the
-   target order.  */
+   If REVERSE is true, EXP is output in reverse storage order.  */
 
 static unsigned HOST_WIDE_INT
 output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
@@ -4804,10 +4759,8 @@ output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
       if (TREE_CODE (exp) != REAL_CST)
 	error ("initializer for floating value is not a floating constant");
       else
-	{
-	  assemble_real (TREE_REAL_CST (exp), TYPE_MODE (TREE_TYPE (exp)),
-			 align, reverse);
-	}
+	assemble_real (TREE_REAL_CST (exp), TYPE_MODE (TREE_TYPE (exp)),
+		       align, reverse);
       break;
 
     case COMPLEX_TYPE:
@@ -6281,7 +6234,7 @@ default_no_named_section (const char *name ATTRIBUTE_UNUSED,
 
 void
 default_elf_asm_named_section (const char *name, unsigned int flags,
-			       tree decl ATTRIBUTE_UNUSED)
+			       tree decl)
 {
   char flagchars[10], *f = flagchars;
 
@@ -6946,12 +6899,13 @@ default_binds_local_p (const_tree exp)
   return default_binds_local_p_3 (exp, flag_shlib != 0, true, false, false);
 }
 
-/* Similar to default_binds_local_p, but common symbol may be local.  */
+/* Similar to default_binds_local_p, but common symbol may be local and
+   extern protected data is non-local.  */
 
 bool
 default_binds_local_p_2 (const_tree exp)
 {
-  return default_binds_local_p_3 (exp, flag_shlib != 0, true, false,
+  return default_binds_local_p_3 (exp, flag_shlib != 0, true, true,
 				  !flag_pic);
 }
 
@@ -7377,7 +7331,14 @@ output_object_block (struct object_block *block)
 
   /* Switch to the section and make sure that the first byte is
      suitably aligned.  */
-  switch_to_section (block->sect);
+  /* Special case VTV comdat sections similar to assemble_variable.  */
+  if (SECTION_STYLE (block->sect) == SECTION_NAMED
+      && block->sect->named.name
+      && (strcmp (block->sect->named.name, ".vtable_map_vars") == 0))
+    handle_vtv_comdat_section (block->sect, block->sect->named.decl);
+  else
+    switch_to_section (block->sect);
+
   assemble_align (block->alignment);
 
   /* Define the values of all anchors relative to the current section
@@ -7818,6 +7779,58 @@ default_asm_output_ident_directive (const char *ident_str)
     }
   else
     fprintf (asm_out_file, "%s\"%s\"\n", ident_asm_op, ident_str);
+}
+
+
+/* This function ensures that vtable_map variables are not only
+   in the comdat section, but that each variable has its own unique
+   comdat name.  Without this the variables end up in the same section
+   with a single comdat name.
+
+   FIXME:  resolve_unique_section needs to deal better with
+   decls with both DECL_SECTION_NAME and DECL_ONE_ONLY.  Once
+   that is fixed, this if-else statement can be replaced with
+   a single call to "switch_to_section (sect)".  */
+
+static void
+handle_vtv_comdat_section (section *sect, const_tree decl ATTRIBUTE_UNUSED)
+{
+#if defined (OBJECT_FORMAT_ELF)
+  targetm.asm_out.named_section (sect->named.name,
+				 sect->named.common.flags
+				 | SECTION_LINKONCE,
+				 DECL_NAME (decl));
+  in_section = sect;
+#elif defined (TARGET_PECOFF)
+  /* Neither OBJECT_FORMAT_PE, nor OBJECT_FORMAT_COFF is set here.
+     Therefore the following check is used.
+     In case a the target is PE or COFF a comdat group section
+     is created, e.g. .vtable_map_vars$foo. The linker places
+     everything in .vtable_map_vars at the end.
+
+     A fix could be made in
+     gcc/config/i386/winnt.c: i386_pe_unique_section.  */
+  if (TARGET_PECOFF)
+    {
+      char *name;
+
+      if (TREE_CODE (DECL_NAME (decl)) == IDENTIFIER_NODE)
+	name = ACONCAT ((sect->named.name, "$",
+			 IDENTIFIER_POINTER (DECL_NAME (decl)), NULL));
+      else
+	name = ACONCAT ((sect->named.name, "$",
+			 IDENTIFIER_POINTER (DECL_COMDAT_GROUP (DECL_NAME (decl))),
+			 NULL));
+
+      targetm.asm_out.named_section (name,
+				     sect->named.common.flags
+				     | SECTION_LINKONCE,
+				     DECL_NAME (decl));
+      in_section = sect;
+    }
+#else
+  switch_to_section (sect);
+#endif
 }
 
 #include "gt-varasm.h"

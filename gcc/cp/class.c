@@ -4571,6 +4571,11 @@ check_methods (tree t)
 	 grok_special_member_properties.  */
       if (DECL_DESTRUCTOR_P (x) && user_provided_p (x))
 	TYPE_HAS_NONTRIVIAL_DESTRUCTOR (t) = 1;
+      if (!DECL_VIRTUAL_P (x)
+	  && lookup_attribute ("transaction_safe_dynamic", DECL_ATTRIBUTES (x)))
+	error_at (DECL_SOURCE_LOCATION (x),
+		  "%<transaction_safe_dynamic%> may only be specified for "
+		  "a virtual function");
     }
 }
 
@@ -4933,8 +4938,14 @@ look_for_tm_attr_overrides (tree type, tree fndecl)
 
       o = look_for_overrides_here (basetype, fndecl);
       if (o)
-	found |= tm_attr_to_mask (find_tm_attribute
-				  (TYPE_ATTRIBUTES (TREE_TYPE (o))));
+	{
+	  if (lookup_attribute ("transaction_safe_dynamic",
+				DECL_ATTRIBUTES (o)))
+	    /* transaction_safe_dynamic is not inherited.  */;
+	  else
+	    found |= tm_attr_to_mask (find_tm_attribute
+				      (TYPE_ATTRIBUTES (TREE_TYPE (o))));
+	}
       else
 	found |= look_for_tm_attr_overrides (basetype, fndecl);
     }
@@ -6688,6 +6699,8 @@ finish_struct_1 (tree t)
 
   finish_struct_bits (t);
   set_method_tm_attributes (t);
+  if (flag_openmp || flag_openmp_simd)
+    finish_omp_declare_simd_methods (t);
 
   /* Complete the rtl for any static member objects of the type we're
      working on and rewrite the type of array fields with scalar
@@ -7630,7 +7643,9 @@ resolve_address_of_overloaded_function (tree target_type,
 	    continue;
 
 	  /* See if there's a match.  */
-	  if (same_type_p (target_fn_type, static_fn_type (fn)))
+	  tree fntype = static_fn_type (fn);
+	  if (same_type_p (target_fn_type, fntype)
+	      || can_convert_tx_safety (target_fn_type, fntype))
 	    matches = tree_cons (fn, NULL_TREE, matches);
 	}
     }
@@ -7708,7 +7723,9 @@ resolve_address_of_overloaded_function (tree target_type,
 	    }
 
 	  /* See if there's a match.  */
-	  if (same_type_p (target_fn_type, static_fn_type (instantiation)))
+	  tree fntype = static_fn_type (instantiation);
+	  if (same_type_p (target_fn_type, fntype)
+	      || can_convert_tx_safety (target_fn_type, fntype))
 	    matches = tree_cons (instantiation, fn, matches);
 	}
 

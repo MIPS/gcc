@@ -8891,12 +8891,17 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
   tree jump_label1;
   tree jump_label2;
   gfc_se lse;
+  gfc_ref *ref;
 
   if (!expr1 || expr1->rank)
     return;
 
   if (!expr2 || expr2->rank)
     return;
+
+  for (ref = expr1->ref; ref; ref = ref->next)
+    if (ref->type == REF_SUBSTRING)
+      return;
 
   realloc_lhs_warning (expr2->ts.type, false, &expr2->where);
 
@@ -9232,7 +9237,6 @@ gfc_trans_assignment_1 (gfc_expr * expr1, gfc_expr * expr2, bool init_flag,
   scalar_to_array = (expr2->ts.type == BT_DERIVED
 		       && expr2->ts.u.derived->attr.alloc_comp
 		       && !expr_is_variable (expr2)
-		       && !gfc_is_constant_expr (expr2)
 		       && expr1->rank && !expr2->rank);
   scalar_to_array |= (expr1->ts.type == BT_DERIVED
 				    && expr1->rank

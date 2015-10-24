@@ -36,6 +36,7 @@ with Exp_Disp; use Exp_Disp;
 with Exp_Pakd; use Exp_Pakd;
 with Exp_Util; use Exp_Util;
 with Exp_Tss;  use Exp_Tss;
+with Fname;    use Fname;
 with Ghost;    use Ghost;
 with Layout;   use Layout;
 with Lib;      use Lib;
@@ -581,7 +582,7 @@ package body Freeze is
       --  the body is analyzed when the renamed entity is frozen, it may
       --  be necessary to restore the proper scope (see package Exp_Ch13).
 
-      if Nkind (N) =  N_Subprogram_Renaming_Declaration
+      if Nkind (N) = N_Subprogram_Renaming_Declaration
         and then Present (Corresponding_Spec (N))
       then
          Set_Corresponding_Spec (Body_Node, Corresponding_Spec (N));
@@ -1597,7 +1598,7 @@ package body Freeze is
             end if;
          end Process_Flist;
 
-      --  Start or processing for Freeze_All_Ent
+      --  Start of processing for Freeze_All_Ent
 
       begin
          E := From;
@@ -1875,10 +1876,6 @@ package body Freeze is
    -------------------
 
    function Freeze_Entity (E : Entity_Id; N : Node_Id) return List_Id is
-      GM : constant Ghost_Mode_Type := Ghost_Mode;
-      --  Save the current Ghost mode in effect in case the entity being frozen
-      --  sets a different mode.
-
       Loc    : constant Source_Ptr := Sloc (N);
       Atype  : Entity_Id;
       Comp   : Entity_Id;
@@ -1949,9 +1946,6 @@ package body Freeze is
       --  frozen. However the freeze node cannot be inserted at the point of
       --  call, but rather must go in the package holding the function, so that
       --  the backend can process it in the proper context.
-
-      procedure Restore_Globals;
-      --  Restore the values of all saved global variables
 
       procedure Wrap_Imported_Subprogram (E : Entity_Id);
       --  If E is an entity for an imported subprogram with pre/post-conditions
@@ -2935,7 +2929,6 @@ package body Freeze is
            and then
              ((Has_Non_Null_Base_Init_Proc (Etype (E))
                 and then not No_Initialization (Declaration_Node (E))
-                and then not Is_Value_Type (Etype (E))
                 and then not Initialization_Suppressed (Etype (E)))
               or else
                 (Needs_Simple_Initialization (Etype (E))
@@ -3138,7 +3131,6 @@ package body Freeze is
                  and then Convention (F_Type) = Convention_Ada
                  and then not Has_Warnings_Off (F_Type)
                  and then not Has_Size_Clause (F_Type)
-                 and then VM_Target = No_VM
                then
                   Error_Msg_N
                     ("& is an 8-bit Ada Boolean?x?", Formal);
@@ -3185,11 +3177,6 @@ package body Freeze is
               and then Is_Array_Type (F_Type)
               and then not Is_Constrained (F_Type)
               and then Warn_On_Export_Import
-
-              --  Exclude VM case, since both .NET and JVM can handle
-              --  unconstrained arrays without a problem.
-
-              and then VM_Target = No_VM
             then
                Error_Msg_Qual_Level := 1;
 
@@ -3307,7 +3294,6 @@ package body Freeze is
 
                elsif Root_Type (R_Type) = Standard_Boolean
                  and then Convention (R_Type) = Convention_Ada
-                 and then VM_Target = No_VM
                  and then not Has_Warnings_Off (E)
                  and then not Has_Warnings_Off (R_Type)
                  and then not Has_Size_Clause (R_Type)
@@ -3368,11 +3354,6 @@ package body Freeze is
 
               and then not Is_Imported (E)
 
-              --  Exclude VM case, since both .NET and JVM can handle return
-              --  of unconstrained arrays without a problem.
-
-              and then VM_Target = No_VM
-
               --  Check that general warning is enabled, and that it is not
               --  suppressed for this particular case.
 
@@ -3380,8 +3361,9 @@ package body Freeze is
               and then not Has_Warnings_Off (E)
               and then not Has_Warnings_Off (R_Type)
             then
-               Error_Msg_N ("?x?foreign convention function& should not " &
-                 "return unconstrained array!", E);
+               Error_Msg_N
+                 ("?x?foreign convention function& should not return "
+                  & "unconstrained array!", E);
             end if;
          end if;
 
@@ -4302,7 +4284,7 @@ package body Freeze is
             end if;
          end if;
 
-         --  The following checks are only relevant when SPARK_Mode is on as
+         --  The following checks are relevant only when SPARK_Mode is on as
          --  they are not standard Ada legality rules.
 
          if SPARK_Mode = On then
@@ -4509,15 +4491,6 @@ package body Freeze is
          Append_List (Result, Decls);
       end Late_Freeze_Subprogram;
 
-      ---------------------
-      -- Restore_Globals --
-      ---------------------
-
-      procedure Restore_Globals is
-      begin
-         Ghost_Mode := GM;
-      end Restore_Globals;
-
       ------------------------------
       -- Wrap_Imported_Subprogram --
       ------------------------------
@@ -4661,12 +4634,16 @@ package body Freeze is
          end if;
       end Wrap_Imported_Subprogram;
 
+      --  Local variables
+
+      Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+
    --  Start of processing for Freeze_Entity
 
    begin
-      --  The entity being frozen may be subject to pragma Ghost with policy
-      --  Ignore. Set the mode now to ensure that any nodes generated during
-      --  freezing are properly flagged as ignored Ghost.
+      --  The entity being frozen may be subject to pragma Ghost. Set the mode
+      --  now to ensure that any nodes generated during freezing are properly
+      --  flagged as Ghost.
 
       Set_Ghost_Mode_From_Entity (E);
 
@@ -4685,7 +4662,7 @@ package body Freeze is
       --  Do not freeze if already frozen since we only need one freeze node
 
       if Is_Frozen (E) then
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return No_List;
 
       --  It is improper to freeze an external entity within a generic because
@@ -4700,7 +4677,7 @@ package body Freeze is
             Analyze_Aspects_At_Freeze_Point (E);
          end if;
 
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return No_List;
 
       --  AI05-0213: A formal incomplete type does not freeze the actual. In
@@ -4711,19 +4688,19 @@ package body Freeze is
         and then No (Full_View (Base_Type (E)))
         and then Ada_Version >= Ada_2012
       then
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return No_List;
 
       --  Formal subprograms are never frozen
 
       elsif Is_Formal_Subprogram (E) then
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return No_List;
 
       --  Generic types are never frozen as they lack delayed semantic checks
 
       elsif Is_Generic_Type (E) then
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return No_List;
 
       --  Do not freeze a global entity within an inner scope created during
@@ -4757,7 +4734,7 @@ package body Freeze is
                   then
                      exit;
                   else
-                     Restore_Globals;
+                     Ghost_Mode := Save_Ghost_Mode;
                      return No_List;
                   end if;
                end if;
@@ -4793,7 +4770,7 @@ package body Freeze is
             end loop;
 
             if No (S) then
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return No_List;
             end if;
          end;
@@ -4801,7 +4778,7 @@ package body Freeze is
       elsif Ekind (E) = E_Generic_Package then
          Result := Freeze_Generic_Entities (E);
 
-         Restore_Globals;
+         Ghost_Mode := Save_Ghost_Mode;
          return Result;
       end if;
 
@@ -4884,7 +4861,7 @@ package body Freeze is
 
             if not Is_Internal (E) then
                if not Freeze_Profile (E) then
-                  Restore_Globals;
+                  Ghost_Mode := Save_Ghost_Mode;
                   return Result;
                end if;
             end if;
@@ -4909,7 +4886,7 @@ package body Freeze is
 
             if Late_Freezing then
                Late_Freeze_Subprogram (E);
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return No_List;
             end if;
 
@@ -5072,7 +5049,7 @@ package body Freeze is
                and then not Has_Delayed_Freeze (E))
          then
             Check_Compile_Time_Size (E);
-            Restore_Globals;
+            Ghost_Mode := Save_Ghost_Mode;
             return No_List;
          end if;
 
@@ -5347,7 +5324,7 @@ package body Freeze is
 
             if not Is_Frozen (Root_Type (E)) then
                Set_Is_Frozen (E, False);
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return Result;
             end if;
 
@@ -5483,7 +5460,7 @@ package body Freeze is
               and then not Present (Full_View (E))
             then
                Set_Is_Frozen (E, False);
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return Result;
 
             --  Case of full view present
@@ -5575,7 +5552,7 @@ package body Freeze is
                   Set_RM_Size   (E, RM_Size (Full_View (E)));
                end if;
 
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return Result;
 
             --  Case of underlying full view present
@@ -5605,7 +5582,7 @@ package body Freeze is
 
                Check_Debug_Info_Needed (E);
 
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return Result;
 
             --  Case of no full view present. If entity is derived or subtype,
@@ -5619,7 +5596,7 @@ package body Freeze is
 
             else
                Set_Is_Frozen (E, False);
-               Restore_Globals;
+               Ghost_Mode := Save_Ghost_Mode;
                return No_List;
             end if;
 
@@ -5633,7 +5610,6 @@ package body Freeze is
             while Present (Formal) loop
                if Ekind (Etype (Formal)) = E_Incomplete_Type
                  and then No (Full_View (Etype (Formal)))
-                 and then not Is_Value_Type (Etype (Formal))
                then
                   if Is_Tagged_Type (Etype (Formal)) then
                      null;
@@ -5668,7 +5644,7 @@ package body Freeze is
          --  generic processing), so we never need freeze nodes for them.
 
          if Is_Generic_Type (E) then
-            Restore_Globals;
+            Ghost_Mode := Save_Ghost_Mode;
             return Result;
          end if;
 
@@ -6284,7 +6260,7 @@ package body Freeze is
          end if;
       end if;
 
-      Restore_Globals;
+      Ghost_Mode := Save_Ghost_Mode;
       return Result;
    end Freeze_Entity;
 
@@ -7653,6 +7629,22 @@ package body Freeze is
          Set_Is_Pure (E, False);
       end if;
 
+      --  We also reset the Pure indication on a subprogram with an Address
+      --  parameter, because the parameter may be used as a pointer and the
+      --  referenced data may change even if the address value does not.
+
+      --  Note that if the programmer gave an explicit Pure_Function pragma,
+      --  then we believe the programmer, and leave the subprogram Pure.
+      --  We also suppress this check on run-time files.
+
+      if Is_Pure (E)
+        and then Is_Subprogram (E)
+        and then not Has_Pragma_Pure_Function (E)
+        and then not Is_Internal_File_Name (Unit_File_Name (Current_Sem_Unit))
+      then
+         Check_Function_With_Address_Parameter (E);
+      end if;
+
       --  For non-foreign convention subprograms, this is where we create
       --  the extra formals (for accessibility level and constrained bit
       --  information). We delay this till the freeze point precisely so
@@ -7706,11 +7698,6 @@ package body Freeze is
                --  Warnings (Off) on specific entities here, probably so???)
 
               and then Warn_On_Export_Import
-
-              --  Exclude the VM case, since return of unconstrained arrays
-              --  is properly handled in both the JVM and .NET cases.
-
-              and then VM_Target = No_VM
             then
                Error_Msg_N
                 ("?x?foreign convention function& should not return " &
