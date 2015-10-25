@@ -70,20 +70,8 @@ DEF_INTERNAL_FN (GOACC_DATA_END_WITH_ARG, ECF_NOTHROW, ".r")
 /* An unduplicable, uncombinable function.  Generally used to preserve
    a CFG property in the face of jump threading, tail merging or
    other such optimizations.  The first argument distinguishes
-   between uses.  Other arguments are as needed for use.  The return
-   type depends on use too.  */
-DEF_INTERNAL_FN (UNIQUE, ECF_NOTHROW | ECF_LEAF, NULL)
-#define IFN_UNIQUE_UNSPEC 0  /* Undifferentiated UNIQUE.  */
-
-/* FORK and JOIN mark the points at which OpenACC partitioned
-   execution is entered or exited.  They take an INTEGER_CST argument,
-   indicating the axis of forking or joining and return nothing.  */
-#define IFN_UNIQUE_OACC_FORK 1
-#define IFN_UNIQUE_OACC_JOIN 2
-/* HEAD_MARK and TAIL_MARK are used to demark the sequence entering or
-   leaving partitioned execution.  */
-#define IFN_UNIQUE_OACC_HEAD_MARK 3
-#define IFN_UNIQUE_OACC_TAIL_MARK 4
+   between uses. See internal-fn.h for usage.  */
+DEF_INTERNAL_FN (UNIQUE, ECF_NOTHROW, NULL)
 
 /* DIM_SIZE and DIM_POS return the size of a particular compute
    dimension and the executing thread's position within that
@@ -112,28 +100,5 @@ DEF_INTERNAL_FN (GOACC_REDUCTION_INIT, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_REDUCTION_FINI, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_REDUCTION_TEARDOWN, ECF_NOTHROW, NULL)
 
-/* OpenACC looping abstraction.  Allows the precise stepping of
-   the compute geometry over the loop iterations to be deferred until
-   it is known which compiler is generating the code.  The action is
-   encoded in a constant first argument.
-
-     CHUNK_MAX = LOOP (CODE_CHUNKS, DIR, RANGE, STEP, CHUNK_SIZE, MASK)
-     STEP = LOOP (CODE_STEP, DIR, RANGE, STEP, CHUNK_SIZE, MASK)
-     OFFSET = LOOP (CODE_OFFSET, DIR, RANGE, STEP, CHUNK_SIZE, MASK, CHUNK_NO)
-     BOUND = LOOP (CODE_BOUND, DIR, RANGE, STEP, CHUNK_SIZE, MASK, OFFSET)
-
-     DIR - +1 for up loop, -1 for down loop
-     RANGE - Range of loop (END - BASE)
-     STEP - iteration step size
-     CHUNKING - size of chunking, (constant zero for no chunking)
-     CHUNK_NO - chunk number
-     MASK - partitioning mask.
-
-   TODO: The partitioning mask and chunk size are a transition stage,
-   they will be removed once the required infrastructure is in place.  */
-
+/* OpenACC looping abstraction.  See internal-fn.h for usage.  */
 DEF_INTERNAL_FN (GOACC_LOOP, ECF_PURE | ECF_NOTHROW, NULL)
-#define IFN_GOACC_LOOP_CHUNKS 0  /* Number  of chunks.  */
-#define IFN_GOACC_LOOP_STEP 1    /* Size of each thread's step.  */
-#define IFN_GOACC_LOOP_OFFSET 2  /* Initial iteration value.  */
-#define IFN_GOACC_LOOP_BOUND 3   /* Limit of iteration value.  */

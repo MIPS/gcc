@@ -1,3 +1,28 @@
+2015-10-25  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* internal-fn.def (IFN_UNIQUE): Not a leaf.
+	(IFN_UNIQUE, IFN_GOACC_LOOP): Move sub codes to ...
+	* internal-fn.h (enum ifn_unique_kind, enum ifn_goacc_loop_kind):
+	... here.  New enums.
+	* internal-fn.c (expand_UNIQUE): Deal with data dependency var.
+	* tree-cfg.c (gimple_call_initialize_ctrl_altering): Check for
+	unique internal fn call.
+	* config/nvptx/nvptx.md (oacc_fork, oacc_join): Deal with data
+	dependency src & dest.
+	* config/nvptx/nvptx.c (nvptx_xform_fork_join): Rename to ...
+	(nvptx_goacc_fork_join): ... here.  Skip date dependency arg.
+	* tracer.c (ignore_bb_p): Just look at last stmt for UNIQUE.
+	* omp-low.c  (lower_oacc_head_mark): Take data dependency arg.
+	Use quick_push.
+	(lower_oacc_loop_marker): Take data dependency arg.
+	(lower_oacc_head_tail): Insert data dependency var.
+	(new_oacc_loop): Adjust arg numbering.
+	(dump_oacc_loop_part): Cope with block-straddling sequences.
+	(oacc_loop_discover_walk): Likewise.
+	(oacc_loop_xform_head_tail): Likewise.
+	(execute_oacc_device_lower): Use two bools for scanning &
+	deletion.
+
 2015-10-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (check_omp_nesting_restrictions): Correctly check

@@ -1400,20 +1400,28 @@
 )
 
 (define_expand "oacc_fork"
-  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
-		       UNSPECV_FORKED)]
+  [(set (match_operand:SI 0 "nvptx_nonmemory_operand" "")
+        (match_operand:SI 1 "nvptx_general_operand" ""))
+   (unspec_volatile:SI [(match_operand:SI 2 "const_int_operand" "")]
+		        UNSPECV_FORKED)]
   ""
 {
-  nvptx_expand_oacc_fork (INTVAL (operands[0]));
+  if (operands[0] != const0_rtx)
+    emit_move_insn (operands[0], operands[1]);
+  nvptx_expand_oacc_fork (INTVAL (operands[2]));
   DONE;
 })
 
 (define_expand "oacc_join"
-  [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
-		       UNSPECV_JOIN)]
+  [(set (match_operand:SI 0 "nvptx_nonmemory_operand" "")
+        (match_operand:SI 1 "nvptx_general_operand" ""))
+   (unspec_volatile:SI [(match_operand:SI 2 "const_int_operand" "")]
+		        UNSPECV_JOIN)]
   ""
 {
-  nvptx_expand_oacc_join (INTVAL (operands[0]));
+  if (operands[0] != const0_rtx)
+    emit_move_insn (operands[0], operands[1]);
+  nvptx_expand_oacc_join (INTVAL (operands[2]));
   DONE;
 })
 

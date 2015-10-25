@@ -1962,8 +1962,9 @@ static void
 expand_UNIQUE (gcall *stmt)
 {
   rtx pattern = NULL_RTX;
+  int code = TREE_INT_CST_LOW (gimple_call_arg (stmt, 0));
 
-  switch (TREE_INT_CST_LOW (gimple_call_arg (stmt, 0)))
+  switch (code)
     {
     default:
       gcc_unreachable ();
@@ -1975,21 +1976,34 @@ expand_UNIQUE (gcall *stmt)
       break;
 
     case IFN_UNIQUE_OACC_FORK:
-#ifdef HAVE_oacc_fork
-      pattern = expand_normal (gimple_call_arg (stmt, 1));
-      pattern = gen_oacc_fork (pattern);
-#else
-      gcc_unreachable ();
-#endif
-      break;
-
     case IFN_UNIQUE_OACC_JOIN:
-#ifdef HAVE_oacc_join
-      pattern = expand_normal (gimple_call_arg (stmt, 1));
-      pattern = gen_oacc_join (pattern);
+      {
+	tree lhs = gimple_call_lhs (stmt);
+	rtx target = const0_rtx;
+
+	if (lhs)
+	  target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+
+	rtx data_dep = expand_normal (gimple_call_arg (stmt, 1));
+	rtx axis = expand_normal (gimple_call_arg (stmt, 2));
+
+	if (code == IFN_UNIQUE_OACC_FORK)
+	  {
+#ifdef HAVE_oacc_fork
+	    pattern = gen_oacc_fork (target, data_dep, axis);
 #else
-      gcc_unreachable ();
+	    gcc_unreachable ();
 #endif
+	  }
+	else
+	  {
+#ifdef HAVE_oacc_join
+	    pattern = gen_oacc_join (target, data_dep, axis);
+#else
+	    gcc_unreachable ();
+#endif
+	  }
+      }
       break;
     }
 

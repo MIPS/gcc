@@ -4293,10 +4293,10 @@ nvptx_dim_limit (unsigned axis)
 /* Determine whether fork & joins are needed.  */
 
 static bool
-nvptx_xform_fork_join (gcall *call, const int dims[],
+nvptx_goacc_fork_join (gcall *call, const int dims[],
 		       bool ARG_UNUSED (is_fork))
 {
-  tree arg = gimple_call_arg (call, 1);
+  tree arg = gimple_call_arg (call, 2);
   unsigned axis = TREE_INT_CST_LOW (arg);
 
   /* We only care about worker and vector partitioning.  */
@@ -4841,7 +4841,7 @@ nvptx_use_anchors_for_symbol (const_rtx ARG_UNUSED (symbol))
 #define TARGET_GOACC_DIM_LIMIT nvptx_dim_limit
 
 #undef TARGET_GOACC_FORK_JOIN
-#define TARGET_GOACC_FORK_JOIN nvptx_xform_fork_join
+#define TARGET_GOACC_FORK_JOIN nvptx_goacc_fork_join
 
 #undef TARGET_GOACC_REDUCTION
 #define TARGET_GOACC_REDUCTION nvptx_goacc_reduction

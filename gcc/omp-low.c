@@ -5517,16 +5517,17 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
    be partitioned over.  */
 
 static unsigned
-lower_oacc_head_mark (location_t loc, tree clauses,
+lower_oacc_head_mark (location_t loc, tree ddvar, tree clauses,
 		      gimple_seq *seq, omp_context *ctx)
 {
   unsigned levels = 0;
   unsigned tag = 0;
   tree gang_static = NULL_TREE;
-  auto_vec<tree, 1> args;
+  auto_vec<tree, 5> args;
 
   args.quick_push (build_int_cst
 		   (integer_type_node, IFN_UNIQUE_OACC_HEAD_MARK));
+  args.quick_push (ddvar);
   for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
       switch (OMP_CLAUSE_CODE (c))
@@ -5594,13 +5595,14 @@ lower_oacc_head_mark (location_t loc, tree clauses,
   if (!levels)
     levels++;
 
-  args.safe_push (build_int_cst (integer_type_node, levels));
-  args.safe_push (build_int_cst (integer_type_node, tag));
+  args.quick_push (build_int_cst (integer_type_node, levels));
+  args.quick_push (build_int_cst (integer_type_node, tag));
   if (gang_static)
-    args.safe_push (gang_static);
+    args.quick_push (gang_static);
 
   gcall *call = gimple_build_call_internal_vec (IFN_UNIQUE, args);
   gimple_set_location (call, loc);
+  gimple_set_lhs (call, ddvar);
   gimple_seq_add_stmt (seq, call);
 
   return levels;
@@ -5610,15 +5612,17 @@ lower_oacc_head_mark (location_t loc, tree clauses,
    partitioning level of the enclosed region.  */ 
 
 static void
-lower_oacc_loop_marker (location_t loc, bool head, tree tofollow,
-			gimple_seq *seq)
+lower_oacc_loop_marker (location_t loc, tree ddvar, bool head,
+			tree tofollow, gimple_seq *seq)
 {
-  tree marker = build_int_cst
-    (integer_type_node, (head ? IFN_UNIQUE_OACC_HEAD_MARK
-			 : IFN_UNIQUE_OACC_TAIL_MARK));
-  gcall *call = gimple_build_call_internal
-    (IFN_UNIQUE, 1 + (tofollow != NULL_TREE), marker, tofollow);
+  int marker_kind = (head ? IFN_UNIQUE_OACC_HEAD_MARK
+		     : IFN_UNIQUE_OACC_TAIL_MARK);
+  tree marker = build_int_cst (integer_type_node, marker_kind);
+  int nargs = 2 + (tofollow != NULL_TREE);
+  gcall *call = gimple_build_call_internal (IFN_UNIQUE, nargs,
+					    marker, ddvar, tofollow);
   gimple_set_location (call, loc);
+  gimple_set_lhs (call, ddvar);
   gimple_seq_add_stmt (seq, call);
 }
 
@@ -5631,32 +5635,38 @@ lower_oacc_head_tail (location_t loc, tree clauses,
 		      gimple_seq *head, gimple_seq *tail, omp_context *ctx)
 {
   bool inner = false;
-  unsigned count = lower_oacc_head_mark (loc, clauses, head, ctx);
-  
+  tree ddvar = create_tmp_var (integer_type_node, ".data_dep");
+  gimple_seq_add_stmt (head, gimple_build_assign (ddvar, integer_zero_node));
+
+  unsigned count = lower_oacc_head_mark (loc, ddvar, clauses, head, ctx);
   if (!count)
-    lower_oacc_loop_marker (loc, false, integer_zero_node, tail);
+    lower_oacc_loop_marker (loc, ddvar, false, integer_zero_node, tail);
+  
+  tree fork_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK);
+  tree join_kind = build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN);
 
   for (unsigned done = 1; count; count--, done++)
     {
-      tree place = build_int_cst (integer_type_node, -1);
-      gcall *fork = gimple_build_call_internal
-	(IFN_UNIQUE, 2,
-	 build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_FORK), place);
-      gcall *join = gimple_build_call_internal
-	(IFN_UNIQUE, 2,
-	 build_int_cst (unsigned_type_node, IFN_UNIQUE_OACC_JOIN), place);
       gimple_seq fork_seq = NULL;
       gimple_seq join_seq = NULL;
 
+      tree place = build_int_cst (integer_type_node, -1);
+      gcall *fork = gimple_build_call_internal (IFN_UNIQUE, 3,
+						fork_kind, ddvar, place);
       gimple_set_location (fork, loc);
+      gimple_set_lhs (fork, ddvar);
+
+      gcall *join = gimple_build_call_internal (IFN_UNIQUE, 3,
+						join_kind, ddvar, place);
       gimple_set_location (join, loc);
+      gimple_set_lhs (join, ddvar);
 
       /* Mark the beginning of this level sequence.  */
       if (inner)
-	lower_oacc_loop_marker (loc, true,
+	lower_oacc_loop_marker (loc, ddvar, true,
 				build_int_cst (integer_type_node, count),
 				&fork_seq);
-      lower_oacc_loop_marker (loc, false,
+      lower_oacc_loop_marker (loc, ddvar, false,
 			      build_int_cst (integer_type_node, done),
 			      &join_seq);
 
@@ -5673,8 +5683,8 @@ lower_oacc_head_tail (location_t loc, tree clauses,
     }
 
   /* Mark the end of the sequence.  */
-  lower_oacc_loop_marker (loc, true, NULL_TREE, head);
-  lower_oacc_loop_marker (loc, false, NULL_TREE, tail);
+  lower_oacc_loop_marker (loc, ddvar, true, NULL_TREE, head);
+  lower_oacc_loop_marker (loc, ddvar, false, NULL_TREE, tail);
 }
 
 /* Generate code to implement the REDUCTION clauses.  */
@@ -19169,11 +19179,11 @@ new_oacc_loop (oacc_loop *parent, gcall *marker)
   /* TODO: This is where device_type flattening would occur for the loop
      flags.   */
 
-  loop->flags = TREE_INT_CST_LOW (gimple_call_arg (marker, 2));
+  loop->flags = TREE_INT_CST_LOW (gimple_call_arg (marker, 3));
 
   tree chunk_size = integer_zero_node;
   if (loop->flags & OLF_GANG_STATIC)
-    chunk_size = gimple_call_arg (marker, 3);
+    chunk_size = gimple_call_arg (marker, 4);
   loop->chunk_size = chunk_size;
 
   return loop;
@@ -19225,25 +19235,27 @@ static void
 dump_oacc_loop_part (FILE *file, gcall *from, int depth,
 		     const char *title, int level)
 {
-  gimple_stmt_iterator gsi = gsi_for_stmt (from);
   unsigned code = TREE_INT_CST_LOW (gimple_call_arg (from, 0));
 
   fprintf (file, "%*s%s-%d:\n", depth * 2, "", title, level);
-  for (gimple *stmt = from; ;)
+  for (gimple_stmt_iterator gsi = gsi_for_stmt (from);;)
     {
+      gimple *stmt = gsi_stmt (gsi);
+
+      if (is_gimple_call (stmt)
+	  && gimple_call_internal_p (stmt)
+	  && gimple_call_internal_fn (stmt) == IFN_UNIQUE)
+	{
+	  unsigned c = TREE_INT_CST_LOW (gimple_call_arg (stmt, 0));
+
+	  if (c == code && stmt != from)
+	    break;
+	}
       print_gimple_stmt (file, stmt, depth * 2 + 2, 0);
+
       gsi_next (&gsi);
-      stmt = gsi_stmt (gsi);
-
-      if (!is_gimple_call (stmt))
-	continue;
-
-      gcall *call = as_a <gcall *> (stmt);
-      
-      if (gimple_call_internal_p (call)
-	  && gimple_call_internal_fn (call) == IFN_UNIQUE
-	  && code == TREE_INT_CST_LOW (gimple_call_arg (call, 0)))
-	break;
+      while (gsi_end_p (gsi))
+	gsi = gsi_start_bb (single_succ (gsi_bb (gsi)));
     }
 }
 
@@ -19297,12 +19309,14 @@ debug_oacc_loop (oacc_loop *loop)
 static void
 oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
 {
-  if (bb->flags & BB_VISITED)
-    return;
-  bb->flags |= BB_VISITED;
-
   int marker = 0;
   int remaining = 0;
+
+  if (bb->flags & BB_VISITED)
+    return;
+
+ follow:
+  bb->flags |= BB_VISITED;
 
   /* Scan for loop markers.  */
   for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
@@ -19333,7 +19347,7 @@ oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
       if (code == IFN_UNIQUE_OACC_HEAD_MARK
 	  || code == IFN_UNIQUE_OACC_TAIL_MARK)
 	{
-	  if (gimple_call_num_args (call) == 1)
+	  if (gimple_call_num_args (call) == 2)
 	    {
 	      gcc_assert (marker && !remaining);
 	      marker = 0;
@@ -19344,7 +19358,7 @@ oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
 	    }
 	  else
 	    {
-	      int count = TREE_INT_CST_LOW (gimple_call_arg (call, 1));
+	      int count = TREE_INT_CST_LOW (gimple_call_arg (call, 2));
 
 	      if (!marker)
 		{
@@ -19365,7 +19379,12 @@ oacc_loop_discover_walk (oacc_loop *loop, basic_block bb)
 	    }
 	}
     }
-  gcc_assert (!remaining && !marker);
+  if (remaining || marker)
+    {
+      bb = single_succ (bb);
+      gcc_assert (single_pred_p (bb) && !(bb->flags & BB_VISITED));
+      goto follow;
+    }
 
   /* Walk successor blocks.  */
   edge e;
@@ -19426,50 +19445,35 @@ oacc_loop_discovery ()
 static void
 oacc_loop_xform_head_tail (gcall *from, int level)
 {
-  gimple_stmt_iterator gsi = gsi_for_stmt (from);
   unsigned code = TREE_INT_CST_LOW (gimple_call_arg (from, 0));
   tree replacement  = build_int_cst (unsigned_type_node, level);
 
-  for (gimple *stmt = from; ;)
+  for (gimple_stmt_iterator gsi = gsi_for_stmt (from);;)
     {
-      gsi_next (&gsi);
-      stmt = gsi_stmt (gsi);
-
-      if (!is_gimple_call (stmt))
-	continue;
-
-      gcall *call = as_a <gcall *> (stmt);
+      gimple *stmt = gsi_stmt (gsi);
       
-      if (!gimple_call_internal_p (call))
-	continue;
-
-      switch (gimple_call_internal_fn (call))
+      if (!is_gimple_call (stmt)
+	  || !gimple_call_internal_p (stmt))
+	;
+      else if (gimple_call_internal_fn (stmt) == IFN_UNIQUE)
 	{
-	case IFN_UNIQUE:
-	  {
-	    unsigned c = TREE_INT_CST_LOW (gimple_call_arg (call, 0));
+	  unsigned c = TREE_INT_CST_LOW (gimple_call_arg (stmt, 0));
 
-	    if (c == code)
-	      goto break2;
-
-	    if (c == IFN_UNIQUE_OACC_FORK || c == IFN_UNIQUE_OACC_JOIN)
-	      *gimple_call_arg_ptr (call, 1) = replacement;
-	  }
-	  break;
-
-	case IFN_GOACC_REDUCTION_SETUP:
-	case IFN_GOACC_REDUCTION_INIT:
-	case IFN_GOACC_REDUCTION_FINI:
-	case IFN_GOACC_REDUCTION_TEARDOWN:
-	  *gimple_call_arg_ptr (call, 2) = replacement;
-	  break;
-
-	default:
-	  break;
+	  if (c == IFN_UNIQUE_OACC_FORK || c == IFN_UNIQUE_OACC_JOIN)
+	    *gimple_call_arg_ptr (stmt, 2) = replacement;
+	  else if (c == code && stmt != from)
+	    break;
 	}
-    }
+      else if (gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_SETUP
+	       || gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_INIT
+	       || gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_FINI
+	       || gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_TEARDOWN)
+	*gimple_call_arg_ptr (stmt, 2) = replacement;
 
- break2:;
+      gsi_next (&gsi);
+      while (gsi_end_p (gsi))
+	gsi = gsi_start_bb (single_succ (gsi_bb (gsi)));
+    }
 }
 
 /* Transform the IFN_GOACC_LOOP internal functions by providing the
@@ -19877,7 +19881,7 @@ execute_oacc_device_lower ()
 
 	/* Rewind to allow rescan.  */
 	gsi_prev (&gsi);
-	int rescan = 0;
+	bool rescan = false, remove = false;
 	unsigned ifn_code = gimple_call_internal_fn (call);
 
 	switch (ifn_code)
@@ -19887,16 +19891,17 @@ execute_oacc_device_lower ()
 	  case IFN_GOACC_DIM_POS:
 	  case IFN_GOACC_DIM_SIZE:
 	    if (gimple_call_lhs (call) == NULL_TREE)
-	      rescan = -1;
-	    else if (oacc_xform_dim (call, dims, ifn_code == IFN_GOACC_DIM_POS))
-	      rescan = 1;
+	      remove = true;
+	    else if (oacc_xform_dim (call, dims,
+				     ifn_code == IFN_GOACC_DIM_POS))
+	      rescan = true;
 	    break;
 
 	  case IFN_GOACC_LOOP:
 	    oacc_xform_loop (call);
-	    rescan = 1;
+	    rescan = true;
 	    break;
-	    
+
 	  case IFN_GOACC_REDUCTION_SETUP:
 	  case IFN_GOACC_REDUCTION_INIT:
 	  case IFN_GOACC_REDUCTION_FINI:
@@ -19910,7 +19915,7 @@ execute_oacc_device_lower ()
 	      default_goacc_reduction (call);
 	    else
 	      targetm.goacc.reduction (call);
-	    rescan = 1;
+	    rescan = true;
 	    break;
 
 	  case IFN_UNIQUE:
@@ -19921,16 +19926,16 @@ execute_oacc_device_lower ()
 		{
 		case IFN_UNIQUE_OACC_FORK:
 		case IFN_UNIQUE_OACC_JOIN:
-		  if (integer_minus_onep (gimple_call_arg (call, 1)))
-		    rescan = -1;
+		  if (integer_minus_onep (gimple_call_arg (call, 2)))
+		    remove = true;
 		  else if (targetm.goacc.fork_join
 			   (call, dims, code == IFN_UNIQUE_OACC_FORK))
-		    rescan = -1;
+		    remove = true;
 		  break;
 
 		case IFN_UNIQUE_OACC_HEAD_MARK:
 		case IFN_UNIQUE_OACC_TAIL_MARK:
-		  rescan = -1;
+		  remove = true;
 		  break;
 		}
 	      break;
@@ -19944,16 +19949,24 @@ execute_oacc_device_lower ()
 	  /* Undo the rewind.  */
 	  gsi_next (&gsi);
 
-	if (!rescan)
-	  /* If not rescanning, advance over the call.  */
-	  gsi_next (&gsi);
-	else if (rescan < 0)
+	if (remove)
 	  {
 	    if (gimple_vdef (call))
 	      replace_uses_by (gimple_vdef (call),
 			       gimple_vuse (call));
-	    gsi_remove (&gsi, true);
+	    if (gimple_call_lhs (call))
+	      {
+		/* Propagate the data dependency var.  */
+		gimple *ass = gimple_build_assign (gimple_call_lhs (call),
+						   gimple_call_arg (call, 1));
+		gsi_replace (&gsi, ass,  false);
+	      }
+	    else
+	      gsi_remove (&gsi, true);
 	  }
+	else if (!rescan)
+	  /* If not rescanning, advance over the call.  */
+	  gsi_next (&gsi);
       }
 
   free_oacc_loop (loops);
