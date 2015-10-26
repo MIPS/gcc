@@ -448,6 +448,10 @@ mgrow-frame-downwards
 Target Report Var(TARGET_FRAME_GROWS_DOWNWARDS)
 Change the behaviour to grow the frame downwards.
 
+mira-mips16-tweak
+Target Report Var(TARGET_IRA_COST_MIPS16_TWEAK)
+Increase the cost of argument registers based on frequency.
+
 noasmopt
 Driver
 
