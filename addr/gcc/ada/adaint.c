@@ -168,6 +168,7 @@ UINT CurrentCCSEncoding;
 #if defined (_WIN32)
 
 #include <process.h>
+#include <signal.h>
 #include <dir.h>
 #include <windows.h>
 #include <accctrl.h>
@@ -552,7 +553,8 @@ __gnat_get_file_names_case_sensitive (void)
 	{
 	  /* By default, we suppose filesystems aren't case sensitive on
 	     Windows and Darwin (but they are on arm-darwin).  */
-#if defined (WINNT) || (defined (__APPLE__) && !defined (__arm__))
+#if defined (WINNT) \
+  || (defined (__APPLE__) && !(defined (__arm__) || defined (__arm64__)))
 	  file_names_case_sensitive_cache = 0;
 #else
 	  file_names_case_sensitive_cache = 1;
@@ -982,8 +984,8 @@ __gnat_open_new_temp (char *path, int fmode)
   strcpy (path, "GNAT-XXXXXX");
 
 #if (defined (__FreeBSD__) || defined (__NetBSD__) || defined (__OpenBSD__) \
-  || defined (__linux__) || defined (__GLIBC__)) && !defined (__vxworks) \
-  || defined (__DragonFly__)
+  || defined (__linux__) || defined (__GLIBC__) || defined (__ANDROID__) \
+  || defined (__DragonFly__)) && !defined (__vxworks)
   return mkstemp (path);
 #elif defined (__Lynx__)
   mktemp (path);
@@ -2786,16 +2788,19 @@ __gnat_locate_exec_on_path (char *exec_name)
   apath_val = (char *) alloca (EXPAND_BUFFER_SIZE);
 
   WS2SC (apath_val, wapath_val, EXPAND_BUFFER_SIZE);
-  return __gnat_locate_exec (exec_name, apath_val);
 
 #else
   char *path_val = getenv ("PATH");
 
-  if (path_val == NULL) return NULL;
+  /* If PATH is not defined, proceed with __gnat_locate_exec anyway, so we can
+     find files that contain directory names.  */
+
+  if (path_val == NULL) path_val = "";
   apath_val = (char *) alloca (strlen (path_val) + 1);
   strcpy (apath_val, path_val);
-  return __gnat_locate_exec (exec_name, apath_val);
 #endif
+
+  return __gnat_locate_exec (exec_name, apath_val);
 }
 
 /* Dummy functions for Osint import for non-VMS systems.
@@ -3060,17 +3065,7 @@ __gnat_sals_init_using_constructors (void)
 #endif
 }
 
-#if defined (__ANDROID__)
-
-#include <pthread.h>
-
-void *
-__gnat_lwp_self (void)
-{
-   return (void *) pthread_self ();
-}
-
-#elif defined (__linux__)
+#if defined (__linux__) || defined (__ANDROID__)
 /* There is no function in the glibc to retrieve the LWP of the current
    thread. We need to do a system call in order to retrieve this
    information. */
@@ -3080,7 +3075,9 @@ __gnat_lwp_self (void)
 {
    return (void *) syscall (__NR_gettid);
 }
+#endif
 
+#if defined (__linux__)
 #include <sched.h>
 
 /* glibc versions earlier than 2.7 do not define the routines to handle
@@ -3184,6 +3181,35 @@ __gnat_get_executable_load_address (void)
 
 #else
   return NULL;
+#endif
+}
+
+void
+__gnat_kill (int pid, int sig, int close ATTRIBUTE_UNUSED)
+{
+#if defined(_WIN32)
+  HANDLE h = OpenProcess (PROCESS_ALL_ACCESS, FALSE, pid);
+  if (h == NULL)
+    return;
+  if (sig == 9)
+    {
+      TerminateProcess (h, 0);
+      __gnat_win32_remove_handle (NULL, pid);
+    }
+  else if (sig == SIGINT)
+    GenerateConsoleCtrlEvent (CTRL_C_EVENT, pid);
+  else if (sig == SIGBREAK)
+    GenerateConsoleCtrlEvent (CTRL_BREAK_EVENT, pid);
+  /* ??? The last two alternatives don't really work. SIGBREAK requires setting
+     up process groups at start time which we don't do; treating SIGINT is just
+     not possible apparently. So we really only support signal 9. Fortunately
+     that's all we use in GNAT.Expect */
+
+  CloseHandle (h);
+#elif defined (__vxworks)
+  /* Not implemented */
+#else
+  kill (pid, sig);
 #endif
 }
 

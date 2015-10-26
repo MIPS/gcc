@@ -5688,6 +5688,12 @@ mode returned by @code{TARGET_VECTORIZE_PREFERRED_SIMD_MODE}.
 The default is zero which means to not iterate over other vector sizes.
 @end deftypefn
 
+@deftypefn {Target Hook} machine_mode TARGET_VECTORIZE_GET_MASK_MODE (unsigned @var{nunits}, unsigned @var{length})
+This hook returns mode to be used for a mask to be used for a vector
+of specified @var{length} with @var{nunits} elements.  By default an integer
+vector mode of a proper size is returned.
+@end deftypefn
+
 @deftypefn {Target Hook} {void *} TARGET_VECTORIZE_INIT_COST (struct loop *@var{loop_info})
 This hook should initialize target-specific data structures in preparation for modeling the costs of vectorizing a loop or basic block.  The default allocates three unsigned integers for accumulating costs for the prologue, body, and epilogue of the loop or basic block.  If @var{loop_info} is non-NULL, it identifies the loop being vectorized; otherwise a single block is being vectorized.
 @end deftypefn
@@ -6442,6 +6448,16 @@ be live over a region of code where only one would have been if
 should be considered in the definition of this macro.  Equivalent costs
 should probably only be given to addresses with different numbers of
 registers on machines with lots of registers.
+@end deftypefn
+
+@deftypefn {Target Hook} bool TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P (void)
+This predicate controls the use of the eager delay slot filler to disallow
+speculatively executed instructions being placed in delay slots.  Targets
+such as certain MIPS architectures possess both branches with and without
+delay slots.  As the eager delay slot filler can decrease performance,
+disabling it is beneficial when ordinary branches are available.  Use of
+delay slot branches filled using the basic filler is often still desirable
+as the delay slot can hide a pipeline bubble.
 @end deftypefn
 
 @node Scheduling
@@ -9985,6 +10001,10 @@ default, inlining is not allowed if the callee function has function
 specific target options and the caller does not use the same options.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_RELAYOUT_FUNCTION (tree @var{fndecl})
+This target hook fixes function @var{fndecl} after attributes are processed. Default does nothing. On ARM, the default function's alignment is updated with the attribute target.
+@end deftypefn
+
 @node Emulated TLS
 @section Emulating TLS
 @cindex Emulated TLS
@@ -10266,15 +10286,13 @@ c_register_addr_space ("__ea", ADDR_SPACE_EA);
 @deftypefn {Target Hook} machine_mode TARGET_ADDR_SPACE_POINTER_MODE (addr_space_t @var{address_space})
 Define this to return the machine mode to use for pointers to
 @var{address_space} if the target supports named address spaces.
-The default version of this hook returns @code{ptr_mode} for the
-generic address space only.
+The default version of this hook returns @code{ptr_mode}.
 @end deftypefn
 
 @deftypefn {Target Hook} machine_mode TARGET_ADDR_SPACE_ADDRESS_MODE (addr_space_t @var{address_space})
 Define this to return the machine mode to use for addresses in
 @var{address_space} if the target supports named address spaces.
-The default version of this hook returns @code{Pmode} for the
-generic address space only.
+The default version of this hook returns @code{Pmode}.
 @end deftypefn
 
 @deftypefn {Target Hook} bool TARGET_ADDR_SPACE_VALID_POINTER_MODE (machine_mode @var{mode}, addr_space_t @var{as})

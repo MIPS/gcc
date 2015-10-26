@@ -48,9 +48,6 @@
 --  be used by other predefined packages. User access to this package is via
 --  a renaming of this package in GNAT.OS_Lib (file g-os_lib.ads).
 
---  Note: a distinct body for this spec is included in the .NET runtime library
---  and must be kept in sync with changes made in this file.
-
 pragma Compiler_Unit_Warning;
 
 with System;
@@ -878,6 +875,14 @@ package System.OS_Lib is
    --
    --  This function will always set success to False under VxWorks, since
    --  there is no notion of executables under this OS.
+
+   procedure Kill (Pid : Process_Id; Hard_Kill : Boolean := True);
+   --  Kill the process designated by Pid. Does nothing if Pid is Invalid_Pid
+   --  or on platforms where it is not supported, such as VxWorks. Hard_Kill
+   --  is True by default, and when True the process is terminated immediately.
+   --  If Hard_Kill is False, then a signal SIGINT is sent to the process on
+   --  POSIX OS or a ctrl-C event on Windows, allowing the process a chance to
+   --  terminate properly using a corresponding handler.
 
    function Argument_String_To_List
      (Arg_String : String) return Argument_List_Access;
