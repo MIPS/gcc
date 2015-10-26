@@ -14813,6 +14813,27 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree orig_declv,
 #undef RECUR
 }
 
+/* Helper function of tsubst_expr, find OMP_TEAMS inside
+   of OMP_TARGET's body.  */
+
+static tree
+tsubst_find_omp_teams (tree *tp, int *walk_subtrees, void *)
+{
+  *walk_subtrees = 0;
+  switch (TREE_CODE (*tp))
+    {
+    case OMP_TEAMS:
+      return *tp;
+    case BIND_EXPR:
+    case STATEMENT_LIST:
+      *walk_subtrees = 1;
+      break;
+    default:
+      break;
+    }
+  return NULL_TREE;
+}
+
 /* Like tsubst_copy for expressions, etc. but also does semantic
    processing.  */
 
@@ -15315,6 +15336,36 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       t = copy_node (t);
       OMP_BODY (t) = stmt;
       OMP_CLAUSES (t) = tmp;
+      if (TREE_CODE (t) == OMP_TARGET && OMP_TARGET_COMBINED (t))
+	{
+	  tree teams = cp_walk_tree (&stmt, tsubst_find_omp_teams, NULL, NULL);
+	  if (teams)
+	    {
+	      /* For combined target teams, ensure the num_teams and
+		 thread_limit clause expressions are evaluated on the host,
+		 before entering the target construct.  */
+	      tree c;
+	      for (c = OMP_TEAMS_CLAUSES (teams);
+		   c; c = OMP_CLAUSE_CHAIN (c))
+		if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_TEAMS
+		     || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_THREAD_LIMIT)
+		    && TREE_CODE (OMP_CLAUSE_OPERAND (c, 0)) != INTEGER_CST)
+		  {
+		    tree expr = OMP_CLAUSE_OPERAND (c, 0);
+		    expr = force_target_expr (TREE_TYPE (expr), expr, tf_none);
+		    if (expr == error_mark_node)
+		      continue;
+		    tmp = TARGET_EXPR_SLOT (expr);
+		    add_stmt (expr);
+		    OMP_CLAUSE_OPERAND (c, 0) = expr;
+		    tree tc = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+						OMP_CLAUSE_FIRSTPRIVATE);
+		    OMP_CLAUSE_DECL (tc) = tmp;
+		    OMP_CLAUSE_CHAIN (tc) = OMP_TARGET_CLAUSES (t);
+		    OMP_TARGET_CLAUSES (t) = tc;
+		  }
+	    }
+	}
       add_stmt (t);
       break;
 

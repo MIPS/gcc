@@ -1,3 +1,9 @@
+2015-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c: Include gimple-expr.h.
+	(c_parser_omp_target): Evaluate num_teams and thread_limit
+	expressions on combined target teams before the target.
+
 2015-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c (OMP_DISTRIBUTE_CLAUSE_MASK): Add lastprivate clause.

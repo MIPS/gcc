@@ -11857,6 +11857,31 @@ expand_omp_target (struct omp_region *region)
       else
 	depend = build_int_cst (ptr_type_node, 0);
       args.quick_push (depend);
+      if (start_ix == BUILT_IN_GOMP_TARGET)
+	{
+	  c = find_omp_clause (clauses, OMP_CLAUSE_NUM_TEAMS);
+	  if (c)
+	    {
+	      t = fold_convert (integer_type_node,
+				OMP_CLAUSE_NUM_TEAMS_EXPR (c));
+	      t = force_gimple_operand_gsi (&gsi, t, true, NULL,
+					    true, GSI_SAME_STMT);
+	    }
+	  else
+	    t = integer_minus_one_node;
+	  args.quick_push (t);
+	  c = find_omp_clause (clauses, OMP_CLAUSE_THREAD_LIMIT);
+	  if (c)
+	    {
+	      t = fold_convert (integer_type_node,
+				OMP_CLAUSE_THREAD_LIMIT_EXPR (c));
+	      t = force_gimple_operand_gsi (&gsi, t, true, NULL,
+					    true, GSI_SAME_STMT);
+	    }
+	  else
+	    t = integer_minus_one_node;
+	  args.quick_push (t);
+	}
       break;
     case BUILT_IN_GOACC_PARALLEL:
       {

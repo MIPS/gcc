@@ -1,3 +1,7 @@
+2015-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gomp-constants.h (GOMP_TARGET_FLAG_NOWAIT): Adjust comment.
+
 2015-10-26  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* gomp-constants.h (GOMP_MAP_FLAG_SPECIAL_2): Define.
@@ -6,3 +10,9 @@
 	GOMP_MAP_FLAG_ALWAYS for GOMP_MAP_ALWAYS_TO, GOMP_MAP_ALWAYS_FROM,
 	GOMP_MAP_ALWAYS_TOFROM, GOMP_MAP_STRUCT, GOMP_MAP_RELEASE.
 	(GOMP_MAP_ALWAYS_P): Define.
+
+Copyright (C) 2015 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

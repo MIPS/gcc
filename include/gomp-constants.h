@@ -179,7 +179,7 @@ enum gomp_map_kind
 #define GOMP_TASK_FLAG_IF		(1 << 10)
 #define GOMP_TASK_FLAG_NOGROUP		(1 << 11)
 
-/* GOMP_target{_41,update_41,enter_exit_data} flags argument.  */
+/* GOMP_target{_ext,update_ext,enter_exit_data} flags argument.  */
 #define GOMP_TARGET_FLAG_NOWAIT		(1 << 0)
 #define GOMP_TARGET_FLAG_EXIT_DATA	(1 << 1)
 /* Internal to libgomp.  */

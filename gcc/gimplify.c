@@ -93,6 +93,9 @@ enum gimplify_omp_var_data
 
   GOVD_MAP_0LEN_ARRAY = 32768,
 
+  /* Flag for GOVD_MAP, if it is always, to or always, tofrom mapping.  */
+  GOVD_MAP_ALWAYS_TO = 65536,
+
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -6757,6 +6760,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	      break;
 	    }
 	  flags = GOVD_MAP | GOVD_EXPLICIT;
+	  if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ALWAYS_TO
+	      || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ALWAYS_TOFROM)
+	    flags |= GOVD_MAP_ALWAYS_TO;
 	  goto do_add;
 
 	case OMP_CLAUSE_DEPEND:
@@ -8542,6 +8548,201 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   return GS_ALL_DONE;
 }
 
+/* Helper function of optimize_target_teams, find OMP_TEAMS inside
+   of OMP_TARGET's body.  */
+
+static tree
+find_omp_teams (tree *tp, int *walk_subtrees, void *)
+{
+  *walk_subtrees = 0;
+  switch (TREE_CODE (*tp))
+    {
+    case OMP_TEAMS:
+      return *tp;
+    case BIND_EXPR:
+    case STATEMENT_LIST:
+      *walk_subtrees = 1;
+      break;
+    default:
+      break;
+    }
+  return NULL_TREE;
+}
+
+/* Helper function of optimize_target_teams, determine if the expression
+   can be computed safely before the target construct on the host.  */
+
+static tree
+computable_teams_clause (tree *tp, int *walk_subtrees, void *)
+{
+  splay_tree_node n;
+
+  if (TYPE_P (*tp))
+    {
+      *walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  switch (TREE_CODE (*tp))
+    {
+    case VAR_DECL:
+    case PARM_DECL:
+    case RESULT_DECL:
+      *walk_subtrees = 0;
+      if (error_operand_p (*tp)
+	  || !INTEGRAL_TYPE_P (TREE_TYPE (*tp))
+	  || DECL_HAS_VALUE_EXPR_P (*tp)
+	  || DECL_THREAD_LOCAL_P (*tp)
+	  || TREE_SIDE_EFFECTS (*tp)
+	  || TREE_THIS_VOLATILE (*tp))
+	return *tp;
+      if (is_global_var (*tp)
+	  && (lookup_attribute ("omp declare target", DECL_ATTRIBUTES (*tp))
+	      || lookup_attribute ("omp declare target link",
+				   DECL_ATTRIBUTES (*tp))))
+	return *tp;
+      n = splay_tree_lookup (gimplify_omp_ctxp->variables,
+			     (splay_tree_key) *tp);
+      if (n == NULL)
+	{
+	  if (gimplify_omp_ctxp->target_map_scalars_firstprivate)
+	    return NULL_TREE;
+	  return *tp;
+	}
+      else if (n->value & GOVD_LOCAL)
+	return *tp;
+      else if (n->value & GOVD_FIRSTPRIVATE)
+	return NULL_TREE;
+      else if ((n->value & (GOVD_MAP | GOVD_MAP_ALWAYS_TO))
+	       == (GOVD_MAP | GOVD_MAP_ALWAYS_TO))
+	return NULL_TREE;
+      return *tp;
+    case INTEGER_CST:
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (*tp)))
+	return *tp;
+      return NULL_TREE;
+    case TARGET_EXPR:
+      if (TARGET_EXPR_INITIAL (*tp)
+	  || TREE_CODE (TARGET_EXPR_SLOT (*tp)) != VAR_DECL)
+	return *tp;
+      return computable_teams_clause (&TARGET_EXPR_SLOT (*tp),
+				      walk_subtrees, NULL);
+    /* Allow some reasonable subset of integral arithmetics.  */
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case MULT_EXPR:
+    case TRUNC_DIV_EXPR:
+    case CEIL_DIV_EXPR:
+    case FLOOR_DIV_EXPR:
+    case ROUND_DIV_EXPR:
+    case TRUNC_MOD_EXPR:
+    case CEIL_MOD_EXPR:
+    case FLOOR_MOD_EXPR:
+    case ROUND_MOD_EXPR:
+    case RDIV_EXPR:
+    case EXACT_DIV_EXPR:
+    case MIN_EXPR:
+    case MAX_EXPR:
+    case LSHIFT_EXPR:
+    case RSHIFT_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case BIT_AND_EXPR:
+    case NEGATE_EXPR:
+    case ABS_EXPR:
+    case BIT_NOT_EXPR:
+    case NON_LVALUE_EXPR:
+    CASE_CONVERT:
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (*tp)))
+	return *tp;
+      return NULL_TREE;
+    /* And disallow anything else, except for comparisons.  */
+    default:
+      if (COMPARISON_CLASS_P (*tp))
+	return NULL_TREE;
+      return *tp;
+    }
+}
+
+/* Try to determine if the num_teams and/or thread_limit expressions
+   can have their values determined already before entering the
+   target construct.
+   INTEGER_CSTs trivially are,
+   integral decls that are firstprivate (explicitly or implicitly)
+   or explicitly map(always, to:) or map(always, tofrom:) on the target
+   region too, and expressions involving simple arithmetics on those
+   too, function calls are not ok, dereferencing something neither etc.
+   Add NUM_TEAMS and THREAD_LIMIT clauses to the OMP_CLAUSES of
+   EXPR based on what we find:
+   0 stands for clause not specified at all, use implementation default
+   -1 stands for value that can't be determined easily before entering
+      the target construct.
+   If teams construct is not present at all, use 1 for num_teams
+   and 0 for thread_limit (only one team is involved, and the thread
+   limit is implementation defined.  */
+
+static void
+optimize_target_teams (tree target, gimple_seq *pre_p)
+{
+  tree body = OMP_BODY (target);
+  tree teams = walk_tree (&body, find_omp_teams, NULL, NULL);
+  tree num_teams = integer_zero_node;
+  tree thread_limit = integer_zero_node;
+  location_t num_teams_loc = EXPR_LOCATION (target);
+  location_t thread_limit_loc = EXPR_LOCATION (target);
+  tree c, *p, expr;
+  struct gimplify_omp_ctx *target_ctx = gimplify_omp_ctxp;
+
+  if (teams == NULL_TREE)
+    num_teams = integer_one_node;
+  else
+    for (c = OMP_TEAMS_CLAUSES (teams); c; c = OMP_CLAUSE_CHAIN (c))
+      {
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_NUM_TEAMS)
+	  {
+	    p = &num_teams;
+	    num_teams_loc = OMP_CLAUSE_LOCATION (c);
+	  }
+	else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_THREAD_LIMIT)
+	  {
+	    p = &thread_limit;
+	    thread_limit_loc = OMP_CLAUSE_LOCATION (c);
+	  }
+	else
+	  continue;
+	expr = OMP_CLAUSE_OPERAND (c, 0);
+	if (TREE_CODE (expr) == INTEGER_CST)
+	  {
+	    *p = expr;
+	    continue;
+	  }
+	if (walk_tree (&expr, computable_teams_clause, NULL, NULL))
+	  {
+	    *p = integer_minus_one_node;
+	    continue;
+	  }
+	*p = expr;
+	gimplify_omp_ctxp = gimplify_omp_ctxp->outer_context;
+	if (gimplify_expr (p, pre_p, NULL, is_gimple_val, fb_rvalue)
+	    == GS_ERROR)
+	  {
+	    gimplify_omp_ctxp = target_ctx;
+	    *p = integer_minus_one_node;
+	    continue;
+	  }
+	gimplify_omp_ctxp = target_ctx;
+	if (!DECL_P (expr) && TREE_CODE (expr) != TARGET_EXPR)
+	  OMP_CLAUSE_OPERAND (c, 0) = *p;
+      }
+  c = build_omp_clause (thread_limit_loc, OMP_CLAUSE_THREAD_LIMIT);
+  OMP_CLAUSE_THREAD_LIMIT_EXPR (c) = thread_limit;
+  OMP_CLAUSE_CHAIN (c) = OMP_TARGET_CLAUSES (target);
+  OMP_TARGET_CLAUSES (target) = c;
+  c = build_omp_clause (num_teams_loc, OMP_CLAUSE_NUM_TEAMS);
+  OMP_CLAUSE_NUM_TEAMS_EXPR (c) = num_teams;
+  OMP_CLAUSE_CHAIN (c) = OMP_TARGET_CLAUSES (target);
+  OMP_TARGET_CLAUSES (target) = c;
+}
+
 /* Gimplify the gross structure of several OMP constructs.  */
 
 static void
@@ -8577,6 +8778,8 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort,
 			     TREE_CODE (expr));
+  if (TREE_CODE (expr) == OMP_TARGET)
+    optimize_target_teams (expr, pre_p);
   if ((ort & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
     {
       push_gimplify_context ();

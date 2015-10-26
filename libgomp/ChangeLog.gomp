@@ -1,3 +1,24 @@
+2015-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (GOMP_target_41): Renamed to ...
+	(GOMP_target_ext): ... this.  Add num_teams and thread_limit
+	arguments.
+	(GOMP_target_data_41): Renamed to ...
+	(GOMP_target_data_ext): ... this.
+	(GOMP_target_update_41): Renamed to ...
+	(GOMP_target_update_ext): ... this.
+	* libgomp.map (GOMP_4.5): Export GOMP_target_ext,
+	GOMP_target_data_ext and GOMP_target_update_ext instead of
+	GOMP_target_41, GOMP_target_data_41 and GOMP_target_update_41.
+	* libgomp_g.h (GOMP_target_41): Renamed to ...
+	(GOMP_target_ext): ... this.  Add num_teams and thread_limit
+	arguments.
+	(GOMP_target_data_41): Renamed to ...
+	(GOMP_target_data_ext): ... this.
+	(GOMP_target_update_41): Renamed to ...
+	(GOMP_target_update_ext): ... this.
+	* testsuite/libgomp.c/target-teams-1.c: New test.
+
 2015-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/pr66199-5.c: New test.

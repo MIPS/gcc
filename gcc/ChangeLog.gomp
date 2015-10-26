@@ -1,3 +1,23 @@
+2015-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_ALWAYS_TO.
+	(gimplify_scan_omp_clauses): Or in GOVD_MAP_ALWAYS_TO for
+	GOMP_MAP_ALWAYS_TO or GOMP_MAP_ALWAYS_TOFROM kinds.
+	(find_omp_teams, computable_teams_clause, optimize_target_teams): New
+	functions.
+	(gimplify_omp_workshare): Call optimize_target_teams.
+	* omp-low.c (expand_omp_target): Pass num_teams and thread_limit
+	arguments to BUILT_IN_GOMP_TARGET.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET): Rename GOMP_target_41
+	to GOMP_target_ext.  Add num_teams and thread_limit arguments.
+	(BUILT_IN_GOMP_TARGET_DATA): Rename GOMP_target_data_41
+	to GOMP_target_data_ext.
+	(BUILT_IN_GOMP_TARGET_UPDATE): Rename GOMP_target_update_41
+	to GOMP_target_update_ext.
+	* builtin-types.def
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR): Remove.
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR_INT_INT): New.
+
 2015-10-26  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses): Use GOMP_MAP_ALWAYS_P.

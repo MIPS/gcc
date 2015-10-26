@@ -1,3 +1,12 @@
+2015-10-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_target): Evaluate num_teams and
+	thread_limit expressions on combined target teams before the
+	target.
+	* pt.c (tsubst_find_omp_teams): New function.
+	(tsubst_expr): Evaluate num_teams and thread_limit expressions on
+	combined target teams before the target.
+
 2015-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (OMP_DISTRIBUTE_CLAUSE_MASK): Add lastprivate clause.

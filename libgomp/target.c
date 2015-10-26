@@ -1209,7 +1209,7 @@ gomp_fini_device (struct gomp_device_descr *devicep)
   devicep->is_initialized = false;
 }
 
-/* Host fallback for GOMP_target{,_41} routines.  */
+/* Host fallback for GOMP_target{,_ext} routines.  */
 
 static void
 gomp_target_fallback (void (*fn) (void *), void **hostaddrs)
@@ -1265,7 +1265,7 @@ gomp_target_fallback_firstprivate (void (*fn) (void *), size_t mapnum,
   gomp_target_fallback (fn, hostaddrs);
 }
 
-/* Helper function of GOMP_target{,_41} routines.  */
+/* Helper function of GOMP_target{,_ext} routines.  */
 
 static void *
 gomp_get_target_fn_addr (struct gomp_device_descr *devicep,
@@ -1328,12 +1328,30 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
   gomp_unmap_vars (tgt_vars, true);
 }
 
+/* Like GOMP_target, but KINDS is 16-bit, UNUSED is no longer present,
+   and several arguments have been added:
+   FLAGS is a bitmask, see GOMP_TARGET_FLAG_* in gomp-constants.h.
+   DEPEND is array of dependencies, see GOMP_task for details.
+   NUM_TEAMS is positive if GOMP_teams will be called in the body with
+   that value, or 1 if teams construct is not present, or 0, if
+   teams construct does not have num_teams clause and so the choice is
+   implementation defined, and -1 if it can't be determined on the host
+   what value will GOMP_teams have on the device.
+   THREAD_LIMIT similarly is positive if GOMP_teams will be called in the
+   body with that value, or 0, if teams construct does not have thread_limit
+   clause or the teams construct is not present, or -1 if it can't be
+   determined on the host what value will GOMP_teams have on the device.  */
+
 void
-GOMP_target_41 (int device, void (*fn) (void *), size_t mapnum,
-		void **hostaddrs, size_t *sizes, unsigned short *kinds,
-		unsigned int flags, void **depend)
+GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
+		 void **hostaddrs, size_t *sizes, unsigned short *kinds,
+		 unsigned int flags, void **depend, int num_teams,
+		 int thread_limit)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
+
+  (void) num_teams;
+  (void) thread_limit;
 
   /* If there are depend clauses, but nowait is not present,
      block the parent task until the dependencies are resolved
@@ -1372,7 +1390,7 @@ GOMP_target_41 (int device, void (*fn) (void *), size_t mapnum,
   gomp_unmap_vars (tgt_vars, true);
 }
 
-/* Host fallback for GOMP_target_data{,_41} routines.  */
+/* Host fallback for GOMP_target_data{,_ext} routines.  */
 
 static void
 gomp_target_data_fallback (void)
@@ -1411,8 +1429,8 @@ GOMP_target_data (int device, const void *unused, size_t mapnum,
 }
 
 void
-GOMP_target_data_41 (int device, size_t mapnum, void **hostaddrs, size_t *sizes,
-		     unsigned short *kinds)
+GOMP_target_data_ext (int device, size_t mapnum, void **hostaddrs,
+		      size_t *sizes, unsigned short *kinds)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
 
@@ -1454,9 +1472,9 @@ GOMP_target_update (int device, const void *unused, size_t mapnum,
 }
 
 void
-GOMP_target_update_41 (int device, size_t mapnum, void **hostaddrs,
-		       size_t *sizes, unsigned short *kinds,
-		       unsigned int flags, void **depend)
+GOMP_target_update_ext (int device, size_t mapnum, void **hostaddrs,
+			size_t *sizes, unsigned short *kinds,
+			unsigned int flags, void **depend)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
 
@@ -1648,7 +1666,7 @@ gomp_target_task_fn (void *data)
   struct gomp_target_task *ttask = (struct gomp_target_task *) data;
   if (ttask->fn != NULL)
     {
-      /* GOMP_target_41 */
+      /* GOMP_target_ext */
     }
   else if (ttask->devicep == NULL
 	   || !(ttask->devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
