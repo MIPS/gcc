@@ -1,5 +1,41 @@
 2015-10-26  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* doc/tm.texi: Rebuilt.
+	* internal-fn.c (expand_GOACC_REDUCTION_SETUP,
+	expand_GOACC_REDUCTION_INIT, expand_GOACC_REDUCTION_FINI,
+	expand_GOACC_REDUCTION_TEADOWN): Replace with ...
+	(expand_GOACC_REDUCTION): ... this.
+	* internal-fn.def (GOACC_REDUCTION_SETUP,
+	GOACC_REDUCTION_INIT, GOACC_REDUCTION_FINI,
+	GOACC_REDUCTION_TEADOWN): Replace with ...
+	(GOACC_REDUCTION): ... this.
+	* internal-fn.h (enum ifn_goacc_reduction_kind): New.
+	* omp-low.c (lower_rec_input_clauses): Adjust OpenACC comment.
+	(lower_oacc_reductions): Remove RID & LID, calculate
+	offset. Adjust for IFN_GOACC_REDUCTION change.
+	(default_goacc_reduction): Don't return bool.  Adjust for argument
+	shift.
+	(execute_oacc_device_lower): Adjust for IFN_GOACC_REDUCTION
+	change.
+	* target.def (goacc_reduction): Adjust hook.
+	* targhooks.h (default_goacc_reduction): Return void.
+	* config/nvptx/nvptx.c (worker_red_hwm): Rename to ...
+	(worker_red_size): ... here.
+	(var_red_t, struct loop_red, loop_reds): Delete.
+	(nvptx_reorg_reductions): Delete.
+	(nvptx_reorg): Don't reorg reductoins.
+	(nvptx_file_end): Adjust worker reduction size name.
+	(nvptx_expand_worker_addr): Reimplement.
+	(nvptx_init_builtins): Adjust WORKER_ADDR prototype.
+	(nvptx_get_worker_red_addr): Reimplement.
+	(nvptx_goacc_reduction_setup, nvptx_goacc_reduction_init,
+	nvptx_goacc_reduction_fini, nvptx_goacc_reduction_teardown): Don't
+	return bool.  Adjust for argument shift & worker offset
+	processing.
+	(nvptx_goacc_reduction): Adjust.
+
+2015-10-26  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* internal-fn.c (expand_UNIQUE, expand_GOACC_DIM_SIZE,
 	expand_GOACC_DIM_POS): Use targetm to discover and generate insns.
 	* target-insns.def (oacc_dim_pos, oacc_dim_size, oacc_fork,

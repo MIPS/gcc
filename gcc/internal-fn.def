@@ -82,23 +82,8 @@ DEF_INTERNAL_FN (UNIQUE, ECF_NOTHROW, NULL)
 DEF_INTERNAL_FN (GOACC_DIM_SIZE, ECF_CONST | ECF_NOTHROW | ECF_LEAF, ".")
 DEF_INTERNAL_FN (GOACC_DIM_POS, ECF_PURE | ECF_NOTHROW | ECF_LEAF, ".")
 
-/* REDUCTION_SETUP, REDUCTION_INIT, REDUCTION_FINI and REDUCTION_TEARDOWN
-   together define a generic interface to support gang, worker and vector
-   reductions. All of the functions take the following form
-
-     V = goacc_reduction_foo (REF_TO_RES, LOCAL_VAR, LEVEL, OP, LID, RID)
-
-   where REF_TO_RES is a reference to the original reduction variable for
-   that particular reduction, LOCAL_VAR is the intermediate reduction
-   variable. LEVEL corresponds to the GOMP_DIM of the reduction, OP is a
-   tree code of the reduction operation. LID is a unique identifier of the
-   loop within a TU and RID is a unique id for a reduction within a loop.
-   V is the resulting intermediate reduction variable returned by the
-   function.  In general, V should equal LOCAL_VAR.  */
-DEF_INTERNAL_FN (GOACC_REDUCTION_SETUP, ECF_NOTHROW, NULL)
-DEF_INTERNAL_FN (GOACC_REDUCTION_INIT, ECF_NOTHROW, NULL)
-DEF_INTERNAL_FN (GOACC_REDUCTION_FINI, ECF_NOTHROW, NULL)
-DEF_INTERNAL_FN (GOACC_REDUCTION_TEARDOWN, ECF_NOTHROW, NULL)
-
 /* OpenACC looping abstraction.  See internal-fn.h for usage.  */
 DEF_INTERNAL_FN (GOACC_LOOP, ECF_PURE | ECF_NOTHROW, NULL)
+
+/* OpenACC reduction abstraction.  See internal-fn.h  for usage.  */
+DEF_INTERNAL_FN (GOACC_REDUCTION, ECF_NOTHROW | ECF_LEAF, NULL)

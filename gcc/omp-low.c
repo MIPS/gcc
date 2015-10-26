@@ -4940,8 +4940,8 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      break;
 
 	    case OMP_CLAUSE_REDUCTION:
-	      /* OpenACC reductions are initialized using the internal
-		 functions GOACC_REDUCTION_SETUP and GOACC_REDUCTION_INIT.  */
+	      /* OpenACC reductions are initialized using the
+		 GOACC_REDUCTION internal function.  */
 	      if (is_gimple_omp_oacc (ctx->stmt))
 		break;
 	      if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
@@ -5401,14 +5401,13 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		       gcall *fork, gcall *join, gimple_seq *fork_seq,
 		       gimple_seq *join_seq, omp_context *ctx)
 {
-  static unsigned oacc_lid = 0;
-  
   gimple_seq before_fork = NULL;
   gimple_seq after_fork = NULL;
   gimple_seq before_join = NULL;
   gimple_seq after_join = NULL;
-  unsigned count = 0;
-  tree lid = build_int_cst (unsigned_type_node, oacc_lid++);
+  tree init_code = NULL_TREE, fini_code = NULL_TREE,
+    setup_code = NULL_TREE, teardown_code = NULL_TREE;
+  unsigned offset = 0;
 
   for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
@@ -5473,30 +5472,59 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	else if (is_reference (orig))
 	  ref_to_res = build_simple_mem_ref (ref_to_res);
 
-	unsigned rcode = OMP_CLAUSE_REDUCTION_CODE (c);
+	enum tree_code rcode = OMP_CLAUSE_REDUCTION_CODE (c);
 	if (rcode == MINUS_EXPR)
 	  rcode = PLUS_EXPR;
+	else if (rcode == TRUTH_ANDIF_EXPR)
+	  rcode = BIT_AND_EXPR;
+	else if (rcode == TRUTH_ORIF_EXPR)
+	  rcode = BIT_IOR_EXPR;
 	tree op = build_int_cst (unsigned_type_node, rcode);
-	tree rid = build_int_cst (unsigned_type_node, count);	
 
-	tree setup = build_call_expr_internal_loc
-	  (loc, IFN_GOACC_REDUCTION_SETUP, TREE_TYPE (var), 6,
-	   unshare_expr (ref_to_res), var, level, op, lid, rid);
-	tree init = build_call_expr_internal_loc
-	  (loc, IFN_GOACC_REDUCTION_INIT, TREE_TYPE (var), 6,
-	   unshare_expr (ref_to_res), var, level, op, lid, rid);
-	tree fini = build_call_expr_internal_loc
-	  (loc, IFN_GOACC_REDUCTION_FINI, TREE_TYPE (var), 6,
-	   unshare_expr (ref_to_res), var, level, op, lid, rid);
-	tree teardown = build_call_expr_internal_loc
-	  (loc, IFN_GOACC_REDUCTION_TEARDOWN, TREE_TYPE (var), 6,
-	   ref_to_res, var, level, op, lid, rid);
+	/* Determine position in reduction buffer, which may be used
+	   by target.  */
+	enum machine_mode mode = TYPE_MODE (TREE_TYPE (var));
+	unsigned align = GET_MODE_ALIGNMENT (mode) /  BITS_PER_UNIT;
+	offset = (offset + align - 1) & ~(align - 1);
+	tree off = build_int_cst (sizetype, offset);
+	offset += GET_MODE_SIZE (mode);
 
-	gimplify_assign (var, setup, &before_fork);
-	gimplify_assign (var, init, &after_fork);
-	gimplify_assign (var, fini, &before_join);
-	gimplify_assign (var, teardown, &after_join);
-	count++;
+	if (!init_code)
+	  {
+	    init_code = build_int_cst (integer_type_node,
+				       IFN_GOACC_REDUCTION_INIT);
+	    fini_code = build_int_cst (integer_type_node,
+				       IFN_GOACC_REDUCTION_FINI);
+	    setup_code = build_int_cst (integer_type_node,
+					IFN_GOACC_REDUCTION_SETUP);
+	    teardown_code = build_int_cst (integer_type_node,
+					   IFN_GOACC_REDUCTION_TEARDOWN);
+	  }
+
+	tree setup_call
+	  = build_call_expr_internal_loc (loc, IFN_GOACC_REDUCTION,
+					  TREE_TYPE (var), 6, setup_code,
+					  unshare_expr (ref_to_res),
+					  var, level, op, off);
+	tree init_call
+	  = build_call_expr_internal_loc (loc, IFN_GOACC_REDUCTION,
+					  TREE_TYPE (var), 6, init_code,
+					  unshare_expr (ref_to_res),
+					  var, level, op, off);
+	tree fini_call
+	  = build_call_expr_internal_loc (loc, IFN_GOACC_REDUCTION,
+					  TREE_TYPE (var), 6, fini_code,
+					  unshare_expr (ref_to_res),
+					  var, level, op, off);
+	tree teardown_call
+	  = build_call_expr_internal_loc (loc, IFN_GOACC_REDUCTION,
+					  TREE_TYPE (var), 6, teardown_code,
+					  ref_to_res, var, level, op, off);
+
+	gimplify_assign (var, setup_call, &before_fork);
+	gimplify_assign (var, init_call, &after_fork);
+	gimplify_assign (var, fini_call, &before_join);
+	gimplify_assign (var, teardown_call, &after_join);
       }
 
   /* Now stitch things together.  */
@@ -19464,11 +19492,8 @@ oacc_loop_xform_head_tail (gcall *from, int level)
 	  else if (c == code && stmt != from)
 	    break;
 	}
-      else if (gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_SETUP
-	       || gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_INIT
-	       || gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_FINI
-	       || gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION_TEARDOWN)
-	*gimple_call_arg_ptr (stmt, 2) = replacement;
+      else if (gimple_call_internal_fn (stmt) == IFN_GOACC_REDUCTION)
+	*gimple_call_arg_ptr (stmt, 3) = replacement;
 
       gsi_next (&gsi);
       while (gsi_end_p (gsi))
@@ -19788,13 +19813,13 @@ default_goacc_fork_join (gcall *ARG_UNUSED (call),
    If LHS is not NULL
        emit 'LHS = VAR'   */
 
-bool
+void
 default_goacc_reduction (gcall *call)
 {
+  unsigned code = (unsigned)TREE_INT_CST_LOW (gimple_call_arg (call, 0));
   gimple_stmt_iterator gsi = gsi_for_stmt (call);
   tree lhs = gimple_call_lhs (call);
-  tree var = gimple_call_arg (call, 1);
-  unsigned code = gimple_call_internal_fn (call);
+  tree var = gimple_call_arg (call, 2);
   gimple_seq seq = NULL;
 
   if (code == IFN_GOACC_REDUCTION_SETUP
@@ -19802,7 +19827,7 @@ default_goacc_reduction (gcall *call)
     {
       /* Setup and Teardown need to copy from/to the receiver object,
 	 if there is one.  */
-      tree ref_to_res = gimple_call_arg (call, 0);
+      tree ref_to_res = gimple_call_arg (call, 1);
       
       if (!integer_zerop (ref_to_res))
 	{
@@ -19824,8 +19849,6 @@ default_goacc_reduction (gcall *call)
     gimple_seq_add_stmt (&seq, gimple_build_assign (lhs, var));
 
   gsi_replace_with_seq (&gsi, seq, true);
-
-  return false;
 }
 
 /* Main entry point for oacc transformations which run on the device
@@ -19902,16 +19925,13 @@ execute_oacc_device_lower ()
 	    rescan = true;
 	    break;
 
-	  case IFN_GOACC_REDUCTION_SETUP:
-	  case IFN_GOACC_REDUCTION_INIT:
-	  case IFN_GOACC_REDUCTION_FINI:
-	  case IFN_GOACC_REDUCTION_TEARDOWN:
+	  case IFN_GOACC_REDUCTION:
 	    /* Mark the function for SSA renaming.  */
 	    mark_virtual_operands_for_renaming (cfun);
 
 	    /* If the level is -1, this ended up being an unused
 	       axis.  Handle as a default.  */
-	    if (integer_minus_onep (gimple_call_arg (call, 2)))
+	    if (integer_minus_onep (gimple_call_arg (call, 3)))
 	      default_goacc_reduction (call);
 	    else
 	      targetm.goacc.reduction (call);
