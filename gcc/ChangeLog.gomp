@@ -1,5 +1,8 @@
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* gimplify.c (omp_is_private): Diagnose linear iteration variables
+	on non-simd constructs.
+
 	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_ALWAYS_TO.
 	(gimplify_scan_omp_clauses): Or in GOVD_MAP_ALWAYS_TO for
 	GOMP_MAP_ALWAYS_TO or GOMP_MAP_ALWAYS_TOFROM kinds.

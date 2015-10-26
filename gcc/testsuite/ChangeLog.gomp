@@ -1,5 +1,8 @@
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
+	* gcc.dg/gomp/linear-1.c: New test.
+	* g++.dg/gomp/linear-2.C: New test.
+
 	* c-c++-common/gomp/target-teams-1.c: New test.
 	* g++.dg/gomp/target-teams-1.C: New test.
 

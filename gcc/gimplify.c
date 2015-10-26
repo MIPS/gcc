@@ -6090,6 +6090,9 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl, int simd)
 	  else if ((n->value & GOVD_REDUCTION) != 0)
 	    error ("iteration variable %qE should not be reduction",
 		   DECL_NAME (decl));
+	  else if (simd == 0 && (n->value & GOVD_LINEAR) != 0)
+	    error ("iteration variable %qE should not be linear",
+		   DECL_NAME (decl));
 	  else if (simd == 1 && (n->value & GOVD_LASTPRIVATE) != 0)
 	    error ("iteration variable %qE should not be lastprivate",
 		   DECL_NAME (decl));
