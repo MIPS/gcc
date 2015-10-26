@@ -251,7 +251,7 @@ package body Sem_Res is
      (N   : Node_Id;
       Op  : Entity_Id;
       Typ : Entity_Id);
-   --  An operator can rename another, e.g. in  an instantiation. In that
+   --  An operator can rename another, e.g. in an instantiation. In that
    --  case, the proper operator node must be constructed and resolved.
 
    procedure Set_String_Literal_Subtype (N : Node_Id; Typ : Entity_Id);
@@ -2285,7 +2285,7 @@ package body Sem_Res is
                      then
                         exit Interp_Loop;
 
-                     elsif Nkind (N) in  N_Unary_Op
+                     elsif Nkind (N) in N_Unary_Op
                        and then Etype (Right_Opnd (N)) = Any_Type
                      then
                         exit Interp_Loop;
@@ -4464,17 +4464,18 @@ package body Sem_Res is
               and then Comes_From_Source (A)
               and then Is_Effectively_Volatile_Object (A)
             then
-               --  An effectively volatile object may act as an actual
-               --  parameter when the corresponding formal is of a non-scalar
-               --  volatile type.
+               --  An effectively volatile object may act as an actual when the
+               --  corresponding formal is of a non-scalar effectively volatile
+               --  type (SPARK RM 7.1.3(12)).
 
-               if Is_Volatile (Etype (F))
-                 and then not Is_Scalar_Type (Etype (F))
+               if not Is_Scalar_Type (Etype (F))
+                 and then Is_Effectively_Volatile (Etype (F))
                then
                   null;
 
-               --  An effectively volatile object may act as an actual
-               --  parameter in a call to an instance of Unchecked_Conversion.
+               --  An effectively volatile object may act as an actual in a
+               --  call to an instance of Unchecked_Conversion.
+               --  (SPARK RM 7.1.3(12)).
 
                elsif Is_Unchecked_Conversion_Instance (Nam) then
                   null;
@@ -4528,7 +4529,8 @@ package body Sem_Res is
             --  The actual parameter of a Ghost subprogram whose formal is of
             --  mode IN OUT or OUT must be a Ghost variable (SPARK RM 6.9(13)).
 
-            if Is_Ghost_Entity (Nam)
+            if Comes_From_Source (Nam)
+              and then Is_Ghost_Entity (Nam)
               and then Ekind_In (F, E_In_Out_Parameter, E_Out_Parameter)
               and then Is_Entity_Name (A)
               and then Present (Entity (A))
@@ -6408,14 +6410,14 @@ package body Sem_Res is
             --  assertions as logic expressions.
 
             elsif In_Assertion_Expr /= 0 then
-               Error_Msg_NE ("?no contextual analysis of &", N, Nam);
+               Error_Msg_NE ("info: no contextual analysis of &?", N, Nam);
                Error_Msg_N ("\call appears in assertion expression", N);
                Set_Is_Inlined_Always (Nam_UA, False);
 
             --  Calls cannot be inlined inside default expressions
 
             elsif In_Default_Expr then
-               Error_Msg_NE ("?no contextual analysis of &", N, Nam);
+               Error_Msg_NE ("info: no contextual analysis of &?", N, Nam);
                Error_Msg_N ("\call appears in default expression", N);
                Set_Is_Inlined_Always (Nam_UA, False);
 
@@ -6428,7 +6430,7 @@ package body Sem_Res is
 
                if No (Body_Id) then
                   Error_Msg_NE
-                    ("?no contextual analysis of & (body not seen yet)",
+                    ("info: no contextual analysis of & (body not seen yet)?",
                      N, Nam);
                   Set_Is_Inlined_Always (Nam_UA, False);
 
@@ -6444,7 +6446,7 @@ package body Sem_Res is
                --  expressions, that are not handled by GNATprove.
 
                elsif Is_Potentially_Unevaluated (N) then
-                  Error_Msg_NE ("?no contextual analysis of &", N, Nam);
+                  Error_Msg_NE ("info: no contextual analysis of &?", N, Nam);
                   Error_Msg_N
                     ("\call appears in potentially unevaluated context", N);
                   Set_Is_Inlined_Always (Nam_UA, False);
@@ -6842,7 +6844,7 @@ package body Sem_Res is
          function Within_Check (Nod : Node_Id) return Boolean;
          --  Determine whether an arbitrary node appears in a check node
 
-         function Within_Procedure_Call (Nod : Node_Id) return Boolean;
+         function Within_Subprogram_Call (Nod : Node_Id) return Boolean;
          --  Determine whether an arbitrary node appears in a procedure call
 
          function Within_Volatile_Function (Id : Entity_Id) return Boolean;
@@ -6906,19 +6908,21 @@ package body Sem_Res is
             return False;
          end Within_Check;
 
-         ---------------------------
-         -- Within_Procedure_Call --
-         ---------------------------
+         ----------------------------
+         -- Within_Subprogram_Call --
+         ----------------------------
 
-         function Within_Procedure_Call (Nod : Node_Id) return Boolean is
+         function Within_Subprogram_Call (Nod : Node_Id) return Boolean is
             Par : Node_Id;
 
          begin
-            --  Climb the parent chain looking for a procedure call
+            --  Climb the parent chain looking for a function or procedure call
 
             Par := Nod;
             while Present (Par) loop
-               if Nkind (Par) = N_Procedure_Call_Statement then
+               if Nkind_In (Par, N_Function_Call,
+                                 N_Procedure_Call_Statement)
+               then
                   return True;
 
                --  Prevent the search from going too far
@@ -6931,7 +6935,7 @@ package body Sem_Res is
             end loop;
 
             return False;
-         end Within_Procedure_Call;
+         end Within_Subprogram_Call;
 
          ------------------------------
          -- Within_Volatile_Function --
@@ -6988,6 +6992,13 @@ package body Sem_Res is
             else
                return True;
             end if;
+
+         --  The volatile object acts as the name of a renaming declaration
+
+         elsif Nkind (Context) = N_Object_Renaming_Declaration
+           and then Name (Context) = Obj_Ref
+         then
+            return True;
 
          --  The volatile object appears as an actual parameter in a call to an
          --  instance of Unchecked_Conversion whose result is renamed.
@@ -7048,10 +7059,10 @@ package body Sem_Res is
             return True;
 
          --  Assume that references to effectively volatile objects that appear
-         --  as actual parameters in a procedure call are always legal. A full
+         --  as actual parameters in a subprogram call are always legal. A full
          --  legality check is done when the actuals are resolved.
 
-         elsif Within_Procedure_Call (Context) then
+         elsif Within_Subprogram_Call (Context) then
             return True;
 
          --  Otherwise the context is not suitable for an effectively volatile
@@ -7178,44 +7189,40 @@ package body Sem_Res is
          Par := Parent (Par);
       end if;
 
-      --  The following checks are only relevant when SPARK_Mode is on as they
-      --  are not standard Ada legality rules. An effectively volatile object
-      --  subject to enabled properties Async_Writers or Effective_Reads must
-      --  appear in a specific context.
+      if Comes_From_Source (N) then
 
-      if SPARK_Mode = On
-        and then Is_Object (E)
-        and then Is_Effectively_Volatile (E)
-        and then (Async_Writers_Enabled (E)
-                   or else Effective_Reads_Enabled (E))
-        and then Comes_From_Source (N)
-      then
-         --  The effectively volatile objects appears in a "non-interfering
-         --  context" as defined in SPARK RM 7.1.3(12).
+         --  The following checks are only relevant when SPARK_Mode is on as
+         --  they are not standard Ada legality rules.
 
-         if Is_OK_Volatile_Context (Par, N) then
-            null;
+         if SPARK_Mode = On then
 
-         --  Otherwise the context causes a side effect with respect to the
-         --  effectively volatile object.
+            --  An effectively volatile object subject to enabled properties
+            --  Async_Writers or Effective_Reads must appear in non-interfering
+            --  context (SPARK RM 7.1.3(12)).
 
-         else
-            SPARK_Msg_N
-              ("volatile object cannot appear in this context "
-               & "(SPARK RM 7.1.3(12))", N);
+            if Is_Object (E)
+              and then Is_Effectively_Volatile (E)
+              and then (Async_Writers_Enabled (E)
+                         or else Effective_Reads_Enabled (E))
+              and then not Is_OK_Volatile_Context (Par, N)
+            then
+               SPARK_Msg_N
+                 ("volatile object cannot appear in this context "
+                  & "(SPARK RM 7.1.3(12))", N);
+            end if;
+
+            --  Check possible elaboration issues with respect to variables
+
+            if Ekind (E) = E_Variable then
+               Check_Elab_Call (N);
+            end if;
          end if;
-      end if;
 
-      --  A Ghost entity must appear in a specific context
+         --  A Ghost entity must appear in a specific context
 
-      if Is_Ghost_Entity (E) and then Comes_From_Source (N) then
-         Check_Ghost_Context (E, N);
-      end if;
-
-      --  In SPARK mode, need to check possible elaboration issues
-
-      if SPARK_Mode = On and then Ekind (E) = E_Variable then
-         Check_Elab_Call (N);
+         if Is_Ghost_Entity (E) then
+            Check_Ghost_Context (E, N);
+         end if;
       end if;
    end Resolve_Entity_Name;
 
@@ -8110,6 +8117,7 @@ package body Sem_Res is
       end if;
 
       Analyze_Dimension (N);
+
       --  Note: No Eval processing is required for an explicit dereference,
       --  because such a name can never be static.
 
@@ -8166,6 +8174,15 @@ package body Sem_Res is
             Indexes := Parameter_Associations (Call);
             Pref := Remove_Head (Indexes);
             Set_Expressions (N, Indexes);
+
+            --  If expression is to be reanalyzed, reset Generalized_Indexing
+            --  to recreate call node, as is the case when the expression is
+            --  part of an expression function.
+
+            if In_Spec_Expression then
+               Set_Generalized_Indexing (N, Empty);
+            end if;
+
             Set_Prefix (N, Pref);
          end if;
 
@@ -11234,7 +11251,7 @@ package body Sem_Res is
       New_N   : Node_Id;
 
    begin
-      if Nkind (N) in  N_Binary_Op then
+      if Nkind (N) in N_Binary_Op then
          Append (Left_Opnd (N), Actuals);
       end if;
 

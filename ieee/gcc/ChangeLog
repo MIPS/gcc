@@ -1,3 +1,341 @@
+2015-10-26  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* match.pd (fold_widened_comparison): Apply simplifications to all
+	integral types.
+
+2015-10-26  Simon Dardis  <simon.dardis@imgtec.com>
+
+	* target.def (TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P): New hook.
+	* doc/tm.texi.in (TARGET_NO_SPECULATION_IN_DELAY_SLOTS_P): Document.
+	* doc/tm.texi: Regenerated.
+	* reorg.c (dbr_schedule): Use new hook.
+	* config/mips/mips.c (mips_no_speculation_in_delay_slots_p): New.
+
+2015-10-26  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/68013
+	* tree-ssa-threadbackward.c (fsm_find_control_statement_thread_paths):
+	Make sure the first block in the path is in VISITED_BBs.
+
+2015-10-26  Richard Biener  <rguenther@suse.de>
+	Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	PR middle-end/67443
+	* alias.c (ao_ref_from_mem): Remove promoted subreg handling.
+	Properly prune ref->ref for accesses outside of ref.
+
+2015-10-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* gimple-fold.c (replace_stmt_with_simplification): Don't allow
+	new statements to be inserted if inplace.  Allow calls to have
+	nonempty sequences.
+
+2015-10-26  Richard Biener  <rguenther@suse.de>
+
+	* tree-object-size.c: Remove builtins.h include, include tree-cfg.h.
+	(do_valueize): New function.
+	(pass_object_sizes::execute): Use gimple_fold_stmt_to_constant and
+	replace_uses_by.
+	* tree-ssa-threadedge.c: Remove builtins.h include, include
+	gimple-fold.h
+	(fold_assignment_stmt): Remove.
+	(threadedge_valueize): New function.
+	(record_temporary_equivalences_from_stmts): Use
+	gimple_fold_stmt_to_constant_1, note additional cleanup
+	opportunities.
+
+2015-10-26  Richard Biener  <rguenther@suse.de>
+
+	* match.pd ((A & ~B) - (A & B) -> (A ^ B) - B): Add missing :c.
+	( (X & ~Y) | (~X & Y) -> X ^ Y): Remove redundant :c.
+
+2015-10-26  Alan Hayward <alan.hayward@arm.com>
+
+	* tree-vect-loop.c (vect_create_epilog_for_reduction): Fix
+	VEC_COND_EXPR types.
+
+2015-10-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* auto-inc-dec.c (insert_move_insn_before): Delete.
+	(attempt_change): Remember to cost the simple move in the
+	FORM_PRE_ADD and FORM_POST_ADD cases.
+
+2015-10-26  Kaz Kojima  <kkojima@gcc.gnu.org>
+
+	PR target/68091
+	* config/sh/sh.c (sh_vector_mode_supported_p): Use
+	TARGET_SHMEDIA_FPU instead of TARGET_FPU_ANY.
+
+2015-10-26  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (make_restrict_var_constraints): New function,
+	factored out of ...
+	(intra_create_variable_infos): ... here.
+
+2015-10-26  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (intra_create_variable_infos): Add
+	restrict_pointer_p and recursive_restrict_p variables.
+
+2015-10-26  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (intra_create_variable_infos): Inline
+	get_vi_for_tree call.
+
+2015-10-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/67989
+	* optabs.c (expand_atomic_compare_and_swap): Handle case when
+	ptarget_oval or ptarget_bool are const0_rtx.
+
+2015-10-26  Christian Bruel  <christian.bruel@st.com>
+
+	* function.h (MINIMUM_METHOD_BOUNDARY): New macro.
+	* cp/decl.c (grokfndecl): Set DECL_ALIGN with MINIMUM_METHOD_BOUNDARY.
+	* cp/method.c (implicitly_declare_fn): Likewise.
+	* cp/lambda.c (maybe_add_lambda_conv_op): Likewise. Remove VBIT setting.
+	* java/class.c (add_method_1): Likewise.
+
+2015-10-26  Richard Biener  <rguenther@suse.de>
+
+	* alloc-pool.h (base_pool_allocator): Use placement new.
+	(base_pool_allocator::remove): Likewise.  Compute size outside of
+	flag_checking.
+
+2015-10-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* builtins.c (do_real_to_int_conversion): New function.
+	(fold_fixed_mathfn, fold_builtin_int_roundingfn): Delete.
+	(fold_builtin_1): Handle constant {i,l,ll}{ceil,floor,round}{f,,l}
+	arguments here.
+	* match.pd: Add rules previously handled by fold_fixed_mathfn
+	and fold_builtin_int_roundingfn.
+
+2015-10-26  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* match.pd: Use macros to define built-in operator lists.
+
+2015-10-20  Richard Sandiford  <richard.sandiford@arm.com>
+	    Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c (dt_simplify::gen): Skip captures that are
+	part of the result.
+	(parser::parse_expr): Allow captures in results too.
+	* builtins.c (fold_builtin_cexp): Delete.
+	(fold_builtin_1): Handle constant cexp arguments here.
+	* match.pd: Fold cexp(x+yi) to exp(x) * cexpi(y).
+
+2015-10-26  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* alloc-pool.h (base_pool_allocator::initialize, ::allocate): Remove
+	conditional compilation.
+	(base_pool_allocator::remove): Use flag_checking.
+
+2015-10-25  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/som.h (EH_FRAME_THROUGH_COLLECT2): Define.
+
+	PR middle-end/68079
+	* dojump.c (do_compare_and_jump): Canonicalize both function and
+	method types.
+
+2015-10-25  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/68084
+	* config/i386/i386.c (ix86_md_asm_adjust) [case 'a']: Use NE code
+	for =@ccae.
+
+2015-10-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/pr67600
+	* ipa-polymorphic-call.c
+	(ipa_polymorphic_call_context::get_dynamic_type): Do not confuse
+	instance offset with offset of outer type.
+
+2015-10-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (operand_equal_p): Handle VIEW_CONVERT_EXPR.
+
+2015-10-23  Caroline Tice  <cmtice@google.com>
+
+	(from Richard Biener
+	* tree.c (int_cst_hasher::hash):  Replace XOR with more efficient
+	call to iterative_hash_host_wide_int.
+
+2015-10-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	* config.gcc (powerpc-ibm-aix[6789]) [default_use_cxa_atexit]:
+	Define as yes.
+
+2015-10-23  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* tree-vect-generic.c (expand_vector_operations_1): Check
+	optab exists before use it.
+
+2015-10-23  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* tree-vect-generic.c (expand_vector_condition): Avoid
+	uninitialized variable warning.
+
+2015-10-23  Jeff Law  <law@redhat.com>
+
+	* passes.c (execute_function_todo): Do not call flush_ssaname_freelist
+	here.  Instead...
+	(execute_todo): Call it here.
+	* tree-ssanames.c (make_ssa_name_fn): Unconditionally gather reuse
+	statistics
+	(pass_release_ssa_names::execute): Do not call flusH_ssaname_freelist.
+
+2015-10-23  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config.gcc (enable_secureplt): Add *-linux*-musl*.
+
+2015-10-23  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/67830
+	* match.pd ((bit_and (plus/minus (convert @0) (convert @1)) mask)):
+	Explicitly verify the mask has no bits outside the type of
+	the innermost operands.
+
+2015-10-23  Gregor Richards  <gregor.richards@uwaterloo.ca>
+	    Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* config/rs6000/linux64.h (MUSL_DYNAMIC_LINKER32): Define.
+	(MUSL_DYNAMIC_LINKER64): Define.
+	(GNU_USER_DYNAMIC_LINKER32): Update.
+	(GNU_USER_DYNAMIC_LINKER64): Update.
+	(CHOOSE_DYNAMIC_LINKER): Update.
+
+	* config/rs6000/sysv4.h (GNU_USER_DYNAMIC_LINKER): Update.
+	(MUSL_DYNAMIC_LINKER, MUSL_DYNAMIC_LINKER_E,)
+	(INCLUDE_DEFAULTS_MUSL_GPP, INCLUDE_DEFAULTS_MUSL_LOCAL,)
+	(INCLUDE_DEFAULTS_MUSL_PREFIX, INCLUDE_DEFAULTS_MUSL_CROSS,)
+	(INCLUDE_DEFAULTS_MUSL_TOOL, INCLUDE_DEFAULTS_MUSL_NATIVE): Define.
+	(CHOOSE_DYNAMIC_LINKER): Update.
+	(INCLUDE_DEFAULTS): Redefine.
+
+	* config/rs6000/sysv4le.h (MUSL_DYNAMIC_LINKER_E): Define.
+
+2015-10-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (operand_equal_p): Do not compare TYPE_MODE when
+	comparing addresses.
+
+2015-10-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* fold-const.c (operand_equal_p): Handle matching of vector
+	constructors.
+
+2015-10-23  David Edelsohn  <dje.gcc@gmail.com>
+
+	* doc/install.texi (*-ibm-aix*): Additional information for AIX 7.1.
+
+2015-10-23  Steve Ellcey  <sellcey@imgtec.com>
+	    Andrew Pinski  <apinski@cavium.com>
+
+	PR rtl-optimization/67736
+	* combine.c (simplify_comparison): Use gen_lowpart_or_truncate instead
+	of gen_lowpart.
+
+2015-10-23  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR middle-end/68066
+	* tree.c (build_truth_vector_type): Support BLK mode
+	returned for boolean vector.
+
+2015-10-23  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/65947
+	* tree-vect-loop.c
+	(vect_is_simple_reduction_1): Find condition reductions.
+	(vect_model_reduction_cost): Add condition reduction costs.
+	(get_initial_def_for_reduction): Add condition reduction initial var.
+	(vect_create_epilog_for_reduction): Add condition reduction epilog.
+	(vectorizable_reduction): Condition reduction support.
+	* tree-vect-stmts.c (vectorizable_condition): Add vect reduction arg
+	* doc/sourcebuild.texi (Vector-specific attributes): Document
+	vect_max_reduc
+
+2015-10-23  Richard Biener  <rguenther@suse.de>
+
+	* Makefile.in (build/genmatch.o): Properly depend on is-a.h, tree.def
+	and builtins.def.
+
+2015-10-23  Richard Biener  <rguenther@suse.de>
+	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* fold-const.c (fold_binary_loc) : Move Fold (A & ~B) - (A & B)
+	into (A ^ B) - B to match.pd
+	Move (X & ~Y) | (~X & Y) is X ^ Y to match.pd.
+
+	* match.pd (minus (bit_and:cs @0 (bit_not @1)) (bit_and:s @0 @1)):
+	New simplifier.
+	(minus (bit_and:s @0 INTEGER_CST@2) (bit_and:s @0 INTEGER_CST@1)):
+	New simplifier.
+	(minus (bit_and:s @0 @1) (bit_and:cs @0 (bit_not @1))):
+	New simplifier.
+	(bit_ior:c (bit_and:c @0 (bit_not @1)) (bit_and:c (bit_not @0) @1)):
+	New simplifier.
+	(bit_ior:c (bit_and @0 INTEGER_CST@2) (bit_and (bit_not @0)
+	INTEGER_CST@1)): New simplifier.
+
+2015-10-23  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* builtins.c (integer_valued_real_p): Move to fold-const.c.
+	(fold_trunc_transparent_mathfn, fold_builtin_trunc, fold_builtin_floor)
+	(fold_builtin_ceil, fold_builtin_round): Delete.
+	(fold_builtin_1): Handle constant trunc, floor, ceil and round
+	arguments here.
+	* convert.c (convert_to_real): Remove narrowing of rounding
+	functions.
+	* fold-const.h (integer_valued_real_unary_p)
+	(integer_valued_real_binary_p, integer_valued_real_call_p)
+	(integer_valued_real_single_p, integer_valued_real_p): Declare.
+	* fold-const.c (tree_single_nonnegative_warnv_p): Move
+	name_registered_for_update_p check to SSA_NAME case statement.
+	Don't call tree_simple_nonnegative_warnv_p for SSA names.
+	(integer_valued_real_unary_p, integer_valued_real_binary_p)
+	(integer_valued_real_call_p, integer_valued_real_single_p)
+	(integer_valued_real_invalid_p): New functions.
+	(integer_valued_real_p): Move from fold-const.c and rework
+	to call the functions above.  Handle SSA names.
+	* gimple-fold.h (gimple_stmt_integer_valued_real_p): Declare.
+	* gimple-fold.c (gimple_assign_integer_valued_real_p)
+	(gimple_call_integer_valued_real_p, gimple_phi_integer_valued_real_p)
+	(gimple_stmt_integer_valued_real_p): New functions.
+	* match.pd: Fold f(f(x))->f(x) for fp->fp rounding functions f.
+	Fold f(x)->x for the same f if x is known to be integer-valued.
+	Fold f(extend(x))->extend(f'(x)) if doing so doesn't affect
+	the result.  Canonicalize floor(x) as trunc(x) if x is
+	nonnegative.
+
+2015-10-23  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (intra_create_variable_infos): Use
+	make_constraint_from.
+
+2015-10-23  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (create_variable_info_for_1): Add missing
+	setting of is_full_var in case of a single field.
+
+2015-10-22  Martin Sebor  <msebor@redhat.com>
+
+	PR driver/68043
+	* config/i386/i386.opt: Add missing periods to the ends of sentences.
+	* config/msp430/msp430.opt: Same.
+
+2015-10-21  David Wohlferd  <dw@LimeGreenSocks.com>
+
+	* doc/extend.exp (Global Register Variables): Rewrite.
+
+2015-10-22  Jeff Law  <law@redhat.com>
+
+	* genattrtab.c (main): If we do not have any annul-true or annul-false
+	slots, then write out a dummy eligible_for_annul_true or
+	eligible_for_annul_false as needed.
+
 2015-10-22  Nick Clifton  <nickc@redhat.com>
 
 	* config/msp430/msp430.opt: Add -msilicon-errata and
@@ -81,10 +419,8 @@
 	documented.  Mention when using an option is diagnosed.
 	* gcc.c (display_help): End each sentence with a period.
 
-	* ada/gcc-interface/lang.opt: End each sentence that describes
-	an option with a period.
-	* c-family/c.opt: Same.
-	* common.opt: Same.
+	* common.opt: End each sentence that describes an option with
+	a period.
 	* config/aarch64/aarch64.opt: Same.
 	* config/alpha/alpha.opt: Same.
 	* config/arc/arc.opt: Same.
@@ -159,7 +495,6 @@
 	* config/vms/vms.opt: Same.
 	* config/vxworks.opt: Same.
 	* config/xtensa/xtensa.opt: Same.
-	* fortran/lang.opt: Same.
 
 2015-10-21  Aditya Kumar  <aditya.k7@samsung.com>
 	    Sebastian Pop  <s.pop@samsung.com>
@@ -30825,7 +31160,7 @@
 	* config/aarch64/aarch64.c (aarch64_simd_attr_length_rglist)
 	(aarch64_reverse_mask): New functions.
 
-2015-01-21  Richard Sandiford  <richard.sandiford@arm.com>
+2015-01-21  Alan Hayward  <alan.hayward@arm.com>
 
 	* config/aarch64/aarch64-protos.h (aarch64_simd_disambiguate_copy):
 	Declare.

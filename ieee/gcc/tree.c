@@ -1364,7 +1364,7 @@ int_cst_hasher::hash (tree x)
   int i;
 
   for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
-    code ^= TREE_INT_CST_ELT (t, i);
+    code = iterative_hash_host_wide_int (TREE_INT_CST_ELT(t, i), code);
 
   return code;
 }
@@ -10671,8 +10671,14 @@ build_truth_vector_type (unsigned nunits, unsigned vector_size)
 
   gcc_assert (mask_mode != VOIDmode);
 
-  unsigned HOST_WIDE_INT esize = GET_MODE_BITSIZE (mask_mode) / nunits;
-  gcc_assert (esize * nunits == GET_MODE_BITSIZE (mask_mode));
+  unsigned HOST_WIDE_INT vsize;
+  if (mask_mode == BLKmode)
+    vsize = vector_size * BITS_PER_UNIT;
+  else
+    vsize = GET_MODE_BITSIZE (mask_mode);
+
+  unsigned HOST_WIDE_INT esize = vsize / nunits;
+  gcc_assert (esize * nunits == vsize);
 
   tree bool_type = build_nonstandard_boolean_type (esize);
 

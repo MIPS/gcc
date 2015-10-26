@@ -1,3 +1,30 @@
+2015-10-26  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/abort-1.c: Print to stderr.
+	* testsuite/libgomp.oacc-c-c++-common/abort-3.c: Likewise.
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-1.c: Remove explicit
+	acc_device_nvidia usage.
+	* testsuite/libgomp.oacc-c-c++-common/lib-10.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-9.c: Likewise.
+
+	* oacc-init.c (acc_shutdown): Call gomp_init_targets_once.
+	* testsuite/libgomp.oacc-c-c++-common/lib-8.c: New file.
+
+	PR libgomp/66518
+	* testsuite/libgomp.oacc-c-c++-common/lib-3.c: Resolve XFAIL.
+
+	PR libgomp/65437
+	PR libgomp/66518
+	* oacc-mem.c (update_dev_host): Call goacc_lazy_initialize.
+	* testsuite/libgomp.oacc-c-c++-common/lib-42.c: Remove XFAIL.
+
+2015-10-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/68063
+	* testsuite/libgomp.c++/member-2.C (A::m1): Add missing private clause.
+
 2015-10-20  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-5.c: Set sane

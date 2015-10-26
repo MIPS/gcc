@@ -3462,14 +3462,12 @@ package body Inline is
 
          if Nkind (D) = N_Package_Declaration then
             Cannot_Inline
-              ("cannot inline & (nested package declaration)?",
-               D, Subp);
+              ("cannot inline & (nested package declaration)?", D, Subp);
             return True;
 
          elsif Nkind (D) = N_Package_Instantiation then
             Cannot_Inline
-              ("cannot inline & (nested package instantiation)?",
-               D, Subp);
+              ("cannot inline & (nested package instantiation)?", D, Subp);
             return True;
          end if;
 
@@ -3482,8 +3480,7 @@ package body Inline is
            or else Nkind (D) = N_Single_Task_Declaration
          then
             Cannot_Inline
-              ("cannot inline & (nested task type declaration)?",
-               D, Subp);
+              ("cannot inline & (nested task type declaration)?", D, Subp);
             return True;
 
          elsif Nkind (D) = N_Protected_Type_Declaration
@@ -3496,23 +3493,50 @@ package body Inline is
 
          elsif Nkind (D) = N_Subprogram_Body then
             Cannot_Inline
-              ("cannot inline & (nested subprogram)?",
-               D, Subp);
+              ("cannot inline & (nested subprogram)?", D, Subp);
             return True;
 
          elsif Nkind (D) = N_Function_Instantiation
            and then not Is_Unchecked_Conversion (D)
          then
             Cannot_Inline
-              ("cannot inline & (nested function instantiation)?",
-               D, Subp);
+              ("cannot inline & (nested function instantiation)?", D, Subp);
             return True;
 
          elsif Nkind (D) = N_Procedure_Instantiation then
             Cannot_Inline
-              ("cannot inline & (nested procedure instantiation)?",
-               D, Subp);
+              ("cannot inline & (nested procedure instantiation)?", D, Subp);
             return True;
+
+         --  Subtype declarations with predicates will generate predicate
+         --  functions, i.e. nested subprogram bodies, so inlining is not
+         --  possible.
+
+         elsif Nkind (D) = N_Subtype_Declaration
+           and then Present (Aspect_Specifications (D))
+         then
+            declare
+               A    : Node_Id;
+               A_Id : Aspect_Id;
+
+            begin
+               A := First (Aspect_Specifications (D));
+               while Present (A) loop
+                  A_Id := Get_Aspect_Id (Chars (Identifier (A)));
+
+                  if A_Id = Aspect_Predicate
+                    or else A_Id = Aspect_Static_Predicate
+                    or else A_Id = Aspect_Dynamic_Predicate
+                  then
+                     Cannot_Inline
+                       ("cannot inline & (subtype declaration with "
+                        & "predicate)?", D, Subp);
+                     return True;
+                  end if;
+
+                  Next (A);
+               end loop;
+            end;
          end if;
 
          Next (D);

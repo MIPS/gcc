@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 1995-2014, AdaCore                     --
+--                     Copyright (C) 1995-2015, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -189,6 +189,12 @@ package body System.OS_Lib is
       New_Argc : Natural := 0;
       Idx      : Integer;
 
+      Cleaned     : String (1 .. Arg_String'Length);
+      Cleaned_Idx : Natural;
+      --  A cleaned up version of the argument. This function is taking
+      --  backslash escapes when computing the bounds for arguments. It is
+      --  then removing the extra backslashes from the argument.
+
    begin
       Idx := Arg_String'First;
 
@@ -198,10 +204,9 @@ package body System.OS_Lib is
          declare
             Quoted  : Boolean := False;
             Backqd  : Boolean := False;
-            Old_Idx : Integer;
 
          begin
-            Old_Idx := Idx;
+            Cleaned_Idx := Cleaned'First;
 
             loop
                --  An unquoted space is the end of an argument
@@ -217,25 +222,34 @@ package body System.OS_Lib is
                  and then Arg_String (Idx) = '"'
                then
                   Quoted := True;
+                  Cleaned (Cleaned_Idx) := Arg_String (Idx);
+                  Cleaned_Idx := Cleaned_Idx + 1;
 
                --  End of a quoted string and end of an argument
 
                elsif (Quoted and not Backqd)
                  and then Arg_String (Idx) = '"'
                then
+                  Cleaned (Cleaned_Idx) := Arg_String (Idx);
+                  Cleaned_Idx := Cleaned_Idx + 1;
                   Idx := Idx + 1;
                   exit;
+
+               --  Turn off backquoting after advancing one character
+
+               elsif Backqd then
+                  Backqd := False;
+                  Cleaned (Cleaned_Idx) := Arg_String (Idx);
+                  Cleaned_Idx := Cleaned_Idx + 1;
 
                --  Following character is backquoted
 
                elsif Arg_String (Idx) = '\' then
                   Backqd := True;
 
-               --  Turn off backquoting after advancing one character
-
-               elsif Backqd then
-                  Backqd := False;
-
+               else
+                  Cleaned (Cleaned_Idx) := Arg_String (Idx);
+                  Cleaned_Idx := Cleaned_Idx + 1;
                end if;
 
                Idx := Idx + 1;
@@ -246,7 +260,7 @@ package body System.OS_Lib is
 
             New_Argc := New_Argc + 1;
             New_Argv (New_Argc) :=
-              new String'(Arg_String (Old_Idx .. Idx - 1));
+              new String'(Cleaned (Cleaned'First .. Cleaned_Idx - 1));
 
             --  Skip extraneous spaces
 
@@ -1496,6 +1510,25 @@ package body System.OS_Lib is
       F_Name (F_Name'Last)      := ASCII.NUL;
       return Is_Writable_File (F_Name'Address);
    end Is_Writable_File;
+
+   ----------
+   -- Kill --
+   ----------
+
+   procedure Kill (Pid : Process_Id; Hard_Kill : Boolean := True) is
+      SIGKILL : constant := 9;
+      SIGINT  : constant := 2;
+
+      procedure C_Kill (Pid : Process_Id; Sig_Num : Integer; Close : Integer);
+      pragma Import (C, C_Kill, "__gnat_kill");
+
+   begin
+      if Hard_Kill then
+         C_Kill (Pid, SIGKILL, 1);
+      else
+         C_Kill (Pid, SIGINT, 1);
+      end if;
+   end Kill;
 
    -------------------------
    -- Locate_Exec_On_Path --

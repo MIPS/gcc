@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
 --                                                                          --
 -- This specification is derived from the Ada Reference Manual for use with --
 -- GNAT. The copyright notice above, and the license provisions that follow --
@@ -38,7 +38,8 @@ with System.Tasking;
 
 package Ada.Task_Identification with
   SPARK_Mode,
-  Abstract_State => (Tasking_State with External => (Async_Readers,
+  Abstract_State => (Tasking_State with Synchronous,
+                                        External => (Async_Readers,
                                                      Async_Writers))
 is
    pragma Preelaborate;
@@ -49,10 +50,12 @@ is
 
    Null_Task_Id : constant Task_Id;
 
-   function "=" (Left, Right : Task_Id) return Boolean;
+   function "=" (Left, Right : Task_Id) return Boolean with
+     Global => null;
    pragma Inline ("=");
 
-   function Image (T : Task_Id) return String;
+   function Image (T : Task_Id) return String with
+     Global => null;
 
    function Current_Task return Task_Id with
      Volatile_Function,
@@ -60,10 +63,12 @@ is
    pragma Inline (Current_Task);
 
    function Environment_Task return Task_Id with
-     SPARK_Mode => Off;
+     SPARK_Mode => Off,
+     Global     => null;
    pragma Inline (Environment_Task);
 
-   procedure Abort_Task (T : Task_Id);
+   procedure Abort_Task (T : Task_Id) with
+     Global => null;
    pragma Inline (Abort_Task);
    --  Note: parameter is mode IN, not IN OUT, per AI-00101
 

@@ -844,7 +844,7 @@ expand_vector_condition (gimple_stmt_iterator *gsi)
   tree type = gimple_expr_type (stmt);
   tree a = gimple_assign_rhs1 (stmt);
   tree a1 = a;
-  tree a2;
+  tree a2 = NULL_TREE;
   bool a_is_comparison = false;
   tree b = gimple_assign_rhs2 (stmt);
   tree c = gimple_assign_rhs3 (stmt);
@@ -1533,7 +1533,8 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
       && TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (TREE_TYPE (srhs1)))
     {
       op = optab_for_tree_code (code, TREE_TYPE (type), optab_scalar);
-      if (optab_handler (op, TYPE_MODE (TREE_TYPE (type))) != CODE_FOR_nothing)
+      if (op != unknown_optab
+	  && optab_handler (op, TYPE_MODE (TREE_TYPE (type))) != CODE_FOR_nothing)
 	{
 	  tree slhs = make_ssa_name (TREE_TYPE (srhs1));
 	  gimple *repl = gimple_build_assign (slhs, code, srhs1, srhs2);

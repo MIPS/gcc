@@ -5693,6 +5693,8 @@ create_variable_info_for_1 (tree decl, const char *name)
 
   vi = new_var_info (decl, name);
   vi->fullsize = tree_to_uhwi (declsize);
+  if (fieldstack.length () == 1)
+    vi->is_full_var = true;
   for (i = 0, newvi = vi;
        fieldstack.iterate (i, &fo);
        ++i, newvi = vi_next (newvi))
@@ -5842,6 +5844,21 @@ debug_solution_for_var (unsigned int var)
   dump_solution_for_var (stderr, var);
 }
 
+/* Register the constraints for restrict var VI.  */
+
+static void
+make_restrict_var_constraints (varinfo_t vi)
+{
+  for (; vi; vi = vi_next (vi))
+    if (vi->may_have_pointers)
+      {
+	if (vi->only_restrict_pointers)
+	  make_constraint_from_global_restrict (vi, "GLOBAL_RESTRICT");
+	else
+	  make_copy_constraint (vi, nonlocal_id);
+      }
+}
+
 /* Create varinfo structures for all of the variables in the
    function for intraprocedural mode.  */
 
@@ -5855,43 +5872,36 @@ intra_create_variable_infos (struct function *fn)
      passed-by-reference argument.  */
   for (t = DECL_ARGUMENTS (fn->decl); t; t = DECL_CHAIN (t))
     {
-      varinfo_t p = get_vi_for_tree (t);
+      bool restrict_pointer_p = (POINTER_TYPE_P (TREE_TYPE (t))
+				 && TYPE_RESTRICT (TREE_TYPE (t)));
+      bool recursive_restrict_p
+	= (restrict_pointer_p
+	   && !type_contains_placeholder_p (TREE_TYPE (TREE_TYPE (t))));
+      varinfo_t p = lookup_vi_for_tree (t);
+      if (p == NULL)
+	{
+	  p = create_variable_info_for_1 (t, alias_get_name (t));
+	  insert_vi_for_tree (t, p);
+	}
 
       /* For restrict qualified pointers build a representative for
 	 the pointed-to object.  Note that this ends up handling
 	 out-of-bound references conservatively by aggregating them
 	 in the first/last subfield of the object.  */
-      if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && TYPE_RESTRICT (TREE_TYPE (t))
-	  && !type_contains_placeholder_p (TREE_TYPE (TREE_TYPE (t))))
+      if (recursive_restrict_p)
 	{
-	  struct constraint_expr lhsc, rhsc;
 	  varinfo_t vi;
 	  tree heapvar = build_fake_var_decl (TREE_TYPE (TREE_TYPE (t)));
 	  DECL_EXTERNAL (heapvar) = 1;
 	  vi = create_variable_info_for_1 (heapvar, "PARM_NOALIAS");
 	  vi->is_restrict_var = 1;
 	  insert_vi_for_tree (heapvar, vi);
-	  lhsc.var = p->id;
-	  lhsc.type = SCALAR;
-	  lhsc.offset = 0;
-	  rhsc.var = vi->id;
-	  rhsc.type = ADDRESSOF;
-	  rhsc.offset = 0;
-	  process_constraint (new_constraint (lhsc, rhsc));
-	  for (; vi; vi = vi_next (vi))
-	    if (vi->may_have_pointers)
-	      {
-		if (vi->only_restrict_pointers)
-		  make_constraint_from_global_restrict (vi, "GLOBAL_RESTRICT");
-		else
-		  make_copy_constraint (vi, nonlocal_id);
-	      }
+	  make_constraint_from (p, vi->id);
+	  make_restrict_var_constraints (vi);
 	  continue;
 	}
 
-      if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && TYPE_RESTRICT (TREE_TYPE (t)))
+      if (restrict_pointer_p)
 	make_constraint_from_global_restrict (p, "PARM_RESTRICT");
       else
 	{
