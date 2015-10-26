@@ -1978,6 +1978,7 @@ expand_UNIQUE (gcall *stmt)
     case IFN_UNIQUE_OACC_FORK:
     case IFN_UNIQUE_OACC_JOIN:
       {
+#if defined (HAVE_oacc_fork) && defined (HAVE_oacc_join)
 	tree lhs = gimple_call_lhs (stmt);
 	rtx target = const0_rtx;
 
@@ -1988,21 +1989,12 @@ expand_UNIQUE (gcall *stmt)
 	rtx axis = expand_normal (gimple_call_arg (stmt, 2));
 
 	if (code == IFN_UNIQUE_OACC_FORK)
-	  {
-#ifdef HAVE_oacc_fork
-	    pattern = gen_oacc_fork (target, data_dep, axis);
-#else
-	    gcc_unreachable ();
-#endif
-	  }
+	  pattern = gen_oacc_fork (target, data_dep, axis);
 	else
-	  {
-#ifdef HAVE_oacc_join
-	    pattern = gen_oacc_join (target, data_dep, axis);
+	  pattern = gen_oacc_join (target, data_dep, axis);
 #else
-	    gcc_unreachable ();
+	gcc_unreachable ();
 #endif
-	  }
       }
       break;
     }

@@ -1,3 +1,8 @@
+2015-10-26  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* internal-fn.c (expand_UNIQUE): Protect fork & join inside
+	combined if defined.
+
 2015-10-25  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* internal-fn.def (IFN_UNIQUE): Not a leaf.
