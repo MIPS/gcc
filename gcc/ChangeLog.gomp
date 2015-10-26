@@ -1,3 +1,8 @@
+2015-10-26  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Use GOMP_MAP_ALWAYS_P.
+	(gimplify_adjust_omp_clauses): Likewise.
+
 2015-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (omp_default_clause): Tweak for

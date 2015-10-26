@@ -6636,7 +6636,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      struct_map_to_clause->put (decl, *list_p);
 		      list_p = &OMP_CLAUSE_CHAIN (*list_p);
 		      flags = GOVD_MAP | GOVD_EXPLICIT;
-		      if (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS)
+		      if (GOMP_MAP_ALWAYS_P (OMP_CLAUSE_MAP_KIND (c)))
 			flags |= GOVD_SEEN;
 		      goto do_add_decl;
 		    }
@@ -6646,7 +6646,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		      tree *sc = NULL, *pt = NULL;
 		      if (!ptr && TREE_CODE (*osc) == TREE_LIST)
 			osc = &TREE_PURPOSE (*osc);
-		      if (OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS)
+		      if (GOMP_MAP_ALWAYS_P (OMP_CLAUSE_MAP_KIND (c)))
 			n->value |= GOVD_SEEN;
 		      offset_int o1, o2;
 		      if (offset)
@@ -7395,8 +7395,7 @@ gimplify_adjust_omp_clauses (gimple_seq *pre_p, tree *list_p,
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
 	  if ((ctx->region_type & ORT_TARGET) != 0
 	      && !(n->value & GOVD_SEEN)
-	      && ((OMP_CLAUSE_MAP_KIND (c) & GOMP_MAP_FLAG_ALWAYS) == 0
-		  || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_STRUCT))
+	      && GOMP_MAP_ALWAYS_P (OMP_CLAUSE_MAP_KIND (c)) == 0)
 	    {
 	      remove = true;
 	      /* For struct element mapping, if struct is never referenced
