@@ -1,5 +1,13 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* Makefile.am (libgomp_la_SOURCES): Add atomic.c.
+	* Makefile.in: Regenerate.
+	* critical.c: Split out GOMP_atomic_{start,end} into...
+	* atomic.c: ...here (new file).
+	* config/nvptx/critical.c: Delete.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/target.c: New.
 
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
