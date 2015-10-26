@@ -10718,6 +10718,18 @@ file cannot be found.
 @cindex @code{%rename}
 Rename the spec string @var{old_name} to @var{new_name}.
 
+@item max-fsm-thread-path-insns
+Maximum number of instructions to copy when duplicating blocks on a
+finite state automaton jump thread path.  The default is 100.
+
+@item max-fsm-thread-length
+Maximum number of basic blocks on a finite state automaton jump thread
+path.  The default is 10.
+
+@item max-fsm-thread-paths
+Maximum number of new jump thread paths to create for a finite state
+automaton.  The default is 50.
+
 @end table
 
 @item *[@var{spec_name}]:
