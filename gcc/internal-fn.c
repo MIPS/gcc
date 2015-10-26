@@ -1970,32 +1970,30 @@ expand_UNIQUE (gcall *stmt)
       gcc_unreachable ();
 
     case IFN_UNIQUE_UNSPEC:
-#ifdef HAVE_unique
-      pattern = gen_unique ();
-#endif
+      if (targetm.have_unique ())
+	pattern = targetm.gen_unique ();
       break;
 
     case IFN_UNIQUE_OACC_FORK:
     case IFN_UNIQUE_OACC_JOIN:
-      {
-#if defined (HAVE_oacc_fork) && defined (HAVE_oacc_join)
-	tree lhs = gimple_call_lhs (stmt);
-	rtx target = const0_rtx;
+      if (targetm.have_oacc_fork () && targetm.have_oacc_join ())
+	{
+	  tree lhs = gimple_call_lhs (stmt);
+	  rtx target = const0_rtx;
 
-	if (lhs)
-	  target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+	  if (lhs)
+	    target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
-	rtx data_dep = expand_normal (gimple_call_arg (stmt, 1));
-	rtx axis = expand_normal (gimple_call_arg (stmt, 2));
+	  rtx data_dep = expand_normal (gimple_call_arg (stmt, 1));
+	  rtx axis = expand_normal (gimple_call_arg (stmt, 2));
 
-	if (code == IFN_UNIQUE_OACC_FORK)
-	  pattern = gen_oacc_fork (target, data_dep, axis);
-	else
-	  pattern = gen_oacc_join (target, data_dep, axis);
-#else
+	  if (code == IFN_UNIQUE_OACC_FORK)
+	    pattern = targetm.gen_oacc_fork (target, data_dep, axis);
+	  else
+	    pattern = targetm.gen_oacc_join (target, data_dep, axis);
+	}
+      else
 	gcc_unreachable ();
-#endif
-      }
       break;
     }
 
@@ -2012,40 +2010,47 @@ expand_GOACC_DATA_END_WITH_ARG (gcall *stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
-static void
-expand_GOACC_DIM_SIZE (gcall *ARG_UNUSED (stmt))
-{
-#ifdef HAVE_oacc_dim_size
-  tree lhs = gimple_call_lhs (stmt);
+/* GOACC_DIM_SIZE returns the size of the specified compute axis.  */
 
-  if (!lhs)
-    return;
-  
-  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
-  rtx dim = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
-			 VOIDmode, EXPAND_NORMAL);
-  emit_insn (gen_oacc_dim_size (target, dim));
-#else
-  gcc_unreachable ();
-#endif
+static void
+expand_GOACC_DIM_SIZE (gcall *stmt)
+{
+  if (targetm.have_oacc_dim_size ())
+    {
+      tree lhs = gimple_call_lhs (stmt);
+
+      if (!lhs)
+	return;
+
+      rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      rtx dim = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
+			     VOIDmode, EXPAND_NORMAL);
+      emit_insn (targetm.gen_oacc_dim_size (target, dim));
+    }
+  else
+    gcc_unreachable ();
 }
 
-static void
-expand_GOACC_DIM_POS (gcall *ARG_UNUSED (stmt))
-{
-#ifdef HAVE_oacc_dim_pos
-  tree lhs = gimple_call_lhs (stmt);
+/* GOACC_DIM_POS returns the index of the executing thread along the
+   specified axis.  */
 
-  if (!lhs)
-    return;
-  
-  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
-  rtx dim = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
-			 VOIDmode, EXPAND_NORMAL);
-  emit_insn (gen_oacc_dim_pos (target, dim));
-#else
-  gcc_unreachable ();
-#endif
+static void
+expand_GOACC_DIM_POS (gcall *stmt)
+{
+  if (targetm.have_oacc_dim_pos ())
+    {
+      tree lhs = gimple_call_lhs (stmt);
+
+      if (!lhs)
+	return;
+
+      rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      rtx dim = expand_expr (gimple_call_arg (stmt, 0), NULL_RTX,
+			     VOIDmode, EXPAND_NORMAL);
+      emit_insn (targetm.gen_oacc_dim_pos (target, dim));
+    }
+  else
+    gcc_unreachable ();
 }
 
 /* All the GOACC_REDUCTION variants  get expanded in oacc_device_lower.  */

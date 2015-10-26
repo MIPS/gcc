@@ -1,5 +1,12 @@
 2015-10-26  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* internal-fn.c (expand_UNIQUE, expand_GOACC_DIM_SIZE,
+	expand_GOACC_DIM_POS): Use targetm to discover and generate insns.
+	* target-insns.def (oacc_dim_pos, oacc_dim_size, oacc_fork,
+	oacc_join, unique): Define insns.
+
+2015-10-26  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* internal-fn.c (expand_UNIQUE): Protect fork & join inside
 	combined if defined.
 
