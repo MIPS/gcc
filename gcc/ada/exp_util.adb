@@ -206,7 +206,7 @@ package body Exp_Util is
       end case;
 
       --  Nothing to do for the identifier in an object renaming declaration,
-      --  the renaming itself does not need atomic syncrhonization.
+      --  the renaming itself does not need atomic synchronization.
 
       if Nkind (Parent (N)) = N_Object_Renaming_Declaration then
          return;
@@ -4184,7 +4184,7 @@ package body Exp_Util is
             when
                N_Raise_xxx_Error =>
                   if Etype (P) = Standard_Void_Type then
-                     if  P = Wrapped_Node then
+                     if P = Wrapped_Node then
                         Store_Before_Actions_In_Scope (Ins_Actions);
                      else
                         Insert_List_Before_And_Analyze (P, Ins_Actions);
@@ -8021,6 +8021,16 @@ package body Exp_Util is
 
             elsif Is_Ignored_Ghost_Entity (Obj_Id) then
                null;
+
+            --  The expansion of iterator loops generates an object declaration
+            --  where the Ekind is explicitly set to loop parameter. This is to
+            --  ensure that the loop parameter behaves as a constant from user
+            --  code point of view. Such object are never controlled and do not
+            --  require cleanup actions. An iterator loop over a container of
+            --  controlled objects does not produce such object declarations.
+
+            elsif Ekind (Obj_Id) = E_Loop_Parameter then
+               return False;
 
             --  The object is of the form:
             --    Obj : Typ [:= Expr];

@@ -1504,7 +1504,7 @@ package body Inline is
 
       Id : Entity_Id;  --  Procedure or function entity for the subprogram
 
-   --  Start of Can_Be_Inlined_In_GNATprove_Mode
+   --  Start of processing for Can_Be_Inlined_In_GNATprove_Mode
 
    begin
       pragma Assert (Present (Spec_Id) or else Present (Body_Id));
@@ -1532,6 +1532,12 @@ package body Inline is
       --  Do not inline subprograms declared in the visible part of a package
 
       elsif In_Package_Visible_Spec (Id) then
+         return False;
+
+      --  Do not inline subprograms marked No_Return, possibly used for
+      --  signaling errors, which GNATprove handles specially.
+
+      elsif No_Return (Id) then
          return False;
 
       --  Do not inline subprograms that have a contract on the spec or the

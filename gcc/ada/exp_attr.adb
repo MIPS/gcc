@@ -1012,13 +1012,15 @@ package body Exp_Attr is
          Loop_Stmt := Label_Construct (Parent (Loop_Id));
 
       --  Climb the parent chain to find the nearest enclosing loop. Skip all
-      --  internally generated loops for quantified expressions.
+      --  internally generated loops for quantified expressions and for
+      --  element iterators over multidimensional arrays: pragma applies to
+      --  source loop.
 
       else
          Loop_Stmt := N;
          while Present (Loop_Stmt) loop
             if Nkind (Loop_Stmt) = N_Loop_Statement
-              and then Present (Identifier (Loop_Stmt))
+              and then Comes_From_Source (Loop_Stmt)
             then
                exit;
             end if;
@@ -1456,57 +1458,39 @@ package body Exp_Attr is
                      Duplicate_Subexpr_No_Checks (Left),
                      Duplicate_Subexpr_No_Checks (Right))));
 
-            --  Otherwise we generate declarations to capture the values. We
-            --  can't put these declarations inside the if expression, since
-            --  we could end up with an N_Expression_With_Actions which has
-            --  declarations in the actions, forbidden for Modify_Tree_For_C.
+            --  Otherwise we generate declarations to capture the values.
 
             --  The translation is
 
-            --    T1 : styp;    --  inserted high up in tree
-            --    T2 : styp;    --  inserted high up in tree
-
             --    do
-            --      T1 := styp!(Left);
-            --      T2 := styp!(Right);
+            --      T1 : constant typ := Left;
+            --      T2 : constant typ := Right;
             --    in
-            --      (if T1 >=|<= T2 then typ!(T1) else typ!(T2))
+            --      (if T1 >=|<= T2 then T1 else T2)
             --    end;
-
-            --  We insert the T1,T2 declarations with Insert_Declaration which
-            --  inserts these declarations high up in the tree unconditionally.
-            --  This is safe since no code is associated with the declarations.
-            --  Here styp is a standard type whose Esize matches the size of
-            --  our type. We do this because the actual type may be a result of
-            --  some local declaration which would not be visible at the point
-            --  where we insert the declarations of T1 and T2.
 
             else
                declare
-                  T1   : constant Entity_Id := Make_Temporary (Loc, 'T', Left);
-                  T2   : constant Entity_Id := Make_Temporary (Loc, 'T', Left);
-                  Styp : constant Entity_Id := Matching_Standard_Type (Typ);
+                  T1 : constant Entity_Id := Make_Temporary (Loc, 'T', Left);
+                  T2 : constant Entity_Id := Make_Temporary (Loc, 'T', Right);
 
                begin
-                  Insert_Declaration (N,
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => T1,
-                      Object_Definition   => New_Occurrence_Of (Styp, Loc)));
-
-                  Insert_Declaration (N,
-                    Make_Object_Declaration (Loc,
-                      Defining_Identifier => T2,
-                      Object_Definition   => New_Occurrence_Of (Styp, Loc)));
-
                   Rewrite (N,
                     Make_Expression_With_Actions (Loc,
-                      Actions => New_List (
-                        Make_Assignment_Statement (Loc,
-                          Name       => New_Occurrence_Of (T1, Loc),
-                          Expression => Unchecked_Convert_To (Styp, Left)),
-                        Make_Assignment_Statement (Loc,
-                          Name       => New_Occurrence_Of (T2, Loc),
-                          Expression => Unchecked_Convert_To (Styp, Right))),
+                      Actions    => New_List (
+                        Make_Object_Declaration (Loc,
+                          Defining_Identifier => T1,
+                          Constant_Present    => True,
+                          Object_Definition   =>
+                            New_Occurrence_Of (Etype (Left), Loc),
+                          Expression          => Relocate_Node (Left)),
+
+                        Make_Object_Declaration (Loc,
+                          Defining_Identifier => T2,
+                          Constant_Present    => True,
+                          Object_Definition   =>
+                            New_Occurrence_Of (Etype (Right), Loc),
+                          Expression          => Relocate_Node (Right))),
 
                       Expression =>
                         Make_If_Expression (Loc,
@@ -1514,10 +1498,8 @@ package body Exp_Attr is
                             Make_Compare
                               (New_Occurrence_Of (T1, Loc),
                                New_Occurrence_Of (T2, Loc)),
-                            Unchecked_Convert_To (Typ,
-                              New_Occurrence_Of (T1, Loc)),
-                            Unchecked_Convert_To (Typ,
-                              New_Occurrence_Of (T2, Loc))))));
+                               New_Occurrence_Of (T1, Loc),
+                               New_Occurrence_Of (T2, Loc)))));
                end;
             end if;
 
@@ -6149,49 +6131,6 @@ package body Exp_Attr is
          if not Is_Inline_Floating_Point_Attribute (N) then
             Expand_Fpt_Attribute_R (N);
          end if;
-
-      -----------------
-      -- UET_Address --
-      -----------------
-
-      when Attribute_UET_Address => UET_Address : declare
-         Ent : constant Entity_Id := Make_Temporary (Loc, 'T');
-
-      begin
-         Insert_Action (N,
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Ent,
-             Aliased_Present     => True,
-             Object_Definition   =>
-               New_Occurrence_Of (RTE (RE_Address), Loc)));
-
-         --  Construct name __gnat_xxx__SDP, where xxx is the unit name
-         --  in normal external form.
-
-         Get_External_Unit_Name_String (Get_Unit_Name (Pref));
-         Name_Buffer (1 + 7 .. Name_Len + 7) := Name_Buffer (1 .. Name_Len);
-         Name_Len := Name_Len + 7;
-         Name_Buffer (1 .. 7) := "__gnat_";
-         Name_Buffer (Name_Len + 1 .. Name_Len + 5) := "__SDP";
-         Name_Len := Name_Len + 5;
-
-         Set_Is_Imported (Ent);
-         Set_Interface_Name (Ent,
-           Make_String_Literal (Loc,
-             Strval => String_From_Name_Buffer));
-
-         --  Set entity as internal to ensure proper Sprint output of its
-         --  implicit importation.
-
-         Set_Is_Internal (Ent);
-
-         Rewrite (N,
-           Make_Attribute_Reference (Loc,
-             Prefix => New_Occurrence_Of (Ent, Loc),
-             Attribute_Name => Name_Address));
-
-         Analyze_And_Resolve (N, Typ);
-      end UET_Address;
 
       ------------
       -- Update --

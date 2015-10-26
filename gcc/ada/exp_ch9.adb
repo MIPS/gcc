@@ -1809,6 +1809,7 @@ package body Exp_Ch9 is
             --    type Ann is access all <actual-type>
 
             Comp_Nam := Make_Temporary (Loc, 'A');
+            Set_Is_Param_Block_Component_Type (Comp_Nam);
 
             Append_To (Decls,
               Make_Full_Type_Declaration (Loc,
@@ -6183,7 +6184,7 @@ package body Exp_Ch9 is
                     Condition (Entry_Body_Formal_Part (N));
       Prot      : constant Entity_Id := Scope (Ent);
       Spec_Decl : constant Node_Id   := Parent (Prot);
-      Func      : Entity_Id;
+      Func      : Entity_Id          := Empty;
       B_F       : Node_Id;
       Body_Decl : Node_Id;
 
@@ -6205,6 +6206,11 @@ package body Exp_Ch9 is
             S := Scope  (E);
 
             if Ekind (E) = E_Variable then
+
+               --  If the variable is local to the barrier function generated
+               --  during expansion, it is ok. If expansion is not performed,
+               --  then Func is Empty so this test cannot succeed.
+
                if Scope (E) = Func then
                   null;
 
@@ -7668,7 +7674,7 @@ package body Exp_Ch9 is
 
          --  Create the inner block to protect the abortable part
 
-         Hdle :=  New_List (Build_Abort_Block_Handler (Loc));
+         Hdle := New_List (Build_Abort_Block_Handler (Loc));
 
          Prepend_To (Astats,
            Make_Procedure_Call_Statement (Loc,
@@ -8326,6 +8332,7 @@ package body Exp_Ch9 is
             --  Declare new access type and then append
 
             Ctype := Make_Temporary (Loc, 'A');
+            Set_Is_Param_Block_Component_Type (Ctype);
 
             Decl :=
               Make_Full_Type_Declaration (Loc,
@@ -9133,6 +9140,8 @@ package body Exp_Ch9 is
                      --  is OK to miss this check in -gnatc mode.
 
                      Check_Restriction (No_Implicit_Heap_Allocations, Priv);
+                     Check_Restriction
+                       (No_Implicit_Protected_Object_Allocations, Priv);
 
                   elsif Restriction_Active (No_Implicit_Heap_Allocations) then
                      if not Discriminated_Size (Defining_Identifier (Priv))
@@ -9153,6 +9162,34 @@ package body Exp_Ch9 is
                           ("creation of protected object of type& with "
                            &  "non-static discriminants  will violate"
                            & " restriction No_Implicit_Heap_Allocations??",
+                           Priv, Prot_Typ);
+                     end if;
+
+                  --  Likewise for No_Implicit_Protected_Object_Allocations
+
+                  elsif Restriction_Active
+                    (No_Implicit_Protected_Object_Allocations)
+                  then
+                     if not Discriminated_Size (Defining_Identifier (Priv))
+                     then
+
+                        --  Any object of the type will be  non-static.
+
+                        Error_Msg_N ("component has non-static size??", Priv);
+                        Error_Msg_NE
+                          ("\creation of protected object of type& will"
+                           & " violate restriction "
+                           & "No_Implicit_Protected_Object_Allocations??",
+                           Priv, Prot_Typ);
+                     else
+
+                        --  Object will be non-static if discriminants are.
+
+                        Error_Msg_NE
+                          ("creation of protected object of type& with "
+                           &  "non-static discriminants  will violate "
+                           & " restriction"
+                           & " No_Implicit_Protected_Object_Allocations??",
                            Priv, Prot_Typ);
                      end if;
                   end if;
@@ -14293,9 +14330,14 @@ package body Exp_Ch9 is
       Next_Op : Node_Id;
 
    begin
+      --  Check whether there is a subsequent body for a protected operation
+      --  in the current protected body. In Ada2012 that includes expression
+      --  functions that are completions.
+
       Next_Op := Next (N);
       while Present (Next_Op)
-        and then not Nkind_In (Next_Op, N_Subprogram_Body, N_Entry_Body)
+        and then not Nkind_In (Next_Op,
+           N_Subprogram_Body, N_Entry_Body, N_Expression_Function)
       loop
          Next (Next_Op);
       end loop;

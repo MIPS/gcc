@@ -337,6 +337,15 @@ package Restrict is
    --  Equivalent to Check_Restriction (No_Implicit_Heap_Allocations, N).
    --  Provided for easy use by back end, which has to check this restriction.
 
+   procedure Check_No_Implicit_Task_Alloc (N : Node_Id);
+   --  Equivalent to Check_Restriction (No_Implicit_Task_Allocations, N).
+   --  Provided for easy use by back end, which has to check this restriction.
+
+   procedure Check_No_Implicit_Protected_Alloc (N : Node_Id);
+   --  Equivalent to:
+   --    Check_Restriction (No_Implicit_Protected_Object_Allocations, N)
+   --  Provided for easy use by back end, which has to check this restriction.
+
    procedure Check_Obsolescent_2005_Entity (E : Entity_Id; N : Node_Id);
    --  This routine checks if the entity E is one of the obsolescent entries
    --  in Ada.Characters.Handling in Ada 2005 and No_Obsolescent_Features
@@ -488,7 +497,7 @@ package Restrict is
    --  and this flag is not set. Profile is set to a non-default value if the
    --  No_Dependence restriction comes from a Profile pragma. This procedure
    --  also takes care of setting the Boolean2 flag of the simple name for
-   --  the entity  (to optimize table searches).
+   --  the entity (to optimize table searches).
 
    procedure Set_Restriction_No_Use_Of_Pragma
      (N       : Node_Id;

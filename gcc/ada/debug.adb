@@ -119,7 +119,7 @@ package body Debug is
    --  d.z  Restore previous support for frontend handling of Inline_Always
 
    --  d.A  Read/write Aspect_Specifications hash table to tree
-   --  d.B
+   --  d.B  Generate a bug box on abort_statement
    --  d.C  Generate concatenation call, do not generate inline code
    --  d.D  Disable errors on use of overriding keyword in Ada 95 mode
    --  d.E  Turn selected errors into warnings
@@ -316,14 +316,15 @@ package body Debug is
    --  dt   Print full tree. The generated tree is output (see also df,dy)
 
    --  du   Uncheck categorization pragmas. This debug switch causes the
-   --       categorization pragmas (Pure, Preelaborate etc) to be ignored
-   --       so that normal checks are not made (this is particularly useful
-   --       for adding temporary debugging code to units that have pragmas
-   --       that are inconsistent with the debugging code added.
+   --       elaboration control pragmas (Pure, Preelaborate, etc.) and the
+   --       categorization pragmas (Shared_Passive, Remote_Types, etc.) to be
+   --       ignored, so that normal checks are not made (this is particularly
+   --       useful for adding temporary debugging code to units that have
+   --       pragmas that are inconsistent with the debugging code added).
 
    --  dv   Output trace of overload resolution. Outputs messages for
    --       overload attempts that involve cascaded errors, or where
-   --       an interepretation is incompatible with the context.
+   --       an interpretation is incompatible with the context.
 
    --  dw   Write semantic scope stack messages. Each time a scope is created
    --       or removed, a message is output (see the Sem_Ch8.Push_Scope and
@@ -595,6 +596,13 @@ package body Debug is
    --       for now, this is controlled by the debug flag d.A. The hash table
    --       is only written and read if this flag is set.
 
+   --  d.B  Generate a bug box when we see an abort_statement, even though
+   --       there is no bug. Useful for testing Comperr.Compiler_Abort: write
+   --       some code containing an abort_statement, and compile it with
+   --       -gnatd.B. There is nothing special about abort_statements; it just
+   --       provides a way to control where the bug box is generated. See "when
+   --       N_Abort_Statement" in package body Expander.
+
    --  d.C  Generate call to System.Concat_n.Str_Concat_n routines in cases
    --       where we would normally generate inline concatenation code.
 
@@ -687,8 +695,8 @@ package body Debug is
 
    --  d.X  A previous version of GNAT allowed indexing aspects to be redefined
    --       on derived container types, while the default iterator was
-   --       inherited from the aprent type. This non-standard extension is
-   --       preserved temporarily for use by the modelling project under debug
+   --       inherited from the parent type. This nonstandard extension is
+   --       preserved temporarily for use by the modeling project under debug
    --       flag d.X.
 
    --  d.Z  Normally we always enable expansion in configurable run-time mode

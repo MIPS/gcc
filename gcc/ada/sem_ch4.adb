@@ -3695,7 +3695,7 @@ package body Sem_Ch4 is
 
       if Is_Class_Wide_Type (T) then
          if not Is_Overloaded (Expr) then
-            if  Base_Type (Etype (Expr)) /= Base_Type (T) then
+            if Base_Type (Etype (Expr)) /= Base_Type (T) then
                if Nkind (Expr) = N_Aggregate then
                   Error_Msg_N ("type of aggregate cannot be class-wide", Expr);
                else
@@ -7878,7 +7878,7 @@ package body Sem_Ch4 is
          --  Before analysis, a function call appears as an indexed component
          --  if there are no named associations.
 
-         elsif Nkind (Parent_Node) =  N_Indexed_Component
+         elsif Nkind (Parent_Node) = N_Indexed_Component
            and then N = Prefix (Parent_Node)
          then
             Node_To_Replace := Parent_Node;

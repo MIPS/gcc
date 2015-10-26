@@ -1571,7 +1571,7 @@ package body Sem_Ch5 is
          end if;
       end Analyze_Cond_Then;
 
-   --  Start of Analyze_If_Statement
+   --  Start of processing for Analyze_If_Statement
 
    begin
       --  Initialize exit count for else statements. If there is no else part,
@@ -1788,7 +1788,7 @@ package body Sem_Ch5 is
          return Etype (Ent);
       end Get_Cursor_Type;
 
-   --   Start of processing for  Analyze_iterator_Specification
+   --   Start of processing for Analyze_iterator_Specification
 
    begin
       Enter_Name (Def_Id);
@@ -2279,9 +2279,9 @@ package body Sem_Ch5 is
          end if;
       end if;
 
-      --  A loop parameter cannot be effectively volatile. This check is
-      --  peformed only when SPARK_Mode is on as it is not a standard Ada
-      --  legality check (SPARK RM 7.1.3(6)).
+      --  A loop parameter cannot be effectively volatile (SPARK RM 7.1.3(4)).
+      --  This check is relevant only when SPARK_Mode is on as it is not a
+      --  standard Ada legality check.
 
       --  Not clear whether this applies to element iterators, where the
       --  cursor is not an explicit entity ???
@@ -3037,9 +3037,9 @@ package body Sem_Ch5 is
          end;
       end if;
 
-      --  A loop parameter cannot be effectively volatile. This check is
-      --  peformed only when SPARK_Mode is on as it is not a standard Ada
-      --  legality check (SPARK RM 7.1.3(6)).
+      --  A loop parameter cannot be effectively volatile (SPARK RM 7.1.3(4)).
+      --  This check is relevant only when SPARK_Mode is on as it is not a
+      --  standard Ada legality check.
 
       if SPARK_Mode = On and then Is_Effectively_Volatile (Id) then
          Error_Msg_N ("loop parameter cannot be volatile", Id);
@@ -3215,12 +3215,18 @@ package body Sem_Ch5 is
             end if;
          end if;
 
-      --  Case of no identifier present
+      --  Case of no identifier present. Create one and attach it to the
+      --  loop statement for use as a scope and as a reference for later
+      --  expansions. Indicate that the label does not come from source,
+      --  and attach it to the loop statement so it is part of the tree,
+      --  even without a full declaration.
 
       else
          Ent := New_Internal_Entity (E_Loop, Current_Scope, Loc, 'L');
          Set_Etype  (Ent, Standard_Void_Type);
+         Set_Identifier (N, New_Occurrence_Of (Ent, Loc));
          Set_Parent (Ent, N);
+         Set_Has_Created_Identifier (N);
       end if;
 
       --  Iteration over a container in Ada 2012 involves the creation of a
@@ -3336,16 +3342,33 @@ package body Sem_Ch5 is
       --  types the actual subtype of the components will only be determined
       --  when the cursor declaration is analyzed.
 
-      --  If the expander is not active, or in SPARK mode, then we want to
-      --  analyze the loop body now even in the Ada 2012 iterator case, since
-      --  the rewriting will not be done. Insert the loop variable in the
-      --  current scope, if not done when analysing the iteration scheme.
-      --  Set its kind properly to detect improper uses in the loop body.
+      --  If the expander is not active then we want to analyze the loop body
+      --  now even in the Ada 2012 iterator case, since the rewriting will not
+      --  be done. Insert the loop variable in the current scope, if not done
+      --  when analysing the iteration scheme.  Set its kind properly to detect
+      --  improper uses in the loop body.
+
+      --  In GNATprove mode, we do one of the above depending on the kind of
+      --  loop. If it is an iterator over an array, then we do not analyze the
+      --  loop now. We will analyze it after it has been rewritten by the
+      --  special SPARK expansion which is activated in GNATprove mode. We need
+      --  to do this so that other expansions that should occur in GNATprove
+      --  mode take into account the specificities of the rewritten loop, in
+      --  particular the introduction of a renaming (which needs to be
+      --  expanded).
+
+      --  In other cases in GNATprove mode then we want to analyze the loop
+      --  body now, since no rewriting will occur.
 
       if Present (Iter)
         and then Present (Iterator_Specification (Iter))
       then
-         if not Expander_Active then
+         if GNATprove_Mode
+           and then Is_Iterator_Over_Array (Iterator_Specification (Iter))
+         then
+            null;
+
+         elsif not Expander_Active then
             declare
                I_Spec : constant Node_Id   := Iterator_Specification (Iter);
                Id     : constant Entity_Id := Defining_Identifier (I_Spec);

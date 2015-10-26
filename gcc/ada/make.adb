@@ -1572,11 +1572,20 @@ package body Make is
       Source_Name : File_Name_Type;
       Text        : Text_Buffer_Ptr;
 
-      Prev_Switch : String_Access;
-      --  Previous switch processed
+      First_Arg : Arg_Id;
+      --  Index of the first argument in Args.Table for a given unit
+
+      Last_Arg  : Arg_Id;
+      --  Index of the last argument in Args.Table for a given unit
 
       Arg : Arg_Id := Arg_Id'First;
       --  Current index in Args.Table for a given unit (init to stop warning)
+
+      Number_Of_Switches : Natural;
+      --  Number of switches recorded for a given unit
+
+      Prev_Switch : String_Access;
+      --  Previous switch processed
 
       Switch_Found : Boolean;
       --  True if a given switch has been found
@@ -1720,7 +1729,7 @@ package body Make is
 
             for J in 1 .. Last_Argument loop
 
-               --  Skip non switches -c, -I and -o switches
+               --  Skip -c, -I and -o switches
 
                if Arguments (J) (1) = '-'
                  and then Arguments (J) (2) /= 'c'
@@ -1740,6 +1749,9 @@ package body Make is
                end if;
             end loop;
 
+            First_Arg := Units.Table (ALIs.Table (ALI).First_Unit).First_Arg;
+            Last_Arg  := Units.Table (ALIs.Table (ALI).First_Unit).Last_Arg;
+
             for J in 1 .. Switches_To_Check.Last loop
 
                --  Comparing switches is delicate because gcc reorders a number
@@ -1757,15 +1769,12 @@ package body Make is
                     Prev_Switch (6) /= Switches_To_Check.Table (J) (6))
                then
                   Prev_Switch := Switches_To_Check.Table (J);
-                  Arg :=
-                    Units.Table (ALIs.Table (ALI).First_Unit).First_Arg;
+                  Arg := First_Arg;
                end if;
 
                Switch_Found := False;
 
-               for K in Arg ..
-                 Units.Table (ALIs.Table (ALI).First_Unit).Last_Arg
-               loop
+               for K in Arg .. Last_Arg loop
                   if
                     Switches_To_Check.Table (J).all = Args.Table (K).all
                   then
@@ -1787,17 +1796,25 @@ package body Make is
                end if;
             end loop;
 
-            if Switches_To_Check.Last /=
-              Integer (Units.Table (ALIs.Table (ALI).First_Unit).Last_Arg -
-                       Units.Table (ALIs.Table (ALI).First_Unit).First_Arg + 1)
-            then
+            Number_Of_Switches := Natural (Last_Arg - First_Arg + 1);
+
+            --  Do not count the multilib switches reinstated by the compiler
+            --  according to the lang-specs.h.settings.
+
+            for K in First_Arg .. Last_Arg loop
+               if Args.Table (K).all = "-mrtp"
+                  or else Args.Table (K).all = "-fsjlj"
+               then
+                  Number_Of_Switches := Number_Of_Switches - 1;
+               end if;
+            end loop;
+
+            if Switches_To_Check.Last /= Number_Of_Switches then
                if Verbose_Mode then
                   Verbose_Msg (ALIs.Table (ALI).Sfile,
                                "different number of switches");
 
-                  for K in Units.Table (ALIs.Table (ALI).First_Unit).First_Arg
-                    .. Units.Table (ALIs.Table (ALI).First_Unit).Last_Arg
-                  loop
+                  for K in First_Arg .. Last_Arg loop
                      Write_Str (Args.Table (K).all);
                      Write_Char (' ');
                   end loop;
@@ -4102,7 +4119,7 @@ package body Make is
       procedure Globalize_Dirs is new
         Prj.Env.For_All_Object_Dirs (Globalize_Dir);
 
-   --  Start of procedure Globalize
+   --  Start of processing for Globalize
 
    begin
       Success := True;
@@ -6936,7 +6953,7 @@ package body Make is
       Get_Name_String (ALI_File);
       Link_Args (1) := new String'(Name_Buffer (1 .. Name_Len));
 
-      Link_Args (2 .. Args'Length + 1) :=  Args;
+      Link_Args (2 .. Args'Length + 1) := Args;
 
       GNAT.OS_Lib.Normalize_Arguments (Link_Args);
 
@@ -7567,29 +7584,28 @@ package body Make is
                   elsif Src_Path_Name = null
                     and then Lib_Path_Name = null
                   then
-                     Make_Failed ("RTS path not valid: missing "
-                                  & "adainclude and adalib directories");
+                     Make_Failed
+                       ("RTS path not valid: missing adainclude and adalib "
+                        & "directories");
 
                   elsif Src_Path_Name = null then
-                     Make_Failed ("RTS path not valid: missing adainclude "
-                                  & "directory");
+                     Make_Failed
+                       ("RTS path not valid: missing adainclude directory");
 
-                  elsif  Lib_Path_Name = null then
-                     Make_Failed ("RTS path not valid: missing adalib "
-                                  & "directory");
+                  elsif Lib_Path_Name = null then
+                     Make_Failed
+                       ("RTS path not valid: missing adalib directory");
                   end if;
                end;
             end if;
 
-         elsif Argv'Length > Source_Info_Option'Length and then
-           Argv (1 .. Source_Info_Option'Length) = Source_Info_Option
+         elsif Argv'Length > Source_Info_Option'Length
+           and then Argv (1 .. Source_Info_Option'Length) = Source_Info_Option
          then
             Project_Tree.Source_Info_File_Name :=
               new String'(Argv (Source_Info_Option'Length + 1 .. Argv'Last));
 
-         elsif Argv'Length >= 8 and then
-           Argv (1 .. 8) = "--param="
-         then
+         elsif Argv'Length >= 8 and then Argv (1 .. 8) = "--param=" then
             Add_Switch (Argv, Compiler, And_Save => And_Save);
             Add_Switch (Argv, Linker,   And_Save => And_Save);
 

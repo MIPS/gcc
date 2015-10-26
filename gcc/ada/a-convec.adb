@@ -34,11 +34,9 @@ with System; use type System.Address;
 
 package body Ada.Containers.Vectors is
 
-   pragma Annotate (CodePeer, Skip_Analysis);
-
    pragma Warnings (Off, "variable ""Busy*"" is not referenced");
    pragma Warnings (Off, "variable ""Lock*"" is not referenced");
-   --  See comment in Ada.Containers
+   --  See comment in Ada.Containers.Helpers
 
    procedure Free is
      new Ada.Unchecked_Deallocation (Elements_Type, Elements_Access);
@@ -100,21 +98,28 @@ package body Ada.Containers.Vectors is
    ---------
 
    overriding function "=" (Left, Right : Vector) return Boolean is
-      --  Per AI05-0022, the container implementation is required to detect
-      --  element tampering by a generic actual subprogram.
-
-      Lock_Left : With_Lock (Left.TC'Unrestricted_Access);
-      Lock_Right : With_Lock (Right.TC'Unrestricted_Access);
    begin
       if Left.Last /= Right.Last then
          return False;
       end if;
 
-      for J in Index_Type range Index_Type'First .. Left.Last loop
-         if Left.Elements.EA (J) /= Right.Elements.EA (J) then
-            return False;
-         end if;
-      end loop;
+      if Left.Length = 0 then
+         return True;
+      end if;
+
+      declare
+         --  Per AI05-0022, the container implementation is required to detect
+         --  element tampering by a generic actual subprogram.
+
+         Lock_Left : With_Lock (Left.TC'Unrestricted_Access);
+         Lock_Right : With_Lock (Right.TC'Unrestricted_Access);
+      begin
+         for J in Index_Type range Index_Type'First .. Left.Last loop
+            if Left.Elements.EA (J) /= Right.Elements.EA (J) then
+               return False;
+            end if;
+         end loop;
+      end;
 
       return True;
    end "=";
@@ -125,6 +130,12 @@ package body Ada.Containers.Vectors is
 
    procedure Adjust (Container : in out Vector) is
    begin
+      --  If the counts are nonzero, execution is technically erroneous, but
+      --  it seems friendly to allow things like concurrent "=" on shared
+      --  constants.
+
+      Zero_Counts (Container.TC);
+
       if Container.Last = No_Index then
          Container.Elements := null;
          return;
@@ -137,7 +148,6 @@ package body Ada.Containers.Vectors is
 
       begin
          Container.Elements := null;
-         Zero_Counts (Container.TC);
 
          --  Note: it may seem that the following assignment to Container.Last
          --  is useless, since we assign it to L below. However this code is
@@ -276,23 +286,17 @@ package body Ada.Containers.Vectors is
          end if;
       end if;
 
-      if T_Check then
-         declare
-            TC : constant Tamper_Counts_Access :=
-              Container.TC'Unrestricted_Access;
-         begin
-            return R : constant Constant_Reference_Type :=
-              (Element => Container.Elements.EA (Position.Index)'Access,
-               Control => (Controlled with TC))
-            do
-               Lock (TC.all);
-            end return;
-         end;
-      else
+      declare
+         TC : constant Tamper_Counts_Access :=
+           Container.TC'Unrestricted_Access;
+      begin
          return R : constant Constant_Reference_Type :=
            (Element => Container.Elements.EA (Position.Index)'Access,
-            Control => (Controlled with null));
-      end if;
+            Control => (Controlled with TC))
+         do
+            Lock (TC.all);
+         end return;
+      end;
    end Constant_Reference;
 
    function Constant_Reference
@@ -304,23 +308,17 @@ package body Ada.Containers.Vectors is
          raise Constraint_Error with "Index is out of range";
       end if;
 
-      if T_Check then
-         declare
-            TC : constant Tamper_Counts_Access :=
-              Container.TC'Unrestricted_Access;
-         begin
-            return R : constant Constant_Reference_Type :=
-              (Element => Container.Elements.EA (Index)'Access,
-               Control => (Controlled with TC))
-            do
-               Lock (TC.all);
-            end return;
-         end;
-      else
+      declare
+         TC : constant Tamper_Counts_Access :=
+           Container.TC'Unrestricted_Access;
+      begin
          return R : constant Constant_Reference_Type :=
            (Element => Container.Elements.EA (Index)'Access,
-            Control => (Controlled with null));
-      end if;
+            Control => (Controlled with TC))
+         do
+            Lock (TC.all);
+         end return;
+      end;
    end Constant_Reference;
 
    --------------
@@ -346,15 +344,16 @@ package body Ada.Containers.Vectors is
       C : Count_Type;
 
    begin
-      if Capacity = 0 then
-         C := Source.Length;
-
-      elsif Capacity >= Source.Length then
+      if Capacity >= Source.Length then
          C := Capacity;
 
-      elsif Checks then
-         raise Capacity_Error with
-           "Requested capacity is less than Source length";
+      else
+         C := Source.Length;
+
+         if Checks and then Capacity /= 0 then
+            raise Capacity_Error with
+              "Requested capacity is less than Source length";
+         end if;
       end if;
 
       return Target : Vector do
@@ -450,9 +449,9 @@ package body Ada.Containers.Vectors is
          return;
       end if;
 
-      --  There are some elements aren't being deleted (the requested count was
-      --  less than the available count), so we must slide them down to
-      --  Index. We first calculate the index values of the respective array
+      --  There are some elements that aren't being deleted (the requested
+      --  count was less than the available count), so we must slide them down
+      --  to Index. We first calculate the index values of the respective array
       --  slices, using the wider of Index_Type'Base and Count_Type'Base as the
       --  type for intermediate calculations. For the elements that slide down,
       --  index value New_Last is the last index value of their new home, and
@@ -583,9 +582,9 @@ package body Ada.Containers.Vectors is
    begin
       if Checks and then Index > Container.Last then
          raise Constraint_Error with "Index is out of range";
-      else
-         return Container.Elements.EA (Index);
       end if;
+
+      return Container.Elements.EA (Index);
    end Element;
 
    function Element (Position : Cursor) return Element_Type is
@@ -692,9 +691,9 @@ package body Ada.Containers.Vectors is
    begin
       if Is_Empty (Container) then
          return No_Element;
-      else
-         return (Container'Unrestricted_Access, Index_Type'First);
       end if;
+
+      return (Container'Unrestricted_Access, Index_Type'First);
    end First;
 
    function First (Object : Iterator) return Cursor is
@@ -1030,7 +1029,6 @@ package body Ada.Containers.Vectors is
             --  handled above).
 
             if Index_Type'Last - No_Index >= Count_Type_Last then
-
                --  We have determined that range of Index_Type has at least as
                --  many values as in Count_Type, so Count_Type'Last is the
                --  maximum number of items that are allowed.
@@ -1655,7 +1653,6 @@ package body Ada.Containers.Vectors is
       --  acceptable, then we compute the new last index from that.
 
       if Index_Type'Base'Last >= Count_Type_Last then
-
          --  We have to handle the case when there might be more values in the
          --  range of Index_Type than in the range of Count_Type.
 
@@ -1690,7 +1687,6 @@ package body Ada.Containers.Vectors is
             --  handled above).
 
             if Index_Type'Last - No_Index >= Count_Type_Last then
-
                --  We have determined that range of Index_Type has at least as
                --  many values as in Count_Type, so Count_Type'Last is the
                --  maximum number of items that are allowed.
@@ -1965,7 +1961,7 @@ package body Ada.Containers.Vectors is
          Index := Before.Index;
       end if;
 
-      Insert_Space (Container, Index, Count => Count);
+      Insert_Space (Container, Index, Count);
 
       Position := (Container'Unrestricted_Access, Index);
    end Insert_Space;
@@ -2022,7 +2018,7 @@ package body Ada.Containers.Vectors is
    function Iterate
      (Container : Vector;
       Start     : Cursor)
-      return Vector_Iterator_Interfaces.Reversible_Iterator'class
+      return Vector_Iterator_Interfaces.Reversible_Iterator'Class
    is
       V : constant Vector_Access := Container'Unrestricted_Access;
    begin
@@ -2404,23 +2400,17 @@ package body Ada.Containers.Vectors is
          end if;
       end if;
 
-      if T_Check then
-         declare
-            TC : constant Tamper_Counts_Access :=
-              Container.TC'Unrestricted_Access;
-         begin
-            return R : constant Reference_Type :=
-              (Element => Container.Elements.EA (Position.Index)'Access,
-               Control => (Controlled with TC))
-            do
-               Lock (TC.all);
-            end return;
-         end;
-      else
+      declare
+         TC : constant Tamper_Counts_Access :=
+           Container.TC'Unrestricted_Access;
+      begin
          return R : constant Reference_Type :=
            (Element => Container.Elements.EA (Position.Index)'Access,
-            Control => (Controlled with null));
-      end if;
+            Control => (Controlled with TC))
+         do
+            Lock (TC.all);
+         end return;
+      end;
    end Reference;
 
    function Reference
@@ -2432,23 +2422,17 @@ package body Ada.Containers.Vectors is
          raise Constraint_Error with "Index is out of range";
       end if;
 
-      if T_Check then
-         declare
-            TC : constant Tamper_Counts_Access :=
-              Container.TC'Unrestricted_Access;
-         begin
-            return R : constant Reference_Type :=
-              (Element => Container.Elements.EA (Index)'Access,
-               Control => (Controlled with TC))
-            do
-               Lock (TC.all);
-            end return;
-         end;
-      else
+      declare
+         TC : constant Tamper_Counts_Access :=
+           Container.TC'Unrestricted_Access;
+      begin
          return R : constant Reference_Type :=
            (Element => Container.Elements.EA (Index)'Access,
-            Control => (Controlled with null));
-      end if;
+            Control => (Controlled with TC))
+         do
+            Lock (TC.all);
+         end return;
+      end;
    end Reference;
 
    ---------------------
@@ -2911,6 +2895,7 @@ package body Ada.Containers.Vectors is
    ---------------------
    -- Reverse_Iterate --
    ---------------------
+
    procedure Reverse_Iterate
      (Container : Vector;
       Process   : not null access procedure (Position : Cursor))
@@ -3119,7 +3104,7 @@ package body Ada.Containers.Vectors is
 
       Elements := new Elements_Type (Last);
 
-      return Vector'(Controlled with Elements, Last, others => <>);
+      return Vector'(Controlled with Elements, Last, TC => <>);
    end To_Vector;
 
    function To_Vector
@@ -3211,7 +3196,7 @@ package body Ada.Containers.Vectors is
 
       Elements := new Elements_Type'(Last, EA => (others => New_Item));
 
-      return Vector'(Controlled with Elements, Last, others => <>);
+      return (Controlled with Elements, Last, TC => <>);
    end To_Vector;
 
    --------------------

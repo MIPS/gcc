@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT LIBRARY COMPONENTS                          --
 --                                                                          --
---                       A D A . C O N T A I N E R S                        --
+--               A D A . C O N T A I N E R S . H E L P E R S                --
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---            Copyright (C) 2015, Free Software Foundation, Inc.            --
+--             Copyright (C) 2015, Free Software Foundation, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,9 +25,11 @@
 -- <http://www.gnu.org/licenses/>.                                          --
 ------------------------------------------------------------------------------
 
-package body Ada.Containers is
+package body Ada.Containers.Helpers is
 
    package body Generic_Implementation is
+
+      use type SAC.Atomic_Unsigned;
 
       ------------
       -- Adjust --
@@ -35,6 +37,7 @@ package body Ada.Containers is
 
       procedure Adjust (Control : in out Reference_Control_Type) is
          pragma Warnings (Off);
+         --  GNAT warns here if checks are turned off, but assertions on
          pragma Assert (T_Check); -- not called if check suppressed
          pragma Warnings (On);
       begin
@@ -50,11 +53,7 @@ package body Ada.Containers is
       procedure Busy (T_Counts : in out Tamper_Counts) is
       begin
          if T_Check then
-            declare
-               B : Natural renames T_Counts.Busy;
-            begin
-               B := B + 1;
-            end;
+            SAC.Increment (T_Counts.Busy);
          end if;
       end Busy;
 
@@ -119,13 +118,8 @@ package body Ada.Containers is
       procedure Lock (T_Counts : in out Tamper_Counts) is
       begin
          if T_Check then
-            declare
-               B : Natural renames T_Counts.Busy;
-               L : Natural renames T_Counts.Lock;
-            begin
-               L := L + 1;
-               B := B + 1;
-            end;
+            SAC.Increment (T_Counts.Lock);
+            SAC.Increment (T_Counts.Busy);
          end if;
       end Lock;
 
@@ -139,6 +133,13 @@ package body Ada.Containers is
             raise Program_Error with
               "attempt to tamper with cursors";
          end if;
+
+         --  The lock status (which monitors "element tampering") always
+         --  implies that the busy status (which monitors "cursor tampering")
+         --  is set too; this is a representation invariant. Thus if the busy
+         --  bit is not set, then the lock bit must not be set either.
+
+         pragma Assert (T_Counts.Lock = 0);
       end TC_Check;
 
       --------------
@@ -160,11 +161,7 @@ package body Ada.Containers is
       procedure Unbusy (T_Counts : in out Tamper_Counts) is
       begin
          if T_Check then
-            declare
-               B : Natural renames T_Counts.Busy;
-            begin
-               B := B - 1;
-            end;
+            SAC.Decrement (T_Counts.Busy);
          end if;
       end Unbusy;
 
@@ -175,13 +172,8 @@ package body Ada.Containers is
       procedure Unlock (T_Counts : in out Tamper_Counts) is
       begin
          if T_Check then
-            declare
-               B : Natural renames T_Counts.Busy;
-               L : Natural renames T_Counts.Lock;
-            begin
-               L := L - 1;
-               B := B - 1;
-            end;
+            SAC.Decrement (T_Counts.Lock);
+            SAC.Decrement (T_Counts.Busy);
          end if;
       end Unlock;
 
@@ -198,4 +190,4 @@ package body Ada.Containers is
 
    end Generic_Implementation;
 
-end Ada.Containers;
+end Ada.Containers.Helpers;

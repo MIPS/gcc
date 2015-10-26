@@ -632,6 +632,7 @@ package Snames is
    Name_Volatile                       : constant Name_Id := N + $;
    Name_Volatile_Components            : constant Name_Id := N + $;
    Name_Volatile_Full_Access           : constant Name_Id := N + $; -- GNAT
+   Name_Volatile_Function              : constant Name_Id := N + $; -- GNAT
    Name_Weak_External                  : constant Name_Id := N + $; -- GNAT
    Last_Pragma_Name                    : constant Name_Id := N + $;
 
@@ -937,7 +938,6 @@ package Snames is
    Name_To_Address                     : constant Name_Id := N + $; -- GNAT
    Name_Type_Class                     : constant Name_Id := N + $; -- GNAT
    Name_Type_Key                       : constant Name_Id := N + $; -- GNAT
-   Name_UET_Address                    : constant Name_Id := N + $; -- GNAT
    Name_Unbiased_Rounding              : constant Name_Id := N + $;
    Name_Unchecked_Access               : constant Name_Id := N + $;
    Name_Unconstrained_Array            : constant Name_Id := N + $; -- GNAT
@@ -1105,6 +1105,8 @@ package Snames is
    Name_Storage_Check                  : constant Name_Id := N + $;
    Name_Tag_Check                      : constant Name_Id := N + $;
    Name_Validity_Check                 : constant Name_Id := N + $; -- GNAT
+   Name_Container_Checks               : constant Name_Id := N + $; -- GNAT
+   Name_Tampering_Check                : constant Name_Id := N + $; -- GNAT
    Name_All_Checks                     : constant Name_Id := N + $;
    Last_Check_Name                     : constant Name_Id := N + $;
 
@@ -1397,6 +1399,8 @@ package Snames is
    --  Other miscellaneous names used in front end
 
    Name_Unaligned_Valid                  : constant Name_Id := N + $;
+   Name_Suspension_Object                : constant Name_Id := N + $;
+   Name_Synchronous_Task_Control         : constant Name_Id := N + $;
 
    --  Names used to implement iterators over predefined containers
 
@@ -1572,7 +1576,6 @@ package Snames is
       Attribute_To_Address,
       Attribute_Type_Class,
       Attribute_Type_Key,
-      Attribute_UET_Address,
       Attribute_Unbiased_Rounding,
       Attribute_Unchecked_Access,
       Attribute_Unconstrained_Array,
@@ -1937,6 +1940,7 @@ package Snames is
       Pragma_Volatile,
       Pragma_Volatile_Components,
       Pragma_Volatile_Full_Access,
+      Pragma_Volatile_Function,
       Pragma_Weak_External,
 
       --  The following pragmas are on their own, out of order, because of the

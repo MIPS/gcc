@@ -33,6 +33,7 @@
 
 with Ada.Iterator_Interfaces;
 
+with Ada.Containers.Helpers;
 private with Ada.Finalization;
 private with Ada.Streams;
 
@@ -43,6 +44,7 @@ generic
    with function "=" (Left, Right : Element_Type) return Boolean is <>;
 
 package Ada.Containers.Vectors is
+   pragma Annotate (CodePeer, Skip_Analysis);
    pragma Preelaborate;
    pragma Remote_Types;
 
@@ -366,10 +368,12 @@ private
    pragma Inline (Next);
    pragma Inline (Previous);
 
+   use Ada.Containers.Helpers;
    package Implementation is new Generic_Implementation;
    use Implementation;
 
    type Elements_Array is array (Index_Type range <>) of aliased Element_Type;
+   function "=" (L, R : Elements_Array) return Boolean is abstract;
 
    type Elements_Type (Last : Extended_Index) is limited record
       EA : Elements_Array (Index_Type'First .. Last);
@@ -486,13 +490,9 @@ private
      (Position : Cursor) return not null Element_Access;
    --  Returns a pointer to the element designated by Position.
 
-   No_Element   : constant Cursor := Cursor'(null, Index_Type'First);
+   No_Element : constant Cursor := Cursor'(null, Index_Type'First);
 
    Empty_Vector : constant Vector := (Controlled with others => <>);
-
-   Count_Type_Last : constant := Count_Type'Last;
-   --  Count_Type'Last as a universal_integer, so we can compare Index_Type
-   --  values against this without type conversions that might overflow.
 
    type Iterator is new Limited_Controlled and
      Vector_Iterator_Interfaces.Reversible_Iterator with
