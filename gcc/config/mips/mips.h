@@ -2299,6 +2299,13 @@ enum reg_class
 			       && TARGET_FRAME_GROWS_DOWNWARDS)     \
 			      || flag_stack_protect)
 
+/* Add costs to hard registers based on frequency. This helps to negate
+   some of the reduced cost associated with argument registers which
+   unfairly promotes their use and increases register pressure */
+#define IRA_HARD_REGNO_ADD_COST_MULTIPLIER(REGNO)                       \
+  (TARGET_IRA_COST_MIPS16_TWEAK && TARGET_MIPS16      			\
+   ? ((REGNO) >= 4 && (REGNO) <= 7 ? 2 : 0) : 0)
+
 /* Size of the area allocated in the frame to save the GP.  */
 
 #define MIPS_GP_SAVE_AREA_SIZE \
