@@ -29712,142 +29712,126 @@ cp_parser_omp_positive_int_clause (cp_parser *parser, pragma_omp_clause c_kind,
 }
 
 /* OpenACC:
-   gang [( gang_expr_list )]
-   worker [( expression )]
-   vector [( expression )] */
+
+    gang [( gang-arg-list )]
+    worker [( [num:] int-expr )]
+    vector [( [length:] int-expr )]
+
+  where gang-arg is one of:
+
+    [num:] int-expr
+    static: size-expr
+
+  and size-expr may be:
+
+    *
+    int-expr
+*/
 
 static tree
-cp_parser_oacc_shape_clause (cp_parser *parser, pragma_omp_clause c_kind,
+cp_parser_oacc_shape_clause (cp_parser *parser, omp_clause_code kind,
 			     const char *str, tree list)
 {
-  omp_clause_code kind;
   const char *id = "num";
   cp_lexer *lexer = parser->lexer;
-
-  switch (c_kind)
-    {
-    default:
-      gcc_unreachable ();
-    case PRAGMA_OACC_CLAUSE_GANG:
-      kind = OMP_CLAUSE_GANG;
-      break;
-    case PRAGMA_OACC_CLAUSE_VECTOR:
-      kind = OMP_CLAUSE_VECTOR;
-      id = "length";
-      break;
-    case PRAGMA_OACC_CLAUSE_WORKER:
-      kind = OMP_CLAUSE_WORKER;
-      break;
-    }
-
-  tree op0 = NULL_TREE, op1 = NULL_TREE;
+  tree ops[2] = { NULL_TREE, NULL_TREE }, c;
   location_t loc = cp_lexer_peek_token (lexer)->location;
+
+  if (kind == OMP_CLAUSE_VECTOR)
+    id = "length";
 
   if (cp_lexer_next_token_is (lexer, CPP_OPEN_PAREN))
     {
-      tree *op_to_parse = &op0;
       cp_lexer_consume_token (lexer);
 
       do
 	{
-	  if (cp_lexer_next_token_is (lexer, CPP_NAME)
-	      || cp_lexer_next_token_is (lexer, CPP_KEYWORD))
+	  cp_token *next = cp_lexer_peek_token (lexer);
+	  int idx = 0;
+
+	  /* Gang static argument.  */
+	  if (kind == OMP_CLAUSE_GANG
+	      && cp_lexer_next_token_is_keyword (lexer, RID_STATIC))
 	    {
-	      tree name_kind = cp_lexer_peek_token (lexer)->u.value;
-	      const char *p = IDENTIFIER_POINTER (name_kind);
-	      if (kind == OMP_CLAUSE_GANG && strcmp ("static", p) == 0)
+	      cp_lexer_consume_token (lexer);
+
+	      if (!cp_parser_require (parser, CPP_COLON, RT_COLON))
+		goto cleanup_error;
+
+	      idx = 1;
+	      if (ops[idx] != NULL)
+		{
+		  cp_parser_error (parser, "too many %<static%> arguments");
+		  goto cleanup_error;
+		}
+
+	      /* Check for the '*' argument.  */
+	      if (cp_lexer_next_token_is (lexer, CPP_MULT))
 		{
 		  cp_lexer_consume_token (lexer);
-		  if (!cp_parser_require (parser, CPP_COLON, RT_COLON))
+		  ops[idx] = integer_minus_one_node;
+
+		  if (cp_lexer_next_token_is (lexer, CPP_COMMA))
 		    {
-		      cp_parser_skip_to_closing_parenthesis (parser, false,
-							     false, true);
-		      return list;
-		    }
-		  op_to_parse = &op1;
-		  if (cp_lexer_next_token_is (lexer, CPP_MULT))
-		    {
-		      if (*op_to_parse != NULL_TREE)
-			{
-			  cp_parser_error (parser,
-					   "duplicate %<num%> argument");
-			  cp_parser_skip_to_closing_parenthesis (parser,
-								 false, false,
-								 true);
-			  return list;
-			}
 		      cp_lexer_consume_token (lexer);
-		      *op_to_parse = integer_minus_one_node;
-		      if (cp_lexer_next_token_is (lexer, CPP_COMMA))
-			cp_lexer_consume_token (lexer);
 		      continue;
 		    }
-		}
-	      else if (strcmp (id, p) == 0)
-		{
-		  op_to_parse = &op0;
-		  cp_lexer_consume_token (lexer);
-		  if (!cp_parser_require (parser, CPP_COLON, RT_COLON))
-		    {
-		      cp_parser_skip_to_closing_parenthesis (parser, false,
-							     false, true);
-		      return list;
-		    }
-		}
-	      else
-		{
-		  if (kind == OMP_CLAUSE_GANG)
-		    cp_parser_error (parser,
-				     "expected %<%num%> or %<static%>");
-		  else if (kind == OMP_CLAUSE_VECTOR)
-		    cp_parser_error (parser, "expected %<length%>");
-		  else
-		    cp_parser_error (parser, "expected %<num%>");
-		  cp_parser_skip_to_closing_parenthesis (parser, false, false,
-							 true);
-		  return list;
+		  else break;
 		}
 	    }
-
-	  if (*op_to_parse != NULL_TREE)
+	  /* Worker num: argument and vector length: arguments.  */
+	  else if (cp_lexer_next_token_is (lexer, CPP_NAME)
+		   && strcmp (id, IDENTIFIER_POINTER (next->u.value)) == 0
+		   && cp_lexer_nth_token_is (lexer, 2, CPP_COLON))
 	    {
-	      cp_parser_error (parser, "duplicate operand to clause");
-	      cp_parser_skip_to_closing_parenthesis (parser, false, false,
-						     true);
-	      return list;
+	      cp_lexer_consume_token (lexer);  /* id  */
+	      cp_lexer_consume_token (lexer);  /* ':'  */
 	    }
 
-	  location_t expr_loc = cp_lexer_peek_token (lexer)->location;
+	  /* Now collect the actual argument.  */
+	  if (ops[idx] != NULL_TREE)
+	    {
+	      cp_parser_error (parser, "unexpected argument");
+	      goto cleanup_error;
+	    }
+
 	  tree expr = cp_parser_assignment_expression (parser, NULL, false,
 						       false);
 	  if (expr == error_mark_node)
-	    {
-	      cp_parser_skip_to_closing_parenthesis (parser, false, false,
-						     true);
-	      return list;
-	    }
+	    goto cleanup_error;
 
 	  mark_exp_read (expr);
-	  require_positive_expr (expr, expr_loc, str);
-	  *op_to_parse = expr;
-	  op_to_parse = &op0;
+	  ops[idx] = expr;
 
-	  if (cp_lexer_next_token_is (lexer, CPP_COMMA))
-	    cp_lexer_consume_token (lexer);
+	  if (kind == OMP_CLAUSE_GANG
+	      && cp_lexer_next_token_is (lexer, CPP_COMMA))
+	    {
+	      cp_lexer_consume_token (lexer);
+	      continue;
+	    }
+	  break;
 	}
-      while (!cp_lexer_next_token_is (lexer, CPP_CLOSE_PAREN));
-      cp_lexer_consume_token (lexer);
+      while (1);
+
+      if (!cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+	goto cleanup_error;
     }
 
   check_no_duplicate_clause (list, kind, str, loc);
 
-  tree c = build_omp_clause (loc, kind);
-  if (op0)
-    OMP_CLAUSE_OPERAND (c, 0) = op0;
-  if (op1)
-    OMP_CLAUSE_OPERAND (c, 1) = op1;
+  c = build_omp_clause (loc, kind);
+
+  if (ops[1])
+    OMP_CLAUSE_OPERAND (c, 1) = ops[1];
+
+  OMP_CLAUSE_OPERAND (c, 0) = ops[0];
   OMP_CLAUSE_CHAIN (c) = list;
+
   return c;
+
+ cleanup_error:
+  cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
+  return list;
 }
 
 /* OpenACC 2.0:
@@ -31712,8 +31696,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_GANG:
 	  c_name = "gang";
-	  clauses = cp_parser_oacc_shape_clause (parser, c_kind, c_name,
-						 clauses);
+	  clauses = cp_parser_oacc_shape_clause (parser, OMP_CLAUSE_GANG,
+						 c_name, clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_HOST:
 	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
@@ -31783,8 +31767,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR:
 	  c_name = "vector";
-	  clauses = cp_parser_oacc_shape_clause (parser, c_kind, c_name,
-						 clauses);
+	  clauses = cp_parser_oacc_shape_clause (parser, OMP_CLAUSE_VECTOR,
+						 c_name, clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR_LENGTH:
 	  c_name = "vector_length";
@@ -31797,8 +31781,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_WORKER:
 	  c_name = "worker";
-	  clauses = cp_parser_oacc_shape_clause (parser, c_kind, c_name,
-						clauses);
+	  clauses = cp_parser_oacc_shape_clause (parser, OMP_CLAUSE_WORKER,
+						 c_name, clauses);
 	  break;
 	default:
 	  cp_parser_error (parser, "expected %<#pragma acc%> clause");

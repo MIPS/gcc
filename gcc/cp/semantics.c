@@ -5986,37 +5986,6 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	    bitmap_set_bit (&firstprivate_head, DECL_UID (t));
 	  goto handle_field_decl;
 
-	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_WORKER:
-	  /* Operand 0 is the num: or length: argument.  */
-	  t = OMP_CLAUSE_OPERAND (c, 0);
-	  if (t == NULL_TREE)
-	    break;
-
-	  t = maybe_convert_cond (t);
-	  if (t == error_mark_node)
-	    remove = true;
-	  else if (!processing_template_decl)
-	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-	  OMP_CLAUSE_OPERAND (c, 0) = t;
-
-	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_GANG)
-	    break;
-
-	  /* Ooperand 1 is the gang static: argument.  */
-	  t = OMP_CLAUSE_OPERAND (c, 1);
-	  if (t == NULL_TREE)
-	    break;
-
-	  t = maybe_convert_cond (t);
-	  if (t == error_mark_node)
-	    remove = true;
-	  else if (!processing_template_decl)
-	    t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-	  OMP_CLAUSE_OPERAND (c, 1) = t;
-	  break;
-
 	case OMP_CLAUSE_LASTPRIVATE:
 	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
 	  if (t)
@@ -6071,6 +6040,48 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	  OMP_CLAUSE_FINAL_EXPR (c) = t;
 	  break;
 
+	case OMP_CLAUSE_GANG:
+	  /* Operand 1 is the gang static: argument.  */
+	  t = OMP_CLAUSE_OPERAND (c, 1);
+	  if (t != NULL_TREE)
+	    {
+	      if (t == error_mark_node)
+		remove = true;
+	      else if (!type_dependent_expression_p (t)
+		       && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+		{
+		  error ("%<gang%> static expression must be integral");
+		  remove = true;
+		}
+	      else
+		{
+		  t = mark_rvalue_use (t);
+		  if (!processing_template_decl)
+		    {
+		      t = maybe_constant_value (t);
+		      if (TREE_CODE (t) == INTEGER_CST
+			  && tree_int_cst_sgn (t) != 1
+			  && t != integer_minus_one_node)
+			{
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "%<gang%> static value must be"
+				      "positive");
+			  t = integer_one_node;
+			}
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
+	      OMP_CLAUSE_OPERAND (c, 1) = t;
+	    }
+	  /* Check operand 0, the num argument.  */
+
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	  if (OMP_CLAUSE_OPERAND (c, 0) == NULL_TREE)
+	    break;
+
+	case OMP_CLAUSE_NUM_TASKS:
+	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
@@ -6083,18 +6094,21 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	    {
 	     switch (OMP_CLAUSE_CODE (c))
 		{
-		case OMP_CLAUSE_NUM_THREADS:
-		  error ("num_threads expression must be integral"); break;
-		case OMP_CLAUSE_NUM_GANGS:
-		  error ("%<num_gangs%> expression must be integral"); break;
-		case OMP_CLAUSE_NUM_WORKERS:
-		  error ("%<num_workers%> expression must be integral");
+		case OMP_CLAUSE_GANG:
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<gang%> num expression must be integral"); break;
+		case OMP_CLAUSE_VECTOR:
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<vector%> length expression must be integral");
 		  break;
-		case OMP_CLAUSE_VECTOR_LENGTH:
-		  error ("%<vector_length%> expression must be integral");
+		case OMP_CLAUSE_WORKER:
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<worker%> num expression must be integral");
 		  break;
 		default:
-		  error ("invalid argument");
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qs expression must be integral",
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 		}
 	      remove = true;
 	    }
@@ -6107,9 +6121,28 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 		  if (TREE_CODE (t) == INTEGER_CST
 		      && tree_int_cst_sgn (t) != 1)
 		    {
-		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
-				  /* TODO */
-				  "%<num_threads%> value must be positive");
+		      switch (OMP_CLAUSE_CODE (c))
+			{
+			case OMP_CLAUSE_GANG:
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "%<gang%> num value must be positive");
+			  break;
+			case OMP_CLAUSE_VECTOR:
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "%<vector%> length value must be"
+				      "positive");
+			  break;
+			case OMP_CLAUSE_WORKER:
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "%<worker%> num value must be"
+				      "positive");
+			  break;
+			default:
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "%qs value must be positive",
+				      omp_clause_code_name
+				      [OMP_CLAUSE_CODE (c)]);
+			}
 		      t = integer_one_node;
 		    }
 		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
@@ -6183,35 +6216,6 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	      OMP_CLAUSE_OPERAND (c, 0) = t;
 	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SAFELEN)
 		safelen = c;
-	    }
-	  break;
-
-	case OMP_CLAUSE_NUM_TEAMS:
-	  t = OMP_CLAUSE_NUM_TEAMS_EXPR (c);
-	  if (t == error_mark_node)
-	    remove = true;
-	  else if (!type_dependent_expression_p (t)
-		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
-	    {
-	      error ("%<num_teams%> expression must be integral");
-	      remove = true;
-	    }
-	  else
-	    {
-	      t = mark_rvalue_use (t);
-	      if (!processing_template_decl)
-		{
-		  t = maybe_constant_value (t);
-		  if (TREE_CODE (t) == INTEGER_CST
-		      && tree_int_cst_sgn (t) != 1)
-		    {
-		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
-				  "%<num_teams%> value must be positive");
-		      t = integer_one_node;
-		    }
-		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-		}
-	      OMP_CLAUSE_NUM_TEAMS_EXPR (c) = t;
 	    }
 	  break;
 
@@ -6666,35 +6670,6 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	      break;
 	    }
 	  goto check_dup_generic;
-
-	case OMP_CLAUSE_NUM_TASKS:
-	  t = OMP_CLAUSE_NUM_TASKS_EXPR (c);
-	  if (t == error_mark_node)
-	    remove = true;
-	  else if (!type_dependent_expression_p (t)
-		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
-	    {
-	      error ("%<num_tasks%> expression must be integral");
-	      remove = true;
-	    }
-	  else
-	    {
-	      t = mark_rvalue_use (t);
-	      if (!processing_template_decl)
-		{
-		  t = maybe_constant_value (t);
-		  if (TREE_CODE (t) == INTEGER_CST
-		      && tree_int_cst_sgn (t) != 1)
-		    {
-		      warning_at (OMP_CLAUSE_LOCATION (c), 0,
-				  "%<num_tasks%> value must be positive");
-		      t = integer_one_node;
-		    }
-		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-		}
-	      OMP_CLAUSE_NUM_TASKS_EXPR (c) = t;
-	    }
-	  break;
 
 	case OMP_CLAUSE_GRAINSIZE:
 	  t = OMP_CLAUSE_GRAINSIZE_EXPR (c);

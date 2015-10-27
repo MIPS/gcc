@@ -1136,6 +1136,7 @@ typedef struct gfc_omp_namelist
     } u;
   struct gfc_omp_namelist_udr *udr;
   struct gfc_omp_namelist *next;
+  locus where;
 }
 gfc_omp_namelist;
 

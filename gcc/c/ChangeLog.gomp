@@ -1,3 +1,9 @@
+2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_shape_clause): Backport from trunk.
+	(c_parser_omp_simple_clause): Likewise.
+	(c_parser_oacc_all_clauses): Likewise.
+
 2015-08-18  James Norris  <jnorris@codesourcery.com>
 
 	* c-parser (check_oacc_vars_1, check_oacc_vars, struct oacc_return,

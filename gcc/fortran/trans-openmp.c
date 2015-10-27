@@ -3634,12 +3634,65 @@ gfc_trans_omp_do (gfc_code *code, gfc_exec_op op, stmtblock_t *pblock,
   return gfc_finish_block (&block);
 }
 
-/* parallel loop and kernels loop. */
+/* Helper function to filter combined oacc constructs.  ORIG_CLAUSES
+   contains the unfiltered list of clauses.  LOOP_CLAUSES corresponds to
+   the filter list of loop clauses corresponding to the enclosed list.
+   This function is called recursively to handle device_type clauses.  */
+
+static void
+gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
+				  gfc_omp_clauses **loop_clauses)
+{
+  if (*orig_clauses == NULL)
+    {
+      *loop_clauses = NULL;
+      return;
+    }
+
+  *loop_clauses = gfc_get_omp_clauses ();
+
+  memset (*loop_clauses, 0, sizeof (gfc_omp_clauses));
+
+  (*loop_clauses)->gang = (*orig_clauses)->gang;
+  (*orig_clauses)->gang = false;
+  (*loop_clauses)->gang_expr = (*orig_clauses)->gang_expr;
+  (*orig_clauses)->gang_expr = NULL;
+  (*loop_clauses)->gang_static = (*orig_clauses)->gang_static;
+  (*orig_clauses)->gang_static = false;
+  (*loop_clauses)->vector = (*orig_clauses)->vector;
+  (*orig_clauses)->vector = false;
+  (*loop_clauses)->vector_expr = (*orig_clauses)->vector_expr;
+  (*orig_clauses)->vector_expr = NULL;
+  (*loop_clauses)->worker = (*orig_clauses)->worker;
+  (*orig_clauses)->worker = false;
+  (*loop_clauses)->worker_expr = (*orig_clauses)->worker_expr;
+  (*orig_clauses)->worker_expr = NULL;
+  (*loop_clauses)->seq = (*orig_clauses)->seq;
+  (*orig_clauses)->seq = false;
+  (*loop_clauses)->independent = (*orig_clauses)->independent;
+  (*orig_clauses)->independent = false;
+  (*loop_clauses)->par_auto = (*orig_clauses)->par_auto;
+  (*orig_clauses)->par_auto = false;
+  (*loop_clauses)->acc_collapse = (*orig_clauses)->acc_collapse;
+  (*orig_clauses)->acc_collapse = false;
+  (*loop_clauses)->collapse = (*orig_clauses)->collapse;
+  /* Don't reset (*orig_clauses)->collapse.  */
+  (*loop_clauses)->tile = (*orig_clauses)->tile;
+  (*orig_clauses)->tile = false;
+  (*loop_clauses)->tile_list = (*orig_clauses)->tile_list;
+  (*orig_clauses)->tile_list = NULL;
+  (*loop_clauses)->device_types = (*orig_clauses)->device_types;
+
+  gfc_filter_oacc_combined_clauses (&(*orig_clauses)->dtype_clauses,
+				    &(*loop_clauses)->dtype_clauses);
+}
+
+/* Combined OpenACC parallel loop and kernels loop. */
 static tree
 gfc_trans_oacc_combined_directive (gfc_code *code)
 {
   stmtblock_t block, inner, *pblock = NULL;
-  gfc_omp_clauses construct_clauses, loop_clauses;
+  gfc_omp_clauses *loop_clauses;
   tree stmt, oacc_clauses = NULL_TREE;
   enum tree_code construct_code;
   bool scan_nodesc_arrays = false;
@@ -3661,39 +3714,18 @@ gfc_trans_oacc_combined_directive (gfc_code *code)
 
   gfc_start_block (&block);
 
-  memset (&loop_clauses, 0, sizeof (loop_clauses));
-  if (code->ext.omp_clauses != NULL)
-    {
-      memcpy (&construct_clauses, code->ext.omp_clauses,
-	      sizeof (construct_clauses));
-      loop_clauses.collapse = construct_clauses.collapse;
-      loop_clauses.gang = construct_clauses.gang;
-      loop_clauses.gang_expr = construct_clauses.gang_expr;
-      loop_clauses.gang_static = construct_clauses.gang_static;
-      loop_clauses.vector = construct_clauses.vector;
-      loop_clauses.vector_expr = construct_clauses.vector_expr;
-      loop_clauses.worker = construct_clauses.worker;
-      loop_clauses.worker_expr = construct_clauses.worker_expr;
-      loop_clauses.seq = construct_clauses.seq;
-      loop_clauses.independent = construct_clauses.independent;
-      construct_clauses.collapse = 0;
-      construct_clauses.gang = false;
-      construct_clauses.vector = false;
-      construct_clauses.worker = false;
-      construct_clauses.seq = false;
-      construct_clauses.independent = false;
-      oacc_clauses = gfc_trans_omp_clauses (&block, &construct_clauses,
-					    code->loc);
-    }
+  gfc_filter_oacc_combined_clauses (&code->ext.omp_clauses, &loop_clauses);
+  oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.omp_clauses,
+					code->loc);
 
   array_set = gfc_init_nodesc_arrays (&inner, &oacc_clauses, code,
 				      scan_nodesc_arrays);
 
-  if (!loop_clauses.seq)
+  if (!loop_clauses->seq)
     pblock = (array_set && array_set->elements ()) ? &inner : &block;
   else
     pushlevel ();
-  stmt = gfc_trans_omp_do (code, EXEC_OACC_LOOP, pblock, &loop_clauses, NULL);
+  stmt = gfc_trans_omp_do (code, EXEC_OACC_LOOP, pblock, loop_clauses, NULL);
 
   if (array_set && array_set->elements ())
     gfc_add_expr_to_block (&inner, stmt);
@@ -3713,6 +3745,9 @@ gfc_trans_oacc_combined_directive (gfc_code *code)
   stmt = build2_loc (input_location, construct_code, void_type_node, stmt,
 		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
+
+  gfc_free_omp_clauses (loop_clauses);
+  code->ext.omp_clauses->device_types = NULL;
 
   return gfc_finish_block (&block);
 }

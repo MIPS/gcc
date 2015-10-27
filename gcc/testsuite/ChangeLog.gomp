@@ -1,3 +1,13 @@
+2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/loop-shape.c (int main): New test.
+	* g++.dg/gomp/pr33372-1.C: Adjust expected error messages.
+	* g++.dg/gomp/pr33372-3.C: Likewise.
+	* gfortran.dg/goacc/combined-directives.f90: New test.
+	* gfortran.dg/goacc/declare-2.f95: Adjust error message.
+	* gfortran.dg/goacc/multi-clause.f90: New test.
+	* gfortran.dg/gomp/intentin1.f90: Adjust error message.
+
 2015-10-21  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* c-c++-common/goacc/non-routine.c: Adjust errors.

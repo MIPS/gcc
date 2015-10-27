@@ -1,3 +1,25 @@
+2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.h (gfc_omp_namelist): Add locus where member.
+	* openmp.c (gfc_free_omp_clauses): Recursively deallocate device_type
+	clauses.
+	(gfc_match_omp_variable_list): New function.
+	(resolve_omp_clauses): Remove where argument and use the where
+	gfc_omp_namespace member when reporting errors.  Use
+	resolve_omp_duplicate_list to check for variables appearing in
+	mulitple clauses.
+	(gfc_match_omp_clauses): Update call to resolve_omp_clauses.
+	(gfc_match_oacc_declare): Likewise.
+	(resolve_omp_do): Likewise.
+	(resolve_oacc_loop): Likewise.
+	(gfc_resolve_oacc_directive): Likewise.
+	(gfc_resolve_omp_directive): Likewise.
+	(gfc_resolve_omp_declare_simd): Likewise.
+	(resolve_oacc_declare_map): New function.
+	(gfc_resolve_oacc_declare): Use it.
+	* trans-openmp.c (gfc_filter_oacc_combined_clauses): New function.
+	(gfc_trans_oacc_combined_directive): Use it.
+
 2015-10-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-array.c (gfc_trans_array_bounds): Add an INIT_VLA argument
