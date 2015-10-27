@@ -342,9 +342,7 @@ AC_MSG_RESULT([$glibc_version_major.$glibc_version_minor])
 case ${host} in
 powerpc*-*-linux*)
   cat > conftest.c <<EOF
-#if defined __VSX__
-ppc_fp_type=vsx
-#elif defined __powerpc64__
+#ifdef __powerpc64__
 ppc_fp_type=64
 #elif defined _SOFT_FLOAT
 ppc_fp_type=soft
@@ -373,6 +371,20 @@ soft|e500v1|e500v2)
   ;;
 esac
 ;;
+esac
+
+# Determine if powerpc*-*-linux has the appropriate support for
+# building the __float128 emulation functions.
+case ${host} in
+powerpc*-*-linux*)
+  cat > conftest.c <<EOF
+__float128 add (__float128 *p) { return p[0] + p[1]; }
+EOF
+  if AC_TRY_COMMAND(${CC-cc} -mfloat128 -mvsx -mcpu=power8 conftest. 1>&AS_MESSAGE_LOG_FD); then
+    tmake_file="${tmake_file} rs6000/t-float128"
+  fi
+  rm -f conftest.*
+  ;;
 esac
 
 # Collect host-machine-specific information.
