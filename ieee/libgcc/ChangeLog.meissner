@@ -1,11 +1,11 @@
 2015-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	* configure.ac (powerpc*-*-linux*): If the compiler has the
-	ability to generate __float128 code, build the __float128
-	emulation functions.  Undo previous change.
+	* configure.ac (powerpc*-*-linux*): Determine if the compiler can
+	support __float128.
 	* configure: Regenerate.
 
-	* config.host (powerpc*-*-linux*): Undo previous change.
+	* config.host (powerpc*-*-linux*): If the compiler can support
+	__float128, build the __float128 support modules.
 
 2015-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

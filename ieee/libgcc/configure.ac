@@ -373,18 +373,15 @@ esac
 ;;
 esac
 
-# Determine if powerpc*-*-linux has the appropriate support for
-# building the __float128 emulation functions.
 case ${host} in
 powerpc*-*-linux*)
-  cat > conftest.c <<EOF
-__float128 add (__float128 *p) { return p[0] + p[1]; }
-EOF
-  if AC_TRY_COMMAND(${CC-cc} -mfloat128 -mvsx -mcpu=power8 conftest. 1>&AS_MESSAGE_LOG_FD); then
-    tmake_file="${tmake_file} rs6000/t-float128"
-  fi
-  rm -f conftest.*
-  ;;
+  AC_CACHE_CHECK([whether the PowerPC compiler can do __float128],
+		 [libgcc_cv_powerpc_float128],
+		 [AC_COMPILE_IFELSE(
+    [#pragma GCC target ("vsx,float128")
+     __float128 add (__float128 *a) { return *a + *(a+1); }],
+    [libgcc_cv_powerpc_float128=yes],
+    [libgcc_cv_powerpc_float128=no])])
 esac
 
 # Collect host-machine-specific information.
