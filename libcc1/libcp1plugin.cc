@@ -997,7 +997,17 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
 				      ctx->get_source_location (filename,
 								line_number));
 
-  return convert_out (ctx->preserve (type));
+  gcc_type class_type = convert_out (ctx->preserve (type));
+
+  if (strcmp (name, "lxtest") == 0) {
+    extern void lxtest_members (cc1_plugin::connection *self,
+				gcc_type class_type,
+				const char *filename,
+				unsigned int line_number);
+    lxtest_members (self, class_type, filename, line_number);
+  }
+
+  return class_type;
 }
 
 gcc_type
@@ -1637,6 +1647,51 @@ plugin_error (cc1_plugin::connection *,
 {
   error ("%s", message);
   return convert_out (error_mark_node);
+}
+
+void
+lxtest_members (cc1_plugin::connection *self,
+		gcc_type class_type,
+		const char *filename,
+		unsigned int line_number) {
+  gcc_type void_type = plugin_void_type (self);
+  gcc_type_array arg0 = { 0, &void_type };
+  gcc_type f02v = plugin_build_function_type (self, void_type, &arg0, 0);
+  gcc_type m02v = plugin_build_method_type (self, class_type, f02v,
+					    gcc_cp_qualifiers (0),
+					    GCC_CP_REF_QUAL_NONE);
+  plugin_new_decl (self, "pL",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION),
+		   m02v, 0, 2,
+		   filename, line_number);
+  plugin_new_decl (self, "C1",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION),
+		   m02v, 0, 4,
+		   filename, line_number);
+  plugin_new_decl (self, "C2",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION),
+		   m02v, 0, 6,
+		   filename, line_number);
+  plugin_new_decl (self, "D1",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION |
+				       GCC_CP_FLAG_VIRTUAL_FUNCTION),
+		   m02v, 0, 8,
+		   filename, line_number);
+  plugin_new_decl (self, "D2",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION),
+		   m02v, 0, 10,
+		   filename, line_number);
+  plugin_new_decl (self, "D0",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION |
+				       GCC_CP_FLAG_VIRTUAL_FUNCTION),
+		   m02v, 0, 12,
+		   filename, line_number);
 }
 
 
