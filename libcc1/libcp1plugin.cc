@@ -447,30 +447,32 @@ plugin_new_decl (cc1_plugin::connection *self,
   enum tree_code code;
   tree decl;
   tree sym_type = convert_in (sym_type_in);
-
-  bool virtualp = false;;
+  enum gcc_cp_symbol_kind sym_flags;
+  sym_flags = (enum gcc_cp_symbol_kind) (sym_kind & GCC_CP_FLAG_MASK);
+  sym_kind = (enum gcc_cp_symbol_kind) (sym_kind & GCC_CP_SYMBOL_MASK);
 
   switch (sym_kind)
     {
-    case GCC_CP_SYMBOL_VIRTUAL_FUNCTION:
-      virtualp = true;
-      /* Fallthrough.  */
     case GCC_CP_SYMBOL_FUNCTION:
       code = FUNCTION_DECL;
+      gcc_assert (!(sym_flags & ~GCC_CP_FLAG_MASK_FUNCTION));
       break;
 
     case GCC_CP_SYMBOL_VARIABLE:
       code = VAR_DECL;
+      gcc_assert (!(sym_flags & ~GCC_CP_FLAG_MASK_VARIABLE));
       break;
 
     case GCC_CP_SYMBOL_TYPEDEF:
       code = TYPE_DECL;
+      gcc_assert (!sym_flags);
       break;
 
     case GCC_CP_SYMBOL_LABEL:
       // FIXME: we aren't ready to handle labels yet.
       // It isn't clear how to translate them properly
       // and in any case a "goto" isn't likely to work.
+      gcc_assert (!sym_flags);
       return convert_out (error_mark_node);
 
     default:
@@ -482,15 +484,237 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   if (code == FUNCTION_DECL)
     {
+      bool ctor = false, dtor = false;
+
+      if (sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
+	{
+#define CHARS2(f,s) (((unsigned char)f << CHAR_BIT) | (unsigned char)s)
+	  switch (CHARS2 (name[0], name[1])) {
+	  case CHARS2 ('C', '1'): // in-charge constructor
+	    identifier = complete_ctor_identifier;
+	    ctor = true;
+	    break;
+	  case CHARS2 ('C', '2'): // not-in-charge constructor
+	    identifier = base_ctor_identifier;
+	    ctor = true;
+	    break;
+	  case CHARS2 ('D', '0'): // deleting destructor
+	    identifier = deleting_dtor_identifier;
+	    dtor = true;
+	    break;
+	  case CHARS2 ('D', '1'): // in-charge destructor
+	    identifier = complete_dtor_identifier;
+	    dtor = true;
+	    break;
+	  case CHARS2 ('D', '2'): // not-in-charge destructor
+	    identifier = base_dtor_identifier;
+	    dtor = true;
+	    break;
+	  case CHARS2 ('n', 'w'): // operator new
+	    identifier = ansi_opname (NEW_EXPR);
+	    break;
+	  case CHARS2 ('n', 'a'): // operator new[]
+	    identifier = ansi_opname (VEC_NEW_EXPR);
+	    break;
+	  case CHARS2 ('d', 'l'): // operator delete
+	    identifier = ansi_opname (DELETE_EXPR);
+	    break;
+	  case CHARS2 ('d', 'a'): // operator delete[]
+	    identifier = ansi_opname (VEC_DELETE_EXPR);
+	    break;
+	  case CHARS2 ('p', 's'): // operator + (unary)
+	    identifier = ansi_opname (PLUS_EXPR);
+	    break;
+	  case CHARS2 ('n', 'g'): // operator - (unary)
+	    identifier = ansi_opname (MINUS_EXPR);
+	    break;
+	  case CHARS2 ('a', 'd'): // operator & (unary)
+	    identifier = ansi_opname (BIT_AND_EXPR);
+	    break;
+	  case CHARS2 ('d', 'e'): // operator * (unary)
+	    identifier = ansi_opname (MULT_EXPR);
+	    break;
+	  case CHARS2 ('c', 'o'): // operator ~
+	    identifier = ansi_opname (BIT_NOT_EXPR);
+	    break;
+	  case CHARS2 ('p', 'l'): // operator +
+	    identifier = ansi_opname (PLUS_EXPR);
+	    break;
+	  case CHARS2 ('m', 'i'): // operator -
+	    identifier = ansi_opname (MINUS_EXPR);
+	    break;
+	  case CHARS2 ('m', 'l'): // operator *
+	    identifier = ansi_opname (MULT_EXPR);
+	    break;
+	  case CHARS2 ('d', 'v'): // operator /
+	    identifier = ansi_opname (TRUNC_DIV_EXPR);
+	    break;
+	  case CHARS2 ('r', 'm'): // operator %
+	    identifier = ansi_opname (TRUNC_MOD_EXPR);
+	    break;
+	  case CHARS2 ('a', 'n'): // operator &
+	    identifier = ansi_opname (BIT_AND_EXPR);
+	    break;
+	  case CHARS2 ('o', 'r'): // operator |
+	    identifier = ansi_opname (BIT_IOR_EXPR);
+	    break;
+	  case CHARS2 ('e', 'o'): // operator ^
+	    identifier = ansi_opname (BIT_XOR_EXPR);
+	    break;
+	  case CHARS2 ('a', 'S'): // operator =
+	    identifier = ansi_assopname (NOP_EXPR);
+	    break;
+	  case CHARS2 ('p', 'L'): // operator +=
+	    identifier = ansi_assopname (PLUS_EXPR);
+	    break;
+	  case CHARS2 ('m', 'I'): // operator -=
+	    identifier = ansi_assopname (MINUS_EXPR);
+	    break;
+	  case CHARS2 ('m', 'L'): // operator *=
+	    identifier = ansi_assopname (MULT_EXPR);
+	    break;
+	  case CHARS2 ('d', 'V'): // operator /=
+	    identifier = ansi_assopname (TRUNC_DIV_EXPR);
+	    break;
+	  case CHARS2 ('r', 'M'): // operator %=
+	    identifier = ansi_assopname (TRUNC_MOD_EXPR);
+	    break;
+	  case CHARS2 ('a', 'N'): // operator &=
+	    identifier = ansi_assopname (BIT_AND_EXPR);
+	    break;
+	  case CHARS2 ('o', 'R'): // operator |=
+	    identifier = ansi_assopname (BIT_IOR_EXPR);
+	    break;
+	  case CHARS2 ('e', 'O'): // operator ^=
+	    identifier = ansi_assopname (BIT_XOR_EXPR);
+	    break;
+	  case CHARS2 ('l', 's'): // operator <<
+	    identifier = ansi_opname (LSHIFT_EXPR);
+	    break;
+	  case CHARS2 ('r', 's'): // operator >>
+	    identifier = ansi_opname (RSHIFT_EXPR);
+	    break;
+	  case CHARS2 ('l', 'S'): // operator <<=
+	    identifier = ansi_assopname (LSHIFT_EXPR);
+	    break;
+	  case CHARS2 ('r', 'S'): // operator >>=
+	    identifier = ansi_assopname (RSHIFT_EXPR);
+	    break;
+	  case CHARS2 ('e', 'q'): // operator ==
+	    identifier = ansi_opname (EQ_EXPR);
+	    break;
+	  case CHARS2 ('n', 'e'): // operator !=
+	    identifier = ansi_opname (NE_EXPR);
+	    break;
+	  case CHARS2 ('l', 't'): // operator <
+	    identifier = ansi_opname (LT_EXPR);
+	    break;
+	  case CHARS2 ('g', 't'): // operator >
+	    identifier = ansi_opname (GT_EXPR);
+	    break;
+	  case CHARS2 ('l', 'e'): // operator <=
+	    identifier = ansi_opname (LE_EXPR);
+	    break;
+	  case CHARS2 ('g', 'e'): // operator >=
+	    identifier = ansi_opname (GE_EXPR);
+	    break;
+	  case CHARS2 ('n', 't'): // operator !
+	    identifier = ansi_opname (TRUTH_NOT_EXPR);
+	    break;
+	  case CHARS2 ('a', 'a'): // operator &&
+	    identifier = ansi_opname (TRUTH_ANDIF_EXPR);
+	    break;
+	  case CHARS2 ('o', 'o'): // operator ||
+	    identifier = ansi_opname (TRUTH_ORIF_EXPR);
+	    break;
+	  case CHARS2 ('p', 'p'): // operator ++
+	    identifier = ansi_opname (POSTINCREMENT_EXPR);
+	    break;
+	  case CHARS2 ('m', 'm'): // operator --
+	    identifier = ansi_opname (POSTDECREMENT_EXPR);
+	    break;
+	  case CHARS2 ('c', 'm'): // operator ,
+	    identifier = ansi_opname (COMPOUND_EXPR);
+	    break;
+	  case CHARS2 ('p', 'm'): // operator ->*
+	    identifier = ansi_opname (MEMBER_REF);
+	    break;
+	  case CHARS2 ('p', 't'): // operator ->
+	    identifier = ansi_opname (COMPONENT_REF);
+	    break;
+	  case CHARS2 ('c', 'l'): // operator ()
+	    identifier = ansi_opname (CALL_EXPR);
+	    break;
+	  case CHARS2 ('i', 'x'): // operator []
+	    identifier = ansi_opname (ARRAY_REF);
+	    break;
+	  case CHARS2 ('c', 'v'): // operator <T> (conversion operator)
+	    identifier = mangle_conv_op_name_for_type (TREE_TYPE (sym_type));
+	    break;
+	    // C++11-only:
+	  case CHARS2 ('l', 'i'): // operator "" <id>
+	    {
+	      char *id = (char *)name + 2;
+	      bool freeid = false;
+	      if (*id >= '0' && *id <= '9')
+		{
+		  unsigned len = 0;
+		  do
+		    {
+		      len *= 10;
+		      len += id[0] - '0';
+		      id++;
+		    }
+		  while (*id && *id >= '0' && *id <= '9');
+		  id = xstrndup (id, len);
+		  freeid = true;
+		}
+	      identifier = ansi_litopname (id);
+	      if (freeid)
+		free (id);
+	    }
+	    break;
+	  case CHARS2 ('q', 'u'): // ternary operator, not overloadable.
+	  default:
+	    gcc_unreachable ();
+	  }
+	}
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
       SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
       if (class_member_p)
 	{
 	  if (TREE_CODE (sym_type) == FUNCTION_TYPE)
 	    DECL_STATIC_FUNCTION_P (decl) = 1;
-	  if (virtualp)
-	    DECL_VIRTUAL_P (decl) = 1;
-	  // FIXME: ctor, dtor, operators
+	  if (sym_flags & GCC_CP_FLAG_VIRTUAL_FUNCTION)
+	    {
+	      DECL_VIRTUAL_P (decl) = 1;
+	      if (sym_flags & GCC_CP_FLAG_PURE_VIRTUAL_FUNCTION)
+		DECL_PURE_VIRTUAL_P (decl) = 1;
+	      if (sym_flags & GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION)
+		DECL_FINAL_P (decl) = 1;
+	    }
+	}
+      if (sym_flags & GCC_CP_FLAG_EXPLICIT_FUNCTION)
+	DECL_NONCONVERTING_P (decl) = 1;
+      if (sym_flags & GCC_CP_FLAG_DEFAULTED_FUNCTION)
+	{
+	  DECL_INITIAL (decl) = ridpointers[(int)RID_DEFAULT];
+	  DECL_DEFAULTED_FN (decl) = 1;
+	}
+      if (sym_flags & GCC_CP_FLAG_DELETED_FUNCTION)
+	{
+	  // DECL_INITIAL (decl) = ridpointers[(int)RID_DELETE];
+	  DECL_DELETED_FN (decl) = 1;
+	  DECL_DECLARED_INLINE_P (decl) = 1;
+	  DECL_INITIAL (decl) = error_mark_node;
+	}
+      if (ctor || dtor)
+	{
+	  if (ctor)
+	    DECL_CONSTRUCTOR_P (decl) = 1;
+	  if (dtor)
+	    DECL_DESTRUCTOR_P (decl) = 1;
+	  clone_function_decl (decl, /*update_method_vec_p=*/0);
 	}
     }
   else if (class_member_p)
@@ -498,6 +722,8 @@ plugin_new_decl (cc1_plugin::connection *self,
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
       if (TREE_CODE (decl) == VAR_DECL)
 	{
+	  // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
+	  // FIXME: sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE
 	  DECL_THIS_STATIC (decl) = 1;
 	  // The remainder of this block does the same as:
 	  // set_linkage_for_static_data_member (decl);
@@ -507,6 +733,8 @@ plugin_new_decl (cc1_plugin::connection *self,
 	}
     }
   else
+    // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
+    // FIXME: sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE
     decl = build_decl (loc, code, identifier, sym_type);
   TREE_USED (decl) = 1;
   TREE_ADDRESSABLE (decl) = 1;
