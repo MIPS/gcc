@@ -1,5 +1,5 @@
 Bottom: 79b758af6225a9f70dfe7287a1136f300ff1f6b2
-Top:    79b758af6225a9f70dfe7287a1136f300ff1f6b2
+Top:    2764bd37f73cd746863cb9f8baeec4c2a059a9da
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-27 04:22:39 -0200
 
@@ -7,4 +7,573 @@ Implement special member functions
 
 ---
 
-
+diff --git a/gcc/cp/cp-tree.h b/gcc/cp/cp-tree.h
+index 13df82e..59ac42b 100644
+--- a/gcc/cp/cp-tree.h
++++ b/gcc/cp/cp-tree.h
+@@ -1475,6 +1475,7 @@ struct GTY(()) language_function {
+   (operator_name_info[(int) (CODE)].identifier)
+ #define ansi_assopname(CODE) \
+   (assignment_operator_name_info[(int) (CODE)].identifier)
++extern tree ansi_litopname(const char *);
+ 
+ /* TRUE if a tree code represents a statement.  */
+ extern bool statement_code_p[MAX_TREE_CODES];
+diff --git a/gcc/cp/parser.c b/gcc/cp/parser.c
+index 1148156..314f1dc 100644
+--- a/gcc/cp/parser.c
++++ b/gcc/cp/parser.c
+@@ -13235,6 +13235,14 @@ cp_literal_operator_id (const char* name)
+   return identifier;
+ }
+ 
++/* Exported wrapper for cp_literal_operator_id.  */
++
++tree
++ansi_litopname (const char *name)
++{
++  return cp_literal_operator_id (name);
++}
++
+ /* Parse an operator.
+ 
+    operator:
+diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
+index 7471581..4a6fb7f 100644
+--- a/include/gcc-cp-fe.def
++++ b/include/gcc-cp-fe.def
+@@ -60,18 +60,119 @@ GCC_METHOD0 (gcc_decl, get_current_binding_level)
+    Note that, since access controls are disabled, we have no means to
+    express private, protected and public.
+ 
+-   We have no means to introduce friend declarations, but since we
+-   disable access control, they make no difference whatsoever.
++   There are various flags that can be set in SYM_KIND to specify
++   additional semantics.  Look for GCC_CP_FLAGs in the definition of
++   enum gcc_cp_symbol_kind in gcc-cp-interface.h.
++
++   In order to define member functions, pass GCC_CP_SYMBOL_FUNCTION in
++   SYM_KIND, and a function_type for static member functions or a
++   method type for non-static member functions, including constructors
++   and destructors.  Use build_function_type to create a function
++   type; for a method type, start by creating a function type without
++   any compiler-introduced artificial arguments (the implicit this
++   pointer, and the __in_chrg added to constructors and destructors,
++   and __vtt_parm added to the former), and then use build_method_type
++   to create the method type out of the class type and the function
++   type.
++
++   For constructors, destructors and operator functions, set
++   GCC_CP_FLAG_SPECIAL_FUNCTION in SYM_KIND, in addition to any other
++   applicable flags, and pass as NAME a string starting with the
++   two-character mangling for the constructor or destructor variant
++   (C1, C2, D0, D1, or D2, see below) or for the operator name: "ps"
++   for unary plus, "mL" for multiply and assign, *=; etc.  Use "cv"
++   for type converstion operators (the target type portion may be
++   omitted, as it is taken from the return type in SYM_TYPE).  For
++   operator"", use "li" followed by the identifier (the mangled name
++   mandates digits specifying the length of the identifier; if
++   present, they determine the end of the identifier, otherwise, the
++   identifier extents to the end of the string, so that "li3_Kme" and
++   "li_Km" are equivalent).
++
++   Constructors and destructors need special care, since for each
++   constructor prototype defined in the sources, two symbols are
++   defined in the object code: C1 initializes an instance of the class
++   (rather than of derived classes), including virtual base classes,
++   whereas C2 initializes a sub-object (of the given class type) of an
++   instance of some derived class (or a full object that doesn't have
++   any virtual base classes); for the destructor of each class, there
++   may be up to three variants (not counting virtual thunks): D0 and
++   D1 destruct an instance of the class, including virtual base
++   classes, but only the former calls operator delete to release the
++   object's storage at the end; D2 destructs a sub-object (of the
++   given class type) of an instance of a derived class (or a full
++   object that doesn't have any virtual base classes).  new_decl
++   expects to be called once for each constructor and destructor
++   variant; the first time it sees a constructor or destructor with a
++   given prototype, it will create the member declaration and all
++   appropriate variants; then, and at subsequent calls for other
++   variants, it will select the artificial clone declaration for the
++   chosen variant, and set up the address or substitution name for
++   that variant only.
++
++   NAMEs for GCC_CP_FLAG_SPECIAL_FUNCTION:
++
++     NAME    meaning
++     C1      in-charge constructor
++     C2      not-in-charge constructor
++     D0      deleting destructor
++     D1      in-charge destructor
++     D2      not-in-charge destructor
++     nw      operator new
++     na      operator new[]
++     dl      operator delete
++     da      operator delete[]
++     ps      operator + (unary)
++     ng      operator - (unary)
++     ad      operator & (unary)
++     de      operator * (unary)
++     co      operator ~
++     pl      operator +
++     mi      operator -
++     ml      operator *
++     dv      operator /
++     rm      operator %
++     an      operator &
++     or      operator |
++     eo      operator ^
++     aS      operator =
++     pL      operator +=
++     mI      operator -=
++     mL      operator *=
++     dV      operator /=
++     rM      operator %=
++     aN      operator &=
++     oR      operator |=
++     eO      operator ^=
++     ls      operator <<
++     rs      operator >>
++     lS      operator <<=
++     rS      operator >>=
++     eq      operator ==
++     ne      operator !=
++     lt      operator <
++     gt      operator >
++     le      operator <=
++     ge      operator >=
++     nt      operator !
++     aa      operator &&
++     oo      operator ||
++     pp      operator ++
++     mm      operator --
++     cm      operator ,
++     pm      operator ->*
++     pt      operator ->
++     cl      operator ()
++     ix      operator []
++     qu      operator ?
++     cv      operator <T> (conversion operator)
++     li<id>  operator "" <id>
+ 
+    FIXME: we would benefit from a gcc_decl argument, to be able to
+    introduce using declarations, using directives and namespace
+    aliases.
+ 
+-   FIXME: How about override and final virtual functions; =delete and
+-   =default ctor, dtor and copy-assignment declarations; explicit
+-   ctors and conversion operators; thread_local variables; other
+-   attributes?  Do we need an extra flags parameter, or just
+-   additional gcc_cp_symbol_kinds?  */
++   FIXME: How about attributes; static_assert; lambdas?  */
+ 
+ GCC_METHOD7 (gcc_decl, new_decl,
+ 	     const char *,	      /* Argument NAME.  */
+@@ -183,7 +284,9 @@ GCC_METHOD1 (int /* bool */, finish_enum_type,
+ /* Create a new function type.  RETURN_TYPE is the type returned by
+    the function, and ARGUMENT_TYPES is a vector, of length NARGS, of
+    the argument types.  IS_VARARGS is true if the function is
+-   varargs.  */
++   varargs.
++
++   FIXME: default arguments?  */
+ 
+ GCC_METHOD3 (gcc_type, build_function_type,
+ 	     gcc_type,			   /* Argument RETURN_TYPE.  */
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index cb297b6..d52b13e 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -99,12 +99,85 @@ enum gcc_cp_symbol_kind
+ 
+   GCC_CP_SYMBOL_LABEL,
+ 
+-  /* A virtual member function.  */
+-
+-  GCC_CP_SYMBOL_VIRTUAL_FUNCTION
+-
+-  // FIXME: should we have separate symbol kinds for operator
+-  // functions, ctors, dtors, vtables, rtti, etc?
++  GCC_CP_SYMBOL_MASK = 15,
++  GCC_CP_FLAG_BASE,
++
++  /* Flags to be used along with GCC_CP_SYMBOL_FUNCTION:  */
++
++  /* This flag should be set for constructors, destructors and
++     operators.  */
++  GCC_CP_FLAG_SPECIAL_FUNCTION = GCC_CP_FLAG_BASE,
++
++  /* We intentionally cannot express inline, constexpr, friend or
++     virtual override for functions.  We can't inline or
++     constexpr-replace without a source-level body.  Since we disable
++     access control, friend is meaningless.  The override keyword is
++     only meaningless within the definition of the containing
++     class.  */
++
++  /* This indicates a "virtual" member function, explicitly or
++     implicitly (due to a virtual function with the same name and
++     prototype in a base class) declared as such.  */
++  GCC_CP_FLAG_VIRTUAL_FUNCTION = GCC_CP_FLAG_BASE << 1,
++
++  /* This indicates a pure virtual member function, i.e., one that is
++     declared with "= 0", even if a body is provided in the
++     definition.  */
++  GCC_CP_FLAG_PURE_VIRTUAL_FUNCTION = GCC_CP_FLAG_BASE << 2,
++
++  /* This indicates a "final" virtual member function.  */
++  GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION = GCC_CP_FLAG_BASE << 3,
++  
++  /* This indicates a special member function should have its default
++     implementation.  This either means the function declaration
++     contains the "= default" tokens, or that the member function was
++     implicitly generated by the compiler, although the latter use is
++     discouraged: just let the compiler implicitly introduce it.
++
++     A member function defaulted after its first declaration has
++     slightly different ABI implications from one implicitly generated
++     or explicitly defaulted at the declaration (and definition)
++     point.  To avoid silent (possibly harmless) violation of the one
++     definition rule, it is recommended that this flag not be used for
++     such functions, and that the address of the definition be
++     supplied instead.  */
++  GCC_CP_FLAG_DEFAULTED_FUNCTION = GCC_CP_FLAG_BASE << 4,
++
++  /* This indicates a deleted member function, i.e., one that has been
++     defined as "= delete" at its declaration point, or one that has
++     been implicitly defined as deleted (with or without an explicit
++     "= default" definition).
++
++     This should not be used for implicitly-declared member functions
++     that resolve to deleted definitions, as it may affect the
++     implicit declaration of other member functions.  */
++  GCC_CP_FLAG_DELETED_FUNCTION = GCC_CP_FLAG_BASE << 5,
++
++  /* This indicates a constructor or type-conversion operator declared
++     as "explicit".  */
++
++  GCC_CP_FLAG_EXPLICIT_FUNCTION = GCC_CP_FLAG_BASE << 6,
++
++  GCC_CP_FLAG_END_FUNCTION,
++  GCC_CP_FLAG_MASK_FUNCTION = (((GCC_CP_FLAG_END_FUNCTION - 1) << 1)
++			       - GCC_CP_FLAG_BASE),
++
++  /* Flags to be used along with GCC_CP_SYMBOL_VARIABLE:  */
++
++  /* This indicates a variable declared as "constexpr".  */
++
++  GCC_CP_FLAG_CONSTEXPR_VARIABLE = GCC_CP_FLAG_BASE,
++
++  /* This indicates a variable declared as "thread_local".  ??? What
++     should the ADDRESS be?  */
++
++  GCC_CP_FLAG_THREAD_LOCAL_VARIABLE = GCC_CP_FLAG_BASE << 1,
++  
++  GCC_CP_FLAG_END_VARIABLE,
++  GCC_CP_FLAG_MASK_VARIABLE = (((GCC_CP_FLAG_END_VARIABLE - 1) << 1)
++			       - GCC_CP_FLAG_BASE),
++
++  GCC_CP_FLAG_MASK = (GCC_CP_FLAG_MASK_FUNCTION | GCC_CP_FLAG_MASK_VARIABLE)
+ };
+ 
+ /* This enumerates the types of symbols that GCC might request from
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 16bc0db..db423e4 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -447,30 +447,32 @@ plugin_new_decl (cc1_plugin::connection *self,
+   enum tree_code code;
+   tree decl;
+   tree sym_type = convert_in (sym_type_in);
+-
+-  bool virtualp = false;;
++  enum gcc_cp_symbol_kind sym_flags;
++  sym_flags = (enum gcc_cp_symbol_kind) (sym_kind & GCC_CP_FLAG_MASK);
++  sym_kind = (enum gcc_cp_symbol_kind) (sym_kind & GCC_CP_SYMBOL_MASK);
+ 
+   switch (sym_kind)
+     {
+-    case GCC_CP_SYMBOL_VIRTUAL_FUNCTION:
+-      virtualp = true;
+-      /* Fallthrough.  */
+     case GCC_CP_SYMBOL_FUNCTION:
+       code = FUNCTION_DECL;
++      gcc_assert (!(sym_flags & ~GCC_CP_FLAG_MASK_FUNCTION));
+       break;
+ 
+     case GCC_CP_SYMBOL_VARIABLE:
+       code = VAR_DECL;
++      gcc_assert (!(sym_flags & ~GCC_CP_FLAG_MASK_VARIABLE));
+       break;
+ 
+     case GCC_CP_SYMBOL_TYPEDEF:
+       code = TYPE_DECL;
++      gcc_assert (!sym_flags);
+       break;
+ 
+     case GCC_CP_SYMBOL_LABEL:
+       // FIXME: we aren't ready to handle labels yet.
+       // It isn't clear how to translate them properly
+       // and in any case a "goto" isn't likely to work.
++      gcc_assert (!sym_flags);
+       return convert_out (error_mark_node);
+ 
+     default:
+@@ -482,15 +484,237 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 
+   if (code == FUNCTION_DECL)
+     {
++      bool ctor = false, dtor = false;
++
++      if (sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
++	{
++#define CHARS2(f,s) (((unsigned char)f << CHAR_BIT) | (unsigned char)s)
++	  switch (CHARS2 (name[0], name[1])) {
++	  case CHARS2 ('C', '1'): // in-charge constructor
++	    identifier = complete_ctor_identifier;
++	    ctor = true;
++	    break;
++	  case CHARS2 ('C', '2'): // not-in-charge constructor
++	    identifier = base_ctor_identifier;
++	    ctor = true;
++	    break;
++	  case CHARS2 ('D', '0'): // deleting destructor
++	    identifier = deleting_dtor_identifier;
++	    dtor = true;
++	    break;
++	  case CHARS2 ('D', '1'): // in-charge destructor
++	    identifier = complete_dtor_identifier;
++	    dtor = true;
++	    break;
++	  case CHARS2 ('D', '2'): // not-in-charge destructor
++	    identifier = base_dtor_identifier;
++	    dtor = true;
++	    break;
++	  case CHARS2 ('n', 'w'): // operator new
++	    identifier = ansi_opname (NEW_EXPR);
++	    break;
++	  case CHARS2 ('n', 'a'): // operator new[]
++	    identifier = ansi_opname (VEC_NEW_EXPR);
++	    break;
++	  case CHARS2 ('d', 'l'): // operator delete
++	    identifier = ansi_opname (DELETE_EXPR);
++	    break;
++	  case CHARS2 ('d', 'a'): // operator delete[]
++	    identifier = ansi_opname (VEC_DELETE_EXPR);
++	    break;
++	  case CHARS2 ('p', 's'): // operator + (unary)
++	    identifier = ansi_opname (PLUS_EXPR);
++	    break;
++	  case CHARS2 ('n', 'g'): // operator - (unary)
++	    identifier = ansi_opname (MINUS_EXPR);
++	    break;
++	  case CHARS2 ('a', 'd'): // operator & (unary)
++	    identifier = ansi_opname (BIT_AND_EXPR);
++	    break;
++	  case CHARS2 ('d', 'e'): // operator * (unary)
++	    identifier = ansi_opname (MULT_EXPR);
++	    break;
++	  case CHARS2 ('c', 'o'): // operator ~
++	    identifier = ansi_opname (BIT_NOT_EXPR);
++	    break;
++	  case CHARS2 ('p', 'l'): // operator +
++	    identifier = ansi_opname (PLUS_EXPR);
++	    break;
++	  case CHARS2 ('m', 'i'): // operator -
++	    identifier = ansi_opname (MINUS_EXPR);
++	    break;
++	  case CHARS2 ('m', 'l'): // operator *
++	    identifier = ansi_opname (MULT_EXPR);
++	    break;
++	  case CHARS2 ('d', 'v'): // operator /
++	    identifier = ansi_opname (TRUNC_DIV_EXPR);
++	    break;
++	  case CHARS2 ('r', 'm'): // operator %
++	    identifier = ansi_opname (TRUNC_MOD_EXPR);
++	    break;
++	  case CHARS2 ('a', 'n'): // operator &
++	    identifier = ansi_opname (BIT_AND_EXPR);
++	    break;
++	  case CHARS2 ('o', 'r'): // operator |
++	    identifier = ansi_opname (BIT_IOR_EXPR);
++	    break;
++	  case CHARS2 ('e', 'o'): // operator ^
++	    identifier = ansi_opname (BIT_XOR_EXPR);
++	    break;
++	  case CHARS2 ('a', 'S'): // operator =
++	    identifier = ansi_assopname (NOP_EXPR);
++	    break;
++	  case CHARS2 ('p', 'L'): // operator +=
++	    identifier = ansi_assopname (PLUS_EXPR);
++	    break;
++	  case CHARS2 ('m', 'I'): // operator -=
++	    identifier = ansi_assopname (MINUS_EXPR);
++	    break;
++	  case CHARS2 ('m', 'L'): // operator *=
++	    identifier = ansi_assopname (MULT_EXPR);
++	    break;
++	  case CHARS2 ('d', 'V'): // operator /=
++	    identifier = ansi_assopname (TRUNC_DIV_EXPR);
++	    break;
++	  case CHARS2 ('r', 'M'): // operator %=
++	    identifier = ansi_assopname (TRUNC_MOD_EXPR);
++	    break;
++	  case CHARS2 ('a', 'N'): // operator &=
++	    identifier = ansi_assopname (BIT_AND_EXPR);
++	    break;
++	  case CHARS2 ('o', 'R'): // operator |=
++	    identifier = ansi_assopname (BIT_IOR_EXPR);
++	    break;
++	  case CHARS2 ('e', 'O'): // operator ^=
++	    identifier = ansi_assopname (BIT_XOR_EXPR);
++	    break;
++	  case CHARS2 ('l', 's'): // operator <<
++	    identifier = ansi_opname (LSHIFT_EXPR);
++	    break;
++	  case CHARS2 ('r', 's'): // operator >>
++	    identifier = ansi_opname (RSHIFT_EXPR);
++	    break;
++	  case CHARS2 ('l', 'S'): // operator <<=
++	    identifier = ansi_assopname (LSHIFT_EXPR);
++	    break;
++	  case CHARS2 ('r', 'S'): // operator >>=
++	    identifier = ansi_assopname (RSHIFT_EXPR);
++	    break;
++	  case CHARS2 ('e', 'q'): // operator ==
++	    identifier = ansi_opname (EQ_EXPR);
++	    break;
++	  case CHARS2 ('n', 'e'): // operator !=
++	    identifier = ansi_opname (NE_EXPR);
++	    break;
++	  case CHARS2 ('l', 't'): // operator <
++	    identifier = ansi_opname (LT_EXPR);
++	    break;
++	  case CHARS2 ('g', 't'): // operator >
++	    identifier = ansi_opname (GT_EXPR);
++	    break;
++	  case CHARS2 ('l', 'e'): // operator <=
++	    identifier = ansi_opname (LE_EXPR);
++	    break;
++	  case CHARS2 ('g', 'e'): // operator >=
++	    identifier = ansi_opname (GE_EXPR);
++	    break;
++	  case CHARS2 ('n', 't'): // operator !
++	    identifier = ansi_opname (TRUTH_NOT_EXPR);
++	    break;
++	  case CHARS2 ('a', 'a'): // operator &&
++	    identifier = ansi_opname (TRUTH_ANDIF_EXPR);
++	    break;
++	  case CHARS2 ('o', 'o'): // operator ||
++	    identifier = ansi_opname (TRUTH_ORIF_EXPR);
++	    break;
++	  case CHARS2 ('p', 'p'): // operator ++
++	    identifier = ansi_opname (POSTINCREMENT_EXPR);
++	    break;
++	  case CHARS2 ('m', 'm'): // operator --
++	    identifier = ansi_opname (POSTDECREMENT_EXPR);
++	    break;
++	  case CHARS2 ('c', 'm'): // operator ,
++	    identifier = ansi_opname (COMPOUND_EXPR);
++	    break;
++	  case CHARS2 ('p', 'm'): // operator ->*
++	    identifier = ansi_opname (MEMBER_REF);
++	    break;
++	  case CHARS2 ('p', 't'): // operator ->
++	    identifier = ansi_opname (COMPONENT_REF);
++	    break;
++	  case CHARS2 ('c', 'l'): // operator ()
++	    identifier = ansi_opname (CALL_EXPR);
++	    break;
++	  case CHARS2 ('i', 'x'): // operator []
++	    identifier = ansi_opname (ARRAY_REF);
++	    break;
++	  case CHARS2 ('c', 'v'): // operator <T> (conversion operator)
++	    identifier = mangle_conv_op_name_for_type (TREE_TYPE (sym_type));
++	    break;
++	    // C++11-only:
++	  case CHARS2 ('l', 'i'): // operator "" <id>
++	    {
++	      char *id = (char *)name + 2;
++	      bool freeid = false;
++	      if (*id >= '0' && *id <= '9')
++		{
++		  unsigned len = 0;
++		  do
++		    {
++		      len *= 10;
++		      len += id[0] - '0';
++		      id++;
++		    }
++		  while (*id && *id >= '0' && *id <= '9');
++		  id = xstrndup (id, len);
++		  freeid = true;
++		}
++	      identifier = ansi_litopname (id);
++	      if (freeid)
++		free (id);
++	    }
++	    break;
++	  case CHARS2 ('q', 'u'): // ternary operator, not overloadable.
++	  default:
++	    gcc_unreachable ();
++	  }
++	}
+       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+       SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
+       if (class_member_p)
+ 	{
+ 	  if (TREE_CODE (sym_type) == FUNCTION_TYPE)
+ 	    DECL_STATIC_FUNCTION_P (decl) = 1;
+-	  if (virtualp)
+-	    DECL_VIRTUAL_P (decl) = 1;
+-	  // FIXME: ctor, dtor, operators
++	  if (sym_flags & GCC_CP_FLAG_VIRTUAL_FUNCTION)
++	    {
++	      DECL_VIRTUAL_P (decl) = 1;
++	      if (sym_flags & GCC_CP_FLAG_PURE_VIRTUAL_FUNCTION)
++		DECL_PURE_VIRTUAL_P (decl) = 1;
++	      if (sym_flags & GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION)
++		DECL_FINAL_P (decl) = 1;
++	    }
++	}
++      if (sym_flags & GCC_CP_FLAG_EXPLICIT_FUNCTION)
++	DECL_NONCONVERTING_P (decl) = 1;
++      if (sym_flags & GCC_CP_FLAG_DEFAULTED_FUNCTION)
++	{
++	  DECL_INITIAL (decl) = ridpointers[(int)RID_DEFAULT];
++	  DECL_DEFAULTED_FN (decl) = 1;
++	}
++      if (sym_flags & GCC_CP_FLAG_DELETED_FUNCTION)
++	{
++	  // DECL_INITIAL (decl) = ridpointers[(int)RID_DELETE];
++	  DECL_DELETED_FN (decl) = 1;
++	  DECL_DECLARED_INLINE_P (decl) = 1;
++	  DECL_INITIAL (decl) = error_mark_node;
++	}
++      if (ctor || dtor)
++	{
++	  if (ctor)
++	    DECL_CONSTRUCTOR_P (decl) = 1;
++	  if (dtor)
++	    DECL_DESTRUCTOR_P (decl) = 1;
++	  clone_function_decl (decl, /*update_method_vec_p=*/0);
+ 	}
+     }
+   else if (class_member_p)
+@@ -498,6 +722,8 @@ plugin_new_decl (cc1_plugin::connection *self,
+       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+       if (TREE_CODE (decl) == VAR_DECL)
+ 	{
++	  // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
++	  // FIXME: sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE
+ 	  DECL_THIS_STATIC (decl) = 1;
+ 	  // The remainder of this block does the same as:
+ 	  // set_linkage_for_static_data_member (decl);
+@@ -507,6 +733,8 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	}
+     }
+   else
++    // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
++    // FIXME: sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE
+     decl = build_decl (loc, code, identifier, sym_type);
+   TREE_USED (decl) = 1;
+   TREE_ADDRESSABLE (decl) = 1;
