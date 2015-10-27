@@ -13739,6 +13739,14 @@ cp_literal_operator_id (const char* name)
   return identifier;
 }
 
+/* Exported wrapper for cp_literal_operator_id.  */
+
+tree
+ansi_litopname (const char *name)
+{
+  return cp_literal_operator_id (name);
+}
+
 /* Parse an operator.
 
    operator:
