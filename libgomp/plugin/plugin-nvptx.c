@@ -715,10 +715,8 @@ link_ptx (CUmodule *module, const struct targ_ptx_obj *ptx_objs,
   CUjit_option opts[6];
   void *optvals[6];
   float elapsed = 0.0;
-#define LOGSIZE 8192
-  char elog[LOGSIZE];
-  char ilog[LOGSIZE];
-  unsigned long logsize = LOGSIZE;
+  char elog[1024];
+  char ilog[16384];
   CUlinkState linkstate;
   CUresult r;
   void *linkout;
@@ -731,13 +729,13 @@ link_ptx (CUmodule *module, const struct targ_ptx_obj *ptx_objs,
   optvals[1] = &ilog[0];
 
   opts[2] = CU_JIT_INFO_LOG_BUFFER_SIZE_BYTES;
-  optvals[2] = (void *) logsize;
+  optvals[2] = (void *) sizeof ilog;
 
   opts[3] = CU_JIT_ERROR_LOG_BUFFER;
   optvals[3] = &elog[0];
 
   opts[4] = CU_JIT_ERROR_LOG_BUFFER_SIZE_BYTES;
-  optvals[4] = (void *) logsize;
+  optvals[4] = (void *) sizeof elog;
 
   opts[5] = CU_JIT_LOG_VERBOSE;
   optvals[5] = (void *) 1;
