@@ -1,0 +1,10 @@
+Bottom: 79b758af6225a9f70dfe7287a1136f300ff1f6b2
+Top:    79b758af6225a9f70dfe7287a1136f300ff1f6b2
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-10-27 04:22:39 -0200
+
+Implement special member functions
+
+---
+
+
