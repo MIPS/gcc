@@ -770,35 +770,37 @@ static const struct mips_cpu_info mips_cpu_info_table[] = {
                       COSTS_N_INSNS (256), /* fp_div_sf */    \
                       COSTS_N_INSNS (256)  /* fp_div_df */
 
-struct compress_list
+struct list
 {
   char* func;
-  struct compress_list *next;
+  struct list *next;
 };
 
-static struct compress_list *mips_compress;
-static struct compress_list *mips_no_compress;
+static struct list *mips_compress;
+static struct list *mips_no_compress;
+static struct list *mips_optimize_for_size;
+static struct list *mips_no_optimize_for_size;
 
-static struct compress_list *
-mips_read_compress_list (const char * filename)
+static struct list *
+mips_read_list (const char * filename)
 {
   FILE * fd;
   char line[256];
-  struct compress_list *current = NULL;
-  struct compress_list *head = NULL;
+  struct list *current = NULL;
+  struct list *head = NULL;
 
   if (filename == NULL)
     return NULL;
   fd = fopen (filename, "r");
   if (fd == NULL)
     {
-      error ("Bad filename for compress/nocompress list: %s\n", filename);
+      error ("Bad filename for [no-]compress/[no-]optimize_for_size list: %s\n", filename);
       return NULL;
     }
 
   while (fgets (line, sizeof (line), fd))
     {
-      struct compress_list *entry = (struct compress_list*)xmalloc (sizeof (struct compress_list));
+      struct list *entry = (struct list*)xmalloc (sizeof (struct list));
       entry->func = xstrdup (line);
       if (entry->func[strlen(entry->func)-1] == '\n')
 	entry->func[strlen(entry->func)-1] = '\0';
@@ -813,7 +815,7 @@ mips_read_compress_list (const char * filename)
 }
 
 static bool
-mips_find_compress_list (const char * func, struct compress_list* list)
+mips_find_list (const char * func, struct list* list)
 {
   while (list != NULL)
     {
@@ -1544,6 +1546,10 @@ mips_insert_attributes (tree decl, tree *attributes)
 {
   const char *name;
   unsigned int compression_flags, nocompression_flags;
+  struct gcc_options optimization_flags;
+
+  /* Initialize the flags.  */
+  memset (&optimization_flags, 0, sizeof (optimization_flags));
 
   /* Check for "mips16" and "nomips16" attributes.  */
   compression_flags = mips_get_compress_on_flags (*attributes);
@@ -1565,6 +1571,21 @@ mips_insert_attributes (tree decl, tree *attributes)
       nocompression_flags |=
 	mips_get_compress_off_flags (DECL_ATTRIBUTES (decl));
 
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+                          mips_optimize_for_size))
+      {
+        inform (0, "adding optimize_size attribute for %s", IDENTIFIER_POINTER (DECL_NAME (decl)));
+        TREE_OPTIMIZATION (decl)->x_optimize_size = 1;
+      }
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+                          mips_no_optimize_for_size))
+      {
+        inform (0, "adding optimize_speed[%u] attribute for %s", global_options.x_optimize, IDENTIFIER_POINTER (DECL_NAME (decl)));
+        TREE_OPTIMIZATION (decl)->x_optimize_size = 0;
+        TREE_OPTIMIZATION (decl)->x_optimize = global_options.x_optimize;
+      }
+      
       if (compression_flags && nocompression_flags)
 	error ("%qE cannot have both %qs and %qs attributes",
 	       DECL_NAME (decl), mips_get_compress_on_name (compression_flags),
@@ -1585,11 +1606,11 @@ mips_insert_attributes (tree decl, tree *attributes)
 	     "mips16" attribute, arbitrarily pick one.  We must pick the same
 	     setting for duplicate declarations of a function.  */
 
-	  if (mips_find_compress_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
-				       mips_compress))
+	  if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			      mips_compress))
 	    name = "mips16";
-	  else if (mips_find_compress_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
-					     mips_no_compress))
+	  else if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+				   mips_no_compress))
 	    name = "nomips16";
 	  else if (TARGET_FLIP_MIPS16)
 	    name = mflip_mips16_use_mips16_p (decl) ? "mips16" : "nomips16";
@@ -19273,8 +19294,10 @@ mips_option_override (void)
   if (TARGET_FLIP_MIPS16 || mips_compress_list != NULL || mips_no_compress_list != NULL)
     TARGET_INTERLINK_COMPRESSED = 1;
 
-  mips_compress = mips_read_compress_list (mips_compress_list);
-  mips_no_compress = mips_read_compress_list (mips_no_compress_list);
+  mips_compress = mips_read_list (mips_compress_list);
+  mips_no_compress = mips_read_list (mips_no_compress_list);
+  mips_optimize_for_size = mips_read_list (mips_optimize_for_size_list);
+  mips_no_optimize_for_size = mips_read_list (mips_no_optimize_for_size_list);
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
