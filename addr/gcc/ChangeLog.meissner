@@ -1,3 +1,10 @@
+2015-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_load): Remove earlyclobber
+	from scratch register.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_store): Likewise.
+
 2015-10-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 229390.
