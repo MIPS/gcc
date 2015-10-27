@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_run): Start 8 warps.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/alloc.c: Delete.
 	* config/nvptx/barrier.c: Ditto.
 	* config/nvptx/iter.c: Ditto.

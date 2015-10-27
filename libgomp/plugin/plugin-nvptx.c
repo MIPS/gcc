@@ -1793,7 +1793,7 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars)
 
   r = cuLaunchKernel (function,
 		      1, 1, 1,
-		      1, 1, 1,
+		      32, 8, 1,
 		      0, ptx_dev->null_stream->stream, &args, 0);
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuLaunchKernel error: %s", cuda_error (r));
