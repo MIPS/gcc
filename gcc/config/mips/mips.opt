@@ -492,6 +492,18 @@ mno-compress-list=
 Target RejectNegative Joined Var(mips_no_compress_list)
 Specify a list of functions to use MIPS32
 
+moptimize-size-list=
+Target RejectNegative Joined Var(mips_optimize_size_list)
+Specify a list of functions to optimize for size
+
+moptimize-speed-list=
+Target RejectNegative Joined Var(mips_optimize_speed_list)
+Specify a list of functions to optimize for speed
+
+moptimize-speed-level=
+Target RejectNegative Joined Var(mips_optimize_speed_level)
+Specify optimization level for the list of functions to be optimized for speed [default=2].
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
