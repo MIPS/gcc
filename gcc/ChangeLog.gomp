@@ -1,3 +1,25 @@
+2015-10-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* target.def (goacc.fork_join): Invert sense of result.
+	* doc/tm.texi: Rebuilt.
+	* config/nvptx/nvptx.md (nvptx_membar): Delete.
+	* config/nvptx/nvptx.c: Update comments & formatting from trunk.
+	(BARRIER_SHARED, BARRIER_GLOBAL, BARRIER_SYS): Delete.
+	(worker_bcast_hwm): Rename to ...
+	(worker_bcast_size): ... here.  Update users.
+	(nvptx_emit_forking): Update SESE comment.
+	(struct wcast_data_t): Document fields.
+	(nvptx_print_operand): Remove 'B' handling.
+	(propagator_fn): New typedef.
+	(nvptx_propagate): Use it.
+	(nvptx_goacc_fork_join): Invert result sense.
+	* omp-low.c: Update comments and formatting from trunk.
+	(scan_omp_target): Use flag_checking, not ENABLE_CHECKING.
+	(struct oacc_collapse, expand_oacc_collapse_init,
+	expand_oacc_collapse_vars): Move earlier.
+	(default_goacc_fork_join): Use targetm, invert sense of result.
+	(execute_oacc_device_lower): Adjust goacc.fork_join handling.
+
 2015-10-26  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* doc/tm.texi: Rebuilt.

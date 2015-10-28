@@ -1560,9 +1560,3 @@
 		    UNSPECV_BARSYNC)]
   ""
   "\\tbar.sync\\t%0;")
-
-(define_insn "nvptx_membar"
-  [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
-		    UNSPECV_MEMBAR)]
-  ""
-  "%.\\tmembar%B0;")

@@ -258,21 +258,21 @@ struct oacc_loop
 
 /*  Flags for an OpenACC loop.  */
 
-enum oacc_loop_flags
-  {
-    OLF_SEQ	= 1u << 0,  /* Explicitly sequential  */
-    OLF_AUTO	= 1u << 1,	/* Compiler chooses axes.  */
-    OLF_INDEPENDENT = 1u << 2,	/* Iterations are known independent.  */
-    OLF_GANG_STATIC = 1u << 3,	/* Gang partitioning is static (has op). */
+enum oacc_loop_flags {
+  OLF_SEQ	= 1u << 0,  /* Explicitly sequential  */
+  OLF_AUTO	= 1u << 1,	/* Compiler chooses axes.  */
+  OLF_INDEPENDENT = 1u << 2,	/* Iterations are known independent.  */
+  OLF_GANG_STATIC = 1u << 3,	/* Gang partitioning is static (has op). */
 
-    /* Explicitly specified loop axes.  */
-    OLF_DIM_BASE = 4,
-    OLF_DIM_GANG   = 1u << (OLF_DIM_BASE + GOMP_DIM_GANG),
-    OLF_DIM_WORKER = 1u << (OLF_DIM_BASE + GOMP_DIM_WORKER),
-    OLF_DIM_VECTOR = 1u << (OLF_DIM_BASE + GOMP_DIM_VECTOR),
+  /* Explicitly specified loop axes.  */
+  OLF_DIM_BASE = 4,
+  OLF_DIM_GANG   = 1u << (OLF_DIM_BASE + GOMP_DIM_GANG),
+  OLF_DIM_WORKER = 1u << (OLF_DIM_BASE + GOMP_DIM_WORKER),
+  OLF_DIM_VECTOR = 1u << (OLF_DIM_BASE + GOMP_DIM_VECTOR),
 
-    OLF_MAX = OLF_DIM_BASE + GOMP_DIM_MAX
-  };
+  OLF_MAX = OLF_DIM_BASE + GOMP_DIM_MAX
+};
+
 
 static splay_tree all_contexts;
 static int taskreg_nesting_level;
@@ -294,6 +294,8 @@ static gphi *find_phi_with_arg_on_edge (tree, edge);
       /* The sub-statements for these should be walked.  */ \
       *handled_ops_p = false; \
       break;
+
+/* Return true if CTX corresponds to an oacc parallel region.  */
 
 static bool
 is_oacc_parallel (omp_context *ctx)
@@ -506,6 +508,7 @@ is_combined_parallel (struct omp_region *region)
 {
   return region->is_combined_parallel;
 }
+
 
 /* Extract the header elements of parallel loop FOR_STMT and store
    them into *FD.  */
@@ -1609,6 +1612,7 @@ omp_copy_decl (tree var, copy_body_data *cb)
   return error_mark_node;
 }
 
+
 /* Debugging dumps for parallel regions.  */
 void dump_omp_region (FILE *, struct omp_region *, int);
 void debug_omp_region (struct omp_region *);
@@ -1746,6 +1750,7 @@ new_omp_context (gimple *stmt, omp_context *outer_ctx)
       ctx->cb.transform_call_graph_edges = CB_CGE_MOVE;
       ctx->depth = 1;
     }
+
   ctx->cb.decl_map = new hash_map<tree, tree>;
 
   return ctx;
@@ -2924,12 +2929,15 @@ finish_taskreg_scan (omp_context *ctx)
     }
 }
 
+/* Find the enclosing offload context.  */
+
 static omp_context *
 enclosing_target_ctx (omp_context *ctx)
 {
-  while (ctx != NULL
-	 && gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET)
-    ctx = ctx->outer;
+  for (; ctx; ctx = ctx->outer)
+    if (gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET)
+      break;
+
   return ctx;
 }
 
@@ -2998,12 +3006,15 @@ check_oacc_kernel_gwv (gomp_for *stmt, omp_context *ctx)
   if (checking)
     {
       if (has_seq && (this_mask || has_auto))
-	error_at (gimple_location (stmt), "%<seq%> overrides other OpenACC loop specifiers");
+	error_at (gimple_location (stmt), "%<seq%> overrides other"
+		  " OpenACC loop specifiers");
       else if (has_auto && this_mask)
-	error_at (gimple_location (stmt), "%<auto%> conflicts with other OpenACC loop specifiers");
+	error_at (gimple_location (stmt), "%<auto%> conflicts with other"
+		  " OpenACC loop specifiers");
 
       if (this_mask & outer_mask)
-	error_at (gimple_location (stmt), "inner loop uses same  OpenACC parallelism as containing loop");
+	error_at (gimple_location (stmt), "inner loop uses same  OpenACC"
+		  " parallelism as containing loop");
     }
 
   return outer_mask | this_mask;
@@ -3049,7 +3060,7 @@ scan_omp_for (gomp_for *stmt, omp_context *outer_ctx)
 
 	    if (check && OMP_CLAUSE_OPERAND (c, 0))
 	      error_at (gimple_location (stmt),
-			"argument not permitted on %<%s%> clause in"
+			"argument not permitted on %qs clause in"
 			" OpenACC %<parallel%>", check);
 	  }
 
@@ -3159,14 +3170,15 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
     {
       TYPE_FIELDS (ctx->record_type)
 	= nreverse (TYPE_FIELDS (ctx->record_type));
-#ifdef ENABLE_CHECKING
-      tree field;
-      unsigned int align = DECL_ALIGN (TYPE_FIELDS (ctx->record_type));
-      for (field = TYPE_FIELDS (ctx->record_type);
-	   field;
-	   field = DECL_CHAIN (field))
-	gcc_assert (DECL_ALIGN (field) == align);
-#endif
+      if (flag_checking)
+	{
+	  tree field;
+	  unsigned int align = DECL_ALIGN (TYPE_FIELDS (ctx->record_type));
+	  for (field = TYPE_FIELDS (ctx->record_type);
+	       field;
+	       field = DECL_CHAIN (field))
+	    gcc_assert (DECL_ALIGN (field) == align);
+	}
       layout_type (ctx->record_type);
       if (offloaded)
 	fixup_child_record_type (ctx);
@@ -7144,6 +7156,149 @@ expand_omp_taskreg (struct omp_region *region)
     update_ssa (TODO_update_ssa_only_virtuals);
 }
 
+/* Information about members of an OpenACC collapsed loop nest.  */
+
+struct oacc_collapse
+{
+  tree base;  /* Base value. */
+  tree iters; /* Number of steps.  */
+  tree step;  /* step size.  */
+};
+
+/* Helper for expand_oacc_for.  Determine collapsed loop information.
+   Fill in COUNTS array.  Emit any initialization code before GSI.
+   Return the calculated outer loop bound of BOUND_TYPE.  */
+
+static tree
+expand_oacc_collapse_init (const struct omp_for_data *fd,
+			   gimple_stmt_iterator *gsi,
+			   oacc_collapse *counts, tree bound_type)
+{
+  tree total = build_int_cst (bound_type, 1);
+  int ix;
+  
+  gcc_assert (integer_onep (fd->loop.step));
+  gcc_assert (integer_zerop (fd->loop.n1));
+
+  for (ix = 0; ix != fd->collapse; ix++)
+    {
+      const omp_for_data_loop *loop = &fd->loops[ix];
+
+      tree iter_type = TREE_TYPE (loop->v);
+      tree diff_type = iter_type;
+      tree plus_type = iter_type;
+
+      gcc_assert (loop->cond_code == fd->loop.cond_code);
+      
+      if (POINTER_TYPE_P (iter_type))
+	plus_type = sizetype;
+      if (POINTER_TYPE_P (diff_type) || TYPE_UNSIGNED (diff_type))
+	diff_type = signed_type_for (diff_type);
+
+      tree b = loop->n1;
+      tree e = loop->n2;
+      tree s = loop->step;
+      bool up = loop->cond_code == LT_EXPR;
+      tree dir = build_int_cst (diff_type, up ? +1 : -1);
+      bool negating;
+      tree expr;
+
+      b = force_gimple_operand_gsi (gsi, b, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+      e = force_gimple_operand_gsi (gsi, e, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+
+      /* Convert the step, avoiding possible unsigned->signed overflow. */
+      negating = !up && TYPE_UNSIGNED (TREE_TYPE (s));
+      if (negating)
+	s = fold_build1 (NEGATE_EXPR, TREE_TYPE (s), s);
+      s = fold_convert (diff_type, s);
+      if (negating)
+	s = fold_build1 (NEGATE_EXPR, diff_type, s);
+      s = force_gimple_operand_gsi (gsi, s, true, NULL_TREE,
+				    true, GSI_SAME_STMT);
+
+      /* Determine the range, avoiding possible unsigned->signed overflow. */
+      negating = !up && TYPE_UNSIGNED (iter_type);
+      expr = fold_build2 (MINUS_EXPR, plus_type,
+			  fold_convert (plus_type, negating ? b : e),
+			  fold_convert (plus_type, negating ? e : b));
+      expr = fold_convert (diff_type, expr);
+      if (negating)
+	expr = fold_build1 (NEGATE_EXPR, diff_type, expr);
+      tree range = force_gimple_operand_gsi
+	(gsi, expr, true, NULL_TREE, true, GSI_SAME_STMT);
+
+      /* Determine number of iterations.  */
+      expr = fold_build2 (MINUS_EXPR, diff_type, range, dir);
+      expr = fold_build2 (PLUS_EXPR, diff_type, expr, s);
+      expr = fold_build2 (TRUNC_DIV_EXPR, diff_type, expr, s);
+
+      tree iters = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
+					     true, GSI_SAME_STMT);
+
+      counts[ix].base = b;
+      counts[ix].iters = iters;
+      counts[ix].step = s;
+
+      total = fold_build2 (MULT_EXPR, bound_type, total,
+			   fold_convert (bound_type, iters));
+    }
+
+  return total;
+}
+
+/* Emit initializers for collapsed loop members.  IVAR is the outer
+   loop iteration variable, from which collapsed loop iteration values
+   are  calculated.  COUNTS array has been initialized by
+   expand_oacc_collapse_inits.  */
+
+static void
+expand_oacc_collapse_vars (const struct omp_for_data *fd,
+			   gimple_stmt_iterator *gsi,
+			   const oacc_collapse *counts, tree ivar)
+{
+  tree ivar_type = TREE_TYPE (ivar);
+
+  /*  The most rapidly changing iteration variable is the innermost
+      one.  */
+  for (int ix = fd->collapse; ix--;)
+    {
+      const omp_for_data_loop *loop = &fd->loops[ix];
+      const oacc_collapse *collapse = &counts[ix];
+      tree iter_type = TREE_TYPE (loop->v);
+      tree diff_type = TREE_TYPE (collapse->step);
+      tree plus_type = iter_type;
+      enum tree_code plus_code = PLUS_EXPR;
+      tree expr;
+
+      if (POINTER_TYPE_P (iter_type))
+	{
+	  plus_code = POINTER_PLUS_EXPR;
+	  plus_type = sizetype;
+	}
+
+      expr = build2 (TRUNC_MOD_EXPR, ivar_type, ivar,
+		     fold_convert (ivar_type, collapse->iters));
+      expr = build2 (MULT_EXPR, diff_type, fold_convert (diff_type, expr),
+		     collapse->step);
+      expr = build2 (plus_code, iter_type, collapse->base,
+		     fold_convert (plus_type, expr));
+      expr = force_gimple_operand_gsi (gsi, expr, false, NULL_TREE,
+				       true, GSI_SAME_STMT);
+      gassign *ass = gimple_build_assign (loop->v, expr);
+      gsi_insert_before (gsi, ass, GSI_SAME_STMT);
+
+      if (ix)
+	{
+	  expr = build2 (TRUNC_DIV_EXPR, ivar_type, ivar,
+			 fold_convert (ivar_type, collapse->iters));
+	  ivar = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
+					   true, GSI_SAME_STMT);
+	}
+    }
+}
+
 
 /* Helper function for expand_omp_{for_*,simd}.  If this is the outermost
    of the combined collapse > 1 loop constructs, generate code like:
@@ -10700,149 +10855,6 @@ expand_omp_taskloop_for_inner (struct omp_region *region,
       if (collapse_bb == NULL)
 	loop->latch = cont_bb;
       add_loop (loop, body_bb->loop_father);
-    }
-}
-
-/* Information about members of an OpenACC collapsed loop nest.  */
-
-struct oacc_collapse
-{
-  tree base;  /* Base value. */
-  tree iters; /* Number of steps.  */
-  tree step;  /* step size.  */
-};
-
-/* Helper for expand_oacc_for.  Determine collapsed loop information.
-   Fill in COUNTS array.  Emit any initialization code before GSI.
-   Return the calculated outer loop bound of BOUND_TYPE.  */
-
-static tree
-expand_oacc_collapse_init (const struct omp_for_data *fd,
-			   gimple_stmt_iterator *gsi,
-			   oacc_collapse *counts, tree bound_type)
-{
-  tree total = build_int_cst (bound_type, 1);
-  int ix;
-  
-  gcc_assert (integer_onep (fd->loop.step));
-  gcc_assert (integer_zerop (fd->loop.n1));
-
-  for (ix = 0; ix != fd->collapse; ix++)
-    {
-      const omp_for_data_loop *loop = &fd->loops[ix];
-
-      tree iter_type = TREE_TYPE (loop->v);
-      tree diff_type = iter_type;
-      tree plus_type = iter_type;
-
-      gcc_assert (loop->cond_code == fd->loop.cond_code);
-      
-      if (POINTER_TYPE_P (iter_type))
-	plus_type = sizetype;
-      if (POINTER_TYPE_P (diff_type) || TYPE_UNSIGNED (diff_type))
-	diff_type = signed_type_for (diff_type);
-
-      tree b = loop->n1;
-      tree e = loop->n2;
-      tree s = loop->step;
-      bool up = loop->cond_code == LT_EXPR;
-      tree dir = build_int_cst (diff_type, up ? +1 : -1);
-      bool negating;
-      tree expr;
-
-      b = force_gimple_operand_gsi (gsi, b, true, NULL_TREE,
-				    true, GSI_SAME_STMT);
-      e = force_gimple_operand_gsi (gsi, e, true, NULL_TREE,
-				    true, GSI_SAME_STMT);
-
-      /* Convert the step, avoiding possible unsigned->signed overflow. */
-      negating = !up && TYPE_UNSIGNED (TREE_TYPE (s));
-      if (negating)
-	s = fold_build1 (NEGATE_EXPR, TREE_TYPE (s), s);
-      s = fold_convert (diff_type, s);
-      if (negating)
-	s = fold_build1 (NEGATE_EXPR, diff_type, s);
-      s = force_gimple_operand_gsi (gsi, s, true, NULL_TREE,
-				    true, GSI_SAME_STMT);
-
-      /* Determine the range, avoiding possible unsigned->signed overflow. */
-      negating = !up && TYPE_UNSIGNED (iter_type);
-      expr = fold_build2 (MINUS_EXPR, plus_type,
-			  fold_convert (plus_type, negating ? b : e),
-			  fold_convert (plus_type, negating ? e : b));
-      expr = fold_convert (diff_type, expr);
-      if (negating)
-	expr = fold_build1 (NEGATE_EXPR, diff_type, expr);
-      tree range = force_gimple_operand_gsi
-	(gsi, expr, true, NULL_TREE, true, GSI_SAME_STMT);
-
-      /* Determine number of iterations.  */
-      expr = fold_build2 (MINUS_EXPR, diff_type, range, dir);
-      expr = fold_build2 (PLUS_EXPR, diff_type, expr, s);
-      expr = fold_build2 (TRUNC_DIV_EXPR, diff_type, expr, s);
-
-      tree iters = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
-					     true, GSI_SAME_STMT);
-
-      counts[ix].base = b;
-      counts[ix].iters = iters;
-      counts[ix].step = s;
-
-      total = fold_build2 (MULT_EXPR, bound_type, total,
-			   fold_convert (bound_type, iters));
-    }
-
-  return total;
-}
-
-/* Emit initializers for collapsed loop members.  IVAR is the outer
-   loop iteration variable, from which collapsed loop iteration values
-   are  calculated.  COUNTS array has been initialized by
-   expand_oacc_collapse_inits.  */
-
-static void
-expand_oacc_collapse_vars (const struct omp_for_data *fd,
-			   gimple_stmt_iterator *gsi,
-			   const oacc_collapse *counts, tree ivar)
-{
-  tree ivar_type = TREE_TYPE (ivar);
-
-  /*  The most rapidly changing iteration variable is the innermost
-      one.  */
-  for (int ix = fd->collapse; ix--;)
-    {
-      const omp_for_data_loop *loop = &fd->loops[ix];
-      const oacc_collapse *collapse = &counts[ix];
-      tree iter_type = TREE_TYPE (loop->v);
-      tree diff_type = TREE_TYPE (collapse->step);
-      tree plus_type = iter_type;
-      enum tree_code plus_code = PLUS_EXPR;
-      tree expr;
-
-      if (POINTER_TYPE_P (iter_type))
-	{
-	  plus_code = POINTER_PLUS_EXPR;
-	  plus_type = sizetype;
-	}
-
-      expr = build2 (TRUNC_MOD_EXPR, ivar_type, ivar,
-		     fold_convert (ivar_type, collapse->iters));
-      expr = build2 (MULT_EXPR, diff_type, fold_convert (diff_type, expr),
-		     collapse->step);
-      expr = build2 (plus_code, iter_type, collapse->base,
-		     fold_convert (plus_type, expr));
-      expr = force_gimple_operand_gsi (gsi, expr, false, NULL_TREE,
-				       true, GSI_SAME_STMT);
-      gassign *ass = gimple_build_assign (loop->v, expr);
-      gsi_insert_before (gsi, ass, GSI_SAME_STMT);
-
-      if (ix)
-	{
-	  expr = build2 (TRUNC_DIV_EXPR, ivar_type, ivar,
-			 fold_convert (ivar_type, collapse->iters));
-	  ivar = force_gimple_operand_gsi (gsi, expr, true, NULL_TREE,
-					   true, GSI_SAME_STMT);
-	}
     }
 }
 
@@ -19789,19 +19801,9 @@ default_goacc_fork_join (gcall *ARG_UNUSED (call),
 			 const int *ARG_UNUSED (dims), bool is_fork)
 {
   if (is_fork)
-    {
-#ifndef HAVE_oacc_fork
-      return true;
-#endif
-    }
+    return targetm.have_oacc_fork ();
   else
-    {
-#ifndef HAVE_oacc_join
-      return true;
-#endif
-    }
-
-  return false;
+    return targetm.have_oacc_join ();
 }
 
 /* Default goacc.reduction early expander.
@@ -19948,7 +19950,7 @@ execute_oacc_device_lower ()
 		case IFN_UNIQUE_OACC_JOIN:
 		  if (integer_minus_onep (gimple_call_arg (call, 2)))
 		    remove = true;
-		  else if (targetm.goacc.fork_join
+		  else if (!targetm.goacc.fork_join
 			   (call, dims, code == IFN_UNIQUE_OACC_FORK))
 		    remove = true;
 		  break;

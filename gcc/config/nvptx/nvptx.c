@@ -81,11 +81,6 @@
 #define SHUFFLE_BFLY 2
 #define SHUFFLE_IDX 3
 
-/* Memory barrier levels.  */
-#define BARRIER_SHARED 0
-#define BARRIER_GLOBAL 1
-#define BARRIER_SYS 2
-
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
 static std::stringstream func_decls;
@@ -113,7 +108,7 @@ static GTY((cache)) hash_table<tree_hasher> *needed_fndecls_htab;
    by all functions emitted.  The buffer is placed in shared memory.
    It'd be nice if PTX supported common blocks, because then this
    could be shared across TUs (taking the largest size).  */
-static unsigned worker_bcast_hwm;
+static unsigned worker_bcast_size;
 static unsigned worker_bcast_align;
 #define worker_bcast_name "__worker_bcast"
 static GTY(()) rtx worker_bcast_sym;
@@ -259,7 +254,10 @@ nvptx_emit_forking (unsigned mask, bool is_call)
     {
       rtx op = GEN_INT (mask | (is_call << GOMP_DIM_MAX));
       
-      /* Emit fork at all levels, this helps form SESE regions..  */
+      /* Emit fork at all levels.  This helps form SESE regions, as
+	 it creates a block with a single successor before entering a
+	 partitooned region.  That is a good candidate for the end of
+	 an SESE region.  */
       if (!is_call)
 	emit_insn (gen_nvptx_fork (op));
       emit_insn (gen_nvptx_forked (op));
@@ -990,6 +988,7 @@ nvptx_expand_call (rtx retval, rtx address)
 	  write_func_decl_from_insn (func_decls, retval, pat, callee);
 	}
     }
+
   nvptx_emit_forking (parallel, true);
   emit_call_insn (pat);
   nvptx_emit_joining (parallel, true);
@@ -1321,9 +1320,9 @@ nvptx_gen_vcast (rtx reg)
 
 struct wcast_data_t
 {
-  rtx base;
-  rtx ptr;
-  unsigned offset;
+  rtx base;  /* Register holding base addr of buffer.  */
+  rtx ptr;  /* Iteration var,  if needed.  */
+  unsigned offset; /* Offset into worker buffer.  */
 };
 
 /* Direction of the spill/fill and looping setup/teardown indicator.  */
@@ -2000,7 +1999,6 @@ nvptx_print_operand_address (FILE *file, rtx addr)
    A -- print an address space identifier for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
    f -- print a full reg even for something that must always be split
-   B -- print a memory barrier level specified by CONST_INT
    R -- print an address space specified by CONST_INT
    S -- print a shuffle kind specified by CONST_INT
    t -- print a type opcode suffix, promoting QImode to 32 bits
@@ -2044,15 +2042,6 @@ nvptx_print_operand (FILE *file, rtx x, int code)
       }
       break;
 
-    case 'B':
-      {
-	unsigned kind = UINTVAL (x);
-	static const char *const kinds[] = 
-	  {"cta", "gl", "sys"};
-	fprintf (file, ".%s", kinds[kind]);
-      }
-      break;
-
     case 't':
       op_mode = nvptx_underlying_object_mode (x);
       fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, true));
@@ -2078,7 +2067,7 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	fprintf (file, ".%s", kinds[kind]);
       }
       break;
-      
+
     case 'T':
       fprintf (file, "%d", GET_MODE_BITSIZE (GET_MODE (x)));
       break;
@@ -2329,9 +2318,8 @@ nvptx_reorg_subreg (void)
     }
 }
 
-/* Loop structure of the function.The entire function is described as
-   a NULL loop.  We should be able to extend this to represent
-   superblocks.  */
+/* Loop structure of the function.  The entire function is described
+   as a NULL loop.  */
 
 struct parallel
 {
@@ -2422,9 +2410,9 @@ nvptx_split_blocks (bb_insn_map_t *map)
     {
       bool seen_insn = false;
 
-      // Clear visited flag, for use by parallel locator  */
+      /* Clear visited flag, for use by parallel locator  */
       block->flags &= ~BB_VISITED;
-      
+
       FOR_BB_INSNS (block, insn)
 	{
 	  if (!INSN_P (insn))
@@ -3253,10 +3241,11 @@ nvptx_find_sese (auto_vec<basic_block> &blocks, bb_pair_vec_t &regions)
    the partitioned regions and (b) only propagating stack entries that
    are used.  The latter might be quite hard to determine.  */
 
+typedef rtx (*propagator_fn) (rtx, propagate_mask, unsigned, void *);
+
 static void
 nvptx_propagate (basic_block block, rtx_insn *insn, propagate_mask rw,
-		 rtx (*fn) (rtx, propagate_mask,
-			    unsigned, void *), void *data)
+		 propagator_fn fn, void *data)
 {
   bitmap live = DF_LIVE_IN (block);
   bitmap_iterator iterator;
@@ -3287,7 +3276,7 @@ nvptx_propagate (basic_block block, rtx_insn *insn, propagate_mask rw,
 	  label = gen_label_rtx ();
 	  
 	  emit_insn (gen_rtx_SET (idx, GEN_INT (fs)));
-	  /* Allow worker function to initialize anything needed */
+	  /* Allow worker function to initialize anything needed.  */
 	  rtx init = fn (tmp, PM_loop_begin, fs, data);
 	  if (init)
 	    emit_insn (init);
@@ -3403,8 +3392,8 @@ nvptx_wpropagate (bool pre_p, basic_block block, rtx_insn *insn)
       rtx init = gen_rtx_SET (data.base, worker_bcast_sym);
       emit_insn_after (init, insn);
       
-      if (worker_bcast_hwm < data.offset)
-	worker_bcast_hwm = data.offset;
+      if (worker_bcast_size < data.offset)
+	worker_bcast_size = data.offset;
     }
 }
 
@@ -3473,7 +3462,8 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
       /* If this is a dummy insn, do nothing.  */
       switch (recog_memoized (head))
 	{
-	default:break;
+	default:
+	  break;
 	case CODE_FOR_nvptx_fork:
 	case CODE_FOR_nvptx_forked:
 	case CODE_FOR_nvptx_joining:
@@ -3541,8 +3531,8 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
 	  data.base = worker_bcast_sym;
 	  data.ptr = 0;
 
-	  if (worker_bcast_hwm < GET_MODE_SIZE (SImode))
-	    worker_bcast_hwm = GET_MODE_SIZE (SImode);
+	  if (worker_bcast_size < GET_MODE_SIZE (SImode))
+	    worker_bcast_size = GET_MODE_SIZE (SImode);
 
 	  data.offset = 0;
 	  emit_insn_before (nvptx_gen_wcast (pvar, PM_read, 0, &data),
@@ -3664,7 +3654,7 @@ nvptx_process_pars (parallel *par)
     }
 
   if (par->mask & GOMP_DIM_MASK (GOMP_DIM_MAX))
-    { /* No propagation needed for a call.  */ }
+    /* No propagation needed for a call.  */;
   else if (par->mask & GOMP_DIM_MASK (GOMP_DIM_WORKER))
     {
       nvptx_wpropagate (false, par->forked_block, par->forked_insn);
@@ -3689,8 +3679,9 @@ nvptx_process_pars (parallel *par)
 static void
 nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 {
-  unsigned me = par->mask
-    & (GOMP_DIM_MASK (GOMP_DIM_WORKER) | GOMP_DIM_MASK (GOMP_DIM_VECTOR));
+  unsigned me = (par->mask
+		 & (GOMP_DIM_MASK (GOMP_DIM_WORKER)
+		    | GOMP_DIM_MASK (GOMP_DIM_VECTOR)));
   unsigned  skip_mask = 0, neuter_mask = 0;
   
   if (par->inner)
@@ -3699,9 +3690,9 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
   for (unsigned mode = GOMP_DIM_WORKER; mode <= GOMP_DIM_VECTOR; mode++)
     {
       if ((outer | me) & GOMP_DIM_MASK (mode))
-	{ /* Mode is partitioned: no neutering.  */ }
+	{} /* Mode is partitioned: no neutering.  */
       else if (!(modes & GOMP_DIM_MASK (mode)))
-	{ /* Mode  is not used: nothing to do.  */ }
+	{} /* Mode  is not used: nothing to do.  */
       else if (par->inner_mask & GOMP_DIM_MASK (mode)
 	       || !par->forked_insn)
 	/* Partitioned in inner parallels, or we're not a partitioned
@@ -3713,7 +3704,7 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 	   parallel at this level.  */
 	skip_mask |= GOMP_DIM_MASK (mode);
       else
-	{ /* Parent will skip this parallel itself.  */ }
+	{} /* Parent will skip this parallel itself.  */
     }
 
   if (neuter_mask)
@@ -3831,8 +3822,9 @@ nvptx_reorg (void)
       delete pars;
     }
 
+  /* Replace subregs.  */
   nvptx_reorg_subreg ();
-  
+
   regstat_free_n_sets_and_refs ();
 
   df_finish_pass (true);
@@ -3933,7 +3925,7 @@ nvptx_record_offload_symbol (tree decl)
 	fprintf (asm_out_file, "\n");
       }
       break;
-  
+
     default:
       gcc_unreachable ();
     }
@@ -3967,17 +3959,17 @@ nvptx_file_end (void)
     nvptx_record_fndecl (decl, true);
   fputs (func_decls.str().c_str(), asm_out_file);
 
-  if (worker_bcast_hwm)
+  if (worker_bcast_size)
     {
       /* Define the broadcast buffer.  */
 
-      worker_bcast_hwm = (worker_bcast_hwm + worker_bcast_align - 1)
+      worker_bcast_size = (worker_bcast_size + worker_bcast_align - 1)
 	& ~(worker_bcast_align - 1);
       
       fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_bcast_name);
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_bcast_align,
-	       worker_bcast_name, worker_bcast_hwm);
+	       worker_bcast_name, worker_bcast_size);
     }
 
   if (worker_red_size)
@@ -4237,13 +4229,13 @@ nvptx_goacc_fork_join (gcall *call, const int dims[],
 
   /* We only care about worker and vector partitioning.  */
   if (axis < GOMP_DIM_WORKER)
-    return true;
+    return false;
 
   /* If the size is 1, there's no partitioning.  */
   if (dims[axis] == 1)
-    return true;
+    return false;
 
-  return false;
+  return true;
 }
 
 static tree
