@@ -1,5 +1,5 @@
 Bottom: 79b758af6225a9f70dfe7287a1136f300ff1f6b2
-Top:    2764bd37f73cd746863cb9f8baeec4c2a059a9da
+Top:    eb9901160096d50dddab8f43f90fea67ef2c81a7
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-27 04:22:39 -0200
 
@@ -181,9 +181,18 @@ index 7471581..4a6fb7f 100644
  GCC_METHOD3 (gcc_type, build_function_type,
  	     gcc_type,			   /* Argument RETURN_TYPE.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
-index cb297b6..d52b13e 100644
+index cb297b6..f598c79 100644
 --- a/include/gcc-cp-interface.h
 +++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-2
++  GCC_CP_FE_VERSION_0 = 0xffffffff-3
+ };
+ 
+ /* Qualifiers.  */
 @@ -99,12 +99,85 @@ enum gcc_cp_symbol_kind
  
    GCC_CP_SYMBOL_LABEL,
