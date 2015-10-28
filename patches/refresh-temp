@@ -1,0 +1,22 @@
+Bottom: 2764bd37f73cd746863cb9f8baeec4c2a059a9da
+Top:    eb9901160096d50dddab8f43f90fea67ef2c81a7
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-10-28 15:21:40 -0200
+
+Refresh of special-memfuncs.patch
+
+---
+
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index d52b13e..f598c79 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -41,7 +41,7 @@ struct gcc_cp_context;
+ 
+ enum gcc_cp_api_version
+ {
+-  GCC_CP_FE_VERSION_0 = 0xffffffff-2
++  GCC_CP_FE_VERSION_0 = 0xffffffff-3
+ };
+ 
+ /* Qualifiers.  */
