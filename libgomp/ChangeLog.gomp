@@ -1,3 +1,8 @@
+2015-10-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/combined-directive-1.f90: Rename to...
+	* testsuite/libgomp.oacc-fortran/combined-directives-1.f90: ... this.
+
 2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/combdir-1.f90: Rename to ...

@@ -3651,8 +3651,6 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
 
   *loop_clauses = gfc_get_omp_clauses ();
 
-  memset (*loop_clauses, 0, sizeof (gfc_omp_clauses));
-
   (*loop_clauses)->gang = (*orig_clauses)->gang;
   (*orig_clauses)->gang = false;
   (*loop_clauses)->gang_expr = (*orig_clauses)->gang_expr;
@@ -3676,7 +3674,9 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
   (*loop_clauses)->acc_collapse = (*orig_clauses)->acc_collapse;
   (*orig_clauses)->acc_collapse = false;
   (*loop_clauses)->collapse = (*orig_clauses)->collapse;
-  /* Don't reset (*orig_clauses)->collapse.  */
+  /* Don't reset (*orig_clauses)->collapse.  It should be present on
+     both the kernels/parallel and loop constructs, similar to how
+     gfc_split_omp_clauses duplicates it in combined OMP constructs.  */
   (*loop_clauses)->tile = (*orig_clauses)->tile;
   (*orig_clauses)->tile = false;
   (*loop_clauses)->tile_list = (*orig_clauses)->tile_list;

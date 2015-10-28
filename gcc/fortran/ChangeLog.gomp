@@ -1,3 +1,8 @@
+2015-10-28  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_filter_oacc_combined_clauses): Don't zero-
+	initialize loop_clauses when it's already initialized.
+
 2015-10-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* openmp.c (gfc_match_oacc_declare): Remove oc local variable.
