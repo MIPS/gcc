@@ -11365,7 +11365,25 @@ c_parser_oacc_shape_clause (c_parser *parser, omp_clause_code kind,
 
  cleanup_error:
   c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
-  return list;  return c;
+  return list;
+}
+
+/* OpenACC:
+   auto
+   independent
+   nohost
+   seq */
+
+static tree
+c_parser_oacc_simple_clause (c_parser *parser, enum omp_clause_code code,
+			     tree list)
+{
+  check_no_duplicate_clause (list, code, omp_clause_code_name[code]);
+
+  tree c = build_omp_clause (c_parser_peek_token (parser)->location, code);
+  OMP_CLAUSE_CHAIN (c) = list;
+
+  return c;
 }
 
 /* OpenACC:
@@ -12724,7 +12742,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "async";
 	  break;
 	case PRAGMA_OACC_CLAUSE_AUTO:
-	  clauses = c_parser_omp_simple_clause (parser, OMP_CLAUSE_AUTO,
+	  clauses = c_parser_oacc_simple_clause (parser, OMP_CLAUSE_AUTO,
 						clauses);
 	  c_name = "auto";
 	  break;
@@ -12848,7 +12866,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "reduction";
 	  break;
 	case PRAGMA_OACC_CLAUSE_SEQ:
-	  clauses = c_parser_omp_simple_clause (parser, OMP_CLAUSE_SEQ,
+	  clauses = c_parser_oacc_simple_clause (parser, OMP_CLAUSE_SEQ,
 						clauses);
 	  c_name = "seq";
 	  break;
