@@ -1,3 +1,9 @@
+2015-10-28  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/parallel-in-routine.c (foo): Move function ...
+	* c-c++-common/goacc/nesting-fail-1.c (f_acc_routine): ... here.
+	* c-c++-common/goacc/parallel-in-routine.c: Remove.
+
 2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/loop-shape.c (int main): New test.
