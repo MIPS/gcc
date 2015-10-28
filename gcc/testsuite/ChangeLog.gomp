@@ -1,5 +1,10 @@
 2015-10-28  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_omp): Test for acc loop in
+	omp parallel.
+
+2015-10-28  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/parallel-in-routine.c (foo): Move function ...
 	* c-c++-common/goacc/nesting-fail-1.c (f_acc_routine): ... here.
 	* c-c++-common/goacc/parallel-in-routine.c: Remove.
