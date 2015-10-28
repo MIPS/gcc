@@ -1446,7 +1446,7 @@ gfc_match_oacc_declare (void)
   gfc_omp_clauses *c;
   gfc_omp_namelist *n;
   gfc_namespace *ns = gfc_current_ns;
-  gfc_oacc_declare *new_oc, *oc;
+  gfc_oacc_declare *new_oc;
   bool module_var = false;
 
   if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, 0, false, false, true)
@@ -4915,7 +4915,6 @@ resolve_oacc_declare_map (gfc_oacc_declare *declare, int list)
 void
 gfc_resolve_oacc_declare (gfc_namespace *ns)
 {
-  int list;
   gfc_omp_namelist *n;
   locus loc;
   gfc_oacc_declare *oc;

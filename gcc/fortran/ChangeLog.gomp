@@ -1,3 +1,8 @@
+2015-10-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (gfc_match_oacc_declare): Remove oc local variable.
+	(gfc_resolve_oacc_declare): Remove list local variable.
+
 2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.h (gfc_omp_namelist): Add locus where member.

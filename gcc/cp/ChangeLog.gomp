@@ -1,3 +1,7 @@
+2015-10-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parser.c (require_positive_expr): Remove function.
+
 2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.c (cp_parser_oacc_shape_clause): Backport from trunk.

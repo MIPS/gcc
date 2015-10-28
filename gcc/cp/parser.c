@@ -29642,23 +29642,6 @@ cp_parser_oacc_data_clause_deviceptr (cp_parser *parser, tree list)
   return list;
 }
 
-/* Attempt to statically determine when the number T isn't positive.
-   Warn if we determined this and return positive one as the new
-   expression.  */
-static tree
-require_positive_expr (tree t, location_t loc, const char *str)
-{
-  tree c = fold_build2_loc (loc, LE_EXPR, boolean_type_node, t,
-			    build_int_cst (TREE_TYPE (t), 0));
-  if (c == boolean_true_node)
-    {
-      warning_at (loc, 0,
-		  "%<%s%> value must be positive", str);
-      t = integer_one_node;
-    }
-  return t;
-}
-
 /* OpenACC:
    num_gangs ( expression )
    num_workers ( expression )
