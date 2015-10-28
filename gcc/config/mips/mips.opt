@@ -243,6 +243,10 @@ mgp64
 Target Report RejectNegative Mask(64BIT)
 Use 64-bit general registers
 
+mshort-jump-tables
+Target Report Var(TARGET_SHORT_JUMP_TABLES) Init(1)
+Use short jump tables
+
 mgpopt
 Target Report Var(TARGET_GPOPT) Init(1)
 Use GP-relative addressing to access small data

@@ -2601,7 +2601,7 @@ typedef struct mips_args {
    offsets.  This is only possible when general text loads are allowed,
    since the table access itself will be an "lh" instruction.  If the
    PC-relative offsets grow too large, 32-bit offsets are used instead.  */
-#define TARGET_MIPS16_SHORT_JUMP_TABLES TARGET_MIPS16_TEXT_LOADS
+#define TARGET_MIPS16_SHORT_JUMP_TABLES (TARGET_MIPS16_TEXT_LOADS && TARGET_SHORT_JUMP_TABLES)
 
 #define JUMP_TABLES_IN_TEXT_SECTION TARGET_MIPS16_SHORT_JUMP_TABLES
 
