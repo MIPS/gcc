@@ -45,3 +45,22 @@ f_acc_routine (void)
 #pragma acc parallel /* { dg-error "OpenACC region inside of OpenACC routine, nested parallelism not supported yet" } */
   ;
 }
+
+void
+f_acc_data (void)
+{
+  unsigned int i;
+#pragma acc data
+  {
+#pragma acc loop /* { dg-error "loop directive must be associated with an OpenACC compute region" } */
+    for (i = 0; i < 2; ++i)
+      ;
+
+#pragma acc data
+    {
+#pragma acc loop /* { dg-error "loop directive must be associated with an OpenACC compute region" } */
+      for (i = 0; i < 2; ++i)
+	;
+    }
+  }
+}
