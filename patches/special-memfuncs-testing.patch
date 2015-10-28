@@ -1,5 +1,5 @@
 Bottom: 2764bd37f73cd746863cb9f8baeec4c2a059a9da
-Top:    2764bd37f73cd746863cb9f8baeec4c2a059a9da
+Top:    a631a0533d5fb88ddc5fe9f42efee0f1c01ab0aa
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-27 04:32:29 -0200
 
@@ -7,4 +7,121 @@ Test special member functions
 
 ---
 
-
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index db423e4..665cf31 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -481,11 +481,10 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 
+   source_location loc = ctx->get_source_location (filename, line_number);
+   bool class_member_p = at_class_scope_p ();
++  bool ctor = false, dtor = false;
+ 
+   if (code == FUNCTION_DECL)
+     {
+-      bool ctor = false, dtor = false;
+-
+       if (sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
+ 	{
+ #define CHARS2(f,s) (((unsigned char)f << CHAR_BIT) | (unsigned char)s)
+@@ -679,6 +678,16 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	    gcc_unreachable ();
+ 	  }
+ 	}
++      if (ctor || dtor)
++	{
++	  tree lookup_id;
++	  if (ctor)
++	    lookup_id = constructor_name_full (current_class_type);
++	  else
++	    lookup_id = built_nt (BIT_NOT_EXPR, current_class_type);
++	  // FIXME: look up a decl with the given signature
++	  goto found_decl;
++	}
+       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+       SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
+       if (class_member_p)
+@@ -714,7 +723,6 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	    DECL_CONSTRUCTOR_P (decl) = 1;
+ 	  if (dtor)
+ 	    DECL_DESTRUCTOR_P (decl) = 1;
+-	  clone_function_decl (decl, /*update_method_vec_p=*/0);
+ 	}
+     }
+   else if (class_member_p)
+@@ -744,6 +752,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+   else if (at_namespace_scope_p ())
+     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
+ 
++ found_decl:
+   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
+     {
+       decl_addr_value value;
+@@ -775,7 +784,11 @@ plugin_new_decl (cc1_plugin::connection *self,
+     }
+ 
+   if (class_member_p)
+-    finish_member_declaration (decl);
++    {
++      finish_member_declaration (decl);
++      if (ctor || dtor)
++	clone_function_decl (decl, /*update_method_vec_p=*/0);
++    }
+   else
+     decl = safe_pushdecl_maybe_friend (decl, false);
+ 
+@@ -863,7 +876,17 @@ plugin_start_new_class_type (cc1_plugin::connection *self,
+ 				      ctx->get_source_location (filename,
+ 								line_number));
+ 
+-  return convert_out (ctx->preserve (type));
++  gcc_type class_type = convert_out (ctx->preserve (type));
++
++  if (strcmp (name, "lxtest") == 0) {
++    extern void lxtest_members (cc1_plugin::connection *self,
++				gcc_type class_type,
++				const char *filename,
++				unsigned int line_number);
++    lxtest_members (self, class_type, filename, line_number);
++  }
++
++  return class_type;
+ }
+ 
+ gcc_type
+@@ -1255,6 +1278,35 @@ plugin_error (cc1_plugin::connection *,
+   return convert_out (error_mark_node);
+ }
+ 
++void
++lxtest_members (cc1_plugin::connection *self,
++		gcc_type class_type,
++		const char *filename,
++		unsigned int line_number) {
++  gcc_type void_type = plugin_void_type (self);
++  gcc_type int_type = plugin_int_type (self, 0, sizeof (int));
++  gcc_type_array argi = { 1, &int_type };
++  gcc_type fi2v = plugin_build_function_type (self, void_type, &argi, 0);
++  gcc_type mi2v = plugin_build_method_type (self, class_type, fi2v,
++					    gcc_cp_qualifiers (0),
++					    GCC_CP_REF_QUAL_NONE);
++  plugin_new_decl (self, "pL",
++		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
++				       GCC_CP_FLAG_SPECIAL_FUNCTION),
++		   mi2v, 0, 2,
++		   filename, line_number);
++  plugin_new_decl (self, "C1",
++		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
++				       GCC_CP_FLAG_SPECIAL_FUNCTION),
++		   mi2v, 0, 4,
++		   filename, line_number);
++  plugin_new_decl (self, "C2",
++		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
++				       GCC_CP_FLAG_SPECIAL_FUNCTION),
++		   mi2v, 0, 6,
++		   filename, line_number);
++}
++
+ 
+ 
+ // Perform GC marking.
