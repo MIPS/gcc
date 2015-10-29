@@ -182,9 +182,7 @@ struct temp_expr_table
 /* A place for the many, many bitmaps we create.  */
 static bitmap_obstack ter_bitmap_obstack;
 
-#ifdef ENABLE_CHECKING
 extern void debug_ter (FILE *, temp_expr_table *);
-#endif
 
 
 /* Create a new TER table for MAP.  */
@@ -232,16 +230,16 @@ free_temp_expr_table (temp_expr_table *t)
 {
   bitmap ret = NULL;
 
-#ifdef ENABLE_CHECKING
-  unsigned x;
-  for (x = 0; x <= num_var_partitions (t->map); x++)
-    gcc_assert (!t->kill_list[x]);
-  for (x = 0; x < num_ssa_names; x++)
+  if (flag_checking)
     {
-      gcc_assert (t->expr_decl_uids[x] == NULL);
-      gcc_assert (t->partition_dependencies[x] == NULL);
+      for (unsigned x = 0; x <= num_var_partitions (t->map); x++)
+	gcc_assert (!t->kill_list[x]);
+      for (unsigned x = 0; x < num_ssa_names; x++)
+	{
+	  gcc_assert (t->expr_decl_uids[x] == NULL);
+	  gcc_assert (t->partition_dependencies[x] == NULL);
+	}
     }
-#endif
 
   BITMAP_FREE (t->partition_in_use);
   BITMAP_FREE (t->new_replaceable_dependencies);
@@ -395,14 +393,14 @@ finished_with_expr (temp_expr_table *tab, int version, bool free_expr)
    is available.  */
 
 static inline bool
-ter_is_replaceable_p (gimple stmt)
+ter_is_replaceable_p (gimple *stmt)
 {
 
   if (ssa_is_replaceable_p (stmt))
     {
       use_operand_p use_p;
       tree def;
-      gimple use_stmt;
+      gimple *use_stmt;
       location_t locus1, locus2;
       tree block1, block2;
 
@@ -443,7 +441,7 @@ ter_is_replaceable_p (gimple stmt)
 /* Create an expression entry for a replaceable expression.  */
 
 static void
-process_replaceable (temp_expr_table *tab, gimple stmt, int call_cnt)
+process_replaceable (temp_expr_table *tab, gimple *stmt, int call_cnt)
 {
   tree var, def, basevar;
   int version;
@@ -562,7 +560,7 @@ find_ssaname (tree *tp, int *walk_subtrees, void *data)
    walk_stmt_load_store_addr_ops.  */
 
 static bool
-find_ssaname_in_store (gimple, tree, tree t, void *data)
+find_ssaname_in_store (gimple *, tree, tree t, void *data)
 {
   return walk_tree (&t, find_ssaname, data, NULL) != NULL_TREE;
 }
@@ -574,7 +572,7 @@ static void
 find_replaceable_in_bb (temp_expr_table *tab, basic_block bb)
 {
   gimple_stmt_iterator bsi;
-  gimple stmt;
+  gimple *stmt;
   tree def, use, fndecl;
   int partition;
   var_map map = tab->map;
@@ -622,7 +620,7 @@ find_replaceable_in_bb (temp_expr_table *tab, basic_block bb)
 		 assignments which we cannot expand correctly.  */
 	      if (gimple_vdef (stmt))
 		{
-		  gimple def_stmt = SSA_NAME_DEF_STMT (use);
+		  gimple *def_stmt = SSA_NAME_DEF_STMT (use);
 		  while (is_gimple_assign (def_stmt)
 			 && gimple_assign_rhs_code (def_stmt) == SSA_NAME)
 		    def_stmt
@@ -748,7 +746,6 @@ dump_replaceable_exprs (FILE *f, bitmap expr)
 }
 
 
-#ifdef ENABLE_CHECKING
 /* Dump the status of the various tables in the expression table.  This is used
    exclusively to debug TER.  F is the place to send debug info and T is the
    table being debugged.  */
@@ -796,4 +793,3 @@ debug_ter (FILE *f, temp_expr_table *t)
 
   fprintf (f, "\n----------\n");
 }
-#endif

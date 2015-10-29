@@ -723,7 +723,7 @@ nonzero_address_p (const_rtx x)
   switch (code)
     {
     case SYMBOL_REF:
-      return !SYMBOL_REF_WEAK (x);
+      return flag_delete_null_pointer_checks && !SYMBOL_REF_WEAK (x);
 
     case LABEL_REF:
       return true;
@@ -5785,15 +5785,13 @@ split_double (rtx value, rtx *first, rtx *second)
     }
   else
     {
-      REAL_VALUE_TYPE r;
       long l[2];
-      REAL_VALUE_FROM_CONST_DOUBLE (r, value);
 
       /* Note, this converts the REAL_VALUE_TYPE to the target's
 	 format, splits up the floating point double and outputs
 	 exactly 32 bits of it into each of l[0] and l[1] --
 	 not necessarily BITS_PER_WORD bits.  */
-      REAL_VALUE_TO_TARGET_DOUBLE (r, l);
+      REAL_VALUE_TO_TARGET_DOUBLE (*CONST_DOUBLE_REAL_VALUE (value), l);
 
       /* If 32 bits is an entire word for the target, but not for the host,
 	 then sign-extend on the host so that the number will look the same

@@ -1904,6 +1904,13 @@ Integer_expression::do_check_types(Gogo*)
 Bexpression*
 Integer_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type = NULL;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2266,6 +2273,13 @@ Float_expression::do_check_types(Gogo*)
 Bexpression*
 Float_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2448,6 +2462,13 @@ Complex_expression::do_check_types(Gogo*)
 Bexpression*
 Complex_expression::do_get_backend(Translate_context* context)
 {
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error_type()))
+    {
+      go_assert(saw_errors());
+      return context->gogo()->backend()->error_expression();
+    }
+
   Type* resolved_type;
   if (this->type_ != NULL && !this->type_->is_abstract())
     resolved_type = this->type_;
@@ -2826,8 +2847,12 @@ Const_expression::do_check_types(Gogo*)
 Bexpression*
 Const_expression::do_get_backend(Translate_context* context)
 {
-  if (this->type_ != NULL && this->type_->is_error())
-    return context->backend()->error_expression();
+  if (this->is_error_expression()
+      || (this->type_ != NULL && this->type_->is_error()))
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
 
   // If the type has been set for this expression, but the underlying
   // object is an abstract int or float, we try to get the abstract
@@ -3447,6 +3472,15 @@ Unsafe_type_conversion_expression::do_get_backend(Translate_context* context)
 
   Type* t = this->type_;
   Type* et = this->expr_->type();
+
+  if (t->is_error_type()
+      || this->expr_->is_error_expression()
+      || et->is_error_type())
+    {
+      go_assert(saw_errors());
+      return context->backend()->error_expression();
+    }
+
   if (t->array_type() != NULL)
     go_assert(et->array_type() != NULL
               && t->is_slice_type() == et->is_slice_type());
@@ -4875,14 +4909,7 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
 	    Numeric_constant nc;
 	    if (!Binary_expression::eval_constant(op, &left_nc, &right_nc,
 						  location, &nc))
-              {
-                if (nc.is_invalid())
-                  {
-                    go_assert(saw_errors());
-                    return Expression::make_error(location);
-                  }
                 return this;
-              }
 	    return nc.expression(location);
 	  }
       }
@@ -5166,13 +5193,13 @@ Binary_expression::do_flatten(Gogo* gogo, Named_object*,
       || (is_idiv_op
 	  && (gogo->check_divide_by_zero() || gogo->check_divide_overflow())))
     {
-      if (!this->left_->is_variable())
+      if (!this->left_->is_variable() && !this->left_->is_constant())
         {
           temp = Statement::make_temporary(NULL, this->left_, loc);
           inserter->insert(temp);
           this->left_ = Expression::make_temporary_reference(temp, loc);
         }
-      if (!this->right_->is_variable())
+      if (!this->right_->is_variable() && !this->right_->is_constant())
         {
           temp =
               Statement::make_temporary(NULL, this->right_, loc);
@@ -5307,6 +5334,14 @@ Binary_expression::do_determine_type(const Type_context* context)
 			|| this->op_ == OPERATOR_GT
 			|| this->op_ == OPERATOR_GE);
 
+  // For constant expressions, the context of the result is not useful in
+  // determining the types of the operands.  It is only legal to use abstract
+  // boolean, numeric, and string constants as operands where it is legal to
+  // use non-abstract boolean, numeric, and string constants, respectively.
+  // Any issues with the operation will be resolved in the check_types pass.
+  bool is_constant_expr = (this->left_->is_constant()
+                           && this->right_->is_constant());
+
   Type_context subcontext(*context);
 
   if (is_comparison)
@@ -5351,7 +5386,8 @@ Binary_expression::do_determine_type(const Type_context* context)
 	subcontext.type = subcontext.type->make_non_abstract_type();
     }
 
-  this->left_->determine_type(&subcontext);
+  if (!is_constant_expr)
+    this->left_->determine_type(&subcontext);
 
   if (is_shift_op)
     {
@@ -5371,7 +5407,8 @@ Binary_expression::do_determine_type(const Type_context* context)
       subcontext.may_be_abstract = false;
     }
 
-  this->right_->determine_type(&subcontext);
+  if (!is_constant_expr)
+    this->right_->determine_type(&subcontext);
 
   if (is_comparison)
     {
@@ -5396,7 +5433,8 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
     {
     case OPERATOR_OROR:
     case OPERATOR_ANDAND:
-      if (!type->is_boolean_type())
+      if (!type->is_boolean_type()
+          || !otype->is_boolean_type())
 	{
 	  error_at(location, "expected boolean type");
 	  return false;
@@ -5431,10 +5469,8 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
 
     case OPERATOR_PLUS:
     case OPERATOR_PLUSEQ:
-      if (type->integer_type() == NULL
-	  && type->float_type() == NULL
-	  && type->complex_type() == NULL
-	  && !type->is_string_type())
+      if ((!type->is_numeric_type() && !type->is_string_type())
+          || (!otype->is_numeric_type() && !otype->is_string_type()))
 	{
 	  error_at(location,
 		   "expected integer, floating, complex, or string type");
@@ -5448,9 +5484,7 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
     case OPERATOR_MULTEQ:
     case OPERATOR_DIV:
     case OPERATOR_DIVEQ:
-      if (type->integer_type() == NULL
-	  && type->float_type() == NULL
-	  && type->complex_type() == NULL)
+      if (!type->is_numeric_type() || !otype->is_numeric_type())
 	{
 	  error_at(location, "expected integer, floating, or complex type");
 	  return false;
@@ -5467,7 +5501,7 @@ Binary_expression::check_operator_type(Operator op, Type* type, Type* otype,
     case OPERATOR_XOREQ:
     case OPERATOR_BITCLEAR:
     case OPERATOR_BITCLEAREQ:
-      if (type->integer_type() == NULL)
+      if (type->integer_type() == NULL || otype->integer_type() == NULL)
 	{
 	  error_at(location, "expected integer type");
 	  return false;
@@ -5560,7 +5594,9 @@ Binary_expression::do_check_types(Gogo*)
       if (left_type->integer_type() == NULL)
 	this->report_error(_("shift of non-integer operand"));
 
-      if (!right_type->is_abstract()
+      if (right_type->is_string_type())
+        this->report_error(_("shift count not unsigned integer"));
+      else if (!right_type->is_abstract()
 	  && (right_type->integer_type() == NULL
 	      || !right_type->integer_type()->is_unsigned()))
 	this->report_error(_("shift count not unsigned integer"));
@@ -6878,11 +6914,6 @@ Builtin_call_expression::do_flatten(Gogo*, Named_object*,
                                     Statement_inserter* inserter)
 {
   Location loc = this->location();
-  if (this->is_erroneous_call())
-    {
-      go_assert(saw_errors());
-      return Expression::make_error(loc);
-    }
 
   switch (this->code_)
     {
@@ -8057,6 +8088,13 @@ Builtin_call_expression::do_get_backend(Translate_context* context)
 {
   Gogo* gogo = context->gogo();
   Location location = this->location();
+
+  if (this->is_erroneous_call())
+    {
+      go_assert(saw_errors());
+      return gogo->backend()->error_expression();
+    }
+
   switch (this->code_)
     {
     case BUILTIN_INVALID:
@@ -9827,11 +9865,26 @@ void
 Array_index_expression::do_determine_type(const Type_context*)
 {
   this->array_->determine_type_no_context();
-  this->start_->determine_type_no_context();
+
+  Type_context index_context(Type::lookup_integer_type("int"), false);
+  if (this->start_->is_constant())
+    this->start_->determine_type(&index_context);
+  else
+    this->start_->determine_type_no_context();
   if (this->end_ != NULL)
-    this->end_->determine_type_no_context();
+    {
+      if (this->end_->is_constant())
+        this->end_->determine_type(&index_context);
+      else
+        this->end_->determine_type_no_context();
+    }
   if (this->cap_ != NULL)
-    this->cap_->determine_type_no_context();
+    {
+      if (this->cap_->is_constant())
+        this->cap_->determine_type(&index_context);
+      else
+        this->cap_->determine_type_no_context();
+    }
 }
 
 // Check types of an array index.
@@ -10372,9 +10425,19 @@ void
 String_index_expression::do_determine_type(const Type_context*)
 {
   this->string_->determine_type_no_context();
-  this->start_->determine_type_no_context();
+
+  Type_context index_context(Type::lookup_integer_type("int"), false);
+  if (this->start_->is_constant())
+    this->start_->determine_type(&index_context);
+  else
+    this->start_->determine_type_no_context();
   if (this->end_ != NULL)
-    this->end_->determine_type_no_context();
+    {
+      if (this->end_->is_constant())
+        this->end_->determine_type(&index_context);
+      else
+        this->end_->determine_type_no_context();
+    }
 }
 
 // Check types of a string index.
@@ -13459,9 +13522,14 @@ Expression::make_heap_expression(Expression* expr, Location location)
 Type*
 Receive_expression::do_type()
 {
+  if (this->is_error_expression())
+    return Type::make_error_type();
   Channel_type* channel_type = this->channel_->type()->channel_type();
   if (channel_type == NULL)
-    return Type::make_error_type();
+    {
+      this->report_error(_("expected channel"));
+      return Type::make_error_type();
+    }
   return channel_type->element_type();
 }
 
@@ -13473,6 +13541,7 @@ Receive_expression::do_check_types(Gogo*)
   Type* type = this->channel_->type();
   if (type->is_error())
     {
+      go_assert(saw_errors());
       this->set_is_error();
       return;
     }

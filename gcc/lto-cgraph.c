@@ -895,14 +895,6 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       add_node_to (encoder, node, true);
       lto_set_symtab_encoder_in_partition (encoder, node);
       create_references (encoder, node);
-      /* For proper debug info, we need to ship the origins, too.  */
-      if (DECL_ABSTRACT_ORIGIN (node->decl))
-	{
-	  struct cgraph_node *origin_node
-	  = cgraph_node::get_create (DECL_ABSTRACT_ORIGIN (node->decl));
-	  origin_node->used_as_abstract_origin = true;
-	  add_node_to (encoder, origin_node, true);
-	}
     }
   for (lsei = lsei_start_variable_in_partition (in_encoder);
        !lsei_end_p (lsei); lsei_next_variable_in_partition (&lsei))
@@ -914,13 +906,6 @@ compute_ltrans_boundary (lto_symtab_encoder_t in_encoder)
       lto_set_symtab_encoder_in_partition (encoder, vnode);
       lto_set_symtab_encoder_encode_initializer (encoder, vnode);
       create_references (encoder, vnode);
-      /* For proper debug info, we need to ship the origins, too.  */
-      if (DECL_ABSTRACT_ORIGIN (vnode->decl))
-	{
-	  varpool_node *origin_node
-	    = varpool_node::get (DECL_ABSTRACT_ORIGIN (vnode->decl));
-	  lto_set_symtab_encoder_in_partition (encoder, origin_node);
-	}
     }
   /* Pickle in also the initializer of all referenced readonly variables
      to help folding.  Constant pool variables are not shared, so we must
@@ -1575,10 +1560,11 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
   lto_input_toplevel_asms (file_data, order_base);
 
   /* AUX pointers should be all non-zero for function nodes read from the stream.  */
-#ifdef ENABLE_CHECKING
-  FOR_EACH_VEC_ELT (nodes, i, node)
-    gcc_assert (node->aux || !is_a <cgraph_node *> (node));
-#endif
+  if (flag_checking)
+    {
+      FOR_EACH_VEC_ELT (nodes, i, node)
+	gcc_assert (node->aux || !is_a <cgraph_node *> (node));
+    }
   FOR_EACH_VEC_ELT (nodes, i, node)
     {
       int ref;

@@ -70,7 +70,7 @@ associate_equivalences_with_edges (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi = gsi_last_bb (bb);
-      gimple stmt;
+      gimple *stmt;
 
       /* If the block does not end with a COND_EXPR or SWITCH_EXPR
 	 then there is nothing to do.  */
@@ -153,7 +153,7 @@ associate_equivalences_with_edges (void)
 		     this value unless we know that the value is nonzero.  */
 		  if (HONOR_SIGNED_ZEROS (op0)
 		      && (TREE_CODE (op1) != REAL_CST
-			  || REAL_VALUES_EQUAL (dconst0, TREE_REAL_CST (op1))))
+			  || real_equal (&dconst0, &TREE_REAL_CST (op1))))
 		    continue;
 
 		  equivalency = XNEW (struct edge_equivalency);
@@ -388,7 +388,7 @@ uncprop_into_successor_phis (basic_block bb)
       /* Walk over the PHI nodes, unpropagating values.  */
       for (gsi = gsi_start (phis) ; !gsi_end_p (gsi); gsi_next (&gsi))
 	{
-	  gimple phi = gsi_stmt (gsi);
+	  gimple *phi = gsi_stmt (gsi);
 	  tree arg = PHI_ARG_DEF (phi, e->dest_idx);
 	  tree res = PHI_RESULT (phi);
 

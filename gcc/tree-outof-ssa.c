@@ -60,11 +60,11 @@ along with GCC; see the file COPYING3.  If not see
 /* Return TRUE if expression STMT is suitable for replacement.  */
 
 bool
-ssa_is_replaceable_p (gimple stmt)
+ssa_is_replaceable_p (gimple *stmt)
 {
   use_operand_p use_p;
   tree def;
-  gimple use_stmt;
+  gimple *use_stmt;
 
   /* Only consider modify stmts.  */
   if (!is_gimple_assign (stmt))
@@ -192,7 +192,7 @@ set_location_for_edge (edge e)
 	{
 	  for (gsi = gsi_last_bb (bb); !gsi_end_p (gsi); gsi_prev (&gsi))
 	    {
-	      gimple stmt = gsi_stmt (gsi);
+	      gimple *stmt = gsi_stmt (gsi);
 	      if (is_gimple_debug (stmt))
 		continue;
 	      if (gimple_has_location (stmt) || gimple_block (stmt))
@@ -806,7 +806,7 @@ remove_gimple_phi_args (gphi *phi)
 	  SET_USE (arg_p, NULL_TREE);
 	  if (has_zero_uses (arg))
 	    {
-	      gimple stmt;
+	      gimple *stmt;
 	      gimple_stmt_iterator gsi;
 
 	      stmt = SSA_NAME_DEF_STMT (arg);
@@ -841,24 +841,23 @@ eliminate_useless_phis (void)
 	  result = gimple_phi_result (phi);
 	  if (virtual_operand_p (result))
 	    {
-#ifdef ENABLE_CHECKING
-	      size_t i;
 	      /* There should be no arguments which are not virtual, or the
 	         results will be incorrect.  */
-	      for (i = 0; i < gimple_phi_num_args (phi); i++)
-	        {
-		  tree arg = PHI_ARG_DEF (phi, i);
-		  if (TREE_CODE (arg) == SSA_NAME
-		      && !virtual_operand_p (arg))
-		    {
-		      fprintf (stderr, "Argument of PHI is not virtual (");
-		      print_generic_expr (stderr, arg, TDF_SLIM);
-		      fprintf (stderr, "), but the result is :");
-		      print_gimple_stmt (stderr, phi, 0, TDF_SLIM);
-		      internal_error ("SSA corruption");
-		    }
-		}
-#endif
+	      if (flag_checking)
+		for (size_t i = 0; i < gimple_phi_num_args (phi); i++)
+		  {
+		    tree arg = PHI_ARG_DEF (phi, i);
+		    if (TREE_CODE (arg) == SSA_NAME
+			&& !virtual_operand_p (arg))
+		      {
+			fprintf (stderr, "Argument of PHI is not virtual (");
+			print_generic_expr (stderr, arg, TDF_SLIM);
+			fprintf (stderr, "), but the result is :");
+			print_gimple_stmt (stderr, phi, 0, TDF_SLIM);
+			internal_error ("SSA corruption");
+		      }
+		  }
+
 	      remove_phi_node (&gsi, true);
 	    }
           else
@@ -884,9 +883,11 @@ eliminate_useless_phis (void)
    variable.  */
 
 static void
-rewrite_trees (var_map map ATTRIBUTE_UNUSED)
+rewrite_trees (var_map map)
 {
-#ifdef ENABLE_CHECKING
+  if (!flag_checking)
+    return;
+
   basic_block bb;
   /* Search for PHIs where the destination has no partition, but one
      or more arguments has a partition.  This should not happen and can
@@ -918,7 +919,6 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
 	    }
 	}
     }
-#endif
 }
 
 /* Given the out-of-ssa info object SA (with prepared partitions)
@@ -980,7 +980,6 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 {
   bitmap values = NULL;
   var_map map;
-  unsigned i;
 
   map = coalesce_ssa_name ();
 
@@ -1005,17 +1004,7 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 
   sa->map = map;
   sa->values = values;
-  sa->partition_has_default_def = BITMAP_ALLOC (NULL);
-  for (i = 1; i < num_ssa_names; i++)
-    {
-      tree t = ssa_name (i);
-      if (t && SSA_NAME_IS_DEFAULT_DEF (t))
-	{
-	  int p = var_to_partition (map, t);
-	  if (p != NO_PARTITION)
-	    bitmap_set_bit (sa->partition_has_default_def, p);
-	}
-    }
+  sa->partitions_for_parm_default_defs = get_parm_default_def_partitions (map);
 }
 
 
@@ -1033,7 +1022,7 @@ maybe_renumber_stmts_bb (basic_block bb)
   bb->aux = NULL;
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple stmt = gsi_stmt (gsi);
+      gimple *stmt = gsi_stmt (gsi);
       gimple_set_uid (stmt, i);
       i++;
     }
@@ -1049,7 +1038,7 @@ trivially_conflicts_p (basic_block bb, tree result, tree arg)
 {
   use_operand_p use;
   imm_use_iterator imm_iter;
-  gimple defa = SSA_NAME_DEF_STMT (arg);
+  gimple *defa = SSA_NAME_DEF_STMT (arg);
 
   /* If ARG isn't defined in the same block it's too complicated for
      our little mind.  */
@@ -1058,7 +1047,7 @@ trivially_conflicts_p (basic_block bb, tree result, tree arg)
 
   FOR_EACH_IMM_USE_FAST (use, imm_iter, result)
     {
-      gimple use_stmt = USE_STMT (use);
+      gimple *use_stmt = USE_STMT (use);
       if (is_gimple_debug (use_stmt))
 	continue;
       /* Now, if there's a use of RESULT that lies outside this basic block,
@@ -1129,7 +1118,7 @@ insert_backedge_copies (void)
 		{
 		  tree name;
 		  gassign *stmt;
-		  gimple last = NULL;
+		  gimple *last = NULL;
 		  gimple_stmt_iterator gsi2;
 
 		  gsi2 = gsi_last_bb (gimple_phi_arg_edge (phi, i)->src);
@@ -1190,7 +1179,7 @@ finish_out_of_ssa (struct ssaexpand *sa)
   if (sa->values)
     BITMAP_FREE (sa->values);
   delete_var_map (sa->map);
-  BITMAP_FREE (sa->partition_has_default_def);
+  BITMAP_FREE (sa->partitions_for_parm_default_defs);
   memset (sa, 0, sizeof *sa);
 }
 

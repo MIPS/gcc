@@ -24,51 +24,39 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "cfghooks.h"
 #include "df.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "cgraph.h"
+#include "diagnostic-core.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "stringpool.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "varasm.h"
-#include "regs.h"
-#include "insn-config.h"
-#include "conditions.h"
 #include "output.h"
 #include "insn-attr.h"
 #include "flags.h"
 #include "reload.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "diagnostic-core.h"
-#include "recog.h"
 #include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "cgraph.h"
-#include "except.h"
-#include "tm_p.h"
-#include "target.h"
 #include "sched-int.h"
-#include "debug.h"
+#include "common/common-target.h"
 #include "langhooks.h"
 #include "intl.h"
 #include "libfuncs.h"
 #include "params.h"
 #include "opts.h"
 #include "dumpfile.h"
-#include "gimple-expr.h"
 #include "target-globals.h"
 #include "builtins.h"
 #include "tm-constrs.h"
@@ -95,7 +83,7 @@ static int arm_compute_static_chain_stack_bytes (void);
 static arm_stack_offsets *arm_get_frame_offsets (void);
 static void arm_add_gc_roots (void);
 static int arm_gen_constant (enum rtx_code, machine_mode, rtx,
-			     HOST_WIDE_INT, rtx, rtx, int, int);
+			     unsigned HOST_WIDE_INT, rtx, rtx, int, int);
 static unsigned bit_count (unsigned long);
 static unsigned feature_count (const arm_feature_set*);
 static int arm_address_register_rtx_p (rtx, int);
@@ -245,8 +233,11 @@ static tree arm_build_builtin_va_list (void);
 static void arm_expand_builtin_va_start (tree, rtx);
 static tree arm_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
 static void arm_option_override (void);
+static void arm_override_options_after_change (void);
+static void arm_option_print (FILE *, int, struct cl_target_option *);
 static void arm_set_current_function (tree);
 static bool arm_can_inline_p (tree, tree);
+static void arm_relayout_function (tree);
 static bool arm_valid_target_attribute_p (tree, tree, tree, int);
 static unsigned HOST_WIDE_INT arm_shift_truncation_mask (machine_mode);
 static bool arm_macro_fusion_p (void);
@@ -402,8 +393,17 @@ static const struct attribute_spec arm_attribute_table[] =
 #undef TARGET_CAN_INLINE_P
 #define TARGET_CAN_INLINE_P arm_can_inline_p
 
+#undef TARGET_RELAYOUT_FUNCTION
+#define TARGET_RELAYOUT_FUNCTION arm_relayout_function
+
 #undef  TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE arm_option_override
+
+#undef TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE
+#define TARGET_OVERRIDE_OPTIONS_AFTER_CHANGE arm_override_options_after_change
+
+#undef TARGET_OPTION_PRINT
+#define TARGET_OPTION_PRINT arm_option_print
 
 #undef  TARGET_COMP_TYPE_ATTRIBUTES
 #define TARGET_COMP_TYPE_ATTRIBUTES arm_comp_type_attributes
@@ -2751,15 +2751,14 @@ arm_option_check_internal (struct gcc_options *opts)
     error ("-mslow-flash-data only supports non-pic code on armv7-m targets");
 }
 
-/* Set params depending on attributes and optimization options.  */
-static void
-arm_option_params_internal (struct gcc_options *opts)
-{
-  int flags = opts->x_target_flags;
+/* Recompute the global settings depending on target attribute options.  */
 
- /* If we are not using the default (ARM mode) section anchor offset
+static void
+arm_option_params_internal (void)
+{
+  /* If we are not using the default (ARM mode) section anchor offset
      ranges, then set the correct ranges now.  */
-  if (TARGET_THUMB1_P (flags))
+  if (TARGET_THUMB1)
     {
       /* Thumb-1 LDR instructions cannot have negative offsets.
          Permissible positive offset ranges are 5-bit (for byte loads),
@@ -2769,7 +2768,7 @@ arm_option_params_internal (struct gcc_options *opts)
       targetm.min_anchor_offset = 0;
       targetm.max_anchor_offset = 127;
     }
-  else if (TARGET_THUMB2_P (flags))
+  else if (TARGET_THUMB2)
     {
       /* The minimum is set such that the total size of the block
          for a particular anchor is 248 + 1 + 4095 bytes, which is
@@ -2790,14 +2789,13 @@ arm_option_params_internal (struct gcc_options *opts)
       max_insns_skipped = 6;
 
       /* For THUMB2, we limit the conditional sequence to one IT block.  */
-      if (TARGET_THUMB2_P (flags))
-        max_insns_skipped = opts->x_arm_restrict_it ? 1 : 4;
+      if (TARGET_THUMB2)
+        max_insns_skipped = arm_restrict_it ? 1 : 4;
     }
   else
     /* When -mrestrict-it is in use tone down the if-conversion.  */
-    max_insns_skipped
-      = (TARGET_THUMB2_P (opts->x_target_flags) && opts->x_arm_restrict_it)
-         ? 1 : current_tune->max_insns_skipped;
+    max_insns_skipped = (TARGET_THUMB2 && arm_restrict_it)
+      ? 1 : current_tune->max_insns_skipped;
 }
 
 /* True if -mflip-thumb should next add an attribute for the default
@@ -2807,11 +2805,29 @@ static GTY(()) bool thumb_flipper;
 /* Options after initial target override.  */
 static GTY(()) tree init_optimize;
 
+static void
+arm_override_options_after_change_1 (struct gcc_options *opts)
+{
+  if (opts->x_align_functions <= 0)
+    opts->x_align_functions = TARGET_THUMB_P (opts->x_target_flags)
+      && opts->x_optimize_size ? 2 : 4;
+}
+
+/* Implement targetm.override_options_after_change.  */
+
+static void
+arm_override_options_after_change (void)
+{
+  arm_override_options_after_change_1 (&global_options);
+}
+
 /* Reset options between modes that the user has specified.  */
 static void
 arm_option_override_internal (struct gcc_options *opts,
 			      struct gcc_options *opts_set)
 {
+  arm_override_options_after_change_1 (opts);
+
   if (TARGET_THUMB_P (opts->x_target_flags)
       && !(ARM_FSET_HAS_CPU1 (insn_flags, FL_THUMB)))
     {
@@ -3385,7 +3401,7 @@ arm_option_override (void)
 
   arm_option_override_internal (&global_options, &global_options_set);
   arm_option_check_internal (&global_options);
-  arm_option_params_internal (&global_options);
+  arm_option_params_internal ();
 
   /* Register global variables with the garbage collector.  */
   arm_add_gc_roots ();
@@ -3667,7 +3683,11 @@ use_return_insn (int iscond, rtx sibling)
       /* Or if there is a stack adjustment.  However, if the stack pointer
 	 is saved on the stack, we can use a pre-incrementing stack load.  */
       || !(stack_adjust == 0 || (TARGET_APCS_FRAME && frame_pointer_needed
-				 && stack_adjust == 4)))
+				 && stack_adjust == 4))
+      /* Or if the static chain register was saved above the frame, under the
+	 assumption that the stack pointer isn't saved on the stack.  */
+      || (!(TARGET_APCS_FRAME && frame_pointer_needed)
+          && arm_compute_static_chain_stack_bytes() != 0))
     return 0;
 
   saved_int_regs = offsets->saved_regs_mask;
@@ -4227,8 +4247,8 @@ emit_constant_insn (rtx cond, rtx pattern)
 
 static int
 arm_gen_constant (enum rtx_code code, machine_mode mode, rtx cond,
-		  HOST_WIDE_INT val, rtx target, rtx source, int subtargets,
-		  int generate)
+		  unsigned HOST_WIDE_INT val, rtx target, rtx source,
+		  int subtargets, int generate)
 {
   int can_invert = 0;
   int can_negate = 0;
@@ -4598,7 +4618,7 @@ arm_gen_constant (enum rtx_code code, machine_mode mode, rtx cond,
 	  mvn	r0, r0, asl #12
 	  mvn	r0, r0, lsr #12  */
       if (set_sign_bit_copies > 8
-	  && (val & (-1 << (32 - set_sign_bit_copies))) == val)
+	  && (val & (HOST_WIDE_INT_M1U << (32 - set_sign_bit_copies))) == val)
 	{
 	  if (generate)
 	    {
@@ -12091,16 +12111,16 @@ init_fp_table (void)
 int
 arm_const_double_rtx (rtx x)
 {
-  REAL_VALUE_TYPE r;
+  const REAL_VALUE_TYPE *r;
 
   if (!fp_consts_inited)
     init_fp_table ();
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-  if (REAL_VALUE_MINUS_ZERO (r))
+  r = CONST_DOUBLE_REAL_VALUE (x);
+  if (REAL_VALUE_MINUS_ZERO (*r))
     return 0;
 
-  if (REAL_VALUES_EQUAL (r, value_fp0))
+  if (real_equal (r, &value_fp0))
     return 1;
 
   return 0;
@@ -12137,7 +12157,7 @@ vfp3_const_double_index (rtx x)
   if (!TARGET_VFP3 || !CONST_DOUBLE_P (x))
     return -1;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, x);
+  r = *CONST_DOUBLE_REAL_VALUE (x);
 
   /* We can't represent these things, so detect them first.  */
   if (REAL_VALUE_ISINF (r) || REAL_VALUE_ISNAN (r) || REAL_VALUE_MINUS_ZERO (r))
@@ -12298,21 +12318,17 @@ neon_valid_immediate (rtx op, machine_mode mode, int inverse,
   if (GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
     {
       rtx el0 = CONST_VECTOR_ELT (op, 0);
-      REAL_VALUE_TYPE r0;
+      const REAL_VALUE_TYPE *r0;
 
       if (!vfp3_const_double_rtx (el0) && el0 != CONST0_RTX (GET_MODE (el0)))
         return -1;
 
-      REAL_VALUE_FROM_CONST_DOUBLE (r0, el0);
+      r0 = CONST_DOUBLE_REAL_VALUE (el0);
 
       for (i = 1; i < n_elts; i++)
         {
           rtx elt = CONST_VECTOR_ELT (op, i);
-          REAL_VALUE_TYPE re;
-
-          REAL_VALUE_FROM_CONST_DOUBLE (re, elt);
-
-          if (!REAL_VALUES_EQUAL (r0, re))
+          if (!real_equal (r0, CONST_DOUBLE_REAL_VALUE (elt)))
             return -1;
         }
 
@@ -17587,7 +17603,7 @@ fp_const_from_val (REAL_VALUE_TYPE *r)
   if (!fp_consts_inited)
     init_fp_table ();
 
-  gcc_assert (REAL_VALUES_EQUAL (*r, value_fp0));
+  gcc_assert (real_equal (r, &value_fp0));
   return "0";
 }
 
@@ -19172,8 +19188,10 @@ static int
 arm_compute_static_chain_stack_bytes (void)
 {
   /* See the defining assertion in arm_expand_prologue.  */
-  if (TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM
-      && IS_NESTED (arm_current_func_type ())
+  if (IS_NESTED (arm_current_func_type ())
+      && ((TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
+	  || (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+	      && !df_regs_ever_live_p (LR_REGNUM)))
       && arm_r3_live_at_start_p ()
       && crtl->args.pretend_args_size == 0)
     return 4;
@@ -19267,7 +19285,6 @@ arm_compute_save_reg_mask (void)
 
   return save_reg_mask;
 }
-
 
 /* Compute a bit mask of which registers need to be
    saved on the stack for the current function.  */
@@ -21096,6 +21113,241 @@ thumb_set_frame_pointer (arm_stack_offsets *offsets)
   RTX_FRAME_RELATED_P (insn) = 1;
 }
 
+struct scratch_reg {
+  rtx reg;
+  bool saved;
+};
+
+/* Return a short-lived scratch register for use as a 2nd scratch register on
+   function entry after the registers are saved in the prologue.  This register
+   must be released by means of release_scratch_register_on_entry.  IP is not
+   considered since it is always used as the 1st scratch register if available.
+
+   REGNO1 is the index number of the 1st scratch register and LIVE_REGS is the
+   mask of live registers.  */
+
+static void
+get_scratch_register_on_entry (struct scratch_reg *sr, unsigned int regno1,
+			       unsigned long live_regs)
+{
+  int regno = -1;
+
+  sr->saved = false;
+
+  if (regno1 != LR_REGNUM && (live_regs & (1 << LR_REGNUM)) != 0)
+    regno = LR_REGNUM;
+  else
+    {
+      unsigned int i;
+
+      for (i = 4; i < 11; i++)
+	if (regno1 != i && (live_regs & (1 << i)) != 0)
+	  {
+	    regno = i;
+	    break;
+	  }
+
+      if (regno < 0)
+	{
+	  /* If IP is used as the 1st scratch register for a nested function,
+	     then either r3 wasn't available or is used to preserve IP.  */
+	  if (regno1 == IP_REGNUM && IS_NESTED (arm_current_func_type ()))
+	    regno1 = 3;
+	  regno = (regno1 == 3 ? 2 : 3);
+	  sr->saved
+	    = REGNO_REG_SET_P (df_get_live_out (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
+			       regno);
+	}
+    }
+
+  sr->reg = gen_rtx_REG (SImode, regno);
+  if (sr->saved)
+    {
+      rtx addr = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
+      rtx insn = emit_set_insn (gen_frame_mem (SImode, addr), sr->reg);
+      rtx x = gen_rtx_SET (stack_pointer_rtx,
+		           plus_constant (Pmode, stack_pointer_rtx, -4));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, x);
+    }
+}
+
+/* Release a scratch register obtained from the preceding function.  */
+
+static void
+release_scratch_register_on_entry (struct scratch_reg *sr)
+{
+  if (sr->saved)
+    {
+      rtx addr = gen_rtx_POST_INC (Pmode, stack_pointer_rtx);
+      rtx insn = emit_set_insn (sr->reg, gen_frame_mem (SImode, addr));
+      rtx x = gen_rtx_SET (stack_pointer_rtx,
+			   plus_constant (Pmode, stack_pointer_rtx, 4));
+      RTX_FRAME_RELATED_P (insn) = 1;
+      add_reg_note (insn, REG_FRAME_RELATED_EXPR, x);
+    }
+}
+
+#define PROBE_INTERVAL (1 << STACK_CHECK_PROBE_INTERVAL_EXP)
+
+#if PROBE_INTERVAL > 4096
+#error Cannot use indexed addressing mode for stack probing
+#endif
+
+/* Emit code to probe a range of stack addresses from FIRST to FIRST+SIZE,
+   inclusive.  These are offsets from the current stack pointer.  REGNO1
+   is the index number of the 1st scratch register and LIVE_REGS is the
+   mask of live registers.  */
+
+static void
+arm_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size,
+			    unsigned int regno1, unsigned long live_regs)
+{
+  rtx reg1 = gen_rtx_REG (Pmode, regno1);
+
+  /* See if we have a constant small number of probes to generate.  If so,
+     that's the easy case.  */
+  if (size <= PROBE_INTERVAL)
+    {
+      emit_move_insn (reg1, GEN_INT (first + PROBE_INTERVAL));
+      emit_set_insn (reg1, gen_rtx_MINUS (Pmode, stack_pointer_rtx, reg1));
+      emit_stack_probe (plus_constant (Pmode, reg1, PROBE_INTERVAL - size));
+    }
+
+  /* The run-time loop is made up of 10 insns in the generic case while the
+     compile-time loop is made up of 4+2*(n-2) insns for n # of intervals.  */
+  else if (size <= 5 * PROBE_INTERVAL)
+    {
+      HOST_WIDE_INT i, rem;
+
+      emit_move_insn (reg1, GEN_INT (first + PROBE_INTERVAL));
+      emit_set_insn (reg1, gen_rtx_MINUS (Pmode, stack_pointer_rtx, reg1));
+      emit_stack_probe (reg1);
+
+      /* Probe at FIRST + N * PROBE_INTERVAL for values of N from 2 until
+	 it exceeds SIZE.  If only two probes are needed, this will not
+	 generate any code.  Then probe at FIRST + SIZE.  */
+      for (i = 2 * PROBE_INTERVAL; i < size; i += PROBE_INTERVAL)
+	{
+	  emit_set_insn (reg1, plus_constant (Pmode, reg1, -PROBE_INTERVAL));
+	  emit_stack_probe (reg1);
+	}
+
+      rem = size - (i - PROBE_INTERVAL);
+      if (rem > 4095 || (TARGET_THUMB2 && rem > 255))
+	{
+	  emit_set_insn (reg1, plus_constant (Pmode, reg1, -PROBE_INTERVAL));
+	  emit_stack_probe (plus_constant (Pmode, reg1, PROBE_INTERVAL - rem));
+	}
+      else
+	emit_stack_probe (plus_constant (Pmode, reg1, -rem));
+    }
+
+  /* Otherwise, do the same as above, but in a loop.  Note that we must be
+     extra careful with variables wrapping around because we might be at
+     the very top (or the very bottom) of the address space and we have
+     to be able to handle this case properly; in particular, we use an
+     equality test for the loop condition.  */
+  else
+    {
+      HOST_WIDE_INT rounded_size;
+      struct scratch_reg sr;
+
+      get_scratch_register_on_entry (&sr, regno1, live_regs);
+
+      emit_move_insn (reg1, GEN_INT (first));
+
+
+      /* Step 1: round SIZE to the previous multiple of the interval.  */
+
+      rounded_size = size & -PROBE_INTERVAL;
+      emit_move_insn (sr.reg, GEN_INT (rounded_size));
+
+
+      /* Step 2: compute initial and final value of the loop counter.  */
+
+      /* TEST_ADDR = SP + FIRST.  */
+      emit_set_insn (reg1, gen_rtx_MINUS (Pmode, stack_pointer_rtx, reg1));
+
+      /* LAST_ADDR = SP + FIRST + ROUNDED_SIZE.  */
+      emit_set_insn (sr.reg, gen_rtx_MINUS (Pmode, reg1, sr.reg));
+
+
+      /* Step 3: the loop
+
+	 do
+	   {
+	     TEST_ADDR = TEST_ADDR + PROBE_INTERVAL
+	     probe at TEST_ADDR
+	   }
+	 while (TEST_ADDR != LAST_ADDR)
+
+	 probes at FIRST + N * PROBE_INTERVAL for values of N from 1
+	 until it is equal to ROUNDED_SIZE.  */
+
+      emit_insn (gen_probe_stack_range (reg1, reg1, sr.reg));
+
+
+      /* Step 4: probe at FIRST + SIZE if we cannot assert at compile-time
+	 that SIZE is equal to ROUNDED_SIZE.  */
+
+      if (size != rounded_size)
+	{
+	  HOST_WIDE_INT rem = size - rounded_size;
+
+	  if (rem > 4095 || (TARGET_THUMB2 && rem > 255))
+	    {
+	      emit_set_insn (sr.reg,
+			     plus_constant (Pmode, sr.reg, -PROBE_INTERVAL));
+	      emit_stack_probe (plus_constant (Pmode, sr.reg,
+					       PROBE_INTERVAL - rem));
+	    }
+	  else
+	    emit_stack_probe (plus_constant (Pmode, sr.reg, -rem));
+	}
+
+      release_scratch_register_on_entry (&sr);
+    }
+
+  /* Make sure nothing is scheduled before we are done.  */
+  emit_insn (gen_blockage ());
+}
+
+/* Probe a range of stack addresses from REG1 to REG2 inclusive.  These are
+   absolute addresses.  */
+
+const char *
+output_probe_stack_range (rtx reg1, rtx reg2)
+{
+  static int labelno = 0;
+  char loop_lab[32];
+  rtx xops[2];
+
+  ASM_GENERATE_INTERNAL_LABEL (loop_lab, "LPSRL", labelno++);
+
+  /* Loop.  */
+  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, loop_lab);
+
+  /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
+  xops[0] = reg1;
+  xops[1] = GEN_INT (PROBE_INTERVAL);
+  output_asm_insn ("sub\t%0, %0, %1", xops);
+
+  /* Probe at TEST_ADDR.  */
+  output_asm_insn ("str\tr0, [%0, #0]", xops);
+
+  /* Test if TEST_ADDR == LAST_ADDR.  */
+  xops[1] = reg2;
+  output_asm_insn ("cmp\t%0, %1", xops);
+
+  /* Branch.  */
+  fputs ("\tbne\t", asm_out_file);
+  assemble_name_raw (asm_out_file, loop_lab);
+  fputc ('\n', asm_out_file);
+
+  return "";
+}
+
 /* Generate the prologue instructions for entry into an ARM or Thumb-2
    function.  */
 void
@@ -21110,7 +21362,9 @@ arm_expand_prologue (void)
   int saved_pretend_args = 0;
   int saved_regs = 0;
   unsigned HOST_WIDE_INT args_to_push;
+  HOST_WIDE_INT size;
   arm_stack_offsets *offsets;
+  bool clobber_ip;
 
   func_type = arm_current_func_type ();
 
@@ -21161,9 +21415,88 @@ arm_expand_prologue (void)
       emit_insn (gen_movsi (stack_pointer_rtx, r1));
     }
 
-  /* For APCS frames, if IP register is clobbered
-     when creating frame, save that register in a special
-     way.  */
+  /* The static chain register is the same as the IP register.  If it is
+     clobbered when creating the frame, we need to save and restore it.  */
+  clobber_ip = IS_NESTED (func_type)
+	       && ((TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
+		   || (flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+		       && !df_regs_ever_live_p (LR_REGNUM)
+		       && arm_r3_live_at_start_p ()));
+
+  /* Find somewhere to store IP whilst the frame is being created.
+     We try the following places in order:
+
+       1. The last argument register r3 if it is available.
+       2. A slot on the stack above the frame if there are no
+	  arguments to push onto the stack.
+       3. Register r3 again, after pushing the argument registers
+	  onto the stack, if this is a varargs function.
+       4. The last slot on the stack created for the arguments to
+	  push, if this isn't a varargs function.
+
+     Note - we only need to tell the dwarf2 backend about the SP
+     adjustment in the second variant; the static chain register
+     doesn't need to be unwound, as it doesn't contain a value
+     inherited from the caller.  */
+  if (clobber_ip)
+    {
+      if (!arm_r3_live_at_start_p ())
+	insn = emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
+      else if (args_to_push == 0)
+	{
+	  rtx addr, dwarf;
+
+	  gcc_assert(arm_compute_static_chain_stack_bytes() == 4);
+	  saved_regs += 4;
+
+	  addr = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
+	  insn = emit_set_insn (gen_frame_mem (SImode, addr), ip_rtx);
+	  fp_offset = 4;
+
+	  /* Just tell the dwarf backend that we adjusted SP.  */
+	  dwarf = gen_rtx_SET (stack_pointer_rtx,
+			       plus_constant (Pmode, stack_pointer_rtx,
+					      -fp_offset));
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
+	}
+      else
+	{
+	  /* Store the args on the stack.  */
+	  if (cfun->machine->uses_anonymous_args)
+	    {
+	      insn = emit_multi_reg_push ((0xf0 >> (args_to_push / 4)) & 0xf,
+					  (0xf0 >> (args_to_push / 4)) & 0xf);
+	      emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
+	      saved_pretend_args = 1;
+	    }
+	  else
+	    {
+	      rtx addr, dwarf;
+
+	      if (args_to_push == 4)
+		addr = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
+	      else
+		addr = gen_rtx_PRE_MODIFY (Pmode, stack_pointer_rtx,
+					   plus_constant (Pmode,
+							  stack_pointer_rtx,
+							  -args_to_push));
+
+	      insn = emit_set_insn (gen_frame_mem (SImode, addr), ip_rtx);
+
+	      /* Just tell the dwarf backend that we adjusted SP.  */
+	      dwarf = gen_rtx_SET (stack_pointer_rtx,
+				   plus_constant (Pmode, stack_pointer_rtx,
+						  -args_to_push));
+	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
+	    }
+
+	  RTX_FRAME_RELATED_P (insn) = 1;
+	  fp_offset = args_to_push;
+	  args_to_push = 0;
+	}
+    }
+
   if (TARGET_APCS_FRAME && frame_pointer_needed && TARGET_ARM)
     {
       if (IS_INTERRUPT (func_type))
@@ -21184,86 +21517,6 @@ arm_expand_prologue (void)
 
 	     Anyway this instruction is not really part of the stack
 	     frame creation although it is part of the prologue.  */
-	}
-      else if (IS_NESTED (func_type))
-	{
-	  /* The static chain register is the same as the IP register
-	     used as a scratch register during stack frame creation.
-	     To get around this need to find somewhere to store IP
-	     whilst the frame is being created.  We try the following
-	     places in order:
-
-	       1. The last argument register r3 if it is available.
-	       2. A slot on the stack above the frame if there are no
-		  arguments to push onto the stack.
-	       3. Register r3 again, after pushing the argument registers
-	          onto the stack, if this is a varargs function.
-	       4. The last slot on the stack created for the arguments to
-		  push, if this isn't a varargs function.
-
-	     Note - we only need to tell the dwarf2 backend about the SP
-	     adjustment in the second variant; the static chain register
-	     doesn't need to be unwound, as it doesn't contain a value
-	     inherited from the caller.  */
-
-	  if (!arm_r3_live_at_start_p ())
-	    insn = emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
-	  else if (args_to_push == 0)
-	    {
-	      rtx addr, dwarf;
-
-	      gcc_assert(arm_compute_static_chain_stack_bytes() == 4);
-	      saved_regs += 4;
-
-	      addr = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
-	      insn = emit_set_insn (gen_frame_mem (SImode, addr), ip_rtx);
-	      fp_offset = 4;
-
-	      /* Just tell the dwarf backend that we adjusted SP.  */
-	      dwarf = gen_rtx_SET (stack_pointer_rtx,
-				   plus_constant (Pmode, stack_pointer_rtx,
-						  -fp_offset));
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	      add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
-	    }
-	  else
-	    {
-	      /* Store the args on the stack.  */
-	      if (cfun->machine->uses_anonymous_args)
-		{
-		  insn
-		    = emit_multi_reg_push ((0xf0 >> (args_to_push / 4)) & 0xf,
-					   (0xf0 >> (args_to_push / 4)) & 0xf);
-		  emit_set_insn (gen_rtx_REG (SImode, 3), ip_rtx);
-		  saved_pretend_args = 1;
-		}
-	      else
-		{
-		  rtx addr, dwarf;
-
-		  if (args_to_push == 4)
-		    addr = gen_rtx_PRE_DEC (Pmode, stack_pointer_rtx);
-		  else
-		    addr
-		      = gen_rtx_PRE_MODIFY (Pmode, stack_pointer_rtx,
-					    plus_constant (Pmode,
-							   stack_pointer_rtx,
-							   -args_to_push));
-
-		  insn = emit_set_insn (gen_frame_mem (SImode, addr), ip_rtx);
-
-		  /* Just tell the dwarf backend that we adjusted SP.  */
-		  dwarf
-		    = gen_rtx_SET (stack_pointer_rtx,
-				   plus_constant (Pmode, stack_pointer_rtx,
-						  -args_to_push));
-		  add_reg_note (insn, REG_FRAME_RELATED_EXPR, dwarf);
-		}
-
-	      RTX_FRAME_RELATED_P (insn) = 1;
-	      fp_offset = args_to_push;
-	      args_to_push = 0;
-	    }
 	}
 
       insn = emit_set_insn (ip_rtx,
@@ -21362,34 +21615,60 @@ arm_expand_prologue (void)
 	  insn = GEN_INT (-(4 + args_to_push + fp_offset));
 	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx, ip_rtx, insn));
 	  RTX_FRAME_RELATED_P (insn) = 1;
-
-	  if (IS_NESTED (func_type))
-	    {
-	      /* Recover the static chain register.  */
-	      if (!arm_r3_live_at_start_p () || saved_pretend_args)
-		insn = gen_rtx_REG (SImode, 3);
-	      else
-		{
-		  insn = plus_constant (Pmode, hard_frame_pointer_rtx, 4);
-		  insn = gen_frame_mem (SImode, insn);
-		}
-	      emit_set_insn (ip_rtx, insn);
-	      /* Add a USE to stop propagate_one_insn() from barfing.  */
-	      emit_insn (gen_force_register_use (ip_rtx));
-	    }
 	}
       else
 	{
-	  insn = GEN_INT (saved_regs - 4);
+	  insn = GEN_INT (saved_regs - (4 + fp_offset));
 	  insn = emit_insn (gen_addsi3 (hard_frame_pointer_rtx,
 					stack_pointer_rtx, insn));
 	  RTX_FRAME_RELATED_P (insn) = 1;
 	}
     }
 
+  size = offsets->outgoing_args - offsets->saved_args;
   if (flag_stack_usage_info)
-    current_function_static_stack_size
-      = offsets->outgoing_args - offsets->saved_args;
+    current_function_static_stack_size = size;
+
+  /* If this isn't an interrupt service routine and we have a frame, then do
+     stack checking.  We use IP as the first scratch register, except for the
+     non-APCS nested functions if LR or r3 are available (see clobber_ip).  */
+  if (!IS_INTERRUPT (func_type)
+      && flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      unsigned int regno;
+
+      if (!IS_NESTED (func_type) || clobber_ip)
+	regno = IP_REGNUM;
+      else if (df_regs_ever_live_p (LR_REGNUM))
+	regno = LR_REGNUM;
+      else
+	regno = 3;
+
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    arm_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					size - STACK_CHECK_PROTECT,
+					regno, live_regs_mask);
+	}
+      else if (size > 0)
+	arm_emit_probe_stack_range (STACK_CHECK_PROTECT, size,
+				    regno, live_regs_mask);
+    }
+
+  /* Recover the static chain register.  */
+  if (clobber_ip)
+    {
+      if (!arm_r3_live_at_start_p () || saved_pretend_args)
+	insn = gen_rtx_REG (SImode, 3);
+      else
+	{
+	  insn = plus_constant (Pmode, hard_frame_pointer_rtx, 4);
+	  insn = gen_frame_mem (SImode, insn);
+	}
+      emit_set_insn (ip_rtx, insn);
+      emit_insn (gen_force_register_use (ip_rtx));
+    }
 
   if (offsets->outgoing_args != offsets->saved_args + saved_regs)
     {
@@ -21574,8 +21853,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
     case 'N':
       {
 	REAL_VALUE_TYPE r;
-	REAL_VALUE_FROM_CONST_DOUBLE (r, x);
-	r = real_value_negate (&r);
+	r = real_value_negate (CONST_DOUBLE_REAL_VALUE (x));
 	fprintf (stream, "%s", fp_const_from_val (&r));
       }
       return;
@@ -22369,13 +22647,9 @@ arm_assemble_integer (rtx x, unsigned int size, int aligned_p)
         for (i = 0; i < units; i++)
           {
             rtx elt = CONST_VECTOR_ELT (x, i);
-            REAL_VALUE_TYPE rval;
-
-            REAL_VALUE_FROM_CONST_DOUBLE (rval, elt);
-
             assemble_real
-              (rval, GET_MODE_INNER (mode),
-              i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT);
+              (*CONST_DOUBLE_REAL_VALUE (elt), GET_MODE_INNER (mode),
+	       i == 0 ? BIGGEST_ALIGNMENT : size * BITS_PER_UNIT);
           }
 
       return true;
@@ -24368,6 +24642,7 @@ thumb1_expand_prologue (void)
   rtx_insn *insn;
 
   HOST_WIDE_INT amount;
+  HOST_WIDE_INT size;
   arm_stack_offsets *offsets;
   unsigned long func_type;
   int regno;
@@ -24602,9 +24877,13 @@ thumb1_expand_prologue (void)
     emit_move_insn (gen_rtx_REG (Pmode, ARM_HARD_FRAME_POINTER_REGNUM),
 		    stack_pointer_rtx);
 
+  size = offsets->outgoing_args - offsets->saved_args;
   if (flag_stack_usage_info)
-    current_function_static_stack_size
-      = offsets->outgoing_args - offsets->saved_args;
+    current_function_static_stack_size = size;
+
+  /* If we have a frame, then do stack checking.  FIXME: not implemented.  */
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
+    sorry ("-fstack-check=specific for Thumb-1");
 
   amount = offsets->outgoing_args - offsets->saved_regs;
   amount -= 4 * thumb1_extra_regs_pushed (offsets, true);
@@ -25175,14 +25454,16 @@ arm_expand_epilogue (bool really_return)
         return;
     }
 
-  if (crtl->args.pretend_args_size)
+  amount
+    = crtl->args.pretend_args_size + arm_compute_static_chain_stack_bytes();
+  if (amount)
     {
       int i, j;
       rtx dwarf = NULL_RTX;
       rtx_insn *tmp =
 	emit_insn (gen_addsi3 (stack_pointer_rtx,
 			       stack_pointer_rtx,
-			       GEN_INT (crtl->args.pretend_args_size)));
+			       GEN_INT (amount)));
 
       RTX_FRAME_RELATED_P (tmp) = 1;
 
@@ -25201,7 +25482,7 @@ arm_expand_epilogue (bool really_return)
 	      }
 	  REG_NOTES (tmp) = dwarf;
 	}
-      arm_add_cfa_adjust_cfa_note (tmp, crtl->args.pretend_args_size,
+      arm_add_cfa_adjust_cfa_note (tmp, amount,
 				   stack_pointer_rtx, stack_pointer_rtx);
     }
 
@@ -25380,17 +25661,12 @@ thumb_load_double_from_address (rtx *operands)
 const char *
 thumb_output_move_mem_multiple (int n, rtx *operands)
 {
-  rtx tmp;
-
   switch (n)
     {
     case 2:
       if (REGNO (operands[4]) > REGNO (operands[5]))
-	{
-	  tmp = operands[4];
-	  operands[4] = operands[5];
-	  operands[5] = tmp;
-	}
+	std::swap (operands[4], operands[5]);
+
       output_asm_insn ("ldmia\t%1!, {%4, %5}", operands);
       output_asm_insn ("stmia\t%0!, {%4, %5}", operands);
       break;
@@ -25980,11 +26256,9 @@ arm_emit_vector_const (FILE *file, rtx x)
 void
 arm_emit_fp16_const (rtx c)
 {
-  REAL_VALUE_TYPE r;
   long bits;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r, c);
-  bits = real_to_target (NULL, &r, HFmode);
+  bits = real_to_target (NULL, CONST_DOUBLE_REAL_VALUE (c), HFmode);
   if (WORDS_BIG_ENDIAN)
     assemble_zeros (2);
   assemble_integer (GEN_INT (bits), 2, BITS_PER_WORD, 1);
@@ -27210,9 +27484,45 @@ arm_order_regs_for_local_alloc (void)
 bool
 arm_frame_pointer_required (void)
 {
-  return (cfun->has_nonlocal_label
-          || SUBTARGET_FRAME_POINTER_REQUIRED
-          || (TARGET_ARM && TARGET_APCS_FRAME && ! leaf_function_p ()));
+  if (SUBTARGET_FRAME_POINTER_REQUIRED)
+    return true;
+
+  /* If the function receives nonlocal gotos, it needs to save the frame
+     pointer in the nonlocal_goto_save_area object.  */
+  if (cfun->has_nonlocal_label)
+    return true;
+
+  /* The frame pointer is required for non-leaf APCS frames.  */
+  if (TARGET_ARM && TARGET_APCS_FRAME && !leaf_function_p ())
+    return true;
+
+  /* If we are probing the stack in the prologue, we will have a faulting
+     instruction prior to the stack adjustment and this requires a frame
+     pointer if we want to catch the exception using the EABI unwinder.  */
+  if (!IS_INTERRUPT (arm_current_func_type ())
+      && flag_stack_check == STATIC_BUILTIN_STACK_CHECK
+      && arm_except_unwind_info (&global_options) == UI_TARGET
+      && cfun->can_throw_non_call_exceptions)
+    {
+      HOST_WIDE_INT size = get_frame_size ();
+
+      /* That's irrelevant if there is no stack adjustment.  */
+      if (size <= 0)
+	return false;
+
+      /* That's relevant only if there is a stack probe.  */
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  /* We don't have the final size of the frame so adjust.  */
+	  size += 32 * UNITS_PER_WORD;
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    return true;
+	}
+      else
+	return true;
+    }
+
+  return false;
 }
 
 /* Only thumb1 can't support conditional execution, so return true if
@@ -27422,7 +27732,7 @@ vfp3_const_double_for_fract_bits (rtx operand)
   if (!CONST_DOUBLE_P (operand))
     return 0;
   
-  REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
+  r0 = *CONST_DOUBLE_REAL_VALUE (operand);
   if (exact_real_inverse (DFmode, &r0)
       && !REAL_VALUE_NEGATIVE (r0))
     {
@@ -27437,25 +27747,37 @@ vfp3_const_double_for_fract_bits (rtx operand)
   return 0;
 }
 
+/* If X is a CONST_DOUBLE with a value that is a power of 2 whose
+   log2 is in [1, 32], return that log2.  Otherwise return -1.
+   This is used in the patterns for vcvt.s32.f32 floating-point to
+   fixed-point conversions.  */
+
 int
-vfp3_const_double_for_bits (rtx operand)
+vfp3_const_double_for_bits (rtx x)
 {
-  REAL_VALUE_TYPE r0;
+  const REAL_VALUE_TYPE *r;
 
-  if (!CONST_DOUBLE_P (operand))
-    return 0;
+  if (!CONST_DOUBLE_P (x))
+    return -1;
 
-  REAL_VALUE_FROM_CONST_DOUBLE (r0, operand);
-  if (exact_real_truncate (DFmode, &r0))
-    {
-      HOST_WIDE_INT value = real_to_integer (&r0);
-      value = value & 0xffffffff;
-      if ((value != 0) && ( (value & (value - 1)) == 0))
-	return int_log2 (value);
-    }
+  r = CONST_DOUBLE_REAL_VALUE (x);
 
-  return 0;
+  if (REAL_VALUE_NEGATIVE (*r)
+      || REAL_VALUE_ISNAN (*r)
+      || REAL_VALUE_ISINF (*r)
+      || !real_isinteger (r, SFmode))
+    return -1;
+
+  HOST_WIDE_INT hwint = exact_log2 (real_to_integer (r));
+
+/* The exact_log2 above will have returned -1 if this is
+   not an exact log2.  */
+  if (!IN_RANGE (hwint, 1, 32))
+    return -1;
+
+  return hwint;
 }
+
 
 /* Emit a memory barrier around an atomic sequence according to MODEL.  */
 
@@ -27904,7 +28226,7 @@ static bool
 arm_evpc_neon_vuzp (struct expand_vec_perm_d *d)
 {
   unsigned int i, odd, mask, nelt = d->nelt;
-  rtx out0, out1, in0, in1, x;
+  rtx out0, out1, in0, in1;
   rtx (*gen)(rtx, rtx, rtx, rtx);
 
   if (GET_MODE_UNIT_SIZE (d->vmode) >= 8)
@@ -27948,14 +28270,14 @@ arm_evpc_neon_vuzp (struct expand_vec_perm_d *d)
   in1 = d->op1;
   if (BYTES_BIG_ENDIAN)
     {
-      x = in0, in0 = in1, in1 = x;
+      std::swap (in0, in1);
       odd = !odd;
     }
 
   out0 = d->target;
   out1 = gen_reg_rtx (d->vmode);
   if (odd)
-    x = out0, out0 = out1, out1 = x;
+    std::swap (out0, out1);
 
   emit_insn (gen (out0, in0, in1, out1));
   return true;
@@ -27967,7 +28289,7 @@ static bool
 arm_evpc_neon_vzip (struct expand_vec_perm_d *d)
 {
   unsigned int i, high, mask, nelt = d->nelt;
-  rtx out0, out1, in0, in1, x;
+  rtx out0, out1, in0, in1;
   rtx (*gen)(rtx, rtx, rtx, rtx);
 
   if (GET_MODE_UNIT_SIZE (d->vmode) >= 8)
@@ -28015,14 +28337,14 @@ arm_evpc_neon_vzip (struct expand_vec_perm_d *d)
   in1 = d->op1;
   if (BYTES_BIG_ENDIAN)
     {
-      x = in0, in0 = in1, in1 = x;
+      std::swap (in0, in1);
       high = !high;
     }
 
   out0 = d->target;
   out1 = gen_reg_rtx (d->vmode);
   if (high)
-    x = out0, out0 = out1, out1 = x;
+    std::swap (out0, out1);
 
   emit_insn (gen (out0, in0, in1, out1));
   return true;
@@ -28108,7 +28430,7 @@ static bool
 arm_evpc_neon_vtrn (struct expand_vec_perm_d *d)
 {
   unsigned int i, odd, mask, nelt = d->nelt;
-  rtx out0, out1, in0, in1, x;
+  rtx out0, out1, in0, in1;
   rtx (*gen)(rtx, rtx, rtx, rtx);
 
   if (GET_MODE_UNIT_SIZE (d->vmode) >= 8)
@@ -28153,14 +28475,14 @@ arm_evpc_neon_vtrn (struct expand_vec_perm_d *d)
   in1 = d->op1;
   if (BYTES_BIG_ENDIAN)
     {
-      x = in0, in0 = in1, in1 = x;
+      std::swap (in0, in1);
       odd = !odd;
     }
 
   out0 = d->target;
   out1 = gen_reg_rtx (d->vmode);
   if (odd)
-    x = out0, out0 = out1, out1 = x;
+    std::swap (out0, out1);
 
   emit_insn (gen (out0, in0, in1, out1));
   return true;
@@ -28283,14 +28605,11 @@ arm_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
   if (d->perm[0] >= d->nelt)
     {
       unsigned i, nelt = d->nelt;
-      rtx x;
 
       for (i = 0; i < nelt; ++i)
 	d->perm[i] = (d->perm[i] + nelt) & (2 * nelt - 1);
 
-      x = d->op0;
-      d->op0 = d->op1;
-      d->op1 = x;
+      std::swap (d->op0, d->op1);
     }
 
   if (TARGET_NEON)
@@ -29482,7 +29801,20 @@ arm_set_current_function (tree fndecl)
 	  = save_target_globals_default_opts ();
     }
 
-  arm_option_params_internal (&global_options);
+  arm_option_params_internal ();
+}
+
+/* Implement TARGET_OPTION_PRINT.  */
+
+static void
+arm_option_print (FILE *file, int indent, struct cl_target_option *ptr)
+{
+  int flags = ptr->x_target_flags;
+
+  fprintf (file, "%*sselected arch %s\n", indent, "",
+	   TARGET_THUMB2_P (flags) ? "thumb2" :
+	   TARGET_THUMB_P (flags) ? "thumb1" :
+	   "arm");
 }
 
 /* Hook to determine if one function can safely inline another.  */
@@ -29496,12 +29828,29 @@ arm_can_inline_p (tree caller ATTRIBUTE_UNUSED, tree callee ATTRIBUTE_UNUSED)
   return true;
 }
 
+/* Hook to fix function's alignment affected by target attribute.  */
+
+static void
+arm_relayout_function (tree fndecl)
+{
+  if (DECL_USER_ALIGN (fndecl))
+    return;
+
+  tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (fndecl);
+
+  if (!callee_tree)
+    callee_tree = target_option_default_node;
+
+  DECL_ALIGN (fndecl) =
+    FUNCTION_BOUNDARY_P (TREE_TARGET_OPTION (callee_tree)->x_target_flags);
+}
+
 /* Inner function to process the attribute((target(...))), take an argument and
    set the current options from the argument.  If we have a list, recursively
    go over the list.  */
 
 static bool
-arm_valid_target_attribute_rec (tree args,  struct gcc_options *opts)
+arm_valid_target_attribute_rec (tree args, struct gcc_options *opts)
 {
   if (TREE_CODE (args) == TREE_LIST)
     {

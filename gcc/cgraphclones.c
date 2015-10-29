@@ -569,9 +569,7 @@ cgraph_node::create_virtual_clone (vec<cgraph_edge *> redirect_callers,
   ipa_replace_map *map;
   char *name;
 
-  if (!in_lto_p)
-    gcc_checking_assert (tree_versionable_function_p (old_decl));
-
+  gcc_checking_assert (local.versionable);
   gcc_assert (local.can_change_signature || !args_to_skip);
 
   /* Make a new FUNCTION_DECL tree node */
@@ -724,7 +722,7 @@ cgraph_node::find_replacement (void)
    call.  */
 
 void
-cgraph_node::set_call_stmt_including_clones (gimple old_stmt,
+cgraph_node::set_call_stmt_including_clones (gimple *old_stmt,
 					     gcall *new_stmt,
 					     bool update_speculative)
 {
@@ -780,7 +778,7 @@ cgraph_node::set_call_stmt_including_clones (gimple old_stmt,
 
 void
 cgraph_node::create_edge_including_clones (cgraph_node *callee,
-					   gimple old_stmt, gcall *stmt,
+					   gimple *old_stmt, gcall *stmt,
 					   gcov_type count,
 					   int freq,
 					   cgraph_inline_failed_t reason)
@@ -1076,9 +1074,8 @@ symbol_table::materialize_all_clones (void)
 
   if (symtab->dump_file)
     fprintf (symtab->dump_file, "Materializing clones\n");
-#ifdef ENABLE_CHECKING
-  cgraph_node::verify_cgraph_nodes ();
-#endif
+
+  cgraph_node::checking_verify_cgraph_nodes ();
 
   /* We can also do topological order, but number of iterations should be
      bounded by number of IPA passes since single IPA pass is probably not
@@ -1147,9 +1144,9 @@ symbol_table::materialize_all_clones (void)
       node->clear_stmts_in_references ();
   if (symtab->dump_file)
     fprintf (symtab->dump_file, "Materialization Call site updates done.\n");
-#ifdef ENABLE_CHECKING
-  cgraph_node::verify_cgraph_nodes ();
-#endif
+
+  cgraph_node::checking_verify_cgraph_nodes ();
+
   symtab->remove_unreachable_nodes (symtab->dump_file);
 }
 

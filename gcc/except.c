@@ -612,9 +612,8 @@ duplicate_eh_regions (struct function *ifun,
   struct duplicate_eh_regions_data data;
   eh_region outer_region;
 
-#ifdef ENABLE_CHECKING
-  verify_eh_tree (ifun);
-#endif
+  if (flag_checking)
+    verify_eh_tree (ifun);
 
   data.label_map = map;
   data.label_map_data = map_data;
@@ -632,9 +631,8 @@ duplicate_eh_regions (struct function *ifun,
 	duplicate_eh_regions_1 (&data, r, outer_region);
     }
 
-#ifdef ENABLE_CHECKING
-  verify_eh_tree (cfun);
-#endif
+  if (flag_checking)
+    verify_eh_tree (cfun);
 
   return data.eh_map;
 }
@@ -2120,9 +2118,7 @@ expand_builtin_unwind_init (void)
      able to copy the saved values for any registers from frames we unwind.  */
   crtl->saves_all_registers = 1;
 
-#ifdef SETUP_FRAME_ADDRESSES
   SETUP_FRAME_ADDRESSES ();
-#endif
 }
 
 /* Map a non-negative number to an eh return data register number; expands
@@ -2219,7 +2215,7 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
 		     VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!crtl->eh.ehr_stackadj)
-    crtl->eh.ehr_stackadj = copy_to_reg (tmp);
+    crtl->eh.ehr_stackadj = copy_addr_to_reg (tmp);
   else if (tmp != crtl->eh.ehr_stackadj)
     emit_move_insn (crtl->eh.ehr_stackadj, tmp);
 #endif
@@ -2228,7 +2224,7 @@ expand_builtin_eh_return (tree stackadj_tree ATTRIBUTE_UNUSED,
 		     VOIDmode, EXPAND_NORMAL);
   tmp = convert_memory_address (Pmode, tmp);
   if (!crtl->eh.ehr_handler)
-    crtl->eh.ehr_handler = copy_to_reg (tmp);
+    crtl->eh.ehr_handler = copy_addr_to_reg (tmp);
   else if (tmp != crtl->eh.ehr_handler)
     emit_move_insn (crtl->eh.ehr_handler, tmp);
 
@@ -2838,24 +2834,24 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
     s = exception_section;
   else
     {
+      int flags;
+
+      if (EH_TABLES_CAN_BE_READ_ONLY)
+	{
+	  int tt_format =
+	    ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
+	  flags = ((! flag_pic
+		    || ((tt_format & 0x70) != DW_EH_PE_absptr
+			&& (tt_format & 0x70) != DW_EH_PE_aligned))
+		   ? 0 : SECTION_WRITE);
+	}
+      else
+	flags = SECTION_WRITE;
+
       /* Compute the section and cache it into exception_section,
 	 unless it depends on the function name.  */
       if (targetm_common.have_named_sections)
 	{
-	  int flags;
-
-	  if (EH_TABLES_CAN_BE_READ_ONLY)
-	    {
-	      int tt_format =
-		ASM_PREFERRED_EH_DATA_FORMAT (/*code=*/0, /*global=*/1);
-	      flags = ((! flag_pic
-			|| ((tt_format & 0x70) != DW_EH_PE_absptr
-			    && (tt_format & 0x70) != DW_EH_PE_aligned))
-		       ? 0 : SECTION_WRITE);
-	    }
-	  else
-	    flags = SECTION_WRITE;
-
 #ifdef HAVE_LD_EH_GC_SECTIONS
 	  if (flag_function_sections
 	      || (DECL_COMDAT_GROUP (current_function_decl) && HAVE_COMDAT_GROUP))
@@ -2876,7 +2872,7 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
 	}
       else
 	exception_section
-	  = s = flag_pic ? data_section : readonly_data_section;
+	  = s = flags == SECTION_WRITE ? data_section : readonly_data_section;
     }
 
   switch_to_section (s);
@@ -3138,12 +3134,12 @@ output_function_exception_table (const char *fnname)
 }
 
 void
-set_eh_throw_stmt_table (function *fun, hash_map<gimple, int> *table)
+set_eh_throw_stmt_table (function *fun, hash_map<gimple *, int> *table)
 {
   fun->eh->throw_stmt_table = table;
 }
 
-hash_map<gimple, int> *
+hash_map<gimple *, int> *
 get_eh_throw_stmt_table (struct function *fun)
 {
   return fun->eh->throw_stmt_table;

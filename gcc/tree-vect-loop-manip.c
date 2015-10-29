@@ -84,7 +84,7 @@ rename_use_op (use_operand_p op_p)
 static void
 rename_variables_in_bb (basic_block bb, bool rename_from_outer_loop)
 {
-  gimple stmt;
+  gimple *stmt;
   use_operand_p use_p;
   ssa_op_iter iter;
   edge e;
@@ -143,7 +143,7 @@ adjust_debug_stmts_now (adjust_info *ai)
   tree orig_def = ai->from;
   tree new_def = ai->to;
   imm_use_iterator imm_iter;
-  gimple stmt;
+  gimple *stmt;
   basic_block bbdef = gimple_bb (SSA_NAME_DEF_STMT (orig_def));
 
   gcc_assert (dom_info_available_p (CDI_DOMINATORS));
@@ -230,7 +230,7 @@ adjust_debug_stmts (tree from, tree to, basic_block bb)
    transformations.  */
 
 static void
-adjust_phi_and_debug_stmts (gimple update_phi, edge e, tree new_def)
+adjust_phi_and_debug_stmts (gimple *update_phi, edge e, tree new_def)
 {
   tree orig_def = PHI_ARG_DEF_FROM_EDGE (update_phi, e);
 
@@ -496,7 +496,7 @@ slpeel_update_phi_nodes_for_guard1 (edge guard_edge, struct loop *loop,
 	 set this earlier.  Verify the PHI has the same value.  */
       if (new_name)
 	{
-	  gimple phi = SSA_NAME_DEF_STMT (new_name);
+	  gimple *phi = SSA_NAME_DEF_STMT (new_name);
 	  gcc_assert (gimple_code (phi) == GIMPLE_PHI
 		      && gimple_bb (phi) == *new_exit_bb
 		      && (PHI_ARG_DEF_FROM_EDGE (phi, single_exit (loop))
@@ -737,8 +737,8 @@ slpeel_duplicate_current_defs_from_edges (edge from, edge to)
        !gsi_end_p (gsi_from) && !gsi_end_p (gsi_to);
        gsi_next (&gsi_from), gsi_next (&gsi_to))
     {
-      gimple from_phi = gsi_stmt (gsi_from);
-      gimple to_phi = gsi_stmt (gsi_to);
+      gimple *from_phi = gsi_stmt (gsi_from);
+      gimple *to_phi = gsi_stmt (gsi_to);
       tree from_arg = PHI_ARG_DEF_FROM_EDGE (from_phi, from);
       tree to_arg = PHI_ARG_DEF_FROM_EDGE (to_phi, to);
       if (TREE_CODE (from_arg) == SSA_NAME
@@ -919,9 +919,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop,
   free (new_bbs);
   free (bbs);
 
-#ifdef ENABLE_CHECKING
-  verify_dominators (CDI_DOMINATORS);
-#endif
+  checking_verify_dominators (CDI_DOMINATORS);
 
   return new_loop;
 }
@@ -1003,11 +1001,13 @@ slpeel_can_duplicate_loop_p (const struct loop *loop, const_edge e)
   return true;
 }
 
-#ifdef ENABLE_CHECKING
 static void
-slpeel_verify_cfg_after_peeling (struct loop *first_loop,
-                                 struct loop *second_loop)
+slpeel_checking_verify_cfg_after_peeling (struct loop *first_loop,
+					  struct loop *second_loop)
 {
+  if (!flag_checking)
+    return;
+
   basic_block loop1_exit_bb = single_exit (first_loop)->dest;
   basic_block loop2_entry_bb = loop_preheader_edge (second_loop)->src;
   basic_block loop1_entry_bb = loop_preheader_edge (first_loop)->src;
@@ -1035,7 +1035,6 @@ slpeel_verify_cfg_after_peeling (struct loop *first_loop,
      second_loop.  */
   /* TODO */
 }
-#endif
 
 /* If the run time cost model check determines that vectorization is
    not profitable and hence scalar loop should be generated then set
@@ -1227,7 +1226,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loop *scalar_loop,
 	    gphi *new_phi = create_phi_node (new_vop, exit_e->dest);
 	    tree vop = PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0));
 	    imm_use_iterator imm_iter;
-	    gimple stmt;
+	    gimple *stmt;
 	    use_operand_p use_p;
 
 	    add_phi_arg (new_phi, vop, exit_e, UNKNOWN_LOCATION);
@@ -1494,7 +1493,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loop *scalar_loop,
 source_location
 find_loop_location (struct loop *loop)
 {
-  gimple stmt = NULL;
+  gimple *stmt = NULL;
   basic_block bb;
   gimple_stmt_iterator si;
 
@@ -1540,7 +1539,7 @@ vect_can_advance_ivs_p (loop_vec_info loop_vinfo)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block bb = loop->header;
-  gimple phi;
+  gimple *phi;
   gphi_iterator gsi;
 
   /* Analyze phi functions of the loop header.  */
@@ -1773,9 +1772,7 @@ vect_do_peeling_for_loop_bound (loop_vec_info loop_vinfo,
 				     0, LOOP_VINFO_VECT_FACTOR (loop_vinfo));
   gcc_assert (new_loop);
   gcc_assert (loop_num == loop->num);
-#ifdef ENABLE_CHECKING
-  slpeel_verify_cfg_after_peeling (loop, new_loop);
-#endif
+  slpeel_checking_verify_cfg_after_peeling (loop, new_loop);
 
   /* A guard that controls whether the new_loop is to be executed or skipped
      is placed in LOOP->exit.  LOOP->exit therefore has two successors - one
@@ -1855,7 +1852,7 @@ vect_gen_niters_for_prolog_loop (loop_vec_info loop_vinfo, tree loop_niters, int
   tree iters, iters_name;
   edge pe;
   basic_block new_bb;
-  gimple dr_stmt = DR_STMT (dr);
+  gimple *dr_stmt = DR_STMT (dr);
   stmt_vec_info stmt_info = vinfo_for_stmt (dr_stmt);
   tree vectype = STMT_VINFO_VECTYPE (stmt_info);
   int vectype_align = TYPE_ALIGN (vectype) / BITS_PER_UNIT;
@@ -2032,9 +2029,7 @@ vect_do_peeling_for_alignment (loop_vec_info loop_vinfo, tree ni_name,
 				   bound, 0);
 
   gcc_assert (new_loop);
-#ifdef ENABLE_CHECKING
-  slpeel_verify_cfg_after_peeling (new_loop, loop);
-#endif
+  slpeel_checking_verify_cfg_after_peeling (new_loop, loop);
   /* For vectorization factor N, we need to copy at most N-1 values 
      for alignment and this means N-2 loopback edge executions.  */
   max_iter = LOOP_VINFO_VECT_FACTOR (loop_vinfo) - 2;
@@ -2111,9 +2106,9 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 				   gimple_seq *cond_expr_stmt_list)
 {
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
-  vec<gimple> may_misalign_stmts
+  vec<gimple *> may_misalign_stmts
     = LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo);
-  gimple ref_stmt;
+  gimple *ref_stmt;
   int mask = LOOP_VINFO_PTR_MASK (loop_vinfo);
   tree mask_cst;
   unsigned int i;
@@ -2121,7 +2116,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
   char tmp_name[20];
   tree or_tmp_name = NULL_TREE;
   tree and_tmp_name;
-  gimple and_stmt;
+  gimple *and_stmt;
   tree ptrsize_zero;
   tree part_cond_expr;
 
@@ -2140,7 +2135,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
       tree addr_base;
       tree addr_tmp_name;
       tree new_or_tmp_name;
-      gimple addr_stmt, or_stmt;
+      gimple *addr_stmt, *or_stmt;
       stmt_vec_info stmt_vinfo = vinfo_for_stmt (ref_stmt);
       tree vectype = STMT_VINFO_VECTYPE (stmt_vinfo);
       bool negative = tree_int_cst_compare

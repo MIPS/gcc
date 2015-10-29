@@ -1878,7 +1878,7 @@ inline_small_functions (void)
       if (!edge->inline_failed || !edge->callee->analyzed)
 	continue;
 
-#ifdef ENABLE_CHECKING
+#if CHECKING_P
       /* Be sure that caches are maintained consistent.  */
       sreal cached_badness = edge_badness (edge, false);
  
@@ -1943,13 +1943,13 @@ inline_small_functions (void)
 		   " Estimated badness is %f, frequency %.2f.\n",
 		   edge->caller->name (), edge->caller->order,
 		   edge->call_stmt
-		   && (LOCATION_LOCUS (gimple_location ((const_gimple)
+		   && (LOCATION_LOCUS (gimple_location ((const gimple *)
 							edge->call_stmt))
 		       > BUILTINS_LOCATION)
-		   ? gimple_filename ((const_gimple) edge->call_stmt)
+		   ? gimple_filename ((const gimple *) edge->call_stmt)
 		   : "unknown",
 		   edge->call_stmt
-		   ? gimple_lineno ((const_gimple) edge->call_stmt)
+		   ? gimple_lineno ((const gimple *) edge->call_stmt)
 		   : -1,
 		   badness.to_double (),
 		   edge->frequency / (double)CGRAPH_FREQ_BASE);
@@ -2632,9 +2632,8 @@ early_inliner (function *fun)
   if (ipa_node_params_sum)
     return 0;
 
-#ifdef ENABLE_CHECKING
-  node->verify ();
-#endif
+  if (flag_checking)
+    node->verify ();
   node->remove_all_references ();
 
   /* Rebuild this reference because it dosn't depend on

@@ -23,40 +23,20 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "function.h"
-#include "cfghooks.h"
 #include "basic-block.h"
-#include "cfg.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "alias.h"
+#include "tm_p.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "recog.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "stringpool.h"
-#include "calls.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
-#include "tm_p.h"
-#include "recog.h"
 #include "langhooks.h"
-#include "diagnostic-core.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "cfgrtl.h"
-#include "cfganal.h"
-#include "lcm.h"
-#include "cfgbuild.h"
-#include "cfgcleanup.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
 #include "gimple-iterator.h"
 
 #define v8qi_UP  V8QImode
@@ -75,7 +55,6 @@
 #define v2di_UP  V2DImode
 #define v2df_UP  V2DFmode
 #define ti_UP	 TImode
-#define ei_UP	 EImode
 #define oi_UP	 OImode
 #define ci_UP	 CImode
 #define xi_UP	 XImode
@@ -449,7 +428,6 @@ static struct aarch64_simd_type_info aarch64_simd_types [] = {
 static tree aarch64_fp16_type_node = NULL_TREE;
 
 static tree aarch64_simd_intOI_type_node = NULL_TREE;
-static tree aarch64_simd_intEI_type_node = NULL_TREE;
 static tree aarch64_simd_intCI_type_node = NULL_TREE;
 static tree aarch64_simd_intXI_type_node = NULL_TREE;
 
@@ -523,8 +501,6 @@ aarch64_simd_builtin_std_type (enum machine_mode mode,
       return QUAL_TYPE (TI);
     case OImode:
       return aarch64_simd_intOI_type_node;
-    case EImode:
-      return aarch64_simd_intEI_type_node;
     case CImode:
       return aarch64_simd_intCI_type_node;
     case XImode:
@@ -641,14 +617,10 @@ aarch64_init_simd_builtin_types (void)
 #define AARCH64_BUILD_SIGNED_TYPE(mode)  \
   make_signed_type (GET_MODE_PRECISION (mode));
   aarch64_simd_intOI_type_node = AARCH64_BUILD_SIGNED_TYPE (OImode);
-  aarch64_simd_intEI_type_node = AARCH64_BUILD_SIGNED_TYPE (EImode);
   aarch64_simd_intCI_type_node = AARCH64_BUILD_SIGNED_TYPE (CImode);
   aarch64_simd_intXI_type_node = AARCH64_BUILD_SIGNED_TYPE (XImode);
 #undef AARCH64_BUILD_SIGNED_TYPE
 
-  tdecl = add_builtin_type
-	    ("__builtin_aarch64_simd_ei" , aarch64_simd_intEI_type_node);
-  TYPE_NAME (aarch64_simd_intEI_type_node) = tdecl;
   tdecl = add_builtin_type
 	    ("__builtin_aarch64_simd_oi" , aarch64_simd_intOI_type_node);
   TYPE_NAME (aarch64_simd_intOI_type_node) = tdecl;
@@ -1179,7 +1151,7 @@ aarch64_expand_builtin (tree exp,
 	  icode = (fcode == AARCH64_BUILTIN_SET_FPSR) ?
 	    CODE_FOR_set_fpsr : CODE_FOR_set_fpcr;
 	  arg0 = CALL_EXPR_ARG (exp, 0);
-	  op0 = expand_normal (arg0);
+	  op0 = force_reg (SImode, expand_normal (arg0));
 	  pat = GEN_FCN (icode) (op0);
 	}
       emit_insn (pat);
@@ -1379,10 +1351,10 @@ bool
 aarch64_gimple_fold_builtin (gimple_stmt_iterator *gsi)
 {
   bool changed = false;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple *stmt = gsi_stmt (*gsi);
   tree call = gimple_call_fn (stmt);
   tree fndecl;
-  gimple new_stmt = NULL;
+  gimple *new_stmt = NULL;
 
   if (call)
     {
@@ -1470,8 +1442,8 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
        __builtin_aarch64_set_cr (masked_cr);
        __builtin_aarch64_set_sr (masked_sr);  */
 
-  fenv_cr = create_tmp_var (unsigned_type_node);
-  fenv_sr = create_tmp_var (unsigned_type_node);
+  fenv_cr = create_tmp_var_raw (unsigned_type_node);
+  fenv_sr = create_tmp_var_raw (unsigned_type_node);
 
   get_fpcr = aarch64_builtin_decls[AARCH64_BUILTIN_GET_FPCR];
   set_fpcr = aarch64_builtin_decls[AARCH64_BUILTIN_SET_FPCR];
@@ -1484,9 +1456,9 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 			   ~(AARCH64_FE_ALL_EXCEPT));
 
   ld_fenv_cr = build2 (MODIFY_EXPR, unsigned_type_node,
-		    fenv_cr, build_call_expr (get_fpcr, 0));
+		       fenv_cr, build_call_expr (get_fpcr, 0));
   ld_fenv_sr = build2 (MODIFY_EXPR, unsigned_type_node,
-		    fenv_sr, build_call_expr (get_fpsr, 0));
+		       fenv_sr, build_call_expr (get_fpsr, 0));
 
   masked_fenv_cr = build2 (BIT_AND_EXPR, unsigned_type_node, fenv_cr, mask_cr);
   masked_fenv_sr = build2 (BIT_AND_EXPR, unsigned_type_node, fenv_sr, mask_sr);
@@ -1517,7 +1489,7 @@ aarch64_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
        __atomic_feraiseexcept (new_fenv_var);  */
 
-  new_fenv_var = create_tmp_var (unsigned_type_node);
+  new_fenv_var = create_tmp_var_raw (unsigned_type_node);
   reload_fenv = build2 (MODIFY_EXPR, unsigned_type_node,
 			new_fenv_var, build_call_expr (get_fpsr, 0));
   restore_fnenv = build_call_expr (set_fpsr, 1, fenv_sr);
