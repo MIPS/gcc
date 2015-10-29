@@ -1,3 +1,8 @@
+2015-10-29  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_map_clause): Remove allow_sections
+	formal parameter.
+
 2015-10-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-openmp.c (gfc_filter_oacc_combined_clauses): Don't zero-

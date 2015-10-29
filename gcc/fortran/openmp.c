@@ -482,12 +482,10 @@ match_oacc_clause_gang (gfc_omp_clauses *cp)
    mapping.  */
 
 static bool
-gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op,
-			  bool allow_sections = true)
+gfc_match_omp_map_clause (gfc_omp_namelist **list, gfc_omp_map_op map_op)
 {
   gfc_omp_namelist **head = NULL;
-  if (gfc_match_omp_variable_list ("", list, false, NULL, &head,
-				   allow_sections)
+  if (gfc_match_omp_variable_list ("", list, false, NULL, &head, true)
       == MATCH_YES)
     {
       gfc_omp_namelist *n;
@@ -592,7 +590,7 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 	  && gfc_match_omp_variable_list ("firstprivate (",
 					  &c->lists[OMP_LIST_FIRSTPRIVATE],
 					  true)
-	      == MATCH_YES)
+	     == MATCH_YES)
 	continue;
       if ((mask & OMP_CLAUSE_LASTPRIVATE)
 	  && gfc_match_omp_variable_list ("lastprivate (",
