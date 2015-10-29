@@ -678,22 +678,25 @@ plugin_new_decl (cc1_plugin::connection *self,
 	    gcc_unreachable ();
 	  }
 	}
-      if (ctor || dtor)
-	{
-#if 1
-	  gcc_unreachable ();
-#else
-	  tree lookup_id;
-	  if (ctor)
-	    lookup_id = constructor_name_full (current_class_type);
-	  else
-	    lookup_id = built_nt (BIT_NOT_EXPR, current_class_type);
-	  // FIXME: look up a decl with the given signature
-	  goto found_decl;
-#endif
-	}
-      decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+      decl = build_lang_decl_loc (loc, code,
+				  (ctor || dtor)
+				  ? DECL_NAME (TYPE_NAME (current_class_type))
+				  : identifier, sym_type);
       SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
+      if (TREE_CODE (sym_type) == METHOD_TYPE)
+	DECL_ARGUMENTS (decl) = build_this_parm (current_class_type,
+						 cp_type_quals (sym_type));
+      for (tree arg = TREE_CODE (sym_type) == METHOD_TYPE
+	     ? TREE_CHAIN (TYPE_ARG_TYPES (sym_type))
+	     : TYPE_ARG_TYPES (sym_type);
+	   arg && arg != void_list_node;
+	   arg = TREE_CHAIN (arg))
+	{
+	  tree parm = cp_build_parm_decl (NULL_TREE, TREE_VALUE (arg));
+	  DECL_CHAIN (parm) = DECL_ARGUMENTS (decl);
+	  DECL_ARGUMENTS (decl) = parm;
+	}
+      DECL_ARGUMENTS (decl) = nreverse (DECL_ARGUMENTS (decl));
       if (class_member_p)
 	{
 	  if (TREE_CODE (sym_type) == FUNCTION_TYPE)
@@ -723,31 +726,94 @@ plugin_new_decl (cc1_plugin::connection *self,
 	}
       if (ctor || dtor)
 	{
+	  tree fns = NULL_TREE;
 	  if (ctor)
-	    DECL_CONSTRUCTOR_P (decl) = 1;
+	    {
+	      DECL_CONSTRUCTOR_P (decl) = 1;
+	      fns = CLASSTYPE_CONSTRUCTORS (current_class_type);
+	    }
 	  if (dtor)
-	    DECL_DESTRUCTOR_P (decl) = 1;
+	    {
+	      DECL_DESTRUCTOR_P (decl) = 1;
+	      fns = CLASSTYPE_DESTRUCTORS (current_class_type);
+	    }
+	  DECL_CONTEXT (decl) = FROB_CONTEXT (current_class_type);
+	  maybe_retrofit_in_chrg (decl);
+	  for (; fns; fns = OVL_NEXT (fns))
+	    {
+	      tree fn = OVL_CURRENT (fns);
+	      if (TREE_TYPE (decl) == TREE_TYPE (fn))
+		{
+		  decl = fn;
+		  break;
+		}
+	    }
+	  if (!fns)
+	    {
+	      finish_member_declaration (decl);
+	      /* ctors and dtors clones are chained after DECL.
+		 However, we create the clones before TYPE_METHODS is
+		 reversed.  We test for cloned methods after reversal,
+		 however, and the test requires the clones to follow
+		 DECL.  So, we reverse the chain of clones now, so
+		 that it will come out in the right order after
+		 reversal.  */
+	      tree save = DECL_CHAIN (decl);
+	      DECL_CHAIN (decl) = NULL_TREE;
+	      clone_function_decl (decl, /*update_method_vec_p=*/1);
+	      gcc_assert (TYPE_METHODS (current_class_type) == decl);
+	      TYPE_METHODS (current_class_type)
+		= nreverse (TYPE_METHODS (current_class_type));
+	      DECL_CHAIN (decl) = save;
+	    }
+	  /* Reverse the method chain temporarily, so that we can find
+	     the clones after DECL.  The clones are supposed to be
+	     introduced one right after the other, so truncating the
+	     list at DECL for the temporary reversal will yield a very
+	     short list.  */
+	  tree save = DECL_CHAIN (decl), abstract_decl = decl;
+	  DECL_CHAIN (decl) = NULL_TREE;
+	  TYPE_METHODS (current_class_type)
+	    = nreverse (TYPE_METHODS (current_class_type));
+	  for (decl = DECL_CHAIN (decl); decl; decl = DECL_CHAIN (decl))
+	    if (DECL_NAME (decl) == identifier)
+	      break;
+	  TYPE_METHODS (current_class_type)
+	    = nreverse (TYPE_METHODS (current_class_type));
+	  DECL_CHAIN (abstract_decl) = save;
 	}
     }
   else if (class_member_p)
     {
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
-      if (TREE_CODE (decl) == VAR_DECL)
-	{
-	  // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
-	  // FIXME: sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE
-	  DECL_THIS_STATIC (decl) = 1;
-	  // The remainder of this block does the same as:
-	  // set_linkage_for_static_data_member (decl);
-	  TREE_PUBLIC (decl) = 1;
-	  TREE_STATIC (decl) = 1;
-	  DECL_INTERFACE_KNOWN (decl) = 1;
-	}
+
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+
+      // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
+      gcc_assert (!(sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE));
+
+      if (sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE)
+	DECL_DECLARED_CONSTEXPR_P (decl) = true;
+
+      DECL_THIS_STATIC (decl) = 1;
+      // The remainder of this block does the same as:
+      // set_linkage_for_static_data_member (decl);
+      TREE_PUBLIC (decl) = 1;
+      TREE_STATIC (decl) = 1;
+      DECL_INTERFACE_KNOWN (decl) = 1;
     }
   else
-    // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
-    // FIXME: sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE
-    decl = build_decl (loc, code, identifier, sym_type);
+    {
+      decl = build_decl (loc, code, identifier, sym_type);
+
+      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+
+      // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
+      gcc_assert (!(sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE));
+
+      if (sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE)
+	DECL_DECLARED_CONSTEXPR_P (decl) = true;
+    }
   TREE_USED (decl) = 1;
   TREE_ADDRESSABLE (decl) = 1;
 
@@ -756,7 +822,6 @@ plugin_new_decl (cc1_plugin::connection *self,
   else if (at_namespace_scope_p ())
     DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
 
- found_decl:
   if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
     {
       decl_addr_value value;
@@ -789,9 +854,8 @@ plugin_new_decl (cc1_plugin::connection *self,
 
   if (class_member_p)
     {
-      finish_member_declaration (decl);
-      if (ctor || dtor)
-	clone_function_decl (decl, /*update_method_vec_p=*/0);
+      if (!(ctor || dtor))
+	finish_member_declaration (decl);
     }
   else
     decl = safe_pushdecl_maybe_friend (decl, false);
@@ -1288,26 +1352,42 @@ lxtest_members (cc1_plugin::connection *self,
 		const char *filename,
 		unsigned int line_number) {
   gcc_type void_type = plugin_void_type (self);
-  gcc_type int_type = plugin_int_type (self, 0, sizeof (int));
-  gcc_type_array argi = { 1, &int_type };
-  gcc_type fi2v = plugin_build_function_type (self, void_type, &argi, 0);
-  gcc_type mi2v = plugin_build_method_type (self, class_type, fi2v,
+  gcc_type_array arg0 = { 0, &void_type };
+  gcc_type f02v = plugin_build_function_type (self, void_type, &arg0, 0);
+  gcc_type m02v = plugin_build_method_type (self, class_type, f02v,
 					    gcc_cp_qualifiers (0),
 					    GCC_CP_REF_QUAL_NONE);
   plugin_new_decl (self, "pL",
 		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
 				       GCC_CP_FLAG_SPECIAL_FUNCTION),
-		   mi2v, 0, 2,
+		   m02v, 0, 2,
 		   filename, line_number);
   plugin_new_decl (self, "C1",
 		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
 				       GCC_CP_FLAG_SPECIAL_FUNCTION),
-		   mi2v, 0, 4,
+		   m02v, 0, 4,
 		   filename, line_number);
   plugin_new_decl (self, "C2",
 		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
 				       GCC_CP_FLAG_SPECIAL_FUNCTION),
-		   mi2v, 0, 6,
+		   m02v, 0, 6,
+		   filename, line_number);
+  plugin_new_decl (self, "D1",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION |
+				       GCC_CP_FLAG_VIRTUAL_FUNCTION),
+		   m02v, 0, 8,
+		   filename, line_number);
+  plugin_new_decl (self, "D2",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION),
+		   m02v, 0, 10,
+		   filename, line_number);
+  plugin_new_decl (self, "D0",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION |
+				       GCC_CP_FLAG_VIRTUAL_FUNCTION),
+		   m02v, 0, 12,
 		   filename, line_number);
 }
 
