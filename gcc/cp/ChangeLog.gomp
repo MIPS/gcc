@@ -1,5 +1,17 @@
 2015-10-29  Cesar Philippidis  <cesar@codesourcery.com>
 
+	* parser.c (cp_parser_omp_simple_clause): Rename to ...
+	(cp_parser_oacc_simple_clause): ... this.
+	(cp_parser_omp_clause_untied): Restore from trunk.
+	(cp_parser_omp_clause_branch): Likewise.
+	(cp_parser_oacc_all_clauses): Use cp_parser_oacc_simple_clause for
+	OACC_CLAUSE_{AUTO,INDEPENDENT,NOHOST,NUM_GANGS,SEQ}.
+	(cp_parser_omp_all_clauses): Use cp_parser_omp_clause_untied for
+	OMP_CLAUSE_UNTIED, and cp_parser_omp_clause_branch for
+	OMP_CLAUSE_{INBRANCH,NOTINBRANCH} and CICK_CLAUSE_{MASK,NOMASK}.
+
+2015-10-29  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* parser.c (cp_parser_omp_positive_int_clause): Delete.
 	(cp_parser_oacc_clause_tile): Restore from trunk.
 	(cp_parser_oacc_clause_vector_length): Likewise.

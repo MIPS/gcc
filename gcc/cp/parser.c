@@ -29642,6 +29642,23 @@ cp_parser_oacc_data_clause_deviceptr (cp_parser *parser, tree list)
   return list;
 }
 
+/* OpenACC 2.0:
+   auto
+   independent
+   nohost
+   seq */
+
+static tree
+cp_parser_oacc_simple_clause (cp_parser * /* parser  */,
+			      enum omp_clause_code code,
+			      tree list, location_t location)
+{
+  check_no_duplicate_clause (list, code, omp_clause_code_name[code], location);
+  tree c = build_omp_clause (location, code);
+  OMP_CLAUSE_CHAIN (c) = list;
+  return c;
+}
+
 /* OpenACC:
 
     gang [( gang-arg-list )]
@@ -30886,20 +30903,27 @@ cp_parser_omp_clause_schedule (cp_parser *parser, tree list, location_t location
 }
 
 /* OpenMP 3.0:
-   untied
-
-   OpenMP 4.0:
-   inbranch
-   notinbranch
-
-   OpenACC 2.0:
-   auto
-   independent
-   nohost
-   seq */
+   untied */
 
 static tree
-cp_parser_omp_simple_clause (cp_parser * /*parser*/, enum omp_clause_code code,
+cp_parser_omp_clause_untied (cp_parser * /*parser*/,
+			     tree list, location_t location)
+{
+  tree c;
+
+  check_no_duplicate_clause (list, OMP_CLAUSE_UNTIED, "untied", location);
+
+  c = build_omp_clause (location, OMP_CLAUSE_UNTIED);
+  OMP_CLAUSE_CHAIN (c) = list;
+  return c;
+}
+
+/* OpenMP 4.0:
+   inbranch
+   notinbranch */
+
+static tree
+cp_parser_omp_clause_branch (cp_parser * /*parser*/, enum omp_clause_code code,
 			     tree list, location_t location)
 {
   check_no_duplicate_clause (list, code, omp_clause_code_name[code], location);
@@ -31697,7 +31721,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "async";
 	  break;
 	case PRAGMA_OACC_CLAUSE_AUTO:
-	  clauses = cp_parser_omp_simple_clause (parser, OMP_CLAUSE_AUTO,
+	  clauses = cp_parser_oacc_simple_clause (parser, OMP_CLAUSE_AUTO,
 						 clauses, here);
 	  c_name = "auto";
 	  break;
@@ -31762,9 +31786,9 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "if";
 	  break;
 	case PRAGMA_OACC_CLAUSE_INDEPENDENT:
-	  clauses = cp_parser_omp_simple_clause (parser,
-						 OMP_CLAUSE_INDEPENDENT,
-						 clauses, here);
+	  clauses = cp_parser_oacc_simple_clause (parser,
+						  OMP_CLAUSE_INDEPENDENT,
+						  clauses, here);
 	  c_name = "independent";
 	  break;
 	case PRAGMA_OACC_CLAUSE_GANG:
@@ -31781,8 +31805,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "link";
 	  break;
 	case PRAGMA_OACC_CLAUSE_NOHOST:
-	  clauses = cp_parser_omp_simple_clause (parser, OMP_CLAUSE_NOHOST,
-						 clauses, here);
+	  clauses = cp_parser_oacc_simple_clause (parser, OMP_CLAUSE_NOHOST,
+						  clauses, here);
 	  c_name = "nohost";
 	  break;
 	case PRAGMA_OACC_CLAUSE_NUM_GANGS:
@@ -31823,7 +31847,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "reduction";
 	  break;
 	case PRAGMA_OACC_CLAUSE_SEQ:
-	  clauses = cp_parser_omp_simple_clause (parser, OMP_CLAUSE_SEQ,
+	  clauses = cp_parser_oacc_simple_clause (parser, OMP_CLAUSE_SEQ,
 						 clauses, here);
 	  c_name = "seq";
 	  break;
@@ -32022,19 +32046,19 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "shared";
 	  break;
 	case PRAGMA_OMP_CLAUSE_UNTIED:
-	  clauses = cp_parser_omp_simple_clause (parser, OMP_CLAUSE_UNTIED,
-						 clauses, token->location);
+	  clauses = cp_parser_omp_clause_untied (parser, clauses,
+						 token->location);
 	  c_name = "untied";
 	  break;
 	case PRAGMA_OMP_CLAUSE_INBRANCH:
 	case PRAGMA_CILK_CLAUSE_MASK:
-	  clauses = cp_parser_omp_simple_clause (parser, OMP_CLAUSE_INBRANCH,
+	  clauses = cp_parser_omp_clause_branch (parser, OMP_CLAUSE_INBRANCH,
 						 clauses, token->location);
 	  c_name = "inbranch";
 	  break;
 	case PRAGMA_OMP_CLAUSE_NOTINBRANCH:
 	case PRAGMA_CILK_CLAUSE_NOMASK:
-	  clauses = cp_parser_omp_simple_clause (parser,
+	  clauses = cp_parser_omp_clause_branch (parser,
 						 OMP_CLAUSE_NOTINBRANCH,
 						 clauses, token->location);
 	  c_name = "notinbranch";
