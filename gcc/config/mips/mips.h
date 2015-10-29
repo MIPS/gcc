@@ -1120,7 +1120,8 @@ struct mips_cpu_info {
 
 /* ISA has the WSBH (word swap bytes within halfwords) instruction.
    64-bit targets also provide DSBH and DSHD.  */
-#define ISA_HAS_WSBH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_WSBH		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
+				 || (TARGET_MIPS16 && TARGET_ASMACRO_WSBH))
 
 /* ISA has data prefetch instructions.  This controls use of 'pref'.  */
 #define ISA_HAS_PREFETCH	((ISA_MIPS4				\
@@ -1147,7 +1148,8 @@ struct mips_cpu_info {
 #define ISA_HAS_SEB_SEH		(mips_isa_rev >= 2 && !TARGET_MIPS16)
 
 /* ISA includes the MIPS32/64 rev 2 ext and ins instructions.  */
-#define ISA_HAS_EXT_INS		(mips_isa_rev >= 2 && !TARGET_MIPS16)
+#define ISA_HAS_EXT_INS		((mips_isa_rev >= 2 && !TARGET_MIPS16) \
+				 || (TARGET_MIPS16 && TARGET_ASMACRO_EXT_INS))
 
 /* ISA has instructions for accessing top part of 64-bit fp regs.  */
 #define ISA_HAS_MXHC1		(!TARGET_FLOAT32	\
@@ -1155,7 +1157,7 @@ struct mips_cpu_info {
 
 /* ISA has lwxs instruction (load w/scaled index address.  */
 #define ISA_HAS_LWXS		((TARGET_SMARTMIPS || TARGET_MICROMIPS) \
-				 && !TARGET_MIPS16)
+				|| (TARGET_MIPS16 && TARGET_ASMACRO_LWXS))
 
 /* ISA has lbx, lbux, lhx, lhx, lhux, lwx, lwux, or ldx instruction. */
 #define ISA_HAS_LBX		(TARGET_OCTEON2)

@@ -3225,7 +3225,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d")
 	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0")
 		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d")))]
-  "TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+  "TARGET_MIPS16 && !TARGET_ASMACRO_ANDI && !TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   switch (which_alternative)
     {
@@ -3247,6 +3247,107 @@
     }
 }
   [(set_attr "move_type" "load,load,load,shift_shift,logical")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*and<mode>3_mips16_andi"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,0,d,0")
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,K,Yw,d")))]
+  "TARGET_MIPS16 && TARGET_ASMACRO_ANDI && !TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+{
+  int len;
+  switch (which_alternative)
+    {
+    case 0:
+      operands[1] = gen_lowpart (QImode, operands[1]);
+      return "lbu\t%0,%1";
+    case 1:
+      operands[1] = gen_lowpart (HImode, operands[1]);
+      return "lhu\t%0,%1";
+    case 2:
+      operands[1] = gen_lowpart (SImode, operands[1]);
+      return "lwu\t%0,%1";
+    case 3:
+      return "nop\;nop# andi\t%0,%1,%x2";
+    case 4:
+      return "#";
+    case 5:
+      return "and\t%0,%2";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "move_type" "load,load,load,andi,shift_shift,logical")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*and<mode>3_mips16_ext"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d")
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,Yx")))]
+  "TARGET_MIPS16 && !TARGET_ASMACRO_ANDI && TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+{
+  int len;
+  switch (which_alternative)
+    {
+    case 0:
+      operands[1] = gen_lowpart (QImode, operands[1]);
+      return "lbu\t%0,%1";
+    case 1:
+      operands[1] = gen_lowpart (HImode, operands[1]);
+      return "lhu\t%0,%1";
+    case 2:
+      operands[1] = gen_lowpart (SImode, operands[1]);
+      return "lwu\t%0,%1";
+    case 3:
+      return "#";
+    case 4:
+      return "and\t%0,%2";
+    case 5:
+      /* EXT */
+      len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
+      operands[2] = GEN_INT (len);
+      return "nop\;nop# and<mode>3_mips16: <d>ext\t%0,%1,0,%2";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "move_type" "load,load,load,shift_shift,logical,ext_ins")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "*and<mode>3_mips16_ext_andi"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,0,d,0,d")
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,K,Yw,d,Yx")))]
+  "TARGET_MIPS16 && TARGET_ASMACRO_ANDI && TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+{
+  int len;
+  switch (which_alternative)
+    {
+    case 0:
+      operands[1] = gen_lowpart (QImode, operands[1]);
+      return "lbu\t%0,%1";
+    case 1:
+      operands[1] = gen_lowpart (HImode, operands[1]);
+      return "lhu\t%0,%1";
+    case 2:
+      operands[1] = gen_lowpart (SImode, operands[1]);
+      return "lwu\t%0,%1";
+    case 3:
+       return "nop\;nop# andi\t%0,%1,%x2";
+    case 4:
+      return "#";
+    case 5:
+      return "and\t%0,%2";
+    case 6:
+      /* EXT */
+      len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
+      operands[2] = GEN_INT (len);
+      return "nop\;nop# and<mode>3_mips16: <d>ext\t%0,%1,0,%2";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "move_type" "load,load,load,andi,shift_shift,logical,ext_ins")
    (set_attr "mode" "<MODE>")])
 
 (define_expand "ior<mode>3"
@@ -3272,11 +3373,22 @@
    (set_attr "compression" "micromips,*,*")
    (set_attr "mode" "<MODE>")])
 
+(define_insn "*ior<mode>3_mips16_asmacro"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,0")
+		 (match_operand:GPR 2 "register_operand" "d,K")))]
+  "TARGET_MIPS16 && TARGET_ASMACRO_ORI"
+  "@
+   or\t%0,%2
+   nop\;nop# ori\t%0,%1,%x2"
+  [(set_attr "alu_type" "or")
+   (set_attr "mode" "<MODE>")])
+
 (define_insn "*ior<mode>3_mips16"
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0")
 		 (match_operand:GPR 2 "register_operand" "d")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_ASMACRO_ORI"
   "or\t%0,%2"
   [(set_attr "alu_type" "or")
    (set_attr "mode" "<MODE>")])
@@ -4173,7 +4285,12 @@
 			  (match_operand 3 "const_int_operand" "")))]
   "mips_use_ins_ext_p (operands[1], INTVAL (operands[2]),
 		       INTVAL (operands[3]))"
-  "<d>ext\t%0,%1,%3,%2"
+  {
+    if (TARGET_MIPS16)
+      return "nop\;nop# <d>ext\t%0,%1,0,%2";
+    else
+      return "<d>ext\t%0,%1,%3,%2";
+  }
   [(set_attr "type"	"arith")
    (set_attr "mode"	"<MODE>")])
 
@@ -4223,7 +4340,12 @@
 	(match_operand:GPR 3 "reg_or_0_operand" "dJ"))]
   "mips_use_ins_ext_p (operands[0], INTVAL (operands[1]),
 		       INTVAL (operands[2]))"
-  "<d>ins\t%0,%z3,%2,%1"
+  {
+    if (TARGET_MIPS16)
+      return "nop\;nop# <d>ins\t%0,%z3,%2,%1";
+    else
+      return "<d>ins\t%0,%z3,%2,%1";
+  }
   [(set_attr "type"	"arith")
    (set_attr "mode"	"<MODE>")])
 
@@ -4402,7 +4524,7 @@
 (define_split
   [(set (match_operand:P 0 "d_operand")
 	(high:P (match_operand:P 1 "symbolic_operand_with_high")))]
-  "TARGET_MIPS16 && reload_completed"
+  "TARGET_MIPS16 && reload_completed && !TARGET_ASMACRO_LUI"
   [(set (match_dup 0) (unspec:P [(match_dup 1)] UNSPEC_UNSHIFTED_HIGH))
    (set (match_dup 0) (ashift:P (match_dup 0) (const_int 16)))])
 
@@ -4795,7 +4917,12 @@
 			  (const_int 4))
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWXS"
-  "lwxs\t%0,%1(%2)"
+   {
+     if (TARGET_MIPS16)
+       return "nop\;nop# lwxs\t%0,%1(%2)";
+     else
+       return "lwxs\t%0,%1(%2)";
+   }
   [(set_attr "type"	"load")
    (set_attr "mode"	"SI")])
 
@@ -5713,7 +5840,12 @@
   [(set (match_operand:HI 0 "register_operand" "=d")
 	(bswap:HI (match_operand:HI 1 "register_operand" "d")))]
   "ISA_HAS_WSBH"
-  "wsbh\t%0,%1"
+  {
+    if (TARGET_MIPS16)
+      return "nop\;nop# bswaphi2: wsbh\t%0,%1";
+    else
+      return "wsbh\t%0,%1";
+  }
   [(set_attr "type" "shift")])
 
 (define_insn_and_split "bswapsi2"
@@ -5742,7 +5874,12 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:SI 1 "register_operand" "d")] UNSPEC_WSBH))]
   "ISA_HAS_WSBH"
-  "wsbh\t%0,%1"
+  {
+    if (TARGET_MIPS16)
+      return "nop\;nop# wsbh: wsbh\t%0,%1";
+    else
+      return "wsbh\t%0,%1";
+  }
   [(set_attr "type" "shift")])
 
 (define_insn "dsbh"

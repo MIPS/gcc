@@ -3933,6 +3933,16 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
 	return COSTS_N_INSNS (1);
       return -1;
 
+    case AND:
+      if (TARGET_ASMACRO_ANDI && SMALL_OPERAND_UNSIGNED (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
+    case IOR:
+      if (TARGET_ASMACRO_ORI && SMALL_OPERAND_UNSIGNED (x))
+	return COSTS_N_INSNS (1);
+      return -1;
+
     case LEU:
       /* Like LE, but reject the always-true case.  */
       if (x == -1)
@@ -5297,7 +5307,12 @@ mips_output_move (rtx dest, rtx src)
 	}
 
       if (src_code == HIGH)
-	return TARGET_MIPS16 ? "#" : "lui\t%0,%h1";
+        {
+           if (TARGET_MIPS16 && TARGET_ASMACRO_LUI)
+	     return "nop\;nop# lui\t%0,%h1";
+           else
+	     return TARGET_MIPS16 ? "#" : "lui\t%0,%h1";
+        }
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
