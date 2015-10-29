@@ -742,27 +742,10 @@ redirection_block_p (basic_block bb)
     return true;
 
   /* Test that we've reached the terminating control statement.  */
-  if (gsi_stmt (gsi))
-    {
-      gimple stmt = gsi_stmt (gsi);
-
-      if (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND)
-        {
-          tree lhs = gimple_cond_lhs (stmt);
-
-          /* Rationale: Duplicating blocks that reference parameters is likely to either lead 
-           * to higher register pressure or multiple loads from the stack.*/
-          if (optimize_size
-              && TREE_CODE(lhs) == SSA_NAME
-              && SSA_NAME_VAR (lhs)
-              && TREE_CODE (SSA_NAME_VAR (lhs)) == PARM_DECL)
-            return false;
-          return true;
-        }
-      return gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
-             || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH;
-    }
-  return false;
+  return gsi_stmt (gsi)
+	 && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
+	     || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
+	     || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH);
 }
 
 /* BB is a block which ends with a COND_EXPR or SWITCH_EXPR and when BB
