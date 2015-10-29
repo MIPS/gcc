@@ -1,3 +1,10 @@
+2015-10-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (struct omp_context): Remove reductions field.
+	(scan_sharing_clauses): Don't increment it.
+	(lower_omp_target): Don't check it.  Move openacc dummy gang head
+	& tail generation later & simplify.  Merge ifs.
+
 2015-10-28  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* target.def (goacc.fork_join): Invert sense of result.

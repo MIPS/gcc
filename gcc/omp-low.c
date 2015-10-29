@@ -201,9 +201,6 @@ struct omp_context
 
   /* True if this construct can be cancelled.  */
   bool cancellable;
-
-  /* The number of reductions in a loop.  */
-  int reductions;
 };
 
 /* A structure holding the elements of:
@@ -1946,7 +1943,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  goto do_private;
 
 	case OMP_CLAUSE_REDUCTION:
-	  ctx->reductions++;
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	      && TREE_CODE (decl) == MEM_REF)
@@ -15146,7 +15142,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   tree child_fn, t, c;
   gomp_target *stmt = as_a <gomp_target *> (gsi_stmt (*gsi_p));
   gbind *tgt_bind, *bind, *dep_bind = NULL;
-  gimple_seq tgt_body, olist, ilist, orlist, irlist, fplist, new_body;
+  gimple_seq tgt_body, olist, ilist, fplist, new_body;
   location_t loc = gimple_location (stmt);
   bool offloaded, data_region;
   unsigned int map_cnt = 0;
@@ -15431,16 +15427,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
   else if (data_region)
     lower_omp (&tgt_body, ctx);
-
-  irlist = NULL;
-  orlist = NULL;
-
-  if (is_oacc_parallel (ctx))
-    /* If there are reductions on the offloaded region itself, treat
-       them as a dummy GANG loop.  */
-    lower_oacc_reductions (gimple_location (ctx->stmt), clauses,
-			   build_int_cst (unsigned_type_node, GOMP_DIM_GANG),
-			   false, NULL, NULL, &irlist, &orlist, ctx);
 
   if (offloaded)
     {
@@ -16213,34 +16199,37 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    break;
 	  }
 
-      if (offloaded)
-	{
-	  if (is_oacc_kernels (ctx))
-	    {
-	      tree arg = build_int_cst (integer_type_node, GOMP_DIM_GANG);
-	      gcall *gang_single
-		= gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
-	      gimple_seq_add_stmt (&new_body, gang_single);
-	    }
-	  gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
-	  if (ctx->reductions)
-	    {
-	      gimple_seq_add_seq (&irlist, tgt_body);
-	      gimple_seq_add_seq (&new_body, irlist);
-	      gimple_seq_add_seq (&new_body, orlist);
-	    }
-	  else
-	    gimple_seq_add_seq (&new_body, tgt_body);
+      gimple_seq fork_seq = NULL;
+      gimple_seq join_seq = NULL;
 
-	  new_body = maybe_catch_exception (new_body);
+      if (is_oacc_parallel (ctx))
+	{
+	  /* If there are reductions on the offloaded region itself, treat
+	     them as a dummy GANG loop.  */
+	  tree level = build_int_cst (integer_type_node, GOMP_DIM_GANG);
+
+	  lower_oacc_reductions (gimple_location (ctx->stmt), clauses, level,
+				 false, NULL, NULL, &fork_seq, &join_seq, ctx);
 	}
-      else
-	gimple_seq_add_seq (&new_body, tgt_body);
-    }
-  else if (data_region)
-    new_body = tgt_body;
-  if (offloaded || data_region)
-    {
+
+      if (is_oacc_kernels (ctx))
+	{
+	  tree arg = build_int_cst (integer_type_node, GOMP_DIM_GANG);
+	  gcall *gang_single
+	    = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
+	  gimple_seq_add_stmt (&new_body, gang_single);
+	}
+
+      if (offloaded)
+	gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
+
+      gimple_seq_add_seq (&new_body, fork_seq);
+      gimple_seq_add_seq (&new_body, tgt_body);
+      gimple_seq_add_seq (&new_body, join_seq);
+
+      if (offloaded)
+	new_body = maybe_catch_exception (new_body);
+
       gimple_seq_add_stmt (&new_body, gimple_build_omp_return (false));
       gimple_omp_set_body (stmt, new_body);
     }
