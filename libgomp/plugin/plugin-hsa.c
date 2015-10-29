@@ -1298,3 +1298,13 @@ GOMP_OFFLOAD_host2dev (int ord, void *dst, const void *src, size_t n)
   GOMP_PLUGIN_fatal ("HSA GOMP_OFFLOAD_host2dev is not implemented because "
 		     "it should never be called");
 }
+
+/* Part of the libgomp plugin interface.  Not implemented as it is not required
+   for HSA.  */
+
+void *
+GOMP_OFFLOAD_dev2dev (int ord, void *dst, const void *src, size_t n)
+{
+  GOMP_PLUGIN_fatal ("HSA GOMP_OFFLOAD_dev2dev is not implemented because "
+		     "it should never be called");
+}
