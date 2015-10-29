@@ -34,9 +34,6 @@ foo (int x)
 #pragma omp p for lastprivate (x, x) /* { dg-error "more than once" } */
   for (i = 0; i < 10; i++)
     ;
-#pragma omp p for linear (x, x) /* { dg-error "more than once" } */
-  for (i = 0; i < 10; i++)
-    ;
 #pragma omp single private (x) copyprivate (x) /* { dg-error "more than" } */
     ;
 #pragma omp p shared (bar) /* { dg-error "is not a variable" } */
@@ -49,7 +46,7 @@ foo (int x)
     ;
 #pragma omp p reduction (*:s) /* { dg-error "user defined reduction not found for" } */
     ;
-#pragma omp p reduction (-:a)
+#pragma omp p reduction (-:a) /* { dg-error "user defined reduction not found for" } */
     ;
   d = 0;
 #pragma omp p reduction (*:d)
@@ -83,9 +80,6 @@ foo (int x)
     ;
 #pragma omp p reduction (*:t) /* { dg-error "predetermined 'threadprivate" } */
     ;
-#pragma omp p for linear (t) /* { dg-error "predetermined 'threadprivate" } */
-  for (i = 0; i < 10; i++)
-    ;
 #pragma omp p shared (c) /* { dg-error "predetermined 'shared'" } */
     ;
 #pragma omp p private (c) /* { dg-error "predetermined 'shared'" } */
@@ -96,8 +90,5 @@ foo (int x)
   for (i = 0; i < 10; i++)
     ;
 #pragma omp p reduction (*:c) /* { dg-error "predetermined 'shared'" } */
-    ;
-#pragma omp p for linear (c) /* { dg-error "predetermined 'shared'" } */
-  for (i = 0; i < 10; i++)
     ;
 }

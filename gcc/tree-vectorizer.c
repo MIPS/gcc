@@ -151,9 +151,8 @@ simd_array_to_simduid::equal (const simd_array_to_simduid *p1,
   return p1->decl == p2->decl;
 }
 
-/* Fold IFN_GOMP_SIMD_LANE, IFN_GOMP_SIMD_VF, IFN_GOMP_SIMD_LAST_LANE,
-   into their corresponding constants and remove
-   IFN_GOMP_SIMD_ORDERED_{START,END}.  */
+/* Fold IFN_GOMP_SIMD_LANE, IFN_GOMP_SIMD_VF and IFN_GOMP_SIMD_LAST_LANE
+   into their corresponding constants.  */
 
 static void
 adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
@@ -164,7 +163,7 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
     {
       gimple_stmt_iterator i;
 
-      for (i = gsi_start_bb (bb); !gsi_end_p (i); )
+      for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
 	{
 	  unsigned int vf = 1;
 	  enum internal_fn ifn;
@@ -172,10 +171,7 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
 	  tree t;
 	  if (!is_gimple_call (stmt)
 	      || !gimple_call_internal_p (stmt))
-	    {
-	      gsi_next (&i);
-	      continue;
-	    }
+	    continue;
 	  ifn = gimple_call_internal_fn (stmt);
 	  switch (ifn)
 	    {
@@ -183,13 +179,7 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
 	    case IFN_GOMP_SIMD_VF:
 	    case IFN_GOMP_SIMD_LAST_LANE:
 	      break;
-	    case IFN_GOMP_SIMD_ORDERED_START:
-	    case IFN_GOMP_SIMD_ORDERED_END:
-	      gsi_remove (&i, true);
-	      unlink_stmt_vdef (stmt);
-	      continue;
 	    default:
-	      gsi_next (&i);
 	      continue;
 	    }
 	  tree arg = gimple_call_arg (stmt, 0);
@@ -218,7 +208,6 @@ adjust_simduid_builtins (hash_table<simduid_to_vf> *htab)
 	      gcc_unreachable ();
 	    }
 	  update_call_from_tree (&i, t);
-	  gsi_next (&i);
 	}
     }
 }
@@ -575,7 +564,7 @@ vectorize_loops (void)
 
   free_stmt_vec_info_vec ();
 
-  /* Fold IFN_GOMP_SIMD_{VF,LANE,LAST_LANE,ORDERED_{START,END}} builtins.  */
+  /* Fold IFN_GOMP_SIMD_{VF,LANE,LAST_LANE} builtins.  */
   if (cfun->has_simduid_loops)
     adjust_simduid_builtins (simduid_to_vf_htab);
 
@@ -637,7 +626,7 @@ pass_simduid_cleanup::execute (function *fun)
 
   note_simd_array_uses (&simd_array_to_simduid_htab);
 
-  /* Fold IFN_GOMP_SIMD_{VF,LANE,LAST_LANE,ORDERED_{START,END}} builtins.  */
+  /* Fold IFN_GOMP_SIMD_{VF,LANE,LAST_LANE} builtins.  */
   adjust_simduid_builtins (NULL);
 
   /* Shrink any "omp array simd" temporary arrays to the

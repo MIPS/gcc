@@ -1102,10 +1102,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_SHARED:
-	case OMP_CLAUSE_TO_DECLARE:
-	case OMP_CLAUSE_LINK:
-	case OMP_CLAUSE_USE_DEVICE_PTR:
-	case OMP_CLAUSE_IS_DEVICE_PTR:
 	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
 	  if (TREE_CODE (decl) == VAR_DECL
@@ -1132,11 +1128,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_SAFELEN:
-	case OMP_CLAUSE_SIMDLEN:
-	case OMP_CLAUSE_PRIORITY:
-	case OMP_CLAUSE_GRAINSIZE:
-	case OMP_CLAUSE_NUM_TASKS:
-	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  wi->val_only = true;
 	  wi->is_lhs = false;
@@ -1201,10 +1192,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
-	case OMP_CLAUSE_NOGROUP:
-	case OMP_CLAUSE_THREADS:
-	case OMP_CLAUSE_SIMD:
-	case OMP_CLAUSE_DEFAULTMAP:
 	  break;
 
 	default:
@@ -1225,9 +1212,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= info->context;
-	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		  = info->context;
 	      walk_body (convert_nonlocal_reference_stmt,
 			 convert_nonlocal_reference_op, info,
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_INIT (clause));
@@ -1236,9 +1220,6 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= old_context;
-	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		  = old_context;
 	    }
 	  break;
 
@@ -1749,10 +1730,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_SHARED:
-	case OMP_CLAUSE_TO_DECLARE:
-	case OMP_CLAUSE_LINK:
-	case OMP_CLAUSE_USE_DEVICE_PTR:
-	case OMP_CLAUSE_IS_DEVICE_PTR:
 	do_decl_clause:
 	  decl = OMP_CLAUSE_DECL (clause);
 	  if (TREE_CODE (decl) == VAR_DECL
@@ -1784,11 +1761,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
 	case OMP_CLAUSE_SAFELEN:
-	case OMP_CLAUSE_SIMDLEN:
-	case OMP_CLAUSE_PRIORITY:
-	case OMP_CLAUSE_GRAINSIZE:
-	case OMP_CLAUSE_NUM_TASKS:
-	case OMP_CLAUSE_HINT:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	  wi->val_only = true;
 	  wi->is_lhs = false;
@@ -1858,10 +1830,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
-	case OMP_CLAUSE_NOGROUP:
-	case OMP_CLAUSE_THREADS:
-	case OMP_CLAUSE_SIMD:
-	case OMP_CLAUSE_DEFAULTMAP:
 	  break;
 
 	default:
@@ -1882,9 +1850,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 		= DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= info->context;
-	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		  = info->context;
 	      walk_body (convert_local_reference_stmt,
 			 convert_local_reference_op, info,
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_INIT (clause));
@@ -1893,9 +1858,6 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 			 &OMP_CLAUSE_REDUCTION_GIMPLE_MERGE (clause));
 	      DECL_CONTEXT (OMP_CLAUSE_REDUCTION_PLACEHOLDER (clause))
 		= old_context;
-	      if (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		DECL_CONTEXT (OMP_CLAUSE_REDUCTION_DECL_PLACEHOLDER (clause))
-		  = old_context;
 	    }
 	  break;
 

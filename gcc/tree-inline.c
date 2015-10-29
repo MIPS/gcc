@@ -1481,9 +1481,7 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 
 	case GIMPLE_OMP_ORDERED:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_ordered
-		   (s1,
-		    gimple_omp_ordered_clauses (as_a <gomp_ordered *> (stmt)));
+	  copy = gimple_build_omp_ordered (s1);
 	  break;
 
 	case GIMPLE_OMP_SECTION:
@@ -1519,10 +1517,8 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	case GIMPLE_OMP_CRITICAL:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_critical (s1,
-					    gimple_omp_critical_name
-					      (as_a <gomp_critical *> (stmt)),
-					    gimple_omp_critical_clauses
-					      (as_a <gomp_critical *> (stmt)));
+					    gimple_omp_critical_name (
+					      as_a <gomp_critical *> (stmt)));
 	  break;
 
 	case GIMPLE_TRANSACTION:
@@ -1619,11 +1615,6 @@ remap_gimple_stmt (gimple *stmt, copy_body_data *id)
 	    gimple_call_set_tail (call_stmt, false);
 	  if (gimple_call_from_thunk_p (call_stmt))
 	    gimple_call_set_from_thunk (call_stmt, false);
-	  if (gimple_call_internal_p (call_stmt)
-	      && IN_RANGE (gimple_call_internal_fn (call_stmt),
-			   IFN_GOMP_SIMD_ORDERED_START,
-			   IFN_GOMP_SIMD_ORDERED_END))
-	    DECL_STRUCT_FUNCTION (id->dst_fn)->has_simduid_loops = true;
 	}
 
       /* Remap the region numbers for __builtin_eh_{pointer,filter},

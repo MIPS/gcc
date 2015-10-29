@@ -10,8 +10,8 @@ const A a;
 void foo (A &p)
 {
   const A &q = a;
-#pragma omp task
+#pragma omp task	// { dg-error "has reference type" }
   bar (p);
-#pragma omp task
+#pragma omp task	// { dg-error "has reference type" }
   bar (q);
 }
