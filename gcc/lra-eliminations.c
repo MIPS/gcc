@@ -1379,7 +1379,7 @@ lra_eliminate (bool final_p, bool first_p)
   bitmap_head insns_with_changed_offsets;
   bitmap_iterator bi;
   struct elim_table *ep;
-
+  int i;
   gcc_assert (! final_p || ! first_p);
 
   timevar_push (TV_LRA_ELIMINATE);
