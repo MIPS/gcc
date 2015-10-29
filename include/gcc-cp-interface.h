@@ -127,7 +127,7 @@ enum gcc_cp_symbol_kind
 
   /* This indicates a "final" virtual member function.  */
   GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION = GCC_CP_FLAG_BASE << 3,
-  
+
   /* This indicates a special member function should have its default
      implementation.  This either means the function declaration
      contains the "= default" tokens, or that the member function was
@@ -172,7 +172,7 @@ enum gcc_cp_symbol_kind
      should the ADDRESS be?  */
 
   GCC_CP_FLAG_THREAD_LOCAL_VARIABLE = GCC_CP_FLAG_BASE << 1,
-  
+
   GCC_CP_FLAG_END_VARIABLE,
   GCC_CP_FLAG_MASK_VARIABLE = (((GCC_CP_FLAG_END_VARIABLE - 1) << 1)
 			       - GCC_CP_FLAG_BASE),
