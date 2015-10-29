@@ -1,0 +1,31 @@
+Bottom: 709aff01fe590286e659cc2cb4b6bdad91012576
+Top:    fe799671cbc4122d5b2083237fef07f04480c9f7
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-10-29 00:47:31 -0200
+
+Refresh of special-memfuncs-api.patch
+
+---
+
+diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
+index f598c79..873279b 100644
+--- a/include/gcc-cp-interface.h
++++ b/include/gcc-cp-interface.h
+@@ -127,7 +127,7 @@ enum gcc_cp_symbol_kind
+ 
+   /* This indicates a "final" virtual member function.  */
+   GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION = GCC_CP_FLAG_BASE << 3,
+-  
++
+   /* This indicates a special member function should have its default
+      implementation.  This either means the function declaration
+      contains the "= default" tokens, or that the member function was
+@@ -172,7 +172,7 @@ enum gcc_cp_symbol_kind
+      should the ADDRESS be?  */
+ 
+   GCC_CP_FLAG_THREAD_LOCAL_VARIABLE = GCC_CP_FLAG_BASE << 1,
+-  
++
+   GCC_CP_FLAG_END_VARIABLE,
+   GCC_CP_FLAG_MASK_VARIABLE = (((GCC_CP_FLAG_END_VARIABLE - 1) << 1)
+ 			       - GCC_CP_FLAG_BASE),
