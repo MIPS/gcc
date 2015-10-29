@@ -1,3 +1,18 @@
+2015-10-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_omp_positive_int_clause): Delete.
+	(cp_parser_oacc_clause_tile): Restore from trunk.
+	(cp_parser_oacc_clause_vector_length): Likewise.
+	(cp_parser_omp_clause_nowait): Likewise.
+	(cp_parser_omp_clause_num_gangs): Likewise.
+	(cp_parser_omp_clause_num_threads): Likewise.
+	(cp_parser_omp_clause_num_workers): Likewise.
+	(cp_parser_oacc_all_clauses): Use c_parser_omp_clause_{num_gangs,
+	num_workers,vector_length} for OMP_CLAUSE_{NUM_GANGS,NUM_WORKERS,
+	VECTOR_LENGTH}, respectively.
+	(cp_parser_omp_all_clauses): Use cp_parser_omp_cluase_num_threads
+	for OMP_CLAUSE_NUM_THREADS.
+
 2015-10-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (require_positive_expr): Remove function.

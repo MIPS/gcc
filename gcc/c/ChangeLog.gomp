@@ -1,3 +1,22 @@
+2015-10-29  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_positive_int_clause): Delete.
+	(c_parser_omp_clause_num_gangs): Restore from trunk.
+	(c_parser_omp_clause_num_threads): Likewise.
+	(c_parser_omp_clause_is_device_ptr): Likewise.
+	(c_parser_omp_clause_num_workers): Likewise.
+	(c_parser_omp_clause_untied): Likewise.
+	(c_parser_omp_clause_vector_length): Likewise.
+	(c_parser_omp_clause_branch): Likewise.
+	(c_parser_oacc_all_clauses): Use c_parser_oacc_simple_clauses
+	for OMP_CLAUSE_{INDEPENDENT,NOHOST}. Likewise, use
+	c_parser_omp_clause_{num_gangs,num_workers,vector_length} for
+	OMP_CLAUSE_{NUM_GANGS,NUM_WORKERS,VECTOR_LENGTH}, respectively.
+	(c_parser_omp_all_clauses): Use c_parser_omp_clause_num_threads
+	for OMP_CLAUSE_NUM_THREADS, c_parser_omp_clause_untied for
+	OMP_CLAUSE_UNTIED, and c_parser_omp_clause_branch for
+	OMP_CLAUSE_{INBRANCH,NOTINBRANCH} and CICK_CLAUSE_{MASK,NOMASK}.
+
 2015-10-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_simple_clause): New function.
