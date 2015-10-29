@@ -1,9 +1,9 @@
 Version: 1
-Previous: bebc06c0317f46dc4e301d7652c47c28f48e57f0
-Head: 6389746527e624ee688c67dc359a5ffe111ae8b4
+Previous: 1609d981b7ee33d5ae0131bd9e5516af4af8d190
+Head: 8c9affd05066eb8c378c6e4d11327a35fce92445
 Applied:
   special-memfuncs-api.patch: 8c9affd05066eb8c378c6e4d11327a35fce92445
-  special-memfuncs.patch: 6389746527e624ee688c67dc359a5ffe111ae8b4
 Unapplied:
+  special-memfuncs.patch: 6389746527e624ee688c67dc359a5ffe111ae8b4
   special-memfuncs-testing.patch: 93b3e2ca125184da63c63e9f8e63ed0ddc66e9b4
 Hidden:
