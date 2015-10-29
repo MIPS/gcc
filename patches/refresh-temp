@@ -1,0 +1,31 @@
+Bottom: 884123cd4983bada9c4b97750ae843615e9baadf
+Top:    e733794d393bdbd6da128c2a7d236447aed69018
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-10-29 01:04:48 -0200
+
+Refresh of special-memfuncs-ctor-and-dtor.patch
+
+---
+
+diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
+index 665cf31..b33692a 100644
+--- a/libcc1/libcp1plugin.cc
++++ b/libcc1/libcp1plugin.cc
+@@ -680,6 +680,9 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	}
+       if (ctor || dtor)
+ 	{
++#if 1
++	  gcc_unreachable ();
++#else
+ 	  tree lookup_id;
+ 	  if (ctor)
+ 	    lookup_id = constructor_name_full (current_class_type);
+@@ -687,6 +690,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+ 	    lookup_id = built_nt (BIT_NOT_EXPR, current_class_type);
+ 	  // FIXME: look up a decl with the given signature
+ 	  goto found_decl;
++#endif
+ 	}
+       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
+       SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
