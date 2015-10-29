@@ -1,5 +1,13 @@
 2015-10-29  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-c++-common/gomp/element-1.c: New test.
+	* g++.dg/gomp/clause-1.C (T::test): Don't expect error on
+	non-static data member in shared clause.  Add single construct.
+	* g++.dg/gomp/member-2.C (B::m2, B::m4): Don't expect error on
+	non-static data member in shared clause.
+	* g++.dg/gomp/member-3.C: New test.
+	* g++.dg/gomp/member-4.C: New test.
+
 	* g++.dg/gomp/atomic-17.C: New test.
 
 	* gcc.dg/gomp/declare-simd-1.c: Add scan-assembler-times directives

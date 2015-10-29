@@ -1,5 +1,18 @@
 2015-10-29  Jakub Jelinek  <jakub@redhat.com>
 
+	* cp-tree.h (omp_privatize_field): Add SHARED argument.
+	* parser.c (cp_parser_omp_for_loop_init): Adjust omp_privatize_field
+	caller.
+	* pt.c (tsubst_omp_clauses): Handle non-static data members in
+	shared clauses.
+	(tsubst_omp_for_iterator): Adjust omp_privatize_field caller.
+	* semantics.c (omp_privatize_field): Add SHARED argument, if true,
+	always create artificial var and never put it into the hash table
+	or vector.
+	(handle_omp_array_sections_1): Adjust omp_privatize_field caller.
+	(finish_omp_clauses): Likewise.  Allow non-static data members on
+	shared clauses.
+
 	* semantics.c (finish_omp_atomic): Adjust c_finish_omp_atomic
 	caller.
 

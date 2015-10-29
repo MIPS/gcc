@@ -32634,7 +32634,7 @@ cp_parser_omp_for_loop_init (cp_parser *parser,
 	      decl = cp_parser_lookup_name_simple (parser, name,
 						   token->location);
 	      if (TREE_CODE (decl) == FIELD_DECL)
-		add_private_clause = omp_privatize_field (decl);
+		add_private_clause = omp_privatize_field (decl, false);
 	    }
 	  cp_parser_abort_tentative_parse (parser);
 	  cp_parser_parse_tentatively (parser);

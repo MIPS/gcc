@@ -4326,19 +4326,20 @@ omp_note_field_privatization (tree f, tree t)
    dummy VAR_DECL.  */
 
 tree
-omp_privatize_field (tree t)
+omp_privatize_field (tree t, bool shared)
 {
   tree m = finish_non_static_data_member (t, NULL_TREE, NULL_TREE);
   if (m == error_mark_node)
     return error_mark_node;
-  if (!omp_private_member_map)
+  if (!omp_private_member_map && !shared)
     omp_private_member_map = new hash_map<tree, tree>;
   if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
     {
       gcc_assert (TREE_CODE (m) == INDIRECT_REF);
       m = TREE_OPERAND (m, 0);
     }
-  tree &v = omp_private_member_map->get_or_insert (t);
+  tree vb = NULL_TREE;
+  tree &v = shared ? vb : omp_private_member_map->get_or_insert (t);
   if (v == NULL_TREE)
     {
       v = create_temporary_var (TREE_TYPE (m));
@@ -4347,7 +4348,8 @@ omp_privatize_field (tree t)
       DECL_OMP_PRIVATIZED_MEMBER (v) = 1;
       SET_DECL_VALUE_EXPR (v, m);
       DECL_HAS_VALUE_EXPR_P (v) = 1;
-      omp_private_member_vec.safe_push (t);
+      if (!shared)
+	omp_private_member_vec.safe_push (t);
     }
   return v;
 }
@@ -4450,7 +4452,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 
   if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
       && TREE_CODE (TREE_CHAIN (t)) == FIELD_DECL)
-    TREE_CHAIN (t) = omp_privatize_field (TREE_CHAIN (t));
+    TREE_CHAIN (t) = omp_privatize_field (TREE_CHAIN (t), false);
   ret = handle_omp_array_sections_1 (c, TREE_CHAIN (t), types,
 				     maybe_zero_len, first_non_one, is_omp);
   if (ret == error_mark_node || ret == NULL_TREE)
@@ -5681,6 +5683,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_SHARED:
+	  field_ok = allow_fields;
 	  goto check_dup_generic;
 	case OMP_CLAUSE_PRIVATE:
 	  field_ok = allow_fields;
@@ -5851,7 +5854,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
 	  if (t)
 	    {
-	      if (!remove)
+	      if (!remove && OMP_CLAUSE_CODE (c) != OMP_CLAUSE_SHARED)
 		omp_note_field_privatization (t, OMP_CLAUSE_DECL (c));
 	    }
 	  else
@@ -5896,7 +5899,9 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      && TREE_CODE (t) == FIELD_DECL
 	      && t == OMP_CLAUSE_DECL (c))
 	    {
-	      OMP_CLAUSE_DECL (c) = omp_privatize_field (t);
+	      OMP_CLAUSE_DECL (c)
+		= omp_privatize_field (t, (OMP_CLAUSE_CODE (c)
+					   == OMP_CLAUSE_SHARED));
 	      if (OMP_CLAUSE_DECL (c) == error_mark_node)
 		remove = true;
 	    }
@@ -7001,6 +7006,15 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 					 need_copy_ctor, need_copy_assignment,
 					 need_dtor))
 	remove = true;
+
+      if (!remove
+	  && c_kind == OMP_CLAUSE_SHARED
+	  && processing_template_decl)
+	{
+	  t = omp_clause_decl_field (OMP_CLAUSE_DECL (c));
+	  if (t)
+	    OMP_CLAUSE_DECL (c) = t;
+	}
 
       if (remove)
 	*pc = OMP_CLAUSE_CHAIN (c);

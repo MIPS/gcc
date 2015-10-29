@@ -14465,6 +14465,7 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
       if (allow_fields)
 	switch (OMP_CLAUSE_CODE (nc))
 	  {
+	  case OMP_CLAUSE_SHARED:
 	  case OMP_CLAUSE_PRIVATE:
 	  case OMP_CLAUSE_FIRSTPRIVATE:
 	  case OMP_CLAUSE_LASTPRIVATE:
@@ -14644,7 +14645,7 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree orig_declv,
 			&& DECL_NAME (v) == this_identifier)
 		      {
 			decl = TREE_OPERAND (decl, 1);
-			decl = omp_privatize_field (decl);
+			decl = omp_privatize_field (decl, false);
 		      }
 		    /* FALLTHRU */
 		  default:
