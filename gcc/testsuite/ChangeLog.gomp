@@ -1,12 +1,21 @@
+2015-10-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/acc_on_device-2-off.c: Delete.
+	* c-c++-common/goacc/acc_on_device-2.c: Delete.
+	* c-c++-common/goacc/kernels-acc-on-device-2.c: Delete.
+	* c-c++-common/goacc/kernels-acc-on-device.c: Delete.
+	* c-c++-common/goacc/openacc.h: Delete.
+
 2015-10-28  Tom de Vries  <tom@codesourcery.com>
 
-	* c-c++-common/goacc/nesting-1.c (f_acc_data): Move dg-error tests to ...
+	* c-c++-common/goacc/nesting-1.c (f_acc_data): Move dg-error tests
+	to ...
 	* c-c++-common/goacc/nesting-fail-1.c (f_acc_data): ... here.
 
 2015-10-28  Tom de Vries  <tom@codesourcery.com>
 
-	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_omp): Test for acc loop in
-	omp parallel.
+	* c-c++-common/goacc-gomp/nesting-fail-1.c (f_omp): Test for acc
+	loop in omp parallel.
 
 2015-10-28  Tom de Vries  <tom@codesourcery.com>
 
@@ -16,7 +25,7 @@
 
 2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
 
-	* c-c++-common/goacc/loop-shape.c (int main): New test.
+	* c-c++-common/goacc/loop-shape.c: New test.
 	* g++.dg/gomp/pr33372-1.C: Adjust expected error messages.
 	* g++.dg/gomp/pr33372-3.C: Likewise.
 	* gfortran.dg/goacc/combined-directives.f90: New test.

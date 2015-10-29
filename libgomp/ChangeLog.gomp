@@ -1,3 +1,12 @@
+2015-10-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* openacc.h (enum acc_device_t): Ensure layout compatibility.
+	(acc_on_device): Declare compatible with builtin and provide C++
+	wrapper.
+	* oacc-init.c (acc_on_device): Change arg type.
+	* config/nvptx/oacc-init.c (acc_on_device): Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/acc-on-device.c: New.
+
 2015-10-28  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/combined-directive-1.f90: Rename to...

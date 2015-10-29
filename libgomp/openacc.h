@@ -56,7 +56,10 @@ typedef enum acc_device_t
     /* acc_device_host_nonshm = 3 removed.  */
     acc_device_not_host = 4,
     acc_device_nvidia = 5,
-    _ACC_device_hwm
+    _ACC_device_hwm,
+    /* Ensure enumeration is layout compatible with int.  */
+    _ACC_highest = __INT_MAX__,
+    _ACC_neg = -1
   } acc_device_t;
 
 typedef enum acc_async_t
@@ -79,11 +82,11 @@ void acc_wait_all (void) __GOACC_NOTHROW;
 void acc_wait_all_async (int) __GOACC_NOTHROW;
 void acc_init (acc_device_t) __GOACC_NOTHROW;
 void acc_shutdown (acc_device_t) __GOACC_NOTHROW;
-/* Library function declaration.  Although it should take an
-   acc_device_t argument, that causes problems with matching the
-   builtin, which takes an int (to avoid declaring the enumeration
-   inside the compiler).  */
-int acc_on_device (int) __GOACC_NOTHROW;
+#ifdef __cplusplus
+int acc_on_device (int __arg) __GOACC_NOTHROW;
+#else
+int acc_on_device (acc_device_t __arg) __GOACC_NOTHROW;
+#endif
 void *acc_malloc (size_t) __GOACC_NOTHROW;
 void acc_free (void *) __GOACC_NOTHROW;
 /* Some of these would be more correct with const qualifiers, but
@@ -116,6 +119,10 @@ void *acc_get_cuda_stream (int) __GOACC_NOTHROW;
 int acc_set_cuda_stream (int, void *) __GOACC_NOTHROW;
 
 #ifdef __cplusplus
+}
+inline int acc_on_device (acc_device_t __arg) __GOACC_NOTHROW
+{
+  return acc_on_device ((int) __arg);
 }
 #endif
 
