@@ -167,7 +167,6 @@ struct ira_reg_equiv_s
   rtx invariant;
   /* Always NULL_RTX if defined_p is false.  */
   rtx init_insns;
-  rtx stack_slot;
 };
 
 /* The length of the following array.  */
