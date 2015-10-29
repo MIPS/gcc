@@ -781,6 +781,7 @@ static struct list *mips_no_compress;
 static struct list *mips_optimize_size;
 static struct list *mips_optimize_O3;
 static struct list *mips_optimize_O2;
+static struct list *mips_optimize_O1;
 
 static struct list *
 mips_read_list (const char * filename)
@@ -795,8 +796,8 @@ mips_read_list (const char * filename)
   fd = fopen (filename, "r");
   if (fd == NULL)
     {
-      error ("Bad filename for -m[no-]compress-list, -moptimize-size-list, -moptimize-O3-list or "
-	     "-moptimize-O2-list: %s\n", filename);
+      error ("Bad filename for -m[no-]compress-list, -moptimize-size-list, -moptimize-O3-list, "
+	     "-moptimize-O2-list or -moptimize-O1-list: %s\n", filename);
       return NULL;
     }
 
@@ -1601,6 +1602,15 @@ mips_insert_attributes (tree decl, tree *attributes)
 			  mips_optimize_O2))
 	{
 	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-O2"));
+	  *attributes = tree_cons (get_identifier ("optimize"),
+				   attr_args,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_O1))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-O1"));
 	  *attributes = tree_cons (get_identifier ("optimize"),
 				   attr_args,
 				   *attributes);
@@ -19319,6 +19329,7 @@ mips_option_override (void)
   mips_optimize_size = mips_read_list (mips_optimize_size_list);
   mips_optimize_O3 = mips_read_list (mips_optimize_O3_list);
   mips_optimize_O2 = mips_read_list (mips_optimize_O2_list);
+  mips_optimize_O1 = mips_read_list (mips_optimize_O1_list);
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value

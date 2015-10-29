@@ -516,6 +516,10 @@ moptimize-O2-list=
 Target RejectNegative Joined Var(mips_optimize_O2_list)
 Specify a list of functions to optimize with -O2
 
+moptimize-O1-list=
+Target RejectNegative Joined Var(mips_optimize_O1_list)
+Specify a list of functions to optimize with -O1
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
