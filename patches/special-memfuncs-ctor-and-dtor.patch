@@ -1,5 +1,5 @@
 Bottom: c864067a3cecdf526299c315e4fdd105ebe5ff2d
-Top:    884123cd4983bada9c4b97750ae843615e9baadf
+Top:    e733794d393bdbd6da128c2a7d236447aed69018
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-29 01:00:47 -0200
 
@@ -8,7 +8,7 @@ ctor and dtor tweaks
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d53da61..665cf31 100644
+index d53da61..b33692a 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -481,11 +481,10 @@ plugin_new_decl (cc1_plugin::connection *self,
@@ -24,12 +24,15 @@ index d53da61..665cf31 100644
        if (sym_flags & GCC_CP_FLAG_SPECIAL_FUNCTION)
  	{
  #define CHARS2(f,s) (((unsigned char)f << CHAR_BIT) | (unsigned char)s)
-@@ -679,6 +678,16 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -679,6 +678,20 @@ plugin_new_decl (cc1_plugin::connection *self,
  	    gcc_unreachable ();
  	  }
  	}
 +      if (ctor || dtor)
 +	{
++#if 1
++	  gcc_unreachable ();
++#else
 +	  tree lookup_id;
 +	  if (ctor)
 +	    lookup_id = constructor_name_full (current_class_type);
@@ -37,11 +40,12 @@ index d53da61..665cf31 100644
 +	    lookup_id = built_nt (BIT_NOT_EXPR, current_class_type);
 +	  // FIXME: look up a decl with the given signature
 +	  goto found_decl;
++#endif
 +	}
        decl = build_lang_decl_loc (loc, code, identifier, sym_type);
        SET_DECL_LANGUAGE (decl, lang_cplusplus); // FIXME: current_lang_name is lang_name_c while compiling an extern "C" function, and we haven't switched to a global context at this point, and this breaks function overloading.
        if (class_member_p)
-@@ -714,7 +723,6 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -714,7 +727,6 @@ plugin_new_decl (cc1_plugin::connection *self,
  	    DECL_CONSTRUCTOR_P (decl) = 1;
  	  if (dtor)
  	    DECL_DESTRUCTOR_P (decl) = 1;
@@ -49,7 +53,7 @@ index d53da61..665cf31 100644
  	}
      }
    else if (class_member_p)
-@@ -744,6 +752,7 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -744,6 +756,7 @@ plugin_new_decl (cc1_plugin::connection *self,
    else if (at_namespace_scope_p ())
      DECL_CONTEXT (decl) = FROB_CONTEXT (current_decl_namespace ());
  
@@ -57,7 +61,7 @@ index d53da61..665cf31 100644
    if (sym_kind != GCC_CP_SYMBOL_TYPEDEF)
      {
        decl_addr_value value;
-@@ -775,7 +784,11 @@ plugin_new_decl (cc1_plugin::connection *self,
+@@ -775,7 +788,11 @@ plugin_new_decl (cc1_plugin::connection *self,
      }
  
    if (class_member_p)
