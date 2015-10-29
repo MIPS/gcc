@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "gimple-match.h"
+#include "tree-pass.h"
 
 
 /* Forward declarations of the private auto-generated matchers.
@@ -330,7 +331,12 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	      && SSA_NAME_OCCURS_IN_ABNORMAL_PHI (ops[2])))
 	return NULL_TREE;
       if (!res)
-	res = make_ssa_name (type);
+	{
+	  if (gimple_in_ssa_p (cfun))
+	    res = make_ssa_name (type);
+	  else
+	    res = create_tmp_reg (type);
+	}
       maybe_build_generic_op (rcode, type, &ops[0], ops[1], ops[2]);
       gimple *new_stmt = gimple_build_assign (res, rcode,
 					     ops[0], ops[1], ops[2]);
@@ -360,7 +366,12 @@ maybe_push_res_to_seq (code_helper rcode, tree type, tree *ops,
 	}
       gcc_assert (nargs != 0);
       if (!res)
-	res = make_ssa_name (type);
+	{
+	  if (gimple_in_ssa_p (cfun))
+	    res = make_ssa_name (type);
+	  else
+	    res = create_tmp_reg (type);
+	}
       gimple *new_stmt = gimple_build_call (decl, nargs, ops[0], ops[1], ops[2]);
       gimple_call_set_lhs (new_stmt, res);
       gimple_seq_add_stmt_without_update (seq, new_stmt);
@@ -697,7 +708,8 @@ gimple_simplify (gimple *stmt,
 			    rhs1 = build2 (rcode2, TREE_TYPE (rhs1),
 					   ops2[0], ops2[1]);
 			  else if (rcode2 == SSA_NAME
-				   || rcode2 == INTEGER_CST)
+				   || rcode2 == INTEGER_CST
+				   || rcode2 == VECTOR_CST)
 			    rhs1 = ops2[0];
 			  else
 			    valueized = false;
@@ -740,7 +752,6 @@ gimple_simplify (gimple *stmt,
 
 	  tree decl = TREE_OPERAND (fn, 0);
 	  if (DECL_BUILT_IN_CLASS (decl) != BUILT_IN_NORMAL
-	      || !builtin_decl_implicit (DECL_FUNCTION_CODE (decl))
 	      || !gimple_builtin_call_types_compatible_p (stmt, decl))
 	    return false;
 
@@ -824,4 +835,13 @@ static inline bool
 single_use (tree t)
 {
   return TREE_CODE (t) != SSA_NAME || has_zero_uses (t) || has_single_use (t);
+}
+
+/* Return true if math operations should be canonicalized,
+   e.g. sqrt(sqrt(x)) -> pow(x, 0.25).  */
+
+static inline bool
+canonicalize_math_p ()
+{
+  return !cfun || (cfun->curr_properties & PROP_gimple_opt_math) == 0;
 }

@@ -629,12 +629,6 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
   /* Initialize misalignment to unknown.  */
   SET_DR_MISALIGNMENT (dr, -1);
 
-  /* Strided accesses perform only component accesses, misalignment information
-     is irrelevant for them.  */
-  if (STMT_VINFO_STRIDED_P (stmt_info)
-      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
-    return true;
-
   if (tree_fits_shwi_p (DR_STEP (dr)))
     misalign = DR_INIT (dr);
   aligned_to = DR_ALIGNED_TO (dr);
@@ -794,18 +788,27 @@ vect_compute_data_refs_alignment (vec_info *vinfo)
   unsigned int i;
 
   FOR_EACH_VEC_ELT (datarefs, i, dr)
-    if (STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr)))
-        && !vect_compute_data_ref_alignment (dr))
-      {
-        if (is_a <bb_vec_info> (vinfo))
-          {
-            /* Mark unsupported statement as unvectorizable.  */
-            STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr))) = false;
-            continue;
-          }
-        else
-          return false;
-      }
+    {
+      stmt_vec_info stmt_info = vinfo_for_stmt (DR_STMT (dr));
+      if (STMT_VINFO_VECTORIZABLE (stmt_info)
+	  && !vect_compute_data_ref_alignment (dr))
+	{
+	  /* Strided accesses perform only component accesses, misalignment
+	     information is irrelevant for them.  */
+	  if (STMT_VINFO_STRIDED_P (stmt_info)
+	      && !STMT_VINFO_GROUPED_ACCESS (stmt_info))
+	    continue;
+
+	  if (is_a <bb_vec_info> (vinfo))
+	    {
+	      /* Mark unsupported statement as unvectorizable.  */
+	      STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dr))) = false;
+	      continue;
+	    }
+	  else
+	    return false;
+	}
+    }
 
   return true;
 }
@@ -1351,6 +1354,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_enhance_data_refs_alignment ===\n");
+
+  /* Reset data so we can safely be called multiple times.  */
+  LOOP_VINFO_MAY_MISALIGN_STMTS (loop_vinfo).truncate (0);
+  LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) = 0;
 
   /* While cost model enhancements are expected in the future, the high level
      view of the code at this time is as follows:
@@ -2110,7 +2117,6 @@ vect_analyze_group_access_1 (struct data_reference *dr)
  	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 	                   "not consecutive access ");
 	  dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-	  dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
         }
 
       if (bb_vinfo)
@@ -2120,7 +2126,9 @@ vect_analyze_group_access_1 (struct data_reference *dr)
           return true;
         }
 
-      return false;
+      dump_printf_loc (MSG_NOTE, vect_location, "using strided accesses\n");
+      STMT_VINFO_STRIDED_P (stmt_info) = true;
+      return true;
     }
 
   if (GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) == stmt)
@@ -2150,6 +2158,10 @@ vect_analyze_group_access_1 (struct data_reference *dr)
                                      "Two store stmts share the same dr.\n");
                   return false;
                 }
+
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "Two or more load stmts share the same dr.\n");
 
               /* For load use the same data-ref load.  */
               GROUP_SAME_DR_STMT (vinfo_for_stmt (next)) = prev;
@@ -3885,6 +3897,41 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
     }
   else
     new_vect_var = create_tmp_reg (type, prefix);
+
+  return new_vect_var;
+}
+
+/* Like vect_get_new_vect_var but return an SSA name.  */
+
+tree
+vect_get_new_ssa_name (tree type, enum vect_var_kind var_kind, const char *name)
+{
+  const char *prefix;
+  tree new_vect_var;
+
+  switch (var_kind)
+  {
+  case vect_simple_var:
+    prefix = "vect";
+    break;
+  case vect_scalar_var:
+    prefix = "stmp";
+    break;
+  case vect_pointer_var:
+    prefix = "vectp";
+    break;
+  default:
+    gcc_unreachable ();
+  }
+
+  if (name)
+    {
+      char* tmp = concat (prefix, "_", name, NULL);
+      new_vect_var = make_temp_ssa_name (type, NULL, tmp);
+      free (tmp);
+    }
+  else
+    new_vect_var = make_temp_ssa_name (type, NULL, prefix);
 
   return new_vect_var;
 }

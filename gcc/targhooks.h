@@ -100,6 +100,7 @@ default_builtin_support_vector_misalignment (machine_mode mode,
 					     int, bool);
 extern machine_mode default_preferred_simd_mode (machine_mode mode);
 extern unsigned int default_autovectorize_vector_sizes (void);
+extern machine_mode default_get_mask_mode (unsigned, unsigned);
 extern void *default_init_cost (struct loop *);
 extern unsigned default_add_stmt_cost (void *, int, enum vect_cost_for_stmt,
 				       struct _stmt_vec_info *, int,
@@ -109,6 +110,7 @@ extern void default_destroy_cost_data (void *);
 
 /* OpenACC hooks.  */
 extern bool default_goacc_validate_dims (tree, int [], int);
+extern bool default_goacc_fork_join (gcall *, const int [], bool);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */

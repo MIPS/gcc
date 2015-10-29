@@ -56,6 +56,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-ssa-propagate.h"
 #include "tree-scalar-evolution.h"
+#include "gimple-match.h"
+#include "gimple-fold.h"
+
 
 /* The set of blocks in that at least one of the following changes happened:
    -- the statement at the end of the block was changed
@@ -96,32 +99,34 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
   edge taken_edge;
   bool retval = false;
   gimple *stmt = gsi_stmt (gsi);
-  tree val;
 
   if (!single_succ_p (bb))
     {
       edge e;
       edge_iterator ei;
       bool warned;
-      location_t loc;
+      tree val = NULL_TREE;
 
       fold_defer_overflow_warnings ();
-      loc = gimple_location (stmt);
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_COND:
-	  val = fold_binary_loc (loc, gimple_cond_code (stmt),
-				 boolean_type_node,
-			         gimple_cond_lhs (stmt),
-				 gimple_cond_rhs (stmt));
-	  break;
+	  {
+	    code_helper rcode;
+	    tree ops[3] = {};
+	    if (gimple_simplify (stmt, &rcode, ops, NULL, no_follow_ssa_edges,
+				 no_follow_ssa_edges)
+		&& rcode == INTEGER_CST)
+	      val = ops[0];
+	    break;
+	  }
 
 	case GIMPLE_SWITCH:
 	  val = gimple_switch_index (as_a <gswitch *> (stmt));
 	  break;
 
 	default:
-	  val = NULL_TREE;
+	  ;
 	}
       taken_edge = find_taken_edge (bb, val);
       if (!taken_edge)
@@ -724,9 +729,7 @@ cleanup_tree_cfg_noloop (void)
     }
   else
     {
-#ifdef ENABLE_CHECKING
-      verify_dominators (CDI_DOMINATORS);
-#endif
+      checking_verify_dominators (CDI_DOMINATORS);
       changed = false;
     }
 
@@ -735,9 +738,7 @@ cleanup_tree_cfg_noloop (void)
   gcc_assert (dom_info_available_p (CDI_DOMINATORS));
   compact_blocks ();
 
-#ifdef ENABLE_CHECKING
-  verify_flow_info ();
-#endif
+  checking_verify_flow_info ();
 
   timevar_pop (TV_TREE_CLEANUP_CFG);
 
@@ -772,9 +773,7 @@ repair_loop_structures (void)
 
   BITMAP_FREE (changed_bbs);
 
-#ifdef ENABLE_CHECKING
-  verify_loop_structure ();
-#endif
+  checking_verify_loop_structure ();
   scev_reset ();
 
   timevar_pop (TV_REPAIR_LOOPS);

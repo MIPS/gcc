@@ -541,10 +541,9 @@ pass_cse_reciprocals::execute (function *fun)
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
 
-#ifdef ENABLE_CHECKING
-  FOR_EACH_BB_FN (bb, fun)
-    gcc_assert (!bb->aux);
-#endif
+  if (flag_checking)
+    FOR_EACH_BB_FN (bb, fun)
+      gcc_assert (!bb->aux);
 
   for (arg = DECL_ARGUMENTS (fun->decl); arg; arg = DECL_CHAIN (arg))
     if (FLOAT_TYPE_P (TREE_TYPE (arg))
@@ -1689,7 +1688,7 @@ const pass_data pass_data_cse_sincos =
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_ssa, /* properties_required */
-  0, /* properties_provided */
+  PROP_gimple_opt_math, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
   TODO_update_ssa, /* todo_flags_finish */

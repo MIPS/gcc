@@ -4690,14 +4690,18 @@ process_partial_specialization (tree decl)
 	  : DECL_TEMPLATE_INSTANTIATION (instance))
 	{
 	  tree spec = most_specialized_partial_spec (instance, tf_none);
-	  if (spec && TREE_VALUE (spec) == tmpl)
-	    {
-	      tree inst_decl = (DECL_P (instance)
-				? instance : TYPE_NAME (instance));
-	      permerror (input_location,
-			 "partial specialization of %qD after instantiation "
-			 "of %qD", decl, inst_decl);
-	    }
+	  tree inst_decl = (DECL_P (instance)
+			    ? instance : TYPE_NAME (instance));
+	  if (!spec)
+	    /* OK */;
+	  else if (spec == error_mark_node)
+	    permerror (input_location,
+		       "declaration of %qD ambiguates earlier template "
+		       "instantiation for %qD", decl, inst_decl);
+	  else if (TREE_VALUE (spec) == tmpl)
+	    permerror (input_location,
+		       "partial specialization of %qD after instantiation "
+		       "of %qD", decl, inst_decl);
 	}
     }
 
@@ -6233,6 +6237,17 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
 	   CONSTRUCTOR.  */;
       else if (INTEGRAL_OR_ENUMERATION_TYPE_P (type))
 	expr = maybe_constant_value (expr);
+      else if (cxx_dialect >= cxx1z)
+	{
+	  if (TREE_CODE (type) != REFERENCE_TYPE)
+	    expr = maybe_constant_value (expr);
+	  else if (REFERENCE_REF_P (expr))
+	    {
+	      expr = TREE_OPERAND (expr, 0);
+	      expr = maybe_constant_value (expr);
+	      expr = convert_from_reference (expr);
+	    }
+	}
       else if (TYPE_PTR_OR_PTRMEM_P (type))
 	{
 	  tree folded = maybe_constant_value (expr);
@@ -17224,7 +17239,9 @@ pack_deducible_p (tree parm, tree fn)
 
    DEDUCE_CALL:
      We are deducing arguments for a function call, as in
-     [temp.deduct.call].
+     [temp.deduct.call].  If RETURN_TYPE is non-null, we are
+     deducing arguments for a call to the result of a conversion
+     function template, as in [over.call.object].
 
    DEDUCE_CONV:
      We are deducing arguments for a conversion function, as in
@@ -17391,7 +17408,15 @@ fn_type_unification (tree fn,
   /* Never do unification on the 'this' parameter.  */
   parms = skip_artificial_parms_for (fn, TYPE_ARG_TYPES (fntype));
 
-  if (return_type)
+  if (return_type && strict == DEDUCE_CALL)
+    {
+      /* We're deducing for a call to the result of a template conversion
+         function.  The parms we really want are in return_type.  */
+      if (POINTER_TYPE_P (return_type))
+	return_type = TREE_TYPE (return_type);
+      parms = TYPE_ARG_TYPES (return_type);
+    }
+  else if (return_type)
     {
       tree *new_args;
 

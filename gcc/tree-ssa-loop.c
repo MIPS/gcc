@@ -430,7 +430,7 @@ make_pass_iv_optimize (gcc::context *ctxt)
 static unsigned int
 tree_ssa_loop_done (void)
 {
-  free_numbers_of_iterations_estimates ();
+  free_numbers_of_iterations_estimates (cfun);
   scev_finalize ();
   loop_optimizer_finalize ();
   return 0;

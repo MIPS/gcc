@@ -3152,11 +3152,12 @@ gimplify_cond_expr (tree *expr_p, gimple_seq *pre_p, fallback_t fallback)
 
   gimple_cond_get_ops_from_tree (COND_EXPR_COND (expr), &pred_code, &arm1,
 				 &arm2);
-
   cond_stmt = gimple_build_cond (pred_code, arm1, arm2, label_true,
-                                   label_false);
-
+				 label_false);
   gimplify_seq_add_stmt (&seq, cond_stmt);
+  gimple_stmt_iterator gsi = gsi_last (seq);
+  maybe_fold_stmt (&gsi);
+
   label_cont = NULL_TREE;
   if (!have_then_clause_p)
     {
@@ -4983,6 +4984,12 @@ gimplify_addr_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
 							TREE_OPERAND (op0, 0)));
       ret = GS_OK;
       break;
+
+    case MEM_REF:
+      if (integer_zerop (TREE_OPERAND (op0, 1)))
+	goto do_indirect_ref;
+
+      /* ... fall through ... */
 
     default:
       /* If we see a call to a declared builtin or see its address
@@ -9593,23 +9600,9 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case OACC_KERNELS:
-	  if (OACC_KERNELS_COMBINED (*expr_p))
-	    sorry ("directive not yet implemented");
-	  else
-	    gimplify_omp_workshare (expr_p, pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
-
-	case OACC_PARALLEL:
-	  if (OACC_PARALLEL_COMBINED (*expr_p))
-	    sorry ("directive not yet implemented");
-	  else
-	    gimplify_omp_workshare (expr_p, pre_p);
-	  ret = GS_ALL_DONE;
-	  break;
-
 	case OACC_DATA:
+	case OACC_KERNELS:
+	case OACC_PARALLEL:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:
 	case OMP_TARGET:
@@ -10326,10 +10319,8 @@ gimplify_body (tree fndecl, bool do_parms)
   pop_gimplify_context (outer_bind);
   gcc_assert (gimplify_ctxp == NULL);
 
-#ifdef ENABLE_CHECKING
-  if (!seen_error ())
+  if (flag_checking && !seen_error ())
     verify_gimple_in_seq (gimple_bind_body (outer_bind));
-#endif
 
   timevar_pop (TV_TREE_GIMPLIFY);
   input_location = saved_location;
@@ -10621,11 +10612,9 @@ gimplify_hasher::equal (const elt_t *p1, const elt_t *p2)
   if (!operand_equal_p (t1, t2, 0))
     return false;
 
-#ifdef ENABLE_CHECKING
   /* Only allow them to compare equal if they also hash equal; otherwise
      results are nondeterminate, and we fail bootstrap comparison.  */
-  gcc_assert (hash (p1) == hash (p2));
-#endif
+  gcc_checking_assert (hash (p1) == hash (p2));
 
   return true;
 }

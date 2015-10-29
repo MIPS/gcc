@@ -1269,6 +1269,7 @@ extern void c_finish_omp_taskyield (location_t);
 extern tree c_finish_omp_for (location_t, enum tree_code, tree, tree, tree,
 			      tree, tree, tree, tree);
 extern tree c_finish_oacc_wait (location_t, tree, tree);
+extern tree c_oacc_split_loop_clauses (tree, tree *);
 extern void c_omp_split_clauses (location_t, enum tree_code, omp_clause_mask,
 				 tree, tree *);
 extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);
@@ -1435,6 +1436,7 @@ extern void cilkplus_extract_an_triplets (vec<tree, va_gc> *, size_t, size_t,
 					  vec<vec<an_parts> > *);
 extern vec <tree, va_gc> *fix_sec_implicit_args
   (location_t, vec <tree, va_gc> *, vec<an_loop_parts>, size_t, tree);
+extern bool is_cilkplus_vector_p (tree);
 
 /* In cilk.c.  */
 extern tree insert_cilk_frame (tree);

@@ -832,11 +832,9 @@ symbol_table::create_edge (cgraph_node *caller, cgraph_node *callee,
     {
       /* This is a rather expensive check possibly triggering
 	 construction of call stmt hashtable.  */
-#ifdef ENABLE_CHECKING
       cgraph_edge *e;
-      gcc_checking_assert (
-	!(e = caller->get_edge (call_stmt)) || e->speculative);
-#endif
+      gcc_checking_assert (!(e = caller->get_edge (call_stmt))
+			   || e->speculative);
 
       gcc_assert (is_gimple_call (call_stmt));
     }
@@ -1282,9 +1280,6 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
   gcall *new_stmt;
   gimple_stmt_iterator gsi;
   bool skip_bounds = false;
-#ifdef ENABLE_CHECKING
-  cgraph_node *node;
-#endif
 
   if (e->speculative)
     {
@@ -1402,13 +1397,11 @@ cgraph_edge::redirect_call_stmt_to_callee (void)
 	  && !skip_bounds))
     return e->call_stmt;
 
-#ifdef ENABLE_CHECKING
-  if (decl)
+  if (flag_checking && decl)
     {
-      node = cgraph_node::get (decl);
+      cgraph_node *node = cgraph_node::get (decl);
       gcc_assert (!node || !node->clone.combined_args_to_skip);
     }
-#endif
 
   if (symtab->dump_file)
     {
@@ -1685,39 +1678,38 @@ cgraph_node::remove_callers (void)
 void
 release_function_body (tree decl)
 {
-  if (DECL_STRUCT_FUNCTION (decl))
+  function *fn = DECL_STRUCT_FUNCTION (decl);
+  if (fn)
     {
-      if (DECL_STRUCT_FUNCTION (decl)->cfg
-	  || DECL_STRUCT_FUNCTION (decl)->gimple_df)
+      if (fn->cfg
+	  || fn->gimple_df)
 	{
-	  push_cfun (DECL_STRUCT_FUNCTION (decl));
-	  if (cfun->cfg
-	      && current_loops)
+	  if (fn->cfg
+	      && loops_for_fn (fn))
 	    {
-	      cfun->curr_properties &= ~PROP_loops;
-	      loop_optimizer_finalize ();
+	      fn->curr_properties &= ~PROP_loops;
+	      loop_optimizer_finalize (fn);
 	    }
-	  if (cfun->gimple_df)
+	  if (fn->gimple_df)
 	    {
-	      delete_tree_ssa ();
-	      delete_tree_cfg_annotations ();
-	      cfun->eh = NULL;
+	      delete_tree_ssa (fn);
+	      delete_tree_cfg_annotations (fn);
+	      fn->eh = NULL;
 	    }
-	  if (cfun->cfg)
+	  if (fn->cfg)
 	    {
-	      gcc_assert (!dom_info_available_p (CDI_DOMINATORS));
-	      gcc_assert (!dom_info_available_p (CDI_POST_DOMINATORS));
-	      clear_edges ();
-	      cfun->cfg = NULL;
+	      gcc_assert (!dom_info_available_p (fn, CDI_DOMINATORS));
+	      gcc_assert (!dom_info_available_p (fn, CDI_POST_DOMINATORS));
+	      clear_edges (fn);
+	      fn->cfg = NULL;
 	    }
-	  if (cfun->value_histograms)
-	    free_histograms ();
-	  pop_cfun ();
+	  if (fn->value_histograms)
+	    free_histograms (fn);
 	}
       gimple_set_body (decl, NULL);
       /* Struct function hangs a lot of data that would leak if we didn't
          removed all pointers to it.   */
-      ggc_free (DECL_STRUCT_FUNCTION (decl));
+      ggc_free (fn);
       DECL_STRUCT_FUNCTION (decl) = NULL;
     }
   DECL_SAVED_TREE (decl) = NULL;

@@ -134,7 +134,8 @@ struct cpu_addrcost_table
   const int pre_modify;
   const int post_modify;
   const int register_offset;
-  const int register_extend;
+  const int register_sextend;
+  const int register_zextend;
   const int imm_offset;
 };
 
@@ -194,6 +195,23 @@ struct tune_params
   int vec_reassoc_width;
   int min_div_recip_mul_sf;
   int min_div_recip_mul_df;
+
+/* An enum specifying how to take into account CPU autoprefetch capabilities
+   during instruction scheduling:
+   - AUTOPREFETCHER_OFF: Do not take autoprefetch capabilities into account.
+   - AUTOPREFETCHER_WEAK: Attempt to sort sequences of loads/store in order of
+   offsets but allow the pipeline hazard recognizer to alter that order to
+   maximize multi-issue opportunities.
+   - AUTOPREFETCHER_STRONG: Attempt to sort sequences of loads/store in order of
+   offsets and prefer this even if it restricts multi-issue opportunities.  */
+
+  enum aarch64_autoprefetch_model
+  {
+    AUTOPREFETCHER_OFF,
+    AUTOPREFETCHER_WEAK,
+    AUTOPREFETCHER_STRONG
+  } autoprefetcher_model;
+
   unsigned int extra_tuning_flags;
 };
 
@@ -294,12 +312,14 @@ enum aarch64_symbol_type aarch64_classify_symbol (rtx, rtx);
 enum aarch64_symbol_type aarch64_classify_tls_symbol (rtx);
 enum reg_class aarch64_regno_regclass (unsigned);
 int aarch64_asm_preferred_eh_data_format (int, int);
+int aarch64_fpconst_pow_of_2 (rtx);
 machine_mode aarch64_hard_regno_caller_save_mode (unsigned, unsigned,
 						       machine_mode);
 int aarch64_hard_regno_mode_ok (unsigned, machine_mode);
 int aarch64_hard_regno_nregs (unsigned, machine_mode);
 int aarch64_simd_attr_length_move (rtx_insn *);
 int aarch64_uxt_size (int, HOST_WIDE_INT);
+int aarch64_vec_fpconst_pow_of_2 (rtx);
 rtx aarch64_final_eh_return_addr (void);
 rtx aarch64_legitimize_reload_address (rtx *, machine_mode, int, int, int);
 const char *aarch64_output_move_struct (rtx *operands);
@@ -400,4 +420,5 @@ int aarch64_ccmp_mode_to_code (enum machine_mode mode);
 bool extract_base_offset_in_addr (rtx mem, rtx *base, rtx *offset);
 bool aarch64_operands_ok_for_ldpstp (rtx *, bool, enum machine_mode);
 bool aarch64_operands_adjust_ok_for_ldpstp (rtx *, bool, enum machine_mode);
+extern bool aarch64_nopcrelative_literal_loads;
 #endif /* GCC_AARCH64_PROTOS_H */
