@@ -1,5 +1,5 @@
-Bottom: 9b5012acf47890ea82257a6cf15f3f1396ad5a99
-Top:    da53e39269b08a9d7d6739c4851e6d3e694a879a
+Bottom: 2837bf264b71a773a3db1b22e2145e95d929c340
+Top:    9013ead83a147f5b0fc1603a6b7771870ad5aa70
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-29 01:00:47 -0200
 
@@ -8,7 +8,7 @@ ctor and dtor tweaks
 ---
 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index f2218d3..2455e04 100644
+index db423e4..f063c54 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -481,11 +481,10 @@ plugin_new_decl (cc1_plugin::connection *self,
