@@ -2583,22 +2583,14 @@ finish_unary_op_expr (location_t loc, enum tree_code code, tree expr,
   expr_ovl = expr;
 
   if (!processing_template_decl)
-    {
-      expr_ovl = maybe_constant_value (expr_ovl);
-      /* Strip nop-expressions added by maybe_constant_value on overflow.  */
-      STRIP_NOPS (expr_ovl);
-    }
+    expr_ovl = cp_fully_fold (expr_ovl);
 
   if (!CONSTANT_CLASS_P (expr_ovl)
       || TREE_OVERFLOW_P (expr_ovl))
     return result;
 
   if (!processing_template_decl)
-    {
-      result_ovl = maybe_constant_value (result_ovl);
-      /* Strip nop-expressions added by maybe_constant_value on overflow.  */
-      STRIP_NOPS (result_ovl);
-    }
+    result_ovl = cp_fully_fold (result_ovl);
 
   if (CONSTANT_CLASS_P (result_ovl) && TREE_OVERFLOW_P (result_ovl))
     overflow_warning (input_location, result_ovl);

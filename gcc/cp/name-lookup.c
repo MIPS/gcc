@@ -6265,22 +6265,6 @@ pop_from_top_level_1 (void)
   s->fold_map = NULL;
   s->cv_map = NULL;
   s->act_cfun = NULL;
-
-  /* Invalidate new 'fold_map', if we aren't within nested
-     function.  */
-  if (!same_fold_map && scope_chain
-      && (scope_chain->fold_map || scope_chain->cv_map))
-    {
-      fm = scope_chain->fold_map;
-      cv = scope_chain->cv_map;
-      if (fm)
-        delete fm;
-      if (cv)
-	delete cv;
-      scope_chain->fold_map = NULL;
-      scope_chain->cv_map = NULL;
-      scope_chain->act_cfun = NULL;
-    }
 }
 
 /* Wrapper for pop_from_top_level_1.  */

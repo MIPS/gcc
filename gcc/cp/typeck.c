@@ -5118,16 +5118,11 @@ cp_build_binary_op (location_t location,
 
   if (!processing_template_decl)
     {
-      op0 = maybe_constant_value (op0);
-      STRIP_NOPS (op0);
-      /* Only call maybe_constant_value on second argument, if first
-	 isn't overflown.  */
+      op0 = cp_fully_fold (op0);
+      /* Only consider the second argument if the first isn't overflowed.  */
       if (!CONSTANT_CLASS_P (op0) || TREE_OVERFLOW_P (op0))
 	return result;
-      op1 = maybe_constant_value (op1);
-      /* Strip added nop-expression for overflow-operand introduced by
-	 maybe_constant_value.  */
-      STRIP_NOPS (op1);
+      op1 = cp_fully_fold (op1);
       if (!CONSTANT_CLASS_P (op1) || TREE_OVERFLOW_P (op1))
 	return result;
     }
