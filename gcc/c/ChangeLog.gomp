@@ -1,3 +1,8 @@
+2015-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Diagnose if linear step
+	on declare simd is neither a constant nor a uniform parameter.
+
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-parser.c: Include gimple-expr.h.

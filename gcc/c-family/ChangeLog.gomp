@@ -1,3 +1,11 @@
+2015-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_declare_simd_clauses_to_numbers): Change
+	OMP_CLAUSE_LINEAR_VARIABLE_STRIDE OMP_CLAUSE_LINEAR_STEP
+	into numbers.
+	(c_omp_declare_simd_clauses_to_decls): Similarly change those
+	from numbers to PARM_DECLs.
+
 2015-10-23  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-omp.c (c_omp_split_clauses): Adjust for lastprivate being

@@ -1,3 +1,15 @@
+2015-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/declare-simd-1.c: Add scan-assembler-times directives
+	for expected mangling on x86_64/i?86.
+	* gcc.dg/gomp/declare-simd-3.c: New test.
+	* gcc.dg/gomp/declare-simd-4.c: New test.
+	* g++.dg/gomp/declare-simd-1.C: Add dg-options.  Add
+	scan-assembler-times directives for expected mangling on x86_64/i?86.
+	* g++.dg/gomp/declare-simd-3.C: Likewise.
+	* g++.dg/gomp/declare-simd-4.C: New test.
+	* g++.dg/gomp/declare-simd-5.C: New test.
+
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/gomp/linear-1.c: New test.

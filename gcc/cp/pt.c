@@ -14416,7 +14416,6 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
 				      in_decl);
 	  break;
-	case OMP_CLAUSE_LINEAR:
 	case OMP_CLAUSE_ALIGNED:
 	  OMP_CLAUSE_DECL (nc)
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
@@ -14424,12 +14423,25 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	  OMP_CLAUSE_OPERAND (nc, 1)
 	    = tsubst_expr (OMP_CLAUSE_OPERAND (oc, 1), args, complain,
 			   in_decl, /*integral_constant_expression_p=*/false);
-	  if (OMP_CLAUSE_CODE (oc) == OMP_CLAUSE_LINEAR
-	      && OMP_CLAUSE_LINEAR_STEP (oc) == NULL_TREE)
+	  break;
+	case OMP_CLAUSE_LINEAR:
+	  OMP_CLAUSE_DECL (nc)
+	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
+				      in_decl);
+	  if (OMP_CLAUSE_LINEAR_STEP (oc) == NULL_TREE)
 	    {
 	      gcc_assert (!linear_no_step);
 	      linear_no_step = nc;
 	    }
+	  else if (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (oc))
+	    OMP_CLAUSE_LINEAR_STEP (nc)
+	      = tsubst_omp_clause_decl (OMP_CLAUSE_LINEAR_STEP (oc), args,
+					complain, in_decl);
+	  else
+	    OMP_CLAUSE_LINEAR_STEP (nc)
+	      = tsubst_expr (OMP_CLAUSE_LINEAR_STEP (oc), args, complain,
+			     in_decl,
+			     /*integral_constant_expression_p=*/false);
 	  break;
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_DEFAULT:

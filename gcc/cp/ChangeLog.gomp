@@ -1,3 +1,15 @@
+2015-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_linear): Add DECLARE_SIMD argument.
+	Parse parameter name as linear step as id-expression rather than
+	expression.
+	(cp_parser_omp_all_clauses): Adjust caller.
+	* pt.c (tsubst_omp_clauses): If OMP_CLAUSE_LINEAR_VARIABLE_STRIDE,
+	use tsubst_omp_clause_decl instead of tsubst_expr on
+	OMP_CLAUSE_LINEAR_STEP.
+	* semantics.c (finish_omp_clauses): Diagnose if linear step
+	on declare simd is neither a constant nor a uniform parameter.
+
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_target): Evaluate num_teams and

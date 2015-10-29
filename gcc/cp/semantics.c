@@ -5768,7 +5768,11 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      break;
 	    }
 	  else if (!type_dependent_expression_p (t)
-		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+		   && !INTEGRAL_TYPE_P (TREE_TYPE (t))
+		   && (!declare_simd
+		       || TREE_CODE (t) != PARM_DECL
+		       || TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE
+		       || !INTEGRAL_TYPE_P (TREE_TYPE (TREE_TYPE (t)))))
 	    {
 	      error ("linear step expression must be integral");
 	      remove = true;
@@ -5777,12 +5781,27 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	  else
 	    {
 	      t = mark_rvalue_use (t);
+	      if (declare_simd && TREE_CODE (t) == PARM_DECL)
+		{
+		  OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c) = 1;
+		  goto check_dup_generic;
+		}
 	      if (!processing_template_decl
 		  && (VAR_P (OMP_CLAUSE_DECL (c))
 		      || TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL))
 		{
-		  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL)
-		    t = maybe_constant_value (t);
+		  if (declare_simd)
+		    {
+		      t = maybe_constant_value (t);
+		      if (TREE_CODE (t) != INTEGER_CST)
+			{
+			  error_at (OMP_CLAUSE_LOCATION (c),
+				    "%<linear%> clause step %qE is neither "
+				     "constant nor a parameter", t);
+			  remove = true;
+			  break;
+			}
+		    }
 		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
 		  tree type = TREE_TYPE (OMP_CLAUSE_DECL (c));
 		  if (TREE_CODE (type) == REFERENCE_TYPE)
@@ -6602,6 +6621,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      remove = true;
 	      break;
 	    }
+	  /* map_head bitmap is used as uniform_head if declare_simd.  */
+	  bitmap_set_bit (&map_head, DECL_UID (t));
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_NUM_TASKS:
@@ -6817,6 +6838,17 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	case OMP_CLAUSE_LINEAR:
 	  if (!declare_simd)
 	    need_implicitly_determined = true;
+	  else if (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c)
+		   && !bitmap_bit_p (&map_head,
+				     DECL_UID (OMP_CLAUSE_LINEAR_STEP (c))))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%<linear%> clause step is a parameter %qD not "
+			"specified in %<uniform%> clause",
+			OMP_CLAUSE_LINEAR_STEP (c));
+	      *pc = OMP_CLAUSE_CHAIN (c);
+	      continue;
+	    }
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
 	  need_copy_assignment = true;

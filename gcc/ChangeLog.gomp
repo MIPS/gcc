@@ -1,3 +1,23 @@
+2015-10-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.h (enum cgraph_simd_clone_arg_type): Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_REF_VARIABLE_STEP,
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_VARIABLE_STEP and
+	SIMD_CLONE_ARG_TYPE_LINEAR_VAL_VARIABLE_STEP.
+	(struct cgraph_simd_clone_arg): Adjust comment.
+	* omp-low.c (simd_clone_clauses_extract): Handle variable step
+	for references and arguments passed by reference.
+	(simd_clone_mangle): Mangle ref/uval/val variable steps.
+	(simd_clone_adjust_argument_types): Handle
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_VARIABLE_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_UVAL_CONSTANT_STEP and
+	SIMD_CLONE_ARG_TYPE_LINEAR_VAL_VARIABLE_STEP like
+	SIMD_CLONE_ARG_TYPE_LINEAR_VAL_CONSTANT_STEP.
+	(simd_clone_linear_addend): New function.
+	(simd_clone_adjust): Handle variable step like similarly
+	to constant step, use simd_clone_linear_addend to determine
+	the actual step at runtime.
+
 2015-10-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* gimplify.c (omp_is_private): Diagnose linear iteration variables

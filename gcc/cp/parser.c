@@ -30749,7 +30749,7 @@ cp_parser_omp_clause_aligned (cp_parser *parser, tree list)
 
 static tree
 cp_parser_omp_clause_linear (cp_parser *parser, tree list, 
-			     bool is_cilk_simd_fn)
+			     bool is_cilk_simd_fn, bool declare_simd)
 {
   tree nlist, c, step = integer_one_node;
   bool colon;
@@ -30793,7 +30793,30 @@ cp_parser_omp_clause_linear (cp_parser *parser, tree list,
 
   if (colon)
     {
-      step = cp_parser_expression (parser);
+      step = NULL_TREE;
+      if (declare_simd
+	  && cp_lexer_next_token_is (parser->lexer, CPP_NAME)
+	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_CLOSE_PAREN))
+	{
+	  cp_token *token = cp_lexer_peek_token (parser->lexer);
+	  cp_parser_parse_tentatively (parser);
+	  step = cp_parser_id_expression (parser, /*template_p=*/false,
+					  /*check_dependency_p=*/true,
+					  /*template_p=*/NULL,
+					  /*declarator_p=*/false,
+					  /*optional_p=*/false);
+	  if (step != error_mark_node)
+	    step = cp_parser_lookup_name_simple (parser, step, token->location);
+	  if (step == error_mark_node)
+	    {
+	      step = NULL_TREE;
+	      cp_parser_abort_tentative_parse (parser);
+	    }
+	  else if (!cp_parser_parse_definitely (parser))
+	    step = NULL_TREE;
+	}
+      if (!step)
+	step = cp_parser_expression (parser);
 
       if (is_cilk_simd_fn && TREE_CODE (step) == PARM_DECL)
 	{
@@ -31448,7 +31471,6 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
   tree clauses = NULL;
   bool first = true;
   cp_token *token = NULL;
-  bool cilk_simd_fn = false;
 
   while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL))
     {
@@ -31662,9 +31684,15 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "aligned";
 	  break;
 	case PRAGMA_OMP_CLAUSE_LINEAR:
-	  if (((mask >> PRAGMA_CILK_CLAUSE_VECTORLENGTH) & 1) != 0)
-	    cilk_simd_fn = true;
-	  clauses = cp_parser_omp_clause_linear (parser, clauses, cilk_simd_fn);
+	  {
+	    bool cilk_simd_fn = false, declare_simd = false;
+	    if (((mask >> PRAGMA_CILK_CLAUSE_VECTORLENGTH) & 1) != 0)
+	      cilk_simd_fn = true;
+	    else if (((mask >> PRAGMA_OMP_CLAUSE_UNIFORM) & 1) != 0)
+	      declare_simd = true;
+	    clauses = cp_parser_omp_clause_linear (parser, clauses,
+						   cilk_simd_fn, declare_simd);
+	  }
 	  c_name = "linear";
 	  break;
 	case PRAGMA_OMP_CLAUSE_DEPEND:

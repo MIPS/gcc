@@ -1349,6 +1349,23 @@ c_omp_declare_simd_clauses_to_numbers (tree parms, tree clauses)
 	      continue;
 	    }
 	  OMP_CLAUSE_DECL (c) = build_int_cst (integer_type_node, idx);
+	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	      && OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c))
+	    {
+	      decl = OMP_CLAUSE_LINEAR_STEP (c);
+	      for (arg = parms, idx = 0; arg;
+		   arg = TREE_CHAIN (arg), idx++)
+		if (arg == decl)
+		  break;
+	      if (arg == NULL_TREE)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%qD is not an function argument", decl);
+		  continue;
+		}
+	      OMP_CLAUSE_LINEAR_STEP (c)
+		= build_int_cst (integer_type_node, idx);
+	    }
 	}
       clvec.safe_push (c);
     }
@@ -1386,6 +1403,17 @@ c_omp_declare_simd_clauses_to_decls (tree fndecl, tree clauses)
 	    break;
 	gcc_assert (arg);
 	OMP_CLAUSE_DECL (c) = arg;
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	    && OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c))
+	  {
+	    idx = tree_to_shwi (OMP_CLAUSE_LINEAR_STEP (c));
+	    for (arg = DECL_ARGUMENTS (fndecl), i = 0; arg;
+		 arg = TREE_CHAIN (arg), i++)
+	      if (i == idx)
+		break;
+	    gcc_assert (arg);
+	    OMP_CLAUSE_LINEAR_STEP (c) = arg;
+	  }
       }
 }
 

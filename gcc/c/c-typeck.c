@@ -12244,6 +12244,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
   tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
   bool copyprivate_seen = false;
+  bool linear_variable_step_check = false;
   tree *nowait_clause = NULL;
   bool ordered_seen = false;
   tree schedule_clause = NULL_TREE;
@@ -12526,6 +12527,27 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 			"variable with type %qT", TREE_TYPE (t));
 	      remove = true;
 	      break;
+	    }
+	  if (declare_simd)
+	    {
+	      tree s = OMP_CLAUSE_LINEAR_STEP (c);
+	      if (TREE_CODE (s) == PARM_DECL)
+		{
+		  OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c) = 1;
+		  /* map_head bitmap is used as uniform_head if
+		     declare_simd.  */
+		  if (!bitmap_bit_p (&map_head, DECL_UID (s)))
+		    linear_variable_step_check = true;
+		  goto check_dup_generic;
+		}
+	      if (TREE_CODE (s) != INTEGER_CST)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<linear%> clause step %qE is neither constant "
+			    "nor a parameter", s);
+		  remove = true;
+		  break;
+		}
 	    }
 	  if (TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c))) == POINTER_TYPE)
 	    {
@@ -12907,6 +12929,8 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 	      remove = true;
 	      break;
 	    }
+	  /* map_head bitmap is used as uniform_head if declare_simd.  */
+	  bitmap_set_bit (&map_head, DECL_UID (t));
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_IS_DEVICE_PTR:
@@ -13109,6 +13133,28 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 	  (OMP_CLAUSE_SCHEDULE_KIND (schedule_clause)
 	   & ~OMP_CLAUSE_SCHEDULE_NONMONOTONIC);
     }
+
+  if (linear_variable_step_check)
+    for (pc = &clauses, c = clauses; c ; c = *pc)
+      {
+	bool remove = false;
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	    && OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c)
+	    && !bitmap_bit_p (&map_head,
+			      DECL_UID (OMP_CLAUSE_LINEAR_STEP (c))))
+	  {
+	    error_at (OMP_CLAUSE_LOCATION (c),
+		      "%<linear%> clause step is a parameter %qD not "
+		      "specified in %<uniform%> clause",
+		      OMP_CLAUSE_LINEAR_STEP (c));
+	    remove = true;
+	  }
+
+	if (remove)
+	  *pc = OMP_CLAUSE_CHAIN (c);
+	else
+	  pc = &OMP_CLAUSE_CHAIN (c);
+      }
 
   bitmap_obstack_release (NULL);
   return clauses;
