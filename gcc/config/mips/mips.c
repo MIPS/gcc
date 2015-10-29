@@ -19813,8 +19813,6 @@ mips_conditional_register_usage (void)
       fixed_regs[21] = call_used_regs[21] = 1;
       fixed_regs[22] = call_used_regs[22] = 1;
       fixed_regs[23] = call_used_regs[23] = 1;
-      if (!flag_pic)
-        fixed_regs[25] = call_used_regs[25] = 1;
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
