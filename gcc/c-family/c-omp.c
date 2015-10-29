@@ -175,12 +175,14 @@ c_finish_omp_taskyield (location_t loc)
    LOC is the location of the atomic statement.  The value returned
    is either error_mark_node (if the construct was erroneous) or an
    OMP_ATOMIC* node which should be added to the current statement
-   tree with add_stmt.  */
+   tree with add_stmt.  If TEST is set, avoid calling save_expr
+   or create_tmp_var*.  */
 
 tree
 c_finish_omp_atomic (location_t loc, enum tree_code code,
 		     enum tree_code opcode, tree lhs, tree rhs,
-		     tree v, tree lhs1, tree rhs1, bool swapped, bool seq_cst)
+		     tree v, tree lhs1, tree rhs1, bool swapped, bool seq_cst,
+		     bool test)
 {
   tree x, type, addr, pre = NULL_TREE;
 
@@ -212,8 +214,10 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   addr = build_unary_op (loc, ADDR_EXPR, lhs, 0);
   if (addr == error_mark_node)
     return error_mark_node;
-  addr = save_expr (addr);
-  if (TREE_CODE (addr) != SAVE_EXPR
+  if (!test)
+    addr = save_expr (addr);
+  if (!test
+      && TREE_CODE (addr) != SAVE_EXPR
       && (TREE_CODE (addr) != ADDR_EXPR
 	  || !VAR_P (TREE_OPERAND (addr, 0))))
     {
@@ -269,12 +273,15 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
   if (rhs1
       && VAR_P (rhs1)
       && VAR_P (lhs)
-      && rhs1 != lhs)
+      && rhs1 != lhs
+      && !test)
     {
       if (code == OMP_ATOMIC)
-	error_at (loc, "%<#pragma omp atomic update%> uses two different variables for memory");
+	error_at (loc, "%<#pragma omp atomic update%> uses two different "
+		       "variables for memory");
       else
-	error_at (loc, "%<#pragma omp atomic capture%> uses two different variables for memory");
+	error_at (loc, "%<#pragma omp atomic capture%> uses two different "
+		       "variables for memory");
       return error_mark_node;
     }
 
@@ -284,9 +291,10 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 	 location, just diagnose different variables.  */
       if (lhs1 && VAR_P (lhs1) && VAR_P (lhs))
 	{
-	  if (lhs1 != lhs)
+	  if (lhs1 != lhs && !test)
 	    {
-	      error_at (loc, "%<#pragma omp atomic capture%> uses two different variables for memory");
+	      error_at (loc, "%<#pragma omp atomic capture%> uses two "
+			     "different variables for memory");
 	      return error_mark_node;
 	    }
 	}
@@ -308,7 +316,8 @@ c_finish_omp_atomic (location_t loc, enum tree_code code,
 	    x = omit_one_operand_loc (loc, type, x, lhs1addr);
 	  else
 	    {
-	      x = save_expr (x);
+	      if (!test)
+		x = save_expr (x);
 	      x = omit_two_operands_loc (loc, type, x, x, lhs1addr);
 	    }
 	}

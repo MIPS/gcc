@@ -1,5 +1,8 @@
 2015-10-29  Jakub Jelinek  <jakub@redhat.com>
 
+	* semantics.c (finish_omp_atomic): Adjust c_finish_omp_atomic
+	caller.
+
 	* parser.c (cp_parser_omp_clause_linear): Add DECLARE_SIMD argument.
 	Parse parameter name as linear step as id-expression rather than
 	expression.

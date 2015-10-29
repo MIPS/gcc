@@ -8154,7 +8154,8 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
 	  return;
 	}
       stmt = c_finish_omp_atomic (input_location, code, opcode, lhs, rhs,
-				  v, lhs1, rhs1, swapped, seq_cst);
+				  v, lhs1, rhs1, swapped, seq_cst,
+				  processing_template_decl != 0);
       if (stmt == error_mark_node)
 	return;
     }
