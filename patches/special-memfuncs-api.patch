@@ -1,5 +1,5 @@
 Bottom: 79b758af6225a9f70dfe7287a1136f300ff1f6b2
-Top:    709aff01fe590286e659cc2cb4b6bdad91012576
+Top:    fe799671cbc4122d5b2083237fef07f04480c9f7
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-29 00:44:30 -0200
 
@@ -151,7 +151,7 @@ index 7471581..4a6fb7f 100644
  GCC_METHOD3 (gcc_type, build_function_type,
  	     gcc_type,			   /* Argument RETURN_TYPE.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
-index cb297b6..f598c79 100644
+index cb297b6..873279b 100644
 --- a/include/gcc-cp-interface.h
 +++ b/include/gcc-cp-interface.h
 @@ -41,7 +41,7 @@ struct gcc_cp_context;
@@ -168,16 +168,14 @@ index cb297b6..f598c79 100644
    GCC_CP_SYMBOL_LABEL,
  
 -  /* A virtual member function.  */
--
--  GCC_CP_SYMBOL_VIRTUAL_FUNCTION
--
--  // FIXME: should we have separate symbol kinds for operator
--  // functions, ctors, dtors, vtables, rtti, etc?
 +  GCC_CP_SYMBOL_MASK = 15,
 +  GCC_CP_FLAG_BASE,
-+
+ 
+-  GCC_CP_SYMBOL_VIRTUAL_FUNCTION
 +  /* Flags to be used along with GCC_CP_SYMBOL_FUNCTION:  */
-+
+ 
+-  // FIXME: should we have separate symbol kinds for operator
+-  // functions, ctors, dtors, vtables, rtti, etc?
 +  /* This flag should be set for constructors, destructors and
 +     operators.  */
 +  GCC_CP_FLAG_SPECIAL_FUNCTION = GCC_CP_FLAG_BASE,
@@ -201,7 +199,7 @@ index cb297b6..f598c79 100644
 +
 +  /* This indicates a "final" virtual member function.  */
 +  GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION = GCC_CP_FLAG_BASE << 3,
-+  
++
 +  /* This indicates a special member function should have its default
 +     implementation.  This either means the function declaration
 +     contains the "= default" tokens, or that the member function was
@@ -246,7 +244,7 @@ index cb297b6..f598c79 100644
 +     should the ADDRESS be?  */
 +
 +  GCC_CP_FLAG_THREAD_LOCAL_VARIABLE = GCC_CP_FLAG_BASE << 1,
-+  
++
 +  GCC_CP_FLAG_END_VARIABLE,
 +  GCC_CP_FLAG_MASK_VARIABLE = (((GCC_CP_FLAG_END_VARIABLE - 1) << 1)
 +			       - GCC_CP_FLAG_BASE),
