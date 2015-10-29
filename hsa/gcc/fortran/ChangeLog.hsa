@@ -1,0 +1,4 @@
+2015-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* types.def (BT_FN_VOID_PTR_INT_PTR): New.
+

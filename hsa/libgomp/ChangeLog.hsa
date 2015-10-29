@@ -1,0 +1,230 @@
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct agent_info): Add new
+	kernel_dispatch_command_q member.
+	(GOMP_OFFLOAD_init_device): Initialize the queue.
+	(init_single_kernel): Verify that kernel dispatching
+	is not run with a big depth.
+	(create_kernel_dispatch): Rename from
+	create_kernel_dispatch_recursive.
+	(GOMP_OFFLOAD_run): Add signal waiting workaround.
+	(GOMP_OFFLOAD_fini_device): Destroy the newly added queue.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* target.c (GOMP_target): Add new case where we want to process
+	host fallback.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (get_kernel_for_agent): New function.
+	(init_single_kernel): Use it.
+	(create_kernel_dispatch_recursive): Dtto.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct brig_library_info): New structure.
+	(struct agent_info): Add BRIG shared libraries.
+	(add_shared_library): New function.
+	(release_agent_shared_libraries): Likewise.
+	(create_and_finalize_hsa_program): Add loading of shared
+	libraries.
+	(GOMP_OFFLOAD_fini_device): Release allocated memory.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* libgomp.h (struct gomp_device_descr): Add new function
+	pointer (can_run_func).
+	* plugin/plugin-hsa.c (init_enviroment_variables): Rename this
+	function from init_debug.
+	(hsa_warn): New function.
+	(struct kernel_info): Add new member variable
+	initialization_failed.
+	(struct agent_info): Add new member variable
+	prog_finalized_error.
+	(get_kernel_in_module): Do not call GOMP_PLUGIN_fatal.
+	(init_hsa_context): Use HSA_DEBUG macro.
+	(GOMP_OFFLOAD_init_device): Likewise.
+	(destroy_hsa_program): Likewise.
+	(GOMP_OFFLOAD_load_image): Produce warnings instread
+	of failures.
+	(GOMP_OFFLOAD_unload_image): Do not check if the agent
+	is initialized, the check is in the called function.
+	(GOMP_OFFLOAD_fini_device): Likewise.
+	(create_and_finalize_hsa_program): Likewise.
+	(release_kernel_dispatch): Use HSA_DEBUG macro.
+	(init_single_kernel): Produce warnings instread of failures.
+	(init_kernel): Use HSA_DEBUG macro.
+	(parse_launch_attributes): Likewise.
+	(GOMP_OFFLOAD_can_run): New function.
+	(GOMP_OFFLOAD_run): Remove part of initialization that
+	is moved to GOMP_OFFLOAD_can_run.
+	(GOMP_OFFLOAD_fini_device): Fix coding style.
+	* target.c (run_on_host): New function.
+	(GOMP_target): Use the function.
+	(gomp_load_plugin_for_device): Dynamically load the new hook.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+        * hsa-traits.h: Add omp_num_threads to hsa_kernel_dispatch
+        structure.
+        * plugin/plugin-hsa.c (print_kernel_dispatch): Print the
+        struct field.
+        (create_kernel_dispatch_recursive): Set default value
+        to omp_num_threads
+        (GOMP_OFFLOAD_run): Add shadow_reg to all kernel dispatches.
+
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (GOMP_OFFLOAD_load_image): Enable having a module
+	without kernels (can contain HSA functions).
+
+2015-08-27  Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c (GOMP_OFFLOAD_run): Lock rwlock after
+	checking grid size for zero.
+
+2015-08-06  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct kernel_info): Add new struct field.
+	(init_kernel): Precompute size of OMP data that is necessary
+	(GOMP_OFFLOAD_run): Use the procomputed value.
+
+2015-08-04  Martin Jambor  <mjambor@suse.cz>
+
+	* libgomp.h (gomp_device_descr): Add a parameter to run_func.
+	* plugin/plugin-host.c (GOMP_OFFLOAD_run): Add an unused parameter.
+	* plugin/plugin-hsa.c (kernel_launch_attributes): New type.
+	(parse_launch_attributes): New function.
+	(GOMP_OFFLOAD_run): New parameter, process kernel launch
+	attributes in it, set grid and group size accordingly.
+	* target.c (GOMP_target): New parameter, pass it to a plugin.
+
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (create_kernel_dispatch): Calculate maximum
+	memory necessary for OMP data.
+	(init_single_kernel): Likewise.
+	(create_kernel_dispatch_recursive): Pass new argument with maximum
+	OMP data size.
+	(init_kernel): Likewise.
+	(GOMP_OFFLOAD_run): Likewise.
+
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (init_single_kernel): Initialize recursively
+	all dependent kernels.
+	(init_kernel): Moved from this location.
+
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct hsa_kernel_description): New structure.
+	(struct brig_image_desc): Use it.
+	(struct kernel_info): Add omp_data_size member.
+	(struct module_info): Remove unused field.
+	(GOMP_OFFLOAD_load_image): Load the newly added format.
+	(create_kernel_dispatch): Allocate exactly ammount of memory needed
+	for OMP data passing.
+	(init_single_kernel): Print the OMP memory.
+	hsa.c (init_hsa_image): Use new structure.
+
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-traits.h: New file.
+	* plugin/plugin-hsa.c (struct brig_image_desc): Add support for kernel
+	dependencies.
+	(struct kernel_info): Likewise.
+	(struct module_info): Likewise.
+	(get_kernel_in_module): New function.
+	(GOMP_OFFLOAD_load_image): Assign a kernel to a module.
+	(create_kernel_dispatch): New function.
+	(release_kernel_dispatch): New function.
+	(init_kernel): Fix GNU coding style.
+	(indent_stream): New function.
+	(print_kernel_dispatch): New function.
+	(create_kernel_dispatch_recursive): New function.
+	(GOMP_OFFLOAD_run): Handle kernel dependencies in a kernel dispatch
+	operation.
+	(destroy_module): Fix GNU coding style.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (__hsa_launch_kernel): Added extra debug dumping.
+
+2015-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.in: Regenerated.
+	* config.h.in: Likewise.
+	* configure: Likewise.
+	* libgomp-plugin.h (offload_target_type): Added
+	OFFLOAD_TARGET_TYPE_HSA.
+	* plugin/Makefrag.am: Conditionally build HSA plugin.
+	* plugin/configfrag.ac: New options for providing path to HSA
+	run-time.  Test that it is available if building the plugin.
+	* plugin/plugin-hsa.c: New file.
+	* target.c (GOMP_target): Do not re-map arguments when the device is
+	capable of sharing memory.
+	(GOMP_target_data): Likewise.
+	* testsuite/Makefile.in (): Regenerated.
+
+2015-06-08  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_one_image): New type.
+	(hsa_image_info): MOst stuff moved to hsa_one_image, new field
+	first_image.
+	(init_hsa_image): Allow for for more brig images.
+	(__hsa_launch_kernel): Likewise.
+	(__hsa_register_image): Likewise.
+
+2015-04-29  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.am (libgomp_la_SOURCES): USe hsa.c instead of hsaokra.c.
+	* Makefile.in: Regenerated.
+	* hsa.c: New file.
+	* hsa.h: Likewise.
+	* hsa_ext_finalize.h: Likewise.
+	* hsaokra.c: Removed.
+	* okra.h: Likewise.
+	* libgomp.map (HSA_1.0): Added __hsa_register_image.
+
+2014-10-24  Martin Jambor  <mjambor@suse.cz>
+
+	* hsaokra.c (__hsa_launch_kernel): Do not segfault if file cannot be
+	opened.
+
+2014-09-26  Saravanan Ekanathan <saravanan.ekanathan@amd.com>
+
+	* hsaokra.c (__hsa_launch_kernel): Use BRIG generated by
+	GCC directly to launch kernel.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsaokra.c (__hsa_launch_kernel): Expect a pointer to
+	__hsa_launch_range as the second parameter, pass the range to okra if
+	non-NULL.
+
+2014-08-21  Martin Jambor  <mjambor@suse.cz>
+
+	* hsaokra.c (buildStringFromSourceFile): Write error message to
+	stderr, removed trailing spaces and other formatting fixes.
+	(loadokra): Likewise.
+	(__hsa_launch_kernel): Likewise.
+
+2014-07-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+
+        * hsaokra.c (__hsa_launch_kernel): Save/restore context from
+	hsa_kernel_desc_type and modify range values.
+
+2014-07-18  Michael Matz  <matz@suse.de>
+
+	* okra.h: Update to public API.
+	* hsaokra.c: Adjust accordingly.
+
+2014-07-14  Michael Matz  <matz@suse.de>
+
+	* okra.h: New file.
+	* hsaokra.c: New file.
+	* Makefile.am (libgomp_la_SOURCES): Add hsaokra.c.
+	(libgomp_la_LDFLAGS): Add -ldl.
+	* Makefile.in: Regenerated.
+	* libgomp.map (HSA_1.0): New version, export __hsa_launch_kernel.

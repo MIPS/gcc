@@ -1,0 +1,2510 @@
+2015-10-22  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (process_kernel_body_copy): Also copy pre-bodies of
+	distribute and inner loop to before target.
+	(attempt_target_gridification): Do not copy inner loop pre-body.
+
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (brig_init): Prepand '__hsa_module_' prefix
+	to all names of HSA modules.
+
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Add waiting
+	for the signal in a loop.
+	(gen_body_from_gimple): Skip HSA basic blocks with already
+	created HBB.
+
+2015-10-20  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (region_part_of_target_p): Renamed to
+	region_needs_kernel_p, return false for parts of gridified kernels.
+	(expand_parallel_call): Adjusted.
+
+2015-10-20  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (single_stmt_in_seq_skip_bind): Removed.
+	(reg_assignment_to_local_var_p): New function.
+	(seq_only_contains_local_assignments): Use it.
+	(find_single_omp_among_assignments_1): New function.
+	(find_single_omp_among_assignments): Likewise.
+	(target_follows_gridifiable_pattern): Use it.
+	(copy_leading_local_assignments): New function.
+	(find_mark_kernel_components): Renamed to process_kernel_body_copy,
+	use copy_leading_local_assignments to copy assignments leading to OMP
+	statements.
+	(attempt_target_gridification): Use the above new functions.
+
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* cgraphclones.c (cgraph_node::create_virtual_clone): Merge with
+	trunk.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (struct hsa_symbol): Add new ctors.
+	* hsa-gen.c (get_symbol_for_decl): Use the ctor.
+	(hsa_get_spill_symbol): Likewise.
+	(hsa_get_string_cst_symbol): Likewise.
+	(emit_hsa_module_variables): Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_function_summary): Prefix all member variables.
+	* hsa-gen.c: Likewise.
+	* hsa.c: Likewise.
+	* ipa-hsa.c: Likewise.
+	* lto-partition.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_function_representation): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+	* hsa.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_bb): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_comment): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_arg_block): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_call): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_seg): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_atomic): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_mem): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_cmp): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_sbr): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_br): Prefix all member variables.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_insn_phi): Prefix all member variables.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_basic_insn): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+	* hsa.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_code_list): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_code_ref): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_address): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_reg): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_immed): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_with_type): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_base): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-10-19  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_symbol): Prefix all member variables.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-10-19  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (build_outer_var_ref): If outer ctx is GPUKERNEL, use its
+	outer ctx.
+
+2015-10-16  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple-walk.c (walk_gimple_stmt): Also handle GIMPLE_OMP_GPUKERNEL.
+	* omp-low.c (omp_context): Removed field kernel_seq.
+	(single_stmt_in_seq_skip_bind): Moved down in the file.
+	(seq_only_contains_local_assignments): Likewise.
+	(target_follows_kernelizable_pattern): Removed.
+	(find_mark_kernel_components): Moved down in the file.
+	(attempt_target_kernelization): Removed.
+	(scan_omp_target): Scan kernel bounds.  Do not handle ctx->kernel_seq.
+	(check_omp_nesting_restrictions): Do not check GIMPLE_OMP_GPUKERNEL.
+	(scan_omp_1_stmt):  Also handle GIMPLE_OMP_GPUKERNEL.
+	(lower_omp_target): Do not process ctx->kernel_seq.
+	(lower_omp_gpukernel): New function.
+	(lower_omp_1): Call it.
+	(target_follows_gridifiable_pattern): New function.
+	(remap_prebody_decls): New function.
+	(attempt_target_gridification): Likewise.
+	(create_target_gpukernel_stmt): Likewise.
+	(create_target_gpukernels): Likewise.
+	(execute_lower_omp): Call create_target_gpukernels.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (get_brig_function_name): New function.
+	(hsa_generate_function_declaration): Use it.
+	(generate_hsa): Likewise.
+	* ipa-hsa.c (process_hsa_functions): Mark all cloned kernels
+	as flatten.
+	* omp-low.c (expand_parallel_call): Do not mark original kernels
+	as flatten.
+	(expand_target_kernel_body): Likewise.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_call): Improve sorry message.
+	* hsa.c (hsa_callable_function_p): Do not handle hsafunc
+	attribute.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* cgraphclones.c (cgraph_node::create_virtual_clone):
+	Verify cgraph_node.local.versionable instead of calling
+	tree_versionable_function_p.
+	* ipa-cp.c (determine_versionability): Save the information
+	to ipa_node_params summary.
+	(ipcp_versionable_function_p): Use it.
+	(ipcp_propagate_stage): Pass IPA_NODE_REF to a called function.
+	(ipcp_generate_summary): Do not compute cgraph_node
+	versionability.
+	* ipa-inline-analysis.c (inline_generate_summary): Compute
+	visibility for all cgraph nodes.
+	* ipa-prop.c (ipa_node_params_t::duplicate): Duplicate
+	ipa_node_params::versionability.
+	* ipa-prop.h (struct ipa_node_params): Declare it.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* passes.def: Move IPA-HSA before inliner.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (generate_hsa): Produce seen error if
+	-fgnu-tm is passed.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_function_def_parameters): Add new hsa_seen_error
+	guards.
+	(gen_hsa_insns_for_direct_call): Likewise.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-dump.c (dump_hsa_insn_1): Fix emission if insns have assigned
+	numbers.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c: Do not use ##__VA_ARGS__.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call):
+	Small refactoring.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (get_symbol_for_decl): Replace warning with
+	HSA_SORRY_ATV.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (fillup_sym_for_decl): Add new seen_error guard.
+	(get_symbol_for_decl): Mark all functions that use a problematic
+	symbol as problematic too.
+	* hsa.c (hsa_type_bit_size): Use correct seen_error function.
+	* hsa.h (struct hsa_symbol): New member flag.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (convert_switch_statements): Generate fold_convert
+	for situations where index type and label value types are different.
+
+2015-10-13  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_insn_basic::set_output_in_type): New function.
+	(query_hsa_grid): Likewise.
+	(gen_set_num_threads): Save the value without any value range
+	checking.
+	(gen_num_threads_for_dispatch): New function.
+	(gen_hsa_insns_for_known_library_call): Use the newly added
+	function query_hsa_grid.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_kernel_call): Use the newly added function
+	gen_num_threads_for_dispatch.
+	(init_omp_in_prologue): Initialize hsa_num_threads to 0.
+	(init_prologue): New function.
+	(init_hsa_num_threads): Likewise.
+	* hsa.h: Declare a new function.
+
+2015-10-13  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_op_with_type::get_in_type): New function.
+	(gen_hsa_insns_for_switch_stmt): Use it.
+	(gen_set_num_threads): Dtto.
+	(gen_hsa_insns_for_known_library_call): Dtto.
+	* hsa.h (hsa_op_with_type::get_in_type): Declarate the function.
+
+2015-10-13  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_bitref_alignment): New function
+	(gen_hsa_insns_for_load): Use it.
+	(gen_hsa_insns_for_store): Likewise.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
+	* params.def (PARAM_HSA_GEN_DEBUG_STORES): New parameter.
+	* hsa-gen.c: Include params.h.
+	(init_omp_in_prologue): Emit debug store only if
+	hsa-gen-debug-stores allow it.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_directive_variable): Add typecast.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (get_alignment): Removed.
+	(emit_directive_variable): Use hsa_natural_alignment.
+	(emit_memory_insn): Use alignment from mem.
+	* hsa-gen.c (hsa_insn_mem::hsa_insn_mem): Initialize align.
+	(gen_hsa_insns_for_bitfield_load): New argument, set alignment.
+	(gen_hsa_insns_for_load): Set alignment.
+	(gen_hsa_insns_for_store): Likewise.
+	* hsa.c (hsa_alignment_encoding): New function.
+	(hsa_natural_alignment): Likewise.
+	(hsa_insn_mem::set_align): Likewise.
+	* hsa.h (hsa_insn_mem): New members align and set_align.
+	(hsa_alignment_encoding): Declare.
+	(hsa_natural_alignment): Likewise.
+
+2015-10-12  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-dump.c (dump_hsa_insn): Rename to dump_hsa_insn_1.
+	(dump_hsa_insn): New function.
+	(dump_hsa_bb): Use dump_hsa_insn_1.
+	* hsa.h (dump_hsa_insn): Declare.
+
+2015-10-09  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Change arguments of the constructor.
+	(hsa_init_data_for_cfun): Remove creation of hsa_cfun from
+	this function.
+	(generate_hsa): Move it here.
+	* hsa.h (hsa_function_representation::hsa_function_representation):
+	Declare.
+
+2015-10-08  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (fixup_child_record_type): Bail out early if
+	ctx->receiver_decl is NULL.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_output_kernel_mapping): Change type of kernel
+	dependencies container.
+	* hsa-gen.c (has_host_function_p): New function.
+	(hsa_generate_function_declaration): Emit host implementation of
+	a function declaration.
+	(generate_hsa): Likewise.
+	(hsa_get_gpu_function): Remove unused function.
+	* hsa.c (hsa_add_kernel_dependency): Change type of a function
+	argument.
+	* hsa.h: Likewise.
+	* ipa-hsa.c (process_hsa_functions): Copy visibility from
+	a cloned function.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Surrender
+	if an error is seen.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_function_declaration): Return pointer to
+	BrigDirectiveExecutable structure.
+	(hsa_brig_emit_function): Save the structure for all emitted
+	declarations.
+	(hsa_output_brig): Fix function linkage, if needed.
+	* hsa-gen.c (HSA_SORRY_AT{V}): Put all failed functions
+	to a set.
+	* hsa.h (hsa_failed_functions): New global variable.
+	(hsa_fail_cfun): New function.
+	* hsa.c (hsa_failed_functions): Define the variable.
+	(hsa_fail_cfun): New function.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_call): Expand unsupported
+	builtins to calls that are going to be resolved by BRIG shared
+	libraries.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* common.opt: Add new Whsa option.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Add new member seen_error.
+	(hsa_type_for_scalar_tree_type): Use HSA_SORRY_AT{V} instread of
+	sorry.
+	(hsa_type_for_tree_type): Likewise.
+	(hsa_op_immed::hsa_op_immed): Likewise.
+	(process_mem_base): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_ctor_assignment): Likewise.
+	(gen_hsa_insns_for_single_assignment): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(verify_function_arguments): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(get_address_from_value): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_body_from_gimple): Use aforementioned hsa_cfun->seen_error.
+	(generate_hsa): Likewise.
+	* hsa.c (hsa_deinit_compilation_unit_data): Release
+	hsa_failed_functions.
+	(hsa_seen_error): New function.
+	* hsa.h (hsa_failed_functions): New variable.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_comment_insn): Do not release comment's
+	string.
+	(emit_insn): Save BRIG offset.
+	(hsa_brig_emit_function): Dump generated HSAIL after BRIG
+	emission.
+	* hsa-dump.c (dump_hsa_insn): Dump BRIG offset of an
+	instruction.
+	* hsa-gen.c (hsa_insn_basic::hsa_insn_basic): Initialize
+	brig_offset to zero.
+	* hsa.h (hsa_insn_basic::brig_offset): New member variable.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (bool hsa_function_representation::has_shadow_reg_p):
+	New function.
+	(set_debug_value): New function.
+	(gen_hsa_insns_for_known_library_call): Handle hsa_set_debug_value
+	function.
+	(init_omp_in_prologue): Use set_debug_value function.
+	* hsa.h (hsa_function_representation::has_shadow_reg_p): Declare
+	a new function.
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Remove
+	assignment of the defaul argument.
+	(init_omp_in_prologue): Assign it at the beginning of
+	a kernel function.
+
+2015-09-30  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-sra.c (ipa_sra_preliminary_function_checks): Remove the
+	extra TREE_USED check.
+
+2015-09-30  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (target_follows_kernelizable_pattern): Disable pre_body
+	gridification.
+
+2015-09-30  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-ssa-loop.c: Include cgraph.h, symbol-summary.h and hsa.h.
+	(pass_vectorize::gate): Return false for HSA GPU functions.
+	* tree-vectorizer.c: Include cgraph.h, symbol-summary.h and hsa.h.
+	(pass_slp_vectorize::gate): Return false for HSA GPU functions.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (struct hsa_kernel_dispatch): New field.
+	(gen_hsa_insns_for_kernel_call): Distribute hsa_num_threads
+	for a kernel dispatch.
+	(init_omp_in_prologue): Emit loading of shadow argument.
+	(gen_body_from_gimple): Remove usage of init_omp_in_prologue.
+	(generate_hsa): Move it to this function.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_directive_variable): Add support
+	for global scope.
+	(hsa_brig_emit_omp_symbols): New function.
+	* hsa-gen.c (hsa_get_string_cst_symbol): Use the newly added
+	global scope flag.
+	(gen_get_num_threads): Likewise
+	(gen_set_num_threads): Likewise
+	(gen_get_num_teams): Likewise
+	(gen_get_team_num): Likewise
+	(gen_hsa_insns_for_known_library_call): Add new OMP functions.
+	(gen_hsa_insns_for_kernel_call): Set grid_size_x and
+	workgroup_size_x to hsa_num_threads.
+	(gen_hsa_insns_for_call): Handle new OMP builtins.
+	(init_omp_in_prologue): New function.
+	(gen_body_from_gimple): Emit OMP prologue.
+	(emit_hsa_module_variables): New function.
+	(generate_hsa): Emit module variables.
+	* hsa.c (hsa_num_threads): New global variable.
+	* hsa.h (struct hsa_symbol): Declare the variable.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_op_immed::emit_to_buffer): Fix handling
+	of CTORs.
+	* hsa-gen.c (hsa_op_immed::hsa_op_immed): Add new CTOR
+	verification.
+	(verify_function_arguments): New function.
+	(gen_hsa_insns_for_direct_call): Use the function.
+	(generate_hsa): Use the newly added function.
+	* hsa.h: Declare a new function.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_single_assignment): Add
+	seen_error guard.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_body_from_gimple): Verify edges in CFG.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): Fix memory types
+	for certain memory insns. Fix memory order for ATOMIC_ST insns.
+	(gen_hsa_insns_for_call): Emit a temporary HSA reg for ATOMIC_ST
+	with no LHS.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Consider
+	also an immediate value.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_single_assignment): Change
+	arguments from a gimple assign to LHS and RHS. Emit insns
+	for return values of memcpy and memset functions.
+	(gen_hsa_insns_for_gimple_stmt): Use the newly added function.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_ctor_assignment): New function.
+	(gen_hsa_insns_for_single_assignment): Add support for
+	CONSTRUCTOR.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_addr): Handle in a separate
+	case BIT_FIELD_REFs with a SSA_NAME as the first argument.
+	(gen_hsa_insns_for_bitfield): New function.
+	(gen_hsa_insns_for_bitfield_load): Use the function.
+	(gen_hsa_insns_for_load): Fix coding style.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa.c (hsa_type_integer_p): Add missing type.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (struct phi_definition): New structure.
+	(convert_switch_statements): Handle properly preserving of PHI
+	immediate values.
+
+2015-09-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_unconditional_jump): New function.
+	(emit_switch_insn): Likewise.
+	(emit_insn): Add case for newly added hsa_insn_sbr.
+	(perhaps_emit_branch): Handle switch statements.
+	(hsa_brig_emit_function): Likewise.
+	* hsa-dump.c (dump_hsa_insn): Likewise.
+	(dump_hsa_bb): In case of switch, do not dump edges.
+	* hsa-gen.c (hsa_init_data_for_cfun): Initialize new object allocator.
+	(hsa_deinit_data_for_cfun): Delete it.
+	(hsa_insn_sbr::hsa_insn_sbr): New ctor.
+	(hsa_insn_sbr::operator new): New operator.
+	(hsa_insn_sbr::redirect_label): New function.
+	(HSA_MAXIMUM_SBR_LABELS): New macro definition.
+	(get_switch_high): New function.
+	(get_switch_low): Likewise.
+	(get_switch_size): Likewise.
+	(gen_hsa_insns_for_switch_stmt): New function.
+	(gen_hsa_insns_for_gimple_stmt): Handle GIMPLE_SWITCH.
+	(transformable_switch_to_sbr_p): New function.
+	(convert_switch_statements): Use the function.
+	* hsa-regalloc.c (naive_process_phi): Fix jump table of a switch if
+	we split an edge.
+	* hsa.c (hsa_opcode_op_output_p): Handle BRIG_OPCODE_SBR.
+	* hsa.h (hsa_insn_sbr): New class.
+
+2015-09-25  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (region_part_of_unkernelized_target_p): Renamed to
+	region_part_of_target_p, changed not to return false on kernelized
+	targets.  Updated all callers.
+	(expand_target_kernel_body): Bail out if orig_child_fndecl is NULL.
+
+2015-09-24  Martin Jambor  <mjambor@suse.cz>
+
+	* gsstruct.def (GSS_OMP_TEAMS_LAYOUT): New.
+	* gimple.def (GIMPLE_OMP_TEAMS): Change layout.
+	* gimple.h (gomp_for): New field kernel_phony.
+	(gimple_statement_omp_parallel_layout): Likewise.
+	(gimple_statement_omp_single_layout): Fixed offset in comment.
+	(gomp_teams): New field kernel_phony.
+	(gimple_omp_for_kernel_phony): New function.
+	(gimple_omp_for_set_kernel_phony): Likewise.
+	(gimple_omp_parallel_kernel_phony): Likewise.
+	(gimple_omp_parallel_set_kernel_phony): Likewise.
+	(gimple_omp_teams_kernel_phony): Likewise.
+	(gimple_omp_teams_set_kernel_phony): Likewise.
+	* omp-low.c (omp_context): Removed field kernel_inner_loop, added
+	field kernel_seq.
+	(fixup_child_record_type): Make sure receiver_decl exists before
+	modifying it.
+	(scan_omp_parallel): Only create child function if statement is
+	not phony.
+	(single_stmt_in_seq_skip_bind): Add asserts.
+	(kernel_remap_info): Removed.
+	(gather_inner_locals): Likewise.
+	(target_follows_kernelizable_pattern): Removed kri argument,
+	return bool.
+	(find_mark_kernel_components): New function.
+	(attempt_target_kernelization): Removed kri parameter, use
+	copy_gimple_seq_and_replace_locals for copying, and
+	find_mark_kernel_components for marking.  Fixup blocks.
+	(remap_kernel_blocks): Removed.
+	(scan_omp_kernel_loop): Likewise.
+	(scan_omp_target): Removed kri variable, scan kernel_seq as any
+	other gimple_seq.
+	(expand_target_kernel_body): Get block from appropriate place.  Remove
+	the correct edge.  Make sure also all simbling regions of inner for
+	loop are expanded.
+	(lower_omp_for): Do not emit phony constructs.
+	(lower_omp_taskreg): Likewise.
+	(lower_omp_target): Adjusted to use sequence in context.
+	(lower_omp_teams): Do not emit phony constructs.
+
+2015-09-23  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_gpu_implementation_p): New predicate.
+	* hsa-gen.c (pass_gen_hsail::gate): Use it.
+	(pass_gen_hsail::execute): Do not simulate gate predicate.
+
+2015-09-14  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Handle properly expansion
+	of __builtin_GOMP_parallel if second argument of the function is NULL.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_directive_variable): Handle non-addressable, global
+	variables.
+	(emit_function_directives): Use newly changed member variable.
+	(hsa_op_immed::emit_to_buffer): Add support for CONSTRUCTORs
+	of an integer array.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Initialize readonly_variables.
+	(hsa_function_representation::~hsa_function_representation): Destroy
+	them.
+	(hsa_type_for_scalar_tree_type): Add support for CONSTRUCTORs of
+	an integer arrays.
+	(get_symbol_for_decl): Likewise.
+	(hsa_get_string_cst_symbol): Use a different variable.
+	(hsa_op_immed::hsa_op_immed): Add support for CONSTRUCTORs of
+	an integer arrays.
+	* hsa.h (hsa_function_representation): Rename a member variable.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_unary_operation): Change argument type.
+	(gen_hsa_insns_for_operation_assignment): Handle correctly
+	BRIG_OPCODE_CVT instruction. Change types of local variables.
+	(gen_hsa_unaryop_for_builtin): Likewise.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (convert_switch_statements): New function.
+	(pass_gen_hsail::execute): Call the function.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-dump.c (debug_hsa_operand): New function.
+	* hsa-gen.c (hsa_op_reg::verify): Add verification of a register uses.
+	(hsa_insn_basic::verify): New function.
+	(generate_hsa): Call the newly added verifier.
+	(hsa_insn_basic::set_op): Correctly handle HSA addresses.
+	* hsa.h (hsa_insn_basic::verify): New function.
+	* hsa.c (hsa_opcode_op_output_p): Handle BRIG_OPCODE_SIGNALNORET.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_basic_insn): Handle correctly packing and
+	rounding for a packed type insn.
+	* hsa-regalloc.c (hsa_num_def_ops): Remove implementation from
+	the source file.
+	(linear_scan_regalloc): Use newly added member function.
+	* hsa.c (hsa_insn_basic::input_count): New function.
+	(hsa_insn_basic::num_used_ops): New function.
+	(hsa_opcode_floating_bit_insn_p): New function.
+	* hsa.h: Add declaration of these functions.
+
+2015-09-10  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): Fix instruction
+	type, add a TODO about segments.
+
+2015-09-10  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (get_address_from_value): New function.
+	(gen_hsa_ternary_atomic_for_builtin): Use it instead of
+	gen_hsa_addr.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_addr): Set bitsize to zero if the thing is not a bitfield
+	access.
+
+2015-09-10  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_addr): Fix TARGET_MEM_REF emission.
+
+2015-09-09  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_opcode_op_output_p): Handle HSA_OPCODE_PHI, change
+	type of the opcode argument to int.
+	* hsa.h (hsa_opcode_op_output_p): Change declaration accordingly.
+
+2015-09-09  Martin Liska  <mliska@suse.cz>
+
+	* ipa-hsa.c (process_hsa_functions): Set force_output for functions
+	decorated with hsafunc attribute.
+
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (build_memset_value): New function.
+	(gen_hsa_memory_set): New function.
+	(gen_hsa_insns_for_call): Add support for __builtin_memcpy and
+	__builtin_memset.
+
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (get_integer_type_by_bytes): Return 0 if a type is not
+	an integer type.
+	(hsa_type_for_scalar_tree_type): Reuse the function.
+	(get_integer_tree_type_by_bytes): Remove unused function.
+
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_bitfield_load): Use newly added
+	ctor for hsa_op_immed.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_binary_operation): Use newly added function set_type.
+	(gen_hsa_insns_for_operation_assignment): Use newly added
+	ctor for hsa_op_immed.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+
+2015-09-08  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_immediate_scalar_to_buffer): Add a new argument.
+	(emit_immediate_scalar_to_data_section): Likewise.
+	(hsa_op_immed::emit_to_buffer): New function.
+	(emit_immediate_operand): Emit prepared byte buffer.
+	* hsa-dump.c (dump_hsa_immed): Handle integer values.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Release allocated byte buffers.
+	(hsa_op_immed::hsa_op_immed): New.
+	(hsa_op_immed::~hsa_op_immed): Likewise.
+	(hsa_op_immed::set_type): New function.
+	* hsa.h (union hsa_bytes): New
+
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_memory_insn): Use get_op.
+	(emit_signal_insn): Use operand_count.
+	(emit_atomic_insn): Use get_op and operand_count.
+	(emit_addr_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_queue_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	* hsa-dump.c (dump_hsa_operands): Likewise.
+	(dump_hsa_insn): Likewise.
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg):
+	(hsa_insn_basic::set_op): Set definition for just a unset register.
+	(hsa_insn_basic::get_op): New function.
+	(hsa_insn_basic::get_op_addr): Likewise.
+	(hsa_insn_basic::operand_count): Likewise.
+	(hsa_insn_basic::hsa_insn_basic): Use set_op.
+	(hsa_insn_phi::hsa_insn_phi): Likewise.
+	(hsa_insn_br::hsa_insn_br): Do not push to uses vector.
+	(hsa_insn_mem::hsa_insn_mem): Add new arguments to ctor.
+	(hsa_bb::append_insn): Use operand_count function.
+	(hsa_reg_for_gimple_ssa_reqtype): Use newly added ctor.
+	(gen_address_calculation): Do not push to uses vector.
+	(add_addr_regs_if_needed): Use set_op.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Use set_op.
+	(hsa_reg_or_immed_for_gimple_op): Remove one argument.
+	(hsa_build_append_simple_mov): Use ctor.
+	(gen_hsa_insns_for_bitfield_load): Do not set definition and do not
+	push to uses vector.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(gen_hsa_insns_for_single_assignment): Update call of a function.
+	(hsa_spill_in): Use ctor.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Use set_op.
+	(gen_hsa_unary_operation): Do not set definition and do not
+	push to uses vector.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_direct_call): Use ctor.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Do not set definition.
+	(gen_hsa_unaryop_for_builtin): Update call of a function.
+	(gen_hsa_ternary_atomic_for_builtin): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Use set_op.
+	(gen_function_def_parameters): Do not set definition.
+	* hsa-regalloc.c (naive_process_phi): Use operand_count.
+	(insn_reg_addr): Use get_op_addr and get_op.
+	(rewrite_code_bb): Likewise.
+	(linear_scan_regalloc): Likewise.
+	* hsa.h (class hsa_op_reg): Add declarations of new functions.
+
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* Makefile.in: Add new source file and remove hsa-gen.c from list
+	of GT files.
+	* cgraph.h: Remove hsa_imp_of property of cgraph_node.
+	* hsa-brig.c (brig_init): Append LTRANS name to a BRIG module name.
+	(emit_function_directives): Add new argument.
+	(emit_function_declaration): Use it.
+	(emit_call_insn): Fill up offsets of functions that should be filled
+	before a BRIG module is done.
+	(hsa_brig_emit_function): Emit declarations before a function
+	is defined/declared.
+	(hsa_output_kernel_mapping): An HSA brig module can have zero kernels.
+	(hsa_output_brig): Process functions linkage that fills up correct
+	code list references.
+	* hsa-dump.c: Add new include files due to function_summary.
+	* hsa-gen.c (hsa_get_gpu_function): New function.
+	(hsa_get_host_function): New function.
+	(gen_hsa_insns_for_direct_call): Small refactoring.
+	(gen_hsa_insns_for_known_library_call): Likewise.
+	(hsa_generate_function_declaration): Sanitize function name.
+	(generate_hsa): Remove unused return value.
+	(init_hsa_functions): Remove.
+	(insert_store_range_dim): Likewise.
+	(wrap_hsa_kernel_call): Likewise.
+	(wrap_all_hsa_calls): Likewise.
+	(pass_gen_hsail::execute): Emit code just for cgraph_nodes that
+	is hsa_summaries.
+	* hsa-regalloc.c: Include additional header files.
+	* hsa.c (hsa_get_declaration_name): Use asm_name as name of function.
+	(hsa_register_kernel): New function.
+	* hsa.h (enum hsa_function_kind): New enum.
+	(struct hsa_function_summary): New.
+	(hsa_summary_t::link_functions): Likewise.
+	* ipa-hsa.c: New file.
+	* lto-section-in.c: Add new section name.
+	* lto-streamer.h (enum lto_section_type): Likewise.
+	* omp-low.c (expand_parallel_call): Fill up HSA function summary.
+	(expand_target_kernel_body): Likewise.
+	* passes.c (execute_one_pass): Terminate pass queue if stop execution
+	TODO is returned.
+	(execute_pass_list_1): Likewise.
+	(execute_ipa_pass_list): Likewise.
+	* passes.def: Add new IPA pass.
+	* timevar.def: Likewise.
+	* tree-pass.h: Likewise.
+
+2015-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): New function.
+	(gen_hsa_insns_for_call): Use it to implement appropriate builtin
+	calls.
+
+2015-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_mem): Move fields memoryorder and
+	memoryscope...
+	(hsa_insn_atomic): ...here.  Also add new operator.
+	* hsa-dump.c (dump_hsa_insn): Do not dump removed fields.
+	* hsa-gen.c (hsa_insn_mem): Remove initialization of removed
+	fields.
+	(hsa_insn_mem): Likewise.
+	(hsa_insn_atomic::hsa_insn_atomic): Initialize new fields.
+	(hsa_insn_atomic::new): New.
+	(gen_hsa_insns_for_call): Create atomic instruction for atomic
+	loads.
+
+2015-09-02  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (target_follows_kernelizable_pattern): Parallel
+	num_thread clause and non-automatic loop schedule preclude
+	kernelization.
+
+2015-08-28  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_cmp_insn_from_gimple): Add unordered
+	comparison codes.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+
+2015-08-28  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (expand_omp_for_kernel): Do not insert return
+	statement.
+	(expand_target_kernel_body): Handle kernels
+	encapsulated in GIMPLE_OMP_GPUKERNEL statements.
+	(lower_omp_target): Lower kernel code into a new
+	GIMPLE_OMP_GPUKERNEL statement.
+	* gimple.def (GIMPLE_OMP_GPUKERNEL): New code.
+	* gimple.c (gimple_build_omp_gpukernel): New function.
+	(gimple_copy): Handle GIMPLE_OMP_GPUKERNEL case.
+	* gimple-low.c (lower_stmt): Likewise.
+	* gimple-pretty-print.c (dump_gimple_omp_block): Likewise.
+	(pp_gimple_stmt_1): Likewise.
+	* gimple.h (gimple_build_omp_gpukernel): Declare.
+	(gimple_has_substatements): Handle GIMPLE_OMP_GPUKERNEL case.
+	(CASE_GIMPLE_OMP): Likewise.
+
+2015-08-26  Michael Matz  <matz@suse.de>
+
+	* hsa-regalloc.c (linear_scan_regalloc): Make sure to mark
+	regs livein to a block to start before it.
+
+2015-08-25  Michael Matz  <matz@suse.de>
+
+	PR target/67272
+	PR target/67296
+	* hsa.h (hsa_function_representation): Remove prologue member.
+	* hsa-dump.c (dump_hsa_cfun): Iterator over all BBs.
+	* hsa-gen.c (hsa_function_representation): Don't init prologue,
+	start with zero bbs.
+	(hsa_function_representation::get_shadow_reg): Use entry block,
+	not prologue member.
+	(hsa_init_data_for_cfun): Create hsa_bb for entry/exit blocks.
+	(hsa_deinit_data_for_cfun): Deallocate also for entry/exit blocks.
+	(gen_hsa_insns_for_kernel_call): Don't use UINT64_MAX, but
+	the built-in max value of the type.
+	(gen_function_def_parameters): Don't use prologue member, but
+	the hsa bb for entry bb.
+	(wrap_all_hsa_calls): Iterate over all BBs.
+	* hsa-regalloc.c (naive_process_phi): Revert 2015-08-19 change.
+	(naive_outof_ssa): Iterate over all BBs.
+	(dump_hsa_cfun_regalloc): Ditto.
+	(linear_scan_regalloc): Ditto.
+	(regalloc): Ditto.
+
+2015-08-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_callable_function_p): Declare.
+	* hsa.c (hsa_callable_function_p): New function.
+	* hsa-gen.c (gen_hsa_insns_for_call): Use it.
+	(pass_gen_hsail::execute): Likewise.
+
+2015-08-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_unaryop_for_builtin): New function.
+	(gen_hsa_insns_for_call): Add support for a few unary fp
+	operations.
+
+2015-08-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_unary_operation): Use int for the opcode.
+	Add instruction to uses of register operands.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Use int for opcodes
+	passed to gen_hsa_binary_operation.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_insn_basic::operator new): New function.
+	(hsa_insn_phi::operator new): Likewise.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_insn_signal::operator new): Likewise.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_insn_arg_block::operator new): Likewise.
+	(hsa_insn_comment::operator new): Likewise.
+	(hsa_function_representation::get_shadow_reg): Use the newly added
+	operator new.
+	(hsa_reg_for_gimple_ssa_reqtype): Likewise.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(gen_hsa_insns_for_bitfield_load): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_unary_operation): Likewise.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_function_def_parameters): Likewise.
+	* hsa.h: Add declarations for newly added operators.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_code_list::operator new): Add function.
+	* hsa-gen.c (hsa_op_code_list::operator new): Use the newly added
+	operator new.
+	(gen_hsa_insns_for_direct_call): Likewise.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_address:operator new): New function.
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use
+	the newly added operator.
+	(hsa_op_address::operator new): Likewise.
+	(gen_hsa_addr_for_arg): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_reg::operator new): New function.
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use
+	the newly added operator.
+	(hsa_op_reg::operator new): Likewise.
+	(hsa_reg_for_gimple_ssa): Likewise.
+	(hsa_reg_for_gimple_ssa_reqtype): Likewise.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_reg_or_immed_for_gimple_op): Likewise.
+	(gen_hsa_insns_for_bitfield_load): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+
+2015-08-24  Martin Liska  <mliska@suse.cz>
+
+	* hsa.h (hsa_op_immed::operator new): New function.
+	* hsa-gen.c (hsa_get_string_cst_symbol): Use the newly added operator.
+	(hsa_op_immed::operator new): Likewise.
+	(gen_address_calculation): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_reg_or_immed_for_gimple_op): Likewise.
+	(gen_hsa_insns_for_bitfield_load): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(hsa_spill_in): Likewise.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_known_library_call): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_type_for_tree_type): Empty structure can have
+	dim_p equals to zero.
+	(process_mem_base): Add sorry message for memory references of
+	function declarations, ...
+	(gen_hsa_insns_for_load): Ignore bit fields residing more than 64 bits.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_insns_for_single_assignment): Exit if an error is seen.
+	(gen_hsa_insns_for_assignment): Enhance COND expression.
+	(gen_hsa_insns_for_direct_call): Fix call of sorry function.
+	(gen_hsa_insns_for_return): New sorry message.
+	(generate_hsa): Likewise.
+	* hsa-regalloc.c (linear_scan_regalloc): Add new checking code.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_init_data_for_cfun): Fix coding style.
+	(hsa_bb::append_insn): Change assert.
+	(gen_hsa_insns_for_gimple_stmt): Handle GIMPLE_NOP statements.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg): Use new ctor.
+	(hsa_op_address::hsa_op_address): Add two new constructors.
+	(gen_hsa_addr_for_arg): Use the newly added ctors.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	* hsa.h: Add declaration of the constructors.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_cvt_insn): Add rounding for float->int conversions.
+	* hsa-gen.c (gen_hsa_insns_for_operation_assignment): Support
+	TRUNC expression.
+	* hsa.h (hsa_type_integer_p): New function.
+	* hsa.c (hsa_type_integer_p): Likewise.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_addr): Add support for bit fields.
+	(gen_hsa_insns_for_bitfield_load): New function.
+	(gen_hsa_insns_for_load): Handle cases where we load a bit field
+	address.
+	(get_bitfield_size): New function.
+	(get_unsigned_type_by_bytes): Removed.
+	(get_integer_type_by_bytes): New function.
+	(get_integer_tree_type_by_bytes): Likewise.
+	(gen_hsa_memory_copy): Use the new function.
+	(gen_hsa_insns_for_store): Handle bit fields.
+	(gen_hsa_unary_operation): New function.
+	(gen_hsa_binary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Add support for new
+	operations.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (enqueue_op): Move the function up in source file.
+	(emit_directive_variable): Add support for string constants.
+	(emit_function_directives): Emit all const global variables where
+	string constant live in.
+	(emit_immediate_scalar_to_data_section): Fix pointer assignment.
+	(emit_immediate_operand): Add support for string constants
+	that can type of an immediate operand.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Initialize list of string constants.
+	(hsa_function_representation::~hsa_function_representation): Release
+	the list.
+	(hsa_type_for_scalar_tree_type): Handle type of a string constant.
+	(hsa_get_string_cst_symbol): New function.
+	(hsa_op_immed::hsa_op_immed): Change validator to accept a string
+	constant.
+	(gen_hsa_addr): Handle an address of a string constant.
+	(gen_hsa_addr_insns): Fix address emission.
+	(gen_hsa_insns_for_load): Fix coding style.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	* hsa.h (struct hsa_symbol): Add new forward declarations.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+    * hsa-gen.c (gen_hsa_addr): Add new sorry.
+    (get_unsigned_type_by_bytes): New function.
+    (gen_hsa_memory_copy): Newly reimplemented function.
+    (gen_hsa_insns_for_single_assignment): Add support for assignments
+    that can be done by memory copy operation.
+    (gen_hsa_insns_for_direct_call): New sorry message.
+    (get_unsinged_type_by_bytes): Removed.
+    (gen_hsa_insns_for_kernel_call): Rename local variable.
+    (gen_hsa_insns_for_call): Anothe sorry message.
+    (gen_hsa_phi_from_gimple_phi): Support assignment of NULL value
+    to a pointer type; support LSA instructions.
+    * hsa.h: Fix indentation.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_immediate_operand): Add emission for complex
+	constants.
+	(emit_basic_insn): Fix condition.
+	* hsa-gen.c (hsa_type_for_scalar_tree_type): Add handling of complex
+	constants.
+	(hsa_insn_mem::hsa_insn_mem): Likewise.
+	(gen_hsa_insns_for_load): Emit load isntructions for a complex constant.
+	(gen_hsa_insns_for_operation_assignment): Add support for COMPLEX_EXPR.
+	* hsa-regalloc.c (hsa_num_def_ops): Fix number of defined registers.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_function_def_parameters): Generate declaration names
+	for anonymous parameters.
+	* hsa.c (hsa_get_declaration_name): New function.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_call): Fix ICE
+	in compare and swap insn generation.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_output_kernel_mapping): Do not emit GOMP registration
+	code for a TU w/o kernel.
+
+2015-08-21  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call): Fix function name
+	comparison condition.
+
+2015-08-19  Michael Matz  <matz@suse.de>
+
+	PR target/67272
+	* hsa-regalloc.c (naive_process_phi): Don't emit code into
+	the entry block.
+
+2015-08-18  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (kernel_remap_info): New type.
+	(gather_inner_locals): Change parameter type to kernel_remap_info.
+	(target_follows_kernelizable_pattern): Likewise, also fill in block
+	info in it.
+	(attempt_target_kernelization): Change parameter type to
+	kernel_remap_info.
+	(remap_kernel_blocks): New function.
+	(scan_omp_kernel_loop): Change parameter type to kernel_remap_info,
+	use it to create block copies for statement copies.
+	(scan_omp_target): Set up a kernel_remap_info variable, pass it to
+	gridification functions.
+	(expand_target_kernel_body): Set function_end_locus of the kernel
+	function and move its blocks appropriately.
+
+2015-08-13  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (gather_inner_locals): New function.
+	(target_follows_kernelizable_pattern): Call it, new parameter
+	inner_locals.
+	(attempt_target_kernelization): Fix typo in name. New parameter
+	inner_locals.
+	(scan_omp_kernel_loop): New function.
+	(scan_omp_target): Call it.
+
+2015-08-06  Martin liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Change default value
+	for workgroup_size_x and fix comments.
+
+2015-08-06  Martin Liska  <mliska@suse.cz>
+
+	* common.opt: Add new flag: -fdisable-hsa-gridification.
+	* omp-low.c (attemp_target_kernelization): Use the flag.
+
+2015-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_gen_requested_p): New function.
+	* hsa-gen.c (pass_gen_hsail::gate): Use it.
+	* cgraph.h (hsa_imp_of): New field.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Handle
+	GF_OMP_FOR_KIND_KERNEL_BODY.
+	* gimple.h (gf_mask): Add GF_OMP_FOR_KIND_KERNEL_BODY.
+	(gimple_statement_omp_parallel_layout): New fields kernel_group_size,
+	kernel_collapse and kernel_iter.
+	* hsa-gen.c (generate_hsa): Create mapping according to hsa_imp_of.
+	(pass_gen_hsail::execute): Use hsa_imp_of instead of offloadable flag.
+	* omp-low.c: Include hsa.h.
+	(omp_context): New field kernel_inner_loop.
+	(adjust_for_condition): Likewise.
+	(get_omp_for_step_from_incr): Likewise.
+	(extract_omp_for_data): Break up some functionality to
+	adjust_for_condition and get_omp_for_step_from_incr.
+	(single_stmt_in_seq_skip_bind): New function.
+	(target_follows_kernelizable_pattern): Likewise.
+	(attemp_target_kernelization): Likewise.
+	(region_part_of_unkernelized_tartget_p): Likewise.
+	(expand_parallel_call): If necessary, set hsa_imp_of of the child
+	function.
+	(scan_omp_target): Call attemp_target_kernelization, also scan kernel
+	loop, if any.
+	(kernel_dim_array_type): New variable.
+	(kernel_lattrs_dimnum_decl): Likewise.
+	(kernel_lattrs_grid_decl): Likewise.
+	(kernel_lattrs_group_decl): Likewise.
+	(kernel_launch_attributes_typ): Likewise.
+	(create_kernel_launch_attr_types): New function.
+	(insert_store_range_dim): Likewise.
+	(get_kernel_dimensions_info): Likewise.
+	(expand_omp_target): Create iteration space size description and pass
+	it to libgomp.
+	(expand_omp_for_kernel): New function.
+	(arg_decl_map): New type.
+	(remap_kernel_arg_accesses): New function.
+	(expand_target_kernel_body): Likewise.
+	(expand_omp): Call expand_target_kernel_body.
+	(lower_omp_target): Append kernel loop at the end of the body.
+
+2015-08-04  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple.c: Revert to trunk version.
+	* gimple.h: Likewise.
+	* gimplify.c: Likewise.
+	* omp-low.c: Likewise.
+
+2015-08-03  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_output_kernel_mapping): Serialize new data structure.
+	* hsa-gen.c (hsa_function_representation::hsa_function_representation):
+	Add new field.
+	(gen_hsa_insns_for_kernel_call): Calculate maximum amount of memory
+	needed for OMP data.
+	(generate_hsa): Likewise.
+	* hsa.c (hsa_add_kern_decl_mapping): New function.
+	(hsa_get_decl_kernel_mapping_omp_size): Likewise.
+	* hsa.h: Add declaration of these functions.
+
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_comment_insn): Memset to zero.
+	(emit_queue_insn): Likewise.
+
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (set_reg_def): Remove.
+	(hsa_append_insn): Likewise.
+	(hsa_op_reg::set_definition): New function.
+	(hsa_bb::append_insn): Likewise.
+	(hsa_function_representation::get_shadow_reg): Use new functions.
+	(hsa_reg_for_gimple_ssa_reqtype): Likewise.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_memory_copy): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_function_def_parameters): Likewise.
+	* hsa.h (hsa_op_reg::set_definition): New function.
+
+2015-07-31  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (brig_emit_string): Add new argument.
+	(brig_init): Sanitize module names.
+	(emit_memory_insn): Make emission more flexible in case of number
+	of operands.
+	(emit_atomic_insn): Likewise.
+	(emit_addr_insn): Likewise.
+	(emit_signal_insn): New function.
+	(emit_segment_insn): Fix comment coding style.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_call_insn): Likewise.
+	(emit_comment_insn): New function.
+	(emit_queue_insn): Likewise.
+	(emit_basic_insn): Fix comment coding style.
+	(emit_insn): Add handling of newly added insn types.
+	(perhaps_emit_branch): Fix comment coding style.
+	(hsa_output_kernel_mapping): Serialize kernel dependencies.
+	* hsa-dump.c (dump_hsa_imm_or_reg): Remove.
+	(dump_hsa_operand): New function.
+	(dump_hsa_operands): Likewise.
+	(dump_hsa_insn): Add dump support of hsa_insn_comment.
+	(debug_hsa_insn): Fix segfault.
+	* hsa-gen.c (struct hsa_kernel_dispatch): New structure.
+	(struct hsa_queue_packet): Likewise.
+	(struct hsa_queue): Likewise.
+	(set_reg_def): More forward in the source file.
+	(hsa_append_insn): Likewise.
+	(hsa_function_representation::hsa_function_representation): Add
+	shadow register.
+	(hsa_function_representation::get_shadow_reg): New function.
+	(hsa_init_data_for_cfun): Allocate new memory pools.
+	(hsa_deinit_data_for_cfun): Release newly added memory pools.
+	(hsa_insn_basic::hsa_insn_basic): Enhance ctor.
+	(hsa_insn_mem::hsa_insn_mem): Likewise.
+	(hsa_insn_atomic::hsa_insn_atomic): Make ctor more generic.
+	(hsa_insn_comment::hsa_insn_comment): New function.
+	(hsa_insn_comment::release_string): Likewise.
+	(get_unsigned_type_by_bytes): New function.
+	(gen_hsa_memory_copy): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_insns_for_call): Use changed ctors.
+	(gen_function_def_parameters): Add support for shadow arguments.
+	* hsa-regalloc.c (hsa_num_def_ops): Fix indentation.
+	* hsa.c (hsa_add_kernel_dependency): New function.
+	(hsa_sanitize_name): Sanitize another character.
+	(hsa_brig_function_name): New function.
+
+2015-06-30  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_output_kernel_mapping): Remove assert.
+
+2015-06-30  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_directive_variable): Remove assert that
+	is no longer valid.
+	(emit_function_directives): Change the function that it accepts
+	a hsa_function_representation and is used both for definitions and
+	declarations.
+	(emit_function_declaration): New function.
+	(emit_arg_block): Remove.
+	(emit_arg_block_insn): New function.
+	(emit_insn): Add support for newly added hsa_insn_arg_block
+	insn.
+	(emit_call_insn): Use offsets of called functions because
+	these function declaration are already emitted.
+	(hsa_brig_emit_function): Emit function declarations for all called
+	functions that haven't been seen yet.
+	(hsa_output_brig): Do not process pseudo-linkage.
+	* hsa-dump.c (dump_hsa_insn): Change argument type.
+	(dump_hsa_bb): Fix indentation for hsa_arg_block_insn.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Use newly added function
+	release.
+	(hsa_function_representation::hsa_function_representation): Add
+	construction for newly added members.
+	(hsa_function_representation::~hsa_function_representation): Add
+	destruction for newly added members.
+	(hsa_insn_arg_block::hsa_insn_arg_block): New function.
+	(hsa_insn_arg_block::operator new): New function.
+	(get_symbol_for_decl): Use new function.
+	(gen_hsa_insns_for_direct_call): Save all called functions.
+	(gen_hsa_insns_for_known_library_call): Use newly added function
+	get_declaration_name.
+	(get_function_arg_count): New.
+	(gen_function_decl_parameters): Likewise.
+	(gen_function_def_parameters): Add an optional argument and rename
+	from:
+	(gen_function_parameters): Removed.
+	(hsa_generate_function_declaration): New.
+	(generate_hsa): Fill up declaration for a hsa_function_representation.
+	(hsa_init_data_for_cfun): Replace hsa_insn_call_block with hsa_insn_arg_block
+	as template argument.
+	* hsa-regalloc.c (naive_process_phi): Add assert.
+	(hsa_num_def_ops): Change # of operands for call insn.
+	(visit_insn): Remove.
+	(remove_def_in_insn): Likewise.
+	(merge_live_range_for_insn): Likewise.
+	(linear_scan_regalloc): Simplify.
+	* hsa.c	(get_declaration_name): New function.
+	(hsa_free_decl_kernel_mapping): Add guard.
+	* hsa.h (struct hsa_function_representation): Add new struct fields.
+	(hsa_function_representation::release): New.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (expand_parallel_call): Bump the default grroup size
+	to 64.
+	* hsa-gen.c (wrap_hsa_kernel_call): Likewise.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_basic): Make the inaccessible construcotr
+	private.
+	(hsa_destroy_insn): Declare.
+	* hsa.c (hsa_destroy_insn): New function.
+	* hsa-gen.c (hsa_list_insn_call_block): Removed.
+	(hsa_list_insn_call): Likewise.
+	(hsa_deinit_data_for_cfun): Call destructors of
+	instructions.
+	(hsa_op_base::hsa_op_base): Make initialization consistent with
+	other constructors.
+	(hsa_op_with_type::hsa_op_with_type): Likewise.
+	(hsa_op_immed::hsa_op_immed): Likewise.
+	(hsa_insn_phi::hsa_insn_phi): Initialize dest.
+	(hsa_insn_br::hsa_insn_br): Fix whitespace.
+	(hsa_insn_call::hsa_insn_call): Add missing initialization.
+	(hsa_insn_call_block::hsa_insn_call_block): Likewise.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_bb): Made a class with constructors, destructor and a
+	new operator.
+	(hsa_function_representation): Turned into a class, added
+	constructor and destructor.
+	(hsa_cfun): Turned into a pointer update all users.
+
+	* hsa-gen.c (hsa_bb::hsa_bb): New.
+	(hsa_bb::operator new): Likewise.
+	(hsa_bb::~hsa_bb): Likewise.
+	(hsa_deinit_data_for_cfun): Call destructor.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_basic): Use class keyword, added constructors and
+	new operator, operands turned into a vector.
+	(hsa_insn_phi): Use class keyword, added a constructor and new
+	operator.
+	(hsa_insn_br): Likewise.
+	(hsa_insn_cmp): Likewise.
+	(hsa_insn_mem): Likewise.
+	(hsa_insn_atomic): Likewise.
+	(hsa_insn_seg): Likewise.
+	(hsa_insn_addr): Removed, converted all users to use hsa_insn_basic.
+	(hsa_insn_call): Use class keyword, added a constructor and new
+	operator.
+	(hsa_insn_call_block): Likewise.
+	* hsa-gen.c (hsa_insn_basic::hsa_insn_basic): New.
+	(hsa_insn_basic::operator new) Likewise.
+	(hsa_alloc_basic_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_phi::hsa_insn_phi): New.
+	(hsa_insn_phi::operator new): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Use operator new.  Removed max
+	predecessor number limitation.
+	(hsa_insn_br::hsa_insn_br): New.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_build_cbr_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_cmp::hsa_insn_cmp): New.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_alloc_cmp_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_mem::hsa_insn_mem): New.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_alloc_mem_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_insn_atomic::hsa_insn_atomic) New.
+	(hsa_insn_atomic::operator new): Likewise.
+	(hsa_alloc_atomic_insn): Removed, turned all users into uses of
+	operator new.
+	(hsa_allocp_inst_addr): Removed.
+	(hsa_alloc_addr_insn): Likewise.
+	(hsa_insn_seg::hsa_insn_seg): New.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_alloc_seg_insn): Removed, turned all users into uses of operator
+	new.
+	(hsa_insn_call::hsa_insn_call): New.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_alloc_call_insn): Removed, turned all users into uses of operator
+	new.
+	(hsa_insn_call_block::hsa_insn_call_block): New.
+	(hsa_insn_call_block::operator new): Likewise.
+	(hsa_alloc_call_block_insn): Removed, turned all users into uses of
+	operator new.
+	* hsa-brig.c (emit_insn): Check LDA instruction according to opcode,
+	not class type.
+	(emit_cvt_insn): Use auto_vec also for operand offsets.
+	(emit_basic_insn): Likewise.
+	* hsa-dump.c (dump_hsa_insn): Check for LDA instructions based on
+	opcode, not class.
+	(dump_hsa_insn): Adjusted to use operand vector.
+	(dump_hsa_insn): Likewise.
+	* hsa-regalloc.c (naive_process_phi): Likewise.
+	(linear_scan_regalloc): Likewise.
+	(hsa_num_def_ops): Handle HSA_OPCODE_CALL_BLOCK.
+
+2015-06-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_op_base): Use class keyword, add constructors.
+	(hsa_op_with_type): Likewise.
+	(hsa_op_immed): Use class keyword, add constructors and a new
+	operator.
+	(hsa_op_reg): Likewise.
+	(hsa_op_address): Likewise.
+	(hsa_op_code_ref): Use class keyword, add constructors.
+	(hsa_op_code_list): Use class keyword, add constructors and a new
+	operator.
+
+	* hsa-gen.c (hsa_op_with_type::hsa_op_with_type): New.
+	(hsa_op_immed): Likewise.
+	(hsa_op_immed::operator new): Likewise.
+	(hsa_alloc_immed_op): Removed, replaced all uses by allocation with
+	new.
+	(hsa_op_reg::hsa_op_reg): New.
+	(hsa_op_reg::operator new): Likewise.
+	(hsa_alloc_reg_op): Removed, replaced all uses by allocation with new.
+	(hsa_op_address::hsa_op_reg): New.
+	(hsa_op_address::operator new): Likewise.
+	(hsa_alloc_addr_op): Removed, replaced all uses by allocation with new.
+	(hsa_op_code_ref::hsa_op_code_ref): New.
+	(hsa_op_code_list::hsa_op_code_list): Likewise.
+	(hsa_op_code_list::operator new): Likewise.
+	(hsa_alloc_code_list_op): Removed, replaced all uses by allocation
+	with new.
+
+2015-06-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-regalloc.c (visit_insn): New function.
+	(linear_scan_regalloc): Use the newly added function and
+	visit also all insns that belong to a call block insn.
+	(merge_live_range_for_insn): Likewise.
+	(linear_scan_regalloc): Likewise.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_append_insn_after): New function.
+	(hsa_spill_out): Use it, update comment.
+	(hsa_insert_insn_before): New function.
+	(hsa_spill_in): Use it, update comment.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (float_type_p): Moved from here...
+	* hsa-gen.c (hsa_type_float_p): ...and here...
+	* hsa.c (hsa_type_float_p): ...to here.
+	* hsa.h (hsa_type_float_p): Declare.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h: Fixed spelling and coding style errors, added missing
+	comments.
+	* hsa.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_sanitize_name): Moved here from...
+	* hsa-gen.c (sanitize_hsa_name): ...here...
+	* hsa-brig.c (sanitize_hsa_name): ...and here.
+	* hsa.h (hsa_sanitize_name): Declare.
+
+2015-06-19  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_type_for_scalar_tree_type): Use
+	hsa_get_segment_addr_type.  Assert type is not scalar.  Rename
+	last argument.
+	(hsa_type_for_tree_type): Handle aggregates.  Return dimension in
+	only one parameter.
+	(fillup_sym_for_decl): Adapt to changes in hsa_symbol.
+	(gen_hsa_addr_for_arg): Likewise.
+	* hsa-brig.c (get_alignment): Handle array type.
+	(emit_directive_variable): Adapt to changes in hsa_symbol.
+	* hsa.h (hsa_symbol): Make dimension represented by one number.
+
+2015-06-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c (hsa_type_bit_size): New function.
+	(hsa_bittype_for_type): Likewise.
+	* hsa-brig.c (get_alignment): Use hsa_type_bit_size.
+	(bittype_for_type): removed.
+	* hsa-gen.c (hsa_needs_cvt): Use hsa_type_bit_size.
+	(gen_address_calculation): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+
+2015-06-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.c: New file.
+	* Makefile.in (OBJS): Add hsa.o.
+	(GTFILES): Add hsa.c.
+	* hsa-gen.c (hsa_cfun): Move to hsa.c.
+	(hsa_decl_kernel_map_element): Likewise.
+	(hsa_decl_kernel_mapping): Likewise.
+	(hsa_global_variable_symbols): Likewise.
+	(compilation_unit_data_initialized): Likewise.
+	(hsa_init_compilation_unit_data): Likewise.
+	(hsa_deinit_compilation_unit_data): Likewise.
+	(hsa_machine_large_p): Likewise.
+	(hsa_full_profile_p): Likewise.
+	(hsa_get_segment_addr_type): Made static.
+	(hsa_opcode_op_output_p): Moved to hsa.c.
+	(hsa_add_kern_decl_mapping): Likewise.
+	(hsa_get_number_decl_kernel_mappings): Likewise.
+	(hsa_get_decl_kernel_mapping_decl): Likewise.
+	(hsa_get_decl_kernel_mapping_name): Likewise.
+	(hsa_free_decl_kernel_mapping): Likewise.
+	* hsa.h: Reorganize declarations to match the other changes.
+
+2015-06-16  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (hsa_get_imm_brig_type_len): New function.
+	(emit_immediate_scalar_to_data_section): Likewise.
+	(emit_immediate_operand): Reimplemented.
+	* hsa-gen.c (gen_hsa_insns_for_load): Trimmed long line.
+	(gen_hsa_insns_for_store): Added missing comment, trimmed long line,
+	added another type exception for vector immediates.
+
+2015-06-12  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call): New function.
+	(gen_hsa_insns_for_call): Use it.
+
+2015-06-09  Martin Jambor  <mjambor@suse.cz>
+
+	* builtin-types.def (BT_FN_VOID_PTR_INT_PTR): New.
+	* common.opt (flag_disable_hsa): Likewise.
+	* config.in: Regenrate.
+	* configure : Likewise.
+	* configure.ac (accel_dir_suffix): Set ENABLE_HSA when hsa is
+	listed as accelerator, do not set ENABLE_OFFLOADING if it is the
+	only one.
+	* hsa-brig.c (hsa_dtor_statements): New variable.
+	(hsa_output_kernel_mapping): Generate libgomp registration and
+	unregistration calls.
+	* hsa-gen.c (generate_hsa): New parameter kernel, use it rather
+	than parameters.
+	(pass_gen_hsail::gate): Make conditional on ENABLE_HSA.
+	(pass_gen_hsail::execute): Detect kernels.
+	* lto-wrapper.c (compile_images_for_offload_targets): Do not
+	attempt to invoke an external hsa accelerator compiler.
+	* omp-builtins.def (BUILT_IN_GOMP_OFFLOAD_REGISTER): New.
+	(BUILT_IN_GOMP_OFFLOAD_UNREGISTER): Likewise.
+	* opts.c (common_handle_option): Disable HSA if requested on the
+	command line.
+
+2015-06-08  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (brig_init): Fix module name generation for the
+	uncommon cases.
+
+2015-04-30  Martin Jambor  <mjambor@suse.cz>
+
+	* README.hsa: Updated to reflect changes brought about by transition
+	to HSA 1.0F.
+
+2015-04-29  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h: Updated to 1.0F.
+	* hsa-brig.c: Added includes of tree-iterator.h, tree-ssa-alias.h,
+	gimple-expr.h, gimple.h, stringpool.h, ipa-ref.h, lto-streamer.h and
+	cgraph.h.
+	(BRIG_ELF_SECTION_NAME): New define.
+	(BRIG_LABEL_STRING): Likewise.
+	(hsa_brig_section): New field header_byte_delta.
+	(hsa_brig_section::init): Calculate initial size based on what the new
+	disassembler expects.
+	(hsa_brig_section::output): Remove assembly section switching, add new
+	BRIG section stuff.
+	(get_ptr_by_offset): Use the new delta for calculations.
+	(brig_init): Remove initializations of 1.0p structures and add
+	initializations of 1.0F structures.
+	(emit_directive_variable): Adjust to 1.0F.
+	(emit_function_directives): Likewise.
+	(enqueue_op): Likewise.
+	(emit_immediate_operand): Likewise.
+	(emit_register_operand): Likewise.
+	(emit_memory_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_arg_block): Likewise.
+	(emit_basic_insn): Do not turn mov types into bit-types.  Adjust to
+	1.0F.
+	(hsa_ctor_statements): New variable.
+	(hsa_output_kernel_mapping): New function.
+	(HSA_SECTION_ALIGNMENT): New define.
+	(hsa_output_brig): Emit HSAIL BRIG 1.0F.  Call
+	hsa_output_kernel_mapping.
+	* hsa-dump.c (hsa_opcode_name): Adjust to 1.0F
+	(hsa_memscope_name): Likewise.
+	* hsa-gen.c (hsa_decl_kernel_map_element): New type.
+	(hsa_decl_kernel_mapping): New variable.
+	(hsa_deinit_data_for_cfun): Do not free names of kernels.
+	(hsa_alloc_immed_op): Adjust to HSA 1.0F.
+	(hsa_alloc_reg_op): Likewise.
+	(hsa_add_kern_decl_mapping): New function.
+	(hsa_get_number_decl_kernel_mappings): Likewise.
+	(hsa_get_decl_kernel_mapping_decl): Likewise.
+	(hsa_get_decl_kernel_mapping_name): Likewise.
+	(hsa_free_decl_kernel_mapping): Likewise.
+	(generate_hsa): Fix detecting kernels.  Also call
+	hsa_add_kern_decl_mapping.
+	(hsa_kernel_desc_type, hsa_range_dimnum_decl): Removed.
+	(hsa_range_grid_decl, hsa_range_group_decl): Likewise.
+	(hsa_launch_range_type): Likewise.
+	(hsa_lattrs_dimnum_decl, hsa_lattrs_grid_decl): New.
+	(hsa_lattrs_group_decl, hsa_lattrs_nargs_decl): Likewise.
+	(hsa_launch_attributes_type): Likewise.
+	(init_hsa_functions): Build the types and decls necessary for HSA 1.0F.
+	(wrap_hsa_kernel_call): New function.
+	(wrap_all_hsa_calls): Simplify.
+	* hsa-regalloc.c (hsa_num_def_ops): Adjust to HSA 1.0F.
+	* hsa.h (hsa_op_base): Adjust to HSA 1.0F.
+	(is_a_helper <hsa_op_immed *>::test): Likewise.
+	(is_a_helper <hsa_op_reg *>::test): Likewise.
+	(hsa_get_number_decl_kernel_mappings): Declare.
+	(hsa_get_decl_kernel_mapping_decl): Likewise.
+	(hsa_get_decl_kernel_mapping_name): Likewise.
+	(hsa_free_decl_kernel_mapping): Likewise.
+
+2015-04-21  Michael Matz  <matz@suse.de>
+
+	* hsa-regalloc.c (linear_scan_regalloc): Run backwards over
+	basic blocks when running backwards over instructions.
+
+2015-02-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-regalloc.c (regalloc): Bail out if there are no registers.
+
+2015-02-23  Michael Matz  <matz@suse.de>
+
+	* hsa.h (struct hsa_op_reg): Add members lr_begin, lr_end.
+	(struct hsa_insn_basic): Add member number.
+	(struct hsa_bb): Add members liveout, livein.
+	* hsa-dump.c (dump_hsa_insn): Dump insn number.
+	* hsa-gen.c: Added bitmap.h to includes.
+	(hsa_deinit_data_for_cfun): Deallocate liveness bitmaps.
+	(hsa_init_new_bb): Allocate liveness bitmaps.
+	* hsa-regalloc.c: Add bitmap.h, diagnostic-core.h and cfganal.h.
+	(struct reg_class_desc): Add members used_num, max_used, used.
+	(insn_reg_addr): New function.
+	(stupid_regalloc_bb): Rename to ...
+	(rewrite_code_bb): ... this, and remove allocation code.
+	(hsa_num_def_ops, dump_hsa_cfun_regalloc, try_alloc_reg,
+	free_reg, note_lr_end, note_lr_begin, cmp_begin, cmp_end,
+	expire_old_intervals, spill_at_interval,
+	linear_scan_regalloc): New functions.
+	(stupid_regalloc): Rename to ...
+	(regalloc): ... this and call linear_scan_regalloc.
+	(hsa_regalloc): Adjust calls.
+
+2015-02-20  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_op_with_type): New type.
+	(hsa_op_immed): Base on hsa_op_with_type.
+	(hsa_op_reg): Likewise.  Removed the type field.
+	* hsa-gen.c (hsa_reg_for_gimple_ssa_reqtype): New function.
+	(gen_address_calculation): Likewise.
+	(add_addr_regs_if_needed): Likewise.
+	(process_mem_base): Likewise.
+	(gen_hsa_addr): Reimplemented.
+	(hsa_reg_or_immed_for_gimple_op): Changed return type to
+	hsa_op_with_type.
+
+2015-01-08  Martin Liska  <mliska@suse.cz>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_cvt_insn): Add near rounding for integer to
+	float conversion instruction.
+	* hsa-gen.c (hsa_op_reg::verify): Accept registers corresponding to
+	default definition SSA_NAMEs.
+	(gen_hsa_insns_for_return): Use the correct hsa operand creation
+	function.
+
+2014-12-29  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (generate_hsa): Check seen_error before
+	an insn verifier is called.
+
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c: Add function comments.
+	* hsa-gen.c: Likewise.
+
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (brig_string_slot_hasher::remove): Free memory.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Call destructors for
+	operands and instructions that need to deallocate a data.
+	(hsa_alloc_reg_op): Add object to list of items that are
+	destructed.
+	(hsa_alloc_code_list_op): Likewise.
+	(hsa_alloc_call_insn): Likewise.
+	(hsa_alloc_call_block_insn): Likewise.
+	(wrap_hsa): Free products of asprintf.
+	* hsa.h (struct hsa_op_reg): New destructor.
+	(struct hsa_op_code_list): Likewise.
+	(struct hsa_insn_call): Likewise.
+	(struct hsa_insn_call_block): Likewise.
+
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (struct function_linkage_pair): New data structure.
+	(hsa_brig_section::get_ptr_by_offset): New function.
+	(emit_directive_variable): Retrieve the linkage by symbol.
+	(emit_function_directives): Add emitted function to map
+	with offsets.
+	(enqueue_op): Handle new operand type.
+	(emit_code_ref_operand): New by renaming emit_label_operand.
+	(emit_code_list_operand): New function.
+	(emit_queued_operands): Handle new operand type.
+	(emit_segment_insn): Rename BRIG_KIND_INST_SEG to
+	to BRIG_KIND_INST_SEG_CVT.
+	(emit_cvt_insn): Fix undefined behavior caused by wrong array bounds.
+	(emit_arg_block): New function.
+	(emit_call_insn): Likewise.
+	(emit_call_block_insn): Likewise.
+	(emit_insn): Handle new instructions.
+	(hsa_output_brig): Resolve function offsets for call instructions.
+	* hsa-dump.c (static void indent_stream): New function.
+	(dump_hsa_insn): Support new call instruction.
+	* hsa-gen.c (hsa_init_data_for_cfun): Parse new flag for hsa_cfun.
+	(hsa_deinit_data_for_cfun): Deallocate new memory pools.
+	(get_symbol_for_decl): Set up symbol's linkage.
+	(hsa_get_spill_symbol): Likewise.
+	(hsa_alloc_code_list_op): New function.
+	(hsa_alloc_call_insn): Likewise.
+	(hsa_alloc_call_block_insn): Likewise.
+	(gen_hsa_addr_for_arg): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Support GIMPLE labels with non-taken address.
+	(gen_function_parameters): Introduce linkage condition.
+	(generate_hsa): Parse kern_p flag.
+	(wrap_hsa): Likewise.
+	(pass_gen_hsail::execute): Likewise.
+	(struct hsa_op_reg::verify): New function.
+	* hsa.h (struct hsa_symbol): Add a linkage member.
+	(struct hsa_op_code_ref): New by renaming existing hsa_op_label_ref.
+	(struct hsa_op_code_list): Support new operand.
+	(struct hsa_insn_call): New instruction.
+	(struct hsa_insn_call_block): Likewise.
+	(struct hsa_function_representation): New kern_p attribute.
+	(struct hsa_op_reg::verify): New function.
+
+2014-12-11  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c: Fix comment typos.
+	* hsa.h: Likewise.
+
+2014-10-24  Martin Jambor  <mjambor@suse.cz>
+
+	* README.hsa: Removed the part about extracting the HSA ELF sections.
+	* hsa-gen.c (wrap_hsa): Deduce the file name and pass it to libgomp.
+
+
+2014-10-24  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_symbol): Renamed offset to directive_offset.  Updated all
+	users.
+	(hsa_op_base): Renamed offset to brig_op_offset. Updated all
+	users.
+	(hsa_op_immed): Removed unused field offset.
+
+2014-10-07  Martin Jambor  <mjambor@suse.cz>
+
+	* README.hsa: Added known tested revisions of required git
+	checkouts.
+
+2014-10-07  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_memory_insn): Emit BRIG_WIDTH_NONE for stores.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* README2.hsa: Rewritten from scratch.
+
+2014-09-26  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+ 	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h: Update to HSA 1.0p.
+	* hsa-brig.c: Remove strtab, directives	and debug sections.
+	(hsa_brig_section): New fields section_name and header_byte_count.
+	(hsa_brig_section::init): New parameter name, store it, calculate
+	header size from it.
+	(hsa_brig_section::output): Removed parameter section_name. Output
+	section in the new format.
+	(brig_emit_string): Emit strings to the data section.
+	(c_reg_names, s_reg_names, d_reg_names, q_reg_names): Removed.
+	(c_regs, s_regs, d_regs, q_regs): Likewise.
+	(brig_init): Handle bytecount and kind info as part of base.  Change
+	enumeration names.  Emit BrigDirectiveVersion in code section.
+	(brig_release_data): Remove brig_string, brig_debug and
+	brig_directive. Add brig_data.
+	(get_alignment): New function.
+	(emit_symbol_directive): Renamed to emit_directive_variable.  Handle
+	bytecount and kind info as part of base.  Change enumeration
+	names. Emit strings in data section.  Emit BrigDirectiveVariable in
+	code section.
+	(emit_function_directives): Likewise.  Increment brig_insn_count.
+	(emit_bb_label_directive): Likewise.
+	(enqueue_op): Remove reg name handling.  Change BrigOperandRef to
+	BrigOperandCodeRef.  Handle immediate operand size using
+	BrigOperandData.
+	(emit_immediate_operand): Change enumeration names.  Emit immediate
+	operand in data section.
+	(emit_register_name): Removed.
+	(emit_register_operand): Remove register name handling.  Handle
+	register number and register kind.
+	(emit_address_operand): Handle bytecount and kind info as part of
+	base.  Change enumeration names.
+	(emit_label_operand): Likewise.
+	(emit_memory_insn): Handle bytecount and kind info as part of base.
+	Change enumeration names.  Add insn alignment.
+	(emit_atomic_insn): Likewise.  Add memoryorder and memoryscope.
+	(emit_addr_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	(perhaps_emit_branch): Likewise.
+	(hsa_brig_emit_function): Use HSA 1.0p ield names.
+	(hsa_output_brig): Remove brig_directive, brig_string and brig_debug
+	sections. Add brig_data section.
+	* hsa-dump.c (hsa_type_name): Update to HSAIL 1.0p.
+	(hsa_opcode_name): Likewise.
+	(hsa_memsem_name): Likewise.
+	(hsa_memscope_name): New function.
+	(hsa_atomicop_name): Update to HSAIL 1.0p.
+	(dump_hsa_insn): Likewise.
+	* hsa-gen.c (hsa_init_data_for_cfun): Change BRIG_OPERAND_LABEL_REF to
+	BRIG_KIND_OPERAND_CODE_REF.
+	(hsa_alloc_immed_op): Change BRIG_OPERAND_IMMED to
+	BRIG_KIND_OPERAND_DATA.
+	(hsa_alloc_reg_op): Change BRIG_OPERAND_REG to BRIG_KIND_OPERAND_REG.
+	(hsa_alloc_addr_op): Change BRIG_OPERAND_ADDRESS to
+	BRIG_KIND_OPERAND_ADDRESS.
+	(gen_hsa_insns_for_call): Add memoryscope to meminsn. Change
+	semantic to memoryorder.
+	(hsa_init_new_bb): Change BRIG_OPERAND_LABEL_REF to
+	BRIG_KIND_OPERAND_CODE_REF.
+	* README.hsa: Add a brief comment about further incompatibilities with
+        the given instructions.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple.c (gimple_build_omp_for): Allocate prev_first_iter.
+	* gimple.h (gimple_statement_omp_for): New field orig_first_iter.
+	(gimple_omp_for_set_orig_first_iter): New function.
+	* gimplify.c (gimplify_omp_for): Use it.
+	* omp-low.c (omp_region): New fields req_group_size and orig_first_iter.
+	(adjust_for_condition): New function.
+	(get_omp_for_step_from_incr): Likewise.
+	(extract_omp_for_data): Moved some functionality to the above two new
+	functions.
+	(create_omp_child_function): Do not append hsa attributes to child_fn.
+	(expand_parallel_call): Handle kernelized parallel regions.
+	(expand_omp_for_static_nochunk): Kernelize marked loops.
+	(expand_omp_for): Copy prev_first_iter of to-be-kernelized omp for
+	statements to the region structure, mark requested group size.  Always
+	expand these loops with expand_omp_for_static_nochunk.
+	* tree-sra.c (ipa_sra_preliminary_function_checks): Test TREE_USED.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+        * omp-low.c (struct omp_region): New flag kernelize.
+	(analyze_kernelizability): New function.
+        (expand_omp): Call it.  New parameter within_parallel, update all
+	callers.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (insert_store_range_dim): Make value parameter a tree.
+	(wrap_hsa): Handle hsakernel functions.
+	(namespace): Likewise.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_dim_array_type, hsa_range_dimnum_decl)
+	(hsa_range_grid_decl, hsa_range_group_decl)
+	(hsa_launch_range_type): New variables.
+	(init_hsa_functions): Also build the type of range structure.
+	(insert_store_range_dim): New function.
+	(wrap_hsa): Rename decl to desc.  Also build and pass range
+	information.
+	* README.hsa: Marked as obsolete.
+
+2014-08-05  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Clear aux of all basic
+	blocks.
+	(hsa_type_for_scalar_tree_type): Add calls to sorry.
+	(get_symbol_for_decl): Make assert also a non-checking one.  Add
+	calls to sorry.
+	(hsa_reg_for_gimple_ssa): Make an assert checking-only.
+	(gen_hsa_addr): Add calls to sorry.  Remove an unnecessary assert.
+	(gen_hsa_addr_insns): Move an assert to an earlier spot.
+	(gen_hsa_insns_for_load): Made return type void.  Adapted all callers.
+	Add calls to sorry.
+	(gen_hsa_insns_for_single_assignment): Recognize non-scalar memory
+	moves as such and sorry about them.p
+	(gen_hsa_cmp_insn_from_gimple): Add calls to sorry.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_call): Likewise.  Make sure there is a LHS.
+	(gen_hsa_insns_for_gimple_stmt): Add calls to sorry.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_body_from_gimple): Bail out on seen errors.
+	(gen_function_parameters): Add calls to sorry.
+	(generate_hsa): Bail out on seen errors.
+	* hsa-brig.c (bittype_for_type): Turn gcc_unreachable into assert
+	of seen_error.
+	(emit_immediate_operand): Add calls to sorry.
+
+2014-07-29  Ganesh Gopalasubramanian  <Ganesh.Gopalasubramanian@amd.com>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (init_hsa_functions): Add context
+	to hsa_kernel_desc_type.
+	(wrap_hsa): Add context field to generated kernel description
+	constructor.
+
+2014-06-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h: Removed keyword struct from the parameter all is_a_helper
+	function template instantiations.
+	* tree-vectorizer.c (pass_slp_vectorize::gate): Remove parameter name.
+
+2013-02-03  Michael Matz  <matz@suse.de>
+
+	* hsa-brig.c (sanitize_hsa_name): New function.
+	(brig_emit_string): Use it.
+	(emit_immediate_operand): Support 64bit integral immediates.
+	(float_type_p, emit_cvt_insn): New functions.
+	(emit_basic_insn): Call emit_cvt_insn when appropriate, force
+	moves to use bittypes.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Free function name.
+	(gen_hsa_addr): Support addresses of array references.
+	(gen_hsa_insns_for_operation_assignment): Support conversions and
+	TRUNC_MOD_EXPR.
+	(gen_hsa_insns_for_call): New function.
+	(gen_hsa_insns_for_gimple_stmt): Support GIMPLE_CALL, ignore
+	GIMPLE_DEBUG.
+	(gen_hsa_phi_from_gimple_phi): Deal with non-pointers, not pointers.
+	(gen_body_from_gimple): Ignore VOP PHIs.
+	(sanitize_hsa_name): New function.
+	(generate_hsa, wrap_hsa): Use it.
+	* hsa.h (struct hsa_function_representation): Make name non-const.
+	* omp-low.c (create_omp_child_function): Mark with 'hsa' attribute.
+	(expand_parallel_call): Emit direct call to child function for
+	HSA support.
+
+2013-12-13  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_address_operand): Always put types through
+	regtype_for_type even when the address does not refer to a symbol.
+	* hsa-gen.c (hsa_get_segment_addr_type): Return U types instead of
+	B types.
+
+2013-12-12  Martin Jambor  <mjambor@suse.cz>
+
+	Merge from trunk revision 205789.
+	* hsa-gen.c: Added new necessary includes.  Changed all tree_low_cst
+	to tree_to_uhwi and {ENTRY,EXIT}_BLOCK_PTR to
+	{ENTRY,EXIT}_BLOCK_PTR_FOR_FN.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2013-11-15  Michael Matz  <matz@suse.de>
+
+	* hsa-brig.c (emit_symbol_directive): Kernarg symbols must
+	be declarations.
+	(emit_function_directives): Our functions are kernels for now.
+	* hsa-gen.c: Include cgraph.h
+	(gen_function_parameters): Kernel arguments are KERNARG.
+	(hsa_launch_fn, hsa_kernel_desc_type): New static trees.
+	(init_hsa_functions, wrap_hsa): New static functions.
+	(pass_gen_hsail::gate): Unconditional handle all functions.
+	(pass_gen_hsail::execute): Outline and handle non-hsa functions,
+	calling wrap_hsa.
+
+2013-11-11  Michael Matz  <matz@suse.de>
+
+	* hsa-gen.c (get_symbol_for_decl): Do insert symbols.
+	(gen_hsa_insns_for_single_assignment): Ignore clobbers.
+
+2013-11-11  Michael Matz  <matz@suse.de>
+
+	* hsa-brig.c: Include tree-cfg.h.
+
+2013-10-21  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c: Do not include tree-flow.h
+	* hsa-gen.c: Likewise.  Do not inlude tree-flow-inline.h.  Include
+	tree-ssa-operands.h and tree-dfa.h.  Move include of gimple-ssa.h
+	upwards.
+
+2013-10-10  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c: Include tree-phinodes.h, gimple-ssa.h and ssa-iterators.h.
+
+2013-09-27  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-dump.c (dump_hsa_insn): Special dumping of hsa_insn_addr.
+
+2013-09-27  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_insn_basic): New type.
+	* hsa-brig.c (emit_addr_insn): New function.
+	(emit_insn): Call it.
+	* hsa-gen.c (hsa_allocp_inst_addr): New variable.
+	(hsa_init_data_for_cfun): Initialize it.
+	(hsa_deinit_data_for_cfun): Free it.
+	(hsa_alloc_addr_insn): New function.
+	(gen_hsa_addr_insns): Create addr instruction.
+
+2013-09-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h (BrigMemoryModifier8_t): Reintroduce the bug of
+	typedef-ing this to uint16_t.
+	* hsa-brig.c (emit_memory_insn): Zero out the instruction.
+
+2013-09-25  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_address_operand): Run type through regtype_for_type.
+	* hsa-gen.c (hsa_get_segment_addr_type): Return U types rather
+	than B types.
+
+2013-09-24  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_function_directives): Stream output argument before
+	input ones.  Adjust fields of BrigDirectiveExecutable accordingly.
+
+2013-09-20  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (brig_emit_string): Stream slen string bytes, not len.
+
+2013-09-19  Michael Matz <matz@suse.de>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (struct hsa_function_representation): New field spill_symbols.
+	* hsa-brig-format.h (BrigVersion): Set version to what is expexted by
+	libHSAIL.
+	(BrigDirectiveVersion): Changed to match libHSAIL expectations.
+	* hsa-brig.c: Include tree-flow.h.
+	(BRIG_SECTION_STRING_NAME): Changed to match libHSAIL expectations.
+	(BRIG_SECTION_DIRECTIVE_NAME): Likewise.
+	(BRIG_SECTION_OPERAND_NAME): Likewise.
+	(brig_insn_count): New variable.
+	(brig_string_slot): New type.
+	(brig_string_slot_hasher): Likewise.
+	(brig_string_slot_hasher::hash): New method.
+	(brig_string_slot_hasher::equal): Likewise.
+	(brig_string_slot_hasher::remove): Likewise.
+	(brig_emit_string): Only output identical strings once.
+	(brig_init): Create brig_string_htab.  Updated for changes in
+	BrigDirectiveVersion type.
+	(brig_release_data): Dispose of brig_string_htab.
+	(emit_symbol_directive): Emit prefixes in strings.
+	(emit_function_directives): Return pointer to the created executable
+	directive.  Count in spill declarations.
+	(emit_bb_label_directive): Prefix labels with @.
+	(regtype_for_type): New function.
+	(emit_immediate_operand): Better size computation, use
+	regtype_for_type.
+	(emit_register_name): Prefix register names with $.
+	(emit_address_operand): Use correct imm_offset instead of wrong
+	offset.
+	(emit_memory_insn): Change width and modifier values.  Incremented
+	brig_insn_count.
+	(emit_segment_insn): Incremented brig_insn_count.
+	(emit_branch_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	(perhaps_emit_branch): Likewise.
+	(hsa_brig_emit_function): Set brig_insn_count to zero.  Se the number
+	of instruction in the function directive.
+	* hsa-gen.c (hsa_deinit_data_for_cfun): Release spill_symbols.
+	(hsa_get_segment_addr_type): Depend on hsa_machine_large_p rather than
+	full_profile_p.  Return B types rather than U types.
+	(hsa_get_spill_symbol): Push the new symbol.
+
+2013-09-18  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_type_for_scalar_tree_type): Handle vector types.
+	* hsa-brig.c (emit_immediate_operand): Emit type which was
+	forgotten.  Fix size computation.
+
+2013-09-17  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c: Include tree-ssanames.h.
+	* Makefile.in (hsa-gen.o): Add tree-ssanames.h to dependencies.
+
+2013-09-05  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (hsa_brig_section): Define as class instead of struct.
+
+2013-09-04  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_register_operand): Fill in the reserved field.
+	(emit_address_operand): Likewise.
+	(emit_branch_insn): Fill in the modifier, width and rserved fields.
+	(perhaps_emit_branch): Likewise.
+
+2013-09-03  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h (BrigMemoryModifier8_t): Changed to uint8_t.
+
+2013-07-26  Martin Jambor  <mjambor@suse.cz>
+
+	* passes.def: Schedule pass_gen_hsail.
+	* passes.c: Revereted all changes and imported new version from master.
+
+2013-07-02  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.in (HSA_H): Added new dependencies.
+	(hsa-gen.o): Likewise.
+	(hsa-brig.o): Likewise.
+	(hsa-regalloc.o): New.
+	(hsa-dump.o): Likewise.
+	* hsa-brig-format.h (BrigInstAtomic): New type.
+	(BrigInstAtomicImage): Likewise.
+	(BrigInstBar): Likewise.
+	(BrigInstBasic): Likewise.
+	(BrigInstMod): Likewise.
+	(BrigInstCmp): Likewise.
+	(BrigInstCvt): Likewise.
+	(BrigInstImage): Likewise.
+	(BrigInstMem): Likewise.
+	(BrigInstAddr): Likewise.
+	(BrigInstSourceType): Likewise.
+	(BrigInstSeg): Likewise.
+	(BrigInstFbar): Likewise.
+	(BrigInstBr): Likewise.
+	(BrigInstNone): Likewise.
+	(BrigOperandBase): Likewise.
+	(BrigOperand): Likewise.
+	(BrigOperandAddress): Likewise.
+	(BrigOperandList): Likewise.
+	(BrigOperandArgumentList): Likewise.
+	(BrigOperandFunctionList): Likewise.
+	(BrigOperandRef): Likewise.
+	(BrigOperandLabelRef): Likewise.
+	(BrigOperandArgumentRef): Likewise.
+	(BrigOperandFunctionRef): Likewise.
+	(BrigOperandSignatureRef): Likewise.
+	(BrigOperandFbarrierRef): Likewise.
+	(BrigOperandImmed): Likewise.
+	(BrigOperandReg): Likewise.
+	(BrigOperandRegVector): Likewise.
+	(BrigOperandWavesize): Likewise.
+	* hsa-brig.c (operand_queue): New type.
+	(op_queue): New variable.
+	(c_reg_names): Likewise.
+	(s_reg_names): Likewise.
+	(d_reg_names): Likewise.
+	(q_reg_names): Likewise.
+	(c_regs): Likewise.
+	(s_regs): Likewise.
+	(d_regs): Likewise.
+	(q_regs): Likewise.
+	(emit_symbol_directive): Take the symbol operand as an argument.
+	Extract and stream the values stored therein.
+	(emit_function_directives): New function.
+	(emit_bb_label_directive): Likewise.
+	(enqueue_op): Likewise.
+	(emit_immediate_operand): Likewise.
+	(emit_register_name): Likewise.
+	(emit_register_operand): Likewise.
+	(emit_address_operand): Likewise.
+	(emit_label_operand): Likewise.
+	(emit_queued_operands): Likewise.
+	(emit_memory_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	(emit_insn): Likewise.
+	(perhaps_emit_branch): Likewise.
+	(hsa_brig_emit_function): Also emit instructions and operands, do not
+	take any parameter, refer to hsa_cfun.
+	(hsa_output_brig): Call hsa_deinit_compilation_unit_data.
+	* hsa-dump.c: New file.
+	* hsa-gen.c: Include gimple.h, dumpfile.h, alloc-pool.h,
+	tree-flow.h and tree-flow-inline.h.
+	(hsa_cfun): New variable.
+	(hsa_allocp_operand_address): Likewise.
+	(hsa_allocp_operand_immed): Likewise.
+	(hsa_allocp_operand_reg): Likewise.
+	(hsa_allocp_inst_basic): Likewise.
+	(hsa_allocp_inst_phi): Likewise.
+	(hsa_allocp_inst_mem): Likewise.
+	(hsa_allocp_inst_seg): Likewise.
+	(hsa_allocp_inst_cmp): Likewise.
+	(hsa_allocp_inst_br): Likewise.
+	(hsa_allocp_bb): Likewise.
+	(hsa_allocp_symbols): Likewise.
+	(hsa_global_variable_symbols): Likewise.
+	(compilation_unit_data_initialized): Likewise.
+	(hsa_init_compilation_unit_data): New function.
+	(hsa_deinit_compilation_unit_data): Likewise.
+	(hsa_init_data_for_cfun): Likewise.
+	(hsa_deinit_data_for_cfun): Likewise.
+	(hsa_get_segment_addr_type): Likewise.
+	(hsa_opcode_op_output_p): Likewise.
+	(hsa_type_for_scalar_tree_type): Likewise.
+	(hsa_type_for_tree_type): Likewise.
+	(fillup_sym_for_decl): Likewise.
+	(get_symbol_for_decl): Likewise.
+	(hsa_get_spill_symbol): Likewise.
+	(hsa_alloc_immed_op): Likewise.
+	(hsa_alloc_reg_op): Likewise.
+	(hsa_alloc_addr_op): Likewise.
+	(hsa_reg_for_gimple_ssa): Likewise.
+	(set_reg_def): Likewise.
+	(hsa_alloc_basic_insn): Likewise.
+	(hsa_alloc_mem_insn): Likewise.
+	(hsa_alloc_seg_insn): Likewise.
+	(hsa_alloc_cmp_insn): Likewise.
+	(hsa_build_cbr_insn): Likewise.
+	(hsa_append_insn): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_reg_or_immed_for_gimple_op): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(gen_hsa_insns_for_single_assignment): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(hsa_init_new_bb): Likewise.
+	(gen_body_from_gimple): Likewise.
+	(gen_function_parameters): Likewise.
+	(generate_hsa): Added initialization and deinitialization,
+	generate intermediate representation of the function body.
+	* hsa-regalloc.c: New file.
+	* hsa.h: Include is-a.h, tree.h, vec.h, hash-table.h and basic-block.h.
+	(HSA_C_REGISTER_COUNT): New macro.
+	(HSA_S_REGISTER_COUNT): Likewise.
+	(HSA_D_REGISTER_COUNT): Likewise.
+	(HSA_Q_REGISTER_COUNT): Likewise.
+	(hsa_symbol): New type.
+	(hsa_op_base): Likewise.
+	(hsa_op_immed): New type and its is_a_helper.
+	(hsa_op_reg): Likewise.
+	(hsa_op_reg_p): New typedef.
+	(hsa_op_address): New type and its is_a_helper.
+	(hsa_op_label): Likewise.
+	(HSA_OPERANDS_PER_INSN): New macro.
+	(hsa_insn_basic): New type.
+	(HSA_OPCODE_PHI): New macro.
+	(hsa_insn_phi): New type and its is_a_helper.
+	(hsa_insn_br): Likewise.
+	(hsa_insn_cmp): Likewise.
+	(hsa_insn_mem): Likewise.
+	(hsa_insn_seg): Likewise.
+	(hsa_bb): New type.
+	(hsa_bb_for_bb): New function.
+	(hsa_noop_symbol_hasher): New type and its helper functions.
+	(hsa_free_symbol_hasher): Likewise.
+	(hsa_function_representation): New type.
+	(hsa_cfun): Declare.
+	(hsa_global_variable_symbols): Likewise.
+	(hsa_get_segment_addr_type): Likewise.
+	(hsa_opcode_op_output_p): Likewise.
+	(hsa_build_append_simple_mov): Likewise.
+	(hsa_get_spill_symbol): Likewise.
+	(hsa_spill_in): Likewise.
+	(hsa_spill_out): Likewise.
+	(hsa_init_new_bb): Likewise.
+	(hsa_deinit_compilation_unit_data): Likewise.
+	(hsa_regalloc): Likewise.
+	(hsa_seg_name): Likewise.
+	(dump_hsa_bb): Likewise.
+	(dump_hsa_cfun): Likewise.
+
+2013-06-04  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_machine_large_p): Declare.
+	(hsa_full_profile_p): Likewise.
+	* hsa-gen.c (hsa_machine_large_p): New function.
+	(hsa_full_profile_p): Likewise.
+	* hsa-brig.c (brig_init): Use hsa_full_profile_p and
+	hsa_machine_large_p.
+
+2013-05-31  Martin Jambor  <mjambor@suse.cz>
+
+	* Makefile.in (HSA_H): New.
+	(toplev.o): Require HSA_H.
+	(hsa-gen.o): New.
+	(hsa-brig.o): Likewise.
+	* hsa-brig-format.h: New file.
+	* hsa-brig.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa.h: Likewise.
+	* passes.c (init_optimization_passes): Schedule pass_gen_hsail.
+	* toplev.c: Include hsa.h.
+	(compile_file): Call hsa_output_brig.
+	* tree-pass.h (pass_gen_hsail): Declare.
+
+2013-05-23  Michael Matz  <matz@suse.de>
+
+	branch 'hsa' created.

@@ -1,0 +1,27 @@
+2015-10-20  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c: Move back removed blank line.
+	* cgraph.h: Revert change made in the branch.
+
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c (handle_hsa_attribute): Remove.
+
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c (handle_hsa_attribute): Do not handle hsakernel attribute.
+
+2014-12-12  Martin Liska  <mliska@suse.cz>
+
+	* c-common.c: New 'hsafunc' attribute is added.
+
+2014-09-26  Martin Jambor  <mjambor@suse.cz>
+
+	* c-common.c (c_common_attribute_table): Add hsakernel attribute.
+	(handle_hsa_attribute): Make function used and noinline, warn about
+	hsakernel on functions with fixed number of arguments.
+
+2013-05-28  Martin Jambor  <mjambor@suse.cz>
+
+	* c-common.c (c_common_attribute_table): Add hsa attribute.
+	(handle_hsa_attribute): New function.

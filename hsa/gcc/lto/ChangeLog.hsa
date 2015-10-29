@@ -1,0 +1,14 @@
+2015-10-16  Martin Liska  <mliska@suse.cz>
+
+	* lto-partition.c (add_symbol_to_partition_1):
+
+2015-10-08  Martin Liska  <mliska@suse.cz>
+
+	* lto-partition.c (add_symbol_to_partition_1): Simplify a much
+	partitioning of HSA symbols.
+
+2015-09-04  Martin Liska  <mliska@suse.cz>
+
+	* lto-partition.c (add_symbol_to_partition_1): For an HSA clone, append
+	also all dependencies to a LTO partition.
+
