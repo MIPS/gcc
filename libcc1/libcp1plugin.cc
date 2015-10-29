@@ -1271,26 +1271,42 @@ lxtest_members (cc1_plugin::connection *self,
 		const char *filename,
 		unsigned int line_number) {
   gcc_type void_type = plugin_void_type (self);
-  gcc_type int_type = plugin_int_type (self, 0, sizeof (int));
-  gcc_type_array argi = { 1, &int_type };
-  gcc_type fi2v = plugin_build_function_type (self, void_type, &argi, 0);
-  gcc_type mi2v = plugin_build_method_type (self, class_type, fi2v,
+  gcc_type_array arg0 = { 0, &void_type };
+  gcc_type f02v = plugin_build_function_type (self, void_type, &arg0, 0);
+  gcc_type m02v = plugin_build_method_type (self, class_type, f02v,
 					    gcc_cp_qualifiers (0),
 					    GCC_CP_REF_QUAL_NONE);
   plugin_new_decl (self, "pL",
 		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
 				       GCC_CP_FLAG_SPECIAL_FUNCTION),
-		   mi2v, 0, 2,
+		   m02v, 0, 2,
 		   filename, line_number);
   plugin_new_decl (self, "C1",
 		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
 				       GCC_CP_FLAG_SPECIAL_FUNCTION),
-		   mi2v, 0, 4,
+		   m02v, 0, 4,
 		   filename, line_number);
   plugin_new_decl (self, "C2",
 		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
 				       GCC_CP_FLAG_SPECIAL_FUNCTION),
-		   mi2v, 0, 6,
+		   m02v, 0, 6,
+		   filename, line_number);
+  plugin_new_decl (self, "D1",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION |
+				       GCC_CP_FLAG_VIRTUAL_FUNCTION),
+		   m02v, 0, 8,
+		   filename, line_number);
+  plugin_new_decl (self, "D2",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION),
+		   m02v, 0, 10,
+		   filename, line_number);
+  plugin_new_decl (self, "D0",
+		   gcc_cp_symbol_kind (GCC_CP_SYMBOL_FUNCTION |
+				       GCC_CP_FLAG_SPECIAL_FUNCTION |
+				       GCC_CP_FLAG_VIRTUAL_FUNCTION),
+		   m02v, 0, 12,
 		   filename, line_number);
 }
 
