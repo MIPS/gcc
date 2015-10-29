@@ -3549,8 +3549,6 @@ update_equiv_regs (void)
 		ira_reg_equiv[regno].init_insns
 		  = gen_rtx_INSN_LIST (VOIDmode, insn,
 				       ira_reg_equiv[regno].init_insns);
-              if (!rtx_equal_p (src, XEXP (note, 0))) 
-                ira_reg_equiv[regno].stack_slot = XEXP (note, 0);
 
 	      /* Continue normally in case this is a candidate for
 		 replacements.  */

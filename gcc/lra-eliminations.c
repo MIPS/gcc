@@ -648,14 +648,6 @@ lra_eliminate_regs_1 (rtx insn, rtx x, enum machine_mode mem_mode,
 	}
     }
 
-  /* Eliminate in notes as well */
-  if (REG_NOTES (x))
-    {
-      new_rtx = lra_eliminate_regs_1 (NULL_RTX, REG_NOTES (x), mem_mode,
-                                      subst_p, update_p, full_p);
-      REG_NOTES (x) = new_rtx;
-    }
-
   return x;
 }
 
@@ -1375,12 +1367,9 @@ void
 lra_eliminate (bool final_p, bool first_p)
 {
   unsigned int uid;
-  rtx mem_loc, invariant, stack_slot;
   bitmap_head insns_with_changed_offsets;
   bitmap_iterator bi;
   struct elim_table *ep;
-  int regs_num = max_reg_num ();
-  int i;
 
   gcc_assert (! final_p || ! first_p);
 
@@ -1406,41 +1395,12 @@ lra_eliminate (bool final_p, bool first_p)
 			   &lra_reg_info[ep->from].insn_bitmap);
     }
   else if (! update_reg_eliminate (&insns_with_changed_offsets))
-    {
-      // We may always want to process the elimination table in the event
-      // of stack slots existing
-//      goto lra_eliminate_done;
-    }
+    goto lra_eliminate_done;
   if (lra_dump_file != NULL)
     {
       fprintf (lra_dump_file, "New elimination table:\n");
       print_elim_table (lra_dump_file);
     }
-  for (i = FIRST_PSEUDO_REGISTER; i < regs_num; i++)
-    if (lra_reg_info[i].nrefs != 0)
-      {
-	mem_loc = ira_reg_equiv[i].memory;
-	if (mem_loc != NULL_RTX)
-	  mem_loc = lra_eliminate_regs_1 (NULL_RTX, mem_loc, VOIDmode,
-					  final_p, ! final_p, false);
-	ira_reg_equiv[i].memory = mem_loc;
-
-	stack_slot = ira_reg_equiv[i].stack_slot;
-	if (stack_slot != NULL_RTX)
-	  stack_slot = lra_eliminate_regs_1 (NULL_RTX, stack_slot, VOIDmode,
-					  final_p, ! final_p, false);
-	ira_reg_equiv[i].stack_slot = stack_slot;
-
-	invariant = ira_reg_equiv[i].invariant;
-	if (invariant != NULL_RTX)
-	  invariant = lra_eliminate_regs_1 (NULL_RTX, invariant, VOIDmode,
-					    final_p, ! final_p, false);
-	ira_reg_equiv[i].invariant = invariant;
-	if (lra_dump_file != NULL
-	    && (mem_loc != NULL_RTX || invariant != NULL || stack_slot != NULL))
-	  fprintf (lra_dump_file,
-		   "Updating elimination of equiv for reg %d\n", i);
-      }
   EXECUTE_IF_SET_IN_BITMAP (&insns_with_changed_offsets, 0, uid, bi)
     /* A dead insn can be deleted in process_insn_for_elimination.  */
     if (lra_insn_recog_data[uid] != NULL)
