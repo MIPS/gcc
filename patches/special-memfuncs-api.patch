@@ -3,7 +3,17 @@ Top:    fe799671cbc4122d5b2083237fef07f04480c9f7
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-29 00:44:30 -0200
 
-Import interface of API extensions for special member functions
+API extensions for special member functions
+
+Bump API version to -3.
+
+Change virtual member functions from a kind of its own to a flag for
+regular functions.
+
+Introduce support for overloaded operators, constructors,
+destructores, pure and final virtual member functions, defaulted and
+deleted member functions, explicit constructors and conversion
+operators, and constexpr variables and data members.
 
 
 ---
