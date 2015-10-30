@@ -1,5 +1,5 @@
 Bottom: 9013ead83a147f5b0fc1603a6b7771870ad5aa70
-Top:    2386b83024f5ee0d6d86ddfe75e57c23d85681ba
+Top:    708be5fb305bc764d973b41855ab7f122b36a82f
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-30 09:52:54 -0200
 
@@ -9,7 +9,7 @@ Date:   2015-10-30 09:52:54 -0200
 
 diff --git a/gcc/testsuite/gcc.dg/torture/pr68083.c b/gcc/testsuite/gcc.dg/torture/pr68083.c
 new file mode 100644
-index 0000000..5413d39b
+index 0000000..ae24781
 --- /dev/null
 +++ b/gcc/testsuite/gcc.dg/torture/pr68083.c
 @@ -0,0 +1,35 @@
@@ -43,8 +43,8 @@ index 0000000..5413d39b
 +{
 +  fn1 ();
 +
-+  if (a != 1) 
-+    __builtin_abort (); 
++  if (a != 1)
++    __builtin_abort ();
 +
 +  return 0;
 +}

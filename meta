@@ -1,9 +1,8 @@
 Version: 1
-Previous: 9fc8410b545d507cbc1cb095d44edcd1c8c8388b
-Head: 04220af3e584ae073e3e95d7d9c23366358dd8bf
+Previous: 24611d2df838d03b029685cfa43e16afd7c551c3
+Head: 69be7e6fc6dfe8566df3c078fcd45e985088ca19
 Applied:
-  pr68083-dont-ifcombine-uninitialized.patch: ee6be47ea8e356c76aa347a6e5ec55c94ddd74b3
-  refresh-temp: 04220af3e584ae073e3e95d7d9c23366358dd8bf
+  pr68083-dont-ifcombine-uninitialized.patch: 69be7e6fc6dfe8566df3c078fcd45e985088ca19
 Unapplied:
   special-memfuncs-testing.patch: 841d72d795791e21dbda4cdd8319dc8313170291
 Hidden:
