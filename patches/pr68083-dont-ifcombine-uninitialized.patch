@@ -1,0 +1,10 @@
+Bottom: 9013ead83a147f5b0fc1603a6b7771870ad5aa70
+Top:    9013ead83a147f5b0fc1603a6b7771870ad5aa70
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-10-30 09:52:54 -0200
+
+[PR68083] don't introduce undefined behavior in ifcombine
+
+---
+
+
