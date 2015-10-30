@@ -1,0 +1,24 @@
+Bottom: 2386b83024f5ee0d6d86ddfe75e57c23d85681ba
+Top:    708be5fb305bc764d973b41855ab7f122b36a82f
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-10-30 09:54:09 -0200
+
+Refresh of pr68083-dont-ifcombine-uninitialized.patch
+
+---
+
+diff --git a/gcc/testsuite/gcc.dg/torture/pr68083.c b/gcc/testsuite/gcc.dg/torture/pr68083.c
+index 5413d39b..ae24781 100644
+--- a/gcc/testsuite/gcc.dg/torture/pr68083.c
++++ b/gcc/testsuite/gcc.dg/torture/pr68083.c
+@@ -28,8 +28,8 @@ main ()
+ {
+   fn1 ();
+ 
+-  if (a != 1) 
+-    __builtin_abort (); 
++  if (a != 1)
++    __builtin_abort ();
+ 
+   return 0;
+ }
