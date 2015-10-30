@@ -428,10 +428,6 @@ modd-spreg
 Target Report Mask(ODD_SPREG)
 Enable use of odd-numbered single-precision registers
 
-moptimize-compressed-regs
-Target Optimization Var(optimize_compressed_regs_flag)
-Optimize use of the compressed ISA registers
-
 noasmopt
 Driver
 
