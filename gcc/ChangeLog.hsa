@@ -1,5 +1,12 @@
 2015-10-30  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c(gen_hsa_insns_for_direct_call): Support aggregate argument
+	types.
+	(gen_function_def_parameters): Copy function arguments to private
+	symbols.
+
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_direct_call): Convert types of actual
 	arguments to formal types arguments.
 	(get_format_argument_type): New function.

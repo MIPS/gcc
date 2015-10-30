@@ -3218,40 +3218,44 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
       tree parm = gimple_call_arg (stmt, (int)i);
       tree parm_decl_type = parm_type_chain != NULL_TREE
 	? TREE_VALUE (parm_type_chain) : NULL_TREE;
+      hsa_op_address *addr;
 
       if (AGGREGATE_TYPE_P (TREE_TYPE (parm)))
 	{
-	  HSA_SORRY_AT (gimple_location (stmt),
-			"support for HSA does not "
-			"implement an aggregate argument in a function call");
-	  return;
+	  addr = gen_hsa_addr_for_arg (TREE_TYPE (parm), i);
+	  hsa_op_address *src = gen_hsa_addr (parm, hbb, ssa_map);
+	  gen_hsa_memory_copy (hbb, addr, src,
+			       addr->m_symbol->total_byte_size ());
 	}
-
-      hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (parm, hbb,
-							      ssa_map);
-      if (parm_decl_type != NULL && AGGREGATE_TYPE_P (parm_decl_type))
+      else
 	{
-	  HSA_SORRY_AT (gimple_location (stmt),
-			"support for HSA does not implement an aggregate "
-			"formal argument in a function call, while actual "
-			"argument is not an aggregate");
-	  return;
+	  hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (parm, hbb,
+								  ssa_map);
+
+	  if (parm_decl_type != NULL && AGGREGATE_TYPE_P (parm_decl_type))
+	    {
+	      HSA_SORRY_AT (gimple_location (stmt),
+			    "support for HSA does not implement an aggregate "
+			    "formal argument in a function call, while actual "
+			    "argument is not an aggregate");
+	      return;
+	    }
+
+	  BrigType16_t formal_arg_type = get_format_argument_type
+	    (parm_decl_type, src->m_type);
+	  if (hsa_seen_error ())
+	    return;
+
+	  if (src->m_type != formal_arg_type)
+	    src = src->get_in_type (formal_arg_type, hbb);
+
+	  addr = gen_hsa_addr_for_arg
+	    (parm_decl_type != NULL_TREE ? parm_decl_type: TREE_TYPE (parm), i);
+	  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, formal_arg_type,
+						src, addr);
+
+	  hbb->append_insn (mem);
 	}
-
-      BrigType16_t formal_arg_type = get_format_argument_type
-	(parm_decl_type, src->m_type);
-      if (hsa_seen_error ())
-	return;
-
-      if (src->m_type != formal_arg_type)
-	src = src->get_in_type (formal_arg_type, hbb);
-
-      hsa_op_address *addr = gen_hsa_addr_for_arg
-	(parm_decl_type != NULL_TREE ? parm_decl_type: TREE_TYPE (parm), i);
-      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, formal_arg_type,
-					    src, addr);
-
-      hbb->append_insn (mem);
 
       call_insn->m_input_args.safe_push (addr->m_symbol);
       call_insn->m_args_symbols.safe_push (addr->m_symbol);
@@ -4968,14 +4972,33 @@ gen_function_def_parameters (hsa_function_representation *f,
 
       f->m_input_args[i].m_segment = f->m_kern_p ? BRIG_SEGMENT_KERNARG :
 				       BRIG_SEGMENT_ARG;
-
       f->m_input_args[i].m_linkage = BRIG_LINKAGE_FUNCTION;
       f->m_input_args[i].m_name = hsa_get_declaration_name (parm);
+      hsa_symbol *arg = &f->m_input_args[i];
 
-      slot = f->m_local_symbols->find_slot (&f->m_input_args[i],
-						INSERT);
+      /* Copy all input arguments and create corresponding private symbols
+	 for them.  */
+      hsa_symbol *private_arg;
+      hsa_op_address *parm_addr = new hsa_op_address (arg);
+
+      if (TREE_ADDRESSABLE (parm)
+	  || (!is_gimple_reg (parm) && !TREE_READONLY (parm)))
+	{
+	  private_arg = hsa_cfun->create_hsa_temporary (arg->m_type);
+	  hsa_cfun->m_private_variables.safe_push (private_arg);
+	  fillup_sym_for_decl (parm, private_arg);
+	  f->m_private_variables.safe_push (private_arg);
+
+	  hsa_op_address *private_arg_addr = new hsa_op_address (private_arg);
+	  gen_hsa_memory_copy (prologue, private_arg_addr, parm_addr,
+			       arg->total_byte_size ());
+	}
+      else
+	private_arg = arg;
+
+      slot = f->m_local_symbols->find_slot (private_arg, INSERT);
       gcc_assert (!*slot);
-      *slot = &f->m_input_args[i];
+      *slot = private_arg;
 
       if (is_gimple_reg (parm))
 	{
@@ -4985,12 +5008,9 @@ gen_function_def_parameters (hsa_function_representation *f,
 	      BrigType16_t mtype = mem_type_for_type
 		(hsa_type_for_scalar_tree_type (TREE_TYPE (ddef), false));
 	      hsa_op_reg *dest = hsa_reg_for_gimple_ssa (ddef, ssa_map);
-	      hsa_op_address *addr;
-
-	      addr = gen_hsa_addr (parm, prologue, ssa_map);
 	      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mtype,
-						    dest, addr);
-	      gcc_assert (!addr->m_reg);
+						    dest, parm_addr);
+	      gcc_assert (!parm_addr->m_reg);
 	      prologue->append_insn (mem);
 	    }
 	}
