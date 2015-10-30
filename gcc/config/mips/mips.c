@@ -5161,14 +5161,30 @@ mips_output_move (rtx dest, rtx src)
 	}
 
       if (src_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return "lbu\t%0,%1";
-	  case 2: return "lhu\t%0,%1";
-	  case 4: return "lw\t%0,%1";
-	  case 8: return "ld\t%0,%1";
-	  default: gcc_unreachable ();
-	  }
+        {
+          rtx x = XEXP (src, 0);
+	  switch (GET_MODE_SIZE (mode))
+	    {
+	    case 1: return "lbu\t%0,%1";
+	    case 2: return "lhu\t%0,%1";
+	    case 4:
+                  if (GET_CODE (x) == CONST
+		      && GET_CODE (XEXP (x, 0)) == PLUS)
+                    x = XEXP (XEXP (x, 0), 0);
+
+                  if (TARGET_MIPS16
+                      && TARGET_CONSTANT_POOLS_IN_OWN_SECTION
+                      && mips_symbolic_constant_p (x, SYMBOL_CONTEXT_MEM, &symbol_type)
+		      && (TREE_CONSTANT_POOL_ADDRESS_P (x)
+			  || CONSTANT_POOL_ADDRESS_P (x)))
+		    return "lw\t%0,%%pcrel(%1)($pc)";
+		  else
+		    return "lw\t%0,%1";
+
+	    case 8: return "ld\t%0,%1";
+	    default: gcc_unreachable ();
+	    }
+	}
 
       if (src_code == CONST_INT)
 	{
@@ -9271,6 +9287,24 @@ static section *
 mips_select_rtx_section (machine_mode mode, rtx x,
 			 unsigned HOST_WIDE_INT align)
 {
+  if (TARGET_CONSTANT_POOLS_IN_OWN_SECTION)
+    {
+        const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (cfun->decl));
+        /* For .text.foo we want to use .rodata.cpool.foo.  */
+        if (flag_function_sections && flag_data_sections
+	    && strncmp (name, ".text.", 6) == 0)
+           {
+	     size_t len = strlen (name) + 1;
+	     char *rname = (char *) alloca (len + 8);
+
+	     memcpy (rname, ".rodata.cpool", 13);
+	     memcpy (rname + 13, name + 5, len - 5);
+	     return get_section (rname, 0, NULL);
+	   }
+	  else
+	     return get_section (".rodata.cpool", 0, NULL);
+    }
+
   /* ??? Consider using mergeable small data sections.  */
   if (mips_rtx_constant_in_small_data_p (mode))
     return get_named_section (NULL, ".sdata", 0);
@@ -17004,6 +17038,9 @@ static void
 mips16_rewrite_pool_constant (struct mips16_constant_pool *pool, rtx *x)
 {
   rtx base, offset, label;
+
+  if (TARGET_CONSTANT_POOLS_IN_OWN_SECTION)
+    return;
 
   split_const (*x, &base, &offset);
   if (GET_CODE (base) == SYMBOL_REF && CONSTANT_POOL_ADDRESS_P (base))

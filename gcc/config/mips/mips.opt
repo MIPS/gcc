@@ -477,3 +477,7 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+mplace-constant-pools-in-own-section
+Target Report Var(TARGET_CONSTANT_POOLS_IN_OWN_SECTION) Init(0) Undocumented
+Place the constant pools in their own unique section, and PC-relative accesses to them.
