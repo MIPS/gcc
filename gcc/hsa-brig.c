@@ -137,9 +137,6 @@ static hash_map <tree, BrigDirectiveExecutable *> *emitted_declarations;
 /* List of sbr instructions.  */
 static vec <hsa_insn_sbr *> *switch_instructions;
 
-/* List of comment instructions.  */
-static vec <hsa_insn_comment *> *comment_instructions;
-
 struct function_linkage_pair
 {
   function_linkage_pair (tree decl, unsigned int off):
@@ -615,16 +612,10 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   inarg_off = brig_code.total_size + sizeof(fndir)
     + (f->m_output_arg ? sizeof (struct BrigDirectiveVariable) : 0);
   scoped_off = inarg_off
-    + f->m_input_args_count * sizeof (struct BrigDirectiveVariable);
+    + f->m_input_args.length () * sizeof (struct BrigDirectiveVariable);
 
   if (!f->m_declaration_p)
     {
-      for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	     = f->m_local_symbols->begin ();
-	   iter != f->m_local_symbols->end ();
-	   ++iter)
-	if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
-	  count++;
       count += f->m_spill_symbols.length ();
       count += f->m_private_variables.length ();
     }
@@ -636,7 +627,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   fndir.base.kind = htole16 (f->m_kern_p ? BRIG_KIND_DIRECTIVE_KERNEL
 			     : BRIG_KIND_DIRECTIVE_FUNCTION);
   fndir.name = htole32 (name_offset);
-  fndir.inArgCount = htole16 (f->m_input_args_count);
+  fndir.inArgCount = htole16 (f->m_input_args.length ());
   fndir.outArgCount = htole16 (f->m_output_arg ? 1 : 0);
   fndir.firstInArg = htole32 (inarg_off);
   fndir.firstCodeBlockEntry = htole32 (scoped_off);
@@ -667,20 +658,11 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
 
   if (f->m_output_arg)
     emit_directive_variable (f->m_output_arg);
-  for (unsigned i = 0; i < f->m_input_args_count; i++)
-    emit_directive_variable (&f->m_input_args[i]);
+  for (unsigned i = 0; i < f->m_input_args.length (); i++)
+    emit_directive_variable (f->m_input_args[i]);
 
   if (!f->m_declaration_p)
     {
-      for (hash_table <hsa_noop_symbol_hasher>::iterator iter
-	     = f->m_local_symbols->begin ();
-	   iter != f->m_local_symbols->end ();
-	   ++iter)
-	{
-	  if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
-	    brig_insn_count++;
-	  emit_directive_variable (*iter);
-	}
       for (int i = 0; f->m_spill_symbols.iterate (i, &sym); i++)
 	{
 	  emit_directive_variable (sym);
@@ -1526,7 +1508,7 @@ emit_cvt_insn (hsa_insn_basic *insn)
    within a call block instruction.  */
 
 static void
-emit_m_call_insn (hsa_insn_basic *insn)
+emit_call_insn (hsa_insn_basic *insn)
 {
   hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn);
   struct BrigInstBr repr;
@@ -1584,7 +1566,7 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
 	    brig_insn_count++;
 	  }
 
-	if (insn->m_call_insn->m_result_symbol)
+	if (insn->m_call_insn->m_output_arg)
 	  {
 	    insn->m_call_insn->m_result_code_list->m_offsets[0] = htole32
 	      (emit_directive_variable (insn->m_call_insn->m_output_arg));
@@ -1795,16 +1777,11 @@ emit_insn (hsa_insn_basic *insn)
     }
   if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
     {
-      emit_m_call_insn (call);
+      emit_call_insn (call);
       return;
     }
   if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
     {
-      if (comment_instructions == NULL)
-	comment_instructions = new vec <hsa_insn_comment *> ();
-
-      comment_instructions->safe_push (comment);
-
       emit_comment_insn (comment);
       return;
     }
@@ -1915,6 +1892,10 @@ hsa_brig_emit_function (void)
 		hbb->m_label_ref.m_directive_offset;
 	    }
 	}
+
+      switch_instructions->release ();
+      delete switch_instructions;
+      switch_instructions = NULL;
     }
 
   if (dump_file)
@@ -1922,15 +1903,6 @@ hsa_brig_emit_function (void)
       fprintf (dump_file, "------- After BRIG emission: -------\n");
       dump_hsa_cfun (dump_file);
     }
-
-  if (comment_instructions)
-    for (unsigned i = 0; i < comment_instructions->length (); i++)
-      (*comment_instructions)[i]->release_string ();
-
-  delete switch_instructions;
-  switch_instructions = NULL;
-  delete comment_instructions;
-  comment_instructions = NULL;
 
   emit_queued_operands ();
 }

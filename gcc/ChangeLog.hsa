@@ -1,3 +1,51 @@
+2015-10-30  hsa-brig.c (emit_function_directives): Simplify  emission
+
+	of private symbols.
+	(emit_arg_block_insn): Use different property of hsa_symbol.
+	(emit_insn): Remove usage of comment_instructions.
+	(hsa_brig_emit_function): Properly release
+	comment_instructions vector.
+	* hsa-dump.c (dump_hsa_insn_1): Use different property of
+	hsa_symbol.
+	* hsa-gen.c (hsa_symbol::operator new):
+	(hsa_symbol::fillup_for_decl): New function.
+	(hsa_function_representation::~hsa_function_representation):
+	Release memory.
+	(hsa_function_representation::get_shadow_reg): Use ctor of
+	hsa_symbol.
+	(hsa_init_data_for_cfun): Remove BB allocation.
+	(hsa_deinit_data_for_cfun): Call ctor for all insns.
+	(fillup_sym_for_decl): Remove.
+	(get_symbol_for_decl): Use ctor of hsa_symbol.
+	(hsa_insn_basic::hsa_insn_basic): Register newly allocated
+	instance in hsa_instances.
+	(hsa_insn_call::~hsa_insn_call): Likewise.
+	(gen_hsa_addr_for_arg): Use ctor of hsa_symbol.
+	(gen_hsa_insns_for_direct_call): Do not push to remove
+	container.
+	(gen_hsa_insns_for_call): Small code refactoring.
+	(get_function_arg_count): Remove function.
+	(gen_function_decl_parameters): Use vector instread of
+	dynamically allocated memory array.
+	(gen_function_def_parameters): Do it method of
+	hsa_function_representation.
+	(hsa_generate_function_declaration): Use ctor instread of
+	XCNEW.
+	(convert_switch_statements): Release leaked memory.
+	(emit_hsa_module_variables): Use newly added function
+	init_extra_bbs.
+	(generate_hsa): Do not use removed argument.
+	* hsa.c (hsa_deinit_compilation_unit_data): Release
+	hsa_num_threads.
+	(hsa_destroy_insn): Handle hsa_insn_sbr and hsa_insn_comment.
+	(hsa_init_compilation_unit_data): Initialize
+	hsa_global_variable_symbols.
+	(hsa_deinit_compilation_unit_data): Do not release deleted
+	container.
+	(hsa_fail_cfun): Do not initialize hsa_failed_functions.
+	* hsa.h (struct hsa_symbol): Declare new methods and remove
+	unused properties.
+
 2015-10-30  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c(gen_hsa_insns_for_direct_call): Support aggregate argument

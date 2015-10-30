@@ -954,15 +954,15 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 
       fprintf (f, "call &%s", name);
 
-      if (call->m_result_symbol)
+      if (call->m_output_arg)
 	fprintf (f, "(%%res) ");
 
       fprintf (f, "(");
-      for (unsigned i = 0; i < call->m_args_symbols.length (); i++)
+      for (unsigned i = 0; i < call->m_input_args.length (); i++)
         {
 	  fprintf (f, "%%__arg_%u", i);
 
-	  if (i != call->m_args_symbols.length () - 1)
+	  if (i != call->m_input_args.length () - 1)
 	    fprintf (f, ", ");
 	}
       fprintf (f, ")");

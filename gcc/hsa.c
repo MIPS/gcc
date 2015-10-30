@@ -131,7 +131,8 @@ hsa_init_compilation_unit_data (void)
     return;
 
   compilation_unit_data_initialized = true;
-  hsa_global_variable_symbols = new hash_table <hsa_free_symbol_hasher> (8);
+
+  hsa_failed_functions = new hash_set <tree> ();
 }
 
 /* Free data structures that are used when dealing with different
@@ -140,11 +141,11 @@ hsa_init_compilation_unit_data (void)
 void
 hsa_deinit_compilation_unit_data (void)
 {
-  if (compilation_unit_data_initialized)
-    delete hsa_global_variable_symbols;
-
   if (hsa_failed_functions)
     delete hsa_failed_functions;
+
+  if (hsa_num_threads)
+    delete hsa_num_threads;
 }
 
 /* Return true if we are generating large HSA machine model.  */
@@ -547,6 +548,17 @@ hsa_destroy_insn (hsa_insn_basic *insn)
       block->~hsa_insn_arg_block ();
       return;
     }
+  if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
+    {
+      sbr->~hsa_insn_sbr ();
+      return;
+    }
+  if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
+    {
+      comment->~hsa_insn_comment ();
+      return;
+    }
+
   insn->~hsa_insn_basic ();
   return;
 }
@@ -711,8 +723,6 @@ hsa_seen_error (void)
 void
 hsa_fail_cfun (void)
 {
-  if (hsa_failed_functions == NULL)
-    hsa_failed_functions = new hash_set <tree> ();
   hsa_failed_functions->add (hsa_cfun->m_decl);
   hsa_cfun->m_seen_error = true;
 }

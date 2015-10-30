@@ -53,18 +53,17 @@ typedef hsa_insn_basic *hsa_insn_basic_p;
 
 struct hsa_symbol
 {
-  /* Default constructor.  */
-  hsa_symbol ();
-
   /* Constructor.  */
   hsa_symbol (BrigType16_t type, BrigSegment8_t segment,
 	      BrigLinkage8_t linkage);
 
-  /* New operator to allocate HSA symbol from pool alloc.  */
-  void *operator new (size_t);
-
   /* Return total size of the symbol.  */
   unsigned HOST_WIDE_INT total_byte_size ();
+
+  /* Fill in those values into the symbol according to DECL, which are
+     determined independently from whether it is parameter, result,
+     or a variable, local or global.  */
+  void fillup_for_decl (tree decl);
 
   /* Pointer to the original tree, which is PARM_DECL for input parameters and
      RESULT_DECL for the output parameters.  */
@@ -102,6 +101,10 @@ struct hsa_symbol
 
   /* True if an error has been seen for the symbol.  */
   bool m_seen_error;
+
+private:
+  /* Default constructor.  */
+  hsa_symbol ();
 };
 
 /* Abstract class for HSA instruction operands. */
@@ -483,6 +486,9 @@ class hsa_insn_sbr : public hsa_insn_basic
 public:
   hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count);
 
+  /* Default destructor.  */
+  ~hsa_insn_sbr ();
+
   void *operator new (size_t);
 
   void replace_all_labels (basic_block old_bb, basic_block new_bb);
@@ -708,6 +714,9 @@ class hsa_insn_call : public hsa_insn_basic
 public:
   hsa_insn_call (tree callee);
 
+  /* Default destructor.  */
+  ~hsa_insn_call ();
+
   void *operator new (size_t);
 
   /* Called function */
@@ -725,14 +734,8 @@ public:
   /* Called function code reference.  */
   hsa_op_code_ref m_func;
 
-  /* Argument symbols.  */
-  auto_vec <hsa_symbol *> m_args_symbols;
-
   /* Code list for arguments of the function.  */
   hsa_op_code_list *m_args_code_list;
-
-  /* Result symbol.  */
-  hsa_symbol *m_result_symbol;
 
   /* Code list for result of the function.  */
   hsa_op_code_list *m_result_code_list;
@@ -796,13 +799,10 @@ public:
   /* Constructor of class representing the comment in HSAIL.  */
   hsa_insn_comment (const char *s);
 
-  void *operator new (size_t);
-
-  /* Destructor.  */
+  /* Default destructor.  */
   ~hsa_insn_comment ();
 
-  /* Release memory for comment.  */
-  void release_string ();
+  void *operator new (size_t);
 
   char *m_comment;
 };
@@ -957,17 +957,15 @@ public:
   /* Name of the function.  */
   char *m_name;
 
-  /* Input arguments of the function.  */
-  /* FIXME: Normally we'd use a vector, however our C++ vectors seem to have
-     problems with derived classes, so for now we'll use a simple array.  */
-  unsigned m_input_args_count;
-
   /* Number of allocated register structures.  */
   int m_reg_count;
 
-  hsa_symbol *m_input_args;
+  /* Input arguments.  */
+  vec <hsa_symbol *> m_input_args;
+
   /* Output argument or NULL if there is none.  */
   hsa_symbol *m_output_arg;
+
   /* Hash table of local variable symbols.  */
   hash_table <hsa_noop_symbol_hasher> *m_local_symbols;
 
@@ -1080,7 +1078,6 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
 
 /* in hsa.c */
 extern struct hsa_function_representation *hsa_cfun;
-extern hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
 extern hash_map <tree, vec <const char *> *> *hsa_decl_kernel_dependencies;
 extern hsa_summary_t *hsa_summaries;
 extern hsa_symbol *hsa_num_threads;
