@@ -1,8 +1,7 @@
 Version: 1
-Previous: 24611d2df838d03b029685cfa43e16afd7c551c3
-Head: 69be7e6fc6dfe8566df3c078fcd45e985088ca19
+Previous: 15dd04c436322401464df215649eb532cecb6e87
+Head: 34868a9ffed8181a3d4e6dc2ecdf6ad621b9a736
 Applied:
-  pr68083-dont-ifcombine-uninitialized.patch: 69be7e6fc6dfe8566df3c078fcd45e985088ca19
 Unapplied:
   special-memfuncs-testing.patch: 841d72d795791e21dbda4cdd8319dc8313170291
 Hidden:
