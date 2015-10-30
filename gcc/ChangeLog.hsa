@@ -1,5 +1,12 @@
 2015-10-30  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_direct_call): Convert types of actual
+	arguments to formal types arguments.
+	(get_format_argument_type): New function.
+	(hsa_reg_for_gimple_ssa): Fix coding style.
+
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_direct_call): Support aggregate
 	type as a function return type.
 	(gen_hsa_insns_for_return): Likewise.
