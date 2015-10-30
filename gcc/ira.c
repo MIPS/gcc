@@ -4008,8 +4008,6 @@ setup_reg_equiv (void)
 		  {
 		    ira_reg_equiv[i].defined_p = true;
 		    ira_reg_equiv[i].memory = x;
-		    if (reg_equiv[i].is_arg_equivalence)
-		      ira_reg_equiv[i].argument_p = true;
 		    continue;
 		  }
 		else if (function_invariant_p (x))

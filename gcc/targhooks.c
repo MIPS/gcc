@@ -75,7 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "insn-codes.h"
-#include "ira.h"
+
 
 bool
 default_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
@@ -883,12 +883,6 @@ extern bool
 default_different_addr_displacement_p (void)
 {
   return false;
-}
-
-bool
-default_reg_equiv_profitable_p (struct ira_reg_equiv_s * ATTRIBUTE_UNUSED)
-{
-  return true;
 }
 
 reg_class_t

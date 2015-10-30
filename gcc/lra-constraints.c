@@ -4241,8 +4241,7 @@ lra_constraints (bool first_p)
 		    && (GET_MODE_SIZE (lra_reg_info[i].biggest_mode)
 			> GET_MODE_SIZE (GET_MODE (x)))))
 	      ira_reg_equiv[i].defined_p = false;
-	    if (contains_reg_p (x, false, true)
-	        || !targetm.reg_equiv_profitable_p (&ira_reg_equiv[i]))
+	    if (contains_reg_p (x, false, true))
 	      ira_reg_equiv[i].profitable_p = false;
 	    if (get_equiv (reg) != reg)
 	      bitmap_ior_into (&equiv_insn_bitmap, &lra_reg_info[i].insn_bitmap);

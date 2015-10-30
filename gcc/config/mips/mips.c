@@ -71,7 +71,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "tree-pass.h"
 #include "context.h"
-#include "ira.h"
 
 /* Definitions used in ready queue reordering for first scheduling pass.  */
 
@@ -21960,19 +21959,6 @@ mips_lra_p (void)
 {
   return mips_lra_flag;
 }
-
-static bool
-mips_reg_equiv_profitable_p (struct ira_reg_equiv_s * equiv)
-{
-  if (TARGET_MIPS16
-      && optimize_size
-      && equiv->argument_p
-      && abs(frame_offset) > 1000)
-    return false;
-
-  return true;
-}
-
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -22243,9 +22229,6 @@ mips_reg_equiv_profitable_p (struct ira_reg_equiv_s * equiv)
 
 #undef TARGET_SCHED_SET_SCHED_FLAGS
 #define TARGET_SCHED_SET_SCHED_FLAGS mips_set_sched_flags
-
-#undef TARGET_REG_EQUIV_PROFITABLE_P
-#define TARGET_REG_EQUIV_PROFITABLE_P mips_reg_equiv_profitable_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

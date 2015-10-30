@@ -4410,16 +4410,6 @@ DEFHOOK
  reg_class_t, (reg_class_t, enum machine_mode),
  NULL)
 
-/* Decide if a register equivalence is profitable */
-DEFHOOK
-(reg_equiv_profitable_p,
- "A target hook which returns false if the register equivalence it is\
-  given is not considered profitable.\
-  \
-  The default version of this hook always returns true",
- bool, (struct ira_reg_equiv_s *),
- default_reg_equiv_profitable_p)
-
 DEFHOOK
 (cstore_mode,
  "This hook defines the machine mode to use for the boolean result of\
