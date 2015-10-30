@@ -1,4 +1,3 @@
-
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
    Copyright (C) 1989-2015 Free Software Foundation, Inc.
 
@@ -1217,16 +1216,6 @@ extern void protected_set_expr_location (tree, location_t);
 /* Generic accessors for OMP nodes that keep clauses as operand 0.  */
 #define OMP_STANDALONE_CLAUSES(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_CACHE, OMP_TARGET_EXIT_DATA), 0)
-
-#define OACC_PARALLEL_BODY(NODE) \
-  TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
-#define OACC_PARALLEL_CLAUSES(NODE) \
-  TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 1)
-
-#define OACC_KERNELS_BODY(NODE) \
-  TREE_OPERAND (OACC_KERNELS_CHECK(NODE), 0)
-#define OACC_KERNELS_CLAUSES(NODE) \
-  TREE_OPERAND (OACC_KERNELS_CHECK(NODE), 1)
 
 #define OACC_DATA_BODY(NODE) \
   TREE_OPERAND (OACC_DATA_CHECK (NODE), 0)

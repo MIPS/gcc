@@ -25,15 +25,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
 #include "tree.h"
 #include "c-common.h"
-#include "c-pragma.h"
 #include "gimple-expr.h"
+#include "alias.h"
+#include "c-pragma.h"
 #include "langhooks.h"
 #include "omp-low.h"
 #include "gomp-constants.h"
-#include "tree-hasher.h"
 
 
 /* Complete a #pragma oacc wait construct.  LOC is the location of
@@ -692,13 +691,62 @@ c_finish_omp_for (location_t locus, enum tree_code code, tree declv,
     }
 }
 
-/* Right now we have 21 different combined/composite constructs, this
-   function attempts to split or duplicate clauses for combined
+/* This function splits clauses for OpenACC combined loop
+   constructs.  OpenACC combined loop constructs are:
+   #pragma acc kernels loop
+   #pragma acc parallel loop
+*/
+
+tree
+c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
+{
+  tree next, loop_clauses;
+
+  loop_clauses = *not_loop_clauses = NULL_TREE;
+  for (; clauses ; clauses = next)
+    {
+      next = OMP_CLAUSE_CHAIN (clauses);
+
+      switch (OMP_CLAUSE_CODE (clauses))
+        {
+	case OMP_CLAUSE_COLLAPSE:
+	case OMP_CLAUSE_REDUCTION:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_AUTO:
+	case OMP_CLAUSE_SEQ:
+	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
+	  loop_clauses = clauses;
+	  break;
+
+	case OMP_CLAUSE_PRIVATE:
+	  {
+	    tree nc = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
+					OMP_CLAUSE_CODE (clauses));
+	    OMP_CLAUSE_DECL (nc) = OMP_CLAUSE_DECL (clauses);
+	    OMP_CLAUSE_CHAIN (nc) = loop_clauses;
+	    loop_clauses = nc;
+	  }
+	  /* FALLTHRU */
+
+	default:
+	  OMP_CLAUSE_CHAIN (clauses) = *not_loop_clauses;
+	  *not_loop_clauses = clauses;
+	  break;
+	}
+    }
+
+  return loop_clauses;
+}
+
+/* This function attempts to split or duplicate clauses for OpenMP
+   combined/composite constructs.  Right now there are 21 different
    constructs.  CODE is the innermost construct in the combined construct,
    and MASK allows to determine which constructs are combined together,
    as every construct has at least one clause that no other construct
    has (except for OMP_SECTIONS, but that can be only combined with parallel).
-   Combined/composite constructs are:
+   OpenMP combined/composite constructs are:
    #pragma omp distribute parallel for
    #pragma omp distribute parallel for simd
    #pragma omp distribute simd
@@ -1228,49 +1276,4 @@ c_omp_predetermined_sharing (tree decl)
     return OMP_CLAUSE_DEFAULT_SHARED;
 
   return OMP_CLAUSE_DEFAULT_UNSPECIFIED;
-}
-
-/* Split the 'clauses' into a set of 'loop' clauses and a set of
-   'not-loop' clauses.  */
-
-tree
-c_oacc_split_loop_clauses (tree clauses, tree *not_loop_clauses)
-{
-  tree loop_clauses, next, c;
-
-  loop_clauses = *not_loop_clauses = NULL_TREE;
-
-  for (; clauses ; clauses = next)
-    {
-      next = OMP_CLAUSE_CHAIN (clauses);
-
-      switch (OMP_CLAUSE_CODE (clauses))
-        {
-	case OMP_CLAUSE_COLLAPSE:
-	case OMP_CLAUSE_REDUCTION:
-	case OMP_CLAUSE_GANG:
-	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_WORKER:
-	case OMP_CLAUSE_AUTO:
-	case OMP_CLAUSE_SEQ:
-	  OMP_CLAUSE_CHAIN (clauses) = loop_clauses;
-	  loop_clauses = clauses;
-	  break;
-
-	case OMP_CLAUSE_PRIVATE:
-	  c = build_omp_clause (OMP_CLAUSE_LOCATION (clauses),
-			        OMP_CLAUSE_CODE (clauses));
-          OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
-	  OMP_CLAUSE_CHAIN (c) = loop_clauses;
-	  loop_clauses = c;
-	  /* FALL THROUGH  */
-
-	default:
-	  OMP_CLAUSE_CHAIN (clauses) = *not_loop_clauses;
-	  *not_loop_clauses = clauses;
-	  break;
-	}
-    }
-
-  return loop_clauses;
 }

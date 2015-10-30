@@ -9,6 +9,7 @@ int
 main (int argc, char **argv)
 {
   acc_init (acc_device_host);
+
   fprintf (stderr, "CheCKpOInT\n");
   acc_shutdown (acc_device_not_host);
 

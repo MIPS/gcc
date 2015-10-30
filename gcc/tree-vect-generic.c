@@ -20,13 +20,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "options.h"
+#include "expmed.h"
+#include "optabs-tree.h"
+#include "diagnostic.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "langhooks.h"
@@ -36,13 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "tree-cfg.h"
 #include "tree-iterator.h"
-#include "tree-pass.h"
 #include "flags.h"
-#include "diagnostic.h"
-#include "target.h"
-#include "expmed.h"
-#include "insn-codes.h"
-#include "optabs-tree.h"
 
 
 static void expand_vector_operations_1 (gimple_stmt_iterator *);
@@ -844,7 +842,7 @@ expand_vector_condition (gimple_stmt_iterator *gsi)
   tree type = gimple_expr_type (stmt);
   tree a = gimple_assign_rhs1 (stmt);
   tree a1 = a;
-  tree a2;
+  tree a2 = NULL_TREE;
   bool a_is_comparison = false;
   tree b = gimple_assign_rhs2 (stmt);
   tree c = gimple_assign_rhs3 (stmt);
@@ -1533,7 +1531,8 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
       && TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (TREE_TYPE (srhs1)))
     {
       op = optab_for_tree_code (code, TREE_TYPE (type), optab_scalar);
-      if (optab_handler (op, TYPE_MODE (TREE_TYPE (type))) != CODE_FOR_nothing)
+      if (op >= FIRST_NORM_OPTAB && op <= LAST_NORM_OPTAB
+	  && optab_handler (op, TYPE_MODE (TREE_TYPE (type))) != CODE_FOR_nothing)
 	{
 	  tree slhs = make_ssa_name (TREE_TYPE (srhs1));
 	  gimple *repl = gimple_build_assign (slhs, code, srhs1, srhs2);

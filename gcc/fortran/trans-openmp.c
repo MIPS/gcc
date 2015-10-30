@@ -22,16 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
-#include "tree.h"
 #include "options.h"
-#include "fold-const.h"
-#include "gimple-expr.h"
-#include "gimplify.h"	/* For create_tmp_var_raw.  */
-#include "stringpool.h"
+#include "tree.h"
 #include "gfortran.h"
-#include "diagnostic-core.h"	/* For internal_error.  */
+#include "gimple-expr.h"
 #include "trans.h"
+#include "stringpool.h"
+#include "diagnostic-core.h"	/* For internal_error.  */
+#include "alias.h"
+#include "fold-const.h"
+#include "gimplify.h"	/* For create_tmp_var_raw.  */
 #include "trans-stmt.h"
 #include "trans-types.h"
 #include "trans-array.h"
@@ -1777,9 +1777,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 	case OMP_LIST_USE_DEVICE:
 	  clause_code = OMP_CLAUSE_USE_DEVICE;
 	  goto add_clause;
-	case OMP_LIST_CACHE:
-	  clause_code = OMP_CLAUSE__CACHE_;
-	  goto add_clause;
 	case OMP_LIST_DEVICE_RESIDENT:
 	case OMP_LIST_LINK:
 	  continue;
@@ -2163,14 +2160,27 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  break;
 	case OMP_LIST_TO:
 	case OMP_LIST_FROM:
+	case OMP_LIST_CACHE:
 	  for (; n != NULL; n = n->next)
 	    {
 	      if (!n->sym->attr.referenced)
 		continue;
 
-	      tree node = build_omp_clause (input_location,
-					    list == OMP_LIST_TO
-					    ? OMP_CLAUSE_TO : OMP_CLAUSE_FROM);
+	      switch (list)
+		{
+		case OMP_LIST_TO:
+		  clause_code = OMP_CLAUSE_TO;
+		  break;
+		case OMP_LIST_FROM:
+		  clause_code = OMP_CLAUSE_FROM;
+		  break;
+		case OMP_LIST_CACHE:
+		  clause_code = OMP_CLAUSE__CACHE_;
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+	      tree node = build_omp_clause (input_location, clause_code);
 	      if (n->expr == NULL || n->expr->ref->u.ar.type == AR_FULL)
 		{
 		  tree decl = gfc_get_symbol_decl (n->sym);

@@ -28,22 +28,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
 #include "tree.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
+#include "timevar.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "attribs.h"
 #include "stor-layout.h"
 #include "intl.h"
 #include "flags.h"
-#include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "cp-objcp-common.h"
 #include "tree-inline.h"
 #include "decl.h"
 #include "toplev.h"
-#include "timevar.h"
 #include "tree-iterator.h"
 #include "type-utils.h"
 #include "gimplify.h"
@@ -4690,14 +4689,18 @@ process_partial_specialization (tree decl)
 	  : DECL_TEMPLATE_INSTANTIATION (instance))
 	{
 	  tree spec = most_specialized_partial_spec (instance, tf_none);
-	  if (spec && TREE_VALUE (spec) == tmpl)
-	    {
-	      tree inst_decl = (DECL_P (instance)
-				? instance : TYPE_NAME (instance));
-	      permerror (input_location,
-			 "partial specialization of %qD after instantiation "
-			 "of %qD", decl, inst_decl);
-	    }
+	  tree inst_decl = (DECL_P (instance)
+			    ? instance : TYPE_NAME (instance));
+	  if (!spec)
+	    /* OK */;
+	  else if (spec == error_mark_node)
+	    permerror (input_location,
+		       "declaration of %qD ambiguates earlier template "
+		       "instantiation for %qD", decl, inst_decl);
+	  else if (TREE_VALUE (spec) == tmpl)
+	    permerror (input_location,
+		       "partial specialization of %qD after instantiation "
+		       "of %qD", decl, inst_decl);
 	}
     }
 
@@ -15218,6 +15221,15 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       }
       break;
 
+    case OACC_KERNELS:
+    case OACC_PARALLEL:
+      tmp = tsubst_omp_clauses (OMP_CLAUSES (t), false, false, args, complain,
+				in_decl);
+      stmt = begin_omp_parallel ();
+      RECUR (OMP_BODY (t));
+      finish_omp_construct (TREE_CODE (t), stmt, tmp);
+      break;
+
     case OMP_PARALLEL:
       r = push_omp_privatization_clauses (OMP_PARALLEL_COMBINED (t));
       tmp = tsubst_omp_clauses (OMP_PARALLEL_CLAUSES (t), false, true,
@@ -15230,22 +15242,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       OMP_PARALLEL_COMBINED (finish_omp_parallel (tmp, stmt))
 	= OMP_PARALLEL_COMBINED (t);
       pop_omp_privatization_clauses (r);
-      break;
-
-    case OACC_PARALLEL:
-      tmp = tsubst_omp_clauses (OACC_PARALLEL_CLAUSES (t), false, false,
-				args, complain, in_decl);
-      stmt = begin_omp_parallel ();
-      RECUR (OACC_PARALLEL_BODY (t));
-      finish_oacc_parallel (tmp, stmt);
-      break;
-
-    case OACC_KERNELS:
-      tmp = tsubst_omp_clauses (OACC_KERNELS_CLAUSES (t), false, false,
-				args, complain, in_decl);
-      stmt = begin_omp_parallel ();
-      RECUR (OACC_KERNELS_BODY (t));
-      finish_oacc_kernels (tmp, stmt);
       break;
 
     case OMP_TASK:
@@ -17289,7 +17285,9 @@ pack_deducible_p (tree parm, tree fn)
 
    DEDUCE_CALL:
      We are deducing arguments for a function call, as in
-     [temp.deduct.call].
+     [temp.deduct.call].  If RETURN_TYPE is non-null, we are
+     deducing arguments for a call to the result of a conversion
+     function template, as in [over.call.object].
 
    DEDUCE_CONV:
      We are deducing arguments for a conversion function, as in
@@ -17456,7 +17454,15 @@ fn_type_unification (tree fn,
   /* Never do unification on the 'this' parameter.  */
   parms = skip_artificial_parms_for (fn, TYPE_ARG_TYPES (fntype));
 
-  if (return_type)
+  if (return_type && strict == DEDUCE_CALL)
+    {
+      /* We're deducing for a call to the result of a template conversion
+         function.  The parms we really want are in return_type.  */
+      if (POINTER_TYPE_P (return_type))
+	return_type = TREE_TYPE (return_type);
+      parms = TYPE_ARG_TYPES (return_type);
+    }
+  else if (return_type)
     {
       tree *new_args;
 

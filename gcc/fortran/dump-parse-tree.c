@@ -1268,7 +1268,7 @@ show_omp_clauses (gfc_omp_clauses *omp_clauses)
 	  case OMP_LIST_DEVICE_RESIDENT: type = "DEVICE_RESIDENT"; break;
 	  case OMP_LIST_LINK: type = "LINK"; break;
 	  case OMP_LIST_USE_DEVICE: type = "USE_DEVICE"; break;
-	  case OMP_LIST_CACHE: type = "CACHE"; break;
+	  case OMP_LIST_CACHE: type = ""; break;
 	  default:
 	    gcc_unreachable ();
 	  }

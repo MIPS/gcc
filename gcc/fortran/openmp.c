@@ -3400,6 +3400,7 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	  case OMP_LIST_MAP:
 	  case OMP_LIST_TO:
 	  case OMP_LIST_FROM:
+	  case OMP_LIST_CACHE:
 	    for (; n != NULL; n = n->next)
 	      {
 		if (n->expr)
@@ -3674,7 +3675,6 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 				   n->sym->name, name, &n->where);
 		      /* FALLTHRU */
 		  case OMP_LIST_DEVICE_RESIDENT:
-		  case OMP_LIST_CACHE:
 		    check_symbol_not_pointer (n->sym, n->where, name);
 		    check_array_not_assumed (n->sym, n->where, name);
 		    break;
@@ -4963,6 +4963,7 @@ gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     case EXEC_OACC_ENTER_DATA:
     case EXEC_OACC_EXIT_DATA:
     case EXEC_OACC_WAIT:
+    case EXEC_OACC_CACHE:
       resolve_omp_clauses (code, code->ext.omp_clauses, NULL,
 			   true);
       break;

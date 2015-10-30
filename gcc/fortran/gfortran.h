@@ -1323,6 +1323,8 @@ typedef struct gfc_st_label
   tree backend_decl;
 
   locus where;
+
+  gfc_namespace *ns;
 }
 gfc_st_label;
 

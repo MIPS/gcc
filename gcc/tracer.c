@@ -37,18 +37,18 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
+#include "coverage.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "profile.h"
 #include "cfganal.h"
 #include "flags.h"
 #include "params.h"
-#include "coverage.h"
-#include "tree-pass.h"
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
@@ -107,7 +107,8 @@ ignore_bb_p (basic_block bb)
 
       /* An IFN_UNIQUE call must be duplicated as part of its group,
 	 or not at all.  */
-      if (is_gimple_call (g) && gimple_call_internal_p (g)
+      if (is_gimple_call (g)
+	  && gimple_call_internal_p (g)
 	  && gimple_call_internal_unique_p (g))
 	return true;
     }

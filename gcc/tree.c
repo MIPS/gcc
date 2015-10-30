@@ -31,10 +31,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "tree-pass.h"
+#include "tm_p.h"
 #include "ssa.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "diagnostic.h"
 #include "flags.h"
 #include "alias.h"
 #include "fold-const.h"
@@ -42,11 +50,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "calls.h"
 #include "attribs.h"
 #include "varasm.h"
-#include "tm_p.h"
 #include "toplev.h" /* get_random_seed */
-#include "filenames.h"
 #include "output.h"
-#include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "tree-inline.h"
@@ -54,19 +59,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
-#include "cgraph.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
 #include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
-#include "tree-pass.h"
 #include "langhooks-def.h"
-#include "diagnostic.h"
 #include "tree-diagnostic.h"
 #include "tree-pretty-print.h"
 #include "except.h"
@@ -1372,7 +1371,7 @@ int_cst_hasher::hash (tree x)
   int i;
 
   for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
-    code ^= TREE_INT_CST_ELT (t, i);
+    code = iterative_hash_host_wide_int (TREE_INT_CST_ELT(t, i), code);
 
   return code;
 }
@@ -5960,10 +5959,11 @@ free_lang_data_in_cgraph (void)
   /* Traverse every type found freeing its language data.  */
   FOR_EACH_VEC_ELT (fld.types, i, t)
     free_lang_data_in_type (t);
-#ifdef ENABLE_CHECKING
-  FOR_EACH_VEC_ELT (fld.types, i, t)
-    verify_type (t);
-#endif
+  if (flag_checking)
+    {
+      FOR_EACH_VEC_ELT (fld.types, i, t)
+	verify_type (t);
+    }
 
   delete fld.pset;
   fld.worklist.release ();
@@ -10703,8 +10703,14 @@ build_truth_vector_type (unsigned nunits, unsigned vector_size)
 
   gcc_assert (mask_mode != VOIDmode);
 
-  unsigned HOST_WIDE_INT esize = GET_MODE_BITSIZE (mask_mode) / nunits;
-  gcc_assert (esize * nunits == GET_MODE_BITSIZE (mask_mode));
+  unsigned HOST_WIDE_INT vsize;
+  if (mask_mode == BLKmode)
+    vsize = vector_size * BITS_PER_UNIT;
+  else
+    vsize = GET_MODE_BITSIZE (mask_mode);
+
+  unsigned HOST_WIDE_INT esize = vsize / nunits;
+  gcc_assert (esize * nunits == vsize);
 
   tree bool_type = build_nonstandard_boolean_type (esize);
 

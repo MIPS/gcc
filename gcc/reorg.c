@@ -104,31 +104,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "predict.h"
 #include "df.h"
-#include "diagnostic-core.h"
 #include "tm_p.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic-core.h"
 #include "flags.h"
 #include "alias.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
 #include "conditions.h"
-#include "regs.h"
-#include "recog.h"
 #include "insn-attr.h"
 #include "resource.h"
 #include "except.h"
 #include "params.h"
-#include "target.h"
 #include "tree-pass.h"
 
 
@@ -3726,7 +3726,8 @@ dbr_schedule (rtx_insn *first)
     {
       fill_simple_delay_slots (1);
       fill_simple_delay_slots (0);
-      fill_eager_delay_slots ();
+      if (!targetm.no_speculation_in_delay_slots_p ())
+	fill_eager_delay_slots ();
       relax_delay_slots (first);
     }
 

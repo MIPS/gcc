@@ -51,19 +51,21 @@
 #include "langhooks.h"
 #include "dbxout.h"
 #include "cfgrtl.h"
+#include "gimple.h"
+#include "stor-layout.h"
+#include "builtins.h"
+#include "omp-low.h"
+#include "gomp-constants.h"
+#include "dumpfile.h"
 #include "cfghooks.h"
 #include "cfgloop.h"
-#include "stor-layout.h"
 #include "dumpfile.h"
-#include "builtins.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "tree-cfg.h"
-#include "omp-low.h"
 #include "fold-const.h"
 #include "stringpool.h"
 #include "internal-fn.h"
-#include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "gimplify.h"
@@ -71,7 +73,6 @@
 #include "ssa-iterators.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
-#include "gomp-constants.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2318,8 +2319,8 @@ nvptx_reorg_subreg (void)
     }
 }
 
-/* Loop structure of the function.  The entire function is described
-   as a NULL loop.  */
+/* Loop structure of the function.  The entire function is described as
+   a NULL loop.  */
 
 struct parallel
 {
@@ -3692,7 +3693,7 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
       if ((outer | me) & GOMP_DIM_MASK (mode))
 	{} /* Mode is partitioned: no neutering.  */
       else if (!(modes & GOMP_DIM_MASK (mode)))
-	{} /* Mode  is not used: nothing to do.  */
+	{} /* Mode is not used: nothing to do.  */
       else if (par->inner_mask & GOMP_DIM_MASK (mode)
 	       || !par->forked_insn)
 	/* Partitioned in inner parallels, or we're not a partitioned

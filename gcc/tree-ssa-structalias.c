@@ -22,10 +22,18 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
 #include "ssa.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "tree-pretty-print.h"
+#include "diagnostic-core.h"
 #include "flags.h"
 #include "alias.h"
 #include "fold-const.h"
@@ -33,24 +41,16 @@
 #include "stmt.h"
 #include "internal-fn.h"
 #include "gimple-iterator.h"
-#include "cgraph.h"
 #include "tree-into-ssa.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
-#include "diagnostic-core.h"
-#include "tree-pass.h"
-#include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "tree-pretty-print.h"
 #include "gimple-walk.h"
 
 /* The idea behind this analyzer is to generate set constraints from the
@@ -2551,10 +2551,11 @@ rewrite_constraints (constraint_graph_t graph,
   int i;
   constraint_t c;
 
-#ifdef ENABLE_CHECKING
-  for (unsigned int j = 0; j < graph->size; j++)
-    gcc_assert (find (j) == j);
-#endif
+  if (flag_checking)
+    {
+      for (unsigned int j = 0; j < graph->size; j++)
+	gcc_assert (find (j) == j);
+    }
 
   FOR_EACH_VEC_ELT (constraints, i, c)
     {

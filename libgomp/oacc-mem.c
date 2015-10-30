@@ -579,20 +579,15 @@ update_dev_host (int is_dev, void *h, size_t s)
 {
   splay_tree_key n;
   void *d;
-  struct goacc_thread *thr;
-  struct gomp_device_descr *acc_dev;
 
   goacc_lazy_initialize ();
 
-  thr = goacc_thread ();
-  acc_dev = thr->dev;
+  struct goacc_thread *thr = goacc_thread ();
+  struct gomp_device_descr *acc_dev = thr->dev;
 
   gomp_mutex_lock (&acc_dev->lock);
 
   n = lookup_host (acc_dev, h, s);
-
-  /* No need to call lazy open, as the data must already have been
-     mapped.  */
 
   if (!n)
     {

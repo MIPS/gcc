@@ -88,6 +88,12 @@ package body Bindgen is
    --  attach interrupt handlers at the end of the elaboration when partition
    --  elaboration policy is sequential.
 
+   System_BB_CPU_Primitives_Multiprocessors_Used : Boolean := False;
+   --  Flag indicating wether the unit System.BB.CPU_Primitives.Multiprocessors
+   --  is in the closure of the partiation. This is set by procedure
+   --  Resolve_Binder_Options, and it is used to call a procedure that starts
+   --  slave processors.
+
    Lib_Final_Built : Boolean := False;
    --  Flag indicating whether the finalize_library rountine has been built
 
@@ -166,6 +172,7 @@ package body Bindgen is
    --     Num_Interrupt_States          : Integer;
    --     Unreserve_All_Interrupts      : Integer;
    --     Exception_Tracebacks          : Integer;
+   --     Exception_Tracebacks_Symbolic : Integer;
    --     Detect_Blocking               : Integer;
    --     Default_Stack_Size            : Integer;
    --     Leap_Seconds_Support          : Integer;
@@ -235,10 +242,13 @@ package body Bindgen is
    --  Unreserve_All_Interrupts is set to one if at least one unit in the
    --  partition had a pragma Unreserve_All_Interrupts, and zero otherwise.
 
-   --  Exception_Tracebacks is set to one if the -E parameter was present
-   --  in the bind and to zero otherwise. Note that on some targets exception
-   --  tracebacks are provided by default, so a value of zero for this
-   --  parameter does not necessarily mean no trace backs are available.
+   --  Exception_Tracebacks is set to one if the -Ea or -E parameter was
+   --  present in the bind and to zero otherwise. Note that on some targets
+   --  exception tracebacks are provided by default, so a value of zero for
+   --  this parameter does not necessarily mean no trace backs are available.
+
+   --  Exception_Tracebacks_Symbolic is set to one if the -Es parameter was
+   --  present in the bind and to zero otherwise.
 
    --  Detect_Blocking indicates whether pragma Detect_Blocking is active or
    --  not. A value of zero indicates that the pragma is not present, while a
@@ -532,6 +542,13 @@ package body Bindgen is
             WBI ("      procedure Activate_All_Tasks_Sequential;");
             WBI ("      pragma Import (C, Activate_All_Tasks_Sequential," &
                  " ""__gnat_activate_all_tasks"");");
+            WBI ("");
+         end if;
+
+         if System_BB_CPU_Primitives_Multiprocessors_Used then
+            WBI ("      procedure Start_Slave_CPUs;");
+            WBI ("      pragma Import (C, Start_Slave_CPUs," &
+                 " ""__gnat_start_slave_cpus"");");
          end if;
 
          WBI ("   begin");
@@ -607,10 +624,16 @@ package body Bindgen is
          WBI ("      pragma Import (C, Unreserve_All_Interrupts, " &
               """__gl_unreserve_all_interrupts"");");
 
-         if Exception_Tracebacks then
+         if Exception_Tracebacks or Exception_Tracebacks_Symbolic then
             WBI ("      Exception_Tracebacks : Integer;");
             WBI ("      pragma Import (C, Exception_Tracebacks, " &
                  """__gl_exception_tracebacks"");");
+
+            if Exception_Tracebacks_Symbolic then
+               WBI ("      Exception_Tracebacks_Symbolic : Integer;");
+               WBI ("      pragma Import (C, Exception_Tracebacks_Symbolic, " &
+                    """__gl_exception_tracebacks_symbolic"");");
+            end if;
          end if;
 
          WBI ("      Detect_Blocking : Integer;");
@@ -795,8 +818,12 @@ package body Bindgen is
          Set_Char (';');
          Write_Statement_Buffer;
 
-         if Exception_Tracebacks then
+         if Exception_Tracebacks or Exception_Tracebacks_Symbolic then
             WBI ("      Exception_Tracebacks := 1;");
+
+            if Exception_Tracebacks_Symbolic then
+               WBI ("      Exception_Tracebacks_Symbolic := 1;");
+            end if;
          end if;
 
          Set_String ("      Detect_Blocking := ");
@@ -928,6 +955,10 @@ package body Bindgen is
          if System_Tasking_Restricted_Stages_Used then
             WBI ("      Activate_All_Tasks_Sequential;");
          end if;
+      end if;
+
+      if System_BB_CPU_Primitives_Multiprocessors_Used then
+         WBI ("      Start_Slave_CPUs;");
       end if;
 
       WBI ("   end " & Ada_Init_Name.all & ";");
@@ -2810,8 +2841,8 @@ package body Bindgen is
 
       procedure Check_Package (Var : in out Boolean; Name : String);
       --  Set Var to true iff the current identifier in Namet is Name. Do
-      --  nothing if it doesn't match. This procedure is just an helper to
-      --  avoid to explicitely deal with length.
+      --  nothing if it doesn't match. This procedure is just a helper to
+      --  avoid explicitly dealing with length.
 
       -------------------
       -- Check_Package --
@@ -2858,6 +2889,12 @@ package body Bindgen is
          --  Ditto for the use of restrictions
 
          Check_Package (System_Restrictions_Used, "system.restrictions%s");
+
+         --  Ditto for use of an SMP bareboard runtime
+
+         Check_Package (System_BB_CPU_Primitives_Multiprocessors_Used,
+                        "system.bb.cpu_primitives.multiprocessors%s");
+
       end loop;
    end Resolve_Binder_Options;
 

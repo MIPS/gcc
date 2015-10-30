@@ -23,14 +23,13 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
-#include "tree.h"
-#include "diagnostic-core.h"
-#include "realmpfr.h"
-#include "tm_p.h"
-#include "dfp.h"
 #include "rtl.h"
-#include "options.h"
+#include "tree.h"
+#include "tm_p.h"
+#include "diagnostic-core.h"
+#include "alias.h"
+#include "realmpfr.h"
+#include "dfp.h"
 
 /* The floating point model used internally is not exactly IEEE 754
    compliant, and close to the description in the ISO C99 standard,
@@ -1808,15 +1807,13 @@ real_to_decimal_for_mode (char *str, const REAL_VALUE_TYPE *r_orig,
   /* Append the exponent.  */
   sprintf (last, "e%+d", dec_exp);
 
-#ifdef ENABLE_CHECKING
   /* Verify that we can read the original value back in.  */
-  if (mode != VOIDmode)
+  if (flag_checking && mode != VOIDmode)
     {
       real_from_string (&r, str);
       real_convert (&r, mode, &r);
       gcc_assert (real_identical (&r, r_orig));
     }
-#endif
 }
 
 /* Likewise, except always uses round-to-nearest.  */

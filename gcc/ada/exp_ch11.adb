@@ -99,7 +99,7 @@ package body Exp_Ch11 is
    --  and the code generator (e.g. gigi) must still handle proper generation
    --  of cleanup calls for the non-exceptional case.
 
-   procedure Expand_At_End_Handler (HSS : Node_Id; Block : Node_Id) is
+   procedure Expand_At_End_Handler (HSS : Node_Id; Blk_Id : Entity_Id) is
       Clean   : constant Entity_Id  := Entity (At_End_Proc (HSS));
       Ohandle : Node_Id;
       Stmnts  : List_Id;
@@ -138,8 +138,8 @@ package body Exp_Ch11 is
          return;
       end if;
 
-      if Present (Block) then
-         Push_Scope (Block);
+      if Present (Blk_Id) then
+         Push_Scope (Blk_Id);
       end if;
 
       Ohandle :=
@@ -175,7 +175,7 @@ package body Exp_Ch11 is
       Analyze_List (Stmnts, Suppress => All_Checks);
       Expand_Exception_Handlers (HSS);
 
-      if Present (Block) then
+      if Present (Blk_Id) then
          Pop_Scope;
       end if;
    end Expand_At_End_Handler;
@@ -1288,10 +1288,18 @@ package body Exp_Ch11 is
 
       --  Full_Name component: Standard.A_Char!(Nam'Address)
 
-      Append_To (L, Unchecked_Convert_To (Standard_A_Char,
-        Make_Attribute_Reference (Loc,
-          Prefix         => New_Occurrence_Of (Ex_Id, Loc),
-          Attribute_Name => Name_Address)));
+      --  The unchecked conversion causes capacity issues for CodePeer in some
+      --  cases and is never useful, so we set the Full_Name component to null
+      --  instead for CodePeer.
+
+      if CodePeer_Mode then
+         Append_To (L, Make_Null (Loc));
+      else
+         Append_To (L, Unchecked_Convert_To (Standard_A_Char,
+           Make_Attribute_Reference (Loc,
+             Prefix         => New_Occurrence_Of (Ex_Id, Loc),
+             Attribute_Name => Name_Address)));
+      end if;
 
       --  HTable_Ptr component: null
 

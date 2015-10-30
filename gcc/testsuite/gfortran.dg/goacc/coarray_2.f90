@@ -2,7 +2,7 @@
 ! { dg-additional-options "-fcoarray=lib" }
 !
 ! PR fortran/63861
-! { dg-xfail-if "<http://gcc.gnu.org/PR63861>" { *-*-* } } */
+! { dg-xfail-if "<http://gcc.gnu.org/PR63861>" { *-*-* } }
 
 module test
 contains

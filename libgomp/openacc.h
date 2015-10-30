@@ -47,27 +47,25 @@ extern "C" {
 #endif
 
 /* Types */
-typedef enum acc_device_t
-  {
-    /* Keep in sync with include/gomp-constants.h.  */
-    acc_device_none = 0,
-    acc_device_default = 1,
-    acc_device_host = 2,
-    /* acc_device_host_nonshm = 3 removed.  */
-    acc_device_not_host = 4,
-    acc_device_nvidia = 5,
-    _ACC_device_hwm,
-    /* Ensure enumeration is layout compatible with int.  */
-    _ACC_highest = __INT_MAX__,
-    _ACC_neg = -1
-  } acc_device_t;
+typedef enum acc_device_t {
+  /* Keep in sync with include/gomp-constants.h.  */
+  acc_device_none = 0,
+  acc_device_default = 1,
+  acc_device_host = 2,
+  /* acc_device_host_nonshm = 3 removed.  */
+  acc_device_not_host = 4,
+  acc_device_nvidia = 5,
+  _ACC_device_hwm,
+  /* Ensure enumeration is layout compatible with int.  */
+  _ACC_highest = __INT_MAX__,
+  _ACC_neg = -1
+} acc_device_t;
 
-typedef enum acc_async_t
-  {
-    /* Keep in sync with include/gomp-constants.h.  */
-    acc_async_noval = -1,
-    acc_async_sync  = -2
-  } acc_async_t;
+typedef enum acc_async_t {
+  /* Keep in sync with include/gomp-constants.h.  */
+  acc_async_noval = -1,
+  acc_async_sync  = -2
+} acc_async_t;
 
 int acc_get_num_devices (acc_device_t) __GOACC_NOTHROW;
 void acc_set_device_type (acc_device_t) __GOACC_NOTHROW;
@@ -120,6 +118,9 @@ int acc_set_cuda_stream (int, void *) __GOACC_NOTHROW;
 
 #ifdef __cplusplus
 }
+
+/* Forwarding function with correctly typed arg.  */
+
 inline int acc_on_device (acc_device_t __arg) __GOACC_NOTHROW
 {
   return acc_on_device ((int) __arg);

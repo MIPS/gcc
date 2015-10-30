@@ -22,42 +22,42 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
+#include "tree-ssa-operands.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "streamer-hooks.h"
+#include "cgraph.h"
+#include "data-streamer.h"
+#include "diagnostic.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "print-tree.h"
 #include "calls.h"
 #include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
-#include "tree-pass.h"
-#include "target.h"
-#include "cgraph.h"
 #include "ipa-utils.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
-#include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
-#include "diagnostic.h"
 #include "tree-dfa.h"
 #include "demangle.h"
 #include "dbgcnt.h"
 #include "gimple-pretty-print.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "data-streamer.h"
-#include "streamer-hooks.h"
-#include "tree-ssa-operands.h"
 #include "tree-into-ssa.h"
 
 /* Return true when TYPE contains an polymorphic type and thus is interesting
@@ -1512,6 +1512,7 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
   /* Remember OFFSET before it is modified by restrict_to_inner_class.
      This is because we do not update INSTANCE when walking inwards.  */
   HOST_WIDE_INT instance_offset = offset;
+  tree instance_outer_type = outer_type;
 
   if (otr_type)
     otr_type = TYPE_MAIN_VARIANT (otr_type);
@@ -1599,7 +1600,7 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 	}
     }
  
-  /* If we failed to look up the refernece in code, build our own.  */
+  /* If we failed to look up the reference in code, build our own.  */
   if (!instance_ref)
     {
       /* If the statement in question does not use memory, we can't tell
@@ -1637,13 +1638,13 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
       print_generic_expr (dump_file, otr_object, TDF_SLIM);
       fprintf (dump_file, "  Outer instance pointer: ");
       print_generic_expr (dump_file, instance, TDF_SLIM);
-      fprintf (dump_file, " offset: %i (bits)", (int)offset);
+      fprintf (dump_file, " offset: %i (bits)", (int)instance_offset);
       fprintf (dump_file, " vtbl reference: ");
       print_generic_expr (dump_file, instance_ref, TDF_SLIM);
       fprintf (dump_file, "\n");
     }
 
-  tci.offset = offset;
+  tci.offset = instance_offset;
   tci.instance = instance;
   tci.vtbl_ptr_ref = instance_ref;
   gcc_assert (TREE_CODE (instance) != MEM_REF);
@@ -1709,9 +1710,12 @@ ipa_polymorphic_call_context::get_dynamic_type (tree instance,
 	  && !dynamic
 	  && !tci.seen_unanalyzed_store
 	  && !tci.multiple_types_encountered
-	  && offset == tci.offset
-	  && types_same_for_odr (tci.known_current_type,
-				 outer_type)))
+	  && ((offset == tci.offset
+	       && types_same_for_odr (tci.known_current_type,
+				      outer_type))
+	       || (instance_offset == offset
+		   && types_same_for_odr (tci.known_current_type,
+					  instance_outer_type)))))
     {
       if (!outer_type || tci.seen_unanalyzed_store)
 	return false;

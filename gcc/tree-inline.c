@@ -22,13 +22,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "gimple-predict.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
 #include "ssa.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "tree-pretty-print.h"
 #include "diagnostic-core.h"
+#include "gimple-predict.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
@@ -36,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "flags.h"
 #include "params.h"
-#include "insn-config.h"
 #include "langhooks.h"
 #include "cfganal.h"
 #include "tree-iterator.h"
@@ -50,25 +57,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-walk.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
-#include "tree-pretty-print.h"
 #include "except.h"
 #include "debug.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "value-prof.h"
-#include "tree-pass.h"
-#include "target.h"
 #include "cfgloop.h"
 #include "builtins.h"
 #include "tree-chkp.h"
@@ -4481,10 +4481,8 @@ expand_call_inline (basic_block bb, gimple *stmt, copy_body_data *id)
   fn = cg_edge->callee->decl;
   cg_edge->callee->get_untransformed_body ();
 
-#ifdef ENABLE_CHECKING
-  if (cg_edge->callee->decl != id->dst_node->decl)
+  if (flag_checking && cg_edge->callee->decl != id->dst_node->decl)
     cg_edge->callee->verify ();
-#endif
 
   /* We will be inlining this callee.  */
   id->eh_lp_nr = lookup_stmt_eh_lp (stmt);
@@ -4975,7 +4973,7 @@ optimize_inline_calls (tree fn)
 
   pop_gimplify_context (NULL);
 
-#ifdef ENABLE_CHECKING
+  if (flag_checking)
     {
       struct cgraph_edge *e;
 
@@ -4985,7 +4983,6 @@ optimize_inline_calls (tree fn)
       for (e = id.dst_node->callees; e; e = e->next_callee)
 	gcc_assert (e->inline_failed);
     }
-#endif
 
   /* Fold queued statements.  */
   fold_marked_statements (last, id.statements_to_fold);
@@ -5001,9 +4998,8 @@ optimize_inline_calls (tree fn)
   number_blocks (fn);
 
   delete_unreachable_blocks_update_callgraph (&id);
-#ifdef ENABLE_CHECKING
-  id.dst_node->verify ();
-#endif
+  if (flag_checking)
+    id.dst_node->verify ();
 
   /* It would be nice to check SSA/CFG/statement consistency here, but it is
      not possible yet - the IPA passes might make various functions to not
