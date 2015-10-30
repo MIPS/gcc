@@ -28,8 +28,8 @@ main ()
 {
   fn1 ();
 
-  if (a != 1) 
-    __builtin_abort (); 
+  if (a != 1)
+    __builtin_abort ();
 
   return 0;
 }
