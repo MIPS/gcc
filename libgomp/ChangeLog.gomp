@@ -1,3 +1,8 @@
+2015-10-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/acc-on-device.c:
+	De-duplicate file.
+
 2015-10-29  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* openacc.h (enum acc_device_t): Ensure layout compatibility.
