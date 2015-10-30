@@ -1,5 +1,5 @@
 Bottom: 9013ead83a147f5b0fc1603a6b7771870ad5aa70
-Top:    9013ead83a147f5b0fc1603a6b7771870ad5aa70
+Top:    2386b83024f5ee0d6d86ddfe75e57c23d85681ba
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-10-30 09:52:54 -0200
 
@@ -7,4 +7,105 @@ Date:   2015-10-30 09:52:54 -0200
 
 ---
 
-
+diff --git a/gcc/testsuite/gcc.dg/torture/pr68083.c b/gcc/testsuite/gcc.dg/torture/pr68083.c
+new file mode 100644
+index 0000000..5413d39b
+--- /dev/null
++++ b/gcc/testsuite/gcc.dg/torture/pr68083.c
+@@ -0,0 +1,35 @@
++/* { dg-do run } */
++
++int a = 2, b = 1, c = 1;
++
++int
++fn1 ()
++{
++  int d;
++  for (; a; a--)
++    {
++      for (d = 0; d < 4; d++)
++	{
++	  int k;
++	  if (c < 1)
++	    if (k)
++	      c = 0;
++	  if (b)
++	    continue;
++	  return 0;
++	}
++      b = !1;
++    }
++  return 0;
++}
++
++int
++main ()
++{
++  fn1 ();
++
++  if (a != 1) 
++    __builtin_abort (); 
++
++  return 0;
++}
+diff --git a/gcc/tree-ssa-ifcombine.c b/gcc/tree-ssa-ifcombine.c
+index 9f04174..58a5fe0 100644
+--- a/gcc/tree-ssa-ifcombine.c
++++ b/gcc/tree-ssa-ifcombine.c
+@@ -41,6 +41,7 @@ along with GCC; see the file COPYING3.  If not see
+ #include "gimplify-me.h"
+ #include "tree-cfg.h"
+ #include "tree-pass.h"
++#include "tree-ssa.h"
+ 
+ #ifndef LOGICAL_OP_NON_SHORT_CIRCUIT
+ #define LOGICAL_OP_NON_SHORT_CIRCUIT \
+@@ -125,6 +126,7 @@ bb_no_side_effects_p (basic_block bb)
+ 	continue;
+ 
+       if (gimple_has_side_effects (stmt)
++	  || gimple_uses_undefined_value_p (stmt)
+ 	  || gimple_could_trap_p (stmt)
+ 	  || gimple_vuse (stmt))
+ 	return false;
+diff --git a/gcc/tree-ssa.c b/gcc/tree-ssa.c
+index 4b869be..0f0e7e9 100644
+--- a/gcc/tree-ssa.c
++++ b/gcc/tree-ssa.c
+@@ -1214,6 +1214,24 @@ ssa_undefined_value_p (tree t, bool partial)
+ }
+ 
+ 
++/* Return TRUE iff STMT, a gimple statement, references an undefined
++   SSA name.  */
++
++bool
++gimple_uses_undefined_value_p (gimple *stmt)
++{
++  ssa_op_iter iter;
++  tree op;
++
++  FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
++    if (ssa_undefined_value_p (op))
++      return true;
++
++  return false;
++}
++
++
++
+ /* If necessary, rewrite the base of the reference tree *TP from
+    a MEM_REF to a plain or converted symbol.  */
+ 
+diff --git a/gcc/tree-ssa.h b/gcc/tree-ssa.h
+index a3b9bed..5be0bc2 100644
+--- a/gcc/tree-ssa.h
++++ b/gcc/tree-ssa.h
+@@ -51,6 +51,7 @@ extern bool tree_ssa_useless_type_conversion (tree);
+ extern tree tree_ssa_strip_useless_type_conversions (tree);
+ 
+ extern bool ssa_undefined_value_p (tree, bool = true);
++extern bool gimple_uses_undefined_value_p (gimple *);
+ extern void execute_update_addresses_taken (void);
+ 
+ /* Given an edge_var_map V, return the PHI arg definition.  */
