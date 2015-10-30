@@ -1,3 +1,8 @@
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
+	* hsa-traits.h: Remove.
+	* plugin/plugin-hsa.c: Include gomp-constants.h.
+
 2015-10-20  Martin Liska  <mliska@suse.cz>
 
 	* plugin/plugin-hsa.c (struct agent_info): Add new

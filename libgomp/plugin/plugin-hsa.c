@@ -5,7 +5,6 @@
 #include "libgomp-plugin.h"
 #include "gomp-constants.h"
 #include "hsa.h"
-#include "hsa-traits.h"
 #include "hsa_ext_finalize.h"
 #include "dlfcn.h"
 

@@ -1,3 +1,8 @@
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (struct hsa_kernel_dispatch): Remove the
+	declaration.
+
 2015-10-22  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (process_kernel_body_copy): Also copy pre-bodies of

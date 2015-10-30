@@ -78,6 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfganal.h"
 #include "builtins.h"
 #include "params.h"
+#include "gomp-constants.h"
 
 /* Print a warning message and set that we have seen an error.  */
 
@@ -111,35 +112,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Following structures are defined in the final version
    of HSA specification.  */
-
-/* HSA kernel dispatch is collection of informations needed for
-   a kernel dispatch.  */
-
-struct hsa_kernel_dispatch
-{
-  /* Pointer to a command queue associated with a kernel dispatch agent.  */
-  void *queue;
-  /* Pointer to reserved memory for OMP data struct copying.  */
-  void *omp_data_memory;
-  /* Pointer to a memory space used for kernel arguments passing.  */
-  void *kernarg_address;
-  /* Kernel object.  */
-  uint64_t object;
-  /* Synchronization signal used for dispatch synchronization.  */
-  uint64_t signal;
-  /* Private segment size.  */
-  uint32_t private_segment_size;
-  /* Group segment size.  */
-  uint32_t group_segment_size;
-  /* Number of children kernel dispatches.  */
-  uint64_t kernel_dispatch_count;
-  /* Number of threads.  */
-  uint32_t omp_num_threads;
-  /* Debug purpose argument.  */
-  uint64_t debug;
-  /* Kernel dispatch structures created for children kernel dispatches.  */
-  struct hsa_kernel_dispatch **children_dispatches;
-};
 
 /* HSA queue packet is shadow structure, originally provided by AMD.  */
 
