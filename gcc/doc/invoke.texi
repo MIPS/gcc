@@ -312,7 +312,7 @@ Objective-C and Objective-C++ Dialects}.
 -fsanitize=@var{style} -fsanitize-recover -fsanitize-recover=@var{style} @gol
 -fasan-shadow-offset=@var{number} -fsanitize-sections=@var{s1},@var{s2},... @gol
 -fsanitize-undefined-trap-on-error @gol
--fcheck-pointer-bounds -fchkp-check-incomplete-type @gol
+-fcheck-pointer-bounds -fchecking -fchkp-check-incomplete-type @gol
 -fchkp-first-field-has-own-bounds -fchkp-narrow-bounds @gol
 -fchkp-narrow-to-innermost-array -fchkp-optimize @gol
 -fchkp-use-fast-string-functions -fchkp-use-nochk-string-functions @gol
@@ -948,7 +948,8 @@ See RS/6000 and PowerPC Options.
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm @gol
 -mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
--mupper-regs -mno-upper-regs}
+-mupper-regs -mno-upper-regs @gol
+-mfloat128 -mno-float128}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -6162,6 +6163,12 @@ structure field attribute (@pxref{Type Attributes}) and
 (@pxref{Function Attributes}).  GCC also provides a number of built-in
 functions for controlling the Pointer Bounds Checker.  @xref{Pointer
 Bounds Checker builtins}, for more information.
+
+@item -fchecking
+@opindex fchecking
+@opindex fno-checking
+Enable internal consistency checking.  The default depends on
+the compiler configuration.
 
 @item -fchkp-check-incomplete-type
 @opindex fchkp-check-incomplete-type
@@ -19537,6 +19544,17 @@ floating point register set, depending on the model of the machine.
 If the @option{-mno-upper-regs} option is used, it turns off both
 @option{-mupper-regs-sf} and @option{-mupper-regs-df} options.
 
+@item -mfloat128
+@itemx -mno-float128
+@opindex mfloat128
+@opindex mno-float128
+Enable/disable the @var{__float128} keyword for IEEE 128-bit floating point
+and use software emulation for IEEE 128-bit floating point.
+
+The VSX instruction set (@option{-mvsx}, @option{-mcpu=power7}, or
+@option{-mcpu=power8}) must be enabled to use the @option{-mfloat128}
+option.
+
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
 @opindex mfloat-gprs
@@ -21261,6 +21279,10 @@ in effect.
 @opindex mpretend-cmove
 Prefer zero-displacement conditional branches for conditional move instruction
 patterns.  This can result in faster code on the SH4 processor.
+
+@item -mfdpic
+@opindex fdpic
+Generate code using the FDPIC ABI.
 
 @end table
 

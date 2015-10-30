@@ -21,18 +21,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "hard-reg-set.h"
 #include "tree.h"
 #include "gimple.h"
-#include "gimple-iterator.h"
-#include "hard-reg-set.h"
+#include "tree-pass.h"
 #include "ssa.h"
+#include "gimple-iterator.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "internal-fn.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
-#include "tree-pass.h"
 
 /* Rewriting a function into SSA form can create a huge number of SSA_NAMEs,
    many of which may be thrown away shortly after their creation if jumps
@@ -102,11 +102,11 @@ init_ssanames (struct function *fn, int size)
 /* Finalize management of SSA_NAMEs.  */
 
 void
-fini_ssanames (void)
+fini_ssanames (struct function *fn)
 {
-  vec_free (SSANAMES (cfun));
-  vec_free (FREE_SSANAMES (cfun));
-  vec_free (FREE_SSANAMES_QUEUE (cfun));
+  vec_free (SSANAMES (fn));
+  vec_free (FREE_SSANAMES (fn));
+  vec_free (FREE_SSANAMES_QUEUE (fn));
 }
 
 /* Dump some simple statistics regarding the re-use of SSA_NAME nodes.  */
@@ -336,9 +336,8 @@ release_ssa_name_fn (struct function *fn, tree var)
       if (MAY_HAVE_DEBUG_STMTS)
 	insert_debug_temp_for_var_def (NULL, var);
 
-#ifdef ENABLE_CHECKING
-      verify_imm_links (stderr, var);
-#endif
+      if (flag_checking)
+	verify_imm_links (stderr, var);
       while (imm->next != imm)
 	delink_imm_use (imm->next);
 

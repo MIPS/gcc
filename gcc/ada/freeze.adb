@@ -2806,6 +2806,15 @@ package body Freeze is
          then
             Set_Alignment (Arr, Alignment (Component_Type (Arr)));
          end if;
+
+         --  A Ghost type cannot have a component of protected or task type
+         --  (SPARK RM 6.9(19)).
+
+         if Is_Ghost_Entity (Arr) and then Is_Concurrent_Type (Ctyp) then
+            Error_Msg_N
+              ("ghost array type & cannot have concurrent component type",
+               Arr);
+         end if;
       end Freeze_Array_Type;
 
       -------------------------------
@@ -3945,8 +3954,9 @@ package body Freeze is
             Next_Entity (Comp);
          end loop;
 
-         SSO_ADC := Get_Attribute_Definition_Clause
-                      (Rec, Attribute_Scalar_Storage_Order);
+         SSO_ADC :=
+           Get_Attribute_Definition_Clause
+             (Rec, Attribute_Scalar_Storage_Order);
 
          --  If the record type has Complex_Representation, then it is treated
          --  as a scalar in the back end so the storage order is irrelevant.
@@ -3954,8 +3964,8 @@ package body Freeze is
          if Has_Complex_Representation (Rec) then
             if Present (SSO_ADC) then
                Error_Msg_N
-                  ("??storage order has no effect with "
-                   & "Complex_Representation", SSO_ADC);
+                 ("??storage order has no effect with Complex_Representation",
+                  SSO_ADC);
             end if;
 
          else
@@ -4316,6 +4326,44 @@ package body Freeze is
                      Error_Msg_N
                        ("component & of non-volatile type % cannot be "
                         & "volatile", Comp);
+                  end if;
+
+                  Next_Component (Comp);
+               end loop;
+            end if;
+
+            --  A type which does not yield a synchronized object cannot have
+            --  a component that yields a synchronized object (SPARK RM 9.5).
+
+            if not Yields_Synchronized_Object (Rec) then
+               Comp := First_Component (Rec);
+               while Present (Comp) loop
+                  if Comes_From_Source (Comp)
+                    and then Yields_Synchronized_Object (Etype (Comp))
+                  then
+                     Error_Msg_Name_1 := Chars (Rec);
+                     Error_Msg_N
+                       ("component & of non-synchronized type % cannot be "
+                        & "synchronized", Comp);
+                  end if;
+
+                  Next_Component (Comp);
+               end loop;
+            end if;
+
+            --  A Ghost type cannot have a component of protected or task type
+            --  (SPARK RM 6.9(19)).
+
+            if Is_Ghost_Entity (Rec) then
+               Comp := First_Component (Rec);
+               while Present (Comp) loop
+                  if Comes_From_Source (Comp)
+                    and then Is_Concurrent_Type (Etype (Comp))
+                  then
+                     Error_Msg_Name_1 := Chars (Rec);
+                     Error_Msg_N
+                       ("component & of ghost type % cannot be concurrent",
+                        Comp);
                   end if;
 
                   Next_Component (Comp);
@@ -5071,12 +5119,19 @@ package body Freeze is
             end if;
          end;
 
-         --  A Ghost type cannot be effectively volatile (SPARK RM 6.9(8))
+         if Is_Ghost_Entity (E) then
 
-         if Is_Ghost_Entity (E)
-           and then Is_Effectively_Volatile (E)
-         then
-            Error_Msg_N ("ghost type & cannot be volatile", E);
+            --  A Ghost type cannot be concurrent (SPARK RM 6.9(19)). Verify
+            --  this legality rule first to five a finer-grained diagnostic.
+
+            if Is_Concurrent_Type (E) then
+               Error_Msg_N ("ghost type & cannot be concurrent", E);
+
+            --  A Ghost type cannot be effectively volatile (SPARK RM 6.9(8))
+
+            elsif Is_Effectively_Volatile (E) then
+               Error_Msg_N ("ghost type & cannot be volatile", E);
+            end if;
          end if;
 
          --  Deal with special cases of freezing for subtype

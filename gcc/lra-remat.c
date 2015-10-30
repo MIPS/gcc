@@ -56,33 +56,31 @@ along with GCC; see the file COPYING3.	If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "tree.h"
-#include "rtl.h"
-#include "df.h"
-#include "rtl-error.h"
-#include "tm_p.h"
 #include "target.h"
+#include "rtl.h"
+#include "tree.h"
+#include "df.h"
+#include "tm_p.h"
+#include "expmed.h"
 #include "insn-config.h"
-#include "recog.h"
-#include "output.h"
 #include "regs.h"
+#include "ira.h"
+#include "recog.h"
+#include "rtl-error.h"
+#include "output.h"
 #include "flags.h"
 #include "alias.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
 #include "except.h"
-#include "ira.h"
 #include "sparseset.h"
 #include "params.h"
 #include "lra.h"
 #include "insn-attr.h"
-#include "insn-codes.h"
 #include "lra-int.h"
 
 /* Number of candidates for rematerialization.  */
@@ -578,10 +576,8 @@ create_remat_bb_data (void)
 			   last_basic_block_for_fn (cfun));
   FOR_ALL_BB_FN (bb, cfun)
     {
-#ifdef ENABLE_CHECKING
-      if (bb->index < 0 || bb->index >= last_basic_block_for_fn (cfun))
-	abort ();
-#endif
+      gcc_checking_assert (bb->index >= 0
+			   && bb->index < last_basic_block_for_fn (cfun));
       bb_info = get_remat_bb_data (bb);
       bb_info->bb = bb;
       bitmap_initialize (&bb_info->changed_regs, &reg_obstack);

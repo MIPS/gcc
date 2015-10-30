@@ -21,19 +21,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "hard-reg-set.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
+#include "tree-pass.h"
+#include "tm_p.h"
 #include "ssa.h"
+#include "gimple-pretty-print.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "flags.h"
-#include "tm_p.h"
-#include "gimple-pretty-print.h"
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
-#include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
 #include "cfgloop.h"
@@ -561,7 +561,7 @@ fini_copy_prop (void)
   bool changed = substitute_and_fold (get_value, NULL, true);
   if (changed)
     {
-      free_numbers_of_iterations_estimates ();
+      free_numbers_of_iterations_estimates (cfun);
       if (scev_initialized_p ())
 	scev_reset ();
     }

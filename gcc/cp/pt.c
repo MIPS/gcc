@@ -28,22 +28,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
 #include "tree.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
+#include "timevar.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "attribs.h"
 #include "stor-layout.h"
 #include "intl.h"
 #include "flags.h"
-#include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "cp-objcp-common.h"
 #include "tree-inline.h"
 #include "decl.h"
 #include "toplev.h"
-#include "timevar.h"
 #include "tree-iterator.h"
 #include "type-utils.h"
 #include "gimplify.h"
@@ -4690,14 +4689,18 @@ process_partial_specialization (tree decl)
 	  : DECL_TEMPLATE_INSTANTIATION (instance))
 	{
 	  tree spec = most_specialized_partial_spec (instance, tf_none);
-	  if (spec && TREE_VALUE (spec) == tmpl)
-	    {
-	      tree inst_decl = (DECL_P (instance)
-				? instance : TYPE_NAME (instance));
-	      permerror (input_location,
-			 "partial specialization of %qD after instantiation "
-			 "of %qD", decl, inst_decl);
-	    }
+	  tree inst_decl = (DECL_P (instance)
+			    ? instance : TYPE_NAME (instance));
+	  if (!spec)
+	    /* OK */;
+	  else if (spec == error_mark_node)
+	    permerror (input_location,
+		       "declaration of %qD ambiguates earlier template "
+		       "instantiation for %qD", decl, inst_decl);
+	  else if (TREE_VALUE (spec) == tmpl)
+	    permerror (input_location,
+		       "partial specialization of %qD after instantiation "
+		       "of %qD", decl, inst_decl);
 	}
     }
 

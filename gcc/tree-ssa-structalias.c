@@ -22,10 +22,18 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
 #include "ssa.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "tree-pretty-print.h"
+#include "diagnostic-core.h"
 #include "flags.h"
 #include "alias.h"
 #include "fold-const.h"
@@ -33,24 +41,16 @@
 #include "stmt.h"
 #include "internal-fn.h"
 #include "gimple-iterator.h"
-#include "cgraph.h"
 #include "tree-into-ssa.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
-#include "diagnostic-core.h"
-#include "tree-pass.h"
-#include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "tree-pretty-print.h"
 #include "gimple-walk.h"
 
 /* The idea behind this analyzer is to generate set constraints from the
@@ -220,7 +220,7 @@ static bitmap_obstack oldpta_obstack;
 /* Used for per-solver-iteration bitmaps.  */
 static bitmap_obstack iteration_obstack;
 
-static unsigned int create_variable_info_for (tree, const char *);
+static unsigned int create_variable_info_for (tree, const char *, bool);
 typedef struct constraint_graph *constraint_graph_t;
 static void unify_nodes (constraint_graph_t, unsigned int, unsigned int, bool);
 
@@ -361,10 +361,17 @@ enum { nothing_id = 1, anything_id = 2, string_id = 3,
    to the vector of variable info structures.  */
 
 static varinfo_t
-new_var_info (tree t, const char *name)
+new_var_info (tree t, const char *name, bool add_id)
 {
   unsigned index = varmap.length ();
   varinfo_t ret = variable_info_pool.allocate ();
+
+  if (dump_file && add_id)
+    {
+      char *tempname = xasprintf ("%s(%d)", name, index);
+      name = ggc_strdup (tempname);
+      free (tempname);
+    }
 
   ret->id = index;
   ret->name = name;
@@ -416,13 +423,13 @@ get_call_vi (gcall *call)
   if (existed)
     return *slot_p;
 
-  vi = new_var_info (NULL_TREE, "CALLUSED");
+  vi = new_var_info (NULL_TREE, "CALLUSED", true);
   vi->offset = 0;
   vi->size = 1;
   vi->fullsize = 2;
   vi->is_full_var = true;
 
-  vi2 = new_var_info (NULL_TREE, "CALLCLOBBERED");
+  vi2 = new_var_info (NULL_TREE, "CALLCLOBBERED", true);
   vi2->offset = 1;
   vi2->size = 1;
   vi2->fullsize = 2;
@@ -2544,10 +2551,11 @@ rewrite_constraints (constraint_graph_t graph,
   int i;
   constraint_t c;
 
-#ifdef ENABLE_CHECKING
-  for (unsigned int j = 0; j < graph->size; j++)
-    gcc_assert (find (j) == j);
-#endif
+  if (flag_checking)
+    {
+      for (unsigned int j = 0; j < graph->size; j++)
+	gcc_assert (find (j) == j);
+    }
 
   FOR_EACH_VEC_ELT (constraints, i, c)
     {
@@ -2883,7 +2891,10 @@ get_vi_for_tree (tree t)
 {
   varinfo_t *slot = vi_for_tree->get (t);
   if (slot == NULL)
-    return get_varinfo (create_variable_info_for (t, alias_get_name (t)));
+    {
+      unsigned int id = create_variable_info_for (t, alias_get_name (t), false);
+      return get_varinfo (id);
+    }
 
   return *slot;
 }
@@ -2891,12 +2902,12 @@ get_vi_for_tree (tree t)
 /* Get a scalar constraint expression for a new temporary variable.  */
 
 static struct constraint_expr
-new_scalar_tmp_constraint_exp (const char *name)
+new_scalar_tmp_constraint_exp (const char *name, bool add_id)
 {
   struct constraint_expr tmp;
   varinfo_t vi;
 
-  vi = new_var_info (NULL_TREE, name);
+  vi = new_var_info (NULL_TREE, name, add_id);
   vi->offset = 0;
   vi->size = -1;
   vi->fullsize = -1;
@@ -3002,7 +3013,7 @@ process_constraint (constraint_t t)
     {
       /* Split into tmp = *rhs, *lhs = tmp */
       struct constraint_expr tmplhs;
-      tmplhs = new_scalar_tmp_constraint_exp ("doubledereftmp");
+      tmplhs = new_scalar_tmp_constraint_exp ("doubledereftmp", true);
       process_constraint (new_constraint (tmplhs, rhs));
       process_constraint (new_constraint (lhs, tmplhs));
     }
@@ -3010,7 +3021,7 @@ process_constraint (constraint_t t)
     {
       /* Split into tmp = &rhs, *lhs = tmp */
       struct constraint_expr tmplhs;
-      tmplhs = new_scalar_tmp_constraint_exp ("derefaddrtmp");
+      tmplhs = new_scalar_tmp_constraint_exp ("derefaddrtmp", true);
       process_constraint (new_constraint (tmplhs, rhs));
       process_constraint (new_constraint (lhs, tmplhs));
     }
@@ -3315,7 +3326,7 @@ do_deref (vec<ce_s> *constraints)
       else if (c->type == DEREF)
 	{
 	  struct constraint_expr tmplhs;
-	  tmplhs = new_scalar_tmp_constraint_exp ("dereftmp");
+	  tmplhs = new_scalar_tmp_constraint_exp ("dereftmp", true);
 	  process_constraint (new_constraint (tmplhs, *c));
 	  c->var = tmplhs.var;
 	}
@@ -3573,7 +3584,7 @@ process_all_all_constraints (vec<ce_s> lhsc,
   else
     {
       struct constraint_expr tmp;
-      tmp = new_scalar_tmp_constraint_exp ("allalltmp");
+      tmp = new_scalar_tmp_constraint_exp ("allalltmp", true);
       FOR_EACH_VEC_ELT (rhsc, i, rhsp)
 	process_constraint (new_constraint (tmp, *rhsp));
       FOR_EACH_VEC_ELT (lhsc, i, lhsp)
@@ -3761,7 +3772,7 @@ build_fake_var_decl (tree type)
    Return the created variable.  */
 
 static varinfo_t
-make_heapvar (const char *name)
+make_heapvar (const char *name, bool add_id)
 {
   varinfo_t vi;
   tree heapvar;
@@ -3769,7 +3780,7 @@ make_heapvar (const char *name)
   heapvar = build_fake_var_decl (ptr_type_node);
   DECL_EXTERNAL (heapvar) = 1;
 
-  vi = new_var_info (heapvar, name);
+  vi = new_var_info (heapvar, name, add_id);
   vi->is_artificial_var = true;
   vi->is_heap_var = true;
   vi->is_unknown_size_var = true;
@@ -3787,9 +3798,9 @@ make_heapvar (const char *name)
    for tracking restrict pointers.  */
 
 static varinfo_t
-make_constraint_from_restrict (varinfo_t lhs, const char *name)
+make_constraint_from_restrict (varinfo_t lhs, const char *name, bool add_id)
 {
-  varinfo_t vi = make_heapvar (name);
+  varinfo_t vi = make_heapvar (name, add_id);
   vi->is_restrict_var = 1;
   vi->is_global_var = 1;
   vi->may_have_pointers = 1;
@@ -3803,9 +3814,10 @@ make_constraint_from_restrict (varinfo_t lhs, const char *name)
    point to global memory.  */
 
 static varinfo_t
-make_constraint_from_global_restrict (varinfo_t lhs, const char *name)
+make_constraint_from_global_restrict (varinfo_t lhs, const char *name,
+				      bool add_id)
 {
-  varinfo_t vi = make_constraint_from_restrict (lhs, name);
+  varinfo_t vi = make_constraint_from_restrict (lhs, name, add_id);
   make_copy_constraint (vi, nonlocal_id);
   return vi;
 }
@@ -3885,7 +3897,7 @@ handle_rhs_call (gcall *stmt, vec<ce_s> *results)
 	  varinfo_t uses = get_call_use_vi (stmt);
 	  if (!(flags & EAF_DIRECT))
 	    {
-	      varinfo_t tem = new_var_info (NULL_TREE, "callarg");
+	      varinfo_t tem = new_var_info (NULL_TREE, "callarg", true);
 	      make_constraint_to (tem->id, arg);
 	      make_transitive_closure_constraints (tem);
 	      make_copy_constraint (uses, tem->id);
@@ -3899,7 +3911,7 @@ handle_rhs_call (gcall *stmt, vec<ce_s> *results)
 	  struct constraint_expr lhs, rhs;
 	  varinfo_t uses = get_call_use_vi (stmt);
 	  varinfo_t clobbers = get_call_clobber_vi (stmt);
-	  varinfo_t tem = new_var_info (NULL_TREE, "callarg");
+	  varinfo_t tem = new_var_info (NULL_TREE, "callarg", true);
 	  make_constraint_to (tem->id, arg);
 	  if (!(flags & EAF_DIRECT))
 	    make_transitive_closure_constraints (tem);
@@ -3999,7 +4011,7 @@ handle_lhs_call (gcall *stmt, tree lhs, int flags, vec<ce_s> rhsc,
       varinfo_t vi;
       struct constraint_expr tmpc;
       rhsc.create (0);
-      vi = make_heapvar ("HEAP");
+      vi = make_heapvar ("HEAP", true);
       /* We are marking allocated storage local, we deal with it becoming
          global by escaping and setting of vars_contains_escaped_heap.  */
       DECL_EXTERNAL (vi->decl) = 0;
@@ -4250,7 +4262,7 @@ find_func_aliases_for_builtin_call (struct function *fn, gcall *t)
 	  tree ptrptr = gimple_call_arg (t, 0);
 	  get_constraint_for (ptrptr, &lhsc);
 	  do_deref (&lhsc);
-	  varinfo_t vi = make_heapvar ("HEAP");
+	  varinfo_t vi = make_heapvar ("HEAP", true);
 	  /* We are marking allocated storage local, we deal with it becoming
 	     global by escaping and setting of vars_contains_escaped_heap.  */
 	  DECL_EXTERNAL (vi->decl) = 0;
@@ -5317,13 +5329,14 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
       {
 	bool push = false;
 	HOST_WIDE_INT foff = bitpos_of_field (field);
+	tree field_type = TREE_TYPE (field);
 
 	if (!var_can_have_subvars (field)
-	    || TREE_CODE (TREE_TYPE (field)) == QUAL_UNION_TYPE
-	    || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE)
+	    || TREE_CODE (field_type) == QUAL_UNION_TYPE
+	    || TREE_CODE (field_type) == UNION_TYPE)
 	  push = true;
 	else if (!push_fields_onto_fieldstack
-		    (TREE_TYPE (field), fieldstack, offset + foff)
+		    (field_type, fieldstack, offset + foff)
 		 && (DECL_SIZE (field)
 		     && !integer_zerop (DECL_SIZE (field))))
 	  /* Empty structures may have actual size, like in C++.  So
@@ -5376,8 +5389,8 @@ push_fields_onto_fieldstack (tree type, vec<fieldoff_s> *fieldstack,
 		e.may_have_pointers = true;
 		e.only_restrict_pointers
 		  = (!has_unknown_size
-		     && POINTER_TYPE_P (TREE_TYPE (field))
-		     && TYPE_RESTRICT (TREE_TYPE (field)));
+		     && POINTER_TYPE_P (field_type)
+		     && TYPE_RESTRICT (field_type));
 		fieldstack->safe_push (e);
 	      }
 	  }
@@ -5416,7 +5429,7 @@ count_num_arguments (tree decl, bool *is_varargs)
    of the variable we've created for the function.  */
 
 static varinfo_t
-create_function_info_for (tree decl, const char *name)
+create_function_info_for (tree decl, const char *name, bool add_id)
 {
   struct function *fn = DECL_STRUCT_FUNCTION (decl);
   varinfo_t vi, prev_vi;
@@ -5427,7 +5440,7 @@ create_function_info_for (tree decl, const char *name)
 
   /* Create the variable info.  */
 
-  vi = new_var_info (decl, name);
+  vi = new_var_info (decl, name, add_id);
   vi->offset = 0;
   vi->size = 1;
   vi->fullsize = fi_parm_base + num_args;
@@ -5450,7 +5463,7 @@ create_function_info_for (tree decl, const char *name)
       newname = ggc_strdup (tempname);
       free (tempname);
 
-      clobbervi = new_var_info (NULL, newname);
+      clobbervi = new_var_info (NULL, newname, false);
       clobbervi->offset = fi_clobbers;
       clobbervi->size = 1;
       clobbervi->fullsize = vi->fullsize;
@@ -5464,7 +5477,7 @@ create_function_info_for (tree decl, const char *name)
       newname = ggc_strdup (tempname);
       free (tempname);
 
-      usevi = new_var_info (NULL, newname);
+      usevi = new_var_info (NULL, newname, false);
       usevi->offset = fi_uses;
       usevi->size = 1;
       usevi->fullsize = vi->fullsize;
@@ -5486,7 +5499,7 @@ create_function_info_for (tree decl, const char *name)
       newname = ggc_strdup (tempname);
       free (tempname);
 
-      chainvi = new_var_info (fn->static_chain_decl, newname);
+      chainvi = new_var_info (fn->static_chain_decl, newname, false);
       chainvi->offset = fi_static_chain;
       chainvi->size = 1;
       chainvi->fullsize = vi->fullsize;
@@ -5514,7 +5527,7 @@ create_function_info_for (tree decl, const char *name)
       newname = ggc_strdup (tempname);
       free (tempname);
 
-      resultvi = new_var_info (resultdecl, newname);
+      resultvi = new_var_info (resultdecl, newname, false);
       resultvi->offset = fi_result;
       resultvi->size = 1;
       resultvi->fullsize = vi->fullsize;
@@ -5544,7 +5557,7 @@ create_function_info_for (tree decl, const char *name)
       newname = ggc_strdup (tempname);
       free (tempname);
 
-      argvi = new_var_info (argdecl, newname);
+      argvi = new_var_info (argdecl, newname, false);
       argvi->offset = fi_parm_base + i;
       argvi->size = 1;
       argvi->is_full_var = true;
@@ -5576,7 +5589,7 @@ create_function_info_for (tree decl, const char *name)
       /* We need sth that can be pointed to for va_start.  */
       decl = build_fake_var_decl (ptr_type_node);
 
-      argvi = new_var_info (decl, newname);
+      argvi = new_var_info (decl, newname, false);
       argvi->offset = fi_parm_base + num_args;
       argvi->size = ~0;
       argvi->is_full_var = true;
@@ -5615,7 +5628,7 @@ check_for_overlaps (vec<fieldoff_s> fieldstack)
    of DECL.  */
 
 static varinfo_t
-create_variable_info_for_1 (tree decl, const char *name)
+create_variable_info_for_1 (tree decl, const char *name, bool add_id)
 {
   varinfo_t vi, newvi;
   tree decl_type = TREE_TYPE (decl);
@@ -5627,7 +5640,7 @@ create_variable_info_for_1 (tree decl, const char *name)
   if (!declsize
       || !tree_fits_uhwi_p (declsize))
     {
-      vi = new_var_info (decl, name);
+      vi = new_var_info (decl, name, add_id);
       vi->offset = 0;
       vi->size = ~0;
       vi->fullsize = ~0;
@@ -5682,7 +5695,7 @@ create_variable_info_for_1 (tree decl, const char *name)
   if (fieldstack.length () == 0
       || fieldstack.length () > MAX_FIELDS_FOR_FIELD_SENSITIVE)
     {
-      vi = new_var_info (decl, name);
+      vi = new_var_info (decl, name, add_id);
       vi->offset = 0;
       vi->may_have_pointers = true;
       vi->fullsize = tree_to_uhwi (declsize);
@@ -5695,7 +5708,7 @@ create_variable_info_for_1 (tree decl, const char *name)
       return vi;
     }
 
-  vi = new_var_info (decl, name);
+  vi = new_var_info (decl, name, add_id);
   vi->fullsize = tree_to_uhwi (declsize);
   if (fieldstack.length () == 1)
     vi->is_full_var = true;
@@ -5730,7 +5743,7 @@ create_variable_info_for_1 (tree decl, const char *name)
       newvi->only_restrict_pointers = fo->only_restrict_pointers;
       if (i + 1 < fieldstack.length ())
 	{
-	  varinfo_t tem = new_var_info (decl, name);
+	  varinfo_t tem = new_var_info (decl, name, false);
 	  newvi->next = tem->id;
 	  tem->head = vi->id;
 	}
@@ -5740,9 +5753,9 @@ create_variable_info_for_1 (tree decl, const char *name)
 }
 
 static unsigned int
-create_variable_info_for (tree decl, const char *name)
+create_variable_info_for (tree decl, const char *name, bool add_id)
 {
-  varinfo_t vi = create_variable_info_for_1 (decl, name);
+  varinfo_t vi = create_variable_info_for_1 (decl, name, add_id);
   unsigned int id = vi->id;
 
   insert_vi_for_tree (decl, vi);
@@ -5763,7 +5776,8 @@ create_variable_info_for (tree decl, const char *name)
 	  || vi->only_restrict_pointers)
 	{
 	  varinfo_t rvi
-	    = make_constraint_from_global_restrict (vi, "GLOBAL_RESTRICT");
+	    = make_constraint_from_global_restrict (vi, "GLOBAL_RESTRICT",
+						    true);
 	  /* ???  For now exclude reads from globals as restrict sources
 	     if those are not (indirectly) from incoming parameters.  */
 	  rvi->is_restrict_var = false;
@@ -5848,6 +5862,21 @@ debug_solution_for_var (unsigned int var)
   dump_solution_for_var (stderr, var);
 }
 
+/* Register the constraints for restrict var VI.  */
+
+static void
+make_restrict_var_constraints (varinfo_t vi)
+{
+  for (; vi; vi = vi_next (vi))
+    if (vi->may_have_pointers)
+      {
+	if (vi->only_restrict_pointers)
+	  make_constraint_from_global_restrict (vi, "GLOBAL_RESTRICT", true);
+	else
+	  make_copy_constraint (vi, nonlocal_id);
+      }
+}
+
 /* Create varinfo structures for all of the variables in the
    function for intraprocedural mode.  */
 
@@ -5861,46 +5890,43 @@ intra_create_variable_infos (struct function *fn)
      passed-by-reference argument.  */
   for (t = DECL_ARGUMENTS (fn->decl); t; t = DECL_CHAIN (t))
     {
-      varinfo_t p = get_vi_for_tree (t);
+      bool restrict_pointer_p = (POINTER_TYPE_P (TREE_TYPE (t))
+				 && TYPE_RESTRICT (TREE_TYPE (t)));
+      bool recursive_restrict_p
+	= (restrict_pointer_p
+	   && !type_contains_placeholder_p (TREE_TYPE (TREE_TYPE (t))));
+      varinfo_t p = lookup_vi_for_tree (t);
+      if (p == NULL)
+	{
+	  p = create_variable_info_for_1 (t, alias_get_name (t), false);
+	  insert_vi_for_tree (t, p);
+	}
 
       /* For restrict qualified pointers build a representative for
 	 the pointed-to object.  Note that this ends up handling
 	 out-of-bound references conservatively by aggregating them
 	 in the first/last subfield of the object.  */
-      if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && TYPE_RESTRICT (TREE_TYPE (t))
-	  && !type_contains_placeholder_p (TREE_TYPE (TREE_TYPE (t))))
+      if (recursive_restrict_p)
 	{
 	  varinfo_t vi;
 	  tree heapvar = build_fake_var_decl (TREE_TYPE (TREE_TYPE (t)));
 	  DECL_EXTERNAL (heapvar) = 1;
-	  vi = create_variable_info_for_1 (heapvar, "PARM_NOALIAS");
+	  vi = create_variable_info_for_1 (heapvar, "PARM_NOALIAS", true);
 	  vi->is_restrict_var = 1;
 	  insert_vi_for_tree (heapvar, vi);
 	  make_constraint_from (p, vi->id);
-	  for (; vi; vi = vi_next (vi))
-	    if (vi->may_have_pointers)
-	      {
-		if (vi->only_restrict_pointers)
-		  make_constraint_from_global_restrict (vi, "GLOBAL_RESTRICT");
-		else
-		  make_copy_constraint (vi, nonlocal_id);
-	      }
+	  make_restrict_var_constraints (vi);
 	  continue;
 	}
 
-      if (POINTER_TYPE_P (TREE_TYPE (t))
-	  && TYPE_RESTRICT (TREE_TYPE (t)))
-	make_constraint_from_global_restrict (p, "PARM_RESTRICT");
-      else
+      for (; p; p = vi_next (p))
 	{
-	  for (; p; p = vi_next (p))
-	    {
-	      if (p->only_restrict_pointers)
-		make_constraint_from_global_restrict (p, "PARM_RESTRICT");
-	      else if (p->may_have_pointers)
-		make_constraint_from (p, nonlocal_id);
-	    }
+	  if (p->only_restrict_pointers)
+	    make_constraint_from_global_restrict (p, "PARM_RESTRICT", true);
+	  else if (p->may_have_pointers)
+	    make_constraint_from (p, nonlocal_id);
+	  if (p->is_full_var)
+	    break;
 	}
     }
 
@@ -6499,7 +6525,7 @@ init_base_vars (void)
 
   /* Create the NULL variable, used to represent that a variable points
      to NULL.  */
-  var_nothing = new_var_info (NULL_TREE, "NULL");
+  var_nothing = new_var_info (NULL_TREE, "NULL", false);
   gcc_assert (var_nothing->id == nothing_id);
   var_nothing->is_artificial_var = 1;
   var_nothing->offset = 0;
@@ -6511,7 +6537,7 @@ init_base_vars (void)
 
   /* Create the ANYTHING variable, used to represent that a variable
      points to some unknown piece of memory.  */
-  var_anything = new_var_info (NULL_TREE, "ANYTHING");
+  var_anything = new_var_info (NULL_TREE, "ANYTHING", false);
   gcc_assert (var_anything->id == anything_id);
   var_anything->is_artificial_var = 1;
   var_anything->size = ~0;
@@ -6537,7 +6563,7 @@ init_base_vars (void)
   /* Create the STRING variable, used to represent that a variable
      points to a string literal.  String literals don't contain
      pointers so STRING doesn't point to anything.  */
-  var_string = new_var_info (NULL_TREE, "STRING");
+  var_string = new_var_info (NULL_TREE, "STRING", false);
   gcc_assert (var_string->id == string_id);
   var_string->is_artificial_var = 1;
   var_string->offset = 0;
@@ -6548,7 +6574,7 @@ init_base_vars (void)
 
   /* Create the ESCAPED variable, used to represent the set of escaped
      memory.  */
-  var_escaped = new_var_info (NULL_TREE, "ESCAPED");
+  var_escaped = new_var_info (NULL_TREE, "ESCAPED", false);
   gcc_assert (var_escaped->id == escaped_id);
   var_escaped->is_artificial_var = 1;
   var_escaped->offset = 0;
@@ -6558,7 +6584,7 @@ init_base_vars (void)
 
   /* Create the NONLOCAL variable, used to represent the set of nonlocal
      memory.  */
-  var_nonlocal = new_var_info (NULL_TREE, "NONLOCAL");
+  var_nonlocal = new_var_info (NULL_TREE, "NONLOCAL", false);
   gcc_assert (var_nonlocal->id == nonlocal_id);
   var_nonlocal->is_artificial_var = 1;
   var_nonlocal->offset = 0;
@@ -6612,7 +6638,7 @@ init_base_vars (void)
 
   /* Create the STOREDANYTHING variable, used to represent the set of
      variables stored to *ANYTHING.  */
-  var_storedanything = new_var_info (NULL_TREE, "STOREDANYTHING");
+  var_storedanything = new_var_info (NULL_TREE, "STOREDANYTHING", false);
   gcc_assert (var_storedanything->id == storedanything_id);
   var_storedanything->is_artificial_var = 1;
   var_storedanything->offset = 0;
@@ -6622,7 +6648,7 @@ init_base_vars (void)
 
   /* Create the INTEGER variable, used to represent that a variable points
      to what an INTEGER "points to".  */
-  var_integer = new_var_info (NULL_TREE, "INTEGER");
+  var_integer = new_var_info (NULL_TREE, "INTEGER", false);
   gcc_assert (var_integer->id == integer_id);
   var_integer->is_artificial_var = 1;
   var_integer->size = ~0;
@@ -7288,7 +7314,7 @@ ipa_pta_execute (void)
       gcc_assert (!node->clone_of);
 
       vi = create_function_info_for (node->decl,
-			             alias_get_name (node->decl));
+				     alias_get_name (node->decl), false);
       node->call_for_symbol_thunks_and_aliases
 	(associate_varinfo_to_alias, vi, true);
     }

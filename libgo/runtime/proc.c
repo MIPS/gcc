@@ -528,9 +528,9 @@ static struct __go_channel_type chan_bool_type_descriptor =
       /* __hash */
       0, /* This value doesn't matter.  */
       /* __hashfn */
-      __go_type_hash_error,
+      &__go_type_hash_error_descriptor,
       /* __equalfn */
-      __go_type_equal_error,
+      &__go_type_equal_error_descriptor,
       /* __gc */
       NULL, /* This value doesn't matter */
       /* __reflection */
@@ -538,9 +538,7 @@ static struct __go_channel_type chan_bool_type_descriptor =
       /* __uncommon */
       NULL,
       /* __pointer_to_this */
-      NULL,
-      /* __zero */
-      NULL /* This value doesn't matter */
+      NULL
     },
     /* __element_type */
     &bool_type_descriptor,

@@ -22,37 +22,32 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "c-common.h"
-#include "tm.h"
-#include "intl.h"
+#include "target.h"
+#include "function.h"
+#include "obstack.h"
 #include "tree.h"
-#include "fold-const.h"
+#include "c-common.h"
+#include "gimple-expr.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "cgraph.h"
+#include "diagnostic.h"
+#include "intl.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "stringpool.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "trans-mem.h"
 #include "flags.h"
 #include "c-pragma.h"
 #include "c-objc.h"
-#include "tm_p.h"
-#include "obstack.h"
-#include "cpplib.h"
-#include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "tree-inline.h"
 #include "toplev.h"
-#include "diagnostic.h"
 #include "tree-iterator.h"
 #include "opts.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
 #include "gimplify.h"
-#include "wide-int-print.h"
-#include "gimple-expr.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -4853,9 +4848,8 @@ pointer_int_sum (location_t loc, enum tree_code resultcode,
      for the pointer operation and disregard an overflow that occurred only
      because of the sign-extension change in the latter conversion.  */
   {
-    tree t = build_binary_op (loc,
-			      MULT_EXPR, intop,
-			      convert (TREE_TYPE (intop), size_exp), 1);
+    tree t = fold_build2_loc (loc, MULT_EXPR, TREE_TYPE (intop), intop,
+			      convert (TREE_TYPE (intop), size_exp));
     intop = convert (sizetype, t);
     if (TREE_OVERFLOW_P (intop) && !TREE_OVERFLOW (t))
       intop = wide_int_to_tree (TREE_TYPE (intop), intop);

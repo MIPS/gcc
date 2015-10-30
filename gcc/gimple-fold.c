@@ -22,26 +22,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "predict.h"
 #include "ssa.h"
+#include "expmed.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "gimple-pretty-print.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
 #include "stor-layout.h"
 #include "dumpfile.h"
-#include "dominance.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
 #include "gimplify.h"
@@ -50,10 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
-#include "target.h"
-#include "cgraph.h"
 #include "ipa-utils.h"
-#include "gimple-pretty-print.h"
 #include "tree-ssa-address.h"
 #include "langhooks.h"
 #include "gimplify-me.h"
@@ -3290,6 +3289,11 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	  && !has_use_on_stmt (ops[2], stmt)))
     return false;
 
+  /* Don't insert new statements when INPLACE is true, even if we could
+     reuse STMT for the final statement.  */
+  if (inplace && !gimple_seq_empty_p (*seq))
+    return false;
+
   if (gcond *cond_stmt = dyn_cast <gcond *> (stmt))
     {
       gcc_assert (rcode.is_tree_code ());
@@ -3366,7 +3370,14 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	}
       if (i < 3)
 	gcc_assert (ops[i] == NULL_TREE);
-      gcc_assert (gimple_seq_empty_p (*seq));
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	{
+	  fprintf (dump_file, "gimple_simplified to ");
+	  if (!gimple_seq_empty_p (*seq))
+	    print_gimple_seq (dump_file, *seq, 0, TDF_SLIM);
+	  print_gimple_stmt (dump_file, gsi_stmt (*gsi), 0, TDF_SLIM);
+	}
+      gsi_insert_seq_before (gsi, *seq, GSI_SAME_STMT);
       return true;
     }
   else if (!inplace)
