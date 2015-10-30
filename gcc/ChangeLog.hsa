@@ -1,3 +1,12 @@
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
+	* hsa-dump.c (dump_hsa_symbol): New function.
+	(debug_hsa_symbol): Likewise.
+	* hsa-gen.c (hsa_function_representation::~hsa_function_representation):
+	Release memory.
+	(generate_hsa): Use hsa_cfun->m_map.
+	* hsa.h: Declare hsa_function_representation::m_map.
+
 2015-10-30  hsa-brig.c (emit_function_directives): Simplify  emission
 
 	of private symbols.

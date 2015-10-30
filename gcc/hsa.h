@@ -1016,6 +1016,9 @@ public:
 
   /* Counter for temporary symbols created in the function representation.  */
   unsigned m_temp_symbol_count;
+
+  /* SSA names mapping.  */
+  vec <hsa_op_reg_p> m_ssa_map;
 };
 
 enum hsa_function_kind

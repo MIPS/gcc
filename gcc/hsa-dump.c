@@ -726,6 +726,26 @@ dump_hsa_address (FILE *f, hsa_op_address *addr)
     fprintf (f, "[" HOST_WIDE_INT_PRINT_DEC "]", addr->m_imm_offset);
 }
 
+/* Dump textual representation of HSA IL symbol SYMBOL to file F.  */
+
+static void
+dump_hsa_symbol (FILE *f, hsa_symbol *symbol)
+{
+  const char *name;
+  if (symbol->m_name)
+    name = symbol->m_name;
+  else
+    {
+      char buf[64];
+      sprintf (buf, "__%s_%i", hsa_seg_name (symbol->m_segment),
+	       symbol->m_name_number);
+
+      name = buf;
+    }
+
+  fprintf (f, "%s (%s)", name, hsa_type_name (symbol->m_type));
+}
+
 /* Dump textual representation of HSA IL operand OP to file F.  */
 
 static void
@@ -1125,5 +1145,14 @@ DEBUG_FUNCTION void
 debug_hsa_operand (hsa_op_base *opc)
 {
   dump_hsa_operand (stderr, opc, true);
+  fprintf (stderr, "\n");
+}
+
+/* Dump textual representation of as HSA symbol.  */
+
+DEBUG_FUNCTION void
+debug_hsa_symbol (hsa_symbol *symbol)
+{
+  dump_hsa_symbol (stderr, symbol);
   fprintf (stderr, "\n");
 }
