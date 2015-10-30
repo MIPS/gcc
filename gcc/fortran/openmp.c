@@ -3197,7 +3197,7 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
   static const char *clause_names[]
     = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
 	"COPYIN", "UNIFORM", "ALIGNED", "LINEAR", "DEPEND", "MAP",
-	"TO", "FROM", "REDUCTION", "DEVICE_RESIDENT", "USE_DEVICE",
+	"TO", "FROM", "REDUCTION", "DEVICE_RESIDENT", "LINK", "USE_DEVICE",
 	"CACHE" };
 
   if (omp_clauses == NULL)
