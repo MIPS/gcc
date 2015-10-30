@@ -1,5 +1,8 @@
 2015-10-30  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c-c++-common/acc-on-device.c: Restore
+	dg-do compile directive.
+
 	* testsuite/libgomp.oacc-c-c++-common/acc-on-device.c:
 	De-duplicate file.
 

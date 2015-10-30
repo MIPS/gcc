@@ -1,3 +1,4 @@
+/* { dg-do compile } */
 /* { dg-additional-options "-O2" } */
 
 #include <openacc.h>
