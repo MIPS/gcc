@@ -193,6 +193,25 @@ hsa_symbol::hsa_symbol (BrigType16_t type, BrigSegment8_t segment,
 {
 }
 
+void *
+hsa_symbol::operator new (size_t)
+{
+  return hsa_allocp_symbols->vallocate ();
+}
+
+unsigned HOST_WIDE_INT
+hsa_symbol::total_byte_size ()
+{
+  unsigned HOST_WIDE_INT s = hsa_type_bit_size (~BRIG_TYPE_ARRAY_MASK & m_type);
+  gcc_assert (s % BITS_PER_UNIT == 0);
+  s /= BITS_PER_UNIT;
+
+  if (m_dim)
+    s *= m_dim;
+
+  return s;
+}
+
 /* Constructor of class representing global HSA function/kernel information and
    state.  */
 
@@ -3215,14 +3234,6 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
   hsa_insn_mem *result_insn = NULL;
   if (!VOID_TYPE_P (result_type))
     {
-      if (AGGREGATE_TYPE_P (result_type))
-	{
-	  HSA_SORRY_ATV (gimple_location (stmt),
-			 "support for HSA does not implement returning a value "
-			 "which is of an aggregate type %T", result_type);
-	  return;
-	}
-
       hsa_op_address *addr = gen_hsa_addr_for_arg (result_type, -1);
 
       /* Even if result of a function call is unused, we have to emit
@@ -3230,25 +3241,25 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb,
       if (result)
 	{
 	  tree lhs_type = TREE_TYPE (result);
-	  if (AGGREGATE_TYPE_P (lhs_type))
-	    {
-	      HSA_SORRY_ATV (gimple_location (stmt), "support for HSA does not "
-			     "implement assignment of a returned value "
-			     "which is of an aggregate type %T", lhs_type);
-	      return;
-	    }
-
-	  BrigType16_t mtype = mem_type_for_type
-	    (hsa_type_for_scalar_tree_type (lhs_type, false));
 
 	  if (hsa_seen_error ())
 	    return;
 
-	  hsa_op_reg *dst = hsa_reg_for_gimple_ssa (result, ssa_map);
+	  if (AGGREGATE_TYPE_P (lhs_type))
+	    {
+	      hsa_op_address *result_addr = gen_hsa_addr (result, hbb, ssa_map);
+	      gen_hsa_memory_copy (hbb, result_addr, addr,
+				   addr->m_symbol->total_byte_size ());
+	    }
+	  else
+	    {
+	      BrigType16_t mtype = mem_type_for_type
+		(hsa_type_for_scalar_tree_type (lhs_type, false));
 
-	  result_insn = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dst, addr);
-
-	  hbb->append_insn (result_insn);
+	      hsa_op_reg *dst = hsa_reg_for_gimple_ssa (result, ssa_map);
+	      result_insn = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dst, addr);
+	      hbb->append_insn (result_insn);
+	    }
 	}
 
       call_insn->m_output_arg = addr->m_symbol;
@@ -3286,21 +3297,26 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb,
   tree retval = gimple_return_retval (stmt);
   if (retval)
     {
+      hsa_op_address *addr = new hsa_op_address (hsa_cfun->m_output_arg);
+
       if (AGGREGATE_TYPE_P (TREE_TYPE (retval)))
 	{
-	  HSA_SORRY_AT (gimple_location (stmt),
-			"HSA does not support return "
-			"statement with an aggregate value type");
-	  return;
+	  hsa_op_address *retval_addr = gen_hsa_addr (retval, hbb, ssa_map);
+	  gen_hsa_memory_copy (hbb, addr, retval_addr,
+			       hsa_cfun->m_output_arg->total_byte_size ());
 	}
+      else
+	{
+	  BrigType16_t mtype = mem_type_for_type
+	    (hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
 
-      /* Store of return value.  */
-      BrigType16_t mtype = mem_type_for_type
-	(hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
-      hsa_op_address *addr = new hsa_op_address (hsa_cfun->m_output_arg);
-      hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (retval, hbb, ssa_map);
-      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
-      hbb->append_insn (mem);
+	  /* Store of return value.  */
+	  hsa_op_base *src = hsa_reg_or_immed_for_gimple_op (retval, hbb,
+							     ssa_map);
+	  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src,
+						addr);
+	  hbb->append_insn (mem);
+	}
     }
 
   /* HSAIL return instruction emission.  */

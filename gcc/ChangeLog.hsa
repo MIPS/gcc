@@ -1,5 +1,13 @@
 2015-10-30  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_direct_call): Support aggregate
+	type as a function return type.
+	(gen_hsa_insns_for_return): Likewise.
+	(hsa_symbol::total_byte_size): New function.
+	* hsa.h (struct hsa_symbol): Declare it.
+
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_function_directives): Emit private variables.
 	* hsa-gen.c (hsa_function_representation::~hsa_function_representation):
 	Release the container.
