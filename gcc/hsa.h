@@ -940,6 +940,14 @@ public:
      shadow register.  */
   bool has_shadow_reg_p ();
 
+  /* The entry/exit blocks don't contain incoming code,
+     but the HSA generator might use them to put code into,
+     so we need hsa_bb instances of them.  */
+  void init_extra_bbs ();
+
+  /* Create a private symbol of requested TYPE.  */
+  hsa_symbol *create_hsa_temporary (BrigType16_t type);
+
   /* Name of the function.  */
   char *m_name;
 
@@ -966,6 +974,9 @@ public:
   /* Vector of pointers to symbols (string constants and global,
      noni-addressable variables with a constructor).  */
   vec <struct hsa_symbol *> m_readonly_variables;
+
+  /* Private function artificial variables.  */
+  vec <struct hsa_symbol *> m_private_variables;
 
   /* Vector of called function declarations.  */
   vec <tree> m_called_functions;
@@ -998,6 +1009,9 @@ public:
 
   /* Return true if there's an HSA-specific warning already seen.  */
   bool m_seen_error;
+
+  /* Counter for temporary symbols created in the function representation.  */
+  unsigned m_temp_symbol_count;
 };
 
 enum hsa_function_kind

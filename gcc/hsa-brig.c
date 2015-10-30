@@ -626,6 +626,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
 	if (TREE_CODE ((*iter)->m_decl) == VAR_DECL)
 	  count++;
       count += f->m_spill_symbols.length ();
+      count += f->m_private_variables.length ();
     }
 
   next_toplev_off = scoped_off + count * sizeof (struct BrigDirectiveVariable);
@@ -685,7 +686,11 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
 	  emit_directive_variable (sym);
 	  brig_insn_count++;
 	}
-
+      for (unsigned i = 0; i < f->m_private_variables.length (); i++)
+	{
+	  emit_directive_variable (f->m_private_variables[i]);
+	  brig_insn_count++;
+	}
     }
 
   return ptr_to_fndir;

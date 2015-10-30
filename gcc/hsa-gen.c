@@ -200,10 +200,10 @@ hsa_function_representation::hsa_function_representation
   (tree fdecl, bool kernel_p): m_name (NULL),
   m_input_args_count (0), m_reg_count (0), m_input_args (NULL),
   m_output_arg (NULL), m_spill_symbols (vNULL), m_readonly_variables (vNULL),
-  m_called_functions (vNULL), m_hbb_count (0), m_in_ssa (true),
-  m_kern_p (kernel_p), m_declaration_p (false), m_decl (fdecl),
+  m_private_variables (vNULL), m_called_functions (vNULL), m_hbb_count (0),
+  m_in_ssa (true), m_kern_p (kernel_p), m_declaration_p (false), m_decl (fdecl),
   m_shadow_reg (NULL), m_kernel_dispatch_count (0), m_maximum_omp_data_size (0),
-  m_seen_error (false)
+  m_seen_error (false), m_temp_symbol_count (0)
 {
   int sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;;
   m_local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
@@ -223,6 +223,7 @@ hsa_function_representation::~hsa_function_representation ()
 
   m_spill_symbols.release ();
   m_readonly_variables.release ();
+  m_private_variables.release ();
   m_called_functions.release ();
 }
 
@@ -254,6 +255,24 @@ hsa_function_representation::get_shadow_reg ()
 bool hsa_function_representation::has_shadow_reg_p ()
 {
   return m_shadow_reg != NULL;
+}
+
+void
+hsa_function_representation::init_extra_bbs ()
+{
+  hsa_init_new_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  hsa_init_new_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
+}
+
+hsa_symbol *
+hsa_function_representation::create_hsa_temporary (BrigType16_t type)
+{
+  hsa_symbol *s = new hsa_symbol (type, BRIG_SEGMENT_PRIVATE,
+				  BRIG_LINKAGE_FUNCTION);
+  s->m_name_number = m_temp_symbol_count++;
+
+  hsa_cfun->m_private_variables.safe_push (s);
+  return s;
 }
 
 /* Allocate HSA structures that we need only while generating with this.  */
@@ -1683,6 +1702,13 @@ process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
     gcc_unreachable ();
 }
 
+/* Forward declaration of a function.  */
+
+static void
+gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
+		    vec <hsa_op_reg_p> *ssa_map);
+
+
 /* Generate HSA address operand for a given tree memory reference REF.  If
    instructions need to be created to calculate the address, they will be added
    to the end of HBB, SSA_MAP is an array mapping gimple SSA names to HSA
@@ -1703,6 +1729,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
   tree varoffset = NULL_TREE;
   BrigType16_t addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
   HOST_WIDE_INT bitsize = 0, bitpos = 0;
+  BrigType16_t flat_addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
 
   if (TREE_CODE (ref) == STRING_CST)
     {
@@ -1734,8 +1761,27 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
   switch (TREE_CODE (ref))
     {
     case ADDR_EXPR:
-      gcc_unreachable ();
+      {
+	addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_PRIVATE);
+	symbol = hsa_cfun->create_hsa_temporary (flat_addrtype);
+	hsa_op_reg *r = new hsa_op_reg (flat_addrtype);
+	gen_hsa_addr_insns (ref, r, hbb, ssa_map);
+	hbb->append_insn (new hsa_insn_mem (BRIG_OPCODE_ST, r->m_type,
+					    r, new hsa_op_address (symbol)));
 
+	break;
+      }
+    case SSA_NAME:
+      {
+	addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_PRIVATE);
+	symbol = hsa_cfun->create_hsa_temporary (flat_addrtype);
+	hsa_op_reg *r = hsa_reg_for_gimple_ssa (ref, ssa_map);
+
+	hbb->append_insn (new hsa_insn_mem (BRIG_OPCODE_ST, r->m_type,
+					    r, new hsa_op_address (symbol)));
+
+	break;
+      }
     case PARM_DECL:
     case VAR_DECL:
     case RESULT_DECL:
@@ -1793,7 +1839,6 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map,
       HSA_SORRY_AT (EXPR_LOCATION (origref),
 		    "support for HSA does not implement function pointers");
       goto out;
-    case SSA_NAME:
     default:
       HSA_SORRY_ATV (EXPR_LOCATION (origref), "support for HSA does "
 		     "not implement memory access to %E", origref);

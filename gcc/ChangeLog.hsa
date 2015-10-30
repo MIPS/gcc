@@ -1,5 +1,15 @@
 2015-10-30  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_function_directives): Emit private variables.
+	* hsa-gen.c (hsa_function_representation::~hsa_function_representation):
+	Release the container.
+	(hsa_function_representation::create_hsa_temporary): New function.
+	(gen_hsa_addr): Handle properly SSA_NAMEs and VAR_DECLs.
+	* hsa.h (hsa_function_representation::m_private_variables):
+	Declare new variable.
+
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (struct hsa_kernel_dispatch): Remove the
 	declaration.
 
