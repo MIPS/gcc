@@ -6778,8 +6778,9 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	      break;
 
             /* Do not fold a COMPONENT_REF expression as it may well be the
-               base for multiple other expressions */
-            if (optimize_size)
+               base for multiple other expressions when the offset 
+	       is nonzero.  */
+            if (optimize_size && integer_nonzerop (this_offset))
               offset = build2_stat_loc (UNKNOWN_LOCATION, PLUS_EXPR,
                                         TREE_TYPE (offset), offset,
                                         this_offset PASS_MEM_STAT);
