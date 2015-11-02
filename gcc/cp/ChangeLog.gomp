@@ -1,3 +1,10 @@
+2015-11-02  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* parser.c: Include context.h.
+	(cp_parser_omp_declare_target): If decl has "omp declare target" or
+	"omp declare target link" attribute, and cgraph or varpool node already
+	exists, then set corresponding flags.
+
 2015-10-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* cp-tree.h (omp_privatize_field): Add SHARED argument.

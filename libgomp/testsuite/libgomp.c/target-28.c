@@ -1,11 +1,14 @@
 extern void abort (void);
 
+int g;
+#pragma omp declare target (g)
+
 #pragma omp declare target
 int
 foo (void)
 {
   static int s;
-  return ++s;
+  return ++s + g;
 }
 #pragma omp end declare target
 

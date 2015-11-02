@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "gomp-constants.h"
 #include "c-family/c-indentation.h"
+#include "context.h"
 
 
 /* The lexer.  */
@@ -34773,7 +34774,22 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
 	  continue;
 	}
       if (!at1)
-	DECL_ATTRIBUTES (t) = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (t));
+	{
+	  symtab_node *node = symtab_node::get (t);
+	  DECL_ATTRIBUTES (t) = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (t));
+	  if (node != NULL)
+	    {
+	      node->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
+	      g->have_offload = true;
+	      if (is_a <varpool_node *> (node))
+		{
+		  vec_safe_push (offload_vars, t);
+		  node->force_output = 1;
+		}
+#endif
+	    }
+	}
     }
 }
 
