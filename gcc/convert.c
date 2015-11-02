@@ -40,6 +40,9 @@ along with GCC; see the file COPYING3.  If not see
 #define maybe_fold_build1_loc(FOLD_P, LOC, CODE, TYPE, EXPR) \
   ((FOLD_P) ? fold_build1_loc (LOC, CODE, TYPE, EXPR)	     \
    : build1_loc (LOC, CODE, TYPE, EXPR))
+#define maybe_fold_build2_loc(FOLD_P, LOC, CODE, TYPE, EXPR1, EXPR2) \
+  ((FOLD_P) ? fold_build2_loc (LOC, CODE, TYPE, EXPR1, EXPR2)	     \
+   : build2_loc (LOC, CODE, TYPE, EXPR1, EXPR2))
 
 /* Convert EXPR to some pointer or reference type TYPE.
    EXPR must be pointer, reference, integer, enumeral, or literal zero;
@@ -968,11 +971,13 @@ convert_to_integer_nofold (tree type, tree expr)
   return convert_to_integer_1 (type, expr, CONSTANT_CLASS_P (expr));
 }
 
-/* Convert EXPR to the complex type TYPE in the usual ways.  */
+/* Convert EXPR to the complex type TYPE in the usual ways.  If FOLD_P is
+   true, try to fold the expression.  */
 
-tree
-convert_to_complex (tree type, tree expr)
+static tree
+convert_to_complex_1 (tree type, tree expr, bool fold_p)
 {
+  location_t loc = EXPR_LOCATION (expr);
   tree subtype = TREE_TYPE (type);
 
   switch (TREE_CODE (TREE_TYPE (expr)))
@@ -993,41 +998,61 @@ convert_to_complex (tree type, tree expr)
 	  return expr;
 	else if (TREE_CODE (expr) == COMPOUND_EXPR)
 	  {
-	    tree t = convert_to_complex (type, TREE_OPERAND (expr, 1));
+	    tree t = convert_to_complex_1 (type, TREE_OPERAND (expr, 1),
+					   fold_p);
 	    if (t == TREE_OPERAND (expr, 1))
 	      return expr;
 	    return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR,
 			       TREE_TYPE (t), TREE_OPERAND (expr, 0), t);
-	  }    
+	  }
 	else if (TREE_CODE (expr) == COMPLEX_EXPR)
-	  return fold_build2 (COMPLEX_EXPR, type,
-			      convert (subtype, TREE_OPERAND (expr, 0)),
-			      convert (subtype, TREE_OPERAND (expr, 1)));
+	  return maybe_fold_build2_loc (fold_p, loc, COMPLEX_EXPR, type,
+					convert (subtype,
+						 TREE_OPERAND (expr, 0)),
+					convert (subtype,
+						 TREE_OPERAND (expr, 1)));
 	else
 	  {
 	    expr = save_expr (expr);
-	    return
-	      fold_build2 (COMPLEX_EXPR, type,
-			   convert (subtype,
-				    fold_build1 (REALPART_EXPR,
-						 TREE_TYPE (TREE_TYPE (expr)),
-						 expr)),
-			   convert (subtype,
-				    fold_build1 (IMAGPART_EXPR,
-						 TREE_TYPE (TREE_TYPE (expr)),
-						 expr)));
+	    tree realp = maybe_fold_build1_loc (fold_p, loc, REALPART_EXPR,
+						TREE_TYPE (TREE_TYPE (expr)),
+						expr);
+	    tree imagp = maybe_fold_build1_loc (fold_p, loc, IMAGPART_EXPR,
+						TREE_TYPE (TREE_TYPE (expr)),
+						expr);
+	    return maybe_fold_build2_loc (fold_p, loc, COMPLEX_EXPR, type,
+					  convert (subtype, realp),
+					  convert (subtype, imagp));
 	  }
       }
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       error ("pointer value used where a complex was expected");
-      return convert_to_complex (type, integer_zero_node);
+      return convert_to_complex_1 (type, integer_zero_node, fold_p);
 
     default:
       error ("aggregate value used where a complex was expected");
-      return convert_to_complex (type, integer_zero_node);
+      return convert_to_complex_1 (type, integer_zero_node, fold_p);
     }
+}
+
+/* A wrapper around convert_to_complex_1 that always folds the
+   expression.  */
+
+tree
+convert_to_complex (tree type, tree expr)
+{
+  return convert_to_complex_1 (type, expr, true);
+}
+
+/* A wrapper around convert_to_complex_1 that only folds the
+   expression if it is CONSTANT_CLASS_P.  */
+
+tree
+convert_to_complex_nofold (tree type, tree expr)
+{
+  return convert_to_complex_1 (type, expr, CONSTANT_CLASS_P (expr));
 }
 
 /* Convert EXPR to the vector type TYPE in the usual ways.  */

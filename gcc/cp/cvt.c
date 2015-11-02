@@ -710,7 +710,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       /* For complex data types, we need to perform componentwise
 	 conversion.  */
       else if (TREE_CODE (type) == COMPLEX_TYPE)
-	return convert_to_complex (type, e);
+	return convert_to_complex_nofold (type, e);
       else if (VECTOR_TYPE_P (type))
 	return convert_to_vector (type, e);
       else if (TREE_CODE (e) == TARGET_EXPR)
@@ -848,7 +848,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
       if (code == REAL_TYPE)
 	return convert_to_real (type, e);
       else if (code == COMPLEX_TYPE)
-	return convert_to_complex (type, e);
+	return convert_to_complex_nofold (type, e);
     }
 
   /* New C++ semantics:  since assignment is now based on
