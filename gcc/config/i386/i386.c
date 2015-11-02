@@ -17348,22 +17348,23 @@ ix86_print_operand_address (FILE *file, rtx addr)
       /* Print SImode register names to force addr32 prefix.  */
       if (SImode_address_operand (addr, VOIDmode))
 	{
-#ifdef ENABLE_CHECKING
-	  gcc_assert (TARGET_64BIT);
-	  switch (GET_CODE (addr))
+	  if (flag_checking)
 	    {
-	    case SUBREG:
-	      gcc_assert (GET_MODE (addr) == SImode);
-	      gcc_assert (GET_MODE (SUBREG_REG (addr)) == DImode);
-	      break;
-	    case ZERO_EXTEND:
-	    case AND:
-	      gcc_assert (GET_MODE (addr) == DImode);
-	      break;
-	    default:
-	      gcc_unreachable ();
+	      gcc_assert (TARGET_64BIT);
+	      switch (GET_CODE (addr))
+		{
+		case SUBREG:
+		  gcc_assert (GET_MODE (addr) == SImode);
+		  gcc_assert (GET_MODE (SUBREG_REG (addr)) == DImode);
+		  break;
+		case ZERO_EXTEND:
+		case AND:
+		  gcc_assert (GET_MODE (addr) == DImode);
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
 	    }
-#endif
 	  gcc_assert (!code);
 	  code = 'k';
 	}
@@ -17620,10 +17621,10 @@ output_387_binary_op (rtx insn, rtx *operands)
   const char *ssep;
   int is_sse = SSE_REG_P (operands[0]) || SSE_REG_P (operands[1]) || SSE_REG_P (operands[2]);
 
-#ifdef ENABLE_CHECKING
   /* Even if we do not want to check the inputs, this documents input
      constraints.  Which helps in understanding the following code.  */
-  if (STACK_REG_P (operands[0])
+  if (flag_checking
+      && STACK_REG_P (operands[0])
       && ((REG_P (operands[1])
 	   && REGNO (operands[0]) == REGNO (operands[1])
 	   && (STACK_REG_P (operands[2]) || MEM_P (operands[2])))
@@ -17633,8 +17634,7 @@ output_387_binary_op (rtx insn, rtx *operands)
       && (STACK_TOP_P (operands[1]) || STACK_TOP_P (operands[2])))
     ; /* ok */
   else
-    gcc_assert (is_sse);
-#endif
+    gcc_checking_assert (is_sse);
 
   switch (GET_CODE (operands[3]))
     {
@@ -35898,6 +35898,10 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      arg_str = "bdver4";
 	      priority = P_PROC_AVX2;
 	      break;
+	    case PROCESSOR_ZNVER1:
+	      arg_str = "znver1";
+	      priority = P_PROC_AVX2;
+	      break;
 	    }
 	}
 
@@ -36511,24 +36515,6 @@ ix86_get_function_versions_dispatcher (void *decl)
   return dispatch_decl;
 }
 
-/* Makes a function attribute of the form NAME(ARG_NAME) and chains
-   it to CHAIN.  */
-
-static tree
-make_attribute (const char *name, const char *arg_name, tree chain)
-{
-  tree attr_name;
-  tree attr_arg_name;
-  tree attr_args;
-  tree attr;
-
-  attr_name = get_identifier (name);
-  attr_arg_name = build_string (strlen (arg_name), arg_name);
-  attr_args = tree_cons (NULL_TREE, attr_arg_name, NULL_TREE);
-  attr = tree_cons (attr_name, attr_args, chain);
-  return attr;
-}
-
 /* Make the resolver function decl to dispatch the versions of
    a multi-versioned function,  DEFAULT_DECL.  Create an
    empty basic block in the resolver and store the pointer in
@@ -36808,6 +36794,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_AMDFAM15H_BDVER2,
     M_AMDFAM15H_BDVER3,
     M_AMDFAM15H_BDVER4,
+    M_AMDFAM17H_ZNVER1,
     M_INTEL_COREI7_IVYBRIDGE,
     M_INTEL_COREI7_HASWELL,
     M_INTEL_COREI7_BROADWELL,
@@ -36850,6 +36837,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"bdver3", M_AMDFAM15H_BDVER3},
       {"bdver4", M_AMDFAM15H_BDVER4},
       {"btver2", M_AMD_BTVER2},
+      {"znver1", M_AMDFAM17H_ZNVER1},
     };
 
   static struct _isa_names_table
@@ -43031,22 +43019,28 @@ ix86_cannot_change_mode_class (machine_mode from, machine_mode to,
   if (MAYBE_FLOAT_CLASS_P (regclass))
     return true;
 
-  /* Vector registers do not support QI or HImode loads.  If we don't
-     disallow a change to these modes, reload will assume it's ok to
-     drop the subreg from (subreg:SI (reg:HI 100) 0).  This affects
-     the vec_dupv4hi pattern.
-
-     Further, we cannot allow word_mode subregs of full vector modes.
-     Otherwise the middle-end will assume it's ok to store to
-     (subreg:DI (reg:TI 100) 0) in order to modify only the low 64 bits
-     of the 128-bit register.  However, after reload the subreg will
-     be dropped leaving a plain DImode store.  This is indistinguishable
-     from a "normal" DImode move, and so we're justified to use movsd,
-     which modifies the entire 128-bit register.
-
-     Combining these two conditions, disallow all narrowing mode changes.  */
   if (MAYBE_SSE_CLASS_P (regclass) || MAYBE_MMX_CLASS_P (regclass))
-    return GET_MODE_SIZE (to) < GET_MODE_SIZE (from);
+    {
+      int from_size = GET_MODE_SIZE (from);
+      int to_size = GET_MODE_SIZE (to);
+
+      /* Vector registers do not support QI or HImode loads.  If we don't
+	 disallow a change to these modes, reload will assume it's ok to
+	 drop the subreg from (subreg:SI (reg:HI 100) 0).  This affects
+	 the vec_dupv4hi pattern.  */
+      if (from_size < 4)
+	return true;
+
+      /* Further, we cannot allow word_mode subregs of full vector modes.
+         Otherwise the middle-end will assume it's ok to store to
+         (subreg:DI (reg:TI 100) 0) in order to modify only the low 64 bits
+         of the 128-bit register.  However, after reload the subreg will
+         be dropped leaving a plain DImode store.  This is indistinguishable
+         from a "normal" DImode move, and so we're justified to use movsd,
+         which modifies the entire 128-bit register.  */
+      if (to_size == UNITS_PER_WORD && from_size > UNITS_PER_WORD)
+	return true;
+    }
 
   return false;
 }
