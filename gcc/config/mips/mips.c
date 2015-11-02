@@ -19912,6 +19912,18 @@ mips_swap_registers (unsigned int i)
 #undef SWAP_INT
 }
 
+/* Implement TARGET_FLAGS_REGISTER_EXPENSIVE_P.  */
+static bool
+mips_flags_register_expensive_p (void)
+{
+  /* We shall consider the pseudo flags register expensive on MIPS16e/micromips
+     optimizing for size for that ISA.  For MIPS32/MIPS64 we'll consider it
+     cheap since we should have enough registers.  */
+
+  return (TARGET_FLAGS_EXPENSIVE
+	  && (TARGET_MIPS16 || TARGET_MICROMIPS));
+}
+
 /* Implement TARGET_CONDITIONAL_REGISTER_USAGE.  */
 
 static void
@@ -22195,6 +22207,9 @@ mips_lra_p (void)
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS mips_preferred_reload_class
+
+#undef TARGET_FLAGS_REGISTER_EXPENSIVE_P
+#define TARGET_FLAGS_REGISTER_EXPENSIVE_P mips_flags_register_expensive_p
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
 #define TARGET_EXPAND_TO_RTL_HOOK mips_expand_to_rtl_hook
