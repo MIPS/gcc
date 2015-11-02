@@ -1105,6 +1105,16 @@ gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
   return p;
 }
 
+/* Set dimensions of TARGET to NUM and allocate kernel_dim array of the
+   statement with the appropriate number of elements.  */
+
+void
+gimple_omp_target_init_dimensions (gomp_target *target, size_t num)
+{
+  gcc_assert (num > 0);
+  target->dimensions = num;
+  target->kernel_dim = ggc_cleared_vec_alloc<gimple_omp_target_grid_dim> (num);
+}
 
 /* Build a GIMPLE_OMP_TEAMS statement.
 

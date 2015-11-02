@@ -3188,11 +3188,10 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
 
-  /* FIXME: Needs proper accessors.  */
-  for (size_t i = 0; i < stmt->kernel_collapse; i++)
+  for (size_t i = 0; i < gimple_omp_target_dimensions (stmt); i++)
     {
-      scan_omp_op (&stmt->kernel_iter[i].initial, ctx);
-      scan_omp_op (&stmt->kernel_iter[i].final, ctx);
+      scan_omp_op (gimple_omp_target_grid_size_ptr (stmt, i), ctx);
+      scan_omp_op (gimple_omp_target_workgroup_size_ptr (stmt, i), ctx);
     }
 
   if (offloaded)
@@ -6142,7 +6141,7 @@ region_needs_kernel_p (struct omp_region *region)
 	{
 	  gomp_target *tgt_stmt;
 	  tgt_stmt = as_a <gomp_target *> (last_stmt (region->entry));
-	  if (tgt_stmt->kernel_iter)
+	  if (gimple_omp_target_dimensions (tgt_stmt))
 	    return indirect;
 	  else
 	    return true;
@@ -12236,7 +12235,7 @@ insert_store_range_dim (gimple_stmt_iterator *gsi, tree range_var,
    necessary information in it.  */
 
 static tree
-get_kernel_dimensions_info (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
+get_kernel_launch_attributes (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
 {
   create_kernel_launch_attr_types ();
   tree u32_one = build_one_cst (uint32_type_node);
@@ -12245,62 +12244,22 @@ get_kernel_dimensions_info (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   tree dimref = build3 (COMPONENT_REF, uint32_type_node,
 			lattrs, kernel_lattrs_dimnum_decl, NULL_TREE);
   /* At this moment we cannot gridify a loop with a collapse clause.  */
-  gcc_assert (tgt_stmt->kernel_collapse == 1);
+  /* TODO: Adjust when we support bigger collapse.  */
+  gcc_assert (gimple_omp_target_dimensions (tgt_stmt) == 1);
   gsi_insert_before (gsi, gimple_build_assign (dimref, u32_one), GSI_SAME_STMT);
 
   /* Calculation of grid size: */
-  location_t loc = gimple_location (tgt_stmt);
-  struct gimple_omp_for_iter *ofi = tgt_stmt->kernel_iter;
-  tree itype, type = TREE_TYPE (ofi->index);
-  if (POINTER_TYPE_P (type))
-    itype = signed_type_for (type);
-  else
-    itype = type;
-
-  enum tree_code cond_code = ofi->cond;
-  tree n1 = ofi->initial;
-  tree n2 = ofi->final;
-  adjust_for_condition (loc, &cond_code, &n2);
-  tree step = get_omp_for_step_from_incr (loc, ofi->incr);
-  n1 = force_gimple_operand_gsi (gsi, fold_convert (type, n1), true, NULL_TREE,
-				 true, GSI_SAME_STMT);
-  n2 = force_gimple_operand_gsi (gsi, fold_convert (itype, n2), true, NULL_TREE,
-				 true, GSI_SAME_STMT);
-  tree t = build_int_cst (itype, (cond_code == LT_EXPR ? -1 : 1));
-  t = fold_build2 (PLUS_EXPR, itype, step, t);
-  t = fold_build2 (PLUS_EXPR, itype, t, n2);
-  t = fold_build2 (MINUS_EXPR, itype, t, fold_convert (itype, n1));
-  if (TYPE_UNSIGNED (itype) && cond_code == GT_EXPR)
-    t = fold_build2 (TRUNC_DIV_EXPR, itype,
-		     fold_build1 (NEGATE_EXPR, itype, t),
-		     fold_build1 (NEGATE_EXPR, itype, step));
-  else
-    t = fold_build2 (TRUNC_DIV_EXPR, itype, t, step);
-  t = fold_convert (uint32_type_node, t);
-  tree gs1 = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,
-				       GSI_SAME_STMT);
-
-
   insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, 0,
-			  gs1);
+			  gimple_omp_target_grid_size (tgt_stmt, 0));
+  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 0,
+			  gimple_omp_target_workgroup_size (tgt_stmt, 0));
   insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, 1,
+			  u32_one);
+  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 2,
 			  u32_one);
   insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, 2,
 			  u32_one);
-  tree ws1;
-  if (tgt_stmt->kernel_group_size)
-    {
-      ws1 = fold_convert (uint32_type_node, tgt_stmt->kernel_group_size);
-      ws1 = force_gimple_operand_gsi (gsi, ws1, true, NULL_TREE, true,
-				      GSI_SAME_STMT);
-    }
-  else
-    ws1 = build_zero_cst (uint32_type_node);
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 0,
-			  ws1);
   insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 1,
-			  u32_one);
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 2,
 			  u32_one);
   TREE_ADDRESSABLE (lattrs) = 1;
   return build_fold_addr_expr (lattrs);
@@ -12700,8 +12659,8 @@ expand_omp_target (struct omp_region *region)
       else
 	depend = build_int_cst (ptr_type_node, 0);
       args.quick_push (depend);
-      if (entry_stmt->kernel_iter)
-	args.quick_push (get_kernel_dimensions_info (&gsi, entry_stmt));
+      if (gimple_omp_target_dimensions (entry_stmt))
+	args.quick_push (get_kernel_launch_attributes (&gsi, entry_stmt));
       else
 	args.quick_push (build_zero_cst (ptr_type_node));
       break;
@@ -12935,14 +12894,14 @@ expand_target_kernel_body (struct omp_region *target)
       /* OpenACC target regions can have NULL orig_child_fndecl.  */
       if (!orig_child_fndecl)
 	return;
-      gcc_assert (!tgt_stmt->kernel_iter);
+      gcc_assert (!gimple_omp_target_dimensions (tgt_stmt));
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
 
       hsa_register_kernel (n);
       return;
     }
 
-  gcc_assert (tgt_stmt->kernel_iter);
+  gcc_assert (gimple_omp_target_dimensions (tgt_stmt));
   tree inside_block = gimple_block (first_stmt (single_succ (gpukernel->entry)));
   *pp = gpukernel->next;
   for (pp = &gpukernel->inner; *pp; pp = &(*pp)->next)
@@ -17229,16 +17188,17 @@ process_kernel_body_copy (gimple_seq seq, gimple_stmt_iterator *dst,
    is the bind into which temporaries inserted before TARGET should be
    added.  */
 
-static tree
+static void
 attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
 			      gbind *tgt_bind)
 {
   tree group_size;
   if (!target || !target_follows_gridifiable_pattern (target, &group_size))
-    return NULL_TREE;
+    return;
 
+  location_t loc = gimple_location (target);
   if (dump_enabled_p ())
-    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, gimple_location (target),
+    dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, loc,
 		     "Target construct will be turned into a gridified GPGPU "
 		     "kernel\n");
 
@@ -17268,20 +17228,59 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
     (gimple_bind_body_ptr (as_a <gbind *> (gimple_omp_body (target))),
      gpukernel);
 
-  target->kernel_group_size = group_size;
-  size_t collapse = inner_loop->collapse;
-  target->kernel_collapse = collapse;
-  target->kernel_iter = ggc_cleared_vec_alloc<gimple_omp_for_iter> (collapse);
+  walk_tree (&group_size, remap_prebody_decls, &wi, NULL);
+  size_t collapse = gimple_omp_for_collapse (inner_loop);
+  gimple_omp_target_init_dimensions (target, collapse);
   for (size_t i = 0; i < collapse; i++)
     {
-      target->kernel_iter[i] = inner_loop->iter[i];
-      walk_tree (&target->kernel_iter[i].initial, remap_prebody_decls, &wi,
-		 NULL);
-      walk_tree (&target->kernel_iter[i].final, remap_prebody_decls, &wi, NULL);
+      gimple_omp_for_iter iter = inner_loop->iter[i];
+      walk_tree (&iter.initial, remap_prebody_decls, &wi, NULL);
+      walk_tree (&iter.final, remap_prebody_decls, &wi, NULL);
+
+      tree itype, type = TREE_TYPE (iter.index);
+      if (POINTER_TYPE_P (type))
+	itype = signed_type_for (type);
+      else
+	itype = type;
+
+      enum tree_code cond_code = iter.cond;
+      tree n1 = iter.initial;
+      tree n2 = iter.final;
+      adjust_for_condition (loc, &cond_code, &n2);
+      tree step = get_omp_for_step_from_incr (loc, iter.incr);
+      n1 = force_gimple_operand_gsi (gsi, fold_convert (type, n1), true,
+				     NULL_TREE, true, GSI_SAME_STMT);
+      n2 = force_gimple_operand_gsi (gsi, fold_convert (itype, n2), true,
+				     NULL_TREE,
+				     true, GSI_SAME_STMT);
+      tree t = build_int_cst (itype, (cond_code == LT_EXPR ? -1 : 1));
+      t = fold_build2 (PLUS_EXPR, itype, step, t);
+      t = fold_build2 (PLUS_EXPR, itype, t, n2);
+      t = fold_build2 (MINUS_EXPR, itype, t, fold_convert (itype, n1));
+      if (TYPE_UNSIGNED (itype) && cond_code == GT_EXPR)
+	t = fold_build2 (TRUNC_DIV_EXPR, itype,
+			 fold_build1 (NEGATE_EXPR, itype, t),
+			 fold_build1 (NEGATE_EXPR, itype, step));
+      else
+	t = fold_build2 (TRUNC_DIV_EXPR, itype, t, step);
+      t = fold_convert (uint32_type_node, t);
+      tree gs = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,
+					  GSI_SAME_STMT);
+      gimple_omp_target_set_grid_size (target, i, gs);
+      tree ws;
+      if (i == 0 && group_size)
+	{
+	  ws = fold_convert (uint32_type_node, group_size);
+	  ws = force_gimple_operand_gsi (gsi, ws, true, NULL_TREE, true,
+					 GSI_SAME_STMT);
+	}
+      else
+	ws = build_zero_cst (uint32_type_node);
+      gimple_omp_target_set_workgroup_size (target, i, ws);
     }
 
   delete declmap;
-  return NULL_TREE;
+  return;
 }
 
 /* Walker function doing all the work for create_target_kernels. */

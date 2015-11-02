@@ -1,5 +1,28 @@
 2015-11-02  Martin Jambor  <mjambor@suse.cz>
 
+	* gimple.h (gimple_omp_target_grid_dim): New type.
+	(gimple_statement_omp_parallel_layout): kernel_collapse renamed to
+	dimensions.  Removed fields kernel_group_size and kernel_iter, new
+	field kernel_dim.
+	(gimple_omp_target_init_dimensions): Declare.
+	(gimple_omp_target_dimensions): New function.
+	(gimple_omp_target_grid_size): Likewise.
+	(gimple_omp_target_grid_size_ptr): Likewise.
+	(gimple_omp_target_set_grid_size): Likewise.
+	(gimple_omp_target_workgroup_size): Likewise.
+	(gimple_omp_target_workgroup_size_ptr): Likewise.
+	(gimple_omp_target_set_workgroup_size): Likewise.
+	* gimple.c (gimple_omp_target_init_dimensions): New function.
+	* omp-low.c (scan_omp_target): Use new access methods.
+	(region_needs_kernel_p): Likewise.
+	(get_kernel_dimensions_info): Renamed to get_kernel_launch_attributes.
+	Do not calculate grid size, use new access methods.
+	(expand_omp_target): Use new access methods.
+	(expand_target_kernel_body): Likewise.
+	(attempt_target_gridification): Calculate grid and work group sizes.
+
+2015-11-02  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (expand_target_kernel_body): Initialize initial block, set
 	it for copied statements, remove assignment to function_end_locus.
 	Reword comments.
