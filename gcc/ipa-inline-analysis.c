@@ -1570,10 +1570,6 @@ unmodified_parm_or_parm_agg_item (struct ipa_node_params *info,
 				 &aggpos->by_ref);
 }
 
-#ifndef INLINE_PARM_BY_REF_FREE
-#define INLINE_PARM_BY_REF_FREE true
-#endif
-
 /* See if statement might disappear after inlining.
    0 - means not eliminated
    1 - half of statements goes away
@@ -1645,8 +1641,7 @@ eliminated_by_inlining_prob (gimple stmt)
 
 	  /* Reads of parameters passed by reference
 	     expected to be free (i.e. optimized out after inlining).  */
-	  if (INLINE_PARM_BY_REF_FREE
-              && TREE_CODE (inner_rhs) == MEM_REF
+	  if (TREE_CODE (inner_rhs) == MEM_REF
 	      && unmodified_parm (stmt, TREE_OPERAND (inner_rhs, 0)))
 	    rhs_free = true;
 
