@@ -22057,6 +22057,9 @@ mips_lra_p (void)
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS mips_preferred_reload_class
 
+#undef TARGET_FLAGS_REGISTER_EXPENSIVE_P
+#define TARGET_FLAGS_REGISTER_EXPENSIVE_P hook_bool_void_true
+
 #undef TARGET_EXPAND_TO_RTL_HOOK
 #define TARGET_EXPAND_TO_RTL_HOOK mips_expand_to_rtl_hook
 #undef TARGET_ASM_FILE_START
