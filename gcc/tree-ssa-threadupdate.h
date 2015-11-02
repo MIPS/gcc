@@ -26,6 +26,7 @@ extern bool thread_through_all_blocks (bool);
 enum jump_thread_edge_type
 {
   EDGE_START_JUMP_THREAD,
+  EDGE_FSM_THREAD,
   EDGE_COPY_SRC_BLOCK,
   EDGE_COPY_SRC_JOINER_BLOCK,
   EDGE_NO_COPY_SRC_BLOCK
@@ -42,5 +43,7 @@ public:
 };
 
 extern void register_jump_thread (vec <class jump_thread_edge *> *);
+extern void remove_jump_threads_starting_at (basic_block);
 extern void delete_jump_thread_path (vec <class jump_thread_edge *> *);
+extern void remove_ctrl_stmt_and_useless_edges (basic_block, basic_block);
 #endif
