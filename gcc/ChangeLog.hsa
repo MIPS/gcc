@@ -1,5 +1,17 @@
 2015-11-02  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_insn_signal::hsa_insn_signal): Use modified
+	ctor of hsa_insn_atomic.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(get_memory_order_name): New function.
+	(get_memory_order): New function.
+	(gen_hsa_ternary_atomic_for_builtin): Fill up memory order.
+	(gen_hsa_insns_for_call): Likewise.
+	* hsa.h: Declare new argument for
+	hsa_insn_atomic::hsa_insn_atomic.
+
+2015-11-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_insn_basic::hsa_insn_basic): Rename operands
 	to m_operands.
 	(hsa_insn_basic::set_op): Likewise.

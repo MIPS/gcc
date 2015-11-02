@@ -1401,11 +1401,12 @@ hsa_insn_mem::operator new (size_t)
 
 hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 				  enum BrigAtomicOperation aop,
-				  BrigType16_t t, hsa_op_base *arg0,
+				  BrigType16_t t, BrigMemoryOrder memorder,
+				  hsa_op_base *arg0,
 				  hsa_op_base *arg1, hsa_op_base *arg2,
 				  hsa_op_base *arg3)
   : hsa_insn_mem (nops, opc, t, arg0, arg1, arg2, arg3), m_atomicop (aop),
-  m_memoryorder (BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE),
+  m_memoryorder (memorder),
   m_memoryscope (BRIG_MEMORY_SCOPE_SYSTEM)
 {
   gcc_checking_assert (opc == BRIG_OPCODE_ATOMICNORET ||
@@ -1434,7 +1435,8 @@ hsa_insn_signal::hsa_insn_signal (int nops, int opc,
 				  BrigType16_t t, hsa_op_base *arg0,
 				  hsa_op_base *arg1, hsa_op_base *arg2,
 				  hsa_op_base *arg3)
-  : hsa_insn_atomic (nops, opc, sop, t, arg0, arg1, arg2, arg3)
+  : hsa_insn_atomic (nops, opc, sop, t, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE,
+		     arg0, arg1, arg2, arg3)
 {
 }
 
@@ -4000,10 +4002,9 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Store 5122 << 16 + 1 to packet->header.  */
   c = new hsa_op_immed (70658, BRIG_TYPE_U32);
 
-  hsa_insn_atomic *atomic = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMICNORET,
-						 BRIG_ATOMIC_ST, BRIG_TYPE_B32,
-						 addr, c);
-  atomic->m_memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+  hsa_insn_atomic *atomic = new hsa_insn_atomic
+    (2, BRIG_OPCODE_ATOMICNORET, BRIG_ATOMIC_ST, BRIG_TYPE_B32,
+     BRIG_MEMORY_ORDER_SC_RELEASE, addr, c);
   atomic->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
 
   hbb->append_insn (atomic);
@@ -4117,6 +4118,54 @@ get_address_from_value (tree val, hsa_bb *hbb, vec <hsa_op_reg_p> *ssa_map)
     }
 }
 
+/* Return strign for MEMMODEL.  */
+
+static const char *
+get_memory_order_name (unsigned memmodel)
+{
+  switch (memmodel)
+    {
+    case __ATOMIC_RELAXED:
+      return "__ATOMIC_RELAXED";
+    case __ATOMIC_CONSUME:
+      return "__ATOMIC_CONSUME";
+    case __ATOMIC_ACQUIRE:
+      return "__ATOMIC_ACQUIRE";
+    case __ATOMIC_RELEASE:
+      return "__ATOMIC_RELEASE";
+    case __ATOMIC_ACQ_REL:
+      return "__ATOMIC_ACQ_REL";
+    case __ATOMIC_SEQ_CST:
+      return "__ATOMIC_SEQ_CST";
+    default:
+      return NULL;
+    }
+}
+
+/* Return memory order according to predefined __atomic memory model
+   constants.  LOCATION is provided to locate the problemati statement.  */
+
+static BrigMemoryOrder
+get_memory_order (unsigned memmodel, location_t location)
+{
+  switch (memmodel)
+    {
+    case __ATOMIC_RELAXED:
+      return BRIG_MEMORY_ORDER_RELAXED;
+    case __ATOMIC_ACQUIRE:
+      return BRIG_MEMORY_ORDER_SC_ACQUIRE;
+    case __ATOMIC_RELEASE:
+      return BRIG_MEMORY_ORDER_SC_RELEASE;
+    case __ATOMIC_ACQ_REL:
+      return BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
+    default:
+      HSA_SORRY_ATV (location,
+		     "support for HSA does not implement memory model: %s",
+		     get_memory_order_name (memmodel));
+      return BRIG_MEMORY_ORDER_NONE;
+    }
+}
+
 /* Helper function to create an HSA atomic binary operation instruction out of
    calls to atomic builtins.  RET_ORIG is true if the built-in is the variant
    that return s the value before applying operation, and false if it should
@@ -4133,8 +4182,22 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
   tree lhs = gimple_call_lhs (stmt);
 
   tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
-  BrigType16_t hsa_type  = hsa_type_for_scalar_tree_type (type, false);
+  BrigType16_t hsa_type = hsa_type_for_scalar_tree_type (type, false);
   BrigType16_t mtype = mem_type_for_type (hsa_type);
+  tree model = gimple_call_arg (stmt, 2);
+
+  if (!tree_fits_uhwi_p (model))
+    {
+      HSA_SORRY_ATV
+	(gimple_location (stmt),
+	 "support for HSA does not implement memory model %E", model);
+      return;
+    }
+
+  unsigned HOST_WIDE_INT mmodel = tree_to_uhwi (model);
+
+  BrigMemoryOrder memorder = get_memory_order
+    (mmodel, gimple_location (stmt));
 
   /* Certain atomic insns must have Bx memory types.  */
   switch (acode)
@@ -4165,12 +4228,19 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
       nops = 2;
     }
 
-  hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype);
-
   /* Overwrite default memory order for ATOMIC_ST insn which can have just
      RLX or SCREL memory order.  */
-  if (acode == BRIG_ATOMIC_ST)
-    atominsn->m_memoryorder = BRIG_MEMORY_ORDER_SC_RELEASE;
+  if (acode == BRIG_ATOMIC_ST && memorder != BRIG_MEMORY_ORDER_RELAXED
+      && memorder != BRIG_MEMORY_ORDER_SC_RELEASE)
+    {
+      HSA_SORRY_ATV (gimple_location (stmt),
+		     "support for HSA does not implement memory model for "
+		     "ATOMIC_ST: %s", get_memory_order_name (mmodel));
+      return;
+    }
+
+  hsa_insn_atomic *atominsn = new hsa_insn_atomic (nops, opcode, acode, mtype,
+						   memorder);
 
   hsa_op_address *addr;
   addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
@@ -4341,6 +4411,28 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 	BrigType16_t mtype;
 	hsa_op_address *addr;
 	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
+	tree model = gimple_call_arg (stmt, 1);
+	if (!tree_fits_uhwi_p (model))
+	  {
+	    HSA_SORRY_ATV
+	      (gimple_location (stmt),
+	       "support for HSA does not implement memory model: %E", model);
+	    return;
+	  }
+
+	unsigned HOST_WIDE_INT mmodel = tree_to_uhwi (model);
+	BrigMemoryOrder memorder = get_memory_order (mmodel,
+						     gimple_location (stmt));
+
+	if (memorder != BRIG_MEMORY_ORDER_RELAXED
+	    && memorder != BRIG_MEMORY_ORDER_SC_RELEASE)
+	  {
+	    HSA_SORRY_ATV
+	      (gimple_location (stmt),
+	       "support for HSA does not implement memory model for "
+	       "ATOMIC_LD: %s", get_memory_order_name (mmodel));
+	    return;
+	  }
 
 	if (lhs)
 	  {
@@ -4357,9 +4449,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 
 	hsa_insn_atomic *atominsn
 	  = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_LD, mtype,
-				 dest, addr);
-
-	atominsn->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+				 memorder, dest, addr);
 
 	hbb->append_insn (atominsn);
 	break;
@@ -4487,7 +4577,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 	  (hsa_type_for_scalar_tree_type (type, false));
 
 	hsa_insn_atomic *atominsn = new hsa_insn_atomic
-	  (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype);
+	  (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype,
+	   BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE);
 	hsa_op_address *addr;
 	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb, ssa_map);
 
@@ -4506,7 +4597,6 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb,
 	atominsn->set_op
 	  (3, hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 2),
 					      hbb, ssa_map));
-	atominsn->m_memoryorder = BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
 
 	hbb->append_insn (atominsn);
 	break;

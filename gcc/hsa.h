@@ -612,7 +612,7 @@ class hsa_insn_atomic : public hsa_insn_mem
 {
 public:
   hsa_insn_atomic (int nops, int opc, enum BrigAtomicOperation aop,
-		   BrigType16_t t,
+		   BrigType16_t t, BrigMemoryOrder memorder,
 		   hsa_op_base *arg0 = NULL, hsa_op_base *arg1 = NULL,
 		   hsa_op_base *arg2 = NULL, hsa_op_base *arg3 = NULL);
   void *operator new (size_t);
