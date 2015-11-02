@@ -3134,9 +3134,7 @@ noce_find_if_block (basic_block test_bb, edge then_edge, edge else_edge,
 
   /* Do the real work.  */
 
-  /* Avoid performing expansion if the flags register is expensive to access */
-  if (!targetm.flags_register_expensive_p ()
-      && noce_process_if_block (&if_info))
+  if (noce_process_if_block (&if_info))
     return TRUE;
 
   if (HAVE_conditional_move

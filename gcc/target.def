@@ -3268,15 +3268,6 @@ The default version of this hook returns false.",
  bool, (unsigned int *p1, unsigned int *p2),
  hook_bool_uintp_uintp_false)
 
-/* Determine if the flags register(s) are cheap to access */
-DEFHOOK
-(flags_register_expensive_p,
- "On targets which use a flags register that is not generally usable\n\
- then this hook allows the register to be marked as expensive so that\n\
- ifcvt does not try to perform expansion by using STORE_FLAG_VALUE",
- bool, (void),
- hook_bool_void_false)
-
 /* If two condition code modes are compatible, return a condition
      code mode which is compatible with both, such that a comparison
      done in the returned mode will work for both of the original
