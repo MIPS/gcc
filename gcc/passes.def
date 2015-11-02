@@ -330,8 +330,6 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_rtl_pre);
       NEXT_PASS (pass_rtl_hoist);
       NEXT_PASS (pass_rtl_cprop);
-      NEXT_PASS (pass_rtl_hoist);
-      NEXT_PASS (pass_rtl_cprop);
       NEXT_PASS (pass_rtl_store_motion);
       NEXT_PASS (pass_cse_after_global_opts);
       NEXT_PASS (pass_rtl_ifcvt);
