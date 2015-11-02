@@ -404,7 +404,8 @@ static void kdn_dump_edge(FILE *stream, edge an_edge,
     fprintf(stream, "  flags: ");
     kdn_dump_edge_flags(stream, an_edge->flags);
     fprintf(stream, "  probability: %d\n", an_edge->probability);
-    fprintf(stream, "  count: %ld\n", (long int) an_edge->count);
+    fprintf(stream, "    frequency: %d\n", EDGE_FREQUENCY(an_edge));
+    fprintf(stream, "        count: %ld\n", (long int) an_edge->count);
 
     /*
      * trying to output got_locus information, but it's not working yet.

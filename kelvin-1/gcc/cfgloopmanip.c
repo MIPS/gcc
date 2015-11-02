@@ -65,7 +65,7 @@ static void internal(const char *msg)
  * Return true iff block is considered to reside within the loop
  * represented by loop_ptr
  */
-static bool
+bool
 in_loop_p(basic_block block, loop_p loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
@@ -84,8 +84,7 @@ in_loop_p(basic_block block, loop_p loop_ptr)
 /*
  * Zero all frequencies associated with this loop.
  */
-static void
-zero_loop_frequencies(loop_p loop_ptr)
+void zero_loop_frequencies(loop_p loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
   for (unsigned i = 0; i < loop_ptr->num_nodes; ++i)
@@ -432,9 +431,9 @@ recursively_increment_frequency(loop_p loop_ptr, vec<edge> exit_edges,
  *   successor block that resides outside the loop, and at any block
  *   that is already part of the current depth-first traversal.
  */
-static void increment_loop_frequencies(loop_p loop_ptr,
-				       basic_block block,
-				       int frequency_increment)
+void increment_loop_frequencies(loop_p loop_ptr,
+				basic_block block,
+				int frequency_increment)
 {
 
   vec<basic_block> loop_blocks = _get_loop_blocks(loop_ptr);
@@ -524,10 +523,16 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
       predecessor_frequencies += EDGE_FREQUENCY(a_predecessor);
     }
     delta = predecessor_frequencies - a_block->frequency;
+
+    /* enforce tolerance to within 0.2% */
+    int tolerance = predecessor_frequencies / 500;  
+    if (tolerance < 10)
+      tolerance = 10;
+
     if (delta < 0)
       delta = -delta;
     
-    if (delta > 10) {
+    if (delta > tolerance) {
       internal("predecessor frequencies confused while unrolling loop");
     }
   }
@@ -563,11 +568,16 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
     outgoing_frequency += EDGE_FREQUENCY(edge);
   }
 
+  /* enforce tolerance to within 0.2% */
+  int tolerance = incoming_frequency / 500;
+  if (tolerance < 10)
+    tolerance = 10;
   int delta = incoming_frequency - outgoing_frequency;
+
   if (delta < 0)
     delta = -delta;
   
-  if (delta > 10) {
+  if (delta > tolerance) {
     internal("Incoherent frequencies while unrolling loop");
   }
   loop_body.release();
@@ -1772,6 +1782,40 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   bitmap bbs_to_scale = NULL;
   bitmap_iterator bi;
 
+#ifdef KELVIN_PATCH
+  /* kelvin is going to figure out the initial ratio between frequency
+   * of edge into loop header and the frequency of the loop header.
+   * We will preserve this ratio when we make adjustments to the loop.
+   */
+  int header_frequency = header->frequency;
+  int preheader_frequency = 0;
+  
+  /* sum the EDGE frequencies for all predecessor edges that
+   *   originate outside the loop
+   */
+  for (unsigned int i = 0; i < EDGE_COUNT(header->preds); i++) {
+    edge predecessor = EDGE_PRED(header, i);
+    if (!in_loop_p(predecessor->src, loop)) {
+      preheader_frequency += EDGE_FREQUENCY(predecessor);
+    }
+  }
+
+  fprintf(stderr,
+	  "On entry to duplicate_loop_to_header_edge, sum: %d, header: %d\n",
+	  preheader_frequency, header_frequency);
+  fprintf(stderr,
+	  "runtime scaling of sum is %d\n",
+	  (int) (preheader_frequency * 111111 + 5000) / 10000);
+  fprintf(stderr,
+	  "compile-time scaling of sum is %d\n",
+	  (int) (preheader_frequency * 990099 + 5000) / 10000);
+
+  int exit_ratio = (header_frequency * 10000 - 5000) / preheader_frequency;
+
+  fprintf(stderr, " exit_ratio is %d\n", exit_ratio);
+
+#endif
+
   gcc_assert (e->dest == loop->header);
   gcc_assert (ndupl > 0);
 
@@ -1840,9 +1884,24 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       fprintf(stderr,
 	      "initial header (freq_in) frequency: %d, freq_le: %d\n",
 	      freq_in, freq_le);
+      if (orig) {
+	fprintf(stderr, "The orig (exit edge) source block:\n");
+	kdn_dump_block(stderr, orig->src);
+      }
+
       /* Kelvin doesn't understand the following few lines.
        * It seems these are handling various "broken" aspects of other
        * compiler phases.
+       *
+       * Kelvin has observed a problem that is not "corrected" by this
+       * "fixup code".  in one case,
+       *    freq_in = 4140
+       *    freq_out_orig = 186
+       *    freq_le = 3766
+       * presumably, the sum of in edges to the header has frequency
+       * 186 as well.  Note that 186 / .09 = 2067.  This isn't right.
+       * The (sum of in edges to the header block) / 0.09 should equal
+       * the frequency of the header.
        */
 #endif
       if (freq_in == 0)
@@ -1882,6 +1941,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
        */
       fprintf(stderr, "prob_pass_thru: %d, prob_pass_wont_exit: %d\n",
 	      prob_pass_thru, prob_pass_wont_exit);
+      fprintf(stderr,
+	      " calculated from freq_le: %d and freq_in: %d and "
+	      "freq_out_orig: %d\n", freq_le, freq_in, freq_out_orig);
 #endif
 
       if (orig
@@ -1906,8 +1968,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  fprintf(stderr, " scale_after_exit: %d\n", scale_after_exit);
 	  for (unsigned int i = 0; i < n; i++)
 	    {
-	      fprintf(stderr, " block[%d] of the loop will%s be scaled\n",
-		      i, bitmap_bit_p (bbs_to_scale, i)? "": " not");
+	      fprintf(stderr, " block[%d]:%d of the loop will%s be scaled\n",
+		      i, bbs[i]->index, bitmap_bit_p (bbs_to_scale, i)? "": " not");
+	      kdn_dump_block(stderr, bbs[i]);
 	    }
 #endif
 	}
@@ -1923,6 +1986,8 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       for (i = 1; i <= ndupl; i++) {
 	fprintf(stderr, " copy %d will%s exit\n", i,
 		bitmap_bit_p(wont_exit, i)? " not": "");
+	fprintf(stderr, " prob_pass_wont_exit: %d, prob_pass_thru: %d\n",
+		prob_pass_wont_exit, prob_pass_thru);
 	fprintf(stderr, " scale_step for this copy is %d\n",
 		scale_step[i - 1]);
       }
@@ -1994,6 +2059,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 #ifdef KELVIN_NOISE
 	  fprintf(stderr, "!is_latch: scale_main is %d, scale_act: %d\n",
 		  scale_main, scale_act);
+	  fprintf(stderr, " ndupl is %d\n", ndupl);
+	  for (i = 0; i < ndupl; i++)
+	    fprintf(stderr, " scale_step[%d] is %d\n", i, scale_step[i]);
 #endif
 	}
       for (i = 0; i < ndupl; i++)
@@ -2057,17 +2125,42 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     kdn_dump_edge(stderr, predecessor, true, true);
 #endif
 
-    if (in_loop_p(predecessor->src, loop))
-      sum_incoming_frequencies += EDGE_FREQUENCY(predecessor);
-    else
+    /*
+     * Kelvin found a problem here.  Below, where I
+     * accumulate into the sum_incoming_frequencies variable, I am
+     * multiplying by 111111.  I think this corresponds to dividing by
+     * 0.09.  Note that 1/0.09 = 11.1111.
+     *
+     * Problem is, dividing by 0.09 is appropriate iff this loop
+     * is controlled by an iteration count that is only known at
+     * run-time.  When the loop iteration count is known at compile
+     * time, we should divide by 0.0101 instead.  Note that
+     * 1/0.0101 = 99.0099
+     *
+     * Thinking out loud, Kelvin wonders if we still need to use
+     * heuristics in the case that the constant is known at compile
+     * time.  I think maybe we do.  Maybe we do because maybe, our
+     * knowledge that this loop is controlled by a compile-time
+     * constant is distinct from our knowledge of the constant's
+     * actual value.
+     *
+     * kelvin needs to scrutinize this code.  is there a parameter
+     * that helps me determine the appropriate scale factor?
+     *
+     * exit_ratio is computed based on remembered circumstances upon
+     * entry into this function.  In theory, this fixes my implementation.
+     */
+
+    if (!in_loop_p(predecessor->src, loop))
       sum_incoming_frequencies +=
-	(int) (EDGE_FREQUENCY(predecessor) * 111111 + 5000) / 10000;
+	(int) (EDGE_FREQUENCY(predecessor) * exit_ratio + 5000) / 10000;
+
   }
 #ifdef KELVIN_NOISE
   fprintf(stderr, "After zeroing loop frequencies, increment header with %d\n",
 	  sum_incoming_frequencies);
 #endif
-  increment_loop_frequencies(loop, header, sum_incoming_frequencies);
+  increment_loop_frequencies(loop, my_header, sum_incoming_frequencies);
 #endif  
 
 #ifdef KELVIN_NOISE
@@ -2082,38 +2175,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 #ifdef KELVIN_NOISE
       fprintf(stderr, "Making copy %d, placing copy after block: ", j);
       kdn_dump_block_id(stderr, place_after);
-      /* kelvin has a few questions:
-
-after making some changes, the problem is still right here.
-
-the "problem" is that the copy I make of B5 and B6 to become B24 and
-B25, and they have copied frequencies 7711 and 7017 respectively.  But
-that's not right, because the sole predecessor to B24 is B6, and B6
-frequency is 7017, so it doesn't make sense that B24 frequency would
-be 7711.
-
-When B5 and B6 are copied, B5 still has the 9% out-edge to B7, which
-explains why B6 has a lower frequency than B5.
-
-so kelvin's new insight (10/7/2015) is that I should copy the loops
-with zero frequency and then propagate the frequency of the target to
-its ancestors 
-
-
-
-       *  How do B5 and B6 end up with frequencies 7536 and 6858 respectively?
-       *   (in the original unrolled loop, they had frequencies 9100 and 8281)
-       *   --> kelvin says they should have frequency 7711
-       *  When/how do we remove the out-going edge from B5 to B7?
-       *   (the original unrolled loop has a loop-exit mode from B5 to B7
-       *    but this edge does not appear in unrolled loop.)
-       *  How is it that only the third copy of the loop body gets
-       *   a loop-exiting edge from B28 to B7??  (note that the loop
-       *   frequencies as generated do properly account for the
-       *   outgoing edge from B28 to B29, because B28 has frequency
-       *   7536 and B29 has frequency 6858 and the exit edge frequency
-       *   is 678 = 7536 - 6858.
-       */
 #endif
 
       /* Copy loops.  */
@@ -2336,6 +2397,11 @@ its ancestors
     {
 #ifdef KELVIN_NOISE
       fprintf(stderr, " scaling bbs frequencies main: %d\n", scale_main);
+      fprintf(stderr, " The %d blocks which are to be scaled are: \n", n);
+      for (i = 0; i < n; i++) {
+	fprintf(stderr, "  block %d, with original frequency %d\n",
+		bbs[i]->index, bbs[i]->frequency);
+      }
 #endif
       scale_bbs_frequencies_int (bbs, n, scale_main, REG_BR_PROB_BASE);
       free (scale_step);
@@ -2369,7 +2435,9 @@ its ancestors
 
 #ifdef KELVIN_PATCH
   /* This function call is strictly paranoia.  it makes no changes
-   * to the data structures.
+   * to the data structures.  This is flagging an inconsistency with
+   * loop2.c.  I'm still investigating whether that's a real error or
+   * just a mistaken understanding of system invariants. 
    */
   check_loop_frequency_integrity(loop);
 #endif
