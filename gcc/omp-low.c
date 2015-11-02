@@ -12174,8 +12174,7 @@ get_oacc_fn_attrib (tree fn)
   return lookup_attribute (OACC_FN_ATTRIB, DECL_ATTRIBUTES (fn));
 }
 
-/* Types used to pass grid and wortkgroup sizes to kernel invocation.
-   FIXME: Possibly put to a struct or something.  */
+/* Types used to pass grid and wortkgroup sizes to kernel invocation.  */
 
 static GTY(()) tree kernel_dim_array_type;
 static GTY(()) tree kernel_lattrs_dimnum_decl;
@@ -12250,7 +12249,6 @@ get_kernel_dimensions_info (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   gsi_insert_before (gsi, gimple_build_assign (dimref, u32_one), GSI_SAME_STMT);
 
   /* Calculation of grid size: */
-  /* FIXME: The loc should really be taken from the loop construct.  */
   location_t loc = gimple_location (tgt_stmt);
   struct gimple_omp_for_iter *ofi = tgt_stmt->kernel_iter;
   tree itype, type = TREE_TYPE (ofi->index);
@@ -12945,7 +12943,7 @@ expand_target_kernel_body (struct omp_region *target)
     }
 
   gcc_assert (tgt_stmt->kernel_iter);
-  tree block = gimple_block (first_stmt (single_succ (gpukernel->entry)));
+  tree inside_block = gimple_block (first_stmt (single_succ (gpukernel->entry)));
   *pp = gpukernel->next;
   for (pp = &gpukernel->inner; *pp; pp = &(*pp)->next)
     if ((*pp)->type == GIMPLE_OMP_FOR)
@@ -12964,7 +12962,12 @@ expand_target_kernel_body (struct omp_region *target)
   tree kern_fndecl = copy_node (orig_child_fndecl);
   DECL_NAME (kern_fndecl) = clone_function_name (kern_fndecl, "kernel");
   SET_DECL_ASSEMBLER_NAME (kern_fndecl, DECL_NAME (kern_fndecl));
-  DECL_INITIAL (kern_fndecl) = make_node (BLOCK);
+  tree tgtblock = gimple_block (tgt_stmt);
+  tree fniniblock = make_node (BLOCK);
+  BLOCK_ABSTRACT_ORIGIN (fniniblock) = tgtblock;
+  BLOCK_SOURCE_LOCATION (fniniblock) = BLOCK_SOURCE_LOCATION (tgtblock);
+  BLOCK_SOURCE_END_LOCATION (fniniblock) = BLOCK_SOURCE_END_LOCATION (tgtblock);
+  DECL_INITIAL (kern_fndecl) = fniniblock;
   push_struct_function (kern_fndecl);
   cfun->function_end_locus = gimple_location (tgt_stmt);
   pop_cfun ();
@@ -12978,11 +12981,6 @@ expand_target_kernel_body (struct omp_region *target)
   kern_cfun->curr_properties = cfun->curr_properties;
 
   remove_edge (BRANCH_EDGE (kfor->entry));
-  /* FIXME: This should be set to something sensible, but currently all
-     attempts maike -g fail.  However, we can't really debug HSA kernels at the
-     moment anyway.  */
-  kern_cfun->function_end_locus = UNKNOWN_LOCATION;
-
   expand_omp_for_kernel (kfor);
 
   /* Remove the omp for statement */
@@ -13017,14 +13015,11 @@ expand_target_kernel_body (struct omp_region *target)
 	continue;
       gimple *copy = gimple_copy (stmt);
       gsi_insert_before (&gsi, copy, GSI_SAME_STMT);
-      /* FIXME: Like above, eventually we want a sensible location, which would
-	 mean getting the BLOCK of the target into the function, so that the
-	 verifier does not complain.  */
-      gimple_set_location (copy, UNKNOWN_LOCATION);
+      gimple_set_block (copy, fniniblock);
     }
 
   move_sese_region_to_fn (kern_cfun, single_succ (gpukernel->entry),
-			  gpukernel->exit, block);
+			  gpukernel->exit, inside_block);
 
   cgraph_node *kcn = cgraph_node::get_create (kern_fndecl);
   kcn->mark_force_output ();
@@ -13039,8 +13034,8 @@ expand_target_kernel_body (struct omp_region *target)
   /* Re-map any mention of the PARM_DECL of the original function to the
      PARM_DECL of the new one.
 
-     FIXME: Try to avoid it by fiuddleing with mapping at target lowering
-     time. */
+     TODO: It would be great if lowering produced references into the GPU
+     kernel decl straight away and we did not have to do this.  */
   struct arg_decl_map adm;
   adm.old_arg = old_parm_decl;
   adm.new_arg = new_parm_decl;

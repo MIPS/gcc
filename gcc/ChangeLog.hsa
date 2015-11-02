@@ -1,3 +1,9 @@
+2015-11-02  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (expand_target_kernel_body): Initialize initial block, set
+	it for copied statements, remove assignment to function_end_locus.
+	Reword comments.
+
 2015-11-02  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (hsa_insn_signal::hsa_insn_signal): Use modified
