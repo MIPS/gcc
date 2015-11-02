@@ -1,3 +1,19 @@
+2015-11-02  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 229652 into gupc branch.
+	* c/c-objc-common.c: Add back #include "options.h".
+	Needed to test for flag_upc.
+	* c/c-parser.c: Add back #include "output.h".
+	Need assemble_external() in upc_affinity_test().
+	* c/c-typeck.c (c_build_qualified_type_1):
+	Use newly introduced 'var_type' variable.
+	* c-family/c-pragma.c: Add #include "langhooks.h"
+	to resolve merge conflict.
+	* fold-const.c (fold_unary_loc): Adjust logic to exclude
+	UPC shared types when simplifying POINTER_PLUS_EXPR.
+	* gimple-expr.c: Add include "langhooks.h"
+	to resolve merge conflict.  Used by useless_type_conversion_p().
+
 2015-10-26  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 229307 into gupc branch.

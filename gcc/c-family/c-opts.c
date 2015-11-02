@@ -22,15 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
+#include "c-target.h"
 #include "tree.h"
 #include "c-common.h"
+#include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
+#include "diagnostic.h"
+#include "alias.h"
 #include "c-pragma.h"
 #include "c-upc-pts.h"
 #include "flags.h"
 #include "toplev.h"
 #include "langhooks.h"
-#include "diagnostic.h"
 #include "tree-diagnostic.h" /* for virt_loc_aware_diagnostic_finalizer */
 #include "intl.h"
 #include "cppdefault.h"
@@ -39,8 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "plugin.h"		/* For PLUGIN_INCLUDE_FILE event.  */
 #include "mkdeps.h"
-#include "c-target.h"
-#include "tm_p.h"		/* For C_COMMON_OVERRIDE_OPTIONS.  */
 #include "dumpfile.h"
 
 #ifndef DOLLARS_IN_IDENTIFIERS
