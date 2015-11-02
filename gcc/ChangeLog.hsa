@@ -1,5 +1,10 @@
 2015-11-02  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (target_follows_gridifiable_pattern): Improve
+	diagnostics and dump messages.
+
+2015-11-02  Martin Jambor  <mjambor@suse.cz>
+
 	* gimple.h (gimple_omp_target_grid_dim): New type.
 	(gimple_statement_omp_parallel_layout): kernel_collapse renamed to
 	dimensions.  Removed fields kernel_group_size and kernel_iter, new

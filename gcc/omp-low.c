@@ -16950,9 +16950,19 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
 			     "handle num_teams clause of teams "
 			     "construct\n ");
 	  return false;
+
+	case OMP_CLAUSE_REDUCTION:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a "
+			     "gridified GPGPU kernel because a reduction "
+			     "clause is present\n ");
+	  return false;
+
 	case OMP_CLAUSE_THREAD_LIMIT:
 	  group_size = OMP_CLAUSE_OPERAND (clauses, 0);
 	  break;
+
 	default:
 	  break;
 	}
@@ -17015,16 +17025,28 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
     return false;
 
   clauses = gimple_omp_parallel_clauses (par);
-  tree num_threads_clause = find_omp_clause (clauses, OMP_CLAUSE_NUM_THREADS);
-  if (num_threads_clause)
+  while (clauses)
     {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a gridified"
-			 "GPGPU kernel because there is a num_threads "
-			 "clause of the parallel construct that "
-			 "is likely to require looping \n");
-      return false;
+      switch (OMP_CLAUSE_CODE (clauses))
+	{
+	case OMP_CLAUSE_NUM_THREADS:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a gridified"
+			     "GPGPU kernel because there is a num_threads "
+			     "clause of the parallel construct\n");
+	  return false;
+	case OMP_CLAUSE_REDUCTION:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a "
+			     "gridified GPGPU kernel because a reduction "
+			     "clause is present\n ");
+	  return false;
+	default:
+	  break;
+	}
+      clauses = OMP_CLAUSE_CHAIN (clauses);
     }
 
   stmt = find_single_omp_among_assignments (gimple_omp_body (par), tloc,
@@ -17063,17 +17085,34 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
     }
 
   clauses = gimple_omp_for_clauses (gfor);
-  tree for_sched_clause = find_omp_clause (clauses, OMP_CLAUSE_SCHEDULE);
-
-  if (for_sched_clause
-      && OMP_CLAUSE_SCHEDULE_KIND (for_sched_clause) != OMP_CLAUSE_SCHEDULE_AUTO)
+  while (clauses)
     {
-      if (dump_enabled_p ())
-	dump_printf_loc (MSG_NOTE, tloc,
-			 "Will not turn target construct into a gridified GPGPU "
-			 "kernel because the inner loop has non-automatic "
-			 "scheduling clause\n");
-      return false;
+      switch (OMP_CLAUSE_CODE (clauses))
+	{
+	case OMP_CLAUSE_SCHEDULE:
+	  if (OMP_CLAUSE_SCHEDULE_KIND (clauses) != OMP_CLAUSE_SCHEDULE_AUTO)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_NOTE, tloc,
+				 "Will not turn target construct into a "
+				 "gridified GPGPU kernel because the inner "
+				 "loop has a non-automatic scheduling clause\n");
+	      return false;
+	    }
+	  break;
+
+	case OMP_CLAUSE_REDUCTION:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a "
+			     "gridified GPGPU kernel because a reduction "
+			     "clause is present\n ");
+	  return false;
+
+	default:
+	  break;
+	}
+      clauses = OMP_CLAUSE_CHAIN (clauses);
     }
 
   *group_size_p = group_size;
