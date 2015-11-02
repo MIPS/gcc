@@ -1127,7 +1127,7 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc): m_prev (NULL),
   m_type (BRIG_TYPE_NONE), m_brig_offset (0)
 {
   if (nops > 0)
-    operands.safe_grow_cleared (nops);
+    m_operands.safe_grow_cleared (nops);
 
   hsa_instructions.safe_push (this);
 }
@@ -1156,7 +1156,7 @@ hsa_insn_basic::set_op (int index, hsa_op_base *op)
 	}
     }
 
-  operands[index] = op;
+  m_operands[index] = op;
 }
 
 /* Get INDEX-th operand of the instruction.  */
@@ -1164,7 +1164,7 @@ hsa_insn_basic::set_op (int index, hsa_op_base *op)
 hsa_op_base *
 hsa_insn_basic::get_op (int index)
 {
-  return operands[index];
+  return m_operands[index];
 }
 
 /* Get address of INDEX-th operand of the instruction.  */
@@ -1172,14 +1172,14 @@ hsa_insn_basic::get_op (int index)
 hsa_op_base **
 hsa_insn_basic::get_op_addr (int index)
 {
-  return &operands[index];
+  return &m_operands[index];
 }
 
 /* Get number of operands of the instruction.  */
 unsigned int
 hsa_insn_basic::operand_count ()
 {
-  return operands.length ();
+  return m_operands.length ();
 }
 
 /* Constructor of the class which is the bases of all instructions and directly
@@ -1194,7 +1194,7 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
   m_type (t),  m_brig_offset (0)
 {
   if (nops > 0)
-    operands.safe_grow_cleared (nops);
+    m_operands.safe_grow_cleared (nops);
 
   if (arg0 != NULL)
     {

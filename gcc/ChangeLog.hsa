@@ -1,3 +1,13 @@
+2015-11-02  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_insn_basic::hsa_insn_basic): Rename operands
+	to m_operands.
+	(hsa_insn_basic::set_op): Likewise.
+	(hsa_insn_basic::get_op): Likewise.
+	(hsa_insn_basic::get_op_addr): Likewise.
+	(hsa_insn_basic::operand_count): Likewise.
+	* hsa.h: Likewise.
+
 2015-10-30  Martin Liska  <mliska@suse.cz>
 
 	* hsa-dump.c (dump_hsa_symbol): New function.

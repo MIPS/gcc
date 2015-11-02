@@ -414,7 +414,7 @@ private:
      fewer instructions and so will fit the internal storage.  */
   /* TODO: Vast majority of instructions have three or fewer operands, so we
      may actually try reducing it.  */
-  auto_vec<hsa_op_base *, HSA_BRIG_INT_STORAGE_OPERANDS> operands;
+  auto_vec<hsa_op_base *, HSA_BRIG_INT_STORAGE_OPERANDS> m_operands;
 };
 
 /* Class representing a PHI node of the SSA form of HSA virtual
