@@ -37,12 +37,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "ubsan.h"
 
+#define maybe_fold_build1_loc(FOLD_P, LOC, CODE, TYPE, EXPR) \
+  ((FOLD_P) ? fold_build1_loc (LOC, CODE, TYPE, EXPR)	     \
+   : build1_loc (LOC, CODE, TYPE, EXPR))
+
 /* Convert EXPR to some pointer or reference type TYPE.
    EXPR must be pointer, reference, integer, enumeral, or literal zero;
-   in other cases error is called.  */
+   in other cases error is called.  If FOLD_P is true, try to fold the
+   expression.  */
 
-tree
-convert_to_pointer (tree type, tree expr)
+static tree
+convert_to_pointer_1 (tree type, tree expr, bool fold_p)
 {
   location_t loc = EXPR_LOCATION (expr);
   if (TREE_TYPE (expr) == type)
@@ -59,9 +64,10 @@ convert_to_pointer (tree type, tree expr)
 	addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (expr)));
 
 	if (to_as == from_as)
-	  return fold_build1_loc (loc, NOP_EXPR, type, expr);
+	  return maybe_fold_build1_loc (fold_p, loc, NOP_EXPR, type, expr);
 	else
-	  return fold_build1_loc (loc, ADDR_SPACE_CONVERT_EXPR, type, expr);
+	  return maybe_fold_build1_loc (fold_p, loc, ADDR_SPACE_CONVERT_EXPR,
+					type, expr);
       }
 
     case INTEGER_TYPE:
@@ -75,20 +81,37 @@ convert_to_pointer (tree type, tree expr)
 	unsigned int pprec = TYPE_PRECISION (type);
 	unsigned int eprec = TYPE_PRECISION (TREE_TYPE (expr));
 
- 	if (eprec != pprec)
-	  expr = fold_build1_loc (loc, NOP_EXPR,
-			      lang_hooks.types.type_for_size (pprec, 0),
-			      expr);
+	if (eprec != pprec)
+	  expr
+	    = maybe_fold_build1_loc (fold_p, loc, NOP_EXPR,
+				     lang_hooks.types.type_for_size (pprec, 0),
+				     expr);
       }
-
-      return fold_build1_loc (loc, CONVERT_EXPR, type, expr);
+      return maybe_fold_build1_loc (fold_p, loc, CONVERT_EXPR, type, expr);
 
     default:
       error ("cannot convert to a pointer type");
-      return convert_to_pointer (type, integer_zero_node);
+      return convert_to_pointer_1 (type, integer_zero_node, fold_p);
     }
 }
 
+/* A wrapper around convert_to_pointer_1 that always folds the
+   expression.  */
+
+tree
+convert_to_pointer (tree type, tree expr)
+{
+  return convert_to_pointer_1 (type, expr, true);
+}
+
+/* A wrapper around convert_to_pointer_1 that only folds the
+   expression if it is CONSTANT_CLASS_P.  */
+
+tree
+convert_to_pointer_nofold (tree type, tree expr)
+{
+  return convert_to_pointer_1 (type, expr, CONSTANT_CLASS_P (expr));
+}
 
 /* Convert EXPR to some floating-point type TYPE.
 

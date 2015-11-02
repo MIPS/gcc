@@ -241,7 +241,7 @@ cp_convert_to_pointer (tree type, tree expr, tsubst_flags_t complain)
       gcc_assert (GET_MODE_SIZE (TYPE_MODE (TREE_TYPE (expr)))
 		  == GET_MODE_SIZE (TYPE_MODE (type)));
 
-      return convert_to_pointer (type, expr);
+      return convert_to_pointer_nofold (type, expr);
     }
 
   if (type_unknown_p (expr))
