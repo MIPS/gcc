@@ -50,3 +50,5 @@ MULTILIB_EXCEPTIONS += *micromips/EL
 MULTILIB_EXCEPTIONS += *micromips/msoft-float
 MULTILIB_EXCEPTIONS += *micromips/mnan=2008*
 MULTILIB_EXCEPTIONS += *micromips
+
+MULTILIB_REQUIRED = EL/msoft-float
