@@ -47,8 +47,8 @@
 
 	* configure.ac: Determine if the assembler supports the ISA 3.0
 	instructions.
-	* configure: Regenerate.
 	* config.in (HAVE_AS_POWER9): Likewise.
+	* configure: Regenerate.
 
 	* doc/invoke.texi (RS/6000 and PowerPC Options): Document ISA 3.0
 	switches.
