@@ -2976,7 +2976,6 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 	    }
 	  else if (gimple_store_p (stmt))
 	    {
-	      ao_ref ref;
 	      ao_ref_init (&ref, gimple_assign_lhs (stmt));
 	      ref_is_store = true;
 	    }

@@ -1,3 +1,8 @@
+2015-11-03  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (oacc_entry_exit_ok_1): Remove shadowing declaration
+	of ref.
+
 	backport from trunk:
 	2015-10-31  Tom de Vries  <tom@codesourcery.com>
 
