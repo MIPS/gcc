@@ -1,3 +1,8 @@
+2015-11-03  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop-offload-alias-none.c: New test.
+	* c-c++-common/goacc/kernels-loop-offload-alias-ptr.c: New test.
+
 	* tree-ssa-structalias.c (struct fieldoff): Add restrict_var field.
 	(push_fields_onto_fieldstack): Add and handle handle_param parameter.
 	(create_variable_info_for_1): Add and handle
