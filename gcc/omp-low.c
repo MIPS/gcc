@@ -1441,6 +1441,14 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
   tree field, type, sfield = NULL_TREE;
   splay_tree_key key = (splay_tree_key) var;
 
+  /* We use flag_offload_alias only for the oacc kernels region for the
+     moment.  */
+  bool offload_alias_p = is_oacc_kernels (ctx);
+  bool no_alias_var_p
+    = offload_alias_p && flag_offload_alias != OFFLOAD_ALIAS_ALL;
+  bool no_alias_ptr_p
+    = offload_alias_p && flag_offload_alias == OFFLOAD_ALIAS_NONE;
+
   if ((mask & 8) != 0)
     {
       key = (splay_tree_key) &DECL_UID (var);
@@ -1457,10 +1465,26 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
   if (mask & 4)
     {
       gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
-      type = build_pointer_type (build_pointer_type (type));
+
+      type = build_pointer_type (type);
+      if (no_alias_var_p)
+	type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
+
+      type = build_pointer_type (type);
+      if (no_alias_var_p)
+	type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
     }
   else if (by_ref)
-    type = build_pointer_type (type);
+    {
+      if (no_alias_ptr_p
+	  && POINTER_TYPE_P (type))
+	type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
+
+      type = build_pointer_type (type);
+
+      if (no_alias_var_p)
+	type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
+    }
   else if ((mask & 3) == 1 && is_reference (var))
     type = TREE_TYPE (type);
 

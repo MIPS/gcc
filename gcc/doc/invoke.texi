@@ -1142,6 +1142,7 @@ See S/390 and zSeries Options.
 -finstrument-functions-exclude-function-list=@var{sym},@var{sym},@dots{} @gol
 -finstrument-functions-exclude-file-list=@var{file},@var{file},@dots{} @gol
 -fno-common  -fno-ident @gol
+-foffload-alias=@r{[}none@r{|}pointer@r{|}all@r{]} @gol
 -fpcc-struct-return  -fpic  -fPIC -fpie -fPIE -fno-plt @gol
 -fno-jump-tables @gol
 -frecord-gcc-switches @gol
@@ -23841,6 +23842,16 @@ The options @option{-ftrapv} and @option{-fwrapv} override each other, so using
 @option{-fwrapv} being effective.  Note that only active options override, so
 using @option{-ftrapv} @option{-fwrapv} @option{-fno-wrapv} on the command-line
 results in @option{-ftrapv} being effective.
+
+@item -foffload-alias=@r{[}none@r{|}pointer@r{|}all@r{]}
+@opindex -foffload-alias
+The option @option{-foffload-alias=none} instructs the compiler to assume that
+objects references and pointer dereferences in an offload region do not alias.
+The option @option{-foffload-alias=pointer} instruct the compiler to assume that
+objects references in an offload region do not alias.  The option
+@option{-foffload-alias=all} instructs the compiler to make no assumptions about
+aliasing in offload regions.  The default value is
+@option{-foffload-alias=none}.
 
 @item -fexceptions
 @opindex fexceptions

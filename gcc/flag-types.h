@@ -293,5 +293,12 @@ enum gfc_convert
   GFC_FLAG_CONVERT_LITTLE
 };
 
+enum offload_alias
+{
+  OFFLOAD_ALIAS_ALL,
+  OFFLOAD_ALIAS_POINTER,
+  OFFLOAD_ALIAS_NONE
+};
+
 
 #endif /* ! GCC_FLAG_TYPES_H */

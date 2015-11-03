@@ -1738,6 +1738,22 @@ Enum(offload_abi) String(ilp32) Value(OFFLOAD_ABI_ILP32)
 EnumValue
 Enum(offload_abi) String(lp64) Value(OFFLOAD_ABI_LP64)
 
+foffload-alias=
+Common Joined RejectNegative Enum(offload_alias) Var(flag_offload_alias) Init(OFFLOAD_ALIAS_NONE)
+-foffload-alias=[all|pointer|none]     Assume non-aliasing in an offload region
+
+Enum
+Name(offload_alias) Type(enum offload_alias) UnknownError(unknown offload aliasing %qs)
+
+EnumValue
+Enum(offload_alias) String(all) Value(OFFLOAD_ALIAS_ALL)
+
+EnumValue
+Enum(offload_alias) String(pointer) Value(OFFLOAD_ALIAS_POINTER)
+
+EnumValue
+Enum(offload_alias) String(none) Value(OFFLOAD_ALIAS_NONE)
+
 fomit-frame-pointer
 Common Report Var(flag_omit_frame_pointer) Optimization
 When possible do not generate stack frames.

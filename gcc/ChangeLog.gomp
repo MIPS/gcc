@@ -1,5 +1,13 @@
 2015-11-03  Tom de Vries  <tom@codesourcery.com>
 
+	* common.opt (foffload-alias): New option.
+	* flag-types.h (enum offload_alias): New enum.
+	* omp-low.c (install_var_field): Handle flag_offload_alias.
+	* doc/invoke.texi (@item Code Generation Options): Add -foffload-alias.
+	(@item -foffload-alias): New item.
+
+2015-11-03  Tom de Vries  <tom@codesourcery.com>
+
 	backport from trunk:
 	2015-11-03  Tom de Vries  <tom@codesourcery.com>
 
