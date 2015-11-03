@@ -3356,7 +3356,7 @@
 		 (match_operand:GPR 2 "uns_arith_operand")))]
   ""
 {
-  if (TARGET_MIPS16)
+  if (TARGET_MIPS16 && !TARGET_ASMACRO_ORI)
     operands[2] = force_reg (<MODE>mode, operands[2]);
 })
 
@@ -3376,7 +3376,7 @@
 (define_insn "*ior<mode>3_mips16_asmacro"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,0")
-		 (match_operand:GPR 2 "register_operand" "d,K")))]
+		 (match_operand:GPR 2 "uns_arith_operand" "d,K")))]
   "TARGET_MIPS16 && TARGET_ASMACRO_ORI"
   "@
    or\t%0,%2
@@ -5664,6 +5664,7 @@
      be careful not to allocate a new register if we've reached the
      reload pass.  */
   if (TARGET_MIPS16
+      && !TARGET_DEBUG_D_MODE
       && optimize
       && CONST_INT_P (operands[2])
       && INTVAL (operands[2]) > 8
