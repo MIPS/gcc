@@ -19562,9 +19562,9 @@ with the @option{-mcpu=power9} option.
 @itemx -mno-power9-fusion
 @opindex mpower9-fusion
 @opindex mno-power9-fusion
-Generate code that keeps (does not keeps) some integer operations
-adjacent so that the instructions can be fused together on power9 and
-later processors.
+Generate code that keeps (does not keeps) some operations adjacent so
+that the instructions can be fused together on power9 and later
+processors.
 
 @item -mpower9-vector
 @itemx -mno-power9-vector
