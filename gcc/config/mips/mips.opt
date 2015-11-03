@@ -412,6 +412,10 @@ masmacro-ori
 Target Report Var(TARGET_ASMACRO_ORI) Init(0)
 Enable the ASMACRO ORI instruction.
 
+mcase-threshold
+Target Report Var(TARGET_CASE_THRESHOLD) Init(0)
+Use a larger case threshold for MIPS16
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values

@@ -2255,7 +2255,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 The final address is then $at + %lo(symbol).  With 32-bit
 	 symbols we just need a preparatory LUI for normal mode and
 	 a preparatory LI and SLL for MIPS16.  */
-      return ABI_HAS_64BIT_SYMBOLS ? 6 : TARGET_MIPS16 ? 3 : 2;
+      return ABI_HAS_64BIT_SYMBOLS ? 6 : (TARGET_MIPS16 && !TARGET_ASMACRO_LUI) ? 3 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -2831,7 +2831,7 @@ mips_const_insns (rtx x)
 
       /* This is simply an LUI for normal mode.  It is an extended
 	 LI followed by an extended SLL for MIPS16.  */
-      return TARGET_MIPS16 ? 4 : 1;
+      return TARGET_MIPS16 ? (TARGET_ASMACRO_LUI ? 2 : 4) : 1;
 
     case CONST_INT:
       if (TARGET_MIPS16)
@@ -21896,7 +21896,7 @@ unsigned int
 mips_case_values_threshold (void)
 {
   /* In MIPS16 mode using a larger case threshold generates smaller code.  */
-  if (TARGET_MIPS16 && optimize_size)
+  if (TARGET_MIPS16 && (optimize_size || TARGET_CASE_THRESHOLD))
     return 10;
   else
     return default_case_values_threshold ();
