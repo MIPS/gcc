@@ -326,6 +326,13 @@ enum gfc_convert
   GFC_FLAG_CONVERT_LITTLE
 };
 
+enum offload_alias
+{
+  OFFLOAD_ALIAS_ALL,
+  OFFLOAD_ALIAS_POINTER,
+  OFFLOAD_ALIAS_NONE
+};
+
 
 /* Control-Flow Protection values.  */
 enum cf_protection_level

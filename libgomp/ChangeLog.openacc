@@ -1,3 +1,9 @@
+2016-03-19  Thomas Schwinge  <thomas@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/kernels-alias-ipa-pta-3.c:
+	Specify "-foffload-alias=all".
+
 2015-09-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/data-alignment.f90: New test.

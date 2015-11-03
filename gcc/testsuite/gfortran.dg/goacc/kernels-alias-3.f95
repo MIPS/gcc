@@ -1,4 +1,5 @@
 ! { dg-additional-options "-O2" }
+! { dg-additional-options "-foffload-alias=all" }
 ! { dg-additional-options "-fdump-tree-ealias-all" }
 
 program main

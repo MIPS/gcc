@@ -1,4 +1,4 @@
-/* { dg-additional-options "-O2" } */
+/* { dg-additional-options "-O2 -foffload-alias=all" } */
 /* { dg-additional-options "-fipa-pta -fdump-tree-optimized" } */
 
 #ifdef __cplusplus

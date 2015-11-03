@@ -1,3 +1,52 @@
+2017-06-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-loop-n.f95: Remove XFAIL.
+
+2015-04-21  Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-parallel-loop-data-enter-exit.f95:
+	Remove XFAILs.
+
+2016-03-19  Thomas Schwinge  <thomas@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* gfortran.dg/goacc/kernels-alias-3.f95: Specify
+	"-foffload-alias=all".
+	* gfortran.dg/goacc/kernels-alias-4.f95: Likewise.
+
+2015-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+	    Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-alias-3.c: Specify
+	"-foffload-alias=all".
+	* c-c++-common/goacc/kernels-alias-4.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-5.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-6.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-7.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-8.c: Likewise.
+	* c-c++-common/goacc/kernels-alias-ipa-pta-3.c: Likewise.
+	* c-c++-common/goacc/kernels-counter-var-redundant-load.c:
+	Likewise.
+
+2015-12-17  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-offload-alias-2.c: New test.
+	* c-c++-common/goacc/kernels-offload-alias-3.c: New test.
+	* c-c++-common/goacc/kernels-offload-alias-4.c: New test.
+	* c-c++-common/goacc/kernels-offload-alias-5.c: New test.
+	* c-c++-common/goacc/kernels-offload-alias-6.c: New test.
+	* c-c++-common/goacc/kernels-offload-alias.c: New test.
+
+2016-05-27  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop-offload-alias-none.c: Add xfails.
+	* c-c++-common/goacc/kernels-loop-offload-alias-ptr.c: Likewise.
+
+2015-11-03  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop-offload-alias-none.c: New test.
+	* c-c++-common/goacc/kernels-loop-offload-alias-ptr.c: New test.
+
 2016-01-12  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/mod-array.f90: New test.

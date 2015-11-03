@@ -533,6 +533,7 @@ Objective-C and Objective-C++ Dialects}.
 -fasynchronous-unwind-tables @gol
 -fno-gnu-unique @gol
 -finhibit-size-directive  -fno-common  -fno-ident @gol
+-foffload-alias=@r{[}none@r{|}pointer@r{|}all@r{]} @gol
 -fpcc-struct-return  -fpic  -fPIC  -fpie  -fPIE  -fno-plt @gol
 -fno-jump-tables @gol
 -frecord-gcc-switches @gol
@@ -12951,6 +12952,16 @@ would cause trouble if the function is split in the middle, and the
 two halves are placed at locations far apart in memory.  This option is
 used when compiling @file{crtstuff.c}; you should not need to use it
 for anything else.
+
+@item -foffload-alias=@r{[}none@r{|}pointer@r{|}all@r{]}
+@opindex -foffload-alias
+The option @option{-foffload-alias=none} instructs the compiler to assume that
+objects references and pointer dereferences in an offload region do not alias.
+The option @option{-foffload-alias=pointer} instruct the compiler to assume that
+objects references in an offload region do not alias.  The option
+@option{-foffload-alias=all} instructs the compiler to make no assumptions about
+aliasing in offload regions.  The default value is
+@option{-foffload-alias=none}.
 
 @item -fverbose-asm
 @opindex fverbose-asm

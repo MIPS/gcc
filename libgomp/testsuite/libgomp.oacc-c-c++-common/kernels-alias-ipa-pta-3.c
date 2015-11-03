@@ -1,4 +1,4 @@
-/* { dg-additional-options "-fipa-pta" } */
+/* { dg-additional-options "-foffload-alias=all -fipa-pta" } */
 
 #include <stdlib.h>
 
