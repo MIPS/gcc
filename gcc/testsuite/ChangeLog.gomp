@@ -1,3 +1,19 @@
+	* tree-ssa-structalias.c (struct fieldoff): Add restrict_var field.
+	(push_fields_onto_fieldstack): Add and handle handle_param parameter.
+	(create_variable_info_for_1): Add and handle
+	handle_param parameter.  Add extra arg to call to
+	push_fields_onto_fieldstack.  Handle restrict pointer fields.
+	(create_variable_info_for): Call create_variable_info_for_1 with extra
+	arg.
+	(make_param_constraints): Drop restrict_name parameter.  Ignore
+	vi->only_restrict_pointers.
+	(intra_create_variable_infos): Call create_variable_info_for_1 with
+	extra arg.  Remove restrict handling.  Call make_param_constraints with
+	one less arg.
+
+	* gcc.dg/tree-ssa/restrict-7.c: New test.
+	* gcc.dg/tree-ssa/restrict-8.c: New test.
+
 2015-10-30  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:
