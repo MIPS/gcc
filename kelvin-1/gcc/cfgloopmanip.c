@@ -45,7 +45,7 @@ along with GCC; see the file COPYING3.  If not see
  * This may report false-positive errors due to round-off errors.
  */
 #undef INTEGRITY_HEURISTICS
-
+ 
 #define KELVIN_PATCH
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
@@ -63,15 +63,6 @@ static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
 #ifdef KELVIN_PATCH
-
-/**
- * Issue a fatal error message and abort program execution.
- */
-static void internal(const char *msg)
-{
-  fprintf(stderr, "Fatal internal error: %s\n", msg);
-  exit(-1);
-}
 
 /*
  * Return true iff block is considered to reside within the loop
@@ -329,7 +320,7 @@ static vec<basic_block> _recursively_get_loop_blocks(basic_block candidate,
 
 #ifdef KELVIN_NOISE
       fprintf(stderr, " considering successor edge\n");
-      kdn_dump_edge(stderr, successor, true, true);
+      kdn_dump_edge(stderr, successor);
 #endif
       if (successor->probability != 0) {
 #ifdef KELVIN_NOISE
@@ -395,7 +386,7 @@ static vec<edge> _get_loop_exit_edges(vec<basic_block> loop_blocks) {
 #ifdef KELVIN_NOISE
   fprintf(stderr, "_get_loop_exit_edges() is returning this set of edges\n");
   FOR_EACH_VEC_ELT(results, u, e) {
-    kdn_dump_edge(stderr, e, true, true);
+    kdn_dump_edge(stderr, e);
   }
   fprintf(stderr, " end of edge set\n");
 #endif
@@ -574,6 +565,15 @@ void increment_loop_frequencies(loop_p loop_ptr,
 }
 
 #ifdef INTEGRITY_HEURISTICS
+/**
+ * Issue a fatal error message and abort program execution.
+ */
+static void internal(const char *msg)
+{
+  fprintf(stderr, "Fatal internal error: %s\n", msg);
+  exit(-1);
+}
+
 /*
  * check_loop_frequency_integrity enforces that:
  *
@@ -611,7 +611,7 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
       edge a_predecessor = EDGE_PRED(a_block, j);
 #ifdef KELVIN_NOISE
       fprintf(stderr, " predecessor ");
-      kdn_dump_edge(stderr, a_predecessor, true, true);
+      kdn_dump_edge(stderr, a_predecessor);
       fprintf(stderr,
 	      "  which has frequency %d\n", EDGE_FREQUENCY(a_predecessor));
 #endif
@@ -643,7 +643,7 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
     if (!_in_loop_set (a_predecessor->src, loop_body))	{
 #ifdef KELVIN_NOISE
       fprintf(stderr, "Enforcing coherence, loop predecessor: ");
-      kdn_dump_edge(stderr, a_predecessor, true, true);
+      kdn_dump_edge(stderr, a_predecessor);
       fprintf(stderr, "  which has frequency: %d\n",
 	      EDGE_FREQUENCY(a_predecessor));
 #endif
@@ -657,7 +657,7 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
   FOR_EACH_VEC_ELT (exit_edges, i, edge) {
 #ifdef KELVIN_NOISE
     fprintf(stderr, "Enforcing coherence, loop exit: ");
-    kdn_dump_edge(stderr, edge, true, true);
+    kdn_dump_edge(stderr, edge);
     fprintf(stderr, "  which has frequency: %d\n", EDGE_FREQUENCY(edge));
 #endif
     outgoing_frequency += EDGE_FREQUENCY(edge);
@@ -1944,11 +1944,11 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   new_bbs = XNEWVEC (basic_block, loop->num_nodes);
 #ifdef KELVIN_NOISE
   fprintf(stderr, " the edge to loop header (dest of edge) is:\n");
-  kdn_dump_edge(stderr, e, TRUE, TRUE);
+  kdn_dump_edge(stderr, e);
   if (orig) {
     fprintf(stderr,
 	    " the orig edge (which is an edge that leaves the loop) is:\n");
-    kdn_dump_edge(stderr, orig, TRUE, TRUE);
+    kdn_dump_edge(stderr, orig);
   } else {
     fprintf(stderr, " no known loop exit, as orig equals NULL\n");
   }
@@ -1964,7 +1964,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 #ifdef KELVIN_NOISE
   /* the latch edge is the back edge that branches back to the loop header */
   fprintf(stderr, "loop_latch_edge is:\n");
-  kdn_dump_edge(stderr, latch_edge, TRUE, TRUE);
+  kdn_dump_edge(stderr, latch_edge);
 #endif
 
   if (flags & DLTHE_FLAG_UPDATE_FREQ)
@@ -2218,7 +2218,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     fprintf(stderr,
 	    " computing incoming frequency by accumulating %d from edge ",
 	    EDGE_FREQUENCY(predecessor));
-    kdn_dump_edge(stderr, predecessor, true, true);
+    kdn_dump_edge(stderr, predecessor);
 #endif
 
     /*
@@ -2382,7 +2382,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	    {
 #ifdef KELVIN_NOISE
               fprintf(stderr, "Arranging to remove this edge\n");
-              kdn_dump_edge(stderr, new_spec_edges[SE_ORIG], TRUE, TRUE);
+              kdn_dump_edge(stderr, new_spec_edges[SE_ORIG]);
 #endif
 	      to_remove->safe_push (new_spec_edges[SE_ORIG]);
 	    }
@@ -2461,7 +2461,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	{
 #ifdef KELVIN_NOISE
 	  fprintf(stderr, "Also arranging to remove this edge\n");
-	  kdn_dump_edge(stderr, orig, TRUE, TRUE);
+	  kdn_dump_edge(stderr, orig);
 #endif
 	  to_remove->safe_push (orig);
 	}

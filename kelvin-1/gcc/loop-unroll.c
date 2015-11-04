@@ -765,7 +765,7 @@ unroll_loop_constant_iterations (struct loop *loop)
     {
 #ifdef KELVIN_NOISE
       fprintf(stderr, "Removing an edge from the loop\n");
-      kdn_dump_edge(stderr, e, TRUE, TRUE);
+      kdn_dump_edge(stderr, e);
 #endif
       remove_path (e);
     }
@@ -1191,7 +1191,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	      "preparing to invoke duplicate_loop_to_header_edge, new_freq: %d\n",
 	      new_freq);
       fprintf(stderr, "loop_preheader_edge(loop) is:\n");
-      kdn_dump_edge(stderr, loop_preheader_edge(loop), TRUE, TRUE);
+      kdn_dump_edge(stderr, loop_preheader_edge(loop));
 #endif
 
     /* kelvin patch begins here */
@@ -1234,7 +1234,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 #ifdef KELVIN_NOISE
       fprintf(stderr,
 	      "Before splitting the next edge, loop_preaheader_edge is:\n");
-      kdn_dump_edge(stderr, loop_preheader_edge (loop), TRUE, TRUE);
+      kdn_dump_edge(stderr, loop_preheader_edge (loop));
 #endif
       preheader = split_edge (loop_preheader_edge (loop));
 #ifdef KELVIN_NOISE
@@ -1318,7 +1318,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
 #ifdef KELVIN_NOISE      
       fprintf(stderr, "The newly created edge is:\n");
-      kdn_dump_edge(stderr, e, TRUE, TRUE);
+      kdn_dump_edge(stderr, e);
 #endif
 #ifdef KELVIN_PATCH
       /* kelvin: following line inserted by PTH is replaced with
@@ -1334,7 +1334,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	int the_edge_frequency = EDGE_FREQUENCY(an_edge);
 #ifdef KELVIN_NOISE
 	fprintf(stderr, "Summing predecessor edge: ");
-	kdn_dump_edge(stderr, an_edge, TRUE, TRUE);
+	kdn_dump_edge(stderr, an_edge);
 	fprintf(stderr, " which has frequency %d\n", the_edge_frequency);
 #endif
 	prehead_frequency += the_edge_frequency;
@@ -1388,7 +1388,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
   fprintf(stderr, "  max_unroll is %d\n", max_unroll);
 #endif
 #ifdef KELVIN_PATCH
-  {
+  {  
     /* Traces reveal that the header frequency may be wrong at this
      * point in the case that unpeeled preheader blocks include "exit
      * edges" that allow control to flow around the loop without
@@ -1408,7 +1408,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	fprintf(stderr,
 		" computing incoming frequency by accumulating %d from edge ",
 		EDGE_FREQUENCY(predecessor));
-	kdn_dump_edge(stderr, predecessor, true, true);
+	kdn_dump_edge(stderr, predecessor);
 #endif
 	
 	if (!in_loop_p(predecessor->src, loop))
@@ -1488,7 +1488,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
     {
 #ifdef KELVIN_NOISE
       fprintf(stderr, "Removing an edge from the loop\n");
-      kdn_dump_edge(stderr, e, TRUE, TRUE);
+      kdn_dump_edge(stderr, e);
 #endif
       remove_path (e);
     }

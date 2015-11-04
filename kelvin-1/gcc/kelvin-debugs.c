@@ -41,7 +41,7 @@ static void kdn_dump_block(FILE *, basic_block);
 static void kdn_dump_block_flow(FILE *, int, basic_block);
 static void kdn_dump_bb_flags(FILE *, int);
 static void kdn_dump_edge_flags(FILE *, int);
-static void kdn_dump_edge(FILE *, edge, bool, bool);
+static void kdn_dump_edge(FILE *, edge);
 static void kdn_dump_rtl_instruction_list(FILE *,
 					  const_rtx, struct rtl_bb_info *);
 static void kdn_dump_gimple_instruction_list(FILE *,
@@ -169,6 +169,9 @@ static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr) {
       }
       fprintf(stream, "End of basic block's head:\n");
     }
+    else {
+      fprintf(stream, "the_rtl is %p\n", (void *) the_rtl);
+    }
   }
 }
 
@@ -295,13 +298,13 @@ static void kdn_dump_block(FILE *stream, basic_block block) {
     fprintf(stream, " Predecessor edges:\n");
     for (i = 0; i < EDGE_COUNT(block->preds); i++) {
       fprintf(stream, " predecessor[%d]:\n", i);
-      kdn_dump_edge(stream, EDGE_PRED(block, i), TRUE, FALSE);
+      kdn_dump_edge(stream, EDGE_PRED(block, i));
     }
     
     fprintf(stream, " Successor edges:\n");
     for (i = 0; i < EDGE_COUNT(block->succs); i++) {
       fprintf(stream, " successor[%d]:\n", i);
-      kdn_dump_edge(stream, EDGE_SUCC(block, i), FALSE, TRUE);
+      kdn_dump_edge(stream, EDGE_SUCC(block, i));
     }
     
     fprintf(stream, " body of block:\n");
@@ -392,8 +395,7 @@ static void kdn_dump_edge_flags(FILE *stream, int flags) {
   fprintf(stream, "\n");
 }
 
-static void kdn_dump_edge(FILE *stream, edge an_edge,
-		   bool display_src, bool display_dest) {
+static void kdn_dump_edge(FILE *stream, edge an_edge) {
   /* note: an_edge is a pointer to struct edge_def */
   if (an_edge == NULL) {
     fprintf(stream, "Null Edge\n");
@@ -661,7 +663,7 @@ static void kdn_dump_loop_exits(FILE *stream, struct loop_exit *exits) {
   fprintf(stream, "Loop exits consist of edges: ");
   do {
     e = exits->e;
-    kdn_dump_edge(stream, e, TRUE, TRUE);
+    kdn_dump_edge(stream, e);
     walker = walker->next;
   } while (walker != exits);
 }
@@ -674,10 +676,10 @@ static void kdn_dump_niter_desc(FILE *stream, struct niter_desc *loop_desc) {
   } else {
 
     fprintf(stream, "  Edge that leaves loop: ");
-    kdn_dump_edge(stream, loop_desc->out_edge, TRUE, TRUE);
+    kdn_dump_edge(stream, loop_desc->out_edge);
 
     fprintf(stream, "  Edge from same source that continues loop: ");
-    kdn_dump_edge(stream, loop_desc->in_edge, TRUE, TRUE);
+    kdn_dump_edge(stream, loop_desc->in_edge);
 
     fprintf(stream, "  What do we know? %s\n",
 	    (loop_desc->simple_p)? "something": "nothing");
