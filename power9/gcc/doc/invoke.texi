@@ -19554,7 +19554,7 @@ Enable/disable using ISA 3.0 hardware instructions to support the
 @itemx -mno-modulo
 @opindex mmodulo
 @opindex mno-module
-Generate code that uses (does not use) the ISA 2.08 integer modulo
+Generate code that uses (does not use) the ISA 3.0 integer modulo
 instructions.  The @option{-mmodulo} option is enabled by default
 with the @option{-mcpu=power9} option.
 

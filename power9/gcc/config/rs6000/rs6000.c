@@ -3817,7 +3817,7 @@ rs6000_option_override_internal (bool global_init_p)
       && !(rs6000_isa_flags_explicit & OPTION_MASK_FUSION_TOC))
     rs6000_isa_flags |= OPTION_MASK_FUSION_TOC;
 
-  /* ISA 2.08 vector instructions include ISA 2.07.  */
+  /* ISA 3.0 vector instructions include ISA 2.07.  */
   if (TARGET_P9_VECTOR && !TARGET_P8_VECTOR)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_P9_VECTOR)

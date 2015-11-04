@@ -611,7 +611,7 @@ Fuse certain operations together for better performance on power9.
 
 mpower9-vector
 Target Report Mask(P9_VECTOR) Var(rs6000_isa_flags)
-Use/do not use vector and scalar instructions added in ISA 2.08.
+Use/do not use vector and scalar instructions added in ISA 3.0.
 
 mmodulo
 Target Report Mask(MODULO) Var(rs6000_isa_flags)
