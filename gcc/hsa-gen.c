@@ -5130,6 +5130,21 @@ struct phi_definition
   tree phi_value;
 };
 
+/* Sum slice of a vector V, starting from index START and ending
+   at the index END - 1.  */
+
+template <typename T>
+static
+T sum_slice (const auto_vec <T> &v, unsigned start, unsigned end)
+{
+  T s = 0;
+
+  for (unsigned i = start; i < end; i++)
+    s += v[i];
+
+  return s;
+}
+
 /* Function transforms GIMPLE SWITCH statements to a series of IF statements.
    Let's assume following example:
 
@@ -5211,6 +5226,8 @@ convert_switch_statements ()
 
 	auto_vec <edge> new_edges;
 	auto_vec <phi_definition *> phi_todo_list;
+	auto_vec <gcov_type> edge_counts;
+	auto_vec <int> edge_probabilities;
 
 	/* Investigate all labels that and PHI nodes in these edges which
 	   should be fixed after we add new collection of edges.  */
@@ -5219,6 +5236,8 @@ convert_switch_statements ()
 	    tree label = gimple_switch_label (s, i);
 	    basic_block label_bb = label_to_block_fn (func, CASE_LABEL (label));
 	    edge e = find_edge (bb, label_bb);
+	    edge_counts.safe_push (e->count);
+	    edge_probabilities.safe_push (e->probability);
 	    gphi_iterator phi_gsi;
 
 	    /* Save PHI definitions that will be destroyed because of an edge
@@ -5299,6 +5318,14 @@ convert_switch_statements ()
 	    basic_block label_bb = label_to_block_fn
 	      (func, CASE_LABEL (label));
 	    edge new_edge = make_edge (cur_bb, label_bb, EDGE_TRUE_VALUE);
+	    int prob_sum = sum_slice <int> (edge_probabilities, i, labels) +
+	       edge_probabilities[0];
+
+	    if (prob_sum)
+	      new_edge->probability = RDIV
+		(REG_BR_PROB_BASE * edge_probabilities[i], prob_sum);
+
+	    new_edge->count = edge_counts[i];
 	    new_edges.safe_push (new_edge);
 
 	    if (i < labels - 1)
@@ -5312,13 +5339,20 @@ convert_switch_statements ()
 		    loops_state_set (LOOPS_NEED_FIXUP);
 		  }
 
-		make_edge (cur_bb, next_bb, EDGE_FALSE_VALUE);
+		edge next_edge = make_edge (cur_bb, next_bb, EDGE_FALSE_VALUE);
+		next_edge->probability = inverse_probability
+		  (new_edge->probability);
+		next_edge->count = edge_counts[0]
+		  + sum_slice <gcov_type> (edge_counts, i, labels);
+		next_bb->frequency = EDGE_FREQUENCY (next_edge);
 		cur_bb = next_bb;
 	      }
 	    else /* Link last IF statement and default label
 		    of the switch.  */
 	      {
 		edge e = make_edge (cur_bb, default_label_bb, EDGE_FALSE_VALUE);
+		e->probability = inverse_probability (new_edge->probability);
+		e->count = edge_counts[0];
 		new_edges.safe_insert (0, e);
 	      }
 	  }
