@@ -1,5 +1,35 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_basic_insn): Do not handle
+	BRIG_OPCODE_CVT opcode.
+	(emit_insn):
+	* hsa-gen.c (hsa_init_data_for_cfun): Add new pool allocator.
+	(hsa_deinit_data_for_cfun): Release the pool.
+	(hsa_op_with_type::get_in_type): Construct new hsa_insn_cvt.
+	(hsa_insn_cvt::operator new): New function.
+	(hsa_reg_for_gimple_ssa_reqtype): Remove.
+	(gen_address_calculation): Use get_in_type.
+	(process_mem_base): Likewise.
+	(gen_hsa_addr): Likewise.
+	(hsa_spill_in): Construct hsa_insn_cvt.
+	(hsa_spill_out): Likewise.
+	(gen_hsa_unary_operation): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(hsa_insn_basic::set_output_in_type): Likewise.
+	(gen_num_threads_for_dispatch): Replace CVT instructions with
+	get_in_type.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(get_address_from_value): Use get_in_type instead of
+	hsa_reg_for_gimple_ssa_reqtype.
+	* hsa.h (hsa_insn_cvt): Declare new instruction class.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_insn): Replace if-chain with
+	if-else-chain of condiditions.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_insn_operands): New function.
 	(emit_operands): Likewise.
 	(emit_memory_insn): Use emit_insn_operands.

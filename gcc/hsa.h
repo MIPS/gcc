@@ -254,6 +254,16 @@ is_a_helper <hsa_op_reg *>::test (hsa_op_base *p)
   return p->m_kind == BRIG_KIND_OPERAND_REGISTER;
 }
 
+/* Report whether or not P is a register operand.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_op_reg *>::test (hsa_op_with_type *p)
+{
+  return p->m_kind == BRIG_KIND_OPERAND_REGISTER;
+}
+
 /* An address HSA operand.  */
 
 class hsa_op_address : public hsa_op_base
@@ -906,6 +916,26 @@ is_a_helper <hsa_insn_packed *>::test (hsa_insn_basic *p)
 	  || p->m_opcode == BRIG_OPCODE_EXPAND);
 }
 
+/* HSA convert instruction.  */
+
+class hsa_insn_cvt: public hsa_insn_basic
+{
+public:
+  hsa_insn_cvt (hsa_op_with_type *dest, hsa_op_with_type *src);
+
+  /* Pool allocator.  */
+  void *operator new (size_t);
+};
+
+/* Report whether or not P is a convert instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_cvt *>::test (hsa_insn_basic *p)
+{
+  return (p->m_opcode == BRIG_OPCODE_CVT);
+}
 
 /* Basic block of HSA instructions.  */
 

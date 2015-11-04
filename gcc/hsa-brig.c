@@ -1446,7 +1446,7 @@ emit_switch_insn (hsa_insn_sbr *sbr)
    necessary operands for writing.  */
 
 static void
-emit_cvt_insn (hsa_insn_basic *insn)
+emit_cvt_insn (hsa_insn_cvt *insn)
 {
   struct BrigInstCvt repr;
   BrigType16_t srctype;
@@ -1645,12 +1645,6 @@ emit_basic_insn (hsa_insn_basic *insn)
   struct BrigInstMod repr;
   BrigType16_t type;
 
-  if (insn->m_opcode == BRIG_OPCODE_CVT)
-    {
-      emit_cvt_insn (insn);
-      return;
-    }
-
   memset (&repr, 0, sizeof (repr));
   repr.base.base.byteCount = htole16 (sizeof (BrigInstBasic));
   repr.base.base.kind = htole16 (BRIG_KIND_INST_BASIC);
@@ -1706,77 +1700,41 @@ emit_insn (hsa_insn_basic *insn)
   insn->m_brig_offset = brig_code.total_size;
 
   if (hsa_insn_signal *signal = dyn_cast <hsa_insn_signal *> (insn))
-    {
-      emit_signal_insn (signal);
-      return;
-    }
-  if (hsa_insn_atomic *atom = dyn_cast <hsa_insn_atomic *> (insn))
-    {
-      emit_atomic_insn (atom);
-      return;
-    }
-  if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
-    {
-      emit_memory_insn (mem);
-      return;
-    }
-  if (insn->m_opcode == BRIG_OPCODE_LDA)
-    {
-      emit_addr_insn (insn);
-      return;
-    }
-  if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))
-    {
-      emit_segment_insn (seg);
-      return;
-    }
-  if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
-    {
-      emit_cmp_insn (cmp);
-      return;
-    }
-  if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
-    {
-      emit_branch_insn (br);
-      return;
-    }
-  if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
+    emit_signal_insn (signal);
+  else if (hsa_insn_atomic *atom = dyn_cast <hsa_insn_atomic *> (insn))
+    emit_atomic_insn (atom);
+  else if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
+    emit_memory_insn (mem);
+  else if (insn->m_opcode == BRIG_OPCODE_LDA)
+    emit_addr_insn (insn);
+  else if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))
+    emit_segment_insn (seg);
+  else if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
+    emit_cmp_insn (cmp);
+  else if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
+    emit_branch_insn (br);
+  else if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
     {
       if (switch_instructions == NULL)
 	switch_instructions = new vec <hsa_insn_sbr *> ();
 
       switch_instructions->safe_push (sbr);
       emit_switch_insn (sbr);
-      return;
     }
-
-  if (hsa_insn_arg_block *arg_block = dyn_cast <hsa_insn_arg_block *> (insn))
-    {
-      emit_arg_block_insn (arg_block);
-      return;
-    }
-  if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
-    {
-      emit_call_insn (call);
-      return;
-    }
-  if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
-    {
-      emit_comment_insn (comment);
-      return;
-    }
-  if (hsa_insn_queue *queue = dyn_cast <hsa_insn_queue *> (insn))
-    {
-      emit_queue_insn (queue);
-      return;
-    }
-  if (hsa_insn_packed *packed = dyn_cast <hsa_insn_packed *> (insn))
-    {
-      emit_packed_insn (packed);
-      return;
-    }
-
-  emit_basic_insn (insn);
+  else if (hsa_insn_arg_block *block = dyn_cast <hsa_insn_arg_block *> (insn))
+    emit_arg_block_insn (block);
+  else if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
+    emit_call_insn (call);
+  else if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
+    emit_comment_insn (comment);
+  else if (hsa_insn_queue *queue = dyn_cast <hsa_insn_queue *> (insn))
+    emit_queue_insn (queue);
+  else if (hsa_insn_packed *packed = dyn_cast <hsa_insn_packed *> (insn))
+    emit_packed_insn (packed);
+  else if (hsa_insn_cvt *cvt = dyn_cast <hsa_insn_cvt *> (insn))
+    emit_cvt_insn (cvt);
+  else
+    emit_basic_insn (insn);
 }
 
 /* We have just finished emitting BB and are about to emit NEXT_BB if non-NULL,
