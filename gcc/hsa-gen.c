@@ -275,7 +275,11 @@ hsa_function_representation::~hsa_function_representation ()
 hsa_op_reg *
 hsa_function_representation::get_shadow_reg ()
 {
-  gcc_assert (m_kern_p);
+  /* If we compile a function with kernel dispatch and does not set
+     an optimization level, the function won't be inlined and
+     we return NULL.  */
+  if (!m_kern_p)
+    return NULL;
 
   if (m_shadow_reg)
     return m_shadow_reg;
@@ -3576,6 +3580,8 @@ static void
 set_debug_value (hsa_bb *hbb, hsa_op_with_type *value)
 {
   hsa_op_reg *shadow_reg_ptr = hsa_cfun->get_shadow_reg ();
+  if (shadow_reg_ptr == NULL)
+    return;
 
   hsa_op_address *addr = new hsa_op_address
     (shadow_reg_ptr, offsetof (hsa_kernel_dispatch, debug));
@@ -3644,6 +3650,13 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_op_immed *c;
 
   hsa_op_reg *shadow_reg_ptr = hsa_cfun->get_shadow_reg ();
+  if (shadow_reg_ptr == NULL)
+    {
+      HSA_SORRY_AT (gimple_location (call),
+		    "support for HSA does not implement kernel dispatch from "
+		    "a function that is not an HSA kernel");
+      return;
+    }
 
   /* Get my kernel dispatch argument.  */
   hbb->append_insn (new hsa_insn_comment ("get kernel dispatch structure"));

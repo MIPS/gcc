@@ -1,5 +1,14 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_function_representation::get_shadow_reg):
+	Return NULL if hsa_cfun does not point to an HSA kernel.
+	(set_debug_value): Do not set value if shadow_reg equals to
+	NULL.
+	(gen_hsa_insns_for_kernel_call): Emit warning if shadow_reg
+	is returned as NULL.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (T sum_slice): New function.
 	(convert_switch_statements): Fix edge and BB CFG probability
 	and frequency.
