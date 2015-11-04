@@ -1,5 +1,11 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (hsa_output_brig): Set released data structures
+	to NULL.
+	* hsa.c (hsa_deinit_compilation_unit_data): Likewise.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* ipa-hsa.c: Comment functions.
 
 2015-11-04  Martin Liska  <mliska@suse.cz>

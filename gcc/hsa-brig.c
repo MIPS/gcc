@@ -2274,5 +2274,7 @@ hsa_output_brig (void)
   hsa_deinit_compilation_unit_data ();
 
   delete emitted_declarations;
+  emitted_declarations = NULL;
   delete function_offsets;
+  function_offsets = NULL;
 }
