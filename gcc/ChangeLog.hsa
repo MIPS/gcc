@@ -1,5 +1,14 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.c: Removed unnecessary includes.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+	* ipa-hsa.c: Likewise.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call): Removed stale FIXMEs and TODOs.
 	* hsa-dump.c: Likewise.
 	* hsa-gen.c: Likewise.
