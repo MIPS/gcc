@@ -1,5 +1,9 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* plugin/plugin-hsa.c: Fix spelling errors in strings and comments.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* plugin/configfrag.ac: Only build HSA_PLUGIN during x86_64 64-bit
 	compilations.
 	* configure: Regenerate.

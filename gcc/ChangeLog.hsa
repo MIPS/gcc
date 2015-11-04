@@ -1,3 +1,10 @@
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h: Fix spelling errors in strings and comments.
+	* hsa-brig.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (hsa_function_representation::get_shadow_reg):

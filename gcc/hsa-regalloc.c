@@ -136,7 +136,7 @@ naive_outof_ssa (void)
 }
 
 /* Return register class number for the given HSA TYPE.  0 means the 'c' one
-   bit register clas, 1 means 's' 32 bit class, 2 stands for 'd' 64 bit class
+   bit register class, 1 means 's' 32 bit class, 2 stands for 'd' 64 bit class
    and 3 for 'q' 128 bit class.  */
 
 static int
@@ -293,7 +293,7 @@ dump_hsa_cfun_regalloc (FILE *f)
 /* Given the global register allocation state CLASSES and a
    register REG, try to give it a hardware register.  If successful,
    store that hardreg in REG and return it, otherwise return -1.
-   Also changes CLASSES to accomodate for the allocated register.  */
+   Also changes CLASSES to accommodate for the allocated register.  */
 
 static int
 try_alloc_reg (struct m_reg_class_desc *classes, hsa_op_reg *reg)

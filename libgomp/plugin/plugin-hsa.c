@@ -53,7 +53,7 @@ static bool debug;
 
 static bool suppress_host_fallback;
 
-/* Initialize debug and supress_host_fallback according to the environment.  */
+/* Initialize debug and suppress_host_fallback according to the environment.  */
 
 static void
 init_enviroment_variables (void)
@@ -240,7 +240,7 @@ struct agent_info
   /* Flag whether the HSA program that consists of all the modules has been
      finalized.  */
   bool prog_finalized;
-  /* Flag whether the program was finalized but with a failture.  */
+  /* Flag whether the program was finalized but with a failure.  */
   bool prog_finalized_error;
   /* HSA executable - the finalized program that is used to locate kernels.  */
   hsa_executable_t executable;
@@ -538,7 +538,7 @@ destroy_hsa_program (struct agent_info *agent)
    brig_image_desc in TARGET_DATA and return references to kernel descriptors
    in TARGET_TABLE.  */
 
-/* FIXME: Start using some lind of versioning scheme too, I suppose.  */
+/* FIXME: Start using some kind of versioning scheme too, I suppose.  */
 
 int
 GOMP_OFFLOAD_load_image (int ord, unsigned version  __attribute__ ((unused)),
@@ -988,7 +988,7 @@ init_kernel (struct kernel_info *kernel)
 		       "mutex");
 }
 
-/* Strucutre provided by thre compiler, specifying the grid, sizes.  */
+/* Structure provided by the compiler, specifying the grid, sizes.  */
 
 struct kernel_launch_attributes
 {
@@ -1027,7 +1027,7 @@ parse_launch_attributes (const void *input,
   kla = (const struct kernel_launch_attributes *) input;
   *result = kla;
   if (kla->ndim != 1)
-    GOMP_PLUGIN_fatal ("HSA does not yet support number of dimesions "
+    GOMP_PLUGIN_fatal ("HSA does not yet support number of dimensions "
 		       "different from one.");
   if (kla->gdims[0] == 0)
     return false;
@@ -1189,7 +1189,7 @@ destroy_module (struct module_info *module)
 /* Part of the libgomp plugin interface.  Unload BRIG module described by
    struct brig_image_desc in TARGET_DATA from agent number N.  */
 
-/* FIXME: Like when loading animage, look at the version.  */
+/* FIXME: Like when loading an image, look at the version.  */
 
 void
 GOMP_OFFLOAD_unload_image (int n, unsigned version  __attribute__ ((unused)),

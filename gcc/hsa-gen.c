@@ -241,7 +241,7 @@ hsa_function_representation::hsa_function_representation
   m_ssa_map.safe_grow_cleared (ssa_names_count);
 }
 
-/* Destructor of class holding function/kernel-wide informaton and state.  */
+/* Destructor of class holding function/kernel-wide information and state.  */
 
 hsa_function_representation::~hsa_function_representation ()
 {
@@ -830,7 +830,7 @@ hsa_get_string_cst_symbol (tree string_cst)
   return sym;
 }
 
-/* Constructor of the ancetor if all operands.  K is BRIG kind that identified
+/* Constructor of the ancestor of all operands.  K is BRIG kind that identified
    what the operator is.  */
 
 hsa_op_base::hsa_op_base (BrigKind16_t k): m_next (NULL), m_brig_op_offset (0),
@@ -901,7 +901,7 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
       m_brig_repr_size = tree_to_uhwi
 	(TYPE_SIZE_UNIT (TREE_TYPE (m_tree_value)));
 
-      /* Verify that all elements of a contructor are constants.  */
+      /* Verify that all elements of a constructor are constants.  */
       for (unsigned i = 0;
 	   i < vec_safe_length (CONSTRUCTOR_ELTS (m_tree_value)); i++)
 	{
@@ -982,7 +982,7 @@ hsa_op_immed::set_type (BrigType16_t t)
 }
 
 /* Constructor of class representing HSA registers and pseudo-registers.  T is
-   the BRIG type fo the new register.  */
+   the BRIG type of the new register.  */
 
 hsa_op_reg::hsa_op_reg (BrigType16_t t)
   : hsa_op_with_type (BRIG_KIND_OPERAND_REGISTER, t), m_gimple_ssa (NULL_TREE),
@@ -1034,7 +1034,7 @@ hsa_op_reg::verify_ssa ()
 
 	      if (r)
 		{
-		  error ("HSA SSA name defined by intruction that is supposed "
+		  error ("HSA SSA name defined by instruction that is supposed "
 			 "to be using it");
 		  debug_hsa_operand (this);
 		  debug_hsa_insn (use);
@@ -1177,7 +1177,7 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc): m_prev (NULL),
   hsa_instructions.safe_push (this);
 }
 
-/* Make OP the operand number INDEX of operands of this instuction.  If OP is a
+/* Make OP the operand number INDEX of operands of this instruction.  If OP is a
    register or an address containing a register, then either set the definition
    of the register to this instruction if it an output operand or add this
    instruction to the uses if it is an input one.  */
@@ -1334,8 +1334,8 @@ hsa_insn_phi::operator new (size_t)
   return hsa_allocp_inst_phi->vallocate ();
 }
 
-/* Constructor of clas representing instruction for conditional jump, CTRL is
-   the control register deterining whether the jump will be carried out, the
+/* Constructor of class representing instruction for conditional jump, CTRL is
+   the control register determining whether the jump will be carried out, the
    new instruction is automatically added to its uses list.  */
 
 hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
@@ -1386,7 +1386,7 @@ hsa_insn_sbr::~hsa_insn_sbr ()
   m_jump_table.release ();
 }
 
-/* Constructor of comparison instructin.  CMP is the comparison operation and T
+/* Constructor of comparison instruction.  CMP is the comparison operation and T
    is the result type.  */
 
 hsa_insn_cmp::hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t,
@@ -1438,7 +1438,7 @@ hsa_insn_mem::operator new (size_t)
 }
 
 /* Constructor of class representing atomic instructions and signals. OPC is
-   the prinicpal opcode, aop is the specific atomic operation opcode.  T is the
+   the principal opcode, aop is the specific atomic operation opcode.  T is the
    type of the instruction.  The instruction operands
    are provided as ARG[0-3].  */
 
@@ -1457,7 +1457,7 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 		       opc == BRIG_OPCODE_SIGNAL ||
 		       opc == BRIG_OPCODE_SIGNALNORET);
 
-  /* TODO: Review the following defaults (together with the few overriddes we
+  /* TODO: Review the following defaults (together with the few overrides we
      have in the code).  */
 }
 
@@ -1469,7 +1469,7 @@ hsa_insn_atomic::operator new (size_t)
   return hsa_allocp_inst_atomic->vallocate ();
 }
 
-/* Constructor of class representing signal instructions.  OPC is the prinicpa;
+/* Constructor of class representing signal instructions.  OPC is the prinicpal
    opcode, sop is the specific signal operation opcode.  T is the type of the
    instruction.  The instruction operands are provided as ARG[0-3].  */
 
@@ -1492,7 +1492,7 @@ hsa_insn_signal::operator new (size_t)
 }
 
 /* Constructor of class representing segment conversion instructions.  OPC is
-   the opcode which must be either BRIG_OPCODE_STOF or BRIG_OPCODE_FTOS.  DESTT
+   the opcode which must be either BRIG_OPCODE_STOF or BRIG_OPCODE_FTOS.  DEST
    and SRCT are destination and source types respectively, SEG is the segment
    we are converting to or from.  The instruction operands are
    provided as ARG0 and ARG1.  */
@@ -1798,7 +1798,7 @@ gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb);
    instructions need to be created to calculate the address, they will be added
    to the end of HBB.  If a caller provider OUTPUT_BITSIZE and OUTPUT_BITPOS,
    the function assumes that the caller will handle possible
-   bitfield references.  Otherwise if we reference a bitfield, sorry message
+   bit-field references.  Otherwise if we reference a bit-field, sorry message
    is displayed.  */
 
 static hsa_op_address *
@@ -2132,7 +2132,7 @@ gen_hsa_insns_for_bitfield (hsa_op_reg *dest, hsa_op_reg *value_reg,
 /* Generate HSAIL instructions loading a bit field into register DEST.  ADDR is
    prepared memory address which is used to load the bit field.  To identify a
    bit field BITPOS is offset to the loaded memory and BITSIZE is number of
-   bits of the bit field.  Add instructions to HBB.  Load must be performaed in
+   bits of the bit field.  Add instructions to HBB.  Load must be performed in
    alignment ALIGN.  */
 
 static void
@@ -2428,7 +2428,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
   mem->set_align (req_align);
 
-  /* XXX The HSAIL disasm has another constraint: if the source
+  /* XXX The HSAIL verifier has another constraint: if the source
      is an immediate then it must match the destination type.  If
      it's a register the low bits will be used for sub-word stores.
      We're always allocating new operands so we can modify the above
@@ -3444,7 +3444,7 @@ query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode, int dimension,
 }
 
 /* Generate a special HSA-related instruction for gimple STMT.
-   Intructions are appended to basic block HBB.  */
+   Instructions are appended to basic block HBB.  */
 
 static void
 query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, int dimension,
@@ -3460,7 +3460,7 @@ query_hsa_grid (gimple *stmt, BrigOpcode16_t opcode, int dimension,
 }
 
 /* Emit instructions that set hsa_num_threads according to provided VALUE.
- Intructions are appended to basic block HBB.  */
+   Instructions are appended to basic block HBB.  */
 
 static void
 gen_set_num_threads (tree value, hsa_bb *hbb)
@@ -3530,7 +3530,7 @@ gen_num_threads_for_dispatch (hsa_bb *hbb)
 
 
 /* Emit instructions that assign number of teams to lhs of gimple STMT.
-   Intructions are appended to basic block HBB.  */
+   Instructions are appended to basic block HBB.  */
 
 static void
 gen_get_num_teams (gimple *stmt, hsa_bb *hbb)
@@ -3552,7 +3552,7 @@ gen_get_num_teams (gimple *stmt, hsa_bb *hbb)
 }
 
 /* Emit instructions that assign a team number to lhs of gimple STMT.
-   Intructions are appended to basic block HBB.  */
+   Instructions are appended to basic block HBB.  */
 
 static void
 gen_get_team_num (gimple *stmt, hsa_bb *hbb)
@@ -3997,7 +3997,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, shadow_reg, addr);
   hbb->append_insn (mem);
 
-  /* Write to packet->competion_signal.  */
+  /* Write to packet->completion_signal.  */
   hbb->append_insn (new hsa_insn_comment ("set packet->completion_signal"));
 
   addr = new hsa_op_address (queue_packet_reg,
@@ -4128,7 +4128,7 @@ get_address_from_value (tree val, hsa_bb *hbb)
     }
 }
 
-/* Return strign for MEMMODEL.  */
+/* Return string for MEMMODEL.  */
 
 static const char *
 get_memory_order_name (unsigned memmodel)
@@ -4153,7 +4153,7 @@ get_memory_order_name (unsigned memmodel)
 }
 
 /* Return memory order according to predefined __atomic memory model
-   constants.  LOCATION is provided to locate the problemati statement.  */
+   constants.  LOCATION is provided to locate the problematic statement.  */
 
 static BrigMemoryOrder
 get_memory_order (unsigned memmodel, location_t location)
@@ -4511,7 +4511,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_ATOMIC_STORE_4:
     case BUILT_IN_ATOMIC_STORE_8:
     case BUILT_IN_ATOMIC_STORE_16:
-      /* Since there canot be any LHS, the first parameter is meaningless.  */
+      /* Since there cannot be any LHS, the first parameter is meaningless.  */
       gen_hsa_ternary_atomic_for_builtin (true, BRIG_ATOMIC_ST, stmt, hbb);
       break;
 
@@ -5173,7 +5173,7 @@ L2:    hard_work_2 ();
 LD:    hard_work_3 ();
        break;
 
-  The tranformation encompases following steps:
+  The transformation encompasses following steps:
     1) all immediate values used by edges coming from the switch basic block
        are saved
     2) all these edges are removed

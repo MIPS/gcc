@@ -236,7 +236,7 @@ private:
   /* All objects are deallocated by destroying their pool, so make delete
      inaccessible too.  */
   void operator delete (void *) {}
-  /* Set difinition where the register is defined.  */
+  /* Set definition where the register is defined.  */
   void set_definition (hsa_insn_basic *insn);
   /* Uses of the value while still in SSA.  */
   auto_vec <hsa_insn_basic_p> m_uses;
@@ -524,7 +524,7 @@ is_a_helper <hsa_insn_br *>::test (hsa_insn_basic *p)
     || p->m_opcode == BRIG_OPCODE_CBR;
 }
 
-/* HSA instruction for swtich branche.  */
+/* HSA instruction for switch branches.  */
 
 class hsa_insn_sbr : public hsa_insn_basic
 {
@@ -1079,7 +1079,7 @@ public:
   vec <struct hsa_symbol *> m_spill_symbols;
 
   /* Vector of pointers to symbols (string constants and global,
-     noni-addressable variables with a constructor).  */
+     non-addressable variables with a constructor).  */
   vec <struct hsa_symbol *> m_readonly_variables;
 
   /* Private function artificial variables.  */
@@ -1136,7 +1136,7 @@ struct hsa_function_summary
   /* Default constructor.  */
   hsa_function_summary ();
 
-  /* Kind of GPU/hostfunction.  */
+  /* Kind of GPU/host function.  */
   hsa_function_kind m_kind;
 
   /* Pointer to a cgraph node which is a HSA implementation of the function.

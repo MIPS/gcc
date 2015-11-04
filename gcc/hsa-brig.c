@@ -1738,7 +1738,7 @@ emit_insn (hsa_insn_basic *insn)
 }
 
 /* We have just finished emitting BB and are about to emit NEXT_BB if non-NULL,
-   or we are about to finish emiting code, if it is NULL.  If the fall through
+   or we are about to finish emitting code, if it is NULL.  If the fall through
    edge from BB does not lead to NEXT_BB, emit an unconditional jump.  */
 
 static void
