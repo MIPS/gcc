@@ -16907,6 +16907,46 @@ find_single_omp_among_assignments (gimple_seq seq, location_t target_loc,
     return NULL;
 }
 
+/* Walker function looking for statements there is no point gridifying (and for
+   noreturn function calls which we cannot do).  Return non-NULL if such a
+   function is found.  */
+
+static tree
+find_ungridifiable_statement (gimple_stmt_iterator *gsi, bool *handled_ops_p,
+			      struct walk_stmt_info *)
+{
+  *handled_ops_p = false;
+  gimple *stmt = gsi_stmt (*gsi);
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_CALL:
+      if (gimple_call_noreturn_p (as_a <gcall *> (stmt)))
+	{
+	  *handled_ops_p = true;
+	  return error_mark_node;
+	}
+      break;
+
+    /* We may reduce the following list if we find a way to implement the
+       clauses, but now there is no point trying further.  */
+    case GIMPLE_OMP_CRITICAL:
+    case GIMPLE_OMP_TASKGROUP:
+    case GIMPLE_OMP_TASK:
+    case GIMPLE_OMP_SECTION:
+    case GIMPLE_OMP_SECTIONS:
+    case GIMPLE_OMP_SECTIONS_SWITCH:
+    case GIMPLE_OMP_TARGET:
+    case GIMPLE_OMP_ORDERED:
+      *handled_ops_p = true;
+      return error_mark_node;
+
+    default:
+      break;
+    }
+  return NULL;
+}
+
+
 /* If TARGET follows a pattern that can be turned into a gridified GPGPU
    kernel, return true, otherwise return false.  In the case of success, also
    fill in GROUP_SIZE_P with the requested group size or NULL if there is
@@ -17110,6 +17150,29 @@ target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p)
 	  break;
 	}
       clauses = OMP_CLAUSE_CHAIN (clauses);
+    }
+
+  struct walk_stmt_info wi;
+  memset (&wi, 0, sizeof (wi));
+  if (gimple *bad = walk_gimple_seq (gimple_omp_body (gfor),
+				     find_ungridifiable_statement,
+				     NULL, &wi))
+    {
+      if (dump_enabled_p ())
+	{
+	  if (is_gimple_call (bad))
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a gridified "
+			     " GPGPU kernel because the inner loop contains "
+			     "call to a noreturn function\n");
+	  else
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a gridified "
+			     "GPGPU kernel because the inner loop contains "
+			     "statement %s which cannot be transformed\n",
+			     gimple_code_name[(int) gimple_code (bad)]);
+	}
+      return false;
     }
 
   *group_size_p = group_size;
