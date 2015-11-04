@@ -846,7 +846,7 @@ ocp_convert (tree type, tree expr, int convtype, int flags,
 		      TREE_TYPE (e));
 	}
       if (code == REAL_TYPE)
-	return convert_to_real (type, e);
+	return convert_to_real_nofold (type, e);
       else if (code == COMPLEX_TYPE)
 	return convert_to_complex_nofold (type, e);
     }

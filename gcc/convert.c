@@ -119,17 +119,19 @@ convert_to_pointer_nofold (tree type, tree expr)
 /* Convert EXPR to some floating-point type TYPE.
 
    EXPR must be float, fixed-point, integer, or enumeral;
-   in other cases error is called.  */
+   in other cases error is called.  If FOLD_P is true, try to fold
+   the expression.  */
 
-tree
-convert_to_real (tree type, tree expr)
+static tree
+convert_to_real_1 (tree type, tree expr, bool fold_p)
 {
   enum built_in_function fcode = builtin_mathfn_code (expr);
   tree itype = TREE_TYPE (expr);
+  location_t loc = EXPR_LOCATION (expr);
 
   if (TREE_CODE (expr) == COMPOUND_EXPR)
     {
-      tree t = convert_to_real (type, TREE_OPERAND (expr, 1));
+      tree t = convert_to_real_1 (type, TREE_OPERAND (expr, 1), fold_p);
       if (t == TREE_OPERAND (expr, 1))
 	return expr;
       return build2_loc (EXPR_LOCATION (expr), COMPOUND_EXPR, TREE_TYPE (t),
@@ -237,14 +239,13 @@ convert_to_real (tree type, tree expr)
 		      || TYPE_MODE (newtype) == TYPE_MODE (float_type_node)))
 		{
 		  tree fn = mathfn_built_in (newtype, fcode);
-
 		  if (fn)
-		  {
-		    tree arg = fold (convert_to_real (newtype, arg0));
-		    expr = build_call_expr (fn, 1, arg);
-		    if (newtype == type)
-		      return expr;
-		  }
+		    {
+		      tree arg = convert_to_real_1 (newtype, arg0, fold_p);
+		      expr = build_call_expr (fn, 1, arg);
+		      if (newtype == type)
+			return expr;
+		    }
 		}
 	    }
 	default:
@@ -263,9 +264,11 @@ convert_to_real (tree type, tree expr)
 	  if (!flag_rounding_math
 	      && FLOAT_TYPE_P (itype)
 	      && TYPE_PRECISION (type) < TYPE_PRECISION (itype))
-	    return build1 (TREE_CODE (expr), type,
-			   fold (convert_to_real (type,
-						  TREE_OPERAND (expr, 0))));
+	    {
+	      tree arg = convert_to_real_1 (type, TREE_OPERAND (expr, 0),
+					    fold_p);
+	      return build1 (TREE_CODE (expr), type, arg);
+	    }
 	  break;
 	/* Convert (outertype)((innertype0)a+(innertype1)b)
 	   into ((newtype)a+(newtype)b) where newtype
@@ -301,8 +304,10 @@ convert_to_real (tree type, tree expr)
 		      || newtype == dfloat128_type_node)
 		    {
 		      expr = build2 (TREE_CODE (expr), newtype,
-				     fold (convert_to_real (newtype, arg0)),
-				     fold (convert_to_real (newtype, arg1)));
+				     convert_to_real_1 (newtype, arg0,
+							fold_p),
+				     convert_to_real_1 (newtype, arg1,
+							fold_p));
 		      if (newtype == type)
 			return expr;
 		      break;
@@ -341,8 +346,10 @@ convert_to_real (tree type, tree expr)
 			      && !excess_precision_type (newtype))))
 		    {
 		      expr = build2 (TREE_CODE (expr), newtype,
-				     fold (convert_to_real (newtype, arg0)),
-				     fold (convert_to_real (newtype, arg1)));
+				     convert_to_real_1 (newtype, arg0,
+							fold_p),
+				     convert_to_real_1 (newtype, arg1,
+							fold_p));
 		      if (newtype == type)
 			return expr;
 		    }
@@ -373,18 +380,37 @@ convert_to_real (tree type, tree expr)
 
     case COMPLEX_TYPE:
       return convert (type,
-		      fold_build1 (REALPART_EXPR,
-				   TREE_TYPE (TREE_TYPE (expr)), expr));
+		      maybe_fold_build1_loc (fold_p, loc, REALPART_EXPR,
+					     TREE_TYPE (TREE_TYPE (expr)),
+					     expr));
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
       error ("pointer value used where a floating point value was expected");
-      return convert_to_real (type, integer_zero_node);
+      return convert_to_real_1 (type, integer_zero_node, fold_p);
 
     default:
       error ("aggregate value used where a float was expected");
-      return convert_to_real (type, integer_zero_node);
+      return convert_to_real_1 (type, integer_zero_node, fold_p);
     }
+}
+
+/* A wrapper around convert_to_real_1 that always folds the
+   expression.  */
+
+tree
+convert_to_real (tree type, tree expr)
+{
+  return convert_to_real_1 (type, expr, true);
+}
+
+/* A wrapper around convert_to_real_1 that only folds the
+   expression if it is CONSTANT_CLASS_P.  */
+
+tree
+convert_to_real_nofold (tree type, tree expr)
+{
+  return convert_to_real_1 (type, expr, CONSTANT_CLASS_P (expr));
 }
 
 /* Convert EXPR to some integer (or enum) type TYPE.

@@ -25,6 +25,7 @@ extern tree convert_to_integer_nofold (tree, tree);
 extern tree convert_to_pointer (tree, tree);
 extern tree convert_to_pointer_nofold (tree, tree);
 extern tree convert_to_real (tree, tree);
+extern tree convert_to_real_nofold (tree, tree);
 extern tree convert_to_fixed (tree, tree);
 extern tree convert_to_complex (tree, tree);
 extern tree convert_to_complex_nofold (tree, tree);
