@@ -5882,6 +5882,15 @@ mips_split_move_insn (rtx dest, rtx src, rtx insn)
 /* Return the appropriate instructions to move SRC into DEST.  Assume
    that SRC is operand 1 and DEST is operand 0.  */
 
+bool
+mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
+{
+  enum mips_symbol_type symbol_type;
+  return (mips_symbolic_constant_p (x, context, &symbol_type)
+	  && symbol_type == SYMBOL_GP_RELATIVE
+	  && CONSTANT_POOL_ADDRESS_P (x));
+}
+
 const char *
 mips_output_move (rtx insn, rtx dest, rtx src)
 {
@@ -6056,7 +6065,12 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	}
 
       if (src_code == HIGH)
-	return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
+	{
+	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
+	    return "move\t%0,$28";
+
+	  return (TARGET_MIPS16 && !ISA_HAS_MIPS16E2) ? "#" : "lui\t%0,%h1";
+	}
 
       if (CONST_GP_P (src))
 	return "move\t%0,%1";
