@@ -49,7 +49,7 @@ main (void)
 }
 
 /* Check that the loop has been split off into a function.  */
-/* { dg-final { scan-tree-dump-times "(?n);; Function .*foo._omp_fn.0" 1 "optimized" } } */
+/* { dg-final { scan-tree-dump-times "(?n);; Function .*foo.*\\._omp_fn\\.0" 1 "optimized" } } */
 
 /* { dg-final { scan-tree-dump-times "clique 1 base 1" 3 "alias" } } */
 /* { dg-final { scan-tree-dump-times "clique 1 base 2" 1 "alias" } } */
