@@ -10525,7 +10525,7 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
-  if (TARGET_USE_SAVE_RESTORE)
+  if (TARGET_USE_SAVE_RESTORE && !TARGET_MIPS16)
     {
       strcpy (buffer, adjust > 0 ? "udi0\t1" : "udi1\t1");
     }
