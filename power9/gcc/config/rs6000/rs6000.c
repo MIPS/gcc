@@ -31903,6 +31903,17 @@ rs6000_rtx_costs (rtx x, machine_mode mode, int outer_code,
       return false;
 
     case ASHIFT:
+      /* The EXTSWSLI instruction is a combined instruction.  Don't count both
+	 the sign extend and shift separately within the insn.  */
+      if (TARGET_EXTSWSLI && mode == DImode
+	  && GET_CODE (XEXP (x, 0)) == SIGN_EXTEND
+	  && GET_MODE (XEXP (XEXP (x, 0), 0)) == SImode)
+	{
+	  *total = 0;
+	  return false;
+	}
+      /* fall through */
+	  
     case ASHIFTRT:
     case LSHIFTRT:
     case ROTATE:

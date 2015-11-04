@@ -1,5 +1,20 @@
 2015-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #4>
+	* config/rs6000/predicates.md (u6bit_cint_operand): New
+	predicate, recognize 0..63.
+
+	* config/rs6000/rs6000.c (rs6000_rtx_costs): Adjust the costs if
+	the EXTSWSLI instruction is generated.
+
+	* config/rs6000/rs6000.h (TARGET_EXTSWSLI): Add support for ISA
+	3.0 EXTSWSLI instruction.
+	* config/rs6000/rs6000.md (ashdi3_extswsli): Likewise.
+	(ashdi3_extswsli_dot): Likewise.
+	(ashdi3_extswsli_dot2): Likewise.
+
+2015-11-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #3>
 	* config/rs6000/rs6000.c (rs6000_rtx_costs): Update costs for
 	count trailing zero instruction if we have hardware support.
