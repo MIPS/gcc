@@ -81,6 +81,23 @@ along with GCC; see the file COPYING3.  If not see
 
 namespace {
 
+/* If NODE is not versionable, warn about not emiting HSAIL and return false.
+   Otherwise return true.  */
+
+static bool
+check_warn_node_versionable (cgraph_node *node)
+{
+  if (!node->local.versionable)
+    {
+      if (warning_at (EXPR_LOCATION (node->decl), OPT_Whsa,
+		      HSA_SORRY_MSG))
+	inform (EXPR_LOCATION (node->decl),
+		"Function cannot be cloned");
+      return false;
+    }
+  return true;
+}
+
 static unsigned int
 process_hsa_functions (void)
 {
@@ -99,6 +116,8 @@ process_hsa_functions (void)
 
       if (s->m_kind != HSA_NONE)
 	{
+	  if (!check_warn_node_versionable (node))
+	    continue;
 	  cgraph_node *clone = node->create_virtual_clone
 	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
@@ -117,6 +136,8 @@ process_hsa_functions (void)
 	}
       else if (hsa_callable_function_p (node->decl))
 	{
+	  if (!check_warn_node_versionable (node))
+	    continue;
 	  cgraph_node *clone = node->create_virtual_clone
 	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);

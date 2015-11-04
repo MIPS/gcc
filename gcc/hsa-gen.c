@@ -82,8 +82,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Print a warning message and set that we have seen an error.  */
 
-#define HSA_SORRY_MSG "could not emit HSAIL for the function"
-
 #define HSA_SORRY_ATV(location, message, ...) \
   do \
   { \

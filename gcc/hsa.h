@@ -40,6 +40,10 @@ hsa_gen_requested_p (void)
   return !flag_disable_hsa;
 }
 
+/* Standard warning message if we failed to generate HSAIL for a function */
+
+#define HSA_SORRY_MSG "could not emit HSAIL for the function"
+
 class hsa_op_immed;
 class hsa_op_cst_list;
 class hsa_insn_basic;

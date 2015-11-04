@@ -1,5 +1,12 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (HSA_SORRY_MSG): Moved...
+	* hsa.h(HSA_SORRY_MSG): ...here.
+	* ipa-hsa.c (check_warn_node_versionable): New function.
+	(process_hsa_functions): Use it.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (expand_target_kernel_body): Only register OMP target
 	regions as HSA kernels.
 
