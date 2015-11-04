@@ -1134,9 +1134,8 @@ optimize_specialization_lookup_p (tree tmpl)
    gone through coerce_template_parms by now.  */
 
 static void
-check_unstripped_args (tree args ATTRIBUTE_UNUSED)
+verify_unstripped_args (tree args)
 {
-#ifdef ENABLE_CHECKING
   ++processing_template_decl;
   if (!any_dependent_template_arguments_p (args))
     {
@@ -1156,7 +1155,6 @@ check_unstripped_args (tree args ATTRIBUTE_UNUSED)
 	}
     }
   --processing_template_decl;
-#endif
 }
 
 /* Retrieve the specialization (in the sense of [temp.spec] - a
@@ -1192,7 +1190,8 @@ retrieve_specialization (tree tmpl, tree args, hashval_t hash)
 		  ? TMPL_PARMS_DEPTH (DECL_TEMPLATE_PARMS (tmpl))
 		  : template_class_depth (DECL_CONTEXT (tmpl))));
 
-  check_unstripped_args (args);
+  if (flag_checking)
+    verify_unstripped_args (args);
 
   if (optimize_specialization_lookup_p (tmpl))
     {
@@ -3407,6 +3406,9 @@ struct find_parameter_pack_data
 
   /* Set of AST nodes that have been visited by the traversal.  */
   hash_set<tree> *visited;
+
+  /* True iff we're making a type pack expansion.  */
+  bool type_pack_expansion_p;
 };
 
 /* Identifies all of the argument packs that occur in a template
@@ -3443,6 +3445,12 @@ find_parameter_packs_r (tree *tp, int *walk_subtrees, void* data)
     case TEMPLATE_TYPE_PARM:
       t = TYPE_MAIN_VARIANT (t);
     case TEMPLATE_TEMPLATE_PARM:
+      /* If the placeholder appears in the decl-specifier-seq of a function
+	 parameter pack (14.6.3), or the type-specifier-seq of a type-id that
+	 is a pack expansion, the invented template parameter is a template
+	 parameter pack.  */
+      if (ppd->type_pack_expansion_p && is_auto_or_concept (t))
+	TEMPLATE_TYPE_PARAMETER_PACK (t) = true;
       if (TEMPLATE_TYPE_PARAMETER_PACK (t))
         parameter_pack_p = true;
       break;
@@ -3577,6 +3585,7 @@ uses_parameter_packs (tree t)
   struct find_parameter_pack_data ppd;
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = new hash_set<tree>;
+  ppd.type_pack_expansion_p = false;
   cp_walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
   delete ppd.visited;
   return parameter_packs != NULL_TREE;
@@ -3686,6 +3695,7 @@ make_pack_expansion (tree arg)
   /* Determine which parameter packs will be expanded.  */
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = new hash_set<tree>;
+  ppd.type_pack_expansion_p = TYPE_P (arg);
   cp_walk_tree (&arg, &find_parameter_packs_r, &ppd, ppd.visited);
   delete ppd.visited;
 
@@ -3733,6 +3743,7 @@ check_for_bare_parameter_packs (tree t)
 
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = new hash_set<tree>;
+  ppd.type_pack_expansion_p = false;
   cp_walk_tree (&t, &find_parameter_packs_r, &ppd, ppd.visited);
   delete ppd.visited;
 
@@ -4201,10 +4212,9 @@ template_parm_to_arg (tree t)
 	  /* Turn this argument into a TYPE_ARGUMENT_PACK
 	     with a single element, which expands T.  */
 	  tree vec = make_tree_vec (1);
-#ifdef ENABLE_CHECKING
-	  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT
-	    (vec, TREE_VEC_LENGTH (vec));
-#endif
+	  if (CHECKING_P)
+	    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (vec, TREE_VEC_LENGTH (vec));
+
 	  TREE_VEC_ELT (vec, 0) = make_pack_expansion (t);
 
 	  t = cxx_make_type (TYPE_ARGUMENT_PACK);
@@ -4221,10 +4231,9 @@ template_parm_to_arg (tree t)
 	     with a single element, which expands T.  */
 	  tree vec = make_tree_vec (1);
 	  tree type = TREE_TYPE (TEMPLATE_PARM_DECL (t));
-#ifdef ENABLE_CHECKING
-	  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT
-	    (vec, TREE_VEC_LENGTH (vec));
-#endif
+	  if (CHECKING_P)
+	    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (vec, TREE_VEC_LENGTH (vec));
+
 	  t = convert_from_reference (t);
 	  TREE_VEC_ELT (vec, 0) = make_pack_expansion (t);
 
@@ -4265,9 +4274,8 @@ template_parms_to_args (tree parms)
       for (i = TREE_VEC_LENGTH (a) - 1; i >= 0; --i)
 	TREE_VEC_ELT (a, i) = template_parm_to_arg (TREE_VEC_ELT (a, i));
 
-#ifdef ENABLE_CHECKING
-      SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (a, TREE_VEC_LENGTH (a));
-#endif
+      if (CHECKING_P)
+	SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (a, TREE_VEC_LENGTH (a));
 
       if (length > 1)
 	TREE_VEC_ELT (args, --l) = a;
@@ -4772,6 +4780,7 @@ fixed_parameter_pack_p (tree parm)
   struct find_parameter_pack_data ppd;
   ppd.parameter_packs = &parameter_packs;
   ppd.visited = new hash_set<tree>;
+  ppd.type_pack_expansion_p = false;
 
   fixed_parameter_pack_p_1 (parm, &ppd);
 
@@ -7385,10 +7394,9 @@ coerce_template_parameter_pack (tree parms,
     }
 
   SET_ARGUMENT_PACK_ARGS (argument_pack, packed_args);
-#ifdef ENABLE_CHECKING
-  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (packed_args,
-				       TREE_VEC_LENGTH (packed_args));
-#endif
+  if (CHECKING_P)
+    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (packed_args,
+					 TREE_VEC_LENGTH (packed_args));
   return argument_pack;
 }
 
@@ -7695,11 +7703,9 @@ coerce_template_parms (tree parms,
   if (lost)
     return error_mark_node;
 
-#ifdef ENABLE_CHECKING
-  if (!NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_inner_args))
+  if (CHECKING_P && !NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_inner_args))
     SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (new_inner_args,
 					 TREE_VEC_LENGTH (new_inner_args));
-#endif
 
   return new_inner_args;
 }
@@ -14279,8 +14285,9 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       return tsubst_binary_right_fold (t, args, complain, in_decl);
 
     default:
-      /* We shouldn't get here, but keep going if !ENABLE_CHECKING.  */
-      gcc_checking_assert (false);
+      /* We shouldn't get here, but keep going if !flag_checking.  */
+      if (flag_checking)
+	gcc_unreachable ();
       return t;
     }
 }
@@ -18188,10 +18195,9 @@ type_unification_real (tree tparms,
       if (saw_undeduced++ == 1)
 	goto again;
     }
-#ifdef ENABLE_CHECKING
-  if (!NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs))
+
+  if (CHECKING_P && !NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs))
     SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, TREE_VEC_LENGTH (targs));
-#endif
 
   return unify_success (explain_p);
 }
@@ -23239,12 +23245,10 @@ build_non_dependent_expr (tree expr)
 {
   tree inner_expr;
 
-#ifdef ENABLE_CHECKING
   /* Try to get a constant value for all non-dependent expressions in
       order to expose bugs in *_dependent_expression_p and constexpr.  */
-  if (cxx_dialect >= cxx11)
+  if (flag_checking && cxx_dialect >= cxx11)
     fold_non_dependent_expr (expr);
-#endif
 
   /* Preserve OVERLOADs; the functions must be available to resolve
      types.  */

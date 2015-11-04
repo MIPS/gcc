@@ -1,5 +1,9 @@
 2015-11-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 229777.
+
+2015-11-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #4>
 	* gcc.target/powerpc/extswsli-1.c: New file to test EXTSWSLI
 	instruction generation.

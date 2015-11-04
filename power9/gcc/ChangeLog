@@ -1,3 +1,209 @@
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* config/nvptx/nvptx.c: Include gimple headers.
+	(worker_red_size, worker_red_align, worker_red_name,
+	worker_red_sym): New.
+	(nvptx_option_override): Initialize worker reduction buffer.
+	(nvptx_file_end): Write out worker reduction buffer var.
+	(nvptx_expand_shuffle, nvptx_expand_worker_addr,
+	nvptx_expand_cmp_swap): New builtin expanders.
+	(enum nvptx_builtins): New.
+	(nvptx_builtin_decls): New.
+	(nvptx_builtin_decl, nvptx_init_builtins, nvptx_expand_builtin): New
+	(PTX_VECTOR_LENGTH, PTX_WORKER_LENGTH): New.
+	(nvptx_get_worker_red_addr, nvptx_generate_vector_shuffle,
+	nvptx_lockless_update): New helpers.
+	(nvptx_goacc_reduction_setup, nvptx_goacc_reduction_init,
+	nvptx_goacc_reduction_fini, nvptx_goacc_reduction_teaddown): New.
+	(nvptx_goacc_reduction): New.
+	(TARGET_INIT_BUILTINS, TARGET_EXPAND_BUILTIN,
+	TARGET_BUILTIN_DECL): Override.
+	(TARGET_GOACC_REDUCTION): Override.
+
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* internal-fn.def (GOACC_REDUCTION): New.
+	* internal-fn.h (enum ifn_goacc_reduction_kind): New.
+	* internal-fn.c (expand_GOACC_REDUCTION): New.
+	* target.def (goacc.reduction): New OpenACC hook.
+	* targhooks.h (default_goacc_reduction): Declare.
+	* doc/tm.texi.in: Add TARGET_GOACC_REDUCTION.
+	* doc/tm.texi: Rebuilt.
+	* omp-low.c (oacc_get_reduction_array_id, oacc_max_threads,
+	scan_sharing_clauses): Remove oacc reduction handling here.
+	(lower_rec_input_clauses): Don't handle OpenACC reductions here.
+	(oacc_lower_reduction_var_helper): Delete.
+	(lower_oacc_reductions): New.
+	(lower_reduction_clauses): Don't handle OpenACC reductions here.
+	(lower_oacc_head_tail): Call lower_oacc_reductions.
+	(oacc_gimple_assign, oacc_init_reduction_array,
+	oacc_initialize_reduction_data, oacc_finalize_reduction_data,
+	oacc_process_reduction_data): Delete.
+	(lower_omp_target): Remove old OpenACC reduction handling.  Insert
+	dummy OpenACC gang reduction for reductions at outer level.
+	(oacc_loop_xform_head_tail): Transform IFN_GOACC_REDUCTION.
+	(default_goacc_reduction): New.
+	(execute_oacc_device_lower): Handle IFN_GOACC_REDUCTION.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
+	* cgraphunit.c (cgraph_node::expand_thunk): Call
+	allocate_struct_function before init_function_start.
+	(cgraph_node::expand): Use push_cfun and pop_cfun.
+	* config/i386/i386.c (ix86_code_end): Call
+	allocate_struct_function before init_function_start.
+	* config/rs6000/rs6000.c (rs6000_code_end): Likewise.
+	* function.c (init_function_start): Move preamble to all
+	callers.
+	* passes.c (do_per_function_toporder): Use push_cfun and pop_cfun.
+	(execute_one_pass): Handle newly added TODO_discard_function.
+	(execute_pass_list_1): Terminate if cfun equals to NULL.
+	(execute_pass_list): Do not push and pop cfun, expect that
+	cfun is set.
+	* tree-pass.h (TODO_discard_function): Define.
+
+2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* cfganal.c (inverted_post_order_compute): Remove conditional
+	compilation, use flag_checking.
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Remove ENABLE_CHECKING.
+	* genconditions.c: Do not #undef ENABLE_CHECKING.
+	* sese.h (bb_in_region): Comment out broken check.
+	* tree-ssa-loop-manip.c (rewrite_into_loop_closed_ssa_1): Remove
+	conditional compilation, use flag_checking.
+
+2015-11-04  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67742
+	* tree-ssa-structalias.c (struct fieldoff): Add restrict_pointed_type
+	field.
+	(push_fields_onto_fieldstack): Handle restrict_pointed_type field.
+	(create_variable_info_for_1): Add and handle handle_param parameter.
+	Add restrict handling.
+	(create_variable_info_for): Call create_variable_info_for_1 with extra
+	arg.
+	(make_param_constraints): Drop restrict_name parameter.  Ignore
+	vi->only_restrict_pointers.
+	(intra_create_variable_infos): Call create_variable_info_for_1 with
+	extra arg.  Remove restrict handling.  Call make_param_constraints with
+	one fewer arg.
+
+2015-11-04  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (create_variable_info_for_1): Use decl_type
+	variable.
+
+2015-11-03  Trevor Saunders  <tbsaunde+gcc@tbsaunde.org>
+
+	* config/arm/coff.h: Remove.
+
+2015-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gimple-expr.c (useless_type_conversion_p): Reinstate type canonical
+	check for aggregate types and beef up comment for mode check.
+
+2015-11-03  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Do not collect
+	data references here.
+	* tree-vect-loop.c: Include cgraph.h.
+	(vect_analyze_loop_2): Collect data references here.
+	* tree-vect-slp.c (find_bb_location): Inline ...
+	(vect_slp_bb): ... here.  Renamed from vect_slp_analyze_bb.
+	Factor in vect_slp_transform_bb.
+	(vect_slp_transform_bb): Removed.
+	(vect_slp_analyze_bb_1): Collect data references here.
+	* tree-vectorizer.c (pass_slp_vectorize::execute): Call
+	vect_slp_bb.
+	* tree-vectorizer.h (vect_slp_bb): Declare.
+	(vect_slp_analyze_bb): Remove.
+	(vect_slp_transform_bb): Remove.
+	(find_bb_location): Remove.
+	(vect_analyze_data_refs): Remove stmt count reference parameter.
+
+2015-11-03  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* multiple_target.c (create_dispatcher_calls): Add target check
+	on ifunc.
+	(create_target_clone): Change assembler name for versioned declarations.
+
+2015-11-03  Thomas Schwinge  <thomas@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* builtins.def (DEF_GOMP_BUILTIN): Enable for flag_openacc.
+	* omp-low.c (check_omp_nesting_restrictions): Allow
+	GIMPLE_OMP_ATOMIC_LOAD, GIMPLE_OMP_ATOMIC_STORE inside OpenACC
+	contexts.
+
+2015-11-03  Bilyan Borisov  <bilyan.borisov@arm.com>
+
+	* config/aarch64/aarch64-simd-builtins.def (fmulx): New.
+	* config/aarch64/aarch64-simd.md (aarch64_fmulx<mode>): New.
+	* config/aarch64/arm_neon.h (vmulx_f32): Rewrite to call fmulx
+	builtin.
+	(vmulxq_f32): Likewise.
+	(vmulx_f64): New.
+	(vmulxq_f64): Rewrite to call fmulx builtin.
+	(vmulxs_f32): Likewise.
+	(vmulxd_f64): Likewise.
+	(vmulx_lane_f32): Remove.
+	* config/aarch64/iterators.md (UNSPEC): Add fmulx.
+
+2015-11-03  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.md (*movhf_aarch64): Use
+	aarch64_reg_or_fp_zero for second operand.
+
+2015-11-03  Alexandre Oliva <aoliva@redhat.com>
+
+	* gimple-expr.c: Include hash-set.h and rtl.h.
+	(mark_addressable_queue): New var.
+	(mark_addressable): Factor actual marking into...
+	(mark_addressable_1): ... this.  Queue it up during expand.
+	(mark_addressable_2): New.
+	(flush_mark_addressable_queue): New.
+	* gimple-expr.h (flush_mark_addressable_queue): Declare.
+	* cfgexpand.c: Include gimple-expr.h.
+	(pass_expand::execute): Flush mark_addressable queue.
+
+2015-11-02  Alexandre Oliva <aoliva@redhat.com>
+
+	* tree-ssa-ifcombine.c (tree_ssa_ifcombine_bb_1): Factor out
+	bb_no_side_effects_p tests...
+	(tree_ssa_ifcombine_bb): ... here.
+
+	PR tree-optimization/68083
+	* tree-ssa-ifcombine.c: Include tree-ssa.h.
+	(bb_no_side_effects_p): Test for undefined uses too.
+	* tree-ssa.c (gimple_uses_undefined_value_p): New.
+	* tree-ssa.h (gimple_uses_undefined_value_p): Declare.
+
+2015-11-02  Jeff Law <jeff@redhat.com>
+
+	* tree-ssa-threadupdate.c (valid_jump_thread_path): Also detect
+	cases where the loop latch edge is in the middle of an FSM path.
+
+2015-11-03  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (make_restrict_var_constraints): Rename to ...
+	(make_param_constraints): ... this.  Add and handle restrict_name
+	parameter.  Handle is_full_var case.
+	(intra_create_variable_infos): Use make_param_constraints.
+
+2015-11-03  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-structalias.c (make_restrict_var_constraints): Replace
+	make_copy_constraint call with make_constraint_from call.
+
+2015-11-02  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/rs6000/freebsd64.h (ASM_SPEC32): Adust spec to handle
+	PIE executables.
+
 2015-11-02  Richard Sandiford  <richard.sandiford@arm.com>
 
 	* builtins.h (fold_fma): Move to fold-const-call.h.
@@ -24,7 +230,7 @@
 2015-11-02  Julian Brown  <julian@codesourcery.com>
 
 	* config/arm/neon-testgen.ml (emit_epilogue): Remove extraneous
-	brackets and semicolon.  
+	brackets and semicolon.
 
 2015-11-02  Alan Lawrence  <alan.lawrence@arm.com>
 
@@ -32,8 +238,8 @@
 	2015-10-27  Alan Lawrence  <alan.lawrence@arm.com>
 
 	PR tree-optimization/65963
-	* tree-scalar-evolution.c (interpret_rhs_expr): Handle some LSHIFT_EXPRs
-	as equivalent MULT_EXPRs.
+	* tree-scalar-evolution.c (interpret_rhs_expr): Handle some
+	LSHIFT_EXPRs as equivalent MULT_EXPRs.
 
 2015-11-02  Thomas Schwinge  <thomas@codesourcery.com>
 
@@ -563,7 +769,7 @@
 	* config/mcore/mcore.c (mcore_reg_ok_for_base_p,
 	mcore_base_register_rtx_p, mcore_legitimate_index_p,
 	mcore_legitimate_address_p): New functions.
-	(TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P): Define. 
+	(TARGET_ADDR_SPACE_LEGITIMATE_ADDRESS_P): Define.
 
 2015-10-29  Jeff Law  <law@redhat.com>
 
@@ -780,11 +986,11 @@
 
 2015-10-29  Mikhail Maltsev  <maltsevm@gmail.com>
 
-        * genautomata.c: Use CHECKING_P instead of ENABLE_CHECKING.
-        * genconditions.c: Define CHECKING_P in the generated code.
-        * genextract.c: Use flag_checking in insn_extract.
-        * gengtype.c (main): Remove conditional compilation.
-        * gengtype.h: Likewise.
+	* genautomata.c: Use CHECKING_P instead of ENABLE_CHECKING.
+	* genconditions.c: Define CHECKING_P in the generated code.
+	* genextract.c: Use flag_checking in insn_extract.
+	* gengtype.c (main): Remove conditional compilation.
+	* gengtype.h: Likewise.
 
 2015-10-29  Jeff Law  <law@redhat.com>
 
@@ -1565,7 +1771,7 @@
 	* omp-low.c (pass_oacc_device_lower::execute): Ignore errors.
 
 2015-10-27  Nathan Sidwell  <nathan@codesourcery.com>
-	
+
 	* internal-fn.c (expand_UNIQUE): New.
 	* internal-fn.h (enum ifn_unique_kind): New.
 	* internal-fn.def (IFN_UNIQUE): New.
@@ -1714,8 +1920,8 @@
 2015-10-27  Alan Lawrence  <alan.lawrence@arm.com>
 
 	PR tree-optimization/65963
-	* tree-scalar-evolution.c (interpret_rhs_expr): Handle some LSHIFT_EXPRs
-	as equivalent MULT_EXPRs.
+	* tree-scalar-evolution.c (interpret_rhs_expr): Handle some
+	LSHIFT_EXPRs as equivalent MULT_EXPRs.
 
 2015-10-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
 
@@ -2614,7 +2820,7 @@
 	* target.def (get_mask_mode): New.
 	* targhooks.c (default_get_mask_mode): New.
 	* targhooks.h (default_get_mask_mode): New.
-	* gcc/tree-vect-stmts.c (get_same_sized_vectype): Add special case
+	* tree-vect-stmts.c (get_same_sized_vectype): Add special case
 	for boolean vector.
 	* tree.c (MAX_BOOL_CACHED_PREC): New.
 	(nonstandard_boolean_type_cache): New.
@@ -3136,10 +3342,10 @@
 	New hook.
 	* doc/tm.texi.in (TARGET_RELAYOUT_FUNCTION): Document.
 	* doc/tm.texi (TARGET_RELAYOUT_FUNCTION): New hook.
-	* gcc/target.def (TARGET_RELAYOUT_FUNCTION): Likewise.
-	* gcc/function.c (allocate_struct_function): Call
+	* target.def (TARGET_RELAYOUT_FUNCTION): Likewise.
+	* function.c (allocate_struct_function): Call
 	relayout_function hook.
-	* gcc/passes.c (rest_of_decl_compilation): Likewise.
+	* passes.c (rest_of_decl_compilation): Likewise.
 
 2015-10-16  Christian Bruel  <christian.bruel@st.com>
 
@@ -3774,7 +3980,7 @@
 
 2015-10-13  Nikolai Bozhenov  <n.bozhenov@samsung.com>
 
-	* gcc/rtl.h (print_insn): Fix prototype.
+	* rtl.h (print_insn): Fix prototype.
 
 2015-10-13  Tom de Vries  <tom@codesourcery.com>
 
@@ -3981,7 +4187,7 @@
 2015-10-11  Segher Boessenkool  <segher@kernel.crashing.org>
 
 	PR rtl-optimization/67864
-	* gcc/bb-reorder (reorder_basic_blocks_simple): Prefer existing
+	* bb-reorder (reorder_basic_blocks_simple): Prefer existing
 	fallthrough edges for conditional jumps.  Don't sort candidate
 	edges if not optimizing for speed.
 
@@ -4810,7 +5016,7 @@
 	* config/i386/sse.md (set_attr znver1_decode): Likewise.
 	* config/i386/x86-tune.def:  Add znver1 tunings.
 	* config/i386/znver1.md: Introduce znver1 cpu and include new md file.
-	* gcc/doc/invoke.texi: Add details about znver1
+	* doc/invoke.texi: Add details about znver1
 
 2015-10-06  Richard Biener  <rguenther@suse.de>
 
@@ -6702,14 +6908,14 @@
 
 2015-09-22  Kirill Yukhin  <kirill.yukhin@intel.com>
 
-	* gcc/config/i386/i386.md (define_insn "kunpckhi"): Fix
+	* config/i386/i386.md (define_insn "kunpckhi"): Fix
 	operand in pattern.
 	(define_insn "kunpcksi"): Ditto.
 	(define_insn "kunpckdi"): Ditto.
 
 2015-09-22  Kirill Yukhin  <kirill.yukhin@intel.com>
 
-	* gcc/config/i386/i386.md (define_split not/xor SWI1248x): Use
+	* config/i386/i386.md (define_split not/xor SWI1248x): Use
 	iterator instead of fixed modes.
 
 2015-09-22  Matthew Wahab  <matthew.wahab@arm.com>
@@ -7544,7 +7750,7 @@
 	(TARGET_ARM_SAT, TARGET_IDIV, TARGET_HAVE_LDREX)
 	(TARGET_HAVE_LDREXBH, TARGET_HAVE_LDREXD, TARGET_ARM_FEATURE_LDREX)
 	(TARGET_DSP_MULTIPLY, TARGET_INT_SIMD): Redefined macros.
-	* gcc/config/arm/arm-protos.h (arm_cpu_builtins): Remove declaration.
+	* config/arm/arm-protos.h (arm_cpu_builtins): Remove declaration.
 
 2015-09-15  Alan Lawrence  <alan.lawrence@arm.com>
 
@@ -8767,7 +8973,7 @@
 	* config/mips/mips-opts.h (mips_cb_setting): New enum.
 	* config/mips/mips-protos.h: Add definitions for
 	mips_output_jump and mips_output_equal_conditional_branch
-	* gcc/config/mips/mips.c (MIPS_JR): Change to support the
+	* config/mips/mips.c (MIPS_JR): Change to support the
 	JIC instruction.
 	(mips_emit_compare): Add support for the MIPS R6 conditional
 	compact branches.
@@ -8792,7 +8998,7 @@
 	(mips_trampoline_init): Add compact branch support.
 	(mips_mult_zero_zero_cost): Allow zero initialisation of
 	accumulators with TARGET_DSP.
-	* gcc/config/mips/mips.h (TARGET_CB_NEVER): New define.
+	* config/mips/mips.h (TARGET_CB_NEVER): New define.
 	(TARGET_CB_MAYBE): New define.
 	(TARGET_CB_ALWAYS): New define.
 	(ISA_HAS_DELAY_SLOTS): New define.
@@ -9537,9 +9743,9 @@
 
 2015-08-26  Matthew Wahab  <matthew.wahab@arm.com>
 
-	* gcc/config/arm/arm-cores.def: Add FL_FOR_ARCH flag for each
+	* config/arm/arm-cores.def: Add FL_FOR_ARCH flag for each
 	ARM_CORE entry.  Fix some white-space.
-	* gcc/config/arm/arm.c: Remove FL_FOR_ARCH derivation from
+	* config/arm/arm.c: Remove FL_FOR_ARCH derivation from
 	ARM_CORE definition.
 
 2015-08-26  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
@@ -11025,7 +11231,7 @@
 2015-08-05  Lynn Boger  <laboger@linux.vnet.ibm.com>
 
 	PR target/66870
-	* gcc/config/rs6000/rs6000.c (rs6000_emit_prologue): Check
+	* config/rs6000/rs6000.c (rs6000_emit_prologue): Check
 	for no_split_stack function attribute along with
 	flag_split_stack.
 	(rs6000_expand_split_stack_prologue): Likewise.
@@ -11656,7 +11862,7 @@
 2015-08-01  Michael Collison  <michael.collison@linaro.org
 	    Ramana Radhakrishnan  <ramana.radhakrishnan@linaro.org>
 
-	* gcc/config/arm/arm.md (*arm_smin_cmp): New pattern.
+	* config/arm/arm.md (*arm_smin_cmp): New pattern.
 	(*arm_umin_cmp): Likewise.
 
 2015-08-01  Caroline Tice  <cmtice@google.com>
@@ -12567,7 +12773,7 @@
 
 2015-07-27  Wilco Dijkstra  <wdijkstr@arm.com>
 
-	* gcc/config/aarch64/aarch64.md (aarch64_lshr_sisd_or_int_<mode>3):
+	* config/aarch64/aarch64.md (aarch64_lshr_sisd_or_int_<mode>3):
 	Place integer variant first.
 	(aarch64_ashr_sisd_or_int_<mode>3): Likewise.
 
@@ -19056,7 +19262,7 @@
 	* config/aarch64/aarch64-arches.def: Add "armv8.1-a".
 	* config/aarch64/aarch64-options-extensions.def: Update "fP",
 	"simd" and "crypto".  Add "lse", "pan", "lor" and "rdma".
-	* gcc/config/aarch64/aarch64.h (AARCH64_FL_LSE): New.
+	* config/aarch64/aarch64.h (AARCH64_FL_LSE): New.
 	(AARCH64_FL_PAN): New.
 	(AARCH64_FL_LOR): New.
 	(AARCH64_FL_RDMA): New.
@@ -21725,9 +21931,9 @@
 
 2015-06-01  James Greenhalgh  <james.greenhalgh@arm.com>
 
-	* gcc/config/arm/arm-protos.h (tune_params): Rename fuseable_ops
+	* config/arm/arm-protos.h (tune_params): Rename fuseable_ops
 	to fusible_ops.
-	* gcc/config/arm/arm.c (arm_print_tune_info): Likewise.
+	* config/arm/arm.c (arm_print_tune_info): Likewise.
 	(arm_macro_fusion_p): Likewise.
 	(arm_macro_fusion_pair_p): Likewise.
 
@@ -21808,7 +22014,7 @@
 
 2015-05-30  Mike Frysinger  <vapier@gentoo.org>
 
-	* gcc/config/alpha/elf.h (ASM_SPEC): Add %{mcpu=*:-m%*}.
+	* config/alpha/elf.h (ASM_SPEC): Add %{mcpu=*:-m%*}.
 
 2015-05-28  DJ Delorie  <dj@redhat.com>
 
@@ -22013,7 +22219,7 @@
 	FPIE2_OR_FPIC2_SPEC.
 	* config/m68k/netbsd-elf.h (ASM_SPEC): Likewise.
 	* config/m68k/openbsd.h (ASM_SPEC): Likewise.
-	* gcc/config/sol2.h (ASM_PIC_SPEC): Likewise.
+	* config/sol2.h (ASM_PIC_SPEC): Likewise.
 	* config/arm/freebsd.h (SUBTARGET_EXTRA_ASM_SPEC): Likewise.
 	* config/arm/netbsd-elf.h (SUBTARGET_EXTRA_ASM_SPEC): Likewise.
 	* config/arm/semi.h (SUBTARGET_EXTRA_ASM_SPEC): Likewise.
@@ -23088,7 +23294,7 @@
 	* common/config/rs6000/rs6000-common.c (TARGET_SUPPORTS_SPLIT_STACK):
 	Define.
 	(rs6000_supports_split_stack): New function.
-	* gcc/config/rs6000/rs6000.c (machine_function): Add
+	* config/rs6000/rs6000.c (machine_function): Add
 	split_stack_arg_pointer.
 	(TARGET_EXTRA_LIVE_ON_ENTRY, TARGET_INTERNAL_ARG_POINTER): Define.
 	(setup_incoming_varargs): Use crtl->args.internal_arg_pointer
@@ -23101,12 +23307,12 @@
 	rs6000_internal_arg_pointer, rs6000_live_on_entry,
 	rs6000_split_stack_space_check): New functions.
 	(rs6000_elf_file_end): Call file_end_indicate_split_stack.
-	* gcc/config/rs6000/rs6000.md (UNSPEC_STACK_CHECK): Define.
+	* config/rs6000/rs6000.md (UNSPEC_STACK_CHECK): Define.
 	(UNSPECV_SPLIT_STACK_RETURN): Define.
 	(split_stack_prologue, load_split_stack_limit,
 	load_split_stack_limit_di, load_split_stack_limit_si,
 	split_stack_return, split_stack_space_check): New expands and insns.
-	* gcc/config/rs6000/rs6000-protos.h
+	* config/rs6000/rs6000-protos.h
 	(rs6000_expand_split_stack_prologue): Declare.
 	(rs6000_split_stack_space_check): Declare.
 
@@ -25214,17 +25420,17 @@
 
 2015-05-05  Matthew Wahab  <matthew.wahab@arm.com>
 
-	* gcc/config/aarch64-protos.h (struct cpu_branch_cost): New.
+	* config/aarch64-protos.h (struct cpu_branch_cost): New.
 	(tune_params): Add field branch_costs.
 	(aarch64_branch_cost): Declare.
-	* gcc/config/aarch64.c (generic_branch_cost): New.
+	* config/aarch64.c (generic_branch_cost): New.
 	(generic_tunings): Set field cpu_branch_cost to generic_branch_cost.
 	(cortexa53_tunings): Likewise.
 	(cortexa57_tunings): Likewise.
 	(thunderx_tunings): Likewise.
 	(xgene1_tunings): Likewise.
 	(aarch64_branch_cost): Define.
-	* gcc/config/aarch64/aarch64.h (BRANCH_COST): Redefine.
+	* config/aarch64/aarch64.h (BRANCH_COST): Redefine.
 
 2015-05-05  Uros Bizjak  <ubizjak@gmail.com>
 
@@ -25533,9 +25739,9 @@
 
 2015-05-01  Wilco Dijkstra  <wdijkstr@arm.com>
 
-	* gcc/config/aarch64/aarch64-protos.h (tune_params):
+	* config/aarch64/aarch64-protos.h (tune_params):
 	Add min_div_recip_mul_sf and min_div_recip_mul_df fields.
-	* gcc/config/aarch64/aarch64.c (aarch64_min_divisions_for_recip_mul):
+	* config/aarch64/aarch64.c (aarch64_min_divisions_for_recip_mul):
 	Return value depending on target.
 	(generic_tunings): Initialize new target settings.
 	(cortexa53_tunings): Likewise.
@@ -25545,7 +25751,7 @@
 
 2015-05-01  Wilco Dijkstra  <wdijkstr@arm.com>
 
-	* gcc/config/arm/aarch-cost-tables.h (cortexa53_extra_costs):
+	* config/arm/aarch-cost-tables.h (cortexa53_extra_costs):
 	Make Cortex-A53 shift costs more accurate.
 
 2015-05-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
@@ -25555,7 +25761,7 @@
 
 2015-05-01  Wilco Dijkstra  <wdijkstr@arm.com>
 
-	* gcc/config/aarch64/aarch64.c (aarch64_rtx_costs):
+	* config/aarch64/aarch64.c (aarch64_rtx_costs):
 	Calculate cost of op0 and op1 in PLUS and MINUS cases.
 
 2015-05-01  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
@@ -30063,8 +30269,8 @@
 2015-03-02  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	PR target/65184
-	* gcc/config/i386/i386.c (ix86_pass_by_reference) Bounds
-	are never passed by reference.
+	* config/i386/i386.c (ix86_pass_by_reference): Bounds are never
+	passed by reference.
 
 2015-03-02  Ilya Enkovich  <ilya.enkovich@intel.com>
 
@@ -30468,7 +30674,7 @@
 2015-02-25  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	PR target/65167
-	* gcc/config/i386/i386.c (ix86_function_arg_regno_p): Support
+	* config/i386/i386.c (ix86_function_arg_regno_p): Support
 	bounds registers.
 	(avoid_func_arg_motion): Add dependencies for BNDSTX insns.
 
@@ -34227,7 +34433,7 @@
 
 	* config/aarch64/aarch64-cores.def (xgene1): Update/add the
 	xgene1 (APM XGene-1) core definition.
-	* gcc/config/aarch64/aarch64.c: Add cost tables for APM XGene-1
+	* config/aarch64/aarch64.c: Add cost tables for APM XGene-1
 	* config/arm/aarch-cost-tables.h: Add cost tables for APM XGene-1
 	* doc/invoke.texi: Document -mcpu=xgene1.
 
@@ -35212,7 +35418,7 @@
 	* ipa-icf.c (sem_function::equals_private): Use '&&' instead of
 	'||' to fix typo issue.
 
-	* gcc/tree.h (target_opts_for_fn): Check NULL_TREE since it can
+	* tree.h (target_opts_for_fn): Check NULL_TREE since it can
 	accept and return NULL.
 
 2015-01-12  Martin Liska  <mliska@suse.cz>

@@ -1,3 +1,87 @@
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gfortran.dg/goacc/reduction-2.f95: Delete.
+
+2015-11-04  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/67742
+	* gcc.dg/tree-ssa/restrict-7.c: New test.
+	* gcc.dg/tree-ssa/restrict-8.c: New test.
+
+2015-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/slice9.adb: New test.
+
+2015-11-03  Martin Sebor  <msebor@redhat.com>
+
+	PR c++-common/67882
+	* c-c++-common/builtin-offsetof-2.c: New test.
+
+2015-11-03  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR fortran/67982
+	* gfortran.dg/warn_unused_function_3.f90: New test.
+
+2015-11-03  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/discr45.adb: Only compile the test.
+
+2015-11-03  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* g++.dg/ext/mvc4.C: Add dg-require-ifunc condition.
+	* gcc.target/i386/mvc5.c: Ditto.
+	* gcc.target/i386/mvc7.c: Add dg-require-ifunc condition and checks on
+	resolver.
+
+2015-11-03  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Move "atomic" tests
+	from here to...
+	* c-c++-common/goacc-gomp/nesting-1.c: ... here, and expect them
+	to succeed.
+
+2015-11-03  Bilyan Borisov  <bilyan.borisov@arm.com>
+
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulx_f32_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulx_f64_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxq_f32_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxq_f64_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxs_f32_1.c: New.
+	* gcc/testsuite/gcc.target/aarch64/simd/vmulxd_f64_1.c: New.
+
+2015-11-03  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.target/aarch64/fp16/set_zero_1.c: New.
+
+2015-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/mvc1.c: Move to ...
+	* gcc.target/i386/mvc1.c: ... here.  Require ifunc.
+	* gcc.dg/mvc2.c: Move to ...
+	* gcc.target/i386/mvc2.c: ... here.
+	* gcc.dg/mvc3.c: Move to ...
+	* gcc.target/i386/mvc3.c: ... here.
+	* gcc.dg/mvc4.c: Move to ...
+	* gcc.target/i386/mvc4.c: ... here.  Require ifunc.
+	* gcc.dg/mvc5.c: Move to ...
+	* gcc.target/i386/mvc5.c: ... here.
+	* gcc.dg/mvc6.c: Move to ...
+	* gcc.target/i386/mvc6.c: ... here.
+	* gcc.dg/mvc7.c: Move to ...
+	* gcc.target/i386/mvc7.c: ... here.
+
+	* g++.dg/ext/mvc1.C: Require ifunc.
+
+2015-11-02  Alexandre Oliva <aoliva@redhat.com>
+
+	PR tree-optimization/68083
+	* gcc.dg/torture/pr68083.c: New.  From Zhendong Su.
+
+2015-11-02  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-thread-11.c: Verify that we do not have
+	irreducible loops in the CFG.
+
 2015-11-02  Alan Lawrence  <alan.lawrence@arm.com>
 
 	Revert:
@@ -112,7 +196,7 @@
 
 2015-10-29  Jeff Law  <law@redhat.com>
 
-        PR tree-optimization/67892
+	PR tree-optimization/67892
 	* gcc.dg/tree-ssa/pr21417: Update expected output.
 	* gcc.dg/tree-ssa/ssa-dom-thread-2b.c: Likewise.
 
@@ -200,8 +284,8 @@
 2015-10-27  Nathan Sidwell <nathan@codesourcery.com>
 	    Cesar Philippidis  <cesar@codesourcery.com>
 
-	* g++.dg/g++.dg/gomp/pr33372-1.C: Adjust diagnostic.
-	* gcc/testsuite/g++.dg/gomp/pr33372-3.C: Likewise.
+	* g++.dg/gomp/pr33372-1.C: Adjust diagnostic.
+	* g++.dg/gomp/pr33372-3.C: Likewise.
 
 2015-10-27  Richard Henderson  <rth@redhat.com>
 
@@ -398,8 +482,8 @@
 
 2015-10-25  Andre Vehreschild  <vehre@gmx.de>
 
-        PR fortran/66927
-        PR fortran/67044
+	PR fortran/66927
+	PR fortran/67044
 	* gfortran.dg/allocate_with_source_10.f08: New test.
 	* gfortran.dg/allocate_with_source_11.f08: New test.
 	* gfortran.dg/class_array_15.f03: Changed count of expected
@@ -935,7 +1019,7 @@
 
 2015-10-13  Christophe Lyon  <christophe.lyon@linaro.org>
 
-	* gcc/testsuite/gcc.target/aarch64/table-intrinsics.c: Fix regexp
+	* gcc.target/aarch64/table-intrinsics.c: Fix regexp
 	after r228716 (Fix vtbl[34] and vtbx4).
 
 2015-10-13  Yuri Rumyantsev  <ysrumyan@gmail.com>
@@ -9765,7 +9849,7 @@
 
 2015-03-05  Martin Sebor  <msebor@redhat.com>
 
-	* PR testsuite/63175
+	PR testsuite/63175
 	* gcc.dg/vect/costmodel/ppc/costmodel-bb-slp-9a.c (main1): Move
 	checking of results into main to prevent it from getting optimized
 	away.
