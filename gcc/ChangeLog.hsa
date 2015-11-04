@@ -1,5 +1,43 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_function_representation::reg_for_gimple_ssa):
+	New function.
+	(hsa_reg_for_gimple_ssa_reqtype): Remove usage of ssa_map
+	argument.
+	(gen_address_calculation): Likewise.
+	(process_mem_base): Likewise.
+	(gen_hsa_addr): Likewise.
+	(gen_hsa_addr_insns): Likewise.
+	(hsa_reg_or_immed_for_gimple_op): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_insns_for_single_assignment): Likewise.
+	(gen_hsa_cmp_insn_from_gimple): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_cond_stmt): Likewise.
+	(gen_hsa_insns_for_switch_stmt): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(query_hsa_grid): Likewise.
+	(gen_set_num_threads): Likewise.
+	(gen_get_num_teams): Likewise.
+	(gen_get_team_num): Likewise.
+	(gen_hsa_insns_for_known_library_call): Likewise.
+	(gen_hsa_unaryop_for_builtin): Likewise.
+	(get_address_from_value): Likewise.
+	(get_memory_order): Likewise.
+	(gen_hsa_ternary_atomic_for_builtin): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_insns_for_gimple_stmt): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(gen_body_from_gimple): Likewise.
+	(gen_function_def_parameters): Likewise.
+	(generate_hsa): Likewise.
+	* hsa.h (hsa_function_representation::reg_for_gimple_ssa):
+	Declare the function.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (enqueue_op): Handle BrigOperandOperandList.
 	(regtype_for_type): Fix coding style.
 	(emit_operand_list_operand): New function.

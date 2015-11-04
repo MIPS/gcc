@@ -1023,6 +1023,9 @@ public:
   /* Create a private symbol of requested TYPE.  */
   hsa_symbol *create_hsa_temporary (BrigType16_t type);
 
+  /* Lookup or create a HSA pseudo register for a given gimple SSA name.  */
+  hsa_op_reg *reg_for_gimple_ssa (tree ssa);
+
   /* Name of the function.  */
   char *m_name;
 
