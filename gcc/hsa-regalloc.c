@@ -251,7 +251,7 @@ rewrite_code_bb (basic_block bb, struct m_reg_class_desc *classes)
 
 	      int cl = m_reg_class_for_type (reg->m_type);
 	      hsa_op_reg *tmp, *tmp2;
-	      if (hsa_opcode_op_output_p (insn->m_opcode, i))
+	      if (insn->op_output_p (i))
 		tmp = hsa_spill_out (insn, reg, &tmp2);
 	      else
 		tmp = hsa_spill_in (insn, reg, &tmp2);

@@ -503,6 +503,8 @@ enqueue_op (hsa_op_base *op)
     op_queue.projected_size += sizeof (struct BrigOperandCodeRef);
   else if (is_a <hsa_op_code_list *> (op))
     op_queue.projected_size += sizeof (struct BrigOperandCodeList);
+  else if (is_a <hsa_op_operand_list *> (op))
+    op_queue.projected_size += sizeof (struct BrigOperandOperandList);
   else
     gcc_unreachable ();
   return ret;
@@ -737,7 +739,6 @@ regtype_for_type (BrigType16_t t)
     case BRIG_TYPE_S32X2:
     case BRIG_TYPE_F16X4:
     case BRIG_TYPE_F32X2:
-
       return BRIG_TYPE_B64;
 
     case BRIG_TYPE_B128:
@@ -1053,6 +1054,28 @@ emit_code_list_operand (hsa_op_code_list *code_list)
   brig_operand.add (&out, sizeof (out));
 }
 
+/* Emit an operand list operand OPERAND_LIST.  */
+
+static void
+emit_operand_list_operand (hsa_op_operand_list *operand_list)
+{
+  struct BrigOperandOperandList out;
+  unsigned args = operand_list->m_offsets.length ();
+
+  for (unsigned i = 0; i < args; i++)
+    gcc_assert (operand_list->m_offsets[i]);
+
+  out.base.byteCount = htole16 (sizeof (out));
+  out.base.kind = htole16 (BRIG_KIND_OPERAND_OPERAND_LIST);
+
+  uint32_t byteCount = htole32 (4 * args);
+
+  out.elements = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  brig_data.add (operand_list->m_offsets.address (), args * sizeof (uint32_t));
+  brig_data.round_size_up (4);
+  brig_operand.add (&out, sizeof (out));
+}
+
 /* Emit all operands queued for writing.  */
 
 static void
@@ -1071,6 +1094,8 @@ emit_queued_operands (void)
 	emit_code_ref_operand (ref);
       else if (hsa_op_code_list *code_list = dyn_cast <hsa_op_code_list *> (op))
 	emit_code_list_operand (code_list);
+      else if (hsa_op_operand_list *l = dyn_cast <hsa_op_operand_list *> (op))
+	emit_operand_list_operand (l);
       else
 	gcc_unreachable ();
     }
@@ -1630,13 +1655,70 @@ emit_queue_insn (hsa_insn_queue *insn)
       operand_offsets[i] = htole32 (enqueue_op (insn->get_op (i)));
     }
 
-  byteCount = htole32 (4 * operand_count) ;
+  byteCount = htole32 (4 * operand_count);
   repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
   brig_data.add (operand_offsets.address (),
 		 operand_count * sizeof (BrigOperandOffset32_t));
   brig_data.round_size_up (4);
   brig_code.add (&repr, sizeof (repr));
 
+  brig_insn_count++;
+}
+
+static void
+emit_packed_insn (hsa_insn_packed *insn)
+{
+  /* We assume that BrigInstMod has a BrigInstBasic prefix.  */
+  struct BrigInstSourceType repr;
+  auto_vec<BrigOperandOffset32_t, HSA_BRIG_INT_STORAGE_OPERANDS>
+    operand_offsets;
+  uint32_t byteCount, operand_count = insn->operand_count ();
+  gcc_checking_assert (operand_count >= 2);
+
+  memset (&repr, 0, sizeof (repr));
+  repr.sourceType = htole16 (insn->m_source_type);
+  repr.base.base.byteCount = htole16 (sizeof (BrigInstSourceType));
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_SOURCE_TYPE);
+  repr.base.opcode = htole16 (insn->m_opcode);
+  repr.base.type = htole16 (insn->m_type);
+
+  operand_offsets.safe_grow_cleared (operand_count);
+
+  if (insn->m_opcode == BRIG_OPCODE_COMBINE)
+    {
+      /* Create operand list for packed type.  */
+      for (unsigned i = 1; i < operand_count; i++)
+	{
+	  gcc_checking_assert (insn->get_op (i));
+	  insn->m_operand_list->m_offsets[i - 1] = htole32
+	    (enqueue_op (insn->get_op (i)));
+	}
+
+      operand_offsets[0] = htole32 (enqueue_op (insn->get_op (0)));
+      operand_offsets[1] = htole32 (enqueue_op (insn->m_operand_list));
+    }
+  else if (insn->m_opcode == BRIG_OPCODE_EXPAND)
+    {
+      /* Create operand list for packed type.  */
+      for (unsigned i = 0; i < operand_count - 1; i++)
+	{
+	  gcc_checking_assert (insn->get_op (i));
+	  insn->m_operand_list->m_offsets[i] = htole32
+	    (enqueue_op (insn->get_op (i)));
+	}
+
+      operand_offsets[0] = htole32 (enqueue_op (insn->m_operand_list));
+      operand_offsets[1] = htole32
+	(enqueue_op (insn->get_op (insn->operand_count () - 1)));
+    }
+
+  byteCount = htole32 (4 * operand_count);
+  repr.base.operands = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
+  brig_data.add (operand_offsets.address (),
+		 operand_count * sizeof (BrigOperandOffset32_t));
+  brig_data.round_size_up (4);
+
+  brig_code.add (&repr, sizeof (struct BrigInstSourceType));
   brig_insn_count++;
 }
 
@@ -1790,6 +1872,12 @@ emit_insn (hsa_insn_basic *insn)
       emit_queue_insn (queue);
       return;
     }
+  if (hsa_insn_packed *packed = dyn_cast <hsa_insn_packed *> (insn))
+    {
+      emit_packed_insn (packed);
+      return;
+    }
+
   emit_basic_insn (insn);
 }
 

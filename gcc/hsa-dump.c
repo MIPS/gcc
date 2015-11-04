@@ -764,13 +764,16 @@ dump_hsa_operand (FILE *f, hsa_op_base *op, bool dump_reg_type = false)
 /* Dump textual representation of HSA IL operands in VEC to file F.  */
 
 static void
-dump_hsa_operands (FILE *f, hsa_insn_basic *insn,
-		   bool dump_reg_type = false)
+dump_hsa_operands (FILE *f, hsa_insn_basic *insn, int start = 0,
+		   int end = -1, bool dump_reg_type = false)
 {
-  for (unsigned i = 0; i < insn->operand_count (); i++)
+  if (end == -1)
+    end = insn->operand_count ();
+
+  for (int i = start; i < end; i++)
     {
       dump_hsa_operand (f, insn->get_op (i), dump_reg_type);
-      if (i != insn->operand_count () - 1)
+      if (i != end - 1)
 	fprintf (f, ", ");
     }
 }
@@ -992,33 +995,39 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_insn_comment *c = as_a <hsa_insn_comment *> (insn);
       fprintf (f, "%s", c->m_comment);
     }
+  else if (is_a <hsa_insn_packed *> (insn))
+    {
+      hsa_insn_packed *packed = as_a <hsa_insn_packed *> (insn);
+
+      fprintf (f, "%s_v%u_%s_%s ", hsa_opcode_name (packed->m_opcode),
+	       packed->operand_count () - 1,
+	       hsa_type_name (packed->m_type),
+	       hsa_type_name (packed->m_source_type));
+
+      if (packed->m_opcode == BRIG_OPCODE_COMBINE)
+	{
+	  dump_hsa_operand (f, insn->get_op (0));
+	  fprintf (f, ", (");
+	  dump_hsa_operands (f, insn, 1);
+	  fprintf (f, ")");
+	}
+      else if (packed->m_opcode == BRIG_OPCODE_EXPAND)
+	{
+	  fprintf (f, "(");
+	  dump_hsa_operands (f, insn, 0, insn->operand_count () - 1);
+	  fprintf (f, "), ");
+	  dump_hsa_operand (f, insn->get_op (insn->operand_count () - 1));
+
+	}
+      else
+	gcc_unreachable ();
+    }
   else
     {
-      bool first = true;
       fprintf (f, "%s_%s ", hsa_opcode_name (insn->m_opcode),
 	       hsa_type_name (insn->m_type));
 
-      unsigned count = insn->operand_count ();
-      for (unsigned i = 0; i < count; i++)
-	{
-	  hsa_op_base *op = insn->get_op (i);
-
-	  if (!op)
-	    break;
-	  if (!first)
-	    fprintf (f, ", ");
-	  else
-	    first = false;
-
-	  if (is_a <hsa_op_immed *> (op))
-	    dump_hsa_immed (f, as_a <hsa_op_immed *> (op));
-	  else if (is_a <hsa_op_reg *> (op))
-	    dump_hsa_reg (f, as_a <hsa_op_reg *> (op));
-	  else if (is_a <hsa_op_address *> (op))
-	    dump_hsa_address (f, as_a <hsa_op_address *> (op));
-	  else
-	    fprintf (f, "UNKNOWN_OP_KIND");
-	}
+      dump_hsa_operands (f, insn);
     }
 
   if (insn->m_brig_offset)

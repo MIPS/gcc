@@ -1,3 +1,55 @@
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (enqueue_op): Handle BrigOperandOperandList.
+	(regtype_for_type): Fix coding style.
+	(emit_operand_list_operand): New function.
+	(emit_queued_operands): Handle hsa_op_operand_list.
+	(emit_queue_insn): Fix coding style.
+	(emit_packed_insn): New function.
+	(emit_insn): Call the previous function.
+	* hsa-dump.c (dump_hsa_operands): Add support for range of
+	operands.
+	(dump_hsa_insn_1): Dump hsa_insn_packed.
+	* hsa-gen.c (hsa_init_data_for_cfun): Introduce new pool
+	allocators.
+	(hsa_deinit_data_for_cfun): Likewise.
+	(hsa_type_for_scalar_tree_type): Pick up correct type for
+	return insn.
+	(mem_type_for_type): Properly handle bit-types.
+	(hsa_needs_cvt): Likewise.
+	(hsa_op_base::hsa_op_base): Register an instance to
+	hsa_operands.
+	(hsa_op_immed::hsa_op_immed): Remove usage of
+	hsa_list_operand_immed.
+	(hsa_op_reg::hsa_op_reg): Remove usage of hsa_list_operand_reg.
+	(hsa_op_reg::verify_ssa): Use hsa_insn::op_output_p instead of
+	hsa_opcode_op_output_p.
+	(hsa_op_code_list::hsa_op_code_list): Remove usage of
+	hsa_list_operand_code_list.
+	(hsa_op_operand_list::hsa_op_operand_list): New function.
+	(hsa_op_operand_list::operator new): Likewise.
+	(hsa_op_operand_list::~hsa_op_operand_list): Likewise.
+	(hsa_insn_basic::set_op): Use hsa_insn_basic::op_output_p.
+	(hsa_insn_basic::verify): Likewise.
+	(hsa_insn_mem::hsa_insn_mem): Do not support BRIG_OPCODE_EXPAND.
+	(hsa_insn_packed::operator new): New function.
+	(hsa_insn_packed::hsa_insn_packed): New function.
+	(gen_hsa_insns_for_load): Correctly build a combine insn.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_return): Fix type of store insn.
+	(hsa_insn_basic::set_output_in_type): Use hsa_insn_basic::op_output_p.
+	* hsa-regalloc.c (rewrite_code_bb): Likewise.
+	* hsa.c (hsa_insn_basic::op_output_p): Declare.
+	(hsa_opcode_op_output_p): Renamed to
+	hsa_insn_basic::op_output_p.
+	(hsa_bittype_for_bitsize): New function.
+	(hsa_bittype_for_type): Likewi.se
+	(hsa_uint_for_bitsize): Likewise.
+	(hsa_btype_p): Likewise.
+	(hsa_destroy_operand): Likewise.
+	* hsa.h (hsa_op_operand_list): New class.
+	(hsa_insn_packed): New class.
+
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (find_ungridifiable_statement): New function.
