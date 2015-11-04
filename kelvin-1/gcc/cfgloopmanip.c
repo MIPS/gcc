@@ -34,6 +34,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "dumpfile.h"
 
+/* Define INTEGRITY_HEURISTICS to include run-time checks that 
+ *
+ *  a. The sum of outgoing edge frequencies for the loop equals the
+ *     sum of incoming edge frequencies for the loop header block.
+ *
+ *  b. The sum of predecessor edge frequencies for every block
+ *     in the loop equals the frequency of that block.
+ *
+ * This may report false-positive errors due to round-off errors.
+ */
+#undef INTEGRITY_HEURISTICS
+
 #define KELVIN_PATCH
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
@@ -180,6 +192,17 @@ recursively_zero_frequency(loop_p loop_ptr, vec<edge> exit_edges,
   }
 }
 				     
+static bool recursion_detected(basic_block candidate,
+			       ladder_rung_p lower_steps) {
+  while (lower_steps != NULL) {
+    if (lower_steps->block == candidate)
+      return true;
+    lower_steps = lower_steps->lower_rung;
+  }
+  /* we iterated through the entire list and did not find candidate */
+  return false;
+}
+
 /* Return true iff candidate is contained within the loop represented
  * by loop_header and loop_latch.
  *
@@ -190,21 +213,45 @@ recursively_zero_frequency(loop_p loop_ptr, vec<edge> exit_edges,
  * within an outer-nested loop but not within this loop.)
  *
  * Note that if a candidate's success is the loop, then the candidate
- * itself is also in the loop.  If none of the successors are in the loop
+ * itself is also in the loop.  If none of the successors are in the
+ * loop
+ *
+ * As originally implemented, this goes into infinite recursion when a
+ * loop is nested within another loop.  The recursion is
+ * associated with a test of a candidate that is in the outer loop but
+ * not the inner loop.  The recursion does not terminate because there
+ * are control paths that iterate on the outer loop without passing
+ * through the inner loop's latch or header.
  */
 static bool _in_loop(basic_block candidate,
 		     basic_block loop_header,
 		     basic_block loop_latch,
-		     bool start_of_recursion)
+		     bool start_of_recursion,
+		     ladder_rung_p lower_steps)
 {
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "_in_loop(%p (%d), %p (%d), %p (%d), %d)\n",
+	  (void *) candidate, candidate? candidate->index: -1,
+	  (void *) loop_header, loop_header? loop_header->index: -1,
+	  (void *) loop_latch, loop_latch? loop_latch->index: -1,
+	  start_of_recursion);
+#endif
   if (candidate == loop_latch) {
     return true;
   } else if (candidate == loop_header) {
     return start_of_recursion;
+  } else if (!start_of_recursion &&
+	     recursion_detected(candidate, lower_steps)) {
+    return false;
   } else {
+    struct block_ladder_rung new_step;
+
+    new_step.block = candidate;
+    new_step.lower_rung = lower_steps;
+
     for (unsigned int i = 0; i < EDGE_COUNT(candidate->succs); i++) {
       basic_block successor = EDGE_SUCC(candidate, i)->dest;
-      if (_in_loop(successor, loop_header, loop_latch, false))
+      if (_in_loop(successor, loop_header, loop_latch, false, &new_step))
 	return true;
     }
     return false;		/* None of the successors was in loop  */
@@ -251,23 +298,54 @@ static vec<basic_block> _recursively_get_loop_blocks(basic_block candidate,
   basic_block bb;
   unsigned int u;
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "_recursively_get_loop_blocks(%p, %p, %p, %p)\n",
+	  (void *) candidate, (void *) &results,
+	  (void *) loop_header, (void *) loop_latch);
+  fprintf(stderr, "candidate is\n");
+  kdn_dump_block(stderr, candidate);
+#endif
+
   /* if candidate is already in the results array, then we're done */
   FOR_EACH_VEC_ELT(results, u, bb) {
     if (bb == candidate)
       return results;
   }
 
-  if (_in_loop(candidate, loop_header, loop_latch, true)) {
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " candidate was not already in the results array\n");
+#endif
+
+  if (_in_loop(candidate, loop_header, loop_latch, true, NULL)) {
+
+#ifdef KELVIN_NOISE
+    fprintf(stderr,
+	    " candidate is in the loop, so we're adding it to results\n");
+#endif
+    
     results.safe_push(candidate);
     for (unsigned int u = 0; u < EDGE_COUNT(candidate->succs); u++) {
       edge successor = EDGE_SUCC(candidate, u);
+
+#ifdef KELVIN_NOISE
+      fprintf(stderr, " considering successor edge\n");
+      kdn_dump_edge(stderr, successor, true, true);
+#endif
       if (successor->probability != 0) {
+#ifdef KELVIN_NOISE
+	fprintf(stderr, " since successor->probability != 0, recursing\n");
+#endif
 	results = _recursively_get_loop_blocks(successor->dest, results, 
 					       loop_header, loop_latch);
       }
+#ifdef KELVIN_NOISE
+      fprintf(stderr, " not recursing because successor->probability == 0\n");
+#endif
     }
   }
-
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "returning from _recursively_get_loop_blocks()\n");
+#endif
   return results;
 }
 
@@ -275,6 +353,11 @@ static vec<basic_block> _recursively_get_loop_blocks(basic_block candidate,
 static vec<basic_block> _get_loop_blocks(loop_p loop_ptr)
 {
   vec<basic_block> results;
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "_get_loop_blocks(%p) with loop\n", (void *) loop_ptr);
+  kdn_dump_loop(stderr, loop_ptr);
+#endif
 
   results = vNULL;
   results = _recursively_get_loop_blocks(loop_ptr->header, results,
@@ -347,12 +430,18 @@ zero_partial_loop_frequencies(loop_p loop_ptr, basic_block block)
    * and valid successor and predecessor information for each
    * block contained within the loop.
    */
+
+  fprintf(stderr, "zero_partial_loop_frequencies, loop_ptr is %p\n",
+	  (void *) loop_ptr);
+
   vec<basic_block> loop_blocks = _get_loop_blocks(loop_ptr);
   if (_in_block_set(block, loop_blocks)) {
     struct block_ladder_rung ladder_rung;
     ladder_rung.block = block;
     ladder_rung.lower_rung = NULL;
-    basic_block header;
+
+    fprintf(stderr, "zero_partial_loop_frequencies, loop_blocks is %p\n",
+	    (void *) &loop_blocks);
     
     vec<edge> exit_edges = _get_loop_exit_edges(loop_blocks);
 #ifdef KELVIN_NOISE
@@ -454,7 +543,6 @@ void increment_loop_frequencies(loop_p loop_ptr,
     struct block_ladder_rung ladder_rung;
     ladder_rung.block = block;
     ladder_rung.lower_rung = NULL;
-    basic_block header;
     
     vec<edge> exit_edges = _get_loop_exit_edges(loop_blocks);
 #ifdef KELVIN_NOISE
@@ -485,6 +573,7 @@ void increment_loop_frequencies(loop_p loop_ptr,
   loop_blocks.release();
 }
 
+#ifdef INTEGRITY_HEURISTICS
 /*
  * check_loop_frequency_integrity enforces that:
  *
@@ -493,6 +582,12 @@ void increment_loop_frequencies(loop_p loop_ptr,
  *
  *  b. The sum of predecessor edge frequencies for every block
  *     in the loop equals the frequency of that block.
+ *
+ * The integrity check is problematic due to round-off errors.  Though
+ * it hasn't been tested with max-unroll-times greater than 4, I suspect
+ * that unrolling complex control structures contained within a loop
+ * that is unrolled more than 4 times may result in erroneous
+ * integrity check failures due to round-off errors.
  */
 static void check_loop_frequency_integrity(loop_p loop_ptr)
 {
@@ -583,8 +678,9 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
   loop_body.release();
   exit_edges.release();
 }
-
 #endif
+#endif
+
 
 /* Checks whether basic block BB is dominated by DATA.  */
 static bool
@@ -2229,10 +2325,17 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       fprintf(stderr, "In loop making copies of the loop body\n");
       fprintf(stderr, " is_latch: %d, bitmap_bit_p(wont_exit, j+1): %ld\n",
               is_latch, bitmap_bit_p(wont_exit, j+1));
+
+      /* loop within loop is causing a
+       *  gcc: internal compiler error: Segmentation fault
+       * failure after the above message is displayed.
+       */
 #endif
       /* Redirect the special edges.  */
       if (is_latch)
 	{
+	  fprintf(stderr, "Redirecting edges under is_latch\n");
+
 	  redirect_edge_and_branch_force (latch_edge, new_bbs[0]);
 	  redirect_edge_and_branch_force (new_spec_edges[SE_LATCH],
 					  loop->header);
@@ -2242,6 +2345,8 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	}
       else
 	{
+	  fprintf(stderr, "Redirecting edges under !is_latch\n");
+
 	  redirect_edge_and_branch_force (new_spec_edges[SE_LATCH],
 					  loop->header);
 	  redirect_edge_and_branch_force (e, new_bbs[0]);
@@ -2251,7 +2356,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
 
 #ifdef KELVIN_PATCH
+      fprintf(stderr, " preparing to zero partial loop frequencies\n");
       zero_partial_loop_frequencies(loop, saved_place_after);
+      fprintf(stderr, " preparing to increment loop frequencies\n");
       increment_loop_frequencies(loop,
 				 saved_place_after, place_after_frequency);
 #else
@@ -2433,11 +2540,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   free (bbs);
   BITMAP_FREE (bbs_to_scale);
 
-#ifdef KELVIN_PATCH
+#ifdef INTEGRITY_HEURISITICS
   /* This function call is strictly paranoia.  it makes no changes
-   * to the data structures.  This is flagging an inconsistency with
-   * loop2.c.  I'm still investigating whether that's a real error or
-   * just a mistaken understanding of system invariants. 
+   * to the data structures.
    */
   check_loop_frequency_integrity(loop);
 #endif
