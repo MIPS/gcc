@@ -299,7 +299,9 @@ protected:
 
 /* Rebuild the callgraph edges.  */
 #define TODO_rebuild_cgraph_edges       (1 << 22)
-#define TODO_stop_pass_execution	(1 << 23)
+
+/* Release function body and stop pass manager.  */
+#define TODO_discard_function		(1 << 23)
 
 /* Internally used in execute_function_todo().  */
 #define TODO_update_ssa_any		\

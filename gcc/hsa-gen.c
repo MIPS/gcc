@@ -5176,7 +5176,6 @@ convert_switch_statements ()
 {
   function *func = DECL_STRUCT_FUNCTION (current_function_decl);
   basic_block bb;
-  push_cfun (func);
 
   bool need_update = false;
 
@@ -5502,7 +5501,7 @@ pass_gen_hsail::execute (function *)
   convert_switch_statements ();
   generate_hsa (s->m_kind == HSA_KERNEL);
   TREE_ASM_WRITTEN (current_function_decl) = 1;
-  return TODO_stop_pass_execution;
+  return TODO_discard_function;
 }
 
 } // anon namespace

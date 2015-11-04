@@ -1706,7 +1706,12 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
 	  order[i] = NULL;
 	  node->process = 0;
 	  if (node->has_gimple_body_p ())
-	    callback (DECL_STRUCT_FUNCTION (node->decl), data);
+	    {
+	      struct function *fn = DECL_STRUCT_FUNCTION (node->decl);
+	      push_cfun (fn);
+	      callback (fn, data);
+	      pop_cfun ();
+	    }
 	}
       symtab->remove_cgraph_removal_hook (hook);
     }
@@ -2247,7 +2252,7 @@ override_gate_status (opt_pass *pass, tree func, bool gate_status)
 /* Execute PASS. */
 
 bool
-execute_one_pass (opt_pass *pass, bool *exit)
+execute_one_pass (opt_pass *pass)
 {
   unsigned int todo_after = 0;
 
@@ -2347,13 +2352,26 @@ execute_one_pass (opt_pass *pass, bool *exit)
 
   current_pass = NULL;
 
+  if (todo_after & TODO_discard_function)
+    {
+      gcc_assert (cfun);
+      /* As cgraph_node::release_body expects release dominators info,
+	 we have to release it.  */
+      if (dom_info_available_p (CDI_DOMINATORS))
+	free_dominance_info (CDI_DOMINATORS);
+
+      if (dom_info_available_p (CDI_POST_DOMINATORS))
+	free_dominance_info (CDI_POST_DOMINATORS);
+
+      tree fn = cfun->decl;
+      pop_cfun ();
+      gcc_assert (!cfun);
+      cgraph_node::get (fn)->release_body ();
+    }
+
   /* Signal this is a suitable GC collection point.  */
   if (!((todo_after | pass->todo_flags_finish) & TODO_do_not_ggc_collect))
     ggc_collect ();
-
-  /* If finish TODO flags contain TODO_stop_pass_execution, set exit = true.  */
-  if (todo_after & TODO_stop_pass_execution)
-    *exit = true;
 
   return true;
 }
@@ -2361,17 +2379,15 @@ execute_one_pass (opt_pass *pass, bool *exit)
 static void
 execute_pass_list_1 (opt_pass *pass)
 {
-  bool stop_pass_execution = false;
-
   do
     {
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
-      if (execute_one_pass (pass, &stop_pass_execution) && pass->sub)
-        execute_pass_list_1 (pass->sub);
 
-      if (stop_pass_execution)
+      if (cfun == NULL)
 	return;
+      if (execute_one_pass (pass) && pass->sub)
+	execute_pass_list_1 (pass->sub);
 
       pass = pass->next;
     }
@@ -2381,14 +2397,13 @@ execute_pass_list_1 (opt_pass *pass)
 void
 execute_pass_list (function *fn, opt_pass *pass)
 {
-  push_cfun (fn);
+  gcc_assert (fn == cfun);
   execute_pass_list_1 (pass);
-  if (fn->cfg)
+  if (cfun && fn->cfg)
     {
       free_dominance_info (CDI_DOMINATORS);
       free_dominance_info (CDI_POST_DOMINATORS);
     }
-  pop_cfun ();
 }
 
 /* Write out all LTO data.  */
@@ -2713,14 +2728,12 @@ ipa_read_optimization_summaries (void)
 void
 execute_ipa_pass_list (opt_pass *pass)
 {
-  bool stop_pass_execution;
-
   do
     {
       gcc_assert (!current_function_decl);
       gcc_assert (!cfun);
       gcc_assert (pass->type == SIMPLE_IPA_PASS || pass->type == IPA_PASS);
-      if (execute_one_pass (pass, &stop_pass_execution) && pass->sub)
+      if (execute_one_pass (pass) && pass->sub)
 	{
 	  if (pass->sub->type == GIMPLE_PASS)
 	    {
