@@ -1645,7 +1645,7 @@ proc check_p9vector_hw_available { } {
 	if { [istarget powerpc-*-eabi] || [istarget powerpc*-*-eabispe] || [istarget *-*-darwin*]} {
 	    expr 0
 	} else {
-	    set options "-mcpu=power9"
+	    set options "-mpower9-vector"
 	    check_runtime_nocache p9vector_hw_available {
 		int main()
 		{
@@ -3401,7 +3401,7 @@ proc check_effective_target_powerpc_p9vector_ok { } {
 		asm ("xsxexpdp %0,%1" : "+r" (e) : "wa" (v));
 		return e;
 	    }
-	} "-mcpu=power9"]
+	} "-mpower9-vector"]
     } else {
 	return 0
     }
@@ -6238,8 +6238,8 @@ proc check_vect_support_and_set_flags { } {
 
         lappend DEFAULT_VECTCFLAGS "-maltivec"
         if [check_p9vector_hw_available] {
-            lappend DEFAULT_VECTCFLAGS "-mcpu=power9"
-        } elsif [check_p8vector_hw_available] {
+            lappend DEFAULT_VECTCFLAGS "-mpower9-vector"
+        } elseif [check_p8vector_hw_available] {
             lappend DEFAULT_VECTCFLAGS "-mpower8-vector"
         } elseif [check_vsx_hw_available] {
             lappend DEFAULT_VECTCFLAGS "-mvsx" "-mno-allow-movmisalign"
