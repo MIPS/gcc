@@ -1,3 +1,8 @@
+2015-11-04  marxin  <mliska@suse.cz>
+
+	* hsa.c (hsa_destroy_insn): Replace if-chain with if-else chain.
+	(hsa_destroy_operand): Likewise.
+
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (hsa_output_brig): Set released data structures

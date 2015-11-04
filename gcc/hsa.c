@@ -564,58 +564,27 @@ void
 hsa_destroy_insn (hsa_insn_basic *insn)
 {
   if (hsa_insn_phi *phi = dyn_cast <hsa_insn_phi *> (insn))
-    {
-      phi->~hsa_insn_phi ();
-      return;
-    }
-  if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
-    {
-      br->~hsa_insn_br ();
-      return;
-    }
-  if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
-    {
-      cmp->~hsa_insn_cmp ();
-      return;
-    }
-  if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
-    {
-      mem->~hsa_insn_mem ();
-      return;
-    }
-  if (hsa_insn_atomic *atomic = dyn_cast <hsa_insn_atomic *> (insn))
-    {
-      atomic->~hsa_insn_atomic ();
-      return;
-    }
-  if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))
-    {
-      seg->~hsa_insn_seg ();
-      return;
-    }
-  if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
-    {
-      call->~hsa_insn_call ();
-      return;
-    }
-  if (hsa_insn_arg_block *block = dyn_cast <hsa_insn_arg_block *> (insn))
-    {
-      block->~hsa_insn_arg_block ();
-      return;
-    }
-  if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
-    {
-      sbr->~hsa_insn_sbr ();
-      return;
-    }
-  if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
-    {
-      comment->~hsa_insn_comment ();
-      return;
-    }
-
-  insn->~hsa_insn_basic ();
-  return;
+    phi->~hsa_insn_phi ();
+  else if (hsa_insn_br *br = dyn_cast <hsa_insn_br *> (insn))
+    br->~hsa_insn_br ();
+  else if (hsa_insn_cmp *cmp = dyn_cast <hsa_insn_cmp *> (insn))
+    cmp->~hsa_insn_cmp ();
+  else if (hsa_insn_mem *mem = dyn_cast <hsa_insn_mem *> (insn))
+    mem->~hsa_insn_mem ();
+  else if (hsa_insn_atomic *atomic = dyn_cast <hsa_insn_atomic *> (insn))
+    atomic->~hsa_insn_atomic ();
+  else if (hsa_insn_seg *seg = dyn_cast <hsa_insn_seg *> (insn))
+    seg->~hsa_insn_seg ();
+  else if (hsa_insn_call *call = dyn_cast <hsa_insn_call *> (insn))
+    call->~hsa_insn_call ();
+  else if (hsa_insn_arg_block *block = dyn_cast <hsa_insn_arg_block *> (insn))
+    block->~hsa_insn_arg_block ();
+  else if (hsa_insn_sbr *sbr = dyn_cast <hsa_insn_sbr *> (insn))
+    sbr->~hsa_insn_sbr ();
+  else if (hsa_insn_comment *comment = dyn_cast <hsa_insn_comment *> (insn))
+    comment->~hsa_insn_comment ();
+  else
+    insn->~hsa_insn_basic ();
 }
 
 /* Call the correct destructor of a HSA operand.  */
@@ -625,12 +594,14 @@ hsa_destroy_operand (hsa_op_base *op)
 {
   if (hsa_op_code_list *list = dyn_cast <hsa_op_code_list *> (op))
     list->~hsa_op_code_list ();
-  if (hsa_op_operand_list *list = dyn_cast <hsa_op_operand_list *> (op))
+  else if (hsa_op_operand_list *list = dyn_cast <hsa_op_operand_list *> (op))
     list->~hsa_op_operand_list ();
   else if (hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op))
     reg->~hsa_op_reg ();
   else if (hsa_op_immed *immed = dyn_cast <hsa_op_immed *> (op))
     immed->~hsa_op_immed ();
+  else
+    op->~hsa_op_base ();
 }
 
 /* Create a mapping between the original function DECL and kernel name NAME.  */
