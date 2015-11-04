@@ -222,10 +222,12 @@ hsa_symbol::fillup_for_decl (tree decl)
 }
 
 /* Constructor of class representing global HSA function/kernel information and
-   state.  */
+   state.  FNDECL is function declaration, KERNEL_P is true if the function
+   is going to become a HSA kernel.  If the function has body, SSA_NAMES_COUNT
+   should be set to number of SSA names used in the function.  */
 
 hsa_function_representation::hsa_function_representation
-  (tree fdecl, bool kernel_p): m_name (NULL),
+  (tree fdecl, bool kernel_p, unsigned ssa_names_count): m_name (NULL),
   m_reg_count (0), m_input_args (vNULL),
   m_output_arg (NULL), m_spill_symbols (vNULL), m_readonly_variables (vNULL),
   m_private_variables (vNULL), m_called_functions (vNULL), m_hbb_count (0),
@@ -235,6 +237,7 @@ hsa_function_representation::hsa_function_representation
 {
   int sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;;
   m_local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
+  m_ssa_map.safe_grow_cleared (ssa_names_count);
 }
 
 /* Destructor of class holding function/kernel-wide informaton and state.  */
@@ -5105,7 +5108,7 @@ hsa_function_representation *
 hsa_generate_function_declaration (tree decl)
 {
   hsa_function_representation *fun = new hsa_function_representation
-    (decl, false);
+    (decl, false, 0);
 
   fun->m_declaration_p = true;
   fun->m_name = get_brig_function_name (decl);
@@ -5401,8 +5404,8 @@ generate_hsa (bool kernel)
     emit_hsa_module_variables ();
 
   /* Initialize hsa_cfun.  */
-  hsa_cfun = new hsa_function_representation (cfun->decl, kernel);
-  hsa_cfun->m_ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
+  hsa_cfun = new hsa_function_representation (cfun->decl, kernel,
+					      SSANAMES (cfun)->length ());
   hsa_cfun->init_extra_bbs ();
 
   if (flag_tm)

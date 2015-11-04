@@ -1005,7 +1005,8 @@ hsa_free_symbol_hasher::equal (const value_type a, const compare_type b)
 class hsa_function_representation
 {
 public:
-  hsa_function_representation (tree fdecl, bool kernel_p);
+  hsa_function_representation (tree fdecl, bool kernel_p,
+			       unsigned ssa_names_count);
   ~hsa_function_representation ();
 
   /* Builds a shadow register that is utilized to a kernel dispatch.  */

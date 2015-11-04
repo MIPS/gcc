@@ -1,5 +1,11 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (generate_hsa): Use the modified constructor.
+	(hsa_generate_function_declaration): Likewise.
+	* hsa.h (hsa_function_representation): Add new ctor argument.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_function_representation::reg_for_gimple_ssa):
 	New function.
 	(hsa_reg_for_gimple_ssa_reqtype): Remove usage of ssa_map
