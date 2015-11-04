@@ -1012,9 +1012,9 @@ hsa_op_reg::verify_ssa ()
 
   /* Verify that every use of the register is really present
      in an instruction.  */
-  for (unsigned i = 0; i < uses.length (); i++)
+  for (unsigned i = 0; i < m_uses.length (); i++)
     {
-      hsa_insn_basic *use = uses[i];
+      hsa_insn_basic *use = m_uses[i];
 
       bool is_visited = false;
       for (unsigned j = 0; j < use->operand_count (); j++)
@@ -1184,7 +1184,7 @@ hsa_insn_basic::set_op (int index, hsa_op_base *op)
   /* Each address operand is always use.  */
   hsa_op_address *addr = dyn_cast <hsa_op_address *> (op);
   if (addr && addr->m_reg)
-    addr->m_reg->uses.safe_push (this);
+    addr->m_reg->m_uses.safe_push (this);
   else
     {
       hsa_op_reg *reg = dyn_cast <hsa_op_reg *> (op);
@@ -1193,7 +1193,7 @@ hsa_insn_basic::set_op (int index, hsa_op_base *op)
 	  if (op_output_p (index))
 	    reg->set_definition (this);
 	  else
-	    reg->uses.safe_push (this);
+	    reg->m_uses.safe_push (this);
 	}
     }
 
@@ -1295,13 +1295,13 @@ hsa_insn_basic::verify ()
       if ((reg = dyn_cast <hsa_op_reg *> (use)) && !op_output_p (i))
 	{
 	  unsigned j;
-	  for (j = 0; j < reg->uses.length (); j++)
+	  for (j = 0; j < reg->m_uses.length (); j++)
 	    {
-	      if (reg->uses[j] == this)
+	      if (reg->m_uses[j] == this)
 		break;
 	    }
 
-	  if (j == reg->uses.length ())
+	  if (j == reg->m_uses.length ())
 	    {
 	      error ("HSA instruction uses a register but is not among "
 		     "recorded register uses");

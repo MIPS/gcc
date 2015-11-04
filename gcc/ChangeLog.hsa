@@ -1,3 +1,10 @@
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (hsa_op_reg::verify_ssa): Use renamed property.
+	(hsa_insn_basic::set_op): Likewise.
+	(hsa_insn_basic::verify): Likewise.
+	* hsa.h (hsa_op_reg::uses): Prepend m_ to the property.
+
 2015-11-04  marxin  <mliska@suse.cz>
 
 	* hsa.c (hsa_destroy_insn): Replace if-chain with if-else chain.

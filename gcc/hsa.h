@@ -239,7 +239,7 @@ private:
   /* Set difinition where the register is defined.  */
   void set_definition (hsa_insn_basic *insn);
   /* Uses of the value while still in SSA.  */
-  auto_vec <hsa_insn_basic_p> uses;
+  auto_vec <hsa_insn_basic_p> m_uses;
 };
 
 typedef class hsa_op_reg *hsa_op_reg_p;
