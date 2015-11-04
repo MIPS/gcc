@@ -1,5 +1,11 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* plugin/configfrag.ac: Only build HSA_PLUGIN during x86_64 64-bit
+	compilations.
+	* configure: Regenerate.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* Makefile.am (libgomp_la_LDFLAGS): Remove -ldl
 	* Makefile.in (libgomp_la_LDFLAGS): Regenerate.
 

@@ -15354,20 +15354,27 @@ rm -f core conftest.err conftest.$ac_objext \
 	esac
 	;;
       hsa*)
-        tgt_name=hsa
-	PLUGIN_HSA=$tgt
-	PLUGIN_HSA_CPPFLAGS=$HSA_RUNTIME_CPPFLAGS
-	PLUGIN_HSA_LDFLAGS=$HSA_RUNTIME_LDFLAGS
-	PLUGIN_HSA_LIBS="-lhsa-runtime64 -lhsakmt"
+	case "${target}" in
+	  x86_64-*-*)
+	    case " ${CC} ${CFLAGS} " in
+	      *" -m32 "*)
+	        PLUGIN_HSA=0
+		;;
+	      *)
+	        tgt_name=hsa
+	        PLUGIN_HSA=$tgt
+	        PLUGIN_HSA_CPPFLAGS=$HSA_RUNTIME_CPPFLAGS
+	        PLUGIN_HSA_LDFLAGS=$HSA_RUNTIME_LDFLAGS
+	        PLUGIN_HSA_LIBS="-lhsa-runtime64 -lhsakmt"
 
-	PLUGIN_HSA_save_CPPFLAGS=$CPPFLAGS
-	CPPFLAGS="$PLUGIN_HSA_CPPFLAGS $CPPFLAGS"
-	PLUGIN_HSA_save_LDFLAGS=$LDFLAGS
-	LDFLAGS="$PLUGIN_HSA_LDFLAGS $LDFLAGS"
-	PLUGIN_HSA_save_LIBS=$LIBS
-	LIBS="$PLUGIN_HSA_LIBS $LIBS"
+	        PLUGIN_HSA_save_CPPFLAGS=$CPPFLAGS
+	        CPPFLAGS="$PLUGIN_HSA_CPPFLAGS $CPPFLAGS"
+	        PLUGIN_HSA_save_LDFLAGS=$LDFLAGS
+	        LDFLAGS="$PLUGIN_HSA_LDFLAGS $LDFLAGS"
+	        PLUGIN_HSA_save_LIBS=$LIBS
+	        LIBS="$PLUGIN_HSA_LIBS $LIBS"
 
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+	        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 #include "hsa.h"
 int
@@ -15383,15 +15390,22 @@ if ac_fn_c_try_link "$LINENO"; then :
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
-	CPPFLAGS=$PLUGIN_HSA_save_CPPFLAGS
-	LDFLAGS=$PLUGIN_HSA_save_LDFLAGS
-	LIBS=$PLUGIN_HSA_save_LIBS
-	case $PLUGIN_HSA in
-	  hsa*)
-	    HSA_NVPTX=0
-	    as_fn_error "HSA run-time package required for HSA support" "$LINENO" 5
-	    ;;
-	esac
+	        CPPFLAGS=$PLUGIN_HSA_save_CPPFLAGS
+	        LDFLAGS=$PLUGIN_HSA_save_LDFLAGS
+	        LIBS=$PLUGIN_HSA_save_LIBS
+	        case $PLUGIN_HSA in
+	          hsa*)
+	            HSA_PLUGIN=0
+	            as_fn_error "HSA run-time package required for HSA support" "$LINENO" 5
+	            ;;
+	        esac
+		;;
+	      esac
+    	    ;;
+	  *-*-*)
+	    PLUGIN_HSA=0
+            ;;
+        esac
         ;;
       *)
 	as_fn_error "unknown offload target specified" "$LINENO" 5
