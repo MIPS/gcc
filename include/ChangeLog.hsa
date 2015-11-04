@@ -1,0 +1,11 @@
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
+	* gomp-constants.h (hsa_kernel_dispatch): Fix a typo.
+
+2015-11-02  Martin Jambor  <mjambor@suse.cz>
+
+	* gomp-constants.h (GOMP_DEVICE_HSA): New macro.
+
+2015-10-30  Martin Liska  <mliska@suse.cz>
+
+	* gomp-constants.h (hsa_kernel_dispatch): New type.

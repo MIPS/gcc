@@ -215,7 +215,7 @@ enum gomp_map_kind
 
 /* HSA specific data structures.  */
 
-/* HSA kernel dispatch is collection of informations needed for
+/* HSA kernel dispatch is collection of information needed for
    a kernel dispatch.  */
 
 struct hsa_kernel_dispatch
