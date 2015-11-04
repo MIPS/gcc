@@ -920,7 +920,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       edge_iterator ei;
       edge e;
 
-      /* FIXME: We onlu assume direct jumps now.  */
+      /* TODO: HSA BE just supports direct jumps.  */
       fprintf (f, "%s ", hsa_opcode_name (br->m_opcode));
       if (br->m_opcode == BRIG_OPCODE_CBR)
 	{

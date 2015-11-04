@@ -4224,8 +4224,6 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
       nops = 2;
     }
 
-  /* Overwrite default memory order for ATOMIC_ST insn which can have just
-     RLX or SCREL memory order.  */
   if (acode == BRIG_ATOMIC_ST && memorder != BRIG_MEMORY_ORDER_RELAXED
       && memorder != BRIG_MEMORY_ORDER_SC_RELEASE)
     {
@@ -4256,8 +4254,6 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
       atominsn->set_op (0, addr);
       atominsn->set_op (1, op);
     }
-  /* FIXME: Perhaps select a more relaxed memory model based on the last
-     argument of the buildin call.  */
 
   hbb->append_insn (atominsn);
 

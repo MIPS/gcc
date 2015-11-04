@@ -1,5 +1,11 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-dump.c (dump_hsa_insn_1): Fix typo.
+	* hsa-gen.c (gen_hsa_ternary_atomic_for_builtin): Remove
+	comments.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_op_reg::verify_ssa): Use renamed property.
 	(hsa_insn_basic::set_op): Likewise.
 	(hsa_insn_basic::verify): Likewise.
