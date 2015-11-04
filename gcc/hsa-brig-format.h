@@ -1,5 +1,30 @@
 /* HSAIL and BRIG related macros and definitions.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (c) 2013-2015, Advanced Micro Devices, Inc.
+   Copyright (C) 2013-2015 Free Software Foundation, Inc.
+
+   Majority of contents in this file has originally been distributed under the
+   University of Illinois/NCSA Open Source License.  This license mandates that
+   the following conditions are observed when distributing this file:
+
+     * Redistributions of source code must retain the above copyright notice,
+       this list of conditions and the following disclaimers.
+
+     * Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimers in the
+       documentation and/or other materials provided with the distribution.
+
+     * Neither the names of the HSA Team, HSA Foundation, University of
+       Illinois at Urbana-Champaign, nor the names of its contributors may be
+       used to endorse or promote products derived from this Software without
+       specific prior written permission.
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+   CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+   WITH THE SOFTWARE.
 
    This file is part of GCC.
 

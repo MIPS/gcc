@@ -1,5 +1,7 @@
 /* Implementation of commonly needed HSAIL related functions and methods.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-15 Free Software Foundation, Inc.
+   Contributed by Martin Jambor <mjambor@suse.cz> and
+   Martin Liska <mliska@suse.cz>.
 
 This file is part of GCC.
 
@@ -16,9 +18,6 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
-
-/* TODO: Some of the following includes might be redundant because of ongoing
-   header cleanups.  */
 
 #include "config.h"
 #include "system.h"

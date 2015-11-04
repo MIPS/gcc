@@ -1,5 +1,15 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-brig-format.h: Updated license information.
+	* hsa.h: Updated copyright year.
+	* hsa.c: Updated copyright year and contributors.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.c: Removed unnecessary includes.
 	* hsa-brig.c: Likewise.
 	* hsa-dump.c: Likewise.
