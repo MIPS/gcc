@@ -1,5 +1,11 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call): Removed stale FIXMEs and TODOs.
+	* hsa-dump.c: Likewise.
+	* hsa-gen.c: Likewise.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa.h: Fix spelling errors in strings and comments.
 	* hsa-brig.c: Likewise.
 	* hsa-gen.c: Likewise.

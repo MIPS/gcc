@@ -17,9 +17,6 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
-/* TODO: Some of the following includes might be redundant because of ongoing
-   header cleanups.  */
-
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -1456,9 +1453,6 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 		       opc == BRIG_OPCODE_ATOMIC ||
 		       opc == BRIG_OPCODE_SIGNAL ||
 		       opc == BRIG_OPCODE_SIGNALNORET);
-
-  /* TODO: Review the following defaults (together with the few overrides we
-     have in the code).  */
 }
 
 /* New operator to allocate signal instruction from pool alloc.  */
@@ -3060,7 +3054,6 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
 
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (gimple_assign_lhs (assign));
 
-  /* FIXME: Allocate an instruction with modifiers if appropriate.  */
   hsa_op_with_type *op1 = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
   hsa_op_with_type *op2 = rhs2 != NULL_TREE ?
     hsa_reg_or_immed_for_gimple_op (rhs2, hbb) : NULL;
@@ -3619,8 +3612,6 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
     gen_get_team_num (stmt, hbb);
   else if (strcmp (name, "hsa_set_debug_value") == 0)
     {
-      /* FIXME: show warning if user uses a different function description.  */
-
       if (hsa_cfun->has_shadow_reg_p ())
 	{
 	  tree rhs1 = gimple_call_arg (stmt, 0);
@@ -3642,8 +3633,8 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
 static void
 gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 {
-  /* TODO: all emitted instructions assume that
-     we run on a LARGE_MODEL agent.  */
+  /* TODO: all emitted instructions assume that we run on a LARGE_MODEL
+     agent.  */
 
   hsa_insn_mem *mem;
   hsa_op_address *addr;
@@ -4080,14 +4071,12 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 /* Helper functions to create a single unary HSA operations out of calls to
    builtins.  OPCODE is the HSA operation to be generated.  STMT is a gimple
    call to a builtin.  HBB is the HSA BB to which the instruction should be
-   added.  */
+   added.  Note that nothing will be created if STMT does not have a LHS.  */
 
 static void
 gen_hsa_unaryop_for_builtin (int opcode, gimple *stmt, hsa_bb *hbb)
 {
   tree lhs = gimple_call_lhs (stmt);
-  /* FIXME: Since calls without a LHS are not removed, double check that
-     they cannot have side effects.  */
   if (!lhs)
     return;
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);

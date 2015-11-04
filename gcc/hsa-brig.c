@@ -80,10 +80,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #define BRIG_CHUNK_MAX_SIZE (64 * 1024)
 
-/* FIXME: The code below uses endian.h routines to convert numbers to
-   little-endian.  I suspect this only works on glibc platforms, so we might
-   need an alternative solution later.  */
-
 /* Chunks of BRIG binary data.  */
 
 struct hsa_brig_data_chunk
@@ -1004,7 +1000,6 @@ emit_address_operand (hsa_op_address *addr)
     ? htole32 (emit_directive_variable (addr->m_symbol)) : 0;
   out.reg = addr->m_reg ? htole32 (enqueue_op (addr->m_reg)) : 0;
 
-  /* FIXME: This is very clumsy.  */
   if (sizeof (addr->m_imm_offset) == 8)
     {
       out.offset.lo = htole32 ((uint32_t)addr->m_imm_offset);
@@ -1012,6 +1007,7 @@ emit_address_operand (hsa_op_address *addr)
     }
   else
     {
+      gcc_assert (sizeof (addr->m_imm_offset) == 4);
       out.offset.lo = htole32 (addr->m_imm_offset);
       out.offset.hi = 0;
     }

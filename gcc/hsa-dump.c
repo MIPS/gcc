@@ -920,7 +920,6 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       edge_iterator ei;
       edge e;
 
-      /* TODO: HSA BE just supports direct jumps.  */
       fprintf (f, "%s ", hsa_opcode_name (br->m_opcode));
       if (br->m_opcode == BRIG_OPCODE_CBR)
 	{
@@ -1062,7 +1061,6 @@ dump_hsa_bb (FILE *f, hsa_bb *hbb)
   edge e;
   basic_block true_bb = NULL, other = NULL;
 
-  /* FIXME: Dump a label or something instead.  */
   fprintf (f, "BB %i:\n", hbb->m_index);
 
   int indent = 2;
