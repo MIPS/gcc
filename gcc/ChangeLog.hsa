@@ -1,5 +1,9 @@
 2015-11-04  Martin Liska  <mliska@suse.cz>
 
+	* ipa-hsa.c: Comment functions.
+
+2015-11-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_basic_insn): Do not handle
 	BRIG_OPCODE_CVT opcode.
 	(emit_insn):

@@ -98,6 +98,11 @@ check_warn_node_versionable (cgraph_node *node)
   return true;
 }
 
+/* The function creates HSA clones for all functions that were either
+   marked as HSA kernels or are callable HSA functions.  Apart from that,
+   we redirect all edges that come from an HSA clone and end in another
+   HSA clone to connect these two functions.  */
+
 static unsigned int
 process_hsa_functions (void)
 {
@@ -181,6 +186,8 @@ process_hsa_functions (void)
   return 0;
 }
 
+/* Iterate all HSA functions and stream out HSA function summary.  */
+
 static void
 ipa_hsa_write_summary (void)
 {
@@ -237,6 +244,8 @@ ipa_hsa_write_summary (void)
   destroy_output_block (ob);
 }
 
+/* Read section in file FILE_DATA of length LEN with data DATA.  */
+
 static void
 ipa_hsa_read_section (struct lto_file_decl_data *file_data, const char *data,
 		       size_t len)
@@ -286,6 +295,8 @@ ipa_hsa_read_section (struct lto_file_decl_data *file_data, const char *data,
 			 len);
   lto_data_in_delete (data_in);
 }
+
+/* Load streamed HSA functions summary and assign the summary to a function.  */
 
 static void
 ipa_hsa_read_summary (void)
