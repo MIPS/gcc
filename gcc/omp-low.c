@@ -12889,9 +12889,10 @@ expand_target_kernel_body (struct omp_region *target)
   tree orig_child_fndecl = gimple_omp_target_child_fn (tgt_stmt);
   if (!gpukernel)
     {
-      /* OpenACC target regions can have NULL orig_child_fndecl.  */
-      if (!orig_child_fndecl)
+      /* HSA cannot handle OACC stuff.  */
+      if (gimple_omp_target_kind (tgt_stmt) != GF_OMP_TARGET_KIND_REGION)
 	return;
+      gcc_checking_assert (orig_child_fndecl);
       gcc_assert (!gimple_omp_target_dimensions (tgt_stmt));
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
 

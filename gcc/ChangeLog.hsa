@@ -1,5 +1,10 @@
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (expand_target_kernel_body): Only register OMP target
+	regions as HSA kernels.
+
+2015-11-04  Martin Jambor  <mjambor@suse.cz>
+
 	* common.opt (-Whsa): Terminate help string with a period.
 
 2015-11-02  Martin Jambor  <mjambor@suse.cz>
