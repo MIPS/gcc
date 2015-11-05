@@ -147,7 +147,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "builtins.h"
 #include "tree-chkp.h"
-#include "omp-low.h"
 
 
 /* Possible lattice values.  */
@@ -808,9 +807,6 @@ surely_varying_stmt_p (gimple *stmt)
       && gimple_code (stmt) != GIMPLE_COND
       && gimple_code (stmt) != GIMPLE_SWITCH
       && gimple_code (stmt) != GIMPLE_CALL)
-    return true;
-
-  if (gimple_stmt_omp_data_i_init_p (stmt))
     return true;
 
   return false;
@@ -2368,8 +2364,6 @@ ccp_visit_stmt (gimple *stmt, edge *taken_edge_p, tree *output_p)
   switch (gimple_code (stmt))
     {
       case GIMPLE_ASSIGN:
-	if (gimple_stmt_omp_data_i_init_p (stmt))
-	  break;
         /* If the statement is an assignment that produces a single
            output value, evaluate its RHS to see if the lattice value of
            its output has changed.  */

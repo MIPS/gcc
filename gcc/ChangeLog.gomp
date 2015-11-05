@@ -1,5 +1,16 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	Revert:
+	2015-04-21  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-ccp.c: Include omp-low.h.
+	(surely_varying_stmt_p, ccp_visit_stmt): Handle .omp_data_i init
+	conservatively.
+	* tree-ssa-forwprop.c: Include omp-low.h.
+	(pass_forwprop::execute): Handle .omp_data_i init conservatively.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-builtins.def (BUILT_IN_GOACC_KERNELS_INTERNAL): Remove
 	DEF_GOACC_BUILTIN_FNSPEC.
 	* omp-low.c (expand_omp_target): Remove handling of
