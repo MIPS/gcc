@@ -30,9 +30,9 @@ func2 (int *ptr, int *is_zero)
   return value;
 }
 
-/* { dg-final { scan-assembler     "extswsli[.] " } } */
+/* { dg-final { scan-assembler     "extswsli\\. " } } */
 /* { dg-final { scan-assembler     "lwz "         } } */
 /* { dg-final { scan-assembler-not "lwa "         } } */
 /* { dg-final { scan-assembler-not "sldi "        } } */
-/* { dg-final { scan-assembler-not "sldi[.] "     } } */
+/* { dg-final { scan-assembler-not "sldi\\. "     } } */
 /* { dg-final { scan-assembler-not "extsw "       } } */

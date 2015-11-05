@@ -20,4 +20,4 @@ do_ext (int *p, long a, long b)
   return ((l2 == 0) ? a : b);
 }
 
-/* { dg-final { scan-assembler "extswsli[.] "} } */
+/* { dg-final { scan-assembler "extswsli\\. "} } */
