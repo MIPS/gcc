@@ -1,5 +1,11 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-ssa-loop.c: Include omp-low.h.
+	(gate_oacc_kernels): Test for flag_tree_parallelize_loops.  Test for
+	oacc function attribute.  Test for loop with in_oacc_kernels_region.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (expand_omp_target): Remove do_emit_library_call variable,
 	assume true.  Remove do_splitoff variable, assume true.  Remove
 	BUILT_IN_GOACC_KERNELS_INTERNAL handling.  Replace kernels region with a

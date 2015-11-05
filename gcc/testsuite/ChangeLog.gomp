@@ -1,3 +1,8 @@
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-counter-var-redundant-load.c: Run with
+	-ftree-parallelize-loops=32.
+
 2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/update-1.c: Update expected error.

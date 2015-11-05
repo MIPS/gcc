@@ -1,4 +1,5 @@
 /* { dg-additional-options "-O2" } */
+/* { dg-additional-options "-ftree-parallelize-loops=32" } */
 /* { dg-additional-options "-fdump-tree-dom_oacc_kernels3" } */
 
 #include <stdlib.h>

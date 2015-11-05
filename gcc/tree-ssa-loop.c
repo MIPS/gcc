@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
+#include "omp-low.h"
 
 
 /* A pass making sure loops are fixed up.  */
@@ -151,7 +152,26 @@ make_pass_tree_loop (gcc::context *ctxt)
 static bool
 gate_oacc_kernels (function *fn)
 {
-  return (fn->curr_properties & PROP_gimple_eomp) == 0;
+  if (flag_tree_parallelize_loops <= 1)
+    return false;
+
+  tree oacc_function_attr = get_oacc_fn_attrib (fn->decl);
+  if (oacc_function_attr == NULL_TREE)
+    return false;
+
+  tree val = TREE_VALUE (oacc_function_attr);
+  while (val != NULL_TREE && TREE_VALUE (val) == NULL_TREE)
+    val = TREE_CHAIN (val);
+
+  if (val != NULL_TREE)
+    return false;
+
+  struct loop *loop;
+  FOR_EACH_LOOP (loop, 0)
+    if (loop->in_oacc_kernels_region)
+      return true;
+
+  return false;
 }
 
 /* The oacc kernels superpass.  */
