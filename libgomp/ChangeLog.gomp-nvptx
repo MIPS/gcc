@@ -1,5 +1,9 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/simple-bar.h: New file.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/posix/simple-bar.h: New file.  Use it ...
 	* libgomp.h: ...here: new include.
 	(struct gomp_thread_pool): Change threads_dock member to
