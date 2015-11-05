@@ -18681,54 +18681,6 @@ oacc_kernels_region_entry_p (basic_block bb, gomp_target **directive)
   return res;
 }
 
-/* Return true if STMT is copy assignment .omp_data_i = &.omp_data_arr.  */
-
-bool
-gimple_stmt_omp_data_i_init_p (gimple *stmt)
-{
-  /* Extract obj from stmt 'a = &obj.  */
-  if (!gimple_assign_cast_p (stmt)
-      && !gimple_assign_single_p (stmt))
-    return false;
-  tree rhs = gimple_assign_rhs1 (stmt);
-  if (TREE_CODE (rhs) != ADDR_EXPR)
-    return false;
-  tree obj = TREE_OPERAND (rhs, 0);
-
-  /* Check that the last statement in the preceding bb is an oacc kernels
-     stmt.  */
-  basic_block bb = gimple_bb (stmt);
-  gomp_target *kernels;
-  if (!oacc_kernels_region_entry_p (bb, &kernels))
-    return false;
-
-  /* Get omp_data_arr from the oacc kernels stmt.  */
-  tree data_arg = gimple_omp_target_data_arg (kernels);
-  tree omp_data_arr = TREE_VEC_ELT (data_arg, 0);
-
-  /* If obj is omp_data_arr, we've found the .omp_data_i init statement.  */
-  return operand_equal_p (obj, omp_data_arr, 0);
-}
-
-
-/* Return omp_data_i corresponding to the assignment
-   .omp_data_i = &.omp_data_arr in oacc kernels region entry REGION_ENTRY.  */
-
-tree
-get_omp_data_i (basic_block region_entry)
-{
-  if (!single_succ_p (region_entry))
-    return NULL_TREE;
-  basic_block bb = single_succ (region_entry);
-  gimple_stmt_iterator gsi = gsi_start_bb (bb);
-  if (gsi_end_p (gsi))
-    return NULL_TREE;
-  gimple *stmt = gsi_stmt (gsi);
-  if (!gimple_stmt_omp_data_i_init_p (stmt))
-    return NULL_TREE;
-  return gimple_assign_lhs (stmt);
-}
-
 namespace {
 
 const pass_data pass_data_late_lower_omp =

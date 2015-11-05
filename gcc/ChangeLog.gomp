@@ -1,5 +1,12 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (gimple_stmt_omp_data_i_init_p, get_omp_data_i): Remove.
+	* omp-low.h: Same.
+	* tree-parloops.c (oacc_entry_exit_ok_1): Remove test on
+	gimple_stmt_omp_data_i_init_p.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	revert:
 	2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
