@@ -2017,7 +2017,7 @@ transform_to_exit_first_loop (struct loop *loop,
 static void
 create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 		      tree new_data, unsigned n_threads, location_t loc,
-		      basic_block region_entry, bool oacc_kernels_p)
+		      bool oacc_kernels_p)
 {
   gimple_stmt_iterator gsi;
   basic_block bb, paral_bb, for_bb, ex_bb, continue_bb;
@@ -2039,10 +2039,6 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       paral_bb = single_pred (bb);
       gsi = gsi_last_bb (paral_bb);
     }
-  else
-    /* Make sure the oacc parallel is inserted on top of the oacc kernels
-       region.  */
-    gsi = gsi_last_bb (region_entry);
 
   if (!oacc_kernels_p)
     {
@@ -2056,50 +2052,10 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
     }
   else
     {
-      /* Create oacc parallel pragma based on oacc kernels pragma and
-	 GOACC_kernels_internal call.  */
-      gomp_target *kernels = as_a <gomp_target *> (gsi_stmt (gsi));
-
-      tree clauses = gimple_omp_target_clauses (kernels);
-      /* FIXME: We need a more intelligent mapping onto vector, gangs,
-	 workers.  */
-      if (1)
-	{
-	  tree clause = build_omp_clause (gimple_location (kernels),
-					  OMP_CLAUSE_NUM_GANGS);
-	  OMP_CLAUSE_NUM_GANGS_EXPR (clause) 
-	    = build_int_cst (integer_type_node, n_threads);
-	  OMP_CLAUSE_CHAIN (clause) = clauses;
-	  clauses = clause;
-	}
-      gomp_target *stmt
-	= gimple_build_omp_target (NULL, GF_OMP_TARGET_KIND_OACC_PARALLEL,
-				   clauses);
-      tree child_fn = gimple_omp_target_child_fn (kernels);
-      gimple_omp_target_set_child_fn (stmt, child_fn);
-      tree data_arg = gimple_omp_target_data_arg (kernels);
-      gimple_omp_target_set_data_arg (stmt, data_arg);
-
-      gimple_set_location (stmt, loc);
-
-      /* Insert oacc parallel pragma after the oacc kernels pragma.  */
-      {
-	gimple_stmt_iterator gsi2;
-	gsi = gsi_last_bb (region_entry);
-	gsi2 = gsi;
-	gsi_prev (&gsi2);
-
-	/* Insert pragma acc parallel.  */
-	gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
-
-	/* Remove GOACC_kernels_internal call.  */
-	replace_uses_by (gimple_vdef (gsi_stmt (gsi2)),
-			 gimple_vuse (gsi_stmt (gsi2)));
-	gsi_remove (&gsi2, true);
-
-	/* Remove pragma acc kernels.  */
-	gsi_remove (&gsi2, true);
-      }
+      tree clause = build_omp_clause (loc, OMP_CLAUSE_NUM_GANGS);
+      OMP_CLAUSE_NUM_GANGS_EXPR (clause)
+	= build_int_cst (integer_type_node, n_threads);
+      set_oacc_fn_attrib (cfun->decl, clause, NULL);
     }
 
   /* Initialize NEW_DATA.  */
@@ -2274,7 +2230,7 @@ static void
 gen_parallel_loop (struct loop *loop,
 		   reduction_info_table_type *reduction_list,
 		   unsigned n_threads, struct tree_niter_desc *niter,
-		   basic_block region_entry, bool oacc_kernels_p)
+		   bool oacc_kernels_p)
 {
   tree many_iterations_cond, type, nit;
   tree arg_struct, new_arg_struct;
@@ -2457,7 +2413,7 @@ gen_parallel_loop (struct loop *loop,
   if (cond_stmt)
     loc = gimple_location (cond_stmt);
   create_parallel_loop (loop, create_loop_fn (loc), arg_struct, new_arg_struct,
-			n_threads, loc, region_entry, oacc_kernels_p);
+			n_threads, loc, oacc_kernels_p);
   if (reduction_list->elements () > 0)
     create_call_for_reduction (loop, reduction_list, &clsn_data);
 
@@ -2650,6 +2606,22 @@ try_get_loop_niter (loop_p loop, struct tree_niter_desc *niter)
   return true;
 }
 
+static tree
+get_omp_data_i_param (void)
+{
+  tree decl = DECL_ARGUMENTS (cfun->decl);
+  gcc_assert (DECL_CHAIN (decl) == NULL_TREE);
+  for (unsigned int i = 0; i < num_ssa_names; ++i)
+    {
+      tree name = ssa_name (i);
+      if (name != NULL_TREE
+	  && SSA_NAME_VAR (name) == decl)
+	return name;
+    }
+
+  gcc_unreachable ();
+}
+
 /* Try to initialize REDUCTION_LIST for code generation part.
    REDUCTION_LIST describes the reductions.  */
 
@@ -2795,7 +2767,7 @@ try_create_reduction_list (loop_p loop,
 		return false;
 	      addr2 = TREE_OPERAND (addr2, 0);
 	      if (TREE_CODE (addr2) != SSA_NAME
-		  || !gimple_stmt_omp_data_i_init_p (SSA_NAME_DEF_STMT (addr2)))
+		  || addr2 != get_omp_data_i_param ())
 		return false;
 	      red->reduc_addr = addr;
 	    }
@@ -2847,6 +2819,9 @@ ref_conflicts_with_region (gimple_stmt_iterator gsi, ao_ref *ref,
 
 	  if (!gimple_vdef (stmt)
 	      && !gimple_vuse (stmt))
+	    continue;
+
+	  if (gimple_code (stmt) == GIMPLE_RETURN)
 	    continue;
 
 	  if (ref_is_store)
@@ -2989,8 +2964,11 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 		   && !gimple_vdef (stmt)
 		   && !gimple_vuse (stmt))
 	    continue;
-	  else if (gimple_call_internal_p (stmt)
+	  else if (is_gimple_call (stmt)
+		   && gimple_call_internal_p (stmt)
 		   && gimple_call_internal_fn (stmt) == IFN_GOACC_DIM_POS)
+	    continue;
+	  else if (gimple_code (stmt) == GIMPLE_RETURN)
 	    continue;
 	  else
 	    {
@@ -3119,19 +3097,17 @@ oacc_entry_exit_single_gang (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 }
 
 static bool
-oacc_entry_exit_ok (struct loop *loop, basic_block region_entry,
+oacc_entry_exit_ok (struct loop *loop,
 		    reduction_info_table_type *reduction_list)
 {
   basic_block *loop_bbs = get_loop_body_in_dom_order (loop);
-  basic_block region_exit
-    = get_oacc_kernels_region_exit (single_succ (region_entry));
-  vec<basic_block> region_bbs
-    = get_bbs_in_oacc_kernels_region (region_entry, region_exit);
-  tree omp_data_i = get_omp_data_i (region_entry);
+  tree omp_data_i = get_omp_data_i_param ();
   gcc_assert (omp_data_i != NULL_TREE);
+  vec<basic_block> region_bbs
+    = get_all_dominated_blocks (CDI_DOMINATORS, ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
-  gimple_stmt_iterator gsi = gsi_for_stmt (SSA_NAME_DEF_STMT (omp_data_i));
-  gsi_next_nondebug (&gsi);
+  gimple_stmt_iterator gsi
+    = gsi_start_bb (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
   gimple *stmt = gsi_stmt (gsi);
   gcc_assert (gimple_call_internal_p (stmt)
 	      && gimple_call_internal_fn (stmt) == IFN_GOACC_DIM_POS);
@@ -3182,15 +3158,16 @@ parallelize_loops (bool oacc_kernels_p)
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
   source_location loop_loc;
-  basic_block region_entry = NULL;
 
   /* Do not parallelize loops in the functions created by parallelization.  */
-  if (parallelized_function_p (cfun->decl))
+  if (!oacc_kernels_p
+      && parallelized_function_p (cfun->decl))
     return false;
 
   /* Do not parallelize loops in offloaded functions.  */
-  if (get_oacc_fn_attrib (cfun->decl) != NULL)
-    return false;
+  if (!oacc_kernels_p
+      && get_oacc_fn_attrib (cfun->decl) != NULL)
+     return false;
 
   if (cfun->has_nonlocal_label)
     return false;
@@ -3231,8 +3208,6 @@ parallelize_loops (bool oacc_kernels_p)
 	    fprintf (dump_file,
 		     "Trying loop %d with header bb %d in oacc kernels region\n",
 		     loop->num, loop->header->index);
-
-	  region_entry = loop_get_oacc_kernels_region_entry (loop);
 	}
 
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3309,7 +3284,7 @@ parallelize_loops (bool oacc_kernels_p)
 	}
 
       if (oacc_kernels_p
-	  && !oacc_entry_exit_ok (loop, region_entry, &reduction_list))
+	&& !oacc_entry_exit_ok (loop, &reduction_list))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "entry/exit not ok: FAILED\n");
@@ -3332,7 +3307,7 @@ parallelize_loops (bool oacc_kernels_p)
       }
 
       gen_parallel_loop (loop, &reduction_list,
-			 n_threads, &niter_desc, region_entry, oacc_kernels_p);
+			 n_threads, &niter_desc, oacc_kernels_p);
     }
 
   obstack_free (&parloop_obstack, NULL);
@@ -3437,7 +3412,11 @@ pass_parallelize_loops_oacc_kernels::execute (function *fun)
     return 0;
 
   if (parallelize_loops (true))
-    return TODO_update_ssa;
+    {
+      fun->curr_properties &= ~(PROP_gimple_eomp);
+
+      return TODO_update_ssa;
+    }
 
   return 0;
 }

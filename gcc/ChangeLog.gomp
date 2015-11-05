@@ -1,5 +1,27 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (set_oacc_fn_attrib): Remove static.
+	* omp-low.h (set_oacc_fn_attrib): Declare.
+	* tree-parloops.c (create_parallel_loop): Remove region_entry parameter.
+	Remove handling of oacc kernels pragma and GOACC_kernels_internal call.
+	Remove insertion of oacc parallel pragma.  Set oacc function attributes.
+	(gen_parallel_loop): Remove region_entry parameter.
+	(get_omp_data_i_param): New function.
+	(try_create_reduction_list): Use get_omp_data_i_param instead of
+	gimple_stmt_omp_data_i_init_p.
+	(ref_conflicts_with_region): Handle GIMPLE_RETURN.
+	(oacc_entry_exit_ok_1): Same.  Add missing is_gimple_call test before
+	gimple_call_internal_p test.
+	(oacc_entry_exit_ok): Remove region_entry parameter.  Use
+	get_omp_data_i_param instead of get_omp_data_i.  Set region_bbs to all
+	bbs in function.  Use function entry as region entry.
+	(parallelize_loops): Allow oacc functions and parallelized function if
+	oacc_kernels_p.  Remove	region_entry variable.
+	(pass_parallelize_loops_oacc_kernels::execute): Clear PROP_gimple_eomp
+	if a loop was parallelized.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	revert:
 	2015-10-12  Tom de Vries  <tom@codesourcery.com>
 

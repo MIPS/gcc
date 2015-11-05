@@ -40,6 +40,7 @@ extern vec<basic_block> get_bbs_in_oacc_kernels_region (basic_block,
 extern void replace_oacc_fn_attrib (tree, tree);
 extern tree build_oacc_routine_dims (tree);
 extern tree get_oacc_fn_attrib (tree);
+extern void set_oacc_fn_attrib (tree, tree, vec<tree> *);
 
 extern GTY(()) vec<tree, va_gc> *offload_funcs;
 extern GTY(()) vec<tree, va_gc> *offload_vars;
