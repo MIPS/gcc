@@ -1,5 +1,18 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	* gfortran.dg/goacc/kernels-loop-2.f95: Scan for oacc function instead
+	of oacc_parallel.
+	* gfortran.dg/goacc/kernels-loop-data-2.f95:
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit-2.f95:
+	* gfortran.dg/goacc/kernels-loop-data-enter-exit.f95:
+	* gfortran.dg/goacc/kernels-loop-data-update.f95:
+	* gfortran.dg/goacc/kernels-loop-data.f95:
+	* gfortran.dg/goacc/kernels-loop-nest-independent.f95:
+	* gfortran.dg/goacc/kernels-loop.f95:
+	* gfortran.dg/goacc/kernels-parallel-loop-data-enter-exit.f95:
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-acc-loop-reduction.c: Scan for oacc
 	function instead of oacc_parallel.
 	* c-c++-common/goacc/kernels-acc-loop-smaller-equal.c: Same.
