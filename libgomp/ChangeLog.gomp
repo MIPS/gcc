@@ -1,5 +1,7 @@
 2015-11-05  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/monotonic-1.c: Formatting fix.
+
 	* target.c (gomp_map_0len_lookup, gomp_map_val): New inline
 	functions.
 	(gomp_map_vars): Handle GOMP_MAP_ALWAYS_POINTER.  For

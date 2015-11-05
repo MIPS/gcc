@@ -1,5 +1,7 @@
 2015-11-05  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-typeck.c (c_finish_omp_clauses): Formatting fix.
+
 	* c-parser.c (c_parser_omp_target_data,
 	c_parser_omp_target_enter_data,
 	c_parser_omp_target_exit_data, c_parser_omp_target): Allow

@@ -295,7 +295,7 @@ main ()
 	    n = 1;
 	    c++;
 	  }
-        #pragma omp ordered
+	#pragma omp ordered
 	  l = i;
       }
   }

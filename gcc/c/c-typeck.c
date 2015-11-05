@@ -13030,7 +13030,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 		case OMP_CLAUSE_SCHEDULE_AUTO: p = "auto"; break;
 		case OMP_CLAUSE_SCHEDULE_RUNTIME: p = "runtime"; break;
 		default: gcc_unreachable ();
-	        }
+		}
 	      if (p)
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
