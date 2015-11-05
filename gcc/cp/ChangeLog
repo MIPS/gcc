@@ -1,3 +1,279 @@
+2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* (cp_parser_oacc_single_int_clause): New function.
+	(cp_parser_oacc_clause_vector_length): Delete.
+	(cp_parser_omp_clause_num_gangs): Delete.
+	(cp_parser_omp_clause_num_workers): Delete.
+	(cp_parser_oacc_all_clauses): Use cp_parser_oacc_single_int_clause
+	for num_gangs, num_workers and vector_length.
+
+2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* call.c (validate_conversion_obstack): Define unconditionally.
+	* constexpr.c (maybe_constant_value, fold_non_dependent_expr): Use
+	gcc_checking_assert.
+	* cp-tree.h: Use CHECKING_P instead of ENABLE_CHECKING.
+	* decl2.c (cxx_post_compilation_parsing_cleanups): Use flag_checking.
+	* mangle.c (add_substitution): Likewise.
+	* method.c (maybe_explain_implicit_delete): Likewise.
+	* parser.c (cp_parser_template_argument_list): Remove conditional
+	compilation.
+	* pt.c (check_unstripped_args): Rename to...
+	(verify_unstripped_args): ... this and remove conditional compilation.
+	(retrieve_specialization): Guard call of verify_unstripped_args with
+	flag_checking.
+	(template_parm_to_arg): Remove conditional compilation.
+	(template_parms_to_args, coerce_template_parameter_pack,
+	coerce_template_parms): Likewise.
+	(tsubst_copy): Use flag_checking.
+	(type_unification_real): Remove conditional compilation.
+	(build_non_dependent_expr): Use flag_checking.
+	* tree.c (build_target_expr): Remove conditional compilation, use
+	gcc_checking_assert.
+	* typeck.c (comptypes): Likewise.
+	* typeck2.c (digest_init_r): Likewise.
+
+2015-11-03  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (struct find_parameter_pack_data): Add
+	type_pack_expansion_p field.
+	(find_parameter_packs_r): Use it to turn 'auto' into a parameter pack.
+	(uses_parameter_packs, make_pack_expansion)
+	(check_for_bare_parameter_packs, fixed_parameter_pack_p): Set it.
+
+2015-11-03  Thomas Schwinge  <thomas@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* parser.c (cp_parser_omp_construct, cp_parser_pragma): Handle
+	PRAGMA_OACC_ATOMIC.
+
+2015-10-31  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Remove the implementation of N3994, terse range-for loops.
+	* parser.c (cp_parser_for_init_statement): Remove the parsing
+	of a terse range-for.
+
+2015-10-31  Jason Merrill  <jason@redhat.com>
+
+	Implement multiple 'auto' feature from Concepts TS.
+	* parser.c (cp_parser_type_id_1): Allow 'auto' if -fconcepts.
+	(cp_parser_template_type_arg): Likewise.
+	(get_concept_from_constraint): Split out most logic to...
+	* constraint.cc (placeholder_extract_concept_and_args): ...here.
+	(equivalent_placeholder_constraints, hash_placeholder_constraint): New.
+	* cxx-pretty-print.c (pp_cxx_constrained_type_spec): New.
+	* cxx-pretty-print.h: Declare it.
+	* error.c (dump_type) [TEMPLATE_TYPE_PARM]: Call it.
+	* pt.c (is_auto_r, extract_autos_r, extract_autos, auto_hash): New.
+	(type_uses_auto): Use is_auto_r.
+	(do_auto_deduction): Handle multiple 'auto's if -fconcepts.
+	* typeck.c (structural_comptypes) [TEMPLATE_TYPE_PARM]: Compare
+	constraints.
+
+	* pt.c (for_each_template_parm_r): Use WALK_SUBTREE.
+	Return a meaningful value rather than error_mark_node.
+	(for_each_template_parm): Return a tree.
+	(uses_template_parms_level): Return bool.
+	* cp-tree.h: Adjust.
+
+	* pt.c (unify): Don't diagnose no common base if we already have
+	the same template.
+	(do_auto_deduction): Explain deduction failure.
+
+	* pt.c (hash_tmpl_and_args): Use iterative_hash_object on template
+	uid.
+
+	* parser.c (synthesize_implicit_template_parm)
+	(finish_fully_implicit_template): Make static.
+
+2015-10-29  Andrew MacLeod  <amacleod@redhat.com>
+
+	* call.c: Reorder #include's and remove duplicates.
+	* class.c: Likewise.
+	* constexpr.c: Likewise.
+	* cp-array-notation.c: Likewise.
+	* cp-cilkplus.c: Likewise.
+	* cp-gimplify.c: Likewise.
+	* cp-lang.c: Likewise.
+	* cp-objcp-common.c: Likewise.
+	* cp-ubsan.c: Likewise.
+	* cvt.c: Likewise.
+	* cxx-pretty-print.c: Likewise.
+	* decl.c: Likewise.
+	* decl2.c: Likewise.
+	* dump.c: Likewise.
+	* error.c: Likewise.
+	* except.c: Likewise.
+	* expr.c: Likewise.
+	* friend.c: Likewise.
+	* init.c: Likewise.
+	* lambda.c: Likewise.
+	* lex.c: Likewise.
+	* mangle.c: Likewise.
+	* method.c: Likewise.
+	* name-lookup.c: Likewise.
+	* optimize.c: Likewise.
+	* parser.c: Likewise.
+	* pt.c: Likewise.
+	* ptree.c: Likewise.
+	* repo.c: Likewise.
+	* rtti.c: Likewise.
+	* search.c: Likewise.
+	* semantics.c: Likewise.
+	* tree.c: Likewise.
+	* typeck.c: Likewise.
+	* typeck2.c: Likewise.
+	* vtable-class-hierarchy.c: Likewise.
+
+2015-10-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67845
+	* decl.c (grokfndecl): In case of erroneous cv-qualified non-member
+	functions consistently reset TREE_TYPE (decl) too.
+
+2015-10-28  Jason Merrill  <jason@redhat.com>
+
+	DR 1518
+	* class.c (type_has_user_provided_or_explicit_constructor): New.
+	(check_bases_and_members): Use it.
+	* cp-tree.h: Declare it.
+
+2015-10-27  Cesar Philippidis  <cesar@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+	    Julian Brown  <julian@codesourcery.com>
+	    Nathan Sidwell <nathan@codesourcery.com>
+	    Bernd Schmidt  <bschmidt@redhat.com>
+
+	* parser.c (cp_parser_omp_clause_name): Add auto, gang, seq,
+	vector, worker.
+	(cp_parser_oacc_simple_clause): New.
+	(cp_parser_oacc_shape_clause): New.
+	(cp_parser_oacc_all_clauses): Add auto, gang, seq, vector, worker.
+	(OACC_LOOP_CLAUSE_MASK): Likewise.
+	* semantics.c (finish_omp_clauses): Add auto, gang, seq, vector,
+	worker. Unify the handling of teams, tasks and vector_length with
+	the other loop shape clauses.
+
+2015-10-27  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	PR c/64765
+	PR c/64880
+	* cp-tree.h (finish_oacc_kernels, finish_oacc_parallel): Don't
+	declare functions.
+	(finish_omp_construct): Declare function.
+	* parser.c (cp_parser_oacc_loop): Add p_name, mask, cclauses
+	formal parameters, and handle these.  Adjust all users.
+	(cp_parser_oacc_kernels, cp_parser_oacc_parallel): Merge functions
+	into...
+	(cp_parser_oacc_kernels_parallel): ... this new function.  Adjust
+	all users.
+	* semantics.c (finish_oacc_kernels, finish_oacc_parallel): Merge functions into...
+	(finish_omp_construct): ... this new function.
+
+2015-10-25  Jason Merrill  <jason@redhat.com>
+
+	DR 2179
+	* pt.c (process_partial_specialization): Handle error_mark_node
+	from most_specialized_partial_spec.
+
+2015-10-23  Jason Merrill  <jason@redhat.com>
+
+	DR 1518
+	DR 1630
+	PR c++/54835
+	PR c++/60417
+	* call.c (convert_like_real): Value-initialization can't use
+	explicit constructors in C++11 and up.
+
+	PR c++/67813
+	* constexpr.c (cxx_eval_store_expression): Always use *valp if
+	set.
+
+2015-10-22  Jason Merrill  <jason@redhat.com>
+
+	* call.c (add_template_conv_candidate): Pass DEDUCE_CALL.
+	(add_template_candidate_real): Handle it.
+	* pt.c (fn_type_unification): Handle it.
+
+	* call.c (add_conv_candidate): Remove first_arg parm.
+	(add_template_conv_candidate): Likewise.
+	(add_template_candidate_real): Don't pass it.
+	(build_op_call_1): Likewise.
+
+2015-10-22  Richard Biener  <rguenther@suse.de>
+
+	* semantics.c (cp_finish_omp_clause_depend_sink): Properly convert
+	before folding a MINUS_EXPR.
+	(finish_omp_clauses): Likewise.
+
+2015-10-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/66781
+	* parser.c (cp_parser_enum_specifier): Upon error_at set
+	nested_name_specifier to error_mark_node; improve error message.
+
+2015-10-21  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67847
+	* parser.c (cp_parser_enum_specifier): Reject a nested_name_specifier
+	which doesn't name a class or namespace.
+
+2015-10-21  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* call.c (build_conditional_expr_1): Use boolean vector
+	type for vector comparison.
+	* typeck.c (build_vec_cmp): New.
+	(cp_build_binary_op): Use build_vec_cmp for comparison.
+
+2015-10-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66583
+	* init.c (innermost_aggr_scope): New.
+	(build_field_list): Change uses_unions_p to uses_unions_or_anon_p.
+	(sort_mem_initializers): Handle initializers for entire anonymous
+	aggregates.
+
+2015-10-20  Marek Polacek  <polacek@redhat.com>
+
+	* parser.c (is_cilkplus_vector_p): Don't define here.
+
+2015-10-19  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67064
+	* semantics.c (force_paren_expr): Don't mess with hard register vars.
+
+	Implement N4268, Do constant evaluation of all non-type template args.
+	* parser.c (cp_parser_template_argument): For C++1z just parse a
+	constant-expression.
+	* pt.c (convert_nontype_argument): For C++1z always call
+	maybe_constant_value.
+
+	* constexpr.c (cxx_eval_constant_expression): Expand PTRMEM_CST
+	only when necessary.
+	(cxx_eval_component_reference): Like here.
+	* decl2.c (lower_var_init): And here.
+	(c_parse_final_cleanups): Call it.
+	* typeck2.c (digest_init_r): Not here.
+	* decl.c (complete_vars): Or here.
+	(cp_finish_decl): Add local statics to symbol table.
+
+2015-10-17  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68006
+	* decl.c (implicit_default_ctor_p): New.
+	(start_preparsed_function): Don't clobber on entry to one.
+
+2015-10-16  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67926
+	* constexpr.c (potential_constant_expression_1): Handle
+	UNARY_LEFT_FOLD_EXPR, UNARY_RIGHT_FOLD_EXPR, BINARY_LEFT_FOLD_EXPR,
+	BINARY_RIGHT_FOLD_EXPR.
+
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 	    Aldy Hernandez  <aldyh@redhat.com>
 

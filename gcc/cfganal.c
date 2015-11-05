@@ -24,9 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "backend.h"
 #include "cfghooks.h"
-#include "hard-reg-set.h"
-#include "cfganal.h"
 #include "timevar.h"
+#include "cfganal.h"
 
 /* Store the data structures necessary for depth-first search.  */
 struct depth_first_search_ds {
@@ -785,9 +784,8 @@ inverted_post_order_compute (int *post_order)
   int post_order_num = 0;
   sbitmap visited;
 
-#if ENABLE_CHECKING
-  verify_no_unreachable_blocks ();
-#endif
+  if (flag_checking)
+    verify_no_unreachable_blocks ();
 
   /* Allocate stack for back-tracking up CFG.  */
   stack = XNEWVEC (edge_iterator, n_basic_blocks_for_fn (cfun) + 1);

@@ -1,3 +1,150 @@
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/reduction-1.f90: Fix dimensions
+	and reduction copy.
+	* testsuite/libgomp.oacc-fortran/reduction-2.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-3.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-4.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/reduction-6.f90: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-reduction-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/collapse-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-reduction-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-initial-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-5.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-dims.c: New.
+
+2015-11-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libgomp.oacc-c-c++-common/loop-red-g-1.c: New.
+	* libgomp.oacc-c-c++-common/loop-red-gwv-1.c: New.
+	* libgomp.oacc-c-c++-common/loop-red-v-1.c: New.
+	* libgomp.oacc-c-c++-common/loop-red-v-2.c: New.
+	* libgomp.oacc-c-c++-common/loop-red-w-1.c: New.
+	* libgomp.oacc-c-c++-common/loop-red-w-2.c: New.
+	* libgomp.oacc-c-c++-common/loop-red-wv-1.c: New.
+	* libgomp.oacc-fortran/reduction-5.f90: Avoid reference var.
+
+2015-11-03  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* libgomp.h (struct acc_dispatch_t): Remove args from exec_func.
+	* plugin/plugin-nvptx.c (nvptx_exec): Remove sizes & kinds arg.
+	(GOMP_OFFLOAD_openacc_parallel): Likewise.
+	* oacc-host.c (host_openacc_exec): Likewise.
+	* oacc-parallel.c (GOACC_parallel_keyed): Adjust exec_func call.
+
+2015-11-03  Julian Brown  <julian@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/par-reduction-1.c: New file.
+	* testsuite/libgomp.oacc-c-c++-common/par-reduction-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/worker-single-1a.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/worker-single-4.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/worker-single-6.c: Likewise.
+
+2015-11-03  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-1.c: New
+	file.
+	* testsuite/libgomp.oacc-c-c++-common/atomic_capture-2.c:
+	Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/atomic_rw-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/atomic_update-1.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/atomic_capture-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/atomic_rw-1.f90: New file.
+	* testsuite/libgomp.oacc-fortran/atomic_update-1.f90: Likewise.
+
+2015-10-29  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* openacc.h (enum acc_device_t): Reformat. Ensure layout
+	compatibility.
+	(enum acc_async_t): Reformat.
+	(acc_on_device): Declare compatible with builtin and provide C++
+	wrapper.
+	* testsuite/libgomp.oacc-c-c++-common/acc-on-device.c: New.
+
+2015-10-29  Thomas Schwinge  <thomas@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/combdir-1.c: Rename to...
+	* testsuite/libgomp.oacc-c-c++-common/combined-directives-1.c:
+	... this.  Add a description of the test at the top of the file.
+	* testsuite/libgomp.oacc-fortran/combdir-1.f90: Rename file to...
+	* testsuite/libgomp.oacc-fortran/combined-directives-1.f90:
+	... this.  Add a description of the test at the top of the file.
+
+2015-10-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/loop-g-1.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/loop-g-2.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/loop-gwv-1.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/loop-v-1.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/loop-w-1.c: New.
+	* testsuite/libgomp.oacc-c-c++-common/loop-wv-1.c: New.
+
+2015-10-27  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* plugin/plugin-nvptx.c (nvptx_exec): Remove check on compute
+	dimensions.
+
+2015-10-27  Thomas Schwinge  <thomas@codesourcery.com>
+
+	PR testsuite/68063
+	* testsuite/libgomp.c++/member-1.C (A::m1): Add missing private clause.
+
+2015-10-27  James Norris  <jnorris@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/combdir-1.c: New file.
+	* testsuite/libgomp.oacc-fortran/combdir-1.f90: Likewise.
+
+2015-10-26  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/abort-1.c: Print to stderr.
+	* testsuite/libgomp.oacc-c-c++-common/abort-3.c: Likewise.
+
+	* testsuite/libgomp.oacc-c-c++-common/lib-1.c: Remove explicit
+	acc_device_nvidia usage.
+	* testsuite/libgomp.oacc-c-c++-common/lib-10.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/lib-9.c: Likewise.
+
+	* oacc-init.c (acc_shutdown): Call gomp_init_targets_once.
+	* testsuite/libgomp.oacc-c-c++-common/lib-8.c: New file.
+
+	PR libgomp/66518
+	* testsuite/libgomp.oacc-c-c++-common/lib-3.c: Resolve XFAIL.
+
+	PR libgomp/65437
+	PR libgomp/66518
+	* oacc-mem.c (update_dev_host): Call goacc_lazy_initialize.
+	* testsuite/libgomp.oacc-c-c++-common/lib-42.c: Remove XFAIL.
+
+2015-10-23  Tom de Vries  <tom@codesourcery.com>
+
+	PR testsuite/68063
+	* testsuite/libgomp.c++/member-2.C (A::m1): Add missing private clause.
+
+2015-10-20  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-5.c: Set sane
+	vector_length.
+	* testsuite/libgomp.oacc-fortran/reduction-6.f90: Likewise.
+
+2015-10-14  Ilya Verbin  <ilya.verbin@intel.com>
+	    Aleksander Ivanushenko  <aleksander.ivanushenko@intel.com>
+
+	* target.c (gomp_map_vars): Initialize tgt->tgt_start and tgt->tgt_end
+	to 0 when mapnum is 0.
+
+2015-10-14  Sebastian Huber  <sebastian.huber@embedded-brains.de>
+
+	* fortran.c (omp_get_place_proc_ids_, omp_get_partition_place_nums_):
+	Cast to int from int32_t.
+
 2015-10-13  Jakub Jelinek  <jakub@redhat.com>
 	    Aldy Hernandez  <aldyh@redhat.com>
 	    Ilya Verbin  <ilya.verbin@intel.com>

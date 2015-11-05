@@ -1,3 +1,37 @@
+2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Remove ENABLE_CHECKING.
+
+2015-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lex.c (search_line_sse42): Correctly advance the pointer to an
+	aligned address.
+
+2015-11-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (source_location): In the table in the
+	descriptive comment, show UNKNOWN_LOCATION, BUILTINS_LOCATION,
+	LINE_MAP_MAX_LOCATION_WITH_COLS, LINE_MAP_MAX_SOURCE_LOCATION.
+	Add notes about ad-hoc values.
+
+2015-10-21  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* include/line-map.h: Use CHECKING_P instead of ENABLE_CHECKING.
+	* init.c: Likewise.
+	* macro.c (struct macro_arg_token_iter, set_arg_token,
+	macro_arg_token_iter_init, macro_arg_token_iter_forward,
+	macro_arg_token_iter_get_token, macro_arg_token_iter_get_location,
+	alloc_expanded_arg_mem, _cpp_backup_tokens): Likewise.
+
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac (CHECKING_P): Define.
+	* system.h (fancy_abort): Declare.
+	(abort): Define.
+	(gcc_assert): Define. Use CHECKING_P.
+
 2015-10-13  Mikhail Maltsev  <maltsevm@gmail.com>
 
 	* system.h (CHECKING_P, gcc_checking_assert): Define.
@@ -463,8 +497,8 @@
 
 2014-12-02  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
-        * line-map.c (linemap_add): Fix typo.
-        (linemap_line_start): Fix whitespace.
+	* line-map.c (linemap_add): Fix typo.
+	(linemap_line_start): Fix whitespace.
 
 2014-11-29  John Schmerge  <jbschmerge@gmail.com>
 

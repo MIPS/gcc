@@ -566,10 +566,12 @@ IFS="$ac_save_IFS"
 
 nocommon_flag=""
 if test x$ac_checking != x ; then
-  AC_DEFINE(ENABLE_CHECKING, 1,
-[Define if you want more run-time sanity checks.  This one gets a grab
+  AC_DEFINE(CHECKING_P, 1,
+[Define to 1 if you want more run-time sanity checks.  This one gets a grab
    bag of miscellaneous but relatively cheap checks.])
   nocommon_flag=-fno-common
+else
+  AC_DEFINE(CHECKING_P, 0)
 fi
 AC_SUBST(nocommon_flag)
 if test x$ac_df_checking != x ; then
@@ -2036,13 +2038,23 @@ BUILD_CXXFLAGS='$(ALL_CXXFLAGS)' AC_SUBST(BUILD_CXXFLAGS)
 BUILD_LDFLAGS='$(LDFLAGS)'	AC_SUBST(BUILD_LDFLAGS)
 STMP_FIXINC=stmp-fixinc		AC_SUBST(STMP_FIXINC)
 
+BUILD_NO_PIE_CFLAGS='$(NO_PIE_CFLAGS)' AC_SUBST(BUILD_NO_PIE_CFLAGS)
+BUILD_NO_PIE_FLAG='$(NO_PIE_FLAG)' AC_SUBST(BUILD_NO_PIE_FLAG)
+
 # And these apply if build != host, or we are generating coverage data
 if test x$build != x$host || test "x$coverage_flags" != x
 then
     BUILD_CFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CFLAGS_FOR_BUILD)'
     BUILD_CXXFLAGS='$(INTERNAL_CFLAGS) $(T_CFLAGS) $(CXXFLAGS_FOR_BUILD)'
     BUILD_LDFLAGS='$(LDFLAGS_FOR_BUILD)'
+
+    NO_PIE_CFLAGS_FOR_BUILD=${NO_PIE_CFLAGS_FOR_BUILD-${NO_PIE_CFLAGS}}
+    NO_PIE_FLAG_FOR_BUILD=${NO_PIE_FLAG_FOR_BUILD-${NO_PIE_FLAG}}
+    BUILD_NO_PIE_CFLAGS='$(NO_PIE_CFLAGS_FOR_BUILD)'
+    BUILD_NO_PIE_FLAG='$(NO_PIE_FLAG_FOR_BUILD)'
 fi
+AC_SUBST(NO_PIE_CFLAGS_FOR_BUILD)
+AC_SUBST(NO_PIE_FLAG_FOR_BUILD)
 
 # Expand extra_headers to include complete path.
 # This substitutes for lots of t-* files.

@@ -26,56 +26,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
 #include "df.h"
+#include "tm_p.h"
 #include "ssa.h"
-#include "alias.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "lto-streamer.h"
 #include "fold-const.h"
 #include "varasm.h"
-#include "tm_p.h"
-#include "flags.h"
-#include "insn-attr.h"
-#include "insn-config.h"
-#include "insn-flags.h"
-#include "recog.h"
 #include "output.h"
-#include "except.h"
-#include "toplev.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
-#include "expr.h"
-#include "intl.h"
 #include "graph.h"
-#include "regs.h"
-#include "diagnostic-core.h"
-#include "params.h"
-#include "reload.h"
 #include "debug.h"
-#include "target.h"
-#include "langhooks.h"
 #include "cfgloop.h"
-#include "hosthooks.h"
-#include "opts.h"
-#include "coverage.h"
 #include "value-prof.h"
-#include "tree-inline.h"
-#include "internal-fn.h"
 #include "tree-cfg.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
-#include "tree-dump.h"
-#include "cgraph.h"
-#include "lto-streamer.h"
 #include "plugin.h"
 #include "ipa-utils.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
@@ -84,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgrtl.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
 #include "tree-cfgcleanup.h"
-#include "tree-ssanames.h"
 
 using namespace gcc;
 
@@ -252,6 +225,11 @@ rest_of_decl_compilation (tree decl,
 				     top_level, at_end);
 	}
 #endif
+
+      /* Now that we have activated any function-specific attributes
+	 that might affect function decl, particularly align, relayout it.  */
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	targetm.target_option.relayout_function (decl);
 
       timevar_pop (TV_VARCONST);
     }
@@ -1728,7 +1706,12 @@ do_per_function_toporder (void (*callback) (function *, void *data), void *data)
 	  order[i] = NULL;
 	  node->process = 0;
 	  if (node->has_gimple_body_p ())
-	    callback (DECL_STRUCT_FUNCTION (node->decl), data);
+	    {
+	      struct function *fn = DECL_STRUCT_FUNCTION (node->decl);
+	      push_cfun (fn);
+	      callback (fn, data);
+	      pop_cfun ();
+	    }
 	}
       symtab->remove_cgraph_removal_hook (hook);
     }
@@ -1914,14 +1897,6 @@ execute_function_todo (function *fn, void *data)
     {
       cleanup_tree_cfg ();
 
-      /* Once unreachable nodes have been removed from the CFG,
-	 there can't be any lingering references to released
-	 SSA_NAMES (because there is no more unreachable code).
-
-	 Thus, now is the time to flush the SSA_NAMEs freelist.  */
-      if (fn->gimple_df)
-	flush_ssaname_freelist ();
-
       /* When cleanup_tree_cfg merges consecutive blocks, it may
 	 perform some simplistic propagation when removing single
 	 valued PHI nodes.  This propagation may, in turn, cause the
@@ -1955,9 +1930,8 @@ execute_function_todo (function *fn, void *data)
 
   gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == DOM_NONE);
   /* If we've seen errors do not bother running any verifiers.  */
-  if (!seen_error ())
+  if (flag_checking && !seen_error ())
     {
-#if defined ENABLE_CHECKING
       dom_state pre_verify_state = dom_info_state (fn, CDI_DOMINATORS);
       dom_state pre_verify_pstate = dom_info_state (fn, CDI_POST_DOMINATORS);
 
@@ -1991,7 +1965,6 @@ execute_function_todo (function *fn, void *data)
       /* Make sure verifiers don't change dominator state.  */
       gcc_assert (dom_info_state (fn, CDI_DOMINATORS) == pre_verify_state);
       gcc_assert (dom_info_state (fn, CDI_POST_DOMINATORS) == pre_verify_pstate);
-#endif
     }
 
   fn->last_verified = flags & TODO_verify_all;
@@ -2011,11 +1984,10 @@ execute_function_todo (function *fn, void *data)
 static void
 execute_todo (unsigned int flags)
 {
-#if defined ENABLE_CHECKING
-  if (cfun
+  if (flag_checking
+      && cfun
       && need_ssa_update_p (cfun))
     gcc_assert (flags & TODO_update_ssa_any);
-#endif
 
   timevar_push (TV_TODO);
 
@@ -2026,6 +1998,11 @@ execute_todo (unsigned int flags)
 
   if (flags)
     do_per_function (execute_function_todo, (void *)(size_t) flags);
+
+  /* At this point we should not have any unreachable code in the
+     CFG, so it is safe to flush the pending freelist for SSA_NAMES.  */
+  if (cfun && cfun->gimple_df)
+    flush_ssaname_freelist ();
 
   /* Always remove functions just as before inlining: IPA passes might be
      interested to see bodies of extern inline functions that are not inlined
@@ -2074,14 +2051,12 @@ clear_last_verified (function *fn, void *data ATTRIBUTE_UNUSED)
 /* Helper function. Verify that the properties has been turn into the
    properties expected by the pass.  */
 
-#ifdef ENABLE_CHECKING
 static void
 verify_curr_properties (function *fn, void *data)
 {
   unsigned int props = (size_t)data;
   gcc_assert ((fn->curr_properties & props) == props);
 }
-#endif
 
 /* Initialize pass dump file.  */
 /* This is non-static so that the plugins can use it.  */
@@ -2329,10 +2304,9 @@ execute_one_pass (opt_pass *pass)
   /* Run pre-pass verification.  */
   execute_todo (pass->todo_flags_start);
 
-#ifdef ENABLE_CHECKING
-  do_per_function (verify_curr_properties,
-		   (void *)(size_t)pass->properties_required);
-#endif
+  if (flag_checking)
+    do_per_function (verify_curr_properties,
+		     (void *)(size_t)pass->properties_required);
 
   /* If a timevar is present, start it.  */
   if (pass->tv_id != TV_NONE)
@@ -2378,6 +2352,23 @@ execute_one_pass (opt_pass *pass)
 
   current_pass = NULL;
 
+  if (todo_after & TODO_discard_function)
+    {
+      gcc_assert (cfun);
+      /* As cgraph_node::release_body expects release dominators info,
+	 we have to release it.  */
+      if (dom_info_available_p (CDI_DOMINATORS))
+	free_dominance_info (CDI_DOMINATORS);
+
+      if (dom_info_available_p (CDI_POST_DOMINATORS))
+	free_dominance_info (CDI_POST_DOMINATORS);
+
+      tree fn = cfun->decl;
+      pop_cfun ();
+      gcc_assert (!cfun);
+      cgraph_node::get (fn)->release_body ();
+    }
+
   /* Signal this is a suitable GC collection point.  */
   if (!((todo_after | pass->todo_flags_finish) & TODO_do_not_ggc_collect))
     ggc_collect ();
@@ -2392,6 +2383,9 @@ execute_pass_list_1 (opt_pass *pass)
     {
       gcc_assert (pass->type == GIMPLE_PASS
 		  || pass->type == RTL_PASS);
+
+      if (cfun == NULL)
+	return;
       if (execute_one_pass (pass) && pass->sub)
         execute_pass_list_1 (pass->sub);
       pass = pass->next;
@@ -2402,14 +2396,13 @@ execute_pass_list_1 (opt_pass *pass)
 void
 execute_pass_list (function *fn, opt_pass *pass)
 {
-  push_cfun (fn);
+  gcc_assert (fn == cfun);
   execute_pass_list_1 (pass);
-  if (fn->cfg)
+  if (cfun && fn->cfg)
     {
       free_dominance_info (CDI_DOMINATORS);
       free_dominance_info (CDI_POST_DOMINATORS);
     }
-  pop_cfun ();
 }
 
 /* Write out all LTO data.  */

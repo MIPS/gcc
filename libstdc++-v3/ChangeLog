@@ -1,3 +1,86 @@
+2015-11-03  Jason Merrill  <jason@redhat.com>
+
+	* libsupc++/new: Declare sized deletes.
+
+2015-11-03  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Make the default constructors of tuple and pair conditionally explicit.
+	* include/std/type_traits (is_unsigned, __is_array_unknown_bounds,
+	__is_default_constructible_atom, __is_default_constructible_safe,
+	__is_direct_constructible_new_safe, __is_direct_constructible_ref_cast,
+	__is_nt_default_constructible_impl, is_nothrow_default_constructible,
+	is_nothrow_constructible, is_nothrow_assignable,
+	is_trivially_constructible, is_trivially_copy_constructible,
+	is_trivially_move_constructible, is_trivially_assignable,
+	is_trivially_copy_assignable, is_trivially_move_assignable,
+	is_trivially_destructible): Simplify.
+	* include/std/type_traits (
+	__do_is_implicitly_default_constructible_impl,
+	__is_implicitly_default_constructible_impl,
+	__is_implicitly_default_constructible_safe,
+	__is_implicitly_default_constructible): New.
+	* include/bits/stl_pair.h (pair::pair()): Use it.
+	* include/std/tuple (tuple<_T1, _T2>::tuple): Use it.
+	* include/std/tuple (_ImplicitlyDefaultConstructibleTuple): New.
+	* include/std/tuple (tuple<_Types...>::tuple()): Use it.
+	* testsuite/20_util/declval/requirements/1_neg.cc: Adjust.
+	* testsuite/20_util/is_implicitly_default_constructible/
+	requirements/explicit_instantiation.cc: New.
+	* testsuite/20_util/is_implicitly_default_constructible/requirements/
+	typedefs.cc: Likewise.
+	* testsuite/20_util/is_implicitly_default_constructible/value.cc:
+	Likewise.
+	* testsuite/20_util/make_signed/requirements/typedefs_neg.cc: Adjust.
+	* testsuite/20_util/make_unsigned/requirements/typedefs_neg.cc:
+	Likewise.
+	* testsuite/20_util/pair/cons/explicit_construct.cc: Likewise.
+	* testsuite/20_util/tuple/cons/explicit_construct.cc: Likewise.
+
+2015-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/functional (__invoke_impl): New overloads.
+	(__invoke): Replace with a single function calling __invoke_impl.
+	(invoke): Add C++17 std::invoke.
+	(reference_wrapper::operator()): Qualify call to __invoke.
+	(_Mem_fn_traits_base, _Mem_fn_traits): Remove unused typedefs.
+	(_Mem_fn_base): Remove unused typedefs and implement call operator in
+	terms of __invoke.
+	* include/std/future (__future_base::_Async_state_commonV2): Do not
+	pass reference_wrapper as object argument to call_once.
+	* include/std/type_traits (result_of): Define nested __invoke_type.
+	Handle reference_wrapper as per LWG 2219.
+	* testsuite/20_util/bind/ref_neg.cc: Adjust dg-error directives.
+	* testsuite/20_util/function_objects/mem_fn/55463.cc: Remove tests
+	using member functions of reference_wrapper.
+
+2015-10-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/future (async): Use deferred function on exception.
+	* testsuite/30_threads/async/except.cc: New.
+
+2015-10-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/std/type_traits (__cpp_lib_bool_constant): Define.
+
+2015-10-16  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/manual/configure.xml: Document
+	--enable-libstdcxx-filesystem-ts option.
+	* doc/xml/manual/status_cxx2014.xml: Document libstdc++fs.a.
+	* doc/xml/manual/using.xml: Likewise.
+	* doc/html/*: Regenerate.
+
+2015-10-16  Aurelio Remonda  <aurelio.remonda@tallertechnologies.com>
+
+	* testsuite/25_algorithms/random_shuffle/moveable.cc: Change variable
+	N from const int N = 200000 to const unsigned int N = 10000.
+	Delete useless fill_ascending function call.
+
+2015-10-15  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	* testsuite/lib/libstdc++.exp (libstdc++-dg-test): Check for
+	unsupported compiler output.
+
 2015-10-13  Nathan Froyd  <froydnj@gcc.gnu.org>
 
 	* config/cpu/i486/opt/bits/opt_random.h: Include pmmintrin.h instead

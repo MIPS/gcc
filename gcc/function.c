@@ -35,38 +35,33 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "gimple-expr.h"
+#include "cfghooks.h"
 #include "df.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "recog.h"
 #include "rtl-error.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "stringpool.h"
-#include "flags.h"
 #include "except.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
 #include "optabs-tree.h"
-#include "optabs.h"
-#include "libfuncs.h"
-#include "regs.h"
-#include "recog.h"
 #include "output.h"
-#include "tm_p.h"
 #include "langhooks.h"
-#include "target.h"
 #include "common/common-target.h"
-#include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
 #include "cfgrtl.h"
@@ -74,8 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "cfgexpand.h"
-#include "params.h"
-#include "bb-reorder.h"
 #include "shrink-wrap.h"
 #include "toplev.h"
 #include "rtl-iter.h"
@@ -4840,6 +4833,9 @@ allocate_struct_function (tree fndecl, bool abstract_p)
 	  for (tree parm = DECL_ARGUMENTS (fndecl); parm;
 	       parm = DECL_CHAIN (parm))
 	    relayout_decl (parm);
+
+	  /* Similarly relayout the function decl.  */
+	  targetm.target_option.relayout_function (fndecl);
 	}
 
       if (!abstract_p && aggregate_value_p (result, fndecl))
@@ -4961,11 +4957,6 @@ init_dummy_function_start (void)
 void
 init_function_start (tree subr)
 {
-  if (subr && DECL_STRUCT_FUNCTION (subr))
-    set_cfun (DECL_STRUCT_FUNCTION (subr));
-  else
-    allocate_struct_function (subr, false);
-
   /* Initialize backend, if needed.  */
   initialize_rtl ();
 

@@ -110,37 +110,26 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "predict.h"
 #include "df.h"
 #include "tm_p.h"
+#include "expmed.h"
+#include "optabs.h"
 #include "regs.h"
-#include "insn-config.h"
-#include "insn-codes.h"
+#include "ira.h"
 #include "recog.h"
 #include "output.h"
 #include "addresses.h"
-#include "target.h"
-#include "flags.h"
-#include "alias.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
 #include "cfgrtl.h"
-#include "except.h"
-#include "optabs.h"
-#include "ira.h"
 #include "rtl-error.h"
 #include "params.h"
 #include "lra.h"
-#include "insn-attr.h"
 #include "lra-int.h"
+#include "print-rtl.h"
 
 /* Value of LRA_CURR_RELOAD_NUM at the beginning of BB of the current
    insn.  Remember that LRA_CURR_RELOAD_NUM is the number of emitted
@@ -2876,6 +2865,11 @@ process_address_1 (int nop, bool check_only_p,
   enum constraint_num cn = lookup_constraint (constraint);
   bool change_p = false;
 
+  if (MEM_P (op)
+      && GET_MODE (op) == BLKmode
+      && GET_CODE (XEXP (op, 0)) == SCRATCH)
+    return false;
+
   if (insn_extra_address_constraint (cn))
     decompose_lea_address (&ad, curr_id->operand_loc[nop]);
   else if (MEM_P (op))
@@ -4007,35 +4001,6 @@ contains_reg_p (rtx x, bool hard_reg_p, bool spilled_p)
   return false;
 }
 
-/* Return true if X contains a symbol reg.  */
-static bool
-contains_symbol_ref_p (rtx x)
-{
-  int i, j;
-  const char *fmt;
-  enum rtx_code code;
-
-  code = GET_CODE (x);
-  if (code == SYMBOL_REF)
-    return true;
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  if (contains_symbol_ref_p (XEXP (x, i)))
-	    return true;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    if (contains_symbol_ref_p (XVECEXP (x, i, j)))
-	      return true;
-	}
-    }
-  return false;
-}
-
 /* Process all regs in location *LOC and change them on equivalent
    substitution.  Return true if any change was done.  */
 static bool
@@ -4454,8 +4419,7 @@ lra_constraints (bool first_p)
   bitmap_clear (&equiv_insn_bitmap);
   /* If we used a new hard regno, changed_p should be true because the
      hard reg is assigned to a new pseudo.  */
-#ifdef ENABLE_CHECKING
-  if (! changed_p)
+  if (flag_checking && !changed_p)
     {
       for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
 	if (lra_reg_info[i].nrefs != 0
@@ -4467,7 +4431,6 @@ lra_constraints (bool first_p)
 	      lra_assert (df_regs_ever_live_p (hard_regno + j));
 	  }
     }
-#endif
   return changed_p;
 }
 
@@ -4545,7 +4508,7 @@ setup_next_usage_insn (int regno, rtx insn, int reloads_num, bool after_p)
    optional debug insns finished by a non-debug insn using REGNO.
    RELOADS_NUM is current number of reload insns processed so far.  */
 static void
-add_next_usage_insn (int regno, rtx insn, int reloads_num)
+add_next_usage_insn (int regno, rtx_insn *insn, int reloads_num)
 {
   rtx next_usage_insns;
 

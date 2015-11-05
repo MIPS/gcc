@@ -22,41 +22,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "ssa.h"
+#include "cfghooks.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
 #include "tm_p.h"
-#include "alias.h"
+#include "ssa.h"
+#include "optabs-tree.h"
+#include "gimple-pretty-print.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "cfganal.h"
-#include "gimple-pretty-print.h"
-#include "tree-inline.h"
-#include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "tree-cfg.h"
-#include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
 #include "flags.h"
-#include "tree-dfa.h"
 #include "tree-ssa.h"
-#include "tree-iterator.h"
-#include "tree-pass.h"
-#include "alloc-pool.h"
 #include "langhooks.h"
 #include "cfgloop.h"
-#include "target.h"
 #include "params.h"
-#include "diagnostic-core.h"
 #include "builtins.h"
 #include "gimplify.h"
-#include "insn-codes.h"
-#include "optabs-tree.h"
 
 /*  This is a simple global reassociation pass.  It is, in part, based
     on the LLVM pass of the same name (They do some things more/less
@@ -4622,6 +4615,102 @@ attempt_builtin_powi (gimple *stmt, vec<operand_entry *> *ops)
   return result;
 }
 
+/* Attempt to optimize
+   CST1 * copysign (CST2, y) -> copysign (CST1 * CST2, y) if CST1 > 0, or
+   CST1 * copysign (CST2, y) -> -copysign (CST1 * CST2, y) if CST1 < 0.  */
+
+static void
+attempt_builtin_copysign (vec<operand_entry *> *ops)
+{
+  operand_entry *oe;
+  unsigned int i;
+  unsigned int length = ops->length ();
+  tree cst = ops->last ()->op;
+
+  if (length == 1 || TREE_CODE (cst) != REAL_CST)
+    return;
+
+  FOR_EACH_VEC_ELT (*ops, i, oe)
+    {
+      if (TREE_CODE (oe->op) == SSA_NAME
+	  && has_single_use (oe->op))
+	{
+	  gimple *def_stmt = SSA_NAME_DEF_STMT (oe->op);
+	  if (gimple_call_builtin_p (def_stmt, BUILT_IN_NORMAL))
+	    {
+	      tree fndecl = gimple_call_fndecl (def_stmt);
+	      tree arg0, arg1;
+	      switch (DECL_FUNCTION_CODE (fndecl))
+		{
+		CASE_FLT_FN (BUILT_IN_COPYSIGN):
+		  arg0 = gimple_call_arg (def_stmt, 0);
+		  arg1 = gimple_call_arg (def_stmt, 1);
+		  /* The first argument of copysign must be a constant,
+		     otherwise there's nothing to do.  */
+		  if (TREE_CODE (arg0) == REAL_CST)
+		    {
+		      tree mul = const_binop (MULT_EXPR, TREE_TYPE (cst),
+					      cst, arg0);
+		      /* If we couldn't fold to a single constant, skip it.
+			 That happens e.g. for inexact multiplication when
+			 -frounding-math.  */
+		      if (mul == NULL_TREE)
+			break;
+		      /* Instead of adjusting the old DEF_STMT, let's build
+			 a new call to not leak the LHS and prevent keeping
+			 bogus debug statements.  DCE will clean up the old
+			 call.  */
+		      gcall *call = gimple_build_call (fndecl, 2, mul, arg1);
+		      tree lhs = make_ssa_name (TREE_TYPE (arg0));
+		      gimple_call_set_lhs (call, lhs);
+		      gimple_set_location (call, gimple_location (def_stmt));
+		      insert_stmt_after (call, def_stmt);
+		      /* We've used the constant, get rid of it.  */
+		      ops->pop ();
+		      bool cst1_neg = real_isneg (TREE_REAL_CST_PTR (cst));
+		      /* Handle the CST1 < 0 case by negating the result.  */
+		      if (cst1_neg)
+			{
+			  tree negrhs = make_ssa_name (TREE_TYPE (lhs));
+			  gimple *negate_stmt
+			    = gimple_build_assign (negrhs, NEGATE_EXPR, lhs);
+			  insert_stmt_after (negate_stmt, call);
+			  oe->op = negrhs;
+			}
+		      else
+			oe->op = lhs;
+		      if (dump_file && (dump_flags & TDF_DETAILS))
+			{
+			  fprintf (dump_file, "Optimizing copysign: ");
+			  print_generic_expr (dump_file, cst, 0);
+			  fprintf (dump_file, " * ");
+			  print_generic_expr (dump_file,
+					      gimple_call_fn (def_stmt), 0);
+			  fprintf (dump_file, " (");
+			  print_generic_expr (dump_file, arg0, 0);
+			  fprintf (dump_file, ", ");
+			  print_generic_expr (dump_file, arg1, 0);
+			  fprintf (dump_file, ") into %s",
+				   cst1_neg ? "-" : "");
+			  print_generic_expr (dump_file,
+					      gimple_call_fn (def_stmt), 0);
+			  fprintf (dump_file, " (");
+			  print_generic_expr (dump_file, mul, 0);
+			  fprintf (dump_file, ", ");
+			  print_generic_expr (dump_file, arg1, 0);
+			  fprintf (dump_file, "\n");
+			}
+		      return;
+		    }
+		  break;
+		default:
+		  break;
+		}
+	    }
+	}
+    }
+}
+
 /* Transform STMT at *GSI into a copy by replacing its rhs with NEW_RHS.  */
 
 static void
@@ -4763,6 +4852,9 @@ reassociate_bb (basic_block bb)
 
 	      if (rhs_code == BIT_IOR_EXPR || rhs_code == BIT_AND_EXPR)
 		optimize_range_tests (rhs_code, &ops);
+
+	      if (rhs_code == MULT_EXPR)
+		attempt_builtin_copysign (&ops);
 
 	      if (first_pass_instance
 		  && rhs_code == MULT_EXPR

@@ -27,19 +27,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
 #include "tree.h"
-#include "fold-const.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "cp-tree.h"
 #include "flags.h"
-#include "diagnostic.h"
 #include "intl.h"
-#include "target.h"
 #include "convert.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-ubsan.h"
 #include "params.h"
@@ -1337,6 +1333,10 @@ structural_comptypes (tree t1, tree t2, int strict)
 	 template parameters set, they can't be equal.  */
       if (!comp_template_parms_position (t1, t2))
 	return false;
+      /* Constrained 'auto's are distinct from parms that don't have the same
+	 constraints.  */
+      if (!equivalent_placeholder_constraints (t1, t2))
+	return false;
       break;
 
     case TYPENAME_TYPE:
@@ -1418,8 +1418,7 @@ comptypes (tree t1, tree t2, int strict)
 	   perform a deep check. */
 	return structural_comptypes (t1, t2, strict);
 
-#ifdef ENABLE_CHECKING
-      if (USE_CANONICAL_TYPES)
+      if (flag_checking && USE_CANONICAL_TYPES)
 	{
 	  bool result = structural_comptypes (t1, t2, strict);
 	  
@@ -1440,10 +1439,8 @@ comptypes (tree t1, tree t2, int strict)
 	  
 	  return result;
 	}
-#else
-      if (USE_CANONICAL_TYPES)
+      if (!flag_checking && USE_CANONICAL_TYPES)
 	return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
-#endif
       else
 	return structural_comptypes (t1, t2, strict);
     }
@@ -3916,6 +3913,20 @@ build_binary_op (location_t location, enum tree_code code, tree op0, tree op1,
   return cp_build_binary_op (location, code, op0, op1, tf_warning_or_error);
 }
 
+/* Build a vector comparison of ARG0 and ARG1 using CODE opcode
+   into a value of TYPE type.  Comparison is done via VEC_COND_EXPR.  */
+
+static tree
+build_vec_cmp (tree_code code, tree type,
+	       tree arg0, tree arg1)
+{
+  tree zero_vec = build_zero_cst (type);
+  tree minus_one_vec = build_minus_one_cst (type);
+  tree cmp_type = build_same_sized_truth_vector_type(type);
+  tree cmp = build2 (code, cmp_type, arg0, arg1);
+  cmp = fold_if_not_in_template (cmp);
+  return build3 (VEC_COND_EXPR, type, cmp, minus_one_vec, zero_vec);
+}
 
 /* Build a binary-operation expression without default conversions.
    CODE is the kind of expression to build.
@@ -4785,7 +4796,7 @@ cp_build_binary_op (location_t location,
 	  result_type = build_opaque_vector_type (intt,
 						  TYPE_VECTOR_SUBPARTS (type0));
 	  converted = 1;
-	  break;
+	  return build_vec_cmp (resultcode, result_type, op0, op1);
 	}
       build_type = boolean_type_node;
       if ((code0 == INTEGER_TYPE || code0 == REAL_TYPE

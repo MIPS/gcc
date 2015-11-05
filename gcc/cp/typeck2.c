@@ -29,14 +29,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "alias.h"
 #include "tree.h"
+#include "cp-tree.h"
+#include "alias.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "intl.h"
-#include "cp-tree.h"
 #include "flags.h"
-#include "diagnostic-core.h"
 
 static tree
 process_init_constructor (tree type, tree init, tsubst_flags_t complain);
@@ -1059,22 +1058,11 @@ digest_init_r (tree type, tree init, bool nested, int flags,
        || BRACE_ENCLOSED_INITIALIZER_P (init))
       && (SCALAR_TYPE_P (type) || code == REFERENCE_TYPE))
     {
-      tree *exp;
-
       if (nested)
 	flags |= LOOKUP_NO_NARROWING;
       init = convert_for_initialization (0, type, init, flags,
 					 ICR_INIT, NULL_TREE, 0,
 					 complain);
-      exp = &init;
-
-      /* Skip any conversions since we'll be outputting the underlying
-	 constant.  */
-      while (CONVERT_EXPR_P (*exp)
-	     || TREE_CODE (*exp) == NON_LVALUE_EXPR)
-	exp = &TREE_OPERAND (*exp, 0);
-
-      *exp = cplus_expand_constant (*exp);
 
       return init;
     }
@@ -1087,11 +1075,11 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 	      || TREE_CODE (type) == UNION_TYPE
 	      || TREE_CODE (type) == COMPLEX_TYPE);
 
-#ifdef ENABLE_CHECKING
   /* "If T is a class type and the initializer list has a single
      element of type cv U, where U is T or a class derived from T,
      the object is initialized from that element."  */
-  if (cxx_dialect >= cxx11
+  if (flag_checking
+      && cxx_dialect >= cxx11
       && BRACE_ENCLOSED_INITIALIZER_P (init)
       && CONSTRUCTOR_NELTS (init) == 1
       && ((CLASS_TYPE_P (type) && !CLASSTYPE_NON_AGGREGATE (type))
@@ -1102,7 +1090,6 @@ digest_init_r (tree type, tree init, bool nested, int flags,
 	/* We should have fixed this in reshape_init.  */
 	gcc_unreachable ();
     }
-#endif
 
   if (BRACE_ENCLOSED_INITIALIZER_P (init)
       && !TYPE_NON_AGGREGATE_CLASS (type))

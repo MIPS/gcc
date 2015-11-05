@@ -21,40 +21,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "alias.h"
+#include "cgraph.h"
+#include "gimple-pretty-print.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "tm_p.h"
-#include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "tree-dfa.h"
-#include "gimple-pretty-print.h"
 #include "except.h"
-#include "tree-pass.h"
-#include "langhooks.h"
 #include "dbgcnt.h"
-#include "target.h"
 #include "cfgloop.h"
 #include "common/common-target.h"
-#include "cgraph.h"
 #include "ipa-utils.h"
 
 /* The file implements the tail recursion elimination.  It is also used to
@@ -847,17 +832,21 @@ eliminate_tail_call (struct tailcall *t)
      possibly unreachable code in other blocks is removed later in
      cfg cleanup.  */
   gsi = t->call_gsi;
-  gsi_next (&gsi);
-  while (!gsi_end_p (gsi))
+  gimple_stmt_iterator gsi2 = gsi_last_bb (gimple_bb (gsi_stmt (gsi)));
+  while (gsi_stmt (gsi2) != gsi_stmt (gsi))
     {
-      gimple *t = gsi_stmt (gsi);
+      gimple *t = gsi_stmt (gsi2);
       /* Do not remove the return statement, so that redirect_edge_and_branch
 	 sees how the block ends.  */
-      if (gimple_code (t) == GIMPLE_RETURN)
-	break;
-
-      gsi_remove (&gsi, true);
-      release_defs (t);
+      if (gimple_code (t) != GIMPLE_RETURN)
+	{
+	  gimple_stmt_iterator gsi3 = gsi2;
+	  gsi_prev (&gsi2);
+	  gsi_remove (&gsi3, true);
+	  release_defs (t);
+	}
+      else
+	gsi_prev (&gsi2);
     }
 
   /* Number of executions of function has reduced by the tailcall.  */

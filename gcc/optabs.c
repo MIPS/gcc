@@ -22,34 +22,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
+#include "rtl.h"
+#include "tree.h"
 #include "predict.h"
+#include "tm_p.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "recog.h"
 #include "diagnostic-core.h"
 
 /* Include insn-config.h before expr.h so that HAVE_conditional_move
    is properly defined.  */
-#include "insn-config.h"
-#include "rtl.h"
-#include "alias.h"
-#include "tree.h"
-#include "tree-hasher.h"
 #include "stor-layout.h"
-#include "tm_p.h"
-#include "flags.h"
 #include "except.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
 #include "optabs-tree.h"
 #include "libfuncs.h"
-#include "recog.h"
-#include "reload.h"
-#include "target.h"
 
 static void prepare_float_lib_cmp (rtx, rtx, enum rtx_code, rtx *,
 				   machine_mode *);
@@ -1748,11 +1740,12 @@ expand_binop (machine_mode mode, optab binoptab, rtx op0, rtx op1,
       insns = get_insns ();
       end_sequence ();
 
+      bool trapv = trapv_binoptab_p (binoptab);
       target = gen_reg_rtx (mode);
       emit_libcall_block_1 (insns, target, value,
-			    gen_rtx_fmt_ee (optab_to_code (binoptab),
-					    mode, op0, op1),
-			    trapv_binoptab_p (binoptab));
+			    trapv ? NULL_RTX
+			    : gen_rtx_fmt_ee (optab_to_code (binoptab),
+					      mode, op0, op1), trapv);
 
       return target;
     }
@@ -2880,13 +2873,19 @@ expand_unop (machine_mode mode, optab unoptab, rtx op0, rtx target,
       end_sequence ();
 
       target = gen_reg_rtx (outmode);
-      eq_value = gen_rtx_fmt_e (optab_to_code (unoptab), mode, op0);
-      if (GET_MODE_SIZE (outmode) < GET_MODE_SIZE (mode))
-	eq_value = simplify_gen_unary (TRUNCATE, outmode, eq_value, mode);
-      else if (GET_MODE_SIZE (outmode) > GET_MODE_SIZE (mode))
-	eq_value = simplify_gen_unary (ZERO_EXTEND, outmode, eq_value, mode);
-      emit_libcall_block_1 (insns, target, value, eq_value,
-			    trapv_unoptab_p (unoptab));
+      bool trapv = trapv_unoptab_p (unoptab);
+      if (trapv)
+	eq_value = NULL_RTX;
+      else
+	{
+	  eq_value = gen_rtx_fmt_e (optab_to_code (unoptab), mode, op0);
+	  if (GET_MODE_SIZE (outmode) < GET_MODE_SIZE (mode))
+	    eq_value = simplify_gen_unary (TRUNCATE, outmode, eq_value, mode);
+	  else if (GET_MODE_SIZE (outmode) > GET_MODE_SIZE (mode))
+	    eq_value = simplify_gen_unary (ZERO_EXTEND,
+					   outmode, eq_value, mode);
+	}
+      emit_libcall_block_1 (insns, target, value, eq_value, trapv);
 
       return target;
     }
@@ -3573,7 +3572,8 @@ emit_libcall_block_1 (rtx_insn *insns, rtx target, rtx result, rtx equiv,
     }
 
   last = emit_move_insn (target, result);
-  set_dst_reg_note (last, REG_EQUAL, copy_rtx (equiv), target);
+  if (equiv)
+    set_dst_reg_note (last, REG_EQUAL, copy_rtx (equiv), target);
 
   if (final_dest != target)
     emit_move_insn (final_dest, target);
@@ -5365,16 +5365,17 @@ expand_vec_cond_expr (tree vec_cond_type, tree op0, tree op1, tree op2,
       op0a = TREE_OPERAND (op0, 0);
       op0b = TREE_OPERAND (op0, 1);
       tcode = TREE_CODE (op0);
+      unsignedp = TYPE_UNSIGNED (TREE_TYPE (op0a));
     }
   else
     {
       /* Fake op0 < 0.  */
-      gcc_assert (!TYPE_UNSIGNED (TREE_TYPE (op0)));
+      gcc_assert (VECTOR_BOOLEAN_TYPE_P (TREE_TYPE (op0)));
       op0a = op0;
       op0b = build_zero_cst (TREE_TYPE (op0));
       tcode = LT_EXPR;
+      unsignedp = false;
     }
-  unsignedp = TYPE_UNSIGNED (TREE_TYPE (op0a));
   cmp_op_mode = TYPE_MODE (TREE_TYPE (op0a));
 
 
@@ -5801,9 +5802,9 @@ expand_atomic_exchange (rtx target, rtx mem, rtx val, enum memmodel model)
 
    *PTARGET_BOOL is an optional place to store the boolean success/failure.
    *PTARGET_OVAL is an optional place to store the old value from memory.
-   Both target parameters may be NULL to indicate that we do not care about
-   that return value.  Both target parameters are updated on success to
-   the actual location of the corresponding result.
+   Both target parameters may be NULL or const0_rtx to indicate that we do
+   not care about that return value.  Both target parameters are updated on
+   success to the actual location of the corresponding result.
 
    MEMMODEL is the memory model variant to use.
 
@@ -5828,6 +5829,9 @@ expand_atomic_compare_and_swap (rtx *ptarget_bool, rtx *ptarget_oval,
   /* Make sure we always have some place to put the return oldval.
      Further, make sure that place is distinct from the input expected,
      just in case we need that path down below.  */
+  if (ptarget_oval && *ptarget_oval == const0_rtx)
+    ptarget_oval = NULL;
+
   if (ptarget_oval == NULL
       || (target_oval = *ptarget_oval) == NULL
       || reg_overlap_mentioned_p (expected, target_oval))
@@ -5837,6 +5841,9 @@ expand_atomic_compare_and_swap (rtx *ptarget_bool, rtx *ptarget_oval,
   if (icode != CODE_FOR_nothing)
     {
       machine_mode bool_mode = insn_data[icode].operand[0].mode;
+
+      if (ptarget_bool && *ptarget_bool == const0_rtx)
+	ptarget_bool = NULL;
 
       /* Make sure we always have a place for the bool operand.  */
       if (ptarget_bool == NULL

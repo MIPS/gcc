@@ -28,31 +28,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "flags.h"
-#include "diagnostic-core.h"
+#include "cgraph.h"
 #include "coverage.h"
-#include "alias.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
-#include "internal-fn.h"
 #include "varasm.h"
 #include "tree-nested.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
-#include "tree-pass.h"
 #include "value-prof.h"
 #include "profile.h"
-#include "target.h"
 #include "tree-cfgcleanup.h"
-#include "tree-nested.h"
 #include "params.h"
 
 static GTY(()) tree gcov_type_node;
@@ -296,7 +291,7 @@ gimple_gen_interval_profiler (histogram_value value, unsigned tag, unsigned base
 				   value->hdata.intvl.steps);
 
   ref_ptr = force_gimple_operand_gsi (&gsi,
-				      build_addr (ref, current_function_decl),
+				      build_addr (ref),
 				      true, NULL_TREE, true, GSI_SAME_STMT);
   val = prepare_instrumented_value (&gsi, value);
   call = gimple_build_call (tree_interval_profiler_fn, 4,
@@ -415,8 +410,7 @@ gimple_gen_ic_func_profiler (void)
 					 (ENTRY_BLOCK_PTR_FOR_FN (cfun))));
 
   cur_func = force_gimple_operand_gsi (&gsi,
-				       build_addr (current_function_decl,
-						   current_function_decl),
+				       build_addr (current_function_decl),
 				       true, NULL_TREE,
 				       true, GSI_SAME_STMT);
   tree_uid = build_int_cst
@@ -462,9 +456,8 @@ gimple_gen_const_delta_profiler (histogram_value value ATTRIBUTE_UNUSED,
 			       unsigned base ATTRIBUTE_UNUSED)
 {
   /* FIXME implement this.  */
-#ifdef ENABLE_CHECKING
-  internal_error ("unimplemented functionality");
-#endif
+  if (flag_checking)
+    internal_error ("unimplemented functionality");
   gcc_unreachable ();
 }
 

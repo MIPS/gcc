@@ -88,6 +88,200 @@ public:
       if (dump_file && (dump_flags & TDF_DETAILS)) { args; }	\
     } while (0);
 
+/* Pretty print to FILE all the SCoPs in DOT format and mark them with
+   different colors.  If there are not enough colors, paint the
+   remaining SCoPs in gray.
+
+   Special nodes:
+   - "*" after the node number denotes the entry of a SCoP,
+   - "#" after the node number denotes the exit of a SCoP,
+   - "()" around the node number denotes the entry or the
+     exit nodes of the SCOP.  These are not part of SCoP.  */
+
+static void
+dot_all_scops_1 (FILE *file, vec<scop_p> scops)
+{
+  basic_block bb;
+  edge e;
+  edge_iterator ei;
+  scop_p scop;
+  const char *color;
+  int i;
+
+  /* Disable debugging while printing graph.  */
+  int tmp_dump_flags = dump_flags;
+  dump_flags = 0;
+
+  fprintf (file, "digraph all {\n");
+
+  FOR_ALL_BB_FN (bb, cfun)
+    {
+      int part_of_scop = false;
+
+      /* Use HTML for every bb label.  So we are able to print bbs
+	 which are part of two different SCoPs, with two different
+	 background colors.  */
+      fprintf (file, "%d [label=<\n  <TABLE BORDER=\"0\" CELLBORDER=\"1\" ",
+	       bb->index);
+      fprintf (file, "CELLSPACING=\"0\">\n");
+
+      /* Select color for SCoP.  */
+      FOR_EACH_VEC_ELT (scops, i, scop)
+	{
+	  sese_l region = scop->scop_info->region;
+	  if (bb_in_sese_p (bb, region) || (region.exit->dest == bb)
+	      || (region.entry->dest == bb))
+	    {
+	      switch (i % 17)
+		{
+		case 0: /* red */
+		  color = "#e41a1c";
+		  break;
+		case 1: /* blue */
+		  color = "#377eb8";
+		  break;
+		case 2: /* green */
+		  color = "#4daf4a";
+		  break;
+		case 3: /* purple */
+		  color = "#984ea3";
+		  break;
+		case 4: /* orange */
+		  color = "#ff7f00";
+		  break;
+		case 5: /* yellow */
+		  color = "#ffff33";
+		  break;
+		case 6: /* brown */
+		  color = "#a65628";
+		  break;
+		case 7: /* rose */
+		  color = "#f781bf";
+		  break;
+		case 8:
+		  color = "#8dd3c7";
+		  break;
+		case 9:
+		  color = "#ffffb3";
+		  break;
+		case 10:
+		  color = "#bebada";
+		  break;
+		case 11:
+		  color = "#fb8072";
+		  break;
+		case 12:
+		  color = "#80b1d3";
+		  break;
+		case 13:
+		  color = "#fdb462";
+		  break;
+		case 14:
+		  color = "#b3de69";
+		  break;
+		case 15:
+		  color = "#fccde5";
+		  break;
+		case 16:
+		  color = "#bc80bd";
+		  break;
+		default: /* gray */
+		  color = "#999999";
+		}
+
+	      fprintf (file, "    <TR><TD WIDTH=\"50\" BGCOLOR=\"%s\">",
+		       color);
+
+	      if (!bb_in_sese_p (bb, region))
+		fprintf (file, " (");
+
+	      if (bb == region.entry->dest && bb == region.exit->dest)
+		fprintf (file, " %d*# ", bb->index);
+	      else if (bb == region.entry->dest)
+		fprintf (file, " %d* ", bb->index);
+	      else if (bb == region.exit->dest)
+		fprintf (file, " %d# ", bb->index);
+	      else
+		fprintf (file, " %d ", bb->index);
+
+	      fprintf (file, "{lp_%d}", bb->loop_father->num);
+
+	      if (!bb_in_sese_p (bb, region))
+		fprintf (file, ")");
+
+	      fprintf (file, "</TD></TR>\n");
+	      part_of_scop = true;
+	    }
+	}
+
+	if (!part_of_scop)
+	  {
+	    fprintf (file, "    <TR><TD WIDTH=\"50\" BGCOLOR=\"#ffffff\">");
+	    fprintf (file, " %d {lp_%d} </TD></TR>\n", bb->index,
+		     bb->loop_father->num);
+	  }
+	fprintf (file, "  </TABLE>>, shape=box, style=\"setlinewidth(0)\"]\n");
+    }
+
+    FOR_ALL_BB_FN (bb, cfun)
+      {
+	FOR_EACH_EDGE (e, ei, bb->succs)
+	  fprintf (file, "%d -> %d;\n", bb->index, e->dest->index);
+      }
+
+  fputs ("}\n\n", file);
+
+  /* Enable debugging again.  */
+  dump_flags = tmp_dump_flags;
+}
+
+/* Display all SCoPs using dotty.  */
+
+DEBUG_FUNCTION void
+dot_all_scops (vec<scop_p> scops)
+{
+  /* When debugging, enable the following code.  This cannot be used
+     in production compilers because it calls "system".  */
+#if 0
+  int x;
+  FILE *stream = fopen ("/tmp/allscops.dot", "w");
+  gcc_assert (stream);
+
+  dot_all_scops_1 (stream, scops);
+  fclose (stream);
+
+  x = system ("dotty /tmp/allscops.dot &");
+#else
+  dot_all_scops_1 (stderr, scops);
+#endif
+}
+
+/* Display all SCoPs using dotty.  */
+
+DEBUG_FUNCTION void
+dot_scop (scop_p scop)
+{
+  auto_vec<scop_p, 1> scops;
+
+  if (scop)
+    scops.safe_push (scop);
+
+  /* When debugging, enable the following code.  This cannot be used
+     in production compilers because it calls "system".  */
+#if 0
+  {
+    int x;
+    FILE *stream = fopen ("/tmp/allscops.dot", "w");
+    gcc_assert (stream);
+
+    dot_all_scops_1 (stream, scops);
+    fclose (stream);
+    x = system ("dotty /tmp/allscops.dot &");
+  }
+#else
+  dot_all_scops_1 (stderr, scops);
+#endif
+}
 
 /* Return true if BB is empty, contains only DEBUG_INSNs.  */
 
@@ -259,21 +453,16 @@ canonicalize_loop_closed_ssa (loop_p loop)
 static void
 canonicalize_loop_closed_ssa_form (void)
 {
+  checking_verify_loop_closed_ssa (true);
+
   loop_p loop;
-
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa (true);
-#endif
-
   FOR_EACH_LOOP (loop, 0)
     canonicalize_loop_closed_ssa (loop);
 
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
   update_ssa (TODO_update_ssa);
 
-#ifdef ENABLE_CHECKING
-  verify_loop_closed_ssa (true);
-#endif
+  checking_verify_loop_closed_ssa (true);
 }
 
 /* Can all ivs be represented by a signed integer?
@@ -491,7 +680,7 @@ private:
   vec<sese_l> scops;
 };
 
-sese_l scop_detection::invalid_sese (0);
+sese_l scop_detection::invalid_sese (NULL, NULL);
 
 /* Return an sese_l around the LOOP.  */
 
@@ -888,13 +1077,13 @@ void
 scop_detection::remove_subscops (sese_l s1)
 {
   int j;
-  sese_l s2 (0);
+  sese_l *s2;
   FOR_EACH_VEC_ELT_REVERSE (scops, j, s2)
     {
-      if (subsumes (s1, s2))
+      if (subsumes (s1, *s2))
 	{
 	  DEBUG_PRINT (dp << "\nRemoving sub-SCoP";
-		       print_sese (dump_file, s2));
+		       print_sese (dump_file, *s2));
 	  scops.unordered_remove (j);
 	}
     }
@@ -923,13 +1112,13 @@ void
 scop_detection::remove_intersecting_scops (sese_l s1)
 {
   int j;
-  sese_l s2 (0);
+  sese_l *s2;
   FOR_EACH_VEC_ELT_REVERSE (scops, j, s2)
     {
-      if (intersects (s1, s2))
+      if (intersects (s1, *s2))
 	{
 	  DEBUG_PRINT (dp << "\nRemoving intersecting SCoP";
-		       print_sese (dump_file, s2); dp << "Intersects with:";
+		       print_sese (dump_file, *s2); dp << "Intersects with:";
 		       print_sese (dump_file, s1));
 	  scops.unordered_remove (j);
 	}
@@ -1233,201 +1422,6 @@ scop_detection::harmful_stmt_in_bb (sese_l scop, basic_block bb) const
   return false;
 }
 
-/* Pretty print to FILE all the SCoPs in DOT format and mark them with
-   different colors.  If there are not enough colors, paint the
-   remaining SCoPs in gray.
-
-   Special nodes:
-   - "*" after the node number denotes the entry of a SCoP,
-   - "#" after the node number denotes the exit of a SCoP,
-   - "()" around the node number denotes the entry or the
-     exit nodes of the SCOP.  These are not part of SCoP.  */
-
-static void
-dot_all_scops_1 (FILE *file, vec<scop_p> scops)
-{
-  basic_block bb;
-  edge e;
-  edge_iterator ei;
-  scop_p scop;
-  const char *color;
-  int i;
-
-  /* Disable debugging while printing graph.  */
-  int tmp_dump_flags = dump_flags;
-  dump_flags = 0;
-
-  fprintf (file, "digraph all {\n");
-
-  FOR_ALL_BB_FN (bb, cfun)
-    {
-      int part_of_scop = false;
-
-      /* Use HTML for every bb label.  So we are able to print bbs
-	 which are part of two different SCoPs, with two different
-	 background colors.  */
-      fprintf (file, "%d [label=<\n  <TABLE BORDER=\"0\" CELLBORDER=\"1\" ",
-	       bb->index);
-      fprintf (file, "CELLSPACING=\"0\">\n");
-
-      /* Select color for SCoP.  */
-      FOR_EACH_VEC_ELT (scops, i, scop)
-	{
-	  sese_l region = scop->region->region;
-	  if (bb_in_sese_p (bb, region) || (region.exit->dest == bb)
-	      || (region.entry->dest == bb))
-	    {
-	      switch (i % 17)
-		{
-		case 0: /* red */
-		  color = "#e41a1c";
-		  break;
-		case 1: /* blue */
-		  color = "#377eb8";
-		  break;
-		case 2: /* green */
-		  color = "#4daf4a";
-		  break;
-		case 3: /* purple */
-		  color = "#984ea3";
-		  break;
-		case 4: /* orange */
-		  color = "#ff7f00";
-		  break;
-		case 5: /* yellow */
-		  color = "#ffff33";
-		  break;
-		case 6: /* brown */
-		  color = "#a65628";
-		  break;
-		case 7: /* rose */
-		  color = "#f781bf";
-		  break;
-		case 8:
-		  color = "#8dd3c7";
-		  break;
-		case 9:
-		  color = "#ffffb3";
-		  break;
-		case 10:
-		  color = "#bebada";
-		  break;
-		case 11:
-		  color = "#fb8072";
-		  break;
-		case 12:
-		  color = "#80b1d3";
-		  break;
-		case 13:
-		  color = "#fdb462";
-		  break;
-		case 14:
-		  color = "#b3de69";
-		  break;
-		case 15:
-		  color = "#fccde5";
-		  break;
-		case 16:
-		  color = "#bc80bd";
-		  break;
-		default: /* gray */
-		  color = "#999999";
-		}
-
-	      fprintf (file, "    <TR><TD WIDTH=\"50\" BGCOLOR=\"%s\">",
-		       color);
-
-	      if (!bb_in_sese_p (bb, region))
-		fprintf (file, " (");
-
-	      if (bb == region.entry->dest && bb == region.exit->dest)
-		fprintf (file, " %d*# ", bb->index);
-	      else if (bb == region.entry->dest)
-		fprintf (file, " %d* ", bb->index);
-	      else if (bb == region.exit->dest)
-		fprintf (file, " %d# ", bb->index);
-	      else
-		fprintf (file, " %d ", bb->index);
-
-	      fprintf (file, "{lp_%d}", bb->loop_father->num);
-
-	      if (!bb_in_sese_p (bb, region))
-		fprintf (file, ")");
-
-	      fprintf (file, "</TD></TR>\n");
-	      part_of_scop = true;
-	    }
-	}
-
-	if (!part_of_scop)
-	  {
-	    fprintf (file, "    <TR><TD WIDTH=\"50\" BGCOLOR=\"#ffffff\">");
-	    fprintf (file, " %d {lp_%d} </TD></TR>\n", bb->index,
-		     bb->loop_father->num);
-	  }
-	fprintf (file, "  </TABLE>>, shape=box, style=\"setlinewidth(0)\"]\n");
-    }
-
-    FOR_ALL_BB_FN (bb, cfun)
-      {
-	FOR_EACH_EDGE (e, ei, bb->succs)
-	  fprintf (file, "%d -> %d;\n", bb->index, e->dest->index);
-      }
-
-  fputs ("}\n\n", file);
-
-  /* Enable debugging again.  */
-  dump_flags = tmp_dump_flags;
-}
-
-/* Display all SCoPs using dotty.  */
-
-DEBUG_FUNCTION void
-dot_all_scops (vec<scop_p> scops)
-{
-  /* When debugging, enable the following code.  This cannot be used
-     in production compilers because it calls "system".  */
-#if 0
-  int x;
-  FILE *stream = fopen ("/tmp/allscops.dot", "w");
-  gcc_assert (stream);
-
-  dot_all_scops_1 (stream, scops);
-  fclose (stream);
-
-  x = system ("dotty /tmp/allscops.dot &");
-#else
-  dot_all_scops_1 (stderr, scops);
-#endif
-}
-
-/* Display all SCoPs using dotty.  */
-
-DEBUG_FUNCTION void
-dot_scop (scop_p scop)
-{
-  auto_vec<scop_p, 1> scops;
-
-  if (scop)
-    scops.safe_push (scop);
-
-  /* When debugging, enable the following code.  This cannot be used
-     in production compilers because it calls "system".  */
-#if 0
-  {
-    int x;
-    FILE *stream = fopen ("/tmp/allscops.dot", "w");
-    gcc_assert (stream);
-
-    dot_all_scops_1 (stream, scops);
-    fclose (stream);
-    x = system ("dotty /tmp/allscops.dot &");
-  }
-#else
-  dot_all_scops_1 (stderr, scops);
-#endif
-}
-
 /* Return true when the body of LOOP has statements that can be represented as a
    valid scop.  */
 
@@ -1482,7 +1476,7 @@ scop_detection::nb_pbbs_in_loops (scop_p scop)
   int res = 0;
 
   FOR_EACH_VEC_ELT (scop->pbbs, i, pbb)
-    if (loop_in_sese_p (gbb_loop (PBB_BLACK_BOX (pbb)), scop->region->region))
+    if (loop_in_sese_p (gbb_loop (PBB_BLACK_BOX (pbb)), scop->scop_info->region))
       res++;
 
   return res;
@@ -1521,7 +1515,7 @@ parameter_index_in_region (tree name, sese_info_p region)
   if (TREE_CODE (TREE_TYPE (name)) != INTEGER_TYPE)
     return -1;
 
-  if (!invariant_in_sese_p_rec (name, region->region))
+  if (!invariant_in_sese_p_rec (name, region->region, NULL))
     return -1;
 
   i = parameter_index_in_region_1 (name, region);
@@ -1623,7 +1617,7 @@ static void
 find_scop_parameters (scop_p scop)
 {
   unsigned i;
-  sese_info_p region = scop->region;
+  sese_info_p region = scop->scop_info;
   struct loop *loop;
 
   /* Find the parameters used in the loop bounds.  */
@@ -1655,7 +1649,7 @@ try_generate_gimple_bb (scop_p scop, basic_block bb)
 {
   vec<data_reference_p> drs;
   drs.create (5);
-  sese_l region = scop->region->region;
+  sese_l region = scop->scop_info->region;
   loop_p nest = outermost_loop_in_sese (region, bb);
 
   loop_p loop = bb->loop_father;
@@ -1700,7 +1694,7 @@ gather_bbs::gather_bbs (cdi_direction direction, scop_p scop)
 void
 gather_bbs::before_dom_children (basic_block bb)
 {
-  if (!bb_in_sese_p (bb, scop->region->region))
+  if (!bb_in_sese_p (bb, scop->scop_info->region))
     return;
 
   gcond *stmt = single_pred_cond_non_loop_exit (bb);
@@ -1717,7 +1711,7 @@ gather_bbs::before_dom_children (basic_block bb)
 	cases.safe_push (NULL);
     }
 
-  scop->region->bbs.safe_push (bb);
+  scop->scop_info->bbs.safe_push (bb);
 
   gimple_poly_bb_p gbb = try_generate_gimple_bb (scop, bb);
   GBB_CONDITIONS (gbb) = conditions.copy ();
@@ -1733,7 +1727,7 @@ gather_bbs::before_dom_children (basic_block bb)
 void
 gather_bbs::after_dom_children (basic_block bb)
 {
-  if (!bb_in_sese_p (bb, scop->region->region))
+  if (!bb_in_sese_p (bb, scop->scop_info->region))
     return;
 
   if (single_pred_cond_non_loop_exit (bb))
@@ -1760,10 +1754,10 @@ build_scops (vec<scop_p> *scops)
   /* Now create scops from the lightweight SESEs.  */
   vec<sese_l> scops_l = sb.get_scops ();
   int i;
-  sese_l s (0);
+  sese_l *s;
   FOR_EACH_VEC_ELT (scops_l, i, s)
     {
-      scop_p scop = new_scop (s.entry, s.exit);
+      scop_p scop = new_scop (s->entry, s->exit);
 
       /* Record all basic blocks and their conditions in REGION.  */
       gather_bbs (CDI_DOMINATORS, scop).walk (cfun->cfg->x_entry_block_ptr);
@@ -1777,7 +1771,18 @@ build_scops (vec<scop_p> *scops)
 	  continue;
 	}
 
-      build_sese_loop_nests (scop->region);
+      unsigned max_arrays = PARAM_VALUE (PARAM_GRAPHITE_MAX_ARRAYS_PER_SCOP);
+      if (scop->drs.length () >= max_arrays)
+	{
+	  DEBUG_PRINT (dp << "[scop-detection-fail] too many data references: "
+		       << scop->drs.length ()
+		       << " is larger than --param graphite-max-arrays-per-scop="
+		       << max_arrays << ".\n");
+	  free_scop (scop);
+	  continue;
+	}
+
+      build_sese_loop_nests (scop->scop_info);
 
       find_scop_parameters (scop);
       graphite_dim_t max_dim = PARAM_VALUE (PARAM_GRAPHITE_MAX_NB_SCOP_PARAMS);

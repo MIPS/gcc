@@ -103,23 +103,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
+#include "backend.h"
 #include "tree.h"
-#include "options.h"
+#include "gimple-expr.h"
+#include "predict.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
+#include "cgraph.h"
+#include "diagnostic.h"
 #include "fold-const.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "target.h"
-#include "backend.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-inline.h"
 #include "params.h"
@@ -514,7 +509,8 @@ print_all_lattices (FILE * f, bool dump_sources, bool dump_benefits)
    with NODE.  */
 
 static void
-determine_versionability (struct cgraph_node *node)
+determine_versionability (struct cgraph_node *node,
+			  struct ipa_node_params *info)
 {
   const char *reason = NULL;
 
@@ -546,7 +542,7 @@ determine_versionability (struct cgraph_node *node)
     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
 	     node->name (), node->order, reason);
 
-  node->local.versionable = (reason == NULL);
+  info->versionable = (reason == NULL);
 }
 
 /* Return true if it is at all technically possible to create clones of a
@@ -555,7 +551,7 @@ determine_versionability (struct cgraph_node *node)
 static bool
 ipcp_versionable_function_p (struct cgraph_node *node)
 {
-  return node->local.versionable;
+  return IPA_NODE_REF (node)->versionable;
 }
 
 /* Structure holding accumulated information about callers of a node.  */
@@ -2896,7 +2892,7 @@ ipcp_propagate_stage (struct ipa_topo_info *topo)
   {
     struct ipa_node_params *info = IPA_NODE_REF (node);
 
-    determine_versionability (node);
+    determine_versionability (node, info);
     if (node->has_gimple_body_p ())
       {
 	info->lattices = XCNEWVEC (struct ipcp_param_lattices,
@@ -2919,9 +2915,8 @@ ipcp_propagate_stage (struct ipa_topo_info *topo)
 	     overall_size, max_new_size);
 
   propagate_constants_topo (topo);
-#ifdef ENABLE_CHECKING
-  ipcp_verify_propagated_values ();
-#endif
+  if (flag_checking)
+    ipcp_verify_propagated_values ();
   topo->constants.propagate_effects ();
   topo->contexts.propagate_effects ();
 
@@ -4609,11 +4604,7 @@ ipcp_generate_summary (void)
   ipa_register_cgraph_hooks ();
 
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
-      {
-	node->local.versionable
-	  = tree_versionable_function_p (node->decl);
-	ipa_analyze_node (node);
-      }
+    ipa_analyze_node (node);
 }
 
 /* Write ipcp summary for nodes in SET.  */

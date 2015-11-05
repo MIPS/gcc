@@ -3010,7 +3010,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
    property.  */
 #define SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT(NODE, INT_VALUE) \
   NON_DEFAULT_TEMPLATE_ARGS_COUNT(NODE) = build_int_cst (NULL_TREE, INT_VALUE)
-#ifdef ENABLE_CHECKING
+#if CHECKING_P
 #define GET_NON_DEFAULT_TEMPLATE_ARGS_COUNT(NODE) \
     int_cst_value (NON_DEFAULT_TEMPLATE_ARGS_COUNT (NODE))
 #else
@@ -5517,9 +5517,7 @@ extern tree build_cxx_call			(tree, int, tree *,
 						 tsubst_flags_t);
 extern bool is_std_init_list			(tree);
 extern bool is_list_ctor			(tree);
-#ifdef ENABLE_CHECKING
 extern void validate_conversion_obstack		(void);
-#endif /* ENABLE_CHECKING */
 extern void mark_versions_used			(tree);
 extern tree get_function_version_dispatcher	(tree);
 
@@ -5574,6 +5572,7 @@ extern bool type_has_user_nondefault_constructor (tree);
 extern tree in_class_defaulted_default_constructor (tree);
 extern bool user_provided_p			(tree);
 extern bool type_has_user_provided_constructor  (tree);
+extern bool type_has_user_provided_or_explicit_constructor  (tree);
 extern bool type_has_non_user_provided_default_constructor (tree);
 extern bool vbase_has_user_provided_move_assign (tree);
 extern tree default_init_uninitialized_part (tree);
@@ -5983,7 +5982,7 @@ extern tree lookup_template_class		(tree, tree, tree, tree,
 extern tree lookup_template_function		(tree, tree);
 extern tree lookup_template_variable		(tree, tree);
 extern int uses_template_parms			(tree);
-extern int uses_template_parms_level		(tree, int);
+extern bool uses_template_parms_level		(tree, int);
 extern bool in_template_function		(void);
 extern tree instantiate_class_template		(tree);
 extern tree instantiate_template		(tree, tree, tsubst_flags_t);
@@ -6318,8 +6317,7 @@ extern void finish_omp_threadprivate		(tree);
 extern tree begin_omp_structured_block		(void);
 extern tree finish_omp_structured_block		(tree);
 extern tree finish_oacc_data			(tree, tree);
-extern tree finish_oacc_kernels			(tree, tree);
-extern tree finish_oacc_parallel		(tree, tree);
+extern tree finish_omp_construct		(enum tree_code, tree, tree);
 extern tree begin_omp_parallel			(void);
 extern tree finish_omp_parallel			(tree, tree);
 extern tree begin_omp_task			(void);
@@ -6729,6 +6727,9 @@ extern tree get_shorthand_constraints           (tree);
 extern tree build_concept_check                 (tree, tree, tree = NULL_TREE);
 extern tree build_constrained_parameter         (tree, tree, tree = NULL_TREE);
 extern tree make_constrained_auto               (tree, tree);
+extern void placeholder_extract_concept_and_args (tree, tree&, tree&);
+extern bool equivalent_placeholder_constraints  (tree, tree);
+extern hashval_t hash_placeholder_constraint	(tree);
 extern bool deduce_constrained_parameter        (tree, tree&, tree&);
 extern tree resolve_constraint_check            (tree);
 extern tree check_function_concept              (tree);

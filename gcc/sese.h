@@ -22,26 +22,13 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_SESE_H
 #define GCC_SESE_H
 
-typedef hash_map<tree, tree> parameter_rename_map_t;
-
 /* A Single Entry, Single Exit region is a part of the CFG delimited
    by two edges.  */
 struct sese_l
 {
   sese_l (edge e, edge x) : entry (e), exit (x) {}
 
-  /* This is to push objects of sese_l in a vec.  */
-  sese_l (int i) : entry (NULL), exit (NULL) { gcc_assert (i == 0); }
-
   operator bool () const { return entry && exit; }
-
-  const sese_l &
-  operator= (const sese_l &s)
-  {
-    entry = s.entry;
-    exit = s.exit;
-    return *this;
-  }
 
   edge entry;
   edge exit;
@@ -72,9 +59,6 @@ typedef struct sese_info_t
   /* Parameters used within the SCOP.  */
   vec<tree> params;
 
-  /* Parameters to be renamed.  */
-  parameter_rename_map_t *parameter_rename_map;
-
   /* Loops completely contained in this SESE.  */
   bitmap loops;
   vec<loop_p> loop_nest;
@@ -95,7 +79,7 @@ extern edge copy_bb_and_scalar_dependences (basic_block, sese_info_p, edge,
 					    vec<tree> , bool *);
 extern struct loop *outermost_loop_in_sese (sese_l &, basic_block);
 extern tree scalar_evolution_in_region (sese_l &, loop_p, tree);
-extern bool invariant_in_sese_p_rec (tree, sese_l &);
+extern bool invariant_in_sese_p_rec (tree, sese_l &, bool *);
 
 /* Check that SESE contains LOOP.  */
 
@@ -119,16 +103,18 @@ sese_nb_params (sese_info_p region)
 static inline bool
 bb_in_region (basic_block bb, basic_block entry, basic_block exit)
 {
-#ifdef ENABLE_CHECKING
-  {
-    edge e;
-    edge_iterator ei;
+  /* FIXME: PR67842.  */
+#if 0
+  if (flag_checking)
+    {
+      edge e;
+      edge_iterator ei;
 
-    /* Check that there are no edges coming in the region: all the
-       predecessors of EXIT are dominated by ENTRY.  */
-    FOR_EACH_EDGE (e, ei, exit->preds)
-      dominated_by_p (CDI_DOMINATORS, e->src, entry);
-  }
+      /* Check that there are no edges coming in the region: all the
+	 predecessors of EXIT are dominated by ENTRY.  */
+      FOR_EACH_EDGE (e, ei, exit->preds)
+	gcc_assert (dominated_by_p (CDI_DOMINATORS, e->src, entry));
+    }
 #endif
 
   return dominated_by_p (CDI_DOMINATORS, bb, entry)
@@ -207,35 +193,6 @@ sese_loop_depth (sese_l &region, loop_p loop)
 
   return depth;
 }
-
-/* Splits BB to make a single entry single exit region.  */
-
-static inline sese_info_p
-split_region_for_bb (basic_block bb)
-{
-  edge entry, exit;
-
-  if (single_pred_p (bb))
-    entry = single_pred_edge (bb);
-  else
-    {
-      entry = split_block_after_labels (bb);
-      bb = single_succ (bb);
-    }
-
-  if (single_succ_p (bb))
-    exit = single_succ_edge (bb);
-  else
-    {
-      gimple_stmt_iterator gsi = gsi_last_bb (bb);
-      gsi_prev (&gsi);
-      exit = split_block (bb, gsi_stmt (gsi));
-    }
-
-  return new_sese_info (entry, exit);
-}
-
-
 
 /* A single entry single exit specialized for conditions.  */
 

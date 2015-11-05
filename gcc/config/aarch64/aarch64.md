@@ -696,7 +696,8 @@
        the branch-and-link.  */
     callee = XEXP (operands[0], 0);
     if (GET_CODE (callee) == SYMBOL_REF
-	? aarch64_is_long_call_p (callee)
+	? (aarch64_is_long_call_p (callee)
+	   || aarch64_is_noplt_call_p (callee))
 	: !REG_P (callee))
       XEXP (operands[0], 0) = force_reg (Pmode, callee);
 
@@ -755,7 +756,8 @@
        the branch-and-link.  */
     callee = XEXP (operands[1], 0);
     if (GET_CODE (callee) == SYMBOL_REF
-	? aarch64_is_long_call_p (callee)
+	? (aarch64_is_long_call_p (callee)
+	   || aarch64_is_noplt_call_p (callee))
 	: !REG_P (callee))
       XEXP (operands[1], 0) = force_reg (Pmode, callee);
 
@@ -805,10 +807,11 @@
   ""
   {
     rtx pat;
-
-    if (!REG_P (XEXP (operands[0], 0))
-       && (GET_CODE (XEXP (operands[0], 0)) != SYMBOL_REF))
-     XEXP (operands[0], 0) = force_reg (Pmode, XEXP (operands[0], 0));
+    rtx callee = XEXP (operands[0], 0);
+    if (!REG_P (callee)
+       && ((GET_CODE (callee) != SYMBOL_REF)
+	   || aarch64_is_noplt_call_p (callee)))
+      XEXP (operands[0], 0) = force_reg (Pmode, callee);
 
     if (operands[2] == NULL_RTX)
       operands[2] = const0_rtx;
@@ -835,10 +838,11 @@
   ""
   {
     rtx pat;
-
-    if (!REG_P (XEXP (operands[1], 0))
-       && (GET_CODE (XEXP (operands[1], 0)) != SYMBOL_REF))
-     XEXP (operands[1], 0) = force_reg (Pmode, XEXP (operands[1], 0));
+    rtx callee = XEXP (operands[1], 0);
+    if (!REG_P (callee)
+       && ((GET_CODE (callee) != SYMBOL_REF)
+	   || aarch64_is_noplt_call_p (callee)))
+      XEXP (operands[1], 0) = force_reg (Pmode, callee);
 
     if (operands[3] == NULL_RTX)
       operands[3] = const0_rtx;
@@ -995,7 +999,7 @@
    fmov\\t%w0, %s1
    fmov\\t%s0, %s1"
    "CONST_INT_P (operands[1]) && !aarch64_move_imm (INTVAL (operands[1]), SImode)
-    && GP_REGNUM_P (REGNO (operands[0]))"
+    && REG_P (operands[0]) && GP_REGNUM_P (REGNO (operands[0]))"
    [(const_int 0)]
    "{
        aarch64_expand_mov_immediate (operands[0], operands[1]);
@@ -1028,7 +1032,7 @@
    fmov\\t%d0, %d1
    movi\\t%d0, %1"
    "(CONST_INT_P (operands[1]) && !aarch64_move_imm (INTVAL (operands[1]), DImode))
-    && GP_REGNUM_P (REGNO (operands[0]))"
+    && REG_P (operands[0]) && GP_REGNUM_P (REGNO (operands[0]))"
    [(const_int 0)]
    "{
        aarch64_expand_mov_immediate (operands[0], operands[1]);
@@ -1120,7 +1124,7 @@
   [(set (match_operand:HF 0 "nonimmediate_operand" "=w, ?r,w,w,m,r,m ,r")
 	(match_operand:HF 1 "general_operand"      "?rY, w,w,m,w,m,rY,r"))]
   "TARGET_FLOAT && (register_operand (operands[0], HFmode)
-    || register_operand (operands[1], HFmode))"
+    || aarch64_reg_or_fp_zero (operands[1], HFmode))"
   "@
    mov\\t%0.h[0], %w1
    umov\\t%w0, %1.h[0]
@@ -1130,7 +1134,7 @@
    ldrh\\t%w0, %1
    strh\\t%w1, %0
    mov\\t%w0, %w1"
-  [(set_attr "type" "neon_from_gp,neon_to_gp,fmov,\
+  [(set_attr "type" "neon_from_gp,neon_to_gp,neon_move,\
                      f_loads,f_stores,load1,store1,mov_reg")
    (set_attr "simd" "yes,yes,yes,*,*,*,*,*")
    (set_attr "fp"   "*,*,*,yes,yes,*,*,*")]
@@ -1193,7 +1197,7 @@
    ldp\\t%0, %H0, %1
    stp\\t%1, %H1, %0
    stp\\txzr, xzr, %0"
-  [(set_attr "type" "logic_reg,multiple,f_mcr,f_mrc,neon_move_q,fconstd,\
+  [(set_attr "type" "logic_reg,multiple,f_mcr,f_mrc,neon_move_q,f_mcr,\
                      f_loadd,f_stored,load2,store2,store2")
    (set_attr "length" "4,8,8,8,4,4,4,4,4,4,4")
    (set_attr "fp" "*,*,yes,yes,*,yes,yes,yes,*,*,*")
@@ -2984,7 +2988,7 @@
    csinc\\t%<w>0, %<w>4, <w>zr, %M1
    mov\\t%<w>0, -1
    mov\\t%<w>0, 1"
-  [(set_attr "type" "csel")]
+  [(set_attr "type" "csel, csel, csel, csel, csel, mov_imm, mov_imm")]
 )
 
 ;; zero_extend version of above
@@ -3007,7 +3011,7 @@
    csinc\\t%w0, %w4, wzr, %M1
    mov\\t%w0, -1
    mov\\t%w0, 1"
-  [(set_attr "type" "csel")]
+  [(set_attr "type" "csel, csel, csel, csel, csel, mov_imm, mov_imm")]
 )
 
 (define_insn "*cmovdi_insn_uxtw"
@@ -4185,6 +4189,25 @@
   [(set_attr "type" "f_cvtf2i")]
 )
 
+(define_insn "*aarch64_fcvt<su_optab><GPF:mode><GPI:mode>2_mult"
+  [(set (match_operand:GPI 0 "register_operand" "=r")
+	(FIXUORS:GPI
+	  (mult:GPF
+	    (match_operand:GPF 1 "register_operand" "w")
+	    (match_operand:GPF 2 "aarch64_fp_pow2" "F"))))]
+  "TARGET_FLOAT
+   && IN_RANGE (aarch64_fpconst_pow_of_2 (operands[2]), 1,
+		GET_MODE_BITSIZE (<GPI:MODE>mode))"
+  {
+    int fbits = aarch64_fpconst_pow_of_2 (operands[2]);
+    char buf[64];
+    snprintf (buf, 64, "fcvtz<su>\\t%%<GPI:w>0, %%<GPF:s>1, #%d", fbits);
+    output_asm_insn (buf, operands);
+    return "";
+  }
+  [(set_attr "type" "f_cvtf2i")]
+)
+
 ;; fma - no throw
 
 (define_insn "fma<mode>4"
@@ -4491,7 +4514,7 @@
  [(set (match_operand:GPF_TF 0 "register_operand" "=w")
        (mem:GPF_TF (match_operand 1 "aarch64_constant_pool_symref" "S")))
   (clobber (match_operand:P 2 "register_operand" "=&r"))]
- "TARGET_FLOAT && nopcrelative_literal_loads"
+ "TARGET_FLOAT && aarch64_nopcrelative_literal_loads"
  {
    aarch64_expand_mov_immediate (operands[2], XEXP (operands[1], 0));
    emit_move_insn (operands[0], gen_rtx_MEM (<GPF_TF:MODE>mode, operands[2]));
@@ -4504,7 +4527,7 @@
  [(set (match_operand:VALL 0 "register_operand" "=w")
        (mem:VALL (match_operand 1 "aarch64_constant_pool_symref" "S")))
   (clobber (match_operand:P 2 "register_operand" "=&r"))]
- "TARGET_FLOAT && nopcrelative_literal_loads"
+ "TARGET_FLOAT && aarch64_nopcrelative_literal_loads"
  {
    aarch64_expand_mov_immediate (operands[2], XEXP (operands[1], 0));
    emit_move_insn (operands[0], gen_rtx_MEM (<VALL:MODE>mode, operands[2]));

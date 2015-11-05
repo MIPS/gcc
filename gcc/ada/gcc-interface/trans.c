@@ -26,13 +26,16 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "vec.h"
-#include "alias.h"
+#include "target.h"
+#include "function.h"
+#include "bitmap.h"
 #include "tree.h"
-#include "inchash.h"
-#include "fold-const.h"
+#include "gimple-expr.h"
 #include "stringpool.h"
+#include "cgraph.h"
+#include "diagnostic.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
 #include "varasm.h"
@@ -40,16 +43,8 @@
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
-#include "gimple-expr.h"
 #include "gimplify.h"
-#include "bitmap.h"
-#include "hash-map.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
-#include "diagnostic.h"
 #include "opts.h"
-#include "target.h"
 #include "common/common-target.h"
 
 #include "ada.h"
@@ -9411,11 +9406,12 @@ assoc_to_constructor (Entity_Id gnat_entity, Node_Id gnat_assoc, tree gnu_type)
 
   gnu_result = extract_values (gnu_list, gnu_type);
 
-#ifdef ENABLE_CHECKING
-  /* Verify that every entry in GNU_LIST was used.  */
-  for (; gnu_list; gnu_list = TREE_CHAIN (gnu_list))
-    gcc_assert (TREE_ADDRESSABLE (gnu_list));
-#endif
+  if (flag_checking)
+    {
+      /* Verify that every entry in GNU_LIST was used.  */
+      for (; gnu_list; gnu_list = TREE_CHAIN (gnu_list))
+	gcc_assert (TREE_ADDRESSABLE (gnu_list));
+    }
 
   return gnu_result;
 }

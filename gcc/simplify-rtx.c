@@ -22,28 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
-#include "rtl.h"
-#include "alias.h"
-#include "tree.h"
-#include "fold-const.h"
-#include "varasm.h"
-#include "tm_p.h"
-#include "regs.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "recog.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
-#include "expr.h"
-#include "diagnostic-core.h"
 #include "target.h"
+#include "rtl.h"
+#include "tree.h"
+#include "predict.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "recog.h"
+#include "diagnostic-core.h"
+#include "varasm.h"
+#include "flags.h"
 
 /* Simplification and canonicalization of RTL.  */
 
@@ -2001,7 +1989,17 @@ simplify_binary_operation (enum rtx_code code, machine_mode mode,
   tem = simplify_const_binary_operation (code, mode, trueop0, trueop1);
   if (tem)
     return tem;
-  return simplify_binary_operation_1 (code, mode, op0, op1, trueop0, trueop1);
+  tem = simplify_binary_operation_1 (code, mode, op0, op1, trueop0, trueop1);
+
+  if (tem)
+    return tem;
+
+  /* If the above steps did not result in a simplification and op0 or op1
+     were constant pool references, use the referenced constants directly.  */
+  if (trueop0 != op0 || trueop1 != op1)
+    return simplify_gen_binary (code, mode, trueop0, trueop1);
+
+  return NULL_RTX;
 }
 
 /* Subroutine of simplify_binary_operation.  Simplify a binary operation

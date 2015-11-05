@@ -62,6 +62,7 @@ extern "C" {
 #include "ssa-iterators.h"
 #include <map>
 #include "graphite-isl-ast-to-gimple.h"
+#include "tree-cfg.h"
 
 /* This flag is set when an error occurred during the translation of
    ISL AST to Gimple.  */
@@ -106,10 +107,8 @@ gmp_cst_to_tree (tree type, mpz_t val)
 static inline void
 graphite_verify (void)
 {
-#ifdef ENABLE_CHECKING
-  verify_loop_structure ();
-  verify_loop_closed_ssa (true);
-#endif
+  checking_verify_loop_structure ();
+  checking_verify_loop_closed_ssa (true);
 }
 
 /* IVS_PARAMS maps ISL's scattering and parameter identifiers
@@ -289,11 +288,7 @@ gcc_expression_from_isl_ast_expr_id (tree type,
 	      "Could not map isl_id to tree expression");
   isl_ast_expr_free (expr_id);
   tree t = res->second;
-  tree *val = region->parameter_rename_map->get(t);
-
-  if (!val)
-   val = &t;
-  return fold_convert (type, *val);
+  return fold_convert (type, t);
 }
 
 /* Converts an isl_ast_expr_int expression E to a GCC expression tree of
@@ -707,7 +702,10 @@ graphite_create_new_loop_guard (edge entry_edge,
       cond_expr = fold_build2 (LT_EXPR, boolean_type_node, *lb, ub_one);
     }
 
-  exit_edge = create_empty_if_region_on_edge (entry_edge, cond_expr);
+  if (integer_onep (cond_expr))
+    exit_edge = entry_edge;
+  else
+    exit_edge = create_empty_if_region_on_edge (entry_edge, cond_expr);
 
   return exit_edge;
 }
@@ -723,10 +721,14 @@ translate_isl_ast_node_for (loop_p context_loop, __isl_keep isl_ast_node *node,
   tree type, lb, ub;
   edge last_e = graphite_create_new_loop_guard (next_e, node, &type,
 						&lb, &ub, ip);
-  edge true_e = get_true_edge_from_guard_bb (next_e->dest);
 
-  translate_isl_ast_for_loop (context_loop, node, true_e,
-			      type, lb, ub, ip);
+  if (last_e == next_e)
+    /* There was no guard generated.  */
+    return translate_isl_ast_for_loop (context_loop, node, last_e,
+				       type, lb, ub, ip);
+
+  edge true_e = get_true_edge_from_guard_bb (next_e->dest);
+  translate_isl_ast_for_loop (context_loop, node, true_e, type, lb, ub, ip);
   return last_e;
 }
 
@@ -786,12 +788,25 @@ translate_isl_ast_node_user (__isl_keep isl_ast_node *node,
   iv_map.create (nb_loops);
   iv_map.safe_grow_cleared (nb_loops);
 
-  build_iv_mapping (iv_map, gbb, user_expr, ip, pbb->scop->region->region);
+  build_iv_mapping (iv_map, gbb, user_expr, ip, pbb->scop->scop_info->region);
   isl_ast_expr_free (user_expr);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "[codegen] copying");
+      print_loops_bb (dump_file, GBB_BB (gbb), 0, 3);
+    }
+
   next_e = copy_bb_and_scalar_dependences (GBB_BB (gbb),
-					   pbb->scop->region, next_e,
+					   pbb->scop->scop_info, next_e,
 					   iv_map,
 					   &graphite_regenerate_error);
+  if (dump_file)
+    {
+      fprintf (dump_file, "[codegen] to");
+      print_loops_bb (dump_file, next_e->src, 0, 3);
+    }
+
   iv_map.release ();
   mark_virtual_operands_for_renaming (cfun);
   update_ssa (TODO_update_ssa);
@@ -909,7 +924,7 @@ print_isl_ast_node (FILE *file, __isl_keep isl_ast_node *node,
 static void
 add_parameters_to_ivs_params (scop_p scop, ivs_params &ip)
 {
-  sese_info_p region = scop->region;
+  sese_info_p region = scop->scop_info;
   unsigned nb_parameters = isl_set_dim (scop->param_context, isl_dim_param);
   gcc_assert (nb_parameters == SESE_PARAMS (region).length ());
   unsigned i;
@@ -1070,70 +1085,6 @@ scop_to_isl_ast (scop_p scop, ivs_params &ip)
   return ast_isl;
 }
 
-/* Copy def from sese REGION to the newly created TO_REGION. TR is defined by
-   DEF_STMT. GSI points to entry basic block of the TO_REGION.  */
-
-static void
-copy_def (tree tr, gimple *def_stmt, sese_info_p region, sese_info_p to_region,
-	  gimple_stmt_iterator *gsi)
-{
-  if (!defined_in_sese_p (tr, region->region))
-    return;
-
-  ssa_op_iter iter;
-  use_operand_p use_p;
-  FOR_EACH_SSA_USE_OPERAND (use_p, def_stmt, iter, SSA_OP_USE)
-    {
-      tree use_tr = USE_FROM_PTR (use_p);
-
-      /* Do not copy parameters that have been generated in the header of the
-	 scop.  */
-      if (region->parameter_rename_map->get(use_tr))
-	continue;
-
-      gimple *def_of_use = SSA_NAME_DEF_STMT (use_tr);
-      if (!def_of_use)
-	continue;
-
-      copy_def (use_tr, def_of_use, region, to_region, gsi);
-    }
-
-  gimple *copy = gimple_copy (def_stmt);
-  gsi_insert_after (gsi, copy, GSI_NEW_STMT);
-
-  /* Create new names for all the definitions created by COPY and
-     add replacement mappings for each new name.  */
-  def_operand_p def_p;
-  ssa_op_iter op_iter;
-  FOR_EACH_SSA_DEF_OPERAND (def_p, copy, op_iter, SSA_OP_ALL_DEFS)
-    {
-      tree old_name = DEF_FROM_PTR (def_p);
-      tree new_name = create_new_def_for (old_name, copy, def_p);
-      region->parameter_rename_map->put(old_name, new_name);
-    }
-
-  update_stmt (copy);
-}
-
-static void
-copy_internal_parameters (sese_info_p region, sese_info_p to_region)
-{
-  /* For all the parameters which definitino is in the if_region->false_region,
-     insert code on true_region (if_region->true_region->entry). */
-
-  int i;
-  tree tr;
-  gimple_stmt_iterator gsi = gsi_start_bb(to_region->region.entry->dest);
-
-  FOR_EACH_VEC_ELT (region->params, i, tr)
-    {
-      // If def is not in region.
-      gimple *def_stmt = SSA_NAME_DEF_STMT (tr);
-      if (def_stmt)
-	copy_def (tr, def_stmt, region, to_region, &gsi);
-    }
-}
-
 /* GIMPLE Loop Generator: generates loops from STMT in GIMPLE form for
    the given SCOP.  Return true if code generation succeeded.
 
@@ -1144,7 +1095,7 @@ bool
 graphite_regenerate_ast_isl (scop_p scop)
 {
   loop_p context_loop;
-  sese_info_p region = scop->region;
+  sese_info_p region = scop->scop_info;
   ifsese if_region = NULL;
   isl_ast_node *root_node;
   ivs_params ip;
@@ -1172,9 +1123,6 @@ graphite_regenerate_ast_isl (scop_p scop)
   graphite_verify ();
 
   context_loop = region->region.entry->src->loop_father;
-
-  /* Copy all the parameters which are defined in the region.  */
-  copy_internal_parameters(if_region->false_region, if_region->true_region);
 
   translate_isl_ast_to_gimple t(region);
   edge e = single_succ_edge (if_region->true_region->region.entry->dest);

@@ -22,43 +22,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "options.h"
+#include "cfghooks.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "gimple-pretty-print.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "cfganal.h"
-#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "calls.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "tree-iterator.h"
-#include "cgraph.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "tree-pass.h"
 #include "asan.h"
-#include "gimple-pretty-print.h"
-#include "target.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
 #include "output.h"
-#include "tm_p.h"
 #include "langhooks.h"
-#include "alloc-pool.h"
 #include "cfgloop.h"
 #include "gimple-builder.h"
 #include "ubsan.h"
@@ -1132,12 +1124,16 @@ asan_emit_stack_protection (rtx base, rtx pbase, unsigned int alignb,
       snprintf (buf, sizeof buf, "__asan_stack_malloc_%d",
 		use_after_return_class);
       ret = init_one_libfunc (buf);
-      rtx addr = convert_memory_address (ptr_mode, base);
-      ret = emit_library_call_value (ret, NULL_RTX, LCT_NORMAL, ptr_mode, 2,
+      ret = emit_library_call_value (ret, NULL_RTX, LCT_NORMAL, ptr_mode, 1,
 				     GEN_INT (asan_frame_size
 					      + base_align_bias),
-				     TYPE_MODE (pointer_sized_int_node),
-				     addr, ptr_mode);
+				     TYPE_MODE (pointer_sized_int_node));
+      /* __asan_stack_malloc_[n] returns a pointer to fake stack if succeeded
+	 and NULL otherwise.  Check RET value is NULL here and jump over the
+	 BASE reassignment in this case.  Otherwise, reassign BASE to RET.  */
+      int very_unlikely = REG_BR_PROB_BASE / 2000 - 1;
+      emit_cmp_and_jump_insns (ret, const0_rtx, EQ, NULL_RTX,
+			       VOIDmode, 0, lab, very_unlikely);
       ret = convert_memory_address (Pmode, ret);
       emit_move_insn (base, ret);
       emit_label (lab);
@@ -2469,6 +2465,8 @@ asan_finish_file (void)
   if (flag_sanitize & SANITIZE_USER_ADDRESS)
     {
       tree fn = builtin_decl_implicit (BUILT_IN_ASAN_INIT);
+      append_to_statement_list (build_call_expr (fn, 0), &asan_ctor_statements);
+      fn = builtin_decl_implicit (BUILT_IN_ASAN_VERSION_MISMATCH_CHECK);
       append_to_statement_list (build_call_expr (fn, 0), &asan_ctor_statements);
     }
   FOR_EACH_DEFINED_VARIABLE (vnode)

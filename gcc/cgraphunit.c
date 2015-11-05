@@ -161,19 +161,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "alias.h"
+#include "cfghooks.h"
+#include "regset.h"     /* FIXME: For reg_obstack.  */
+#include "alloc-pool.h"
+#include "tree-pass.h"
+#include "stringpool.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "coverage.h"
+#include "lto-streamer.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
-#include "stringpool.h"
-#include "gimple-ssa.h"
 #include "output.h"
 #include "cfgcleanup.h"
-#include "internal-fn.h"
 #include "gimple-fold.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -181,41 +186,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
-#include "tree-inline.h"
 #include "langhooks.h"
 #include "toplev.h"
-#include "flags.h"
 #include "debug.h"
-#include "target.h"
-#include "diagnostic.h"
-#include "params.h"
-#include "intl.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
-#include "tree-iterator.h"
-#include "tree-pass.h"
-#include "tree-dump.h"
 #include "gimple-pretty-print.h"
-#include "output.h"
-#include "coverage.h"
 #include "plugin.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
-#include "lto-streamer.h"
 #include "except.h"
 #include "cfgloop.h"
-#include "regset.h"     /* FIXME: For reg_obstack.  */
 #include "context.h"
 #include "pass_manager.h"
 #include "tree-nested.h"
-#include "gimplify.h"
 #include "dbgcnt.h"
 #include "tree-chkp.h"
 #include "lto-section-names.h"
-#include "omp-low.h"
-#include "print-tree.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -451,7 +438,7 @@ cgraph_node::finalize_function (tree decl, bool no_collect)
      declared inline and nested functions.  These were optimized out
      in the original implementation and it is unclear whether we want
      to change the behavior here.  */
-  if ((!opt_for_fn (decl, optimize)
+  if (((!opt_for_fn (decl, optimize) || flag_keep_static_functions)
        && !node->cpp_implicit_alias
        && !DECL_DISREGARD_INLINE_LIMITS (decl)
        && !DECL_DECLARED_INLINE_P (decl)
@@ -1325,13 +1312,12 @@ handle_alias_pairs (void)
 static void
 mark_functions_to_output (void)
 {
-  cgraph_node *node;
-#ifdef ENABLE_CHECKING
   bool check_same_comdat_groups = false;
+  cgraph_node *node;
 
-  FOR_EACH_FUNCTION (node)
-    gcc_assert (!node->process);
-#endif
+  if (flag_checking)
+    FOR_EACH_FUNCTION (node)
+      gcc_assert (!node->process);
 
   FOR_EACH_FUNCTION (node)
     {
@@ -1365,15 +1351,14 @@ mark_functions_to_output (void)
 	}
       else if (node->same_comdat_group)
 	{
-#ifdef ENABLE_CHECKING
-	  check_same_comdat_groups = true;
-#endif
+	  if (flag_checking)
+	    check_same_comdat_groups = true;
 	}
       else
 	{
 	  /* We should've reclaimed all functions that are not needed.  */
-#ifdef ENABLE_CHECKING
-	  if (!node->global.inlined_to
+	  if (flag_checking
+	      && !node->global.inlined_to
 	      && gimple_has_body_p (decl)
 	      /* FIXME: in ltrans unit when offline copy is outside partition but inline copies
 		 are inside partition, we can end up not removing the body since we no longer
@@ -1386,7 +1371,6 @@ mark_functions_to_output (void)
 	      node->debug ();
 	      internal_error ("failed to reclaim unneeded function");
 	    }
-#endif
 	  gcc_assert (node->global.inlined_to
 		      || !gimple_has_body_p (decl)
 		      || node->in_other_partition
@@ -1397,8 +1381,7 @@ mark_functions_to_output (void)
 	}
 
     }
-#ifdef ENABLE_CHECKING
-  if (check_same_comdat_groups)
+  if (flag_checking && check_same_comdat_groups)
     FOR_EACH_FUNCTION (node)
       if (node->same_comdat_group && !node->process)
 	{
@@ -1418,7 +1401,6 @@ mark_functions_to_output (void)
 			      "comdat group");
 	    }
 	}
-#endif
 }
 
 /* DECL is FUNCTION_DECL.  Initialize datastructures so DECL is a function
@@ -1636,6 +1618,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       fn_block = make_node (BLOCK);
       BLOCK_VARS (fn_block) = a;
       DECL_INITIAL (thunk_fndecl) = fn_block;
+      allocate_struct_function (thunk_fndecl, false);
       init_function_start (thunk_fndecl);
       cfun->is_thunk = 1;
       insn_locations_init ();
@@ -1650,7 +1633,6 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       insn_locations_finalize ();
       init_insn_lengths ();
       free_after_compilation (cfun);
-      set_cfun (NULL);
       TREE_ASM_WRITTEN (thunk_fndecl) = 1;
       thunk.thunk_p = false;
       analyzed = false;
@@ -1887,9 +1869,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       TREE_ASM_WRITTEN (thunk_fndecl) = false;
       delete_unreachable_blocks ();
       update_ssa (TODO_update_ssa);
-#ifdef ENABLE_CHECKING
-      verify_flow_info ();
-#endif
+      checking_verify_flow_info ();
       free_dominance_info (CDI_DOMINATORS);
 
       /* Since we want to emit the thunk, we explicitly mark its name as
@@ -1964,9 +1944,11 @@ cgraph_node::expand (void)
   bitmap_obstack_initialize (NULL);
 
   /* Initialize the RTL code for the function.  */
-  current_function_decl = decl;
   saved_loc = input_location;
   input_location = DECL_SOURCE_LOCATION (decl);
+
+  gcc_assert (DECL_STRUCT_FUNCTION (decl));
+  push_cfun (DECL_STRUCT_FUNCTION (decl));
   init_function_start (decl);
 
   gimple_register_cfg_hooks ();
@@ -2034,8 +2016,8 @@ cgraph_node::expand (void)
 
   /* Make sure that BE didn't give up on compiling.  */
   gcc_assert (TREE_ASM_WRITTEN (decl));
-  set_cfun (NULL);
-  current_function_decl = NULL;
+  if (cfun)
+    pop_cfun ();
 
   /* It would make a lot more sense to output thunks before function body to get more
      forward and lest backwarding jumps.  This however would need solving problem
@@ -2373,9 +2355,7 @@ symbol_table::compile (void)
   if (seen_error ())
     return;
 
-#ifdef ENABLE_CHECKING
-  symtab_node::verify_symtab_nodes ();
-#endif
+  symtab_node::checking_verify_symtab_nodes ();
 
   timevar_push (TV_CGRAPHOPT);
   if (pre_ipa_mem_report)
@@ -2424,9 +2404,7 @@ symbol_table::compile (void)
   (*debug_hooks->assembly_start) ();
   if (!quiet_flag)
     fprintf (stderr, "Assembling functions:\n");
-#ifdef ENABLE_CHECKING
-  symtab_node::verify_symtab_nodes ();
-#endif
+  symtab_node::checking_verify_symtab_nodes ();
 
   materialize_all_clones ();
   bitmap_obstack_initialize (NULL);
@@ -2482,7 +2460,8 @@ symbol_table::compile (void)
       fprintf (dump_file, "\nFinal ");
       symtab_node::dump_table (dump_file);
     }
-#ifdef ENABLE_CHECKING
+  if (!flag_checking)
+    return;
   symtab_node::verify_symtab_nodes ();
   /* Double check that all inline clones are gone and that all
      function bodies have been released from memory.  */
@@ -2501,7 +2480,6 @@ symbol_table::compile (void)
       if (error_found)
 	internal_error ("nodes with unreleased memory found");
     }
-#endif
 }
 
 

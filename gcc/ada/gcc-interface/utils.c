@@ -26,32 +26,26 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "vec.h"
-#include "alias.h"
+#include "ggc.h"
+#include "target.h"
+#include "function.h"
 #include "tree.h"
-#include "inchash.h"
-#include "fold-const.h"
+#include "timevar.h"
 #include "stringpool.h"
+#include "cgraph.h"
+#include "diagnostic.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "attribs.h"
 #include "varasm.h"
 #include "flags.h"
 #include "toplev.h"
-#include "diagnostic-core.h"
 #include "output.h"
-#include "ggc.h"
 #include "debug.h"
 #include "convert.h"
-#include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "hash-map.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
-#include "diagnostic.h"
-#include "timevar.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "tree-iterator.h"
@@ -1499,9 +1493,7 @@ relate_alias_sets (tree gnu_new_type, tree gnu_old_type, enum alias_set_op op)
       /* The alias set shouldn't be copied between array types with different
 	 aliasing settings because this can break the aliasing relationship
 	 between the array type and its element type.  */
-#ifndef ENABLE_CHECKING
-      if (flag_strict_aliasing)
-#endif
+      if (flag_checking || flag_strict_aliasing)
 	gcc_assert (!(TREE_CODE (gnu_new_type) == ARRAY_TYPE
 		      && TREE_CODE (gnu_old_type) == ARRAY_TYPE
 		      && TYPE_NONALIASED_COMPONENT (gnu_new_type)

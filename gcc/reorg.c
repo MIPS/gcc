@@ -104,41 +104,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
-#include "df.h"
-#include "diagnostic-core.h"
+#include "tree.h"
+#include "predict.h"
 #include "tm_p.h"
-#include "flags.h"
-#include "alias.h"
-#include "insn-config.h"
 #include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
+#include "insn-config.h"
 #include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
-#include "conditions.h"
-#include "regs.h"
 #include "recog.h"
 #include "insn-attr.h"
 #include "resource.h"
-#include "except.h"
 #include "params.h"
-#include "target.h"
 #include "tree-pass.h"
-
-#ifdef DELAY_SLOTS
-
-#ifndef ANNUL_IFTRUE_SLOTS
-#define eligible_for_annul_true(INSN, SLOTS, TRIAL, FLAGS) 0
-#endif
-#ifndef ANNUL_IFFALSE_SLOTS
-#define eligible_for_annul_false(INSN, SLOTS, TRIAL, FLAGS) 0
-#endif
 
 
 /* First, some functions that were used before GCC got a control flow graph.
@@ -219,9 +197,6 @@ static void add_to_delay_list (rtx_insn *, vec<rtx_insn *> *);
 static rtx_insn *delete_from_delay_slot (rtx_insn *);
 static void delete_scheduled_jump (rtx_insn *);
 static void note_delay_statistics (int, int);
-#if defined(ANNUL_IFFALSE_SLOTS) || defined(ANNUL_IFTRUE_SLOTS)
-static void optimize_skip (rtx_jump_insn *, vec<rtx_insn *> *);
-#endif
 static int get_jump_flags (const rtx_insn *, rtx);
 static int mostly_true_jump (rtx);
 static rtx get_branch_condition (const rtx_insn *, rtx);
@@ -717,8 +692,6 @@ note_delay_statistics (int slots_filled, int index)
   num_filled_delays[index][slots_filled][reorg_pass_number]++;
 }
 
-#if defined(ANNUL_IFFALSE_SLOTS) || defined(ANNUL_IFTRUE_SLOTS)
-
 /* Optimize the following cases:
 
    1.  When a conditional branch skips over only one instruction,
@@ -818,7 +791,6 @@ optimize_skip (rtx_jump_insn *insn, vec<rtx_insn *> *delay_list)
       INSN_ANNULLED_BRANCH_P (insn) = 1;
     }
 }
-#endif
 
 /*  Encode and return branch direction and prediction information for
     INSN assuming it will jump to LABEL.
@@ -973,12 +945,12 @@ redirect_with_delay_slots_safe_p (rtx_insn *jump, rtx newlabel, rtx seq)
   flags = get_jump_flags (jump, newlabel);
   for (i = 1; i < pat->len (); i++)
     if (! (
-#ifdef ANNUL_IFFALSE_SLOTS
+#if ANNUL_IFFALSE_SLOTS
 	   (INSN_ANNULLED_BRANCH_P (jump)
 	    && INSN_FROM_TARGET_P (pat->insn (i)))
 	   ? eligible_for_annul_false (jump, i - 1, pat->insn (i), flags) :
 #endif
-#ifdef ANNUL_IFTRUE_SLOTS
+#if ANNUL_IFTRUE_SLOTS
 	   (INSN_ANNULLED_BRANCH_P (jump)
 	    && ! INSN_FROM_TARGET_P (XVECEXP (pat, 0, i)))
 	   ? eligible_for_annul_true (jump, i - 1, pat->insn (i), flags) :
@@ -1005,12 +977,12 @@ redirect_with_delay_list_safe_p (rtx_insn *jump, rtx newlabel,
   unsigned int i = 0;
   for (; i < delay_insns; i++)
     if (! (
-#ifdef ANNUL_IFFALSE_SLOTS
+#if ANNUL_IFFALSE_SLOTS
 	   (INSN_ANNULLED_BRANCH_P (jump)
 	    && INSN_FROM_TARGET_P (delay_list[i]))
 	   ? eligible_for_annul_false (jump, i, delay_list[i], flags) :
 #endif
-#ifdef ANNUL_IFTRUE_SLOTS
+#if ANNUL_IFTRUE_SLOTS
 	   (INSN_ANNULLED_BRANCH_P (jump)
 	    && ! INSN_FROM_TARGET_P (delay_list[i]))
 	   ? eligible_for_annul_true (jump, i, delay_list[i], flags) :
@@ -2096,8 +2068,8 @@ fill_simple_delay_slots (int non_jumps_p)
       /* If all needed slots haven't been filled, we come here.  */
 
       /* Try to optimize case of jumping around a single insn.  */
-#if defined(ANNUL_IFFALSE_SLOTS) || defined(ANNUL_IFTRUE_SLOTS)
-      if (slots_filled != slots_to_fill
+      if ((ANNUL_IFTRUE_SLOTS || ANNUL_IFFALSE_SLOTS)
+	&& slots_filled != slots_to_fill
 	  && delay_list.is_empty ()
 	  && JUMP_P (insn)
 	  && (condjump_p (insn) || condjump_in_parallel_p (insn))
@@ -2107,7 +2079,6 @@ fill_simple_delay_slots (int non_jumps_p)
 	  if (!delay_list.is_empty ())
 	    slots_filled += 1;
 	}
-#endif
 
       /* Try to get insns from beyond the insn needing the delay slot.
 	 These insns can neither set or reference resources set in insns being
@@ -2494,13 +2465,8 @@ fill_slots_from_thread (rtx_jump_insn *insn, rtx condition,
 		goto winner;
 	    }
 	  else if (0
-#ifdef ANNUL_IFTRUE_SLOTS
-		   || ! thread_if_true
-#endif
-#ifdef ANNUL_IFFALSE_SLOTS
-		   || thread_if_true
-#endif
-		   )
+		   || (ANNUL_IFTRUE_SLOTS && ! thread_if_true)
+		   || (ANNUL_IFFALSE_SLOTS && thread_if_true))
 	    {
 	      old_trial = trial;
 	      trial = try_split (pat, trial, 0);
@@ -3611,13 +3577,13 @@ make_return_insns (rtx_insn *first)
 	{
 	  for (i = 1; i < XVECLEN (pat, 0); i++)
 	    if (! (
-#ifdef ANNUL_IFFALSE_SLOTS
+#if ANNUL_IFFALSE_SLOTS
 		   (INSN_ANNULLED_BRANCH_P (jump_insn)
 		    && INSN_FROM_TARGET_P (pat->insn (i)))
 		   ? eligible_for_annul_false (jump_insn, i - 1,
 					       pat->insn (i), flags) :
 #endif
-#ifdef ANNUL_IFTRUE_SLOTS
+#if ANNUL_IFTRUE_SLOTS
 		   (INSN_ANNULLED_BRANCH_P (jump_insn)
 		    && ! INSN_FROM_TARGET_P (pat->insn (i)))
 		   ? eligible_for_annul_true (jump_insn, i - 1,
@@ -3747,7 +3713,8 @@ dbr_schedule (rtx_insn *first)
     {
       fill_simple_delay_slots (1);
       fill_simple_delay_slots (0);
-      fill_eager_delay_slots ();
+      if (!targetm.no_speculation_in_delay_slots_p ())
+	fill_eager_delay_slots ();
       relax_delay_slots (first);
     }
 
@@ -3852,21 +3819,24 @@ dbr_schedule (rtx_insn *first)
 	    }
 	}
       fprintf (dump_file, "\n");
-#if defined (ANNUL_IFTRUE_SLOTS) || defined (ANNUL_IFFALSE_SLOTS)
-      fprintf (dump_file, ";; Reorg annuls: ");
-      need_comma = 0;
-      for (j = 0; j < MAX_DELAY_HISTOGRAM + 1; j++)
+
+      if (ANNUL_IFTRUE_SLOTS || ANNUL_IFFALSE_SLOTS)
 	{
-	  if (total_annul_slots[j])
+	  fprintf (dump_file, ";; Reorg annuls: ");
+	  need_comma = 0;
+	  for (j = 0; j < MAX_DELAY_HISTOGRAM + 1; j++)
 	    {
-	      if (need_comma)
-		fprintf (dump_file, ", ");
-	      need_comma = 1;
-	      fprintf (dump_file, "%d got %d delays", total_annul_slots[j], j);
+	      if (total_annul_slots[j])
+		{
+		  if (need_comma)
+		    fprintf (dump_file, ", ");
+		  need_comma = 1;
+		  fprintf (dump_file, "%d got %d delays", total_annul_slots[j], j);
+		}
 	    }
+	  fprintf (dump_file, "\n");
 	}
-      fprintf (dump_file, "\n");
-#endif
+
       fprintf (dump_file, "\n");
     }
 
@@ -3880,15 +3850,14 @@ dbr_schedule (rtx_insn *first)
   free (uid_to_ruid);
   crtl->dbr_scheduled_p = true;
 }
-#endif /* DELAY_SLOTS */
 
 /* Run delay slot optimization.  */
 static unsigned int
 rest_of_handle_delay_slots (void)
 {
-#ifdef DELAY_SLOTS
-  dbr_schedule (get_insns ());
-#endif
+  if (DELAY_SLOTS)
+    dbr_schedule (get_insns ());
+
   return 0;
 }
 
@@ -3926,12 +3895,11 @@ public:
 bool
 pass_delay_slots::gate (function *)
 {
-#ifdef DELAY_SLOTS
   /* At -O0 dataflow info isn't updated after RA.  */
-  return optimize > 0 && flag_delayed_branch && !crtl->dbr_scheduled_p;
-#else
-  return 0;
-#endif
+  if (DELAY_SLOTS)
+    return optimize > 0 && flag_delayed_branch && !crtl->dbr_scheduled_p;
+
+  return false;
 }
 
 } // anon namespace

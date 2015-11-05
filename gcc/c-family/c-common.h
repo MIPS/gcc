@@ -1029,7 +1029,7 @@ extern bool c_dump_tree (void *, tree);
 
 extern void verify_sequence_points (tree);
 
-extern tree fold_offsetof_1 (tree);
+extern tree fold_offsetof_1 (tree, tree_code ctx = ERROR_MARK);
 extern tree fold_offsetof (tree);
 
 /* Places where an lvalue, or modifiable lvalue, may be required.
@@ -1273,6 +1273,7 @@ extern bool c_omp_check_loop_iv (tree, tree, walk_tree_lh);
 extern bool c_omp_check_loop_iv_exprs (location_t, tree, tree, tree, tree,
 				       walk_tree_lh);
 extern tree c_finish_oacc_wait (location_t, tree, tree);
+extern tree c_oacc_split_loop_clauses (tree, tree *);
 extern void c_omp_split_clauses (location_t, enum tree_code, omp_clause_mask,
 				 tree, tree *);
 extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);
@@ -1439,6 +1440,7 @@ extern void cilkplus_extract_an_triplets (vec<tree, va_gc> *, size_t, size_t,
 					  vec<vec<an_parts> > *);
 extern vec <tree, va_gc> *fix_sec_implicit_args
   (location_t, vec <tree, va_gc> *, vec<an_loop_parts>, size_t, tree);
+extern bool is_cilkplus_vector_p (tree);
 
 /* In cilk.c.  */
 extern tree insert_cilk_frame (tree);

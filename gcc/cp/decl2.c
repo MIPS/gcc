@@ -29,31 +29,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
 #include "tree.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
+#include "timevar.h"
 #include "stringpool.h"
+#include "cgraph.h"
 #include "varasm.h"
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "flags.h"
-#include "cp-tree.h"
 #include "decl.h"
 #include "toplev.h"
-#include "timevar.h"
-#include "cpplib.h"
-#include "target.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
 #include "dumpfile.h"
 #include "intl.h"
-#include "splay-tree.h"
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
 #include "asan.h"
@@ -4479,6 +4473,22 @@ maybe_warn_sized_delete ()
   maybe_warn_sized_delete (VEC_DELETE_EXPR);
 }
 
+/* Earlier we left PTRMEM_CST in variable initializers alone so that we could
+   look them up when evaluating non-type template parameters.  Now we need to
+   lower them to something the back end can understand.  */
+
+static void
+lower_var_init ()
+{
+  varpool_node *node;
+  FOR_EACH_VARIABLE (node)
+    {
+      tree d = node->decl;
+      if (tree init = DECL_INITIAL (d))
+	DECL_INITIAL (d) = cplus_expand_constant (init);
+    }
+}
+
 /* This routine is called at the end of compilation.
    Its job is to create all the code needed to initialize and
    destroy the global aggregates.  We do the destruction
@@ -4788,6 +4798,8 @@ c_parse_final_cleanups (void)
     }
   while (reconsider);
 
+  lower_var_init ();
+
   generate_mangling_aliases ();
 
   /* All used inline functions must have a definition at this point.  */
@@ -4906,9 +4918,8 @@ cxx_post_compilation_parsing_cleanups (void)
 
   input_location = locus_at_end_of_parsing;
 
-#ifdef ENABLE_CHECKING
-  validate_conversion_obstack ();
-#endif /* ENABLE_CHECKING */
+  if (flag_checking)
+    validate_conversion_obstack ();
 
   timevar_stop (TV_PHASE_LATE_PARSING_CLEANUPS);
 }

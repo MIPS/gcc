@@ -122,31 +122,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "alias.h"
-#include "fold-const.h"
-#include "stor-layout.h"
-#include "flags.h"
-#include "tm_p.h"
 #include "gimple-pretty-print.h"
-#include "internal-fn.h"
+#include "fold-const.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
-#include "tree-pass.h"
 #include "tree-ssa-propagate.h"
-#include "value-prof.h"
-#include "langhooks.h"
-#include "target.h"
-#include "diagnostic-core.h"
 #include "dbgcnt.h"
 #include "params.h"
-#include "wide-int-print.h"
 #include "builtins.h"
 #include "tree-chkp.h"
 
@@ -629,6 +619,11 @@ get_value_for_expr (tree expr, bool for_bits_p)
       val.mask = -1;
       val.value = NULL_TREE;
     }
+
+  if (val.lattice_val == VARYING
+      && TYPE_UNSIGNED (TREE_TYPE (expr)))
+    val.mask = wi::zext (val.mask, TYPE_PRECISION (TREE_TYPE (expr)));
+
   return val;
 }
 

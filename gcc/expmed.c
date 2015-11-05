@@ -23,30 +23,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
-#include "df.h"
+#include "tree.h"
+#include "predict.h"
+#include "tm_p.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "emit-rtl.h"
 #include "diagnostic-core.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "tm_p.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "recog.h"
 #include "langhooks.h"
-#include "target.h"
 
 struct target_expmed default_target_expmed;
 #if SWITCHABLE_TARGET
@@ -756,14 +747,6 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  }
       }
   }
-
-  /* We allow move between structures of same size but different mode.
-     If source is in memory and the mode differs, simply change the memory.  */
-  if (GET_MODE (value) == BLKmode && GET_MODE (op0) != BLKmode)
-    {
-      gcc_assert (MEM_P (value));
-      value = adjust_address_nv (value, GET_MODE (op0), 0);
-    }
 
   /* Storing an lsb-aligned field in a register
      can be done with a movstrict instruction.  */

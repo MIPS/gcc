@@ -29,38 +29,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
+#include "c-family/c-target.h"
 #include "tree.h"
-#include "tree-hasher.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
+#include "timevar.h"
+#include "tm_p.h"
 #include "stringpool.h"
+#include "cgraph.h"
+#include "tree-hasher.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "attribs.h"
 #include "calls.h"
 #include "flags.h"
-#include "cp-tree.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
 #include "decl.h"
 #include "intl.h"
 #include "toplev.h"
-#include "tm_p.h"
-#include "target.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-pragma.h"
-#include "c-family/c-target.h"
 #include "c-family/c-ubsan.h"
-#include "diagnostic.h"
-#include "intl.h"
 #include "debug.h"
-#include "timevar.h"
-#include "splay-tree.h"
 #include "plugin.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
 #include "cilk.h"
 #include "builtins.h"
 
@@ -6714,6 +6707,9 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	       to put statics on the list so we can deal with the label
 	       address extension.  FIXME.  */
 	    add_local_decl (cfun, decl);
+	  /* And make sure it's in the symbol table for
+	     c_parse_final_cleanups to find.  */
+	  varpool_node::get_create (decl);
 	}
 
       /* Convert the initializer to the type of DECL, if we have not
@@ -7826,6 +7822,9 @@ grokfndecl (tree ctype,
       parm = build_this_parm (type, quals);
       DECL_CHAIN (parm) = parms;
       parms = parm;
+
+      /* Allocate space to hold the vptr bit if needed.  */
+      DECL_ALIGN (decl) = MINIMUM_METHOD_BOUNDARY;
     }
   DECL_ARGUMENTS (decl) = parms;
   for (t = parms; t; t = DECL_CHAIN (t))
@@ -7848,14 +7847,6 @@ grokfndecl (tree ctype,
     default:
       break;
     }
-
-  /* If pointers to member functions use the least significant bit to
-     indicate whether a function is virtual, ensure a pointer
-     to this function will have that bit clear.  */
-  if (TARGET_PTRMEMFUNC_VBIT_LOCATION == ptrmemfunc_vbit_in_pfn
-      && TREE_CODE (type) == METHOD_TYPE
-      && DECL_ALIGN (decl) < 2 * BITS_PER_UNIT)
-    DECL_ALIGN (decl) = 2 * BITS_PER_UNIT;
 
   if (friendp
       && TREE_CODE (orig_declarator) == TEMPLATE_ID_EXPR)
@@ -8000,6 +7991,11 @@ grokfndecl (tree ctype,
   DECL_EXTERNAL (decl) = 1;
   if (TREE_CODE (type) == FUNCTION_TYPE)
     {
+      if (quals || rqual)
+	TREE_TYPE (decl) = apply_memfn_quals (TREE_TYPE (decl),
+					      TYPE_UNQUALIFIED,
+					      REF_QUAL_NONE);
+
       if (quals)
 	{
 	  error (ctype
@@ -13630,6 +13626,16 @@ check_function_type (tree decl, tree current_function_parms)
     abstract_virtuals_error (decl, TREE_TYPE (fntype));
 }
 
+/* True iff FN is an implicitly-defined default constructor.  */
+
+static bool
+implicit_default_ctor_p (tree fn)
+{
+  return (DECL_CONSTRUCTOR_P (fn)
+	  && !user_provided_p (fn)
+	  && sufficient_parms_p (FUNCTION_FIRST_USER_PARMTYPE (fn)));
+}
+
 /* Create the FUNCTION_DECL for a function definition.
    DECLSPECS and DECLARATOR are the parts of the declaration;
    they describe the function's name and the type it returns,
@@ -14036,7 +14042,11 @@ start_preparsed_function (tree decl1, tree attrs, int flags)
   store_parm_decls (current_function_parms);
 
   if (!processing_template_decl
-      && flag_lifetime_dse && DECL_CONSTRUCTOR_P (decl1))
+      && flag_lifetime_dse && DECL_CONSTRUCTOR_P (decl1)
+      /* We can't clobber safely for an implicitly-defined default constructor
+	 because part of the initialization might happen before we enter the
+	 constructor, via AGGR_INIT_ZERO_FIRST (c++/68006).  */
+      && !implicit_default_ctor_p (decl1))
     {
       /* Insert a clobber to let the back end know that the object storage
 	 is dead when we enter the constructor.  */
@@ -14872,10 +14882,6 @@ complete_vars (tree type)
 	      complete_type (type);
 	      cp_apply_type_quals_to_decl (cp_type_quals (type), var);
 	    }
-
-	  if (DECL_INITIAL (var)
-	      && decl_constant_var_p (var))
-	    DECL_INITIAL (var) = cplus_expand_constant (DECL_INITIAL (var));
 
 	  /* Remove this entry from the list.  */
 	  incomplete_vars->unordered_remove (ix);
