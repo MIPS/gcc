@@ -185,9 +185,6 @@ init_reswords (void)
   /* The Objective-C keywords are all context-dependent.  */
   mask |= D_OBJC;
 
-  if (!flag_upc)
-    mask |= D_UPC;
-
   ridpointers = ggc_cleared_vec_alloc<tree> ((int) RID_MAX);
   for (i = 0; i < num_c_common_reswords; i++)
     {

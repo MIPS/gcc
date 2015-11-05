@@ -1,3 +1,9 @@
+2015-11-05  Gary Funck  <gary@intrepid.com>
+
+	* cp/lex.c (init_reswords): Revert to trunk.
+	Do not enable UPC keywords for C++.  The -fupc option
+	is currently supported only for "C".
+
 2015-11-02  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 229652 into gupc branch.
