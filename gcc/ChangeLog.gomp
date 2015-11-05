@@ -1,5 +1,13 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	revert:
+	2015-04-21  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-copy.c (stmt_may_generate_copy): Handle .omp_data_i init
+	conservatively.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-04-21  Tom de Vries  <tom@codesourcery.com>
 
