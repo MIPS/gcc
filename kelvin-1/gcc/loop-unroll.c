@@ -517,18 +517,6 @@ unroll_loop_constant_iterations (struct loop *loop)
 
       if (exit_mod)
 	{
-#ifdef KELVIN_PATCH
-	  /* kelvin is trying to figure out which code to migrate from
-	   * the unroll_loop_runtime_iterations.  In the other code,
-	   * we make multiple invocations and set the frequency
-	   * differently for each invocation.  But in this code, we
-	   * make a single invocation and pass in the desired number
-	   * of repetitions as an argument.  So it seems that I may
-	   * have to migrate some functionality into the
-	   * implementation of duplicate_loop_to_header_ege, or maybe
-	   * it's already there.  Let's see.
-	   */
-#endif
 	  opt_info_start_duplication (opt_info);
           ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					      exit_mod,
@@ -574,18 +562,6 @@ unroll_loop_constant_iterations (struct loop *loop)
 	    bitmap_clear_bit (wont_exit, 1);
 
           opt_info_start_duplication (opt_info);
-#ifdef KELVIN_PATCH
-	  /* kelvin is trying to figure out which code to migrate from
-	   * the unroll_loop_runtime_iterations.  In the other code,
-	   * we make multiple invocations and set the frequency
-	   * differently for each invocation.  But in this code, we
-	   * make a single invocation and pass in the desired number
-	   * of repetitions as an argument.  So it seems that I may
-	   * have to migrate some functionality into the
-	   * implementation of duplicate_loop_to_header_ege, or maybe
-	   * it's already there.  Let's see.
-	   */
-#endif
 	  ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					      exit_mod + 1,
 					      wont_exit, desc->out_edge,
@@ -624,12 +600,7 @@ unroll_loop_constant_iterations (struct loop *loop)
 				      max_unroll,
 				      wont_exit, desc->out_edge,
 				      &remove_edges,
-/* kelvin: following code commented out and replaced by PTH
-				      DLTHE_FLAG_UPDATE_FREQ
-				      | (opt_info
-					 ? DLTHE_RECORD_COPY_NUMBER
-					   : 0));
-*/				      opt_info
+				      opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0);
 #else
@@ -679,13 +650,7 @@ unroll_loop_constant_iterations (struct loop *loop)
 
   /* Remove the edges.  */
   FOR_EACH_VEC_ELT (remove_edges, i, e)
-#ifdef KELVIN_PATCH
-    {
-      remove_path (e);
-    }
-#else
     remove_path (e);
-#endif
 
   if (dump_file)
     fprintf (dump_file,
@@ -1008,7 +973,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   swtch = split_edge (loop_preheader_edge (loop));
 
 #ifdef KELVIN_PATCH
-  /* kelvin: next three lines inserted by PTH */
   int iter_freq, new_freq;
   iter_freq = new_freq = swtch->frequency / (n_peel+1);
   swtch->frequency = new_freq;
@@ -1021,72 +985,27 @@ unroll_loop_runtime_iterations (struct loop *loop)
       if (i != n_peel - 1 || !last_may_exit)
 	bitmap_set_bit (wont_exit, 1);
 #ifdef KELVIN_PATCH      
-      /* kelvin: up to ok below is all new */
-      // PTH - Need to adjust freq of pred block before duplicating loop
-      // preheader->src didn't work (didn't see any change)
-      // preheader->dest didn't work (peeled blocks had freq = 0)
-      // preheader->dest + not passing FLAG_UPDATE_FREQ fixed peeled copies
-      //     but screwed up loop block bb5=558 (bb8(exit,
-      //      due to bb5 freq) and bb23(freq=7536))
-      // kelvin says PTH had commented out the following line,
-      // apparently because it creates some problems with frequency of
-      // bb5 in loop.c test case.
-      // loop_preheader_edge (loop)->dest->frequency = new_freq;
+      int saved_header_frequency = loop->header->frequency;
+      zero_loop_frequencies (loop);
 
-    /* kelvin patch begins here */
-    int saved_header_frequency = loop->header->frequency;
-
-    zero_loop_frequencies (loop);
-
-    int new_header_freq = (saved_header_frequency / (n_peel + 1)) * (i + 1);
-    increment_loop_frequencies (loop, loop->header, new_header_freq);
-
-    /* kelvin patch ends here */
+      int new_header_freq = (saved_header_frequency / (n_peel + 1)) * (i + 1);
+      increment_loop_frequencies (loop, loop->header, new_header_freq);
 #endif
-    ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					1, wont_exit, desc->out_edge,
-					&remove_edges,
-					DLTHE_FLAG_UPDATE_FREQ);
+      ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
+					  1, wont_exit, desc->out_edge,
+					  &remove_edges,
+					  DLTHE_FLAG_UPDATE_FREQ);
 #ifdef KELVIN_PATCH
-
-    zero_loop_frequencies (loop);
-    increment_loop_frequencies (loop, loop->header, saved_header_frequency);
-
-    fprintf(stderr, "Restoring header frequency to %d\n",
-	    loop->header->frequency);
+      zero_loop_frequencies (loop);
+      increment_loop_frequencies (loop, loop->header, saved_header_frequency);
 #endif
       gcc_assert (ok);
-
+      
       /* Create item for switch.  */
       j = n_peel - i - (extra_zero_check ? 0 : 1);
       p = REG_BR_PROB_BASE / (i + 2);
 
       preheader = split_edge (loop_preheader_edge (loop));
-#ifdef KELVIN_PATCH
-      /* Pat Haugen's patch below is not quite correct.  In the
-       * case that the duplicated blocks include an "exit" which
-       * circumvents execution of the loop, we need to subtract
-       * from preheader->frequency the cumulative frequencies
-       * associated with the duplicated "loop" exit edges.
-       */
-      /* kelvin: the following two lines constitute a patch provided
-       * by Pat Haugen.  This works most of the time, but it doesn't
-       * work in the case that the copied blocks include conditional
-       * branches that circumvent execution of the loop that follows.
-       * To do this right, I need to calculate the frequency of this
-       * preheader in a different way.  Basically, I need to calculate
-       * the preheader frequency by summing frequences of predecessor
-       * nodes, AFTER we create and establish the frequencies for the
-       * new swtch block.
-       *
-       * new_freq = new_freq + iter_freq;
-       * preheader->frequency = new_freq;
-       */
-
-      /* kelvin is suspicious of the code above, which is calculating
-       * the preheader->frequency.
-       */
-#endif
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p,
 					  NULL);
@@ -1098,7 +1017,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
 #ifdef KELVIN_PATCH
-      /* kelvin: following line modified by pth, was single_pred_edge */
       single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
 #else
       single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
@@ -1109,10 +1027,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       e->probability = p;
 
 #ifdef KELVIN_PATCH
-      /* kelvin: following line inserted by PTH is replaced with
-       * the alternative sequence of instructions crafted by kelvin.
-       *  swtch->frequency = new_freq;
-       */
       new_freq = new_freq + iter_freq;
       swtch->frequency = new_freq;
 
@@ -1123,7 +1037,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	prehead_frequency += the_edge_frequency;
       }
       preheader->frequency = prehead_frequency;
-
 #endif
     }
 
@@ -1158,13 +1071,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
 #ifdef KELVIN_PATCH
   {  
-    /* Traces reveal that the header frequency may be wrong at this
-     * point in the case that unpeeled preheader blocks include "exit
-     * edges" that allow control to flow around the loop without
-     * entering the loop.  To maintain frequency integrity, we recompute
-     * the loop frequencies before invoking
-     * duplicate_loop_to_header_edge.
-     */
     /* recompute the loop body frequencies */
     zero_loop_frequencies (loop);
     
@@ -1187,12 +1093,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 				      max_unroll,
 				      wont_exit, desc->out_edge,
 				      &remove_edges,
-/* kelvin: following code commented out and replaced by PTH
-				      DLTHE_FLAG_UPDATE_FREQ
-				      | (opt_info
-					 ? DLTHE_RECORD_COPY_NUMBER
-					   : 0));
-*/				      opt_info
+				      opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0);
 #else
@@ -1235,13 +1136,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
   /* Remove the edges.  */
   FOR_EACH_VEC_ELT (remove_edges, i, e)
-#ifdef KELVIN_PATCH
-    {
-      remove_path (e);
-    }
-#else
     remove_path (e);
-#endif
 
   /* We must be careful when updating the number of iterations due to
      preconditioning and the fact that the value must be valid at entry

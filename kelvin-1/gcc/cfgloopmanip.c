@@ -45,7 +45,10 @@ along with GCC; see the file COPYING3.  If not see
  * This may report false-positive errors due to round-off errors.
  */
 #undef INTEGRITY_HEURISTICS
- 
+
+/* During development and testing, I'm using conditional compilation to
+ * distinguish new code from original implementation.
+ */
 #define KELVIN_PATCH
 
 static void copy_loops_to (struct loop **, int,
@@ -59,6 +62,7 @@ static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
 #ifdef KELVIN_PATCH
+
 
 /*
  * Return true iff block is considered to reside within the loop
@@ -93,15 +97,18 @@ void zero_loop_frequencies(loop_p loop_ptr)
   free (bbs);
 }
 
+/* A list of block_ladder_rung structs is used to keep track of all the
+ * blocks visited in a depth-first recursive traversal of a control-flow
+ * graph.  This list is used to detect and prevent attempts to revisit
+ * a block that is already being visited in the recursive traversal.
+ */
 typedef struct block_ladder_rung {
   basic_block block;
   struct block_ladder_rung *lower_rung;
 } *ladder_rung_p;
 
-
-/* I'm not sure the same logical edge will always be represented
- * by the same edge data object.  So we will test equality by
- * comparing source and dest values.
+/* Return true iff an_edge represents the same source and destination
+ * blocks as another_edge.
  */
 static bool same_edge(edge an_edge, edge another_edge)
 {
@@ -125,19 +132,19 @@ static bool in_edge_set(edge an_edge, vec<edge> set_of_edges)
   return false;
 }
 
-/* return true iff an_edge->dest is already represented within
+/* Return true iff an_edge->dest is already represented within
  * the ladder_rung.
  */
 static bool in_call_chain(edge an_edge, ladder_rung_p ladder_rung)
 {
-  if (ladder_rung == NULL)
-    return false;
-  else if (an_edge->dest == ladder_rung->block)
-    return true;
-  else
-    return in_call_chain(an_edge, ladder_rung->lower_rung);
+  while (ladder_rung != NULL) {
+    if (an_edge->dest == ladder_rung->block)
+      return true;
+    else
+      ladder_rung = ladder_rung->lower_rung;
+  }
+  return FALSE;
 }
-
 
 static void
 recursively_zero_frequency(loop_p loop_ptr, vec<edge> exit_edges,
@@ -157,12 +164,11 @@ recursively_zero_frequency(loop_p loop_ptr, vec<edge> exit_edges,
     a_rung.block = block;
     a_rung.lower_rung = ladder_rung;
     block->frequency = 0;
-    for (unsigned int i = 0; i < EDGE_COUNT(block->succs); i++)
-      {
-	edge successor = EDGE_SUCC(block, i);
-	recursively_zero_frequency(loop_ptr, exit_edges,
-				   &a_rung, successor);
-      }
+    for (unsigned int i = 0; i < EDGE_COUNT(block->succs); i++) {
+      edge successor = EDGE_SUCC(block, i);
+      recursively_zero_frequency(loop_ptr, exit_edges,
+				 &a_rung, successor);
+    }
   }
 }
 				     
@@ -186,16 +192,10 @@ static bool recursion_detected(basic_block candidate,
  * the latch pass through the loop header, then the node is contained
  * within an outer-nested loop but not within this loop.)
  *
- * Note that if a candidate's success is the loop, then the candidate
- * itself is also in the loop.  If none of the successors are in the
- * loop
- *
- * As originally implemented, this goes into infinite recursion when a
- * loop is nested within another loop.  The recursion is
- * associated with a test of a candidate that is in the outer loop but
- * not the inner loop.  The recursion does not terminate because there
- * are control paths that iterate on the outer loop without passing
- * through the inner loop's latch or header.
+ * Note that if a candidate's successor is in the loop and the successor
+ * is not the loop header, then the candidate itself is also in the loop.
+ * If none of the successors of a candidate are in the loop, then the
+ * candidate itself is not in the loop.
  */
 static bool _in_loop(basic_block candidate,
 		     basic_block loop_header,
@@ -209,6 +209,10 @@ static bool _in_loop(basic_block candidate,
     return start_of_recursion;
   } else if (!start_of_recursion &&
 	     recursion_detected(candidate, lower_steps)) {
+    /* if recursion revisits a node already visited and the loop latch
+     * was not visited in the call chain, then we are traversing an
+     * iterative path that belongs to an outer-nested loop.
+     */
     return false;
   } else {
     struct block_ladder_rung new_step;
@@ -225,6 +229,9 @@ static bool _in_loop(basic_block candidate,
   }
 }
 
+/* return true iff candidate matches one of the blocks contained within 
+ * loop_set.
+ */
 static bool _in_loop_set(basic_block candidate, vec<basic_block> loop_set) 
 {
   unsigned int j;
@@ -238,9 +245,9 @@ static bool _in_loop_set(basic_block candidate, vec<basic_block> loop_set)
   return false;
 }
 
-/* Add candidate into the results array at position count if candidate
+/* Add candidate into the results vector if candidate
  * is in the loop and it is not already contained within the results
- * array. 
+ * vector. 
  *
  * We consider the block to be within the loop if there exists a path
  * within the control flow graph from this node to the loop's latch
@@ -248,14 +255,10 @@ static bool _in_loop_set(basic_block candidate, vec<basic_block> loop_set)
  * the latch pass through the loop header, then the node is contained
  * within an outer-nested loop but not within this loop.)
  *
- * If and only if candidate is added to the results array, recursively
- * do the same for each successor of candidate starting at the following
- * position (count + 1) within the array.
+ * If and only if candidate is added to the results vector, recursively
+ * do the same for each successor of candidate block.
  *
- * Abort with an internal error message if the number of blocks to be
- * added into the results array exceeds the array's size.
- *
- * return the number of nodes stored within the results array
+ * Return the potentially modified results vector.
  */
 static vec<basic_block> _recursively_get_loop_blocks(basic_block candidate,
 						     vec<basic_block> results,
@@ -265,7 +268,7 @@ static vec<basic_block> _recursively_get_loop_blocks(basic_block candidate,
   basic_block bb;
   unsigned int u;
 
-  /* if candidate is already in the results array, then we're done */
+  /* if candidate is already in the results vector, then we're done */
   FOR_EACH_VEC_ELT(results, u, bb) {
     if (bb == candidate)
       return results;
@@ -285,7 +288,9 @@ static vec<basic_block> _recursively_get_loop_blocks(basic_block candidate,
   return results;
 }
 
-
+/* Return a vector containing all of the blocks contained within the
+ * loop identified by loop_ptr.
+ */
 static vec<basic_block> _get_loop_blocks(loop_p loop_ptr)
 {
   vec<basic_block> results;
@@ -296,6 +301,8 @@ static vec<basic_block> _get_loop_blocks(loop_p loop_ptr)
   return results;
 }
 
+/* Return true iff block is an element of the block_set vector.
+ */
 static bool _in_block_set(basic_block block, vec<basic_block> block_set)
 {
   basic_block bb;
@@ -307,6 +314,9 @@ static bool _in_block_set(basic_block block, vec<basic_block> block_set)
   return false;
 }
 
+/* Return a vector containing all of the edges that exit the loop
+ * represented by the loop_blocks vector.
+ */
 static vec<edge> _get_loop_exit_edges(vec<basic_block> loop_blocks) {
   basic_block bb;
   unsigned int u;
@@ -392,15 +402,6 @@ recursively_increment_frequency(loop_p loop_ptr, vec<edge> exit_edges,
     return;
   else if (in_call_chain(incoming_edge, ladder_rung))
     return;
-  /* right here, I think I need a short-circuit evaluator to return if
-     a_block is not inside the loop
-
-     so why didn't my test for exit_edges membership work?
-
-     in the trace, in_block_set(7) fails, but then I acdtually do an
-     increment for block 7.
-
-  */
   else {
     struct block_ladder_rung a_rung;
     basic_block block = incoming_edge->dest;
@@ -412,7 +413,6 @@ recursively_increment_frequency(loop_p loop_ptr, vec<edge> exit_edges,
       edge successor = EDGE_SUCC(block, i);
       int successor_increment =
 	(frequency_increment * successor->probability) / REG_BR_PROB_BASE;
-
       recursively_increment_frequency(loop_ptr, exit_edges,
 				      &a_rung, successor,
 				      successor_increment);
@@ -548,8 +548,8 @@ static void check_loop_frequency_integrity(loop_p loop_ptr)
   loop_body.release();
   exit_edges.release();
 }
-#endif
-#endif
+#endif  /* INTEGRITY_HEURISTICS */
+#endif  /* KELVIN_PATCH */
 
 
 /* Checks whether basic block BB is dominated by DATA.  */
@@ -1749,9 +1749,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   bitmap_iterator bi;
 
 #ifdef KELVIN_PATCH
-  /* kelvin is going to figure out the initial ratio between frequency
+  /* Remember the initial ratio between frequency
    * of edge into loop header and the frequency of the loop header.
-   * We will preserve this ratio when we make adjustments to the loop.
+   * Preserve this ratio when we make adjustments within the loop.
    */
   int header_frequency = header->frequency;
   int preheader_frequency = 0;
@@ -1766,20 +1766,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     }
   }
 
-  fprintf(stderr,
-	  "On entry to duplicate_loop_to_header_edge, sum: %d, header: %d\n",
-	  preheader_frequency, header_frequency);
-  fprintf(stderr,
-	  "runtime scaling of sum is %d\n",
-	  (int) (preheader_frequency * 111111 + 5000) / 10000);
-  fprintf(stderr,
-	  "compile-time scaling of sum is %d\n",
-	  (int) (preheader_frequency * 990099 + 5000) / 10000);
-
   int exit_ratio = (header_frequency * 10000 - 5000) / preheader_frequency;
-
-  fprintf(stderr, " exit_ratio is %d\n", exit_ratio);
-
 #endif
 
   gcc_assert (e->dest == loop->header);
@@ -1936,32 +1923,11 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   {
     edge predecessor = EDGE_PRED(my_header, i);
 
-    /*
-     * Kelvin found a problem here.  Below, where I
-     * accumulate into the sum_incoming_frequencies variable, I am
-     * multiplying by 111111.  I think this corresponds to dividing by
-     * 0.09.  Note that 1/0.09 = 11.1111.
-     *
-     * Problem is, dividing by 0.09 is appropriate iff this loop
-     * is controlled by an iteration count that is only known at
-     * run-time.  When the loop iteration count is known at compile
-     * time, we should divide by 0.0101 instead.  Note that
-     * 1/0.0101 = 99.0099
-     *
-     * Thinking out loud, Kelvin wonders if we still need to use
-     * heuristics in the case that the constant is known at compile
-     * time.  I think maybe we do.  Maybe we do because maybe, our
-     * knowledge that this loop is controlled by a compile-time
-     * constant is distinct from our knowledge of the constant's
-     * actual value.
-     *
-     * kelvin needs to scrutinize this code.  is there a parameter
-     * that helps me determine the appropriate scale factor?
-     *
-     * exit_ratio is computed based on remembered circumstances upon
-     * entry into this function.  In theory, this fixes my implementation.
+    /* exit_ratio is computed based on remembered circumstances upon
+     * entry into this function.  Note that loops bounded by a compile-time
+     * constant have different exit ratio than loops bounded by a run-time
+     * value.
      */
-
     if (!in_loop_p(predecessor->src, loop))
       sum_incoming_frequencies +=
 	(int) (EDGE_FREQUENCY(predecessor) * exit_ratio + 5000) / 10000;
@@ -2040,12 +2006,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
 
 #ifdef KELVIN_PATCH
-      fprintf(stderr, " preparing to zero partial loop frequencies\n");
       zero_partial_loop_frequencies(loop, saved_place_after);
-      fprintf(stderr, " preparing to increment loop frequencies\n");
       increment_loop_frequencies(loop,
 				 saved_place_after, place_after_frequency);
-#else
 #endif
 
       /* Record exit edge in this copy.  */
