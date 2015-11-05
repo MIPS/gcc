@@ -4876,6 +4876,7 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
   rtx original_reg;
   int hard_regno, nregs;
   rtx new_reg, save, restore, usage_insn;
+  rtx note;
   bool after_p;
   bool call_save_p;
 
@@ -4991,6 +4992,12 @@ split_reg (bool before_p, int original_regno, rtx insn, rtx next_usage_insns)
     }
   lra_assert (NOTE_P (usage_insn) || NONDEBUG_INSN_P (usage_insn));
   lra_assert (usage_insn != insn || (after_p && before_p));
+  if ((note = find_reg_note (insn, REG_EQUIV, 0)) && MEM_P (XEXP (note, 0)))
+    {
+      ira_reg_equiv[REGNO (new_reg)].memory = XEXP (note, 0);
+      ira_reg_equiv[REGNO (new_reg)].defined_p = 1;
+      ira_reg_equiv[REGNO (new_reg)].profitable_p = 1;
+    }
   lra_process_new_insns (usage_insn, after_p ? NULL_RTX : restore,
 			 after_p ? restore : NULL_RTX,
 			 call_save_p
