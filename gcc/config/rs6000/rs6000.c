@@ -12906,15 +12906,13 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	  case HTM_BUILTIN_TENDALL:  /* Alias for: tend. 1  */
 	  case HTM_BUILTIN_TRESUME:  /* Alias for: tsr. 1  */
 	    op[nopnds++] = GEN_INT (1);
-#ifdef ENABLE_CHECKING
-	    attr |= RS6000_BTC_UNARY;
-#endif
+	    if (flag_checking)
+	      attr |= RS6000_BTC_UNARY;
 	    break;
 	  case HTM_BUILTIN_TSUSPEND: /* Alias for: tsr. 0  */
 	    op[nopnds++] = GEN_INT (0);
-#ifdef ENABLE_CHECKING
-	    attr |= RS6000_BTC_UNARY;
-#endif
+	    if (flag_checking)
+	      attr |= RS6000_BTC_UNARY;
 	    break;
 	  default:
 	    break;
@@ -12935,21 +12933,23 @@ htm_expand_builtin (tree exp, rtx target, bool * expandedp)
 	    op[nopnds++] = cr;
 	  }
 
-#ifdef ENABLE_CHECKING
-	int expected_nopnds = 0;
-	if ((attr & RS6000_BTC_TYPE_MASK) == RS6000_BTC_UNARY)
-	  expected_nopnds = 1;
-	else if ((attr & RS6000_BTC_TYPE_MASK) == RS6000_BTC_BINARY)
-	  expected_nopnds = 2;
-	else if ((attr & RS6000_BTC_TYPE_MASK) == RS6000_BTC_TERNARY)
-	  expected_nopnds = 3;
-	if (!(attr & RS6000_BTC_VOID))
-	  expected_nopnds += 1;
-	if (uses_spr)
-	  expected_nopnds += 2;
+	if (flag_checking)
+	  {
+	    int expected_nopnds = 0;
+	    if ((attr & RS6000_BTC_TYPE_MASK) == RS6000_BTC_UNARY)
+	      expected_nopnds = 1;
+	    else if ((attr & RS6000_BTC_TYPE_MASK) == RS6000_BTC_BINARY)
+	      expected_nopnds = 2;
+	    else if ((attr & RS6000_BTC_TYPE_MASK) == RS6000_BTC_TERNARY)
+	      expected_nopnds = 3;
+	    if (!(attr & RS6000_BTC_VOID))
+	      expected_nopnds += 1;
+	    if (uses_spr)
+	      expected_nopnds += 2;
 
-	gcc_assert (nopnds == expected_nopnds && nopnds <= MAX_HTM_OPERANDS);
-#endif
+	    gcc_assert (nopnds == expected_nopnds
+			&& nopnds <= MAX_HTM_OPERANDS);
+	  }
 
 	switch (nopnds)
 	  {
@@ -22021,20 +22021,27 @@ save_reg_p (int r)
 static bool
 rs6000_reg_live_or_pic_offset_p (int reg)
 {
-  /* If the function calls eh_return, claim used all the registers that would
-     be checked for liveness otherwise.  This is required for the PIC offset
-     register with -mminimal-toc on AIX, as it is advertised as "fixed" for
-     register allocation purposes in this case.  */
+  /* We need to mark the PIC offset register live for the same conditions
+     as it is set up, or otherwise it won't be saved before we clobber it.  */
 
-  return (((crtl->calls_eh_return || df_regs_ever_live_p (reg))
-           && (!call_used_regs[reg]
-               || (reg == RS6000_PIC_OFFSET_TABLE_REGNUM
-		   && !TARGET_SINGLE_PIC_BASE
-                   && TARGET_TOC && TARGET_MINIMAL_TOC)))
-          || (reg == RS6000_PIC_OFFSET_TABLE_REGNUM
-	      && !TARGET_SINGLE_PIC_BASE
-              && ((DEFAULT_ABI == ABI_V4 && flag_pic != 0)
-                  || (DEFAULT_ABI == ABI_DARWIN && flag_pic))));
+  if (reg == RS6000_PIC_OFFSET_TABLE_REGNUM && !TARGET_SINGLE_PIC_BASE)
+    {
+      if (TARGET_TOC && TARGET_MINIMAL_TOC
+	  && (crtl->calls_eh_return
+	      || df_regs_ever_live_p (reg)
+	      || get_pool_size ()))
+	return true;
+
+      if ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN)
+	  && flag_pic)
+	return true;
+    }
+
+  /* If the function calls eh_return, claim used all the registers that would
+     be checked for liveness otherwise.  */
+
+  return ((crtl->calls_eh_return || df_regs_ever_live_p (reg))
+	  && !call_used_regs[reg]);
 }
 
 /* Return the first fixed-point register that is required to be
@@ -24325,7 +24332,7 @@ rs6000_emit_prologue (void)
      prior to it, when r12 is not used here for other purposes.  */
   rtx_insn *sp_adjust = 0;
 
-#ifdef ENABLE_CHECKING
+#if CHECKING_P
   /* Track and check usage of r0, r11, r12.  */
   int reg_inuse = using_static_chain_p ? 1 << 11 : 0;
 #define START_USE(R) do \
@@ -34587,6 +34594,7 @@ rs6000_code_end (void)
 
   DECL_INITIAL (decl) = make_node (BLOCK);
   current_function_decl = decl;
+  allocate_struct_function (decl, false);
   init_function_start (decl);
   first_function_block_is_cold = false;
   /* Make sure unwind info is emitted for the thunk if needed.  */

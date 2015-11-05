@@ -379,6 +379,7 @@ static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alloc_align_attribute (tree *, tree, tree, int, bool *);
 static tree handle_assume_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_target_attribute (tree *, tree, tree, int, bool *);
+static tree handle_target_clones_attribute (tree *, tree, tree, int, bool *);
 static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
@@ -793,6 +794,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_error_attribute, false },
   { "target",                 1, -1, true, false, false,
 			      handle_target_attribute, false },
+  { "target_clones",          1, -1, true, false, false,
+			      handle_target_clones_attribute, false },
   { "optimize",               1, -1, true, false, false,
 			      handle_optimize_attribute, false },
   /* For internal use only.  The leading '*' both prevents its usage in
@@ -7391,6 +7394,12 @@ handle_always_inline_attribute (tree *node, tree name,
 		   "with %qs attribute", name, "noinline");
 	  *no_add_attrs = true;
 	}
+      else if (lookup_attribute ("target_clones", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "target_clones");
+	  *no_add_attrs = true;
+	}
       else
 	/* Set the attribute and mark it for disregarding inline
 	   limits.  */
@@ -9819,10 +9828,49 @@ handle_target_attribute (tree *node, tree name, tree args, int flags,
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
     }
+  else if (lookup_attribute ("target_clones", DECL_ATTRIBUTES (*node)))
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "target_clones");
+      *no_add_attrs = true;
+    }
   else if (! targetm.target_option.valid_attribute_p (*node, name, args,
 						      flags))
     *no_add_attrs = true;
 
+  return NULL_TREE;
+}
+
+/* Handle a "target_clones" attribute.  */
+
+static tree
+handle_target_clones_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  /* Ensure we have a function type.  */
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (lookup_attribute ("always_inline", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "always_inline");
+	  *no_add_attrs = true;
+	}
+      else if (lookup_attribute ("target", DECL_ATTRIBUTES (*node)))
+	{
+	  warning (OPT_Wattributes, "%qE attribute ignored due to conflict "
+		   "with %qs attribute", name, "target");
+	  *no_add_attrs = true;
+	}
+      else
+      /* Do not inline functions with multiple clone targets.  */
+	DECL_UNINLINABLE (*node) = 1;
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
   return NULL_TREE;
 }
 
@@ -10584,11 +10632,11 @@ c_common_to_target_charset (HOST_WIDE_INT c)
    traditional rendering of offsetof as a macro.  Return the folded result.  */
 
 tree
-fold_offsetof_1 (tree expr)
+fold_offsetof_1 (tree expr, enum tree_code ctx)
 {
   tree base, off, t;
-
-  switch (TREE_CODE (expr))
+  tree_code code = TREE_CODE (expr);
+  switch (code)
     {
     case ERROR_MARK:
       return expr;
@@ -10612,7 +10660,7 @@ fold_offsetof_1 (tree expr)
       return TREE_OPERAND (expr, 0);
 
     case COMPONENT_REF:
-      base = fold_offsetof_1 (TREE_OPERAND (expr, 0));
+      base = fold_offsetof_1 (TREE_OPERAND (expr, 0), code);
       if (base == error_mark_node)
 	return base;
 
@@ -10629,7 +10677,7 @@ fold_offsetof_1 (tree expr)
       break;
 
     case ARRAY_REF:
-      base = fold_offsetof_1 (TREE_OPERAND (expr, 0));
+      base = fold_offsetof_1 (TREE_OPERAND (expr, 0), code);
       if (base == error_mark_node)
 	return base;
 
@@ -10644,8 +10692,9 @@ fold_offsetof_1 (tree expr)
 	      && !tree_int_cst_equal (upbound,
 				      TYPE_MAX_VALUE (TREE_TYPE (upbound))))
 	    {
-	      upbound = size_binop (PLUS_EXPR, upbound,
-				    build_int_cst (TREE_TYPE (upbound), 1));
+	      if (ctx != ARRAY_REF && ctx != COMPONENT_REF)
+	        upbound = size_binop (PLUS_EXPR, upbound,
+				      build_int_cst (TREE_TYPE (upbound), 1));
 	      if (tree_int_cst_lt (upbound, t))
 		{
 		  tree v;

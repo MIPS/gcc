@@ -83,14 +83,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tree-pass.h"
 #include "ssa.h"
-#include "expmed.h"
-#include "insn-config.h"
-#include "emit-rtl.h"
 #include "cgraph.h"
 #include "gimple-pretty-print.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "internal-fn.h"
 #include "tree-eh.h"
 #include "stor-layout.h"
 #include "gimplify.h"
@@ -98,13 +94,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "tree-cfg.h"
-#include "flags.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "symbol-summary.h"
@@ -956,6 +945,7 @@ scalarizable_type_p (tree type)
 	;
       else if ((tree_to_shwi (TYPE_SIZE (type)) <= 0)
 	       || !tree_fits_shwi_p (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
+	/* Variable-length array, do not allow scalarization.  */
 	return false;
 
       tree elem = TREE_TYPE (type);
@@ -1005,6 +995,7 @@ completely_scalarize (tree base, tree decl_type, HOST_WIDE_INT offset, tree ref)
 	tree minidx = TYPE_MIN_VALUE (TYPE_DOMAIN (decl_type));
 	gcc_assert (TREE_CODE (minidx) == INTEGER_CST);
 	tree maxidx = TYPE_MAX_VALUE (TYPE_DOMAIN (decl_type));
+	/* Skip (some) zero-length arrays; others have MAXIDX == MINIDX - 1.  */
 	if (maxidx)
 	  {
 	    gcc_assert (TREE_CODE (maxidx) == INTEGER_CST);
@@ -2146,7 +2137,7 @@ create_access_replacement (struct access *access)
   return repl;
 }
 
-/* Return ACCESS scalar replacement, create it if it does not exist yet.  */
+/* Return ACCESS scalar replacement, which must exist.  */
 
 static inline tree
 get_access_replacement (struct access *access)

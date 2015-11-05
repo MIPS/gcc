@@ -1891,7 +1891,6 @@ trans_code (gfc_code * code, tree cond)
 	  res = gfc_trans_omp_directive (code);
 	  break;
 
-	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_WAIT:
 	case EXEC_OACC_UPDATE:
@@ -1904,6 +1903,7 @@ trans_code (gfc_code * code, tree cond)
 	case EXEC_OACC_PARALLEL_LOOP:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
+	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_DECLARE:
 	  res = gfc_trans_oacc_directive (code);
 	  break;

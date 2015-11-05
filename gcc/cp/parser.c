@@ -11295,22 +11295,6 @@ cp_parser_for_init_statement (cp_parser* parser, tree *decl)
       bool is_range_for = false;
       bool saved_colon_corrects_to_scope_p = parser->colon_corrects_to_scope_p;
 
-      if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
-	  && cp_lexer_nth_token_is (parser->lexer, 2, CPP_COLON))
-	{
-	  /* N3994 -- for (id : init) ... */
-	  if (cxx_dialect < cxx1z)
-	    pedwarn (input_location, 0, "range-based for loop without a "
-		     "type-specifier only available with "
-		     "-std=c++1z or -std=gnu++1z");
-	  tree name = cp_parser_identifier (parser);
-	  tree type = cp_build_reference_type (make_auto (), /*rval*/true);
-	  *decl = build_decl (input_location, VAR_DECL, name, type);
-	  pushdecl (*decl);
-	  cp_lexer_consume_token (parser->lexer);
-	  return true;
-	}
-
       /* A colon is used in range-based for.  */
       parser->colon_corrects_to_scope_p = false;
 
@@ -14871,9 +14855,8 @@ cp_parser_template_argument_list (cp_parser* parser)
   parser->non_integral_constant_expression_p = saved_non_ice_p;
   parser->integral_constant_expression_p = saved_ice_p;
   parser->in_template_argument_list_p = saved_in_template_argument_list_p;
-#ifdef ENABLE_CHECKING
-  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (vec, TREE_VEC_LENGTH (vec));
-#endif
+  if (CHECKING_P)
+    SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (vec, TREE_VEC_LENGTH (vec));
   return vec;
 }
 
@@ -19461,6 +19444,8 @@ cp_parser_type_id_1 (cp_parser* parser, bool is_template_arg,
     abstract_declarator = NULL;
 
   if (type_specifier_seq.type
+      /* The concepts TS allows 'auto' as a type-id.  */
+      && !flag_concepts
       /* None of the valid uses of 'auto' in C++14 involve the type-id
 	 nonterminal, but it is valid in a trailing-return-type.  */
       && !(cxx_dialect >= cxx14 && is_trailing_return)
@@ -19488,12 +19473,14 @@ cp_parser_type_id_1 (cp_parser* parser, bool is_template_arg,
 		       is_template_arg);
 }
 
-static tree cp_parser_type_id (cp_parser *parser)
+static tree
+cp_parser_type_id (cp_parser *parser)
 {
   return cp_parser_type_id_1 (parser, false, false);
 }
 
-static tree cp_parser_template_type_arg (cp_parser *parser)
+static tree
+cp_parser_template_type_arg (cp_parser *parser)
 {
   tree r;
   const char *saved_message = parser->type_definition_forbidden_message;
@@ -19501,7 +19488,7 @@ static tree cp_parser_template_type_arg (cp_parser *parser)
     = G_("types may not be defined in template arguments");
   r = cp_parser_type_id_1 (parser, true, false);
   parser->type_definition_forbidden_message = saved_message;
-  if (cxx_dialect >= cxx14 && type_uses_auto (r))
+  if (cxx_dialect >= cxx14 && !flag_concepts && type_uses_auto (r))
     {
       error ("invalid use of %<auto%> in template argument");
       r = error_mark_node;
@@ -37351,30 +37338,16 @@ tree_type_is_auto_or_concept (const_tree t)
 static tree
 get_concept_from_constraint (tree t)
 {
-  gcc_assert (TREE_CODE (t) == PRED_CONSTR);
-  t = PRED_CONSTR_EXPR (t);
-  gcc_assert (TREE_CODE (t) == CALL_EXPR
-              || TREE_CODE (t) == TEMPLATE_ID_EXPR
-              || VAR_P (t));
-
-  if (TREE_CODE (t) == TEMPLATE_ID_EXPR)
-    return DECL_TEMPLATE_RESULT (TREE_OPERAND (t, 0));
-  if (VAR_P (t))
-    return DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (t));
-  else
-    {
-      tree fn = CALL_EXPR_FN (t);
-      tree ovl = TREE_OPERAND (fn, 0);
-      tree tmpl = OVL_FUNCTION (ovl);
-      return DECL_TEMPLATE_RESULT (tmpl);
-    }
+  tree tmpl, args;
+  placeholder_extract_concept_and_args (t, tmpl, args);
+  return DECL_TEMPLATE_RESULT (tmpl);
 }
 
 /* Add an implicit template type parameter to the CURRENT_TEMPLATE_PARMS
    (creating a new template parameter list if necessary).  Returns the newly
    created template type parm.  */
 
-tree
+static tree
 synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 {
   gcc_assert (current_binding_level->kind == sk_function_parms);
@@ -37567,7 +37540,7 @@ synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
    declaration can be completed.  If MEMBER_DECL_OPT is provided the finished
    form is returned.  Otherwise NULL_TREE is returned. */
 
-tree
+static tree
 finish_fully_implicit_template (cp_parser *parser, tree member_decl_opt)
 {
   gcc_assert (parser->fully_implicit_function_template_p);

@@ -261,20 +261,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "ssa.h"
-#include "expmed.h"
-#include "insn-config.h"
-#include "emit-rtl.h"
 #include "gimple-pretty-print.h"
-#include "alias.h"
 #include "fold-const.h"
-#include "flags.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
-#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -1836,20 +1824,6 @@ interpret_rhs_expr (struct loop *loop, gimple *at_stmt,
       chrec2 = chrec_convert (type, chrec2, at_stmt);
       chrec1 = instantiate_parameters (loop, chrec1);
       chrec2 = instantiate_parameters (loop, chrec2);
-      res = chrec_fold_multiply (type, chrec1, chrec2);
-      break;
-
-    case LSHIFT_EXPR:
-      /* Handle A<<B as A * (1<<B).  */
-      chrec1 = analyze_scalar_evolution (loop, rhs1);
-      chrec2 = analyze_scalar_evolution (loop, rhs2);
-      chrec1 = chrec_convert (type, chrec1, at_stmt);
-      chrec1 = instantiate_parameters (loop, chrec1);
-      chrec2 = instantiate_parameters (loop, chrec2);
-
-      chrec2 = fold_build2 (LSHIFT_EXPR, type,
-			    build_int_cst (TREE_TYPE (rhs1), 1),
-			    chrec2);
       res = chrec_fold_multiply (type, chrec1, chrec2);
       break;
 

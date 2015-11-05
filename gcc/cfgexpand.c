@@ -29,14 +29,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "tm_p.h"
 #include "ssa.h"
-#include "expmed.h"
 #include "optabs.h"
 #include "regs.h" /* For reg_renumber.  */
 #include "emit-rtl.h"
 #include "recog.h"
 #include "cgraph.h"
 #include "diagnostic.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
@@ -46,15 +44,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "flags.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
 #include "expr.h"
-#include "langhooks.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-iterator.h"
+#include "gimple-expr.h"
 #include "gimple-walk.h"
 #include "tree-cfg.h"
 #include "tree-dfa.h"
@@ -6372,6 +6369,8 @@ pass_expand::execute (function *fun)
 
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
+
+  flush_mark_addressable_queue ();
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (fun)->next_bb,
 		  EXIT_BLOCK_PTR_FOR_FN (fun), next_bb)

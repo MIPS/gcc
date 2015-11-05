@@ -28,7 +28,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc-internal.h"
 #include "params.h"
 #include "hosthooks.h"
-#include "hosthooks-def.h"
 #include "plugin.h"
 
 /* When set, ggc_collect will do collection.  */

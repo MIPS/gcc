@@ -58,19 +58,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "hard-reg-set.h"
 #include "tree.h"
 #include "gimple.h"
 #include "predict.h"
 #include "tree-pass.h"
 #include "ssa.h"
 #include "cgraph.h"
-#include "tree-pretty-print.h"
-#include "dumpfile.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "tree-ssa-loop-manip.h"
@@ -79,7 +74,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-vectorizer.h"
 #include "tree-ssa-propagate.h"
 #include "dbgcnt.h"
-#include "gimple-fold.h"
 #include "tree-scalar-evolution.h"
 
 
@@ -702,18 +696,9 @@ pass_slp_vectorize::execute (function *fun)
 
   FOR_EACH_BB_FN (bb, fun)
     {
-      vect_location = find_bb_location (bb);
-
-      if (vect_slp_analyze_bb (bb))
-        {
-          if (!dbg_cnt (vect_slp))
-            break;
-
-          vect_slp_transform_bb (bb);
-          if (dump_enabled_p ())
-            dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
-			     "basic block vectorized\n");
-        }
+      if (vect_slp_bb (bb))
+	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
+			 "basic block vectorized\n");
     }
 
   free_stmt_vec_info_vec ();

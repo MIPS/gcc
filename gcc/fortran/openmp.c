@@ -2760,6 +2760,7 @@ gfc_match_omp_ordered (void)
   return MATCH_YES;
 }
 
+
 static match
 gfc_match_omp_oacc_atomic (bool omp_p)
 {
@@ -4646,7 +4647,6 @@ oacc_code_to_statement (gfc_code *code)
 {
   switch (code->op)
     {
-
     case EXEC_OACC_PARALLEL:
       return ST_OACC_PARALLEL;
     case EXEC_OACC_KERNELS:
@@ -4967,7 +4967,6 @@ void
 gfc_resolve_oacc_declare (gfc_namespace *ns)
 {
   gfc_omp_namelist *n;
-  locus loc;
   gfc_oacc_declare *oc;
 
   if (ns->oacc_declare == NULL)
@@ -4975,8 +4974,6 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 
   for (oc = ns->oacc_declare; oc; oc = oc->next)
     {
-      loc = oc->where;
-
       for (n = oc->clauses->lists[OMP_LIST_DEVICE_RESIDENT]; n; n = n->next)
 	{
 	  n->sym->mark = 0;
@@ -4984,8 +4981,7 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 	    gfc_error ("PARAMETER object %qs is not allowed at %L",
 		       n->sym->name, &n->where);
 
-	  check_array_not_assumed (n->sym, n->where,
-				   "DEVICE_RESIDENT");	  
+	  check_array_not_assumed (n->sym, n->where, "DEVICE_RESIDENT");
 	}
 
       for (n = oc->clauses->lists[OMP_LIST_MAP]; n; n = n->next)
@@ -5017,8 +5013,7 @@ gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     case EXEC_OACC_EXIT_DATA:
     case EXEC_OACC_WAIT:
     case EXEC_OACC_CACHE:
-      resolve_omp_clauses (code, code->ext.omp_clauses, NULL,
-			   true);
+      resolve_omp_clauses (code, code->ext.omp_clauses, NULL, true);
       break;
     case EXEC_OACC_PARALLEL_LOOP:
     case EXEC_OACC_KERNELS_LOOP:

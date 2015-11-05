@@ -877,7 +877,7 @@ event_add (enum ptx_event_type type, CUevent *e, void *h)
 
 void
 nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
-	    int async, unsigned dims[GOMP_DIM_MAX], void *targ_mem_desc)
+	    int async, unsigned *dims, void *targ_mem_desc)
 {
   struct targ_fn_descriptor *targ_fn = (struct targ_fn_descriptor *) fn;
   CUfunction function;
@@ -1656,8 +1656,7 @@ GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
 			       void **hostaddrs, void **devaddrs,
 			       int async, unsigned *dims, void *targ_mem_desc)
 {
-  nvptx_exec (fn, mapnum, hostaddrs, devaddrs,
-	      async, dims, targ_mem_desc);
+  nvptx_exec (fn, mapnum, hostaddrs, devaddrs, async, dims, targ_mem_desc);
 }
 
 void

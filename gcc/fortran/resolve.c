@@ -10635,7 +10635,6 @@ start:
 		       "expression", &code->expr1->where);
 	  break;
 
-	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_PARALLEL_LOOP:
 	case EXEC_OACC_PARALLEL:
 	case EXEC_OACC_KERNELS_LOOP:
@@ -10648,6 +10647,7 @@ start:
 	case EXEC_OACC_CACHE:
 	case EXEC_OACC_ENTER_DATA:
 	case EXEC_OACC_EXIT_DATA:
+	case EXEC_OACC_ATOMIC:
 	case EXEC_OACC_DECLARE:
 	  gfc_resolve_oacc_directive (code, ns);
 	  break;

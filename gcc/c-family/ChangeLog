@@ -1,3 +1,29 @@
+2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* c-omp.c (c_omp_split_clauses): Remove conditional compilation. Use
+	flag_checking.
+
+2015-11-03  Bernd Schmidt <bschmidt@redhat.com>
+
+	PR c++-common/67882
+	* c-family/c-common.h (fold_offsetof_1): Add argument.
+	* c-family/c-common.c (fold_offsetof_1): Diagnose more invalid
+	offsetof expressions that reference elements past the end of
+	an array.
+
+2015-11-03  Thomas Schwinge  <thomas@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* c-pragma.c (oacc_pragmas): Add "atomic".
+	* c-pragma.h (pragma_kind): Add PRAGMA_OACC_ATOMIC.
+
+2015-10-30  Evgeny Stupachenko  <evstupac@gmail.com>
+
+	* c-common.c (handle_target_clones_attribute): New.
+	(c_common_attribute_table): Add handle_target_clones_attribute.
+	(handle_always_inline_attribute): Add check on target_clones attribute.
+	(handle_target_attribute): Ditto.
+
 2015-10-29  Andrew MacLeod  <amacleod@redhat.com>
 
 	* array-notation-common.c: Reorder #include's and remove duplicates.

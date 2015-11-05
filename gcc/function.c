@@ -53,15 +53,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "flags.h"
 #include "except.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "stmt.h"
 #include "expr.h"
 #include "optabs-tree.h"
-#include "libfuncs.h"
 #include "output.h"
 #include "langhooks.h"
 #include "common/common-target.h"
@@ -72,8 +69,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "cfgexpand.h"
-#include "params.h"
-#include "bb-reorder.h"
 #include "shrink-wrap.h"
 #include "toplev.h"
 #include "rtl-iter.h"
@@ -4962,11 +4957,6 @@ init_dummy_function_start (void)
 void
 init_function_start (tree subr)
 {
-  if (subr && DECL_STRUCT_FUNCTION (subr))
-    set_cfun (DECL_STRUCT_FUNCTION (subr));
-  else
-    allocate_struct_function (subr, false);
-
   /* Initialize backend, if needed.  */
   initialize_rtl ();
 

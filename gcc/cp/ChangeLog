@@ -1,3 +1,82 @@
+2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* call.c (validate_conversion_obstack): Define unconditionally.
+	* constexpr.c (maybe_constant_value, fold_non_dependent_expr): Use
+	gcc_checking_assert.
+	* cp-tree.h: Use CHECKING_P instead of ENABLE_CHECKING.
+	* decl2.c (cxx_post_compilation_parsing_cleanups): Use flag_checking.
+	* mangle.c (add_substitution): Likewise.
+	* method.c (maybe_explain_implicit_delete): Likewise.
+	* parser.c (cp_parser_template_argument_list): Remove conditional
+	compilation.
+	* pt.c (check_unstripped_args): Rename to...
+	(verify_unstripped_args): ... this and remove conditional compilation.
+	(retrieve_specialization): Guard call of verify_unstripped_args with
+	flag_checking.
+	(template_parm_to_arg): Remove conditional compilation.
+	(template_parms_to_args, coerce_template_parameter_pack,
+	coerce_template_parms): Likewise.
+	(tsubst_copy): Use flag_checking.
+	(type_unification_real): Remove conditional compilation.
+	(build_non_dependent_expr): Use flag_checking.
+	* tree.c (build_target_expr): Remove conditional compilation, use
+	gcc_checking_assert.
+	* typeck.c (comptypes): Likewise.
+	* typeck2.c (digest_init_r): Likewise.
+
+2015-11-03  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (struct find_parameter_pack_data): Add
+	type_pack_expansion_p field.
+	(find_parameter_packs_r): Use it to turn 'auto' into a parameter pack.
+	(uses_parameter_packs, make_pack_expansion)
+	(check_for_bare_parameter_packs, fixed_parameter_pack_p): Set it.
+
+2015-11-03  Thomas Schwinge  <thomas@codesourcery.com>
+	    Chung-Lin Tang  <cltang@codesourcery.com>
+
+	* parser.c (cp_parser_omp_construct, cp_parser_pragma): Handle
+	PRAGMA_OACC_ATOMIC.
+
+2015-10-31  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Remove the implementation of N3994, terse range-for loops.
+	* parser.c (cp_parser_for_init_statement): Remove the parsing
+	of a terse range-for.
+
+2015-10-31  Jason Merrill  <jason@redhat.com>
+
+	Implement multiple 'auto' feature from Concepts TS.
+	* parser.c (cp_parser_type_id_1): Allow 'auto' if -fconcepts.
+	(cp_parser_template_type_arg): Likewise.
+	(get_concept_from_constraint): Split out most logic to...
+	* constraint.cc (placeholder_extract_concept_and_args): ...here.
+	(equivalent_placeholder_constraints, hash_placeholder_constraint): New.
+	* cxx-pretty-print.c (pp_cxx_constrained_type_spec): New.
+	* cxx-pretty-print.h: Declare it.
+	* error.c (dump_type) [TEMPLATE_TYPE_PARM]: Call it.
+	* pt.c (is_auto_r, extract_autos_r, extract_autos, auto_hash): New.
+	(type_uses_auto): Use is_auto_r.
+	(do_auto_deduction): Handle multiple 'auto's if -fconcepts.
+	* typeck.c (structural_comptypes) [TEMPLATE_TYPE_PARM]: Compare
+	constraints.
+
+	* pt.c (for_each_template_parm_r): Use WALK_SUBTREE.
+	Return a meaningful value rather than error_mark_node.
+	(for_each_template_parm): Return a tree.
+	(uses_template_parms_level): Return bool.
+	* cp-tree.h: Adjust.
+
+	* pt.c (unify): Don't diagnose no common base if we already have
+	the same template.
+	(do_auto_deduction): Explain deduction failure.
+
+	* pt.c (hash_tmpl_and_args): Use iterative_hash_object on template
+	uid.
+
+	* parser.c (synthesize_implicit_template_parm)
+	(finish_fully_implicit_template): Make static.
+
 2015-10-29  Andrew MacLeod  <amacleod@redhat.com>
 
 	* call.c: Reorder #include's and remove duplicates.
