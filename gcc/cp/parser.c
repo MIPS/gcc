@@ -29652,6 +29652,39 @@ cp_parser_oacc_simple_clause (cp_parser * /* parser  */,
   return c;
 }
 
+ /* OpenACC:
+   num_gangs ( expression )
+   num_workers ( expression )
+   vector_length ( expression )  */
+
+static tree
+cp_parser_oacc_single_int_clause (cp_parser *parser, omp_clause_code code,
+				  const char *str, tree list)
+{
+  location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+
+  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
+    return list;
+
+  tree t = cp_parser_assignment_expression (parser, NULL, false, false);
+
+  if (t == error_mark_node
+      || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
+    {
+      cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
+					     /*or_comma=*/false,
+					     /*consume_paren=*/true);
+      return list;
+    }
+
+  check_no_duplicate_clause (list, code, str, loc);
+
+  tree c = build_omp_clause (loc, code);
+  OMP_CLAUSE_OPERAND (c, 0) = t;
+  OMP_CLAUSE_CHAIN (c) = list;
+  return c;
+}
+
 /* OpenACC:
 
     gang [( gang-arg-list )]
@@ -29921,45 +29954,6 @@ cp_parser_oacc_clause_tile (cp_parser *parser, tree list, location_t here)
   OMP_CLAUSE_CHAIN (c) = list;
   release_tree_vector (tvec);
   return c;
-}
-
-/* OpenACC:
-   vector_length ( expression ) */
-
-static tree
-cp_parser_oacc_clause_vector_length (cp_parser *parser, tree list)
-{
-  tree t, c;
-  location_t location = cp_lexer_peek_token (parser->lexer)->location;
-  bool error = false;
-
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
-    return list;
-
-  t = cp_parser_condition (parser);
-  if (t == error_mark_node || !INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      error_at (location, "expected positive integer expression");
-      error = true;
-    }
-
-  if (error || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
-    {
-      cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
-					   /*or_comma=*/false,
-					   /*consume_paren=*/true);
-      return list;
-    }
-
-  check_no_duplicate_clause (list, OMP_CLAUSE_VECTOR_LENGTH, "vector_length",
-			     location);
-
-  c = build_omp_clause (location, OMP_CLAUSE_VECTOR_LENGTH);
-  OMP_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
-  OMP_CLAUSE_CHAIN (c) = list;
-  list = c;
-
-  return list;
 }
 
 /* OpenACC 2.0
@@ -30345,42 +30339,6 @@ cp_parser_omp_clause_nowait (cp_parser * /*parser*/,
   return c;
 }
 
-/* OpenACC:
-   num_gangs ( expression ) */
-
-static tree
-cp_parser_omp_clause_num_gangs (cp_parser *parser, tree list)
-{
-  tree t, c;
-  location_t location = cp_lexer_peek_token (parser->lexer)->location;
-
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
-    return list;
-
-  t = cp_parser_condition (parser);
-
-  if (t == error_mark_node
-      || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
-    cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
-					   /*or_comma=*/false,
-					   /*consume_paren=*/true);
-
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      error_at (location, "expected positive integer expression");
-      return list;
-    }
-
-  check_no_duplicate_clause (list, OMP_CLAUSE_NUM_GANGS, "num_gangs", location);
-
-  c = build_omp_clause (location, OMP_CLAUSE_NUM_GANGS);
-  OMP_CLAUSE_NUM_GANGS_EXPR (c) = t;
-  OMP_CLAUSE_CHAIN (c) = list;
-  list = c;
-
-  return list;
-}
-
 /* OpenMP 2.5:
    num_threads ( expression ) */
 
@@ -30586,43 +30544,6 @@ cp_parser_omp_clause_defaultmap (cp_parser *parser, tree list,
   cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
 					 /*or_comma=*/false,
 					 /*consume_paren=*/true);
-  return list;
-}
-
-/* OpenACC:
-   num_workers ( expression ) */
-
-static tree
-cp_parser_omp_clause_num_workers (cp_parser *parser, tree list)
-{
-  tree t, c;
-  location_t location = cp_lexer_peek_token (parser->lexer)->location;
-
-  if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
-    return list;
-
-  t = cp_parser_condition (parser);
-
-  if (t == error_mark_node
-      || !cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN))
-    cp_parser_skip_to_closing_parenthesis (parser, /*recovering=*/true,
-					   /*or_comma=*/false,
-					   /*consume_paren=*/true);
-
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      error_at (location, "expected positive integer expression");
-      return list;
-    }
-
-  check_no_duplicate_clause (list, OMP_CLAUSE_NUM_WORKERS, "num_gangs",
-								location);
-
-  c = build_omp_clause (location, OMP_CLAUSE_NUM_WORKERS);
-  OMP_CLAUSE_NUM_WORKERS_EXPR (c) = t;
-  OMP_CLAUSE_CHAIN (c) = list;
-  list = c;
-
   return list;
 }
 
@@ -31687,6 +31608,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
     {
       location_t here;
       pragma_omp_clause c_kind;
+      omp_clause_code code;
       const char *c_name;
       tree prev = clauses;
 
@@ -31803,12 +31725,16 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "nohost";
 	  break;
 	case PRAGMA_OACC_CLAUSE_NUM_GANGS:
-	  clauses = cp_parser_omp_clause_num_gangs (parser, clauses);
+	  code = OMP_CLAUSE_NUM_GANGS;
 	  c_name = "num_gangs";
+	  clauses = cp_parser_oacc_single_int_clause (parser, code, c_name,
+						      clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_NUM_WORKERS:
-	  clauses = cp_parser_omp_clause_num_workers (parser, clauses);
 	  c_name = "num_workers";
+	  code = OMP_CLAUSE_NUM_WORKERS;
+	  clauses = cp_parser_oacc_single_int_clause (parser, code, c_name,
+						      clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_PRESENT:
 	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
@@ -31859,8 +31785,10 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 						 c_name, clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR_LENGTH:
-	  clauses = cp_parser_oacc_clause_vector_length (parser, clauses);
 	  c_name = "vector_length";
+	  code = OMP_CLAUSE_VECTOR_LENGTH;
+	  clauses = cp_parser_oacc_single_int_clause (parser, code, c_name,
+						      clauses);
 	  break;
 	case PRAGMA_OACC_CLAUSE_WAIT:
 	  clauses = cp_parser_oacc_clause_wait (parser, clauses);
@@ -35268,7 +35196,7 @@ cp_parser_oacc_update (cp_parser *parser, cp_token *pragma_tok)
     {
       error_at (pragma_tok->location,
 		"%<#pragma acc update%> must contain at least one "
-		"%<device%> or %<host/self%> clause");
+		"%<device%> or %<host%> or %<self%> clause");
       return NULL_TREE;
     }
 

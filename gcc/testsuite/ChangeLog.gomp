@@ -1,3 +1,8 @@
+2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/update-1.c: Update expected error.
+	* gfortran.dg/goacc/update.f95: Likewise.
+
 2015-11-04  Tom de Vries  <tom@codesourcery.com>
 
 	backport from trunk:

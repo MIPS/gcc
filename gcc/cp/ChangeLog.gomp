@@ -1,3 +1,14 @@
+2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_parser_oacc_simple_clause): New function.
+	(cp_parser_oacc_clause_vector_length): Delete.
+	(cp_parser_omp_clause_num_gangs): Delete.
+	(cp_parser_omp_clause_num_workers): Delete.
+	(cp_parser_oacc_all_clauses): Use cp_parser_oacc_simple_clause for
+	num_gangs, num_workers and vector_length.
+	(cp_parser_oacc_update): Update the error message for missing
+	clauses.
+
 2015-10-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* parser.c (cp_parser_omp_simple_clause): Rename to ...

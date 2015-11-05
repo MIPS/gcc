@@ -914,14 +914,15 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
       if ((mask & OMP_CLAUSE_DEFAULT)
 	  && c->default_sharing == OMP_DEFAULT_UNKNOWN)
 	{
-	  if (!openacc && gfc_match ("default ( shared )") == MATCH_YES)
-	    c->default_sharing = OMP_DEFAULT_SHARED;
-	  else if (!openacc && gfc_match ("default ( private )") == MATCH_YES)
-	    c->default_sharing = OMP_DEFAULT_PRIVATE;
-	  else if (gfc_match ("default ( none )") == MATCH_YES)
+	  if (gfc_match ("default ( none )") == MATCH_YES)
 	    c->default_sharing = OMP_DEFAULT_NONE;
-	  else if (!openacc
-		   && gfc_match ("default ( firstprivate )") == MATCH_YES)
+	  else if (openacc)
+	    /* c->default_sharing = OMP_DEFAULT_UNKNOWN */;
+	  else if (gfc_match ("default ( shared )") == MATCH_YES)
+	    c->default_sharing = OMP_DEFAULT_SHARED;
+	  else if (gfc_match ("default ( private )") == MATCH_YES)
+	    c->default_sharing = OMP_DEFAULT_PRIVATE;
+	  else if (gfc_match ("default ( firstprivate )") == MATCH_YES)
 	    c->default_sharing = OMP_DEFAULT_FIRSTPRIVATE;
 	  if (c->default_sharing != OMP_DEFAULT_UNKNOWN)
 	    continue;
@@ -1547,7 +1548,7 @@ gfc_match_oacc_update (void)
   if (!c->lists[OMP_LIST_MAP])
     {
       gfc_error ("%<acc update%> must contain at least one "
-		 "%<device%> or %<host/self%> clause at %L", &here);
+		 "%<device%> or %<host%> or %<self%> clause at %L", &here);
       return MATCH_ERROR;
     }
 
@@ -3290,24 +3291,75 @@ resolve_omp_clauses (gfc_code *code, gfc_omp_clauses *omp_clauses,
 	&& list != OMP_LIST_DEPEND
 	&& (list != OMP_LIST_MAP || openacc)
 	&& list != OMP_LIST_FROM
-	&& list != OMP_LIST_TO)
-      resolve_omp_duplicate_list (omp_clauses->lists[list], openacc, list);
+	&& list != OMP_LIST_TO
+	&& (list != OMP_LIST_REDUCTION || !openacc))
+      for (n = omp_clauses->lists[list]; n; n = n->next)
+	{
+	  if (n->sym->mark)
+	    gfc_error ("Symbol %qs present on multiple clauses at %L",
+		       n->sym->name, &n->where);
+	  else
+	    n->sym->mark = 1;
+	}
 
-  resolve_omp_duplicate_list (omp_clauses->lists[OMP_LIST_FIRSTPRIVATE],
-			      false, OMP_LIST_FIRSTPRIVATE);
+  gcc_assert (OMP_LIST_LASTPRIVATE == OMP_LIST_FIRSTPRIVATE + 1);
+  for (list = OMP_LIST_FIRSTPRIVATE; list <= OMP_LIST_LASTPRIVATE; list++)
+    for (n = omp_clauses->lists[list]; n; n = n->next)
+      if (n->sym->mark)
+	{
+	  gfc_error ("Symbol %qs present on multiple clauses at %L",
+		     n->sym->name, &n->where);
+	  n->sym->mark = 0;
+	}
 
+  for (n = omp_clauses->lists[OMP_LIST_FIRSTPRIVATE]; n; n = n->next)
+    {
+      if (n->sym->mark)
+	gfc_error ("Symbol %qs present on multiple clauses at %L",
+		   n->sym->name, &n->where);
+      else
+	n->sym->mark = 1;
+    }
   for (n = omp_clauses->lists[OMP_LIST_LASTPRIVATE]; n; n = n->next)
     n->sym->mark = 0;
 
-  resolve_omp_duplicate_list (omp_clauses->lists[OMP_LIST_LASTPRIVATE],
-			      false, OMP_LIST_LASTPRIVATE);
+  for (n = omp_clauses->lists[OMP_LIST_LASTPRIVATE]; n; n = n->next)
+    {
+      if (n->sym->mark)
+	gfc_error ("Symbol %qs present on multiple clauses at %L",
+		   n->sym->name, &n->where);
+      else
+	n->sym->mark = 1;
+    }
 
   for (n = omp_clauses->lists[OMP_LIST_ALIGNED]; n; n = n->next)
     n->sym->mark = 0;
 
-  resolve_omp_duplicate_list (omp_clauses->lists[OMP_LIST_ALIGNED],
-			      false, OMP_LIST_ALIGNED);
+  for (n = omp_clauses->lists[OMP_LIST_ALIGNED]; n; n = n->next)
+    {
+      if (n->sym->mark)
+	gfc_error ("Symbol %qs present on multiple clauses at %L",
+		   n->sym->name, &n->where);
+      else
+	n->sym->mark = 1;
+    }
 
+  /* OpenACC reductions.  */
+  if (openacc)
+    {
+      for (n = omp_clauses->lists[OMP_LIST_REDUCTION]; n; n = n->next)
+	n->sym->mark = 0;
+
+      for (n = omp_clauses->lists[OMP_LIST_REDUCTION]; n; n = n->next)
+	{
+	  if (n->sym->mark)
+	    gfc_error ("Symbol %qs present on multiple clauses at %L",
+		       n->sym->name, &n->where);
+	  else
+	    n->sym->mark = 1;
+	}
+    }
+  
   for (n = omp_clauses->lists[OMP_LIST_TO]; n; n = n->next)
     n->sym->mark = 0;
   for (n = omp_clauses->lists[OMP_LIST_FROM]; n; n = n->next)
@@ -4594,8 +4646,7 @@ oacc_code_to_statement (gfc_code *code)
 {
   switch (code->op)
     {
-    case EXEC_OACC_ATOMIC:
-      return ST_OACC_ATOMIC;
+
     case EXEC_OACC_PARALLEL:
       return ST_OACC_PARALLEL;
     case EXEC_OACC_KERNELS:
@@ -4610,6 +4661,8 @@ oacc_code_to_statement (gfc_code *code)
       return ST_OACC_KERNELS_LOOP;
     case EXEC_OACC_LOOP:
       return ST_OACC_LOOP;
+    case EXEC_OACC_ATOMIC:
+      return ST_OACC_ATOMIC;
     default:
       gcc_unreachable ();
     }

@@ -14060,7 +14060,7 @@ c_parser_oacc_update (c_parser *parser)
     {
       error_at (loc,
 		"%<#pragma acc update%> must contain at least one "
-		"%<device%> or %<host/self%> clause");
+		"%<device%> or %<host%> or %<self%> clause");
       return;
     }
 

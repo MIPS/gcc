@@ -1,3 +1,11 @@
+2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_clauses): Update how default is parsed.
+	(gfc_match_oacc_update): Update error message.
+	(resolve_omp_clauses): Don't use resolve_omp_duplicate_list for
+	omp clauses.
+	(oacc_code_to_statement): Merge atomic placement from trunk.
+
 2015-10-30  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* openmp.c (resolve_omp_clauses): Add "LINK" to clause_names.
