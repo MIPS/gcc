@@ -1,3 +1,8 @@
+2015-11-04  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_sync.h (GUPCR_WRITE_FENCE, GUPCR_READ_FENCE):
+	Define for __aarch64__.
+
 2015-10-21  Gary Funck  <gary@intrepid.com>
 
 	* upc-crtbegin.spec.in, upc-crtend.spec.in:
