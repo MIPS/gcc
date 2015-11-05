@@ -44,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-dom.h"
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
-#include "cfgcleanup.h"
 #include "omp-low.h"
 
 /* This file implements optimizations on the dominator tree.  */
@@ -535,17 +534,7 @@ class dominator_base : public gimple_opt_pass
   unsigned int execute (function *);
 
   /* Return true if pass should perform jump threading.  */
-  virtual bool jump_threading_p (void) { return !sese_mode_p (); }
-
-  /* Return true if pass should visit a series of seses rather than the whole
-     dominator tree.  */
-  virtual bool sese_mode_p (void) { return false; }
-
-  /* In sese mode, return true if there's another sese to visit.  Return the
-     sese to visit in SESE_ENTRY and SESE_EXIT.  */
-  virtual bool get_sese (basic_block *sese_entry ATTRIBUTE_UNUSED,
-			 basic_block *sese_exit ATTRIBUTE_UNUSED)
-    { gcc_unreachable (); }
+  virtual bool jump_threading_p (void) { return true; }
 }; // class dominator_base
 
 const pass_data pass_data_dominator =
@@ -602,14 +591,11 @@ dominator_base::execute (function *fun)
      LOOPS_HAVE_PREHEADERS won't be needed here.  */
   loop_optimizer_init (LOOPS_HAVE_PREHEADERS | LOOPS_HAVE_SIMPLE_LATCHES);
 
-  if (!sese_mode_p ())
-    /* Initialize the value-handle array.  */
-    threadedge_initialize_values ();
+  /* Initialize the value-handle array.  */
+  threadedge_initialize_values ();
 
   if (jump_threading_p ())
     {
-      gcc_assert (!sese_mode_p ());
-
       /* We need accurate information regarding back edges in the CFG
 	 for jump threading; this may include back edges that are not part of
 	 a single loop.  */
@@ -631,29 +617,7 @@ dominator_base::execute (function *fun)
 			     const_and_copies,
 			     avail_exprs_stack,
 			     jump_threading_p ());
-  if (!sese_mode_p ())
-    walker.walk (fun->cfg->x_entry_block_ptr);
-  else
-    {
-      basic_block sese_entry, sese_exit;
-      while (get_sese (&sese_entry, &sese_exit))
-	{
-	  threadedge_initialize_values ();
-	  avail_exprs_stack->push_marker ();
-	  const_and_copies->push_marker ();
-
-	  walker.walk_until (sese_entry, sese_exit, true);
-
-	  avail_exprs_stack->pop_to_marker ();
-	  const_and_copies->pop_to_marker ();
-	  threadedge_finalize_values ();
-
-	  /* KLUDGE: The dom_walker does not allow unreachable blocks when
-	     starting the walk, and during the dom_opt_dom_walker walk we may
-	     produce unreachable blocks, so we need to clean them up here.  */
-	  delete_unreachable_blocks ();
-	}
-    }
+  walker.walk (fun->cfg->x_entry_block_ptr);
 
   {
     gimple_stmt_iterator gsi;
@@ -753,9 +717,8 @@ dominator_base::execute (function *fun)
   delete avail_exprs_stack;
   delete const_and_copies;
 
-  if (!sese_mode_p ())
-    /* Free the value-handle array.  */
-    threadedge_finalize_values ();
+  /* Free the value-handle array.  */
+  threadedge_finalize_values ();
 
   return 0;
 }
@@ -789,33 +752,8 @@ public:
 
 protected:
   /* dominator_base methods: */
-  virtual bool sese_mode_p (void) { return true; }
-  virtual bool get_sese (basic_block *sese_entry, basic_block *sese_exit)
-  {
-    if (m_regions == NULL)
-      {
-	m_regions = BITMAP_ALLOC (NULL);
-	basic_block bb;
-	FOR_EACH_BB_FN (bb, cfun)
-	  if (oacc_kernels_region_entry_p (bb, NULL))
-	    bitmap_set_bit (m_regions, bb->index);
-      }
-
-    if (bitmap_empty_p (m_regions))
-      {
-	BITMAP_FREE (m_regions);
-	return false;
-      }
-
-    unsigned int index = bitmap_first_set_bit (m_regions);
-    bitmap_clear_bit (m_regions, index);
-
-    *sese_entry = BASIC_BLOCK_FOR_FN (cfun, index);
-    *sese_exit = get_oacc_kernels_region_exit (*sese_entry);
-
-    return true;
-  }
-
+  /* Return true if pass should perform jump threading.  */
+  virtual bool jump_threading_p (void) { return false; }
 }; // class pass_dominator_oacc_kernels
 
 } // anon namespace

@@ -1,5 +1,15 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	revert:
+	2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-dom.c (pass_dominator::jump_threading_p): Handle sese_mode_p.
+	(pass_dominator::sese_mode_p, pass_dominator::get_sese): New protected
+	virtual function.
+	(pass_dominator::execute): Handle sese_mode_p.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-10-12  Tom de Vries  <tom@codesourcery.com>
 
