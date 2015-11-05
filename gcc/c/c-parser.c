@@ -14860,6 +14860,7 @@ c_parser_omp_target_data (location_t loc, c_parser *parser)
 	    map_seen = 3;
 	    break;
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -14993,6 +14994,7 @@ c_parser_omp_target_enter_data (location_t loc, c_parser *parser,
 	    map_seen = 3;
 	    break;
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -15079,6 +15081,7 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
 	    map_seen = 3;
 	    break;
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -15298,6 +15301,7 @@ check_clauses:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_ALLOC:
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    error_at (OMP_CLAUSE_LOCATION (*pc),

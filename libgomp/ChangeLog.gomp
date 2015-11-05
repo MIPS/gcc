@@ -1,3 +1,29 @@
+2015-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* target.c (gomp_map_0len_lookup, gomp_map_val): New inline
+	functions.
+	(gomp_map_vars): Handle GOMP_MAP_ALWAYS_POINTER.  For
+	GOMP_MAP_ZERO_LEN_ARRAY_SECTION use gomp_map_0len_lookup.
+	Use gomp_map_val function.
+	(gomp_exit_data): For GOMP_MAP_*ZERO_LEN* use
+	gomp_map_0len_lookup instead of gomp_map_lookup.
+	(omp_target_is_present): Use gomp_map_0len_lookup instead of
+	gomp_map_lookup.
+	* testsuite/libgomp.c/target-12.c (main): Adjust for
+	omp_target_is_present change for one-past-last element.
+	* testsuite/libgomp.c/target-17.c (foo): Drop tests where
+	the same var is both mapped and privatized.
+	* testsuite/libgomp.c/target-19.c (foo): Adjust for different
+	handling of zero-length array sections.
+	* testsuite/libgomp.c/target-29.c: New test.
+	* testsuite/libgomp.c/target-30.c: New test.
+	* testsuite/libgomp.c++/target-14.C: New test.
+	* testsuite/libgomp.c++/target-15.C: New test.
+	* testsuite/libgomp.c++/target-16.C: New test.
+	* testsuite/libgomp.c++/target-17.C: New test.
+	* testsuite/libgomp.c++/target-18.C: New test.
+	* testsuite/libgomp.c++/target-19.C: New test.
+
 2015-11-02  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* testsuite/libgomp.c++/target-13.C: Add global variable with "omp

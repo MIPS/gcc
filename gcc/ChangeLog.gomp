@@ -1,3 +1,31 @@
+2015-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (omp_notice_variable): For references check
+	whether what it refers to has mappable type, rather than
+	the reference itself.
+	(gimplify_scan_omp_clauses): Add support for
+	GOMP_MAP_FIRSTPRIVATE_REFERENCE and GOMP_MAP_ALWAYS_POINTER,
+	remove old handling of structure element based array sections.
+	(gimplify_adjust_omp_clauses_1): For implicit references to
+	variables with reference type and when not ref to scalar or
+	ref to pointer, map what they refer to using tofrom and
+	use GOMP_MAP_FIRSTPRIVATE_REFERENCE for the reference.
+	(gimplify_adjust_omp_clauses): Remove GOMP_MAP_ALWAYS_POINTER
+	from target exit data.  Handle GOMP_MAP_FIRSTPRIVATE_REFERENCE.
+	Drop OMP_CLAUSE_MAP_PRIVATE support.
+	* omp-low.c (scan_sharing_clauses): Handle
+	GOMP_MAP_FIRSTPRIVATE_REFERENCE, drop OMP_CLAUSE_MAP_PRIVATE
+	support.
+	(lower_omp_target): Handle GOMP_MAP_FIRSTPRIVATE_REFERENCE
+	and GOMP_MAP_ALWAYS_POINTER.  Drop OMP_CLAUSE_MAP_PRIVATE
+	support.
+	* tree-pretty-print.c (dump_omp_clause): Handle
+	GOMP_MAP_FIRSTPRIVATE_REFERENCE and GOMP_MAP_ALWAYS_POINTER.
+	Simplify.
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Add
+	SIMD_CLONE_ARG_TYPE_LINEAR_{REF,VAL,UVAL}_VARIABLE_STEP
+	cases.
+
 2015-10-29  Jakub Jelinek  <jakub@redhat.com>
 
 	* cgraph.h (enum cgraph_simd_clone_arg_type): Add

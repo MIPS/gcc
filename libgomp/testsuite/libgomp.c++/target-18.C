@@ -1,7 +1,7 @@
-extern void abort (void);
+extern "C" void abort ();
 
 __attribute__((noinline, noclone)) void
-foo (int *p, int *q, int *r, int n, int m)
+foo (int *&p, int *&q, int *&r, int n, int m)
 {
   int i, err, *s = r;
   int sep = 1;
@@ -161,6 +161,7 @@ main ()
   int a[32], i;
   for (i = 0; i < 32; i++)
     a[i] = i;
-  foo (a + 1, a + 9, a + 10, 0, 1);
+  int *p = a + 1, *q = a + 9, *r = a + 10;
+  foo (p, q, r, 0, 1);
   return 0;
 }

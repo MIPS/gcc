@@ -33797,6 +33797,8 @@ cp_parser_omp_target_data (cp_parser *parser, cp_token *pragma_tok)
 	    map_seen = 3;
 	    break;
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_REFERENCE:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -33888,6 +33890,8 @@ cp_parser_omp_target_enter_data (cp_parser *parser, cp_token *pragma_tok,
 	    map_seen = 3;
 	    break;
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_REFERENCE:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -33975,6 +33979,8 @@ cp_parser_omp_target_exit_data (cp_parser *parser, cp_token *pragma_tok,
 	    map_seen = 3;
 	    break;
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_REFERENCE:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    map_seen |= 1;
@@ -34238,6 +34244,8 @@ check_clauses:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_ALLOC:
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_REFERENCE:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  default:
 	    error_at (OMP_CLAUSE_LOCATION (*pc),

@@ -1,3 +1,16 @@
+2015-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_target_data,
+	c_parser_omp_target_enter_data,
+	c_parser_omp_target_exit_data, c_parser_omp_target): Allow
+	GOMP_MAP_ALWAYS_POINTER.
+	* c-typeck.c (handle_omp_array_sections): For structure element
+	based array sections use GOMP_MAP_ALWAYS_POINTER instead of
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	(c_finish_omp_clauses): Drop generic_field_head, structure
+	elements are now always mapped even as array section bases,
+	diagnose same var in data sharing and mapping clauses.
+
 2015-11-02  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* c-parser.c: Include context.h.

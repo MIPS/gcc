@@ -4907,9 +4907,20 @@ handle_omp_array_sections (tree c, bool is_omp)
 	      }
 	  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 				      OMP_CLAUSE_MAP);
-	  OMP_CLAUSE_SET_MAP_KIND (c2, is_omp ? GOMP_MAP_FIRSTPRIVATE_POINTER
-					      : GOMP_MAP_POINTER);
-	  if (!is_omp && !cxx_mark_addressable (t))
+	  if (!is_omp)
+	    OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
+	  else if (TREE_CODE (t) == COMPONENT_REF)
+	    OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
+	  else if (REFERENCE_REF_P (t)
+		   && TREE_CODE (TREE_OPERAND (t, 0)) == COMPONENT_REF)
+	    {
+	      t = TREE_OPERAND (t, 0);
+	      OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
+	    }
+	  else
+	    OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_FIRSTPRIVATE_POINTER);
+	  if (OMP_CLAUSE_MAP_KIND (c2) != GOMP_MAP_FIRSTPRIVATE_POINTER
+	      && !cxx_mark_addressable (t))
 	    return false;
 	  OMP_CLAUSE_DECL (c2) = t;
 	  t = build_fold_addr_expr (first);
@@ -4927,15 +4938,18 @@ handle_omp_array_sections (tree c, bool is_omp)
 	  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
 	  OMP_CLAUSE_CHAIN (c) = c2;
 	  ptr = OMP_CLAUSE_DECL (c2);
-	  if (!is_omp
+	  if (OMP_CLAUSE_MAP_KIND (c2) != GOMP_MAP_FIRSTPRIVATE_POINTER
 	      && TREE_CODE (TREE_TYPE (ptr)) == REFERENCE_TYPE
 	      && POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (ptr))))
 	    {
 	      tree c3 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
 					  OMP_CLAUSE_MAP);
-	      OMP_CLAUSE_SET_MAP_KIND (c3, GOMP_MAP_POINTER);
+	      OMP_CLAUSE_SET_MAP_KIND (c3, OMP_CLAUSE_MAP_KIND (c2));
 	      OMP_CLAUSE_DECL (c3) = ptr;
-	      OMP_CLAUSE_DECL (c2) = convert_from_reference (ptr);
+	      if (OMP_CLAUSE_MAP_KIND (c2) == GOMP_MAP_ALWAYS_POINTER)
+		OMP_CLAUSE_DECL (c2) = build_simple_mem_ref (ptr);
+	      else
+		OMP_CLAUSE_DECL (c2) = convert_from_reference (ptr);
 	      OMP_CLAUSE_SIZE (c3) = size_zero_node;
 	      OMP_CLAUSE_CHAIN (c3) = OMP_CLAUSE_CHAIN (c2);
 	      OMP_CLAUSE_CHAIN (c2) = c3;
@@ -5659,7 +5673,7 @@ tree
 finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, map_head, map_field_head, generic_field_head;
+  bitmap_head aligned_head, map_head, map_field_head;
   tree c, t, *pc;
   tree safelen = NULL_TREE;
   bool branch_seen = false;
@@ -5673,7 +5687,6 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
-  bitmap_initialize (&generic_field_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -5890,6 +5903,12 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      error ("%qD appears more than once in data clauses", t);
 	      remove = true;
 	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+		   && bitmap_bit_p (&map_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
+	      remove = true;
+	    }
 	  else
 	    bitmap_set_bit (&generic_head, DECL_UID (t));
 	  if (!field_ok)
@@ -5935,6 +5954,11 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
 	    {
 	      error ("%qD appears more than once in data clauses", t);
+	      remove = true;
+	    }
+	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -6422,7 +6446,10 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	    }
 	  if (REFERENCE_REF_P (t)
 	      && TREE_CODE (TREE_OPERAND (t, 0)) == COMPONENT_REF)
-	    t = TREE_OPERAND (t, 0);
+	    {
+	      t = TREE_OPERAND (t, 0);
+	      OMP_CLAUSE_DECL (c) = t;
+	    }
 	  if (TREE_CODE (t) == COMPONENT_REF
 	      && allow_fields
 	      && OMP_CLAUSE_CODE (c) != OMP_CLAUSE__CACHE_)
@@ -6459,15 +6486,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		break;
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
-		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		      && (OMP_CLAUSE_MAP_KIND (c)
-			  == GOMP_MAP_FIRSTPRIVATE_POINTER))
-		    {
-		      if (bitmap_bit_p (&generic_field_head, DECL_UID (t)))
-			break;
-		    }
-		  else if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
-		    break;
+		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
+		    goto handle_map_references;
 		}
 	    }
 	  if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
@@ -6475,7 +6495,8 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 	      if (processing_template_decl)
 		break;
 	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		  && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
+		  && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
+		      || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ALWAYS_POINTER))
 		break;
 	      if (DECL_P (t))
 		error ("%qD is not a variable in %qs clause", t,
@@ -6527,17 +6548,13 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		  error ("%qD appears more than once in data clauses", t);
 		  remove = true;
 		}
-	      else
+	      else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 		{
-		  bitmap_set_bit (&generic_head, DECL_UID (t));
-		  if (t != OMP_CLAUSE_DECL (c)
-		      && (TREE_CODE (OMP_CLAUSE_DECL (c)) == COMPONENT_REF
-			  || (REFERENCE_REF_P (OMP_CLAUSE_DECL (c))
-			      && (TREE_CODE (TREE_OPERAND (OMP_CLAUSE_DECL (c),
-							   0))
-				  == COMPONENT_REF))))
-		    bitmap_set_bit (&generic_field_head, DECL_UID (t));
+		  error ("%qD appears both in data and map clauses", t);
+		  remove = true;
 		}
+	      else
+		bitmap_set_bit (&generic_head, DECL_UID (t));
 	    }
 	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {
@@ -6547,12 +6564,57 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		error ("%qD appears more than once in map clauses", t);
 	      remove = true;
 	    }
+	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
+	      remove = true;
+	    }
 	  else
 	    {
 	      bitmap_set_bit (&map_head, DECL_UID (t));
 	      if (t != OMP_CLAUSE_DECL (c)
 		  && TREE_CODE (OMP_CLAUSE_DECL (c)) == COMPONENT_REF)
 		bitmap_set_bit (&map_field_head, DECL_UID (t));
+	    }
+	handle_map_references:
+	  if (!remove
+	      && !processing_template_decl
+	      && allow_fields
+	      && TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c))) == REFERENCE_TYPE)
+	    {
+	      t = OMP_CLAUSE_DECL (c);
+	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+		{
+		  OMP_CLAUSE_DECL (c) = build_simple_mem_ref (t);
+		  if (OMP_CLAUSE_SIZE (c) == NULL_TREE)
+		    OMP_CLAUSE_SIZE (c)
+		      = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (t)));
+		}
+	      else if (OMP_CLAUSE_MAP_KIND (c)
+		       != GOMP_MAP_FIRSTPRIVATE_POINTER
+		       && (OMP_CLAUSE_MAP_KIND (c)
+			   != GOMP_MAP_FIRSTPRIVATE_REFERENCE)
+		       && (OMP_CLAUSE_MAP_KIND (c)
+			   != GOMP_MAP_ALWAYS_POINTER))
+		{
+		  tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c),
+					      OMP_CLAUSE_MAP);
+		  if (TREE_CODE (t) == COMPONENT_REF)
+		    OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
+		  else
+		    OMP_CLAUSE_SET_MAP_KIND (c2,
+					     GOMP_MAP_FIRSTPRIVATE_REFERENCE);
+		  OMP_CLAUSE_DECL (c2) = t;
+		  OMP_CLAUSE_SIZE (c2) = size_zero_node;
+		  OMP_CLAUSE_CHAIN (c2) = OMP_CLAUSE_CHAIN (c);
+		  OMP_CLAUSE_CHAIN (c) = c2;
+		  OMP_CLAUSE_DECL (c) = build_simple_mem_ref (t);
+		  if (OMP_CLAUSE_SIZE (c) == NULL_TREE)
+		    OMP_CLAUSE_SIZE (c)
+		      = TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (t)));
+		  c = c2;
+		}
 	    }
 	  break;
 

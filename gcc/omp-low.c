@@ -2083,7 +2083,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	     directly.  */
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && DECL_P (decl)
-	      && (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
+	      && ((OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
+		   && (OMP_CLAUSE_MAP_KIND (c)
+		       != GOMP_MAP_FIRSTPRIVATE_REFERENCE))
 		  || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
 	      && varpool_node::get_create (decl)->offloadable)
@@ -2099,7 +2101,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		break;
 	    }
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-	      && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+	      && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
+		  || (OMP_CLAUSE_MAP_KIND (c)
+		      == GOMP_MAP_FIRSTPRIVATE_REFERENCE)))
 	    {
 	      if (TREE_CODE (decl) == COMPONENT_REF
 		  || (TREE_CODE (decl) == INDIRECT_REF
@@ -2128,11 +2132,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		  gcc_assert (TREE_CODE (decl2) == INDIRECT_REF);
 		  decl2 = TREE_OPERAND (decl2, 0);
 		  gcc_assert (DECL_P (decl2));
-		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		      && OMP_CLAUSE_MAP_PRIVATE (c))
-		    install_var_field (decl2, true, 11, ctx);
-		  else
-		    install_var_field (decl2, true, 3, ctx);
+		  install_var_field (decl2, true, 3, ctx);
 		  install_var_local (decl2, ctx);
 		  install_var_local (decl, ctx);
 		}
@@ -2143,9 +2143,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		      && !OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION (c)
 		      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 		    install_var_field (decl, true, 7, ctx);
-		  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-			   && OMP_CLAUSE_MAP_PRIVATE (c))
-		    install_var_field (decl, true, 11, ctx);
 		  else
 		    install_var_field (decl, true, 3, ctx);
 		  if (is_gimple_omp_offloaded (ctx->stmt))
@@ -2309,7 +2306,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    break;
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (DECL_P (decl)
-	      && (OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
+	      && ((OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
+		   && (OMP_CLAUSE_MAP_KIND (c)
+		       != GOMP_MAP_FIRSTPRIVATE_REFERENCE))
 		  || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
 	      && varpool_node::get_create (decl)->offloadable)
@@ -14363,7 +14362,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  case GOMP_MAP_ALWAYS_FROM:
 	  case GOMP_MAP_ALWAYS_TOFROM:
 	  case GOMP_MAP_FIRSTPRIVATE_POINTER:
+	  case GOMP_MAP_FIRSTPRIVATE_REFERENCE:
 	  case GOMP_MAP_STRUCT:
+	  case GOMP_MAP_ALWAYS_POINTER:
 	    break;
 	  case GOMP_MAP_FORCE_ALLOC:
 	  case GOMP_MAP_FORCE_TO:
@@ -14402,7 +14403,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  }
 
 	if (offloaded
-	    && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+	    && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
+		|| OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_REFERENCE))
 	  {
 	    if (TREE_CODE (TREE_TYPE (var)) == ARRAY_TYPE)
 	      {
@@ -14418,12 +14420,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		SET_DECL_VALUE_EXPR (new_var, x);
 		DECL_HAS_VALUE_EXPR_P (new_var) = 1;
 	      }
-	    continue;
-	  }
-
-	if (offloaded && OMP_CLAUSE_MAP_PRIVATE (c))
-	  {
-	    map_cnt++;
 	    continue;
 	  }
 
@@ -14579,7 +14575,9 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    nc = c;
 	    ovar = OMP_CLAUSE_DECL (c);
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		&& OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+		&& (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
+		    || (OMP_CLAUSE_MAP_KIND (c)
+			== GOMP_MAP_FIRSTPRIVATE_REFERENCE)))
 	      break;
 	    if (!DECL_P (ovar))
 	      {
@@ -14611,14 +14609,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    gcc_assert (DECL_P (ovar2));
 		    ovar = ovar2;
 		  }
-		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		    && OMP_CLAUSE_MAP_PRIVATE (c))
-		  {
-		    if (!maybe_lookup_field ((splay_tree_key) &DECL_UID (ovar),
-					     ctx))
-		      continue;
-		  }
-		else if (!maybe_lookup_field (ovar, ctx))
+		if (!maybe_lookup_field (ovar, ctx))
 		  continue;
 	      }
 
@@ -14628,12 +14619,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    if (nc)
 	      {
 		var = lookup_decl_in_outer_ctx (ovar, ctx);
-		if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		    && OMP_CLAUSE_MAP_PRIVATE (c))
-		  x = build_sender_ref ((splay_tree_key) &DECL_UID (ovar),
-					ctx);
-		else
-		  x = build_sender_ref (ovar, ctx);
+		x = build_sender_ref (ovar, ctx);
 		if (maybe_lookup_oacc_reduction (var, ctx))
 		  {
 		    gcc_checking_assert (offloaded
@@ -15117,7 +15103,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      }
 	    break;
 	  }
-      /* Handle GOMP_MAP_FIRSTPRIVATE_POINTER in second pass,
+      /* Handle GOMP_MAP_FIRSTPRIVATE_{POINTER,REFERENCE} in second pass,
 	 so that firstprivate vars holding OMP_CLAUSE_SIZE if needed
 	 are already handled.  */
       for (c = clauses; c ; c = OMP_CLAUSE_CHAIN (c))
@@ -15127,7 +15113,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  default:
 	    break;
 	  case OMP_CLAUSE_MAP:
-	    if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER)
+	    if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_POINTER
+		|| OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_REFERENCE)
 	      {
 		location_t clause_loc = OMP_CLAUSE_LOCATION (c);
 		HOST_WIDE_INT offset = 0;
@@ -15181,6 +15168,8 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  }
 		else
 		  is_ref = is_reference (var);
+		if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_FIRSTPRIVATE_REFERENCE)
+		  is_ref = false;
 		bool ref_to_array = false;
 		if (is_ref)
 		  {
@@ -15232,8 +15221,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    else if (OMP_CLAUSE_CHAIN (c)
 		     && OMP_CLAUSE_CODE (OMP_CLAUSE_CHAIN (c))
 			== OMP_CLAUSE_MAP
-		     && OMP_CLAUSE_MAP_KIND (OMP_CLAUSE_CHAIN (c))
-			== GOMP_MAP_FIRSTPRIVATE_POINTER)
+		     && (OMP_CLAUSE_MAP_KIND (OMP_CLAUSE_CHAIN (c))
+			 == GOMP_MAP_FIRSTPRIVATE_POINTER
+			 || (OMP_CLAUSE_MAP_KIND (OMP_CLAUSE_CHAIN (c))
+			     == GOMP_MAP_FIRSTPRIVATE_REFERENCE)))
 	      prev = c;
 	    break;
 	  case OMP_CLAUSE_PRIVATE:

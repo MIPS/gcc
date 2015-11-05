@@ -1465,10 +1465,6 @@ extern void protected_set_expr_location (tree, location_t);
    OMP_CLAUSE_MAP with GOMP_MAP_POINTER are marked with this flag.  */
 #define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
   (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
-/* Nonzero if the same decl appears both in OMP_CLAUSE_MAP and either
-   OMP_CLAUSE_PRIVATE or OMP_CLAUSE_FIRSTPRIVATE.  */
-#define OMP_CLAUSE_MAP_PRIVATE(NODE) \
-  TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP))
 /* Nonzero if this is a mapped array section, that might need special
    treatment if OMP_CLAUSE_SIZE is zero.  */
 #define OMP_CLAUSE_MAP_MAYBE_ZERO_LENGTH_ARRAY_SECTION(NODE) \

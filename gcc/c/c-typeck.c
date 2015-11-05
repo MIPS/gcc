@@ -12168,10 +12168,14 @@ handle_omp_array_sections (tree c, bool is_omp)
 	    break;
 	  }
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_SET_MAP_KIND (c2, is_omp
-				   ? GOMP_MAP_FIRSTPRIVATE_POINTER
-				   : GOMP_MAP_POINTER);
-      if (!is_omp && !c_mark_addressable (t))
+      if (!is_omp)
+	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
+      else if (TREE_CODE (t) == COMPONENT_REF)
+	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
+      else
+	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_FIRSTPRIVATE_POINTER);
+      if (OMP_CLAUSE_MAP_KIND (c2) != GOMP_MAP_FIRSTPRIVATE_POINTER
+	  && !c_mark_addressable (t))
 	return false;
       OMP_CLAUSE_DECL (c2) = t;
       t = build_fold_addr_expr (first);
@@ -12239,7 +12243,7 @@ tree
 c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, map_head, map_field_head, generic_field_head;
+  bitmap_head aligned_head, map_head, map_field_head;
   tree c, t, type, *pc;
   tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
@@ -12256,7 +12260,6 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
-  bitmap_initialize (&generic_field_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {
@@ -12583,6 +12586,12 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 			"%qE appears more than once in data clauses", t);
 	      remove = true;
 	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+		   && bitmap_bit_p (&map_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
+	      remove = true;
+	    }
 	  else
 	    bitmap_set_bit (&generic_head, DECL_UID (t));
 	  break;
@@ -12602,6 +12611,11 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qE appears more than once in data clauses", t);
+	      remove = true;
+	    }
+	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -12795,14 +12809,7 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 		break;
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
-		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		      && (OMP_CLAUSE_MAP_KIND (c)
-			  == GOMP_MAP_FIRSTPRIVATE_POINTER))
-		    {
-		      if (bitmap_bit_p (&generic_field_head, DECL_UID (t)))
-			break;
-		    }
-		  else if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
+		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
 		    break;
 		}
 	    }
@@ -12845,13 +12852,13 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 		  error ("%qD appears more than once in data clauses", t);
 		  remove = true;
 		}
-	      else
+	      else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 		{
-		  bitmap_set_bit (&generic_head, DECL_UID (t));
-		  if (t != OMP_CLAUSE_DECL (c)
-		      && TREE_CODE (OMP_CLAUSE_DECL (c)) == COMPONENT_REF)
-		    bitmap_set_bit (&generic_field_head, DECL_UID (t));
+		  error ("%qD appears both in data and map clauses", t);
+		  remove = true;
 		}
+	      else
+		bitmap_set_bit (&generic_head, DECL_UID (t));
 	    }
 	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 	    {
@@ -12859,6 +12866,12 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 		error ("%qD appears more than once in motion clauses", t);
 	      else
 		error ("%qD appears more than once in map clauses", t);
+	      remove = true;
+	    }
+	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else

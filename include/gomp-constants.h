@@ -111,6 +111,11 @@ enum gomp_map_kind
        (address of the last adjacent entry plus its size).  */
     GOMP_MAP_STRUCT =			(GOMP_MAP_FLAG_SPECIAL_2
 					 | GOMP_MAP_FLAG_SPECIAL | 0),
+    /* On a location of a pointer/reference that is assumed to be already mapped
+       earlier, store the translated address of the preceeding mapping.
+       No refcount is bumped by this, and the store is done unconditionally.  */
+    GOMP_MAP_ALWAYS_POINTER =		(GOMP_MAP_FLAG_SPECIAL_2
+					 | GOMP_MAP_FLAG_SPECIAL | 1),
     /* Forced deallocation of zero length array section.  */
     GOMP_MAP_DELETE_ZERO_LEN_ARRAY_SECTION
       =					(GOMP_MAP_FLAG_SPECIAL_2
@@ -123,7 +128,9 @@ enum gomp_map_kind
 
     /* Internal to GCC, not used in libgomp.  */
     /* Do not map, but pointer assign a pointer instead.  */
-    GOMP_MAP_FIRSTPRIVATE_POINTER =	(GOMP_MAP_LAST | 1)
+    GOMP_MAP_FIRSTPRIVATE_POINTER =	(GOMP_MAP_LAST | 1),
+    /* Do not map, but pointer assign a reference instead.  */
+    GOMP_MAP_FIRSTPRIVATE_REFERENCE =	(GOMP_MAP_LAST | 2)
   };
 
 #define GOMP_MAP_COPY_TO_P(X) \

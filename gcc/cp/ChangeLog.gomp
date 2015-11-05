@@ -1,3 +1,19 @@
+2015-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* parser.c (cp_parser_omp_target_data,
+	cp_parser_omp_target_enter_data,
+	cp_parser_omp_target_exit_data, cp_parser_omp_target): Allow
+	GOMP_MAP_ALWAYS_POINTER and GOMP_MAP_FIRSTPRIVATE_REFERENCE.
+	* semantics.c (handle_omp_array_sections): For structure element
+	based array sections use GOMP_MAP_ALWAYS_POINTER instead of
+	GOMP_MAP_FIRSTPRIVATE_POINTER.
+	(finish_omp_clauses): Drop generic_field_head, structure
+	elements are now always mapped even as array section bases,
+	diagnose same var in data sharing and mapping clauses.
+	For references map what they refer to using GOMP_MAP_ALWAYS_POINTER
+	for structure elements and GOMP_MAP_FIRSTPRIVATE_REFERENCE
+	otherwise.
+
 2015-11-02  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* parser.c: Include context.h.
