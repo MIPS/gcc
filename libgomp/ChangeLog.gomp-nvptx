@@ -1,5 +1,13 @@
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/posix/simple-bar.h: New file.  Use it ...
+	* libgomp.h: ...here: new include.
+	(struct gomp_thread_pool): Change threads_dock member to
+	gomp_simple_barrier_t.
+	* team.c: Adjust all uses.
+
+2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/bar.c: New file.
 	* config/nvptx/bar.h: Ditto.
 

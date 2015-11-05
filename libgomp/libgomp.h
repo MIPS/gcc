@@ -124,6 +124,7 @@ struct htab;
 #include "sem.h"
 #include "mutex.h"
 #include "bar.h"
+#include "simple-bar.h"
 #include "ptrlock.h"
 
 
@@ -626,8 +627,8 @@ struct gomp_thread_pool
   /* Number of threads running in this contention group.  */
   unsigned long threads_busy;
 
-  /* This barrier holds and releases threads waiting in threads.  */
-  gomp_barrier_t threads_dock;
+  /* This barrier holds and releases threads waiting in thread pools.  */
+  gomp_simple_barrier_t threads_dock;
 };
 
 enum gomp_cancel_kind
