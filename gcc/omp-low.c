@@ -12994,7 +12994,6 @@ expand_omp_target (struct omp_region *region)
 	depend = build_int_cst (ptr_type_node, 0);
       args.quick_push (depend);
       break;
-    case BUILT_IN_GOACC_KERNELS_INTERNAL:
     case BUILT_IN_GOACC_PARALLEL:
       {
 	set_oacc_fn_attrib (child_fn, clauses, &args);
