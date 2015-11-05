@@ -17,4 +17,5 @@
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*main._omp_fn.1" 1 "optimized" } } */
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*main._omp_fn.2" 1 "optimized" } } */
 
-/* { dg-final { scan-tree-dump-times "(?n)pragma omp target oacc_parallel.*num_gangs\\(32\\)" 3 "parloops_oacc_kernels" } } */
+/* { dg-final { scan-tree-dump-times "(?n)oacc function \\(32," 3 "parloops_oacc_kernels" } } */
+

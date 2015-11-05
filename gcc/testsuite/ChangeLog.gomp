@@ -1,5 +1,36 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	* c-c++-common/goacc/kernels-acc-loop-reduction.c: Scan for oacc
+	function instead of oacc_parallel.
+	* c-c++-common/goacc/kernels-acc-loop-smaller-equal.c: Same.
+	* c-c++-common/goacc/kernels-counter-vars-function-scope.c: Same.
+	* c-c++-common/goacc/kernels-double-reduction.c: Same.
+	* c-c++-common/goacc/kernels-independent.c: Same.
+	* c-c++-common/goacc/kernels-loop-2-acc-loop.c:  Same.
+	* c-c++-common/goacc/kernels-loop-2.c:  Same.
+	* c-c++-common/goacc/kernels-loop-3-acc-loop.c: Same.
+	* c-c++-common/goacc/kernels-loop-3.c: Same.
+	* c-c++-common/goacc/kernels-loop-acc-loop.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-2.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-enter-exit-2.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-enter-exit.c: Same.
+	* c-c++-common/goacc/kernels-loop-data-update.c: Same.
+	* c-c++-common/goacc/kernels-loop-data.c: Same.
+	* c-c++-common/goacc/kernels-loop-g.c: Same.
+	* c-c++-common/goacc/kernels-loop-mod-not-zero.c: Same.
+	* c-c++-common/goacc/kernels-loop-n-acc-loop.c: Same.
+	* c-c++-common/goacc/kernels-loop-n.c: Same.
+	* c-c++-common/goacc/kernels-loop-nest-independent.c: Same.
+	* c-c++-common/goacc/kernels-loop-nest.c: Same.
+	* c-c++-common/goacc/kernels-loop.c: Same.
+	* c-c++-common/goacc/kernels-one-counter-var.c: Same.
+	* c-c++-common/goacc/kernels-parallel-loop-data-enter-exit.c: Same.
+	* c-c++-common/goacc/kernels-reduction.c: Same.
+	* c-c++-common/goacc/kernels-counter-var-redundant-load.c: Same.  Update
+	scan.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-counter-var-redundant-load.c: Run with
 	-ftree-parallelize-loops=32.
 

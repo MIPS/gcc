@@ -29,9 +29,8 @@ foo (unsigned int *c)
    _15 = .omp_data_i_10->c;
    c.1_16 = *_15;
 
-   Check that there are two loads from anonymous ssa-names, which we assume to
+   Check that there is one load from anonymous ssa-name, which we assume to
    be:
-   - the one to read c
-   - the one to read ii after the kernels region.  */
+   - the one to read c.  */
 
-/* { dg-final { scan-tree-dump-times "(?n)\\*_\[0-9\]\[0-9\]*;$" 2 "dom_oacc_kernels3" } } */
+/* { dg-final { scan-tree-dump-times "(?n)\\*_\[0-9\]\[0-9\]*;$" 1 "dom_oacc_kernels3" } } */

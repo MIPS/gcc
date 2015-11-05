@@ -52,4 +52,5 @@ foo (COUNTERTYPE n)
 /* Check that the loop has been split off into a function.  */
 /* { dg-final { scan-tree-dump-times "(?n);; Function .*foo.*._omp_fn.0" 1 "optimized" } } */
 
-/* { dg-final { scan-tree-dump-times "(?n)pragma omp target oacc_parallel.*num_gangs\\(32\\)" 1 "parloops_oacc_kernels" } } */
+/* { dg-final { scan-tree-dump-times "(?n)oacc function \\(32," 1 "parloops_oacc_kernels" } } */
+
