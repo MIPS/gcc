@@ -1,5 +1,12 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (get_bbs_in_oacc_kernels_region):
+	(loop_get_oacc_kernels_region_entry, get_oacc_kernels_region_exit)
+	(oacc_kernels_region_entry_p): Remove.
+	* omp-low.h: Same.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (gimple_stmt_omp_data_i_init_p, get_omp_data_i): Remove.
 	* omp-low.h: Same.
 	* tree-parloops.c (oacc_entry_exit_ok_1): Remove test on
