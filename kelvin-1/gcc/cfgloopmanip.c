@@ -62,8 +62,6 @@ static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
 #ifdef KELVIN_PATCH
-
-
 /*
  * Return true iff block is considered to reside within the loop
  * represented by loop_ptr
@@ -74,11 +72,10 @@ in_loop_p(basic_block block, loop_p loop_ptr)
   basic_block *bbs = get_loop_body (loop_ptr);
   bool result = false;
 
-  for (unsigned int i = 0; i < loop_ptr->num_nodes; i++)
-    {
-      if (bbs[i] == block)
-	result = true;
-    }
+  for (unsigned int i = 0; i < loop_ptr->num_nodes; i++) {
+    if (bbs[i] == block)
+      result = true;
+  }
   free (bbs);
   return result;
 }
@@ -90,10 +87,9 @@ in_loop_p(basic_block block, loop_p loop_ptr)
 void zero_loop_frequencies(loop_p loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
-  for (unsigned i = 0; i < loop_ptr->num_nodes; ++i)
-    {
-      bbs[i]->frequency = 0;
-    }
+  for (unsigned i = 0; i < loop_ptr->num_nodes; ++i) {
+    bbs[i]->frequency = 0;
+  }
   free (bbs);
 }
 
@@ -112,8 +108,8 @@ typedef struct block_ladder_rung {
  */
 static bool same_edge(edge an_edge, edge another_edge)
 {
-  return ((an_edge->src == another_edge->src) &&
-	  (an_edge->dest == another_edge->dest));
+  return ((an_edge->src == another_edge->src) 
+	  && (an_edge->dest == another_edge->dest));
 }
 
 /* Return true iff an_edge matches one of the nodes that is already
@@ -124,16 +120,15 @@ static bool in_edge_set(edge an_edge, vec<edge> set_of_edges)
   unsigned int j;
   edge e;
 
-  FOR_EACH_VEC_ELT(set_of_edges, j, e)
-    {
-      if (same_edge(e, an_edge))
-	return true;
-    }
+  FOR_EACH_VEC_ELT(set_of_edges, j, e) {
+    if (same_edge(e, an_edge))
+      return true;
+  }
   return false;
 }
 
 /* Return true iff an_edge->dest is already represented within
- * the ladder_rung.
+ * the ladder_rung list.
  */
 static bool in_call_chain(edge an_edge, ladder_rung_p ladder_rung)
 {
@@ -207,8 +202,8 @@ static bool _in_loop(basic_block candidate,
     return true;
   } else if (candidate == loop_header) {
     return start_of_recursion;
-  } else if (!start_of_recursion &&
-	     recursion_detected(candidate, lower_steps)) {
+  } else if (!start_of_recursion 
+	     && recursion_detected(candidate, lower_steps)) {
     /* if recursion revisits a node already visited and the loop latch
      * was not visited in the call chain, then we are traversing an
      * iterative path that belongs to an outer-nested loop.
@@ -229,7 +224,7 @@ static bool _in_loop(basic_block candidate,
   }
 }
 
-/* return true iff candidate matches one of the blocks contained within 
+/* Return true iff candidate matches one of the blocks contained within 
  * loop_set.
  */
 static bool _in_loop_set(basic_block candidate, vec<basic_block> loop_set) 
@@ -363,18 +358,11 @@ zero_partial_loop_frequencies(loop_p loop_ptr, basic_block block)
    * and valid successor and predecessor information for each
    * block contained within the loop.
    */
-
-  fprintf(stderr, "zero_partial_loop_frequencies, loop_ptr is %p\n",
-	  (void *) loop_ptr);
-
   vec<basic_block> loop_blocks = _get_loop_blocks(loop_ptr);
   if (_in_block_set(block, loop_blocks)) {
     struct block_ladder_rung ladder_rung;
     ladder_rung.block = block;
     ladder_rung.lower_rung = NULL;
-
-    fprintf(stderr, "zero_partial_loop_frequencies, loop_blocks is %p\n",
-	    (void *) &loop_blocks);
     
     vec<edge> exit_edges = _get_loop_exit_edges(loop_blocks);
     block->frequency = 0;
@@ -447,8 +435,7 @@ void increment_loop_frequencies(loop_p loop_ptr,
       edge successor = EDGE_SUCC(block, i);
       if (successor->probability != 0) {
 	int successor_increment =
-	  ((frequency_increment * successor->probability) /
-	   REG_BR_PROB_BASE);
+	  ((frequency_increment * successor->probability) / REG_BR_PROB_BASE);
 	
 	recursively_increment_frequency(loop_ptr, exit_edges,
 					&ladder_rung, successor,
@@ -480,9 +467,9 @@ static void internal(const char *msg)
  *     in the loop equals the frequency of that block.
  *
  * The integrity check is problematic due to round-off errors.  Though
- * it hasn't been tested with max-unroll-times greater than 4, I suspect
- * that unrolling complex control structures contained within a loop
- * that is unrolled more than 4 times may result in erroneous
+ * it hasn't been tested with max-unroll-times greater than 4, we
+ * suspect that unrolling complex control structures contained within a
+ * loop that is unrolled more than 4 times may result in erroneous
  * integrity check failures due to round-off errors.
  */
 static void check_loop_frequency_integrity(loop_p loop_ptr)
@@ -1752,6 +1739,18 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   /* Remember the initial ratio between frequency
    * of edge into loop header and the frequency of the loop header.
    * Preserve this ratio when we make adjustments within the loop.
+   * This distinction is necessary because different flavors of loops
+   * are subject to different heuristics.  In particular, loops
+   * bounded by run-time constants assume that branches exiting a loop
+   * have probability 9%.  Loops bounded by compile-time constants 
+   * assume branches exiting a loop have probability 1%. There may be
+   * other circumstances that assume different behaviors.
+   *
+   * KELVIN_TODO:
+   * For loops that have a single exit, the exit ratio is the same as
+   * the ratio between the sum of the frequency of the header's
+   * incoming edges and the frequency of the header itself.  For loops
+   * that have multiple exits, we still need to investigate.  
    */
   int header_frequency = header->frequency;
   int preheader_frequency = 0;
