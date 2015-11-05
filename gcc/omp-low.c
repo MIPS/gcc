@@ -12563,8 +12563,6 @@ expand_omp_target (struct omp_region *region)
   gimple *stmt;
   edge e;
   bool offloaded, data_region;
-  bool do_emit_library_call = true;
-  bool do_splitoff = true;
 
   entry_stmt = as_a <gomp_target *> (last_stmt (region->entry));
 
@@ -12608,43 +12606,7 @@ expand_omp_target (struct omp_region *region)
   exit_bb = region->exit;
 
   if (gimple_omp_target_kind (entry_stmt) == GF_OMP_TARGET_KIND_OACC_KERNELS)
-    {
-      if (!gimple_in_ssa_p (cfun))
-	{
-	  /* We need to do analysis and optimizations on the kernels region
-	     before splitoff.  Since that's hard to do on low gimple, we
-	     postpone the splitoff until we're in SSA.
-	     However, we do the emit of the corresponding function call already,
-	     in order to keep the arguments of the call alive until the
-	     splitoff.
-	     Since at this point the function that is called is empty, we can
-	     model the function as BUILT_IN_GOACC_KERNELS_INTERNAL, which marks
-	     some of it's function arguments as non-escaping, so it acts less
-	     as an optimization barrier.  */
-	  do_splitoff = false;
-	  cfun->curr_properties &= ~PROP_gimple_eomp;
-
-	  mark_loops_in_oacc_kernels_region (region->entry, region->exit);
-	}
-      else
-	{
-	  /* Don't emit the library call.  We've already done that.  */
-	  do_emit_library_call = false;
-	  /* Transform BUILT_IN_GOACC_KERNELS_INTERNAL into
-	     BUILT_IN_GOACC_PARALLELL.  Now that the function
-	     body will be split off, we can no longer regard the
-	     omp_data_array reference as non-escaping.  */
-	  gsi = gsi_last_bb (entry_bb);
-	  gsi_prev (&gsi);
-	  gcall *call = as_a <gcall *> (gsi_stmt (gsi));
-	  gcc_assert (gimple_call_builtin_p
-		      (call, BUILT_IN_GOACC_KERNELS_INTERNAL));
-	  tree fndecl = builtin_decl_explicit (BUILT_IN_GOACC_PARALLEL);
-	  gimple_call_set_fndecl (call, fndecl);
-	  gimple_call_set_fntype (call, TREE_TYPE (fndecl));
-	  gimple_call_reset_alias_info (call);
-	}
-    }
+    mark_loops_in_oacc_kernels_region (region->entry, region->exit);
 
   basic_block entry_succ_bb = single_succ (entry_bb);
   if (offloaded && !gimple_in_ssa_p (cfun))
@@ -12654,8 +12616,7 @@ expand_omp_target (struct omp_region *region)
 	gsi_remove (&gsi, true);
     }
 
-  if (offloaded
-      && do_splitoff)
+  if (offloaded)
     {
       unsigned srcidx, dstidx, num;
 
@@ -12852,13 +12813,6 @@ expand_omp_target (struct omp_region *region)
       pop_cfun ();
     }
 
-  if (!do_emit_library_call)
-    {
-      if (gimple_in_ssa_p (cfun))
-	update_ssa (TODO_update_ssa_only_virtuals);
-      return;
-    }
-
   /* Emit a library call to launch the offloading region, or do data
      transfers.  */
   tree t1, t2, t3, t4, device, cond, depend, c, clauses;
@@ -12885,10 +12839,8 @@ expand_omp_target (struct omp_region *region)
       flags_i |= GOMP_TARGET_FLAG_EXIT_DATA;
       break;
     case GF_OMP_TARGET_KIND_OACC_PARALLEL:
-      start_ix = BUILT_IN_GOACC_PARALLEL;
-      break;
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
-      start_ix = BUILT_IN_GOACC_KERNELS_INTERNAL;
+      start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
       start_ix = BUILT_IN_GOACC_DATA_START;
@@ -12951,8 +12903,7 @@ expand_omp_target (struct omp_region *region)
       tree tmp_var;
 
       tmp_var = create_tmp_var (TREE_TYPE (device));
-      if (offloaded
-	  && do_splitoff)
+      if (offloaded)
 	e = split_block_after_labels (new_bb);
       else
 	{
