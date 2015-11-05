@@ -1,5 +1,17 @@
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
+	Revert:
+	2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-dom.c (dom_opt_dom_walker::set_skip_stmt): New function.
+	(dom_opt_dom_walker::m_skip_stmt): New private var.
+	(pass_dominator::get_sese): Add skip_stmt parameters.
+	(pass_dominator::execute): Call set_skip_stmt with statement to skip for
+	sese.
+	(dom_opt_dom_walker::before_dom_children): Handle m_skip_stmt.
+
+2015-11-05  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-ssa-loop.c: Include omp-low.h.
 	(gate_oacc_kernels): Test for flag_tree_parallelize_loops.  Test for
 	oacc function attribute.  Test for loop with in_oacc_kernels_region.

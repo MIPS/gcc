@@ -505,7 +505,6 @@ public:
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
-  void set_skip_stmt (gimple *skip_stmt) { m_skip_stmt = skip_stmt; }
 
 private:
   void thread_across_edge (edge);
@@ -516,7 +515,6 @@ private:
 
   gcond *m_dummy_cond;
   bool m_jump_threading_p;
-  gimple *m_skip_stmt;
 };
 
 /* Jump threading, redundancy elimination and const/copy propagation.
@@ -544,11 +542,9 @@ class dominator_base : public gimple_opt_pass
   virtual bool sese_mode_p (void) { return false; }
 
   /* In sese mode, return true if there's another sese to visit.  Return the
-     sese to visit in SESE_ENTRY and SESE_EXIT.  If a stmt in the sese should
-     not be optimized, return it in SKIP_STMT.  */
+     sese to visit in SESE_ENTRY and SESE_EXIT.  */
   virtual bool get_sese (basic_block *sese_entry ATTRIBUTE_UNUSED,
-			 basic_block *sese_exit ATTRIBUTE_UNUSED,
-			 gimple **skip_stmt ATTRIBUTE_UNUSED)
+			 basic_block *sese_exit ATTRIBUTE_UNUSED)
     { gcc_unreachable (); }
 }; // class dominator_base
 
@@ -640,11 +636,8 @@ dominator_base::execute (function *fun)
   else
     {
       basic_block sese_entry, sese_exit;
-      gimple *skip_stmt = NULL;
-      while (get_sese (&sese_entry, &sese_exit, &skip_stmt))
+      while (get_sese (&sese_entry, &sese_exit))
 	{
-	  walker.set_skip_stmt (skip_stmt);
-
 	  threadedge_initialize_values ();
 	  avail_exprs_stack->push_marker ();
 	  const_and_copies->push_marker ();
@@ -797,8 +790,7 @@ public:
 protected:
   /* dominator_base methods: */
   virtual bool sese_mode_p (void) { return true; }
-  virtual bool get_sese (basic_block *sese_entry, basic_block *sese_exit,
-			 gimple **skip_stmt)
+  virtual bool get_sese (basic_block *sese_entry, basic_block *sese_exit)
   {
     if (m_regions == NULL)
       {
@@ -820,10 +812,6 @@ protected:
 
     *sese_entry = BASIC_BLOCK_FOR_FN (cfun, index);
     *sese_exit = get_oacc_kernels_region_exit (*sese_entry);
-
-    tree omp_data_i = get_omp_data_i (single_pred (*sese_entry));
-    if (omp_data_i != NULL_TREE)
-      *skip_stmt = SSA_NAME_DEF_STMT (omp_data_i);
 
     return true;
   }
@@ -1446,12 +1434,7 @@ dom_opt_dom_walker::before_dom_children (basic_block bb)
   m_avail_exprs_stack->pop_to_marker ();
 
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    {
-      if (gsi_stmt (gsi) == m_skip_stmt)
-	continue;
-
-      optimize_stmt (bb, gsi, m_const_and_copies, m_avail_exprs_stack);
-    }
+    optimize_stmt (bb, gsi, m_const_and_copies, m_avail_exprs_stack);
 
   /* Now prepare to process dominated blocks.  */
   if (m_jump_threading_p)
