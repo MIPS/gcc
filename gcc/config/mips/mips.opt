@@ -247,6 +247,10 @@ mgpopt
 Target Report Var(TARGET_GPOPT) Init(1)
 Use GP-relative addressing to access small data
 
+mgpanchors
+Target Report Var(TARGET_GPANCHORS) Init(0)
+Use anchors when using GP-relative addressing for small data
+
 mplt
 Target Report Var(TARGET_PLT)
 When generating -mabicalls code, allow executables to use PLTs and copy relocations

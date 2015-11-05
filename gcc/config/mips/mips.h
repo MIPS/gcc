@@ -230,6 +230,11 @@ struct mips_cpu_info {
 #define TARGET_MIPS16_PCREL_LOADS \
   (TARGET_MIPS16 && mips_code_readable >= CODE_READABLE_PCREL)
 
+/* True if we're using gp to access the small data section along with
+   anchors for a compressed instruction set.  */
+#define TARGET_SDATA_ANCHORS \
+  ((TARGET_MIPS16 || TARGET_MICROMIPS) && TARGET_GPOPT && TARGET_GPANCHORS)
+
 /* Generic ISA defines.  */
 #define ISA_MIPS1		    (mips_isa == 1)
 #define ISA_MIPS2		    (mips_isa == 2)

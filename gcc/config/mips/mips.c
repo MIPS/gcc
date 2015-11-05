@@ -2811,6 +2811,30 @@ mips_use_pic_fn_addr_reg_p (const_rtx x)
   return true;
 }
 
+/* Determine if SYMBOL_REF x is an anchor that resides in the
+   the small data section.  */
+
+static bool
+mips_anchored_sdata_ref_p (const_rtx x)
+{
+  const_rtx sym;
+  if (GET_CODE (x) == CONST
+      && GET_CODE (XEXP (x, 0)) == PLUS)
+    sym = XEXP (XEXP (x, 0), 0);
+  else
+    sym = x;
+
+  return (GET_CODE (sym) == SYMBOL_REF
+          && SYMBOL_REF_LOCAL_P (sym)
+	  && SYMBOL_REF_ANCHOR_P (sym)
+	  && SYMBOL_REF_HAS_BLOCK_INFO_P (sym)
+	  /* FIXME: This is clunky. Unfortunately experience shows
+	     that .sdata anchors aren't SYMBOL_FLAG_SMALL.  Urgh.  */
+	  && SYMBOL_REF_BLOCK (sym)
+	  && (SYMBOL_REF_BLOCK (sym))->sect
+	      == get_named_section (NULL, ".sdata", 0));
+}
+
 /* Return the method that should be used to access SYMBOL_REF or
    LABEL_REF X in context CONTEXT.  */
 
@@ -2853,6 +2877,11 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
       if (mips_rtx_constant_in_small_data_p (get_pool_mode (x)))
 	return SYMBOL_GP_RELATIVE;
     }
+
+  /* Code-size wise,  By using an anchor in the .sdata section we can
+     use short offsets off the anchor rather large offsets from GP. */
+  if (TARGET_SDATA_ANCHORS && mips_anchored_sdata_ref_p (x))
+    return SYMBOL_GP_RELATIVE;
 
   /* Do not use small-data accesses for weak symbols; they may end up
      being zero.  */
@@ -5925,8 +5954,8 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 {
   enum mips_symbol_type symbol_type;
   return (mips_symbolic_constant_p (x, context, &symbol_type)
-	  && symbol_type == SYMBOL_GP_RELATIVE
-	  && CONSTANT_POOL_ADDRESS_P (x));
+          && symbol_type == SYMBOL_GP_RELATIVE
+          && (CONSTANT_POOL_ADDRESS_P (x) || mips_anchored_sdata_ref_p (x)));
 }
 
 const char *
@@ -10865,8 +10894,10 @@ mips_use_anchors_for_symbol_p (const_rtx symbol)
   switch (mips_classify_symbol (symbol, SYMBOL_CONTEXT_MEM))
     {
     case SYMBOL_PC_RELATIVE:
-    case SYMBOL_GP_RELATIVE:
       return false;
+
+    case SYMBOL_GP_RELATIVE:
+      return TARGET_SDATA_ANCHORS;
 
     default:
       return default_use_anchors_for_symbol_p (symbol);
@@ -21023,6 +21054,24 @@ mips_option_override (void)
   mips_small_data_threshold = (global_options_set.x_g_switch_value
 			       ? g_switch_value
 			       : MIPS_DEFAULT_GVALUE);
+
+  /* Set the maximum anchor offset.  Since microMIPS and mips16 have differing
+     maxium offsets for loads, this has to be set here, rather than through a
+     macro.  */
+  if ((mips_base_compression_flags && (MASK_MIPS16 || MASK_MICROMIPS))
+      && TARGET_GPOPT && TARGET_GPANCHORS)
+    {
+      if (flag_data_sections)
+        warning (0,"-fdata-sections and -mgpanchors should not be mixed");
+
+      if (!flag_section_anchors)
+	warning (0,"-mgpanchors requires -fsection-anchors");
+
+      if (mips_base_compression_flags && MASK_MIPS16)
+        targetm.max_anchor_offset = 124;
+      else if (mips_base_compression_flags && MASK_MICROMIPS)
+        targetm.max_anchor_offset = 60;
+    }
 
   /* The following code determines the architecture and register size.
      Similar code was added to GAS 2.14 (see tc-mips.c:md_after_parse_args()).
