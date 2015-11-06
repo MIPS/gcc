@@ -428,6 +428,14 @@ mtune=
 Target RejectNegative Joined Var(mips_tune_option) ToLower Enum(mips_arch_opt_value)
 -mtune=PROCESSOR	Optimize the output for PROCESSOR
 
+mstore-load-sched
+Target Report Var(TARGET_STORE_LOAD_SCHED)
+Aggressively schedule loads away from stores
+
+mstore-load-sched-distance=
+Target RejectNegative Joined UInteger Var(mips_store_sched) Init(1)
+-mstore-load-sched2-distance=NUM  Try to schedule NUM non-memory instructions after a store sequence.
+
 muninit-const-in-rodata
 Target Report Var(TARGET_UNINIT_CONST_IN_RODATA)
 Put uninitialized constants in ROM (needs -membedded-data)
