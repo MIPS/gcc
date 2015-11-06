@@ -34,7 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "dumpfile.h"
 
-/* Define ENABLE_CHECKING to include run-time checks that 
+/* Define ENABLE_CHECKING to enforce the following run-time checks.
  *
  *  a. The sum of outgoing edge frequencies for the loop equals the
  *     sum of incoming edge frequencies for the loop header block.
@@ -64,7 +64,7 @@ static void fix_bb_placements (basic_block, bool *, bitmap);
 #ifdef KELVIN_PATCH
 /*
  * Return true iff block is considered to reside within the loop
- * represented by loop_ptr
+ * represented by loop_ptr.
  */
 bool
 in_loop_p (basic_block block, loop_p loop_ptr)
@@ -363,13 +363,13 @@ static void
 zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
 {
   /* When zero_partial_loop_frequencies is invoked, the *loop_ptr
-   * object is not entirely coherent, so existing library services
-   * get_loop_blocks() and get_loop_exit_edges() cannot be called
-   * from this context.	 Instead, we use the _get_loop_blocks() 
-   * and get_exit_edges_from_loop_blocks() functions which assume only
-   * the validity of loop_ptr->loop_header, loop_ptr->loop_latch,
-   * and valid successor and predecessor information for each
-   * block contained within the loop.
+   * object is not entirely coherent, so the library service
+   * get_loop_exit_edges (loop_p) cannot be called from this context.
+   * Instead, we use get_loop_blocks (loop_p) and
+   * get_exit_edges_from_loop_blocks (vec<basic_block>) functions
+   * which assume only the validity of loop_ptr->loop_header,
+   * loop_ptr->loop_latch, and valid successor and predecessor
+   * information for each block contained within the loop.
    */
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
   if (in_block_set_p (block, loop_blocks)) {
@@ -509,7 +509,7 @@ check_loop_frequency_integrity (loop_p loop_ptr)
 	}
       delta = predecessor_frequencies - a_block->frequency;
 
-      /* enforce tolerance to within 0.2% */
+      /* Enforce tolerance to within 0.2%. */
       int tolerance = predecessor_frequencies / 500;  
       if (tolerance < 10)
 	tolerance = 10;
@@ -519,7 +519,7 @@ check_loop_frequency_integrity (loop_p loop_ptr)
       
       if (delta > tolerance)
 	{
-	  internal ("predecessor frequencies confused while unrolling loop");
+	  internal ("Predecessor frequencies confused while unrolling loop.");
 	}
     }
 
@@ -554,7 +554,7 @@ check_loop_frequency_integrity (loop_p loop_ptr)
   
   if (delta > tolerance)
     {
-      internal ("Incoherent frequencies while unrolling loop");
+      internal ("Incoherent frequencies while unrolling loop.");
     }
   loop_body.release ();
   exit_edges.release ();
@@ -1779,8 +1779,8 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   int header_frequency = header->frequency;
   int preheader_frequency = 0;
   
-  /* sum the EDGE frequencies for all predecessor edges that
-   *   originate outside the loop
+  /* Sum the EDGE frequencies for all predecessor edges that
+   * originate outside the loop.
    */
   for (unsigned int i = 0; i < EDGE_COUNT (header->preds); i++) {
     edge predecessor = EDGE_PRED (header, i);
@@ -1937,7 +1937,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   spec_edges[SE_LATCH] = latch_edge;
   
 #ifdef KELVIN_PATCH
-  /* recompute the loop body frequencies */
+  /* Recompute the loop body frequencies. */
   zero_loop_frequencies (loop);
 
   basic_block my_header = loop->header;
@@ -2007,8 +2007,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       /* Redirect the special edges.  */
       if (is_latch)
 	{
-	  fprintf(stderr, "Redirecting edges under is_latch\n");
-
 	  redirect_edge_and_branch_force (latch_edge, new_bbs[0]);
 	  redirect_edge_and_branch_force (new_spec_edges[SE_LATCH],
 					  loop->header);
@@ -2018,8 +2016,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	}
       else
 	{
-	  fprintf(stderr, "Redirecting edges under !is_latch\n");
-
 	  redirect_edge_and_branch_force (new_spec_edges[SE_LATCH],
 					  loop->header);
 	  redirect_edge_and_branch_force (e, new_bbs[0]);
@@ -2134,7 +2130,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   free (bbs);
   BITMAP_FREE (bbs_to_scale);
 
-#ifdef INTEGRITY_HEURISITICS
+#ifdef ENABLE_CHECKING
   /* This function call is strictly paranoia.  it makes no changes
    * to the data structures.
    */

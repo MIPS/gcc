@@ -1072,7 +1072,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
 #ifdef KELVIN_PATCH
   {  
-    /* recompute the loop body frequencies */
+    /* Recompute the loop body frequencies. */
     zero_loop_frequencies (loop);
     
     basic_block my_header = loop->header;
