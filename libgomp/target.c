@@ -92,23 +92,6 @@ gomp_realloc_unlock (void *old, size_t size)
   return ret;
 }
 
-/* The comparison function.  */
-
-attribute_hidden int
-splay_compare (splay_tree_key x, splay_tree_key y)
-{
-  if (x->host_start == x->host_end
-      && y->host_start == y->host_end)
-    return 0;
-  if (x->host_end <= y->host_start)
-    return -1;
-  if (x->host_start >= y->host_end)
-    return 1;
-  return 0;
-}
-
-#include "splay-tree.h"
-
 attribute_hidden void
 gomp_init_targets_once (void)
 {

@@ -193,7 +193,7 @@ gomp_new_team (unsigned nthreads)
   team->ordered_release = (void *) &team->implicit_task[nthreads];
   team->ordered_release[0] = &team->master_release;
 
-  team->task_queue = NULL;
+  priority_queue_init (&team->task_queue);
   team->task_count = 0;
   team->task_queued_count = 0;
   team->task_running_count = 0;
@@ -214,6 +214,7 @@ free_team (struct gomp_team *team)
 #endif
   gomp_barrier_destroy (&team->barrier);
   gomp_mutex_destroy (&team->task_lock);
+  priority_queue_free (&team->task_queue);
   free (team);
 }
 
