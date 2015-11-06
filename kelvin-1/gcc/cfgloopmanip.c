@@ -159,21 +159,25 @@ recursively_zero_frequency (loop_p loop_ptr, vec<edge> exit_edges,
     a_rung.block = block;
     a_rung.lower_rung = ladder_rung;
     block->frequency = 0;
-    for (unsigned int i = 0; i < EDGE_COUNT (block->succs); i++) {
-      edge successor = EDGE_SUCC (block, i);
-      recursively_zero_frequency (loop_ptr, exit_edges,
-				  &a_rung, successor);
-    }
+
+    edge_iterator ei;
+    edge successor;
+    FOR_EACH_EDGE (successor, ei, block->succs)
+      {
+	recursively_zero_frequency (loop_ptr, exit_edges,
+				    &a_rung, successor);
+      }
   }
 }
 				     
 static bool 
 recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps) {
-  while (lower_steps != NULL) {
-    if (lower_steps->block == candidate)
-      return true;
-    lower_steps = lower_steps->lower_rung;
-  }
+  while (lower_steps != NULL)
+    {
+      if (lower_steps->block == candidate)
+	return true;
+      lower_steps = lower_steps->lower_rung;
+    }
   /* we iterated through the entire list and did not find candidate */
   return false;
 }
@@ -217,31 +221,17 @@ in_loop_of_header_p (basic_block candidate, basic_block loop_header,
       new_step.block = candidate;
       new_step.lower_rung = lower_steps;
       
-      for (unsigned int i = 0; i < EDGE_COUNT (candidate->succs); i++) {
-	basic_block successor = EDGE_SUCC (candidate, i)->dest;
-	if (in_loop_of_header_p (successor, loop_header,
-				 loop_latch, false, &new_step))
-	  return true;
-      }
+      edge_iterator ei;
+      edge successor_edge;
+      FOR_EACH_EDGE (successor_edge, ei, candidate->succs)
+	{
+	  basic_block successor = successor_edge->dest;
+	  if (in_loop_of_header_p (successor, loop_header,
+				   loop_latch, false, &new_step))
+	    return true;
+	}
       return false;		  /* None of the successors was in loop	 */
     }
-}
-
-/* Return true iff candidate matches one of the blocks contained within 
- * loop_set.
- */
-static bool 
-in_loop_set_p (basic_block candidate, vec<basic_block> loop_set) 
-{
-  unsigned int j;
-  basic_block b;
-  
-  FOR_EACH_VEC_ELT (loop_set, j, b) {
-    if (b == candidate) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /* Add candidate into the results vector if candidate
@@ -276,14 +266,16 @@ recursively_get_loop_blocks (basic_block candidate, vec<basic_block> results,
   if (in_loop_of_header_p (candidate, loop_header, loop_latch, true, NULL))
     {
       results.safe_push (candidate);
-      for (unsigned int u = 0; u < EDGE_COUNT (candidate->succs); u++)
+
+      edge_iterator ei;
+      edge successor;
+      FOR_EACH_EDGE (successor, ei, candidate->succs)
 	{
-	  edge successor = EDGE_SUCC (candidate, u);
-	
-	  if (successor->probability != 0) {
-	    results = recursively_get_loop_blocks (successor->dest, results, 
-						    loop_header, loop_latch);
-	  }
+	  if (successor->probability != 0)
+	    {
+	      results = recursively_get_loop_blocks (successor->dest, results, 
+						     loop_header, loop_latch);
+	    }
 	}
     }
   return results;
@@ -327,14 +319,18 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
   vec<edge> results = vNULL;
 
   FOR_EACH_VEC_ELT (loop_blocks, u, bb) {
-    for (unsigned int i = 0; i < EDGE_COUNT (bb->succs); i++) {
-      edge successor = EDGE_SUCC (bb, i);
-      basic_block edge_dest = successor->dest;
 
-      if (!in_block_set_p (edge_dest, loop_blocks)) {
-	results.safe_push (successor);
+    edge_iterator ei;
+    edge successor;
+    FOR_EACH_EDGE (successor, ei, bb->succs)
+      {
+	basic_block edge_dest = successor->dest;
+
+	if (!in_block_set_p (edge_dest, loop_blocks))
+	  {
+	    results.safe_push (successor);
+	  }
       }
-    }
   }
   return results;
 }
@@ -375,13 +371,17 @@ zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
     
     vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
     block->frequency = 0;
-    for (unsigned int i = 0; i < EDGE_COUNT (block->succs); i++) {
-      edge successor = EDGE_SUCC (block, i);
-      if (successor->probability != 0) {
-	recursively_zero_frequency (loop_ptr, exit_edges,
-				    &ladder_rung, successor);
+
+    edge_iterator ei;
+    edge successor;
+    FOR_EACH_EDGE (successor, ei, block->succs)
+      {
+	if (successor->probability != 0)
+	  {
+	    recursively_zero_frequency (loop_ptr, exit_edges,
+					&ladder_rung, successor);
+	  }
       }
-    }
     exit_edges.release ();
   }
   loop_blocks.release ();
@@ -407,9 +407,11 @@ recursively_increment_frequency (loop_p loop_ptr, vec<edge> exit_edges,
       a_rung.block = block;
       a_rung.lower_rung = ladder_rung;
       block->frequency += frequency_increment;
-      for (unsigned int i = 0; i < EDGE_COUNT (block->succs); i++)
+
+      edge_iterator ei;
+      edge successor;
+      FOR_EACH_EDGE (successor, ei, block->succs)
 	{
-	  edge successor = EDGE_SUCC (block, i);
 	  int successor_increment =
 	    (frequency_increment * successor->probability) / REG_BR_PROB_BASE;
 	  recursively_increment_frequency (loop_ptr, exit_edges,
@@ -435,24 +437,28 @@ increment_loop_frequencies (loop_p loop_ptr, basic_block block,
 
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
 
-  if (in_loop_set_p (block, loop_blocks)) {
+  if (in_block_set_p (block, loop_blocks)) {
     struct block_ladder_rung ladder_rung;
     ladder_rung.block = block;
     ladder_rung.lower_rung = NULL;
     
     vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
     block->frequency += frequency_increment;
-    for (unsigned int i = 0; i < EDGE_COUNT (block->succs); i++) {
-      edge successor = EDGE_SUCC (block, i);
-      if (successor->probability != 0) {
-	int successor_increment =
-	  ((frequency_increment * successor->probability) / REG_BR_PROB_BASE);
-	
-	recursively_increment_frequency (loop_ptr, exit_edges,
-					 &ladder_rung, successor,
-					 successor_increment);
+
+    edge_iterator ei;
+    edge successor;
+    FOR_EACH_EDGE (successor, ei, block->succs)
+      {
+	if (successor->probability != 0)
+	  {
+	    int successor_increment =
+	      ((frequency_increment * successor->probability)
+	       / REG_BR_PROB_BASE);
+	    recursively_increment_frequency (loop_ptr, exit_edges,
+					     &ladder_rung, successor,
+					     successor_increment);
+	  }
       }
-    }
     exit_edges.release ();
   }
   loop_blocks.release ();
@@ -487,7 +493,7 @@ internal (const char *msg)
 static void 
 check_loop_frequency_integrity (loop_p loop_ptr)
 {
-  unsigned int i, j, k;
+  unsigned int i, k;
   basic_block a_block;
 
   vec<basic_block> loop_body = get_loop_blocks (loop_ptr);
@@ -498,9 +504,10 @@ check_loop_frequency_integrity (loop_p loop_ptr)
       int delta;
       int predecessor_frequencies = 0;
 
-      for (j = 0; j < EDGE_COUNT (a_block->preds); j++)
+      edge_iterator ei;
+      edge a_predecessor;
+      FOR_EACH_EDGE (a_predecessor, ei, a_block->preds)
 	{
-	  edge a_predecessor = EDGE_PRED (a_block, j);
 	  predecessor_frequencies += EDGE_FREQUENCY (a_predecessor);
 	}
       delta = predecessor_frequencies - a_block->frequency;
@@ -521,11 +528,12 @@ check_loop_frequency_integrity (loop_p loop_ptr)
 
   header = loop_ptr->header;
   int incoming_frequency = 0;
-  for (i = 0; i < EDGE_COUNT (header->preds); i++)
-    {
-      edge a_predecessor = EDGE_PRED (header, i);
 
-      if (!in_loop_set_p (a_predecessor->src, loop_body))
+  edge_iterator ei;
+  edge a_predecessor;
+  FOR_EACH_EDGE (a_predecessor, ei, header->preds)
+    {
+      if (!in_block_set_p (a_predecessor->src, loop_body))
 	{
 	  incoming_frequency += EDGE_FREQUENCY (a_predecessor);
 	}
@@ -1754,12 +1762,16 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   /* Sum the EDGE frequencies for all predecessor edges that
    * originate outside the loop.
    */
-  for (unsigned int i = 0; i < EDGE_COUNT (header->preds); i++) {
-    edge predecessor = EDGE_PRED (header, i);
-    if (!in_loop_p (predecessor->src, loop)) {
-      preheader_frequency += EDGE_FREQUENCY (predecessor);
+
+  edge_iterator ei;
+  edge predecessor;
+  FOR_EACH_EDGE (predecessor, ei, header->preds)
+    {
+      if (!in_loop_p (predecessor->src, loop))
+	{
+	  preheader_frequency += EDGE_FREQUENCY (predecessor);
+	}
     }
-  }
 
   int exit_ratio = (header_frequency * 10000 - 5000) / preheader_frequency;
 
@@ -1912,10 +1924,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
   basic_block my_header = loop->header;
   int sum_incoming_frequencies = 0;
-  for (unsigned int i = 0; i < EDGE_COUNT (my_header->preds); i++)
-    {
-      edge predecessor = EDGE_PRED (my_header, i);
 
+  /* ei and predecessor declared above */
+  FOR_EACH_EDGE(predecessor, ei, my_header->preds)
+    {
       /* exit_ratio is computed based on remembered circumstances upon
        * entry into this function.  Note that loops bounded by a compile-time
        * constant have different exit ratio than loops bounded by a run-time
@@ -1924,8 +1936,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       if (!in_loop_p (predecessor->src, loop))
 	sum_incoming_frequencies +=
 	  (int) (EDGE_FREQUENCY (predecessor) * exit_ratio + 5000) / 10000;
-
-  }
+    }
   increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
 
   place_after = e->src;

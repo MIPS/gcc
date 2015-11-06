@@ -1006,11 +1006,13 @@ unroll_loop_runtime_iterations (struct loop *loop)
       swtch->frequency = new_freq;
 
       int prehead_frequency = 0;
-      for (unsigned int i = 0; i < EDGE_COUNT (preheader->preds); i++) {
-	edge an_edge = EDGE_PRED (preheader, i);
-	int the_edge_frequency = EDGE_FREQUENCY (an_edge);
-	prehead_frequency += the_edge_frequency;
-      }
+      edge_iterator ei;
+      edge an_edge;
+      FOR_EACH_EDGE (an_edge, ei, preheader->preds)
+	{
+	  int the_edge_frequency = EDGE_FREQUENCY (an_edge);
+	  prehead_frequency += the_edge_frequency;
+	}
       preheader->frequency = prehead_frequency;
     }
 
@@ -1049,15 +1051,27 @@ unroll_loop_runtime_iterations (struct loop *loop)
     
     basic_block my_header = loop->header;
     int sum_incoming_frequencies = 0;
-    for (unsigned int i = 0; i < EDGE_COUNT (my_header->preds); i++)
+
+    edge_iterator ei;
+    edge predecessor;
+    FOR_EACH_EDGE (predecessor, ei, my_header->preds)
       {
-	edge predecessor = EDGE_PRED (my_header, i);
 	if (!in_loop_p (predecessor->src, loop))
 	  sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
       }
-    sum_incoming_frequencies *= 111111;
-    sum_incoming_frequencies += 5000;
-    sum_incoming_frequencies /= 10000;
+    /* Scale the incoming frequencies according to the heuristic that
+     * the loop frequency is the incoming edge frequency divided by
+     * 0.09.  This heuristic applies only to loops that iterate over a
+     * run-time value that is not known at compile time.  Note that
+     * 1/.09 equals 11.1111.  We'll use integer arithmetic on ten
+     * thousandths, and then divide by 10,000 after we've "rounded".
+     */
+
+    sum_incoming_frequencies *= 111111;  /* multiply by 11.1111 */
+    sum_incoming_frequencies += 5000;    /* round by adding 0.5 */
+    sum_incoming_frequencies /= 10000;	 /* convert ten thousandths
+					    to ones
+					 */
     
     increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
   }
