@@ -564,6 +564,14 @@ moptimize-O1-list=
 Target RejectNegative Joined Var(mips_optimize_O1_list)
 Specify a list of functions to optimize with -O1
 
+moptimize-inline-list=
+Target RejectNegative Joined Var(mips_optimize_inline_list)
+Specify a list of functions to clear noinline flag to enable.
+
+moptimize-sdata-list=
+Target RejectNegative Joined Var(mips_optimize_sdata_list)
+Specify a list of global variables to be marked with section(\".sdata\") attribute.
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee

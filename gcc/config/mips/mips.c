@@ -783,6 +783,8 @@ static struct list *mips_optimize_size;
 static struct list *mips_optimize_O3;
 static struct list *mips_optimize_O2;
 static struct list *mips_optimize_O1;
+static struct list *mips_optimize_inline;
+static struct list *mips_optimize_sdata;
 
 static struct list *
 mips_read_list (const char * filename)
@@ -1564,6 +1566,18 @@ mips_insert_attributes (tree decl, tree *attributes)
       if (compression_flags)
 	error ("%qs attribute only applies to functions",
 	       mips_get_compress_on_name (nocompression_flags));
+
+      if (TREE_CODE (decl) == VAR_DECL
+	  && is_global_var (decl)
+	  && mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			     mips_optimize_sdata))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE,
+					    build_string (6, ".sdata"));
+	  *attributes = tree_cons (get_identifier ("section"),
+				   attr_args,
+				   *attributes);
+	}
     }
   else
     {
@@ -1615,6 +1629,14 @@ mips_insert_attributes (tree decl, tree *attributes)
 	  *attributes = tree_cons (get_identifier ("optimize"),
 				   attr_args,
 				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_inline))
+	{
+	  tree inline_opt = build_optimization_node (&global_options);
+	  TREE_OPTIMIZATION (inline_opt)->x_flag_no_inline = 0;
+	  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl) = inline_opt;
 	}
 
       if ((TARGET_FLIP_MIPS16 || mips_compress != NULL || mips_no_compress != NULL)
@@ -19699,6 +19721,8 @@ mips_option_override (void)
   mips_optimize_O3 = mips_read_list (mips_optimize_O3_list);
   mips_optimize_O2 = mips_read_list (mips_optimize_O2_list);
   mips_optimize_O1 = mips_read_list (mips_optimize_O1_list);
+  mips_optimize_inline = mips_read_list (mips_optimize_inline_list);
+  mips_optimize_sdata = mips_read_list (mips_optimize_sdata_list);
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
