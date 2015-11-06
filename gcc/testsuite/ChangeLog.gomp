@@ -1,5 +1,9 @@
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
+	* gfortran.dg/goacc/kernels-loop-nest-independent.f95: New test.
+
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-07-15  Tom de Vries  <tom@codesourcery.com>
 

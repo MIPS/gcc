@@ -1,5 +1,10 @@
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
+	* testsuite/libgomp.oacc-fortran/kernels-loop-nest-independent.f95: New
+	test.
+
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-07-14  Tom de Vries  <tom@codesourcery.com>
 
