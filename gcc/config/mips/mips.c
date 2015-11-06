@@ -14977,6 +14977,79 @@ vr4130_reorder (rtx *ready, int nready)
     mips_promote_ready (ready, nready - 2, nready - 1);
 }
 
+/* Record whether last interaptiv AGEN instruction was a store.  */
+static bool mips_last_interaptiv_insn_was_store = false;
+
+/* Initialize mips_last_interaptiv_agen_insn from INSN.  A null argument
+   resets to TYPE_UNKNOWN state.  */
+
+static void
+mips_interaptiv_agen_init (rtx insn)
+{
+  if (insn)
+    if (USEFUL_INSN_P (insn))
+      if (get_attr_type (insn) == TYPE_STORE)
+        mips_last_interaptiv_insn_was_store = true;
+      else
+        mips_last_interaptiv_insn_was_store = false;
+  else
+    mips_last_interaptiv_insn_was_store = false;
+}
+
+/* A TARGET_STORE_LOAD_SCHED helper function.  The Interaptiv AGEN pipeline
+   dislikes loads following stores.  To optimize this, aggressively promote
+   stores or loads to the head of the schedule.  By bunching up memory accesses
+   we need less latency covering instructions to fill between a store and
+   a load.  */
+
+static void
+mips_interaptiv_agen_reorder (rtx *ready, int nready)
+{
+  int i, j = 0;
+
+  /* Nothing to do if we can't make any choices.  */
+  if (nready < 2)
+    return;
+
+  int changes = 0;
+  enum attr_type item;
+
+  /* If the last instruction was a store, attempt to gather all available stores.
+     Otherwise gather all the loads.  */
+  if (mips_last_interaptiv_insn_was_store)
+    item = TYPE_STORE;
+  else
+    item = TYPE_LOAD;
+
+  for (i = nready - 1; i >= 0; i--)
+    {
+      if (USEFUL_INSN_P (ready[i]) && get_attr_type (ready[i]) == item)
+	{
+	  mips_promote_ready (ready, i, nready - (1+changes));
+	  changes += 1;
+	}
+    }
+
+  /* If we've gathered loads, no work to do.  */
+  if (!mips_last_interaptiv_insn_was_store)
+    return;
+
+  /* nready - (1+changes) is last store on the ready list, put something that is
+     not TYPE_LOAD after it.  Perform mips_store_sched swaps.  */
+  for (i = nready - (1+changes); i >= 0; i--)
+    {
+      if (USEFUL_INSN_P (ready[i])
+	  && get_attr_type (ready[i]) != TYPE_STORE
+	  && get_attr_type (ready[i]) != TYPE_LOAD)
+	{
+	  mips_promote_ready (ready, i, nready - (1+changes+j));
+	  j += 1;
+	  if (j >= mips_store_sched)
+	    return;
+	}
+    }
+}
+
 /* Record whether last 74k AGEN instruction was a load or store.  */
 static enum attr_type mips_last_74k_agen_insn = TYPE_UNKNOWN;
 
@@ -15272,6 +15345,7 @@ mips_sched_init (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
   mips_macc_chains_last_hilo = 0;
   vr4130_last_insn = 0;
   mips_74k_agen_init (NULL_RTX);
+  mips_interaptiv_agen_init (NULL_RTX);
 
   /* When scheduling for Loongson2, branch instructions go to ALU1,
      therefore basic block is most likely to start with round-robin counter
@@ -15299,6 +15373,10 @@ mips_sched_reorder_1 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 
   if (TUNE_74K)
     mips_74k_agen_reorder (ready, *nreadyp);
+
+  /* For the Interaptiv but not assoicated with it.  */
+  if (TARGET_STORE_LOAD_SCHED)
+    mips_interaptiv_agen_reorder (ready, *nreadyp);
 
   if (! reload_completed
       && TARGET_SCHED_WEIGHT
@@ -15375,6 +15453,8 @@ mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
 	mips_74k_agen_init (insn);
       else if (TUNE_LOONGSON_2EF)
 	mips_ls2_variable_issue (insn);
+      else if (TARGET_STORE_LOAD_SCHED)
+        mips_interaptiv_agen_init (insn);
     }
 
   /* Instructions of type 'multi' should all be split before
