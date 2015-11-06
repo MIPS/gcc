@@ -1,3 +1,11 @@
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
+	Revert:
+	2015-07-14  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (parallelize_loops): Use marked_independent flag in
+	oacc kernels region.
+
 	backport from trunk:
 	2015-07-12  Aldy Hernandez  <aldyh@redhat.com>
 
