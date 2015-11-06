@@ -598,12 +598,12 @@ unroll_loop_constant_iterations (struct loop *loop)
 
 #ifdef KELVIN_PATCH
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-                                      max_unroll,
-                                      wont_exit, desc->out_edge,
-                                      &remove_edges,
-                                      opt_info
-                                         ? DLTHE_RECORD_COPY_NUMBER
-                                           : 0);
+				      max_unroll,
+				      wont_exit, desc->out_edge,
+				      &remove_edges,
+				      opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0);
 #else
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
@@ -1033,9 +1033,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
       int prehead_frequency = 0;
       for (unsigned int i = 0; i < EDGE_COUNT (preheader->preds); i++) {
-        edge an_edge = EDGE_PRED (preheader, i);
-        int the_edge_frequency = EDGE_FREQUENCY (an_edge);
-        prehead_frequency += the_edge_frequency;
+	edge an_edge = EDGE_PRED (preheader, i);
+	int the_edge_frequency = EDGE_FREQUENCY (an_edge);
+	prehead_frequency += the_edge_frequency;
       }
       preheader->frequency = prehead_frequency;
 #endif
@@ -1079,9 +1079,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
     int sum_incoming_frequencies = 0;
     for (unsigned int i = 0; i < EDGE_COUNT (my_header->preds); i++)
       {
-        edge predecessor = EDGE_PRED (my_header, i);
-        if (!in_loop_p (predecessor->src, loop))
-          sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
+	edge predecessor = EDGE_PRED (my_header, i);
+	if (!in_loop_p (predecessor->src, loop))
+	  sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
       }
     sum_incoming_frequencies *= 111111;
     sum_incoming_frequencies += 5000;
@@ -1091,12 +1091,12 @@ unroll_loop_runtime_iterations (struct loop *loop)
   }
 
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-                                      max_unroll,
-                                      wont_exit, desc->out_edge,
-                                      &remove_edges,
-                                      opt_info
-                                         ? DLTHE_RECORD_COPY_NUMBER
-                                           : 0);
+				      max_unroll,
+				      wont_exit, desc->out_edge,
+				      &remove_edges,
+				      opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					   : 0);
 #else
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,

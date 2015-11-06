@@ -34,7 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop-manip.h"
 #include "dumpfile.h"
 
-/* Define INTEGRITY_HEURISTICS to include run-time checks that 
+/* Define ENABLE_CHECKING to include run-time checks that 
  *
  *  a. The sum of outgoing edge frequencies for the loop equals the
  *     sum of incoming edge frequencies for the loop header block.
@@ -44,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
  *
  * This may report false-positive errors due to round-off errors.
  */
-#undef INTEGRITY_HEURISTICS
+
 
 /* During development and testing, I'm using conditional compilation to
  * distinguish new code from original implementation.
@@ -111,7 +111,7 @@ static bool
 same_edge_p (edge an_edge, edge another_edge)
 {
   return ((an_edge->src == another_edge->src) 
-          && (an_edge->dest == another_edge->dest));
+	  && (an_edge->dest == another_edge->dest));
 }
 
 /* Return true iff an_edge matches one of the nodes that is already
@@ -170,7 +170,7 @@ recursively_zero_frequency (loop_p loop_ptr, vec<edge> exit_edges,
     }
   }
 }
-                                     
+				     
 static bool 
 recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps) {
   while (lower_steps != NULL) {
@@ -227,7 +227,7 @@ in_loop_of_header_p (basic_block candidate, basic_block loop_header,
 				 loop_latch, false, &new_step))
 	  return true;
       }
-      return false;               /* None of the successors was in loop  */
+      return false;		  /* None of the successors was in loop	 */
     }
 }
 
@@ -336,7 +336,7 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
       basic_block edge_dest = successor->dest;
 
       if (!in_block_set_p (edge_dest, loop_blocks)) {
-        results.safe_push (successor);
+	results.safe_push (successor);
       }
     }
   }
@@ -347,17 +347,17 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
  * Zero all frequencies for all blocks contained within the loop
  * represented by loop_ptr which are reachable from block without
  * passing through the block header.  If block is not within the loop,
- * this has no effect.  The behavior is as outlined by the following
+ * this has no effect.	The behavior is as outlined by the following
  * algorithm:
  *
  * If block is contained within loop:
  *   Set block's frequency to zero
  *   Using a depth-first traversal, do the same for each successor
  *   transitively, stopping the recursive traversal if:
- *      the current block is the loop header, or
- *      the current block resides outside the loop, or
- *      the current block has already been visited in this depth-first
- *        traversal. 
+ *	the current block is the loop header, or
+ *	the current block resides outside the loop, or
+ *	the current block has already been visited in this depth-first
+ *	  traversal. 
  */
 static void
 zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
@@ -365,7 +365,7 @@ zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
   /* When zero_partial_loop_frequencies is invoked, the *loop_ptr
    * object is not entirely coherent, so existing library services
    * get_loop_blocks() and get_loop_exit_edges() cannot be called
-   * from this context.  Instead, we use the _get_loop_blocks() 
+   * from this context.	 Instead, we use the _get_loop_blocks() 
    * and get_exit_edges_from_loop_blocks() functions which assume only
    * the validity of loop_ptr->loop_header, loop_ptr->loop_latch,
    * and valid successor and predecessor information for each
@@ -382,7 +382,7 @@ zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
     for (unsigned int i = 0; i < EDGE_COUNT (block->succs); i++) {
       edge successor = EDGE_SUCC (block, i);
       if (successor->probability != 0) {
-        recursively_zero_frequency (loop_ptr, exit_edges,
+	recursively_zero_frequency (loop_ptr, exit_edges,
 				    &ladder_rung, successor);
       }
     }
@@ -449,10 +449,10 @@ increment_loop_frequencies (loop_p loop_ptr, basic_block block,
     for (unsigned int i = 0; i < EDGE_COUNT (block->succs); i++) {
       edge successor = EDGE_SUCC (block, i);
       if (successor->probability != 0) {
-        int successor_increment =
-          ((frequency_increment * successor->probability) / REG_BR_PROB_BASE);
-        
-        recursively_increment_frequency (loop_ptr, exit_edges,
+	int successor_increment =
+	  ((frequency_increment * successor->probability) / REG_BR_PROB_BASE);
+	
+	recursively_increment_frequency (loop_ptr, exit_edges,
 					 &ladder_rung, successor,
 					 successor_increment);
       }
@@ -462,7 +462,7 @@ increment_loop_frequencies (loop_p loop_ptr, basic_block block,
   loop_blocks.release ();
 }
 
-#ifdef INTEGRITY_HEURISTICS
+#ifdef ENABLE_CHECKING
 /**
  * Issue a fatal error message and abort program execution.
  */
@@ -482,7 +482,7 @@ internal (const char *msg)
  *  b. The sum of predecessor edge frequencies for every block
  *     in the loop equals the frequency of that block.
  *
- * The integrity check is problematic due to round-off errors.  Though
+ * The integrity check is problematic due to round-off errors.	Though
  * it hasn't been tested with max-unroll-times greater than 4, we
  * suspect that unrolling complex control structures contained within a
  * loop that is unrolled more than 4 times may result in erroneous
@@ -559,8 +559,8 @@ check_loop_frequency_integrity (loop_p loop_ptr)
   loop_body.release ();
   exit_edges.release ();
 }
-#endif  /* INTEGRITY_HEURISTICS */
-#endif  /* KELVIN_PATCH */
+#endif	/* ENABLE_CHECKING */
+#endif	/* KELVIN_PATCH */
 
 
 /* Checks whether basic block BB is dominated by DATA.  */
@@ -1650,22 +1650,22 @@ set_zero_probability (edge e)
       
 #ifdef KELVIN_PATCH
       if (edge_originates_in_loop)
-        {
-          original_edge_frequency = EDGE_FREQUENCY (ae);
-          ae->probability += prob1;
-          ae->count += cnt1;
-          new_edge_frequency = EDGE_FREQUENCY (ae);
-          change_in_edge_frequency =
-            new_edge_frequency - original_edge_frequency;
-          
-          increment_loop_frequencies (loop_ptr, ae->dest,
+	{
+	  original_edge_frequency = EDGE_FREQUENCY (ae);
+	  ae->probability += prob1;
+	  ae->count += cnt1;
+	  new_edge_frequency = EDGE_FREQUENCY (ae);
+	  change_in_edge_frequency =
+	    new_edge_frequency - original_edge_frequency;
+	  
+	  increment_loop_frequencies (loop_ptr, ae->dest,
 				      change_in_edge_frequency);
-        }
+	}
       else
-        {
-          ae->probability += prob1;
-          ae->count += cnt1;
-        }
+	{
+	  ae->probability += prob1;
+	  ae->count += cnt1;
+	}
 #else
       ae->probability += prob1;
       ae->count += cnt1;
@@ -1683,10 +1683,10 @@ set_zero_probability (edge e)
       new_edge_frequency = EDGE_FREQUENCY (last);
       change_in_edge_frequency = new_edge_frequency - original_edge_frequency;
       if (change_in_edge_frequency != 0)
-        {
-          increment_loop_frequencies (loop_ptr, last->dest,
+	{
+	  increment_loop_frequencies (loop_ptr, last->dest,
 				      change_in_edge_frequency);
-        }
+	}
     }
   else
     {
@@ -1706,7 +1706,7 @@ set_zero_probability (edge e)
       e->count = 0;
       new_edge_frequency = EDGE_FREQUENCY (e);
       change_in_edge_frequency =
-        new_edge_frequency - original_edge_frequency;
+	new_edge_frequency - original_edge_frequency;
       increment_loop_frequencies (loop_ptr, e->dest,
 				  change_in_edge_frequency);
     }
@@ -2042,9 +2042,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	      to_remove->safe_push (new_spec_edges[SE_ORIG]);
 	    }
 #ifdef KELVIN_PATCH
-          set_zero_probability (loop, new_spec_edges[SE_ORIG]);
+	  set_zero_probability (loop, new_spec_edges[SE_ORIG]);
 #else
-          set_zero_probability (new_spec_edges[SE_ORIG]);
+	  set_zero_probability (new_spec_edges[SE_ORIG]);
 #endif
 	  /* Scale the frequencies of the blocks dominated by the exit.  */
 	  if (bbs_to_scale)
