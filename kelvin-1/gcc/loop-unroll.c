@@ -47,9 +47,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #define KELVIN_PATCH
 #ifdef KELVIN_PATCH
-extern void zero_loop_frequencies(loop_p);
-extern void increment_loop_frequencies(loop_p, basic_block, int);
-extern bool in_loop_p(basic_block, loop_p);
+extern void zero_loop_frequencies (loop_p);
+extern void increment_loop_frequencies (loop_p, basic_block, int);
+extern bool in_loop_p (basic_block, loop_p);
 #endif
 
 
@@ -1032,9 +1032,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
       swtch->frequency = new_freq;
 
       int prehead_frequency = 0;
-      for (unsigned int i = 0; i < EDGE_COUNT(preheader->preds); i++) {
-        edge an_edge = EDGE_PRED(preheader, i);
-        int the_edge_frequency = EDGE_FREQUENCY(an_edge);
+      for (unsigned int i = 0; i < EDGE_COUNT (preheader->preds); i++) {
+        edge an_edge = EDGE_PRED (preheader, i);
+        int the_edge_frequency = EDGE_FREQUENCY (an_edge);
         prehead_frequency += the_edge_frequency;
       }
       preheader->frequency = prehead_frequency;
@@ -1077,17 +1077,17 @@ unroll_loop_runtime_iterations (struct loop *loop)
     
     basic_block my_header = loop->header;
     int sum_incoming_frequencies = 0;
-    for (unsigned int i = 0; i < EDGE_COUNT(my_header->preds); i++)
+    for (unsigned int i = 0; i < EDGE_COUNT (my_header->preds); i++)
       {
-        edge predecessor = EDGE_PRED(my_header, i);
-        if (!in_loop_p(predecessor->src, loop))
-          sum_incoming_frequencies += EDGE_FREQUENCY(predecessor);
+        edge predecessor = EDGE_PRED (my_header, i);
+        if (!in_loop_p (predecessor->src, loop))
+          sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
       }
     sum_incoming_frequencies *= 111111;
     sum_incoming_frequencies += 5000;
     sum_incoming_frequencies /= 10000;
     
-    increment_loop_frequencies(loop, my_header, sum_incoming_frequencies);
+    increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
   }
 
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
