@@ -248,8 +248,8 @@ c-common.h, not after.
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 #define THUNK_FUNCTION_CHECK(NODE) __extension__			\
 ({  __typeof (NODE) const __t = (NODE);					\
-    if (TREE_CODE (__t) != FUNCTION_DECL || !__t->decl_common.lang_specific \
-	|| !__t->decl_common.lang_specific->u.fn.thunk_p)		\
+    if (TREE_CODE (__t) != FUNCTION_DECL || !__t->u.decl_common.lang_specific \
+	|| !__t->u.decl_common.lang_specific->u.fn.thunk_p)		\
       tree_check_failed (__t, __FILE__, __LINE__, __FUNCTION__, 0);	\
      __t; })
 #else
@@ -990,8 +990,7 @@ enum cp_tree_node_structure_enum {
 /* The resulting tree type.  */
 union GTY((desc ("cp_tree_node_structure (&%h)"),
        chain_next ("(union lang_tree_node *) c_tree_chain_next (&%h.generic)"))) lang_tree_node {
-  union tree_node GTY ((tag ("TS_CP_GENERIC"),
-			desc ("tree_node_structure (&%h)"))) generic;
+  struct tree_node GTY ((tag ("TS_CP_GENERIC"))) generic;
   struct template_parm_index GTY ((tag ("TS_CP_TPI"))) tpi;
   struct ptrmem_cst GTY ((tag ("TS_CP_PTRMEM"))) ptrmem;
   struct tree_overload GTY ((tag ("TS_CP_OVERLOAD"))) overload;
@@ -2883,7 +2882,7 @@ extern void decl_shadowed_for_var_insert (tree, tree);
 /* In a VAR_DECL, true if we have a shadowed local variable
    in the shadowed var table for this VAR_DECL.  */
 #define DECL_HAS_SHADOWED_FOR_VAR_P(NODE) \
-  (VAR_DECL_CHECK (NODE)->decl_with_vis.shadowed_for_var_p)
+  (VAR_DECL_CHECK (NODE)->u.decl_with_vis.shadowed_for_var_p)
 
 /* In a VAR_DECL for a variable declared in a for statement,
    this is the shadowed (local) variable.  */
@@ -3965,7 +3964,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
    id-expression or a member-access expression. When false, it was
    parsed as a full expression.  */
 #define DECLTYPE_TYPE_ID_EXPR_OR_MEMBER_ACCESS_P(NODE) \
-  (DECLTYPE_TYPE_CHECK (NODE))->type_common.string_flag
+  (DECLTYPE_TYPE_CHECK (NODE))->u.type_common.string_flag
 
 /* These flags indicate that we want different semantics from normal
    decltype: lambda capture just drops references, init capture
@@ -4519,7 +4518,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 
 /* True if INTEGER_CST is a zero literal seen in function argument list.  */
 #define LITERAL_ZERO_P(NODE) \
-  (INTEGER_CST_CHECK (NODE)->base.nothrow_flag)
+  (INTEGER_CST_CHECK (NODE)->u.base.nothrow_flag)
 
 /* An enumeration of the kind of tags that C++ accepts.  */
 enum tag_types {

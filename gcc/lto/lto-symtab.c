@@ -779,7 +779,7 @@ lto_symtab_merge_symbols (void)
 		       && cnode2 != cnode)
 		cnode2->remove ();
 
-	      node->decl->decl_with_vis.symtab_node = node;
+	      DECL_SYMTAB_NODE (node->decl) = node;
 	    }
 	}
     }

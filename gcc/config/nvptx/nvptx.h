@@ -173,7 +173,7 @@ enum reg_class
 
 #ifdef HOST_WIDE_INT
 struct nvptx_args {
-  union tree_node *fntype;
+  struct tree_node *fntype;
   /* Number of arguments passed in registers so far.  */
   int count;
   /* Offset into the stdarg area so far.  */
