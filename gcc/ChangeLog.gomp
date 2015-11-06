@@ -1,3 +1,8 @@
+	backport from trunk:
+	2015-07-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-inline.c: Fix double word typos.
+
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
 	revert:
