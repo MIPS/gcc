@@ -1,3 +1,10 @@
+2015-11-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_oacc_declare): Revert error message changes.
+	(resolve_omp_duplicate_list): Delete.
+	(resolve_oacc_declare_map): Delete.
+	(gfc_resolve_oacc_declare): Scan map clauses in place.
+
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
 	* f95-lang.c (gfc_init_builtin_functions): Remove.

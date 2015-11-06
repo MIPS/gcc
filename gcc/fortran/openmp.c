@@ -1445,7 +1445,7 @@ gfc_match_oacc_declare (void)
   gfc_omp_clauses *c;
   gfc_omp_namelist *n;
   gfc_namespace *ns = gfc_current_ns;
-  gfc_oacc_declare *new_oc;
+  gfc_oacc_declare *new_oc, *oc;
   bool module_var = false;
 
   if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, 0, false, false, true)
@@ -1467,8 +1467,8 @@ gfc_match_oacc_declare (void)
 	  if (n->u.map_op != OMP_MAP_FORCE_ALLOC
 	      && n->u.map_op != OMP_MAP_FORCE_TO)
 	    {
-	      gfc_error ("Invalid clause in module with $!ACC DECLARE at %L",
-			 &n->where);
+	      gfc_error ("Invalid clause in module with "
+			 "$!ACC DECLARE at %C");
 	      return MATCH_ERROR;
 	    }
 
@@ -1477,29 +1477,29 @@ gfc_match_oacc_declare (void)
 
       if (ns->proc_name->attr.oacc_function)
 	{
-	  gfc_error ("Invalid declare in routine with $!ACC DECLARE at %C");
+	  gfc_error ("Invalid declare in routine with " "$!ACC DECLARE at %C");
 	  return MATCH_ERROR;
 	}
 
       if (s->attr.in_common)
 	{
-	  gfc_error ("Variable in a common block with $!ACC DECLARE at %L",
-		     &n->where);
+	  gfc_error ("Unsupported: variable in a common block with "
+		     "$!ACC DECLARE at %C");
 	  return MATCH_ERROR;
 	}
 
       if (s->attr.use_assoc)
 	{
-	  gfc_error ("Variable is USE-associated with $!ACC DECLARE at %L",
-		     &n->where);
+	  gfc_error ("Unsupported: variable is USE-associated with "
+		     "$!ACC DECLARE at %C");
 	  return MATCH_ERROR;
 	}
 
       if ((s->attr.dimension || s->attr.codimension)
 	  && s->attr.dummy && s->as->type != AS_EXPLICIT)
 	{
-	  gfc_error ("Assumed-size dummy array with $!ACC DECLARE at %L",
-		     &n->where);
+	  gfc_error ("Unsupported: assumed-size dummy array with "
+		     "$!ACC DECLARE at %C");
 	  return MATCH_ERROR;
 	}
 
@@ -1527,6 +1527,37 @@ gfc_match_oacc_declare (void)
   new_oc->module_var = module_var;
   new_oc->clauses = c;
   new_oc->where = gfc_current_locus;
+
+  for (oc = new_oc; oc; oc = oc->next)
+    {
+      c = oc->clauses;
+      for (n = c->lists[OMP_LIST_MAP]; n != NULL; n = n->next)
+	n->sym->mark = 0;
+    }
+
+  for (oc = new_oc; oc; oc = oc->next)
+    {
+      c = oc->clauses;
+      for (n = c->lists[OMP_LIST_MAP]; n != NULL; n = n->next)
+	{
+	  if (n->sym->mark)
+	    {
+	      gfc_error ("Symbol %qs present on multiple clauses at %C",
+			 n->sym->name);
+	      return MATCH_ERROR;
+	    }
+	  else
+	    n->sym->mark = 1;
+	}
+    }
+
+  for (oc = new_oc; oc; oc = oc->next)
+    {
+      c = oc->clauses;
+      for (n = c->lists[OMP_LIST_MAP]; n != NULL; n = n->next)
+	n->sym->mark = 1;
+    }
+
   ns->oacc_declare = new_oc;
 
   return MATCH_YES;
@@ -3151,41 +3182,6 @@ resolve_omp_udr_clause (gfc_omp_namelist *n, gfc_namespace *ns,
   return copy;
 }
 
-/* Check if a variable appears in multiple clauses.  */
-
-static void
-resolve_omp_duplicate_list (gfc_omp_namelist *clause_list, bool openacc,
-			    int list)
-{
-  gfc_omp_namelist *n;
-  const char *error_msg = "Symbol %qs present on multiple clauses at %L";
-
-  /* OpenACC reduction clauses are compatible with everything.  We only
-     need to check if a reduction variable is used more than once.  */
-  if (openacc && list == OMP_LIST_REDUCTION)
-    {
-      hash_set<gfc_symbol *> reductions;
-
-      for (n = clause_list; n; n = n->next)
-	{
-	  if (reductions.contains (n->sym))
-	    gfc_error (error_msg, n->sym->name, &n->where);
-	  else
-	    reductions.add (n->sym);
-	}
-
-      return;
-    }
-
-  /* Ensure that variables are only used in one clause.  */
-  for (n = clause_list; n; n = n->next)
-    {
-      if (n->sym->mark)
-	gfc_error (error_msg, n->sym->name, &n->where);
-      else
-	n->sym->mark = 1;
-    }
-}
 
 /* OpenMP directive resolving routines.  */
 
@@ -4942,31 +4938,13 @@ resolve_oacc_loop (gfc_code *code)
   resolve_oacc_nested_loops (code, do_code, collapse, "collapsed");
 }
 
-/* Helper function for gfc_resolve_oacc_declare.  Scan omp_map_list LIST
-   in DECLARE at location LOC.  */
-
-static void
-resolve_oacc_declare_map (gfc_oacc_declare *declare, int list)
-{
-  gfc_oacc_declare *oc;
-  gfc_omp_namelist *n;
-
-  for (oc = declare; oc; oc = oc->next)
-    for (n = oc->clauses->lists[list]; n; n = n->next)
-      n->sym->mark = 0;
-
-  for (oc = declare; oc; oc = oc->next)
-    resolve_omp_duplicate_list (oc->clauses->lists[list], false, list);
-
-  for (oc = declare; oc; oc = oc->next)
-    for (n = oc->clauses->lists[list]; n; n = n->next)
-      n->sym->mark = 0;
-}
 
 void
 gfc_resolve_oacc_declare (gfc_namespace *ns)
 {
+  int list;
   gfc_omp_namelist *n;
+  locus loc;
   gfc_oacc_declare *oc;
 
   if (ns->oacc_declare == NULL)
@@ -4974,26 +4952,66 @@ gfc_resolve_oacc_declare (gfc_namespace *ns)
 
   for (oc = ns->oacc_declare; oc; oc = oc->next)
     {
-      for (n = oc->clauses->lists[OMP_LIST_DEVICE_RESIDENT]; n; n = n->next)
-	{
-	  n->sym->mark = 0;
-	  if (n->sym->attr.flavor == FL_PARAMETER)
-	    gfc_error ("PARAMETER object %qs is not allowed at %L",
-		       n->sym->name, &n->where);
+      loc = oc->where;
 
-	  check_array_not_assumed (n->sym, n->where, "DEVICE_RESIDENT");
-	}
+      for (list = OMP_LIST_DEVICE_RESIDENT;
+	   list <= OMP_LIST_DEVICE_RESIDENT; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  {
+	    n->sym->mark = 0;
+	    if (n->sym->attr.flavor == FL_PARAMETER)
+	      gfc_error ("PARAMETER object %qs is not allowed at %L",
+			 n->sym->name, &loc);
+	  }
+
+      for (list = OMP_LIST_DEVICE_RESIDENT;
+	    list <= OMP_LIST_DEVICE_RESIDENT; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  {
+	    if (n->sym->mark)
+	      gfc_error ("Symbol %qs present on multiple clauses at %L",
+			 n->sym->name, &loc);
+	    else
+	      n->sym->mark = 1;
+	  }
+
+      for (n = oc->clauses->lists[OMP_LIST_DEVICE_RESIDENT]; n; n = n->next)
+	check_array_not_assumed (n->sym, loc, "DEVICE_RESIDENT");
 
       for (n = oc->clauses->lists[OMP_LIST_MAP]; n; n = n->next)
-	if (n->expr && n->expr->ref->type == REF_ARRAY)
-	  gfc_error ("Subarray %qs is not allowed in $!ACC DECLARE at %L",
-		     n->sym->name, &n->where);
+	{
+	  if (n->expr && n->expr->ref->type == REF_ARRAY)
+	      gfc_error ("Subarray: %qs not allowed in $!ACC DECLARE at %L",
+			 n->sym->name, &loc);
+	}
     }
 
-  /* Check for duplicate link, device_resident and data clauses.  */
-  resolve_oacc_declare_map (ns->oacc_declare, OMP_LIST_LINK);
-  resolve_oacc_declare_map (ns->oacc_declare, OMP_LIST_DEVICE_RESIDENT);
-  resolve_oacc_declare_map (ns->oacc_declare, OMP_LIST_MAP);
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      for (list = OMP_LIST_LINK; list <= OMP_LIST_LINK; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  n->sym->mark = 0;
+    }
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      for (list = OMP_LIST_LINK; list <= OMP_LIST_LINK; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  {
+	    if (n->sym->mark)
+	      gfc_error ("Symbol %qs present on multiple clauses at %L",
+			 n->sym->name, &loc);
+	    else
+	      n->sym->mark = 1;
+	  }
+    }
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      for (list = OMP_LIST_LINK; list <= OMP_LIST_LINK; list++)
+	for (n = oc->clauses->lists[list]; n; n = n->next)
+	  n->sym->mark = 0;
+    }
 }
 
 
