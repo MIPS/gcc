@@ -137,6 +137,14 @@ in_call_chain_p (edge an_edge, ladder_rung_p ladder_rung)
   return FALSE;
 }
 
+/* This recursive function visits all of the blocks contained within the
+ * loop represented by loop_ptr and reachable from incoming_edge,
+ * and zeroes the frequency field of each block.  The recursion
+ * terminates if incoming_edge is known to exit this loop, or
+ * if the destination of incoming edge has already been visited
+ * in this recursive traversal, or if the destination of incoming_edge
+ * is the loop header.
+ */
 static void
 recursively_zero_frequency (loop_p loop_ptr, vec<edge> exit_edges,
 			    ladder_rung_p ladder_rung,
@@ -166,6 +174,10 @@ recursively_zero_frequency (loop_p loop_ptr, vec<edge> exit_edges,
   }
 }
 				     
+/* Return true iff the candidate block is found within the linked
+ * list represented by lower_steps, which would indicate that this
+ * block has already been visited by a recursive traversal.
+ */
 static bool 
 recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps) {
   while (lower_steps != NULL)
@@ -360,29 +372,42 @@ zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
    * information for each block contained within the loop.
    */
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
-  if (in_block_set_p (block, loop_blocks)) {
-    struct block_ladder_rung ladder_rung;
-    ladder_rung.block = block;
-    ladder_rung.lower_rung = NULL;
-    
-    vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
-    block->frequency = 0;
-
-    edge_iterator ei;
-    edge successor;
-    FOR_EACH_EDGE (successor, ei, block->succs)
-      {
-	if (successor->probability != 0)
-	  {
-	    recursively_zero_frequency (loop_ptr, exit_edges,
-					&ladder_rung, successor);
-	  }
-      }
-    exit_edges.release ();
-  }
+  if (in_block_set_p (block, loop_blocks))
+    {
+      struct block_ladder_rung ladder_rung;
+      ladder_rung.block = block;
+      ladder_rung.lower_rung = NULL;
+      
+      vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
+      block->frequency = 0;
+      
+      edge_iterator ei;
+      edge successor;
+      FOR_EACH_EDGE (successor, ei, block->succs)
+	{
+	  if (successor->probability != 0)
+	    {
+	      recursively_zero_frequency (loop_ptr, exit_edges,
+					  &ladder_rung, successor);
+	    }
+	}
+      exit_edges.release ();
+    }
   loop_blocks.release ();
 }
 
+/* This recursive function visits all of the blocks contained within the
+ * loop represented by loop_ptr and reachable from incoming_edge,
+ * and increments the frequency field of each block by an
+ * appropriate scaling of frequency_increment.  The
+ * frequency_increment value is scaled in recursive invocations of
+ * this function by the probability associated with the edge
+ * corresponding to the particular recursive call.  The recursion
+ * terminates if incoming_edge is known to exit this loop, or
+ * if the destination of incoming edge has already been visited
+ * in this recursive traversal, or if the destination of incoming_edge
+ * is the loop header.
+ */
 static void
 recursively_increment_frequency (loop_p loop_ptr, vec<edge> exit_edges,
 				 ladder_rung_p ladder_rung,
@@ -433,30 +458,31 @@ increment_loop_frequencies (loop_p loop_ptr, basic_block block,
 
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
 
-  if (in_block_set_p (block, loop_blocks)) {
-    struct block_ladder_rung ladder_rung;
-    ladder_rung.block = block;
-    ladder_rung.lower_rung = NULL;
-    
-    vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
-    block->frequency += frequency_increment;
-
-    edge_iterator ei;
-    edge successor;
-    FOR_EACH_EDGE (successor, ei, block->succs)
-      {
-	if (successor->probability != 0)
-	  {
-	    int successor_increment =
-	      ((frequency_increment * successor->probability)
-	       / REG_BR_PROB_BASE);
-	    recursively_increment_frequency (loop_ptr, exit_edges,
-					     &ladder_rung, successor,
-					     successor_increment);
-	  }
-      }
-    exit_edges.release ();
-  }
+  if (in_block_set_p (block, loop_blocks))
+    {
+      struct block_ladder_rung ladder_rung;
+      ladder_rung.block = block;
+      ladder_rung.lower_rung = NULL;
+      
+      vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
+      block->frequency += frequency_increment;
+      
+      edge_iterator ei;
+      edge successor;
+      FOR_EACH_EDGE (successor, ei, block->succs)
+	{
+	  if (successor->probability != 0)
+	    {
+	      int successor_increment =
+		((frequency_increment * successor->probability)
+		 / REG_BR_PROB_BASE);
+	      recursively_increment_frequency (loop_ptr, exit_edges,
+					       &ladder_rung, successor,
+					       successor_increment);
+	    }
+	}
+      exit_edges.release ();
+    }
   loop_blocks.release ();
 }
 
