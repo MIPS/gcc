@@ -1,5 +1,10 @@
 2015-11-06  Gary Funck  <gary@intrepid.com>
 
+	* cp/tree.c (c_build_qualified_type_1): fix typo.
+	layout_qualifier was mis-spelled.
+
+2015-11-06  Gary Funck  <gary@intrepid.com>
+
 	* cp/lex.c (init_reswords): Fix logic to disable UPC keywords for C++.
 
 2015-11-05  Gary Funck  <gary@intrepid.com>

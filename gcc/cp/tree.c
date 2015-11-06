@@ -993,7 +993,7 @@ move (tree expr)
    types (which are not used in C).  */
 tree
 c_build_qualified_type_1 (tree type, int type_quals,
-			  tree ARG_UNUSED (layout_qualiefier))
+			  tree ARG_UNUSED (layout_qualifier))
 {
   return cp_build_qualified_type (type, type_quals);
 }
