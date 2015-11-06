@@ -28,23 +28,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "predict.h"
 #include "ssa.h"
-#include "expmed.h"
-#include "insn-config.h"
-#include "emit-rtl.h"
 #include "cgraph.h"
 #include "gimple-pretty-print.h"
-#include "alias.h"
 #include "fold-const.h"
-#include "flags.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "varasm.h"
 #include "stmt.h"
 #include "expr.h"
 #include "stor-layout.h"
 #include "dumpfile.h"
-#include "internal-fn.h"
 #include "gimple-fold.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -58,11 +48,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "dbgcnt.h"
 #include "builtins.h"
-#include "output.h"
 #include "tree-eh.h"
 #include "gimple-match.h"
 #include "gomp-constants.h"
 #include "optabs-query.h"
+#include "omp-low.h"
 
 
 /* Return true when DECL can be referenced from current unit.
@@ -354,8 +344,8 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 		    return val;
 		  }
 	      }
-
 	  }
+
 	else if (TREE_CODE (rhs) == ADDR_EXPR)
 	  {
 	    tree ref = TREE_OPERAND (rhs, 0);
@@ -370,21 +360,29 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 	    else if (TREE_CODE (ref) == MEM_REF
 		     && integer_zerop (TREE_OPERAND (ref, 1)))
 	      result = fold_convert (TREE_TYPE (rhs), TREE_OPERAND (ref, 0));
+
+	    if (result)
+	      {
+		/* Strip away useless type conversions.  Both the
+		   NON_LVALUE_EXPR that may have been added by fold, and
+		   "useless" type conversions that might now be apparent
+		   due to propagation.  */
+		STRIP_USELESS_TYPE_CONVERSION (result);
+
+		if (result != rhs && valid_gimple_rhs_p (result))
+		  return result;
+	      }
 	  }
 
 	else if (TREE_CODE (rhs) == CONSTRUCTOR
-		 && TREE_CODE (TREE_TYPE (rhs)) == VECTOR_TYPE
-		 && (CONSTRUCTOR_NELTS (rhs)
-		     == TYPE_VECTOR_SUBPARTS (TREE_TYPE (rhs))))
+		 && TREE_CODE (TREE_TYPE (rhs)) == VECTOR_TYPE)
 	  {
 	    /* Fold a constant vector CONSTRUCTOR to VECTOR_CST.  */
 	    unsigned i;
 	    tree val;
 
 	    FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (rhs), i, val)
-	      if (TREE_CODE (val) != INTEGER_CST
-		  && TREE_CODE (val) != REAL_CST
-		  && TREE_CODE (val) != FIXED_CST)
+	      if (! CONSTANT_CLASS_P (val))
 		return NULL_TREE;
 
 	    return build_vector_from_ctor (TREE_TYPE (rhs),
@@ -393,21 +391,6 @@ fold_gimple_assign (gimple_stmt_iterator *si)
 
 	else if (DECL_P (rhs))
 	  return get_symbol_constant_value (rhs);
-
-        /* If we couldn't fold the RHS, hand over to the generic
-           fold routines.  */
-        if (result == NULL_TREE)
-          result = fold (rhs);
-
-        /* Strip away useless type conversions.  Both the NON_LVALUE_EXPR
-           that may have been added by fold, and "useless" type
-           conversions that might now be apparent due to propagation.  */
-        STRIP_USELESS_TYPE_CONVERSION (result);
-
-        if (result != rhs && valid_gimple_rhs_p (result))
-	  return result;
-
-	return NULL_TREE;
       }
       break;
 
@@ -2925,6 +2908,28 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
   return false;
 }
 
+/* Transform IFN_GOACC_DIM_SIZE and IFN_GOACC_DIM_POS internal
+   function calls to constants, where possible.  */
+
+static tree
+fold_internal_goacc_dim (const gimple *call)
+{
+  int axis = get_oacc_ifn_dim_arg (call);
+  int size = get_oacc_fn_dim_size (current_function_decl, axis);
+  bool is_pos = gimple_call_internal_fn (call) == IFN_GOACC_DIM_POS;
+  tree result = NULL_TREE;
+
+  /* If the size is 1, or we only want the size and it is not dynamic,
+     we know the answer.  */
+  if (size == 1 || (!is_pos && size))
+    {
+      tree type = TREE_TYPE (gimple_call_lhs (call));
+      result = build_int_cst (type, size - is_pos);
+    }
+
+  return result;
+}
+
 /* Return true if ARG0 CODE ARG1 in infinite signed precision operation
    doesn't fit into TYPE.  The test for overflow should be regardless of
    -fwrapv, and even for unsigned types.  */
@@ -3124,6 +3129,10 @@ gimple_fold_call (gimple_stmt_iterator *gsi, bool inplace)
 	      release_defs (stmt);
 	      return true;
 	    }
+	  break;
+	case IFN_GOACC_DIM_SIZE:
+	case IFN_GOACC_DIM_POS:
+	  result = fold_internal_goacc_dim (stmt);
 	  break;
 	case IFN_UBSAN_CHECK_ADD:
 	  subcode = PLUS_EXPR;
@@ -5323,13 +5332,10 @@ fold_array_ctor_reference (tree type, tree ctor,
 			   unsigned HOST_WIDE_INT size,
 			   tree from_decl)
 {
-  unsigned HOST_WIDE_INT cnt;
-  tree cfield, cval;
   offset_int low_bound;
   offset_int elt_size;
-  offset_int index, max_index;
   offset_int access_index;
-  tree domain_type = NULL_TREE, index_type = NULL_TREE;
+  tree domain_type = NULL_TREE;
   HOST_WIDE_INT inner_offset;
 
   /* Compute low bound and elt size.  */
@@ -5339,7 +5345,6 @@ fold_array_ctor_reference (tree type, tree ctor,
     {
       /* Static constructors for variably sized objects makes no sense.  */
       gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
-      index_type = TREE_TYPE (TYPE_MIN_VALUE (domain_type));
       low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
     }
   else
@@ -5361,9 +5366,6 @@ fold_array_ctor_reference (tree type, tree ctor,
   access_index = wi::udiv_trunc (offset_int (offset / BITS_PER_UNIT),
 				 elt_size);
   access_index += low_bound;
-  if (index_type)
-    access_index = wi::ext (access_index, TYPE_PRECISION (index_type),
-			    TYPE_SIGN (index_type));
 
   /* And offset within the access.  */
   inner_offset = offset % (elt_size.to_uhwi () * BITS_PER_UNIT);
@@ -5372,43 +5374,9 @@ fold_array_ctor_reference (tree type, tree ctor,
      care to fold accesses spanning multiple array indexes.  */
   if (inner_offset + size > elt_size.to_uhwi () * BITS_PER_UNIT)
     return NULL_TREE;
+  if (tree val = get_array_ctor_element_at_index (ctor, access_index))
+    return fold_ctor_reference (type, val, inner_offset, size, from_decl);
 
-  index = low_bound - 1;
-  if (index_type)
-    index = wi::ext (index, TYPE_PRECISION (index_type),
-		     TYPE_SIGN (index_type));
-
-  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
-    {
-      /* Array constructor might explicitely set index, or specify range
-	 or leave index NULL meaning that it is next index after previous
-	 one.  */
-      if (cfield)
-	{
-	  if (TREE_CODE (cfield) == INTEGER_CST)
-	    max_index = index = wi::to_offset (cfield);
-	  else
-	    {
-	      gcc_assert (TREE_CODE (cfield) == RANGE_EXPR);
-	      index = wi::to_offset (TREE_OPERAND (cfield, 0));
-	      max_index = wi::to_offset (TREE_OPERAND (cfield, 1));
-	    }
-	}
-      else
-	{
-	  index += 1;
-	  if (index_type)
-	    index = wi::ext (index, TYPE_PRECISION (index_type),
-			     TYPE_SIGN (index_type));
-	  max_index = index;
-	}
-
-      /* Do we have match?  */
-      if (wi::cmpu (access_index, index) >= 0
-	  && wi::cmpu (access_index, max_index) <= 0)
-	return fold_ctor_reference (type, cval, inner_offset, size,
-				    from_decl);
-    }
   /* When memory is not explicitely mentioned in constructor,
      it is 0 (or out of range).  */
   return build_zero_cst (type);

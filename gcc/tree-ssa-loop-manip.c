@@ -21,18 +21,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "hard-reg-set.h"
 #include "tree.h"
 #include "gimple.h"
 #include "cfghooks.h"
 #include "tree-pass.h"	/* ??? for TODO_update_ssa but this isn't a pass.  */
-#include "tm_p.h"
 #include "ssa.h"
 #include "gimple-pretty-print.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "cfganal.h"
-#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -43,12 +39,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
-#include "dumpfile.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
 #include "params.h"
 #include "tree-inline.h"
-#include "langhooks.h"
 
 /* All bitmaps for rewriting into loop-closed SSA go on this obstack,
    so that we can free them all at once.  */
@@ -622,14 +616,10 @@ rewrite_into_loop_closed_ssa_1 (bitmap changed_bbs, unsigned update_flag,
 
   /* If the pass has caused the SSA form to be out-of-date, update it
      now.  */
-  if (update_flag == 0)
-    {
-#ifdef ENABLE_CHECKING
-      verify_ssa (true, true);
-#endif
-    }
-  else
+  if (update_flag != 0)
     update_ssa (update_flag);
+  else if (flag_checking)
+    verify_ssa (true, true);
 
   bitmap_obstack_initialize (&loop_renamer_obstack);
 

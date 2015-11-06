@@ -98,10 +98,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa.h"
 #include "optabs-tree.h"
 #include "gimple-pretty-print.h"
-#include "flags.h"
 #include "alias.h"
 #include "fold-const.h"
-#include "internal-fn.h"
 #include "gimple-fold.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
@@ -1857,7 +1855,6 @@ pass_cse_sincos::execute (function *fun)
   statistics_counter_event (fun, "sincos statements inserted",
 			    sincos_stats.inserted);
 
-  free_dominance_info (CDI_DOMINATORS);
   return cfg_changed ? TODO_cleanup_cfg : 0;
 }
 

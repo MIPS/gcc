@@ -58,21 +58,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "stringpool.h"
 #include "tree-ssanames.h"
-#include "expmed.h"
 #include "optabs.h"
 #include "regs.h"
-#include "emit-rtl.h"
 #include "recog.h"
 #include "diagnostic-core.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "flags.h"
-#include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "stmt.h"
 #include "expr.h"
 #include "output.h"
 #include "reload.h"
@@ -1092,10 +1087,16 @@ default_get_mask_mode (unsigned nunits, unsigned vector_size)
   unsigned elem_size = vector_size / nunits;
   machine_mode elem_mode
     = smallest_mode_for_size (elem_size * BITS_PER_UNIT, MODE_INT);
+  machine_mode vector_mode;
 
   gcc_assert (elem_size * nunits == vector_size);
 
-  return mode_for_vector (elem_mode, nunits);
+  vector_mode = mode_for_vector (elem_mode, nunits);
+  if (VECTOR_MODE_P (vector_mode)
+      && !targetm.vector_mode_supported_p (vector_mode))
+    vector_mode = BLKmode;
+
+  return vector_mode;
 }
 
 /* By default, the cost model accumulates three separate costs (prologue,

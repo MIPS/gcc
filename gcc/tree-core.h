@@ -432,7 +432,10 @@ enum omp_clause_code {
   OMP_CLAUSE_NUM_WORKERS,
 
   /* OpenACC clause: vector_length (integer-expression).  */
-  OMP_CLAUSE_VECTOR_LENGTH
+  OMP_CLAUSE_VECTOR_LENGTH,
+
+  /* OpenACC clause: tile ( size-expr-list ).  */
+  OMP_CLAUSE_TILE
 };
 
 #undef DEFTREESTRUCT
@@ -450,7 +453,10 @@ enum omp_clause_schedule_kind {
   OMP_CLAUSE_SCHEDULE_AUTO,
   OMP_CLAUSE_SCHEDULE_RUNTIME,
   OMP_CLAUSE_SCHEDULE_CILKFOR,
-  OMP_CLAUSE_SCHEDULE_LAST
+  OMP_CLAUSE_SCHEDULE_MASK = (1 << 3) - 1,
+  OMP_CLAUSE_SCHEDULE_MONOTONIC = (1 << 3),
+  OMP_CLAUSE_SCHEDULE_NONMONOTONIC = (1 << 4),
+  OMP_CLAUSE_SCHEDULE_LAST = 2 * OMP_CLAUSE_SCHEDULE_NONMONOTONIC - 1
 };
 
 enum omp_clause_default_kind {

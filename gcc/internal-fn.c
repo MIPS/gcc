@@ -32,16 +32,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "emit-rtl.h"
 #include "diagnostic-core.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "internal-fn.h"
 #include "stor-layout.h"
-#include "flags.h"
 #include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
 #include "ubsan.h"
 
@@ -2047,6 +2041,14 @@ expand_GOACC_DIM_POS (gcall *stmt)
 
 static void
 expand_GOACC_LOOP (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+/* This is expanded by oacc_device_lower pass.  */
+
+static void
+expand_GOACC_REDUCTION (gcall *stmt ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }

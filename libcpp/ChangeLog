@@ -1,3 +1,21 @@
+2015-11-04  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* config.in: Regenerate.
+	* configure: Regenerate.
+	* configure.ac: Remove ENABLE_CHECKING.
+
+2015-11-03  Uros Bizjak  <ubizjak@gmail.com>
+
+	* lex.c (search_line_sse42): Correctly advance the pointer to an
+	aligned address.
+
+2015-11-02  David Malcolm  <dmalcolm@redhat.com>
+
+	* include/line-map.h (source_location): In the table in the
+	descriptive comment, show UNKNOWN_LOCATION, BUILTINS_LOCATION,
+	LINE_MAP_MAX_LOCATION_WITH_COLS, LINE_MAP_MAX_SOURCE_LOCATION.
+	Add notes about ad-hoc values.
+
 2015-10-21  Mikhail Maltsev  <maltsevm@gmail.com>
 
 	* include/line-map.h: Use CHECKING_P instead of ENABLE_CHECKING.
@@ -479,8 +497,8 @@
 
 2014-12-02  Manuel López-Ibáñez  <manu@gcc.gnu.org>
 
-        * line-map.c (linemap_add): Fix typo.
-        (linemap_line_start): Fix whitespace.
+	* line-map.c (linemap_add): Fix typo.
+	(linemap_line_start): Fix whitespace.
 
 2014-11-29  John Schmerge  <jbschmerge@gmail.com>
 

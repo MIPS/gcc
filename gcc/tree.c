@@ -32,15 +32,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "backend.h"
 #include "target.h"
-#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
 #include "tree-pass.h"
-#include "tm_p.h"
 #include "ssa.h"
-#include "expmed.h"
-#include "insn-config.h"
-#include "emit-rtl.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "flags.h"
@@ -49,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "calls.h"
 #include "attribs.h"
-#include "varasm.h"
 #include "toplev.h" /* get_random_seed */
 #include "output.h"
 #include "common/common-target.h"
@@ -59,18 +53,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
-#include "dojump.h"
-#include "explow.h"
-#include "stmt.h"
-#include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
 #include "langhooks-def.h"
 #include "tree-diagnostic.h"
-#include "tree-pretty-print.h"
 #include "except.h"
-#include "debug.h"
-#include "intl.h"
 #include "builtins.h"
 #include "print-tree.h"
 #include "ipa-utils.h"
@@ -341,6 +328,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_NUM_GANGS  */
   1, /* OMP_CLAUSE_NUM_WORKERS  */
   1, /* OMP_CLAUSE_VECTOR_LENGTH  */
+  1, /* OMP_CLAUSE_TILE  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -411,7 +399,8 @@ const char * const omp_clause_code_name[] =
   "vector",
   "num_gangs",
   "num_workers",
-  "vector_length"
+  "vector_length",
+  "tile"
 };
 
 
@@ -1729,13 +1718,19 @@ tree
 build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
 {
   tree *vec = XALLOCAVEC (tree, TYPE_VECTOR_SUBPARTS (type));
-  unsigned HOST_WIDE_INT idx;
+  unsigned HOST_WIDE_INT idx, pos = 0;
   tree value;
 
   FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
-    vec[idx] = value;
+    {
+      if (TREE_CODE (value) == VECTOR_CST)
+	for (unsigned i = 0; i < VECTOR_CST_NELTS (value); ++i)
+	  vec[pos++] = VECTOR_CST_ELT (value, i);
+      else
+	vec[pos++] = value;
+    }
   for (; idx < TYPE_VECTOR_SUBPARTS (type); ++idx)
-    vec[idx] = build_zero_cst (TREE_TYPE (type));
+    vec[pos++] = build_zero_cst (TREE_TYPE (type));
 
   return build_vector (type, vec);
 }
@@ -11603,6 +11598,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_TILE:
 	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
 	case OMP_CLAUSE_LASTPRIVATE:

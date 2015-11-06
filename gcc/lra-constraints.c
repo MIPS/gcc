@@ -123,20 +123,11 @@
 #include "recog.h"
 #include "output.h"
 #include "addresses.h"
-#include "flags.h"
-#include "alias.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
 #include "cfgrtl.h"
-#include "except.h"
 #include "rtl-error.h"
 #include "params.h"
 #include "lra.h"
-#include "insn-attr.h"
 #include "lra-int.h"
 #include "print-rtl.h"
 
@@ -4004,35 +3995,6 @@ contains_reg_p (rtx x, bool hard_reg_p, bool spilled_p)
 	{
 	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
 	    if (contains_reg_p (XVECEXP (x, i, j), hard_reg_p, spilled_p))
-	      return true;
-	}
-    }
-  return false;
-}
-
-/* Return true if X contains a symbol reg.  */
-static bool
-contains_symbol_ref_p (rtx x)
-{
-  int i, j;
-  const char *fmt;
-  enum rtx_code code;
-
-  code = GET_CODE (x);
-  if (code == SYMBOL_REF)
-    return true;
-  fmt = GET_RTX_FORMAT (code);
-  for (i = GET_RTX_LENGTH (code) - 1; i >= 0; i--)
-    {
-      if (fmt[i] == 'e')
-	{
-	  if (contains_symbol_ref_p (XEXP (x, i)))
-	    return true;
-	}
-      else if (fmt[i] == 'E')
-	{
-	  for (j = XVECLEN (x, i) - 1; j >= 0; j--)
-	    if (contains_symbol_ref_p (XVECEXP (x, i, j)))
 	      return true;
 	}
     }
