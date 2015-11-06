@@ -1,3 +1,7 @@
+2015-11-06  Gary Funck  <gary@intrepid.com>
+
+	* cp/lex.c (init_reswords): Fix logic to disable UPC keywords for C++.
+
 2015-11-05  Gary Funck  <gary@intrepid.com>
 
 	* cp/lex.c (init_reswords): Revert to trunk.
