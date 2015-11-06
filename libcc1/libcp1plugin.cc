@@ -787,32 +787,34 @@ plugin_new_decl (cc1_plugin::connection *self,
     {
       decl = build_lang_decl_loc (loc, code, identifier, sym_type);
 
-      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  DECL_THIS_STATIC (decl) = 1;
+	  // The remainder of this block does the same as:
+	  // set_linkage_for_static_data_member (decl);
+	  TREE_PUBLIC (decl) = 1;
+	  TREE_STATIC (decl) = 1;
+	  DECL_INTERFACE_KNOWN (decl) = 1;
 
-      // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
-      gcc_assert (!(sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE));
+	  // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
+	  gcc_assert (!(sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE));
 
-      if (sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE)
-	DECL_DECLARED_CONSTEXPR_P (decl) = true;
-
-      DECL_THIS_STATIC (decl) = 1;
-      // The remainder of this block does the same as:
-      // set_linkage_for_static_data_member (decl);
-      TREE_PUBLIC (decl) = 1;
-      TREE_STATIC (decl) = 1;
-      DECL_INTERFACE_KNOWN (decl) = 1;
+	  if (sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE)
+	    DECL_DECLARED_CONSTEXPR_P (decl) = true;
+	}
     }
   else
     {
       decl = build_decl (loc, code, identifier, sym_type);
 
-      gcc_assert (TREE_CODE (decl) == VAR_DECL);
+      if (TREE_CODE (decl) == VAR_DECL)
+	{
+	  // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
+	  gcc_assert (!(sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE));
 
-      // FIXME: sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE
-      gcc_assert (!(sym_flags & GCC_CP_FLAG_THREAD_LOCAL_VARIABLE));
-
-      if (sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE)
-	DECL_DECLARED_CONSTEXPR_P (decl) = true;
+	  if (sym_flags & GCC_CP_FLAG_CONSTEXPR_VARIABLE)
+	    DECL_DECLARED_CONSTEXPR_P (decl) = true;
+	}
     }
   TREE_USED (decl) = 1;
   TREE_ADDRESSABLE (decl) = 1;
