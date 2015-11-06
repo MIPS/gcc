@@ -5441,14 +5441,28 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
     if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION)
       {
 	tree orig = OMP_CLAUSE_DECL (c);
-	tree var = OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c);
+	tree var;
 	tree ref_to_res = NULL_TREE;
-	
+	tree incoming, outgoing;
+
+	enum tree_code rcode = OMP_CLAUSE_REDUCTION_CODE (c);
+	if (rcode == MINUS_EXPR)
+	  rcode = PLUS_EXPR;
+	else if (rcode == TRUTH_ANDIF_EXPR)
+	  rcode = BIT_AND_EXPR;
+	else if (rcode == TRUTH_ORIF_EXPR)
+	  rcode = BIT_IOR_EXPR;
+	tree op = build_int_cst (unsigned_type_node, rcode);
+
+	var = OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c);
 	if (!var)
 	  var = maybe_lookup_decl (orig, ctx);
 	if (!var)
 	  var = orig;
+	gcc_assert (!is_reference (var));
 
+	incoming = outgoing = var;
+	
 	if (!inner)
 	  {
 	    /* See if an outer construct also reduces this variable.  */
@@ -5485,29 +5499,35 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	      }
 
 	  do_lookup:
-	    
 	    /* This is the outermost construct with this reduction,
 	       see if there's a mapping for it.  */
 	    if (gimple_code (outer->stmt) == GIMPLE_OMP_TARGET
 		&& maybe_lookup_field (orig, outer))
-	      ref_to_res = build_receiver_ref (orig, false, outer);
+	      {
+		ref_to_res = build_receiver_ref (orig, false, outer);
+		if (is_reference (orig))
+		  ref_to_res = build_simple_mem_ref (ref_to_res);
 
+		outgoing = var;
+		incoming = omp_reduction_init_op (loc, rcode, TREE_TYPE (var));
+	      }
+	    /* This is enabled on trunk, but has been disabled in the merge of
+	       trunk r229767 into gomp-4_0-branch, as otherwise there were a
+	       lot of regressions in libgomp reduction execution tests.  It is
+	       unclear if the problem is in the tests themselves, or here, or
+	       elsewhere.  Given the usage of "var =
+	       OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c)" on gomp-4_0-branch, maybe
+	       we have to consider that here, too, instead of "orig"?  */
+#if 0
+	    else
+	      incoming = outgoing = orig;
+#endif
+	      
 	  has_outer_reduction:;
 	  }
-	gcc_assert (!is_reference (var));
+
 	if (!ref_to_res)
 	  ref_to_res = integer_zero_node;
-	else if (is_reference (orig))
-	  ref_to_res = build_simple_mem_ref (ref_to_res);
-
-	enum tree_code rcode = OMP_CLAUSE_REDUCTION_CODE (c);
-	if (rcode == MINUS_EXPR)
-	  rcode = PLUS_EXPR;
-	else if (rcode == TRUTH_ANDIF_EXPR)
-	  rcode = BIT_AND_EXPR;
-	else if (rcode == TRUTH_ORIF_EXPR)
-	  rcode = BIT_IOR_EXPR;
-	tree op = build_int_cst (unsigned_type_node, rcode);
 
 	/* Determine position in reduction buffer, which may be used
 	   by target.  */
@@ -5533,7 +5553,7 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	  = build_call_expr_internal_loc (loc, IFN_GOACC_REDUCTION,
 					  TREE_TYPE (var), 6, setup_code,
 					  unshare_expr (ref_to_res),
-					  var, level, op, off);
+					  incoming, level, op, off);
 	tree init_call
 	  = build_call_expr_internal_loc (loc, IFN_GOACC_REDUCTION,
 					  TREE_TYPE (var), 6, init_code,
@@ -5552,7 +5572,7 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	gimplify_assign (var, setup_call, &before_fork);
 	gimplify_assign (var, init_call, &after_fork);
 	gimplify_assign (var, fini_call, &before_join);
-	gimplify_assign (var, teardown_call, &after_join);
+	gimplify_assign (outgoing, teardown_call, &after_join);
       }
 
   /* Now stitch things together.  */
@@ -19549,7 +19569,7 @@ default_goacc_fork_join (gcall *ARG_UNUSED (call),
 
 /* Default goacc.reduction early expander.
 
-   LHS-opt = IFN_RED_<foo> (RES_PTR-opt, VAR, LEVEL, OP, LID, RID)
+   LHS-opt = IFN_REDUCTION (KIND, RES_PTR, VAR, LEVEL, OP, OFFSET)
    If RES_PTR is not integer-zerop:
        SETUP - emit 'LHS = *RES_PTR', LHS = NULL
        TEARDOWN - emit '*RES_PTR = VAR'
