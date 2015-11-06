@@ -709,6 +709,16 @@ plugin_new_decl (cc1_plugin::connection *self,
 	      if (sym_flags & GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION)
 		DECL_FINAL_P (decl) = 1;
 	    }
+	  else
+	    gcc_assert (!(sym_flags & (GCC_CP_FLAG_PURE_VIRTUAL_FUNCTION
+				       | GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION)));
+	}
+      else
+	{
+	  gcc_assert (!(sym_flags & (GCC_CP_FLAG_VIRTUAL_FUNCTION
+				     | GCC_CP_FLAG_PURE_VIRTUAL_FUNCTION
+				     | GCC_CP_FLAG_FINAL_VIRTUAL_FUNCTION)));
+	  gcc_assert (!ctor && !dtor);
 	}
       if (sym_flags & GCC_CP_FLAG_EXPLICIT_FUNCTION)
 	DECL_NONCONVERTING_P (decl) = 1;
