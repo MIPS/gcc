@@ -1,3 +1,5 @@
+// { dg-do run { xfail *-*-* } }
+
 char z[10] = { 0 };
 
 __attribute__((noinline, noclone)) void

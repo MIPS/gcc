@@ -1,3 +1,5 @@
+// { dg-do run { xfail *-*-* } }
+
 template <typename T>
 struct A
 {

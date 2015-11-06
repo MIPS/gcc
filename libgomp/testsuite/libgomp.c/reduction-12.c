@@ -1,3 +1,5 @@
+/* { dg-do run { xfail *-*-* } } */
+
 struct A { int t; };
 struct B { char t; };
 struct C { unsigned long long t; };
