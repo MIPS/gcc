@@ -777,6 +777,13 @@ struct list
   struct list *next;
 };
 
+struct attr
+{
+  char* name;
+  char* filename;
+  struct list* list;
+};
+
 static struct list *mips_compress;
 static struct list *mips_no_compress;
 static struct list *mips_optimize_size;
@@ -784,8 +791,11 @@ static struct list *mips_optimize_O3;
 static struct list *mips_optimize_O2;
 static struct list *mips_optimize_O1;
 
+static vec<struct attr *> func_attr_files;
+static vec<struct attr *> var_attr_files;
+
 static struct list *
-mips_read_list (const char * filename)
+mips_read_list (const char *filename)
 {
   FILE * fd;
   char line[256];
@@ -797,8 +807,7 @@ mips_read_list (const char * filename)
   fd = fopen (filename, "r");
   if (fd == NULL)
     {
-      error ("Bad filename for -m[no-]compress-list, -moptimize-size-list, -moptimize-O3-list, "
-	     "-moptimize-O2-list or -moptimize-O1-list: %s\n", filename);
+      error ("Bad filename: %s\n", filename);
       return NULL;
     }
 
@@ -1543,12 +1552,22 @@ mips_comp_type_attributes (const_tree type1, const_tree type2)
   return 1;
 }
 
+/* Split e.g. "optimize("-Os")" into "optimize" and "-Os".  */
+
+static void
+mips_extract_attr_args (const char *arg, char **attr, char **attr_args)
+{
+  char *dup = xstrdup (arg);
+  *attr = strtok (dup, "(\"");
+  *attr_args = strtok (NULL, "\")");
+}
+
 /* Implement TARGET_INSERT_ATTRIBUTES.  */
 
 static void
 mips_insert_attributes (tree decl, tree *attributes)
 {
-  const char *name;
+  const char *name = NULL;
   unsigned int compression_flags, nocompression_flags;
 
   /* Check for "mips16" and "nomips16" attributes.  */
@@ -1567,6 +1586,9 @@ mips_insert_attributes (tree decl, tree *attributes)
     }
   else
     {
+      unsigned int i;
+      struct attr *attr;
+
       compression_flags |= mips_get_compress_on_flags (DECL_ATTRIBUTES (decl));
       nocompression_flags |=
 	mips_get_compress_off_flags (DECL_ATTRIBUTES (decl));
@@ -1580,6 +1602,44 @@ mips_insert_attributes (tree decl, tree *attributes)
           && compression_flags & MASK_MICROMIPS)
 	error ("%qE cannot have both %qs and %qs attributes",
 	       DECL_NAME (decl), "mips16", "micromips");
+
+      FOR_EACH_VEC_ELT (func_attr_files, i, attr)
+	if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)), attr->list))
+	  {
+	    tree attr_args = NULL;
+	    char *attr_name = NULL;
+	    char *attr_arg = NULL;
+
+	    mips_extract_attr_args (attr->name, &attr_name, &attr_arg);
+
+	    /* We don't have "inline" attribute so we handle this
+	       differently here.  */
+	    if (strcmp (attr_name, "inline") == 0)
+	      {
+		tree inline_opt = build_optimization_node (&global_options);
+		TREE_OPTIMIZATION (inline_opt)->x_flag_inline_functions = 1;
+		TREE_OPTIMIZATION (inline_opt)->x_flag_no_inline = 0;
+		DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl) = inline_opt;
+	      }
+	    else if (strcmp (attr_name, "mips16") == 0
+		     || strcmp (attr_name, "nomips16") == 0)
+	      name = attr_name;
+	    else
+	      {
+		if (attr_arg)
+		  attr_args = build_tree_list (NULL_TREE,
+					       build_string (strlen (attr_arg),
+							     attr_arg));
+		if (attr_name)
+		  *attributes = tree_cons (get_identifier (attr_name),
+					   attr_args,
+					   *attributes);
+	      }
+
+	    if (TARGET_DEBUG_MODE)
+	      printf ("%s: %s\n",
+		      IDENTIFIER_POINTER (DECL_NAME (decl)), attr->name);
+	  }
 
       if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
 			  mips_optimize_size))
@@ -1617,12 +1677,13 @@ mips_insert_attributes (tree decl, tree *attributes)
 				   *attributes);
 	}
 
-      if ((TARGET_FLIP_MIPS16 || mips_compress != NULL || mips_no_compress != NULL)
+      if ((TARGET_FLIP_MIPS16
+	   || mips_compress != NULL || mips_no_compress != NULL
+	   || name != NULL)
 	  && !DECL_ARTIFICIAL (decl)
 	  && compression_flags == 0
 	  && nocompression_flags == 0)
 	{
-          name = NULL;
 	  /* Implement -mflip-mips16.  If DECL has neither a "nomips16" nor a
 	     "mips16" attribute, arbitrarily pick one.  We must pick the same
 	     setting for duplicate declarations of a function.  */
@@ -19660,6 +19721,82 @@ make_pass_shrink_mips16_offsets (gcc::context *ctxt)
     return new pass_shrink_mips16_offsets (ctxt);
 }
 
+int
+mips_function_attribute_p_1 (const char *arg, struct attr *attr)
+{
+  char *str;
+  char *tok;
+
+  if (*arg == '=')
+    arg++;
+
+  str = xstrdup (arg);
+  tok = strtok (str, ",");
+
+  if (*arg == ',' && tok != NULL)
+    attr->filename = tok;
+  else
+    attr->name = tok;
+
+  if (!attr->filename)
+    attr->filename = strtok (NULL, ",");
+
+  if (TARGET_DEBUG_MODE)
+    inform (0, "attribute %<%s%> with file %<%s%>",
+	    attr->name, attr->filename);
+  return 1;
+}
+
+int
+mips_function_attribute_p (const char *arg)
+{
+  struct attr *attr = (struct attr *) xmalloc (sizeof (struct attr));
+  memset (attr, 0, sizeof (*attr));
+
+  mips_function_attribute_p_1 (arg, attr);
+
+  if (!attr->name)
+    error ("-mfunction-attr- expected an attribute\n");
+  if (!attr->filename)
+    error ("No filename given\n");
+
+  if (attr->filename)
+    attr->list = mips_read_list (attr->filename);
+
+  if (!func_attr_files.exists ())
+    func_attr_files.create (0);
+  if (attr)
+    func_attr_files.safe_push (attr);
+    
+  return 1;
+}
+
+void
+mips_handle_deferred_options (void)
+{
+  unsigned int i;
+  cl_deferred_option *opt;
+  vec<cl_deferred_option> v;
+
+  if (mips_deferred_options)
+    v = *((vec<cl_deferred_option> *) mips_deferred_options);
+  else
+    v = vNULL;
+
+  FOR_EACH_VEC_ELT (v, i, opt)
+    {
+      switch (opt->opt_index)
+	{
+	case OPT_mfunction_attr:
+	  mips_function_attribute_p (opt->arg);
+	  break;
+	
+	default:
+	  gcc_unreachable ();
+	}
+    }
+}
+
 /* Implement TARGET_OPTION_OVERRIDE.  */
 
 static void
@@ -19699,6 +19836,8 @@ mips_option_override (void)
   mips_optimize_O3 = mips_read_list (mips_optimize_O3_list);
   mips_optimize_O2 = mips_read_list (mips_optimize_O2_list);
   mips_optimize_O1 = mips_read_list (mips_optimize_O1_list);
+
+  mips_handle_deferred_options ();
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value

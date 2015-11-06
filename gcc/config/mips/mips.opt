@@ -567,3 +567,7 @@ Specify a list of functions to optimize with -O1
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
+
+mfunction-attr
+Common Joined RejectNegative Var(mips_deferred_options) Defer
+-mfunction-attr-[any_valid_attribute]=filelist
