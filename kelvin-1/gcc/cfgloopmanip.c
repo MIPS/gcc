@@ -2134,7 +2134,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   /* This function call is strictly paranoia.  it makes no changes
    * to the data structures.
    */
-  check_loop_frequency_integrity(loop);
+  check_loop_frequency_integrity (loop);
 #endif
 
   return true;
