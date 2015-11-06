@@ -60,4 +60,8 @@ extern void force_single_succ_latches (void);
 struct loop * loop_version (struct loop *, void *,
 			    basic_block *, unsigned, unsigned, unsigned, bool);
 
+extern bool in_loop_p (basic_block, loop_p);
+extern void zero_loop_frequencies (loop_p);
+extern void increment_loop_frequencies (loop_p, basic_block, int);
+
 #endif /* GCC_CFGLOOPMANIP_H */

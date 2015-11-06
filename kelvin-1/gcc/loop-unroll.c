@@ -45,10 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "dumpfile.h"
 
-extern void zero_loop_frequencies (loop_p);
-extern void increment_loop_frequencies (loop_p, basic_block, int);
-extern bool in_loop_p (basic_block, loop_p);
-
 /* This pass performs loop unrolling.  We only perform this
    optimization on innermost loops (with single exception) because
    the impact on performance is greatest here, and we want to avoid

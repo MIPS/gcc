@@ -45,10 +45,6 @@ along with GCC; see the file COPYING3.  If not see
  * This may report false-positive errors due to round-off errors.
  */
 
-
-/* During development and testing, I'm using conditional compilation to
- * distinguish new code from original implementation.
- */
 static void copy_loops_to (struct loop **, int,
 			   struct loop *);
 static void loop_redirect_edge (edge, basic_block);
