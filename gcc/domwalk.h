@@ -34,8 +34,6 @@ public:
 
   /* Walk the dominator tree.  */
   void walk (basic_block);
-  /* Walk a part of the dominator tree.  */
-  void walk_until (basic_block, basic_block, bool);
 
   /* Function to call before the recursive walk of the dominator children.  */
   virtual void before_dom_children (basic_block) {}

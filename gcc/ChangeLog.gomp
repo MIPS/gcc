@@ -1,5 +1,16 @@
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
+	revert:
+	2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	* domwalk.c (dom_walker::walk): Rename to ...
+	(dom_walker::walk_until): ... this.  Add and handle until and
+	until_inclusive parameters.
+	(dom_walker::walk): Reimplement using dom_walker::walk_until.
+	* domwalk.h (dom_walker::walk_until): Declare.
+
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
 	* builtins.def (DEF_GOACC_BUILTIN_FNSPEC): Remove #undef and #define.
 	* omp-builtins.def: Remove DEF_GOACC_BUILTIN_FNSPEC.
 
