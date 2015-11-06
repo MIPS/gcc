@@ -1,5 +1,13 @@
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
+	* builtin-attrs.def (DOT_DOT_DOT_r_r_r, DOT_DOT_DOT_DOT_r_r_r): Remove
+	unused DEF_ATTR_FOR_STRING.
+	(ATTR_FNSPEC_DOT_DOT_DOT_r_r_r_NOTHROW_LIST)
+	(ATTR_FNSPEC_DOT_DOT_DOT_DOT_r_r_r_NOTHROW_LIST): Remove unused
+	DEF_ATTR_TREE_LIST.
+
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
 	Revert:
 	2015-07-14  Tom de Vries  <tom@codesourcery.com>
 
