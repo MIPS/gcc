@@ -226,7 +226,6 @@ protected:
 						   of math functions; the
 						   current choices have
 						   been optimized.  */
-#define PROP_gimple_lompifn	(1 << 16)       /* No omp internal function.  */
 
 #define PROP_trees \
   (PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh | PROP_gimple_lomp)
@@ -415,7 +414,6 @@ extern gimple_opt_pass *make_pass_lower_complex (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lower_vector (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lower_vector_ssa (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_lower_omp (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_late_lower_omp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_diagnose_omp_blocks (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_expand_omp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_expand_omp_ssa (gcc::context *ctxt);

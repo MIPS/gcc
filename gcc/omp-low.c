@@ -15019,7 +15019,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   bool offloaded, data_region;
   unsigned int map_cnt = 0;
   bool has_depend = false;
-  gimple *goacc_data_end = NULL;
 
   offloaded = is_gimple_omp_offloaded (stmt);
   switch (gimple_omp_target_kind (stmt))
@@ -15064,18 +15063,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       tgt_body = gimple_bind_body (tgt_bind);
     }
   else if (data_region)
-    {
-      tgt_body = gimple_omp_body (stmt);
-      gimple *try_stmt = gimple_seq_first_stmt (tgt_body);
-      gcc_assert (gimple_try_kind (try_stmt) == GIMPLE_TRY_FINALLY);
-      gimple_seq cleanup = gimple_try_cleanup (try_stmt);
-      if (gimple_call_internal_p (cleanup)
-	  && gimple_call_internal_fn (cleanup) == IFN_GOACC_DATA_END_WITH_ARG)
-	{
-	  goacc_data_end = cleanup;
-	  gcc_assert (gimple_call_arg (goacc_data_end, 0) == null_pointer_node);
-	}
-    }
+    tgt_body = gimple_omp_body (stmt);
   child_fn = ctx->cb.dst_fn;
 
   push_gimplify_context ();
@@ -15316,13 +15304,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	= create_tmp_var (ctx->record_type, ".omp_data_arr");
       DECL_NAMELESS (ctx->sender_decl) = 1;
       TREE_ADDRESSABLE (ctx->sender_decl) = 1;
-
-      if (goacc_data_end != NULL)
-	{
-	  tree arg = build_fold_addr_expr (ctx->sender_decl);
-	  gimple_call_set_arg (goacc_data_end, 0, arg);
-	}
-
       t = make_tree_vec (3);
       TREE_VEC_ELT (t, 0) = ctx->sender_decl;
       TREE_VEC_ELT (t, 1)
@@ -18565,71 +18546,6 @@ omp_finish_file (void)
 	  targetm.record_offload_symbol (it);
 	}
     }
-}
-
-namespace {
-
-const pass_data pass_data_late_lower_omp =
-{
-  GIMPLE_PASS, /* type */
-  "lateomplower", /* name */
-  OPTGROUP_NONE, /* optinfo_flags */
-  TV_NONE, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  PROP_gimple_lompifn, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  0, /* todo_flags_finish */
-};
-
-class pass_late_lower_omp : public gimple_opt_pass
-{
-public:
-  pass_late_lower_omp (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_late_lower_omp, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual unsigned int execute (function *);
-
-  virtual bool gate (function *)
-    {
-      return (cfun->curr_properties & PROP_gimple_lompifn) == 0;
-    }
-
-}; // class pass_lower_omp
-
-unsigned int
-pass_late_lower_omp::execute (function *fun)
-{
-  basic_block bb;
-  gimple_stmt_iterator i;
-
-  FOR_EACH_BB_FN (bb, fun)
-    for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
-      {
-	gimple *stmt = gsi_stmt (i);
-	if (!(is_gimple_call (stmt)
-	      && gimple_call_internal_p (stmt)
-	      && gimple_call_internal_fn (stmt) == IFN_GOACC_DATA_END_WITH_ARG))
-	  continue;
-
-	tree fn = builtin_decl_explicit (BUILT_IN_GOACC_DATA_END);
-	gimple *g = gimple_build_call (fn, 0);
-
-	gsi_replace (&i, g, false);
-      }
-
-  return TODO_update_ssa;
-}
-
-
-} // anon namespace
-
-gimple_opt_pass *
-make_pass_late_lower_omp (gcc::context *ctxt)
-{
-  return new pass_late_lower_omp (ctxt);
 }
 
 /* Transform oacc_dim_size and oacc_dim_pos internal function calls to

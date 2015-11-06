@@ -1,3 +1,27 @@
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
+	revert:
+	PR tree-optimization/65419
+	2015-05-28  Tom de Vries  <tom@codesourcery.com>
+
+	* cfgexpand.c (pass_data_expand): Add PROP_gimple_lompifn to
+	properties_required field.
+	* gimplify.c (gimplify_omp_workshare): Use IFN_GOACC_DATA_END_WITH_ARG
+	instead of BUILT_IN_GOACC_DATA_END.  Clear PROP_gimple_lompifn in
+	curr_properties.
+	(gimplify_function_tree): Tentatively set PROP_gimple_lompifn in
+	curr_properties.
+	* internal-fn.c (expand_GOACC_DATA_END_WITH_ARG): New dummy function.
+	* internal-fn.def (GOACC_DATA_END_WITH_ARG): New DEF_INTERNAL_FN.
+	* omp-low.c (lower_omp_target): Set argument of GOACC_DATA_END_WITH_ARG.
+	(pass_data_late_lower_omp): New pass_data.
+	(pass_late_lower_omp): New pass.
+	(pass_late_lower_omp::gate, pass_late_lower_omp::execute)
+	(make_pass_late_lower_omp): New function.
+	* passes.def: Add pass_late_lower_omp.
+	* tree-inline.c (expand_call_inline): Handle PROP_gimple_lompifn.
+	* tree-pass.h (PROP_gimple_lompifn): Add define.
+
 2015-11-05  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (get_bbs_in_oacc_kernels_region):

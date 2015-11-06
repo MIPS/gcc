@@ -1949,15 +1949,6 @@ expand_VA_ARG (gcall *stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
-/* GOACC_DATA_END_WITH_ARG is supposed to be expanded at pass_late_lower_omp.
-   So this dummy function should never be called.  */
-
-static void
-expand_GOACC_DATA_END_WITH_ARG (gcall *stmt ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
 /* Expand the IFN_UNIQUE function according to its first argument.  */
 
 static void
