@@ -1,3 +1,12 @@
+2015-11-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-c++-common/goacc/combined-directives.c: New test.
+	* c-c++-common/goacc/loop-clauses.c: New test.
+	* c-c++-common/goacc/loop-shape.c: More test cases.
+	* c-c++-common/goacc/loop-tile-k1.c: Update error messages.
+	* c-c++-common/goacc/loop-tile-p1.c: Likewise.
+	* c-c++-common/goacc/tile.c: New test.
+
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
 	* gfortran.dg/goacc/kernels-loop-nest-independent.f95: New test.

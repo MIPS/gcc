@@ -1,3 +1,13 @@
+2015-11-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* c-parser.c (c_parser_omp_clause_default): Replace only_none with
+	is_oacc argument.
+	(c_parser_oacc_shape_clause): Allow pointers arguments to gang static.
+	(c_parser_oacc_clause_tile): Backport cleanups from trunnk.
+	(c_parser_oacc_all_clauses): Likewise, update call to
+	c_parser_omp_clause_default.
+	(c_parser_omp_all_clauses): Update call to c_parser_omp_clause_default.
+
 2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_oacc_update): Update the error message for

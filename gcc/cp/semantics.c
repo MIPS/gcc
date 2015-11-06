@@ -6790,7 +6790,43 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	case OMP_CLAUSE_SEQ:
 	case OMP_CLAUSE_BIND:
 	case OMP_CLAUSE_NOHOST:
+	  break;
+
 	case OMP_CLAUSE_TILE:
+	  for (tree list = OMP_CLAUSE_TILE_LIST (c); !remove && list;
+	       list = TREE_CHAIN (list))
+	    {
+	      t = TREE_VALUE (list);
+
+	      if (t == error_mark_node)
+		remove = true;
+	      else if (!type_dependent_expression_p (t)
+		       && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+		{
+		  error ("%<tile%> value must be integral");
+		  remove = true;
+		}
+	      else
+		{
+		  t = mark_rvalue_use (t);
+		  if (!processing_template_decl)
+		    {
+		      t = maybe_constant_value (t);
+		      if (TREE_CODE (t) == INTEGER_CST
+			  && tree_int_cst_sgn (t) != 1
+			  && t != integer_minus_one_node)
+			{
+			  warning_at (OMP_CLAUSE_LOCATION (c), 0,
+				      "%<tile%> value must be positive");
+			  t = integer_one_node;
+			}
+		    }
+		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+		}
+
+		/* Update list item.  */
+	      TREE_VALUE (list) = t;
+	    }
 	  break;
 
 	case OMP_CLAUSE_DEVICE_TYPE:

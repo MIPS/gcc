@@ -35,10 +35,10 @@ kern (void)
 	for (j = 0; j < 10; i++)
 	  { }
       }
-#pragma acc loop tile(-1) // { dg-error "tile argument needs positive constant integer" }
+#pragma acc loop tile(-2) // { dg-warning "'tile' value must be positive" }
     for (i = 0; i < 10; i++)
       { }
-#pragma acc loop tile(i) // { dg-error "tile argument needs positive constant integer" }
+#pragma acc loop tile(i)
     for (i = 0; i < 10; i++)
       { }
 #pragma acc loop tile(2, 2, 1)
@@ -93,10 +93,10 @@ void k3 (void)
       for (j = 1; j < 10; j++)
 	{ }
     }
-#pragma acc kernels loop tile(-1) // { dg-error "tile argument needs positive constant integer expression" }
+#pragma acc kernels loop tile(-2) // { dg-warning "'tile' value must be positive" }
   for (i = 1; i < 10; i++)
     { }
-#pragma acc kernels loop tile(i) // { dg-error "tile argument needs positive constant integer expression" }
+#pragma acc kernels loop tile(i)
   for (i = 1; i < 10; i++)
     { }
 #pragma acc kernels loop tile(2, 2, 1)

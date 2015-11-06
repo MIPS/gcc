@@ -26,10 +26,10 @@ void par (void)
 	for (j = 1; j < 10; j++)
 	  { }
       }
-#pragma acc loop tile(-1) // { dg-error "tile argument needs positive constant integer expression" }
+#pragma acc loop tile(-2) // { dg-warning "'tile' value must be positive" }
     for (i = 1; i < 10; i++)
       { }
-#pragma acc loop tile(i) // { dg-error "tile argument needs positive constant integer expression" }
+#pragma acc loop tile(i)
     for (i = 1; i < 10; i++)
       { }
 #pragma acc loop tile(2, 2, 1)
@@ -87,10 +87,10 @@ void p3 (void)
       for (j = 1; j < 10; j++)
 	{ }
     }
-#pragma acc parallel loop tile(-1) // { dg-error "tile argument needs positive constant integer expression" }
+#pragma acc parallel loop tile(-2) // { dg-warning "'tile' value must be positive" }
   for (i = 1; i < 10; i++)
     { }
-#pragma acc parallel loop tile(i) // { dg-error "tile argument needs positive constant integer expression" }
+#pragma acc parallel loop tile(i)
   for (i = 1; i < 10; i++)
     { }
 #pragma acc parallel loop tile(2, 2, 1)

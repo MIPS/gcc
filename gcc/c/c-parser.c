@@ -10627,11 +10627,13 @@ c_parser_omp_clause_copyprivate (c_parser *parser, tree list)
 }
 
 /* OpenMP 2.5:
-   default ( shared | none ) */
+   default ( shared | none )
+
+   OpenACC 2.0:
+   default (none) */
 
 static tree
-c_parser_omp_clause_default (c_parser *parser, tree list,
-			     bool only_none = false)
+c_parser_omp_clause_default (c_parser *parser, tree list, bool is_oacc)
 {
   enum omp_clause_default_kind kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
   location_t loc = c_parser_peek_token (parser)->location;
@@ -10652,7 +10654,7 @@ c_parser_omp_clause_default (c_parser *parser, tree list,
 	  break;
 
 	case 's':
-	  if (strcmp ("shared", p) != 0 || only_none)
+	  if (strcmp ("shared", p) != 0 || is_oacc)
 	    goto invalid_kind;
 	  kind = OMP_CLAUSE_DEFAULT_SHARED;
 	  break;
@@ -10666,7 +10668,7 @@ c_parser_omp_clause_default (c_parser *parser, tree list,
   else
     {
     invalid_kind:
-      if (only_none)
+      if (is_oacc)
 	c_parser_error (parser, "expected %<none%>");
       else
 	c_parser_error (parser, "expected %<none%> or %<shared%>");
@@ -11326,7 +11328,10 @@ c_parser_oacc_shape_clause (c_parser *parser, omp_clause_code kind,
 		}
 
 	      /* Check for the '*' argument.  */
-	      if (c_parser_next_token_is (parser, CPP_MULT))
+	      if (c_parser_next_token_is (parser, CPP_MULT)
+		  && (c_parser_peek_2nd_token (parser)->type == CPP_COMMA
+		      || c_parser_peek_2nd_token (parser)->type
+		         == CPP_CLOSE_PAREN))
 		{
 		  c_parser_consume_token (parser);
 		  ops[idx] = integer_minus_one_node;
@@ -11571,66 +11576,58 @@ c_parser_oacc_clause_device_type (c_parser *parser, omp_clause_mask mask,
 static tree
 c_parser_oacc_clause_tile (c_parser *parser, tree list)
 {
-  tree c, num = error_mark_node;
-  HOST_WIDE_INT n;
-  location_t loc;
+  tree c, expr = error_mark_node;
+  location_t loc, expr_loc;
   tree tile = NULL_TREE;
-  vec<tree, va_gc> *tvec = make_tree_vector ();
 
   check_no_duplicate_clause (list, OMP_CLAUSE_TILE, "tile");
 
   loc = c_parser_peek_token (parser)->location;
   if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-    {
-      release_tree_vector (tvec);
-      return list;
-    }
+    return list;
 
   do
     {
-      if (c_parser_next_token_is (parser, CPP_MULT))
+      if (c_parser_next_token_is (parser, CPP_MULT)
+	  && (c_parser_peek_2nd_token (parser)->type == CPP_COMMA
+	      || c_parser_peek_2nd_token (parser)->type == CPP_CLOSE_PAREN))
 	{
 	  c_parser_consume_token (parser);
-	  num = integer_minus_one_node;
+	  expr = integer_minus_one_node;
 	}
       else
 	{
-	  num = c_parser_expr_no_commas (parser, NULL).value;
+	  expr_loc = c_parser_peek_token (parser)->location;
+	  expr = c_parser_expr_no_commas (parser, NULL).value;
 
-	  if (num == error_mark_node)
+	  if (expr == error_mark_node)
 	    {
-	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
-					 "expected %<)%>");
-	      release_tree_vector (tvec);
-	      return list;
-	    }
-
-	  mark_exp_read (num);
-	  num = c_fully_fold (num, false, NULL);
-
-	  if (!INTEGRAL_TYPE_P (TREE_TYPE (num))
-	      || !tree_fits_shwi_p (num)
-	      || (n = tree_to_shwi (num)) <= 0
-	      || (int) n != n)
-	    {
-	      error_at (loc,
-			"tile argument needs positive constant integer "
-			"expression");
-	      release_tree_vector (tvec);
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 					 "expected %<)%>");
 	      return list;
 	    }
+
+	  if (!INTEGRAL_TYPE_P (TREE_TYPE (expr)))
+	    {
+	      c_parser_error (parser, "%<tile%> value must be integral");
+	      return list;
+	    }
+
+	  mark_exp_read (expr);
+	  expr = c_fully_fold (expr, false, NULL);
+
+	  /* Attempt to statically determine when expr isn't positive.  */
+	  c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, expr,
+			       build_int_cst (TREE_TYPE (expr), 0));
+	  protected_set_expr_location (c, expr_loc);
+	  if (c == boolean_true_node)
+	    {
+	      warning_at (expr_loc, 0,"%<tile%> value must be positive");
+	      expr = integer_one_node;
+	    }
 	}
 
-      if (num == error_mark_node)
-	{
-	  error_at (loc, "expected positive integer or %<)%>");
-	  release_tree_vector (tvec);
-	  return list;
-	}
-
-      vec_safe_push (tvec, num);
+      tile = tree_cons (NULL_TREE, expr, tile);
       if (c_parser_next_token_is (parser, CPP_COMMA))
 	c_parser_consume_token (parser);
     }
@@ -11640,10 +11637,9 @@ c_parser_oacc_clause_tile (c_parser *parser, tree list)
   c_parser_consume_token (parser);
 
   c = build_omp_clause (loc, OMP_CLAUSE_TILE);
-  tile = build_tree_list_vec (tvec);
+  tile = nreverse (tile);
   OMP_CLAUSE_TILE_LIST (c) = tile;
   OMP_CLAUSE_CHAIN (c) = list;
-  release_tree_vector (tvec);
   return c;
 }
 
@@ -12965,7 +12961,7 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  break;
 	case PRAGMA_OACC_CLAUSE_SEQ:
 	  clauses = c_parser_oacc_simple_clause (parser, OMP_CLAUSE_SEQ,
-						 clauses);
+						clauses);
 	  c_name = "seq";
 	  break;
 	case PRAGMA_OACC_CLAUSE_TILE:
@@ -13060,7 +13056,7 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  c_name = "copyprivate";
 	  break;
 	case PRAGMA_OMP_CLAUSE_DEFAULT:
-	  clauses = c_parser_omp_clause_default (parser, clauses);
+	  clauses = c_parser_omp_clause_default (parser, clauses, false);
 	  c_name = "default";
 	  break;
 	case PRAGMA_OMP_CLAUSE_FIRSTPRIVATE:

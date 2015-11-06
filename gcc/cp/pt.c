@@ -14398,7 +14398,6 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	case OMP_CLAUSE_NUM_GANGS:
 	case OMP_CLAUSE_NUM_WORKERS:
 	case OMP_CLAUSE_VECTOR_LENGTH:
-	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
 	case OMP_CLAUSE_ASYNC:
@@ -14427,7 +14426,7 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
 				      in_decl);
 	  break;
-	case OMP_CLAUSE_LINEAR:
+	case OMP_CLAUSE_GANG:
 	case OMP_CLAUSE_ALIGNED:
 	  OMP_CLAUSE_DECL (nc)
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
@@ -14460,8 +14459,20 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_DEVICE_TYPE:
+	  break;
+	case OMP_CLAUSE_TILE:
+	  {
+	    tree lnc, loc;
+	    for (lnc = OMP_CLAUSE_TILE_LIST (nc),
+		   loc = OMP_CLAUSE_TILE_LIST (oc);
+		 loc;
+		 loc = TREE_CHAIN (loc), lnc = TREE_CHAIN (lnc))
+	      {
+		TREE_VALUE (lnc) = tsubst_expr (TREE_VALUE (loc), args,
+						complain, in_decl, false);
+	      }
+	  }
 	  break;
 	default:
 	  gcc_unreachable ();
