@@ -57,21 +57,22 @@
 #include "omp-low.h"
 #include "gomp-constants.h"
 #include "dumpfile.h"
-#include "cfghooks.h"
+#include "internal-fn.h"
+#include "gimple-iterator.h"
+#include "stringpool.h"
+#include "tree-ssa-operands.h"
+#include "tree-ssanames.h"
+#include "gimplify.h"
+#include "tree-phinodes.h"
 #include "cfgloop.h"
+#include "fold-const.h"
+#include "cfghooks.h"
 #include "dumpfile.h"
 #include "dominance.h"
 #include "cfg.h"
 #include "tree-cfg.h"
-#include "fold-const.h"
-#include "stringpool.h"
-#include "internal-fn.h"
-#include "gimple-iterator.h"
 #include "gimple-ssa.h"
-#include "gimplify.h"
-#include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 
 /* This file should be included last.  */
@@ -104,19 +105,18 @@ struct tree_hasher : ggc_cache_ptr_hash<tree_node>
 static GTY((cache)) hash_table<tree_hasher> *declared_fndecls_htab;
 static GTY((cache)) hash_table<tree_hasher> *needed_fndecls_htab;
 
-/* Size of buffer needed to broadcast across workers.  This is used
-   for both worker-neutering and worker broadcasting.   It is shared
-   by all functions emitted.  The buffer is placed in shared memory.
-   It'd be nice if PTX supported common blocks, because then this
-   could be shared across TUs (taking the largest size).  */
+/* Buffer needed to broadcast across workers.  This is used for both
+   worker-neutering and worker broadcasting.  It is shared by all
+   functions emitted.  The buffer is placed in shared memory.  It'd be
+   nice if PTX supported common blocks, because then this could be
+   shared across TUs (taking the largest size).  */
 static unsigned worker_bcast_size;
 static unsigned worker_bcast_align;
 #define worker_bcast_name "__worker_bcast"
 static GTY(()) rtx worker_bcast_sym;
 
-/* Size of buffer needed for worker reductions.  This has to be
-   distinct from the worker broadcast array, as both may be live
-   concurrently.  */
+/* Buffer needed for worker reductions.  This has to be distinct from
+   the worker broadcast array, as both may be live concurrently.  */
 static unsigned worker_red_size;
 static unsigned worker_red_align;
 #define worker_red_name "__worker_red"
@@ -3977,8 +3977,8 @@ nvptx_file_end (void)
     {
       /* Define the reduction buffer.  */
 
-      worker_red_size = (worker_red_size + worker_red_align - 1)
-	& ~(worker_red_align - 1);
+      worker_red_size = ((worker_red_size + worker_red_align - 1)
+			 & ~(worker_red_align - 1));
       
       fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_red_name);
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
@@ -3986,7 +3986,7 @@ nvptx_file_end (void)
 	       worker_red_name, worker_red_size);
     }
 }
-
+
 /* Expander for the shuffle builtins.  */
 
 static rtx
@@ -4046,6 +4046,10 @@ nvptx_expand_worker_addr (tree exp, rtx target,
   return target;
 }
 
+/* Expand the CMP_SWAP PTX builtins.  We have our own versions that do
+   not require taking the address of any object, other than the memory
+   cell being operated on.  */
+
 static rtx
 nvptx_expand_cmp_swap (tree exp, rtx target,
 		       machine_mode ARG_UNUSED (m), int ARG_UNUSED (ignore))
@@ -4096,7 +4100,7 @@ static GTY(()) tree nvptx_builtin_decls[NVPTX_BUILTIN_MAX];
 /* Return the NVPTX builtin for CODE.  */
 
 static tree
-nvptx_builtin_decl (unsigned code, bool initialize_p ATTRIBUTE_UNUSED)
+nvptx_builtin_decl (unsigned code, bool ARG_UNUSED (initialize_p))
 {
   if (code >= NVPTX_BUILTIN_MAX)
     return error_mark_node;
@@ -4110,10 +4114,10 @@ static void
 nvptx_init_builtins (void)
 {
 #define DEF(ID, NAME, T)						\
-  (nvptx_builtin_decls[NVPTX_BUILTIN_ ## ID] =				\
-   add_builtin_function ("__builtin_nvptx_" NAME,			\
-			 build_function_type_list T,			\
-			 NVPTX_BUILTIN_ ## ID, BUILT_IN_MD, NULL, NULL))
+  (nvptx_builtin_decls[NVPTX_BUILTIN_ ## ID]				\
+   = add_builtin_function ("__builtin_nvptx_" NAME,			\
+			   build_function_type_list T,			\
+			   NVPTX_BUILTIN_ ## ID, BUILT_IN_MD, NULL, NULL))
 #define ST sizetype
 #define UINT unsigned_type_node
 #define LLUINT long_long_unsigned_type_node
@@ -4140,7 +4144,7 @@ nvptx_init_builtins (void)
    IGNORE is nonzero if the value is to be ignored.  */
 
 static rtx
-nvptx_expand_builtin (tree exp, rtx target, rtx subtarget ATTRIBUTE_UNUSED,
+nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
 		      machine_mode mode, int ignore)
 {
   tree fndecl = TREE_OPERAND (CALL_EXPR_FN (exp), 0);
@@ -4239,6 +4243,10 @@ nvptx_goacc_fork_join (gcall *call, const int dims[],
   return true;
 }
 
+/* Generate a PTX builtin function call that returns the address in
+   the worker reduction buffer at OFFSET.  TYPE is the type of the
+   data at that location.  */
+
 static tree
 nvptx_get_worker_red_addr (tree type, tree offset)
 {
@@ -4263,30 +4271,19 @@ nvptx_generate_vector_shuffle (location_t loc,
   unsigned fn = NVPTX_BUILTIN_SHUFFLE;
   tree_code code = NOP_EXPR;
   tree type = unsigned_type_node;
+  enum machine_mode mode = TYPE_MODE (TREE_TYPE (var));
 
-  switch (TYPE_MODE (TREE_TYPE (var)))
+  if (!INTEGRAL_MODE_P (mode))
+    code = VIEW_CONVERT_EXPR;
+  if (GET_MODE_SIZE (mode) == GET_MODE_SIZE (DImode))
     {
-    case SFmode:
-      code = VIEW_CONVERT_EXPR;
-      /* FALLTHROUGH */
-    case SImode:
-      break;
-
-    case DFmode:
-      code = VIEW_CONVERT_EXPR;
-      /* FALLTHROUGH  */
-    case DImode:
-      type = long_long_unsigned_type_node;
       fn = NVPTX_BUILTIN_SHUFFLELL;
-      break;
-
-    default:
-      gcc_unreachable ();
+      type = long_long_unsigned_type_node;
     }
 
   tree call = nvptx_builtin_decl (fn, true);
   call = build_call_expr_loc
-    (loc, call, 3, build1 (code, type, var),
+    (loc, call, 3, fold_build1 (code, type, var),
      build_int_cst (unsigned_type_node, shift),
      build_int_cst (unsigned_type_node, SHUFFLE_DOWN));
 
@@ -4294,6 +4291,9 @@ nvptx_generate_vector_shuffle (location_t loc,
 
   gimplify_assign (dest_var, call, seq);
 }
+
+/* Insert code to locklessly update  *PTR with *PTR OP VAR just before
+   GSI.  */
 
 static tree
 nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
@@ -4303,24 +4303,14 @@ nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
   tree_code code = NOP_EXPR;
   tree type = unsigned_type_node;
 
-  switch (TYPE_MODE (TREE_TYPE (var)))
+  enum machine_mode mode = TYPE_MODE (TREE_TYPE (var));
+
+  if (!INTEGRAL_MODE_P (mode))
+    code = VIEW_CONVERT_EXPR;
+  if (GET_MODE_SIZE (mode) == GET_MODE_SIZE (DImode))
     {
-    case SFmode:
-      code = VIEW_CONVERT_EXPR;
-      /* FALLTHROUGH */
-    case SImode:
-      break;
-
-    case DFmode:
-      code = VIEW_CONVERT_EXPR;
-      /* FALLTHROUGH  */
-    case DImode:
-      type = long_long_unsigned_type_node;
       fn = NVPTX_BUILTIN_CMP_SWAPLL;
-      break;
-
-    default:
-      gcc_unreachable ();
+      type = long_long_unsigned_type_node;
     }
 
   gimple_seq init_seq = NULL;
@@ -4354,21 +4344,26 @@ nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
   /* Split the block just after the init stmts.  */
   basic_block pre_bb = gsi_bb (*gsi);
   edge pre_edge = split_block (pre_bb, init_end);
-  basic_block post_bb = pre_edge->dest;
+  basic_block loop_bb = pre_edge->dest;
+  pre_bb = pre_edge->src;
   /* Reset the iterator.  */
   *gsi = gsi_for_stmt (gsi_stmt (*gsi));
 
-  basic_block loop_bb = create_empty_bb (pre_bb);
-  gimple_stmt_iterator loop_gsi = gsi_start_bb (loop_bb);
-  gsi_insert_seq_after (&loop_gsi, loop_seq, GSI_CONTINUE_LINKING);
+  /* Insert the loop statements.  */
+  gimple *loop_end = gimple_seq_last (loop_seq);
+  gsi_insert_seq_before (gsi, loop_seq, GSI_SAME_STMT);
 
-  make_edge (loop_bb, post_bb, EDGE_TRUE_VALUE);
-  redirect_edge_succ (pre_edge, loop_bb);
+  /* Split the block just after the loop stmts.  */
+  edge post_edge = split_block (loop_bb, loop_end);
+  basic_block post_bb = post_edge->dest;
+  loop_bb = post_edge->src;
+  *gsi = gsi_for_stmt (gsi_stmt (*gsi));
+
+  post_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
   edge loop_edge = make_edge (loop_bb, loop_bb, EDGE_FALSE_VALUE);
-  add_bb_to_loop (loop_bb, pre_bb->loop_father);
   set_immediate_dominator (CDI_DOMINATORS, loop_bb, pre_bb);
   set_immediate_dominator (CDI_DOMINATORS, post_bb, loop_bb);
-  
+
   gphi *phi = create_phi_node (expect_var, loop_bb);
   add_phi_arg (phi, init_var, pre_edge, loc);
   add_phi_arg (phi, actual_var, loop_edge, loc);
@@ -4455,34 +4450,38 @@ nvptx_goacc_reduction_init (gcall *call)
       gimple_seq_add_stmt (&seq, cond_stmt);
 
       /* Split the block just after the call.  */
-      basic_block call_bb = gsi_bb (gsi);
-      edge nop_edge = split_block (call_bb, call);
-      basic_block dst_bb = nop_edge->dest;
+      edge init_edge = split_block (gsi_bb (gsi), call);
+      basic_block init_bb = init_edge->dest;
+      basic_block call_bb = init_edge->src;
 
-      /* Create the initialization block.  */
+      /* Fixup flags from call_bb to init_bb.  */
+      init_edge->flags ^= EDGE_FALLTHRU | EDGE_TRUE_VALUE;
+      
+      /* Set the initialization stmts.  */
       gimple_seq init_seq = NULL;
       tree init_var = make_ssa_name (TREE_TYPE (var));
       gimplify_assign (init_var, init, &init_seq);
-      /* One would think create_basic_block is the right thing to use
-	 here to create a new BB and set its gimple sequence.  Sadly
-	 that doesn't set the stmts' bb field :(  */
-      basic_block init_bb = create_empty_bb (call_bb);
-      gimple_stmt_iterator init_gsi = gsi_start_bb (init_bb);
-      gsi_insert_seq_after (&init_gsi, init_seq, GSI_CONTINUE_LINKING);
+      gsi = gsi_start_bb (init_bb);
+      gsi_insert_seq_before (&gsi, init_seq, GSI_SAME_STMT);
 
-      /* Link the init block in between the call and dst blocks.  */
-      make_edge (call_bb, init_bb, EDGE_TRUE_VALUE);
-      edge init_edge = make_edge (init_bb, dst_bb, EDGE_FALLTHRU);
-      add_bb_to_loop (init_bb, call_bb->loop_father);
-      set_immediate_dominator (CDI_DOMINATORS, init_bb, call_bb);
-
-      /* Mark the edge linking call to dst to non-fallthrough false edge.  */
-      nop_edge->flags ^= EDGE_FALLTHRU | EDGE_FALSE_VALUE;
+      /* Split block just after the init stmt.  */
+      gsi_prev (&gsi);
+      edge inited_edge = split_block (gsi_bb (gsi), gsi_stmt (gsi));
+      basic_block dst_bb = inited_edge->dest;
       
+      /* Create false edge from call_bb to dst_bb.  */
+      edge nop_edge = make_edge (call_bb, dst_bb, EDGE_FALSE_VALUE);
+
       /* Create phi node in dst block.  */
       gphi *phi = create_phi_node (lhs, dst_bb);
-      add_phi_arg (phi, init_var, init_edge, gimple_location (call));
+      add_phi_arg (phi, init_var, inited_edge, gimple_location (call));
       add_phi_arg (phi, var, nop_edge, gimple_location (call));
+
+      /* Reset dominator of dst bb.  */
+      set_immediate_dominator (CDI_DOMINATORS, dst_bb, call_bb);
+
+      /* Reset the gsi.  */
+      gsi = gsi_for_stmt (call);
     }
   else
     {
