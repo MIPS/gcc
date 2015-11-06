@@ -174,13 +174,6 @@ along with GCC; see the file COPYING3.  If not see
 	       false, true, true, ATTRS, false, \
 	       (flag_openacc \
 		|| flag_offload_abi != OFFLOAD_ABI_UNSET))
-/* Like DEF_GOACC_BUILTIN, but with an fn spec attribute.
-   KLUDGE: The ATTRS field needs to be a combination of ATTRS2 and FNSPEC.
-   In this file, we use the ATTRS field, and in gcc/fortran/f95-lang.c, we use
-   ATTRS2 and FNSPEC instead.  */
-#undef DEF_GOACC_BUILTIN_FNSPEC
-#define DEF_GOACC_BUILTIN_FNSPEC(ENUM, NAME, TYPE, ATTRS, ATTRS2, FNSPEC) \
-  DEF_GOACC_BUILTIN(ENUM, NAME, TYPE, ATTRS)
 #undef DEF_GOACC_BUILTIN_COMPILER
 #define DEF_GOACC_BUILTIN_COMPILER(ENUM, NAME, TYPE, ATTRS) \
   DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \

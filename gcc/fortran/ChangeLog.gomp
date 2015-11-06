@@ -1,3 +1,8 @@
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
+	* f95-lang.c (gfc_init_builtin_functions): Remove.
+	(DEF_GOACC_BUILTIN_FNSPEC): Remove #undef and #define.
+
 2015-11-04  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (gfc_match_omp_clauses): Update how default is parsed.

@@ -1,5 +1,10 @@
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
+	* builtins.def (DEF_GOACC_BUILTIN_FNSPEC): Remove #undef and #define.
+	* omp-builtins.def: Remove DEF_GOACC_BUILTIN_FNSPEC.
+
+2015-11-06  Tom de Vries  <tom@codesourcery.com>
+
 	revert:
 	PR tree-optimization/65419
 	2015-05-28  Tom de Vries  <tom@codesourcery.com>

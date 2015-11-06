@@ -563,27 +563,6 @@ gfc_define_builtin (const char *name, tree type, enum built_in_function code,
   set_builtin_decl (code, decl, true);
 }
 
-/* Like gfc_define_builtin, but with fn spec attribute FNSPEC.  */
-
-static void ATTRIBUTE_UNUSED
-gfc_define_builtin_with_spec (const char *name, tree fntype,
-			      enum built_in_function code,
-			      const char *library_name, int attr,
-			      const char *fnspec)
-{
-  if (fnspec)
-    {
-      /* Code copied from build_library_function_decl_1.  */
-      tree attr_args = build_tree_list (NULL_TREE,
-					build_string (strlen (fnspec), fnspec));
-      tree attrs = tree_cons (get_identifier ("fn spec"),
-			      attr_args, TYPE_ATTRIBUTES (fntype));
-      fntype = build_type_attribute_variant (fntype, attrs);
-    }
-
-  gfc_define_builtin (name, fntype, code, library_name, attr);
-}
-
 #define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
     gfc_define_builtin ("__builtin_" name "l", tbase##longdouble[argtype], \
 			BUILT_IN_ ## code ## L, name "l", \
@@ -1236,12 +1215,6 @@ gfc_init_builtin_functions (void)
 #define DEF_GOACC_BUILTIN(code, name, type, attr) \
       gfc_define_builtin ("__builtin_" name, builtin_types[type], \
 			  code, name, attr);
-/* Like DEF_GOACC_BUILTIN, but with an fn spec attribute.
-   KLUDGE: See gcc/builtins.def DEF_GOACC_BUILTIN_FNSPEC comment.  */
-#undef DEF_GOACC_BUILTIN_FNSPEC
-#define DEF_GOACC_BUILTIN_FNSPEC(code, name, type, attr, attr2, fnspec)	\
-      gfc_define_builtin_with_spec ("__builtin_" name, builtin_types[type], \
-				    code, name, attr2, fnspec);
 #undef DEF_GOACC_BUILTIN_COMPILER
 #define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr) \
       gfc_define_builtin (name, builtin_types[type], code, name, attr);
@@ -1249,7 +1222,6 @@ gfc_init_builtin_functions (void)
 #define DEF_GOMP_BUILTIN(code, name, type, attr) /* ignore */
 #include "../omp-builtins.def"
 #undef DEF_GOACC_BUILTIN
-#undef DEF_GOACC_BUILTIN_FNSPEC
 #undef DEF_GOACC_BUILTIN_COMPILER
 #undef DEF_GOMP_BUILTIN
     }
@@ -1258,9 +1230,6 @@ gfc_init_builtin_functions (void)
     {
 #undef DEF_GOACC_BUILTIN
 #define DEF_GOACC_BUILTIN(code, name, type, attr) /* ignore */
-#undef DEF_GOACC_BUILTIN_FNSPEC
-#define DEF_GOACC_BUILTIN_FNSPEC(code, name, type, attr, attr2, fnspec)	\
-      /* Ignore.  */
 #undef DEF_GOACC_BUILTIN_COMPILER
 #define DEF_GOACC_BUILTIN_COMPILER(code, name, type, attr)  /* ignore */
 #undef DEF_GOMP_BUILTIN
@@ -1269,7 +1238,6 @@ gfc_init_builtin_functions (void)
 			  code, name, attr);
 #include "../omp-builtins.def"
 #undef DEF_GOACC_BUILTIN
-#undef DEF_GOACC_BUILTIN_FNSPEC
 #undef DEF_GOACC_BUILTIN_COMPILER
 #undef DEF_GOMP_BUILTIN
     }
