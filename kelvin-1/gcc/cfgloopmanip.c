@@ -49,8 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 /* During development and testing, I'm using conditional compilation to
  * distinguish new code from original implementation.
  */
-#define KELVIN_PATCH
-
 static void copy_loops_to (struct loop **, int,
 			   struct loop *);
 static void loop_redirect_edge (edge, basic_block);
@@ -61,7 +59,6 @@ static void fix_loop_placements (struct loop *, bool *);
 static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
-#ifdef KELVIN_PATCH
 /*
  * Return true iff block is considered to reside within the loop
  * represented by loop_ptr.
@@ -79,7 +76,6 @@ in_loop_p (basic_block block, loop_p loop_ptr)
   free (bbs);
   return result;
 }
-
 
 /*
  * Zero all frequencies associated with this loop.
@@ -560,8 +556,6 @@ check_loop_frequency_integrity (loop_p loop_ptr)
   exit_edges.release ();
 }
 #endif	/* ENABLE_CHECKING */
-#endif	/* KELVIN_PATCH */
-
 
 /* Checks whether basic block BB is dominated by DATA.  */
 static bool
@@ -1620,11 +1614,7 @@ can_duplicate_loop_p (const struct loop *loop)
    is redistributed evenly to the remaining edges coming from E->src.  */
 
 static void
-#ifdef KELVIN_PATCH
 set_zero_probability (loop_p loop_ptr, edge e)
-#else
-set_zero_probability (edge e)
-#endif
 {
   basic_block bb = e->src;
   edge_iterator ei;
@@ -1632,12 +1622,10 @@ set_zero_probability (edge e)
   unsigned n = EDGE_COUNT (bb->succs);
   gcov_type cnt = e->count, cnt1;
   unsigned prob = e->probability, prob1;
-#ifdef KELVIN_PATCH
   int original_edge_frequency;
   int new_edge_frequency;
   int change_in_edge_frequency;
   bool edge_originates_in_loop = in_loop_p (bb, loop_ptr);
-#endif
 
   gcc_assert (n > 1);
   cnt1 = cnt / (n - 1);
@@ -1648,7 +1636,6 @@ set_zero_probability (edge e)
       if (ae == e)
 	continue;
       
-#ifdef KELVIN_PATCH
       if (edge_originates_in_loop)
 	{
 	  original_edge_frequency = EDGE_FREQUENCY (ae);
@@ -1666,15 +1653,10 @@ set_zero_probability (edge e)
 	  ae->probability += prob1;
 	  ae->count += cnt1;
 	}
-#else
-      ae->probability += prob1;
-      ae->count += cnt1;
-#endif
       last = ae;
     }
     
   /* Move the rest to one of the edges.  */
-#ifdef KELVIN_PATCH
   if (edge_originates_in_loop)
     {
       original_edge_frequency = EDGE_FREQUENCY (last);
@@ -1693,12 +1675,7 @@ set_zero_probability (edge e)
       last->probability += prob % (n - 1);
       last->count += cnt % (n - 1);
     }
-#else
-  last->probability += prob % (n - 1);
-  last->count += cnt % (n - 1);
-#endif
 
-#ifdef KELVIN_PATCH
   if (edge_originates_in_loop)
     {
       original_edge_frequency = EDGE_FREQUENCY (e);
@@ -1715,10 +1692,6 @@ set_zero_probability (edge e)
       e->probability = 0;
       e->count = 0;
     }
-#else
-  e->probability = 0;
-  e->count = 0;
-#endif
 }
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
@@ -1759,7 +1732,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   bitmap bbs_to_scale = NULL;
   bitmap_iterator bi;
 
-#ifdef KELVIN_PATCH
   /* Remember the initial ratio between frequency
    * of edge into loop header and the frequency of the loop header.
    * Preserve this ratio when we make adjustments within the loop.
@@ -1790,7 +1762,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   }
 
   int exit_ratio = (header_frequency * 10000 - 5000) / preheader_frequency;
-#endif
 
   gcc_assert (e->dest == loop->header);
   gcc_assert (ndupl > 0);
@@ -1936,7 +1907,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   spec_edges[SE_ORIG] = orig;
   spec_edges[SE_LATCH] = latch_edge;
   
-#ifdef KELVIN_PATCH
   /* Recompute the loop body frequencies. */
   zero_loop_frequencies (loop);
 
@@ -1957,7 +1927,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
   }
   increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
-#endif  
 
   place_after = e->src;
   for (j = 0; j < ndupl; j++)
@@ -1969,11 +1938,8 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop,
                 place_after, true);
 
-#ifdef KELVIN_PATCH
       int place_after_frequency = place_after->frequency;
       basic_block saved_place_after = place_after;
-#endif
-
       place_after = new_spec_edges[SE_LATCH]->src;
 
       if (flags & DLTHE_RECORD_COPY_NUMBER)
@@ -2023,12 +1989,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  e = new_spec_edges[SE_LATCH];
 	}
 
-
-#ifdef KELVIN_PATCH
       zero_partial_loop_frequencies (loop, saved_place_after);
       increment_loop_frequencies (loop,
 				  saved_place_after, place_after_frequency);
-#endif
 
       /* Record exit edge in this copy.  */
       if (orig && bitmap_bit_p (wont_exit, j + 1))
@@ -2037,11 +2000,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	    {
 	      to_remove->safe_push (new_spec_edges[SE_ORIG]);
 	    }
-#ifdef KELVIN_PATCH
 	  set_zero_probability (loop, new_spec_edges[SE_ORIG]);
-#else
-	  set_zero_probability (new_spec_edges[SE_ORIG]);
-#endif
 	  /* Scale the frequencies of the blocks dominated by the exit.  */
 	  if (bbs_to_scale)
 	    {
@@ -2078,11 +2037,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	{
 	  to_remove->safe_push (orig);
 	}
-#ifdef KELVIN_PATCH
       set_zero_probability (loop, orig);
-#else
-      set_zero_probability (orig);
-#endif
 
       /* Scale the frequencies of the blocks dominated by the exit.  */
       if (bbs_to_scale)
