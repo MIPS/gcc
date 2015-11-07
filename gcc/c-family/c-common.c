@@ -7689,24 +7689,42 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
   type = *node;
 
   if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN)
-    error ("scalar_storage_order is not supported because endianness "
-	   "is not uniform");
+    {
+      error ("scalar_storage_order is not supported because endianness "
+	    "is not uniform");
+      return NULL_TREE;
+    }
 
   if (RECORD_OR_UNION_TYPE_P (type))
     {
-      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-	goto ignored;
+      bool reverse = false;
 
       if (TREE_CODE (id) == STRING_CST
 	  && strcmp (TREE_STRING_POINTER (id), "big-endian") == 0)
-	TYPE_REVERSE_STORAGE_ORDER (type) = !BYTES_BIG_ENDIAN;
+	reverse = !BYTES_BIG_ENDIAN;
       else if (TREE_CODE (id) == STRING_CST
 	       && strcmp (TREE_STRING_POINTER (id), "little-endian") == 0)
-	TYPE_REVERSE_STORAGE_ORDER (type) = BYTES_BIG_ENDIAN;
+	reverse = BYTES_BIG_ENDIAN;
       else
-	error ("scalar_storage_order argument must be one of \"big-endian\" "
-	       "or \"little-endian\"");
+	{
+	  error ("scalar_storage_order argument must be one of \"big-endian\""
+		 " or \"little-endian\"");
+	  return NULL_TREE;
+	}
 
+      if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
+	{
+	  /* build_duplicate_type doesn't work for C++.  */
+	  if (c_dialect_cxx ())
+	    goto ignored;
+
+	  if (reverse)
+	    /* A type variant isn't good enough, since we don't want a cast
+	       to such a type to be removed as a no-op.  */
+	    *node = type = build_duplicate_type (type);
+	}
+
+      TYPE_REVERSE_STORAGE_ORDER (type) = reverse;
       return NULL_TREE;
     }
 
@@ -7758,8 +7776,8 @@ handle_transparent_union_attribute (tree *node, tree name,
 	  if (c_dialect_cxx ())
 	    goto ignored;
 
-	  /* A type variant isn't good enough, since we don't a cast
-	     to such a type removed as a no-op.  */
+	  /* A type variant isn't good enough, since we don't want a cast
+	     to such a type to be removed as a no-op.  */
 	  *node = type = build_duplicate_type (type);
 	}
 

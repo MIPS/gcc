@@ -1,3 +1,5 @@
+/* Test support of scalar_storage_order attribute */
+
 /* { dg-do compile } */
 
 int i;

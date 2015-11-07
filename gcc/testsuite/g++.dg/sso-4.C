@@ -18,4 +18,4 @@ typedef struct S2 __attribute__((scalar_storage_order("little-endian"))) NS2; /*
 
 struct S3 { int i; };
 
-typedef struct S3 __attribute__((scalar_storage_order("other"))) NS3; /* { dg-warning "attribute ignored" } */
+typedef struct S3 __attribute__((scalar_storage_order("other"))) NS3; /* { dg-error "must be one of .big-endian. or .little-endian." } */
