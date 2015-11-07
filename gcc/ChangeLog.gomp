@@ -1,5 +1,9 @@
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-builtins.def: Cleanup formatting.
+
+2015-11-07  Tom de Vries  <tom@codesourcery.com>
+
 	* cgraph.c (cgraph_node::release_body): Remove workaround.
 
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
