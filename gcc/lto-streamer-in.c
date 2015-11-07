@@ -658,8 +658,8 @@ input_eh_regions (struct lto_input_block *ib, struct data_in *data_in,
       vec_safe_grow_cleared (fn->eh->ttype_data, len);
       for (i = 0; i < len; i++)
 	{
-	  tree ttype = stream_read_tree (ib, data_in);
-	  (*fn->eh->ttype_data)[i] = ttype;
+	  tree type = stream_read_tree (ib, data_in);
+	  (*fn->eh->ttype_data)[i] = type;
 	}
     }
 

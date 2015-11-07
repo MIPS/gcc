@@ -3321,7 +3321,7 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
 		warning_at (ploc, OPT_Wdouble_promotion,
 			    "implicit conversion from %qT to %qT when passing "
 			    "argument to function",
-			    valtype, double_type_node);
+			    valtype, TREE_CAST(double_type_node));
 	      parmval = convert (double_type_node, val);
 	    }
 	}

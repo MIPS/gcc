@@ -523,7 +523,7 @@ extern void gnat_install_builtins (void);
 /* Return an integer type with the number of bits of precision given by
    PRECISION.  UNSIGNEDP is nonzero if the type is unsigned; otherwise
    it is a signed type.  */
-extern tree gnat_type_for_size (unsigned precision, int unsignedp);
+extern ttype *gnat_type_for_size (unsigned precision, int unsignedp);
 
 /* Return a data type that has machine mode MODE.  UNSIGNEDP selects
    an unsigned type; otherwise a signed type is returned.  */

@@ -862,10 +862,10 @@ struct GTY(())	lang_type	 {
   tree size;
   tree offset;
   tree dtype;
-  tree dataptr_type;
+  ttype *dataptr_type;
   tree span;
   tree base_decl[2];
-  tree nonrestricted_type;
+  ttype *nonrestricted_type;
   tree caf_token;
   tree caf_offset;
 };

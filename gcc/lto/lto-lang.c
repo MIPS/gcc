@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "cilk.h"
 
-static tree lto_type_for_size (unsigned, int);
+static ttype *lto_type_for_size (unsigned, int);
 
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
@@ -838,7 +838,7 @@ lto_post_options (const char **pfilename ATTRIBUTE_UNUSED)
 /* Return an integer type with PRECISION bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-static tree
+static ttype *
 lto_type_for_size (unsigned precision, int unsignedp)
 {
   int i;
@@ -881,7 +881,7 @@ lto_type_for_size (unsigned precision, int unsignedp)
   if (precision <= TYPE_PRECISION (intTI_type_node))
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
 
-  return NULL_TREE;
+  return NULL;
 }
 
 

@@ -5012,7 +5012,7 @@ omp_reduction_lookup (location_t loc, tree id, tree type, tree *baselinkp,
 	  && identifier_p (id))
 	{
 	  vec<tree, va_gc> *args = NULL;
-	  vec_safe_push (args, build_reference_type (type));
+	  vec_safe_push (args, TREE_CAST (build_reference_type (type)));
 	  id = perform_koenig_lookup (id, args, tf_none);
 	}
     }

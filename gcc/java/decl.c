@@ -52,7 +52,7 @@ extern void indent (void);
 
 static tree push_jvm_slot (int, tree);
 static tree lookup_name_current_level (tree);
-static tree push_promoted_type (const char *, tree);
+static ttype *push_promoted_type (const char *, tree);
 static struct binding_level *make_binding_level (void);
 static tree create_primitive_vtable (const char *);
 static tree check_local_unnamed_variable (tree, tree, tree);
@@ -464,14 +464,15 @@ static const struct binding_level clear_binding_level
   };
 
 tree java_global_trees[JTI_MAX];
+ttype *java_global_types[JTPI_MAX];
 
 /* Build (and pushdecl) a "promoted type" for all standard
    types shorter than int.  */
 
-static tree
+static ttype *
 push_promoted_type (const char *name, tree actual_type)
 {
-  tree type = make_node (TREE_CODE (actual_type));
+  ttype *type = make_type_node (TREE_CODE (actual_type));
 #if 1
   tree in_min = TYPE_MIN_VALUE (int_type_node);
   tree in_max = TYPE_MAX_VALUE (int_type_node);
@@ -626,7 +627,7 @@ java_init_decl_processing (void)
   pushdecl (build_decl (BUILTINS_LOCATION,
 			TYPE_DECL, get_identifier ("void"), void_type_node));
 
-  t = make_node (VOID_TYPE);
+  t = make_type_node (VOID_TYPE);
   layout_type (t); /* Uses size_zero_node */
   return_address_type_node = build_pointer_type (t);
 
@@ -652,14 +653,14 @@ java_init_decl_processing (void)
   promoted_boolean_type_node
     = push_promoted_type ("promoted_boolean", boolean_type_node);
 
-  float_type_node = make_node (REAL_TYPE);
+  float_type_node = make_type_node (REAL_TYPE);
   TYPE_PRECISION (float_type_node) = 32;
   pushdecl (build_decl (BUILTINS_LOCATION,
 			TYPE_DECL, get_identifier ("float"),
                         float_type_node));
   layout_type (float_type_node);
 
-  double_type_node = make_node (REAL_TYPE);
+  double_type_node = make_type_node (REAL_TYPE);
   TYPE_PRECISION (double_type_node) = 64;
   pushdecl (build_decl (BUILTINS_LOCATION,
 			TYPE_DECL, get_identifier ("double"),
@@ -680,7 +681,7 @@ java_init_decl_processing (void)
   double_array_vtable = create_primitive_vtable ("double");
 
   one_elt_array_domain_type = build_index_type (integer_one_node);
-  utf8const_type = make_node (RECORD_TYPE);
+  utf8const_type = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      utf8const_type, field, "hash", unsigned_short_type_node);
   PUSH_FIELD (input_location,
@@ -698,7 +699,7 @@ java_init_decl_processing (void)
   TYPE_NONALIASED_COMPONENT (itable_type) = 1;
   itable_ptr_type = build_pointer_type (itable_type);
 
-  symbol_type = make_node (RECORD_TYPE);
+  symbol_type = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      symbol_type, field, "clname", utf8const_ptr_type);
   PUSH_FIELD (input_location, symbol_type, field, "name", utf8const_ptr_type);
@@ -710,7 +711,7 @@ java_init_decl_processing (void)
 					 one_elt_array_domain_type);
   symbols_array_ptr_type = build_pointer_type (symbols_array_type);
 
-  assertion_entry_type = make_node (RECORD_TYPE);
+  assertion_entry_type = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      assertion_entry_type, field, "assertion_code", integer_type_node);
   PUSH_FIELD (input_location,
@@ -752,7 +753,7 @@ java_init_decl_processing (void)
   add_predefined_file (get_identifier ("java/lang/ClassNotFoundException.java"));
   add_predefined_file (get_identifier ("java/lang/NoClassDefFoundError.java"));
 
-  methodtable_type = make_node (RECORD_TYPE);
+  methodtable_type = make_type_node (RECORD_TYPE);
   layout_type (methodtable_type);
   build_decl (BUILTINS_LOCATION,
 	      TYPE_DECL, get_identifier ("methodtable"), methodtable_type);
@@ -772,7 +773,7 @@ java_init_decl_processing (void)
   /* for lack of a better place to put this stub call */
   init_expr_processing();
 
-  constants_type_node = make_node (RECORD_TYPE);
+  constants_type_node = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      constants_type_node, field, "size", unsigned_int_type_node);
   PUSH_FIELD (input_location,
@@ -786,7 +787,7 @@ java_init_decl_processing (void)
 
   access_flags_type_node = unsigned_short_type_node;
 
-  dtable_type = make_node (RECORD_TYPE);
+  dtable_type = make_type_node (RECORD_TYPE);
   dtable_ptr_type = build_pointer_type (dtable_type);
 
   otable_type = build_array_type (integer_type_node, 
@@ -809,9 +810,9 @@ java_init_decl_processing (void)
     FIELD_PRIVATE (t) = 1;
   FINISH_RECORD (object_type_node);
 
-  field_type_node = make_node (RECORD_TYPE);
+  field_type_node = make_type_node (RECORD_TYPE);
   field_ptr_type_node = build_pointer_type (field_type_node);
-  method_type_node = make_node (RECORD_TYPE);
+  method_type_node = make_type_node (RECORD_TYPE);
   method_ptr_type_node = build_pointer_type (method_type_node);
 
   set_super_info (0, class_type_node, object_type_node, 0);
@@ -895,7 +896,7 @@ java_init_decl_processing (void)
   build_decl (BUILTINS_LOCATION,
 	      TYPE_DECL, get_identifier ("Class"), class_type_node);
 
-  field_info_union_node = make_node (UNION_TYPE);
+  field_info_union_node = make_type_node (UNION_TYPE);
   PUSH_FIELD (input_location,
 	      field_info_union_node, field, "boffset", int_type_node);
   PUSH_FIELD (input_location,
@@ -926,7 +927,7 @@ java_init_decl_processing (void)
   build_decl (BUILTINS_LOCATION,
 	      TYPE_DECL, get_identifier ("dispatchTable"), dtable_type);
 
-  jexception_type = make_node (RECORD_TYPE);
+  jexception_type = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      jexception_type, field, "start_pc", ptr_type_node);
   PUSH_FIELD (input_location, jexception_type, field, "end_pc", ptr_type_node);
@@ -939,14 +940,14 @@ java_init_decl_processing (void)
 	      TYPE_DECL, get_identifier ("jexception"), field_type_node);
   jexception_ptr_type = build_pointer_type (jexception_type);
 
-  lineNumberEntry_type = make_node (RECORD_TYPE);
+  lineNumberEntry_type = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      lineNumberEntry_type, field, "line_nr", unsigned_short_type_node);
   PUSH_FIELD (input_location,
 	      lineNumberEntry_type, field, "start_pc", ptr_type_node);
   FINISH_RECORD (lineNumberEntry_type);
 
-  lineNumbers_type = make_node (RECORD_TYPE);
+  lineNumbers_type = make_type_node (RECORD_TYPE);
   PUSH_FIELD (input_location,
 	      lineNumbers_type, field, "length", unsigned_int_type_node);
   FINISH_RECORD (lineNumbers_type);

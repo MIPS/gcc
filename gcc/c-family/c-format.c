@@ -2808,29 +2808,30 @@ init_dynamic_asm_fprintf_info (void)
 static void
 init_dynamic_gfc_info (void)
 {
-  static tree locus;
+  static ttype *locus;
 
   if (!locus)
     {
+      tree locus_id;
       static format_char_info *gfc_fci;
 
       /* For the GCC __gcc_gfc__ custom format specifier to work, one
 	 must have declared 'locus' prior to using this attribute.  If
 	 we haven't seen this declarations then you shouldn't use the
 	 specifier requiring that type.  */
-      if ((locus = maybe_get_identifier ("locus")))
+      if ((locus_id = maybe_get_identifier ("locus")))
 	{
-	  locus = identifier_global_value (locus);
-	  if (locus)
+	  locus_id = identifier_global_value (locus_id);
+	  if (locus_id)
 	    {
-	      if (TREE_CODE (locus) != TYPE_DECL
-		  || TREE_TYPE (locus) == error_mark_node)
+	      if (TREE_CODE (locus_id) != TYPE_DECL
+		  || TREE_TYPE (locus_id) == error_type_node)
 		{
 		  error ("%<locus%> is not defined as a type");
 		  locus = 0;
 		}
 	      else
-		locus = TREE_TYPE (locus);
+		locus = TREE_TTYPE (locus_id);
 	    }
 	}
 
@@ -2858,7 +2859,9 @@ init_dynamic_gfc_info (void)
 static void
 init_dynamic_diag_info (void)
 {
-  static tree t, loc, hwi;
+  static ttype *t, *loc, *hwi;
+  tree x;
+
 
   if (!loc || !t || !hwi)
     {
@@ -2866,46 +2869,38 @@ init_dynamic_diag_info (void)
       static format_length_info *diag_ls;
       unsigned int i;
 
+      loc = t = hwi = 0;
       /* For the GCC-diagnostics custom format specifiers to work, one
 	 must have declared 'tree' and/or 'location_t' prior to using
 	 those attributes.  If we haven't seen these declarations then
 	 you shouldn't use the specifiers requiring these types.
 	 However we don't force a hard ICE because we may see only one
 	 or the other type.  */
-      if ((loc = maybe_get_identifier ("location_t")))
+      if ((x = maybe_get_identifier ("location_t")))
 	{
-	  loc = identifier_global_value (loc);
-	  if (loc)
+	  x = identifier_global_value (x);
+	  if (x)
 	    {
-	      if (TREE_CODE (loc) != TYPE_DECL)
-		{
-		  error ("%<location_t%> is not defined as a type");
-		  loc = 0;
-		}
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<location_t%> is not defined as a type");
 	      else
-		loc = TREE_TYPE (loc);
+		loc = TREE_TTYPE (x);
 	    }
 	}
 
       /* We need to grab the underlying 'struct tree_node' so peek into
 	 an extra type level.  */
-      if ((t = maybe_get_identifier ("tree")))
+      if ((x = maybe_get_identifier ("tree")))
 	{
-	  t = identifier_global_value (t);
-	  if (t)
+	  x = identifier_global_value (x);
+	  if (x)
 	    {
-	      if (TREE_CODE (t) != TYPE_DECL)
-		{
-		  error ("%<tree%> is not defined as a type");
-		  t = 0;
-		}
-	      else if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
-		{
-		  error ("%<tree%> is not defined as a pointer type");
-		  t = 0;
-		}
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<tree%> is not defined as a type");
+	      else if (TREE_CODE (TREE_TYPE (x)) != POINTER_TYPE)
+		error ("%<tree%> is not defined as a pointer type");
 	      else
-		t = TREE_TYPE (TREE_TYPE (t));
+		t = TREE_TTYPE (TREE_TYPE (x));
 	    }
 	}
 
@@ -2913,19 +2908,16 @@ init_dynamic_diag_info (void)
 	 length modifier to work, one must have issued: "typedef
 	 HOST_WIDE_INT __gcc_host_wide_int__;" in one's source code
 	 prior to using that modifier.  */
-      if ((hwi = maybe_get_identifier ("__gcc_host_wide_int__")))
+      if ((x = maybe_get_identifier ("__gcc_host_wide_int__")))
 	{
-	  hwi = identifier_global_value (hwi);
-	  if (hwi)
+	  x = identifier_global_value (x);
+	  if (x)
 	    {
-	      if (TREE_CODE (hwi) != TYPE_DECL)
-		{
-		  error ("%<__gcc_host_wide_int__%> is not defined as a type");
-		  hwi = 0;
-		}
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<__gcc_host_wide_int__%> is not defined as a type");
 	      else
 		{
-		  hwi = DECL_ORIGINAL_TYPE (hwi);
+		  hwi = TTYPE (DECL_ORIGINAL_TYPE (x));
 		  gcc_assert (hwi);
 		  if (hwi != long_integer_type_node
 		      && hwi != long_long_integer_type_node)

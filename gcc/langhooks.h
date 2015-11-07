@@ -60,7 +60,7 @@ struct lang_hooks_for_types
 {
   /* Return a new type (with the indicated CODE), doing whatever
      language-specific processing is required.  */
-  tree (*make_type) (enum tree_code);
+  ttype *(*make_type) (enum tree_code);
 
   /* Return what kind of RECORD_TYPE this is, mainly for purposes of
      debug information.  If not defined, record types are assumed to
@@ -73,7 +73,7 @@ struct lang_hooks_for_types
 
   /* Given PRECISION and UNSIGNEDP, return a suitable type-tree for an
      integer type with at least that precision.  */
-  tree (*type_for_size) (unsigned, int);
+  ttype *(*type_for_size) (unsigned, int);
 
   /* True if the type is an instantiation of a generic type,
      e.g. C++ template implicit specializations.  */

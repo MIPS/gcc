@@ -1648,7 +1648,7 @@ coerce_new_type (tree type)
   if (!same_type_p (TREE_TYPE (type), ptr_type_node))
     {
       e = 1;
-      error ("%<operator new%> must return type %qT", ptr_type_node);
+      error ("%<operator new%> must return type %qT", TREE_CAST (ptr_type_node));
     }
 
   if (args && args != void_list_node)
@@ -1676,7 +1676,7 @@ coerce_new_type (tree type)
 
   if (e == 2)
     permerror (input_location, "%<operator new%> takes type %<size_t%> (%qT) "
-	       "as first parameter", size_type_node);
+	       "as first parameter", TREE_CAST (size_type_node));
 
   switch (e)
   {
@@ -1704,7 +1704,7 @@ coerce_delete_type (tree type)
   if (!same_type_p (TREE_TYPE (type), void_type_node))
     {
       e = 1;
-      error ("%<operator delete%> must return type %qT", void_type_node);
+      error ("%<operator delete%> must return type %qT", TREE_CAST (void_type_node));
     }
 
   if (!args || args == void_list_node
@@ -1714,7 +1714,7 @@ coerce_delete_type (tree type)
       if (args && args != void_list_node)
 	args = TREE_CHAIN (args);
       error ("%<operator delete%> takes type %qT as first parameter",
-	     ptr_type_node);
+	     TREE_CAST (ptr_type_node));
     }
   switch (e)
   {

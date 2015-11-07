@@ -182,7 +182,7 @@ jit_langhook_type_for_mode (enum machine_mode mode, int unsignedp)
   return NULL;
 }
 
-static tree
+static ttype *
 jit_langhook_type_for_size (unsigned int bits ATTRIBUTE_UNUSED,
 			    int unsignedp ATTRIBUTE_UNUSED)
 {

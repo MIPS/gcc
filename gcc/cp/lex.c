@@ -256,7 +256,7 @@ cxx_init (void)
 
   current_function_decl = NULL;
 
-  class_type_node = ridpointers[(int) RID_CLASS];
+  class_type_node = (ttype *)(ridpointers[(int) RID_CLASS]);
 
   cxx_init_decl_processing ();
 
@@ -672,10 +672,10 @@ copy_type (tree type)
   return copy;
 }
 
-tree
+ttype *
 cxx_make_type (enum tree_code code)
 {
-  tree t = make_node (code);
+  ttype *t = make_type_node (code);
 
   /* Create lang_type structure.  */
   if (RECORD_OR_UNION_CODE_P (code)

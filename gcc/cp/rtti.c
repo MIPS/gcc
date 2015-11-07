@@ -1514,7 +1514,7 @@ emit_support_tinfos (void)
 {
   /* Dummy static variable so we can put nullptr in the array; it will be
      set before we actually start to walk the array.  */
-  static tree *const fundamentals[] =
+  static ttype **const fundamentals[] =
   {
     &void_type_node,
     &boolean_type_node,
