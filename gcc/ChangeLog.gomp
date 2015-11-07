@@ -1,5 +1,10 @@
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
 
+	* tree.c (no_overflow_tree_code): Remove.
+	* tree.h (no_overflow_tree_code): Remove.
+
+2015-11-07  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-builtins.def: Cleanup formatting.
 
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
