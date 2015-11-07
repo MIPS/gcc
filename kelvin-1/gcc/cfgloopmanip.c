@@ -60,7 +60,7 @@ static void fix_bb_placements (basic_block, bool *, bitmap);
  * represented by loop_ptr.
  */
 bool
-in_loop_p (basic_block block, loop_p loop_ptr)
+in_loop_p (basic_block block, struct loop *loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
   bool result = false;
@@ -78,7 +78,7 @@ in_loop_p (basic_block block, loop_p loop_ptr)
  * Zero all frequencies associated with this loop.
  */
 void 
-zero_loop_frequencies (loop_p loop_ptr)
+zero_loop_frequencies (struct loop *loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
   for (unsigned i = 0; i < loop_ptr->num_nodes; ++i)
@@ -150,7 +150,7 @@ in_call_chain_p (edge an_edge, ladder_rung_p ladder_rung)
  * is the loop header.
  */
 static void
-recursively_zero_frequency (loop_p loop_ptr, vec<edge> exit_edges,
+recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 			    ladder_rung_p ladder_rung,
 			    edge incoming_edge)
 {
@@ -298,7 +298,7 @@ recursively_get_loop_blocks (basic_block candidate, vec<basic_block> results,
  * loop identified by loop_ptr.
  */
 static vec<basic_block> 
-get_loop_blocks (loop_p loop_ptr)
+get_loop_blocks (struct loop *loop_ptr)
 {
   vec<basic_block> results;
 
@@ -366,7 +366,7 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
  *	  traversal. 
  */
 static void
-zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
+zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
 {
   /* When zero_partial_loop_frequencies is invoked, the *loop_ptr
    * object is not entirely coherent, so the library service
@@ -415,7 +415,7 @@ zero_partial_loop_frequencies (loop_p loop_ptr, basic_block block)
  * is the loop header.
  */
 static void
-recursively_increment_frequency (loop_p loop_ptr, vec<edge> exit_edges,
+recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 				 ladder_rung_p ladder_rung,
 				 edge incoming_edge,
 				 int frequency_increment)
@@ -458,7 +458,7 @@ recursively_increment_frequency (loop_p loop_ptr, vec<edge> exit_edges,
  *   that is already part of the current depth-first traversal.
  */
 void 
-increment_loop_frequencies (loop_p loop_ptr, basic_block block,
+increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 			    int frequency_increment)
 {
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
@@ -518,7 +518,7 @@ internal (const char *msg)
  * integrity check failures due to round-off errors.
  */
 static void 
-check_loop_frequency_integrity (loop_p loop_ptr)
+check_loop_frequency_integrity (struct loop *loop_ptr)
 {
   unsigned int i, k;
   basic_block a_block;
@@ -1649,7 +1649,7 @@ can_duplicate_loop_p (const struct loop *loop)
    is redistributed evenly to the remaining edges coming from E->src.  */
 
 static void
-set_zero_probability (loop_p loop_ptr, edge e)
+set_zero_probability (struct loop *loop_ptr, edge e)
 {
   basic_block bb = e->src;
   edge_iterator ei;
