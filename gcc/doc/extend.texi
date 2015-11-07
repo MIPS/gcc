@@ -6416,13 +6416,13 @@ storage order with regard to the scalar storage order of the target:
 @itemize
 @item Taking the address of a scalar field of a @code{union} or a
 @code{struct} with reverse scalar storage order is not permitted and will
-yield an error
+yield an error.
 @item Taking the address of an array field, whose component is scalar, of
 a @code{union} or a @code{struct} with reverse scalar storage order is
 permitted but will yield a warning, unless @option{-Wno-scalar-storage-order}
-is specified
+is specified.
 @item Taking the address of a @code{union} or a @code{struct} with reverse
-scalar storage order is permitted
+scalar storage order is permitted.
 @end itemize
 
 These restrictions exist because the storage order attribute is lost when
@@ -18769,8 +18769,8 @@ multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @end enumerate
 
 Some targets, e.g.@: x86 and PowerPC, support the @code{#pragma ms_struct}
-directive which lays out structures, unions and classes subsequently defined
-as the documented @code{__attribute__ ((ms_struct))}.
+directive which lays out structures and unions subsequently defined as the
+documented @code{__attribute__ ((ms_struct))}.
 
 @enumerate
 @item @code{#pragma ms_struct on} turns on the Microsoft layout.
@@ -18779,8 +18779,8 @@ as the documented @code{__attribute__ ((ms_struct))}.
 @end enumerate
 
 Most targets also support the @code{#pragma scalar_storage_order} directive
-which lays out structures, unions and classes subsequently defined as the
-documented @code{__attribute__ ((scalar_storage_order))}.
+which lays out structures and unions subsequently defined as the documented
+@code{__attribute__ ((scalar_storage_order))}.
 
 @enumerate
 @item @code{#pragma scalar_storage_order big-endian} sets the storage order
