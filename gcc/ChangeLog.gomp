@@ -1,5 +1,14 @@
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
 
+	revert:
+	2015-10-08  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (expand_omp_for_init_counts): Add inits for counters in
+	zero_iter_bb.
+	(expand_omp_for_generic): Remove TREE_NO_WARNING setttings on counters.
+
+2015-11-07  Tom de Vries  <tom@codesourcery.com>
+
 	* tree.c (no_overflow_tree_code): Remove.
 	* tree.h (no_overflow_tree_code): Remove.
 

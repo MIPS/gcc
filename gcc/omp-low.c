@@ -7437,7 +7437,6 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 	  break;
 	}
     }
-  bool created_zero_iter_bb = false;
   for (i = 0; i < (fd->ordered ? fd->ordered : fd->collapse); i++)
     {
       tree itype = TREE_TYPE (fd->loops[i].v);
@@ -7493,7 +7492,6 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 	      gsi_insert_before (gsi, assign_stmt, GSI_SAME_STMT);
 	      set_immediate_dominator (CDI_DOMINATORS, zero_iter_bb,
 				       entry_bb);
-	      created_zero_iter_bb = true;
 	    }
 	  ne = make_edge (entry_bb, zero_iter_bb, EDGE_FALSE_VALUE);
 	  ne->probability = REG_BR_PROB_BASE / 2000 - 1;
@@ -7545,25 +7543,6 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 	  else
 	    t = fold_build2 (MULT_EXPR, type, fd->loop.n2, counts[i]);
 	  expand_omp_build_assign (gsi, fd->loop.n2, t);
-	}
-    }
-
-  if (created_zero_iter_bb)
-    {
-      /* Atm counts[0] doesn't seem to be used beyond create_zero_iter_bb,
-	 but for robustness-sake we include that one as well.  */
-      for (i = 0; i < (fd->ordered ? fd->ordered : fd->collapse); i++)
-	{
-	  tree var = counts[i];
-	  if (!SSA_VAR_P (var))
-	    continue;
-
-	  tree zero = build_zero_cst (type);
-	  gassign *assign_stmt = gimple_build_assign (var, zero);
-	  basic_block &zero_iter_bb
-	    = i < fd->collapse ? zero_iter1_bb : zero_iter2_bb;
-	  gimple_stmt_iterator gsi = gsi_after_labels (zero_iter_bb);
-	  gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 	}
     }
 }
@@ -8237,6 +8216,7 @@ expand_omp_for_generic (struct omp_region *region,
   bool seq_loop = (start_fn == BUILT_IN_NONE || next_fn == BUILT_IN_NONE);
   edge e, ne;
   tree *counts = NULL;
+  int i;
   bool ordered_lastprivate = false;
 
   gcc_assert (!broken_loop || !in_combined_parallel);
@@ -8283,6 +8263,13 @@ expand_omp_for_generic (struct omp_region *region,
 
       if (zero_iter1_bb)
 	{
+	  /* Some counts[i] vars might be uninitialized if
+	     some loop has zero iterations.  But the body shouldn't
+	     be executed in that case, so just avoid uninit warnings.  */
+	  for (i = first_zero_iter1;
+	       i < (fd->ordered ? fd->ordered : fd->collapse); i++)
+	    if (SSA_VAR_P (counts[i]))
+	      TREE_NO_WARNING (counts[i]) = 1;
 	  gsi_prev (&gsi);
 	  e = split_block (entry_bb, gsi_stmt (gsi));
 	  entry_bb = e->dest;
@@ -8294,6 +8281,12 @@ expand_omp_for_generic (struct omp_region *region,
 	}
       if (zero_iter2_bb)
 	{
+	  /* Some counts[i] vars might be uninitialized if
+	     some loop has zero iterations.  But the body shouldn't
+	     be executed in that case, so just avoid uninit warnings.  */
+	  for (i = first_zero_iter2; i < fd->ordered; i++)
+	    if (SSA_VAR_P (counts[i]))
+	      TREE_NO_WARNING (counts[i]) = 1;
 	  if (zero_iter1_bb)
 	    make_edge (zero_iter2_bb, entry_bb, EDGE_FALLTHRU);
 	  else
