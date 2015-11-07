@@ -65,10 +65,11 @@ in_loop_p (basic_block block, loop_p loop_ptr)
   basic_block *bbs = get_loop_body (loop_ptr);
   bool result = false;
 
-  for (unsigned int i = 0; i < loop_ptr->num_nodes; i++) {
-    if (bbs[i] == block)
-      result = true;
-  }
+  for (unsigned int i = 0; i < loop_ptr->num_nodes; i++)
+    {
+      if (bbs[i] == block)
+	result = true;
+    }
   free (bbs);
   return result;
 }
@@ -80,9 +81,10 @@ void
 zero_loop_frequencies (loop_p loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
-  for (unsigned i = 0; i < loop_ptr->num_nodes; ++i) {
-    bbs[i]->frequency = 0;
-  }
+  for (unsigned i = 0; i < loop_ptr->num_nodes; ++i)
+    {
+      bbs[i]->frequency = 0;
+    }
   free (bbs);
 }
 
@@ -115,10 +117,11 @@ in_edge_set_p (edge an_edge, vec<edge> set_of_edges)
   unsigned int j;
   edge e;
 
-  FOR_EACH_VEC_ELT (set_of_edges, j, e) {
-    if (same_edge_p (e, an_edge))
-      return true;
-  }
+  FOR_EACH_VEC_ELT (set_of_edges, j, e)
+    {
+      if (same_edge_p (e, an_edge))
+	return true;
+    }
   return false;
 }
 
@@ -128,12 +131,13 @@ in_edge_set_p (edge an_edge, vec<edge> set_of_edges)
 static bool 
 in_call_chain_p (edge an_edge, ladder_rung_p ladder_rung)
 {
-  while (ladder_rung != NULL) {
-    if (an_edge->dest == ladder_rung->block)
-      return true;
-    else
-      ladder_rung = ladder_rung->lower_rung;
-  }
+  while (ladder_rung != NULL)
+    {
+      if (an_edge->dest == ladder_rung->block)
+	return true;
+      else
+	ladder_rung = ladder_rung->lower_rung;
+    }
   return FALSE;
 }
 
@@ -156,22 +160,23 @@ recursively_zero_frequency (loop_p loop_ptr, vec<edge> exit_edges,
     return;
   else if (in_call_chain_p (incoming_edge, ladder_rung))
     return;
-  else {
-    struct block_ladder_rung a_rung;
-    basic_block block = incoming_edge->dest;
-    
-    a_rung.block = block;
-    a_rung.lower_rung = ladder_rung;
-    block->frequency = 0;
-
-    edge_iterator ei;
-    edge successor;
-    FOR_EACH_EDGE (successor, ei, block->succs)
-      {
-	recursively_zero_frequency (loop_ptr, exit_edges,
-				    &a_rung, successor);
-      }
-  }
+  else
+    {
+      struct block_ladder_rung a_rung;
+      basic_block block = incoming_edge->dest;
+      
+      a_rung.block = block;
+      a_rung.lower_rung = ladder_rung;
+      block->frequency = 0;
+      
+      edge_iterator ei;
+      edge successor;
+      FOR_EACH_EDGE (successor, ei, block->succs)
+	{
+	  recursively_zero_frequency (loop_ptr, exit_edges,
+				      &a_rung, successor);
+	}
+    }
 }
 				     
 /* Return true iff the candidate block is found within the linked
@@ -310,10 +315,11 @@ in_block_set_p (basic_block block, vec<basic_block> block_set)
 {
   basic_block bb;
   unsigned int u;
-  FOR_EACH_VEC_ELT (block_set, u, bb) {
-    if (bb == block)
-      return true;
-  }
+  FOR_EACH_VEC_ELT (block_set, u, bb)
+    {
+      if (bb == block)
+	return true;
+    }
   return false;
 }
 
@@ -326,20 +332,20 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
   unsigned int u;
   vec<edge> results = vNULL;
 
-  FOR_EACH_VEC_ELT (loop_blocks, u, bb) {
-
-    edge_iterator ei;
-    edge successor;
-    FOR_EACH_EDGE (successor, ei, bb->succs)
-      {
-	basic_block edge_dest = successor->dest;
-
-	if (!in_block_set_p (edge_dest, loop_blocks))
-	  {
-	    results.safe_push (successor);
-	  }
-      }
-  }
+  FOR_EACH_VEC_ELT (loop_blocks, u, bb)
+    {
+      edge_iterator ei;
+      edge successor;
+      FOR_EACH_EDGE (successor, ei, bb->succs)
+	{
+	  basic_block edge_dest = successor->dest;
+	  
+	  if (!in_block_set_p (edge_dest, loop_blocks))
+	    {
+	      results.safe_push (successor);
+	    }
+	}
+    }
   return results;
 }
 
@@ -455,7 +461,6 @@ void
 increment_loop_frequencies (loop_p loop_ptr, basic_block block,
 			    int frequency_increment)
 {
-
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
 
   if (in_block_set_p (block, loop_blocks))
