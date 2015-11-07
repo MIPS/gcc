@@ -14427,6 +14427,7 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 				      in_decl);
 	  break;
 	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_LINEAR:
 	case OMP_CLAUSE_ALIGNED:
 	  OMP_CLAUSE_DECL (nc)
 	    = tsubst_omp_clause_decl (OMP_CLAUSE_DECL (oc), args, complain,
