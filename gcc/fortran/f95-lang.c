@@ -563,6 +563,7 @@ gfc_define_builtin (const char *name, tree type, enum built_in_function code,
   set_builtin_decl (code, decl, true);
 }
 
+
 #define DO_DEFINE_MATH_BUILTIN(code, name, argtype, tbase) \
     gfc_define_builtin ("__builtin_" name "l", tbase##longdouble[argtype], \
 			BUILT_IN_ ## code ## L, name "l", \

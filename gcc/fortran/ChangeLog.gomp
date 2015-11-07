@@ -1,3 +1,7 @@
+2015-11-07  Tom de Vries  <tom@codesourcery.com>
+
+	* f95-lang.c: Make formatting resemble trunk.
+
 2015-11-06  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (gfc_match_oacc_declare): Revert error message changes.
