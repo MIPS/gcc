@@ -5777,7 +5777,7 @@ true, if changes have been made.  You must override this hook to
 provide dimensions larger than 1.
 @end deftypefn
 
-@deftypefn {Target Hook} unsigned TARGET_GOACC_DIM_LIMIT (unsigned @var{axis})
+@deftypefn {Target Hook} int TARGET_GOACC_DIM_LIMIT (int @var{axis})
 This hook should return the maximum size of a particular dimension,
 or zero if unbounded.
 @end deftypefn

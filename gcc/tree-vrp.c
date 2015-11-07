@@ -3974,7 +3974,7 @@ extract_range_basic (value_range *vr, gimple *stmt)
     {
       enum tree_code subcode = ERROR_MARK;
       unsigned ifn_code = gimple_call_internal_fn (stmt);
-      
+
       switch (ifn_code)
 	{
 	case IFN_UBSAN_CHECK_ADD:
@@ -3989,30 +3989,25 @@ extract_range_basic (value_range *vr, gimple *stmt)
 	case IFN_GOACC_DIM_SIZE:
 	case IFN_GOACC_DIM_POS:
 	  /* Optimizing these two internal functions helps the loop
-	     optimizer elimitate outer comparisons.  Size is [1,N]
+	     optimizer eliminate outer comparisons.  Size is [1,N]
 	     and pos is [0,N-1].  */
 	  {
 	    bool is_pos = ifn_code == IFN_GOACC_DIM_POS;
-	    tree attr = get_oacc_fn_attrib (current_function_decl);
-	    tree arg = gimple_call_arg (stmt, 0);
-	    unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
-	    tree dims = TREE_VALUE (attr);
-
-	    for (unsigned ix = axis; ix--;)
-	      dims = TREE_CHAIN (dims);
-	    int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
+	    int axis = get_oacc_ifn_dim_arg (stmt);
+	    int size = get_oacc_fn_dim_size (current_function_decl, axis);
 
 	    if (!size)
+	      /* If it's dynamic, the backend might know a hardware
+		 limitation.  */
 	      size = targetm.goacc.dim_limit (axis);
-	    if (size)
-	      set_value_range (vr, VR_RANGE,
-			       build_int_cst (integer_type_node, !is_pos),
-			       build_int_cst (integer_type_node,
-					      size - is_pos), NULL);
-	    return;
+
+	    tree type = TREE_TYPE (gimple_call_lhs (stmt));
+	    set_value_range (vr, VR_RANGE,
+			     build_int_cst (type, is_pos ? 0 : 1),
+			     size ? build_int_cst (type, size - is_pos)
+			          : vrp_val_max (type), NULL);
 	  }
-	  break;
-	  
+	  return;
 	default:
 	  break;
 	}

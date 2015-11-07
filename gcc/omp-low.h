@@ -34,6 +34,8 @@ extern void replace_oacc_fn_attrib (tree, tree);
 extern tree build_oacc_routine_dims (tree);
 extern tree get_oacc_fn_attrib (tree);
 extern void set_oacc_fn_attrib (tree, tree, vec<tree> *);
+extern int get_oacc_ifn_dim_arg (const gimple *);
+extern int get_oacc_fn_dim_size (tree, int);
 
 extern GTY(()) vec<tree, va_gc> *offload_funcs;
 extern GTY(()) vec<tree, va_gc> *offload_vars;

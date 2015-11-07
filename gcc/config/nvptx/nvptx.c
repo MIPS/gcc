@@ -4207,18 +4207,19 @@ nvptx_goacc_validate_dims (tree decl, int dims[], int fn_level)
 
 /* Return maximum dimension size, or zero for unbounded.  */
 
-static unsigned
-nvptx_dim_limit (unsigned axis)
+static int
+nvptx_dim_limit (int axis)
 {
   switch (axis)
     {
     case GOMP_DIM_WORKER:
       return PTX_WORKER_LENGTH;
-      break;
+
     case GOMP_DIM_VECTOR:
-      return  PTX_VECTOR_LENGTH;
+      return PTX_VECTOR_LENGTH;
+
+    default:
       break;
-    default: break;
     }
   return 0;
 }

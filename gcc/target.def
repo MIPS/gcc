@@ -1662,7 +1662,7 @@ DEFHOOK
 (dim_limit,
 "This hook should return the maximum size of a particular dimension,\n\
 or zero if unbounded.",
-unsigned, (unsigned axis),
+int, (int axis),
 default_goacc_dim_limit)
 
 DEFHOOK
