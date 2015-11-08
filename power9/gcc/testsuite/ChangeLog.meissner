@@ -1,3 +1,14 @@
+2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<patch #2>
+	* lib/target-supports.exp (check_p9vector_hw_available): Add
+	checks for power9 availability.
+	(check_effective_target_powerpc_p9vector_ok): Likewise.
+	(check_vect_support_and_set_flags): Likewise.
+
+	* gcc.target/powerpc/mod-1.c: New test.
+	* gcc.target/powerpc/mod-2.c: Likewise.
+
 2015-11-08   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 229969
