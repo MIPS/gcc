@@ -1,5 +1,18 @@
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
 
+	revert:
+	2015-10-12  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-ssa-dom.c (dom_opt_dom_walker::dom_opt_dom_walker): Add
+	jump_threading_p parameters.
+	(dom_opt_dom_walker::m_jump_threading_p): New private var.
+	(pass_dominator::jump_threading_p): New protected virtual function.
+	(pass_dominator::execute): Handle jump_threading_p.
+	(dom_opt_dom_walker::before_dom_children)
+	(dom_opt_dom_walker::after_dom_children): Handle m_jump_threading_p.
+
+2015-11-08  Tom de Vries  <tom@codesourcery.com>
+
 	* passes.def: Add pass_dce in oacc kernels pass group.
 	* tree-parloops.c (dead_load_p): Remove.
 	(ref_conflicts_with_region, oacc_entry_exit_ok_1): Remove handling of

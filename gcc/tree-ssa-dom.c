@@ -493,14 +493,11 @@ class dom_opt_dom_walker : public dom_walker
 public:
   dom_opt_dom_walker (cdi_direction direction,
 		      class const_and_copies *const_and_copies,
-		      class avail_exprs_stack *avail_exprs_stack,
-		      bool jump_threading_p)
+		      class avail_exprs_stack *avail_exprs_stack)
     : dom_walker (direction),
       m_const_and_copies (const_and_copies),
       m_avail_exprs_stack (avail_exprs_stack),
-      m_dummy_cond (NULL),
-      m_jump_threading_p (jump_threading_p)
-      {}
+      m_dummy_cond (NULL) {}
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -513,7 +510,6 @@ private:
   class avail_exprs_stack *m_avail_exprs_stack;
 
   gcond *m_dummy_cond;
-  bool m_jump_threading_p;
 };
 
 /* Jump threading, redundancy elimination and const/copy propagation.
@@ -533,8 +529,6 @@ class dominator_base : public gimple_opt_pass
 
   unsigned int execute (function *);
 
-  /* Return true if pass should perform jump threading.  */
-  virtual bool jump_threading_p (void) { return true; }
 }; // class dominator_base
 
 const pass_data pass_data_dominator =
@@ -594,29 +588,25 @@ dominator_base::execute (function *fun)
   /* Initialize the value-handle array.  */
   threadedge_initialize_values ();
 
-  if (jump_threading_p ())
-    {
-      /* We need accurate information regarding back edges in the CFG
-	 for jump threading; this may include back edges that are not part of
-	 a single loop.  */
-      mark_dfs_back_edges ();
+  /* We need accurate information regarding back edges in the CFG
+     for jump threading; this may include back edges that are not part of
+     a single loop.  */
+  mark_dfs_back_edges ();
 
-      /* We want to create the edge info structures before the dominator walk
-	 so that they'll be in place for the jump threader, particularly when
-	 threading through a join block.
+  /* We want to create the edge info structures before the dominator walk
+     so that they'll be in place for the jump threader, particularly when
+     threading through a join block.
 
-	 The conditions will be lazily updated with global equivalences as
-	 we reach them during the dominator walk.  */
-      basic_block bb;
-      FOR_EACH_BB_FN (bb, fun)
-	record_edge_info (bb);
-    }
+     The conditions will be lazily updated with global equivalences as
+     we reach them during the dominator walk.  */
+  basic_block bb;
+  FOR_EACH_BB_FN (bb, fun)
+    record_edge_info (bb);
 
   /* Recursively walk the dominator tree optimizing statements.  */
   dom_opt_dom_walker walker (CDI_DOMINATORS,
 			     const_and_copies,
-			     avail_exprs_stack,
-			     jump_threading_p ());
+			     avail_exprs_stack);
   walker.walk (fun->cfg->x_entry_block_ptr);
 
   {
@@ -636,13 +626,10 @@ dominator_base::execute (function *fun)
      duplication and CFG manipulation.  */
   update_ssa (TODO_update_ssa);
 
-  if (jump_threading_p ())
-    {
-      free_all_edge_infos ();
+  free_all_edge_infos ();
 
-      /* Thread jumps, creating duplicate blocks as needed.  */
-      cfg_altered |= thread_through_all_blocks (first_pass_instance);
-    }
+  /* Thread jumps, creating duplicate blocks as needed.  */
+  cfg_altered |= thread_through_all_blocks (first_pass_instance);
 
   if (cfg_altered)
     free_dominance_info (CDI_DOMINATORS);
@@ -749,11 +736,6 @@ public:
 
  private:
   bitmap m_regions;
-
-protected:
-  /* dominator_base methods: */
-  /* Return true if pass should perform jump threading.  */
-  virtual bool jump_threading_p (void) { return false; }
 }; // class pass_dominator_oacc_kernels
 
 } // anon namespace
@@ -1375,8 +1357,7 @@ dom_opt_dom_walker::before_dom_children (basic_block bb)
     optimize_stmt (bb, gsi, m_const_and_copies, m_avail_exprs_stack);
 
   /* Now prepare to process dominated blocks.  */
-  if (m_jump_threading_p)
-    record_edge_info (bb);
+  record_edge_info (bb);
   cprop_into_successor_phis (bb, m_const_and_copies);
 }
 
@@ -1389,38 +1370,35 @@ dom_opt_dom_walker::after_dom_children (basic_block bb)
 {
   gimple *last;
 
-  if (m_jump_threading_p)
+  /* If we have an outgoing edge to a block with multiple incoming and
+     outgoing edges, then we may be able to thread the edge, i.e., we
+     may be able to statically determine which of the outgoing edges
+     will be traversed when the incoming edge from BB is traversed.  */
+  if (single_succ_p (bb)
+      && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
+      && potentially_threadable_block (single_succ (bb)))
     {
-      /* If we have an outgoing edge to a block with multiple incoming and
-	 outgoing edges, then we may be able to thread the edge, i.e., we
-	 may be able to statically determine which of the outgoing edges
-	 will be traversed when the incoming edge from BB is traversed.  */
-      if (single_succ_p (bb)
-	  && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
-	  && potentially_threadable_block (single_succ (bb)))
-	{
-	  thread_across_edge (single_succ_edge (bb));
-	}
-      else if ((last = last_stmt (bb))
-	       && gimple_code (last) == GIMPLE_COND
-	       && EDGE_COUNT (bb->succs) == 2
-	       && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
-	       && (EDGE_SUCC (bb, 1)->flags & EDGE_ABNORMAL) == 0)
-	{
-	  edge true_edge, false_edge;
+      thread_across_edge (single_succ_edge (bb));
+    }
+  else if ((last = last_stmt (bb))
+	   && gimple_code (last) == GIMPLE_COND
+	   && EDGE_COUNT (bb->succs) == 2
+	   && (EDGE_SUCC (bb, 0)->flags & EDGE_ABNORMAL) == 0
+	   && (EDGE_SUCC (bb, 1)->flags & EDGE_ABNORMAL) == 0)
+    {
+      edge true_edge, false_edge;
 
-	  extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+      extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
-	  /* Only try to thread the edge if it reaches a target block with
-	     more than one predecessor and more than one successor.  */
-	  if (potentially_threadable_block (true_edge->dest))
-	    thread_across_edge (true_edge);
+      /* Only try to thread the edge if it reaches a target block with
+	 more than one predecessor and more than one successor.  */
+      if (potentially_threadable_block (true_edge->dest))
+	thread_across_edge (true_edge);
 
-	  /* Similarly for the ELSE arm.  */
-	  if (potentially_threadable_block (false_edge->dest))
-	    thread_across_edge (false_edge);
+      /* Similarly for the ELSE arm.  */
+      if (potentially_threadable_block (false_edge->dest))
+	thread_across_edge (false_edge);
 
-	}
     }
 
   /* These remove expressions local to BB from the tables.  */
