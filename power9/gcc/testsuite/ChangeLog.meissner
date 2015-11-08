@@ -1,5 +1,11 @@
 2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #6>
+	* gcc.target/powerpc/float128-hw.c: New test for IEEE 128-bit
+	hardware floating point support.
+
+2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #5>
 	* gcc.target/powerpc/fusion.c (fusion_vector): Move to fusion2.c
 	and allow the test on PowerPC LE.
