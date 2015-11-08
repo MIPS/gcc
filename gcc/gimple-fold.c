@@ -3802,6 +3802,12 @@ gimple_fold_builtin (gimple_stmt_iterator *gsi)
 static tree
 fold_internal_goacc_dim (const gimple *call)
 {
+  /* TODO.  There is something going wrong here, for the gang_single
+     IFN_GOACC_DIM_POS without LHS, generated in gcc/omp-low.c:lower_omp_target
+     for is_oacc_kernels (see gomp-4_0-branch r228735).  */
+  if (gimple_call_lhs (call) == NULL_TREE)
+    return NULL_TREE;
+
   int axis = oacc_get_ifn_dim_arg (call);
   int size = oacc_get_fn_dim_size (current_function_decl, axis);
   tree result = NULL_TREE;

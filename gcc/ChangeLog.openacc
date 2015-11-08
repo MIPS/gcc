@@ -1,3 +1,8 @@
+2015-11-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimple-fold.c (fold_internal_goacc_dim): Apply a workaround for
+	OpenACC kernels.
+
 2018-04-23  Tom de Vries  <tom@codesourcery.com>
 
 	PR target/85486
