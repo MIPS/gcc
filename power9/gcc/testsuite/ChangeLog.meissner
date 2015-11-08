@@ -1,5 +1,14 @@
 2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	<patch #5>
+	* gcc.target/powerpc/fusion.c (fusion_vector): Move to fusion2.c
+	and allow the test on PowerPC LE.
+	* gcc.target/powerpc/fusion2.c (fusion_vector): Likewise.
+
+	* gcc.target/powerpc/fusion3.c: New file, test power9 fusion.
+
+2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #4>
 	* gcc.target/powerpc/extswsli-1.c: New file to test EXTSWSLI
 	instruction generation.
