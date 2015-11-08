@@ -1,5 +1,12 @@
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
 
+	* tree-ssa-dom.c (dominator_base::may_peel_loop_headers_p)
+	(pass_dominator::may_peel_loop_headers_p)
+	(pass_dominator_oacc_kernels::may_peel_loop_headers_p):: New function.
+	(dominator_base::execute): Use may_peel_loop_headers_p.
+
+2015-11-08  Tom de Vries  <tom@codesourcery.com>
+
 	revert:
 	2015-10-12  Tom de Vries  <tom@codesourcery.com>
 

@@ -529,6 +529,8 @@ class dominator_base : public gimple_opt_pass
 
   unsigned int execute (function *);
 
+ protected:
+  virtual bool may_peel_loop_headers_p (void) { return true; }
 }; // class dominator_base
 
 const pass_data pass_data_dominator =
@@ -554,6 +556,9 @@ public:
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_dominator (m_ctxt); }
   virtual bool gate (function *) { return flag_tree_dom != 0; }
+
+ protected:
+  virtual bool may_peel_loop_headers_p (void) { return first_pass_instance; }
 }; // class pass_dominator
 
 unsigned int
@@ -629,7 +634,7 @@ dominator_base::execute (function *fun)
   free_all_edge_infos ();
 
   /* Thread jumps, creating duplicate blocks as needed.  */
-  cfg_altered |= thread_through_all_blocks (first_pass_instance);
+  cfg_altered |= thread_through_all_blocks (may_peel_loop_headers_p ());
 
   if (cfg_altered)
     free_dominance_info (CDI_DOMINATORS);
@@ -736,6 +741,9 @@ public:
 
  private:
   bitmap m_regions;
+
+ protected:
+  virtual bool may_peel_loop_headers_p (void) { return false; }
 }; // class pass_dominator_oacc_kernels
 
 } // anon namespace
