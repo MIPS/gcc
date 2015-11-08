@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params-enum.h"
 #include "tree-ssa-alias.h"
 #include "tree-eh.h"
+#include "tree-dfa.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
    The implementation is straightforward -- for each loop we test whether its
@@ -2607,15 +2608,7 @@ get_omp_data_i_param (void)
 {
   tree decl = DECL_ARGUMENTS (cfun->decl);
   gcc_assert (DECL_CHAIN (decl) == NULL_TREE);
-  for (unsigned int i = 0; i < num_ssa_names; ++i)
-    {
-      tree name = ssa_name (i);
-      if (name != NULL_TREE
-	  && SSA_NAME_VAR (name) == decl)
-	return name;
-    }
-
-  gcc_unreachable ();
+  return ssa_default_def (cfun, decl);
 }
 
 /* Try to initialize REDUCTION_LIST for code generation part.

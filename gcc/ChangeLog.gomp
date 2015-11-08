@@ -1,3 +1,8 @@
+2015-11-08  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c: Include tree-dfa.h.
+	(get_omp_data_i_param): Simplify using ssa_default_def.
+
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
 
 	revert:
