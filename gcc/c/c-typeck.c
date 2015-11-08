@@ -11802,13 +11802,6 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	  && (TREE_CODE (length) != INTEGER_CST || integer_onep (length)))
 	first_non_one++;
     }
-  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
-      && !integer_zerop (low_bound))
-    {
-      error_at (OMP_CLAUSE_LOCATION (c),
-		"%<reduction%> array section has to be zero-based");
-      return error_mark_node;
-    }
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       if (length == NULL_TREE
@@ -12149,7 +12142,24 @@ handle_omp_array_sections (tree c, bool is_omp)
 	  tree ptype = build_pointer_type (eltype);
 	  if (TREE_CODE (TREE_TYPE (t)) == ARRAY_TYPE)
 	    t = build_fold_addr_expr (t);
-	  t = build2 (MEM_REF, type, t, build_int_cst (ptype, 0));
+	  tree t2 = build_fold_addr_expr (first);
+	  t2 = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+				 ptrdiff_type_node, t2);
+	  t2 = fold_build2_loc (OMP_CLAUSE_LOCATION (c), MINUS_EXPR,
+				ptrdiff_type_node, t2,
+				fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+						  ptrdiff_type_node, t));
+	  t2 = c_fully_fold (t2, false, NULL);
+	  if (tree_fits_shwi_p (t2))
+	    t = build2 (MEM_REF, type, t,
+			build_int_cst (ptype, tree_to_shwi (t2)));
+	  else
+	    {
+	      t2 = fold_convert_loc (OMP_CLAUSE_LOCATION (c), sizetype, t2);
+	      t = build2_loc (OMP_CLAUSE_LOCATION (c), POINTER_PLUS_EXPR,
+			      TREE_TYPE (t), t, t2);
+	      t = build2 (MEM_REF, type, t, build_int_cst (ptype, 0));
+	    }
 	  OMP_CLAUSE_DECL (c) = t;
 	  return false;
 	}
@@ -12181,10 +12191,14 @@ handle_omp_array_sections (tree c, bool is_omp)
 	    break;
 	  }
       tree c2 = build_omp_clause (OMP_CLAUSE_LOCATION (c), OMP_CLAUSE_MAP);
-      OMP_CLAUSE_SET_MAP_KIND (c2, is_omp
-				   ? GOMP_MAP_FIRSTPRIVATE_POINTER
-				   : GOMP_MAP_POINTER);
-      if (!is_omp && !c_mark_addressable (t))
+      if (!is_omp)
+	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_POINTER);
+      else if (TREE_CODE (t) == COMPONENT_REF)
+	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_ALWAYS_POINTER);
+      else
+	OMP_CLAUSE_SET_MAP_KIND (c2, GOMP_MAP_FIRSTPRIVATE_POINTER);
+      if (OMP_CLAUSE_MAP_KIND (c2) != GOMP_MAP_FIRSTPRIVATE_POINTER
+	  && !c_mark_addressable (t))
 	return false;
       OMP_CLAUSE_DECL (c2) = t;
       t = build_fold_addr_expr (first);
@@ -12252,13 +12266,16 @@ tree
 c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head, map_head, map_field_head, generic_field_head;
+  bitmap_head aligned_head, map_head, map_field_head;
   bitmap_head oacc_data_head, oacc_reduction_head;
   tree c, t, type, *pc;
   tree simdlen = NULL_TREE, safelen = NULL_TREE;
   bool branch_seen = false;
   bool copyprivate_seen = false;
+  bool linear_variable_step_check = false;
   tree *nowait_clause = NULL;
+  bool ordered_seen = false;
+  tree schedule_clause = NULL_TREE;
 
   bitmap_obstack_initialize (NULL);
   bitmap_initialize (&generic_head, &bitmap_default_obstack);
@@ -12267,7 +12284,6 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
   bitmap_initialize (&aligned_head, &bitmap_default_obstack);
   bitmap_initialize (&map_head, &bitmap_default_obstack);
   bitmap_initialize (&map_field_head, &bitmap_default_obstack);
-  bitmap_initialize (&generic_field_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_data_head, &bitmap_default_obstack);
   bitmap_initialize (&oacc_reduction_head, &bitmap_default_obstack);
 
@@ -12497,6 +12513,8 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 		  break;
 		}
 	      t = TREE_OPERAND (t, 0);
+	      if (TREE_CODE (t) == POINTER_PLUS_EXPR)
+		t = TREE_OPERAND (t, 0);
 	      if (TREE_CODE (t) == ADDR_EXPR)
 		t = TREE_OPERAND (t, 0);
 	    }
@@ -12549,6 +12567,27 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	      remove = true;
 	      break;
 	    }
+	  if (declare_simd)
+	    {
+	      tree s = OMP_CLAUSE_LINEAR_STEP (c);
+	      if (TREE_CODE (s) == PARM_DECL)
+		{
+		  OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c) = 1;
+		  /* map_head bitmap is used as uniform_head if
+		     declare_simd.  */
+		  if (!bitmap_bit_p (&map_head, DECL_UID (s)))
+		    linear_variable_step_check = true;
+		  goto check_dup_generic;
+		}
+	      if (TREE_CODE (s) != INTEGER_CST)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<linear%> clause step %qE is neither constant "
+			    "nor a parameter", s);
+		  remove = true;
+		  break;
+		}
+	    }
 	  if (TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c))) == POINTER_TYPE)
 	    {
 	      tree s = OMP_CLAUSE_LINEAR_STEP (c);
@@ -12583,6 +12622,12 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qE appears more than once in data clauses", t);
+	      remove = true;
+	    }
+	  else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+		   && bitmap_bit_p (&map_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
 	      remove = true;
 	    }
 	  else
@@ -12654,6 +12699,11 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 		}
 	      else
 		bitmap_set_bit (&oacc_data_head, DECL_UID (t));
+	    }
+	  else if (bitmap_bit_p (&map_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
+	      remove = true;
 	    }
 	  else
 	    {
@@ -12860,14 +12910,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 		break;
 	      if (VAR_P (t) || TREE_CODE (t) == PARM_DECL)
 		{
-		  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
-		      && (OMP_CLAUSE_MAP_KIND (c)
-			  == GOMP_MAP_FIRSTPRIVATE_POINTER))
-		    {
-		      if (bitmap_bit_p (&generic_field_head, DECL_UID (t)))
-			break;
-		    }
-		  else if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
+		  if (bitmap_bit_p (&map_field_head, DECL_UID (t)))
 		    break;
 		}
 	    }
@@ -12911,13 +12954,13 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 		  error ("%qD appears more than once in data clauses", t);
 		  remove = true;
 		}
-	      else
+	      else if (bitmap_bit_p (&map_head, DECL_UID (t)))
 		{
-		  bitmap_set_bit (&generic_head, DECL_UID (t));
-		  if (t != OMP_CLAUSE_DECL (c)
-		      && TREE_CODE (OMP_CLAUSE_DECL (c)) == COMPONENT_REF)
-		    bitmap_set_bit (&generic_field_head, DECL_UID (t));
+		  error ("%qD appears both in data and map clauses", t);
+		  remove = true;
 		}
+	      else
+		bitmap_set_bit (&generic_head, DECL_UID (t));
 	    }
 	  else if ((is_oacc && bitmap_bit_p (&oacc_data_head, DECL_UID (t)))
 		   || bitmap_bit_p (&map_head, DECL_UID (t)))
@@ -12930,6 +12973,12 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	    }
 	  else if (is_oacc)
 	    bitmap_set_bit (&oacc_data_head, DECL_UID (t));
+	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	    {
+	      error ("%qD appears both in data and map clauses", t);
+	      remove = true;
+	    }
 	  else
 	    {
 	      bitmap_set_bit (&map_head, DECL_UID (t));
@@ -12940,17 +12989,22 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	  break;
 
 	case OMP_CLAUSE_TO_DECLARE:
-	  t = OMP_CLAUSE_DECL (c);
-	  if (TREE_CODE (t) == FUNCTION_DECL)
-	    break;
-	  /* FALLTHRU */
 	case OMP_CLAUSE_LINK:
 	  t = OMP_CLAUSE_DECL (c);
-	  if (!VAR_P (t))
+	  if (TREE_CODE (t) == FUNCTION_DECL
+	      && OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TO_DECLARE)
+	    ;
+	  else if (!VAR_P (t))
 	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"%qE is not a variable in clause %qs", t,
-			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_TO_DECLARE)
+		error_at (OMP_CLAUSE_LOCATION (c),
+			  "%qE is neither a variable nor a function name in "
+			  "clause %qs", t,
+			  omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
+	      else
+		error_at (OMP_CLAUSE_LOCATION (c),
+			  "%qE is not a variable in clause %qs", t,
+			  omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
 	  else if (DECL_THREAD_LOCAL_P (t))
@@ -12967,6 +13021,17 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
+	  if (remove)
+	    break;
+	  if (bitmap_bit_p (&generic_head, DECL_UID (t)))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE appears more than once on the same "
+			"%<declare target%> directive", t);
+	      remove = true;
+	    }
+	  else
+	    bitmap_set_bit (&generic_head, DECL_UID (t));
 	  break;
 
 	case OMP_CLAUSE_UNIFORM:
@@ -12982,6 +13047,8 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	      remove = true;
 	      break;
 	    }
+	  /* map_head bitmap is used as uniform_head if declare_simd.  */
+	  bitmap_set_bit (&map_head, DECL_UID (t));
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_IS_DEVICE_PTR:
@@ -13014,8 +13081,6 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
-	case OMP_CLAUSE_SCHEDULE:
-	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_DEFAULT:
 	case OMP_CLAUSE_UNTIED:
 	case OMP_CLAUSE_COLLAPSE:
@@ -13059,6 +13124,39 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	  OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c)
 	    = c_finish_omp_clauses (OMP_CLAUSE_DEVICE_TYPE_CLAUSES (c),
 				    is_oacc, is_omp);
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+
+	case OMP_CLAUSE_SCHEDULE:
+	  if (OMP_CLAUSE_SCHEDULE_KIND (c) & OMP_CLAUSE_SCHEDULE_NONMONOTONIC)
+	    {
+	      const char *p = NULL;
+	      switch (OMP_CLAUSE_SCHEDULE_KIND (c) & OMP_CLAUSE_SCHEDULE_MASK)
+		{
+		case OMP_CLAUSE_SCHEDULE_STATIC: p = "static"; break;
+		case OMP_CLAUSE_SCHEDULE_DYNAMIC: break;
+		case OMP_CLAUSE_SCHEDULE_GUIDED: break;
+		case OMP_CLAUSE_SCHEDULE_AUTO: p = "auto"; break;
+		case OMP_CLAUSE_SCHEDULE_RUNTIME: p = "runtime"; break;
+		default: gcc_unreachable ();
+		}
+	      if (p)
+		{
+		  error_at (OMP_CLAUSE_LOCATION (c),
+			    "%<nonmonotonic%> modifier specified for %qs "
+			    "schedule kind", p);
+		  OMP_CLAUSE_SCHEDULE_KIND (c)
+		    = (enum omp_clause_schedule_kind)
+		      (OMP_CLAUSE_SCHEDULE_KIND (c)
+		       & ~OMP_CLAUSE_SCHEDULE_NONMONOTONIC);
+		}
+	    }
+	  schedule_clause = c;
+	  pc = &OMP_CLAUSE_CHAIN (c);
+	  continue;
+
+	case OMP_CLAUSE_ORDERED:
+	  ordered_seen = true;
 	  pc = &OMP_CLAUSE_CHAIN (c);
 	  continue;
 
@@ -13151,6 +13249,42 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
       OMP_CLAUSE_SIMDLEN_EXPR (simdlen)
 	= OMP_CLAUSE_SAFELEN_EXPR (safelen);
     }
+
+  if (ordered_seen
+      && schedule_clause
+      && (OMP_CLAUSE_SCHEDULE_KIND (schedule_clause)
+	  & OMP_CLAUSE_SCHEDULE_NONMONOTONIC))
+    {
+      error_at (OMP_CLAUSE_LOCATION (schedule_clause),
+		"%<nonmonotonic%> schedule modifier specified together "
+		"with %<ordered%> clause");
+      OMP_CLAUSE_SCHEDULE_KIND (schedule_clause)
+	= (enum omp_clause_schedule_kind)
+	  (OMP_CLAUSE_SCHEDULE_KIND (schedule_clause)
+	   & ~OMP_CLAUSE_SCHEDULE_NONMONOTONIC);
+    }
+
+  if (linear_variable_step_check)
+    for (pc = &clauses, c = clauses; c ; c = *pc)
+      {
+	bool remove = false;
+	if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
+	    && OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (c)
+	    && !bitmap_bit_p (&map_head,
+			      DECL_UID (OMP_CLAUSE_LINEAR_STEP (c))))
+	  {
+	    error_at (OMP_CLAUSE_LOCATION (c),
+		      "%<linear%> clause step is a parameter %qD not "
+		      "specified in %<uniform%> clause",
+		      OMP_CLAUSE_LINEAR_STEP (c));
+	    remove = true;
+	  }
+
+	if (remove)
+	  *pc = OMP_CLAUSE_CHAIN (c);
+	else
+	  pc = &OMP_CLAUSE_CHAIN (c);
+      }
 
   bitmap_obstack_release (NULL);
   return clauses;
