@@ -16321,14 +16321,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 				 false, NULL, NULL, &fork_seq, &join_seq, ctx);
 	}
 
-      if (is_oacc_kernels (ctx))
-	{
-	  tree arg = build_int_cst (integer_type_node, GOMP_DIM_GANG);
-	  gcall *gang_single
-	    = gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
-	  gimple_seq_add_stmt (&new_body, gang_single);
-	}
-
       if (offloaded)
 	gimple_seq_add_stmt (&new_body, gimple_build_omp_entry_end ());
 

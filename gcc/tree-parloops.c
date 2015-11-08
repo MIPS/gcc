@@ -55,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params-enum.h"
 #include "tree-ssa-alias.h"
 #include "tree-eh.h"
+#include "gomp-constants.h"
 #include "tree-dfa.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
@@ -2984,13 +2985,14 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 }
 
 /* Find stores inside REGION_BBS and outside IN_LOOP_BBS, and guard them with
-   GANG_POS == 0, except when the stores are REDUCTION_STORES.  Return true
+   gang_pos == 0, except when the stores are REDUCTION_STORES.  Return true
    if any changes were made.  */
 
 static bool
 oacc_entry_exit_single_gang (bitmap in_loop_bbs, vec<basic_block> region_bbs,
-			     bitmap reduction_stores, tree gang_pos)
+			     bitmap reduction_stores)
 {
+  tree gang_pos = NULL_TREE;
   bool changed = false;
 
   unsigned i;
@@ -3029,6 +3031,20 @@ oacc_entry_exit_single_gang (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 	    }
 
 	  changed = true;
+
+	  if (gang_pos == NULL_TREE)
+	    {
+	      tree arg = build_int_cst (integer_type_node, GOMP_DIM_GANG);
+	      gcall *gang_single
+		= gimple_build_call_internal (IFN_GOACC_DIM_POS, 1, arg);
+	      gang_pos = make_ssa_name (integer_type_node);
+	      gimple_call_set_lhs (gang_single, gang_pos);
+	      gimple_stmt_iterator start
+		= gsi_start_bb (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
+	      tree vuse = ssa_default_def (cfun, gimple_vop (cfun));
+	      gimple_set_vuse (gang_single, vuse);
+	      gsi_insert_before (&start, gang_single, GSI_SAME_STMT);
+	    }
 
 	  if (dump_file)
 	    {
@@ -3093,14 +3109,6 @@ oacc_entry_exit_ok (struct loop *loop,
   vec<basic_block> region_bbs
     = get_all_dominated_blocks (CDI_DOMINATORS, ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
-  gimple_stmt_iterator gsi
-    = gsi_start_bb (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
-  gimple *stmt = gsi_stmt (gsi);
-  gcc_assert (gimple_call_internal_p (stmt)
-	      && gimple_call_internal_fn (stmt) == IFN_GOACC_DIM_POS);
-  tree gang_pos = make_ssa_name (integer_type_node);
-  gimple_call_set_lhs (stmt, gang_pos);
-
   bitmap in_loop_bbs = BITMAP_ALLOC (NULL);
   bitmap_clear (in_loop_bbs);
   for (unsigned int i = 0; i < loop->num_nodes; i++)
@@ -3112,9 +3120,8 @@ oacc_entry_exit_ok (struct loop *loop,
 
   if (res)
     {
-      bool changed
-	= oacc_entry_exit_single_gang (in_loop_bbs, region_bbs,
-				       reduction_stores, gang_pos);
+      bool changed = oacc_entry_exit_single_gang (in_loop_bbs, region_bbs,
+						  reduction_stores);
       if (changed)
 	{
 	  free_dominance_info (CDI_DOMINATORS);
