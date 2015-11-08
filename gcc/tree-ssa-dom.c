@@ -44,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-dom.h"
 #include "gimplify.h"
 #include "tree-cfgcleanup.h"
-#include "omp-low.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
