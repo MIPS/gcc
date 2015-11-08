@@ -1,3 +1,17 @@
+2015-11-08  Tom de Vries  <tom@codesourcery.com>
+
+	* g++.dg/tree-ssa/copyprop-1.C: Update for extra pass_dce in pass list.
+	* gcc.dg/pr23911.c: Same.
+	* gcc.dg/tree-ssa/20030709-2.c: Same.
+	* gcc.dg/tree-ssa/20030731-2.c: Same.
+	* gcc.dg/tree-ssa/20040729-1.c: Same.
+	* gcc.dg/tree-ssa/cfgcleanup-1.c: Same.
+	* gcc.dg/tree-ssa/loop-36.c: Same.
+	* gcc.dg/tree-ssa/pr21086.c: Same.
+	* gcc.dg/tree-ssa/ssa-dce-1.c: Same.
+	* gcc.dg/tree-ssa/ssa-dce-2.c: Same.
+	* gcc.dg/vect/pr26359.c: Same.
+
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
 
 	revert:

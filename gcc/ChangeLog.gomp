@@ -1,5 +1,12 @@
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Add pass_dce in oacc kernels pass group.
+	* tree-parloops.c (dead_load_p): Remove.
+	(ref_conflicts_with_region, oacc_entry_exit_ok_1): Remove handling of
+	dead loads.
+
+2015-11-08  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (lower_omp_target): Remove insertion of IFN_GOACC_DIM_POS
 	call in kernels region.
 	* tree-parloops.c: Include gomp-constants.h.

@@ -2767,22 +2767,6 @@ try_create_reduction_list (loop_p loop,
   return true;
 }
 
-/* Return true if STMT is a load of which the result is unused, and can be
-   safely deleted.  */
-
-static bool
-dead_load_p (gimple *stmt)
-{
-  if (!gimple_assign_load_p (stmt))
-    return false;
-
-  tree lhs = gimple_assign_lhs (stmt);
-  return (TREE_CODE (lhs) == SSA_NAME
-	  && has_zero_uses (lhs)
-	  && !gimple_has_side_effects (stmt)
-	  && !stmt_could_throw_p (stmt));
-}
-
 static bool
 ref_conflicts_with_region (gimple_stmt_iterator gsi, ao_ref *ref,
 			   bool ref_is_store, vec<basic_block> region_bbs,
@@ -2816,16 +2800,6 @@ ref_conflicts_with_region (gimple_stmt_iterator gsi, ao_ref *ref,
 
 	  if (ref_is_store)
 	    {
-	      if (dead_load_p (stmt))
-		{
-		  if (dump_file)
-		    {
-		      fprintf (dump_file, "skipping dead load: ");
-		      print_gimple_stmt (dump_file, stmt, 0, 0);
-		    }
-		  continue;
-		}
-
 	      if (ref_maybe_used_by_stmt_p (stmt, ref))
 		{
 		  if (dump_file)
@@ -2892,19 +2866,6 @@ oacc_entry_exit_ok_1 (bitmap in_loop_bbs, vec<basic_block> region_bbs,
 	      if (TREE_CODE (base) == MEM_REF
 		  && operand_equal_p (TREE_OPERAND (base, 0), omp_data_i, 0))
 		continue;
-
-	      /* By testing for dead loads (here and in
-		 ref_conflicts_with_region), we avoid having to run pass_dce
-		 before pass_parallelize_loops_oacc_kernels.  */
-	      if (dead_load_p (stmt))
-		{
-		  if (dump_file)
-		    {
-		      fprintf (dump_file, "skipping dead load: ");
-		      print_gimple_stmt (dump_file, stmt, 0, 0);
-		    }
-		  continue;
-		}
 
 	      tree lhs = gimple_assign_lhs (stmt);
 	      if (TREE_CODE (lhs) == SSA_NAME
