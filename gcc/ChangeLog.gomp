@@ -1,5 +1,9 @@
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
 
+	* passes.def: Remove superfluous pass_expand_omp_ssa.
+
+2015-11-08  Tom de Vries  <tom@codesourcery.com>
+
 	* tree-ssa-dom.c: Remove omp-low.h include.
 
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
