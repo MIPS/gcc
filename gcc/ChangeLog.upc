@@ -1,3 +1,19 @@
+2015-11-08  Gary Funck  <gary@intrepid.com>
+
+	* tree-core.h (TI_UPC_PHASE_MASK, TI_UPC_THREAD_MASK,
+	TI_UPC_VADDR_MASK, TI_UPC_PHASE_SHIFT, TI_UPC_THREAD_SHIFT,
+	TI_UPC_VADDR_SHIFT):
+	Delete definitions of UPC "packed PTS" related values.
+	* tree.h, (upc_phase_mask_node, upc_thread_mask_node,
+	upc_vaddr_mask_node, upc_phase_shift_node, upc_thread_shift_node,
+	upc_vaddr_shift_node):
+	Delete definitions of UPC "packed PTS" related values.
+	* doc/install.texi: Remove description of --with-upc-pts-* options,
+	now that only a single UPC pointer-to-shared format is supported.
+	* libatomic/Makefile.am: Simplify logic for building the
+	"no lock" convenience library.
+	* libatomic/Makefile.in: Re-generate.
+
 2015-11-06  Gary Funck  <gary@intrepid.com>
 
 	* cp/tree.c (c_build_qualified_type_1): fix typo.
