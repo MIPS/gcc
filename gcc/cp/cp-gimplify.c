@@ -1970,18 +1970,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   switch (code)
     {
     case SIZEOF_EXPR:
-      if (SIZEOF_EXPR_TYPE_P (x))
-	  r = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (x, 0)),
-					  SIZEOF_EXPR, false);
-      else if (TYPE_P (TREE_OPERAND (x, 0)))
-	r = cxx_sizeof_or_alignof_type (TREE_OPERAND (x, 0),
-					SIZEOF_EXPR, false);
-      else
-	r = cxx_sizeof_or_alignof_expr (TREE_OPERAND (x, 0),
-					SIZEOF_EXPR, false);
-      if (r == error_mark_node)
-	r = size_one_node;
-      x = r;
+      x = fold_sizeof_expr (x);
       break;
 
     case VIEW_CONVERT_EXPR:

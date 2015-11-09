@@ -6807,6 +6807,7 @@ extern bool is_instantiation_of_constexpr       (tree);
 extern bool var_in_constexpr_fn                 (tree);
 extern void explain_invalid_constexpr_fn        (tree);
 extern vec<tree> cx_error_context               (void);
+extern tree fold_sizeof_expr			(tree);
 
 /* In c-family/cilk.c */
 extern bool cilk_valid_spawn                    (tree);
