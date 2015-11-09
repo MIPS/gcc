@@ -587,7 +587,7 @@ unroll_loop_constant_iterations (struct loop *loop)
   /* Now unroll the loop.  */
 
   opt_info_start_duplication (opt_info);
-
+#ifdef KELVIN_PATCH
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
 				      wont_exit, desc->out_edge,
@@ -595,6 +595,16 @@ unroll_loop_constant_iterations (struct loop *loop)
 				      opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0);
+#else
+  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
+				      max_unroll,
+				      wont_exit, desc->out_edge,
+				      &remove_edges,
+				      DLTHE_FLAG_UPDATE_FREQ
+				      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					 : 0));
+#endif
   gcc_assert (ok);
 
   if (opt_info)
@@ -876,7 +886,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   auto_vec<basic_block> dom_bbs;
 
   body = get_loop_body (loop);
-
   for (i = 0; i < loop->num_nodes; i++)
     {
       vec<basic_block> ldom;
@@ -944,7 +953,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       && !desc->noloop_assumptions)
     bitmap_set_bit (wont_exit, 1);
   ezc_swtch = loop_preheader_edge (loop)->src;
-
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 				      1, wont_exit, desc->out_edge,
 				      &remove_edges,
@@ -954,29 +962,34 @@ unroll_loop_runtime_iterations (struct loop *loop)
   /* Record the place where switch will be built for preconditioning.  */
   swtch = split_edge (loop_preheader_edge (loop));
 
+#ifdef KELVIN_PATCH
   int iter_freq, new_freq;
   iter_freq = new_freq = swtch->frequency / (n_peel+1);
   swtch->frequency = new_freq;
-
+#endif
   for (i = 0; i < n_peel; i++)
     {
       /* Peel the copy.  */
       bitmap_clear (wont_exit);
       if (i != n_peel - 1 || !last_may_exit)
 	bitmap_set_bit (wont_exit, 1);
+#ifdef KELVIN_PATCH
       int saved_header_frequency = loop->header->frequency;
       zero_loop_frequencies (loop);
 
       int new_header_freq = (saved_header_frequency / (n_peel + 1)) * (i + 1);
       increment_loop_frequencies (loop, loop->header, new_header_freq);
+#endif
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					  1, wont_exit, desc->out_edge,
 					  &remove_edges,
 					  DLTHE_FLAG_UPDATE_FREQ);
+#ifdef KELVIN_PATCH
       zero_loop_frequencies (loop);
       increment_loop_frequencies (loop, loop->header, saved_header_frequency);
+#endif
       gcc_assert (ok);
-      
+
       /* Create item for switch.  */
       j = n_peel - i - (extra_zero_check ? 0 : 1);
       p = REG_BR_PROB_BASE / (i + 2);
@@ -992,11 +1005,16 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
       swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
+#ifdef KELVIN_PATCH
       single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+#else
+      single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
+#endif
       e = make_edge (swtch, preheader,
 		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->count = RDIV (preheader->count * REG_BR_PROB_BASE, p);
       e->probability = p;
+#ifdef KELVIN_PATCH
 
       new_freq = new_freq + iter_freq;
       swtch->frequency = new_freq;
@@ -1010,6 +1028,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	  prehead_frequency += the_edge_frequency;
 	}
       preheader->frequency = prehead_frequency;
+#endif
     }
 
   if (extra_zero_check)
@@ -1041,6 +1060,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
   bitmap_clear_bit (wont_exit, may_exit_copy);
   opt_info_start_duplication (opt_info);
 
+#ifdef KELVIN_PATCH
   {  
     /* Recompute the loop body frequencies. */
     zero_loop_frequencies (loop);
@@ -1071,7 +1091,8 @@ unroll_loop_runtime_iterations (struct loop *loop)
     
     increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
   }
-
+#endif
+#ifdef KELVIN_PATCH
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
 				      wont_exit, desc->out_edge,
@@ -1079,6 +1100,16 @@ unroll_loop_runtime_iterations (struct loop *loop)
 				      opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0);
+#else
+  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
+				      max_unroll,
+				      wont_exit, desc->out_edge,
+				      &remove_edges,
+                                      DLTHE_FLAG_UPDATE_FREQ
+                                      | (opt_info
+					 ? DLTHE_RECORD_COPY_NUMBER
+					 : 0));
+#endif
   gcc_assert (ok);
 
   if (opt_info)
