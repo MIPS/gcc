@@ -1,3 +1,10 @@
+2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<patch #8>
+	* config/rs6000/rs6000.h (TARGET_MADDLD): Add support for the ISA
+	3.0 integer multiply-add instruction.
+	* config/rs6000/rs6000.md (<u>mul<mode><dmode>3): Likewise.
+
 2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<patch #7>
