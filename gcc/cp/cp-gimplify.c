@@ -188,13 +188,13 @@ genericize_eh_spec_block (tree *stmt_p)
 /* Genericize an IF_STMT by turning it into a COND_EXPR.  */
 
 static void
-genericize_if_stmt (tree *stmt_p, hash_map<tree, tree> *fold_hash)
+genericize_if_stmt (tree *stmt_p)
 {
   tree stmt, cond, then_, else_;
   location_t locus = EXPR_LOCATION (*stmt_p);
 
   stmt = *stmt_p;
-  cond = cp_fold (IF_COND (stmt), fold_hash);
+  cond = IF_COND (stmt);
   then_ = THEN_CLAUSE (stmt);
   else_ = ELSE_CLAUSE (stmt);
 
@@ -923,7 +923,6 @@ struct cp_genericize_data
   vec<tree> bind_expr_stack;
   struct cp_genericize_omp_taskreg *omp_ctx;
   tree try_block;
-  hash_map<tree, tree> *fold_hash;
   bool no_sanitize_p;
 };
 
@@ -938,10 +937,10 @@ static tree
 cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
   tree stmt;
-  struct cp_genericize_data *wtd = (struct cp_genericize_data *) data;
+  hash_map<tree, tree> *fold_hash = (hash_map<tree, tree> *) data;
   enum tree_code code;
 
-  *stmt_p = stmt = cp_fold (*stmt_p, wtd->fold_hash);
+  *stmt_p = stmt = cp_fold (*stmt_p, fold_hash);
 
   code = TREE_CODE (stmt);
   if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE
@@ -1132,7 +1131,7 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 
   else if (TREE_CODE (stmt) == IF_STMT)
     {
-      genericize_if_stmt (stmt_p, wtd->fold_hash);
+      genericize_if_stmt (stmt_p);
       /* *stmt_p has changed, tail recurse to handle it again.  */
       return cp_genericize_r (stmt_p, walk_subtrees, data);
     }
@@ -1367,23 +1366,6 @@ cp_genericize_r (tree *stmt_p, int *walk_subtrees, void *data)
 	   || TREE_CODE (stmt) == OMP_DISTRIBUTE
 	   || TREE_CODE (stmt) == OMP_TASKLOOP)
     genericize_omp_for_stmt (stmt_p, walk_subtrees, data);
-  else if (TREE_CODE (stmt) == SIZEOF_EXPR)
-    {
-      if (SIZEOF_EXPR_TYPE_P (stmt))
-	*stmt_p
-	  = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (stmt, 0)),
-					SIZEOF_EXPR, false);
-      else if (TYPE_P (TREE_OPERAND (stmt, 0)))
-	*stmt_p = cxx_sizeof_or_alignof_type (TREE_OPERAND (stmt, 0),
-					      SIZEOF_EXPR, false);
-      else
-	*stmt_p = cxx_sizeof_or_alignof_expr (TREE_OPERAND (stmt, 0),
-					      SIZEOF_EXPR, false);
-      if (*stmt_p == error_mark_node)
-	*stmt_p = size_one_node;
-      *stmt_p = cp_fold (*stmt_p,  wtd->fold_hash);
-      return NULL;
-    }
   else if ((flag_sanitize
 	    & (SANITIZE_NULL | SANITIZE_ALIGNMENT | SANITIZE_VPTR))
 	   && !wtd->no_sanitize_p)
@@ -1424,15 +1406,12 @@ cp_genericize_tree (tree* t_p)
 {
   struct cp_genericize_data wtd;
 
-  wtd.fold_hash = new hash_map<tree, tree>;
   wtd.p_set = new hash_set<tree>;
   wtd.bind_expr_stack.create (0);
   wtd.omp_ctx = NULL;
   wtd.try_block = NULL_TREE;
   wtd.no_sanitize_p = false;
   cp_walk_tree (t_p, cp_genericize_r, &wtd, NULL);
-  cp_walk_tree (t_p, cp_fold_r, &wtd, NULL);
-  delete wtd.fold_hash;
   delete wtd.p_set;
   wtd.bind_expr_stack.release ();
   if (flag_sanitize & SANITIZE_VPTR)
@@ -1496,6 +1475,9 @@ void
 cp_genericize (tree fndecl)
 {
   tree t;
+
+  hash_map<tree, tree> fold_hash;
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, &fold_hash, NULL);
 
   /* Fix up the types of parms passed by invisible reference.  */
   for (t = DECL_ARGUMENTS (fndecl); t; t = DECL_CHAIN (t))
