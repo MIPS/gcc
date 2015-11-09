@@ -1,3 +1,33 @@
+2015-11-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-common.c (c_common_attributes): Add scalar_storage_order.
+	(handle_scalar_storage_order_attribute): New function.
+	* c-pragma.c (global_sso): New variable.
+	(maybe_apply_pragma_scalar_storage_order): New function.
+	(handle_pragma_scalar_storage_order): Likewise.
+	(init_pragma): Register scalar_storage_order.
+	* c-pragma.h (maybe_apply_pragma_scalar_storage_order): Declare.
+	* c.opt (Wscalar-storage-order): New warning.
+	(fsso-struct=): New option.
+
+2015-11-08  Martin Sebor  <msebor@redhat.com>
+
+	* c.opt (Wplacement-new): Add a period to the end of a sentence.
+
+2015-11-07  Richard Sandiford  <richard.sandiford@arm.com>
+
+	* c-common.c: Don't undef DEF_BUILTIN.
+
+2015-11-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-common.c (c_cpp_error): Convert parameter from location_t to
+	rich_location *.  Eliminate the "column_override" parameter and
+	the call to diagnostic_override_column.
+	Update the "done_lexing" clause to set range 0
+	on the rich_location, rather than overwriting a location_t.
+	* c-common.h (c_cpp_error): Convert parameter from location_t to
+	rich_location *.  Eliminate the "column_override" parameter.
+
 2015-11-05  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>

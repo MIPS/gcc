@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "target-globals.h"
+#include "gimple-iterator.h"
 #include "tree-vectorizer.h"
 #include "shrink-wrap.h"
 #include "builtins.h"
@@ -79,6 +80,7 @@ along with GCC; see the file COPYING3.  If not see
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
 static rtx legitimize_pe_coff_symbol (rtx, bool);
+static void ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t);
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -10537,6 +10539,20 @@ ix86_check_movabs (rtx insn, int opnum)
   gcc_assert (MEM_P (mem));
   return volatile_ok || !MEM_VOLATILE_P (mem);
 }
+
+/* Return false if INSN contains a MEM with a non-default address space.  */
+bool
+ix86_check_no_addr_space (rtx insn)
+{
+  subrtx_var_iterator::array_type array;
+  FOR_EACH_SUBRTX_VAR (iter, array, PATTERN (insn), ALL)
+    {
+      rtx x = *iter;
+      if (MEM_P (x) && !ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (x)))
+	return false;
+    }
+  return true;
+}
 
 /* Initialize the table of extra 80387 mathematical constants.  */
 
@@ -13973,7 +13989,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
   rtx scale_rtx = NULL_RTX;
   rtx tmp;
   int retval = 1;
-  enum ix86_address_seg seg = SEG_DEFAULT;
+  addr_space_t seg = ADDR_SPACE_GENERIC;
 
   /* Allow zero-extended SImode addresses,
      they will be emitted with addr32 prefix.  */
@@ -14072,7 +14088,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	    case UNSPEC:
 	      if (XINT (op, 1) == UNSPEC_TP
 	          && TARGET_TLS_DIRECT_SEG_REFS
-	          && seg == SEG_DEFAULT)
+	          && seg == ADDR_SPACE_GENERIC)
 		seg = DEFAULT_TLS_SEG_REG;
 	      else
 		return 0;
@@ -14660,7 +14676,7 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
   struct ix86_address parts;
   rtx base, index, disp;
   HOST_WIDE_INT scale;
-  enum ix86_address_seg seg;
+  addr_space_t seg;
 
   if (ix86_decompose_address (addr, &parts) <= 0)
     /* Decomposition failed.  */
@@ -14706,7 +14722,7 @@ ix86_legitimate_address_p (machine_mode, rtx addr, bool strict)
     return false;
 
   /* Address override works only on the (%reg) part of %fs:(%reg).  */
-  if (seg != SEG_DEFAULT
+  if (seg != ADDR_SPACE_GENERIC
       && ((base && GET_MODE (base) != word_mode)
 	  || (index && GET_MODE (index) != word_mode)))
     return false;
@@ -17113,32 +17129,22 @@ ix86_print_operand (FILE *file, rtx x, int code)
 
   else if (MEM_P (x))
     {
-      /* No `byte ptr' prefix for call instructions or BLKmode operands.  */
-      if (ASSEMBLER_DIALECT == ASM_INTEL && code != 'X' && code != 'P'
-	  && GET_MODE (x) != BLKmode)
-	{
-	  const char * size;
-	  switch (GET_MODE_SIZE (GET_MODE (x)))
-	    {
-	    case 1: size = "BYTE"; break;
-	    case 2: size = "WORD"; break;
-	    case 4: size = "DWORD"; break;
-	    case 8: size = "QWORD"; break;
-	    case 12: size = "TBYTE"; break;
-	    case 16:
-	      if (GET_MODE (x) == XFmode)
-		size = "TBYTE";
-              else
-		size = "XMMWORD";
-              break;
-	    case 32: size = "YMMWORD"; break;
-	    case 64: size = "ZMMWORD"; break;
-	    default:
-	      gcc_unreachable ();
-	    }
+      rtx addr = XEXP (x, 0);
 
-	  /* Check for explicit size override (codes 'b', 'w', 'k',
-	     'q' and 'x')  */
+      /* Avoid (%rip) for call operands.  */
+      if (code == 'P' && CONSTANT_ADDRESS_P (x) && !CONST_INT_P (x))
+	{
+	  output_addr_const (file, addr);
+	  return;
+	}
+
+      /* No `byte ptr' prefix for call instructions ... */
+      if (ASSEMBLER_DIALECT == ASM_INTEL && code != 'X' && code != 'P')
+	{
+	  machine_mode mode = GET_MODE (x);
+	  const char *size;
+
+	  /* Check for explicit size override codes.  */
 	  if (code == 'b')
 	    size = "BYTE";
 	  else if (code == 'w')
@@ -17149,20 +17155,39 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    size = "QWORD";
 	  else if (code == 'x')
 	    size = "XMMWORD";
-
-	  fputs (size, file);
-	  fputs (" PTR ", file);
+	  else if (mode == BLKmode)
+	    /* ... or BLKmode operands, when not overridden.  */
+	    size = NULL;
+	  else
+	    switch (GET_MODE_SIZE (mode))
+	      {
+	      case 1: size = "BYTE"; break;
+	      case 2: size = "WORD"; break;
+	      case 4: size = "DWORD"; break;
+	      case 8: size = "QWORD"; break;
+	      case 12: size = "TBYTE"; break;
+	      case 16:
+		if (mode == XFmode)
+		  size = "TBYTE";
+		else
+		  size = "XMMWORD";
+		break;
+	      case 32: size = "YMMWORD"; break;
+	      case 64: size = "ZMMWORD"; break;
+	      default:
+		gcc_unreachable ();
+	      }
+	  if (size)
+	    {
+	      fputs (size, file);
+	      fputs (" PTR ", file);
+	    }
 	}
 
-      x = XEXP (x, 0);
-      /* Avoid (%rip) for call operands.  */
-      if (CONSTANT_ADDRESS_P (x) && code == 'P'
-	  && !CONST_INT_P (x))
-	output_addr_const (file, x);
-      else if (this_is_asm_operands && ! address_operand (x, VOIDmode))
+      if (this_is_asm_operands && ! address_operand (addr, VOIDmode))
 	output_operand_lossage ("invalid constraints for operand");
       else
-	output_address (x);
+	ix86_print_operand_address_as (file, addr, MEM_ADDR_SPACE (x));
     }
 
   else if (CONST_DOUBLE_P (x) && GET_MODE (x) == SFmode)
@@ -17247,7 +17272,7 @@ ix86_print_operand_punct_valid_p (unsigned char code)
 /* Print a memory operand whose address is ADDR.  */
 
 static void
-ix86_print_operand_address (FILE *file, rtx addr)
+ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t as)
 {
   struct ix86_address parts;
   rtx base, index, disp;
@@ -17300,18 +17325,24 @@ ix86_print_operand_address (FILE *file, rtx addr)
   disp = parts.disp;
   scale = parts.scale;
 
-  switch (parts.seg)
+  if (ADDR_SPACE_GENERIC_P (as))
+    as = parts.seg;
+  else
+    gcc_assert (ADDR_SPACE_GENERIC_P (parts.seg));
+
+  if (!ADDR_SPACE_GENERIC_P (as))
     {
-    case SEG_DEFAULT:
-      break;
-    case SEG_FS:
-    case SEG_GS:
-      if (ASSEMBLER_DIALECT == ASM_ATT)
-	putc ('%', file);
-      fputs ((parts.seg == SEG_FS ? "fs:" : "gs:"), file);
-      break;
-    default:
-      gcc_unreachable ();
+      const char *string;
+
+      if (as == ADDR_SPACE_SEG_TLS)
+	as = DEFAULT_TLS_SEG_REG;
+      if (as == ADDR_SPACE_SEG_FS)
+	string = (ASSEMBLER_DIALECT == ASM_ATT ? "%fs:" : "fs:");
+      else if (as == ADDR_SPACE_SEG_GS)
+	string = (ASSEMBLER_DIALECT == ASM_ATT ? "%gs:" : "gs:");
+      else
+	gcc_unreachable ();
+      fputs (string, file);
     }
 
   /* Use one byte shorter RIP relative addressing for 64bit mode.  */
@@ -17335,7 +17366,7 @@ ix86_print_operand_address (FILE *file, rtx addr)
 
       if (CONST_INT_P (disp))
 	{
-	  if (ASSEMBLER_DIALECT == ASM_INTEL && parts.seg == SEG_DEFAULT)
+	  if (ASSEMBLER_DIALECT == ASM_INTEL && parts.seg == ADDR_SPACE_GENERIC)
 	    fputs ("ds:", file);
 	  fprintf (file, HOST_WIDE_INT_PRINT_DEC, INTVAL (disp));
 	}
@@ -17469,6 +17500,12 @@ ix86_print_operand_address (FILE *file, rtx addr)
 	  putc (']', file);
 	}
     }
+}
+
+static void
+ix86_print_operand_address (FILE *file, rtx addr)
+{
+  ix86_print_operand_address_as (file, addr, ADDR_SPACE_GENERIC);
 }
 
 /* Implementation of TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA.  */
@@ -25664,7 +25701,7 @@ expand_set_or_movmem_constant_prologue (rtx dst, rtx *srcp, rtx destreg,
 /* Return true if ALG can be used in current context.  
    Assume we expand memset if MEMSET is true.  */
 static bool
-alg_usable_p (enum stringop_alg alg, bool memset)
+alg_usable_p (enum stringop_alg alg, bool memset, bool have_as)
 {
   if (alg == no_stringop)
     return false;
@@ -25673,12 +25710,19 @@ alg_usable_p (enum stringop_alg alg, bool memset)
   /* Algorithms using the rep prefix want at least edi and ecx;
      additionally, memset wants eax and memcpy wants esi.  Don't
      consider such algorithms if the user has appropriated those
-     registers for their own purposes.	*/
+     registers for their own purposes, or if we have a non-default
+     address space, since some string insns cannot override the segment.  */
   if (alg == rep_prefix_1_byte
       || alg == rep_prefix_4_byte
       || alg == rep_prefix_8_byte)
-    return !(fixed_regs[CX_REG] || fixed_regs[DI_REG]
-             || (memset ? fixed_regs[AX_REG] : fixed_regs[SI_REG]));
+    {
+      if (have_as)
+	return false;
+      if (fixed_regs[CX_REG]
+	  || fixed_regs[DI_REG]
+	  || (memset ? fixed_regs[AX_REG] : fixed_regs[SI_REG]))
+	return false;
+    }
   return true;
 }
 
@@ -25686,7 +25730,8 @@ alg_usable_p (enum stringop_alg alg, bool memset)
 static enum stringop_alg
 decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	    unsigned HOST_WIDE_INT min_size, unsigned HOST_WIDE_INT max_size,
-	    bool memset, bool zero_memset, int *dynamic_check, bool *noalign)
+	    bool memset, bool zero_memset, bool have_as,
+	    int *dynamic_check, bool *noalign)
 {
   const struct stringop_algs * algs;
   bool optimize_for_speed;
@@ -25718,7 +25763,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
   for (i = 0; i < MAX_STRINGOP_ALGS; i++)
     {
       enum stringop_alg candidate = algs->size[i].alg;
-      bool usable = alg_usable_p (candidate, memset);
+      bool usable = alg_usable_p (candidate, memset, have_as);
       any_alg_usable_p |= usable;
 
       if (candidate != libcall && candidate && usable)
@@ -25734,17 +25779,17 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 
   /* If user specified the algorithm, honnor it if possible.  */
   if (ix86_stringop_alg != no_stringop
-      && alg_usable_p (ix86_stringop_alg, memset))
+      && alg_usable_p (ix86_stringop_alg, memset, have_as))
     return ix86_stringop_alg;
   /* rep; movq or rep; movl is the smallest variant.  */
   else if (!optimize_for_speed)
     {
       *noalign = true;
       if (!count || (count & 3) || (memset && !zero_memset))
-	return alg_usable_p (rep_prefix_1_byte, memset)
+	return alg_usable_p (rep_prefix_1_byte, memset, have_as)
 	       ? rep_prefix_1_byte : loop_1_byte;
       else
-	return alg_usable_p (rep_prefix_4_byte, memset)
+	return alg_usable_p (rep_prefix_4_byte, memset, have_as)
 	       ? rep_prefix_4_byte : loop;
     }
   /* Very tiny blocks are best handled via the loop, REP is expensive to
@@ -25767,7 +25812,8 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	    {
 	      enum stringop_alg candidate = algs->size[i].alg;
 
-	      if (candidate != libcall && alg_usable_p (candidate, memset))
+	      if (candidate != libcall
+		  && alg_usable_p (candidate, memset, have_as))
 		{
 		  alg = candidate;
 		  alg_noalign = algs->size[i].noalign;
@@ -25787,7 +25833,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 		  else if (!any_alg_usable_p)
 		    break;
 		}
-	      else if (alg_usable_p (candidate, memset))
+	      else if (alg_usable_p (candidate, memset, have_as))
 		{
 		  *noalign = algs->size[i].noalign;
 		  return candidate;
@@ -25804,7 +25850,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
      choice in ix86_costs.  */
   if ((TARGET_INLINE_ALL_STRINGOPS || TARGET_INLINE_STRINGOPS_DYNAMICALLY)
       && (algs->unknown_size == libcall
-	  || !alg_usable_p (algs->unknown_size, memset)))
+	  || !alg_usable_p (algs->unknown_size, memset, have_as)))
     {
       enum stringop_alg alg;
 
@@ -25821,7 +25867,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
       if (max <= 0)
 	max = 4096;
       alg = decide_alg (count, max / 2, min_size, max_size, memset,
-			zero_memset, dynamic_check, noalign);
+			zero_memset, have_as, dynamic_check, noalign);
       gcc_assert (*dynamic_check == -1);
       if (TARGET_INLINE_STRINGOPS_DYNAMICALLY)
 	*dynamic_check = max;
@@ -25829,7 +25875,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	gcc_assert (alg != libcall);
       return alg;
     }
-  return (alg_usable_p (algs->unknown_size, memset)
+  return (alg_usable_p (algs->unknown_size, memset, have_as)
 	  ? algs->unknown_size : libcall);
 }
 
@@ -26035,6 +26081,7 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
   unsigned HOST_WIDE_INT max_size = -1;
   unsigned HOST_WIDE_INT probable_max_size = -1;
   bool misaligned_prologue_used = false;
+  bool have_as;
 
   if (CONST_INT_P (align_exp))
     align = INTVAL (align_exp);
@@ -26072,11 +26119,15 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
   if (count > (HOST_WIDE_INT_1U << 30))
     return false;
 
+  have_as = !ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (dst));
+  if (!issetmem)
+    have_as |= !ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (src));
+
   /* Step 0: Decide on preferred algorithm, desired alignment and
      size of chunks to be copied by main loop.  */
   alg = decide_alg (count, expected_size, min_size, probable_max_size,
 		    issetmem,
-		    issetmem && val_exp == const0_rtx,
+		    issetmem && val_exp == const0_rtx, have_as,
 		    &dynamic_check, &noalign);
   if (alg == libcall)
     return false;
@@ -26690,6 +26741,9 @@ ix86_expand_strlen (rtx out, rtx src, rtx eoschar, rtx align)
       /* Can't use this if the user has appropriated eax, ecx, or edi.  */
       if (fixed_regs[AX_REG] || fixed_regs[CX_REG] || fixed_regs[DI_REG])
         return false;
+      /* Can't use this for non-default address spaces.  */
+      if (!ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (src)))
+	return false;
 
       scratch2 = gen_reg_rtx (Pmode);
       scratch3 = gen_reg_rtx (Pmode);
@@ -27104,7 +27158,7 @@ memory_address_length (rtx addr, bool lea)
   ok = ix86_decompose_address (addr, &parts);
   gcc_assert (ok);
 
-  len = (parts.seg == SEG_DEFAULT) ? 0 : 1;
+  len = (parts.seg == ADDR_SPACE_GENERIC) ? 0 : 1;
 
   /*  If this is not LEA instruction, add the length of addr32 prefix.  */
   if (TARGET_64BIT && !lea
@@ -27265,25 +27319,35 @@ ix86_attr_length_address_default (rtx_insn *insn)
 
   extract_insn_cached (insn);
   for (i = recog_data.n_operands - 1; i >= 0; --i)
-    if (MEM_P (recog_data.operand[i]))
-      {
-        constrain_operands_cached (insn, reload_completed);
-        if (which_alternative != -1)
-	  {
-	    const char *constraints = recog_data.constraints[i];
-	    int alt = which_alternative;
+    {
+      rtx op = recog_data.operand[i];
+      if (MEM_P (op))
+	{
+	  constrain_operands_cached (insn, reload_completed);
+	  if (which_alternative != -1)
+	    {
+	      const char *constraints = recog_data.constraints[i];
+	      int alt = which_alternative;
 
-	    while (*constraints == '=' || *constraints == '+')
-	      constraints++;
-	    while (alt-- > 0)
-	      while (*constraints++ != ',')
-		;
-	    /* Skip ignored operands.  */
-	    if (*constraints == 'X')
-	      continue;
-	  }
-	return memory_address_length (XEXP (recog_data.operand[i], 0), false);
-      }
+	      while (*constraints == '=' || *constraints == '+')
+		constraints++;
+	      while (alt-- > 0)
+	        while (*constraints++ != ',')
+		  ;
+	      /* Skip ignored operands.  */
+	      if (*constraints == 'X')
+		continue;
+	    }
+
+	  int len = memory_address_length (XEXP (op, 0), false);
+
+	  /* Account for segment prefix for non-default addr spaces.  */
+	  if (!ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (op)))
+	    len++;
+
+	  return len;
+	}
+    }
   return 0;
 }
 
@@ -53636,6 +53700,78 @@ ix86_operands_ok_for_move_multiple (rtx *operands, bool load,
 
   return true;
 }
+
+/* Address space support.
+
+   This is not "far pointers" in the 16-bit sense, but an easy way
+   to use %fs and %gs segment prefixes.  Therefore:
+
+    (a) All address spaces have the same modes,
+    (b) All address spaces have the same addresss forms,
+    (c) While %fs and %gs are technically subsets of the generic
+        address space, they are probably not subsets of each other.
+    (d) Since we have no access to the segment base register values
+        without resorting to a system call, we cannot convert a
+        non-default address space to a default address space.
+        Therefore we do not claim %fs or %gs are subsets of generic.
+    (e) However, __seg_tls uses UNSPEC_TP as the base (which itself is
+	stored at __seg_tls:0) so we can map between tls and generic.  */
+
+static bool
+ix86_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
+{
+    return (subset == superset
+	    || (superset == ADDR_SPACE_GENERIC
+		&& subset == ADDR_SPACE_SEG_TLS));
+}
+#undef TARGET_ADDR_SPACE_SUBSET_P
+#define TARGET_ADDR_SPACE_SUBSET_P ix86_addr_space_subset_p
+
+static rtx
+ix86_addr_space_convert (rtx op, tree from_type, tree to_type)
+{
+  addr_space_t from_as = TYPE_ADDR_SPACE (TREE_TYPE (from_type));
+  addr_space_t to_as = TYPE_ADDR_SPACE (TREE_TYPE (to_type));
+
+  /* Conversion between SEG_TLS and GENERIC is handled by adding or
+     subtracting the thread pointer.  */
+  if ((from_as == ADDR_SPACE_GENERIC && to_as == ADDR_SPACE_SEG_TLS)
+      || (from_as == ADDR_SPACE_SEG_TLS && to_as == ADDR_SPACE_GENERIC))
+    {
+      machine_mode mode = GET_MODE (op);
+      if (mode == VOIDmode)
+	mode = ptr_mode;
+      rtx tp = get_thread_pointer (mode, optimize || mode != ptr_mode);
+      return expand_binop (mode, (to_as == ADDR_SPACE_GENERIC
+				  ? add_optab : sub_optab),
+			   op, tp, NULL, 1, OPTAB_WIDEN);
+    }
+
+  return op;
+}
+#undef TARGET_ADDR_SPACE_CONVERT
+#define TARGET_ADDR_SPACE_CONVERT ix86_addr_space_convert
+
+static int
+ix86_addr_space_debug (addr_space_t as)
+{
+  /* Fold __seg_tls to __seg_fs or __seg_gs for debugging.  */
+  if (as == ADDR_SPACE_SEG_TLS)
+    as = DEFAULT_TLS_SEG_REG;
+  return as;
+}
+#undef TARGET_ADDR_SPACE_DEBUG
+#define TARGET_ADDR_SPACE_DEBUG ix86_addr_space_debug
+
+/* All use of segmentation is assumed to make address 0 valid.  */
+
+static bool
+ix86_addr_space_zero_address_valid (addr_space_t as)
+{
+  return as != ADDR_SPACE_GENERIC;
+}
+#undef TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID
+#define TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID ix86_addr_space_zero_address_valid
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
