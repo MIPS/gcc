@@ -1,5 +1,10 @@
 2015-11-09  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (release_first_vuse_in_edge_dest): Remove
+	(expand_omp_target): Remove ssa support.
+
+2015-11-09  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (pass_data_expand_omp): Add PROP_gimple_eomp to
 	properties_provided.
 	(pass_expand_omp::execute): Don't set PROP_gimple_eomp.

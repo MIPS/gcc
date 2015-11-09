@@ -6973,38 +6973,6 @@ expand_omp_build_assign (gimple_stmt_iterator *gsi_p, tree to, tree from,
     }
 }
 
-/* Release the first vuse in bb E->dest, either normal or phi arg for
-   edge E.  */
-
-static void
-release_first_vuse_in_edge_dest (edge e)
-{
-  gimple_stmt_iterator i;
-  basic_block bb = e->dest;
-
-  for (i = gsi_start_phis (bb); !gsi_end_p (i); gsi_next (&i))
-    {
-      gimple *phi = gsi_stmt (i);
-      tree arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
-
-      if (!virtual_operand_p (arg))
-	continue;
-
-      mark_virtual_operand_for_renaming (arg);
-      return;
-    }
-
-  for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next_nondebug (&i))
-    {
-      gimple *stmt = gsi_stmt (i);
-      if (gimple_vuse (stmt) == NULL_TREE)
-	continue;
-
-      mark_virtual_operand_for_renaming (gimple_vuse (stmt));
-      return;
-    }
-}
-
 /* Expand the OpenMP parallel or task directive starting at REGION.  */
 
 static void
@@ -12727,6 +12695,7 @@ expand_omp_target (struct omp_region *region)
   /* Supported by expand_omp_taskreg, but not here.  */
   if (child_cfun != NULL)
     gcc_checking_assert (!child_cfun->cfg);
+  gcc_checking_assert (!gimple_in_ssa_p (cfun));
 
   entry_bb = region->entry;
   exit_bb = region->exit;
@@ -12735,7 +12704,7 @@ expand_omp_target (struct omp_region *region)
     mark_loops_in_oacc_kernels_region (region->entry, region->exit);
 
   basic_block entry_succ_bb = single_succ (entry_bb);
-  if (offloaded && !gimple_in_ssa_p (cfun))
+  if (offloaded)
     {
       gsi = gsi_last_bb (entry_succ_bb);
       if (gimple_code (gsi_stmt (gsi)) == GIMPLE_OMP_ENTRY_END)
@@ -12793,25 +12762,8 @@ expand_omp_target (struct omp_region *region)
 	  gcc_assert (tgtcopy_stmt != NULL);
 	  arg = DECL_ARGUMENTS (child_fn);
 
-	  if (!gimple_in_ssa_p (cfun))
-	    {
-	      gcc_assert (gimple_assign_lhs (tgtcopy_stmt) == arg);
-	      gsi_remove (&gsi, true);
-	    }
-	  else
-	    {
-	      tree lhs = gimple_assign_lhs (tgtcopy_stmt);
-	      gcc_assert (SSA_NAME_VAR (lhs) == arg);
-	      /* We'd like to set the rhs to the default def in the child_fn,
-		 but it's too early to create ssa names in the child_fn.
-		 Instead, we set the rhs to the parm.  In
-		 move_sese_region_to_fn, we introduce a default def for the
-		 parm, map the parm to it's default def, and once we encounter
-		 this stmt, replace the parm with the default def.  */
-	      gimple_assign_set_rhs1 (tgtcopy_stmt, arg);
-	      gcc_assert (ssa_default_def (cfun, arg) == NULL);
-	      update_stmt (tgtcopy_stmt);
-	    }
+	  gcc_assert (gimple_assign_lhs (tgtcopy_stmt) == arg);
+	  gsi_remove (&gsi, true);
 	}
 
       /* Declare local variables needed in CHILD_CFUN.  */
@@ -12854,23 +12806,11 @@ expand_omp_target (struct omp_region *region)
 	  stmt = gimple_build_return (NULL);
 	  gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 	  gsi_remove (&gsi, true);
-
-	  /* A vuse in single_succ (exit_bb) may use a vdef from the region
-	     which is about to be split off.  Mark the vdef for renaming.  */
-	  release_first_vuse_in_edge_dest (single_succ_edge (exit_bb));
 	}
 
       /* Move the offloading region into CHILD_CFUN.  */
 
-      if (gimple_in_ssa_p (cfun))
-	{
-	  init_tree_ssa (child_cfun);
-	  init_ssa_operands (child_cfun);
-	  child_cfun->gimple_df->in_ssa_p = true;
-	  block = NULL_TREE;
-	}
-      else
-	block = gimple_block (entry_stmt);
+      block = gimple_block (entry_stmt);
 
       new_bb = move_sese_region_to_fn (child_cfun, entry_bb, exit_bb, block);
       if (exit_bb)
@@ -12937,8 +12877,6 @@ expand_omp_target (struct omp_region *region)
 	  if (changed)
 	    cleanup_tree_cfg ();
 	}
-      if (gimple_in_ssa_p (cfun))
-	update_ssa (TODO_update_ssa);
       if (flag_checking && !loops_state_satisfies_p (LOOPS_NEED_FIXUP))
 	verify_loop_structure ();
       pop_cfun ();
@@ -13257,8 +13195,6 @@ expand_omp_target (struct omp_region *region)
       gcc_assert (g && gimple_code (g) == GIMPLE_OMP_RETURN);
       gsi_remove (&gsi, true);
     }
-  if (gimple_in_ssa_p (cfun))
-    update_ssa (TODO_update_ssa_only_virtuals);
 }
 
 /* Expand the parallel region tree rooted at REGION.  Expansion
