@@ -637,9 +637,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	  else
 	    code = NOP_EXPR;
 
-	  if (!dofold)
-	    return build1 (code, type, expr);
-	  return fold_build1 (code, type, expr);
+	  return maybe_fold_build1_loc (dofold, loc, code, type, expr);
 	}
 
       /* If TYPE is an enumeral type or a type with a precision less
@@ -847,15 +845,10 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 		      }
 		    /* We should do away with all this once we have a proper
 		       type promotion/demotion pass, see PR45397.  */
-		    if (dofold)
-		      return convert (type,
-				      fold_build2 (ex_form, typex,
-						   convert (typex, arg0),
-						   convert (typex, arg1)));
-		    arg0 = build1 (CONVERT_EXPR, typex, arg0);
-		    arg1 = build1 (CONVERT_EXPR, typex, arg1);
-		    expr = build2 (ex_form, typex, arg0, arg1);
-		    return build1 (CONVERT_EXPR, type, expr);
+		    expr = maybe_fold_build2_loc (dofold, loc, ex_form, typex,
+						  convert (typex, arg0),
+						  convert (typex, arg1));
+		    return convert (type, expr);
 		  }
 	      }
 	  }
@@ -933,9 +926,8 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	  expr = build1 (FIX_TRUNC_EXPR, type, expr);
 	  if (check == NULL)
 	    return expr;
-	  if (!dofold)
-	    return build2 (COMPOUND_EXPR, TREE_TYPE (expr), check, expr);
-	  return fold_build2 (COMPOUND_EXPR, TREE_TYPE (expr), check, expr);
+	  return maybe_fold_build2_loc (dofold, loc, COMPOUND_EXPR,
+					TREE_TYPE (expr), check, expr);
 	}
       else
 	return build1 (FIX_TRUNC_EXPR, type, expr);
@@ -944,13 +936,9 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
       return build1 (FIXED_CONVERT_EXPR, type, expr);
 
     case COMPLEX_TYPE:
-      if (!dofold)
-	return convert (type,
-			build1 (REALPART_EXPR,
-				TREE_TYPE (TREE_TYPE (expr)), expr));
-      return convert (type,
-		      fold_build1 (REALPART_EXPR,
-				   TREE_TYPE (TREE_TYPE (expr)), expr));
+      expr = maybe_fold_build1_loc (dofold, loc, REALPART_EXPR,
+				    TREE_TYPE (TREE_TYPE (expr)), expr);
+      return convert (type, expr);
 
     case VECTOR_TYPE:
       if (!tree_int_cst_equal (TYPE_SIZE (type), TYPE_SIZE (TREE_TYPE (expr))))
