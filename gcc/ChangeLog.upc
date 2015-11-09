@@ -1,5 +1,11 @@
 2015-11-09  Gary Funck  <gary@intrepid.com>
 
+	* top-level/Makefile.def (GUPC_FOR_TARGET, GUPCFLAGS_FOR_TARGET):
+	Delete un-used make flags.
+	* top-level/Makefile.in: Re-generate.
+
+2015-11-09  Gary Funck  <gary@intrepid.com>
+
 	Merge trunk version 230003 into gupc branch.
 
 2015-11-09  Gary Funck  <gary@intrepid.com>
