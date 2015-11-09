@@ -13589,7 +13589,7 @@ const pass_data pass_data_expand_omp =
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
-  0 /* Possibly PROP_gimple_eomp.  */, /* properties_provided */
+  PROP_gimple_eomp, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
   0, /* todo_flags_finish */
@@ -13603,13 +13603,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  virtual unsigned int execute (function *fun)
+  virtual unsigned int execute (function *)
     {
       bool gate = ((flag_cilkplus != 0 || flag_openacc != 0 || flag_openmp != 0
 		    || flag_openmp_simd != 0)
 		   && !seen_error ());
-
-      fun->curr_properties |= PROP_gimple_eomp;
 
       /* This pass always runs, to provide PROP_gimple_eomp.
 	 But often, there is nothing to do.  */
