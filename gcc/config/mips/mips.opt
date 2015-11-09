@@ -479,3 +479,7 @@ Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
 
 mforbidden-slots
 Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mmips16-use-xsregs
+Target Var(mips16_xsregs) Report Init(0)
+Use additional callee saved registers in MIPS16 mode.
