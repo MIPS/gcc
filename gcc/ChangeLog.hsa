@@ -1,3 +1,10 @@
+2015-11-09  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/install.texi (Configuration): Describe hsa
+	--enable-offload-targets option, add description of
+	--with-hsa-runtime, --with-hsa-runtime-include and
+	--with-hsa-runtime-lib
+
 2015-11-09  Martin Liska  <mliska@suse.cz>
 
 	* hsa-dump.c (dump_hsa_symbol): Support array types.
