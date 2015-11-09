@@ -1,3 +1,8 @@
+2015-11-09  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_packed_insn): Invert emitted operands
+	of a packed instruction.
+
 2015-11-09  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c: Removed spurious newline changes.

@@ -1593,8 +1593,8 @@ emit_packed_insn (hsa_insn_packed *insn)
 	}
 
       repr.base.operands = htole32
-	(emit_operands (insn->get_op (insn->operand_count () - 1),
-			insn->m_operand_list));
+	(emit_operands (insn->m_operand_list,
+			insn->get_op (insn->operand_count () - 1)));
     }
 
 
