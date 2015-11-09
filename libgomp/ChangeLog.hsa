@@ -1,3 +1,7 @@
+2015-11-09  Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c: Add the standard copyright header.
+
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c: Fix spelling errors in strings and comments.
