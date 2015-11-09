@@ -3884,11 +3884,8 @@ cxx_constant_value (tree t, tree decl)
 static tree
 fold_simple_1 (tree t)
 {
-  tree op1, op2, op3;
+  tree op1;
   enum tree_code code = TREE_CODE (t);
-
-  if (code == VAR_DECL)
-    return NULL_TREE;
 
   switch (code)
     {
@@ -3900,8 +3897,7 @@ fold_simple_1 (tree t)
       return t;
 
     case SIZEOF_EXPR:
-      t = fold_sizeof_expr (t);
-      break;
+      return fold_sizeof_expr (t);
 
     case ABS_EXPR:
     case CONJ_EXPR:
@@ -3918,9 +3914,7 @@ fold_simple_1 (tree t)
     case FIXED_CONVERT_EXPR:
     case ADDR_SPACE_CONVERT_EXPR:
 
-      op1 = fold_simple_1 (TREE_OPERAND (t, 0));
-      if (!op1 || (code == NOP_EXPR && TREE_OVERFLOW (op1)))
-	return NULL_TREE;
+      op1 = TREE_OPERAND (t, 0);
 
       t = const_unop (code, TREE_TYPE (t), op1);
       if (!t)
@@ -3929,96 +3923,11 @@ fold_simple_1 (tree t)
       if (CONVERT_EXPR_CODE_P (code)
 	  && TREE_OVERFLOW_P (t) && !TREE_OVERFLOW_P (op1))
 	TREE_OVERFLOW (t) = false;
-      break;
-
-    case BIT_AND_EXPR:
-    case BIT_IOR_EXPR:
-    case BIT_XOR_EXPR:
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-    case TRUNC_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-    case FLOOR_DIV_EXPR:
-    case ROUND_DIV_EXPR:
-    case TRUNC_MOD_EXPR:
-    case CEIL_MOD_EXPR:
-    case ROUND_MOD_EXPR:
-    case RDIV_EXPR:
-    case EXACT_DIV_EXPR:
-    case MIN_EXPR:
-    case MAX_EXPR:
-    case LSHIFT_EXPR:
-    case RSHIFT_EXPR:
-    case LROTATE_EXPR:
-    case RROTATE_EXPR:
-    case TRUTH_AND_EXPR:
-    case TRUTH_ANDIF_EXPR:
-    case TRUTH_OR_EXPR:
-    case TRUTH_ORIF_EXPR:
-    case TRUTH_XOR_EXPR:
-    case LT_EXPR: case LE_EXPR:
-    case GT_EXPR: case GE_EXPR:
-    case EQ_EXPR: case NE_EXPR:
-    case UNORDERED_EXPR: case ORDERED_EXPR:
-    case UNLT_EXPR: case UNLE_EXPR:
-    case UNGT_EXPR: case UNGE_EXPR:
-    case UNEQ_EXPR: case LTGT_EXPR:
-
-      op1 = fold_simple_1 (TREE_OPERAND (t, 0));
-      op2 = fold_simple_1 (TREE_OPERAND (t, 1));
-
-      if (!op1 && !op2)
-	return NULL_TREE;
-      if (!op1)
-	op1 = TREE_OPERAND (t, 0);
-      if (!op2)
-	op2 = TREE_OPERAND (t, 1);
-
-      t = fold_build2_loc (EXPR_LOCATION (t), code, TREE_TYPE (t),
-			   op1, op2);
-      break;
-
-    case VEC_COND_EXPR:
-    case COND_EXPR:
-
-      if (VOID_TYPE_P (TREE_TYPE (t)))
-	return NULL_TREE;
-
-      op1 = TREE_OPERAND (t, 0);
-      op1 = fold_simple_1 (op1);
-      op2 = TREE_OPERAND (t, 1);
-      op3 = TREE_OPERAND (t, 2);
-      if (!op1)
-	return NULL_TREE;
-      op1 = fold (build3 (code, TREE_TYPE (t), op1, op2, op3));
-
-      /* We need to recurse into result, if CODE isn't
-         a COND-expression.  */
-      if (TREE_CODE (op1) != code)
-	return fold_simple_1 (op1);
-      return NULL_TREE;
+      return t;
 
     default:
       return NULL_TREE;
     }
-
-  /* Just return folded expression if we got as result
-     a CST-expression.  */
-  switch (TREE_CODE (t))
-    {
-    case STRING_CST:
-    case INTEGER_CST:
-    case REAL_CST:
-    case VECTOR_CST:
-    case FIXED_CST:
-    case COMPLEX_CST:
-      break;
-    default:
-      return NULL_TREE;
-    }
-
-  return t;
 }
 
 /* If T is a simple constant expression, returns its simplified value.
