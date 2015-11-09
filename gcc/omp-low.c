@@ -12637,7 +12637,6 @@ expand_omp_target (struct omp_region *region)
   args.quick_push (device);
   if (offloaded)
     args.quick_push (build_fold_addr_expr (child_fn));
-
   args.quick_push (t1);
   args.quick_push (t2);
   args.quick_push (t3);
@@ -14857,6 +14856,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   /* Add OpenACC joining and reduction markers just after the loop.  */
   if (oacc_tail)
     gimple_seq_add_seq (&body, oacc_tail);
+
   pop_gimplify_context (new_stmt);
 
   gimple_bind_append_vars (new_stmt, ctx->block_vars);
