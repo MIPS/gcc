@@ -1,3 +1,8 @@
+2015-11-09  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gcc.dg/gomp/notify-new-function-3.c: Scan "ompexpssa2" instead
+	of "ompexpssa3".
+
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
 
 	* g++.dg/tree-ssa/copyprop-1.C: Update for extra pass_dce in pass list.
