@@ -1958,6 +1958,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case VIEW_CONVERT_EXPR:
     case CONVERT_EXPR:
     case NOP_EXPR:
+    case NON_LVALUE_EXPR:
 
       if (VOID_TYPE_P (TREE_TYPE (x)))
 	return x;
@@ -2004,15 +2005,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case TRUTH_NOT_EXPR:
     case FIXED_CONVERT_EXPR:
     case UNARY_PLUS_EXPR:
-    case CLEANUP_POINT_EXPR:
     case INDIRECT_REF:
-    /* case NON_LVALUE_EXPR: */
-    case RETURN_EXPR:
-    case EXPR_STMT:
-    case STMT_EXPR:
-    case GOTO_EXPR:
-    case EXIT_EXPR:
-    case LOOP_EXPR:
 
       loc = EXPR_LOCATION (x);
       op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
