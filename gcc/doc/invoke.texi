@@ -772,6 +772,7 @@ Objective-C and Objective-C++ Dialects}.
 -mips16  -mno-mips16  -mflip-mips16 @gol
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
+-mmips16-use-xsregs -mno-mips16-use-xsregs @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
@@ -17261,6 +17262,14 @@ knows that the target of the jump is not compressed.
 Aliases of @option{-minterlink-compressed} and
 @option{-mno-interlink-compressed}.  These options predate the microMIPS ASE
 and are retained for backwards compatibility.
+
+@item -mmips16-use-xsregs
+@itemx -mno-mips16-use-xsregs
+@opindex mmips16-use-xsregs
+@opindex mno-mips16-use-xsregs
+Enable the use of additional callee-saved registers for MIPS16 which would
+not normally be available.  This will often reduce code size and improve
+performance as these registers will be used instead of spilling to memory.
 
 @item -mabi=32
 @itemx -mabi=o64
