@@ -18835,38 +18835,6 @@ omp_finish_file (void)
     }
 }
 
-/* Transform oacc_dim_size and oacc_dim_pos internal function calls to
-   constants, where possible.  */
-
-static bool
-oacc_xform_dim (gcall *call, const int dims[], bool is_pos)
-{
-  tree arg = gimple_call_arg (call, 0);
-  unsigned axis = (unsigned)TREE_INT_CST_LOW (arg);
-  int size = dims[axis];
-
-  if (!size)
-    /* Dimension size is dynamic.  */
-    return false;
-  
-  if (is_pos)
-    {
-      if (size != 1)
-	/* Size is more than 1, so POS might be non-zero.  */
-	return false;
-      size = 0;
-    }
-
-  /* Replace the internal call with a constant.  */
-  tree lhs = gimple_call_lhs (call);
-  gimple *g = gimple_build_assign
-    (lhs, build_int_cst (integer_type_node, size));
-
-  gimple_stmt_iterator gsi = gsi_for_stmt (call);
-  gsi_replace (&gsi, g, false);
-  return true;
-}
-
 /* Find the number of threads (POS = false), or thread number (POS =
    true) for an OpenACC region partitioned as MASK.  Setup code
    required for the calculation is added to SEQ.  */
@@ -19876,15 +19844,6 @@ execute_oacc_device_lower ()
 	switch (ifn_code)
 	  {
 	  default: break;
-
-	  case IFN_GOACC_DIM_POS:
-	  case IFN_GOACC_DIM_SIZE:
-	    if (gimple_call_lhs (call) == NULL_TREE)
-	      remove = true;
-	    else if (oacc_xform_dim (call, dims,
-				     ifn_code == IFN_GOACC_DIM_POS))
-	      rescan = true;
-	    break;
 
 	  case IFN_GOACC_LOOP:
 	    oacc_xform_loop (call);

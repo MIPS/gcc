@@ -1,3 +1,9 @@
+2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c (oacc_xform_dim): Delete.
+	(execute_oacc_device_lower): Remove IFN_GOACC_DIM_POS,
+	IFN_GOACC_DIM_SIZE handling.
+
 2015-11-09  Tom de Vries  <tom@codesourcery.com>
 
 	* omp-low.c (release_first_vuse_in_edge_dest): Remove
