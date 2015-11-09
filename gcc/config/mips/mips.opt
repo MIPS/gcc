@@ -443,3 +443,7 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+mmips16-use-xsregs
+Target Var(mips16_xsregs) Report Init(0)
+Use additional callee saved registers in MIPS16 mode.
