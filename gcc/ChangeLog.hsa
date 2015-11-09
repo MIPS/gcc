@@ -1,5 +1,11 @@
 2015-11-09  Martin Liska  <mliska@suse.cz>
 
+	* hsa-dump.c (dump_hsa_symbol): Support array types.
+	(dump_hsa_cfun): Dump private variables.
+	* hsa.h: Fix typo.
+
+2015-11-09  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_packed_insn): Invert emitted operands
 	of a packed instruction.
 

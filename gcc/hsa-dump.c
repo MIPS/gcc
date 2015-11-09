@@ -705,7 +705,11 @@ dump_hsa_symbol (FILE *f, hsa_symbol *symbol)
       name = buf;
     }
 
-  fprintf (f, "%s (%s)", name, hsa_type_name (symbol->m_type));
+  fprintf (f, "%s_%s %s", hsa_seg_name (symbol->m_segment),
+	   hsa_type_name (symbol->m_type & ~BRIG_TYPE_ARRAY_MASK), name);
+
+  if (symbol->m_type & BRIG_TYPE_ARRAY_MASK)
+    fprintf (f, "[%lu]", symbol->m_dim);
 }
 
 /* Dump textual representation of HSA IL operand OP to file F.  */
@@ -1076,6 +1080,13 @@ dump_hsa_cfun (FILE *f)
   basic_block bb;
 
   fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->m_name);
+
+  for (unsigned i = 0; i < hsa_cfun->m_private_variables.length (); i++)
+    {
+      fprintf (f, "  ");
+      dump_hsa_symbol (f, hsa_cfun->m_private_variables[i]);
+      fprintf (f, "\n");
+    }
 
   FOR_ALL_BB_FN (bb, cfun)
   {
