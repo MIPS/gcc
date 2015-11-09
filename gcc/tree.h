@@ -1720,6 +1720,8 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
 
 
+#define TTYPE_POINTER_TO(NODE) TTYPE ((TYPE_CHECK (NODE)->u.type_common.pointer_to))
+#define TTYPE_REFERENCE_TO(NODE) TTYPE ((TYPE_CHECK (NODE)->u.type_common.reference_to))
 #define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
 #define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT(NODE)))
 
@@ -1982,6 +1984,10 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_MAX_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.maxval)
 
+#define TTYPE_NEXT_PTR_TO(NODE) \
+  TTYPE ((POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval))
+#define TTYPE_NEXT_REF_TO(NODE) \
+  TTYPE ((REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval))
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
@@ -3706,8 +3712,8 @@ extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
 /* Make a copy of a node, with all the same contents.  */
 
 extern tree copy_node_stat (tree MEM_STAT_DECL);
+extern ttype *copy_node_stat (ttype *MEM_STAT_DECL);
 #define copy_node(t) copy_node_stat (t MEM_STAT_INFO)
-
 /* Make a copy of a chain of TREE_LIST nodes.  */
 
 extern tree copy_list (tree);
@@ -4095,7 +4101,7 @@ extern bool check_qualified_type (const_tree, const_tree, int);
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
 
-extern tree get_qualified_type (tree, int);
+extern ttype *get_qualified_type (tree, int);
 
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
