@@ -110,7 +110,9 @@ extern void default_destroy_cost_data (void *);
 
 /* OpenACC hooks.  */
 extern bool default_goacc_validate_dims (tree, int [], int);
+extern int default_goacc_dim_limit (int);
 extern bool default_goacc_fork_join (gcall *, const int [], bool);
+extern void default_goacc_reduction (gcall *);
 
 /* These are here, and not in hooks.[ch], because not all users of
    hooks.h include tm.h, and thus we don't have CUMULATIVE_ARGS.  */
@@ -175,6 +177,8 @@ extern bool default_addr_space_legitimate_address_p (machine_mode, rtx,
 extern rtx default_addr_space_legitimize_address (rtx, rtx, machine_mode,
 						  addr_space_t);
 extern bool default_addr_space_subset_p (addr_space_t, addr_space_t);
+extern bool default_addr_space_zero_address_valid (addr_space_t);
+extern int default_addr_space_debug (addr_space_t);
 extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);
 extern bool default_have_conditional_execution (void);

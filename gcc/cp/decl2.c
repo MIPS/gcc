@@ -1448,11 +1448,6 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
 	  && DECL_CLASS_SCOPE_P (*decl))
 	error ("%q+D static data member inside of declare target directive",
 	       *decl);
-      else if (VAR_P (*decl)
-	       && (DECL_FUNCTION_SCOPE_P (*decl)
-		   || (current_function_decl && !DECL_EXTERNAL (*decl))))
-	error ("%q+D in block scope inside of declare target directive",
-	       *decl);
       else if (!processing_template_decl
 	       && VAR_P (*decl)
 	       && !cp_omp_mappable_type (TREE_TYPE (*decl)))
@@ -4923,9 +4918,8 @@ cxx_post_compilation_parsing_cleanups (void)
 
   input_location = locus_at_end_of_parsing;
 
-#ifdef ENABLE_CHECKING
-  validate_conversion_obstack ();
-#endif /* ENABLE_CHECKING */
+  if (flag_checking)
+    validate_conversion_obstack ();
 
   timevar_stop (TV_PHASE_LATE_PARSING_CLEANUPS);
 }

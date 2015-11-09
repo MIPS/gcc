@@ -121,11 +121,11 @@ static rtx_insn *compress_float_constant (rtx, rtx);
 static rtx get_subtarget (rtx);
 static void store_constructor_field (rtx, unsigned HOST_WIDE_INT,
 				     HOST_WIDE_INT, machine_mode,
-				     tree, int, alias_set_type);
-static void store_constructor (tree, rtx, int, HOST_WIDE_INT);
+				     tree, int, alias_set_type, bool);
+static void store_constructor (tree, rtx, int, HOST_WIDE_INT, bool);
 static rtx store_field (rtx, HOST_WIDE_INT, HOST_WIDE_INT,
 			unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
-			machine_mode, tree, alias_set_type, bool);
+			machine_mode, tree, alias_set_type, bool, bool);
 
 static unsigned HOST_WIDE_INT highest_pow2_factor_for_target (const_tree, const_tree);
 
@@ -1677,7 +1677,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 		  && (!REG_P (tmps[i]) || GET_MODE (tmps[i]) != mode))
 		tmps[i] = extract_bit_field (tmps[i], bytelen * BITS_PER_UNIT,
 					     (bytepos % slen0) * BITS_PER_UNIT,
-					     1, NULL_RTX, mode, mode);
+					     1, NULL_RTX, mode, mode, false);
 	    }
 	  else
 	    {
@@ -1687,7 +1687,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
 	      mem = assign_stack_temp (GET_MODE (src), slen);
 	      emit_move_insn (mem, src);
 	      tmps[i] = extract_bit_field (mem, bytelen * BITS_PER_UNIT,
-					   0, 1, NULL_RTX, mode, mode);
+					   0, 1, NULL_RTX, mode, mode, false);
 	    }
 	}
       /* FIXME: A SIMD parallel will eventually lead to a subreg of a
@@ -1730,7 +1730,7 @@ emit_group_load_1 (rtx *tmps, rtx dst, rtx orig_src, tree type, int ssize)
       else
 	tmps[i] = extract_bit_field (src, bytelen * BITS_PER_UNIT,
 				     bytepos * BITS_PER_UNIT, 1, NULL_RTX,
-				     mode, mode);
+				     mode, mode, false);
 
       if (shift)
 	tmps[i] = expand_shift (LSHIFT_EXPR, mode, tmps[i],
@@ -2038,7 +2038,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	  store_bit_field (dest,
 			   adj_bytelen * BITS_PER_UNIT, bytepos * BITS_PER_UNIT,
 			   bytepos * BITS_PER_UNIT, ssize * BITS_PER_UNIT - 1,
-			   VOIDmode, tmps[i]);
+			   VOIDmode, tmps[i], false);
 	}
 
       /* Optimize the access just a bit.  */
@@ -2051,7 +2051,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 
       else
 	store_bit_field (dest, bytelen * BITS_PER_UNIT, bytepos * BITS_PER_UNIT,
-			 0, 0, mode, tmps[i]);
+			 0, 0, mode, tmps[i], false);
     }
 
   /* Copy from the pseudo into the (probable) hard reg.  */
@@ -2181,7 +2181,9 @@ copy_blkmode_from_reg (rtx target, rtx srcreg, tree type)
       store_bit_field (dst, bitsize, bitpos % BITS_PER_WORD, 0, 0, copy_mode,
 		       extract_bit_field (src, bitsize,
 					  xbitpos % BITS_PER_WORD, 1,
-					  NULL_RTX, copy_mode, copy_mode));
+					  NULL_RTX, copy_mode, copy_mode,
+					  false),
+		       false);
     }
 }
 
@@ -2258,7 +2260,9 @@ copy_blkmode_to_reg (machine_mode mode, tree src)
 		       0, 0, word_mode,
 		       extract_bit_field (src_word, bitsize,
 					  bitpos % BITS_PER_WORD, 1,
-					  NULL_RTX, word_mode, word_mode));
+					  NULL_RTX, word_mode, word_mode,
+					  false),
+		       false);
     }
 
   if (mode == BLKmode)
@@ -3003,7 +3007,8 @@ write_complex_part (rtx cplx, rtx val, bool imag_p)
 	gcc_assert (MEM_P (cplx) && ibitsize < BITS_PER_WORD);
     }
 
-  store_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0, 0, 0, imode, val);
+  store_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0, 0, 0, imode, val,
+		   false);
 }
 
 /* Extract one of the components of the complex value CPLX.  Extract the
@@ -3066,7 +3071,7 @@ read_complex_part (rtx cplx, bool imag_p)
     }
 
   return extract_bit_field (cplx, ibitsize, imag_p ? ibitsize : 0,
-			    true, NULL_RTX, imode, imode);
+			    true, NULL_RTX, imode, imode, false);
 }
 
 /* A subroutine of emit_move_insn_1.  Yet another lowpart generator.
@@ -4456,7 +4461,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
 				 unsigned HOST_WIDE_INT bitregion_start,
 				 unsigned HOST_WIDE_INT bitregion_end,
 				 machine_mode mode1, rtx str_rtx,
-				 tree to, tree src)
+				 tree to, tree src, bool reverse)
 {
   machine_mode str_mode = GET_MODE (str_rtx);
   unsigned int str_bitsize = GET_MODE_BITSIZE (str_mode);
@@ -4529,6 +4534,8 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
     }
   else if (!REG_P (str_rtx) && GET_CODE (str_rtx) != SUBREG)
     return false;
+  else
+    gcc_assert (!reverse);
 
   /* If the bit field covers the whole REG/MEM, store_field
      will likely generate better code.  */
@@ -4539,7 +4546,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
   if (bitpos + bitsize > str_bitsize)
     return false;
 
-  if (BYTES_BIG_ENDIAN)
+  if (reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
     bitpos = str_bitsize - bitpos - bitsize;
 
   switch (code)
@@ -4552,7 +4559,7 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
 	 We might win by one instruction for the other bitfields
 	 too if insv/extv instructions aren't used, so that
 	 can be added later.  */
-      if (bitpos + bitsize != str_bitsize
+      if ((reverse || bitpos + bitsize != str_bitsize)
 	  && (bitsize != 1 || TREE_CODE (op1) != INTEGER_CST))
 	break;
 
@@ -4570,13 +4577,17 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
 	  set_mem_expr (str_rtx, 0);
 	}
 
-      binop = code == PLUS_EXPR ? add_optab : sub_optab;
-      if (bitsize == 1 && bitpos + bitsize != str_bitsize)
+      if (bitsize == 1 && (reverse || bitpos + bitsize != str_bitsize))
 	{
 	  value = expand_and (str_mode, value, const1_rtx, NULL);
 	  binop = xor_optab;
 	}
+      else
+	binop = code == PLUS_EXPR ? add_optab : sub_optab;
+
       value = expand_shift (LSHIFT_EXPR, str_mode, value, bitpos, NULL_RTX, 1);
+      if (reverse)
+	value = flip_storage_order (str_mode, value);
       result = expand_binop (str_mode, binop, str_rtx,
 			     value, str_rtx, 1, OPTAB_WIDEN);
       if (result != str_rtx)
@@ -4609,6 +4620,8 @@ optimize_bitfield_assignment_op (unsigned HOST_WIDE_INT bitsize,
 	  value = expand_and (str_mode, value, mask, NULL_RTX);
 	}
       value = expand_shift (LSHIFT_EXPR, str_mode, value, bitpos, NULL_RTX, 1);
+      if (reverse)
+	value = flip_storage_order (str_mode, value);
       result = expand_binop (str_mode, binop, str_rtx,
 			     value, str_rtx, 1, OPTAB_WIDEN);
       if (result != str_rtx)
@@ -4663,10 +4676,10 @@ get_bit_range (unsigned HOST_WIDE_INT *bitstart,
       machine_mode rmode;
       HOST_WIDE_INT rbitsize, rbitpos;
       tree roffset;
-      int unsignedp;
-      int volatilep = 0;
+      int unsignedp, reversep, volatilep = 0;
       get_inner_reference (TREE_OPERAND (exp, 0), &rbitsize, &rbitpos,
-			   &roffset, &rmode, &unsignedp, &volatilep, false);
+			   &roffset, &rmode, &unsignedp, &reversep,
+			   &volatilep, false);
       if ((rbitpos % BITS_PER_UNIT) != 0)
 	{
 	  *bitstart = *bitend = 0;
@@ -4782,6 +4795,8 @@ expand_assignment (tree to, tree from, bool nontemporal)
       reg = expand_expr (from, NULL_RTX, VOIDmode, EXPAND_NORMAL);
       reg = force_not_mem (reg);
       mem = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
+      if (TREE_CODE (to) == MEM_REF && REF_REVERSE_STORAGE_ORDER (to))
+	reg = flip_storage_order (mode, reg);
 
       if (icode != CODE_FOR_nothing)
 	{
@@ -4794,7 +4809,8 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  expand_insn (icode, 2, ops);
 	}
       else
-	store_bit_field (mem, GET_MODE_BITSIZE (mode), 0, 0, 0, mode, reg);
+	store_bit_field (mem, GET_MODE_BITSIZE (mode), 0, 0, 0, mode, reg,
+			 false);
       return;
     }
 
@@ -4805,7 +4821,8 @@ expand_assignment (tree to, tree from, bool nontemporal)
      problem.  Same for (partially) storing into a non-memory object.  */
   if (handled_component_p (to)
       || (TREE_CODE (to) == MEM_REF
-	  && mem_ref_refers_to_non_mem_p (to))
+	  && (REF_REVERSE_STORAGE_ORDER (to)
+	      || mem_ref_refers_to_non_mem_p (to)))
       || TREE_CODE (TREE_TYPE (to)) == ARRAY_TYPE)
     {
       machine_mode mode1;
@@ -4813,13 +4830,12 @@ expand_assignment (tree to, tree from, bool nontemporal)
       unsigned HOST_WIDE_INT bitregion_start = 0;
       unsigned HOST_WIDE_INT bitregion_end = 0;
       tree offset;
-      int unsignedp;
-      int volatilep = 0;
+      int unsignedp, reversep, volatilep = 0;
       tree tem;
 
       push_temp_slots ();
       tem = get_inner_reference (to, &bitsize, &bitpos, &offset, &mode1,
-				 &unsignedp, &volatilep, true);
+				 &unsignedp, &reversep, &volatilep, true);
 
       /* Make sure bitpos is not negative, it can wreak havoc later.  */
       if (bitpos < 0)
@@ -4938,22 +4954,22 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  if (COMPLEX_MODE_P (TYPE_MODE (TREE_TYPE (from)))
 	      && bitpos == 0
 	      && bitsize == mode_bitsize)
-	    result = store_expr (from, to_rtx, false, nontemporal);
+	    result = store_expr (from, to_rtx, false, nontemporal, reversep);
 	  else if (bitsize == mode_bitsize / 2
 		   && (bitpos == 0 || bitpos == mode_bitsize / 2))
 	    result = store_expr (from, XEXP (to_rtx, bitpos != 0), false,
-				 nontemporal);
+				 nontemporal, reversep);
 	  else if (bitpos + bitsize <= mode_bitsize / 2)
 	    result = store_field (XEXP (to_rtx, 0), bitsize, bitpos,
 				  bitregion_start, bitregion_end,
-				  mode1, from,
-				  get_alias_set (to), nontemporal);
+				  mode1, from, get_alias_set (to),
+				  nontemporal, reversep);
 	  else if (bitpos >= mode_bitsize / 2)
 	    result = store_field (XEXP (to_rtx, 1), bitsize,
 				  bitpos - mode_bitsize / 2,
 				  bitregion_start, bitregion_end,
-				  mode1, from,
-				  get_alias_set (to), nontemporal);
+				  mode1, from, get_alias_set (to),
+				  nontemporal, reversep);
 	  else if (bitpos == 0 && bitsize == mode_bitsize)
 	    {
 	      rtx from_rtx;
@@ -4973,8 +4989,8 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	      write_complex_part (temp, XEXP (to_rtx, 1), true);
 	      result = store_field (temp, bitsize, bitpos,
 				    bitregion_start, bitregion_end,
-				    mode1, from,
-				    get_alias_set (to), nontemporal);
+				    mode1, from, get_alias_set (to),
+				    nontemporal, reversep);
 	      emit_move_insn (XEXP (to_rtx, 0), read_complex_part (temp, false));
 	      emit_move_insn (XEXP (to_rtx, 1), read_complex_part (temp, true));
 	    }
@@ -4993,14 +5009,14 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
 	  if (optimize_bitfield_assignment_op (bitsize, bitpos,
 					       bitregion_start, bitregion_end,
-					       mode1,
-					       to_rtx, to, from))
+					       mode1, to_rtx, to, from,
+					       reversep))
 	    result = NULL;
 	  else
 	    result = store_field (to_rtx, bitsize, bitpos,
 				  bitregion_start, bitregion_end,
-				  mode1, from,
-				  get_alias_set (to), nontemporal);
+				  mode1, from, get_alias_set (to),
+				  nontemporal, reversep);
 	}
 
       if (result)
@@ -5154,7 +5170,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
   /* Compute FROM and store the value in the rtx we got.  */
 
   push_temp_slots ();
-  result = store_expr_with_bounds (from, to_rtx, 0, nontemporal, to);
+  result = store_expr_with_bounds (from, to_rtx, 0, nontemporal, false, to);
   preserve_temp_slots (result);
   pop_temp_slots ();
   return;
@@ -5193,12 +5209,14 @@ emit_storent_insn (rtx to, rtx from)
 
    If NONTEMPORAL is true, try using a nontemporal store instruction.
 
+   If REVERSE is true, the store is to be done in reverse order.
+
    If BTARGET is not NULL then computed bounds of EXP are
    associated with BTARGET.  */
 
 rtx
 store_expr_with_bounds (tree exp, rtx target, int call_param_p,
-			bool nontemporal, tree btarget)
+			bool nontemporal, bool reverse, tree btarget)
 {
   rtx temp;
   rtx alt_rtl = NULL_RTX;
@@ -5220,7 +5238,8 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
       expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
 		   call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
       return store_expr_with_bounds (TREE_OPERAND (exp, 1), target,
-				     call_param_p, nontemporal, btarget);
+				     call_param_p, nontemporal, reverse,
+				     btarget);
     }
   else if (TREE_CODE (exp) == COND_EXPR && GET_MODE (target) == BLKmode)
     {
@@ -5235,12 +5254,12 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
       NO_DEFER_POP;
       jumpifnot (TREE_OPERAND (exp, 0), lab1, -1);
       store_expr_with_bounds (TREE_OPERAND (exp, 1), target, call_param_p,
-			      nontemporal, btarget);
+			      nontemporal, reverse, btarget);
       emit_jump_insn (targetm.gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
       store_expr_with_bounds (TREE_OPERAND (exp, 2), target, call_param_p,
-			      nontemporal, btarget);
+			      nontemporal, reverse, btarget);
       emit_label (lab2);
       OK_DEFER_POP;
 
@@ -5379,9 +5398,9 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
       rtx tmp_target;
 
   normal_expr:
-      /* If we want to use a nontemporal store, force the value to
-	 register first.  */
-      tmp_target = nontemporal ? NULL_RTX : target;
+      /* If we want to use a nontemporal or a reverse order store, force the
+	 value into a register first.  */
+      tmp_target = nontemporal || reverse ? NULL_RTX : target;
       temp = expand_expr_real (exp, tmp_target, GET_MODE (target),
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
@@ -5456,7 +5475,7 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
 	      else
 		store_bit_field (target,
 				 INTVAL (expr_size (exp)) * BITS_PER_UNIT,
-				 0, 0, 0, GET_MODE (temp), temp);
+				 0, 0, 0, GET_MODE (temp), temp, reverse);
 	    }
 	  else
 	    convert_move (target, temp, TYPE_UNSIGNED (TREE_TYPE (exp)));
@@ -5555,6 +5574,8 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
 	;
       else
 	{
+	  if (reverse)
+	    temp = flip_storage_order (GET_MODE (target), temp);
 	  temp = force_operand (temp, target);
 	  if (temp != target)
 	    emit_move_insn (target, temp);
@@ -5566,9 +5587,11 @@ store_expr_with_bounds (tree exp, rtx target, int call_param_p,
 
 /* Same as store_expr_with_bounds but ignoring bounds of EXP.  */
 rtx
-store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
+store_expr (tree exp, rtx target, int call_param_p, bool nontemporal,
+	    bool reverse)
 {
-  return store_expr_with_bounds (exp, target, call_param_p, nontemporal, NULL);
+  return store_expr_with_bounds (exp, target, call_param_p, nontemporal,
+				 reverse, NULL);
 }
 
 /* Return true if field F of structure TYPE is a flexible array.  */
@@ -5788,8 +5811,12 @@ categorize_ctor_elements_1 (const_tree ctor, HOST_WIDE_INT *p_nz_elts,
 	    init_elts += mult * tc;
 
 	    if (const_from_elts_p && const_p)
-	      const_p = initializer_constant_valid_p (value, elt_type)
-			!= NULL_TREE;
+	      const_p
+		= initializer_constant_valid_p (value,
+						elt_type,
+						TYPE_REVERSE_STORAGE_ORDER
+						(TREE_TYPE (ctor)))
+		  != NULL_TREE;
 	  }
 	  break;
 	}
@@ -5894,6 +5921,7 @@ all_zeros_p (const_tree exp)
    TARGET, BITSIZE, BITPOS, MODE, EXP are as for store_field.
    CLEARED is as for store_constructor.
    ALIAS_SET is the alias set to use for any stores.
+   If REVERSE is true, the store is to be done in reverse order.
 
    This provides a recursive shortcut back to store_constructor when it isn't
    necessary to go through store_field.  This is so that we can pass through
@@ -5903,7 +5931,8 @@ all_zeros_p (const_tree exp)
 static void
 store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
 			 HOST_WIDE_INT bitpos, machine_mode mode,
-			 tree exp, int cleared, alias_set_type alias_set)
+			 tree exp, int cleared,
+			 alias_set_type alias_set, bool reverse)
 {
   if (TREE_CODE (exp) == CONSTRUCTOR
       /* We can only call store_constructor recursively if the size and
@@ -5932,10 +5961,12 @@ store_constructor_field (rtx target, unsigned HOST_WIDE_INT bitsize,
 	  set_mem_alias_set (target, alias_set);
 	}
 
-      store_constructor (exp, target, cleared, bitsize / BITS_PER_UNIT);
+      store_constructor (exp, target, cleared, bitsize / BITS_PER_UNIT,
+			 reverse);
     }
   else
-    store_field (target, bitsize, bitpos, 0, 0, mode, exp, alias_set, false);
+    store_field (target, bitsize, bitpos, 0, 0, mode, exp, alias_set, false,
+		 reverse);
 }
 
 
@@ -5961,10 +5992,12 @@ fields_length (const_tree type)
    CLEARED is true if TARGET is known to have been zero'd.
    SIZE is the number of bytes of TARGET we are allowed to modify: this
    may not be the same as the size of EXP if we are assigning to a field
-   which has been packed to exclude padding bits.  */
+   which has been packed to exclude padding bits.
+   If REVERSE is true, the store is to be done in reverse order.  */
 
 static void
-store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
+store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size,
+		   bool reverse)
 {
   tree type = TREE_TYPE (exp);
   HOST_WIDE_INT exp_size = int_size_in_bytes (type);
@@ -5977,6 +6010,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
       {
 	unsigned HOST_WIDE_INT idx;
 	tree field, value;
+
+	/* The storage order is specified for every aggregate type.  */
+	reverse = TYPE_REVERSE_STORAGE_ORDER (type);
 
 	/* If size is zero or the target is already cleared, do nothing.  */
 	if (size == 0 || cleared)
@@ -6121,7 +6157,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
 	    store_constructor_field (to_rtx, bitsize, bitpos, mode,
 				     value, cleared,
-				     get_alias_set (TREE_TYPE (field)));
+				     get_alias_set (TREE_TYPE (field)),
+				     reverse);
 	  }
 	break;
       }
@@ -6135,6 +6172,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	int const_bounds_p;
 	HOST_WIDE_INT minelt = 0;
 	HOST_WIDE_INT maxelt = 0;
+
+	/* The storage order is specified for every aggregate type.  */
+	reverse = TYPE_REVERSE_STORAGE_ORDER (type);
 
 	domain = TYPE_DOMAIN (type);
 	const_bounds_p = (TYPE_MIN_VALUE (domain)
@@ -6276,7 +6316,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
 			store_constructor_field
 			  (target, bitsize, bitpos, mode, value, cleared,
-			   get_alias_set (elttype));
+			   get_alias_set (elttype), reverse);
 		      }
 		  }
 		else
@@ -6291,7 +6331,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					VAR_DECL, NULL_TREE, domain);
 		    index_r = gen_reg_rtx (promote_decl_mode (index, NULL));
 		    SET_DECL_RTL (index, index_r);
-		    store_expr (lo_index, index_r, 0, false);
+		    store_expr (lo_index, index_r, 0, false, reverse);
 
 		    /* Build the head of the loop.  */
 		    do_pending_stack_adjust ();
@@ -6316,9 +6356,9 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		    xtarget = adjust_address (xtarget, mode, 0);
 		    if (TREE_CODE (value) == CONSTRUCTOR)
 		      store_constructor (value, xtarget, cleared,
-					 bitsize / BITS_PER_UNIT);
+					 bitsize / BITS_PER_UNIT, reverse);
 		    else
-		      store_expr (value, xtarget, 0, false);
+		      store_expr (value, xtarget, 0, false, reverse);
 
 		    /* Generate a conditional jump to exit the loop.  */
 		    exit_cond = build2 (LT_EXPR, integer_type_node,
@@ -6361,7 +6401,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					  expand_normal (position),
 					  highest_pow2_factor (position));
 		xtarget = adjust_address (xtarget, mode, 0);
-		store_expr (value, xtarget, 0, false);
+		store_expr (value, xtarget, 0, false, reverse);
 	      }
 	    else
 	      {
@@ -6379,7 +6419,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		    MEM_KEEP_ALIAS_SET_P (target) = 1;
 		  }
 		store_constructor_field (target, bitsize, bitpos, mode, value,
-					 cleared, get_alias_set (elttype));
+					 cleared, get_alias_set (elttype),
+					 reverse);
 	      }
 	  }
 	break;
@@ -6512,7 +6553,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		  : eltmode;
 		bitpos = eltpos * elt_size;
 		store_constructor_field (target, bitsize, bitpos, value_mode,
-					 value, cleared, alias);
+					 value, cleared, alias, reverse);
 	      }
 	  }
 
@@ -6545,14 +6586,16 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
    (in general) be different from that for TARGET, since TARGET is a
    reference to the containing structure.
 
-   If NONTEMPORAL is true, try generating a nontemporal store.  */
+   If NONTEMPORAL is true, try generating a nontemporal store.
+
+   If REVERSE is true, the store is to be done in reverse order.  */
 
 static rtx
 store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	     unsigned HOST_WIDE_INT bitregion_start,
 	     unsigned HOST_WIDE_INT bitregion_end,
 	     machine_mode mode, tree exp,
-	     alias_set_type alias_set, bool nontemporal)
+	     alias_set_type alias_set, bool nontemporal,  bool reverse)
 {
   if (TREE_CODE (exp) == ERROR_MARK)
     return const0_rtx;
@@ -6567,7 +6610,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       /* We're storing into a struct containing a single __complex.  */
 
       gcc_assert (!bitpos);
-      return store_expr (exp, target, 0, nontemporal);
+      return store_expr (exp, target, 0, nontemporal, reverse);
     }
 
   /* If the structure is in a register or if the component
@@ -6636,16 +6679,27 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 
       temp = expand_normal (exp);
 
-      /* If BITSIZE is narrower than the size of the type of EXP
-	 we will be narrowing TEMP.  Normally, what's wanted are the
-	 low-order bits.  However, if EXP's type is a record and this is
-	 big-endian machine, we want the upper BITSIZE bits.  */
-      if (BYTES_BIG_ENDIAN && GET_MODE_CLASS (GET_MODE (temp)) == MODE_INT
-	  && bitsize < (HOST_WIDE_INT) GET_MODE_BITSIZE (GET_MODE (temp))
-	  && TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE)
-	temp = expand_shift (RSHIFT_EXPR, GET_MODE (temp), temp,
-			     GET_MODE_BITSIZE (GET_MODE (temp)) - bitsize,
-			     NULL_RTX, 1);
+      /* If the value has a record type and an integral mode then, if BITSIZE
+	 is narrower than this mode and this is for big-endian data, we must
+	 first put the value into the low-order bits.  Moreover, the field may
+	 be not aligned on a byte boundary; in this case, if it has reverse
+	 storage order, it needs to be accessed as a scalar field with reverse
+	 storage order and we must first put the value into target order.  */
+      if (TREE_CODE (TREE_TYPE (exp)) == RECORD_TYPE
+	  && GET_MODE_CLASS (GET_MODE (temp)) == MODE_INT)
+	{
+	  HOST_WIDE_INT size = GET_MODE_BITSIZE (GET_MODE (temp));
+
+	  reverse = TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (exp));
+
+	  if (reverse)
+	    temp = flip_storage_order (GET_MODE (temp), temp);
+
+	  if (bitsize < size
+	      && reverse ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
+	    temp = expand_shift (RSHIFT_EXPR, GET_MODE (temp), temp,
+				 size - bitsize, NULL_RTX, 1);
+	}
 
       /* Unless MODE is VOIDmode or BLKmode, convert TEMP to MODE.  */
       if (mode != VOIDmode && mode != BLKmode
@@ -6705,7 +6759,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 	      temp_target = gen_reg_rtx (mode);
 	      temp_target
 	        = extract_bit_field (temp, size * BITS_PER_UNIT, 0, 1,
-				     temp_target, mode, mode);
+				     temp_target, mode, mode, false);
 	      temp = temp_target;
 	    }
 	}
@@ -6713,7 +6767,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       /* Store the value in the bitfield.  */
       store_bit_field (target, bitsize, bitpos,
 		       bitregion_start, bitregion_end,
-		       mode, temp);
+		       mode, temp, reverse);
 
       return const0_rtx;
     }
@@ -6733,11 +6787,11 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       if (TREE_CODE (exp) == CONSTRUCTOR && bitsize >= 0)
 	{
 	  gcc_assert (bitsize % BITS_PER_UNIT == 0);
-	  store_constructor (exp, to_rtx, 0, bitsize/BITS_PER_UNIT);
+	  store_constructor (exp, to_rtx, 0, bitsize / BITS_PER_UNIT, reverse);
 	  return to_rtx;
 	}
 
-      return store_expr (exp, to_rtx, 0, nontemporal);
+      return store_expr (exp, to_rtx, 0, nontemporal, reverse);
     }
 }
 
@@ -6746,7 +6800,8 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
    codes and find the ultimate containing object, which we return.
 
    We set *PBITSIZE to the size in bits that we want, *PBITPOS to the
-   bit position, and *PUNSIGNEDP to the signedness of the field.
+   bit position, *PUNSIGNEDP to the signedness and *PREVERSEP to the
+   storage order of the field.
    If the position of the field is variable, we store a tree
    giving the variable offset (in units) in *POFFSET.
    This offset is in addition to the bit position.
@@ -6780,7 +6835,7 @@ tree
 get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 		     HOST_WIDE_INT *pbitpos, tree *poffset,
 		     machine_mode *pmode, int *punsignedp,
-		     int *pvolatilep, bool keep_aligning)
+		     int *preversep, int *pvolatilep, bool keep_aligning)
 {
   tree size_tree = 0;
   machine_mode mode = VOIDmode;
@@ -6788,8 +6843,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
   tree offset = size_zero_node;
   offset_int bit_offset = 0;
 
-  /* First get the mode, signedness, and size.  We do this from just the
-     outermost expression.  */
+  /* First get the mode, signedness, storage order and size.  We do this from
+     just the outermost expression.  */
   *pbitsize = -1;
   if (TREE_CODE (exp) == COMPONENT_REF)
     {
@@ -6841,6 +6896,8 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
       else
 	*pbitsize = tree_to_uhwi (size_tree);
     }
+
+  *preversep = reverse_storage_order_for_component_p (exp);
 
   /* Compute cumulative bit-offset for nested component-refs and array-refs,
      and find the ultimate containing object.  */
@@ -7518,7 +7575,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, machine_mode tmode,
   rtx result, subtarget;
   tree inner, offset;
   HOST_WIDE_INT bitsize, bitpos;
-  int volatilep, unsignedp;
+  int unsignedp, reversep, volatilep = 0;
   machine_mode mode1;
 
   /* If we are taking the address of a constant and are at the top level,
@@ -7625,8 +7682,8 @@ expand_expr_addr_expr_1 (tree exp, rtx target, machine_mode tmode,
 	 handle "aligning nodes" here: we can just bypass them because
 	 they won't change the final object whose address will be returned
 	 (they actually exist only for that purpose).  */
-      inner = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-				   &mode1, &unsignedp, &volatilep, false);
+      inner = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode1,
+				   &unsignedp, &reversep, &volatilep, false);
       break;
     }
 
@@ -7810,7 +7867,7 @@ expand_constructor (tree exp, rtx target, enum expand_modifier modifier,
       target = assign_temp (type, TREE_ADDRESSABLE (exp), 1);
     }
 
-  store_constructor (exp, target, 0, int_expr_size (exp));
+  store_constructor (exp, target, 0, int_expr_size (exp), false);
   return target;
 }
 
@@ -8083,11 +8140,12 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	    store_expr (treeop0,
 			adjust_address (target, TYPE_MODE (valtype), 0),
 			modifier == EXPAND_STACK_PARM,
-			false);
+			false, TYPE_REVERSE_STORAGE_ORDER (type));
 
 	  else
 	    {
-	      gcc_assert (REG_P (target));
+	      gcc_assert (REG_P (target)
+			  && !TYPE_REVERSE_STORAGE_ORDER (type));
 
 	      /* Store this field into a union of the proper type.  */
 	      store_field (target,
@@ -8095,7 +8153,8 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 						    (treeop0))
 				 * BITS_PER_UNIT),
 				(HOST_WIDE_INT) GET_MODE_BITSIZE (mode)),
-			   0, 0, 0, TYPE_MODE (valtype), treeop0, 0, false);
+			   0, 0, 0, TYPE_MODE (valtype), treeop0, 0,
+			   false, false);
 	    }
 
 	  /* Return the entire union.  */
@@ -9130,7 +9189,7 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
         int index = BYTES_BIG_ENDIAN ? GET_MODE_NUNITS (vec_mode) - 1 : 0;
 	int bitsize = GET_MODE_UNIT_BITSIZE (vec_mode);
         temp = extract_bit_field (temp, bitsize, bitsize * index, unsignedp,
-				  target, mode, mode);
+				  target, mode, mode, false);
         gcc_assert (temp);
         return temp;
       }
@@ -9286,14 +9345,14 @@ expand_expr_real_2 (sepops ops, rtx target, machine_mode tmode,
 	jumpifnot (treeop0, lab0, -1);
 	store_expr (treeop1, temp,
 		    modifier == EXPAND_STACK_PARM,
-		    false);
+		    false, false);
 
 	emit_jump_insn (targetm.gen_jump (lab1));
 	emit_barrier ();
 	emit_label (lab0);
 	store_expr (treeop2, temp,
 		    modifier == EXPAND_STACK_PARM,
-		    false);
+		    false, false);
 
 	emit_label (lab1);
 	OK_DEFER_POP;
@@ -9846,6 +9905,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 
     case MEM_REF:
       {
+	const bool reverse = REF_REVERSE_STORAGE_ORDER (exp);
 	addr_space_t as
 	  = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
 	machine_mode address_mode;
@@ -9860,6 +9920,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    HOST_WIDE_INT offset = mem_ref_offset (exp).to_short_addr ();
 	    base = TREE_OPERAND (base, 0);
 	    if (offset == 0
+	        && !reverse
 		&& tree_fits_uhwi_p (TYPE_SIZE (type))
 		&& (GET_MODE_BITSIZE (DECL_MODE (base))
 		    == tree_to_uhwi (TYPE_SIZE (type))))
@@ -9869,13 +9930,14 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	      {
 		temp = assign_stack_temp (DECL_MODE (base),
 					  GET_MODE_SIZE (DECL_MODE (base)));
-		store_expr (base, temp, 0, false);
+		store_expr (base, temp, 0, false, false);
 		temp = adjust_address (temp, BLKmode, offset);
 		set_mem_size (temp, int_size_in_bytes (type));
 		return temp;
 	      }
 	    exp = build3 (BIT_FIELD_REF, type, base, TYPE_SIZE (type),
 			  bitsize_int (offset * BITS_PER_UNIT));
+	    REF_REVERSE_STORAGE_ORDER (exp) = reverse;
 	    return expand_expr (exp, target, tmode, modifier);
 	  }
 	address_mode = targetm.addr_space.address_mode (as);
@@ -9925,8 +9987,12 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 					0, TYPE_UNSIGNED (TREE_TYPE (exp)),
 					(modifier == EXPAND_STACK_PARM
 					 ? NULL_RTX : target),
-					mode, mode);
+					mode, mode, false);
 	  }
+	if (reverse
+	    && modifier != EXPAND_MEMORY
+	    && modifier != EXPAND_WRITE)
+	  temp = flip_storage_order (mode, temp);
 	return temp;
       }
 
@@ -10132,9 +10198,10 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	machine_mode mode1, mode2;
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
-	int volatilep = 0, must_force_mem;
-	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-					&mode1, &unsignedp, &volatilep, true);
+	int reversep, volatilep = 0, must_force_mem;
+	tree tem
+	  = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode1,
+				 &unsignedp, &reversep, &volatilep, true);
 	rtx orig_op0, memloc;
 	bool clear_mem_expr = false;
 
@@ -10189,7 +10256,11 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  {
 	    if (bitpos == 0
 		&& bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
-	      return op0;
+	      {
+		if (reversep)
+		  op0 = flip_storage_order (GET_MODE (op0), op0);
+		return op0;
+	      }
 	    if (bitpos == 0
 		&& bitsize == GET_MODE_BITSIZE (GET_MODE (XEXP (op0, 0)))
 		&& bitsize)
@@ -10375,20 +10446,38 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	    if (MEM_P (op0) && REG_P (XEXP (op0, 0)))
 	      mark_reg_pointer (XEXP (op0, 0), MEM_ALIGN (op0));
 
+	    /* If the result has a record type and the extraction is done in
+	       an integral mode, then the field may be not aligned on a byte
+	       boundary; in this case, if it has reverse storage order, it
+	       needs to be extracted as a scalar field with reverse storage
+	       order and put back into memory order afterwards.  */
+	    if (TREE_CODE (type) == RECORD_TYPE
+		&& GET_MODE_CLASS (ext_mode) == MODE_INT)
+	      reversep = TYPE_REVERSE_STORAGE_ORDER (type);
+
 	    op0 = extract_bit_field (op0, bitsize, bitpos, unsignedp,
 				     (modifier == EXPAND_STACK_PARM
 				      ? NULL_RTX : target),
-				     ext_mode, ext_mode);
+				     ext_mode, ext_mode, reversep);
 
-	    /* If the result is a record type and BITSIZE is narrower than
-	       the mode of OP0, an integral mode, and this is a big endian
-	       machine, we must put the field into the high-order bits.  */
-	    if (TREE_CODE (type) == RECORD_TYPE && BYTES_BIG_ENDIAN
-		&& GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT
-		&& bitsize < (HOST_WIDE_INT) GET_MODE_BITSIZE (GET_MODE (op0)))
-	      op0 = expand_shift (LSHIFT_EXPR, GET_MODE (op0), op0,
-				  GET_MODE_BITSIZE (GET_MODE (op0))
-				  - bitsize, op0, 1);
+	    /* If the result has a record type and the mode of OP0 is an
+	       integral mode then, if BITSIZE is narrower than this mode
+	       and this is for big-endian data, we must put the field
+	       into the high-order bits.  And we must also put it back
+	       into memory order if it has been previously reversed.  */
+	    if (TREE_CODE (type) == RECORD_TYPE
+		&& GET_MODE_CLASS (GET_MODE (op0)) == MODE_INT)
+	      {
+		HOST_WIDE_INT size = GET_MODE_BITSIZE (GET_MODE (op0));
+
+		if (bitsize < size
+		    && reversep ? !BYTES_BIG_ENDIAN : BYTES_BIG_ENDIAN)
+		  op0 = expand_shift (LSHIFT_EXPR, GET_MODE (op0), op0,
+				      size - bitsize, op0, 1);
+
+		if (reversep)
+		  op0 = flip_storage_order (GET_MODE (op0), op0);
+	      }
 
 	    /* If the result type is BLKmode, store the data into a temporary
 	       of the appropriate type, but with the mode corresponding to the
@@ -10434,6 +10523,12 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	  set_mem_expr (op0, NULL_TREE);
 
 	MEM_VOLATILE_P (op0) |= volatilep;
+
+        if (reversep
+	    && modifier != EXPAND_MEMORY
+	    && modifier != EXPAND_WRITE)
+	  op0 = flip_storage_order (mode1, op0);
+
 	if (mode == mode1 || mode1 == BLKmode || mode1 == tmode
 	    || modifier == EXPAND_CONST_ADDRESS
 	    || modifier == EXPAND_INITIALIZER)
@@ -10497,17 +10592,16 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
 	machine_mode mode1;
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
-	int unsignedp;
-	int volatilep = 0;
+	int unsignedp, reversep, volatilep = 0;
 	tree tem
-	  = get_inner_reference (treeop0, &bitsize, &bitpos,
-				 &offset, &mode1, &unsignedp, &volatilep,
-				 true);
+	  = get_inner_reference (treeop0, &bitsize, &bitpos, &offset, &mode1,
+				 &unsignedp, &reversep, &volatilep, true);
 	rtx orig_op0;
 
 	/* ??? We should work harder and deal with non-zero offsets.  */
 	if (!offset
 	    && (bitpos % BITS_PER_UNIT) == 0
+	    && !reversep
 	    && bitsize >= 0
 	    && compare_tree_int (TYPE_SIZE (type), bitsize) == 0)
 	  {
@@ -10581,7 +10675,7 @@ expand_expr_real_1 (tree exp, rtx target, machine_mode tmode,
       else if (reduce_bit_field)
 	return extract_bit_field (op0, TYPE_PRECISION (type), 0,
 				  TYPE_UNSIGNED (type), NULL_RTX,
-				  mode, mode);
+				  mode, mode, false);
       /* As a last resort, spill op0 to memory, and reload it in a
 	 different mode.  */
       else if (!MEM_P (op0))

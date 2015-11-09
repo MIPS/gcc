@@ -68,8 +68,8 @@ endif
 libatomic_version_info = -version-info $(libtool_VERSION)
 
 libatomic_la_LDFLAGS = $(libatomic_version_info) $(libatomic_version_script) $(lt_host_flags)
-libatomic_la_SOURCES = gload.c gstore.c gcas.c gexch.c glfree.c lock.c init.c \
-	fenv.c
+LIBAT_SRC_NO_LOCK = gload.c gstore.c gcas.c gexch.c glfree.c init.c fenv.c
+libatomic_la_SOURCES = $(LIBAT_SRC_NO_LOCK) lock.c
 
 SIZEOBJS = load store cas exch fadd fsub fand fior fxor fnand tas
 SIZES = @SIZES@
@@ -144,6 +144,5 @@ libatomic_convenience_la_LIBADD = $(libatomic_la_LIBADD)
 # The "no lock" convenience library is used by libgupc to
 # avoid lock.c's use of pthread_mutex, which won't work
 # for processes using atomics on shared memory.
-libatomic_convenience_no_lock_la_SOURCES = \
-	$(filter-out lock.c, $(libatomic_la_SOURCES))
+libatomic_convenience_no_lock_la_SOURCES = $(LIBAT_SRC_NO_LOCK)
 libatomic_convenience_no_lock_la_LIBADD = $(libatomic_la_LIBADD)

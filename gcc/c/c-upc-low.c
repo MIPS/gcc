@@ -364,10 +364,12 @@ upc_simplify_shared_ref (location_t loc, tree exp)
   HOST_WIDE_INT bitsize = 0;
   HOST_WIDE_INT bitpos = 0;
   int unsignedp = 0;
+  int reversep = 0;
   int volatilep = 0;
   tree offset = NULL_TREE;
   base = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-			      &mode, &unsignedp, &volatilep, false);
+			      &mode, &unsignedp, &reversep, &volatilep,
+			      false);
   gcc_assert (SHARED_TYPE_P (TREE_TYPE (base)));
   base_addr = build_fold_addr_expr (base);
   if (bitpos)

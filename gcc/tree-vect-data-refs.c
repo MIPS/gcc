@@ -3027,7 +3027,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
   tree offtype = NULL_TREE;
   tree decl, base, off;
   machine_mode pmode;
-  int punsignedp, pvolatilep;
+  int punsignedp, reversep, pvolatilep = 0;
 
   base = DR_REF (dr);
   /* For masked loads/stores, DR_REF (dr) is an artificial MEM_REF,
@@ -3059,9 +3059,9 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
      vectorized.  The following code attempts to find such a preexistng
      SSA_NAME OFF and put the loop invariants into a tree BASE
      that can be gimplified before the loop.  */
-  base = get_inner_reference (base, &pbitsize, &pbitpos, &off,
-			      &pmode, &punsignedp, &pvolatilep, false);
-  gcc_assert (base != NULL_TREE && (pbitpos % BITS_PER_UNIT) == 0);
+  base = get_inner_reference (base, &pbitsize, &pbitpos, &off, &pmode,
+			      &punsignedp, &reversep, &pvolatilep, false);
+  gcc_assert (base && (pbitpos % BITS_PER_UNIT) == 0 && !reversep);
 
   if (TREE_CODE (base) == MEM_REF)
     {
@@ -3245,120 +3245,24 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
 */
 
 bool
-vect_analyze_data_refs (vec_info *vinfo, int *min_vf, unsigned *n_stmts)
+vect_analyze_data_refs (vec_info *vinfo, int *min_vf)
 {
   struct loop *loop = NULL;
-  basic_block bb = NULL;
   unsigned int i;
-  vec<data_reference_p> datarefs;
   struct data_reference *dr;
   tree scalar_type;
 
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
-                     "=== vect_analyze_data_refs ===\n");
+		     "=== vect_analyze_data_refs ===\n");
 
   if (loop_vec_info loop_vinfo = dyn_cast <loop_vec_info> (vinfo))
-    {
-      basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
-
-      loop = LOOP_VINFO_LOOP (loop_vinfo);
-      datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
-      if (!find_loop_nest (loop, &LOOP_VINFO_LOOP_NEST (loop_vinfo)))
-	{
-	  if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-	                     "not vectorized: loop contains function calls"
-	                     " or data references that cannot be analyzed\n");
-	  return false;
-	}
-
-      for (i = 0; i < loop->num_nodes; i++)
-	{
-	  gimple_stmt_iterator gsi;
-
-	  for (gsi = gsi_start_bb (bbs[i]); !gsi_end_p (gsi); gsi_next (&gsi))
-	    {
-	      gimple *stmt = gsi_stmt (gsi);
-	      if (is_gimple_debug (stmt))
-		continue;
-	      ++*n_stmts;
-	      if (!find_data_references_in_stmt (loop, stmt, &datarefs))
-		{
-		  if (is_gimple_call (stmt) && loop->safelen)
-		    {
-		      tree fndecl = gimple_call_fndecl (stmt), op;
-		      if (fndecl != NULL_TREE)
-			{
-			  struct cgraph_node *node = cgraph_node::get (fndecl);
-			  if (node != NULL && node->simd_clones != NULL)
-			    {
-			      unsigned int j, n = gimple_call_num_args (stmt);
-			      for (j = 0; j < n; j++)
-				{
-				  op = gimple_call_arg (stmt, j);
-				  if (DECL_P (op)
-				      || (REFERENCE_CLASS_P (op)
-					  && get_base_address (op)))
-				    break;
-				}
-			      op = gimple_call_lhs (stmt);
-			      /* Ignore #pragma omp declare simd functions
-				 if they don't have data references in the
-				 call stmt itself.  */
-			      if (j == n
-				  && !(op
-				       && (DECL_P (op)
-					   || (REFERENCE_CLASS_P (op)
-					       && get_base_address (op)))))
-				continue;
-			    }
-			}
-		    }
-		  LOOP_VINFO_DATAREFS (loop_vinfo) = datarefs;
-		  if (dump_enabled_p ())
-		    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-				     "not vectorized: loop contains function "
-				     "calls or data references that cannot "
-				     "be analyzed\n");
-		  return false;
-		}
-	    }
-	}
-
-      LOOP_VINFO_DATAREFS (loop_vinfo) = datarefs;
-    }
-  else
-    {
-      bb_vec_info bb_vinfo = as_a <bb_vec_info> (vinfo);
-      gimple_stmt_iterator gsi;
-
-      bb = BB_VINFO_BB (bb_vinfo);
-      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	{
-	  gimple *stmt = gsi_stmt (gsi);
-	  if (is_gimple_debug (stmt))
-	    continue;
-	  ++*n_stmts;
-	  if (!find_data_references_in_stmt (NULL, stmt,
-					     &BB_VINFO_DATAREFS (bb_vinfo)))
-	    {
-	      /* Mark the rest of the basic-block as unvectorizable.  */
-	      for (; !gsi_end_p (gsi); gsi_next (&gsi))
-		{
-		  stmt = gsi_stmt (gsi);
-		  STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (stmt)) = false;
-		}
-	      break;
-	    }
-	}
-
-      datarefs = BB_VINFO_DATAREFS (bb_vinfo);
-    }
+    loop = LOOP_VINFO_LOOP (loop_vinfo);
 
   /* Go through the data-refs, check that the analysis succeeded.  Update
      pointer from stmt_vec_info struct to DR and vectype.  */
 
+  vec<data_reference_p> datarefs = vinfo->datarefs;
   FOR_EACH_VEC_ELT (datarefs, i, dr)
     {
       gimple *stmt;
@@ -3611,7 +3515,7 @@ again:
 	  HOST_WIDE_INT pbitsize, pbitpos;
 	  tree poffset;
 	  machine_mode pmode;
-	  int punsignedp, pvolatilep;
+	  int punsignedp, preversep, pvolatilep;
 	  affine_iv base_iv, offset_iv;
 	  tree dinit;
 
@@ -3630,7 +3534,8 @@ again:
 	    }
 
 	  outer_base = get_inner_reference (inner_base, &pbitsize, &pbitpos,
-		          &poffset, &pmode, &punsignedp, &pvolatilep, false);
+					    &poffset, &pmode, &punsignedp,
+					    &preversep, &pvolatilep, false);
 	  gcc_assert (outer_base != NULL_TREE);
 
 	  if (pbitpos % BITS_PER_UNIT != 0)
@@ -3638,6 +3543,14 @@ again:
 	      if (dump_enabled_p ())
 		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                  "failed: bit offset alignment.\n");
+	      return false;
+	    }
+
+	  if (preversep)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "failed: reverse storage order.\n");
 	      return false;
 	    }
 

@@ -1,3 +1,13 @@
+2015-11-09  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 230003 into gupc branch.
+
+2015-11-09  Gary Funck  <gary@intrepid.com>
+
+	* libatomic/Makefile.am: Revert.
+	Can't use $(filter-out) in an automake variable assignment.
+	* libatomic/Makefile.in: Re-generate.
+
 2015-11-08  Gary Funck  <gary@intrepid.com>
 
 	* tree-core.h (TI_UPC_PHASE_MASK, TI_UPC_THREAD_MASK,
