@@ -20572,12 +20572,16 @@ mips_conditional_register_usage (void)
 	 and $25 (t9) because it is used as the function call address in
 	 SVR4 PIC code.  */
 
-      fixed_regs[18] = call_used_regs[18] = 1;
-      fixed_regs[19] = call_used_regs[19] = 1;
-      fixed_regs[20] = call_used_regs[20] = 1;
-      fixed_regs[21] = call_used_regs[21] = 1;
-      fixed_regs[22] = call_used_regs[22] = 1;
-      fixed_regs[23] = call_used_regs[23] = 1;
+      if (!mips16_xsregs)
+	{
+	  fixed_regs[18] = call_used_regs[18] = 1;
+	  fixed_regs[19] = call_used_regs[19] = 1;
+	  fixed_regs[20] = call_used_regs[20] = 1;
+	  fixed_regs[21] = call_used_regs[21] = 1;
+	  fixed_regs[22] = call_used_regs[22] = 1;
+	  fixed_regs[23] = call_used_regs[23] = 1;
+	}
+
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
