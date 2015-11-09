@@ -21,47 +21,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
-#include "gimple.h"
 #include "rtl.h"
+#include "c-family/c-common.h"
+#include "gimple.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
+#include "tm_p.h"
 #include "ssa.h"
-#include "options.h"
-#include "fold-const.h"
+#include "cgraph.h"
+#include "tree-pretty-print.h"
 #include "stor-layout.h"
 #include "cfganal.h"
-#include "cgraph.h"
-#include "tree-pass.h"
-#include "tree-pretty-print.h"
-#include "internal-fn.h"
 #include "gimple-iterator.h"
-#include "gimple-walk.h"
 #include "output.h"
-#include "tm_p.h"
-#include "toplev.h"
 #include "cfgloop.h"
 #include "ubsan.h"
-#include "c-family/c-common.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
 #include "asan.h"
 #include "gimplify-me.h"
-#include "intl.h"
-#include "realmpfr.h"
 #include "dfp.h"
 #include "builtins.h"
 #include "tree-object-size.h"
-#include "tree-eh.h"
 #include "tree-cfg.h"
 
 /* Map from a tree to a VAR_DECL tree.  */
@@ -1378,9 +1359,9 @@ instrument_bool_enum_load (gimple_stmt_iterator *gsi)
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   machine_mode mode;
-  int volatilep = 0, unsignedp = 0;
+  int volatilep = 0, reversep, unsignedp = 0;
   tree base = get_inner_reference (rhs, &bitsize, &bitpos, &offset, &mode,
-				   &unsignedp, &volatilep, false);
+				   &unsignedp, &reversep, &volatilep, false);
   tree utype = build_nonstandard_integer_type (modebitsize, 1);
 
   if ((TREE_CODE (base) == VAR_DECL && DECL_HARD_REGISTER (base))
@@ -1798,9 +1779,9 @@ instrument_object_size (gimple_stmt_iterator *gsi, bool is_lhs)
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   machine_mode mode;
-  int volatilep = 0, unsignedp = 0;
+  int volatilep = 0, reversep, unsignedp = 0;
   tree inner = get_inner_reference (t, &bitsize, &bitpos, &offset, &mode,
-				    &unsignedp, &volatilep, false);
+				    &unsignedp, &reversep, &volatilep, false);
 
   if (bitpos % BITS_PER_UNIT != 0
       || bitsize != size_in_bytes * BITS_PER_UNIT)

@@ -46,14 +46,14 @@ extern "C" {
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "diagnostic-core.h"
-#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
+#include "cfghooks.h"
+#include "gimple-pretty-print.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop.h"
-#include "gimple-pretty-print.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "graphite-poly.h"
@@ -305,6 +305,7 @@ new_scop (edge entry, edge exit)
   scop->must_waw_no_source = NULL;
   scop->may_waw_no_source = NULL;
   scop_set_region (scop, region);
+  scop->original_schedule = NULL;
   scop->pbbs.create (3);
   scop->poly_scop_p = false;
   scop->drs.create (3);
@@ -341,6 +342,7 @@ free_scop (scop_p scop)
   isl_union_map_free (scop->may_waw);
   isl_union_map_free (scop->must_waw_no_source);
   isl_union_map_free (scop->may_waw_no_source);
+  isl_union_map_free (scop->original_schedule);
   XDELETE (scop);
 }
 

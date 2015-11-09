@@ -104,38 +104,20 @@ along with GCC; see the file COPYING3.	If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
+#include "predict.h"
 #include "df.h"
 #include "tm_p.h"
-#include "regs.h"
-#include "insn-config.h"
-#include "insn-codes.h"
-#include "recog.h"
-#include "output.h"
-#include "addresses.h"
-#include "flags.h"
 #include "optabs.h"
-#include "alias.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
+#include "regs.h"
+#include "ira.h"
+#include "recog.h"
 #include "expr.h"
 #include "cfgrtl.h"
 #include "cfgbuild.h"
-#include "except.h"
-#include "tree-pass.h"
-#include "timevar.h"
-#include "target.h"
-#include "ira.h"
-#include "alloc-pool.h"
 #include "lra.h"
-#include "insn-attr.h"
 #include "lra-int.h"
 #include "print-rtl.h"
 
@@ -1311,7 +1293,7 @@ init_reg_info (void)
   lra_reg_info = XNEWVEC (struct lra_reg, reg_info_size);
   for (i = 0; i < reg_info_size; i++)
     initialize_lra_reg_info_element (i);
-  copy_vec.create (100);
+  copy_vec.truncate (0);
 }
 
 

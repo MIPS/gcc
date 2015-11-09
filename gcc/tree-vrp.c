@@ -22,18 +22,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "insn-codes.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
 #include "ssa.h"
+#include "optabs-tree.h"
+#include "gimple-pretty-print.h"
+#include "diagnostic-core.h"
 #include "flags.h"
-#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "cfganal.h"
-#include "internal-fn.h"
 #include "gimple-fold.h"
 #include "tree-eh.h"
 #include "gimple-iterator.h"
@@ -44,22 +47,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-loop.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
-#include "tree-pass.h"
-#include "tree-dump.h"
-#include "gimple-pretty-print.h"
-#include "diagnostic-core.h"
 #include "intl.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
 #include "tree-ssa-threadupdate.h"
-#include "insn-codes.h"
-#include "optabs-tree.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
-
-
+#include "omp-low.h"
+#include "target.h"
 
 /* Range of values that can be associated with an SSA_NAME after VRP
    has executed.  */
@@ -3976,7 +3973,9 @@ extract_range_basic (value_range *vr, gimple *stmt)
   else if (is_gimple_call (stmt) && gimple_call_internal_p (stmt))
     {
       enum tree_code subcode = ERROR_MARK;
-      switch (gimple_call_internal_fn (stmt))
+      unsigned ifn_code = gimple_call_internal_fn (stmt);
+
+      switch (ifn_code)
 	{
 	case IFN_UBSAN_CHECK_ADD:
 	  subcode = PLUS_EXPR;
@@ -3987,6 +3986,28 @@ extract_range_basic (value_range *vr, gimple *stmt)
 	case IFN_UBSAN_CHECK_MUL:
 	  subcode = MULT_EXPR;
 	  break;
+	case IFN_GOACC_DIM_SIZE:
+	case IFN_GOACC_DIM_POS:
+	  /* Optimizing these two internal functions helps the loop
+	     optimizer eliminate outer comparisons.  Size is [1,N]
+	     and pos is [0,N-1].  */
+	  {
+	    bool is_pos = ifn_code == IFN_GOACC_DIM_POS;
+	    int axis = get_oacc_ifn_dim_arg (stmt);
+	    int size = get_oacc_fn_dim_size (current_function_decl, axis);
+
+	    if (!size)
+	      /* If it's dynamic, the backend might know a hardware
+		 limitation.  */
+	      size = targetm.goacc.dim_limit (axis);
+
+	    tree type = TREE_TYPE (gimple_call_lhs (stmt));
+	    set_value_range (vr, VR_RANGE,
+			     build_int_cst (type, is_pos ? 0 : 1),
+			     size ? build_int_cst (type, size - is_pos)
+			          : vrp_val_max (type), NULL);
+	  }
+	  return;
 	default:
 	  break;
 	}
@@ -10055,9 +10076,9 @@ identify_jump_threads (void)
   mark_dfs_back_edges ();
 
   /* Do not thread across edges we are about to remove.  Just marking
-     them as EDGE_DFS_BACK will do.  */
+     them as EDGE_IGNORE will do.  */
   FOR_EACH_VEC_ELT (to_remove_edges, i, e)
-    e->flags |= EDGE_DFS_BACK;
+    e->flags |= EDGE_IGNORE;
 
   /* Allocate our unwinder stack to unwind any temporary equivalences
      that might be recorded.  */
@@ -10114,9 +10135,9 @@ identify_jump_threads (void)
 	     it to a specific successor.  */
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
-	      /* Do not thread across back edges or abnormal edges
-		 in the CFG.  */
-	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+	      /* Do not thread across edges marked to ignoreor abnormal
+		 edges in the CFG.  */
+	      if (e->flags & (EDGE_IGNORE | EDGE_COMPLEX))
 		continue;
 
 	      thread_across_edge (dummy, e, true, equiv_stack, NULL,
@@ -10124,6 +10145,10 @@ identify_jump_threads (void)
 	    }
 	}
     }
+
+  /* Clear EDGE_IGNORE.  */
+  FOR_EACH_VEC_ELT (to_remove_edges, i, e)
+    e->flags &= ~EDGE_IGNORE;
 
   /* We do not actually update the CFG or SSA graphs at this point as
      ASSERT_EXPRs are still in the IL and cfg cleanup code does not yet

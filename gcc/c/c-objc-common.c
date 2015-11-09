@@ -21,11 +21,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "alias.h"
 #include "c-tree.h"
+#include "alias.h"
 #include "intl.h"
 #include "c-family/c-pretty-print.h"
-#include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "langhooks.h"
 #include "c-objc-common.h"
@@ -101,7 +100,7 @@ c_tree_printer (pretty_printer *pp, text_info *text, const char *spec,
     {
       t = va_arg (*text->args_ptr, tree);
       if (set_locus)
-	text->set_location (0, DECL_SOURCE_LOCATION (t));
+	text->set_location (0, DECL_SOURCE_LOCATION (t), true);
     }
 
   switch (*spec)

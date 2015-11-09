@@ -49,39 +49,31 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
+#include "target.h"
+#include "function.h"
 #include "rtl.h"
-#include "alias.h"
 #include "tree.h"
+#include "tree-ssa-alias.h"
+#include "gimple-expr.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "optabs.h"
+#include "regs.h"
+#include "recog.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "function.h"
 #include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
 #include "output.h"
-#include "diagnostic-core.h"
-#include "target.h"
-#include "tm_p.h"
-#include "regs.h"
 #include "reload.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "recog.h"
 #include "intl.h"
 #include "opts.h"
-#include "tree-ssa-alias.h"
-#include "gimple-expr.h"
 #include "gimplify.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
 
 
 bool
@@ -353,6 +345,7 @@ default_print_operand (FILE *stream ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 
 void
 default_print_operand_address (FILE *stream ATTRIBUTE_UNUSED,
+			       machine_mode /*mode*/,
 			       rtx x ATTRIBUTE_UNUSED)
 {
 #ifdef PRINT_OPERAND_ADDRESS
@@ -1095,10 +1088,16 @@ default_get_mask_mode (unsigned nunits, unsigned vector_size)
   unsigned elem_size = vector_size / nunits;
   machine_mode elem_mode
     = smallest_mode_for_size (elem_size * BITS_PER_UNIT, MODE_INT);
+  machine_mode vector_mode;
 
   gcc_assert (elem_size * nunits == vector_size);
 
-  return mode_for_vector (elem_mode, nunits);
+  vector_mode = mode_for_vector (elem_mode, nunits);
+  if (VECTOR_MODE_P (vector_mode)
+      && !targetm.vector_mode_supported_p (vector_mode))
+    vector_mode = BLKmode;
+
+  return vector_mode;
 }
 
 /* By default, the cost model accumulates three separate costs (prologue,
@@ -1268,6 +1267,23 @@ bool
 default_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
 {
   return (subset == superset);
+}
+
+/* The default hook for determining if 0 within a named address
+   space is a valid address.  */
+
+bool
+default_addr_space_zero_address_valid (addr_space_t as ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* The default hook for debugging the address space is to return the
+   address space number to indicate DW_AT_address_class.  */
+int
+default_addr_space_debug (addr_space_t as)
+{
+  return as;
 }
 
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be

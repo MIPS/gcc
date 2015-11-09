@@ -929,6 +929,7 @@ examine and set these two fictitious variables with your debugger.
 @cindex additional floating types
 @cindex @code{__float80} data type
 @cindex @code{__float128} data type
+@cindex @code{__ibm128} data type
 @cindex @code{w} floating point suffix
 @cindex @code{q} floating point suffix
 @cindex @code{W} floating point suffix
@@ -941,19 +942,39 @@ Support for additional types includes the arithmetic operators:
 add, subtract, multiply, divide; unary arithmetic operators;
 relational operators; equality operators; and conversions to and from
 integer and other floating types.  Use a suffix @samp{w} or @samp{W}
-in a literal constant of type @code{__float80} and @samp{q} or @samp{Q}
-for @code{_float128}.  You can declare complex types using the
-corresponding internal complex type, @code{XCmode} for @code{__float80}
-type and @code{TCmode} for @code{__float128} type:
+in a literal constant of type @code{__float80} or type
+@code{__ibm128}.  Use a suffix @samp{q} or @samp{Q} for @code{_float128}.
+
+On the i386, x86_64, IA-64, and HP-UX targets, you can declare complex
+types using the corresponding internal complex type, @code{XCmode} for
+@code{__float80} type and @code{TCmode} for @code{__float128} type:
 
 @smallexample
 typedef _Complex float __attribute__((mode(TC))) _Complex128;
 typedef _Complex float __attribute__((mode(XC))) _Complex80;
 @end smallexample
 
+On PowerPC Linux, Freebsd and Darwin systems, the default for
+@code{long double} is to use the IBM extended floating point format
+that uses a pair of @code{double} values to extend the precision.
+This means that the mode @code{TCmode} was already used by the
+traditional IBM long double format, and you would need to use the mode
+@code{KCmode}:
+
+@smallexample
+typedef _Complex float __attribute__((mode(KC))) _Complex128;
+@end smallexample
+
 Not all targets support additional floating-point types.  @code{__float80}
 and @code{__float128} types are supported on x86 and IA-64 targets.
-The @code{__float128} type is supported on hppa HP-UX targets.
+The @code{__float128} type is supported on hppa HP-UX.
+The @code{__float128} type is supported on PowerPC systems by default
+if the vector scalar instruction set (VSX) is enabled.
+
+On the PowerPC, @code{__ibm128} provides access to the IBM extended
+double format, and it is intended to be used by the library functions
+that handle conversions if/when long double is changed to be IEEE
+128-bit floating point.
 
 @node Half-Precision
 @section Half-Precision Floating Point
@@ -1240,8 +1261,8 @@ As an extension, GNU C supports named address spaces as
 defined in the N1275 draft of ISO/IEC DTR 18037.  Support for named
 address spaces in GCC will evolve as the draft technical report
 changes.  Calling conventions for any target might also change.  At
-present, only the AVR, SPU, M32C, and RL78 targets support address
-spaces other than the generic address space.
+present, only the AVR, SPU, M32C, RL78, and x86 targets support
+address spaces other than the generic address space.
 
 Address space identifiers may be used exactly like any other C type
 qualifier (e.g., @code{const} or @code{volatile}).  See the N1275
@@ -1429,6 +1450,49 @@ The compiler generates special code to access the variable @code{i}.
 It may use runtime library
 support, or generate special machine instructions to access that address
 space.
+
+@subsection x86 Named Address Spaces
+@cindex x86 named address spaces
+
+On the x86 target, variables may be declared as being relative
+to the @code{%fs} or @code{%gs} segments.
+
+@table @code
+@item __seg_fs
+@itemx __seg_gs
+@cindex @code{__seg_fs} x86 named address space
+@cindex @code{__seg_gs} x86 named address space
+The object is accessed with the respective segment override prefix.
+
+The respective segment base must be set via some method specific to
+the operating system.  Rather than require an expensive system call
+to retrieve the segment base, these address spaces are not considered
+to be subspaces of the generic (flat) address space.  This means that
+explicit casts are required to convert pointers between these address
+spaces and the generic address space.  In practice the application
+should cast to @code{uintptr_t} and apply the segment base offset
+that it installed previously.
+
+The preprocessor symbols @code{__SEG_FS} and @code{__SEG_GS} are
+defined when these address spaces are supported.
+
+@item __seg_tls
+@cindex @code{__seg_tls} x86 named address space
+Some operating systems define either the @code{%fs} or @code{%gs}
+segment as the thread-local storage base for each thread.  Objects
+within this address space are accessed with the appropriate
+segment override prefix.
+
+The pointer located at address 0 within the segment contains the
+offset of the segment within the generic address space.  Thus this
+address space is considered a subspace of the generic address space,
+and the known segment offset is applied when converting addresses
+to and from the generic address space.
+
+The preprocessor symbol @code{__SEG_TLS} is defined when this
+address space is supported.
+
+@end table
 
 @node Zero Length
 @section Arrays of Length Zero
@@ -3065,6 +3129,19 @@ The warnings for missing or incorrect sentinels are enabled with
 This function attribute make a stack protection of the function if 
 flags @option{fstack-protector} or @option{fstack-protector-strong}
 or @option{fstack-protector-explicit} are set.
+
+@item target_clones (@var{options})
+@cindex @code{target_clones} function attribute
+The @code{target_clones} attribute is used to specify that a function is to
+be cloned into multiple versions compiled with different target options
+than specified on the command line.  The supported options and restrictions
+are the same as for @code{target} attribute.
+
+For instance on an x86, you could compile a function with
+@code{target_clones("sse4.1,avx")}. It will create 2 function clones,
+one compiled with @option{-msse4.1} and another with @option{-mavx}.
+At the function call it will create resolver @code{ifunc}, that will
+dynamically call a clone suitable for current architecture.
 
 @item target (@var{options})
 @cindex @code{target} function attribute
@@ -6360,6 +6437,42 @@ definition, specifies that each member (other than zero-width bit-fields)
 of the structure or union is placed to minimize the memory required.  When
 attached to an @code{enum} definition, it indicates that the smallest
 integral type should be used.
+
+@item scalar_storage_order ("@var{endianness}")
+@cindex @code{scalar_storage_order} type attribute
+When attached to a @code{union} or a @code{struct}, this attribute sets
+the storage order, aka endianness, of the scalar fields of the type, as
+well as the array fields whose component is scalar.  The supported
+endianness are @code{big-endian} and @code{little-endian}.  The attribute
+has no effects on fields which are themselves a @code{union}, a @code{struct}
+or an array whose component is a @code{union} or a @code{struct}, and it is
+possible to have fields with a different scalar storage order than the
+enclosing type.
+
+This attribute is supported only for targets that use a uniform default
+scalar storage order (fortunately, most of them), i.e. targets that store
+the scalars either all in big-endian or all in little-endian.
+
+Additional restrictions are enforced for types with the reverse scalar
+storage order with regard to the scalar storage order of the target:
+
+@itemize
+@item Taking the address of a scalar field of a @code{union} or a
+@code{struct} with reverse scalar storage order is not permitted and will
+yield an error.
+@item Taking the address of an array field, whose component is scalar, of
+a @code{union} or a @code{struct} with reverse scalar storage order is
+permitted but will yield a warning, unless @option{-Wno-scalar-storage-order}
+is specified.
+@item Taking the address of a @code{union} or a @code{struct} with reverse
+scalar storage order is permitted.
+@end itemize
+
+These restrictions exist because the storage order attribute is lost when
+the address of a scalar or the address of an array with scalar component
+is taken, so storing indirectly through this address will generally not work.
+The second case is nevertheless allowed to be able to perform a block copy
+from or to the array.
 
 @item transparent_union
 @cindex @code{transparent_union} type attribute
@@ -16995,6 +17108,9 @@ AMD Family 15h Bulldozer version 4.
 
 @item btver2
 AMD Family 16h CPU.
+
+@item znver1
+AMD Family 17h CPU.
 @end table
 
 Here is an example:
@@ -18395,7 +18511,7 @@ for further explanation.
 * Darwin Pragmas::
 * Solaris Pragmas::
 * Symbol-Renaming Pragmas::
-* Structure-Packing Pragmas::
+* Structure-Layout Pragmas::
 * Weak Pragmas::
 * Diagnostic Pragmas::
 * Visibility Pragmas::
@@ -18671,8 +18787,8 @@ the name does not change.
 always the C-language name.
 @end enumerate
 
-@node Structure-Packing Pragmas
-@subsection Structure-Packing Pragmas
+@node Structure-Layout Pragmas
+@subsection Structure-Layout Pragmas
 
 For compatibility with Microsoft Windows compilers, GCC supports a
 set of @code{#pragma} directives that change the maximum alignment of
@@ -18695,15 +18811,28 @@ multiple @code{#pragma pack(@var{n})} instances and finalized by a single
 @code{#pragma pack(pop)}.
 @end enumerate
 
-Some targets, e.g.@: x86 and PowerPC, support the @code{ms_struct}
-@code{#pragma} which lays out a structure as the documented
-@code{__attribute__ ((ms_struct))}.
+Some targets, e.g.@: x86 and PowerPC, support the @code{#pragma ms_struct}
+directive which lays out structures and unions subsequently defined as the
+documented @code{__attribute__ ((ms_struct))}.
+
 @enumerate
-@item @code{#pragma ms_struct on} turns on the layout for structures
-declared.
-@item @code{#pragma ms_struct off} turns off the layout for structures
-declared.
+@item @code{#pragma ms_struct on} turns on the Microsoft layout.
+@item @code{#pragma ms_struct off} turns off the Microsoft layout.
 @item @code{#pragma ms_struct reset} goes back to the default layout.
+@end enumerate
+
+Most targets also support the @code{#pragma scalar_storage_order} directive
+which lays out structures and unions subsequently defined as the documented
+@code{__attribute__ ((scalar_storage_order))}.
+
+@enumerate
+@item @code{#pragma scalar_storage_order big-endian} sets the storage order
+of the scalar fields to big-endian.
+@item @code{#pragma scalar_storage_order little-endian} sets the storage order
+of the scalar fields to little-endian.
+@item @code{#pragma scalar_storage_order default} goes back to the endianness
+that was in effect when compilation started (see also command-line option
+@option{-fsso-struct=@var{endianness}} @pxref{C Dialect Options}).
 @end enumerate
 
 @node Weak Pragmas

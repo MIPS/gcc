@@ -21,32 +21,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
+#include "function.h"
+#include "rtl.h"
 #include "tree.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "stringpool.h"
 #include "varasm.h"
 #include "print-tree.h"
-#include "rtl.h"
-#include "tm_p.h"
-#include "flags.h"
-#include "function.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
-#include "expr.h"
-#include "diagnostic-core.h"
-#include "target.h"
 #include "langhooks.h"
-#include "regs.h"
-#include "params.h"
-#include "cgraph.h"
 #include "tree-inline.h"
 #include "tree-dump.h"
 #include "gimplify.h"
@@ -2046,11 +2035,16 @@ finish_record_layout (record_layout_info rli, int free_p)
   /* Compute bitfield representatives.  */
   finish_bitfield_layout (rli->t);
 
-  /* Propagate TYPE_PACKED to variants.  With C++ templates,
-     handle_packed_attribute is too early to do this.  */
+  /* Propagate TYPE_PACKED and TYPE_REVERSE_STORAGE_ORDER to variants.
+     With C++ templates, it is too early to do this when the attribute
+     is being parsed.  */
   for (variant = TYPE_NEXT_VARIANT (rli->t); variant;
        variant = TYPE_NEXT_VARIANT (variant))
-    TYPE_PACKED (variant) = TYPE_PACKED (rli->t);
+    {
+      TYPE_PACKED (variant) = TYPE_PACKED (rli->t);
+      TYPE_REVERSE_STORAGE_ORDER (variant)
+	= TYPE_REVERSE_STORAGE_ORDER (rli->t);
+    }
 
   /* Lay out any static members.  This is done now because their type
      may use the record's type.  */
@@ -2185,7 +2179,8 @@ layout_type (tree type)
 	TYPE_SATURATING (type) = TYPE_SATURATING (TREE_TYPE (type));
         TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
 	/* Several boolean vector elements may fit in a single unit.  */
-	if (VECTOR_BOOLEAN_TYPE_P (type))
+	if (VECTOR_BOOLEAN_TYPE_P (type)
+	    && type->type_common.mode != BLKmode)
 	  TYPE_SIZE_UNIT (type)
 	    = size_int (GET_MODE_SIZE (type->type_common.mode));
 	else

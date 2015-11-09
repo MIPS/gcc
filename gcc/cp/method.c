@@ -24,21 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
 #include "tree.h"
-#include "stringpool.h"
-#include "varasm.h"
 #include "cp-tree.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "cgraph.h"
+#include "alias.h"
+#include "varasm.h"
 #include "flags.h"
 #include "toplev.h"
-#include "tm_p.h"
-#include "target.h"
 #include "common/common-target.h"
-#include "diagnostic.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
 
 /* Various flags to control the mangling process.  */
 
@@ -1649,10 +1645,8 @@ maybe_explain_implicit_delete (tree decl)
 		    "deleted because its exception-specification does not "
 		    "match the implicit exception-specification %qX",
 		    decl, raises);
-#ifdef ENABLE_CHECKING
-	  else
+	  else if (flag_checking)
 	    gcc_unreachable ();
-#endif
 
 	  pop_scope (scope);
 	}

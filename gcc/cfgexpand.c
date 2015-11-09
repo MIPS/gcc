@@ -21,59 +21,54 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
+#include "tm_p.h"
 #include "ssa.h"
-#include "alias.h"
+#include "optabs.h"
+#include "regs.h" /* For reg_renumber.  */
+#include "emit-rtl.h"
+#include "recog.h"
+#include "cgraph.h"
+#include "diagnostic.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
 #include "stmt.h"
 #include "print-tree.h"
-#include "tm_p.h"
 #include "cfgrtl.h"
 #include "cfganal.h"
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
 #include "expr.h"
-#include "langhooks.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-iterator.h"
+#include "gimple-expr.h"
 #include "gimple-walk.h"
-#include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
-#include "tree-pass.h"
 #include "except.h"
-#include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "toplev.h"
 #include "debug.h"
 #include "params.h"
 #include "tree-inline.h"
 #include "value-prof.h"
-#include "target.h"
 #include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
 #include "cfgloop.h"
-#include "regs.h" /* For reg_renumber.  */
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
 #include "asan.h"
 #include "tree-ssa-address.h"
-#include "recog.h"
 #include "output.h"
 #include "builtins.h"
 #include "tree-chkp.h"
@@ -4379,9 +4374,10 @@ expand_debug_expr (tree exp)
 	machine_mode mode1;
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset;
-	int volatilep = 0;
-	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-					&mode1, &unsignedp, &volatilep, false);
+	int reversep, volatilep = 0;
+	tree tem
+	  = get_inner_reference (exp, &bitsize, &bitpos, &offset, &mode1,
+				 &unsignedp, &reversep, &volatilep, false);
 	rtx orig_op0;
 
 	if (bitsize == 0)
@@ -4804,9 +4800,10 @@ expand_debug_expr (tree exp)
 	  if (handled_component_p (TREE_OPERAND (exp, 0)))
 	    {
 	      HOST_WIDE_INT bitoffset, bitsize, maxsize;
+	      bool reverse;
 	      tree decl
-		= get_ref_base_and_extent (TREE_OPERAND (exp, 0),
-					   &bitoffset, &bitsize, &maxsize);
+		= get_ref_base_and_extent (TREE_OPERAND (exp, 0), &bitoffset,
+					   &bitsize, &maxsize, &reverse);
 	      if ((TREE_CODE (decl) == VAR_DECL
 		   || TREE_CODE (decl) == PARM_DECL
 		   || TREE_CODE (decl) == RESULT_DECL)
@@ -6373,6 +6370,8 @@ pass_expand::execute (function *fun)
 
   /* We're done expanding trees to RTL.  */
   currently_expanding_to_rtl = 0;
+
+  flush_mark_addressable_queue ();
 
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (fun)->next_bb,
 		  EXIT_BLOCK_PTR_FOR_FN (fun), next_bb)

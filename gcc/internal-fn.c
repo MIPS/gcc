@@ -20,39 +20,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
-#include "predict.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "options.h"
+#include "predict.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "internal-fn.h"
 #include "stor-layout.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
 #include "ubsan.h"
-#include "target.h"
-#include "stringpool.h"
-#include "tree-ssanames.h"
-#include "diagnostic-core.h"
 
 /* The names of each internal function, indexed by function number.  */
 const char *const internal_fn_name_array[] = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) #CODE,
 #include "internal-fn.def"
-#undef DEF_INTERNAL_FN
   "<invalid-fn>"
 };
 
@@ -60,7 +50,6 @@ const char *const internal_fn_name_array[] = {
 const int internal_fn_flags_array[] = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) FLAGS,
 #include "internal-fn.def"
-#undef DEF_INTERNAL_FN
   0
 };
 
@@ -74,7 +63,6 @@ init_internal_fns ()
   if (FNSPEC) internal_fn_fnspec_array[IFN_##CODE] = \
     build_string ((int) sizeof (FNSPEC), FNSPEC ? FNSPEC : "");
 #include "internal-fn.def"
-#undef DEF_INTERNAL_FN
   internal_fn_fnspec_array[IFN_LAST] = 0;
 }
 
@@ -2054,6 +2042,14 @@ expand_GOACC_LOOP (gcall *stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
+/* This is expanded by oacc_device_lower pass.  */
+
+static void
+expand_GOACC_REDUCTION (gcall *stmt ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 
@@ -2063,7 +2059,6 @@ expand_GOACC_LOOP (gcall *stmt ATTRIBUTE_UNUSED)
 static void (*const internal_fn_expanders[]) (gcall *) = {
 #define DEF_INTERNAL_FN(CODE, FLAGS, FNSPEC) expand_##CODE,
 #include "internal-fn.def"
-#undef DEF_INTERNAL_FN
   0
 };
 

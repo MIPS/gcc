@@ -189,31 +189,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "alias.h"
 #include "fold-const.h"
-#include "stor-layout.h"
 #include "trans-mem.h"
-#include "tm_p.h"
 #include "cfganal.h"
 #include "cfgcleanup.h"
-#include "flags.h"
-#include "internal-fn.h"
-#include "tree-eh.h"
 #include "gimple-iterator.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
 #include "params.h"
-#include "gimple-pretty-print.h"
 #include "tree-ssa-sccvn.h"
-#include "tree-dump.h"
 #include "cfgloop.h"
-#include "tree-pass.h"
-#include "trans-mem.h"
 
 /* Describes a group of bbs with the same successors.  The successor bbs are
    cached in succs, and the successor edge flags are cached in succ_flags.
@@ -1091,7 +1081,7 @@ gimple_operand_equal_value_p (tree t1, tree t2)
       || t2 == NULL_TREE)
     return false;
 
-  if (operand_equal_p (t1, t2, 0))
+  if (operand_equal_p (t1, t2, OEP_MATCH_SIDE_EFFECTS))
     return true;
 
   return gvn_uses_equal (t1, t2);

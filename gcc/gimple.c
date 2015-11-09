@@ -25,26 +25,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "backend.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
 #include "ssa.h"
-#include "target.h"
+#include "cgraph.h"
+#include "diagnostic.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "calls.h"
-#include "stmt.h"
 #include "stor-layout.h"
 #include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "gimplify.h"
-#include "diagnostic.h"
-#include "value-prof.h"
-#include "flags.h"
-#include "alias.h"
-#include "demangle.h"
-#include "langhooks.h"
-#include "cgraph.h"
+#include "target.h"
 
 
 /* All the tuples have their operand vector (if present) at the very bottom
@@ -2632,9 +2625,15 @@ nonfreeing_call_p (gimple *call)
 static bool
 check_loadstore (gimple *, tree op, tree, void *data)
 {
-  if ((TREE_CODE (op) == MEM_REF || TREE_CODE (op) == TARGET_MEM_REF)
-      && operand_equal_p (TREE_OPERAND (op, 0), (tree)data, 0))
-    return true;
+  if (TREE_CODE (op) == MEM_REF || TREE_CODE (op) == TARGET_MEM_REF)
+    {
+      /* Some address spaces may legitimately dereference zero.  */
+      addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (op));
+      if (targetm.addr_space.zero_address_valid (as))
+	return false;
+
+      return operand_equal_p (TREE_OPERAND (op, 0), (tree)data, 0);
+    }
   return false;
 }
 

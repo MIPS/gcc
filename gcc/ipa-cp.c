@@ -103,23 +103,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
+#include "backend.h"
 #include "tree.h"
-#include "options.h"
+#include "gimple-expr.h"
+#include "predict.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
+#include "cgraph.h"
+#include "diagnostic.h"
 #include "fold-const.h"
 #include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "target.h"
-#include "backend.h"
-#include "predict.h"
-#include "hard-reg-set.h"
-#include "cgraph.h"
-#include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-inline.h"
 #include "params.h"
@@ -1060,7 +1055,7 @@ ipa_get_jf_ancestor_result (struct ipa_jump_func *jfunc, tree input)
     {
       tree t = TREE_OPERAND (input, 0);
       t = build_ref_for_offset (EXPR_LOCATION (t), t,
-				ipa_get_jf_ancestor_offset (jfunc),
+				ipa_get_jf_ancestor_offset (jfunc), false,
 				ptr_type_node, NULL, false);
       return build_fold_addr_expr (t);
     }

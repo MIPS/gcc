@@ -36,38 +36,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
-#include "cfghooks.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "cfghooks.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "options.h"
+#include "expmed.h"
+#include "gimple-pretty-print.h"
 #include "fold-const.h"
-#include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "stor-layout.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
-#include "tree-pass.h"
 #include "cfgloop.h"
-#include "gimple-pretty-print.h"
 #include "tree-cfg.h"
 #include "domwalk.h"
 #include "params.h"
 #include "tree-ssa-address.h"
 #include "tree-affine.h"
-#include "wide-int-print.h"
 #include "builtins.h"
 
 /* Information about a strength reduction candidate.  Each statement
@@ -985,7 +972,7 @@ slsr_process_ref (gimple *gs)
   tree ref_expr, base, offset, type;
   HOST_WIDE_INT bitsize, bitpos;
   machine_mode mode;
-  int unsignedp, volatilep;
+  int unsignedp, reversep, volatilep;
   slsr_cand_t c;
 
   if (gimple_vdef (gs))
@@ -1000,7 +987,9 @@ slsr_process_ref (gimple *gs)
     return;
 
   base = get_inner_reference (ref_expr, &bitsize, &bitpos, &offset, &mode,
-			      &unsignedp, &volatilep, false);
+			      &unsignedp, &reversep, &volatilep, false);
+  if (reversep)
+    return;
   widest_int index = bitpos;
 
   if (!restructure_reference (&base, &offset, &index, &type))

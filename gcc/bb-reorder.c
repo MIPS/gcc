@@ -94,28 +94,17 @@
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "cfghooks.h"
-#include "tree.h"
-#include "rtl.h"
-#include "df.h"
-#include "alias.h"
-#include "regs.h"
-#include "flags.h"
-#include "output.h"
 #include "target.h"
-#include "tm_p.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
+#include "rtl.h"
+#include "tree.h"
+#include "cfghooks.h"
+#include "df.h"
 #include "optabs.h"
+#include "regs.h"
+#include "emit-rtl.h"
+#include "output.h"
+#include "expr.h"
 #include "params.h"
-#include "diagnostic-core.h"
 #include "toplev.h" /* user_defined_section_attribute */
 #include "tree-pass.h"
 #include "cfgrtl.h"
@@ -123,7 +112,6 @@
 #include "cfgbuild.h"
 #include "cfgcleanup.h"
 #include "bb-reorder.h"
-#include "cgraph.h"
 #include "except.h"
 #include "fibonacci_heap.h"
 
@@ -2316,7 +2304,9 @@ reorder_basic_blocks_simple (void)
       if (JUMP_P (end) && extract_asm_operands (end))
 	continue;
 
-      if (any_condjump_p (end))
+      if (single_succ_p (bb))
+	edges[n++] = EDGE_SUCC (bb, 0);
+      else if (any_condjump_p (end))
 	{
 	  edge e0 = EDGE_SUCC (bb, 0);
 	  edge e1 = EDGE_SUCC (bb, 1);
@@ -2327,8 +2317,6 @@ reorder_basic_blocks_simple (void)
 	  edges[n++] = e0;
 	  edges[n++] = e1;
 	}
-      else if (single_succ_p (bb))
-	edges[n++] = EDGE_SUCC (bb, 0);
     }
 
   /* Sort the edges, the most desirable first.  When optimizing for size

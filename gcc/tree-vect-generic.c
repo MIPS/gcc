@@ -20,29 +20,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "options.h"
+#include "expmed.h"
+#include "optabs-tree.h"
+#include "diagnostic.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "langhooks.h"
-#include "internal-fn.h"
 #include "tree-eh.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "tree-cfg.h"
-#include "tree-iterator.h"
-#include "tree-pass.h"
-#include "flags.h"
-#include "diagnostic.h"
-#include "target.h"
-#include "expmed.h"
-#include "insn-codes.h"
-#include "optabs-tree.h"
 
 
 static void expand_vector_operations_1 (gimple_stmt_iterator *);
@@ -161,10 +154,16 @@ static tree
 do_compare (gimple_stmt_iterator *gsi, tree inner_type, tree a, tree b,
 	    tree bitpos, tree bitsize, enum tree_code code, tree type)
 {
+  tree stype = TREE_TYPE (type);
+  tree cst_false = build_zero_cst (stype);
+  tree cst_true = build_all_ones_cst (stype);
+  tree cmp;
+
   a = tree_vec_extract (gsi, inner_type, a, bitsize, bitpos);
   b = tree_vec_extract (gsi, inner_type, b, bitsize, bitpos);
 
-  return gimplify_build2 (gsi, code, TREE_TYPE (type), a, b);
+  cmp = build2 (code, boolean_type_node, a, b);
+  return gimplify_build3 (gsi, COND_EXPR, stype, cmp, cst_true, cst_false);
 }
 
 /* Expand vector addition to scalars.  This does bit twiddling

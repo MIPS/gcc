@@ -69,37 +69,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
+#include "function.h"
+#include "rtl.h"
 #include "tree.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "insn-config.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "varasm.h"
 #include "stor-layout.h"
-#include "rtl.h"
-#include "flags.h"
-#include "regs.h"
-#include "insn-config.h"
 #include "reload.h"
 #include "output.h"
 #include "dbxout.h"
-#include "diagnostic-core.h"
 #include "toplev.h"
-#include "tm_p.h"
 #include "debug.h"
-#include "function.h"
-#include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
-#include "obstack.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "cgraph.h"
-#include "stringpool.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"
@@ -2489,11 +2479,11 @@ dbxout_expand_expr (tree expr)
 	machine_mode mode;
 	HOST_WIDE_INT bitsize, bitpos;
 	tree offset, tem;
-	int volatilep = 0, unsignedp = 0;
+	int unsignedp, reversep, volatilep = 0;
 	rtx x;
 
-	tem = get_inner_reference (expr, &bitsize, &bitpos, &offset,
-				   &mode, &unsignedp, &volatilep, true);
+	tem = get_inner_reference (expr, &bitsize, &bitpos, &offset, &mode,
+				   &unsignedp, &reversep, &volatilep, true);
 
 	x = dbxout_expand_expr (tem);
 	if (x == NULL || !MEM_P (x))

@@ -21,37 +21,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "predict.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "alias.h"
+#include "predict.h"
+#include "tm_p.h"
+#include "stringpool.h"
+#include "expmed.h"
+#include "optabs.h"
+#include "emit-rtl.h"
+#include "cgraph.h"
+#include "diagnostic-core.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "stringpool.h"
-#include "attribs.h"
 #include "internal-fn.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
 #include "dojump.h"
 #include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
-#include "stmt.h"
 #include "expr.h"
-#include "insn-codes.h"
-#include "optabs.h"
-#include "libfuncs.h"
-#include "regs.h"
-#include "diagnostic-core.h"
 #include "output.h"
-#include "tm_p.h"
-#include "timevar.h"
 #include "langhooks.h"
-#include "target.h"
-#include "cgraph.h"
 #include "except.h"
 #include "dbgcnt.h"
 #include "rtl-iter.h"
@@ -1074,7 +1065,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
 	    args[i].aligned_regs[j] = reg;
 	    word = extract_bit_field (word, bitsize, 0, 1, NULL_RTX,
-				      word_mode, word_mode);
+				      word_mode, word_mode, false);
 
 	    /* There is no need to restrict this code to loading items
 	       in TYPE_ALIGN sized hunks.  The bitfield instructions can
@@ -1091,7 +1082,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
 	    bytes -= bitsize / BITS_PER_UNIT;
 	    store_bit_field (reg, bitsize, endian_correction, 0, 0,
-			     word_mode, word);
+			     word_mode, word, false);
 	  }
       }
 }
@@ -1372,7 +1363,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      else
 		copy = assign_temp (type, 1, 0);
 
-	      store_expr (args[i].tree_value, copy, 0, false);
+	      store_expr (args[i].tree_value, copy, 0, false, false);
 
 	      /* Just change the const function to pure and then let
 		 the next test clear the pure based on
@@ -2093,8 +2084,8 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		  rtx dest = gen_rtx_REG (word_mode, REGNO (reg) + nregs - 1);
 		  unsigned int bitoff = (nregs - 1) * BITS_PER_WORD;
 		  unsigned int bitsize = size * BITS_PER_UNIT - bitoff;
-		  rtx x = extract_bit_field (mem, bitsize, bitoff, 1,
-					     dest, word_mode, word_mode);
+		  rtx x = extract_bit_field (mem, bitsize, bitoff, 1, dest,
+					     word_mode, word_mode, false);
 		  if (BYTES_BIG_ENDIAN)
 		    x = expand_shift (LSHIFT_EXPR, word_mode, x,
 				      BITS_PER_WORD - bitsize, dest, 1);

@@ -76,25 +76,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
-#include "options.h"
-#include "fold-const.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "gimple-pretty-print.h"
-#include "internal-fn.h"
+#include "alias.h"
+#include "fold-const.h"
+#include "expr.h"
 #include "gimple-iterator.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
@@ -103,7 +92,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "dumpfile.h"
-#include "langhooks.h"
 #include "tree-affine.h"
 #include "params.h"
 
@@ -625,11 +613,12 @@ split_constant_offset_1 (tree type, tree op0, enum tree_code code, tree op1,
 	tree base, poffset;
 	HOST_WIDE_INT pbitsize, pbitpos;
 	machine_mode pmode;
-	int punsignedp, pvolatilep;
+	int punsignedp, preversep, pvolatilep;
 
 	op0 = TREE_OPERAND (op0, 0);
-	base = get_inner_reference (op0, &pbitsize, &pbitpos, &poffset,
-				    &pmode, &punsignedp, &pvolatilep, false);
+	base
+	  = get_inner_reference (op0, &pbitsize, &pbitpos, &poffset, &pmode,
+				 &punsignedp, &preversep, &pvolatilep, false);
 
 	if (pbitpos % BITS_PER_UNIT != 0)
 	  return false;
@@ -773,7 +762,7 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
   HOST_WIDE_INT pbitsize, pbitpos;
   tree base, poffset;
   machine_mode pmode;
-  int punsignedp, pvolatilep;
+  int punsignedp, preversep, pvolatilep;
   affine_iv base_iv, offset_iv;
   tree init, dinit, step;
   bool in_loop = (loop && loop->num);
@@ -781,14 +770,21 @@ dr_analyze_innermost (struct data_reference *dr, struct loop *nest)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "analyze_innermost: ");
 
-  base = get_inner_reference (ref, &pbitsize, &pbitpos, &poffset,
-			      &pmode, &punsignedp, &pvolatilep, false);
+  base = get_inner_reference (ref, &pbitsize, &pbitpos, &poffset, &pmode,
+			      &punsignedp, &preversep, &pvolatilep, false);
   gcc_assert (base != NULL_TREE);
 
   if (pbitpos % BITS_PER_UNIT != 0)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "failed: bit offset alignment.\n");
+      return false;
+    }
+
+  if (preversep)
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file, "failed: reverse storage order.\n");
       return false;
     }
 

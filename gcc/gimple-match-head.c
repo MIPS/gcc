@@ -21,32 +21,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
 #include "ssa.h"
-#include "alias.h"
-#include "options.h"
+#include "cgraph.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "flags.h"
-#include "internal-fn.h"
 #include "gimple-fold.h"
-#include "gimple-iterator.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
 #include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
 #include "tree-dfa.h"
 #include "builtins.h"
-#include "dumpfile.h"
-#include "target.h"
-#include "cgraph.h"
 #include "gimple-match.h"
 #include "tree-pass.h"
 
@@ -752,7 +738,6 @@ gimple_simplify (gimple *stmt,
 
 	  tree decl = TREE_OPERAND (fn, 0);
 	  if (DECL_BUILT_IN_CLASS (decl) != BUILT_IN_NORMAL
-	      || !builtin_decl_implicit (DECL_FUNCTION_CODE (decl))
 	      || !gimple_builtin_call_types_compatible_p (stmt, decl))
 	    return false;
 

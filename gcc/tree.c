@@ -31,22 +31,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "tree-pass.h"
 #include "ssa.h"
+#include "cgraph.h"
+#include "diagnostic.h"
 #include "flags.h"
 #include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "attribs.h"
-#include "varasm.h"
-#include "tm_p.h"
 #include "toplev.h" /* get_random_seed */
-#include "filenames.h"
 #include "output.h"
-#include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "tree-inline.h"
@@ -54,24 +53,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
-#include "cgraph.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "emit-rtl.h"
-#include "stmt.h"
-#include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
-#include "tree-pass.h"
 #include "langhooks-def.h"
-#include "diagnostic.h"
 #include "tree-diagnostic.h"
-#include "tree-pretty-print.h"
 #include "except.h"
-#include "debug.h"
-#include "intl.h"
 #include "builtins.h"
 #include "print-tree.h"
 #include "ipa-utils.h"
@@ -342,6 +328,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_NUM_GANGS  */
   1, /* OMP_CLAUSE_NUM_WORKERS  */
   1, /* OMP_CLAUSE_VECTOR_LENGTH  */
+  1, /* OMP_CLAUSE_TILE  */
 };
 
 const char * const omp_clause_code_name[] =
@@ -412,7 +399,8 @@ const char * const omp_clause_code_name[] =
   "vector",
   "num_gangs",
   "num_workers",
-  "vector_length"
+  "vector_length",
+  "tile"
 };
 
 
@@ -1730,13 +1718,19 @@ tree
 build_vector_from_ctor (tree type, vec<constructor_elt, va_gc> *v)
 {
   tree *vec = XALLOCAVEC (tree, TYPE_VECTOR_SUBPARTS (type));
-  unsigned HOST_WIDE_INT idx;
+  unsigned HOST_WIDE_INT idx, pos = 0;
   tree value;
 
   FOR_EACH_CONSTRUCTOR_VALUE (v, idx, value)
-    vec[idx] = value;
+    {
+      if (TREE_CODE (value) == VECTOR_CST)
+	for (unsigned i = 0; i < VECTOR_CST_NELTS (value); ++i)
+	  vec[pos++] = VECTOR_CST_ELT (value, i);
+      else
+	vec[pos++] = value;
+    }
   for (; idx < TYPE_VECTOR_SUBPARTS (type); ++idx)
-    vec[idx] = build_zero_cst (TREE_TYPE (type));
+    vec[pos++] = build_zero_cst (TREE_TYPE (type));
 
   return build_vector (type, vec);
 }
@@ -4213,6 +4207,7 @@ stabilize_reference (tree ref)
       result = build_nt (BIT_FIELD_REF,
 			 stabilize_reference (TREE_OPERAND (ref, 0)),
 			 TREE_OPERAND (ref, 1), TREE_OPERAND (ref, 2));
+      REF_REVERSE_STORAGE_ORDER (result) = REF_REVERSE_STORAGE_ORDER (ref);
       break;
 
     case ARRAY_REF:
@@ -11603,6 +11598,7 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE_TILE:
 	  WALK_SUBTREE_TAIL (OMP_CLAUSE_CHAIN (*tp));
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -12948,7 +12944,10 @@ verify_type_variant (const_tree t, tree tv)
   verify_variant_match (TYPE_PACKED);
   if (TREE_CODE (t) == REFERENCE_TYPE)
     verify_variant_match (TYPE_REF_IS_RVALUE);
-  verify_variant_match (TYPE_SATURATING);
+  if (AGGREGATE_TYPE_P (t))
+    verify_variant_match (TYPE_REVERSE_STORAGE_ORDER);
+  else
+    verify_variant_match (TYPE_SATURATING);
   /* FIXME: This check trigger during libstdc++ build.  */
   if (RECORD_OR_UNION_TYPE_P (t) && COMPLETE_TYPE_P (t) && 0)
     verify_variant_match (TYPE_FINAL_P);
@@ -13270,6 +13269,7 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
       if (!gimple_canonical_types_compatible_p (TREE_TYPE (t1), TREE_TYPE (t2),
 						trust_type_canonical)
 	  || TYPE_STRING_FLAG (t1) != TYPE_STRING_FLAG (t2)
+	  || TYPE_REVERSE_STORAGE_ORDER (t1) != TYPE_REVERSE_STORAGE_ORDER (t2)
 	  || TYPE_NONALIASED_COMPONENT (t1) != TYPE_NONALIASED_COMPONENT (t2))
 	return false;
       else
@@ -13342,6 +13342,9 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
     case QUAL_UNION_TYPE:
       {
 	tree f1, f2;
+
+	if (TYPE_REVERSE_STORAGE_ORDER (t1) != TYPE_REVERSE_STORAGE_ORDER (t2))
+	  return false;
 
 	/* For aggregate types, all the fields must be the same.  */
 	for (f1 = TYPE_FIELDS (t1), f2 = TYPE_FIELDS (t2);

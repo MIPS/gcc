@@ -23,17 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
+#include "target.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
-#include "diagnostic.h"
-#include "alias.h"
-#include "fold-const.h"
-#include "stor-layout.h"
-#include "internal-fn.h"
-#include "cgraph.h"
-#include "target.h"
 #include "tree-streamer.h"
+#include "cgraph.h"
+#include "alias.h"
+#include "stor-layout.h"
 #include "gomp-constants.h"
 
 
@@ -114,8 +110,16 @@ pack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   bp_pack_value (bp, TREE_DEPRECATED (expr), 1);
   if (TYPE_P (expr))
     {
-      bp_pack_value (bp, TYPE_SATURATING (expr), 1);
+      if (AGGREGATE_TYPE_P (expr))
+	bp_pack_value (bp, TYPE_REVERSE_STORAGE_ORDER (expr), 1);
+      else
+	bp_pack_value (bp, TYPE_SATURATING (expr), 1);
       bp_pack_value (bp, TYPE_ADDR_SPACE (expr), 8);
+    }
+  else if (TREE_CODE (expr) == BIT_FIELD_REF || TREE_CODE (expr) == MEM_REF)
+    {
+      bp_pack_value (bp, REF_REVERSE_STORAGE_ORDER (expr), 1);
+      bp_pack_value (bp, 0, 8);
     }
   else if (TREE_CODE (expr) == SSA_NAME)
     {

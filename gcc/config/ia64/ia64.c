@@ -236,7 +236,7 @@ static void ia64_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void ia64_output_function_end_prologue (FILE *);
 
 static void ia64_print_operand (FILE *, rtx, int);
-static void ia64_print_operand_address (FILE *, rtx);
+static void ia64_print_operand_address (FILE *, machine_mode, rtx);
 static bool ia64_print_operand_punct_valid_p (unsigned char code);
 
 static int ia64_issue_rate (void);
@@ -5239,6 +5239,7 @@ ia64_output_dwarf_dtprel (FILE *file, int size, rtx x)
 
 static void
 ia64_print_operand_address (FILE * stream ATTRIBUTE_UNUSED,
+			    machine_mode /*mode*/,
 			    rtx address ATTRIBUTE_UNUSED)
 {
 }
@@ -6125,7 +6126,7 @@ struct reg_write_state
 
 /* Cumulative info for the current instruction group.  */
 struct reg_write_state rws_sum[NUM_REGS];
-#ifdef ENABLE_CHECKING
+#if CHECKING_P
 /* Bitmap whether a register has been written in the current insn.  */
 HARD_REG_ELT_TYPE rws_insn[(NUM_REGS + HOST_BITS_PER_WIDEST_FAST_INT - 1)
 			   / HOST_BITS_PER_WIDEST_FAST_INT];
@@ -7293,15 +7294,13 @@ ia64_sched_init (FILE *dump ATTRIBUTE_UNUSED,
 		 int sched_verbose ATTRIBUTE_UNUSED,
 		 int max_ready ATTRIBUTE_UNUSED)
 {
-#ifdef ENABLE_CHECKING
-  rtx_insn *insn;
-
-  if (!sel_sched_p () && reload_completed)
-    for (insn = NEXT_INSN (current_sched_info->prev_head);
-	 insn != current_sched_info->next_tail;
-	 insn = NEXT_INSN (insn))
-      gcc_assert (!SCHED_GROUP_P (insn));
-#endif
+  if (flag_checking && !sel_sched_p () && reload_completed)
+    {
+      for (rtx_insn *insn = NEXT_INSN (current_sched_info->prev_head);
+	   insn != current_sched_info->next_tail;
+	   insn = NEXT_INSN (insn))
+	gcc_assert (!SCHED_GROUP_P (insn));
+    }
   last_scheduled_insn = NULL;
   init_insn_group_barriers ();
 
@@ -9299,54 +9298,52 @@ bundling (FILE *dump, int verbose, rtx_insn *prev_head_insn, rtx_insn *tail)
 	}
     }
 
-#ifdef ENABLE_CHECKING
-  {
-    /* Assert right calculation of middle_bundle_stops.  */
-    int num = best_state->middle_bundle_stops;
-    bool start_bundle = true, end_bundle = false;
+  if (flag_checking)
+    {
+      /* Assert right calculation of middle_bundle_stops.  */
+      int num = best_state->middle_bundle_stops;
+      bool start_bundle = true, end_bundle = false;
 
-    for (insn = NEXT_INSN (prev_head_insn);
-	 insn && insn != tail;
-	 insn = NEXT_INSN (insn))
-      {
-	if (!INSN_P (insn))
-	  continue;
-	if (recog_memoized (insn) == CODE_FOR_bundle_selector)
-	  start_bundle = true;
-	else
-	  {
-	    rtx_insn *next_insn;
+      for (insn = NEXT_INSN (prev_head_insn);
+	   insn && insn != tail;
+	   insn = NEXT_INSN (insn))
+	{
+	  if (!INSN_P (insn))
+	    continue;
+	  if (recog_memoized (insn) == CODE_FOR_bundle_selector)
+	    start_bundle = true;
+	  else
+	    {
+	      rtx_insn *next_insn;
 
-	    for (next_insn = NEXT_INSN (insn);
-		 next_insn && next_insn != tail;
-		 next_insn = NEXT_INSN (next_insn))
-	      if (INSN_P (next_insn)
-		  && (ia64_safe_itanium_class (next_insn)
-		      != ITANIUM_CLASS_IGNORE
-		      || recog_memoized (next_insn)
-		      == CODE_FOR_bundle_selector)
-		  && GET_CODE (PATTERN (next_insn)) != USE
-		  && GET_CODE (PATTERN (next_insn)) != CLOBBER)
-		break;
+	      for (next_insn = NEXT_INSN (insn);
+		   next_insn && next_insn != tail;
+		   next_insn = NEXT_INSN (next_insn))
+		if (INSN_P (next_insn)
+		    && (ia64_safe_itanium_class (next_insn)
+			!= ITANIUM_CLASS_IGNORE
+			|| recog_memoized (next_insn)
+			== CODE_FOR_bundle_selector)
+		    && GET_CODE (PATTERN (next_insn)) != USE
+		    && GET_CODE (PATTERN (next_insn)) != CLOBBER)
+		  break;
 
-	    end_bundle = next_insn == NULL_RTX
-	     || next_insn == tail
-	     || (INSN_P (next_insn)
-		 && recog_memoized (next_insn)
-		 == CODE_FOR_bundle_selector);
-	    if (recog_memoized (insn) == CODE_FOR_insn_group_barrier
-		&& !start_bundle && !end_bundle
-		&& next_insn
-		&& !unknown_for_bundling_p (next_insn))
-	      num--;
+	      end_bundle = next_insn == NULL_RTX
+		|| next_insn == tail
+		|| (INSN_P (next_insn)
+		    && recog_memoized (next_insn) == CODE_FOR_bundle_selector);
+	      if (recog_memoized (insn) == CODE_FOR_insn_group_barrier
+		  && !start_bundle && !end_bundle
+		  && next_insn
+		  && !unknown_for_bundling_p (next_insn))
+		num--;
 
-	    start_bundle = false;
-	  }
-      }
+	      start_bundle = false;
+	    }
+	}
 
-    gcc_assert (num == 0);
-  }
-#endif
+      gcc_assert (num == 0);
+    }
 
   free (index_to_bundle_states);
   finish_bundle_state_table ();

@@ -5327,7 +5327,7 @@ print_operand (FILE *file, rtx x, int code)
       if (REG_P (x))
 	fprintf (file, "%s", reg_names[REGNO (x)]);
       else if (MEM_P (x))
-	output_address (XEXP (x, 0));
+	output_address (GET_MODE (x), XEXP (x, 0));
       else if (GET_CODE (x) == CONST && GET_CODE (XEXP (x, 0)) == UNSPEC)
 	{
 	  switch (XINT (XEXP (x, 0), 1))
@@ -5558,11 +5558,9 @@ alpha_function_arg (cumulative_args_t cum_v, machine_mode mode,
     basereg = 16;
   else
     {
-#ifdef ENABLE_CHECKING
       /* With alpha_split_complex_arg, we shouldn't see any raw complex
 	 values here.  */
-      gcc_assert (!COMPLEX_MODE_P (mode));
-#endif
+      gcc_checking_assert (!COMPLEX_MODE_P (mode));
 
       /* Set up defaults for FP operands passed in FP registers, and
 	 integral operands passed in integer registers.  */

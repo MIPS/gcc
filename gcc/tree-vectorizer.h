@@ -390,6 +390,8 @@ nested_in_vect_loop_p (struct loop *loop, gimple *stmt)
 typedef struct _bb_vec_info : public vec_info
 {
   basic_block bb;
+  gimple_stmt_iterator region_begin;
+  gimple_stmt_iterator region_end;
 } *bb_vec_info;
 
 #define BB_VINFO_BB(B)               (B)->bb
@@ -1010,7 +1012,7 @@ extern bool vect_analyze_data_ref_accesses (vec_info *);
 extern bool vect_prune_runtime_alias_test_list (loop_vec_info);
 extern tree vect_check_gather_scatter (gimple *, loop_vec_info, tree *, tree *,
 				       int *);
-extern bool vect_analyze_data_refs (vec_info *, int *, unsigned *);
+extern bool vect_analyze_data_refs (vec_info *, int *);
 extern tree vect_create_data_ref_ptr (gimple *, tree, struct loop *, tree,
 				      tree *, gimple_stmt_iterator *,
 				      gimple **, bool, bool *,
@@ -1072,10 +1074,8 @@ extern bool vect_make_slp_decision (loop_vec_info);
 extern void vect_detect_hybrid_slp (loop_vec_info);
 extern void vect_get_slp_defs (vec<tree> , slp_tree,
 			       vec<vec<tree> > *, int);
-
-extern source_location find_bb_location (basic_block);
-extern bb_vec_info vect_slp_analyze_bb (basic_block);
-extern void vect_slp_transform_bb (basic_block);
+extern bool vect_slp_bb (basic_block);
+extern gimple *vect_find_last_scalar_stmt_in_slp (slp_tree);
 
 /* In tree-vect-patterns.c.  */
 /* Pattern recognition functions.
@@ -1088,5 +1088,6 @@ void vect_pattern_recog (vec_info *);
 /* In tree-vectorizer.c.  */
 unsigned vectorize_loops (void);
 void vect_destroy_datarefs (vec_info *);
+bool vect_stmt_in_region_p (vec_info *, gimple *);
 
 #endif  /* GCC_TREE_VECTORIZER_H  */

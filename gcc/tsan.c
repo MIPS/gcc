@@ -22,37 +22,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "alias.h"
 #include "backend.h"
+#include "rtl.h"
 #include "tree.h"
 #include "gimple.h"
-#include "rtl.h"
+#include "tree-pass.h"
 #include "ssa.h"
-#include "options.h"
+#include "cgraph.h"
 #include "fold-const.h"
-#include "flags.h"
-#include "insn-config.h"
-#include "expmed.h"
-#include "dojump.h"
-#include "explow.h"
-#include "calls.h"
-#include "emit-rtl.h"
-#include "varasm.h"
-#include "stmt.h"
-#include "expr.h"
-#include "intl.h"
-#include "internal-fn.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "cgraph.h"
 #include "tree-cfg.h"
-#include "tree-pass.h"
 #include "tree-iterator.h"
-#include "langhooks.h"
-#include "output.h"
-#include "target.h"
-#include "diagnostic.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tsan.h"
@@ -126,9 +108,9 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
   HOST_WIDE_INT bitsize, bitpos;
   tree offset;
   machine_mode mode;
-  int volatilep = 0, unsignedp = 0;
-  base = get_inner_reference (expr, &bitsize, &bitpos, &offset,
-			      &mode, &unsignedp, &volatilep, false);
+  int unsignedp, reversep, volatilep = 0;
+  base = get_inner_reference (expr, &bitsize, &bitpos, &offset, &mode,
+			      &unsignedp, &reversep, &volatilep, false);
 
   /* No need to instrument accesses to decls that don't escape,
      they can't escape to other threads then.  */

@@ -21,26 +21,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "opts.h"
-#include "toplev.h"
-#include "alias.h"
 #include "tm.h"
 #include "function.h"
 #include "bitmap.h"
-#include "cfghooks.h"
 #include "basic-block.h"
+#include "hard-reg-set.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
-#include "options.h"
+#include "cfghooks.h"
+#include "alloc-pool.h"
+#include "tree-pass.h"
+#include "tree-ssa-operands.h"
+#include "tree-streamer.h"
+#include "cgraph.h"
+#include "diagnostic-core.h"
+#include "opts.h"
+#include "toplev.h"
+#include "alias.h"
 #include "fold-const.h"
 #include "stor-layout.h"
-#include "diagnostic-core.h"
-#include "cgraph.h"
-#include "tree-ssa-operands.h"
-#include "tree-pass.h"
 #include "langhooks.h"
-#include "alloc-pool.h"
 #include "symbol-summary.h"
 #include "ipa-prop.h"
 #include "common.h"
@@ -48,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "internal-fn.h"
 #include "lto.h"
 #include "lto-tree.h"
-#include "tree-streamer.h"
 #include "lto-section-names.h"
 #include "splay-tree.h"
 #include "lto-partition.h"
@@ -1022,7 +1021,10 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
   compare_values (TREE_DEPRECATED);
   if (TYPE_P (t1))
     {
-      compare_values (TYPE_SATURATING);
+      if (AGGREGATE_TYPE_P (t1))
+	compare_values (TYPE_REVERSE_STORAGE_ORDER);
+      else
+	compare_values (TYPE_SATURATING);
       compare_values (TYPE_ADDR_SPACE);
     }
   else if (code == SSA_NAME)

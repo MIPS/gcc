@@ -25,25 +25,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
 #include "tree.h"
+#include "cp-tree.h"
+#include "timevar.h"
+#include "stringpool.h"
+#include "cgraph.h"
+#include "alias.h"
 #include "stor-layout.h"
 #include "trans-mem.h"
-#include "stringpool.h"
-#include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
-#include "diagnostic-core.h"
 #include "intl.h"
-#include "target.h"
 #include "convert.h"
 #include "langhooks.h"
 #include "c-family/c-objc.h"
-#include "timevar.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
 #include "internal-fn.h"
 
 /* The various kinds of conversion.  */
@@ -728,8 +724,6 @@ alloc_conversion (conversion_kind kind)
   return c;
 }
 
-#ifdef ENABLE_CHECKING
-
 /* Make sure that all memory on the conversion obstack has been
    freed.  */
 
@@ -740,8 +734,6 @@ validate_conversion_obstack (void)
     gcc_assert ((obstack_next_free (&conversion_obstack)
 		 == obstack_base (&conversion_obstack)));
 }
-
-#endif /* ENABLE_CHECKING */
 
 /* Dynamically allocate an array of N conversions.  */
 

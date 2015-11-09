@@ -22,19 +22,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "diagnostic.h"
-#include "alias.h"
 #include "backend.h"
+#include "target.h"
 #include "tree.h"
 #include "gimple.h"
-#include "hard-reg-set.h"
-#include "options.h"
-#include "fold-const.h"
 #include "stringpool.h"
-#include "internal-fn.h"
-#include "cgraph.h"
-#include "target.h"
 #include "tree-streamer.h"
+#include "cgraph.h"
 #include "builtins.h"
 #include "ipa-chkp.h"
 #include "gomp-constants.h"
@@ -142,8 +136,16 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
   TREE_DEPRECATED (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (TYPE_P (expr))
     {
-      TYPE_SATURATING (expr) = (unsigned) bp_unpack_value (bp, 1);
+      if (AGGREGATE_TYPE_P (expr))
+	TYPE_REVERSE_STORAGE_ORDER (expr) = (unsigned) bp_unpack_value (bp, 1);
+      else
+	TYPE_SATURATING (expr) = (unsigned) bp_unpack_value (bp, 1);
       TYPE_ADDR_SPACE (expr) = (unsigned) bp_unpack_value (bp, 8);
+    }
+  else if (TREE_CODE (expr) == BIT_FIELD_REF || TREE_CODE (expr) == MEM_REF)
+    {
+      REF_REVERSE_STORAGE_ORDER (expr) = (unsigned) bp_unpack_value (bp, 1);
+      bp_unpack_value (bp, 8);
     }
   else if (TREE_CODE (expr) == SSA_NAME)
     {

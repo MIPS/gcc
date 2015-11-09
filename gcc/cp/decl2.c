@@ -29,31 +29,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "alias.h"
+#include "target.h"
 #include "tree.h"
+#include "cp-tree.h"
+#include "c-family/c-common.h"
+#include "timevar.h"
 #include "stringpool.h"
+#include "cgraph.h"
 #include "varasm.h"
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
 #include "flags.h"
-#include "cp-tree.h"
 #include "decl.h"
 #include "toplev.h"
-#include "timevar.h"
-#include "cpplib.h"
-#include "target.h"
-#include "c-family/c-common.h"
 #include "c-family/c-objc.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
 #include "tree-inline.h"
 #include "c-family/c-pragma.h"
 #include "dumpfile.h"
 #include "intl.h"
-#include "splay-tree.h"
 #include "langhooks.h"
 #include "c-family/c-ada-spec.h"
 #include "asan.h"
@@ -1453,11 +1447,6 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
       if (VAR_P (*decl)
 	  && DECL_CLASS_SCOPE_P (*decl))
 	error ("%q+D static data member inside of declare target directive",
-	       *decl);
-      else if (VAR_P (*decl)
-	       && (DECL_FUNCTION_SCOPE_P (*decl)
-		   || (current_function_decl && !DECL_EXTERNAL (*decl))))
-	error ("%q+D in block scope inside of declare target directive",
 	       *decl);
       else if (!processing_template_decl
 	       && VAR_P (*decl)
@@ -4942,9 +4931,8 @@ cxx_post_compilation_parsing_cleanups (void)
 
   input_location = locus_at_end_of_parsing;
 
-#ifdef ENABLE_CHECKING
-  validate_conversion_obstack ();
-#endif /* ENABLE_CHECKING */
+  if (flag_checking)
+    validate_conversion_obstack ();
 
   timevar_stop (TV_PHASE_LATE_PARSING_CLEANUPS);
 }

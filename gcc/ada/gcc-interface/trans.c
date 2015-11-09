@@ -26,13 +26,16 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "vec.h"
-#include "alias.h"
+#include "target.h"
+#include "function.h"
+#include "bitmap.h"
 #include "tree.h"
-#include "inchash.h"
-#include "fold-const.h"
+#include "gimple-expr.h"
 #include "stringpool.h"
+#include "cgraph.h"
+#include "diagnostic.h"
+#include "alias.h"
+#include "fold-const.h"
 #include "stor-layout.h"
 #include "stmt.h"
 #include "varasm.h"
@@ -40,16 +43,8 @@
 #include "output.h"
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
-#include "gimple-expr.h"
 #include "gimplify.h"
-#include "bitmap.h"
-#include "hash-map.h"
-#include "hard-reg-set.h"
-#include "function.h"
-#include "cgraph.h"
-#include "diagnostic.h"
 #include "opts.h"
-#include "target.h"
 #include "common/common-target.h"
 
 #include "ada.h"
@@ -2177,7 +2172,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 	tree gnu_field_offset;
 	tree gnu_inner;
 	machine_mode mode;
-	int unsignedp, volatilep;
+	int unsignedp, reversep, volatilep;
 
 	gnu_result_type = get_unpadded_type (Etype (gnat_node));
 	gnu_prefix = remove_conversions (gnu_prefix, true);
@@ -2199,7 +2194,7 @@ Attribute_to_gnu (Node_Id gnat_node, tree *gnu_result_type_p, int attribute)
 			  && TREE_CODE (gnu_prefix) == FIELD_DECL));
 
 	get_inner_reference (gnu_prefix, &bitsize, &bitpos, &gnu_offset,
-			     &mode, &unsignedp, &volatilep, false);
+			     &mode, &unsignedp, &reversep, &volatilep, false);
 
 	if (TREE_CODE (gnu_prefix) == COMPONENT_REF)
 	  {

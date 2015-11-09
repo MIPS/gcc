@@ -8595,7 +8595,8 @@ mips_print_operand (FILE *file, rtx op, int letter)
 
 	case MEM:
 	  if (letter == 'D')
-	    output_address (plus_constant (Pmode, XEXP (op, 0), 4));
+	    output_address (GET_MODE (op), plus_constant (Pmode,
+							  XEXP (op, 0), 4));
 	  else if (letter == 'b')
 	    {
 	      gcc_assert (REG_P (XEXP (op, 0)));
@@ -8604,7 +8605,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	  else if (letter && letter != 'z')
 	    output_operand_lossage ("invalid use of '%%%c'", letter);
 	  else
-	    output_address (XEXP (op, 0));
+	    output_address (GET_MODE (op), XEXP (op, 0));
 	  break;
 
 	default:
@@ -8624,7 +8625,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
 /* Implement TARGET_PRINT_OPERAND_ADDRESS.  */
 
 static void
-mips_print_operand_address (FILE *file, rtx x)
+mips_print_operand_address (FILE *file, machine_mode /*mode*/, rtx x)
 {
   struct mips_address_info addr;
 
@@ -15705,10 +15706,10 @@ r10k_safe_mem_expr_p (tree expr, unsigned HOST_WIDE_INT offset)
   HOST_WIDE_INT bitoffset, bitsize;
   tree inner, var_offset;
   machine_mode mode;
-  int unsigned_p, volatile_p;
+  int unsigned_p, reverse_p, volatile_p;
 
   inner = get_inner_reference (expr, &bitsize, &bitoffset, &var_offset, &mode,
-			       &unsigned_p, &volatile_p, false);
+			       &unsigned_p, &reverse_p, &volatile_p, false);
   if (!DECL_P (inner) || !DECL_SIZE_UNIT (inner) || var_offset)
     return false;
 

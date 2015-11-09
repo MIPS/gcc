@@ -24,26 +24,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "backend.h"
-#include "tree.h"
+#include "target.h"
 #include "rtl.h"
+#include "tree.h"
 #include "df.h"
-#include "diagnostic-core.h"
-#include "alias.h"
-#include "tm_p.h"
-#include "regs.h"
-#include "flags.h"
 #include "insn-config.h"
+#include "regs.h"
+#include "ira.h"
+#include "ira-int.h"
 #include "insn-attr.h"
-#include "except.h"
-#include "emit-rtl.h"
 #include "cfgbuild.h"
 #include "sched-int.h"
 #include "params.h"
-#include "alloc-pool.h"
 #include "cselib.h"
-#include "ira.h"
-#include "ira-int.h"
-#include "target.h"
 
 #ifdef INSN_SCHEDULING
 
@@ -4099,9 +4092,9 @@ void
 sched_deps_finish (void)
 {
   gcc_assert (deps_pools_are_empty_p ());
-  dn_pool->release_if_empty ();
+  delete dn_pool;
+  delete dl_pool;
   dn_pool = NULL;
-  dl_pool->release_if_empty ();
   dl_pool = NULL;
 
   h_d_i_d.release ();
