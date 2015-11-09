@@ -1178,6 +1178,12 @@ DEFPARAM (PARAM_MAX_SSA_NAME_QUERY_DEPTH,
 	  " SSA name.",
 	  2, 1, 0)
 
+DEFPARAM (PARAM_OMP_GPU_GRIDIFY,
+	  "omp-gpu-gridify",
+	  "Enable creation of gridified GPU kernels out of OpenMP target "
+	  "constructs",
+	  1, 0, 1)
+
 DEFPARAM (PARAM_HSA_GEN_DEBUG_STORES,
 	  "hsa-gen-debug-stores",
 	  "Level of hsa debug stores verbosity",

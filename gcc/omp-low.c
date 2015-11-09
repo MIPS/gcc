@@ -82,6 +82,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "symbol-summary.h"
 #include "hsa.h"
+#include "params.h"
 
 /* Lowering of OMP parallel and workshare constructs proceeds in two
    phases.  The first phase scans the function looking for OMP statements
@@ -17449,7 +17450,8 @@ execute_lower_omp (void)
 
   body = gimple_body (current_function_decl);
 
-  if (hsa_gen_requested_p () && !flag_disable_hsa_gridification)
+  if (hsa_gen_requested_p ()
+      && PARAM_VALUE (PARAM_OMP_GPU_GRIDIFY) == 1)
     create_target_gpukernels (&body);
 
   scan_omp (&body, NULL);

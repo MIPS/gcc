@@ -1,5 +1,15 @@
 2015-11-09  Martin Jambor  <mjambor@suse.cz>
 
+	* common.opt (-fdisable-hsa-gridification): Removed.
+	* params.def (PARAM_OMP_GPU_GRIDIFY): New.
+	* omp-low.c: Include params.h.
+	(execute_lower_omp): Check parameter PARAM_OMP_GPU_GRIDIFY instead of
+	flag_disable-hsa-gridification.
+	* doc/invoke.texi (Optimize Options): Add description of
+	omp-gpu-gridify and hsa-gen-debug-stores parameters.
+
+2015-11-09  Martin Jambor  <mjambor@suse.cz>
+
 	* doc/install.texi (Configuration): Describe hsa
 	--enable-offload-targets option, add description of
 	--with-hsa-runtime, --with-hsa-runtime-include and

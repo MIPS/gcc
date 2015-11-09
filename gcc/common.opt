@@ -1115,10 +1115,6 @@ fdiagnostics-show-location=
 Common Joined RejectNegative Enum(diagnostic_prefixing_rule)
 -fdiagnostics-show-location=[once|every-line]	How often to emit source location at the beginning of line-wrapped diagnostics.
 
-fdisable-hsa-gridification
-Common Report Var(flag_disable_hsa_gridification)
-Disable HSA gridification for OMP pragmas
-
 ; Required for these enum values.
 SourceInclude
 pretty-print.h
