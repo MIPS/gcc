@@ -1,3 +1,34 @@
+2015-11-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67942
+	* g++.dg/warn/Wplacement-new-size.C: Exercise placement new
+	invocations where the size of the destination buffer object
+	or its type (or both) is unknown.
+
+2015-11-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67942
+	* g++.dg/warn/Wplacement-new-size.C: New test.
+
+2015-11-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* gcc.dg/pr68112.c: New.
+	* gcc.dg/vect/vect-strided-shift-1.c: New.
+
+2015-11-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68090
+	* gcc.dg/pr68090.c: New test.
+
+2015-11-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc.dg/ifcvt-4.c: New.
+
+2015-11-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67846
+	* g++.dg/cpp0x/lambda/lambda-ice15.C: New.
+
 2015-11-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-c++-common/gomp/clauses-2.c (foo): Adjust for diagnostics

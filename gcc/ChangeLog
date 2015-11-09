@@ -1,3 +1,21 @@
+2015-11-05  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67942
+	* invoke.texi (-Wplacement-new): Document new option.
+	* gcc/testsuite/g++.dg/warn/Wplacement-new-size.C: New test.
+
+2015-11-05  Alan Lawrence  <alan.lawrence@arm.com>
+
+	PR tree-optimization/65963
+	* tree-scalar-evolution.c (interpret_rhs_expr): Try to handle
+	LSHIFT_EXPRs as equivalent unsigned MULT_EXPRs.
+
+2015-11-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* ifcvt.c (bb_ok_for_noce_convert_multiple_sets): New.
+	(noce_convert_multiple_sets): Likewise.
+	(noce_process_if_block): Call them.
+
 2015-11-05  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimple-fold.c: Include omp-low.h.
