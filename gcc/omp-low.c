@@ -13641,8 +13641,7 @@ const pass_data pass_data_expand_omp_ssa =
   PROP_gimple_eomp, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_cleanup_cfg | TODO_rebuild_alias
-  | TODO_remove_unused_locals, /* todo_flags_finish */
+  TODO_cleanup_cfg | TODO_rebuild_alias, /* todo_flags_finish */
 };
 
 class pass_expand_omp_ssa : public gimple_opt_pass

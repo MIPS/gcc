@@ -1,5 +1,10 @@
 2015-11-09  Tom de Vries  <tom@codesourcery.com>
 
+	* omp-low.c (pass_data_expand_omp_ssa): Remove TODO_remove_unused_locals
+	from todo_flags_finish.
+
+2015-11-09  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (pass_expand_omp_ssa::execute): Cleanup formatting.
 
 2015-11-08  Tom de Vries  <tom@codesourcery.com>
