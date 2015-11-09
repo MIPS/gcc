@@ -484,3 +484,23 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 
 mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
+
+mmips16-use-xsregs=
+Target RejectNegative JoinedOrMissing Var(mips16_xsregs) Report Enum(mips16_xsregs_setting) Init(MIPS16_XSREGS_NEVER)
+Specify usage of MIPS32 saved registers in MIPS16 mode
+
+Enum
+Name(mips16_xsregs_setting) Type(enum mips16_xsregs_setting)
+Options available for use with -mmips16-use-xsregs
+
+EnumValue
+Enum(mips16_xsregs_setting) String(never) Value(MIPS16_XSREGS_NEVER)
+
+EnumValue
+Enum(mips16_xsregs_setting) String(always) Value(MIPS16_XSREGS_ALWAYS)
+
+EnumValue
+Enum(mips16_xsregs_setting) String(size) Value(MIPS16_XSREGS_SIZE)
+
+EnumValue
+Enum(mips16_xsregs_setting) String(speed) Value(MIPS16_XSREGS_SPEED)

@@ -60,4 +60,11 @@ enum mips_cb_setting {
   MIPS_CB_OPTIMAL,
   MIPS_CB_ALWAYS
 };
+
+enum mips16_xsregs_setting {
+  MIPS16_XSREGS_NEVER,
+  MIPS16_XSREGS_ALWAYS,
+  MIPS16_XSREGS_SIZE,
+  MIPS16_XSREGS_SPEED
+};
 #endif
