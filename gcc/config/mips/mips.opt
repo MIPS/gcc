@@ -482,3 +482,7 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 
 mforbidden-slots
 Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
+
+mmips16-use-xsregs
+Target Var(mips16_xsregs) Report Init(0)
+Use additional callee saved registers in MIPS16 mode.
