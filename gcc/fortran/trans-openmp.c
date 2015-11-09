@@ -3691,6 +3691,15 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
   (*orig_clauses)->tile = false;
   (*loop_clauses)->tile_list = (*orig_clauses)->tile_list;
   (*orig_clauses)->tile_list = NULL;
+#if 0 /* TODO */
+  (*loop_clauses)->lists[OMP_LIST_PRIVATE]
+    = (*orig_clauses)->lists[OMP_LIST_PRIVATE];
+  (*orig_clauses)->lists[OMP_LIST_PRIVATE] = NULL;
+  (*loop_clauses)->lists[OMP_LIST_REDUCTION]
+    = (*orig_clauses)->lists[OMP_LIST_REDUCTION];
+  /* Don't reset (*orig_clauses)->lists[OMP_LIST_REDUCTION].  */
+#endif
+
   (*loop_clauses)->device_types = (*orig_clauses)->device_types;
 
   gfc_filter_oacc_combined_clauses (&(*orig_clauses)->dtype_clauses,

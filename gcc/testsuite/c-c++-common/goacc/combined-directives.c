@@ -1,10 +1,9 @@
 // { dg-do compile }
 // { dg-options "-fopenacc -fdump-tree-gimple" }
 
-// This error is temporary.  Remove when support is added for these clauses
-// in the middle end.  Also remove the comments from the reduction test
-// after the FE learns that reduction variables may appear in data clauses too.
-// { dg-prune-output "sorry, unimplemented" }
+// TODO
+// Enable and update tree scanning for reduction clauses.
+// Add device_type clauses and tree scanning.
 
 void
 test ()

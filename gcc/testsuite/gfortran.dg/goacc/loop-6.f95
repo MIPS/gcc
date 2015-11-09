@@ -1,8 +1,6 @@
 ! { dg-do compile }
 ! { dg-additional-options "-fmax-errors=100" }
 
-! TODO: nested kernels are allowed in 2.0
-
 program test
   implicit none
   integer :: i, j

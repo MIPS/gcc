@@ -31703,8 +31703,8 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "deviceptr";
 	  break;
 	case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
-	  clauses = cp_parser_omp_var_list
-	    (parser, OMP_CLAUSE_FIRSTPRIVATE, clauses);
+	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_FIRSTPRIVATE,
+					    clauses);
 	  c_name = "firstprivate";
 	  break;
 	case PRAGMA_OACC_CLAUSE_GANG:

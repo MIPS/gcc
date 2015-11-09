@@ -7316,6 +7316,16 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    remove = true;
 	  break;
 
+	case OMP_CLAUSE_TILE:
+	  for (tree list = OMP_CLAUSE_TILE_LIST (c); !remove && list;
+	       list = TREE_CHAIN (list))
+	    {
+	      if (gimplify_expr (&TREE_VALUE (list), pre_p, NULL,
+				 is_gimple_val, fb_rvalue) == GS_ERROR)
+		remove = true;
+	    }
+	  break;
+
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	  remove = true;
 	  break;
@@ -7334,7 +7344,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_THREADS:
 	case OMP_CLAUSE_SIMD:
-	case OMP_CLAUSE_TILE:
 	case OMP_CLAUSE_DEVICE_TYPE:
 	  break;
 

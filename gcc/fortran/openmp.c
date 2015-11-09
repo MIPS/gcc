@@ -3182,7 +3182,6 @@ resolve_omp_udr_clause (gfc_omp_namelist *n, gfc_namespace *ns,
   return copy;
 }
 
-
 /* OpenMP directive resolving routines.  */
 
 static void

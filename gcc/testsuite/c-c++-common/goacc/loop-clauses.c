@@ -1,7 +1,5 @@
 /* { dg-do compile } */
 
-/* { dg-prune-output "sorry, unimplemented" } */
-
 int
 main ()
 {

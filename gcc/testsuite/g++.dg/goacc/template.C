@@ -1,5 +1,3 @@
-#include <cstdio>
-
 #pragma acc routine
 template <typename T> T
 accDouble(int val)
@@ -36,7 +34,7 @@ oacc_parallel_copy (T a)
     for (int j = 0; j < 5; j++)
       b = a;
 
-#pragma acc loop auto tile (3, 3)
+#pragma acc loop auto tile (a, 3)
   for (int i = 0; i < a; i++)
     for (int j = 0; j < 5; j++)
       b = a;
@@ -139,8 +137,5 @@ main ()
   int b = oacc_parallel_copy<int> (5);
   int c = oacc_kernels_copy<int> (5);
 
-  printf ("b = %d\n", b);
-  printf ("c = %d\n", c);
-
-  return 0;
+  return b + c;
 }
