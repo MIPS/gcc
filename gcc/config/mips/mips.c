@@ -20443,6 +20443,7 @@ mips_conditional_register_usage (void)
     }
   if (TARGET_MIPS16)
     {
+      bool use_xsregs = false;
       /* In MIPS16 mode, we prohibit the unused $s registers, since they
 	 are call-saved, and saving them via a MIPS16 register would
 	 probably waste more time than just reloading the value.
@@ -20454,15 +20455,32 @@ mips_conditional_register_usage (void)
 	 and $25 (t9) because it is used as the function call address in
 	 SVR4 PIC code.  */
 
-      fixed_regs[18] = call_used_regs[18] = 1;
-      fixed_regs[19] = call_used_regs[19] = 1;
-      fixed_regs[20] = call_used_regs[20] = 1;
-      fixed_regs[21] = call_used_regs[21] = 1;
-      fixed_regs[22] = call_used_regs[22] = 1;
-      fixed_regs[23] = call_used_regs[23] = 1;
+      call_used_regs[18] = 1;
+      call_used_regs[19] = 1;
+      call_used_regs[20] = 1;
+      call_used_regs[21] = 1;
+      call_used_regs[22] = 1;
+      call_used_regs[23] = 1;
+
+      if (mips16_xsregs == MIPS16_XSREGS_ALWAYS
+	  || (optimize_size && mips16_xsregs == MIPS16_XSREGS_SIZE)
+	  || (!optimize_size && mips16_xsregs == MIPS16_XSREGS_SPEED))
+	use_xsregs = true;
+
+      if (!use_xsregs)
+	{
+	  fixed_regs[18] = 1;
+	  fixed_regs[19] = 1;
+	  fixed_regs[20] = 1;
+	  fixed_regs[21] = 1;
+	  fixed_regs[22] = 1;
+	  fixed_regs[23] = 1;
+	}
+
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
+
       if (optimize_size)
 	{
 	  fixed_regs[8] = call_used_regs[8] = 1;
