@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_dev2dev): New.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/affinity.c: New.
 
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>

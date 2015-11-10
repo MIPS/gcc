@@ -1642,6 +1642,18 @@ GOMP_OFFLOAD_host2dev (int ord, void *dst, const void *src, size_t n)
   return nvptx_host2dev (dst, src, n);
 }
 
+void *
+GOMP_OFFLOAD_dev2dev (int ord, void *dst, const void *src, size_t n)
+{
+  CUresult r;
+  struct ptx_device *ptx_dev = ptx_devices[ord];
+  r = cuMemcpyDtoDAsync ((CUdeviceptr) dst, (CUdeviceptr) src, n,
+			 ptx_dev->null_stream->stream);
+  if (r != CUDA_SUCCESS)
+	GOMP_PLUGIN_fatal ("cuMemcpyDtoDAsync error: %s", cuda_error (r));
+  return dst;
+}
+
 void (*device_run) (int n, void *fn_ptr, void *vars) = NULL;
 
 void
