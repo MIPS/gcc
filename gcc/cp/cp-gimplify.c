@@ -1986,7 +1986,6 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
       break;
 
-    case ALIGNOF_EXPR:
     case SAVE_EXPR:
     case ADDR_EXPR:
     case REALPART_EXPR:
@@ -2205,20 +2204,6 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	break;
       }
 
-    case BIND_EXPR:
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-      op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
-      op2 = cp_fold (TREE_OPERAND (x, 2), fold_hash);
-
-      if (TREE_OPERAND (x, 0) != op0 || TREE_OPERAND (x, 1) != op1 || TREE_OPERAND (x, 2) != op2)
-	{
-	  x = copy_node (x);
-	  TREE_OPERAND (x, 0) = op0;
-	  TREE_OPERAND (x, 1) = op1;
-	  TREE_OPERAND (x, 2) = op2;
-	}
-      break;
-
     case CONSTRUCTOR:
       {
 	unsigned i;
@@ -2270,17 +2255,6 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	x = build4_loc (loc, code, TREE_TYPE (x), op0, op1, op2, op3);
 
       x = fold (x);
-      break;
-
-    case DECL_EXPR:
-
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-
-      if (op0 == TREE_OPERAND (x, 0))
-	break;
-
-      x = copy_node (x);
-      TREE_OPERAND (x, 0) = op0;
       break;
 
     default:
