@@ -345,6 +345,7 @@ default_print_operand (FILE *stream ATTRIBUTE_UNUSED, rtx x ATTRIBUTE_UNUSED,
 
 void
 default_print_operand_address (FILE *stream ATTRIBUTE_UNUSED,
+			       machine_mode /*mode*/,
 			       rtx x ATTRIBUTE_UNUSED)
 {
 #ifdef PRINT_OPERAND_ADDRESS
@@ -1266,6 +1267,23 @@ bool
 default_addr_space_subset_p (addr_space_t subset, addr_space_t superset)
 {
   return (subset == superset);
+}
+
+/* The default hook for determining if 0 within a named address
+   space is a valid address.  */
+
+bool
+default_addr_space_zero_address_valid (addr_space_t as ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+/* The default hook for debugging the address space is to return the
+   address space number to indicate DW_AT_address_class.  */
+int
+default_addr_space_debug (addr_space_t as)
+{
+  return as;
 }
 
 /* The default hook for TARGET_ADDR_SPACE_CONVERT. This hook should never be

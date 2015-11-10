@@ -559,6 +559,49 @@ vect_slp_analyze_data_ref_dependence (struct data_dependence_relation *ddr)
 }
 
 
+/* Analyze dependences involved in the transform of SLP NODE.  */
+
+static bool
+vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node)
+{
+  /* This walks over all stmts involved in the SLP load/store done
+     in NODE verifying we can sink them up to the last stmt in the
+     group.  */
+  gimple *last_access = vect_find_last_scalar_stmt_in_slp (node);
+  for (unsigned k = 0; k < SLP_INSTANCE_GROUP_SIZE (instance); ++k)
+    {
+      gimple *access = SLP_TREE_SCALAR_STMTS (node)[k];
+      if (access == last_access)
+	continue;
+      stmt_vec_info access_stmt_info = vinfo_for_stmt (access);
+      gimple_stmt_iterator gsi = gsi_for_stmt (access);
+      gsi_next (&gsi);
+      for (; gsi_stmt (gsi) != last_access; gsi_next (&gsi))
+	{
+	  gimple *stmt = gsi_stmt (gsi);
+	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+	  if (!STMT_VINFO_DATA_REF (stmt_info)
+	      || (DR_IS_READ (STMT_VINFO_DATA_REF (stmt_info))
+		  && DR_IS_READ (STMT_VINFO_DATA_REF (access_stmt_info))))
+	    continue;
+
+	  ddr_p ddr = initialize_data_dependence_relation
+	      (STMT_VINFO_DATA_REF (access_stmt_info),
+	       STMT_VINFO_DATA_REF (stmt_info), vNULL);
+	  if (vect_slp_analyze_data_ref_dependence (ddr))
+	    {
+	      /* ???  If the dependence analysis failed we can resort to the
+		 alias oracle which can handle more kinds of stmts.  */
+	      free_dependence_relation (ddr);
+	      return false;
+	    }
+	  free_dependence_relation (ddr);
+	}
+    }
+  return true;
+}
+
+
 /* Function vect_analyze_data_ref_dependences.
 
    Examine all the data references in the basic-block, and make sure there
@@ -568,21 +611,45 @@ vect_slp_analyze_data_ref_dependence (struct data_dependence_relation *ddr)
 bool
 vect_slp_analyze_data_ref_dependences (bb_vec_info bb_vinfo)
 {
-  struct data_dependence_relation *ddr;
-  unsigned int i;
-
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_slp_analyze_data_ref_dependences ===\n");
 
-  if (!compute_all_dependences (BB_VINFO_DATAREFS (bb_vinfo),
-				&BB_VINFO_DDRS (bb_vinfo),
-				vNULL, true))
-    return false;
+  slp_instance instance;
+  slp_tree load;
+  unsigned int i, j;
+  for (i = 0; BB_VINFO_SLP_INSTANCES (bb_vinfo).iterate (i, &instance); )
+    {
+      bool remove = false;
+      /* Verify we can sink loads to the vectorized stmt insert location.  */
+      FOR_EACH_VEC_ELT (SLP_INSTANCE_LOADS (instance), j, load)
+	if (! vect_slp_analyze_node_dependences (instance, load))
+	  {
+	    remove = true;
+	    break;
+	  }
+      /* Verify we can sink stores to the vectorized stmt insert location.  */
+      slp_tree store = SLP_INSTANCE_TREE (instance);
+      if (!remove
+	  && STMT_VINFO_DATA_REF
+		(vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (store)[0]))
+	  && ! vect_slp_analyze_node_dependences (instance, store))
+	remove = true;
+      if (remove)
+	{
+	  dump_printf_loc (MSG_NOTE, vect_location,
+			   "removing SLP instance operations starting from: ");
+	  dump_gimple_stmt (MSG_NOTE, TDF_SLIM,
+			    SLP_TREE_SCALAR_STMTS
+			      (SLP_INSTANCE_TREE (instance))[0], 0);
+	  vect_free_slp_instance (instance);
+	  BB_VINFO_SLP_INSTANCES (bb_vinfo).ordered_remove (i);
+	}
+      i++;
+    }
 
-  FOR_EACH_VEC_ELT (BB_VINFO_DDRS (bb_vinfo), i, ddr)
-    if (vect_slp_analyze_data_ref_dependence (ddr))
-      return false;
+  if (!BB_VINFO_SLP_INSTANCES (bb_vinfo).length ())
+    return false;
 
   return true;
 }
@@ -3027,7 +3094,7 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
   tree offtype = NULL_TREE;
   tree decl, base, off;
   machine_mode pmode;
-  int punsignedp, pvolatilep;
+  int punsignedp, reversep, pvolatilep = 0;
 
   base = DR_REF (dr);
   /* For masked loads/stores, DR_REF (dr) is an artificial MEM_REF,
@@ -3059,9 +3126,9 @@ vect_check_gather_scatter (gimple *stmt, loop_vec_info loop_vinfo, tree *basep,
      vectorized.  The following code attempts to find such a preexistng
      SSA_NAME OFF and put the loop invariants into a tree BASE
      that can be gimplified before the loop.  */
-  base = get_inner_reference (base, &pbitsize, &pbitpos, &off,
-			      &pmode, &punsignedp, &pvolatilep, false);
-  gcc_assert (base != NULL_TREE && (pbitpos % BITS_PER_UNIT) == 0);
+  base = get_inner_reference (base, &pbitsize, &pbitpos, &off, &pmode,
+			      &punsignedp, &reversep, &pvolatilep, false);
+  gcc_assert (base && (pbitpos % BITS_PER_UNIT) == 0 && !reversep);
 
   if (TREE_CODE (base) == MEM_REF)
     {
@@ -3515,7 +3582,7 @@ again:
 	  HOST_WIDE_INT pbitsize, pbitpos;
 	  tree poffset;
 	  machine_mode pmode;
-	  int punsignedp, pvolatilep;
+	  int punsignedp, preversep, pvolatilep;
 	  affine_iv base_iv, offset_iv;
 	  tree dinit;
 
@@ -3534,7 +3601,8 @@ again:
 	    }
 
 	  outer_base = get_inner_reference (inner_base, &pbitsize, &pbitpos,
-		          &poffset, &pmode, &punsignedp, &pvolatilep, false);
+					    &poffset, &pmode, &punsignedp,
+					    &preversep, &pvolatilep, false);
 	  gcc_assert (outer_base != NULL_TREE);
 
 	  if (pbitpos % BITS_PER_UNIT != 0)
@@ -3542,6 +3610,14 @@ again:
 	      if (dump_enabled_p ())
 		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                  "failed: bit offset alignment.\n");
+	      return false;
+	    }
+
+	  if (preversep)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "failed: reverse storage order.\n");
 	      return false;
 	    }
 
@@ -3665,7 +3741,12 @@ again:
             }
 
           if (is_a <bb_vec_info> (vinfo))
-	    break;
+	    {
+	      /* No vector type is fine, the ref can still participate
+	         in dependence analysis, we just can't vectorize it.  */
+	      STMT_VINFO_VECTORIZABLE (stmt_info) = false;
+	      continue;
+	    }
 
 	  if (gatherscatter != SG_NONE || simd_lane_access)
 	    {

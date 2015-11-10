@@ -6785,14 +6785,14 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  tree offset;
 		  HOST_WIDE_INT bitsize, bitpos;
 		  machine_mode mode;
-		  int unsignedp, volatilep = 0;
+		  int unsignedp, reversep, volatilep = 0;
 		  tree base = OMP_CLAUSE_DECL (c);
 		  while (TREE_CODE (base) == ARRAY_REF)
 		    base = TREE_OPERAND (base, 0);
 		  if (TREE_CODE (base) == INDIRECT_REF)
 		    base = TREE_OPERAND (base, 0);
 		  base = get_inner_reference (base, &bitsize, &bitpos, &offset,
-					      &mode, &unsignedp,
+					      &mode, &unsignedp, &reversep,
 					      &volatilep, false);
 		  gcc_assert (base == decl
 			      && (offset == NULL_TREE
@@ -6902,7 +6902,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			    base = get_inner_reference (base, &bitsize2,
 							&bitpos2, &offset2,
 							&mode, &unsignedp,
-							&volatilep, false);
+							&reversep, &volatilep,
+							false);
 			    if (base != decl)
 			      break;
 			    if (scp)
@@ -9782,9 +9783,9 @@ gimplify_omp_ordered (tree expr, gimple_seq body)
 	      || OMP_CLAUSE_DEPEND_KIND (c) == OMP_CLAUSE_DEPEND_SOURCE))
 	{
 	  error_at (OMP_CLAUSE_LOCATION (c),
-		    "%<depend%> clause must be closely nested "
-		    "inside a loop with %<ordered%> clause with "
-		    "a parameter");
+		    "%<ordered%> construct with %<depend%> clause must be "
+		    "closely nested inside a loop with %<ordered%> clause "
+		    "with a parameter");
 	  failures++;
 	}
       else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND
@@ -10257,6 +10258,8 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 			     TREE_OPERAND (*expr_p, 1));
 	  if (tmp)
 	    {
+	      REF_REVERSE_STORAGE_ORDER (tmp)
+	        = REF_REVERSE_STORAGE_ORDER (*expr_p);
 	      *expr_p = tmp;
 	      recalculate_side_effects (*expr_p);
 	      ret = GS_OK;

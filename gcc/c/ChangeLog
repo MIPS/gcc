@@ -1,3 +1,36 @@
+2015-11-09  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	PR debug/67192
+	* c-typeck.c (c_finish_loop): For unconditional loops, set the
+	location of the backward-goto to the start of the loop body.
+
+2015-11-09  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	PR debug/67192
+	* c-parser.c (c_parser_while_statement): Finish the loop before
+	parsing ahead for misleading indentation.
+	(c_parser_for_statement): Likewise.
+
+2015-11-08  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-decl.c (finish_struct): If the structure has reverse storage
+	order, rewrite the type of array fields with scalar component.  Call
+	maybe_apply_pragma_scalar_storage_order on entry.
+	* c-typeck.c (build_unary_op) <ADDR_EXPR>: Remove left-overs.  Issue
+	errors on bit-fields and reverse SSO here and not...
+	(c_mark_addressable): ...here.
+	(output_init_element): Adjust call to initializer_constant_valid_p.
+	(c_build_qualified_type): Propagate TYPE_REVERSE_STORAGE_ORDER.
+
+2015-11-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* c-decl.c (warn_defaults_to): Update for change in signature
+	of diagnostic_set_info.
+	* c-errors.c (pedwarn_c99): Likewise.
+	(pedwarn_c90): Likewise.
+	* c-objc-common.c (c_tree_printer): Update for new "caret_p" param
+	for textinfo::set_location.
+
 2015-11-05  Cesar Philippidis  <cesar@codesourcery.com>
 	    Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
