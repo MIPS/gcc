@@ -2554,6 +2554,11 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       outer_nelts_from_type = true;
     }
 
+  /* Lots of logic below. depends on whether we have a constant number of
+     elements, so go ahead and fold it now.  */
+  if (outer_nelts)
+    outer_nelts = maybe_constant_value (outer_nelts);
+
   /* If our base type is an array, then make sure we know how many elements
      it has.  */
   for (elt_type = type;
@@ -2604,7 +2609,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
   /* Warn if we performed the (T[N]) to T[N] transformation and N is
      variable.  */
   if (outer_nelts_from_type
-      && !TREE_CONSTANT (maybe_constant_value (outer_nelts)))
+      && !TREE_CONSTANT (outer_nelts))
     {
       if (complain & tf_warning_or_error)
 	{
