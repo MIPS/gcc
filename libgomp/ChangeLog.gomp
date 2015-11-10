@@ -1,3 +1,14 @@
+2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-fortran/parallel-reduction.f90: Fix data
+	missing data clause.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-reduction.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-reduction-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-loop-comb-reduction-1.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-reduction-2.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-loop-comb-reduction-3.c: Likewise.
+	* testsuite/libgomp.oacc-c-c++-common/par-loop-comb-reduction-4.c: Likewise.
+
 2015-11-06  Tom de Vries  <tom@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/kernels-loop-nest-independent.f95: New

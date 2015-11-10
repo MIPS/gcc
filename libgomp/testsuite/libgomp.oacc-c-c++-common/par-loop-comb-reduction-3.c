@@ -14,7 +14,7 @@ main (int argc, char *argv[])
     arr[i] = i;
 
   #pragma acc parallel num_gangs(32) num_workers(32) vector_length(32) \
-		       reduction(+:res)
+    reduction(+:res) copy(res)
   {
     #pragma acc loop gang
     for (j = 0; j < 32; j++)

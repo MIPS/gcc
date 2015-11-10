@@ -14,7 +14,7 @@ main ()
 
 #pragma acc data copy (dummy)
   {
-#pragma acc parallel num_gangs (N) reduction (+:s1)
+#pragma acc parallel num_gangs (N) reduction (+:s1) copy(s1)
     {
       s1++;
     }
@@ -34,7 +34,7 @@ main ()
   s1 = 0;
   s2 = 0;
 
-#pragma acc parallel num_gangs (10) reduction (+:s1, s2)
+#pragma acc parallel num_gangs (10) reduction (+:s1, s2) copy(s1, s2)
   {
     s1++;
     s2 += N;
@@ -57,7 +57,7 @@ main ()
 
   s1 = 0;
 
-#pragma acc parallel num_gangs (10) reduction (+:s1)
+#pragma acc parallel num_gangs (10) reduction (+:s1) copy(s1)
   {
 #pragma acc loop gang reduction (+:s1)
     for (i = 0; i < 10; i++)

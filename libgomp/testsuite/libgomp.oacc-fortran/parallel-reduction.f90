@@ -7,7 +7,7 @@ program reduction
 
   sum = 0
 
-  !$acc parallel reduction(+:sum) num_gangs (n)
+  !$acc parallel reduction(+:sum) num_gangs (n) copy(sum)
   sum = sum + 1
   !$acc end parallel
 
@@ -32,7 +32,7 @@ end program reduction
 subroutine redsub(sum, n)
   integer :: sum, n
 
-  !$acc parallel reduction(+:sum) num_gangs (10)
+  !$acc parallel reduction(+:sum) num_gangs (10)  copy(sum)
   sum = sum + 1
   !$acc end parallel
 end subroutine redsub

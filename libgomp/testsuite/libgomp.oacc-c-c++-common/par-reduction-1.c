@@ -15,7 +15,7 @@ main (int argc, char *argv[])
 # define GANGS 256
 #endif
   #pragma acc parallel num_gangs(GANGS) num_workers(32) vector_length(32) \
-		       reduction(+:res1) copy(res2)
+    reduction(+:res1) copy(res2, res1)
   {
     res1 += 5;
 
@@ -36,7 +36,7 @@ main (int argc, char *argv[])
 # define GANGS 8
 #endif
   #pragma acc parallel num_gangs(GANGS) num_workers(32) vector_length(32) \
-		       reduction(*:res1) copy(res2)
+    reduction(*:res1) copy(res1, res2)
   {
     res1 *= 5;
 
