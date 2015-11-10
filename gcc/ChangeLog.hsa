@@ -1,3 +1,28 @@
+2015-11-10  Martin Liska  <mliska@suse.cz>
+
+	* alloc-pool.h (operator new): Use simplified ctor.
+	* hsa-gen.c (hsa_op_immed::operator new): Use newly
+	added method allocate_raw.
+	(hsa_op_reg::operator new): Likewise.
+	(hsa_op_address::operator new): Likewise.
+	(hsa_op_code_list::operator new): Likewise.
+	(hsa_op_operand_list::operator new): Likewise.
+	(hsa_insn_basic::operator new): Likewise.
+	(hsa_insn_phi::operator new): Likewise.
+	(hsa_insn_br::operator new): Likewise.
+	(hsa_insn_sbr::operator new): Likewise.
+	(hsa_insn_cmp::operator new): Likewise.
+	(hsa_insn_mem::operator new): Likewise.
+	(hsa_insn_atomic::operator new): Likewise.
+	(hsa_insn_signal::operator new): Likewise.
+	(hsa_insn_seg::operator new): Likewise.
+	(hsa_insn_call::operator new): Likewise.
+	(hsa_insn_arg_block::operator new): Likewise.
+	(hsa_insn_comment::operator new): Likewise.
+	(hsa_insn_packed::operator new): Likewise.
+	(hsa_insn_cvt::operator new): Likewise.
+	(hsa_init_new_bb): Use a different operator new.
+
 2015-11-09  Martin Jambor  <mjambor@suse.cz>
 
 	* common.opt (-fdisable-hsa-gridification): Removed.

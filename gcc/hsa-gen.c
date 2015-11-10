@@ -940,7 +940,7 @@ hsa_op_immed::hsa_op_immed ():
 void *
 hsa_op_immed::operator new (size_t)
 {
-  return hsa_allocp_operand_immed->vallocate ();
+  return hsa_allocp_operand_immed->allocate_raw ();
 }
 
 /* Destructor.  */
@@ -973,7 +973,7 @@ hsa_op_reg::hsa_op_reg (BrigType16_t t)
 void *
 hsa_op_reg::operator new (size_t)
 {
-  return hsa_allocp_operand_reg->vallocate ();
+  return hsa_allocp_operand_reg->allocate_raw ();
 }
 
 /* Verify register operand.  */
@@ -1057,7 +1057,7 @@ hsa_op_address::hsa_op_address (hsa_op_reg *r, HOST_WIDE_INT offset)
 void *
 hsa_op_address::operator new (size_t)
 {
-  return hsa_allocp_operand_address->vallocate ();
+  return hsa_allocp_operand_address->allocate_raw ();
 }
 
 
@@ -1083,7 +1083,7 @@ hsa_op_code_list::hsa_op_code_list (unsigned elements)
 void *
 hsa_op_code_list::operator new (size_t)
 {
-  return hsa_allocp_operand_code_list->vallocate ();
+  return hsa_allocp_operand_code_list->allocate_raw ();
 }
 
 /* Constructor of an operand representing an operand list.
@@ -1101,7 +1101,7 @@ hsa_op_operand_list::hsa_op_operand_list (unsigned elements)
 void *
 hsa_op_operand_list::operator new (size_t)
 {
-  return hsa_allocp_operand_operand_list->vallocate ();
+  return hsa_allocp_operand_operand_list->allocate_raw ();
 }
 
 hsa_op_operand_list::~hsa_op_operand_list ()
@@ -1250,7 +1250,7 @@ hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
 void *
 hsa_insn_basic::operator new (size_t)
 {
-  return hsa_allocp_inst_basic->vallocate ();
+  return hsa_allocp_inst_basic->allocate_raw ();
 }
 
 /* Verify the instruction.  */
@@ -1308,7 +1308,7 @@ hsa_insn_phi::hsa_insn_phi (unsigned nops, hsa_op_reg *dst)
 void *
 hsa_insn_phi::operator new (size_t)
 {
-  return hsa_allocp_inst_phi->vallocate ();
+  return hsa_allocp_inst_phi->allocate_raw ();
 }
 
 /* Constructor of class representing instruction for conditional jump, CTRL is
@@ -1326,7 +1326,7 @@ hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
 void *
 hsa_insn_br::operator new (size_t)
 {
-  return hsa_allocp_inst_br->vallocate ();
+  return hsa_allocp_inst_br->allocate_raw ();
 }
 
 /* Constructor of class representing instruction for switch jump, CTRL is
@@ -1344,7 +1344,7 @@ hsa_insn_sbr::hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count)
 void *
 hsa_insn_sbr::operator new (size_t)
 {
-  return hsa_allocp_inst_sbr->vallocate ();
+  return hsa_allocp_inst_sbr->allocate_raw ();
 }
 
 /* Replace all occurrences of OLD_BB with NEW_BB in the statements
@@ -1378,7 +1378,7 @@ hsa_insn_cmp::hsa_insn_cmp (BrigCompareOperation8_t cmp, BrigType16_t t,
 void *
 hsa_insn_cmp::operator new (size_t)
 {
-  return hsa_allocp_inst_cmp->vallocate ();
+  return hsa_allocp_inst_cmp->allocate_raw ();
 }
 
 /* Constructor of classes representing memory accesses.  OPC is the opcode (must
@@ -1411,7 +1411,7 @@ hsa_insn_mem::hsa_insn_mem (unsigned nops, int opc, BrigType16_t t,
 void *
 hsa_insn_mem::operator new (size_t)
 {
-  return hsa_allocp_inst_mem->vallocate ();
+  return hsa_allocp_inst_mem->allocate_raw ();
 }
 
 /* Constructor of class representing atomic instructions and signals. OPC is
@@ -1440,7 +1440,7 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 void *
 hsa_insn_atomic::operator new (size_t)
 {
-  return hsa_allocp_inst_atomic->vallocate ();
+  return hsa_allocp_inst_atomic->allocate_raw ();
 }
 
 /* Constructor of class representing signal instructions.  OPC is the prinicpal
@@ -1462,7 +1462,7 @@ hsa_insn_signal::hsa_insn_signal (int nops, int opc,
 void *
 hsa_insn_signal::operator new (size_t)
 {
-  return hsa_allocp_inst_signal->vallocate ();
+  return hsa_allocp_inst_signal->allocate_raw ();
 }
 
 /* Constructor of class representing segment conversion instructions.  OPC is
@@ -1485,7 +1485,7 @@ hsa_insn_seg::hsa_insn_seg (int opc, BrigType16_t dest, BrigType16_t srct,
 void *
 hsa_insn_seg::operator new (size_t)
 {
-  return hsa_allocp_inst_seg->vallocate ();
+  return hsa_allocp_inst_seg->allocate_raw ();
 }
 
 /* Constructor of class representing a call instruction.  CALLEE is the tree
@@ -1502,7 +1502,7 @@ hsa_insn_call::hsa_insn_call (tree callee)
 void *
 hsa_insn_call::operator new (size_t)
 {
-  return hsa_allocp_inst_call->vallocate ();
+  return hsa_allocp_inst_call->allocate_raw ();
 }
 
 hsa_insn_call::~hsa_insn_call ()
@@ -1530,7 +1530,7 @@ hsa_insn_arg_block::hsa_insn_arg_block (BrigKind brig_kind,
 void *
 hsa_insn_arg_block::operator new (size_t)
 {
-  return hsa_allocp_inst_arg_block->vallocate ();
+  return hsa_allocp_inst_arg_block->allocate_raw ();
 }
 
 hsa_insn_comment::hsa_insn_comment (const char *s)
@@ -1549,7 +1549,7 @@ hsa_insn_comment::hsa_insn_comment (const char *s)
 void *
 hsa_insn_comment::operator new (size_t)
 {
-  return hsa_allocp_inst_comment->vallocate ();
+  return hsa_allocp_inst_comment->allocate_raw ();
 }
 
 hsa_insn_comment::~hsa_insn_comment ()
@@ -1570,7 +1570,7 @@ hsa_insn_queue::hsa_insn_queue (int nops, BrigOpcode opcode)
 void *
 hsa_insn_packed::operator new (size_t)
 {
-  return hsa_allocp_inst_packed->vallocate ();
+  return hsa_allocp_inst_packed->allocate_raw ();
 }
 
 /* Constructor of class representing the packed instruction in HSAIL.  */
@@ -1590,7 +1590,7 @@ hsa_insn_packed::hsa_insn_packed (int nops, BrigOpcode opcode,
 void *
 hsa_insn_cvt::operator new (size_t)
 {
-  return hsa_allocp_inst_cvt->vallocate ();
+  return hsa_allocp_inst_cvt->allocate_raw ();
 }
 
 /* Constructor of class representing the convert instruction in HSAIL.  */
@@ -4840,7 +4840,7 @@ hsa_bb::~hsa_bb ()
 hsa_bb *
 hsa_init_new_bb (basic_block bb)
 {
-  return new (hsa_allocp_bb) hsa_bb (bb);
+  return new (*hsa_allocp_bb) hsa_bb (bb);
 }
 
 /* Initialize OMP in an HSA basic block PROLOGUE.  */
