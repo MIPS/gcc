@@ -3912,7 +3912,6 @@ finish_offsetof (tree expr, location_t loc)
 	      TREE_OPERAND (expr, 2));
       return error_mark_node;
     }
-
   if (TREE_CODE (TREE_TYPE (expr)) == FUNCTION_TYPE
       || TREE_CODE (TREE_TYPE (expr)) == METHOD_TYPE
       || TREE_TYPE (expr) == unknown_type_node)
@@ -7600,7 +7599,6 @@ handle_omp_for_class_iterator (int i, location_t locus, enum tree_code code,
 		      incr = build1 (NEGATE_EXPR, TREE_TYPE (diff), incr);
 		      incr = fold_simple (incr);
 		    }
-
 		  if (TREE_CODE (incr) != INTEGER_CST
 		      && (TREE_CODE (incr) != NOP_EXPR
 			  || (TREE_CODE (TREE_OPERAND (incr, 0))

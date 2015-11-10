@@ -952,7 +952,7 @@ cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 	{
 	  cp_walk_tree (&TREE_OPERAND (x, 0), cp_fold_r, data, NULL);
 	  cp_walk_tree (&TREE_OPERAND (x, 1), cp_fold_r, data, NULL);
-	} 
+	}
       else if (x && TREE_CODE (x) == TREE_VEC)
 	{
 	  n = TREE_VEC_LENGTH (x);
@@ -1983,7 +1983,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       if (TREE_CODE (op0) == INTEGER_CST
 	  && TREE_OVERFLOW_P (x) && !TREE_OVERFLOW_P (op0))
 	TREE_OVERFLOW (x) = false;
-      
+
       break;
 
     case ALIGNOF_EXPR:

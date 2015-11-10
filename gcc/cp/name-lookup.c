@@ -6242,7 +6242,6 @@ pop_from_top_level_1 (void)
      we are within a nested function.
      If additionally saved 'cfun' is identical to current, we can use
      the same 'fold_map'.  */
-     
   if (current_function_decl && s->function_decl == current_function_decl
       && scope_chain && s->fold_map == scope_chain->fold_map
       && scope_chain->act_cfun && scope_chain->act_cfun == cfun)

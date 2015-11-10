@@ -874,7 +874,7 @@ convert_to_integer_1 (tree type, tree expr, bool dofold)
 	      typex = unsigned_type_for (typex);
 	    return convert (type,
 			    fold_build1 (ex_form, typex,
-					  convert (typex,
+					 convert (typex,
 						  TREE_OPERAND (expr, 0))));
 	  }
 

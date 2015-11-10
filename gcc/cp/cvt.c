@@ -608,7 +608,6 @@ cp_fold_convert (tree type, tree expr)
       conv = fold_convert (type, expr);
       conv = ignore_overflows (conv, expr);
     }
-
   return conv;
 }
 
