@@ -1,3 +1,16 @@
+2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c: Backport whitespace & formatting changes from trunk.
+	(is_atomic_compatible_p): Delete.
+	(lower_reduction_clauses): Don't call it.
+	(expand_omp_for_static_nochunk): Revert no-longer needed thread
+	numbering expansion.
+	(set_oacc_fn_attrib): Make static, fixup comment.
+	(expand_omp_for_static_chunk): Likewise.
+	(expand_omp_target): Adjust args initial size.
+	(lower_omp_target): Rename label to oacc_firstprivate_map. Tweak
+	assertions.
+
 2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (oacc_xform_dim): Delete.
