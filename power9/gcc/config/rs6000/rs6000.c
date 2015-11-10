@@ -2575,6 +2575,10 @@ rs6000_debug_reg_global (void)
   if (TARGET_VSX)
     fprintf (stderr, DEBUG_FMT_D, "VSX easy 64-bit scalar element",
 	     (int)VECTOR_ELEMENT_SCALAR_64BIT);
+
+  if (TARGET_DIRECT_MOVE_128)
+    fprintf (stderr, DEBUG_FMT_D, "VSX easy 64-bit mfvsrld element",
+	     (int)VECTOR_ELEMENT_MFVSRLD_64BIT);
 }
 
 
@@ -2986,6 +2990,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	rs6000_constraints[RS6000_CONSTRAINT_wp] = VSX_REGS;	/* TFmode  */
     }
 
+  /* Support for new direct moves.  */
+  if (TARGET_DIRECT_MOVE_128)
+    rs6000_constraints[RS6000_CONSTRAINT_we] = VSX_REGS;
+
   /* Set up the reload helper and direct move functions.  */
   if (TARGET_VSX || TARGET_ALTIVEC)
     {
@@ -3034,7 +3042,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	      reg_addr[TImode].reload_load   = CODE_FOR_reload_ti_di_load;
 	    }
 
-	  if (TARGET_DIRECT_MOVE)
+	  if (TARGET_DIRECT_MOVE && !TARGET_DIRECT_MOVE_128)
 	    {
 	      reg_addr[TImode].reload_gpr_vsx    = CODE_FOR_reload_gpr_from_vsxti;
 	      reg_addr[V1TImode].reload_gpr_vsx  = CODE_FOR_reload_gpr_from_vsxv1ti;
@@ -18081,6 +18089,11 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
 	  || (to_type == VSX_REG_TYPE && from_type == GPR_REG_TYPE)))
     return true;
 
+  else if (TARGET_DIRECT_MOVE_128 && size == 16
+	   && ((to_type == VSX_REG_TYPE && from_type == GPR_REG_TYPE)
+	       || (to_type == GPR_REG_TYPE && from_type == VSX_REG_TYPE)))
+    return true;
+
   else if (TARGET_MFPGPR && TARGET_POWERPC64 && size == 8
 	   && ((to_type == GPR_REG_TYPE && from_type == FPR_REG_TYPE)
 	       || (to_type == FPR_REG_TYPE && from_type == GPR_REG_TYPE)))
@@ -18094,7 +18107,7 @@ rs6000_secondary_reload_simple_move (enum rs6000_reg_type to_type,
   return false;
 }
 
-/* Power8 helper function for rs6000_secondary_reload, handle all of the
+/* Direct move helper function for rs6000_secondary_reload, handle all of the
    special direct moves that involve allocating an extra register, return the
    insn code of the helper function if there is such a function or
    CODE_FOR_nothing if not.  */
@@ -18116,8 +18129,8 @@ rs6000_secondary_reload_direct_move (enum rs6000_reg_type to_type,
       if (size == 16)
 	{
 	  /* Handle moving 128-bit values from GPRs to VSX point registers on
-	     power8 when running in 64-bit mode using XXPERMDI to glue the two
-	     64-bit values back together.  */
+	     ISA 2.07 (power8, power9) when running in 64-bit mode using
+	     XXPERMDI to glue the two 64-bit values back together.  */
 	  if (to_type == VSX_REG_TYPE && from_type == GPR_REG_TYPE)
 	    {
 	      cost = 3;			/* 2 mtvsrd's, 1 xxpermdi.  */
@@ -18125,7 +18138,7 @@ rs6000_secondary_reload_direct_move (enum rs6000_reg_type to_type,
 	    }
 
 	  /* Handle moving 128-bit values from VSX point registers to GPRs on
-	     power8 when running in 64-bit mode using XXPERMDI to get access to the
+	     ISA 2.07 when running in 64-bit mode using XXPERMDI to get access to the
 	     bottom 64-bit value.  */
 	  else if (to_type == GPR_REG_TYPE && from_type == VSX_REG_TYPE)
 	    {
@@ -18153,7 +18166,7 @@ rs6000_secondary_reload_direct_move (enum rs6000_reg_type to_type,
   if (TARGET_POWERPC64 && size == 16)
     {
       /* Handle moving 128-bit values from GPRs to VSX point registers on
-	 power8 when running in 64-bit mode using XXPERMDI to glue the two
+	 ISA 2.07 when running in 64-bit mode using XXPERMDI to glue the two
 	 64-bit values back together.  */
       if (to_type == VSX_REG_TYPE && from_type == GPR_REG_TYPE)
 	{
@@ -18162,7 +18175,7 @@ rs6000_secondary_reload_direct_move (enum rs6000_reg_type to_type,
 	}
 
       /* Handle moving 128-bit values from VSX point registers to GPRs on
-	 power8 when running in 64-bit mode using XXPERMDI to get access to the
+	 ISA 2.07 when running in 64-bit mode using XXPERMDI to get access to the
 	 bottom 64-bit value.  */
       else if (to_type == GPR_REG_TYPE && from_type == VSX_REG_TYPE)
 	{
@@ -18174,8 +18187,8 @@ rs6000_secondary_reload_direct_move (enum rs6000_reg_type to_type,
   else if (!TARGET_POWERPC64 && size == 8)
     {
       /* Handle moving 64-bit values from GPRs to floating point registers on
-	 power8 when running in 32-bit mode using FMRGOW to glue the two 32-bit
-	 values back together.  Altivec register classes must be handled
+	 ISA 2.07 when running in 32-bit mode using FMRGOW to glue the two
+	 32-bit values back together.  Altivec register classes must be handled
 	 specially since a different instruction is used, and the secondary
 	 reload support requires a single instruction class in the scratch
 	 register constraint.  However, right now TFmode is not allowed in
@@ -18202,7 +18215,7 @@ rs6000_secondary_reload_direct_move (enum rs6000_reg_type to_type,
 
 /* Return whether a move between two register classes can be done either
    directly (simple move) or via a pattern that uses a single extra temporary
-   (using power8's direct move in this case.  */
+   (using ISA 2.07's direct move in this case.  */
 
 static bool
 rs6000_secondary_reload_move (enum rs6000_reg_type to_type,
@@ -19241,6 +19254,11 @@ rs6000_output_move_128bit (rtx operands[])
 	  if (src_gpr_p)
 	    return "#";
 
+	  if (TARGET_DIRECT_MOVE_128 && src_vsx_p)
+	    return (WORDS_BIG_ENDIAN
+		    ? "mfvsrd %0,%x1\n\tmfvsrld %L0,%x1"
+		    : "mfvsrd %L0,%x1\n\tmfvsrld %0,%x1");
+
 	  else if (TARGET_VSX && TARGET_DIRECT_MOVE && src_vsx_p)
 	    return "#";
 	}
@@ -19249,6 +19267,11 @@ rs6000_output_move_128bit (rtx operands[])
 	{
 	  if (src_vsx_p)
 	    return "xxlor %x0,%x1,%x1";
+
+	  else if (TARGET_DIRECT_MOVE_128 && src_gpr_p)
+	    return (WORDS_BIG_ENDIAN
+		    ? "mtvsrdd %x0,%1,%L1"
+		    : "mtvsrdd %x0,%L1,%1");
 
 	  else if (TARGET_DIRECT_MOVE && src_gpr_p)
 	    return "#";

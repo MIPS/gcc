@@ -1,3 +1,9 @@
+2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<patch #7>
+	* gcc.target/powerpc/direct-move-vector.c: New test for 128-bit
+	vector direct move instructions.
+
 2015-11-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<patch #6>
