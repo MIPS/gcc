@@ -573,21 +573,22 @@ vect_slp_analyze_node_dependences (slp_instance instance, slp_tree node)
       gimple *access = SLP_TREE_SCALAR_STMTS (node)[k];
       if (access == last_access)
 	continue;
-      stmt_vec_info access_stmt_info = vinfo_for_stmt (access);
-      gimple_stmt_iterator gsi = gsi_for_stmt (access);
-      gsi_next (&gsi);
-      for (; gsi_stmt (gsi) != last_access; gsi_next (&gsi))
+      data_reference *dr_a = STMT_VINFO_DATA_REF (vinfo_for_stmt (access));
+      for (gimple_stmt_iterator gsi = gsi_for_stmt (access);
+	   gsi_stmt (gsi) != last_access; gsi_next (&gsi))
 	{
 	  gimple *stmt = gsi_stmt (gsi);
-	  stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
-	  if (!STMT_VINFO_DATA_REF (stmt_info)
-	      || (DR_IS_READ (STMT_VINFO_DATA_REF (stmt_info))
-		  && DR_IS_READ (STMT_VINFO_DATA_REF (access_stmt_info))))
+	  if (! gimple_vuse (stmt)
+	      || (DR_IS_READ (dr_a) && ! gimple_vdef (stmt)))
 	    continue;
 
-	  ddr_p ddr = initialize_data_dependence_relation
-	      (STMT_VINFO_DATA_REF (access_stmt_info),
-	       STMT_VINFO_DATA_REF (stmt_info), vNULL);
+	  /* If we couldn't record a (single) data reference for this
+	     stmt we have to give up.  */
+	  data_reference *dr_b = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt));
+	  if (!dr_b)
+	    return false;
+
+	  ddr_p ddr = initialize_data_dependence_relation (dr_a, dr_b, vNULL);
 	  if (vect_slp_analyze_data_ref_dependence (ddr))
 	    {
 	      /* ???  If the dependence analysis failed we can resort to the
@@ -3862,6 +3863,9 @@ vect_get_new_vect_var (tree type, enum vect_var_kind var_kind, const char *name)
   case vect_scalar_var:
     prefix = "stmp";
     break;
+  case vect_mask_var:
+    prefix = "mask";
+    break;
   case vect_pointer_var:
     prefix = "vectp";
     break;
@@ -4451,7 +4455,11 @@ vect_create_destination_var (tree scalar_dest, tree vectype)
   tree type;
   enum vect_var_kind kind;
 
-  kind = vectype ? vect_simple_var : vect_scalar_var;
+  kind = vectype
+    ? VECTOR_BOOLEAN_TYPE_P (vectype)
+    ? vect_mask_var
+    : vect_simple_var
+    : vect_scalar_var;
   type = vectype ? vectype : TREE_TYPE (scalar_dest);
 
   gcc_assert (TREE_CODE (scalar_dest) == SSA_NAME);

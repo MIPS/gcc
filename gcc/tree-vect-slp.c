@@ -226,7 +226,8 @@ vect_get_and_check_slp_defs (vec_info *vinfo,
     {
       enum tree_code code = gimple_assign_rhs_code (stmt);
       number_of_oprnds = gimple_num_ops (stmt) - 1;
-      if (gimple_assign_rhs_code (stmt) == COND_EXPR)
+      if (gimple_assign_rhs_code (stmt) == COND_EXPR
+	  && COMPARISON_CLASS_P (gimple_assign_rhs1 (stmt)))
 	{
 	  first_op_cond = true;
 	  commutative = true;
@@ -447,7 +448,6 @@ vect_build_slp_tree_1 (vec_info *vinfo,
   machine_mode vec_mode;
   HOST_WIDE_INT dummy;
   gimple *first_load = NULL, *prev_first_load = NULL;
-  tree cond;
 
   /* For every stmt in NODE find its def stmt/s.  */
   FOR_EACH_VEC_ELT (stmts, i, stmt)
@@ -491,24 +491,6 @@ vect_build_slp_tree_1 (vec_info *vinfo,
 	  matches[0] = false;
 	  return false;
 	}
-
-       if (is_gimple_assign (stmt)
-	   && gimple_assign_rhs_code (stmt) == COND_EXPR
-           && (cond = gimple_assign_rhs1 (stmt))
-           && !COMPARISON_CLASS_P (cond))
-        {
-          if (dump_enabled_p ())
-            {
-              dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location, 
-			       "Build SLP failed: condition is not "
-			       "comparison ");
-              dump_gimple_stmt (MSG_MISSED_OPTIMIZATION, TDF_SLIM, stmt, 0);
-              dump_printf (MSG_MISSED_OPTIMIZATION, "\n");
-            }
-	  /* Fatal mismatch.  */
-	  matches[0] = false;
-          return false;
-        }
 
       scalar_type = vect_get_smallest_scalar_type (stmt, &dummy, &dummy);
       vectype = get_vectype_for_scalar_type (scalar_type);
@@ -792,6 +774,7 @@ vect_build_slp_tree_1 (vec_info *vinfo,
 	  if (TREE_CODE_CLASS (rhs_code) != tcc_binary
 	      && TREE_CODE_CLASS (rhs_code) != tcc_unary
 	      && TREE_CODE_CLASS (rhs_code) != tcc_expression
+	      && TREE_CODE_CLASS (rhs_code) != tcc_comparison
 	      && rhs_code != CALL_EXPR)
 	    {
 	      if (dump_enabled_p ())
@@ -2317,9 +2300,12 @@ vect_bb_vectorization_profitable_p (bb_vec_info bb_vinfo)
       dump_printf (MSG_NOTE, "  Scalar cost of basic block: %d\n", scalar_cost);
     }
 
-  /* Vectorization is profitable if its cost is less than the cost of scalar
-     version.  */
-  if (vec_outside_cost + vec_inside_cost >= scalar_cost)
+  /* Vectorization is profitable if its cost is more than the cost of scalar
+     version.  Note that we err on the vector side for equal cost because
+     the cost estimate is otherwise quite pessimistic (constant uses are
+     free on the scalar side but cost a load on the vector side for
+     example).  */
+  if (vec_outside_cost + vec_inside_cost > scalar_cost)
     return false;
 
   return true;
@@ -2637,7 +2623,14 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
   struct loop *loop;
   gimple_seq ctor_seq = NULL;
 
-  vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
+  /* Check if vector type is a boolean vector.  */
+  if (TREE_CODE (TREE_TYPE (op)) == BOOLEAN_TYPE
+      && (VECTOR_BOOLEAN_TYPE_P (STMT_VINFO_VECTYPE (stmt_vinfo))
+	  || (code == COND_EXPR && op_num < 2)))
+    vector_type
+      = build_same_sized_truth_vector_type (STMT_VINFO_VECTYPE (stmt_vinfo));
+  else
+    vector_type = get_vectype_for_scalar_type (TREE_TYPE (op));
   nunits = TYPE_VECTOR_SUBPARTS (vector_type);
 
   if (STMT_VINFO_DEF_TYPE (stmt_vinfo) == vect_reduction_def
@@ -2809,8 +2802,21 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 	    {
 	      if (CONSTANT_CLASS_P (op))
 		{
-		  op = fold_unary (VIEW_CONVERT_EXPR,
-				   TREE_TYPE (vector_type), op);
+		  if (VECTOR_BOOLEAN_TYPE_P (vector_type))
+		    {
+		      /* Can't use VIEW_CONVERT_EXPR for booleans because
+			 of possibly different sizes of scalar value and
+			 vector element.  */
+		      if (integer_zerop (op))
+			op = build_int_cst (TREE_TYPE (vector_type), 0);
+		      else if (integer_onep (op))
+			op = build_int_cst (TREE_TYPE (vector_type), 1);
+		      else
+			gcc_unreachable ();
+		    }
+		  else
+		    op = fold_unary (VIEW_CONVERT_EXPR,
+				     TREE_TYPE (vector_type), op);
 		  gcc_assert (op && CONSTANT_CLASS_P (op));
 		}
 	      else

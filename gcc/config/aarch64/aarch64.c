@@ -4391,11 +4391,10 @@ aarch64_print_operand (FILE *f, rtx x, int code)
 	  break;
 
 	case CONST_DOUBLE:
-	  /* CONST_DOUBLE can represent a double-width integer.
-	     In this case, the mode of x is VOIDmode.  */
-	  if (GET_MODE (x) == VOIDmode)
-	    ; /* Do Nothing.  */
-	  else if (aarch64_float_const_zero_rtx_p (x))
+	  /* Since we define TARGET_SUPPORTS_WIDE_INT we shouldn't ever
+	     be getting CONST_DOUBLEs holding integers.  */
+	  gcc_assert (GET_MODE (x) != VOIDmode);
+	  if (aarch64_float_const_zero_rtx_p (x))
 	    {
 	      fputc ('0', f);
 	      break;
@@ -5245,9 +5244,11 @@ aarch64_can_use_per_function_literal_pools_p (void)
 static bool
 aarch64_use_blocks_for_constant_p (machine_mode, const_rtx)
 {
-  /* We can't use blocks for constants when we're using a per-function
-     constant pool.  */
-  return !aarch64_can_use_per_function_literal_pools_p ();
+  /* Fixme:: In an ideal world this would work similar
+     to the logic in aarch64_select_rtx_section but this
+     breaks bootstrap in gcc go.  For now we workaround
+     this by returning false here.  */
+  return false;
 }
 
 /* Select appropriate section for constants depending
@@ -10159,32 +10160,16 @@ aarch64_simd_valid_immediate (rtx op, machine_mode mode, bool inverse,
          it must be laid out in the vector register in reverse order.  */
       rtx el = CONST_VECTOR_ELT (op, BYTES_BIG_ENDIAN ? (n_elts - 1 - i) : i);
       unsigned HOST_WIDE_INT elpart;
-      unsigned int part, parts;
 
-      if (CONST_INT_P (el))
-        {
-          elpart = INTVAL (el);
-          parts = 1;
-        }
-      else if (GET_CODE (el) == CONST_DOUBLE)
-        {
-          elpart = CONST_DOUBLE_LOW (el);
-          parts = 2;
-        }
-      else
-        gcc_unreachable ();
+      gcc_assert (CONST_INT_P (el));
+      elpart = INTVAL (el);
 
-      for (part = 0; part < parts; part++)
-        {
-          unsigned int byte;
-          for (byte = 0; byte < innersize; byte++)
-            {
-              bytes[idx++] = (elpart & 0xff) ^ invmask;
-              elpart >>= BITS_PER_UNIT;
-            }
-          if (GET_CODE (el) == CONST_DOUBLE)
-            elpart = CONST_DOUBLE_HIGH (el);
-        }
+      for (unsigned int byte = 0; byte < innersize; byte++)
+	{
+	  bytes[idx++] = (elpart & 0xff) ^ invmask;
+	  elpart >>= BITS_PER_UNIT;
+	}
+
     }
 
   /* Sanity check.  */
