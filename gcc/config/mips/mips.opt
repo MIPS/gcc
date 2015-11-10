@@ -525,3 +525,6 @@ Enable direct use of GP in MIPS16
 
 muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
+
+mblockmov-limit=
+Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
