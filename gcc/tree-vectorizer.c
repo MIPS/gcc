@@ -75,8 +75,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "dbgcnt.h"
 #include "tree-scalar-evolution.h"
-#include "symbol-summary.h"
-#include "hsa.h"
 
 
 /* Loop or bb location.  */
@@ -677,10 +675,7 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_slp_vectorize (m_ctxt); }
-  virtual bool gate (function *fun)
-  {
-    return flag_tree_slp_vectorize && !hsa_gpu_implementation_p (fun->decl);
-  }
+  virtual bool gate (function *) { return flag_tree_slp_vectorize != 0; }
   virtual unsigned int execute (function *);
 
 }; // class pass_slp_vectorize

@@ -1161,26 +1161,13 @@ public:
   hsa_summary_t (symbol_table *table):
     function_summary<hsa_function_summary *> (table) { }
 
+  /* Couple GPU and HOST as gpu-specific and host-specific implementation of
+     the same function.  KIND determines whether GPU is a host-invokable kernel
+     or gpu-callable function.  */
+
   void link_functions (cgraph_node *gpu, cgraph_node *host,
 		       hsa_function_kind kind);
 };
-
-inline void
-hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
-			       hsa_function_kind kind)
-{
-  hsa_function_summary *gpu_summary = get (gpu);
-  hsa_function_summary *host_summary = get (host);
-
-  gpu_summary->m_kind = kind;
-  host_summary->m_kind = kind;
-
-  gpu_summary->m_gpu_implementation_p = true;
-  host_summary->m_gpu_implementation_p = false;
-
-  gpu_summary->m_binded_function = host;
-  host_summary->m_binded_function = gpu;
-}
 
 /* in hsa.c */
 extern struct hsa_function_representation *hsa_cfun;

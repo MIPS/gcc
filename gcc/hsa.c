@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "cgraph.h"
 #include "print-tree.h"
+#include "stringpool.h"
 #include "symbol-summary.h"
 #include "hsa.h"
 
@@ -691,6 +692,40 @@ hsa_get_declaration_name (tree decl)
     return IDENTIFIER_POINTER (DECL_NAME (decl));
 
   return NULL;
+}
+
+/* Couple GPU and HOST as gpu-specific and host-specific implementation of the
+   same function.  KIND determines whether GPU is a host-invokable kernel or
+   gpu-callable function.  */
+
+inline void
+hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
+			       hsa_function_kind kind)
+{
+  hsa_function_summary *gpu_summary = get (gpu);
+  hsa_function_summary *host_summary = get (host);
+
+  gpu_summary->m_kind = kind;
+  host_summary->m_kind = kind;
+
+  gpu_summary->m_gpu_implementation_p = true;
+  host_summary->m_gpu_implementation_p = false;
+
+  gpu_summary->m_binded_function = host;
+  host_summary->m_binded_function = gpu;
+
+  tree gdecl = gpu->decl;
+  DECL_ATTRIBUTES (gdecl)
+    = tree_cons (get_identifier ("flatten"), NULL_TREE,
+		 DECL_ATTRIBUTES (gdecl));
+
+  tree fn_opts = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl);
+  if (fn_opts == NULL_TREE)
+    fn_opts = optimization_default_node;
+  fn_opts = copy_node (fn_opts);
+  TREE_OPTIMIZATION (fn_opts)->x_flag_tree_loop_vectorize = false;
+  TREE_OPTIMIZATION (fn_opts)->x_flag_tree_slp_vectorize = false;
+  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (gdecl) = fn_opts;
 }
 
 /* Add a HOST function to HSA summaries.  */

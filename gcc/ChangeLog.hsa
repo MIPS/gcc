@@ -1,3 +1,15 @@
+2015-11-10  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa.h (hsa_summary_t): Add a comment to method link_functions.
+	(hsa_summary_t::link_functions): Moved...
+	* hsa.c (hsa_summary_t::link_functions): ...here.  Added common fndecl
+	modifications.
+	Include stringpool.h.
+	* ipa-hsa.c (process_hsa_functions): Do not add flatten attribute
+	here.  Fixed comments.
+	* tree-ssa-loop.c: Revert to trunk version.
+	* tree-vectorizer.c: Likewise.
+
 2015-11-10  Martin Liska  <mliska@suse.cz>
 
 	* alloc-pool.h (operator new): Use simplified ctor.

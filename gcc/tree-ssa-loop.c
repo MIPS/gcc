@@ -35,9 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
 #include "tree-vectorizer.h"
-#include "cgraph.h"
-#include "symbol-summary.h"
-#include "hsa.h"
 
 
 /* A pass making sure loops are fixed up.  */
@@ -260,8 +257,7 @@ public:
   /* opt_pass methods: */
   virtual bool gate (function *fun)
     {
-      return (flag_tree_loop_vectorize || fun->has_force_vectorize_loops)
-	&& !hsa_gpu_implementation_p (fun->decl);
+      return flag_tree_loop_vectorize || fun->has_force_vectorize_loops;
     }
 
   virtual unsigned int execute (function *);
