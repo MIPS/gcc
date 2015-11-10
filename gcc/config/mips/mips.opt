@@ -491,3 +491,6 @@ Place all gp relative data in sdata section number NUM.
 msdata-opt-list=
 Target RejectNegative Joined Var(mips_sdata_opt_list_file)
 msdata-opt-list=FILE    Use to specify variables to go in the .sdata section.
+
+mblockmov-limit=
+Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
