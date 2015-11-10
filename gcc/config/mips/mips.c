@@ -9282,23 +9282,26 @@ mips_expand_block_move (rtx dest, rtx src, rtx length)
 
   if (CONST_INT_P (length))
     {
-      if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
-	  /* We increase slightly the maximum number of bytes in
-	     a straight-line block if the source and destination are aligned
-	     to the register width.  */
-	  || (!optimize_size
-	      && MEM_ALIGN (src) == BITS_PER_WORD
-	      && MEM_ALIGN (dest) == BITS_PER_WORD
-	      && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
+      if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
-	  mips_block_move_straight (dest, src, INTVAL (length));
-	  return true;
-	}
-      else if (optimize)
-	{
-	  mips_block_move_loop (dest, src, INTVAL (length),
-				MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
-	  return true;
+	  if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
+	      /* We increase slightly the maximum number of bytes in
+		 a straight-line block if the source and destination
+		 are aligned to the register width.  */
+	      || (!optimize_size
+		  && MEM_ALIGN (src) == BITS_PER_WORD
+		  && MEM_ALIGN (dest) == BITS_PER_WORD
+		  && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
+	    {
+	      mips_block_move_straight (dest, src, INTVAL (length));
+	      return true;
+	    }
+	  else if (optimize)
+	    {
+	      mips_block_move_loop (dest, src, INTVAL (length),
+				    MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
+	      return true;
+	    }
 	}
     }
   return false;

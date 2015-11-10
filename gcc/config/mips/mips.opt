@@ -514,3 +514,6 @@ Generate common epilogue
 mepi=
 Target RejectNegative Joined Var(mips_epi)
 -mepi=SUFFIX  Generate common epilogue with suffix on the entry-point name
+
+mblockmov-limit=
+Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
