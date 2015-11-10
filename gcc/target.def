@@ -5493,28 +5493,28 @@ HOOK_VECTOR (TARGET_UPC, upc)
 
 DEFHOOK
 (link_script_p,
-"This hook returns true a linker script will be used to\
-origin the UPC shared section at 0.",
+"This hook returns true if a linker script will be used to\
+ origin the UPC shared section at 0.",
  bool, (void),
  default_upc_link_script_p)
 
 DEFHOOK
 (shared_section_name,
-"This hook returns the name of section used to assign addresses to\
+"This hook returns the name of the section used to assign addresses to\
  UPC shared data items.",
  const char *, (void),
  default_upc_shared_section_name)
 
 DEFHOOK
 (pgm_info_section_name,
-"This hook returns the name of section used to hold info. describing\
- how a UPC source file was compiled.",
+"This hook returns the name of the section used to hold information\
+ describing how a UPC source file was compiled.",
  const char *, (void),
  default_upc_pgm_info_section_name)
 
 DEFHOOK
 (init_array_section_name,
-"This hook returns the name of section used to hold an arrary\
+"This hook returns the name of the section used to hold an array\
  of addresses of UPC initialization routines.",
  const char *, (void),
  default_upc_init_array_section_name)

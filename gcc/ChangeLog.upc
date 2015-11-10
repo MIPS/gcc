@@ -1,3 +1,7 @@
+2015-11-10  Gary Funck  <gary@intrepid.com>
+
+	* target.def: Fix typos in the UPC target hook descriptions.
+
 2015-11-09  Gary Funck  <gary@intrepid.com>
 
 	* top-level/Makefile.def (GUPC_FOR_TARGET, GUPCFLAGS_FOR_TARGET):
