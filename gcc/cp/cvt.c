@@ -640,17 +640,18 @@ cp_convert_and_check (tree type, tree expr, tsubst_flags_t complain)
   if ((complain & tf_warning)
       && c_inhibit_evaluation_warnings == 0)
     {
-      tree folded = maybe_constant_value (expr);
-      tree stripped = folded;
+      tree folded = cp_fully_fold (expr);
       tree folded_result;
-      folded_result
-	= folded != expr ? cp_convert (type, folded, complain) : result;
-      folded_result = cp_fully_fold (folded_result);
-      /* The maybe_constant_value wraps an INTEGER_CST with TREE_OVERFLOW
-	 in a NOP_EXPR so that it isn't TREE_CONSTANT anymore.  */
-      STRIP_NOPS (stripped);
-      folded = cp_fully_fold (folded);
-      if (!TREE_OVERFLOW_P (stripped)
+      if (folded == expr)
+	folded_result = result;
+      else
+	{
+	  /* Avoid bogus -Wparentheses warnings.  */
+	  TREE_NO_WARNING (folded) = true;
+	  folded_result = cp_convert (type, folded, tf_none);
+	}
+      folded_result = fold_simple (folded_result);
+      if (!TREE_OVERFLOW_P (folded)
 	  && folded_result != error_mark_node)
 	warnings_for_convert_and_check (input_location, type, folded,
 					folded_result);
