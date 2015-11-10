@@ -1,5 +1,9 @@
 2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
 
+	* omp-low.c (set_oacc_fn_attrib): Revert static storage specifier.
+
+2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
+
 	* omp-low.c: Backport whitespace & formatting changes from trunk.
 	(is_atomic_compatible_p): Delete.
 	(lower_reduction_clauses): Don't call it.
