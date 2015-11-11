@@ -1,3 +1,26 @@
+2015-11-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gimplify.c (enum gimplify_omp_var_data): Remove GOVD_FORCE_MAP.
+	(omp_region_type): Use hex. Add OpenACC members.
+	(omp_region_kind, acc_region_kind): Delete.
+	(gimplify_omp_ctx): Remove region_kind & acc_region_kind fields.
+	(new_omp_context): Adjust default_kind setting.  Don't
+	reinitialize fiels.
+	(gimple_add_tmp_var): Add ORT_ACC check.
+	(gimplify_var_or_parm_decl): Likewise.
+	(omp_firstprivatize_variable): Likewise.
+	(omp_add_variable): Adjust OpenACC detection.
+	(oacc_default_clause): Reimplement.
+	(omp_notice_variable): Adjust OpenACC detection.
+	(gimplify_scan_omp_clauses): Remove region_kind arg. Adjust.
+	(gimplify_scan_omp_clause_1): Adjust OpenACC detection.
+	(gimmplify_oacc_cache, gimplify_oacc_declare,
+	gimplify_oacc_host_data, gimplify_omp_parallel): Adjust.
+	(gimplify_omp_for, gimplify_omp_workshare,
+	gimplify_omp_target_update): Adjust for OpenACC ORT flags.
+	(gimplify_expr): Likewise.
+	(gimplify_body): Simplify OpenACC declare handling.
+
 2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* omp-low.c (set_oacc_fn_attrib): Revert static storage specifier.

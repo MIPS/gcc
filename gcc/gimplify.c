@@ -89,10 +89,8 @@ enum gimplify_omp_var_data
 
   GOVD_USE_DEVICE = 1 << 17,
 
-  GOVD_FORCE_MAP = 1 << 18,
-
   /* OpenACC deviceptr clause.  */
-  GOVD_USE_DEVPTR = 1 << 19,
+  GOVD_USE_DEVPTR = 1 << 18,
 
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
@@ -102,40 +100,37 @@ enum gimplify_omp_var_data
 
 enum omp_region_type
 {
-  ORT_WORKSHARE = 0,
-  ORT_SIMD = 1,
-  ORT_PARALLEL = 2,
-  ORT_COMBINED_PARALLEL = 3,
-  ORT_TASK = 4,
-  ORT_UNTIED_TASK = 5,
-  ORT_TEAMS = 8,
-  ORT_COMBINED_TEAMS = 9,
+  ORT_WORKSHARE = 0x00,
+  ORT_SIMD 	= 0x01,
+
+  ORT_PARALLEL	= 0x02,
+  ORT_COMBINED_PARALLEL = 0x03,
+
+  ORT_TASK	= 0x04,
+  ORT_UNTIED_TASK = 0x05,
+
+  ORT_TEAMS	= 0x08,
+  ORT_COMBINED_TEAMS = 0x09,
+
   /* Data region.  */
-  ORT_TARGET_DATA = 16,
+  ORT_TARGET_DATA = 0x10,
+
   /* Data region with offloading.  */
-  ORT_TARGET = 32,
-  ORT_COMBINED_TARGET = 33,
-  /* An OpenACC host-data region.  */
-  ORT_HOST_DATA = 64,
+  ORT_TARGET	= 0x20,
+  ORT_COMBINED_TARGET = 0x21,
+
+  ORT_HOST_DATA = 0x40,
+
+  /* OpenACC variants.  */
+  ORT_ACC	= 0x80,  /* A generic OpenACC region.  */
+  ORT_ACC_DATA	= ORT_ACC | ORT_TARGET_DATA, /* Data construct.  */
+  ORT_ACC_PARALLEL = ORT_ACC | ORT_TARGET,  /* Parallel construct */
+  ORT_ACC_KERNELS  = ORT_ACC | ORT_TARGET | 0x100,  /* Kernels construct.  */
+  ORT_ACC_HOST  = ORT_ACC | ORT_HOST_DATA,
+
   /* Dummy OpenMP region, used to disable expansion of
      DECL_VALUE_EXPRs in taskloop pre body.  */
-  ORT_NONE = 128
-};
-
-enum omp_region_kind
-{
-  ORK_OMP,
-  ORK_OACC,
-  ORK_UNKNOWN
-};
-
-enum acc_region_kind
-{
-  ARK_GENERAL,  /* Default used for data, etc. regions.  */
-  ARK_PARALLEL, /* Parallel construct.  */
-  ARK_KERNELS,  /* Kernels construct.  */
-  ARK_DECLARE,  /* Declare directive.  */
-  ARK_UNKNOWN
+  ORT_NONE	= 0x200
 };
 
 /* Gimplify hashtable helper.  */
@@ -177,8 +172,6 @@ struct gimplify_omp_ctx
   location_t location;
   enum omp_clause_default_kind default_kind;
   enum omp_region_type region_type;
-  enum omp_region_kind region_kind;
-  enum acc_region_kind acc_region_kind;
   bool combined_loop;
   bool distribute;
   bool target_map_scalars_firstprivate;
@@ -404,19 +397,11 @@ new_omp_context (enum omp_region_type region_type)
   c->variables = splay_tree_new (splay_tree_compare_decl_uid, 0, 0);
   c->privatized_types = new hash_set<tree>;
   c->location = input_location;
-  if ((region_type & (ORT_TASK | ORT_TARGET)) == 0)
+  c->region_type = region_type;
+  if ((region_type & ORT_TASK) == 0)
     c->default_kind = OMP_CLAUSE_DEFAULT_SHARED;
   else
     c->default_kind = OMP_CLAUSE_DEFAULT_UNSPECIFIED;
-  c->region_type = region_type;
-  c->region_kind = ORK_UNKNOWN;
-  c->acc_region_kind = ARK_UNKNOWN;
-  c->combined_loop = false;
-  c->distribute = false;
-  c->target_map_scalars_firstprivate = false;
-  c->target_map_pointers_as_0len_arrays = false;
-  c->target_firstprivatize_array_bases = false;
-  c->stmt = NULL;
 
   return c;
 }
@@ -730,7 +715,8 @@ gimple_add_tmp_var (tree tmp)
 	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
 	  while (ctx
 		 && (ctx->region_type == ORT_WORKSHARE
-		     || ctx->region_type == ORT_SIMD))
+		     || ctx->region_type == ORT_SIMD
+		     || ctx->region_type == ORT_ACC))
 	    ctx = ctx->outer_context;
 	  if (ctx)
 	    omp_add_variable (ctx, tmp, GOVD_LOCAL | GOVD_SEEN);
@@ -1845,7 +1831,8 @@ gimplify_var_or_parm_decl (tree *expr_p)
 	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp;
 	  while (ctx
 		 && (ctx->region_type == ORT_WORKSHARE
-		     || ctx->region_type == ORT_SIMD))
+		     || ctx->region_type == ORT_SIMD
+		     || ctx->region_type == ORT_ACC))
 	    ctx = ctx->outer_context;
 	  if (!ctx && !nonlocal_vlas->add (decl))
 	    {
@@ -5620,7 +5607,8 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	}
       else if (ctx->region_type != ORT_WORKSHARE
 	       && ctx->region_type != ORT_SIMD
-	       && ctx->region_type != ORT_TARGET_DATA)
+	       && ctx->region_type != ORT_ACC
+	       && !(ctx->region_type & ORT_TARGET_DATA))
 	omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
 
       ctx = ctx->outer_context;
@@ -5709,15 +5697,13 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 sharing class.  */
       gcc_assert ((n->value & GOVD_DATA_SHARE_CLASS & flags) == 0);
       nflags = n->value | flags;
-      if (ctx->region_kind != ORK_OACC)
-	{
-	  /* The only combination of data sharing classes we should see is
-	     FIRSTPRIVATE and LASTPRIVATE.  However, OpenACC permits
-	     reduction variables to be used in data sharing clauses.  */
-	  gcc_assert ((nflags & GOVD_DATA_SHARE_CLASS)
-		      == (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE)
-		      || (flags & GOVD_DATA_SHARE_CLASS) == 0);
-	}
+      /* The only combination of data sharing classes we should see is
+	 FIRSTPRIVATE and LASTPRIVATE.  However, OpenACC permits
+	 reduction variables to be used in data sharing clauses.  */
+      gcc_assert ((ctx->region_type & ORT_ACC) != 0
+		  || ((nflags & GOVD_DATA_SHARE_CLASS)
+		      == (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE))
+		  || (flags & GOVD_DATA_SHARE_CLASS) == 0);
       n->value = nflags;
       return;
     }
@@ -5954,54 +5940,51 @@ device_resident_p (tree decl)
 static unsigned
 oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
 {
-  switch (ctx->default_kind)
+  const char *rkind;
+  bool on_device = is_global_var (decl) && device_resident_p (decl);
+
+  if (on_device)
+    flags |= GOVD_MAP_TO_ONLY;
+
+  switch (ctx->region_type)
     {
-    default: gcc_unreachable ();
-      
-    case OMP_CLAUSE_DEFAULT_NONE:
+    default:
+      gcc_unreachable ();
+
+    case ORT_ACC_KERNELS:
+      /* Everything under kernels are default 'present_or_copy'.  */
+      flags |= GOVD_MAP;
+      rkind = "kernels";
+      break;
+
+    case ORT_ACC_PARALLEL:
       {
-	const char *rkind;
+	tree type = TREE_TYPE (decl);
 
-	switch (ctx->acc_region_kind)
-	  {
-	  case ARK_PARALLEL: rkind = "parallel"; break;
-	  case ARK_KERNELS: rkind = "kernels"; break;
-	  default: gcc_unreachable ();
-	  }
-	error ("%qE not specified in enclosing OpenACC %s construct",
-	       DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rkind);
-	error_at (ctx->location, "enclosing OpenACC %s construct", rkind);
-      }
-      /* FALLTHRU.  */
+	if (TREE_CODE (type) == REFERENCE_TYPE
+	    || POINTER_TYPE_P (type))
+	  type = TREE_TYPE (type);
 
-    case OMP_CLAUSE_DEFAULT_UNSPECIFIED:
-      {
-	if (is_global_var (decl) && device_resident_p (decl))
-	  flags |= GOVD_MAP_TO_ONLY | GOVD_MAP;
-	else if (ctx->acc_region_kind == ARK_KERNELS)
-	  /* Everything under kernels are default 'copy'.  */
-	  flags |= GOVD_FORCE_MAP | GOVD_MAP;
-	else if (ctx->acc_region_kind == ARK_PARALLEL)
-	  {
-	    tree type = TREE_TYPE (decl);
-
-	    if (TREE_CODE (type) == REFERENCE_TYPE
-		|| POINTER_TYPE_P (type))
-	      type = TREE_TYPE (type);
-	
-	    if (AGGREGATE_TYPE_P (type))
-	      /* Aggregates default to 'present_or_copy'.  */
-	      flags |= GOVD_MAP;
-	    else
-	      /* Scalars default to 'firstprivate'.  */
-	      flags |= GOVD_FIRSTPRIVATE;
-	  }
+	if (on_device || AGGREGATE_TYPE_P (type))
+	  /* Aggregates default to 'present_or_copy'.  */
+	  flags |= GOVD_MAP;
 	else
-	  gcc_unreachable ();
+	  /* Scalars default to 'firstprivate'.  */
+	  flags |= GOVD_FIRSTPRIVATE;
+	rkind = "parallel";
       }
-    break;
+      break;
     }
-  
+
+  if (ctx->default_kind == OMP_CLAUSE_DEFAULT_NONE)
+    {
+      error ("%qE not specified in enclosing OpenACC %s construct",
+	     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rkind);
+      error_at (ctx->location, "enclosing OpenACC %s construct", rkind);
+    }
+  else
+    gcc_checking_assert (ctx->default_kind == OMP_CLAUSE_DEFAULT_SHARED);
+
   return flags;
 }
 
@@ -6091,15 +6074,13 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 		nflags |= GOVD_FIRSTPRIVATE;
 	    }
 
-	  tree type = NULL_TREE;
-
-	  /*  OpenMP doesn't look in outer contexts to find an
-	      enclosing data clause.  */
 	  struct gimplify_omp_ctx *octx = ctx->outer_context;
-	  if (ctx->region_kind == ORK_OACC && octx)
+	  if ((ctx->region_type & ORT_ACC) && octx)
 	    {
+	      /* Look in outer OpenACC contexts, to see if there's a
+		 data attribute for this variable.  */
 	      omp_notice_variable (octx, decl, in_code);
-	      
+
 	      for (; octx; octx = octx->outer_context)
 		{
 		  if (octx->region_type & ORT_HOST_DATA)
@@ -6117,27 +6098,30 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 		}
 	    }
 
-	  type = TREE_TYPE (decl);
-	  if (nflags == flags
-	      && gimplify_omp_ctxp->target_firstprivatize_array_bases
-	      && lang_hooks.decls.omp_privatize_by_reference (decl))
-	    type = TREE_TYPE (type);
-	  if (nflags == flags
-	      && !lang_hooks.types.omp_mappable_type (type,
-						      (ctx->region_kind
-						       == ORK_OACC)))
-	    {
-	      error ("%qD referenced in target region does not have "
-		     "a mappable type", decl);
-	      nflags |= GOVD_MAP | GOVD_EXPLICIT;
-	    }
-	  else if (nflags == flags)
-	    {
-	      if (ctx->region_kind == ORK_OACC)
-		nflags = oacc_default_clause (ctx, decl, flags);
-	      else
-		nflags |= GOVD_MAP;
-	    }
+	  {
+	    tree type = TREE_TYPE (decl);
+
+	    if (nflags == flags
+		&& gimplify_omp_ctxp->target_firstprivatize_array_bases
+		&& lang_hooks.decls.omp_privatize_by_reference (decl))
+	      type = TREE_TYPE (type);
+	    if (nflags == flags
+		&& !lang_hooks.types.omp_mappable_type (type,
+							(ctx->region_type
+							 & ORT_ACC) != 0))
+	      {
+		error ("%qD referenced in target region does not have "
+		       "a mappable type", decl);
+		nflags |= GOVD_MAP | GOVD_EXPLICIT;
+	      }
+	    else if (nflags == flags)
+	      {
+		if (ctx->region_type & ORT_ACC)
+		  nflags = oacc_default_clause (ctx, decl, flags);
+		else
+		  nflags |= GOVD_MAP;
+	      }
+	  }
 	found_outer:
 	  omp_add_variable (ctx, decl, nflags);
 	}
@@ -6155,7 +6139,8 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
     {
       if (ctx->region_type == ORT_WORKSHARE
 	  || ctx->region_type == ORT_SIMD
-	  || ctx->region_type == ORT_TARGET_DATA)
+	  || ctx->region_type == ORT_ACC
+	  || (ctx->region_type & ORT_TARGET_DATA) != 0)
 	goto do_outer;
 
       flags = omp_default_clause (ctx, decl, in_code, flags);
@@ -6269,7 +6254,8 @@ omp_is_private (struct gimplify_omp_ctx *ctx, tree decl, int simd)
     }
 
   if (ctx->region_type != ORT_WORKSHARE
-      && ctx->region_type != ORT_SIMD)
+      && ctx->region_type != ORT_SIMD
+      && ctx->region_type != ORT_ACC)
     return false;
   else if (ctx->outer_context)
     return omp_is_private (ctx->outer_context, decl, simd);
@@ -6325,7 +6311,8 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl, bool copyprivate)
 	}
     }
   while (ctx->region_type == ORT_WORKSHARE
-	 || ctx->region_type == ORT_SIMD);
+	 || ctx->region_type == ORT_SIMD
+	 || ctx->region_type == ORT_ACC);
   return false;
 }
 
@@ -6381,8 +6368,7 @@ find_decl_expr (tree *tp, int *walk_subtrees, void *data)
 static void
 gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 			   enum omp_region_type region_type,
-			   enum tree_code code,
-			   enum omp_region_kind region_kind)
+			   enum tree_code code)
 {
   struct gimplify_omp_ctx *ctx, *outer_ctx;
   tree c, clauses = *list_p;
@@ -6393,7 +6379,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 
   ctx = new_omp_context (region_type);
   outer_ctx = ctx->outer_context;
-  ctx->region_kind = region_kind;
   redvec.create (8);
   if (code == OMP_TARGET && !lang_GNU_Fortran ())
     {
@@ -6473,7 +6458,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		omp_notice_variable (outer_ctx->outer_context, decl, true);
 	    }
 	  else if (outer_ctx
-		   && outer_ctx->region_type == ORT_WORKSHARE
+		   && (outer_ctx->region_type == ORT_WORKSHARE
+		       || outer_ctx->region_type == ORT_ACC)
 		   && outer_ctx->combined_loop
 		   && splay_tree_lookup (outer_ctx->variables,
 					 (splay_tree_key) decl) == NULL
@@ -6497,6 +6483,9 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  goto do_add;
 	case OMP_CLAUSE_REDUCTION:
 	  flags = GOVD_REDUCTION | GOVD_SEEN | GOVD_EXPLICIT;
+	  /* OpenACC permits reductions on private variables.  */
+	  if (!(region_type & ORT_ACC))
+	    check_non_private = "reduction";
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (decl) == MEM_REF)
 	    {
@@ -6535,13 +6524,10 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  || TREE_CODE (decl) == INDIRECT_REF)
 		decl = TREE_OPERAND (decl, 0);
 	    }
-	  if ((region_kind == ORK_OACC) && ((region_type & ORT_TARGET) != 0)
+	  if ((region_type & ORT_ACC) && ((region_type & ORT_TARGET) != 0)
 	      && (outer_ctx == NULL 
-		  || (outer_ctx->region_kind == ORK_OACC
-		      && outer_ctx->region_type == ORT_TARGET_DATA)))
+		  || outer_ctx->region_type == ORT_ACC_DATA))
 	    redvec.safe_push (OMP_CLAUSE_DECL (c));
-	  if (region_kind != ORK_OACC)
-	    check_non_private = "reduction";
 	  goto do_add_decl;
 	case OMP_CLAUSE_USE_DEVICE:
 	  flags = GOVD_USE_DEVICE | GOVD_EXPLICIT;
@@ -7025,7 +7011,6 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		prev_list_p = list_p;
 	      break;
 	    }
-
 	  flags = GOVD_MAP | GOVD_EXPLICIT;
 	  if (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ALWAYS_TO
 	      || OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_ALWAYS_TOFROM)
@@ -7381,7 +7366,8 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
       /* Add an implicit data-movement clause for an OpenACC parallel
 	 reduction, if necessary.  */
       if (OMP_CLAUSE_CHAIN (c) == NULL && !processed_reductions
-	  && ((region_type & ORT_TARGET) != 0) && region_kind == ORK_OACC)
+	  && ((region_type & ORT_TARGET) != 0)
+	  && (region_type & ORT_ACC))
 	{
 	  tree t;
 
@@ -7410,7 +7396,7 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 		  splay_tree_node n;
 
 		  n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-		  n->value |= GOVD_FORCE_MAP;
+		  n->value |= GOVD_MAP;
 		}
 	    }
 
@@ -7449,7 +7435,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   tree clause;
   bool private_debug;
 
-  if (flags & (GOVD_EXPLICIT | GOVD_LOCAL) && ((flags & GOVD_FORCE_MAP) == 0))
+  if (flags & (GOVD_EXPLICIT | GOVD_LOCAL))
     return 0;
   if ((flags & GOVD_SEEN) == 0)
     return 0;
@@ -7466,7 +7452,7 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
 						   !!(flags & GOVD_SHARED));
   if (private_debug)
     code = OMP_CLAUSE_PRIVATE;
-  else if (flags & (GOVD_MAP | GOVD_FORCE_MAP))
+  else if (flags & GOVD_MAP)
     code = OMP_CLAUSE_MAP;
   else if (flags & GOVD_SHARED)
     {
@@ -7533,11 +7519,9 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
   else if (code == OMP_CLAUSE_MAP)
     {
       OMP_CLAUSE_SET_MAP_KIND (clause,
-			       flags & GOVD_MAP_TO_ONLY ? GOMP_MAP_TO
-			       : (flags & GOVD_FORCE_MAP
-				  ? GOMP_MAP_FORCE_TOFROM
-				  : GOMP_MAP_TOFROM));
-
+			       flags & GOVD_MAP_TO_ONLY
+			       ? GOMP_MAP_TO
+			       : GOMP_MAP_TOFROM);
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
@@ -7931,8 +7915,8 @@ gimplify_oacc_cache (tree *expr_p, gimple_seq *pre_p)
 {
   tree expr = *expr_p;
 
-  gimplify_scan_omp_clauses (&OACC_CACHE_CLAUSES (expr), pre_p, ORT_WORKSHARE,
-			     OACC_CACHE, ORK_OACC);
+  gimplify_scan_omp_clauses (&OACC_CACHE_CLAUSES (expr), pre_p, ORT_ACC,
+			     OACC_CACHE);
   gimplify_adjust_omp_clauses (pre_p, &OACC_CACHE_CLAUSES (expr), OACC_CACHE);
 
   /* TODO: Do something sensible with this information.  */
@@ -7951,10 +7935,8 @@ gimplify_oacc_declare (tree *expr_p, gimple_seq *pre_p)
 
   clauses = OACC_DECLARE_CLAUSES (expr);
 
-  gimplify_scan_omp_clauses (&clauses, pre_p, ORT_TARGET_DATA, OACC_DECLARE,
-			     ORK_OACC);
+  gimplify_scan_omp_clauses (&clauses, pre_p, ORT_ACC_DATA, OACC_DECLARE);
 
-  gimplify_omp_ctxp->acc_region_kind = ARK_DECLARE;
   gimplify_omp_ctxp->stmt = NULL;
 
   for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
@@ -7982,8 +7964,7 @@ gimplify_oacc_declare (tree *expr_p, gimple_seq *pre_p)
     {
       struct gimplify_omp_ctx *c;
 
-      gimplify_scan_omp_clauses (&clauses, pre_p, ORT_TARGET_DATA,
-				 OACC_DECLARE, ORK_OACC);
+      gimplify_scan_omp_clauses (&clauses, pre_p, ORT_ACC_DATA, OACC_DECLARE);
 
       c = gimplify_omp_ctxp;
       gimplify_omp_ctxp = c->outer_context;
@@ -8080,7 +8061,7 @@ gimplify_oacc_host_data (tree *expr_p, gimple_seq *pre_p)
   gimple_seq body = NULL;
   
   gimplify_scan_omp_clauses (&OACC_HOST_DATA_CLAUSES (expr), pre_p,
-			     ORT_HOST_DATA, OACC_HOST_DATA, ORK_OACC);
+			     ORT_ACC_HOST, OACC_HOST_DATA);
   
   orig_body = OACC_HOST_DATA_BODY (expr);
 
@@ -8132,8 +8113,7 @@ gimplify_omp_parallel (tree *expr_p, gimple_seq *pre_p)
   gimplify_scan_omp_clauses (&OMP_PARALLEL_CLAUSES (expr), pre_p,
 			     OMP_PARALLEL_COMBINED (expr)
 			     ? ORT_COMBINED_PARALLEL
-			     : ORT_PARALLEL,
-			     OMP_PARALLEL, ORK_OMP);
+			     : ORT_PARALLEL, OMP_PARALLEL);
 
   push_gimplify_context ();
 
@@ -8170,8 +8150,7 @@ gimplify_omp_task (tree *expr_p, gimple_seq *pre_p)
   gimplify_scan_omp_clauses (&OMP_TASK_CLAUSES (expr), pre_p,
 			     find_omp_clause (OMP_TASK_CLAUSES (expr),
 					      OMP_CLAUSE_UNTIED)
-			     ? ORT_UNTIED_TASK : ORT_TASK,
-			     OMP_TASK, ORK_OMP);
+			     ? ORT_UNTIED_TASK : ORT_TASK, OMP_TASK);
 
   push_gimplify_context ();
 
@@ -8312,7 +8291,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   int i;
   bitmap has_decl_expr = NULL;
   enum omp_region_type ort = ORT_WORKSHARE;
-  enum omp_region_kind ork;
 
   orig_for_stmt = for_stmt = *expr_p;
 
@@ -8321,28 +8299,25 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     case OMP_FOR:
     case CILK_FOR:
     case OMP_DISTRIBUTE:
-      ork = ORK_OMP;
       break;
     case OACC_LOOP:
-      ork = ORK_OACC;
+      ort = ORT_ACC;
       break;
     case OMP_TASKLOOP:
       if (find_omp_clause (OMP_FOR_CLAUSES (for_stmt), OMP_CLAUSE_UNTIED))
 	ort = ORT_UNTIED_TASK;
       else
 	ort = ORT_TASK;
-      ork = ORK_OMP;
       break;
     case OMP_SIMD:
     case CILK_SIMD:
       ort = ORT_SIMD;
-      ork = ORK_OMP;
       break;
     default:
       gcc_unreachable ();
     }
 
-  if (ork == ORK_OACC)
+  if (ort == ORT_ACC)
     localize_reductions (expr_p, false);
 
   /* Set OMP_CLAUSE_LINEAR_NO_COPYIN flag on explicit linear
@@ -8376,7 +8351,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
   if (TREE_CODE (for_stmt) != OMP_TASKLOOP)
     gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p, ort,
-			       TREE_CODE (for_stmt), ork);
+			       TREE_CODE (for_stmt));
 
   if (TREE_CODE (for_stmt) == OMP_DISTRIBUTE)
     gimplify_omp_ctxp->distribute = true;
@@ -8484,7 +8459,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	}
 
       gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (orig_for_stmt), pre_p, ort,
-				 OMP_TASKLOOP, ork);
+				 OMP_TASKLOOP);
     }
 
   if (orig_for_stmt != for_stmt)
@@ -9380,55 +9355,43 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
   gimple *stmt;
   gimple_seq body = NULL;
   enum omp_region_type ort;
-  enum omp_region_kind ork;
-  enum acc_region_kind ark = ARK_GENERAL;
 
   switch (TREE_CODE (expr))
     {
     case OMP_SECTIONS:
     case OMP_SINGLE:
-      ork = ORK_OMP;
       ort = ORT_WORKSHARE;
       break;
     case OMP_TARGET:
-      ork = ORK_OMP;
       ort = OMP_TARGET_COMBINED (expr) ? ORT_COMBINED_TARGET : ORT_TARGET;
       break;
     case OACC_KERNELS:
-      ark = ARK_KERNELS;
-      ork = ORK_OACC;
-      ort = ORT_TARGET;
+      ort = ORT_ACC_KERNELS;
       break;
     case OACC_PARALLEL:
-      ark = ARK_PARALLEL;
-      ork = ORK_OACC;
-      ort = ORT_TARGET;
+      ort = ORT_ACC_PARALLEL;
       break;
     case OACC_DATA:
-      ort = ORT_TARGET_DATA;
-      ork = ORK_OACC;
+      ort = ORT_ACC_DATA;
       break;
     case OMP_TARGET_DATA:
-      ork = ORK_OMP;
       ort = ORT_TARGET_DATA;
       break;
     case OMP_TEAMS:
-      ork = ORK_OMP;
       ort = OMP_TEAMS_COMBINED (expr) ? ORT_COMBINED_TEAMS : ORT_TEAMS;
       break;
     default:
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort,
-			     TREE_CODE (expr), ork);
+			     TREE_CODE (expr));
   if (TREE_CODE (expr) == OMP_TARGET)
     optimize_target_teams (expr, pre_p);
   if ((ort & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
     {
-      gimplify_omp_ctxp->acc_region_kind = ark;
       push_gimplify_context ();
 
-      if (ork == ORK_OACC)
+      if (ort & ORT_ACC)
 	localize_reductions (expr_p, true);
 
       gimple *g = gimplify_and_return_first (OMP_BODY (expr), &body);
@@ -9436,7 +9399,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 	pop_gimplify_context (g);
       else
 	pop_gimplify_context (NULL);
-      if (ort == ORT_TARGET_DATA)
+      if ((ort & ORT_TARGET_DATA) != 0)
 	{
 	  enum built_in_function end_ix;
 	  switch (TREE_CODE (expr))
@@ -9511,39 +9474,33 @@ gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
   tree expr = *expr_p;
   int kind;
   gomp_target *stmt;
-  enum omp_region_kind ork;
+  enum omp_region_type ort = ORT_WORKSHARE;
 
   switch (TREE_CODE (expr))
     {
     case OACC_ENTER_DATA:
-      kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
-      ork = ORK_OACC;
-      break;
     case OACC_EXIT_DATA:
       kind = GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA;
-      ork = ORK_OACC;
+      ort = ORT_ACC;
       break;
     case OACC_UPDATE:
       kind = GF_OMP_TARGET_KIND_OACC_UPDATE;
-      ork = ORK_OACC;
+      ort = ORT_ACC;
       break;
     case OMP_TARGET_UPDATE:
       kind = GF_OMP_TARGET_KIND_UPDATE;
-      ork = ORK_OMP;
       break;
     case OMP_TARGET_ENTER_DATA:
       kind = GF_OMP_TARGET_KIND_ENTER_DATA;
-      ork = ORK_OMP;
       break;
     case OMP_TARGET_EXIT_DATA:
       kind = GF_OMP_TARGET_KIND_EXIT_DATA;
-      ork = ORK_OMP;
       break;
     default:
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_STANDALONE_CLAUSES (expr), pre_p,
-			     ORT_WORKSHARE, TREE_CODE (expr), ork);
+			     ort, TREE_CODE (expr));
   gimplify_adjust_omp_clauses (pre_p, &OMP_STANDALONE_CLAUSES (expr),
 			       TREE_CODE (expr));
   stmt = gimple_build_omp_target (NULL, kind, OMP_STANDALONE_CLAUSES (expr));
@@ -10655,8 +10612,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		break;
 	      case OMP_CRITICAL:
 		gimplify_scan_omp_clauses (&OMP_CRITICAL_CLAUSES (*expr_p),
-					   pre_p, ORT_WORKSHARE, OMP_CRITICAL,
-					   ORK_OMP);
+					   pre_p, ORT_WORKSHARE, OMP_CRITICAL);
 		gimplify_adjust_omp_clauses (pre_p,
 					     &OMP_CRITICAL_CLAUSES (*expr_p),
 					     OMP_CRITICAL);
@@ -11258,23 +11214,15 @@ gimplify_body (tree fndecl, bool do_parms)
       gimplify_seq_add_stmt (&seq, outer_stmt);
     }
 
-   if (flag_openacc && gimplify_omp_ctxp)
-    {
-      while (gimplify_omp_ctxp)
-	{
-	  struct gimplify_omp_ctx *c;
+  if (flag_openacc)
+    while (gimplify_omp_ctxp)
+      {
+	if (gimplify_omp_ctxp->stmt)
+	  gimplify_seq_add_stmt (&seq, gimplify_omp_ctxp->stmt);
 
-	  if (gimplify_omp_ctxp->acc_region_kind == ARK_DECLARE
-	      && gimplify_omp_ctxp->stmt)
-	    {
-	      gimplify_seq_add_stmt (&seq, gimplify_omp_ctxp->stmt);
-	      gimplify_omp_ctxp->stmt = NULL;
-	    }
-
-	  c = gimplify_omp_ctxp;
-	  gimplify_omp_ctxp = c->outer_context;
-	  delete_omp_context (c);
-	}
+	struct gimplify_omp_ctx *c = gimplify_omp_ctxp;
+	gimplify_omp_ctxp = c->outer_context;
+	delete_omp_context (c);
     }
 
   /* The body must contain exactly one statement, a GIMPLE_BIND.  If this is
