@@ -9350,7 +9350,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
 					     NULL, NULL))
     return false;
 
-  /* TYPE is a UPC pointer-to-shared type
+  /* TRUE if TYPE is a UPC pointer-to-shared type
      and its underlying representation is an aggregate.  */
   bool upc_struct_pts_p = (POINTER_TYPE_P (type)
 			     && SHARED_TYPE_P (TREE_TYPE (type)))
@@ -9692,8 +9692,8 @@ rs6000_function_arg_boundary (machine_mode mode, const_tree type)
     {
 
       /* If the underlying UPC pointer-to-shared representation
-         an aggregate, and TYPE is either a pointer-to-shared
-	 or the PTS representation type, then return the 16-byte
+         is an aggregate, and TYPE is either a pointer-to-shared
+	 or the PTS representation type, then return 16-byte
 	 alignment and skip the ABI warning.  */
       if (upc_pts_rep_type_node
           && AGGREGATE_TYPE_P (upc_pts_rep_type_node)
@@ -10982,7 +10982,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
       return 1;
     }
 
-  /* TYPE is a UPC pointer-to-shared type
+  /* TRUE if TYPE is a UPC pointer-to-shared type
      and its underlying representation is an aggregate.  */
   bool upc_struct_pts_p = (POINTER_TYPE_P (type)
                              && SHARED_TYPE_P (TREE_TYPE (type)))

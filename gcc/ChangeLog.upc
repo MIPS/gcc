@@ -1,3 +1,7 @@
+2015-11-11  Gary Funck  <gary@intrepid.com>
+
+	* config/rs6000/rs6000.c: Improve comments.
+
 2015-11-10  Gary Funck  <gary@intrepid.com>
 
 	* target.def: Fix typos in the UPC target hook descriptions.
