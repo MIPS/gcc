@@ -160,6 +160,10 @@ assign_mem_slot (int i)
       rtx stack_slot;
 
       /* No known place to spill from => no slot to reuse.  */
+#ifdef TARGET_ASSIGN_ALIGNED_SPILL_SLOT
+      x = TARGET_ASSIGN_ALIGNED_SPILL_SLOT (mode, total_size);
+      if (x == NULL_RTX)
+#endif
       x = assign_stack_local (mode, total_size,
 			      min_align > inherent_align
 			      || total_size > inherent_size ? -1 : 0);

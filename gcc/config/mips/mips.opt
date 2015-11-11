@@ -54,6 +54,10 @@ mabicalls
 Target Report Mask(ABICALLS)
 Generate code that can be used in SVR4-style dynamic objects
 
+malign-spills
+Common Report Mask(ALIGN_SPILLS)
+Allow register spills with an alignment greater than the stack supports.
+
 mmad
 Target Report Var(TARGET_MAD)
 Use PMC-style 'mad' instructions

@@ -800,6 +800,8 @@ static const struct attribute_spec mips_attribute_table[] = {
     mips_handle_use_shadow_register_set_attr, false },
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
+  { "align_spills", 0, 0, true, false, false, NULL, false },
+  { "no_align_spills", 0, 0, true, false, false, NULL, false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
@@ -1709,6 +1711,125 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
   return merge_attributes (DECL_ATTRIBUTES (olddecl),
 			   DECL_ATTRIBUTES (newdecl));
 }
+
+/* Determine if a function may use MSA registers and thus need
+   aligned spills.  */
+
+static bool
+mips_cfun_has_msa_p (void)
+{
+  rtx insn;
+
+  if (!cfun || !TARGET_MSA)
+    return FALSE;
+
+  for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
+    {
+      if (INSN_P (insn)
+	  && GET_CODE (PATTERN (insn)) == SET
+	  && MSA_SUPPORTED_MODE_P (GET_MODE (SET_DEST ((PATTERN (insn))))))
+        return TRUE;
+    }
+  return FALSE;
+}
+
+/* Determine whether or not we want to use aligned spills in a function.  */
+
+#define TARGET_ALIGNED_STACK_MAX 128
+
+static bool
+setup_align_basereg_p (void)
+{
+  bool want_alignment;
+
+  /* If the stack supports our desired alignment, we don't need an aligned
+     basereg, we can use the normal stack.  */
+
+  if (TARGET_ALIGNED_STACK_MAX <= STACK_BOUNDARY)
+    return false;
+
+  want_alignment = TARGET_ALIGN_SPILLS && mips_cfun_has_msa_p ();
+  if (current_function_decl)
+    {
+      tree attr = DECL_ATTRIBUTES (current_function_decl);
+      if (lookup_attribute ("align_spills", attr))
+	want_alignment = mips_cfun_has_msa_p ();
+      else if (lookup_attribute ("no_align_spills", attr))
+	want_alignment = false;
+
+      if (mips_get_compress_mode (current_function_decl) & MASK_MIPS16)
+	want_alignment = false;
+    }
+  return want_alignment;
+}
+
+unsigned int
+mips_align_spill_base_regnum (void)
+{
+  return setup_align_basereg_p () ? (GP_REG_FIRST + 16) : INVALID_REGNUM;
+}
+
+static bool
+mips_align_spill_p (machine_mode mode)
+{
+  if (setup_align_basereg_p ()
+      && (GET_MODE_ALIGNMENT (mode) > MAX_SUPPORTED_STACK_ALIGNMENT))
+    return true;
+  return false;
+}
+
+rtx
+mips_get_aligned_spill_slot (machine_mode mode, unsigned int total_size)
+{
+  rtx orig_slot, new_slot, addr_expr, new_addr, basereg_rtx, offset_rtx;
+  rtx aligned_basereg;
+  HOST_WIDE_INT orig_offset, new_offset, unit_alignment;
+  unsigned int pad;
+
+  if (!setup_align_basereg_p ())
+    return NULL_RTX;
+  if (!mips_align_spill_p (mode))
+    return NULL_RTX;
+
+  pad = 2 * (TARGET_ALIGNED_STACK_MAX - MAX_SUPPORTED_STACK_ALIGNMENT)
+	    / BITS_PER_UNIT;
+  orig_slot = assign_stack_local (BLKmode, total_size + pad, -1);
+  addr_expr = XEXP (orig_slot, 0);
+  if (GET_CODE (addr_expr) == PLUS)
+    {
+      basereg_rtx = XEXP (addr_expr, 0);
+      offset_rtx = XEXP (addr_expr, 1);
+      gcc_assert (CONST_INT_P (offset_rtx));
+      orig_offset = INTVAL (offset_rtx);
+    }
+  else
+    {
+      gcc_assert (REG_P (addr_expr));
+      basereg_rtx = addr_expr;
+      orig_offset = 0;
+    }
+  gcc_assert (basereg_rtx == frame_pointer_rtx);
+
+  /* Increase offset to account for difference between spill basereg and
+     frame pointer. */
+  unit_alignment = TARGET_ALIGNED_STACK_MAX / BITS_PER_UNIT;
+  new_offset = orig_offset + unit_alignment
+		- (MAX_SUPPORTED_STACK_ALIGNMENT / BITS_PER_UNIT);
+
+  /* Increase offset if necessary to ensure that it maintains alignment.  */
+  if (new_offset % unit_alignment > 0)
+    new_offset = new_offset + unit_alignment - (new_offset % unit_alignment);
+
+  gcc_assert ((new_offset % unit_alignment) == 0);
+
+  aligned_basereg = gen_rtx_REG (Pmode, mips_align_spill_base_regnum ());
+  new_addr = plus_constant (Pmode, aligned_basereg, new_offset);
+
+  new_slot = gen_rtx_MEM (mode, new_addr);
+  MEM_NOTRAP_P (new_slot) = 1;
+  return new_slot;
+}
+
 
 /* Implement TARGET_CAN_INLINE_P.  */
 
@@ -11147,6 +11268,9 @@ mips_save_reg_p (unsigned int regno)
   if (regno == RETURN_ADDR_REGNUM && crtl->calls_eh_return)
     return true;
 
+  if (regno == mips_align_spill_base_regnum ())
+    return true;
+
   return false;
 }
 
@@ -12711,6 +12835,35 @@ mips_expand_prologue (void)
 	    (gen_rtx_SET (VOIDmode, hard_frame_pointer_rtx,
 			  plus_constant (Pmode, stack_pointer_rtx, offset)));
 	}
+    }
+
+  /* Setup aligned spill register based on the frame register if we may
+     need to spill registers with an alignment greater than the stack
+     alignment.  */
+
+  if (setup_align_basereg_p ())
+    {
+      rtx align_spill_rtx = gen_rtx_REG (Pmode,
+					 mips_align_spill_base_regnum ());
+      rtx (*and_insn) (rtx, rtx, rtx);
+      rtx (*nor_insn) (rtx, rtx);
+      rtx insn;
+      unsigned int alignment;
+
+      emit_insn (gen_blockage ());
+      and_insn = (Pmode == SImode) ? gen_andsi3 : gen_anddi3;
+      nor_insn = (Pmode == SImode) ? gen_one_cmplsi2 : gen_one_cmpldi2;
+      alignment = TARGET_ALIGNED_STACK_MAX / BITS_PER_UNIT;
+      /* Verify that alignment is a power of 2.  */
+      gcc_assert (alignment == (alignment & -alignment));
+      mips_emit_move (MIPS_PROLOGUE_TEMP (Pmode), GEN_INT (alignment-1));
+      emit_insn (nor_insn (MIPS_PROLOGUE_TEMP (Pmode),
+			   MIPS_PROLOGUE_TEMP (Pmode)));
+      insn = and_insn (align_spill_rtx,
+        frame_pointer_needed ? hard_frame_pointer_rtx : stack_pointer_rtx,
+        MIPS_PROLOGUE_TEMP (Pmode));
+      RTX_FRAME_RELATED_P (emit_insn (insn)) = 1;
+      emit_insn (gen_blockage ());
     }
 
   mips_emit_loadgp ();
@@ -20421,6 +20574,11 @@ mips_option_override (void)
       && strcmp (mips_arch_info->name, "r4400") == 0)
     target_flags |= MASK_FIX_R4400;
 
+  /* If MSA was specified and neither -malign-spills or -mno-align-spills
+     was specified, turn it on by default.  */
+  if (TARGET_MSA && (target_flags_explicit & MASK_ALIGN_SPILLS) == 0)
+    target_flags |= MASK_ALIGN_SPILLS;
+
   /* Default to working around R10000 errata only if the processor
      was selected explicitly.  */
   if ((target_flags_explicit & MASK_FIX_R10000) == 0
@@ -20583,6 +20741,14 @@ mips_conditional_register_usage (void)
       AND_COMPL_HARD_REG_SET (operand_reg_set,
 			      reg_class_contents[(int) MD_REGS]);
     }
+
+  if (setup_align_basereg_p ())
+    {
+      fixed_regs[mips_align_spill_base_regnum ()] = 1;
+      call_used_regs[mips_align_spill_base_regnum ()] = 1;
+      call_really_used_regs[mips_align_spill_base_regnum ()] = 1;
+    }
+
   /* $f20-$f23 are call-clobbered for n64.  */
   if (mips_abi == ABI_64)
     {

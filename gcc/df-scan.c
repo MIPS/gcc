@@ -3671,6 +3671,11 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
     {
       if (frame_pointer_needed)
 	bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+#ifdef TARGET_ALIGNED_SPILL_REGNUM
+      if (TARGET_ALIGNED_SPILL_REGNUM != INVALID_REGNUM)
+	bitmap_set_bit (regular_block_artificial_uses,
+			TARGET_ALIGNED_SPILL_REGNUM);
+#endif
     }
   else
     /* Before reload, there are a few registers that must be forced
@@ -3692,6 +3697,12 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 	 reloading via the argument pointer.  */
       if (fixed_regs[ARG_POINTER_REGNUM])
 	bitmap_set_bit (regular_block_artificial_uses, ARG_POINTER_REGNUM);
+#endif
+
+#ifdef TARGET_ALIGNED_SPILL_REGNUM
+      if (TARGET_ALIGNED_SPILL_REGNUM != INVALID_REGNUM
+	  && fixed_regs[TARGET_ALIGNED_SPILL_REGNUM])
+	bitmap_set_bit (regular_block_artificial_uses, TARGET_ALIGNED_SPILL_REGNUM);
 #endif
 
       /* Any constant, or pseudo with constant equivalences, may

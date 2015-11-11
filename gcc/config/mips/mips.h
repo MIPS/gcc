@@ -3241,3 +3241,6 @@ extern GTY(()) struct target_globals *mips16_globals;
   (TARGET_LOAD_STORE_PAIRS \
    && (TUNE_P5600 || TUNE_I6400 || TUNE_P6600) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define TARGET_ALIGNED_SPILL_REGNUM mips_align_spill_base_regnum ()
+#define TARGET_ASSIGN_ALIGNED_SPILL_SLOT(x,y) mips_get_aligned_spill_slot (x, y)

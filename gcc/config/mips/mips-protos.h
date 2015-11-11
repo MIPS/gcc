@@ -386,4 +386,9 @@ extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 
 extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
+extern unsigned int mips_align_spill_base_regnum (void);
+extern rtx mips_get_aligned_spill_slot (machine_mode mode,
+					unsigned int total_size);
+
+
 #endif /* ! GCC_MIPS_PROTOS_H */
