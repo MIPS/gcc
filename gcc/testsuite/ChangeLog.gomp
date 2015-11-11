@@ -1,3 +1,10 @@
+2015-11-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/routine-3.c: Rename file to...
+	* c-c++-common/goacc/routine-8.c: ... this.
+	* c-c++-common/goacc/routine-5.c: Rename file to...
+	* c-c++-common/goacc/routine-9.c: ... this.
+
 2015-11-09  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gcc.dg/gomp/notify-new-function-3.c: Scan "ompexpssa2" instead

@@ -1,31 +1,41 @@
 /* { dg-do run } */
-/* { dg-xfail-run-if "TODO" { openacc_host_selected } { "*" } { "" } } */
 
-#include <stdlib.h>
+#include  <openacc.h>
 
-#define n 100
-
-int
-main()
+int main ()
 {
-  int a, b[n], i;
+  int ok = 1;
+  int val = 2;
+  int ary[32];
+  int ondev = 0;
 
-  a = 5;
+  for (int i = 0; i < 32; i++)
+    ary[i] = ~0;
+  
+#pragma acc parallel num_gangs (32) copy (ok) firstprivate (val) copy(ary, ondev)
+  {
+    ondev = acc_on_device (acc_device_not_host);
+#pragma acc loop gang(static:1)
+    for (unsigned i = 0; i < 32; i++)
+      {
+	if (val != 2)
+	  ok = 0;
+	val += i;
+	ary[i] = val;
+      }
+  }
 
-  for (i = 0; i < n; i++)
-    b[i] = -1;
-
-  #pragma acc parallel num_gangs (n) firstprivate (a)
-  #pragma acc loop gang
-  for (i = 0; i < n; i++)
+  if (ondev)
     {
-      a = a + i;
-      b[i] = a;
+      if (!ok)
+	return 1;
+      if (val != 2)
+	return 1;
+
+      for (int i = 0; i < 32; i++)
+	if (ary[i] != 2 + i)
+	  return 1;
     }
-
-  for (i = 0; i < n; i++)
-    if (a + i != b[i])
-      abort ();
-
+  
   return 0;
 }

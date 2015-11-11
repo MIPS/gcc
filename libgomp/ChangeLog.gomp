@@ -1,3 +1,12 @@
+2015-11-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-1.c: Rename
+	file to...
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-3.c: ... this
+	* testsuite/libgomp.oacc-c-c++-common/routine-wv-1.c: Rename file
+	to...
+	* testsuite/libgomp.oacc-c-c++-common/routine-wv-2.c: ... this.
+
 2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/parallel-reduction.f90: Fix data

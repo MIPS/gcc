@@ -1,38 +1,21 @@
-void *malloc (__SIZE_TYPE__);
-void free (void *);
-
-int fact (int n);
-
-#pragma acc routine (fact)
-
-int
-fact (int n)
+#pragma acc routine gang worker /* { dg-error "multiple loop axes" } */
+void gang (void)
 {
-  if (n == 0 || n == 1)
-    return 1;
-
-  return n * fact (n - 1);
 }
 
-int
-main(int argc, char **argv)
+#pragma acc routine worker vector /* { dg-error "multiple loop axes" } */
+void worker (void)
 {
-  int *a, i, n = 10;
-
-  a = (int *)malloc (sizeof (int) * n);
-
-#pragma acc parallel copy (a[0:n]) vector_length (5)
-  {
-#pragma acc loop
-    for (i = 0; i < n; i++)
-      a[i] = fact (i);
-  }
-
-  for (i = 0; i < n; i++)
-    if (fact (i) != a[i])
-      return -1;
-
-  free (a);
-
-  return 0;
 }
+
+#pragma acc routine vector seq /* { dg-error "multiple loop axes" } */
+void vector (void)
+{
+}
+
+#pragma acc routine seq gang /* { dg-error "multiple loop axes" } */
+void seq (void)
+{
+}
+
+#pragma acc routine (nothing) gang /* { dg-error "not been declared" } */

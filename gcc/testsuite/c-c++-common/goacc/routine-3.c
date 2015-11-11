@@ -1,52 +1,53 @@
-/* Test valid use of clauses with routine.  */
-/* { dg-do compile } */
-
 #pragma acc routine gang
-void
-f1 (void)
+void gang (void) /* { dg-message "declared here" 3 } */
 {
 }
 
 #pragma acc routine worker
-void
-f2 (void)
+void worker (void) /* { dg-message "declared here" 2 } */
 {
 }
 
 #pragma acc routine vector
-void
-f3 (void)
+void vector (void) /* { dg-message "declared here" 1 } */
 {
 }
 
 #pragma acc routine seq
-void
-f4 (void)
+void seq (void)
 {
 }
 
-#pragma acc routine bind (f4a)
-void
-f5 (void)
+int main ()
 {
-}
 
-typedef int T;
+#pragma acc parallel num_gangs (32) num_workers (32) vector_length (32)
+  {
+    #pragma acc loop gang /* { dg-message "loop here" 1 } */
+    for (int i = 0; i < 10; i++)
+      {
+	gang (); /*  { dg-error "routine call uses same" } */
+	worker ();
+	vector ();
+	seq ();
+      }
+    #pragma acc loop worker /* { dg-message "loop here" 2 } */
+    for (int i = 0; i < 10; i++)
+      {
+	gang (); /*  { dg-error "routine call uses same" } */
+	worker (); /*  { dg-error "routine call uses same" } */
+	vector ();
+	seq ();
+      }
+    #pragma acc loop vector /* { dg-message "loop here" 3 } */
+    for (int i = 0; i < 10; i++)
+      {
+	gang (); /*  { dg-error "routine call uses same" } */
+	worker (); /*  { dg-error "routine call uses same" } */
+	vector (); /*  { dg-error "routine call uses same" } */
+	seq ();
+      }
+  }
 
-#pragma acc routine bind (T)
-void
-f6 (void)
-{
-}
-
-#pragma acc routine bind ("f7a")
-void
-f7 (void)
-{
-}
-
-#pragma acc routine nohost
-void
-f8 (void)
-{
+  return 0;
 }

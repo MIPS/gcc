@@ -245,7 +245,8 @@ static bool cp_parser_omp_declare_reduction_exprs
   (tree, cp_parser *);
 static tree cp_parser_cilk_simd_vectorlength 
   (cp_parser *, tree, bool);
-static void cp_finalize_oacc_routine (cp_parser *, tree, bool);
+static void cp_finalize_oacc_routine
+  (cp_parser *, tree, bool, bool);
 
 /* Manifest constants.  */
 #define CP_LEXER_BUFFER_SIZE ((256 * 1024) / sizeof (cp_token))
@@ -1288,7 +1289,7 @@ cp_token_cache_new (cp_token *first, cp_token *last)
 }
 
 /* Diagnose if #pragma omp declare simd isn't followed immediately
-   by function declaration or definition.   */
+   by function declaration or definition.  */
 
 static inline void
 cp_ensure_no_omp_declare_simd (cp_parser *parser)
@@ -1328,7 +1329,7 @@ cp_finalize_omp_declare_simd (cp_parser *parser, tree fndecl)
 static inline void
 cp_ensure_no_oacc_routine (cp_parser *parser)
 {
-  cp_finalize_oacc_routine (parser, NULL_TREE, false);
+  cp_finalize_oacc_routine (parser, NULL_TREE, false, true);
 }
 
 /* Decl-specifiers.  */
@@ -2134,7 +2135,7 @@ static tree cp_parser_decltype
 
 static tree cp_parser_init_declarator
   (cp_parser *, cp_decl_specifier_seq *, vec<deferred_access_check, va_gc> *,
-   bool, bool, int, bool *, tree *, location_t *);
+   bool, bool, int, bool *, tree *, bool, location_t *);
 static cp_declarator *cp_parser_declarator
   (cp_parser *, cp_parser_declarator_kind, int *, bool *, bool, bool);
 static cp_declarator *cp_parser_direct_declarator
@@ -2447,7 +2448,7 @@ static tree cp_parser_single_declaration
 static tree cp_parser_functional_cast
   (cp_parser *, tree);
 static tree cp_parser_save_member_function_body
-  (cp_parser *, cp_decl_specifier_seq *, cp_declarator *, tree);
+  (cp_parser *, cp_decl_specifier_seq *, cp_declarator *, tree, bool);
 static tree cp_parser_save_nsdmi
   (cp_parser *);
 static tree cp_parser_enclosed_template_argument_list
@@ -11911,6 +11912,7 @@ cp_parser_simple_declaration (cp_parser* parser,
   bool saw_declarator;
   location_t comma_loc = UNKNOWN_LOCATION;
   location_t init_loc = UNKNOWN_LOCATION;
+  bool first = true;
 
   if (maybe_range_for_decl)
     *maybe_range_for_decl = NULL_TREE;
@@ -12007,7 +12009,10 @@ cp_parser_simple_declaration (cp_parser* parser,
 					declares_class_or_enum,
 					&function_definition_p,
 					maybe_range_for_decl,
+					first,
 					&init_loc);
+      first = false;
+
       /* If an error occurred while parsing tentatively, exit quickly.
 	 (That usually happens when in the body of a function; each
 	 statement is treated as a declaration-statement until proven
@@ -12106,6 +12111,9 @@ cp_parser_simple_declaration (cp_parser* parser,
 
  done:
   pop_deferring_access_checks ();
+
+  /* Reset any acc routine clauses.  */
+  parser->oacc_routine = NULL;
 }
 
 /* Parse a decl-specifier-seq.
@@ -17845,6 +17853,8 @@ cp_parser_asm_definition (cp_parser* parser)
    if present, will not be consumed.  If returned, this declarator will be
    created with SD_INITIALIZED but will not call cp_finish_decl.
 
+   FIRST indicates if this is the first declarator in a declaration sequence.
+
    If INIT_LOC is not NULL, and *INIT_LOC is equal to UNKNOWN_LOCATION,
    and there is an initializer, the pointed location_t is set to the
    location of the '=' or `(', or '{' in C++11 token introducing the
@@ -17859,6 +17869,7 @@ cp_parser_init_declarator (cp_parser* parser,
 			   int declares_class_or_enum,
 			   bool* function_definition_p,
 			   tree* maybe_range_for_decl,
+			   bool first,
 			   location_t* init_loc)
 {
   cp_token *token = NULL, *asm_spec_start_token = NULL,
@@ -17995,7 +18006,8 @@ cp_parser_init_declarator (cp_parser* parser,
 	    decl = cp_parser_save_member_function_body (parser,
 							decl_specifiers,
 							declarator,
-							prefix_attributes);
+							prefix_attributes,
+							true);
 	  else
 	    decl =
 	      (cp_parser_function_definition_from_specifiers_and_declarator
@@ -18099,7 +18111,7 @@ cp_parser_init_declarator (cp_parser* parser,
 			 range_for_decl_p? SD_INITIALIZED : is_initialized,
 			 attributes, prefix_attributes, &pushed_scope);
       cp_finalize_omp_declare_simd (parser, decl);
-      cp_finalize_oacc_routine (parser, decl, false);
+      cp_finalize_oacc_routine (parser, decl, false, first);
       /* Adjust location of decl if declarator->id_loc is more appropriate:
 	 set, and decl wasn't merged with another decl, in which case its
 	 location would be different from input_location, and more accurate.  */
@@ -18213,7 +18225,7 @@ cp_parser_init_declarator (cp_parser* parser,
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
       cp_finalize_omp_declare_simd (parser, decl);
-      cp_finalize_oacc_routine (parser, decl, false);
+      cp_finalize_oacc_routine (parser, decl, false, first);
     }
 
   /* Finish processing the declaration.  But, skip member
@@ -19319,7 +19331,7 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
 
   bool cilk_simd_fn_vector_p = (parser->cilk_simd_fn_info 
 				&& declarator && declarator->kind == cdk_id);
-
+  
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);
   /* A late-specified return type is indicated by an initial '->'. */
@@ -19356,6 +19368,7 @@ cp_parser_late_return_type_opt (cp_parser* parser, cp_declarator *declarator,
     declarator->std_attributes
       = cp_parser_late_parsing_omp_declare_simd (parser,
 						 declarator->std_attributes);
+
   if (quals >= 0)
     {
       current_class_ptr = save_ccp;
@@ -21916,6 +21929,7 @@ cp_parser_member_declaration (cp_parser* parser)
   else
     {
       bool assume_semicolon = false;
+      bool first = true;
 
       /* Clear attributes from the decl_specifiers but keep them
 	 around as prefix attributes that apply them to the entity
@@ -22103,7 +22117,10 @@ cp_parser_member_declaration (cp_parser* parser)
 		  decl = cp_parser_save_member_function_body (parser,
 							      &decl_specifiers,
 							      declarator,
-							      attributes);
+							      attributes,
+							      first);
+		  first = false;
+
 		  if (parser->fully_implicit_function_template_p)
 		    decl = finish_fully_implicit_template (parser, decl);
 		  /* If the member was not a friend, declare it here.  */
@@ -22133,7 +22150,8 @@ cp_parser_member_declaration (cp_parser* parser)
 	    }
 
 	  cp_finalize_omp_declare_simd (parser, decl);
-	  cp_finalize_oacc_routine (parser, decl, false);
+	  cp_finalize_oacc_routine (parser, decl, false, first);
+	  first = false;
 
 	  /* Reset PREFIX_ATTRIBUTES.  */
 	  while (attributes && TREE_CHAIN (attributes) != first_attribute)
@@ -22196,6 +22214,9 @@ cp_parser_member_declaration (cp_parser* parser)
 	  if (assume_semicolon)
 	    goto out;
 	}
+
+      /* Reset any OpenACC routine clauses.  */
+      parser->oacc_routine = NULL;
     }
 
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
@@ -24737,8 +24758,8 @@ cp_parser_function_definition_from_specifiers_and_declarator
     {
       cp_finalize_omp_declare_simd (parser, current_function_decl);
       parser->omp_declare_simd = NULL;
-
-      cp_finalize_oacc_routine (parser, current_function_decl, true);
+      cp_finalize_oacc_routine (parser, current_function_decl, true, true);
+      parser->oacc_routine = NULL;
     }
 
   if (!success_p)
@@ -25303,7 +25324,7 @@ cp_parser_single_declaration (cp_parser* parser,
 				        member_p,
 				        declares_class_or_enum,
 				        &function_definition_p,
-					NULL, NULL);
+					NULL, true, NULL);
 
     /* 7.1.1-1 [dcl.stc]
 
@@ -25405,14 +25426,15 @@ cp_parser_functional_cast (cp_parser* parser, tree type)
 /* Save the tokens that make up the body of a member function defined
    in a class-specifier.  The DECL_SPECIFIERS and DECLARATOR have
    already been parsed.  The ATTRIBUTES are any GNU "__attribute__"
-   specifiers applied to the declaration.  Returns the FUNCTION_DECL
-   for the member function.  */
+   specifiers applied to the declaration. FIRST_DECL indicates if
+   DECLARATOR is the first declarator in a declaration sequence.  Returns
+   the FUNCTION_DECL for the member function.  */
 
 static tree
 cp_parser_save_member_function_body (cp_parser* parser,
 				     cp_decl_specifier_seq *decl_specifiers,
 				     cp_declarator *declarator,
-				     tree attributes)
+				     tree attributes, bool first_decl)
 {
   cp_token *first;
   cp_token *last;
@@ -25421,7 +25443,7 @@ cp_parser_save_member_function_body (cp_parser* parser,
   /* Create the FUNCTION_DECL.  */
   fn = grokmethod (decl_specifiers, declarator, attributes);
   cp_finalize_omp_declare_simd (parser, fn);
-  cp_finalize_oacc_routine (parser, fn, true);
+  cp_finalize_oacc_routine (parser, fn, true, first_decl);
   /* If something went badly wrong, bail out now.  */
   if (fn == error_mark_node)
     {
@@ -35284,14 +35306,7 @@ cp_parser_oacc_wait (cp_parser *parser, cp_token *pragma_tok)
 }
 
 /* OpenMP 4.0:
-   # pragma omp declare simd declare-simd-clauses[optseq] new-line
-
-   OpenACC 2.0a:
-   # pragma acc routine oacc-routine-clause[optseq] new-line
-     function-definition
-
-   # pragma acc routine ( name ) oacc-routine-clause[optseq] new-line
-*/
+   # pragma omp declare simd declare-simd-clauses[optseq] new-line  */
 
 #define OMP_DECLARE_SIMD_CLAUSE_MASK				\
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_SIMDLEN)	\
@@ -35317,16 +35332,12 @@ cp_parser_omp_declare_simd (cp_parser *parser, cp_token *pragma_tok,
   while (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL)
 	 && cp_lexer_next_token_is_not (parser->lexer, CPP_EOF))
     cp_lexer_consume_token (parser->lexer);
-
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_PRAGMA_EOL))
     parser->omp_declare_simd->error_seen = true;
-
   cp_parser_require_pragma_eol (parser, pragma_tok);
   struct cp_token_cache *cp
     = cp_token_cache_new (pragma_tok, cp_lexer_peek_token (parser->lexer));
-
   parser->omp_declare_simd->tokens.safe_push (cp);
-
   if (first_p)
     {
       while (cp_lexer_next_token_is (parser->lexer, CPP_PRAGMA))
@@ -35996,7 +36007,8 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
       if (strcmp (p, "simd") == 0)
 	{
 	  cp_lexer_consume_token (parser->lexer);
-	  cp_parser_omp_declare_simd (parser, pragma_tok, context);
+	  cp_parser_omp_declare_simd (parser, pragma_tok,
+				      context);
 	  return;
 	}
       cp_ensure_no_omp_declare_simd (parser);
@@ -36115,6 +36127,7 @@ cp_parser_omp_taskloop (cp_parser *parser, cp_token *pragma_tok,
   return ret;
 }
 
+
 /* OpenACC 2.0:
    # pragma acc routine oacc-routine-clause[optseq] new-line
      function-definition
@@ -36143,7 +36156,8 @@ cp_parser_omp_taskloop (cp_parser *parser, cp_token *pragma_tok,
 
 static void
 cp_parser_finish_oacc_routine (cp_parser *ARG_UNUSED (parser), tree fndecl,
-			       tree clauses, bool named, bool is_defn)
+			       tree clauses, bool named, bool is_defn,
+			       bool first)
 {
   location_t loc  = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
 
@@ -36155,11 +36169,12 @@ cp_parser_finish_oacc_routine (cp_parser *ARG_UNUSED (parser), tree fndecl,
       return;
     }
 
-  if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL)
+  if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL
+      || (!named && !first))
     {
       error_at (loc, "%<#pragma acc routine%> %s",
 		named ? "does not refer to a function"
-		: "not followed by function");
+		: "not followed by single function");
       return;
     }
 
@@ -36194,8 +36209,7 @@ cp_parser_finish_oacc_routine (cp_parser *ARG_UNUSED (parser), tree fndecl,
    component, which must resolve to a declared namespace-scope
    function.  The clauses are either processed directly (for a named
    function), or defered until the immediatley following declaration
-   is parsed.
-*/
+   is parsed.  */
 
 static void
 cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
@@ -36248,7 +36262,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
   clauses = tree_cons (c_head, clauses, NULL_TREE);
 
   if (decl)
-    cp_parser_finish_oacc_routine (parser, decl, clauses, true, false);
+    cp_parser_finish_oacc_routine (parser, decl, clauses, true, false, 0);
   else
     parser->oacc_routine = clauses;
 }
@@ -36257,14 +36271,12 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
    declaration.  */
 
 static void
-cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
+cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn,
+			  bool first)
 {
   if (parser->oacc_routine)
-    {
-      cp_parser_finish_oacc_routine (parser, fndecl, parser->oacc_routine,
-				     false, is_defn);
-      parser->oacc_routine = NULL_TREE;
-    }
+    cp_parser_finish_oacc_routine (parser, fndecl, parser->oacc_routine,
+				   false, is_defn, first);
 }
 
 /* Main entry point to OpenMP statement pragmas.  */

@@ -1,74 +1,41 @@
-/* Test invalid use of clauses with routine.  */
-/* { dg-do compile } */
 
-#pragma acc routine gang worker /* { dg-error "multiple loop axes" } */
-void
-f1 (void)
+void gang (void);
+void worker (void);
+void vector (void);
+
+#pragma acc routine (gang) gang
+#pragma acc routine (worker) worker
+#pragma acc routine (vector) vector
+  
+#pragma acc routine seq
+void seq (void)
 {
+  gang ();  /* { dg-error "routine call uses" } */
+  worker ();  /* { dg-error "routine call uses" } */
+  vector ();  /* { dg-error "routine call uses" } */
+  seq ();
 }
 
-#pragma acc routine worker gang /* { dg-error "multiple loop axes" } */
-void
-f1a (void)
+void vector (void) /* { dg-message "declared here" 1 } */
 {
+  gang ();  /* { dg-error "routine call uses" } */
+  worker ();  /* { dg-error "routine call uses" } */
+  vector ();
+  seq ();
 }
 
-#pragma acc routine gang vector /* { dg-error "multiple loop axes" } */
-void
-f2 (void)
+void worker (void) /* { dg-message "declared here" 2 } */
 {
+  gang ();  /* { dg-error "routine call uses" } */
+  worker ();
+  vector ();
+  seq ();
 }
 
-#pragma acc routine vector gang /* { dg-error "multiple loop axes" } */
-void
-f2a (void)
+void gang (void) /* { dg-message "declared here" 3 } */
 {
-}
-
-#pragma acc routine gang seq /* { dg-error "multiple loop axes" } */
-void
-f3 (void)
-{
-}
-
-#pragma acc routine seq gang /* { dg-error "multiple loop axes" } */
-void
-f3a (void)
-{
-}
-
-#pragma acc routine worker vector /* { dg-error "multiple loop axes" } */
-void
-f4 (void)
-{
-}
-
-#pragma acc routine vector worker /* { dg-error "multiple loop axes" } */
-void
-f4a (void)
-{
-}
-
-#pragma acc routine worker seq /* { dg-error "multiple loop axes" } */
-void
-f5 (void)
-{
-}
-
-#pragma acc routine seq worker /* { dg-error "multiple loop axes" } */
-void
-f5a (void)
-{
-}
-
-#pragma acc routine vector seq /* { dg-error "multiple loop axes" } */
-void
-f6 (void)
-{
-}
-
-#pragma acc routine seq vector /* { dg-error "multiple loop axes" } */
-void
-f6a (void)
-{
+  gang ();
+  worker ();
+  vector ();
+  seq ();
 }

@@ -1,3 +1,156 @@
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/57845
+	* config/sparc/sparc.c (sparc_function_value_1): In 32-bit mode, do
+	not promote the mode for aggregate types.
+
+2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.h (replace_oacc_fn_attrib, build_oacc_routine_dims): Declare.
+	* omp-low.c (build_oacc_routine_dims): New.
+
+2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wF constraint): New constraints
+	for power9/toc fusion.
+	(wG constraint): Likewise.
+
+	* config/rs6000/predicates.md (u6bit_cint_operand): New
+	predicate, recognize 0..63.
+	(upper16_cint_operand): New predicate for power9 and toc fusion.
+	(fpr_reg_operand): Likewise.
+	(toc_fusion_or_p9_reg_operand): Likewise.
+	(toc_fusion_mem_raw): Likewise.
+	(toc_fusion_mem_wrapped): Likewise.
+	(fusion_gpr_addis): If power9 fusion, allow fusion for a larger
+	address range.
+	(fusion_gpr_mem_combo): Delete, use fusion_addis_mem_combo_load
+	instead.
+	(fusion_addis_mem_combo_load): Add support for power9 fusion of
+	floating point loads, floating point stores, and gpr stores.
+	(fusion_addis_mem_combo_store): Likewise.
+	(fusion_offsettable_mem_operand): Likewise.
+
+	* config/rs6000/rs6000-protos.h (emit_fusion_addis): Add
+	declarations.
+	(emit_fusion_load_store): Likewise.
+	(fusion_p9_p): Likewise.
+	(expand_fusion_p9_load): Likewise.
+	(expand_fusion_p9_store): Likewise.
+	(emit_fusion_p9_load): Likewise.
+	(emit_fusion_p9_store): Likewise.
+	(fusion_wrap_memory_address): Likewise.
+
+	* config/rs6000/rs6000.c (struct rs6000_reg_addr): Add new
+	elements for power9 fusion.
+	(rs6000_debug_print_mode): Rework debug information to print more
+	information about fusion.
+	(rs6000_init_hard_regno_mode_ok): Setup for power9 fusion
+	support.
+	(rs6000_legitimate_address_p): Recognize toc fusion as a valid
+	offsettable memory address.
+	(rs6000_rtx_costs): Update costs for new ISA 3.0 instructions.
+	(emit_fusion_gpr_load): Move most of the code from
+	emit_fusion_gpr_load into emit_fusion-addis that handles both
+	power8 and power9 fusion.
+	(emit_fusion_addis): Likewise.
+	(emit_fusion_load_store): Likewise.
+	(fusion_wrap_memory_address): Add support for TOC fusion.
+	(fusion_split_address): Likewise.
+	(fusion_p9_p): Add support for power9 fusion.
+	(expand_fusion_p9_load): Likewise.
+	(expand_fusion_p9_store): Likewise.
+	(emit_fusion_p9_load): Likewise.
+	(emit_fusion_p9_store): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_EXTSWSLI): Macros for support for
+	new instructions in ISA 3.0.
+	(TARGET_CTZ): Likewise.
+	(TARGET_TOC_FUSION_INT): Macros for power9 fusion support.
+	(TARGET_TOC_FUSION_FP): Likewise.
+
+	* config/rs6000/rs6000.md (UNSPEC_FUSION_P9): New power9/toc
+	fusion unspecs.
+	(UNSPEC_FUSION_ADDIS): Likewise.
+	(QHSI mode iterator): New iterator for power9 fusion.
+	(GPR_FUSION): Likewise.
+	(FPR_FUSION): Likewise.
+	(mod<mode>3): Add support for ISA 3.0
+	modulus instructions.
+	(umod<mode>3): Likewise.
+	(divmod peephole): Likewise.
+	(udivmod peephole): Likewise.
+	(ctz<mode>2): Add support for ISA 3.0 count trailing zeros scalar
+	instructions.
+	(ctz<mode>2_h): Likewise.
+	(ashdi3_extswsli): Add support for ISA 3.0 EXTSWSLI instruction.
+	(ashdi3_extswsli_dot): Likewise.
+	(ashdi3_extswsli_dot2): Likewise.
+	(power9 fusion splitter): New power9/toc fusion support.
+	(toc_fusionload_<mode>): Likewise.
+	(toc_fusionload_di): Likewise.
+	(fusion_gpr_load_<mode>): Update predicate function.
+	(power9 fusion peephole2s): New power9/toc fusion support.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_load): Likewise.
+	(fusion_gpr_<P:mode>_<GPR_FUSION:mode>_store): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_load): Likewise.
+	(fusion_fpr_<P:mode>_<FPR_FUSION:mode>_store): Likewise.
+	(fusion_p9_<mode>_constant): Likewise.
+
+2015-11-09  Steve Ellcey  <sellcey@imgtec.com>
+
+	* optabs.c (prepare_libcall_arg): New function.
+	(expand_fixed_convert): Add call to prepare_libcall_arg.
+
+2015-11-09  Nikolai Bozhenov  <n.bozhenov@samsung.com>
+
+	* sched-int.h (dump_rgn_dependencies_dot): Declare
+	* sched-rgn.c (dump_rgn_dependencies_dot): New function
+	* print-rtl.h (print_insn): Add prototype
+
+	* haifa-sched.c (setup_sched_dump): Don't redirect output to stderr.
+	* common.opt (-fsched-verbose): Set default value to 1.
+	* invoke.texi (-fsched-verbose): Update the option's description.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/visium/visium.h (PRINT_OPERAND): Delete.
+	(PRINT_OPERAND_PUNCT_VALID_P): Likewise.
+	(PRINT_OPERAND_ADDRESS): Likewise.
+	* config/visium/visium.c (TARGET_PRINT_OPERAND_PUNCT_VALID_P): Define
+	to...
+	(visium_print_operand_punct_valid_p): ...this.  New function.
+	(TARGET_PRINT_OPERAND): Define to...
+	(print_operand): Rename to...
+	(visium_print_operand): ...this.
+	(TARGET_PRINT_OPERAND_ADDRESS): Define to...
+	(visium_output_address): Rename to...
+	(visium_print_operand_address): ...this.
+	(print_operand_address): Delete.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR middle-end/68259
+	* tree.h (reverse_storage_order_for_component_p) <COMPONENT_REF>:
+	Check that the type of the first operand is an aggregate type.
+
+2015-11-09  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-low.c: Fix some OpenACC comment typos.
+	(lower_reduction_clauses): Remove BUILT_IN_GOACC_GET_THREAD_NUM call.
+	* omp-builtins.def (BUILT_IN_GOACC_GET_THREAD_NUM,
+	BUILT_IN_GOACC_GET_NUM_THREADS): Delete.
+
+2015-11-09  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*strmovqi_1): Fix insn enable condition.
+
+2015-11-09  Jeff Law  <law@redhat.com>
+
+	* tree-ssanames.c (verify_ssaname_freelists): Simplify check for
+	being in gimple/ssa form.  Remove redundant check for SSA_NAME.
+	Fix comment typo.
+
 2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.opt (-mpower9-fusion): Add new switches for
@@ -558,7 +711,7 @@
 	(TYPE_SATURATING): Adjust.
 	(REF_REVERSE_STORAGE_ORDER): New flag.
 	(reverse_storage_order_for_component_p): New inline predicate.
- 	(storage_order_barrier_p): Likewise.
+	(storage_order_barrier_p): Likewise.
 	(get_inner_reference): Adjust prototype.
 	* varasm.c: Include expmed.h.
 	(assemble_variable_contents): Adjust call to output_constant.
@@ -669,7 +822,7 @@
 	* tree-ssa-sccvn.c (vn_reference_eq): Return false on storage order
 	barriers.
 	(copy_reference_ops_from_ref) <MEM_REF>: Set REVERSE field according
- 	to the REF_REVERSE_STORAGE_ORDER flag.
+	to the REF_REVERSE_STORAGE_ORDER flag.
 	<BIT_FIELD_REF>: Likewise.
 	<VIEW_CONVERT_EXPR>: Set it for storage order barriers.
 	(contains_storage_order_barrier_p): New predicate.
@@ -989,11 +1142,11 @@
 
 	Properly apply.
 	2015-11-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
-        * config/aarch64/aarch64.c
-        (aarch64_can_use_per_function_literal_pools_p): New.
-        (aarch64_use_blocks_for_constant_p): Adjust declaration
-        and use aarch64_can_use_function_literal_pools_p.
-        (aarch64_select_rtx_section): Update.
+	* config/aarch64/aarch64.c
+	(aarch64_can_use_per_function_literal_pools_p): New.
+	(aarch64_use_blocks_for_constant_p): Adjust declaration
+	and use aarch64_can_use_function_literal_pools_p.
+	(aarch64_select_rtx_section): Update.
 
 2015-11-06  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
@@ -1038,16 +1191,16 @@
 	* config/aarch64/aarch64-simd.md: Matching expressions for frsqrte and
 	frsqrts.
 	* config/aarch64/aarch64-tuning-flags.def: Added recip_sqrt.
-	* config/aarch64/aarch64.c: New functions. Emit rsqrt estimation code when
-	applicable.
+	* config/aarch64/aarch64.c: New functions. Emit rsqrt estimation
+	code when applicable.
 	* config/aarch64/aarch64.md: Added enum entries.
 	* config/aarch64/aarch64.opt: Added option -mlow-precision-recip-sqrt.
-	* testsuite/gcc.target/aarch64/rsqrt_asm_check_common.h: Common macros for
-	assembly checks.
+	* testsuite/gcc.target/aarch64/rsqrt_asm_check_common.h: Common
+	macros for assembly checks.
 	* testsuite/gcc.target/aarch64/rsqrt_asm_check_negative_1.c: Make sure
 	frsqrts and frsqrte are not emitted.
-	* testsuite/gcc.target/aarch64/rsqrt_asm_check_1.c: Make sure frsqrts and
-	frsqrte are emitted.
+	* testsuite/gcc.target/aarch64/rsqrt_asm_check_1.c: Make sure
+	frsqrts and frsqrte are emitted.
 	* testsuite/gcc.target/aarch64/rsqrt_1.c: Functional tests for rsqrt.
 
 2015-11-07  Jan Hubicka  <hubicka@ucw.cz>
@@ -1337,11 +1490,11 @@
 
 2015-11-05  Ramana Radhakrishnan  <ramana.radhakrishnan@arm.com>
 
-        * config/aarch64/aarch64.c
-        (aarch64_can_use_per_function_literal_pools_p): New.
-        (aarch64_use_blocks_for_constant_p): Adjust declaration
-        and use aarch64_can_use_function_literal_pools_p.
-        (aarch64_select_rtx_section): Update.
+	* config/aarch64/aarch64.c
+	(aarch64_can_use_per_function_literal_pools_p): New.
+	(aarch64_use_blocks_for_constant_p): Adjust declaration
+	and use aarch64_can_use_function_literal_pools_p.
+	(aarch64_select_rtx_section): Update.
 
 2015-11-05  Ilya Enkovich  <enkovich.gnu@gmail.com>
 
