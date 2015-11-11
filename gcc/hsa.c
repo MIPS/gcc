@@ -698,7 +698,7 @@ hsa_get_declaration_name (tree decl)
    same function.  KIND determines whether GPU is a host-invokable kernel or
    gpu-callable function.  */
 
-inline void
+void
 hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
 			       hsa_function_kind kind)
 {
