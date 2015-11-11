@@ -1,52 +1,46 @@
-/* HSAIL and BRIG related macros and definitions.
-   Copyright (c) 2013-2015, Advanced Micro Devices, Inc.
-   Copyright (C) 2013-2015 Free Software Foundation, Inc.
-
-   Majority of contents in this file has originally been distributed under the
-   University of Illinois/NCSA Open Source License.  This license mandates that
-   the following conditions are observed when distributing this file:
-
-     * Redistributions of source code must retain the above copyright notice,
-       this list of conditions and the following disclaimers.
-
-     * Redistributions in binary form must reproduce the above copyright notice,
-       this list of conditions and the following disclaimers in the
-       documentation and/or other materials provided with the distribution.
-
-     * Neither the names of the HSA Team, HSA Foundation, University of
-       Illinois at Urbana-Champaign, nor the names of its contributors may be
-       used to endorse or promote products derived from this Software without
-       specific prior written permission.
-
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
-   CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
-   WITH THE SOFTWARE.
-
-   This file is part of GCC.
-
-   GCC is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 3, or (at your option)
-   any later version.
-
-   GCC is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with GCC; see the file COPYING3.  If not see
-   <http://www.gnu.org/licenses/>.  */
+// University of Illinois/NCSA
+// Open Source License
+//
+// Copyright (c) 2013-2015, Advanced Micro Devices, Inc.
+// All rights reserved.
+//
+// Developed by:
+//
+//     HSA Team
+//
+//     Advanced Micro Devices, Inc
+//
+//     www.amd.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal with
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+//
+//     * Redistributions of source code must retain the above copyright notice,
+//       this list of conditions and the following disclaimers.
+//
+//     * Redistributions in binary form must reproduce the above copyright notice,
+//       this list of conditions and the following disclaimers in the
+//       documentation and/or other materials provided with the distribution.
+//
+//     * Neither the names of the HSA Team, University of Illinois at
+//       Urbana-Champaign, nor the names of its contributors may be used to
+//       endorse or promote products derived from this Software without specific
+//       prior written permission.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+// FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+// CONTRIBUTORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS WITH THE
+// SOFTWARE.
 
 #ifndef HSA_BRIG_FORMAT_H
 #define HSA_BRIG_FORMAT_H
-
-#include "config.h"
-#include "system.h"
 
 typedef uint32_t BrigVersion32_t;
 

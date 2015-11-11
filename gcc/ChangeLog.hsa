@@ -1,3 +1,8 @@
+2015-11-11  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h: Reverted header file changes, the file now
+	contains the original copyright information.  Removed includes.
+
 2015-11-11  Martin Liska  <mliska@suse.cz>
 
 	* hsa-brig.c (emit_directive_variable): Do not display warning
