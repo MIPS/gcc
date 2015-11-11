@@ -1,3 +1,8 @@
+2015-11-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Don't mark
+	GOMP_MAP_FIRSTPRIVATE_POINTER decls addressable.
+
 2015-11-05  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Formatting fix.
