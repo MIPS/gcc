@@ -1,3 +1,11 @@
+2015-11-11  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_unaryop_builtin_call): New function.
+	(gen_hsa_unaryop_or_call_for_builtin): Likewise.
+	(gen_hsa_insns_for_call): Use these aforementioned functions
+	to correctly dispatch between creation of a function call
+	and direct usage of an HSAIL instruction.
+
 2015-11-11  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (link_functions): Do not mark inline.

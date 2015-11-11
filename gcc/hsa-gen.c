@@ -4065,6 +4065,36 @@ gen_hsa_unaryop_for_builtin (int opcode, gimple *stmt, hsa_bb *hbb)
   gen_hsa_unary_operation (opcode, dest, op, hbb);
 }
 
+/* Helper functions to create a call to standard library if LHS of the
+   STMT is used.  HBB is the HSA BB to which the instruction should be
+   added.  */
+
+static void
+gen_hsa_unaryop_builtin_call (gimple *stmt, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (stmt);
+  if (!lhs)
+    return;
+
+  gen_hsa_insns_for_direct_call (stmt, hbb);
+}
+
+/* Helper functions to create a single unary HSA operations out of calls to
+   builtins (if unsafe math optimizations are enable). Otherwise, create
+   a call to standard library function.
+   OPCODE is the HSA operation to be generated.  STMT is a gimple
+   call to a builtin.  HBB is the HSA BB to which the instruction should be
+   added.  Note that nothing will be created if STMT does not have a LHS.  */
+
+static void
+gen_hsa_unaryop_or_call_for_builtin (int opcode, gimple *stmt, hsa_bb *hbb)
+{
+  if (flag_unsafe_math_optimizations)
+    gen_hsa_unaryop_for_builtin (opcode, stmt, hbb);
+  else
+    gen_hsa_unaryop_builtin_call (stmt, hbb);
+}
+
 /* Generate HSA address corresponding to a value VAL (as opposed to a memory
    reference tree), for example an SSA_NAME or an ADDR_EXPR.  HBB is the HSA BB
    to which the instruction should be added.  */
@@ -4337,7 +4367,6 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
     case BUILT_IN_SQRT:
     case BUILT_IN_SQRTF:
-      /* TODO: Perhaps produce BRIG_OPCODE_NSQRT with -ffast-math?  */
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_SQRT, stmt, hbb);
       break;
 
@@ -4347,31 +4376,27 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
       break;
 
     case BUILT_IN_COS:
-    case BUILT_IN_COSF:
-      /* FIXME: Using the native instruction may not be precise enough.
-	 Perhaps only allow if using -ffast-math?  */
-      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NCOS, stmt, hbb);
-      break;
-
-    case BUILT_IN_EXP2:
-    case BUILT_IN_EXP2F:
-      /* FIXME: Using the native instruction may not be precise enough.
-	 Perhaps only allow if using -ffast-math?  */
-      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NEXP2, stmt, hbb);
-      break;
-
-    case BUILT_IN_LOG2:
-    case BUILT_IN_LOG2F:
-      /* FIXME: Using the native instruction may not be precise enough.
-	 Perhaps only allow if using -ffast-math?  */
-      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NLOG2, stmt, hbb);
-      break;
-
     case BUILT_IN_SIN:
+    case BUILT_IN_EXP2:
+    case BUILT_IN_LOG2:
+      /* HSAIL does not provide an instruction for double argument type.  */
+      gen_hsa_unaryop_builtin_call (stmt, hbb);
+      break;
+
+    case BUILT_IN_COSF:
+      gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NCOS, stmt, hbb);
+      break;
+
+    case BUILT_IN_EXP2F:
+      gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NEXP2, stmt, hbb);
+      break;
+
+    case BUILT_IN_LOG2F:
+      gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NLOG2, stmt, hbb);
+      break;
+
     case BUILT_IN_SINF:
-      /* FIXME: Using the native instruction may not be precise enough.
-	 Perhaps only allow if using -ffast-math?  */
-      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb);
+      gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb);
       break;
 
     case BUILT_IN_ATOMIC_LOAD_1:
