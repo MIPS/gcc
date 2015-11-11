@@ -10390,19 +10390,19 @@ The result is the value to be used with @code{DW_AT_address_class}.
 @cindex UPC, pointer-to-shared, libgupc
 
 @deftypefn {Target Hook} bool TARGET_UPC_LINK_SCRIPT_P (void)
-This hook returns true a linker script will be used toorigin the UPC shared section at 0.
+This hook returns true if a linker script will be used to origin the UPC shared section at 0.
 @end deftypefn
 
 @deftypefn {Target Hook} {const char *} TARGET_UPC_SHARED_SECTION_NAME (void)
-This hook returns the name of section used to assign addresses to UPC shared data items.
+This hook returns the name of the section used to assign addresses to UPC shared data items.
 @end deftypefn
 
 @deftypefn {Target Hook} {const char *} TARGET_UPC_PGM_INFO_SECTION_NAME (void)
-This hook returns the name of section used to hold info. describing how a UPC source file was compiled.
+This hook returns the name of the section used to hold information describing how a UPC source file was compiled.
 @end deftypefn
 
 @deftypefn {Target Hook} {const char *} TARGET_UPC_INIT_ARRAY_SECTION_NAME (void)
-This hook returns the name of section used to hold an arrary of addresses of UPC initialization routines.
+This hook returns the name of the section used to hold an array of addresses of UPC initialization routines.
 @end deftypefn
 
 @node Misc

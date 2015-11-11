@@ -1,6 +1,7 @@
 2015-11-10  Gary Funck  <gary@intrepid.com>
 
 	* target.def: Fix typos in the UPC target hook descriptions.
+	* doc/tm.texi: Re-generate.
 
 2015-11-09  Gary Funck  <gary@intrepid.com>
 
