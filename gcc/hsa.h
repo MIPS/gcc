@@ -69,6 +69,10 @@ struct hsa_symbol
      or a variable, local or global.  */
   void fillup_for_decl (tree decl);
 
+  /* Return true if the symbol is a global variable that should be preserved
+     after a function is emitted to BRIG.  */
+  bool global_var_p ();
+
   /* Pointer to the original tree, which is PARM_DECL for input parameters and
      RESULT_DECL for the output parameters.  */
   tree m_decl;
@@ -1005,30 +1009,6 @@ hsa_noop_symbol_hasher::equal (const value_type a, const compare_type b)
   return (DECL_UID (a->m_decl) == DECL_UID (b->m_decl));
 }
 
-/* Class for hashing global hsa_symbols.  */
-
-struct hsa_free_symbol_hasher : free_ptr_hash <hsa_symbol>
-{
-  static inline hashval_t hash (const value_type);
-  static inline bool equal (const value_type, const compare_type);
-};
-
-/* Hash hsa_symbol.  */
-
-inline hashval_t
-hsa_free_symbol_hasher::hash (const value_type item)
-{
-  return DECL_UID (item->m_decl);
-}
-
-/* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
-
-inline bool
-hsa_free_symbol_hasher::equal (const value_type a, const compare_type b)
-{
-  return (DECL_UID (a->m_decl) == DECL_UID (b->m_decl));
-}
-
 /* Structure that encapsulates intermediate representation of a HSA
    function.  */
 
@@ -1078,9 +1058,9 @@ public:
   /* Vector of pointers to spill symbols.  */
   vec <struct hsa_symbol *> m_spill_symbols;
 
-  /* Vector of pointers to symbols (string constants and global,
-     non-addressable variables with a constructor).  */
-  vec <struct hsa_symbol *> m_readonly_variables;
+  /* Vector of pointers to global variables and transformed string constants
+     that are used by the function.  */
+  vec <struct hsa_symbol *> m_global_symbols;
 
   /* Private function artificial variables.  */
   vec <struct hsa_symbol *> m_private_variables;
@@ -1176,6 +1156,7 @@ extern hsa_summary_t *hsa_summaries;
 extern hsa_symbol *hsa_num_threads;
 extern unsigned hsa_kernel_calls_counter;
 extern hash_set <tree> *hsa_failed_functions;
+extern hash_table <hsa_noop_symbol_hasher> *hsa_global_variable_symbols;
 
 bool hsa_callable_function_p (tree fndecl);
 void hsa_init_compilation_unit_data (void);

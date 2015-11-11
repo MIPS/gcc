@@ -1079,6 +1079,16 @@ dump_hsa_cfun (FILE *f)
 {
   basic_block bb;
 
+  if (hsa_cfun->m_global_symbols.length () > 0)
+    fprintf (f, "\nHSAIL in global scope\n");
+
+  for (unsigned i = 0; i < hsa_cfun->m_global_symbols.length (); i++)
+    {
+      fprintf (f, "  ");
+      dump_hsa_symbol (f, hsa_cfun->m_global_symbols[i]);
+      fprintf (f, "\n");
+    }
+
   fprintf (f, "\nHSAIL IL for %s\n", hsa_cfun->m_name);
 
   for (unsigned i = 0; i < hsa_cfun->m_private_variables.length (); i++)

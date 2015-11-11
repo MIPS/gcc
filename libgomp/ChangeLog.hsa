@@ -1,3 +1,10 @@
+2015-11-11  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct global_var_info): New structure.
+	(struct brig_image_desc): Add global variables.
+	(create_and_finalize_hsa_program): Define all global variables
+	used in a BRIG module.
+
 2015-11-09  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c: Add the standard copyright header.

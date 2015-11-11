@@ -1,5 +1,33 @@
 2015-11-11  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_directive_variable): Do not display warning
+	for global variables.
+	(emit_function_directives): Iterate m_global_symbols instead
+	of m_readonly_variables.
+	(hsa_output_global_variables): New function.
+	(hsa_output_kernel_mapping): Remove.
+	(hsa_output_libgomp_mapping): New function.
+	(hsa_output_kernels): Likewise.
+	(hsa_output_brig): Use new functions.
+	* hsa-dump.c (dump_hsa_cfun): Dump all global symbols.
+	* hsa-gen.c (hsa_symbol::global_var_p): New predicate.
+	(hsa_function_representation::~hsa_function_representation):
+	Release memory.
+	(get_symbol_for_decl): Simplify logic to just two types
+	of variables: local and global.
+	(hsa_get_string_cst_symbol): Use m_global_symbols instead
+	of m_readonly_variables.
+	* hsa.c (hsa_init_compilation_unit_data): Initialize
+	hsa_global_variable_symbols.
+	(hsa_deinit_compilation_unit_data): Release it.
+	* hsa.h (struct hsa_symbol): Remove m_readonly_variables and
+	replace it with m_global_symbols.
+	(struct hsa_free_symbol_hasher): Remove.
+	(hsa_free_symbol_hasher::hash): Likewise.
+	(hsa_free_symbol_hasher::equal): Likewise.
+
+2015-11-11  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_unaryop_builtin_call): New function.
 	(gen_hsa_unaryop_or_call_for_builtin): Likewise.
 	(gen_hsa_insns_for_call): Use these aforementioned functions

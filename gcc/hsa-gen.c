@@ -199,6 +199,12 @@ hsa_symbol::fillup_for_decl (tree decl)
     m_seen_error = true;
 }
 
+bool
+hsa_symbol::global_var_p ()
+{
+  return m_decl && is_global_var (m_decl);
+}
+
 /* Constructor of class representing global HSA function/kernel information and
    state.  FNDECL is function declaration, KERNEL_P is true if the function
    is going to become a HSA kernel.  If the function has body, SSA_NAMES_COUNT
@@ -207,7 +213,7 @@ hsa_symbol::fillup_for_decl (tree decl)
 hsa_function_representation::hsa_function_representation
   (tree fdecl, bool kernel_p, unsigned ssa_names_count): m_name (NULL),
   m_reg_count (0), m_input_args (vNULL),
-  m_output_arg (NULL), m_spill_symbols (vNULL), m_readonly_variables (vNULL),
+  m_output_arg (NULL), m_spill_symbols (vNULL), m_global_symbols (vNULL),
   m_private_variables (vNULL), m_called_functions (vNULL), m_hbb_count (0),
   m_in_ssa (true), m_kern_p (kernel_p), m_declaration_p (false), m_decl (fdecl),
   m_shadow_reg (NULL), m_kernel_dispatch_count (0), m_maximum_omp_data_size (0),
@@ -238,9 +244,11 @@ hsa_function_representation::~hsa_function_representation ()
     delete m_spill_symbols[i];
   m_spill_symbols.release ();
 
-  for (unsigned i = 0; i < m_readonly_variables.length (); i++)
-    delete m_readonly_variables[i];
-  m_readonly_variables.release ();
+  hsa_symbol *sym;
+  for (unsigned i = 0; i < m_global_symbols.iterate (i, &sym); i++)
+    if (!sym->global_var_p ())
+      delete sym;
+  m_global_symbols.release ();
 
   for (unsigned i = 0; i < m_private_variables.length (); i++)
     delete m_private_variables[i];
@@ -684,7 +692,7 @@ hsa_needs_cvt (BrigType16_t dtype, BrigType16_t stype)
 static hsa_symbol *
 get_symbol_for_decl (tree decl)
 {
-  hsa_symbol **slot, *sym;
+  hsa_symbol **slot;
   hsa_symbol dummy (BRIG_TYPE_NONE, BRIG_SEGMENT_NONE, BRIG_LINKAGE_NONE);
 
   gcc_assert (TREE_CODE (decl) == PARM_DECL
@@ -693,50 +701,50 @@ get_symbol_for_decl (tree decl)
 
   dummy.m_decl = decl;
 
-  slot = hsa_cfun->m_local_symbols->find_slot (&dummy, INSERT);
+  bool is_in_global_vars = TREE_CODE (decl) == VAR_DECL && is_global_var (decl);
+
+  if (is_in_global_vars)
+    slot = hsa_global_variable_symbols->find_slot (&dummy, INSERT);
+  else
+    slot = hsa_cfun->m_local_symbols->find_slot (&dummy, INSERT);
+
   gcc_checking_assert (slot);
   if (*slot)
     {
-      sym = *slot;
-
       /* If the symbol is problematic, mark current function also as
 	 problematic.  */
-      if (sym->m_seen_error)
+      if ((*slot)->m_seen_error)
 	hsa_fail_cfun ();
 
-      return sym;
-    }
-
-  if (TREE_CODE (decl) == VAR_DECL && is_global_var (decl))
-    {
-      sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_READONLY,
-			    BRIG_LINKAGE_MODULE);
-
-      /* Following type of global variables can be handled.  */
-      if (TREE_READONLY (decl) && !TREE_ADDRESSABLE (decl)
-	  && DECL_INITIAL (decl) && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE
-	  && TREE_CODE (TREE_TYPE (TREE_TYPE (decl))) == INTEGER_TYPE)
-	{
-	  sym->m_cst_value = new hsa_op_immed (DECL_INITIAL (decl), false);
-	}
-      else
-	HSA_SORRY_ATV (EXPR_LOCATION (decl), "referring to global symbol "
-		       "%q+D by name from HSA code won't work", decl);
-
-      hsa_cfun->m_readonly_variables.safe_push (sym);
+      return *slot;
     }
   else
     {
+      hsa_symbol *sym;
       gcc_assert (TREE_CODE (decl) == VAR_DECL);
-      sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_PRIVATE,
-			    BRIG_LINKAGE_FUNCTION);
-      hsa_cfun->m_private_variables.safe_push (sym);
-    }
 
-  sym->fillup_for_decl (decl);
-  sym->m_name = hsa_get_declaration_name (decl);
-  *slot = sym;
-  return sym;
+      if (is_in_global_vars)
+	{
+	  sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_GLOBAL,
+				BRIG_LINKAGE_PROGRAM);
+	  hsa_cfun->m_global_symbols.safe_push (sym);
+	}
+      else
+	{
+	  /* PARM_DECL and RESULT_DECL should be already in m_local_symbols.  */
+	  gcc_assert (TREE_CODE (decl) == VAR_DECL);
+
+	  sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_PRIVATE,
+				BRIG_LINKAGE_FUNCTION);
+	  hsa_cfun->m_private_variables.safe_push (sym);
+	}
+
+      sym->fillup_for_decl (decl);
+      sym->m_name = hsa_get_declaration_name (decl);
+
+      *slot = sym;
+      return sym;
+    }
 }
 
 /* For a given HSA function declaration, return a host
@@ -799,10 +807,10 @@ hsa_get_string_cst_symbol (tree string_cst)
 				    BRIG_SEGMENT_GLOBAL, BRIG_LINKAGE_MODULE);
   sym->m_cst_value = cst;
   sym->m_dim = TREE_STRING_LENGTH (string_cst);
-  sym->m_name_number = hsa_cfun->m_readonly_variables.length ();
+  sym->m_name_number = hsa_cfun->m_global_symbols.length ();
   sym->m_global_scope_p = true;
 
-  hsa_cfun->m_readonly_variables.safe_push (sym);
+  hsa_cfun->m_global_symbols.safe_push (sym);
   hsa_cfun->m_string_constants_map.put (string_cst, sym);
   return sym;
 }

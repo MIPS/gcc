@@ -64,7 +64,7 @@ static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping
 hash_map <tree, vec <const char *> *> *hsa_decl_kernel_dependencies;
 
 /* Hash function to lookup a symbol for a decl.  */
-hash_table <hsa_free_symbol_hasher> *hsa_global_variable_symbols;
+hash_table <hsa_noop_symbol_hasher> *hsa_global_variable_symbols;
 
 /* HSA summaries.  */
 hsa_summary_t *hsa_summaries = NULL;
@@ -97,6 +97,7 @@ hsa_init_compilation_unit_data (void)
 
   compilation_unit_data_initialized = true;
 
+  hsa_global_variable_symbols = new hash_table <hsa_noop_symbol_hasher> (8);
   hsa_failed_functions = new hash_set <tree> ();
 }
 
@@ -106,8 +107,19 @@ hsa_init_compilation_unit_data (void)
 void
 hsa_deinit_compilation_unit_data (void)
 {
-  if (hsa_failed_functions)
-    delete hsa_failed_functions;
+  gcc_assert (compilation_unit_data_initialized);
+
+  delete hsa_failed_functions;
+
+  for (hash_table <hsa_noop_symbol_hasher>::iterator it =
+       hsa_global_variable_symbols->begin ();
+       it != hsa_global_variable_symbols->end (); ++it)
+    {
+      hsa_symbol *sym = *it;
+      delete sym;
+    }
+
+  delete hsa_global_variable_symbols;
 
   if (hsa_num_threads)
     {
