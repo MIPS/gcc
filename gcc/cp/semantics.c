@@ -6516,7 +6516,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 		  t = OMP_CLAUSE_DECL (c);
 		  if (TREE_CODE (t) != TREE_LIST
 		      && !type_dependent_expression_p (t)
-		      && !cp_omp_mappable_type (TREE_TYPE (t), is_oacc))
+		      && !cp_omp_mappable_type (TREE_TYPE (t)))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -6581,7 +6581,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 		  remove = true;
 		}
-	      else if (!cp_omp_mappable_type (TREE_TYPE (t), is_oacc))
+	      else if (!cp_omp_mappable_type (TREE_TYPE (t)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE does not have a mappable type in %qs clause",
@@ -6651,7 +6651,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 		   && !cp_omp_mappable_type (((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))
-					     : TREE_TYPE (t)), is_oacc))
+					     : TREE_TYPE (t))))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
@@ -6774,7 +6774,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (!cp_omp_mappable_type (TREE_TYPE (t), is_oacc))
+	  else if (!cp_omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,

@@ -1,3 +1,10 @@
+2015-11-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* langhooks-def.h (omp_mappable_type): Remove oacc arg.
+	* langhooks.h (lhd_omp_mappable_type): Likewise.
+	* langhooks.c (lhd_omp_mappable_type): Likswise.
+	* gimplify.c (omp_notice_variable): Adjust omp_mappable_type call.
+
 2015-11-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gimplify.c (enum gimplify_omp_var_data): Remove GOVD_FORCE_MAP.

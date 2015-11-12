@@ -12860,8 +12860,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 	      else
 		{
 		  t = OMP_CLAUSE_DECL (c);
-		  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t),
-							   is_oacc))
+		  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 		    {
 		      error_at (OMP_CLAUSE_LOCATION (c),
 				"array section does not have mappable type "
@@ -12913,8 +12912,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 			    t, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 		  remove = true;
 		}
-	      else if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t),
-							    is_oacc))
+	      else if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE does not have a mappable type in %qs clause",
@@ -12964,8 +12962,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 			 || (OMP_CLAUSE_MAP_KIND (c)
 			     == GOMP_MAP_FORCE_DEVICEPTR)))
 		   && t == OMP_CLAUSE_DECL (c)
-		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t),
-							   is_oacc))
+		   && !lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
@@ -13041,7 +13038,7 @@ c_finish_omp_clauses (tree clauses, bool is_oacc, bool is_omp, bool declare_simd
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t), is_oacc))
+	  else if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,

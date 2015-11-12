@@ -1,3 +1,8 @@
+2015-11-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Adjust omp_mappable_type calls.
+	* c-decl.c (c_decl_attributes): Likewise.
+
 2015-11-06  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-parser.c (c_parser_omp_clause_default): Replace only_none with

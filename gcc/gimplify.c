@@ -6106,9 +6106,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 		&& lang_hooks.decls.omp_privatize_by_reference (decl))
 	      type = TREE_TYPE (type);
 	    if (nflags == flags
-		&& !lang_hooks.types.omp_mappable_type (type,
-							(ctx->region_type
-							 & ORT_ACC) != 0))
+		&& !lang_hooks.types.omp_mappable_type (type))
 	      {
 		error ("%qD referenced in target region does not have "
 		       "a mappable type", decl);

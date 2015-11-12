@@ -5790,7 +5790,7 @@ extern bool possibly_inlined_p			(tree);
 extern int parm_index                           (tree);
 extern tree vtv_start_verification_constructor_init_function (void);
 extern tree vtv_finish_verification_constructor_init_function (tree);
-extern bool cp_omp_mappable_type		(tree, bool);
+extern bool cp_omp_mappable_type		(tree);
 
 /* in error.c */
 extern const char *type_as_string		(tree, int);
