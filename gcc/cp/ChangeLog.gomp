@@ -1,3 +1,8 @@
+2015-11-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* semantics.c (finish_omp_clauses): Remove "reference types are
+	not supported in OpenACC" diagnostic.
+
 2015-11-12  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* semantics.c (finish_ommp_clauses): Adjust omp_mappable_type calls.

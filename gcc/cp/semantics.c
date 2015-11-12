@@ -6552,11 +6552,6 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 		}
 	      break;
 	    }
-	  if (is_oacc && TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE)
-	    {
-	      error_at (OMP_CLAUSE_LOCATION (c),
-			"reference types are not supported in OpenACC");
-	    }
 	  if (t == error_mark_node)
 	    {
 	      remove = true;
@@ -6648,10 +6643,10 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 			     == GOMP_MAP_FIRSTPRIVATE_POINTER)))
 		   && t == OMP_CLAUSE_DECL (c)
 		   && !type_dependent_expression_p (t)
-		   && !cp_omp_mappable_type (((TREE_CODE (TREE_TYPE (t))
+		   && !cp_omp_mappable_type ((TREE_CODE (TREE_TYPE (t))
 					      == REFERENCE_TYPE)
 					     ? TREE_TYPE (TREE_TYPE (t))
-					     : TREE_TYPE (t))))
+					     : TREE_TYPE (t)))
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qD does not have a mappable type in %qs clause", t,
