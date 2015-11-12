@@ -80,7 +80,7 @@ along with GCC; see the file COPYING3.  If not see
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
 static rtx legitimize_pe_coff_symbol (rtx, bool);
-static void ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t);
+static void ix86_print_operand_address_as (FILE *, rtx, addr_space_t, bool);
 
 #ifndef CHECK_STACK_LIMIT
 #define CHECK_STACK_LIMIT (-1)
@@ -2175,7 +2175,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BONNELL (1<<PROCESSOR_BONNELL)
 #define m_SILVERMONT (1<<PROCESSOR_SILVERMONT)
 #define m_KNL (1<<PROCESSOR_KNL)
-#define m_SKYLAKE_AVX512 (1<<PROCESSOT_SKYLAKE_AVX512)
+#define m_SKYLAKE_AVX512 (1<<PROCESSOR_SKYLAKE_AVX512)
 #define m_INTEL (1<<PROCESSOR_INTEL)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
@@ -17131,13 +17131,6 @@ ix86_print_operand (FILE *file, rtx x, int code)
     {
       rtx addr = XEXP (x, 0);
 
-      /* Avoid (%rip) for call operands.  */
-      if (code == 'P' && CONSTANT_ADDRESS_P (x) && !CONST_INT_P (x))
-	{
-	  output_addr_const (file, addr);
-	  return;
-	}
-
       /* No `byte ptr' prefix for call instructions ... */
       if (ASSEMBLER_DIALECT == ASM_INTEL && code != 'X' && code != 'P')
 	{
@@ -17187,7 +17180,8 @@ ix86_print_operand (FILE *file, rtx x, int code)
       if (this_is_asm_operands && ! address_operand (addr, VOIDmode))
 	output_operand_lossage ("invalid constraints for operand");
       else
-	ix86_print_operand_address_as (file, addr, MEM_ADDR_SPACE (x));
+	ix86_print_operand_address_as
+	  (file, addr, MEM_ADDR_SPACE (x), code == 'p' || code == 'P');
     }
 
   else if (CONST_DOUBLE_P (x) && GET_MODE (x) == SFmode)
@@ -17272,7 +17266,8 @@ ix86_print_operand_punct_valid_p (unsigned char code)
 /* Print a memory operand whose address is ADDR.  */
 
 static void
-ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t as)
+ix86_print_operand_address_as (FILE *file, rtx addr,
+			       addr_space_t as, bool no_rip)
 {
   struct ix86_address parts;
   rtx base, index, disp;
@@ -17346,7 +17341,7 @@ ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t as)
     }
 
   /* Use one byte shorter RIP relative addressing for 64bit mode.  */
-  if (TARGET_64BIT && !base && !index)
+  if (TARGET_64BIT && !base && !index && !no_rip)
     {
       rtx symbol = disp;
 
@@ -17360,10 +17355,10 @@ ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t as)
 	      && SYMBOL_REF_TLS_MODEL (symbol) == 0))
 	base = pc_rtx;
     }
+
   if (!base && !index)
     {
       /* Displacement only requires special attention.  */
-
       if (CONST_INT_P (disp))
 	{
 	  if (ASSEMBLER_DIALECT == ASM_INTEL && parts.seg == ADDR_SPACE_GENERIC)
@@ -17505,7 +17500,7 @@ ix86_print_operand_address_as (FILE *file, rtx addr, addr_space_t as)
 static void
 ix86_print_operand_address (FILE *file, machine_mode /*mode*/, rtx addr)
 {
-  ix86_print_operand_address_as (file, addr, ADDR_SPACE_GENERIC);
+  ix86_print_operand_address_as (file, addr, ADDR_SPACE_GENERIC, false);
 }
 
 /* Implementation of TARGET_ASM_OUTPUT_ADDR_CONST_EXTRA.  */
@@ -22582,8 +22577,8 @@ ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
     cmp_op1 = force_reg (cmp_ops_mode, cmp_op1);
 
   if (optimize
-      || reg_overlap_mentioned_p (dest, op_true)
-      || reg_overlap_mentioned_p (dest, op_false))
+      || (op_true && reg_overlap_mentioned_p (dest, op_true))
+      || (op_false && reg_overlap_mentioned_p (dest, op_false)))
     dest = gen_reg_rtx (maskcmp ? cmp_mode : mode);
 
   /* Compare patterns for int modes are unspec in AVX512F only.  */
@@ -22633,7 +22628,7 @@ ix86_expand_sse_cmp (rtx dest, enum rtx_code code, rtx cmp_op0, rtx cmp_op1,
 /* Expand DEST = CMP ? OP_TRUE : OP_FALSE into a sequence of logical
    operations.  This is used for both scalar and vector conditional moves.  */
 
-static void
+void
 ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
 {
   machine_mode mode = GET_MODE (dest);
@@ -22643,6 +22638,14 @@ ix86_expand_sse_movcc (rtx dest, rtx cmp, rtx op_true, rtx op_false)
   bool maskcmp = (mode != cmpmode && TARGET_AVX512F);
 
   rtx t2, t3, x;
+
+  /* If we have an integer mask and FP value then we need
+     to cast mask to FP mode.  */
+  if (mode != cmpmode && VECTOR_MODE_P (cmpmode))
+    {
+      cmp = force_reg (cmpmode, cmp);
+      cmp = gen_rtx_SUBREG (mode, cmp, 0);
+    }
 
   if (vector_all_ones_operand (op_true, mode)
       && rtx_equal_p (op_false, CONST0_RTX (mode))
@@ -22855,6 +22858,332 @@ ix86_expand_fp_movcc (rtx operands[])
   return true;
 }
 
+/* Helper for ix86_cmp_code_to_pcmp_immediate for int modes.  */
+
+static int
+ix86_int_cmp_code_to_pcmp_immediate (enum rtx_code code)
+{
+  switch (code)
+    {
+    case EQ:
+      return 0;
+    case LT:
+    case LTU:
+      return 1;
+    case LE:
+    case LEU:
+      return 2;
+    case NE:
+      return 4;
+    case GE:
+    case GEU:
+      return 5;
+    case GT:
+    case GTU:
+      return 6;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Helper for ix86_cmp_code_to_pcmp_immediate for fp modes.  */
+
+static int
+ix86_fp_cmp_code_to_pcmp_immediate (enum rtx_code code)
+{
+  switch (code)
+    {
+    case EQ:
+      return 0x08;
+    case NE:
+      return 0x04;
+    case GT:
+      return 0x16;
+    case LE:
+      return 0x1a;
+    case GE:
+      return 0x15;
+    case LT:
+      return 0x19;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return immediate value to be used in UNSPEC_PCMP
+   for comparison CODE in MODE.  */
+
+static int
+ix86_cmp_code_to_pcmp_immediate (enum rtx_code code, machine_mode mode)
+{
+  if (FLOAT_MODE_P (mode))
+    return ix86_fp_cmp_code_to_pcmp_immediate (code);
+  return ix86_int_cmp_code_to_pcmp_immediate (code);
+}
+
+/* Expand AVX-512 vector comparison.  */
+
+bool
+ix86_expand_mask_vec_cmp (rtx operands[])
+{
+  machine_mode mask_mode = GET_MODE (operands[0]);
+  machine_mode cmp_mode = GET_MODE (operands[2]);
+  enum rtx_code code = GET_CODE (operands[1]);
+  rtx imm = GEN_INT (ix86_cmp_code_to_pcmp_immediate (code, cmp_mode));
+  int unspec_code;
+  rtx unspec;
+
+  switch (code)
+    {
+    case LEU:
+    case GTU:
+    case GEU:
+    case LTU:
+      unspec_code = UNSPEC_UNSIGNED_PCMP;
+    default:
+      unspec_code = UNSPEC_PCMP;
+    }
+
+  unspec = gen_rtx_UNSPEC (mask_mode, gen_rtvec (3, operands[2],
+						 operands[3], imm),
+			   unspec_code);
+  emit_insn (gen_rtx_SET (operands[0], unspec));
+
+  return true;
+}
+
+/* Expand fp vector comparison.  */
+
+bool
+ix86_expand_fp_vec_cmp (rtx operands[])
+{
+  enum rtx_code code = GET_CODE (operands[1]);
+  rtx cmp;
+
+  code = ix86_prepare_sse_fp_compare_args (operands[0], code,
+					   &operands[2], &operands[3]);
+  if (code == UNKNOWN)
+    {
+      rtx temp;
+      switch (GET_CODE (operands[1]))
+	{
+	case LTGT:
+	  temp = ix86_expand_sse_cmp (operands[0], ORDERED, operands[2],
+				      operands[3], NULL, NULL);
+	  cmp = ix86_expand_sse_cmp (operands[0], NE, operands[2],
+				     operands[3], NULL, NULL);
+	  code = AND;
+	  break;
+	case UNEQ:
+	  temp = ix86_expand_sse_cmp (operands[0], UNORDERED, operands[2],
+				      operands[3], NULL, NULL);
+	  cmp = ix86_expand_sse_cmp (operands[0], EQ, operands[2],
+				     operands[3], NULL, NULL);
+	  code = IOR;
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+      cmp = expand_simple_binop (GET_MODE (cmp), code, temp, cmp, cmp, 1,
+				 OPTAB_DIRECT);
+    }
+  else
+    cmp = ix86_expand_sse_cmp (operands[0], code, operands[2], operands[3],
+			       operands[1], operands[2]);
+
+  if (operands[0] != cmp)
+    emit_move_insn (operands[0], cmp);
+
+  return true;
+}
+
+static rtx
+ix86_expand_int_sse_cmp (rtx dest, enum rtx_code code, rtx cop0, rtx cop1,
+			 rtx op_true, rtx op_false, bool *negate)
+{
+  machine_mode data_mode = GET_MODE (dest);
+  machine_mode mode = GET_MODE (cop0);
+  rtx x;
+
+  *negate = false;
+
+  /* XOP supports all of the comparisons on all 128-bit vector int types.  */
+  if (TARGET_XOP
+      && (mode == V16QImode || mode == V8HImode
+	  || mode == V4SImode || mode == V2DImode))
+    ;
+  else
+    {
+      /* Canonicalize the comparison to EQ, GT, GTU.  */
+      switch (code)
+	{
+	case EQ:
+	case GT:
+	case GTU:
+	  break;
+
+	case NE:
+	case LE:
+	case LEU:
+	  code = reverse_condition (code);
+	  *negate = true;
+	  break;
+
+	case GE:
+	case GEU:
+	  code = reverse_condition (code);
+	  *negate = true;
+	  /* FALLTHRU */
+
+	case LT:
+	case LTU:
+	  std::swap (cop0, cop1);
+	  code = swap_condition (code);
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      /* Only SSE4.1/SSE4.2 supports V2DImode.  */
+      if (mode == V2DImode)
+	{
+	  switch (code)
+	    {
+	    case EQ:
+	      /* SSE4.1 supports EQ.  */
+	      if (!TARGET_SSE4_1)
+		return NULL;
+	      break;
+
+	    case GT:
+	    case GTU:
+	      /* SSE4.2 supports GT/GTU.  */
+	      if (!TARGET_SSE4_2)
+		return NULL;
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+
+      /* Unsigned parallel compare is not supported by the hardware.
+	 Play some tricks to turn this into a signed comparison
+	 against 0.  */
+      if (code == GTU)
+	{
+	  cop0 = force_reg (mode, cop0);
+
+	  switch (mode)
+	    {
+	    case V16SImode:
+	    case V8DImode:
+	    case V8SImode:
+	    case V4DImode:
+	    case V4SImode:
+	    case V2DImode:
+		{
+		  rtx t1, t2, mask;
+		  rtx (*gen_sub3) (rtx, rtx, rtx);
+
+		  switch (mode)
+		    {
+		    case V16SImode: gen_sub3 = gen_subv16si3; break;
+		    case V8DImode: gen_sub3 = gen_subv8di3; break;
+		    case V8SImode: gen_sub3 = gen_subv8si3; break;
+		    case V4DImode: gen_sub3 = gen_subv4di3; break;
+		    case V4SImode: gen_sub3 = gen_subv4si3; break;
+		    case V2DImode: gen_sub3 = gen_subv2di3; break;
+		    default:
+		      gcc_unreachable ();
+		    }
+		  /* Subtract (-(INT MAX) - 1) from both operands to make
+		     them signed.  */
+		  mask = ix86_build_signbit_mask (mode, true, false);
+		  t1 = gen_reg_rtx (mode);
+		  emit_insn (gen_sub3 (t1, cop0, mask));
+
+		  t2 = gen_reg_rtx (mode);
+		  emit_insn (gen_sub3 (t2, cop1, mask));
+
+		  cop0 = t1;
+		  cop1 = t2;
+		  code = GT;
+		}
+	      break;
+
+	    case V64QImode:
+	    case V32HImode:
+	    case V32QImode:
+	    case V16HImode:
+	    case V16QImode:
+	    case V8HImode:
+	      /* Perform a parallel unsigned saturating subtraction.  */
+	      x = gen_reg_rtx (mode);
+	      emit_insn (gen_rtx_SET (x, gen_rtx_US_MINUS (mode, cop0,
+							   cop1)));
+
+	      cop0 = x;
+	      cop1 = CONST0_RTX (mode);
+	      code = EQ;
+	      *negate = !*negate;
+	      break;
+
+	    default:
+	      gcc_unreachable ();
+	    }
+	}
+    }
+
+  if (*negate)
+    std::swap (op_true, op_false);
+
+  /* Allow the comparison to be done in one mode, but the movcc to
+     happen in another mode.  */
+  if (data_mode == mode)
+    {
+      x = ix86_expand_sse_cmp (dest, code, cop0, cop1,
+			       op_true, op_false);
+    }
+  else
+    {
+      gcc_assert (GET_MODE_SIZE (data_mode) == GET_MODE_SIZE (mode));
+      x = ix86_expand_sse_cmp (gen_reg_rtx (mode), code, cop0, cop1,
+			       op_true, op_false);
+      if (GET_MODE (x) == mode)
+	x = gen_lowpart (data_mode, x);
+    }
+
+  return x;
+}
+
+/* Expand integer vector comparison.  */
+
+bool
+ix86_expand_int_vec_cmp (rtx operands[])
+{
+  rtx_code code = GET_CODE (operands[1]);
+  bool negate = false;
+  rtx cmp = ix86_expand_int_sse_cmp (operands[0], code, operands[2],
+				     operands[3], NULL, NULL, &negate);
+
+  if (!cmp)
+    return false;
+
+  if (negate)
+    cmp = ix86_expand_int_sse_cmp (operands[0], EQ, cmp,
+				   CONST0_RTX (GET_MODE (cmp)),
+				   NULL, NULL, &negate);
+
+  gcc_assert (!negate);
+
+  if (operands[0] != cmp)
+    emit_move_insn (operands[0], cmp);
+
+  return true;
+}
+
 /* Expand a floating-point vector conditional move; a vcond operation
    rather than a movcc operation.  */
 
@@ -22957,149 +23286,11 @@ ix86_expand_int_vcond (rtx operands[])
   if (!general_operand (operands[2], data_mode))
     operands[2] = force_reg (data_mode, operands[2]);
 
-  /* XOP supports all of the comparisons on all 128-bit vector int types.  */
-  if (TARGET_XOP
-      && (mode == V16QImode || mode == V8HImode
-	  || mode == V4SImode || mode == V2DImode))
-    ;
-  else
-    {
-      /* Canonicalize the comparison to EQ, GT, GTU.  */
-      switch (code)
-	{
-	case EQ:
-	case GT:
-	case GTU:
-	  break;
+  x = ix86_expand_int_sse_cmp (operands[0], code, cop0, cop1,
+			       operands[1], operands[2], &negate);
 
-	case NE:
-	case LE:
-	case LEU:
-	  code = reverse_condition (code);
-	  negate = true;
-	  break;
-
-	case GE:
-	case GEU:
-	  code = reverse_condition (code);
-	  negate = true;
-	  /* FALLTHRU */
-
-	case LT:
-	case LTU:
-	  std::swap (cop0, cop1);
-	  code = swap_condition (code);
-	  break;
-
-	default:
-	  gcc_unreachable ();
-	}
-
-      /* Only SSE4.1/SSE4.2 supports V2DImode.  */
-      if (mode == V2DImode)
-	{
-	  switch (code)
-	    {
-	    case EQ:
-	      /* SSE4.1 supports EQ.  */
-	      if (!TARGET_SSE4_1)
-		return false;
-	      break;
-
-	    case GT:
-	    case GTU:
-	      /* SSE4.2 supports GT/GTU.  */
-	      if (!TARGET_SSE4_2)
-		return false;
-	      break;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-	}
-
-      /* Unsigned parallel compare is not supported by the hardware.
-	 Play some tricks to turn this into a signed comparison
-	 against 0.  */
-      if (code == GTU)
-	{
-	  cop0 = force_reg (mode, cop0);
-
-	  switch (mode)
-	    {
-	    case V16SImode:
-	    case V8DImode:
-	    case V8SImode:
-	    case V4DImode:
-	    case V4SImode:
-	    case V2DImode:
-		{
-		  rtx t1, t2, mask;
-		  rtx (*gen_sub3) (rtx, rtx, rtx);
-
-		  switch (mode)
-		    {
-		    case V16SImode: gen_sub3 = gen_subv16si3; break;
-		    case V8DImode: gen_sub3 = gen_subv8di3; break;
-		    case V8SImode: gen_sub3 = gen_subv8si3; break;
-		    case V4DImode: gen_sub3 = gen_subv4di3; break;
-		    case V4SImode: gen_sub3 = gen_subv4si3; break;
-		    case V2DImode: gen_sub3 = gen_subv2di3; break;
-		    default:
-		      gcc_unreachable ();
-		    }
-		  /* Subtract (-(INT MAX) - 1) from both operands to make
-		     them signed.  */
-		  mask = ix86_build_signbit_mask (mode, true, false);
-		  t1 = gen_reg_rtx (mode);
-		  emit_insn (gen_sub3 (t1, cop0, mask));
-
-		  t2 = gen_reg_rtx (mode);
-		  emit_insn (gen_sub3 (t2, cop1, mask));
-
-		  cop0 = t1;
-		  cop1 = t2;
-		  code = GT;
-		}
-	      break;
-
-	    case V64QImode:
-	    case V32HImode:
-	    case V32QImode:
-	    case V16HImode:
-	    case V16QImode:
-	    case V8HImode:
-	      /* Perform a parallel unsigned saturating subtraction.  */
-	      x = gen_reg_rtx (mode);
-	      emit_insn (gen_rtx_SET (x, gen_rtx_US_MINUS (mode, cop0, cop1)));
-
-	      cop0 = x;
-	      cop1 = CONST0_RTX (mode);
-	      code = EQ;
-	      negate = !negate;
-	      break;
-
-	    default:
-	      gcc_unreachable ();
-	    }
-	}
-    }
-
-  /* Allow the comparison to be done in one mode, but the movcc to
-     happen in another mode.  */
-  if (data_mode == mode)
-    {
-      x = ix86_expand_sse_cmp (operands[0], code, cop0, cop1,
-			       operands[1+negate], operands[2-negate]);
-    }
-  else
-    {
-      gcc_assert (GET_MODE_SIZE (data_mode) == GET_MODE_SIZE (mode));
-      x = ix86_expand_sse_cmp (gen_reg_rtx (mode), code, cop0, cop1,
-			       operands[1+negate], operands[2-negate]);
-      if (GET_MODE (x) == mode)
-	x = gen_lowpart (data_mode, x);
-    }
+  if (!x)
+    return false;
 
   ix86_expand_sse_movcc (operands[0], x, operands[1+negate],
 			 operands[2-negate]);
@@ -35917,7 +36108,11 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      priority = P_PROC_AVX;
 	      break;
 	    case PROCESSOR_HASWELL:
-	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_ADX)
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
+	        arg_str = "skylake-avx512";
+	      else if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_XSAVES)
+	        arg_str = "skylake";
+	      else if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_ADX)
 		arg_str = "broadwell";
 	      else
 		arg_str = "haswell";
@@ -53085,6 +53280,28 @@ ix86_autovectorize_vector_sizes (void)
     (TARGET_AVX && !TARGET_PREFER_AVX128) ? 32 | 16 : 0;
 }
 
+/* Implemenation of targetm.vectorize.get_mask_mode.  */
+
+static machine_mode
+ix86_get_mask_mode (unsigned nunits, unsigned vector_size)
+{
+  unsigned elem_size = vector_size / nunits;
+
+  /* Scalar mask case.  */
+  if (TARGET_AVX512F && vector_size == 64)
+    {
+      if (elem_size == 4 || elem_size == 8 || TARGET_AVX512BW)
+	return smallest_mode_for_size (nunits, MODE_INT);
+    }
+
+  machine_mode elem_mode
+    = smallest_mode_for_size (elem_size * BITS_PER_UNIT, MODE_INT);
+
+  gcc_assert (elem_size * nunits == vector_size);
+
+  return mode_for_vector (elem_mode, nunits);
+}
+
 
 
 /* Return class of registers which could be used for pseudo of MODE
@@ -54096,6 +54313,8 @@ ix86_addr_space_zero_address_valid (addr_space_t as)
 #undef TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES
 #define TARGET_VECTORIZE_AUTOVECTORIZE_VECTOR_SIZES \
   ix86_autovectorize_vector_sizes
+#undef TARGET_VECTORIZE_GET_MASK_MODE
+#define TARGET_VECTORIZE_GET_MASK_MODE ix86_get_mask_mode
 #undef TARGET_VECTORIZE_INIT_COST
 #define TARGET_VECTORIZE_INIT_COST ix86_init_cost
 #undef TARGET_VECTORIZE_ADD_STMT_COST

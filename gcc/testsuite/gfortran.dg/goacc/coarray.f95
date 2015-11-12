@@ -1,5 +1,9 @@
 ! { dg-do compile } 
 ! { dg-additional-options "-fcoarray=single" }
+!
+! PR fortran/63861
+! { dg-xfail-if "<http://gcc.gnu.org/PR63861>" { *-*-* } }
+! { dg-excess-errors "TODO" }
 
 ! TODO: These cases must fail
 

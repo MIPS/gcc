@@ -1,3 +1,9 @@
+2015-11-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-2.c: Rename
+	file to...
+	* testsuite/libgomp.oacc-c-c++-common/firstprivate-4.c: ... this.
+
 2015-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/firstprivate-1.c: Rename

@@ -1,8 +1,70 @@
+2015-11-11  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gfortran.dg/goacc/private-3.f95: Remove xfail.
+	* gfortran.dg/goacc/combined_loop.f90: Remove xfail.
+
+2015-11-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr67265.c: New test.
+
+2015-11-11  Segher Boessenkool  <segher@kernel.crashing.org>
+
+	* gcc.target/powerpc/20050603-3.c: Don't restrict to ilp32.  Do more
+	tests for the expected generated code.
+
+2015-11-11  Simon Dardis  <simon.dardis@imgtec.com>
+
+	* gcc.target/mips/split-ds-sequence.c: New test.
+
+2015-11-11  Julia Koval  <julia.koval@intel.com>
+
+	* g++.dg/ext/mv16.C: New functions.
+
+2015-11-11  Richard Biener  <rguenth@gcc.gnu.org>
+	    Jiong Wang	    <jiong.wang@arm.com>
+
+	* gcc.dg/tree-ssa/pr68234.c: New testcase. 
+
+2015-11-10  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/goacc/nvptx-opt-1.c: New test.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.target/i386/mask-pack.c: New test.
+	* gcc.target/i386/mask-unpack.c: New test.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.target/i386/avx2-vec-mask-bit-not.c: New test.
+
+2015-11-10  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/vect/slp-cond-5.c: New test.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68240
+	* gcc.dg/torture/pr68240.c: New testcase.
+
+2015-11-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56118
+	* gcc.target/i386/pr56118.c: New testcase.
+
+2015-11-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/cond_op_imm_1.c: New test.
+
+2015-11-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gfortran.dg/pr68251.f90: New test.
+
 2015-11-09  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* c-c++-common/goacc/routine-5.c: Enable c++ tests.
 
-2015-10-19  Martin Sebor  <msebor@redhat.com>
+2015-11-09  Martin Sebor  <msebor@redhat.com>
 
 	* init/new45.C: New test to verify that operator new is invoked
 	with or without overhead for a cookie.

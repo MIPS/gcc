@@ -1,54 +1,32 @@
 /* { dg-do run } */
+/* { dg-xfail-run-if "TODO" { *-*-* } } */
 
-#include <stdlib.h>
-#include <openacc.h>
+#include  <openacc.h>
 
-#define N 100
-
-int
-main()
+int main ()
 {
-  int a, old_a,  b[N], c, d, i;
-  int n = acc_get_device_type () == acc_device_nvidia ? N : 1;
+  int ok = 1;
+  int val = 2;
 
-  a = 5;
-
-  for (i = 0; i < n; i++)
-    b[i] = -1;
-
-  #pragma acc parallel num_gangs (n) firstprivate (a)
-  #pragma acc loop gang
-  for (i = 0; i < n; i++)
-    {
-      a = a + i;
-      b[i] = a;
-    }
-
-  for (i = 0; i < n; i++)
-    if (a + i != b[i])
-      abort ();
-
-  #pragma acc data copy (a)
+#pragma acc data copy(val)
   {
-    #pragma acc parallel firstprivate (a) copyout (c)
+#pragma acc parallel present (val)
     {
-      a = 10;
-      c = a;
+      val = 7;
     }
 
-    /* This version of 'a' should still be 5.  */
-    #pragma acc parallel copyout (d) present (a)
+#pragma acc parallel firstprivate (val) copy(ok)
     {
-      d = a;
+      ok  = val == 7;
+      val = 9;
     }
 
   }
 
-  if (c != 10)
-    abort ();
-
-  if (d != 5)
-    abort ();
+  if (!ok)
+    return 1;
+  if(val != 7)
+    return 1;
 
   return 0;
 }

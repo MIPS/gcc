@@ -15428,13 +15428,13 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
 	      {
 		gcc_assert (is_gimple_omp_oacc (ctx->stmt));
-		if (TREE_CODE (TREE_TYPE (new_var)) == REFERENCE_TYPE)
+		if (is_reference (new_var))
 		  {
 		    /* Create a local object to hold the instance
 		       value.  */
-		    tree inst = create_tmp_var
-		      (TREE_TYPE (TREE_TYPE (new_var)),
-		       IDENTIFIER_POINTER (DECL_NAME (new_var)));
+		    tree type = TREE_TYPE (TREE_TYPE (new_var));
+		    const char *id = IDENTIFIER_POINTER (DECL_NAME (new_var));
+		    tree inst = create_tmp_var (type, id);
 		    gimplify_assign (inst, fold_indirect_ref (x), &fplist);
 		    x = build_fold_addr_expr (inst);
 		  }
@@ -15655,7 +15655,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		else if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
 		  {
 		    gcc_checking_assert (is_gimple_omp_oacc (ctx->stmt));
-		    if (TREE_CODE (TREE_TYPE (var)) != REFERENCE_TYPE)
+		    if (!is_reference (var))
 		      var = build_fold_addr_expr (var);
 		    else
 		      talign = TYPE_ALIGN_UNIT (TREE_TYPE (TREE_TYPE (ovar)));
@@ -15692,7 +15692,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    s = NULL_TREE;
 	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
 	      {
-		gcc_assert (is_gimple_omp_oacc (ctx->stmt));
+		gcc_checking_assert (is_gimple_omp_oacc (ctx->stmt));
 		s = TREE_TYPE (ovar);
 		if (TREE_CODE (s) == REFERENCE_TYPE)
 		  s = TREE_TYPE (s);
@@ -15741,7 +15741,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  }
 		break;
 	      case OMP_CLAUSE_FIRSTPRIVATE:
-		gcc_assert (is_gimple_omp_oacc (ctx->stmt));
+		gcc_checking_assert (is_gimple_omp_oacc (ctx->stmt));
 		tkind = GOMP_MAP_TO;
 		tkind_zero = tkind;
 		break;
@@ -16149,9 +16149,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       /* Handle GOMP_MAP_FIRSTPRIVATE_{POINTER,REFERENCE} in second pass,
 	 so that firstprivate vars holding OMP_CLAUSE_SIZE if needed
 	 are already handled.  */
-      for (c = (is_gimple_omp_oacc (ctx->stmt) ? NULL : clauses);
-	   c;
-	   c = OMP_CLAUSE_CHAIN (c))
+      for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
 	switch (OMP_CLAUSE_CODE (c))
 	  {
 	    tree var;

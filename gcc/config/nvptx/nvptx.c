@@ -3599,22 +3599,21 @@ nvptx_optimize_inner (parallel *par)
     /* This indicates malformed code generation.  */
     return;
 
-  /* The outer forked insn should be the only one in its block.  */
-  rtx_insn *probe;
+  /* The outer forked insn should be immediately followed by the inner
+     fork insn.  */
   rtx_insn *forked = par->forked_insn;
-  for (probe = BB_END (par->forked_block);
-       probe != forked; probe = PREV_INSN (probe))
-    if (INSN_P (probe))
-      return;
+  rtx_insn *fork = BB_END (par->forked_block);
 
-  /* The outer joining insn, if any, must be in the same block as the inner
-     joined instruction, which must otherwise be empty of insns.  */
+  if (NEXT_INSN (forked) != fork)
+    return;
+  gcc_checking_assert (recog_memoized (fork) == CODE_FOR_nvptx_fork);
+
+  /* The outer joining insn must immediately follow the inner join
+     insn.  */
   rtx_insn *joining = par->joining_insn;
   rtx_insn *join = inner->join_insn;
-  for (probe = BB_END (inner->join_block);
-       probe != join; probe = PREV_INSN (probe))
-    if (probe != joining && INSN_P (probe))
-      return;
+  if (NEXT_INSN (join) != joining)
+    return;
 
   /* Preconditions met.  Swallow the inner par.  */
   if (dump_file)
