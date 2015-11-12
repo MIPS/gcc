@@ -15535,12 +15535,12 @@ mips_sched_reorder_1 (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
       && *nreadyp > 1)
     vr4130_reorder (ready, *nreadyp);
 
-  if (TUNE_74K)
+  if (TARGET_STORE_LOAD_SCHED || TUNE_74K)
     mips_74k_agen_reorder (ready, *nreadyp);
 
   /* For the Interaptiv but not assoicated with it.  */
-  if (TARGET_STORE_LOAD_SCHED)
-    mips_interaptiv_agen_reorder (ready, *nreadyp);
+//  if (TARGET_STORE_LOAD_SCHED)
+//    mips_interaptiv_agen_reorder (ready, *nreadyp);
 
   if (! reload_completed
       && TARGET_SCHED_WEIGHT
@@ -15613,12 +15613,12 @@ mips_variable_issue (FILE *file ATTRIBUTE_UNUSED, int verbose ATTRIBUTE_UNUSED,
       if (!reload_completed && TUNE_MACC_CHAINS)
 	mips_macc_chains_record (insn);
       vr4130_last_insn = insn;
-      if (TUNE_74K)
+      if (TARGET_STORE_LOAD_SCHED || TUNE_74K)
 	mips_74k_agen_init (insn);
       else if (TUNE_LOONGSON_2EF)
 	mips_ls2_variable_issue (insn);
-      else if (TARGET_STORE_LOAD_SCHED)
-	mips_interaptiv_agen_init (insn);
+//      else if (TARGET_STORE_LOAD_SCHED)
+//        mips_interaptiv_agen_init (insn);
     }
 
   /* Instructions of type 'multi' should all be split before
