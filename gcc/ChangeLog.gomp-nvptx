@@ -1,3 +1,15 @@
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c: (need_softstack_decl): New variable.
+	(nvptx_declare_function_name): Handle TARGET_SOFT_STACK.
+	(nvptx_output_return): Emit stack restore if needed.
+	(nvptx_file_end): Handle need_softstack_decl.
+	* config/nvptx/nvptx.h: (TARGET_CPU_CPP_BUILTINS): Define
+	__nvptx_softstack__ when -msoft-stack is active.
+	(struct machine_function): New bool field using_softstack.
+	* config/nvptx/nvptx.opt: (msoft-stack): New option.
+	* doc/invoke.texi (msoft-stack): Document.
+
 2015-12-08  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/nvptx.c: (write_omp_entry): New.  Use it...

@@ -19067,6 +19067,13 @@ offloading execution.
 Apply partitioned execution optimizations.  This is the default when any
 level of optimization is selected.
 
+@item -msoft-stack
+@opindex msoft-stack
+Do not use @code{.local} memory for automatic storage.  Instead, use pointer
+in shared memory array @code{char *__nvptx_stacks[]} at position @code{tid.y}
+as the stack pointer.  This is for placing automatic variables into storage
+that can be accessed from other threads, or modified with atomic instructions.
+
 @end table
 
 @node PDP-11 Options

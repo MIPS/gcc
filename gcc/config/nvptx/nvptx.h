@@ -31,6 +31,8 @@
       builtin_assert ("machine=nvptx");		\
       builtin_assert ("cpu=nvptx");		\
       builtin_define ("__nvptx__");		\
+      if (TARGET_SOFT_STACK)			\
+        builtin_define ("__nvptx_softstack__");	\
     } while (0)
 
 /* Avoid the default in ../../gcc.c, which adds "-pthread", which is not
@@ -221,6 +223,7 @@ struct GTY(()) machine_function
   tree funtype;
   bool has_call_with_varargs;
   bool has_call_with_sc;
+  bool using_softstack;
   HOST_WIDE_INT outgoing_stdarg_size;
   int ret_reg_mode; /* machine_mode not defined yet. */
   rtx axis_predicate[2];

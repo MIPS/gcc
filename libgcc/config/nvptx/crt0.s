@@ -22,6 +22,9 @@
         exit;
 }
 
+.visible .shared .u64 __nvptx_stacks[1];
+.global .align 8 .u8 %__softstack[131072];
+
 .extern .func (.param.u32 retval) main (.param.u32 argc, .param.u64 argv);
 
 .visible .entry __main (.param .u64 __retval, .param.u32 __argc, .param.u64 __argv)
@@ -33,6 +36,12 @@
 	.param.u32 %mainret;
         ld.param.u64    %rd0, [__retval];
         st.global.u64   [%__exitval], %rd0;
+
+        .reg .u64 %stackptr;
+        mov.u64	%stackptr, %__softstack;
+        cvta.global.u64	%stackptr, %stackptr;
+        add.u64	%stackptr, %stackptr, 131072;
+        st.shared.u64	[__nvptx_stacks], %stackptr;
 
 	ld.param.u32	%r1, [__argc];
 	ld.param.u64	%rd1, [__argv];

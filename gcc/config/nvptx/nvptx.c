@@ -141,6 +141,9 @@ static GTY(()) rtx worker_red_sym;
 /* Global lock variable, needed for 128bit worker & gang reductions.  */
 static GTY(()) tree global_lock_var;
 
+/* True if any function references __nvptx_stacks.  */
+static bool need_softstack_decl;
+
 /* Allocate a new, cleared machine_function structure.  */
 
 static struct machine_function *
@@ -859,15 +862,50 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 
   /* Declare a local variable for the frame.  */
   sz = get_frame_size ();
-  if (sz > 0 || cfun->machine->has_call_with_sc)
+  if (sz == 0 && cfun->machine->has_call_with_sc)
+    sz = 1;
+  if (sz > 0)
     {
       int alignment = crtl->stack_alignment_needed / BITS_PER_UNIT;
 
-      fprintf (file, "\t.reg.u%d %%frame;\n"
-	       "\t.local.align %d .b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
-	       BITS_PER_WORD, alignment, sz == 0 ? 1 : sz);
-      fprintf (file, "\tcvta.local.u%d %%frame, %%farray;\n",
-	       BITS_PER_WORD);
+      fprintf (file, "\t.reg.u%d %%frame;\n", BITS_PER_WORD);
+      if (TARGET_SOFT_STACK)
+	{
+	  /* Maintain 64-bit stack alignment.  */
+	  int keep_align = BIGGEST_ALIGNMENT / BITS_PER_UNIT;
+	  sz = ROUND_UP (sz, keep_align);
+	  int bits = BITS_PER_WORD;
+	  fprintf (file, "\t.reg.u32 %%fstmp0;\n");
+	  fprintf (file, "\t.reg.u%d %%fstmp1;\n", bits);
+	  fprintf (file, "\t.reg.u%d %%fstmp2;\n", bits);
+	  fprintf (file, "\tmov.u32 %%fstmp0, %%tid.y;\n");
+	  fprintf (file, "\tmul%s.u32 %%fstmp1, %%fstmp0, %d;\n",
+	           bits == 64 ? ".wide" : "", bits / 8);
+	  fprintf (file, "\tmov.u%d %%fstmp2, __nvptx_stacks;\n", bits);
+	  /* fstmp2 = &__nvptx_stacks[tid.y];  */
+	  fprintf (file, "\tadd.u%d %%fstmp2, %%fstmp2, %%fstmp1;\n", bits);
+	  fprintf (file, "\tld.shared.u%d %%fstmp1, [%%fstmp2];\n", bits);
+	  fprintf (file, "\tsub.u%d %%frame, %%fstmp1, "
+	           HOST_WIDE_INT_PRINT_DEC ";\n", bits, sz);
+	  if (alignment > keep_align)
+	    fprintf (file, "\tand.b%d %%frame, %%frame, %d;\n",
+		     bits, -alignment);
+	  /* crtl->is_leaf is not initialized because RA is not run.  */
+	  if (!leaf_function_p ())
+	    {
+	      fprintf (file, "\tst.shared.u%d [%%fstmp2], %%frame;\n", bits);
+	      cfun->machine->using_softstack = true;
+	    }
+	  need_softstack_decl = true;
+	}
+      else
+	{
+	  fprintf (file, "\t.local.align %d "
+		   ".b8 %%farray[" HOST_WIDE_INT_PRINT_DEC"];\n",
+		   alignment, sz);
+	  fprintf (file, "\tcvta.local.u%d %%frame, %%farray;\n",
+		   BITS_PER_WORD);
+	}
     }
 
   /* Emit axis predicates. */
@@ -886,6 +924,10 @@ const char *
 nvptx_output_return (void)
 {
   machine_mode mode = (machine_mode)cfun->machine->ret_reg_mode;
+
+  if (cfun->machine->using_softstack)
+    fprintf (asm_out_file, "\tst.shared.u%d [%%fstmp2], %%fstmp1;\n",
+	     BITS_PER_WORD);
 
   if (mode != VOIDmode)
     {
@@ -4022,6 +4064,13 @@ nvptx_file_end (void)
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_red_align,
 	       worker_red_name, worker_red_size);
+    }
+
+  if (need_softstack_decl)
+    {
+      fprintf (asm_out_file, "// BEGIN GLOBAL VAR DECL: __nvptx_stacks\n");
+      fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[32];\n",
+	       BITS_PER_WORD);
     }
 }
 
