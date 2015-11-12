@@ -12362,12 +12362,50 @@ package body Sem_Util is
       end if;
    end Is_Local_Variable_Reference;
 
+   -----------------------------------------------
+   -- Is_Nontrivial_Default_Init_Cond_Procedure --
+   -----------------------------------------------
+
+   function Is_Nontrivial_Default_Init_Cond_Procedure
+     (Id : Entity_Id) return Boolean
+   is
+      Body_Decl : Node_Id;
+      Stmt : Node_Id;
+
+   begin
+      if Ekind (Id) = E_Procedure
+        and then Is_Default_Init_Cond_Procedure (Id)
+      then
+         Body_Decl :=
+           Unit_Declaration_Node
+             (Corresponding_Body (Unit_Declaration_Node (Id)));
+
+         --  The body of the Default_Initial_Condition procedure must contain
+         --  at least one statement, otherwise the generation of the subprogram
+         --  body failed.
+
+         pragma Assert (Present (Handled_Statement_Sequence (Body_Decl)));
+
+         --  To qualify as nontrivial, the first statement of the procedure
+         --  must be a check in the form of an if statement. If the original
+         --  Default_Initial_Condition expression was folded, then the first
+         --  statement is not a check.
+
+         Stmt := First (Statements (Handled_Statement_Sequence (Body_Decl)));
+
+         return
+           Nkind (Stmt) = N_If_Statement
+             and then Nkind (Original_Node (Stmt)) = N_Pragma;
+      end if;
+
+      return False;
+   end Is_Nontrivial_Default_Init_Cond_Procedure;
+
    -------------------------
    -- Is_Object_Reference --
    -------------------------
 
    function Is_Object_Reference (N : Node_Id) return Boolean is
-
       function Is_Internally_Generated_Renaming (N : Node_Id) return Boolean;
       --  Determine whether N is the name of an internally-generated renaming
 
@@ -16258,27 +16296,23 @@ package body Sem_Util is
             --  If we are sure this is a modification from source, and we know
             --  this modifies a constant, then give an appropriate warning.
 
-            if Overlays_Constant (Ent)
-              and then (Modification_Comes_From_Source and Sure)
+            if Sure
+              and then Modification_Comes_From_Source
+              and then Overlays_Constant (Ent)
+              and then Address_Clause_Overlay_Warnings
             then
                declare
-                  A : constant Node_Id := Address_Clause (Ent);
+                  Addr  : constant Node_Id := Address_Clause (Ent);
+                  O_Ent : Entity_Id;
+                  Off   : Boolean;
+
                begin
-                  if Present (A) then
-                     declare
-                        Exp : constant Node_Id := Expression (A);
-                     begin
-                        if Nkind (Exp) = N_Attribute_Reference
-                          and then Attribute_Name (Exp) = Name_Address
-                          and then Is_Entity_Name (Prefix (Exp))
-                        then
-                           Error_Msg_Sloc := Sloc (A);
-                           Error_Msg_NE
-                             ("constant& may be modified via address "
-                              & "clause#??", N, Entity (Prefix (Exp)));
-                        end if;
-                     end;
-                  end if;
+                  Find_Overlaid_Entity (Addr, O_Ent, Off);
+
+                  Error_Msg_Sloc := Sloc (Addr);
+                  Error_Msg_NE
+                    ("??constant& may be modified via address clause#",
+                     N, O_Ent);
                end;
             end if;
 
