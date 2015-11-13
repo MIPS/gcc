@@ -2011,8 +2011,7 @@ transform_to_exit_first_loop (struct loop *loop,
 /* Create the parallel constructs for LOOP as described in gen_parallel_loop.
    LOOP_FN and DATA are the arguments of GIMPLE_OMP_PARALLEL.
    NEW_DATA is the variable that should be initialized from the argument
-   of LOOP_FN.  N_THREADS is the requested number of threads.  Returns the
-   basic block containing GIMPLE_OMP_PARALLEL tree.  */
+   of LOOP_FN.  N_THREADS is the requested number of threads.  */
 
 static void
 create_parallel_loop (struct loop *loop, tree loop_fn, tree data,

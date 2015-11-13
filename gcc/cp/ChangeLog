@@ -1,3 +1,25 @@
+2015-11-11  Jason Merrill  <jason@redhat.com>
+
+	* decl.c (duplicate_decls): When combining typedefs, remove the
+	new type from the variants list.
+
+2015-11-11  Jason Merrill  <jason@redhat.com>
+
+	* pt.c (instantiate_class_template_1): Set function_depth around
+	instantiation of lambda op().
+
+2015-11-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68107
+	PR c++/68266
+	* decl.c (grokdeclarator): Call valid_array_size_p.  Remove code
+	checking the size of an array.
+
+2015-11-11  Dominique d'Humieres <dominiq@lps.ens.fr>
+
+	PR bootstrap/68271
+	* parser.h (cp_token): Update pragma_kind to 8.
+
 2015-11-11  Andrew MacLeod  <amacleod@redhat.com>
 
 	* call.c: Remove unused header files.

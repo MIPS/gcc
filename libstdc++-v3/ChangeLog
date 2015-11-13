@@ -1,3 +1,29 @@
+2015-11-12  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/experimental/bits/string_view.tcc: Fix doxygen @file.
+
+2015-11-11  Jonathan Wakely  <jwakely@redhat.com>
+
+	* libsupc++/new_handler.cc: Fix for explicit constructor change.
+
+	PR libstdc++/60421
+	* include/std/thread (this_thread::sleep_for): Retry on EINTR.
+	(this_thread::sleep_until): Retry if time not reached.
+	* src/c++11/thread.cc (__sleep_for): Retry on EINTR.
+	* testsuite/30_threads/this_thread/60421.cc: Test interruption and
+	non-steady clocks.
+
+2015-11-11  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	LWG 2510, make the default constructors of library tag types
+	explicit.
+	* include/bits/mutex.h (defer_lock_t, try_lock_t,
+	adopt_lock_t): Add an explicit default constructor.
+	* include/bits/stl_pair.h (piecewise_construct_t): Likewise.
+	* include/bits/uses_allocator.h (allocator_arg_t): Likewise.
+	* libsupc++/new (nothrow_t): Likewise.
+	* testsuite/17_intro/tag_type_explicit_ctor.cc: New.
+
 2015-11-11  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/64651

@@ -1,3 +1,60 @@
+2015-11-12  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.target/powerpc/pr67789.c: Skip on AIX and Darwin.
+
+2015-11-12  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR tree-optimization/68305
+	* gcc.dg/vect/pr68305.c: New test.
+
+2015-11-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/i386/pr67265-2.c: New test.
+
+2015-11-12  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	* gcc.dg/pr68286.c: New test.
+
+2015-11-12  Christian Bruel  <christian.bruel@st.com>
+
+	* gcc.target/arm/mmx-1.c: Adjust for unified asm.
+
+2015-11-12  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.target/i386/sse-1.c (swizzle): Assume that a is
+	aligned to 64 bits.
+
+2015-11-11  David Edelsohn  <dje.gcc@gmail.com>
+
+	* gcc.dg/pr65521.c: Fail on AIX.
+
+2015-11-11  Sebastian Pop  <s.pop@samsung.com>
+
+	* gcc.dg/graphite/fuse-1.c: Adjust pattern.  Remove dg-do.
+	* gcc.dg/graphite/fuse-2.c: Same.
+	* gcc.dg/graphite/graphite.exp (opt_files): Add fuse-*.c and
+	isl-ast-gen-*.c files.
+	* gcc.dg/graphite/isl-ast-gen-blocks-1.c: Remove dg-do and dg-options.
+	* gcc.dg/graphite/isl-ast-gen-blocks-2.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-blocks-3.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-blocks-4.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-if-1.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-if-2.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-single-loop-1.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-single-loop-2.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-single-loop-3.c: Same.
+	* gcc.dg/graphite/isl-ast-gen-user-1.c: Same.
+	* gcc.dg/graphite/isl-codegen-loop-dumping.c: Remove.
+
+2015-11-11  Marek Polacek  <polacek@redhat.com>
+
+	PR c/68107
+	PR c++/68266
+	* c-c++-common/pr68107.c: New test.
+	* g++.dg/init/new38.C (large_array_char): Adjust dg-error.
+	(large_array_char_template): Likewise.
+	* g++.dg/init/new44.C: Adjust dg-error.
+
 2015-11-11  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gfortran.dg/goacc/private-3.f95: Remove xfail.

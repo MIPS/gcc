@@ -2191,6 +2191,17 @@ package body Sem_Ch4 is
 
                Get_Next_Interp (I, It);
             end loop;
+
+            --  If no valid interpretation has been found, then the type of
+            --  the ELSE expression does not match any interpretation of
+            --  the THEN expression.
+
+            if Etype (N) = Any_Type then
+               Error_Msg_N
+                 ("type incompatible with that of `THEN` expression",
+                  Else_Expr);
+               return;
+            end if;
          end;
       end if;
    end Analyze_If_Expression;
@@ -4643,6 +4654,23 @@ package body Sem_Ch4 is
                  and then
                    Comp = First_Private_Entity (Base_Type (Prefix_Type));
          end loop;
+
+         --  If the scope is a current instance, the prefix cannot be an
+         --  expression of the same type (that would represent an attempt
+         --  to reach an internal operation of another synchronized object).
+         --  This is legal if prefix is an access to such type and there is
+         --  a dereference.
+
+         if In_Scope
+           and then not Is_Entity_Name (Name)
+           and then Nkind (Name) /= N_Explicit_Dereference
+         then
+            Error_Msg_NE ("invalid reference to internal operation "
+               & "of some object of type&", N, Type_To_Use);
+            Set_Entity (Sel, Any_Id);
+            Set_Etype (Sel, Any_Type);
+            return;
+         end if;
 
          --  If there is no visible entity with the given name or none of the
          --  visible entities are plausible interpretations, check whether
@@ -7190,10 +7218,43 @@ package body Sem_Ch4 is
                begin
                   --  We should look for an interpretation with the proper
                   --  number of formals, and determine whether it is an
-                  --  In_Parameter, but for now assume that in the overloaded
-                  --  case constant indexing is legal. To be improved ???
+                  --  In_Parameter, but for now we examine the formal that
+                  --  corresponds to the indexing, and assume that variable
+                  --  indexing is required if some interpretation has an
+                  --  assignable formal at that position.  Still does not
+                  --  cover the most complex cases ???
 
                   if Is_Overloaded (Name (Parent (Par))) then
+                     declare
+                        Proc : constant Node_Id := Name (Parent (Par));
+                        A    : Node_Id;
+                        F    : Entity_Id;
+                        I    : Interp_Index;
+                        It   : Interp;
+
+                     begin
+                        Get_First_Interp (Proc, I, It);
+                        while Present (It.Nam) loop
+                           F := First_Formal (It.Nam);
+                           A := First (Parameter_Associations (Parent (Par)));
+
+                           while Present (F) and then Present (A) loop
+                              if A = Par then
+                                 if Ekind (F) /= E_In_Parameter then
+                                    return False;
+                                 else
+                                    exit;  --  interpretation is safe
+                                 end if;
+                              end if;
+
+                              Next_Formal (F);
+                              Next_Actual (A);
+                           end loop;
+
+                           Get_Next_Interp (I, It);
+                        end loop;
+                     end;
+
                      return True;
 
                   else
