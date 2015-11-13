@@ -5728,7 +5728,8 @@ build_new_op_1 (location_t loc, enum tree_code code, int flags, tree arg1,
     case TRUTH_OR_EXPR:
       if (complain & tf_warning)
 	warn_logical_operator (loc, code, boolean_type_node,
-			       code_orig_arg1, fold (arg1), code_orig_arg2, fold (arg2));
+			       code_orig_arg1, fold (arg1),
+			       code_orig_arg2, fold (arg2));
       /* Fall through.  */
     case GT_EXPR:
     case LT_EXPR:

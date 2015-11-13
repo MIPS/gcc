@@ -20366,8 +20366,8 @@ cp_parser_initializer_clause (cp_parser* parser, bool* non_constant_p)
     {
       initializer
 	= cp_parser_constant_expression (parser,
-					 /*allow_non_constant_p=*/true,
-					 non_constant_p);
+					/*allow_non_constant_p=*/true,
+					non_constant_p);
     }
   else
     initializer = cp_parser_braced_list (parser, non_constant_p);

@@ -6221,7 +6221,6 @@ pop_from_top_level_1 (void)
      state.  */
   if (s->need_pop_function_context)
     pop_function_context ();
-
   current_function_decl = s->function_decl;
   cp_unevaluated_operand = s->unevaluated_operand;
   c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
