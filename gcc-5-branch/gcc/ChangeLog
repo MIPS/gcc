@@ -1,3 +1,172 @@
+2015-11-12  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/67265
+	* config/i386/i386.c (ix86_adjust_stack_and_probe): Remove obsolete
+	assertion on the CFA register.
+
+2015-11-11  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/67265
+	* ira.c (ira_setup_eliminable_regset): Do not necessarily create the
+	frame pointer for stack checking if non-call exceptions aren't used.
+	* config/i386/i386.c (ix86_finalize_stack_realign_flags): Likewise.
+
+2015-11-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68129
+	* config/aarch64/aarch64.h (TARGET_SUPPORTS_WIDE_INT): Define to 1.
+	* config/aarch64/aarch64.c (aarch64_print_operand, CONST_DOUBLE):
+	Delete VOIDmode case.  Assert that mode is not VOIDmode.
+	* config/aarch64/predicates.md (const0_operand): Remove const_double
+	match.
+
+2015-11-10  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Partial backport from trunk r228751.
+	PR tree-optimization/68238
+	2015-10-13  Richard Biener  <rguenther@suse.de>
+
+	* tree-vect-loop.c (vect_estimate_min_profitable_iters): Use
+	LOOP_VINFO_COMP_ALIAS_DDRS to estimate alias versioning cost.
+
+2015-11-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/57845
+	* config/sparc/sparc.c (sparc_function_value_1): In 32-bit mode, do
+	not promote the mode for aggregate types.
+
+2015-11-09  Mike Stump  <mikestump@comcast.net>
+
+	PR debug/66728
+	* dwarf2out.c (get_full_len): Return a value based upon the actual
+	precision needed for the value.
+	(add_const_value_attribute): Use a maximal wide-int for
+	CONST_WIDE_INTs, not VOIDmode.
+	(output_die): Don't ever output NULL with printf.
+
+	* rtl.h (get_precision of rtx_mode_t): Ensure we never process
+	BLKmode nor VOIDmode values.
+
+2015-11-06  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/68106
+	* lra-remat.c (input_regno_present_p): Process hard regs
+	explicitly present in machine description insns.
+	(call_used_input_regno_present_p): Ditto.
+	(calculate_gen_cands): Ditto.
+	(do_remat): Ditto.
+
+2015-11-02  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/rs6000/freebsd64.h (ASM_SPEC32): Adapt spec to handle PIE
+	executables.
+
+2015-11-02  Steve Ellcey  <sellcey@imgtec.com>
+
+	Backport from mainline
+	2015-10-23  Steve Ellcey  <sellcey@imgtec.com>
+	            Andrew Pinski  <apinski@cavium.com>
+
+	PR rtl-optimization/67736
+	* combine.c (simplify_comparison): Use gen_lowpart_or_truncate instead
+	of gen_lowpart.
+
+2015-10-28  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-10-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68102
+	* config/aarch64/aarch64.md (*movsi_aarch64): Check that
+	operands[0] is a reg before taking its REGNO in split condition.
+	(*movdi_aarch64): Likewise.
+
+2015-10-27  Caroline Tice  <cmtice@google.com.
+
+	(from Richard Biener)
+	* tree.c (int_cst_hasher::hash):  Replace XOR with more efficient
+	call to interative_hash_host_wide_int.
+
+2015-10-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	Backport from mainline
+	2015-10-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR middle-end/67989
+	* optabs.c (expand_atomic_compare_and_swap): Handle case when
+	ptarget_oval or ptarget_bool are const0_rtx.
+
+2015-10-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/67929
+	* config/arm/arm.c (vfp3_const_double_for_bits): Rewrite.
+	* config/arm/constraints.md (Dp): Update callsite.
+	* config/arm/predicates.md (const_double_vcvt_power_of_two): Likewise.
+
+2015-10-27  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-sra.c (replace_removed_params_ssa_names): Change type of
+	parameter stmt to gimple.
+
+2015-10-26  Martin Jambor  <mjambor@suse.cz>
+
+	Backport from mainline
+	2015-10-09  Martin Jambor  <mjambor@suse.cz>
+
+	PR tree-optimization/67794
+	* tree-sra.c (replace_removed_params_ssa_names): Do not distinguish
+	between types of statements but accept original definitions as a
+	parameter.
+	(ipa_sra_modify_function_body): Use FOR_EACH_SSA_DEF_OPERAND to
+	iterate over definitions.
+
+2015-10-25  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR middle-end/68079
+	* dojump.c (do_compare_and_jump): Canonicalize both function and
+	method types.
+
+2015-10-22  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	Backport from mainline
+	2015-10-22  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	PR target/68015
+	* config/s390/s390.md (mov<mode>cc): Emit compare only if we don't
+	already have a comparison result.
+
+2015-10-22  Uros Bizjak  <ubizjak@gmail.com>
+
+	Backport from mainline
+	2015-10-21  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/68018
+	* config/i386/i386.c (ix86_compute_frame_layout): Realign the stack
+	for 64-bit MS_ABI targets also when default incoming stack boundary
+	is overriden.
+
+2015-10-20  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	Backport from mainline r229024
+	2015-10-20  Szabolcs Nagy  <szabolcs.nagy@arm.com>
+
+	PR target/66912
+	* varasm.c (default_binds_local_p_2): Turn on extern_protected_data.
+
+2015-10-19  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2015-07-20  Mikhail Maltsev  <maltsevm@gmail.com>
+
+	* wide-int.h (struct binary_traits): Fix partial specialization syntax.
+	(struct int_traits): Likewise.
+
+2015-10-16  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR middle-end/66311
+	* wide-int.cc (wi::from_mpz): Make sure that absolute mpz value
+	is zero- rather than sign-extended.
+
 2015-10-15  Peter Bergner  <bergner@vnet.ibm.com>
 
 	Backport from mainline
@@ -720,7 +889,7 @@
 	Backport from mainline
 	2015-08-21  Dominik Vogt  <vogt@linux.vnet.ibm.com>
 
-    	* config/s390/s390-builtins.def: Fix value range of vec_load_bndry.
+	* config/s390/s390-builtins.def: Fix value range of vec_load_bndry.
 
 2015-08-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
