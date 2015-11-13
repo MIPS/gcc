@@ -1,3 +1,9 @@
+2015-10-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	<patch ieee #9>
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Add
+	-mfloat128.
+
 2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	<patch ieee #8>
