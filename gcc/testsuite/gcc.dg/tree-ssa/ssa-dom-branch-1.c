@@ -21,7 +21,18 @@ try_combine (rtx i1, rtx newpat)
 
 /* There should be three tests against i1.  Two from the hash table
    dumps, one in the code itself.  */
-/* { dg-final { scan-tree-dump-times "if .i1_" 3 "dom1"} } */
+
+/* The above is true for FSF GCC.  It was updated to be less chatty when
+   printing out elements from dom1.  Introduced with:
+
+    2014-11-20   Richard Biener  <rguenther@suse.de>
+
+        PR tree-optimization/63677
+        ....
+
+   We actually print out 6 times.  */
+
+/* { dg-final { scan-tree-dump-times "if .i1_" 6 "dom1"} } */
 
 /* There should be no actual jump threads realized by DOM.  The
    legitimize jump threads are handled in VRP and those discovered
