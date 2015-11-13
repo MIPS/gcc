@@ -1,4 +1,8 @@
 2015-11-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/ordered-5.c: New test.
+
+2015-11-13  Jakub Jelinek  <jakub@redhat.com>
 	    Ilya Verbin  <ilya.verbin@intel.com>
 
 	* parallel.c (gomp_resolve_num_threads): Don't assume that
