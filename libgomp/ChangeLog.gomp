@@ -2,7 +2,7 @@
 
 	* ordered.c (gomp_doacross_init, GOMP_doacross_post,
 	GOMP_doacross_wait, gomp_doacross_ull_init, GOMP_doacross_ull_post,
-	GOMP_doacross_ull_wait): For GFS_DYNAMIC don't divide number of
+	GOMP_doacross_ull_wait): For GFS_GUIDED don't divide number of
 	iterators or IV by chunk size.
 	* testsuite/libgomp.c/doacross-3.c: New test.
 
