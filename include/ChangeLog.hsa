@@ -1,3 +1,9 @@
+2015-11-13  Martin Jambor  <mjambor@suse.cz>
+
+	* gomp-constants.h (GOMP_kernel_launch_attributes): New type.
+	(hsa_kernel_dispatch): Reneamed to GOMP_hsa_kernel_dispatch.
+	Adjusted all callers.
+
 2015-11-04  Martin Jambor  <mjambor@suse.cz>
 
 	* gomp-constants.h (hsa_kernel_dispatch): Fix a typo.

@@ -226,10 +226,23 @@ enum gomp_map_kind
 
 /* HSA specific data structures.  */
 
-/* HSA kernel dispatch is collection of information needed for
-   a kernel dispatch.  */
+/* Structure describing the run-time and grid properties of an HSA kernel
+   lauch.  */
 
-struct hsa_kernel_dispatch
+struct GOMP_kernel_launch_attributes
+{
+  /* Number of dimensions the workload has.  Maximum number is 3.  */
+  uint32_t ndim;
+  /* Size of the grid in the three respective dimensions.  */
+  uint32_t gdims[3];
+  /* Size of work-groups in the respective dimensions.  */
+  uint32_t wdims[3];
+};
+
+/* Collection of information needed for a dispatch of a kernel from a
+   kernel.  */
+
+struct GOMP_hsa_kernel_dispatch
 {
   /* Pointer to a command queue associated with a kernel dispatch agent.  */
   void *queue;
@@ -252,7 +265,7 @@ struct hsa_kernel_dispatch
   /* Debug purpose argument.  */
   uint64_t debug;
   /* Kernel dispatch structures created for children kernel dispatches.  */
-  struct hsa_kernel_dispatch **children_dispatches;
+  struct GOMP_hsa_kernel_dispatch **children_dispatches;
 };
 
 #endif

@@ -1372,11 +1372,12 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
   struct gomp_device_descr *devicep = resolve_device (device);
 
   if (devicep == NULL
-      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      /* All shared memory devices should use the GOMP_target_ext function.  */
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return gomp_target_fallback (fn, hostaddrs);
 
   void *fn_addr = gomp_get_target_fn_addr (devicep, fn);
-  assert (fn_addr);
 
   struct target_mem_desc *tgt_vars
     = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds, false,

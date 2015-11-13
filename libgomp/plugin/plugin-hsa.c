@@ -806,13 +806,13 @@ final:
 
 /* Create kernel dispatch data structure for given KERNEL.  */
 
-static struct hsa_kernel_dispatch *
+static struct GOMP_hsa_kernel_dispatch *
 create_single_kernel_dispatch (struct kernel_info *kernel,
 			       unsigned omp_data_size)
 {
   struct agent_info *agent = kernel->agent;
-  struct hsa_kernel_dispatch *shadow = GOMP_PLUGIN_malloc_cleared
-    (sizeof (struct hsa_kernel_dispatch));
+  struct GOMP_hsa_kernel_dispatch *shadow = GOMP_PLUGIN_malloc_cleared
+    (sizeof (struct GOMP_hsa_kernel_dispatch));
 
   shadow->queue = agent->command_q;
   shadow->omp_data_memory = omp_data_size > 0
@@ -821,7 +821,7 @@ create_single_kernel_dispatch (struct kernel_info *kernel,
   shadow->kernel_dispatch_count = dispatch_count;
 
   shadow->children_dispatches = GOMP_PLUGIN_malloc
-    (dispatch_count * sizeof (struct hsa_kernel_dispatch *));
+    (dispatch_count * sizeof (struct GOMP_hsa_kernel_dispatch *));
 
   shadow->object = kernel->object;
 
@@ -846,7 +846,7 @@ create_single_kernel_dispatch (struct kernel_info *kernel,
 /* Release data structure created for a kernel dispatch in SHADOW argument.  */
 
 static void
-release_kernel_dispatch (struct hsa_kernel_dispatch *shadow)
+release_kernel_dispatch (struct GOMP_hsa_kernel_dispatch *shadow)
 {
   HSA_DEBUG ("Released kernel dispatch: %p has value: %lu (%p)\n",
 	     shadow, shadow->debug, (void *)shadow->debug);
@@ -958,7 +958,7 @@ indent_stream (FILE *f, unsigned indent)
 /* Dump kernel DISPATCH data structure and indent it by INDENT spaces.  */
 
 static void
-print_kernel_dispatch (struct hsa_kernel_dispatch *dispatch, unsigned indent)
+print_kernel_dispatch (struct GOMP_hsa_kernel_dispatch *dispatch, unsigned indent)
 {
   indent_stream (stderr, indent);
   fprintf (stderr, "this: %p\n", dispatch);
@@ -993,10 +993,10 @@ print_kernel_dispatch (struct hsa_kernel_dispatch *dispatch, unsigned indent)
 /* Create kernel dispatch data structure for a KERNEL and all its
    dependencies.  */
 
-static struct hsa_kernel_dispatch *
+static struct GOMP_hsa_kernel_dispatch *
 create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
 {
-  struct hsa_kernel_dispatch *shadow = create_single_kernel_dispatch
+  struct GOMP_hsa_kernel_dispatch *shadow = create_single_kernel_dispatch
     (kernel, omp_data_size);
   shadow->omp_num_threads = 64;
   shadow->debug = 0;
@@ -1047,26 +1047,14 @@ init_kernel (struct kernel_info *kernel)
 		       "mutex");
 }
 
-/* Structure provided by the compiler, specifying the grid, sizes.  */
-
-struct kernel_launch_attributes
-{
-  /* Number of dimensions the workload has.  Maximum number is 3.  */
-  uint32_t ndim;
-  /* Size of the grid in the three respective dimensions.  */
-  uint32_t gdims[3];
-  /* Size of work-groups in the respective dimensions.  */
-  uint32_t wdims[3];
-};
-
 /* Parse the launch attributes INPUT provided by the compiler and return true
    if we should run anything all.  If INPUT is NULL, fill DEF with default
    values, then store INPUT or DEF into *RESULT.  */
 
 static bool
 parse_launch_attributes (const void *input,
-			 struct kernel_launch_attributes *def,
-			 const struct kernel_launch_attributes **result)
+			 struct GOMP_kernel_launch_attributes *def,
+			 const struct GOMP_kernel_launch_attributes **result)
 {
   if (!input)
     {
@@ -1082,8 +1070,8 @@ parse_launch_attributes (const void *input,
       return true;
     }
 
-  const struct kernel_launch_attributes *kla;
-  kla = (const struct kernel_launch_attributes *) input;
+  const struct GOMP_kernel_launch_attributes *kla;
+  kla = (const struct GOMP_kernel_launch_attributes *) input;
   *result = kla;
   if (kla->ndim != 1)
     GOMP_PLUGIN_fatal ("HSA does not yet support number of dimensions "
@@ -1131,8 +1119,8 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
 {
   struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
   struct agent_info *agent = kernel->agent;
-  struct kernel_launch_attributes def;
-  const struct kernel_launch_attributes *kla;
+  struct GOMP_kernel_launch_attributes def;
+  const struct GOMP_kernel_launch_attributes *kla;
   if (!parse_launch_attributes (kern_launch, &def, &kla))
     {
       HSA_DEBUG ("Will not run HSA kernel because the grid size is zero\n");
@@ -1147,7 +1135,7 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
   if (!kernel->initialized)
     GOMP_PLUGIN_fatal ("Called kernel must be initialized");
 
-  struct hsa_kernel_dispatch *shadow = create_kernel_dispatch
+  struct GOMP_hsa_kernel_dispatch *shadow = create_kernel_dispatch
     (kernel, kernel->max_omp_data_size);
 
   if (debug)

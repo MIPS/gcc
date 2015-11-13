@@ -1,3 +1,8 @@
+2015-11-13  Martin Jambor  <mjambor@suse.cz>
+
+	* target.c (GOMP_target): Do not offload to shared memory devices.
+	* plugin/plugin-hsa.c (kernel_launch_attributes): Removed.
+
 2015-11-11  Martin Liska  <mliska@suse.cz>
 
 	* plugin/plugin-hsa.c (struct global_var_info): New structure.
