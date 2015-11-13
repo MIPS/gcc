@@ -6182,19 +6182,6 @@ push_to_top_level (void)
   s->unevaluated_operand = cp_unevaluated_operand;
   s->inhibit_evaluation_warnings = c_inhibit_evaluation_warnings;
   s->x_stmt_tree.stmts_are_full_exprs_p = true;
-  if (current_function_decl
-      && scope_chain && scope_chain->function_decl == current_function_decl
-      && cfun && scope_chain->act_cfun == cfun)
-    {
-      s->fold_map = scope_chain->fold_map;
-      s->cv_map = scope_chain->cv_map;
-    }
-  else
-    {
-      s->fold_map = NULL;
-      s->cv_map = NULL;
-    }
-  s->act_cfun = cfun;
 
   scope_chain = s;
   current_function_decl = NULL_TREE;
@@ -6212,10 +6199,7 @@ pop_from_top_level_1 (void)
 {
   struct saved_scope *s = scope_chain;
   cxx_saved_binding *saved;
-  hash_map<tree, tree> *fm = s->fold_map;
-  hash_map<tree, tree> *cv = s->cv_map;
   size_t i;
-  bool same_fold_map = false;
 
   /* Clear out class-level bindings cache.  */
   if (previous_class_level)
@@ -6238,30 +6222,9 @@ pop_from_top_level_1 (void)
   if (s->need_pop_function_context)
     pop_function_context ();
 
-  /* If 'current_function_decl' isn't NULL and is equal to prior pushed,
-     we are within a nested function.
-     If additionally saved 'cfun' is identical to current, we can use
-     the same 'fold_map'.  */
-  if (current_function_decl && s->function_decl == current_function_decl
-      && scope_chain && s->fold_map == scope_chain->fold_map
-      && scope_chain->act_cfun && scope_chain->act_cfun == cfun)
-    same_fold_map = true;
-
   current_function_decl = s->function_decl;
   cp_unevaluated_operand = s->unevaluated_operand;
   c_inhibit_evaluation_warnings = s->inhibit_evaluation_warnings;
-
-  /* If we have a new 'fold_map', and it isn't equal, or outside of
-     scope_chain, then invalidate it.  */
-  if (fm && (!same_fold_map || !scope_chain))
-    delete fm;
-  if (cv && (!same_fold_map || !scope_chain))
-    delete cv;
-
-  /* Invalidate explicit.  */
-  s->fold_map = NULL;
-  s->cv_map = NULL;
-  s->act_cfun = NULL;
 }
 
 /* Wrapper for pop_from_top_level_1.  */

@@ -3959,6 +3959,8 @@ maybe_constant_value_1 (tree t, tree decl)
   return r;
 }
 
+static GTY((cache, deletable)) cache_map cv_cache;
+
 /* If T is a constant expression, returns its reduced value.
    Otherwise, if T does not have TREE_CONSTANT set, returns T.
    Otherwise, returns a version of T without TREE_CONSTANT.  */
@@ -3966,46 +3968,12 @@ maybe_constant_value_1 (tree t, tree decl)
 tree
 maybe_constant_value (tree t, tree decl)
 {
-  tree ret;
-  hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
-  hash_map<tree, tree> *cv = (scope_chain ? scope_chain->cv_map : NULL);
-
-  /* If current scope has a hash_map, but it was for different CFUN,
-     then destroy hash_map to avoid issues with ggc_collect.  */
-  if ((cv || ctx) && scope_chain->act_cfun != cfun)
+  tree ret = cv_cache.get (t);
+  if (!ret)
     {
-      if (ctx)
-	delete ctx;
-      if (cv)
-	delete cv;
-      ctx = NULL;
-      scope_chain->act_cfun = NULL;
-      scope_chain->fold_map = NULL;
-      scope_chain->cv_map = NULL;
+      ret = maybe_constant_value_1 (t, decl);
+      cv_cache.put (t, ret);
     }
-  if (cv && scope_chain && cfun)
-    {
-      cv = scope_chain->cv_map = new hash_map <tree, tree>;
-      scope_chain->act_cfun = cfun;
-    }
-
-  if (cv)
-    {
-      tree *slot = cv->get (t);
-      if (slot && *slot)
-	return *slot;
-    }
-
-  ret = maybe_constant_value_1 (t, decl);
-
-  if (cv)
-    {
-      /* We don't need to cache RET, as it is a
-	 constant-value if it differs.  */
-      tree *slot = &cv->get_or_insert (t);
-      *slot = ret;
-    }
-
   return ret;
 }
 

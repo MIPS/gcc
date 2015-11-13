@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 static tree cp_genericize_r (tree *, int *, void *);
 static tree cp_fold_r (tree *, int *, void *);
 static void cp_genericize_tree (tree*);
-static tree cp_fold (tree, hash_map<tree, tree> *);
+static tree cp_fold (tree);
 
 /* Local declarations.  */
 
@@ -932,10 +932,9 @@ static tree
 cp_fold_r (tree *stmt_p, int *walk_subtrees, void *data)
 {
   tree stmt;
-  hash_map<tree, tree> *fold_hash = (hash_map<tree, tree> *) data;
   enum tree_code code;
 
-  *stmt_p = stmt = cp_fold (*stmt_p, fold_hash);
+  *stmt_p = stmt = cp_fold (*stmt_p);
 
   code = TREE_CODE (stmt);
   if (code == OMP_FOR || code == OMP_SIMD || code == OMP_DISTRIBUTE
@@ -1471,8 +1470,7 @@ cp_genericize (tree fndecl)
 {
   tree t;
 
-  hash_map<tree, tree> fold_hash;
-  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, &fold_hash, NULL);
+  cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, NULL, NULL);
 
   /* Fix up the types of parms passed by invisible reference.  */
   for (t = DECL_ARGUMENTS (fndecl); t; t = DECL_CHAIN (t))
@@ -1875,40 +1873,10 @@ contains_label_p (tree st)
 tree
 cp_fully_fold (tree x)
 {
-  hash_map<tree, tree> *ctx = (scope_chain ? scope_chain->fold_map : NULL);
-  hash_map<tree, tree> *cv = (scope_chain ? scope_chain->cv_map : NULL);
-
-  /* If current scope has a hash_map, but it was for different CFUN,
-     then destroy hash_map to avoid issues with ggc_collect.  */
-  if ((cv || ctx) && scope_chain->act_cfun != cfun)
-    {
-      if (ctx)
-	delete ctx;
-      if (cv)
-	delete cv;
-      ctx = NULL;
-      scope_chain->act_cfun = NULL;
-      scope_chain->fold_map = NULL;
-      scope_chain->cv_map = NULL;
-    }
-
-  /* If there is no hash_map, but there is a scope, and a set CFUN,
-     then create the hash_map for scope.  */
-  if (!ctx && scope_chain && cfun)
-    {
-      ctx = scope_chain->fold_map = new hash_map <tree, tree>;
-      scope_chain->act_cfun = cfun;
-    }
-  /* Otherwise if there is no hash_map, use for folding temporary
-     hash_map.  */
-  else if (!ctx)
-    {
-      hash_map<tree, tree> fold_hash;
-      return cp_fold (x, &fold_hash);
-    }
-
-  return cp_fold (x, ctx);
+  return cp_fold (x);
 }
+
+static GTY((cache, deletable)) cache_map fold_cache;
 
 /*  This function tries to fold given expression X in GENERIC-form.
     For performance-reason, and for avoiding endless-recursion the
@@ -1920,9 +1888,9 @@ cp_fully_fold (tree x)
     Function returns X, or its folded variant.  */
 
 static tree
-cp_fold (tree x, hash_map<tree, tree> *fold_hash)
+cp_fold (tree x)
 {
-  tree *slot, op0, op1, op2, op3;
+  tree op0, op1, op2, op3;
   tree org_x = x, r = NULL_TREE;
   enum tree_code code;
   location_t loc;
@@ -1930,8 +1898,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   if (!x || x == error_mark_node)
     return x;
 
-  if (!fold_hash
-      || processing_template_decl
+  if (processing_template_decl
       || (EXPR_P (x) && !TREE_TYPE (x)))
     return x;
 
@@ -1939,9 +1906,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
   if (DECL_P (x) || CONSTANT_CLASS_P (x))
     return x;
 
-  slot = fold_hash->get (x);
-  if (slot && *slot)
-    return *slot;
+  if (tree cached = fold_cache.get (x))
+    return cached;
 
   code = TREE_CODE (x);
   switch (code)
@@ -1970,7 +1936,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	  && TREE_TYPE (x) == TREE_TYPE (op0))
 	return x;
 
-      op0 = cp_fold (op0, fold_hash);
+      op0 = cp_fold (op0);
 
       if (op0 != TREE_OPERAND (x, 0))
         x = build1_loc (loc, code, TREE_TYPE (x), op0);
@@ -2002,7 +1968,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case INDIRECT_REF:
 
       loc = EXPR_LOCATION (x);
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+      op0 = cp_fold (TREE_OPERAND (x, 0));
 
       if (op0 != TREE_OPERAND (x, 0))
         x = build1_loc (loc, code, TREE_TYPE (x), op0);
@@ -2018,8 +1984,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case INIT_EXPR:
 
 	loc = EXPR_LOCATION (x);
-	op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-	op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
+	op0 = cp_fold (TREE_OPERAND (x, 0));
+	op1 = cp_fold (TREE_OPERAND (x, 1));
 
 	if (TREE_OPERAND (x, 0) != op0 || TREE_OPERAND (x, 1) != op1)
 	  x = build2_loc (loc, code, TREE_TYPE (x), op0, op1);
@@ -2067,8 +2033,8 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case MODIFY_EXPR:
 
       loc = EXPR_LOCATION (x);
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-      op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
+      op0 = cp_fold (TREE_OPERAND (x, 0));
+      op1 = cp_fold (TREE_OPERAND (x, 1));
       if ((code == COMPOUND_EXPR || code == MODIFY_EXPR)
 	  && ((op1 && TREE_SIDE_EFFECTS (op1))
 	       || (op0 && TREE_SIDE_EFFECTS (op0))))
@@ -2090,13 +2056,13 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case COND_EXPR:
 
       loc = EXPR_LOCATION (x);
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
+      op0 = cp_fold (TREE_OPERAND (x, 0));
 
       if (TREE_SIDE_EFFECTS (op0))
 	break;
 
-      op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
-      op2 = cp_fold (TREE_OPERAND (x, 2), fold_hash);
+      op1 = cp_fold (TREE_OPERAND (x, 1));
+      op2 = cp_fold (TREE_OPERAND (x, 2));
 
       if (TREE_CODE (op0) == INTEGER_CST)
 	{
@@ -2157,7 +2123,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
 	if (TREE_CODE (r) != CALL_EXPR)
 	  {
-	    x = cp_fold (r, fold_hash);
+	    x = cp_fold (r);
 	    break;
 	  }
 
@@ -2166,7 +2132,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	m = call_expr_nargs (x);
 	for (i = 0; i < m; i++)
 	  {
-	    r = cp_fold (CALL_EXPR_ARG (x, i), fold_hash);
+	    r = cp_fold (CALL_EXPR_ARG (x, i));
 	    if (r != CALL_EXPR_ARG (x, i))
 	      changed = 1;
 	    CALL_EXPR_ARG (x, i) = r;
@@ -2178,7 +2144,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
 	if (TREE_CODE (r) != CALL_EXPR)
 	  {
-	    x = cp_fold (r, fold_hash);
+	    x = cp_fold (r);
 	    break;
 	  }
 
@@ -2210,7 +2176,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 	constructor_elt *p;
 	vec<constructor_elt, va_gc> *elts = CONSTRUCTOR_ELTS (x);
 	FOR_EACH_VEC_SAFE_ELT (elts, i, p)
-	  p->value = cp_fold (p->value, fold_hash);
+	  p->value = cp_fold (p->value);
 	break;
       }
     case TREE_VEC:
@@ -2222,7 +2188,7 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
 
 	for (i = 0; i < n; i++)
 	  {
-	    tree op = cp_fold (TREE_VEC_ELT (x, i), fold_hash);
+	    tree op = cp_fold (TREE_VEC_ELT (x, i));
 	    vec->quick_push (op);
 	    if (op != TREE_VEC_ELT (x, i))
 	      changed = true;
@@ -2245,10 +2211,10 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
     case ARRAY_RANGE_REF:
 
       loc = EXPR_LOCATION (x);
-      op0 = cp_fold (TREE_OPERAND (x, 0), fold_hash);
-      op1 = cp_fold (TREE_OPERAND (x, 1), fold_hash);
-      op2 = cp_fold (TREE_OPERAND (x, 2), fold_hash);
-      op3 = cp_fold (TREE_OPERAND (x, 3), fold_hash);
+      op0 = cp_fold (TREE_OPERAND (x, 0));
+      op1 = cp_fold (TREE_OPERAND (x, 1));
+      op2 = cp_fold (TREE_OPERAND (x, 2));
+      op3 = cp_fold (TREE_OPERAND (x, 3));
 
       if (op0 != TREE_OPERAND (x, 0) || op1 != TREE_OPERAND (x, 1)
 	  || op2 != TREE_OPERAND (x, 2) || op3 != TREE_OPERAND (x, 3))
@@ -2261,15 +2227,12 @@ cp_fold (tree x, hash_map<tree, tree> *fold_hash)
       return org_x;
     }
 
-  slot = &fold_hash->get_or_insert (org_x);
-  *slot = x;
-
+  fold_cache.put (org_x, x);
   /* Prevent that we try to fold an already folded result again.  */
   if (x != org_x)
-    {
-      slot = &fold_hash->get_or_insert (x);
-      *slot = x;
-    }
+    fold_cache.put (x, x);
 
   return x;
 }
+
+#include "gt-cp-cp-gimplify.h"

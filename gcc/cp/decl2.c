@@ -4573,19 +4573,6 @@ c_parse_final_cleanups (void)
       /* If there are templates that we've put off instantiating, do
 	 them now.  */
       instantiate_pending_templates (retries);
-      /* Clear fold_map and/or cv_map of current scope, if present.  */
-      if (scope_chain && (scope_chain->fold_map || scope_chain->cv_map))
-	{
-	  hash_map<tree,tree> *fm = scope_chain->fold_map;
-	  hash_map<tree,tree> *cv = scope_chain->cv_map;
-	  scope_chain->fold_map = NULL;
-	  scope_chain->cv_map = NULL;
-	  scope_chain->act_cfun = NULL;
-	  if (fm)
-	    delete fm;
-	  if (cv)
-	    delete cv;
-	}
       ggc_collect ();
 
       /* Write out virtual tables as required.  Note that writing out
