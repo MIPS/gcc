@@ -272,6 +272,8 @@ gomp_free_thread (void *arg __attribute__((unused)))
       free (pool);
       thr->thread_pool = NULL;
     }
+  if (thr->ts.level == 0 && __builtin_expect (thr->ts.team != NULL, 0))
+    gomp_team_end ();
   if (thr->task != NULL)
     {
       struct gomp_task *task = thr->task;
@@ -301,7 +303,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   struct gomp_thread **affinity_thr = NULL;
 
   thr = gomp_thread ();
-  nested = thr->ts.team != NULL;
+  nested = thr->ts.level;
   pool = thr->thread_pool;
   task = thr->task;
   icv = task ? &task->icv : &gomp_global_icv;

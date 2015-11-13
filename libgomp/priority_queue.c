@@ -85,7 +85,7 @@ priority_queue_task_in_queue_p (enum priority_queue_type type,
    order.  LIST is a priority list of type TYPE.
 
    The expected order is that GOMP_TASK_WAITING tasks come before
-   GOMP_TASK_TIED ones.
+   GOMP_TASK_TIED/GOMP_TASK_ASYNC_RUNNING ones.
 
    If CHECK_DEPS is TRUE, we also check that parent_depends_on WAITING
    tasks come before !parent_depends_on WAITING tasks.  This is only
@@ -104,7 +104,7 @@ priority_list_verify (enum priority_queue_type type,
       struct gomp_task *t = priority_node_to_task (type, p);
       if (seen_tied && t->kind == GOMP_TASK_WAITING)
 	gomp_fatal ("priority_queue_verify: WAITING task after TIED");
-      if (t->kind == GOMP_TASK_TIED)
+      if (t->kind >= GOMP_TASK_TIED)
 	seen_tied = true;
       else if (check_deps && t->kind == GOMP_TASK_WAITING)
 	{

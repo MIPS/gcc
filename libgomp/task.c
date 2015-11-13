@@ -480,13 +480,119 @@ ialias (GOMP_taskgroup_end)
 #undef UTYPE
 #undef GOMP_taskloop
 
-/* Called for nowait target tasks.  */
+static void inline
+priority_queue_move_task_first (enum priority_queue_type type,
+				struct priority_queue *head,
+				struct gomp_task *task)
+{
+#if _LIBGOMP_CHECKING_
+  if (!priority_queue_task_in_queue_p (type, head, task))
+    gomp_fatal ("Attempt to move first missing task %p", task);
+#endif
+  struct priority_list *list;
+  if (priority_queue_multi_p (head))
+    {
+      list = priority_queue_lookup_priority (head, task->priority);
+#if _LIBGOMP_CHECKING_
+      if (!list)
+	gomp_fatal ("Unable to find priority %d", task->priority);
+#endif
+    }
+  else
+    list = &head->l;
+  priority_list_remove (list, task_to_priority_node (type, task), 0);
+  priority_list_insert (type, list, task, task->priority,
+			PRIORITY_INSERT_BEGIN, type == PQ_CHILDREN,
+			task->parent_depends_on);
+}
+
+/* Actual body of GOMP_PLUGIN_target_task_completion that is executed
+   with team->task_lock held, or is executed in the thread that called
+   gomp_target_task_fn if GOMP_PLUGIN_target_task_completion has been
+   run before it acquires team->task_lock.  */
+
+static void
+gomp_target_task_completion (struct gomp_team *team, struct gomp_task *task)
+{
+  struct gomp_task *parent = task->parent;
+  if (parent)
+    priority_queue_move_task_first (PQ_CHILDREN, &parent->children_queue,
+				    task);
+
+  struct gomp_taskgroup *taskgroup = task->taskgroup;
+  if (taskgroup)
+    priority_queue_move_task_first (PQ_TASKGROUP, &taskgroup->taskgroup_queue,
+				    task);
+
+  priority_queue_insert (PQ_TEAM, &team->task_queue, task, task->priority,
+			 PRIORITY_INSERT_BEGIN, false,
+			 task->parent_depends_on);
+  task->kind = GOMP_TASK_WAITING;
+  if (parent && parent->taskwait)
+    {
+      if (parent->taskwait->in_taskwait)
+	{
+	  /* One more task has had its dependencies met.
+	     Inform any waiters.  */
+	  parent->taskwait->in_taskwait = false;
+	  gomp_sem_post (&parent->taskwait->taskwait_sem);
+	}
+      else if (parent->taskwait->in_depend_wait)
+	{
+	  /* One more task has had its dependencies met.
+	     Inform any waiters.  */
+	  parent->taskwait->in_depend_wait = false;
+	  gomp_sem_post (&parent->taskwait->taskwait_sem);
+	}
+    }
+  if (taskgroup && taskgroup->in_taskgroup_wait)
+    {
+      /* One more task has had its dependencies met.
+	 Inform any waiters.  */
+      taskgroup->in_taskgroup_wait = false;
+      gomp_sem_post (&taskgroup->taskgroup_sem);
+    }
+
+  ++team->task_queued_count;
+  gomp_team_barrier_set_task_pending (&team->barrier);
+  /* I'm afraid this can't be done after releasing team->task_lock,
+     as gomp_target_task_completion is run from unrelated thread and
+     therefore in between gomp_mutex_unlock and gomp_team_barrier_wake
+     the team could be gone already.  */
+  if (team->nthreads > team->task_running_count)
+    gomp_team_barrier_wake (&team->barrier, 1);
+}
+
+/* Signal that a target task TTASK has completed the asynchronously
+   running phase and should be requeued as a task to handle the
+   variable unmapping.  */
 
 void
+GOMP_PLUGIN_target_task_completion (void *data)
+{
+  struct gomp_target_task *ttask = (struct gomp_target_task *) data;
+  struct gomp_task *task = ttask->task;
+  struct gomp_team *team = ttask->team;
+
+  gomp_mutex_lock (&team->task_lock);
+  if (ttask->state == GOMP_TARGET_TASK_READY_TO_RUN)
+    {
+      ttask->state = GOMP_TARGET_TASK_FINISHED;
+      gomp_mutex_unlock (&team->task_lock);
+    }
+  ttask->state = GOMP_TARGET_TASK_FINISHED;
+  gomp_target_task_completion (team, task);
+  gomp_mutex_unlock (&team->task_lock);
+}
+
+/* Called for nowait target tasks.  */
+
+bool
 gomp_create_target_task (struct gomp_device_descr *devicep,
 			 void (*fn) (void *), size_t mapnum, void **hostaddrs,
 			 size_t *sizes, unsigned short *kinds,
-			 unsigned int flags, void **depend)
+			 unsigned int flags, void **depend,
+			 enum gomp_target_task_state state)
 {
   struct gomp_thread *thr = gomp_thread ();
   struct gomp_team *team = thr->ts.team;
@@ -495,7 +601,7 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
   if (team
       && (gomp_team_barrier_cancelled (&team->barrier)
 	  || (thr->task->taskgroup && thr->task->taskgroup->cancelled)))
-    return;
+    return true;
 
   struct gomp_target_task *ttask;
   struct gomp_task *task;
@@ -503,19 +609,45 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
   struct gomp_taskgroup *taskgroup = parent->taskgroup;
   bool do_wake;
   size_t depend_size = 0;
+  uintptr_t depend_cnt = 0;
+  size_t tgt_align = 0, tgt_size = 0;
 
   if (depend != NULL)
-    depend_size = ((uintptr_t) depend[0]
-		   * sizeof (struct gomp_task_depend_entry));
+    {
+      depend_cnt = (uintptr_t) depend[0];
+      depend_size = depend_cnt * sizeof (struct gomp_task_depend_entry);
+    }
+  if (fn)
+    {
+      /* GOMP_MAP_FIRSTPRIVATE need to be copied first, as they are
+	 firstprivate on the target task.  */
+      size_t i;
+      for (i = 0; i < mapnum; i++)
+	if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
+	  {
+	    size_t align = (size_t) 1 << (kinds[i] >> 8);
+	    if (tgt_align < align)
+	      tgt_align = align;
+	    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	    tgt_size += sizes[i];
+	  }
+      if (tgt_align)
+	tgt_size += tgt_align - 1;
+      else
+	tgt_size = 0;
+    }
+
   task = gomp_malloc (sizeof (*task) + depend_size
 		      + sizeof (*ttask)
 		      + mapnum * (sizeof (void *) + sizeof (size_t)
-				  + sizeof (unsigned short)));
+				  + sizeof (unsigned short))
+		      + tgt_size);
   gomp_init_task (task, parent, gomp_icv (false));
+  task->priority = 0;
   task->kind = GOMP_TASK_WAITING;
   task->in_tied_task = parent->in_tied_task;
   task->taskgroup = taskgroup;
-  ttask = (struct gomp_target_task *) &task->depend[(uintptr_t) depend[0]];
+  ttask = (struct gomp_target_task *) &task->depend[depend_cnt];
   ttask->devicep = devicep;
   ttask->fn = fn;
   ttask->mapnum = mapnum;
@@ -524,8 +656,29 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
   memcpy (ttask->sizes, sizes, mapnum * sizeof (size_t));
   ttask->kinds = (unsigned short *) &ttask->sizes[mapnum];
   memcpy (ttask->kinds, kinds, mapnum * sizeof (unsigned short));
+  if (tgt_align)
+    {
+      char *tgt = (char *) &ttask->kinds[mapnum];
+      size_t i;
+      uintptr_t al = (uintptr_t) tgt & (tgt_align - 1);
+      if (al)
+	tgt += tgt_align - al;
+      tgt_size = 0;
+      for (i = 0; i < mapnum; i++)
+	if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
+	  {
+	    size_t align = (size_t) 1 << (kinds[i] >> 8);
+	    tgt_size = (tgt_size + align - 1) & ~(align - 1);
+	    memcpy (tgt + tgt_size, hostaddrs[i], sizes[i]);
+	    ttask->hostaddrs[i] = tgt + tgt_size;
+	    tgt_size = tgt_size + sizes[i];
+	  }
+    }
   ttask->flags = flags;
-  task->fn = gomp_target_task_fn;
+  ttask->state = state;
+  ttask->task = task;
+  ttask->team = team;
+  task->fn = NULL;
   task->fn_data = ttask;
   task->final_task = 0;
   gomp_mutex_lock (&team->task_lock);
@@ -536,18 +689,64 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
       gomp_mutex_unlock (&team->task_lock);
       gomp_finish_task (task);
       free (task);
-      return;
+      return true;
     }
-  if (taskgroup)
-    taskgroup->num_children++;
   if (depend_size)
     {
       gomp_task_handle_depend (task, parent, depend);
       if (task->num_dependees)
 	{
+	  if (taskgroup)
+	    taskgroup->num_children++;
 	  gomp_mutex_unlock (&team->task_lock);
-	  return;
+	  return true;
 	}
+    }
+  if (state == GOMP_TARGET_TASK_DATA)
+    {
+      gomp_mutex_unlock (&team->task_lock);
+      gomp_finish_task (task);
+      free (task);
+      return false;
+    }
+  if (taskgroup)
+    taskgroup->num_children++;
+  /* For async offloading, if we don't need to wait for dependencies,
+     run the gomp_target_task_fn right away, essentially schedule the
+     mapping part of the task in the current thread.  */
+  if (devicep != NULL
+      && (devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+    {
+      priority_queue_insert (PQ_CHILDREN, &parent->children_queue, task, 0,
+			     PRIORITY_INSERT_END,
+			     /*adjust_parent_depends_on=*/false,
+			     task->parent_depends_on);
+      if (taskgroup)
+	priority_queue_insert (PQ_TASKGROUP, &taskgroup->taskgroup_queue,
+			       task, 0, PRIORITY_INSERT_END,
+			       /*adjust_parent_depends_on=*/false,
+			       task->parent_depends_on);
+      task->pnode[PQ_TEAM].next = NULL;
+      task->pnode[PQ_TEAM].prev = NULL;
+      task->kind = GOMP_TASK_TIED;
+      ++team->task_count;
+      gomp_mutex_unlock (&team->task_lock);
+
+      thr->task = task;
+      gomp_target_task_fn (task->fn_data);
+      thr->task = parent;
+
+      gomp_mutex_lock (&team->task_lock);
+      task->kind = GOMP_TASK_ASYNC_RUNNING;
+      /* If GOMP_PLUGIN_target_task_completion has run already
+	 in between gomp_target_task_fn and the mutex lock,
+	 perform the requeuing here.  */
+      if (ttask->state == GOMP_TARGET_TASK_FINISHED)
+	gomp_target_task_completion (team, task);
+      else
+	ttask->state = GOMP_TARGET_TASK_RUNNING;
+      gomp_mutex_unlock (&team->task_lock);
+      return true;
     }
   priority_queue_insert (PQ_CHILDREN, &parent->children_queue, task, 0,
 			 PRIORITY_INSERT_BEGIN,
@@ -570,6 +769,7 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
   gomp_mutex_unlock (&team->task_lock);
   if (do_wake)
     gomp_team_barrier_wake (&team->barrier, 1);
+  return true;
 }
 
 /* Given a parent_depends_on task in LIST, move it to the front of its
@@ -1041,7 +1241,29 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
       if (child_task)
 	{
 	  thr->task = child_task;
-	  child_task->fn (child_task->fn_data);
+	  if (__builtin_expect (child_task->fn == NULL, 0))
+	    {
+	      if (gomp_target_task_fn (child_task->fn_data))
+		{
+		  thr->task = task;
+		  gomp_mutex_lock (&team->task_lock);
+		  child_task->kind = GOMP_TASK_ASYNC_RUNNING;
+		  team->task_running_count--;
+		  struct gomp_target_task *ttask
+		    = (struct gomp_target_task *) child_task->fn_data;
+		  /* If GOMP_PLUGIN_target_task_completion has run already
+		     in between gomp_target_task_fn and the mutex lock,
+		     perform the requeuing here.  */
+		  if (ttask->state == GOMP_TARGET_TASK_FINISHED)
+		    gomp_target_task_completion (team, child_task);
+		  else
+		    ttask->state = GOMP_TARGET_TASK_RUNNING;
+		  child_task = NULL;
+		  continue;
+		}
+	    }
+	  else
+	    child_task->fn (child_task->fn_data);
 	  thr->task = task;
 	}
       else
@@ -1170,7 +1392,28 @@ GOMP_taskwait (void)
       if (child_task)
 	{
 	  thr->task = child_task;
-	  child_task->fn (child_task->fn_data);
+	  if (__builtin_expect (child_task->fn == NULL, 0))
+	    {
+	      if (gomp_target_task_fn (child_task->fn_data))
+		{
+		  thr->task = task;
+		  gomp_mutex_lock (&team->task_lock);
+		  child_task->kind = GOMP_TASK_ASYNC_RUNNING;
+		  struct gomp_target_task *ttask
+		    = (struct gomp_target_task *) child_task->fn_data;
+		  /* If GOMP_PLUGIN_target_task_completion has run already
+		     in between gomp_target_task_fn and the mutex lock,
+		     perform the requeuing here.  */
+		  if (ttask->state == GOMP_TARGET_TASK_FINISHED)
+		    gomp_target_task_completion (team, child_task);
+		  else
+		    ttask->state = GOMP_TARGET_TASK_RUNNING;
+		  child_task = NULL;
+		  continue;
+		}
+	    }
+	  else
+	    child_task->fn (child_task->fn_data);
 	  thr->task = task;
 	}
       else
@@ -1342,7 +1585,28 @@ gomp_task_maybe_wait_for_dependencies (void **depend)
       if (child_task)
 	{
 	  thr->task = child_task;
-	  child_task->fn (child_task->fn_data);
+	  if (__builtin_expect (child_task->fn == NULL, 0))
+	    {
+	      if (gomp_target_task_fn (child_task->fn_data))
+		{
+		  thr->task = task;
+		  gomp_mutex_lock (&team->task_lock);
+		  child_task->kind = GOMP_TASK_ASYNC_RUNNING;
+		  struct gomp_target_task *ttask
+		    = (struct gomp_target_task *) child_task->fn_data;
+		  /* If GOMP_PLUGIN_target_task_completion has run already
+		     in between gomp_target_task_fn and the mutex lock,
+		     perform the requeuing here.  */
+		  if (ttask->state == GOMP_TARGET_TASK_FINISHED)
+		    gomp_target_task_completion (team, child_task);
+		  else
+		    ttask->state = GOMP_TARGET_TASK_RUNNING;
+		  child_task = NULL;
+		  continue;
+		}
+	    }
+	  else
+	    child_task->fn (child_task->fn_data);
 	  thr->task = task;
 	}
       else
@@ -1423,6 +1687,17 @@ GOMP_taskgroup_end (void)
   if (team == NULL)
     return;
   taskgroup = task->taskgroup;
+  if (__builtin_expect (taskgroup == NULL, 0)
+      && thr->ts.level == 0)
+    {
+      /* This can happen if GOMP_taskgroup_start is called when
+	 thr->ts.team == NULL, but inside of the taskgroup there
+	 is #pragma omp target nowait that creates an implicit
+	 team with a single thread.  In this case, we want to wait
+	 for all outstanding tasks in this team.  */
+      gomp_team_barrier_wait (&team->barrier);
+      return;
+    }
 
   /* The acquire barrier on load of taskgroup->num_children here
      synchronizes with the write of 0 in gomp_task_run_post_remove_taskgroup.
@@ -1450,8 +1725,8 @@ GOMP_taskgroup_end (void)
 		= priority_queue_next_task (PQ_CHILDREN, &task->children_queue,
 					    PQ_TEAM, &team->task_queue,
 					    &unused);
-            }
-          else
+	    }
+	  else
 	    {
 	      gomp_mutex_unlock (&team->task_lock);
 	      if (to_free)
@@ -1506,7 +1781,28 @@ GOMP_taskgroup_end (void)
       if (child_task)
 	{
 	  thr->task = child_task;
-	  child_task->fn (child_task->fn_data);
+	  if (__builtin_expect (child_task->fn == NULL, 0))
+	    {
+	      if (gomp_target_task_fn (child_task->fn_data))
+		{
+		  thr->task = task;
+		  gomp_mutex_lock (&team->task_lock);
+		  child_task->kind = GOMP_TASK_ASYNC_RUNNING;
+		  struct gomp_target_task *ttask
+		    = (struct gomp_target_task *) child_task->fn_data;
+		  /* If GOMP_PLUGIN_target_task_completion has run already
+		     in between gomp_target_task_fn and the mutex lock,
+		     perform the requeuing here.  */
+		  if (ttask->state == GOMP_TARGET_TASK_FINISHED)
+		    gomp_target_task_completion (team, child_task);
+		  else
+		    ttask->state = GOMP_TARGET_TASK_RUNNING;
+		  child_task = NULL;
+		  continue;
+		}
+	    }
+	  else
+	    child_task->fn (child_task->fn_data);
 	  thr->task = task;
 	}
       else

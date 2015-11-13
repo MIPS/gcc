@@ -1,3 +1,53 @@
+2015-11-13  Jakub Jelinek  <jakub@redhat.com>
+	    Ilya Verbin  <ilya.verbin@intel.com>
+
+	* parallel.c (gomp_resolve_num_threads): Don't assume that
+	if thr->ts.team is non-NULL, then pool must be non-NULL.
+	* libgomp-plugin.h (GOMP_PLUGIN_target_task_completion): Declare.
+	* team.c (gomp_free_thread): Call gomp_team_end if thr->ts.team
+	is artificial team created for target nowait in implicit parallel
+	region.
+	(gomp_team_start): For nested check, test thr->ts.level instead of
+	thr->ts.team != NULL.
+	* target.c (GOMP_target): Don't adjust *thr in any way around
+	running offloaded task.
+	(GOMP_target_ext): Likewise.  Handle target nowait.
+	(GOMP_target_update_ext, GOMP_target_enter_exit_data): Check
+	return value from gomp_create_target_task, if false, fallthrough
+	as if no dependencies exist.
+	(gomp_target_task_fn): Change return type to bool, return true
+	if the task should have another part scheduled later.  Handle
+	target nowait.
+	(gomp_load_plugin_for_device): Initialize async_run.
+	* libgomp.map (GOMP_PLUGIN_1.1): New symbol version, export
+	GOMP_PLUGIN_target_task_completion.
+	* task.c (priority_queue_move_task_first,
+	gomp_target_task_completion, GOMP_PLUGIN_target_task_completion):
+	New functions.
+	(gomp_create_target_task): Change return type to bool, add
+	state argument, return false if for async {{enter,exit} data,update}
+	constructs no dependencies need to be waited for, handle target
+	nowait.  Set task->fn to NULL instead of gomp_target_task_fn.
+	(gomp_barrier_handle_tasks, GOMP_taskwait,
+	gomp_task_maybe_wait_for_dependencies): Handle target nowait target
+	tasks specially.
+	(GOMP_taskgroup_end): Likewise.  If taskgroup is NULL, and
+	thr->ts.level is 0, act as a barrier.
+	target nowait tasks specially.
+	* priority_queue.c (priority_queue_task_in_queue_p,
+	priority_list_verify): Adjust for addition of
+	GOMP_TASK_ASYNC_RUNNING kind.
+	* libgomp.h (enum gomp_task_kind): Add GOMP_TASK_ASYNC_RUNNING.
+	(enum gomp_target_task_state): New enum.
+	(struct gomp_target_task): Add state, tgt, task and team fields.
+	(gomp_create_target_task): Change return type to bool, add
+	state argument.
+	(gomp_target_task_fn): Change return type to bool.
+	(struct gomp_device_descr): Add async_run_func.
+	* testsuite/libgomp.c/target-32.c: New test.
+	* testsuite/libgomp.c/target-34.c: New test.
+	* testsuite/libgomp.c/target-33.c: New test.
+
 2015-11-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/target-31.c: New test.

@@ -373,7 +373,12 @@ enum gomp_task_kind
   /* Task created by GOMP_task and waiting to be run.  */
   GOMP_TASK_WAITING,
   /* Task currently executing or scheduled and about to execute.  */
-  GOMP_TASK_TIED
+  GOMP_TASK_TIED,
+  /* Used for target tasks that have vars mapped and async run started,
+     but not yet completed.  Once that completes, they will be readded
+     into the queues as GOMP_TASK_WAITING in order to perform the var
+     unmapping.  */
+  GOMP_TASK_ASYNC_RUNNING
 };
 
 struct gomp_task_depend_entry
@@ -453,6 +458,8 @@ struct gomp_task
   struct gomp_task_depend_entry depend[];
 };
 
+/* This structure describes a single #pragma omp taskgroup.  */
+
 struct gomp_taskgroup
 {
   struct gomp_taskgroup *prev;
@@ -464,6 +471,19 @@ struct gomp_taskgroup
   size_t num_children;
 };
 
+/* Various state of OpenMP async offloading tasks.  */
+enum gomp_target_task_state
+{
+  GOMP_TARGET_TASK_DATA,
+  GOMP_TARGET_TASK_BEFORE_MAP,
+  GOMP_TARGET_TASK_FALLBACK,
+  GOMP_TARGET_TASK_READY_TO_RUN,
+  GOMP_TARGET_TASK_RUNNING,
+  GOMP_TARGET_TASK_FINISHED
+};
+
+/* This structure describes a target task.  */
+
 struct gomp_target_task
 {
   struct gomp_device_descr *devicep;
@@ -472,6 +492,10 @@ struct gomp_target_task
   size_t *sizes;
   unsigned short *kinds;
   unsigned int flags;
+  enum gomp_target_task_state state;
+  struct target_mem_desc *tgt;
+  struct gomp_task *task;
+  struct gomp_team *team;
   void *hostaddrs[];
 };
 
@@ -723,10 +747,10 @@ extern void gomp_init_task (struct gomp_task *, struct gomp_task *,
 extern void gomp_end_task (void);
 extern void gomp_barrier_handle_tasks (gomp_barrier_state_t);
 extern void gomp_task_maybe_wait_for_dependencies (void **);
-extern void gomp_create_target_task (struct gomp_device_descr *,
+extern bool gomp_create_target_task (struct gomp_device_descr *,
 				     void (*) (void *), size_t, void **,
 				     size_t *, unsigned short *, unsigned int,
-				     void **);
+				     void **, enum gomp_target_task_state);
 
 static void inline
 gomp_finish_task (struct gomp_task *task)
@@ -747,7 +771,7 @@ extern void gomp_free_thread (void *);
 
 extern void gomp_init_targets_once (void);
 extern int gomp_get_num_devices (void);
-extern void gomp_target_task_fn (void *);
+extern bool gomp_target_task_fn (void *);
 
 /* Splay tree definitions.  */
 typedef struct splay_tree_node_s *splay_tree_node;
@@ -901,6 +925,7 @@ struct gomp_device_descr
   void *(*host2dev_func) (int, void *, const void *, size_t);
   void *(*dev2dev_func) (int, void *, const void *, size_t);
   void (*run_func) (int, void *, void *);
+  void (*async_run_func) (int, void *, void *, void *);
 
   /* Splay tree containing information about mapped memory regions.  */
   struct splay_tree_s mem_map;
