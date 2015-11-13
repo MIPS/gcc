@@ -6200,8 +6200,7 @@ finish_omp_clauses (tree clauses, bool allow_fields, bool declare_simd)
 		  if (OMP_CLAUSE_SCHEDULE_KIND (c)
 		      == OMP_CLAUSE_SCHEDULE_CILKFOR)
 		    {
-		      t = convert_to_integer_nofold (long_integer_type_node,
-						     t);
+		      t = convert_to_integer (long_integer_type_node, t);
 		      if (t == error_mark_node)
 			{
 			  remove = true;
