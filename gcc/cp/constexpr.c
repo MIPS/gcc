@@ -3136,26 +3136,6 @@ cxx_eval_pointer_plus_expression (const constexpr_ctx *ctx, tree t,
   return NULL_TREE;
 }
 
-/* Reduce a SIZEOF_EXPR to its value.  */
-
-tree
-fold_sizeof_expr (tree t)
-{
-  tree r;
-  if (SIZEOF_EXPR_TYPE_P (t))
-    r = cxx_sizeof_or_alignof_type (TREE_TYPE (TREE_OPERAND (t, 0)),
-				    SIZEOF_EXPR, false);
-  else if (TYPE_P (TREE_OPERAND (t, 0)))
-    r = cxx_sizeof_or_alignof_type (TREE_OPERAND (t, 0), SIZEOF_EXPR,
-				    false);
-  else
-    r = cxx_sizeof_or_alignof_expr (TREE_OPERAND (t, 0), SIZEOF_EXPR,
-				    false);
-  if (r == error_mark_node)
-    r = size_one_node;
-  return r;
-}
-
 /* Attempt to reduce the expression T to a constant value.
    On failure, issue diagnostic and return error_mark_node.  */
 /* FIXME unify with c_fully_fold */
