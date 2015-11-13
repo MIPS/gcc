@@ -1,6 +1,13 @@
 2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
-	<patch #10>
+	<patch ieee #8>
+	* config/rs6000/rs6000.c (init_float128_ieee): Only initialize
+	cmp_optab, not ucmp_optab.
+	(rs6000_generate_compare): Use the standard comparison functions
+	(eqkf2, gekf2, lekf2) for normal comparisons.  Call __cmpukf2 for
+	IEEE comparisons where NaN is handled specially.
+
+	<power9 patch #10>
 	* config/rs6000/constraints.md (wb constraint): New constraint for
 	ISA 3.0 d-form scalar addressing.
 

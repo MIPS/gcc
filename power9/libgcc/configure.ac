@@ -373,6 +373,17 @@ esac
 ;;
 esac
 
+case ${host} in
+powerpc*-*-linux*)
+  AC_CACHE_CHECK([whether the PowerPC compiler can do __float128],
+		 [libgcc_cv_powerpc_float128],
+		 [AC_COMPILE_IFELSE(
+    [#pragma GCC target ("vsx,float128")
+     __float128 add (__float128 *a) { return *a + *(a+1); }],
+    [libgcc_cv_powerpc_float128=yes],
+    [libgcc_cv_powerpc_float128=no])])
+esac
+
 # Collect host-machine-specific information.
 . ${srcdir}/config.host
 

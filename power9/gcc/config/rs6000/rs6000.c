@@ -16560,8 +16560,7 @@ init_float128_ieee (machine_mode mode)
       set_optab_libfunc (lt_optab, mode, "__ltkf2");
       set_optab_libfunc (le_optab, mode, "__lekf2");
       set_optab_libfunc (unord_optab, mode, "__unordkf2");
-      set_optab_libfunc (cmp_optab, mode, "__cmpokf2");		/* fcmpo */
-      set_optab_libfunc (ucmp_optab, mode, "__cmpukf2");	/* fcmpu */
+      set_optab_libfunc (cmp_optab, mode, "__cmpukf2");
 
       set_conv_libfunc (sext_optab, mode, SFmode, "__extendsfkf2");
       set_conv_libfunc (sext_optab, mode, DFmode, "__extenddfkf2");
@@ -20569,12 +20568,11 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
      instructions.  */
   else if (!TARGET_FLOAT128_HW && FLOAT128_IEEE_P (mode))
     {
-      rtx and_reg = gen_reg_rtx (SImode);
       rtx dest = gen_reg_rtx (SImode);
-      rtx libfunc = optab_libfunc (ucmp_optab, mode);
+      rtx libfunc = NULL_RTX;
       HOST_WIDE_INT mask_value = 0;
 
-      /* Values that __cmpokf2/__cmpukf2 returns.  */
+      /* Values that __cmpukf2 returns.  */
 #define PPC_CMP_UNORDERED	0x1		/* isnan (a) || isnan (b).  */
 #define PPC_CMP_EQUAL		0x2		/* a == b.  */
 #define PPC_CMP_GREATER_THEN	0x4		/* a > b.  */
@@ -20582,84 +20580,83 @@ rs6000_generate_compare (rtx cmp, machine_mode mode)
 
       switch (code)
 	{
+	/* Normal comparisons use __eqkf2, __gekf2, __lekf2.  */
 	case EQ:
-	  mask_value = PPC_CMP_EQUAL;
-	  code = NE;
-	  break;
-
 	case NE:
-	  mask_value = PPC_CMP_EQUAL;
-	  code = EQ;
+	  libfunc = optab_libfunc (eq_optab, mode);
 	  break;
 
 	case GT:
-	  mask_value = PPC_CMP_GREATER_THEN;
-	  code = NE;
-	  break;
-
 	case GE:
-	  mask_value = PPC_CMP_GREATER_THEN | PPC_CMP_EQUAL;
-	  code = NE;
+	  libfunc = optab_libfunc (ge_optab, mode);
 	  break;
 
 	case LT:
-	  mask_value = PPC_CMP_LESS_THEN;
-	  code = NE;
-	  break;
-
 	case LE:
-	  mask_value = PPC_CMP_LESS_THEN | PPC_CMP_EQUAL;
-	  code = NE;
+	  libfunc = optab_libfunc (le_optab, mode);
 	  break;
 
 	case UNLE:
+	  libfunc = optab_libfunc (cmp_optab, mode);
 	  mask_value = PPC_CMP_GREATER_THEN;
 	  code = EQ;
 	  break;
 
+	  /* IEEE comparisons that do not trap on NaN, call __cmpukf2 and
+	     return 4 bits for LT, EQ, GT, and Unordered.  */
 	case UNLT:
+	  libfunc = optab_libfunc (cmp_optab, mode);
 	  mask_value = PPC_CMP_GREATER_THEN | PPC_CMP_EQUAL;
 	  code = EQ;
 	  break;
 
 	case UNGE:
+	  libfunc = optab_libfunc (cmp_optab, mode);
 	  mask_value = PPC_CMP_LESS_THEN;
 	  code = EQ;
 	  break;
 
 	case UNGT:
+	  libfunc = optab_libfunc (cmp_optab, mode);
 	  mask_value = PPC_CMP_LESS_THEN | PPC_CMP_EQUAL;
 	  code = EQ;
 	  break;
 
 	case UNEQ:
+	  libfunc = optab_libfunc (cmp_optab, mode);
 	  mask_value = PPC_CMP_EQUAL | PPC_CMP_UNORDERED;
 	  code = NE;
 
 	case LTGT:
+	  libfunc = optab_libfunc (cmp_optab, mode);
 	  mask_value = PPC_CMP_EQUAL | PPC_CMP_UNORDERED;
 	  code = EQ;
 	  break;
 
 	case UNORDERED:
-	  mask_value = PPC_CMP_UNORDERED;
-	  code = NE;
-	  break;
-
 	case ORDERED:
-	  mask_value = PPC_CMP_UNORDERED;
-	  code = EQ;
+	  libfunc = optab_libfunc (unord_optab, mode);
+	  code = (code == UNORDERED) ? NE : EQ;
 	  break;
 
 	default:
 	  gcc_unreachable ();
 	}
 
-      gcc_assert (mask_value != 0);
-      and_reg = emit_library_call_value (libfunc, and_reg, LCT_CONST, SImode, 2,
-					 op0, mode, op1, mode);
+      gcc_assert (libfunc != NULL_RTX);
+      dest = emit_library_call_value (libfunc, dest, LCT_CONST, SImode, 2,
+				      op0, mode, op1, mode);
 
-      emit_insn (gen_andsi3 (dest, and_reg, GEN_INT (mask_value)));
+      /* If this is an IEEE comparison, see if the particular bits that we are
+	 interested are set.  */
+      if (mask_value != 0)
+	{
+	  rtx dest2 = gen_reg_rtx (SImode);
+
+	  emit_insn (gen_andsi3 (dest2, dest, GEN_INT (mask_value)));
+	  dest = dest2;
+	}
+
       compare_result = gen_reg_rtx (CCmode);
       comp_mode = CCmode;
 
