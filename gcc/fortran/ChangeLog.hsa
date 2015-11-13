@@ -1,3 +1,9 @@
+2015-11-13  Martin Jambor  <mjambor@suse.cz>
+
+	* types.def:
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR_INT_INT_PTR): Turned
+	into BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR_PTR.
+
 2015-06-09  Martin Jambor  <mjambor@suse.cz>
 
 	* types.def (BT_FN_VOID_PTR_INT_PTR): New.

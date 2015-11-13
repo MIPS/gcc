@@ -124,7 +124,7 @@ host_host2dev (int n __attribute__ ((unused)),
 
 static void
 host_run (int n __attribute__ ((unused)), void *fn_ptr, void *vars,
-	  const void* kern_launch __attribute__ ((unused)))
+	  void **args __attribute__((unused)))
 {
   void (*fn)(void *) = (void (*)(void *)) fn_ptr;
 

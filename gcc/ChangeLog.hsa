@@ -1,3 +1,13 @@
+2015-11-13  Martin Jambor  <mjambor@suse.cz>
+
+	* builtin-types.def
+	(BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR_INT_INT_PTR): Turned
+	into BT_FN_VOID_INT_OMPFN_SIZE_PTR_PTR_PTR_UINT_PTR_PTR.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET): Updated type.
+	* omp-low.c (get_target_arguments): New function.
+	(expand_omp_target): Call it, do not calculate num_teams and
+	thread_limit.
+
 2015-11-11  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-brig-format.h: Reverted header file changes, the file now

@@ -1,5 +1,14 @@
 2015-11-13  Martin Jambor  <mjambor@suse.cz>
 
+	* libgomp.h (gomp_device_descr): Update type of run_func.
+	* libgomp_g.h (GOMP_target_ext): Update type.
+	* oacc-host.c (host_run): Likewise.
+	* target.c (GOMP_target_ext): Change type, pass arguments to plugins.
+	* plugin/plugin-hsa.c (parse_launch_attributes): Parse arguments.
+	(GOMP_OFFLOAD_run): Update type.
+
+2015-11-13  Martin Jambor  <mjambor@suse.cz>
+
 	* target.c (GOMP_target): Do not offload to shared memory devices.
 	* plugin/plugin-hsa.c (kernel_launch_attributes): Removed.
 

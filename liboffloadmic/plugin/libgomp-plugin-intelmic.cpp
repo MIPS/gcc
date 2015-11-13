@@ -501,7 +501,8 @@ GOMP_OFFLOAD_dev2dev (int device, void *dst_ptr, const void *src_ptr,
 }
 
 extern "C" void
-GOMP_OFFLOAD_run (int device, void *tgt_fn, void *tgt_vars)
+GOMP_OFFLOAD_run (int device, void *tgt_fn, void *tgt_vars,
+		  void **args __attribute__((unused)))
 {
   TRACE ("(tgt_fn = %p, tgt_vars = %p)", tgt_fn, tgt_vars);
 

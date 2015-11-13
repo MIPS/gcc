@@ -1052,11 +1052,28 @@ init_kernel (struct kernel_info *kernel)
    values, then store INPUT or DEF into *RESULT.  */
 
 static bool
-parse_launch_attributes (const void *input,
+parse_launch_attributes (void **input,
 			 struct GOMP_kernel_launch_attributes *def,
-			 const struct GOMP_kernel_launch_attributes **result)
+			 struct GOMP_kernel_launch_attributes **result)
 {
   if (!input)
+    GOMP_PLUGIN_fatal ("No target arguments provided");
+
+  bool attrs_found = false;
+  input += GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC;
+  while (*input)
+    {
+      uintptr_t id = (uintptr_t) *input;
+      input++;
+      if (id == GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES)
+	{
+	  attrs_found = true;
+	  break;
+	}
+      input++;
+    }
+
+  if (!attrs_found)
     {
       def->ndim = 1;
       def->gdims[0] = 1;
@@ -1070,8 +1087,8 @@ parse_launch_attributes (const void *input,
       return true;
     }
 
-  const struct GOMP_kernel_launch_attributes *kla;
-  kla = (const struct GOMP_kernel_launch_attributes *) input;
+  struct GOMP_kernel_launch_attributes *kla;
+  kla = (struct GOMP_kernel_launch_attributes *) *input;
   *result = kla;
   if (kla->ndim != 1)
     GOMP_PLUGIN_fatal ("HSA does not yet support number of dimensions "
@@ -1115,13 +1132,13 @@ failure:
    identified by FN_PTR which must point to a kernel_info structure.  */
 
 void
-GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, const void* kern_launch)
+GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
 {
   struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
   struct agent_info *agent = kernel->agent;
   struct GOMP_kernel_launch_attributes def;
-  const struct GOMP_kernel_launch_attributes *kla;
-  if (!parse_launch_attributes (kern_launch, &def, &kla))
+  struct GOMP_kernel_launch_attributes *kla;
+  if (!parse_launch_attributes (args, &def, &kla))
     {
       HSA_DEBUG ("Will not run HSA kernel because the grid size is zero\n");
       return;

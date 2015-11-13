@@ -12598,6 +12598,62 @@ get_kernel_launch_attributes (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   return build_fold_addr_expr (lattrs);
 }
 
+/* Create an array of arguments that is then passed to GOMP_target.  */
+
+static tree
+get_target_arguments (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
+{
+  auto_vec <tree, 4> args;
+  tree clauses = gimple_omp_target_clauses (tgt_stmt);
+  tree t, c = find_omp_clause (clauses, OMP_CLAUSE_NUM_TEAMS);
+  if (c)
+    {
+      t = fold_convert (ptr_type_node, OMP_CLAUSE_NUM_TEAMS_EXPR (c));
+      t = force_gimple_operand_gsi (gsi, t, true, NULL, true, GSI_SAME_STMT);
+    }
+  else
+    t = fold_convert (ptr_type_node, integer_minus_one_node);
+  args.quick_push (t);
+  c = find_omp_clause (clauses, OMP_CLAUSE_THREAD_LIMIT);
+  if (c)
+    {
+      t = fold_convert (ptr_type_node, OMP_CLAUSE_THREAD_LIMIT_EXPR (c));
+      t = force_gimple_operand_gsi (gsi, t, true, NULL, true, GSI_SAME_STMT);
+    }
+  else
+    t = fold_convert (ptr_type_node, integer_minus_one_node);
+  args.quick_push (t);
+
+  /* Add HSA-specific grid sizes, if available.  */
+  if (gimple_omp_target_dimensions (tgt_stmt))
+    {
+      args.quick_push (build_int_cst (ptr_type_node,
+				     GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES));
+      args.quick_push (get_kernel_launch_attributes (gsi, tgt_stmt));
+    }
+
+  /* Produce more, perhaps device specific, arguments here.  */
+
+  tree argarray = create_tmp_var (build_array_type_nelts (ptr_type_node,
+							  args.length () + 1),
+				  ".omp_target_args");
+  for (unsigned i = 0; i < args.length (); i++)
+    {
+      tree ref = build4 (ARRAY_REF, ptr_type_node, argarray,
+			 build_int_cst (integer_type_node, i),
+			 NULL_TREE, NULL_TREE);
+      gsi_insert_before (gsi, gimple_build_assign (ref, args[i]),
+			 GSI_SAME_STMT);
+    }
+  tree ref = build4 (ARRAY_REF, ptr_type_node, argarray,
+		     build_int_cst (integer_type_node, args.length ()),
+		     NULL_TREE, NULL_TREE);
+  gsi_insert_before (gsi, gimple_build_assign (ref, null_pointer_node),
+		     GSI_SAME_STMT);
+  TREE_ADDRESSABLE (argarray) = 1;
+  return build_fold_addr_expr (argarray);
+}
+
 /* Expand the GIMPLE_OMP_TARGET starting at REGION.  */
 
 static void
@@ -13004,34 +13060,7 @@ expand_omp_target (struct omp_region *region)
 	depend = build_int_cst (ptr_type_node, 0);
       args.quick_push (depend);
       if (start_ix == BUILT_IN_GOMP_TARGET)
-	{
-	  c = find_omp_clause (clauses, OMP_CLAUSE_NUM_TEAMS);
-	  if (c)
-	    {
-	      t = fold_convert (integer_type_node,
-				OMP_CLAUSE_NUM_TEAMS_EXPR (c));
-	      t = force_gimple_operand_gsi (&gsi, t, true, NULL,
-					    true, GSI_SAME_STMT);
-	    }
-	  else
-	    t = integer_minus_one_node;
-	  args.quick_push (t);
-	  c = find_omp_clause (clauses, OMP_CLAUSE_THREAD_LIMIT);
-	  if (c)
-	    {
-	      t = fold_convert (integer_type_node,
-				OMP_CLAUSE_THREAD_LIMIT_EXPR (c));
-	      t = force_gimple_operand_gsi (&gsi, t, true, NULL,
-					    true, GSI_SAME_STMT);
-	    }
-	  else
-	    t = integer_minus_one_node;
-	  args.quick_push (t);
-	  if (gimple_omp_target_dimensions (entry_stmt))
-	    args.quick_push (get_kernel_launch_attributes (&gsi, entry_stmt));
-	  else
-	    args.quick_push (build_zero_cst (ptr_type_node));
-	}
+	args.quick_push (get_target_arguments (&gsi, entry_stmt));
       break;
     case BUILT_IN_GOACC_PARALLEL:
       {

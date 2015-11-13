@@ -1,5 +1,13 @@
 2015-11-13  Martin Jambor  <mjambor@suse.cz>
 
+	* gomp-constants.h (GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC): New
+	constant.
+	(GOMP_TARGET_ARG_NUM_TEAMS): Likewise.
+	(GOMP_TARGET_ARG_THREAD_LIMIT): Likewise.
+	(GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES): Likewise.
+
+2015-11-13  Martin Jambor  <mjambor@suse.cz>
+
 	* gomp-constants.h (GOMP_kernel_launch_attributes): New type.
 	(hsa_kernel_dispatch): Reneamed to GOMP_hsa_kernel_dispatch.
 	Adjusted all callers.

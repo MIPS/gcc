@@ -224,6 +224,16 @@ enum gomp_map_kind
 #define GOMP_LAUNCH_OP(X) (((X) >> GOMP_LAUNCH_OP_SHIFT) & 0xffff)
 #define GOMP_LAUNCH_OP_MAX 0xffff
 
+/* First device-specific identifier among target arguments. */
+#define GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC	2
+/* Target argument index of NUM_TEAMS */
+#define GOMP_TARGET_ARG_NUM_TEAMS		0
+/* Target argument index of THREAD_LIMIT */
+#define GOMP_TARGET_ARG_THREAD_LIMIT		1
+
+/* Identifiers of device-specific target arguments.  */
+#define GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES	1
+
 /* HSA specific data structures.  */
 
 /* Structure describing the run-time and grid properties of an HSA kernel

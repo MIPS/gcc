@@ -1401,6 +1401,11 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
    and several arguments have been added:
    FLAGS is a bitmask, see GOMP_TARGET_FLAG_* in gomp-constants.h.
    DEPEND is array of dependencies, see GOMP_task for details.
+   ARGS is a pointer to an array consisting of NUM_TEAMS, THREAD_LIMIT and a
+   variable number of device-specific arguments, which always take two elements
+   where the first specifies the type and the second the actual value.  The
+   last element of the array is a single NULL.
+
    NUM_TEAMS is positive if GOMP_teams will be called in the body with
    that value, or 1 if teams construct is not present, or 0, if
    teams construct does not have num_teams clause and so the choice is
@@ -1414,13 +1419,9 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
 void
 GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
 		 void **hostaddrs, size_t *sizes, unsigned short *kinds,
-		 unsigned int flags, void **depend, int num_teams,
-		 int thread_limit, const void *kernel_launch)
+		 unsigned int flags, void **depend, void **args)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
-
-  (void) num_teams;
-  (void) thread_limit;
 
   /* If there are depend clauses, but nowait is not present,
      block the parent task until the dependencies are resolved
@@ -1462,7 +1463,7 @@ GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
     }
   devicep->run_func (devicep->target_id, fn_addr,
 		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs,
-		     kernel_launch);
+		     args);
   gomp_free_thread (thr);
   *thr = old_thr;
   if (tgt_vars)
