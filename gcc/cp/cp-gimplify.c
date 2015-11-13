@@ -1878,14 +1878,12 @@ cp_fully_fold (tree x)
 
 static GTY((cache, deletable)) cache_map fold_cache;
 
-/*  This function tries to fold given expression X in GENERIC-form.
-    For performance-reason, and for avoiding endless-recursion the
-    function uses given tree-hash FOLD_HASH.
-    If FOLD_HASH is 0, or we are processing within template-declaration,
-    or X is no valid expression, or has no valid type, we don't fold at all.
-    For performance-reason we don't hash on expressions representing a
-    declaration, or being of constant-class.
-    Function returns X, or its folded variant.  */
+/*  This function tries to fold an expression X.
+    To avoid combinatorial explosion, folding results are kept in fold_cache.
+    If we are processing a template or X is invalid, we don't fold at all.
+    For performance reasons we don't cache expressions representing a
+    declaration or constant.
+    Function returns X or its folded variant.  */
 
 static tree
 cp_fold (tree x)
@@ -1895,14 +1893,14 @@ cp_fold (tree x)
   enum tree_code code;
   location_t loc;
 
-  if (!x || x == error_mark_node)
+  if (!x || error_operand_p (x))
     return x;
 
   if (processing_template_decl
       || (EXPR_P (x) && !TREE_TYPE (x)))
     return x;
 
-  /* Don't even try to hash on DECLs or constants.  */
+  /* Don't bother to cache DECLs or constants.  */
   if (DECL_P (x) || CONSTANT_CLASS_P (x))
     return x;
 
