@@ -29,8 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "function.h"
 #include "bitmap.h"
-#include "tree.h"
-#include "c-family/c-common.h"
 #include "c-tree.h"
 #include "gimple-expr.h"
 #include "predict.h"
@@ -40,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "langhooks.h"
 #include "c-lang.h"
-#include "flags.h"
 #include "intl.h"
 #include "tree-iterator.h"
 #include "gimplify.h"
@@ -50,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gomp-constants.h"
+#include "spellcheck.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -2245,6 +2243,72 @@ lookup_field (tree type, tree component)
   return tree_cons (NULL_TREE, field, NULL_TREE);
 }
 
+/* Recursively append candidate IDENTIFIER_NODEs to CANDIDATES.  */
+
+static void
+lookup_field_fuzzy_find_candidates (tree type, tree component,
+				    vec<tree> *candidates)
+{
+  tree field;
+  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    {
+      if (DECL_NAME (field) == NULL_TREE
+	  && (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
+	      || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE))
+	{
+	  lookup_field_fuzzy_find_candidates (TREE_TYPE (field),
+					      component,
+					      candidates);
+	}
+
+      if (DECL_NAME (field))
+	candidates->safe_push (DECL_NAME (field));
+    }
+}
+
+/* Like "lookup_field", but find the closest matching IDENTIFIER_NODE,
+   rather than returning a TREE_LIST for an exact match.  */
+
+static tree
+lookup_field_fuzzy (tree type, tree component)
+{
+  gcc_assert (TREE_CODE (component) == IDENTIFIER_NODE);
+
+  /* First, gather a list of candidates.  */
+  auto_vec <tree> candidates;
+
+  lookup_field_fuzzy_find_candidates (type, component,
+				      &candidates);
+
+  /* Now determine which is closest.  */
+  int i;
+  tree identifier;
+  tree best_identifier = NULL;
+  edit_distance_t best_distance = MAX_EDIT_DISTANCE;
+  FOR_EACH_VEC_ELT (candidates, i, identifier)
+    {
+      gcc_assert (TREE_CODE (identifier) == IDENTIFIER_NODE);
+      edit_distance_t dist = levenshtein_distance (component, identifier);
+      if (dist < best_distance)
+	{
+	  best_distance = dist;
+	  best_identifier = identifier;
+	}
+    }
+
+  /* If more than half of the letters were misspelled, the suggestion is
+     likely to be meaningless.  */
+  if (best_identifier)
+    {
+      unsigned int cutoff = MAX (IDENTIFIER_LENGTH (component),
+				 IDENTIFIER_LENGTH (best_identifier)) / 2;
+      if (best_distance > cutoff)
+	return NULL;
+    }
+
+  return best_identifier;
+}
+
 /* Make an expression to refer to the COMPONENT field of structure or
    union value DATUM.  COMPONENT is an IDENTIFIER_NODE.  LOC is the
    location of the COMPONENT_REF.  */
@@ -2280,7 +2344,12 @@ build_component_ref (location_t loc, tree datum, tree component)
 
       if (!field)
 	{
-	  error_at (loc, "%qT has no member named %qE", type, component);
+	  tree guessed_id = lookup_field_fuzzy (type, component);
+	  if (guessed_id)
+	    error_at (loc, "%qT has no member named %qE; did you mean %qE?",
+		      type, component, guessed_id);
+	  else
+	    error_at (loc, "%qT has no member named %qE", type, component);
 	  return error_mark_node;
 	}
 
@@ -3391,6 +3460,12 @@ parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
     overflow_warning (loc, result.value);
     }
 
+  /* We are typically called when parsing a prefix token at LOC acting on
+     ARG.  Reflect this by updating the source range of the result to
+     start at LOC and end at the end of ARG.  */
+  set_c_expr_source_range (&result,
+			   loc, arg.get_finish ());
+
   return result;
 }
 
@@ -3427,6 +3502,10 @@ parser_build_binary_op (location_t location, enum tree_code code,
 
   if (location != UNKNOWN_LOCATION)
     protected_set_expr_location (result.value, location);
+
+  set_c_expr_source_range (&result,
+			   arg1.get_start (),
+			   arg2.get_finish ());
 
   /* Check for cases such as x+y<<z which users are likely
      to misinterpret.  */
@@ -9897,6 +9976,16 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 	  else
 	    exit = fold_build3_loc (input_location,
 				COND_EXPR, void_type_node, cond, exit, t);
+	}
+      else
+	{
+	  /* For the backward-goto's location of an unconditional loop
+	     use the beginning of the body, or, if there is none, the
+	     top of the loop.  */
+	  location_t loc = EXPR_LOCATION (expr_first (body));
+	  if (loc == UNKNOWN_LOCATION)
+	    loc = start_locus;
+	  SET_EXPR_LOCATION (exit, loc);
 	}
 
       add_stmt (top);

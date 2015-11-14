@@ -3754,13 +3754,6 @@ AS_HELP_STRING([--disable-fix-cortex-a53-843419],
       [AC_DEFINE(HAVE_AS_REGISTER_PSEUDO_OP, 1,
 		[Define if your assembler supports .register.])])
 
-    gcc_GAS_CHECK_FEATURE([@%:@nobits], gcc_cv_as_sparc_nobits,,,
-      [.section "nobits",#alloc,#write,#nobits
-       .section "progbits",#alloc,#write,#progbits])
-    AC_DEFINE_UNQUOTED(HAVE_AS_SPARC_NOBITS,
-      [`if test $gcc_cv_as_sparc_nobits = yes; then echo 1; else echo 0; fi`],
-      [Define to 1 if your assembler supports #nobits, 0 otherwise.])
-
     gcc_GAS_CHECK_FEATURE([-relax option], gcc_cv_as_sparc_relax,,
       [-relax], [.text],,
       [AC_DEFINE(HAVE_AS_RELAX_OPTION, 1,
@@ -4321,6 +4314,19 @@ LCF0:
       [$conftest_s],,
       [AC_DEFINE(HAVE_AS_POWER8, 1,
 	  [Define if your assembler supports POWER8 instructions.])])
+
+    case $target in
+      *-*-aix*) conftest_s='	.machine "pwr9"
+	.csect .text[[PR]]';;
+      *) conftest_s='	.machine power9
+	.text';;
+    esac
+
+    gcc_GAS_CHECK_FEATURE([power9 support],
+      gcc_cv_as_powerpc_power9, [2,19,2], -a32,
+      [$conftest_s],,
+      [AC_DEFINE(HAVE_AS_POWER9, 1,
+	  [Define if your assembler supports POWER9 instructions.])])
 
     case $target in
       *-*-aix*) conftest_s='	.csect .text[[PR]]
@@ -5457,7 +5463,7 @@ else
   enable_default_ssp=no
 fi],
 enable_default_ssp=no)
-if test x$enable_default_ssp == xyes ; then
+if test x$enable_default_ssp = xyes ; then
   AC_DEFINE(ENABLE_DEFAULT_SSP, 1,
       [Define if your target supports default stack protector and it is enabled.])
 fi
@@ -6022,7 +6028,7 @@ AC_ARG_ENABLE(default-pie,
   [enable Position Independent Executable as default])],
 enable_default_pie=$enableval,
 enable_default_pie=no)
-if test x$enable_default_pie == xyes ; then
+if test x$enable_default_pie = xyes ; then
   AC_DEFINE(ENABLE_DEFAULT_PIE, 1,
       [Define if your target supports default PIE and it is enabled.])
 fi

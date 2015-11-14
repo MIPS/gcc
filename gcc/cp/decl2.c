@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "target.h"
-#include "tree.h"
 #include "cp-tree.h"
 #include "c-family/c-common.h"
 #include "timevar.h"
@@ -40,15 +39,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "stor-layout.h"
 #include "calls.h"
-#include "flags.h"
 #include "decl.h"
 #include "toplev.h"
 #include "c-family/c-objc.h"
-#include "tree-inline.h"
 #include "c-family/c-pragma.h"
 #include "dumpfile.h"
 #include "intl.h"
-#include "langhooks.h"
 #include "c-family/c-ada-spec.h"
 #include "asan.h"
 
@@ -3116,7 +3112,7 @@ get_guard_cond (tree guard, bool thread_safe)
     {
       guard_value = integer_one_node;
       if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
-	guard_value = convert (TREE_TYPE (guard), guard_value);
+	guard_value = fold_convert (TREE_TYPE (guard), guard_value);
       guard = cp_build_binary_op (input_location,
 				  BIT_AND_EXPR, guard, guard_value,
 				  tf_warning_or_error);
@@ -3124,7 +3120,7 @@ get_guard_cond (tree guard, bool thread_safe)
 
   guard_value = integer_zero_node;
   if (!same_type_p (TREE_TYPE (guard_value), TREE_TYPE (guard)))
-    guard_value = convert (TREE_TYPE (guard), guard_value);
+    guard_value = fold_convert (TREE_TYPE (guard), guard_value);
   return cp_build_binary_op (input_location,
 			     EQ_EXPR, guard, guard_value,
 			     tf_warning_or_error);
@@ -3142,7 +3138,7 @@ set_guard (tree guard)
   guard = get_guard_bits (guard);
   guard_init = integer_one_node;
   if (!same_type_p (TREE_TYPE (guard_init), TREE_TYPE (guard)))
-    guard_init = convert (TREE_TYPE (guard), guard_init);
+    guard_init = fold_convert (TREE_TYPE (guard), guard_init);
   return cp_build_modify_expr (guard, NOP_EXPR, guard_init, 
 			       tf_warning_or_error);
 }

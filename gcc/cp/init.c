@@ -24,12 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "target.h"
-#include "tree.h"
 #include "cp-tree.h"
 #include "stringpool.h"
-#include "alias.h"
 #include "varasm.h"
-#include "flags.h"
 #include "gimplify.h"
 #include "c-family/c-ubsan.h"
 
@@ -178,9 +175,9 @@ build_zero_init_1 (tree type, tree nelts, bool static_storage_p,
        initialized are initialized to zero.  */
     ;
   else if (TYPE_PTR_OR_PTRMEM_P (type))
-    init = convert (type, nullptr_node);
+    init = fold (convert (type, nullptr_node));
   else if (SCALAR_TYPE_P (type))
-    init = convert (type, integer_zero_node);
+    init = fold (convert (type, integer_zero_node));
   else if (RECORD_OR_UNION_CODE_P (TREE_CODE (type)))
     {
       tree field;
@@ -2482,7 +2479,11 @@ warn_placement_new_too_small (tree type, tree nelts, tree size, tree oper)
 /* Generate code for a new-expression, including calling the "operator
    new" function, initializing the object, and, if an exception occurs
    during construction, cleaning up.  The arguments are as for
-   build_raw_new_expr.  This may change PLACEMENT and INIT.  */
+   build_raw_new_expr.  This may change PLACEMENT and INIT.
+   TYPE is the type of the object being constructed, possibly an array
+   of NELTS elements when NELTS is non-null (in "new T[NELTS]", T may
+   be an array of the form U[inner], with the whole expression being
+   "new U[NELTS][inner]").  */
 
 static tree
 build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
@@ -2502,13 +2503,16 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
      type.)  */
   tree pointer_type;
   tree non_const_pointer_type;
+  /* The most significant array bound in int[OUTER_NELTS][inner].  */
   tree outer_nelts = NULL_TREE;
-  /* For arrays, a bounds checks on the NELTS parameter. */
+  /* For arrays with a non-constant number of elements, a bounds checks
+     on the NELTS parameter to avoid integer overflow at runtime. */
   tree outer_nelts_check = NULL_TREE;
   bool outer_nelts_from_type = false;
+  /* Number of the "inner" elements in "new T[OUTER_NELTS][inner]".  */
   offset_int inner_nelts_count = 1;
   tree alloc_call, alloc_expr;
-  /* Size of the inner array elements. */
+  /* Size of the inner array elements (those with constant dimensions). */
   offset_int inner_size;
   /* The address returned by the call to "operator new".  This node is
      a VAR_DECL and is therefore reusable.  */
@@ -2553,6 +2557,11 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       type = TREE_TYPE (type);
       outer_nelts_from_type = true;
     }
+
+  /* Lots of logic below. depends on whether we have a constant number of
+     elements, so go ahead and fold it now.  */
+  if (outer_nelts)
+    outer_nelts = maybe_constant_value (outer_nelts);
 
   /* If our base type is an array, then make sure we know how many elements
      it has.  */
@@ -2604,7 +2613,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
   /* Warn if we performed the (T[N]) to T[N] transformation and N is
      variable.  */
   if (outer_nelts_from_type
-      && !TREE_CONSTANT (maybe_constant_value (outer_nelts)))
+      && !TREE_CONSTANT (outer_nelts))
     {
       if (complain & tf_warning_or_error)
 	{
@@ -2702,20 +2711,41 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	}
 
       max_outer_nelts = wi::udiv_trunc (max_size, inner_size);
-      /* Only keep the top-most seven bits, to simplify encoding the
-	 constant in the instruction stream.  */
-      {
-	unsigned shift = (max_outer_nelts.get_precision ()) - 7
-	  - wi::clz (max_outer_nelts);
-	max_outer_nelts = wi::lshift (wi::lrshift (max_outer_nelts, shift),
-				      shift);
-      }
       max_outer_nelts_tree = wide_int_to_tree (sizetype, max_outer_nelts);
 
-      size = size_binop (MULT_EXPR, size, convert (sizetype, nelts));
-      outer_nelts_check = fold_build2 (LE_EXPR, boolean_type_node,
-				       outer_nelts,
-				       max_outer_nelts_tree);
+      size = size_binop (MULT_EXPR, size, fold_convert (sizetype, nelts));
+
+      if (TREE_CONSTANT (outer_nelts))
+	{
+	  if (tree_int_cst_lt (max_outer_nelts_tree, outer_nelts))
+	    {
+	      /* When the array size is constant, check it at compile time
+		 to make sure it doesn't exceed the implementation-defined
+		 maximum, as required by C++ 14 (in C++ 11 this requirement
+		 isn't explicitly stated but it's enforced anyway -- see
+		 grokdeclarator in cp/decl.c).  */
+	      if (complain & tf_error)
+		error ("size of array is too large");
+	      return error_mark_node;
+	    }
+	}
+      else
+ 	{
+	  /* When a runtime check is necessary because the array size
+	     isn't constant, keep only the top-most seven bits (starting
+	     with the most significant non-zero bit) of the maximum size
+	     to compare the array size against, to simplify encoding the
+	     constant maximum size in the instruction stream.  */
+
+	  unsigned shift = (max_outer_nelts.get_precision ()) - 7
+	    - wi::clz (max_outer_nelts);
+	  max_outer_nelts = wi::lshift (wi::lrshift (max_outer_nelts, shift),
+				        shift);
+
+          outer_nelts_check = fold_build2 (LE_EXPR, boolean_type_node,
+					   outer_nelts,
+					   max_outer_nelts_tree);
+	}
     }
 
   alloc_fn = NULL_TREE;
@@ -2872,7 +2902,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	{
 	  placement_expr = get_target_expr (placement_first);
 	  CALL_EXPR_ARG (alloc_call, 1)
-	    = convert (TREE_TYPE (placement), placement_expr);
+	    = fold_convert (TREE_TYPE (placement), placement_expr);
 	}
 
       if (!member_new_p
@@ -3290,6 +3320,23 @@ build_new (vec<tree, va_gc> **placement, tree type, tree nelts,
           else
             return error_mark_node;
         }
+
+      /* Try to determine the constant value only for the purposes
+	 of the diagnostic below but continue to use the original
+	 value and handle const folding later.  */
+      const_tree cst_nelts = maybe_constant_value (nelts);
+
+      /* The expression in a noptr-new-declarator is erroneous if it's of
+	 non-class type and its value before converting to std::size_t is
+	 less than zero. ... If the expression is a constant expression,
+	 the program is ill-fomed.  */
+      if (TREE_CONSTANT (cst_nelts) && tree_int_cst_sgn (cst_nelts) == -1)
+	{
+	  if (complain & tf_error)
+	    error ("size of array is negative");
+	  return error_mark_node;
+	}
+
       nelts = mark_rvalue_use (nelts);
       nelts = cp_save_expr (cp_convert (sizetype, nelts, complain));
     }
@@ -3464,7 +3511,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
   /* The below is short by the cookie size.  */
   virtual_size = size_binop (MULT_EXPR, size_exp,
-			     convert (sizetype, maxindex));
+			     fold_convert (sizetype, maxindex));
 
   tbase = create_temporary_var (ptype);
   tbase_init
@@ -3507,7 +3554,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
       /* The below is short by the cookie size.  */
       virtual_size = size_binop (MULT_EXPR, size_exp,
-				 convert (sizetype, maxindex));
+				 fold_convert (sizetype, maxindex));
 
       if (! TYPE_VEC_NEW_USES_COOKIE (type))
 	/* no header */
@@ -3553,8 +3600,8 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
   body = fold_build3_loc (input_location, COND_EXPR, void_type_node,
 		      fold_build2_loc (input_location,
 				   NE_EXPR, boolean_type_node, base,
-				   convert (TREE_TYPE (base),
-					    nullptr_node)),
+				   fold_convert (TREE_TYPE (base),
+						 nullptr_node)),
 		      body, integer_zero_node);
   body = build1 (NOP_EXPR, void_type_node, body);
 
@@ -3676,6 +3723,7 @@ build_vec_init (tree base, tree maxindex, tree init,
   if (maxindex == NULL_TREE || maxindex == error_mark_node)
     return error_mark_node;
 
+  maxindex = maybe_constant_value (maxindex);
   if (explicit_value_init_p)
     gcc_assert (!init);
 
@@ -3717,6 +3765,8 @@ build_vec_init (tree base, tree maxindex, tree init,
     }
 
   maxindex = cp_convert (ptrdiff_type_node, maxindex, complain);
+  maxindex = fold_simple (maxindex);
+
   if (TREE_CODE (atype) == ARRAY_TYPE)
     {
       ptype = build_pointer_type (type);
