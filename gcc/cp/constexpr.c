@@ -23,9 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree.h"
 #include "cp-tree.h"
-#include "alias.h"
 #include "varasm.h"
 #include "c-family/c-objc.h"
 #include "tree-iterator.h"
@@ -1283,7 +1281,8 @@ cxx_eval_call_expression (const constexpr_ctx *ctx, tree t,
 	   && TREE_CODE (t) != AGGR_INIT_EXPR)
     {
       /* convert_to_void stripped our AGGR_INIT_EXPR, in which case we don't
-	 care about a constant value.  */
+	 care about a constant value.  ??? we could still optimize away the
+	 call.  */
       gcc_assert (ctx->quiet && !ctx->object);
       *non_constant_p = true;
       return t;

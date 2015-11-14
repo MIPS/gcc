@@ -29,11 +29,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "function.h"
-#include "tree.h"
-#include "c-family/c-common.h"
 #include "c-tree.h"
 #include "timevar.h"
-#include "tm_p.h"
 #include "stringpool.h"
 #include "cgraph.h"
 #include "intl.h"
@@ -41,11 +38,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "varasm.h"
 #include "attribs.h"
-#include "tree-inline.h"
-#include "flags.h"
 #include "toplev.h"
 #include "debug.h"
-#include "opts.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-pragma.h"
 #include "c-family/c-ubsan.h"
@@ -53,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "dumpfile.h"
-#include "langhooks-def.h"
 #include "plugin.h"
 #include "c-family/c-ada-spec.h"
 #include "cilk.h"
@@ -5285,7 +5278,7 @@ warn_defaults_to (location_t location, int opt, const char *gmsgid, ...)
 {
   diagnostic_info diagnostic;
   va_list ap;
-  rich_location richloc (location);
+  rich_location richloc (line_table, location);
 
   va_start (ap, gmsgid);
   diagnostic_set_info (&diagnostic, gmsgid, &ap, &richloc,
@@ -6007,6 +6000,9 @@ grokdeclarator (const struct c_declarator *declarator,
 		    TYPE_SIZE_UNIT (type) = size_zero_node;
 		    SET_TYPE_STRUCTURAL_EQUALITY (type);
 		  }
+
+		if (!valid_array_size_p (loc, type, name))
+		  type = error_mark_node;
 	      }
 
 	    if (decl_context != PARM
@@ -6014,7 +6010,8 @@ grokdeclarator (const struct c_declarator *declarator,
 		    || array_ptr_attrs != NULL_TREE
 		    || array_parm_static))
 	      {
-		error_at (loc, "static or type qualifiers in non-parameter array declarator");
+		error_at (loc, "static or type qualifiers in non-parameter "
+			  "array declarator");
 		array_ptr_quals = TYPE_UNQUALIFIED;
 		array_ptr_attrs = NULL_TREE;
 		array_parm_static = 0;
@@ -6291,22 +6288,6 @@ grokdeclarator (const struct c_declarator *declarator,
 	      alignas_align = 0;
 	    }
 	}
-    }
-
-  /* Did array size calculations overflow or does the array cover more
-     than half of the address-space?  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
-      && ! valid_constant_size_p (TYPE_SIZE_UNIT (type)))
-    {
-      if (name)
-	error_at (loc, "size of array %qE is too large", name);
-      else
-	error_at (loc, "size of unnamed array is too large");
-      /* If we proceed with the array type as it is, we'll eventually
-	 crash in tree_to_[su]hwi().  */
-      type = error_mark_node;
     }
 
   /* If this is declaring a typedef name, return a TYPE_DECL.  */

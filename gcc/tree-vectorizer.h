@@ -64,7 +64,8 @@ enum vect_def_type {
 /* Define type of reduction.  */
 enum vect_reduction_type {
   TREE_CODE_REDUCTION,
-  COND_REDUCTION
+  COND_REDUCTION,
+  INTEGER_INDUC_COND_REDUCTION
 };
 
 #define VECTORIZABLE_CYCLE_DEF(D) (((D) == vect_reduction_def)           \
@@ -1009,10 +1010,11 @@ extern enum dr_alignment_support vect_supportable_dr_alignment
 extern tree vect_get_smallest_scalar_type (gimple *, HOST_WIDE_INT *,
                                            HOST_WIDE_INT *);
 extern bool vect_analyze_data_ref_dependences (loop_vec_info, int *);
-extern bool vect_slp_analyze_data_ref_dependences (bb_vec_info);
+extern bool vect_slp_analyze_instance_dependence (slp_instance);
 extern bool vect_enhance_data_refs_alignment (loop_vec_info);
-extern bool vect_analyze_data_refs_alignment (vec_info *);
-extern bool vect_verify_datarefs_alignment (vec_info *);
+extern bool vect_analyze_data_refs_alignment (loop_vec_info);
+extern bool vect_verify_datarefs_alignment (loop_vec_info);
+extern bool vect_slp_analyze_and_verify_instance_alignment (slp_instance);
 extern bool vect_analyze_data_ref_accesses (vec_info *);
 extern bool vect_prune_runtime_alias_test_list (loop_vec_info);
 extern tree vect_check_gather_scatter (gimple *, loop_vec_info, tree *, tree *,

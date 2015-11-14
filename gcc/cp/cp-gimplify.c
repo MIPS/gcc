@@ -23,18 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "target.h"
-#include "function.h"
 #include "basic-block.h"
-#include "tree.h"
 #include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "gimple.h"
 #include "predict.h"
 #include "stor-layout.h"
 #include "tree-iterator.h"
-#include "internal-fn.h"
 #include "gimplify.h"
-#include "flags.h"
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 
@@ -1470,6 +1465,8 @@ cp_genericize (tree fndecl)
 {
   tree t;
 
+  /* Fold ALL the trees!  FIXME we should be able to remove this, but
+     apparently that still causes optimization regressions.  */
   cp_walk_tree (&DECL_SAVED_TREE (fndecl), cp_fold_r, NULL, NULL);
 
   /* Fix up the types of parms passed by invisible reference.  */

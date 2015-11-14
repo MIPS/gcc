@@ -10214,54 +10214,9 @@ fold_binary_loc (location_t loc,
 	return fold_build2_loc (loc, RDIV_EXPR, type,
 			    negate_expr (arg0),
 			    TREE_OPERAND (arg1, 0));
-
-      /* Convert A/B/C to A/(B*C).  */
-      if (flag_reciprocal_math
-	  && TREE_CODE (arg0) == RDIV_EXPR)
-	return fold_build2_loc (loc, RDIV_EXPR, type, TREE_OPERAND (arg0, 0),
-			    fold_build2_loc (loc, MULT_EXPR, type,
-					 TREE_OPERAND (arg0, 1), arg1));
-
-      /* Convert A/(B/C) to (A/B)*C.  */
-      if (flag_reciprocal_math
-	  && TREE_CODE (arg1) == RDIV_EXPR)
-	return fold_build2_loc (loc, MULT_EXPR, type,
-			    fold_build2_loc (loc, RDIV_EXPR, type, arg0,
-					 TREE_OPERAND (arg1, 0)),
-			    TREE_OPERAND (arg1, 1));
-
-      /* Convert C1/(X*C2) into (C1/C2)/X.  */
-      if (flag_reciprocal_math
-	  && TREE_CODE (arg1) == MULT_EXPR
-	  && TREE_CODE (arg0) == REAL_CST
-	  && TREE_CODE (TREE_OPERAND (arg1, 1)) == REAL_CST)
-	{
-	  tree tem = const_binop (RDIV_EXPR, arg0,
-				  TREE_OPERAND (arg1, 1));
-	  if (tem)
-	    return fold_build2_loc (loc, RDIV_EXPR, type, tem,
-				TREE_OPERAND (arg1, 0));
-	}
-
       return NULL_TREE;
 
     case TRUNC_DIV_EXPR:
-      /* Optimize (X & (-A)) / A where A is a power of 2,
-	 to X >> log2(A) */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && !TYPE_UNSIGNED (type) && TREE_CODE (arg1) == INTEGER_CST
-	  && integer_pow2p (arg1) && tree_int_cst_sgn (arg1) > 0)
-	{
-	  tree sum = fold_binary_loc (loc, PLUS_EXPR, TREE_TYPE (arg1),
-				      arg1, TREE_OPERAND (arg0, 1));
-	  if (sum && integer_zerop (sum)) {
-	    tree pow2 = build_int_cst (integer_type_node,
-				       wi::exact_log2 (arg1));
-	    return fold_build2_loc (loc, RSHIFT_EXPR, type,
-				    TREE_OPERAND (arg0, 0), pow2);
-	  }
-	}
-
       /* Fall through */
       
     case FLOOR_DIV_EXPR:
@@ -11906,16 +11861,16 @@ get_array_ctor_element_at_index (tree ctor, offset_int access_index)
   offset_int low_bound = 0;
 
   if (TREE_CODE (TREE_TYPE (ctor)) == ARRAY_TYPE)
-  {
-    tree domain_type = TYPE_DOMAIN (TREE_TYPE (ctor));
-    if (domain_type && TYPE_MIN_VALUE (domain_type))
     {
-      /* Static constructors for variably sized objects makes no sense.  */
-      gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
-      index_type = TREE_TYPE (TYPE_MIN_VALUE (domain_type));
-      low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
+      tree domain_type = TYPE_DOMAIN (TREE_TYPE (ctor));
+      if (domain_type && TYPE_MIN_VALUE (domain_type))
+	{
+	  /* Static constructors for variably sized objects makes no sense.  */
+	  gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
+	  index_type = TREE_TYPE (TYPE_MIN_VALUE (domain_type));
+	  low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
+	}
     }
-  }
 
   if (index_type)
     access_index = wi::ext (access_index, TYPE_PRECISION (index_type),
@@ -11931,29 +11886,29 @@ get_array_ctor_element_at_index (tree ctor, offset_int access_index)
   tree cfield, cval;
 
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
-  {
-    /* Array constructor might explicitely set index, or specify range
-     * or leave index NULL meaning that it is next index after previous
-     * one.  */
-    if (cfield)
     {
-      if (TREE_CODE (cfield) == INTEGER_CST)
-	max_index = index = wi::to_offset (cfield);
+      /* Array constructor might explicitly set index, or specify a range,
+	 or leave index NULL meaning that it is next index after previous
+	 one.  */
+      if (cfield)
+	{
+	  if (TREE_CODE (cfield) == INTEGER_CST)
+	    max_index = index = wi::to_offset (cfield);
+	  else
+	    {
+	      gcc_assert (TREE_CODE (cfield) == RANGE_EXPR);
+	      index = wi::to_offset (TREE_OPERAND (cfield, 0));
+	      max_index = wi::to_offset (TREE_OPERAND (cfield, 1));
+	    }
+	}
       else
-      {
-	gcc_assert (TREE_CODE (cfield) == RANGE_EXPR);
-	index = wi::to_offset (TREE_OPERAND (cfield, 0));
-	max_index = wi::to_offset (TREE_OPERAND (cfield, 1));
-      }
-    }
-    else
-    {
-      index += 1;
-      if (index_type)
-	index = wi::ext (index, TYPE_PRECISION (index_type),
-			 TYPE_SIGN (index_type));
-	max_index = index;
-    }
+	{
+	  index += 1;
+	  if (index_type)
+	    index = wi::ext (index, TYPE_PRECISION (index_type),
+			     TYPE_SIGN (index_type));
+	  max_index = index;
+	}
 
     /* Do we have match?  */
     if (wi::cmpu (access_index, index) >= 0

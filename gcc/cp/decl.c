@@ -31,21 +31,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "c-family/c-target.h"
-#include "tree.h"
 #include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "timevar.h"
-#include "tm_p.h"
 #include "stringpool.h"
 #include "cgraph.h"
-#include "tree-hasher.h"
 #include "stor-layout.h"
 #include "varasm.h"
 #include "attribs.h"
-#include "calls.h"
 #include "flags.h"
 #include "tree-iterator.h"
-#include "tree-inline.h"
 #include "decl.h"
 #include "intl.h"
 #include "toplev.h"
@@ -2020,7 +2014,22 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
       /* For typedefs use the old type, as the new type's DECL_NAME points
 	 at newdecl, which will be ggc_freed.  */
       if (TREE_CODE (newdecl) == TYPE_DECL)
-	newtype = oldtype;
+	{
+	  newtype = oldtype;
+
+	  /* And remove the new type from the variants list.  */
+	  if (TYPE_NAME (TREE_TYPE (newdecl)) == newdecl)
+	    {
+	      tree remove = TREE_TYPE (newdecl);
+	      for (tree t = TYPE_MAIN_VARIANT (remove); ;
+		   t = TYPE_NEXT_VARIANT (t))
+		if (TYPE_NEXT_VARIANT (t) == remove)
+		  {
+		    TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (remove);
+		    break;
+		  }
+	    }
+	}
       else
 	/* Merge the data types specified in the two decls.  */
 	newtype = merge_types (TREE_TYPE (newdecl), TREE_TYPE (olddecl));
@@ -9935,6 +9944,9 @@ grokdeclarator (const cp_declarator *declarator,
 	case cdk_array:
 	  type = create_array_type_for_decl (dname, type,
 					     declarator->u.array.bounds);
+	  if (!valid_array_size_p (input_location, type, dname))
+	    type = error_mark_node;
+
 	  if (declarator->std_attributes)
 	    /* [dcl.array]/1:
 
@@ -10496,19 +10508,6 @@ grokdeclarator (const cp_declarator *declarator,
         type = make_pack_expansion (type);
       else
         error ("non-parameter %qs cannot be a parameter pack", name);
-    }
-
-  /* Did array size calculations overflow or does the array cover more
-     than half of the address-space?  */
-  if (TREE_CODE (type) == ARRAY_TYPE
-      && COMPLETE_TYPE_P (type)
-      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
-      && ! valid_constant_size_p (TYPE_SIZE_UNIT (type)))
-    {
-      error ("size of array %qs is too large", name);
-      /* If we proceed with the array type as it is, we'll eventually
-	 crash in tree_to_[su]hwi().  */
-      type = error_mark_node;
     }
 
   if ((decl_context == FIELD || decl_context == PARM)

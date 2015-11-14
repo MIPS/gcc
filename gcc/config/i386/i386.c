@@ -2175,7 +2175,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BONNELL (1<<PROCESSOR_BONNELL)
 #define m_SILVERMONT (1<<PROCESSOR_SILVERMONT)
 #define m_KNL (1<<PROCESSOR_KNL)
-#define m_SKYLAKE_AVX512 (1<<PROCESSOT_SKYLAKE_AVX512)
+#define m_SKYLAKE_AVX512 (1<<PROCESSOR_SKYLAKE_AVX512)
 #define m_INTEL (1<<PROCESSOR_INTEL)
 
 #define m_GEODE (1<<PROCESSOR_GEODE)
@@ -6237,6 +6237,8 @@ ix86_valid_target_attribute_p (tree fndecl,
 	DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
     }
 
+  finalize_options_struct (&func_options);
+
   return ret;
 }
 
@@ -7236,11 +7238,12 @@ ix86_legitimate_combined_insn (rtx_insn *insn)
 	  /* For pre-AVX disallow unaligned loads/stores where the
 	     instructions don't support it.  */
 	  if (!TARGET_AVX
-	      && VECTOR_MODE_P (GET_MODE (op))
-	      && misaligned_operand (op, GET_MODE (op)))
+	      && VECTOR_MODE_P (mode)
+	      && misaligned_operand (op, mode))
 	    {
-	      int min_align = get_attr_ssememalign (insn);
-	      if (min_align == 0)
+	      unsigned int min_align = get_attr_ssememalign (insn);
+	      if (min_align == 0
+		  || MEM_ALIGN (op) < min_align)
 		return false;
 	    }
 
@@ -12245,8 +12248,6 @@ ix86_adjust_stack_and_probe (const HOST_WIDE_INT size)
       release_scratch_register_on_entry (&sr);
     }
 
-  gcc_assert (cfun->machine->fs.cfa_reg != stack_pointer_rtx);
-
   /* Even if the stack pointer isn't the CFA register, we need to correctly
      describe the adjustments made to it, in particular differentiate the
      frame-related ones from the frame-unrelated ones.  */
@@ -12470,7 +12471,11 @@ ix86_finalize_stack_realign_flags (void)
       && !crtl->accesses_prior_frames
       && !cfun->calls_alloca
       && !crtl->calls_eh_return
-      && !(flag_stack_check && STACK_CHECK_MOVING_SP)
+      /* See ira_setup_eliminable_regset for the rationale.  */
+      && !(STACK_CHECK_MOVING_SP
+	   && flag_stack_check
+	   && flag_exceptions
+	   && cfun->can_throw_non_call_exceptions)
       && !ix86_frame_pointer_required ()
       && get_frame_size () == 0
       && ix86_nsaved_sseregs () == 0
@@ -36108,7 +36113,11 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      priority = P_PROC_AVX;
 	      break;
 	    case PROCESSOR_HASWELL:
-	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_ADX)
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AVX512VL)
+	        arg_str = "skylake-avx512";
+	      else if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_XSAVES)
+	        arg_str = "skylake";
+	      else if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_ADX)
 		arg_str = "broadwell";
 	      else
 		arg_str = "haswell";

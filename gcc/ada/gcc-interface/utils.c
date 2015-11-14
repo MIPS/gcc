@@ -26,11 +26,9 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "ggc.h"
 #include "target.h"
 #include "function.h"
 #include "tree.h"
-#include "timevar.h"
 #include "stringpool.h"
 #include "cgraph.h"
 #include "diagnostic.h"
@@ -39,7 +37,6 @@
 #include "stor-layout.h"
 #include "attribs.h"
 #include "varasm.h"
-#include "flags.h"
 #include "toplev.h"
 #include "output.h"
 #include "debug.h"
@@ -48,15 +45,11 @@
 #include "langhooks.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
-#include "tree-iterator.h"
 
 #include "ada.h"
 #include "types.h"
 #include "atree.h"
-#include "elists.h"
-#include "namet.h"
 #include "nlists.h"
-#include "stringt.h"
 #include "uintp.h"
 #include "fe.h"
 #include "sinfo.h"
@@ -592,7 +585,7 @@ gnat_set_type_context (tree type, tree context)
    the debug info, or Empty if there is no such scope.  If not NULL, set
    IS_SUBPROGRAM to whether the returned entity is a subprogram.  */
 
-static Entity_Id
+Entity_Id
 get_debug_scope (Node_Id gnat_node, bool *is_subprogram)
 {
   Entity_Id gnat_entity;
@@ -600,7 +593,8 @@ get_debug_scope (Node_Id gnat_node, bool *is_subprogram)
   if (is_subprogram)
     *is_subprogram = false;
 
-  if (Nkind (gnat_node) == N_Defining_Identifier)
+  if (Nkind (gnat_node) == N_Defining_Identifier
+      || Nkind (gnat_node) == N_Defining_Operator_Symbol)
     gnat_entity = Scope (gnat_node);
   else
     return Empty;
