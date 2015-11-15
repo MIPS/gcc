@@ -158,7 +158,7 @@ host_detect_local_cpu (int argc, const char **argv)
   bool tune = false;
   bool cpu = false;
   unsigned int i = 0;
-  unsigned int core_idx = 0;
+  int core_idx = -1;
   unsigned char imp = INVALID_IMP;
   unsigned int cores[2] = { INVALID_CORE, INVALID_CORE };
   unsigned int n_cores = 0;
@@ -206,18 +206,13 @@ host_detect_local_cpu (int argc, const char **argv)
       if (strstr (buf, "part") != NULL)
 	{
 	  unsigned ccore = parse_field (buf);
-	  for (i = 0; cpu_data[i].name != NULL; i++)
-	    if (ccore == cpu_data[i].part_no
-                && !contains_core_p (cores, ccore))
-	      {
-                if (n_cores == 2)
-                  goto not_found;
+	  if (!contains_core_p (cores, ccore))
+	    {
+              if (n_cores == 2)
+                goto not_found;
 
-                cores[n_cores++] = ccore;
-	        core_idx = i;
-	        arch_id = cpu_data[i].arch;
-	        break;
-	      }
+              cores[n_cores++] = ccore;
+	    }
           continue;
         }
       if (!tune && !processed_exts && strstr (buf, "Features") != NULL)
@@ -253,11 +248,19 @@ host_detect_local_cpu (int argc, const char **argv)
   if (n_cores == 0 || n_cores > 2 || imp == INVALID_IMP)
     goto not_found;
 
-  if (arch && !arch_id)
-    goto not_found;
-
   if (arch)
     {
+      /* Search for one of the cores in the list. */
+      for (i = 0; cpu_data[i].name != NULL; i++)
+	if (cpu_data[i].implementer_id == imp
+	    && contains_core_p (cores, cpu_data[i].part_no))
+	  {
+	    arch_id = cpu_data[i].arch;
+	    break;
+	  }
+      if (!arch_id)
+	goto not_found;
+
       const char* arch_name = get_arch_name_from_id (arch_id);
 
       /* We got some arch indentifier that's not in aarch64-arches.def?  */
@@ -284,8 +287,15 @@ host_detect_local_cpu (int argc, const char **argv)
   /* The simple, non-big.LITTLE case.  */
   else
     {
-      if (cpu_data[core_idx].implementer_id != imp)
-        goto not_found;
+      for (i = 0; cpu_data[i].name != NULL; i++)
+	if (cores[0] == cpu_data[i].part_no
+	    && cpu_data[i].implementer_id == imp)
+	  {
+	    core_idx = i;
+	    break;
+	  }
+      if (core_idx == -1)
+	goto not_found;
 
       res = concat ("-m", cpu ? "cpu" : "tune", "=",
                       cpu_data[core_idx].name, NULL);
