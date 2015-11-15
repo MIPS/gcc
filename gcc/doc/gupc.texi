@@ -11,7 +11,7 @@
 
 @include gcc-common.texi
 
-@c Copyright (C) 2001-2014 Free Software Foundation, Inc.
+@c Copyright (C) 2001-2015 Free Software Foundation, Inc.
 @c Contributed by Gary Funck <gary@intrepid.com>
 @c   and Nenad Vukicevic <nenad@intrepid.com>.
 @c Based on original implementation
@@ -20,7 +20,7 @@
 
 @copying
 @c man begin COPYRIGHT
-Copyright @copyright{} 2001-2014 Free Software Foundation, Inc.
+Copyright @copyright{} 2001-2015 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -88,7 +88,6 @@ programs written in the UPC (Unified Parallel C) language.
 * Invoking GUPC::	How to use gupc.
 * GUPC Options::	GUPC Options.
 * See also::		References.
-* GUPC Bugs::		Report GUPC Problems.
 * Contributors::	GUPC Contributors.
 * Index::		Index.
 @end menu
@@ -160,13 +159,13 @@ If the number of threads is specified statically at compile-time,
 the special symbol THREADS is a constant and can be used freely in any
 context where a constant is required by the C language specification
 (for example, in array dimensions in an array declaration).  See the
-@option{-fupc-threads-N} compilation option.
+@option{-fupc-threads=N} compilation option.
 
 If the number of threads is specified dynamically at execution time, the
 special symbol THREADS is assigned at run-time, and THREADS can be used
 in array declarations only if the array is qualified as @code{shared} and
 only if one and only one of the shared array's dimensions is specified
-as an integral multiple of THREADS.  See the @option{-fupc-threads-N}
+as an integral multiple of THREADS.  See the @option{-fupc-threads=N}
 execution option.
 
 @c man end
@@ -288,15 +287,15 @@ command line.
 @table @gcctabopt
 @item -n N
 @cindex @option{-n}
-@itemx -fupc-threads-N
-@cindex @option{-fupc-threads-}
+@itemx -fupc-threads=N
+@cindex @option{-fupc-threads=}
 Specifies, at run-time, the number of parallel execution threads
 as @option{N}.  If the UPC program was not compiled with the
-@option{-fupc-threads-N} option, either the @option{-fupc-threads-N}
+@option{-fupc-threads=N} option, either the @option{-fupc-threads=N}
 or @option{-n N} command-line option is required when you invoke the
 UPC program.  See the Number of Threads section, above.
 
-@item -fupc-heap-HEAPSIZE
+@item -fupc-heap=HEAPSIZE
 @cindex @option{-fupc-heap}
 Specifies the size of the heap available to each thread
 as @option{HEAPSIZE}.  A suffix of @option{K} indicates that
@@ -305,7 +304,7 @@ of @option{M} indicates that @option{HEAPSIZE} is expressed in
 megabytes (2^20 bytes).  A suffix of @option{G} indicates that
 @option{HEAPSIZE} is expressed in gigabytes (2^30 bytes).  If a
 suffix is not present, @option{HEAPSIZE} is expressed in bytes.  If the
-@option{-fupc-heap-HEAPSIZE} option is not supplied, the run-time system
+@option{-fupc-heap=HEAPSIZE} option is not supplied, the run-time system
 will use a default heap size of 16 megabytes per thread.
 @end table
 
@@ -351,7 +350,7 @@ lets the kernel decide the memory allocation policy.
 @end table
 @c man end
 
-@node Seealso
+@node See also
 @section References
 @c man begin SEEALSO
 gcc(1), cpp(1), as(1), ld(1), gdb(1), adb(1), dbx(1), sdb(1).
@@ -378,12 +377,6 @@ GNU UPC web site
 GNU UPC Mailing List is an electronic forum for discussing
 news announcements, bug reports, planned developments, and other
 topics of interest to GNU UPC developers and users.
-@c man end
-
-@node GUPC Bugs
-@section Report GUPC Problems
-@c man begin BUGS
-Report bugs at @uref{http://gccupc.org/bugs}.
 @c man end
 
 @node Contributors

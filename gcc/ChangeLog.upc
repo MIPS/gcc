@@ -1,5 +1,10 @@
 2015-11-14  Gary Funck  <gary@intrepid.com>
 
+	* Makefile.in: Add rules to build gupc.info and gupc.1.
+	* doc/gupc.texi: Minor fixes.
+
+2015-11-14  Gary Funck  <gary@intrepid.com>
+
 	* c-family/c.opt: Fix comment.
 
 2015-11-11  Gary Funck  <gary@intrepid.com>

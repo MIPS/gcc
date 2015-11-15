@@ -2923,7 +2923,7 @@ install-no-fixedincludes:
 
 doc: $(BUILD_INFO) $(GENERATED_MANPAGES)
 
-INFOFILES = doc/cpp.info doc/gcc.info doc/gccint.info \
+INFOFILES = doc/cpp.info doc/gcc.info doc/gupc.info doc/gccint.info \
             doc/gccinstall.info doc/cppinternals.info
 
 info: $(INFOFILES) lang.info @GENINSRC@ srcinfo lang.srcinfo
@@ -3061,7 +3061,7 @@ $(build_htmldir)/gccinstall/index.html: $(TEXI_GCCINSTALL_FILES)
 	DESTDIR=$(@D) \
 	$(SHELL) $(srcdir)/doc/install.texi2html
 
-MANFILES = doc/gcov.1 doc/cpp.1 doc/gcc.1 doc/gfdl.7 doc/gpl.7 \
+MANFILES = doc/gcov.1 doc/cpp.1 doc/gcc.1 doc/gupc.1 doc/gfdl.7 doc/gpl.7 \
            doc/fsf-funding.7 doc/gcov-tool.1
 
 generated-manpages: man
