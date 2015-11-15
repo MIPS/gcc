@@ -32,7 +32,6 @@ static struct arch_extension ext_to_feat_string[] =
 {
 #include "aarch64-option-extensions.def"
 };
-#undef AARCH64_OPT_EXTENSION
 
 
 struct aarch64_core_data
@@ -52,7 +51,6 @@ static struct aarch64_core_data cpu_data [] =
   { NULL, NULL, NULL, NULL }
 };
 
-#undef AARCH64_CORE
 
 struct aarch64_arch_driver_info
 {
@@ -69,7 +67,6 @@ static struct aarch64_arch_driver_info aarch64_arches [] =
   {NULL, NULL}
 };
 
-#undef AARCH64_ARCH
 
 /* Return the full architecture name string corresponding to the
    identifier ID.  */
