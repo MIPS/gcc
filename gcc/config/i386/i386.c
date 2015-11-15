@@ -10326,7 +10326,8 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   indirect_p = pass_by_reference (NULL, TYPE_MODE (type), type, false);
   if (indirect_p)
     type = build_pointer_type (type);
-  size = int_size_in_bytes (type);
+  bool empty_record = type && type_is_empty_record_p (type);
+  size = empty_record ? 0 : int_size_in_bytes (type);
   rsize = CEIL (size, UNITS_PER_WORD);
 
   nat_mode = type_natural_mode (type, NULL, false);

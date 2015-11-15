@@ -113,7 +113,10 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
       TREE_PUBLIC (expr) = (unsigned) bp_unpack_value (bp, 1);
     }
   else
-    bp_unpack_value (bp, 4);
+    {
+      TYPE_EMPTY_RECORD (expr) = (unsigned) bp_unpack_value (bp, 1);
+      bp_unpack_value (bp, 3);
+    }
   TREE_ADDRESSABLE (expr) = (unsigned) bp_unpack_value (bp, 1);
   TREE_THIS_VOLATILE (expr) = (unsigned) bp_unpack_value (bp, 1);
   if (DECL_P (expr))

@@ -985,6 +985,8 @@ hash_tree (struct streamer_tree_cache_d *cache, hash_map<tree, hashval_t> *map, 
       hstate.add_flag (TREE_READONLY (t));
       hstate.add_flag (TREE_PUBLIC (t));
     }
+  else
+    hstate.add_flag (TYPE_EMPTY_RECORD (t));
   hstate.add_flag (TREE_ADDRESSABLE (t));
   hstate.add_flag (TREE_THIS_VOLATILE (t));
   if (DECL_P (t))

@@ -433,6 +433,8 @@ gen_type (const char *ret_val, tree t, formals_style style)
     ret_val = concat ("volatile ", ret_val, NULL);
   if (TYPE_RESTRICT (t))
     ret_val = concat ("restrict ", ret_val, NULL);
+  if (TYPE_EMPTY_RECORD (t))
+    ret_val = concat ("empty-record ", ret_val, NULL);
   return ret_val;
 }
 

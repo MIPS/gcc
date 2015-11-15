@@ -766,6 +766,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    computed gotos.  */
 #define FORCED_LABEL(NODE) (LABEL_DECL_CHECK (NODE)->base.side_effects_flag)
 
+/* Nonzero in a type considered an empty record.  */
+#define TYPE_EMPTY_RECORD(NODE) \
+  (TYPE_CHECK (NODE)->base.side_effects_flag)
+
 /* Nonzero means this expression is volatile in the C sense:
    its address should be of type `volatile WHATEVER *'.
    In other words, the declared item is volatile qualified.
@@ -5388,6 +5392,14 @@ static inline location_t
 get_finish (location_t loc)
 {
   return get_range_from_loc (line_table, loc).m_finish;
+}
+
+/* Return true if type T is an empty record.  */
+
+static inline bool
+type_is_empty_record_p (const_tree t)
+{
+  return TYPE_EMPTY_RECORD (TYPE_MAIN_VARIANT (t));
 }
 
 extern location_t set_block (location_t loc, tree block);

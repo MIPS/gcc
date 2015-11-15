@@ -379,10 +379,11 @@ ubsan_type_descriptor (tree type, enum ubsan_print_style pstyle)
 
   if (pstyle == UBSAN_PRINT_POINTER)
     {
-      pp_printf (&pretty_name, "'%s%s%s%s%s%s%s",
+      pp_printf (&pretty_name, "'%s%s%s%s%s%s%s%s",
 		 TYPE_VOLATILE (type2) ? "volatile " : "",
 		 TYPE_READONLY (type2) ? "const " : "",
 		 TYPE_RESTRICT (type2) ? "restrict " : "",
+		 TYPE_EMPTY_RECORD (type2) ? "empty-record " : "",
 		 TYPE_ATOMIC (type2) ? "_Atomic " : "",
 		 TREE_CODE (type2) == RECORD_TYPE
 		 ? "struct "

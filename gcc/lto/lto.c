@@ -1006,6 +1006,8 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_values (TREE_READONLY);
       compare_values (TREE_PUBLIC);
     }
+  else
+    compare_values (TYPE_EMPTY_RECORD);
   compare_values (TREE_ADDRESSABLE);
   compare_values (TREE_THIS_VOLATILE);
   if (DECL_P (t1))

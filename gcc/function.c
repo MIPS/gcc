@@ -2078,7 +2078,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   if (flag_pcc_struct_return && AGGREGATE_TYPE_P (type))
     return 1;
 
-  if (targetm.calls.return_in_memory (type, fntype))
+  if (return_in_memory (type, fntype))
     return 1;
 
   /* Make sure we have suitable call-clobbered regs to return
@@ -2247,6 +2247,7 @@ struct assign_parm_data_all
   HOST_WIDE_INT pretend_args_size;
   HOST_WIDE_INT extra_pretend_bytes;
   int reg_parm_stack_space;
+  bool warn_empty_record;
 };
 
 struct assign_parm_data_one
@@ -2412,6 +2413,28 @@ assign_parms_augmented_arg_list (struct assign_parm_data_all *all)
   if (targetm.calls.split_complex_arg)
     split_complex_args (&fnargs);
 
+  /* Warn empty record if they are used in a variable argument list or
+     they aren't the last arguments.  Set warn_empty_record to true if
+     we don't warn empty record to avoid walking arguments.  */
+  bool warn_empty_record = !warn_psabi || stdarg_p (fntype);
+  if (!warn_empty_record)
+    {
+      unsigned int i;
+      bool seen_empty_record = false;
+      FOR_EACH_VEC_ELT (fnargs, i, arg)
+	{
+	  tree type = TREE_TYPE (arg);
+	  if (type != error_mark_node && type_is_empty_record_p (type))
+	    seen_empty_record = true;
+	  else if (seen_empty_record)
+	    {
+	      warn_empty_record = true;
+	      break;
+	    }
+	}
+    }
+  all->warn_empty_record = warn_empty_record;
+
   return fnargs;
 }
 
@@ -2528,10 +2551,11 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       return;
     }
 
-  entry_parm = targetm.calls.function_incoming_arg (all->args_so_far,
-						    data->promoted_mode,
-						    data->passed_type,
-						    data->named_arg);
+  entry_parm = function_incoming_arg (all->args_so_far,
+				      data->promoted_mode,
+				      data->passed_type,
+				      data->named_arg,
+				      all->warn_empty_record);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2555,9 +2579,9 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       if (targetm.calls.pretend_outgoing_varargs_named (all->args_so_far))
 	{
 	  rtx tem;
-	  tem = targetm.calls.function_incoming_arg (all->args_so_far,
-						     data->promoted_mode,
-						     data->passed_type, true);
+	  tem = function_incoming_arg (all->args_so_far,
+				       data->promoted_mode,
+				       data->passed_type, true);
 	  in_regs = tem != NULL;
 	}
     }
@@ -3719,6 +3743,10 @@ assign_parms (tree fndecl)
       /* Find out where the parameter arrives in this function.  */
       assign_parm_find_entry_rtl (&all, &data);
 
+      /* Only warn empty record once.  */
+      if (type_is_empty_record_p (data.passed_type))
+	all.warn_empty_record = false;
+
       /* Find out where stack space for this parameter might be.  */
       if (assign_parm_is_stack_parm (&all, &data))
 	{
@@ -3795,8 +3823,8 @@ assign_parms (tree fndecl)
 	}
 
       /* Update info on where next arg arrives in registers.  */
-      targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,
-					  data.passed_type, data.named_arg);
+      function_arg_advance (all.args_so_far, data.promoted_mode,
+			    data.passed_type, data.named_arg);
 
       if (POINTER_BOUNDS_TYPE_P (data.passed_type))
 	bound_no++;
@@ -3992,8 +4020,8 @@ gimplify_parameters (void)
 	continue;
 
       /* Update info on where next arg arrives in registers.  */
-      targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,
-					  data.passed_type, data.named_arg);
+      function_arg_advance (all.args_so_far, data.promoted_mode,
+			    data.passed_type, data.named_arg);
 
       /* ??? Once upon a time variable_size stuffed parameter list
 	 SAVE_EXPRs (amongst others) onto a pending sizes list.  This
@@ -4136,8 +4164,11 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 
   part_size_in_regs = (reg_parm_stack_space == 0 ? partial : 0);
 
-  sizetree
-    = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
+  if (type)
+    sizetree = (type_is_empty_record_p (type)
+		? size_zero_node : size_in_bytes (type));
+  else
+    sizetree = size_int (GET_MODE_SIZE (passed_mode));
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = targetm.calls.function_arg_boundary (passed_mode, type);
   round_boundary = targetm.calls.function_arg_round_boundary (passed_mode,
@@ -6864,6 +6895,70 @@ rtl_opt_pass *
 make_pass_match_asm_constraints (gcc::context *ctxt)
 {
   return new pass_match_asm_constraints (ctxt);
+}
+
+static void
+warn_empty_record (void)
+{
+  if (warn_psabi)
+    inform (input_location, "the ABI of passing empty record has"
+	    " changed in GCC 6");
+}
+
+/* Wrapper for targetm.calls.function_arg_advance.  */
+
+void
+function_arg_advance (cumulative_args_t ca, machine_mode mode,
+		      const_tree type, bool named)
+{
+  if (type && type_is_empty_record_p (type))
+    return;
+
+  targetm.calls.function_arg_advance (ca, mode, type, named);
+}
+
+/* Wrapper for targetm.calls.function_arg.  */
+
+rtx
+function_arg (cumulative_args_t ca, machine_mode mode, const_tree type,
+	      bool named, bool warn_empty_record_p)
+{
+  if (type && type_is_empty_record_p (type))
+    {
+      if (warn_empty_record_p)
+	warn_empty_record ();
+      return NULL;
+    }
+
+  return targetm.calls.function_arg (ca, mode, type, named);
+}
+
+/* Wrapper for targetm.calls.function_incoming_arg.  */
+
+rtx
+function_incoming_arg (cumulative_args_t ca, machine_mode mode,
+		       const_tree type, bool named,
+		       bool warn_empty_record_p)
+{
+  if (type && type_is_empty_record_p (type))
+    {
+      if (warn_empty_record_p)
+	warn_empty_record ();
+      return NULL;
+    }
+
+  return targetm.calls.function_incoming_arg (ca, mode, type, named);
+}
+
+/* Wrapper for targetm.calls.return_in_memory.  */
+
+bool
+return_in_memory (const_tree type, const_tree fntype)
+{
+  if (type && type_is_empty_record_p (type))
+    return false;
+
+  return targetm.calls.return_in_memory (type, fntype);
 }
 
 

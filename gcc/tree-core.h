@@ -1088,6 +1088,9 @@ struct GTY(()) tree_base {
        FORCED_LABEL in
            LABEL_DECL
 
+       TYPE_EMPTY_RECORD in
+           all types
+
    volatile_flag:
 
        TREE_THIS_VOLATILE in

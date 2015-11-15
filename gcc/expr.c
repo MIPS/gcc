@@ -1199,13 +1199,12 @@ block_move_libcall_safe_for_call_parm (void)
     for ( ; arg != void_list_node ; arg = TREE_CHAIN (arg))
       {
 	machine_mode mode = TYPE_MODE (TREE_VALUE (arg));
-	rtx tmp = targetm.calls.function_arg (args_so_far, mode,
-					      NULL_TREE, true);
+	rtx tmp = function_arg (args_so_far, mode, NULL_TREE, true);
 	if (!tmp || !REG_P (tmp))
 	  return false;
 	if (targetm.calls.arg_partial_bytes (args_so_far, mode, NULL, 1))
 	  return false;
-	targetm.calls.function_arg_advance (args_so_far, mode,
+	function_arg_advance (args_so_far, mode,
 					    NULL_TREE, true);
       }
   }
@@ -2207,7 +2206,8 @@ copy_blkmode_to_reg (machine_mode mode, tree src)
 
   x = expand_normal (src);
 
-  bytes = int_size_in_bytes (TREE_TYPE (src));
+  bytes = (type_is_empty_record_p (TREE_TYPE (src))
+	   ? 0 : int_size_in_bytes (TREE_TYPE (src)));
   if (bytes == 0)
     return NULL_RTX;
 
