@@ -14050,4 +14050,47 @@ combined_fn_name (combined_fn fn)
     return internal_fn_name (as_internal_fn (fn));
 }
 
+/* Returns true if TYPE is a type where it and all of its subobjects
+  (recursively) are of structure, union, or array type.  */
+
+static bool
+is_empty_type (tree type)
+{
+  if (RECORD_OR_UNION_TYPE_P (type))
+    {
+      tree field;
+      for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+	if (TREE_CODE (field) == FIELD_DECL
+	    && (DECL_NAME (field)
+		|| RECORD_OR_UNION_TYPE_P (TREE_TYPE (field)))
+	    && !is_empty_type (TREE_TYPE (field)))
+	  return false;
+      return true;
+    }
+  else if (TREE_CODE (type) == ARRAY_TYPE)
+    return is_empty_type (TREE_TYPE (type));
+  return false;
+}
+
+/* Return true if TYPE is an empty type of non-zero size whose address
+   isn't needed.  */
+
+bool
+type_is_empty_type_p (const_tree type)
+{
+  if (!abi_version_at_least (10))
+    return false;
+
+  if (type == error_mark_node)
+    return false;
+
+  if (TREE_ADDRESSABLE (type))
+    return false;
+
+  if (int_size_in_bytes (type) == 0)
+    return false;
+
+  return is_empty_type (TYPE_MAIN_VARIANT (type));
+}
+
 #include "gt-tree.h"
