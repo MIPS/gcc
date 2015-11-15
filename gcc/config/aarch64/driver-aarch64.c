@@ -37,10 +37,15 @@ static struct arch_extension ext_to_feat_string[] =
 struct aarch64_core_data
 {
   const char* name;
-  const char* arch;
-  const char* implementer_id;
-  const char* part_no;
+  const char *arch;
+  unsigned char implementer_id; /* Exactly 8 bits */
+  unsigned int part_no; /* 12 bits + 12 bits */
 };
+
+#define AARCH64_BIG_LITTLE(BIG, LITTLE) \
+  (((BIG)&0xFFFu) << 12 | ((LITTLE) & 0xFFFu))
+#define INVALID_IMP ((unsigned char) -1)
+#define INVALID_CORE ((unsigned)-1)
 
 #define AARCH64_CORE(CORE_NAME, CORE_IDENT, SCHED, ARCH, FLAGS, COSTS, IMP, PART) \
   { CORE_NAME, #ARCH, IMP, PART },
@@ -48,7 +53,7 @@ struct aarch64_core_data
 static struct aarch64_core_data cpu_data [] =
 {
 #include "aarch64-cores.def"
-  { NULL, NULL, NULL, NULL }
+  { NULL, NULL, INVALID_IMP, INVALID_CORE }
 };
 
 
@@ -91,27 +96,35 @@ get_arch_name_from_id (const char* id)
    should return true.  */
 
 static bool
-valid_bL_string_p (const char** core, const char* bL_string)
+valid_bL_core_p (unsigned int *core, unsigned int bL_core)
 {
-  return strstr (bL_string, core[0]) != NULL
-         && strstr (bL_string, core[1]) != NULL;
+  return AARCH64_BIG_LITTLE (core[0], core[1]) == bL_core;
 }
 
-/*  Return true iff ARR contains STR in one of its two elements.  */
+
+/* Returns the integer that is after ':' for the field. */
+static unsigned parse_field (const char *field)
+{
+  const char *rest = strchr (field, ':');
+  char *after;
+  unsigned fint = strtol (rest+1, &after, 16);
+  if (after == rest+1)
+    return -1;
+  return fint;
+}
+
+/*  Return true iff ARR contains CORE, in either of the two elements. */
 
 static bool
-contains_string_p (const char** arr, const char* str)
+contains_core_p (unsigned *arr, unsigned core)
 {
-  bool res = false;
-
-  if (arr[0] != NULL)
+  if (arr[0] != INVALID_CORE)
     {
-      res = strstr (arr[0], str) != NULL;
-      if (res)
-        return res;
+      if (arr[0] == core)
+        return true;
 
-      if (arr[1] != NULL)
-        return strstr (arr[1], str) != NULL;
+      if (arr[1] != INVALID_CORE)
+        return arr[1] == core;
     }
 
   return false;
@@ -146,10 +159,9 @@ host_detect_local_cpu (int argc, const char **argv)
   bool cpu = false;
   unsigned int i = 0;
   unsigned int core_idx = 0;
-  const char* imps[2] = { NULL, NULL };
-  const char* cores[2] = { NULL, NULL };
+  unsigned char imp = INVALID_IMP;
+  unsigned int cores[2] = { INVALID_CORE, INVALID_CORE };
   unsigned int n_cores = 0;
-  unsigned int n_imps = 0;
   bool processed_exts = false;
   const char *ext_string = "";
 
@@ -180,30 +192,28 @@ host_detect_local_cpu (int argc, const char **argv)
     {
       if (strstr (buf, "implementer") != NULL)
 	{
-	  for (i = 0; cpu_data[i].name != NULL; i++)
-	    if (strstr (buf, cpu_data[i].implementer_id) != NULL
-                && !contains_string_p (imps, cpu_data[i].implementer_id))
-	      {
-                if (n_imps == 2)
-                  goto not_found;
+	  unsigned cimp = parse_field (buf);
+	  if (cimp == INVALID_IMP)
+	    goto not_found;
 
-                imps[n_imps++] = cpu_data[i].implementer_id;
-
-                break;
-	      }
-          continue;
+	  if (imp == INVALID_IMP)
+	    imp = cimp;
+	  /* BIG.little implementers are always equal. */
+	  else if (imp != cimp)
+	    goto not_found;
 	}
 
       if (strstr (buf, "part") != NULL)
 	{
+	  unsigned ccore = parse_field (buf);
 	  for (i = 0; cpu_data[i].name != NULL; i++)
-	    if (strstr (buf, cpu_data[i].part_no) != NULL
-                && !contains_string_p (cores, cpu_data[i].part_no))
+	    if (ccore == cpu_data[i].part_no
+                && !contains_core_p (cores, ccore))
 	      {
                 if (n_cores == 2)
                   goto not_found;
 
-                cores[n_cores++] = cpu_data[i].part_no;
+                cores[n_cores++] = ccore;
 	        core_idx = i;
 	        arch_id = cpu_data[i].arch;
 	        break;
@@ -240,7 +250,7 @@ host_detect_local_cpu (int argc, const char **argv)
   f = NULL;
 
   /* Weird cpuinfo format that we don't know how to handle.  */
-  if (n_cores == 0 || n_cores > 2 || n_imps != 1)
+  if (n_cores == 0 || n_cores > 2 || imp == INVALID_IMP)
     goto not_found;
 
   if (arch && !arch_id)
@@ -261,9 +271,8 @@ host_detect_local_cpu (int argc, const char **argv)
     {
       for (i = 0; cpu_data[i].name != NULL; i++)
         {
-          if (strchr (cpu_data[i].part_no, '.') != NULL
-              && strncmp (cpu_data[i].implementer_id, imps[0], strlen (imps[0]) - 1) == 0
-              && valid_bL_string_p (cores, cpu_data[i].part_no))
+          if (cpu_data[i].implementer_id == imp
+              && valid_bL_core_p (cores, cpu_data[i].part_no))
             {
               res = concat ("-m", cpu ? "cpu" : "tune", "=", cpu_data[i].name, NULL);
               break;
@@ -275,8 +284,7 @@ host_detect_local_cpu (int argc, const char **argv)
   /* The simple, non-big.LITTLE case.  */
   else
     {
-      if (strncmp (cpu_data[core_idx].implementer_id, imps[0],
-                   strlen (imps[0]) - 1) != 0)
+      if (cpu_data[core_idx].implementer_id != imp)
         goto not_found;
 
       res = concat ("-m", cpu ? "cpu" : "tune", "=",
