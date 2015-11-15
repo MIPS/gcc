@@ -1,3 +1,7 @@
+2015-11-14  Gary Funck  <gary@intrepid.com>
+
+	* c-family/c.opt: Fix comment.
+
 2015-11-11  Gary Funck  <gary@intrepid.com>
 
 	* config/rs6000/rs6000.c: Improve comments.
