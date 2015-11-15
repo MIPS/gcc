@@ -227,7 +227,6 @@ enum aarch64_fusion_pairs_index
 #include "aarch64-fusion-pairs.def"
   AARCH64_FUSE_index_END
 };
-#undef AARCH64_FUSION_PAIR
 
 #define AARCH64_FUSION_PAIR(x, name) \
   AARCH64_FUSE_##name = (1u << AARCH64_FUSE_##name##_index),
@@ -238,7 +237,6 @@ enum aarch64_fusion_pairs
 #include "aarch64-fusion-pairs.def"
   AARCH64_FUSE_ALL = (1u << AARCH64_FUSE_index_END) - 1
 };
-#undef AARCH64_FUSION_PAIR
 
 #define AARCH64_EXTRA_TUNING_OPTION(x, name) \
   AARCH64_EXTRA_TUNE_##name##_index,
@@ -248,7 +246,6 @@ enum aarch64_extra_tuning_flags_index
 #include "aarch64-tuning-flags.def"
   AARCH64_EXTRA_TUNE_index_END
 };
-#undef AARCH64_EXTRA_TUNING_OPTION
 
 
 #define AARCH64_EXTRA_TUNING_OPTION(x, name) \
@@ -260,7 +257,6 @@ enum aarch64_extra_tuning_flags
 #include "aarch64-tuning-flags.def"
   AARCH64_EXTRA_TUNE_ALL = (1u << AARCH64_EXTRA_TUNE_index_END) - 1
 };
-#undef AARCH64_EXTRA_TUNING_OPTION
 
 extern struct tune_params aarch64_tune_params;
 
