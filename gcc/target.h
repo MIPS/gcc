@@ -104,6 +104,14 @@ extern bool target_default_pointer_address_modes_p (void);
    behaviour.  */
 extern unsigned int get_move_ratio (bool);
 
+extern void function_arg_advance (cumulative_args_t, machine_mode,
+				  const_tree, bool);
+extern rtx function_arg (cumulative_args_t, machine_mode, const_tree,
+			 bool);
+extern rtx function_incoming_arg (cumulative_args_t, machine_mode,
+				  const_tree, bool);
+extern bool return_in_memory (const_tree, const_tree);
+
 struct stdarg_info;
 struct spec_info_def;
 struct hard_reg_set_container;

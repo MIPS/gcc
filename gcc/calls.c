@@ -1391,8 +1391,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       args[i].unsignedp = unsignedp;
       args[i].mode = mode;
 
-      args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
-						argpos < n_named_args);
+      args[i].reg = function_arg (args_so_far, mode, type,
+				  argpos < n_named_args);
 
       if (args[i].reg && CONST_INT_P (args[i].reg))
 	{
@@ -1405,8 +1405,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	 arguments have to go into the incoming registers.  */
       if (targetm.calls.function_incoming_arg != targetm.calls.function_arg)
 	args[i].tail_call_reg
-	  = targetm.calls.function_incoming_arg (args_so_far, mode, type,
-						 argpos < n_named_args);
+	  = function_incoming_arg (args_so_far, mode, type,
+				   argpos < n_named_args);
       else
 	args[i].tail_call_reg = args[i].reg;
 
@@ -1467,8 +1467,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       /* Increment ARGS_SO_FAR, which has info about which arg-registers
 	 have been used, etc.  */
 
-      targetm.calls.function_arg_advance (args_so_far, TYPE_MODE (type),
-					  type, argpos < n_named_args);
+      function_arg_advance (args_so_far, TYPE_MODE (type), type,
+			    argpos < n_named_args);
     }
 }
 
@@ -3320,14 +3320,11 @@ expand_call (tree exp, rtx target, int ignore)
       /* Set up next argument register.  For sibling calls on machines
 	 with register windows this should be the incoming register.  */
       if (pass == 0)
-	next_arg_reg = targetm.calls.function_incoming_arg (args_so_far,
-							    VOIDmode,
-							    void_type_node,
-							    true);
+	next_arg_reg = function_incoming_arg (args_so_far, VOIDmode,
+					      void_type_node, true);
       else
-	next_arg_reg = targetm.calls.function_arg (args_so_far,
-						   VOIDmode, void_type_node,
-						   true);
+	next_arg_reg = function_arg (args_so_far, VOIDmode,
+				     void_type_node, true);
 
       if (pass == 1 && (return_flags & ERF_RETURNS_ARG))
 	{
@@ -3939,8 +3936,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       argvec[count].mode = Pmode;
       argvec[count].partial = 0;
 
-      argvec[count].reg = targetm.calls.function_arg (args_so_far,
-						      Pmode, NULL_TREE, true);
+      argvec[count].reg = function_arg (args_so_far, Pmode, NULL_TREE,
+					true);
       gcc_assert (targetm.calls.arg_partial_bytes (args_so_far, Pmode,
 						   NULL_TREE, 1) == 0);
 
@@ -3957,7 +3954,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	  || reg_parm_stack_space > 0)
 	args_size.constant += argvec[count].locate.size.constant;
 
-      targetm.calls.function_arg_advance (args_so_far, Pmode, (tree) 0, true);
+      function_arg_advance (args_so_far, Pmode, (tree) 0, true);
 
       count++;
     }
@@ -4022,7 +4019,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
       mode = promote_function_mode (NULL_TREE, mode, &unsigned_p, NULL_TREE, 0);
       argvec[count].mode = mode;
       argvec[count].value = convert_modes (mode, GET_MODE (val), val, unsigned_p);
-      argvec[count].reg = targetm.calls.function_arg (args_so_far, mode,
+      argvec[count].reg = function_arg (args_so_far, mode,
 						      NULL_TREE, true);
 
       argvec[count].partial
@@ -4052,7 +4049,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 			     GET_MODE_SIZE (mode) <= UNITS_PER_WORD);
 #endif
 
-      targetm.calls.function_arg_advance (args_so_far, mode, (tree) 0, true);
+      function_arg_advance (args_so_far, mode, (tree) 0, true);
     }
 
   /* If this machine requires an external definition for library
@@ -4399,8 +4396,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 	       build_function_type (tfom, NULL_TREE),
 	       original_args_size.constant, args_size.constant,
 	       struct_value_size,
-	       targetm.calls.function_arg (args_so_far,
-					   VOIDmode, void_type_node, true),
+	       function_arg (args_so_far, VOIDmode, void_type_node, true),
 	       valreg,
 	       old_inhibit_defer_pop + 1, call_fusage, flags, args_so_far);
 
@@ -4835,7 +4831,10 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	 Note that in C the default argument promotions
 	 will prevent such mismatches.  */
 
-      size = GET_MODE_SIZE (arg->mode);
+      if (lang_hooks.decls.empty_record_p (TREE_TYPE (pval)))
+	size = 0;
+      else
+	size = GET_MODE_SIZE (arg->mode);
       /* Compute how much space the push instruction will push.
 	 On many machines, pushing a byte will advance the stack
 	 pointer by a halfword.  */
@@ -4865,10 +4864,14 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 
       /* This isn't already where we want it on the stack, so put it there.
 	 This can either be done with push or copy insns.  */
-      if (!emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), NULL_RTX,
-		      parm_align, partial, reg, used - size, argblock,
-		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
-		      ARGS_SIZE_RTX (arg->locate.alignment_pad), true))
+      if (used
+	  && !emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval),
+			      NULL_RTX, parm_align, partial, reg,
+			      used - size, argblock,
+			      ARGS_SIZE_RTX (arg->locate.offset),
+			      reg_parm_stack_space,
+			      ARGS_SIZE_RTX (arg->locate.alignment_pad),
+			      true))
 	sibcall_failure = 1;
 
       /* Unless this is a partially-in-register argument, the argument is now
@@ -4900,10 +4903,16 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	{
 	  /* PUSH_ROUNDING has no effect on us, because emit_push_insn
 	     for BLKmode is careful to avoid it.  */
+	  bool empty_record
+	    = lang_hooks.decls.empty_record_p (TREE_TYPE (pval));
 	  excess = (arg->locate.size.constant
-		    - int_size_in_bytes (TREE_TYPE (pval))
+		    - (empty_record
+		       ? 0
+		       : int_size_in_bytes (TREE_TYPE (pval)))
 		    + partial);
-	  size_rtx = expand_expr (size_in_bytes (TREE_TYPE (pval)),
+	  size_rtx = expand_expr ((empty_record
+				   ? size_zero_node
+				   : size_in_bytes (TREE_TYPE (pval))),
 				  NULL_RTX, TYPE_MODE (sizetype),
 				  EXPAND_NORMAL);
 	}
@@ -4971,10 +4980,13 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    }
 	}
 
-      emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval), size_rtx,
-		      parm_align, partial, reg, excess, argblock,
-		      ARGS_SIZE_RTX (arg->locate.offset), reg_parm_stack_space,
-		      ARGS_SIZE_RTX (arg->locate.alignment_pad), false);
+      if (!CONST_INT_P (size_rtx) || INTVAL (size_rtx) != 0)
+	emit_push_insn (arg->value, arg->mode, TREE_TYPE (pval),
+			size_rtx, parm_align, partial, reg, excess,
+			argblock, ARGS_SIZE_RTX (arg->locate.offset),
+			reg_parm_stack_space,
+			ARGS_SIZE_RTX (arg->locate.alignment_pad),
+			false);
 
       /* Unless this is a partially-in-register argument, the argument is now
 	 in the stack.
@@ -5051,6 +5063,9 @@ must_pass_in_stack_var_size_or_pad (machine_mode mode, const_tree type)
      to be constructed into the stack)...  */
   if (TREE_ADDRESSABLE (type))
     return true;
+
+  if (lang_hooks.decls.empty_record_p (type))
+    return false;
 
   /* If the padding and mode of the type is such that a copy into
      a register would put it into the wrong part of the register.  */

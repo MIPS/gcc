@@ -163,6 +163,7 @@ extern tree lhd_make_node (enum tree_code);
 #define LANG_HOOKS_GENERIC_GENERIC_PARAMETER_DECL_P hook_bool_const_tree_false
 #define LANG_HOOKS_FUNCTION_PARM_EXPANDED_FROM_PACK_P \
 					hook_bool_tree_tree_false
+#define LANG_HOOKS_EMPTY_RECORD_P	hook_bool_const_tree_false
 #define LANG_HOOKS_GET_GENERIC_FUNCTION_DECL hook_tree_const_tree_null
 #define LANG_HOOKS_TYPE_PROMOTES_TO lhd_type_promotes_to
 #define LANG_HOOKS_REGISTER_BUILTIN_TYPE lhd_register_builtin_type
@@ -228,6 +229,7 @@ extern tree lhd_make_node (enum tree_code);
   LANG_HOOKS_FUNCTION_DECL_DELETED_P, \
   LANG_HOOKS_GENERIC_GENERIC_PARAMETER_DECL_P, \
   LANG_HOOKS_FUNCTION_PARM_EXPANDED_FROM_PACK_P, \
+  LANG_HOOKS_EMPTY_RECORD_P, \
   LANG_HOOKS_GET_GENERIC_FUNCTION_DECL, \
   LANG_HOOKS_WARN_UNUSED_GLOBAL_DECL, \
   LANG_HOOKS_POST_COMPILATION_PARSING_CLEANUPS, \

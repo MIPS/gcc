@@ -31,6 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "alias.h"
 #include "stor-layout.h"
 #include "gomp-constants.h"
+#include "langhooks.h"
 
 
 /* Output the STRING constant to the string
@@ -128,6 +129,11 @@ pack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
     }
   else
     bp_pack_value (bp, 0, 9);
+  if (TYPE_P (expr))
+    /* Stream out a bit to indicate if a record is empty.  */
+    bp_pack_value (bp, lang_hooks.decls.empty_record_p (expr), 1);
+  else
+    bp_pack_value (bp, 0, 1);
 }
 
 

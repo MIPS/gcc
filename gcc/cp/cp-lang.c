@@ -78,6 +78,8 @@ static tree cxx_enum_underlying_base_type (const_tree);
 #define LANG_HOOKS_EH_RUNTIME_TYPE build_eh_type_type
 #undef LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE
 #define LANG_HOOKS_ENUM_UNDERLYING_BASE_TYPE cxx_enum_underlying_base_type
+#undef LANG_HOOKS_EMPTY_RECORD_P
+#define LANG_HOOKS_EMPTY_RECORD_P is_really_empty_class
 
 /* Each front end provides its own lang hook initializer.  */
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;

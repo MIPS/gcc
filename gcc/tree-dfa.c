@@ -394,6 +394,8 @@ get_ref_base_and_extent (tree exp, HOST_WIDE_INT *poffset,
       machine_mode mode = TYPE_MODE (TREE_TYPE (exp));
       if (mode == BLKmode)
 	size_tree = TYPE_SIZE (TREE_TYPE (exp));
+      else if (lang_hooks.decls.empty_record_p (TREE_TYPE (exp)))
+	bitsize = 0;
       else
 	bitsize = int (GET_MODE_PRECISION (mode));
     }

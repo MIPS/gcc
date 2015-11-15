@@ -154,6 +154,11 @@ unpack_ts_base_value_fields (struct bitpack_d *bp, tree expr)
     }
   else
     bp_unpack_value (bp, 9);
+  if (TYPE_P (expr))
+    /* Set if a record is empty.  */
+    TYPE_LANG_FLAG_0 (expr) = (unsigned) bp_unpack_value (bp, 1);
+  else
+    bp_unpack_value (bp, 1);
 }
 
 

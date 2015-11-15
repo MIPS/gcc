@@ -2073,7 +2073,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
   if (flag_pcc_struct_return && AGGREGATE_TYPE_P (type))
     return 1;
 
-  if (targetm.calls.return_in_memory (type, fntype))
+  if (return_in_memory (type, fntype))
     return 1;
 
   /* Make sure we have suitable call-clobbered regs to return
@@ -2523,10 +2523,10 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       return;
     }
 
-  entry_parm = targetm.calls.function_incoming_arg (all->args_so_far,
-						    data->promoted_mode,
-						    data->passed_type,
-						    data->named_arg);
+  entry_parm = function_incoming_arg (all->args_so_far,
+				      data->promoted_mode,
+				      data->passed_type,
+				      data->named_arg);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2550,9 +2550,9 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
       if (targetm.calls.pretend_outgoing_varargs_named (all->args_so_far))
 	{
 	  rtx tem;
-	  tem = targetm.calls.function_incoming_arg (all->args_so_far,
-						     data->promoted_mode,
-						     data->passed_type, true);
+	  tem = function_incoming_arg (all->args_so_far,
+				       data->promoted_mode,
+				       data->passed_type, true);
 	  in_regs = tem != NULL;
 	}
     }
@@ -3752,8 +3752,8 @@ assign_parms (tree fndecl)
 	}
 
       /* Update info on where next arg arrives in registers.  */
-      targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,
-					  data.passed_type, data.named_arg);
+      function_arg_advance (all.args_so_far, data.promoted_mode,
+			    data.passed_type, data.named_arg);
 
       if (POINTER_BOUNDS_TYPE_P (data.passed_type))
 	bound_no++;
@@ -3949,8 +3949,8 @@ gimplify_parameters (void)
 	continue;
 
       /* Update info on where next arg arrives in registers.  */
-      targetm.calls.function_arg_advance (all.args_so_far, data.promoted_mode,
-					  data.passed_type, data.named_arg);
+      function_arg_advance (all.args_so_far, data.promoted_mode,
+			    data.passed_type, data.named_arg);
 
       /* ??? Once upon a time variable_size stuffed parameter list
 	 SAVE_EXPRs (amongst others) onto a pending sizes list.  This
@@ -4093,8 +4093,11 @@ locate_and_pad_parm (machine_mode passed_mode, tree type, int in_regs,
 
   part_size_in_regs = (reg_parm_stack_space == 0 ? partial : 0);
 
-  sizetree
-    = type ? size_in_bytes (type) : size_int (GET_MODE_SIZE (passed_mode));
+  if (type)
+    sizetree = (lang_hooks.decls.empty_record_p (type)
+		? size_zero_node : size_in_bytes (type));
+  else
+    sizetree = size_int (GET_MODE_SIZE (passed_mode));
   where_pad = FUNCTION_ARG_PADDING (passed_mode, type);
   boundary = targetm.calls.function_arg_boundary (passed_mode, type);
   round_boundary = targetm.calls.function_arg_round_boundary (passed_mode,
@@ -6819,6 +6822,53 @@ rtl_opt_pass *
 make_pass_match_asm_constraints (gcc::context *ctxt)
 {
   return new pass_match_asm_constraints (ctxt);
+}
+
+/* Wrapper for targetm.calls.function_arg_advance.  */
+
+void
+function_arg_advance (cumulative_args_t ca, machine_mode mode,
+		      const_tree type, bool named)
+{
+  if (type && lang_hooks.decls.empty_record_p (type))
+    return;
+
+  targetm.calls.function_arg_advance (ca, mode, type, named);
+}
+
+/* Wrapper for targetm.calls.function_arg.  */
+
+rtx
+function_arg (cumulative_args_t ca, machine_mode mode, const_tree type,
+	      bool named)
+{
+  if (type && lang_hooks.decls.empty_record_p (type))
+    return NULL;
+
+  return targetm.calls.function_arg (ca, mode, type, named);
+}
+
+/* Wrapper for targetm.calls.function_incoming_arg.  */
+
+rtx
+function_incoming_arg (cumulative_args_t ca, machine_mode mode,
+		       const_tree type, bool named)
+{
+  if (type && lang_hooks.decls.empty_record_p (type))
+    return NULL;
+
+  return targetm.calls.function_incoming_arg (ca, mode, type, named);
+}
+
+/* Wrapper for targetm.calls.return_in_memory.  */
+
+bool
+return_in_memory (const_tree type, const_tree fntype)
+{
+  if (type && lang_hooks.decls.empty_record_p (type))
+    return false;
+
+  return targetm.calls.return_in_memory (type, fntype);
 }
 
 

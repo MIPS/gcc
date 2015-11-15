@@ -8068,8 +8068,8 @@ build_self_reference (void)
 
 /* Returns 1 if TYPE contains only padding bytes.  */
 
-int
-is_empty_class (tree type)
+bool
+is_empty_class (const_tree type)
 {
   if (type == error_mark_node)
     return 0;
@@ -8084,7 +8084,7 @@ is_empty_class (tree type)
    possible combinations of empty classes and possibly a vptr.  */
 
 bool
-is_really_empty_class (tree type)
+is_really_empty_class (const_tree type)
 {
   if (CLASS_TYPE_P (type))
     {
@@ -8098,10 +8098,13 @@ is_really_empty_class (tree type)
       if (COMPLETE_TYPE_P (type) && is_empty_class (type))
 	return true;
 
-      for (binfo = TYPE_BINFO (type), i = 0;
-	   BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
-	if (!is_really_empty_class (BINFO_TYPE (base_binfo)))
-	  return false;
+      /* TYPE_BINFO may be zeron when is_really_empty_class is called
+	 from LANG_HOOKS_EMPTY_RECORD_P.  */
+      binfo = TYPE_BINFO (type);
+      if (binfo)
+	for (i = 0; BINFO_BASE_ITERATE (binfo, i, base_binfo); ++i)
+	  if (!is_really_empty_class (BINFO_TYPE (base_binfo)))
+	    return false;
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL
 	    && !DECL_ARTIFICIAL (field)

@@ -177,6 +177,9 @@ struct lang_hooks_for_decls
      function parameter pack.  */
   bool (*function_parm_expanded_from_pack_p) (tree, tree);
 
+  /* Determine if a type is an empty record.  */
+  bool (*empty_record_p) (const_tree type);
+
   /* Returns the generic declaration of a generic function instantiations.  */
   tree (*get_generic_function_decl) (const_tree);
 

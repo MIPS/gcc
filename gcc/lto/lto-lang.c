@@ -1306,6 +1306,16 @@ static void lto_init_ts (void)
   tree_contains_struct[NAMESPACE_DECL][TS_DECL_MINIMAL] = 1;
 }
 
+/* Return true if TYPE contains no actual data, just various possible
+   combinations of empty records.  */
+
+static bool
+lto_empty_record_p (const_tree type)
+{
+  /* Set if a record is empty.  */
+  return TYPE_LANG_FLAG_0 (type);
+}
+
 #undef LANG_HOOKS_NAME
 #define LANG_HOOKS_NAME "GNU GIMPLE"
 #undef LANG_HOOKS_OPTION_LANG_MASK
@@ -1362,6 +1372,9 @@ static void lto_init_ts (void)
 
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS lto_init_ts
+
+#undef LANG_HOOKS_EMPTY_RECORD_P
+#define LANG_HOOKS_EMPTY_RECORD_P lto_empty_record_p
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
