@@ -1,3 +1,8 @@
+2015-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvtpx/reduction.c: New.
+	* config/nvptx/t-nvptx (LIB2ADD): Add it.
+
 2015-09-29  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/data-alignment.f90: New test.

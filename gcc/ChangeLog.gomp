@@ -1,3 +1,9 @@
+2015-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvtpx/nvptx.c (global_lock_var): New.
+	(nvptx_global_lock_addr): New.
+	(nvptx_lockless_update): Add support for complex.
+
 2015-11-13  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_generate_vector_shuffle): Deal with

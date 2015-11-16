@@ -1,3 +1,9 @@
+2015-11-16  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-dbl.c: Add
+	worker & gang cases.
+	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-flt.c: Likewise.
+
 2015-11-13  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-dbl.c: New.
