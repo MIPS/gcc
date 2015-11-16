@@ -40,20 +40,22 @@ struct aarch64_core_data
   const char *arch;
   unsigned char implementer_id; /* Exactly 8 bits */
   unsigned int part_no; /* 12 bits + 12 bits */
+  unsigned variant;
 };
 
 #define AARCH64_BIG_LITTLE(BIG, LITTLE) \
   (((BIG)&0xFFFu) << 12 | ((LITTLE) & 0xFFFu))
 #define INVALID_IMP ((unsigned char) -1)
 #define INVALID_CORE ((unsigned)-1)
+#define ALL_VARIANTS ((unsigned)-1)
 
-#define AARCH64_CORE(CORE_NAME, CORE_IDENT, SCHED, ARCH, FLAGS, COSTS, IMP, PART) \
-  { CORE_NAME, #ARCH, IMP, PART },
+#define AARCH64_CORE(CORE_NAME, CORE_IDENT, SCHED, ARCH, FLAGS, COSTS, IMP, PART, VARIANT) \
+  { CORE_NAME, #ARCH, IMP, PART, VARIANT },
 
 static struct aarch64_core_data cpu_data [] =
 {
 #include "aarch64-cores.def"
-  { NULL, NULL, INVALID_IMP, INVALID_CORE }
+  { NULL, NULL, INVALID_IMP, INVALID_CORE, ALL_VARIANTS }
 };
 
 
@@ -149,7 +151,6 @@ contains_core_p (unsigned *arr, unsigned core)
 const char *
 host_detect_local_cpu (int argc, const char **argv)
 {
-  const char *arch_id = NULL;
   const char *res = NULL;
   static const int num_exts = ARRAY_SIZE (ext_to_feat_string);
   char buf[128];
@@ -158,10 +159,11 @@ host_detect_local_cpu (int argc, const char **argv)
   bool tune = false;
   bool cpu = false;
   unsigned int i = 0;
-  int core_idx = -1;
   unsigned char imp = INVALID_IMP;
   unsigned int cores[2] = { INVALID_CORE, INVALID_CORE };
   unsigned int n_cores = 0;
+  unsigned int variants[2] = { ALL_VARIANTS, ALL_VARIANTS };
+  unsigned int n_variants = 0;
   bool processed_exts = false;
   const char *ext_string = "";
 
@@ -202,6 +204,19 @@ host_detect_local_cpu (int argc, const char **argv)
 	  else if (imp != cimp)
 	    goto not_found;
 	}
+
+      if (strstr (buf, "variant") != NULL)
+	{
+	  unsigned cvariant = parse_field (buf);
+	  if (!contains_core_p (variants, cvariant))
+	    {
+              if (n_variants == 2)
+                goto not_found;
+
+              variants[n_variants++] = cvariant;
+	    }
+          continue;
+        }
 
       if (strstr (buf, "part") != NULL)
 	{
@@ -245,32 +260,41 @@ host_detect_local_cpu (int argc, const char **argv)
   f = NULL;
 
   /* Weird cpuinfo format that we don't know how to handle.  */
-  if (n_cores == 0 || n_cores > 2 || imp == INVALID_IMP)
+  if (n_cores == 0 || n_cores > 2
+      || (n_cores == 1 && n_variants != 1)
+      || imp == INVALID_IMP)
     goto not_found;
 
-  if (arch)
+
+  /* Simple case, one core type or just looking for the arch. */
+  if (n_cores == 1 || arch)
     {
       /* Search for one of the cores in the list. */
       for (i = 0; cpu_data[i].name != NULL; i++)
 	if (cpu_data[i].implementer_id == imp
-	    && contains_core_p (cores, cpu_data[i].part_no))
-	  {
-	    arch_id = cpu_data[i].arch;
-	    break;
-	  }
-      if (!arch_id)
+	    && cores[0] == cpu_data[i].part_no
+	    && (cpu_data[i].variant == ALL_VARIANTS
+	        || variants[0] == cpu_data[i].variant))
+	  break;
+      if (cpu_data[i].name == NULL)
 	goto not_found;
 
-      const char* arch_name = get_arch_name_from_id (arch_id);
+      if (arch)
+	{
+	  const char* arch_name = get_arch_name_from_id (cpu_data[i].arch);
 
-      /* We got some arch indentifier that's not in aarch64-arches.def?  */
-      if (!arch_name)
-        goto not_found;
+	  /* We got some arch indentifier that's not in aarch64-arches.def?  */
+	  if (!arch_name)
+	    goto not_found;
 
-      res = concat ("-march=", arch_name, NULL);
+	  res = concat ("-march=", arch_name, NULL);
+	}
+      else
+        res = concat ("-m", cpu ? "cpu" : "tune", "=",
+                      cpu_data[i].name, NULL);
     }
   /* We have big.LITTLE.  */
-  else if (n_cores == 2)
+  else
     {
       for (i = 0; cpu_data[i].name != NULL; i++)
         {
@@ -283,22 +307,6 @@ host_detect_local_cpu (int argc, const char **argv)
         }
       if (!res)
         goto not_found;
-    }
-  /* The simple, non-big.LITTLE case.  */
-  else
-    {
-      for (i = 0; cpu_data[i].name != NULL; i++)
-	if (cores[0] == cpu_data[i].part_no
-	    && cpu_data[i].implementer_id == imp)
-	  {
-	    core_idx = i;
-	    break;
-	  }
-      if (core_idx == -1)
-	goto not_found;
-
-      res = concat ("-m", cpu ? "cpu" : "tune", "=",
-                      cpu_data[core_idx].name, NULL);
     }
 
   if (tune)
