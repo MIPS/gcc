@@ -3235,3 +3235,5 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define ENABLE_LD_ST_PAIRS \
   (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400)\
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define HAVE_COMMON_EPILOGUE  (TARGET_EPI && ISA_MIPS32R2 && mips_abi == ABI_32)
