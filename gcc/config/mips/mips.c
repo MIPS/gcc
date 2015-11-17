@@ -436,6 +436,10 @@ struct GTY(())  machine_function {
   /* True if this is an interrupt handler.  */
   bool interrupt_handler_p;
 
+  /* True if this is a noreturn function that require saving call-saved and
+     call-clobbered registers.  */
+  bool noreturn_p;
+
   /* True if this is an interrupt handler that uses shadow registers.  */
   bool use_shadow_register_set_p;
 
@@ -1426,6 +1430,13 @@ mips_interrupt_type_p (tree type)
   return lookup_attribute ("interrupt", TYPE_ATTRIBUTES (type)) != NULL;
 }
 
+/* Check if the noreturn attribute is set for a function.  */
+
+static bool
+mips_noreturn_type_p (tree type)
+{
+  return lookup_attribute ("noreturn", DECL_ATTRIBUTES (type)) != NULL;
+}
 /* Check if the attribute to use shadow register set is set for a function.  */
 
 static bool
@@ -10951,6 +10962,18 @@ mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
   return false;
 }
 
+/* Return true if REGNO is a register that is ordinarily call-clobbered
+   but must nevertheless be preserved by a noreturn function.  */
+
+static bool
+mips_noreturn_extra_call_saved_reg_p (unsigned int regno)
+{
+  if (GP_REG_P (regno)
+      && ((regno >= 16 && regno <= 23) || regno == 30))
+    return true;
+
+  return mips_interrupt_extra_call_saved_reg_p (regno);
+}
 /* Return true if the current function should treat register REGNO
    as call-saved.  */
 
@@ -10965,6 +10988,11 @@ mips_cfun_call_saved_reg_p (unsigned int regno)
   /* Interrupt handlers need to save extra registers.  */
   if (cfun->machine->interrupt_handler_p
       && mips_interrupt_extra_call_saved_reg_p (regno))
+    return true;
+
+  /* Noreturn functions need to save extra registers.  */
+  if (cfun->machine->noreturn_p
+      && mips_noreturn_extra_call_saved_reg_p (regno))
     return true;
 
   /* call_insns preserve $28 unless they explicitly say otherwise,
@@ -11020,6 +11048,13 @@ mips_cfun_might_clobber_call_saved_reg_p (unsigned int regno)
   if (cfun->machine->interrupt_handler_p
       && !crtl->is_leaf
       && mips_interrupt_extra_call_saved_reg_p (regno))
+    return true;
+
+  /* If REGNO is ordinarily call-clobbered, we must assume that any
+     called function could modify it.  */
+  if (cfun->machine->noreturn_p
+      && !crtl->is_leaf
+      && mips_noreturn_extra_call_saved_reg_p (regno))
     return true;
 
   return false;
@@ -11148,6 +11183,9 @@ mips_compute_frame_info (void)
 					       (current_function_decl));
 	}
     }
+
+  if (mips_noreturn_type_p (current_function_decl))
+    cfun->machine->noreturn_p = true;
 
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
