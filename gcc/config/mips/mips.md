@@ -6629,6 +6629,20 @@
   [(set_attr "type"	"jump")
    (set_attr "mode"	"none")])
 
+;; Return for common epilogue.
+
+(define_insn "return_epi_internal"
+  [(return)
+   (parallel[(use (match_operand 0 "pmode_register_operand" ""))
+	     (use (match_operand 1 "pmode_register_operand" ""))
+	    ])]
+  ""
+  {
+    return mips_output_epi_jump (operands);
+  }
+  [(set_attr "type"     "jump")
+   (set_attr "mode"     "none")])
+
 ;; Normal return.
 
 (define_insn "<optab>_internal"
