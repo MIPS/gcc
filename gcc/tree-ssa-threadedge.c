@@ -924,7 +924,7 @@ fsm_find_thread_path (basic_block start_bb, basic_block end_bb,
       return true;
     }
 
-  if (!bitmap_set_bit (visited_bbs, start_bb->index))
+  if (bitmap_set_bit (visited_bbs, start_bb->index))
     {
       edge e;
       edge_iterator ei;
@@ -1315,7 +1315,6 @@ thread_through_normal_block (edge e,
 
       max_threaded_paths = PARAM_VALUE (PARAM_MAX_FSM_THREAD_PATHS);
       fsm_find_control_statement_thread_paths (cond, bb_path);
-
       visited_phis.dispose ();
       vec_free (bb_path);
     }
