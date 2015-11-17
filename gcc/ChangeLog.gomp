@@ -1,3 +1,11 @@
+2015-11-17  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_lockless_update): Remove complex
+	double handling here ...
+	(nvptx_lockfull_update): ... to this new function.
+	(nvptx_reduction_update): New function.
+	(nvptx_goacc_reduction_fini): Call it.
+
 2015-11-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvtpx/nvptx.c (global_lock_var): New.

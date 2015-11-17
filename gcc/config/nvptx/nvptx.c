@@ -4354,11 +4354,10 @@ nvptx_global_lock_addr ()
        write = guess OP myval;
        actual = cmp&swap (ptr, guess, write)
      } while (actual bit-differnt-to guess);
+   return write;
 
-  Unfortunately for types larger than 64 bits, there is no cmp&swap
-  instruction.  We use a lock variable in global memory to synthesize
-  the above sequence.  (A lock in global memory is necessary to force
-  execution engine descheduling and avoid resource starvation.)  */
+   This relies on a cmp&swap instruction, which is available for 32-
+   and 64-bit types.  Larger types must use a locking scheme.  */
 
 static tree
 nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
@@ -4368,20 +4367,9 @@ nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
   tree_code code = NOP_EXPR;
   tree arg_type = unsigned_type_node;
   tree var_type = TREE_TYPE (var);
-  tree dest_type = var_type;
-  tree inner_type = NULL_TREE; /* Non-null if synthesizing cmp&swap. */
 
-  if (TREE_CODE (var_type) == COMPLEX_TYPE)
-    {
-      if (TYPE_SIZE (TREE_TYPE (var_type))
-	  == TYPE_SIZE (long_long_unsigned_type_node))
-	/* Must do by parts.  */
-	var_type = TREE_TYPE (var_type);
-      else
-	code = VIEW_CONVERT_EXPR;
-    }
-
-  if (TREE_CODE (var_type) == REAL_TYPE)
+  if (TREE_CODE (var_type) == COMPLEX_TYPE
+      || TREE_CODE (var_type) == REAL_TYPE)
     code = VIEW_CONVERT_EXPR;
 
   if (TYPE_SIZE (var_type) == TYPE_SIZE (long_long_unsigned_type_node))
@@ -4390,31 +4378,21 @@ nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
       fn = NVPTX_BUILTIN_CMP_SWAPLL;
     }
 
-  if (var_type != dest_type)
-    {
-      inner_type = arg_type;
-      arg_type = dest_type;
-      /* We use the cmp&swap insn to do the global locking.  */
-      fn = NVPTX_BUILTIN_CMP_SWAP;
-    }
-
   tree swap_fn = nvptx_builtin_decl (fn, true);
 
-  /* Build and insert the initialization sequence.  */
   gimple_seq init_seq = NULL;
   tree init_var = make_ssa_name (arg_type);
-  tree init_expr = omp_reduction_init_op (loc, op, dest_type);
-  if (arg_type != dest_type)
-    init_expr = fold_build1 (code, arg_type, init_expr);
+  tree init_expr = omp_reduction_init_op (loc, op, var_type);
+  init_expr = fold_build1 (code, arg_type, init_expr);
   gimplify_assign (init_var, init_expr, &init_seq);
   gimple *init_end = gimple_seq_last (init_seq);
 
   gsi_insert_seq_before (gsi, init_seq, GSI_SAME_STMT);
-
+  
   /* Split the block just after the init stmts.  */
   basic_block pre_bb = gsi_bb (*gsi);
   edge pre_edge = split_block (pre_bb, init_end);
-  basic_block head_bb = pre_edge->dest;
+  basic_block loop_bb = pre_edge->dest;
   pre_bb = pre_edge->src;
   /* Reset the iterator.  */
   *gsi = gsi_for_stmt (gsi_stmt (*gsi));
@@ -4422,179 +4400,166 @@ nvptx_lockless_update (location_t loc, gimple_stmt_iterator *gsi,
   tree expect_var = make_ssa_name (arg_type);
   tree actual_var = make_ssa_name (arg_type);
   tree write_var = make_ssa_name (arg_type);
-  tree lock_state = NULL_TREE;
-  tree uns_unlocked = NULL_TREE, uns_locked = NULL_TREE;
-
+  
   /* Build and insert the reduction calculation.  */
   gimple_seq red_seq = NULL;
-  if (inner_type)
-    {
-      /* Unlock the lock using cmp&swap with an appropriate expected
-	 value.  This ends up with us unlocking only on subsequent
-	 iterations.  */
-      lock_state = make_ssa_name (unsigned_type_node);
-      uns_unlocked = build_int_cst (unsigned_type_node, 0);
-      uns_locked = build_int_cst (unsigned_type_node, 1);
-      
-      tree unlock_expr = nvptx_global_lock_addr ();
-      unlock_expr = build_call_expr_loc (loc, swap_fn, 3, unlock_expr,
-					 lock_state, uns_unlocked);
-      gimplify_and_add (unlock_expr, &red_seq);
-    }
-
-  tree write_expr = expect_var;
-  if (arg_type != dest_type)
-    write_expr = fold_build1 (code, dest_type, expect_var);
-  write_expr = fold_build2 (op, dest_type, write_expr, var);
-  if (arg_type != dest_type)
-    write_expr = fold_build1 (code, arg_type, write_expr);
+  tree write_expr = fold_build1 (code, var_type, expect_var);
+  write_expr = fold_build2 (op, var_type, write_expr, var);
+  write_expr = fold_build1 (code, arg_type, write_expr);
   gimplify_assign (write_var, write_expr, &red_seq);
 
-  gimple *red_end = gimple_seq_last (red_seq);
   gsi_insert_seq_before (gsi, red_seq, GSI_SAME_STMT);
 
-  basic_block latch_bb = head_bb;
-  basic_block lock_bb = NULL;
-
-  /* Build the cmp&swap sequence.  */
-  gcond *cond;
-  tree cond_var, cond_val, swap_expr;
+  /* Build & insert the cmp&swap sequence.  */
   gimple_seq latch_seq = NULL;
-  if (inner_type)
-    {
-      /* Here we have to insert another loop, spinning on acquiring
-	 the global lock.  Lock releasing is sone at the head of the
-	 main loop, or in the block following the loop.  */
+  tree swap_expr = build_call_expr_loc (loc, swap_fn, 3,
+					ptr, expect_var, write_var);
+  gimplify_assign (actual_var, swap_expr, &latch_seq);
 
-      /* Split the block just after the reduction stmts.  */
-      edge lock_edge = split_block (head_bb, red_end);
-      lock_bb = lock_edge->dest;
-      head_bb = lock_edge->src;
-      *gsi = gsi_for_stmt (gsi_stmt (*gsi));
-
-      /* Create & insert the lock sequence.  */
-      gimple_seq lock_seq = NULL;
-      tree locked = make_ssa_name (unsigned_type_node);
-      tree lock_expr = nvptx_global_lock_addr ();
-      lock_expr = build_call_expr_loc (loc, swap_fn, 3, lock_expr,
-				       uns_unlocked, uns_locked);
-      gimplify_assign (locked,  lock_expr, &lock_seq);
-      cond = gimple_build_cond (EQ_EXPR, locked, uns_unlocked,
-				NULL_TREE, NULL_TREE);
-      gimple_seq_add_stmt (&lock_seq, cond);
-
-      gimple *lock_end = gimple_seq_last (lock_seq);
-      gsi_insert_seq_before (gsi, lock_seq, GSI_SAME_STMT);
-
-      /* Split the block just after the lock sequence.  */
-      edge locked_edge = split_block (lock_bb, lock_end);
-      latch_bb = locked_edge->dest;
-      lock_bb = locked_edge->src;
-      *gsi = gsi_for_stmt (gsi_stmt (*gsi));
-
-      /* Make lock_bb a loop. */
-      locked_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
-      make_edge (lock_bb, lock_bb, EDGE_FALSE_VALUE);
-      set_immediate_dominator (CDI_DOMINATORS, lock_bb, head_bb);
-      set_immediate_dominator (CDI_DOMINATORS, latch_bb, lock_bb);
-
-      /* Read the location.  */
-      tree ref = build_simple_mem_ref (ptr);
-      TREE_THIS_VOLATILE (ref) = 1;
-      gimplify_assign (actual_var, ref, &latch_seq);
-
-      /* Determine equality by extracting the real & imaginary parts,
-	 punning to an integral type and then using xor & or to create
-	 a zero or non-zero value we can use in a comparison.  */
-      tree act_real = fold_build1 (REALPART_EXPR, var_type, actual_var);
-      tree act_imag = fold_build1 (IMAGPART_EXPR, var_type, actual_var);
-      tree exp_real = fold_build1 (REALPART_EXPR, var_type, expect_var);
-      tree exp_imag = fold_build1 (IMAGPART_EXPR, var_type, expect_var);
-
-      act_real = fold_build1 (code, inner_type, act_real);
-      act_imag = fold_build1 (code, inner_type, act_imag);
-      exp_real = fold_build1 (code, inner_type, exp_real);
-      exp_imag = fold_build1 (code, inner_type, exp_imag);
-
-      tree cmp_real = fold_build2 (BIT_XOR_EXPR, inner_type,
-				   act_real, exp_real);
-      tree cmp_imag = fold_build2 (BIT_XOR_EXPR, inner_type,
-				   act_imag, exp_imag);
-      swap_expr = fold_build2 (BIT_IOR_EXPR, inner_type, cmp_real, cmp_imag);
-
-      cond_var = make_ssa_name (inner_type);
-      cond_val = build_int_cst (inner_type, 0);
-    }
-  else
-    {
-      swap_expr = build_call_expr_loc (loc, swap_fn, 3,
-				       ptr, expect_var, write_var);
-      cond_var = actual_var;
-      cond_val = expect_var;
-    }
-  
-  gimplify_assign (cond_var, swap_expr, &latch_seq);
-  cond = gimple_build_cond (EQ_EXPR, cond_var, cond_val, NULL_TREE, NULL_TREE);
+  gcond *cond = gimple_build_cond (EQ_EXPR, actual_var, expect_var,
+				   NULL_TREE, NULL_TREE);
   gimple_seq_add_stmt (&latch_seq, cond);
 
-  /* Insert the latch statements.  */
   gimple *latch_end = gimple_seq_last (latch_seq);
   gsi_insert_seq_before (gsi, latch_seq, GSI_SAME_STMT);
 
   /* Split the block just after the latch stmts.  */
-  edge post_edge = split_block (latch_bb, latch_end);
+  edge post_edge = split_block (loop_bb, latch_end);
   basic_block post_bb = post_edge->dest;
-  latch_bb = post_edge->src;
+  loop_bb = post_edge->src;
   *gsi = gsi_for_stmt (gsi_stmt (*gsi));
 
-  /* Create the loop.  */
   post_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
-  edge loop_edge = make_edge (latch_bb, head_bb, EDGE_FALSE_VALUE);
-  set_immediate_dominator (CDI_DOMINATORS, head_bb, pre_bb);
-  set_immediate_dominator (CDI_DOMINATORS, post_bb, latch_bb);
+  edge loop_edge = make_edge (loop_bb, loop_bb, EDGE_FALSE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, loop_bb, pre_bb);
+  set_immediate_dominator (CDI_DOMINATORS, post_bb, loop_bb);
 
-  gphi *phi = create_phi_node (expect_var, head_bb);
+  gphi *phi = create_phi_node (expect_var, loop_bb);
   add_phi_arg (phi, init_var, pre_edge, loc);
   add_phi_arg (phi, actual_var, loop_edge, loc);
 
-  loop *update_loop = alloc_loop ();
-  update_loop->header = head_bb;
-  update_loop->latch = latch_bb;
-  update_loop->nb_iterations_estimate = 1;
-  update_loop->any_estimate = true;
-  add_loop (update_loop, head_bb->loop_father);
+  loop *loop = alloc_loop ();
+  loop->header = loop_bb;
+  loop->latch = loop_bb;
+  add_loop (loop, loop_bb->loop_father);
 
-  if (inner_type)
-    {
-      phi = create_phi_node (lock_state, head_bb);
-      add_phi_arg (phi, uns_unlocked, pre_edge, loc);
-      add_phi_arg (phi, uns_locked, loop_edge, loc);
+  return fold_build1 (code, var_type, write_var);
+}
 
-      /* Insert store and unlock.  */
-      gimple_seq post_seq = NULL;
+/* Insert code to lockfully update *PTR with *PTR OP VAR just before
+   GSI.  This is necessary for types larger than 64 bits, where there
+   is no cmp&swap instruction to implement a lockless scheme.  We use
+   a lock variable in global memory.
 
-      /* Write the location and release the lock.  */
-      tree ref = build_simple_mem_ref (ptr);
-      TREE_THIS_VOLATILE (ref) = 1;
-      gimplify_assign (ref, write_var, &post_seq);
+   while (cmp&swap (&lock_var, 0, 1))
+     continue;
+   T accum = *ptr;
+   accum = accum OP var;
+   *ptr = accum;
+   cmp&swap (&lock_var, 1, 0);
+   return accum;
 
-      tree unlock_expr = nvptx_global_lock_addr ();
-      unlock_expr = build_call_expr_loc (loc, swap_fn, 3, unlock_expr,
-					 uns_locked, uns_unlocked);
-      gimplify_and_add (unlock_expr, &post_seq);
+   A lock in global memory is necessary to force execution engine
+   descheduling and avoid resource starvation that can occur if the
+   lock is in .shared memory.  */
 
-      gsi_insert_seq_before (gsi, post_seq, GSI_SAME_STMT);
+static tree
+nvptx_lockfull_update (location_t loc, gimple_stmt_iterator *gsi,
+		       tree ptr, tree var, tree_code op)
+{
+  tree var_type = TREE_TYPE (var);
+  tree swap_fn = nvptx_builtin_decl (NVPTX_BUILTIN_CMP_SWAP, true);
+  tree uns_unlocked = build_int_cst (unsigned_type_node, 0);
+  tree uns_locked = build_int_cst (unsigned_type_node, 1);
 
-      loop *lock_loop = alloc_loop ();
-      lock_loop->header = lock_loop->latch = lock_bb;
-      lock_loop->nb_iterations_estimate = 1;
-      lock_loop->any_estimate = true;
-      add_loop (lock_loop, update_loop);
-    }
+  /* Split the block just before the gsi.  Insert a gimple nop to make
+     this easier.  */
+  gimple *nop = gimple_build_nop ();
+  gsi_insert_before (gsi, nop, GSI_SAME_STMT);
+  basic_block entry_bb = gsi_bb (*gsi);
+  edge entry_edge = split_block (entry_bb, nop);
+  basic_block lock_bb = entry_edge->dest;
+  /* Reset the iterator.  */
+  *gsi = gsi_for_stmt (gsi_stmt (*gsi));
 
-  if (dest_type != arg_type)
-    write_var = fold_build1 (code, dest_type, write_var);
-  return write_var;
+  /* Build and insert the locking sequence.  */
+  gimple_seq lock_seq = NULL;
+  tree lock_var = make_ssa_name (unsigned_type_node);
+  tree lock_expr = nvptx_global_lock_addr ();
+  lock_expr = build_call_expr_loc (loc, swap_fn, 3, lock_expr,
+				   uns_unlocked, uns_locked);
+  gimplify_assign (lock_var, lock_expr, &lock_seq);
+  gcond *cond = gimple_build_cond (EQ_EXPR, lock_var, uns_unlocked,
+				   NULL_TREE, NULL_TREE);
+  gimple_seq_add_stmt (&lock_seq, cond);
+  gimple *lock_end = gimple_seq_last (lock_seq);
+  gsi_insert_seq_before (gsi, lock_seq, GSI_SAME_STMT);
+
+  /* Split the block just after the lock sequence.  */
+  edge locked_edge = split_block (lock_bb, lock_end);
+  basic_block update_bb = locked_edge->dest;
+  lock_bb = locked_edge->src;
+  *gsi = gsi_for_stmt (gsi_stmt (*gsi));
+  
+  /* Create the lock loop ... */
+  locked_edge->flags ^= EDGE_TRUE_VALUE | EDGE_FALLTHRU;
+  make_edge (lock_bb, lock_bb, EDGE_FALSE_VALUE);
+  set_immediate_dominator (CDI_DOMINATORS, lock_bb, entry_bb);
+  set_immediate_dominator (CDI_DOMINATORS, update_bb, lock_bb);
+
+  /* ... and the loop structure.  */
+  loop *lock_loop = alloc_loop ();
+  lock_loop->header = lock_bb;
+  lock_loop->latch = lock_bb;
+  lock_loop->nb_iterations_estimate = 1;
+  lock_loop->any_estimate = true;
+  add_loop (lock_loop, entry_bb->loop_father);
+
+  /* Build and insert the reduction calculation.  */
+  gimple_seq red_seq = NULL;
+  tree acc_in = make_ssa_name (var_type);
+  tree ref_in = build_simple_mem_ref (ptr);
+  TREE_THIS_VOLATILE (ref_in) = 1;
+  gimplify_assign (acc_in, ref_in, &red_seq);
+  
+  tree acc_out = make_ssa_name (var_type);
+  tree update_expr = fold_build2 (op, var_type, ref_in, var);
+  gimplify_assign (acc_out, update_expr, &red_seq);
+  
+  tree ref_out = build_simple_mem_ref (ptr);
+  TREE_THIS_VOLATILE (ref_out) = 1;
+  gimplify_assign (ref_out, acc_out, &red_seq);
+
+  gsi_insert_seq_before (gsi, red_seq, GSI_SAME_STMT);
+
+  /* Build & insert the unlock sequence.  */
+  gimple_seq unlock_seq = NULL;
+  tree unlock_expr = nvptx_global_lock_addr ();
+  unlock_expr = build_call_expr_loc (loc, swap_fn, 3, unlock_expr,
+				     uns_locked, uns_unlocked);
+  gimplify_and_add (unlock_expr, &unlock_seq);
+  gsi_insert_seq_before (gsi, unlock_seq, GSI_SAME_STMT);
+
+  return acc_out;
+}
+
+/* Emit a sequence to update a reduction accumlator at *PTR with the
+   value held in VAR using operator OP.  Return the updated value.
+
+   TODO: optimize for atomic ops and indepedent complex ops.  */
+
+static tree
+nvptx_reduction_update (location_t loc, gimple_stmt_iterator *gsi,
+			tree ptr, tree var, tree_code op)
+{
+  tree type = TREE_TYPE (var);
+  tree size = TYPE_SIZE (type);
+
+  if (size == TYPE_SIZE (unsigned_type_node)
+      || size == TYPE_SIZE (long_long_unsigned_type_node))
+    return nvptx_lockless_update (loc, gsi, ptr, var, op);
+  else
+    return nvptx_lockfull_update (loc, gsi, ptr, var, op);
 }
 
 /* NVPTX implementation of GOACC_REDUCTION_SETUP.  */
@@ -4776,11 +4741,11 @@ nvptx_goacc_reduction_fini (gcall *call)
 
       if (accum)
 	{
-	  /* Locklessly update the accumulator.  */
+	  /* UPDATE the accumulator.  */
 	  gsi_insert_seq_before (&gsi, seq, GSI_SAME_STMT);
 	  seq = NULL;
-	  r = nvptx_lockless_update (gimple_location (call), &gsi,
-				     accum, var, op);
+	  r = nvptx_reduction_update (gimple_location (call), &gsi,
+				      accum, var, op);
 	}
     }
 
