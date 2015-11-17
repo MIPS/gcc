@@ -528,6 +528,9 @@ Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-
 muse-save-restore
 Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
 
+mepi
+Target Report Var(TARGET_EPI) Undocumented
+
 mips16-use-xsregs=
 Target RejectNegative JoinedOrMissing Var(mips16_xsregs) Report Enum(mips16_xsregs_setting) Init(MIPS16_XSREGS_NEVER)
 Specify usage of MIPS32 saved registers in MIPS16 mode:

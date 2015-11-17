@@ -84,6 +84,9 @@ static int *consumer_luid = NULL;
 #define CONSUMER_LUID(INSN)	\
   consumer_luid[INSN_UID ((INSN))]
 
+/* Used in common epilogue emission. Number of saved gpr registers.  */
+int num_gp = 0, epi_with_ra = 0;
+
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
   (GET_CODE (X) == UNSPEC					\
@@ -716,6 +719,9 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   ALL_REGS,	ALL_REGS,	ALL_REGS,	ALL_REGS
 };
 
+/* Attribute handler.  */
+static tree mips_handle_common_epi_attr (tree *, tree, tree, int, bool *);
+
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
 static const struct attribute_spec mips_attribute_table[] = {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
@@ -737,6 +743,8 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "use_shadow_register_set",	0, 0, false, true,  true, NULL, false },
   { "keep_interrupts_masked",	0, 0, false, true,  true, NULL, false },
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
+  { "common_epi", 0, 0, false, false, false, mips_handle_common_epi_attr,
+    false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
@@ -11708,6 +11716,48 @@ umips_build_save_restore (mips_save_restore_fn fn,
   return true;
 }
 
+static void
+mips_for_each_saved_fpr (HOST_WIDE_INT sp_offset,
+				 mips_save_restore_fn fn)
+{
+  machine_mode fpr_mode;
+  int regno;
+  const struct mips_frame_info *frame = &cfun->machine->frame;
+  HOST_WIDE_INT offset;
+  unsigned int mask;
+
+  /* Save registers starting from high to low.  The debuggers prefer at least
+     the return register be stored at func+4, and also it allows us not to
+     need a nop in the epilogue if at least one register is reloaded in
+     addition to return address.  */
+  offset = frame->gp_sp_offset - sp_offset;
+  mask = frame->mask;
+
+  if (TARGET_MICROMIPS)
+    umips_build_save_restore (fn, &mask, &offset);
+
+  /* This loop must iterate over the same space as its companion in
+     mips_compute_frame_info.  */
+  offset = cfun->machine->frame.fp_sp_offset - sp_offset;
+  fpr_mode = (TARGET_SINGLE_FLOAT ? SFmode : DFmode);
+  for (regno = FP_REG_LAST - MAX_FPRS_PER_FMT + 1;
+       regno >= FP_REG_FIRST;
+       regno -= MAX_FPRS_PER_FMT)
+    if (BITSET_P (cfun->machine->frame.fmask, regno - FP_REG_FIRST))
+      {
+	if (!TARGET_FLOAT64 && TARGET_DOUBLE_FLOAT
+	    && (fixed_regs[regno] || fixed_regs[regno + 1]))
+	  {
+	    if (fixed_regs[regno])
+	      mips_save_restore_reg (SFmode, regno + 1, offset, fn);
+	    else
+	      mips_save_restore_reg (SFmode, regno, offset, fn);
+	  }
+	else
+	  mips_save_restore_reg (fpr_mode, regno, offset, fn);
+	offset -= GET_MODE_SIZE (fpr_mode);
+      }
+}
 /* Call FN for each register that is saved by the current function.
    SP_OFFSET is the offset of the current stack pointer from the start
    of the frame.  */
@@ -12601,6 +12651,57 @@ mips_expand_before_return (void)
     emit_clobber (pic_offset_table_rtx);
 }
 
+/* Attribute handler for function attribute common_epi.  */
+
+static tree
+mips_handle_common_epi_attr (tree *node ATTRIBUTE_UNUSED, tree name,
+			     tree args ATTRIBUTE_UNUSED,
+                             int flags ATTRIBUTE_UNUSED,
+			     bool *no_add_attrs ATTRIBUTE_UNUSED)
+{
+  if (is_attribute_p ("common_epi", name))
+  {
+    TARGET_EPI = 1;
+  }
+}
+
+/* Emit a jump to a common epilogue label.  */
+
+const char *
+mips_output_epi_jump (rtx *operands)
+{
+  /*If we can include $ra here, jump to corresponding sequence.  */
+
+  if (epi_with_ra)
+    {
+      switch (num_gp)
+	{
+	  case 9:return "%*j\t__common_epi_9_ra%/";
+      	  case 8:return "%*j\t__common_epi_8_ra%/";
+      	  case 7:return "%*j\t__common_epi_7_ra%/";
+      	  case 6:return "%*j\t__common_epi_6_ra%/";
+      	  case 5:return "%*j\t__common_epi_5_ra%/";
+      	  case 4:return "%*j\t__common_epi_4_ra%/";
+      	  case 3:return "%*j\t__common_epi_3_ra%/";
+	  default:gcc_assert(num_gp > 2);
+	}
+    }
+  /* $ra (if required )is been restored,
+     fall through starting from the appropriate label.  */
+
+  switch (num_gp)
+    {
+      case 9:return "%*j\t__common_epi_9%/";
+      case 8:return "%*j\t__common_epi_8%/";
+      case 7:return "%*j\t__common_epi_7%/";
+      case 6:return "%*j\t__common_epi_6%/";
+      case 5:return "%*j\t__common_epi_5%/";
+      case 4:return "%*j\t__common_epi_4%/";
+      case 3:return "%*j\t__common_epi_3%/";
+      default:return "%*j\t__rtrn_com_epi%/";
+    }
+}
+
 /* Expand an "epilogue" or "sibcall_epilogue" pattern; SIBCALL_P
    says which.  */
 
@@ -12631,6 +12732,14 @@ mips_expand_epilogue (bool sibcall_p)
   frame = &cfun->machine->frame;
   step1 = frame->total_size;
   step2 = 0;
+
+  /* Record no of saved gpr without counting $ra.  */
+  num_gp = frame->num_gp;
+  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+    num_gp--;
+  if (frame_pointer_needed
+      && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+    num_gp--;
 
   /* Work out which register holds the frame address.  */
   if (!frame_pointer_needed)
@@ -12692,6 +12801,54 @@ mips_expand_epilogue (bool sibcall_p)
       mips_frame_barrier ();
       emit_insn (restore);
       mips_epilogue_set_cfa (stack_pointer_rtx, 0);
+    }
+  else if (HAVE_COMMON_EPILOGUE && num_gp > 2 && !sibcall_p
+	   && !cfun->machine->interrupt_handler_p)
+    {
+      /* Handle common epilogue. Restore all registers BUT GPRs, record the
+	 starting offset of the REG_SAVE area of stack and deallocate all stack
+	 before the GPR_SAVE_START. Initialize register $t1 ($9) with rest_of_stack
+	 size to be deallocated in common epilogue.   */
+      int gpr_save_start = 0;
+      epi_with_ra = 0;
+      mips_for_each_saved_acc (frame->total_size - step2, mips_restore_reg);
+      mips_for_each_saved_fpr (frame->total_size - step2,
+				       mips_restore_reg);
+      int new_offset = frame->gp_sp_offset - (frame->total_size - step2);
+      int limit_of_gpr_save = new_offset + UNITS_PER_WORD;
+
+      /* Calculate start of the GPR save are.  */
+      gpr_save_start = new_offset - ((frame->num_gp - 1) * 4);
+      step2 -= gpr_save_start;
+
+      /* If there's nothing beyond GPR save area, jump to corresponding epilogue
+	 according to no of saved area, it lets us to save $ra in these epilogues.  */
+
+      if (!frame_pointer_needed
+	  && (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+	  && (limit_of_gpr_save == frame->total_size))
+	epi_with_ra = 1;
+      else
+	{
+	  /* Restore $ra.  */
+      	  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+      	    mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, new_offset,
+      	    			 mips_restore_reg);
+      	  if (frame_pointer_needed
+      	      && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+      	    mips_save_restore_reg (word_mode, HARD_FRAME_POINTER_REGNUM,
+      	                           new_offset - UNITS_PER_WORD, mips_restore_reg);
+
+	  /* Emit move insn to put rest_of_stack size in $t1 ($9).  */
+      	  rtx rest = GEN_INT(step2);
+      	  rtx reg = gen_rtx_REG (Pmode, GP_REG_FIRST + 9);
+      	  mips_emit_move (reg, rest);
+	}
+      /* If $ra ia not required to be restored, make sure we seem to restore all
+        registers so as to avoid asserts.  */
+      mips_epilogue.cfa_restores = NULL_RTX;
+      /* Deallocate stack upto the SAVE area.  */
+      mips_deallocate_stack (stack_pointer_rtx, GEN_INT (gpr_save_start), step2);
     }
   else
     {
@@ -12802,6 +12959,13 @@ mips_expand_epilogue (bool sibcall_p)
 	    }
 	  else if (use_jraddiusp_p)
 	    pat = gen_jraddiusp (GEN_INT (step2));
+	  else if (HAVE_COMMON_EPILOGUE && num_gp > 2)
+	    {
+	      /* Emit jump to common epilogue. */
+	      rtx reg1 = gen_rtx_REG (Pmode, GP_REG_FIRST + 9);
+	      rtx reg2 = gen_rtx_REG (Pmode, GP_REG_FIRST + 31);
+	      pat = gen_return_epi_internal (reg1, reg2);
+	    }
 	  else
 	    {
 	      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
