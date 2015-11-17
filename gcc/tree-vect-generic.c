@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-eh.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
+#include "gimplify.h"
 #include "tree-cfg.h"
 
 
@@ -105,6 +106,15 @@ static inline tree
 tree_vec_extract (gimple_stmt_iterator *gsi, tree type,
 		  tree t, tree bitsize, tree bitpos)
 {
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      gimple *def_stmt = SSA_NAME_DEF_STMT (t);
+      if (is_gimple_assign (def_stmt)
+	  && (gimple_assign_rhs_code (def_stmt) == VECTOR_CST
+	      || (bitpos
+		  && gimple_assign_rhs_code (def_stmt) == CONSTRUCTOR)))
+	t = gimple_assign_rhs1 (def_stmt);
+    }
   if (bitpos)
     {
       if (TREE_CODE (type) == BOOLEAN_TYPE)
@@ -346,7 +356,8 @@ expand_vector_comparison (gimple_stmt_iterator *gsi, tree type, tree op0,
                           tree op1, enum tree_code code)
 {
   tree t;
-  if (! expand_vec_cond_expr_p (type, TREE_TYPE (op0)))
+  if (!expand_vec_cmp_expr_p (TREE_TYPE (op0), type)
+      && !expand_vec_cond_expr_p (type, TREE_TYPE (op0)))
     t = expand_vector_piecewise (gsi, do_compare, type,
 				 TREE_TYPE (TREE_TYPE (op0)), op0, op1, code);
   else
@@ -1418,7 +1429,7 @@ do_cond (gimple_stmt_iterator *gsi, tree inner_type, tree a, tree b,
   if (TREE_CODE (TREE_TYPE (b)) == VECTOR_TYPE)
     b = tree_vec_extract (gsi, inner_type, b, bitsize, bitpos);
   tree cond = gimple_assign_rhs1 (gsi_stmt (*gsi));
-  return gimplify_build3 (gsi, code, inner_type, cond, a, b);
+  return gimplify_build3 (gsi, code, inner_type, unshare_expr (cond), a, b);
 }
 
 /* Expand a vector COND_EXPR to scalars, piecewise.  */
@@ -1527,6 +1538,8 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
   tree srhs1, srhs2 = NULL_TREE;
   if ((srhs1 = ssa_uniform_vector_p (rhs1)) != NULL_TREE
       && (rhs2 == NULL_TREE
+	  || (! VECTOR_TYPE_P (TREE_TYPE (rhs2))
+	      && (srhs2 = rhs2))
 	  || (srhs2 = ssa_uniform_vector_p (rhs2)) != NULL_TREE)
       /* As we query direct optabs restrict to non-convert operations.  */
       && TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (TREE_TYPE (srhs1)))

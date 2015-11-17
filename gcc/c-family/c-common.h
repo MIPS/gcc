@@ -995,9 +995,9 @@ extern void init_c_lex (void);
 
 extern void c_cpp_builtins (cpp_reader *);
 extern void c_cpp_builtins_optimize_pragma (cpp_reader *, tree, tree);
-extern bool c_cpp_error (cpp_reader *, int, int, location_t, unsigned int,
+extern bool c_cpp_error (cpp_reader *, int, int, rich_location *,
 			 const char *, va_list *)
-     ATTRIBUTE_GCC_DIAG(6,0);
+     ATTRIBUTE_GCC_DIAG(5,0);
 extern int c_common_has_attribute (cpp_reader *);
 
 extern bool parse_optimize_options (tree, bool);
@@ -1463,5 +1463,6 @@ extern bool check_no_cilk (tree, const char *, const char *,
 		           location_t loc = UNKNOWN_LOCATION);
 extern bool reject_gcc_builtin (const_tree, location_t = UNKNOWN_LOCATION);
 extern void warn_duplicated_cond_add_or_warn (location_t, tree, vec<tree> **);
+extern bool valid_array_size_p (location_t, tree, tree);
 
 #endif /* ! GCC_C_COMMON_H */

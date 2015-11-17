@@ -67,7 +67,7 @@ extern bool hook_callee_copies_named
   (cumulative_args_t ca, machine_mode, const_tree, bool);
 
 extern void default_print_operand (FILE *, rtx, int);
-extern void default_print_operand_address (FILE *, rtx);
+extern void default_print_operand_address (FILE *, machine_mode, rtx);
 extern bool default_print_operand_punct_valid_p (unsigned char);
 extern tree default_mangle_assembler_name (const char *);
 
@@ -177,6 +177,8 @@ extern bool default_addr_space_legitimate_address_p (machine_mode, rtx,
 extern rtx default_addr_space_legitimize_address (rtx, rtx, machine_mode,
 						  addr_space_t);
 extern bool default_addr_space_subset_p (addr_space_t, addr_space_t);
+extern bool default_addr_space_zero_address_valid (addr_space_t);
+extern int default_addr_space_debug (addr_space_t);
 extern rtx default_addr_space_convert (rtx, tree, tree);
 extern unsigned int default_case_values_threshold (void);
 extern bool default_have_conditional_execution (void);

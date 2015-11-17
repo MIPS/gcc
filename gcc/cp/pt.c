@@ -27,21 +27,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tm.h"
-#include "tree.h"
 #include "cp-tree.h"
-#include "c-family/c-common.h"
 #include "timevar.h"
 #include "stringpool.h"
 #include "varasm.h"
 #include "attribs.h"
 #include "stor-layout.h"
 #include "intl.h"
-#include "flags.h"
 #include "c-family/c-objc.h"
 #include "cp-objcp-common.h"
-#include "tree-inline.h"
-#include "decl.h"
 #include "toplev.h"
 #include "tree-iterator.h"
 #include "type-utils.h"
@@ -441,21 +435,8 @@ push_inline_template_parms_recursive (tree parmlist, int levels)
 	  break;
 
 	case PARM_DECL:
-	  {
-	    /* Make a CONST_DECL as is done in process_template_parm.
-	       It is ugly that we recreate this here; the original
-	       version built in process_template_parm is no longer
-	       available.  */
-	    tree decl = build_decl (DECL_SOURCE_LOCATION (parm),
-				    CONST_DECL, DECL_NAME (parm),
-				    TREE_TYPE (parm));
-	    DECL_ARTIFICIAL (decl) = 1;
-	    TREE_CONSTANT (decl) = 1;
-	    TREE_READONLY (decl) = 1;
-	    DECL_INITIAL (decl) = DECL_INITIAL (parm);
-	    SET_DECL_TEMPLATE_PARM_P (decl);
-	    pushdecl (decl);
-	  }
+	  /* Push the CONST_DECL.  */
+	  pushdecl (TEMPLATE_PARM_DECL (DECL_INITIAL (parm)));
 	  break;
 
 	default:
@@ -2819,14 +2800,6 @@ check_explicit_specialization (tree declarator,
 		  error ("%qD is not a template function", dname);
 		  fns = error_mark_node;
 		}
-	      else
-		{
-		  tree fn = OVL_CURRENT (fns);
-		  if (!is_associated_namespace (CP_DECL_CONTEXT (decl),
-						CP_DECL_CONTEXT (fn)))
-		    error ("%qD is not declared in %qD",
-			   decl, current_namespace);
-		}
 	    }
 
 	  declarator = lookup_template_function (fns, NULL_TREE);
@@ -2960,6 +2933,14 @@ check_explicit_specialization (tree declarator,
 	return error_mark_node;
       else
 	{
+	  if (!ctype && !was_template_id
+	      && (specialization || member_specialization
+		  || explicit_instantiation)
+	      && !is_associated_namespace (CP_DECL_CONTEXT (decl),
+					   CP_DECL_CONTEXT (tmpl)))
+	    error ("%qD is not declared in %qD",
+		   tmpl, current_namespace);
+
 	  tree gen_tmpl = most_general_template (tmpl);
 
 	  if (explicit_instantiation)
@@ -6230,7 +6211,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
   /* 14.3.2/5: The null pointer{,-to-member} conversion is applied
      to a non-type argument of "nullptr".  */
   if (expr == nullptr_node && TYPE_PTR_OR_PTRMEM_P (type))
-    expr = convert (type, expr);
+    expr = fold_simple (convert (type, expr));
 
   /* In C++11, integral or enumeration non-type template arguments can be
      arbitrary constant expressions.  Pointer and pointer to
@@ -10181,7 +10162,12 @@ instantiate_class_template_1 (tree type)
 	{
 	  if (!DECL_TEMPLATE_INFO (decl)
 	      || DECL_TEMPLATE_RESULT (DECL_TI_TEMPLATE (decl)) != decl)
-	    instantiate_decl (decl, false, false);
+	    {
+	      /* Set function_depth to avoid garbage collection.  */
+	      ++function_depth;
+	      instantiate_decl (decl, false, false);
+	      --function_depth;
+	    }
 
 	  /* We need to instantiate the capture list from the template
 	     after we've instantiated the closure members, but before we
@@ -15419,6 +15405,14 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		  }
 	    }
 	}
+      add_stmt (t);
+      break;
+
+    case OACC_DECLARE:
+      t = copy_node (t);
+      tmp = tsubst_omp_clauses (OACC_DECLARE_CLAUSES (t), false, false,
+				args, complain, in_decl);
+      OACC_DECLARE_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 

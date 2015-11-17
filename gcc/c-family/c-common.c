@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "function.h"
-#include "obstack.h"
 #include "tree.h"
 #include "c-common.h"
 #include "gimple-expr.h"
@@ -38,8 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "attribs.h"
 #include "varasm.h"
 #include "trans-mem.h"
-#include "flags.h"
-#include "c-pragma.h"
 #include "c-objc.h"
 #include "common/common-target.h"
 #include "langhooks.h"
@@ -390,6 +387,7 @@ static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
 static tree handle_returns_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
+static tree handle_simd_attribute (tree *, tree, tree, int, bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_designated_init_attribute (tree *, tree, tree, int, bool *);
@@ -820,6 +818,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_omp_declare_simd_attribute, false },
   { "cilk simd function",     0, -1, true,  false, false,
 			      handle_omp_declare_simd_attribute, false },
+  { "simd",		      0, 0, true,  false, false,
+			      handle_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
   { "alloc_align",	      1, 1, false, true, true,
@@ -1190,6 +1190,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
   bool op0_const_self = true, op1_const_self = true, op2_const_self = true;
   bool nowarning = TREE_NO_WARNING (expr);
   bool unused_p;
+  source_range old_range;
 
   /* This function is not relevant to C++ because C++ folds while
      parsing, and may need changes to be correct for C++ when C++
@@ -1204,6 +1205,9 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       || kind == tcc_statement
       || code == SAVE_EXPR)
     return expr;
+
+  if (IS_EXPR_CODE_CLASS (kind))
+    old_range = EXPR_LOCATION_RANGE (expr);
 
   /* Operands of variable-length expressions (function calls) have
      already been folded, as have __builtin_* function calls, and such
@@ -1629,7 +1633,11 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
       TREE_NO_WARNING (ret) = 1;
     }
   if (ret != expr)
-    protected_set_expr_location (ret, loc);
+    {
+      protected_set_expr_location (ret, loc);
+      if (IS_EXPR_CODE_CLASS (kind))
+	set_source_range (ret, old_range.m_start, old_range.m_finish);
+    }
   return ret;
 }
 
@@ -3761,6 +3769,10 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
   min_value = TYPE_MIN_VALUE (orig_type);
   max_value = TYPE_MAX_VALUE (orig_type);
 
+  /* We'll really need integer constants here.  */
+  case_low = fold (case_low);
+  case_high = fold (case_high);
+
   /* Case label is less than minimum for type.  */
   if (tree_int_cst_compare (case_low, min_value) < 0
       && tree_int_cst_compare (case_high, min_value) < 0)
@@ -5336,19 +5348,15 @@ c_common_get_alias_set (tree t)
 	   TREE_CODE (t2) == POINTER_TYPE;
 	   t2 = TREE_TYPE (t2))
 	;
-      if (TREE_CODE (t2) != RECORD_TYPE
-	  && TREE_CODE (t2) != ENUMERAL_TYPE
-	  && TREE_CODE (t2) != QUAL_UNION_TYPE
-	  && TREE_CODE (t2) != UNION_TYPE)
+      if (!RECORD_OR_UNION_TYPE_P (t2)
+	  && TREE_CODE (t2) != ENUMERAL_TYPE)
 	return -1;
       if (TYPE_SIZE (t2) == 0)
 	return -1;
     }
   /* These are the only cases that need special handling.  */
-  if (TREE_CODE (t) != RECORD_TYPE
+  if (!RECORD_OR_UNION_TYPE_P (t)
       && TREE_CODE (t) != ENUMERAL_TYPE
-      && TREE_CODE (t) != QUAL_UNION_TYPE
-      && TREE_CODE (t) != UNION_TYPE
       && TREE_CODE (t) != POINTER_TYPE)
     return -1;
   /* Undefined? */
@@ -5739,7 +5747,6 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 		   BOTH_P, FALLBACK_P, NONANSI_P,                       \
 		   built_in_attributes[(int) ATTRS], IMPLICIT);
 #include "builtins.def"
-#undef DEF_BUILTIN
 
   targetm.init_builtins ();
 
@@ -7714,7 +7721,6 @@ handle_scalar_storage_order_attribute (tree *node, tree name, tree args,
 
       if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
 	{
-	  /* build_duplicate_type doesn't work for C++.  */
 	  if (c_dialect_cxx ())
 	    goto ignored;
 
@@ -8642,7 +8648,7 @@ handle_visibility_attribute (tree *node, tree name, tree args,
     {
       if (TREE_CODE (*node) == ENUMERAL_TYPE)
 	/* OK */;
-      else if (TREE_CODE (*node) != RECORD_TYPE && TREE_CODE (*node) != UNION_TYPE)
+      else if (!RECORD_OR_UNION_TYPE_P (*node))
 	{
 	  warning (OPT_Wattributes, "%qE attribute ignored on non-class types",
 		   name);
@@ -9019,6 +9025,35 @@ handle_warn_unused_attribute (tree *node, tree name,
 static tree
 handle_omp_declare_simd_attribute (tree *, tree, tree, int, bool *)
 {
+  return NULL_TREE;
+}
+
+/* Handle a "simd" attribute.  */
+
+static tree
+handle_simd_attribute (tree *node, tree name, tree, int, bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) == FUNCTION_DECL)
+    {
+      if (lookup_attribute ("cilk simd function",
+			    DECL_ATTRIBUTES (*node)) != NULL)
+	{
+	  error_at (DECL_SOURCE_LOCATION (*node),
+		    "%<__simd__%> attribute cannot be used in the same "
+		    "function marked as a Cilk Plus SIMD-enabled function");
+	  *no_add_attrs = true;
+	}
+      else
+	DECL_ATTRIBUTES (*node)
+	  = tree_cons (get_identifier ("omp declare simd"),
+		       NULL_TREE, DECL_ATTRIBUTES (*node));
+    }
+  else
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
   return NULL_TREE;
 }
 
@@ -10607,15 +10642,14 @@ c_option_controlling_cpp_error (int reason)
 /* Callback from cpp_error for PFILE to print diagnostics from the
    preprocessor.  The diagnostic is of type LEVEL, with REASON set
    to the reason code if LEVEL is represents a warning, at location
-   LOCATION unless this is after lexing and the compiler's location
-   should be used instead, with column number possibly overridden by
-   COLUMN_OVERRIDE if not zero; MSG is the translated message and AP
+   RICHLOC unless this is after lexing and the compiler's location
+   should be used instead; MSG is the translated message and AP
    the arguments.  Returns true if a diagnostic was emitted, false
    otherwise.  */
 
 bool
 c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level, int reason,
-	     location_t location, unsigned int column_override,
+	     rich_location *richloc,
 	     const char *msg, va_list *ap)
 {
   diagnostic_info diagnostic;
@@ -10656,11 +10690,11 @@ c_cpp_error (cpp_reader *pfile ATTRIBUTE_UNUSED, int level, int reason,
       gcc_unreachable ();
     }
   if (done_lexing)
-    location = input_location;
+    richloc->set_range (0,
+			source_range::from_location (input_location),
+			true, true);
   diagnostic_set_info_translated (&diagnostic, msg, ap,
-				  location, dlevel);
-  if (column_override)
-    diagnostic_override_column (&diagnostic, column_override);
+				  richloc, dlevel);
   diagnostic_override_option_index (&diagnostic,
                                     c_option_controlling_cpp_error (reason));
   ret = report_diagnostic (&diagnostic);
@@ -13115,6 +13149,28 @@ warn_duplicated_cond_add_or_warn (location_t loc, tree cond, vec<tree> **chain)
       /* Don't infinitely grow the chain.  */
       && (*chain)->length () < 512)
     (*chain)->safe_push (cond);
+}
+
+/* Check if array size calculations overflow or if the array covers more
+   than half of the address space.  Return true if the size of the array
+   is valid, false otherwise.  TYPE is the type of the array and NAME is
+   the name of the array, or NULL_TREE for unnamed arrays.  */
+
+bool
+valid_array_size_p (location_t loc, tree type, tree name)
+{
+  if (type != error_mark_node
+      && COMPLETE_TYPE_P (type)
+      && TREE_CODE (TYPE_SIZE_UNIT (type)) == INTEGER_CST
+      && !valid_constant_size_p (TYPE_SIZE_UNIT (type)))
+    {
+      if (name)
+	error_at (loc, "size of array %qE is too large", name);
+      else
+	error_at (loc, "size of unnamed array is too large");
+      return false;
+    }
+  return true;
 }
 
 #include "gt-c-family-c-common.h"

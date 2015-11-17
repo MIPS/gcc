@@ -8810,20 +8810,11 @@ vrp_visit_phi_node (gphi *phi)
 
       /* If we dropped either bound to +-INF then if this is a loop
 	 PHI node SCEV may known more about its value-range.  */
-      if ((cmp_min > 0 || cmp_min < 0
+      if (cmp_min > 0 || cmp_min < 0
 	   || cmp_max < 0 || cmp_max > 0)
-	  && (l = loop_containing_stmt (phi))
-	  && l->header == gimple_bb (phi))
-	adjust_range_with_scev (&vr_result, l, phi, lhs);
+	goto scev_check;
 
-      /* If we will end up with a (-INF, +INF) range, set it to
-	 VARYING.  Same if the previous max value was invalid for
-	 the type and we end up with vr_result.min > vr_result.max.  */
-      if ((vrp_val_is_max (vr_result.max)
-	   && vrp_val_is_min (vr_result.min))
-	  || compare_values (vr_result.min,
-			     vr_result.max) > 0)
-	goto varying;
+      goto infinite_check;
     }
 
   /* If the new range is different than the previous value, keep
@@ -8849,8 +8840,28 @@ update_range:
   /* Nothing changed, don't add outgoing edges.  */
   return SSA_PROP_NOT_INTERESTING;
 
-  /* No match found.  Set the LHS to VARYING.  */
 varying:
+  set_value_range_to_varying (&vr_result);
+
+scev_check:
+  /* If this is a loop PHI node SCEV may known more about its value-range.
+     scev_check can be reached from two paths, one is a fall through from above
+     "varying" label, the other is direct goto from code block which tries to
+     avoid infinite simulation.  */
+  if ((l = loop_containing_stmt (phi))
+      && l->header == gimple_bb (phi))
+    adjust_range_with_scev (&vr_result, l, phi, lhs);
+
+infinite_check:
+  /* If we will end up with a (-INF, +INF) range, set it to
+     VARYING.  Same if the previous max value was invalid for
+     the type and we end up with vr_result.min > vr_result.max.  */
+  if ((vr_result.type == VR_RANGE || vr_result.type == VR_ANTI_RANGE)
+      && !((vrp_val_is_max (vr_result.max) && vrp_val_is_min (vr_result.min))
+	   || compare_values (vr_result.min, vr_result.max) > 0))
+    goto update_range;
+
+  /* No match found.  Set the LHS to VARYING.  */
   set_value_range_to_varying (lhs_vr);
   return SSA_PROP_VARYING;
 }
@@ -10076,9 +10087,9 @@ identify_jump_threads (void)
   mark_dfs_back_edges ();
 
   /* Do not thread across edges we are about to remove.  Just marking
-     them as EDGE_DFS_BACK will do.  */
+     them as EDGE_IGNORE will do.  */
   FOR_EACH_VEC_ELT (to_remove_edges, i, e)
-    e->flags |= EDGE_DFS_BACK;
+    e->flags |= EDGE_IGNORE;
 
   /* Allocate our unwinder stack to unwind any temporary equivalences
      that might be recorded.  */
@@ -10135,9 +10146,9 @@ identify_jump_threads (void)
 	     it to a specific successor.  */
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
-	      /* Do not thread across back edges or abnormal edges
-		 in the CFG.  */
-	      if (e->flags & (EDGE_DFS_BACK | EDGE_COMPLEX))
+	      /* Do not thread across edges marked to ignoreor abnormal
+		 edges in the CFG.  */
+	      if (e->flags & (EDGE_IGNORE | EDGE_COMPLEX))
 		continue;
 
 	      thread_across_edge (dummy, e, true, equiv_stack, NULL,
@@ -10145,6 +10156,10 @@ identify_jump_threads (void)
 	    }
 	}
     }
+
+  /* Clear EDGE_IGNORE.  */
+  FOR_EACH_VEC_ELT (to_remove_edges, i, e)
+    e->flags &= ~EDGE_IGNORE;
 
   /* We do not actually update the CFG or SSA graphs at this point as
      ASSERT_EXPRs are still in the IL and cfg cleanup code does not yet
@@ -10168,7 +10183,7 @@ finalize_jump_threads (void)
 /* Traverse all the blocks folding conditionals with known ranges.  */
 
 static void
-vrp_finalize (void)
+vrp_finalize (bool warn_array_bounds_p)
 {
   size_t i;
 
@@ -10184,7 +10199,7 @@ vrp_finalize (void)
   substitute_and_fold (op_with_constant_singleton_value_range,
 		       vrp_fold_stmt, false);
 
-  if (warn_array_bounds && first_pass_instance)
+  if (warn_array_bounds && warn_array_bounds_p)
     check_all_array_refs ();
 
   /* We must identify jump threading opportunities before we release
@@ -10274,7 +10289,7 @@ vrp_finalize (void)
    probabilities to aid branch prediction.  */
 
 static unsigned int
-execute_vrp (void)
+execute_vrp (bool warn_array_bounds_p)
 {
   int i;
   edge e;
@@ -10298,7 +10313,7 @@ execute_vrp (void)
 
   vrp_initialize ();
   ssa_propagate (vrp_visit_stmt, vrp_visit_phi_node);
-  vrp_finalize ();
+  vrp_finalize (warn_array_bounds_p);
 
   free_numbers_of_iterations_estimates (cfun);
 
@@ -10371,14 +10386,22 @@ class pass_vrp : public gimple_opt_pass
 {
 public:
   pass_vrp (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_vrp, ctxt)
+    : gimple_opt_pass (pass_data_vrp, ctxt), warn_array_bounds_p (false)
   {}
 
   /* opt_pass methods: */
   opt_pass * clone () { return new pass_vrp (m_ctxt); }
+  void set_pass_param (unsigned int n, bool param)
+    {
+      gcc_assert (n == 0);
+      warn_array_bounds_p = param;
+    }
   virtual bool gate (function *) { return flag_tree_vrp != 0; }
-  virtual unsigned int execute (function *) { return execute_vrp (); }
+  virtual unsigned int execute (function *)
+    { return execute_vrp (warn_array_bounds_p); }
 
+ private:
+  bool warn_array_bounds_p;
 }; // class pass_vrp
 
 } // anon namespace

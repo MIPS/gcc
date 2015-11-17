@@ -1545,7 +1545,11 @@ const_unop (enum tree_code code, tree type, tree arg0)
       return fold_convert_const (code, type, arg0);
 
     case ADDR_SPACE_CONVERT_EXPR:
-      if (integer_zerop (arg0))
+      /* If the source address is 0, and the source address space
+	 cannot have a valid object at 0, fold to dest type null.  */
+      if (integer_zerop (arg0)
+	  && !(targetm.addr_space.zero_address_valid
+	       (TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg0))))))
 	return fold_convert_const (code, type, arg0);
       break;
 
@@ -2090,6 +2094,25 @@ fold_convert_const (enum tree_code code, tree type, tree arg1)
 	return fold_convert_const_fixed_from_int (type, arg1);
       else if (TREE_CODE (arg1) == REAL_CST)
 	return fold_convert_const_fixed_from_real (type, arg1);
+    }
+  else if (TREE_CODE (type) == VECTOR_TYPE)
+    {
+      if (TREE_CODE (arg1) == VECTOR_CST
+	  && TYPE_VECTOR_SUBPARTS (type) == VECTOR_CST_NELTS (arg1))
+	{
+	  int len = TYPE_VECTOR_SUBPARTS (type);
+	  tree elttype = TREE_TYPE (type);
+	  tree *v = XALLOCAVEC (tree, len);
+	  for (int i = 0; i < len; ++i)
+	    {
+	      tree elt = VECTOR_CST_ELT (arg1, i);
+	      tree cvt = fold_convert_const (code, elttype, elt);
+	      if (cvt == NULL_TREE)
+		return NULL_TREE;
+	      v[i] = cvt;
+	    }
+	  return build_vector (type, v);
+	}
     }
   return NULL_TREE;
 }
@@ -2649,8 +2672,7 @@ combine_comparisons (location_t loc,
 }
 
 /* Return nonzero if two operands (typically of the same tree node)
-   are necessarily equal.  If either argument has side-effects this
-   function returns zero.  FLAGS modifies behavior as follows:
+   are necessarily equal. FLAGS modifies behavior as follows:
 
    If OEP_ONLY_CONST is set, only return nonzero for constants.
    This function tests whether the operands are indistinguishable;
@@ -2675,9 +2697,14 @@ combine_comparisons (location_t loc,
    to ensure that global memory is unchanged in between.
 
    If OEP_ADDRESS_OF is set, we are actually comparing addresses of objects,
-   not values of expressions.  OEP_CONSTANT_ADDRESS_OF in addition to
-   OEP_ADDRESS_OF is used for ADDR_EXPR with TREE_CONSTANT flag set and we
-   further ignore any side effects on SAVE_EXPRs then.  */
+   not values of expressions.
+
+   Unless OEP_MATCH_SIDE_EFFECTS is set, the function returns false on
+   any operand with side effect.  This is unnecesarily conservative in the
+   case we know that arg0 and arg1 are in disjoint code paths (such as in
+   ?: operator).  In addition OEP_MATCH_SIDE_EFFECTS is used when comparing
+   addresses with TREE_CONSTANT flag set so we know that &var == &var
+   even if var is volatile.  */
 
 int
 operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
@@ -2693,14 +2720,20 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
   if (!TREE_TYPE (arg0) || !TREE_TYPE (arg1))
     return 0;
 
+  /* We cannot consider pointers to different address space equal.  */
+  if (POINTER_TYPE_P (TREE_TYPE (arg0))
+      && POINTER_TYPE_P (TREE_TYPE (arg1))
+      && (TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg0)))
+	  != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg1)))))
+    return 0;
+
   /* Check equality of integer constants before bailing out due to
      precision differences.  */
   if (TREE_CODE (arg0) == INTEGER_CST && TREE_CODE (arg1) == INTEGER_CST)
     {
       /* Address of INTEGER_CST is not defined; check that we did not forget
-	 to drop the OEP_ADDRESS_OF/OEP_CONSTANT_ADDRESS_OF flags.  */
-      gcc_checking_assert (!(flags
-			     & (OEP_ADDRESS_OF | OEP_CONSTANT_ADDRESS_OF)));
+	 to drop the OEP_ADDRESS_OF flags.  */
+      gcc_checking_assert (!(flags & OEP_ADDRESS_OF));
       return tree_int_cst_equal (arg0, arg1);
     }
 
@@ -2714,13 +2747,6 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       if (TYPE_UNSIGNED (TREE_TYPE (arg0)) != TYPE_UNSIGNED (TREE_TYPE (arg1))
 	  || POINTER_TYPE_P (TREE_TYPE (arg0))
 			     != POINTER_TYPE_P (TREE_TYPE (arg1)))
-	return 0;
-
-      /* We cannot consider pointers to different address space equal.  */
-      if (POINTER_TYPE_P (TREE_TYPE (arg0))
-			  && POINTER_TYPE_P (TREE_TYPE (arg1))
-	  && (TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg0)))
-	      != TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (arg1)))))
 	return 0;
 
       /* If both types don't have the same precision, then it is not safe
@@ -2806,7 +2832,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
      they are necessarily equal as well.  */
   if (arg0 == arg1 && ! (flags & OEP_ONLY_CONST)
       && (TREE_CODE (arg0) == SAVE_EXPR
-	  || (flags & OEP_CONSTANT_ADDRESS_OF)
+	  || (flags & OEP_MATCH_SIDE_EFFECTS)
 	  || (! TREE_SIDE_EFFECTS (arg0) && ! TREE_SIDE_EFFECTS (arg1))))
     return 1;
 
@@ -2865,11 +2891,10 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 			      TREE_STRING_LENGTH (arg0)));
 
       case ADDR_EXPR:
-	gcc_checking_assert (!(flags
-			       & (OEP_ADDRESS_OF | OEP_CONSTANT_ADDRESS_OF)));
+	gcc_checking_assert (!(flags & OEP_ADDRESS_OF));
 	return operand_equal_p (TREE_OPERAND (arg0, 0), TREE_OPERAND (arg1, 0),
 				flags | OEP_ADDRESS_OF
-				| OEP_CONSTANT_ADDRESS_OF);
+				| OEP_MATCH_SIDE_EFFECTS);
       case CONSTRUCTOR:
 	/* In GIMPLE empty constructors are allowed in initializers of
 	   aggregates.  */
@@ -2928,7 +2953,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       /* If either of the pointer (or reference) expressions we are
 	 dereferencing contain a side effect, these cannot be equal,
 	 but their addresses can be.  */
-      if ((flags & OEP_CONSTANT_ADDRESS_OF) == 0
+      if ((flags & OEP_MATCH_SIDE_EFFECTS) == 0
 	  && (TREE_SIDE_EFFECTS (arg0)
 	      || TREE_SIDE_EFFECTS (arg1)))
 	return 0;
@@ -2936,11 +2961,11 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
       switch (TREE_CODE (arg0))
 	{
 	case INDIRECT_REF:
-	  if (!(flags & (OEP_ADDRESS_OF | OEP_CONSTANT_ADDRESS_OF))
+	  if (!(flags & OEP_ADDRESS_OF)
 	      && (TYPE_ALIGN (TREE_TYPE (arg0))
 		  != TYPE_ALIGN (TREE_TYPE (arg1))))
 	    return 0;
-	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
+	  flags &= ~OEP_ADDRESS_OF;
 	  return OP_SAME (0);
 
 	case REALPART_EXPR:
@@ -2950,7 +2975,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 
 	case TARGET_MEM_REF:
 	case MEM_REF:
-	  if (!(flags & (OEP_ADDRESS_OF | OEP_CONSTANT_ADDRESS_OF)))
+	  if (!(flags & OEP_ADDRESS_OF))
 	    {
 	      /* Require equal access sizes */
 	      if (TYPE_SIZE (TREE_TYPE (arg0)) != TYPE_SIZE (TREE_TYPE (arg1))
@@ -2975,7 +3000,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 		 != TYPE_ALIGN (TREE_TYPE (arg1)))
 		return 0;
 	    }
-	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
+	  flags &= ~OEP_ADDRESS_OF;
 	  return (OP_SAME (0) && OP_SAME (1)
 		  /* TARGET_MEM_REF require equal extra operands.  */
 		  && (TREE_CODE (arg0) != TARGET_MEM_REF
@@ -2990,7 +3015,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	     may have different types but same value here.  */
 	  if (!OP_SAME (0))
 	    return 0;
-	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
+	  flags &= ~OEP_ADDRESS_OF;
 	  return ((tree_int_cst_equal (TREE_OPERAND (arg0, 1),
 				       TREE_OPERAND (arg1, 1))
 		   || OP_SAME (1))
@@ -3003,13 +3028,13 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	  if (!OP_SAME_WITH_NULL (0)
 	      || !OP_SAME (1))
 	    return 0;
-	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
+	  flags &= ~OEP_ADDRESS_OF;
 	  return OP_SAME_WITH_NULL (2);
 
 	case BIT_FIELD_REF:
 	  if (!OP_SAME (0))
 	    return 0;
-	  flags &= ~(OEP_CONSTANT_ADDRESS_OF|OEP_ADDRESS_OF);
+	  flags &= ~OEP_ADDRESS_OF;
 	  return OP_SAME (1) && OP_SAME (2);
 
 	default:
@@ -3021,9 +3046,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 	{
 	case ADDR_EXPR:
 	  /* Be sure we pass right ADDRESS_OF flag.  */
-	  gcc_checking_assert (!(flags
-				 & (OEP_ADDRESS_OF
-				    | OEP_CONSTANT_ADDRESS_OF)));
+	  gcc_checking_assert (!(flags & OEP_ADDRESS_OF));
 	  return operand_equal_p (TREE_OPERAND (arg0, 0),
 				  TREE_OPERAND (arg1, 0),
 				  flags | OEP_ADDRESS_OF);
@@ -3089,6 +3112,7 @@ operand_equal_p (const_tree arg0, const_tree arg1, unsigned int flags)
 		return 0;
 	    }
 
+	  /* FIXME: We could skip this test for OEP_MATCH_SIDE_EFFECTS.  */
 	  {
 	    unsigned int cef = call_expr_flags (arg0);
 	    if (flags & OEP_PURE_SAME)
@@ -10190,54 +10214,9 @@ fold_binary_loc (location_t loc,
 	return fold_build2_loc (loc, RDIV_EXPR, type,
 			    negate_expr (arg0),
 			    TREE_OPERAND (arg1, 0));
-
-      /* Convert A/B/C to A/(B*C).  */
-      if (flag_reciprocal_math
-	  && TREE_CODE (arg0) == RDIV_EXPR)
-	return fold_build2_loc (loc, RDIV_EXPR, type, TREE_OPERAND (arg0, 0),
-			    fold_build2_loc (loc, MULT_EXPR, type,
-					 TREE_OPERAND (arg0, 1), arg1));
-
-      /* Convert A/(B/C) to (A/B)*C.  */
-      if (flag_reciprocal_math
-	  && TREE_CODE (arg1) == RDIV_EXPR)
-	return fold_build2_loc (loc, MULT_EXPR, type,
-			    fold_build2_loc (loc, RDIV_EXPR, type, arg0,
-					 TREE_OPERAND (arg1, 0)),
-			    TREE_OPERAND (arg1, 1));
-
-      /* Convert C1/(X*C2) into (C1/C2)/X.  */
-      if (flag_reciprocal_math
-	  && TREE_CODE (arg1) == MULT_EXPR
-	  && TREE_CODE (arg0) == REAL_CST
-	  && TREE_CODE (TREE_OPERAND (arg1, 1)) == REAL_CST)
-	{
-	  tree tem = const_binop (RDIV_EXPR, arg0,
-				  TREE_OPERAND (arg1, 1));
-	  if (tem)
-	    return fold_build2_loc (loc, RDIV_EXPR, type, tem,
-				TREE_OPERAND (arg1, 0));
-	}
-
       return NULL_TREE;
 
     case TRUNC_DIV_EXPR:
-      /* Optimize (X & (-A)) / A where A is a power of 2,
-	 to X >> log2(A) */
-      if (TREE_CODE (arg0) == BIT_AND_EXPR
-	  && !TYPE_UNSIGNED (type) && TREE_CODE (arg1) == INTEGER_CST
-	  && integer_pow2p (arg1) && tree_int_cst_sgn (arg1) > 0)
-	{
-	  tree sum = fold_binary_loc (loc, PLUS_EXPR, TREE_TYPE (arg1),
-				      arg1, TREE_OPERAND (arg0, 1));
-	  if (sum && integer_zerop (sum)) {
-	    tree pow2 = build_int_cst (integer_type_node,
-				       wi::exact_log2 (arg1));
-	    return fold_build2_loc (loc, RSHIFT_EXPR, type,
-				    TREE_OPERAND (arg0, 0), pow2);
-	  }
-	}
-
       /* Fall through */
       
     case FLOOR_DIV_EXPR:
@@ -11882,16 +11861,16 @@ get_array_ctor_element_at_index (tree ctor, offset_int access_index)
   offset_int low_bound = 0;
 
   if (TREE_CODE (TREE_TYPE (ctor)) == ARRAY_TYPE)
-  {
-    tree domain_type = TYPE_DOMAIN (TREE_TYPE (ctor));
-    if (domain_type && TYPE_MIN_VALUE (domain_type))
     {
-      /* Static constructors for variably sized objects makes no sense.  */
-      gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
-      index_type = TREE_TYPE (TYPE_MIN_VALUE (domain_type));
-      low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
+      tree domain_type = TYPE_DOMAIN (TREE_TYPE (ctor));
+      if (domain_type && TYPE_MIN_VALUE (domain_type))
+	{
+	  /* Static constructors for variably sized objects makes no sense.  */
+	  gcc_assert (TREE_CODE (TYPE_MIN_VALUE (domain_type)) == INTEGER_CST);
+	  index_type = TREE_TYPE (TYPE_MIN_VALUE (domain_type));
+	  low_bound = wi::to_offset (TYPE_MIN_VALUE (domain_type));
+	}
     }
-  }
 
   if (index_type)
     access_index = wi::ext (access_index, TYPE_PRECISION (index_type),
@@ -11907,29 +11886,29 @@ get_array_ctor_element_at_index (tree ctor, offset_int access_index)
   tree cfield, cval;
 
   FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (ctor), cnt, cfield, cval)
-  {
-    /* Array constructor might explicitely set index, or specify range
-     * or leave index NULL meaning that it is next index after previous
-     * one.  */
-    if (cfield)
     {
-      if (TREE_CODE (cfield) == INTEGER_CST)
-	max_index = index = wi::to_offset (cfield);
+      /* Array constructor might explicitly set index, or specify a range,
+	 or leave index NULL meaning that it is next index after previous
+	 one.  */
+      if (cfield)
+	{
+	  if (TREE_CODE (cfield) == INTEGER_CST)
+	    max_index = index = wi::to_offset (cfield);
+	  else
+	    {
+	      gcc_assert (TREE_CODE (cfield) == RANGE_EXPR);
+	      index = wi::to_offset (TREE_OPERAND (cfield, 0));
+	      max_index = wi::to_offset (TREE_OPERAND (cfield, 1));
+	    }
+	}
       else
-      {
-	gcc_assert (TREE_CODE (cfield) == RANGE_EXPR);
-	index = wi::to_offset (TREE_OPERAND (cfield, 0));
-	max_index = wi::to_offset (TREE_OPERAND (cfield, 1));
-      }
-    }
-    else
-    {
-      index += 1;
-      if (index_type)
-	index = wi::ext (index, TYPE_PRECISION (index_type),
-			 TYPE_SIGN (index_type));
-	max_index = index;
-    }
+	{
+	  index += 1;
+	  if (index_type)
+	    index = wi::ext (index, TYPE_PRECISION (index_type),
+			     TYPE_SIGN (index_type));
+	  max_index = index;
+	}
 
     /* Do we have match?  */
     if (wi::cmpu (access_index, index) >= 0
@@ -14423,4 +14402,25 @@ fold_build_pointer_plus_hwi_loc (location_t loc, tree ptr, HOST_WIDE_INT off)
 {
   return fold_build2_loc (loc, POINTER_PLUS_EXPR, TREE_TYPE (ptr),
 			  ptr, size_int (off));
+}
+
+/* Return a char pointer for a C string if it is a string constant
+   or sum of string constant and integer constant.  */
+
+const char *
+c_getstr (tree src)
+{
+  tree offset_node;
+
+  src = string_constant (src, &offset_node);
+  if (src == 0)
+    return 0;
+
+  if (offset_node == 0)
+    return TREE_STRING_POINTER (src);
+  else if (!tree_fits_uhwi_p (offset_node)
+	   || compare_tree_int (offset_node, TREE_STRING_LENGTH (src) - 1) > 0)
+    return 0;
+
+  return TREE_STRING_POINTER (src) + tree_to_uhwi (offset_node);
 }

@@ -368,12 +368,14 @@ dump_struct_debug (tree type, enum debug_info_usage usage,
 #endif
 
 /* Get the number of HOST_WIDE_INTs needed to represent the precision
-   of the number.  */
+   of the number.  Some constants have a large uniform precision, so
+   we get the precision needed for the actual value of the number.  */
 
 static unsigned int
 get_full_len (const wide_int &op)
 {
-  return ((op.get_precision () + HOST_BITS_PER_WIDE_INT - 1)
+  int prec = wi::min_precision (op, UNSIGNED);
+  return ((prec + HOST_BITS_PER_WIDE_INT - 1)
 	  / HOST_BITS_PER_WIDE_INT);
 }
 
@@ -9011,14 +9013,14 @@ output_die (dw_die_ref die)
 		{
 		  dw2_asm_output_data (l, a->dw_attr_val.v.val_wide->elt (i),
 				       "%s", name);
-		  name = NULL;
+		  name = "";
 		}
 	    else
 	      for (i = 0; i < len; ++i)
 		{
 		  dw2_asm_output_data (l, a->dw_attr_val.v.val_wide->elt (i),
 				       "%s", name);
-		  name = NULL;
+		  name = "";
 		}
 	  }
 	  break;
@@ -10897,29 +10899,39 @@ modified_type_die (tree type, int cv_quals, dw_die_ref context_die)
 	    mod_type_die = d;
 	  }
     }
-  else if (code == POINTER_TYPE)
+  else if (code == POINTER_TYPE || code == REFERENCE_TYPE)
     {
-      mod_type_die = new_die (DW_TAG_pointer_type, mod_scope, type);
+      dwarf_tag tag = DW_TAG_pointer_type;
+      if (code == REFERENCE_TYPE)
+	{
+	  if (TYPE_REF_IS_RVALUE (type) && dwarf_version >= 4)
+	    tag = DW_TAG_rvalue_reference_type;
+	  else
+	    tag = DW_TAG_reference_type;
+	}
+      mod_type_die = new_die (tag, mod_scope, type);
+
       add_AT_unsigned (mod_type_die, DW_AT_byte_size,
 		       simple_type_size_in_bits (type) / BITS_PER_UNIT);
       item_type = TREE_TYPE (type);
-      if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (item_type)))
-	add_AT_unsigned (mod_type_die, DW_AT_address_class,
-			 TYPE_ADDR_SPACE (item_type));
-    }
-  else if (code == REFERENCE_TYPE)
-    {
-      if (TYPE_REF_IS_RVALUE (type) && dwarf_version >= 4)
-	mod_type_die = new_die (DW_TAG_rvalue_reference_type, mod_scope,
-				type);
-      else
-	mod_type_die = new_die (DW_TAG_reference_type, mod_scope, type);
-      add_AT_unsigned (mod_type_die, DW_AT_byte_size,
-		       simple_type_size_in_bits (type) / BITS_PER_UNIT);
-      item_type = TREE_TYPE (type);
-      if (!ADDR_SPACE_GENERIC_P (TYPE_ADDR_SPACE (item_type)))
-	add_AT_unsigned (mod_type_die, DW_AT_address_class,
-			 TYPE_ADDR_SPACE (item_type));
+
+      addr_space_t as = TYPE_ADDR_SPACE (item_type);
+      if (!ADDR_SPACE_GENERIC_P (as))
+	{
+	  int action = targetm.addr_space.debug (as);
+	  if (action >= 0)
+	    {
+	      /* Positive values indicate an address_class.  */
+	      add_AT_unsigned (mod_type_die, DW_AT_address_class, action);
+	    }
+	  else
+	    {
+	      /* Negative values indicate an (inverted) segment base reg.  */
+	      dw_loc_descr_ref d
+		= one_reg_loc_descriptor (~action, VAR_INIT_STATUS_INITIALIZED);
+	      add_AT_loc (mod_type_die, DW_AT_segment, d);
+	    }
+	}
     }
   else if (code == INTEGER_TYPE
 	   && TREE_TYPE (type) != NULL_TREE
@@ -15594,8 +15606,13 @@ add_const_value_attribute (dw_die_ref die, rtx rtl)
       return true;
 
     case CONST_WIDE_INT:
-      add_AT_wide (die, DW_AT_const_value,
-		   std::make_pair (rtl, GET_MODE (rtl)));
+      {
+	wide_int w1 = std::make_pair (rtl, MAX_MODE_INT);
+	unsigned int prec = MIN (wi::min_precision (w1, UNSIGNED),
+				 (unsigned int)CONST_WIDE_INT_NUNITS (rtl) * HOST_BITS_PER_WIDE_INT);
+	wide_int w = wi::zext (w1, prec);
+	add_AT_wide (die, DW_AT_const_value, w);
+      }
       return true;
 
     case CONST_DOUBLE:

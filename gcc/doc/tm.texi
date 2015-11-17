@@ -375,6 +375,11 @@ The sequence in which libgcc and libc are specified to the linker.
 By default this is @code{%G %L %G}.
 @end defmac
 
+@defmac POST_LINK_SPEC
+Define this macro to add additional steps to be executed after linker.
+The default value of this macro is empty string.
+@end defmac
+
 @defmac LINK_COMMAND_SPEC
 A C string constant giving the complete command line need to execute the
 linker.  When you do this, you will need to update your port each time a
@@ -9567,7 +9572,7 @@ whose value is the highest absolute text address in the file.
 Here are macros for SDB and DWARF output.
 
 @defmac SDB_DEBUGGING_INFO
-Define this macro if GCC should produce COFF-style debugging output
+Define this macro to 1 if GCC should produce COFF-style debugging output
 for SDB in response to the @option{-g} option.
 @end defmac
 
@@ -10365,6 +10370,11 @@ arithmetic operations.  Pointers to a superset address space can be
 converted to pointers to a subset address space via explicit casts.
 @end deftypefn
 
+@deftypefn {Target Hook} bool TARGET_ADDR_SPACE_ZERO_ADDRESS_VALID (addr_space_t @var{as})
+Define this to modify the default handling of address 0 for the
+address space.  Return true if 0 should be considered a valid address.
+@end deftypefn
+
 @deftypefn {Target Hook} rtx TARGET_ADDR_SPACE_CONVERT (rtx @var{op}, tree @var{from_type}, tree @var{to_type})
 Define this to convert the pointer expression represented by the RTL
 @var{op} with type @var{from_type} that points to a named address
@@ -10372,6 +10382,11 @@ space to a new pointer expression with type @var{to_type} that points
 to a different named address space.  When this hook it called, it is
 guaranteed that one of the two address spaces is a subset of the other,
 as determined by the @code{TARGET_ADDR_SPACE_SUBSET_P} target hook.
+@end deftypefn
+
+@deftypefn {Target Hook} int TARGET_ADDR_SPACE_DEBUG (addr_space_t @var{as})
+Define this to define how the address space is encoded in dwarf.
+The result is the value to be used with @code{DW_AT_address_class}.
 @end deftypefn
 
 @node Misc

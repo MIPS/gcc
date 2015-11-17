@@ -137,6 +137,9 @@ nvptx_option_override (void)
   write_symbols = NO_DEBUG;
   debug_info_level = DINFO_LEVEL_NONE;
 
+  if (nvptx_optimize < 0)
+    nvptx_optimize = optimize > 0;
+
   declared_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
   needed_fndecls_htab = hash_table<tree_hasher>::create_ggc (17);
   declared_libfuncs_htab
@@ -1579,7 +1582,7 @@ static void
 output_decl_chunk (void)
 {
   begin_decl_field ();
-  output_address (gen_int_mode (init_part, decl_chunk_mode));
+  output_address (VOIDmode, gen_int_mode (init_part, decl_chunk_mode));
   init_part = 0;
 }
 
@@ -1636,7 +1639,7 @@ nvptx_assemble_integer (rtx x, unsigned int size, int ARG_UNUSED (aligned_p))
 	{
 	  nvptx_record_needed_fndecl (SYMBOL_REF_DECL (x));
 	  fprintf (asm_out_file, "generic(");
-	  output_address (x);
+	  output_address (VOIDmode, x);
 	  fprintf (asm_out_file, ")");
 	}
       if (off != 0)
@@ -1894,7 +1897,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       assemble_name (asm_out_file, name);
     }
   else
-    output_address (callee);
+    output_address (VOIDmode, callee);
 
   if (arg_end > 1 || (decl && DECL_STATIC_CHAIN (decl)))
     {
@@ -1954,9 +1957,9 @@ nvptx_print_address_operand (FILE *file, rtx x, machine_mode)
     {
     case PLUS:
       off = XEXP (x, 1);
-      output_address (XEXP (x, 0));
+      output_address (VOIDmode, XEXP (x, 0));
       fprintf (file, "+");
-      output_address (off);
+      output_address (VOIDmode, off);
       break;
 
     case SYMBOL_REF:
@@ -1974,9 +1977,9 @@ nvptx_print_address_operand (FILE *file, rtx x, machine_mode)
 /* Write assembly language output for the address ADDR to FILE.  */
 
 static void
-nvptx_print_operand_address (FILE *file, rtx addr)
+nvptx_print_operand_address (FILE *file, machine_mode mode, rtx addr)
 {
-  nvptx_print_address_operand (file, addr, VOIDmode);
+  nvptx_print_address_operand (file, addr, mode);
 }
 
 /* Print an operand, X, to FILE, with an optional modifier in CODE.
@@ -2942,6 +2945,69 @@ nvptx_skip_par (unsigned mask, parallel *par)
   nvptx_single (mask, par->forked_block, pre_tail);
 }
 
+/* If PAR has a single inner parallel and PAR itself only contains
+   empty entry and exit blocks, swallow the inner PAR.  */
+
+static void
+nvptx_optimize_inner (parallel *par)
+{
+  parallel *inner = par->inner;
+
+  /* We mustn't be the outer dummy par.  */
+  if (!par->mask)
+    return;
+
+  /* We must have a single inner par.  */
+  if (!inner || inner->next)
+    return;
+
+  /* We must only contain 2 blocks ourselves -- the head and tail of
+     the inner par.  */
+  if (par->blocks.length () != 2)
+    return;
+
+  /* We must be disjoint partitioning.  As we only have vector and
+     worker partitioning, this is sufficient to guarantee the pars
+     have adjacent partitioning.  */
+  if ((par->mask & inner->mask) & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1))
+    /* This indicates malformed code generation.  */
+    return;
+
+  /* The outer forked insn should be immediately followed by the inner
+     fork insn.  */
+  rtx_insn *forked = par->forked_insn;
+  rtx_insn *fork = BB_END (par->forked_block);
+
+  if (NEXT_INSN (forked) != fork)
+    return;
+  gcc_checking_assert (recog_memoized (fork) == CODE_FOR_nvptx_fork);
+
+  /* The outer joining insn must immediately follow the inner join
+     insn.  */
+  rtx_insn *joining = par->joining_insn;
+  rtx_insn *join = inner->join_insn;
+  if (NEXT_INSN (join) != joining)
+    return;
+
+  /* Preconditions met.  Swallow the inner par.  */
+  if (dump_file)
+    fprintf (dump_file, "Merging loop %x [%d,%d] into %x [%d,%d]\n",
+	     inner->mask, inner->forked_block->index,
+	     inner->join_block->index,
+	     par->mask, par->forked_block->index, par->join_block->index);
+
+  par->mask |= inner->mask & (GOMP_DIM_MASK (GOMP_DIM_MAX) - 1);
+
+  par->blocks.reserve (inner->blocks.length ());
+  while (inner->blocks.length ())
+    par->blocks.quick_push (inner->blocks.pop ());
+
+  par->inner = inner->inner;
+  inner->inner = NULL;
+
+  delete inner;
+}
+
 /* Process the parallel PAR and all its contained
    parallels.  We do everything but the neutering.  Return mask of
    partitioned modes used within this parallel.  */
@@ -2949,6 +3015,9 @@ nvptx_skip_par (unsigned mask, parallel *par)
 static unsigned
 nvptx_process_pars (parallel *par)
 {
+  if (nvptx_optimize)
+    nvptx_optimize_inner (par);
+  
   unsigned inner_mask = par->mask;
 
   /* Do the inner parallels first.  */
@@ -3565,26 +3634,51 @@ nvptx_generate_vector_shuffle (location_t loc,
 {
   unsigned fn = NVPTX_BUILTIN_SHUFFLE;
   tree_code code = NOP_EXPR;
-  tree type = unsigned_type_node;
-  enum machine_mode mode = TYPE_MODE (TREE_TYPE (var));
+  tree arg_type = unsigned_type_node;
+  tree var_type = TREE_TYPE (var);
+  tree dest_type = var_type;
 
-  if (!INTEGRAL_MODE_P (mode))
+  if (TREE_CODE (var_type) == COMPLEX_TYPE)
+    var_type = TREE_TYPE (var_type);
+
+  if (TREE_CODE (var_type) == REAL_TYPE)
     code = VIEW_CONVERT_EXPR;
-  if (GET_MODE_SIZE (mode) == GET_MODE_SIZE (DImode))
+
+  if (TYPE_SIZE (var_type)
+      == TYPE_SIZE (long_long_unsigned_type_node))
     {
       fn = NVPTX_BUILTIN_SHUFFLELL;
-      type = long_long_unsigned_type_node;
+      arg_type = long_long_unsigned_type_node;
+    }
+  
+  tree call = nvptx_builtin_decl (fn, true);
+  tree bits = build_int_cst (unsigned_type_node, shift);
+  tree kind = build_int_cst (unsigned_type_node, SHUFFLE_DOWN);
+  tree expr;
+
+  if (var_type != dest_type)
+    {
+      /* Do real and imaginary parts separately.  */
+      tree real = fold_build1 (REALPART_EXPR, var_type, var);
+      real = fold_build1 (code, arg_type, real);
+      real = build_call_expr_loc (loc, call, 3, real, bits, kind);
+      real = fold_build1 (code, var_type, real);
+
+      tree imag = fold_build1 (IMAGPART_EXPR, var_type, var);
+      imag = fold_build1 (code, arg_type, imag);
+      imag = build_call_expr_loc (loc, call, 3, imag, bits, kind);
+      imag = fold_build1 (code, var_type, imag);
+
+      expr = fold_build2 (COMPLEX_EXPR, dest_type, real, imag);
+    }
+  else
+    {
+      expr = fold_build1 (code, arg_type, var);
+      expr = build_call_expr_loc (loc, call, 3, expr, bits, kind);
+      expr = fold_build1 (code, dest_type, expr);
     }
 
-  tree call = nvptx_builtin_decl (fn, true);
-  call = build_call_expr_loc
-    (loc, call, 3, fold_build1 (code, type, var),
-     build_int_cst (unsigned_type_node, shift),
-     build_int_cst (unsigned_type_node, SHUFFLE_DOWN));
-
-  call = fold_build1 (code, TREE_TYPE (dest_var), call);
-
-  gimplify_assign (dest_var, call, seq);
+  gimplify_assign (dest_var, expr, seq);
 }
 
 /* Insert code to locklessly update  *PTR with *PTR OP VAR just before

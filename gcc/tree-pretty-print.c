@@ -654,6 +654,12 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 	case GOMP_MAP_ALWAYS_POINTER:
 	  pp_string (pp, "always_pointer");
 	  break;
+	case GOMP_MAP_DEVICE_RESIDENT:
+	  pp_string (pp, "device_resident");
+	  break;
+	case GOMP_MAP_LINK:
+	  pp_string (pp, "link");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}
@@ -3770,7 +3776,7 @@ void
 percent_K_format (text_info *text)
 {
   tree t = va_arg (*text->args_ptr, tree), block;
-  text->set_location (0, EXPR_LOCATION (t));
+  text->set_location (0, EXPR_LOCATION (t), true);
   gcc_assert (pp_ti_abstract_origin (text) != NULL);
   block = TREE_BLOCK (t);
   *pp_ti_abstract_origin (text) = NULL;

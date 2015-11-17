@@ -29,8 +29,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "function.h"
 #include "bitmap.h"
-#include "tree.h"
-#include "c-family/c-common.h"
 #include "c-tree.h"
 #include "gimple-expr.h"
 #include "predict.h"
@@ -40,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "stmt.h"
 #include "langhooks.h"
 #include "c-lang.h"
-#include "flags.h"
 #include "intl.h"
 #include "tree-iterator.h"
 #include "gimplify.h"
@@ -50,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-ubsan.h"
 #include "cilk.h"
 #include "gomp-constants.h"
+#include "spellcheck.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -2168,8 +2166,7 @@ lookup_field (tree type, tree component)
 	      while (DECL_NAME (field_array[bot]) == NULL_TREE)
 		{
 		  field = field_array[bot++];
-		  if (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
-		      || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE)
+		  if (RECORD_OR_UNION_TYPE_P (TREE_TYPE (field)))
 		    {
 		      tree anon = lookup_field (TREE_TYPE (field), component);
 
@@ -2215,8 +2212,7 @@ lookup_field (tree type, tree component)
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	{
 	  if (DECL_NAME (field) == NULL_TREE
-	      && (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
-		  || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE))
+	      && RECORD_OR_UNION_TYPE_P (TREE_TYPE (field)))
 	    {
 	      tree anon = lookup_field (TREE_TYPE (field), component);
 
@@ -2243,6 +2239,68 @@ lookup_field (tree type, tree component)
     }
 
   return tree_cons (NULL_TREE, field, NULL_TREE);
+}
+
+/* Recursively append candidate IDENTIFIER_NODEs to CANDIDATES.  */
+
+static void
+lookup_field_fuzzy_find_candidates (tree type, tree component,
+				    vec<tree> *candidates)
+{
+  tree field;
+  for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
+    {
+      if (DECL_NAME (field) == NULL_TREE
+	  && RECORD_OR_UNION_TYPE_P (TREE_TYPE (field)))
+	lookup_field_fuzzy_find_candidates (TREE_TYPE (field), component,
+					    candidates);
+
+      if (DECL_NAME (field))
+	candidates->safe_push (DECL_NAME (field));
+    }
+}
+
+/* Like "lookup_field", but find the closest matching IDENTIFIER_NODE,
+   rather than returning a TREE_LIST for an exact match.  */
+
+static tree
+lookup_field_fuzzy (tree type, tree component)
+{
+  gcc_assert (TREE_CODE (component) == IDENTIFIER_NODE);
+
+  /* First, gather a list of candidates.  */
+  auto_vec <tree> candidates;
+
+  lookup_field_fuzzy_find_candidates (type, component,
+				      &candidates);
+
+  /* Now determine which is closest.  */
+  int i;
+  tree identifier;
+  tree best_identifier = NULL;
+  edit_distance_t best_distance = MAX_EDIT_DISTANCE;
+  FOR_EACH_VEC_ELT (candidates, i, identifier)
+    {
+      gcc_assert (TREE_CODE (identifier) == IDENTIFIER_NODE);
+      edit_distance_t dist = levenshtein_distance (component, identifier);
+      if (dist < best_distance)
+	{
+	  best_distance = dist;
+	  best_identifier = identifier;
+	}
+    }
+
+  /* If more than half of the letters were misspelled, the suggestion is
+     likely to be meaningless.  */
+  if (best_identifier)
+    {
+      unsigned int cutoff = MAX (IDENTIFIER_LENGTH (component),
+				 IDENTIFIER_LENGTH (best_identifier)) / 2;
+      if (best_distance > cutoff)
+	return NULL;
+    }
+
+  return best_identifier;
 }
 
 /* Make an expression to refer to the COMPONENT field of structure or
@@ -2280,7 +2338,12 @@ build_component_ref (location_t loc, tree datum, tree component)
 
       if (!field)
 	{
-	  error_at (loc, "%qT has no member named %qE", type, component);
+	  tree guessed_id = lookup_field_fuzzy (type, component);
+	  if (guessed_id)
+	    error_at (loc, "%qT has no member named %qE; did you mean %qE?",
+		      type, component, guessed_id);
+	  else
+	    error_at (loc, "%qT has no member named %qE", type, component);
 	  return error_mark_node;
 	}
 
@@ -3391,6 +3454,12 @@ parser_build_unary_op (location_t loc, enum tree_code code, struct c_expr arg)
     overflow_warning (loc, result.value);
     }
 
+  /* We are typically called when parsing a prefix token at LOC acting on
+     ARG.  Reflect this by updating the source range of the result to
+     start at LOC and end at the end of ARG.  */
+  set_c_expr_source_range (&result,
+			   loc, arg.get_finish ());
+
   return result;
 }
 
@@ -3427,6 +3496,10 @@ parser_build_binary_op (location_t location, enum tree_code code,
 
   if (location != UNKNOWN_LOCATION)
     protected_set_expr_location (result.value, location);
+
+  set_c_expr_source_range (&result,
+			   arg1.get_start (),
+			   arg2.get_finish ());
 
   /* Check for cases such as x+y<<z which users are likely
      to misinterpret.  */
@@ -5052,8 +5125,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 
   if (type == TYPE_MAIN_VARIANT (TREE_TYPE (value)))
     {
-      if (TREE_CODE (type) == RECORD_TYPE
-	  || TREE_CODE (type) == UNION_TYPE)
+      if (RECORD_OR_UNION_TYPE_P (type))
 	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C forbids casting nonscalar to the same type");
 
@@ -5145,8 +5217,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 	  && TREE_CODE (TREE_TYPE (otype)) != FUNCTION_TYPE
 	  /* Don't warn about opaque types, where the actual alignment
 	     restriction is unknown.  */
-	  && !((TREE_CODE (TREE_TYPE (otype)) == UNION_TYPE
-		|| TREE_CODE (TREE_TYPE (otype)) == RECORD_TYPE)
+	  && !(RECORD_OR_UNION_TYPE_P (TREE_TYPE (otype))
 	       && TYPE_MODE (TREE_TYPE (otype)) == VOIDmode)
 	  && TYPE_ALIGN (TREE_TYPE (type)) > TYPE_ALIGN (TREE_TYPE (otype)))
 	warning_at (loc, OPT_Wcast_align,
@@ -5405,8 +5476,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   /* Give an error for storing in something that is 'const'.  */
 
   if (TYPE_READONLY (lhstype)
-      || ((TREE_CODE (lhstype) == RECORD_TYPE
-	   || TREE_CODE (lhstype) == UNION_TYPE)
+      || (RECORD_OR_UNION_TYPE_P (lhstype)
 	  && C_TYPE_FIELDS_READONLY (lhstype)))
     {
       readonly_error (location, lhs, lv_assign);
@@ -5532,8 +5602,7 @@ find_anonymous_field_with_type (tree struct_type, tree type)
   tree field;
   bool found;
 
-  gcc_assert (TREE_CODE (struct_type) == RECORD_TYPE
-	      || TREE_CODE (struct_type) == UNION_TYPE);
+  gcc_assert (RECORD_OR_UNION_TYPE_P (struct_type));
   found = false;
   for (field = TYPE_FIELDS (struct_type);
        field != NULL_TREE;
@@ -5551,8 +5620,7 @@ find_anonymous_field_with_type (tree struct_type, tree type)
 	  found = true;
 	}
       else if (DECL_NAME (field) == NULL
-	       && (TREE_CODE (TREE_TYPE (field)) == RECORD_TYPE
-		   || TREE_CODE (TREE_TYPE (field)) == UNION_TYPE)
+	       && RECORD_OR_UNION_TYPE_P (TREE_TYPE (field))
 	       && find_anonymous_field_with_type (TREE_TYPE (field), type))
 	{
 	  if (found)
@@ -5578,8 +5646,7 @@ convert_to_anonymous_field (location_t location, tree type, tree rhs)
 
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (rhs)));
   rhs_struct_type = TREE_TYPE (TREE_TYPE (rhs));
-  gcc_assert (TREE_CODE (rhs_struct_type) == RECORD_TYPE
-	      || TREE_CODE (rhs_struct_type) == UNION_TYPE);
+  gcc_assert (RECORD_OR_UNION_TYPE_P (rhs_struct_type));
 
   gcc_assert (POINTER_TYPE_P (type));
   lhs_main_type = (TYPE_ATOMIC (TREE_TYPE (type))
@@ -5594,8 +5661,7 @@ convert_to_anonymous_field (location_t location, tree type, tree rhs)
        field = TREE_CHAIN (field))
     {
       if (DECL_NAME (field) != NULL_TREE
-	  || (TREE_CODE (TREE_TYPE (field)) != RECORD_TYPE
-	      && TREE_CODE (TREE_TYPE (field)) != UNION_TYPE))
+	  || !RECORD_OR_UNION_TYPE_P (TREE_TYPE (field)))
 	continue;
       tree fieldtype = (TYPE_ATOMIC (TREE_TYPE (field))
 			? c_build_qualified_type (TREE_TYPE (field),
@@ -6132,8 +6198,8 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	 automatically converted into a pointer to an anonymous field
 	 within the struct.  */
       if (flag_plan9_extensions
-	  && (TREE_CODE (mvl) == RECORD_TYPE || TREE_CODE(mvl) == UNION_TYPE)
-	  && (TREE_CODE (mvr) == RECORD_TYPE || TREE_CODE(mvr) == UNION_TYPE)
+	  && RECORD_OR_UNION_TYPE_P (mvl)
+	  && RECORD_OR_UNION_TYPE_P (mvr)
 	  && mvl != mvr)
 	{
 	  tree new_rhs = convert_to_anonymous_field (location, type, rhs);
@@ -7288,8 +7354,7 @@ really_start_incremental_init (tree type)
   designator_depth = 0;
   designator_erroneous = 0;
 
-  if (TREE_CODE (constructor_type) == RECORD_TYPE
-      || TREE_CODE (constructor_type) == UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (constructor_type))
     {
       constructor_fields = TYPE_FIELDS (constructor_type);
       /* Skip any nameless bit fields at the beginning.  */
@@ -7369,8 +7434,7 @@ push_init_level (location_t loc, int implicit,
     {
       while (constructor_stack->implicit)
 	{
-	  if ((TREE_CODE (constructor_type) == RECORD_TYPE
-	       || TREE_CODE (constructor_type) == UNION_TYPE)
+	  if (RECORD_OR_UNION_TYPE_P (constructor_type)
 	      && constructor_fields == 0)
 	    process_init_element (input_location,
 				  pop_init_level (loc, 1, braced_init_obstack),
@@ -7391,9 +7455,7 @@ push_init_level (location_t loc, int implicit,
      content if any.  */
   if (implicit)
     {
-      if ((TREE_CODE (constructor_type) == RECORD_TYPE
-	   || TREE_CODE (constructor_type) == UNION_TYPE)
-	  && constructor_fields)
+      if (RECORD_OR_UNION_TYPE_P (constructor_type) && constructor_fields)
 	value = find_init_member (constructor_fields, braced_init_obstack);
       else if (TREE_CODE (constructor_type) == ARRAY_TYPE)
 	value = find_init_member (constructor_index, braced_init_obstack);
@@ -7446,8 +7508,7 @@ push_init_level (location_t loc, int implicit,
      in the containing level.  */
   if (constructor_type == 0)
     ;
-  else if (TREE_CODE (constructor_type) == RECORD_TYPE
-	   || TREE_CODE (constructor_type) == UNION_TYPE)
+  else if (RECORD_OR_UNION_TYPE_P (constructor_type))
     {
       /* Don't die if there are extra init elts at the end.  */
       if (constructor_fields == 0)
@@ -7492,8 +7553,7 @@ push_init_level (location_t loc, int implicit,
   if (implicit == 1)
     found_missing_braces = 1;
 
-  if (TREE_CODE (constructor_type) == RECORD_TYPE
-	   || TREE_CODE (constructor_type) == UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (constructor_type))
     {
       constructor_fields = TYPE_FIELDS (constructor_type);
       /* Skip any nameless bit fields at the beginning.  */
@@ -7681,8 +7741,7 @@ pop_init_level (location_t loc, int implicit,
     ret = p->replacement_value;
   else if (constructor_type == 0)
     ;
-  else if (TREE_CODE (constructor_type) != RECORD_TYPE
-	   && TREE_CODE (constructor_type) != UNION_TYPE
+  else if (!RECORD_OR_UNION_TYPE_P (constructor_type)
 	   && TREE_CODE (constructor_type) != ARRAY_TYPE
 	   && !VECTOR_TYPE_P (constructor_type))
     {
@@ -7949,8 +8008,7 @@ set_init_label (location_t loc, tree fieldname,
 
   designator_erroneous = 1;
 
-  if (TREE_CODE (constructor_type) != RECORD_TYPE
-      && TREE_CODE (constructor_type) != UNION_TYPE)
+  if (!RECORD_OR_UNION_TYPE_P (constructor_type))
     {
       error_init (loc, "field name not in record or union initializer");
       return;
@@ -8465,8 +8523,7 @@ output_init_element (location_t loc, tree value, tree origtype,
 					  AGGREGATE_TYPE_P (constructor_type)
 					  && TYPE_REVERSE_STORAGE_ORDER
 					     (constructor_type))
-	   || ((TREE_CODE (constructor_type) == RECORD_TYPE
-		|| TREE_CODE (constructor_type) == UNION_TYPE)
+	   || (RECORD_OR_UNION_TYPE_P (constructor_type)
 	       && DECL_C_BIT_FIELD (field)
 	       && TREE_CODE (value) != INTEGER_CST))
     constructor_simple = 0;
@@ -8687,8 +8744,7 @@ output_pending_init_elements (int all, struct obstack * braced_init_obstack)
 		}
 	    }
 	}
-      else if (TREE_CODE (constructor_type) == RECORD_TYPE
-	       || TREE_CODE (constructor_type) == UNION_TYPE)
+      else if (RECORD_OR_UNION_TYPE_P (constructor_type))
 	{
 	  tree ctor_unfilled_bitpos, elt_bitpos;
 
@@ -8752,8 +8808,7 @@ output_pending_init_elements (int all, struct obstack * braced_init_obstack)
 
   /* If it's not incremental, just skip over the gap, so that after
      jumping to retry we will output the next successive element.  */
-  if (TREE_CODE (constructor_type) == RECORD_TYPE
-      || TREE_CODE (constructor_type) == UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (constructor_type))
     constructor_unfilled_fields = next;
   else if (TREE_CODE (constructor_type) == ARRAY_TYPE)
     constructor_unfilled_index = next;
@@ -8830,8 +8885,7 @@ process_init_element (location_t loc, struct c_expr value, bool implicit,
      pop them now.  */
   while (constructor_stack->implicit)
     {
-      if ((TREE_CODE (constructor_type) == RECORD_TYPE
-	   || TREE_CODE (constructor_type) == UNION_TYPE)
+      if (RECORD_OR_UNION_TYPE_P (constructor_type)
 	  && constructor_fields == 0)
 	process_init_element (loc,
 			      pop_init_level (loc, 1, braced_init_obstack),
@@ -9278,8 +9332,7 @@ build_asm_expr (location_t loc, tree string, tree outputs, tree inputs,
       if (output != error_mark_node
 	  && (TREE_READONLY (output)
 	      || TYPE_READONLY (TREE_TYPE (output))
-	      || ((TREE_CODE (TREE_TYPE (output)) == RECORD_TYPE
-		   || TREE_CODE (TREE_TYPE (output)) == UNION_TYPE)
+	      || (RECORD_OR_UNION_TYPE_P (TREE_TYPE (output))
 		  && C_TYPE_FIELDS_READONLY (TREE_TYPE (output)))))
 	readonly_error (loc, output, lv_asm);
 
@@ -9897,6 +9950,16 @@ c_finish_loop (location_t start_locus, tree cond, tree incr, tree body,
 	  else
 	    exit = fold_build3_loc (input_location,
 				COND_EXPR, void_type_node, cond, exit, t);
+	}
+      else
+	{
+	  /* For the backward-goto's location of an unconditional loop
+	     use the beginning of the body, or, if there is none, the
+	     top of the loop.  */
+	  location_t loc = EXPR_LOCATION (expr_first (body));
+	  if (loc == UNKNOWN_LOCATION)
+	    loc = start_locus;
+	  SET_EXPR_LOCATION (exit, loc);
 	}
 
       add_stmt (top);
@@ -12855,7 +12918,10 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (!c_mark_addressable (t))
+	  else if ((OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP
+		    || (OMP_CLAUSE_MAP_KIND (c)
+			!= GOMP_MAP_FIRSTPRIVATE_POINTER))
+		   && !c_mark_addressable (t))
 	    remove = true;
 	  else if (!(OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 		     && (OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER
@@ -13287,8 +13353,7 @@ c_build_qualified_type (tree type, int type_quals)
   tree var_type = build_qualified_type (type, type_quals);
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (TREE_CODE (var_type) == RECORD_TYPE
-      || TREE_CODE (var_type) == UNION_TYPE)
+  if (RECORD_OR_UNION_TYPE_P (var_type))
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

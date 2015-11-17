@@ -674,6 +674,12 @@ sra_deinitialize (void)
   assign_link_pool.release ();
   obstack_free (&name_obstack, NULL);
 
+  /* TODO: hash_map does not support traits that can release
+     value type of the hash_map.  */
+  for (hash_map<tree, auto_vec<access_p> >::iterator it =
+       base_access_vec->begin (); it != base_access_vec->end (); ++it)
+    (*it).second.release ();
+
   delete base_access_vec;
 }
 
@@ -1006,20 +1012,27 @@ completely_scalarize (tree base, tree decl_type, HOST_WIDE_INT offset, tree ref)
 	if (maxidx)
 	  {
 	    gcc_assert (TREE_CODE (maxidx) == INTEGER_CST);
-	    /* MINIDX and MAXIDX are inclusive.  Try to avoid overflow.  */
-	    unsigned HOST_WIDE_INT lenp1 = tree_to_shwi (maxidx)
-					- tree_to_shwi (minidx);
-	    unsigned HOST_WIDE_INT idx = 0;
-	    do
+	    tree domain = TYPE_DOMAIN (decl_type);
+	    /* MINIDX and MAXIDX are inclusive, and must be interpreted in
+	       DOMAIN (e.g. signed int, whereas min/max may be size_int).  */
+	    offset_int idx = wi::to_offset (minidx);
+	    offset_int max = wi::to_offset (maxidx);
+	    if (!TYPE_UNSIGNED (domain))
 	      {
-		tree nref = build4 (ARRAY_REF, elemtype, ref, size_int (idx),
+		idx = wi::sext (idx, TYPE_PRECISION (domain));
+		max = wi::sext (max, TYPE_PRECISION (domain));
+	      }
+	    for (int el_off = offset; wi::les_p (idx, max); ++idx)
+	      {
+		tree nref = build4 (ARRAY_REF, elemtype,
+				    ref,
+				    wide_int_to_tree (domain, idx),
 				    NULL_TREE, NULL_TREE);
-		int el_off = offset + idx * el_size;
 		scalarize_elem (base, el_off, el_size,
 				TYPE_REVERSE_STORAGE_ORDER (decl_type),
 				nref, elemtype);
+		el_off += el_size;
 	      }
-	    while (++idx <= lenp1);
 	  }
       }
       break;
@@ -4983,9 +4996,9 @@ convert_callers_for_node (struct cgraph_node *node,
 
       if (dump_file)
 	fprintf (dump_file, "Adjusting call %s/%i -> %s/%i\n",
-		 xstrdup (cs->caller->name ()),
+		 xstrdup_for_dump (cs->caller->name ()),
 		 cs->caller->order,
-		 xstrdup (cs->callee->name ()),
+		 xstrdup_for_dump (cs->callee->name ()),
 		 cs->callee->order);
 
       ipa_modify_call_arguments (cs, cs->call_stmt, *adjustments);
