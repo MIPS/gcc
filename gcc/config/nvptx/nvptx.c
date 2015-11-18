@@ -66,14 +66,6 @@
 #include "tree-phinodes.h"
 #include "cfgloop.h"
 #include "fold-const.h"
-#include "cfghooks.h"
-#include "dumpfile.h"
-#include "dominance.h"
-#include "cfg.h"
-#include "tree-cfg.h"
-#include "gimple-ssa.h"
-#include "ssa-iterators.h"
-#include "tree-into-ssa.h"
 
 /* This file should be included last.  */
 #include "target-def.h"
@@ -2003,7 +1995,6 @@ nvptx_print_operand_address (FILE *file, machine_mode mode, rtx addr)
    A -- print an address space identifier for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
    f -- print a full reg even for something that must always be split
-   R -- print an address space specified by CONST_INT
    S -- print a shuffle kind specified by CONST_INT
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
@@ -2054,13 +2045,6 @@ nvptx_print_operand (FILE *file, rtx x, int code)
     case 'u':
       op_mode = nvptx_underlying_object_mode (x);
       fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, false));
-      break;
-
-    case 'R':
-      {
-	addr_space_t as = UINTVAL (x);
-	fputs (nvptx_section_from_addr_space (as), file);
-      }
       break;
 
     case 'S':
@@ -3216,9 +3200,24 @@ nvptx_find_sese (auto_vec<basic_block> &blocks, bb_pair_vec_t &regions)
 	  basic_block to = regions[ix].second;
 
 	  if (from)
-	    fprintf (dump_file, "%s %d{%d->%d}", comma, ix,
-		     from->index, to->index);
+	    {
+	      fprintf (dump_file, "%s %d{%d", comma, ix, from->index);
+	      if (to != from)
+		fprintf (dump_file, "->%d", to->index);
 
+	      int color = BB_GET_SESE (from)->color;
+
+	      /* Print the blocks within the region (excluding ends).  */
+	      FOR_EACH_BB_FN (block, cfun)
+		{
+		  bb_sese *sese = BB_GET_SESE (block);
+
+		  if (sese && sese->color == color
+		      && block != from && block != to)
+		    fprintf (dump_file, ".%d", block->index);
+		}
+	      fprintf (dump_file, "}");
+	    }
 	  comma = ",";
 	}
       fprintf (dump_file, "\n\n");
@@ -3712,11 +3711,11 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 
   if (neuter_mask)
     {
-      int ix;
-      int len;
-      
+      int ix, len;
+
       if (nvptx_optimize)
 	{
+	  /* Neuter whole SESE regions.  */
 	  bb_pair_vec_t regions;
 
 	  nvptx_find_sese (par->blocks, regions);
@@ -3734,6 +3733,7 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 	}
       else
 	{
+	  /* Neuter each BB individually.  */
 	  len = par->blocks.length ();
 	  for (ix = 0; ix != len; ix++)
 	    {
@@ -3742,7 +3742,6 @@ nvptx_neuter_pars (parallel *par, unsigned modes, unsigned outer)
 	      nvptx_single (neuter_mask, block, block);
 	    }
 	}
-
     }
 
   if (skip_mask)
@@ -3913,7 +3912,7 @@ nvptx_record_offload_symbol (tree decl)
 	tree attr = get_oacc_fn_attrib (decl);
 	tree dims = TREE_VALUE (attr);
 	unsigned ix;
-	
+
 	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 
@@ -4084,6 +4083,7 @@ nvptx_expand_cmp_swap (tree exp, rtx target,
 
   return target;
 }
+
 
 /* Codes for all the NVPTX builtins.  */
 enum nvptx_builtins
@@ -4319,7 +4319,7 @@ nvptx_generate_vector_shuffle (location_t loc,
   gimplify_assign (dest_var, expr, seq);
 }
 
-/* Lazily generate the global lock var decl and return its addresss.  */
+/* Lazily generate the global lock var decl and return its address.  */
 
 static tree
 nvptx_global_lock_addr ()
@@ -4353,7 +4353,7 @@ nvptx_global_lock_addr ()
        guess = actual;
        write = guess OP myval;
        actual = cmp&swap (ptr, guess, write)
-     } while (actual bit-differnt-to guess);
+     } while (actual bit-different-to guess);
    return write;
 
    This relies on a cmp&swap instruction, which is available for 32-

@@ -1,3 +1,10 @@
+2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c: Remove unneeded #includes. Backport
+	comments and whitespace from trunk.
+	(nvptx_print_operand): Remove 'R' case.
+	(nvptx_find_sese): Backport dump file output from trunk.
+
 2015-11-17  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (nvptx_lockless_update): Remove complex
