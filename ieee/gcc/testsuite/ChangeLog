@@ -1,3 +1,36 @@
+2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt52.adb: New test.
+
+2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/goacc/nvptx-sese-1.c: New.
+
+2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/renaming7.adb: New test.
+	* gnat.dg/renaming7_pkg.ads: New helper.
+
+2015-11-18  Ajit Agarwal  <ajitkum@xilinx.com>
+
+	PR tree-optimization/68402
+	* gcc.dg/tree-ssa/split-path-1.c: Fix the testcase
+	to avoid undefined behaviour.
+
+2015-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/68157
+	* g++.dg/opt/pr68157.C: New test.
+
+2015-11-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67790
+	* gcc.dg/vect/pr67790.c: New testcase.
+
+2015-11-17  David Edelsohn  <dje.gcc@gmail.com>
+
+	* g++.dg/cpp1y/pr58708.C: Define wfoo based on sizeof wchar_t.
+
 2015-11-17  David Malcolm  <dmalcolm@redhat.com>
 
 	* gcc.dg/plugin/diagnostic-test-expressions-1.c (vector): New

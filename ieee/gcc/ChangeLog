@@ -1,3 +1,216 @@
+2015-11-18  Aditya Kumar  <aditya.k7@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (copy_loop_phi_args): Change the return
+	type to bool for early exit.
+	(translate_isl_ast_to_gimple::copy_loop_phi_nodes): Early return
+	in case of error.
+	(translate_isl_ast_to_gimple::copy_loop_close_phi_args): Same.
+	(add_phi_arg_for_new_expr): Enable codegen for if-block where one
+	predecessor dominates the other.
+	(translate_isl_ast_to_gimple::copy_cond_phi_args): Fix. When the
+	element is not found it returns -1.
+	(translate_isl_ast_to_gimple::translate_pending_phi_nodes): Bail
+	out early when codegen fails.
+	(graphite_regenerate_ast_isl): Remove codegen region when pending
+	phis could not be generated.
+
+2015-11-18  Aditya Kumar  <aditya.k7@samsung.com>
+
+	* graphite-isl-ast-to-gimple.c (struct ast_build_info): Remove semicolon.
+	(class translate_isl_ast_to_gimple): Indentation.
+	(translate_pending_phi_nodes): Comment.
+	(add_parameters_to_ivs_params): Moved from sese.c inside class
+	translate_isl_ast_to_gimple.
+	(get_max_schedule_dimensions): Same.
+	(generate_isl_context): Same.
+	(extend_schedule): Same.
+	(generate_isl_schedule): Same.
+	(set_options): Same.
+	(scop_to_isl_ast): Same.
+	(is_valid_rename): Same.
+	(get_rename): Same.
+	(get_rename_from_scev): Same.
+	(get_def_bb_for_const): Same.
+	(get_new_name): Same.
+	(collect_all_ssa_names): Same.
+	(copy_loop_phi_args): Same.
+	(copy_loop_phi_nodes): Same.
+	(copy_loop_close_phi_args): Same.
+	(copy_loop_close_phi_nodes): Same.
+	(copy_cond_phi_args): Same.
+	(copy_cond_phi_nodes): Same.
+	(graphite_copy_stmts_from_block): Same.
+	(copy_bb_and_scalar_dependences): Same.
+	(add_phi_arg_for_new_expr): Same.
+	(rename_uses): Same.
+	(set_rename): Same.
+	(set_rename_for_each_def): Same.
+	(gsi_insert_earliest): Same.
+	(rename_all_uses): Same.
+	(codegen_error_p): Same.
+	(print_isl_ast_node): Same.
+	(translate_isl_ast_for_loop): Call function codegen_error_p.
+	(translate_isl_ast_to_gimple::translate_isl_ast): Same.
+	(translate_isl_ast_node_user): Make nb_loops const and release
+	iv_map before exit.
+	(get_true_edge_from_guard_bb): Move all free-functions early.
+	(get_false_edge_from_guard_bb): Same.
+	(bb_contains_loop_close_phi_nodes): Same.
+	(bb_contains_loop_phi_nodes): Same.
+	(is_loop_closed_ssa_use):  Same.
+	(number_of_phi_nodes): Same.
+	(phi_uses_name): Same.
+	(later_of_the_two): Same.
+	(substitute_ssa_name):
+	(get_edges): Same.
+	(get_loc): Same.
+	(get_loop_init_value): Same.
+	(find_init_value): Same.
+	(find_init_value_close_phi): Same.
+	(ast_build_before_for): Same.
+	(graphite_regenerate_ast_isl): Formatting changes.
+	* graphite-scop-detection.c (build_cross_bb_scalars_use): Same.
+	* sese.c (get_rename): Move to graphite-isl-ast-to-gimple.c
+	(set_rename): Same.
+	(gsi_insert_earliest): Same.
+	(collect_all_ssa_names): Same.
+	(rename_all_uses): Same.
+	(rename_uses): Same.
+	(get_def_bb_for_const): Same.
+	(copy_loop_phi_nodes): Same.
+	(copy_loop_close_phi_args): Same.
+	(copy_loop_close_phi_nodes): Same.
+	(copy_cond_phi_args): Same.
+	(copy_cond_phi_nodes): Same.
+	(set_rename_for_each_def): Same.
+	(graphite_copy_stmts_from_block): Same.
+	(copy_bb_and_scalar_dependences): Same.
+	(if_region_set_false_region): Same.
+	(scev_analyzable_p): Same.
+	* sese.h: Delete extern functions moved to graphite-isl-ast-to-gimple.c.
+
+2015-11-18  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/i386/freebsd.h (ASM_OUTPUT_MAX_SKIP_ALIGN): Bring in the
+	commit from r125920 for FreeBSD.
+
+2015-11-18  Jason Merrill  <jason@redhat.com>
+
+	* ggc-page.c (ggc_globals): Change finalizers and vec_finalizers
+	to be vecs of vecs.
+	(add_finalizer): Split out from ggc_internal_alloc.
+	(ggc_handle_finalizers): Run finalizers for the current depth.
+	(init_ggc, ggc_pch_read): Reserve space for finalizers.
+
+2015-11-18  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR target/68410
+	* config/nios2/nios2.c (cdx_and_immed): Remove duplicate tests
+	from || expression.
+
+2015-11-18  Pitchumani Sivanupandi  <pitchumani.s@atmel.com>
+
+	* config/avr/avr-mcus.def: Add new avr4 devices atmega48pb and
+	atmega88pb. Add new avr5 devices ata5791, ata8210, ata8510, atmega168pb
+	and atmega328pb.
+	* doc/avr-mmcu.texi: Regenerate.
+
+2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (bb_pair_t, bb_pair_vec_t): New types.
+	(pseudo_node_t, struct bracket, bracket_vec_t): New types.
+	(struct bb_sese): New struct.
+	(bb_sese::~bb_sese, bb_sese::append, bb_sese::remove): New.
+	(BB_GET_SESE, BB_SET_SESE): Define.
+	(nvptx_sese_number, nvptx_sese_pseudo, nvptx_sese_color): New.
+	(nvptx_find_sese): New.
+	(nvptx_neuter_pars): Find SESE regions when optimizing.
+
+2015-11-18  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (use_toc_relative_ref): Ignore
+	type-limits warning.
+
+2015-11-18  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR bootstrap/68406
+	* hash-set.h (hash_set::traverse): Expand Key typedef.
+
+2015-11-18  Martin Liska  <mliska@suse.cz>
+
+	* config/arm/arm.c (arm_valid_target_attribute_p): Finalize
+	options struct.
+
+2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (global_lock_var): New.
+	(nvptx_global_lock_addr): New.
+	(nvptx_lockless_update): Recomment and adjust for clarity.
+	(nvptx_lockfull_update): New.
+	(nvptx_reduction_update): New.
+	(nvptx_goacc_reduction_fini): Call it.
+
+2015-11-18  Bernd Schmidt  <bschmidt@redhat.com>
+
+	* regrename.h (struct du_head): Add target_data_1 and target_data_2
+	fields.
+	* regrename.c (create_new_chain): Clear entire struct after allocating.
+
+	* config/i386/i386.opt (mmitigate-rop): New option.
+	* doc/invoke.texi (mmitigate-rop): Document.
+	* config/i386/i386.c: Include "regrename.h".
+	(ix86_rop_should_change_byte_p, reg_encoded_number,
+	ix86_get_modrm_for_rop, set_rop_modrm_reg_bits, ix86_mitigate_rop): New
+	static functions.
+	(ix86_reorg): Call ix86_mitigate_rop if -fmitigate-rop.
+	* config/i386/i386.md (attr "modrm_class"): New.
+	(cmp<mode>_ccno_1, mov<mode>_xor, movstrict<mode>_xor,
+	x86_mov<mode>cc_0_m1. x86_mov<mode>cc_0_m1_se)
+	(x86_mov<mode>cc_0_m1_neg): Override modrm_class attribute.
+
+2015-11-18  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/68405
+	* config/i386/i386.c (ix86_expand_mask_vec_cmp): Add missing
+	break.
+
+2015-11-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/68157
+	* tree-ssa-reassoc.c (attempt_builtin_powi): Set uid of
+	pow_stmt or mul_stmt from stmt's uid.
+	(reassociate_bb): Set uid of mul_stmt from stmt's uid.
+
+2015-11-18  Martin Liska  <mliska@suse.cz>
+
+	* haifa-sched.c (haifa_finish_h_i_d): Release reg_set_list.
+
+2015-11-18  Martin Liska  <mliska@suse.cz>
+
+	* tree-ssa-uninit.c (convert_control_dep_chain_into_preds):
+	Fix GNU coding style.
+	(find_def_preds): Use auto_vec.
+	(destroy_predicate_vecs): Change signature of the function.
+	(prune_uninit_phi_opnds_in_unrealizable_paths): Use the
+	new signature.
+	(simplify_preds_4): Use destroy_predicate_vecs instread of
+	just releasing preds vector.
+	(normalize_preds): Likewise.
+	(is_use_properly_guarded): Use new signature of
+	destroy_predicate_vecs.
+	(find_uninit_use): Likewise.
+
+2015-11-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/67790
+	* tree-vect-loop.c (vect_is_simple_reduction_1): Remove
+	IL rewrite for MINUS_EXPR reductions, rename back to ...
+	(vect_is_simple_reduction): ... this, removing the wrapper.
+	(vect_force_simple_reduction): Adjust.
+	(vectorizable_reduction): Adjust reduc_index for MINUS_EXPR
+	reductions and make use if reduc_index in all places.  For
+	the final reduction of MINUS_EXPR use PLUS_EXPR.
+
 2015-11-18  Alan Modra  <amodra@gmail.com>
 
 	* configure.ac (POWERPC64_TOC_POINTER_ALIGNMENT): Pass -z norelro

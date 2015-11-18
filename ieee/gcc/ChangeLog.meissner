@@ -1,5 +1,10 @@
 2015-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 230570.
+	* REVISION: Update subverison id.
+
+2015-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	<patch #8>
 	* config/rs6000/rs6000.c (init_float128_ieee): Do not setup
 	cmp_optab nor ucmp_optab.

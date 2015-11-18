@@ -2,11 +2,11 @@
 --                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
---                   S Y S T E M . P O O L _ G L O B A L                    --
+--                      G N A T . S T R I N G _ H A S H                     --
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 1992-2015, Free Software Foundation, Inc.         --
+--             Copyright (C) 2015, Free Software Foundation, Inc.           --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -29,51 +29,15 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Storage pool corresponding to default global storage pool used for types
---  for which no storage pool is specified.
+--  This package provides a generic hashing function over strings, suitable for
+--  use with a string keyed hash table. In particular, it is the basis for the
+--  string hash functions in Ada.Containers.
+--
+--  The algorithm used here is not appropriate for applications that require
+--  cryptographically strong hashes, or for application which wish to use very
+--  wide hash values as pseudo unique identifiers. In such cases please refer
+--  to GNAT.SHA1 and GNAT.MD5.
 
-with System;
-with System.Storage_Pools;
-with System.Storage_Elements;
+with System.String_Hash;
 
-package System.Pool_Global is
-   pragma Elaborate_Body;
-   --  Needed to ensure that library routines can execute allocators
-
-   --  Allocation strategy:
-
-   --    Call to malloc/free for each Allocate/Deallocate
-   --    No user specifiable size
-   --    No automatic reclaim
-   --    Minimal overhead
-
-   --  Pool simulating the allocation/deallocation strategy used by the
-   --  compiler for access types globally declared.
-
-   type Unbounded_No_Reclaim_Pool is new
-     System.Storage_Pools.Root_Storage_Pool with null record;
-
-   overriding function Storage_Size
-     (Pool : Unbounded_No_Reclaim_Pool)
-      return System.Storage_Elements.Storage_Count;
-
-   overriding procedure Allocate
-     (Pool         : in out Unbounded_No_Reclaim_Pool;
-      Address      : out System.Address;
-      Storage_Size : System.Storage_Elements.Storage_Count;
-      Alignment    : System.Storage_Elements.Storage_Count);
-
-   overriding procedure Deallocate
-     (Pool         : in out Unbounded_No_Reclaim_Pool;
-      Address      : System.Address;
-      Storage_Size : System.Storage_Elements.Storage_Count;
-      Alignment    : System.Storage_Elements.Storage_Count);
-
-   --  Pool object used by the compiler when implicit Storage Pool objects are
-   --  explicitly referred to. For instance when writing something like:
-   --     for T'Storage_Pool use Q'Storage_Pool;
-   --  and Q'Storage_Pool hasn't been defined explicitly.
-
-   Global_Pool_Object : aliased Unbounded_No_Reclaim_Pool;
-
-end System.Pool_Global;
+package GNAT.String_Hash renames System.String_Hash;
