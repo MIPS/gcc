@@ -304,7 +304,6 @@ unroll_loops (int flags)
       kdn_dump_loop(stderr, loop);
       kdn_dump_all_blocks(stderr, loop);
 #endif
-
       /* And perform the appropriate transformations.  */
       switch (loop->lpt_decision.decision)
 	{
@@ -402,7 +401,6 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
 #ifdef KELVIN_NOISE
   fprintf(stderr, " after some calculations, nunroll is %d\n", nunroll);
 #endif
-
   /* Skip big loops.  */
   if (nunroll <= 1)
     {
@@ -426,7 +424,6 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
       fprintf(stderr,
 	      " simple_p: %d, const_iter: %d, assumptions: %d\n",
 	      desc->simple_p, desc->const_iter, (desc->assumptions != NULL));
-
 #endif
       return;
     }
@@ -1020,7 +1017,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   fprintf(stderr, "before preconditioning the loop, preheader dest is\n");
   kdn_dump_block(stderr, loop_preheader_edge (loop)->dest);
 #endif
-
   /* Precondition the loop.  */
   split_edge_and_insert (loop_preheader_edge (loop), init_code);
 
@@ -1028,7 +1024,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   fprintf(stderr, "after preconditioning the loop, preheader dest is\n");
   kdn_dump_block(stderr, loop_preheader_edge (loop)->dest);
 #endif
-
   auto_vec<edge> remove_edges;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
@@ -1046,18 +1041,14 @@ unroll_loop_runtime_iterations (struct loop *loop)
 				      1, wont_exit, desc->out_edge,
 				      &remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ);
-
 #ifdef KELVIN_NOISE
   /* I think the problem occurs because we duplicate the loop body
      which includes an exit edge, and then we remove the exit edge
      without redistributing its frequency and probability to the other
-     edges.  This problem occurs within duplicate_loop_to_header_edge.
-  */
-
+     edges.  This problem occurs within duplicate_loop_to_header_edge. */
   fprintf(stderr, " after peeling first copy of loop body, ezc_switch is\n");
   kdn_dump_block(stderr, ezc_swtch);
   fprintf(stderr, " and its successors are\n");
-
   edge outgoing;
   FOR_EACH_EDGE (outgoing, ei, ezc_swtch->succs)
     {
@@ -1075,7 +1066,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   fprintf(stderr, "  after splitting edge, swtch is\n");
   kdn_dump_block(stderr, swtch);
 #endif
-
 #ifdef KELVIN_PATCH
   int iter_freq, new_freq;
   iter_freq = new_freq = swtch->frequency / (n_peel+1);
@@ -1194,40 +1184,37 @@ unroll_loop_runtime_iterations (struct loop *loop)
       }
 
     /* Normally, a loop whose iterations are bounded by a value that
-     * cannot be computed until run time is assumed to have an
-     * exit probability of 0.09. (In other words, a conditional exit
-     * from the loop has 9% probability of exiting the loop and 91%
-     * probability of remaining in the loop.)  This is just a
-     * heuristic. It's not clear how well this rule of thumb correlates
-     * with real-world behavior.  In any case, for a loop that is so
-     * characterized, the frequency of the loop header would be the
-     * sum of incoming frequencies divided by 0.09.
-     *
-     * There are situations, however, when 9% is not the right exit
-     * probability.  For example, if this loop was originally
-     * processed as if its iteration count was bounded by a
-     * compile-time constant, but the loop was subsequently not
-     * recognized as constant bounded, causing control to flow into
-     * this function, then the "right ratio" for this loop might be
-     * something different, like 1%.  If the loop was originally
-     * generated with a ratio of 1%, then it is important to use this
-     * same ratio when we compute the header ratio.  Otherwise, there
-     * will be inconsistency between the sum of incoming edge
-     * frequencies and the sum of outgoing edge frequencies.
-     *
-     * The value of exit_multiplier represents the number of
-     * ten-thousandths by which to multiply sum_incoming_frequencies.
-     * After multiplying by this quantity, we add 5,000 ten
-     * thousandths in order to force integer rounding during the next
-     * step, when we divide ten thousandths by 10000 in order to get
-     * "ones".
-     */
+      cannot be computed until run time is assumed to have an
+      exit probability of 0.09. (In other words, a conditional exit
+      from the loop has 9% probability of exiting the loop and 91%
+      probability of remaining in the loop.)  This is just a
+      heuristic. It's not clear how well this rule of thumb correlates
+      with real-world behavior.  In any case, for a loop that is so
+      characterized, the frequency of the loop header would be the
+      sum of incoming frequencies divided by 0.09.
+     
+      There are situations, however, when 9% is not the right exit
+      probability.  For example, if this loop was originally
+      processed as if its iteration count was bounded by a
+      compile-time constant, but the loop was subsequently not
+      recognized as constant bounded, causing control to flow into
+      this function, then the "right ratio" for this loop might be
+      something different, like 1%.  If the loop was originally
+      generated with a ratio of 1%, then it is important to use this
+      same ratio when we compute the header ratio.  Otherwise, there
+      will be inconsistency between the sum of incoming edge
+      frequencies and the sum of outgoing edge frequencies.
+     
+      The value of exit_multiplier represents the number of
+      ten-thousandths by which to multiply sum_incoming_frequencies.
+      After multiplying by this quantity, we add 5,000 ten
+      thousandths in order to force integer rounding during the next
+      step, when we divide ten thousandths by 10000 in order to get
+      "ones". */
 
     sum_incoming_frequencies *= exit_multiplier;
-    sum_incoming_frequencies += 5000;    /* round by adding 0.5 */
-    sum_incoming_frequencies /= 10000;	 /* convert ten thousandths
-					    to ones
-					 */
+    sum_incoming_frequencies += 5000;
+    sum_incoming_frequencies /= 10000;
     
     increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
   }

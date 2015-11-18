@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define KELVIN_PATCH
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -33,20 +34,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "tree-ssa-loop-manip.h"
 #include "dumpfile.h"
-
-#define KELVIN_PATCH
-
 #ifdef KELVIN_PATCH
+#include "diagnostic-core.h"
+
 /* Define ENABLE_CHECKING to enforce the following run-time checks.
- *
- *  a. The sum of outgoing edge frequencies for the loop equals the
- *     sum of incoming edge frequencies for the loop header block.
- *
- *  b. The sum of predecessor edge frequencies for every block
- *     in the loop equals the frequency of that block.
- *
- * This may report false-positive errors due to round-off errors.
- */
+   a. The sum of outgoing edge frequencies for the loop equals the
+      sum of incoming edge frequencies for the loop header block.
+   b. The sum of predecessor edge frequencies for every block
+      in the loop equals the frequency of that block.
+  This may report false-positive errors due to round-off errors. */
 
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
@@ -65,10 +61,8 @@ static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
 #ifdef KELVIN_PATCH
-/*
- * Return true iff block is considered to reside within the loop
- * represented by loop_ptr.
- */
+/* Return true iff block is considered to reside within the loop
+   represented by loop_ptr. */
 bool
 in_loop_p (basic_block block, struct loop *loop_ptr)
 {
@@ -84,9 +78,7 @@ in_loop_p (basic_block block, struct loop *loop_ptr)
   return result;
 }
 
-/*
- * Zero all frequencies associated with this loop.
- */
+/* Zero all frequencies associated with this loop. */
 void 
 zero_loop_frequencies (struct loop *loop_ptr)
 {
@@ -98,29 +90,17 @@ zero_loop_frequencies (struct loop *loop_ptr)
   free (bbs);
 }
 
-/* A list of block_ladder_rung structs is used to keep track of all the
- * blocks visited in a depth-first recursive traversal of a control-flow
- * graph.  This list is used to detect and prevent attempts to revisit
- * a block that is already being visited in the recursive traversal.
- */
+/* A list of block_ladder_rung structs is used to keep track of all
+   the blocks visited in a depth-first recursive traversal of a control-flow
+   graph.  This list is used to detect and prevent attempts to revisit
+   a block that is already being visited in the recursive traversal. */
 typedef struct block_ladder_rung {
   basic_block block;
   struct block_ladder_rung *lower_rung;
 } *ladder_rung_p;
 
-/* Return true iff an_edge represents the same source and destination
- * blocks as another_edge.
- */
-static bool 
-same_edge_p (edge an_edge, edge another_edge)
-{
-  return ((an_edge->src == another_edge->src) 
-	  && (an_edge->dest == another_edge->dest));
-}
-
-/* Return true iff an_edge matches one of the nodes that is already
- * present within set_of_edges.
- */
+/* Return true iff AN_EDGE matches one of the nodes that is already
+   present within SET_OF_EDGES. */
 static bool 
 in_edge_set_p (edge an_edge, vec<edge> set_of_edges)
 {
@@ -129,15 +109,14 @@ in_edge_set_p (edge an_edge, vec<edge> set_of_edges)
 
   FOR_EACH_VEC_ELT (set_of_edges, j, e)
     {
-      if (same_edge_p (e, an_edge))
+      if (e == an_edge)
 	return true;
     }
   return false;
 }
 
-/* Return true iff an_edge->dest is already represented within
- * the ladder_rung list.
- */
+/* Return true iff AN_EDGE->dest is already represented within
+   the LADDER_RUNG list. */
 static bool 
 in_call_chain_p (edge an_edge, ladder_rung_p ladder_rung)
 {
@@ -152,13 +131,12 @@ in_call_chain_p (edge an_edge, ladder_rung_p ladder_rung)
 }
 
 /* This recursive function visits all of the blocks contained within the
- * loop represented by loop_ptr and reachable from incoming_edge,
- * and zeroes the frequency field of each block.  The recursion
- * terminates if incoming_edge is known to exit this loop, or
- * if the destination of incoming edge has already been visited
- * in this recursive traversal, or if the destination of incoming_edge
- * is the loop header.
- */
+   loop represented by LOOP_PTR and reachable from INCOMING_EDGE,
+   and zeroes the frequency field of each block.  The recursion
+   terminates if INCOMING_EDGE is known to exit this loop, or
+   if the destination of INCOMING_EDGE has already been visited
+   in this recursive traversal, or if the destination of INCOMING_EDGE
+   is the loop header. */
 static void
 recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 			    ladder_rung_p ladder_rung,
@@ -189,10 +167,9 @@ recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
     }
 }
 				     
-/* Return true iff the candidate block is found within the linked
- * list represented by lower_steps, which would indicate that this
- * block has already been visited by a recursive traversal.
- */
+/* Return true iff the CANDIDATE block is found within the linked
+   list represented by LOWER_STEPS, which would indicate that this
+   block has already been visited by a recursive traversal. */
 static bool 
 recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps) {
   while (lower_steps != NULL)
@@ -205,20 +182,19 @@ recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps) {
   return false;
 }
 
-/* Return true iff candidate is contained within the loop represented
- * by loop_header and loop_latch.
- *
- * We consider the block to be within the loop if there exists a path
- * within the control flow graph from this node to the loop's latch
- * which does not pass through the loop's header.  (If all paths to
- * the latch pass through the loop header, then the node is contained
- * within an outer-nested loop but not within this loop.)
- *
- * Note that if a candidate's successor is in the loop and the successor
- * is not the loop header, then the candidate itself is also in the loop.
- * If none of the successors of a candidate are in the loop, then the
- * candidate itself is not in the loop.
- */
+/* Return true iff CANDIDATE is contained within the loop represented
+   by LOOP_HEADER and LOOP_LATCH.
+
+   We consider the block to be within the loop if there exists a path
+   within the control flow graph from this node to the loop's latch
+   which does not pass through the loop's header.  (If all paths to
+   the latch pass through the loop header, then the node is contained
+   within an outer-nested loop but not within this loop.)
+  
+   Note that if a CANDIDATE's successor is in the loop and the successor
+   is not the loop header, then the candidate itself is also in the loop.
+   If none of the successors of a candidate are in the loop, then the
+   candidate itself is not in the loop. */
 static bool 
 in_loop_of_header_p (basic_block candidate, basic_block loop_header,
 		      basic_block loop_latch, bool start_of_recursion,
@@ -232,9 +208,8 @@ in_loop_of_header_p (basic_block candidate, basic_block loop_header,
 	   && recursion_detected_p (candidate, lower_steps))
     {
       /* if recursion revisits a node already visited and the loop latch
-       * was not visited in the call chain, then we are traversing an
-       * iterative path that belongs to an outer-nested loop.
-       */
+         was not visited in the call chain, then we are traversing an
+         iterative path that belongs to an outer-nested loop. */
       return false;
     }
   else
@@ -257,21 +232,20 @@ in_loop_of_header_p (basic_block candidate, basic_block loop_header,
     }
 }
 
-/* Add candidate into the results vector if candidate
- * is in the loop and it is not already contained within the results
- * vector. 
- *
- * We consider the block to be within the loop if there exists a path
- * within the control flow graph from this node to the loop's latch
- * which does not pass through the loop's header.  (If all paths to
- * the latch pass through the loop header, then the node is contained
- * within an outer-nested loop but not within this loop.)
- *
- * If and only if candidate is added to the results vector, recursively
- * do the same for each successor of candidate block.
- *
- * Return the potentially modified results vector.
- */
+/* Add CANDIDATE into the RESULTS vector if CANDIDATE
+   is in the loop and it is not already contained within the RESULTS
+   vector. 
+
+   We consider the block to be within the loop if there exists a path
+   within the control flow graph from this node to the loop's latch
+   which does not pass through the loop's header.  (If all paths to
+   the latch pass through the loop header, then the node is contained
+   within an outer-nested loop but not within this loop.)
+ 
+   If and only if CANDIDATE is added to the RESULTS vector, recursively
+   do the same for each successor of the CANDIDATE block.
+  
+   Return the potentially modified RESULTS vector. */
 static vec<basic_block> 
 recursively_get_loop_blocks (basic_block candidate, vec<basic_block> results,
 			     basic_block loop_header, basic_block loop_latch)
@@ -305,8 +279,7 @@ recursively_get_loop_blocks (basic_block candidate, vec<basic_block> results,
 }
 
 /* Return a vector containing all of the blocks contained within the
- * loop identified by loop_ptr.
- */
+  loop identified by loop_ptr. */
 static vec<basic_block> 
 get_loop_blocks (struct loop *loop_ptr)
 {
@@ -318,8 +291,17 @@ get_loop_blocks (struct loop *loop_ptr)
   return results;
 }
 
-/* Return true iff block is an element of the block_set vector.
- */
+
+
+/* Return true iff BB is contained within the loop represented by LOOP_PTR */
+static bool 
+in_block_set_p_replacement (basic_block bb, struct loop* loop_ptr)
+{
+  return (bb->loop_father == loop_ptr)
+    || flow_loop_nested_p (loop_ptr, bb->loop_father);
+}
+
+/* Return true iff BLOCK is an element of the BLOCK_SET vector. */
 static bool 
 in_block_set_p (basic_block block, vec<basic_block> block_set)
 {
@@ -334,10 +316,11 @@ in_block_set_p (basic_block block, vec<basic_block> block_set)
 }
 
 /* Return a vector containing all of the edges that exit the loop
- * represented by the loop_blocks vector.
- */
+   represented by the LOOP_BLOCKS vector, and redundantly, by the
+   LOOP_PTR argument. */
 static vec<edge> 
-get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
+get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
+				 struct loop* loop_ptr) {
   basic_block bb;
   unsigned int u;
   vec<edge> results = vNULL;
@@ -350,7 +333,7 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
 	{
 	  basic_block edge_dest = successor->dest;
 	  
-	  if (!in_block_set_p (edge_dest, loop_blocks))
+	  if (!in_block_set_p_replacement (edge_dest, loop_ptr))
 	    {
 	      results.safe_push (successor);
 	    }
@@ -359,42 +342,40 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks) {
   return results;
 }
 
-/*
- * Zero all frequencies for all blocks contained within the loop
- * represented by loop_ptr which are reachable from block without
- * passing through the block header. If block is not within the loop,
- * this has no effect. The behavior is as outlined by the following
- * algorithm:
- *
- * If block is contained within loop:
- *   Set block's frequency to zero
- *   Using a depth-first traversal, do the same for each successor
- *   transitively, stopping the recursive traversal if:
- *	the current block is the loop header, or
- *	the current block resides outside the loop, or
- *	the current block has already been visited in this depth-first
- *	  traversal. 
- */
+/* Zero all frequencies for all blocks contained within the loop
+   represented by LOOP_PTR which are reachable from BLOCK without
+   passing through the loop header. If BLOCK is not within the loop,
+   this has no effect. The behavior is as outlined by the following
+   algorithm:
+  
+   If BLOCK is contained within loop:
+     Set BLOCK's frequency to zero
+     Using a depth-first traversal, do the same for each successor
+     transitively, stopping the recursive traversal if:
+ 	the current block is the loop header, or
+  	the current block resides outside the loop, or
+  	the current block has already been visited in this depth-first
+  	  traversal. */
 static void
 zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
 {
   /* When zero_partial_loop_frequencies is invoked, the *loop_ptr
-   * object is not entirely coherent, so the library service
-   * get_loop_exit_edges (loop_p) cannot be called from this context.
-   * Instead, we use get_loop_blocks (loop_p) and
-   * get_exit_edges_from_loop_blocks (vec<basic_block>) functions
-   * which assume only the validity of loop_ptr->loop_header,
-   * loop_ptr->loop_latch, and valid successor and predecessor
-   * information for each block contained within the loop.
-   */
+     object is not entirely coherent, so the library service
+     get_loop_exit_edges (loop_p) cannot be called from this context.
+     Instead, we use get_loop_blocks (loop_p) and
+     get_exit_edges_from_loop_blocks (vec<basic_block>) functions
+     which assume only the validity of loop_ptr->loop_header,
+     loop_ptr->loop_latch, and valid successor and predecessor
+     information for each block contained within the loop. */
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
-  if (in_block_set_p (block, loop_blocks))
+  if (in_block_set_p_replacement (block, loop_ptr))
     {
       struct block_ladder_rung ladder_rung;
       ladder_rung.block = block;
       ladder_rung.lower_rung = NULL;
       
-      vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
+      vec<edge> exit_edges =
+	get_exit_edges_from_loop_blocks (loop_blocks, loop_ptr);
       block->frequency = 0;
       
       edge_iterator ei;
@@ -413,17 +394,16 @@ zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
 }
 
 /* This recursive function visits all of the blocks contained within the
- * loop represented by loop_ptr and reachable from incoming_edge,
- * and increments the frequency field of each block by an
- * appropriate scaling of frequency_increment.  The
- * frequency_increment value is scaled in recursive invocations of
- * this function by the probability associated with the edge
- * corresponding to the particular recursive call.  The recursion
- * terminates if incoming_edge is known to exit this loop, or
- * if the destination of incoming edge has already been visited
- * in this recursive traversal, or if the destination of incoming_edge
- * is the loop header.
- */
+   loop represented by LOOP_PTR and reachable from INCOMING_EDGE,
+   and increments the frequency field of each block by an
+   appropriate scaling of FREQUENCY_INCREMENT.  The
+   FREQUENCY_INCREMENT value is scaled in recursive invocations of
+   this function by the probability associated with the edge
+   corresponding to the particular recursive call.  The recursion
+   terminates if INCOMING_EDGE is known to exit this loop, or
+   if the destination of INCOMING_EDGE has already been visited
+   in this recursive traversal, or if the destination of INCOMING_EDGE
+   is the loop header. */
 static void
 recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 				 ladder_rung_p ladder_rung, edge incoming_edge,
@@ -457,28 +437,27 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
     }
 }
  
-/*
- * If block is contained within loop, we do the following:
- *   Add incremental_frequency (which may be negative) to
- *   block->frequency and propogate this change to all successors of
- *   block that reside within the loop, transitively.  Use a depth-first
- *   tree traversal, stopping the recursion at the loop header, at any
- *   successor block that resides outside the loop, and at any block
- *   that is already part of the current depth-first traversal.
- */
+/* If BLOCK is contained within loop LOOP_PTR, we do the following:
+   Add INCREMENTAL_FREQUENCY (which may be negative) to
+   BLOCK->frequency and propogate this change to all successors of
+   BLOCK that reside within the loop, transitively.  Use a depth-first
+   tree traversal, stopping the recursion at the loop header, at any
+   successor block that resides outside the loop, and at any block
+   that is already part of the current depth-first traversal. */
 void 
 increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 			    int frequency_increment)
 {
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
 
-  if (in_block_set_p (block, loop_blocks))
+  if (in_block_set_p_replacement (block, loop_ptr))
     {
       struct block_ladder_rung ladder_rung;
       ladder_rung.block = block;
       ladder_rung.lower_rung = NULL;
       
-      vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_blocks);
+      vec<edge> exit_edges =
+	get_exit_edges_from_loop_blocks (loop_blocks, loop_ptr);
       block->frequency += frequency_increment;
       
       edge_iterator ei;
@@ -500,23 +479,16 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
   loop_blocks.release ();
 }
 
-#ifdef ENABLE_CHECKING
-
-/*
- * check_loop_frequency_integrity enforces that:
- *
- *  a. The sum of outgoing edge frequencies for the loop equals the
- *     sum of incoming edge frequencies for the loop header block.
- *
- *  b. The sum of predecessor edge frequencies for every block
- *     in the loop equals the frequency of that block.
- *
- * The integrity check is problematic due to round-off errors.  Though
- * it hasn't been tested with max-unroll-times greater than 4, we
- * suspect that unrolling complex control structures contained within a
- * loop that is unrolled more than 4 times may result in erroneous
- * integrity check failures due to round-off errors.
- */
+/* check_loop_frequency_integrity enforces that:
+    a. The sum of outgoing edge frequencies for loop LOOP_PTR equals the
+       sum of incoming edge frequencies for the loop header block.
+    b. The sum of predecessor edge frequencies for every block
+       in the loop equals the frequency of that block.
+ 
+  Consistency of edge frequencies is enforced to within a programmed
+  tolerance value, as implemented within this function.  The
+  objective of allowing some variance from strict equality testing is
+  to allow for round-off errors. */
 static void 
 check_loop_frequency_integrity (struct loop *loop_ptr)
 {
@@ -549,8 +521,9 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
       
       if (delta > tolerance)
 	{
-	  fatal_error(input_location,
-		      "Predecessor frequencies confused while unrolling loop.");
+	  fatal_error (input_location,
+		       "Inconsistent predecessor frequencies "
+		       " while unrolling loop.");
 	}
     }
 
@@ -561,14 +534,15 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
   edge a_predecessor;
   FOR_EACH_EDGE (a_predecessor, ei, header->preds)
     {
-      if (!in_block_set_p (a_predecessor->src, loop_body))
+      if (!in_block_set_p_replacement (a_predecessor->src, loop_ptr))
 	{
 	  incoming_frequency += EDGE_FREQUENCY (a_predecessor);
 	}
     }
 
   int outgoing_frequency = 0;
-  vec<edge> exit_edges = get_exit_edges_from_loop_blocks (loop_body);
+  vec<edge> exit_edges =
+    get_exit_edges_from_loop_blocks (loop_body, loop_ptr);
   edge edge;
   FOR_EACH_VEC_ELT (exit_edges, i, edge)
     {
@@ -586,12 +560,13 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
   
   if (delta > tolerance)
     {
-      internal ("Incoherent frequencies while unrolling loop.");
+      fatal_error (input_location,
+		   "Inconsistent enter/exit frequencies "
+		   "while unrolling loop.");
     }
   loop_body.release ();
   exit_edges.release ();
 }
-#endif	/* ENABLE_CHECKING */
 #endif
 
 /* Checks whether basic block BB is dominated by DATA.  */
@@ -2046,7 +2021,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
                 place_after, true);
 
 #ifdef KELVIN_NOISE
-      for (int w = 0; w < n; w++)
+      for (unsigned int w = 0; w < n; w++)
 	{
 	  fprintf(stderr,
 		  "new_bbs[%d] is basic block %d, with frequency: %d\n",
@@ -2153,7 +2128,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  scale_act = combine_probabilities (scale_act, scale_step[j]);
 
 #ifdef KELVIN_NOISE
-	  for (int w = 0; w < n; w++)
+	  for (unsigned int w = 0; w < n; w++)
 	    {
 	      fprintf(stderr,
 		      "after scaling, new_bbs[%d] has frequency: %d\n",
@@ -2203,7 +2178,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       fprintf(stderr, 
 	      " because DLTHE_FLAG_UPDATE, blocks scaled by scale_main:  %d\n",
 	      scale_main);
-      for (int w = 0; w < n; w++)
+      for (unsigned int w = 0; w < n; w++)
 	fprintf(stderr, " block[%d] with index %d, scaled to freq %d\n",
 		w, bbs[w]->index, bbs[w]->frequency);
 #endif
@@ -2241,12 +2216,12 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   fprintf(stderr, "At bottom of duplicate_loop_to_header_edge()\n");
   kdn_dump_all_blocks (stderr, loop);
 #endif
-#ifdef ENABLE_CHECKING
-  /* This function call is strictly paranoia.  It makes no changes
-   * to the data structures.
-   */
-  check_loop_frequency_integrity (loop);
-#endif
+
+  /* The call to check_loop_frequency_integrity checks for consistency
+     of predecessor frequencies with the frequency of the node they
+     precede. */
+  if (flag_checking)
+    check_loop_frequency_integrity (loop);
 #endif
   
   return true;
