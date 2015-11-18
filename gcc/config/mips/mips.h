@@ -2673,7 +2673,6 @@ typedef struct mips_args {
 #define TRULY_NOOP_TRUNCATION(OUTPREC, INPREC) \
   (TARGET_64BIT ? ((INPREC) <= 32 || (OUTPREC) > 32) : 1)
 
-
 /* Specify the machine mode that pointers have.
    After generation of rtl, the compiler makes no further distinction
    between pointers and any other objects of this machine mode.  */
