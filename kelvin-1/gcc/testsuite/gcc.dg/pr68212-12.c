@@ -3,31 +3,33 @@
 
 volatile int a;
 
-/*
- * loop with multiple entries constant iterations, probably should not unroll
- */
-void foo(double *d, unsigned long int n, double d1, double d2) {
+/* loop with multiple entries constant iterations, probably
+   should not unroll */
+void foo(double *d, unsigned long int n, double d1, double d2)
+{
   unsigned long int i;
-
-  if (a <= 0) {
-    goto middle_of_loop;
-  }
-
-  for (i=0;i<1000007;i++) {
-
-    if (a > 5)
-      d[i] = d1;
-    else
-      d[i] = d2;
-
-  middle_of_loop:
-    if (a == 0) {
-      double td;
-      td = d1;
-      d1 = d2;
-      d2 = td;
+  
+  if (a <= 0)
+    {
+      goto middle_of_loop;
     }
-  }
+  
+  for (i=0;i<1000007;i++)
+    {
+      if (a > 5)
+	d[i] = d1;
+      else
+	d[i] = d2;
+      
+    middle_of_loop:
+      if (a == 0)
+	{
+	  double td;
+	  td = d1;
+	  d1 = d2;
+	  d2 = td;
+	}
+    }
 }
 
 /* { dg-final { scan-rtl-dump-not "Invalid sum" "loop2_unroll" } } */

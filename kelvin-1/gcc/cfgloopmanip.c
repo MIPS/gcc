@@ -37,12 +37,12 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef KELVIN_PATCH
 #include "diagnostic-core.h"
 
-/* Define ENABLE_CHECKING to enforce the following run-time checks.
+/* Use a command-line option to set the flag_checking option to enforce
+   the following run-time checks.
    a. The sum of outgoing edge frequencies for the loop equals the
       sum of incoming edge frequencies for the loop header block.
    b. The sum of predecessor edge frequencies for every block
-      in the loop equals the frequency of that block.
-  This may report false-positive errors due to round-off errors. */
+      in the loop equals the frequency of that block. */
 
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
@@ -61,8 +61,8 @@ static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
 #ifdef KELVIN_PATCH
-/* Return true iff block is considered to reside within the loop
-   represented by loop_ptr. */
+/* Return true iff BLOCK is considered to reside within the loop
+   represented by LOOP_PTR. */
 bool
 in_loop_p (basic_block block, struct loop *loop_ptr)
 {
@@ -78,7 +78,7 @@ in_loop_p (basic_block block, struct loop *loop_ptr)
   return result;
 }
 
-/* Zero all frequencies associated with this loop. */
+/* Zero all frequencies associated with loop LOOP_PTR. */
 void 
 zero_loop_frequencies (struct loop *loop_ptr)
 {
@@ -233,7 +233,8 @@ in_loop_of_header_p (basic_block candidate, basic_block loop_header,
 }
 
 /* Add CANDIDATE into the RESULTS vector if CANDIDATE
-   is in the loop and it is not already contained within the RESULTS
+   is in the loop identified by the LOOP_HEADER and LOOP_LATCH
+   arguments, and it is not already contained within the RESULTS
    vector. 
 
    We consider the block to be within the loop if there exists a path
@@ -279,7 +280,7 @@ recursively_get_loop_blocks (basic_block candidate, vec<basic_block> results,
 }
 
 /* Return a vector containing all of the blocks contained within the
-  loop identified by loop_ptr. */
+   loop identified by LOOP_PTR. */
 static vec<basic_block> 
 get_loop_blocks (struct loop *loop_ptr)
 {
@@ -295,28 +296,14 @@ get_loop_blocks (struct loop *loop_ptr)
 
 /* Return true iff BB is contained within the loop represented by LOOP_PTR */
 static bool 
-in_block_set_p_replacement (basic_block bb, struct loop* loop_ptr)
+in_block_set_p (basic_block bb, struct loop* loop_ptr)
 {
   return (bb->loop_father == loop_ptr)
     || flow_loop_nested_p (loop_ptr, bb->loop_father);
 }
 
-/* Return true iff BLOCK is an element of the BLOCK_SET vector. */
-static bool 
-in_block_set_p (basic_block block, vec<basic_block> block_set)
-{
-  basic_block bb;
-  unsigned int u;
-  FOR_EACH_VEC_ELT (block_set, u, bb)
-    {
-      if (bb == block)
-	return true;
-    }
-  return false;
-}
-
 /* Return a vector containing all of the edges that exit the loop
-   represented by the LOOP_BLOCKS vector, and redundantly, by the
+   represented redundantly by both the LOOP_BLOCKS vector and by the
    LOOP_PTR argument. */
 static vec<edge> 
 get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
@@ -333,7 +320,7 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
 	{
 	  basic_block edge_dest = successor->dest;
 	  
-	  if (!in_block_set_p_replacement (edge_dest, loop_ptr))
+	  if (!in_block_set_p (edge_dest, loop_ptr))
 	    {
 	      results.safe_push (successor);
 	    }
@@ -364,11 +351,12 @@ zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
      get_loop_exit_edges (loop_p) cannot be called from this context.
      Instead, we use get_loop_blocks (loop_p) and
      get_exit_edges_from_loop_blocks (vec<basic_block>) functions
-     which assume only the validity of loop_ptr->loop_header,
+     which require only the validity of loop_ptr->loop_header,
      loop_ptr->loop_latch, and valid successor and predecessor
-     information for each block contained within the loop. */
+     information for each block contained within the loop. All
+     of this information is known to be valid at this point. */
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
-  if (in_block_set_p_replacement (block, loop_ptr))
+  if (in_block_set_p (block, loop_ptr))
     {
       struct block_ladder_rung ladder_rung;
       ladder_rung.block = block;
@@ -440,7 +428,10 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 /* If BLOCK is contained within loop LOOP_PTR, we do the following:
    Add INCREMENTAL_FREQUENCY (which may be negative) to
    BLOCK->frequency and propogate this change to all successors of
-   BLOCK that reside within the loop, transitively.  Use a depth-first
+   BLOCK that reside within the loop, transitively.   The
+   FREQUENCY_INCREMENT value is scaled before adding the value
+   to successor nodes by the probability factor associated with
+   the edges along all paths to the successor.  Use a depth-first
    tree traversal, stopping the recursion at the loop header, at any
    successor block that resides outside the loop, and at any block
    that is already part of the current depth-first traversal. */
@@ -450,7 +441,7 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 {
   vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
 
-  if (in_block_set_p_replacement (block, loop_ptr))
+  if (in_block_set_p (block, loop_ptr))
     {
       struct block_ladder_rung ladder_rung;
       ladder_rung.block = block;
@@ -481,20 +472,18 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 
 /* check_loop_frequency_integrity enforces that:
     a. The sum of outgoing edge frequencies for loop LOOP_PTR equals the
-       sum of incoming edge frequencies for the loop header block.
+       sum of incoming edge frequencies for the loop's header block.
     b. The sum of predecessor edge frequencies for every block
        in the loop equals the frequency of that block.
- 
-  Consistency of edge frequencies is enforced to within a programmed
-  tolerance value, as implemented within this function.  The
-  objective of allowing some variance from strict equality testing is
-  to allow for round-off errors. */
+   Consistency of edge frequencies is enforced to within a programmed
+   tolerance value.  The objective of allowing some variance from
+   strict equality testing is to allow for the accumulation of
+   round-off errors. */
 static void 
 check_loop_frequency_integrity (struct loop *loop_ptr)
 {
   unsigned int i, k;
   basic_block a_block;
-
   vec<basic_block> loop_body = get_loop_blocks (loop_ptr);
   basic_block header;
 
@@ -502,29 +491,23 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
     {
       int delta;
       int predecessor_frequencies = 0;
-
       edge_iterator ei;
       edge a_predecessor;
+
       FOR_EACH_EDGE (a_predecessor, ei, a_block->preds)
-	{
-	  predecessor_frequencies += EDGE_FREQUENCY (a_predecessor);
-	}
+	predecessor_frequencies += EDGE_FREQUENCY (a_predecessor);
       delta = predecessor_frequencies - a_block->frequency;
 
       /* Enforce tolerance to within 0.2%. */
       int tolerance = predecessor_frequencies / 500;  
       if (tolerance < 10)
 	tolerance = 10;
-
       if (delta < 0)
 	delta = -delta;
-      
       if (delta > tolerance)
-	{
-	  fatal_error (input_location,
-		       "Inconsistent predecessor frequencies "
-		       " while unrolling loop.");
-	}
+	fatal_error (input_location,
+		     "Inconsistent predecessor frequencies "
+		     " while unrolling loop.");
     }
 
   header = loop_ptr->header;
@@ -533,37 +516,27 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
   edge_iterator ei;
   edge a_predecessor;
   FOR_EACH_EDGE (a_predecessor, ei, header->preds)
-    {
-      if (!in_block_set_p_replacement (a_predecessor->src, loop_ptr))
-	{
-	  incoming_frequency += EDGE_FREQUENCY (a_predecessor);
-	}
-    }
+    if (!in_block_set_p (a_predecessor->src, loop_ptr))
+      incoming_frequency += EDGE_FREQUENCY (a_predecessor);
 
   int outgoing_frequency = 0;
   vec<edge> exit_edges =
     get_exit_edges_from_loop_blocks (loop_body, loop_ptr);
   edge edge;
   FOR_EACH_VEC_ELT (exit_edges, i, edge)
-    {
-      outgoing_frequency += EDGE_FREQUENCY (edge);
-    }
+    outgoing_frequency += EDGE_FREQUENCY (edge);
 
   /* enforce tolerance to within 0.2% */
   int tolerance = incoming_frequency / 500;
   if (tolerance < 10)
     tolerance = 10;
   int delta = incoming_frequency - outgoing_frequency;
-
   if (delta < 0)
     delta = -delta;
-  
   if (delta > tolerance)
-    {
-      fatal_error (input_location,
-		   "Inconsistent enter/exit frequencies "
-		   "while unrolling loop.");
-    }
+    fatal_error (input_location,
+		 "Inconsistent enter/exit frequencies "
+		 "while unrolling loop.");
   loop_body.release ();
   exit_edges.release ();
 }
@@ -1666,7 +1639,6 @@ set_zero_probability (edge e)
 	  new_edge_frequency = EDGE_FREQUENCY (ae);
 	  change_in_edge_frequency =
 	    new_edge_frequency - original_edge_frequency;
-	  
 	  increment_loop_frequencies (loop_ptr, ae->dest,
 				      change_in_edge_frequency);
 	}
@@ -1692,10 +1664,8 @@ set_zero_probability (edge e)
       new_edge_frequency = EDGE_FREQUENCY (last);
       change_in_edge_frequency = new_edge_frequency - original_edge_frequency;
       if (change_in_edge_frequency != 0)
-	{
-	  increment_loop_frequencies (loop_ptr, last->dest,
-				      change_in_edge_frequency);
-	}
+	increment_loop_frequencies (loop_ptr, last->dest,
+				    change_in_edge_frequency);
     }
   else
     {
@@ -1794,15 +1764,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   edge_iterator ei;
   edge predecessor;
   FOR_EACH_EDGE (predecessor, ei, header->preds)
-    {
-      if (!in_loop_p (predecessor->src, loop))
-	{
-	  preheader_frequency += EDGE_FREQUENCY (predecessor);
-	}
-    }
-
+    if (!in_loop_p (predecessor->src, loop))
+      preheader_frequency += EDGE_FREQUENCY (predecessor);
   int exit_ratio = (header_frequency * 10000 - 5000) / preheader_frequency;
-
 #ifdef KELVIN_NOISE
   {
     fprintf(stderr,
@@ -1814,13 +1778,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     fprintf(stderr, " original edge: ");
     kdn_dump_edge(stderr, orig);
     fprintf(stderr, " to_remove edges:\n");
-
     unsigned int i;
     edge edge_to_remove;
     FOR_EACH_VEC_ELT (*to_remove, i, edge_to_remove)
-      {
-	kdn_dump_edge(stderr, edge_to_remove);
-      }
+      kdn_dump_edge(stderr, edge_to_remove);
     fprintf(stderr,
 	    " preheader frequency: %d, header frequency: %d, exit_ratio: %d\n",
 	    preheader_frequency, header_frequency, exit_ratio);
@@ -1990,12 +1951,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 
 #ifdef KELVIN_PATCH
   /* Recompute the loop body frequencies. */
-  zero_loop_frequencies (loop);
-
   basic_block my_header = loop->header;
   int sum_incoming_frequencies = 0;
 
-  /* ei and predecessor declared above */
+  zero_loop_frequencies (loop);
   FOR_EACH_EDGE(predecessor, ei, my_header->preds)
     {
       /* exit_ratio is computed based on remembered circumstances upon
@@ -2009,7 +1968,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     }
   increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
 #endif
-  
   place_after = e->src;
   for (j = 0; j < ndupl; j++)
     {
@@ -2087,7 +2045,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       increment_loop_frequencies (loop,
 				  saved_place_after, place_after_frequency);
 #endif
-      
       /* Record exit edge in this copy.  */
       if (orig && bitmap_bit_p (wont_exit, j + 1))
 	{
@@ -2144,9 +2101,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   if (orig && bitmap_bit_p (wont_exit, 0))
     {
       if (to_remove)
-	{
-	  to_remove->safe_push (orig);
-	}
+	to_remove->safe_push (orig);
       set_zero_probability (loop, orig);
 
       /* Scale the frequencies of the blocks dominated by the exit.  */

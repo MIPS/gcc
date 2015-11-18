@@ -66,5 +66,4 @@ extern bool in_loop_p (basic_block, struct loop *);
 extern void zero_loop_frequencies (struct loop *);
 extern void increment_loop_frequencies (struct loop *, basic_block, int);
 #endif
-
 #endif /* GCC_CFGLOOPMANIP_H */

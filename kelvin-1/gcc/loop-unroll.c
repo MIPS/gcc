@@ -292,7 +292,6 @@ unroll_loops (int flags)
 #ifdef KELVIN_NOISE
   fprintf(stderr, "In unroll_loops(0x%x)\n", flags);
 #endif
-
   /* Now decide rest of unrolling.  */
   decide_unrolling (flags);
 
@@ -953,7 +952,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	  " expect value of 990099 for typical compile-time bounded loop\n");
 #endif
 #endif
-
   if (flag_split_ivs_in_unroller
       || flag_variable_expansion_in_unroller)
     opt_info = analyze_insns_in_loop (loop);
@@ -1056,7 +1054,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       kdn_dump_block(stderr, outgoing->dest);
     }
 #endif
-
   gcc_assert (ok);
 
   /* Record the place where switch will be built for preconditioning.  */

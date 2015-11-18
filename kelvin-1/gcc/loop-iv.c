@@ -70,7 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
-
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
 #include "kelvin-debugs.c"

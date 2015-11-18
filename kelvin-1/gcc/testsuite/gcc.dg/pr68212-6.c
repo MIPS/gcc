@@ -3,9 +3,7 @@
 
 #include <stdio.h>
 
-/*
- * Switch statement embedded within a runtime iterations loop.
- */
+/* Switch statement embedded within a runtime iterations loop. */
 void foo(double *d, unsigned long int n) {
   unsigned long int i;
 
@@ -15,10 +13,9 @@ void foo(double *d, unsigned long int n) {
     case 1:
     case 2:
     case 3:
-      /* frequency of this block should be 4 times the frequency
-       * of case 4, but that might be too much to expect from
-       * the compiler's analysis.
-       */
+      /* Frequency of this block should be 4 times the frequency
+	 of case 4, but that might be too much to expect from
+	 the compiler's analysis. */
       fprintf(stderr, "value %d has remainder < 4\n", i);
       break;
 
