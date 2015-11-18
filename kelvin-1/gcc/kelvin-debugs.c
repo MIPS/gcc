@@ -20,9 +20,9 @@
 #include "gimple.h"
 #include "input.h"
 #include "line-map.h"
+#include "sbitmap.h"
 
 typedef const rtx_insn *const_ins;
-
 
 /* note: rtl.h declares:
  *  extern void print_insn(pretty_printer *, const_rtx, int)
@@ -35,6 +35,7 @@ typedef const rtx_insn *const_ins;
  */
 
 static void kdn_dump_loop_id(FILE *, loop_p);
+static void kdn_dump_loop_desc (FILE *stream, struct niter_desc *desc);
 static void kdn_dump_loop(FILE *, loop_p);
 static void kdn_dump_block_id(FILE *, basic_block);
 static void kdn_dump_block(FILE *, basic_block);
@@ -54,6 +55,9 @@ static void kdn_dump_dominator(FILE *, struct et_node *);
 static void kdn_treedump_children(FILE *, int, struct et_node *);
 static void kdn_dump_wide_int(FILE *stream, const widest_int &value);
 static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr);
+
+static void kdn_dump_copy_flags(FILE *stream, const char * label, int flags);
+static void kdn_dump_sbitmap(FILE *stream, const char * label, sbitmap bits);
 
 static void kdn_dump_loop_id(FILE *stream, loop_p loop_ptr)
 {
@@ -175,6 +179,19 @@ static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr) {
   }
 }
 
+static void
+kdn_dump_loop_desc (FILE *stream, struct niter_desc *desc)
+{
+  /* It seems that invoking get_simple_loop_desc() results in infinite
+   *  recursion through kdn_dump_loop -> get_simple_loop_desc ->
+   *  simple_loop_desc ->
+   *  simplify_using_initial_values.
+   */
+
+  fprintf(stream, " niter_desc->const_iter: %d, niter: ", desc->const_iter);
+  kdn_dump_wide_int(stream, desc->niter);
+}
+
 static void kdn_dump_loop(FILE *stream, loop_p loop_ptr) {
   
   fprintf(stream, " %d\n", loop_ptr->num);
@@ -182,7 +199,7 @@ static void kdn_dump_loop(FILE *stream, loop_p loop_ptr) {
   fprintf(stream, " number of blocks within loop: %d\n", loop_ptr->num_nodes);
   fprintf(stream, " average instructions per iteration: %d\n",
 	  loop_ptr->av_ninsns);
-  
+
   if (loop_ptr->any_upper_bound) {
     fprintf(stream,
 	    " upper bound on number of times loop latch executes: ");
@@ -233,11 +250,32 @@ static void kdn_dump_loop(FILE *stream, loop_p loop_ptr) {
   fprintf(stream, " loop iteration information\n");
   kdn_dump_niter_desc(stream, loop_ptr->simple_loop_desc);
 
-#define DUMP_ENTIRE_BLOCK
+  fprintf(stream, " unroll decision type: ");
+  switch (loop_ptr->lpt_decision.decision)
+    {
+	case LPT_UNROLL_CONSTANT:
+	  fprintf(stream, "LPT_UNROLL_CONSTANT\n");
+	  break;
+	case LPT_UNROLL_RUNTIME:
+	  fprintf(stream, "LPT_UNROLL_RUNTIME\n");
+	  break;
+	case LPT_UNROLL_STUPID:
+	  fprintf(stream, "LPT_UNROLL_STUPID\n");
+	  break;
+	case LPT_NONE:
+	  fprintf(stream, "LPT_NONE (don't unroll)\n");
+	  break;
+	default:
+	  fprintf(stream, "Unrecognized decision code: %d\n",
+		  loop_ptr->lpt_decision.decision);
+	  gcc_unreachable ();
+    }
+
+#undef DUMP_ENTIRE_BLOCK
 #ifdef DUMP_ENTIRE_BLOCK
   kdn_dump_all_blocks(stream, loop_ptr);
 #endif
-
+  
   fprintf(stream,
 	  "Not reported: aux, nb_iterations, safelen, estimate_state,");
   fprintf(stream,
@@ -395,19 +433,20 @@ static void kdn_dump_edge_flags(FILE *stream, int flags) {
   fprintf(stream, "\n");
 }
 
-static void kdn_dump_edge(FILE *stream, edge an_edge) {
+static void 
+kdn_dump_edge (FILE *stream, edge an_edge) {
   /* note: an_edge is a pointer to struct edge_def */
   if (an_edge == NULL) {
-    fprintf(stream, "Null Edge\n");
+    fprintf (stream, "Null Edge\n");
   } else {
-    fprintf(stream,
-	    "Edge (B%d->B%d)\n",
-	    an_edge->src->index, an_edge->dest->index);
-    fprintf(stream, "  flags: ");
-    kdn_dump_edge_flags(stream, an_edge->flags);
-    fprintf(stream, "  probability: %d\n", an_edge->probability);
-    fprintf(stream, "    frequency: %d\n", EDGE_FREQUENCY(an_edge));
-    fprintf(stream, "        count: %ld\n", (long int) an_edge->count);
+    fprintf (stream,
+	     "Edge (B%d->B%d)\n",
+	     an_edge->src->index, an_edge->dest->index);
+    fprintf (stream, "  flags: ");
+    kdn_dump_edge_flags (stream, an_edge->flags);
+    fprintf (stream, "  probability: %d\n", an_edge->probability);
+    fprintf (stream, "    frequency: %d\n", EDGE_FREQUENCY(an_edge));
+    fprintf (stream, "        count: %ld\n", (long int) an_edge->count);
 
     /*
      * trying to output got_locus information, but it's not working yet.
@@ -644,6 +683,7 @@ static void kdn_dump_rtl_insns(FILE *stream, const_rtx rtx_insns) {
     buffer.buffer->stream = stream;
 
     print_rtl(stream, rtx_insns);
+    fprintf(stream, "\n");
   }
 }
 
@@ -801,4 +841,31 @@ static void kdn_dump_wide_int(FILE *stream, const widest_int &orig_big_no) {
   }
   end_buffer++;
   fprintf(stream, "[kdn big number] %s\n", end_buffer);
+}
+
+static void
+kdn_dump_copy_flags(FILE *stream, const char * label, int flags)
+{
+  fprintf(stream, "%s", label);
+  if (flags & DLTHE_FLAG_UPDATE_FREQ)
+    fprintf(stream, "DLTHE_FLAG_UPDATE_FREQ ");
+  if (flags & DLTHE_RECORD_COPY_NUMBER)
+    fprintf(stream, "DLTHE_RECORD_COPY_NUMBER ");
+  if (flags & DLTHE_FLAG_COMPLETTE_PEEL)
+    fprintf(stream, "DLTHE_FLAG_COMPLETTE_PEEL ");
+  flags &= ~(DLTHE_FLAG_UPDATE_FREQ
+	     | DLTHE_RECORD_COPY_NUMBER | DLTHE_FLAG_COMPLETTE_PEEL);
+  if (flags)
+    fprintf(stream, "Unrecognized Flags (0x%x)", flags);
+
+  fprintf(stream, "\n");
+}
+
+static void
+kdn_dump_sbitmap(FILE *stream, const char * label, sbitmap bits)
+{
+  fprintf(stream, "%s", label);
+  for (unsigned int i = 0; i < SBITMAP_SIZE(bits); i++)
+    fprintf(stream, "%d", (int) bitmap_bit_p(bits, i));
+  fprintf(stream, "\n");
 }
