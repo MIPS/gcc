@@ -171,7 +171,8 @@ recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
    list represented by LOWER_STEPS, which would indicate that this
    block has already been visited by a recursive traversal. */
 static bool 
-recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps) {
+recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps)
+{
   while (lower_steps != NULL)
     {
       if (lower_steps->block == candidate)
