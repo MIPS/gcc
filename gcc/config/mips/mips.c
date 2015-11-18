@@ -22167,6 +22167,43 @@ mips_lra_p (void)
 {
   return mips_lra_flag;
 }
+
+bool
+mips_is_bit_clear_upper_16bit_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
+{
+  unsigned int mask = 0;
+  unsigned int shift = 0;
+  unsigned int change_count = 0;
+  unsigned int prev_val = 1;
+  unsigned int curr_val = 0;
+
+  /* VOIDmode appears to be used by reload */
+  if (mode != SImode && mode != VOIDmode)
+    return false;
+
+  if (!TARGET_ALLOW_BIT_CLEAR)
+    return false;
+
+  /* There are no bits cleared in the upper 16 bits */
+  if ((m & 0xffff0000) == 0xffff0000)
+    return false;
+
+  if (!ISA_HAS_EXT_INS)
+    return false;
+
+  for (shift = 0; shift < 31; shift++)
+     {
+       curr_val = (unsigned int)((m & (unsigned int)(1 << shift)) >> shift);
+       if (curr_val != prev_val)
+         change_count++;
+       prev_val = curr_val;
+     }
+
+  if (change_count == 1 || change_count == 2)
+    return true;
+
+  return false;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP

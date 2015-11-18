@@ -389,4 +389,5 @@ extern void mips_expand_vec_cond_expr (machine_mode,
 				       rtx (*)(rtx, rtx, rtx),
 				       rtx (*)(rtx, rtx, rtx));
 
+extern bool mips_is_bit_clear_upper_16bit_p (enum machine_mode, unsigned HOST_WIDE_INT);
 #endif /* ! GCC_MIPS_PROTOS_H */
