@@ -2124,14 +2124,27 @@ expand_direct_optab_fn (internal_fn fn, gcall *stmt, direct_optab optab,
   expand_insn (icode, nargs + 1, ops);
   if (!rtx_equal_p (lhs_rtx, ops[0].value))
     {
-      if (INTEGRAL_TYPE_P (lhs_type))
-	/* Convert the operand to the required type, which is useful
-	   for things that return an int regardless of the size of
-	   the input.  If the value produced by the instruction is
-	   smaller than required, assume that it is signed.  */
-	convert_move (lhs_rtx, ops[0].value, 0);
-      else
+      if (GET_MODE (lhs_rtx) == GET_MODE (ops[0].value))
 	emit_move_insn (lhs_rtx, ops[0].value);
+      else
+	{
+	  /* Convert the operand to the required type, which is useful
+	     for things that return an int regardless of the size of
+	     the input.  If the value produced by the instruction is
+	     smaller than required, assume that it is signed.  */
+	  gcc_checking_assert (INTEGRAL_TYPE_P (lhs_type));
+	  if (GET_CODE (lhs_rtx) == SUBREG && SUBREG_PROMOTED_VAR_P (lhs_rtx))
+	    {
+	      /* If this is a scalar in a register that is stored in a wider
+		 mode than the declared mode, compute the result into its
+		 declared mode and then convert to the wider mode.  */
+	      rtx tmp = convert_to_mode (GET_MODE (lhs_rtx), ops[0].value, 0);
+	      convert_move (SUBREG_REG (lhs_rtx), tmp,
+			    SUBREG_PROMOTED_SIGN (lhs_rtx));
+	    }
+	  else
+	    convert_move (lhs_rtx, ops[0].value, 0);
+	}
     }
 }
 

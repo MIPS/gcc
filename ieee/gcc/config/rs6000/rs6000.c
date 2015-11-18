@@ -7991,21 +7991,23 @@ rs6000_cannot_force_const_mem (machine_mode mode ATTRIBUTE_UNUSED, rtx x)
    that we have put in the TOC, or for cmodel=medium, if the SYMBOL_REF
    can be addressed relative to the toc pointer.  */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits"
+
 static bool
 use_toc_relative_ref (rtx sym, machine_mode mode)
 {
 /* Silence complaint that the POWERPC64_TOC_POINTER_ALIGNMENT test
    is always true.  */
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtype-limits"
   return ((constant_pool_expr_p (sym)
 	   && ASM_OUTPUT_SPECIAL_POOL_ENTRY_P (get_pool_constant (sym),
 					       get_pool_mode (sym)))
 	  || (TARGET_CMODEL == CMODEL_MEDIUM
 	      && SYMBOL_REF_LOCAL_P (sym)
 	      && GET_MODE_SIZE (mode) <= POWERPC64_TOC_POINTER_ALIGNMENT));
-#pragma GCC diagnostic pop
 }
+
+#pragma GCC diagnostic pop
 
 /* Our implementation of LEGITIMIZE_RELOAD_ADDRESS.  Returns a value to
    replace the input X, or the original X if no replacement is called for.

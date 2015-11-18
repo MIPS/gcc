@@ -1,5 +1,14 @@
 2015-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (use_toc_relative_ref): Move #pragmas
+	outside of the function to accomidate older GCC's.
+
+	pr target/68393
+	* internal-fn.c (expand_direct_optab_fn): Apply fix from Richard
+	Sandiford.
+
+2015-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 230570.
 	* REVISION: Update subverison id.
 
