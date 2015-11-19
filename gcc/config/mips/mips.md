@@ -3185,9 +3185,9 @@
 ;;  register =op1                      x
 
 (define_insn "*and<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,!u,d,d,d,d,!u,d")
-	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "o,o,W,!u,d,0,d,d,0,d")
-		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Uean,K,Yx,Yz,Yw,!u,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,!u,d,d,d,!u,d,d")
+       (and:GPR (match_operand:GPR 1 "nonimmediate_operand" "o,o,W,!u,d,d,d,0,d,0")
+                (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Uean,K,Yx,Yw,!u,d,Yz")))]
   "!TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   int len;
@@ -3211,18 +3211,18 @@
       operands[2] = GEN_INT (len);
       return "<d>ext\t%0,%1,0,%2";
     case 6:
-      return "ins\t%0,$0,3,4\t#andi %0 %1 %X2";
-    case 7:
       return "#";
+    case 7:
     case 8:
-    case 9:
       return "and\t%0,%1,%2";
+    case 9:
+      return "ins\t%0,$0,3,4\t#andi %0 %1 %X2";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "move_type" "load,load,load,andi,andi,ext_ins,ext_ins,shift_shift,logical,logical")
-   (set_attr "compression" "*,*,*,micromips,*,*,*,*,micromips,*")
+  [(set_attr "move_type" "load,load,load,andi,andi,ext_ins,shift_shift,logical,logical,ext_ins")
+   (set_attr "compression" "*,*,*,micromips,*,*,*,micromips,*,*")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16"

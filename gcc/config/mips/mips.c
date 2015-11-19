@@ -22274,10 +22274,6 @@ mips_is_bit_clear_upper_16bit_p (enum machine_mode mode, unsigned HOST_WIDE_INT 
   if (!TARGET_ALLOW_BIT_CLEAR)
     return false;
 
-  /* There are no bits cleared in the upper 16 bits */
-  if ((m & 0xffff0000) == 0xffff0000)
-    return false;
-
   if (!ISA_HAS_EXT_INS)
     return false;
 
@@ -22289,7 +22285,7 @@ mips_is_bit_clear_upper_16bit_p (enum machine_mode mode, unsigned HOST_WIDE_INT 
        prev_val = curr_val;
      }
 
-  if (change_count == 1 || change_count == 2)
+  if ((change_count == 1 && ((m & 0xffff0000) != 0)) || change_count == 2)
     return true;
 
   return false;
