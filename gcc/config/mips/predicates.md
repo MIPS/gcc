@@ -17,6 +17,10 @@
 ;; along with GCC; see the file COPYING3.  If not see
 ;; <http://www.gnu.org/licenses/>.
 
+(define_predicate "bit_set_upper_16bit_operand"
+  (and (match_code "const_int")
+       (match_test "mips_is_bit_set_upper_16bit_p (mode, INTVAL(op))")))
+
 (define_predicate "const_uns_arith_operand"
   (and (match_code "const_int")
        (match_test "SMALL_OPERAND_UNSIGNED (INTVAL (op))")))
@@ -24,6 +28,10 @@
 (define_predicate "uns_arith_operand"
   (ior (match_operand 0 "const_uns_arith_operand")
        (match_operand 0 "register_operand")))
+
+(define_predicate "ori_uns_arith_operand"
+  (ior (match_operand 0 "uns_arith_operand")
+       (match_operand 0 "bit_set_upper_16bit_operand")))
 
 (define_predicate "const_arith_operand"
   (and (match_code "const_int")

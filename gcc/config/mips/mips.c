@@ -22169,6 +22169,36 @@ mips_lra_p (void)
 }
 
 bool
+mips_is_bit_set_upper_16bit_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
+{
+  unsigned int shift = 0;
+
+  /* VOIDmode appears to be used by reload */
+  if (mode != SImode && mode != VOIDmode)
+    return false;
+
+  if (!TARGET_ALLOW_BIT_SET)
+    return false;
+
+  if (!ISA_HAS_EXT_INS)
+    return false;
+
+  if (!TARGET_MICROMIPS)
+    return false;
+
+  if (TARGET_INTERLINK_COMPRESSED)
+    return false;
+
+  for (shift = 16; shift < 31; shift++)
+     {
+       if (m == ((unsigned int)((unsigned int)(1 << shift))))
+         return true;
+     }
+
+  return false;
+}
+
+bool
 mips_is_bit_clear_upper_16bit_p (enum machine_mode mode, unsigned HOST_WIDE_INT m)
 {
   unsigned int mask = 0;

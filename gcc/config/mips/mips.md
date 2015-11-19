@@ -3256,7 +3256,7 @@
 (define_expand "ior<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
 	(ior:GPR (match_operand:GPR 1 "register_operand")
-		 (match_operand:GPR 2 "uns_arith_operand")))]
+		 (match_operand:GPR 2 "ori_uns_arith_operand")))]
   ""
 {
   if (TARGET_MIPS16)
@@ -3264,16 +3264,18 @@
 })
 
 (define_insn "*ior<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
-	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,d,d")
-		 (match_operand:GPR 2 "uns_arith_operand" "!u,d,K")))]
+  [(set (match_operand:GPR 0 "register_operand" "=!u,d,d,d")
+	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,d,d,0")
+		 (match_operand:GPR 2 "ori_uns_arith_operand" "!u,d,K,Yi")))]
   "!TARGET_MIPS16"
   "@
    or\t%0,%1,%2
    or\t%0,%1,%2
-   ori\t%0,%1,%x2"
+   ori\t%0,%1,%x2
+   ins\t%0,$31,3,1\t#ori %0 %1 %X2"
+;; alu_type is wrong for ins
   [(set_attr "alu_type" "or")
-   (set_attr "compression" "micromips,*,*")
+   (set_attr "compression" "micromips,*,*,*")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*ior<mode>3_mips16"
