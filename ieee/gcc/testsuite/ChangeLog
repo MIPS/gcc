@@ -1,3 +1,55 @@
+2015-11-19  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* gcc.dg/tree-ssa/vrp98.c: New testcase.
+	* gcc.target/avr/uint8-single-reg.c: New testcase.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67409
+	* g++.dg/eh/goto3.C: New test.
+
+2015-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/68431
+	* gcc.dg/tree-ssa/pr68431.c: New test.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68376
+	* gcc.c-torture/execute/pr68376-1.c: New test.
+	* gcc.c-torture/execute/pr68376-2.c: New test.
+
+	PR target/67770
+	* gcc.target/i386/pr67770.c: New test.
+
+2015-11-18  Jeff Law  <law@redhat.com>
+
+        PR tree-optimization/68198
+	* gcc.dg/tree-ssa/pr66752-3.c: Update expected output for VRP1.
+	* gcc.dg/tree-ssa/pr68198.c: New test.
+
+2015-11-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/59910
+	* gfortran.dg/pr59910.f90: New test.
+
+2015-11-18  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR fortran/43996
+	* gfortran.dg/pr43996.f90: New test.
+
+2015-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/65083
+	* gcc.dg/atomic/stdatomic-fence-2.c,
+	gcc.dg/atomic/stdatomic-flag-2.c: New tests.
+
+2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization19.adb: New test.
+	* gnat.dg/loop_optimization20.adb: Likewise.
+	* gnat.dg/loop_optimization21.ad[sb]: Likewise.
+
 2015-11-18  Eric Botcazou  <ebotcazou@adacore.com>
 
 	* gnat.dg/opt52.adb: New test.

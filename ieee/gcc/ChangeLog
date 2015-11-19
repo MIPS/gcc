@@ -1,3 +1,111 @@
+2015-11-19  David Edelsohn  <dje.gcc@gmail.com>
+
+	Revert
+	2015-11-18  Alan Modra  <amodra@gmail.com>
+
+	* config/rs6000/rs6000.c (use_toc_relative_ref): Ignore
+	type-limits warning.
+
+
+2015-11-19  Senthil Kumar Selvaraj  <senthil_kumar.selvaraj@atmel.com>
+
+	* tree.h (desired_pro_or_demotion_p): New function.
+	* tree-vrp.c (simplify_cond_using_ranges): Call it.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
+
+	PR c++/67409
+	* decl.c (identify_goto): Add LOC and DIAG_KIND arguments, call
+	emit_diagnostic instead of permerror.
+	(check_previous_goto_1): Adjust identify_goto callers, treat all
+	cases but crossing initialization and entering scope of decl with
+	non-trivial dtor as unconditional hard errors.
+	(check_goto): Use identify_goto.  Treat all cases but crossing
+	initialization and entering scope of decl with non-trivial dtor
+	as unconditional hard errors.
+
+2015-11-19  Michael Matz  <matz@suse.de>
+
+	* fwprop.c (update_uses): Use flag_checking instead of
+	gcc_checking_assert.
+
+2015-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* doc/gty.texi (Support for inheritance): Fix missing
+	parentheses in example.
+
+2015-11-19  Marek Polacek  <polacek@redhat.com>
+
+	PR tree-optimization/68431
+	* tree-vrp.c (extract_range_from_binary_expr_1): Fix condition.
+
+2015-11-19  Nathan Sidwell  <nathanacm.org>
+
+	* config/nvptx/nvptx.md (atomic_compare_and_swap<mode>_1,
+	atomic_exchange<mode>): Input values can be immediates.
+
+2015-11-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR lto/61313
+	* configure.ac (PLUGIN_LD_SUFFIX): Do not touch the value specified
+	by the user.
+	* configure: Regenerate.
+
+2015-11-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/68408
+	* config/sparc/sp-elf.h (CTORS_SECTION_ASM_OP): Undefine.
+	(DTORS_SECTION_ASM_OP): Likewise.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68376
+	* ifcvt.c (noce_try_abs): Disable one_cmpl optimization if
+	encountering x <= 0 ? ~x : x or x > 0 ? ~x : x.
+
+2015-11-19  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/68117
+	* tree-ssa.c (delete_tree_ssa): Revert removal of call to
+	redirect_edge_var_map_destroy.
+
+2015-11-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/67770
+	* config/i386/i386.md (simple_return): Disable if
+	ix86_static_chain_on_stack is true.
+
+2015-11-19  Richard Sandiford  <richard.sandiford@arm.com>
+
+	PR bootstrap/68393
+	* internal-fn.c (expand_direct_optab_fn): Handle SUBREG_PROMOTED_VAR_P
+	destinations.
+
+2015-11-18  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/68198
+	* tree-ssa-threadupdate.c (valid_jump_thread_path): Distinguish
+	between threading a multi-way branch and a thread path that contains
+	a multi-way branch.  Disallow the case where a path contains a
+	multi-way branch and does not thread a multi-way branch.
+	(thread_through_all_blocks): Update comment.
+
+2015-11-18  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/65083
+	* ginclude/stdatomic.h (atomic_thread_fence, atomic_signal_fence)
+	(atomic_flag_test_and_set, atomic_flag_test_and_set_explicit)
+	(atomic_flag_clear, atomic_flag_clear_explicit): Declare as
+	functions before defining as macros.
+
+2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_process_pars): Fix whitespace.
+	(nvptx_record_offload_symbol): Remove code compensating for lack
+	of default dimension handling.
+	(nvptx_goacc_validate_dims): Remove incorrect ARG_UNUSED markers.
+
 2015-11-18  Aditya Kumar  <aditya.k7@samsung.com>
 
 	* graphite-isl-ast-to-gimple.c (copy_loop_phi_args): Change the return
