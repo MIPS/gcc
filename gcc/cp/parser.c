@@ -1976,7 +1976,7 @@ static tree cp_parser_postfix_open_square_expression
 static tree cp_parser_postfix_dot_deref_expression
   (cp_parser *, enum cpp_ttype, tree, bool, cp_id_kind *, location_t);
 static vec<tree, va_gc> *cp_parser_parenthesized_expression_list
-  (cp_parser *, int, bool, bool, bool *, bool = false);
+  (cp_parser *, int, bool, bool, bool *);
 /* Values for the second parameter of cp_parser_parenthesized_expression_list.  */
 enum { non_attr = 0, normal_attr = 1, id_attr = 2 };
 static void cp_parser_pseudo_destructor_name
@@ -6502,8 +6502,7 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    args = (cp_parser_parenthesized_expression_list
 		    (parser, non_attr,
 		     /*cast_p=*/false, /*allow_expansion_p=*/true,
-		     /*non_constant_p=*/NULL,
-		     /*want_literal_zero_p=*/warn_memset_transposed_args));
+		     /*non_constant_p=*/NULL));
 	    if (is_builtin_constant_p)
 	      {
 		parser->integral_constant_expression_p
@@ -6577,22 +6576,14 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 		    && DECL_BUILT_IN_CLASS (postfix_expression) == BUILT_IN_NORMAL
 		    && DECL_FUNCTION_CODE (postfix_expression) == BUILT_IN_MEMSET
 		    && vec_safe_length (args) == 3
+		    && TREE_CODE ((*args)[2]) == INTEGER_CST
 		    && integer_zerop ((*args)[2])
-		    && LITERAL_ZERO_P ((*args)[2])
-		    && !(integer_zerop ((*args)[1])
-			 && LITERAL_ZERO_P ((*args)[1])))
+		    && !(TREE_CODE ((*args)[1]) == INTEGER_CST
+			 && integer_zerop ((*args)[1])))
 		  warning (OPT_Wmemset_transposed_args,
 			   "%<memset%> used with constant zero length "
 			   "parameter; this could be due to transposed "
 			   "parameters");
-
-		/* Replace LITERAL_ZERO_P INTEGER_CSTs with normal ones
-		   to avoid leaking those into folder and middle-end.  */
-		unsigned int i;
-		tree arg;
-		FOR_EACH_VEC_SAFE_ELT (args, i, arg)
-		  if (TREE_CODE (arg) == INTEGER_CST && LITERAL_ZERO_P (arg))
-		    (*args)[i] = build_int_cst (TREE_TYPE (arg), 0);
 	      }
 
 	    if (TREE_CODE (postfix_expression) == COMPONENT_REF)
@@ -6778,7 +6769,7 @@ cp_parser_array_notation (location_t loc, cp_parser *parser, tree *init_index,
 	 2. ARRAY [ EXP : EXP ]
 	 3. ARRAY [ EXP : EXP : EXP ]  */
 
-      *init_index = cp_parser_expression (parser);	
+      *init_index = cp_parser_expression (parser);
       if (cp_lexer_peek_token (parser->lexer)->type != CPP_COLON)
 	{  
 	  /* This indicates that we have a normal array expression.  */
@@ -7085,10 +7076,6 @@ cp_parser_postfix_dot_deref_expression (cp_parser *parser,
   return postfix_expression;
 }
 
-/* Cache of LITERAL_ZERO_P constants.  */
-
-static GTY(()) tree literal_zeros[itk_none];
-
 /* Parse a parenthesized expression-list.
 
    expression-list:
@@ -7113,18 +7100,14 @@ static GTY(()) tree literal_zeros[itk_none];
    plain identifier argument, normal_attr for an attribute that wants
    an expression, or non_attr if we aren't parsing an attribute list.  If
    NON_CONSTANT_P is non-NULL, *NON_CONSTANT_P indicates whether or
-   not all of the expressions in the list were constant.
-   WANT_LITERAL_ZERO_P is true if the caller is interested in
-   LITERAL_ZERO_P INTEGER_CSTs.  FIXME: once we don't fold everything
-   immediately, this can be removed.  */
+   not all of the expressions in the list were constant.  */
 
 static vec<tree, va_gc> *
 cp_parser_parenthesized_expression_list (cp_parser* parser,
 					 int is_attribute_list,
 					 bool cast_p,
                                          bool allow_expansion_p,
-					 bool *non_constant_p,
-					 bool want_literal_zero_p)
+					 bool *non_constant_p)
 {
   vec<tree, va_gc> *expression_list;
   bool fold_expr_p = is_attribute_list != non_attr;
@@ -7187,51 +7170,8 @@ cp_parser_parenthesized_expression_list (cp_parser* parser,
 		  *non_constant_p = true;
 	      }
 	    else
-	      {
-		expr = NULL_TREE;
-		cp_token *tok = cp_lexer_peek_token (parser->lexer);
-		switch (tok->type)
-		  {
-		  case CPP_NUMBER:
-		  case CPP_CHAR:
-		  case CPP_WCHAR:
-		  case CPP_CHAR16:
-		  case CPP_CHAR32:
-		  case CPP_UTF8CHAR:
-		    /* If a parameter is literal zero alone, remember it
-		       for -Wmemset-transposed-args warning.  */
-		    if (integer_zerop (tok->u.value)
-			&& !TREE_OVERFLOW (tok->u.value)
-			&& want_literal_zero_p
-			&& (cp_lexer_peek_nth_token (parser->lexer, 2)->type
-			    == CPP_COMMA
-			    || cp_lexer_peek_nth_token (parser->lexer, 2)->type
-			       == CPP_CLOSE_PAREN))
-		      {
-			unsigned int i;
-			for (i = 0; i < itk_none; ++i)
-			  if (TREE_TYPE (tok->u.value) == integer_types[i])
-			    break;
-			if (i < itk_none && literal_zeros[i])
-			  expr = literal_zeros[i];
-			else
-			  {
-			    expr = copy_node (tok->u.value);
-			    LITERAL_ZERO_P (expr) = 1;
-			    if (i < itk_none)
-			      literal_zeros[i] = expr;
-			  }
-			/* Consume the 0 token (or '\0', 0LL etc.).  */
-			cp_lexer_consume_token (parser->lexer);
-		      }
-		    break;
-		  default:
-		    break;
-		  }
-		if (expr == NULL_TREE)
-		  expr = cp_parser_assignment_expression (parser, /*pidk=*/NULL,
-							  cast_p);
-	      }
+	      expr = cp_parser_assignment_expression (parser, /*pidk=*/NULL,
+						      cast_p);
 
 	    if (fold_expr_p)
 	      expr = instantiate_non_dependent_expr (expr);
@@ -7662,6 +7602,8 @@ cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
 
       /* Consume the operator token.  */
       token = cp_lexer_consume_token (parser->lexer);
+      enum cpp_ttype op_ttype = cp_lexer_peek_token (parser->lexer)->type;
+
       /* Parse the cast-expression.  */
       cast_expression
 	= cp_parser_cast_expression (parser,
@@ -7693,8 +7635,25 @@ cp_parser_unary_expression (cp_parser *parser, cp_id_kind * pidk,
 	  non_constant_p = unary_operator == PREINCREMENT_EXPR
 			   ? NIC_PREINCREMENT : NIC_PREDECREMENT;
 	  /* Fall through.  */
-	case UNARY_PLUS_EXPR:
 	case NEGATE_EXPR:
+	  /* Immediately fold negation of a constant, unless the constant is 0
+	     (since -0 == 0) or it would overflow.  */
+	  if (unary_operator == NEGATE_EXPR && op_ttype == CPP_NUMBER
+	      && CONSTANT_CLASS_P (cast_expression)
+	      && !integer_zerop (cast_expression)
+	      && !TREE_OVERFLOW (cast_expression))
+	    {
+	      tree folded = fold_build1 (unary_operator,
+					 TREE_TYPE (cast_expression),
+					 cast_expression);
+	      if (CONSTANT_CLASS_P (folded) && !TREE_OVERFLOW (folded))
+		{
+		  expression = folded;
+		  break;
+		}
+	    }
+	  /* Fall through.  */
+	case UNARY_PLUS_EXPR:
 	case TRUTH_NOT_EXPR:
 	  expression = finish_unary_op_expr (loc, unary_operator,
 					     cast_expression, complain);
@@ -8522,9 +8481,11 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
       /* For "false && x" or "true || x", x will never be executed;
 	 disable warnings while evaluating it.  */
       if (current.tree_type == TRUTH_ANDIF_EXPR)
-	c_inhibit_evaluation_warnings += current.lhs == truthvalue_false_node;
+	c_inhibit_evaluation_warnings +=
+	  cp_fully_fold (current.lhs) == truthvalue_false_node;
       else if (current.tree_type == TRUTH_ORIF_EXPR)
-	c_inhibit_evaluation_warnings += current.lhs == truthvalue_true_node;
+	c_inhibit_evaluation_warnings +=
+	  cp_fully_fold (current.lhs) == truthvalue_true_node;
 
       /* Extract another operand.  It may be the RHS of this expression
 	 or the LHS of a new, higher priority expression.  */
@@ -8571,9 +8532,11 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 
       /* Undo the disabling of warnings done above.  */
       if (current.tree_type == TRUTH_ANDIF_EXPR)
-	c_inhibit_evaluation_warnings -= current.lhs == truthvalue_false_node;
+	c_inhibit_evaluation_warnings -=
+	  cp_fully_fold (current.lhs) == truthvalue_false_node;
       else if (current.tree_type == TRUTH_ORIF_EXPR)
-	c_inhibit_evaluation_warnings -= current.lhs == truthvalue_true_node;
+	c_inhibit_evaluation_warnings -=
+	  cp_fully_fold (current.lhs) == truthvalue_true_node;
 
       if (warn_logical_not_paren
 	  && TREE_CODE_CLASS (current.tree_type) == tcc_comparison
@@ -8659,7 +8622,7 @@ cp_parser_binary_expression (cp_parser* parser, bool cast_p,
 static tree
 cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
 {
-  tree expr;
+  tree expr, folded_logical_or_expr = cp_fully_fold (logical_or_expr);
   tree assignment_expr;
   struct cp_token *token;
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
@@ -8674,7 +8637,8 @@ cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
                "ISO C++ does not allow ?: with omitted middle operand");
       /* Implicit true clause.  */
       expr = NULL_TREE;
-      c_inhibit_evaluation_warnings += logical_or_expr == truthvalue_true_node;
+      c_inhibit_evaluation_warnings +=
+	folded_logical_or_expr == truthvalue_true_node;
       warn_for_omitted_condop (token->location, logical_or_expr);
     }
   else
@@ -8682,11 +8646,12 @@ cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
       bool saved_colon_corrects_to_scope_p = parser->colon_corrects_to_scope_p;
       parser->colon_corrects_to_scope_p = false;
       /* Parse the expression.  */
-      c_inhibit_evaluation_warnings += logical_or_expr == truthvalue_false_node;
+      c_inhibit_evaluation_warnings +=
+	folded_logical_or_expr == truthvalue_false_node;
       expr = cp_parser_expression (parser);
       c_inhibit_evaluation_warnings +=
-	((logical_or_expr == truthvalue_true_node)
-	 - (logical_or_expr == truthvalue_false_node));
+	((folded_logical_or_expr == truthvalue_true_node)
+	 - (folded_logical_or_expr == truthvalue_false_node));
       parser->colon_corrects_to_scope_p = saved_colon_corrects_to_scope_p;
     }
 
@@ -8694,7 +8659,8 @@ cp_parser_question_colon_clause (cp_parser* parser, tree logical_or_expr)
   cp_parser_require (parser, CPP_COLON, RT_COLON);
   /* Parse the assignment-expression.  */
   assignment_expr = cp_parser_assignment_expression (parser);
-  c_inhibit_evaluation_warnings -= logical_or_expr == truthvalue_true_node;
+  c_inhibit_evaluation_warnings -=
+    folded_logical_or_expr == truthvalue_true_node;
 
   /* Build the conditional-expression.  */
   return build_x_conditional_expr (loc, logical_or_expr,
@@ -29128,6 +29094,8 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_DEVICE;
 	  else if (!strcmp ("deviceptr", p))
 	    result = PRAGMA_OACC_CLAUSE_DEVICEPTR;
+	  else if (!strcmp ("device_resident", p))
+	    result = PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT;
 	  else if (!strcmp ("dist_schedule", p))
 	    result = PRAGMA_OMP_CLAUSE_DIST_SCHEDULE;
 	  break;
@@ -29541,9 +29509,15 @@ cp_parser_oacc_data_clause (cp_parser *parser, pragma_omp_clause c_kind,
     case PRAGMA_OACC_CLAUSE_DEVICE:
       kind = GOMP_MAP_FORCE_TO;
       break;
+    case PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT:
+      kind = GOMP_MAP_DEVICE_RESIDENT;
+      break;
     case PRAGMA_OACC_CLAUSE_HOST:
     case PRAGMA_OACC_CLAUSE_SELF:
       kind = GOMP_MAP_FORCE_FROM;
+      break;
+    case PRAGMA_OACC_CLAUSE_LINK:
+      kind = GOMP_MAP_LINK;
       break;
     case PRAGMA_OACC_CLAUSE_PRESENT:
       kind = GOMP_MAP_FORCE_PRESENT;
@@ -31545,6 +31519,10 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  clauses = cp_parser_oacc_data_clause_deviceptr (parser, clauses);
 	  c_name = "deviceptr";
 	  break;
+	case PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT:
+	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "device_resident";
+	  break;
 	case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
 	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_FIRSTPRIVATE,
 					    clauses);
@@ -31568,6 +31546,10 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 						  OMP_CLAUSE_INDEPENDENT,
 						  clauses, here);
 	  c_name = "independent";
+	  break;
+	case PRAGMA_OACC_CLAUSE_LINK:
+	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "link";
 	  break;
 	case PRAGMA_OACC_CLAUSE_NUM_GANGS:
 	  code = OMP_CLAUSE_NUM_GANGS;
@@ -34526,6 +34508,158 @@ cp_parser_oacc_data (cp_parser *parser, cp_token *pragma_tok)
 }
 
 /* OpenACC 2.0:
+   # pragma acc declare oacc-data-clause[optseq] new-line
+*/
+
+#define OACC_DECLARE_CLAUSE_MASK					\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPY)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYIN)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYOUT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_CREATE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICEPTR)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_LINK)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYIN)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYOUT)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE))
+
+static tree
+cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
+{
+  tree clauses, stmt;
+  bool error = false;
+
+  clauses = cp_parser_oacc_all_clauses (parser, OACC_DECLARE_CLAUSE_MASK,
+					"#pragma acc declare", pragma_tok, true);
+
+
+  if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
+    {
+      error_at (pragma_tok->location,
+		"no valid clauses specified in %<#pragma acc declare%>");
+      return NULL_TREE;
+    }
+
+  for (tree t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
+    {
+      location_t loc = OMP_CLAUSE_LOCATION (t);
+      tree decl = OMP_CLAUSE_DECL (t);
+      if (!DECL_P (decl))
+	{
+	  error_at (loc, "array section in %<#pragma acc declare%>");
+	  error = true;
+	  continue;
+	}
+      gcc_assert (OMP_CLAUSE_CODE (t) == OMP_CLAUSE_MAP);
+      switch (OMP_CLAUSE_MAP_KIND (t))
+	{
+	case GOMP_MAP_FORCE_ALLOC:
+	case GOMP_MAP_FORCE_TO:
+	case GOMP_MAP_FORCE_DEVICEPTR:
+	case GOMP_MAP_DEVICE_RESIDENT:
+	  break;
+
+	case GOMP_MAP_POINTER:
+	  /* Generated by c_finish_omp_clauses from array sections;
+	     avoid spurious diagnostics.  */
+	  break;
+
+	case GOMP_MAP_LINK:
+	  if (!global_bindings_p ()
+	      && (TREE_STATIC (decl)
+	       || !DECL_EXTERNAL (decl)))
+	    {
+	      error_at (loc,
+			"%qD must be a global variable in"
+			"%<#pragma acc declare link%>",
+			decl);
+	      error = true;
+	      continue;
+	    }
+	  break;
+
+	default:
+	  if (global_bindings_p ())
+	    {
+	      error_at (loc, "invalid OpenACC clause at file scope");
+	      error = true;
+	      continue;
+	    }
+	  if (DECL_EXTERNAL (decl))
+	    {
+	      error_at (loc,
+			"invalid use of %<extern%> variable %qD "
+			"in %<#pragma acc declare%>", decl);
+	      error = true;
+	      continue;
+	    }
+	  else if (TREE_PUBLIC (decl))
+	    {
+	      error_at (loc,
+			"invalid use of %<global%> variable %qD "
+			"in %<#pragma acc declare%>", decl);
+	      error = true;
+	      continue;
+	    }
+	  break;
+	}
+
+      if (lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl))
+	  || lookup_attribute ("omp declare target link",
+			       DECL_ATTRIBUTES (decl)))
+	{
+	  error_at (loc, "variable %qD used more than once with "
+		    "%<#pragma acc declare%>", decl);
+	  error = true;
+	  continue;
+	}
+
+      if (!error)
+	{
+	  tree id;
+
+	  if (OMP_CLAUSE_MAP_KIND (t) == GOMP_MAP_LINK)
+	    id = get_identifier ("omp declare target link");
+	  else
+	    id = get_identifier ("omp declare target");
+
+	  DECL_ATTRIBUTES (decl)
+			   = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (decl));
+	  if (global_bindings_p ())
+	    {
+	      symtab_node *node = symtab_node::get (decl);
+	      if (node != NULL)
+		{
+		  node->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
+		  g->have_offload = true;
+		  if (is_a <varpool_node *> (node))
+		    {
+		      vec_safe_push (offload_vars, decl);
+		      node->force_output = 1;
+		    }
+#endif
+		}
+	    }
+	}
+    }
+
+  if (error || global_bindings_p ())
+    return NULL_TREE;
+
+  stmt = make_node (OACC_DECLARE);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DECLARE_CLAUSES (stmt) = clauses;
+  SET_EXPR_LOCATION (stmt, pragma_tok->location);
+
+  add_stmt (stmt);
+
+  return NULL_TREE;
+}
+
+/* OpenACC 2.0:
    # pragma acc enter data oacc-enter-data-clause[optseq] new-line
 
    or
@@ -34874,10 +35008,12 @@ cp_parser_late_parsing_cilk_simd_fn_info (cp_parser *parser, tree attrs)
   cp_omp_declare_simd_data *info = parser->cilk_simd_fn_info;
   int ii = 0;
 
-  if (parser->omp_declare_simd != NULL)
+  if (parser->omp_declare_simd != NULL
+      || lookup_attribute ("simd", attrs))
     {
-      error ("%<#pragma omp declare simd%> cannot be used in the same function"
-	     " marked as a Cilk Plus SIMD-enabled function");
+      error ("%<#pragma omp declare simd%> of %<simd%> attribute cannot be "
+	     "used in the same function marked as a Cilk Plus SIMD-enabled "
+	     " function");
       XDELETE (parser->cilk_simd_fn_info);
       parser->cilk_simd_fn_info = NULL;
       return attrs;
@@ -35033,14 +35169,15 @@ cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
 	  if (node != NULL)
 	    {
 	      node->offloadable = 1;
-#ifdef ENABLE_OFFLOADING
-	      g->have_offload = true;
-	      if (is_a <varpool_node *> (node))
+	      if (ENABLE_OFFLOADING)
 		{
-		  vec_safe_push (offload_vars, t);
-		  node->force_output = 1;
+		  g->have_offload = true;
+		  if (is_a <varpool_node *> (node))
+		    {
+		      vec_safe_push (offload_vars, t);
+		      node->force_output = 1;
+		    }
 		}
-#endif
 	    }
 	}
     }
@@ -36352,6 +36489,10 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 
     case PRAGMA_OMP_DECLARE_REDUCTION:
       cp_parser_omp_declare (parser, pragma_tok, context);
+      return false;
+
+    case PRAGMA_OACC_DECLARE:
+      cp_parser_oacc_declare (parser, pragma_tok);
       return false;
 
     case PRAGMA_OACC_ROUTINE:

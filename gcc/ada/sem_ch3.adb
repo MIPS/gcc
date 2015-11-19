@@ -3390,6 +3390,7 @@ package body Sem_Ch3 is
       --  Local variables
 
       Save_Ghost_Mode : constant Ghost_Mode_Type := Ghost_Mode;
+      Related_Id      : Entity_Id;
 
    --  Start of processing for Analyze_Object_Declaration
 
@@ -4015,7 +4016,25 @@ package body Sem_Ch3 is
                return;
 
             else
-               Expand_Subtype_From_Expr (N, T, Object_Definition (N), E);
+               --  Ensure that the generated subtype has a unique external name
+               --  when the related object is public. This guarantees that the
+               --  subtype and its bounds will not be affected by switches or
+               --  pragmas that may offset the internal counter due to extra
+               --  generated code.
+
+               if Is_Public (Id) then
+                  Related_Id := Id;
+               else
+                  Related_Id := Empty;
+               end if;
+
+               Expand_Subtype_From_Expr
+                 (N             => N,
+                  Unc_Type      => T,
+                  Subtype_Indic => Object_Definition (N),
+                  Exp           => E,
+                  Related_Id    => Related_Id);
+
                Act_T := Find_Type_Of_Object (Object_Definition (N), N);
             end if;
 
@@ -4833,7 +4852,9 @@ package body Sem_Ch3 is
                Set_Scalar_Range         (Id, Scalar_Range       (T));
                Set_Digits_Value         (Id, Digits_Value       (T));
                Set_Is_Constrained       (Id, Is_Constrained     (T));
-               Copy_Dimensions          (From => T, To => Id);
+
+               --  If the floating point type has dimensions, these will be
+               --  inherited subsequently when Analyze_Dimensions is called.
 
             when Signed_Integer_Kind =>
                Set_Ekind                (Id, E_Signed_Integer_Subtype);

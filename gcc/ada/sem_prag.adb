@@ -957,6 +957,16 @@ package body Sem_Prag is
 
                      if Ekind (Item_Id) = E_Abstract_State then
                         Append_New_Elmt (Item_Id, States_Seen);
+
+                     --  The variable may eventually become a constituent of a
+                     --  single protected/task type. Record the reference now
+                     --  and verify its legality when analyzing the contract of
+                     --  the variable (SPARK RM 9.3).
+
+                     elsif Ekind (Item_Id) = E_Variable then
+                        Record_Possible_Part_Of_Reference
+                          (Var_Id => Item_Id,
+                           Ref    => Item);
                      end if;
 
                      if Ekind_In (Item_Id, E_Abstract_State,
@@ -2209,6 +2219,16 @@ package body Sem_Prag is
 
                if Ekind (Item_Id) = E_Abstract_State then
                   Append_New_Elmt (Item_Id, States_Seen);
+
+               --  The variable may eventually become a constituent of a single
+               --  protected/task type. Record the reference now and verify its
+               --  legality when analyzing the contract of the variable
+               --  (SPARK RM 9.3).
+
+               elsif Ekind (Item_Id) = E_Variable then
+                  Record_Possible_Part_Of_Reference
+                    (Var_Id => Item_Id,
+                     Ref    => Item);
                end if;
 
                if Ekind_In (Item_Id, E_Abstract_State, E_Constant, E_Variable)
@@ -4328,8 +4348,12 @@ package body Sem_Prag is
       begin
          Check_Arg_Is_Local_Name (Arg);
 
+         --  If it came from an aspect, we want to give the error just as if it
+         --  came from source.
+
          if not Is_Library_Level_Entity (Entity (Get_Pragma_Arg (Arg)))
-           and then Comes_From_Source (N)
+           and then (Comes_From_Source (N)
+                       or else Present (Corresponding_Aspect (Parent (Arg))))
          then
             Error_Pragma_Arg
               ("argument for pragma% must be library level entity", Arg);
@@ -8764,30 +8788,28 @@ package body Sem_Prag is
       -----------------------------------------
 
       procedure Process_Interrupt_Or_Attach_Handler is
-         Arg1_X       : constant Node_Id   := Get_Pragma_Arg (Arg1);
-         Handler_Proc : constant Entity_Id := Entity (Arg1_X);
-         Proc_Scope   : constant Entity_Id := Scope (Handler_Proc);
+         Handler  : constant Entity_Id := Entity (Get_Pragma_Arg (Arg1));
+         Prot_Typ : constant Entity_Id := Scope (Handler);
 
       begin
          --  A pragma that applies to a Ghost entity becomes Ghost for the
          --  purposes of legality checks and removal of ignored Ghost code.
 
-         Mark_Pragma_As_Ghost (N, Handler_Proc);
-         Set_Is_Interrupt_Handler (Handler_Proc);
+         Mark_Pragma_As_Ghost (N, Handler);
+         Set_Is_Interrupt_Handler (Handler);
 
          --  If the pragma is not associated with a handler procedure within a
          --  protected type, then it must be for a nonprotected procedure for
          --  the AAMP target, in which case we don't associate a representation
          --  item with the procedure's scope.
 
-         if Ekind (Proc_Scope) = E_Protected_Type then
-            if Prag_Id = Pragma_Interrupt_Handler
-                 or else
-               Prag_Id = Pragma_Attach_Handler
-            then
-               Record_Rep_Item (Proc_Scope, N);
-            end if;
+         if Ekind (Prot_Typ) = E_Protected_Type then
+            Record_Rep_Item (Prot_Typ, N);
          end if;
+
+         --  Chain the pragma on the contract for completeness
+
+         Add_Contract_Item (N, Handler);
       end Process_Interrupt_Or_Attach_Handler;
 
       --------------------------------------------------
@@ -9656,11 +9678,6 @@ package body Sem_Prag is
       --      No_Dependence => System.Multiprocessors.Dispatching_Domains
 
       procedure Set_Ravenscar_Profile (Profile : Profile_Name; N : Node_Id) is
-         Prefix_Entity   : Entity_Id;
-         Selector_Entity : Entity_Id;
-         Prefix_Node     : Node_Id;
-         Node            : Node_Id;
-
          procedure Set_Error_Msg_To_Profile_Name;
          --  Set Error_Msg_String and Error_Msg_Strlen to the name of the
          --  profile.
@@ -9670,16 +9687,26 @@ package body Sem_Prag is
          -----------------------------------
 
          procedure Set_Error_Msg_To_Profile_Name is
-            Pragma_Args     : constant List_Id :=
-                                Pragma_Argument_Associations (N);
-            Profile_Name    : constant Node_Id :=
-                                Get_Pragma_Arg (First (Pragma_Args));
+            Prof_Nam : constant Node_Id :=
+                         Get_Pragma_Arg
+                           (First (Pragma_Argument_Associations (N)));
+
          begin
-            Get_Name_String (Chars (Profile_Name));
-            Adjust_Name_Case (Sloc (Profile_Name));
+            Get_Name_String (Chars (Prof_Nam));
+            Adjust_Name_Case (Sloc (Prof_Nam));
             Error_Msg_Strlen := Name_Len;
             Error_Msg_String (1 .. Name_Len) := Name_Buffer (1 .. Name_Len);
          end Set_Error_Msg_To_Profile_Name;
+
+         --  Local variables
+
+         Nod     : Node_Id;
+         Pref    : Node_Id;
+         Pref_Id : Node_Id;
+         Sel_Id  : Node_Id;
+
+      --  Start of processing for Set_Ravenscar_Profile
+
       begin
          --  pragma Task_Dispatching_Policy (FIFO_Within_Priorities)
 
@@ -9743,52 +9770,56 @@ package body Sem_Prag is
          --    No_Dependence => Ada.Execution_Time.Group_Budget
          --    No_Dependence => Ada.Execution_Time.Timers
 
+         --  ??? The use of Name_Buffer here is suspicious. The names should
+         --  be registered in snames.ads-tmpl and used to build the qualified
+         --  names of units.
+
          if Ada_Version >= Ada_2005 then
             Name_Buffer (1 .. 3) := "ada";
             Name_Len := 3;
 
-            Prefix_Entity := Make_Identifier (Loc, Name_Find);
+            Pref_Id := Make_Identifier (Loc, Name_Find);
 
             Name_Buffer (1 .. 14) := "execution_time";
             Name_Len := 14;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Prefix_Node :=
+            Pref :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Entity,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref_Id,
+                 Selector_Name => Sel_Id);
 
             Name_Buffer (1 .. 13) := "group_budgets";
             Name_Len := 13;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Node :=
+            Nod :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Node,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref,
+                 Selector_Name => Sel_Id);
 
             Set_Restriction_No_Dependence
-              (Unit    => Node,
+              (Unit    => Nod,
                Warn    => Treat_Restrictions_As_Warnings,
                Profile => Ravenscar);
 
             Name_Buffer (1 .. 6) := "timers";
             Name_Len := 6;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Node :=
+            Nod :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Node,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref,
+                 Selector_Name => Sel_Id);
 
             Set_Restriction_No_Dependence
-              (Unit    => Node,
+              (Unit    => Nod,
                Warn    => Treat_Restrictions_As_Warnings,
                Profile => Ravenscar);
          end if;
@@ -9801,32 +9832,32 @@ package body Sem_Prag is
             Name_Buffer (1 .. 6) := "system";
             Name_Len := 6;
 
-            Prefix_Entity := Make_Identifier (Loc, Name_Find);
+            Pref_Id := Make_Identifier (Loc, Name_Find);
 
             Name_Buffer (1 .. 15) := "multiprocessors";
             Name_Len := 15;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Prefix_Node :=
+            Pref :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Entity,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref_Id,
+                 Selector_Name => Sel_Id);
 
             Name_Buffer (1 .. 19) := "dispatching_domains";
             Name_Len := 19;
 
-            Selector_Entity := Make_Identifier (Loc, Name_Find);
+            Sel_Id := Make_Identifier (Loc, Name_Find);
 
-            Node :=
+            Nod :=
               Make_Selected_Component
                 (Sloc          => Loc,
-                 Prefix        => Prefix_Node,
-                 Selector_Name => Selector_Entity);
+                 Prefix        => Pref,
+                 Selector_Name => Sel_Id);
 
             Set_Restriction_No_Dependence
-              (Unit    => Node,
+              (Unit    => Nod,
                Warn    => Treat_Restrictions_As_Warnings,
                Profile => Ravenscar);
          end if;
@@ -9985,7 +10016,7 @@ package body Sem_Prag is
          --  ABSTRACT_STATE_LIST ::=
          --     null
          --  |  STATE_NAME_WITH_OPTIONS
-         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS} )
+         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS})
 
          --  STATE_NAME_WITH_OPTIONS ::=
          --     STATE_NAME
@@ -10005,7 +10036,7 @@ package body Sem_Prag is
 
          --  EXTERNAL_PROPERTY_LIST ::=
          --     EXTERNAL_PROPERTY
-         --  | (EXTERNAL_PROPERTY {, EXTERNAL_PROPERTY} )
+         --  | (EXTERNAL_PROPERTY {, EXTERNAL_PROPERTY})
 
          --  EXTERNAL_PROPERTY ::=
          --    Async_Readers    [=> boolean_EXPRESSION]
@@ -12591,22 +12622,15 @@ package body Sem_Prag is
 
             Obj_Id := Defining_Entity (Obj_Decl);
 
-            --  The object declaration must be a library-level variable with
-            --  an initialization expression. The expression must depend on
-            --  a variable, parameter, or another constant_after_elaboration,
-            --  but the compiler cannot detect this property, as this requires
-            --  full flow analysis (SPARK RM 3.3.1).
+            --  The object declaration must be a library-level variable which
+            --  is either explicitly initialized or obtains a value during the
+            --  elaboration of a package body (SPARK RM 3.3.1).
 
             if Ekind (Obj_Id) = E_Variable then
                if not Is_Library_Level_Entity (Obj_Id) then
                   Error_Pragma
                     ("pragma % must apply to a library level variable");
                   return;
-
-               elsif not Has_Init_Expression (Obj_Decl) then
-                  Error_Pragma
-                    ("pragma % must apply to a variable with initialization "
-                     & "expression");
                end if;
 
             --  Otherwise the pragma applies to a constant, which is illegal
@@ -13406,8 +13430,8 @@ package body Sem_Prag is
          --  pragma Depends (DEPENDENCY_RELATION);
 
          --  DEPENDENCY_RELATION ::=
-         --    null
-         --  | DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE}
+         --     null
+         --  | (DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE})
 
          --  DEPENDENCY_CLAUSE ::=
          --    OUTPUT_LIST =>[+] INPUT_LIST
@@ -14939,9 +14963,9 @@ package body Sem_Prag is
          --  pragma Global (GLOBAL_SPECIFICATION);
 
          --  GLOBAL_SPECIFICATION ::=
-         --    null
-         --  | GLOBAL_LIST
-         --  | MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST}
+         --     null
+         --  | (GLOBAL_LIST)
+         --  | (MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST})
 
          --  MODED_GLOBAL_LIST ::= MODE_SELECTOR => GLOBAL_LIST
 
@@ -15683,20 +15707,18 @@ package body Sem_Prag is
          -- Initializes --
          -----------------
 
-         --  pragma Initializes (INITIALIZATION_SPEC);
-
-         --  INITIALIZATION_SPEC ::= null | INITIALIZATION_LIST
+         --  pragma Initializes (INITIALIZATION_LIST);
 
          --  INITIALIZATION_LIST ::=
-         --    INITIALIZATION_ITEM
-         --    | (INITIALIZATION_ITEM {, INITIALIZATION_ITEM})
+         --     null
+         --  | (INITIALIZATION_ITEM {, INITIALIZATION_ITEM})
 
          --  INITIALIZATION_ITEM ::= name [=> INPUT_LIST]
 
          --  INPUT_LIST ::=
-         --    null
-         --    | INPUT
-         --    | (INPUT {, INPUT})
+         --     null
+         --  |  INPUT
+         --  | (INPUT {, INPUT})
 
          --  INPUT ::= name
 
@@ -19281,8 +19303,8 @@ package body Sem_Prag is
          --  pragma Refined_Depends (DEPENDENCY_RELATION);
 
          --  DEPENDENCY_RELATION ::=
-         --    null
-         --  | DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE}
+         --     null
+         --  | (DEPENDENCY_CLAUSE {, DEPENDENCY_CLAUSE})
 
          --  DEPENDENCY_CLAUSE ::=
          --    OUTPUT_LIST =>[+] INPUT_LIST
@@ -19357,9 +19379,9 @@ package body Sem_Prag is
          --  pragma Refined_Global (GLOBAL_SPECIFICATION);
 
          --  GLOBAL_SPECIFICATION ::=
-         --    null
-         --  | GLOBAL_LIST
-         --  | MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST}
+         --     null
+         --  | (GLOBAL_LIST)
+         --  | (MODED_GLOBAL_LIST {, MODED_GLOBAL_LIST})
 
          --  MODED_GLOBAL_LIST ::= MODE_SELECTOR => GLOBAL_LIST
 
@@ -19482,15 +19504,14 @@ package body Sem_Prag is
          --  pragma Refined_State (REFINEMENT_LIST);
 
          --  REFINEMENT_LIST ::=
-         --    REFINEMENT_CLAUSE
-         --    | (REFINEMENT_CLAUSE {, REFINEMENT_CLAUSE})
+         --    (REFINEMENT_CLAUSE {, REFINEMENT_CLAUSE})
 
          --  REFINEMENT_CLAUSE ::= state_NAME => CONSTITUENT_LIST
 
          --  CONSTITUENT_LIST ::=
-         --    null
-         --    | CONSTITUENT
-         --    | (CONSTITUENT {, CONSTITUENT})
+         --     null
+         --  |  CONSTITUENT
+         --  | (CONSTITUENT {, CONSTITUENT})
 
          --  CONSTITUENT ::= object_NAME | state_NAME
 
@@ -23305,7 +23326,7 @@ package body Sem_Prag is
 
                return
                  Ekind (Item_Id) = E_Abstract_State
-                   and then Has_Null_Refinement (Item_Id);
+                   and then Has_Null_Visible_Refinement (Item_Id);
             else
                return False;
             end if;
@@ -23356,7 +23377,7 @@ package body Sem_Prag is
                   --  An abstract state with visible null refinement matches
                   --  null or Empty (special case).
 
-                  if Has_Null_Refinement (Dep_Item_Id)
+                  if Has_Null_Visible_Refinement (Dep_Item_Id)
                     and then (No (Ref_Item) or else Nkind (Ref_Item) = N_Null)
                   then
                      Record_Item (Dep_Item_Id);
@@ -23365,7 +23386,7 @@ package body Sem_Prag is
                   --  An abstract state with visible non-null refinement
                   --  matches one of its constituents.
 
-                  elsif Has_Non_Null_Refinement (Dep_Item_Id) then
+                  elsif Has_Non_Null_Visible_Refinement (Dep_Item_Id) then
                      if Is_Entity_Name (Ref_Item) then
                         Ref_Item_Id := Entity_Of (Ref_Item);
 
@@ -23695,7 +23716,7 @@ package body Sem_Prag is
                   --  Ensure that all of the constituents are utilized as
                   --  outputs in pragma Refined_Depends.
 
-                  elsif Has_Non_Null_Refinement (Item_Id) then
+                  elsif Has_Non_Null_Visible_Refinement (Item_Id) then
                      Check_Constituent_Usage (Item_Id);
                   end if;
                end if;
@@ -24267,7 +24288,7 @@ package body Sem_Prag is
                --  Ensure that one of the three coverage variants is satisfied
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24358,7 +24379,7 @@ package body Sem_Prag is
                --  is of mode Input.
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24452,7 +24473,7 @@ package body Sem_Prag is
                --  have mode Output.
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24542,7 +24563,7 @@ package body Sem_Prag is
                --  is of mode Proof_In
 
                if Ekind (Item_Id) = E_Abstract_State
-                 and then Has_Non_Null_Refinement (Item_Id)
+                 and then Has_Non_Null_Visible_Refinement (Item_Id)
                then
                   Check_Constituent_Usage (Item_Id);
                end if;
@@ -24747,10 +24768,10 @@ package body Sem_Prag is
             --  be null in which case there are no constituents.
 
             if Ekind (Item_Id) = E_Abstract_State then
-               if Has_Null_Refinement (Item_Id) then
+               if Has_Null_Visible_Refinement (Item_Id) then
                   Has_Null_State := True;
 
-               elsif Has_Non_Null_Refinement (Item_Id) then
+               elsif Has_Non_Null_Visible_Refinement (Item_Id) then
                   Append_New_Elmt (Item_Id, States);
 
                   if Item_Mode = Name_Input then
@@ -25450,6 +25471,17 @@ package body Sem_Prag is
                                               E_Variable)
                   then
                      Match_Constituent (Constit_Id);
+
+                     --  The variable may eventually become a constituent of a
+                     --  single protected/task type. Record the reference now
+                     --  and verify its legality when analyzing the contract of
+                     --  the variable (SPARK RM 9.3).
+
+                     if Ekind (Constit_Id) = E_Variable then
+                        Record_Possible_Part_Of_Reference
+                          (Var_Id => Constit_Id,
+                           Ref    => Constit);
+                     end if;
 
                   --  Otherwise the constituent is illegal
 

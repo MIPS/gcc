@@ -182,6 +182,7 @@ package System.Rident is
       No_Elaboration_Code,                       -- GNAT
       No_Obsolescent_Features,                   -- Ada 2005 AI-368
       No_Wide_Characters,                        -- GNAT
+      Pure_Barriers,                             -- GNAT
       SPARK_05,                                  -- GNAT
 
       --  The following cases require a parameter value
@@ -542,7 +543,7 @@ package System.Rident is
                            No_Select_Statements             => True,
                            No_Specific_Termination_Handlers => True,
                            No_Task_Termination              => True,
-                           Simple_Barriers                  => True,
+                           Pure_Barriers                    => True,
                            others                           => False),
 
                         --  Value settings for Ravenscar (same as Restricted)

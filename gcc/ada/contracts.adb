@@ -153,10 +153,12 @@ package body Contracts is
          end if;
 
       --  Entry or subprogram declarations, the applicable pragmas are:
+      --    Attach_Handler
       --    Contract_Cases
       --    Depends
       --    Extensions_Visible
       --    Global
+      --    Interrupt_Handler
       --    Postcondition
       --    Precondition
       --    Test_Case
@@ -168,11 +170,10 @@ package body Contracts is
                               E_Generic_Procedure,
                               E_Procedure)
       then
-         if Nam_In (Prag_Nam, Name_Postcondition, Name_Precondition) then
-            Add_Pre_Post_Condition;
-
-         elsif Nam_In (Prag_Nam, Name_Contract_Cases, Name_Test_Case) then
-            Add_Contract_Test_Case;
+         if Nam_In (Prag_Nam, Name_Attach_Handler, Name_Interrupt_Handler)
+           and then Ekind_In (Id, E_Generic_Procedure, E_Procedure)
+         then
+            Add_Classification;
 
          elsif Nam_In (Prag_Nam, Name_Depends,
                                  Name_Extensions_Visible,
@@ -184,6 +185,12 @@ package body Contracts is
            and then Ekind_In (Id, E_Function, E_Generic_Function)
          then
             Add_Classification;
+
+         elsif Nam_In (Prag_Nam, Name_Contract_Cases, Name_Test_Case) then
+            Add_Contract_Test_Case;
+
+         elsif Nam_In (Prag_Nam, Name_Postcondition, Name_Precondition) then
+            Add_Pre_Post_Condition;
 
          --  The pragma is not a proper contract item
 
@@ -627,6 +634,7 @@ package body Contracts is
       Items        : Node_Id;
       Mode         : SPARK_Mode_Type;
       Prag         : Node_Id;
+      Ref_Elmt     : Elmt_Id;
       Restore_Mode : Boolean := False;
       Seen         : Boolean := False;
 
@@ -762,6 +770,23 @@ package body Contracts is
 
          if Present (Prag) then
             Analyze_Part_Of_In_Decl_Part (Prag);
+
+            --  The variable is a constituent of a single protected/task type
+            --  and behaves as a component of the type. Verify that references
+            --  to the variable occur within the definition or body of the type
+            --  (SPARK RM 9.3).
+
+            if Present (Encapsulating_State (Obj_Id))
+              and then Is_Single_Concurrent_Object
+                         (Encapsulating_State (Obj_Id))
+              and then Present (Part_Of_References (Obj_Id))
+            then
+               Ref_Elmt := First_Elmt (Part_Of_References (Obj_Id));
+               while Present (Ref_Elmt) loop
+                  Check_Part_Of_Reference (Obj_Id, Node (Ref_Elmt));
+                  Next_Elmt (Ref_Elmt);
+               end loop;
+            end if;
 
          --  Otherwise check whether the lack of indicator Part_Of agrees with
          --  the placement of the variable with respect to the state space.

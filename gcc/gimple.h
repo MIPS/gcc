@@ -171,6 +171,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_OACC_DATA = 7,
     GF_OMP_TARGET_KIND_OACC_UPDATE = 8,
     GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA = 9,
+    GF_OMP_TARGET_KIND_OACC_DECLARE = 10,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
@@ -1545,6 +1546,7 @@ extern tree gimple_signed_type (tree);
 extern alias_set_type gimple_get_alias_set (tree);
 extern bool gimple_ior_addresses_taken (bitmap, gimple *);
 extern bool gimple_builtin_call_types_compatible_p (const gimple *, tree);
+extern combined_fn gimple_call_combined_fn (const gimple *);
 extern bool gimple_call_builtin_p (const gimple *);
 extern bool gimple_call_builtin_p (const gimple *, enum built_in_class);
 extern bool gimple_call_builtin_p (const gimple *, enum built_in_function);
@@ -1786,11 +1788,7 @@ gimple_block (const gimple *g)
 static inline void
 gimple_set_block (gimple *g, tree block)
 {
-  if (block)
-    g->location =
-	COMBINE_LOCATION_DATA (line_table, g->location, block);
-  else
-    g->location = LOCATION_LOCUS (g->location);
+  g->location = set_block (g->location, block);
 }
 
 
@@ -6164,6 +6162,7 @@ is_gimple_omp_oacc (const gimple *stmt)
 	case GF_OMP_TARGET_KIND_OACC_DATA:
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
+	case GF_OMP_TARGET_KIND_OACC_DECLARE:
 	  return true;
 	default:
 	  return false;

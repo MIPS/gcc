@@ -1732,6 +1732,8 @@ package body Sem_Util is
       Disc : Entity_Id)
    is
       Loc : constant Source_Ptr := Sloc (Expr);
+      I   : Interp_Index;
+      It  : Interp;
 
    begin
       --  An entity of a type with a reference aspect is overloaded with
@@ -1744,6 +1746,29 @@ package body Sem_Util is
          Set_Etype (Expr, Etype (Entity (Expr)));
 
       elsif Nkind (Expr) = N_Function_Call then
+
+         --  If the name of the indexing function is overloaded, locate the one
+         --  whose return type has an implicit dereference on the desired
+         --  discriminant, and set entity and type of function call.
+
+         if Is_Overloaded (Name (Expr)) then
+            Get_First_Interp (Name (Expr), I, It);
+
+            while Present (It.Nam) loop
+               if Ekind ((It.Typ)) = E_Record_Type
+                 and then First_Entity ((It.Typ)) = Disc
+               then
+                  Set_Entity (Name (Expr), It.Nam);
+                  Set_Etype (Name (Expr), Etype (It.Nam));
+                  exit;
+               end if;
+
+               Get_Next_Interp (I, It);
+            end loop;
+         end if;
+
+         --  Set type of call from resolved function name.
+
          Set_Etype (Expr, Etype (Name (Expr)));
       end if;
 
@@ -1890,6 +1915,126 @@ package body Sem_Util is
          end case;
       end if;
    end Cannot_Raise_Constraint_Error;
+
+   -----------------------------
+   -- Check_Part_Of_Reference --
+   -----------------------------
+
+   procedure Check_Part_Of_Reference (Var_Id : Entity_Id; Ref : Node_Id) is
+      Conc_Typ : constant Entity_Id := Encapsulating_State (Var_Id);
+      Decl     : Node_Id;
+      OK_Use   : Boolean := False;
+      Par      : Node_Id;
+      Prag_Nam : Name_Id;
+      Spec_Id  : Entity_Id;
+
+   begin
+      --  Traverse the parent chain looking for a suitable context for the
+      --  reference to the concurrent constituent.
+
+      Par := Parent (Ref);
+      while Present (Par) loop
+         if Nkind (Par) = N_Pragma then
+            Prag_Nam := Pragma_Name (Par);
+
+            --  A concurrent constituent is allowed to appear in pragmas
+            --  Initial_Condition and Initializes as this is part of the
+            --  elaboration checks for the constituent (SPARK RM 9.3).
+
+            if Nam_In (Prag_Nam, Name_Initial_Condition, Name_Initializes) then
+               OK_Use := True;
+               exit;
+
+            --  When the reference appears within pragma Depends or Global,
+            --  check whether the pragma applies to a single task type. Note
+            --  that the pragma is not encapsulated by the type definition,
+            --  but this is still a valid context.
+
+            elsif Nam_In (Prag_Nam, Name_Depends, Name_Global) then
+               Decl := Find_Related_Declaration_Or_Body (Par);
+
+               if Nkind (Decl) = N_Object_Declaration
+                 and then Defining_Entity (Decl) = Conc_Typ
+               then
+                  OK_Use := True;
+                  exit;
+               end if;
+            end if;
+
+         --  The reference appears somewhere in the definition of the single
+         --  protected/task type (SPARK RM 9.3).
+
+         elsif Nkind_In (Par, N_Single_Protected_Declaration,
+                              N_Single_Task_Declaration)
+           and then Defining_Entity (Par) = Conc_Typ
+         then
+            OK_Use := True;
+            exit;
+
+         --  The reference appears within the expanded declaration or the body
+         --  of the single protected/task type (SPARK RM 9.3).
+
+         elsif Nkind_In (Par, N_Protected_Body,
+                              N_Protected_Type_Declaration,
+                              N_Task_Body,
+                              N_Task_Type_Declaration)
+         then
+            Spec_Id := Unique_Defining_Entity (Par);
+
+            if Present (Anonymous_Object (Spec_Id))
+              and then Anonymous_Object (Spec_Id) = Conc_Typ
+            then
+               OK_Use := True;
+               exit;
+            end if;
+
+         --  The reference has been relocated within an internally generated
+         --  package or subprogram. Assume that the reference is legal as the
+         --  real check was already performed in the original context of the
+         --  reference.
+
+         elsif Nkind_In (Par, N_Package_Body,
+                              N_Package_Declaration,
+                              N_Subprogram_Body,
+                              N_Subprogram_Declaration)
+           and then not Comes_From_Source (Par)
+         then
+            OK_Use := True;
+            exit;
+
+         --  The reference has been relocated to an inlined body for GNATprove.
+         --  Assume that the reference is legal as the real check was already
+         --  performed in the original context of the reference.
+
+         elsif GNATprove_Mode
+           and then Nkind (Par) = N_Subprogram_Body
+           and then Chars (Defining_Entity (Par)) = Name_uParent
+         then
+            OK_Use := True;
+            exit;
+         end if;
+
+         Par := Parent (Par);
+      end loop;
+
+      --  The reference is illegal as it appears outside the definition or
+      --  body of the single protected/task type.
+
+      if not OK_Use then
+         Error_Msg_NE
+           ("reference to variable & cannot appear in this context",
+            Ref, Var_Id);
+         Error_Msg_Name_1 := Chars (Var_Id);
+
+         if Ekind (Conc_Typ) = E_Protected_Type then
+            Error_Msg_NE
+              ("\% is constituent of single protected type &", Ref, Conc_Typ);
+         else
+            Error_Msg_NE
+              ("\% is constituent of single task type &", Ref, Conc_Typ);
+         end if;
+      end if;
+   end Check_Part_Of_Reference;
 
    -----------------------------------------
    -- Check_Dynamically_Tagged_Expression --
@@ -3095,9 +3240,9 @@ package body Sem_Util is
       --  Inspect the return type
 
       if Is_Effectively_Volatile (Etype (Func_Id)) then
-         Error_Msg_N
+         Error_Msg_NE
            ("nonvolatile function & cannot have a volatile return type",
-            Func_Id);
+            Result_Definition (Parent (Func_Id)), Func_Id);
       end if;
    end Check_Nonvolatile_Function_Profile;
 
@@ -4222,6 +4367,14 @@ package body Sem_Util is
            and then Present (Incomplete_View (Parent (B_Type)))
          then
             Id := Defining_Entity (Incomplete_View (Parent (B_Type)));
+
+            --  If T is a derived from a type with an incomplete view declared
+            --  elsewhere, that incomplete view is irrelevant, we want the
+            --  operations in the scope of T.
+
+            if Scope (Id) /= Scope (B_Type) then
+               Id := Next_Entity (B_Type);
+            end if;
 
          else
             Id := Next_Entity (B_Type);
@@ -7545,13 +7698,16 @@ package body Sem_Util is
       Cursor := Any_Type;
 
       --  Locate function with desired name and profile in scope of type
+      --  In the rare case where the type is an integer type, a base type
+      --  is created for it, check that the base type of the first formal
+      --  of First matches the base type of the domain.
 
       Func := First_Entity (Scope (Typ));
       while Present (Func) loop
          if Chars (Func) = Chars (First_Op)
            and then Ekind (Func) = E_Function
            and then Present (First_Formal (Func))
-           and then Etype (First_Formal (Func)) = Typ
+           and then Base_Type (Etype (First_Formal (Func))) = Base_Type (Typ)
            and then No (Next_Formal (First_Formal (Func)))
          then
             if Cursor /= Any_Type then
@@ -8816,9 +8972,41 @@ package body Sem_Util is
    -------------------------------------
 
    function Has_Full_Default_Initialization (Typ : Entity_Id) return Boolean is
+      Arg  : Node_Id;
       Comp : Entity_Id;
+      Prag : Node_Id;
 
    begin
+      --  A private type and its full view is fully default initialized when it
+      --  is subject to pragma Default_Initial_Condition without an argument or
+      --  with a non-null argument. Since any type may act as the full view of
+      --  a private type, this check must be performed prior to the specialized
+      --  tests below.
+
+      if Has_Default_Init_Cond (Typ)
+        or else Has_Inherited_Default_Init_Cond (Typ)
+      then
+         Prag := Get_Pragma (Typ, Pragma_Default_Initial_Condition);
+
+         --  Pragma Default_Initial_Condition must be present if one of the
+         --  related entity flags is set.
+
+         pragma Assert (Present (Prag));
+         Arg := First (Pragma_Argument_Associations (Prag));
+
+         --  A non-null argument guarantees full default initialization
+
+         if Present (Arg) then
+            return Nkind (Arg) /= N_Null;
+
+         --  Otherwise the missing argument defaults the pragma to "True" which
+         --  is considered a non-null argument (see above).
+
+         else
+            return True;
+         end if;
+      end if;
+
       --  A scalar type is fully default initialized if it is subject to aspect
       --  Default_Value.
 
@@ -8875,20 +9063,6 @@ package body Sem_Util is
 
       elsif Is_Task_Type (Typ) then
          return True;
-      end if;
-
-      --  A private type and by extension its full view is fully default
-      --  initialized if it is subject to pragma Default_Initial_Condition
-      --  with a non-null argument or inherits the pragma from a parent type.
-      --  Since any type can act as the full view of a private type, this check
-      --  is separated from the circuitry above.
-
-      if Has_Default_Init_Cond (Typ)
-        or else Has_Inherited_Default_Init_Cond (Typ)
-      then
-         return
-           Nkind (First (Pragma_Argument_Associations (Get_Pragma
-             (Typ, Pragma_Default_Initial_Condition)))) /= N_Null;
 
       --  Otherwise the type is not fully default initialized
 
@@ -9024,6 +9198,25 @@ package body Sem_Util is
       end if;
    end Has_No_Obvious_Side_Effects;
 
+   -----------------------------
+   -- Has_Non_Null_Refinement --
+   -----------------------------
+
+   function Has_Non_Null_Refinement (Id : Entity_Id) return Boolean is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+
+      --  For a refinement to be non-null, the first constituent must be
+      --  anything other than null.
+
+      if Present (Refinement_Constituents (Id)) then
+         return
+           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) /= N_Null;
+      end if;
+
+      return False;
+   end Has_Non_Null_Refinement;
+
    ------------------------
    -- Has_Null_Exclusion --
    ------------------------
@@ -9113,6 +9306,25 @@ package body Sem_Util is
          return False;
       end if;
    end Has_Null_Extension;
+
+   -------------------------
+   -- Has_Null_Refinement --
+   -------------------------
+
+   function Has_Null_Refinement (Id : Entity_Id) return Boolean is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+
+      --  For a refinement to be null, the state's sole constituent must be a
+      --  null.
+
+      if Present (Refinement_Constituents (Id)) then
+         return
+           Nkind (Node (First_Elmt (Refinement_Constituents (Id)))) = N_Null;
+      end if;
+
+      return False;
+   end Has_Null_Refinement;
 
    -------------------------------
    -- Has_Overriding_Initialize --
@@ -13974,6 +14186,7 @@ package body Sem_Util is
       if Is_Primitive (Func_Id)
         and then Present (First_Formal (Func_Id))
         and then Is_Protected_Type (Etype (First_Formal (Func_Id)))
+        and then Etype (First_Formal (Func_Id)) = Scope (Func_Id)
       then
          return True;
 
@@ -17161,6 +17374,42 @@ package body Sem_Util is
 
       Set_Sloc (Endl, Loc);
    end Process_End_Label;
+
+   ---------------------------------------
+   -- Record_Possible_Part_Of_Reference --
+   ---------------------------------------
+
+   procedure Record_Possible_Part_Of_Reference
+     (Var_Id : Entity_Id;
+      Ref    : Node_Id)
+   is
+      Encap : constant Entity_Id := Encapsulating_State (Var_Id);
+      Refs  : Elist_Id;
+
+   begin
+      --  The variable is a constituent of a single protected/task type. Such
+      --  a variable acts as a component of the type and must appear within a
+      --  specific region (SPARK RM 9.3). Instead of recording the reference,
+      --  verify its legality now.
+
+      if Present (Encap) and then Is_Single_Concurrent_Object (Encap) then
+         Check_Part_Of_Reference (Var_Id, Ref);
+
+      --  The variable is subject to pragma Part_Of and may eventually become a
+      --  constituent of a single protected/task type. Record the reference to
+      --  verify its placement when the contract of the variable is analyzed.
+
+      elsif Present (Get_Pragma (Var_Id, Pragma_Part_Of)) then
+         Refs := Part_Of_References (Var_Id);
+
+         if No (Refs) then
+            Refs := New_Elmt_List;
+            Set_Part_Of_References (Var_Id, Refs);
+         end if;
+
+         Append_Elmt (Ref, Refs);
+      end if;
+   end Record_Possible_Part_Of_Reference;
 
    ----------------
    -- Referenced --

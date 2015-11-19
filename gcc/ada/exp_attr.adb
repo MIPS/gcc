@@ -4462,7 +4462,7 @@ package body Exp_Attr is
 
          X   : constant Node_Id := Prefix (N);
          Y   : constant Node_Id := First (Expressions (N));
-         --  The argumens
+         --  The arguments
 
          X_Addr, Y_Addr : Node_Id;
          --  the expressions for their integer addresses
@@ -4483,7 +4483,9 @@ package body Exp_Attr is
 
          --  with the proper address operations. We convert addresses to
          --  integer addresses to use predefined arithmetic. The size is
-         --  expressed in storage units.
+         --  expressed in storage units. We add copies of X_Addr and Y_Addr
+         --  to prevent the appearance of the same node in two places in
+         --  the tree.
 
          X_Addr :=
            Unchecked_Convert_To (RTE (RE_Integer_Address),
@@ -4521,28 +4523,28 @@ package body Exp_Attr is
               Right_Opnd => Y_Addr);
 
          Rewrite (N,
-           Make_If_Expression (Loc,
-             New_List (
-               Cond,
+           Make_If_Expression (Loc, New_List (
+             Cond,
 
-               Make_Op_Ge (Loc,
-                  Left_Opnd   =>
-                   Make_Op_Add (Loc,
-                     Left_Opnd  => X_Addr,
-                     Right_Opnd =>
-                       Make_Op_Subtract (Loc,
-                         Left_Opnd  => X_Size,
-                         Right_Opnd => Make_Integer_Literal (Loc, 1))),
-                  Right_Opnd => Y_Addr),
+             Make_Op_Ge (Loc,
+               Left_Opnd   =>
+                 Make_Op_Add (Loc,
+                   Left_Opnd  => New_Copy_Tree (X_Addr),
+                   Right_Opnd =>
+                     Make_Op_Subtract (Loc,
+                       Left_Opnd  => X_Size,
+                       Right_Opnd => Make_Integer_Literal (Loc, 1))),
+               Right_Opnd => Y_Addr),
 
-               Make_Op_Ge (Loc,
-                   Make_Op_Add (Loc,
-                     Left_Opnd  => Y_Addr,
-                     Right_Opnd =>
-                       Make_Op_Subtract (Loc,
-                         Left_Opnd  => Y_Size,
-                         Right_Opnd => Make_Integer_Literal (Loc, 1))),
-                  Right_Opnd => X_Addr))));
+             Make_Op_Ge (Loc,
+               Left_Opnd  =>
+                 Make_Op_Add (Loc,
+                   Left_Opnd  => New_Copy_Tree (Y_Addr),
+                   Right_Opnd =>
+                     Make_Op_Subtract (Loc,
+                       Left_Opnd  => Y_Size,
+                       Right_Opnd => Make_Integer_Literal (Loc, 1))),
+               Right_Opnd => X_Addr))));
 
          Analyze_And_Resolve (N, Standard_Boolean);
       end Overlaps_Storage;

@@ -1237,6 +1237,15 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
     GOMP_PLUGIN_fatal ("Unable to unlock an HSA agent rwlock");
 }
 
+void
+GOMP_OFFLOAD_async_run (int device, void *tgt_fn, void *tgt_vars,
+			void **args, void *async_data)
+{
+  /* FIXME: Implement.  */
+  GOMP_PLUGIN_fatal ("Support for HSA does not yet implement asynchronous "
+		     "execution. ");
+}
+
 /* Deinitialize all information associated with MODULE and kernels within
    it.  */
 

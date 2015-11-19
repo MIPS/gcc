@@ -2800,14 +2800,6 @@ check_explicit_specialization (tree declarator,
 		  error ("%qD is not a template function", dname);
 		  fns = error_mark_node;
 		}
-	      else
-		{
-		  tree fn = OVL_CURRENT (fns);
-		  if (!is_associated_namespace (CP_DECL_CONTEXT (decl),
-						CP_DECL_CONTEXT (fn)))
-		    error ("%qD is not declared in %qD",
-			   decl, current_namespace);
-		}
 	    }
 
 	  declarator = lookup_template_function (fns, NULL_TREE);
@@ -2941,6 +2933,14 @@ check_explicit_specialization (tree declarator,
 	return error_mark_node;
       else
 	{
+	  if (!ctype && !was_template_id
+	      && (specialization || member_specialization
+		  || explicit_instantiation)
+	      && !is_associated_namespace (CP_DECL_CONTEXT (decl),
+					   CP_DECL_CONTEXT (tmpl)))
+	    error ("%qD is not declared in %qD",
+		   tmpl, current_namespace);
+
 	  tree gen_tmpl = most_general_template (tmpl);
 
 	  if (explicit_instantiation)
@@ -6211,7 +6211,7 @@ convert_nontype_argument (tree type, tree expr, tsubst_flags_t complain)
   /* 14.3.2/5: The null pointer{,-to-member} conversion is applied
      to a non-type argument of "nullptr".  */
   if (expr == nullptr_node && TYPE_PTR_OR_PTRMEM_P (type))
-    expr = convert (type, expr);
+    expr = fold_simple (convert (type, expr));
 
   /* In C++11, integral or enumeration non-type template arguments can be
      arbitrary constant expressions.  Pointer and pointer to
@@ -15405,6 +15405,14 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		  }
 	    }
 	}
+      add_stmt (t);
+      break;
+
+    case OACC_DECLARE:
+      t = copy_node (t);
+      tmp = tsubst_omp_clauses (OACC_DECLARE_CLAUSES (t), false, false,
+				args, complain, in_decl);
+      OACC_DECLARE_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 

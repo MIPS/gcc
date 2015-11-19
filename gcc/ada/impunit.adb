@@ -604,21 +604,21 @@ package body Impunit is
 
    type Aunit_Record is record
       Fname : String (1 .. 6);
-      Aname : String_Ptr;
+      Aname : String_Ptr_Const;
    end record;
 
    --  Array of alternative unit names
 
-   Scasuti : aliased String := "GNAT.Case_Util";
-   Scrc32  : aliased String := "GNAT.CRC32";
-   Shtable : aliased String := "GNAT.HTable";
-   Sos_lib : aliased String := "GNAT.OS_Lib";
-   Sregexp : aliased String := "GNAT.Regexp";
-   Sregpat : aliased String := "GNAT.Regpat";
-   Sstring : aliased String := "GNAT.Strings";
-   Sstusta : aliased String := "GNAT.Task_Stack_Usage";
-   Stasloc : aliased String := "GNAT.Task_Lock";
-   Sutf_32 : aliased String := "GNAT.UTF_32";
+   Scasuti : aliased constant String := "GNAT.Case_Util";
+   Scrc32  : aliased constant String := "GNAT.CRC32";
+   Shtable : aliased constant String := "GNAT.HTable";
+   Sos_lib : aliased constant String := "GNAT.OS_Lib";
+   Sregexp : aliased constant String := "GNAT.Regexp";
+   Sregpat : aliased constant String := "GNAT.Regpat";
+   Sstring : aliased constant String := "GNAT.Strings";
+   Sstusta : aliased constant String := "GNAT.Task_Stack_Usage";
+   Stasloc : aliased constant String := "GNAT.Task_Lock";
+   Sutf_32 : aliased constant String := "GNAT.UTF_32";
 
    --  Array giving mapping
 
@@ -649,8 +649,8 @@ package body Impunit is
       --  Ada/System/Interfaces are all Ada 95 units
 
       if File = "ada.ads"
-        or else File = "system.ads"
         or else File = "interfac.ads"
+        or else File = "system.ads"
       then
          return Ada_95_Unit;
       end if;
@@ -726,9 +726,9 @@ package body Impunit is
       --  Only remaining special possibilities are children of System.RPC and
       --  System.Garlic and special files of the form System.Aux...
 
-      if File (1 .. 5) = "s-rpc"
+      if File (1 .. 5) = "s-aux"
         or else File (1 .. 5) = "s-gar"
-        or else File (1 .. 5) = "s-aux"
+        or else File (1 .. 5) = "s-rpc"
       then
          return Ada_95_Unit;
       end if;
