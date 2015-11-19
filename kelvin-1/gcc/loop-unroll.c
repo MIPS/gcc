@@ -49,7 +49,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifdef KELVIN_NOISE
 #include "kelvin-debugs.c"
 #endif
-
 /* This pass performs loop unrolling.  We only perform this
    optimization on innermost loops (with single exception) because
    the impact on performance is greatest here, and we want to avoid
@@ -952,6 +951,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	  " expect value of 990099 for typical compile-time bounded loop\n");
 #endif
 #endif
+
   if (flag_split_ivs_in_unroller
       || flag_variable_expansion_in_unroller)
     opt_info = analyze_insns_in_loop (loop);
@@ -1208,11 +1208,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
       thousandths in order to force integer rounding during the next
       step, when we divide ten thousandths by 10000 in order to get
       "ones". */
-
     sum_incoming_frequencies *= exit_multiplier;
     sum_incoming_frequencies += 5000;
     sum_incoming_frequencies /= 10000;
-    
     increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
   }
 #endif

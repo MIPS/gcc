@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
       sum of incoming edge frequencies for the loop header block.
    b. The sum of predecessor edge frequencies for every block
       in the loop equals the frequency of that block. */
-
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
 #include "kelvin-debugs.c"
@@ -131,7 +130,7 @@ in_call_chain_p (edge an_edge, ladder_rung_p ladder_rung)
 }
 
 /* This recursive function visits all of the blocks contained within the
-   loop represented by LOOP_PTR and reachable from INCOMING_EDGE,
+   loop represented by LOOP_PTR and reachable from INCOMING_EDGE
    and zeroes the frequency field of each block.  The recursion
    terminates if INCOMING_EDGE is known to exit this loop, or
    if the destination of INCOMING_EDGE has already been visited
@@ -160,10 +159,8 @@ recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
       edge_iterator ei;
       edge successor;
       FOR_EACH_EDGE (successor, ei, block->succs)
-	{
-	  recursively_zero_frequency (loop_ptr, exit_edges,
-				      &a_rung, successor);
-	}
+	recursively_zero_frequency (loop_ptr, exit_edges,
+				    &a_rung, successor);
     }
 }
 				     
@@ -229,13 +226,14 @@ in_loop_of_header_p (basic_block candidate, basic_block loop_header,
 				   loop_latch, false, &new_step))
 	    return true;
 	}
-      return false;		  /* None of the successors was in loop	 */
+      /* None of the successors was in loop */
+      return false;
     }
 }
 
 /* Add CANDIDATE into the RESULTS vector if CANDIDATE
    is in the loop identified by the LOOP_HEADER and LOOP_LATCH
-   arguments, and it is not already contained within the RESULTS
+   arguments and it is not already contained within the RESULTS
    vector. 
 
    We consider the block to be within the loop if there exists a path
@@ -312,7 +310,6 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
   basic_block bb;
   unsigned int u;
   vec<edge> results = vNULL;
-
   FOR_EACH_VEC_ELT (loop_blocks, u, bb)
     {
       edge_iterator ei;
@@ -320,11 +317,8 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
       FOR_EACH_EDGE (successor, ei, bb->succs)
 	{
 	  basic_block edge_dest = successor->dest;
-	  
 	  if (!in_block_set_p (edge_dest, loop_ptr))
-	    {
-	      results.safe_push (successor);
-	    }
+	    results.safe_push (successor);
 	}
     }
   return results;
@@ -478,7 +472,7 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
        in the loop equals the frequency of that block.
    Consistency of edge frequencies is enforced to within a programmed
    tolerance value.  The objective of allowing some variance from
-   strict equality testing is to allow for the accumulation of
+   strict enforcement of equality is to allow for the accumulation of
    round-off errors. */
 static void 
 check_loop_frequency_integrity (struct loop *loop_ptr)
@@ -1601,8 +1595,8 @@ static void
 /* Sets probability and count of edge E to zero.  The probability and count
    is redistributed evenly to the remaining edges coming from E->src
    and is propagated transitively to all nodes contained within the
-   loop identified by *LOOP_PTR and reachable from E->src.  */
-set_zero_probability (struct loop *loop_ptr, edge e)
+   loop identified by LOOP_PTR and reachable from E->src.  */
+set_zero_probability (struct loop* loop_ptr, edge e)
 #else
 /* Sets probability and count of edge E to zero.  The probability and count
    is redistributed evenly to the remaining edges coming from E->src.  */
@@ -1739,29 +1733,25 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   bitmap_iterator bi;
 
 #ifdef KELVIN_PATCH
-  /* Remember the initial ratio between frequency
-   * of edge into loop header and the frequency of the loop header.
-   * Preserve this ratio when we make adjustments within the loop.
-   * This distinction is necessary because different flavors of loops
-   * are subject to different heuristics.  In particular, loops
-   * bounded by run-time constants assume that branches exiting a loop
-   * have probability 9%.  Loops bounded by compile-time constants 
-   * assume branches exiting a loop have probability 1%. There may be
-   * other circumstances that assume different behaviors.
-   *
-   * TODO:
-   * For loops that have a single exit, the exit ratio is the same as
-   * the ratio between the sum of the frequency of the header's
-   * incoming edges and the frequency of the header itself.  For loops
-   * that have multiple exits, investigate.  
-   */
+  /* Remember the initial ratio between frequency of edge into loop
+     header and the frequency of the loop header. Preserve this ratio
+     when we make adjustments within the loop. This distinction is
+     necessary because different flavors of loops are subject to
+     different heuristics.  In particular, loops bounded by run-time
+     constants assume that branches exiting a loop have probability
+     9%.  Loops bounded by compile-time constants assume branches
+     exiting a loop have probability 1%. There may be other
+     circumstances that assume different behaviors. 
+   
+     TODO: For loops that have a single exit, the exit ratio is the
+     same as the ratio between the sum of the frequency of the
+     header's incoming edges and the frequency of the header itself.
+     For loops that have multiple exits, investigate.  */
   int header_frequency = header->frequency;
   int preheader_frequency = 0;
   
-  /* Sum the EDGE frequencies for all predecessor edges that
-   * originate outside the loop.
-   */
-
+  /* Sum the EDGE frequencies for all predecessor edges that originate
+     outside the loop. */
   edge_iterator ei;
   edge predecessor;
   FOR_EACH_EDGE (predecessor, ei, header->preds)
@@ -1792,7 +1782,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   }
 #endif
 #endif
-
   gcc_assert (e->dest == loop->header);
   gcc_assert (ndupl > 0);
 
@@ -1959,10 +1948,9 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   FOR_EACH_EDGE(predecessor, ei, my_header->preds)
     {
       /* exit_ratio is computed based on remembered circumstances upon
-       * entry into this function.  Note that loops bounded by a compile-time
-       * constant have different exit ratio than loops bounded by a run-time
-       * value.
-       */
+	 entry into this function.  Note that loops bounded by a
+	 compile-time constant have different exit ratio than loops
+	 bounded by a run-time value. */ 
       if (!in_loop_p (predecessor->src, loop))
 	sum_incoming_frequencies +=
 	  (int) (EDGE_FREQUENCY (predecessor) * exit_ratio + 5000) / 10000;

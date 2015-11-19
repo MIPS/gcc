@@ -2916,7 +2916,6 @@ zero_iter:
   record_niter_bound (loop, 0, true, true);
   desc->noloop_assumptions = NULL_RTX;
   desc->niter_expr = const0_rtx;
-
 #ifdef KELVIN_NOISE
   fprintf(stderr, " ... returning (zero)\n");
 #endif
