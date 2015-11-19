@@ -77,3 +77,13 @@ subroutine subr4 (x)
      x = x * x - 1
   end if
 end subroutine subr4
+
+subroutine subr10 (x)
+  !$acc routine (subr10) device ! { dg-error "Unclassifiable OpenACC directive" }
+  integer, intent(inout) :: x
+  if (x < 1) then
+     x = 1
+  else
+     x = x * x - 1
+  end if
+end subroutine subr10

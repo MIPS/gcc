@@ -1,3 +1,8 @@
+2015-11-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (OACC_ROUTINE_CLAUSES): Remove OMP_CLAUSE_OACC_DEVICE
+	from the clause mask.
+
 2015-11-07  Tom de Vries  <tom@codesourcery.com>
 
 	* f95-lang.c: Make formatting resemble trunk.

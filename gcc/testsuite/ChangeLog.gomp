@@ -1,3 +1,8 @@
+2015-11-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/routine-6.f90: Ensure that the device clause is
+	invalid with acc routines.
+
 2015-11-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/routine-3.c: Rename file to...
