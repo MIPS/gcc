@@ -100,7 +100,7 @@ static bool thumb_force_lr_save (void);
 static unsigned arm_size_return_regs (void);
 static bool arm_assemble_integer (rtx, unsigned int, int);
 static void arm_print_operand (FILE *, rtx, int);
-static void arm_print_operand_address (FILE *, rtx);
+static void arm_print_operand_address (FILE *, machine_mode, rtx);
 static bool arm_print_operand_punct_valid_p (unsigned char code);
 static const char *fp_const_from_val (REAL_VALUE_TYPE *);
 static arm_cc get_arm_condition_code (rtx);
@@ -759,9 +759,6 @@ const struct tune_params *current_tune;
 /* Which floating point hardware to schedule for.  */
 int arm_fpu_attr;
 
-/* Which floating popint hardware to use.  */
-const struct arm_fpu_desc *arm_fpu_desc;
-
 /* Used for Thumb call_via trampolines.  */
 rtx thumb_call_via_label[14];
 static int thumb_call_reg_needed;
@@ -868,11 +865,6 @@ int prefer_neon_for_64bits = 0;
 
 /* Nonzero if we shouldn't use literal pools.  */
 bool arm_disable_literal_pool = false;
-
-/* In case of a PRE_INC, POST_INC, PRE_DEC, POST_DEC memory reference,
-   we must report the mode of the memory reference from
-   TARGET_PRINT_OPERAND to TARGET_PRINT_OPERAND_ADDRESS.  */
-machine_mode output_memory_reference_mode;
 
 /* The register number to be used for the PIC offset register.  */
 unsigned arm_pic_register = INVALID_REGNUM;
@@ -1945,6 +1937,29 @@ const struct tune_params arm_cortex_a15_tune =
   tune_params::SCHED_AUTOPREF_FULL
 };
 
+const struct tune_params arm_cortex_a35_tune =
+{
+  arm_9e_rtx_costs,
+  &cortexa53_extra_costs,
+  NULL,					/* Sched adj cost.  */
+  arm_default_branch_cost,
+  &arm_default_vec_cost,
+  1,						/* Constant limit.  */
+  5,						/* Max cond insns.  */
+  8,						/* Memset max inline.  */
+  1,						/* Issue rate.  */
+  ARM_PREFETCH_NOT_BENEFICIAL,
+  tune_params::PREF_CONST_POOL_FALSE,
+  tune_params::PREF_LDRD_FALSE,
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* Thumb.  */
+  tune_params::LOG_OP_NON_SHORT_CIRCUIT_TRUE,		/* ARM.  */
+  tune_params::DISPARAGE_FLAGS_NEITHER,
+  tune_params::PREF_NEON_64_FALSE,
+  tune_params::PREF_NEON_STRINGOPS_TRUE,
+  FUSE_OPS (tune_params::FUSE_MOVW_MOVT),
+  tune_params::SCHED_AUTOPREF_OFF
+};
+
 const struct tune_params arm_cortex_a53_tune =
 {
   arm_9e_rtx_costs,
@@ -2229,14 +2244,13 @@ char arm_arch_name[] = "__ARM_ARCH_0UNK__";
 
 /* Available values for -mfpu=.  */
 
-static const struct arm_fpu_desc all_fpus[] =
+const struct arm_fpu_desc all_fpus[] =
 {
 #define ARM_FPU(NAME, MODEL, REV, VFP_REGS, FEATURES) \
   { NAME, MODEL, REV, VFP_REGS, FEATURES },
 #include "arm-fpus.def"
 #undef ARM_FPU
 };
-
 
 /* Supported TLS relocations.  */
 
@@ -2709,6 +2723,12 @@ static void
 arm_option_check_internal (struct gcc_options *opts)
 {
   int flags = opts->x_target_flags;
+  const struct arm_fpu_desc *fpu_desc = &all_fpus[opts->x_arm_fpu_index];
+
+  /* iWMMXt and NEON are incompatible.  */
+    if (TARGET_IWMMXT && TARGET_VFP
+      && ARM_FPU_FSET_HAS (fpu_desc->features, FPU_FL_NEON))
+    error ("iWMMXt and NEON are incompatible");
 
   /* Make sure that the processor choice does not conflict with any of the
      other command line choices.  */
@@ -3138,17 +3158,13 @@ arm_option_override (void)
       gcc_assert (ok);
     }
 
-  arm_fpu_desc = &all_fpus[arm_fpu_index];
-
-  switch (arm_fpu_desc->model)
-    {
-    case ARM_FP_MODEL_VFP:
-      arm_fpu_attr = FPU_VFP;
-      break;
-
-    default:
-      gcc_unreachable();
-    }
+  /* If soft-float is specified then don't use FPU.  */
+  if (TARGET_SOFT_FLOAT)
+    arm_fpu_attr = FPU_NONE;
+  else if (TARGET_VFP)
+    arm_fpu_attr = FPU_VFP;
+  else
+    gcc_unreachable();
 
   if (TARGET_AAPCS_BASED)
     {
@@ -3159,17 +3175,9 @@ arm_option_override (void)
 	  error ("AAPCS does not support -mcallee-super-interworking");
     }
 
-  /* iWMMXt and NEON are incompatible.  */
-  if (TARGET_IWMMXT && TARGET_NEON)
-    error ("iWMMXt and NEON are incompatible");
-
   /* __fp16 support currently assumes the core has ldrh.  */
   if (!arm_arch4 && arm_fp16_format != ARM_FP16_FORMAT_NONE)
     sorry ("__fp16 and no ldrh");
-
-  /* If soft-float is specified then don't use FPU.  */
-  if (TARGET_SOFT_FLOAT)
-    arm_fpu_attr = FPU_NONE;
 
   if (TARGET_AAPCS_BASED)
     {
@@ -11054,6 +11062,23 @@ arm_new_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer_code,
     case UNSIGNED_FIX:
       if (TARGET_HARD_FLOAT)
 	{
+	  /* The *combine_vcvtf2i reduces a vmul+vcvt into
+	     a vcvt fixed-point conversion.  */
+	  if (code == FIX && mode == SImode
+	      && GET_CODE (XEXP (x, 0)) == FIX
+	      && GET_MODE (XEXP (x, 0)) == SFmode
+	      && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
+	      && vfp3_const_double_for_bits (XEXP (XEXP (XEXP (x, 0), 0), 1))
+		 > 0)
+	    {
+	      if (speed_p)
+		*cost += extra_cost->fp[0].toint;
+
+	      *cost += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0), mode,
+				 code, 0, speed_p);
+	      return true;
+	    }
+
 	  if (GET_MODE_CLASS (mode) == MODE_INT)
 	    {
 	      mode = GET_MODE (XEXP (x, 0));
@@ -12344,32 +12369,15 @@ neon_valid_immediate (rtx op, machine_mode mode, int inverse,
     {
       rtx el = vector ? CONST_VECTOR_ELT (op, i) : op;
       unsigned HOST_WIDE_INT elpart;
-      unsigned int part, parts;
 
-      if (CONST_INT_P (el))
-        {
-          elpart = INTVAL (el);
-          parts = 1;
-        }
-      else if (CONST_DOUBLE_P (el))
-        {
-          elpart = CONST_DOUBLE_LOW (el);
-          parts = 2;
-        }
-      else
-        gcc_unreachable ();
+      gcc_assert (CONST_INT_P (el));
+      elpart = INTVAL (el);
 
-      for (part = 0; part < parts; part++)
-        {
-          unsigned int byte;
-          for (byte = 0; byte < innersize; byte++)
-            {
-              bytes[idx++] = (elpart & 0xff) ^ invmask;
-              elpart >>= BITS_PER_UNIT;
-            }
-          if (CONST_DOUBLE_P (el))
-            elpart = CONST_DOUBLE_HIGH (el);
-        }
+      for (unsigned int byte = 0; byte < innersize; byte++)
+	{
+	  bytes[idx++] = (elpart & 0xff) ^ invmask;
+	  elpart >>= BITS_PER_UNIT;
+	}
     }
 
   /* Sanity check.  */
@@ -12965,14 +12973,14 @@ neon_vector_mem_operand (rtx op, int type, bool strict)
   rtx ind;
 
   /* Reject eliminable registers.  */
-  if (! (reload_in_progress || reload_completed)
-      && (   reg_mentioned_p (frame_pointer_rtx, op)
+  if (strict && ! (reload_in_progress || reload_completed)
+      && (reg_mentioned_p (frame_pointer_rtx, op)
 	  || reg_mentioned_p (arg_pointer_rtx, op)
 	  || reg_mentioned_p (virtual_incoming_args_rtx, op)
 	  || reg_mentioned_p (virtual_outgoing_args_rtx, op)
 	  || reg_mentioned_p (virtual_stack_dynamic_rtx, op)
 	  || reg_mentioned_p (virtual_stack_vars_rtx, op)))
-    return !strict;
+    return FALSE;
 
   /* Constants are converted into offsets from labels.  */
   if (!MEM_P (op))
@@ -22403,8 +22411,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
 	  break;
 
 	case MEM:
-	  output_memory_reference_mode = GET_MODE (x);
-	  output_address (XEXP (x, 0));
+	  output_address (GET_MODE (x), XEXP (x, 0));
 	  break;
 
 	case CONST_DOUBLE:
@@ -22433,7 +22440,7 @@ arm_print_operand (FILE *stream, rtx x, int code)
 
 /* Target hook for printing a memory address.  */
 static void
-arm_print_operand_address (FILE *stream, rtx x)
+arm_print_operand_address (FILE *stream, machine_mode mode, rtx x)
 {
   if (TARGET_32BIT)
     {
@@ -22491,20 +22498,18 @@ arm_print_operand_address (FILE *stream, rtx x)
       else if (GET_CODE (x) == PRE_INC || GET_CODE (x) == POST_INC
 	       || GET_CODE (x) == PRE_DEC || GET_CODE (x) == POST_DEC)
 	{
-	  extern machine_mode output_memory_reference_mode;
-
 	  gcc_assert (REG_P (XEXP (x, 0)));
 
 	  if (GET_CODE (x) == PRE_DEC || GET_CODE (x) == PRE_INC)
 	    asm_fprintf (stream, "[%r, #%s%d]!",
 			 REGNO (XEXP (x, 0)),
 			 GET_CODE (x) == PRE_DEC ? "-" : "",
-			 GET_MODE_SIZE (output_memory_reference_mode));
+			 GET_MODE_SIZE (mode));
 	  else
 	    asm_fprintf (stream, "[%r], #%s%d",
 			 REGNO (XEXP (x, 0)),
 			 GET_CODE (x) == POST_DEC ? "-" : "",
-			 GET_MODE_SIZE (output_memory_reference_mode));
+			 GET_MODE_SIZE (mode));
 	}
       else if (GET_CODE (x) == PRE_MODIFY)
 	{
@@ -25875,7 +25880,6 @@ arm_file_start (void)
 
   if (TARGET_BPABI)
     {
-      const char *fpu_name;
       if (arm_selected_arch)
         {
 	  /* armv7ve doesn't support any extensions.  */
@@ -25919,23 +25923,14 @@ arm_file_start (void)
       if (print_tune_info)
 	arm_print_tune_info ();
 
-      if (TARGET_SOFT_FLOAT)
+      if (! TARGET_SOFT_FLOAT && TARGET_VFP)
 	{
-	  fpu_name = "softvfp";
-	}
-      else
-	{
-	  fpu_name = arm_fpu_desc->name;
-	  if (arm_fpu_desc->model == ARM_FP_MODEL_VFP)
-	    {
-	      if (TARGET_HARD_FLOAT && TARGET_VFP_SINGLE)
-		arm_emit_eabi_attribute ("Tag_ABI_HardFP_use", 27, 1);
+	  if (TARGET_HARD_FLOAT && TARGET_VFP_SINGLE)
+	    arm_emit_eabi_attribute ("Tag_ABI_HardFP_use", 27, 1);
 
-	      if (TARGET_HARD_FLOAT_ABI)
-		arm_emit_eabi_attribute ("Tag_ABI_VFP_args", 28, 1);
-	    }
+	  if (TARGET_HARD_FLOAT_ABI)
+	    arm_emit_eabi_attribute ("Tag_ABI_VFP_args", 28, 1);
 	}
-      asm_fprintf (asm_out_file, "\t.fpu %s\n", fpu_name);
 
       /* Some of these attributes only apply when the corresponding features
          are used.  However we don't have any easy way of figuring this out.
@@ -29169,7 +29164,7 @@ arm_block_set_unaligned_vect (rtx dstbase,
   rtx (*gen_func) (rtx, rtx);
   machine_mode mode;
   unsigned HOST_WIDE_INT v = value;
-
+  unsigned int offset = 0;
   gcc_assert ((align & 0x3) != 0);
   nelt_v8 = GET_MODE_NUNITS (V8QImode);
   nelt_v16 = GET_MODE_NUNITS (V16QImode);
@@ -29190,7 +29185,7 @@ arm_block_set_unaligned_vect (rtx dstbase,
     return false;
 
   dst = copy_addr_to_reg (XEXP (dstbase, 0));
-  mem = adjust_automodify_address (dstbase, mode, dst, 0);
+  mem = adjust_automodify_address (dstbase, mode, dst, offset);
 
   v = sext_hwi (v, BITS_PER_WORD);
   val_elt = GEN_INT (v);
@@ -29207,7 +29202,11 @@ arm_block_set_unaligned_vect (rtx dstbase,
     {
       emit_insn ((*gen_func) (mem, reg));
       if (i + 2 * nelt_mode <= length)
-	emit_insn (gen_add2_insn (dst, GEN_INT (nelt_mode)));
+	{
+	  emit_insn (gen_add2_insn (dst, GEN_INT (nelt_mode)));
+	  offset += nelt_mode;
+	  mem = adjust_automodify_address (dstbase, mode, dst, offset);
+	}
     }
 
   /* If there are not less than nelt_v8 bytes leftover, we must be in
@@ -29218,6 +29217,9 @@ arm_block_set_unaligned_vect (rtx dstbase,
   if (i + nelt_v8 < length)
     {
       emit_insn (gen_add2_insn (dst, GEN_INT (length - i)));
+      offset += length - i;
+      mem = adjust_automodify_address (dstbase, mode, dst, offset);
+
       /* We are shifting bytes back, set the alignment accordingly.  */
       if ((length & 1) != 0 && align >= 2)
 	set_mem_align (mem, BITS_PER_UNIT);
@@ -29228,12 +29230,13 @@ arm_block_set_unaligned_vect (rtx dstbase,
   else if (i < length && i + nelt_v8 >= length)
     {
       if (mode == V16QImode)
-	{
-	  reg = gen_lowpart (V8QImode, reg);
-	  mem = adjust_automodify_address (dstbase, V8QImode, dst, 0);
-	}
+	reg = gen_lowpart (V8QImode, reg);
+
       emit_insn (gen_add2_insn (dst, GEN_INT ((length - i)
 					      + (nelt_mode - nelt_v8))));
+      offset += (length - i) + (nelt_mode - nelt_v8);
+      mem = adjust_automodify_address (dstbase, V8QImode, dst, offset);
+
       /* We are shifting bytes back, set the alignment accordingly.  */
       if ((length & 1) != 0 && align >= 2)
 	set_mem_align (mem, BITS_PER_UNIT);
@@ -29260,6 +29263,7 @@ arm_block_set_aligned_vect (rtx dstbase,
   rtx rval[MAX_VECT_LEN];
   machine_mode mode;
   unsigned HOST_WIDE_INT v = value;
+  unsigned int offset = 0;
 
   gcc_assert ((align & 0x3) == 0);
   nelt_v8 = GET_MODE_NUNITS (V8QImode);
@@ -29291,14 +29295,15 @@ arm_block_set_aligned_vect (rtx dstbase,
   /* Handle first 16 bytes specially using vst1:v16qi instruction.  */
   if (mode == V16QImode)
     {
-      mem = adjust_automodify_address (dstbase, mode, dst, 0);
+      mem = adjust_automodify_address (dstbase, mode, dst, offset);
       emit_insn (gen_movmisalignv16qi (mem, reg));
       i += nelt_mode;
       /* Handle (8, 16) bytes leftover using vst1:v16qi again.  */
       if (i + nelt_v8 < length && i + nelt_v16 > length)
 	{
 	  emit_insn (gen_add2_insn (dst, GEN_INT (length - nelt_mode)));
-	  mem = adjust_automodify_address (dstbase, mode, dst, 0);
+	  offset += length - nelt_mode;
+	  mem = adjust_automodify_address (dstbase, mode, dst, offset);
 	  /* We are shifting bytes back, set the alignment accordingly.  */
 	  if ((length & 0x3) == 0)
 	    set_mem_align (mem, BITS_PER_UNIT * 4);
@@ -29320,7 +29325,7 @@ arm_block_set_aligned_vect (rtx dstbase,
   for (; (i + nelt_mode <= length); i += nelt_mode)
     {
       addr = plus_constant (Pmode, dst, i);
-      mem = adjust_automodify_address (dstbase, mode, addr, i);
+      mem = adjust_automodify_address (dstbase, mode, addr, offset + i);
       emit_move_insn (mem, reg);
     }
 
@@ -29329,8 +29334,8 @@ arm_block_set_aligned_vect (rtx dstbase,
   if (i + UNITS_PER_WORD == length)
     {
       addr = plus_constant (Pmode, dst, i - UNITS_PER_WORD);
-      mem = adjust_automodify_address (dstbase, mode,
-				       addr, i - UNITS_PER_WORD);
+      offset += i - UNITS_PER_WORD;
+      mem = adjust_automodify_address (dstbase, mode, addr, offset);
       /* We are shifting 4 bytes back, set the alignment accordingly.  */
       if (align > UNITS_PER_WORD)
 	set_mem_align (mem, BITS_PER_UNIT * UNITS_PER_WORD);
@@ -29342,7 +29347,8 @@ arm_block_set_aligned_vect (rtx dstbase,
   else if (i < length)
     {
       emit_insn (gen_add2_insn (dst, GEN_INT (length - nelt_mode)));
-      mem = adjust_automodify_address (dstbase, mode, dst, 0);
+      offset += length - nelt_mode;
+      mem = adjust_automodify_address (dstbase, mode, dst, offset);
       /* We are shifting bytes back, set the alignment accordingly.  */
       if ((length & 1) == 0)
 	set_mem_align (mem, BITS_PER_UNIT * 2);
@@ -29774,21 +29780,49 @@ static void
 arm_option_print (FILE *file, int indent, struct cl_target_option *ptr)
 {
   int flags = ptr->x_target_flags;
+  const struct arm_fpu_desc *fpu_desc = &all_fpus[ptr->x_arm_fpu_index];
 
   fprintf (file, "%*sselected arch %s\n", indent, "",
 	   TARGET_THUMB2_P (flags) ? "thumb2" :
 	   TARGET_THUMB_P (flags) ? "thumb1" :
 	   "arm");
+
+  fprintf (file, "%*sselected fpu %s\n", indent, "", fpu_desc->name);
 }
 
 /* Hook to determine if one function can safely inline another.  */
 
 static bool
-arm_can_inline_p (tree caller ATTRIBUTE_UNUSED, tree callee ATTRIBUTE_UNUSED)
+arm_can_inline_p (tree caller, tree callee)
 {
-  /* Overidde default hook: Always OK to inline between different modes. 
-     Function with mode specific instructions, e.g using asm, must be explicitely 
-     protected with noinline.  */
+  tree caller_tree = DECL_FUNCTION_SPECIFIC_TARGET (caller);
+  tree callee_tree = DECL_FUNCTION_SPECIFIC_TARGET (callee);
+
+  struct cl_target_option *caller_opts
+	= TREE_TARGET_OPTION (caller_tree ? caller_tree
+					   : target_option_default_node);
+
+  struct cl_target_option *callee_opts
+	= TREE_TARGET_OPTION (callee_tree ? callee_tree
+					   : target_option_default_node);
+
+  const struct arm_fpu_desc *caller_fpu
+    = &all_fpus[caller_opts->x_arm_fpu_index];
+  const struct arm_fpu_desc *callee_fpu
+    = &all_fpus[callee_opts->x_arm_fpu_index];
+
+  /* Callee's fpu features should be a subset of the caller's.  */
+  if ((caller_fpu->features & callee_fpu->features) != callee_fpu->features)
+    return false;
+
+  /* Need same model and regs.  */
+  if (callee_fpu->model != caller_fpu->model
+      || callee_fpu->regs != callee_fpu->regs)
+    return false;
+
+  /* OK to inline between different modes.
+     Function with mode specific instructions, e.g using asm,
+     must be explicitly protected with noinline.  */
   return true;
 }
 
@@ -29819,6 +29853,7 @@ arm_valid_target_attribute_rec (tree args, struct gcc_options *opts)
   if (TREE_CODE (args) == TREE_LIST)
     {
       bool ret = true;
+
       for (; args; args = TREE_CHAIN (args))
 	if (TREE_VALUE (args)
 	    && !arm_valid_target_attribute_rec (TREE_VALUE (args), opts))
@@ -29833,30 +29868,38 @@ arm_valid_target_attribute_rec (tree args, struct gcc_options *opts)
     }
 
   char *argstr = ASTRDUP (TREE_STRING_POINTER (args));
-  while (argstr && *argstr != '\0')
+  char *q;
+
+  while ((q = strtok (argstr, ",")) != NULL)
     {
-      while (ISSPACE (*argstr))
-	argstr++;
+      while (ISSPACE (*q)) ++q;
 
-      if (!strcmp (argstr, "thumb"))
-	{
+      argstr = NULL;
+      if (!strncmp (q, "thumb", 5))
 	  opts->x_target_flags |= MASK_THUMB;
-	  arm_option_check_internal (opts);
-	  return true;
-	}
 
-      if (!strcmp (argstr, "arm"))
-	{
+      else if (!strncmp (q, "arm", 3))
 	  opts->x_target_flags &= ~MASK_THUMB;
-	  arm_option_check_internal (opts);
-	  return true;
+
+      else if (!strncmp (q, "fpu=", 4))
+	{
+	  if (! opt_enum_arg_to_value (OPT_mfpu_, q+4,
+				       &opts->x_arm_fpu_index, CL_TARGET))
+	    {
+	      error ("invalid fpu for attribute(target(\"%s\"))", q);
+	      return false;
+	    }
+	}
+      else
+	{
+	  error ("attribute(target(\"%s\")) is unknown", q);
+	  return false;
 	}
 
-      warning (0, "attribute(target(\"%s\")) is unknown", argstr);
-      return false;
+      arm_option_check_internal (opts);
     }
 
-  return false;
+  return true;
 }
 
 /* Return a TARGET_OPTION_NODE tree of the target options listed or NULL.  */
@@ -29870,6 +29913,9 @@ arm_valid_target_attribute_tree (tree args, struct gcc_options *opts,
 
   /* Do any overrides, such as global options arch=xxx.  */
   arm_option_override_internal (opts, opts_set);
+
+  if (TARGET_NEON)
+    arm_init_neon_builtins ();
 
   return build_target_option_node (opts);
 }
@@ -29964,6 +30010,8 @@ arm_valid_target_attribute_p (tree fndecl, tree ARG_UNUSED (name),
 
   DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl) = new_optimize;
 
+  finalize_options_struct (&func_options);
+
   return ret;
 }
 
@@ -29986,6 +30034,9 @@ arm_declare_function_name (FILE *stream, const char *name, tree decl)
     }
   else
     fprintf (stream, "\t.arm\n");
+
+  asm_fprintf (asm_out_file, "\t.fpu %s\n",
+	       TARGET_SOFT_FLOAT ? "softvfp" : TARGET_FPU_NAME);
 
   if (TARGET_POKE_FUNCTION_NAME)
     arm_poke_function_name (stream, (const char *) name);
@@ -30111,4 +30162,5 @@ arm_sched_fusion_priority (rtx_insn *insn, int max_pri,
   *pri = tmp;
   return;
 }
+
 #include "gt-arm.h"

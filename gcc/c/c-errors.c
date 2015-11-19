@@ -22,11 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "tree.h"
 #include "c-tree.h"
-#include "tm_p.h"
-#include "alias.h"
-#include "flags.h"
 #include "opts.h"
 
 /* Issue an ISO C99 pedantic warning MSGID if -pedantic outside C11 mode,
@@ -41,7 +37,7 @@ pedwarn_c99 (location_t location, int opt, const char *gmsgid, ...)
   diagnostic_info diagnostic;
   va_list ap;
   bool warned = false;
-  rich_location richloc (location);
+  rich_location richloc (line_table, location);
 
   va_start (ap, gmsgid);
   /* If desired, issue the C99/C11 compat warning, which is more specific
@@ -80,7 +76,7 @@ pedwarn_c90 (location_t location, int opt, const char *gmsgid, ...)
 {
   diagnostic_info diagnostic;
   va_list ap;
-  rich_location richloc (location);
+  rich_location richloc (line_table, location);
 
   va_start (ap, gmsgid);
   /* Warnings such as -Wvla are the most specific ones.  */

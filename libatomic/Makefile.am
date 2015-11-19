@@ -68,7 +68,8 @@ endif
 libatomic_version_info = -version-info $(libtool_VERSION)
 
 libatomic_la_LDFLAGS = $(libatomic_version_info) $(libatomic_version_script) $(lt_host_flags)
-LIBAT_SRC_NO_LOCK = gload.c gstore.c gcas.c gexch.c glfree.c init.c fenv.c
+LIBAT_SRC_NO_LOCK = gload.c gstore.c gcas.c gexch.c glfree.c 0 init.c \
+	fenv.c fence.c flag.c
 libatomic_la_SOURCES = $(LIBAT_SRC_NO_LOCK) lock.c
 
 SIZEOBJS = load store cas exch fadd fsub fand fior fxor fnand tas

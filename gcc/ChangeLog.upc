@@ -1,3 +1,7 @@
+2015-11-19  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 230603 into gupc branch.
+
 2015-11-14  Gary Funck  <gary@intrepid.com>
 
 	* Makefile.in: Add rules to build gupc.info and gupc.1.

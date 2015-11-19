@@ -22,18 +22,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "target.h"
 #include "function.h"		/* For cfun.  */
-#include "tree.h"
 #include "c-common.h"
 #include "tm_p.h"		/* For REGISTER_TARGET_PRAGMAS.  */
 #include "stringpool.h"
 #include "cgraph.h"
 #include "diagnostic.h"
-#include "alias.h"
 #include "attribs.h"
 #include "varasm.h"
-#include "cpplib.h"
 #include "c-pragma.h"
-#include "flags.h"
 #include "langhooks.h"
 #include "opts.h"
 #include "plugin.h"
@@ -1484,11 +1480,13 @@ static const struct omp_pragma_def oacc_pragmas[] = {
   { "atomic", PRAGMA_OACC_ATOMIC },
   { "cache", PRAGMA_OACC_CACHE },
   { "data", PRAGMA_OACC_DATA },
+  { "declare", PRAGMA_OACC_DECLARE },
   { "enter", PRAGMA_OACC_ENTER_DATA },
   { "exit", PRAGMA_OACC_EXIT_DATA },
   { "kernels", PRAGMA_OACC_KERNELS },
   { "loop", PRAGMA_OACC_LOOP },
   { "parallel", PRAGMA_OACC_PARALLEL },
+  { "routine", PRAGMA_OACC_ROUTINE },
   { "update", PRAGMA_OACC_UPDATE },
   { "wait", PRAGMA_OACC_WAIT }
 };
@@ -1601,9 +1599,9 @@ c_register_pragma_1 (const char *space, const char *name,
       id = registered_pragmas.length ();
       id += PRAGMA_FIRST_EXTERNAL - 1;
 
-      /* The C++ front end allocates 6 bits in cp_token; the C front end
-	 allocates 7 bits in c_token.  At present this is sufficient.  */
-      gcc_assert (id < 64);
+      /* The C++ front end allocates 8 bits in cp_token; the C front end
+	 allocates 8 bits in c_token.  At present this is sufficient.  */
+      gcc_assert (id < 256);
     }
 
   cpp_register_deferred_pragma (parse_in, space, name, id,

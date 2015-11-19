@@ -26,11 +26,9 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "ggc.h"
 #include "target.h"
 #include "function.h"
 #include "tree.h"
-#include "timevar.h"
 #include "stringpool.h"
 #include "cgraph.h"
 #include "diagnostic.h"
@@ -39,7 +37,6 @@
 #include "stor-layout.h"
 #include "attribs.h"
 #include "varasm.h"
-#include "flags.h"
 #include "toplev.h"
 #include "output.h"
 #include "debug.h"
@@ -48,15 +45,11 @@
 #include "langhooks.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
-#include "tree-iterator.h"
 
 #include "ada.h"
 #include "types.h"
 #include "atree.h"
-#include "elists.h"
-#include "namet.h"
 #include "nlists.h"
-#include "stringt.h"
 #include "uintp.h"
 #include "fe.h"
 #include "sinfo.h"
@@ -592,7 +585,7 @@ gnat_set_type_context (tree type, tree context)
    the debug info, or Empty if there is no such scope.  If not NULL, set
    IS_SUBPROGRAM to whether the returned entity is a subprogram.  */
 
-static Entity_Id
+Entity_Id
 get_debug_scope (Node_Id gnat_node, bool *is_subprogram)
 {
   Entity_Id gnat_entity;
@@ -600,7 +593,8 @@ get_debug_scope (Node_Id gnat_node, bool *is_subprogram)
   if (is_subprogram)
     *is_subprogram = false;
 
-  if (Nkind (gnat_node) == N_Defining_Identifier)
+  if (Nkind (gnat_node) == N_Defining_Identifier
+      || Nkind (gnat_node) == N_Defining_Operator_Symbol)
     gnat_entity = Scope (gnat_node);
   else
     return Empty;
@@ -3976,11 +3970,9 @@ convert_to_fat_pointer (tree type, tree expr)
 	  expr = build_unary_op (INDIRECT_REF, NULL_TREE, expr);
 	  template_addr
 	    = build_unary_op (ADDR_EXPR, NULL_TREE,
-			      build_component_ref (expr, NULL_TREE, field,
-						   false));
+			      build_component_ref (expr, field, false));
 	  expr = build_unary_op (ADDR_EXPR, NULL_TREE,
-				 build_component_ref (expr, NULL_TREE,
-						      DECL_CHAIN (field),
+				 build_component_ref (expr, DECL_CHAIN (field),
 						      false));
 	}
     }
@@ -4116,8 +4108,7 @@ convert (tree type, tree expr)
 
       /* Otherwise, build an explicit component reference.  */
       else
-	unpadded
-	  = build_component_ref (expr, NULL_TREE, TYPE_FIELDS (etype), false);
+	unpadded = build_component_ref (expr, TYPE_FIELDS (etype), false);
 
       return convert (type, unpadded);
     }
@@ -4138,8 +4129,8 @@ convert (tree type, tree expr)
   if (ecode == RECORD_TYPE && TYPE_JUSTIFIED_MODULAR_P (etype)
       && code != UNCONSTRAINED_ARRAY_TYPE
       && TYPE_MAIN_VARIANT (type) != TYPE_MAIN_VARIANT (etype))
-    return convert (type, build_component_ref (expr, NULL_TREE,
-					       TYPE_FIELDS (etype), false));
+    return
+      convert (type, build_component_ref (expr, TYPE_FIELDS (etype), false));
 
   /* If converting to a type that contains a template, convert to the data
      type and then build the template. */
@@ -4399,7 +4390,7 @@ convert (tree type, tree expr)
       do {
 	tree field = TYPE_FIELDS (child_etype);
 	if (DECL_NAME (field) == parent_name_id && TREE_TYPE (field) == type)
-	  return build_component_ref (expr, NULL_TREE, field, false);
+	  return build_component_ref (expr, field, false);
 	child_etype = TREE_TYPE (field);
       } while (TREE_CODE (child_etype) == RECORD_TYPE);
     }
@@ -4495,8 +4486,7 @@ convert (tree type, tree expr)
       /* If converting fat pointer to normal or thin pointer, get the pointer
 	 to the array and then convert it.  */
       if (TYPE_IS_FAT_POINTER_P (etype))
-	expr
-	  = build_component_ref (expr, NULL_TREE, TYPE_FIELDS (etype), false);
+	expr = build_component_ref (expr, TYPE_FIELDS (etype), false);
 
       return fold (convert_to_pointer (type, expr));
 
@@ -4721,13 +4711,11 @@ maybe_unconstrained_array (tree exp)
 	      tree op1
 		= build_unary_op (INDIRECT_REF, NULL_TREE,
 				  build_component_ref (TREE_OPERAND (exp, 1),
-						       NULL_TREE,
 						       TYPE_FIELDS (type),
 						       false));
 	      tree op2
 		= build_unary_op (INDIRECT_REF, NULL_TREE,
 				  build_component_ref (TREE_OPERAND (exp, 2),
-						       NULL_TREE,
 						       TYPE_FIELDS (type),
 						       false));
 
@@ -4738,8 +4726,8 @@ maybe_unconstrained_array (tree exp)
 	  else
 	    {
 	      exp = build_unary_op (INDIRECT_REF, NULL_TREE,
-				    build_component_ref (exp, NULL_TREE,
-						         TYPE_FIELDS (type),
+				    build_component_ref (exp,
+							 TYPE_FIELDS (type),
 						         false));
 	      TREE_READONLY (exp) = read_only;
 	      TREE_THIS_NOTRAP (exp) = no_trap;
@@ -4760,18 +4748,23 @@ maybe_unconstrained_array (tree exp)
 	  && TYPE_CONTAINS_TEMPLATE_P (TREE_TYPE (TYPE_FIELDS (type))))
 	{
 	  exp = convert (TREE_TYPE (TYPE_FIELDS (type)), exp);
+	  code = TREE_CODE (exp);
 	  type = TREE_TYPE (exp);
 	}
 
       if (TYPE_CONTAINS_TEMPLATE_P (type))
 	{
-	  exp = build_simple_component_ref (exp, NULL_TREE,
-					    DECL_CHAIN (TYPE_FIELDS (type)),
-					    false);
+	  /* If the array initializer is a box, return NULL_TREE.  */
+	  if (code == CONSTRUCTOR && CONSTRUCTOR_NELTS (exp) < 2)
+	    return NULL_TREE;
+
+	  exp = build_component_ref (exp, DECL_CHAIN (TYPE_FIELDS (type)),
+				     false);
+	  type = TREE_TYPE (exp);
 
 	  /* If the array type is padded, convert to the unpadded type.  */
-	  if (exp && TYPE_IS_PADDING_P (TREE_TYPE (exp)))
-	    exp = convert (TREE_TYPE (TYPE_FIELDS (TREE_TYPE (exp))), exp);
+	  if (TYPE_IS_PADDING_P (type))
+	    exp = convert (TREE_TYPE (TYPE_FIELDS (type)), exp);
 	}
       break;
 
@@ -4921,7 +4914,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       finish_record_type (rec_type, field, 1, false);
 
       expr = unchecked_convert (rec_type, expr, notrunc_p);
-      expr = build_component_ref (expr, NULL_TREE, field, false);
+      expr = build_component_ref (expr, field, false);
       expr = fold_build1 (NOP_EXPR, type, expr);
     }
 
@@ -4992,8 +4985,7 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 	  tree rec_type = maybe_pad_type (type, TYPE_SIZE (etype), 0, Empty,
 					  false, false, false, true);
 	  expr = unchecked_convert (rec_type, expr, notrunc_p);
-	  expr = build_component_ref (expr, NULL_TREE, TYPE_FIELDS (rec_type),
-				      false);
+	  expr = build_component_ref (expr, TYPE_FIELDS (rec_type), false);
 	}
     }
 
