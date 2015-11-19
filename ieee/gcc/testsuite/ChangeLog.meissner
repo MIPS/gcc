@@ -6,49 +6,6 @@
 
 	Merge up to 230570.
 
-2015-11-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
-	    Steve Munro <sjmunroe@us.ibm.com>
-	    Tulio Magno Quites Machado Filho <tulioqm@br.ibm.com>
-
-	* config.host (powerpc*-*-linux): Add t-float128 if we should
-	build the IEEE 128-bit floating point in vector support.
-
-	* Makefile.in (EXTRA_CLEAN): New variable of additional files to
-	clean.
-	(FLAGS_TO_PASS): Add EXTRA_CLEAN.
-	(clean): Delete EXTRA_CLEAN files.
-
-	* configure.ac (powerpc*-*-linux*): If the compiler is capable of
-	generating __float128 code, build the __float128 emulation
-	libraries.
-	* configure: Regenerate.
-
-	* config/rs6000/sfp-exceptions.c: New files for IEEE 128-bit
-	floating point support.
-	* config/rs6000/floattikf.c: Likewise.
-	* config/rs6000/extendkftf2.c: Likewise.
-	* config/rs6000/trunctfkf2.c: Likewise.
-	* config/rs6000/fixunskfti.c: Likewise.
-	* config/rs6000/fixkfti.c: Likewise.
-	* config/rs6000/floatuntikf.c: Likewise.
-	* config/rs6000/quad-float128.h: Likewise.
-	* config/rs6000/t-float128: Likewise.
-	* config/rs6000/float128-sed: Likewise.
-
-	* config/rs6000/sfp-machine.h (_FP_W_TYPE_SIZE): Update
-	defintiions to use 64-bit types for 64-bit systems or 32-bit VSX
-	systems with IEEE 128-bit floating point support.
-	(_FP_W_TYPE): Likewise.
-	(_FP_WS_TYPE): Likewise.
-	(_FP_I_TYPE): Likewise.
-	(TItype): Add defintions for IEEE 128-bit floating point support.
-	(UTItype): Likewise.
-	(TI_BITS): Likewise.
-	(_FP_MUL_MEAT_Q): Use 64-bit types on 64-bit systems and for
-	32-bit VSX systems with IEEE 128-bit floating point.
-	(_FP_DIV_MEAT_Q): Likewise.
-	(_FP_NANFRAC_Q): Likewise.
-
 2015-11-17   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 230510
