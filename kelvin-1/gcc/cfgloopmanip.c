@@ -291,37 +291,12 @@ get_loop_blocks (struct loop *loop_ptr)
   return results;
 }
 
-
-
 /* Return true iff BB is contained within the loop represented by LOOP_PTR */
 static bool 
 in_block_set_p (basic_block bb, struct loop* loop_ptr)
 {
   return (bb->loop_father == loop_ptr)
     || flow_loop_nested_p (loop_ptr, bb->loop_father);
-}
-
-/* Return a vector containing all of the edges that exit the loop
-   represented redundantly by both the LOOP_BLOCKS vector and by the
-   LOOP_PTR argument. */
-static vec<edge> 
-get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
-				 struct loop* loop_ptr) {
-  basic_block bb;
-  unsigned int u;
-  vec<edge> results = vNULL;
-  FOR_EACH_VEC_ELT (loop_blocks, u, bb)
-    {
-      edge_iterator ei;
-      edge successor;
-      FOR_EACH_EDGE (successor, ei, bb->succs)
-	{
-	  basic_block edge_dest = successor->dest;
-	  if (!in_block_set_p (edge_dest, loop_ptr))
-	    results.safe_push (successor);
-	}
-    }
-  return results;
 }
 
 /* Zero all frequencies for all blocks contained within the loop
@@ -341,26 +316,13 @@ get_exit_edges_from_loop_blocks (vec<basic_block> loop_blocks,
 static void
 zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
 {
-  /* When zero_partial_loop_frequencies is invoked, the *loop_ptr
-     object is not entirely coherent, so the library service
-     get_loop_exit_edges (loop_p) cannot be called from this context.
-     Instead, we use get_loop_blocks (loop_p) and
-     get_exit_edges_from_loop_blocks (vec<basic_block>) functions
-     which require only the validity of loop_ptr->loop_header,
-     loop_ptr->loop_latch, and valid successor and predecessor
-     information for each block contained within the loop. All
-     of this information is known to be valid at this point. */
-  vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
   if (in_block_set_p (block, loop_ptr))
     {
       struct block_ladder_rung ladder_rung;
       ladder_rung.block = block;
       ladder_rung.lower_rung = NULL;
-      
-      vec<edge> exit_edges =
-	get_exit_edges_from_loop_blocks (loop_blocks, loop_ptr);
+      vec<edge> exit_edges = get_loop_exit_edges (loop_ptr);
       block->frequency = 0;
-      
       edge_iterator ei;
       edge successor;
       FOR_EACH_EDGE (successor, ei, block->succs)
@@ -373,7 +335,6 @@ zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
 	}
       exit_edges.release ();
     }
-  loop_blocks.release ();
 }
 
 /* This recursive function visits all of the blocks contained within the
@@ -434,18 +395,14 @@ void
 increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 			    int frequency_increment)
 {
-  vec<basic_block> loop_blocks = get_loop_blocks (loop_ptr);
-
   if (in_block_set_p (block, loop_ptr))
     {
       struct block_ladder_rung ladder_rung;
       ladder_rung.block = block;
       ladder_rung.lower_rung = NULL;
-      
-      vec<edge> exit_edges =
-	get_exit_edges_from_loop_blocks (loop_blocks, loop_ptr);
+
+      vec<edge> exit_edges = get_loop_exit_edges (loop_ptr);
       block->frequency += frequency_increment;
-      
       edge_iterator ei;
       edge successor;
       FOR_EACH_EDGE (successor, ei, block->succs)
@@ -462,7 +419,6 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 	}
       exit_edges.release ();
     }
-  loop_blocks.release ();
 }
 
 /* check_loop_frequency_integrity enforces that:
@@ -515,8 +471,7 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
       incoming_frequency += EDGE_FREQUENCY (a_predecessor);
 
   int outgoing_frequency = 0;
-  vec<edge> exit_edges =
-    get_exit_edges_from_loop_blocks (loop_body, loop_ptr);
+  vec<edge> exit_edges = get_loop_exit_edges (loop_ptr);
   edge edge;
   FOR_EACH_VEC_ELT (exit_edges, i, edge)
     outgoing_frequency += EDGE_FREQUENCY (edge);
