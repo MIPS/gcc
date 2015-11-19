@@ -13149,6 +13149,17 @@ mips_modes_tieable_p (machine_mode mode1, machine_mode mode2)
 	      && !mips_mode_ok_for_mov_fmt_p (mode2)));
 }
 
+/* Implement TARGET_PREFERRED_RENAME_CLASS.  */
+
+static reg_class_t
+mips_preferred_rename_class (reg_class_t rclass)
+{
+  if (TARGET_MICROMIPS && TARGET_PREFERRED_RENAME)
+    return M16_REGS;
+
+  return rclass;
+}
+
 /* Implement TARGET_PREFERRED_RELOAD_CLASS.  */
 
 static reg_class_t
@@ -22363,6 +22374,9 @@ mips_is_bit_clear_upper_16bit_p (enum machine_mode mode, unsigned HOST_WIDE_INT 
 
 #undef  TARGET_PREFERRED_RELOAD_CLASS
 #define TARGET_PREFERRED_RELOAD_CLASS mips_preferred_reload_class
+
+#undef  TARGET_PREFERRED_RENAME_CLASS
+#define TARGET_PREFERRED_RENAME_CLASS mips_preferred_rename_class
 
 #undef TARGET_EXPAND_TO_RTL_HOOK
 #define TARGET_EXPAND_TO_RTL_HOOK mips_expand_to_rtl_hook
