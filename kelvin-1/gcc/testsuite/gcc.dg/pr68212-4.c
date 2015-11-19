@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-void foo(double *d, unsigned long int n)
+void foo (double *d, unsigned long int n)
 {
   unsigned long int i;
   volatile unsigned int j;
@@ -18,15 +18,15 @@ void foo(double *d, unsigned long int n)
 	  /* frequency of this block should be 4 times the frequency
 	     of case 4, but that might be too much to expect from
 	     the compiler's analysis. */
-	  fprintf(stderr, "value %d has remainder < 4\n", i);
+	  fprintf (stderr, "value %d has remainder < 4\n", i);
 	  break;
 	  
 	case 4:
-	  fprintf(stderr, "value %d has remainder 4\n", i);
+	  fprintf (stderr, "value %d has remainder 4\n", i);
 	  break;
 	  
 	default:
-	  fprintf(stderr, "this code should not be reached\n");
+	  fprintf (stderr, "this code should not be reached\n");
 	  break;
 	}
     }

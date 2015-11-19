@@ -5,7 +5,7 @@ volatile int a;
 
 /* Loop with multiple entries runtime iterations, probably
    should not unroll. */
-void foo(double *d, unsigned long int n, double d1, double d2)
+void foo (double *d, unsigned long int n, double d1, double d2)
 {
   unsigned long int i;
   

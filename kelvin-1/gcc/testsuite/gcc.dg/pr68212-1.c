@@ -1,7 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O3 -fno-tree-vectorize -funroll-loops --param  max-unroll-times=4 -fdump-rtl-loop2_unroll" } */
 
-void foo(double *d, unsigned long int n)
+void foo (double *d, unsigned long int n)
 {
   unsigned long int i;
   

@@ -5,10 +5,10 @@
 
 volatile int a;
 
-extern int baz(int arg);
+extern int baz (int arg);
 
 /* loop with multiple exits and runtime iterations */
-void foo(double *d, unsigned long int n, int a, double d1, double d2)
+void foo (double *d, unsigned long int n, int a, double d1, double d2)
 {
   unsigned long int i;
   volatile unsigned int j;
@@ -21,7 +21,7 @@ void foo(double *d, unsigned long int n, int a, double d1, double d2)
       else if (a < 0)
 	break;
       else
-	a = baz(a);
+	a = baz (a);
       d[i] =  dd;
     }
 }

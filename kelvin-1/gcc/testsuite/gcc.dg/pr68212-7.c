@@ -7,7 +7,7 @@ volatile int a;
 
 /* if-then-else statement embedded within a constant iterations loop,
    where constant number of iterations is not divisible by 4. */
-void foo(double *d, unsigned long int n, double d1, double d2)
+void foo (double *d, unsigned long int n, double d1, double d2)
 {
   unsigned long int i;
   volatile unsigned int j;

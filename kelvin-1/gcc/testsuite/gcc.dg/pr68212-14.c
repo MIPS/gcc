@@ -3,7 +3,7 @@
 
 /* Loop within loop (only inner-most loop should be unrolled).  Both loops
    are run-time bounded. */
-void foo(double *d, unsigned long int n)
+void foo (double *d, unsigned long int n)
 {
   unsigned long int i, j;
   

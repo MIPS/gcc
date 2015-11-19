@@ -3,7 +3,7 @@
 
 volatile int a;
 
-void foo(double *d, unsigned long int n, double d1, double d2)
+void foo (double *d, unsigned long int n, double d1, double d2)
 {
   unsigned long int i;
 
