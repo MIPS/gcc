@@ -1,5 +1,10 @@
 2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 230686.
+	* REVISION: Update subversion id.
+
+2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Partial back port from trunk (not IEEE 128-bit HW support)
 	2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
