@@ -441,6 +441,7 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
 	  best_unroll = i;
 	}
     }
+
   loop->lpt_decision.decision = LPT_UNROLL_CONSTANT;
   loop->lpt_decision.times = best_unroll;
 }
