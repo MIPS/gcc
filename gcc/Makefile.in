@@ -2980,6 +2980,8 @@ TEXI_GCCINT_FILES = gccint.texi gcc-common.texi gcc-vers.texi		\
 	 loop.texi generic.texi gimple.texi plugins.texi optinfo.texi   \
 	 match-and-simplify.texi
 
+TEXI_GUPC_FILES = gupc.texi gcc-common.texi gcc-vers.texi
+
 TEXI_GCCINSTALL_FILES = install.texi install-old.texi fdl.texi		\
 	 gcc-common.texi gcc-vers.texi
 
@@ -3006,6 +3008,7 @@ gcc-vers.texi: $(BASEVER) $(DEVPHASE)
 
 doc/cpp.info: $(TEXI_CPP_FILES)
 doc/gcc.info: $(TEXI_GCC_FILES)
+doc/gupc.info: $(TEXI_GUPC_FILES)
 doc/gccint.info: $(TEXI_GCCINT_FILES)
 doc/cppinternals.info: $(TEXI_CPPINT_FILES)
 

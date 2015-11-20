@@ -1,3 +1,7 @@
+2015-11-20  Gary Funck  <gary@intrepid.com>
+
+	* Makefile.in (doc/gupc.info): Add make dependents.
+
 2015-11-19  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 230603 into gupc branch.
