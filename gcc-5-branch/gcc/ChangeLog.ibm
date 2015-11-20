@@ -28,10 +28,14 @@
 	* config/rs6000/rs6000.h (VECTOR_ELEMENT_MFVSRLD_64BIT): New
 	macros for ISA 3.0 direct move instructions.
 	(TARGET_DIRECT_MOVE_128): Likewise.
+	* config/rs6000/rs6000.h (TARGET_MADDLD): Add support for the ISA
+	3.0 integer multiply-add instruction.
 
 	* config/rs6000/rs6000.md (128-bit GPR splitters): Don't split a
 	128-bit move that is a direct move between GPR and vector
 	registers using ISA 3.0 direct move instructions.
+	(maddld4): Add support for the ISA 3.0 integer multiply-add
+	instruction.
 
 	* doc/md.texi (RS/6000 constraints): Document we, wF, wG, wL
 	constraints.  Update wa documentation to say not to use %x<n> on

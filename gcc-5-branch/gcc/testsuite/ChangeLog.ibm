@@ -1,5 +1,12 @@
 2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Back port from trunk.
+	2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/maddld.c: New test.
+
+2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Back port from trunk
 	2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
