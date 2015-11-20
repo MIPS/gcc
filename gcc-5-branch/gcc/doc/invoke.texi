@@ -928,7 +928,8 @@ See RS/6000 and PowerPC Options.
 -mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm @gol
 -mupper-regs-df -mno-upper-regs-df -mupper-regs-sf -mno-upper-regs-sf @gol
--mupper-regs -mno-upper-regs}
+-mupper-regs -mno-upper-regs @gol
+-mpower9-fusion -mno-power9-fusion -mpower9-vector -mno-power9-vector}
 
 @emph{RX Options}
 @gccoptlist{-m64bit-doubles  -m32bit-doubles  -fpu  -nofpu@gol
@@ -18863,8 +18864,9 @@ Supported values for @var{cpu_type} are @samp{401}, @samp{403},
 @samp{e300c3}, @samp{e500mc}, @samp{e500mc64}, @samp{e5500},
 @samp{e6500}, @samp{ec603e}, @samp{G3}, @samp{G4}, @samp{G5},
 @samp{titan}, @samp{power3}, @samp{power4}, @samp{power5}, @samp{power5+},
-@samp{power6}, @samp{power6x}, @samp{power7}, @samp{power8}, @samp{powerpc},
-@samp{powerpc64}, @samp{powerpc64le}, and @samp{rs64}.
+@samp{power6}, @samp{power6x}, @samp{power7}, @samp{power8},
+@samp{power9}, @samp{powerpc}, @samp{powerpc64}, @samp{powerpc64le},
+and @samp{rs64}.
 
 @option{-mcpu=powerpc}, @option{-mcpu=powerpc64}, and
 @option{-mcpu=powerpc64le} specify pure 32-bit PowerPC (either
@@ -18884,7 +18886,8 @@ following options:
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
 -mcrypto -mdirect-move -mpower8-fusion -mpower8-vector @gol
--mquad-memory -mquad-memory-atomic}
+-mquad-memory -mquad-memory-atomic -mmodulo -mfloat128 -mfloat128-hardware @gol
+-mpower9-fusion -mpower9-vector}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -19115,6 +19118,31 @@ floating point register set, depending on the model of the machine.
 
 If the @option{-mno-upper-regs} option is used, it turns off both
 @option{-mupper-regs-sf} and @option{-mupper-regs-df} options.
+
+@item -mmodulo
+@itemx -mno-modulo
+@opindex mmodulo
+@opindex mno-module
+Generate code that uses (does not use) the ISA 3.0 integer modulo
+instructions.  The @option{-mmodulo} option is enabled by default
+with the @option{-mcpu=power9} option.
+
+@item -mpower9-fusion
+@itemx -mno-power9-fusion
+@opindex mpower9-fusion
+@opindex mno-power9-fusion
+Generate code that keeps (does not keeps) some operations adjacent so
+that the instructions can be fused together on power9 and later
+processors.
+
+@item -mpower9-vector
+@itemx -mno-power9-vector
+@opindex mpower9-vector
+@opindex mno-power9-vector
+Generate code that uses (does not use) the vector and scalar
+instructions that were added in version 2.07 of the PowerPC ISA.  Also
+enable the use of built-in functions that allow more direct access to
+the vector instructions.
 
 @item -mfloat-gprs=@var{yes/single/double/no}
 @itemx -mfloat-gprs
