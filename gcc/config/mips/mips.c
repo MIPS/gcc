@@ -2217,8 +2217,8 @@ mips_anchored_sdata_ref_p (const_rtx x)
 	  /* FIXME: This is clunky. Unfortunately experience shows
 	     that .sdata anchors aren't SYMBOL_FLAG_SMALL.  Urgh.  */
 	  && SYMBOL_REF_BLOCK (sym)
-	  && (SYMBOL_REF_BLOCK (sym))->sect
-	      == get_named_section (NULL, ".sdata", 0));
+	  && (((SYMBOL_REF_BLOCK (sym))->sect == get_named_section (NULL, ".sdata", 0))
+              || ((SYMBOL_REF_BLOCK (sym))->sect == get_named_section (NULL, ".sbss", 0))));
 }
 
 /* Return the method that should be used to access SYMBOL_REF or
