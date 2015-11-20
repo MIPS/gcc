@@ -1,5 +1,44 @@
 2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Partial back port from trunk (not IEEE 128-bit HW support)
+	2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (we constraint): New constraint for
+	64-bit power9 vector support.
+	(wL constraint): New constraint for the element in a vector that
+	can be addressed by the MFVSRLD instruction.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add ISA 3.0
+	debugging.
+	(rs6000_init_hard_regno_mode_ok): If ISA 3.0 and 64-bit, enable we
+	constraint.  Disable the VSX<->GPR direct move helpers if we have
+	the MFVSRLD and MTVSRDD instructions.
+	(rs6000_secondary_reload_simple_move): Add support for doing
+	vector direct moves directly without additional scratch registers
+	if we have ISA 3.0 instructions.
+	(rs6000_secondary_reload_direct_move): Update comments.
+	(rs6000_output_move_128bit): Add support for ISA 3.0 vector
+	instructions.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>): Add support for ISA 3.0
+	direct move instructions.
+	(vsx_movti_64bit): Likewise.
+	(vsx_extract_<mode>): Likewise.
+
+	* config/rs6000/rs6000.h (VECTOR_ELEMENT_MFVSRLD_64BIT): New
+	macros for ISA 3.0 direct move instructions.
+	(TARGET_DIRECT_MOVE_128): Likewise.
+
+	* config/rs6000/rs6000.md (128-bit GPR splitters): Don't split a
+	128-bit move that is a direct move between GPR and vector
+	registers using ISA 3.0 direct move instructions.
+
+	* doc/md.texi (RS/6000 constraints): Document we, wF, wG, wL
+	constraints.  Update wa documentation to say not to use %x<n> on
+	instructions that only take Altivec registers.
+
+2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Back port from trunk
 	2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 		    Peter Bergner  <bergner@vnet.ibm.com>

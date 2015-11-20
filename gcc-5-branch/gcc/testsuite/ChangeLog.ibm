@@ -1,6 +1,14 @@
 2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from trunk
+	2015-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/direct-move-vector.c: New test for 128-bit
+	vector direct move instructions.
+
+2015-11-20  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Back port from trunk
 	2015-11-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* lib/target-supports.exp (check_p8vector_hw_available): Split
