@@ -45,10 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "dumpfile.h"
 
-#define KELVIN_NOISE
-#ifdef KELVIN_NOISE
-#include "kelvin-debugs.c"
-#endif
 /* This pass performs loop unrolling.  We only perform this
    optimization on innermost loops (with single exception) because
    the impact on performance is greatest here, and we want to avoid
@@ -288,20 +284,12 @@ unroll_loops (int flags)
   struct loop *loop;
   bool changed = false;
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "In unroll_loops(0x%x)\n", flags);
-#endif
   /* Now decide rest of unrolling.  */
   decide_unrolling (flags);
 
   /* Scan the loops, inner ones first.  */
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
-#ifdef KELVIN_NOISE
-      fprintf(stderr, "In unroll_loop, looking at loop ");
-      kdn_dump_loop(stderr, loop);
-      kdn_dump_all_blocks(stderr, loop);
-#endif
       /* And perform the appropriate transformations.  */
       switch (loop->lpt_decision.decision)
 	{
@@ -367,11 +355,6 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
   struct niter_desc *desc;
   widest_int iterations;
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "decide_unroll_constant_iterations (loop %d)\n", loop->num);
-  fprintf(stderr, "  UAP_UNROLL flag is %s\n",
-	  (flags & UAP_UNROLL)? "on": "off");
-#endif
   if (!(flags & UAP_UNROLL))
     {
       /* We were not asked to, just return back silently.  */
@@ -396,9 +379,6 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
   if (targetm.loop_unroll_adjust)
     nunroll = targetm.loop_unroll_adjust (nunroll, loop);
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " after some calculations, nunroll is %d\n", nunroll);
-#endif
   /* Skip big loops.  */
   if (nunroll <= 1)
     {
@@ -416,13 +396,6 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
       if (dump_file)
 	fprintf (dump_file,
 		 ";; Unable to prove that the loop iterates constant times\n");
-#ifdef KELVIN_NOISE
-      fprintf(stderr,
-	      " abandoning all hope, can't prove constant iterations\n");
-      fprintf(stderr,
-	      " simple_p: %d, const_iter: %d, assumptions: %d\n",
-	      desc->simple_p, desc->const_iter, (desc->assumptions != NULL));
-#endif
       return;
     }
 
@@ -437,14 +410,8 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
     {
       if (dump_file)
 	fprintf (dump_file, ";; Not unrolling loop, doesn't roll\n");
-#ifdef KELVIN_NOISE
-      fprintf(stderr, " abandoning effort, loop doesn't roll\n");
-#endif
       return;
     }
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " committing to constant unroll, TBD iteration count\n");
-#endif
 
   /* Success; now compute number of iterations to unroll.  We alter
      nunroll so that as few as possible copies of loop body are
@@ -474,9 +441,6 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
 	  best_unroll = i;
 	}
     }
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " returning, best_unroll is %d\n", best_unroll);
-#endif
   loop->lpt_decision.decision = LPT_UNROLL_CONSTANT;
   loop->lpt_decision.times = best_unroll;
 }
@@ -622,7 +586,6 @@ unroll_loop_constant_iterations (struct loop *loop)
   /* Now unroll the loop.  */
 
   opt_info_start_duplication (opt_info);
-#ifdef KELVIN_PATCH
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
 				      wont_exit, desc->out_edge,
@@ -630,16 +593,6 @@ unroll_loop_constant_iterations (struct loop *loop)
 				      opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0);
-#else
-  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      max_unroll,
-				      wont_exit, desc->out_edge,
-				      &remove_edges,
-				      DLTHE_FLAG_UPDATE_FREQ
-				      | (opt_info
-					 ? DLTHE_RECORD_COPY_NUMBER
-					 : 0));
-#endif
   gcc_assert (ok);
 
   if (opt_info)
@@ -912,7 +865,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   bool exit_at_end = loop_exit_at_end_p (loop);
   struct opt_info *opt_info = NULL;
   bool ok;
-#ifdef KELVIN_PATCH
   int header_frequency;
   int sum_incoming_frequencies;
   int exit_multiplier;
@@ -920,37 +872,14 @@ unroll_loop_runtime_iterations (struct loop *loop)
   edge predecessor;
 
   header_frequency = loop->header->frequency;
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "unroll_loop_runtime_iterations, loop header block: %d\n",
-	  loop->header->index);
-  fprintf(stderr, "  header frequency: %d\n", header_frequency);
-#endif
   sum_incoming_frequencies = 0;
   FOR_EACH_EDGE (predecessor, ei, loop->header->preds)
     {
       if (!in_loop_p (predecessor->src, loop))
-	{
-#ifdef KELVIN_NOISE
-	  fprintf(stderr, " predecessor %d has frequency %d\n",
-		  predecessor->src->index, EDGE_FREQUENCY (predecessor));
-#endif
-	  sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
-	}
+	sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
     }
   
   exit_multiplier = (header_frequency * 10000) / sum_incoming_frequencies;
-
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "unroll_loop_runtime_iterations, exit_multiplier is %d\n",
-	  exit_multiplier);
-  fprintf(stderr, " computed from sum_incoming_frequencies: %d\n",
-	  sum_incoming_frequencies);
-  fprintf(stderr,
-	  " expect value of 111111 for typical run-time bounded loop\n");
-  fprintf(stderr,
-	  " expect value of 990099 for typical compile-time bounded loop\n");
-#endif
-#endif
 
   if (flag_split_ivs_in_unroller
       || flag_variable_expansion_in_unroller)
@@ -1011,17 +940,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
   end_sequence ();
   unshare_all_rtl_in_chain (init_code);
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "before preconditioning the loop, preheader dest is\n");
-  kdn_dump_block(stderr, loop_preheader_edge (loop)->dest);
-#endif
   /* Precondition the loop.  */
   split_edge_and_insert (loop_preheader_edge (loop), init_code);
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "after preconditioning the loop, preheader dest is\n");
-  kdn_dump_block(stderr, loop_preheader_edge (loop)->dest);
-#endif
   auto_vec<edge> remove_edges;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
@@ -1039,56 +960,31 @@ unroll_loop_runtime_iterations (struct loop *loop)
 				      1, wont_exit, desc->out_edge,
 				      &remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ);
-#ifdef KELVIN_NOISE
-  /* I think the problem occurs because we duplicate the loop body
-     which includes an exit edge, and then we remove the exit edge
-     without redistributing its frequency and probability to the other
-     edges.  This problem occurs within duplicate_loop_to_header_edge. */
-  fprintf(stderr, " after peeling first copy of loop body, ezc_switch is\n");
-  kdn_dump_block(stderr, ezc_swtch);
-  fprintf(stderr, " and its successors are\n");
-  edge outgoing;
-  FOR_EACH_EDGE (outgoing, ei, ezc_swtch->succs)
-    {
-      fprintf(stderr, " successor block is\n");
-      kdn_dump_block(stderr, outgoing->dest);
-    }
-#endif
   gcc_assert (ok);
 
   /* Record the place where switch will be built for preconditioning.  */
   swtch = split_edge (loop_preheader_edge (loop));
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "  after splitting edge, swtch is\n");
-  kdn_dump_block(stderr, swtch);
-#endif
-#ifdef KELVIN_PATCH
   int iter_freq, new_freq;
   iter_freq = new_freq = swtch->frequency / (n_peel+1);
   swtch->frequency = new_freq;
-#endif
   for (i = 0; i < n_peel; i++)
     {
       /* Peel the copy.  */
       bitmap_clear (wont_exit);
       if (i != n_peel - 1 || !last_may_exit)
 	bitmap_set_bit (wont_exit, 1);
-#ifdef KELVIN_PATCH
       int saved_header_frequency = loop->header->frequency;
       zero_loop_frequencies (loop);
 
       int new_header_freq = (saved_header_frequency / (n_peel + 1)) * (i + 1);
       increment_loop_frequencies (loop, loop->header, new_header_freq);
-#endif
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					  1, wont_exit, desc->out_edge,
 					  &remove_edges,
 					  DLTHE_FLAG_UPDATE_FREQ);
-#ifdef KELVIN_PATCH
       zero_loop_frequencies (loop);
       increment_loop_frequencies (loop, loop->header, saved_header_frequency);
-#endif
       gcc_assert (ok);
 
       /* Create item for switch.  */
@@ -1096,10 +992,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
       p = REG_BR_PROB_BASE / (i + 2);
 
       preheader = split_edge (loop_preheader_edge (loop));
-#ifdef KELVIN_NOISE
-      fprintf(stderr, "  after split_edge, preheader is\n");
-      kdn_dump_block(stderr, preheader);
-#endif
       branch_code = compare_and_jump_seq (copy_rtx (niter), GEN_INT (j), EQ,
 					  block_label (preheader), p,
 					  NULL);
@@ -1110,16 +1002,11 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
       swtch = split_edge_and_insert (single_pred_edge (swtch), branch_code);
       set_immediate_dominator (CDI_DOMINATORS, preheader, swtch);
-#ifdef KELVIN_PATCH
       single_succ_edge (swtch)->probability = REG_BR_PROB_BASE - p;
-#else
-      single_pred_edge (swtch)->probability = REG_BR_PROB_BASE - p;
-#endif
       e = make_edge (swtch, preheader,
 		     single_succ_edge (swtch)->flags & EDGE_IRREDUCIBLE_LOOP);
       e->count = RDIV (preheader->count * REG_BR_PROB_BASE, p);
       e->probability = p;
-#ifdef KELVIN_PATCH
       new_freq = new_freq + iter_freq;
       swtch->frequency = new_freq;
 
@@ -1132,7 +1019,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	  prehead_frequency += the_edge_frequency;
 	}
       preheader->frequency = prehead_frequency;
-#endif
     }
 
   if (extra_zero_check)
@@ -1164,7 +1050,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   bitmap_clear_bit (wont_exit, may_exit_copy);
   opt_info_start_duplication (opt_info);
 
-#ifdef KELVIN_PATCH
   {  
     /* Recompute the loop body frequencies. */
     zero_loop_frequencies (loop);
@@ -1213,8 +1098,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
     sum_incoming_frequencies /= 10000;
     increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
   }
-#endif
-#ifdef KELVIN_PATCH
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
 				      wont_exit, desc->out_edge,
@@ -1222,16 +1105,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 				      opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0);
-#else
-  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      max_unroll,
-				      wont_exit, desc->out_edge,
-				      &remove_edges,
-                                      DLTHE_FLAG_UPDATE_FREQ
-                                      | (opt_info
-					 ? DLTHE_RECORD_COPY_NUMBER
-					 : 0));
-#endif
   gcc_assert (ok);
 
   if (opt_info)

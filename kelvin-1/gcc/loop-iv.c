@@ -70,10 +70,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "rtl-iter.h"
-#define KELVIN_NOISE
-#ifdef KELVIN_NOISE
-#include "kelvin-debugs.c"
-#endif
 
 /* Possible return values of iv_get_reaching_def.  */
 
@@ -1881,25 +1877,6 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
   regset altered, this_altered;
   edge e;
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "simplify_using_initial_values() for loop ");
-  kdn_dump_loop(stderr, loop);
-  switch (op)
-    {
-    case AND:
-      fprintf(stderr, "Combinator is AND\n");
-      break;
-      
-    case IOR:
-      fprintf(stderr, "Combinator is IOR\n");
-      break;
-      
-    default:
-      fprintf(stderr, "Unexpected combinator\n");
-    }
-  fprintf(stderr, "Expression is\n");
-  kdn_dump_rtl_insns(stderr, *expr);
-#endif
   if (!*expr)
     return;
 
@@ -2365,18 +2342,12 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
      if noloop_assumptions then the loop does not roll
      if infinite then this exit is never used */
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "iv_number_of_iterations()\n");
-#endif
   desc->assumptions = NULL_RTX;
   desc->noloop_assumptions = NULL_RTX;
   desc->infinite = NULL_RTX;
   desc->simple_p = true;
 
   desc->const_iter = false;
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " ... setting niter_expr to NULL_RTX\n");
-#endif
   desc->niter_expr = NULL_RTX;
 
   cond = GET_CODE (condition);
@@ -2717,9 +2688,6 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
       tmp = simplify_gen_binary (UDIV, mode, tmp1, gen_int_mode (d, mode));
       inv = inverse (s, size);
       tmp = simplify_gen_binary (MULT, mode, tmp, gen_int_mode (inv, mode));
-#ifdef KELVIN_NOISE
-      fprintf(stderr, " ... setting niter_expr to simplify_gen_binary()\n");
-#endif
       desc->niter_expr = simplify_gen_binary (AND, mode, tmp, bound);
     }
   else
@@ -2822,15 +2790,9 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
 	desc->noloop_assumptions =
 		alloc_EXPR_LIST (0, assumption, desc->noloop_assumptions);
       delta = simplify_gen_binary (UDIV, mode, delta, step);
-#ifdef KELVIN_NOISE
-      fprintf(stderr, " ... setting niter_expr to delta\n");
-#endif
       desc->niter_expr = delta;
     }
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " ... saving niter_expr to old_niter\n");
-#endif
   old_niter = desc->niter_expr;
 
   simplify_using_initial_values (loop, AND, &desc->assumptions);
@@ -2896,9 +2858,6 @@ iv_number_of_iterations (struct loop *loop, rtx_insn *insn, rtx condition,
       desc->niter_expr = old_niter;
     }
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " ... returning (non-zero)\n");
-#endif
   return;
 
 zero_iter_simplify:
@@ -2916,16 +2875,10 @@ zero_iter:
   record_niter_bound (loop, 0, true, true);
   desc->noloop_assumptions = NULL_RTX;
   desc->niter_expr = const0_rtx;
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " ... returning (zero)\n");
-#endif
   return;
 
 fail:
   desc->simple_p = false;
-#ifdef KELVIN_NOISE
-  fprintf(stderr, " ... returning (failure)\n");
-#endif
   return;
 }
 
