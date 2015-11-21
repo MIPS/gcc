@@ -5271,7 +5271,7 @@ c_parser_statement_after_labels (c_parser *parser, vec<tree> *chain)
 static tree
 c_parser_condition (c_parser *parser)
 {
-  location_t loc ATTRIBUTE_UNUSED = c_parser_peek_token (parser)->location;
+  location_t loc = c_parser_peek_token (parser)->location;
   tree cond;
   cond = c_parser_expression_conv (parser).value;
   cond = c_objc_common_truthvalue_conversion (loc, cond);

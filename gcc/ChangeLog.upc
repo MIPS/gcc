@@ -1,3 +1,22 @@
+2015-11-21  Gary Funck  <gary@intrepid.com>
+
+	top-level/
+	* contrib/ChangeLog: Revert to trunk.
+	gcc/
+	* c-family/c-common.def: Remove reference to UPC in comment.
+	* print-tree.c (print_node): Remove check for TYPE_SHARED()
+	when printing language flags.
+	* testsuite/gcc.dg/gupc/gupc.exp: Update copyright.
+	* tree.h: Remove extra spaces.
+	* c-family/c-common.c: Fix comment.
+	* c-family/c-common.h: Fix comment.
+	* c-family/c-lex.c: Fix comment.
+	* c-family/c-pragma.c: Fix comment.
+	* c/c-decl.c (merge_decls): set TREE_VOLATILE in 'olddecl'.
+	* c/c-decl.c: Fix spacing and comments.
+	* c/c-parser.c (c_parser_condition): Remove ATTRIBUTE_UNUSED.
+	* c/c-typeck.c: Revert line formatting to trunk.
+
 2015-11-20  Gary Funck  <gary@intrepid.com>
 
 	* Makefile.in (doc/gupc.info): Add make dependents.

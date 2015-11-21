@@ -230,7 +230,7 @@ const char *constant_string_class_name;
 
 /* UPC language option variables.  */
 
-/* Nonzero whenever UPC -fupc-threads-N is asserted.
+/* Nonzero whenever UPC -fupc-threads=N is asserted.
    The value N gives the number of UPC threads to be
    defined at compile-time. */
 int flag_upc_threads;

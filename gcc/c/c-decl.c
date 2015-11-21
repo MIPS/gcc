@@ -2405,7 +2405,7 @@ merge_decls (tree newdecl, tree olddecl, tree newtype, tree oldtype)
     {
       TREE_SHARED (olddecl) = 1;
       if (TREE_CODE (newdecl) == VAR_DECL)
-	TREE_THIS_VOLATILE (newdecl) = 1;
+	TREE_THIS_VOLATILE (olddecl) = 1;
     }
 
   /* Merge deprecatedness.  */
@@ -4267,9 +4267,9 @@ quals_from_declspecs (const struct c_declspecs *specs)
 	       | (specs->volatile_p ? TYPE_QUAL_VOLATILE : 0)
 	       | (specs->restrict_p ? TYPE_QUAL_RESTRICT : 0)
 	       | (specs->atomic_p ? TYPE_QUAL_ATOMIC : 0)
-	       | (specs->shared_p   ? TYPE_QUAL_SHARED : 0)
-	       | (specs->strict_p   ? TYPE_QUAL_STRICT : 0)
-	       | (specs->relaxed_p  ? TYPE_QUAL_RELAXED : 0)
+	       | (specs->shared_p ? TYPE_QUAL_SHARED : 0)
+	       | (specs->strict_p ? TYPE_QUAL_STRICT : 0)
+	       | (specs->relaxed_p ? TYPE_QUAL_RELAXED : 0)
 	       | (ENCODE_QUAL_ADDR_SPACE (specs->address_space)));
   gcc_assert (!specs->type
 	      && !specs->decl_attr
@@ -6085,7 +6085,7 @@ grokdeclarator (const struct c_declarator *declarator,
                 if (upc_threads_ref)
 		  {
 		    /* We need a unique type copy here for UPC shared
-		       array types compiled in a dynamic threads enviroment
+		       array types compiled in a dynamic threads environment
 		       that reference THREADS as a multiplier; to avoid
 		       setting the "has threads factor" bit in
 		       a re-used non- UPC shared array type node.  */
@@ -6827,8 +6827,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  {
 	    TREE_STATIC (decl) = (storage_class == csc_static);
 	    /* UPC's 'shared' attribute implies that the storage
-	       is 'static' to the extent it is stored in
-	       memory.  */
+	       is 'static' to the extent it is stored in memory.  */
 	    if (type_quals & TYPE_QUAL_SHARED)
 	      TREE_STATIC (decl) = 1;
 	    TREE_PUBLIC (decl) = extern_ref;
@@ -9673,7 +9672,7 @@ declspecs_add_qual (source_location loc,
   specs->declspecs_seen_p = true;
 
   /* A UPC layout qualifier is encoded as an ARRAY_REF,
-     further, it implies the presence of the 'shared' keyword. */
+     further, it implies the presence of the 'shared' keyword.  */
   if (TREE_CODE (qual) == ARRAY_REF)
     {
       if (specs->upc_layout_qualifier)

@@ -35,7 +35,7 @@ static int header_time, body_time;
 static splay_tree file_info_tree;
 
 int pending_lang_change; /* If we need to switch languages - C++ only */
-int c_header_level;	 /* depth in C headers - C++ and UPC only */
+int c_header_level;	 /* depth in C headers - C++ and UPC */
 
 static tree interpret_integer (const cpp_token *, unsigned int,
 			       enum overflow_type *);

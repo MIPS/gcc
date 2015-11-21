@@ -1952,9 +1952,9 @@ extern machine_mode element_mode (const_tree t);
 	  | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
 	  | (TYPE_ATOMIC (NODE) * TYPE_QUAL_ATOMIC)		\
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)		\
-          | (TYPE_SHARED  (NODE) * TYPE_QUAL_SHARED)		\
-          | (TYPE_STRICT  (NODE) * TYPE_QUAL_STRICT)		\
-          | (TYPE_RELAXED (NODE) * TYPE_QUAL_RELAXED)		\
+	  | (TYPE_SHARED (NODE) * TYPE_QUAL_SHARED)		\
+	  | (TYPE_STRICT (NODE) * TYPE_QUAL_STRICT)		\
+	  | (TYPE_RELAXED (NODE) * TYPE_QUAL_RELAXED)		\
 	  | (ENCODE_QUAL_ADDR_SPACE (TYPE_ADDR_SPACE (NODE)))))
 
 /* The set of qualifiers pertinent to a FUNCTION_DECL node.  */
@@ -1967,9 +1967,9 @@ extern machine_mode element_mode (const_tree t);
   ((int) ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)		\
 	  | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
 	  | (TYPE_ATOMIC (NODE) * TYPE_QUAL_ATOMIC)		\
-          | (TYPE_SHARED  (NODE) * TYPE_QUAL_SHARED)		\
-          | (TYPE_STRICT  (NODE) * TYPE_QUAL_STRICT)		\
-          | (TYPE_RELAXED (NODE) * TYPE_QUAL_RELAXED)		\
+	  | (TYPE_SHARED (NODE) * TYPE_QUAL_SHARED)		\
+	  | (TYPE_STRICT (NODE) * TYPE_QUAL_STRICT)		\
+	  | (TYPE_RELAXED (NODE) * TYPE_QUAL_RELAXED)		\
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
 
 /* The same as TYPE_QUALS without the address space and atomic 
@@ -1977,8 +1977,8 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_QUALS_NO_ADDR_SPACE_NO_ATOMIC(NODE)		\
   ((int) ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)		\
 	  | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
-          | (TYPE_SHARED  (NODE) * TYPE_QUAL_SHARED)		\
-          | (TYPE_STRICT  (NODE) * TYPE_QUAL_STRICT)		\
+          | (TYPE_SHARED (NODE) * TYPE_QUAL_SHARED)		\
+          | (TYPE_STRICT (NODE) * TYPE_QUAL_STRICT)		\
           | (TYPE_RELAXED (NODE) * TYPE_QUAL_RELAXED)		\
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
 

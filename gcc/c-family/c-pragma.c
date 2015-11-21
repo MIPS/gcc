@@ -568,7 +568,7 @@ static void init_pragma_upc (void);
 static void handle_pragma_upc (cpp_reader * ARG_UNUSED (dummy));
 
 /* Initialize the variables used to manage the current UPC consistency
-   mode (strict/relaxed) */
+   mode (strict/relaxed).  */
 
 static void
 init_pragma_upc (void)
@@ -675,7 +675,7 @@ get_upc_consistency_mode (void)
 
 /* Called from the parser just after the bracket that opens a compound
    statement has been parsed. Set the flag that allows the pragma
-   in this context. */
+   in this context.  */
 
 void
 permit_pragma_upc (void)

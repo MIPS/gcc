@@ -599,15 +599,12 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 	fputs (" type_1", file);
       if (TYPE_LANG_FLAG_2 (node))
 	fputs (" type_2", file);
-      if (!TYPE_SHARED (node))
-        {
-	  if (TYPE_LANG_FLAG_3 (node))
-	    fputs (" type_3", file);
-	  if (TYPE_LANG_FLAG_4 (node))
-	    fputs (" type_4", file);
-	  if (TYPE_LANG_FLAG_5 (node))
-	    fputs (" type_5", file);
-	}
+      if (TYPE_LANG_FLAG_3 (node))
+	fputs (" type_3", file);
+      if (TYPE_LANG_FLAG_4 (node))
+	fputs (" type_4", file);
+      if (TYPE_LANG_FLAG_5 (node))
+	fputs (" type_5", file);
       if (TYPE_LANG_FLAG_6 (node))
 	fputs (" type_6", file);
 

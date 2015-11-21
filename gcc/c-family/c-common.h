@@ -632,7 +632,7 @@ extern const char *pch_file;
 
 extern int flag_iso;
 
-/* Nonzero whenever UPC -fupc-threads-N is asserted.
+/* Nonzero whenever UPC -fupc-threads=N is asserted.
    The value N gives the number of UPC threads to be
    defined at compile-time. */
 extern int flag_upc_threads;
@@ -1337,7 +1337,7 @@ c_tree_chain_next (tree t)
 }
 
 /* Used to represent a UPC synchronization statement. The first
-   operand is the synchonization operation, UPC_SYNC_OP:
+   operand is the synchronization operation, UPC_SYNC_OP:
    UPC_SYNC_NOTIFY_OP	1	Notify operation
    UPC_SYNC_WAIT_OP	2	Wait operation
    UPC_SYNC_BARRIER_OP	3	Barrier operation

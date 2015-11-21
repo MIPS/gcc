@@ -2622,8 +2622,7 @@ build_array_ref (location_t loc, tree array, tree index)
 	 Likewise an array of elements of variable size.  */
       if (TREE_CODE (index) != INTEGER_CST
 	  || (COMPLETE_TYPE_P (TREE_TYPE (TREE_TYPE (array)))
-	      && TREE_CODE (TYPE_SIZE (TREE_TYPE (
-	                                 TREE_TYPE (array)))) != INTEGER_CST))
+	      && TREE_CODE (TYPE_SIZE (TREE_TYPE (TREE_TYPE (array)))) != INTEGER_CST))
 	{
 	  if (!c_mark_addressable (array))
 	    return error_mark_node;
@@ -4324,6 +4323,7 @@ build_unary_op (location_t location,
 	  ret = TREE_OPERAND (arg, 0);
 	  goto return_build_unary_op;
 	}
+
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
       if (typecode != FUNCTION_TYPE && !flag

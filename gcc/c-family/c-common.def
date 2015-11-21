@@ -21,7 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* Tree nodes used in the C frontend.  These are also shared with the
-   C++, Objective C and UPC frontends.  */
+   C++ and Objective C frontends.  */
 
 /* A C_MAYBE_CONST_EXPR, currently only used for C and Objective C,
    tracks information about constancy of an expression and VLA type
