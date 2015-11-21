@@ -1,5 +1,10 @@
 2015-11-21  Gary Funck  <gary@intrepid.com>
 
+	* hooks.c: Revert to trunk.
+	* hooks.h: Revert to trunk.
+
+2015-11-21  Gary Funck  <gary@intrepid.com>
+
 	top-level/
 	* contrib/ChangeLog: Revert to trunk.
 	gcc/
