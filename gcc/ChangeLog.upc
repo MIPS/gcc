@@ -1,5 +1,11 @@
 2015-11-21  Gary Funck  <gary@intrepid.com>
 
+	* c-family/c-common.h (c_header_level): extern declaration.
+	* c/c-upc.c (upc_set_decl_section): Delete local extern declaration.
+	Fix comment - do not localize variables declared in system headers.
+
+2015-11-21  Gary Funck  <gary@intrepid.com>
+
 	* hooks.c: Revert to trunk.
 	* hooks.h: Revert to trunk.
 

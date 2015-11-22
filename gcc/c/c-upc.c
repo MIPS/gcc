@@ -569,11 +569,10 @@ upc_set_decl_section (tree decl)
     {
       /* If we're compiling with -fupc-pthreads-model-tls asserted
          and this is a regular "C" static scoped object which
-         is either declared in a system header file,
+         is either not declared in a system header file,
          or is being compiled in a UPC setting,
          then assign the object to the thread local storage
 	 (TLS) section.  */
-      extern int c_header_level;	/* in c-lex.c */
       if (flag_upc && (c_header_level <= 0))
 	{
 	  if (upc_pthreads_model == upc_pthreads_tls_model)
