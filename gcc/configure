@@ -11663,8 +11663,8 @@ if test "$enable_upc_link_script" = yes; then
         && ${LD} --verbose | ${PERL} "${gen_ld_script}" >/dev/null 2>&1); then
     # if gen-upc-ld-script did not accept the output of the linker
     # then disable UPC link script support.
-    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Cannot parse 'ld' output. Disabling UPC link scripts." >&5
-$as_echo "$as_me: WARNING: Cannot parse 'ld' output. Disabling UPC link scripts." >&2;}
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Cannot parse 'ld' output.  Disabling UPC link scripts." >&5
+$as_echo "$as_me: WARNING: Cannot parse 'ld' output.  Disabling UPC link scripts." >&2;}
     enable_upc_link_script=no
   fi
 fi

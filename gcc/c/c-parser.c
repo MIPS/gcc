@@ -10166,7 +10166,7 @@ upc_affinity_test (location_t loc, tree affinity)
   TREE_USED (mythread) = 1;
 
   /* AFFINITY now contains an integer value that can be compared to MY_THREAD.
-     Create an expression that tests if AFFINITY is equal to MYTHREAD. */
+     Create an expression that tests if AFFINITY is equal to MYTHREAD.  */
 
   if (!c_types_compatible_p (TREE_TYPE (affinity), TREE_TYPE (mythread)))
     affinity = convert (TREE_TYPE (mythread), affinity);
@@ -10258,7 +10258,7 @@ c_parser_upc_forall_statement (c_parser *parser)
       else
 	incr = c_process_expr_stmt (loc, c_parser_expression (parser).value);
       c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
-      /* Parse the UPC affinity expression. */
+      /* Parse the UPC affinity expression.  */
       affinity_loc = c_parser_peek_token (parser)->location;
       if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
         {

@@ -232,15 +232,15 @@ const char *constant_string_class_name;
 
 /* Nonzero whenever UPC -fupc-threads=N is asserted.
    The value N gives the number of UPC threads to be
-   defined at compile-time. */
+   defined at compile-time.  */
 int flag_upc_threads;
 
-/* Nonzero whenever UPC -fupc-pthreads-model-* is asserted. */
+/* Nonzero whenever UPC -fupc-pthreads-model-* is asserted.  */
 int flag_upc_pthreads;
 
 /* The implementation model for UPC threads that
    are mapped to POSIX threads, specified at compilation
-   time by the -fupc-pthreads-model-* switch. */
+   time by the -fupc-pthreads-model-* switch.  */
 upc_pthreads_model_kind upc_pthreads_model;
 
 /* C++ language option variables.  */
@@ -5374,7 +5374,7 @@ c_common_get_alias_set (tree t)
     }
 
   /* For the time being, make UPC pointers-to-shared conflict
-     with everything else. Ideally, UPC pointers-to-shared should
+     with everything else.  Ideally, UPC pointers-to-shared should
      only conflict with the internal type used to represent
      the UPC pointer-to-shared (i.e., upc_pts_rep_type_node).  */
 

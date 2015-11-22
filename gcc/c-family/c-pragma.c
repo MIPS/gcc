@@ -657,7 +657,7 @@ handle_pragma_upc (cpp_reader * ARG_UNUSED (dummy))
 }
 
 /* Set the current setting of the UPC consistency mode
-   that is in effect. */
+   that is in effect.  */
 
 void
 set_upc_consistency_mode (int mode)
@@ -665,7 +665,7 @@ set_upc_consistency_mode (int mode)
   upc_cmode = mode;
 }
 
-/* Return the current setting of the UPC consistency mode. */
+/* Return the current setting of the UPC consistency mode.  */
 
 int
 get_upc_consistency_mode (void)
@@ -674,7 +674,7 @@ get_upc_consistency_mode (void)
 }
 
 /* Called from the parser just after the bracket that opens a compound
-   statement has been parsed. Set the flag that allows the pragma
+   statement has been parsed.  Set the flag that allows the pragma
    in this context.  */
 
 void
@@ -684,7 +684,7 @@ permit_pragma_upc (void)
 }
 
 /* Called just before the body of a compound statement is parsed.
-   Clear the flag that allows the pragma. */
+   Clear the flag that allows the pragma.  */
 
 void
 deny_pragma_upc (void)
@@ -693,7 +693,7 @@ deny_pragma_upc (void)
 }
 
 /* A #pragma upc is permitted either at the outermost scope,
-   or directly after the bracket that opens a compound statement. */
+   or directly after the bracket that opens a compound statement.  */
 
 int
 pragma_upc_permitted_p (void)
@@ -703,7 +703,7 @@ pragma_upc_permitted_p (void)
 
 /* Called at the beginning of every compound statement.
    Pushes the old value of the current UPC consistency mode
-   onto the stack. */
+   onto the stack.  */
 
 void
 push_upc_consistency_mode (void)
@@ -718,7 +718,7 @@ push_upc_consistency_mode (void)
 }
 
 /* Called at the end of every compound statement.
-   Sets the current consistency mode to the previously saved value. */
+   Sets the current consistency mode to the previously saved value.  */
 
 void
 pop_upc_consistency_mode (void)

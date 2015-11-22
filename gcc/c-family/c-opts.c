@@ -215,9 +215,9 @@ upc_init_options ()
 {
   struct cl_option_handlers handlers;
 
-  /* UPC is based upon the C99 dialect. Assert it here.
+  /* UPC is based upon the C99 dialect.  Assert it here.
    * We'll let the user override these options as he/she
-   * sees fit. For example, -traditional will disable
+   * sees fit.  For example, -traditional will disable
    * prototype checking.  */
   set_std_c99 ( 0 /* iso=0 */ );
 
@@ -247,7 +247,7 @@ upc_init_options ()
      inlining, otherwise use the user specified flag to unconditionally
      enable/disable inlining of the UPC shared memory access routines.  */
   flag_upc_inline_lib = -1;
-  /* Disable section anchors. The presence of an unshared equivalent of the
+  /* Disable section anchors.  The presence of an unshared equivalent of the
      shared variables causes a double definition of the symbol names in the
      assembly code.  */
   flag_section_anchors = 0;

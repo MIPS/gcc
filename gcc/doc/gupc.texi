@@ -198,7 +198,7 @@ program and of the preprocessor and the compiler proper.
 @item -x upc
 @cindex @option{-x}
 All source files ending in @file{.upc}, @file{.c}, or @file{.upci} will
-be compiled by the @command{gupc} compiler. The @option{-x upc} option
+be compiled by the @command{gupc} compiler.  The @option{-x upc} option
 tells the compiler to process all of the following file names as
 UPC source code, ignoring the default language typically associated
 with filename extensions.
@@ -210,20 +210,20 @@ Number of Threads section, above.
 
 @item -fupc-pthreads-model-tls
 @cindex @option{-fupc-pthreads-model-tls}
-Compile for the POSIX threads (pthreads) environment. Each UPC thread
+Compile for the POSIX threads (pthreads) environment.  Each UPC thread
 is directly mapped to one pthread.
 
 @item -fupc-inline-lib
 @cindex @option{-fupc-inline-lib}
-Inline UPC run-time library calls. This option is turned on by default
+Inline UPC run-time library calls.  This option is turned on by default
 when compiled with optimization and the @option{-fno-upc-inline-lib} option
-must be specified to turn it off. In general, inlining of run-time
-library calls produces larger code. Turn it off if more
+must be specified to turn it off.  In general, inlining of run-time
+library calls produces larger code.  Turn it off if more
 condensed code is required.
 
 @item -fupc-pre-include
 @cindex @option{-fupc-pre-include}
-Pre-include UPC runtime header files. This option is turned on by default.
+Pre-include UPC runtime header files.  This option is turned on by default.
 @end table
 
 @subsection Debugging Options
@@ -253,11 +253,11 @@ error messages when errors are detected at run-time.
 @item -fupc-instrument
 @cindex @option{-fupc-instrument}
 Instrument UPC shared accesses and library calls using GASP tool
-support. This option implies @option{-fno-upc-inline-lib}.
+support.  This option implies @option{-fno-upc-inline-lib}.
 
 @item -fupc-instrument-functions
 @cindex @option{-fupc-instrument-functions}
-Instrument functions calls using GASP tool support. This option implies
+Instrument functions calls using GASP tool support.  This option implies
 @option{-fupc-instrument} and @option{-fno-upc-inline-lib}.
 @end table
 

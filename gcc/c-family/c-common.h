@@ -634,10 +634,10 @@ extern int flag_iso;
 
 /* Nonzero whenever UPC -fupc-threads=N is asserted.
    The value N gives the number of UPC threads to be
-   defined at compile-time. */
+   defined at compile-time.  */
 extern int flag_upc_threads;
 
-/* Nonzero whenever UPC -fupc-pthreads-model-* is asserted. */
+/* Nonzero whenever UPC -fupc-pthreads-model-* is asserted.  */
 extern int flag_upc_pthreads;
 
 typedef enum
@@ -648,7 +648,7 @@ typedef enum
 
 /* The implementation model for UPC threads that
    are mapped to POSIX threads, specified at compilation
-   time by the -fupc-pthreads-model-* switch. */
+   time by the -fupc-pthreads-model-* switch.  */
 extern upc_pthreads_model_kind upc_pthreads_model;
 
 /* C/ObjC language option variables.  */
@@ -1154,7 +1154,7 @@ extern void fe_file_change (const line_map_ordinary *);
 extern void c_parse_error (const char *, enum cpp_ttype, tree, unsigned char);
 
 /* In c-lex.c  */
-extern int c_header_level;	/* In system header, if > 0. */
+extern int c_header_level;	/* In system header, if > 0.  */
 
 /* In c-ppoutput.c  */
 extern void init_pp_output (FILE *);
@@ -1339,15 +1339,15 @@ c_tree_chain_next (tree t)
   return NULL;
 }
 
-/* Used to represent a UPC synchronization statement. The first
-   operand is the synchronization operation, UPC_SYNC_OP:
+/* Used to represent a UPC synchronization statement.
+   The first operand is the synchronization operation, UPC_SYNC_OP:
    UPC_SYNC_NOTIFY_OP	1	Notify operation
    UPC_SYNC_WAIT_OP	2	Wait operation
    UPC_SYNC_BARRIER_OP	3	Barrier operation
 
    The second operand, UPC_SYNC_ID is the (optional) expression
    whose value specifies the barrier identifier which is checked
-   by the various synchronization operations. */
+   by the various synchronization operations.  */
 
 #define UPC_SYNC_OP(NODE)	TREE_OPERAND (UPC_SYNC_STMT_CHECK (NODE), 0)
 #define UPC_SYNC_ID(NODE)	TREE_OPERAND (UPC_SYNC_STMT_CHECK (NODE), 1)

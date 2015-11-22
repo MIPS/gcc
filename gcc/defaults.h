@@ -1496,7 +1496,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 
 /* Name of section used to hold info. describing how
-   a UPC source file was compiled. */
+   a UPC source file was compiled.  */
 #ifndef UPC_PGM_INFO_SECTION_NAME
 #define UPC_PGM_INFO_SECTION_NAME "upc_pgm_info"
 #endif

@@ -149,7 +149,7 @@ get_lc_mode_name (char *mname, machine_mode mode)
 
 /* Generate a call to the runtime to implement a 'get' of a shared
    object.  SRC is a reference to  a UPC shared value; it must
-   be addressable. */
+   be addressable.  */
 
 static tree
 upc_expand_get (location_t loc, tree src, int want_stable_value)
@@ -308,7 +308,7 @@ upc_expand_put (location_t loc, tree dest, tree src, int want_value)
 			libfunc_name);
       /* Avoid warnings about implicit conversion between
          the actual parameter value's type, and the type of the
-         runtime routine's parameter. */
+         runtime routine's parameter.  */
       if (!lang_hooks.types_compatible_p (src_type, TREE_TYPE (src)))
 	src = build1 (AGGREGATE_TYPE_P (TREE_TYPE (src))
 		      ? VIEW_CONVERT_EXPR : NOP_EXPR, src_type, src);
@@ -639,7 +639,7 @@ upc_genericize_forall_stmt (tree *expr_p ATTRIBUTE_UNUSED)
 }
 
 /* Rewrite a UPC synchronization statement (upc_wait, upc_notify,
-   and upc_barrier) into a call to the runtime. */
+   and upc_barrier) into a call to the runtime.  */
 
 static void
 upc_genericize_sync_stmt (location_t loc, tree *stmt_p)
@@ -650,7 +650,7 @@ upc_genericize_sync_stmt (location_t loc, tree *stmt_p)
      UPC_SYNC_BARRIER_OP        3       Barrier operation
      The second operand, UPC_SYNC_ID is the (optional) expression
      whose value specifies the barrier identifier which is checked
-     by the various synchronization operations. */
+     by the various synchronization operations.  */
   tree stmt = *stmt_p;
   tree sync_op = UPC_SYNC_OP (stmt);
   tree sync_id = UPC_SYNC_ID (stmt);
@@ -695,7 +695,7 @@ upc_genericize_shared_var_ref (location_t loc, tree *expr_p)
   *expr_p = upc_expand_get (loc, src, 0);
 }
 
-/* Expand & of a UPC shared object into equivalent code. */
+/* Expand & of a UPC shared object into equivalent code.  */
 
 static void
 upc_genericize_addr_expr (location_t loc, tree *expr_p)
@@ -777,7 +777,7 @@ upc_genericize_pts_to_int_cvt (location_t loc, tree *expr_p)
   gcc_assert (shared_quals & TYPE_QUAL_SHARED);
   if ((shared_quals & TYPE_QUAL_CONST) != 0)
     {
-      /* drop 'const' qualifier to arg. type mis-match.  */
+      /* Drop 'const' qualifier to arg. type mis-match.  */
       shared_quals &= ~TYPE_QUAL_CONST;
       ref_type = c_build_qualified_type_1 (ref_type, shared_quals,
                                            size_zero_node);
@@ -790,7 +790,7 @@ upc_genericize_pts_to_int_cvt (location_t loc, tree *expr_p)
 /* Rewrite op0 CMP op1 into either a bitwise
    comparison of the UPC pointer-to-shared operands
    or by taking the difference, and comparing it
-   to zero. */
+   to zero.  */
 
 static void
 upc_genericize_pts_cond_expr (location_t loc, tree *expr_p)
@@ -841,15 +841,15 @@ upc_genericize_pts_arith_expr (location_t loc, tree *expr_p)
 	  && (TREE_CODE (type1) == INTEGER_TYPE))
 	{
 	  /* Rewrite the expression p - i into p + (-i),
-	     and expand the sum. */
+	     and expand the sum.  */
 	  tree int_op = TREE_OPERAND (exp, 1);
 	  if (TREE_CODE (int_op) == INTEGER_CST
 	      && TREE_CODE (TREE_TYPE (int_op)) == POINTER_TYPE)
 	    {
 	      /* Earlier passes have altered the type of the integer
 	         constant to be a UPC pointer-to-shared type.  This won't
-	         play well when we try to negate it. For now, convert
-	         it back to a size type. */
+	         play well when we try to negate it.  For now, convert
+	         it back to a size type.  */
 	      int_op = ssize_int (tree_to_shwi (int_op));
 	    }
 	  TREE_SET_CODE (exp, PLUS_EXPR);

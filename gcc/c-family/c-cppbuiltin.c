@@ -779,7 +779,7 @@ strip_section_prefix (const char *section_name)
   return name;
 }
 
-/* Generate UPC specific pre-defined macros. */
+/* Generate UPC specific pre-defined macros.  */
 
 static void
 upc_cpp_builtins (cpp_reader * pfile)

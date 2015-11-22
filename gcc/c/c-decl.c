@@ -5881,7 +5881,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		    /* We have a shared array with a non-constant
 		       dimension.  If the expression is a factor of
 		       THREADS, then we'll need to set the flag
-		       in the result type.  Otherwise, it is an error. */
+		       in the result type.  Otherwise, it is an error.  */
 		    int n_thread_refs = count_upc_threads_refs (size);
 		    if (upc_threads_ref || n_thread_refs > 1)
 		      {
@@ -6906,7 +6906,7 @@ grokdeclarator (const struct c_declarator *declarator,
 
     /* Shared variables are given their own link section on
        most target platforms, and if compiling in pthreads mode
-       regular local file scope variables are made thread local. */
+       regular local file scope variables are made thread local.  */
     if ((TREE_CODE(decl) == VAR_DECL)
         && !threadp && (TREE_SHARED (decl) || flag_upc_pthreads))
       upc_set_decl_section (decl);

@@ -433,7 +433,7 @@ upc_pts_build_cvt (location_t loc, tree exp)
 	   && !(integer_zerop (b1) && integer_zerop (b2)))
     {
       /* below, we handle the case of conversions to non-generic
-         shared types. If the target is a generic type, we can
+         shared types.  If the target is a generic type, we can
          safely use the source value directly.  */
       tree s1 = TYPE_SIZE (tt1);
       tree s2 = TYPE_SIZE (tt2);

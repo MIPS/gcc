@@ -830,7 +830,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define DECL_UNSIGNED(NODE) \
   (DECL_COMMON_CHECK (NODE)->base.u.bits.unsigned_flag)
 
-/* Convert tree flags to type qualifiers. */
+/* Convert tree flags to type qualifiers.  */
 #define TREE_QUALS(NODE)				\
   ((TREE_READONLY(NODE) * TYPE_QUAL_CONST) |		\
    (TREE_THIS_VOLATILE(NODE) * TYPE_QUAL_VOLATILE) |	\

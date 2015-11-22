@@ -10912,7 +10912,7 @@ modified_type_die (tree type, int cv_quals, dw_die_ref context_die)
          "shared int x;"  DW_AT_count: 1
          "shared [] int *p;" <no DW_AT_count attribute>
          "shared [10] int x[50];" DW_AT_count: 10
-         The logic below handles thse various contingencies. */
+         The logic below handles thse various contingencies.  */
 
       mod_type_die = new_die (DW_TAG_upc_shared_type,
                                   comp_unit_die (), type);

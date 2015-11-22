@@ -6402,7 +6402,7 @@ convert_for_assignment (location_t location, location_t expr_loc, tree type,
 	  const tree bs_r = get_block_factor (ttr);
 	  /* Both source and destination are non-void pointers to shared,
 	     whose target types are not equal.
-	     UPC dictates that their blocking factors must be equal. */
+	     UPC dictates that their blocking factors must be equal.  */
 	  if (!tree_int_cst_equal (bs_l, bs_r))
 	    {
 	      error_at (location, "UPC does not allow assignment "
@@ -11260,7 +11260,7 @@ build_binary_op (location_t location, enum tree_code code,
 	      const tree bs_1 = get_block_factor (tt1);
 	      /* Both source and destination are non-void pointers to shared,
 		 whose target types are not equal.
-		 UPC dictates that their blocking factors must be equal. */
+		 UPC dictates that their blocking factors must be equal.  */
 	      if (!tree_int_cst_equal (bs_0, bs_1))
 		{
 		  error_at (location, "UPC does not allow comparison "

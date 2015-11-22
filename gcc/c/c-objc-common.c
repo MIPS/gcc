@@ -257,7 +257,7 @@ upc_types_compatible_p (tree x, tree y)
 	  sy = TYPE_SIZE (tty);
 	  x_has_zero_phase = (integer_zerop (bx) || integer_onep (bx));
 	  y_has_zero_phase = (integer_zerop (by) || integer_onep (by));
-	  /* Normalize type size so that 0 => NULL. */
+	  /* Normalize type size so that 0 => NULL.  */
 	  if (sx && integer_zerop (sx))
 	    sx = NULL_TREE;
 	  if (sy && integer_zerop (sy))
@@ -266,7 +266,7 @@ upc_types_compatible_p (tree x, tree y)
 	     (or they both have a phase value of zero) 
 	     and the same size and the target types are
 	     otherwise compatible, then the pointer-to-shared
-	     types are compatible. */
+	     types are compatible.  */
 	  result = (tree_int_cst_equal (bx, by)
 		    || (x_has_zero_phase && y_has_zero_phase))
 	           && tree_int_cst_equal (sx, sy);
@@ -281,7 +281,7 @@ upc_types_compatible_p (tree x, tree y)
   else if (SHARED_TYPE_P (x) || SHARED_TYPE_P (y))
     {
       /* In UPC, blocking factors can be applied to
-         non-pointer objects/types. They're compatible
+         non-pointer objects/types.  They're compatible
          if the block sizes are equal.  */
       const tree bx = get_block_factor (x);
       const tree by = get_block_factor (y);

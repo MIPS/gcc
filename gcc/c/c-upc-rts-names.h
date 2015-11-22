@@ -36,11 +36,11 @@ along with GCC; see the file COPYING3.  If not see
 #define UPC_FORALL_DEPTH_NAME "__upc_forall_depth"
 
 /* Name of the runtime variable holding the address of the beginning of
-   the global shared region. */
+   the global shared region.  */
 #define UPC_GLOBAL_BASE_NAME "__upc_global_base"
 
 /* Names of various UPC runtime library routines that implement various
-   UPC statement constructs. */
+   UPC statement constructs.  */
 #define UPC_BARRIER_LIBCALL "__upc_barrier"
 #define UPC_GETADDR_LIBCALL "__getaddr"
 #define UPC_NOTIFY_LIBCALL "__upc_notify"

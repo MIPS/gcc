@@ -12309,7 +12309,7 @@ tree_nop_conversion (const_tree exp)
                     && SHARED_TYPE_P (TREE_TYPE (inner_type)));
 
   /* Pointer-to-shared types have special
-     equivalence rules that must be checked. */
+     equivalence rules that must be checked.  */
   if (outer_is_pts_p && inner_is_pts_p
       && lang_hooks.types_compatible_p)
     return lang_hooks.types_compatible_p (outer_type, inner_type);

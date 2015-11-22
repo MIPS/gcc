@@ -1980,13 +1980,13 @@ The @option{-fupc} must also be present for this option to take effect.
 
 @item -fupc-pthreads-model-tls
 @opindex fupc-pthreads-model-tls
-Compile for the POSIX threads (pthreads) environment. Each UPC thread
+Compile for the POSIX threads (pthreads) environment.  Each UPC thread
 is directly mapped to one pthread.
 The @option{-fupc} must also be present for this option to take effect.
 
 @item -fupc-inline-lib
 @opindex fupc-inline-lib
-Inline various UPC run-time library routines. This option is
+Inline various UPC run-time library routines.  This option is
 enabled by default when compiled with @option{-O1} or higher.
 The @option{-fno-upc-inline-lib} option will disable inlining
 of the UPC runtime.
@@ -1994,7 +1994,7 @@ The @option{-fupc} must also be present for this option to take effect.
 
 @item -fupc-pre-include
 @opindex fupc-pre-include
-Pre-include the UPC runtime header files. This option is enabled
+Pre-include the UPC runtime header files.  This option is enabled
 by default when @option{-fupc} is asserted.
 The @option{-fupc} must also be present for this option to take effect.
 
@@ -2016,12 +2016,12 @@ The @option{-fupc} must also be present for this option to take effect.
 @item -fupc-instrument
 @opindex fupc-instrument
 Instrument UPC shared accesses and library calls using GASP tool
-support API. This option implies @option{-fno-upc-inline-lib}.
+support API.  This option implies @option{-fno-upc-inline-lib}.
 The @option{-fupc} must also be present for this option to take effect.
 
 @item -fupc-instrument-functions
 @opindex fupc-instrument-functions
-Instrument functions calls using GASP tool support. This option implies
+Instrument functions calls using GASP tool support.  This option implies
 @option{-fupc-instrument} and @option{-fno-upc-inline-lib}.
 The @option{-fupc} must also be present for this option to take effect.
 

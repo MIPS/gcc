@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 
-/* GUPC driver - derived from fortran/gfortranspec.c. */
+/* GUPC driver - derived from fortran/gfortranspec.c.  */
 
 /* The original argument list and related info is copied here.  */
 static unsigned int gupc_xargc;
@@ -158,11 +158,11 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
   gupc_newargc = 0;
   gupc_new_decoded_options = decoded_options;
 
-  /* First pass through the argument list. */
+  /* First pass through the argument list.  */
 
   /* Check to see if any switches are asserted that inhibit linking
      and record the presence of other switches that may require
-     special handling. */
+     special handling.  */
   for (i = 1; i < gupc_xargc; ++i)
     {
       if (decoded_options[i].errors & CL_ERR_MISSING_ARG)
@@ -203,7 +203,7 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	  break;
 
 	case OPT__version:
-	  /* Optional GUPC version string. Let GCC handle it for now. */
+	  /* Optional GUPC version string. Let GCC handle it for now.  */
 	  break;
 
 	case OPT__help:
@@ -216,9 +216,9 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	}
     }
 
-  /* Create the new argument list. */
+  /* Create the new argument list.  */
 
-  /* Start with the compiler itself. */
+  /* Start with the compiler itself.  */
   append_arg (&decoded_options[0]);
 
   /* Always assert -fupc.  */
@@ -237,10 +237,10 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
       if (decoded_options[i].opt_index == OPT_fupc)
         continue;
 
-      /* Check for "-x [c,upc,..]". */
+      /* Check for "-x [c,upc,..]".  */
       if (decoded_options[i].opt_index == OPT_x)
 	{
-	  /* Go to default if "none" found. */
+	  /* Go to default if "none" found.  */
 	  if (!strcmp (decoded_options[i].arg, "none"))
 	    {
 	      is_x_in_effect = 0;
@@ -250,8 +250,8 @@ lang_specific_driver (struct cl_decoded_option **in_decoded_options,
 	    is_x_in_effect = 1;
 	}
 
-      /* By default, driver accepts C files as UPC files. Unless there
-         is "-x" option in affect. */
+      /* By default, driver accepts C files as UPC files.  Unless there
+         is "-x" option in affect.  */
       if (decoded_options[i].opt_index == OPT_SPECIAL_input_file)
 	{
 	  const int is_c_file = match_suffix (decoded_options[i].arg, ".c")

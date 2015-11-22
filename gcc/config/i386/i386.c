@@ -7943,7 +7943,7 @@ classify_argument (machine_mode mode, const_tree type,
       && targetm.calls.must_pass_in_stack (mode, type))
     return 0;
 
-  /* Special case check for pointer to shared, on 64-bit target. */
+  /* Special case check for pointer to shared, on 64-bit target.  */
   if (TARGET_64BIT && mode == TImode
       && type && TREE_CODE (type) == POINTER_TYPE
       && SHARED_TYPE_P (TREE_TYPE (type)))

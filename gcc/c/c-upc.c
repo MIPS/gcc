@@ -166,8 +166,8 @@ upc_elemsizeof (location_t loc, tree type)
    local portion of its operand, which may be a shared object or a
    shared-qualified type.  It returns the same value on all threads; the
    value is an upper bound of the size allocated with affinity to any
-   single thread and may include an unspecified amount of padding. The
-   result of upc_localsizeof is an integer constant.  */
+   single thread and may include an unspecified amount of padding.
+   The result of upc_localsizeof is an integer constant.  */
 
 tree
 upc_localsizeof (location_t loc, tree type)
@@ -211,7 +211,7 @@ upc_localsizeof (location_t loc, tree type)
       /* Use the worst case size, if compiling in a dynamic
          threads environment.  The worst case size can
          be derived by setting T_FACTOR to 1 in the calculations
-         that follow.  Otherwise T_FACTOR is equal to THREADS. */
+         that follow.  Otherwise T_FACTOR is equal to THREADS.  */
       t_factor = flag_upc_threads ? upc_num_threads () : size_one_node;
       t_factor = convert (bitsizetype, t_factor);
       n_full_blocks = size_binop (FLOOR_DIV_EXPR, n_elts, block_factor);
@@ -231,7 +231,7 @@ upc_localsizeof (location_t loc, tree type)
       local_size = size_binop (MULT_EXPR, n_local_elts, elt_size);
     }
 
-  /* Convert local size into bytes, and return result. */
+  /* Convert local size into bytes, and return result.  */
 
   local_size = convert (sizetype, local_size);
   local_size = size_binop (CEIL_DIV_EXPR, local_size,
@@ -274,7 +274,7 @@ recursive_count_upc_threads_refs (tree expr)
   return count;
 }
 
-/* Count the number of references to THREADS inside `expr'. */
+/* Count the number of references to THREADS inside `expr'.  */
 
 int
 count_upc_threads_refs (tree expr)
@@ -286,7 +286,7 @@ count_upc_threads_refs (tree expr)
    the left or the right hand side of a multiply, in a series
    of zero or more multiplies.  For proper operation, the caller
    should ensure that THREADS is referenced only once,
-   by calling count_upc_threads_refs () prior to calling this routine. */
+   by calling count_upc_threads_refs () prior to calling this routine.  */
 
 int
 is_multiple_of_upc_threads (tree expr)
@@ -374,7 +374,7 @@ upc_grok_layout_qualifier (location_t loc, const enum tree_code decl_kind,
     return elem_block_factor;
 
   /* The layout qualifier is given as the subscript operand
-     of an array ref. */
+     of an array ref.  */
   gcc_assert (layout_qualifier);
   gcc_assert (TREE_CODE (layout_qualifier) == ARRAY_REF);
   layout_qualifier = TREE_OPERAND (layout_qualifier, 1);
@@ -406,7 +406,7 @@ upc_grok_layout_qualifier (location_t loc, const enum tree_code decl_kind,
 	}
       /* The blocking factor is given by this expression:
          (sizeof (a) / upc_elemsizeof (a) + (THREADS - 1)) / THREADS,
-         where 'a' is the array being distributed. */
+         where 'a' is the array being distributed.  */
       elt_type = strip_array_types (type);
       elt_size = TYPE_SIZE (elt_type);
       if (TYPE_HAS_THREADS_FACTOR (type))
@@ -502,7 +502,7 @@ upc_check_decl (tree decl)
       TREE_STATIC (decl) = 1;
       /* Work-around a problem where the front-end doesn't
          properly process the used flags set above, on
-         static variables when flag_unit_at_a_time isn't set. */
+         static variables when flag_unit_at_a_time isn't set.  */
       if ((TREE_STATIC (decl) && !DECL_EXTERNAL (decl))
 	  && !flag_unit_at_a_time
 	  && !lookup_attribute ("used", DECL_ATTRIBUTES (decl)))
@@ -581,7 +581,7 @@ upc_set_decl_section (tree decl)
 	      DECL_COMMON (decl) = 0;
 	    }
 	  else
-	    /* Only the TLS model is currently implemented. */
+	    /* Only the TLS model is currently implemented.  */
 	    gcc_unreachable ();
 	}
     }
@@ -643,7 +643,7 @@ upc_diagnose_deprecated_stmt (location_t loc, tree id)
 }
 
 /* Expand the pre/post increment/decrement of UPC pointer-to-shared
-   into its equivalent expression tree. */
+   into its equivalent expression tree.  */
 
 tree
 upc_pts_increment (location_t location ATTRIBUTE_UNUSED,
@@ -651,7 +651,7 @@ upc_pts_increment (location_t location ATTRIBUTE_UNUSED,
 {
   /* The result type is a pointer of the same type as the argument
      type after dropping the shared qualifier (for PTS's that happen
-     to live in shared memory). */
+     to live in shared memory).  */
   tree stable_arg = stabilize_reference (arg);
   tree val = (code == PREINCREMENT_EXPR || code == PREDECREMENT_EXPR)
     ? stable_arg : save_expr (stable_arg);
@@ -704,7 +704,7 @@ upc_pts_int_sum (location_t loc,
      simple objects, just build a "resultcode" tree with the intop and
      let upc_genericize() handle the arithmetic correctly.  For pointers to
      arrays, compute the number of elements represented by the intop
-     and build a "resultcode" tree with the ptrop and that number. */
+     and build a "resultcode" tree with the ptrop and that number.  */
 
   if (result_targ_type != base_type)
     {
@@ -747,7 +747,7 @@ upc_pts_int_sum (location_t loc,
      we mark the resulting sum as non-constant.  This will
      avoid situations where the compiler attempts to convert
      things like &A[14] where A is a shared array into a
-     compile-time constant. */
+     compile-time constant.  */
 
   TREE_CONSTANT (result) = 0;
   return result;

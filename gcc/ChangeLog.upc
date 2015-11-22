@@ -1,5 +1,9 @@
 2015-11-22  Gary Funck  <gary@intrepid.com>
 
+	Add two spaces after a period in comments and messages.
+
+2015-11-22  Gary Funck  <gary@intrepid.com>
+
 	* c/c-parser.c: Fix spelling.
 	* c/c-typeck.c: Fix spelling.
 

@@ -1555,7 +1555,7 @@ if test "$enable_upc_link_script" = yes; then
         && ${LD} --verbose | ${PERL} "${gen_ld_script}" >/dev/null 2>&1); then
     # if gen-upc-ld-script did not accept the output of the linker
     # then disable UPC link script support.
-    AC_MSG_WARN([Cannot parse 'ld' output. Disabling UPC link scripts.])
+    AC_MSG_WARN([Cannot parse 'ld' output.  Disabling UPC link scripts.])
     enable_upc_link_script=no
   fi
 fi

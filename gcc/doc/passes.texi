@@ -134,7 +134,7 @@ UPC-specific type qualifiers:
 @smallexample
   shared strict int x;
   shared relaxed int y;
-  /* Below, ``[100]'' is the layout qualifier. */
+  /* Below, ``[100]'' is the layout qualifier.  */
   shared [100] float A[100*THREADS*10];
 @end smallexample
 
