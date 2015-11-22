@@ -10185,7 +10185,7 @@ upc_affinity_test (location_t loc, tree affinity)
    upc_forall-statement:
      upc_forall ( expression[opt] ; expression[opt] ;
                   expression[opt] ; affinity[opt] ) statement
-   affinity: experssion | continue  */
+   affinity: expression | continue  */
 
 static void
 c_parser_upc_forall_statement (c_parser *parser)

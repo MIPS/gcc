@@ -1581,7 +1581,7 @@ Optional Features:
   --enable-doxygen-rtf    generate doxygen RTF documentation
   --enable-doxygen-xml    generate doxygen XML documentation
   --enable-doxygen-chm    generate doxygen compressed HTML help documentation
-  --enable-doxygen-chi    generate doxygen seperate compressed HTML help index
+  --enable-doxygen-chi    generate doxygen separate compressed HTML help index
                           file
   --disable-doxygen-html  don't generate doxygen plain HTML documentation
   --disable-doxygen-ps    don't generate doxygen PostScript documentation
@@ -14155,7 +14155,7 @@ $as_echo "#define HAVE_TLS 1" >>confdefs.h
 
   fi
 
-# See what sort of export controls are availible.
+# See what sort of export controls are available.
 
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether the target supports hidden visibility" >&5
 $as_echo_n "checking whether the target supports hidden visibility... " >&6; }

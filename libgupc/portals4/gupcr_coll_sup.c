@@ -79,7 +79,7 @@ int gupcr_coll_child[GUPCR_TREE_FANOUT];
  * nthreads=THREADS (e.g. used for broadcast).
  *
  * The collectives thread tree can be organized in a
- * form where the "newroot" value identitifies
+ * form where the "newroot" value identifies
  * the root thread (only if the "newroot" thread
  * is participating in the operation).
  * @param [in] newroot A hint for the tree root thread.

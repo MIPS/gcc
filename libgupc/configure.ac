@@ -324,7 +324,7 @@ fi
 # See if we support thread-local storage.
 GCC_CHECK_TLS
 
-# See what sort of export controls are availible.
+# See what sort of export controls are available.
 LIBGUPC_CHECK_ATTRIBUTE_VISIBILITY
 LIBGUPC_CHECK_ATTRIBUTE_DLLEXPORT
 LIBGUPC_CHECK_ATTRIBUTE_ALIAS

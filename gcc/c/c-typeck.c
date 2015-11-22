@@ -4218,7 +4218,7 @@ build_unary_op (location_t location,
 	      }
 
 	    /* UPC pointer-to-shared types cannot be
-	       incremented/decrmented directly.  */
+	       incremented/decremented directly.  */
             if (SHARED_TYPE_P (TREE_TYPE (argtype)))
 	      return upc_pts_increment (location, code, arg);
 

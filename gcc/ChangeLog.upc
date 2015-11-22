@@ -1,3 +1,8 @@
+2015-11-22  Gary Funck  <gary@intrepid.com>
+
+	* c/c-parser.c: Fix spelling.
+	* c/c-typeck.c: Fix spelling.
+
 2015-11-21  Gary Funck  <gary@intrepid.com>
 
 	* c-family/c-common.h (c_header_level): extern declaration.

@@ -666,7 +666,7 @@ __upc_run_threads (upc_info_p u, int argc, char *argv[])
   int thread_id;
   int flag;
 
-  /* Set O_APPEND on stdout and stderr (see Brkeley UPC bug 2136).  */
+  /* Set O_APPEND on stdout and stderr (see Berkeley UPC bug 2136).  */
   flag = fcntl (STDOUT_FILENO, F_GETFL, 0);
   if (flag >= 0)
     (void) fcntl (STDOUT_FILENO, F_SETFL, flag | O_APPEND);

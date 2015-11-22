@@ -328,8 +328,8 @@ gupcr_nb_check_outstanding (void)
 	  if (!cb || cb->status == NB_STATUS_COMPLETED)
 	    {
 	      gupcr_fatal_error
-		("received event for unexistent or already completed"
-		 " NB handle");
+		("received event for non-existent or "
+		 "already completed NB handle");
 	    }
 	  cb->status = NB_STATUS_COMPLETED;
 	  gupcr_nb_outstanding--;
@@ -447,8 +447,8 @@ gupcr_sync (unsigned long handle)
 		  if (!cb || cb->status == NB_STATUS_COMPLETED)
 		    {
 		      gupcr_fatal_error
-			("received event for unexistent or already completed"
-			 " NB handle");
+			("received event for non-existent or already "
+			 "completed NB handle");
 		    }
 		  cb->status = NB_STATUS_COMPLETED;
 		  gupcr_nb_outstanding--;

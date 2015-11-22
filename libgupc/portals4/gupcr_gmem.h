@@ -43,7 +43,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 /** Max size of the user program.
  *
- * To simplify management of memory descriptors the entier user
+ * To simplify management of memory descriptors the entire user
  * program address space is mapped into one memory descriptor per
  * direction of the transfer.
  * Per linux kernel document: Documentation/x86/x86_64/mm.txt

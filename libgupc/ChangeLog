@@ -1,3 +1,15 @@
+2015-11-22  Gary Funck  <gary@intrepid.com>
+
+	* ax_prog_doxygen.m4: Fix spelling.
+	* configure.ac: Ditto.
+	* portals4/doxygen.cfg.in: Ditto.
+	* portals4/gupcr_coll_sup.c: Ditto.
+	* portals4/gupcr_gmem.h: Ditto.
+	* portals4/gupcr_nb_sup.c: Ditto.
+	* smp/upc_affinity.c: Ditto.
+	* smp/upc_main.c: Ditto.
+	* configure: Re-generate.
+
 2015-11-04  Gary Funck  <gary@intrepid.com>
 
 	* smp/upc_sync.h (GUPCR_WRITE_FENCE, GUPCR_READ_FENCE):

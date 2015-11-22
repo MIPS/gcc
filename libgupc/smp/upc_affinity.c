@@ -45,7 +45,7 @@ __upc_affinity_supported ()
 }
 
 /* Calculate the right affinity for the thread based on 
-   the currnet scheduling and NUMA policies.  Executed by
+   the current scheduling and NUMA policies.  Executed by
    the monitoring thread.  AVOID is a pointer to a data
    structure that lists cpu's that aren't eligible for
    allocation.  */
