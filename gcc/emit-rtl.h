@@ -430,6 +430,7 @@ get_max_uid (void)
 }
 
 extern void set_decl_incoming_rtl (tree, rtx, bool);
+extern rtx get_decl_incoming_rtl (const_tree);
 
 /* Return a memory reference like MEMREF, but with its mode changed
    to MODE and its address changed to ADDR.

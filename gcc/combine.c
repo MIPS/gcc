@@ -1543,7 +1543,7 @@ setup_incoming_promotions (rtx_insn *first)
   for (arg = DECL_ARGUMENTS (current_function_decl); arg;
        arg = DECL_CHAIN (arg))
     {
-      rtx x, reg = DECL_INCOMING_RTL (arg);
+      rtx x, reg = get_decl_incoming_rtl (arg);
       int uns1, uns3;
       machine_mode mode1, mode2, mode3, mode4;
 

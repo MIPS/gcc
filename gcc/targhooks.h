@@ -135,6 +135,7 @@ extern rtx default_function_arg
   (cumulative_args_t, machine_mode, const_tree, bool);
 extern rtx default_function_incoming_arg
   (cumulative_args_t, machine_mode, const_tree, bool);
+extern rtx default_function_incoming_arg_rtl (const_tree);
 extern unsigned int default_function_arg_boundary (machine_mode,
 						   const_tree);
 extern unsigned int default_function_arg_round_boundary (machine_mode,

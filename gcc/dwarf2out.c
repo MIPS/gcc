@@ -5300,6 +5300,7 @@ add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
   else
     temp = *slot;
 
+  rtx incoming_rtl;
   /* For PARM_DECLs try to keep around the original incoming value,
      even if that means we'll emit a zero-range .debug_loc entry.  */
   if (temp->last
@@ -5307,10 +5308,10 @@ add_var_loc_to_decl (tree decl, rtx loc_note, const char *label)
       && TREE_CODE (decl) == PARM_DECL
       && NOTE_P (temp->first->loc)
       && NOTE_VAR_LOCATION_DECL (temp->first->loc) == decl
-      && DECL_INCOMING_RTL (decl)
+      && (incoming_rtl = get_decl_incoming_rtl (decl))
       && NOTE_VAR_LOCATION_LOC (temp->first->loc)
       && GET_CODE (NOTE_VAR_LOCATION_LOC (temp->first->loc))
-	 == GET_CODE (DECL_INCOMING_RTL (decl))
+	 == GET_CODE (incoming_rtl)
       && prev_real_insn (temp->first->loc) == NULL_RTX
       && (bitsize != -1
 	  || !rtx_equal_p (NOTE_VAR_LOCATION_LOC (temp->first->loc),
@@ -15972,13 +15973,15 @@ rtl_for_decl_location (tree decl)
     }
   else if (TREE_CODE (decl) == PARM_DECL)
     {
+      rtx incoming_rtl = get_decl_incoming_rtl (decl);
+
       if (rtl == NULL_RTX
 	  || is_pseudo_reg (rtl)
 	  || (MEM_P (rtl)
 	      && is_pseudo_reg (XEXP (rtl, 0))
-	      && DECL_INCOMING_RTL (decl)
-	      && MEM_P (DECL_INCOMING_RTL (decl))
-	      && GET_MODE (rtl) == GET_MODE (DECL_INCOMING_RTL (decl))))
+	      && incoming_rtl
+	      && MEM_P (incoming_rtl)
+	      && GET_MODE (rtl) == GET_MODE (incoming_rtl)))
 	{
 	  tree declared_type = TREE_TYPE (decl);
 	  tree passed_type = DECL_ARG_TYPE (decl);
@@ -15989,13 +15992,13 @@ rtl_for_decl_location (tree decl)
 	     Note that DECL_INCOMING_RTL may be NULL in here, but we handle
 	     all cases where (rtl == NULL_RTX) just below.  */
 	  if (dmode == pmode)
-	    rtl = DECL_INCOMING_RTL (decl);
+	    rtl = incoming_rtl;
 	  else if ((rtl == NULL_RTX || is_pseudo_reg (rtl))
 		   && SCALAR_INT_MODE_P (dmode)
 		   && GET_MODE_SIZE (dmode) <= GET_MODE_SIZE (pmode)
-		   && DECL_INCOMING_RTL (decl))
+		   && incoming_rtl)
 	    {
-	      rtx inc = DECL_INCOMING_RTL (decl);
+	      rtx inc = incoming_rtl;
 	      if (REG_P (inc))
 		rtl = inc;
 	      else if (MEM_P (inc))
@@ -16021,7 +16024,7 @@ rtl_for_decl_location (tree decl)
 	       && XEXP (rtl, 0) != const0_rtx
 	       && ! CONSTANT_P (XEXP (rtl, 0))
 	       /* Not passed in memory.  */
-	       && !MEM_P (DECL_INCOMING_RTL (decl))
+	       && !MEM_P (incoming_rtl)
 	       /* Not passed by invisible reference.  */
 	       && (!REG_P (XEXP (rtl, 0))
 		   || REGNO (XEXP (rtl, 0)) == HARD_FRAME_POINTER_REGNUM

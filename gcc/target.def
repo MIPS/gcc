@@ -4493,6 +4493,18 @@ If @code{TARGET_FUNCTION_INCOMING_ARG} is not defined,\n\
        bool named),
  default_function_incoming_arg)
 
+/* Return the location where the argument will appear to the callee.  */
+DEFHOOK
+(function_incoming_arg_rtl,
+ "Define this hook if the target machine has a special\
+ @code{DECL_INCOMING_RTL}\n\
+which must be converted for the correct location.\n\
+\n\
+If @code{TARGET_FUNCTION_INCOMING_ARG_RTL} is not defined,\n\
+@code{DECL_INCOMING_RTL} of the input @var{parmdecl} will be used.",
+ rtx, (const_tree parmdecl),
+ default_function_incoming_arg_rtl)
+
 DEFHOOK
 (function_arg_boundary,
  "This hook returns the alignment boundary, in bits, of an argument\n\

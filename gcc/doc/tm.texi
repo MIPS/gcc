@@ -3953,6 +3953,14 @@ If @code{TARGET_FUNCTION_INCOMING_ARG} is not defined,
 @code{TARGET_FUNCTION_ARG} serves both purposes.
 @end deftypefn
 
+@deftypefn {Target Hook} rtx TARGET_FUNCTION_INCOMING_ARG_RTL (const_tree @var{parmdecl})
+Define this hook if the target machine has a special @code{DECL_INCOMING_RTL}
+which must be converted for the correct location.
+
+If @code{TARGET_FUNCTION_INCOMING_ARG_RTL} is not defined,
+@code{DECL_INCOMING_RTL} of the input @var{parmdecl} will be used.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_USE_PSEUDO_PIC_REG (void)
 This hook should return 1 in case pseudo register should be created
 for pic_offset_table_rtx during function expand.

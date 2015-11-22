@@ -661,6 +661,12 @@ default_function_incoming_arg (cumulative_args_t ca ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
+rtx
+default_function_incoming_arg_rtl (const_tree parmdecl)
+{
+  return DECL_INCOMING_RTL (parmdecl);
+}
+
 unsigned int
 default_function_arg_boundary (machine_mode mode ATTRIBUTE_UNUSED,
 			       const_tree type ATTRIBUTE_UNUSED)

@@ -5809,9 +5809,13 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 
   mode2 = mode;
 
+  rtx incoming_rtl = NULL;
+
   if (REG_P (loc))
     {
       gcc_assert (loc != cfa_base_rtx);
+      if (REG_EXPR (loc) && TREE_CODE (REG_EXPR (loc)) == PARM_DECL)
+	incoming_rtl = get_decl_incoming_rtl (REG_EXPR (loc));
       if ((GET_CODE (expr) == CLOBBER && type != MO_VAL_SET)
 	  || !(track_p = use_type (loc, NULL, &mode2) == MO_USE)
 	  || GET_CODE (expr) == CLOBBER)
@@ -5855,9 +5859,8 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
 		      && REG_EXPR (loc)
 		      && TREE_CODE (REG_EXPR (loc)) == PARM_DECL
 		      && DECL_MODE (REG_EXPR (loc)) != BLKmode
-		      && MEM_P (DECL_INCOMING_RTL (REG_EXPR (loc)))
-		      && XEXP (DECL_INCOMING_RTL (REG_EXPR (loc)), 0)
-			 != arg_pointer_rtx)
+		      && MEM_P (incoming_rtl)
+		      && XEXP (incoming_rtl, 0) != arg_pointer_rtx)
 		    mo.type = MO_SET;
 		  else
 		    mo.type = MO_COPY;
@@ -5941,10 +5944,10 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
       && TREE_CODE (REG_EXPR (loc)) == PARM_DECL
       && DECL_MODE (REG_EXPR (loc)) != BLKmode
       && TREE_CODE (TREE_TYPE (REG_EXPR (loc))) != UNION_TYPE
-      && ((MEM_P (DECL_INCOMING_RTL (REG_EXPR (loc)))
-	   && XEXP (DECL_INCOMING_RTL (REG_EXPR (loc)), 0) != arg_pointer_rtx)
-          || (GET_CODE (DECL_INCOMING_RTL (REG_EXPR (loc))) == PARALLEL
-	      && XVECLEN (DECL_INCOMING_RTL (REG_EXPR (loc)), 0) > 1)))
+      && ((MEM_P (incoming_rtl)
+	   && XEXP (incoming_rtl, 0) != arg_pointer_rtx)
+	  || (GET_CODE (incoming_rtl) == PARALLEL
+	      && XVECLEN (incoming_rtl, 0) > 1)))
     {
       /* Although we don't use the value here, it could be used later by the
 	 mere virtue of its existence as the operand of the reverse operation
@@ -9506,7 +9509,7 @@ static void
 vt_add_function_parameter (tree parm)
 {
   rtx decl_rtl = DECL_RTL_IF_SET (parm);
-  rtx incoming = DECL_INCOMING_RTL (parm);
+  rtx incoming = get_decl_incoming_rtl (parm);
   tree decl;
   machine_mode mode;
   HOST_WIDE_INT offset;

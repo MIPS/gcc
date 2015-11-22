@@ -1290,6 +1290,14 @@ set_decl_incoming_rtl (tree t, rtx x, bool by_reference_p)
     set_reg_attrs_for_decl_rtl (t, x);
 }
 
+/* Return the location where the argument appears to the callee.  */
+
+rtx
+get_decl_incoming_rtl (const_tree parmdecl)
+{
+  return targetm.calls.function_incoming_arg_rtl (parmdecl);
+}
+
 /* Identify REG (which may be a CONCAT) as a user register.  */
 
 void
