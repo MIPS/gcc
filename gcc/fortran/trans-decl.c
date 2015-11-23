@@ -1497,7 +1497,7 @@ gfc_get_symbol_decl (gfc_symbol * sym)
      declaration.  */
   if ((sym->attr.flavor == FL_VARIABLE
        || sym->attr.flavor == FL_PARAMETER)
-      && sym->attr.use_assoc
+      && (sym->attr.use_assoc || sym->attr.used_in_submodule)
       && !intrinsic_array_parameter
       && sym->module
       && gfc_get_module_backend_decl (sym))
@@ -4499,7 +4499,7 @@ gfc_create_module_variable (gfc_symbol * sym)
       decl = sym->backend_decl;
       gcc_assert (sym->ns->proc_name->attr.flavor == FL_MODULE);
 
-      if (!sym->attr.use_assoc)
+      if (!sym->attr.use_assoc && !sym->attr.used_in_submodule)
 	{
 	  gcc_assert (TYPE_CONTEXT (decl) == NULL_TREE
 		      || TYPE_CONTEXT (decl) == sym->ns->proc_name->backend_decl);
@@ -4531,7 +4531,8 @@ gfc_create_module_variable (gfc_symbol * sym)
 
   /* Don't generate variables from other modules. Variables from
      COMMONs and Cray pointees will already have been generated.  */
-  if (sym->attr.use_assoc || sym->attr.in_common || sym->attr.cray_pointee)
+  if (sym->attr.use_assoc || sym->attr.used_in_submodule
+      || sym->attr.in_common || sym->attr.cray_pointee)
     return;
 
   /* Equivalenced variables arrive here after creation.  */
@@ -5759,6 +5760,149 @@ is_ieee_module_used (gfc_namespace *ns)
 }
 
 
+static gfc_omp_clauses *module_oacc_clauses;
+
+
+static void
+add_clause (gfc_symbol *sym, gfc_omp_map_op map_op)
+{
+  gfc_omp_namelist *n;
+
+  n = gfc_get_omp_namelist ();
+  n->sym = sym;
+  n->u.map_op = map_op;
+
+  if (!module_oacc_clauses)
+    module_oacc_clauses = gfc_get_omp_clauses ();
+
+  if (module_oacc_clauses->lists[OMP_LIST_MAP])
+    n->next = module_oacc_clauses->lists[OMP_LIST_MAP];
+
+  module_oacc_clauses->lists[OMP_LIST_MAP] = n;
+}
+
+
+static void
+find_module_oacc_declare_clauses (gfc_symbol *sym)
+{
+  if (sym->attr.use_assoc)
+    {
+      gfc_omp_map_op map_op;
+
+      if (sym->attr.oacc_declare_create)
+	map_op = OMP_MAP_FORCE_ALLOC;
+
+      if (sym->attr.oacc_declare_copyin)
+	map_op = OMP_MAP_FORCE_TO;
+
+      if (sym->attr.oacc_declare_deviceptr)
+	map_op = OMP_MAP_FORCE_DEVICEPTR;
+
+      if (sym->attr.oacc_declare_device_resident)
+	map_op = OMP_MAP_DEVICE_RESIDENT;
+
+      if (sym->attr.oacc_declare_create
+	  || sym->attr.oacc_declare_copyin
+	  || sym->attr.oacc_declare_deviceptr
+	  || sym->attr.oacc_declare_device_resident)
+	{
+	  sym->attr.referenced = 1;
+	  add_clause (sym, map_op);
+	}
+    }
+}
+
+
+void
+finish_oacc_declare (gfc_namespace *ns, gfc_symbol *sym, bool block)
+{
+  gfc_code *code;
+  gfc_oacc_declare *oc;
+  locus where = gfc_current_locus;
+  gfc_omp_clauses *omp_clauses = NULL;
+  gfc_omp_namelist *n, *p;
+
+  gfc_traverse_ns (ns, find_module_oacc_declare_clauses);
+
+  if (module_oacc_clauses && sym->attr.flavor == FL_PROGRAM)
+    {
+      gfc_oacc_declare *new_oc;
+
+      new_oc = gfc_get_oacc_declare ();
+      new_oc->next = ns->oacc_declare;
+      new_oc->clauses = module_oacc_clauses;
+
+      ns->oacc_declare = new_oc;
+      module_oacc_clauses = NULL;
+    }
+
+  if (!ns->oacc_declare)
+    return;
+
+  for (oc = ns->oacc_declare; oc; oc = oc->next)
+    {
+      if (oc->module_var)
+	continue;
+
+      if (block)
+	gfc_error ("Sorry, $!ACC DECLARE at %L is not allowed "
+		   "in BLOCK construct", &oc->loc);
+
+
+      if (oc->clauses && oc->clauses->lists[OMP_LIST_MAP])
+	{
+	  if (omp_clauses == NULL)
+	    {
+	      omp_clauses = oc->clauses;
+	      continue;
+	    }
+
+	  for (n = oc->clauses->lists[OMP_LIST_MAP]; n; p = n, n = n->next)
+	    ;
+
+	  gcc_assert (p->next == NULL);
+
+	  p->next = omp_clauses->lists[OMP_LIST_MAP];
+	  omp_clauses = oc->clauses;
+	}
+    }
+
+  if (!omp_clauses)
+    return;
+
+  for (n = omp_clauses->lists[OMP_LIST_MAP]; n; n = n->next)
+    {
+      switch (n->u.map_op)
+	{
+	  case OMP_MAP_DEVICE_RESIDENT:
+	    n->u.map_op = OMP_MAP_FORCE_ALLOC;
+	    break;
+
+	  default:
+	    break;
+	}
+    }
+
+  code = XCNEW (gfc_code);
+  code->op = EXEC_OACC_DECLARE;
+  code->loc = where;
+
+  code->ext.oacc_declare = gfc_get_oacc_declare ();
+  code->ext.oacc_declare->clauses = omp_clauses;
+
+  code->block = XCNEW (gfc_code);
+  code->block->op = EXEC_OACC_DECLARE;
+  code->block->loc = where;
+
+  if (ns->code)
+    code->block->next = ns->code;
+
+  ns->code = code;
+
+  return;
+}
+
+
 /* Generate code for a function.  */
 
 void
@@ -5895,12 +6039,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   if ((gfc_option.rtcheck & GFC_RTCHECK_BOUNDS) && !sym->attr.is_bind_c)
     add_argument_checking (&body, sym);
 
-  /* Generate !$ACC DECLARE directive. */
-  if (ns->oacc_declare_clauses)
-    {
-      tree tmp = gfc_trans_oacc_declare (&body, ns);
-      gfc_add_expr_to_block (&body, tmp);
-    }
+  finish_oacc_declare (ns, sym, false);
 
   tmp = gfc_trans_code (ns->code);
   gfc_add_expr_to_block (&body, tmp);

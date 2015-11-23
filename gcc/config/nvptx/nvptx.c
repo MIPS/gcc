@@ -379,7 +379,7 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
   if (DECL_EXTERNAL (decl))
     s << ".extern ";
   else if (TREE_PUBLIC (decl))
-    s << ".visible ";
+    s << (DECL_WEAK (decl) ? ".weak " : ".visible ");
 
   if (kernel)
     s << ".entry ";
@@ -515,7 +515,7 @@ walk_args_for_param (FILE *file, tree argtypes, tree args, bool write_copy,
 static void
 write_function_decl_and_comment (std::stringstream &s, const char *name, const_tree decl)
 {
-  s << "// BEGIN";
+  s << "\n// BEGIN";
   if (TREE_PUBLIC (decl))
     s << " GLOBAL";
   s << " FUNCTION DECL: ";
@@ -765,7 +765,7 @@ write_func_decl_from_insn (std::stringstream &s, rtx result, rtx pat,
     {
       name = XSTR (callee, 0);
       name = nvptx_name_replacement (name);
-      s << "// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
+      s << "\n// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
     }
   s << (callprototype ? "\t.callprototype\t" : "\t.extern .func ");
 
@@ -820,7 +820,7 @@ write_func_decl_from_insn (std::stringstream &s, rtx result, rtx pat,
 void
 nvptx_function_end (FILE *file)
 {
-  fprintf (file, "\t}\n");
+  fprintf (file, "}\n");
 }
 
 /* Decide whether we can make a sibling call to a function.  For ptx, we
@@ -965,7 +965,7 @@ nvptx_expand_call (rtx retval, rtx address)
     }
 
   if (varargs)
-      XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
+    XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
 
   gcc_assert (vec_pos = XVECLEN (pat, 0));
 
@@ -1726,7 +1726,7 @@ static void
 init_output_initializer (FILE *file, const char *name, const_tree type,
 			 bool is_public)
 {
-  fprintf (file, "// BEGIN%s VAR DEF: ", is_public ? " GLOBAL" : "");
+  fprintf (file, "\n// BEGIN%s VAR DEF: ", is_public ? " GLOBAL" : "");
   assemble_name_raw (file, name);
   fputc ('\n', file);
 
@@ -1780,8 +1780,9 @@ nvptx_declare_object_name (FILE *file, const char *name, const_tree decl)
       size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
       const char *section = nvptx_section_for_decl (decl);
       fprintf (file, "\t%s%s .align %d .u%d ",
-	       TREE_PUBLIC (decl) ? " .visible" : "", section,
-	       DECL_ALIGN (decl) / BITS_PER_UNIT,
+	       !TREE_PUBLIC (decl) ? ""
+	       : DECL_WEAK (decl) ? ".weak" : ".visible",
+	       section, DECL_ALIGN (decl) / BITS_PER_UNIT,
 	       decl_chunk_size * BITS_PER_UNIT);
       assemble_name (file, name);
       if (size > 0)
@@ -1808,7 +1809,8 @@ nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
   if (TREE_CODE (decl) != VAR_DECL)
     return;
   const char *section = nvptx_section_for_decl (decl);
-  fprintf (file, "// BEGIN%s VAR DECL: ", TREE_PUBLIC (decl) ? " GLOBAL" : "");
+  fprintf (file, "\n// BEGIN%s VAR DECL: ",
+	   TREE_PUBLIC (decl) ? " GLOBAL" : "");
   assemble_name_raw (file, name);
   fputs ("\n", file);
   HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
@@ -1933,7 +1935,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
     }
   fprintf (asm_out_file, ";\n");
   if (result != NULL_RTX)
-    return "ld.param%t0\t%0, [%%retval_in];\n\t}";
+    return "\tld.param%t0\t%0, [%%retval_in];\n\t}";
 
   return "}";
 }
@@ -3894,6 +3896,19 @@ nvptx_cannot_copy_insn_p (rtx_insn *insn)
       return false;
     }
 }
+
+/* Section anchors do not work.  Initialization for flag_section_anchor
+   probes the existence of the anchoring target hooks and prevents
+   anchoring if they don't exist.  However, we may be being used with
+   a host-side compiler that does support anchoring, and hence see
+   the anchor flag set (as it's not recalculated).  So provide an
+   implementation denying anchoring.  */
+
+static bool
+nvptx_use_anchors_for_symbol_p (const_rtx ARG_UNUSED (a))
+{
+  return false;
+}
 
 /* Record a symbol for mkoffload to enter into the mapping table.  */
 
@@ -3965,7 +3980,7 @@ nvptx_file_end (void)
       worker_bcast_size = (worker_bcast_size + worker_bcast_align - 1)
 	& ~(worker_bcast_align - 1);
       
-      fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_bcast_name);
+      fprintf (asm_out_file, "\n// BEGIN VAR DEF: %s\n", worker_bcast_name);
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_bcast_align,
 	       worker_bcast_name, worker_bcast_size);
@@ -3978,7 +3993,7 @@ nvptx_file_end (void)
       worker_red_size = ((worker_red_size + worker_red_align - 1)
 			 & ~(worker_red_align - 1));
       
-      fprintf (asm_out_file, "// BEGIN VAR DEF: %s\n", worker_red_name);
+      fprintf (asm_out_file, "\n// BEGIN VAR DEF: %s\n", worker_red_name);
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_red_align,
 	       worker_red_name, worker_red_size);
@@ -4912,6 +4927,9 @@ nvptx_goacc_reduction (gcall *call)
 
 #undef TARGET_CANNOT_COPY_INSN_P
 #define TARGET_CANNOT_COPY_INSN_P nvptx_cannot_copy_insn_p
+
+#undef TARGET_USE_ANCHORS_FOR_SYMBOL_P
+#define TARGET_USE_ANCHORS_FOR_SYMBOL_P nvptx_use_anchors_for_symbol_p
 
 #undef TARGET_INIT_BUILTINS
 #define TARGET_INIT_BUILTINS nvptx_init_builtins

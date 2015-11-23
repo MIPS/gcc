@@ -1,3 +1,7 @@
+2015-11-23  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 230742 into gupc branch.
+
 2015-11-22  Gary Funck  <gary@intrepid.com>
 
 	Add two spaces after a period in comments and messages.
