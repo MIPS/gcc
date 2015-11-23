@@ -1127,9 +1127,9 @@ failure:
   return false;
 }
 
-/* Part of the libgomp plugin interface.  Run a kernel on a device N and pass
-   the it an array of pointers in VARS as a parameter.  The kernel is
-   identified by FN_PTR which must point to a kernel_info structure.  */
+/* Part of the libgomp plugin interface.  Run a kernel on device N and pass it
+   an array of pointers in VARS as a parameter.  The kernel is identified by
+   FN_PTR which must point to a kernel_info structure.  */
 
 void
 GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
@@ -1237,13 +1237,62 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
     GOMP_PLUGIN_fatal ("Unable to unlock an HSA agent rwlock");
 }
 
+/* Information to be passed to a thread running a kernel asycnronously.  */
+
+struct async_run_info
+{
+  int device;
+  void *tgt_fn;
+  void *tgt_vars;
+  void **args;
+  void *async_data;
+};
+
+/* Thread routine to run a kernel asynchronously.  */
+
+static void *
+run_kernel_asynchronously (void *thread_arg)
+{
+  struct async_run_info *info = (struct async_run_info *) thread_arg;
+  int device = info->device;
+  void *tgt_fn = info->tgt_fn;
+  void *tgt_vars = info->tgt_vars;
+  void **args = info->args;
+  void *async_data = info->async_data;
+
+  free (info);
+  GOMP_OFFLOAD_run (device, tgt_fn, tgt_vars, args);
+  GOMP_PLUGIN_target_task_completion (async_data);
+  return NULL;
+}
+
+/* Part of the libgomp plugin interface.  Run a kernel like GOMP_OFFLOAD_run
+   does, but asynchronously and call GOMP_PLUGIN_target_task_completion when it
+   has finished.  */
+
 void
 GOMP_OFFLOAD_async_run (int device, void *tgt_fn, void *tgt_vars,
 			void **args, void *async_data)
 {
-  /* FIXME: Implement.  */
-  GOMP_PLUGIN_fatal ("Support for HSA does not yet implement asynchronous "
-		     "execution. ");
+  pthread_t pt;
+  struct async_run_info *info;
+  HSA_DEBUG ("GOMP_OFFLOAD_async_run invoked\n")
+  info = GOMP_PLUGIN_malloc (sizeof (struct async_run_info));
+
+  info->device = device;
+  info->tgt_fn = tgt_fn;
+  info->tgt_vars = tgt_vars;
+  info->args = args;
+  info->async_data = async_data;
+
+  int err = pthread_create (&pt, NULL, &run_kernel_asynchronously, info);
+  if (err != 0)
+    GOMP_PLUGIN_fatal ("HSA asynchronous thread creation failed: %s",
+		       strerror (err));
+  err = pthread_detach (pt);
+  if (err != 0)
+    GOMP_PLUGIN_fatal ("Failed to detach a thread to run HRA kernel "
+		       "asynchronously: %s", strerror (err));
 }
 
 /* Deinitialize all information associated with MODULE and kernels within

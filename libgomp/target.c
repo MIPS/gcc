@@ -1527,7 +1527,8 @@ GOMP_target_data_ext (int device, size_t mapnum, void **hostaddrs,
   struct gomp_device_descr *devicep = resolve_device (device);
 
   if (devicep == NULL
-      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return gomp_target_data_fallback ();
 
   struct target_mem_desc *tgt
@@ -1557,7 +1558,8 @@ GOMP_target_update (int device, const void *unused, size_t mapnum,
   struct gomp_device_descr *devicep = resolve_device (device);
 
   if (devicep == NULL
-      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return;
 
   gomp_update (devicep, mapnum, hostaddrs, sizes, kinds, false);
@@ -1608,7 +1610,8 @@ GOMP_target_update_ext (int device, size_t mapnum, void **hostaddrs,
     }
 
   if (devicep == NULL
-      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return;
 
   struct gomp_thread *thr = gomp_thread ();
@@ -1730,7 +1733,8 @@ GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
     }
 
   if (devicep == NULL
-      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return;
 
   struct gomp_thread *thr = gomp_thread ();
@@ -1861,7 +1865,8 @@ omp_target_alloc (size_t size, int device_num)
   if (devicep == NULL)
     return NULL;
 
-  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return malloc (size);
 
   gomp_mutex_lock (&devicep->lock);
@@ -1889,7 +1894,8 @@ omp_target_free (void *device_ptr, int device_num)
   if (devicep == NULL)
     return;
 
-  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     {
       free (device_ptr);
       return;
@@ -1946,7 +1952,8 @@ omp_target_memcpy (void *dst, void *src, size_t length, size_t dst_offset,
       if (dst_devicep == NULL)
 	return EINVAL;
 
-      if (!(dst_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      if (!(dst_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+	  || dst_devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
 	dst_devicep = NULL;
     }
   if (src_device_num != GOMP_DEVICE_HOST_FALLBACK)
@@ -1958,7 +1965,8 @@ omp_target_memcpy (void *dst, void *src, size_t length, size_t dst_offset,
       if (src_devicep == NULL)
 	return EINVAL;
 
-      if (!(src_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      if (!(src_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+	  || src_devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
 	src_devicep = NULL;
     }
   if (src_devicep == NULL && dst_devicep == NULL)
@@ -2088,7 +2096,8 @@ omp_target_memcpy_rect (void *dst, void *src, size_t element_size,
       if (dst_devicep == NULL)
 	return EINVAL;
 
-      if (!(dst_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      if (!(dst_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+	  || dst_devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
 	dst_devicep = NULL;
     }
   if (src_device_num != GOMP_DEVICE_HOST_FALLBACK)
@@ -2100,7 +2109,8 @@ omp_target_memcpy_rect (void *dst, void *src, size_t element_size,
       if (src_devicep == NULL)
 	return EINVAL;
 
-      if (!(src_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      if (!(src_devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+	  || src_devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
 	src_devicep = NULL;
     }
 

@@ -1,3 +1,19 @@
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c (async_run_info): New structure.
+	(run_kernel_asynchronously): New function.
+	(GOMP_OFFLOAD_async_run): New implementation.
+	* target.c (GOMP_target_data_ext): Handle shared memory devices like
+	the host.
+	(GOMP_target_update): Likewise.
+	(GOMP_target_update_ext): Likewise.
+	(GOMP_target_enter_exit_data): Likewise.
+	(omp_target_alloc): Likewise.
+	(omp_target_free): Likewise.
+	(omp_target_memcpy): Likewise.
+	(omp_target_memcpy_rect): Likewise.
+	* task.c (gomp_create_target_task): Fill in args field of ttask.
+
 2015-11-13  Martin Jambor  <mjambor@suse.cz>
 
 	* libgomp.h (gomp_device_descr): Update type of run_func.

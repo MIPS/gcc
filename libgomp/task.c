@@ -652,6 +652,7 @@ gomp_create_target_task (struct gomp_device_descr *devicep,
   ttask->devicep = devicep;
   ttask->fn = fn;
   ttask->mapnum = mapnum;
+  ttask->args = args;
   memcpy (ttask->hostaddrs, hostaddrs, mapnum * sizeof (void *));
   ttask->sizes = (size_t *) &ttask->hostaddrs[mapnum];
   memcpy (ttask->sizes, sizes, mapnum * sizeof (size_t));
