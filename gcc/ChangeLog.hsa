@@ -1,3 +1,10 @@
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (gen_hsa_binary_operation): Make immediate operands of
+	bit AND, OR and XOR always unsigned integer.
+	(gen_hsa_ternary_atomic_for_builtin): Make bit-operations have
+	bit-type.
+
 2015-11-13  Martin Jambor  <mjambor@suse.cz>
 
 	* builtin-types.def

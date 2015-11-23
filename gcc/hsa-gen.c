@@ -2777,6 +2777,14 @@ gen_hsa_binary_operation (int opcode, hsa_op_reg *dest,
       hsa_op_immed *i = dyn_cast <hsa_op_immed *> (op2);
       i->set_type (BRIG_TYPE_U32);
     }
+  if ((opcode == BRIG_OPCODE_OR
+       || opcode == BRIG_OPCODE_XOR
+       || opcode == BRIG_OPCODE_AND)
+      && is_a <hsa_op_immed *> (op2))
+    {
+      hsa_op_immed *i = dyn_cast <hsa_op_immed *> (op2);
+      i->set_type (hsa_uint_for_bitsize (hsa_type_bit_size (i->m_type)));
+    }
 
   hsa_insn_basic *insn = new hsa_insn_basic (3, opcode, dest->m_type, dest,
 					     op1, op2);
@@ -4223,6 +4231,10 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
     {
     case BRIG_ATOMIC_LD:
     case BRIG_ATOMIC_ST:
+    case BRIG_ATOMIC_AND:
+    case BRIG_ATOMIC_OR:
+    case BRIG_ATOMIC_XOR:
+    case BRIG_ATOMIC_EXCH:
       mtype = hsa_bittype_for_type (mtype);
       break;
     default:
