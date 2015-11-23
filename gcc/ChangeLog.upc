@@ -1,5 +1,10 @@
 2015-11-23  Gary Funck  <gary@intrepid.com>
 
+	* c.opt: Add periods to the end of help text.
+	Remove LTO and C++ from UPC-only switches.
+
+2015-11-23  Gary Funck  <gary@intrepid.com>
+
 	Merge trunk version 230742 into gupc branch.
 
 2015-11-22  Gary Funck  <gary@intrepid.com>

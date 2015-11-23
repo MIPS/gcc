@@ -993,8 +993,8 @@ C ObjC C++ ObjC++ Joined
 ; Documented in common.opt.  FIXME - what about -dI, -dD, -dN and -dD?
 
 dwarf-2-upc
-C LTO Report Var(use_upc_dwarf2_extensions) Init(0)
-Generate DWARF-2 debug info with UPC extensions
+C Report Var(use_upc_dwarf2_extensions) Init(0)
+Generate DWARF-2 debug info with UPC extensions.
 
 fabi-compat-version=
 C++ ObjC++ Joined RejectNegative UInteger Var(flag_abi_compat_version) Init(-1)
@@ -1517,8 +1517,8 @@ C ObjC C++ ObjC++ LTO Var(flag_signed_char, 0)
 Make \"char\" unsigned by default.
 
 fupc
-C LTO Report Var(flag_upc) Init(0)
-Enable UPC
+C Report Var(flag_upc) Init(0)
+Enable UPC.
 
 fupc-debug
 C Var(flag_upc_debug)
@@ -1531,29 +1531,30 @@ Generate code for inlined UPC runtime library routines.
 Default, at optimization levels greater than 0.
 
 fupc-pre-include
-C C++ Init(1)
-Pre-include UPC runtime header file
+C Init(1)
+Pre-include UPC runtime header file.
 
 fupc-pthreads-model-tls
 C
 Generate code for a POSIX threads based UPC runtime environment
-with TLS (Thread Local Storage) support
+with TLS (Thread Local Storage) support.
 
 fupc-threads=
 C Joined RejectNegative UInteger
-Specify the compile-time value of THREADS
+Specify the compile-time value of THREADS.
 
 fupc-threads-
 C Joined RejectNegative UInteger Alias(fupc-threads=)
-Deprecated in favor of -fupc-threads=
+Deprecated in favor of -fupc-threads=.
 
 fupc-instrument
 C Var(flag_upc_instrument)
-Instrument UPC shared accesses and library calls, using GASP tool support
+Instrument UPC shared accesses and library calls, using GASP tool support.
 
 fupc-instrument-functions
 C Var(flag_upc_instrument_functions)
-Instrument functions calls, using GASP tool support (implies -fupc-instrument)
+Instrument functions calls, using GASP tool support
+(implies -fupc-instrument).
 
 fuse-cxa-atexit
 C++ ObjC++ Var(flag_use_cxa_atexit) Init(DEFAULT_USE_CXA_ATEXIT)
