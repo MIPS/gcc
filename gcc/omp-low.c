@@ -12638,7 +12638,50 @@ get_kernel_launch_attributes (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   return build_fold_addr_expr (lattrs);
 }
 
-/* Create an array of arguments that is then passed to GOMP_target.  */
+/* Build target argument identifier from the DEVICE identifier, value
+   identifier ID and whether the element also has a SUBSEQUENT_PARAM.  */
+
+static tree
+get_target_argument_identifier_1 (int device, bool subseqent_param, int id)
+{
+  tree t = build_int_cst (integer_type_node, device);
+  if (subseqent_param)
+    t = fold_build2 (BIT_IOR_EXPR, integer_type_node, t,
+		     build_int_cst (integer_type_node,
+				    GOMP_TARGET_ARG_SUBSEQUENT_PARAM));
+  t = fold_build2 (BIT_IOR_EXPR, integer_type_node, t,
+		   build_int_cst (integer_type_node, id));
+  return t;
+}
+
+/* Like above but return it in type that can be directly stored as an element
+   of the argument array.  */
+
+static tree
+get_target_argument_identifier (int device, bool subseqent_param, int id)
+{
+  tree t = get_target_argument_identifier_1 (device, subseqent_param, id);
+  return fold_convert (ptr_type_node, t);
+}
+
+/* Return a target argument consisiting of DEVICE identifier, value identifier
+   ID, and the actual VALUE.  */
+
+static tree
+get_target_argument_value (gimple_stmt_iterator *gsi, int device, int id,
+			   tree value)
+{
+  tree t = fold_build2 (LSHIFT_EXPR, integer_type_node,
+			fold_convert (integer_type_node, value),
+			build_int_cst (unsigned_type_node,
+				       GOMP_TARGET_ARG_VALUE_SHIFT));
+  t = fold_build2 (BIT_IOR_EXPR, integer_type_node, t,
+		   get_target_argument_identifier_1 (device, false, id));
+  t = fold_convert (ptr_type_node, t);
+  return force_gimple_operand_gsi (gsi, t, true, NULL, true, GSI_SAME_STMT);
+}
+
+/* Create an array of arguments that is then passed to GOMP_target.   */
 
 static tree
 get_target_arguments (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
@@ -12647,28 +12690,28 @@ get_target_arguments (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   tree clauses = gimple_omp_target_clauses (tgt_stmt);
   tree t, c = find_omp_clause (clauses, OMP_CLAUSE_NUM_TEAMS);
   if (c)
-    {
-      t = fold_convert (ptr_type_node, OMP_CLAUSE_NUM_TEAMS_EXPR (c));
-      t = force_gimple_operand_gsi (gsi, t, true, NULL, true, GSI_SAME_STMT);
-    }
+    t = OMP_CLAUSE_NUM_TEAMS_EXPR (c);
   else
-    t = fold_convert (ptr_type_node, integer_minus_one_node);
+    t = integer_minus_one_node;
+  t = get_target_argument_value (gsi, GOMP_TARGET_ARG_DEVICE_ALL,
+				 GOMP_TARGET_ARG_NUM_TEAMS, t);
   args.quick_push (t);
+
   c = find_omp_clause (clauses, OMP_CLAUSE_THREAD_LIMIT);
   if (c)
-    {
-      t = fold_convert (ptr_type_node, OMP_CLAUSE_THREAD_LIMIT_EXPR (c));
-      t = force_gimple_operand_gsi (gsi, t, true, NULL, true, GSI_SAME_STMT);
-    }
+    t = OMP_CLAUSE_THREAD_LIMIT_EXPR (c);
   else
-    t = fold_convert (ptr_type_node, integer_minus_one_node);
+    t = integer_minus_one_node;
+  t = get_target_argument_value (gsi, GOMP_TARGET_ARG_DEVICE_ALL,
+				 GOMP_TARGET_ARG_THREAD_LIMIT, t);
   args.quick_push (t);
 
   /* Add HSA-specific grid sizes, if available.  */
   if (gimple_omp_target_dimensions (tgt_stmt))
     {
-      args.quick_push (build_int_cst (ptr_type_node,
-				     GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES));
+      t = get_target_argument_identifier (GOMP_DEVICE_HSA, true,
+					  GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES);
+      args.quick_push (t);
       args.quick_push (get_kernel_launch_attributes (gsi, tgt_stmt));
     }
 

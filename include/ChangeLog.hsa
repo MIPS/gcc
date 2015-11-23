@@ -1,3 +1,15 @@
+2015-11-20  Martin Jambor  <mjambor@suse.cz>
+
+	* gomp-constants.h (GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC): Removed.
+	(GOMP_TARGET_ARG_DEVICE_MASK): New.
+	(GOMP_TARGET_ARG_DEVICE_ALL): Likewise.
+	(GOMP_TARGET_ARG_SUBSEQUENT_PARAM): Likewise.
+	(GOMP_TARGET_ARG_ID_MASK): Likewise.
+	(GOMP_TARGET_ARG_VALUE_SHIFT): Likewise.
+	(GOMP_TARGET_ARG_NUM_TEAMS): Skifted by 8.
+	(GOMP_TARGET_ARG_THREAD_LIMIT): Likewise.
+	(GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES): Likewise.
+
 2015-11-13  Martin Jambor  <mjambor@suse.cz>
 
 	* gomp-constants.h (GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC): New

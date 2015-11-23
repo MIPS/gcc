@@ -1047,12 +1047,12 @@ init_kernel (struct kernel_info *kernel)
 		       "mutex");
 }
 
-/* Parse the launch attributes INPUT provided by the compiler and return true
+/* Parse the target attributes INPUT provided by the compiler and return true
    if we should run anything all.  If INPUT is NULL, fill DEF with default
    values, then store INPUT or DEF into *RESULT.  */
 
 static bool
-parse_launch_attributes (void **input,
+parse_target_attributes (void **input,
 			 struct GOMP_kernel_launch_attributes *def,
 			 struct GOMP_kernel_launch_attributes **result)
 {
@@ -1060,16 +1060,20 @@ parse_launch_attributes (void **input,
     GOMP_PLUGIN_fatal ("No target arguments provided");
 
   bool attrs_found = false;
-  input += GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC;
   while (*input)
     {
       uintptr_t id = (uintptr_t) *input;
-      input++;
-      if (id == GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES)
+      if ((id & GOMP_TARGET_ARG_DEVICE_MASK) == GOMP_DEVICE_HSA
+	  && ((id & GOMP_TARGET_ARG_ID_MASK)
+	      == GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES))
 	{
+	  input++;
 	  attrs_found = true;
 	  break;
 	}
+
+      if (id & GOMP_TARGET_ARG_SUBSEQUENT_PARAM)
+	input++;
       input++;
     }
 
@@ -1138,7 +1142,7 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
   struct agent_info *agent = kernel->agent;
   struct GOMP_kernel_launch_attributes def;
   struct GOMP_kernel_launch_attributes *kla;
-  if (!parse_launch_attributes (args, &def, &kla))
+  if (!parse_target_attributes (args, &def, &kla))
     {
       HSA_DEBUG ("Will not run HSA kernel because the grid size is zero\n");
       return;

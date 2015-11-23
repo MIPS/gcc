@@ -1,5 +1,12 @@
 2015-11-23  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (get_target_argument_identifier_1): New function.
+	(get_target_argument_identifier): Likewise.
+	(get_target_argument_value): Likewise.
+	(get_target_arguments): Use them.
+
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_known_library_call): Also handle
 	omp_get_thread_num.
 

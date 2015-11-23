@@ -229,17 +229,31 @@ enum gomp_map_kind
 #define GOMP_LAUNCH_OP(X) (((X) >> GOMP_LAUNCH_OP_SHIFT) & 0xffff)
 #define GOMP_LAUNCH_OP_MAX 0xffff
 
-/* First device-specific identifier among target arguments. */
-#define GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC	2
-/* Target argument index of NUM_TEAMS */
-#define GOMP_TARGET_ARG_NUM_TEAMS		0
-/* Target argument index of THREAD_LIMIT */
-#define GOMP_TARGET_ARG_THREAD_LIMIT		1
+/* Bitmask to apply in order to find out the intended device of a target
+   argument.  */
+#define GOMP_TARGET_ARG_DEVICE_MASK		((1 << 7) - 1)
+/* The target argument is significant for all devices.  */
+#define GOMP_TARGET_ARG_DEVICE_ALL		0
 
-/* Identifiers of device-specific target arguments.  */
-#define GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES	1
+/* Flag set when the subsequent element in the device-specific argument
+   values.  */
+#define GOMP_TARGET_ARG_SUBSEQUENT_PARAM	(1 << 7)
+
+/* Bitmask to apply to a target argument to find out the value identifier.  */
+#define GOMP_TARGET_ARG_ID_MASK			(((1 << 8) - 1) << 8)
+/* Target argument index of NUM_TEAMS.  */
+#define GOMP_TARGET_ARG_NUM_TEAMS		(1 << 8)
+/* Target argument index of THREAD_LIMIT.  */
+#define GOMP_TARGET_ARG_THREAD_LIMIT		(2 << 8)
+
+/* If the value is directly embeded in target argument, it should be a 16-bit
+   at most and shifted by tis many bits.  */
+#define GOMP_TARGET_ARG_VALUE_SHIFT		16
 
 /* HSA specific data structures.  */
+
+/* Identifiers of device-specific target arguments.  */
+#define GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES	(1 << 8)
 
 /* Structure describing the run-time and grid properties of an HSA kernel
    lauch.  */
