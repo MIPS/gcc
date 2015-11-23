@@ -17,6 +17,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define KELVIN_PATCH
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -33,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "tree-ssa-loop-manip.h"
 #include "dumpfile.h"
+#ifdef KELVIN_PATCH
 #include "diagnostic-core.h"
 
 /* Use a command-line option to set the flag_checking option to enforce
@@ -41,6 +43,11 @@ along with GCC; see the file COPYING3.  If not see
       sum of incoming edge frequencies for the loop header block.
    b. The sum of predecessor edge frequencies for every block
       in the loop equals the frequency of that block. */
+#define KELVIN_NOISE
+#ifdef KELVIN_NOISE
+#include "kelvin-debugs.c"
+#endif
+#endif
 
 static void copy_loops_to (struct loop **, int,
 			   struct loop *);
@@ -52,6 +59,7 @@ static void fix_loop_placements (struct loop *, bool *);
 static bool fix_bb_placement (basic_block);
 static void fix_bb_placements (basic_block, bool *, bitmap);
 
+#ifdef KELVIN_PATCH
 /* Return true iff BLOCK is considered to reside within the loop
    represented by LOOP_PTR. */
 bool
@@ -150,22 +158,6 @@ recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 	recursively_zero_frequency (loop_ptr, exit_edges,
 				    &a_rung, successor);
     }
-}
-
-/* Return true iff the CANDIDATE block is found within the linked
-   list represented by LOWER_STEPS, which would indicate that this
-   block has already been visited by a recursive traversal. */
-static bool 
-recursion_detected_p (basic_block candidate, ladder_rung_p lower_steps)
-{
-  while (lower_steps != NULL)
-    {
-      if (lower_steps->block == candidate)
-	return true;
-      lower_steps = lower_steps->lower_rung;
-    }
-  /* we iterated through the entire list and did not find candidate */
-  return false;
 }
 
 /* Zero all frequencies for all blocks contained within the loop
@@ -306,12 +298,12 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 static void 
 check_loop_frequency_integrity (struct loop *loop_ptr)
 {
-  unsigned int i, k;
   basic_block a_block;
   basic_block* loop_body = get_loop_body (loop_ptr);
   basic_block header;
+  unsigned int i, k;
 
-  for (unsigned k = 0; k < loop_ptr->num_nodes; k++)
+  for (k = 0; k < loop_ptr->num_nodes; k++)
     {
       int delta;
       int predecessor_frequencies = 0;
@@ -323,6 +315,12 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
 	predecessor_frequencies += EDGE_FREQUENCY (a_predecessor);
       delta = predecessor_frequencies - a_block->frequency;
 
+#ifdef KELVIN_NOISE      
+      fprintf(stderr, "For block %d, block->frequency is: %d\n",
+	      a_block->index, a_block->frequency);
+      fprintf(stderr, "  sum of predecessor frequencies is %d\n",
+	      predecessor_frequencies);
+#endif
       /* Enforce tolerance to within 0.2%. */
       int tolerance = predecessor_frequencies / 500;  
       if (tolerance < 10)
@@ -364,6 +362,7 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
 		 "while unrolling loop.");
   exit_edges.release ();
 }
+#endif
 
 /* Checks whether basic block BB is dominated by DATA.  */
 static bool
@@ -1419,11 +1418,17 @@ can_duplicate_loop_p (const struct loop *loop)
 }
 
 static void
+#ifdef KELVIN_PATCH
 /* Sets probability and count of edge E to zero.  The probability and count
    is redistributed evenly to the remaining edges coming from E->src
    and is propagated transitively to all nodes contained within the
    loop identified by LOOP_PTR and reachable from E->src.  */
 set_zero_probability (struct loop* loop_ptr, edge e)
+#else
+/* Sets probability and count of edge E to zero.  The probability and count
+   is redistributed evenly to the remaining edges coming from E->src.  */
+set_zero_probability (edge e)
+#endif
 {
   basic_block bb = e->src;
   edge_iterator ei;
@@ -1431,10 +1436,12 @@ set_zero_probability (struct loop* loop_ptr, edge e)
   unsigned n = EDGE_COUNT (bb->succs);
   gcov_type cnt = e->count, cnt1;
   unsigned prob = e->probability, prob1;
+#ifdef KELVIN_PATCH
   int original_edge_frequency;
   int new_edge_frequency;
   int change_in_edge_frequency;
   bool edge_originates_in_loop = in_loop_p (bb, loop_ptr);
+#endif
 
   gcc_assert (n > 1);
   cnt1 = cnt / (n - 1);
@@ -1445,6 +1452,7 @@ set_zero_probability (struct loop* loop_ptr, edge e)
       if (ae == e)
 	continue;
 
+#ifdef KELVIN_PATCH
       if (edge_originates_in_loop)
 	{
 	  original_edge_frequency = EDGE_FREQUENCY (ae);
@@ -1461,10 +1469,15 @@ set_zero_probability (struct loop* loop_ptr, edge e)
 	  ae->probability += prob1;
 	  ae->count += cnt1;
 	}
+#else
+      ae->probability += prob1;
+      ae->count += cnt1;
+#endif
       last = ae;
     }
     
   /* Move the rest to one of the edges.  */
+#ifdef KELVIN_PATCH
   if (edge_originates_in_loop)
     {
       original_edge_frequency = EDGE_FREQUENCY (last);
@@ -1481,6 +1494,11 @@ set_zero_probability (struct loop* loop_ptr, edge e)
       last->probability += prob % (n - 1);
       last->count += cnt % (n - 1);
     }
+#else
+  last->probability += prob % (n - 1);
+  last->count += cnt % (n - 1);
+#endif
+#ifdef KELVIN_PATCH
   if (edge_originates_in_loop)
     {
       original_edge_frequency = EDGE_FREQUENCY (e);
@@ -1497,6 +1515,10 @@ set_zero_probability (struct loop* loop_ptr, edge e)
       e->probability = 0;
       e->count = 0;
     }
+#else
+  e->probability = 0;
+  e->count = 0;
+#endif
 }
 
 /* Duplicates body of LOOP to given edge E NDUPL times.  Takes care of updating
@@ -1537,6 +1559,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   bitmap bbs_to_scale = NULL;
   bitmap_iterator bi;
 
+#ifdef KELVIN_PATCH
   /* Remember the initial ratio between frequency of edge into loop
      header and the frequency of the loop header. Preserve this ratio
      when we make adjustments within the loop. This distinction is
@@ -1562,6 +1585,30 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
     if (!in_loop_p (predecessor->src, loop))
       preheader_frequency += EDGE_FREQUENCY (predecessor);
   int exit_ratio = (header_frequency * 10000 - 5000) / preheader_frequency;
+#ifdef KELVIN_NOISE
+  {
+    fprintf(stderr,
+	    "duplicate_loop_to_header_edge(ndupl: %d)\n", ndupl);
+    kdn_dump_copy_flags(stderr, " flags: ", flags);
+    kdn_dump_sbitmap(stderr, " wont_exit: ", wont_exit);
+    fprintf(stderr, " header edge: ");
+    kdn_dump_edge(stderr, e);
+    fprintf(stderr, " original edge: ");
+    kdn_dump_edge(stderr, orig);
+    fprintf(stderr, " to_remove edges:\n");
+    unsigned int i;
+    edge edge_to_remove;
+    FOR_EACH_VEC_ELT (*to_remove, i, edge_to_remove)
+      kdn_dump_edge(stderr, edge_to_remove);
+    fprintf(stderr,
+	    " preheader frequency: %d, header frequency: %d, exit_ratio: %d\n",
+	    preheader_frequency, header_frequency, exit_ratio);
+    fprintf(stderr, "The loop context:");
+    kdn_dump_loop(stderr, loop);
+    kdn_dump_all_blocks(stderr, loop);
+  }
+#endif
+#endif
   gcc_assert (e->dest == loop->header);
   gcc_assert (ndupl > 0);
 
@@ -1649,6 +1696,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	     should've managed the flags so all except for original loop
 	     has won't exist set.  */
 	  scale_act = GCOV_COMPUTE_SCALE (wanted_freq, freq_in);
+#ifdef KELVIN_NOISE
+	  fprintf(stderr, "scale_act computed from GCOV_COMPUTE_SCALE: %d\n",
+		  scale_act);
+#endif
 	  /* Now simulate the duplication adjustments and compute header
 	     frequency of the last copy.  */
 	  for (i = 0; i < ndupl; i++)
@@ -1669,6 +1720,11 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	    }
 	  scale_main = GCOV_COMPUTE_SCALE (REG_BR_PROB_BASE, scale_main);
 	  scale_act = combine_probabilities (scale_main, prob_pass_main);
+#ifdef KELVIN_NOISE
+	  fprintf(stderr,
+		  "scale_act computed from combine_probabilities: %d\n",
+		  scale_act);
+#endif
 	}
       else
 	{
@@ -1676,6 +1732,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  for (i = 0; i < ndupl; i++)
 	    scale_main = combine_probabilities (scale_main, scale_step[i]);
 	  scale_act = REG_BR_PROB_BASE - prob_pass_thru;
+#ifdef KELVIN_NOISE
+	  fprintf(stderr, "scale_act computed from prob_pass_thru: %d\n",
+		  scale_act);
+#endif
 	}
       for (i = 0; i < ndupl; i++)
 	gcc_assert (scale_step[i] >= 0 && scale_step[i] <= REG_BR_PROB_BASE);
@@ -1706,6 +1766,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   spec_edges[SE_ORIG] = orig;
   spec_edges[SE_LATCH] = latch_edge;
 
+#ifdef KELVIN_PATCH
   /* Recompute the loop body frequencies. */
   basic_block my_header = loop->header;
   int sum_incoming_frequencies = 0;
@@ -1722,6 +1783,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  (int) (EDGE_FREQUENCY (predecessor) * exit_ratio + 5000) / 10000;
     }
   increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
+#endif
   place_after = e->src;
   for (j = 0; j < ndupl; j++)
     {
@@ -1732,8 +1794,19 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       copy_bbs (bbs, n, new_bbs, spec_edges, 2, new_spec_edges, loop,
                 place_after, true);
 
+#ifdef KELVIN_NOISE
+      for (unsigned int w = 0; w < n; w++)
+	{
+	  fprintf(stderr,
+		  "new_bbs[%d] is basic block %d, with frequency: %d\n",
+		  w, new_bbs[w]->index, new_bbs[w]->frequency);
+	}
+#endif
+
+#ifdef KELVIN_PATCH
       int place_after_frequency = place_after->frequency;
       basic_block saved_place_after = place_after;
+#endif
       place_after = new_spec_edges[SE_LATCH]->src;
 
       if (flags & DLTHE_RECORD_COPY_NUMBER)
@@ -1783,15 +1856,21 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  e = new_spec_edges[SE_LATCH];
 	}
 
+#ifdef KELVIN_PATCH
       zero_partial_loop_frequencies (loop, saved_place_after);
       increment_loop_frequencies (loop,
 				  saved_place_after, place_after_frequency);
+#endif
       /* Record exit edge in this copy.  */
       if (orig && bitmap_bit_p (wont_exit, j + 1))
 	{
 	  if (to_remove)
 	    to_remove->safe_push (new_spec_edges[SE_ORIG]);
+#ifdef KELVIN_PATCH
 	  set_zero_probability (loop, new_spec_edges[SE_ORIG]);
+#else
+	  set_zero_probability (new_spec_edges[SE_ORIG]);
+#endif
 	  /* Scale the frequencies of the blocks dominated by the exit.  */
 	  if (bbs_to_scale)
 	    {
@@ -1814,8 +1893,20 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       /* Set counts and frequencies.  */
       if (flags & DLTHE_FLAG_UPDATE_FREQ)
 	{
+#ifdef KELVIN_NOISE
+	  fprintf(stderr, "(flags & DLTHE_FLAG_UPDATE_FREQ): scale_act: %d\n",
+		  scale_act);
+#endif
 	  scale_bbs_frequencies_int (new_bbs, n, scale_act, REG_BR_PROB_BASE);
 	  scale_act = combine_probabilities (scale_act, scale_step[j]);
+#ifdef KELVIN_NOISE
+	  for (unsigned int w = 0; w < n; w++)
+	    {
+	      fprintf(stderr,
+		      "after scaling, new_bbs[%d] has frequency: %d\n",
+		      w, new_bbs[w]->frequency);
+	    }
+#endif
 	}
     }
   free (new_bbs);
@@ -1832,8 +1923,18 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       if (bbs_to_scale)
 	{
 	  EXECUTE_IF_SET_IN_BITMAP (bbs_to_scale, 0, i, bi)
-	    scale_bbs_frequencies_int (bbs + i, 1, scale_after_exit,
-				       REG_BR_PROB_BASE);
+	    {
+#ifdef KELVIN_NOISE
+	      fprintf(stderr, " scaling bbs[%d] because in set from %d to ",
+		      i, bbs[i]->frequency);
+#endif
+	      scale_bbs_frequencies_int (bbs + i, 1, scale_after_exit,
+					 REG_BR_PROB_BASE);
+#ifdef KELVIN_NOISE
+	      fprintf(stderr, " %d, scale factor: %d\n",
+		      bbs[i]->frequency, scale_after_exit);
+#endif
+	    }
 	}
     }
 
@@ -1843,6 +1944,14 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   if (flags & DLTHE_FLAG_UPDATE_FREQ)
     {
       scale_bbs_frequencies_int (bbs, n, scale_main, REG_BR_PROB_BASE);
+#ifdef KELVIN_NOISE
+      fprintf(stderr, 
+	      " because DLTHE_FLAG_UPDATE, blocks scaled by scale_main:  %d\n",
+	      scale_main);
+      for (unsigned int w = 0; w < n; w++)
+	fprintf(stderr, " block[%d] with index %d, scaled to freq %d\n",
+		w, bbs[w]->index, bbs[w]->frequency);
+#endif
       free (scale_step);
     }
 
@@ -1872,11 +1981,17 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   free (bbs);
   BITMAP_FREE (bbs_to_scale);
 
+#ifdef KELVIN_PATCH
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "At bottom of duplicate_loop_to_header_edge()\n");
+  kdn_dump_all_blocks (stderr, loop);
+#endif
   /* The call to check_loop_frequency_integrity checks for consistency
      of predecessor frequencies with the frequency of the node they
      precede. */
   if (flag_checking)
     check_loop_frequency_integrity (loop);
+#endif
   return true;
 }
 
