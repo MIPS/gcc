@@ -1856,6 +1856,7 @@ hsa_output_global_variables ()
   tree global_vars_num_index_type = build_index_type (int_num_of_global_vars);
   tree global_vars_array_type = build_array_type (variable_info_type,
 						  global_vars_num_index_type);
+  TYPE_ARTIFICIAL (global_vars_array_type) = 1;
 
   vec<constructor_elt, va_gc> *global_vars_vec = NULL;
 
@@ -1926,6 +1927,7 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
   tree kernel_num_index_type = build_index_type (int_num_of_kernels);
   tree host_functions_array_type = build_array_type (ptr_type_node,
 						     kernel_num_index_type);
+  TYPE_ARTIFICIAL (host_functions_array_type) = 1;
 
   vec<constructor_elt, va_gc> *host_functions_vec = NULL;
   for (unsigned i = 0; i < map_count; ++i)
@@ -1978,6 +1980,7 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
   int_num_of_kernels = build_int_cstu (uint32_type_node, map_count);
   tree kernel_info_vector_type = build_array_type
     (kernel_info_type, build_index_type (int_num_of_kernels));
+  TYPE_ARTIFICIAL (kernel_info_vector_type) = 1;
 
   vec<constructor_elt, va_gc> *kernel_info_vector_vec = NULL;
   tree kernel_dependencies_vector_type = NULL;
@@ -2019,6 +2022,7 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 	      kernel_dependencies_vector_type = build_array_type
 		(build_pointer_type (char_type_node),
 		 build_index_type (size_int (count)));
+	      TYPE_ARTIFICIAL (kernel_dependencies_vector_type) = 1;
 
 	      for (unsigned j = 0; j < count; j++)
 		{
@@ -2138,6 +2142,7 @@ hsa_output_libgomp_mapping (tree brig_decl)
   DECL_CHAIN (id_f5) = id_f4;
   finish_builtin_struct (hsa_image_desc_type, "__hsa_image_desc", id_f5,
 			 NULL_TREE);
+  TYPE_ARTIFICIAL (hsa_image_desc_type) = 1;
 
   vec<constructor_elt, va_gc> *img_desc_vec = NULL;
   CONSTRUCTOR_APPEND_ELT (img_desc_vec, NULL_TREE,
@@ -2178,6 +2183,7 @@ hsa_output_libgomp_mapping (tree brig_decl)
 						   build_index_type
 						   (build_int_cst
 						    (integer_type_node, 4)));
+  TYPE_ARTIFICIAL (libgomp_host_table_type) = 1;
   vec<constructor_elt, va_gc> *libgomp_host_table_vec = NULL;
   tree host_func_table_addr = build_fold_addr_expr (host_func_table);
   CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE,

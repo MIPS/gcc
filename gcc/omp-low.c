@@ -1265,7 +1265,10 @@ build_receiver_ref (tree var, bool by_ref, omp_context *ctx)
   TREE_THIS_NOTRAP (x) = 1;
   x = omp_build_component_ref (x, field);
   if (by_ref)
-    x = build_simple_mem_ref (x);
+    {
+      x = build_simple_mem_ref (x);
+      TREE_THIS_NOTRAP (x) = 1;
+    }
 
   return x;
 }
@@ -4487,11 +4490,13 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 
 	      if (!integer_zerop (bias))
 		{
-		  bias = fold_convert_loc (clause_loc, sizetype, bias);
-		  bias = fold_build1_loc (clause_loc, NEGATE_EXPR,
-					  sizetype, bias);
-		  x = fold_build2_loc (clause_loc, POINTER_PLUS_EXPR,
-				       TREE_TYPE (x), x, bias);
+		  bias = fold_convert_loc (clause_loc, pointer_sized_int_node,
+					   bias);
+		  yb = fold_convert_loc (clause_loc, pointer_sized_int_node,
+					 x);
+		  yb = fold_build2_loc (clause_loc, MINUS_EXPR,
+					pointer_sized_int_node, yb, bias);
+		  x = fold_convert_loc (clause_loc, TREE_TYPE (x), yb);
 		  yb = create_tmp_var (ptype, name);
 		  gimplify_assign (yb, x, ilist);
 		  x = yb;
@@ -19501,6 +19506,10 @@ expand_simd_clones (struct cgraph_node *node)
   if (!node->definition
       && TYPE_ARG_TYPES (TREE_TYPE (node->decl)) == NULL_TREE)
     return;
+
+  /* Call this before creating clone_info, as it might ggc_collect.  */
+  if (node->definition && node->has_gimple_body_p ())
+    node->get_body ();
 
   do
     {

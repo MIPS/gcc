@@ -4650,7 +4650,11 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	  type = c_common_unsigned_type (type);
 	}
 
-      if (TREE_CODE (primop0) != INTEGER_CST)
+      if (TREE_CODE (primop0) != INTEGER_CST
+	  /* Don't warn if it's from a (non-system) macro.  */
+	  && !(from_macro_expansion_at
+	       (expansion_point_location_if_in_system_header
+		(EXPR_LOCATION (primop0)))))
 	{
 	  if (val == truthvalue_false_node)
 	    warning_at (loc, OPT_Wtype_limits,
