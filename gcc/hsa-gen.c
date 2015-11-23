@@ -3600,6 +3600,8 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
     }
   else if (strcmp (name, "omp_set_num_threads") == 0)
     gen_set_num_threads (gimple_call_arg (stmt, 0), hbb);
+  else if (strcmp (name, "omp_get_thread_num") == 0)
+    query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
   else if (strcmp (name, "omp_get_num_threads") == 0)
     query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
   else if (strcmp (name, "omp_get_num_teams") == 0)

@@ -1,5 +1,10 @@
 2015-11-23  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_known_library_call): Also handle
+	omp_get_thread_num.
+
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (gen_hsa_binary_operation): Make immediate operands of
 	bit AND, OR and XOR always unsigned integer.
 	(gen_hsa_ternary_atomic_for_builtin): Make bit-operations have
