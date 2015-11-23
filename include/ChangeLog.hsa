@@ -1,4 +1,8 @@
-2015-11-20  Martin Jambor  <mjambor@suse.cz>
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
+
+	* gomp-constants.h (GOMP_VERSION_HSA): New.
+
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
 
 	* gomp-constants.h (GOMP_TARGET_ARG_FIRST_DEVICE_SPECIFIC): Removed.
 	(GOMP_TARGET_ARG_DEVICE_MASK): New.

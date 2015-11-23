@@ -42,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "print-tree.h"
 #include "symbol-summary.h"
 #include "hsa.h"
+#include "gomp-constants.h"
 
 #define BRIG_ELF_SECTION_NAME ".brig"
 #define BRIG_LABEL_STRING "hsa_brig"
@@ -2216,10 +2217,12 @@ hsa_output_libgomp_mapping (tree brig_decl)
   gcc_checking_assert (offload_register);
 
   append_to_statement_list
-    (build_call_expr (offload_register, 3,
+    (build_call_expr (offload_register, 4,
+		      build_int_cstu (unsigned_type_node,
+				      GOMP_VERSION_PACK (GOMP_VERSION,
+							 GOMP_VERSION_HSA)),
 		      build_fold_addr_expr (hsa_libgomp_host_table),
-		      /* 7 stands for HSA.  */
-		      build_int_cst (integer_type_node, 7),
+		      build_int_cst (integer_type_node, GOMP_DEVICE_HSA),
 		      build_fold_addr_expr (hsa_img_descriptor)),
      &hsa_ctor_statements);
 
@@ -2230,10 +2233,12 @@ hsa_output_libgomp_mapping (tree brig_decl)
   gcc_checking_assert (offload_unregister);
 
   append_to_statement_list
-    (build_call_expr (offload_unregister,
-		      3, build_fold_addr_expr (hsa_libgomp_host_table),
-		      /* 7 stands for HSA.  */
-		      build_int_cst (integer_type_node, 7),
+    (build_call_expr (offload_unregister, 4,
+		      build_int_cstu (unsigned_type_node,
+				      GOMP_VERSION_PACK (GOMP_VERSION,
+							 GOMP_VERSION_HSA)),
+		      build_fold_addr_expr (hsa_libgomp_host_table),
+		      build_int_cst (integer_type_node, GOMP_DEVICE_HSA),
 		      build_fold_addr_expr (hsa_img_descriptor)),
      &hsa_dtor_statements);
   cgraph_build_static_cdtor ('D', hsa_dtor_statements, DEFAULT_INIT_PRIORITY);

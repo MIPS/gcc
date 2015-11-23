@@ -1,5 +1,18 @@
 2015-11-23  Martin Jambor  <mjambor@suse.cz>
 
+	* builtin-types.def (BT_FN_VOID_PTR_INT_PTR): Removed.
+	(BT_FN_VOID_UINT_PTR_INT_PTR): New.
+	* fortran/types.def (BT_FN_VOID_PTR_INT_PTR): Removed.
+	(BT_FN_VOID_UINT_PTR_INT_PTR): New.
+	* hsa-brig.c: Include gomp-constants.
+	(hsa_output_libgomp_mapping): Add version arguments to to registration
+	and unregistration calls.
+	* omp-builtins.def (BUILT_IN_GOMP_OFFLOAD_REGISTER): Change to refer
+	to functions with versions.
+	(BUILT_IN_GOMP_OFFLOAD_UNREGISTER): Likewise.
+
+2015-11-23  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (get_target_argument_identifier_1): New function.
 	(get_target_argument_identifier): Likewise.
 	(get_target_argument_value): Likewise.

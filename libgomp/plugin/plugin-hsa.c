@@ -575,12 +575,15 @@ destroy_hsa_program (struct agent_info *agent)
    brig_image_desc in TARGET_DATA and return references to kernel descriptors
    in TARGET_TABLE.  */
 
-/* FIXME: Start using some kind of versioning scheme too, I suppose.  */
-
 int
-GOMP_OFFLOAD_load_image (int ord, unsigned version  __attribute__ ((unused)),
-			 void *target_data, struct addr_pair **target_table)
+GOMP_OFFLOAD_load_image (int ord, unsigned version, void *target_data,
+			 struct addr_pair **target_table)
 {
+  if (GOMP_VERSION_DEV (version) > GOMP_VERSION_HSA)
+    GOMP_PLUGIN_fatal ("Offload data incompatible with HSA plugin"
+		       " (expected %u, received %u)",
+		       GOMP_VERSION_HSA, GOMP_VERSION_DEV (version));
+
   struct brig_image_desc *image_desc = (struct brig_image_desc *) target_data;
   struct agent_info *agent;
   struct addr_pair *pair;
@@ -1315,12 +1318,14 @@ destroy_module (struct module_info *module)
 /* Part of the libgomp plugin interface.  Unload BRIG module described by
    struct brig_image_desc in TARGET_DATA from agent number N.  */
 
-/* FIXME: Like when loading an image, look at the version.  */
-
 void
-GOMP_OFFLOAD_unload_image (int n, unsigned version  __attribute__ ((unused)),
-			   void *target_data)
+GOMP_OFFLOAD_unload_image (int n, unsigned version, void *target_data)
 {
+  if (GOMP_VERSION_DEV (version) > GOMP_VERSION_HSA)
+    GOMP_PLUGIN_fatal ("Offload data incompatible with HSA plugin"
+		       " (expected %u, received %u)",
+		       GOMP_VERSION_HSA, GOMP_VERSION_DEV (version));
+
   struct agent_info *agent;
   agent = get_agent_info (n);
   if (pthread_rwlock_wrlock (&agent->modules_rwlock))
