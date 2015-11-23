@@ -5976,11 +5976,14 @@ oacc_default_clause (struct gimplify_omp_ctx *ctx, tree decl, unsigned flags)
       break;
     }
 
-  if (ctx->default_kind == OMP_CLAUSE_DEFAULT_NONE)
+  if (DECL_ARTIFICIAL (decl))
+    ; /* We can get compiler-generated decls, and should not complain
+	 about them.  */
+  else if (ctx->default_kind == OMP_CLAUSE_DEFAULT_NONE)
     {
-      error ("%qE not specified in enclosing OpenACC %s construct",
+      error ("%qE not specified in enclosing OpenACC %qs construct",
 	     DECL_NAME (lang_hooks.decls.omp_report_decl (decl)), rkind);
-      error_at (ctx->location, "enclosing OpenACC %s construct", rkind);
+      inform (ctx->location, "enclosing OpenACC %qs construct", rkind);
     }
   else
     gcc_checking_assert (ctx->default_kind == OMP_CLAUSE_DEFAULT_SHARED);
@@ -6114,7 +6117,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	      }
 	    else if (nflags == flags)
 	      {
-		if (ctx->region_type & ORT_ACC)
+		if ((ctx->region_type & ORT_ACC) != 0)
 		  nflags = oacc_default_clause (ctx, decl, flags);
 		else
 		  nflags |= GOVD_MAP;

@@ -1,89 +1,87 @@
 /* { dg-do run } */
 
-#include <stdlib.h>
+#include  <openacc.h>
 
-int
-main (int argc, char **argv)
+int test_parallel ()
 {
-  float a, b;
-  float c;
-#pragma acc declare create (c)
+  int ok = 1;
+  int val = 2;
+  int ary[32];
+  int ondev = 0;
 
-  a = 2.0;
-  b = 0.0;
+  for (int i = 0; i < 32; i++)
+    ary[i] = ~0;
 
-#pragma acc kernels default (none)
+  /* val defaults to firstprivate, ary defaults to copy.  */
+#pragma acc parallel num_gangs (32) copy (ok) copy(ondev)
   {
-    float c, d;
-
-    c = 2.0;
-    d = c;
-    c = 1.0;
-    c = c + d;
+    ondev = acc_on_device (acc_device_not_host);
+#pragma acc loop gang(static:1)
+    for (unsigned i = 0; i < 32; i++)
+      {
+	if (val != 2)
+	  ok = 0;
+	val += i;
+	ary[i] = val;
+      }
   }
 
-#pragma acc parallel default (none)
-  {
-    float c, d;
-
-    c = 2.0;
-    d = c;
-    c = 1.0;
-    c = c + d;
-  }
-
-#pragma acc parallel copy (a) create (b) default (none)
-  {
-    b = a;
-    a = 1.0;
-    a = a + b;
-  }
-
-  if (a != 3.0)
-    abort ();
-
-#pragma acc kernels copy (a) create (b) default (none)
-  {
-    b = a;
-    a = 1.0;
-    a = a + b;
-  }
-
-  if (a != 4.0)
-    abort ();
-
-#pragma acc parallel default (none) copy (a) create (b)
-  {
-    b = a;
-    a = 1.0;
-    a = a + b;
-  }
-
-  if (a != 5.0)
-    abort ();
-
-#pragma acc parallel default (none) copy (a)
-  {
-    c = a;
-    a = 1.0;
-    a = a + c;
-  }
-
-  if (a != 6.0)
-    abort ();
-
-#pragma acc data copy (a)
-  {
-#pragma acc parallel default (none)
+  if (ondev)
     {
-      c = a;
-      a = 1.0;
-      a = a + c;
+      if (!ok)
+	return 1;
+      if (val != 2)
+	return 1;
+
+      for (int i = 0; i < 32; i++)
+	if (ary[i] != 2 + i)
+	  return 1;
     }
+  
+  return 0;
+}
+
+int test_kernels ()
+{
+  int val = 2;
+  int ary[32];
+  int ondev = 0;
+
+  for (int i = 0; i < 32; i++)
+    ary[i] = ~0;
+
+  /* val defaults to copy, ary defaults to copy.  */
+#pragma acc kernels copy(ondev)
+  {
+    ondev = acc_on_device (acc_device_not_host);
+#pragma acc loop 
+    for (unsigned i = 0; i < 32; i++)
+      {
+	ary[i] = val;
+	val++;
+      }
   }
 
-  if (a != 7.0)
-    abort ();
+  if (ondev)
+    {
+      if (val != 2 + 32)
+	return 1;
+
+      for (int i = 0; i < 32; i++)
+	if (ary[i] != 2 + i)
+	  return 1;
+    }
+  
+  return 0;
+}
+
+int main ()
+{
+  if (test_parallel ())
+    return 1;
+
+  if (test_kernels ())
+    return 1;
 
   return 0;
 }
