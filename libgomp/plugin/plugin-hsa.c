@@ -1219,24 +1219,26 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
   __atomic_store_n ((uint16_t*)(&packet->header), header, __ATOMIC_RELEASE);
   hsa_signal_store_release (agent->command_q->doorbell_signal, index);
 
-  /* TODO: fixup, following workaround is necessary to run kernel from
-     kernel dispatch mechanism on a Carrizo machine.  */
-
-  for (unsigned i = 0; i < shadow->kernel_dispatch_count; i++)
-    {
-      hsa_signal_t child_s;
-      child_s.handle = shadow->children_dispatches[i]->signal;
-
-      HSA_DEBUG ("Waiting for children completion signal: %lu\n",
-		 shadow->children_dispatches[i]->signal);
-      while (hsa_signal_wait_acquire
-	     (child_s, HSA_SIGNAL_CONDITION_LT, 1, UINT64_MAX,
-	      HSA_WAIT_STATE_BLOCKED) != 0);
-    }
+  /* TODO: GPU agents in Carrizo APUs cannot properly update L2 cache for
+     signal wait and signal load operations on their own and we need to
+     periodically call the hsa_signal_load_acquire on completion signals of
+     children kernels in the CPU to make that happen.  As soon the
+     limitation will be resolved, this workaround can be removed.  */
 
   HSA_DEBUG ("Kernel dispatched, waiting for completion\n");
-  while (hsa_signal_wait_acquire (s, HSA_SIGNAL_CONDITION_LT, 1,
-				  UINT64_MAX, HSA_WAIT_STATE_BLOCKED) != 0);
+
+  /* Root signal waits with 1ms timeout.  */
+  while (hsa_signal_wait_acquire (s, HSA_SIGNAL_CONDITION_LT, 1, 1000 * 1000,
+				  HSA_WAIT_STATE_BLOCKED) != 0)
+    for (unsigned i = 0; i < shadow->kernel_dispatch_count; i++)
+      {
+	hsa_signal_t child_s;
+	child_s.handle = shadow->children_dispatches[i]->signal;
+
+	HSA_DEBUG ("Waiting for children completion signal: %lu\n",
+		   shadow->children_dispatches[i]->signal);
+	hsa_signal_load_acquire (child_s);
+      }
 
   release_kernel_dispatch (shadow);
 
