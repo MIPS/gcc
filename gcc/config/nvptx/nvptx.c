@@ -1897,6 +1897,8 @@ nvptx_output_mov_insn (rtx dst, rtx src)
   return "%.\tcvt%t0%t1\t%0, %1;";
 }
 
+static void nvptx_print_operand (FILE *, rtx, int);
+
 /* Output INSN, which is a call to CALLEE with result RESULT.  For ptx, this
    involves writing .param declarations and in/out copies into them.  For
    indirect calls, also write the .callprototype.  */
@@ -1908,6 +1910,8 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   static int labelno;
   bool needs_tgt = register_operand (callee, Pmode);
   rtx pat = PATTERN (insn);
+  if (GET_CODE (pat) == COND_EXEC)
+    pat = COND_EXEC_CODE (pat);
   int arg_end = XVECLEN (pat, 0);
   tree decl = NULL_TREE;
 
@@ -1952,6 +1956,7 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
 	       REGNO (t));
     }
 
+  nvptx_print_operand (asm_out_file, NULL_RTX, '.');
   fprintf (asm_out_file, "\t\tcall ");
   if (result != NULL_RTX)
     fprintf (asm_out_file, "(%%retval_in), ");
@@ -2004,8 +2009,6 @@ nvptx_print_operand_punct_valid_p (unsigned char c)
 {
   return c == '.' || c== '#';
 }
-
-static void nvptx_print_operand (FILE *, rtx, int);
 
 /* Subroutine of nvptx_print_operand; used to print a memory reference X to FILE.  */
 
@@ -2068,11 +2071,10 @@ nvptx_print_operand (FILE *file, rtx x, int code)
       if (x)
 	{
 	  unsigned int regno = REGNO (XEXP (x, 0));
-	  fputs ("[", file);
+	  fputs ("@", file);
 	  if (GET_CODE (x) == EQ)
 	    fputs ("!", file);
-	  fputs (reg_names [regno], file);
-	  fputs ("]", file);
+	  fprintf (file, "%%r%d", regno);
 	}
       return;
     }

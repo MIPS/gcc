@@ -1,5 +1,25 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_output_call_insn): Handle COND_EXEC
+	patterns.  Emit instruction predicate.
+	(nvptx_print_operand): Unbreak handling of instruction predicates.
+	* config/nvptx/nvptx.md (predicable): New attribute.  Generate
+	predicated forms via define_cond_exec.
+	(br_true): Mark as not predicable.
+	(br_false): Ditto.
+	(br_true_uni): Ditto.
+	(br_false_uni): Ditto.
+	(return): Ditto.
+	(trap_if_true): Ditto.
+	(trap_if_false): Ditto.
+	(nvptx_fork): Ditto.
+	(nvptx_forked): Ditto.
+	(nvptx_joining): Ditto.
+	(nvptx_join): Ditto.
+	(nvptx_barsync): Ditto.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c: (need_softstack_decl): New variable.
 	(nvptx_declare_function_name): Handle TARGET_SOFT_STACK.
 	(nvptx_output_return): Emit stack restore if needed.

@@ -180,6 +180,17 @@
   return true;
 })
 
+(define_attr "predicable" "false,true"
+  (const_string "true"))
+
+(define_cond_exec
+  [(match_operator 0 "predicate_operator"
+      [(match_operand:BI 1 "nvptx_register_operand" "")
+       (match_operand:BI 2 "const0_operand" "")])]
+  ""
+  ""
+  )
+
 (define_constraint "P0"
   "An integer with the value 0."
   (and (match_code "const_int")
@@ -590,7 +601,8 @@
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   ""
-  "%j0\\tbra\\t%l1;")
+  "%j0\\tbra\\t%l1;"
+  [(set_attr "predicable" "false")])
 
 (define_insn "br_false"
   [(set (pc)
@@ -599,7 +611,8 @@
 		      (label_ref (match_operand 1 "" ""))
 		      (pc)))]
   ""
-  "%J0\\tbra\\t%l1;")
+  "%J0\\tbra\\t%l1;"
+  [(set_attr "predicable" "false")])
 
 ;; unified conditional branch
 (define_insn "br_true_uni"
@@ -608,7 +621,8 @@
 		       UNSPEC_BR_UNIFIED) (const_int 0))
         (label_ref (match_operand 1 "" "")) (pc)))]
   ""
-  "%j0\\tbra.uni\\t%l1;")
+  "%j0\\tbra.uni\\t%l1;"
+  [(set_attr "predicable" "false")])
 
 (define_insn "br_false_uni"
   [(set (pc) (if_then_else
@@ -616,7 +630,8 @@
 		       UNSPEC_BR_UNIFIED) (const_int 0))
         (label_ref (match_operand 1 "" "")) (pc)))]
   ""
-  "%J0\\tbra.uni\\t%l1;")
+  "%J0\\tbra.uni\\t%l1;"
+  [(set_attr "predicable" "false")])
 
 (define_expand "cbranch<mode>4"
   [(set (pc)
@@ -1008,7 +1023,8 @@
   ""
 {
   return nvptx_output_return ();
-})
+}
+  [(set_attr "predicable" "false")])
 
 (define_expand "epilogue"
   [(clobber (const_int 0))]
@@ -1088,14 +1104,16 @@
 		(const_int 0))
 	    (const_int 0))]
   ""
-  "%j0 trap;")
+  "%j0 trap;"
+  [(set_attr "predicable" "false")])
 
 (define_insn "trap_if_false"
   [(trap_if (eq (match_operand:BI 0 "nvptx_register_operand" "R")
 		(const_int 0))
 	    (const_int 0))]
   ""
-  "%J0 trap;")
+  "%J0 trap;"
+  [(set_attr "predicable" "false")])
 
 (define_expand "ctrap<mode>4"
   [(trap_if (match_operator 0 "nvptx_comparison_operator"
@@ -1144,28 +1162,28 @@
 		       UNSPECV_FORK)]
   ""
   "// fork %0;"
-)
+  [(set_attr "predicable" "false")])
 
 (define_insn "nvptx_forked"
   [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
 		       UNSPECV_FORKED)]
   ""
   "// forked %0;"
-)
+  [(set_attr "predicable" "false")])
 
 (define_insn "nvptx_joining"
   [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
 		       UNSPECV_JOINING)]
   ""
   "// joining %0;"
-)
+  [(set_attr "predicable" "false")])
 
 (define_insn "nvptx_join"
   [(unspec_volatile:SI [(match_operand:SI 0 "const_int_operand" "")]
 		       UNSPECV_JOIN)]
   ""
   "// join %0;"
-)
+  [(set_attr "predicable" "false")])
 
 (define_expand "oacc_fork"
   [(set (match_operand:SI 0 "nvptx_nonmemory_operand" "")
@@ -1327,4 +1345,5 @@
   [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]
 		    UNSPECV_BARSYNC)]
   ""
-  "\\tbar.sync\\t%0;")
+  "\\tbar.sync\\t%0;"
+  [(set_attr "predicable" "false")])
