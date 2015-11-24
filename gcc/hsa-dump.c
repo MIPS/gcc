@@ -621,6 +621,16 @@ hsa_m_atomicop_name (enum BrigAtomicOperation op)
     }
 }
 
+/* Return byte alignment for given BrigAlignment8_t value.  */
+
+static unsigned
+hsa_byte_alignment (BrigAlignment8_t alignment)
+{
+  gcc_assert (alignment != BRIG_ALIGNMENT_NONE);
+
+  return 1 << (alignment - 1);
+}
+
 /* Dump textual representation of HSA IL register REG to file F.  */
 
 static void
@@ -829,6 +839,8 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       fprintf (f, "%s", hsa_opcode_name (mem->m_opcode));
       if (addr->m_symbol)
 	fprintf (f, "_%s", hsa_seg_name (addr->m_symbol->m_segment));
+      if (mem->m_align != BRIG_ALIGNMENT_NONE)
+	fprintf (f, "_align(%u)", hsa_byte_alignment (mem->m_align));
       if (mem->m_equiv_class != 0)
 	fprintf (f, "_equiv(%i)", mem->m_equiv_class);
       fprintf (f, "_%s ", hsa_type_name (mem->m_type));
@@ -986,6 +998,16 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 	}
       else
 	gcc_unreachable ();
+    }
+  else if (is_a <hsa_insn_alloca *> (insn))
+    {
+      hsa_insn_alloca *alloca = as_a <hsa_insn_alloca *> (insn);
+
+      fprintf (f, "%s_align(%u)_%s ", hsa_opcode_name (insn->m_opcode),
+	       hsa_byte_alignment (alloca->m_align),
+	       hsa_type_name (insn->m_type));
+
+      dump_hsa_operands (f, insn);
     }
   else
     {

@@ -1,5 +1,10 @@
 2015-11-24  Martin Liska  <mliska@suse.cz>
 
+	* hsa-dump.c (hsa_byte_alignment): New function.
+	(dump_hsa_insn_1): Use the function.
+
+2015-11-24  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_alloca_insn): New function.
 	(emit_insn): Handle hsa_insn_alloca.
 	* hsa-gen.c (hsa_init_data_for_cfun):
