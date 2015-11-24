@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/pool.h: New.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/doacross.h: New.
 
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
