@@ -33,6 +33,8 @@
       builtin_define ("__nvptx__");		\
       if (TARGET_SOFT_STACK)			\
         builtin_define ("__nvptx_softstack__");	\
+      if (TARGET_UNIFORM_SIMT)			\
+        builtin_define ("__nvptx_unisimt__");	\
     } while (0)
 
 /* Avoid the default in ../../gcc.c, which adds "-pthread", which is not
@@ -227,6 +229,8 @@ struct GTY(()) machine_function
   HOST_WIDE_INT outgoing_stdarg_size;
   int ret_reg_mode; /* machine_mode not defined yet. */
   rtx axis_predicate[2];
+  rtx unisimt_master;
+  rtx unisimt_predicate;
 };
 #endif
 

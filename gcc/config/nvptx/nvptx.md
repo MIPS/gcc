@@ -63,6 +63,9 @@
 (define_attr "subregs_ok" "false,true"
   (const_string "false"))
 
+(define_attr "divergent" "false,true"
+  (const_string "false"))
+
 (define_predicate "nvptx_register_operand"
   (match_code "reg,subreg")
 {
@@ -1288,7 +1291,8 @@
    (set (match_dup 1)
 	(unspec_volatile:SDIM [(const_int 0)] UNSPECV_CAS))]
   ""
-  "%.\\tatom%A1.cas.b%T0\\t%0, %1, %2, %3;")
+  "%.\\tatom%A1.cas.b%T0\\t%0, %1, %2, %3;"
+  [(set_attr "divergent" "true")])
 
 (define_insn "atomic_exchange<mode>"
   [(set (match_operand:SDIM 0 "nvptx_register_operand" "=R")	;; output
@@ -1299,7 +1303,8 @@
    (set (match_dup 1)
 	(match_operand:SDIM 2 "nvptx_nonmemory_operand" "Ri"))]	;; input
   ""
-  "%.\\tatom%A1.exch.b%T0\\t%0, %1, %2;")
+  "%.\\tatom%A1.exch.b%T0\\t%0, %1, %2;"
+  [(set_attr "divergent" "true")])
 
 (define_insn "atomic_fetch_add<mode>"
   [(set (match_operand:SDIM 1 "memory_operand" "+m")
@@ -1311,7 +1316,8 @@
    (set (match_operand:SDIM 0 "nvptx_register_operand" "=R")
 	(match_dup 1))]
   ""
-  "%.\\tatom%A1.add%t0\\t%0, %1, %2;")
+  "%.\\tatom%A1.add%t0\\t%0, %1, %2;"
+  [(set_attr "divergent" "true")])
 
 (define_insn "atomic_fetch_addsf"
   [(set (match_operand:SF 1 "memory_operand" "+m")
@@ -1323,7 +1329,8 @@
    (set (match_operand:SF 0 "nvptx_register_operand" "=R")
 	(match_dup 1))]
   ""
-  "%.\\tatom%A1.add%t0\\t%0, %1, %2;")
+  "%.\\tatom%A1.add%t0\\t%0, %1, %2;"
+  [(set_attr "divergent" "true")])
 
 (define_code_iterator any_logic [and ior xor])
 (define_code_attr logic [(and "and") (ior "or") (xor "xor")])
@@ -1339,7 +1346,8 @@
    (set (match_operand:SDIM 0 "nvptx_register_operand" "=R")
 	(match_dup 1))]
   "0"
-  "%.\\tatom%A1.b%T0.<logic>\\t%0, %1, %2;")
+  "%.\\tatom%A1.b%T0.<logic>\\t%0, %1, %2;"
+  [(set_attr "divergent" "true")])
 
 (define_insn "nvptx_barsync"
   [(unspec_volatile [(match_operand:SI 0 "const_int_operand" "")]

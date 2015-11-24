@@ -19074,6 +19074,20 @@ in shared memory array @code{char *__nvptx_stacks[]} at position @code{tid.y}
 as the stack pointer.  This is for placing automatic variables into storage
 that can be accessed from other threads, or modified with atomic instructions.
 
+@item -muniform-simt
+@opindex muniform-simt
+Switch to code generation variant that allows to execute all threads in each
+warp, while maintaining memory state and side effects as if only one thread
+in each warp was active outside of OpenMP SIMD regions.  All atomic operations
+and calls to runtime (malloc, free, vprintf) are conditionally executed (iff
+current lane index equals the master lane index), and the register being
+assigned is copied via a shuffle instruction from the master lane.  Outside of
+SIMD regions lane 0 is the master; inside, each thread sees itself as the
+master.  Shared memory array @code{int __nvptx_uni[]} stores all-zeros or
+all-ones bitmasks for each warp, indicating current mode (0 outside of SIMD
+regions).  Each thread can bitwise-and the bitmask at position @code{tid.y}
+with current lane index to compute the master lane index.
+
 @end table
 
 @node PDP-11 Options

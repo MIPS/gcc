@@ -144,6 +144,9 @@ static GTY(()) tree global_lock_var;
 /* True if any function references __nvptx_stacks.  */
 static bool need_softstack_decl;
 
+/* True if any function references __nvptx_uni.  */
+static bool need_unisimt_decl;
+
 /* Allocate a new, cleared machine_function structure.  */
 
 static struct machine_function *
@@ -729,6 +732,33 @@ nvptx_init_axis_predicate (FILE *file, int regno, const char *name)
   fprintf (file, "\t}\n");
 }
 
+/* Emit code to initialize predicate and master lane index registers for
+   -muniform-simt code generation variant.  */
+
+static void
+nvptx_init_unisimt_predicate (FILE *file)
+{
+  int bits = BITS_PER_WORD;
+  int master = REGNO (cfun->machine->unisimt_master);
+  int pred = REGNO (cfun->machine->unisimt_predicate);
+  fprintf (file, "\t{\n");
+  fprintf (file, "\t\t.reg.u32 %%ustmp0;\n");
+  fprintf (file, "\t\t.reg.u%d %%ustmp1;\n", bits);
+  fprintf (file, "\t\t.reg.u%d %%ustmp2;\n", bits);
+  fprintf (file, "\t\tmov.u32 %%ustmp0, %%tid.y;\n");
+  fprintf (file, "\t\tmul%s.u32 %%ustmp1, %%ustmp0, 4;\n",
+	   bits == 64 ? ".wide" : "");
+  fprintf (file, "\t\tmov.u%d %%ustmp2, __nvptx_uni;\n", bits);
+  fprintf (file, "\t\tadd.u%d %%ustmp2, %%ustmp2, %%ustmp1;\n", bits);
+  fprintf (file, "\t\tld.shared.u32 %%r%d, [%%ustmp2];\n", master);
+  fprintf (file, "\t\tmov.u32 %%ustmp0, %%tid.x;\n");
+  /* rNN = tid.x & __nvptx_uni[tid.y];  */
+  fprintf (file, "\t\tand.b32 %%r%d, %%r%d, %%ustmp0;\n", master, master);
+  fprintf (file, "\t\tsetp.eq.u32 %%r%d, %%r%d, %%ustmp0;\n", pred, master);
+  fprintf (file, "\t}\n");
+  need_unisimt_decl = true;
+}
+
 /* Emit kernel NAME for function ORIG outlined for an OpenMP 'target' region:
 
    extern void gomp_nvptx_main (void (*fn)(void*), void *fnarg);
@@ -915,6 +945,8 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   if (cfun->machine->axis_predicate[1])
     nvptx_init_axis_predicate (file,
 			       REGNO (cfun->machine->axis_predicate[1]), "x");
+  if (cfun->machine->unisimt_predicate)
+    nvptx_init_unisimt_predicate (file);
 }
 
 /* Output a return instruction.  Also copy the return value to its outgoing
@@ -2377,6 +2409,86 @@ nvptx_reorg_subreg (void)
     }
 }
 
+/* Return a SImode "master lane index" register for uniform-simt, allocating on
+   first use.  */
+
+static rtx
+nvptx_get_unisimt_master ()
+{
+  rtx &master = cfun->machine->unisimt_master;
+  return master ? master : master = gen_reg_rtx (SImode);
+}
+
+/* Return a BImode "predicate" register for uniform-simt, similar to above.  */
+
+static rtx
+nvptx_get_unisimt_predicate ()
+{
+  rtx &pred = cfun->machine->unisimt_predicate;
+  return pred ? pred : pred = gen_reg_rtx (BImode);
+}
+
+/* Return true if given call insn references one of the functions provided by
+   the CUDA runtime: malloc, free, vprintf.  */
+
+static bool
+nvptx_call_insn_is_syscall_p (rtx_insn *insn)
+{
+  rtx pat = PATTERN (insn);
+  gcc_checking_assert (GET_CODE (pat) == PARALLEL);
+  pat = XVECEXP (pat, 0, 0);
+  if (GET_CODE (pat) == SET)
+    pat = SET_SRC (pat);
+  gcc_checking_assert (GET_CODE (pat) == CALL
+		       && GET_CODE (XEXP (pat, 0)) == MEM);
+  rtx addr = XEXP (XEXP (pat, 0), 0);
+  if (GET_CODE (addr) != SYMBOL_REF)
+    return false;
+  const char *name = XSTR (addr, 0);
+  return (!strcmp (name, "vprintf")
+	  || !strcmp (name, "__nvptx_real_malloc")
+	  || !strcmp (name, "__nvptx_real_free"));
+}
+
+/* If SET subexpression of INSN sets a register, emit a shuffle instruction to
+   propagate its value from lane MASTER to current lane.  */
+
+static void
+nvptx_unisimt_handle_set (rtx set, rtx_insn *insn, rtx master)
+{
+  rtx reg;
+  if (GET_CODE (set) == SET && REG_P (reg = SET_DEST (set)))
+    emit_insn_after (nvptx_gen_shuffle (reg, reg, master, SHUFFLE_IDX), insn);
+}
+
+/* Adjust code for uniform-simt code generation variant by making atomics and
+   "syscalls" conditionally executed, and inserting shuffle-based propagation
+   for registers being set.  */
+
+static void
+nvptx_reorg_uniform_simt ()
+{
+  rtx_insn *insn, *next;
+
+  for (insn = get_insns (); insn; insn = next)
+    {
+      next = NEXT_INSN (insn);
+      if (!(CALL_P (insn) && nvptx_call_insn_is_syscall_p (insn))
+	  && !(NONJUMP_INSN_P (insn)
+	       && GET_CODE (PATTERN (insn)) == PARALLEL
+	       && get_attr_divergent (insn)))
+	continue;
+      rtx pat = PATTERN (insn);
+      rtx master = nvptx_get_unisimt_master ();
+      for (int i = 0; i < XVECLEN (pat, 0); i++)
+	nvptx_unisimt_handle_set (XVECEXP (pat, 0, i), insn, master);
+      rtx pred = nvptx_get_unisimt_predicate ();
+      pred = gen_rtx_NE (BImode, pred, const0_rtx);
+      pat = gen_rtx_COND_EXEC (VOIDmode, pred, pat);
+      validate_change (insn, &PATTERN (insn), pat, false);
+    }
+}
+
 /* Loop structure of the function.  The entire function is described as
    a NULL loop.  */
 
@@ -3480,6 +3592,15 @@ nvptx_wsync (bool after)
   return gen_nvptx_barsync (GEN_INT (after));
 }
 
+/* Return a BImode "axis predicate" register, allocating on first use.  */
+
+static rtx
+nvptx_get_axis_predicate (int axis)
+{
+  rtx &pred = cfun->machine->axis_predicate[axis];
+  return pred ? pred : pred = gen_reg_rtx (BImode);
+}
+
 /* Single neutering according to MASK.  FROM is the incoming block and
    TO is the outgoing block.  These may be the same block. Insert at
    start of FROM:
@@ -3564,14 +3685,7 @@ nvptx_single (unsigned mask, basic_block from, basic_block to)
     if (GOMP_DIM_MASK (mode) & skip_mask)
       {
 	rtx_code_label *label = gen_label_rtx ();
-	rtx pred = cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER];
-
-	if (!pred)
-	  {
-	    pred = gen_reg_rtx (BImode);
-	    cfun->machine->axis_predicate[mode - GOMP_DIM_WORKER] = pred;
-	  }
-	
+	rtx pred = nvptx_get_axis_predicate (mode - GOMP_DIM_WORKER);
 	rtx br;
 	if (mode == GOMP_DIM_VECTOR)
 	  br = gen_br_true (pred, label);
@@ -3898,6 +4012,9 @@ nvptx_reorg (void)
   /* Replace subregs.  */
   nvptx_reorg_subreg ();
 
+  if (TARGET_UNIFORM_SIMT)
+    nvptx_reorg_uniform_simt ();
+
   regstat_free_n_sets_and_refs ();
 
   df_finish_pass (true);
@@ -4073,6 +4190,11 @@ nvptx_file_end (void)
       fprintf (asm_out_file, "// BEGIN GLOBAL VAR DECL: __nvptx_stacks\n");
       fprintf (asm_out_file, ".extern .shared .u%d __nvptx_stacks[32];\n",
 	       BITS_PER_WORD);
+    }
+  if (need_unisimt_decl)
+    {
+      fprintf (asm_out_file, "// BEGIN GLOBAL VAR DECL: __nvptx_uni\n");
+      fprintf (asm_out_file, ".extern .shared .u32 __nvptx_uni[32];\n");
     }
 }
 

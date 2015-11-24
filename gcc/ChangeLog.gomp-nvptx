@@ -1,5 +1,32 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (need_unisimt_decl): New variable.  Set it...
+	(nvptx_init_unisimt_predicate): ...here (new function) and use it...
+	(nvptx_file_end): ...here to emit declaration of __nvptx_uni array.
+	(nvptx_declare_function_name): Call nvptx_init_unisimt_predicate.
+	(nvptx_get_unisimt_master): New helper function.
+	(nvptx_get_unisimt_predicate): Ditto.
+	(nvptx_call_insn_is_syscall_p): Ditto.
+	(nvptx_unisimt_handle_set): Ditto.
+	(nvptx_reorg_uniform_simt): New.  Transform code for -muniform-simt.
+	(nvptx_get_axis_predicate): New helper function, factored out from...
+	(nvptx_single): ...here.
+	(nvptx_reorg): Call nvptx_reorg_uniform_simt.
+	* config/nvptx/nvptx.h (TARGET_CPU_CPP_BUILTINS): Define
+	__nvptx_unisimt__ when -muniform-simt option is active.
+	(struct machine_function): Add unisimt_master, unisimt_predicate
+	rtx fields.
+	* config/nvptx/nvptx.md (divergent): New attribute.
+	(atomic_compare_and_swap<mode>_1): Mark as divergent.
+	(atomic_exchange<mode>): Ditto.
+	(atomic_fetch_add<mode>): Ditto.
+	(atomic_fetch_addsf): Ditto.
+	(atomic_fetch_<logic><mode>): Ditto.
+	* config/nvptx/nvptx.opt (muniform-simt): New option.
+	* doc/invoke.texi (-muniform-simt): Document.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_output_call_insn): Handle COND_EXEC
 	patterns.  Emit instruction predicate.
 	(nvptx_print_operand): Unbreak handling of instruction predicates.

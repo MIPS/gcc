@@ -36,3 +36,7 @@ Optimize partition neutering
 msoft-stack
 Target Report Mask(SOFT_STACK)
 Use custom stacks instead of local memory for automatic storage.
+
+muniform-simt
+Target Report Mask(UNIFORM_SIMT)
+Generate code that executes all threads in a warp as if one was active.
