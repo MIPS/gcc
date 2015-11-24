@@ -1,3 +1,17 @@
+2015-11-24  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (emit_alloca_insn): New function.
+	(emit_insn): Handle hsa_insn_alloca.
+	* hsa-gen.c (hsa_init_data_for_cfun):
+	Add new pool allocator for hsa_insn_alloca.
+	(hsa_deinit_data_for_cfun): Release the pool.
+	(hsa_insn_alloca::operator new): New function.
+	(hsa_insn_alloca::hsa_insn_alloca): Likewise.
+	(gen_hsa_alloca): Likewise.
+	(gen_hsa_insns_for_call): Handle __builtin_alloca and
+	__builtin_alloca_with_align.
+	* hsa.h (is_a_helper ::test): New function.
+
 2015-11-23  Martin Jambor  <mjambor@suse.cz>
 
 	* builtin-types.def (BT_FN_VOID_PTR_INT_PTR): Removed.

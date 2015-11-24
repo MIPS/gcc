@@ -941,6 +941,31 @@ is_a_helper <hsa_insn_cvt *>::test (hsa_insn_basic *p)
   return (p->m_opcode == BRIG_OPCODE_CVT);
 }
 
+/* HSA alloca instruction.  */
+
+class hsa_insn_alloca: public hsa_insn_basic
+{
+public:
+  hsa_insn_alloca (hsa_op_with_type *dest, hsa_op_with_type *size,
+		   unsigned alignment = 0);
+
+  /* Required alignment of the allocation. */
+  BrigAlignment8_t m_align;
+
+  /* Pool allocator.  */
+  void *operator new (size_t);
+};
+
+/* Report whether or not P is an alloca instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_alloca *>::test (hsa_insn_basic *p)
+{
+  return (p->m_opcode == BRIG_OPCODE_ALLOCA);
+}
+
 /* Basic block of HSA instructions.  */
 
 class hsa_bb

@@ -144,6 +144,7 @@ static object_allocator<hsa_insn_comment> *hsa_allocp_inst_comment;
 static object_allocator<hsa_insn_queue> *hsa_allocp_inst_queue;
 static object_allocator<hsa_insn_packed> *hsa_allocp_inst_packed;
 static object_allocator<hsa_insn_cvt> *hsa_allocp_inst_cvt;
+static object_allocator<hsa_insn_alloca> *hsa_allocp_inst_alloca;
 static object_allocator<hsa_bb> *hsa_allocp_bb;
 
 /* List of pointers to all instructions that come from an object allocator.  */
@@ -354,6 +355,8 @@ hsa_init_data_for_cfun ()
     = new object_allocator<hsa_insn_packed> ("HSA packed instructions");
   hsa_allocp_inst_cvt
     = new object_allocator<hsa_insn_cvt> ("HSA convert instructions");
+  hsa_allocp_inst_alloca
+    = new object_allocator<hsa_insn_alloca> ("HSA alloca instructions");
   hsa_allocp_bb = new object_allocator<hsa_bb> ("HSA basic blocks");
 }
 
@@ -402,6 +405,7 @@ hsa_deinit_data_for_cfun (void)
   delete hsa_allocp_inst_queue;
   delete hsa_allocp_inst_packed;
   delete hsa_allocp_inst_cvt;
+  delete hsa_allocp_inst_alloca;
   delete hsa_allocp_bb;
   delete hsa_cfun;
 }
@@ -1606,6 +1610,26 @@ hsa_insn_cvt::operator new (size_t)
 hsa_insn_cvt::hsa_insn_cvt (hsa_op_with_type *dest, hsa_op_with_type *src)
   : hsa_insn_basic (2, BRIG_OPCODE_CVT, dest->m_type, dest, src)
 {
+}
+
+/* New operator to allocate alloca from pool alloc.  */
+
+void *
+hsa_insn_alloca::operator new (size_t)
+{
+  return hsa_allocp_inst_alloca->allocate_raw ();
+}
+
+/* Constructor of class representing the alloca in HSAIL.  */
+
+hsa_insn_alloca::hsa_insn_alloca (hsa_op_with_type *dest,
+				  hsa_op_with_type *size, unsigned alignment)
+  : hsa_insn_basic (2, BRIG_OPCODE_ALLOCA, dest->m_type, dest, size),
+  m_align (BRIG_ALIGNMENT_8)
+{
+  gcc_assert (dest->m_type == BRIG_TYPE_U32);
+  if (alignment)
+    m_align = hsa_alignment_encoding (alignment);
 }
 
 /* Append an instruction INSN into the basic block.  */
@@ -3562,6 +3586,53 @@ gen_get_team_num (gimple *stmt, hsa_bb *hbb)
   hbb->append_insn (basic);
 }
 
+/* Emit instructions that implement alloca builtin gimple STMT.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_hsa_alloca (gcall *call, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (call);
+  if (lhs == NULL_TREE)
+    return;
+
+  built_in_function fn = DECL_FUNCTION_CODE (gimple_call_fndecl (call));
+
+  gcc_checking_assert (fn == BUILT_IN_ALLOCA
+		       || fn == BUILT_IN_ALLOCA_WITH_ALIGN);
+
+  unsigned bit_alignment = 0;
+
+  if (fn == BUILT_IN_ALLOCA_WITH_ALIGN)
+    {
+      tree alignment_tree = gimple_call_arg (call, 1);
+      if (TREE_CODE (alignment_tree) != INTEGER_CST)
+	{
+	  HSA_SORRY_ATV
+	    (gimple_location (call), "support for HSA does not implement "
+	     "__builtin_alloca_with_align with a non-constant "
+	     "alignment: %E", alignment_tree);
+	}
+
+      bit_alignment = tree_to_uhwi (alignment_tree);
+    }
+
+  tree rhs1 = gimple_call_arg (call, 0);
+  hsa_op_with_type *size = hsa_reg_or_immed_for_gimple_op (rhs1, hbb)
+    ->get_in_type (BRIG_TYPE_U32, hbb);
+  hsa_op_with_type *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+
+  hsa_op_reg *tmp = new hsa_op_reg
+    (hsa_get_segment_addr_type (BRIG_SEGMENT_PRIVATE));
+  hsa_insn_alloca *a = new hsa_insn_alloca (tmp, size, bit_alignment);
+  hbb->append_insn (a);
+
+  hsa_insn_seg *seg = new hsa_insn_seg
+    (BRIG_OPCODE_STOF, hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT),
+     tmp->m_type, BRIG_SEGMENT_PRIVATE, dest, tmp);
+  hbb->append_insn (seg);
+}
+
 /* Set VALUE to a shadow kernel debug argument and append a new instruction
    to HBB basic block.  */
 
@@ -4333,6 +4404,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 static void
 gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 {
+  gcall *call = as_a <gcall *> (stmt);
   tree lhs = gimple_call_lhs (stmt);
   hsa_op_reg *dest;
 
@@ -4709,6 +4781,12 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	if (lhs)
 	  gen_hsa_insns_for_single_assignment (lhs, dst, hbb);
 
+	break;
+      }
+    case BUILT_IN_ALLOCA:
+    case BUILT_IN_ALLOCA_WITH_ALIGN:
+      {
+	gen_hsa_alloca (call, hbb);
 	break;
       }
     default:

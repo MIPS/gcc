@@ -1295,6 +1295,35 @@ emit_segment_insn (hsa_insn_seg *seg)
   brig_insn_count++;
 }
 
+/* Emit an HSA alloca instruction and all necessary directives,
+   schedule necessary operands for writing .  */
+
+static void
+emit_alloca_insn (hsa_insn_alloca *alloca)
+{
+  struct BrigInstMem repr;
+  gcc_checking_assert (alloca->operand_count () == 2);
+
+  /* This is necessary because of the erroneous typedef of
+     BrigMemoryModifier8_t which introduces padding which may then contain
+     random stuff (which we do not want so that we can test things don't
+     change).  */
+  memset (&repr, 0, sizeof (repr));
+  repr.base.base.byteCount = htole16 (sizeof (repr));
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_MEM);
+  repr.base.opcode = htole16 (alloca->m_opcode);
+  repr.base.type = htole16 (alloca->m_type);
+  repr.base.operands = htole32 (emit_insn_operands (alloca));
+  repr.segment = BRIG_SEGMENT_PRIVATE;
+  repr.modifier.allBits = 0 ;
+  repr.equivClass = 0;
+  repr.align = alloca->m_align;
+  repr.width = BRIG_WIDTH_NONE;
+  memset (&repr.reserved, 0, sizeof (repr.reserved));
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
 /* Emit an HSA comparison instruction and all necessary directives,
    schedule necessary operands for writing .  */
 
@@ -1699,6 +1728,8 @@ emit_insn (hsa_insn_basic *insn)
     emit_packed_insn (packed);
   else if (hsa_insn_cvt *cvt = dyn_cast <hsa_insn_cvt *> (insn))
     emit_cvt_insn (cvt);
+  else if (hsa_insn_alloca *alloca = dyn_cast <hsa_insn_alloca *> (insn))
+    emit_alloca_insn (alloca);
   else
     emit_basic_insn (insn);
 }
