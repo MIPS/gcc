@@ -4009,10 +4009,10 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   tree argument = gimple_call_arg (call, 1);
 
+  hsa_symbol *omp_var_decl = NULL;
   if (TREE_CODE (argument) == ADDR_EXPR)
     {
       /* Emit instructions that copy OMP arguments.  */
-
       tree d = TREE_TYPE (TREE_OPERAND (argument, 0));
       unsigned omp_data_size = tree_to_uhwi (TYPE_SIZE_UNIT (d));
       gcc_checking_assert (omp_data_size > 0);
@@ -4020,12 +4020,12 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
       if (omp_data_size > hsa_cfun->m_maximum_omp_data_size)
 	hsa_cfun->m_maximum_omp_data_size = omp_data_size;
 
-      hsa_symbol *var_decl = get_symbol_for_decl (TREE_OPERAND (argument, 0));
+      omp_var_decl = get_symbol_for_decl (TREE_OPERAND (argument, 0));
 
-      hbb->append_insn (new hsa_insn_comment ("memory copy instructions"));
+      hbb->append_insn (new hsa_insn_comment ("OMP arg memcpy instructions"));
 
-      hsa_op_address *src_addr = new hsa_op_address (var_decl);
-      gen_hsa_memory_copy (hbb, dst_addr, src_addr, var_decl->m_dim);
+      hsa_op_address *src_addr = new hsa_op_address (omp_var_decl);
+      gen_hsa_memory_copy (hbb, dst_addr, src_addr, omp_var_decl->m_dim);
     }
   else if (integer_zerop (argument))
     {
@@ -4107,6 +4107,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   basic_block dest = split_edge (e);
   edge false_e = EDGE_SUCC (dest, 0);
 
+  basic_block memcpy_dest = split_edge (false_e);
+
   false_e->flags &= ~EDGE_FALLTHRU;
   false_e->flags |= EDGE_FALSE_VALUE;
 
@@ -4114,6 +4116,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   /* Emit blocking signal waiting instruction.  */
   hsa_bb *new_hbb = hsa_init_new_bb (dest);
+  hsa_bb *memcpy_hbb = hsa_init_new_bb (memcpy_dest);
 
   hbb->append_insn (new hsa_insn_comment ("wait for the signal"));
 
@@ -4136,6 +4139,16 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   new_hbb->append_insn (cmp);
   new_hbb->append_insn (new hsa_insn_br (ctrl));
+
+  if (TREE_CODE (argument) == ADDR_EXPR)
+    {
+      /* Emit instructions that copy back OMP arguments to a caller kernel.  */
+      memcpy_hbb->append_insn
+	(new hsa_insn_comment ("OMP arg memcpy back instructions"));
+
+      hsa_op_address *src_addr = new hsa_op_address (omp_var_decl);
+      gen_hsa_memory_copy (memcpy_hbb, src_addr, dst_addr, omp_var_decl->m_dim);
+    }
 
   hsa_cfun->m_kernel_dispatch_count++;
 }

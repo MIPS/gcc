@@ -1,5 +1,10 @@
 2015-11-24  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Copy back OMP
+	argument that is copied to a dispatched kernel.
+
+2015-11-24  Martin Liska  <mliska@suse.cz>
+
 	* hsa-dump.c (hsa_byte_alignment): New function.
 	(dump_hsa_insn_1): Use the function.
 
