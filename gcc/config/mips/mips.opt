@@ -513,3 +513,7 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+msdata-num=
+Target RejectNegative Joined UInteger Var(mips_sdata_section_num) Init(-1)
+-msdata-num=NUM		Place all gp relative data in sdata section number NUM
