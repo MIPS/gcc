@@ -1,0 +1,13 @@
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/crt0.c: New, rewritten in C from ...
+	* config/nvptx/crt0.s: ...this.  Delete.
+	* config/nvptx/free.c: New, rewritten in C from ...
+	* config/nvptx/free.asm: ...this.  Delete.
+	* config/nvptx/malloc.c: New, rewritten in C from ...
+	* config/nvptx/malloc.asm: ...this.  Delete.
+	* config/nvptx/realloc.c: Handle out-of-memory condition.
+	* config/nvptx/nvptx-malloc.h (__nvptx_real_free,
+	__nvptx_real_malloc): Declare.
+	* config/nvptx/stacks.c: New.
+	* config/nvptx/t-nvptx: Adjust.

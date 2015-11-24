@@ -1,6 +1,6 @@
-/* Declarations for the malloc wrappers.
+/* Implement free wrapper to help support realloc.
 
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2015 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -21,11 +21,14 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* malloc/realloc/free are remapped to these by the NVPTX backend.  */
-extern void __nvptx_free (void *);
-extern void *__nvptx_malloc (size_t);
-extern void *__nvptx_realloc (void *, size_t);
+#include <stddef.h>
+#include "nvptx-malloc.h"
 
-/* And these are remapped back to "real" malloc/free.  */
-extern void __nvptx_real_free (void *);
-extern void *__nvptx_real_malloc (size_t);
+void
+__nvptx_free (void *ptr)
+{
+  if (ptr == NULL)
+    return;
+
+  __nvptx_real_free ((char *)ptr - 8);
+}

@@ -1,6 +1,6 @@
-/* Declarations for the malloc wrappers.
+/* Startup routine for standalone execution.
 
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2015 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -21,11 +21,41 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* malloc/realloc/free are remapped to these by the NVPTX backend.  */
-extern void __nvptx_free (void *);
-extern void *__nvptx_malloc (size_t);
-extern void *__nvptx_realloc (void *, size_t);
+void exit (int);
+void abort (void);
+void __attribute__((kernel)) __main (int *, int, char *[]);
 
-/* And these are remapped back to "real" malloc/free.  */
-extern void __nvptx_real_free (void *);
-extern void *__nvptx_real_malloc (size_t);
+static int *__exitval;
+
+void
+exit (int arg)
+{
+  *__exitval = arg;
+  asm volatile ("exit;");
+  __builtin_unreachable ();
+}
+
+void
+abort (void)
+{
+  exit (255);
+}
+
+asm ("// BEGIN GLOBAL VAR DECL: __nvptx_stacks");
+asm (".extern .shared .u64 __nvptx_stacks[32];");
+asm ("// BEGIN GLOBAL VAR DECL: __nvptx_uni");
+asm (".extern .shared .u32 __nvptx_uni[32];");
+
+extern int main (int argc, char *argv[]);
+
+void __attribute__((kernel))
+__main (int *__retval, int __argc, char *__argv[])
+{
+  __exitval = __retval;
+
+  static char gstack[131072] __attribute__((aligned(8)));
+  asm ("st.shared.u64 [__nvptx_stacks], %0;" : : "r" (gstack + sizeof gstack));
+  asm ("st.shared.u32 [__nvptx_uni], %0;" : : "r" (0));
+
+  exit (main (__argc, __argv));
+}

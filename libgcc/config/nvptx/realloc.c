@@ -33,6 +33,8 @@ __nvptx_realloc (void *ptr, size_t newsz)
       return NULL;
     }
   void *newptr = __nvptx_malloc (newsz);
+  if (!newptr)
+    return NULL;
 
   size_t oldsz;
   if (ptr == NULL)
