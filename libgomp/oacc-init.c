@@ -256,8 +256,6 @@ acc_shutdown_1 (acc_device_t d)
   /* Get the base device for this device type.  */
   base_dev = resolve_device (d, true);
 
-  goacc_deallocate_static (d);
-
   ndevs = base_dev->get_num_devices_func ();
 
   /* Unload all the devices of this type that have been opened.  */
@@ -443,9 +441,7 @@ goacc_attach_host_thread_to_device (int ord)
 void
 acc_init (acc_device_t d)
 {
-  bool init = !cached_base_dev;
-
-  if (init)
+  if (!cached_base_dev)
     gomp_init_targets_once ();
 
   gomp_mutex_lock (&acc_device_lock);
@@ -453,9 +449,6 @@ acc_init (acc_device_t d)
   cached_base_dev = acc_init_1 (d);
 
   gomp_mutex_unlock (&acc_device_lock);
-
-  if (init)
-    goacc_allocate_static (d);
   
   goacc_attach_host_thread_to_device (-1);
 }

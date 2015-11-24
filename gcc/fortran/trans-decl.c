@@ -1301,19 +1301,16 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 	list = chainon (list, attr);
       }
 
-  if (sym_attr.omp_declare_target)
-    list = tree_cons (get_identifier ("omp declare target"),
-		      NULL_TREE, list);
-
-  if (sym_attr.oacc_declare_create
+  if (sym_attr.omp_declare_target
+      || sym_attr.oacc_declare_create
       || sym_attr.oacc_declare_copyin
       || sym_attr.oacc_declare_deviceptr
-      || sym_attr.oacc_declare_device_resident
-      || sym_attr.oacc_declare_link)
-    {
-      list = tree_cons (get_identifier ("oacc declare"),
-			NULL_TREE, list);
-    }
+      || sym_attr.oacc_declare_device_resident)
+    list = tree_cons (get_identifier ("omp declare target"),
+		      NULL_TREE, list);
+  if (sym_attr.oacc_declare_link)
+    list = tree_cons (get_identifier ("omp declare target link"),
+		      NULL_TREE, list);
 
   if (sym_attr.oacc_function)
     {

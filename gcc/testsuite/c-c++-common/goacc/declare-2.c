@@ -7,13 +7,13 @@
 /* { dg-error "no valid clauses" "second error" { target *-*-* } 6 } */
 
 int v0[10];
-#pragma acc declare create(v0[1:3]) /* { dg-error "subarray" } */
+#pragma acc declare create(v0[1:3]) /* { dg-error "array section" } */
 
 int v1;
 #pragma acc declare create(v1, v1) /* { dg-error "more than once" } */
 
 int v2;
-#pragma acc declare create(v2) /* { dg-message "previous directive" } */
+#pragma acc declare create(v2)
 #pragma acc declare copyin(v2) /* { dg-error "more than once" } */
 
 int v3;
@@ -36,6 +36,17 @@ int v8;
 
 int v9;
 #pragma acc declare present_or_create(v9) /* { dg-error "at file scope" } */
+
+int va10;
+#pragma acc declare create (va10)
+#pragma acc declare link (va10) /* { dg-error "more than once" } */
+
+int va11;
+#pragma acc declare link (va11)
+#pragma acc declare link (va11) /* { dg-error "more than once" } */
+
+int va12;
+#pragma acc declare create (va12) link (va12) /* { dg-error "more than once" } */
 
 void
 f (void)

@@ -1250,7 +1250,7 @@ gfc_omp_clauses;
 
 #define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
 
-/* Node in the linked list used for storing !$oacc declare constructs.  */
+/* Node in the linked list used for storing OpenACC declare constructs.  */
 
 typedef struct gfc_oacc_declare
 {

@@ -15416,9 +15416,6 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       tmp = tsubst_omp_clauses (OACC_DECLARE_CLAUSES (t), false, false,
 				args, complain, in_decl);
       OACC_DECLARE_CLAUSES (t) = tmp;
-      tmp = tsubst_omp_clauses (OACC_DECLARE_RETURN_CLAUSES (t), false, false,
-				args, complain, in_decl);
-      OACC_DECLARE_RETURN_CLAUSES (t) = tmp;
       add_stmt (t);
       break;
 

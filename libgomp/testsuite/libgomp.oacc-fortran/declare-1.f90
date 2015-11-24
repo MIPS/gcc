@@ -1,4 +1,5 @@
 ! { dg-do run  { target openacc_nvidia_accel_selected } }
+! { dg-xfail-run-if "TODO" { *-*-* } }
 
 module vars
   integer z

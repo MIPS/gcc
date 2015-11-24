@@ -29133,13 +29133,13 @@ cp_parser_omp_clause_name (cp_parser *parser, bool consume_token = true)
 	    result = PRAGMA_OMP_CLAUSE_DEPEND;
 	  else if (!strcmp ("device", p))
 	    result = PRAGMA_OMP_CLAUSE_DEVICE;
+	  else if (!strcmp ("deviceptr", p))
+	    result = PRAGMA_OACC_CLAUSE_DEVICEPTR;
 	  else if (!strcmp ("device_resident", p))
 	    result = PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT;
 	  else if (!strcmp ("device_type", p)
 		   || !strcmp ("dtype", p))
 	    result = PRAGMA_OACC_CLAUSE_DEVICE_TYPE;
-	  else if (!strcmp ("deviceptr", p))
-	    result = PRAGMA_OACC_CLAUSE_DEVICEPTR;
 	  else if (!strcmp ("dist_schedule", p))
 	    result = PRAGMA_OMP_CLAUSE_DIST_SCHEDULE;
 	  break;
@@ -31696,6 +31696,10 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "device";
 	  break;
+	case PRAGMA_OACC_CLAUSE_DEVICEPTR:
+	  clauses = cp_parser_oacc_data_clause_deviceptr (parser, clauses);
+	  c_name = "deviceptr";
+	  break;
 	case PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT:
 	  clauses = cp_parser_oacc_data_clause (parser, c_kind, clauses);
 	  c_name = "device_resident";
@@ -31705,10 +31709,6 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 						       clauses, pragma_tok);
 	  c_name = "device_type";
 	  seen_dtype = true;
-	  break;
-	case PRAGMA_OACC_CLAUSE_DEVICEPTR:
-	  clauses = cp_parser_oacc_data_clause_deviceptr (parser, clauses);
-	  c_name = "deviceptr";
 	  break;
 	case PRAGMA_OACC_CLAUSE_FIRSTPRIVATE:
 	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_FIRSTPRIVATE,
@@ -34707,8 +34707,6 @@ cp_parser_oacc_data (cp_parser *parser, cp_token *pragma_tok)
    # pragma acc declare oacc-data-clause[optseq] new-line
 */
 
-static int oacc_dcl_idx = 0;
-
 #define OACC_DECLARE_CLAUSE_MASK					\
 	( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPY)		\
 	| (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_COPYIN)		\
@@ -34726,13 +34724,11 @@ static int oacc_dcl_idx = 0;
 static tree
 cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 {
-  tree c, clauses, ret_clauses, stmt, t;
+  tree clauses, stmt;
   bool error = false;
-
 
   clauses = cp_parser_oacc_all_clauses (parser, OACC_DECLARE_CLAUSE_MASK,
 					"#pragma acc declare", pragma_tok);
-
 
   if (find_omp_clause (clauses, OMP_CLAUSE_MAP) == NULL_TREE)
     {
@@ -34745,10 +34741,9 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
     {
       location_t loc = OMP_CLAUSE_LOCATION (t);
       tree decl = OMP_CLAUSE_DECL (t);
-      tree devres = NULL_TREE;
       if (!DECL_P (decl))
 	{
-	  error_at (loc, "subarray in %<#pragma acc declare%>");
+	  error_at (loc, "array section in %<#pragma acc declare%>");
 	  error = true;
 	  continue;
 	}
@@ -34758,10 +34753,7 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	case GOMP_MAP_FORCE_ALLOC:
 	case GOMP_MAP_FORCE_TO:
 	case GOMP_MAP_FORCE_DEVICEPTR:
-	  break;
-
 	case GOMP_MAP_DEVICE_RESIDENT:
-	  devres = t;
 	  break;
 
 	case GOMP_MAP_POINTER:
@@ -34770,7 +34762,9 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	  break;
 
 	case GOMP_MAP_LINK:
-	  if (!global_bindings_p () && !DECL_EXTERNAL (decl))
+	  if (!global_bindings_p ()
+	      && (TREE_STATIC (decl)
+	       || !DECL_EXTERNAL (decl)))
 	    {
 	      error_at (loc,
 			"%qD must be a global variable in"
@@ -34807,173 +34801,55 @@ cp_parser_oacc_declare (cp_parser *parser, cp_token *pragma_tok)
 	  break;
 	}
 
-      tree decl_for_attr = decl;
-      tree prev_attr = lookup_attribute ("oacc declare",
-					     DECL_ATTRIBUTES (decl));
-      if (prev_attr)
+      if (lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl))
+	  || lookup_attribute ("omp declare target link",
+			       DECL_ATTRIBUTES (decl)))
 	{
-	  tree p = TREE_VALUE (prev_attr);
-	  tree cl = TREE_VALUE (p);
+	  error_at (loc, "variable %qD used more than once with "
+		    "%<#pragma acc declare%>", decl);
+	  error = true;
+	  continue;
+	}
 
-	  if (!devres && OMP_CLAUSE_MAP_KIND (cl) != GOMP_MAP_DEVICE_RESIDENT)
+      if (!error)
+	{
+	  tree id;
+
+	  if (OMP_CLAUSE_MAP_KIND (t) == GOMP_MAP_LINK)
+	    id = get_identifier ("omp declare target link");
+	  else
+	    id = get_identifier ("omp declare target");
+
+	  DECL_ATTRIBUTES (decl)
+			   = tree_cons (id, NULL_TREE, DECL_ATTRIBUTES (decl));
+	  if (global_bindings_p ())
 	    {
-	      error_at (loc, "variable %qD used more than once with "
-			"%<#pragma acc declare%>", decl);
-	      inform (OMP_CLAUSE_LOCATION (TREE_VALUE (p)),
-		      "previous directive was here");
-	      error = true;
-	      continue;
+	      symtab_node *node = symtab_node::get (decl);
+	      if (node != NULL)
+		{
+		  node->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
+		  g->have_offload = true;
+		  if (is_a <varpool_node *> (node))
+		    {
+		      vec_safe_push (offload_vars, decl);
+		      node->force_output = 1;
+		    }
+#endif
+		}
 	    }
 	}
-
-      if (!error && global_bindings_p ())
-	{
-	  tree attr = tree_cons (NULL_TREE, t, NULL_TREE);
-	  tree attrs = tree_cons (get_identifier ("oacc declare"),
-				  attr, NULL_TREE);
-	  decl_attributes (&decl_for_attr, attrs, 0);
-	}
     }
 
-  if (error)
+  if (error || global_bindings_p ())
     return NULL_TREE;
 
-  ret_clauses = NULL_TREE;
+  stmt = make_node (OACC_DECLARE);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DECLARE_CLAUSES (stmt) = clauses;
+  SET_EXPR_LOCATION (stmt, pragma_tok->location);
 
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      bool ret = false;
-      HOST_WIDE_INT kind, new_op;
-
-      kind = OMP_CLAUSE_MAP_KIND (c);
-
-      switch (kind)
-	{
-	  case GOMP_MAP_ALLOC:
-	  case GOMP_MAP_FORCE_ALLOC:
-	  case GOMP_MAP_FORCE_TO:
-	    new_op = GOMP_MAP_FORCE_DEALLOC;
-	    ret = true;
-	    break;
-
-	  case GOMP_MAP_FORCE_FROM:
-	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
-	    new_op = GOMP_MAP_FORCE_FROM;
-	    ret = true;
-	    break;
-
-	  case GOMP_MAP_FORCE_TOFROM:
-	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_TO);
-	    new_op = GOMP_MAP_FORCE_FROM;
-	    ret = true;
-	    break;
-
-	  case GOMP_MAP_FROM:
-	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_FORCE_ALLOC);
-	    new_op = GOMP_MAP_FROM;
-	    ret = true;
-	    break;
-
-	  case GOMP_MAP_TOFROM:
-	    OMP_CLAUSE_SET_MAP_KIND (c, GOMP_MAP_TO);
-	    new_op = GOMP_MAP_FROM;
-	    ret = true;
-	    break;
-
-	  case GOMP_MAP_DEVICE_RESIDENT:
-	  case GOMP_MAP_FORCE_DEVICEPTR:
-	  case GOMP_MAP_FORCE_PRESENT:
-	  case GOMP_MAP_POINTER:
-	  case GOMP_MAP_TO:
-	    break;
-
-	  case GOMP_MAP_LINK:
-	    continue;
-
-	  default:
-	    gcc_unreachable ();
-	    break;
-	}
-
-      if (ret)
-	{
-	  t = copy_node (c);
-
-	  OMP_CLAUSE_SET_MAP_KIND (t, new_op);
-
-	  if (ret_clauses)
-	    OMP_CLAUSE_CHAIN (t) = ret_clauses;
-
-	  ret_clauses = t;
-	}
-    }
-
-  if (global_bindings_p ())
-    {
-      char buf[128];
-      cp_decl_specifier_seq decl_specifiers;
-      cp_declarator *declarator;
-      tree attrs, parms;
-      tree f, t, call_fn, stmt;
-      location_t loc = UNKNOWN_LOCATION;
-      void *p;
-
-      p = obstack_alloc (&declarator_obstack, 0);
-      clear_decl_specs (&decl_specifiers);
-      decl_specifiers.type = void_type_node;
-      sprintf (buf, "__openacc_cp_constructor__%d", oacc_dcl_idx++);
-
-      declarator = make_id_declarator (NULL_TREE, get_identifier (buf),
-				       sfk_none);
-      parms = void_list_node;
-      declarator = make_call_declarator (declarator, parms,
-					 TYPE_UNQUALIFIED,
-					 VIRT_SPEC_UNSPECIFIED,
-					 REF_QUAL_NONE,
-					 /*tx_qualifier=*/NULL_TREE,
-					 /*exception_specification=*/NULL_TREE,
-					 /*late_return_type=*/NULL_TREE,
-					 /*requires_clause=*/NULL_TREE);
-      attrs = tree_cons (get_identifier ("constructor") , NULL_TREE, NULL_TREE);
-      start_function (&decl_specifiers, declarator, attrs);
-      f = begin_compound_stmt (0);
-      call_fn = builtin_decl_explicit (BUILT_IN_GOACC_STATIC);
-      TREE_SIDE_EFFECTS (call_fn) = 1;
-
-      for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
-	{
-	  tree d, a1, a2, a3;
-	  vec<tree, va_gc> *args;
-	  vec_alloc (args, 3);
-
-	  d = OMP_CLAUSE_DECL (t);
-
-	  a1 = build_unary_op (loc, ADDR_EXPR, d, 0);
-	  a2 = DECL_SIZE_UNIT (d);
-	  a3 = build_int_cst (unsigned_type_node, OMP_CLAUSE_MAP_KIND (t));
-
-	  args->quick_push (a1);
-	  args->quick_push (a2);
-	  args->quick_push (a3);
-
-	  stmt = build_function_call_vec (loc, vNULL, call_fn, args, NULL);
-	  finish_expr_stmt (stmt);
-	}
-
-      finish_compound_stmt (f);
-      expand_or_defer_fn (finish_function (0));
-      obstack_free (&declarator_obstack, p);
-    }
-  else
-    {
-      stmt = make_node (OACC_DECLARE);
-      TREE_TYPE (stmt) = void_type_node;
-      OACC_DECLARE_CLAUSES (stmt) = clauses;
-      OACC_DECLARE_RETURN_CLAUSES (stmt) = ret_clauses;
-      SET_EXPR_LOCATION (stmt, pragma_tok->location);
-
-      add_stmt (stmt);
-    }
+  add_stmt (stmt);
 
   return NULL_TREE;
 }

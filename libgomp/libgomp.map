@@ -382,7 +382,6 @@ GOACC_2.0 {
   global:
 	GOACC_data_end;
 	GOACC_data_start;
-	GOACC_declare;
 	GOACC_enter_exit_data;
 	GOACC_parallel;
 	GOACC_update;
@@ -393,13 +392,13 @@ GOACC_2.0 {
 
 GOACC_2.0.1 {
   global:
+	GOACC_declare;
 	GOACC_parallel_keyed;
 } GOACC_2.0;
 
 GOACC_2.0.GOMP_4_BRANCH {
   global:
 	GOACC_deviceptr;
-	GOACC_register_static;
 	GOMP_set_offload_targets;
 } GOACC_2.0.1;
 

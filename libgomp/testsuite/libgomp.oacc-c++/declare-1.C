@@ -1,17 +1,20 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
 
+#include <stdlib.h>
+
 template<class T>
 T foo()
 {
-  T a = 0;
+  T a, b;
   #pragma acc declare create (a)
 
-  #pragma acc parallel
+  #pragma acc parallel copyout (b)
   {
     a = 5;
+    b = a;
   }
 
-  return a;
+  return b;
 }
 
 int
@@ -21,5 +24,8 @@ main (void)
 
   rc = foo<int>();
 
-  return rc;
+  if (rc != 5)
+    abort ();
+
+  return 0;
 }

@@ -137,42 +137,6 @@ varpool_node::create_empty (void)
   return node;
 }   
 
-static void
-make_offloadable_1 (varpool_node *node, tree decl ATTRIBUTE_UNUSED)
-{
-  node->offloadable = 1;
-#ifdef ENABLE_OFFLOADING
-  g->have_offload = true;
-  if (!in_lto_p)
-    vec_safe_push (offload_vars, decl);
-  node->force_output = 1;
-#endif
-}
-
-void
-make_offloadable (varpool_node *node, tree decl)
-{
-  tree attrs;
-
-  if (node->offloadable)
-    return;
-
-  if (flag_openmp)
-    {
-      make_offloadable_1 (node, decl);
-      return;
-    }
-
-  attrs = lookup_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
-  if (attrs)
-    {
-      make_offloadable_1 (node, decl);
-
-      DECL_ATTRIBUTES (decl)
-	  = remove_attribute ("oacc declare", DECL_ATTRIBUTES (decl));
-    }
-}
-
 /* Return varpool node assigned to DECL.  Create new one when needed.  */
 varpool_node *
 varpool_node::get_create (tree decl)
@@ -180,18 +144,22 @@ varpool_node::get_create (tree decl)
   varpool_node *node = varpool_node::get (decl);
   gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
   if (node)
-    {
-      if (flag_openacc && !DECL_EXTERNAL (decl))
-	make_offloadable (node, decl);
-      return node;
-    }
+    return node;
 
   node = varpool_node::create_empty ();
   node->decl = decl;
 
   if ((flag_openacc || flag_openmp) && !DECL_EXTERNAL (decl)
       && lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl)))
-    make_offloadable (node, decl);
+    {
+      node->offloadable = 1;
+#ifdef ENABLE_OFFLOADING
+      g->have_offload = true;
+      if (!in_lto_p)
+	vec_safe_push (offload_vars, decl);
+      node->force_output = 1;
+#endif
+    }
 
   node->register_symbol ();
   return node;

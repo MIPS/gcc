@@ -71,8 +71,8 @@ main (int argc, char **argv)
   {
     for (i = 0; i < N; i++)
       {
-        b[i] = a[i];
-        a[i] = b[i];
+	b[i] = a[i];
+	a[i] = b[i];
       }
   }
 
@@ -86,7 +86,7 @@ main (int argc, char **argv)
   {
     for (i = 0; i < N; i++)
       {
-        e[i] = a[i] + d[i];
+	e[i] = a[i] + d[i];
 	a[i] = e[i];
       }
   }

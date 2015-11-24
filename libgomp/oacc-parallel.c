@@ -57,68 +57,6 @@ find_pointer (int pos, size_t mapnum, unsigned short *kinds)
   return 0;
 }
 
-static struct oacc_static
-{
-  void *addr;
-  size_t size;
-  unsigned short mask;
-  bool free;
-  struct oacc_static *next;
-} *oacc_statics;
-
-static bool alloc_done = false;
-
-void
-goacc_allocate_static (acc_device_t d)
-{
-  struct oacc_static *s;
-
-  if (alloc_done)
-    assert (0);
-
-  for (s = oacc_statics; s; s = s->next)
-    {
-      void *d;
-
-      switch (s->mask)
-	{
-	case GOMP_MAP_FORCE_ALLOC:
-	  break;
-
-	case GOMP_MAP_FORCE_TO:
-	  d = acc_deviceptr (s->addr);
-	  acc_memcpy_to_device (d, s->addr, s->size);
-	  break;
-
-	case GOMP_MAP_FORCE_DEVICEPTR:
-	case GOMP_MAP_DEVICE_RESIDENT:
-	case GOMP_MAP_LINK:
-	  break;
-
-	default:
-	  assert (0);
-	  break;
-	}
-    }
-
-  alloc_done = true;
-}
-
-void
-goacc_deallocate_static (acc_device_t d)
-{
-  struct oacc_static *s;
-  unsigned short mask = GOMP_MAP_FORCE_DEALLOC;
-
-  if (!alloc_done)
-    return;
-
-  for (s = oacc_statics; s; s = s->next)
-    GOACC_enter_exit_data (d, 1, &s->addr, &s->size, &mask, 0, 0);
-
-  alloc_done = false;
-}
-
 static void goacc_wait (int async, int num_waits, va_list *ap);
 
 
@@ -630,21 +568,6 @@ GOACC_get_thread_num (int gang, int worker, int vector)
 }
 
 void
-GOACC_register_static (void *addr, int size, unsigned int mask)
-{
-  struct oacc_static *s;
-
-  s = (struct oacc_static *) malloc (sizeof (struct oacc_static));
-  s->addr = addr;
-  s->size = (size_t) size;
-  s->mask = mask;
-  s->free = false;
-  s->next = oacc_statics;
-
-  oacc_statics = s;
-}
-
-void
 GOACC_declare (int device, size_t mapnum,
 	       void **hostaddrs, size_t *sizes, unsigned short *kinds)
 {
@@ -673,10 +596,8 @@ GOACC_declare (int device, size_t mapnum,
 
 	  case GOMP_MAP_ALLOC:
 	    if (!acc_is_present (hostaddrs[i], sizes[i]))
-	      {
-		GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
-				       &kinds[i], 0, 0);
-	      }
+	      GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
+				     &kinds[i], 0, 0);
 	    break;
 
 	  case GOMP_MAP_TO:
@@ -688,12 +609,13 @@ GOACC_declare (int device, size_t mapnum,
 	  case GOMP_MAP_FROM:
 	    kinds[i] = GOMP_MAP_FORCE_FROM;
 	    GOACC_enter_exit_data (device, 1, &hostaddrs[i], &sizes[i],
-				       &kinds[i], 0, 0);
+				   &kinds[i], 0, 0);
 	    break;
 
 	  case GOMP_MAP_FORCE_PRESENT:
 	    if (!acc_is_present (hostaddrs[i], sizes[i]))
-	      gomp_fatal ("[%p,%zd] is not mapped", hostaddrs[i], sizes[i]);
+	      gomp_fatal ("[%p,%ld] is not mapped", hostaddrs[i],
+			  (unsigned long) sizes[i]);
 	    break;
 
 	  default:

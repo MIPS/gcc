@@ -1064,11 +1064,6 @@ DEFTREECODE (OACC_KERNELS, "oacc_kernels", tcc_statement, 2)
 
 DEFTREECODE (OACC_DATA, "oacc_data", tcc_statement, 2)
 
-/* OpenACC - #pragma acc declare [clause1 ... clauseN]
-   Operand 0: OACC_DECLARE_CLAUSES: List of clauses.
-   Operand 1: OACC_DECLARE_RETURN_CLAUSES: List of clauses for returns.  */
-DEFTREECODE (OACC_DECLARE, "oacc_declare", tcc_statement, 2)
-
 /* OpenACC - #pragma acc host_data [clause1 ... clauseN]
    Operand 0: OACC_HOST_DATA_BODY: Host_data construct body.
    Operand 1: OACC_HOST_DATA_CLAUSES: List of clauses.  */
@@ -1189,6 +1184,10 @@ DEFTREECODE (OMP_TASKGROUP, "omp_taskgroup", tcc_statement, 1)
    Operand 0: OACC_CACHE_CLAUSES: List of variables (transformed into
 	OMP_CLAUSE__CACHE_ clauses).  */
 DEFTREECODE (OACC_CACHE, "oacc_cache", tcc_statement, 1)
+
+/* OpenACC - #pragma acc declare [clause1 ... clauseN]
+   Operand 0: OACC_DECLARE_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_DECLARE, "oacc_declare", tcc_statement, 1)
 
 /* OpenACC - #pragma acc enter data [clause1 ... clauseN]
    Operand 0: OACC_ENTER_DATA_CLAUSES: List of clauses.  */
