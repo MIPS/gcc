@@ -1,6 +1,7 @@
 2015-11-25  Gary Funck  <gary@intrepid.com>
 
 	* Makefile.am: Fix spelling.
+	* Makefile.in: Re-generate.
 	* collectives/upc_coll_init.upc: Ditto.
 	* collectives/upc_coll_prefix_reduce.in: Ditto.
 	* include/gasp_upc.h: Ditto.
