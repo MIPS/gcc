@@ -41,7 +41,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #error Unknown PTS representation.
 #elif (defined (GUPCR_PTS_STRUCT_REP) + defined (GUPCR_PTS_WORD_PAIR_REP) \
      + defined (GUPCR_PTS_PACKED_REP)) != 1
-#error Only one UPC shared pointer representaion setting is permitted.
+#error Only one UPC shared pointer representation setting is permitted.
 #endif
 
 #ifdef GUPCR_PTS_STRUCT_REP

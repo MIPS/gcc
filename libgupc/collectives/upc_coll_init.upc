@@ -81,7 +81,7 @@ upc_coll_init ()
   if (upc_coll_init_flag)
     {
       printf ("Internal error: Multiple attempts to initialize ");
-      printf ("\tthecollective library in the same thread.\n");
+      printf ("\tthe collective library in the same thread.\n");
       exit (1);
     }
 

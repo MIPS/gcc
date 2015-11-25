@@ -151,7 +151,7 @@ static ptl_size_t gupcr_notify_md_count;
     MD for internal access.  A pointer to the buffer is needed
     because the broadcast implementation used internally by the
     UPC runtime can broadcast arbitrarily sized values (that may
-    be lareger than an 'int'.  */
+    be larger than an 'int'.  */
 static int *gupcr_wait_ptr;
 /** Barrier wait LE handle (appended to GUPCR_PTL_PTE_BARRIER_DOWN) */
 static ptl_handle_le_t gupcr_wait_le;

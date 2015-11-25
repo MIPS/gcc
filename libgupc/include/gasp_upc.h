@@ -38,7 +38,7 @@ typedef void gasp_upc_PTS_t;
 typedef void gasp_upc_lock_t;
 typedef void *gasp_upc_nb_handle_t;
 
-/* Indicate that a non-blocking get/put shouldn't be trackeed.  */
+/* Indicate that a non-blocking get/put shouldn't be tracked.  */
 #define GASP_NB_TRIVIAL ((gasp_upc_nb_handle_t) 0)
 
 /* Reduction operation data types.  */

@@ -218,7 +218,7 @@ include doxygen-include.am
 MOSTLYCLEANFILES += $(DX_CLEANFILES)
 EXTRA_DIST += $(DX_CONFIG)
 
-# Portals runtime only partialy uses generic collectives
+# Portals runtime only partially uses generic collectives
 
 # We need full pathnames here, because vpath won't find
 # the files if they don't exist yet.

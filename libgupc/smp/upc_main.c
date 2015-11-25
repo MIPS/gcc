@@ -214,7 +214,7 @@ __upc_print_help_and_exit (char *pgm)
   fprintf (stderr,
 	   "	                                      	  auto - let kernel schedule\n");
   fprintf (stderr,
-	   "	-sched-cpu-avoid n1,n2,.. 		List of CPUs to avoid schedulig on\n");
+	   "	-sched-cpu-avoid n1,n2,.. 		List of CPUs to avoid scheduling on\n");
   fprintf (stderr,
 	   "	  					  0 to max CPUs\n");
   fprintf (stderr,
@@ -529,14 +529,14 @@ __upc_init (char *pgm, const char **err_msg)
   u->program_name = pgm;
   u->monitor_pid = getpid ();
   u->num_cpus = __upc_num_cpus;
-  /* Defaults to 1, will be overidden if NUMA supported.  */
+  /* Defaults to 1, will be overridden if NUMA supported.  */
   u->num_nodes = 1;
   u->sched_policy = __upc_sched_policy;
   u->mem_policy = __upc_mem_policy;
 
   /* MPIR_partial_attach_ok support.  */
   if (MPIR_being_debugged)
-    u->partial_attach_start = 0; /* Stop the threads until MPIR_berakpint.  */
+    u->partial_attach_start = 0; /* Stop the threads until MPIR_Breakpoint.  */
   else
     u->partial_attach_start = 1; /* No debugging, threads can proceed.  */
   /* Find host name for MPIR interface.  */
@@ -583,7 +583,7 @@ __upc_init (char *pgm, const char **err_msg)
    in each thread, because it maintains a record of locally
    mapped memory regions.  Further, for thread 0, the initial
    data values need to be copied over, and the heap manager
-   must be initialized.  The barrier that is executed subsequnt
+   must be initialized.  The barrier that is executed subsequent
    to calling this per thread initialization procedure and prior to
    calling the main program ensures that the initialization
    completes before the main program runs.  */

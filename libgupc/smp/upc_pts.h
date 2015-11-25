@@ -37,7 +37,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # error Unknown PTS representation.
 #elif (defined(GUPCR_PTS_STRUCT_REP) + defined(GUPCR_PTS_WORD_PAIR_REP) \
      + defined(GUPCR_PTS_PACKED_REP)) != 1
-# error Only one UPC shared pointer representaion setting is permitted.
+# error Only one UPC shared pointer representation setting is permitted.
 #endif
 
 #ifdef GUPCR_PTS_STRUCT_REP
@@ -146,7 +146,7 @@ typedef upc_shared_ptr_t *upc_shared_ptr_p;
 #define GUPCR_PTS_IS_NULL(P) !(P)
 #define GUPCR_PTS_SET_NULL_SHARED(P) { (P) = 0; }
 
-/* access functions are optiimzed for a representation of the
+/* Access functions are optimized for a representation of the
    form (vaddr,thread,phase) and where the value is unsigned.
    Thus, right shift is logical (not arithmetic), and masking
    is avoided for vaddr, and shifting is avoided for phase. 

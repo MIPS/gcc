@@ -106,7 +106,7 @@ __upc_gum_init (int nthreads, int thread_id)
       if (stat (gum_gdbserverpath_env, &statbuf) != 0)
 	{
 	  fprintf (stderr,
-		   "Cannot locate gdbserver via enviroment variable %s: %s\n",
+		   "Cannot locate gdbserver via environment variable %s: %s\n",
 		   GUM_GDBSERVERPATH_ENV, gum_gdbserverpath_env);
 	  exit (2);
 	}

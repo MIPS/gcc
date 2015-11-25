@@ -224,7 +224,7 @@ void upc_all_prefix_reduce_GENERIC
     }
   else				// At least two threads contain elements.
     {
-      // Detemine how many elements are in the first row.
+      // Determine how many elements are in the first row.
       leaders = src_thr * blk_size + phase;
       if ((leaders + nelems) / (blk_size * THREADS) > 0)	//first row is "full"
 	row_elems = blk_size * THREADS - leaders;
