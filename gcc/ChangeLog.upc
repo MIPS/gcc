@@ -1,3 +1,8 @@
+2015-11-25  Gary Funck  <gary@intrepid.com>
+
+	* print-tree.c (print_node): Revert to trunk.  Remove code that
+	prints constructor/destructor if function_decl flag is set.
+
 2015-11-23  Gary Funck  <gary@intrepid.com>
 
 	* c.opt: Add periods to the end of help text.

@@ -327,10 +327,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     fputs (" protected", file);
   if (TREE_STATIC (node))
     fputs (" static", file);
-  if (TREE_CODE (node) == FUNCTION_DECL && DECL_STATIC_CONSTRUCTOR (node))
-    fputs (" constructor", file);
-  if (TREE_CODE (node) == FUNCTION_DECL && DECL_STATIC_DESTRUCTOR (node))
-    fputs (" destructor", file);
   if (TREE_DEPRECATED (node))
     fputs (" deprecated", file);
   if (TREE_VISITED (node))
