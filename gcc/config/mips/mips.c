@@ -770,6 +770,70 @@ static const struct mips_cpu_info mips_cpu_info_table[] = {
                       COSTS_N_INSNS (256), /* fp_div_sf */    \
                       COSTS_N_INSNS (256)  /* fp_div_df */
 
+struct list
+{
+  char* func;
+  struct list *next;
+};
+
+static struct list *mips_compress;
+static struct list *mips_no_compress;
+static struct list *mips_optimize_size;
+static struct list *mips_optimize_O3;
+static struct list *mips_optimize_O2;
+static struct list *mips_optimize_O1;
+static struct list *mips_optimize_inline;
+static struct list *mips_optimize_sdata;
+
+static struct list *
+mips_read_list (const char * filename)
+{
+  FILE * fd;
+  char line[256];
+  struct list *current = NULL;
+  struct list *head = NULL;
+
+  if (filename == NULL)
+    return NULL;
+  fd = fopen (filename, "r");
+  if (fd == NULL)
+    {
+      error ("Bad filename for -m[no-]compress-list, -moptimize-size-list, -moptimize-O3-list, "
+	     "-moptimize-O2-list or -moptimize-O1-list: %s\n", filename);
+      return NULL;
+    }
+
+  while (fgets (line, sizeof (line), fd))
+    {
+      struct list *entry = (struct list*)xmalloc (sizeof (struct list));
+      entry->func = xstrdup (line);
+      if (entry->func[strlen(entry->func)-1] == '\n')
+        entry->func[strlen(entry->func)-1] = '\0';
+      entry->next = NULL;
+      if (head == NULL)
+        current = head = entry;
+      else
+        current = current->next = entry;
+    }
+  fclose (fd);
+  return head;
+}
+
+static bool
+mips_find_list (const char * func, struct list* list)
+{
+  while (list != NULL)
+    {
+      if (strcmp (list->func, func) == 0)
+      {
+        return true;
+      }
+      list = list->next;
+    }
+
+  return false;
+}
+
 /* Costs to use when optimizing for size.  */
 static const struct mips_rtx_cost_data mips_rtx_cost_optimize_size = {
   COSTS_N_INSNS (1),            /* fp_add */
@@ -1501,6 +1565,18 @@ mips_insert_attributes (tree decl, tree *attributes)
       if (compression_flags)
 	error ("%qs attribute only applies to functions",
 	       mips_get_compress_on_name (nocompression_flags));
+
+      if (TREE_CODE (decl) == VAR_DECL
+	  && is_global_var (decl)
+	  && mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			     mips_optimize_sdata))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE,
+					    build_string (6, ".sdata"));
+	  *attributes = tree_cons (get_identifier ("section"),
+				   attr_args,
+				   *attributes);
+	}
     }
   else
     {
@@ -1518,18 +1594,74 @@ mips_insert_attributes (tree decl, tree *attributes)
 	error ("%qE cannot have both %qs and %qs attributes",
 	       DECL_NAME (decl), "mips16", "micromips");
 
-      if (TARGET_FLIP_MIPS16
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_size))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-Os"));
+	  *attributes = tree_cons (get_identifier ("optimize"),
+				   attr_args,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_O3))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-O3"));
+	  *attributes = tree_cons (get_identifier ("optimize"),
+				   attr_args,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_O2))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-O2"));
+	  *attributes = tree_cons (get_identifier ("optimize"),
+				   attr_args,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_O1))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-O1"));
+	  *attributes = tree_cons (get_identifier ("optimize"),
+				   attr_args,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_inline))
+	{
+	  tree inline_opt = build_optimization_node (&global_options);
+	  TREE_OPTIMIZATION (inline_opt)->x_flag_no_inline = 0;
+	  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl) = inline_opt;
+	}
+
+      if ((TARGET_FLIP_MIPS16 || mips_compress != NULL || mips_no_compress != NULL)
 	  && !DECL_ARTIFICIAL (decl)
 	  && compression_flags == 0
 	  && nocompression_flags == 0)
 	{
+          name = NULL;
 	  /* Implement -mflip-mips16.  If DECL has neither a "nomips16" nor a
 	     "mips16" attribute, arbitrarily pick one.  We must pick the same
 	     setting for duplicate declarations of a function.  */
-	  name = mflip_mips16_use_mips16_p (decl) ? "mips16" : "nomips16";
-	  *attributes = tree_cons (get_identifier (name), NULL, *attributes);
-	  name = "nomicromips";
-	  *attributes = tree_cons (get_identifier (name), NULL, *attributes);
+
+          if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+                              mips_compress))
+            name = "mips16";
+          else if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+                                   mips_no_compress))
+            name = "nomips16";
+          else if (TARGET_FLIP_MIPS16)
+	    name = mflip_mips16_use_mips16_p (decl) ? "mips16" : "nomips16";
+          if (name != NULL)
+            {
+	      *attributes = tree_cons (get_identifier (name), NULL, *attributes);
+	      name = "nomicromips";
+	      *attributes = tree_cons (get_identifier (name), NULL, *attributes);
+            }
 	}
     }
 }
@@ -1562,7 +1694,8 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
 static bool
 mips_can_inline_p (tree caller, tree callee)
 {
-  if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller))
+  if (!TARGET_INLINE_INTERMIX
+      && mips_get_compress_mode (callee) != mips_get_compress_mode (caller))
     return false;
   return default_target_can_inline_p (caller, callee);
 }
@@ -19193,8 +19326,17 @@ mips_option_override (void)
       target_flags_explicit |= MASK_SOFT_FLOAT_ABI;
     }
 
-  if (TARGET_FLIP_MIPS16)
+  if (TARGET_FLIP_MIPS16 || mips_compress_list != NULL || mips_no_compress_list != NULL)
     TARGET_INTERLINK_COMPRESSED = 1;
+
+  mips_compress = mips_read_list (mips_compress_list);
+  mips_no_compress = mips_read_list (mips_no_compress_list);
+  mips_optimize_size = mips_read_list (mips_optimize_size_list);
+  mips_optimize_O3 = mips_read_list (mips_optimize_O3_list);
+  mips_optimize_O2 = mips_read_list (mips_optimize_O2_list);
+  mips_optimize_O1 = mips_read_list (mips_optimize_O1_list);
+  mips_optimize_inline = mips_read_list (mips_optimize_inline_list);
+  mips_optimize_sdata = mips_read_list (mips_optimize_sdata_list);
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
