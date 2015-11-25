@@ -248,7 +248,7 @@ enum gomp_map_kind
 #define GOMP_TARGET_ARG_THREAD_LIMIT		(2 << 8)
 
 /* If the value is directly embeded in target argument, it should be a 16-bit
-   at most and shifted by tis many bits.  */
+   at most and shifted by this many bits.  */
 #define GOMP_TARGET_ARG_VALUE_SHIFT		16
 
 /* HSA specific data structures.  */

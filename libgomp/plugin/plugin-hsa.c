@@ -1300,7 +1300,7 @@ GOMP_OFFLOAD_async_run (int device, void *tgt_fn, void *tgt_vars,
 		       strerror (err));
   err = pthread_detach (pt);
   if (err != 0)
-    GOMP_PLUGIN_fatal ("Failed to detach a thread to run HRA kernel "
+    GOMP_PLUGIN_fatal ("Failed to detach a thread to run HSA kernel "
 		       "asynchronously: %s", strerror (err));
 }
 

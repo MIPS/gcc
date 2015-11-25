@@ -1,5 +1,9 @@
 2015-11-25  Martin Jambor  <mjambor@suse.cz>
 
+	* plugin/plugin-hsa.c (GOMP_OFFLOAD_async_run): Fix a typo in a string.
+
+2015-11-25  Martin Jambor  <mjambor@suse.cz>
+
 	* target.c (omp_target_associate_ptr): Return EINVAL for shared
 	memory devices.
 	(omp_target_is_present): Return 1 for shared memory
