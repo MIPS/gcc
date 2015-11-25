@@ -563,11 +563,19 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 	m_last_insn = hbb->m_first_insn;
     }
 
-  /* All regs that have still their start at after all code actually
-     are defined at the start of the routine (prologue).  */
   for (i = 0; i < hsa_cfun->m_reg_count; i++)
-    if (ind2reg[i] && ind2reg[i]->m_lr_begin == insn_order)
-      ind2reg[i]->m_lr_begin = 0;
+    if (ind2reg[i])
+      {
+	/* All regs that have still their start at after all code actually
+	   are defined at the start of the routine (prologue).  */
+	if (ind2reg[i]->m_lr_begin == insn_order)
+	  ind2reg[i]->m_lr_begin = 0;
+	/* All regs that have no use but a def will have lr_end == 0, 
+	   they are actually live from def until after the insn they are
+	   defined in.  */
+	if (ind2reg[i]->m_lr_end == 0)
+	  ind2reg[i]->m_lr_end = ind2reg[i]->m_lr_begin + 1;
+      }
 
   /* Sort all intervals by increasing start point.  */
   gcc_assert (ind2reg.length () == (size_t) hsa_cfun->m_reg_count);

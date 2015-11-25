@@ -1,3 +1,8 @@
+2015-11-25  Michael Matz  <matz@suse.de>
+
+	* hsa-regalloc.c (linear_scan_regalloc): Adjust end of interval
+	for registers without use.
+
 2015-11-25  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (hsa_get_declaration_name): Return ASM name for global
