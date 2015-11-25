@@ -488,7 +488,6 @@ emit_directive_variable (struct hsa_symbol *symbol)
   struct BrigDirectiveVariable dirvar;
   unsigned name_offset;
   static unsigned res_name_offset;
-  char prefix;
 
   if (symbol->m_directive_offset)
     return symbol->m_directive_offset;
@@ -496,23 +495,9 @@ emit_directive_variable (struct hsa_symbol *symbol)
   memset (&dirvar, 0, sizeof (dirvar));
   dirvar.base.byteCount = htole16 (sizeof (dirvar));
   dirvar.base.kind = htole16 (BRIG_KIND_DIRECTIVE_VARIABLE);
-  dirvar.allocation = BRIG_ALLOCATION_AUTOMATIC;
+  dirvar.allocation = symbol->m_allocation;
 
-  /* Readonly variables must have agent allocation.  */
-  if (symbol->m_cst_value)
-    dirvar.allocation = BRIG_ALLOCATION_AGENT;
-
-  if (symbol->m_decl && is_global_var (symbol->m_decl))
-    {
-      prefix = '&';
-
-      if (!symbol->m_cst_value)
-	dirvar.allocation = BRIG_ALLOCATION_PROGRAM;
-    }
-  else if (symbol->m_global_scope_p)
-    prefix = '&';
-  else
-    prefix = '%';
+  char prefix = symbol->m_global_scope_p ? '&' : '%';
 
   if (symbol->m_decl && TREE_CODE (symbol->m_decl) == RESULT_DECL)
     {

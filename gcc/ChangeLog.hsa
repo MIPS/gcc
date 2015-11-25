@@ -1,5 +1,14 @@
 2015-11-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_directive_variable): Use
+	hsa_symbol::m_global_scope_p and hsa_symbol::m_allocation.
+	* hsa-gen.c (get_symbol_for_decl): Use new ctor of hsa_symbol.
+	(hsa_get_string_cst_symbol): Likewise.
+	(emit_hsa_module_variables): Likewise.
+	* hsa.h (struct hsa_symbol): Add new member variable.
+
+2015-11-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_cmp_insn_from_gimple): If dest type
 	of a CMP instruction is an integer type, use B1 as intermediate
 	destination register.

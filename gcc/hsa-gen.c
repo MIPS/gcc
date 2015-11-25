@@ -157,17 +157,20 @@ hsa_symbol::hsa_symbol ()
 : m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
   m_directive_offset (0), m_type (BRIG_TYPE_NONE),
   m_segment (BRIG_SEGMENT_NONE), m_linkage (BRIG_LINKAGE_NONE), m_dim (0),
-  m_cst_value (NULL), m_global_scope_p (false), m_seen_error (false)
+  m_cst_value (NULL), m_global_scope_p (false), m_seen_error (false),
+  m_allocation (BRIG_ALLOCATION_AUTOMATIC)
 {
 }
 
 
 hsa_symbol::hsa_symbol (BrigType16_t type, BrigSegment8_t segment,
-			BrigLinkage8_t linkage)
+			BrigLinkage8_t linkage, bool global_scope_p,
+			BrigAllocation allocation)
 : m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
   m_directive_offset (0), m_type (type), m_segment (segment),
-  m_linkage (linkage), m_dim (0), m_cst_value (NULL), m_global_scope_p (false),
-  m_seen_error (false)
+  m_linkage (linkage), m_dim (0), m_cst_value (NULL),
+  m_global_scope_p (global_scope_p), m_seen_error (false),
+  m_allocation (allocation)
 {
 }
 
@@ -730,7 +733,8 @@ get_symbol_for_decl (tree decl)
       if (is_in_global_vars)
 	{
 	  sym = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_GLOBAL,
-				BRIG_LINKAGE_PROGRAM);
+				BRIG_LINKAGE_PROGRAM, true,
+				BRIG_ALLOCATION_PROGRAM);
 	  hsa_cfun->m_global_symbols.safe_push (sym);
 	}
       else
@@ -807,12 +811,12 @@ hsa_get_string_cst_symbol (tree string_cst)
     return *slot;
 
   hsa_op_immed *cst = new hsa_op_immed (string_cst);
-  hsa_symbol *sym = new hsa_symbol (cst->m_type,
-				    BRIG_SEGMENT_GLOBAL, BRIG_LINKAGE_MODULE);
+  hsa_symbol *sym = new hsa_symbol (cst->m_type, BRIG_SEGMENT_GLOBAL,
+				    BRIG_LINKAGE_MODULE, true,
+				    BRIG_ALLOCATION_AGENT);
   sym->m_cst_value = cst;
   sym->m_dim = TREE_STRING_LENGTH (string_cst);
   sym->m_name_number = hsa_cfun->m_global_symbols.length ();
-  sym->m_global_scope_p = true;
 
   hsa_cfun->m_global_symbols.safe_push (sym);
   hsa_cfun->m_string_constants_map.put (string_cst, sym);
@@ -5525,10 +5529,9 @@ static void
 emit_hsa_module_variables (void)
 {
   hsa_num_threads = new hsa_symbol (BRIG_TYPE_U32, BRIG_SEGMENT_PRIVATE,
-				    BRIG_LINKAGE_MODULE);
+				    BRIG_LINKAGE_MODULE, true);
 
   hsa_num_threads->m_name = "hsa_num_threads";
-  hsa_num_threads->m_global_scope_p = true;
 
   hsa_brig_emit_omp_symbols ();
 }

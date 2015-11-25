@@ -59,7 +59,8 @@ struct hsa_symbol
 {
   /* Constructor.  */
   hsa_symbol (BrigType16_t type, BrigSegment8_t segment,
-	      BrigLinkage8_t linkage);
+	      BrigLinkage8_t linkage, bool global_scope_p = false,
+	      BrigAllocation allocation = BRIG_ALLOCATION_AUTOMATIC);
 
   /* Return total size of the symbol.  */
   unsigned HOST_WIDE_INT total_byte_size ();
@@ -109,6 +110,9 @@ struct hsa_symbol
 
   /* True if an error has been seen for the symbol.  */
   bool m_seen_error;
+
+  /* Symbol allocation.  */
+  BrigAllocation m_allocation;
 
 private:
   /* Default constructor.  */
