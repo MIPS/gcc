@@ -1,5 +1,11 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_name_replacement): Rewrite.  Add
+	__nvptx_real_malloc -> malloc and __nvptx_real_free -> free
+	replacements.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (need_unisimt_decl): New variable.  Set it...
 	(nvptx_init_unisimt_predicate): ...here (new function) and use it...
 	(nvptx_file_end): ...here to emit declaration of __nvptx_uni array.

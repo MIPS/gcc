@@ -273,14 +273,14 @@ section_for_decl (const_tree decl)
 static const char *
 nvptx_name_replacement (const char *name)
 {
-  if (strcmp (name, "call") == 0)
-    return "__nvptx_call";
-  if (strcmp (name, "malloc") == 0)
-    return "__nvptx_malloc";
-  if (strcmp (name, "free") == 0)
-    return "__nvptx_free";
-  if (strcmp (name, "realloc") == 0)
-    return "__nvptx_realloc";
+  static const char *const replacements[] = {
+    "malloc", "__nvptx_malloc", "free", "__nvptx_free",
+    "realloc", "__nvptx_realloc", "call", "__nvptx_call",
+    "__nvptx_real_malloc", "malloc", "__nvptx_real_free", "free"
+  };
+  for (size_t i = 0; i < ARRAY_SIZE (replacements) / 2; i++)
+    if (!strcmp (name, replacements[2 * i]))
+      return replacements[2 * i + 1];
   return name;
 }
 
