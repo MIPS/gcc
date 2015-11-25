@@ -528,7 +528,7 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->m_dim >> 32);
 
   /* Global variables are just declared and linked via HSA runtime.  */
-  if (!symbol->global_var_p ())
+  if (symbol->m_linkage != BRIG_ALLOCATION_PROGRAM)
     dirvar.modifier.allBits |= BRIG_VARIABLE_DEFINITION;
   dirvar.reserved = 0;
 

@@ -203,12 +203,6 @@ hsa_symbol::fillup_for_decl (tree decl)
     m_seen_error = true;
 }
 
-bool
-hsa_symbol::global_var_p ()
-{
-  return m_decl && is_global_var (m_decl);
-}
-
 /* Constructor of class representing global HSA function/kernel information and
    state.  FNDECL is function declaration, KERNEL_P is true if the function
    is going to become a HSA kernel.  If the function has body, SSA_NAMES_COUNT
@@ -250,7 +244,7 @@ hsa_function_representation::~hsa_function_representation ()
 
   hsa_symbol *sym;
   for (unsigned i = 0; i < m_global_symbols.iterate (i, &sym); i++)
-    if (!sym->global_var_p ())
+    if (sym->m_linkage != BRIG_ALLOCATION_PROGRAM)
       delete sym;
   m_global_symbols.release ();
 

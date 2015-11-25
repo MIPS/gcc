@@ -70,10 +70,6 @@ struct hsa_symbol
      or a variable, local or global.  */
   void fillup_for_decl (tree decl);
 
-  /* Return true if the symbol is a global variable that should be preserved
-     after a function is emitted to BRIG.  */
-  bool global_var_p ();
-
   /* Pointer to the original tree, which is PARM_DECL for input parameters and
      RESULT_DECL for the output parameters.  */
   tree m_decl;

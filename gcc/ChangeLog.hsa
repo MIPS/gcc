@@ -1,5 +1,14 @@
 2015-11-25  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_directive_variable): Replace the predicate
+	with test of linkage.
+	* hsa-gen.c (hsa_symbol::global_var_p): Remove.
+	(hsa_function_representation::~hsa_function_representation): Replace
+	the predicate with test of linkage.
+	* hsa.h (struct hsa_symbol): Remove declaration.
+
+2015-11-25  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_directive_variable): Use
 	hsa_symbol::m_global_scope_p and hsa_symbol::m_allocation.
 	* hsa-gen.c (get_symbol_for_decl): Use new ctor of hsa_symbol.
