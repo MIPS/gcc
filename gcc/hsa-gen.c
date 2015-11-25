@@ -2748,11 +2748,18 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
       return;
     }
 
-  hsa_insn_cmp *cmp = new hsa_insn_cmp (compare, dest->m_type);
-  cmp->set_op (0, dest);
+  /* CMP instruction returns e.g. 0xffffffff (for a 32-bit with integer)
+     as a result of comparison.  */
+
+  BrigType16_t dest_type = hsa_type_integer_p (dest->m_type)
+    ? (BrigType16_t) BRIG_TYPE_B1 : dest->m_type;
+
+  hsa_insn_cmp *cmp = new hsa_insn_cmp (compare, dest_type);
   cmp->set_op (1, hsa_reg_or_immed_for_gimple_op (lhs, hbb));
   cmp->set_op (2, hsa_reg_or_immed_for_gimple_op (rhs, hbb));
+
   hbb->append_insn (cmp);
+  cmp->set_output_in_type (dest, 0, hbb);
 }
 
 /* Generate an unary instruction with OPCODE and append it to a basic block
@@ -3424,7 +3431,10 @@ hsa_insn_basic::set_output_in_type (hsa_op_reg *dest, unsigned op_index,
   gcc_checking_assert (op_output_p (op_index));
 
   if (dest->m_type == m_type)
-    set_op (op_index, dest);
+    {
+      set_op (op_index, dest);
+      return;
+    }
 
   hsa_op_reg *tmp = new hsa_op_reg (m_type);
   set_op (op_index, tmp);

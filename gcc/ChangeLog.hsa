@@ -1,3 +1,11 @@
+2015-11-25  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_cmp_insn_from_gimple): If dest type
+	of a CMP instruction is an integer type, use B1 as intermediate
+	destination register.
+	(hsa_insn_basic::set_output_in_type): Fix case where the type
+	of an instruction is equal to the type of an argument.
+
 2015-11-24  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (gen_hsa_insns_for_kernel_call): Copy back OMP
