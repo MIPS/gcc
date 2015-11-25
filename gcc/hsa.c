@@ -700,6 +700,8 @@ hsa_get_declaration_name (tree decl)
     }
   else if (TREE_CODE (decl) == FUNCTION_DECL)
     return cgraph_node::get_create (decl)->asm_name ();
+  else if (TREE_CODE (decl) == VAR_DECL && is_global_var (decl))
+    return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
   else
     return IDENTIFIER_POINTER (DECL_NAME (decl));
 
