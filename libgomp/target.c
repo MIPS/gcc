@@ -1922,7 +1922,8 @@ omp_target_is_present (void *ptr, int device_num)
   if (devicep == NULL)
     return 0;
 
-  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return 1;
 
   gomp_mutex_lock (&devicep->lock);
@@ -2146,7 +2147,8 @@ omp_target_associate_ptr (void *host_ptr, void *device_ptr, size_t size,
   if (devicep == NULL)
     return EINVAL;
 
-  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+  if (!(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return EINVAL;
 
   gomp_mutex_lock (&devicep->lock);

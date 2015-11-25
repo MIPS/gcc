@@ -1,3 +1,10 @@
+2015-11-25  Martin Jambor  <mjambor@suse.cz>
+
+	* target.c (omp_target_associate_ptr): Return EINVAL for shared
+	memory devices.
+	(omp_target_is_present): Return 1 for shared memory
+	devices.
+
 2015-11-24  Martin Liska  <mliska@suse.cz>
 
 	* plugin/plugin-hsa.c (GOMP_OFFLOAD_run): Rewrite busy loop
