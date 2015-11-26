@@ -601,3 +601,7 @@ Specify a list of functions to be marked with long_call attribute.
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
+
+msdata-num=
+Target RejectNegative Joined UInteger Var(mips_sdata_section_num) Init(-1)
+Place all gp relative data in sdata section number NUM
