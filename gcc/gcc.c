@@ -42,6 +42,7 @@ compilation is specified by a string called a "spec".  */
 #include "opts.h"
 #include "params.h"
 #include "filenames.h"
+#include "spellcheck.h"
 
 
 
@@ -981,6 +982,10 @@ proper position among the other output files.  */
     %{%:sanitize(leak):" LIBLSAN_SPEC "}}}"
 #endif
 
+#ifndef POST_LINK_SPEC
+#define POST_LINK_SPEC ""
+#endif
+
 /*  This is the spec to use, once the code for creating the vtable
     verification runtime library, libvtv.so, has been created.  Currently
     the vtable verification runtime functions are in libstdc++, so we use
@@ -1023,7 +1028,7 @@ proper position among the other output files.  */
     %(mflib) " STACK_SPLIT_SPEC "\
     %{fprofile-arcs|fprofile-generate*|coverage:-lgcov} " SANITIZER_SPEC " \
     %{!nostdlib:%{!nodefaultlibs:%(link_ssp) %(link_gcc_c_sequence)}}\
-    %{!nostdlib:%{!nostartfiles:%E}} %{T*} }}}}}}"
+    %{!nostdlib:%{!nostartfiles:%E}} %{T*}  \n%(post_link) }}}}}}"
 #endif
 
 #ifndef LINK_LIBGCC_SPEC
@@ -1065,6 +1070,7 @@ static const char *linker_name_spec = LINKER_NAME;
 static const char *linker_plugin_file_spec = "";
 static const char *lto_wrapper_spec = "";
 static const char *lto_gcc_spec = "";
+static const char *post_link_spec = POST_LINK_SPEC;
 static const char *link_command_spec = LINK_COMMAND_SPEC;
 static const char *link_libgcc_spec = LINK_LIBGCC_SPEC;
 static const char *startfile_prefix_spec = STARTFILE_PREFIX_SPEC;
@@ -1195,11 +1201,9 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 
 static const char *const driver_self_specs[] = {
   "%{fdump-final-insns:-fdump-final-insns=.} %<fdump-final-insns",
-#ifdef ENABLE_OFFLOADING
   /* If linking against libgomp, add a setup file.  */
   "%{fopenacc|fopenmp|%:gt(%{ftree-parallelize-loops=*} 1):" \
   "%:add-omp-infile()}",
-#endif /* ENABLE_OFFLOADING */
   DRIVER_SELF_SPECS, CONFIGURE_SPECS, GOMP_SELF_SPECS, GTM_SELF_SPECS,
   CILK_SELF_SPECS
 };
@@ -1583,6 +1587,7 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("linker_plugin_file",	&linker_plugin_file_spec),
   INIT_STATIC_SPEC ("lto_wrapper",		&lto_wrapper_spec),
   INIT_STATIC_SPEC ("lto_gcc",			&lto_gcc_spec),
+  INIT_STATIC_SPEC ("post_link",		&post_link_spec),
   INIT_STATIC_SPEC ("link_libgcc",		&link_libgcc_spec),
   INIT_STATIC_SPEC ("md_exec_prefix",		&md_exec_prefix),
   INIT_STATIC_SPEC ("md_startfile_prefix",	&md_startfile_prefix),
@@ -4430,12 +4435,10 @@ process_command (unsigned int decoded_options_count,
 			   CL_DRIVER, &handlers, global_dc);
     }
 
-#ifdef ENABLE_OFFLOADING
   /* If the user didn't specify any, default to all configured offload
      targets.  */
-  if (offload_targets == NULL)
+  if (ENABLE_OFFLOADING && offload_targets == NULL)
     handle_foffload_option (OFFLOAD_TARGETS);
-#endif
 
   if (output_file
       && strcmp (output_file, "-") != 0
@@ -4647,22 +4650,23 @@ set_collect_gcc_options (void)
   obstack_grow (&collect_obstack, "\0", 1);
   xputenv (XOBFINISH (&collect_obstack, char *));
 
-#ifdef ENABLE_OFFLOADING
-  /* Build COLLECT_MKOFFLOAD_OPTIONS to have all of the options specified to
-     mkoffload.  */
-  obstack_grow (&collect_obstack, "COLLECT_MKOFFLOAD_OPTIONS=",
-		sizeof ("COLLECT_MKOFFLOAD_OPTIONS=") - 1);
-
-  char_p opt;
-  FOR_EACH_VEC_ELT (mkoffload_options, i, opt)
+  if (ENABLE_OFFLOADING)
     {
-      if (i > 0)
-	obstack_grow (&collect_obstack, " ", 1);
-      obstack_grow (&collect_obstack, opt, strlen (opt));
+      /* Build COLLECT_MKOFFLOAD_OPTIONS to have all of the options specified
+	 to mkoffload.  */
+      obstack_grow (&collect_obstack, "COLLECT_MKOFFLOAD_OPTIONS=",
+		    sizeof ("COLLECT_MKOFFLOAD_OPTIONS=") - 1);
+
+      char_p opt;
+      FOR_EACH_VEC_ELT (mkoffload_options, i, opt)
+	{
+	  if (i > 0)
+	    obstack_grow (&collect_obstack, " ", 1);
+	  obstack_grow (&collect_obstack, opt, strlen (opt));
+	}
+      obstack_grow (&collect_obstack, "\0", 1);
+      xputenv (XOBFINISH (&collect_obstack, char *));
     }
-  obstack_grow (&collect_obstack, "\0", 1);
-  xputenv (XOBFINISH (&collect_obstack, char *));
-#endif
 }
 
 /* Process a spec string, accumulating and running commands.  */
@@ -7672,6 +7676,45 @@ driver::maybe_putenv_OFFLOAD_TARGETS () const
     }
 }
 
+/* Helper function for driver::handle_unrecognized_options.
+
+   Given an unrecognized option BAD_OPT (without the leading dash),
+   locate the closest reasonable matching option (again, without the
+   leading dash), or NULL.  */
+
+static const char *
+suggest_option (const char *bad_opt)
+{
+  const cl_option *best_option = NULL;
+  edit_distance_t best_distance = MAX_EDIT_DISTANCE;
+
+  for (unsigned int i = 0; i < cl_options_count; i++)
+    {
+      edit_distance_t dist = levenshtein_distance (bad_opt,
+						   cl_options[i].opt_text + 1);
+      if (dist < best_distance)
+	{
+	  best_distance = dist;
+	  best_option = &cl_options[i];
+	}
+    }
+
+  if (!best_option)
+    return NULL;
+
+  /* If more than half of the letters were misspelled, the suggestion is
+     likely to be meaningless.  */
+  if (best_option)
+    {
+      unsigned int cutoff = MAX (strlen (bad_opt),
+				 strlen (best_option->opt_text + 1)) / 2;
+      if (best_distance > cutoff)
+	return NULL;
+    }
+
+  return best_option->opt_text + 1;
+}
+
 /* Reject switches that no pass was interested in.  */
 
 void
@@ -7679,7 +7722,16 @@ driver::handle_unrecognized_options () const
 {
   for (size_t i = 0; (int) i < n_switches; i++)
     if (! switches[i].validated)
-      error ("unrecognized command line option %<-%s%>", switches[i].part1);
+      {
+	const char *hint = suggest_option (switches[i].part1);
+	if (hint)
+	  error ("unrecognized command line option %<-%s%>;"
+		 " did you mean %<-%s%>?",
+		 switches[i].part1, hint);
+	else
+	  error ("unrecognized command line option %<-%s%>",
+		 switches[i].part1);
+      }
 }
 
 /* Handle the various -print-* options, returning 0 if the driver
@@ -9743,6 +9795,10 @@ static const char *
 add_omp_infile_spec_func (int argc, const char **)
 {
   gcc_assert (argc == 0);
+
+  /* Nothing to do if we're not actually offloading.  */
+  if (!ENABLE_OFFLOADING)
+    return NULL;
   gcc_assert (offload_targets != NULL);
 
   /* Nothing to do if we're not actually linking.  */

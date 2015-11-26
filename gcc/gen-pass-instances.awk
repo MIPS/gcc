@@ -57,14 +57,19 @@ function handle_line()
 	len_of_open = length("(");
 	len_of_close = length(")");
 
-	# Find pass_name argument
-	len_of_pass_name = len_of_call - (len_of_start + len_of_close);
-	pass_starts_at = call_starts_at + len_of_start;
-	pass_name = substr(line, pass_starts_at, len_of_pass_name);
+	# Find arguments
+	len_of_args = len_of_call - (len_of_start + len_of_close);
+	args_start_at = call_starts_at + len_of_start;
+	args_str = substr(line, args_start_at, len_of_args);
+	split(args_str, args, ",");
 
-	# Find call expression prefix (until and including called function)
-	prefix_len = pass_starts_at - 1 - len_of_open;
-	prefix = substr(line, 1, prefix_len);
+	# Set pass_name argument, an optional with_arg argument
+	pass_name = args[1];
+	with_arg = args[2];
+
+	# Find call expression prefix
+	len_of_prefix = call_starts_at - 1;
+	prefix = substr(line, 1, len_of_prefix);
 
 	# Find call expression postfix
 	postfix_starts_at = call_starts_at + len_of_call;
@@ -79,7 +84,23 @@ function handle_line()
 	pass_num = pass_counts[pass_name];
 
 	# Print call expression with extra pass_num argument
-	printf "%s(%s, %s)%s\n", prefix, pass_name, pass_num, postfix;
+	printf "%s", prefix;
+	if (with_arg)
+	{
+		printf "NEXT_PASS_WITH_ARG";
+	}
+	else
+	{
+		printf "NEXT_PASS";
+	}
+	printf " (";
+	printf "%s", pass_name;
+	printf ", %s", pass_num;
+	if (with_arg)
+	{
+		printf ", %s", with_arg;
+	}
+	printf ")%s\n", postfix;
 }
 
 { handle_line() }

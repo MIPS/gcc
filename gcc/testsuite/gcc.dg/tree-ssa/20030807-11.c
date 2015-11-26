@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom5" } */
 
 extern void abort (void);
 struct rtx_def;
@@ -18,4 +18,4 @@ foo (reg)
 }
                                                                                 
 /* There should be no IF conditionals.  */
-/* { dg-final { scan-tree-dump-times "if " 0 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "if " 0 "dom5"} } */

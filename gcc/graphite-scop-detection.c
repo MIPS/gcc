@@ -522,6 +522,11 @@ class scop_detection
 public:
   scop_detection () : scops (vNULL) {}
 
+  ~scop_detection ()
+  {
+    scops.release ();
+  }
+
   /* A marker for invalid sese_l.  */
   static sese_l invalid_sese;
 
@@ -1065,13 +1070,20 @@ scop_detection::harmful_stmt_in_region (sese_l scop) const
 
       /* The basic block should not be part of an irreducible loop.  */
       if (bb->flags & BB_IRREDUCIBLE_LOOP)
-        return true;
+	{
+	  dom.release ();
+	  return true;
+	}
 
       if (harmful_stmt_in_bb (scop, bb))
-	return true;
+	{
+	  dom.release ();
+	  return true;
+	}
     }
 
-    return false;
+  dom.release ();
+  return false;
 }
 
 /* Returns true if S1 subsumes/surrounds S2.  */
@@ -1705,9 +1717,9 @@ build_cross_bb_scalars_use (scop_p scop, tree use, gimple *use_stmt,
   gimple *def_stmt = SSA_NAME_DEF_STMT (use);
   if (gimple_bb (def_stmt) != gimple_bb (use_stmt))
     {
-      DEBUG_PRINT (dp << "Adding scalar read:\n";
+      DEBUG_PRINT (dp << "\nAdding scalar read:";
 		   print_generic_expr (dump_file, use, 0);
-		   dp << "From stmt:\n";
+		   dp << "\nFrom stmt:";
 		   print_gimple_stmt (dump_file, use_stmt, 0, 0));
       reads->safe_push (std::make_pair (use_stmt, use));
     }
@@ -1749,12 +1761,9 @@ graphite_find_cross_bb_scalar_vars (scop_p scop, gimple *stmt,
 static gimple_poly_bb_p
 try_generate_gimple_bb (scop_p scop, basic_block bb)
 {
-  vec<data_reference_p> drs;
-  drs.create (3);
-  vec<tree> writes;
-  writes.create (3);
-  vec<scalar_use> reads;
-  reads.create (3);
+  vec<data_reference_p> drs = vNULL;
+  vec<tree> writes = vNULL;
+  vec<scalar_use> reads = vNULL;
 
   sese_l region = scop->scop_info->region;
   loop_p nest = outermost_loop_in_sese (region, bb);

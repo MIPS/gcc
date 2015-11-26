@@ -1,6 +1,6 @@
 /* { dg-additional-options "-O2" } */
 /* { dg-additional-options "-ftree-parallelize-loops=32" } */
-/* { dg-additional-options "-fdump-tree-dom_oacc_kernels3" } */
+/* { dg-additional-options "-fdump-tree-dom3" } */
 
 #include <stdlib.h>
 
@@ -33,4 +33,4 @@ foo (unsigned int *c)
    be:
    - the one to read c.  */
 
-/* { dg-final { scan-tree-dump-times "(?n)\\*_\[0-9\]\[0-9\]*;$" 1 "dom_oacc_kernels3" } } */
+/* { dg-final { scan-tree-dump-times "(?n)\\*_\[0-9\]\[0-9\]*;$" 1 "dom3" } } */

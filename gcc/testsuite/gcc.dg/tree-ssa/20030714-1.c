@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O1 -fdump-tree-dom2" } */
+/* { dg-options "-O1 -fdump-tree-dom5" } */
    
 struct rtx_def;
 typedef struct rtx_def *rtx;
@@ -41,5 +41,5 @@ find_base_value_wrapper (src)
 }
 
 /* There should be no casts to short unsigned int.  */
-/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 0 "dom2"} } */
+/* { dg-final { scan-tree-dump-times "\\(short unsigned int\\)" 0 "dom5"} } */
 

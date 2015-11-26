@@ -2561,9 +2561,9 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
 	if (is_gimple_omp_offloaded (octx->stmt))
 	  {
 	    cgraph_node::get_create (decl)->offloadable = 1;
-#ifdef ENABLE_OFFLOADING
-	    g->have_offload = true;
-#endif
+	    if (ENABLE_OFFLOADING)
+	      g->have_offload = true;
+
 	    break;
 	  }
     }
@@ -12465,61 +12465,6 @@ expand_omp_atomic (struct omp_region *region)
   expand_omp_atomic_mutex (load_bb, store_bb, addr, loaded_val, stored_val);
 }
 
-/* Mark the loops inside the kernels region starting at REGION_ENTRY and ending
-   at REGION_EXIT.  */
-
-static void
-mark_loops_in_oacc_kernels_region (basic_block region_entry,
-				   basic_block region_exit)
-{
-  bitmap dominated_bitmap = BITMAP_GGC_ALLOC ();
-  bitmap excludes_bitmap = BITMAP_GGC_ALLOC ();
-  unsigned di;
-  basic_block bb;
-
-  bitmap_clear (dominated_bitmap);
-  bitmap_clear (excludes_bitmap);
-
-  /* Get all the blocks dominated by the region entry.  That will include the
-     entire region.  */
-  vec<basic_block> dominated
-    = get_all_dominated_blocks (CDI_DOMINATORS, region_entry);
-  FOR_EACH_VEC_ELT (dominated, di, bb)
-      bitmap_set_bit (dominated_bitmap, bb->index);
-
-  /* Exclude all the blocks which are not in the region: the blocks dominated by
-     the region exit.  */
-  if (region_exit != NULL)
-    {
-      vec<basic_block> excludes
-	= get_all_dominated_blocks (CDI_DOMINATORS, region_exit);
-      FOR_EACH_VEC_ELT (excludes, di, bb)
-	bitmap_set_bit (excludes_bitmap, bb->index);
-    }
-
-  /* Don't parallelize the kernels region if it contains more than one outer
-     loop.  */
-  unsigned int nr_outer_loops = 0;
-  struct loop *loop;
-  FOR_EACH_LOOP (loop, 0)
-    {
-      if (loop_outer (loop) != current_loops->tree_root)
-	continue;
-
-      if (bitmap_bit_p (dominated_bitmap, loop->header->index)
-	  && !bitmap_bit_p (excludes_bitmap, loop->header->index))
-	nr_outer_loops++;
-    }
-  if (nr_outer_loops != 1)
-    return;
-
-  /* Mark the loop nest to parallelize in the region.  */
-  FOR_EACH_LOOP (loop, 0)
-    if (bitmap_bit_p (dominated_bitmap, loop->header->index)
-	&& !bitmap_bit_p (excludes_bitmap, loop->header->index))
-      loop->in_oacc_kernels_region = true;
-}
-
 /* Encode an oacc launch argument.  This matches the GOMP_LAUNCH_PACK
    macro on gomp-constants.h.  We do not check for overflow.  */
 
@@ -12701,6 +12646,46 @@ get_oacc_ifn_dim_arg (const gimple *stmt)
 
   gcc_checking_assert (axis >= 0 && axis < GOMP_DIM_MAX);
   return (int) axis;
+}
+
+/* Mark the loops inside the kernels region starting at REGION_ENTRY and ending
+   at REGION_EXIT.  */
+
+static void
+mark_loops_in_oacc_kernels_region (basic_block region_entry,
+				   basic_block region_exit)
+{
+  struct loop *outer = region_entry->loop_father;
+  gcc_assert (region_exit == NULL || outer == region_exit->loop_father);
+
+  /* Don't parallelize the kernels region if it contains more than one outer
+     loop.  */
+  unsigned int nr_outer_loops = 0;
+  struct loop *single_outer;
+  for (struct loop *loop = outer->inner; loop != NULL; loop = loop->next)
+    {
+      gcc_assert (loop_outer (loop) == outer);
+
+      if (!dominated_by_p (CDI_DOMINATORS, loop->header, region_entry))
+	continue;
+
+      if (region_exit != NULL
+	  && dominated_by_p (CDI_DOMINATORS, loop->header, region_exit))
+	continue;
+
+      nr_outer_loops++;
+      single_outer = loop;
+    }
+  if (nr_outer_loops != 1)
+    return;
+
+  for (struct loop *loop = single_outer->inner; loop != NULL; loop = loop->inner)
+    if (loop->next)
+      return;
+
+  /* Mark the loops in the region.  */
+  for (struct loop *loop = single_outer; loop != NULL; loop = loop->inner)
+    loop->in_oacc_kernels_region = true;
 }
 
 /* Expand the GIMPLE_OMP_TARGET starting at REGION.  */
@@ -12900,10 +12885,9 @@ expand_omp_target (struct omp_region *region)
       node->parallelized_function = 1;
       cgraph_node::add_new_function (child_fn, true);
 
-#ifdef ENABLE_OFFLOADING
       /* Add the new function to the offload table.  */
-      vec_safe_push (offload_funcs, child_fn);
-#endif
+      if (ENABLE_OFFLOADING)
+	vec_safe_push (offload_funcs, child_fn);
 
       bool need_asm = DECL_ASSEMBLER_NAME_SET_P (current_function_decl)
 		      && !DECL_ASSEMBLER_NAME_SET_P (child_fn);
@@ -12915,11 +12899,10 @@ expand_omp_target (struct omp_region *region)
 	assign_assembler_name_if_neeeded (child_fn);
       cgraph_edge::rebuild_edges ();
 
-#ifdef ENABLE_OFFLOADING
       /* Prevent IPA from removing child_fn as unreachable, since there are no
 	 refs from the parent function to child_fn in offload LTO mode.  */
-      cgraph_node::get (child_fn)->mark_force_output ();
-#endif
+      if (ENABLE_OFFLOADING)
+	cgraph_node::get (child_fn)->mark_force_output ();
 
       /* Some EH regions might become dead, see PR34608.  If
 	 pass_cleanup_cfg isn't the first pass to happen with the
@@ -14285,8 +14268,10 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gomp_ordered *ord_stmt = as_a <gomp_ordered *> (stmt);
   gcall *x;
   gbind *bind;
-  bool simd
-    = find_omp_clause (gimple_omp_ordered_clauses (ord_stmt), OMP_CLAUSE_SIMD);
+  bool simd = find_omp_clause (gimple_omp_ordered_clauses (ord_stmt),
+			       OMP_CLAUSE_SIMD);
+  bool threads = find_omp_clause (gimple_omp_ordered_clauses (ord_stmt),
+				  OMP_CLAUSE_THREADS);
 
   if (find_omp_clause (gimple_omp_ordered_clauses (ord_stmt),
 		       OMP_CLAUSE_DEPEND))
@@ -14309,7 +14294,8 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 
   if (simd)
     {
-      x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_START, 0);
+      x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_START, 1,
+				      build_int_cst (NULL_TREE, threads));
       cfun->has_simduid_loops = true;
     }
   else
@@ -14323,7 +14309,8 @@ lower_omp_ordered (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_omp_set_body (stmt, NULL);
 
   if (simd)
-    x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_END, 0);
+    x = gimple_build_call_internal (IFN_GOMP_SIMD_ORDERED_END, 1,
+				    build_int_cst (NULL_TREE, threads));
   else
     x = gimple_build_call (builtin_decl_explicit (BUILT_IN_GOMP_ORDERED_END),
 			   0);
@@ -18789,10 +18776,7 @@ public:
 bool
 pass_omp_simd_clone::gate (function *)
 {
-  return ((flag_openmp || flag_openmp_simd
-	   || flag_cilkplus
-	   || (in_lto_p && !flag_wpa))
-	  && (targetm.simd_clone.compute_vecsize_and_simdlen != NULL));
+  return targetm.simd_clone.compute_vecsize_and_simdlen != NULL;
 }
 
 } // anon namespace
@@ -19614,10 +19598,10 @@ oacc_loop_process (oacc_loop *loop)
 
 /* Walk the OpenACC loop heirarchy checking and assigning the
    programmer-specified partitionings.  OUTER_MASK is the partitioning
-   this loop is contained within.  Return partitiong mask used within
-   this loop nest.  */
+   this loop is contained within.  Return true if we contain an
+   auto-partitionable loop.  */
 
-static unsigned
+static bool
 oacc_loop_fixed_partitions (oacc_loop *loop, unsigned outer_mask)
 {
   unsigned this_mask = loop->mask;
@@ -19746,14 +19730,19 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
     {
       unsigned this_mask = 0;
       
-      /* Pick the innermost free partitioning.  */
+      /* Determine the outermost partitioning used within this loop. */
       this_mask = inner_mask | GOMP_DIM_MASK (GOMP_DIM_MAX);
-      this_mask = (this_mask & -this_mask) >> 1;
+      this_mask = (this_mask & -this_mask);
+
+      /* Pick the partitioning just inside that one.  */
+      this_mask >>= 1;
+
+      /* And avoid picking one use by an outer loop. */
       this_mask &= ~outer_mask;
 
       if (!this_mask && noisy)
 	warning_at (loop->loc, 0,
-		    "insufficient parallelism available to partition loop");
+		    "insufficient partitioning available to parallelize loop");
 
       loop->mask = this_mask;
     }
@@ -19761,7 +19750,7 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
   
   if (loop->sibling)
     inner_mask |= oacc_loop_auto_partitions (loop->sibling, outer_mask);
-  
+
   return inner_mask;
 }
 
@@ -19769,13 +19758,8 @@ oacc_loop_auto_partitions (oacc_loop *loop, unsigned outer_mask)
    axes.  */
 
 static void
-oacc_loop_partition (oacc_loop *loop, int fn_level)
+oacc_loop_partition (oacc_loop *loop, unsigned outer_mask)
 {
-  unsigned outer_mask = 0;
-
-  if (fn_level >= 0)
-    outer_mask = GOMP_DIM_MASK (fn_level) - 1;
-
   if (oacc_loop_fixed_partitions (loop, outer_mask))
     oacc_loop_auto_partitions (loop, outer_mask);
 }
@@ -19858,7 +19842,8 @@ execute_oacc_device_lower ()
 
   /* Discover, partition and process the loops.  */
   oacc_loop *loops = oacc_loop_discovery ();
-  oacc_loop_partition (loops, fn_level);
+  unsigned outer_mask = fn_level >= 0 ? GOMP_DIM_MASK (fn_level) - 1 : 0;
+  oacc_loop_partition (loops, outer_mask);
   oacc_loop_process (loops);
   if (dump_file)
     {

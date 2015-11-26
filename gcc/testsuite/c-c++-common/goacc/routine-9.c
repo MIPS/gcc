@@ -1,6 +1,5 @@
 /* Test invalid use of clauses with routine.  */
 /* { dg-do compile } */
-/* { dg-additional-options "-W */
 
 void Bar ();
 
@@ -15,5 +14,7 @@ void Foo ()
 
 #pragma acc routine (Baz) // { dg-error "not been declared" }
 
-#pragma acc routine  // { dg-error "not followed by single function" }
+#pragma acc routine
 int i;
+// { dg-error "not followed by single function" "" { target c } 17 }
+// { dg-error "not followed by function declaration or definition" "" { target c++ } 17 }

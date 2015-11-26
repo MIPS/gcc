@@ -74,7 +74,7 @@ vector (int red)
 int
 seq (int red)
 {
-#pragma acc loop reduction (+:red) // { dg-warning "insufficient parallelism" }
+#pragma acc loop reduction (+:red) // { dg-warning "insufficient partitioning" }
   for (int i = 0; i < 10; i++)
     red ++;
 

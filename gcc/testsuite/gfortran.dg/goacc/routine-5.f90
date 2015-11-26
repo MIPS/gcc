@@ -87,7 +87,7 @@ subroutine seq (a)
   integer, intent (inout) :: a(N)
   integer :: i
 
-  !$acc loop ! { dg-warning "insufficient parallelism" }
+  !$acc loop ! { dg-warning "insufficient partitioning" }
   do i = 1, N
      a(i) = a(i) - a(i)
   end do

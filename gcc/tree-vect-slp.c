@@ -1429,6 +1429,13 @@ vect_analyze_slp_cost_1 (slp_instance instance, slp_tree node,
 	{
 	  int i;
 	  gcc_checking_assert (DR_IS_READ (STMT_VINFO_DATA_REF (stmt_info)));
+	  /* If the load is permuted then the alignment is determined by
+	     the first group element not by the first scalar stmt DR.  */
+	  if (SLP_TREE_LOAD_PERMUTATION (node).exists ())
+	    {
+	      stmt = GROUP_FIRST_ELEMENT (stmt_info);
+	      stmt_info = vinfo_for_stmt (stmt);
+	    }
 	  vect_model_load_cost (stmt_info, ncopies_for_cost, false,
 				node, prologue_cost_vec, body_cost_vec);
 	  /* If the load is permuted record the cost for the permutation.
@@ -1558,6 +1565,54 @@ vect_analyze_slp_cost (slp_instance instance, void *data)
   body_cost_vec.release ();
 }
 
+/* Splits a group of stores, currently beginning at FIRST_STMT, into two groups:
+   one (still beginning at FIRST_STMT) of size GROUP1_SIZE (also containing
+   the first GROUP1_SIZE stmts, since stores are consecutive), the second
+   containing the remainder.
+   Return the first stmt in the second group.  */
+
+static gimple *
+vect_split_slp_store_group (gimple *first_stmt, unsigned group1_size)
+{
+  stmt_vec_info first_vinfo = vinfo_for_stmt (first_stmt);
+  gcc_assert (GROUP_FIRST_ELEMENT (first_vinfo) == first_stmt);
+  gcc_assert (group1_size > 0);
+  int group2_size = GROUP_SIZE (first_vinfo) - group1_size;
+  gcc_assert (group2_size > 0);
+  GROUP_SIZE (first_vinfo) = group1_size;
+
+  gimple *stmt = first_stmt;
+  for (unsigned i = group1_size; i > 1; i--)
+    {
+      stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
+      gcc_assert (GROUP_GAP (vinfo_for_stmt (stmt)) == 1);
+    }
+  /* STMT is now the last element of the first group.  */
+  gimple *group2 = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt));
+  GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)) = 0;
+
+  GROUP_SIZE (vinfo_for_stmt (group2)) = group2_size;
+  for (stmt = group2; stmt; stmt = GROUP_NEXT_ELEMENT (vinfo_for_stmt (stmt)))
+    {
+      GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt)) = group2;
+      gcc_assert (GROUP_GAP (vinfo_for_stmt (stmt)) == 1);
+    }
+
+  /* For the second group, the GROUP_GAP is that before the original group,
+     plus skipping over the first vector.  */
+  GROUP_GAP (vinfo_for_stmt (group2)) =
+    GROUP_GAP (first_vinfo) + group1_size;
+
+  /* GROUP_GAP of the first group now has to skip over the second group too.  */
+  GROUP_GAP (first_vinfo) += group2_size;
+
+  if (dump_enabled_p ())
+    dump_printf_loc (MSG_NOTE, vect_location, "Split group into %d and %d\n",
+		     group1_size, group2_size);
+
+  return group2;
+}
+
 /* Analyze an SLP instance starting from a group of grouped stores.  Call
    vect_build_slp_tree to build a tree of packed stmts if possible.
    Return FALSE if it's impossible to SLP any stmt in the loop.  */
@@ -1573,7 +1628,7 @@ vect_analyze_slp_instance (vec_info *vinfo,
   tree vectype, scalar_type = NULL_TREE;
   gimple *next;
   unsigned int vectorization_factor = 0;
-  int i;
+  unsigned int i;
   unsigned int max_nunits = 0;
   vec<slp_tree> loads;
   struct data_reference *dr = STMT_VINFO_DATA_REF (vinfo_for_stmt (stmt));
@@ -1766,6 +1821,41 @@ vect_analyze_slp_instance (vec_info *vinfo,
   /* Free the allocated memory.  */
   vect_free_slp_tree (node);
   loads.release ();
+
+  /* For basic block SLP, try to break the group up into multiples of the
+     vectorization factor.  */
+  if (is_a <bb_vec_info> (vinfo)
+      && GROUP_FIRST_ELEMENT (vinfo_for_stmt (stmt))
+      && STMT_VINFO_GROUPED_ACCESS (vinfo_for_stmt (stmt)))
+    {
+      /* We consider breaking the group only on VF boundaries from the existing
+	 start.  */
+      for (i = 0; i < group_size; i++)
+	if (!matches[i]) break;
+
+      if (i >= vectorization_factor && i < group_size)
+	{
+	  /* Split into two groups at the first vector boundary before i.  */
+	  gcc_assert ((vectorization_factor & (vectorization_factor - 1)) == 0);
+	  unsigned group1_size = i & ~(vectorization_factor - 1);
+
+	  gimple *rest = vect_split_slp_store_group (stmt, group1_size);
+	  bool res = vect_analyze_slp_instance (vinfo, stmt, max_tree_size);
+	  /* If the first non-match was in the middle of a vector,
+	     skip the rest of that vector.  */
+	  if (group1_size < i)
+	    {
+	      i = group1_size + vectorization_factor;
+	      if (i < group_size)
+		rest = vect_split_slp_store_group (rest, vectorization_factor);
+	    }
+	  if (i < group_size)
+	    res |= vect_analyze_slp_instance (vinfo, rest, max_tree_size);
+	  return res;
+	}
+      /* Even though the first vector did not all match, we might be able to SLP
+	 (some) of the remainder.  FORNOW ignore this possibility.  */
+    }
 
   return false;
 }
@@ -2573,6 +2663,57 @@ vect_slp_bb (basic_block bb)
 }
 
 
+/* Return 1 if vector type of boolean constant which is OPNUM
+   operand in statement STMT is a boolean vector.  */
+
+static bool
+vect_mask_constant_operand_p (gimple *stmt, int opnum)
+{
+  stmt_vec_info stmt_vinfo = vinfo_for_stmt (stmt);
+  enum tree_code code = gimple_expr_code (stmt);
+  tree op, vectype;
+  gimple *def_stmt;
+  enum vect_def_type dt;
+
+  /* For comparison and COND_EXPR type is chosen depending
+     on the other comparison operand.  */
+  if (TREE_CODE_CLASS (code) == tcc_comparison)
+    {
+      if (opnum)
+	op = gimple_assign_rhs1 (stmt);
+      else
+	op = gimple_assign_rhs2 (stmt);
+
+      if (!vect_is_simple_use (op, stmt_vinfo->vinfo, &def_stmt,
+			       &dt, &vectype))
+	gcc_unreachable ();
+
+      return !vectype || VECTOR_BOOLEAN_TYPE_P (vectype);
+    }
+
+  if (code == COND_EXPR)
+    {
+      tree cond = gimple_assign_rhs1 (stmt);
+
+      if (TREE_CODE (cond) == SSA_NAME)
+	return false;
+
+      if (opnum)
+	op = TREE_OPERAND (cond, 1);
+      else
+	op = TREE_OPERAND (cond, 0);
+
+      if (!vect_is_simple_use (op, stmt_vinfo->vinfo, &def_stmt,
+			       &dt, &vectype))
+	gcc_unreachable ();
+
+      return !vectype || VECTOR_BOOLEAN_TYPE_P (vectype);
+    }
+
+  return VECTOR_BOOLEAN_TYPE_P (STMT_VINFO_VECTYPE (stmt_vinfo));
+}
+
+
 /* For constant and loop invariant defs of SLP_NODE this function returns
    (vector) defs (VEC_OPRNDS) that will be used in the vectorized stmts.
    OP_NUM determines if we gather defs for operand 0 or operand 1 of the RHS of
@@ -2609,8 +2750,7 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 
   /* Check if vector type is a boolean vector.  */
   if (TREE_CODE (TREE_TYPE (op)) == BOOLEAN_TYPE
-      && (VECTOR_BOOLEAN_TYPE_P (STMT_VINFO_VECTYPE (stmt_vinfo))
-	  || (code == COND_EXPR && op_num < 2)))
+      && vect_mask_constant_operand_p (stmt, op_num))
     vector_type
       = build_same_sized_truth_vector_type (STMT_VINFO_VECTYPE (stmt_vinfo));
   else

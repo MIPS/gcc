@@ -44,7 +44,7 @@ program main
   !
 
   !$acc parallel copy (a)
-  !$acc loop ! { dg-warning "insufficient parallelism" }
+  !$acc loop ! { dg-warning "insufficient partitioning" }
   do i = 1, N
      call gang (a)
   end do
