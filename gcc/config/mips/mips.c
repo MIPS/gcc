@@ -802,6 +802,61 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "use_debug_exception_return", 0, 0, false, true,  true, NULL, false },
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
+
+struct mips_sdata_entry
+{
+  char *var;
+  struct mips_sdata_entry *next;
+};
+
+static struct mips_sdata_entry *mips_sdata_opt_list;
+
+static struct mips_sdata_entry *
+mips_read_list (const char * filename)
+{
+  FILE *fd;
+  char line[256];
+  struct mips_sdata_entry *current = NULL;
+  struct mips_sdata_entry *head = NULL;
+
+  if (filename == NULL)
+    return NULL;
+  fd = fopen (filename, "r");
+  if (fd == NULL)
+    {
+      error ("Bad filename for -msdata-opt-list: %s\n", filename);
+      return NULL;
+    }
+
+  while (fgets (line, sizeof (line), fd))
+    {
+      struct mips_sdata_entry *entry =
+	(struct mips_sdata_entry *)xmalloc (sizeof (struct mips_sdata_entry));
+      entry->var = xstrdup (line);
+      if (entry->var[strlen(entry->var)-1] == '\n')
+	entry->var[strlen(entry->var)-1] = '\0';
+      entry->next = NULL;
+      if (head == NULL)
+	current = head = entry;
+      else
+	current = current->next = entry;
+    }
+  fclose (fd);
+  return head;
+}
+
+static bool
+mips_find_list (const char *var, struct mips_sdata_entry *list)
+{
+  while (list != NULL)
+    {
+      if (strcmp (list->var, var) == 0)
+	return true;
+      list = list->next;
+    }
+
+  return false;
+}
 
 /* A table describing all the processors GCC knows about; see
    mips-cpus.def for details.  */
@@ -1654,6 +1709,29 @@ mips_insert_attributes (tree decl, tree *attributes)
       if (compression_flags)
 	error ("%qs attribute only applies to functions",
 	       mips_get_compress_on_name (nocompression_flags));
+
+      if (TREE_CODE (decl) == VAR_DECL
+	  && is_global_var (decl)
+	  && mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			     mips_sdata_opt_list))
+	{
+	  tree attr_args;
+	  if (mips_sdata_section_num > -1)
+	    {
+	      char sec_name [13];
+	      sprintf (sec_name, ".sdata_%d", mips_sdata_section_num);
+	      attr_args = build_tree_list (NULL_TREE,
+					   build_string (strlen (sec_name),
+							 sec_name));
+	    }
+	  else
+	    attr_args = build_tree_list (NULL_TREE,
+					 build_string (6, ".sdata"));
+
+	  *attributes = tree_cons (get_identifier ("section"),
+				   attr_args,
+				   *attributes);
+	}
     }
   else
     {
@@ -9608,6 +9686,68 @@ mips_encode_section_info (tree decl, rtx rtl, int first)
     }
 }
 
+/* Implement TARGET_ASM_UNIQUE_SECTION.  */
+
+void
+mips_asm_unique_section (tree decl, int reloc)
+{
+  default_unique_section (decl, reloc);
+
+  const char *name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
+
+  if (mips_sdata_section_num > -1
+      && (strncmp (".sdata", name, 6) == 0
+	  || strncmp (".sbss", name, 5) == 0))
+    {
+      char *sec_name = (char*) alloca (strlen (name) + 5);
+      if (strncmp (".sdata", name, 6) == 0)
+	sprintf (sec_name, ".sdata_%d%s", mips_sdata_section_num, name + 6);
+      else
+	sprintf (sec_name, ".sbss_%d%s", mips_sdata_section_num, name + 5);
+
+      DECL_SECTION_NAME (decl) = build_string (strlen (sec_name), sec_name);
+    }
+}
+
+/* Implement TARGET_ASM_SELECT_SECTION.  */
+
+static section *
+mips_asm_select_section (tree exp, int reloc, unsigned HOST_WIDE_INT align)
+{
+  char * sec_name;
+  section *s;
+
+  s = default_elf_select_section (exp, reloc, align);
+
+  if (mips_sdata_section_num > -1
+      && (s->named.common.flags & SECTION_NAMED)
+      && (strncmp (".sdata", s->named.name, 6) == 0
+	  || strncmp (".sbss", s->named.name, 5) == 0))
+    {
+      sec_name = (char*) alloca (strlen (s->named.name) + 5);
+      if (strncmp (".sdata", s->named.name, 6) == 0)
+	sprintf (sec_name, ".sdata_%d%s", mips_sdata_section_num, s->named.name + 6);
+      else
+	sprintf (sec_name, ".sbss_%d%s", mips_sdata_section_num, s->named.name + 5);
+      s = get_section (sec_name, s->named.common.flags, exp);
+    }
+  return s;
+}
+
+/* Implement TARGET_SECTION_TYPE_FLAGS.  */
+
+unsigned int
+mips_section_type_flags (tree decl, const char *name, int reloc)
+{
+  unsigned int flags = default_section_type_flags (decl, name, reloc);
+
+  if (mips_sdata_section_num > -1
+      && strncmp (name, ".sbss_", 6) == 0)
+    flags |= SECTION_BSS;
+
+  return flags;
+}
+
 /* Implement TARGET_SELECT_RTX_SECTION.  */
 
 static section *
@@ -9679,7 +9819,9 @@ mips_in_small_data_p (const_tree decl)
 
       /* Reject anything that isn't in a known small-data section.  */
       name = TREE_STRING_POINTER (DECL_SECTION_NAME (decl));
-      if (strcmp (name, ".sdata") != 0 && strcmp (name, ".sbss") != 0)
+      if (strcmp (name, ".sdata") != 0 && strcmp (name, ".sbss") != 0
+	  && strncmp (name, ".sdata_", 7) != 0
+	  && strncmp (name, ".sbss_", 6) != 0)
 	return false;
 
       /* If a symbol is defined externally, the assembler will use the
@@ -19978,6 +20120,8 @@ mips_option_override (void)
   if (TARGET_FLIP_MIPS16)
     TARGET_INTERLINK_COMPRESSED = 1;
 
+  mips_sdata_opt_list = mips_read_list (mips_sdata_opt_list_file);
+
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
 			       ? g_switch_value
@@ -20511,6 +20655,9 @@ mips_option_override (void)
 
   if (TARGET_HARD_FLOAT_ABI && TARGET_MIPS5900)
     REAL_MODE_FORMAT (SFmode) = &spu_single_format;
+
+  if (mips_sdata_section_num >= 1000)
+    error ("Number for -msdata-num must be between 0 and 999");
 }
 
 /* Swap the register information for registers I and I + 1, which
@@ -22987,6 +23134,15 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 
 #undef TARGET_HARD_REGNO_SCRATCH_OK
 #define TARGET_HARD_REGNO_SCRATCH_OK mips_hard_regno_scratch_ok
+
+#undef TARGET_ASM_SELECT_SECTION
+#define TARGET_ASM_SELECT_SECTION mips_asm_select_section
+
+#undef TARGET_ASM_UNIQUE_SECTION
+#define TARGET_ASM_UNIQUE_SECTION mips_asm_unique_section
+
+#undef TARGET_SECTION_TYPE_FLAGS
+#define TARGET_SECTION_TYPE_FLAGS mips_section_type_flags
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

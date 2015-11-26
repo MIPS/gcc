@@ -794,6 +794,8 @@ Objective-C and Objective-C++ Dialects}.
 -G@var{num}  -mlocal-sdata  -mno-local-sdata @gol
 -mextern-sdata  -mno-extern-sdata  -mgpopt  -mno-gopt @gol
 -membedded-data  -mno-embedded-data @gol
+-msdata-num=@var{num} @gol
+-msdata-opt-list=@var{file} @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -mcode-readable=@var{setting} @gol
 -mdead-loads -mno-dead-loads @gol
@@ -17692,6 +17694,40 @@ Allocate variables to the read-only data section first if possible, then
 next in the small data section if possible, otherwise in data.  This gives
 slightly slower code than the default, but reduces the amount of RAM required
 when executing, and thus may be preferred for some embedded systems.
+
+@item -msdata-num=@var{num}
+@opindex msdata-num
+Use a numbered small data section instead of the default to enable multiple
+small data areas within one executable.  This feature is for advanced users
+only and requires very careful management of where data is accessed.  The
+aim is to allow code which executes solely within one software context to
+use a unique small data area.
+
+Compilation units should be grouped such that all units within a group can
+share a small data section.  The @code{num} value should be set to the same
+number for all related modules.  Any data that is shared between contexts
+will need to be explicitly placed in a named section using
+@code{__attribute__((section(".my_shared_data")))}.  Alternatively use the
+@option{-mno-extern-sdata} option to ensure that the compiler does not
+automatically place global data in the small data section and instead
+use the @option{-msdata-opt-list} option to explicitly place some global
+data in the small data section where it is only used by one context.
+
+It is the user's responsibility to ensure that the global pointer for any
+given software context is set to point at the appropriate small data area.
+It is also the user's responsibility to ensure that data placed in one
+software context's small data area is not accessed using the small data
+model from a different software context as the application may not link.
+Linker support for this feature is also required and should be enabled
+using @option{-Wl,--user-defined-sdata-sections}.
+
+@item -msdata-opt-list
+@opindex msdata-opt-list
+Read a list of data variables from a file that must be accessed using the
+small data model.  This is equivalent to adding
+@code{__attribute__((section(".sdata"))} to the declaration in the source.
+For this option to take effect on uninitialised globals then
+@option{-fno-common} must also be used.
 
 @item -muninit-const-in-rodata
 @itemx -mno-uninit-const-in-rodata
