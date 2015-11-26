@@ -61,6 +61,7 @@
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "decl.h"
 
 #include "callbacks.hh"
 #include "connection.hh"
@@ -477,9 +478,13 @@ plugin_new_decl (cc1_plugin::connection *self,
       gcc_assert (!sym_flags);
       return convert_out (error_mark_node);
 
+      /* FIXME: add GCC_CP_SYMBOL_CLASS.  */
+
     default:
       abort ();
     }
+
+  /* FIXME: check for a template parameter list scope.  */
 
   source_location loc = ctx->get_source_location (filename, line_number);
   bool class_member_p = at_class_scope_p ();
@@ -1012,13 +1017,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
 
 int
 plugin_new_field (cc1_plugin::connection *,
-		  gcc_type record_or_union_type_in,
 		  const char *field_name,
 		  gcc_type field_type_in,
 		  unsigned long bitsize,
 		  unsigned long bitpos)
 {
-  tree record_or_union_type = convert_in (record_or_union_type_in);
+  tree record_or_union_type = current_class_type;
   tree field_type = convert_in (field_type_in);
 
   gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
@@ -1058,10 +1062,9 @@ plugin_new_field (cc1_plugin::connection *,
 
 int
 plugin_finish_record_or_union (cc1_plugin::connection *,
-			       gcc_type record_or_union_type_in,
 			       unsigned long size_in_bytes)
 {
-  tree record_or_union_type = convert_in (record_or_union_type_in);
+  tree record_or_union_type = current_class_type;
 
   gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
 
@@ -1069,6 +1072,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
 
   gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
 				size_in_bytes) == 0);
+
+  // FIXME: end_template_decl if it's a template?  I don't think so,
+  // we're only defining specializations.  -lxo
 
   return 1;
 }
@@ -1246,6 +1252,459 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (memptr_type));
 }
 
+/* Abuse an unused field of the dummy template parms entry to hold the
+   parm list.  */
+#define TP_PARM_LIST TREE_TYPE (current_template_parms)
+
+int
+plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
+{
+  begin_template_parm_list ();
+
+  TP_PARM_LIST = NULL_TREE;
+
+  return 0;
+}
+
+gcc_typedecl
+plugin_type_decl (cc1_plugin::connection *,
+		  gcc_type type_in)
+{
+  tree type = convert_in (type_in);
+
+  tree name = TYPE_NAME (type);
+  gcc_assert (name);
+
+  return convert_out (name);
+}
+
+gcc_typedecl
+plugin_new_template_typename_parm (cc1_plugin::connection *self,
+				   const char *id,
+				   int /* bool */ pack_p,
+				   gcc_typedecl default_type,
+				   const char *filename,
+				   unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  tree parm = finish_template_type_parm (class_type_node, get_identifier (id));
+  parm = build_tree_list (convert_in (default_type), parm);
+
+  gcc_assert (!(pack_p && default_type));
+
+  /* Create a type and a decl for the type parm, and add the decl to
+     TP_PARM_LIST.  */
+  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
+					/* is_non_type = */ false, pack_p);
+
+  /* Return the type of the newly-added parm decl.  */
+  return convert_out (ctx->preserve (TREE_TYPE (tree_last (TP_PARM_LIST))));
+}
+
+gcc_utempl
+plugin_new_template_template_parm (cc1_plugin::connection *self,
+				   const char *id,
+				   int /* bool */ pack_p,
+				   gcc_utempl default_templ,
+				   const char *filename,
+				   unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  /* Finish the template parm list that started this template parm.  */
+  end_template_parm_list (TP_PARM_LIST);
+
+  tree parm = finish_template_template_parm (class_type_node,
+					     get_identifier (id));
+  parm = build_tree_list (convert_in (default_templ), parm);
+
+  gcc_assert (!(pack_p && default_templ));
+
+  /* Create a type and a decl for the template parm, and add the decl
+     to TP_PARM_LIST.  */
+  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
+					/* is_non_type = */ false, pack_p);
+
+  /* Return the decl of the newly-added template template parm.  */
+  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
+}
+
+gcc_decl
+plugin_new_template_value_parm (cc1_plugin::connection *self,
+				gcc_type type,
+				const char *id,
+				gcc_expr default_value,
+				const char *filename,
+				unsigned int line_number)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  cp_declarator declarator;
+  memset (&declarator, 0, sizeof (declarator));
+  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none):
+  declarator.kind = cdk_id;
+  declarator.u.id.qualifying_scope = NULL;
+  declarator.u.id.unqualified_name = get_identifier (id);
+  declarator.u.id.sfk = sfk_none;
+
+  cp_decl_specifier_seq declspec;
+  memset (&declspec, 0, sizeof (declspec));
+  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false):
+  declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
+  declspec.type = convert_in (type);
+  declspec.locations[ds_type_spec] = loc;
+
+  tree parm = grokdeclarator (&declarator, &declspec, TPARM, 0, 0);
+  parm = build_tree_list (convert_in (default_value), parm);
+
+  /* Create a type and a decl for the template parm, and add the decl
+     to TP_PARM_LIST.  */
+  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
+					/* is_non_type = */ true, false);
+
+  /* Return the newly-added parm decl.  */
+  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
+}
+
+static tree
+targlist (const gcc_cp_template_args *targs)
+{
+  int n = targs->n_elements;
+  tree vec = make_tree_vec (n);
+  while (n--)
+    {
+      switch (targs->kinds[n])
+	{
+	case GCC_CP_TPARG_VALUE:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].value);
+	  break;
+	case GCC_CP_TPARG_CLASS:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].type);
+	  break;
+	case GCC_CP_TPARG_TEMPL:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].templ);
+	  break;
+	case GCC_CP_TPARG_PACK:
+	  TREE_VEC_ELT (vec, n) = convert_in (targs->elements[n].pack);
+	  break;
+	default:
+	  gcc_unreachable ();
+	}
+    }
+  return vec;
+}
+
+gcc_typedecl
+plugin_new_dependent_typename (cc1_plugin::connection *self,
+			       gcc_typedecl enclosing_type,
+			       const char *id,
+			       const gcc_cp_template_args *targs)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (enclosing_type);
+  tree name = get_identifier (id);
+  if (targs)
+    name = build_min_nt_loc (/*loc=*/0, TEMPLATE_ID_EXPR,
+			     name, targlist (targs));
+  tree res = make_typename_type (type, name, typename_type,
+				 /*complain=*/tf_error);
+  return convert_out (ctx->preserve (res));
+}
+
+gcc_utempl
+plugin_new_dependent_class_template (cc1_plugin::connection *self,
+				     gcc_typedecl enclosing_type,
+				     const char *id)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (enclosing_type);
+  tree name = get_identifier (id);
+  tree res = make_unbound_class_template (type, name, NULL_TREE,
+					  /*complain=*/tf_error);
+  return convert_out (ctx->preserve (res));
+}
+
+gcc_typedecl
+plugin_new_dependent_typespec (cc1_plugin::connection *self,
+			       gcc_utempl template_decl,
+			       const gcc_cp_template_args *targs)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (template_decl);
+  tree decl = finish_template_type (type, targlist (targs),
+				    /*entering_scope=*/false);
+  return convert_out (ctx->preserve (decl));
+}
+
+gcc_decl
+plugin_new_dependent_value_expr (cc1_plugin::connection *self,
+				 gcc_typedecl enclosing_type,
+				 const char *id,
+				 const gcc_cp_template_args *targs)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (enclosing_type);
+  tree name = get_identifier (id);
+  if (targs)
+    name = lookup_template_function (name, targlist (targs));
+  tree res = build_qualified_name (NULL_TREE, type, name, !!targs);
+  return convert_out (ctx->preserve (res));
+}
+
+gcc_expr
+plugin_literal_expr (cc1_plugin::connection *self,
+		     gcc_type type, unsigned long value)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree t = convert_in (type);
+  tree val = build_int_cst_type (t, (unsigned HOST_WIDE_INT) value);
+  return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_decl_expr (cc1_plugin::connection *, gcc_decl decl_in)
+{
+  tree decl = convert_in (decl_in);
+  gcc_assert (DECL_P (decl));
+  return convert_out (decl);
+}
+
+gcc_expr
+plugin_unary_value_expr (cc1_plugin::connection *self,
+			 const char *unary_op,
+			 gcc_expr operand)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree op0 = convert_in (operand);
+  tree_code opcode = ERROR_MARK;
+  switch (CHARS2 (unary_op[0], unary_op[1]))
+    {
+    case CHARS2 ('p', 's'): // operator + (unary)
+      opcode = UNARY_PLUS_EXPR;
+      break;
+    case CHARS2 ('n', 'g'): // operator - (unary)
+      opcode = NEGATE_EXPR;
+      break;
+    case CHARS2 ('a', 'd'): // operator & (unary)
+      /* FIXME: how do we distinguish taking the address of a data
+	 member from creating a pointer-to-member value?  Both would
+	 take the same decl as the operand, unless we require
+	 different expr codes for e.g. this->member and
+	 class::member.  */
+      opcode = ADDR_EXPR;
+      break;
+    case CHARS2 ('d', 'e'): // operator * (unary)
+      opcode = INDIRECT_REF;
+      break;
+    case CHARS2 ('c', 'o'): // operator ~
+      opcode = BIT_NOT_EXPR;
+      break;
+    case CHARS2 ('n', 't'): // operator !
+      opcode = TRUTH_NOT_EXPR;
+      break;
+      /* FIXME: __real__, __imag__.  */
+    case CHARS2 ('p', 'p'): // operator ++
+    case CHARS2 ('m', 'm'): // operator --
+    default:
+      gcc_unreachable ();
+    }
+  int processing_template_decl_save = processing_template_decl;
+  processing_template_decl = 1;
+  tree val = build_x_unary_op (/*loc=*/0, opcode, op0, tf_error);
+  processing_template_decl = processing_template_decl_save;
+  return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_binary_value_expr (cc1_plugin::connection *self,
+			  const char *binary_op,
+			  gcc_expr operand1,
+			  gcc_expr operand2)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree op0 = convert_in (operand1);
+  tree op1 = convert_in (operand2);
+  tree_code opcode = ERROR_MARK;
+  switch (CHARS2 (binary_op[0], binary_op[1]))
+    {
+    case CHARS2 ('p', 'l'): // operator +
+      opcode = PLUS_EXPR;
+      break;
+    case CHARS2 ('m', 'i'): // operator -
+      opcode = MINUS_EXPR;
+      break;
+    case CHARS2 ('m', 'l'): // operator *
+      opcode = MULT_EXPR;
+      break;
+    case CHARS2 ('d', 'v'): // operator /
+      opcode = TRUNC_DIV_EXPR;
+      break;
+    case CHARS2 ('r', 'm'): // operator %
+      opcode = TRUNC_MOD_EXPR;
+      break;
+    case CHARS2 ('a', 'n'): // operator &
+      opcode = BIT_AND_EXPR;
+      break;
+    case CHARS2 ('o', 'r'): // operator |
+      opcode = BIT_IOR_EXPR;
+      break;
+    case CHARS2 ('e', 'o'): // operator ^
+      opcode = BIT_XOR_EXPR;
+      break;
+    case CHARS2 ('l', 's'): // operator <<
+      opcode = LSHIFT_EXPR;
+      break;
+    case CHARS2 ('r', 's'): // operator >>
+      opcode = RSHIFT_EXPR;
+      break;
+    case CHARS2 ('e', 'q'): // operator ==
+      opcode = EQ_EXPR;
+      break;
+    case CHARS2 ('n', 'e'): // operator !=
+      opcode = NE_EXPR;
+      break;
+    case CHARS2 ('l', 't'): // operator <
+      opcode = LT_EXPR;
+      break;
+    case CHARS2 ('g', 't'): // operator >
+      opcode = GT_EXPR;
+      break;
+    case CHARS2 ('l', 'e'): // operator <=
+      opcode = LE_EXPR;
+      break;
+    case CHARS2 ('g', 'e'): // operator >=
+      opcode = GE_EXPR;
+      break;
+    case CHARS2 ('a', 'a'): // operator &&
+      opcode = TRUTH_ANDIF_EXPR;
+      break;
+    case CHARS2 ('o', 'o'): // operator ||
+      opcode = TRUTH_ORIF_EXPR;
+      break;
+    case CHARS2 ('c', 'm'): // operator ,
+      opcode = COMPOUND_EXPR;
+      break;
+    case CHARS2 ('p', 'm'): // operator ->*
+      opcode = MEMBER_REF;
+      break;
+    case CHARS2 ('p', 't'): // operator ->
+      opcode = COMPONENT_REF;
+      break;
+    case CHARS2 ('i', 'x'): // operator []
+      opcode = ARRAY_REF;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+  int processing_template_decl_save = processing_template_decl;
+  processing_template_decl = 1;
+  tree val = build_x_binary_op (/*loc=*/0, opcode, op0, ERROR_MARK,
+				op1, ERROR_MARK, NULL, tf_error);
+  processing_template_decl = processing_template_decl_save;
+  return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_ternary_value_expr (cc1_plugin::connection *self,
+			   const char *ternary_op,
+			   gcc_expr operand1,
+			   gcc_expr operand2,
+			   gcc_expr operand3)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree op0 = convert_in (operand1);
+  tree op1 = convert_in (operand2);
+  tree op2 = convert_in (operand3);
+  gcc_assert (CHARS2 (ternary_op[0], ternary_op[1])
+	      == CHARS2 ('q', 'u')); // ternary operator
+  int processing_template_decl_save = processing_template_decl;
+  processing_template_decl = 1;
+  tree val = build_x_conditional_expr (/*loc=*/0, op0, op1, op2, tf_error);
+  processing_template_decl = processing_template_decl_save;
+  return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_unary_type_expr (cc1_plugin::connection *self,
+			const char *unary_op,
+			gcc_typedecl operand)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (operand);
+  tree_code opcode = ERROR_MARK;
+  switch (CHARS2 (binary_op[0], binary_op[1]))
+    {
+      /* FIXME: implement sizeof, alignof, ...  */
+    default:
+      gcc_unreachable ();
+    }
+  int processing_template_decl_save = processing_template_decl;
+  processing_template_decl = 1;
+  tree val = cxx_sizeof_or_alignof_type (type, opcode, true);
+  processing_template_decl = processing_template_decl_save;
+  return convert_out (ctx->preserve (val));
+}
+
+gcc_expr
+plugin_type_value_expr (cc1_plugin::connection *self,
+			const char *binary_op,
+			gcc_typedecl operand1,
+			gcc_expr operand2)
+{
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  tree type = convert_in (operand1);
+  tree expr = convert_in (operand2);
+  tree_code opcode = ERROR_MARK;
+  switch (CHARS2 (binary_op[0], binary_op[1]))
+    {
+      /* FIXME: implement type casts, ...  */
+    default:
+      gcc_unreachable ();
+    }
+  int processing_template_decl_save = processing_template_decl;
+  processing_template_decl = 1;
+  tree val = NULL_TREE;
+  processing_template_decl = processing_template_decl_save;
+  return convert_out (ctx->preserve (val));
+}
+
+gcc_typedecl
+plugin_expr_type (cc1_plugin::connection *,
+		  gcc_expr operand)
+{
+  tree op0 = convert_in (operand);
+  tree type = TREE_TYPE (op0);
+  if (type)
+    type = TYPE_NAME (type);
+  return convert_out (type);
+}
+
+gcc_decl
+plugin_specialize_function_template (cc1_plugin::connection *self,
+				     gcc_decl template_decl,
+				     const gcc_cp_template_args *targs,
+				     gcc_address address,
+				     const char *filename,
+				     unsigned int line_number)
+{
+  /* FIXME: implement.  See begin|end_specialization.  */
+}
+
+gcc_type
+plugin_start_specialize_class_template (cc1_plugin::connection *self,
+					gcc_decl template_decl,
+					const gcc_cp_template_args *args,
+					const gcc_vbase_array *base_classes,
+					const char *filename,
+					unsigned int line_number)
+{
+  /* FIXME: implement.  See begin|end_specialization.  */
+}
+
 gcc_type
 plugin_int_type (cc1_plugin::connection *self,
 		 int is_unsigned, unsigned long size_in_bytes)
@@ -1307,6 +1766,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
+}
+
+gcc_type
+plugin_build_dependent_array_type (cc1_plugin::connection *self,
+				   gcc_type element_type_in,
+				   gcc_expr num_elements_in)
+{
+  /* FIXME: implement.  */
 }
 
 gcc_type
