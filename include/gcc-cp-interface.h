@@ -41,7 +41,7 @@ struct gcc_cp_context;
 
 enum gcc_cp_api_version
 {
-  GCC_CP_FE_VERSION_0 = 0xffffffff-3
+  GCC_CP_FE_VERSION_0 = 0xffffffff-4
 };
 
 /* Qualifiers.  */
@@ -77,6 +77,37 @@ struct gcc_vbase_array
      Take elements[i] as a virtual base class iff virtualp[i].  */
 
   char /* bool */ *virtualp;
+};
+
+/* Opaque typedef for expressions.  They are used for template
+   arguments, default values for non-type template parameters, and
+   default arguments for functions.  */
+
+typedef unsigned long long gcc_expr;
+
+typedef enum
+{ GCC_CP_TPARG_VALUE, GCC_CP_TPARG_CLASS, GCC_CP_TPARG_TEMPL }
+gcc_cp_template_arg_kind;
+
+typedef union
+{ gcc_expr value; gcc_type type; gcc_decl templ; }
+gcc_cp_template_arg;
+  
+/* An array of template arguments.  */
+
+struct gcc_cp_template_args
+{
+  /* Number of elements.  */
+
+  int n_elements;
+
+  /* kind[i] indicates what kind of template argument type[i] is.  */
+
+  char /* gcc_cp_template_arg_kind */ *kinds;
+
+  /* The template arguments.  */
+
+  gcc_cp_template_arg *elements;
 };
 
 /* This enumerates the kinds of decls that GDB can create.  */
