@@ -1,0 +1,10 @@
+Bottom: f17dbedac038877f3b5e4f0d2ca1d4b2fd2af3a9
+Top:    f17dbedac038877f3b5e4f0d2ca1d4b2fd2af3a9
+Author: Alexandre Oliva <aoliva@redhat.com>
+Date:   2015-11-26 18:57:41 -0200
+
+extend API to support templates
+
+---
+
+
