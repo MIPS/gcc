@@ -976,13 +976,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
 
 int
 plugin_new_field (cc1_plugin::connection *,
-		  gcc_type record_or_union_type_in,
 		  const char *field_name,
 		  gcc_type field_type_in,
 		  unsigned long bitsize,
 		  unsigned long bitpos)
 {
-  tree record_or_union_type = convert_in (record_or_union_type_in);
+  tree record_or_union_type = current_class_type;
   tree field_type = convert_in (field_type_in);
 
   gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
@@ -1022,10 +1021,9 @@ plugin_new_field (cc1_plugin::connection *,
 
 int
 plugin_finish_record_or_union (cc1_plugin::connection *,
-			       gcc_type record_or_union_type_in,
 			       unsigned long size_in_bytes)
 {
-  tree record_or_union_type = convert_in (record_or_union_type_in);
+  tree record_or_union_type = current_class_type;
 
   gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
 
@@ -1072,11 +1070,10 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
 
 int
 plugin_build_add_enum_constant (cc1_plugin::connection *,
-				gcc_type enum_type_in,
 				const char *name,
 				unsigned long value)
 {
-  tree enum_type = convert_in (enum_type_in);
+  tree enum_type = current_class_type;
 
   gcc_assert (TREE_CODE (enum_type) == ENUMERAL_TYPE);
 
@@ -1087,10 +1084,9 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
 }
 
 int
-plugin_finish_enum_type (cc1_plugin::connection *,
-			 gcc_type enum_type_in)
+plugin_finish_enum_type (cc1_plugin::connection *)
 {
-  tree enum_type = convert_in (enum_type_in);
+  tree enum_type = current_class_type;
 
   finish_enum_value_list (enum_type);
   finish_enum (enum_type);
@@ -1208,6 +1204,164 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (memptr_type));
 }
 
+int
+plugin_start_new_template_decl (cc1_plugin::connection *self)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_type
+plugin_new_template_typename_parm (cc1_plugin::connection *self,
+				   const char *id,
+				   int /* bool */ pack_p,
+				   gcc_type default_type,
+				   const char *filename,
+				   unsigned int line_number)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_decl
+plugin_new_template_template_parm (cc1_plugin::connection *self,
+				   const char *id,
+				   gcc_decl default_templ,
+				   const char *filename,
+				   unsigned int line_number)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_decl
+plugin_new_template_value_parm (cc1_plugin::connection *self,
+				gcc_type type,
+				const char *id,
+				gcc_expr default_value,
+				const char *filename,
+				unsigned int line_number)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_type
+plugin_new_dependent_typename (cc1_plugin::connection *self,
+			       gcc_type enclosing_type,
+			       const char *id,
+			       const gcc_cp_template_args *targs)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_type
+plugin_new_dependent_class_template (cc1_plugin::connection *self,
+				     gcc_type enclosing_type,
+				     const char *id)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_type
+plugin_new_dependent_typespec (cc1_plugin::connection *self,
+			       gcc_decl template_decl,
+			       const gcc_cp_template_args *targs)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_new_dependent_value_expr (cc1_plugin::connection *self,
+				 gcc_type enclosing_type,
+				 const char *id,
+				 const gcc_cp_template_args *targs)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_literal_expr (cc1_plugin::connection *self,
+		     gcc_type type, unsigned long value)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_decl_expr (cc1_plugin::connection *self, gcc_decl decl)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_unary_value_expr (cc1_plugin::connection *self,
+			 const char *unary_op,
+			 gcc_expr operand)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_binary_value_expr (cc1_plugin::connection *self,
+			  const char *binary_op,
+			  gcc_expr operand1,
+			  gcc_expr operand2)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_ternary_value_expr (cc1_plugin::connection *self,
+			   const char *binary_op,
+			   gcc_expr operand1,
+			   gcc_expr operand2,
+			   gcc_expr operand3)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_unary_type_expr (cc1_plugin::connection *self,
+			const char *unary_op,
+			gcc_type operand)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_expr
+plugin_type_value_expr (cc1_plugin::connection *self,
+			const char *binary_op,
+			gcc_type operand1,
+			gcc_expr operand2)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_type
+plugin_expr_type (cc1_plugin::connection *self,
+		  gcc_expr operand)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_decl
+plugin_specialize_function_template (cc1_plugin::connection *self,
+				     gcc_decl template_decl,
+				     const gcc_cp_template_args *targs,
+				     gcc_address address,
+				     const char *filename,
+				     unsigned int line_number)
+{
+  /* FIXME: implement.  */
+}
+
+gcc_type
+plugin_start_specialize_class_template (cc1_plugin::connection *self,
+					gcc_decl template_decl,
+					const gcc_cp_template_args *args,
+					const gcc_vbase_array *base_classes,
+					const char *filename,
+					unsigned int line_number)
+{
+  /* FIXME: implement.  */
+}
+
 gcc_type
 plugin_int_type (cc1_plugin::connection *self,
 		 int is_unsigned, unsigned long size_in_bytes)
@@ -1263,6 +1417,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
 
   plugin_context *ctx = static_cast<plugin_context *> (self);
   return convert_out (ctx->preserve (result));
+}
+
+gcc_type
+plugin_build_dependent_array_type (cc1_plugin::connection *self,
+				   gcc_type element_type_in,
+				   gcc_expr num_elements_in)
+{
+  /* FIXME: implement.  */
 }
 
 gcc_type
