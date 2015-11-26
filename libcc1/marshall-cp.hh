@@ -136,6 +136,78 @@ namespace cc1_plugin
     *result = gva;
     return OK;
   }
+
+  // Send a gcc_cp_template_args marker followed by the array.
+  status
+  marshall (connection *conn, const gcc_cp_template_args *a)
+  {
+    size_t len;
+
+    if (a)
+      len = a->n_elements;
+    else
+      len = (size_t)-1;
+
+    if (!marshall_array_start (conn, 't', len))
+      return FAIL;
+
+    if (!a)
+      return OK;
+
+    if (!marshall_array_elmts (conn, len * sizeof (a->kinds[0]),
+			       a->kinds))
+      return FAIL;
+
+    return marshall_array_elmts (conn, len * sizeof (a->elements[0]),
+				 a->elements);
+  }
+
+  // Read a gcc_vbase_array marker, followed by a gcc_vbase_array.  The
+  // resulting array must be freed by the caller, using 'delete[]' on
+  // elements and virtualp, and 'delete' on the array object itself.
+  status
+  unmarshall (connection *conn, struct gcc_cp_template_args **result)
+  {
+    size_t len;
+
+    if (!unmarshall_array_start (conn, 't', &len))
+      return FAIL;
+
+    if (len == (size_t)-1)
+      {
+	*result = NULL;
+	return OK;
+      }
+
+    struct gcc_cp_template_args *gva = new gcc_cp_template_args;
+
+    gva->n_elements = len;
+    gva->kinds = new char[len];
+
+    if (!unmarshall_array_elmts (conn,
+				 len * sizeof (gva->kinds[0]),
+				 gva->kinds))
+      {
+	delete[] gva->kinds;
+	delete gva;
+	return FAIL;
+      }
+
+    gva->elements = new gcc_cp_template_arg[len];
+
+    if (!unmarshall_array_elmts (conn,
+				 len * sizeof (gva->elements[0]),
+				 gva->elements))
+      {
+	delete[] gva->elements;
+	delete[] gva->kinds;
+	delete gva;
+	return FAIL;
+      }
+
+    *result = gva;
+    return OK;
+  }
 }
 
 #endif // CC1_PLUGIN_MARSHALL_CP_HH
