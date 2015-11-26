@@ -1,3 +1,8 @@
+2015-11-26  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (expand_omp_for_kernel): Insert the induction variable
+	assignment appropriately.
+
 2015-11-25  Michael Matz  <matz@suse.de>
 
 	* hsa-regalloc.c (linear_scan_regalloc): Adjust end of interval

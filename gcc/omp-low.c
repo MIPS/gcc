@@ -13295,7 +13295,7 @@ expand_omp_for_kernel (struct omp_region *kfor)
 			      (BUILT_IN_OMP_GET_THREAD_NUM), 0);
   threadid = fold_convert (itype, threadid);
   threadid = force_gimple_operand_gsi (&gsi, threadid, true, NULL_TREE,
-				       true, GSI_CONTINUE_LINKING);
+				       true, GSI_SAME_STMT);
 
   tree startvar = fd.loop.v;
   t = fold_build2 (MULT_EXPR, itype, threadid, step);
@@ -13307,9 +13307,9 @@ expand_omp_for_kernel (struct omp_region *kfor)
   t = force_gimple_operand_gsi (&gsi, t,
 				DECL_P (startvar)
 				&& TREE_ADDRESSABLE (startvar),
-				NULL_TREE, true, GSI_CONTINUE_LINKING);
+				NULL_TREE, true, GSI_SAME_STMT);
   gassign *assign_stmt = gimple_build_assign (startvar, t);
-  gsi_insert_after (&gsi, assign_stmt, GSI_CONTINUE_LINKING);
+  gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 
   /* Remove the omp for statement */
   gsi = gsi_last_bb (kfor->entry);
