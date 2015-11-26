@@ -26,6 +26,9 @@
 (define_register_constraint "t" "T_REG"
   "@internal")
 
+(define_register_constraint "kc" "M16_ST_REGS"
+  "The MIPS16 registers, condition code and save registers.")
+
 (define_register_constraint "f" "TARGET_HARD_FLOAT ? FP_REGS : NO_REGS"
   "A floating-point register (if available).")
 

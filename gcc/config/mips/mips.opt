@@ -432,6 +432,10 @@ mno-component-fold
 Target Report RejectNegative Var(TARGET_NO_COMPONENT_FOLD) Init(0)
 Do not fold component references which makes CSE better.
 
+mmips16e2
+Target Report Var(TARGET_MIPS16E2) Init(0)
+Target the 2nd version of MIPS16E
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values

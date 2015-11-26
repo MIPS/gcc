@@ -1254,7 +1254,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=ks,ks,d,d,d,d,d,d,d")
 	(plus:GPR (match_operand:GPR 1 "register_operand" "ks,ks,ks,ks,0,0,d,d,d")
 		  (match_operand:GPR 2 "arith_operand" "Usd8,Q,Uuw<si8_di5>,Q,Usb<si8_di5>,Q,Usb4,O,d")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2"
   "@
     <d>addiu\t%0,%2
     <d>addiu\t%0,%2
@@ -1268,6 +1268,27 @@
   [(set_attr "alu_type" "add")
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "no,yes,no,yes,no,yes,no,yes,no")])
+
+(define_insn "*add<mode>3_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=ks,ks,d,d,d,d,d,d,d,d,?d")
+	(plus:GPR (match_operand:GPR 1 "register_operand" "ks,ks,ks,ks,d,kc,kc,kc,kc,d,kc")
+		  (match_operand:GPR 2 "arith_operand" "Usd8,Q,Uuw<si8_di5>,Q,Usb<si8_di5>,Usb<si8_di5>,Q,Usb4,O,d,kc")))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2"
+  "@
+    addiu\t%0,%2
+    addiu\t%0,%2
+    addiu\t%0,%1,%2
+    addiu\t%0,%1,%2
+    addiu\t%0,%1,%2
+    addiu\t%0,%1,%2
+    addiu\t%0,%1,%2
+    addiu\t%0,%1,%2
+    addiu\t%0,%1,%2
+    addu\t%0,%1,%2
+    addu\t%0,%1,%2"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,yes,no,yes,no,yes,yes,yes,yes,no,yes")])
 
 ;; On the mips16, we can sometimes split an add of a constant which is
 ;; a 4 byte instruction into two adds which are both 2 byte
@@ -1459,13 +1480,14 @@
    (set_attr "mode" "<UNITMODE>")])
 
 (define_insn "sub<mode>3"
-  [(set (match_operand:GPR 0 "register_operand" "=!u,d")
-	(minus:GPR (match_operand:GPR 1 "register_operand" "!u,d")
-		   (match_operand:GPR 2 "register_operand" "!u,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=!u,d,d")
+	(minus:GPR (match_operand:GPR 1 "register_operand" "!u,d,kc")
+		   (match_operand:GPR 2 "register_operand" "!u,d,kc")))]
   ""
   "<d>subu\t%0,%1,%2"
   [(set_attr "alu_type" "sub")
-   (set_attr "compression" "micromips32,*")
+   (set_attr "compression" "micromips32,*,*")
+   (set_attr "extended_mips16" "no,no,yes")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*subsi3_extended"
@@ -1654,13 +1676,14 @@
         (clobber (match_dup 0))])])
 
 (define_insn "mul<mode>3_internal"
-  [(set (match_operand:GPR 0 "muldiv_target_operand" "=l")
-	(mult:GPR (match_operand:GPR 1 "register_operand" "d")
-		  (match_operand:GPR 2 "register_operand" "d")))]
+  [(set (match_operand:GPR 0 "muldiv_target_operand" "=l,l")
+	(mult:GPR (match_operand:GPR 1 "register_operand" "d,kc")
+		  (match_operand:GPR 2 "register_operand" "d,kc")))]
   "ISA_HAS_<D>MULT && !TARGET_FIX_R4000"
   "<d>mult\t%1,%2"
   [(set_attr "type" "imul")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,yes")])
 
 (define_insn "mul<mode>3_r4000"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -2819,7 +2842,29 @@
 	(mod:GPR (match_dup 1)
 		 (match_dup 2)))
    (clobber (match_operand:GPR 4 "lo_operand" "=l"))]
-  "ISA_HAS_<D>DIV && !TARGET_FIX_VR4120 && TARGET_MIPS16"
+  "ISA_HAS_<D>DIV && !TARGET_FIX_VR4120 && TARGET_MIPS16 && !TARGET_MIPS16E2"
+  "#"
+  "&& cse_not_expected"
+  [(const_int 0)]
+{
+  emit_insn (gen_divmod<mode>4_split (operands[3], operands[1], operands[2]));
+  emit_move_insn (operands[0], operands[4]);
+  DONE;
+}
+ [(set_attr "type" "idiv")
+  (set_attr "mode" "<MODE>")
+  (set_attr "insn_count" "3")])
+
+;; As above, but target the MIPS16E2
+(define_insn_and_split "divmod<mode>4_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(div:GPR (match_operand:GPR 1 "register_operand" "d,kc")
+		 (match_operand:GPR 2 "register_operand" "d,kc")))
+   (set (match_operand:GPR 3 "register_operand" "=d,d")
+	(mod:GPR (match_dup 1)
+		 (match_dup 2)))
+   (clobber (match_operand:GPR 4 "lo_operand" "=l,l"))]
+  "ISA_HAS_<D>DIV && !TARGET_FIX_VR4120 && TARGET_MIPS16 && TARGET_MIPS16E2"
   "#"
   "&& cse_not_expected"
   [(const_int 0)]
@@ -3098,8 +3143,8 @@
 ;;  ....................
 
 (define_insn "negsi2"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(neg:SI (match_operand:SI 1 "register_operand" "d")))]
+  [(set (match_operand:SI 0 "register_operand" "=d,d")
+	(neg:SI (match_operand:SI 1 "register_operand" "d,kc")))]
   ""
 {
   if (TARGET_MIPS16)
@@ -3108,7 +3153,8 @@
     return "subu\t%0,%.,%1";
 }
   [(set_attr "alu_type"	"sub")
-   (set_attr "mode"	"SI")])
+   (set_attr "mode"	"SI")
+   (set_attr "extended_mips16" "no,yes")])
 
 (define_insn "negdi2"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -3222,10 +3268,41 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,d,kc")
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,kc")))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+{
+  switch (which_alternative)
+    {
+    case 0:
+      operands[1] = gen_lowpart (QImode, operands[1]);
+      return "lbu\t%0,%1";
+    case 1:
+      operands[1] = gen_lowpart (HImode, operands[1]);
+      return "lhu\t%0,%1";
+    case 2:
+      operands[1] = gen_lowpart (SImode, operands[1]);
+      return "lwu\t%0,%1";
+    case 3:
+      return "#";
+    case 4:
+      return "and\t%0,%1,%2";
+    case 5:
+      return "and\t%0,%1,%2";
+    default:
+      gcc_unreachable ();
+    }
+}
+  [(set_attr "move_type" "load,load,load,shift_shift,logical,logical")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,no,no,no,no,yes")])
+
+(define_insn "*and<mode>3_mips16"
   [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d")
 	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0")
 		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d")))]
-  "TARGET_MIPS16 && !TARGET_ASMACRO_ANDI && !TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2 && !TARGET_ASMACRO_ANDI && !TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   switch (which_alternative)
     {
@@ -3377,7 +3454,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,0")
 		 (match_operand:GPR 2 "uns_arith_operand" "d,K")))]
-  "TARGET_MIPS16 && TARGET_ASMACRO_ORI"
+  "TARGET_MIPS16 && TARGET_ASMACRO_ORI && !TARGET_MIPS16E2"
   "@
    or\t%0,%2
    nop\;nop# ori\t%0,%1,%x2"
@@ -3388,10 +3465,23 @@
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0")
 		 (match_operand:GPR 2 "register_operand" "d")))]
-  "TARGET_MIPS16 && !TARGET_ASMACRO_ORI"
+  "TARGET_MIPS16 && !TARGET_ASMACRO_ORI && !TARGET_MIPS16E2"
   "or\t%0,%2"
   [(set_attr "alu_type" "or")
-   (set_attr "mode" "<MODE>")])
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no")])
+
+(define_insn "*ior<mode>3_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,?d")
+	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,kc")
+		 (match_operand:GPR 2 "register_operand" "d,kc")))]
+  "TARGET_MIPS16 && !TARGET_ASMACRO_ORI && TARGET_MIPS16E2"
+  "@
+   or\t%0,%2
+   or\t%0,%1,%2"
+  [(set_attr "alu_type" "or")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,yes")])
 
 (define_expand "xor<mode>3"
   [(set (match_operand:GPR 0 "register_operand")
@@ -3417,7 +3507,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,t,t,t")
 	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d,d")
 		 (match_operand:GPR 2 "uns_arith_operand" "d,Uub8,K,d")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2"
   "@
    xor\t%0,%2
    cmpi\t%1,%2
@@ -3426,6 +3516,21 @@
   [(set_attr "alu_type" "xor")
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "no,no,yes,no")])
+
+(define_insn "*xor<mode>3_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,t,t,t,?d")
+	(xor:GPR (match_operand:GPR 1 "register_operand" "%0,d,d,d,kc")
+		 (match_operand:GPR 2 "uns_arith_operand" "d,Uub8,K,d,kc")))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2"
+  "@
+   xor\t%0,%2
+   cmpi\t%1,%2
+   cmpi\t%1,%2
+   cmp\t%1,%2
+   xor\t%0, %1, %2"
+  [(set_attr "alu_type" "xor")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "no,no,yes,no,yes")])
 
 (define_insn "*nor<mode>3"
   [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -3595,12 +3700,27 @@
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*zero_extend<SHORT:mode><GPR:mode>2_mips16e"
-  [(set (match_operand:GPR 0 "register_operand" "=d")
-        (zero_extend:GPR (match_operand:SHORT 1 "register_operand" "0")))]
-  "GENERATE_MIPS16E"
-  "ze<SHORT:size>\t%0"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+        (zero_extend:GPR (match_operand:SHORT 1 "register_operand" "0,d")))]
+  "GENERATE_MIPS16E && !TARGET_MIPS16E2"
+  "@
+   ze<SHORT:size>\t%0
+   ze<SHORT:size>\t%0,%1"
   ;; This instruction is effectively a special encoding of ANDI.
   [(set_attr "move_type" "andi")
+   (set_attr "extended_mips16" "no,yes")
+   (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*zero_extend<SHORT:mode><GPR:mode>2_mips16e2"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+        (zero_extend:GPR (match_operand:SHORT 1 "register_operand" "0,kc")))]
+  "GENERATE_MIPS16E && TARGET_MIPS16E2"
+  "@
+   ze<SHORT:size>\t%0
+   ze<SHORT:size>\t%0,%1"
+  ;; This instruction is effectively a special encoding of ANDI.
+  [(set_attr "move_type" "andi")
+   (set_attr "extended_mips16" "no,yes")
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*zero_extend<SHORT:mode><GPR:mode>2_mips16"
@@ -3756,13 +3876,26 @@
   "")
 
 (define_insn "*extendqihi2_mips16e"
+  [(set (match_operand:HI 0 "register_operand" "=d,d,d")
+        (sign_extend:HI (match_operand:QI 1 "nonimmediate_operand" "0,m,kc")))]
+  "GENERATE_MIPS16E && TARGET_MIPS16E2"
+  "@
+   seb\t%0
+   lb\t%0,%1
+   e_seb\t%0,%1"
+  [(set_attr "move_type" "signext,load,signext")
+   (set_attr "extended_mips16" "no,no,yes")
+   (set_attr "mode" "SI")])
+
+(define_insn "*extendqihi2_mips16e"
   [(set (match_operand:HI 0 "register_operand" "=d,d")
         (sign_extend:HI (match_operand:QI 1 "nonimmediate_operand" "0,m")))]
-  "GENERATE_MIPS16E"
+  "GENERATE_MIPS16E && !TARGET_MIPS16E2"
   "@
    seb\t%0
    lb\t%0,%1"
   [(set_attr "move_type" "signext,load")
+   (set_attr "extended_mips16" "no,no")
    (set_attr "mode" "SI")])
 
 (define_insn_and_split "*extendqihi2"
@@ -4628,11 +4761,23 @@
   [(set (match_operand:P 0 "register_operand" "=d")
 	(lo_sum:P (match_operand:P 1 "register_operand" "0")
 		  (match_operand:P 2 "immediate_operand" "")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2"
   "<d>addiu\t%0,%R2"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "<MODE>")
    (set_attr "extended_mips16" "yes")])
+
+(define_insn "*low<mode>_mips16e2"
+  [(set (match_operand:P 0 "register_operand" "=d,d")
+	(lo_sum:P (match_operand:P 1 "register_operand" "0,kc")
+		  (match_operand:P 2 "immediate_operand" "")))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2"
+  "@
+  <d>addiu\t%0,%R2
+  <d>addiu\t%0,%1,%R2"
+  [(set_attr "alu_type" "add")
+   (set_attr "mode" "<MODE>")
+   (set_attr "extended_mips16" "yes,yes")])
 
 ;; Expose MIPS16 uses of the global pointer after reload if the function
 ;; is responsible for setting up the register itself.
@@ -4808,13 +4953,14 @@
    (set_attr "mode" "SI")])
 
 (define_insn "*mov<mode>_mips16"
-  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,m,*d")
-	(match_operand:IMOVE32 1 "move_operand" "d,d,y,K,N,Yd,kf,m,d,*a"))]
+  [(set (match_operand:IMOVE32 0 "nonimmediate_operand" "=d,y,d,d,d,d,d,d,R,*d,y")
+	(match_operand:IMOVE32 1 "move_operand" "d,d,y,K,N,Yd,kf,m,d,a,y"))]
   "TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
   { return mips_output_move (operands[0], operands[1]); }
-  [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
+  [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo,move")
+   (set_attr "extended_mips16" "no,no,no,no,no,no,no,no,no,no,yes")
    (set_attr "mode" "SI")])
 
 ;; On the mips16, we can split lw $r,N($r) into an add and a load,
@@ -5716,7 +5862,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d,d,d")
 	(any_shift:SI (match_operand:SI 1 "register_operand" "0,d,d")
 		      (match_operand:SI 2 "arith_operand" "d,Uib3,I")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2"
 {
   if (which_alternative == 0)
     return "<insn>\t%0,%2";
@@ -5727,6 +5873,25 @@
   [(set_attr "type" "shift")
    (set_attr "mode" "SI")
    (set_attr "extended_mips16" "no,no,yes")])
+
+(define_insn "*<optab>si3_mips16e2"
+  [(set (match_operand:SI 0 "register_operand" "=d,d,d,d")
+	(any_shift:SI (match_operand:SI 1 "register_operand" "0,d,d,kc")
+		      (match_operand:SI 2 "arith_operand" "d,Uib3,I,kc")))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2"
+{
+  if (which_alternative == 0)
+    return "<insn>\t%0,%2";
+
+  if (which_alternative == 3)
+    return "<insn>\t%0,%1,%2";
+
+  operands[2] = GEN_INT (INTVAL (operands[2]) & 0x1f);
+  return "<insn>\t%0,%1,%2";
+}
+  [(set_attr "type" "shift")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "no,no,yes,yes")])
 
 (define_insn "<GPR:d>lsa"
  [(set (match_operand:GPR 0 "register_operand" "=d")
@@ -5798,6 +5963,8 @@
   [(set (match_dup 0) (any_shift:GPR (match_dup 1) (const_int 8)))
    (set (match_dup 0) (any_shift:GPR (match_dup 0) (match_dup 2)))]
   { operands[2] = GEN_INT (INTVAL (operands[2]) - 8); })
+
+;; ??? Consider EXTEND2 opcode space, can we go full triple here?
 
 ;; If we load a byte on the mips16 as a bitfield, the resulting
 ;; sequence of instructions is too complicated for combine, because it
@@ -6136,10 +6303,22 @@
   [(set (match_operand:GPR2 0 "register_operand" "=t")
 	(eq:GPR2 (match_operand:GPR 1 "register_operand" "d")
 		 (const_int 0)))]
-  "TARGET_MIPS16 && !ISA_HAS_SEQ_SNE"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2 && !ISA_HAS_SEQ_SNE"
   "sltu\t%1,1"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*seq_zero_<GPR:mode><GPR2:mode>_mips16e2"
+  [(set (match_operand:GPR2 0 "register_operand" "=t,t")
+	(eq:GPR2 (match_operand:GPR 1 "register_operand" "d,kc")
+		 (const_int 0)))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2 && !ISA_HAS_SEQ_SNE"
+  "@
+   sltu\t%1,1
+   sltu\t%1,1"
+  [(set_attr "type" "slt")
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "extended_mips16" "no,yes")])
 
 ;; Generate sltiu unless using seq results in better code.
 (define_insn "*seq_<GPR:mode><GPR2:mode>_seq"
@@ -6216,11 +6395,21 @@
   [(set (match_operand:GPR2 0 "register_operand" "=t,t,t")
 	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d,d,d")
 		     (match_operand:GPR 2 "arith_operand" "d,Uub8,I")))]
-  "TARGET_MIPS16"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2"
   "slt<u>\t%1,%2"
   [(set_attr "type" "slt")
    (set_attr "mode" "<GPR:MODE>")
    (set_attr "extended_mips16" "no,no,yes")])
+
+(define_insn "*slt<u>_<GPR:mode><GPR2:mode>_mips16e2"
+  [(set (match_operand:GPR2 0 "register_operand" "=t,t,t,t,t")
+	(any_lt:GPR2 (match_operand:GPR 1 "register_operand" "d,kc,d,kc,kc")
+		     (match_operand:GPR 2 "arith_operand" "d,d,Uub8,I,kc")))]
+  "TARGET_MIPS16 && TARGET_MIPS16E2"
+  "slt<u>\t%1,%2"
+  [(set_attr "type" "slt")
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "extended_mips16" "no,yes,no,yes,yes")])
 
 (define_insn "*sle<u>_<GPR:mode><GPR2:mode>"
   [(set (match_operand:GPR2 0 "register_operand" "=d")

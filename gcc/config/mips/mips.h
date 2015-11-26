@@ -1877,6 +1877,8 @@ struct mips_cpu_info {
   (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 16 || (REGNO) == 17)
 #define M16STORE_REG_P(REGNO) \
   (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) == 0 || (REGNO) == 17)
+#define M16_ST_REG_P(REGNO) \
+  (((REGNO) >= 2 && (REGNO) <= 7) || (REGNO) >= 16 || (REGNO) <= 24)
 #define FP_REG_P(REGNO)  \
   ((unsigned int) ((int) (REGNO) - FP_REG_FIRST) < FP_REG_NUM)
 #define MD_REG_P(REGNO) \
@@ -2044,6 +2046,7 @@ enum reg_class
   M16_SP_REGS,			/* mips16 + $sp */
   T_REG,			/* mips16 T register ($24) */
   M16_T_REGS,			/* mips16 registers plus T register */
+  M16_ST_REGS,			/* mips16 registers plus S & T registers */
   PIC_FN_ADDR_REG,		/* SVR4 PIC function address register */
   V1_REG,			/* Register $v1 ($3) used for TLS access.  */
   SPILL_REGS,			/* All but $sp and call preserved regs are in here */
@@ -2084,6 +2087,7 @@ enum reg_class
   "M16_SP_REGS",								\
   "T_REG",								\
   "M16_T_REGS",								\
+  "M16_ST_REGS",							\
   "PIC_FN_ADDR_REG",							\
   "V1_REG",								\
   "SPILL_REGS",								\
@@ -2127,6 +2131,7 @@ enum reg_class
   { 0x200300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_SP_REGS */		\
   { 0x01000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* T_REG */		\
   { 0x010300fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_T_REGS */	\
+  { 0x01ff00fc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* M16_ST_REGS */	\
   { 0x02000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* PIC_FN_ADDR_REG */	\
   { 0x00000008, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* V1_REG */		\
   { 0x0303fffc, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000 },	/* SPILL_REGS */      	\

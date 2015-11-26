@@ -670,8 +670,8 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,  M16_STORE_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
   LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
-  M16_REGS,        M16_STORE_REGS,  LEA_REGS,        LEA_REGS,
-  LEA_REGS,        LEA_REGS,        LEA_REGS,        LEA_REGS,
+  M16_REGS,        M16_STORE_REGS,  M16_ST_REGS,     M16_ST_REGS,
+  M16_ST_REGS,     M16_ST_REGS,     M16_ST_REGS,     M16_ST_REGS,
   T_REG,           PIC_FN_ADDR_REG, LEA_REGS,        LEA_REGS,
   LEA_REGS,        M16_SP_REGS,     LEA_REGS,        LEA_REGS,
 
@@ -13110,6 +13110,9 @@ mips_preferred_reload_class (rtx x, reg_class_t rclass)
   if (TARGET_MIPS16 && reg_class_subset_p (M16_REGS, rclass))
     rclass = M16_REGS;
 
+  if (TARGET_MIPS16E2 && reg_class_subset_p (M16_ST_REGS, rclass))
+    rclass = M16_ST_REGS;
+
   return rclass;
 }
 
@@ -13125,7 +13128,9 @@ mips_canonicalize_move_class (reg_class_t rclass)
 
   /* Likewise promote subclasses of general registers to the most
      interesting containing class.  */
-  if (TARGET_MIPS16 && reg_class_subset_p (rclass, M16_REGS))
+  if (TARGET_MIPS16E2 && reg_class_subset_p (rclass, M16_ST_REGS))
+    rclass = M16_ST_REGS;
+  else if (TARGET_MIPS16 && reg_class_subset_p (rclass, M16_REGS))
     rclass = M16_REGS;
   else if (reg_class_subset_p (rclass, GENERAL_REGS))
     rclass = GENERAL_REGS;
@@ -13160,6 +13165,7 @@ mips_move_to_gpr_cost (machine_mode mode, reg_class_t from)
   switch (from)
     {
     case M16_REGS:
+    case M16_ST_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
@@ -13193,6 +13199,7 @@ mips_move_from_gpr_cost (machine_mode mode, reg_class_t to)
   switch (to)
     {
     case M16_REGS:
+    case M16_ST_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
@@ -13239,7 +13246,16 @@ mips_register_move_cost (machine_mode mode,
     }
 
   /* Handle cases in which only one class deviates from the ideal.  */
-  dregs = TARGET_MIPS16 ? M16_REGS : GENERAL_REGS;
+  if (TARGET_MIPS16)
+    {
+      if (TARGET_MIPS16E2)
+        dregs = M16_ST_REGS;
+      else
+        dregs = M16_REGS;
+    }
+  else
+   dregs = GENERAL_REGS;
+    
   if (from == dregs)
     return mips_move_from_gpr_cost (mode, to);
   if (to == dregs)
@@ -13263,6 +13279,10 @@ static int
 mips_register_priority (int hard_regno)
 {
   /* Treat MIPS16 registers with higher priority than other regs.  */
+  if (TARGET_MIPS16E2
+      && TEST_HARD_REG_BIT (reg_class_contents[M16_ST_REGS], hard_regno))
+    return 1;
+
   if (TARGET_MIPS16
       && TEST_HARD_REG_BIT (reg_class_contents[M16_REGS], hard_regno))
     return 1;
@@ -13317,6 +13337,9 @@ mips_secondary_reload_class (enum reg_class rclass,
   regno = true_regnum (x);
   if (TARGET_MIPS16)
     {
+      if (TARGET_MIPS16E2
+          && !reg_class_subset_p (rclass, M16_ST_REGS) && !M16_ST_REG_P (regno))
+        return M16_ST_REGS;
       /* In MIPS16 mode, every move must involve a member of M16_REGS.  */
       if (!reg_class_subset_p (rclass, M16_REGS) && !M16_REG_P (regno))
 	return M16_REGS;
@@ -20351,12 +20374,15 @@ mips_conditional_register_usage (void)
 	 and $25 (t9) because it is used as the function call address in
 	 SVR4 PIC code.  */
 
-      fixed_regs[18] = call_used_regs[18] = 1;
-      fixed_regs[19] = call_used_regs[19] = 1;
-      fixed_regs[20] = call_used_regs[20] = 1;
-      fixed_regs[21] = call_used_regs[21] = 1;
-      fixed_regs[22] = call_used_regs[22] = 1;
-      fixed_regs[23] = call_used_regs[23] = 1;
+      if (!TARGET_MIPS16E2)
+	{
+	  fixed_regs[18] = call_used_regs[18] = 1;
+	  fixed_regs[19] = call_used_regs[19] = 1;
+	  fixed_regs[20] = call_used_regs[20] = 1;
+	  fixed_regs[21] = call_used_regs[21] = 1;
+	  fixed_regs[22] = call_used_regs[22] = 1;
+	  fixed_regs[23] = call_used_regs[23] = 1;
+	}
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
