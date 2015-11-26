@@ -508,3 +508,15 @@ Enum(mips16_xsregs_setting) String(speed) Value(MIPS16_XSREGS_SPEED)
 mdead-loads
 Target Var(TARGET_DEAD_LOADS) Init(0)
 Redirect dead loads to $0 to avoid spurious output dependencies
+
+moptimize-sdata-list=
+Target RejectNegative Joined Var(mips_optimize_sdata_list)
+Specify a list of global variables to be marked with section(\".sdata\") attribute.
+
+msdata-num=
+Target RejectNegative Joined UInteger Var(mips_sdata_section_num) Init(-1)
+Place all gp relative data in sdata section number NUM
+
+msdata-opt-list=
+Target RejectNegative Joined Var(mips_sdata_opt_list_file)
+msdata-opt-list=FILE    Use to specify variables to go in the .sdata section
