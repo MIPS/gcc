@@ -1677,9 +1677,12 @@ mips_insert_attributes (tree decl, tree *attributes)
       if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
 			  mips_optimize_inline))
 	{
-	  tree inline_opt = build_optimization_node (&global_options);
-	  TREE_OPTIMIZATION (inline_opt)->x_flag_no_inline = 0;
-	  DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl) = inline_opt;
+	  *attributes = tree_cons (get_identifier ("always_inline"),
+				   NULL,
+				   *attributes);
+	  //tree inline_opt = build_optimization_node (&global_options);
+	  //TREE_OPTIMIZATION (inline_opt)->x_flag_no_inline = 0;
+	  //DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl) = inline_opt;
 	}
 
       if ((TARGET_FLIP_MIPS16 || mips_compress != NULL || mips_no_compress != NULL)
