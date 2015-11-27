@@ -594,6 +594,10 @@ moptimize-sdata-list=
 Target RejectNegative Joined Var(mips_optimize_sdata_list)
 Specify a list of global variables to be marked with section(\".sdata\") attribute.
 
+moptimize-longcalls-list=
+Target RejectNegative Joined Var(mips_optimize_longcalls_list)
+Specify a list of functions to be marked with long_call attribute.
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee

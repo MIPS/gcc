@@ -820,6 +820,7 @@ static struct list *mips_optimize_O2;
 static struct list *mips_optimize_O1;
 static struct list *mips_optimize_inline;
 static struct list *mips_optimize_sdata;
+static struct list *mips_optimize_longcalls;
 
 static struct list *
 mips_read_list (const char * filename)
@@ -1685,6 +1686,22 @@ mips_insert_attributes (tree decl, tree *attributes)
 	  //DECL_FUNCTION_SPECIFIC_OPTIMIZATION (decl) = inline_opt;
 	}
 
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_longcalls))
+	{
+	  *attributes = tree_cons (get_identifier ("long_call"),
+				   NULL,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_O2))
+	{
+	  tree attr_args = build_tree_list (NULL_TREE, build_string (3, "-O2"));
+	  *attributes = tree_cons (get_identifier ("optimize"),
+				   attr_args,
+				   *attributes);
+	}
       if ((TARGET_FLIP_MIPS16 || mips_compress != NULL || mips_no_compress != NULL)
 	  && !DECL_ARTIFICIAL (decl)
 	  && compression_flags == 0
@@ -20219,6 +20236,7 @@ mips_option_override (void)
   mips_optimize_O1 = mips_read_list (mips_optimize_O1_list);
   mips_optimize_inline = mips_read_list (mips_optimize_inline_list);
   mips_optimize_sdata = mips_read_list (mips_optimize_sdata_list);
+  mips_optimize_longcalls = mips_read_list (mips_optimize_longcalls_list);
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
