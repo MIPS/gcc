@@ -1776,8 +1776,8 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  clause_code = OMP_CLAUSE_USE_DEVICE;
 	  goto add_clause;
 	case OMP_LIST_DEVICE_RESIDENT:
-	case OMP_LIST_LINK:
-	  continue;
+	  clause_code = OMP_CLAUSE_DEVICE_RESIDENT;
+	  goto add_clause;
 
 	add_clause:
 	  omp_clauses
@@ -1923,9 +1923,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  for (; n != NULL; n = n->next)
 	    {
 	      if (!n->sym->attr.referenced)
-		continue;
-
-	      if (n->sym->attr.use_assoc && n->sym->attr.oacc_declare_link)
 		continue;
 
 	      tree node = build_omp_clause (input_location, OMP_CLAUSE_MAP);
@@ -2140,9 +2137,6 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 		  break;
 		case OMP_MAP_FORCE_DEVICEPTR:
 		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_FORCE_DEVICEPTR);
-		  break;
-		case OMP_MAP_DEVICE_RESIDENT:
-		  OMP_CLAUSE_SET_MAP_KIND (node, GOMP_MAP_DEVICE_RESIDENT);
 		  break;
 		default:
 		  gcc_unreachable ();
@@ -4672,23 +4666,18 @@ tree
 gfc_trans_oacc_declare (gfc_code *code)
 {
   stmtblock_t block;
-  tree stmt, c1;
+  tree stmt, oacc_clauses;
   enum tree_code construct_code;
 
-  gfc_start_block (&block);
-
-  construct_code = OACC_DECLARE;
+  construct_code = OACC_DATA;
 
   gfc_start_block (&block);
-  c1 = gfc_trans_omp_clauses (&block, code->ext.oacc_declare->clauses,
-			      code->loc);
 
-#if 0 /* TODO */
-  c2 = gfc_trans_omp_clauses (&block, code->ext.oacc_declare->return_clauses,
-			      code->loc);
-#endif
-
-  stmt = build1_loc (input_location, construct_code, void_type_node, c1);
+  oacc_clauses = gfc_trans_omp_clauses (&block, code->ext.oacc_declare->clauses,
+					code->loc);
+  stmt = gfc_trans_omp_code (code->block->next, true);
+  stmt = build2_loc (input_location, construct_code, void_type_node, stmt,
+		     oacc_clauses);
   gfc_add_expr_to_block (&block, stmt);
 
   return gfc_finish_block (&block);

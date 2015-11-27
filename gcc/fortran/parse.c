@@ -1406,7 +1406,7 @@ push_state (gfc_state_data *p, gfc_compile_state new_state, gfc_symbol *sym)
   p->head = p->tail = NULL;
   p->do_variable = NULL;
   if (p->state != COMP_DO && p->state != COMP_DO_CONCURRENT)
-    p->ext.oacc_declare = NULL;
+    p->ext.oacc_declare_clauses = NULL;
 
   /* If this the state of a construct like BLOCK, DO or IF, the corresponding
      construct statement was accepted right before pushing the state.  Thus,

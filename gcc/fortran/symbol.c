@@ -1269,7 +1269,8 @@ gfc_add_omp_declare_target (symbol_attribute *attr, const char *name,
 
 
 bool
-gfc_add_oacc_declare_create (symbol_attribute *attr, const char *name, locus *where)
+gfc_add_oacc_declare_create (symbol_attribute *attr, const char *name,
+			     locus *where)
 {
   if (check_used (attr, name, where))
     return false;
@@ -1283,7 +1284,8 @@ gfc_add_oacc_declare_create (symbol_attribute *attr, const char *name, locus *wh
 
 
 bool
-gfc_add_oacc_declare_copyin (symbol_attribute *attr, const char *name, locus *where)
+gfc_add_oacc_declare_copyin (symbol_attribute *attr, const char *name,
+			     locus *where)
 {
   if (check_used (attr, name, where))
     return false;
@@ -1297,7 +1299,8 @@ gfc_add_oacc_declare_copyin (symbol_attribute *attr, const char *name, locus *wh
 
 
 bool
-gfc_add_oacc_declare_deviceptr (symbol_attribute *attr, const char *name, locus *where)
+gfc_add_oacc_declare_deviceptr (symbol_attribute *attr, const char *name,
+				locus *where)
 {
   if (check_used (attr, name, where))
     return false;
@@ -1311,7 +1314,8 @@ gfc_add_oacc_declare_deviceptr (symbol_attribute *attr, const char *name, locus 
 
 
 bool
-gfc_add_oacc_declare_device_resident (symbol_attribute *attr, const char *name, locus *where)
+gfc_add_oacc_declare_device_resident (symbol_attribute *attr, const char *name,
+				      locus *where)
 {
   if (check_used (attr, name, where))
     return false;

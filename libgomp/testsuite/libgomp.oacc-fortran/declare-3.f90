@@ -1,13 +1,15 @@
 ! { dg-do run  { target openacc_nvidia_accel_selected } }
-! { dg-xfail-if "TODO" { *-*-* } }
 
 module globalvars
+  implicit none
   real b
   !$acc declare link (b)
 end module globalvars
 
 program test
   use openacc
+  use globalvars
+  implicit none
 
   real a
   real c

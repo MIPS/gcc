@@ -1,6 +1,7 @@
 ! { dg-do run  { target openacc_nvidia_accel_selected } }
 
 module vars
+  implicit none
   real b
  !$acc declare create (b)
 end module vars
@@ -8,6 +9,7 @@ end module vars
 program test
   use vars
   use openacc
+  implicit none
   real a
 
   if (acc_is_present (b) .neqv. .true.) call abort

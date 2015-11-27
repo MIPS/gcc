@@ -187,7 +187,7 @@ gfc_free_statement (gfc_code *p)
 
     case EXEC_OACC_DECLARE:
       if (p->ext.oacc_declare)
-	gfc_free_oacc_declares (p->ext.oacc_declare);
+	gfc_free_oacc_declare_clauses (p->ext.oacc_declare);
       break;
 
     case EXEC_OACC_PARALLEL_LOOP:

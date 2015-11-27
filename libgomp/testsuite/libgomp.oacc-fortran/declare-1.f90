@@ -1,12 +1,15 @@
 ! { dg-do run  { target openacc_nvidia_accel_selected } }
+! libgomp: cuStreamSynchronize error: an illegal memory access was encountered
 ! { dg-xfail-run-if "TODO" { *-*-* } }
 
 module vars
+  implicit none
   integer z
   !$acc declare create (z)
 end module vars
 
 subroutine subr6 (a, d)
+  implicit none
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
@@ -24,6 +27,7 @@ subroutine subr6 (a, d)
 end subroutine
 
 subroutine subr5 (a, b, c, d)
+  implicit none
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
@@ -48,6 +52,7 @@ subroutine subr5 (a, b, c, d)
 end subroutine
 
 subroutine subr4 (a, b)
+  implicit none
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
@@ -66,6 +71,7 @@ subroutine subr4 (a, b)
 end subroutine
 
 subroutine subr3 (a, c)
+  implicit none
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
@@ -85,6 +91,7 @@ subroutine subr3 (a, c)
 end subroutine
 
 subroutine subr2 (a, b, c)
+  implicit none
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
@@ -106,6 +113,7 @@ subroutine subr2 (a, b, c)
 end subroutine
 
 subroutine subr1 (a)
+  implicit none
   integer, parameter :: N = 8
   integer :: i
   integer :: a(N)
@@ -123,6 +131,7 @@ end subroutine
 
 subroutine test (a, e)
   use openacc
+  implicit none
   logical :: e
   integer, parameter :: N = 8
   integer :: a(N)
@@ -132,12 +141,14 @@ subroutine test (a, e)
 end subroutine
 
 subroutine subr0 (a, b, c, d)
+  implicit none
   integer, parameter :: N = 8
   integer :: a(N)
   !$acc declare copy (a)
   integer :: b(N)
   integer :: c(N)
   integer :: d(N)
+  integer :: i
 
   call test (a, .true.)
   call test (b, .false.)
@@ -206,11 +217,13 @@ end subroutine
 program main
   use vars
   use openacc
+  implicit none
   integer, parameter :: N = 8
   integer :: a(N)
   integer :: b(N)
   integer :: c(N)
   integer :: d(N)
+  integer :: i
 
   a(:) = 2
   b(:) = 3

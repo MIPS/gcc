@@ -1575,8 +1575,7 @@ gfc_trans_block_construct (gfc_code* code)
   exit_label = gfc_build_label_decl (NULL_TREE);
   code->exit_label = exit_label;
 
-  /* Generate !$ACC DECLARE directive. */
-  finish_oacc_declare (ns, FL_UNKNOWN);
+  finish_oacc_declare (ns, sym, true);
 
   gfc_add_expr_to_block (&body, gfc_trans_code (ns->code));
   gfc_add_expr_to_block (&body, build1_v (LABEL_EXPR, exit_label));

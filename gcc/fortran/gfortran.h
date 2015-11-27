@@ -1250,17 +1250,18 @@ gfc_omp_clauses;
 
 #define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
 
-/* Node in the linked list used for storing OpenACC declare constructs.  */
+
+/* Node in the linked list used for storing !$oacc declare constructs.  */
 
 typedef struct gfc_oacc_declare
 {
   struct gfc_oacc_declare *next;
-  locus where;
   bool module_var;
   gfc_omp_clauses *clauses;
-  gfc_omp_clauses *return_clauses;
+  locus loc;
 }
 gfc_oacc_declare;
+
 #define gfc_get_oacc_declare() XCNEW (gfc_oacc_declare)
 
 
@@ -1685,8 +1686,8 @@ typedef struct gfc_namespace
      this namespace.  */
   struct gfc_data *data, *old_data;
 
-  /* !$ACC DECLARE clauses.  */
-  struct gfc_oacc_declare *oacc_declare;
+  /* !$ACC DECLARE.  */
+  gfc_oacc_declare *oacc_declare;
 
   /* !$ACC ROUTINE clauses.  */
   gfc_omp_clauses *oacc_routine_clauses;
@@ -2455,8 +2456,8 @@ typedef struct gfc_code
     struct gfc_code *which_construct;
     int stop_code;
     gfc_entry_list *entry;
-    gfc_omp_clauses *omp_clauses;
     gfc_oacc_declare *oacc_declare;
+    gfc_omp_clauses *omp_clauses;
     const char *omp_name;
     gfc_omp_namelist *omp_namelist;
     bool omp_bool;
@@ -2958,7 +2959,7 @@ gfc_expr *gfc_get_parentheses (gfc_expr *);
 /* openmp.c */
 struct gfc_omp_saved_state { void *ptrs[2]; int ints[1]; };
 void gfc_free_omp_clauses (gfc_omp_clauses *);
-void gfc_free_oacc_declares (struct gfc_oacc_declare *);
+void gfc_free_oacc_declare_clauses (struct gfc_oacc_declare *);
 void gfc_free_omp_declare_simd (gfc_omp_declare_simd *);
 void gfc_free_omp_declare_simd_list (gfc_omp_declare_simd *);
 void gfc_free_omp_udr (gfc_omp_udr *);
@@ -3278,6 +3279,6 @@ bool gfc_is_reallocatable_lhs (gfc_expr *);
 
 /* trans-decl.c */
 
-void finish_oacc_declare (gfc_namespace *, enum sym_flavor);
+void finish_oacc_declare (gfc_namespace *, gfc_symbol *, bool);
 
 #endif /* GCC_GFORTRAN_H  */

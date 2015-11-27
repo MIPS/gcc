@@ -9,6 +9,7 @@ end module vars
 program test
   use vars
   use openacc
+  implicit none
   real a
 
   if (acc_is_present (b) .neqv. .true.) call abort
