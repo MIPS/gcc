@@ -1,3 +1,8 @@
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* gomp-constants.h (struct GOMP_hsa_kernel_dispatch): Declare
+	new field in kernel dispatch structure.
+
 2015-11-25  Martin Jambor  <mjambor@suse.cz>
 
 	* gomp-constants.h (GOMP_TARGET_ARG_VALUE_SHIFT): Fix spelling in the

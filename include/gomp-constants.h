@@ -294,6 +294,8 @@ struct GOMP_hsa_kernel_dispatch
   uint32_t omp_num_threads;
   /* Debug purpose argument.  */
   uint64_t debug;
+  /* Levels-var ICV.  */
+  uint64_t omp_level;
   /* Kernel dispatch structures created for children kernel dispatches.  */
   struct GOMP_hsa_kernel_dispatch **children_dispatches;
 };

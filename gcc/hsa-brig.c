@@ -1982,15 +1982,19 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 			   unsigned_type_node);
   DECL_CHAIN (id_f2) = id_f1;
   tree id_f3 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
-			   get_identifier ("kernel_dependencies_count"),
-			   unsigned_type_node);
+			   get_identifier ("gridified_kernel_p"),
+			   boolean_type_node);
   DECL_CHAIN (id_f3) = id_f2;
   tree id_f4 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
+			   get_identifier ("kernel_dependencies_count"),
+			   unsigned_type_node);
+  DECL_CHAIN (id_f4) = id_f3;
+  tree id_f5 = build_decl (BUILTINS_LOCATION, FIELD_DECL,
 			   get_identifier ("kernel_dependencies"),
 			   build_pointer_type (build_pointer_type
 					       (char_type_node)));
-  DECL_CHAIN (id_f4) = id_f3;
-  finish_builtin_struct (kernel_info_type, "__hsa_kernel_info", id_f4,
+  DECL_CHAIN (id_f5) = id_f4;
+  finish_builtin_struct (kernel_info_type, "__hsa_kernel_info", id_f5,
 			 NULL_TREE);
 
   int_num_of_kernels = build_int_cstu (uint32_type_node, map_count);
@@ -2018,7 +2022,10 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
       free (copy);
 
       unsigned omp_size = hsa_get_decl_kernel_mapping_omp_size (i);
-      tree omp_data_size = build_int_cstu (uint32_type_node, omp_size);
+      tree omp_data_size = build_int_cstu (unsigned_type_node, omp_size);
+      bool gridified_kernel_p = hsa_get_decl_kernel_mapping_gridified (i);
+      tree gridified_kernel_p_tree = build_int_cstu (boolean_type_node,
+						     gridified_kernel_p);
       unsigned count = 0;
 
       kernel_dependencies_vector_type = build_array_type
@@ -2057,7 +2064,7 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 	    }
 	}
 
-      tree dependencies_count = build_int_cstu (uint32_type_node, count);
+      tree dependencies_count = build_int_cstu (unsigned_type_node, count);
 
       vec<constructor_elt, va_gc> *kernel_info_vec = NULL;
       CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE,
@@ -2066,10 +2073,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 							  (kern_name)),
 				      kern_name));
       CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE, omp_data_size);
+      CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE,
+			      gridified_kernel_p_tree);
       CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE, dependencies_count);
-
-      tree kernel_info_ctor = build_constructor (kernel_info_type,
-						 kernel_info_vec);
 
       if (count > 0)
 	{
@@ -2097,6 +2103,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 	}
       else
 	CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE, null_pointer_node);
+
+      tree kernel_info_ctor = build_constructor (kernel_info_type,
+						 kernel_info_vec);
 
       CONSTRUCTOR_APPEND_ELT (kernel_info_vector_vec, NULL_TREE,
 			      kernel_info_ctor);

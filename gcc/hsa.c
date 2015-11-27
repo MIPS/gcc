@@ -52,6 +52,8 @@ struct GTY(()) hsa_decl_kernel_map_element
   char * GTY((skip)) name;
   /* Size of OMP data, if the kernel contains a kernel dispatch.  */
   unsigned omp_data_size;
+  /* True if the function is gridified kernel.  */
+  bool gridified_kernel_p;
 };
 
 /* Mapping between decls and corresponding HSA kernels in this compilation
@@ -584,12 +586,14 @@ hsa_destroy_operand (hsa_op_base *op)
 /* Create a mapping between the original function DECL and kernel name NAME.  */
 
 void
-hsa_add_kern_decl_mapping (tree decl, char *name, unsigned omp_data_size)
+hsa_add_kern_decl_mapping (tree decl, char *name, unsigned omp_data_size,
+			   bool gridified_kernel_p)
 {
   hsa_decl_kernel_map_element dkm;
   dkm.decl = decl;
   dkm.name = name;
   dkm.omp_data_size = omp_data_size;
+  dkm.gridified_kernel_p = gridified_kernel_p;
   vec_safe_push (hsa_decl_kernel_mapping, dkm);
 }
 
@@ -623,6 +627,14 @@ unsigned
 hsa_get_decl_kernel_mapping_omp_size (unsigned i)
 {
   return (*hsa_decl_kernel_mapping)[i].omp_data_size;
+}
+
+/* Return if the function is gridified kernel in decl name mapping.  */
+
+bool
+hsa_get_decl_kernel_mapping_gridified (unsigned i)
+{
+  return (*hsa_decl_kernel_mapping)[i].gridified_kernel_p;
 }
 
 /* Free the mapping between original decls and kernel names.  */
@@ -708,13 +720,9 @@ hsa_get_declaration_name (tree decl)
   return NULL;
 }
 
-/* Couple GPU and HOST as gpu-specific and host-specific implementation of the
-   same function.  KIND determines whether GPU is a host-invokable kernel or
-   gpu-callable function.  */
-
 void
 hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
-			       hsa_function_kind kind)
+			       hsa_function_kind kind, bool gridified_kernel_p)
 {
   hsa_function_summary *gpu_summary = get (gpu);
   hsa_function_summary *host_summary = get (host);
@@ -724,6 +732,9 @@ hsa_summary_t::link_functions (cgraph_node *gpu, cgraph_node *host,
 
   gpu_summary->m_gpu_implementation_p = true;
   host_summary->m_gpu_implementation_p = false;
+
+  gpu_summary->m_gridified_kernel_p = gridified_kernel_p;
+  host_summary->m_gridified_kernel_p = gridified_kernel_p;
 
   gpu_summary->m_binded_function = host;
   host_summary->m_binded_function = gpu;
@@ -761,7 +772,7 @@ hsa_register_kernel (cgraph_node *gpu, cgraph_node *host)
 {
   if (hsa_summaries == NULL)
     hsa_summaries = new hsa_summary_t (symtab);
-  hsa_summaries->link_functions (gpu, host, HSA_KERNEL);
+  hsa_summaries->link_functions (gpu, host, HSA_KERNEL, true);
 }
 
 /* Return true if expansion of the current HSA function has already failed.  */

@@ -1,3 +1,13 @@
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (struct hsa_kernel_description):
+	Add field gridified_kernel_p.
+	(struct kernel_info): Likewise.
+	(GOMP_OFFLOAD_load_image): Fill-up the field.
+	(init_single_kernel): Dump value of the field.
+	(create_kernel_dispatch): Set-up omp_level for kernel
+	packet dispatch structure.
+
 2015-11-25  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c (GOMP_OFFLOAD_async_run): Fix a typo in a string.

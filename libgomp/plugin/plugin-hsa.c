@@ -157,6 +157,7 @@ struct hsa_kernel_description
 {
   const char *name;
   unsigned omp_data_size;
+  bool gridified_kernel_p;
   unsigned kernel_dependencies_count;
   const char **kernel_dependencies;
 };
@@ -217,6 +218,8 @@ struct kernel_info
   unsigned dependencies_count;
   /* Maximum OMP data size necessary for kernel from kernel dispatches.  */
   unsigned max_omp_data_size;
+  /* True if the kernel is gridified.  */
+  bool gridified_kernel_p;
 };
 
 /* Information about a particular brig module, its image and kernels.  */
@@ -619,6 +622,7 @@ GOMP_OFFLOAD_load_image (int ord, unsigned version, void *target_data,
       kernel->module = module;
       kernel->name = d->name;
       kernel->omp_data_size = d->omp_data_size;
+      kernel->gridified_kernel_p = d->gridified_kernel_p;
       kernel->dependencies_count = d->kernel_dependencies_count;
       kernel->dependencies = d->kernel_dependencies;
       if (pthread_mutex_init (&kernel->init_mutex, NULL))
@@ -916,6 +920,7 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
   HSA_DEBUG ("  kernarg_segment_size: %u\n",
 	     (unsigned) kernel->kernarg_segment_size);
   HSA_DEBUG ("  omp_data_size: %u\n", kernel->omp_data_size);
+  HSA_DEBUG ("  gridified_kernel_p: %u\n", kernel->gridified_kernel_p);
 
   if (kernel->omp_data_size > *max_omp_data_size)
     *max_omp_data_size = kernel->omp_data_size;
@@ -1003,6 +1008,7 @@ create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
     (kernel, omp_data_size);
   shadow->omp_num_threads = 64;
   shadow->debug = 0;
+  shadow->omp_level = kernel->gridified_kernel_p ? 1 : 0;
 
   /* Create kernel dispatch data structures.  We do not allow to have
      a kernel dispatch with depth bigger than one.  */
@@ -1014,6 +1020,7 @@ create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
 	(dependency, omp_data_size);
       shadow->children_dispatches[i]->queue =
 	kernel->agent->kernel_dispatch_command_q;
+      shadow->children_dispatches[i]->omp_level = 1;
     }
 
   return shadow;

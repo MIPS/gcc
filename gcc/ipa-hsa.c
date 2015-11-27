@@ -92,7 +92,7 @@ process_hsa_functions (void)
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
 
 	  clone->force_output = true;
-	  hsa_summaries->link_functions (clone, node, s->m_kind);
+	  hsa_summaries->link_functions (clone, node, s->m_kind, false);
 
 	  if (dump_file)
 	    fprintf (dump_file, "Created a new HSA clone: %s, type: %s\n",
@@ -109,7 +109,7 @@ process_hsa_functions (void)
 
 	  if (!cgraph_local_p (node))
 	    clone->force_output = true;
-	  hsa_summaries->link_functions (clone, node, HSA_FUNCTION);
+	  hsa_summaries->link_functions (clone, node, HSA_FUNCTION, false);
 
 	  if (dump_file)
 	    fprintf (dump_file, "Created a new HSA function clone: %s\n",

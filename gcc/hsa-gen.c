@@ -3594,6 +3594,38 @@ gen_get_team_num (gimple *stmt, hsa_bb *hbb)
   hbb->append_insn (basic);
 }
 
+/* Emit instructions that get levels-var ICV to lhs of gimple STMT.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_get_level (gimple *stmt, hsa_bb *hbb)
+{
+  if (gimple_call_lhs (stmt) == NULL_TREE)
+    return;
+
+  hbb->append_insn (new hsa_insn_comment ("omp_get_level"));
+
+  tree lhs = gimple_call_lhs (stmt);
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+
+  hsa_op_reg *shadow_reg_ptr = hsa_cfun->get_shadow_reg ();
+  if (shadow_reg_ptr == NULL)
+    {
+      HSA_SORRY_AT (gimple_location (stmt),
+		    "support for HSA does not implement omp_get_level called "
+		    "from a function not being inlined within a kernel");
+      return;
+    }
+
+  hsa_op_address *addr = new hsa_op_address
+    (shadow_reg_ptr, offsetof (GOMP_hsa_kernel_dispatch, omp_level));
+
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, NULL,
+					addr);
+  hbb->append_insn (mem);
+  mem->set_output_in_type (dest, 0, hbb);
+}
+
 /* Emit instructions that implement alloca builtin gimple STMT.
    Instructions are appended to basic block HBB.  */
 
@@ -3687,6 +3719,8 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
     gen_get_num_teams (stmt, hbb);
   else if (strcmp (name, "omp_get_team_num") == 0)
     gen_get_team_num (stmt, hbb);
+  else if (strcmp (name, "omp_get_level") == 0)
+    gen_get_level (stmt, hbb);
   else if (strcmp (name, "hsa_set_debug_value") == 0)
     {
       if (hsa_cfun->has_shadow_reg_p ())
@@ -5576,8 +5610,11 @@ generate_hsa (bool kernel)
 
   if (hsa_cfun->m_kern_p)
     {
+      hsa_function_summary *s = hsa_summaries->get
+	(cgraph_node::get (hsa_cfun->m_decl));
       hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->m_name,
-				 hsa_cfun->m_maximum_omp_data_size);
+				 hsa_cfun->m_maximum_omp_data_size,
+				 s->m_gridified_kernel_p);
     }
 
 #ifdef ENABLE_CHECKING

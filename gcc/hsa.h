@@ -1151,6 +1151,9 @@ struct hsa_function_summary
 
   /* Identifies if the function is an HSA function or a host function.  */
   bool m_gpu_implementation_p;
+
+  /* True if the function is a gridified kernel.  */
+  bool m_gridified_kernel_p;
 };
 
 inline
@@ -1168,10 +1171,11 @@ public:
 
   /* Couple GPU and HOST as gpu-specific and host-specific implementation of
      the same function.  KIND determines whether GPU is a host-invokable kernel
-     or gpu-callable function.  */
+     or gpu-callable function and GRIDIFIED_KERNEL_P is set if the function was
+     gridified in OMP.  */
 
   void link_functions (cgraph_node *gpu, cgraph_node *host,
-		       hsa_function_kind kind);
+		       hsa_function_kind kind, bool gridified_kernel_p);
 };
 
 /* in hsa.c */
@@ -1200,11 +1204,12 @@ BrigAlignment8_t hsa_alignment_encoding (unsigned n);
 BrigAlignment8_t hsa_natural_alignment (BrigType16_t type);
 void hsa_destroy_operand (hsa_op_base *op);
 void hsa_destroy_insn (hsa_insn_basic *insn);
-void hsa_add_kern_decl_mapping (tree decl, char *name, unsigned);
+void hsa_add_kern_decl_mapping (tree decl, char *name, unsigned, bool);
 unsigned hsa_get_number_decl_kernel_mappings (void);
 tree hsa_get_decl_kernel_mapping_decl (unsigned i);
 char *hsa_get_decl_kernel_mapping_name (unsigned i);
 unsigned hsa_get_decl_kernel_mapping_omp_size (unsigned i);
+bool hsa_get_decl_kernel_mapping_gridified (unsigned i);
 void hsa_free_decl_kernel_mapping (void);
 void hsa_add_kernel_dependency (tree caller, const char *called_function);
 void hsa_sanitize_name (char *p);

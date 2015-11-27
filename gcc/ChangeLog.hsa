@@ -1,3 +1,23 @@
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
+	* hsa-brig.c (hsa_output_kernels): Append gridified_kernel_p
+	to kernel_info structure.
+	* hsa-gen.c (gen_get_level): Generate call of the builtin.
+	(gen_hsa_insns_for_known_library_call): Call the aforementioned
+	function.
+	(generate_hsa):Output gridified_kernel_p from HSA summary.
+	* hsa.c (struct hsa_decl_kernel_map_element): Add
+	gridified_kernel_p field.
+	(hsa_add_kern_decl_mapping): Add argument for the field.
+	(hsa_get_decl_kernel_mapping_gridified): New function.
+	(hsa_summary_t::link_functions): Add new argument for
+	gridified_kernel_p.
+	(hsa_register_kernel): Mark gridified kernel within HSA summary.
+	* hsa.h (struct hsa_function_summary): Declare new field
+	in HSA summary.
+	* ipa-hsa.c (process_hsa_functions): Use modified signature of
+	link_functions.
+
 2015-11-26  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (expand_omp_for_kernel): Insert the induction variable
