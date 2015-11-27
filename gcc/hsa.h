@@ -163,7 +163,7 @@ class hsa_op_immed : public hsa_op_with_type
 {
 public:
   hsa_op_immed (tree tree_val, bool min32int = true);
-  hsa_op_immed (HOST_WIDE_INT int_value, BrigKind16_t type);
+  hsa_op_immed (HOST_WIDE_INT int_value, BrigType16_t type);
   void *operator new (size_t);
   ~hsa_op_immed ();
   void set_type (BrigKind16_t t);
@@ -1176,6 +1176,36 @@ public:
 
   void link_functions (cgraph_node *gpu, cgraph_node *host,
 		       hsa_function_kind kind, bool gridified_kernel_p);
+};
+
+/* OMP simple builtin describes behavior that should be done for
+   the routine.  */
+class omp_simple_builtin
+{
+public:
+  omp_simple_builtin (const char *name, const char *warning_message,
+	       bool sorry, hsa_op_immed *return_value = NULL):
+    m_name (name), m_warning_message (warning_message), m_sorry (sorry),
+    m_return_value (return_value)
+  {}
+
+  /* Generate HSAIL instructions for the builtin or produce warning message.  */
+  void generate (gimple *stmt, hsa_bb *hbb);
+
+  /* Name of function.  */
+  const char *m_name;
+
+  /* Warning message.  */
+  const char *m_warning_message;
+
+  /* Flag if we should sorry after the warning message is printed.  */
+  bool m_sorry;
+
+  /* Return value of the function.  */
+  hsa_op_immed *m_return_value;
+
+  /* Emission function.  */
+  void (*m_emit_func) (gimple *stmt, hsa_bb *);
 };
 
 /* in hsa.c */

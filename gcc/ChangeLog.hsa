@@ -1,5 +1,18 @@
 2015-11-27  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (hsa_init_simple_builtins): New function.
+	(hsa_deinit_data_for_cfun): Release memory of
+	omp_simple_builtins.
+	(gen_get_num_teams): Change comment message.
+	(gen_get_team_num): Likewise.
+	(gen_get_max_threads): Dtto.
+	(omp_simple_builtin::generate): New method.
+	(gen_hsa_insns_for_known_library_call): Handle new set
+	of OMP functions.
+	* hsa.h (class simple_omp_builtin): New class.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (hsa_output_kernels): Append gridified_kernel_p
 	to kernel_info structure.
 	* hsa-gen.c (gen_get_level): Generate call of the builtin.

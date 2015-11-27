@@ -306,6 +306,76 @@ hsa_function_representation::create_hsa_temporary (BrigType16_t type)
   return s;
 }
 
+/* Hash map of simple OMP builtins.  */
+static hash_map <nofree_string_hash, omp_simple_builtin> *omp_simple_builtins
+  = NULL;
+
+/* Warning messages for OMP builtins.  */
+
+#define HSA_WARN_LOCK_ROUTINE "support for HSA does not implement OMP lock " \
+  "routine"
+#define HSA_WARN_TIMING_ROUTINE "support for HSA does not implement OMP " \
+  "timing routine"
+#define HSA_WARN_MEMORY_ROUTINE "support for HSA does not implement OMP " \
+  "device memory routine"
+
+/* Initialize hash map with simple OMP builtins.  */
+
+static void
+hsa_init_simple_builtins ()
+{
+  if (omp_simple_builtins != NULL)
+    return;
+
+  omp_simple_builtins = new hash_map <nofree_string_hash, omp_simple_builtin>
+    ();
+
+  omp_simple_builtin omp_builtins[] =
+    {
+      omp_simple_builtin
+	("omp_get_initial_device", NULL, false,
+	 new hsa_op_immed (GOMP_DEVICE_HOST, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin ("omp_is_initial_device", NULL, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin ("omp_get_dynamic", NULL, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin ("omp_set_dynamic", NULL, false, NULL),
+      omp_simple_builtin ("omp_init_lock", HSA_WARN_LOCK_ROUTINE, true),
+      omp_simple_builtin ("omp_init_lock_with_hint", HSA_WARN_LOCK_ROUTINE,
+			  true),
+      omp_simple_builtin ("omp_init_nest_lock_with_hint", HSA_WARN_LOCK_ROUTINE,
+			  true),
+      omp_simple_builtin ("omp_destroy_lock", HSA_WARN_LOCK_ROUTINE, true),
+      omp_simple_builtin ("omp_set_lock", HSA_WARN_LOCK_ROUTINE, true),
+      omp_simple_builtin ("omp_unset_lock", HSA_WARN_LOCK_ROUTINE, true),
+      omp_simple_builtin ("omp_test_lock", HSA_WARN_LOCK_ROUTINE, true),
+      omp_simple_builtin ("omp_get_wtime", HSA_WARN_TIMING_ROUTINE, true),
+      omp_simple_builtin ("omp_get_wtick", HSA_WARN_TIMING_ROUTINE, true),
+      omp_simple_builtin ("omp_target_alloc", HSA_WARN_MEMORY_ROUTINE, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_U64)),
+      omp_simple_builtin ("omp_target_free", HSA_WARN_MEMORY_ROUTINE, false),
+      omp_simple_builtin
+	("omp_target_is_present", HSA_WARN_MEMORY_ROUTINE,
+	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin ("omp_target_memcpy", HSA_WARN_MEMORY_ROUTINE, false,
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin
+	("omp_target_memcpy_rect", HSA_WARN_MEMORY_ROUTINE,
+	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin
+	("omp_target_associate_ptr", HSA_WARN_MEMORY_ROUTINE, false,
+	 new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+      omp_simple_builtin
+	("omp_target_disassociate_ptr", HSA_WARN_MEMORY_ROUTINE,
+	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64))
+    };
+
+  unsigned count = sizeof (omp_builtins) / sizeof (omp_simple_builtin);
+
+  for (unsigned i = 0; i < count; i++)
+    omp_simple_builtins->put (omp_builtins[i].m_name, omp_builtins[i]);
+}
+
 /* Allocate HSA structures that we need only while generating with this.  */
 
 static void
@@ -381,6 +451,12 @@ hsa_deinit_data_for_cfun (void)
     hsa_destroy_insn (hsa_instructions[i]);
 
   hsa_instructions.release ();
+
+  if (omp_simple_builtins != NULL)
+    {
+      delete omp_simple_builtins;
+      omp_simple_builtins = NULL;
+    }
 
   delete hsa_allocp_operand_address;
   delete hsa_allocp_operand_immed;
@@ -908,7 +984,7 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 /* Constructor of class representing HSA immediate values.  INTEGER_VALUE is the
    integer representation of the immediate value.  TYPE is BRIG type.  */
 
-hsa_op_immed::hsa_op_immed (HOST_WIDE_INT integer_value, BrigKind16_t type)
+hsa_op_immed::hsa_op_immed (HOST_WIDE_INT integer_value, BrigType16_t type)
   : hsa_op_with_type (BRIG_KIND_OPERAND_CONSTANT_BYTES, type),
   m_tree_value (NULL), m_brig_repr (NULL)
 {
@@ -3559,8 +3635,7 @@ gen_get_num_teams (gimple *stmt, hsa_bb *hbb)
   if (gimple_call_lhs (stmt) == NULL_TREE)
     return;
 
-  hbb->append_insn
-    (new hsa_insn_comment ("__builtin_omp_get_num_teams"));
+  hbb->append_insn (new hsa_insn_comment ("omp_get_num_teams"));
 
   tree lhs = gimple_call_lhs (stmt);
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
@@ -3581,8 +3656,7 @@ gen_get_team_num (gimple *stmt, hsa_bb *hbb)
   if (gimple_call_lhs (stmt) == NULL_TREE)
     return;
 
-  hbb->append_insn
-    (new hsa_insn_comment ("__builtin_omp_get_team_num"));
+  hbb->append_insn (new hsa_insn_comment ("omp_get_team_num"));
 
   tree lhs = gimple_call_lhs (stmt);
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
@@ -3624,6 +3698,23 @@ gen_get_level (gimple *stmt, hsa_bb *hbb)
 					addr);
   hbb->append_insn (mem);
   mem->set_output_in_type (dest, 0, hbb);
+}
+
+/* Emit instruction that implement omp_get_max_threads of gimple STMT.  */
+
+static void
+gen_get_max_threads (gimple *stmt, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (stmt);
+  if (!lhs)
+    return;
+
+  hbb->append_insn (new hsa_insn_comment ("omp_get_max_threads"));
+
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  hsa_op_with_type *num_theads_reg = gen_num_threads_for_dispatch (hbb)
+    ->get_in_type (dest->m_type, hbb);
+  hsa_build_append_simple_mov (dest, num_theads_reg, hbb);
 }
 
 /* Emit instructions that implement alloca builtin gimple STMT.
@@ -3690,6 +3781,35 @@ set_debug_value (hsa_bb *hbb, hsa_op_with_type *value)
   hbb->append_insn (mem);
 }
 
+void
+omp_simple_builtin::generate (gimple *stmt, hsa_bb *hbb)
+{
+  if (m_sorry)
+    {
+      if (m_warning_message)
+	HSA_SORRY_AT (gimple_location (stmt), m_warning_message)
+      else
+	HSA_SORRY_ATV (gimple_location (stmt),
+		       "Support for HSA does not implement calls to %s\n",
+		       m_name)
+    }
+  else if (m_warning_message != NULL)
+    warning_at (gimple_location (stmt), OPT_Whsa, m_warning_message);
+
+  if (m_return_value != NULL)
+    {
+      tree lhs = gimple_call_lhs (stmt);
+      if (!lhs)
+	return;
+
+      hbb->append_insn (new hsa_insn_comment (m_name));
+
+      hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+      hsa_build_append_simple_mov
+	(dest, m_return_value->get_in_type (dest->m_type, hbb), hbb);
+    }
+}
+
 /* If STMT is a call of a known library function, generate code to perform
    it and return true.  */
 
@@ -3698,30 +3818,51 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
 {
   const char *name = hsa_get_declaration_name (gimple_call_fndecl (stmt));
 
-  if (strcmp (name, "omp_is_initial_device") == 0)
+  /* Handle omp_* routines.  */
+  if (strstr (name, "omp_") == name)
     {
-      tree lhs = gimple_call_lhs (stmt);
-      if (!lhs)
+      hsa_init_simple_builtins ();
+      omp_simple_builtin *builtin = omp_simple_builtins->get (name);
+      if (builtin)
+	{
+	  builtin->generate (stmt, hbb);
+	  return true;
+	}
+
+      bool handled = true;
+
+      if (strcmp (name, "omp_set_num_threads") == 0)
+	gen_set_num_threads (gimple_call_arg (stmt, 0), hbb);
+      else if (strcmp (name, "omp_get_thread_num") == 0)
+	{
+	  hbb->append_insn (new hsa_insn_comment (name));
+	  query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
+	}
+      else if (strcmp (name, "omp_get_num_threads") == 0)
+	{
+	  hbb->append_insn (new hsa_insn_comment (name));
+	  query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
+	}
+      else if (strcmp (name, "omp_get_num_teams") == 0)
+	gen_get_num_teams (stmt, hbb);
+      else if (strcmp (name, "omp_get_team_num") == 0)
+	gen_get_team_num (stmt, hbb);
+      else if (strcmp (name, "omp_get_level") == 0)
+	gen_get_level (stmt, hbb);
+      else if (strcmp (name, "omp_get_active_level") == 0)
+	gen_get_level (stmt, hbb);
+      else if (strcmp (name, "omp_in_parallel") == 0)
+	gen_get_level (stmt, hbb);
+      else if (strcmp (name, "omp_get_max_threads") == 0)
+	gen_get_max_threads (stmt, hbb);
+      else
+	handled = false;
+
+      if (handled)
 	return true;
-
-      hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
-      hsa_op_immed *imm = new hsa_op_immed (build_zero_cst (TREE_TYPE (lhs)));
-
-      hsa_build_append_simple_mov (dest, imm, hbb);
     }
-  else if (strcmp (name, "omp_set_num_threads") == 0)
-    gen_set_num_threads (gimple_call_arg (stmt, 0), hbb);
-  else if (strcmp (name, "omp_get_thread_num") == 0)
-    query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
-  else if (strcmp (name, "omp_get_num_threads") == 0)
-    query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
-  else if (strcmp (name, "omp_get_num_teams") == 0)
-    gen_get_num_teams (stmt, hbb);
-  else if (strcmp (name, "omp_get_team_num") == 0)
-    gen_get_team_num (stmt, hbb);
-  else if (strcmp (name, "omp_get_level") == 0)
-    gen_get_level (stmt, hbb);
-  else if (strcmp (name, "hsa_set_debug_value") == 0)
+
+  if (strcmp (name, "__hsa_set_debug_value") == 0)
     {
       if (hsa_cfun->has_shadow_reg_p ())
 	{
