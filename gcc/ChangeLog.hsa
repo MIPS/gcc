@@ -1,5 +1,10 @@
 2015-11-27  Martin Liska  <mliska@suse.cz>
 
+	* hsa.c (hsa_get_declaration_name): Skip leading asterisk symbol
+	is assembly name.
+
+2015-11-27  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (hsa_init_simple_builtins): New function.
 	(hsa_deinit_data_for_cfun): Release memory of
 	omp_simple_builtins.

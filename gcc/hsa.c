@@ -710,14 +710,20 @@ hsa_get_declaration_name (tree decl)
       free (b);
       return ggc_str;
     }
-  else if (TREE_CODE (decl) == FUNCTION_DECL)
-    return cgraph_node::get_create (decl)->asm_name ();
-  else if (TREE_CODE (decl) == VAR_DECL && is_global_var (decl))
-    return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
-  else
-    return IDENTIFIER_POINTER (DECL_NAME (decl));
 
-  return NULL;
+  tree name_tree;
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      || (TREE_CODE (decl) == VAR_DECL && is_global_var (decl)))
+    name_tree = DECL_ASSEMBLER_NAME (decl);
+  else
+    name_tree = DECL_NAME (decl);
+
+  const char *name = IDENTIFIER_POINTER (name_tree);
+  /* User-defined assembly names have prepended asterisk symbol.  */
+  if (name[0] == '*')
+    name++;
+
+  return name;
 }
 
 void
