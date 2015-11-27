@@ -1,3 +1,226 @@
+2015-11-22  Bilyan Borisov  <bilyan.borisov@arm.com>
+
+	* config/aarch64/aarch64-simd.md
+	(*aarch64_mulx_elt_<vswap_width_name><mode>, VDQSF): New.
+	(*aarch64_mulx_elt<mode>, VDQF): Likewise.
+	(*aarch64_mulx_elt_to_64v2df): Likewise.
+	(*aarch64_vgetfmulx<mode>, VDQF_DF): Likewise.
+	* config/aarch64/arm_neon.h (vmulx_lane_f32): New.
+	(vmulx_lane_f64): Likewise.
+	(vmulxq_lane_f32): Refactored & moved.
+	(vmulxq_lane_f64): Likewise.
+	(vmulx_laneq_f32): New.
+	(vmulx_laneq_f64): Likewise.
+	(vmulxq_laneq_f32): Likewise.
+	(vmulxq_laneq_f64): Likewise.
+	(vmulxs_lane_f32): Likewise.
+	(vmulxs_laneq_f32): Likewise.
+	(vmulxd_lane_f64): Likewise.
+	(vmulxd_laneq_f64): Likewise.
+
+2015-11-21  Jan Hubicka  <hubicka@ucw.cz>
+
+	* tree.c (build_pointer_type_for_mode,build_reference_type_for_mode):
+	In LTO we do not compute TYPE_CANONICAL of pointers.
+	(gimple_canonical_types_compatible_p): Improve coments; sanity check
+	that pointers do not have canonical type that would make us believe
+	they are different.
+	* alias.c (get_alias_set): Do structural type equality on pointers;
+	enable pointer path for LTO; also glob pointer to vector with pointer
+	to vector element; glob pointers and references for LTO; do more strict
+	sanity checking about build_pointer_type returning the canonical type
+	which is also the main variant.
+	(record_component_aliases): When component type is pointer and we
+	do LTO; record void_type_node alias set.
+
+2015-11-21  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.md (clz<mode>2): Use operand 1 for type.
+
+	* config/nvptx/nvptx.c (write_function_decl_and_comment): Print
+	leading blank line.
+	(write_func_decl_from_insn): Likewise.
+	(init_output_initializer, nvptx_assemble_undefined_decl): Likewise.
+	(nvptx_file_end): Likewise.
+	(nvptx_function_end): Undent output.
+	(nvptx_expand_call): Fix formatting.
+	(nvptx_output_call_insn): Indent output.
+	* config/nvptx/nvptx.h (ASM_OUTPUT_ALIGNED_DECL_COMMON,
+	ASM__OUTPUT_ALIGNED_DECL_LOCAL): Print leading blank line.
+
+2015-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/66432
+	* tree-inline.c (copy_debug_stmt): If
+	gimple_debug_source_bind_get_value is DECL_ORIGIN of a PARM_DECL
+	in decl_debug_args, don't call remap_gimple_op_r on it.
+
+2015-11-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-icf.c (sem_item::add_type): Do not look for TYPE_CANONICAL;
+	do not check AGGREGATE_TYPE_P when adding TYPE_MODE;
+	Check that all record types are complete.
+	* ipa-icf-gimple.c (func_checker::compatible_types_p): Do not
+	compare alias sets for types w/o alias sets.
+
+2015-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/sparc/sparc.md (umulxhi_vis): Move around.
+	(*umulxhi_sp64): Likewise.
+	(umulxhi_v8plus): Likewise.
+	(xmulx_vis): Likewise.
+	(*xmulx_sp64): Likewise.
+	(xmulx_v8plus): Likewise.
+	(xmulxhi_vis): Likewise.
+	(*xmulxhi_sp64): Likewise.
+	(xmulxhi_v8plus): Likewise.
+
+2015-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	PR 62314
+	* diagnostic-show-locus.c (colorizer::set_fixit_hint): New.
+	(class layout): Update comment
+	(layout::print_any_fixits): New method.
+	(layout::move_to_column): New method.
+	(diagnostic_show_locus): Add call to layout.print_any_fixits.
+
+2015-11-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/68221
+	* omp-low.c (lower_rec_input_clauses): If C/C++ array reduction
+	has non-zero bias, subtract it in integer type instead of
+	pointer plus of negated bias.
+
+	PR middle-end/68339
+	* omp-low.c (expand_simd_clones): Call node->get_body () before
+	allocating stuff in GC.
+
+2015-11-20  Jim Wilson  <jim.wilson@linaro.org>
+
+	* tree-vect-data-refs.c (compare_tree): Call STRIP_NOPS.
+
+2015-11-20  Evandro Menezes  <e.menezes@samsung.com>
+
+	* config/aarch64/aarch64.md (predicated): Copy attribute from
+	"arm.md".
+	* config/arm/arm.md (predicated): Added description.
+
+2015-11-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_option_override): Require TARGET_32BIT
+	for unaligned_access.
+	* config/arm/arm.md (unaligned_loadsi): Remove redundant TARGET_32BIT
+	from matching condition.
+	(unaligned_loadhis): Likewise.
+	(unaligned_loadhiu): Likewise.
+	(unaligned_storesi): Likewise.
+	(unaligned_storehi): Likewise.
+
+2015-11-20  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR target/68149
+	* config/arm/arm.md (unaligned_loaddi): Delete.
+	(unaligned_storedi): Likewise.
+	* config/arm/arm.c (gen_movmem_ldrd_strd): Don't generate
+	unaligned DImode memory ops.  Instead perform two back-to-back
+	unaligned SImode ops.
+
+2015-11-20  Nathan Sidwell  <nathan@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* config/nvptx/nvptx.c (nvptx_use_anchors_for_symbol_p): New.
+	(TARGET_USE_ANCHORS_FOR_SYMBOL_P): Override.
+
+2015-11-20  Alan Hayward <alan.hayward@arm.com>
+
+	PR tree-optimization/68413
+	* tree-vect-loop.c (vect_analyze_scalar_cycles_1): Cache
+	evolution base
+	(vectorizable_reduction): Use cached base
+
+2015-11-20  Tom de Vries  <tom@codesourcery.com>
+
+	* tree-parloops.c (build_new_reduction): Fix trailing whitespace in
+	dump-file string.
+	(try_create_reduction_list): Same.  Fix typo in dump-file string.
+
+2015-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/md.texi (Standard Names): Move entry for addptr3 around,
+	add entries for addv4, subv4, mulv4, umulv4 and negv3, fixes
+	glitch in entries for cbranch4 and jump.
+
+2015-11-20  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68373
+	* tree-scalar-evolution.c (final_value_replacement_loop): Factor out
+	of ...
+	(scev_const_prop): ... here.
+	* tree-scalar-evolution.h (final_value_replacement_loop): Declare.
+	* tree-parloops.c (try_create_reduction_list): Call
+	final_value_replacement_loop.
+
+2015-11-20  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/52272
+	* tree-ssa-loop-ivopts.c (struct iv_common_cand): New struct.
+	(struct iv_common_cand_hasher): New struct.
+	(iv_common_cand_hasher::hash): New function.
+	(iv_common_cand_hasher::equal): New function.
+	(struct ivopts_data): New fields, iv_common_cand_tab and
+	iv_common_cands.
+	(tree_ssa_iv_optimize_init): Initialize above fields.
+	(record_common_cand, common_cand_cmp): New functions.
+	(add_iv_candidate_derived_from_uses): New function.
+	(add_iv_candidate_for_use): Record iv_common_cands derived from
+	iv use in hash table, instead of adding candidates directly.
+	(add_iv_candidate_for_uses): Call add_iv_candidate_derived_from_uses.
+	(record_important_candidates): Add important candidates to iv uses'
+	related_cands.  Always keep related_cands for future use.
+	(try_add_cand_for): Use iv uses' related_cands.
+	(free_loop_data, tree_ssa_iv_optimize_finalize): Release new fields
+	in struct ivopts_data, iv_common_cand_tab and iv_common_cands.
+
+2015-11-20  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* config/s390/s390.md ("bswaphi2"): New pattern.
+
+2015-11-20  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.md (GPR1_REGNUM): New constant.
+	("*trunc<BFP:mode><DFP_ALL:mode>2")
+	("*trunc<DFP_ALL:mode><BFP:mode>2")
+	("trunc<BFP:mode><DFP_ALL:mode>2")
+	("trunc<DFP_ALL:mode><BFP:mode>2")
+	("*extend<BFP:mode><DFP_ALL:mode>2")
+	("*extend<DFP_ALL:mode><BFP:mode>2")
+	("extend<BFP:mode><DFP_ALL:mode>2")
+	("extend<DFP_ALL:mode><BFP:mode>2"): Clobber r1.
+
+2015-11-19  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/68428
+	* graphite-scop-detection.c (harmful_stmt_in_region): Do not iterate
+	over basic blocks outside the scop.
+
+2015-11-19  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/68341
+	* graphite-isl-ast-to-gimple.c (get_rename_from_scev): Remove
+	gcc_unreachable and safely fail codegen.
+	(copy_loop_close_phi_args): Do not insert merge phis in a basic
+	block with loop phi nodes.
+	(edge_for_new_close_phis): New.
+	(copy_bb_and_scalar_dependences): Call edge_for_new_close_phis.
+
+2015-11-19  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.h (SUPPORTS_WEAK): Define.
+	* config/nvptx/nvptx.c (nvptx_write_function_decl): Support DECL_WEAK.
+	(nvptx_declare_objec_name): Likewise.
+
 2015-11-19  Aditya Kumar  <aditya.k7@samsung.com>
 
 	* graphite-isl-ast-to-gimple.c (get_true_edge_from_guard_bb): Move...
@@ -19,19 +242,6 @@
 	* tree.h (desired_pro_or_demotion_p): New function.
 	* tree-vrp.c (simplify_cond_using_ranges): Call it.
 
-2015-11-19  Jakub Jelinek  <jakub@redhat.com>
-	    Manuel López-Ibáñez  <manu@gcc.gnu.org>
-
-	PR c++/67409
-	* decl.c (identify_goto): Add LOC and DIAG_KIND arguments, call
-	emit_diagnostic instead of permerror.
-	(check_previous_goto_1): Adjust identify_goto callers, treat all
-	cases but crossing initialization and entering scope of decl with
-	non-trivial dtor as unconditional hard errors.
-	(check_goto): Use identify_goto.  Treat all cases but crossing
-	initialization and entering scope of decl with non-trivial dtor
-	as unconditional hard errors.
-
 2015-11-19  Michael Matz  <matz@suse.de>
 
 	* fwprop.c (update_uses): Use flag_checking instead of
@@ -47,7 +257,7 @@
 	PR tree-optimization/68431
 	* tree-vrp.c (extract_range_from_binary_expr_1): Fix condition.
 
-2015-11-19  Nathan Sidwell  <nathanacm.org>
+2015-11-19  Nathan Sidwell  <nathan@acm.org>
 
 	* config/nvptx/nvptx.md (atomic_compare_and_swap<mode>_1,
 	atomic_exchange<mode>): Input values can be immediates.
@@ -131,7 +341,8 @@
 
 2015-11-18  Aditya Kumar  <aditya.k7@samsung.com>
 
-	* graphite-isl-ast-to-gimple.c (struct ast_build_info): Remove semicolon.
+	* graphite-isl-ast-to-gimple.c (struct ast_build_info): Remove
+	semicolon.
 	(class translate_isl_ast_to_gimple): Indentation.
 	(translate_pending_phi_nodes): Comment.
 	(add_parameters_to_ivs_params): Moved from sese.c inside class
@@ -286,8 +497,7 @@
 2015-11-18  Ilya Enkovich  <enkovich.gnu@gmail.com>
 
 	PR target/68405
-	* config/i386/i386.c (ix86_expand_mask_vec_cmp): Add missing
-	break.
+	* config/i386/i386.c (ix86_expand_mask_vec_cmp): Add missing break.
 
 2015-11-18  Jakub Jelinek  <jakub@redhat.com>
 
