@@ -1,3 +1,8 @@
+2015-11-27  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* trans-decl.c (add_attributes_to_decl): Identify some presumed
+	TODOs.
+
 2015-10-13  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* trans-array.c (gfc_trans_array_bounds): Add an INIT_VLA argument

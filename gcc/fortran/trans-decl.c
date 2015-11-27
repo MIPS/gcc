@@ -1429,10 +1429,21 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
 	list = chainon (list, attr);
       }
 
-  if (sym_attr.omp_declare_target_link)
+  if (sym_attr.omp_declare_target_link
+#if 0 /* TODO */
+      || sym_attr.oacc_declare_link
+#endif
+      )
     list = tree_cons (get_identifier ("omp declare target link"),
 		      NULL_TREE, list);
-  else if (sym_attr.omp_declare_target)
+  else if (sym_attr.omp_declare_target
+#if 0 /* TODO */
+	   || sym_attr.oacc_declare_create
+	   || sym_attr.oacc_declare_copyin
+	   || sym_attr.oacc_declare_deviceptr
+	   || sym_attr.oacc_declare_device_resident
+#endif
+	   )
     list = tree_cons (get_identifier ("omp declare target"),
 		      NULL_TREE, list);
 
