@@ -112,9 +112,6 @@ processing to be done:
 @item @file{file}.upc
 UPC source; pre-process, compile, assemble
 
-@item @file{file}.upci
-Pre-processed UPC source; compile, assemble
-
 @item @file{file}.h
 Pre-processor header file; not usually named on command line
 
@@ -148,25 +145,25 @@ to the linker in command-line order.
 @node Threads
 @section Number of Threads
 
-Within a UPC program, the special symbol THREADS refers to the number
+Within a UPC program, the special symbol @var{THREADS} refers to the number
 of parallel execution threads.  On each thread, the special symbol
-MYTHREAD refers to the thread number.  The number of threads in a UPC
+@var{MYTHREAD} refers to the thread number.  The number of threads in a UPC
 application can be specified statically at compile-time or dynamically
 at execution time.  Generally, the number of threads should not exceed
 the number of physical central processing units or cores.
 
-If the number of threads is specified statically at compile-time,
-the special symbol THREADS is a constant and can be used freely in any
-context where a constant is required by the C language specification
-(for example, in array dimensions in an array declaration).  See the
-@option{-fupc-threads=N} compilation option.
+If the number of threads is specified statically at compile-time, the
+special symbol @var{THREADS} is a constant and can be used freely
+in any context where a constant is required by the C language
+specification (for example, in array dimensions in an array
+declaration).  See the @option{-fupc-threads=N} compilation option.
 
-If the number of threads is specified dynamically at execution time, the
-special symbol THREADS is assigned at run-time, and THREADS can be used
-in array declarations only if the array is qualified as @code{shared} and
-only if one and only one of the shared array's dimensions is specified
-as an integral multiple of THREADS.  See the @option{-fupc-threads=N}
-execution option.
+If the number of threads is specified dynamically at execution
+time, the special symbol @var{THREADS} is assigned at run-time,
+and @var{THREADS} can be used in array declarations only if the
+array is qualified as @code{shared} and only if one and only one of
+the shared array's dimensions is specified as an integral multiple
+of @var{THREADS}.  See the @option{-fupc-threads=N} execution option.
 
 @c man end
 
@@ -197,7 +194,7 @@ program and of the preprocessor and the compiler proper.
 @table @gcctabopt
 @item -x upc
 @cindex @option{-x}
-All source files ending in @file{.upc}, @file{.c}, or @file{.upci} will
+All source files ending in @file{.upc} or @file{.c} will
 be compiled by the @command{gupc} compiler.  The @option{-x upc} option
 tells the compiler to process all of the following file names as
 UPC source code, ignoring the default language typically associated
@@ -293,19 +290,22 @@ Specifies, at run-time, the number of parallel execution threads
 as @option{N}.  If the UPC program was not compiled with the
 @option{-fupc-threads=N} option, either the @option{-fupc-threads=N}
 or @option{-n N} command-line option is required when you invoke the
-UPC program.  See the Number of Threads section, above.
+UPC program.  The deprecated form, @option{-fupc-threads-N} is also
+accepted.  See the Number of Threads section, above.
 
 @item -fupc-heap=HEAPSIZE
-@cindex @option{-fupc-heap}
+@cindex @option{-fupc-heap=}
+@itemx -heap HEAPSIZE
+@cindex @option{-heap}
 Specifies the size of the heap available to each thread
 as @option{HEAPSIZE}.  A suffix of @option{K} indicates that
 @option{HEAPSIZE} is expressed in kilobytes (2^10 bytes).  A suffix
 of @option{M} indicates that @option{HEAPSIZE} is expressed in
 megabytes (2^20 bytes).  A suffix of @option{G} indicates that
 @option{HEAPSIZE} is expressed in gigabytes (2^30 bytes).  If a
-suffix is not present, @option{HEAPSIZE} is expressed in bytes.  If the
-@option{-fupc-heap=HEAPSIZE} option is not supplied, the run-time system
-will use a default heap size of 16 megabytes per thread.
+suffix is not present, @option{HEAPSIZE} is expressed in bytes.
+The deprecated from, @option{-fupc-heap-HEAPSIZE} is also
+accepted.
 @end table
 
 The following options specify thread scheduling and NUMA policies:
@@ -363,20 +363,10 @@ William W. Carlson et al., LLNL, CCS-TR-99-157, May 13, 1999
 
 @w{@uref{http://upc.lbl.gov/publications/upc-spec-1.3.pdf}}
 UPC Language Specifications, Version 1.3
-A publication of the UPC Consortium
-
-
-@uref{http://gasp.hcs.ufl.edu/ppw/}
-GASP Tool Interface,
-University of Florida
+A publication of the UPC Consortium, November 16, 2013.
 
 @uref{http://www.gccupc.org}
 GNU UPC web site
-
-@uref{http://www.gwu.edu/~upc/software/gnu-upc-ml.html}
-GNU UPC Mailing List is an electronic forum for discussing
-news announcements, bug reports, planned developments, and other
-topics of interest to GNU UPC developers and users.
 @c man end
 
 @node Contributors

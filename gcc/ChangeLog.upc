@@ -1,3 +1,8 @@
+2015-11-28  Gary Funck  <gary@intrepid.com>
+
+	* doc/gupc.texi: Document -fupc-threads=N and -fupc-heap=N.
+	Remove outdated URL's.
+
 2015-11-27  Gary Funck  <gary@intrepid.com>
 
 	* c/c-upc-low.c (create_unshared_var): Set DECL_EXTERNAL()
