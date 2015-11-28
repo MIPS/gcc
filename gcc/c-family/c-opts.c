@@ -247,10 +247,6 @@ upc_init_options ()
      inlining, otherwise use the user specified flag to unconditionally
      enable/disable inlining of the UPC shared memory access routines.  */
   flag_upc_inline_lib = -1;
-  /* Disable section anchors.  The presence of an unshared equivalent of the
-     shared variables causes a double definition of the symbol names in the
-     assembly code.  */
-  flag_section_anchors = 0;
 }
 
 /* Common initialization before calling option handlers.  */

@@ -447,16 +447,13 @@ create_unshared_var (location_t loc, const tree var)
   TREE_STATIC (u) = TREE_STATIC (var);
   DECL_ARTIFICIAL (u) = 1;
   DECL_IGNORED_P (u) = 1;
-  DECL_EXTERNAL (u) = DECL_EXTERNAL (var);
   set_decl_section_name (u, DECL_SECTION_NAME (var));
   DECL_CONTEXT (u) = DECL_CONTEXT (var);
-
+  /* Define it as 'external' so that no data is allocated.  */
+  DECL_EXTERNAL (u) = 1;
   /* Alias the unshared variable to the shared variable.  */
-
   SET_DECL_ASSEMBLER_NAME (u, DECL_ASSEMBLER_NAME (var));
-
   /* Make sure the variable is referenced.  */
-
   mark_decl_referenced (var);
   return u;
 }

@@ -1,3 +1,10 @@
+2015-11-27  Gary Funck  <gary@intrepid.com>
+
+	* c/c-upc-low.c (create_unshared_var): Set DECL_EXTERNAL()
+	to avoid allocating the unshared "shadow" variable.
+	* c-family/c-opts.c (upc_init_options): Remove work-around
+	that disabled "section anchors" on the PowerPC.
+
 2015-11-25  Gary Funck  <gary@intrepid.com>
 
 	* print-tree.c (print_node): Revert to trunk.  Remove code that
