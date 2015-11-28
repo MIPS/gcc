@@ -57,7 +57,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #endif
 
 #ifdef __UPC_STATIC_THREADS__
-/* defined at compile time by the -fupc-threads-N switch */
+/* defined at compile time by the -fupc-threads=N switch */
 #define __UPC_N_THREADS__ THREADS
 #define __UPC_STR__(S) #S
 #define __UPC_XSTR__(S) __UPC_STR__(S)

@@ -188,12 +188,12 @@ __upc_print_help_and_exit (char *pgm)
   fprintf (stderr, "usage: %s [UPC switches] ...\n", pgm);
   fprintf (stderr, "where the possible UPC switches are:\n");
   fprintf (stderr,
-	   "	-fupc-threads-N or -n N			N is number of threads to run\n");
+	   "	-fupc-threads=N or -n N			N is number of threads to run\n");
   fprintf (stderr,
 	   "						(N must be in the range 1..%d)\n",
 	   GUPCR_THREADS_MAX);
   fprintf (stderr,
-	   "	-fupc-heap-N or -heap N			N is the maximum per-thread memory\n");
+	   "	-fupc-heap=N or -heap N			N is the maximum per-thread memory\n");
   fprintf (stderr,
 	   "						allocation heap size\n");
   fprintf (stderr,
@@ -270,7 +270,8 @@ __upc_process_switches (char *pgm, int *argc, char *argv[])
 	  fprintf (stderr, "%s argument requires a value\n", arg);
 	  __upc_print_help_and_exit (pgm);
 	}
-      if (!strncmp (arg, "-fupc-threads-", 14))
+      if (!strncmp (arg, "-fupc-threads=", 14)
+          || !strncmp (arg, "-fupc-threads-", 14))
 	{
 	  tval = arg + 14;
 	  if (!__upc_get_int_value (tval, &threads_switch_value, 0,
@@ -313,7 +314,8 @@ __upc_process_switches (char *pgm, int *argc, char *argv[])
 	    }
 	}
 #endif /* GUPCR_USE_PTHREADS */
-      else if (!strncmp (arg, "-fupc-heap-", 11))
+      else if (!strncmp (arg, "-fupc-heap=", 11)
+               || !strncmp (arg, "-fupc-heap-", 11))
 	{
 	  tval = arg + 11;
 	  if (!__upc_get_int_value (tval, &heap_switch_value, 1,
@@ -448,7 +450,7 @@ __upc_process_switches (char *pgm, int *argc, char *argv[])
 	  if (threads_switch_value != THREADS)
 	    {
 	      fprintf (stderr, "%s: UPC error: The value of the"
-		       " -fupc-threads-N switch: %ld,"
+		       " -fupc-threads=N switch: %ld,"
 		       " does not agree with the value given at"
 		       " compile-time: %d\n",
 		       pgm, threads_switch_value, THREADS);

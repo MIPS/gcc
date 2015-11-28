@@ -1,3 +1,12 @@
+2015-11-28  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_main.c (__upc_process_switches): Accept -fupc-threads=N
+	and -fupc-heap=N switches as well as their deprecated forms.
+	(__upc_print_help_and_exit): Print -fupc-threads=N
+	and -fupc-heap=N forms in the usage summary.
+	* smp/gcc-upc-lib.in: Refer to -fupc-threads=N compilation switch.
+	* portals4/gcc-upc-lib.in: Ditto.
+
 2015-11-25  Gary Funck  <gary@intrepid.com>
 
 	* Makefile.am: Fix spelling.
