@@ -1307,7 +1307,10 @@ build_receiver_ref (tree var, bool by_ref, omp_context *ctx)
   TREE_THIS_NOTRAP (x) = 1;
   x = omp_build_component_ref (x, field);
   if (by_ref)
-    x = build_simple_mem_ref (x);
+    {
+      x = build_simple_mem_ref (x);
+      TREE_THIS_NOTRAP (x) = 1;
+    }
 
   return x;
 }
@@ -9107,6 +9110,7 @@ expand_omp_for_generic (struct omp_region *region,
 	  add_loop (orig_loop, (new_loop != NULL
 				? new_loop
 				: outer_loop));
+	  orig_loop->latch = find_single_latch (orig_loop);
 	}
     }
 }

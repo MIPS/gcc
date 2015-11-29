@@ -1,3 +1,29 @@
+2015-11-25  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67941
+	* lambda.c (maybe_add_lambda_conv_op): Mark _FUN as
+	no_sanitize_undefined.
+
+	* cp-ubsan.c (cp_ubsan_instrument_vptr_p): Use
+	do_ubsan_in_current_function.
+
+2015-11-25  Markus Trippelsdorf  <markus@trippelsdorf.de>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/68087
+	* constexpr.c (cxx_eval_array_reference): Use tree_fits_shwi_p before
+	tree_to_shwi to avoid ICEs.
+
+2015-11-24  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* parser.c (cp_parser_oacc_declare): Replace "ifdef ENABLE_OFFLOADING"
+	with "if (ENABLE_OFFLOADING)".
+
+2015-11-23  Igor Zamyatin  <igor.zamyatin@intel.com>
+
+	PR c++/68001
+	* cp-gimplify.c (cp_gimplify_expr): Stop the process if see an error.
+
 2015-11-20  Jakub Jelinek  <jakub@redhat.com>
 
 	PR c++/67354

@@ -712,7 +712,7 @@ skip_gcc_attribute (locus start)
 
 /* Return true if CC was matched.  */
 static bool
-skip_oacc_attribute (locus start, locus old_loc, bool continue_flag)
+skip_free_oacc_sentinel (locus start, locus old_loc)
 {
   bool r = false;
   char c;
@@ -752,7 +752,7 @@ skip_oacc_attribute (locus start, locus old_loc, bool continue_flag)
 
 /* Return true if MP was matched.  */
 static bool
-skip_omp_attribute (locus start, locus old_loc, bool continue_flag)
+skip_free_omp_sentinel (locus start, locus old_loc)
 {
   bool r = false;
   char c;
@@ -841,7 +841,7 @@ skip_free_comments (void)
 		    c = next_char ();
 		    if (c == 'o' || c == 'O')
 		      {
-			if (skip_omp_attribute (start, old_loc, continue_flag))
+			if (skip_free_omp_sentinel (start, old_loc))
 			  return false;
 			gfc_current_locus = old_loc;
 			next_char ();
@@ -849,7 +849,7 @@ skip_free_comments (void)
 		      }
 		    else if (c == 'a' || c == 'A')
 		      {
-			if (skip_oacc_attribute (start, old_loc, continue_flag))
+			if (skip_free_oacc_sentinel (start, old_loc))
 			  return false;
 			gfc_current_locus = old_loc;
 			next_char ();
@@ -874,7 +874,7 @@ skip_free_comments (void)
 		    c = next_char ();
 		    if (c == 'o' || c == 'O')
 		      {
-			if (skip_omp_attribute (start, old_loc, continue_flag))
+			if (skip_free_omp_sentinel (start, old_loc))
 			  return false;
 			gfc_current_locus = old_loc;
 			next_char ();
@@ -899,8 +899,7 @@ skip_free_comments (void)
 		    c = next_char ();
 		      if (c == 'a' || c == 'A')
 			{
-			  if (skip_oacc_attribute (start, old_loc, 
-						   continue_flag))
+			  if (skip_free_oacc_sentinel (start, old_loc))
 			    return false;
 			  gfc_current_locus = old_loc;
 			  next_char();
@@ -937,7 +936,7 @@ skip_free_comments (void)
 
 /* Return true if MP was matched in fixed form.  */
 static bool
-skip_omp_attribute_fixed (locus *start)
+skip_fixed_omp_sentinel (locus *start)
 {
   gfc_char_t c;
   if (((c = next_char ()) == 'm' || c == 'M')
@@ -966,7 +965,7 @@ skip_omp_attribute_fixed (locus *start)
 
 /* Return true if CC was matched in fixed form.  */
 static bool
-skip_oacc_attribute_fixed (locus *start)
+skip_fixed_oacc_sentinel (locus *start)
 {
   gfc_char_t c;
   if (((c = next_char ()) == 'c' || c == 'C')
@@ -982,7 +981,7 @@ skip_oacc_attribute_fixed (locus *start)
 	  while (gfc_is_whitespace (c));
 	  if (c != '\n' && c != '!')
 	    {
-	      /* Canonicalize to *$omp.  */
+	      /* Canonicalize to *$acc.  */
 	      *start->nextc = '*';
 	      openacc_flag = 1;
 	      gfc_current_locus = *start;
@@ -1067,7 +1066,7 @@ skip_fixed_comments (void)
 		  c = next_char ();
 		  if (c == 'o' || c == 'O')
 		    {
-		      if (skip_omp_attribute_fixed (&start))
+		      if (skip_fixed_omp_sentinel (&start))
 			return;
 		    }
 		  else
@@ -1083,7 +1082,7 @@ skip_fixed_comments (void)
 		  c = next_char ();
 		  if (c == 'a' || c == 'A')
 		    {
-		      if (skip_oacc_attribute_fixed (&start))
+		      if (skip_fixed_oacc_sentinel (&start))
 			return;
 		    }
 		  else
@@ -1092,19 +1091,19 @@ skip_fixed_comments (void)
 	      gfc_current_locus = start;
 	    }
 
-	  if (flag_openacc || (flag_openmp || flag_openmp_simd))
+	  if (flag_openacc || flag_openmp || flag_openmp_simd)
 	    {
 	      if (next_char () == '$')
 		{
 		  c = next_char ();
 		  if (c == 'a' || c == 'A')
 		    {
-		      if (skip_oacc_attribute_fixed (&start))
+		      if (skip_fixed_oacc_sentinel (&start))
 			return;
 		    }
 		  else if (c == 'o' || c == 'O')
 		    {
-		      if (skip_omp_attribute_fixed (&start))
+		      if (skip_fixed_omp_sentinel (&start))
 			return;
 		    }
 		  else

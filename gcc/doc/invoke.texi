@@ -6112,8 +6112,10 @@ and program then exits with a non-zero exit code.
 
 Currently this feature only works for @option{-fsanitize=undefined} (and its suboptions
 except for @option{-fsanitize=unreachable} and @option{-fsanitize=return}),
-@option{-fsanitize=float-cast-overflow}, @option{-fsanitize=float-divide-by-zero} and
-@option{-fsanitize=kernel-address}.  For these sanitizers error recovery is turned on by default.
+@option{-fsanitize=float-cast-overflow}, @option{-fsanitize=float-divide-by-zero},
+@option{-fsanitize=kernel-address} and @option{-fsanitize=address}.
+For these sanitizers error recovery is turned on by default, except @option{-fsanitize=address},
+for which this feature is experimental.
 @option{-fsanitize-recover=all} and @option{-fno-sanitize-recover=all} is also
 accepted, the former enables recovery for all sanitizers that support it,
 the latter disables recovery for all sanitizers that support it.
@@ -24346,7 +24348,7 @@ loader is not part of GCC; it is part of the operating system).  If
 the GOT size for the linked executable exceeds a machine-specific
 maximum size, you get an error message from the linker indicating that
 @option{-fpic} does not work; in that case, recompile with @option{-fPIC}
-instead.  (These maximums are 8k on the SPARC and 32k
+instead.  (These maximums are 8k on the SPARC, 28k on AArch64 and 32k
 on the m68k and RS/6000.  The x86 has no such limit.)
 
 Position-independent code requires special support, and therefore works
@@ -24361,7 +24363,7 @@ are defined to 1.
 @opindex fPIC
 If supported for the target machine, emit position-independent code,
 suitable for dynamic linking and avoiding any limit on the size of the
-global offset table.  This option makes a difference on the m68k,
+global offset table.  This option makes a difference on AArch64, m68k,
 PowerPC and SPARC@.
 
 Position-independent code requires special support, and therefore works
