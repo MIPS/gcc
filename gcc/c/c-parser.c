@@ -54,7 +54,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-upc.h"
 #include "c-upc-gasp.h"
 #include "c-upc-pts-ops.h"
-#include "output.h"
 #include "plugin.h"
 #include "omp-low.h"
 #include "builtins.h"
@@ -10162,7 +10161,6 @@ upc_affinity_test (location_t loc, tree affinity)
 
   mythread = lookup_name (get_identifier ("MYTHREAD"));
   gcc_assert (mythread != NULL_TREE);
-  assemble_external (mythread);
   TREE_USED (mythread) = 1;
 
   /* AFFINITY now contains an integer value that can be compared to MY_THREAD.

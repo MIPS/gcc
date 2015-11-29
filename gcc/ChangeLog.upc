@@ -1,3 +1,8 @@
+2015-11-29  Gary Funck  <gary@intrepid.com>
+
+	* c/c-parser.c (upc_affinity_test): Remove call to
+	assemble_external().
+
 2015-11-28  Gary Funck  <gary@intrepid.com>
 
 	* doc/gupc.texi: Document -fupc-threads=N and -fupc-heap=N.
