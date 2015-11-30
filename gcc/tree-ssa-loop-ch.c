@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-ssa-scopedtables.h"
 #include "tree-ssa-threadedge.h"
-#include "omp-low.h"
 
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This
@@ -125,7 +124,7 @@ do_while_loop_p (struct loop *loop)
 
 namespace {
 
-/* Common superclass for header-copying phases.  */
+/* Common superclass for both header-copying phases.  */
 class ch_base : public gimple_opt_pass
 {
   protected:
@@ -160,15 +159,13 @@ public:
     : ch_base (pass_data_ch, ctxt)
   {}
 
-  pass_ch (pass_data data, gcc::context *ctxt)
-    : ch_base (data, ctxt)
-  {}
-
   /* opt_pass methods: */
   virtual bool gate (function *) { return flag_tree_ch != 0; }
   
   /* Initialize and finalize loop structures, copying headers inbetween.  */
   virtual unsigned int execute (function *);
+
+  opt_pass * clone () { return new pass_ch (m_ctxt); }
 
 protected:
   /* ch_base method: */
@@ -341,8 +338,6 @@ ch_base::copy_headers (function *fun)
   return changed ? TODO_cleanup_cfg : 0;
 }
 
-} // anon namespace
-
 /* Initialize the loop structures we need, and finalize after.  */
 
 unsigned int
@@ -408,6 +403,8 @@ pass_ch_vect::process_loop_p (struct loop *loop)
   return false;
 }
 
+} // anon namespace
+
 gimple_opt_pass *
 make_pass_ch_vect (gcc::context *ctxt)
 {
@@ -418,51 +415,4 @@ gimple_opt_pass *
 make_pass_ch (gcc::context *ctxt)
 {
   return new pass_ch (ctxt);
-}
-
-namespace {
-
-const pass_data pass_data_ch_oacc_kernels =
-{
-  GIMPLE_PASS, /* type */
-  "ch_oacc_kernels", /* name */
-  OPTGROUP_LOOP, /* optinfo_flags */
-  TV_TREE_CH, /* tv_id */
-  ( PROP_cfg | PROP_ssa ), /* properties_required */
-  0, /* properties_provided */
-  0, /* properties_destroyed */
-  0, /* todo_flags_start */
-  TODO_cleanup_cfg, /* todo_flags_finish */
-};
-
-class pass_ch_oacc_kernels : public pass_ch
-{
-public:
-  pass_ch_oacc_kernels (gcc::context *ctxt)
-    : pass_ch (pass_data_ch_oacc_kernels, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  virtual bool gate (function *) { return true; }
-
-protected:
-  /* ch_base method: */
-  virtual bool process_loop_p (struct loop *loop);
-}; // class pass_ch_oacc_kernels
-
-} // anon namespace
-
-bool
-pass_ch_oacc_kernels::process_loop_p (struct loop *loop)
-{
-  if (!loop->in_oacc_kernels_region)
-    return false;
-
-  return pass_ch::process_loop_p (loop);
-}
-
-gimple_opt_pass *
-make_pass_ch_oacc_kernels (gcc::context *ctxt)
-{
-  return new pass_ch_oacc_kernels (ctxt);
 }

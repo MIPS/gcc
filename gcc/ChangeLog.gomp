@@ -1,3 +1,9 @@
+2015-11-30  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* passes.def: Use pass_ch instead of pass_ch_oacc_kernels.
+	* tree-pass.h (make_pass_ch_oacc_kernels): Remove.
+	* tree-ssa-loop-ch.c: Revert to trunk r230907 version.
+
 2015-11-18  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c: Remove unneeded #includes. Backport
