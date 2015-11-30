@@ -1,5 +1,10 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/mkoffload.c (main): Check that either OpenACC or OpenMP
+	is selected.  Pass -mgomp to offload compiler in OpenMP case.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_simt_vf): New.
 	(TARGET_SIMT_VF): Define.
 	* doc/tm.texi: Regenerate.
