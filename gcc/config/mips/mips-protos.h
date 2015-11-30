@@ -37,7 +37,9 @@ along with GCC; see the file COPYING3.  If not see
 enum mips_symbol_context {
   SYMBOL_CONTEXT_CALL,
   SYMBOL_CONTEXT_LEA,
-  SYMBOL_CONTEXT_MEM
+  SYMBOL_CONTEXT_MEM,
+  SYMBOL_CONTEXT_LEA_HIGH,
+  SYMBOL_CONTEXT_MEM_LOW,
 };
 
 /* Classifies a SYMBOL_REF, LABEL_REF or UNSPEC address.

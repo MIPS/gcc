@@ -2284,6 +2284,11 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	  && !LABEL_REF_NONLOCAL_P (x))
 	return SYMBOL_PC_RELATIVE;
 
+      if (USE_ADDIUPC
+	  && context == SYMBOL_CONTEXT_LEA
+	  && (GET_MODE_ALIGNMENT (GET_MODE (x)) % 4) == 0)
+	return SYMBOL_PC_RELATIVE;
+
       if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
 	return SYMBOL_GOT_PAGE_OFST;
 
@@ -2300,7 +2305,8 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
       if (TARGET_MIPS16_TEXT_LOADS)
 	return SYMBOL_PC_RELATIVE;
 
-      if (TARGET_MIPS16_PCREL_LOADS && context == SYMBOL_CONTEXT_MEM)
+      if (TARGET_MIPS16_PCREL_LOADS && (context == SYMBOL_CONTEXT_MEM
+					|| context == SYMBOL_CONTEXT_MEM_LOW))
 	return SYMBOL_PC_RELATIVE;
 
       if (mips_rtx_constant_in_small_data_p (get_pool_mode (x)))
@@ -2311,6 +2317,16 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
      being zero.  */
   if (TARGET_GPOPT && SYMBOL_REF_SMALL_P (x) && !SYMBOL_REF_WEAK (x))
     return SYMBOL_GP_RELATIVE;
+
+  tree decl = SYMBOL_REF_DECL (x);
+  if (USE_ADDIUPC
+      && (context == SYMBOL_CONTEXT_LEA
+	  || context == SYMBOL_CONTEXT_MEM)
+      && decl
+      && ((DECL_ALIGN_UNIT (decl) % 4) == 0)
+      && (RTX_FRAME_RELATED_P (x)
+	  || TREE_CODE (decl) == VAR_DECL))
+    return SYMBOL_PC_RELATIVE;
 
   /* Don't use GOT accesses for locally-binding symbols when -mno-shared
      is in effect.  */
@@ -2422,6 +2438,10 @@ mips_symbolic_constant_p (rtx x, enum mips_symbol_context context,
 	 In this case, we no longer have access to the underlying constant,
 	 but the original symbol-based access was known to be valid.  */
       if (GET_CODE (x) == LABEL_REF)
+	return true;
+      
+      if (USE_ADDIUPC 
+	  && GET_CODE (x) == SYMBOL_REF)
 	return true;
 
       /* Fall through.  */
@@ -2791,7 +2811,7 @@ mips_classify_address (struct mips_address_info *info, rtx x,
 	 constants, with the high part being either a HIGH or a copy
 	 of _gp. */
       info->symbol_type
-	= mips_classify_symbolic_expression (info->offset, SYMBOL_CONTEXT_MEM);
+	= mips_classify_symbolic_expression (info->offset, SYMBOL_CONTEXT_MEM_LOW);
       return (mips_valid_base_register_p (info->reg, mode, strict_p)
 	      && mips_valid_lo_sum_p (info->symbol_type, mode));
 
@@ -3064,7 +3084,7 @@ mips_const_insns (rtx x)
   switch (GET_CODE (x))
     {
     case HIGH:
-      if (!mips_symbolic_constant_p (XEXP (x, 0), SYMBOL_CONTEXT_LEA,
+      if (!mips_symbolic_constant_p (XEXP (x, 0), SYMBOL_CONTEXT_LEA_HIGH,
 				     &symbol_type)
 	  || !mips_split_p[symbol_type])
 	return 0;
@@ -3588,6 +3608,11 @@ mips_split_symbol (rtx temp, rtx addr, machine_mode mode, rtx *low_out)
 		high = mips_pic_base_register (temp);
 		*low_out = gen_rtx_LO_SUM (Pmode, high, addr);
 		break;
+
+              case SYMBOL_PC_RELATIVE:
+                if (USE_ADDIUPC)
+		  return true;
+		/* Otherwise fall through. */
 
 	      default:
 		high = gen_rtx_HIGH (Pmode, copy_rtx (addr));
@@ -5441,6 +5466,8 @@ mips_output_move (rtx dest, rtx src)
 	  gcc_assert (!mips_split_p[symbol_type]);
 	  return "li\t%0,%R1";
 	}
+      if (umips_pcrel_symbolic_operand (src, GET_MODE (src)))
+        return "addiupc\t%0,%%pcrel(%1)";
 
       if (symbolic_operand (src, VOIDmode))
 	{
@@ -8928,6 +8955,9 @@ mips_init_relocs (void)
 	}
     }
 
+  if (USE_ADDIUPC)
+    mips_split_p[SYMBOL_PC_RELATIVE] = true;
+
   if (TARGET_MIPS16)
     {
       /* The high part is provided by a pseudo copy of $gp.  */
@@ -9388,7 +9418,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 'h':
       if (code == HIGH)
 	op = XEXP (op, 0);
-      mips_print_operand_reloc (file, op, SYMBOL_CONTEXT_LEA, mips_hi_relocs);
+      mips_print_operand_reloc (file, op, SYMBOL_CONTEXT_LEA_HIGH, mips_hi_relocs);
       break;
 
     case 'R':
@@ -9542,7 +9572,7 @@ mips_print_operand_address (FILE *file, rtx x)
 	return;
 
       case ADDRESS_LO_SUM:
-	mips_print_operand_reloc (file, addr.offset, SYMBOL_CONTEXT_MEM,
+	mips_print_operand_reloc (file, addr.offset, SYMBOL_CONTEXT_MEM_LOW,
 				  mips_lo_relocs);
 	fprintf (file, "(%s)", reg_names[REGNO (addr.reg)]);
 	return;
