@@ -1123,6 +1123,27 @@ make_node_stat (enum tree_code code MEM_STAT_DECL)
 
   return t;
 }
+
+/* Free tree node.  */
+
+void
+free_node (tree node)
+{
+  enum tree_code code = TREE_CODE (node);
+  if (GATHER_STATISTICS)
+    {
+      tree_code_counts[(int) TREE_CODE (node)]--;
+      tree_node_counts[(int) t_kind]--;
+      tree_node_sizes[(int) t_kind] -= tree_code_size (TREE_CODE (node));
+    }
+  if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
+    vec_free (CONSTRUCTOR_ELTS (node));
+  else if (code == BLOCK)
+    vec_free (BLOCK_NONLOCALIZED_VARS (node));
+  else if (code == TREE_BINFO)
+    vec_free (BINFO_BASE_ACCESSES (node));
+  ggc_free (node);
+}
 
 /* Return a new node with the same contents as NODE except that its
    TREE_CHAIN, if it has one, is zero and it has a fresh uid.  */
@@ -2296,8 +2317,6 @@ zerop (const_tree expr)
 int
 integer_zerop (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   switch (TREE_CODE (expr))
     {
     case INTEGER_CST:
@@ -2324,8 +2343,6 @@ integer_zerop (const_tree expr)
 int
 integer_onep (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   switch (TREE_CODE (expr))
     {
     case INTEGER_CST:
@@ -2352,8 +2369,6 @@ integer_onep (const_tree expr)
 int
 integer_each_onep (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == COMPLEX_CST)
     return (integer_onep (TREE_REALPART (expr))
 	    && integer_onep (TREE_IMAGPART (expr)));
@@ -2367,8 +2382,6 @@ integer_each_onep (const_tree expr)
 int
 integer_all_onesp (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == COMPLEX_CST
       && integer_all_onesp (TREE_REALPART (expr))
       && integer_all_onesp (TREE_IMAGPART (expr)))
@@ -2394,8 +2407,6 @@ integer_all_onesp (const_tree expr)
 int
 integer_minus_onep (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == COMPLEX_CST)
     return (integer_all_onesp (TREE_REALPART (expr))
 	    && integer_zerop (TREE_IMAGPART (expr)));
@@ -2409,8 +2420,6 @@ integer_minus_onep (const_tree expr)
 int
 integer_pow2p (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == COMPLEX_CST
       && integer_pow2p (TREE_REALPART (expr))
       && integer_zerop (TREE_IMAGPART (expr)))
@@ -2428,8 +2437,6 @@ integer_pow2p (const_tree expr)
 int
 integer_nonzerop (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   return ((TREE_CODE (expr) == INTEGER_CST
 	   && !wi::eq_p (expr, 0))
 	  || (TREE_CODE (expr) == COMPLEX_CST
@@ -2444,8 +2451,6 @@ integer_nonzerop (const_tree expr)
 int
 integer_truep (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == VECTOR_CST)
     return integer_all_onesp (expr);
   return integer_onep (expr);
@@ -2466,8 +2471,6 @@ fixed_zerop (const_tree expr)
 int
 tree_log2 (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
@@ -2480,8 +2483,6 @@ tree_log2 (const_tree expr)
 int
 tree_floor_log2 (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   if (TREE_CODE (expr) == COMPLEX_CST)
     return tree_log2 (TREE_REALPART (expr));
 
@@ -2605,8 +2606,6 @@ tree_ctz (const_tree expr)
 int
 real_zerop (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
@@ -2635,8 +2634,6 @@ real_zerop (const_tree expr)
 int
 real_onep (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
@@ -2664,8 +2661,6 @@ real_onep (const_tree expr)
 int
 real_minus_onep (const_tree expr)
 {
-  STRIP_NOPS (expr);
-
   switch (TREE_CODE (expr))
     {
     case REAL_CST:
@@ -6776,6 +6771,8 @@ build_variant_type_copy (tree type)
   /* Since we're building a variant, assume that it is a non-semantic
      variant. This also propagates TYPE_STRUCTURAL_EQUALITY_P. */
   TYPE_CANONICAL (t) = TYPE_CANONICAL (type);
+  /* Type variants have no alias set defined.  */
+  TYPE_ALIAS_SET (t) = -1;
 
   /* Add the new type to the chain of variants of TYPE.  */
   TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
@@ -7170,12 +7167,7 @@ type_hash_canon (unsigned int hashcode, tree type)
     {
       tree t1 = ((type_hash *) *loc)->type;
       gcc_assert (TYPE_MAIN_VARIANT (t1) == t1);
-      if (GATHER_STATISTICS)
-	{
-	  tree_code_counts[(int) TREE_CODE (type)]--;
-	  tree_node_counts[(int) t_kind]--;
-	  tree_node_sizes[(int) t_kind] -= sizeof (struct tree_type_non_common);
-	}
+      free_node (type);
       return t1;
     }
   else
@@ -8316,7 +8308,8 @@ build_array_type_1 (tree elt_type, tree index_type, bool shared)
   if (TYPE_CANONICAL (t) == t)
     {
       if (TYPE_STRUCTURAL_EQUALITY_P (elt_type)
-	  || (index_type && TYPE_STRUCTURAL_EQUALITY_P (index_type)))
+	  || (index_type && TYPE_STRUCTURAL_EQUALITY_P (index_type))
+	  || in_lto_p)
 	SET_TYPE_STRUCTURAL_EQUALITY (t);
       else if (TYPE_CANONICAL (elt_type) != elt_type
 	       || (index_type && TYPE_CANONICAL (index_type) != index_type))
@@ -9923,19 +9916,20 @@ make_vector_type (tree innertype, int nunits, machine_mode mode)
 {
   tree t;
   inchash::hash hstate;
+  tree mv_innertype = TYPE_MAIN_VARIANT (innertype);
 
   t = make_node (VECTOR_TYPE);
-  TREE_TYPE (t) = TYPE_MAIN_VARIANT (innertype);
+  TREE_TYPE (t) = mv_innertype;
   SET_TYPE_VECTOR_SUBPARTS (t, nunits);
   SET_TYPE_MODE (t, mode);
 
-  if (TYPE_STRUCTURAL_EQUALITY_P (innertype))
+  if (TYPE_STRUCTURAL_EQUALITY_P (mv_innertype) || in_lto_p)
     SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if ((TYPE_CANONICAL (innertype) != innertype
+  else if ((TYPE_CANONICAL (mv_innertype) != innertype
 	    || mode != VOIDmode)
 	   && !VECTOR_BOOLEAN_TYPE_P (t))
     TYPE_CANONICAL (t)
-      = make_vector_type (TYPE_CANONICAL (innertype), nunits, VOIDmode);
+      = make_vector_type (TYPE_CANONICAL (mv_innertype), nunits, VOIDmode);
 
   layout_type (t);
 
@@ -13268,8 +13262,12 @@ verify_type_variant (const_tree t, tree tv)
   if ((!in_lto_p || !TYPE_FILE_SCOPE_P (t)) && 0)
     verify_variant_match (TYPE_CONTEXT);
   verify_variant_match (TYPE_STRING_FLAG);
-  if (TYPE_ALIAS_SET_KNOWN_P (t) && TYPE_ALIAS_SET_KNOWN_P (tv))
-    verify_variant_match (TYPE_ALIAS_SET);
+  if (TYPE_ALIAS_SET_KNOWN_P (t))
+    {
+      error ("type variant with TYPE_ALIAS_SET_KNOWN_P");
+      debug_tree (tv);
+      return false;
+    }
 
   /* tree_type_non_common checks.  */
 
@@ -13491,7 +13489,8 @@ gimple_canonical_types_compatible_p (const_tree t1, const_tree t2,
 	 TYPE_CANONICAL is more fine grained than the equivalnce we test (where
 	 all pointers are considered equal.  Be sure to not return false
 	 negatives.  */
-      gcc_checking_assert (!POINTER_TYPE_P (t1) && !POINTER_TYPE_P (t2));
+      gcc_checking_assert (canonical_type_used_p (t1)
+			   && canonical_type_used_p (t2));
       return TYPE_CANONICAL (t1) == TYPE_CANONICAL (t2);
     }
 
@@ -13734,6 +13733,13 @@ verify_type (const_tree t)
       debug_tree (ct);
       error_found = true;
     }
+  if (TYPE_MAIN_VARIANT (t) == t && ct && TYPE_MAIN_VARIANT (ct) != ct)
+   {
+      error ("TYPE_CANONICAL of main variant is not main variant");
+      debug_tree (ct);
+      debug_tree (TYPE_MAIN_VARIANT (ct));
+      error_found = true;
+   }
 
 
   /* Check various uses of TYPE_MINVAL.  */

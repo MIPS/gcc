@@ -389,9 +389,7 @@ iterative_hash_canonical_type (tree type, inchash::hash &hstate)
   /* All type variants have same TYPE_CANONICAL.  */
   type = TYPE_MAIN_VARIANT (type);
 
-  /* We do not compute TYPE_CANONICAl of POINTER_TYPE because the aliasing
-     code never use it anyway.  */
-  if (POINTER_TYPE_P (type))
+  if (!canonical_type_used_p (type))
     v = hash_canonical_type (type);
   /* An already processed type.  */
   else if (TYPE_CANONICAL (type))
@@ -444,7 +442,7 @@ gimple_register_canonical_type_1 (tree t, hashval_t hash)
 
   gcc_checking_assert (TYPE_P (t) && !TYPE_CANONICAL (t)
 		       && type_with_alias_set_p (t)
-		       && !POINTER_TYPE_P (t));
+		       && canonical_type_used_p (t));
 
   slot = htab_find_slot_with_hash (gimple_canonical_types, t, hash, INSERT);
   if (*slot)
@@ -477,7 +475,8 @@ gimple_register_canonical_type_1 (tree t, hashval_t hash)
 static void
 gimple_register_canonical_type (tree t)
 {
-  if (TYPE_CANONICAL (t) || !type_with_alias_set_p (t) || POINTER_TYPE_P (t))
+  if (TYPE_CANONICAL (t) || !type_with_alias_set_p (t)
+      || !canonical_type_used_p (t))
     return;
 
   /* Canonical types are same among all complete variants.  */
@@ -1623,13 +1622,9 @@ unify_scc (struct data_in *data_in, unsigned from,
 	  data_in->location_cache.revert_location_cache ();
 	  for (unsigned i = 0; i < len; ++i)
 	    {
-	      enum tree_code code;
 	      if (TYPE_P (scc->entries[i]))
 		num_merged_types++;
-	      code = TREE_CODE (scc->entries[i]);
-	      if (CODE_CONTAINS_STRUCT (code, TS_CONSTRUCTOR))
-		vec_free (CONSTRUCTOR_ELTS (scc->entries[i]));
-	      ggc_free (scc->entries[i]);
+	      free_node (scc->entries[i]);
 	    }
 
 	  break;

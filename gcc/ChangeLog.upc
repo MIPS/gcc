@@ -1,3 +1,7 @@
+2015-11-30  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 231059 into gupc branch.
+
 2015-11-29  Gary Funck  <gary@intrepid.com>
 
 	* c/c-parser.c (upc_affinity_test): Remove call to

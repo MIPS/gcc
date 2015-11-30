@@ -4782,7 +4782,8 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	     syntactically.  This ensures that the user doesn't put them
 	     places that would turn into syntax errors if the directive
 	     were ignored.  */
-	  if (c_parser_pragma (parser, pragma_compound))
+	  if (c_parser_pragma (parser,
+			       last_label ? pragma_stmt : pragma_compound))
 	    last_label = false, last_stmt = true;
 	}
       else if (c_parser_next_token_is (parser, CPP_EOF))
@@ -7586,10 +7587,13 @@ c_parser_postfix_expression (c_parser *parser)
 		expr.value = error_mark_node;
 		break;
 	      }
-	    component = c_parser_peek_token (parser)->value;
+	    c_token *component_tok = c_parser_peek_token (parser);
+	    component = component_tok->value;
+	    location_t end_loc = component_tok->get_finish ();
 	    c_parser_consume_token (parser);
 	    expr.value = objc_build_class_component_ref (class_name, 
 							 component);
+	    set_c_expr_source_range (&expr, loc, end_loc);
 	    break;
 	  }
 	default:
@@ -8064,9 +8068,11 @@ c_parser_postfix_expression (c_parser *parser)
 	    }
 	  {
 	    tree sel = c_parser_objc_selector_arg (parser);
+	    location_t close_loc = c_parser_peek_token (parser)->location;
 	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				       "expected %<)%>");
 	    expr.value = objc_build_selector_expr (loc, sel);
+	    set_c_expr_source_range (&expr, loc, close_loc);
 	  }
 	  break;
 	case RID_AT_PROTOCOL:
@@ -8087,9 +8093,11 @@ c_parser_postfix_expression (c_parser *parser)
 	  {
 	    tree id = c_parser_peek_token (parser)->value;
 	    c_parser_consume_token (parser);
+	    location_t close_loc = c_parser_peek_token (parser)->location;
 	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
 				       "expected %<)%>");
 	    expr.value = objc_build_protocol_expr (id);
+	    set_c_expr_source_range (&expr, loc, close_loc);
 	  }
 	  break;
 	case RID_AT_ENCODE:
@@ -8108,11 +8116,13 @@ c_parser_postfix_expression (c_parser *parser)
 	      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, NULL);
 	      break;
 	    }
-	  c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
-				     "expected %<)%>");
 	  {
+	    location_t close_loc = c_parser_peek_token (parser)->location;
+	    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
+				     "expected %<)%>");
 	    tree type = groktypename (t1, NULL, NULL);
 	    expr.value = objc_build_encode_expr (type);
+	    set_c_expr_source_range (&expr, loc, close_loc);
 	  }
 	  break;
 	case RID_GENERIC:
@@ -8155,9 +8165,11 @@ c_parser_postfix_expression (c_parser *parser)
 	  c_parser_consume_token (parser);
 	  receiver = c_parser_objc_receiver (parser);
 	  args = c_parser_objc_message_args (parser);
+	  location_t close_loc = c_parser_peek_token (parser)->location;
 	  c_parser_skip_until_found (parser, CPP_CLOSE_SQUARE,
 				     "expected %<]%>");
 	  expr.value = objc_build_message_expr (receiver, args);
+	  set_c_expr_source_range (&expr, loc, close_loc);
 	  break;
 	}
       /* Else fall through to report error.  */
@@ -14031,14 +14043,15 @@ c_parser_oacc_declare (c_parser *parser)
 	      if (node != NULL)
 		{
 		  node->offloadable = 1;
-#ifdef ENABLE_OFFLOADING
-		  g->have_offload = true;
-		  if (is_a <varpool_node *> (node))
+		  if (ENABLE_OFFLOADING)
 		    {
-		      vec_safe_push (offload_vars, decl);
-		      node->force_output = 1;
+		      g->have_offload = true;
+		      if (is_a <varpool_node *> (node))
+			{
+			  vec_safe_push (offload_vars, decl);
+			  node->force_output = 1;
+			}
 		    }
-#endif
 		}
 	    }
 	}
@@ -15534,7 +15547,7 @@ c_parser_omp_ordered (c_parser *parser, enum pragma_context context)
 	      error_at (loc,
 			"%<#pragma omp ordered%> with %<depend> clause may "
 			"only be used in compound statements");
-	      c_parser_skip_to_pragma_eol (parser);
+	      c_parser_skip_to_pragma_eol (parser, false);
 	      return false;
 	    }
 
@@ -16182,7 +16195,7 @@ c_parser_omp_target_update (location_t loc, c_parser *parser,
       error_at (loc,
 		"%<#pragma omp target update%> may only be "
 		"used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return false;
     }
 
@@ -16242,7 +16255,7 @@ c_parser_omp_target_enter_data (location_t loc, c_parser *parser,
       error_at (loc,
 		"%<#pragma omp target enter data%> may only be "
 		"used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 
@@ -16327,7 +16340,7 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
       error_at (loc,
 		"%<#pragma omp target exit data%> may only be "
 		"used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 
