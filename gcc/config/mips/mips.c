@@ -10436,12 +10436,17 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   unsigned int i, regno;
   int n;
 
-  gcc_assert (cfun->machine->frame.num_fp == 0);
+  //gcc_assert (cfun->machine->frame.num_fp == 0);
 
   /* Calculate the number of elements in the PARALLEL.  We need one element
      for the stack adjustment, one for each argument register save, and one
      for each additional register move.  */
   n = 1 + nargs;
+
+
+  /*if (TARGET_MICROMIPS && restore_p)
+    n++;*/
+
   for (i = 0; i < ARRAY_SIZE (mips16e_save_restore_regs); i++)
     if (BITSET_P (*mask_ptr, mips16e_save_restore_regs[i]))
       n++;
@@ -10449,6 +10454,13 @@ mips16e_build_save_restore (bool restore_p, unsigned int *mask_ptr,
   /* Create the final PARALLEL.  */
   pattern = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (n));
   n = 0;
+
+  /*if (TARGET_MICROMIPS && restore_p)
+    {
+      rtx reg = gen_rtx_REG (Pmode, RETURN_ADDR_REGNUM);
+      XVECEXP (pattern, 0, n++) = gen_simple_return_internal (reg);
+    }*/
+
 
   /* Add the stack pointer adjustment.  */
   set = gen_rtx_SET (VOIDmode, stack_pointer_rtx,
@@ -10615,7 +10627,10 @@ mips16e_output_save_restore (rtx pattern, HOST_WIDE_INT adjust)
     gcc_unreachable ();
 
   /* Add the mnemonic.  */
-  s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
+  if (TARGET_MICROMIPS)
+    s = strcpy (buffer, adjust > 0 ? "nop#restore\t" : "nop#save\t");
+  else
+    s = strcpy (buffer, adjust > 0 ? "restore\t" : "save\t");
   s += strlen (s);
 
   /* Save the arguments.  */
@@ -12819,7 +12834,7 @@ mips_expand_epilogue (bool sibcall_p)
 				  EH_RETURN_STACKADJ_RTX));
     }
 
-  if (!sibcall_p)
+  if (!sibcall_p && !(TARGET_MICROMIPS && TARGET_ALLOW_SAVE_RESTORE))
     {
       mips_expand_before_return ();
       if (cfun->machine->interrupt_handler_p)

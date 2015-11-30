@@ -215,7 +215,7 @@ struct mips_cpu_info {
 /* Generate mips16e code. Default 16bit ASE for mips32* and mips64* */
 #define GENERATE_MIPS16E	(TARGET_MIPS16 && mips_isa >= 32)
 /* Generate mips16e register save/restore sequences.  */
-#define GENERATE_MIPS16E_SAVE_RESTORE (GENERATE_MIPS16E && mips_abi == ABI_32)
+#define GENERATE_MIPS16E_SAVE_RESTORE ((GENERATE_MIPS16E && mips_abi == ABI_32) || TARGET_ALLOW_SAVE_RESTORE)
 
 /* True if we're generating a form of MIPS16 code in which general
    text loads are allowed.  */

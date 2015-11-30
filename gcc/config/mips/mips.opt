@@ -482,6 +482,9 @@ Target Report Var(TARGET_ALLOW_VOLATILE_LOADS_IN_DELAY_SLOTS) Undocumented Init(
 mpreferred-rename
 Target Report Var(TARGET_PREFERRED_RENAME) Undocumented Init(0)
 
+mallow-save-restore
+Target Report Var(TARGET_ALLOW_SAVE_RESTORE) Undocumented Init(0)
+
 mcompact-branches=
 Target RejectNegative JoinedOrMissing Var(mips_cb) Report Enum(mips_cb_setting) Init(MIPS_CB_OPTIMAL)
 Specify the compact branch usage policy

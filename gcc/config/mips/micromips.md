@@ -108,6 +108,20 @@
    (set_attr "can_delay" "no")
    (set_attr "mode"	"SI")])
 
+
+(define_insn "*micromips_restore"
+  [(match_parallel 0 ""
+       [(simple_return)
+	(set (match_operand:SI 1 "register_operand")
+	     (plus:SI (match_dup 1)
+		      (match_operand:SI 2 "const_int_operand")))])]
+  "TARGET_MICROMIPS"
+  "nop#micromips_restore"
+  [(set_attr "type"	"trap")
+   (set_attr "can_delay" "no")
+   (set_attr "mode"	"SI")])
+
+
 ;; For MOVEP.
 (define_peephole2
   [(set (match_operand:MOVEP1 0 "register_operand" "")
