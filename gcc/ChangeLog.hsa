@@ -1,3 +1,35 @@
+2015-11-30  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple.c (gimple_omp_target_init_dimensions): Removed.
+	* gimple.h (gimple_statement_omp_parallel_layout): Removed fields
+	dimensions and kernel_dim.
+	(gimple_omp_target_dimensions): Removed.
+	(gimple_omp_target_grid_size): Likewise.
+	(gimple_omp_target_grid_size_ptr): Likewise.
+	(gimple_omp_target_set_grid_size): Likewise.
+	(gimple_omp_target_workgroup_size): Likewise.
+	(gimple_omp_target_workgroup_size_ptr): Likewise.
+	(gimple_omp_target_set_workgroup_size): Likewise.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE__GRIDDIM_.
+	(scan_omp_target): Do not scan kernel_dim.
+	(region_needs_kernel_p): Use clauses to recognize gridified kernels.
+	(get_kernel_launch_attributes): Generate launch attributes from
+	clauses.
+	(get_target_arguments): Use clauses to recognize gridified kernels.
+	(expand_target_kernel_body): Likewise.
+	(attempt_target_gridification): Record grid description into clauses.
+	* tree-core.h (omp_clause_code): New element OMP_CLAUSE__GRIDDIM_.
+	(tree_omp_clause): New subcode dimension.
+	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE__GRIDDIM_.
+	* tree.c (omp_clause_num_ops): Add number of opernads of
+	OMP_CLAUSE__GRIDDIM_.
+	(omp_clause_code_name): Add name of OMP_CLAUSE__GRIDDIM_.
+	(walk_tree_1): Handle OMP_CLAUSE__GRIDDIM_.
+	* tree.h (OMP_CLAUSE_GRIDDIM_DIMENSION): New.
+	(OMP_CLAUSE_SET_GRIDDIM_DIMENSION): Likewise.
+	(OMP_CLAUSE_GRIDDIM_SIZE): Likewise.
+	(OMP_CLAUSE_GRIDDIM_GROUP): Likewise.
+
 2015-11-27  Martin Liska  <mliska@suse.cz>
 
 	* hsa.c (hsa_get_declaration_name): Skip leading asterisk symbol

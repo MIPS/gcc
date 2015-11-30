@@ -661,21 +661,7 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
      Shared data argument.  */
   tree data_arg;
 
-  /* TODO: Revisit placement of the following two fields.  On one hand, we
-     currently only use them on target construct.  On the other, use on
-     parallel construct is also possible in the future.  */
-
   /* [ WORD 11 ] */
-  /* Number of elements in kernel_iter array.  */
-  size_t dimensions;
-
-  /* [ WORD 12 ] */
-  /* If target also contains a GPU kernel, it should be run with the
-     following grid sizes.  */
-  struct gimple_omp_target_grid_dim
-    * GTY((length ("%h.dimensions"))) kernel_dim;
-
-  /* [ WORD 13 ] */
   /* If set, this statement is part of a gridified kernel, its clauses need to
      be scanned and lowered but the statement should be discarded after
      lowering.  */
@@ -1504,7 +1490,6 @@ gomp_sections *gimple_build_omp_sections (gimple_seq, tree);
 gimple *gimple_build_omp_sections_switch (void);
 gomp_single *gimple_build_omp_single (gimple_seq, tree);
 gomp_target *gimple_build_omp_target (gimple_seq, int, tree);
-void gimple_omp_target_init_dimensions (gomp_target *, size_t);
 gomp_teams *gimple_build_omp_teams (gimple_seq, tree);
 gomp_atomic_load *gimple_build_omp_atomic_load (tree, tree);
 gomp_atomic_store *gimple_build_omp_atomic_store (tree);
@@ -5681,73 +5666,6 @@ gimple_omp_target_set_data_arg (gomp_target *omp_target_stmt,
 				tree data_arg)
 {
   omp_target_stmt->data_arg = data_arg;
-}
-
-/* Return the number of dimensions of kernel grid.  */
-
-static inline size_t
-gimple_omp_target_dimensions (gomp_target *omp_target_stmt)
-{
-  return omp_target_stmt->dimensions;
-}
-
-/* Return the size of kernel grid of OMP_TARGET_STMT along dimension N.  */
-
-static inline tree
-gimple_omp_target_grid_size (gomp_target *omp_target_stmt, unsigned n)
-{
-  gcc_assert (gimple_omp_target_dimensions (omp_target_stmt) > n);
-  return omp_target_stmt->kernel_dim[n].grid_size;
-}
-
-/* Return pointer to tree specifying the size of kernel grid of OMP_TARGET_STMT
-   along dimension N.  */
-
-static inline tree *
-gimple_omp_target_grid_size_ptr (gomp_target *omp_target_stmt, unsigned n)
-{
-  gcc_assert (gimple_omp_target_dimensions (omp_target_stmt) > n);
-  return &omp_target_stmt->kernel_dim[n].grid_size;
-}
-
-/* Set the size of kernel grid of OMP_TARGET_STMT along dimension N to V  */
-
-static inline void
-gimple_omp_target_set_grid_size (gomp_target *omp_target_stmt, unsigned n,
-				 tree v)
-{
-  gcc_assert (gimple_omp_target_dimensions (omp_target_stmt) > n);
-  omp_target_stmt->kernel_dim[n].grid_size = v;
-}
-
-/* Return the size of kernel work group of OMP_TARGET_STMT along dimension N.  */
-
-static inline tree
-gimple_omp_target_workgroup_size (gomp_target *omp_target_stmt, unsigned n)
-{
-  gcc_assert (gimple_omp_target_dimensions (omp_target_stmt) > n);
-  return omp_target_stmt->kernel_dim[n].workgroup_size;
-}
-
-/* Return pointer to tree specifying the size of kernel work group of
-   OMP_TARGET_STMT along dimension N.  */
-
-static inline tree *
-gimple_omp_target_workgroup_size_ptr (gomp_target *omp_target_stmt, unsigned n)
-{
-  gcc_assert (gimple_omp_target_dimensions (omp_target_stmt) > n);
-  return &omp_target_stmt->kernel_dim[n].workgroup_size;
-}
-
-/* Set the size of kernel workgroup of OMP_TARGET_STMT along dimension N to
-   V */
-
-static inline void
-gimple_omp_target_set_workgroup_size (gomp_target *omp_target_stmt, unsigned n,
-				      tree v)
-{
-  gcc_assert (gimple_omp_target_dimensions (omp_target_stmt) > n);
-  omp_target_stmt->kernel_dim[n].workgroup_size = v;
 }
 
 /* Return the clauses associated with OMP_TEAMS GS.  */

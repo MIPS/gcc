@@ -2140,6 +2140,14 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  break;
 
+	case OMP_CLAUSE__GRIDDIM_:
+	  if (ctx->outer)
+	    {
+	      scan_omp_op (&OMP_CLAUSE_GRIDDIM_SIZE (c), ctx->outer);
+	      scan_omp_op (&OMP_CLAUSE_GRIDDIM_GROUP (c), ctx->outer);
+	    }
+	  break;
+
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_COLLAPSE:
@@ -2336,6 +2344,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_SEQ:
+	case OMP_CLAUSE__GRIDDIM_:
 	  break;
 
 	case OMP_CLAUSE_DEVICE_RESIDENT:
@@ -3087,12 +3096,6 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
-
-  for (size_t i = 0; i < gimple_omp_target_dimensions (stmt); i++)
-    {
-      scan_omp_op (gimple_omp_target_grid_size_ptr (stmt, i), ctx);
-      scan_omp_op (gimple_omp_target_workgroup_size_ptr (stmt, i), ctx);
-    }
 
   if (offloaded)
     {
@@ -6310,7 +6313,9 @@ region_needs_kernel_p (struct omp_region *region)
 	{
 	  gomp_target *tgt_stmt;
 	  tgt_stmt = as_a <gomp_target *> (last_stmt (region->entry));
-	  if (gimple_omp_target_dimensions (tgt_stmt))
+
+	  if (find_omp_clause (gimple_omp_target_clauses (tgt_stmt),
+			       OMP_CLAUSE__GRIDDIM_))
 	    return indirect;
 	  else
 	    return true;
@@ -12624,26 +12629,30 @@ get_kernel_launch_attributes (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   tree u32_one = build_one_cst (uint32_type_node);
   tree lattrs = create_tmp_var (kernel_launch_attributes_type,
 				"__kernel_launch_attrs");
+
+  unsigned max_dim = 0;
+  for (tree clause = gimple_omp_target_clauses (tgt_stmt);
+       clause;
+       clause = OMP_CLAUSE_CHAIN (clause))
+    {
+      if (OMP_CLAUSE_CODE (clause) != OMP_CLAUSE__GRIDDIM_)
+	continue;
+
+      unsigned dim = OMP_CLAUSE_GRIDDIM_DIMENSION (clause);
+      max_dim = MAX (dim, max_dim);
+
+      insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, dim,
+			      OMP_CLAUSE_GRIDDIM_SIZE (clause));
+      insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, dim,
+			      OMP_CLAUSE_GRIDDIM_GROUP (clause));
+    }
+
   tree dimref = build3 (COMPONENT_REF, uint32_type_node,
 			lattrs, kernel_lattrs_dimnum_decl, NULL_TREE);
   /* At this moment we cannot gridify a loop with a collapse clause.  */
   /* TODO: Adjust when we support bigger collapse.  */
-  gcc_assert (gimple_omp_target_dimensions (tgt_stmt) == 1);
+  gcc_assert (max_dim == 0);
   gsi_insert_before (gsi, gimple_build_assign (dimref, u32_one), GSI_SAME_STMT);
-
-  /* Calculation of grid size: */
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, 0,
-			  gimple_omp_target_grid_size (tgt_stmt, 0));
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 0,
-			  gimple_omp_target_workgroup_size (tgt_stmt, 0));
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, 1,
-			  u32_one);
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 2,
-			  u32_one);
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_grid_decl, 2,
-			  u32_one);
-  insert_store_range_dim (gsi, lattrs, kernel_lattrs_group_decl, 1,
-			  u32_one);
   TREE_ADDRESSABLE (lattrs) = 1;
   return build_fold_addr_expr (lattrs);
 }
@@ -12717,7 +12726,8 @@ get_target_arguments (gimple_stmt_iterator *gsi, gomp_target *tgt_stmt)
   args.quick_push (t);
 
   /* Add HSA-specific grid sizes, if available.  */
-  if (gimple_omp_target_dimensions (tgt_stmt))
+  if (find_omp_clause (gimple_omp_target_clauses (tgt_stmt),
+		       OMP_CLAUSE__GRIDDIM_))
     {
       t = get_target_argument_identifier (GOMP_DEVICE_HSA, true,
 					  GOMP_TARGET_ARG_HSA_KERNEL_ATTRIBUTES);
@@ -13392,14 +13402,16 @@ expand_target_kernel_body (struct omp_region *target)
       if (gimple_omp_target_kind (tgt_stmt) != GF_OMP_TARGET_KIND_REGION)
 	return;
       gcc_checking_assert (orig_child_fndecl);
-      gcc_assert (!gimple_omp_target_dimensions (tgt_stmt));
+      gcc_assert (!find_omp_clause (gimple_omp_target_clauses (tgt_stmt),
+				    OMP_CLAUSE__GRIDDIM_));
       cgraph_node *n = cgraph_node::get (orig_child_fndecl);
 
       hsa_register_kernel (n);
       return;
     }
 
-  gcc_assert (gimple_omp_target_dimensions (tgt_stmt));
+  gcc_assert (find_omp_clause (gimple_omp_target_clauses (tgt_stmt),
+			       OMP_CLAUSE__GRIDDIM_));
   tree inside_block = gimple_block (first_stmt (single_succ (gpukernel->entry)));
   *pp = gpukernel->next;
   for (pp = &gpukernel->inner; *pp; pp = &(*pp)->next)
@@ -17470,7 +17482,6 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
 
   walk_tree (&group_size, remap_prebody_decls, &wi, NULL);
   size_t collapse = gimple_omp_for_collapse (inner_loop);
-  gimple_omp_target_init_dimensions (target, collapse);
   for (size_t i = 0; i < collapse; i++)
     {
       gimple_omp_for_iter iter = inner_loop->iter[i];
@@ -17506,7 +17517,6 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
       t = fold_convert (uint32_type_node, t);
       tree gs = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,
 					  GSI_SAME_STMT);
-      gimple_omp_target_set_grid_size (target, i, gs);
       tree ws;
       if (i == 0 && group_size)
 	{
@@ -17516,7 +17526,13 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
 	}
       else
 	ws = build_zero_cst (uint32_type_node);
-      gimple_omp_target_set_workgroup_size (target, i, ws);
+
+      tree c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE__GRIDDIM_);
+      OMP_CLAUSE_SET_GRIDDIM_DIMENSION (c, (unsigned int) i);
+      OMP_CLAUSE_GRIDDIM_SIZE (c) = gs;
+      OMP_CLAUSE_GRIDDIM_GROUP (c) = ws;
+      OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (target);
+      gimple_omp_target_set_clauses (target, c);
     }
 
   delete declmap;
