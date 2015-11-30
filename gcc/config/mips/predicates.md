@@ -441,12 +441,18 @@
     case LABEL_REF:
       if (CONST_GP_P (op))
 	return true;
+
+      if (USE_ADDIUPC
+          && mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
+	  && symbol_type == SYMBOL_PC_RELATIVE)
+        return true;
+
       return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
 	      && !mips_split_p[symbol_type]);
 
     case HIGH:
       op = XEXP (op, 0);
-      return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &symbol_type)
+      return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA_HIGH, &symbol_type)
 	      && !mips_split_hi_p[symbol_type]);
 
     default:
@@ -478,6 +484,15 @@
   enum mips_symbol_type type;
   return (mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
 	  && type == SYMBOL_ABSOLUTE);
+})
+
+(define_predicate "umips_pcrel_symbolic_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (USE_ADDIUPC
+          && mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_PC_RELATIVE);
 })
 
 (define_predicate "symbolic_operand_with_high"
