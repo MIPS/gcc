@@ -417,13 +417,6 @@ struct scop
   isl_union_map *must_raw, *may_raw, *must_raw_no_source, *may_raw_no_source,
     *must_war, *may_war, *must_war_no_source, *may_war_no_source,
     *must_waw, *may_waw, *must_waw_no_source, *may_waw_no_source;
-
-  /* Original schedule of the SCoP.  */
-  isl_union_map *original_schedule;
-
-  /* True when the scop has been converted to its polyhedral
-     representation.  */
-  bool poly_scop_p;
 };
 
 extern scop_p new_scop (edge, edge);
@@ -467,5 +460,12 @@ bool
 carries_deps (__isl_keep isl_union_map *schedule,
 	      __isl_keep isl_union_map *deps,
 	      int depth);
+
+extern bool build_poly_scop (scop_p);
+extern bool graphite_regenerate_ast_isl (scop_p);
+
+extern void build_scops (vec<scop_p> *);
+extern void dot_all_scops (vec<scop_p>);
+extern void dot_scop (scop_p);
 
 #endif

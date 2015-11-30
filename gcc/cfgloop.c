@@ -388,6 +388,33 @@ bb_loop_header_p (basic_block header)
   return false;
 }
 
+/* Return the latch block for this header block, if it has just a single one.
+   Otherwise, return NULL.  */
+
+basic_block
+find_single_latch (struct loop* loop)
+{
+  basic_block header = loop->header;
+  edge_iterator ei;
+  edge e;
+  basic_block latch = NULL;
+
+  FOR_EACH_EDGE (e, ei, header->preds)
+    {
+      basic_block cand = e->src;
+      if (!flow_bb_inside_loop_p (loop, cand))
+	continue;
+
+      if (latch != NULL)
+	/* More than one latch edge.  */
+	return NULL;
+
+      latch = cand;
+    }
+
+  return latch;
+}
+
 /* Find all the natural loops in the function and save in LOOPS structure and
    recalculate loop_father information in basic block structures.
    If LOOPS is non-NULL then the loop structures for already recorded loops
@@ -482,29 +509,10 @@ flow_loops_find (struct loops *loops)
     {
       struct loop *loop = larray[i];
       basic_block header = loop->header;
-      edge_iterator ei;
-      edge e;
 
       flow_loop_tree_node_add (header->loop_father, loop);
       loop->num_nodes = flow_loop_nodes_find (loop->header, loop);
-
-      /* Look for the latch for this header block, if it has just a
-	 single one.  */
-      FOR_EACH_EDGE (e, ei, header->preds)
-	{
-	  basic_block latch = e->src;
-
-	  if (flow_bb_inside_loop_p (loop, latch))
-	    {
-	      if (loop->latch != NULL)
-		{
-		  /* More than one latch edge.  */
-		  loop->latch = NULL;
-		  break;
-		}
-	      loop->latch = latch;
-	    }
-	}
+      loop->latch = find_single_latch (loop);
     }
 
   return loops;
@@ -913,37 +921,32 @@ get_loop_body_in_bfs_order (const struct loop *loop)
   basic_block *blocks;
   basic_block bb;
   bitmap visited;
-  unsigned int i = 0;
-  unsigned int vc = 1;
+  unsigned int i = 1;
+  unsigned int vc = 0;
 
   gcc_assert (loop->num_nodes);
   gcc_assert (loop->latch != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   blocks = XNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
-
-  bb = loop->header;
+  blocks[0] = loop->header;
+  bitmap_set_bit (visited, loop->header->index);
   while (i < loop->num_nodes)
     {
       edge e;
       edge_iterator ei;
-
-      if (bitmap_set_bit (visited, bb->index))
-	/* This basic block is now visited */
-	blocks[i++] = bb;
+      gcc_assert (i > vc);
+      bb = blocks[vc++];
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    {
+	      /* This bb is now visited.  */
 	      if (bitmap_set_bit (visited, e->dest->index))
 		blocks[i++] = e->dest;
 	    }
 	}
-
-      gcc_assert (i > vc);
-
-      bb = blocks[vc++];
     }
 
   BITMAP_FREE (visited);
@@ -1437,6 +1440,28 @@ verify_loop_structure (void)
 	  if (!dominated_by_p (CDI_DOMINATORS, loop->latch, loop->header))
 	    {
 	      error ("loop %d%'s latch is not dominated by its header", i);
+	      err = 1;
+	    }
+	  if (find_single_latch (loop) == NULL)
+	    {
+	      error ("loop %d%'s latch is is not the only latch", i);
+	      err = 1;
+	    }
+	}
+      else
+	{
+	  if (loops_state_satisfies_p (LOOPS_MAY_HAVE_MULTIPLE_LATCHES))
+	    {
+	      if (find_single_latch (loop) != NULL)
+		{
+		  error ("loop %d%'s latch is missing", i);
+		  err = 1;
+		}
+	    }
+	  else
+	    {
+	      error ("loop %d%'s latch is missing, and loops may not have"
+		     " multiple latches", i);
 	      err = 1;
 	    }
 	}

@@ -1879,14 +1879,18 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	     the receiver side will use them directly.  */
 	  if (is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx)))
 	    break;
-	  by_ref = use_pointer_for_field (decl, ctx);
 	  if (OMP_CLAUSE_SHARED_FIRSTPRIVATE (c))
-	    break;
-	  if (! TREE_READONLY (decl)
+	    {
+	      use_pointer_for_field (decl, ctx);
+	      break;
+	    }
+	  by_ref = use_pointer_for_field (decl, NULL);
+	  if ((! TREE_READONLY (decl) && !OMP_CLAUSE_SHARED_READONLY (c))
 	      || TREE_ADDRESSABLE (decl)
 	      || by_ref
 	      || is_reference (decl))
 	    {
+	      by_ref = use_pointer_for_field (decl, ctx);
 	      install_var_field (decl, by_ref, 3, ctx);
 	      install_var_local (decl, ctx);
 	      break;
@@ -8983,6 +8987,7 @@ expand_omp_for_generic (struct omp_region *region,
 	  orig_loop->header = l1_bb;
 	  /* The loop may have multiple latches.  */
 	  add_loop (orig_loop, new_loop);
+	  orig_loop->latch = find_single_latch (orig_loop);
 	}
     }
 }
@@ -13861,6 +13866,7 @@ public:
       return !(fun->curr_properties & PROP_gimple_eomp);
     }
   virtual unsigned int execute (function *) { return execute_expand_omp (); }
+  opt_pass * clone () { return new pass_expand_omp_ssa (m_ctxt); }
 
 }; // class pass_expand_omp_ssa
 
