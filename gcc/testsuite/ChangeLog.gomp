@@ -1,3 +1,7 @@
+2015-11-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/subroutines.f90: New test.
+
 2015-11-30  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gcc.dg/tree-ssa/copy-headers.c: Update for new pass_ch.

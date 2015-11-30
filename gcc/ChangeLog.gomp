@@ -1,3 +1,9 @@
+2015-11-30  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* tree-nested.c (convert_nonlocal_omp_clauses): Handle optional
+	arguments for OMP_CLAUSE_{GANG,WORKER,VECTOR}.
+	(convert_local_omp_clauses): Likewise
+
 2015-11-30  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* passes.def: Use pass_ch instead of pass_ch_oacc_kernels.
