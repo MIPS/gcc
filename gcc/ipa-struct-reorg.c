@@ -63,6 +63,11 @@ along with GCC; see the file COPYING3.  If not see
    It should be equal to -1 when global variables are transformed.  */
 int CURRENT_LEVEL = -1;
 
+/* If set, it allow to remove structure frame from one 
+   field structures.  */
+
+#define STRIP_FRAME 1
+
 typedef enum escape_type {
   NONESCAPE = 0,
   CUSTOM_ALLOC_SITE,
@@ -140,8 +145,6 @@ struct struct_symbols_d {
   /* Is true if this struct has substructure(s) or pointer to other structs. */
   bool has_substruct;
 };
-
-typedef struct struct_symbols_d * struct_symbols;
 
 /* Symbols with structure types that are candidate for transformation.
    Based on their visibility, determined 
@@ -739,16 +742,17 @@ print_struct_symbol_vec ()
       print_escape (str);
       
       if (symbols->symbols.exists ())
+      {
 	fprintf (dump_file, "\nSymbols are:\n");
-
-      FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
-	{
-	  fprintf (dump_file, "%s  ", sbl->name ());
-	  fprintf (dump_file, "with resolution %s  ",
-		   ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
-	  fprintf (dump_file, "\n");
-	}
-
+	if (!symbols->symbols.is_empty ())
+	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
+	    {
+	      fprintf (dump_file, "%s  ", sbl->name ());
+	      fprintf (dump_file, "with resolution %s  ",
+		       ld_plugin_symbol_resolution_names[(int)sbl->resolution]);
+	      fprintf (dump_file, "\n");
+	    }
+      }
       fprintf (dump_file, "\nNumber of fields: %d\n", str->num_fields);  
       for (int i = 0; i < str->num_fields; i++)
 	{
@@ -1865,10 +1869,10 @@ create_fields (struct field_cluster * cluster,
       {
 	tree new_decl = NULL_TREE;
 	
-	if (!one_field)
-	  new_decl = copy_node (fields[i].decl);
-	else
+	if (one_field)
 	  new_decl = copy_node (TREE_TYPE(fields[i].decl));
+	else
+	  new_decl = copy_node (fields[i].decl);
 	
 	if (!new_types)
 	  new_types = new_decl;
@@ -1972,7 +1976,8 @@ create_new_type (struct_symbols str, int *str_num)
       name = gen_cluster_name (str, cluster, *str_num); 
       /* If there is only one field in struct, remove structure frame.  */
       if (bitmap_first_set_bit (cluster->fields_in_cluster) 
-	  != bitmap_last_set_bit (cluster->fields_in_cluster))
+	  != bitmap_last_set_bit (cluster->fields_in_cluster)
+	  || !STRIP_FRAME)
 	{
 	  fields = create_fields (cluster, str->fields,
 				  str->num_fields, false);
@@ -2339,7 +2344,6 @@ struct_reorg_read_section_after_decision (struct lto_file_decl_data *file_data,
   struct lto_input_block ib_main;
   unsigned int i;
   unsigned int count;
-  lto_symtab_encoder_t encoder;
 
   LTO_INIT_INPUT_BLOCK (ib_main, (const char *) data + main_offset, 0,
 			header->main_size);
@@ -2348,7 +2352,6 @@ struct_reorg_read_section_after_decision (struct lto_file_decl_data *file_data,
     lto_data_in_create (file_data, (const char *) data + string_offset,
 			header->string_size, vNULL);
   count = streamer_read_uhwi (&ib_main);
-  encoder = file_data->symtab_node_encoder;
 
   for (i = 0; i < count; i++)
     {
@@ -2361,10 +2364,7 @@ struct_reorg_read_section_after_decision (struct lto_file_decl_data *file_data,
       if (j == -1)	
 	j = add_struct_to_struct_symbols_vec (struct_decl);
       str = struct_symbols_vec[j];
-      
-      /* Deserialize symbols.  */
-      read_struct_symbols (&ib_main, encoder, j);
-      
+            
       /* Deserialize number of fields.  */
       str->num_fields = streamer_read_uhwi (&ib_main);
 
@@ -2588,7 +2588,6 @@ static void
 struct_reorg_write_opt_summary (void)
 {   
   struct output_block *ob = create_output_block (LTO_section_ipa_struct_reorg);
-  lto_symtab_encoder_t encoder;
   unsigned int i;
   struct_symbols symbols;
 
@@ -2599,7 +2598,6 @@ struct_reorg_write_opt_summary (void)
       return;
     } 
 
-  encoder = ob->decl_state->symtab_node_encoder;
   ob->cgraph_node = NULL;
   streamer_write_uhwi (ob, struct_symbols_vec.length ());
 
@@ -2617,9 +2615,9 @@ struct_reorg_write_opt_summary (void)
 
       if (dump_file)
 	dump_struct_type (struct_symbols_vec[i]->struct_decl, 2, 0);
-      
-      /* Serialize structure symbols.  */
-      write_struct_symbols (ob, symbols->symbols, encoder);
+
+      /* We do not need to keep symbols after analysis.
+       We collect them on the way during transformation stage.  */
 
       /* Serialize number of fields.  */
       streamer_write_uhwi (ob, struct_symbols_vec[i]->num_fields);
