@@ -1,5 +1,9 @@
 2015-11-30  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (attempt_target_gridification): Use gimplify_expr.
+
+2015-11-30  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (attempt_target_gridification): Use proper access into
 	iter array of the inner loop.
 

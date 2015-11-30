@@ -17481,6 +17481,7 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
      gpukernel);
 
   walk_tree (&group_size, remap_prebody_decls, &wi, NULL);
+  push_gimplify_context ();
   size_t collapse = gimple_omp_for_collapse (inner_loop);
   for (size_t i = 0; i < collapse; i++)
     {
@@ -17499,30 +17500,32 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
       tree step;
       step = get_omp_for_step_from_incr (loc,
 					 gimple_omp_for_incr (inner_loop, i));
-      n1 = force_gimple_operand_gsi (gsi, fold_convert (type, n1), true,
-				     NULL_TREE, true, GSI_SAME_STMT);
-      n2 = force_gimple_operand_gsi (gsi, fold_convert (itype, n2), true,
-				     NULL_TREE,
-				     true, GSI_SAME_STMT);
+      gimple_seq tmpseq = NULL;
+      n1 = fold_convert (itype, n1);
+      n2 = fold_convert (itype, n2);
       tree t = build_int_cst (itype, (cond_code == LT_EXPR ? -1 : 1));
       t = fold_build2 (PLUS_EXPR, itype, step, t);
       t = fold_build2 (PLUS_EXPR, itype, t, n2);
-      t = fold_build2 (MINUS_EXPR, itype, t, fold_convert (itype, n1));
+      t = fold_build2 (MINUS_EXPR, itype, t, n1);
       if (TYPE_UNSIGNED (itype) && cond_code == GT_EXPR)
 	t = fold_build2 (TRUNC_DIV_EXPR, itype,
 			 fold_build1 (NEGATE_EXPR, itype, t),
 			 fold_build1 (NEGATE_EXPR, itype, step));
       else
 	t = fold_build2 (TRUNC_DIV_EXPR, itype, t, step);
-      t = fold_convert (uint32_type_node, t);
-      tree gs = force_gimple_operand_gsi (gsi, t, true, NULL_TREE, true,
-					  GSI_SAME_STMT);
+      tree gs = fold_convert (uint32_type_node, t);
+      gimplify_expr (&gs, &tmpseq, NULL, is_gimple_val, fb_rvalue);
+      if (!gimple_seq_empty_p (tmpseq))
+	gsi_insert_seq_before (gsi, tmpseq, GSI_SAME_STMT);
+
       tree ws;
       if (i == 0 && group_size)
 	{
 	  ws = fold_convert (uint32_type_node, group_size);
-	  ws = force_gimple_operand_gsi (gsi, ws, true, NULL_TREE, true,
-					 GSI_SAME_STMT);
+	  tmpseq = NULL;
+	  gimplify_expr (&ws, &tmpseq, NULL, is_gimple_val, fb_rvalue);
+	  if (!gimple_seq_empty_p (tmpseq))
+	    gsi_insert_seq_before (gsi, tmpseq, GSI_SAME_STMT);
 	}
       else
 	ws = build_zero_cst (uint32_type_node);
@@ -17534,7 +17537,7 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
       OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (target);
       gimple_omp_target_set_clauses (target, c);
     }
-
+  pop_gimplify_context (tgt_bind);
   delete declmap;
   return;
 }
