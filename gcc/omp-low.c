@@ -17484,21 +17484,21 @@ attempt_target_gridification (gomp_target *target, gimple_stmt_iterator *gsi,
   size_t collapse = gimple_omp_for_collapse (inner_loop);
   for (size_t i = 0; i < collapse; i++)
     {
-      gimple_omp_for_iter iter = inner_loop->iter[i];
-      walk_tree (&iter.initial, remap_prebody_decls, &wi, NULL);
-      walk_tree (&iter.final, remap_prebody_decls, &wi, NULL);
-
-      tree itype, type = TREE_TYPE (iter.index);
+      tree itype, type = TREE_TYPE (gimple_omp_for_index (inner_loop, i));
       if (POINTER_TYPE_P (type))
 	itype = signed_type_for (type);
       else
 	itype = type;
 
-      enum tree_code cond_code = iter.cond;
-      tree n1 = iter.initial;
-      tree n2 = iter.final;
+      enum tree_code cond_code = gimple_omp_for_cond (inner_loop, i);
+      tree n1 = unshare_expr (gimple_omp_for_initial (inner_loop, i));
+      walk_tree (&n1, remap_prebody_decls, &wi, NULL);
+      tree n2 = unshare_expr (gimple_omp_for_final (inner_loop, i));
+      walk_tree (&n2, remap_prebody_decls, &wi, NULL);
       adjust_for_condition (loc, &cond_code, &n2);
-      tree step = get_omp_for_step_from_incr (loc, iter.incr);
+      tree step;
+      step = get_omp_for_step_from_incr (loc,
+					 gimple_omp_for_incr (inner_loop, i));
       n1 = force_gimple_operand_gsi (gsi, fold_convert (type, n1), true,
 				     NULL_TREE, true, GSI_SAME_STMT);
       n2 = force_gimple_operand_gsi (gsi, fold_convert (itype, n2), true,

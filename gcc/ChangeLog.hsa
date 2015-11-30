@@ -1,5 +1,10 @@
 2015-11-30  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (attempt_target_gridification): Use proper access into
+	iter array of the inner loop.
+
+2015-11-30  Martin Jambor  <mjambor@suse.cz>
+
 	* gimple.c (gimple_omp_target_init_dimensions): Removed.
 	* gimple.h (gimple_statement_omp_parallel_layout): Removed fields
 	dimensions and kernel_dim.
