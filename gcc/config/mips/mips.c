@@ -2241,6 +2241,11 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	  && !LABEL_REF_NONLOCAL_P (x))
 	return SYMBOL_PC_RELATIVE;
 
+      if (USE_ADDIUPC
+	  && context == SYMBOL_CONTEXT_LEA
+	  && (GET_MODE_ALIGNMENT (GET_MODE (x)) % 4) == 0)
+	return SYMBOL_PC_RELATIVE;
+
       if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
 	return SYMBOL_GOT_PAGE_OFST;
 
@@ -2273,6 +2278,24 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
      being zero.  */
   if (TARGET_GPOPT && SYMBOL_REF_SMALL_P (x) && !SYMBOL_REF_WEAK (x))
     return SYMBOL_GP_RELATIVE;
+
+  tree decl = SYMBOL_REF_DECL (x);
+  if (USE_ADDIUPC
+      && context == SYMBOL_CONTEXT_LEA
+      && decl
+      && ((DECL_ALIGN_UNIT (decl) % 4) == 0)
+      && RTX_FRAME_RELATED_P (x))
+    return SYMBOL_PC_RELATIVE;
+  /*if (USE_ADDIUPC
+      && context == SYMBOL_CONTEXT_LEA
+      && decl
+      && ((DECL_ALIGN_UNIT (decl) % 4) == 0)
+      && (RTX_FRAME_RELATED_P (x)
+	  || TREE_CODE (decl) == VAR_DECL))*/
+	 /*|| (DECL_EXTERNAL (decl)
+	      && TREE_CODE (decl) == VAR_DECL
+	      && (GET_MODE_ALIGNMENT (GET_MODE (x)) % 4) == 0)))*/
+
 
   /* Don't use GOT accesses for locally-binding symbols when -mno-shared
      is in effect.  */
@@ -5415,6 +5438,8 @@ mips_output_move (rtx dest, rtx src)
 	  gcc_assert (!mips_split_p[symbol_type]);
 	  return "li\t%0,%R1";
 	}
+      if (umips_pcrel_symbolic_operand (src, GET_MODE (src)))
+        return "addiupc\t%0,%%pcrel(%1)";
 
       if (symbolic_operand (src, VOIDmode))
 	{

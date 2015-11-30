@@ -493,6 +493,15 @@
 	  && type == SYMBOL_ABSOLUTE);
 })
 
+(define_predicate "umips_pcrel_symbolic_operand"
+  (match_code "const,symbol_ref,label_ref")
+{
+  enum mips_symbol_type type;
+  return (USE_ADDIUPC
+          && mips_symbolic_constant_p (op, SYMBOL_CONTEXT_LEA, &type)
+	  && type == SYMBOL_PC_RELATIVE);
+})
+
 (define_predicate "symbolic_operand_with_high"
   (match_code "const,symbol_ref,label_ref")
 {
