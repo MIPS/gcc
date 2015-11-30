@@ -4379,9 +4379,18 @@ nvptx_expand_builtin (tree exp, rtx target, rtx ARG_UNUSED (subtarget),
     }
 }
 
+
 /* Define dimension sizes for known hardware.  */
 #define PTX_VECTOR_LENGTH 32
 #define PTX_WORKER_LENGTH 32
+
+/* Implement TARGET_SIMT_VF target hook: number of threads in a warp.  */
+
+static int
+nvptx_simt_vf ()
+{
+  return PTX_VECTOR_LENGTH;
+}
 
 /* Validate compute dimensions of an OpenACC offload or routine, fill
    in non-unity defaults.  FN_LEVEL indicates the level at which a
@@ -5140,6 +5149,9 @@ nvptx_goacc_reduction (gcall *call)
 #define TARGET_EXPAND_BUILTIN nvptx_expand_builtin
 #undef  TARGET_BUILTIN_DECL
 #define TARGET_BUILTIN_DECL nvptx_builtin_decl
+
+#undef TARGET_SIMT_VF
+#define TARGET_SIMT_VF nvptx_simt_vf
 
 #undef TARGET_GOACC_VALIDATE_DIMS
 #define TARGET_GOACC_VALIDATE_DIMS nvptx_goacc_validate_dims

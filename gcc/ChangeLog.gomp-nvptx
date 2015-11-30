@@ -1,5 +1,13 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_simt_vf): New.
+	(TARGET_SIMT_VF): Define.
+	* doc/tm.texi: Regenerate.
+	* doc/tm.texi.in: (TARGET_SIMT_VF): New hook.
+	* target.def: Define it.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_option_override): Handle TARGET_GOMP.
 	* config/nvptx/nvptx.opt (mgomp): New option.
 	* config/nvptx/t-nvptx (MULTILIB_OPTIONS): New.
