@@ -1,5 +1,12 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_option_override): Handle TARGET_GOMP.
+	* config/nvptx/nvptx.opt (mgomp): New option.
+	* config/nvptx/t-nvptx (MULTILIB_OPTIONS): New.
+	* doc/invoke.texi (mgomp): Document.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_name_replacement): Rewrite.  Add
 	__nvptx_real_malloc -> malloc and __nvptx_real_free -> free
 	replacements.

@@ -185,6 +185,9 @@ nvptx_option_override (void)
   worker_red_sym = gen_rtx_SYMBOL_REF (Pmode, worker_red_name);
   SET_SYMBOL_DATA_AREA (worker_red_sym, DATA_AREA_SHARED);
   worker_red_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
+
+  if (TARGET_GOMP)
+    target_flags |= MASK_SOFT_STACK | MASK_UNIFORM_SIMT;
 }
 
 /* Return a ptx type for MODE.  If PROMOTE, then use .u32 for QImode to
