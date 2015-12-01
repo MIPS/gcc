@@ -1300,7 +1300,25 @@ vect_init_vector (gimple *stmt, tree val, tree type, gimple_stmt_iterator *gsi)
     {
       if (!types_compatible_p (TREE_TYPE (type), TREE_TYPE (val)))
 	{
-	  if (CONSTANT_CLASS_P (val))
+	  /* Scalar boolean value should be transformed into
+	     all zeros or all ones value before building a vector.  */
+	  if (VECTOR_BOOLEAN_TYPE_P (type))
+	    {
+	      tree true_val = build_zero_cst (TREE_TYPE (type));
+	      tree false_val = build_all_ones_cst (TREE_TYPE (type));
+
+	      if (CONSTANT_CLASS_P (val))
+		val = integer_zerop (val) ? false_val : true_val;
+	      else
+		{
+		  new_temp = make_ssa_name (TREE_TYPE (type));
+		  init_stmt = gimple_build_assign (new_temp, COND_EXPR,
+						   val, true_val, false_val);
+		  vect_init_vector_1 (stmt, init_stmt, gsi);
+		  val = new_temp;
+		}
+	    }
+	  else if (CONSTANT_CLASS_P (val))
 	    val = fold_convert (TREE_TYPE (type), val);
 	  else
 	    {
@@ -6130,6 +6148,7 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   bool grouped_load = false;
   bool load_lanes_p = false;
   gimple *first_stmt;
+  gimple *first_stmt_for_drptr = NULL;
   bool inv_p;
   bool negative = false;
   bool compute_in_loop = false;
@@ -6246,15 +6265,45 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
          that leaves unused vector loads around punt - we at least create
 	 very sub-optimal code in that case (and blow up memory,
 	 see PR65518).  */
+      bool force_peeling = false;
       if (first_stmt == stmt
-	  && !GROUP_NEXT_ELEMENT (stmt_info)
-	  && GROUP_SIZE (stmt_info) > TYPE_VECTOR_SUBPARTS (vectype))
+	  && !GROUP_NEXT_ELEMENT (stmt_info))
+	{
+	  if (GROUP_SIZE (stmt_info) > TYPE_VECTOR_SUBPARTS (vectype))
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "single-element interleaving not supported "
+				 "for not adjacent vector loads\n");
+	      return false;
+	    }
+
+	  /* Single-element interleaving requires peeling for gaps.  */
+	  force_peeling = true;
+	}
+
+      /* If there is a gap in the end of the group or the group size cannot
+         be made a multiple of the vector element count then we access excess
+	 elements in the last iteration and thus need to peel that off.  */
+      if (loop_vinfo
+	  && ! STMT_VINFO_STRIDED_P (stmt_info)
+	  && (force_peeling
+	      || GROUP_GAP (vinfo_for_stmt (first_stmt)) != 0
+	      || (!slp && vf % GROUP_SIZE (vinfo_for_stmt (first_stmt)) != 0)))
 	{
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "single-element interleaving not supported "
-			     "for not adjacent vector loads\n");
-	  return false;
+			     "Data access with gaps requires scalar "
+			     "epilogue loop\n");
+	  if (loop->inner)
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "Peeling for outer loop is not supported\n");
+	      return false;
+	    }
+
+	  LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo) = true;
 	}
 
       if (slp && SLP_TREE_LOAD_PERMUTATION (slp_node).exists ())
@@ -6703,10 +6752,14 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
   if (grouped_load)
     {
       first_stmt = GROUP_FIRST_ELEMENT (stmt_info);
-      /* For BB vectorization we directly vectorize a subchain
+      /* For SLP vectorization we directly vectorize a subchain
          without permutation.  */
       if (slp && ! SLP_TREE_LOAD_PERMUTATION (slp_node).exists ())
-        first_stmt = SLP_TREE_SCALAR_STMTS (slp_node)[0];
+	first_stmt = SLP_TREE_SCALAR_STMTS (slp_node)[0];
+      /* For BB vectorization always use the first stmt to base
+	 the data ref pointer on.  */
+      if (bb_vinfo)
+	first_stmt_for_drptr = SLP_TREE_SCALAR_STMTS (slp_node)[0];
 
       /* Check if the chain of loads is already vectorized.  */
       if (STMT_VINFO_VEC_STMT (vinfo_for_stmt (first_stmt))
@@ -6917,6 +6970,24 @@ vectorizable_load (gimple *stmt, gimple_stmt_iterator *gsi, gimple **vec_stmt,
 	      dataref_offset = build_int_cst (reference_alias_ptr_type
 					      (DR_REF (first_dr)), 0);
 	      inv_p = false;
+	    }
+	  else if (first_stmt_for_drptr
+		   && first_stmt != first_stmt_for_drptr)
+	    {
+	      dataref_ptr
+		= vect_create_data_ref_ptr (first_stmt_for_drptr, aggr_type,
+					    at_loop, offset, &dummy, gsi,
+					    &ptr_incr, simd_lane_access_p,
+					    &inv_p, byte_offset);
+	      /* Adjust the pointer by the difference to first_stmt.  */
+	      data_reference_p ptrdr
+		= STMT_VINFO_DATA_REF (vinfo_for_stmt (first_stmt_for_drptr));
+	      tree diff = fold_convert (sizetype,
+					size_binop (MINUS_EXPR,
+						    DR_INIT (first_dr),
+						    DR_INIT (ptrdr)));
+	      dataref_ptr = bump_vector_ptr (dataref_ptr, ptr_incr, gsi,
+					     stmt, diff);
 	    }
 	  else
 	    dataref_ptr
