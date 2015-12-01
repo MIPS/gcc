@@ -2041,12 +2041,6 @@ do {									     \
 
 #define FIND_BASE_TERM rs6000_find_base_term
 
-/* Return true if an offset is a valid either for the LQ/STQ instructions for
-   GPRs and the LXV/STXV instructions for VSX registers.  */
-
-#define VALID_QUAD_MEMORY_OFFSET_P(OFFSET)				\
-  (IN_RANGE (OFFSET, -32768, 32767) && ((OFFSET) & 15) == 0)
-
 
 /* The register number of the register used to address a table of
    static data addresses in memory.  In some cases this register is
