@@ -24,6 +24,8 @@
 
 /* This file handles the maintainence of threads on NVPTX.  */
 
+#if defined __nvptx_softstack__ && defined __nvptx_unisimt__
+
 #include "libgomp.h"
 #include <stdlib.h>
 
@@ -31,15 +33,9 @@ struct gomp_thread *nvptx_thrs;
 
 static void gomp_thread_start (struct gomp_thread_pool *);
 
-void
-gomp_nvptx_main (void (*fn) (void *), void *fn_data)
+static void __attribute__((noinline))
+gomp_nvptx_main_1 (void (*fn) (void *), void *fn_data, int ntids, int tid)
 {
-  int ntids, tid, laneid;
-  asm ("mov.u32 %0, %%laneid;" : "=r" (laneid));
-  if (laneid)
-    return;
-  asm ("mov.u32 %0, %%tid.y;" : "=r" (tid));
-  asm ("mov.u32 %0, %%ntid.y;" : "=r"(ntids));
   if (tid == 0)
     {
       gomp_global_icv.nthreads_var = ntids;
@@ -70,6 +66,30 @@ gomp_nvptx_main (void (*fn) (void *), void *fn_data)
       asm ("bar.sync 0;");
       gomp_thread_start (nvptx_thrs[0].thread_pool);
     }
+}
+
+void
+gomp_nvptx_main (void (*fn) (void *), void *fn_data)
+{
+  int tid, ntids;
+  asm ("mov.u32 %0, %%tid.y;" : "=r" (tid));
+  asm ("mov.u32 %0, %%ntid.y;" : "=r" (ntids));
+  char *stacks = 0;
+  int *__nvptx_uni;
+  asm ("cvta.shared.u64 %0, __nvptx_uni;" : "=r" (__nvptx_uni));
+  __nvptx_uni[tid] = 0;
+  if (tid == 0)
+    {
+      size_t stacksize = 131072;
+      stacks = gomp_malloc (stacksize * ntids);
+      char **__nvptx_stacks = 0;
+      asm ("cvta.shared.u64 %0, __nvptx_stacks;" : "=r" (__nvptx_stacks));
+      for (int i = 0; i < ntids; i++)
+	__nvptx_stacks[i] = stacks + stacksize * (i + 1);
+    }
+  asm ("bar.sync 0;");
+  gomp_nvptx_main_1 (fn, fn_data, ntids, tid);
+  free (stacks);
 }
 
 /* This function is a pthread_create entry point.  This contains the idle
@@ -160,3 +180,4 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 }
 
 #include "../../team.c"
+#endif
