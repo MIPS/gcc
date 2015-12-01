@@ -64,6 +64,6 @@ struct loop * loop_version (struct loop *, void *,
 #ifdef KELVIN_PATCH
 extern bool in_loop_p (basic_block, struct loop *);
 extern void zero_loop_frequencies (struct loop *);
-extern void increment_loop_frequencies (struct loop *, basic_block, int);
+extern void increment_loop_frequencies (struct loop *, basic_block, float);
 #endif
 #endif /* GCC_CFGLOOPMANIP_H */

@@ -1075,10 +1075,11 @@ unroll_loop_runtime_iterations (struct loop *loop)
       if (i != n_peel - 1 || !last_may_exit)
 	bitmap_set_bit (wont_exit, 1);
 #ifdef KELVIN_PATCH
-      int saved_header_frequency = loop->header->frequency;
+      float saved_header_frequency = (float) loop->header->frequency;
       zero_loop_frequencies (loop);
 
-      int new_header_freq = (saved_header_frequency / (n_peel + 1)) * (i + 1);
+      float new_header_freq = (saved_header_frequency
+			       / (n_peel + 1)) * (i + 1);
       increment_loop_frequencies (loop, loop->header, new_header_freq);
 #endif
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
@@ -1208,10 +1209,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
       thousandths in order to force integer rounding during the next
       step, when we divide ten thousandths by 10000 in order to get
       "ones". */
-    sum_incoming_frequencies *= exit_multiplier;
-    sum_incoming_frequencies += 5000;
-    sum_incoming_frequencies /= 10000;
-    increment_loop_frequencies (loop, my_header, sum_incoming_frequencies);
+    float scaled_sum = (float) sum_incoming_frequencies;
+    scaled_sum = ((scaled_sum * exit_multiplier) + 5000) / 10000;
+    increment_loop_frequencies (loop, my_header, scaled_sum);
   }
 #endif
 #ifdef KELVIN_PATCH
