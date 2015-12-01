@@ -731,6 +731,7 @@ lipo_cmp_type (tree t1, tree t2)
     case NULLPTR_TYPE:
       return 1;
     case TEMPLATE_TYPE_PARM:
+    case TEMPLATE_TEMPLATE_PARM:
       return 1;
     default:
       gcc_unreachable ();
