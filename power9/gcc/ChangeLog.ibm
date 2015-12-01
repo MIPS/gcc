@@ -1,3 +1,32 @@
+2015-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wO constraint): New constraint for
+	ISA 3.0 vector d-form memory address.
+
+	* config/rs6000/predicates.md (quad_memory_operand): Add support
+	for ISA 3.0 vector d-form memory instructions.  Split GPR quad
+	memory predicate into a common part shared with ISA 3.0 vector
+	d-form memory support.
+	(quad_memory_operand_common): Likewise.
+	(vsx_quad_memory_operand): Likewise.
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Enable
+	-mpower9-dform if -mcpu=power9.
+
+	* config/rs6000/rs6000.c (RELOAD_REG_QUAD_OFFSET): Add
+	infrastructure for ISA 3.0 vector d-form memory addressing.
+	(mode_supports_vsx_dform_quad): Likewise.
+	(rs6000_debug_addr_mask): Likewise.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_output_move_128bit): Use correct register.
+
+	* config/rs6000/rs6000.h (enum r6000_reg_class_enum): Change wb
+	constraint comment.
+	(VALID_QUAD_MEMORY_OFFSET_P): New macro for ISA 3.0 vector d-form
+	memory support.
+
+	* doc/md.texi (RS/6000 constraints): Document wO constraint.
+
 2015-11-30   Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch subversion id 231082

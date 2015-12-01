@@ -369,6 +369,7 @@ typedef unsigned char addr_mask_type;
 #define RELOAD_REG_PRE_INCDEC	0x10	/* PRE_INC/PRE_DEC valid.  */
 #define RELOAD_REG_PRE_MODIFY	0x20	/* PRE_MODIFY valid.  */
 #define RELOAD_REG_AND_M16	0x40	/* AND -16 addressing.  */
+#define RELOAD_REG_QUAD_OFFSET	0x80	/* quad offset is limited.  */
 
 /* Register type masks based on the type, of valid addressing modes.  */
 struct rs6000_reg_addr {
@@ -414,6 +415,17 @@ static inline bool
 mode_supports_vmx_dform (machine_mode mode)
 {
   return ((reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_OFFSET) != 0);
+}
+
+
+/* Return true if we have D-form addressing in VSX registers.  This addressing
+   is more limited than normal d-form addressing in that the offset is only
+   12-bits.  */
+static inline bool
+mode_supports_vsx_dform_quad (machine_mode mode)
+{
+  return ((reg_addr[mode].addr_mask[RELOAD_REG_VMX] & RELOAD_REG_QUAD_OFFSET)
+	  != 0);
 }
 
 
@@ -2020,6 +2032,8 @@ rs6000_debug_addr_mask (addr_mask_type mask, bool keep_spaces)
 
   if ((mask & RELOAD_REG_OFFSET) != 0)
     *p++ = 'o';
+  else if ((mask & RELOAD_REG_QUAD_OFFSET) != 0)
+    *p++ = 'O';
   else if (keep_spaces)
     *p++ = ' ';
 
@@ -2690,6 +2704,19 @@ rs6000_setup_reg_addr_masks (void)
 		      && TARGET_P9_DFORM
 		      && (m2 == DFmode || m2 == SFmode))))
 	    addr_mask |= RELOAD_REG_OFFSET;
+
+	  /* VSX registers can do REG+OFFSET addresssing if ISA 3.0
+	     instructions are enabled.  The offset for 128-bit VSX registers is
+	     only 12-bits.  GPRs have the normal offset addressing.  */
+	  else if ((addr_mask != 0) && !indexed_only_p
+		   && msize == 16 && TARGET_P9_DFORM)
+	    {
+	      if (rc == RELOAD_REG_GPR)
+		addr_mask |= RELOAD_REG_OFFSET;
+
+	      else if (rc == RELOAD_REG_FPR || rc == RELOAD_REG_VMX)
+		addr_mask |= RELOAD_REG_QUAD_OFFSET;
+	    }
 
 	  /* VMX registers can do (REG & -16) and ((REG+REG) & -16)
 	     addressing on 128-bit types.  */
@@ -19290,7 +19317,7 @@ rs6000_output_move_128bit (rtx operands[])
 	}
 
       else if (TARGET_ALTIVEC && src_vmx_p
-	       && altivec_indexed_or_indirect_operand (src, mode))
+	       && altivec_indexed_or_indirect_operand (dest, mode))
 	return "stvx %1,%y0";
 
       else if (TARGET_VSX && src_vsx_p)

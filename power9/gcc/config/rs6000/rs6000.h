@@ -1523,7 +1523,7 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_f,		/* fpr registers for single values */
   RS6000_CONSTRAINT_v,		/* Altivec registers */
   RS6000_CONSTRAINT_wa,		/* Any VSX register */
-  RS6000_CONSTRAINT_wb,		/* Altivec register if ISA 3.0 vector. */
+  RS6000_CONSTRAINT_wb,		/* Altivec register if ISA 3.0 d-form mem. */
   RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
   RS6000_CONSTRAINT_we,		/* VSX register if ISA 3.0 vector. */
   RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
@@ -2040,6 +2040,13 @@ do {									     \
 } while (0)
 
 #define FIND_BASE_TERM rs6000_find_base_term
+
+/* Return true if an offset is a valid either for the LQ/STQ instructions for
+   GPRs and the LXV/STXV instructions for VSX registers.  */
+
+#define VALID_QUAD_MEMORY_OFFSET_P(OFFSET)				\
+  (IN_RANGE (OFFSET, -32768, 32767) && ((OFFSET) & 15) == 0)
+
 
 /* The register number of the register used to address a table of
    static data addresses in memory.  In some cases this register is

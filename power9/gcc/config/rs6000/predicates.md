@@ -693,18 +693,19 @@
   (and (match_operand 0 "memory_operand")
        (match_test "offsettable_nonstrict_memref_p (op)")))
 
-;; Return 1 if the operand is suitable for load/store quad memory.
-;; This predicate only checks for non-atomic loads/stores (not lqarx/stqcx).
-(define_predicate "quad_memory_operand"
+;; Common code for two 128-bit data types with d-form (register+offset)
+;; addressing:
+;;   1) -mquad-memory to access GPRs via LQ/STQ (big endian only);
+;;   2) -mpower9-dform to access vector types via ISA 3.0 insns.
+
+(define_predicate "quad_memory_operand_common"
   (match_code "mem")
 {
   rtx addr, op0, op1;
   int ret;
+  HOST_WIDE_INT offset;
 
-  if (!TARGET_QUAD_MEMORY && !TARGET_SYNC_TI)
-    ret = 0;
-
-  else if (!memory_operand (op, mode))
+  if (!memory_operand (op, mode))
     ret = 0;
 
   else if (GET_MODE_SIZE (GET_MODE (op)) != 16)
@@ -726,20 +727,59 @@
 	{
 	  op0 = XEXP (addr, 0);
 	  op1 = XEXP (addr, 1);
-	  ret = (int_reg_operand (op0, Pmode)
-		 && GET_CODE (op1) == CONST_INT
-		 && IN_RANGE (INTVAL (op1), -32768, 32767)
-		 && (INTVAL (op1) & 15) == 0);
+	  if (int_reg_operand (op0, Pmode) && GET_CODE (op1) == CONST_INT)
+	    {
+	      offset = INTVAL (op1);
+	      ret = VALID_QUAD_MEMORY_OFFSET_P (offset);
+	    }
+	  else
+	    ret = 0;
 	}
     }
 
   if (TARGET_DEBUG_ADDR)
     {
-      fprintf (stderr, "\nquad_memory_operand, ret = %s\n", ret ? "true" : "false");
+      fprintf (stderr, "\nquad_memory_operand_common, ret = %s\n",
+	       ret ? "true" : "false");
       debug_rtx (op);
     }
 
   return ret;
+})
+
+;; Return 1 if the operand is suitable for load/store quad memory.
+;; This predicate only checks for non-atomic loads/stores (not lqarx/stqcx).
+(define_predicate "quad_memory_operand"
+  (match_code "mem")
+{
+  if (!TARGET_QUAD_MEMORY && !TARGET_SYNC_TI)
+    return 0;
+
+  return quad_memory_operand_common (op, mode);
+})
+
+;; Return 1 if the operand is suitable for load/store to vector registers with
+;; d-form addressing (register+offset), which was added in ISA 3.0.
+;; Unlike quad_memory_operand, we do not allow indirect addresses
+(define_predicate "vsx_quad_memory_operand"
+  (match_code "mem")
+{
+  if (!TARGET_P9_DFORM || !MEM_P (op) || GET_MODE_SIZE (mode) != 16)
+    return 0;
+
+  if (GET_CODE (XEXP (op, 0)) != PLUS)
+    return 0;
+
+  if (mode == TImode && !TARGET_VSX_TIMODE)
+    return 0;
+
+  else if (!ALTIVEC_OR_VSX_VECTOR_MODE (mode))
+    return 0;
+
+  if (GET_CODE (XEXP (op, 0)) != PLUS)
+    return 0;
+
+  return quad_memory_operand_common (op, mode);
 })
 
 ;; Return 1 if the operand is an indexed or indirect memory operand.
