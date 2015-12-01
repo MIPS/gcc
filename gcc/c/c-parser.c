@@ -4734,7 +4734,8 @@ c_parser_compound_statement_nostart (c_parser *parser)
 	     syntactically.  This ensures that the user doesn't put them
 	     places that would turn into syntax errors if the directive
 	     were ignored.  */
-	  if (c_parser_pragma (parser, pragma_compound))
+	  if (c_parser_pragma (parser,
+			       last_label ? pragma_stmt : pragma_compound))
 	    last_label = false, last_stmt = true;
 	}
       else if (c_parser_next_token_is (parser, CPP_EOF))
@@ -15219,7 +15220,7 @@ c_parser_omp_ordered (c_parser *parser, enum pragma_context context)
 	      error_at (loc,
 			"%<#pragma omp ordered%> with %<depend> clause may "
 			"only be used in compound statements");
-	      c_parser_skip_to_pragma_eol (parser);
+	      c_parser_skip_to_pragma_eol (parser, false);
 	      return false;
 	    }
 
@@ -15867,7 +15868,7 @@ c_parser_omp_target_update (location_t loc, c_parser *parser,
       error_at (loc,
 		"%<#pragma omp target update%> may only be "
 		"used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return false;
     }
 
@@ -15927,7 +15928,7 @@ c_parser_omp_target_enter_data (location_t loc, c_parser *parser,
       error_at (loc,
 		"%<#pragma omp target enter data%> may only be "
 		"used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 
@@ -16012,7 +16013,7 @@ c_parser_omp_target_exit_data (location_t loc, c_parser *parser,
       error_at (loc,
 		"%<#pragma omp target exit data%> may only be "
 		"used in compound statements");
-      c_parser_skip_to_pragma_eol (parser);
+      c_parser_skip_to_pragma_eol (parser, false);
       return NULL_TREE;
     }
 

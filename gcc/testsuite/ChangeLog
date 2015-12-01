@@ -1,3 +1,216 @@
+2015-11-30  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68592
+	* gfortran.dg/pr68592.f: New testcase.
+
+2015-11-30  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68534
+	* gfortran.dg/submodule_13.f08: New test.
+
+2015-11-30  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+	* gcc.target/s390/load-relative-check.c: Add scan patterns for
+	-m31.
+
+2015-11-30  Andreas Krebbel  <krebbel@linux.vnet.ibm.com>
+
+        * gcc.target/s390/load-relative-check.c: Add -mzarch.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/dump-ada-spec-1.c: Move to...
+	* c-c++-common/dump-ada-spec-1.c: ...here.
+	* c-c++-common/dump-ada-spec-2.c: New test.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/loop_optimization22.ad[sb]: New test.
+
+2015-11-30  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/specs/rep_clause5.ads: New test.
+
+2015-11-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c/67106
+	* gcc.c-torture/compile/pr67106.c: New testcase.
+
+2015-11-29  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c/67581
+	* g++.dg/torture/pr67581.C: New testcase.
+
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68559
+	* gcc.dg/vect/slp-perm-4.c: Adjust again.
+	* gcc.dg/vect/pr45752.c: Likewise.
+
+2015-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68250
+	* gcc.c-torture/execute/pr68250.c: New test.
+
+2015-11-27  Marek Polacek  <polacek@redhat.com>
+
+	* gcc.dg/pr63568.c: Convert to GIMPLE.
+
+2015-11-27  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68506
+	* gcc.c-torture/execute/pr68506.c: New test.
+
+2015-11-27  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/63326
+	* gcc.dg/gomp/barrier-2.c (f2): Expect another error after label.
+	* c-c++-common/gomp/pr63326.c: New test.
+
+2015-11-27  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/68553
+	* gcc.dg/vect/pr45752.c: Adjust.
+	* gcc.dg/vect/slp-perm-4.c: Likewise.
+
+2015-11-26  Martin Sebor  <msebor@redhat.com>
+
+	* g++.dg/init/new45.C (cookie_size): New constant set to a value
+	appropriate for the target.
+	(operator new[]): Use it.
+
+2015-11-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67238
+	* g++.dg/cpp0x/pr67238.C: New.
+
+2015-11-26  Martin Sebor  <msebor@redhat.com>
+
+	* g++.dg/pr67876.C: Remove duplicate content.
+
+2015-11-26  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* g++.dg/guality/pr67192.C: New test.
+
+2015-11-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmlXh_lane.inc: New file,
+	support code for vqrdml{as}h_lane tests.
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmlah_lane.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmlsh_lane.c: New.
+
+2015-11-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmlXh.inc: New file,
+	support code for vqrdml{as}h tests.
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmlah.c: New.
+	* gcc.target/aarch64/advsimd-intrinsics/vqrdmlsh.c: New.
+
+2015-11-26  Matthew Wahab  <matthew.wahab@arm.com>
+
+	* lib/target-supports.exp (add_options_for_arm_v8_1a_neon): New.
+	(check_effective_target_arm_arch_FUNC_ok)
+	(add_options_for_arm_arch_FUNC)
+	(check_effective_target_arm_arch_FUNC_multilib): Add "armv8.1-a"
+	to the list to be generated.
+	(check_effective_target_arm_v8_1a_neon_ok_nocache): New.
+	(check_effective_target_arm_v8_1a_neon_ok): New.
+	(check_effective_target_arm_v8_1a_neon_hw): New.
+
+2015-11-26  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.target/nvptx/proto-1.c: Adjust expected asm.
+
+2015-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/68555
+	* gcc.dg/vect/bb-slp-10.c: Adjust pattern, use target selector
+	and not XFAIL.
+
+2015-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/68554
+	* gcc.dg/vect/bb-slp-subgroups-2.c: Require vect_perm.
+
+2015-11-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67249
+	* g++.dg/concepts/pr67249.C: New.
+
+2015-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/66799
+	* gcc.dg/vect/pr20122.c (main): Do not align Kernel, do not
+	vectorize init loop and adjust expected outcome.
+
+2015-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR testsuite/67203
+	* g++.dg/tree-ssa/pr61034.C: Make expected optimization result
+	dependent on PUSH_ARGS_REVERSED.  Drop optimization level and
+	also monitor final optimization result.
+
+2015-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/68249
+	PR rtl-optimization/68321
+	* gcc.c-torture/execute/pr68249.c: New test.
+	* gcc.c-torture/execute/pr68321.c: New test.
+
+2015-11-26  Ilya Enkovich  <enkovich.gnu@gmail.com>
+
+	PR target/68416
+	* gcc.target/i386/mpx/pr68416.c: New test.
+
+2015-11-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/67313
+	* g++.dg/cpp0x/no-weak1.C: New.
+
+2015-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/68128
+	* gcc.dg/gomp/pr68128-1.c: New test.
+	* gcc.dg/gomp/pr68128-2.c: New test.
+
+2015-11-26  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/67226
+	* gcc.c-torture/execute/pr67226.c: New test.
+
+2015-11-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/68508
+	* g++.dg/ubsan/pr68508.C: New test.
+
+2015-11-25  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/67876
+	* g++.dg/pr67876.C: New test.
+
+2015-11-25  Aditya Kumar  <aditya.k7@samsung.com>
+	    Sebastian Pop  <s.pop@samsung.com>
+
+	PR tree-optimization/68453
+	* gfortran.dg/graphite/pr68453.f90: New.
+
+2015-11-25  Martin Sebor  <msebor@redhat.com>
+
+	PR c/66516
+	* g++.dg/addr_builtin-1.C: New test (left out of initial commit).
+	* gcc.dg/addr_builtin-1.c: Same.
+
+2015-11-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/dform-1.c: New test.
+	* gcc.target/powerpc/dform-2.c: Likewise.
+
+2015-11-23  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gfortran.dg/lto/bind_c-6_0.f90: New testcase.
+	* gfortran.dg/lto/bind_c-6_1.c: New testcase.
+	* g++.dg/lto/20100603-1_0.C: Add -Wno-lto-type-mismatch.
+
 2015-11-25  Tom de Vries  <tom@codesourcery.com>
 
 	* g++.dg/tree-ssa/copyprop-1.C: Update after adding new dce1.
@@ -7931,12 +8144,6 @@
 	* gcc.target/aarch64/arm_align_max_pwr.c: Make it a compile test case,
 	check the assembly.
 	* gcc.target/aarch64/arm_align_max_stack_pwr.c: Likewise.
-
-2015-09-03  Martin Sebor  <msebor@redhat.com>
-
-	PR c/66516
-	* g++.dg/addr_builtin-1.C: New test.
-	* gcc.dg/addr_builtin-1.c: New test.
 
 2015-09-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 

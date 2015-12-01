@@ -206,6 +206,42 @@ nvptx_ptx_type_from_mode (machine_mode mode, bool promote)
     }
 }
 
+/* Determine the address space to use for SYMBOL_REF SYM.  */
+
+static addr_space_t
+nvptx_addr_space_from_sym (rtx sym)
+{
+  tree decl = SYMBOL_REF_DECL (sym);
+  if (decl == NULL_TREE || TREE_CODE (decl) == FUNCTION_DECL)
+    return ADDR_SPACE_GENERIC;
+
+  bool is_const = (CONSTANT_CLASS_P (decl)
+		   || TREE_CODE (decl) == CONST_DECL
+		   || TREE_READONLY (decl));
+  if (is_const)
+    return ADDR_SPACE_CONST;
+
+  return ADDR_SPACE_GLOBAL;
+}
+
+/* Check NAME for special function names and redirect them by returning a
+   replacement.  This applies to malloc, free and realloc, for which we
+   want to use libgcc wrappers, and call, which triggers a bug in ptxas.  */
+
+static const char *
+nvptx_name_replacement (const char *name)
+{
+  if (strcmp (name, "call") == 0)
+    return "__nvptx_call";
+  if (strcmp (name, "malloc") == 0)
+    return "__nvptx_malloc";
+  if (strcmp (name, "free") == 0)
+    return "__nvptx_free";
+  if (strcmp (name, "realloc") == 0)
+    return "__nvptx_realloc";
+  return name;
+}
+
 /* If MODE should be treated as two registers of an inner mode, return
    that inner mode.  Otherwise return VOIDmode.  */
 
@@ -291,8 +327,8 @@ arg_promotion (machine_mode mode)
    a decl with zero TYPE_ARG_TYPES, i.e. an old-style C decl.  */
 
 static int
-write_one_arg (std::stringstream &s, tree type, int i, machine_mode mode,
-	       bool no_arg_types)
+write_one_arg (std::stringstream &s, const char *sep, int i,
+	       tree type, machine_mode mode, bool no_arg_types)
 {
   if (!PASS_IN_REG_P (mode, type))
     mode = Pmode;
@@ -300,9 +336,9 @@ write_one_arg (std::stringstream &s, tree type, int i, machine_mode mode,
   machine_mode split = maybe_split_mode (mode);
   if (split != VOIDmode)
     {
-      i = write_one_arg (s, NULL_TREE, i, split, false);
-      i = write_one_arg (s, NULL_TREE, i, split, false);
-      return i;
+      i = write_one_arg (s, sep, i, TREE_TYPE (type), split, false);
+      sep = ", ";
+      mode = split;
     }
 
   if (no_arg_types && !AGGREGATE_TYPE_P (type))
@@ -312,8 +348,7 @@ write_one_arg (std::stringstream &s, tree type, int i, machine_mode mode,
       mode = arg_promotion (mode);
     }
 
-  if (i)
-    s << ", ";
+  s << sep;
   s << ".param" << nvptx_ptx_type_from_mode (mode, false) << " %in_ar"
     << i << (mode == QImode || mode == HImode ? "[1]" : "");
   if (mode == BLKmode)
@@ -331,41 +366,41 @@ write_as_kernel (tree attrs)
 	  || lookup_attribute ("omp target entrypoint", attrs) != NULL_TREE);
 }
 
-/* Write a function decl for DECL to S, where NAME is the name to be used.
-   This includes ptx .visible or .extern specifiers, .func or .kernel, and
-   argument and return types.  */
+/* Write a .func or .kernel declaration or definition along with
+   a helper comment for use by ld.  S is the stream to write to, DECL
+   the decl for the function with name NAME.   For definitions, emit
+   a declaration too.  */
 
-static void
-nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree decl)
+static const char *
+write_fn_proto (std::stringstream &s, bool is_defn,
+		const char *name, const_tree decl)
 {
-  tree fntype = TREE_TYPE (decl);
-  tree result_type = TREE_TYPE (fntype);
-  tree args = TYPE_ARG_TYPES (fntype);
-  tree attrs = DECL_ATTRIBUTES (decl);
-  bool kernel = write_as_kernel (attrs);
-  bool is_main = strcmp (name, "main") == 0;
-  bool args_from_decl = false;
-
-  /* We get:
-     NULL in TYPE_ARG_TYPES, for old-style functions
-     NULL in DECL_ARGUMENTS, for builtin functions without another
-       declaration.
-     So we have to pick the best one we have.  */
-  if (args == 0)
+  if (is_defn)
+    /* Emit a declaration. The PTX assembler gets upset without it.   */
+    name = write_fn_proto (s, false, name, decl);
+  else
     {
-      args = DECL_ARGUMENTS (decl);
-      args_from_decl = true;
+      /* Avoid repeating the name replacement.  */
+      name = nvptx_name_replacement (name);
+      if (name[0] == '*')
+	name++;
     }
 
+  /* Emit the linker marker.  */
+  s << "\n// BEGIN";
+  if (TREE_PUBLIC (decl))
+    s << " GLOBAL";
+  s << " FUNCTION " << (is_defn ? "DEF" : "DECL") << ": " << name << "\n";
+
+  /* PTX declaration.  */
   if (DECL_EXTERNAL (decl))
     s << ".extern ";
   else if (TREE_PUBLIC (decl))
     s << (DECL_WEAK (decl) ? ".weak " : ".visible ");
+  s << (write_as_kernel (DECL_ATTRIBUTES (decl)) ? ".entry " : ".func ");
 
-  if (kernel)
-    s << ".entry ";
-  else
-    s << ".func ";
+  tree fntype = TREE_TYPE (decl);
+  tree result_type = TREE_TYPE (fntype);
 
   /* Declare the result.  */
   bool return_in_mem = false;
@@ -378,136 +413,186 @@ nvptx_write_function_decl (std::stringstream &s, const char *name, const_tree de
 	{
 	  mode = arg_promotion (mode);
 	  s << "(.param" << nvptx_ptx_type_from_mode (mode, false)
-	    << " %out_retval)";
+	    << " %out_retval) ";
 	}
     }
 
-  if (name[0] == '*')
-    s << (name + 1);
-  else
-    s << name;
+  s << name;
 
-  /* Declare argument types.  */
-  if ((args != NULL_TREE
-       && !(TREE_CODE (args) == TREE_LIST
-	    && TREE_VALUE (args) == void_type_node))
-      || is_main
-      || return_in_mem
-      || DECL_STATIC_CHAIN (decl))
+  const char *sep = " (";
+  int i = 0;
+
+  /* Emit argument list.  */
+  if (return_in_mem)
     {
-      s << "(";
-      int i = 0;
-
-      if (return_in_mem)
-	{
-	  s << ".param.u" << GET_MODE_BITSIZE (Pmode) << " %in_ar0";
-	  i++;
-	}
-      while (args != NULL_TREE)
-	{
-	  tree type = args_from_decl ? TREE_TYPE (args) : TREE_VALUE (args);
-	  machine_mode mode = TYPE_MODE (type);
-
-	  if (mode != VOIDmode)
-	    i = write_one_arg (s, type, i, mode,
-			       TYPE_ARG_TYPES (fntype) == 0);
-	  args = TREE_CHAIN (args);
-	}
-      if (stdarg_p (fntype))
-	{
-	  gcc_assert (i > 0);
-	  s << ", .param.u" << GET_MODE_BITSIZE (Pmode) << " %in_argp";
-	}
-      if (DECL_STATIC_CHAIN (decl))
-	{
-	  if (i)
-	    s << ", ";
-	  s << ".reg.u" << GET_MODE_BITSIZE (Pmode)
-	    << reg_names [STATIC_CHAIN_REGNUM];
-	}
-      if (!i && is_main)
-	s << ".param.u32 %argc, .param.u" << GET_MODE_BITSIZE (Pmode)
-	  << " %argv";
-      s << ")";
+      s << sep << ".param.u" << GET_MODE_BITSIZE (Pmode) << " %in_ar0";
+      sep  = ", ";
+      i++;
     }
-}
 
-/* Write a .func or .kernel declaration (not a definition) along with
-   a helper comment for use by ld.  S is the stream to write to, DECL
-   the decl for the function with name NAME.  */
+  /* We get:
+     NULL in TYPE_ARG_TYPES, for old-style functions
+     NULL in DECL_ARGUMENTS, for builtin functions without another
+       declaration.
+     So we have to pick the best one we have.  */
+  tree args = TYPE_ARG_TYPES (fntype);
+  bool null_type_args = !args;
+  if (null_type_args)
+    args = DECL_ARGUMENTS (decl);
 
-static void
-write_function_decl_and_comment (std::stringstream &s, const char *name, const_tree decl)
-{
-  s << "\n// BEGIN";
-  if (TREE_PUBLIC (decl))
-    s << " GLOBAL";
-  s << " FUNCTION DECL: ";
-  if (name[0] == '*')
-    s << (name + 1);
-  else
-    s << name;
-  s << "\n";
-  nvptx_write_function_decl (s, name, decl);
-  s << ";\n";
-}
+  for (; args; args = TREE_CHAIN (args))
+    {
+      tree type = null_type_args ? TREE_TYPE (args) : TREE_VALUE (args);
+      machine_mode mode = TYPE_MODE (type);
 
-/* Check NAME for special function names and redirect them by returning a
-   replacement.  This applies to malloc, free and realloc, for which we
-   want to use libgcc wrappers, and call, which triggers a bug in ptxas.  */
+      if (mode == VOIDmode)
+	break;
+      i = write_one_arg (s, sep, i, type, mode, null_type_args);
+      sep = ", ";
+    }
 
-static const char *
-nvptx_name_replacement (const char *name)
-{
-  if (strcmp (name, "call") == 0)
-    return "__nvptx_call";
-  if (strcmp (name, "malloc") == 0)
-    return "__nvptx_malloc";
-  if (strcmp (name, "free") == 0)
-    return "__nvptx_free";
-  if (strcmp (name, "realloc") == 0)
-    return "__nvptx_realloc";
+  if (stdarg_p (fntype))
+    {
+      s << sep << ".param.u" << GET_MODE_BITSIZE (Pmode) << " %in_argp";
+      i++;
+      sep = ", ";
+    }
+
+  if (DECL_STATIC_CHAIN (decl))
+    {
+      s << sep << ".reg.u" << GET_MODE_BITSIZE (Pmode)
+	<< reg_names [STATIC_CHAIN_REGNUM];
+      i++;
+      sep = ", ";
+    }
+
+  if (!i && strcmp (name, "main") == 0)
+    {
+      s << sep
+	<< ".param.u32 %argc, .param.u" << GET_MODE_BITSIZE (Pmode)
+	<< " %argv";
+      i++;
+      sep = ", ";
+    }
+
+  if (i)
+    s << ")";
+
+  s << (is_defn ? "\n" : ";\n");
+
   return name;
 }
 
-/* If DECL is a FUNCTION_DECL, check the hash table to see if we
-   already encountered it, and if not, insert it and write a ptx
-   declarations that will be output at the end of compilation.  */
+/* Construct a function declaration from a call insn.  This can be
+   necessary for two reasons - either we have an indirect call which
+   requires a .callprototype declaration, or we have a libcall
+   generated by emit_library_call for which no decl exists.  */
 
-static bool
-nvptx_record_fndecl (tree decl, bool force = false)
+static void
+write_fn_proto_from_insn (std::stringstream &s, const char *name,
+			  rtx result, rtx pat)
 {
-  if (decl == NULL_TREE || TREE_CODE (decl) != FUNCTION_DECL
-      || !DECL_EXTERNAL (decl))
-    return true;
+  if (!name)
+    {
+      s << "\t.callprototype ";
+      name = "_";
+    }
+  else
+    {
+      name = nvptx_name_replacement (name);
+      s << "\n// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
+      s << "\t.extern .func ";
+    }
 
-  if (!force && TYPE_ARG_TYPES (TREE_TYPE (decl)) == NULL_TREE)
-    return false;
+  if (result != NULL_RTX)
+    s << "(.param"
+      << nvptx_ptx_type_from_mode (arg_promotion (GET_MODE (result)), false)
+      << " %rval) ";
 
+  s << name;
+
+  const char *sep = " (";
+  int arg_end = XVECLEN (pat, 0);
+  for (int i = 1; i < arg_end; i++)
+    {
+      /* We don't have to deal with mode splitting here, as that was
+	 already done when generating the call sequence.  */
+      machine_mode mode = GET_MODE (XEXP (XVECEXP (pat, 0, i), 0));
+
+      s << sep
+	<< ".param"
+	<< nvptx_ptx_type_from_mode (mode, false)
+	<< " %arg"
+	<< i;
+      if (mode == QImode || mode == HImode)
+	s << "[1]";
+      sep = ", ";
+    }
+  if (arg_end != 1)
+    s << ")";
+  s << ";\n";
+}
+
+/* DECL is an external FUNCTION_DECL, make sure its in the fndecl hash
+   table and and write a ptx prototype.  These are emitted at end of
+   compilation.  */
+
+static void
+nvptx_record_fndecl (tree decl)
+{
   tree *slot = declared_fndecls_htab->find_slot (decl, INSERT);
   if (*slot == NULL)
     {
       *slot = decl;
       const char *name = get_fnname_from_decl (decl);
-      name = nvptx_name_replacement (name);
-      write_function_decl_and_comment (func_decls, name, decl);
+      write_fn_proto (func_decls, false, name, decl);
     }
-  return true;
 }
 
-/* Record that we need to emit a ptx decl for DECL.  Either do it now, or
-   record it for later in case we have no argument information at this
-   point.  */
+/* Record a libcall or unprototyped external function. CALLEE is the
+   SYMBOL_REF.  Insert into the libfunc hash table and emit a ptx
+   declaration for it.  */
+
+static void
+nvptx_record_libfunc (rtx callee, rtx retval, rtx pat)
+{
+  rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
+  if (*slot == NULL)
+    {
+      *slot = callee;
+
+      const char *name = XSTR (callee, 0);
+      write_fn_proto_from_insn (func_decls, name, retval, pat);
+    }
+}
+
+/* DECL is an external FUNCTION_DECL, that we're referencing.  If it
+   is prototyped, record it now.  Otherwise record it as needed at end
+   of compilation, when we might have more information about it.  */
 
 void
 nvptx_record_needed_fndecl (tree decl)
 {
-  if (nvptx_record_fndecl (decl))
-    return;
+  if (TYPE_ARG_TYPES (TREE_TYPE (decl)) == NULL_TREE)
+    {
+      tree *slot = needed_fndecls_htab->find_slot (decl, INSERT);
+      if (*slot == NULL)
+	*slot = decl;
+    }
+  else
+    nvptx_record_fndecl (decl);
+}
 
-  tree *slot = needed_fndecls_htab->find_slot (decl, INSERT);
-  if (*slot == NULL)
-    *slot = decl;
+/* SYM is a SYMBOL_REF.  If it refers to an external function, record
+   it as needed.  */
+
+static void
+nvptx_maybe_record_fnsym (rtx sym)
+{
+  tree decl = SYMBOL_REF_DECL (sym);
+  
+  if (decl && TREE_CODE (decl) == FUNCTION_DECL && DECL_EXTERNAL (decl))
+    nvptx_record_needed_fndecl (decl);
 }
 
 /* Emit code to initialize the REGNO predicate register to indicate
@@ -534,29 +619,13 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   tree result_type = TREE_TYPE (fntype);
   int argno  = 0;
 
-  name = nvptx_name_replacement (name);
-
   std::stringstream s;
-  write_function_decl_and_comment (s, name, decl);
-  s << "// BEGIN";
-  if (TREE_PUBLIC (decl))
-    s << " GLOBAL";
-  s << " FUNCTION DEF: ";
-
-  if (name[0] == '*')
-    s << (name + 1);
-  else
-    s << name;
-  s << "\n";
-
-  nvptx_write_function_decl (s, name, decl);
+  write_fn_proto (s, true, name, decl);
   fprintf (file, "%s", s.str().c_str());
+  fprintf (file, "{\n");
 
   bool return_in_mem = (TYPE_MODE (result_type) != VOIDmode
 			&& !RETURN_IN_REG_P (TYPE_MODE (result_type)));
-
-  fprintf (file, "\n{\n");
-
   if (return_in_mem)
     {
       fprintf (file, "\t.reg.u%d %%ar%d;\n", GET_MODE_BITSIZE (Pmode), argno);
@@ -713,78 +782,6 @@ nvptx_output_return (void)
   return "ret;";
 }
 
-/* Construct a function declaration from a call insn.  This can be
-   necessary for two reasons - either we have an indirect call which
-   requires a .callprototype declaration, or we have a libcall
-   generated by emit_library_call for which no decl exists.  */
-
-static void
-write_func_decl_from_insn (std::stringstream &s, rtx result, rtx pat,
-			   rtx callee)
-{
-  bool callprototype = register_operand (callee, Pmode);
-  const char *name = "_";
-  if (!callprototype)
-    {
-      name = XSTR (callee, 0);
-      name = nvptx_name_replacement (name);
-      s << "\n// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
-    }
-  s << (callprototype ? "\t.callprototype\t" : "\t.extern .func ");
-
-  if (result != NULL_RTX)
-    {
-      s << "(.param";
-      s << nvptx_ptx_type_from_mode (arg_promotion (GET_MODE (result)),
-				     false);
-      s << " ";
-      if (callprototype)
-	s << "_";
-      else
-	s << "%out_retval";
-      s << ")";
-    }
-
-  s << name;
-
-  int arg_end = XVECLEN (pat, 0);
-      
-  if (1 < arg_end)
-    {
-      const char *comma = "";
-      s << " (";
-      for (int i = 1; i < arg_end; i++)
-	{
-	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
-	  machine_mode mode = GET_MODE (t);
-	  machine_mode split = maybe_split_mode (mode);
-	  int count = 1;
-
-	  if (split != VOIDmode)
-	    {
-	      mode = split;
-	      count = 2;
-	    }
-
-	  while (count--)
-	    {
-	      s << comma << ".param";
-	      s << nvptx_ptx_type_from_mode (mode, false);
-	      s << " ";
-	      if (callprototype)
-		s << "_";
-	      else
-		s << "%arg" << i - 1;
-	      if (mode == QImode || mode == HImode)
-		s << "[1]";
-	      comma = ", ";
-	    }
-	}
-      s << ")";
-    }
-  s << ";\n";
-}
-
 /* Terminate a function by writing a closing brace to FILE.  */
 
 void
@@ -853,9 +850,7 @@ nvptx_expand_call (rtx retval, rtx address)
   rtx callee = XEXP (address, 0);
   rtx pat, t;
   rtvec vec;
-  bool external_decl = false;
   rtx varargs = NULL_RTX;
-  tree decl_type = NULL_TREE;
   unsigned parallel = 0;
 
   for (t = cfun->machine->call_args; t; t = XEXP (t, 1))
@@ -872,11 +867,9 @@ nvptx_expand_call (rtx retval, rtx address)
       tree decl = SYMBOL_REF_DECL (callee);
       if (decl != NULL_TREE)
 	{
-	  decl_type = TREE_TYPE (decl);
 	  if (DECL_STATIC_CHAIN (decl))
 	    cfun->machine->has_call_with_sc = true;
-	  if (DECL_EXTERNAL (decl))
-	    external_decl = true;
+
 	  tree attr = get_oacc_fn_attrib (decl);
 	  if (attr)
 	    {
@@ -905,10 +898,7 @@ nvptx_expand_call (rtx retval, rtx address)
       && stdarg_p (cfun->machine->funtype))
     {
       varargs = gen_reg_rtx (Pmode);
-      if (Pmode == DImode)
-	emit_move_insn (varargs, stack_pointer_rtx);
-      else
-	emit_move_insn (varargs, stack_pointer_rtx);
+      emit_move_insn (varargs, stack_pointer_rtx);
       cfun->machine->has_call_with_varargs = true;
     }
   vec = rtvec_alloc (nargs + 1 + (varargs ? 1 : 0));
@@ -938,22 +928,6 @@ nvptx_expand_call (rtx retval, rtx address)
     XVECEXP (pat, 0, vec_pos++) = gen_rtx_USE (VOIDmode, varargs);
 
   gcc_assert (vec_pos = XVECLEN (pat, 0));
-
-  /* If this is a libcall, decl_type is NULL. For a call to a non-libcall
-     undeclared function, we'll have an external decl without arg types.
-     In either case we have to try to construct a ptx declaration from one of
-     the calls to the function.  */
-  if (!REG_P (callee)
-      && (decl_type == NULL_TREE
-	  || (external_decl && TYPE_ARG_TYPES (decl_type) == NULL_TREE)))
-    {
-      rtx *slot = declared_libfuncs_htab->find_slot (callee, INSERT);
-      if (*slot == NULL)
-	{
-	  *slot = callee;
-	  write_func_decl_from_insn (func_decls, retval, pat, callee);
-	}
-    }
 
   nvptx_emit_forking (parallel, true);
   emit_call_insn (pat);
@@ -1376,33 +1350,30 @@ nvptx_gen_wcast (rtx reg, propagate_mask pm, unsigned rep, wcast_data_t *data)
 }
 
 /* When loading an operand ORIG_OP, verify whether an address space
-   conversion to generic is required, and if so, perform it.  Also
-   check for SYMBOL_REFs for function decls and call
-   nvptx_record_needed_fndecl as needed.
-   Return either the original operand, or the converted one.  */
+   conversion to generic is required, and if so, perform it.  Check
+   for SYMBOL_REFs and record them if needed.  Return either the
+   original operand, or the converted one.  */
 
 rtx
-nvptx_maybe_convert_symbolic_operand (rtx orig_op)
+nvptx_maybe_convert_symbolic_operand (rtx op)
 {
-  if (GET_MODE (orig_op) != Pmode)
-    return orig_op;
+  if (GET_MODE (op) != Pmode)
+    return op;
 
-  rtx op = orig_op;
-  while (GET_CODE (op) == PLUS || GET_CODE (op) == CONST)
-    op = XEXP (op, 0);
-  if (GET_CODE (op) != SYMBOL_REF)
-    return orig_op;
+  rtx sym = op;
+  if (GET_CODE (sym) == CONST)
+    sym = XEXP (sym, 0);
+  if (GET_CODE (sym) == PLUS)
+    sym = XEXP (sym, 0);
 
-  tree decl = SYMBOL_REF_DECL (op);
-  if (decl && TREE_CODE (decl) == FUNCTION_DECL)
-    {
-      nvptx_record_needed_fndecl (decl);
-      return orig_op;
-    }
+  if (GET_CODE (sym) != SYMBOL_REF)
+    return op;
 
-  addr_space_t as = nvptx_addr_space_from_address (op);
+  nvptx_maybe_record_fnsym (sym);
+  
+  addr_space_t as = nvptx_addr_space_from_sym (sym);
   if (as == ADDR_SPACE_GENERIC)
-    return orig_op;
+    return op;
 
   enum unspec code;
   code = (as == ADDR_SPACE_GLOBAL ? UNSPEC_FROM_GLOBAL
@@ -1410,9 +1381,10 @@ nvptx_maybe_convert_symbolic_operand (rtx orig_op)
 	  : as == ADDR_SPACE_SHARED ? UNSPEC_FROM_SHARED
 	  : as == ADDR_SPACE_CONST ? UNSPEC_FROM_CONST
 	  : UNSPEC_FROM_PARAM);
+
   rtx dest = gen_reg_rtx (Pmode);
-  emit_insn (gen_rtx_SET (dest, gen_rtx_UNSPEC (Pmode, gen_rtvec (1, orig_op),
-						code)));
+  emit_insn (gen_rtx_SET (dest,
+			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op), code)));
   return dest;
 }
 
@@ -1493,29 +1465,6 @@ nvptx_section_for_decl (const_tree decl)
   return ".global";
 }
 
-/* Look for a SYMBOL_REF in ADDR and return the address space to be used
-   for the insn referencing this address.  */
-
-addr_space_t
-nvptx_addr_space_from_address (rtx addr)
-{
-  while (GET_CODE (addr) == PLUS || GET_CODE (addr) == CONST)
-    addr = XEXP (addr, 0);
-  if (GET_CODE (addr) != SYMBOL_REF)
-    return ADDR_SPACE_GENERIC;
-
-  tree decl = SYMBOL_REF_DECL (addr);
-  if (decl == NULL_TREE || TREE_CODE (decl) == FUNCTION_DECL)
-    return ADDR_SPACE_GENERIC;
-
-  bool is_const = (CONSTANT_CLASS_P (decl)
-		   || TREE_CODE (decl) == CONST_DECL
-		   || TREE_READONLY (decl));
-  if (is_const)
-    return ADDR_SPACE_CONST;
-
-  return ADDR_SPACE_GLOBAL;
-}
 
 /* Machinery to output constant initializers.  When beginning an initializer,
    we decide on a chunk size (which is visible in ptx in the type used), and
@@ -1592,48 +1541,43 @@ nvptx_assemble_value (HOST_WIDE_INT val, unsigned int size)
 static bool
 nvptx_assemble_integer (rtx x, unsigned int size, int ARG_UNUSED (aligned_p))
 {
-  if (GET_CODE (x) == SYMBOL_REF || GET_CODE (x) == CONST)
+  HOST_WIDE_INT val = 0;
+
+  switch (GET_CODE (x))
     {
+    default:
+      gcc_unreachable ();
+
+    case CONST_INT:
+      val = INTVAL (x);
+      nvptx_assemble_value (val, size);
+      break;
+
+    case CONST:
+      x = XEXP (x, 0);
+      gcc_assert (GET_CODE (x) == PLUS);
+      val = INTVAL (XEXP (x, 1));
+      x = XEXP (x, 0);
+      gcc_assert (GET_CODE (x) == SYMBOL_REF);
+      /* FALLTHROUGH */
+
+    case SYMBOL_REF:
       gcc_assert (size = decl_chunk_size);
       if (decl_offset % decl_chunk_size != 0)
 	sorry ("cannot emit unaligned pointers in ptx assembly");
       decl_offset += size;
       begin_decl_field ();
 
-      HOST_WIDE_INT off = 0;
-      if (GET_CODE (x) == CONST)
-	x = XEXP (x, 0);
-      if (GET_CODE (x) == PLUS)
-	{
-	  off = INTVAL (XEXP (x, 1));
-	  x = XEXP (x, 0);
-	}
-      if (GET_CODE (x) == SYMBOL_REF)
-	{
-	  nvptx_record_needed_fndecl (SYMBOL_REF_DECL (x));
-	  fprintf (asm_out_file, "generic(");
-	  output_address (VOIDmode, x);
-	  fprintf (asm_out_file, ")");
-	}
-      if (off != 0)
-	fprintf (asm_out_file, " + " HOST_WIDE_INT_PRINT_DEC, off);
-      return true;
+      nvptx_maybe_record_fnsym (x);
+      fprintf (asm_out_file, "generic(");
+      output_address (VOIDmode, x);
+      fprintf (asm_out_file, ")");
+
+      if (val)
+	fprintf (asm_out_file, " + " HOST_WIDE_INT_PRINT_DEC, val);
+      break;
     }
 
-  HOST_WIDE_INT val;
-  switch (GET_CODE (x))
-    {
-    case CONST_INT:
-      val = INTVAL (x);
-      break;
-    case CONST_DOUBLE:
-      gcc_unreachable ();
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  nvptx_assemble_value (val, size);
   return true;
 }
 
@@ -1798,7 +1742,7 @@ nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 const char *
 nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
 {
-  char buf[256];
+  char buf[16];
   static int labelno;
   bool needs_tgt = register_operand (callee, Pmode);
   rtx pat = PATTERN (insn);
@@ -1815,7 +1759,10 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   if (GET_CODE (callee) == SYMBOL_REF)
     {
       decl = SYMBOL_REF_DECL (callee);
-      if (decl && DECL_EXTERNAL (decl))
+      if (!decl
+	  || (DECL_EXTERNAL (decl) && !TYPE_ARG_TYPES (TREE_TYPE (decl))))
+	nvptx_record_libfunc (callee, result, pat);
+      else if (DECL_EXTERNAL (decl))
 	nvptx_record_fndecl (decl);
     }
 
@@ -1825,36 +1772,22 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       labelno++;
       ASM_OUTPUT_LABEL (asm_out_file, buf);
       std::stringstream s;
-      write_func_decl_from_insn (s, result, pat, callee);
+      write_fn_proto_from_insn (s, NULL, result, pat);
       fputs (s.str().c_str(), asm_out_file);
     }
 
-  for (int i = 1, argno = 0; i < arg_end; i++)
+  for (int argno = 1; argno < arg_end; argno++)
     {
-      rtx t = XEXP (XVECEXP (pat, 0, i), 0);
+      rtx t = XEXP (XVECEXP (pat, 0, argno), 0);
       machine_mode mode = GET_MODE (t);
-      machine_mode split = maybe_split_mode (mode);
-      int count = 1;
-      
-      if (split != VOIDmode)
-	{
-	  mode = split;
-	  count = 2;
-	}
 
-      for (int n = 0; n != count; n++)
-	{
-	  fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
-		   nvptx_ptx_type_from_mode (mode, false), argno,
-		   mode == QImode || mode == HImode ? "[1]" : "");
-	  fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d",
-		   nvptx_ptx_type_from_mode (mode, false), argno,
-		   REGNO (t));
-	  if (split != VOIDmode)
-	    fprintf (asm_out_file, "$%d", n);
-	  fprintf (asm_out_file, ";\n");
-	  argno++;
-	}
+      /* Mode splitting has already been done.  */
+      fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
+	       nvptx_ptx_type_from_mode (mode, false), argno,
+	       mode == QImode || mode == HImode ? "[1]" : "");
+      fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d;\n",
+	       nvptx_ptx_type_from_mode (mode, false), argno,
+	       REGNO (t));
     }
 
   fprintf (asm_out_file, "\t\tcall ");
@@ -1870,31 +1803,20 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
   else
     output_address (VOIDmode, callee);
 
-  if (arg_end > 1 || (decl && DECL_STATIC_CHAIN (decl)))
+  const char *open = "(";
+  for (int argno = 1; argno < arg_end; argno++)
     {
-      const char *comma = "";
-      
-      fprintf (asm_out_file, ", (");
-      for (int i = 1, argno = 0; i < arg_end; i++)
-	{
-	  rtx t = XEXP (XVECEXP (pat, 0, i), 0);
-	  machine_mode mode = GET_MODE (t);
-	  machine_mode split = maybe_split_mode (mode);
-
-	  if (split != VOIDmode)
-	    {
-	      fprintf (asm_out_file, "%s%%out_arg%d", comma, argno++);
-	      comma = ", ";
-	    }
-	  fprintf (asm_out_file, "%s%%out_arg%d", comma, argno++);
-	  comma = ", ";
-	}
-      if (decl && DECL_STATIC_CHAIN (decl))
-	fprintf (asm_out_file, "%s%s", comma,
-		 reg_names [OUTGOING_STATIC_CHAIN_REGNUM]);
-
-      fprintf (asm_out_file, ")");
+      fprintf (asm_out_file, ", %s%%out_arg%d", open, argno);
+      open = "";
     }
+  if (decl && DECL_STATIC_CHAIN (decl))
+    {
+      fprintf (asm_out_file, ", %s%s", open,
+	       reg_names [OUTGOING_STATIC_CHAIN_REGNUM]);
+      open = "";
+    }
+  if (!open[0])
+    fprintf (asm_out_file, ")");
 
   if (needs_tgt)
     {
@@ -1902,10 +1824,8 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
       assemble_name (asm_out_file, buf);
     }
   fprintf (asm_out_file, ";\n");
-  if (result != NULL_RTX)
-    return "\tld.param%t0\t%0, [%%retval_in];\n\t}";
 
-  return "}";
+  return result != NULL_RTX ? "\tld.param%t0\t%0, [%%retval_in];\n\t}" : "}";
 }
 
 /* Implement TARGET_PRINT_OPERAND_PUNCT_VALID_P.  */
@@ -2002,7 +1922,17 @@ nvptx_print_operand (FILE *file, rtx x, int code)
     {
     case 'A':
       {
-	addr_space_t as = nvptx_addr_space_from_address (XEXP (x, 0));
+	addr_space_t as = ADDR_SPACE_GENERIC;
+	rtx sym = XEXP (x, 0);
+
+	if (GET_CODE (sym) == CONST)
+	  sym = XEXP (sym, 0);
+	if (GET_CODE (sym) == PLUS)
+	  sym = XEXP (sym, 0);
+
+	if (GET_CODE (sym) == SYMBOL_REF)
+	  as = nvptx_addr_space_from_sym (sym);
+
 	fputs (nvptx_section_from_addr_space (as), file);
       }
       break;
@@ -3941,7 +3871,7 @@ nvptx_file_end (void)
   hash_table<tree_hasher>::iterator iter;
   tree decl;
   FOR_EACH_HASH_TABLE_ELEMENT (*needed_fndecls_htab, decl, tree, iter)
-    nvptx_record_fndecl (decl, true);
+    nvptx_record_fndecl (decl);
   fputs (func_decls.str().c_str(), asm_out_file);
 
   if (worker_bcast_size)
