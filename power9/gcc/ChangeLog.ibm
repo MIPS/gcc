@@ -1,5 +1,39 @@
 2015-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/predicates.md (quad_memory_operand_common):
+	Delete, reimplement common code as quad_address_p.
+	(quad_memory_operand): Likewise.
+	(vsx_quad_memory_operand): Likewise.
+
+	* config/rs6000/rs6000-protos.h (quad_address_p): Add
+	declaration.
+
+	* config/rs6000/rs6000.c (mode_supports_vsx_dform_quad): Check
+	RELOAD_REG_ANY instead of RELOAD_REG_VMX.
+	(rs6000_setup_reg_addr_masks): Be stricter about types having
+	d-form addressing in floating point registers.  Rework power9
+	d-form support.
+	(mode_supports_indexed_addressing): New function.
+	(quad_address_p): New function to valid quad d-form addresses.
+	(reg_offset_addressing_ok_p): Add comment why ISA 3.0 vector
+	d-form addressing does not return true here.
+	(rs6000_legitimate_offset_address_p): Add support for ISA 3.0
+	vector d-form addressing.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+
+	* config/rs6000/vsx.md (vsx_mov<mode>): Add support for ISA 3.0
+	vector d-form addressing.
+	(vsx_movti_64bit): Likewise.
+	(vsx_movti_32bit): Likewise.
+
+	* config/rs6000/rs6000.h (VALID_QUAD_MEMORY_OFFSET_P): Delete, no
+	longer used.
+
+2015-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/constraints.md (wO constraint): New constraint for
 	ISA 3.0 vector d-form memory address.
 
