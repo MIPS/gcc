@@ -1,5 +1,21 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* internal-fn.c (expand_GOMP_SIMT_LANE): New.
+	(expand_GOMP_SIMT_VF): New.
+	* internal-fn.def (GOMP_SIMT_LANE): New.
+	(GOMP_SIMT_VF): New.
+	* omp-low.c (expand_omp_simd): Do SIMT transforms.
+	(pass_data_lower_omp): Add PROP_gimple_lomp_dev.
+	(execute_omp_device_lower): New.
+	(pass_data_omp_device_lower): New.
+	(pass_omp_device_lower): New pass.
+	(make_pass_omp_device_lower): New.
+	* passes.def (pass_omp_device_lower): Position new pass.
+	* tree-pass.h (PROP_gimple_lomp_dev): Define.
+	(make_pass_omp_device_lower): Declare.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/mkoffload.c (main): Check that either OpenACC or OpenMP
 	is selected.  Pass -mgomp to offload compiler in OpenMP case.
 

@@ -154,6 +154,28 @@ expand_ANNOTATE (internal_fn, gcall *)
   gcc_unreachable ();
 }
 
+/* Lane index on SIMT targets: thread index in the warp on NVPTX.  On targets
+   without SIMT execution this should be expanded in omp_device_lower pass.  */
+
+static void
+expand_GOMP_SIMT_LANE (internal_fn, gcall *stmt)
+{
+  tree lhs = gimple_call_lhs (stmt);
+
+  rtx target = expand_expr (lhs, NULL_RTX, VOIDmode, EXPAND_WRITE);
+  /* FIXME: use a separate pattern for OpenMP?  */
+  gcc_assert (targetm.have_oacc_dim_pos ());
+  emit_insn (targetm.gen_oacc_dim_pos (target, const2_rtx));
+}
+
+/* This should get expanded in omp_device_lower pass.  */
+
+static void
+expand_GOMP_SIMT_VF (internal_fn, gcall *)
+{
+  gcc_unreachable ();
+}
+
 /* This should get expanded in adjust_simduid_builtins.  */
 
 static void

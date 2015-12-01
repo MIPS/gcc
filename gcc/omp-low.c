@@ -10336,7 +10336,7 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
 				  OMP_CLAUSE_SAFELEN);
   tree simduid = find_omp_clause (gimple_omp_for_clauses (fd->for_stmt),
 				  OMP_CLAUSE__SIMDUID_);
-  tree n1, n2;
+  tree n1, n2, step, simt_lane;
 
   type = TREE_TYPE (fd->loop.v);
   entry_bb = region->entry;
@@ -10381,12 +10381,36 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
 
   n1 = fd->loop.n1;
   n2 = fd->loop.n2;
+  step = fd->loop.step;
+  bool offloaded = cgraph_node::get (current_function_decl)->offloadable;
+  for (struct omp_region *reg = region; !offloaded && reg; reg = reg->outer)
+    offloaded = reg->type == GIMPLE_OMP_TARGET;
+  bool do_simt_transform
+    = offloaded && !broken_loop && !safelen && !simduid && !(fd->collapse > 1);
+  if (do_simt_transform)
+    {
+      simt_lane
+	= build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOMP_SIMT_LANE,
+					integer_type_node, 0);
+      simt_lane = fold_convert (TREE_TYPE (step), simt_lane);
+      simt_lane = fold_build2 (MULT_EXPR, TREE_TYPE (step), step, simt_lane);
+      cfun->curr_properties &= ~PROP_gimple_lomp_dev;
+    }
+
   if (gimple_omp_for_combined_into_p (fd->for_stmt))
     {
       tree innerc = find_omp_clause (gimple_omp_for_clauses (fd->for_stmt),
 				     OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
       n1 = OMP_CLAUSE_DECL (innerc);
+      if (do_simt_transform)
+	{
+	  n1 = fold_convert (type, n1);
+	  if (POINTER_TYPE_P (type))
+	    n1 = fold_build_pointer_plus (n1, simt_lane);
+	  else
+	    n1 = fold_build2 (PLUS_EXPR, type, n1, fold_convert (type, simt_lane));
+	}
       innerc = find_omp_clause (OMP_CLAUSE_CHAIN (innerc),
 				OMP_CLAUSE__LOOPTEMP_);
       gcc_assert (innerc);
@@ -10402,8 +10426,15 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
     }
   else
     {
-      expand_omp_build_assign (&gsi, fd->loop.v,
-			       fold_convert (type, fd->loop.n1));
+      if (do_simt_transform)
+	{
+	  n1 = fold_convert (type, n1);
+	  if (POINTER_TYPE_P (type))
+	    n1 = fold_build_pointer_plus (n1, simt_lane);
+	  else
+	    n1 = fold_build2 (PLUS_EXPR, type, n1, fold_convert (type, simt_lane));
+	}
+      expand_omp_build_assign (&gsi, fd->loop.v, fold_convert (type, n1));
       if (fd->collapse > 1)
 	for (i = 0; i < fd->collapse; i++)
 	  {
@@ -10425,10 +10456,18 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
       stmt = gsi_stmt (gsi);
       gcc_assert (gimple_code (stmt) == GIMPLE_OMP_CONTINUE);
 
+      if (do_simt_transform)
+	{
+	  tree simt_vf
+	    = build_call_expr_internal_loc (UNKNOWN_LOCATION, IFN_GOMP_SIMT_VF,
+					    integer_type_node, 0);
+	  simt_vf = fold_convert (TREE_TYPE (step), simt_vf);
+	  step = fold_build2 (MULT_EXPR, TREE_TYPE (step), step, simt_vf);
+	}
       if (POINTER_TYPE_P (type))
-	t = fold_build_pointer_plus (fd->loop.v, fd->loop.step);
+	t = fold_build_pointer_plus (fd->loop.v, step);
       else
-	t = fold_build2 (PLUS_EXPR, type, fd->loop.v, fd->loop.step);
+	t = fold_build2 (PLUS_EXPR, type, fd->loop.v, step);
       expand_omp_build_assign (&gsi, fd->loop.v, t);
 
       if (fd->collapse > 1)
@@ -13217,7 +13256,6 @@ expand_omp (struct omp_region *region)
       omp_any_child_fn_dumped = false;
     }
 }
-
 
 /* Helper for build_omp_regions.  Scan the dominator tree starting at
    block BB.  PARENT is the region that contains BB.  If SINGLE_TREE is
@@ -16553,7 +16591,7 @@ const pass_data pass_data_lower_omp =
   OPTGROUP_NONE, /* optinfo_flags */
   TV_NONE, /* tv_id */
   PROP_gimple_any, /* properties_required */
-  PROP_gimple_lomp, /* properties_provided */
+  PROP_gimple_lomp | PROP_gimple_lomp_dev, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
   0, /* todo_flags_finish */
@@ -19836,6 +19874,91 @@ gimple_opt_pass *
 make_pass_oacc_device_lower (gcc::context *ctxt)
 {
   return new pass_oacc_device_lower (ctxt);
+}
+
+
+/* Cleanup uses of SIMT placeholder internal functions: on non-SIMT targets,
+   VF is 1 and LANE is 0; on SIMT targets, VF is folded to a constant, and
+   LANE is kept to be expanded to RTL later on.  */
+
+static unsigned int
+execute_omp_device_lower ()
+{
+  int vf = 1;
+  if (targetm.simt.vf)
+    vf = targetm.simt.vf ();
+  tree vf_tree = build_int_cst (integer_type_node, vf);
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+  FOR_EACH_BB_FN (bb, cfun)
+    for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      {
+	gimple *stmt = gsi_stmt (gsi);
+	if (!is_gimple_call (stmt) || !gimple_call_internal_p (stmt))
+	  continue;
+	tree lhs = gimple_call_lhs (stmt), rhs = NULL_TREE;
+	switch (gimple_call_internal_fn (stmt))
+	  {
+	  case IFN_GOMP_SIMT_LANE:
+	    rhs = vf == 1 ? integer_zero_node : NULL_TREE;
+	    break;
+	  case IFN_GOMP_SIMT_VF:
+	    rhs = vf_tree;
+	    break;
+	  default:
+	    break;
+	  }
+	if (!rhs)
+	  continue;
+	stmt = gimple_build_assign (lhs, rhs);
+	gsi_replace (&gsi, stmt, false);
+      }
+  if (vf != 1)
+    cfun->has_force_vectorize_loops = false;
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_omp_device_lower =
+{
+  GIMPLE_PASS, /* type */
+  "ompdevlow", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  PROP_gimple_lomp_dev, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_update_ssa, /* todo_flags_finish */
+};
+
+class pass_omp_device_lower : public gimple_opt_pass
+{
+public:
+  pass_omp_device_lower (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_omp_device_lower, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *fun)
+    {
+      /* FIXME: inlining does not propagate the lomp_dev property.  */
+      return 1 || !(fun->curr_properties & PROP_gimple_lomp_dev);
+    }
+  virtual unsigned int execute (function *)
+    {
+      return execute_omp_device_lower ();
+    }
+
+}; // class pass_expand_omp_ssa
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_omp_device_lower (gcc::context *ctxt)
+{
+  return new pass_omp_device_lower (ctxt);
 }
 
 #include "gt-omp-low.h"
