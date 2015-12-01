@@ -13356,9 +13356,6 @@ expand_omp (struct omp_region *region)
     }
 }
 
-/* Map each basic block to an omp_region.  */
-static hash_map<basic_block, omp_region *> *bb_region_map;
-
 static void
 find_omp_for_region_data (struct omp_region *region, gomp_for *stmt)
 {
@@ -13393,8 +13390,6 @@ build_omp_regions_1 (basic_block bb, struct omp_region *parent,
   gimple_stmt_iterator gsi;
   gimple *stmt;
   basic_block son;
-
-  bb_region_map->put (bb, parent);
 
   gsi = gsi_last_bb (bb);
   if (!gsi_end_p (gsi) && is_gimple_omp (gsi_stmt (gsi)))
@@ -13536,31 +13531,28 @@ build_omp_regions (void)
 static unsigned int
 execute_expand_omp (void)
 {
-  bb_region_map = new hash_map<basic_block, omp_region *>;
-
   build_omp_regions ();
 
-  if (root_omp_region)
+  if (!root_omp_region)
+    return 0;
+
+  if (dump_file)
     {
-      if (dump_file)
-	{
-	  fprintf (dump_file, "\nOMP region tree\n\n");
-	  dump_omp_region (dump_file, root_omp_region, 0);
-	  fprintf (dump_file, "\n");
-	}
-
-      remove_exit_barriers (root_omp_region);
-
-      expand_omp (root_omp_region);
-
-      if (flag_checking && !loops_state_satisfies_p (LOOPS_NEED_FIXUP))
-	verify_loop_structure ();
-      cleanup_tree_cfg ();
-
-      free_omp_regions ();
+      fprintf (dump_file, "\nOMP region tree\n\n");
+      dump_omp_region (dump_file, root_omp_region, 0);
+      fprintf (dump_file, "\n");
     }
 
-  delete bb_region_map;
+  remove_exit_barriers (root_omp_region);
+
+  expand_omp (root_omp_region);
+
+  if (flag_checking && !loops_state_satisfies_p (LOOPS_NEED_FIXUP))
+    verify_loop_structure ();
+  cleanup_tree_cfg ();
+
+  free_omp_regions ();
+
   return 0;
 }
 
