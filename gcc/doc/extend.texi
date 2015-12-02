@@ -3287,6 +3287,18 @@ instruction).  Caveat: such addressing is by definition not position
 independent and hence this attribute must not be used for objects
 defined by shared libraries.
 
+@item code_readable (@var{code-readable-setting})
+@cindex data addressability for MIPS
+
+For MIPS targets that support PC-relative addressing modes, this
+attribute can be used to control how a object is addressed. The
+attribute takes a single optional argument: "no" for the function should
+not read the instruction stream as data, "yes" the function can read the
+instruction stream as data, or "pcrel" the function can read the instruction
+stream in a pc-relative mode.
+
+If there is no argument supplied, the default of "yes" applies.
+
 @item ms_abi/sysv_abi
 @cindex @code{ms_abi} attribute
 @cindex @code{sysv_abi} attribute
