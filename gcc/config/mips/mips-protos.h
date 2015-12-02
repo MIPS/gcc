@@ -216,7 +216,7 @@ extern bool mips_split_move_p (rtx, rtx, enum mips_split_type);
 extern void mips_split_move (rtx, rtx, enum mips_split_type);
 extern bool mips_split_move_insn_p (rtx, rtx, rtx);
 extern void mips_split_move_insn (rtx, rtx, rtx);
-extern const char *mips_output_move (rtx, rtx);
+extern const char *mips_output_move (rtx, rtx, rtx);
 extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);
 extern void mips_save_gp_to_cprestore_slot (rtx, rtx, rtx, rtx);

@@ -447,3 +447,7 @@ Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
 mmips16-use-xsregs
 Target Var(mips16_xsregs) Report Init(0)
 Use additional callee saved registers in MIPS16 mode.
+
+mdead-loads
+Target Var(TARGET_DEAD_LOADS) Init(0)
+Redirect dead loads to $0 to avoid spurious output dependencies.
