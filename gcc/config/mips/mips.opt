@@ -486,3 +486,7 @@ Target Undocumented Var(TARGET_FORBIDDEN_SLOTS) Init(1)
 mmips16-use-xsregs
 Target Var(mips16_xsregs) Report Init(0)
 Use additional callee saved registers in MIPS16 mode.
+
+mdead-loads
+Target Var(TARGET_DEAD_LOADS) Init(0)
+Redirect dead loads to $0 to avoid spurious output dependencies.
