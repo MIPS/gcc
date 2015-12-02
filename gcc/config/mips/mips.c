@@ -679,6 +679,9 @@ static int mips_base_target_flags;
 /* The default compression mode.  */
 unsigned int mips_base_compression_flags;
 
+/* The default code readable setting.  */
+enum mips_code_readable_setting mips_base_code_readable;
+
 /* The ambient values of other global variables.  */
 static int mips_base_schedule_insns; /* flag_schedule_insns */
 static int mips_base_reorder_blocks_and_partition; /* flag_reorder... */
@@ -803,6 +806,7 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
+  { "code_readable", 0, 1, true,  false, false, NULL, false },
   /* Allow functions to be specified as interrupt handlers */
   { "interrupt",   0, 1, false, true,  true, mips_handle_interrupt_attr,
     false },
@@ -1632,6 +1636,51 @@ static bool
 mips_no_common_epilogue_p (tree decl)
 {
   return lookup_attribute ("noepi", DECL_ATTRIBUTES (decl)) != NULL;
+}
+
+/* Determine the code_readable setting for a function if it has one.  Set
+   *valid to true if we have a properly formed argument and
+   return the result. If there's no argument, return GCC's default.
+   Otherwise, leave valid false and return mips_base_code_readable.  In
+   that case the result should be unused anyway.  */
+
+static enum mips_code_readable_setting
+mips_get_code_readable_attr (tree decl)
+{
+  tree attr;
+
+  if (decl == NULL)
+    return mips_base_code_readable;
+
+  attr = lookup_attribute ("code_readable", DECL_ATTRIBUTES (decl));
+
+  if (attr != NULL)
+    {
+      if (TREE_VALUE (attr) != NULL_TREE)
+	{
+	  const char * str;
+	  if (TREE_CODE (TREE_VALUE (TREE_VALUE (attr))) != STRING_CST)
+	    error ("code_readable attribute supports 'yes', 'no' or 'pcrel'");
+
+	  str = TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+	  if (strcmp (str, "no") == 0)
+	    return CODE_READABLE_NO;
+	  else if (strcmp (str, "pcrel") == 0)
+	    return CODE_READABLE_PCREL;
+	  else if (strcmp (str, "yes") == 0)
+	    return CODE_READABLE_YES;
+
+	  error ("code_readable attribute does not support argument %qs", str);
+	}
+
+      /* Just like GCC's default -mcode-readable= setting, the
+	 presence of the code_readable attribute implies that a
+	 function can read data from the instruction stream by
+	 default.  */
+      return CODE_READABLE_YES;
+    }
+
+  return mips_base_code_readable;
 }
 
 /* Return the set of compression modes that are explicitly required
@@ -20241,12 +20290,25 @@ mips_set_compression_mode (unsigned int compression_mode)
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
    function should use the MIPS16 or microMIPS ISA and switch modes
-   accordingly.  */
+   accordingly.  Also set(up) the current code_readable mode.*/
 
 static void
 mips_set_current_function (tree fndecl)
 {
+  enum mips_code_readable_setting old_code_readable = mips_code_readable;
+
   mips_set_compression_mode (mips_get_compress_mode (fndecl));
+
+  mips_code_readable = mips_get_code_readable_attr (fndecl);
+
+  /* Since the mips_code_readable setting has potientially changed, the
+     relocation tables must be reinitialized.  Otherwise GCC will not
+     split symbols for functions that are code_readable ("no") when others
+     are code_readable ("yes") and ICE later on in places such as
+     mips_emit_move.  Ditto for similar paired cases.  It must be restored
+     to its previous state as well.  */
+  if (old_code_readable != mips_code_readable)
+    mips_init_relocs ();
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
@@ -20375,8 +20437,10 @@ mips_option_override (void)
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
+
   is_micromips = TARGET_MICROMIPS;
   target_flags &= ~TARGET_COMPRESSION;
+  mips_base_code_readable = mips_code_readable;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
   if (TARGET_NO_FLOAT)
