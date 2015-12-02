@@ -645,6 +645,8 @@ static int mips_base_target_flags;
 /* The default compression mode.  */
 unsigned int mips_base_compression_flags;
 
+enum mips_code_readable_setting mips_base_code_readable;
+
 /* The ambient values of other global variables.  */
 static int mips_base_schedule_insns; /* flag_schedule_insns */
 static int mips_base_reorder_blocks_and_partition; /* flag_reorder... */
@@ -765,6 +767,7 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
+  { "pcrel", 	   0, 0, true,  false, false, NULL, false },
   /* Allow functions to be specified as interrupt handlers */
   { "interrupt",   0, 0, false, true,  true, NULL, false },
   { "use_shadow_register_set",	0, 0, false, true,  true, NULL, false },
@@ -820,6 +823,7 @@ static struct list *mips_optimize_O2;
 static struct list *mips_optimize_O1;
 static struct list *mips_optimize_inline;
 static struct list *mips_optimize_sdata;
+static struct list *mips_optimize_pcrel;
 static struct list *mips_optimize_longcalls;
 
 static struct list *
@@ -1701,6 +1705,14 @@ mips_insert_attributes (tree decl, tree *attributes)
 			  mips_optimize_longcalls))
 	{
 	  *attributes = tree_cons (get_identifier ("long_call"),
+				   NULL,
+				   *attributes);
+	}
+
+      if (mips_find_list (IDENTIFIER_POINTER (DECL_NAME (decl)),
+			  mips_optimize_pcrel))
+	{
+	  *attributes = tree_cons (get_identifier ("pcrel"),
 				   NULL,
 				   *attributes);
 	}
@@ -19717,6 +19729,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 /* The last argument passed to mips_set_compression_mode,
    or negative if the function hasn't been called yet.  */
 static unsigned int old_compression_mode = -1;
+static enum mips_code_readable_setting old_mips_code_readable = CODE_READABLE_NO;
 
 /* Set up the target-dependent global state for ISA mode COMPRESSION_MODE,
    which is either MASK_MIPS16 or MASK_MICROMIPS.  */
@@ -19725,7 +19738,8 @@ static void
 mips_set_compression_mode (unsigned int compression_mode)
 {
 
-  if (compression_mode == old_compression_mode)
+  if (compression_mode == old_compression_mode
+      && mips_code_readable == old_mips_code_readable)
     return;
 
   /* Restore base settings of various flags.  */
@@ -19833,6 +19847,7 @@ mips_set_compression_mode (unsigned int compression_mode)
     restore_target_globals (&default_target_globals);
 
   old_compression_mode = compression_mode;
+  old_mips_code_readable = mips_code_readable;
 }
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
@@ -19842,6 +19857,10 @@ mips_set_compression_mode (unsigned int compression_mode)
 static void
 mips_set_current_function (tree fndecl)
 {
+  mips_code_readable = mips_base_code_readable;
+  if (fndecl && lookup_attribute ("pcrel", DECL_ATTRIBUTES (fndecl)) != NULL)
+    mips_code_readable = CODE_READABLE_PCREL;
+
   mips_set_compression_mode (mips_get_compress_mode (fndecl));
 }
 
@@ -20290,6 +20309,7 @@ mips_option_override (void)
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
+  mips_base_code_readable = mips_code_readable;
   target_flags &= ~TARGET_COMPRESSION;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
@@ -20310,6 +20330,7 @@ mips_option_override (void)
   mips_optimize_O1 = mips_read_list (mips_optimize_O1_list);
   mips_optimize_inline = mips_read_list (mips_optimize_inline_list);
   mips_optimize_sdata = mips_read_list (mips_optimize_sdata_list);
+  mips_optimize_pcrel = mips_read_list (mips_optimize_pcrel_list);
   mips_optimize_longcalls = mips_read_list (mips_optimize_longcalls_list);
 
   /* Set the small data limit.  */

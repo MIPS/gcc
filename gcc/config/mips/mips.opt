@@ -598,6 +598,10 @@ moptimize-longcalls-list=
 Target RejectNegative Joined Var(mips_optimize_longcalls_list)
 Specify a list of functions to be marked with long_call attribute.
 
+moptimize-pcrel-list=
+Target RejectNegative Joined Var(mips_optimize_pcrel_list)
+Specify a list of functions to enable PC-relative addressing
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
