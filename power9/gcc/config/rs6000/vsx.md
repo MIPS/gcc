@@ -757,16 +757,16 @@
   "")
 
 (define_insn "*vsx_mov<mode>"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,wO,<VSr>,wa,<VSr>,?Z,?<VSa>,?<VSa>,r,we,wQ,?&r,??Y,??r,??r,<VSr>,?<VSa>,*r,v,wZ,v")
-	(match_operand:VSX_M 1 "input_operand" "<VSr>,wa,Z,wO,<VSr>,<VSa>,Z,<VSa>,we,b,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,wO,<VSr>,wa,<VSr>,   ?Z,?<VSa>,?<VSa>, ?r,?we,wQ,?&r,?wO,?r,??Y,??r,??r,<VSr>,?<VSa>,*r,v,wZ, v")
+	(match_operand:VSX_M 1 "input_operand"     "<VSr>,wa,    Z,wO,<VSr>,<VSa>,     Z, <VSa>, we,  b, r, wQ,  r,wO,  r,  Y,  r,    j,     j, j,W, v,wZ"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type" "vecstore,vecstore,vecload,vecload,vecsimple,vecstore,vecload,vecsimple,mffgpr,mftgpr,load,store,store,load, *,vecsimple,vecsimple,*, *,vecstore,vecload")
-   (set_attr "length" "4,4,4,4,4,4,4,4,8,4,12,12,12,12,16,4,4,*,16,4,4")])
+  [(set_attr "type" "vecstore,vecstore,vecload,vecload,vecsimple,vecstore,vecload,vecsimple,mffgpr,mftgpr,load,store,load,store,store,load,*,vecsimple,vecsimple,*,*,vecstore,vecload")
+   (set_attr "length" "4,4,4,4,4,4,4,4,8,4,12,12,8,8,12,12,16,4,4,*,16,4,4")])
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
 ;; use of TImode is for unions.  However for plain data movement, slightly

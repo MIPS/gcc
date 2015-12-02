@@ -1,3 +1,23 @@
+2015-12-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/predicates.md (vsx_quad_memory_operand): Split
+	-mpower9-dform into -mpower9-dform-{scalar,vector}.
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Likewise.
+	(POWERPC_MASKS): Likewise.
+	* config/rs6000/rs6000.opt (-mpower9-dform-scalar): Likewise.
+	(-mpower9-dform-vector): Likewise.
+	(-mpower9-dform): Likewise.
+	* config/rs6000/rs6000.c (rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_option_override_internal): Likewise.
+	(direct_move_p): Likewise.
+	(quad_address_p): Likewise.
+	(rs6000_secondary_reload_memory): Likewise.
+	(rs6000_secondary_reload_inner): Likewise.
+	(rs6000_output_move_128bit): Likewise.
+	(rs6000_opt_masks): Likewise.
+	* config/rs6000/vsx.md (vsx_mov<mode>): Likewise.
+
 2015-12-01  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (mode_supports_indexed_addressing):
