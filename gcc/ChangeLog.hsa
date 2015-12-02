@@ -1,5 +1,10 @@
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
+	* ipa-hsa.c (check_warn_node_versionable): Display
+	name of a function that cannot be cloned.
+
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call):
 	Support BUILT_IN_CLRSBLL, BUILT_IN_CLZLL, BUILT_IN_CTZLL, BUILT_IN_FFSLL,
 	BUILT_IN_PARITYLL, BUILT_IN_POPCOUNTLL builtins.

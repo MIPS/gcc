@@ -53,10 +53,9 @@ check_warn_node_versionable (cgraph_node *node)
 {
   if (!node->local.versionable)
     {
-      if (warning_at (EXPR_LOCATION (node->decl), OPT_Whsa,
-		      HSA_SORRY_MSG))
-	inform (EXPR_LOCATION (node->decl),
-		"Function cannot be cloned");
+      warning_at (EXPR_LOCATION (node->decl), OPT_Whsa,
+		  "could not emit HSAIL for function %s: function cannot be "
+		  "cloned", node->name ());
       return false;
     }
   return true;
