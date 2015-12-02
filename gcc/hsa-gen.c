@@ -4626,18 +4626,6 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
   tree fndecl = gimple_call_fndecl (stmt);
   switch (DECL_FUNCTION_CODE (fndecl))
     {
-    case BUILT_IN_OMP_GET_THREAD_NUM:
-      {
-	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
-	break;
-      }
-
-    case BUILT_IN_OMP_GET_NUM_THREADS:
-      {
-	query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
-	break;
-      }
-
     case BUILT_IN_FABS:
     case BUILT_IN_FABSF:
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_ABS, stmt, hbb);
@@ -4890,6 +4878,17 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	   hsa_brig_function_name (hsa_get_declaration_name (called)));
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
 
+	break;
+      }
+    case BUILT_IN_OMP_GET_THREAD_NUM:
+      {
+	query_hsa_grid (stmt, BRIG_OPCODE_WORKITEMABSID, 0, hbb);
+	break;
+      }
+
+    case BUILT_IN_OMP_GET_NUM_THREADS:
+      {
+	query_hsa_grid (stmt, BRIG_OPCODE_GRIDSIZE, 0, hbb);
 	break;
       }
     case BUILT_IN_GOMP_TEAMS:

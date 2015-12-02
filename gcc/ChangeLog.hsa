@@ -1,3 +1,8 @@
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insns_for_call): Logically reorder cases
+	in a switch.
+
 2015-11-30  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (attempt_target_gridification): Use gimplify_expr.
