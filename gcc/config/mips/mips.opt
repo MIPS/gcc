@@ -504,3 +504,7 @@ Enum(mips16_xsregs_setting) String(size) Value(MIPS16_XSREGS_SIZE)
 
 EnumValue
 Enum(mips16_xsregs_setting) String(speed) Value(MIPS16_XSREGS_SPEED)
+
+mdead-loads
+Target Var(TARGET_DEAD_LOADS) Init(0)
+Redirect dead loads to $0 to avoid spurious output dependencies
