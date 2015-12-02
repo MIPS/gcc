@@ -479,3 +479,7 @@ Enum(mips_lib_setting) String(small) Value(MIPS_LIB_SMALL)
 
 EnumValue
 Enum(mips_lib_setting) String(tiny) Value(MIPS_LIB_TINY)
+
+mdead-loads
+Target Var(TARGET_DEAD_LOADS) Init(0)
+Redirect dead loads to $0 to avoid spurious output dependencies.
