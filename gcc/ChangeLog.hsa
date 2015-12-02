@@ -1,5 +1,25 @@
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
+	* hsa-dump.c (dump_hsa_insn_1): Properly dump hsa_insn_srctype.
+	* hsa-gen.c (gen_hsa_unary_operation): Change argument type
+	of opcode.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_call_of_internal_fn): Do not pass
+	FLOAT_TYPE_P to ctor of hsa_internal_fn.
+	(gen_hsa_clrsb): New function.
+	(gen_hsa_popcount): Likewise.
+	(gen_hsa_parity): Likewise.
+	(gen_hsa_insn_for_internal_fn_call): Handle aforementioned
+	builtins.
+	(gen_hsa_insns_for_call): Likewise.
+	* hsa.c (hsa_internal_fn::name): Do not consider integer types.
+	(hsa_internal_fn::get_arity): Make handled cases as unreachable.
+	(hsa_internal_fn::get_argument_type): Likewise.
+	* hsa.h (is_a_helper ::test): Add new possible opcodes
+	for hsa_insn_srctype.
+
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (expand_builtins): New function.
 	(pass_gen_hsail::execute): Call the function.
 

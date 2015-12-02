@@ -2899,14 +2899,17 @@ gen_hsa_cmp_insn_from_gimple (enum tree_code code, tree lhs, tree rhs,
    as a single operand.  */
 
 static void
-gen_hsa_unary_operation (int opcode, hsa_op_reg *dest,
+gen_hsa_unary_operation (BrigOpcode opcode, hsa_op_reg *dest,
 			 hsa_op_with_type *op1, hsa_bb *hbb)
 {
   gcc_checking_assert (dest);
   hsa_insn_basic *insn;
 
   if (opcode == BRIG_OPCODE_MOV && hsa_needs_cvt (dest->m_type, op1->m_type))
-      insn = new hsa_insn_cvt (dest, op1);
+    insn = new hsa_insn_cvt (dest, op1);
+  else if (opcode == BRIG_OPCODE_FIRSTBIT || opcode == BRIG_OPCODE_LASTBIT)
+    insn = new hsa_insn_srctype (2, opcode, BRIG_TYPE_U32, op1->m_type, NULL,
+				 op1);
   else
     {
       insn = new hsa_insn_basic (2, opcode, dest->m_type, dest, op1);
@@ -2922,6 +2925,9 @@ gen_hsa_unary_operation (int opcode, hsa_op_reg *dest,
     }
 
   hbb->append_insn (insn);
+
+  if (opcode == BRIG_OPCODE_FIRSTBIT || opcode == BRIG_OPCODE_LASTBIT)
+    insn->set_output_in_type (dest, 0, hbb);
 }
 
 /* Generate a binary instruction with OPCODE and append it to a basic block
@@ -2968,7 +2974,7 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
   tree rhs2 = gimple_assign_rhs2 (assign);
   tree rhs3 = gimple_assign_rhs3 (assign);
 
-  int opcode;
+  BrigOpcode opcode;
 
   switch (code)
     {
@@ -3530,11 +3536,9 @@ gen_hsa_insns_for_call_of_internal_fn (gimple *stmt, hsa_bb *hbb)
   tree rhs1_type = TREE_TYPE (rhs1);
   enum internal_fn fn = gimple_call_internal_fn (stmt);
   hsa_insn_call *call_insn = new hsa_insn_call
-    (new hsa_internal_fn (fn, tree_to_uhwi (TYPE_SIZE (rhs1_type)),
-			  FLOAT_TYPE_P (rhs1_type)));
+    (new hsa_internal_fn (fn, tree_to_uhwi (TYPE_SIZE (rhs1_type))));
 
-  if (!hsa_emitted_internal_decls)
-    hsa_emitted_internal_decls = new hash_table <hsa_internal_fn_hasher> (2);
+  gcc_checking_assert (FLOAT_TYPE_P (rhs1_type));
 
   if (!hsa_emitted_internal_decls->find (call_insn->m_called_internal_fn))
     hsa_cfun->m_called_internal_fns.safe_push (call_insn->m_called_internal_fn);
@@ -3882,11 +3886,82 @@ gen_hsa_alloca (gcall *call, hsa_bb *hbb)
   hbb->append_insn (seg);
 }
 
-/* Emit instructions that implement popcount builtin STMT.
+/* Emit instructions that implement clrsb builtin STMT:
+   Returns the number of leading redundant sign bits in x, i.e. the number
+   of bits following the most significant bit that are identical to it.
+   There are no special cases for 0 or other values.
    Instructions are appended to basic block HBB.  */
 
 static void
-gen_hsa_popcount (gcall *call, hsa_bb *hbb)
+gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (call);
+  if (lhs == NULL_TREE)
+    return;
+
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  tree rhs1 = gimple_call_arg (call, 0);
+  hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
+  BrigType16_t bittype = hsa_bittype_for_type (arg->m_type);
+  unsigned bitsize = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (rhs1)));
+  gcc_checking_assert (bitsize >= 32);
+
+  /* Set true to MOST_SIG if the most significant bit is set to one.  */
+  hsa_op_immed *c = new hsa_op_immed (1ul << (bitsize - 1),
+				      hsa_uint_for_bitsize (bitsize));
+
+  hsa_op_reg *and_reg = new hsa_op_reg (bittype);
+  gen_hsa_binary_operation (BRIG_OPCODE_AND, and_reg, arg, c, hbb);
+
+  hsa_op_reg *most_sign = new hsa_op_reg (BRIG_TYPE_B1);
+  hsa_insn_cmp *cmp = new hsa_insn_cmp
+    (BRIG_COMPARE_EQ, most_sign->m_type, most_sign, and_reg, c);
+  hbb->append_insn (cmp);
+
+  /* If the most significant bit is one, negate the input.  Otherwise
+     shift the input value to left by one bit.  */
+  hsa_op_reg *arg_neg = new hsa_op_reg (arg->m_type);
+  gen_hsa_unary_operation (BRIG_OPCODE_NEG, arg_neg, arg, hbb);
+
+  hsa_op_reg *shifted_arg = new hsa_op_reg (arg->m_type);
+  gen_hsa_binary_operation (BRIG_OPCODE_SHL, shifted_arg, arg,
+			    new hsa_op_immed (1, BRIG_TYPE_U64), hbb);
+
+  /* Assign the value that can be used for FIRSTBIT instruction according
+     to the most significant bit.  */
+  hsa_op_reg *tmp = new hsa_op_reg (bittype);
+  hsa_insn_basic *cmov = new hsa_insn_basic
+    (4, BRIG_OPCODE_CMOV, bittype, tmp, most_sign, arg_neg, shifted_arg);
+  hbb->append_insn (cmov);
+
+  hsa_op_reg *leading_bits = new hsa_op_reg (BRIG_TYPE_S32);
+  gen_hsa_unary_operation (BRIG_OPCODE_FIRSTBIT, leading_bits,
+			   tmp->get_in_type (hsa_uint_for_bitsize (bitsize),
+					     hbb), hbb);
+
+  /* Set flag if the input value is equal to zero.  */
+  hsa_op_reg *is_zero = new hsa_op_reg (BRIG_TYPE_B1);
+  cmp = new hsa_insn_cmp
+    (BRIG_COMPARE_EQ, is_zero->m_type, is_zero, arg,
+     new hsa_op_immed (0, arg->m_type));
+  hbb->append_insn (cmp);
+
+  /* Return the number of leading bits, or 31 if the input value is zero.  */
+  cmov = new hsa_insn_basic
+    (4, BRIG_OPCODE_CMOV, BRIG_TYPE_B32, NULL, is_zero,
+     new hsa_op_immed (31, BRIG_TYPE_U32),
+     leading_bits->get_in_type (BRIG_TYPE_B32, hbb));
+  hbb->append_insn (cmov);
+  cmov->set_output_in_type (dest, 0, hbb);
+}
+
+/* Emit instructions that implement ffs builtin STMT:
+   Returns one plus the index of the least significant 1-bit of x,
+   or if x is zero, returns zero.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_hsa_ffs (gcall *call, hsa_bb *hbb)
 {
   tree lhs = gimple_call_lhs (call);
   if (lhs == NULL_TREE)
@@ -3896,6 +3971,22 @@ gen_hsa_popcount (gcall *call, hsa_bb *hbb)
 
   tree rhs1 = gimple_call_arg (call, 0);
   hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
+
+  hsa_op_reg *tmp = new hsa_op_reg (BRIG_TYPE_U32);
+  hsa_insn_srctype *insn = new hsa_insn_srctype
+    (2, BRIG_OPCODE_LASTBIT, tmp->m_type, arg->m_type, tmp, arg);
+  hbb->append_insn (insn);
+
+  hsa_insn_basic *addition = new hsa_insn_basic
+    (3, BRIG_OPCODE_ADD, tmp->m_type, NULL, tmp,
+     new hsa_op_immed (1, tmp->m_type));
+  hbb->append_insn (addition);
+  addition->set_output_in_type (dest, 0, hbb);
+}
+
+static void
+gen_hsa_popcount_to_dest (hsa_op_reg *dest, hsa_op_with_type *arg, hsa_bb *hbb)
+{
   gcc_checking_assert (hsa_type_integer_p (arg->m_type));
 
   if (hsa_type_bit_size (arg->m_type) < 32)
@@ -3908,6 +3999,48 @@ gen_hsa_popcount (gcall *call, hsa_bb *hbb)
     (2, BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32, arg->m_type, NULL, arg);
   hbb->append_insn (popcount);
   popcount->set_output_in_type (dest, 0, hbb);
+}
+
+/* Emit instructions that implement parity builtin STMT:
+   Returns the parity of x, i.e. the number of 1-bits in x modulo 2.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_hsa_parity (gcall *call, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (call);
+  if (lhs == NULL_TREE)
+    return;
+
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  tree rhs1 = gimple_call_arg (call, 0);
+  hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
+
+  hsa_op_reg *popcount = new hsa_op_reg (BRIG_TYPE_U32);
+  gen_hsa_popcount_to_dest (popcount, arg, hbb);
+
+  hsa_insn_basic *insn = new hsa_insn_basic
+    (3, BRIG_OPCODE_REM, popcount->m_type, NULL, popcount,
+     new hsa_op_immed (2, popcount->m_type));
+  hbb->append_insn (insn);
+  insn->set_output_in_type (dest, 0, hbb);
+}
+
+/* Emit instructions that implement popcount builtin STMT.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_hsa_popcount (gcall *call, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (call);
+  if (lhs == NULL_TREE)
+    return;
+
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+  tree rhs1 = gimple_call_arg (call, 0);
+  hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
+
+  gen_hsa_popcount_to_dest (dest, arg, hbb);
 }
 
 /* Set VALUE to a shadow kernel debug argument and append a new instruction
@@ -4488,7 +4621,7 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
    added.  Note that nothing will be created if STMT does not have a LHS.  */
 
 static void
-gen_hsa_unaryop_for_builtin (int opcode, gimple *stmt, hsa_bb *hbb)
+gen_hsa_unaryop_for_builtin (BrigOpcode opcode, gimple *stmt, hsa_bb *hbb)
 {
   tree lhs = gimple_call_lhs (stmt);
   if (!lhs)
@@ -4524,7 +4657,8 @@ gen_hsa_unaryop_builtin_call (gimple *stmt, hsa_bb *hbb)
    added.  Note that nothing will be created if STMT does not have a LHS.  */
 
 static void
-gen_hsa_unaryop_or_call_for_builtin (int opcode, gimple *stmt, hsa_bb *hbb)
+gen_hsa_unaryop_or_call_for_builtin (BrigOpcode opcode, gimple *stmt,
+				     hsa_bb *hbb)
 {
   if (flag_unsafe_math_optimizations)
     gen_hsa_unaryop_for_builtin (opcode, stmt, hbb);
@@ -4816,6 +4950,26 @@ gen_hsa_insn_for_internal_fn_call (gcall *stmt, hsa_bb *hbb)
         break;
       }
 
+    case IFN_CLRSB:
+      gen_hsa_clrsb (stmt, hbb);
+      break;
+
+    case IFN_CLZ:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_FIRSTBIT, stmt, hbb);
+      break;
+
+    case IFN_CTZ:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_LASTBIT, stmt, hbb);
+      break;
+
+    case IFN_FFS:
+      gen_hsa_ffs (stmt, hbb);
+      break;
+
+    case IFN_PARITY:
+      gen_hsa_parity (stmt, hbb);
+      break;
+
     case IFN_POPCOUNT:
       gen_hsa_popcount (stmt, hbb);
       break;
@@ -4918,6 +5072,31 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
     case BUILT_IN_SINF:
       gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb);
+      break;
+
+    case BUILT_IN_CLRSB:
+    case BUILT_IN_CLRSBL:
+      gen_hsa_clrsb (call, hbb);
+      break;
+
+    case BUILT_IN_CLZ:
+    case BUILT_IN_CLZL:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_FIRSTBIT, stmt, hbb);
+      break;
+
+    case BUILT_IN_CTZ:
+    case BUILT_IN_CTZL:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_LASTBIT, stmt, hbb);
+      break;
+
+    case BUILT_IN_FFS:
+    case BUILT_IN_FFSL:
+      gen_hsa_ffs (call, hbb);
+      break;
+
+    case BUILT_IN_PARITY:
+    case BUILT_IN_PARITYL:
+      gen_hsa_parity (call, hbb);
       break;
 
     case BUILT_IN_POPCOUNT:

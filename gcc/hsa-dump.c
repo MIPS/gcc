@@ -980,6 +980,16 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
       hsa_insn_comment *c = as_a <hsa_insn_comment *> (insn);
       fprintf (f, "%s", c->m_comment);
     }
+  else if (is_a <hsa_insn_srctype *> (insn))
+    {
+      hsa_insn_srctype *srctype = as_a <hsa_insn_srctype *> (insn);
+
+      fprintf (f, "%s_%s_%s ", hsa_opcode_name (srctype->m_opcode),
+	       hsa_type_name (srctype->m_type),
+	       hsa_type_name (srctype->m_source_type));
+
+      dump_hsa_operands (f, insn);
+    }
   else if (is_a <hsa_insn_packed *> (insn))
     {
       hsa_insn_packed *packed = as_a <hsa_insn_packed *> (insn);

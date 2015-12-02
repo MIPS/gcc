@@ -761,14 +761,12 @@ is_a_helper <hsa_insn_seg *>::test (hsa_insn_basic *p)
 class hsa_internal_fn
 {
 public:
-  hsa_internal_fn (enum internal_fn fn, unsigned type_bit_size,
-		   bool float_function_p):
-    m_fn (fn), m_type_bit_size (type_bit_size),
-    m_float_function_p (float_function_p), m_offset (0) {}
+  hsa_internal_fn (enum internal_fn fn, unsigned type_bit_size):
+    m_fn (fn), m_type_bit_size (type_bit_size), m_offset (0) {}
 
   hsa_internal_fn (const hsa_internal_fn *f):
     m_fn (f->m_fn), m_type_bit_size (f->m_type_bit_size),
-    m_float_function_p (f->m_float_function_p), m_offset (f->m_offset) {}
+    m_offset (f->m_offset) {}
 
   /* Return arity of the internal function.  */
   unsigned get_arity ();
@@ -785,9 +783,6 @@ public:
 
   /* Bit width of return type.  */
   unsigned m_type_bit_size;
-
-  /* True if the function accepts a float type as first argument.  */
-  bool m_float_function_p;
 
   /* BRIG offset of declaration of the function.  */
   BrigCodeOffset32_t m_offset;
@@ -954,7 +949,9 @@ template <>
 inline bool
 is_a_helper <hsa_insn_srctype *>::test (hsa_insn_basic *p)
 {
-  return (p->m_opcode == BRIG_OPCODE_POPCOUNT);
+  return (p->m_opcode == BRIG_OPCODE_POPCOUNT
+	  || p->m_opcode == BRIG_OPCODE_FIRSTBIT
+	  || p->m_opcode == BRIG_OPCODE_LASTBIT);
 }
 
 /* HSA packed instruction.  */

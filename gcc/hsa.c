@@ -828,10 +828,8 @@ hsa_internal_fn::name ()
     *ptr = TOLOWER (*ptr);
 
   const char *suffix = NULL;
-  if (m_float_function_p && m_type_bit_size == 32)
+  if (m_type_bit_size == 32)
     suffix = "f";
-  else if(!m_float_function_p && m_type_bit_size == 64)
-    suffix = "l";
 
   if (suffix)
     {
@@ -872,12 +870,6 @@ hsa_internal_fn::get_arity ()
     case IFN_RINT:
     case IFN_ROUND:
     case IFN_TRUNC:
-    case IFN_CLRSB:
-    case IFN_CLZ:
-    case IFN_CTZ:
-    case IFN_FFS:
-    case IFN_PARITY:
-    case IFN_POPCOUNT:
       return 1;
     case IFN_ATAN2:
     case IFN_COPYSIGN:
@@ -888,6 +880,12 @@ hsa_internal_fn::get_arity ()
     case IFN_LDEXP:
       return 2;
       break;
+    case IFN_CLRSB:
+    case IFN_CLZ:
+    case IFN_CTZ:
+    case IFN_FFS:
+    case IFN_PARITY:
+    case IFN_POPCOUNT:
     default:
       gcc_unreachable ();
     }
@@ -928,18 +926,6 @@ hsa_internal_fn::get_argument_type (int n)
     case IFN_REMAINDER:
     case IFN_SCALB:
       return hsa_float_for_bitsize (m_type_bit_size);
-    case IFN_CLRSB:
-    case IFN_CLZ:
-    case IFN_CTZ:
-    case IFN_FFS:
-    case IFN_PARITY:
-    case IFN_POPCOUNT:
-      {
-	if (n == -1)
-	  return BRIG_TYPE_S32;
-	else
-	  return hsa_uint_for_bitsize (m_type_bit_size);
-      }
     case IFN_LDEXP:
       {
 	if (n == -1 || n == 0)
