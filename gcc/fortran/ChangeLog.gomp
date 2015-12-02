@@ -1,3 +1,27 @@
+2015-12-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* dump-parse-tree.c (show_omp_clauses): Handle gang_static_expr
+	and gang_num_expr.
+	* gfortran.h (struct gfc_omp_clauses): Remove gang_expr, num_gangs,
+	num_workers, vector_length and tile.  Add gang_static_expr and
+	gang_num_expr.
+	* openmp.c (gfc_free_omp_clauses): Handle gnag_static_expr,
+	gang_num_expr.  Eliminate gang_expr.
+	(match_oacc_clause_gang): Update to allow both num and static arguments
+	in the same gang clauses.
+	(gfc_match_omp_clauses): Remove reference to c->{vector_length,
+	num_gangs, num_workers, tile}.
+	(resolve_omp_clauses): Update calls to resolve_oacc_positive_int_expr.
+	(resolve_oacc_params_in_parallel): Add const char arg argument to
+	make the error messages more descriptive.
+	(resolve_oacc_loop_blocks): Update calls to
+	resolve_oacc_params_in_parallel.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Update how the gang
+	clause is lowered.
+	(gfc_filter_oacc_combined_clauses): Handle gang_num_expr and
+	gang_static_expr.  Also remove OMP_LIST_REDUCTION from the outer
+	construct clauses.
+
 2015-11-19  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (OACC_ROUTINE_CLAUSES): Remove OMP_CLAUSE_OACC_DEVICE

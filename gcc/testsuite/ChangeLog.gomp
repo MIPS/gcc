@@ -1,3 +1,10 @@
+2015-12-01  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/gang-static.f95: Add static num coverage.
+	* gfortran.dg/goacc/loop-2.f95: Likewise.
+	* gfortran.dg/goacc/loop-6.f95: Likewise.
+	* gfortran.dg/goacc/loop-7.f95: New file.
+
 2015-11-30  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/subroutines.f90: New test.

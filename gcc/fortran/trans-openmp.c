@@ -2628,28 +2628,20 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
     }
   if (clauses->gang)
     {
-      if (clauses->gang_expr)
+      tree arg;
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_GANG);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+      if (clauses->gang_num_expr)
 	{
-	  tree gang_var
-	    = gfc_convert_expr_to_tree (block, clauses->gang_expr);
-	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_GANG);
-	  if (clauses->gang_static)
-	    OMP_CLAUSE_GANG_STATIC_EXPR (c) = gang_var;
-	  else
-	    OMP_CLAUSE_GANG_EXPR (c) = gang_var;
-	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+	  arg = gfc_convert_expr_to_tree (block, clauses->gang_num_expr);
+	  OMP_CLAUSE_GANG_EXPR (c) = arg;
 	}
-      else if (clauses->gang_static)
+      if (clauses->gang_static)
 	{
-	  /* This corresponds to gang (static: *).  */
-	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_GANG);
-	  OMP_CLAUSE_GANG_STATIC_EXPR (c) = integer_minus_one_node;
-	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
-	}
-      else
-	{
-	  c = build_omp_clause (where.lb->location, OMP_CLAUSE_GANG);
-	  omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+	  arg = clauses->gang_static_expr
+	    ? gfc_convert_expr_to_tree (block, clauses->gang_static_expr)
+	    : integer_minus_one_node;
+	  OMP_CLAUSE_GANG_STATIC_EXPR (c) = arg;
 	}
     }
 
@@ -3655,10 +3647,12 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
 
   (*loop_clauses)->gang = (*orig_clauses)->gang;
   (*orig_clauses)->gang = false;
-  (*loop_clauses)->gang_expr = (*orig_clauses)->gang_expr;
-  (*orig_clauses)->gang_expr = NULL;
   (*loop_clauses)->gang_static = (*orig_clauses)->gang_static;
   (*orig_clauses)->gang_static = false;
+  (*loop_clauses)->gang_num_expr = (*orig_clauses)->gang_num_expr;
+  (*orig_clauses)->gang_num_expr = NULL;
+  (*loop_clauses)->gang_static_expr = (*orig_clauses)->gang_static_expr;
+  (*orig_clauses)->gang_static_expr = NULL;
   (*loop_clauses)->vector = (*orig_clauses)->vector;
   (*orig_clauses)->vector = false;
   (*loop_clauses)->vector_expr = (*orig_clauses)->vector_expr;
@@ -3679,19 +3673,16 @@ gfc_filter_oacc_combined_clauses (gfc_omp_clauses **orig_clauses,
   /* Don't reset (*orig_clauses)->collapse.  It should be present on
      both the kernels/parallel and loop constructs, similar to how
      gfc_split_omp_clauses duplicates it in combined OMP constructs.  */
-  (*loop_clauses)->tile = (*orig_clauses)->tile;
-  (*orig_clauses)->tile = false;
   (*loop_clauses)->tile_list = (*orig_clauses)->tile_list;
   (*orig_clauses)->tile_list = NULL;
-#if 0 /* TODO */
+  (*loop_clauses)->lists[OMP_LIST_REDUCTION]
+    = (*orig_clauses)->lists[OMP_LIST_REDUCTION];
+  (*orig_clauses)->lists[OMP_LIST_REDUCTION] = NULL;
+#if 0
   (*loop_clauses)->lists[OMP_LIST_PRIVATE]
     = (*orig_clauses)->lists[OMP_LIST_PRIVATE];
   (*orig_clauses)->lists[OMP_LIST_PRIVATE] = NULL;
-  (*loop_clauses)->lists[OMP_LIST_REDUCTION]
-    = (*orig_clauses)->lists[OMP_LIST_REDUCTION];
-  /* Don't reset (*orig_clauses)->lists[OMP_LIST_REDUCTION].  */
 #endif
-
   (*loop_clauses)->device_types = (*orig_clauses)->device_types;
 
   gfc_filter_oacc_combined_clauses (&(*orig_clauses)->dtype_clauses,

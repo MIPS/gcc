@@ -1229,7 +1229,8 @@ typedef struct gfc_omp_clauses
 
   /* OpenACC. */
   struct gfc_expr *async_expr;
-  struct gfc_expr *gang_expr;
+  struct gfc_expr *gang_static_expr;
+  struct gfc_expr *gang_num_expr;
   struct gfc_expr *worker_expr;
   struct gfc_expr *vector_expr;
   struct gfc_expr *num_gangs_expr;
@@ -1242,7 +1243,6 @@ typedef struct gfc_omp_clauses
   gfc_expr_list *tile_list;
   unsigned async:1, gang:1, worker:1, vector:1, seq:1, independent:1;
   unsigned wait:1, par_auto:1, gang_static:1, nohost:1, acc_collapse:1, bind:1;
-  unsigned num_gangs:1, num_workers:1, vector_length:1, tile:1;
   locus loc;
 
 }
