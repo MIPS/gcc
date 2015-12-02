@@ -928,12 +928,12 @@ is_a_helper <hsa_insn_queue *>::test (hsa_insn_basic *p)
   return (p->m_opcode == BRIG_OPCODE_ADDQUEUEWRITEINDEX);
 }
 
-/* HSA packed instruction.  */
+/* HSA source type instruction.  */
 
-class hsa_insn_packed : public hsa_insn_basic
+class hsa_insn_srctype: public hsa_insn_basic
 {
 public:
-  hsa_insn_packed (int nops, BrigOpcode opcode, BrigType16_t destt,
+  hsa_insn_srctype (int nops, BrigOpcode opcode, BrigType16_t destt,
 		   BrigType16_t srct, hsa_op_base *arg0, hsa_op_base *arg1,
 		   hsa_op_base *arg2);
 
@@ -942,6 +942,32 @@ public:
 
   /* Source type.  */
   BrigType16_t m_source_type;
+
+  /* Destructor.  */
+  ~hsa_insn_srctype ();
+};
+
+/* Report whether or not P is a source type instruction.  */
+
+template <>
+template <>
+inline bool
+is_a_helper <hsa_insn_srctype *>::test (hsa_insn_basic *p)
+{
+  return (p->m_opcode == BRIG_OPCODE_POPCOUNT);
+}
+
+/* HSA packed instruction.  */
+
+class hsa_insn_packed : public hsa_insn_srctype
+{
+public:
+  hsa_insn_packed (int nops, BrigOpcode opcode, BrigType16_t destt,
+		   BrigType16_t srct, hsa_op_base *arg0, hsa_op_base *arg1,
+		   hsa_op_base *arg2);
+
+  /* Pool allocator.  */
+  void *operator new (size_t);
 
   /* Operand list for an operand of the instruction.  */
   hsa_op_operand_list *m_operand_list;
@@ -1344,7 +1370,6 @@ void hsa_regalloc (void);
 extern hash_table <hsa_internal_fn_hasher> *hsa_emitted_internal_decls;
 void hsa_brig_emit_function (void);
 void hsa_output_brig (void);
-BrigType16_t bittype_for_type (BrigType16_t t);
 unsigned hsa_get_imm_brig_type_len (BrigType16_t type);
 void hsa_brig_emit_omp_symbols (void);
 

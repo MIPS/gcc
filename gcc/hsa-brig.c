@@ -1607,6 +1607,30 @@ emit_queue_insn (hsa_insn_queue *insn)
   brig_insn_count++;
 }
 
+/* Emit source type instruction INSN.  */
+
+static void
+emit_srctype_insn (hsa_insn_srctype *insn)
+{
+  /* We assume that BrigInstMod has a BrigInstBasic prefix.  */
+  struct BrigInstSourceType repr;
+  unsigned operand_count = insn->operand_count ();
+  gcc_checking_assert (operand_count >= 2);
+
+  memset (&repr, 0, sizeof (repr));
+  repr.sourceType = htole16 (insn->m_source_type);
+  repr.base.base.byteCount = htole16 (sizeof (repr));
+  repr.base.base.kind = htole16 (BRIG_KIND_INST_SOURCE_TYPE);
+  repr.base.opcode = htole16 (insn->m_opcode);
+  repr.base.type = htole16 (insn->m_type);
+
+  repr.base.operands = htole32 (emit_insn_operands (insn));
+  brig_code.add (&repr, sizeof (struct BrigInstSourceType));
+  brig_insn_count++;
+}
+
+/* Emit packed instruction INSN.  */
+
 static void
 emit_packed_insn (hsa_insn_packed *insn)
 {
@@ -1749,6 +1773,8 @@ emit_insn (hsa_insn_basic *insn)
     emit_comment_insn (comment);
   else if (hsa_insn_queue *queue = dyn_cast <hsa_insn_queue *> (insn))
     emit_queue_insn (queue);
+  else if (hsa_insn_srctype *srctype = dyn_cast <hsa_insn_srctype *> (insn))
+    emit_srctype_insn (srctype);
   else if (hsa_insn_packed *packed = dyn_cast <hsa_insn_packed *> (insn))
     emit_packed_insn (packed);
   else if (hsa_insn_cvt *cvt = dyn_cast <hsa_insn_cvt *> (insn))

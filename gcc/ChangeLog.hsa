@@ -1,5 +1,21 @@
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_srctype_insn): New function.
+	(emit_insn): Call the function for hsa_insn_srctype.
+	* hsa-gen.c (hsa_init_data_for_cfun): Allocate a new
+	object_allocator.
+	(hsa_deinit_data_for_cfun): Release the object_allocator.
+	(hsa_insn_srctype::operator new): New function.
+	(hsa_insn_srctype::hsa_insn_srctype): Likewise.
+	(hsa_insn_packed::hsa_insn_packed): Likewise.
+	(gen_hsa_popcount): Likewise.
+	(gen_hsa_insn_for_internal_fn_call): Handle IFN_POPCOUNT.
+	(gen_hsa_insns_for_call): Handle BUILT_IN_POPCOUNT and
+	BUILT_IN_POPCOUNTL.
+	* hsa.h (is_a_helper ::test): New function.
+
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_function_directives): Use
 	hsa_function_representation::get_linkage.  Fill up code offset
 	of internal functions.

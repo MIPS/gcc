@@ -143,6 +143,7 @@ static object_allocator<hsa_insn_call> *hsa_allocp_inst_call;
 static object_allocator<hsa_insn_arg_block> *hsa_allocp_inst_arg_block;
 static object_allocator<hsa_insn_comment> *hsa_allocp_inst_comment;
 static object_allocator<hsa_insn_queue> *hsa_allocp_inst_queue;
+static object_allocator<hsa_insn_srctype> *hsa_allocp_inst_srctype;
 static object_allocator<hsa_insn_packed> *hsa_allocp_inst_packed;
 static object_allocator<hsa_insn_cvt> *hsa_allocp_inst_cvt;
 static object_allocator<hsa_insn_alloca> *hsa_allocp_inst_alloca;
@@ -447,6 +448,8 @@ hsa_init_data_for_cfun ()
     = new object_allocator<hsa_insn_comment> ("HSA comment instructions");
   hsa_allocp_inst_queue
     = new object_allocator<hsa_insn_queue> ("HSA queue instructions");
+  hsa_allocp_inst_srctype
+    = new object_allocator<hsa_insn_srctype> ("HSA source type instructions");
   hsa_allocp_inst_packed
     = new object_allocator<hsa_insn_packed> ("HSA packed instructions");
   hsa_allocp_inst_cvt
@@ -505,6 +508,7 @@ hsa_deinit_data_for_cfun (void)
   delete hsa_allocp_inst_arg_block;
   delete hsa_allocp_inst_comment;
   delete hsa_allocp_inst_queue;
+  delete hsa_allocp_inst_srctype;
   delete hsa_allocp_inst_packed;
   delete hsa_allocp_inst_cvt;
   delete hsa_allocp_inst_alloca;
@@ -1687,6 +1691,24 @@ hsa_insn_queue::hsa_insn_queue (int nops, BrigOpcode opcode)
 {
 }
 
+/* New operator to allocate source type instruction from pool alloc.  */
+
+void *
+hsa_insn_srctype::operator new (size_t)
+{
+  return hsa_allocp_inst_srctype->allocate_raw ();
+}
+
+/* Constructor of class representing the source type instruction in HSAIL.  */
+
+hsa_insn_srctype::hsa_insn_srctype (int nops, BrigOpcode opcode,
+				    BrigType16_t destt, BrigType16_t srct,
+				    hsa_op_base *arg0, hsa_op_base *arg1,
+				    hsa_op_base *arg2 = NULL)
+  : hsa_insn_basic (nops, opcode, destt, arg0, arg1, arg2),
+  m_source_type (srct)
+{}
+
 /* New operator to allocate packed instruction from pool alloc.  */
 
 void *
@@ -1701,8 +1723,7 @@ hsa_insn_packed::hsa_insn_packed (int nops, BrigOpcode opcode,
 				  BrigType16_t destt, BrigType16_t srct,
 				  hsa_op_base *arg0, hsa_op_base *arg1,
 				  hsa_op_base *arg2)
-  : hsa_insn_basic (nops, opcode, destt, arg0, arg1, arg2),
-  m_source_type (srct)
+  : hsa_insn_srctype (nops, opcode, destt, srct, arg0, arg1, arg2)
 {
   m_operand_list = new hsa_op_operand_list (nops - 1);
 }
@@ -3860,6 +3881,34 @@ gen_hsa_alloca (gcall *call, hsa_bb *hbb)
   hbb->append_insn (seg);
 }
 
+/* Emit instructions that implement popcount builtin STMT.
+   Instructions are appended to basic block HBB.  */
+
+static void
+gen_hsa_popcount (gcall *call, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (call);
+  if (lhs == NULL_TREE)
+    return;
+
+  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
+
+  tree rhs1 = gimple_call_arg (call, 0);
+  hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
+  gcc_checking_assert (hsa_type_integer_p (arg->m_type));
+
+  if (hsa_type_bit_size (arg->m_type) < 32)
+    arg = arg->get_in_type (BRIG_TYPE_B32, hbb);
+
+  if (!hsa_btype_p (arg->m_type))
+    arg = arg->get_in_type (hsa_bittype_for_type (arg->m_type), hbb);
+
+  hsa_insn_srctype *popcount = new hsa_insn_srctype
+    (2, BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32, arg->m_type, NULL, arg);
+  hbb->append_insn (popcount);
+  popcount->set_output_in_type (dest, 0, hbb);
+}
+
 /* Set VALUE to a shadow kernel debug argument and append a new instruction
    to HBB basic block.  */
 
@@ -4696,7 +4745,7 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
    corresponding structure to the basic_block of STMT.  */
 
 static void
-gen_hsa_insn_for_internal_fn_call (gimple *stmt, hsa_bb *hbb)
+gen_hsa_insn_for_internal_fn_call (gcall *stmt, hsa_bb *hbb)
 {
   gcc_checking_assert (gimple_call_internal_fn (stmt));
   internal_fn fn = gimple_call_internal_fn (stmt);
@@ -4766,6 +4815,10 @@ gen_hsa_insn_for_internal_fn_call (gimple *stmt, hsa_bb *hbb)
         break;
       }
 
+    case IFN_POPCOUNT:
+      gen_hsa_popcount (stmt, hbb);
+      break;
+
     default:
       gen_hsa_insns_for_call_of_internal_fn (stmt, hbb);
       break;
@@ -4786,7 +4839,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
   if (gimple_call_internal_p (stmt))
     {
-      gen_hsa_insn_for_internal_fn_call (stmt, hbb);
+      gen_hsa_insn_for_internal_fn_call (call, hbb);
       return;
     }
 
@@ -4864,6 +4917,11 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
     case BUILT_IN_SINF:
       gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb);
+      break;
+
+    case BUILT_IN_POPCOUNT:
+    case BUILT_IN_POPCOUNTL:
+      gen_hsa_popcount (call, hbb);
       break;
 
     case BUILT_IN_ATOMIC_LOAD_1:
