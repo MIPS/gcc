@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "symbol-summary.h"
 #include "hsa.h"
+#include "internal-fn.h"
+#include "ctype.h"
 
 /* Structure containing intermediate HSA representation of the generated
    function. */
@@ -101,6 +103,7 @@ hsa_init_compilation_unit_data (void)
 
   hsa_global_variable_symbols = new hash_table <hsa_noop_symbol_hasher> (8);
   hsa_failed_functions = new hash_set <tree> ();
+  hsa_emitted_internal_decls = new hash_table <hsa_internal_fn_hasher> (2);
 }
 
 /* Free data structures that are used when dealing with different
@@ -112,6 +115,7 @@ hsa_deinit_compilation_unit_data (void)
   gcc_assert (compilation_unit_data_initialized);
 
   delete hsa_failed_functions;
+  delete hsa_emitted_internal_decls;
 
   for (hash_table <hsa_noop_symbol_hasher>::iterator it =
        hsa_global_variable_symbols->begin ();
@@ -434,6 +438,24 @@ hsa_uint_for_bitsize (unsigned bitsize)
       return BRIG_TYPE_U32;
     case 64:
       return BRIG_TYPE_U64;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+/* Return BRIG float type with BITSIZE length.  */
+
+BrigType16_t
+hsa_float_for_bitsize (unsigned bitsize)
+{
+  switch (bitsize)
+    {
+    case 16:
+      return BRIG_TYPE_F16;
+    case 32:
+      return BRIG_TYPE_F32;
+    case 64:
+      return BRIG_TYPE_F64;
     default:
       gcc_unreachable ();
     }
@@ -796,6 +818,138 @@ hsa_fail_cfun (void)
 {
   hsa_failed_functions->add (hsa_cfun->m_decl);
   hsa_cfun->m_seen_error = true;
+}
+
+char *
+hsa_internal_fn::name ()
+{
+  char *name = xstrdup (internal_fn_name (m_fn));
+  for (char *ptr = name; *ptr; ptr++)
+    *ptr = TOLOWER (*ptr);
+
+  const char *suffix = NULL;
+  if (m_float_function_p && m_type_bit_size == 32)
+    suffix = "f";
+  else if(!m_float_function_p && m_type_bit_size == 64)
+    suffix = "l";
+
+  if (suffix)
+    {
+      char *name2 = concat (name, suffix, NULL);
+      free (name);
+      name = name2;
+    }
+
+  hsa_sanitize_name (name);
+  return name;
+}
+
+unsigned
+hsa_internal_fn::get_arity ()
+{
+  switch (m_fn)
+    {
+    case IFN_ACOS:
+    case IFN_ASIN:
+    case IFN_ATAN:
+    case IFN_COS:
+    case IFN_EXP:
+    case IFN_EXP10:
+    case IFN_EXP2:
+    case IFN_EXPM1:
+    case IFN_LOG:
+    case IFN_LOG10:
+    case IFN_LOG1P:
+    case IFN_LOG2:
+    case IFN_LOGB:
+    case IFN_SIGNIFICAND:
+    case IFN_SIN:
+    case IFN_SQRT:
+    case IFN_TAN:
+    case IFN_CEIL:
+    case IFN_FLOOR:
+    case IFN_NEARBYINT:
+    case IFN_RINT:
+    case IFN_ROUND:
+    case IFN_TRUNC:
+    case IFN_CLRSB:
+    case IFN_CLZ:
+    case IFN_CTZ:
+    case IFN_FFS:
+    case IFN_PARITY:
+    case IFN_POPCOUNT:
+      return 1;
+    case IFN_ATAN2:
+    case IFN_COPYSIGN:
+    case IFN_FMOD:
+    case IFN_POW:
+    case IFN_REMAINDER:
+    case IFN_SCALB:
+    case IFN_LDEXP:
+      return 2;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+}
+
+BrigType16_t
+hsa_internal_fn::get_argument_type (int n)
+{
+  switch (m_fn)
+    {
+    case IFN_ACOS:
+    case IFN_ASIN:
+    case IFN_ATAN:
+    case IFN_COS:
+    case IFN_EXP:
+    case IFN_EXP10:
+    case IFN_EXP2:
+    case IFN_EXPM1:
+    case IFN_LOG:
+    case IFN_LOG10:
+    case IFN_LOG1P:
+    case IFN_LOG2:
+    case IFN_LOGB:
+    case IFN_SIGNIFICAND:
+    case IFN_SIN:
+    case IFN_SQRT:
+    case IFN_TAN:
+    case IFN_CEIL:
+    case IFN_FLOOR:
+    case IFN_NEARBYINT:
+    case IFN_RINT:
+    case IFN_ROUND:
+    case IFN_TRUNC:
+    case IFN_ATAN2:
+    case IFN_COPYSIGN:
+    case IFN_FMOD:
+    case IFN_POW:
+    case IFN_REMAINDER:
+    case IFN_SCALB:
+      return hsa_float_for_bitsize (m_type_bit_size);
+    case IFN_CLRSB:
+    case IFN_CLZ:
+    case IFN_CTZ:
+    case IFN_FFS:
+    case IFN_PARITY:
+    case IFN_POPCOUNT:
+      {
+	if (n == -1)
+	  return BRIG_TYPE_S32;
+	else
+	  return hsa_uint_for_bitsize (m_type_bit_size);
+      }
+    case IFN_LDEXP:
+      {
+	if (n == -1 || n == 0)
+	  return hsa_float_for_bitsize (m_type_bit_size);
+	else
+	  return BRIG_TYPE_S32;
+      }
+    default:
+      gcc_unreachable ();
+    }
 }
 
 #include "gt-hsa.h"

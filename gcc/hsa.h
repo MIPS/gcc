@@ -756,12 +756,50 @@ is_a_helper <hsa_insn_seg *>::test (hsa_insn_basic *p)
 	  || p->m_opcode == BRIG_OPCODE_FTOS);
 }
 
+/* Class for internal functions for purpose of HSA emission.  */
+
+class hsa_internal_fn
+{
+public:
+  hsa_internal_fn (enum internal_fn fn, unsigned type_bit_size,
+		   bool float_function_p):
+    m_fn (fn), m_type_bit_size (type_bit_size),
+    m_float_function_p (float_function_p), m_offset (0) {}
+
+  hsa_internal_fn (const hsa_internal_fn *f):
+    m_fn (f->m_fn), m_type_bit_size (f->m_type_bit_size),
+    m_float_function_p (f->m_float_function_p), m_offset (f->m_offset) {}
+
+  /* Return arity of the internal function.  */
+  unsigned get_arity ();
+
+  /* Return BRIG type of N-th argument, if -1 is passed, return value type
+     is received.  */
+  BrigType16_t get_argument_type (int n);
+
+  /* Return function name.  The memory must be released by a caller.  */
+  char *name ();
+
+  /* Internal function.  */
+  enum internal_fn m_fn;
+
+  /* Bit width of return type.  */
+  unsigned m_type_bit_size;
+
+  /* True if the function accepts a float type as first argument.  */
+  bool m_float_function_p;
+
+  /* BRIG offset of declaration of the function.  */
+  BrigCodeOffset32_t m_offset;
+};
+
 /* HSA instruction for function call.  */
 
 class hsa_insn_call : public hsa_insn_basic
 {
 public:
   hsa_insn_call (tree callee);
+  hsa_insn_call (hsa_internal_fn *fn);
 
   /* Default destructor.  */
   ~hsa_insn_call ();
@@ -770,6 +808,9 @@ public:
 
   /* Called function */
   tree m_called_function;
+
+  /* Called internal function.  */
+  hsa_internal_fn *m_called_internal_fn;
 
   /* Input formal arguments.  */
   auto_vec <hsa_symbol *> m_input_args;
@@ -1026,7 +1067,7 @@ hsa_noop_symbol_hasher::hash (const value_type item)
   return DECL_UID (item->m_decl);
 }
 
-/* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
+/* Return true if the DECL_UIDs of decls both symbols refer to are equal.  */
 
 inline bool
 hsa_noop_symbol_hasher::equal (const value_type a, const compare_type b)
@@ -1042,6 +1083,7 @@ class hsa_function_representation
 public:
   hsa_function_representation (tree fdecl, bool kernel_p,
 			       unsigned ssa_names_count);
+  hsa_function_representation (hsa_internal_fn *fn);
   ~hsa_function_representation ();
 
   /* Builds a shadow register that is utilized to a kernel dispatch.  */
@@ -1055,6 +1097,9 @@ public:
      but the HSA generator might use them to put code into,
      so we need hsa_bb instances of them.  */
   void init_extra_bbs ();
+
+  /* Return linkage of the representation.  */
+  BrigLinkage8_t get_linkage ();
 
   /* Create a private symbol of requested TYPE.  */
   hsa_symbol *create_hsa_temporary (BrigType16_t type);
@@ -1093,6 +1138,9 @@ public:
   /* Vector of called function declarations.  */
   vec <tree> m_called_functions;
 
+  /* Vector of used internal functions.  */
+  vec <hsa_internal_fn *> m_called_internal_fns;
+
   /* Number of HBB BBs.  */
   int m_hbb_count;
 
@@ -1107,6 +1155,9 @@ public:
 
   /* Function declaration tree.  */
   tree m_decl;
+
+  /* Internal function info is used for declarations of internal functions.  */
+  hsa_internal_fn *m_internal_fn;
 
   /* Runtime shadow register.  */
   hsa_op_reg *m_shadow_reg;
@@ -1208,6 +1259,30 @@ public:
   void (*m_emit_func) (gimple *stmt, hsa_bb *);
 };
 
+/* Class for hashing hsa_internal_fn.  */
+
+struct hsa_internal_fn_hasher: free_ptr_hash <hsa_internal_fn>
+{
+  static inline hashval_t hash (const value_type);
+  static inline bool equal (const value_type, const compare_type);
+};
+
+/* Hash hsa_symbol.  */
+
+inline hashval_t
+hsa_internal_fn_hasher::hash (const value_type item)
+{
+  return item->m_fn;
+}
+
+/* Return true if the DECL_UIDs of decls both symbols refer to  are equal.  */
+
+inline bool
+hsa_internal_fn_hasher::equal (const value_type a, const compare_type b)
+{
+  return a->m_fn == b->m_fn && a->m_type_bit_size == b->m_type_bit_size;
+}
+
 /* in hsa.c */
 extern struct hsa_function_representation *hsa_cfun;
 extern hash_map <tree, vec <const char *> *> *hsa_decl_kernel_dependencies;
@@ -1226,6 +1301,7 @@ bool hsa_opcode_floating_bit_insn_p (BrigOpcode16_t);
 unsigned hsa_type_bit_size (BrigType16_t t);
 BrigType16_t hsa_bittype_for_bitsize (unsigned bitsize);
 BrigType16_t hsa_uint_for_bitsize (unsigned bitsize);
+BrigType16_t hsa_float_for_bitsize (unsigned bitsize);
 BrigType16_t hsa_bittype_for_type (BrigType16_t t);
 bool hsa_type_float_p (BrigType16_t type);
 bool hsa_type_integer_p (BrigType16_t type);
@@ -1258,12 +1334,14 @@ hsa_op_reg *hsa_spill_in (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_op_reg *hsa_spill_out (hsa_insn_basic *, hsa_op_reg *, hsa_op_reg **);
 hsa_bb *hsa_init_new_bb (basic_block);
 hsa_function_representation *hsa_generate_function_declaration (tree decl);
+hsa_function_representation *hsa_generate_internal_fn_decl (hsa_internal_fn *);
 tree hsa_get_host_function (tree decl);
 
 /* In hsa-regalloc.c.  */
 void hsa_regalloc (void);
 
 /* In hsa-brig.c.  */
+extern hash_table <hsa_internal_fn_hasher> *hsa_emitted_internal_decls;
 void hsa_brig_emit_function (void);
 void hsa_output_brig (void);
 BrigType16_t bittype_for_type (BrigType16_t t);

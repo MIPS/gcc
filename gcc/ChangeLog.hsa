@@ -1,5 +1,34 @@
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
+	* hsa-brig.c (emit_function_directives): Use
+	hsa_function_representation::get_linkage.  Fill up code offset
+	of internal functions.
+	(emit_internal_fn_decl): New function.
+	(emit_call_insn): Handle internal functions.
+	(hsa_brig_emit_function): Likewise.
+	(hsa_output_brig): Release memory of emitted_internal_decls.
+	* hsa-dump.c (dump_hsa_insn_1): Print name of internal function.
+	* hsa-gen.c (hsa_function_representation::~hsa_function_representation):
+	Release internal function.
+	(hsa_function_representation::get_linkage): New function.
+	(gen_hsa_insns_for_direct_call): Fix comment of argument end
+	block.
+	(gen_hsa_insns_for_call_of_internal_fn): New function.
+	(gen_hsa_unaryop_builtin_call): Dispatch between a function
+	with declaration and an internal FN.
+	(gen_hsa_insn_for_internal_fn_call): New function.
+	(gen_hsa_insns_for_call): Handle internal functions.
+	(hsa_generate_internal_fn_decl): New function.
+	* hsa.c (hsa_float_for_bitsize): Dtto.
+	(hsa_internal_fn::name): Dtto.
+	(hsa_internal_fn::get_arity): Dtto.
+	(hsa_internal_fn::get_argument_type): Dtto.
+	* hsa.h (struct hsa_internal_fn_hasher): New structure.
+	(hsa_internal_fn_hasher::hash): New function.
+	(hsa_internal_fn_hasher::equal): New function.
+
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (gen_hsa_insns_for_call): Logically reorder cases
 	in a switch.
 

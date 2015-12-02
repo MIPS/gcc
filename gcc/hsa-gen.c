@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "params.h"
 #include "gomp-constants.h"
+#include "internal-fn.h"
 
 /* Print a warning message and set that we have seen an error.  */
 
@@ -212,15 +213,30 @@ hsa_function_representation::hsa_function_representation
   (tree fdecl, bool kernel_p, unsigned ssa_names_count): m_name (NULL),
   m_reg_count (0), m_input_args (vNULL),
   m_output_arg (NULL), m_spill_symbols (vNULL), m_global_symbols (vNULL),
-  m_private_variables (vNULL), m_called_functions (vNULL), m_hbb_count (0),
+  m_private_variables (vNULL), m_called_functions (vNULL),
+  m_called_internal_fns (vNULL), m_hbb_count (0),
   m_in_ssa (true), m_kern_p (kernel_p), m_declaration_p (false), m_decl (fdecl),
-  m_shadow_reg (NULL), m_kernel_dispatch_count (0), m_maximum_omp_data_size (0),
-  m_seen_error (false), m_temp_symbol_count (0), m_ssa_map ()
+  m_internal_fn (NULL), m_shadow_reg (NULL), m_kernel_dispatch_count (0),
+  m_maximum_omp_data_size (0), m_seen_error (false), m_temp_symbol_count (0),
+  m_ssa_map ()
 {
   int sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;;
   m_local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
   m_ssa_map.safe_grow_cleared (ssa_names_count);
 }
+
+/* Constructor of class representing HSA function information that
+   is derived for an internal function.  */
+hsa_function_representation::hsa_function_representation (hsa_internal_fn *fn):
+  m_reg_count (0), m_input_args (vNULL),
+  m_output_arg (NULL), m_local_symbols (NULL),
+  m_spill_symbols (vNULL), m_global_symbols (vNULL),
+  m_private_variables (vNULL), m_called_functions (vNULL),
+  m_called_internal_fns (vNULL), m_hbb_count (0),
+  m_in_ssa (true), m_kern_p (false), m_declaration_p (true), m_decl (NULL),
+  m_internal_fn (fn), m_shadow_reg (NULL), m_kernel_dispatch_count (0),
+  m_maximum_omp_data_size (0), m_seen_error (false), m_temp_symbol_count (0),
+  m_ssa_map () {}
 
 /* Destructor of class holding function/kernel-wide information and state.  */
 
@@ -253,6 +269,9 @@ hsa_function_representation::~hsa_function_representation ()
   m_private_variables.release ();
   m_called_functions.release ();
   m_ssa_map.release ();
+
+  for (unsigned i = 0; i < m_called_internal_fns.length (); i++)
+    delete m_called_internal_fns[i];
 }
 
 hsa_op_reg *
@@ -304,6 +323,16 @@ hsa_function_representation::create_hsa_temporary (BrigType16_t type)
 
   hsa_cfun->m_private_variables.safe_push (s);
   return s;
+}
+
+BrigLinkage8_t
+hsa_function_representation::get_linkage ()
+{
+  if (m_internal_fn)
+    return BRIG_LINKAGE_PROGRAM;
+
+  return m_kern_p || TREE_PUBLIC (m_decl) ?
+    BRIG_LINKAGE_PROGRAM : BRIG_LINKAGE_MODULE;
 }
 
 /* Hash map of simple OMP builtins.  */
@@ -1580,6 +1609,13 @@ hsa_insn_seg::operator new (size_t)
 hsa_insn_call::hsa_insn_call (tree callee)
   : hsa_insn_basic (0, BRIG_OPCODE_CALL), m_called_function (callee),
   m_output_arg (NULL), m_args_code_list (NULL), m_result_code_list (NULL)
+{
+}
+
+hsa_insn_call::hsa_insn_call (hsa_internal_fn *fn)
+  : hsa_insn_basic (0, BRIG_OPCODE_CALL), m_called_function (NULL),
+  m_called_internal_fn (fn), m_output_arg (NULL), m_args_code_list (NULL),
+  m_result_code_list (NULL)
 {
 }
 
@@ -3450,7 +3486,67 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb)
       call_insn->m_result_code_list = new hsa_op_code_list (0);
     }
 
-  /* Argument block start.  */
+  /* Argument block end.  */
+  hsa_insn_arg_block *arg_end = new hsa_insn_arg_block
+    (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END, call_insn);
+  hbb->append_insn (arg_end);
+}
+
+/* Generate HSA instructions for a direct call of an internal fn.
+   Instructions will be appended to HBB, which also needs to be the
+   corresponding structure to the basic_block of STMT.  */
+
+static void
+gen_hsa_insns_for_call_of_internal_fn (gimple *stmt, hsa_bb *hbb)
+{
+  tree lhs = gimple_call_lhs (stmt);
+  if (!lhs)
+    return;
+
+  tree lhs_type = TREE_TYPE (lhs);
+  tree rhs1 = gimple_call_arg (stmt, 0);
+  tree rhs1_type = TREE_TYPE (rhs1);
+  enum internal_fn fn = gimple_call_internal_fn (stmt);
+  hsa_insn_call *call_insn = new hsa_insn_call
+    (new hsa_internal_fn (fn, tree_to_uhwi (TYPE_SIZE (rhs1_type)),
+			  FLOAT_TYPE_P (rhs1_type)));
+
+  if (!hsa_emitted_internal_decls)
+    hsa_emitted_internal_decls = new hash_table <hsa_internal_fn_hasher> (2);
+
+  if (!hsa_emitted_internal_decls->find (call_insn->m_called_internal_fn))
+    hsa_cfun->m_called_internal_fns.safe_push (call_insn->m_called_internal_fn);
+
+  hsa_insn_arg_block *arg_start = new hsa_insn_arg_block
+    (BRIG_KIND_DIRECTIVE_ARG_BLOCK_START, call_insn);
+  hbb->append_insn (arg_start);
+
+  unsigned num_args = gimple_call_num_args (stmt);
+
+  /* Function arguments.  */
+  for (unsigned i = 0; i < num_args; i++)
+    {
+      tree parm = gimple_call_arg (stmt, (int)i);
+      hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (parm, hbb);
+
+      hsa_op_address *addr = gen_hsa_addr_for_arg (TREE_TYPE (parm), i);
+      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, src->m_type,
+					    src, addr);
+
+      call_insn->m_input_args.safe_push (addr->m_symbol);
+      hbb->append_insn (mem);
+    }
+
+  call_insn->m_args_code_list = new hsa_op_code_list (num_args);
+  hbb->append_insn (call_insn);
+
+  /* Assign returned value.  */
+  hsa_op_address *addr = gen_hsa_addr_for_arg (lhs_type, -1);
+
+  call_insn->m_output_arg = addr->m_symbol;
+  call_insn->m_result_code_list = new hsa_op_code_list (1);
+
+  /* Argument block end.  */
   hsa_insn_arg_block *arg_end = new hsa_insn_arg_block
     (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END, call_insn);
   hbb->append_insn (arg_end);
@@ -4364,7 +4460,10 @@ gen_hsa_unaryop_builtin_call (gimple *stmt, hsa_bb *hbb)
   if (!lhs)
     return;
 
-  gen_hsa_insns_for_direct_call (stmt, hbb);
+  if (gimple_call_internal_p (stmt))
+    gen_hsa_insns_for_call_of_internal_fn (stmt, hbb);
+  else
+    gen_hsa_insns_for_direct_call (stmt, hbb);
 }
 
 /* Helper functions to create a single unary HSA operations out of calls to
@@ -4592,6 +4691,87 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
     }
 }
 
+/* Generate HSA instructions for an internal fn.
+   Instructions will be appended to HBB, which also needs to be the
+   corresponding structure to the basic_block of STMT.  */
+
+static void
+gen_hsa_insn_for_internal_fn_call (gimple *stmt, hsa_bb *hbb)
+{
+  gcc_checking_assert (gimple_call_internal_fn (stmt));
+  internal_fn fn = gimple_call_internal_fn (stmt);
+
+  bool is_float_type_p = false;
+  if (gimple_call_lhs (stmt) != NULL
+      && TREE_TYPE (gimple_call_lhs (stmt)) == float_type_node)
+    is_float_type_p = true;
+
+  switch (fn)
+    {
+    case IFN_CEIL:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_CEIL, stmt, hbb);
+      break;
+
+    case IFN_FLOOR:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_FLOOR, stmt, hbb);
+      break;
+
+    case IFN_RINT:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_RINT, stmt, hbb);
+      break;
+
+    case IFN_SQRT:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_SQRT, stmt, hbb);
+      break;
+
+    case IFN_TRUNC:
+      gen_hsa_unaryop_for_builtin (BRIG_OPCODE_TRUNC, stmt, hbb);
+      break;
+
+    case IFN_COS:
+      {
+	if (is_float_type_p)
+	  gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NCOS, stmt, hbb);
+	else
+	  gen_hsa_unaryop_builtin_call (stmt, hbb);
+
+	break;
+      }
+    case IFN_EXP2:
+      {
+	if (is_float_type_p)
+	  gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NEXP2, stmt, hbb);
+	else
+	  gen_hsa_unaryop_builtin_call (stmt, hbb);
+
+	break;
+      }
+
+    case IFN_LOG2:
+      {
+	if (is_float_type_p)
+	  gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NLOG2, stmt, hbb);
+	else
+	  gen_hsa_unaryop_builtin_call (stmt, hbb);
+
+	break;
+      }
+
+    case IFN_SIN:
+      {
+	if (is_float_type_p)
+	  gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb);
+	else
+	  gen_hsa_unaryop_builtin_call (stmt, hbb);
+        break;
+      }
+
+    default:
+      gen_hsa_insns_for_call_of_internal_fn (stmt, hbb);
+      break;
+    }
+}
+
 #define HSA_MEMORY_BUILTINS_LIMIT     128
 
 /* Generate HSA instructions for the given call statement STMT.  Instructions
@@ -4603,6 +4783,12 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
   gcall *call = as_a <gcall *> (stmt);
   tree lhs = gimple_call_lhs (stmt);
   hsa_op_reg *dest;
+
+  if (gimple_call_internal_p (stmt))
+    {
+      gen_hsa_insn_for_internal_fn_call (stmt, hbb);
+      return;
+    }
 
   if (!gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
     {
@@ -5395,6 +5581,32 @@ hsa_generate_function_declaration (tree decl)
   fun->m_declaration_p = true;
   fun->m_name = get_brig_function_name (decl);
   gen_function_decl_parameters (fun, decl);
+
+  return fun;
+}
+
+
+/* Generate function representation that corresponds to
+   an internal FN.  */
+
+hsa_function_representation *
+hsa_generate_internal_fn_decl (hsa_internal_fn *fn)
+{
+  hsa_function_representation *fun = new hsa_function_representation (fn);
+
+  fun->m_name = fn->name ();
+
+  for (unsigned i = 0; i < fn->get_arity (); i++)
+    {
+      hsa_symbol *arg = new hsa_symbol
+	(fn->get_argument_type (i), BRIG_SEGMENT_ARG, BRIG_LINKAGE_NONE);
+      arg->m_name_number = i;
+      fun->m_input_args.safe_push (arg);
+    }
+
+  fun->m_output_arg = new hsa_symbol
+    (fn->get_argument_type (-1), BRIG_SEGMENT_ARG, BRIG_LINKAGE_NONE);
+  fun->m_output_arg->m_name = "res";
 
   return fun;
 }
