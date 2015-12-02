@@ -4593,7 +4593,7 @@
   "!TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,load,store,imul,mtlo,mflo,mtc,fpload,mfc,fpstore,mtc,fpload,mfc,fpstore")
    (set (attr "mode")
    	(if_then_else (eq_attr "move_type" "imul")
@@ -4606,7 +4606,7 @@
   "!TARGET_64BIT && TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "DI")])
 
@@ -4616,7 +4616,7 @@
   "TARGET_64BIT && !TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || reg_or_0_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,store,mtc,fpload,mfc,fpstore,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "mode" "DI")])
 
@@ -4626,7 +4626,7 @@
   "TARGET_64BIT && TARGET_MIPS16
    && (register_operand (operands[0], DImode)
        || register_operand (operands[1], DImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
@@ -4694,7 +4694,7 @@
   "!TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || reg_or_0_operand (operands[1], <MODE>mode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,const,const,const,load,load,load,store,store,store,mtc,fpload,mfc,fpstore,mfc,mtc,mtlo,mflo,mtc,fpload,mfc,fpstore")
    (set_attr "compression" "all,micromips,micromips,*,*,micromips,micromips,*,micromips,micromips,*,*,*,*,*,*,*,*,*,*,*,*,*")
    (set_attr "mode" "SI")])
@@ -4705,7 +4705,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], <MODE>mode)
        || register_operand (operands[1], <MODE>mode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "SI")])
 
@@ -4835,7 +4835,7 @@
   "!TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || reg_or_0_operand (operands[1], HImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
    (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*")
    (set_attr "mode" "HI")])
@@ -4846,7 +4846,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], HImode)
        || register_operand (operands[1], HImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "HI")])
 
@@ -4911,7 +4911,7 @@
   "!TARGET_MIPS16
    && (register_operand (operands[0], QImode)
        || reg_or_0_operand (operands[1], QImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,const,load,load,store,store,mtlo,mflo")
    (set_attr "compression" "all,micromips,*,micromips,*,micromips,*,*,*")
    (set_attr "mode" "QI")])
@@ -4922,7 +4922,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], QImode)
        || register_operand (operands[1], QImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,const,constN,load,store,mflo")
    (set_attr "mode" "QI")])
 
@@ -4968,7 +4968,7 @@
   [(set (match_operand:CCF 0 "nonimmediate_operand" "=f,f,m")
 	(match_operand:CCF 1 "nonimmediate_operand" "f,m,f"))]
   "ISA_HAS_CCF"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,fpload,fpstore")])
 
 (define_insn "*movsf_hardfloat"
@@ -4977,7 +4977,7 @@
   "TARGET_HARD_FLOAT
    && (register_operand (operands[0], SFmode)
        || reg_or_0_operand (operands[1], SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,mtc,fpload,fpstore,store,mtc,mfc,move,load,store")
    (set_attr "mode" "SF")])
 
@@ -4987,7 +4987,7 @@
   "TARGET_SOFT_FLOAT && !TARGET_MIPS16
    && (register_operand (operands[0], SFmode)
        || reg_or_0_operand (operands[1], SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,load,store")
    (set_attr "mode" "SF")])
 
@@ -4997,7 +4997,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], SFmode)
        || register_operand (operands[1], SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,load,store")
    (set_attr "mode" "SF")])
 
@@ -5018,7 +5018,7 @@
   "TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,mtc,fpload,fpstore,store,mtc,mfc,move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5028,7 +5028,7 @@
   "(TARGET_SOFT_FLOAT || TARGET_SINGLE_FLOAT) && !TARGET_MIPS16
    && (register_operand (operands[0], DFmode)
        || reg_or_0_operand (operands[1], DFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5038,7 +5038,7 @@
   "TARGET_MIPS16
    && (register_operand (operands[0], DFmode)
        || register_operand (operands[1], DFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,move,move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5060,7 +5060,7 @@
    && !TARGET_MIPS16
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "move,const,load,store,imul,mtlo,mflo")
    (set (attr "mode")
    	(if_then_else (eq_attr "move_type" "imul")
@@ -5165,7 +5165,7 @@
    && TARGET_PAIRED_SINGLE_FLOAT
    && (register_operand (operands[0], V2SFmode)
        || reg_or_0_operand (operands[1], V2SFmode))"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,mtc,fpload,fpstore,store,mtc,mfc,move,load,store")
    (set_attr "mode" "DF")])
 
@@ -5246,7 +5246,7 @@
   "TARGET_HARD_FLOAT"
 {
   operands[0] = mips_subword (operands[0], 0);
-  return mips_output_move (operands[0], operands[1]);
+  return mips_output_move (insn, operands[0], operands[1]);
 }
   [(set_attr "move_type" "mtc,fpload")
    (set_attr "mode" "<HALFMODE>")])
@@ -5261,7 +5261,7 @@
   "TARGET_HARD_FLOAT"
 {
   operands[0] = mips_subword (operands[0], 1);
-  return mips_output_move (operands[0], operands[1]);
+  return mips_output_move (insn, operands[0], operands[1]);
 }
   [(set_attr "move_type" "mtc,fpload")
    (set_attr "mode" "<HALFMODE>")])
@@ -5276,7 +5276,7 @@
   "TARGET_HARD_FLOAT"
 {
   operands[1] = mips_subword (operands[1], INTVAL (operands[2]));
-  return mips_output_move (operands[0], operands[1]);
+  return mips_output_move (insn, operands[0], operands[1]);
 }
   [(set_attr "move_type" "mfc,fpstore")
    (set_attr "mode" "<HALFMODE>")])
@@ -6635,7 +6635,7 @@
 	(unspec_volatile:SI [(match_operand:SI 1 "register_operand" "d,B")]
 			    UNSPEC_COP0))]
   ""
-{ return mips_output_move (operands[0], operands[1]); }
+{ return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "type"	"mtc,mfc")
    (set_attr "mode"	"SI")])
 
@@ -7530,13 +7530,13 @@
     bool load_p = (which_alternative == 0 || which_alternative == 1);
     if (!load_p || !reg_overlap_mentioned_p (operands[0], operands[1]))
       {
-	output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
-	output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
+	output_asm_insn (mips_output_move (insn, operands[0], operands[1]), operands);
+	output_asm_insn (mips_output_move (insn, operands[2], operands[3]), &operands[2]);
       }
     else
       {
-	output_asm_insn (mips_output_move (operands[2], operands[3]), &operands[2]);
-	output_asm_insn (mips_output_move (operands[0], operands[1]), operands);
+	output_asm_insn (mips_output_move (insn, operands[2], operands[3]), &operands[2]);
+	output_asm_insn (mips_output_move (insn, operands[0], operands[1]), operands);
       }
     return "";
   }

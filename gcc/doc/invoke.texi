@@ -796,6 +796,7 @@ Objective-C and Objective-C++ Dialects}.
 -membedded-data  -mno-embedded-data @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -mcode-readable=@var{setting} @gol
+-mdead-loads -mno-dead-loads @gol
 -msplit-addresses  -mno-split-addresses @gol
 -mexplicit-relocs  -mno-explicit-relocs @gol
 -mcheck-zero-division  -mno-check-zero-division @gol
@@ -17723,6 +17724,18 @@ useful on targets that are configured to have a dual instruction/data
 SRAM interface but that (unlike the M4K) do not automatically redirect
 PC-relative loads to the instruction RAM.
 @end table
+
+@item -mdead-loads
+@itemx -mno-dead-loads
+@opindex mdead-loads
+@opindex mno-dead-loads
+Apply (do not apply) special handling to avoid output dependency stalls
+for volatile loads where the result is unused.  Volatile loads tend
+to be high latency as they represent access to special data or hardware.
+When the result of such a load is unused then there may be an output
+dependency stall if the result register is reused soon after the load.
+For MIPS32 a dead load will be redirected to @code{$0} to avoid the output
+dependency.
 
 @item -msplit-addresses
 @itemx -mno-split-addresses
