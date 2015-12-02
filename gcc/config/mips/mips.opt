@@ -609,3 +609,7 @@ Allow inlining even if the compression flags differ between caller and callee
 msdata-num=
 Target RejectNegative Joined UInteger Var(mips_sdata_section_num) Init(-1)
 Place all gp relative data in sdata section number NUM
+
+mdead-loads
+Target Var(TARGET_DEAD_LOADS) Init(0)
+Redirect dead loads to $0 to avoid spurious output dependencies

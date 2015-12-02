@@ -5314,7 +5314,7 @@ mips_constant_pool_symbol_in_sdata (rtx x, enum mips_symbol_context context)
 }
 
 const char *
-mips_output_move (rtx dest, rtx src)
+mips_output_move (rtx insn, rtx dest, rtx src)
 {
   enum rtx_code dest_code = GET_CODE (dest);
   enum rtx_code src_code = GET_CODE (src);
@@ -5442,14 +5442,28 @@ mips_output_move (rtx dest, rtx src)
 	}
 
       if (src_code == MEM)
-	switch (GET_MODE_SIZE (mode))
-	  {
-	  case 1: return "lbu\t%0,%1";
-	  case 2: return "lhu\t%0,%1";
-	  case 4: return "lw\t%0,%1";
-	  case 8: return "ld\t%0,%1";
-	  default: gcc_unreachable ();
-	  }
+	{
+	  if (TARGET_DEAD_LOADS
+	      && MEM_VOLATILE_P (src)
+	      && find_regno_note (insn, REG_UNUSED, REGNO (dest)))
+	    switch (GET_MODE_SIZE (mode))
+	      {
+	      case 1: return "lbu\t$0,%1";
+	      case 2: return "lhu\t$0,%1";
+	      case 4: return "lw\t$0,%1";
+	      case 8: return "ld\t$0,%1";
+	      default: gcc_unreachable ();
+	      }
+	  else
+	    switch (GET_MODE_SIZE (mode))
+	      {
+	      case 1: return "lbu\t%0,%1";
+	      case 2: return "lhu\t%0,%1";
+	      case 4: return "lw\t%0,%1";
+	      case 8: return "ld\t%0,%1";
+	      default: gcc_unreachable ();
+	      }
+	}
 
       if (src_code == CONST_INT)
 	{
