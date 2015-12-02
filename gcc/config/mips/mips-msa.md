@@ -898,7 +898,7 @@
   [(set (match_operand:MSA 0 "nonimmediate_operand" "=f,f,R,*d,*f")
 	(match_operand:MSA 1 "move_operand" "fYGYI,R,f,*f,*d"))]
   "TARGET_MSA"
-{ return mips_output_move (operands[0], operands[1]); }
+{ return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fmove,fpload,fpstore,mfc,mtc")
    (set_attr "mode" "TI")])
 
