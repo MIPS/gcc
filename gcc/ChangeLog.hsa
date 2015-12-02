@@ -1,5 +1,10 @@
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (expand_builtins): New function.
+	(pass_gen_hsail::execute): Call the function.
+
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-brig.c (emit_srctype_insn): New function.
 	(emit_insn): Call the function for hsa_insn_srctype.
 	* hsa-gen.c (hsa_init_data_for_cfun): Allocate a new

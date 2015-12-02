@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "gomp-constants.h"
 #include "internal-fn.h"
+#include "builtins.h"
 
 /* Print a warning message and set that we have seen an error.  */
 
@@ -5961,6 +5962,75 @@ convert_switch_statements ()
     }
 }
 
+/* Expand builtins that can't be handled by HSA back-end.  */
+
+static void
+expand_builtins ()
+{
+  function *func = DECL_STRUCT_FUNCTION (current_function_decl);
+  basic_block bb;
+
+  FOR_EACH_BB_FN (bb, func)
+  {
+    for (gimple_stmt_iterator gsi = gsi_start_bb (bb); !gsi_end_p (gsi);
+	 gsi_next (&gsi))
+      {
+	gimple *stmt = gsi_stmt (gsi);
+
+	if (gimple_code (stmt) != GIMPLE_CALL)
+	  continue;
+
+	gcall *call = as_a <gcall *> (stmt);
+
+	if (!gimple_call_builtin_p (call, BUILT_IN_NORMAL))
+	  continue;
+
+	tree fndecl = gimple_call_fndecl (stmt);
+	enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
+	switch (fn)
+	  {
+	  case BUILT_IN_CEXPF:
+	  case BUILT_IN_CEXPIF:
+	  case BUILT_IN_CEXPI:
+	    {
+	      /* Similar to builtins.c (expand_builtin_cexpi), the builtin
+		 can be transformed to: cexp(I * z) = ccos(z) + I * csin(z).  */
+	      tree lhs = gimple_call_lhs (stmt);
+	      tree rhs = gimple_call_arg (stmt, 0);
+	      tree rhs_type = TREE_TYPE (rhs);
+	      bool float_type_p = rhs_type == float_type_node;
+	      tree real_part = make_temp_ssa_name (rhs_type, NULL,
+						   "cexp_real_part");
+	      tree imag_part = make_temp_ssa_name (rhs_type, NULL,
+						   "cexp_imag_part");
+
+	      tree cos_fndecl = mathfn_built_in
+		(rhs_type, fn == float_type_p ? BUILT_IN_COSF : BUILT_IN_COS);
+	      gcall *cos = gimple_build_call (cos_fndecl, 1, rhs);
+	      gimple_call_set_lhs (cos, real_part);
+	      gsi_insert_before (&gsi, cos, GSI_SAME_STMT);
+
+	      tree sin_fndecl = mathfn_built_in
+		(rhs_type, fn == float_type_p ? BUILT_IN_SINF : BUILT_IN_SIN);
+	      gcall *sin = gimple_build_call (sin_fndecl, 1, rhs);
+	      gimple_call_set_lhs (sin, imag_part);
+	      gsi_insert_before (&gsi, sin, GSI_SAME_STMT);
+
+
+	      gassign *assign = gimple_build_assign (lhs, COMPLEX_EXPR,
+						     real_part, imag_part);
+	      gsi_insert_before (&gsi, assign, GSI_SAME_STMT);
+	      gsi_remove (&gsi, true);
+
+	      break;
+	    }
+	  default:
+	    break;
+	  }
+      }
+  }
+}
+
 /* Emit HSA module variables that are global for the entire module.  */
 
 static void
@@ -6094,6 +6164,7 @@ pass_gen_hsail::execute (function *)
     (cgraph_node::get_create (current_function_decl));
 
   convert_switch_statements ();
+  expand_builtins ();
   generate_hsa (s->m_kind == HSA_KERNEL);
   TREE_ASM_WRITTEN (current_function_decl) = 1;
   return TODO_discard_function;
