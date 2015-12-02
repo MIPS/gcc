@@ -445,6 +445,13 @@ struct GTY(())  machine_function {
   /* True if this is an interrupt handler that should use DERET
      instead of ERET.  */
   bool use_debug_exception_return_p;
+
+  /* True if mips_set_current_function has checked the cfun's attributes
+     for correctness to avoid multiple diagnoses.  */
+  bool code_readable_initialized;
+
+  /* The code_read setting for the current cfun.  */
+  enum mips_code_readable_setting code_readable_setting;
 };
 
 /* Information about a single argument.  */
@@ -614,6 +621,8 @@ static int mips_base_target_flags;
 /* The default compression mode.  */
 unsigned int mips_base_compression_flags;
 
+enum mips_code_readable_setting mips_base_code_readable;
+
 /* The ambient values of other global variables.  */
 static int mips_base_schedule_insns; /* flag_schedule_insns */
 static int mips_base_reorder_blocks_and_partition; /* flag_reorder... */
@@ -731,6 +740,7 @@ static const struct attribute_spec mips_attribute_table[] = {
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
+  { "code_readable", 0, 1, true,  false, false, NULL, false },
   /* Allow functions to be specified as interrupt handlers */
   { "interrupt",   0, 0, false, true,  true, NULL, false },
   { "use_shadow_register_set",	0, 0, false, true,  true, NULL, false },
@@ -1380,6 +1390,67 @@ mips_use_debug_exception_return_p (tree type)
 {
   return lookup_attribute ("use_debug_exception_return",
 			   TYPE_ATTRIBUTES (type)) != NULL;
+}
+
+/* Check if the attribute code_readable is set for a function.  */
+
+static bool
+mips_fn_has_code_readable_attr_p (tree decl)
+{
+  return lookup_attribute ("code_readable", DECL_ATTRIBUTES (decl));
+}
+
+/* Determine the code_readable setting for a function if it has one.  Set
+   *valid to true if we have a properly formed argument and
+   return the result. If there's no argument, return GCC's default.
+   Otherwise, leave valid false and return mips_base_code_readable.  In
+   that case the result should be unused anyway.  */
+
+static enum mips_code_readable_setting
+mips_get_code_readable_attr (tree decl, bool *valid)
+{
+  tree attr = lookup_attribute ("code_readable", DECL_ATTRIBUTES (decl));
+  if (attr != NULL)
+    {
+      if (TREE_VALUE (attr) != NULL_TREE)
+        {
+          if (TREE_CODE (TREE_VALUE (TREE_VALUE (attr))) != STRING_CST)
+	    return CODE_READABLE_NO;
+	  else
+	    {
+	      const char * str
+			= TREE_STRING_POINTER (TREE_VALUE (TREE_VALUE (attr)));
+	      if (strcmp (str, "no") == 0)
+		{
+		  *valid = true;
+		  return CODE_READABLE_NO;
+		}
+	      else if (strcmp (str, "pcrel") == 0)
+		{
+		  *valid = true;
+		  return CODE_READABLE_PCREL;
+		}
+	      else if (strcmp (str, "yes") == 0)
+		{
+		  *valid = true;
+		  return CODE_READABLE_YES;
+		}
+	      else
+		  return mips_base_code_readable;
+	    }
+        }
+      else
+	{
+	  /* Just like GCC's default -mcode-readable= setting, the
+	     presence of the code_readable attribute implies that a
+	     function can read data from the instruction stream by
+	     default.  */
+	  *valid = true;
+	  return CODE_READABLE_YES;
+	}
+    }
+  else
+    return mips_base_code_readable;
 }
 
 /* Return the set of compression modes that are explicitly required
@@ -18936,6 +19007,7 @@ mips_output_mi_thunk (FILE *file, tree thunk_fndecl ATTRIBUTE_UNUSED,
 /* The last argument passed to mips_set_compression_mode,
    or negative if the function hasn't been called yet.  */
 static unsigned int old_compression_mode = -1;
+static enum mips_code_readable_setting old_mips_code_readable = CODE_READABLE_NO;
 
 /* Set up the target-dependent global state for ISA mode COMPRESSION_MODE,
    which is either MASK_MIPS16 or MASK_MICROMIPS.  */
@@ -18944,7 +19016,8 @@ static void
 mips_set_compression_mode (unsigned int compression_mode)
 {
 
-  if (compression_mode == old_compression_mode)
+  if (compression_mode == old_compression_mode
+      && mips_code_readable == old_mips_code_readable)
     return;
 
   /* Restore base settings of various flags.  */
@@ -19052,16 +19125,63 @@ mips_set_compression_mode (unsigned int compression_mode)
     restore_target_globals (&default_target_globals);
 
   old_compression_mode = compression_mode;
+  old_mips_code_readable = mips_code_readable;
 }
 
 /* Implement TARGET_SET_CURRENT_FUNCTION.  Decide whether the current
    function should use the MIPS16 or microMIPS ISA and switch modes
-   accordingly.  */
+   accordingly.  Also set(up) the current code_readable mode.*/
 
 static void
 mips_set_current_function (tree fndecl)
 {
+
+  mips_code_readable = mips_base_code_readable;
   mips_set_compression_mode (mips_get_compress_mode (fndecl));
+
+  if (fndecl
+      && cfun->machine
+      && cfun->machine->code_readable_initialized)
+    mips_code_readable = cfun->machine->code_readable_setting;
+  else if (fndecl
+	   && cfun->machine
+	   && mips_fn_has_code_readable_attr_p (fndecl))
+    {
+      bool valid = false;
+      enum mips_code_readable_setting set;
+      set = mips_get_code_readable_attr (fndecl, &valid);
+
+      if (!valid)
+	{
+	  set = mips_base_code_readable;
+	  error ("code_readable argument is not one of 'yes', 'no' or"
+	         " 'pcrel'");
+	}
+
+      if (valid
+	  && set == CODE_READABLE_PCREL
+	  && !TARGET_MIPS16
+	  && !TARGET_MICROMIPS
+	  && !ISA_MIPS64R6
+	  && !ISA_MIPS32R6)
+	{
+	  set = mips_base_code_readable;
+	  error ("cannot use 'pcrel' with instruction sets without pc relative"
+		 " addressing");
+	}
+
+      cfun->machine->code_readable_setting = set;
+      cfun->machine->code_readable_initialized = true;
+      mips_code_readable = cfun->machine->code_readable_setting;
+    }
+
+    /* Since the mips_code_readable setting has potientially changed, the
+       relocation tables must be reinitialized.  Otherwise GCC will not
+       split symbols for functions that are code_readable ("no") when others
+       are code_readable ("yes") and ICE later on in places such as
+       mips_emit_move.  Ditto for similar paired cases.  It must be restored
+       to its previous state as well.  */
+    mips_init_relocs();
 }
 
 /* Allocate a chunk of memory for per-function machine-dependent data.  */
@@ -19184,6 +19304,7 @@ mips_option_override (void)
   /* Save the base compression state and process flags as though we
      were generating uncompressed code.  */
   mips_base_compression_flags = TARGET_COMPRESSION;
+  mips_base_code_readable = mips_code_readable;
   target_flags &= ~TARGET_COMPRESSION;
 
   /* -mno-float overrides -mhard-float and -msoft-float.  */
