@@ -278,6 +278,7 @@ struct mips_cpu_info {
 				     || mips_tune == PROCESSOR_74KF2_1	\
 				     || mips_tune == PROCESSOR_74KF1_1  \
 				     || mips_tune == PROCESSOR_74KF3_2)
+#define TUNE_INTERAPTIV		    (mips_tune == PROCESSOR_INTERAPTIV)
 #define TUNE_LOONGSON_2EF           (mips_tune == PROCESSOR_LOONGSON_2E	\
 				     || mips_tune == PROCESSOR_LOONGSON_2F)
 #define TUNE_LOONGSON_3A            (mips_tune == PROCESSOR_LOONGSON_3A)
@@ -342,6 +343,7 @@ struct mips_cpu_info {
 				     || TUNE_MIPS4120		\
 				     || TUNE_MIPS4130		\
 				     || TUNE_24K		\
+				     || TUNE_INTERAPTIV		\
 				     || TUNE_P5600)
 
 #define TARGET_OLDABI		    (mips_abi == ABI_32 || mips_abi == ABI_O64)
@@ -762,9 +764,8 @@ struct mips_cpu_info {
        |march=r10000|march=r12000|march=r14000|march=r16000:-mips4} \
      %{march=mips32|march=4kc|march=4km|march=4kp|march=4ksc:-mips32} \
      %{march=mips32r2|march=m4k|march=4ke*|march=4ksd|march=24k* \
-       |march=34k*|march=74k*|march=m14k*|march=1004k* \
-       |march=interaptiv: -mips32r2} \
-     %{march=mips32r3: -mips32r3} \
+       |march=34k*|march=74k*|march=m14k*|march=1004k*:-mips32r2} \
+     %{march=mips32r3|march=interaptiv:-mips32r3} \
      %{march=mips32r5|march=p5600: -mips32r5} \
      %{march=mips32r6: -mips32r6} \
      %{march=mips64|march=5k*|march=20k*|march=sb1*|march=sr71000 \

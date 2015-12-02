@@ -35,6 +35,7 @@
   74kf2_1
   74kf1_1
   74kf3_2
+  interaptiv
   loongson_2e
   loongson_2f
   loongson_3a
@@ -221,12 +222,20 @@
 ;; the split instructions; in some cases, it is more appropriate for the
 ;; scheduling type to be "multi" instead.
 (define_attr "move_type"
-  "unknown,load,fpload,store,fpstore,mtc,mfc,mtlo,mflo,imul,move,fmove,
-   const,constN,signext,ext_ins,logical,arith,sll0,andi,loadpool,
+  "unknown,load,fpload,store,fpstore,mtc,mfc,ctc,cfc,mtlo,mflo,imul,rdhwr,
+   move,fmove,const,constN,signext,ext_ins,logical,arith,sll0,andi,loadpool,
    shift_shift"
   (const_string "unknown"))
 
 (define_attr "alu_type" "unknown,add,sub,not,nor,and,or,xor"
+  (const_string "unknown"))
+
+;; Conditional move condition types.  Also used for branches.
+(define_attr "cond_type" "unknown,gpr,fcc,fpr"
+  (const_string "unknown"))
+
+;; Integer division types.
+(define_attr "idiv_type" "unknown,div,udiv"
   (const_string "unknown"))
 
 ;; Main data type used by the insn
@@ -309,6 +318,7 @@
 ;; jump		unconditional jump
 ;; call		unconditional call
 ;; load		load instruction(s)
+;; idxload	indexed load instruction(s)
 ;; fpload	floating point load
 ;; fpidxload    floating point indexed load
 ;; store	store instruction(s)
@@ -319,10 +329,13 @@
 ;; condmove	conditional moves
 ;; mtc		transfer to coprocessor
 ;; mfc		transfer from coprocessor
+;; ctc		control to coprocessor
+;; cfc		control from coprocessor
 ;; mthi		transfer to a hi register
 ;; mtlo		transfer to a lo register
 ;; mfhi		transfer from a hi register
 ;; mflo		transfer from a lo register
+;; rdhwr	the rdhwr instruction
 ;; const	load constant
 ;; arith	integer arithmetic instructions
 ;; logical      integer logical instructions
@@ -368,12 +381,12 @@
 ;; ghost	an instruction that produces no real code
 ;; multimem	microMIPS multiword load and store
 (define_attr "type"
-  "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,
-   prefetch,prefetchx,condmove,mtc,mfc,mthi,mtlo,mfhi,mflo,const,arith,logical,
-   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
-   fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
-   frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,accext,accmod,dspalu,dspalusat,
-   multi,atomic,syncloop,nop,ghost,multimem"
+  "unknown,branch,jump,call,load,idxload,fpload,fpidxload,store,fpstore,
+   fpidxstore,prefetch,prefetchx,condmove,mtc,mfc,ctc,cfc,mthi,mtlo,mfhi,
+   mflo,rdhwr,const,arith,logical,shift,slt,signext,clz,pop,trap,imul,imul3,
+   imul3nc,imadd,idiv,idiv3,move,fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,
+   frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,
+   accext, accmod,dspalu,dspalusat,multi,atomic,syncloop,nop,ghost,multimem"
   (cond [(eq_attr "jal" "!unset") (const_string "call")
 	 (eq_attr "got" "load") (const_string "load")
 
@@ -390,6 +403,8 @@
 	 (eq_attr "move_type" "fpstore") (const_string "fpstore")
 	 (eq_attr "move_type" "mtc") (const_string "mtc")
 	 (eq_attr "move_type" "mfc") (const_string "mfc")
+	 (eq_attr "move_type" "ctc") (const_string "ctc")
+	 (eq_attr "move_type" "cfc") (const_string "cfc")
 	 (eq_attr "move_type" "mtlo") (const_string "mtlo")
 	 (eq_attr "move_type" "mflo") (const_string "mflo")
 
@@ -725,7 +740,7 @@
 ;; of this one.  HILO means that the next two instructions cannot
 ;; write to HI or LO.
 (define_attr "hazard" "none,delay,hilo,forbidden_slot"
-  (cond [(and (eq_attr "type" "load,fpload,fpidxload")
+  (cond [(and (eq_attr "type" "load,idxload,fpload,fpidxload")
 	      (match_test "ISA_HAS_LOAD_DELAY"))
 	 (const_string "delay")
 
@@ -900,6 +915,9 @@
 ;; This attribute gives the best constraint to use for registers of
 ;; a given mode.
 (define_mode_attr reg [(SI "d") (DI "d") (CC "z") (CCF "f")])
+
+;; This attribute gives the conditional move condition type.
+(define_mode_attr ctype [(SI "gpr") (DI "gpr") (CC "fcc") (CCF "fpr")])
 
 ;; This attribute gives the format suffix for floating-point operations.
 (define_mode_attr fmt [(SF "s") (DF "d") (V2SF "ps")])
@@ -1152,6 +1170,7 @@
 (include "7000.md")
 (include "9000.md")
 (include "10000.md")
+(include "interaptiv.md")
 (include "loongson2ef.md")
 (include "loongson3a.md")
 (include "octeon.md")
@@ -2926,6 +2945,7 @@
   "ISA_HAS_<GPR:D>DIV"
   { return mips_output_division ("<GPR:d>div<u>\t%.,%1,%2", operands); }
   [(set_attr "type" "idiv")
+   (set_attr "idiv_type" "<u>div")
    (set_attr "mode" "<GPR:MODE>")])
 
 ;; Integer division and modulus.
@@ -4919,7 +4939,7 @@
 		  (match_operand:P 2 "register_operand" "d"))))]
   "ISA_HAS_LWXS"
   "lwxs\t%0,%1(%2)"
-  [(set_attr "type"	"load")
+  [(set_attr "type"	"idxload")
    (set_attr "mode"	"SI")])
 
 ;; 16-bit Integer moves
@@ -5585,7 +5605,9 @@
         (unspec_volatile [(const_int 1)]
         UNSPEC_RDHWR))]
   "ISA_HAS_SYNCI"
-  "rdhwr\t%0,$1")
+  "rdhwr\t%0,$1"
+  [(set_attr "move_type" "rdhwr")
+   (set_attr "mode" "<MODE>")])
 
 (define_insn "clear_hazard_<mode>"
   [(unspec_volatile [(const_int 0)] UNSPEC_CLEAR_HAZARD)
@@ -5906,7 +5928,8 @@
 					 MIPS_BRANCH ("b%F1", "%Z2%0"),
 					 MIPS_BRANCH ("b%W1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "cond_type" "fcc")])
 
 (define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
@@ -5922,7 +5945,8 @@
 					 MIPS_BRANCH ("b%W1", "%Z2%0"),
 					 MIPS_BRANCH ("b%F1", "%Z2%0"));
 }
-  [(set_attr "type" "branch")])
+  [(set_attr "type" "branch")
+   (set_attr "cond_type" "fcc")])
 
 ;; Conditional branches on ordered comparisons with zero.
 
@@ -7266,6 +7290,7 @@
     mov%T4\t%0,%z2,%1
     mov%t4\t%0,%z3,%1"
   [(set_attr "type" "condmove")
+   (set_attr "cond_type" "<MOVECC:ctype>")
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*mov<GPR:mode>_on_<GPR2:mode>_ne"
@@ -7279,6 +7304,7 @@
     movn\t%0,%z2,%1
     movz\t%0,%z3,%1"
   [(set_attr "type" "condmove")
+   (set_attr "cond_type" "gpr")
    (set_attr "mode" "<GPR:MODE>")])
 
 (define_insn "*mov<SCALARF:mode>_on_<MOVECC:mode>"
@@ -7294,6 +7320,7 @@
     mov%T4.<fmt>\t%0,%2,%1
     mov%t4.<fmt>\t%0,%3,%1"
   [(set_attr "type" "condmove")
+   (set_attr "cond_type" "<MOVECC:ctype>")
    (set_attr "mode" "<SCALARF:MODE>")])
 
 (define_insn "*sel<code><GPR:mode>_using_<GPR2:mode>"
@@ -7310,6 +7337,7 @@
    <sel>\t%0,%2,%1
    <selinv>\t%0,%3,%1"
   [(set_attr "type" "condmove")
+   (set_attr "cond_type" "gpr")
    (set_attr "mode" "<GPR:MODE>")])
 
 ;; sel.fmt copies the 3rd argument when the 1st is non-zero and the 2nd
@@ -7329,6 +7357,7 @@
    seleqz.<fmt>\t%0,%3,%1
    selnez.<fmt>\t%0,%2,%1"
   [(set_attr "type" "condmove")
+   (set_attr "cond_type" "fpr")
    (set_attr "mode" "<SCALARF:MODE>")])
 
 ;; These are the main define_expand's used to make conditional moves.
@@ -7492,7 +7521,7 @@
 
     return ".set\tpush\;.set\tmips32r2\t\;rdhwr\t$3,$29\;.set\tpop";
   }
-  [(set_attr "type" "unknown")
+  [(set_attr "move_type" "rdhwr")
    ; Since rdhwr always generates a trap for now, putting it in a delay
    ; slot would make the kernel's emulation of it much slower.
    (set_attr "can_delay" "no")
@@ -7567,7 +7596,9 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
   	(unspec_volatile [(const_int 0)] UNSPEC_GET_FCSR))]
   "TARGET_HARD_FLOAT"
-  "cfc1\t%0,$31")
+  "cfc1\t%0,$31"
+  [(set_attr "move_type" "cfc")
+   (set_attr "mode" "SI")])
 
 ;; See tls_get_tp_mips16_<mode> for why this form is used.
 (define_insn "mips_get_fcsr_mips16_<mode>"
@@ -7598,7 +7629,9 @@
   [(unspec_volatile [(match_operand:SI 0 "register_operand" "d")]
   		    UNSPEC_SET_FCSR)]
   "TARGET_HARD_FLOAT"
-  "ctc1\t%0,$31")
+  "ctc1\t%0,$31"
+  [(set_attr "move_type" "ctc")
+   (set_attr "mode" "SI")])
 
 ;; See tls_get_tp_mips16_<mode> for why this form is used.
 (define_insn "mips_set_fcsr_mips16_<mode>"
