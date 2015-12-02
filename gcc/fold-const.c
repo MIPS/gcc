@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "tree-into-ssa.h"
 #include "md5.h"
+#include "case-cfn-macros.h"
 
 #ifndef LOAD_EXTEND_OP
 #define LOAD_EXTEND_OP(M) UNKNOWN
@@ -313,39 +314,39 @@ fold_overflow_warning (const char* gmsgid, enum warn_strict_overflow_code wc)
    is odd, i.e. -f(x) == f(-x).  */
 
 bool
-negate_mathfn_p (enum built_in_function code)
+negate_mathfn_p (combined_fn fn)
 {
-  switch (code)
+  switch (fn)
     {
-    CASE_FLT_FN (BUILT_IN_ASIN):
-    CASE_FLT_FN (BUILT_IN_ASINH):
-    CASE_FLT_FN (BUILT_IN_ATAN):
-    CASE_FLT_FN (BUILT_IN_ATANH):
-    CASE_FLT_FN (BUILT_IN_CASIN):
-    CASE_FLT_FN (BUILT_IN_CASINH):
-    CASE_FLT_FN (BUILT_IN_CATAN):
-    CASE_FLT_FN (BUILT_IN_CATANH):
-    CASE_FLT_FN (BUILT_IN_CBRT):
-    CASE_FLT_FN (BUILT_IN_CPROJ):
-    CASE_FLT_FN (BUILT_IN_CSIN):
-    CASE_FLT_FN (BUILT_IN_CSINH):
-    CASE_FLT_FN (BUILT_IN_CTAN):
-    CASE_FLT_FN (BUILT_IN_CTANH):
-    CASE_FLT_FN (BUILT_IN_ERF):
-    CASE_FLT_FN (BUILT_IN_LLROUND):
-    CASE_FLT_FN (BUILT_IN_LROUND):
-    CASE_FLT_FN (BUILT_IN_ROUND):
-    CASE_FLT_FN (BUILT_IN_SIN):
-    CASE_FLT_FN (BUILT_IN_SINH):
-    CASE_FLT_FN (BUILT_IN_TAN):
-    CASE_FLT_FN (BUILT_IN_TANH):
-    CASE_FLT_FN (BUILT_IN_TRUNC):
+    CASE_CFN_ASIN:
+    CASE_CFN_ASINH:
+    CASE_CFN_ATAN:
+    CASE_CFN_ATANH:
+    CASE_CFN_CASIN:
+    CASE_CFN_CASINH:
+    CASE_CFN_CATAN:
+    CASE_CFN_CATANH:
+    CASE_CFN_CBRT:
+    CASE_CFN_CPROJ:
+    CASE_CFN_CSIN:
+    CASE_CFN_CSINH:
+    CASE_CFN_CTAN:
+    CASE_CFN_CTANH:
+    CASE_CFN_ERF:
+    CASE_CFN_LLROUND:
+    CASE_CFN_LROUND:
+    CASE_CFN_ROUND:
+    CASE_CFN_SIN:
+    CASE_CFN_SINH:
+    CASE_CFN_TAN:
+    CASE_CFN_TANH:
+    CASE_CFN_TRUNC:
       return true;
 
-    CASE_FLT_FN (BUILT_IN_LLRINT):
-    CASE_FLT_FN (BUILT_IN_LRINT):
-    CASE_FLT_FN (BUILT_IN_NEARBYINT):
-    CASE_FLT_FN (BUILT_IN_RINT):
+    CASE_CFN_LLRINT:
+    CASE_CFN_LRINT:
+    CASE_CFN_NEARBYINT:
+    CASE_CFN_RINT:
       return !flag_rounding_math;
 
     default:
@@ -506,7 +507,7 @@ negate_expr_p (tree t)
 
     case CALL_EXPR:
       /* Negate -f(x) as f(-x).  */
-      if (negate_mathfn_p (builtin_mathfn_code (t)))
+      if (negate_mathfn_p (get_call_combined_fn (t)))
 	return negate_expr_p (CALL_EXPR_ARG (t, 0));
       break;
 
@@ -693,7 +694,7 @@ fold_negate_expr (location_t loc, tree t)
 
     case CALL_EXPR:
       /* Negate -f(x) as f(-x).  */
-      if (negate_mathfn_p (builtin_mathfn_code (t))
+      if (negate_mathfn_p (get_call_combined_fn (t))
 	  && negate_expr_p (CALL_EXPR_ARG (t, 0)))
 	{
 	  tree fndecl, arg;
@@ -9680,13 +9681,12 @@ fold_binary_loc (location_t loc,
     case MINUS_EXPR:
       /* (-A) - B -> (-B) - A  where B is easily negated and we can swap.  */
       if (TREE_CODE (arg0) == NEGATE_EXPR
-	  && negate_expr_p (arg1)
+	  && negate_expr_p (op1)
 	  && reorder_operands_p (arg0, arg1))
 	return fold_build2_loc (loc, MINUS_EXPR, type,
-			    fold_convert_loc (loc, type,
-					      negate_expr (arg1)),
-			    fold_convert_loc (loc, type,
-					      TREE_OPERAND (arg0, 0)));
+				negate_expr (op1),
+				fold_convert_loc (loc, type,
+						  TREE_OPERAND (arg0, 0)));
 
       /* Fold __complex__ ( x, 0 ) - __complex__ ( 0, y ) to
 	 __complex__ ( x, -y ).  This is not the same for SNaNs or if
@@ -9726,17 +9726,16 @@ fold_binary_loc (location_t loc,
 	}
 
       /* A - B -> A + (-B) if B is easily negatable.  */
-      if (negate_expr_p (arg1)
-	  && !TYPE_OVERFLOW_SANITIZED (type)
+      if (negate_expr_p (op1)
+	  && ! TYPE_OVERFLOW_SANITIZED (type)
 	  && ((FLOAT_TYPE_P (type)
                /* Avoid this transformation if B is a positive REAL_CST.  */
-	       && (TREE_CODE (arg1) != REAL_CST
-		   ||  REAL_VALUE_NEGATIVE (TREE_REAL_CST (arg1))))
+	       && (TREE_CODE (op1) != REAL_CST
+		   || REAL_VALUE_NEGATIVE (TREE_REAL_CST (op1))))
 	      || INTEGRAL_TYPE_P (type)))
 	return fold_build2_loc (loc, PLUS_EXPR, type,
-			    fold_convert_loc (loc, type, arg0),
-			    fold_convert_loc (loc, type,
-					      negate_expr (arg1)));
+				fold_convert_loc (loc, type, arg0),
+				negate_expr (op1));
 
       /* Fold &a[i] - &a[j] to i-j.  */
       if (TREE_CODE (arg0) == ADDR_EXPR
@@ -9780,15 +9779,14 @@ fold_binary_loc (location_t loc,
       if (! FLOAT_TYPE_P (type))
 	{
 	  /* Transform x * -C into -x * C if x is easily negatable.  */
-	  if (TREE_CODE (arg1) == INTEGER_CST
-	      && tree_int_cst_sgn (arg1) == -1
-	      && negate_expr_p (arg0)
-	      && (tem = negate_expr (arg1)) != arg1
-	      && !TREE_OVERFLOW (tem))
+	  if (TREE_CODE (op1) == INTEGER_CST
+	      && tree_int_cst_sgn (op1) == -1
+	      && negate_expr_p (op0)
+	      && (tem = negate_expr (op1)) != op1
+	      && ! TREE_OVERFLOW (tem))
 	    return fold_build2_loc (loc, MULT_EXPR, type,
-	    			fold_convert_loc (loc, type,
-						  negate_expr (arg0)),
-				tem);
+				    fold_convert_loc (loc, type,
+						      negate_expr (op0)), tem);
 
 	  /* (A + A) * C -> A * 2 * C  */
 	  if (TREE_CODE (arg0) == PLUS_EXPR
@@ -10258,7 +10256,7 @@ fold_binary_loc (location_t loc,
 	 undefined.  */
       if ((!INTEGRAL_TYPE_P (type) || TYPE_OVERFLOW_UNDEFINED (type))
 	  && TREE_CODE (arg0) == NEGATE_EXPR
-	  && negate_expr_p (arg1))
+	  && negate_expr_p (op1))
 	{
 	  if (INTEGRAL_TYPE_P (type))
 	    fold_overflow_warning (("assuming signed overflow does not occur "
@@ -10266,14 +10264,13 @@ fold_binary_loc (location_t loc,
 				    "division"),
 				   WARN_STRICT_OVERFLOW_MISC);
 	  return fold_build2_loc (loc, code, type,
-			      fold_convert_loc (loc, type,
-						TREE_OPERAND (arg0, 0)),
-			      fold_convert_loc (loc, type,
-						negate_expr (arg1)));
+				  fold_convert_loc (loc, type,
+						    TREE_OPERAND (arg0, 0)),
+				  negate_expr (op1));
 	}
       if ((!INTEGRAL_TYPE_P (type) || TYPE_OVERFLOW_UNDEFINED (type))
 	  && TREE_CODE (arg1) == NEGATE_EXPR
-	  && negate_expr_p (arg0))
+	  && negate_expr_p (op0))
 	{
 	  if (INTEGRAL_TYPE_P (type))
 	    fold_overflow_warning (("assuming signed overflow does not occur "
@@ -10281,10 +10278,9 @@ fold_binary_loc (location_t loc,
 				    "division"),
 				   WARN_STRICT_OVERFLOW_MISC);
 	  return fold_build2_loc (loc, code, type,
-			      fold_convert_loc (loc, type,
-						negate_expr (arg0)),
-			      fold_convert_loc (loc, type,
-						TREE_OPERAND (arg1, 0)));
+				  negate_expr (op0),
+				  fold_convert_loc (loc, type,
+						    TREE_OPERAND (arg1, 0)));
 	}
 
       /* If arg0 is a multiple of arg1, then rewrite to the fastest div
@@ -12910,121 +12906,120 @@ tree_single_nonnegative_warnv_p (tree t, bool *strict_overflow_p, int depth)
    *STRICT_OVERFLOW_P.  DEPTH is the current nesting depth of the query.  */
 
 bool
-tree_call_nonnegative_warnv_p (tree type, tree fndecl, tree arg0, tree arg1,
+tree_call_nonnegative_warnv_p (tree type, combined_fn fn, tree arg0, tree arg1,
 			       bool *strict_overflow_p, int depth)
 {
-  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-    switch (DECL_FUNCTION_CODE (fndecl))
-      {
-	CASE_FLT_FN (BUILT_IN_ACOS):
-	CASE_FLT_FN (BUILT_IN_ACOSH):
-	CASE_FLT_FN (BUILT_IN_CABS):
-	CASE_FLT_FN (BUILT_IN_COSH):
-	CASE_FLT_FN (BUILT_IN_ERFC):
-	CASE_FLT_FN (BUILT_IN_EXP):
-	CASE_FLT_FN (BUILT_IN_EXP10):
-	CASE_FLT_FN (BUILT_IN_EXP2):
-	CASE_FLT_FN (BUILT_IN_FABS):
-	CASE_FLT_FN (BUILT_IN_FDIM):
-	CASE_FLT_FN (BUILT_IN_HYPOT):
-	CASE_FLT_FN (BUILT_IN_POW10):
-	CASE_INT_FN (BUILT_IN_FFS):
-	CASE_INT_FN (BUILT_IN_PARITY):
-	CASE_INT_FN (BUILT_IN_POPCOUNT):
-	CASE_INT_FN (BUILT_IN_CLZ):
-	CASE_INT_FN (BUILT_IN_CLRSB):
-      case BUILT_IN_BSWAP32:
-      case BUILT_IN_BSWAP64:
-	/* Always true.  */
+  switch (fn)
+    {
+    CASE_CFN_ACOS:
+    CASE_CFN_ACOSH:
+    CASE_CFN_CABS:
+    CASE_CFN_COSH:
+    CASE_CFN_ERFC:
+    CASE_CFN_EXP:
+    CASE_CFN_EXP10:
+    CASE_CFN_EXP2:
+    CASE_CFN_FABS:
+    CASE_CFN_FDIM:
+    CASE_CFN_HYPOT:
+    CASE_CFN_POW10:
+    CASE_CFN_FFS:
+    CASE_CFN_PARITY:
+    CASE_CFN_POPCOUNT:
+    CASE_CFN_CLZ:
+    CASE_CFN_CLRSB:
+    case CFN_BUILT_IN_BSWAP32:
+    case CFN_BUILT_IN_BSWAP64:
+      /* Always true.  */
+      return true;
+
+    CASE_CFN_SQRT:
+      /* sqrt(-0.0) is -0.0.  */
+      if (!HONOR_SIGNED_ZEROS (element_mode (type)))
 	return true;
+      return RECURSE (arg0);
 
-	CASE_FLT_FN (BUILT_IN_SQRT):
-	/* sqrt(-0.0) is -0.0.  */
-	if (!HONOR_SIGNED_ZEROS (element_mode (type)))
-	  return true;
-	return RECURSE (arg0);
+    CASE_CFN_ASINH:
+    CASE_CFN_ATAN:
+    CASE_CFN_ATANH:
+    CASE_CFN_CBRT:
+    CASE_CFN_CEIL:
+    CASE_CFN_ERF:
+    CASE_CFN_EXPM1:
+    CASE_CFN_FLOOR:
+    CASE_CFN_FMOD:
+    CASE_CFN_FREXP:
+    CASE_CFN_ICEIL:
+    CASE_CFN_IFLOOR:
+    CASE_CFN_IRINT:
+    CASE_CFN_IROUND:
+    CASE_CFN_LCEIL:
+    CASE_CFN_LDEXP:
+    CASE_CFN_LFLOOR:
+    CASE_CFN_LLCEIL:
+    CASE_CFN_LLFLOOR:
+    CASE_CFN_LLRINT:
+    CASE_CFN_LLROUND:
+    CASE_CFN_LRINT:
+    CASE_CFN_LROUND:
+    CASE_CFN_MODF:
+    CASE_CFN_NEARBYINT:
+    CASE_CFN_RINT:
+    CASE_CFN_ROUND:
+    CASE_CFN_SCALB:
+    CASE_CFN_SCALBLN:
+    CASE_CFN_SCALBN:
+    CASE_CFN_SIGNBIT:
+    CASE_CFN_SIGNIFICAND:
+    CASE_CFN_SINH:
+    CASE_CFN_TANH:
+    CASE_CFN_TRUNC:
+      /* True if the 1st argument is nonnegative.  */
+      return RECURSE (arg0);
 
-	CASE_FLT_FN (BUILT_IN_ASINH):
-	CASE_FLT_FN (BUILT_IN_ATAN):
-	CASE_FLT_FN (BUILT_IN_ATANH):
-	CASE_FLT_FN (BUILT_IN_CBRT):
-	CASE_FLT_FN (BUILT_IN_CEIL):
-	CASE_FLT_FN (BUILT_IN_ERF):
-	CASE_FLT_FN (BUILT_IN_EXPM1):
-	CASE_FLT_FN (BUILT_IN_FLOOR):
-	CASE_FLT_FN (BUILT_IN_FMOD):
-	CASE_FLT_FN (BUILT_IN_FREXP):
-	CASE_FLT_FN (BUILT_IN_ICEIL):
-	CASE_FLT_FN (BUILT_IN_IFLOOR):
-	CASE_FLT_FN (BUILT_IN_IRINT):
-	CASE_FLT_FN (BUILT_IN_IROUND):
-	CASE_FLT_FN (BUILT_IN_LCEIL):
-	CASE_FLT_FN (BUILT_IN_LDEXP):
-	CASE_FLT_FN (BUILT_IN_LFLOOR):
-	CASE_FLT_FN (BUILT_IN_LLCEIL):
-	CASE_FLT_FN (BUILT_IN_LLFLOOR):
-	CASE_FLT_FN (BUILT_IN_LLRINT):
-	CASE_FLT_FN (BUILT_IN_LLROUND):
-	CASE_FLT_FN (BUILT_IN_LRINT):
-	CASE_FLT_FN (BUILT_IN_LROUND):
-	CASE_FLT_FN (BUILT_IN_MODF):
-	CASE_FLT_FN (BUILT_IN_NEARBYINT):
-	CASE_FLT_FN (BUILT_IN_RINT):
-	CASE_FLT_FN (BUILT_IN_ROUND):
-	CASE_FLT_FN (BUILT_IN_SCALB):
-	CASE_FLT_FN (BUILT_IN_SCALBLN):
-	CASE_FLT_FN (BUILT_IN_SCALBN):
-	CASE_FLT_FN (BUILT_IN_SIGNBIT):
-	CASE_FLT_FN (BUILT_IN_SIGNIFICAND):
-	CASE_FLT_FN (BUILT_IN_SINH):
-	CASE_FLT_FN (BUILT_IN_TANH):
-	CASE_FLT_FN (BUILT_IN_TRUNC):
-	/* True if the 1st argument is nonnegative.  */
-	return RECURSE (arg0);
+    CASE_CFN_FMAX:
+      /* True if the 1st OR 2nd arguments are nonnegative.  */
+      return RECURSE (arg0) || RECURSE (arg1);
 
-	CASE_FLT_FN (BUILT_IN_FMAX):
-	/* True if the 1st OR 2nd arguments are nonnegative.  */
-	return RECURSE (arg0) || RECURSE (arg1);
+    CASE_CFN_FMIN:
+      /* True if the 1st AND 2nd arguments are nonnegative.  */
+      return RECURSE (arg0) && RECURSE (arg1);
 
-	CASE_FLT_FN (BUILT_IN_FMIN):
-	/* True if the 1st AND 2nd arguments are nonnegative.  */
-	return RECURSE (arg0) && RECURSE (arg1);
+    CASE_CFN_COPYSIGN:
+      /* True if the 2nd argument is nonnegative.  */
+      return RECURSE (arg1);
 
-	CASE_FLT_FN (BUILT_IN_COPYSIGN):
-	/* True if the 2nd argument is nonnegative.  */
-	return RECURSE (arg1);
+    CASE_CFN_POWI:
+      /* True if the 1st argument is nonnegative or the second
+	 argument is an even integer.  */
+      if (TREE_CODE (arg1) == INTEGER_CST
+	  && (TREE_INT_CST_LOW (arg1) & 1) == 0)
+	return true;
+      return RECURSE (arg0);
 
-	CASE_FLT_FN (BUILT_IN_POWI):
-	/* True if the 1st argument is nonnegative or the second
-	   argument is an even integer.  */
-	if (TREE_CODE (arg1) == INTEGER_CST
-	    && (TREE_INT_CST_LOW (arg1) & 1) == 0)
-	  return true;
-	return RECURSE (arg0);
+    CASE_CFN_POW:
+      /* True if the 1st argument is nonnegative or the second
+	 argument is an even integer valued real.  */
+      if (TREE_CODE (arg1) == REAL_CST)
+	{
+	  REAL_VALUE_TYPE c;
+	  HOST_WIDE_INT n;
 
-	CASE_FLT_FN (BUILT_IN_POW):
-	/* True if the 1st argument is nonnegative or the second
-	   argument is an even integer valued real.  */
-	if (TREE_CODE (arg1) == REAL_CST)
-	  {
-	    REAL_VALUE_TYPE c;
-	    HOST_WIDE_INT n;
+	  c = TREE_REAL_CST (arg1);
+	  n = real_to_integer (&c);
+	  if ((n & 1) == 0)
+	    {
+	      REAL_VALUE_TYPE cint;
+	      real_from_integer (&cint, VOIDmode, n, SIGNED);
+	      if (real_identical (&c, &cint))
+		return true;
+	    }
+	}
+      return RECURSE (arg0);
 
-	    c = TREE_REAL_CST (arg1);
-	    n = real_to_integer (&c);
-	    if ((n & 1) == 0)
-	      {
-		REAL_VALUE_TYPE cint;
-		real_from_integer (&cint, VOIDmode, n, SIGNED);
-		if (real_identical (&c, &cint))
-		  return true;
-	      }
-	  }
-	return RECURSE (arg0);
-
-      default:
-	break;
-      }
+    default:
+      break;
+    }
   return tree_simple_nonnegative_warnv_p (CALL_EXPR, type);
 }
 
@@ -13079,7 +13074,7 @@ tree_invalid_nonnegative_warnv_p (tree t, bool *strict_overflow_p, int depth)
 	tree arg1 = call_expr_nargs (t) > 1 ?  CALL_EXPR_ARG (t, 1) : NULL_TREE;
 
 	return tree_call_nonnegative_warnv_p (TREE_TYPE (t),
-					      get_callee_fndecl (t),
+					      get_call_combined_fn (t),
 					      arg0,
 					      arg1,
 					      strict_overflow_p, depth);
@@ -13482,26 +13477,25 @@ integer_valued_real_binary_p (tree_code code, tree op0, tree op1, int depth)
    DEPTH is the current nesting depth of the query.  */
 
 bool
-integer_valued_real_call_p (tree fndecl, tree arg0, tree arg1, int depth)
+integer_valued_real_call_p (combined_fn fn, tree arg0, tree arg1, int depth)
 {
-  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-    switch (DECL_FUNCTION_CODE (fndecl))
-      {
-      CASE_FLT_FN (BUILT_IN_CEIL):
-      CASE_FLT_FN (BUILT_IN_FLOOR):
-      CASE_FLT_FN (BUILT_IN_NEARBYINT):
-      CASE_FLT_FN (BUILT_IN_RINT):
-      CASE_FLT_FN (BUILT_IN_ROUND):
-      CASE_FLT_FN (BUILT_IN_TRUNC):
-	return true;
+  switch (fn)
+    {
+    CASE_CFN_CEIL:
+    CASE_CFN_FLOOR:
+    CASE_CFN_NEARBYINT:
+    CASE_CFN_RINT:
+    CASE_CFN_ROUND:
+    CASE_CFN_TRUNC:
+      return true;
 
-      CASE_FLT_FN (BUILT_IN_FMIN):
-      CASE_FLT_FN (BUILT_IN_FMAX):
-	return RECURSE (arg0) && RECURSE (arg1);
+    CASE_CFN_FMIN:
+    CASE_CFN_FMAX:
+      return RECURSE (arg0) && RECURSE (arg1);
 
-      default:
-	break;
-      }
+    default:
+      break;
+    }
   return false;
 }
 
@@ -13612,7 +13606,7 @@ integer_valued_real_p (tree t, int depth)
 	tree arg1 = (call_expr_nargs (t) > 1
 		     ? CALL_EXPR_ARG (t, 1)
 		     : NULL_TREE);
-	return integer_valued_real_call_p (get_callee_fndecl (t),
+	return integer_valued_real_call_p (get_call_combined_fn (t),
 					   arg0, arg1, depth);
       }
 

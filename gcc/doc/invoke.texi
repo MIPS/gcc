@@ -242,39 +242,37 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-fsyntax-only  -fmax-errors=@var{n}  -Wpedantic @gol
 -pedantic-errors @gol
 -w  -Wextra  -Wall  -Waddress  -Waggregate-return  @gol
--Waggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
--Wbool-compare -Wduplicated-cond -Wframe-address @gol
--Wno-attributes -Wno-builtin-macro-redefined @gol
+-Wno-aggressive-loop-optimizations -Warray-bounds -Warray-bounds=@var{n} @gol
+-Wno-attributes -Wbool-compare -Wno-builtin-macro-redefined @gol
 -Wc90-c99-compat -Wc99-c11-compat @gol
 -Wc++-compat -Wc++11-compat -Wc++14-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
--Wconversion -Wcoverage-mismatch -Wdate-time -Wdelete-incomplete -Wno-cpp  @gol
+-Wconversion -Wcoverage-mismatch -Wno-cpp -Wdate-time -Wdelete-incomplete @gol
 -Wno-deprecated -Wno-deprecated-declarations -Wno-designated-init @gol
 -Wdisabled-optimization @gol
 -Wno-discarded-qualifiers -Wno-discarded-array-qualifiers @gol
--Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
--Wno-endif-labels -Werror  -Werror=* @gol
--Wfatal-errors  -Wfloat-equal  -Wformat  -Wformat=2 @gol
+-Wno-div-by-zero -Wdouble-promotion -Wduplicated-cond @gol
+-Wempty-body  -Wenum-compare -Wno-endif-labels @gol
+-Werror  -Werror=* -Wfatal-errors -Wfloat-equal  -Wformat  -Wformat=2 @gol
 -Wno-format-contains-nul -Wno-format-extra-args -Wformat-nonliteral @gol
--Wformat-security  -Wformat-signedness  -Wformat-y2k @gol
+-Wformat-security  -Wformat-signedness  -Wformat-y2k -Wframe-address @gol
 -Wframe-larger-than=@var{len} -Wno-free-nonheap-object -Wjump-misses-init @gol
 -Wignored-qualifiers  -Wincompatible-pointer-types @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Winit-self  -Winline  -Wno-int-conversion @gol
 -Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
--Wnull-dereference @gol
--Winvalid-pch -Wlarger-than=@var{len}  -Wunsafe-loop-optimizations @gol
+-Winvalid-pch -Wlarger-than=@var{len} @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
 -Wmain -Wmaybe-uninitialized -Wmemset-transposed-args @gol
 -Wmisleading-indentation -Wmissing-braces @gol
 -Wmissing-field-initializers -Wmissing-include-dirs @gol
 -Wno-multichar  -Wnonnull  -Wnormalized=@r{[}none@r{|}id@r{|}nfc@r{|}nfkc@r{]} @gol
--Wodr  -Wno-overflow  -Wopenmp-simd @gol
--Woverride-init-side-effects @gol
--Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
--Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
+-Wnull-dereference -Wodr  -Wno-overflow  -Wopenmp-simd  @gol
+-Woverride-init-side-effects -Woverlength-strings @gol
+-Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
+-Wparentheses -Wno-pedantic-ms-format @gol
 -Wplacement-new -Wpointer-arith  -Wno-pointer-to-int-cast @gol
--Wredundant-decls  -Wno-return-local-addr @gol
+-Wno-pragmas -Wredundant-decls  -Wno-return-local-addr @gol
 -Wreturn-type  -Wsequence-point  -Wshadow  -Wno-shadow-ivar @gol
 -Wshift-overflow -Wshift-overflow=@var{n} @gol
 -Wshift-count-negative -Wshift-count-overflow -Wshift-negative-value @gol
@@ -282,14 +280,14 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-scalar-storage-order @gol
 -Wsizeof-pointer-memaccess  -Wsizeof-array-argument @gol
 -Wstack-protector -Wstack-usage=@var{len} -Wstrict-aliasing @gol
--Wstrict-aliasing=n @gol -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
+-Wstrict-aliasing=n -Wstrict-overflow -Wstrict-overflow=@var{n} @gol
 -Wsuggest-attribute=@r{[}pure@r{|}const@r{|}noreturn@r{|}format@r{]} @gol
 -Wsuggest-final-types @gol -Wsuggest-final-methods -Wsuggest-override @gol
 -Wmissing-format-attribute -Wsubobject-linkage @gol
 -Wswitch  -Wswitch-default  -Wswitch-enum -Wswitch-bool -Wsync-nand @gol
 -Wsystem-headers  -Wtautological-compare  -Wtrampolines  -Wtrigraphs @gol
 -Wtype-limits  -Wundef @gol
--Wuninitialized  -Wunknown-pragmas  -Wno-pragmas @gol
+-Wuninitialized  -Wunknown-pragmas  -Wunsafe-loop-optimizations @gol
 -Wunsuffixed-float-constants  -Wunused  -Wunused-function @gol
 -Wunused-label  -Wunused-local-typedefs -Wunused-parameter @gol
 -Wno-unused-result -Wunused-value @gol -Wunused-variable @gol
@@ -793,7 +791,6 @@ Objective-C and Objective-C++ Dialects}.
 -mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
 -mno-float  -msingle-float  -mdouble-float @gol
 -modd-spreg -mno-odd-spreg @gol
--mcompact-branches=@var{policy} @gol
 -mabs=@var{mode}  -mnan=@var{encoding} @gol
 -mdsp  -mno-dsp  -mdspr2  -mno-dspr2 @gol
 -mmcu -mmno-mcu @gol
@@ -824,6 +821,7 @@ Objective-C and Objective-C++ Dialects}.
 -mfix-vr4130  -mno-fix-vr4130  -mfix-sb1  -mno-fix-sb1 @gol
 -mflush-func=@var{func}  -mno-flush-func @gol
 -mbranch-cost=@var{num}  -mbranch-likely  -mno-branch-likely @gol
+-mcompact-branches=@var{policy} @gol
 -mfp-exceptions -mno-fp-exceptions @gol
 -mvr4130-align -mno-vr4130-align -msynci -mno-synci @gol
 -mrelax-pic-calls -mno-relax-pic-calls -mmcount-ra-address @gol
@@ -1103,7 +1101,7 @@ See RS/6000 and PowerPC Options.
 -mprefetchwt1 -mclflushopt -mxsavec -mxsaves @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
 -mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mmwaitx -mthreads @gol
--mno-align-stringops  -minline-all-stringops @gol
+-mms-bitfields -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy} @gol
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
@@ -1116,7 +1114,8 @@ See RS/6000 and PowerPC Options.
 -m32 -m64 -mx32 -m16 -miamcu -mlarge-data-threshold=@var{num} @gol
 -msse2avx -mfentry -mrecord-mcount -mnop-mcount -m8bit-idiv @gol
 -mavx256-split-unaligned-load -mavx256-split-unaligned-store @gol
--malign-data=@var{type} -mstack-protector-guard=@var{guard}}
+-malign-data=@var{type} -mstack-protector-guard=@var{guard} @gol
+-mmitigate-rop}
 
 @emph{x86 Windows Options}
 @gccoptlist{-mconsole -mcygwin -mno-cygwin -mdll @gol
@@ -6110,8 +6109,10 @@ and program then exits with a non-zero exit code.
 
 Currently this feature only works for @option{-fsanitize=undefined} (and its suboptions
 except for @option{-fsanitize=unreachable} and @option{-fsanitize=return}),
-@option{-fsanitize=float-cast-overflow}, @option{-fsanitize=float-divide-by-zero} and
-@option{-fsanitize=kernel-address}.  For these sanitizers error recovery is turned on by default.
+@option{-fsanitize=float-cast-overflow}, @option{-fsanitize=float-divide-by-zero},
+@option{-fsanitize=kernel-address} and @option{-fsanitize=address}.
+For these sanitizers error recovery is turned on by default, except @option{-fsanitize=address},
+for which this feature is experimental.
 @option{-fsanitize-recover=all} and @option{-fno-sanitize-recover=all} is also
 accepted, the former enables recovery for all sanitizers that support it,
 the latter disables recovery for all sanitizers that support it.
@@ -12590,8 +12591,9 @@ processors implementing the target architecture.
 @opindex mtune
 Specify the name of the target processor for which GCC should tune the
 performance of the code.  Permissible values for this option are:
-@samp{generic}, @samp{cortex-a53}, @samp{cortex-a57}, @samp{cortex-a72},
-@samp{exynos-m1}, @samp{qdf24xx}, @samp{thunderx}, @samp{xgene1}.
+@samp{generic}, @samp{cortex-a35}, @samp{cortex-a53}, @samp{cortex-a57},
+@samp{cortex-a72}, @samp{exynos-m1}, @samp{qdf24xx}, @samp{thunderx},
+@samp{xgene1}.
 
 Additionally, this option can specify that GCC should tune the performance
 of the code for a big.LITTLE system.  Permissible values for this
@@ -17600,30 +17602,6 @@ for the o32 ABI.  This is the default for processors that are known to
 support these registers.  When using the o32 FPXX ABI, @option{-mno-odd-spreg}
 is set by default.
 
-@item -mcompact-branches=never
-@itemx -mcompact-branches=optimal
-@itemx -mcompact-branches=always
-@opindex mcompact-branches=never
-@opindex mcompact-branches=optimal
-@opindex mcompact-branches=always
-These options control which form of branches will be generated.  The
-default is @option{-mcompact-branches=optimal}.
-
-The @option{-mcompact-branches=never} option ensures that compact branch
-instructions will never be generated.
-
-The @option{-mcompact-branches=always} option ensures that a compact
-branch instruction will be generated if available.  If a compact branch
-instruction is not available, a delay slot form of the branch will be
-used instead.
-
-This option is supported from MIPS Release 6 onwards.
-
-The @option{-mcompact-branches=optimal} option will cause a delay slot
-branch to be used if one is available in the current ISA and the delay
-slot is successfully filled.  If the delay slot is not filled, a compact
-branch will be chosen if one is available.
-
 @item -mabs=2008
 @itemx -mabs=legacy
 @opindex mabs=2008
@@ -18186,6 +18164,30 @@ architecture.  An exception is for the MIPS32 and MIPS64 architectures
 and processors that implement those architectures; for those, Branch
 Likely instructions are not be generated by default because the MIPS32
 and MIPS64 architectures specifically deprecate their use.
+
+@item -mcompact-branches=never
+@itemx -mcompact-branches=optimal
+@itemx -mcompact-branches=always
+@opindex mcompact-branches=never
+@opindex mcompact-branches=optimal
+@opindex mcompact-branches=always
+These options control which form of branches will be generated.  The
+default is @option{-mcompact-branches=optimal}.
+
+The @option{-mcompact-branches=never} option ensures that compact branch
+instructions will never be generated.
+
+The @option{-mcompact-branches=always} option ensures that a compact
+branch instruction will be generated if available.  If a compact branch
+instruction is not available, a delay slot form of the branch will be
+used instead.
+
+This option is supported from MIPS Release 6 onwards.
+
+The @option{-mcompact-branches=optimal} option will cause a delay slot
+branch to be used if one is available in the current ISA and the delay
+slot is successfully filled.  If the delay slot is not filled, a compact
+branch will be chosen if one is available.
 
 @item -mfp-exceptions
 @itemx -mno-fp-exceptions
@@ -23430,6 +23432,142 @@ on thread-safe exception handling must compile and link all code with the
 @option{-D_MT}; when linking, it links in a special thread helper library
 @option{-lmingwthrd} which cleans up per-thread exception-handling data.
 
+@item -mms-bitfields
+@itemx -mno-ms-bitfields
+@opindex mms-bitfields
+@opindex mno-ms-bitfields
+
+Enable/disable bit-field layout compatible with the native Microsoft
+Windows compiler.  
+
+If @code{packed} is used on a structure, or if bit-fields are used,
+it may be that the Microsoft ABI lays out the structure differently
+than the way GCC normally does.  Particularly when moving packed
+data between functions compiled with GCC and the native Microsoft compiler
+(either via function call or as data in a file), it may be necessary to access
+either format.
+
+This option is enabled by default for Microsoft Windows
+targets.  This behavior can also be controlled locally by use of variable
+or type attributes.  For more information, see @ref{x86 Variable Attributes}
+and @ref{x86 Type Attributes}.
+
+The Microsoft structure layout algorithm is fairly simple with the exception
+of the bit-field packing.  
+The padding and alignment of members of structures and whether a bit-field 
+can straddle a storage-unit boundary are determine by these rules:
+
+@enumerate
+@item Structure members are stored sequentially in the order in which they are
+declared: the first member has the lowest memory address and the last member
+the highest.
+
+@item Every data object has an alignment requirement.  The alignment requirement
+for all data except structures, unions, and arrays is either the size of the
+object or the current packing size (specified with either the
+@code{aligned} attribute or the @code{pack} pragma),
+whichever is less.  For structures, unions, and arrays,
+the alignment requirement is the largest alignment requirement of its members.
+Every object is allocated an offset so that:
+
+@smallexample
+offset % alignment_requirement == 0
+@end smallexample
+
+@item Adjacent bit-fields are packed into the same 1-, 2-, or 4-byte allocation
+unit if the integral types are the same size and if the next bit-field fits
+into the current allocation unit without crossing the boundary imposed by the
+common alignment requirements of the bit-fields.
+@end enumerate
+
+MSVC interprets zero-length bit-fields in the following ways:
+
+@enumerate
+@item If a zero-length bit-field is inserted between two bit-fields that
+are normally coalesced, the bit-fields are not coalesced.
+
+For example:
+
+@smallexample
+struct
+ @{
+   unsigned long bf_1 : 12;
+   unsigned long : 0;
+   unsigned long bf_2 : 12;
+ @} t1;
+@end smallexample
+
+@noindent
+The size of @code{t1} is 8 bytes with the zero-length bit-field.  If the
+zero-length bit-field were removed, @code{t1}'s size would be 4 bytes.
+
+@item If a zero-length bit-field is inserted after a bit-field, @code{foo}, and the
+alignment of the zero-length bit-field is greater than the member that follows it,
+@code{bar}, @code{bar} is aligned as the type of the zero-length bit-field.
+
+For example:
+
+@smallexample
+struct
+ @{
+   char foo : 4;
+   short : 0;
+   char bar;
+ @} t2;
+
+struct
+ @{
+   char foo : 4;
+   short : 0;
+   double bar;
+ @} t3;
+@end smallexample
+
+@noindent
+For @code{t2}, @code{bar} is placed at offset 2, rather than offset 1.
+Accordingly, the size of @code{t2} is 4.  For @code{t3}, the zero-length
+bit-field does not affect the alignment of @code{bar} or, as a result, the size
+of the structure.
+
+Taking this into account, it is important to note the following:
+
+@enumerate
+@item If a zero-length bit-field follows a normal bit-field, the type of the
+zero-length bit-field may affect the alignment of the structure as whole. For
+example, @code{t2} has a size of 4 bytes, since the zero-length bit-field follows a
+normal bit-field, and is of type short.
+
+@item Even if a zero-length bit-field is not followed by a normal bit-field, it may
+still affect the alignment of the structure:
+
+@smallexample
+struct
+ @{
+   char foo : 6;
+   long : 0;
+ @} t4;
+@end smallexample
+
+@noindent
+Here, @code{t4} takes up 4 bytes.
+@end enumerate
+
+@item Zero-length bit-fields following non-bit-field members are ignored:
+
+@smallexample
+struct
+ @{
+   char foo;
+   long : 0;
+   char bar;
+ @} t5;
+@end smallexample
+
+@noindent
+Here, @code{t5} takes up 2 bytes.
+@end enumerate
+
+
 @item -mno-align-stringops
 @opindex mno-align-stringops
 Do not align the destination of inlined string operations.  This switch reduces
@@ -23570,6 +23708,13 @@ Generate stack protection code using canary at @var{guard}.  Supported
 locations are @samp{global} for global canary or @samp{tls} for per-thread
 canary in the TLS block (the default).  This option has effect only when
 @option{-fstack-protector} or @option{-fstack-protector-all} is specified.
+
+@item -mmitigate-rop
+@opindex mmitigate-rop
+Try to avoid generating code sequences that contain unintended return
+opcodes, to mitigate against certain forms of attack. At the moment,
+this option is limited in what it can do and should not be relied
+on to provide serious protection.
 
 @end table
 
@@ -24185,7 +24330,7 @@ loader is not part of GCC; it is part of the operating system).  If
 the GOT size for the linked executable exceeds a machine-specific
 maximum size, you get an error message from the linker indicating that
 @option{-fpic} does not work; in that case, recompile with @option{-fPIC}
-instead.  (These maximums are 8k on the SPARC and 32k
+instead.  (These maximums are 8k on the SPARC, 28k on AArch64 and 32k
 on the m68k and RS/6000.  The x86 has no such limit.)
 
 Position-independent code requires special support, and therefore works
@@ -24200,7 +24345,7 @@ are defined to 1.
 @opindex fPIC
 If supported for the target machine, emit position-independent code,
 suitable for dynamic linking and avoiding any limit on the size of the
-global offset table.  This option makes a difference on the m68k,
+global offset table.  This option makes a difference on AArch64, m68k,
 PowerPC and SPARC@.
 
 Position-independent code requires special support, and therefore works

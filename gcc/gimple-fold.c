@@ -53,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gomp-constants.h"
 #include "optabs-query.h"
 #include "omp-low.h"
+#include "ipa-chkp.h"
 
 
 /* Return true when DECL can be referenced from current unit.
@@ -663,6 +664,18 @@ gimple_fold_builtin_memory_op (gimple_stmt_iterator *gsi,
       tree srctype, desttype;
       unsigned int src_align, dest_align;
       tree off0;
+
+      /* Inlining of memcpy/memmove may cause bounds lost (if we copy
+	 pointers as wide integer) and also may result in huge function
+	 size because of inlined bounds copy.  Thus don't inline for
+	 functions we want to instrument.  */
+      if (flag_check_pointer_bounds
+	  && chkp_instrumentable_p (cfun->decl)
+	  /* Even if data may contain pointers we can inline if copy
+	     less than a pointer size.  */
+	  && (!tree_fits_uhwi_p (len)
+	      || compare_tree_int (len, POINTER_SIZE_UNITS) >= 0))
+	return false;
 
       /* Build accesses at offset zero with a ref-all character type.  */
       off0 = build_int_cst (build_pointer_type_for_mode (char_type_node,
@@ -3369,7 +3382,7 @@ replace_stmt_with_simplification (gimple_stmt_iterator *gsi,
 	}
     }
   else if (rcode.is_fn_code ()
-	   && gimple_call_builtin_p (stmt, rcode))
+	   && gimple_call_combined_fn (stmt) == rcode)
     {
       unsigned i;
       for (i = 0; i < gimple_call_num_args (stmt); ++i)
@@ -6202,7 +6215,7 @@ gimple_call_nonnegative_warnv_p (gimple *stmt, bool *strict_overflow_p,
     gimple_call_arg (stmt, 1) : NULL_TREE;
 
   return tree_call_nonnegative_warnv_p (gimple_expr_type (stmt),
-					gimple_call_fndecl (stmt),
+					gimple_call_combined_fn (stmt),
 					arg0,
 					arg1,
 					strict_overflow_p, depth);
@@ -6295,7 +6308,7 @@ gimple_call_integer_valued_real_p (gimple *stmt, int depth)
   tree arg1 = (gimple_call_num_args (stmt) > 1
 	       ? gimple_call_arg (stmt, 1)
 	       : NULL_TREE);
-  return integer_valued_real_call_p (gimple_call_fndecl (stmt),
+  return integer_valued_real_call_p (gimple_call_combined_fn (stmt),
 				     arg0, arg1, depth);
 }
 

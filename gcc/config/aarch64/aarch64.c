@@ -369,6 +369,31 @@ static const struct tune_params generic_tunings =
   (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
 };
 
+static const struct tune_params cortexa35_tunings =
+{
+  &cortexa53_extra_costs,
+  &generic_addrcost_table,
+  &cortexa53_regmove_cost,
+  &generic_vector_cost,
+  &generic_branch_cost,
+  4, /* memmov_cost  */
+  1, /* issue_rate  */
+  (AARCH64_FUSE_MOV_MOVK | AARCH64_FUSE_ADRP_ADD
+   | AARCH64_FUSE_MOVK_MOVK | AARCH64_FUSE_ADRP_LDR), /* fusible_ops  */
+  8,	/* function_align.  */
+  8,	/* jump_align.  */
+  4,	/* loop_align.  */
+  2,	/* int_reassoc_width.  */
+  4,	/* fp_reassoc_width.  */
+  1,	/* vec_reassoc_width.  */
+  2,	/* min_div_recip_mul_sf.  */
+  2,	/* min_div_recip_mul_df.  */
+  0,	/* max_case_values.  */
+  0,	/* cache_line_size.  */
+  tune_params::AUTOPREFETCHER_WEAK,	/* autoprefetcher_model.  */
+  (AARCH64_EXTRA_TUNE_NONE)	/* tune_flags.  */
+};
+
 static const struct tune_params cortexa53_tunings =
 {
   &cortexa53_extra_costs,
@@ -7078,19 +7103,21 @@ aarch64_memory_move_cost (machine_mode mode ATTRIBUTE_UNUSED,
    reciprocal square root builtins.  */
 
 static tree
-aarch64_builtin_reciprocal (unsigned int fn,
-			    bool md_fn,
-			    bool)
+aarch64_builtin_reciprocal (gcall *call)
 {
   if (flag_trapping_math
       || !flag_unsafe_math_optimizations
       || optimize_size
       || ! (aarch64_tune_params.extra_tuning_flags
 	   & AARCH64_EXTRA_TUNE_RECIP_SQRT))
-  {
     return NULL_TREE;
-  }
 
+  if (gimple_call_internal_p (call))
+    return NULL_TREE;
+
+  tree fndecl = gimple_call_fndecl (call);
+  enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
+  bool md_fn = DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD;
   return aarch64_builtin_rsqrt (fn, md_fn);
 }
 
@@ -10083,7 +10110,7 @@ aarch64_madd_needs_nop (rtx_insn* insn)
   if (!TARGET_FIX_ERR_A53_835769)
     return false;
 
-  if (recog_memoized (insn) < 0)
+  if (!INSN_P (insn) || recog_memoized (insn) < 0)
     return false;
 
   attr_type = get_attr_type (insn);

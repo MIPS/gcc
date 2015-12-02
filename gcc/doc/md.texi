@@ -3138,11 +3138,15 @@ asm ("xsaddqp %x0,%x1,%x2" : "=v" (v1) : "v" (v2), "v" (v3));
 
 is incorrect.
 
+@item wb
+Altivec register if @option{-mpower9-dform} is used or NO_REGS.
+
 @item wd
 VSX vector register to hold vector double data or NO_REGS.
 
 @item we
-VSX register if the -mpower9-vector -m64 options were used or NO_REGS.
+VSX register if the @option{-mpower9-vector} and @option{-m64} options
+were used or NO_REGS.
 
 @item wf
 VSX vector register to hold vector float data or NO_REGS.
@@ -4872,17 +4876,6 @@ Add operand 2 and operand 1, storing the result in operand 0.  All operands
 must have mode @var{m}.  This can be used even on two-address machines, by
 means of constraints requiring operands 1 and 0 to be the same location.
 
-@cindex @code{addptr@var{m}3} instruction pattern
-@item @samp{addptr@var{m}3}
-Like @code{add@var{m}3} but is guaranteed to only be used for address
-calculations.  The expanded code is not allowed to clobber the
-condition code.  It only needs to be defined if @code{add@var{m}3}
-sets the condition code.  If adds used for address calculations and
-normal adds are not compatible it is required to expand a distinct
-pattern (e.g. using an unspec).  The pattern is used by LRA to emit
-address calculations.  @code{add@var{m}3} is used if
-@code{addptr@var{m}3} is not defined.
-
 @cindex @code{ssadd@var{m}3} instruction pattern
 @cindex @code{usadd@var{m}3} instruction pattern
 @cindex @code{sub@var{m}3} instruction pattern
@@ -4911,6 +4904,40 @@ address calculations.  @code{add@var{m}3} is used if
 @itemx @samp{umin@var{m}3}, @samp{umax@var{m}3}
 @itemx @samp{and@var{m}3}, @samp{ior@var{m}3}, @samp{xor@var{m}3}
 Similar, for other arithmetic operations.
+
+@cindex @code{addv@var{m}4} instruction pattern
+@item @samp{addv@var{m}4}
+Like @code{add@var{m}3} but takes a @code{code_label} as operand 3 and
+emits code to jump to it if signed overflow occurs during the addition.
+This pattern is used to implement the built-in functions performing
+signed integer addition with overflow checking.
+
+@cindex @code{subv@var{m}4} instruction pattern
+@cindex @code{mulv@var{m}4} instruction pattern
+@item @samp{subv@var{m}4}, @samp{mulv@var{m}4}
+Similar, for other signed arithmetic operations.
+
+@cindex @code{uaddv@var{m}4} instruction pattern
+@item @samp{uaddv@var{m}4}
+Like @code{addv@var{m}4} but for unsigned addition.  That is to
+say, the operation is the same as signed addition but the jump
+is taken only on unsigned overflow.
+
+@cindex @code{usubv@var{m}4} instruction pattern
+@cindex @code{umulv@var{m}4} instruction pattern
+@item @samp{usubv@var{m}4}, @samp{umulv@var{m}4}
+Similar, for other unsigned arithmetic operations.
+
+@cindex @code{addptr@var{m}3} instruction pattern
+@item @samp{addptr@var{m}3}
+Like @code{add@var{m}3} but is guaranteed to only be used for address
+calculations.  The expanded code is not allowed to clobber the
+condition code.  It only needs to be defined if @code{add@var{m}3}
+sets the condition code.  If adds used for address calculations and
+normal adds are not compatible it is required to expand a distinct
+pattern (e.g. using an unspec).  The pattern is used by LRA to emit
+address calculations.  @code{add@var{m}3} is used if
+@code{addptr@var{m}3} is not defined.
 
 @cindex @code{fma@var{m}4} instruction pattern
 @item @samp{fma@var{m}4}
@@ -4956,6 +4983,15 @@ in the rtl as
 Signed minimum and maximum operations.  When used with floating point,
 if both operands are zeros, or if either operand is @code{NaN}, then
 it is unspecified which of the two operands is returned as the result.
+
+@cindex @code{fmin@var{m}3} instruction pattern
+@cindex @code{fmax@var{m}3} instruction pattern
+@item @samp{fmin@var{m}3}, @samp{fmax@var{m}3}
+IEEE-conformant minimum and maximum operations.  If one operand is a quiet
+@code{NaN}, then the other operand is returned.  If both operands are quiet
+@code{NaN}, then a quiet @code{NaN} is returned.  In the case when gcc supports
+signalling @code{NaN} (-fsignaling-nans) an invalid floating point exception is
+raised and a quiet @code{NaN} is returned.
 
 @cindex @code{reduc_smin_@var{m}} instruction pattern
 @cindex @code{reduc_smax_@var{m}} instruction pattern
@@ -5276,6 +5312,11 @@ Reverse the order of bytes of operand 1 and store the result in operand 0.
 @cindex @code{usneg@var{m}2} instruction pattern
 @item @samp{neg@var{m}2}, @samp{ssneg@var{m}2}, @samp{usneg@var{m}2}
 Negate operand 1 and store the result in operand 0.
+
+@cindex @code{negv@var{m}3} instruction pattern
+@item @samp{negv@var{m}3}
+Like @code{neg@var{m}2} but takes a @code{code_label} as operand 2 and
+emits code to jump to it if signed overflow occurs during the negation.
 
 @cindex @code{abs@var{m}2} instruction pattern
 @item @samp{abs@var{m}2}
@@ -5926,13 +5967,13 @@ from the machine description.
 Conditional branch instruction combined with a compare instruction.
 Operand 0 is a comparison operator.  Operand 1 and operand 2 are the
 first and second operands of the comparison, respectively.  Operand 3
-is a @code{label_ref} that refers to the label to jump to.
+is the @code{code_label} to jump to.
 
 @cindex @code{jump} instruction pattern
 @item @samp{jump}
 A jump inside a function; an unconditional branch.  Operand 0 is the
-@code{label_ref} of the label to jump to.  This pattern name is mandatory
-on all machines.
+@code{code_label} to jump to.  This pattern name is mandatory on all
+machines.
 
 @cindex @code{call} instruction pattern
 @item @samp{call}

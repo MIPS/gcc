@@ -116,9 +116,10 @@ package body Exp_Ch11 is
       pragma Assert (Present (Clean));
       pragma Assert (No (Exception_Handlers (HSS)));
 
-      --  Don't expand if back end exception handling active
+      --  Back end exception schemes don't need explicit handlers to
+      --  trigger AT-END actions on exceptional paths.
 
-      if Exception_Mechanism = Back_End_Exceptions then
+      if Back_End_Exceptions then
          return;
       end if;
 
@@ -1025,11 +1026,12 @@ package body Exp_Ch11 is
                --        ...
                --     end;
 
-               --  This expansion is not performed when using GCC ZCX. Gigi
-               --  will insert a call to initialize the choice parameter.
+               --  This expansion is only performed when using front-end
+               --  exceptions. Gigi will insert a call to initialize the
+               --  choice parameter.
 
                if Present (Choice_Parameter (Handler))
-                 and then (Exception_Mechanism /= Back_End_Exceptions
+                 and then (Front_End_Exceptions
                             or else CodePeer_Mode)
                then
                   declare
@@ -1102,7 +1104,7 @@ package body Exp_Ch11 is
                --  are allowed.
 
                if Abort_Allowed
-                 and then Exception_Mechanism /= Back_End_Exceptions
+                 and then not ZCX_Exceptions
                then
                   --  There are some special cases in which we do not do the
                   --  undefer. In particular a finalization (AT END) handler
@@ -1250,6 +1252,12 @@ package body Exp_Ch11 is
    --  Start of processing for Expand_N_Exception_Declaration
 
    begin
+      --  Nothing to do when generating C code
+
+      if Generate_C_Code then
+         return;
+      end if;
+
       --  Definition of the external name: nam : constant String := "A.B.NAME";
 
       Ex_Id :=
@@ -1713,7 +1721,7 @@ package body Exp_Ch11 is
          --  code which can be formally analyzed.
 
          if not CodePeer_Mode
-           and then Exception_Mechanism = Back_End_Exceptions
+           and then Back_End_Exceptions
          then
             return;
          end if;

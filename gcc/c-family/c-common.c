@@ -1924,7 +1924,7 @@ warn_tautological_cmp (location_t loc, enum tree_code code, tree lhs, tree rhs)
 
   /* We do not warn for constants because they are typical of macro
      expansions that test for features, sizeof, and similar.  */
-  if (CONSTANT_CLASS_P (lhs) || CONSTANT_CLASS_P (rhs))
+  if (CONSTANT_CLASS_P (fold (lhs)) || CONSTANT_CLASS_P (fold (rhs)))
     return;
 
   /* Don't warn for e.g.
@@ -4650,7 +4650,11 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	  type = c_common_unsigned_type (type);
 	}
 
-      if (TREE_CODE (primop0) != INTEGER_CST)
+      if (TREE_CODE (primop0) != INTEGER_CST
+	  /* Don't warn if it's from a (non-system) macro.  */
+	  && !(from_macro_expansion_at
+	       (expansion_point_location_if_in_system_header
+		(EXPR_LOCATION (primop0)))))
 	{
 	  if (val == truthvalue_false_node)
 	    warning_at (loc, OPT_Wtype_limits,
@@ -7787,7 +7791,8 @@ handle_transparent_union_attribute (tree *node, tree name,
 	  *node = type = build_duplicate_type (type);
 	}
 
-      TYPE_TRANSPARENT_AGGR (type) = 1;
+      for (tree t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+        TYPE_TRANSPARENT_AGGR (t) = 1;
       return NULL_TREE;
     }
 

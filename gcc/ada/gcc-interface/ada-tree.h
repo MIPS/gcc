@@ -176,6 +176,10 @@ do {							 \
 /* True if TYPE can alias any other types.  */
 #define TYPE_UNIVERSAL_ALIASING_P(NODE) TYPE_LANG_FLAG_6 (NODE)
 
+/* For RECORD_TYPE, UNION_TYPE, and QUAL_UNION_TYPE, this holds the maximum
+   alignment value the type ought to have.  */
+#define TYPE_MAX_ALIGN(NODE) (TYPE_PRECISION (RECORD_OR_UNION_CHECK (NODE)))
+
 /* For an UNCONSTRAINED_ARRAY_TYPE, this is the record containing both the
    template and the object.
 
@@ -405,9 +409,13 @@ do {						   \
 #define DECL_ELABORATION_PROC_P(NODE) \
   DECL_LANG_FLAG_3 (FUNCTION_DECL_CHECK (NODE))
 
-/* Nonzero in a DECL if it is made for a pointer that points to something which
-   is readonly.  */
+/* Nonzero in a CONST_DECL, VAR_DECL or PARM_DECL if it is made for a pointer
+   that points to something which is readonly.  */
 #define DECL_POINTS_TO_READONLY_P(NODE) DECL_LANG_FLAG_4 (NODE)
+
+/* Nonzero in a FIELD_DECL if it is invariant once set, for example if it is
+   a discriminant of a discriminated type without default expression.  */
+#define DECL_INVARIANT_P(NODE) DECL_LANG_FLAG_4 (FIELD_DECL_CHECK (NODE))
 
 /* In a FIELD_DECL corresponding to a discriminant, contains the
    discriminant number.  */

@@ -2531,6 +2531,27 @@ gimple_call_builtin_p (const gimple *stmt, enum built_in_function code)
   return false;
 }
 
+/* If CALL is a call to a combined_fn (i.e. an internal function or
+   a normal built-in function), return its code, otherwise return
+   CFN_LAST.  */
+
+combined_fn
+gimple_call_combined_fn (const gimple *stmt)
+{
+  if (const gcall *call = dyn_cast <const gcall *> (stmt))
+    {
+      if (gimple_call_internal_p (call))
+	return as_combined_fn (gimple_call_internal_fn (call));
+
+      tree fndecl = gimple_call_fndecl (stmt);
+      if (fndecl
+	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	  && gimple_builtin_call_types_compatible_p (stmt, fndecl))
+	return as_combined_fn (DECL_FUNCTION_CODE (fndecl));
+    }
+  return CFN_LAST;
+}
+
 /* Return true if STMT clobbers memory.  STMT is required to be a
    GIMPLE_ASM.  */
 
@@ -2613,6 +2634,18 @@ nonfreeing_call_p (gimple *call)
   if (!n || availability <= AVAIL_INTERPOSABLE)
     return false;
   return n->nonfreeing_fn;
+}
+
+/* Return true when CALL is a call stmt that definitely need not
+   be considered to be a memory barrier.  */
+bool
+nonbarrier_call_p (gimple *call)
+{
+  if (gimple_call_flags (call) & (ECF_PURE | ECF_CONST))
+    return true;
+  /* Should extend this to have a nonbarrier_fn flag, just as above in
+     the nonfreeing case.  */
+  return false;
 }
 
 /* Callback for walk_stmt_load_store_ops.

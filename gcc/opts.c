@@ -478,6 +478,7 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fmove_loop_invariants, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_ftree_pta, NULL, 1 },
     { OPT_LEVELS_1_PLUS_NOT_DEBUG, OPT_fssa_phiopt, NULL, 1 },
+    { OPT_LEVELS_1_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
 
     /* -O2 optimizations.  */
     { OPT_LEVELS_2_PLUS, OPT_finline_small_functions, NULL, 1 },
@@ -503,7 +504,6 @@ static const struct default_options default_options_table[] =
       REORDER_BLOCKS_ALGORITHM_STC },
     { OPT_LEVELS_2_PLUS, OPT_freorder_functions, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_vrp, NULL, 1 },
-    { OPT_LEVELS_2_PLUS, OPT_ftree_builtin_call_dce, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_pre, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_ftree_switch_conversion, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fipa_cp, NULL, 1 },
@@ -941,10 +941,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	      "-fsanitize=address and -fsanitize=kernel-address "
 	      "are incompatible with -fsanitize=thread");
 
-  /* Error recovery is not allowed for ASan and TSan.  */
-
-  if (opts->x_flag_sanitize_recover & SANITIZE_USER_ADDRESS)
-    error_at (loc, "-fsanitize-recover=address is not supported");
+  /* Error recovery is not allowed for LSan and TSan.  */
 
   if (opts->x_flag_sanitize_recover & SANITIZE_THREAD)
     error_at (loc, "-fsanitize-recover=thread is not supported");

@@ -83,13 +83,14 @@ extern bool default_has_ifunc_p (void);
 
 extern const char * default_invalid_within_doloop (const rtx_insn *);
 
-extern tree default_builtin_vectorized_function (tree, tree, tree);
+extern tree default_builtin_vectorized_function (unsigned int, tree, tree);
+extern tree default_builtin_md_vectorized_function (tree, tree, tree);
 
 extern tree default_builtin_vectorized_conversion (unsigned int, tree, tree);
 
 extern int default_builtin_vectorization_cost (enum vect_cost_for_stmt, tree, int);
 
-extern tree default_builtin_reciprocal (unsigned int, bool, bool);
+extern tree default_builtin_reciprocal (gcall *);
 
 extern HOST_WIDE_INT default_vector_alignment (const_tree);
 

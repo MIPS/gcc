@@ -2383,7 +2383,7 @@ build_new_reduction (reduction_info_table_type *reduction_list,
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file,
-	       "Detected reduction. reduction stmt is: \n");
+	       "Detected reduction. reduction stmt is:\n");
       print_gimple_stmt (dump_file, reduc_stmt, 0, 0);
       fprintf (dump_file, "\n");
     }
@@ -2433,7 +2433,7 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
 
   simple_loop_info = vect_analyze_loop_form (loop);
   if (simple_loop_info == NULL)
-    return;
+    goto gather_done;
 
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
@@ -2492,8 +2492,12 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
   destroy_loop_vec_info (simple_loop_info, true);
   destroy_loop_vec_info (simple_inner_loop_info, true);
 
+ gather_done:
   /* Release the claim on gimple_uid.  */
   free_stmt_vec_info_vec ();
+
+  if (reduction_list->elements () == 0)
+    return;
 
   /* As gimple_uid is used by the vectorizer in between vect_analyze_loop_form
      and free_stmt_vec_info_vec, we can set gimple_uid of reduc_phi stmts only
@@ -2539,6 +2543,9 @@ try_create_reduction_list (loop_p loop,
 
   gcc_assert (exit);
 
+  /* Try to get rid of exit phis.  */
+  final_value_replacement_loop (loop);
+
   gather_scalar_reductions (loop, reduction_list);
 
 
@@ -2561,7 +2568,7 @@ try_create_reduction_list (loop_p loop,
 	      print_generic_expr (dump_file, val, 0);
 	      fprintf (dump_file, " used outside loop\n");
 	      fprintf (dump_file,
-		       "  checking if it a part of reduction pattern:  \n");
+		       "  checking if it is part of reduction pattern:\n");
 	    }
 	  if (reduction_list->elements () == 0)
 	    {
