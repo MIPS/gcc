@@ -1,5 +1,8 @@
-! { dg-do run } */
+! { dg-do run }
 ! { dg-additional-options "-cpp" }
+
+! { dg-xfail-if "TODO" { *-*-* } }
+! { dg-excess-errors "TODO" }
 
 program test
   implicit none

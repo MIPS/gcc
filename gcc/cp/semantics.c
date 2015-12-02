@@ -6911,6 +6911,7 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	    }
 	  break;
 
+	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	  field_ok = allow_fields;
@@ -6948,7 +6949,6 @@ finish_omp_clauses (tree clauses, bool is_oacc, bool allow_fields,
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_DEFAULTMAP:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_AUTO:
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_SEQ:
@@ -7483,9 +7483,9 @@ tree
 finish_oacc_host_data (tree clauses, tree block)
 {
   tree stmt;
-  
+
   block = finish_omp_structured_block (block);
-  
+
   stmt = make_node (OACC_HOST_DATA);
   TREE_TYPE (stmt) = void_type_node;
   OACC_HOST_DATA_CLAUSES (stmt) = clauses;

@@ -1,50 +1,31 @@
-/* { dg-do run } */
+/* { dg-do run { target openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
+#include <openacc.h>
 
-struct by_lightning {
-  int a;
-  int b;
-  int c;
-};
+char *global_in_host;
 
-int main (int argc, char* argv[])
+void foo (char *in)
 {
-  int x;
-  void *q = NULL, *r = NULL, *p = NULL, *s = NULL, *t = NULL;
-  long u;
-  struct by_lightning on_the_head = {1, 2, 3};
-  int arr[10], *f = NULL;
-  _Complex float cf;
-  #pragma acc enter data copyin (x, arr, on_the_head, cf)
-  #pragma acc host_data use_device (x, arr, on_the_head, cf)
+  if (!acc_is_present (global_in_host, sizeof (*global_in_host))
+      || in != acc_deviceptr (global_in_host))
+    abort ();
+}
+
+int
+main (int argc, char **argv)
+{
+  char mydata[1024];
+
+  global_in_host = mydata;
+
+#pragma acc data copyin(mydata)
   {
-    q = &x;
+#pragma acc host_data use_device (mydata)
     {
-      f = &arr[5];
-      r = f;
-      s = &__real__ cf;
-      t = &on_the_head.c;
-      u = (long) &__imag__ cf;
-      #pragma acc parallel copyout(p) present (x, arr, on_the_head, cf)
-      {
-        /* This will not (and must not) call GOACC_deviceptr, but '&x' will be
-	   the address on the device (if appropriate) regardless.  */
-	p = &x;
-      }
+      foo (mydata);
     }
   }
-  #pragma acc exit data delete (x)
-
-#if ACC_MEM_SHARED
-  if (q != &x || f != &arr[5] || r != f || s != &(__real__ cf)
-      || t != &on_the_head.c || u != (long) &(__imag__ cf) || p != &x)
-    abort ();
-#else
-  if (q == &x || f == &arr[5] || r != f || s == &(__real__ cf)
-      || t == &on_the_head.c || u == (long) &(__imag__ cf) || p == &x)
-    abort ();
-#endif
 
   return 0;
 }

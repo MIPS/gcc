@@ -203,38 +203,6 @@ acc_deviceptr (void *h)
   return d;
 }
 
-/* This function is used as a helper in generated code to implement pointer
-   lookup in host_data regions.  Unlike acc_deviceptr, it returns its argument
-   unchanged on a shared-memory system (e.g. the host).  */
-
-void *
-GOACC_deviceptr (void *h)
-{
-  splay_tree_key n;
-  void *d;
-  void *offset;
-
-  goacc_lazy_initialize ();
-
-  struct goacc_thread *thr = goacc_thread ();
-  
-  if ((thr->dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM) == 0)
-    {
-      n = lookup_host (thr->dev, h, 1);
-
-      if (!n)
-	return NULL;
-
-      offset = h - n->host_start;
-
-      d = n->tgt->tgt_start + n->tgt_offset + offset;
-
-      return d;
-    }
-  else
-    return h;
-}
-
 /* Return the host pointer that corresponds to device data D.  Or NULL
    if no mapping.  */
 

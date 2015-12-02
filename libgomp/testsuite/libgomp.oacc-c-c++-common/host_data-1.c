@@ -1,7 +1,6 @@
 /* { dg-do run { target openacc_nvidia_accel_selected } } */
 /* { dg-additional-options "-lcuda -lcublas -lcudart" } */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <openacc.h>
 #include <cuda.h>
@@ -30,34 +29,12 @@ saxpy_target (int n, float a, float *x, float *y)
 int
 main(int argc, char **argv)
 {
-  const int N = 8;
+#define N 8
   int i;
-  float *x_ref, *y_ref;
-  float *x, *y;
+  float x_ref[N], y_ref[N];
+  float x[N], y[N];
   cublasHandle_t h;
   float a = 2.0;
-
-  x_ref = (float*) malloc (N * sizeof(float));
-  y_ref = (float*) malloc (N * sizeof(float));
-
-  x = (float*) malloc (N * sizeof(float));
-  y = (float*) malloc (N * sizeof(float));
-
-#pragma acc data copyin (x[0:N]) copy (y[0:N])
-  {
-    float *xp, *yp;
-#pragma acc host_data use_device (x, y)
-    {
-#pragma acc parallel pcopy (xp, yp) present (x, y)
-      {
-        xp = x;
-	yp = y;
-      }
-    }
-
-    if (xp != acc_deviceptr (x) || yp != acc_deviceptr (y))
-	abort ();
-  }
 
   for (i = 0; i < N; i++)
     {
@@ -106,13 +83,11 @@ main(int argc, char **argv)
   for (i = 0; i < N; i++)
     y[i] = 3.0;
 
-#pragma acc data copyin (x[0:N]) copyin (a, N) copy (y[0:N])
+  /* There's no need to use host_data here.  */
+#pragma acc data copyin (x[0:N]) copyin (a) copy (y[0:N])
   {
-#pragma acc host_data use_device (x, y)
-    {
-#pragma acc parallel present (x[0:N]) pcopy (y[0:N]) present (a, N)
-      saxpy_target (N, a, x, y);
-    }
+#pragma acc parallel present (x[0:N]) pcopy (y[0:N]) present (a)
+    saxpy_target (N, a, x, y);
   }
 
   for (i = 0; i < N; i++)
