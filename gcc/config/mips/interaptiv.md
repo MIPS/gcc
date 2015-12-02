@@ -66,7 +66,7 @@
 ;; Jump, branch and trap instructions, excluding branch on coprocessor
 ;; condition instructions, latency 1:
 ;; b<cond>, b<cond>al, b<cond>all, b<cond>l, j, jal, jalr, jr, t<cond>
-(define_insn_reservation "interaptiv_int1_branch" 1
+(define_insn_reservation "interaptiv_void1_branch" 1
   (and (eq_attr "cpu" "interaptiv")
        (eq_attr "type" "branch,call,jump,trap")
        (not (eq_attr "cond_type" "fcc")))
@@ -74,7 +74,7 @@
 
 ;; Branch on coprocessor condition instructions, latency 2:
 ;; bc1f, bc1fl, bc1t, bc1tl
-(define_insn_reservation "interaptiv_int2_bcc" 2
+(define_insn_reservation "interaptiv_void2_bcc" 2
   (and (eq_attr "cpu" "interaptiv")
        (eq_attr "type" "branch")
        (eq_attr "cond_type" "fcc"))
