@@ -2403,6 +2403,18 @@ assume that the calling function pops off the stack space used to
 pass arguments.  This is
 useful to override the effects of the @option{-mrtd} switch.
 
+@item code_readable (@var{code-readable-setting})
+@cindex data addressability for MIPS
+
+For MIPS targets that support PC-relative addressing modes, this
+attribute can be used to control how a object is addressed. The
+attribute takes a single optional argument: "no" for the function should
+not read the instruction stream as data, "yes" the function can read the
+instruction stream as data, or "pcrel" the function can read the instruction
+stream in a pc-relative mode.
+
+If there is no argument supplied, the default of "yes" applies.
+
 @item const
 @cindex @code{const} function attribute
 Many functions do not examine any values except their arguments, and
