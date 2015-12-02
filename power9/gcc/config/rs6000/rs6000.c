@@ -427,13 +427,6 @@ mode_supports_vsx_dform_quad (machine_mode mode)
 	  != 0);
 }
 
-/* Return true if we support indexed addressing for the mode.  */
-static inline bool
-mode_supports_indexed_addressing (machine_mode mode)
-{
-  return ((reg_addr[mode].addr_mask[RELOAD_REG_ANY] & RELOAD_REG_INDEXED) != 0);
-}
-
 
 /* Target cpu costs.  */
 
@@ -8410,11 +8403,14 @@ rs6000_legitimate_address_p (machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict, false))
     return 1;
-  if (mode_supports_indexed_addressing (mode)
+  if (!FLOAT128_2REG_P (mode)
       && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
 	  || TARGET_POWERPC64
 	  || (mode != DFmode && mode != DDmode)
 	  || (TARGET_E500_DOUBLE && mode != DDmode))
+      && (TARGET_POWERPC64 || mode != DImode)
+      && (mode != TImode || VECTOR_MEM_VSX_P (TImode))
+      && mode != PTImode
       && !avoiding_indexed_address_p (mode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
     return 1;
