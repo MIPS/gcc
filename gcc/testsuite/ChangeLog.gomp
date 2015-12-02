@@ -1,3 +1,8 @@
+2015-12-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.dg/goacc/reduction-2.f95: Rename file to...
+	* gfortran.dg/goacc/reduction-3.f95: ... this.
+
 2015-12-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/gang-static.f95: Add static num coverage.

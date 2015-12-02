@@ -1858,9 +1858,10 @@ gfc_match_oacc_routine (void)
     }
 
   if (gfc_match_omp_eos () != MATCH_YES
-      && gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES,
-				OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK, false,
-				false, true) != MATCH_YES)
+      && (gfc_match_omp_clauses (&c, OACC_ROUTINE_CLAUSES,
+				 OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK, false,
+				 false, true)
+	  != MATCH_YES))
     return MATCH_ERROR;
 
   if (sym != NULL)

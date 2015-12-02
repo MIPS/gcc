@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cpp.h"
 #include "trans-types.h"
 #include "trans-const.h"
-#include "stringpool.h"
 
 /* Language-dependent contents of an identifier.  */
 
@@ -79,8 +78,8 @@ static alias_set_type gfc_get_alias_set (tree);
 static void gfc_init_ts (void);
 static tree gfc_builtin_function (tree);
 
-/* Handle an "omp declare target" or "oacc function" attribute;
-   arguments as in struct attribute_spec.handler.  */
+/* Handle an "omp declare target" attribute; arguments as in
+   struct attribute_spec.handler.  */
 static tree
 gfc_handle_omp_declare_target_attribute (tree *, tree, tree, int, bool *)
 {
