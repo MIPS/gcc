@@ -835,22 +835,27 @@ gcov_read_module_info (struct gcov_module_info *mod_info,
   len -= (src_filename_len + 1);
 
   saved_compressed_len = (unsigned long) gcov_read_unsigned ();
-  saved_uncompressed_len  = saved_compressed_len >> 16;
-  saved_compressed_len &= 0xFFFF;
+  mod_info->combined_strlen = saved_compressed_len;
   tag_len = gcov_read_unsigned ();
   len -= (tag_len + 2);
   gcc_assert (!len);
   compressed_array = (char *) xmalloc (tag_len * sizeof (gcov_unsigned_t));
-  uncompressed_array = (char *) xmalloc (saved_uncompressed_len);
   for (i = 0; i < tag_len; i++)
     ((gcov_unsigned_t *) compressed_array)[i] = gcov_read_unsigned ();
 
+#if !defined (IN_GCOV_TOOL)
+  saved_uncompressed_len  = saved_compressed_len >> 16;
+  saved_compressed_len &= 0xFFFF;
+  uncompressed_array = (char *) xmalloc (saved_uncompressed_len);
   result_len = saved_uncompressed_len;
   uncompress ((Bytef *)uncompressed_array, &result_len,
               (const Bytef *)compressed_array, saved_compressed_len);
   gcc_assert (result_len == saved_uncompressed_len);
   mod_info->saved_cc1_strings = uncompressed_array;
   free (compressed_array);
+#else /* IN_GCOV_TOOL: we don't need to uncompress. It's a pass through.  */
+  mod_info->saved_cc1_strings = compressed_array;
+#endif
 }
 #endif
 

@@ -588,6 +588,11 @@ tag_module_info (const char *filename ATTRIBUTE_UNUSED,
     {
       if (!mod_info->is_primary)
 	printf ("%s\n", mod_info->source_filename);
+      unsigned short compressed_size = mod_info->combined_strlen;
+      unsigned short uncompressed_size = mod_info->combined_strlen>>16;
+      printf ("compressed_ strlen=%d uncompressed_strlen=%d String:\n",
+              compressed_size,uncompressed_size);
+      printf ("%s\n", mod_info->saved_cc1_strings);
     }
   else
     {
