@@ -5076,31 +5076,37 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
     case BUILT_IN_CLRSB:
     case BUILT_IN_CLRSBL:
+    case BUILT_IN_CLRSBLL:
       gen_hsa_clrsb (call, hbb);
       break;
 
     case BUILT_IN_CLZ:
     case BUILT_IN_CLZL:
+    case BUILT_IN_CLZLL:
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_FIRSTBIT, stmt, hbb);
       break;
 
     case BUILT_IN_CTZ:
     case BUILT_IN_CTZL:
+    case BUILT_IN_CTZLL:
       gen_hsa_unaryop_for_builtin (BRIG_OPCODE_LASTBIT, stmt, hbb);
       break;
 
     case BUILT_IN_FFS:
     case BUILT_IN_FFSL:
+    case BUILT_IN_FFSLL:
       gen_hsa_ffs (call, hbb);
       break;
 
     case BUILT_IN_PARITY:
     case BUILT_IN_PARITYL:
+    case BUILT_IN_PARITYLL:
       gen_hsa_parity (call, hbb);
       break;
 
     case BUILT_IN_POPCOUNT:
     case BUILT_IN_POPCOUNTL:
+    case BUILT_IN_POPCOUNTLL:
       gen_hsa_popcount (call, hbb);
       break;
 

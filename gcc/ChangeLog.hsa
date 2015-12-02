@@ -1,5 +1,11 @@
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call):
+	Support BUILT_IN_CLRSBLL, BUILT_IN_CLZLL, BUILT_IN_CTZLL, BUILT_IN_FFSLL,
+	BUILT_IN_PARITYLL, BUILT_IN_POPCOUNTLL builtins.
+
+2015-12-02  Martin Liska  <mliska@suse.cz>
+
 	* hsa-dump.c (dump_hsa_insn_1): Properly dump hsa_insn_srctype.
 	* hsa-gen.c (gen_hsa_unary_operation): Change argument type
 	of opcode.
