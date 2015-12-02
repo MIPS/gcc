@@ -113,7 +113,7 @@
   [(set (match_operand:VWHB 0 "nonimmediate_operand" "=m,f,d,f,  d,  m,  d")
 	(match_operand:VWHB 1 "move_operand"          "f,m,f,dYG,dYG,dYG,m"))]
   "TARGET_HARD_FLOAT && TARGET_LOONGSON_VECTORS"
-  { return mips_output_move (operands[0], operands[1]); }
+  { return mips_output_move (insn, operands[0], operands[1]); }
   [(set_attr "move_type" "fpstore,fpload,mfc,mtc,move,store,load")
    (set_attr "mode" "DI")])
 
