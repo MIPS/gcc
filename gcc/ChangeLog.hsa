@@ -1,5 +1,10 @@
 2015-12-03  Martin Jambor  <mjambor@suse.cz>
 
+	* tree-inline.c (duplicate_remap_omp_clause_seq): New function.
+	(replace_locals_op): Duplicate gimple sequences in OMP clauses.
+
+2015-12-03  Martin Jambor  <mjambor@suse.cz>
+
 	* omp-low.c (scan_omp_1_op): Add checking assert that we are not
 	re-mapping to ERROR_MARK.
 
