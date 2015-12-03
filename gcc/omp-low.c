@@ -3731,7 +3731,11 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
     case LABEL_DECL:
     case RESULT_DECL:
       if (ctx)
-	*tp = remap_decl (t, &ctx->cb);
+	{
+	  tree repl = remap_decl (t, &ctx->cb);
+	  gcc_checking_assert (TREE_CODE (repl) != ERROR_MARK);
+	  *tp = repl;
+	}
       break;
 
     default:

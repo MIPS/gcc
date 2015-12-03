@@ -1,3 +1,8 @@
+2015-12-03  Martin Jambor  <mjambor@suse.cz>
+
+	* omp-low.c (scan_omp_1_op): Add checking assert that we are not
+	re-mapping to ERROR_MARK.
+
 2015-12-02  Martin Liska  <mliska@suse.cz>
 
 	* ipa-hsa.c (check_warn_node_versionable): Display
