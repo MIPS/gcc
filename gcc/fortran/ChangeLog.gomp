@@ -1,3 +1,8 @@
+2015-12-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* openmp.c (gfc_match_omp_clauses): Allow subarrays for acc reductions.
+	(resolve_omp_clauses): Error on any acc reductions on arrays.
+
 2015-12-01  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* dump-parse-tree.c (show_omp_clauses): Handle gang_static_expr
