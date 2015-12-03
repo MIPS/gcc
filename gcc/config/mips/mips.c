@@ -5445,7 +5445,8 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	{
 	  if (TARGET_DEAD_LOADS
 	      && MEM_VOLATILE_P (src)
-	      && find_regno_note (insn, REG_UNUSED, REGNO (dest)))
+	      && find_regno_note (insn, REG_UNUSED, REGNO (dest))
+              && !TARGET_MIPS16)
 	    switch (GET_MODE_SIZE (mode))
 	      {
 	      case 1: return "lbu\t$0,%1";
