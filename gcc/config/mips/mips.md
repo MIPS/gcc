@@ -1270,9 +1270,9 @@
    (set_attr "extended_mips16" "no,yes,no,yes,no,yes,no,yes,no")])
 
 (define_insn "*add<mode>3_mips16e2"
-  [(set (match_operand:GPR 0 "register_operand" "=ks,ks,d,d,d,d,d,d,d,d,?d")
-	(plus:GPR (match_operand:GPR 1 "register_operand" "ks,ks,ks,ks,d,kc,kc,kc,kc,d,kc")
-		  (match_operand:GPR 2 "arith_operand" "Usd8,Q,Uuw<si8_di5>,Q,Usb<si8_di5>,Usb<si8_di5>,Q,Usb4,O,d,kc")))]
+  [(set (match_operand:GPR 0 "register_operand" "=ks,ks, d,d, d,d, d, d,d,d,?d")
+	(plus:GPR (match_operand:GPR 1 "register_operand" "ks,ks, ks,ks, d, kc,kc,kc,kc,d,kc")
+		  (match_operand:GPR 2 "arith_operand" "Usd8,Q, Uuw<si8_di5>,Q, Usb<si8_di5>, Usb<si8_di5>,Q,Usb4,O,d,kc")))]
   "TARGET_MIPS16 && TARGET_MIPS16E2"
   "@
     addiu\t%0,%2
@@ -3875,14 +3875,14 @@
         (sign_extend:HI (match_operand:QI 1 "nonimmediate_operand")))]
   "")
 
-(define_insn "*extendqihi2_mips16e"
+(define_insn "*extendqihi2_mips16e2"
   [(set (match_operand:HI 0 "register_operand" "=d,d,d")
         (sign_extend:HI (match_operand:QI 1 "nonimmediate_operand" "0,m,kc")))]
   "GENERATE_MIPS16E && TARGET_MIPS16E2"
   "@
    seb\t%0
    lb\t%0,%1
-   e_seb\t%0,%1"
+   seb\t%0,%1"
   [(set_attr "move_type" "signext,load,signext")
    (set_attr "extended_mips16" "no,no,yes")
    (set_attr "mode" "SI")])
