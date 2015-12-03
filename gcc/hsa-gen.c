@@ -343,12 +343,14 @@ static hash_map <nofree_string_hash, omp_simple_builtin> *omp_simple_builtins
 
 /* Warning messages for OMP builtins.  */
 
-#define HSA_WARN_LOCK_ROUTINE "support for HSA does not implement OMP lock " \
-  "routine"
-#define HSA_WARN_TIMING_ROUTINE "support for HSA does not implement OMP " \
-  "timing routine"
-#define HSA_WARN_MEMORY_ROUTINE "support for HSA does not implement OMP " \
-  "device memory routine"
+#define HSA_WARN_LOCK_ROUTINE "support for HSA does not implement OpenMP lock " \
+  "routines"
+#define HSA_WARN_TIMING_ROUTINE "support for HSA does not implement OpenMP " \
+  "timing routines"
+#define HSA_WARN_MEMORY_ROUTINE "OpenMP device memory library routines have " \
+  "undefined semantics within target regions, support for HSA ignores them"
+#define HSA_WARN_AFFINITY "Support for HSA does not implement OpenMP affinity " \
+  "featerues"
 
 /* Initialize hash map with simple OMP builtins.  */
 
@@ -365,11 +367,11 @@ hsa_init_simple_builtins ()
     {
       omp_simple_builtin
 	("omp_get_initial_device", NULL, false,
-	 new hsa_op_immed (GOMP_DEVICE_HOST, (BrigType16_t) BRIG_TYPE_S64)),
+	 new hsa_op_immed (GOMP_DEVICE_HOST, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_is_initial_device", NULL, false,
-			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S64)),
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_get_dynamic", NULL, false,
-			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S64)),
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_set_dynamic", NULL, false, NULL),
       omp_simple_builtin ("omp_init_lock", HSA_WARN_LOCK_ROUTINE, true),
       omp_simple_builtin ("omp_init_lock_with_hint", HSA_WARN_LOCK_ROUTINE,
@@ -387,18 +389,56 @@ hsa_init_simple_builtins ()
       omp_simple_builtin ("omp_target_free", HSA_WARN_MEMORY_ROUTINE, false),
       omp_simple_builtin
 	("omp_target_is_present", HSA_WARN_MEMORY_ROUTINE,
-	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_target_memcpy", HSA_WARN_MEMORY_ROUTINE, false,
-			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin
 	("omp_target_memcpy_rect", HSA_WARN_MEMORY_ROUTINE,
-	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin
 	("omp_target_associate_ptr", HSA_WARN_MEMORY_ROUTINE, false,
-	 new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64)),
+	 new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin
 	("omp_target_disassociate_ptr", HSA_WARN_MEMORY_ROUTINE,
-	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S64))
+	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin
+        ("omp_set_max_active_levels",
+	 "Support for HSA only allows only one active level, call to "
+	 "omp_set_max_active_levels will be ignored in the generated HSAIL",
+	 false, NULL),
+      omp_simple_builtin ("omp_get_max_active_levels", NULL, false,
+			  new hsa_op_immed (1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_in_final", NULL, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_proc_bind", HSA_WARN_AFFINITY, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_num_places", HSA_WARN_AFFINITY, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_place_num_procs", HSA_WARN_AFFINITY, false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_place_proc_ids", HSA_WARN_AFFINITY, false,
+			  NULL),
+      omp_simple_builtin ("omp_get_place_num", HSA_WARN_AFFINITY, false,
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_partition_num_places", HSA_WARN_AFFINITY,
+			  false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_partition_place_nums", HSA_WARN_AFFINITY,
+			  false, NULL),
+      omp_simple_builtin ("omp_set_default_device",
+			  "omp_set_default_device has undefined semantics "
+			  "within target regions, support for HSA ignores it",
+			  false, NULL),
+      omp_simple_builtin ("omp_get_default_device",
+			  "omp_get_default_device has undefined semantics "
+			  "within target regions, support for HSA ignores it",
+			  false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_num_devices",
+			  "omp_get_num_devices has undefined semantics "
+			  "within target regions, support for HSA ignores it",
+			  false,
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32))
     };
 
   unsigned count = sizeof (omp_builtins) / sizeof (omp_simple_builtin);
@@ -4095,7 +4135,18 @@ omp_simple_builtin::generate (gimple *stmt, hsa_bb *hbb)
 static bool
 gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
 {
+  bool handled = false;
   const char *name = hsa_get_declaration_name (gimple_call_fndecl (stmt));
+
+  char *copy = NULL;
+  size_t len = strlen (name);
+  if (len > 0 && name[len - 1] == '_')
+    {
+      copy = XNEWVEC (char, len + 1);
+      strcpy (copy, name);
+      copy[len - 1] = '\0';
+      name = copy;
+    }
 
   /* Handle omp_* routines.  */
   if (strstr (name, "omp_") == name)
@@ -4108,8 +4159,7 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
 	  return true;
 	}
 
-      bool handled = true;
-
+      handled = true;
       if (strcmp (name, "omp_set_num_threads") == 0)
 	gen_set_num_threads (gimple_call_arg (stmt, 0), hbb);
       else if (strcmp (name, "omp_get_thread_num") == 0)
@@ -4138,11 +4188,16 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
 	handled = false;
 
       if (handled)
-	return true;
+	{
+	  if (copy)
+	    free (copy);
+	  return true;
+	}
     }
 
   if (strcmp (name, "__hsa_set_debug_value") == 0)
     {
+      handled = true;
       if (hsa_cfun->has_shadow_reg_p ())
 	{
 	  tree rhs1 = gimple_call_arg (stmt, 0);
@@ -4152,10 +4207,10 @@ gen_hsa_insns_for_known_library_call (gimple *stmt, hsa_bb *hbb)
 	  set_debug_value (hbb, src);
 	}
     }
-  else
-    return false;
 
-  return true;
+  if (copy)
+    free (copy);
+  return handled;
 }
 
 /* Generate HSA instructions for the given kernel call statement CALL.
@@ -5012,8 +5067,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	gen_hsa_insns_for_direct_call (stmt, hbb);
       else if (!gen_hsa_insns_for_known_library_call (stmt, hbb))
 	HSA_SORRY_AT (gimple_location (stmt),
-		      "HSA does support only call of functions within omp "
-		      "declare target");
+		      "HSA supports only calls of functions marked with pragma "
+		      "omp declare target");
       return;
     }
 

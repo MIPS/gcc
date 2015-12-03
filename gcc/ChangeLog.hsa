@@ -1,5 +1,17 @@
 2015-12-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa-gen.c (HSA_WARN_LOCK_ROUTINE): Slight corrections.
+	(HSA_WARN_TIMING_ROUTINE): Likewise.
+	(HSA_WARN_MEMORY_ROUTINE): Reworded.
+	(HSA_WARN_AFFINITY): New.
+	(hsa_init_simple_builtins): Added ignoring of a few more omp
+	routines.  Changed most result types to signed 32 bit integer.
+	(gen_hsa_insns_for_known_library_call): Cope with library routines
+	having an underscore at the end.
+	(gen_hsa_insns_for_call): Slight rewording of the sorry message.
+
+2015-12-03  Martin Jambor  <mjambor@suse.cz>
+
 	* tree-inline.c (duplicate_remap_omp_clause_seq): New function.
 	(replace_locals_op): Duplicate gimple sequences in OMP clauses.
 
