@@ -1,5 +1,10 @@
 2015-12-03  Martin Jambor  <mjambor@suse.cz>
 
+	* hsa.c (hsa_callable_function_p): Ignore functions with oacc
+	function attribute.
+
+2015-12-03  Martin Jambor  <mjambor@suse.cz>
+
 	* hsa-gen.c (HSA_WARN_LOCK_ROUTINE): Slight corrections.
 	(HSA_WARN_TIMING_ROUTINE): Likewise.
 	(HSA_WARN_MEMORY_ROUTINE): Reworded.
