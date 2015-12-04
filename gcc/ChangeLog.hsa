@@ -1,3 +1,9 @@
+2015-12-04  Martin Liska  <mliska@suse.cz>
+
+	* hsa-gen.c (gen_hsa_insn_for_internal_fn_call): Explicitly
+	enumerate all internal functions that can be emitted as function
+	call instruction.
+
 2015-12-03  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa.c (hsa_callable_function_p): Ignore functions with oacc

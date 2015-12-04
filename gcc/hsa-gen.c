@@ -5029,8 +5029,34 @@ gen_hsa_insn_for_internal_fn_call (gcall *stmt, hsa_bb *hbb)
       gen_hsa_popcount (stmt, hbb);
       break;
 
-    default:
+    case IFN_ACOS:
+    case IFN_ASIN:
+    case IFN_ATAN:
+    case IFN_EXP:
+    case IFN_EXP10:
+    case IFN_EXPM1:
+    case IFN_LOG:
+    case IFN_LOG10:
+    case IFN_LOG1P:
+    case IFN_LOGB:
+    case IFN_SIGNIFICAND:
+    case IFN_TAN:
+    case IFN_NEARBYINT:
+    case IFN_ROUND:
+    case IFN_ATAN2:
+    case IFN_COPYSIGN:
+    case IFN_FMOD:
+    case IFN_POW:
+    case IFN_REMAINDER:
+    case IFN_SCALB:
+    case IFN_FMIN:
+    case IFN_FMAX:
       gen_hsa_insns_for_call_of_internal_fn (stmt, hbb);
+
+    default:
+      HSA_SORRY_ATV (gimple_location (stmt),
+		     "support for HSA does not implement internal function: %s",
+		     internal_fn_name (fn));
       break;
     }
 }
