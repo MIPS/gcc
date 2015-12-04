@@ -14228,7 +14228,9 @@ mips_output_jump (rtx *operands, int target_opno, int size_opno, bool link_p)
   const char *compact = "";
   const char *nop = "%/";
   const char *short_delay = link_p ? "%!" : "";
-  const char *insn_name = TARGET_CB_NEVER || reg_p ? "j" : "b";
+  const char *insn_name = ((TARGET_CB_NEVER && (!TARGET_MIPS16 || link_p))
+			    || reg_p
+			   ? "j" : "b");
 
   /* Compact branches can only be described when the ISA has support for them
      as both the compact formatter '%:' and the delay slot NOP formatter '%/'

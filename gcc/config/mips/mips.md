@@ -6929,7 +6929,7 @@
 })
 
 (define_insn "sibcall_internal"
-  [(call (mem:SI (match_operand 0 "call_insn_operand" "j,S"))
+  [(call (mem:SI (match_operand 0 "call_insn_operand" "kc,S"))
 	 (match_operand 1 "" ""))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 0, 1, false); }
@@ -6950,7 +6950,7 @@
 
 (define_insn "sibcall_value_internal"
   [(set (match_operand 0 "register_operand" "")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
+        (call (mem:SI (match_operand 1 "call_insn_operand" "kc,S"))
               (match_operand 2 "" "")))]
   "TARGET_SIBCALLS && SIBLING_CALL_P (insn)"
   { return mips_output_jump (operands, 1, 2, false); }
@@ -6959,7 +6959,7 @@
 
 (define_insn "sibcall_value_multiple_internal"
   [(set (match_operand 0 "register_operand" "")
-        (call (mem:SI (match_operand 1 "call_insn_operand" "j,S"))
+        (call (mem:SI (match_operand 1 "call_insn_operand" "kc,S"))
               (match_operand 2 "" "")))
    (set (match_operand 3 "register_operand" "")
 	(call (mem:SI (match_dup 1))
