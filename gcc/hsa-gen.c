@@ -2689,6 +2689,9 @@ gen_hsa_memory_copy (hsa_bb *hbb, hsa_op_address *target, hsa_op_address *src,
 static unsigned HOST_WIDE_INT
 build_memset_value (unsigned HOST_WIDE_INT constant, unsigned byte_size)
 {
+  if (constant == 0)
+    return 0;
+
   HOST_WIDE_INT v = constant;
 
   for (unsigned i = 1; i < byte_size; i++)
@@ -5486,6 +5489,32 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	tree lhs = gimple_call_lhs (stmt);
 	if (lhs)
 	  gen_hsa_insns_for_single_assignment (lhs, dst, hbb);
+
+	break;
+      }
+    case BUILT_IN_BZERO:
+      {
+	tree dst = gimple_call_arg (stmt, 0);
+	tree byte_size = gimple_call_arg (stmt, 1);
+
+	if (!tree_fits_uhwi_p (byte_size))
+	  {
+	    gen_hsa_insns_for_direct_call (stmt, hbb);
+	    return;
+	  }
+
+	unsigned n = tree_to_uhwi (byte_size);
+
+	if (n > HSA_MEMORY_BUILTINS_LIMIT)
+	  {
+	    gen_hsa_insns_for_direct_call (stmt, hbb);
+	    return;
+	  }
+
+	hsa_op_address *dst_addr;
+	dst_addr = get_address_from_value (dst, hbb);
+
+	gen_hsa_memory_set (hbb, dst_addr, 0, n);
 
 	break;
       }
