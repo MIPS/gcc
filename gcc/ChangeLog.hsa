@@ -1,5 +1,10 @@
 2015-12-04  Martin Jambor  <mjambor@suse.cz>
 
+	* doc/install.texi (Configuration): Fix an error in documentation
+	of --with-hsa-runtime.
+
+2015-12-04  Martin Jambor  <mjambor@suse.cz>
+
 	* tree-inline.c (duplicate_remap_omp_clause_seq): Add early return
 	if seq is NULL.
 
