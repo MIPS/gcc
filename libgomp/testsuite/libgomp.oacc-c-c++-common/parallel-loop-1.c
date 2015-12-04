@@ -1,8 +1,8 @@
 /* { dg-do run } */
-/* { dg-xfail-run-if "cuStreamSynchronize error: unknown result code:   716" { openacc_nvidia_accel_selected } } */
 
 #include <stdlib.h>
 
+#define PK parallel
 #define M(x, y, z) O(x, y, z)
 #define O(x, y, z) x ## _ ## y ## _ ## z
 
@@ -29,10 +29,12 @@ main ()
       || test_none_auto ()
       || test_none_independent ()
       || test_none_seq ()
+      || test_none_tile ()
       || test_gangs_none ()
       || test_gangs_auto ()
       || test_gangs_independent ()
-      || test_gangs_seq ())
+      || test_gangs_seq ()
+      || test_gangs_tile ())
     abort ();
   return 0;
 }

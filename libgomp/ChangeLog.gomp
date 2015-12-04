@@ -1,3 +1,57 @@
+2015-12-04  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/{kernels-loop-4.c,
+	kernels-private-vars-local-worker-1.c,
+	kernels-private-vars-local-worker-2.c,
+	kernels-private-vars-local-worker-3.c,
+	kernels-private-vars-local-worker-4.c,
+	kernels-private-vars-local-worker-5.c,
+	kernels-private-vars-loop-gang-1.c,
+	kernels-private-vars-loop-gang-2.c,
+	kernels-private-vars-loop-gang-3.c,
+	kernels-private-vars-loop-gang-4.c,
+	kernels-private-vars-loop-gang-5.c,
+	kernels-private-vars-loop-gang-6.c,
+	kernels-private-vars-loop-vector-1.c,
+	kernels-private-vars-loop-vector-2.c,
+	kernels-private-vars-loop-worker-1.c,
+	kernels-private-vars-loop-worker-2.c,
+	kernels-private-vars-loop-worker-3.c,
+	kernels-private-vars-loop-worker-4.c,
+	kernels-private-vars-loop-worker-5.c,
+	kernels-private-vars-loop-worker-6.c,
+	kernels-private-vars-loop-worker-7.c,
+	kernels-reduction-1.c}: New test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.c: Remove xfail,
+	add tile clause test define PK as parallel.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-1.h: Add tile
+	clause test.
+	* testsuite/libgomp.oacc-c-c++-common/parallel-loop-2.h: Replace
+	the parallel construct text with a PK macro.
+	* testsuite/libgomp.oacc-fortran/{kernels-collapse-3.f90,
+	kernels-collapse-4.f90, kernels-loop-1.f90, kernels-map-1.f90,
+	kernels-private-vars-loop-gang-1.f90,
+	kernels-private-vars-loop-gang-2.f90,
+	kernels-private-vars-loop-gang-3.f90,
+	kernels-private-vars-loop-gang-6.f90,
+	kernels-private-vars-loop-vector-1.f90,
+	kernels-private-vars-loop-vector-2.f90,
+	kernels-private-vars-loop-worker-1.f90,
+	kernels-private-vars-loop-worker-2.f90,
+	kernels-private-vars-loop-worker-3.f90,
+	kernels-private-vars-loop-worker-4.f90,
+	kernels-private-vars-loop-worker-5.f90,
+	kernels-private-vars-loop-worker-6.f90,
+	kernels-private-vars-loop-worker-7.f90,
+	kernels-reduction-1.f90, parallel-loop-1.f90,
+	private-vars-loop-gang-1.f90, private-vars-loop-gang-2.f90,
+	private-vars-loop-gang-3.f90, private-vars-loop-gang-6.f90,
+	private-vars-loop-vector-1.f90, private-vars-loop-vector-2.f90,
+	private-vars-loop-worker-1.f90, private-vars-loop-worker-2.f90,
+	private-vars-loop-worker-3.f90, private-vars-loop-worker-4.f90,
+	private-vars-loop-worker-5.f90, private-vars-loop-worker-6.f90,
+	private-vars-loop-worker-7.f90}: New tests.
+
 2015-11-16  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/reduction-cplx-dbl.c: Add

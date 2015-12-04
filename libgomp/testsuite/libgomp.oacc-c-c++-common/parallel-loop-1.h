@@ -18,3 +18,8 @@
 #include "parallel-loop-2.h"
 #undef S
 #undef N
+#define S tile(*)
+#define N(x) M(x, G, tile)
+#include "parallel-loop-2.h"
+#undef S
+#undef N
