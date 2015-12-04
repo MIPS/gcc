@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#define PK parallel
 #define M(x, y, z) O(x, y, z)
 #define O(x, y, z) x ## _ ## y ## _ ## z
 
