@@ -70,10 +70,34 @@
 /* This file should be included last.  */
 #include "target-def.h"
 
-#define SHUFFLE_UP 0
-#define SHUFFLE_DOWN 1
-#define SHUFFLE_BFLY 2
-#define SHUFFLE_IDX 3
+/* The kind of shuffe instruction.  */
+enum nvptx_shuffle_kind
+{
+  SHUFFLE_UP,
+  SHUFFLE_DOWN,
+  SHUFFLE_BFLY,
+  SHUFFLE_IDX,
+  SHUFFLE_MAX
+};
+
+/* The various PTX memory areas an object might reside in.  */
+enum nvptx_data_area
+{
+  DATA_AREA_GENERIC,
+  DATA_AREA_GLOBAL,
+  DATA_AREA_SHARED,
+  DATA_AREA_LOCAL,
+  DATA_AREA_CONST,
+  DATA_AREA_PARAM,
+  DATA_AREA_MAX
+};
+
+/*  We record the data area in the target symbol flags.  */
+#define SYMBOL_DATA_AREA(SYM) \
+  (nvptx_data_area)((SYMBOL_REF_FLAGS (SYM) >> SYMBOL_FLAG_MACH_DEP_SHIFT) \
+		    & 7)
+#define SET_SYMBOL_DATA_AREA(SYM,AREA) \
+  (SYMBOL_REF_FLAGS (SYM) |= (AREA) << SYMBOL_FLAG_MACH_DEP_SHIFT)
 
 /* Record the function decls we've written, and the libfuncs and function
    decls corresponding to them.  */
@@ -149,27 +173,12 @@ nvptx_option_override (void)
     = hash_table<declared_libfunc_hasher>::create_ggc (17);
 
   worker_bcast_sym = gen_rtx_SYMBOL_REF (Pmode, worker_bcast_name);
+  SET_SYMBOL_DATA_AREA (worker_bcast_sym, DATA_AREA_SHARED);
   worker_bcast_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
 
   worker_red_sym = gen_rtx_SYMBOL_REF (Pmode, worker_red_name);
+  SET_SYMBOL_DATA_AREA (worker_red_sym, DATA_AREA_SHARED);
   worker_red_align = GET_MODE_ALIGNMENT (SImode) / BITS_PER_UNIT;
-}
-
-/* Return the mode to be used when declaring a ptx object for OBJ.
-   For objects with subparts such as complex modes this is the mode
-   of the subpart.  */
-
-machine_mode
-nvptx_underlying_object_mode (rtx obj)
-{
-  if (GET_CODE (obj) == SUBREG)
-    obj = SUBREG_REG (obj);
-  machine_mode mode = GET_MODE (obj);
-  if (mode == TImode)
-    return DImode;
-  if (COMPLEX_MODE_P (mode))
-    return GET_MODE_INNER (mode);
-  return mode;
 }
 
 /* Return a ptx type for MODE.  If PROMOTE, then use .u32 for QImode to
@@ -206,22 +215,49 @@ nvptx_ptx_type_from_mode (machine_mode mode, bool promote)
     }
 }
 
-/* Determine the address space to use for SYMBOL_REF SYM.  */
+/* Encode the PTX data area that DECL (which might not actually be a
+   _DECL) should reside in.  */
 
-static addr_space_t
-nvptx_addr_space_from_sym (rtx sym)
+static void
+nvptx_encode_section_info (tree decl, rtx rtl, int first)
 {
-  tree decl = SYMBOL_REF_DECL (sym);
-  if (decl == NULL_TREE || TREE_CODE (decl) == FUNCTION_DECL)
-    return ADDR_SPACE_GENERIC;
+  default_encode_section_info (decl, rtl, first);
+  if (first && MEM_P (rtl))
+    {
+      nvptx_data_area area = DATA_AREA_GENERIC;
 
-  bool is_const = (CONSTANT_CLASS_P (decl)
-		   || TREE_CODE (decl) == CONST_DECL
-		   || TREE_READONLY (decl));
-  if (is_const)
-    return ADDR_SPACE_CONST;
+      if (TREE_CONSTANT (decl))
+	area = DATA_AREA_CONST;
+      else if (TREE_CODE (decl) == VAR_DECL)
+	/* TODO: This would be a good place to check for a .shared or
+	   other section name.  */
+	area = TREE_READONLY (decl) ? DATA_AREA_CONST : DATA_AREA_GLOBAL;
 
-  return ADDR_SPACE_GLOBAL;
+      SET_SYMBOL_DATA_AREA (XEXP (rtl, 0), area);
+    }
+}
+
+/* Return the PTX name of the data area in which SYM should be
+   placed.  The symbol must have already been processed by
+   nvptx_encode_seciton_info, or equivalent.  */
+
+static const char *
+section_for_sym (rtx sym)
+{
+  nvptx_data_area area = SYMBOL_DATA_AREA (sym);
+  /* Same order as nvptx_data_area enum.  */
+  static char const *const areas[] =
+    {"", ".global", ".shared", ".local", ".const", ".param"};
+
+  return areas[area];
+}
+
+/* Similarly for a decl.  */
+
+static const char *
+section_for_decl (const_tree decl)
+{
+  return section_for_sym (XEXP (DECL_RTL (CONST_CAST (tree, decl)), 0));
 }
 
 /* Check NAME for special function names and redirect them by returning a
@@ -255,6 +291,37 @@ maybe_split_mode (machine_mode mode)
     return DImode;
 
   return VOIDmode;
+}
+
+/* Output a register, subreg, or register pair (with optional
+   enclosing braces).  */
+
+static void
+output_reg (FILE *file, unsigned regno, machine_mode inner_mode,
+	    int subreg_offset = -1)
+{
+  if (inner_mode == VOIDmode)
+    {
+      if (HARD_REGISTER_NUM_P (regno))
+	fprintf (file, "%s", reg_names[regno]);
+      else
+	fprintf (file, "%%r%d", regno);
+    }
+  else if (subreg_offset >= 0)
+    {
+      output_reg (file, regno, VOIDmode);
+      fprintf (file, "$%d", subreg_offset);
+    }
+  else
+    {
+      if (subreg_offset == -1)
+	fprintf (file, "{");
+      output_reg (file, regno, inner_mode, GET_MODE_SIZE (inner_mode));
+      fprintf (file, ",");
+      output_reg (file, regno, inner_mode, 0);
+      if (subreg_offset == -1)
+	fprintf (file, "}");
+    }
 }
 
 /* Emit forking instructions for MASK.  */
@@ -366,6 +433,31 @@ write_as_kernel (tree attrs)
 	  || lookup_attribute ("omp target entrypoint", attrs) != NULL_TREE);
 }
 
+/* Emit a linker marker for a function decl or defn.  */
+
+static void
+write_fn_marker (std::stringstream &s, bool is_defn, bool globalize,
+		 const char *name)
+{
+  s << "\n// BEGIN";
+  if (globalize)
+    s << " GLOBAL";
+  s << " FUNCTION " << (is_defn ? "DEF: " : "DECL: ");
+  s << name << "\n";
+}
+
+/* Emit a linker marker for a variable decl or defn.  */
+
+static void
+write_var_marker (FILE *file, bool is_defn, bool globalize, const char *name)
+{
+  fprintf (file, "\n// BEGIN%s VAR %s: ",
+	   globalize ? " GLOBAL" : "",
+	   is_defn ? "DEF" : "DECL");
+  assemble_name_raw (file, name);
+  fputs ("\n", file);
+}
+
 /* Write a .func or .kernel declaration or definition along with
    a helper comment for use by ld.  S is the stream to write to, DECL
    the decl for the function with name NAME.   For definitions, emit
@@ -386,11 +478,7 @@ write_fn_proto (std::stringstream &s, bool is_defn,
 	name++;
     }
 
-  /* Emit the linker marker.  */
-  s << "\n// BEGIN";
-  if (TREE_PUBLIC (decl))
-    s << " GLOBAL";
-  s << " FUNCTION " << (is_defn ? "DEF" : "DECL") << ": " << name << "\n";
+  write_fn_marker (s, is_defn, TREE_PUBLIC (decl), name);
 
   /* PTX declaration.  */
   if (DECL_EXTERNAL (decl))
@@ -500,7 +588,7 @@ write_fn_proto_from_insn (std::stringstream &s, const char *name,
   else
     {
       name = nvptx_name_replacement (name);
-      s << "\n// BEGIN GLOBAL FUNCTION DECL: " << name << "\n";
+      write_fn_marker (s, false, true, name);
       s << "\t.extern .func ";
     }
 
@@ -703,16 +791,12 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 	{
 	  machine_mode mode = PSEUDO_REGNO_MODE (i);
 	  machine_mode split = maybe_split_mode (mode);
+
 	  if (split != VOIDmode)
-	    {
-	      fprintf (file, "\t.reg%s %%r%d$%d;\n",
-		       nvptx_ptx_type_from_mode (split, true), i, 0);
-	      fprintf (file, "\t.reg%s %%r%d$%d;\n",
-		       nvptx_ptx_type_from_mode (split, true), i, 1);
-	    }
-	  else
-	    fprintf (file, "\t.reg%s %%r%d;\n",
-		     nvptx_ptx_type_from_mode (mode, true), i);
+	    mode = split;
+	  fprintf (file, "\t.reg%s ", nvptx_ptx_type_from_mode (mode, true));
+	  output_reg (file, i, split, -2);
+	  fprintf (file, ";\n");
 	}
     }
 
@@ -730,15 +814,6 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 	       HOST_WIDE_INT_PRINT_DEC"];\n",
 	       BITS_PER_WORD, sz);
       fprintf (file, "\tcvta.local.u%d %%outargs, %%outargs_ar;\n",
-	       BITS_PER_WORD);
-    }
-
-  if (cfun->machine->punning_buffer_size > 0)
-    {
-      fprintf (file, "\t.reg.u%d %%punbuffer;\n"
-	       "\t.local.align 8 .b8 %%punbuffer_ar[%d];\n",
-	       BITS_PER_WORD, cfun->machine->punning_buffer_size);
-      fprintf (file, "\tcvta.local.u%d %%punbuffer, %%punbuffer_ar;\n",
 	       BITS_PER_WORD);
     }
 
@@ -975,15 +1050,13 @@ nvptx_function_incoming_arg (cumulative_args_t cum_v, machine_mode mode,
 /* Implement TARGET_FUNCTION_ARG_ADVANCE.  */
 
 static void
-nvptx_function_arg_advance (cumulative_args_t cum_v, machine_mode mode,
-			    const_tree type ATTRIBUTE_UNUSED,
-			    bool named ATTRIBUTE_UNUSED)
+nvptx_function_arg_advance (cumulative_args_t cum_v,
+			    machine_mode ARG_UNUSED (mode),
+			    const_tree ARG_UNUSED (type),
+			    bool ARG_UNUSED (named))
 {
   CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
-  if (mode == TImode)
-    cum->count += 2;
-  else
-    cum->count++;
+  cum->count++;
 }
 
 /* Handle the TARGET_STRICT_ARGUMENT_NAMING target hook.
@@ -1201,7 +1274,7 @@ nvptx_gen_pack (rtx dst, rtx src0, rtx src1)
    across the vectors of a single warp.  */
 
 static rtx
-nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, unsigned kind)
+nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 {
   rtx res;
 
@@ -1370,21 +1443,15 @@ nvptx_maybe_convert_symbolic_operand (rtx op)
     return op;
 
   nvptx_maybe_record_fnsym (sym);
-  
-  addr_space_t as = nvptx_addr_space_from_sym (sym);
-  if (as == ADDR_SPACE_GENERIC)
-    return op;
 
-  enum unspec code;
-  code = (as == ADDR_SPACE_GLOBAL ? UNSPEC_FROM_GLOBAL
-	  : as == ADDR_SPACE_LOCAL ? UNSPEC_FROM_LOCAL
-	  : as == ADDR_SPACE_SHARED ? UNSPEC_FROM_SHARED
-	  : as == ADDR_SPACE_CONST ? UNSPEC_FROM_CONST
-	  : UNSPEC_FROM_PARAM);
+  nvptx_data_area area = SYMBOL_DATA_AREA (sym);
+  if (area == DATA_AREA_GENERIC)
+    return op;
 
   rtx dest = gen_reg_rtx (Pmode);
   emit_insn (gen_rtx_SET (dest,
-			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op), code)));
+			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, op),
+					  UNSPEC_TO_GENERIC)));
   return dest;
 }
 
@@ -1426,45 +1493,6 @@ nvptx_hard_regno_mode_ok (int regno, machine_mode mode)
     return true;
   return mode == cfun->machine->ret_reg_mode;
 }
-
-/* Convert an address space AS to the corresponding ptx string.  */
-
-const char *
-nvptx_section_from_addr_space (addr_space_t as)
-{
-  switch (as)
-    {
-    case ADDR_SPACE_CONST:
-      return ".const";
-
-    case ADDR_SPACE_GLOBAL:
-      return ".global";
-
-    case ADDR_SPACE_SHARED:
-      return ".shared";
-
-    case ADDR_SPACE_GENERIC:
-      return "";
-
-    default:
-      gcc_unreachable ();
-    }
-}
-
-/* Determine whether DECL goes into .const or .global.  */
-
-const char *
-nvptx_section_for_decl (const_tree decl)
-{
-  bool is_const = (CONSTANT_CLASS_P (decl)
-		   || TREE_CODE (decl) == CONST_DECL
-		   || TREE_READONLY (decl));
-  if (is_const)
-    return ".const";
-
-  return ".global";
-}
-
 
 /* Machinery to output constant initializers.  When beginning an initializer,
    we decide on a chunk size (which is visible in ptx in the type used), and
@@ -1640,9 +1668,7 @@ static void
 init_output_initializer (FILE *file, const char *name, const_tree type,
 			 bool is_public)
 {
-  fprintf (file, "\n// BEGIN%s VAR DEF: ", is_public ? " GLOBAL" : "");
-  assemble_name_raw (file, name);
-  fputc ('\n', file);
+  write_var_marker (file, true, is_public, name);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     type = TREE_TYPE (type);
@@ -1658,6 +1684,26 @@ init_output_initializer (FILE *file, const char *name, const_tree type,
   decl_offset = 0;
   init_part = 0;
   object_finished = false;
+}
+
+/* Output an uninitialized common or file-scope variable.  */
+
+void
+nvptx_output_aligned_decl (FILE *file, const char *name,
+			   const_tree decl, HOST_WIDE_INT size, unsigned align)
+{
+  write_var_marker (file, true, TREE_PUBLIC (decl), name);
+
+  /* If this is public, it is common.  The nearest thing we have to
+     common is weak.  */
+  fprintf (file, "\t%s%s .align %d .b8 ",
+	   TREE_PUBLIC (decl) ? ".weak " : "",
+	   section_for_decl (decl),
+	   align / BITS_PER_UNIT);
+  assemble_name (file, name);
+  if (size > 0)
+    fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC"]", size);
+  fprintf (file, ";\n");
 }
 
 /* Implement TARGET_ASM_DECLARE_CONSTANT_NAME.  Begin the process of
@@ -1685,27 +1731,24 @@ nvptx_asm_declare_constant_name (FILE *file, const char *name,
 void
 nvptx_declare_object_name (FILE *file, const char *name, const_tree decl)
 {
-  if (decl && DECL_SIZE (decl))
-    {
-      tree type = TREE_TYPE (decl);
-      unsigned HOST_WIDE_INT size;
+  tree type = TREE_TYPE (decl);
 
-      init_output_initializer (file, name, type, TREE_PUBLIC (decl));
-      size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
-      const char *section = nvptx_section_for_decl (decl);
-      fprintf (file, "\t%s%s .align %d .u%d ",
-	       !TREE_PUBLIC (decl) ? ""
-	       : DECL_WEAK (decl) ? ".weak" : ".visible",
-	       section, DECL_ALIGN (decl) / BITS_PER_UNIT,
-	       decl_chunk_size * BITS_PER_UNIT);
-      assemble_name (file, name);
-      if (size > 0)
-	fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC "]",
-		 (size + decl_chunk_size - 1) / decl_chunk_size);
-      else
-	object_finished = true;
-      object_size = size;
-    }
+  init_output_initializer (file, name, type, TREE_PUBLIC (decl));
+  fprintf (file, "\t%s%s .align %d .u%d ",
+	   !TREE_PUBLIC (decl) ? ""
+	   : DECL_WEAK (decl) ? ".weak " : ".visible ",
+	   section_for_decl (decl),
+	   DECL_ALIGN (decl) / BITS_PER_UNIT,
+	   decl_chunk_size * BITS_PER_UNIT);
+  assemble_name (file, name);
+
+  unsigned HOST_WIDE_INT size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
+  if (size > 0)
+    fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC "]",
+	     (size + decl_chunk_size - 1) / decl_chunk_size);
+  else
+    object_finished = true;
+  object_size = size;
 }
 
 /* Implement TARGET_ASM_GLOBALIZE_LABEL by doing nothing.  */
@@ -1717,22 +1760,50 @@ nvptx_globalize_label (FILE *, const char *)
 
 /* Implement TARGET_ASM_ASSEMBLE_UNDEFINED_DECL.  Write an extern
    declaration only for variable DECL with NAME to FILE.  */
+
 static void
 nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 {
-  if (TREE_CODE (decl) != VAR_DECL)
-    return;
-  const char *section = nvptx_section_for_decl (decl);
-  fprintf (file, "\n// BEGIN%s VAR DECL: ",
-	   TREE_PUBLIC (decl) ? " GLOBAL" : "");
+  write_var_marker (file, false, TREE_PUBLIC (decl), name);
+
+  fprintf (file, "\t.extern %s .b8 ", section_for_decl (decl));
   assemble_name_raw (file, name);
-  fputs ("\n", file);
+
   HOST_WIDE_INT size = int_size_in_bytes (TREE_TYPE (decl));
-  fprintf (file, ".extern %s .b8 ", section);
-  assemble_name_raw (file, name);
   if (size > 0)
     fprintf (file, "[" HOST_WIDE_INT_PRINT_DEC"]", size);
-  fprintf (file, ";\n\n");
+  fprintf (file, ";\n");
+}
+
+/* Output a pattern for a move instruction.  */
+
+const char *
+nvptx_output_mov_insn (rtx dst, rtx src)
+{
+  machine_mode dst_mode = GET_MODE (dst);
+  machine_mode dst_inner = (GET_CODE (dst) == SUBREG
+			    ? GET_MODE (XEXP (dst, 0)) : dst_mode);
+  machine_mode src_inner = (GET_CODE (src) == SUBREG
+			    ? GET_MODE (XEXP (src, 0)) : dst_mode);
+
+  if (REG_P (dst) && REGNO (dst) == NVPTX_RETURN_REGNUM && dst_mode == HImode)
+    /* Special handling for the return register.  It's never really an
+       HI object, and only occurs as the destination of a move
+       insn.  */
+    dst_inner = SImode;
+
+  if (src_inner == dst_inner)
+    return "%.\tmov%t0\t%0, %1;";
+
+  if (CONSTANT_P (src))
+    return (GET_MODE_CLASS (dst_inner) == MODE_INT
+	    && GET_MODE_CLASS (src_inner) != MODE_FLOAT
+	    ? "%.\tmov%t0\t%0, %1;" : "%.\tmov.b%T0\t%0, %1;");
+
+  if (GET_MODE_SIZE (dst_inner) == GET_MODE_SIZE (src_inner))
+    return "%.\tmov.b%T0\t%0, %1;";
+
+  return "%.\tcvt%t0%t1\t%0, %1;";
 }
 
 /* Output INSN, which is a call to CALLEE with result RESULT.  For ptx, this
@@ -1882,9 +1953,9 @@ nvptx_print_operand_address (FILE *file, machine_mode mode, rtx addr)
         unconditional one.
    # -- print a rounding mode for the instruction
 
-   A -- print an address space identifier for a MEM
+   A -- print a data area for a MEM
    c -- print an opcode suffix for a comparison operator, including a type code
-   f -- print a full reg even for something that must always be split
+   D -- print a data area for a MEM operand
    S -- print a shuffle kind specified by CONST_INT
    t -- print a type opcode suffix, promoting QImode to 32 bits
    T -- print a type size in bits
@@ -1893,9 +1964,6 @@ nvptx_print_operand_address (FILE *file, machine_mode mode, rtx addr)
 static void
 nvptx_print_operand (FILE *file, rtx x, int code)
 {
-  rtx orig_x = x;
-  machine_mode op_mode;
-
   if (code == '.')
     {
       x = current_insn_predicate;
@@ -1917,47 +1985,49 @@ nvptx_print_operand (FILE *file, rtx x, int code)
     }
 
   enum rtx_code x_code = GET_CODE (x);
+  machine_mode mode = GET_MODE (x);
 
   switch (code)
     {
     case 'A':
-      {
-	addr_space_t as = ADDR_SPACE_GENERIC;
-	rtx sym = XEXP (x, 0);
+      x = XEXP (x, 0);
+      /* FALLTHROUGH.  */
 
-	if (GET_CODE (sym) == CONST)
-	  sym = XEXP (sym, 0);
-	if (GET_CODE (sym) == PLUS)
-	  sym = XEXP (sym, 0);
+    case 'D':
+      if (GET_CODE (x) == CONST)
+	x = XEXP (x, 0);
+      if (GET_CODE (x) == PLUS)
+	x = XEXP (x, 0);
 
-	if (GET_CODE (sym) == SYMBOL_REF)
-	  as = nvptx_addr_space_from_sym (sym);
-
-	fputs (nvptx_section_from_addr_space (as), file);
-      }
+      if (GET_CODE (x) == SYMBOL_REF)
+	fputs (section_for_sym (x), file);
       break;
 
     case 't':
-      op_mode = nvptx_underlying_object_mode (x);
-      fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, true));
-      break;
-
     case 'u':
-      op_mode = nvptx_underlying_object_mode (x);
-      fprintf (file, "%s", nvptx_ptx_type_from_mode (op_mode, false));
+      if (x_code == SUBREG)
+	{
+	  mode = GET_MODE (SUBREG_REG (x));
+	  if (mode == TImode)
+	    mode = DImode;
+	  else if (COMPLEX_MODE_P (mode))
+	    mode = GET_MODE_INNER (mode);
+	}
+      fprintf (file, "%s", nvptx_ptx_type_from_mode (mode, code == 't'));
       break;
 
     case 'S':
       {
-	unsigned kind = UINTVAL (x);
+	nvptx_shuffle_kind kind = (nvptx_shuffle_kind) UINTVAL (x);
+	/* Same order as nvptx_shuffle_kind.  */
 	static const char *const kinds[] = 
-	  {"up", "down", "bfly", "idx"};
-	fprintf (file, ".%s", kinds[kind]);
+	  {".up", ".down", ".bfly", ".idx"};
+	fputs (kinds[kind], file);
       }
       break;
 
     case 'T':
-      fprintf (file, "%d", GET_MODE_BITSIZE (GET_MODE (x)));
+      fprintf (file, "%d", GET_MODE_BITSIZE (mode));
       break;
 
     case 'j':
@@ -1969,14 +2039,14 @@ nvptx_print_operand (FILE *file, rtx x, int code)
       goto common;
 
     case 'c':
-      op_mode = GET_MODE (XEXP (x, 0));
+      mode = GET_MODE (XEXP (x, 0));
       switch (x_code)
 	{
 	case EQ:
 	  fputs (".eq", file);
 	  break;
 	case NE:
-	  if (FLOAT_MODE_P (op_mode))
+	  if (FLOAT_MODE_P (mode))
 	    fputs (".neu", file);
 	  else
 	    fputs (".ne", file);
@@ -2032,38 +2102,39 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 	default:
 	  gcc_unreachable ();
 	}
-      if (FLOAT_MODE_P (op_mode)
+      if (FLOAT_MODE_P (mode)
 	  || x_code == EQ || x_code == NE
 	  || x_code == GEU || x_code == GTU
 	  || x_code == LEU || x_code == LTU)
-	fputs (nvptx_ptx_type_from_mode (op_mode, true), file);
+	fputs (nvptx_ptx_type_from_mode (mode, true), file);
       else
-	fprintf (file, ".s%d", GET_MODE_BITSIZE (op_mode));
+	fprintf (file, ".s%d", GET_MODE_BITSIZE (mode));
       break;
     default:
     common:
       switch (x_code)
 	{
 	case SUBREG:
-	  x = SUBREG_REG (x);
-	  /* fall through */
+	  {
+	    rtx inner_x = SUBREG_REG (x);
+	    machine_mode inner_mode = GET_MODE (inner_x);
+	    machine_mode split = maybe_split_mode (inner_mode);
+
+	    if (split != VOIDmode
+		&& (GET_MODE_SIZE (inner_mode) == GET_MODE_SIZE (mode)))
+	      output_reg (file, REGNO (inner_x), split);
+	    else
+	      output_reg (file, REGNO (inner_x), split, SUBREG_BYTE (x));
+	  }
+	  break;
 
 	case REG:
-	  if (HARD_REGISTER_P (x))
-	    fprintf (file, "%s", reg_names[REGNO (x)]);
-	  else
-	    fprintf (file, "%%r%d", REGNO (x));
-	  if (code != 'f' && maybe_split_mode (GET_MODE (x)) != VOIDmode)
-	    {
-	      gcc_assert (GET_CODE (orig_x) == SUBREG
-			  && maybe_split_mode (GET_MODE (orig_x)) == VOIDmode);
-	      fprintf (file, "$%d", SUBREG_BYTE (orig_x) / UNITS_PER_WORD);
-	    }
+	  output_reg (file, REGNO (x), maybe_split_mode (mode));
 	  break;
 
 	case MEM:
 	  fputc ('[', file);
-	  nvptx_print_address_operand (file, XEXP (x, 0), GET_MODE (x));
+	  nvptx_print_address_operand (file, XEXP (x, 0), mode);
 	  fputc (']', file);
 	  break;
 
@@ -2082,10 +2153,10 @@ nvptx_print_operand (FILE *file, rtx x, int code)
 
 	case CONST_DOUBLE:
 	  long vals[2];
-	  real_to_target (vals, CONST_DOUBLE_REAL_VALUE (x), GET_MODE (x));
+	  real_to_target (vals, CONST_DOUBLE_REAL_VALUE (x), mode);
 	  vals[0] &= 0xffffffff;
 	  vals[1] &= 0xffffffff;
-	  if (GET_MODE (x) == SFmode)
+	  if (mode == SFmode)
 	    fprintf (file, "0f%08lx", vals[0]);
 	  else
 	    fprintf (file, "0d%08lx%08lx", vals[1], vals[0]);
@@ -3878,7 +3949,7 @@ nvptx_file_end (void)
       worker_bcast_size = (worker_bcast_size + worker_bcast_align - 1)
 	& ~(worker_bcast_align - 1);
       
-      fprintf (asm_out_file, "\n// BEGIN VAR DEF: %s\n", worker_bcast_name);
+      write_var_marker (asm_out_file, true, false, worker_bcast_name);
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_bcast_align,
 	       worker_bcast_name, worker_bcast_size);
@@ -3890,8 +3961,8 @@ nvptx_file_end (void)
 
       worker_red_size = ((worker_red_size + worker_red_align - 1)
 			 & ~(worker_red_align - 1));
-      
-      fprintf (asm_out_file, "\n// BEGIN VAR DEF: %s\n", worker_red_name);
+
+      write_var_marker (asm_out_file, true, false, worker_red_name);
       fprintf (asm_out_file, ".shared .align %d .u8 %s[%d];\n",
 	       worker_red_align,
 	       worker_red_name, worker_red_size);
@@ -3919,7 +3990,8 @@ nvptx_expand_shuffle (tree exp, rtx target, machine_mode mode, int ignore)
   if (!REG_P (idx) && GET_CODE (idx) != CONST_INT)
     idx = copy_to_mode_reg (SImode, idx);
 
-  rtx pat = nvptx_gen_shuffle (target, src, idx, INTVAL (op));
+  rtx pat = nvptx_gen_shuffle (target, src, idx,
+			       (nvptx_shuffle_kind) INTVAL (op));
   if (pat)
     emit_insn (pat);
 
@@ -3944,15 +4016,14 @@ nvptx_expand_worker_addr (tree exp, rtx target,
   if (size + offset > worker_red_size)
     worker_red_size = size + offset;
 
-  emit_insn (gen_rtx_SET (target, worker_red_sym));
-
+  rtx addr = worker_red_sym;
   if (offset)
-    emit_insn (gen_rtx_SET (target,
-			    gen_rtx_PLUS (Pmode, target, GEN_INT (offset))));
+    {
+      addr = gen_rtx_PLUS (Pmode, addr, GEN_INT (offset));
+      addr = gen_rtx_CONST (Pmode, addr);
+    }
 
-  emit_insn (gen_rtx_SET (target,
-			  gen_rtx_UNSPEC (Pmode, gen_rtvec (1, target),
-					  UNSPEC_FROM_SHARED)));
+  emit_move_insn (target, addr);
 
   return target;
 }
@@ -4817,6 +4888,8 @@ nvptx_goacc_reduction (gcall *call)
 #undef TARGET_NO_REGISTER_ALLOCATION
 #define TARGET_NO_REGISTER_ALLOCATION true
 
+#undef TARGET_ENCODE_SECTION_INFO
+#define TARGET_ENCODE_SECTION_INFO nvptx_encode_section_info
 #undef TARGET_RECORD_OFFLOAD_SYMBOL
 #define TARGET_RECORD_OFFLOAD_SYMBOL nvptx_record_offload_symbol
 

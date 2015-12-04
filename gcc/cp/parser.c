@@ -1329,7 +1329,7 @@ cp_ensure_no_oacc_routine (cp_parser *parser)
       tree clauses = parser->oacc_routine->clauses;
       location_t loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
 
-      error_at (loc, "%<#pragma oacc routine%> not followed by function "
+      error_at (loc, "%<#pragma acc routine%> not followed by a function "
 		"declaration or definition");
       parser->oacc_routine = NULL;
     }
@@ -29230,6 +29230,8 @@ cp_parser_omp_clause_name (cp_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_UNIFORM;
 	  else if (!strcmp ("untied", p))
 	    result = PRAGMA_OMP_CLAUSE_UNTIED;
+	  else if (!strcmp ("use_device", p))
+	    result = PRAGMA_OACC_CLAUSE_USE_DEVICE;
 	  else if (!strcmp ("use_device_ptr", p))
 	    result = PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR;
 	  break;
@@ -31606,6 +31608,11 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	case PRAGMA_OACC_CLAUSE_TILE:
 	  clauses = cp_parser_oacc_clause_tile (parser, here, clauses);
 	  c_name = "tile";
+	  break;
+	case PRAGMA_OACC_CLAUSE_USE_DEVICE:
+	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_USE_DEVICE,
+					    clauses);
+	  c_name = "use_device";
 	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR:
 	  c_name = "vector";
@@ -34510,6 +34517,30 @@ cp_parser_oacc_data (cp_parser *parser, cp_token *pragma_tok)
 }
 
 /* OpenACC 2.0:
+  # pragma acc host_data <clauses> new-line
+  structured-block  */
+
+#define OACC_HOST_DATA_CLAUSE_MASK					\
+  ( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_USE_DEVICE) )
+
+static tree
+cp_parser_oacc_host_data (cp_parser *parser, cp_token *pragma_tok)
+{
+  tree stmt, clauses, block;
+  unsigned int save;
+
+  clauses = cp_parser_oacc_all_clauses (parser, OACC_HOST_DATA_CLAUSE_MASK,
+					"#pragma acc host_data", pragma_tok);
+
+  block = begin_omp_parallel ();
+  save = cp_parser_begin_omp_structured_block (parser);
+  cp_parser_statement (parser, NULL_TREE, false, NULL);
+  cp_parser_end_omp_structured_block (parser, save);
+  stmt = finish_oacc_host_data (clauses, block);
+  return stmt;
+}
+
+/* OpenACC 2.0:
    # pragma acc declare oacc-data-clause[optseq] new-line
 */
 
@@ -35826,7 +35857,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 	  cp_parser_require_pragma_eol (parser, pragma_tok);
 
 	  error_at (OMP_CLAUSE_LOCATION (parser->oacc_routine->clauses),
-		    "%<#pragma oacc routine%> not followed by a single "
+		    "%<#pragma acc routine%> not followed by a "
 		    "function declaration or definition");
 
 	  parser->oacc_routine->error_seen = true;
@@ -35931,7 +35962,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 	  if (parser->oacc_routine
 	      && !parser->oacc_routine->error_seen
 	      && !parser->oacc_routine->fndecl_seen)
-	    error_at (loc, "%<#pragma acc routine%> not followed by "
+	    error_at (loc, "%<#pragma acc routine%> not followed by a "
 		      "function declaration or definition");
 
 	  data.tokens.release ();
@@ -35941,7 +35972,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 }
 
 /* Finalize #pragma acc routine clauses after direct declarator has
-   been parsed, and put that into "oacc routine" attribute.  */
+   been parsed, and put that into "oacc function" attribute.  */
 
 static tree
 cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
@@ -35956,7 +35987,7 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
   if ((!data->error_seen && data->fndecl_seen)
       || data->tokens.length () != 1)
     {
-      error_at (loc, "%<#pragma oacc routine%> not followed by a single "
+      error_at (loc, "%<#pragma acc routine%> not followed by a "
 		"function declaration or definition");
       data->error_seen = true;
       return attrs;
@@ -35972,7 +36003,7 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
 
   cp_token *pragma_tok = cp_lexer_consume_token (parser->lexer);
   cl = cp_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
-				  "#pragma oacc routine", pragma_tok);
+				  "#pragma acc routine", pragma_tok);
   cp_parser_pop_lexer (parser);
 
   tree c_head = build_omp_clause (loc, OMP_CLAUSE_SEQ);
@@ -36013,7 +36044,8 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
       if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL)
 	{
 	  error_at (loc,
-		    "%<#pragma acc routine%> not followed by single function");
+		    "%<#pragma acc routine%> not followed by a function "
+		    "declaration or definition");
 	  parser->oacc_routine = NULL;
 	}
 	  
@@ -36067,6 +36099,9 @@ cp_parser_omp_construct (cp_parser *parser, cp_token *pragma_tok)
       break;
     case PRAGMA_OACC_EXIT_DATA:
       stmt = cp_parser_oacc_enter_exit_data (parser, pragma_tok, false);
+      break;
+    case PRAGMA_OACC_HOST_DATA:
+      stmt = cp_parser_oacc_host_data (parser, pragma_tok);
       break;
     case PRAGMA_OACC_KERNELS:
     case PRAGMA_OACC_PARALLEL:
@@ -36645,6 +36680,7 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
     case PRAGMA_OACC_DATA:
     case PRAGMA_OACC_ENTER_DATA:
     case PRAGMA_OACC_EXIT_DATA:
+    case PRAGMA_OACC_HOST_DATA:
     case PRAGMA_OACC_KERNELS:
     case PRAGMA_OACC_PARALLEL:
     case PRAGMA_OACC_LOOP:

@@ -1,3 +1,81 @@
+2015-12-03  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* parser.c (cp_ensure_no_oacc_routine): Update error message.
+	(cp_parser_oacc_routine): Likewise.
+	(cp_parser_late_parsing_oacc_routine): Likewise.  Update comment
+	describing this function.
+	(cp_finalize_oacc_routine): Update error message.
+
+2015-12-02  Jason Merrill  <jason@redhat.com>
+
+	* Make-lang.in (check-c++1z, check-c++-all): New.
+
+2015-12-02  Markus Trippelsdorf  <markus@trippelsdorf.de>
+
+	PR c++/67337
+	* mangle.c (write_template_prefix): Guard against context==NULL.
+
+2015-12-02  Jason Merrill  <jason@redhat.com>
+
+	* call.c (build_new_op_1): Don't fold arguments to
+	warn_logical_operator or maybe_warn_bool_compare.
+
+	* cp-gimplify.c (cp_fold_maybe_rvalue, cp_fold_rvalue): New.
+	(c_fully_fold): Use cp_fold_rvalue.
+	(cp_fold): Use them for rvalue operands.
+
+	* cp-gimplify.c (c_fully_fold): Define.
+
+	* cp-gimplify.c (cp_fold): Use fold_build*.
+
+2015-12-02  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/68162
+	* tree.c (c_build_qualified_type): Add extra arguments.
+
+2015-12-02  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR c++/68290
+	* constraint.cc (make_constrained_auto): Move to...
+	* pt.c (make_auto_1): Add set_canonical parameter and set
+	TYPE_CANONICAL on the type only if it is true.
+	(make_decltype_auto): Adjust call to make_auto_1.
+	(make_auto): Likewise.
+	(splice_late_return_type): Likewise.
+	(make_constrained_auto): ...here.  Call make_auto_1 instead of
+	make_auto and pass false.  Set TYPE_CANONICAL directly.
+
+2015-12-02  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parser.c (cp_parser_omp_clause_name)
+	(cp_parser_oacc_all_clauses): Alphabetical sorting.
+	* pt.c (tsubst_omp_clauses): Handle OMP_CLAUSE_USE_DEVICE.
+
+2015-12-02  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	PR gcov-profile/68603
+	* cp-gimplify.c (genericize_cp_loop): For the back-jump's location
+	use the start of the loop body only if the loop is unconditional.
+
+2015-11-26  Andreas Arnez  <arnez@linux.vnet.ibm.com>
+
+	* cp-gimplify.c (genericize_cp_loop): Change LOOP_EXPR's location
+	to start of loop body instead of start of loop.
+
+2015-12-01  Julian Brown  <julian@codesourcery.com>
+	    Cesar Philippidis  <cesar@codesourcery.com>
+	    James Norris  <James_Norris@mentor.com>
+
+	* cp-tree.h (finish_oacc_host_data): Add prototype.
+	* parser.c (cp_parser_omp_clause_name): Add use_device support.
+	(cp_parser_oacc_all_clauses): Add use_device support.
+	(OACC_HOST_DATA_CLAUSE_MASK): New macro.
+	(cp_parser_oacc_host_data): New function.
+	(cp_parser_omp_construct): Add host_data support.
+	(cp_parser_pragma): Add host_data support.
+	* semantics.c (finish_omp_clauses): Add use_device support.
+	(finish_oacc_host_data): New function.
+
 2015-11-27  Martin Liska  <mliska@suse.cz>
 
 	PR c++/68312
