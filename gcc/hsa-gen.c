@@ -1220,7 +1220,6 @@ hsa_op_address::operator new (size_t)
   return hsa_allocp_operand_address->allocate_raw ();
 }
 
-
 /* Constructor of an operand referring to HSAIL code.  */
 
 hsa_op_code_ref::hsa_op_code_ref () : hsa_op_base (BRIG_KIND_OPERAND_CODE_REF),
@@ -5102,7 +5101,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     }
 
   tree fndecl = gimple_call_fndecl (stmt);
-  switch (DECL_FUNCTION_CODE (fndecl))
+  enum built_in_function builtin = DECL_FUNCTION_CODE (fndecl);
+  switch (builtin)
     {
     case BUILT_IN_FABS:
     case BUILT_IN_FABSF:
@@ -5421,6 +5421,7 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	break;
       }
     case BUILT_IN_MEMCPY:
+    case BUILT_IN_MEMPCPY:
       {
 	tree byte_size = gimple_call_arg (stmt, 2);
 
@@ -5448,7 +5449,25 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
 	tree lhs = gimple_call_lhs (stmt);
 	if (lhs)
-	  gen_hsa_insns_for_single_assignment (lhs, dst, hbb);
+	  {
+	    hsa_op_reg *lhs_reg = hsa_cfun->reg_for_gimple_ssa (lhs);
+	    hsa_op_with_type *dst_reg = hsa_reg_or_immed_for_gimple_op (dst,
+									hbb);
+	    hsa_op_with_type *tmp;
+
+	    if (builtin == BUILT_IN_MEMPCPY)
+	      {
+		tmp = new hsa_op_reg (dst_reg->m_type);
+		hsa_insn_basic *add = new hsa_insn_basic
+		  (3, BRIG_OPCODE_ADD, tmp->m_type,
+		   tmp, dst_reg, new hsa_op_immed (n, dst_reg->m_type));
+		hbb->append_insn (add);
+	      }
+	    else
+	      tmp = dst_reg;
+
+	    hsa_build_append_simple_mov (lhs_reg, tmp, hbb);
+	  }
 
 	break;
       }
