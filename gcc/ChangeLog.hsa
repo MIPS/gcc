@@ -1,5 +1,10 @@
 2015-12-04  Martin Jambor  <mjambor@suse.cz>
 
+	* tree-inline.c (duplicate_remap_omp_clause_seq): Add early return
+	if seq is NULL.
+
+2015-12-04  Martin Jambor  <mjambor@suse.cz>
+
 	* doc/invoke.texi (Warning Options): Document -Whsa.
 
 2015-12-04  Martin Liska  <mliska@suse.cz>

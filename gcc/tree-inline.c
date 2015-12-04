@@ -5236,6 +5236,9 @@ replace_locals_stmt (gimple_stmt_iterator *gsip,
 static gimple_seq
 duplicate_remap_omp_clause_seq (gimple_seq seq, struct walk_stmt_info *wi)
 {
+  if (!seq)
+    return NULL;
+
   /* If there are any labels in OMP sequences, they can be only referred to in
      the sequence itself and therefore we can do both here.  */
   walk_gimple_seq (seq, mark_local_labels_stmt, NULL, wi);
