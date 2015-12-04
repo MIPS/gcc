@@ -1,5 +1,10 @@
 2015-12-04  Martin Liska  <mliska@suse.cz>
 
+	* hsa-gen.c (gen_hsa_insns_for_call): Use more tree_fits_uhwi_p
+	predicates instead of comparison of TREE_CODE.
+
+2015-12-04  Martin Liska  <mliska@suse.cz>
+
 	* hsa-gen.c (build_memset_value): Provide special case
 	for zero value.
 	(gen_hsa_insns_for_call): Handle BUILT_IN_BZERO.
