@@ -295,7 +295,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wunused-but-set-parameter -Wunused-but-set-variable @gol
 -Wuseless-cast -Wvariadic-macros -Wvector-operation-performance @gol
 -Wvla -Wvolatile-register-var  -Wwrite-strings @gol
--Wzero-as-null-pointer-constant}
+-Wzero-as-null-pointer-constant -Whsa}
 
 @item C and Objective-C-only Warning Options
 @gccoptlist{-Wbad-function-cast  -Wmissing-declarations @gol
@@ -5684,6 +5684,10 @@ from the decimal floating-point extension to C99.
 Suppress warnings when a positional initializer is used to initialize
 a structure that has been marked with the @code{designated_init}
 attribute.
+
+@item -Whsa
+Issue a warning when HSAIL cannot be emitted for the compiled function or
+OpenMP construct.
 
 @end table
 

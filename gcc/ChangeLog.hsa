@@ -1,3 +1,7 @@
+2015-12-04  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/invoke.texi (Warning Options): Document -Whsa.
+
 2015-12-04  Martin Liska  <mliska@suse.cz>
 
 	* hsa-gen.c (gen_hsa_insns_for_call): Use more tree_fits_uhwi_p
