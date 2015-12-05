@@ -1,3 +1,8 @@
+2015-12-05  Gary Funck  <gary@intrepid.com>
+
+	* tree.c, tree-core.h: Remove custom GC logic for tree nodes.
+	Revert to trunk.
+
 2015-11-30  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 231059 into gupc branch.
