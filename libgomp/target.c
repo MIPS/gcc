@@ -653,7 +653,6 @@ gomp_map_vars (struct gomp_device_descr *devicep, size_t mapnum,
 		tgt->list[i].offset = 0;
 		tgt->list[i].length = k->host_end - k->host_start;
 		k->refcount = 1;
-		k->async_refcount = 0;
 		tgt->refcount++;
 		array->left = NULL;
 		array->right = NULL;
@@ -793,40 +792,6 @@ gomp_unmap_tgt (struct target_mem_desc *tgt)
   free (tgt);
 }
 
-/* Decrease the refcount for a set of mapped variables, and queue asychronous
-   copies from the device back to the host after any work that has been issued.
-   Because the regions are still "live", increment an asynchronous reference
-   count to indicate that they should not be unmapped from host-side data
-   structures until the asynchronous copy has completed.  */
-
-attribute_hidden void
-gomp_copy_from_async (struct target_mem_desc *tgt)
-{
-  struct gomp_device_descr *devicep = tgt->device_descr;
-  size_t i;
-
-  gomp_mutex_lock (&devicep->lock);
-
-  for (i = 0; i < tgt->list_count; i++)
-    if (tgt->list[i].key == NULL)
-      ;
-    else if (tgt->list[i].key->refcount > 1)
-      {
-	tgt->list[i].key->refcount--;
-	tgt->list[i].key->async_refcount++;
-      }
-    else
-      {
-	splay_tree_key k = tgt->list[i].key;
-	if (tgt->list[i].copy_from)
-	  devicep->dev2host_func (devicep->target_id, (void *) k->host_start,
-				  (void *) (k->tgt->tgt_start + k->tgt_offset),
-				  k->host_end - k->host_start);
-      }
-
-  gomp_mutex_unlock (&devicep->lock);
-}
-
 /* Unmap variables described by TGT.  If DO_COPYFROM is true, copy relevant
    variables back from device to host: if it is false, it is assumed that this
    has been done already, i.e. by gomp_copy_from_async above.  */
@@ -856,13 +821,8 @@ gomp_unmap_vars (struct target_mem_desc *tgt, bool do_copyfrom)
 	k->refcount--;
       else if (k->refcount == 1)
 	{
-	  if (k->async_refcount > 0)
-	    k->async_refcount--;
-	  else
-	    {
-	      k->refcount--;
-	      do_unmap = true;
-	    }
+	  k->refcount--;
+	  do_unmap = true;
 	}
 
       if ((do_unmap && do_copyfrom && tgt->list[i].copy_from)
@@ -1007,7 +967,6 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt = tgt;
       k->tgt_offset = target_table[i].start;
       k->refcount = REFCOUNT_INFINITY;
-      k->async_refcount = 0;
       tgt->list[i].key = k;
       tgt->refcount++;
       array->left = NULL;
@@ -1034,7 +993,6 @@ gomp_load_image_to_device (struct gomp_device_descr *devicep, unsigned version,
       k->tgt = tgt;
       k->tgt_offset = target_var->start;
       k->refcount = REFCOUNT_INFINITY;
-      k->async_refcount = 0;
       tgt->list[i].key = k;
       tgt->refcount++;
       array->left = NULL;
@@ -2162,7 +2120,6 @@ omp_target_associate_ptr (void *host_ptr, void *device_ptr, size_t size,
       k->tgt = tgt;
       k->tgt_offset = (uintptr_t) device_ptr + device_offset;
       k->refcount = REFCOUNT_INFINITY;
-      k->async_refcount = 0;
       array->left = NULL;
       array->right = NULL;
       splay_tree_insert (&devicep->mem_map, array);

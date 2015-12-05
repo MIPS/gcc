@@ -310,6 +310,7 @@ struct ptx_event
   int type;
   void *addr;
   int ord;
+  int val;
 
   struct ptx_event *next;
 };
@@ -786,6 +787,7 @@ static void
 event_gc (bool memmap_lockable)
 {
   struct ptx_event *ptx_event = ptx_events;
+  struct ptx_event *async_cleanups = NULL;
   struct nvptx_thread *nvthd = nvptx_thread ();
 
   pthread_mutex_lock (&ptx_event_lock);
@@ -803,6 +805,7 @@ event_gc (bool memmap_lockable)
       r = cuEventQuery (*e->evt);
       if (r == CUDA_SUCCESS)
 	{
+	  bool append_async = false;
 	  CUevent *te;
 
 	  te = e->evt;
@@ -827,7 +830,7 @@ event_gc (bool memmap_lockable)
 		if (!memmap_lockable)
 		  continue;
 
-		GOMP_PLUGIN_async_unmap_vars (e->addr);
+		append_async = true;
 	      }
 	      break;
 	    }
@@ -835,6 +838,7 @@ event_gc (bool memmap_lockable)
 	  cuEventDestroy (*te);
 	  free ((void *)te);
 
+	  /* Unlink 'e' from ptx_events list.  */
 	  if (ptx_events == e)
 	    ptx_events = ptx_events->next;
 	  else
@@ -845,15 +849,31 @@ event_gc (bool memmap_lockable)
 	      e_->next = e_->next->next;
 	    }
 
-	  free (e);
+	  if (append_async)
+	    {
+	      e->next = async_cleanups;
+	      async_cleanups = e;
+	    }
+	  else
+	    free (e);
 	}
     }
 
   pthread_mutex_unlock (&ptx_event_lock);
+
+  /* We have to do these here, after ptx_event_lock is released.  */
+  while (async_cleanups)
+    {
+      struct ptx_event *e = async_cleanups;
+      async_cleanups = async_cleanups->next;
+
+      GOMP_PLUGIN_async_unmap_vars (e->addr, e->val);
+      free (e);
+    }
 }
 
 static void
-event_add (enum ptx_event_type type, CUevent *e, void *h)
+event_add (enum ptx_event_type type, CUevent *e, void *h, int val)
 {
   struct ptx_event *ptx_event;
   struct nvptx_thread *nvthd = nvptx_thread ();
@@ -866,6 +886,7 @@ event_add (enum ptx_event_type type, CUevent *e, void *h)
   ptx_event->evt = e;
   ptx_event->addr = h;
   ptx_event->ord = nvthd->ptx_dev->ord;
+  ptx_event->val = val;
 
   pthread_mutex_lock (&ptx_event_lock);
 
@@ -966,7 +987,7 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuda_error (r));
 
-      event_add (PTX_EVT_KNL, e, (void *)dev_str);
+      event_add (PTX_EVT_KNL, e, (void *)dev_str, 0);
     }
 #else
   r = cuCtxSynchronize ();
@@ -1073,7 +1094,7 @@ nvptx_host2dev (void *d, const void *h, size_t s)
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuda_error (r));
 
-      event_add (PTX_EVT_MEM, e, (void *)h);
+      event_add (PTX_EVT_MEM, e, (void *)h, 0);
     }
   else
 #endif
@@ -1138,7 +1159,7 @@ nvptx_dev2host (void *h, const void *d, size_t s)
       if (r != CUDA_SUCCESS)
         GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuda_error (r));
 
-      event_add (PTX_EVT_MEM, e, (void *)h);
+      event_add (PTX_EVT_MEM, e, (void *)h, 0);
     }
   else
 #endif
@@ -1266,7 +1287,7 @@ nvptx_wait_async (int async1, int async2)
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuda_error (r));
 
-  event_add (PTX_EVT_SYNC, e, NULL);
+  event_add (PTX_EVT_SYNC, e, NULL, 0);
 
   r = cuStreamWaitEvent (s2->stream, *e, 0);
   if (r != CUDA_SUCCESS)
@@ -1348,7 +1369,7 @@ nvptx_wait_all_async (int async)
       if (r != CUDA_SUCCESS)
 	GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuda_error (r));
 
-      event_add (PTX_EVT_SYNC, e, NULL);
+      event_add (PTX_EVT_SYNC, e, NULL, 0);
 
       r = cuStreamWaitEvent (waiting_stream->stream, *e, 0);
       if (r != CUDA_SUCCESS)
@@ -1660,7 +1681,7 @@ GOMP_OFFLOAD_openacc_parallel (void (*fn) (void *), size_t mapnum,
 }
 
 void
-GOMP_OFFLOAD_openacc_register_async_cleanup (void *targ_mem_desc)
+GOMP_OFFLOAD_openacc_register_async_cleanup (void *targ_mem_desc, int async)
 {
   CUevent *e;
   CUresult r;
@@ -1676,7 +1697,7 @@ GOMP_OFFLOAD_openacc_register_async_cleanup (void *targ_mem_desc)
   if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuEventRecord error: %s", cuda_error (r));
 
-  event_add (PTX_EVT_ASYNC_CLEANUP, e, targ_mem_desc);
+  event_add (PTX_EVT_ASYNC_CLEANUP, e, targ_mem_desc, async);
 }
 
 int
