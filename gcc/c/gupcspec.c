@@ -130,6 +130,8 @@ append_option (size_t opt_index, const char *arg, int value)
   append_arg (&decoded);
 }
 
+/* Return TRUE if SUFFIX is found at the end of the string S.  */
+
 static int
 match_suffix (const char *s, const char *suffix)
 {
@@ -138,6 +140,8 @@ match_suffix (const char *s, const char *suffix)
   const char *start = (xlen <= slen) ? s + slen - xlen : 0;
   return start && !strncmp (start, suffix, xlen);
 }
+
+/* The UPC-specific aspects of the 'gupc' compiler driver.  */
 
 void
 lang_specific_driver (struct cl_decoded_option **in_decoded_options,

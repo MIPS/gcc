@@ -1,3 +1,9 @@
+2015-12-06  Gary Funck  <gary@intrepid.com>
+
+	* c/c-upc-low.c, c/gupcspec.c, c-family/c-pragma.c,
+	targhooks.c, tree-pretty-print.c, tree.c:
+	Add missing function comments.
+
 2015-12-05  Gary Funck  <gary@intrepid.com>
 
 	* tree.c, tree-core.h: Remove custom GC logic for tree nodes.

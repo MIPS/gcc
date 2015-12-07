@@ -14088,6 +14088,9 @@ block_factor_insert (tree type, tree block_factor)
   *loc = h;
 }
 
+/* Create the hash table that maps a tree node to its corresponding
+   UPC "layout qualifier" (blocking factor).  */
+
 void
 block_factor_lookup_init (void)
 {

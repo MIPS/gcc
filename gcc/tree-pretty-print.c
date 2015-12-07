@@ -1104,6 +1104,8 @@ dump_block_node (pretty_printer *pp, tree block, int spc, int flags)
     }
 }
 
+/* Dump UPC type qualifiers ("shared", "strict", "relaxed"),
+   and the "layout qualifier" (blocking factor), if present.  */
 
 static void
 dump_upc_type_quals (pretty_printer *buffer, tree type, int quals)

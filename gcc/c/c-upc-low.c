@@ -137,6 +137,8 @@ upc_copy_value_to_tmp_var (tree *val_expr, tree val)
   return tmp_var;
 }
 
+/* Return a lower-cased mode name.  */
+
 static void
 get_lc_mode_name (char *mname, machine_mode mode)
 {

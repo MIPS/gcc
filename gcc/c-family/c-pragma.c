@@ -739,12 +739,14 @@ init_pragma_pupc (void)
   pragma_pupc_on = 1;
 }
 
+/* Return TRUE if PUPC processing is currently enabled.  */
 int
 get_upc_pupc_mode (void)
 {
   return pragma_pupc_on;
 }
 
+/* Disable PUPC processing.  */
 int
 disable_pupc_mode (void)
 {
@@ -753,6 +755,7 @@ disable_pupc_mode (void)
   return old_pupc;
 }
 
+/* Set the current PUPC processing mode to on/off.  */
 void
 set_pupc_mode (int new_pupc)
 {

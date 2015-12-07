@@ -1955,6 +1955,9 @@ can_use_doloop_if_innermost (const widest_int &, const widest_int &,
   return loop_depth == 1;
 }
 
+/* Default implementation of the UPC-specific target hook,
+   which returns TRUE if UPC linker scripts are supported.  */
+
 bool
 default_upc_link_script_p (void)
 {
@@ -1965,17 +1968,31 @@ default_upc_link_script_p (void)
 #endif
 }
 
+/* Default implementation of the UPC-specific target hook,
+   which returns the name of the linker section used
+   to coalesce shared qualified variables.  */
+
 const char *
 default_upc_shared_section_name (void)
 {
   return UPC_SHARED_SECTION_NAME;
 }
 
+/* Default implementation of the UPC-specific target hook,
+   which returns the name of the linker section used
+   to collect information about all of the compiled
+   UPC source files.  */
+
 const char *
 default_upc_pgm_info_section_name (void)
 {
   return UPC_PGM_INFO_SECTION_NAME;
 }
+
+/* Default implementation of the UPC-specific target hook,
+   which returns the name of the linker section used
+   to record a table of address of routines that
+   initialize UPC file-scoped shared-qualified variables.  */
 
 const char *
 default_upc_init_array_section_name (void)
