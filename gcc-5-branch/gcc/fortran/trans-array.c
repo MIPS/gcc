@@ -5030,6 +5030,8 @@ gfc_array_init_size (tree descriptor, int rank, int corank, tree * poffset,
       gcc_assert (ubound);
       gfc_conv_expr_type (&se, ubound, gfc_array_index_type);
       gfc_add_block_to_block (pblock, &se.pre);
+      if (ubound->expr_type == EXPR_FUNCTION)
+	se.expr = gfc_evaluate_now (se.expr, pblock);
 
       gfc_conv_descriptor_ubound_set (descriptor_block, descriptor,
 				      gfc_rank_cst[n], se.expr);
@@ -7812,6 +7814,32 @@ structure_alloc_comps (gfc_symbol * der_type, tree decl,
 					 build_int_cst (TREE_TYPE (comp), 0));
 		}
 	      gfc_add_expr_to_block (&tmpblock, tmp);
+
+	      /* Finally, reset the vptr to the declared type vtable and, if
+		 necessary reset the _len field.  */
+	      comp = fold_build3_loc (input_location, COMPONENT_REF, ctype,
+				     decl, cdecl, NULL_TREE);
+	      tmp = gfc_class_vptr_get (comp);
+	      if (UNLIMITED_POLY (c))
+		{
+		  gfc_add_modify (&tmpblock, tmp,
+				  build_int_cst (TREE_TYPE (tmp), 0));
+		  tmp = gfc_class_len_get (comp);
+		  gfc_add_modify (&tmpblock, tmp,
+				  build_int_cst (TREE_TYPE (tmp), 0));
+		}
+	      else
+		{
+		  tree vtab;
+		  gfc_symbol *vtable;
+		  vtable = gfc_find_derived_vtab (c->ts.u.derived);
+		  vtab = vtable->backend_decl;
+		  if (vtab == NULL_TREE)
+		    vtab = gfc_get_symbol_decl(vtable);
+		  vtab = gfc_build_addr_expr (NULL, vtab);
+		  vtab = fold_convert (TREE_TYPE (tmp), vtab);
+		  gfc_add_modify (&tmpblock, tmp, vtab);
+		}
 	    }
 
 	  if (cmp_has_alloc_comps
