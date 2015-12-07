@@ -2406,8 +2406,7 @@ execute_pass_list_1 (opt_pass *pass)
       if (cfun == NULL)
 	return;
       if (execute_one_pass (pass) && pass->sub)
-	execute_pass_list_1 (pass->sub);
-
+        execute_pass_list_1 (pass->sub);
       pass = pass->next;
     }
   while (pass);

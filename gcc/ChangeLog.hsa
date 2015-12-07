@@ -1,3 +1,11 @@
+2015-12-07  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple.c: Remove a whitespace difference from trunk.
+	* omp-low.c (scan_omp_target): Likewise.
+	* passes.c (execute_pass_list_1): Likewise.
+	* gimple.h: Likewise.
+	(gimple_omp_target_grid_dim): Removed.
+
 2015-12-04  Martin Jambor  <mjambor@suse.cz>
 
 	* doc/install.texi (Configuration): Fix an error in documentation

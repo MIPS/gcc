@@ -631,16 +631,6 @@ struct GTY((tag("GSS_OMP_FOR")))
   bool kernel_phony;
 };
 
-/* Descriptor of one dimension of a kernel grid.  */
-
-struct GTY(()) gimple_omp_target_grid_dim
-{
-  /* Size of the whole grid in the respective  dimension.  */
-  tree grid_size;
-
-  /* Size of the workgroup in the respective dimension.  */
-  tree workgroup_size;
-};
 
 /* GIMPLE_OMP_PARALLEL, GIMPLE_OMP_TARGET, GIMPLE_OMP_TASK */
 
@@ -5668,6 +5658,7 @@ gimple_omp_target_set_data_arg (gomp_target *omp_target_stmt,
 {
   omp_target_stmt->data_arg = data_arg;
 }
+
 
 /* Return the clauses associated with OMP_TEAMS GS.  */
 

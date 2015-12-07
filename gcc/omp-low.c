@@ -3096,7 +3096,6 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
-
   if (offloaded)
     {
       create_omp_child_function (ctx, false);

@@ -1098,6 +1098,7 @@ gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
   return p;
 }
 
+
 /* Build a GIMPLE_OMP_TEAMS statement.
 
    BODY is the sequence of statements that will be executed.
