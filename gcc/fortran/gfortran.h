@@ -850,6 +850,7 @@ typedef struct
 
   /* This is an OpenACC acclerator function at level N - 1  */
   unsigned oacc_function:3;
+  unsigned oacc_function_nohost:1;
 
   /* Attributes set by compiler extensions (!GCC$ ATTRIBUTES).  */
   unsigned ext_attr:EXT_ATTR_NUM;

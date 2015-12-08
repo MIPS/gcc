@@ -1884,6 +1884,8 @@ gfc_match_oacc_routine (void)
 	goto cleanup;
       gfc_current_ns->proc_name->attr.oacc_function
 	= gfc_oacc_routine_dims (c) + 1;
+      gfc_current_ns->proc_name->attr.oacc_function_nohost
+	= c ? c->nohost : false;
     }
 
   if (n)

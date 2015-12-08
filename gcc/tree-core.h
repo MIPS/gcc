@@ -461,7 +461,7 @@ enum omp_clause_code {
   /* OpenACC clause: vector_length (integer-expression).  */
   OMP_CLAUSE_VECTOR_LENGTH,
 
-  /* OpenACC clause: bind ( identifer | string ).  */
+  /* OpenACC clause: bind (string).  */
   OMP_CLAUSE_BIND,
 
   /* OpenACC clause: nohost.  */

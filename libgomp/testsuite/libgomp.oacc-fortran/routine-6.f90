@@ -1,5 +1,5 @@
 ! { dg-do run }
-! { dg-xfail-if "not found" { openacc_host_selected } }
+! { dg-xfail-if "TODO" { *-*-* } }
 
 program main
   integer :: a, n

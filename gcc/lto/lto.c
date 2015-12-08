@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "ipa-utils.h"
 #include "gomp-constants.h"
+#include "omp-low.h"
+#include "stringpool.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -2942,6 +2944,36 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
 
   ggc_free (all_file_decl_data);
   all_file_decl_data = NULL;
+
+#ifdef ACCEL_COMPILER
+  /* In an offload compiler, redirect calls to any function X that is tagged
+     with an OpenACC bind(Y) clause to call Y instead of X.  */
+  FOR_EACH_SYMBOL (snode)
+  {
+    tree decl = snode->decl;
+    tree attr = lookup_attribute ("omp declare target",
+				  DECL_ATTRIBUTES (decl));
+    if (attr)
+      {
+	tree clauses = TREE_VALUE (attr);
+	/* TODO: device_type handling.  */
+	tree clause_bind = find_omp_clause (clauses, OMP_CLAUSE_BIND);
+	if (clause_bind)
+	  {
+	    tree clause_bind_name = OMP_CLAUSE_BIND_NAME (clause_bind);
+	    const char *bind_name = TREE_STRING_POINTER(clause_bind_name);
+	    if (symtab->dump_file)
+	      fprintf (symtab->dump_file,
+		       "Applying \"bind(%s)\" clause to declaration of "
+		       "function \"%s\".\n",
+		       bind_name, IDENTIFIER_POINTER (DECL_NAME (decl)));
+	    //TODO: Use gcc/varasm.c:set_user_assembler_name instead?
+	    symtab->change_decl_assembler_name (decl,
+						get_identifier (bind_name));
+	  }
+      }
+  }
+#endif /* ACCEL_COMPILER */
 }
 
 

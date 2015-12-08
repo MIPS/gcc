@@ -11607,6 +11607,8 @@ c_parser_oacc_clause_async (c_parser *parser, tree list)
 static tree
 c_parser_oacc_clause_bind (c_parser *parser, tree list)
 {
+  check_no_duplicate_clause (list, OMP_CLAUSE_BIND, "bind");
+
   location_t loc = c_parser_peek_token (parser)->location;
 
   parser->lex_untranslated_string = true;
@@ -11615,20 +11617,43 @@ c_parser_oacc_clause_bind (c_parser *parser, tree list)
       parser->lex_untranslated_string = false;
       return list;
     }
-  if (c_parser_next_token_is (parser, CPP_NAME)
-      || c_parser_next_token_is (parser, CPP_STRING))
+  tree name = error_mark_node;
+  c_token *token = c_parser_peek_token (parser);
+  if (c_parser_next_token_is (parser, CPP_NAME))
     {
-      tree t = c_parser_peek_token (parser)->value;
+      tree decl = lookup_name (token->value);
+      if (!decl)
+	error_at (token->location, "%qE has not been declared",
+		  token->value);
+      else if (TREE_CODE (decl) != FUNCTION_DECL)
+	error_at (token->location, "%qE does not refer to a function",
+		  token->value);
+      else
+	{
+	  //TODO? TREE_USED (decl) = 1;
+	  tree name_id = DECL_NAME (decl);
+	  name = build_string (IDENTIFIER_LENGTH (name_id),
+			       IDENTIFIER_POINTER (name_id));
+	}
       c_parser_consume_token (parser);
+    }
+  else if (c_parser_next_token_is (parser, CPP_STRING))
+    {
+      name = token->value;
+      c_parser_consume_token (parser);
+    }
+  else
+    c_parser_error (parser,
+		    "expected identifier or character string literal");
+  parser->lex_untranslated_string = false;
+  c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+  if (name != error_mark_node)
+    {
       tree c = build_omp_clause (loc, OMP_CLAUSE_BIND);
-      OMP_CLAUSE_BIND_NAME (c) = t;
+      OMP_CLAUSE_BIND_NAME (c) = name;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
     }
-  else
-    c_parser_error (parser, "expected identifier or character string literal");
-  parser->lex_untranslated_string = false;
-  c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>");
   return list;
 }
 
@@ -13977,10 +14002,10 @@ static void
 c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
 {
   tree decl = NULL_TREE;
-  /* Create a dummy claue, to record location.  */
+  /* Create a dummy clause, to record the location.  */
   tree c_head = build_omp_clause (c_parser_peek_token (parser)->location,
-				  OMP_CLAUSE_SEQ);
-  
+				  OMP_CLAUSE_ERROR);
+
   if (context != pragma_external)
     c_parser_error (parser, "%<#pragma acc routine%> not at file scope");
 
@@ -14018,9 +14043,9 @@ c_parser_oacc_routine (c_parser *parser, enum pragma_context context)
   tree clauses = c_parser_oacc_all_clauses
     (parser, OACC_ROUTINE_CLAUSE_MASK, "#pragma acc routine",
      OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
-
-  /* Force clauses to be non-null, by attaching context to it.  */
-  clauses = tree_cons (c_head, clauses, NULL_TREE);
+  /* Prepend the dummy clause.  */
+  OMP_CLAUSE_CHAIN (c_head) = clauses;
+  clauses = c_head;
   
   if (decl)
     c_finish_oacc_routine (parser, decl, clauses, true, true, false);
@@ -14040,7 +14065,9 @@ static void
 c_finish_oacc_routine (c_parser *ARG_UNUSED (parser), tree fndecl,
 		       tree clauses, bool named, bool first, bool is_defn)
 {
-  location_t loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
+  location_t loc = OMP_CLAUSE_LOCATION (clauses);
+  /* Get rid of the dummy clause.  */
+  clauses = OMP_CLAUSE_CHAIN (clauses);
 
   if (!fndecl || TREE_CODE (fndecl) != FUNCTION_DECL || !first)
     {
@@ -14059,13 +14086,12 @@ c_finish_oacc_routine (c_parser *ARG_UNUSED (parser), tree fndecl,
 	      TREE_USED (fndecl) ? "use" : "definition");
 
   /* Process for function attrib  */
-  tree dims = build_oacc_routine_dims (TREE_VALUE (clauses));
+  tree dims = build_oacc_routine_dims (clauses);
   replace_oacc_fn_attrib (fndecl, dims);
 
-  /* Also attach as a declare.  */
-  DECL_ATTRIBUTES (fndecl)
-    = tree_cons (get_identifier ("omp declare target"),
-		 clauses, DECL_ATTRIBUTES (fndecl));
+  /* Also add an "omp declare target" attribute, with clauses.  */
+  DECL_ATTRIBUTES (fndecl) = tree_cons (get_identifier ("omp declare target"),
+					clauses, DECL_ATTRIBUTES (fndecl));
 }
 
 /* OpenACC 2.0:

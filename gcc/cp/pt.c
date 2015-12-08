@@ -14501,6 +14501,8 @@ tsubst_omp_clauses (tree clauses, bool declare_simd, bool allow_fields,
 	      }
 	  }
 	  break;
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
 	default:
 	  gcc_unreachable ();
 	}

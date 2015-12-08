@@ -2644,6 +2644,13 @@ gfc_trans_omp_clauses_1 (stmtblock_t *block, gfc_omp_clauses *clauses,
 	  OMP_CLAUSE_GANG_STATIC_EXPR (c) = arg;
 	}
     }
+  if (clauses->nohost)
+    {
+      c = build_omp_clause (where.lb->location, OMP_CLAUSE_NOHOST);
+      omp_clauses = gfc_trans_add_clause (c, omp_clauses);
+      //TODO
+      gcc_unreachable();
+    }
 
   return nreverse (omp_clauses);
 }

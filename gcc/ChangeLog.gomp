@@ -1,3 +1,17 @@
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses)
+	(gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_BIND,
+	OMP_CLAUSE_NOHOST.
+	* tree-nested.c (convert_nonlocal_omp_clauses)
+	(convert_local_omp_clauses): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	(execute_oacc_device_lower) [ACCEL_COMPILER]: Handle OpenACC bind
+	clauses.
+	[!ACCEL_COMPILER]: Handle OpenACC nohost clauses.
+	* tree-core.h (enum omp_clause_code) <OMP_CLAUSE_BIND>: Update
+	description.
+
 2015-12-05  Chung-Lin Tang  <cltang@codesourcery.com>
 
 	* c-family/c-omp.c (c_finish_oacc_wait): Remove add_stmt() call.

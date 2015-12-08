@@ -1309,8 +1309,13 @@ add_attributes_to_decl (symbol_attribute sym_attr, tree list)
       || sym_attr.oacc_declare_device_resident
 #endif
       )
-    list = tree_cons (get_identifier ("omp declare target"),
-		      NULL_TREE, list);
+    {
+      tree c = NULL_TREE;
+      if (sym_attr.oacc_function_nohost)
+	c = build_omp_clause (/* TODO */ input_location,
+			      OMP_CLAUSE_NOHOST);
+      list = tree_cons (get_identifier ("omp declare target"), c, list);
+    }
 #if 0 /* TODO */
   if (sym_attr.oacc_declare_link)
     list = tree_cons (get_identifier ("omp declare target link"),

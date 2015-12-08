@@ -1,3 +1,11 @@
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/routine-bind-nohost-1.c: New
+	file.
+	* testsuite/libgomp.oacc-c-c++-common/routine-nohost-1.c:
+	Likewise.
+	* testsuite/libgomp.oacc-fortran/routine-6.f90: XFAIL.
+
 2015-12-06  James Norris  <jnorris@codesourcery.com>
 
 	* oacc-parallel.c (GOACC_parallel_keyed, GOACC_data_start):

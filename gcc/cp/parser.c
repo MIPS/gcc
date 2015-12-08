@@ -1326,10 +1326,9 @@ cp_ensure_no_oacc_routine (cp_parser *parser)
 {
   if (parser->oacc_routine && !parser->oacc_routine->error_seen)
     {
-      tree clauses = parser->oacc_routine->clauses;
-      location_t loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE (clauses));
-
-      error_at (loc, "%<#pragma oacc routine%> not followed by function "
+      /* The first clause is a dummy, providing location information.  */
+      error_at (OMP_CLAUSE_LOCATION (parser->oacc_routine->clauses),
+		"%<#pragma oacc routine%> not followed by function "
 		"declaration or definition");
       parser->oacc_routine = NULL;
     }
@@ -31539,42 +31538,76 @@ static tree
 cp_parser_oacc_clause_bind (cp_parser *parser, tree list)
 {
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
-  bool save_translate_strings_p = parser->translate_strings_p;
 
+  check_no_duplicate_clause (list, OMP_CLAUSE_BIND, "bind", loc);
+
+  bool save_translate_strings_p = parser->translate_strings_p;
   parser->translate_strings_p = false;
   if (!cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN))
     {
       parser->translate_strings_p = save_translate_strings_p;
       return list;
     }
-  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME)
-      || cp_lexer_next_token_is (parser->lexer, CPP_STRING))
+  tree name = error_mark_node;
+  cp_token *token = cp_lexer_peek_token (parser->lexer);
+  if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
-      tree t;
-
-      if (cp_lexer_peek_token (parser->lexer)->type == CPP_STRING)
+      //TODO
+      tree id = cp_parser_id_expression (parser, /*template_p=*/false,
+					 /*check_dependency_p=*/true,
+					 /*template_p=*/NULL,
+					 /*declarator_p=*/false,
+					 /*optional_p=*/false);
+      tree decl = cp_parser_lookup_name_simple (parser, id, token->location);
+      if (id != error_mark_node && decl == error_mark_node)
+	cp_parser_name_lookup_error (parser, id, decl, NLE_NULL,
+				     token->location);
+      if (/* TODO */ !decl || decl == error_mark_node)
+	error_at (token->location, "%qE has not been declared",
+		  token->u.value);
+      else if (/* TODO */ is_overloaded_fn (decl)
+	       && (TREE_CODE (decl) != FUNCTION_DECL
+		   || DECL_FUNCTION_TEMPLATE_P (decl)))
+	error_at (token->location, "%qE names a set of overloads",
+		  token->u.value);
+      else if (/* TODO */ !DECL_NAMESPACE_SCOPE_P (decl))
 	{
-	  t = cp_lexer_peek_token (parser->lexer)->u.value;
-	  cp_lexer_consume_token (parser->lexer);
+	  /* Perhaps we should use the same rule as declarations in different
+	     namespaces?  */
+	  error_at (token->location,
+		    "%qE does not refer to a namespace scope function",
+		    token->u.value);
 	}
+      else if (TREE_CODE (decl) != FUNCTION_DECL)
+	error_at (token->location,
+		  "%qE does not refer to a function",
+		  token->u.value);
       else
-	t = cp_parser_id_expression (parser, /*template_p=*/false,
-				     /*check_dependency_p=*/true,
-				     /*template_p=*/NULL,
-				     /*declarator_p=*/false,
-				     /*optional_p=*/false);
-      if (t == error_mark_node)
-	return t;
-
+	{
+	  //TODO? TREE_USED (decl) = 1;
+	  tree name_id = DECL_NAME (decl);
+	  name = build_string (IDENTIFIER_LENGTH (name_id),
+			       IDENTIFIER_POINTER (name_id));
+	}
+      //cp_lexer_consume_token (parser->lexer);
+    }
+  else if (cp_lexer_next_token_is (parser->lexer, CPP_STRING))
+    {
+      name = token->u.value;
+      cp_lexer_consume_token (parser->lexer);
+    }
+  else
+    cp_parser_error (parser,
+		     "expected identifier or character string literal");
+  parser->translate_strings_p = save_translate_strings_p;
+  cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+  if (name != error_mark_node)
+    {
       tree c = build_omp_clause (loc, OMP_CLAUSE_BIND);
-      OMP_CLAUSE_BIND_NAME (c) = t;
+      OMP_CLAUSE_BIND_NAME (c) = name;
       OMP_CLAUSE_CHAIN (c) = list;
       list = c;
     }
-  else
-    cp_parser_error (parser, "expected identifier or character string literal");
-  parser->translate_strings_p = save_translate_strings_p;
-  cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
   return list;
 }
 
@@ -36020,9 +36053,8 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
       parser->oacc_routine = &data;
     }
 
-  tree decl = NULL_TREE;
-  /* Create a dummy claue, to record location.  */
-  tree c_head = build_omp_clause (pragma_tok->location, OMP_CLAUSE_SEQ);
+  /* Create a dummy clause, to record the location.  */
+  tree c_head = build_omp_clause (pragma_tok->location, OMP_CLAUSE_ERROR);
 
   if (context != pragma_external)
     {
@@ -36044,6 +36076,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 	    parser->oacc_routine->error_seen = true;
 	  cp_parser_require_pragma_eol (parser, pragma_tok);
 
+	  /* The first clause is a dummy, providing location information.  */
 	  error_at (OMP_CLAUSE_LOCATION (parser->oacc_routine->clauses),
 		    "%<#pragma oacc routine%> not followed by a single "
 		    "function declaration or definition");
@@ -36064,7 +36097,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 					 /*template_p=*/NULL,
 					 /*declarator_p=*/false,
 					 /*optional_p=*/false);
-      decl = cp_parser_lookup_name_simple (parser, id, token->location);
+      tree decl = cp_parser_lookup_name_simple (parser, id, token->location);
       if (id != error_mark_node && decl == error_mark_node)
 	cp_parser_name_lookup_error (parser, id, decl, NLE_NULL,
 				     token->location);
@@ -36079,14 +36112,14 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 
       /* Build a chain of clauses.  */
       parser->lexer->in_pragma = true;
-      tree clauses = NULL_TREE;
-      clauses = cp_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
-					    "#pragma acc routine",
-					    cp_lexer_peek_token
-					    (parser->lexer));
+      tree clauses
+	= cp_parser_oacc_all_clauses (parser, OACC_ROUTINE_CLAUSE_MASK,
+				      "#pragma acc routine",
+				      cp_lexer_peek_token (parser->lexer));
 
-      /* Force clauses to be non-null, by attaching context to it.  */
-      clauses = tree_cons (c_head, clauses, NULL_TREE);
+      /* Prepend the dummy clause.  */
+      OMP_CLAUSE_CHAIN (c_head) = clauses;
+      clauses = c_head;
 
       if (decl && is_overloaded_fn (decl)
 	  && (TREE_CODE (decl) != FUNCTION_DECL
@@ -36142,9 +36175,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 
       if (first_p)
 	{
-	  /* Create an empty list of clauses.  */
-	  parser->oacc_routine->clauses = tree_cons (c_head, NULL_TREE,
-						     NULL_TREE);
+	  parser->oacc_routine->clauses = c_head;
 	  cp_parser_declaration (parser);
 
 	  if (parser->oacc_routine
@@ -36168,10 +36199,12 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
   struct cp_token_cache *ce;
   cp_omp_declare_simd_data *data = parser->oacc_routine;
   tree cl, clauses = parser->oacc_routine->clauses;
-  location_t loc;
 
-  loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE(clauses));
-  
+  /* The first clause is a dummy, providing location information.  */
+  location_t loc = OMP_CLAUSE_LOCATION (clauses);
+  /* Get rid of it now.  */
+  clauses = OMP_CLAUSE_CHAIN (clauses);
+
   if ((!data->error_seen && data->fndecl_seen)
       || data->tokens.length () != 1)
     {
@@ -36195,10 +36228,12 @@ cp_parser_late_parsing_oacc_routine (cp_parser *parser, tree attrs)
 				   OACC_ROUTINE_CLAUSE_DEVICE_TYPE_MASK);
   cp_parser_pop_lexer (parser);
 
-  tree c_head = build_omp_clause (loc, OMP_CLAUSE_SEQ);
+  /* Create a dummy clause, to record the location.  */
+  tree c_head = build_omp_clause (loc, OMP_CLAUSE_ERROR);
 
-  /* Force clauses to be non-null, by attaching context to it.  */
-  parser->oacc_routine->clauses = tree_cons (c_head, cl, NULL_TREE);
+  /* Prepend the dummy clause.  */
+  OMP_CLAUSE_CHAIN (c_head) = cl;
+  parser->oacc_routine->clauses = c_head;
 
   data->fndecl_seen = true;
   return attrs;
@@ -36213,7 +36248,9 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
   if (__builtin_expect (parser->oacc_routine != NULL, 0))
     {
       tree clauses = parser->oacc_routine->clauses;
-      location_t loc = OMP_CLAUSE_LOCATION (TREE_PURPOSE(clauses));
+      location_t loc = OMP_CLAUSE_LOCATION (clauses);
+      /* Get rid of the dummy clause.  */
+      clauses = OMP_CLAUSE_CHAIN (clauses);
 
       if (parser->oacc_routine->error_seen)
 	return;
@@ -36252,13 +36289,13 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	}
 
       /* Process for function attrib  */
-      tree dims = build_oacc_routine_dims (TREE_VALUE (clauses));
+      tree dims = build_oacc_routine_dims (clauses);
       replace_oacc_fn_attrib (fndecl, dims);
       
-      /* Add an "omp target" attribute.  */
+      /* Also add an "omp declare target" attribute, with clauses.  */
       DECL_ATTRIBUTES (fndecl)
 	= tree_cons (get_identifier ("omp declare target"),
-		     NULL_TREE, DECL_ATTRIBUTES (fndecl));
+		     clauses, DECL_ATTRIBUTES (fndecl));
     }
 }
 

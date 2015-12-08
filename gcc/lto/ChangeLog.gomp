@@ -1,3 +1,8 @@
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* lto.c (read_cgraph_and_symbols) [ACCEL_COMPILER]: Handle OpenACC
+	bind clauses.
+
 2015-08-31  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* lto-lang.c (DEF_FUNCTION_TYPE_VAR_6): Define.

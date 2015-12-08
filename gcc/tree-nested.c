@@ -1200,6 +1200,8 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_SEQ:
 	  break;
 
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
 	default:
 	  gcc_unreachable ();
 	}
@@ -1882,6 +1884,8 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
 	case OMP_CLAUSE_SEQ:
 	  break;
 
+	case OMP_CLAUSE_BIND:
+	case OMP_CLAUSE_NOHOST:
 	default:
 	  gcc_unreachable ();
 	}

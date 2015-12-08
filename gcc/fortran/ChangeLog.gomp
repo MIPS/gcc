@@ -1,3 +1,12 @@
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gfortran.h (symbol_attribute): Add oacc_function_nohost member.
+	* openmp.c (gfc_match_oacc_routine): Set it.
+	* trans-decl.c (add_attributes_to_decl): Use it to decide whether
+	to generate an OMP_CLAUSE_NOHOST clause.
+	* trans-openmp.c (gfc_trans_omp_clauses_1): Unreachable code to
+	generate an OMP_CLAUSE_NOHOST clause.
+
 2015-12-03  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* openmp.c (gfc_match_omp_clauses): Allow subarrays for acc reductions.
