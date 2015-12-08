@@ -1,4 +1,9 @@
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* libgomp.texi (CUDA Streams Usage): New chapter.
+
+2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/routine-bind-nohost-1.c: New
 	file.

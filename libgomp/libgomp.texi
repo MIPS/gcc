@@ -100,6 +100,8 @@ changed to GNU Offloading and Multi Processing Runtime Library.
                                       programming interface.
 * OpenACC Environment Variables::    Influencing OpenACC runtime behavior with
                                      environment variables.
+* CUDA Streams Usage::               Notes on the implementation of
+                                     asynchronous operations.
 * OpenACC Library Interoperability:: OpenACC library interoperability with the
                                      NVIDIA CUBLAS library.
 * Enabling OpenMP::                  How to enable OpenMP for your
@@ -552,6 +554,51 @@ Print debug information pertaining to the accelerator.
 @end table
 
 
+
+@c ---------------------------------------------------------------------
+@c CUDA Streams Usage
+@c ---------------------------------------------------------------------
+
+@node CUDA Streams Usage
+@chapter CUDA Streams Usage
+
+This applies to the @code{nvptx} plugin only.
+
+The library provides elements that perform asynchronous movement of
+data and asynchronous operation of computing constructs.  This
+asynchronous functionality is implemented by making use of CUDA
+streams@footnote{See "Stream Management" in "CUDA Driver API",
+TRM-06703-001, Version 5.5, July 2013, for additional information}.
+
+The primary means by which the asychronous functionality is accessed
+is through the use of those OpenACC directives which make use of the
+@code{async} and @code{wait} clauses.  When the @code{async} clause is
+first used with a directive, it will create a CUDA stream.  If an
+@code{async-argument} is used with the @code{async} clause, then the
+stream will be associated with the specified @code{async-argument}.
+
+Following the creation of an association between a CUDA stream and the
+@code{async-argument} of an @code{async} clause, both the @code{wait}
+clause and the @code{wait} directive can be used.  When either the
+clause or directive is used after stream creation, it creates a
+rendezvous point whereby execution will wait until all operations
+associated with the @code{async-argument}, that is, stream, have
+completed.
+
+Normally, the management of the streams that are created as a result of
+using the @code{async} clause, is done without any intervention by the
+caller.  This implies the association between the @code{async-argument}
+and the CUDA stream will be maintained for the lifetime of the program.
+However, this association can be changed through the use of the library
+function @code{acc_set_cuda_stream}.  When the function
+@code{acc_set_cuda_stream} is used, the CUDA stream that was
+originally associated with the @code{async} clause will be destroyed.
+Caution should be taken when changing the association as subsequent
+references to the @code{async-argument} will be referring to a different
+CUDA stream.
+
+
+
 @c ---------------------------------------------------------------------
 @c OpenACC Library Interoperability
 @c ---------------------------------------------------------------------
@@ -564,7 +611,7 @@ Print debug information pertaining to the accelerator.
 As the OpenACC library is built using the CUDA Driver API, the question has
 arisen on what impact does using the OpenACC library have on a program that
 uses the Runtime library, or a library based on the Runtime library, e.g.,
-CUBLAS@footnote{Seee section 2.26, "Interactions with the CUDA Driver API" in
+CUBLAS@footnote{See section 2.26, "Interactions with the CUDA Driver API" in
 "CUDA Runtime API", Version 5.5, July 2013 and section 2.27, "VDPAU
 Interoperability", in "CUDA Driver API", TRM-06703-001, Version 5.5,
 July 2013, for additional information on library interoperability.}.
