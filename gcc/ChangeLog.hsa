@@ -1,3 +1,7 @@
+2015-12-08  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (hsa_init_simple_builtins): Added missing routines.
+
 2015-12-07  Martin Jambor  <mjambor@suse.cz>
 
 	* gimple.c: Remove a whitespace difference from trunk.

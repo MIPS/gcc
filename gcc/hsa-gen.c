@@ -438,7 +438,17 @@ hsa_init_simple_builtins ()
 			  "omp_get_num_devices has undefined semantics "
 			  "within target regions, support for HSA ignores it",
 			  false,
-			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32))
+			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_num_procs", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_cancellation", NULL, true, NULL),
+      omp_simple_builtin ("omp_set_nested", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_nested", NULL, true, NULL),
+      omp_simple_builtin ("omp_set_schedule", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_schedule", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_thread_limit", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_team_size", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_ancestor_thread_num", NULL, true, NULL),
+      omp_simple_builtin ("omp_get_max_task_priority", NULL, true, NULL)
     };
 
   unsigned count = sizeof (omp_builtins) / sizeof (omp_simple_builtin);
