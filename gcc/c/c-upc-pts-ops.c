@@ -45,13 +45,13 @@ upc_pts_init (void)
 {
   tree shared_void_type, shared_char_type;
   lang_hooks.upc.pts_init_type ();
-  shared_void_type = c_build_qualified_type_1 (void_type_node,
-                                               TYPE_QUAL_SHARED,
-					       NULL_TREE);
+  shared_void_type = c_build_qualified_type (void_type_node,
+                                             TYPE_QUAL_SHARED,
+					     NULL_TREE);
   upc_pts_type_node = build_pointer_type (shared_void_type);
-  shared_char_type = c_build_qualified_type_1 (char_type_node,
-                                               TYPE_QUAL_SHARED,
-					       size_zero_node);
+  shared_char_type = c_build_qualified_type (char_type_node,
+                                             TYPE_QUAL_SHARED,
+					     size_zero_node);
   upc_char_pts_type_node = build_pointer_type (shared_char_type);
   upc_null_pts_node = upc_pts_build_value (UNKNOWN_LOCATION,
                                                   upc_pts_type_node,

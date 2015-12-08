@@ -5397,6 +5397,8 @@ grokdeclarator (const struct c_declarator *declarator,
   tree upc_block_factor = NULL;
   bool bitfield = width != NULL;
   tree element_type;
+  tree orig_qual_type = NULL;
+  size_t orig_qual_indirect = 0;
   struct c_arg_info *arg_info = 0;
   addr_space_t as1, as2, address_space;
   location_t loc = UNKNOWN_LOCATION;
@@ -5435,9 +5437,9 @@ grokdeclarator (const struct c_declarator *declarator,
 	case cdk_function:
 	case cdk_pointer:
 	  funcdef_syntax = (decl->kind == cdk_function);
-	  decl = decl->declarator;
 	  if (first_non_attr_kind == cdk_attrs)
 	    first_non_attr_kind = decl->kind;
+	  decl = decl->declarator;
 	  break;
 
 	case cdk_attrs:
@@ -5581,7 +5583,10 @@ grokdeclarator (const struct c_declarator *declarator,
   if ((TREE_CODE (type) == ARRAY_TYPE
        || first_non_attr_kind == cdk_array)
       && TYPE_QUALS (element_type))
-    type = TYPE_MAIN_VARIANT (type);
+    {
+      orig_qual_type = type;
+      type = TYPE_MAIN_VARIANT (type);
+    }
   type_quals = ((constp ? TYPE_QUAL_CONST : 0)
 		| (restrictp ? TYPE_QUAL_RESTRICT : 0)
 		| (volatilep ? TYPE_QUAL_VOLATILE : 0)
@@ -5590,6 +5595,8 @@ grokdeclarator (const struct c_declarator *declarator,
 		| (strictp ? TYPE_QUAL_STRICT : 0)
 		| (relaxedp ? TYPE_QUAL_RELAXED : 0)
 		| ENCODE_QUAL_ADDR_SPACE (address_space));
+  if (type_quals != TYPE_QUALS (element_type))
+    orig_qual_type = NULL_TREE;
 
   /* Applying the _Atomic qualifier to an array type (through the use
      of typedefs or typeof) must be detected here.  If the qualifier
@@ -6130,6 +6137,7 @@ grokdeclarator (const struct c_declarator *declarator,
 		array_ptr_attrs = NULL_TREE;
 		array_parm_static = 0;
 	      }
+	    orig_qual_indirect++;
 	    break;
 	  }
 	case cdk_function:
@@ -6139,6 +6147,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	       attributes.  */
 	    bool really_funcdef = false;
 	    tree arg_types;
+	    orig_qual_type = NULL_TREE;
 	    if (funcdef_flag)
 	      {
 		const struct c_declarator *t = declarator->declarator;
@@ -6253,9 +6262,11 @@ grokdeclarator (const struct c_declarator *declarator,
 				       NULL_TREE, upc_layout_qualifier);
 
 	    if (type_quals)
-	      type = c_build_qualified_type_1 (type, type_quals,
-	                                       upc_block_factor);
-
+	      type = c_build_qualified_type (type, type_quals,
+					     upc_block_factor,
+					     orig_qual_type,
+					     orig_qual_indirect);
+	    orig_qual_type = NULL_TREE;
 	    size_varies = false;
 	    upc_threads_ref = 0;
 	    upc_block_factor = 0;
@@ -6449,8 +6460,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C forbids qualified function types");
       if (type_quals)
-	type = c_build_qualified_type_1 (type, type_quals, upc_block_factor);
-
+	type = c_build_qualified_type (type, type_quals,
+				       upc_block_factor,
+				       orig_qual_type,
+				       orig_qual_indirect);
       decl = build_decl (declarator->id_loc,
 			 TYPE_DECL, declarator->u.id, type);
       if (declspecs->explicit_signed_p)
@@ -6503,7 +6516,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C forbids const or volatile function types");
       if (type_quals)
-	type = c_build_qualified_type_1 (type, type_quals, upc_block_factor);
+	type = c_build_qualified_type (type, type_quals,
+				       upc_block_factor,
+				       orig_qual_type,
+				       orig_qual_indirect);
       return type;
     }
 
@@ -6551,8 +6567,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	    /* Transfer const-ness of array into that of type pointed to.  */
 	    type = TREE_TYPE (type);
 	    if (type_quals)
-	      type = c_build_qualified_type_1 (type, type_quals,
-	                                       upc_block_factor);
+	      type = c_build_qualified_type (type, type_quals,
+					     upc_block_factor,
+					     orig_qual_type,
+					     orig_qual_indirect);
 	    type = c_build_pointer_type (type);
 	    type_quals = array_ptr_quals;
 	    if (type_quals)
@@ -6656,7 +6674,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	    type_quals &= ~(TYPE_QUAL_SHARED | TYPE_QUAL_STRICT
 			    | TYPE_QUAL_RELAXED);
 	  }
-	type = c_build_qualified_type (type, type_quals);
+	type = c_build_qualified_type (type, type_quals,
+				       NULL /* layout_qualifier */,
+				       orig_qual_type,
+				       orig_qual_indirect);
 	decl = build_decl (declarator->id_loc,
 			   FIELD_DECL, declarator->u.id, type);
 	DECL_NONADDRESSABLE_P (decl) = bitfield;
@@ -6776,8 +6797,10 @@ grokdeclarator (const struct c_declarator *declarator,
 	    error_at (loc, "UPC does not support shared auto variables");
 	    type = error_mark_node;
 	  }
-
-	type = c_build_qualified_type_1 (type, type_quals, upc_block_factor);
+	type = c_build_qualified_type (type, type_quals,
+				       upc_block_factor,
+				       orig_qual_type,
+				        orig_qual_indirect);
 
 	/* C99 6.2.2p7: It is invalid (compile-time undefined
 	   behavior) to create an 'extern' declaration for a
@@ -7093,11 +7116,11 @@ get_parm_info (bool ellipsis, tree expr)
     {
       if (TYPE_QUALS (TREE_TYPE (b->decl)) != TYPE_UNQUALIFIED
 	  || C_DECL_REGISTER (b->decl))
-	error ("%<void%> as only parameter may not be qualified");
+	error_at (b->locus, "%<void%> as only parameter may not be qualified");
 
       /* There cannot be an ellipsis.  */
       if (ellipsis)
-	error ("%<void%> must be the only parameter");
+	error_at (b->locus, "%<void%> must be the only parameter");
 
       arg_info->types = void_list_node;
       return arg_info;
@@ -7126,13 +7149,14 @@ get_parm_info (bool ellipsis, tree expr)
 
 	  /* Check for forward decls that never got their actual decl.  */
 	  if (TREE_ASM_WRITTEN (decl))
-	    error ("parameter %q+D has just a forward declaration", decl);
+	    error_at (b->locus,
+		      "parameter %q+D has just a forward declaration", decl);
 	  /* Check for (..., void, ...) and issue an error.  */
 	  else if (VOID_TYPE_P (type) && !DECL_NAME (decl))
 	    {
 	      if (!gave_void_only_once_err)
 		{
-		  error ("%<void%> must be the only parameter");
+		  error_at (b->locus, "%<void%> must be the only parameter");
 		  gave_void_only_once_err = true;
 		}
 	    }
@@ -7171,13 +7195,13 @@ get_parm_info (bool ellipsis, tree expr)
 	    {
 	      if (b->id)
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
-		warning_at (input_location, 0,
+		warning_at (b->locus, 0,
 			    "%<%s %E%> declared inside parameter list"
 			    " will not be visible outside of this definition or"
 			    " declaration", keyword, b->id);
 	      else
 		/* The %s will be one of 'struct', 'union', or 'enum'.  */
-		warning_at (input_location, 0,
+		warning_at (b->locus, 0,
 			    "anonymous %s declared inside parameter list"
 			    " will not be visible outside of this definition or"
 			    " declaration", keyword);

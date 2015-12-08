@@ -1,3 +1,7 @@
+2015-12-07  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 231354 into gupc branch.
+
 2015-12-06  Gary Funck  <gary@intrepid.com>
 
 	* c/c-upc-low.c, c/gupcspec.c, c-family/c-pragma.c,

@@ -3265,8 +3265,6 @@ decl_address_ip_invariant_p (const_tree op)
    not handle arithmetic; that's handled in skip_simple_arithmetic and
    tree_invariant_p).  */
 
-static bool tree_invariant_p (tree t);
-
 static bool
 tree_invariant_p_1 (tree t)
 {
@@ -3316,7 +3314,7 @@ tree_invariant_p_1 (tree t)
 
 /* Return true if T is function-invariant.  */
 
-static bool
+bool
 tree_invariant_p (tree t)
 {
   tree inner = skip_simple_arithmetic (t);
@@ -6556,7 +6554,8 @@ check_base_type (const_tree cand, const_tree base)
 }
 
 /* Returns true iff CAND is equivalent to BASE with TYPE_QUALS
-   and BLOCK_FACTOR.  */
+   and BLOCK_FACTOR.
+   BLOCK_FACTOR is null, unless compiling UPC.  */
 
 bool
 check_qualified_type (const_tree cand, const_tree base,
@@ -6573,6 +6572,7 @@ static bool
 check_aligned_type (const_tree cand, const_tree base, unsigned int align)
 {
   return (TYPE_QUALS (cand) == TYPE_QUALS (base)
+	  /* TYPE_BLOCK_FACTOR() is null, unless compiling UPC.  */
 	  && TYPE_BLOCK_FACTOR (cand) == TYPE_BLOCK_FACTOR (base)
 	  && TYPE_NAME (cand) == TYPE_NAME (base)
 	  /* Apparently this is needed for Objective-C.  */
@@ -6627,10 +6627,11 @@ find_atomic_core_type (tree type)
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, and BLOCK_FACTOR if one exists.
+   BLOCK_FACTOR is null, unless compiling UPC.
    If no qualified version exists yet, return NULL_TREE.  */
 
 tree
-get_qualified_type_1 (tree type, int type_quals, tree block_factor)
+get_qualified_type (tree type, int type_quals, tree block_factor)
 {
   tree t;
 
@@ -6647,16 +6648,18 @@ get_qualified_type_1 (tree type, int type_quals, tree block_factor)
   return NULL_TREE;
 }
 
-/* Like get_qualified_type_1, but creates the type if it does not
-   exist.  This function never returns NULL_TREE.  */
+/* Like get_qualified_type, but creates the type if it does not
+   exist.  This function never returns NULL_TREE.
+   BLOCK_FACTOR is null, unless compiling UPC.  */
 
 tree
-build_qualified_type_1 (tree type, int type_quals, tree block_factor)
+build_qualified_type (tree type, int type_quals,
+		      tree block_factor)
 {
   tree t;
 
   /* See if we already have the appropriate qualified variant.  */
-  t = get_qualified_type_1 (type, type_quals, block_factor);
+  t = get_qualified_type (type, type_quals, block_factor);
 
   /* If not, build it.  */
   if (!t)
@@ -11197,7 +11200,8 @@ maybe_build_call_expr_loc (location_t loc, combined_fn fn, tree type,
       if (direct_internal_fn_p (ifn))
 	{
 	  tree_pair types = direct_internal_fn_types (ifn, type, argarray);
-	  if (!direct_internal_fn_supported_p (ifn, types))
+	  if (!direct_internal_fn_supported_p (ifn, types,
+					       OPTIMIZE_FOR_BOTH))
 	    return NULL_TREE;
 	}
       return build_call_expr_internal_loc_array (loc, ifn, type, n, argarray);
@@ -13945,7 +13949,9 @@ nonnull_arg_p (const_tree arg)
   tree t, attrs, fntype;
   unsigned HOST_WIDE_INT arg_num;
 
-  gcc_assert (TREE_CODE (arg) == PARM_DECL && POINTER_TYPE_P (TREE_TYPE (arg)));
+  gcc_assert (TREE_CODE (arg) == PARM_DECL
+	      && (POINTER_TYPE_P (TREE_TYPE (arg))
+		  || TREE_CODE (TREE_TYPE (arg)) == OFFSET_TYPE));
 
   /* The static chain decl is always non null.  */
   if (arg == cfun->static_chain_decl)
@@ -14100,7 +14106,7 @@ block_factor_lookup_init (void)
 /* Given location LOC, strip away any packed range information
    or ad-hoc information.  */
 
-static location_t
+location_t
 get_pure_location (location_t loc)
 {
   if (IS_ADHOC_LOC (loc))
@@ -14130,20 +14136,20 @@ set_block (location_t loc, tree block)
   return COMBINE_LOCATION_DATA (line_table, pure_loc, src_range, block);
 }
 
-void
+location_t
 set_source_range (tree expr, location_t start, location_t finish)
 {
   source_range src_range;
   src_range.m_start = start;
   src_range.m_finish = finish;
-  set_source_range (expr, src_range);
+  return set_source_range (expr, src_range);
 }
 
-void
+location_t
 set_source_range (tree expr, source_range src_range)
 {
   if (!EXPR_P (expr))
-    return;
+    return UNKNOWN_LOCATION;
 
   location_t pure_loc = get_pure_location (EXPR_LOCATION (expr));
   location_t adhoc = COMBINE_LOCATION_DATA (line_table,
@@ -14151,6 +14157,21 @@ set_source_range (tree expr, source_range src_range)
 					    src_range,
 					    NULL);
   SET_EXPR_LOCATION (expr, adhoc);
+  return adhoc;
+}
+
+location_t
+make_location (location_t caret, location_t start, location_t finish)
+{
+  location_t pure_loc = get_pure_location (caret);
+  source_range src_range;
+  src_range.m_start = start;
+  src_range.m_finish = finish;
+  location_t combined_loc = COMBINE_LOCATION_DATA (line_table,
+						   pure_loc,
+						   src_range,
+						   NULL);
+  return combined_loc;
 }
 
 /* Return the name of combined function FN, for debugging purposes.  */

@@ -848,7 +848,6 @@ extern enum conversion_safety unsafe_conversion_p (location_t, tree, tree,
 						   bool);
 extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree c_fully_fold (tree, bool, bool *);
-extern tree decl_constant_value_for_optimization (tree);
 extern tree c_wrap_maybe_const (tree, bool);
 extern tree c_save_expr (tree);
 extern tree c_common_truthvalue_conversion (location_t, tree);
@@ -905,8 +904,8 @@ extern tree pointer_int_sum (location_t, enum tree_code, tree, tree,
 			     bool = true);
 
 /* Add qualifiers to a type, in the fashion for C.  */
-extern tree c_build_qualified_type_1 (tree, int, tree);
-#define c_build_qualified_type(TYPE, QUALS) c_build_qualified_type_1 (TYPE, QUALS, 0)
+extern tree c_build_qualified_type (tree, int, tree = NULL_TREE,
+				    tree = NULL_TREE, size_t = 0);
 
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */

@@ -90,7 +90,7 @@ extern tree default_builtin_vectorized_conversion (unsigned int, tree, tree);
 
 extern int default_builtin_vectorization_cost (enum vect_cost_for_stmt, tree, int);
 
-extern tree default_builtin_reciprocal (unsigned int, bool, bool);
+extern tree default_builtin_reciprocal (tree);
 
 extern HOST_WIDE_INT default_vector_alignment (const_tree);
 
@@ -250,6 +250,10 @@ extern void default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE
 						  tree type ATTRIBUTE_UNUSED,
 						  int *pretend_arg_size ATTRIBUTE_UNUSED,
 						  int second_time ATTRIBUTE_UNUSED);
+
+extern bool default_optab_supported_p (int, machine_mode, machine_mode,
+				       optimization_type);
+
 extern bool default_upc_link_script_p (void);
 extern const char *default_upc_shared_section_name (void);
 extern const char *default_upc_pgm_info_section_name (void);

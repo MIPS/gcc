@@ -665,6 +665,7 @@ extern tree c_finish_goto_ptr (location_t, tree);
 extern tree c_expr_to_decl (tree, bool *, bool *);
 extern tree c_finish_omp_construct (location_t, enum tree_code, tree, tree);
 extern tree c_finish_oacc_data (location_t, tree, tree);
+extern tree c_finish_oacc_host_data (location_t, tree, tree);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (location_t, tree, tree);
 extern tree c_begin_omp_task (void);
@@ -672,7 +673,7 @@ extern tree c_finish_omp_task (location_t, tree, tree);
 extern void c_finish_omp_cancel (location_t, tree);
 extern void c_finish_omp_cancellation_point (location_t, tree);
 extern tree c_finish_omp_clauses (tree, bool, bool = false);
-extern tree c_build_va_arg (location_t, tree, tree);
+extern tree c_build_va_arg (location_t, tree, location_t, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 extern tree c_cvt_expr_for_assign (location_t, tree, tree);
 extern bool c_tree_equal (tree, tree);
@@ -739,5 +740,8 @@ set_c_expr_source_range (c_expr *expr,
 extern void
 set_c_expr_source_range (c_expr *expr,
 			 source_range src_range);
+
+/* In c-fold.c */
+extern tree decl_constant_value_for_optimization (tree);
 
 #endif /* ! GCC_C_TREE_H */

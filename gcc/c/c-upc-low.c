@@ -416,8 +416,8 @@ upc_simplify_shared_ref (location_t loc, tree exp)
       const int shared_quals = TYPE_QUALS (TREE_TYPE (exp))
                                | TREE_QUALS (exp);
       gcc_assert (shared_quals & TYPE_QUAL_SHARED);
-      ref_type = c_build_qualified_type_1 (ref_type, shared_quals,
-                                           size_zero_node);
+      ref_type = c_build_qualified_type (ref_type, shared_quals,
+                                         size_zero_node);
     }
   if (TREE_TYPE (TREE_TYPE (base_addr)) != ref_type)
     base_addr = convert (build_pointer_type (ref_type), base_addr);
@@ -778,8 +778,8 @@ upc_genericize_pts_to_int_cvt (location_t loc, tree *expr_p)
     {
       /* Drop 'const' qualifier to arg. type mis-match.  */
       shared_quals &= ~TYPE_QUAL_CONST;
-      ref_type = c_build_qualified_type_1 (ref_type, shared_quals,
-                                           size_zero_node);
+      ref_type = c_build_qualified_type (ref_type, shared_quals,
+                                         size_zero_node);
       TREE_TYPE (pts) = build_pointer_type (ref_type);
     }
   pts_arg = tree_cons (NULL_TREE, pts, NULL_TREE);

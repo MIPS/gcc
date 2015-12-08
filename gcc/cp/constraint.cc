@@ -1353,32 +1353,6 @@ finish_template_introduction (tree tmpl_decl, tree intro_list)
 }
 
 
-/* Make a "constrained auto" type-specifier. This is an
-   auto type with constraints that must be associated after
-   deduction.  The constraint is formed from the given
-   CONC and its optional sequence of arguments, which are
-   non-null if written as partial-concept-id.  */
-tree
-make_constrained_auto (tree con, tree args)
-{
-  tree type = make_auto();
-
-  /* Build the constraint. */
-  tree tmpl = DECL_TI_TEMPLATE (con);
-  tree expr;
-  if (VAR_P (con))
-    expr = build_concept_check (tmpl, type, args);
-  else
-    expr = build_concept_check (build_overload (tmpl, NULL_TREE), type, args);
-
-  tree constr = make_predicate_constraint (expr);
-  PLACEHOLDER_TYPE_CONSTRAINTS (type) = constr;
-
-  /* Attach the constraint to the type declaration. */
-  tree decl = TYPE_NAME (type);
-  return decl;
-}
-
 /* Given the predicate constraint T from a constrained-type-specifier, extract
    its TMPL and ARGS.  FIXME why do we need two different forms of
    constrained-type-specifier?  */
@@ -2338,6 +2312,15 @@ subsumes_constraints (tree a, tree b)
   gcc_assert (!a || TREE_CODE (a) == CONSTRAINT_INFO);
   gcc_assert (!b || TREE_CODE (b) == CONSTRAINT_INFO);
   return subsumes (a, b);
+}
+
+/* Returns true when the the constraints in A subsume those in B, but
+   the constraints in B do not subsume the constraints in A.  */
+
+bool
+strictly_subsumes (tree a, tree b)
+{
+  return subsumes (a, b) && !subsumes (b, a);
 }
 
 /* Determines which of the declarations, A or B, is more constrained.

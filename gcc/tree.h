@@ -4289,19 +4289,19 @@ extern bool check_qualified_type (const_tree cand, const_tree base,
 				  int type_quals, tree block_factor);
 
 /* Return a version of the TYPE, qualified as indicated by the
-   TYPE_QUALS and BLOCK_FACTOR, if one exists.
-   If no qualified version exists yet, return NULL_TREE.  */
+   TYPE_QUALS, if one exists.
+   If no qualified version exists yet, return NULL_TREE.
+   BLOCK_FACTOR is null, unless compiling UPC.  */
 
-extern tree get_qualified_type_1 (tree type, int type_quals, tree block_factor);
-#define get_qualified_type(TYPE, QUALS) \
-          get_qualified_type_1 (TYPE, QUALS, 0)
+extern tree get_qualified_type (tree type, int type_quals,
+				tree block_factor = NULL_TREE);
 
 /* Like get_qualified_type, but creates the type if it does not
-   exist.  This function never returns NULL_TREE.  */
+   exist.  This function never returns NULL_TREE.
+   BLOCK_FACTOR is null, unless compiling UPC.  */
 
-extern tree build_qualified_type_1 (tree type, int type_quals, tree block_factor);
-#define build_qualified_type(TYPE, QUALS) \
-   build_qualified_type_1 (TYPE, QUALS, 0)
+extern tree build_qualified_type (tree type, int type_quals,
+				  tree block_factor = NULL_TREE);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
@@ -4457,6 +4457,10 @@ extern tree staticp (tree);
    and only evaluate EXP once.  */
 
 extern tree save_expr (tree);
+
+/* Return true if T is function-invariant.  */
+
+extern bool tree_invariant_p (tree);
 
 /* Look inside EXPR into any simple arithmetic operations.  Return the
    outermost non-arithmetic or non-invariant node.  */
@@ -5503,6 +5507,16 @@ type_with_alias_set_p (const_tree t)
   return false;
 }
 
+extern location_t get_pure_location (location_t loc);
+
+/* Get the endpoint of any range encoded within location LOC.  */
+
+static inline location_t
+get_finish (location_t loc)
+{
+  return get_range_from_loc (line_table, loc).m_finish;
+}
+
 extern location_t set_block (location_t loc, tree block);
 
 extern void gt_ggc_mx (tree &);
@@ -5511,10 +5525,10 @@ extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
 
 extern bool nonnull_arg_p (const_tree);
 
-extern void
+extern location_t
 set_source_range (tree expr, location_t start, location_t finish);
 
-extern void
+extern location_t
 set_source_range (tree expr, source_range src_range);
 
 static inline source_range
@@ -5523,6 +5537,9 @@ get_decl_source_range (tree decl)
   location_t loc = DECL_SOURCE_LOCATION (decl);
   return get_range_from_loc (line_table, loc);
 }
+
+extern location_t
+make_location (location_t caret, location_t start, location_t finish);
 
 /* Return true if it makes sense to promote/demote from_type to to_type. */
 inline bool
