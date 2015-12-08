@@ -1,11 +1,11 @@
-! Test the copy, copyin, copyout, pcopy, pcopyin, and pcopyout
+! Test the copy, copyin, copyout, pcopy, pcopyin, pcopyout, and pcreate
 ! clauses on kernels constructs.
 
 ! { dg-do run }
 
 program map
   integer, parameter     :: n = 20, c = 10
-  integer                :: i, a(n), b(n)
+  integer                :: i, a(n), b(n), d(n)
 
   a(:) = 0
   b(:) = 0
@@ -86,6 +86,20 @@ program map
   !$acc loop
   do i = 1, n
      a(i) = i
+  end do
+  !$acc end kernels
+
+  call check (a, b, n)
+
+  ! PRESENT_OR_CREATE
+
+  a(:) = 0
+
+  !$acc kernels pcopyout (a) pcreate (d)
+  !$acc loop
+  do i = 1, n
+     d(i) = i
+     a(i) = d(i)
   end do
   !$acc end kernels
 
