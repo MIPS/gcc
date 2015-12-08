@@ -2227,8 +2227,29 @@ mips_anchored_sdata_ref_p (const_rtx x)
 static enum mips_symbol_type
 mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 {
+
+
+  fflush(stdout);
+  printf ("Called mips_classify_symbol\n");
+  print_rtl (stdout, x);
+  switch (context)
+  {
+     case SYMBOL_CONTEXT_LEA:
+        printf ("\nContext: SYMBOL_CONTEXT_LEA\n");
+        break;
+     case SYMBOL_CONTEXT_MEM:
+        printf ("\nContext: SYMBOL_CONTEXT_MEM\n");
+        break;
+     case SYMBOL_CONTEXT_CALL:
+        printf ("\nContext: SYMBOL_CONTEXT_CALL\n");
+        break;
+  }
+    
   if (TARGET_RTP_PIC)
+    {
+    printf ("Return: SYMBOL_GOT_DISP\n");
     return SYMBOL_GOT_DISP;
+    }
 
   if (GET_CODE (x) == LABEL_REF)
     {
@@ -2239,59 +2260,85 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	 text section.  */
       if (TARGET_MIPS16_SHORT_JUMP_TABLES
 	  && !LABEL_REF_NONLOCAL_P (x))
+    {
+    printf ("Return: SYMBOL_PC_RELATIVE\n");
 	return SYMBOL_PC_RELATIVE;
+    }
 
       if (USE_ADDIUPC
 	  && context == SYMBOL_CONTEXT_LEA
 	  && (GET_MODE_ALIGNMENT (GET_MODE (x)) % 4) == 0)
+    {
+    printf ("Return: SYMBOL_PC_RELATIVE\n");
 	return SYMBOL_PC_RELATIVE;
+    }
 
       if (TARGET_ABICALLS && !TARGET_ABSOLUTE_ABICALLS)
+    {
+    printf ("Return: SYMBOL_GOT_PAGE_OFST\n");
 	return SYMBOL_GOT_PAGE_OFST;
+   }
 
+       printf ("Return: SYMBOL_ABSOLUTE\n");
       return SYMBOL_ABSOLUTE;
     }
 
   gcc_assert (GET_CODE (x) == SYMBOL_REF);
 
   if (SYMBOL_REF_TLS_MODEL (x))
+    {
+    printf ("Return: SYMBOL_TLS\n");
     return SYMBOL_TLS;
+    }
 
   if (CONSTANT_POOL_ADDRESS_P (x))
     {
       if (TARGET_MIPS16_TEXT_LOADS)
+    {
+    printf ("Return: SYMBOL_PC_RELATIVE\n");
 	return SYMBOL_PC_RELATIVE;
+    }
 
       if (TARGET_MIPS16_PCREL_LOADS && context == SYMBOL_CONTEXT_MEM)
+    {
+    printf ("Return: SYMBOL_PC_RELATIVE\n");
 	return SYMBOL_PC_RELATIVE;
+    }
 
       if (mips_rtx_constant_in_small_data_p (get_pool_mode (x)))
+    {
+    printf ("Return: SYMBOL_GP_RELATIVE\n");
 	return SYMBOL_GP_RELATIVE;
+    }
     }
 
   /* Code-size wise,  By using an anchor in the .sdata section we can
      use short offsets off the anchor rather large offsets from GP. */
   if (TARGET_SDATA_ANCHORS && mips_anchored_sdata_ref_p (x))
+    {
+    printf ("Return: SYMBOL_GP_RELATIVE\n");
     return SYMBOL_GP_RELATIVE;
+    }
 
   /* Do not use small-data accesses for weak symbols; they may end up
      being zero.  */
   if (TARGET_GPOPT && SYMBOL_REF_SMALL_P (x) && !SYMBOL_REF_WEAK (x))
+    {
+    printf ("Return: SYMBOL_GP_RELATIVE\n");
     return SYMBOL_GP_RELATIVE;
+    }
 
   tree decl = SYMBOL_REF_DECL (x);
   if (USE_ADDIUPC
-      && context == SYMBOL_CONTEXT_LEA
       && decl
-      && ((DECL_ALIGN_UNIT (decl) % 4) == 0)
-      && RTX_FRAME_RELATED_P (x))
-    return SYMBOL_PC_RELATIVE;
-  /*if (USE_ADDIUPC
       && context == SYMBOL_CONTEXT_LEA
-      && decl
       && ((DECL_ALIGN_UNIT (decl) % 4) == 0)
       && (RTX_FRAME_RELATED_P (x)
-	  || TREE_CODE (decl) == VAR_DECL))*/
+	  || TREE_CODE (decl) == VAR_DECL))
+    {
+    printf ("Return: SYMBOL_PC_RELATIVE (ADDIUPC)\n");
+    return SYMBOL_PC_RELATIVE;
+    }
 	 /*|| (DECL_EXTERNAL (decl)
 	      && TREE_CODE (decl) == VAR_DECL
 	      && (GET_MODE_ALIGNMENT (GET_MODE (x)) % 4) == 0)))*/
@@ -2322,11 +2369,16 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
 	 access will work for any kind of symbol.  However, there seems
 	 little point in doing things differently.  */
       if (mips_global_symbol_p (x))
+    {
+    printf ("Return: SYMBOL_GOT_DISP\n");
 	return SYMBOL_GOT_DISP;
+    }
 
+    printf ("Return: SYMBOL_GOT_PAGE_OFST\n");
       return SYMBOL_GOT_PAGE_OFST;
     }
 
+    printf ("Return: SYMBOL_ABSOLUTE\n");
   return SYMBOL_ABSOLUTE;
 }
 
@@ -3810,6 +3862,7 @@ mips_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
   /* See if the address can split into a high part and a LO_SUM.  */
   if (mips_split_symbol (NULL, x, mode, &addr))
     return mips_force_address (addr, mode);
+   
 
   /* Handle BASE + OFFSET using mips_add_offset.  */
   mips_split_plus (x, &base, &offset);

@@ -1079,7 +1079,7 @@ struct mips_cpu_info {
 				      && (MODE) == V2SFmode))		\
 				 && !TARGET_MIPS16)
 
-#define USE_ADDIUPC		(mips_isa_rev <= 5 && TARGET_MICROMIPS \
+#define USE_ADDIUPC		(TARGET_MICROMIPS \
 				 && TARGET_USE_MICROMIPS_ADDIUPC)
 
 #define ISA_HAS_LWL_LWR		(mips_isa_rev <= 5 && !TARGET_MIPS16)
