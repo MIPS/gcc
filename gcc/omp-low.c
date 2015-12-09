@@ -8522,6 +8522,11 @@ expand_omp_for_generic (struct omp_region *region,
       tree n1 = fold_convert (fd->iter_type, fd->loop.n1);
       tree n2 = fold_convert (fd->iter_type, fd->loop.n2);
 
+      n1 = force_gimple_operand_gsi_1 (&gsi, n1, is_gimple_reg, NULL_TREE, true,
+				       GSI_SAME_STMT);
+      n2 = force_gimple_operand_gsi_1 (&gsi, n2, is_gimple_reg, NULL_TREE, true,
+				       GSI_SAME_STMT);
+
       assign_stmt = gimple_build_assign (istart0, n1);
       gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 

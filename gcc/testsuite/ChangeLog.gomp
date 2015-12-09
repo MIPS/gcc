@@ -1,3 +1,7 @@
+2015-12-09  Tom de Vries  <tom@codesourcery.com>
+
+	* c-c++-common/goacc/kernels-loop-acc-loop-ptr-it.c: New test.
+
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/routine-1.c: Update.

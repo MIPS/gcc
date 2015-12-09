@@ -1,3 +1,8 @@
+2015-12-09  Tom de Vries  <tom@codesourcery.com>
+
+	* omp-low.c (expand_omp_for_generic): Gimplify seq_loop loop start and
+	limit.
+
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses)
