@@ -1819,3 +1819,9 @@ GOMP_OFFLOAD_run (int ord, void *tgt_fn, void *tgt_vars)
   else if (r != CUDA_SUCCESS)
     GOMP_PLUGIN_fatal ("cuCtxSynchronize error: %s", cuda_error (r));
 }
+
+void
+GOMP_OFFLOAD_async_run (int ord, void *tgt_fn, void *tgt_vars, void *async_data)
+{
+  GOMP_PLUGIN_fatal ("GOMP_OFFLOAD_async_run unimplemented");
+}

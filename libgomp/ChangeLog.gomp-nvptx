@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* plugin/plugin-nvptx.c (GOMP_OFFLOAD_async_run): New (stub).
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/task.c: New.
 
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
