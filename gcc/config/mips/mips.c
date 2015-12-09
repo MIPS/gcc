@@ -2331,10 +2331,12 @@ mips_classify_symbol (const_rtx x, enum mips_symbol_context context)
   tree decl = SYMBOL_REF_DECL (x);
   if (USE_ADDIUPC
       && decl
-      && context == SYMBOL_CONTEXT_LEA
+    //  && context == SYMBOL_CONTEXT_LEA
       && ((DECL_ALIGN_UNIT (decl) % 4) == 0)
-      && (RTX_FRAME_RELATED_P (x)
-	  || TREE_CODE (decl) == VAR_DECL))
+      && (RTX_FRAME_RELATED_P (x)))
+	  /*|| (TREE_CODE (decl) == VAR_DECL 
+              && DECL_INITIAL (decl) 
+	      && TREE_CONSTANT (DECL_INITIAL (decl)))))*/
     {
     printf ("Return: SYMBOL_PC_RELATIVE (ADDIUPC)\n");
     return SYMBOL_PC_RELATIVE;
