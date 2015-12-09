@@ -1457,9 +1457,6 @@ cgraph_lipo_get_resolved_node_1 (tree decl, bool do_assert)
               gcc_assert (DECL_EXTERNAL (decl)
                           || cgraph_is_aux_decl_external (n)
                           || DECL_VIRTUAL_P (decl));
-              gcc_assert (/* This is the case for explicit extern instantiation,
-                             when cgraph node is not created before link.  */
-                          DECL_EXTERNAL (decl));
               cgraph_link_node (n);
               return n;
             }
