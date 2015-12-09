@@ -1,17 +1,4 @@
-mips-r6-hard-newlib/lib
-mips-r6-hard-newlib/lib32
-mips-r6-hard-newlib/lib64
-mips-r6-soft-newlib/lib
-mips-r6-soft-newlib/lib32
-mips-r6-soft-newlib/lib64
-mipsel-r6-hard-newlib/lib
-mipsel-r6-hard-newlib/lib32
-mipsel-r6-hard-newlib/lib64
-mipsel-r6-soft-newlib/lib
-mipsel-r6-soft-newlib/lib32
-mipsel-r6-soft-newlib/lib64
 micromips-r6-hard-newlib/lib
 micromipsel-r6-hard-newlib/lib
 micromips-r6-soft-newlib/lib
 micromipsel-r6-soft-newlib/lib
-mipsel-r6-singleshort-newlib/lib
