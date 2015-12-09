@@ -1,8 +1,8 @@
 ! { dg-do run }
 
-!! Test the deviceptr clause with various directives
-!! and in combination with other directives where
-!! the deviceptr variable is implied.
+! Test the deviceptr clause with various directives
+! and in combination with other directives where
+! the deviceptr variable is implied.
 
 subroutine subr1 (a, b)
   implicit none

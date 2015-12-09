@@ -1,5 +1,16 @@
 ! { dg-do run  { target openacc_nvidia_accel_selected } }
 
+! Tests to exercise the declare directive along with
+! the clauses: copy
+!              copyin
+!              copyout
+!              create
+!              present
+!              present_or_copy
+!              present_or_copyin
+!              present_or_copyout
+!              present_or_create
+
 module vars
   implicit none
   integer z

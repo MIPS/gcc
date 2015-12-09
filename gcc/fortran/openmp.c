@@ -818,19 +818,10 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, uint64_t mask,
 				       OMP_MAP_ALLOC))
 	continue;
       if ((mask & OMP_CLAUSE_DEVICEPTR)
-	  && gfc_match ("deviceptr ( ") == MATCH_YES)
-	{
-	  gfc_omp_namelist **list = &c->lists[OMP_LIST_MAP];
-	  gfc_omp_namelist **head = NULL;
-	  if (gfc_match_omp_variable_list ("", list, true, NULL, &head, false)
-	      == MATCH_YES)
-	    {
-	      gfc_omp_namelist *n;
-	      for (n = *head; n; n = n->next)
-		n->u.map_op = OMP_MAP_FORCE_DEVICEPTR;
-	      continue;
-	    }
-	}
+	  && gfc_match ("deviceptr ( ") == MATCH_YES
+	  && gfc_match_omp_map_clause (&c->lists[OMP_LIST_MAP],
+				       OMP_MAP_FORCE_DEVICEPTR))
+	continue;
       if ((mask & OMP_CLAUSE_BIND) && c->routine_bind == NULL
 	  && gfc_match ("bind ( %s )", &c->routine_bind) == MATCH_YES)
 	{

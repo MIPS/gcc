@@ -57,6 +57,51 @@ find_pointer (int pos, size_t mapnum, unsigned short *kinds)
   return 0;
 }
 
+/* Handle the mapping pair that are presented when a
+   deviceptr clause is used with Fortran.  */
+
+static void
+handle_ftn_pointers (size_t mapnum, void **hostaddrs, size_t *sizes,
+		     unsigned short *kinds)
+{
+  int i;
+
+  for (i = 0; i < mapnum; i++)
+    {
+      unsigned short kind1 = kinds[i] & 0xff;
+
+      /* Handle Fortran deviceptr clause.  */
+      if (kind1 == GOMP_MAP_FORCE_DEVICEPTR)
+	{
+	  unsigned short kind2;
+
+	  if (i < (signed)mapnum - 1)
+	    kind2 = kinds[i + 1] & 0xff;
+	  else
+	    kind2 = 0xffff;
+
+	  if (sizes[i] == sizeof (void *))
+	    continue;
+
+	  /* At this point, we're dealing with a Fortran deviceptr.
+	     If the next element is not what we're expecting, then
+	     this is an instance of where the deviceptr variable was
+	     not used within the region and the pointer was removed
+	     by the gimplifier.  */
+	  if (kind2 == GOMP_MAP_POINTER
+	      && sizes[i + 1] == 0
+	      && hostaddrs[i] == *(void **)hostaddrs[i + 1])
+	    {
+	      kinds[i+1] = kinds[i];
+	      sizes[i+1] = sizeof (void *);
+	    }
+
+	  /* Invalidate the entry.  */
+	  hostaddrs[i] = NULL;
+	}
+    }
+}
+
 static void goacc_wait (int async, int num_waits, va_list *ap);
 
 
@@ -99,40 +144,7 @@ GOACC_parallel_keyed (int device, void (*fn) (void *),
   thr = goacc_thread ();
   acc_dev = thr->dev;
 
-  for (i = 0; i < mapnum; i++)
-    {
-      unsigned short kind1 = kinds[i] & 0xff;
-
-      /* Handle Fortran deviceptr clause.  */
-      if (kind1 == GOMP_MAP_FORCE_DEVICEPTR)
-	{
-	  unsigned short kind2;
-
-	  if (i < (signed)mapnum - 1)
-	    kind2 = kinds[i + 1] & 0xff;
-	  else
-	    kind2 = 0xffff;
-
-	  if (sizes[i] == sizeof (void *))
-	    continue;
-
-	  /* At this point, we're dealing with a Fortran deviceptr.
-	     If the next element is not what we're expecting, then
-	     this is an instance of where the deviceptr variable was
-	     not used within the region and the pointer was removed
-	     by the gimplifier.  */
-	  if (kind2 == GOMP_MAP_POINTER
-	      && sizes[i + 1] == 0
-	      && hostaddrs[i] == *(void **)hostaddrs[i + 1])
-	    {
-	      kinds[i+1] = kinds[i];
-	      sizes[i+1] = sizeof (void *);
-	    }
-
-	  /* Invalidate the entry.  */
-	  hostaddrs[i] = NULL;
-	}
-    }
+  handle_ftn_pointers (mapnum, hostaddrs, sizes, kinds);
 
   /* Host fallback if "if" clause is false or if the current device is set to
      the host.  */
@@ -258,7 +270,6 @@ GOACC_data_start (int device, size_t mapnum,
 {
   bool host_fallback = device == GOMP_DEVICE_HOST_FALLBACK;
   struct target_mem_desc *tgt;
-  int i;
 
 #ifdef HAVE_INTTYPES_H
   gomp_debug (0, "%s: mapnum=%"PRIu64", hostaddrs=%p, sizes=%p, kinds=%p\n",
@@ -273,41 +284,7 @@ GOACC_data_start (int device, size_t mapnum,
   struct goacc_thread *thr = goacc_thread ();
   struct gomp_device_descr *acc_dev = thr->dev;
 
-  for (i = 0; i < mapnum; i++)
-    {
-      unsigned short kind1 = kinds[i] & 0xff;
-
-      /* Handle Fortran deviceptr clause.  */
-      if (kind1 == GOMP_MAP_FORCE_DEVICEPTR)
-	{
-	  unsigned short kind2;
-
-	  if (i < (signed)mapnum - 1)
-	    kind2 = kinds[i + 1] & 0xff;
-	  else
-	    kind2 = 0xffff;
-
-	  /* If the size is right, skip it.  */
-	  if (sizes[i] == sizeof (void *))
-	    continue;
-
-	  /* At this point, we're dealing with a Fortran deviceptr.
-	     If the next element is not what we're expecting, then
-	     this is an instance of where the deviceptr variable was
-	     not used within the region and the pointer was removed
-	     by the gimplifier.  */
-	  if (kind2 == GOMP_MAP_POINTER
-	      && sizes[i + 1] == 0
-	      && hostaddrs[i] == *(void **)hostaddrs[i + 1])
-	    {
-	      kinds[i+1] = kinds[i];
-	      sizes[i+1] = sizeof (void *);
-	    }
-
-	  /* Invalidate the entry.  */
-	  hostaddrs[i] = NULL;
-	}
-    }
+  handle_ftn_pointers (mapnum, hostaddrs, sizes, kinds);
 
   /* Host fallback or 'do nothing'.  */
   if ((acc_dev->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)

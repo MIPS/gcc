@@ -1,3 +1,11 @@
+2015-12-09  James Norris  <jnorris@codesourcery.com>
+
+	* oacc-parallel.c (handle_ftn_pointers): New function.
+	(GOACC_parallel_keyed, GOACC_data_start): Factor out Fortran pointer
+	handling.
+	* testsuite/libgomp.oacc-fortran/declare-1.f90: Add comment.
+	* testsuite/libgomp.oacc-fortran/deviceptr-1.f90: Fix comment.
+
 2015-12-08  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-fortran/kernels-map-1.f90: Add new test.
