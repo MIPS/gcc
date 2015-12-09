@@ -1,5 +1,11 @@
 2015-12-09  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	* c-c++-common/goacc/kernels-default-2.c: New test.
+	* c-c++-common/goacc/kernels-default.c: New test.
+
+2015-12-09  Tom de Vries  <tom@codesourcery.com>
+
 	* c-c++-common/goacc/kernels-loop-acc-loop-ptr-it.c: New test.
 
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>

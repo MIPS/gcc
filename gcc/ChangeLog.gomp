@@ -1,5 +1,13 @@
 2015-12-09  Tom de Vries  <tom@codesourcery.com>
 
+	backport from trunk:
+	* gimplify.c (enum gimplify_omp_var_data): Add enum value
+	GOVD_MAP_FORCE.
+	(oacc_default_clause): Fix default for scalars in oacc kernels.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_MAP_FORCE.
+
+2015-12-09  Tom de Vries  <tom@codesourcery.com>
+
 	* omp-low.c (expand_omp_for_generic): Gimplify seq_loop loop start and
 	limit.
 
