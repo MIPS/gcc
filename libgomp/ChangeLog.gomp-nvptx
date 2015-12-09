@@ -1,5 +1,9 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/task.c: New.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/team.c (gomp_nvptx_main): Rename to...
 	(gomp_nvptx_main_1): ... this and mark noinline.
 	(gomp_nvptx_main): Wrap the above, set up __nvptx_uni and
