@@ -9674,7 +9674,8 @@ aarch64_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 
   stack = build3 (COMPONENT_REF, TREE_TYPE (f_stack), unshare_expr (valist),
 		  f_stack, NULL_TREE);
-  size = int_size_in_bytes (type);
+  bool empty_type = type && type_is_empty_type_p (type);
+  size = empty_type ? 0 : int_size_in_bytes (type);
   align = aarch64_function_arg_alignment (mode, type) / BITS_PER_UNIT;
 
   dw_align = false;

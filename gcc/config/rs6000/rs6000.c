@@ -12069,7 +12069,8 @@ rs6000_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   sav = build3 (COMPONENT_REF, TREE_TYPE (f_sav), unshare_expr (valist),
 		f_sav, NULL_TREE);
 
-  size = int_size_in_bytes (type);
+  bool empty_type = type && type_is_empty_type_p (type);
+  size = empty_type ? 0 : int_size_in_bytes (type);
   rsize = (size + 3) / 4;
   align = 1;
 

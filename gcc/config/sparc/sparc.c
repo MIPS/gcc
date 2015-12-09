@@ -7336,7 +7336,8 @@ sparc_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   else
     {
       indirect = false;
-      size = int_size_in_bytes (type);
+      bool empty_type = type && type_is_empty_type_p (type);
+      size = empty_type ? 0 : int_size_in_bytes (type);
       rsize = ROUND_UP (size, UNITS_PER_WORD);
       align = 0;
 

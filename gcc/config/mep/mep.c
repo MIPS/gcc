@@ -3525,7 +3525,8 @@ mep_gimplify_va_arg_expr (tree valist, tree type,
 
   ivc2_vec = TARGET_IVC2 && VECTOR_TYPE_P (type);
 
-  size = int_size_in_bytes (type);
+  bool empty_type = type && type_is_empty_type_p (type);
+  size = empty_type ? 0 : int_size_in_bytes (type);
   by_reference = (size > (ivc2_vec ? 8 : 4)) || (size <= 0);
 
   if (by_reference)
