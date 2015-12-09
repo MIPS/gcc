@@ -348,8 +348,8 @@ tilepro_setup_incoming_varargs (cumulative_args_t cum,
   /* The caller has advanced CUM up to, but not beyond, the last named
      argument.  Advance a local copy of CUM past the last "real" named
      argument, to find out how many registers are left over.  */
-  targetm.calls.function_arg_advance (pack_cumulative_args (&local_cum),
-				      mode, type, true);
+  function_arg_advance (pack_cumulative_args (&local_cum), mode, type,
+			true);
   first_reg = local_cum;
 
   if (local_cum < TILEPRO_NUM_ARG_REGS)
@@ -421,7 +421,8 @@ tilepro_gimplify_va_arg_expr (tree valist, tree type, gimple_seq * pre_p,
   if (pass_by_reference_p)
     type = build_pointer_type (type);
 
-  size = int_size_in_bytes (type);
+  bool empty_record = type && type_is_empty_record_p (type);
+  size = empty_record ? 0 : int_size_in_bytes (type);
   rsize = ((size + UNITS_PER_WORD - 1) / UNITS_PER_WORD) * UNITS_PER_WORD;
 
   /* If the alignment of the type is greater than the default for a

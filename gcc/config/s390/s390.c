@@ -11861,7 +11861,8 @@ s390_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   valist = unshare_expr (valist);
   ovf = build3 (COMPONENT_REF, TREE_TYPE (f_ovf), valist, f_ovf, NULL_TREE);
 
-  size = int_size_in_bytes (type);
+  bool empty_record = type && type_is_empty_record_p (type);
+  size = empty_record ? 0 : int_size_in_bytes (type);
 
   s390_check_type_for_vector_abi (type, true, false);
 

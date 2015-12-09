@@ -6342,7 +6342,8 @@ hppa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
 	  type = ptr;
 	  ptr = build_pointer_type (type);
 	}
-      size = int_size_in_bytes (type);
+      bool empty_record = type && type_is_empty_record_p (type);
+      size = empty_record ? 0 : int_size_in_bytes (type);
       valist_type = TREE_TYPE (valist);
 
       /* Args grow down.  Not handled by generic routines.  */

@@ -4028,7 +4028,8 @@ spu_gimplify_va_arg_expr (tree valist, tree type, gimple_seq * pre_p,
 					   false);
   if (pass_by_reference_p)
     type = build_pointer_type (type);
-  size = int_size_in_bytes (type);
+  bool empty_record = type && type_is_empty_record_p (type);
+  size = empty_record ? 0 : int_size_in_bytes (type);
   rsize = ((size + UNITS_PER_WORD - 1) / UNITS_PER_WORD) * UNITS_PER_WORD;
 
   /* build conditional expression to calculate addr. The expression

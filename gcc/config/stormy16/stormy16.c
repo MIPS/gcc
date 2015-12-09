@@ -1337,8 +1337,10 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   count = build3 (COMPONENT_REF, TREE_TYPE (f_count), valist, f_count,
 		  NULL_TREE);
 
+  bool empty_record = type && type_is_empty_record_p (type);
   must_stack = targetm.calls.must_pass_in_stack (TYPE_MODE (type), type);
-  size_tree = round_up (size_in_bytes (type), UNITS_PER_WORD);
+  size_tree = round_up (empty_record ? integer_zero_node : size_in_bytes (type),
+			UNITS_PER_WORD);
   gimplify_expr (&size_tree, pre_p, NULL, is_gimple_val, fb_rvalue);
 
   size_of_reg_args = NUM_ARGUMENT_REGISTERS * UNITS_PER_WORD;
@@ -1374,7 +1376,7 @@ xstormy16_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   /* Arguments larger than a word might need to skip over some
      registers, since arguments are either passed entirely in
      registers or entirely on the stack.  */
-  size = PUSH_ROUNDING (int_size_in_bytes (type));
+  size = PUSH_ROUNDING (empty_record ? 0 : int_size_in_bytes (type));
   if (size > 2 || size < 0 || must_stack)
     {
       tree r, u;

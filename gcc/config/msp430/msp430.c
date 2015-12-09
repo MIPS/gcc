@@ -1465,7 +1465,8 @@ msp430_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
     }
 
   /* Compute the rounded size of the type.  */
-  type_size = size_in_bytes (type);
+  bool empty_record = type && type_is_empty_record_p (type);
+  type_size = empty_record ? 0 : size_in_bytes (type);
   rounded_size = round_up (type_size, align);
 
   /* Reduce rounded_size so it's sharable with the postqueue.  */

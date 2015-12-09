@@ -6117,8 +6117,7 @@ alpha_setup_incoming_varargs (cumulative_args_t pcum, machine_mode mode,
   CUMULATIVE_ARGS cum = *get_cumulative_args (pcum);
 
   /* Skip the current argument.  */
-  targetm.calls.function_arg_advance (pack_cumulative_args (&cum), mode, type,
-				      true);
+  function_arg_advance (pack_cumulative_args (&cum), mode, type, true);
 
 #if TARGET_ABI_OPEN_VMS
   /* For VMS, we allocate space for all 6 arg registers plus a count.
@@ -6304,7 +6303,8 @@ alpha_gimplify_va_arg_1 (tree type, tree base, tree offset,
   gimple_seq_add_seq (pre_p, internal_post);
 
   /* Update the offset field.  */
-  type_size = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type));
+  bool empty_record = type && type_is_empty_record_p (type);
+  type_size = empty_record ? 0 : TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type));
   if (type_size == NULL || TREE_OVERFLOW (type_size))
     t = size_zero_node;
   else

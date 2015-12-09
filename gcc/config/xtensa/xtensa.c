@@ -3161,7 +3161,8 @@ xtensa_gimplify_va_arg_expr (tree valist, tree type, gimple_seq *pre_p,
   ndx = build3 (COMPONENT_REF, TREE_TYPE (f_ndx), unshare_expr (valist),
 		f_ndx, NULL_TREE);
 
-  type_size = size_in_bytes (type);
+  bool empty_record = type && type_is_empty_record_p (type);
+  type_size = empty_record ? 0 : size_in_bytes (type);
   va_size = round_up (type_size, UNITS_PER_WORD);
   gimplify_expr (&va_size, pre_p, NULL, is_gimple_val, fb_rvalue);
 
