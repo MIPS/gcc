@@ -1,5 +1,10 @@
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_record_offload_symbol): Allow NULL attrs
+	for OpenMP offloading.
+
+2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
 	* internal-fn.c (expand_GOMP_SIMT_LANE): New.
 	(expand_GOMP_SIMT_VF): New.
 	* internal-fn.def (GOMP_SIMT_LANE): New.

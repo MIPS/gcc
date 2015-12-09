@@ -4114,13 +4114,13 @@ nvptx_record_offload_symbol (tree decl)
     case FUNCTION_DECL:
       {
 	tree attr = get_oacc_fn_attrib (decl);
-	tree dims = TREE_VALUE (attr);
-	unsigned ix;
+	/* OpenMP offloading does not set this attribute.  */
+	tree dims = attr ? TREE_VALUE (attr) : NULL_TREE;
 
 	fprintf (asm_out_file, "//:FUNC_MAP \"%s\"",
 		 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl)));
 
-	for (ix = 0; ix != GOMP_DIM_MAX; ix++, dims = TREE_CHAIN (dims))
+	for (; dims; dims = TREE_CHAIN (dims))
 	  {
 	    int size = TREE_INT_CST_LOW (TREE_VALUE (dims));
 
