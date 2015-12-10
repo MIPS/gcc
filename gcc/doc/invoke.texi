@@ -786,6 +786,7 @@ Objective-C and Objective-C++ Dialects}.
 -mmicromips -mno-micromips @gol
 -mmsa -mno-msa @gol
 -mfpu=@var{fpu-type} @gol
+-mfunc-opt-list=@var{file} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
 -mips3d  -mno-mips3d  -mmt  -mno-mt  -mllsc  -mno-llsc @gol
@@ -17600,6 +17601,35 @@ if that data is no bigger than @var{num} bytes.  GCC can then generate
 more efficient accesses to the data; see @option{-mgpopt} for details.
 
 The default @option{-G} option depends on the configuration.
+
+@item -mfunc-opt-list=
+@opindex func-opt-list
+Read a list of functions from a file and apply a series of attributes to
+them as if they had being specified in the source.  The format of the
+file is plain text with one function per line.  The first non-whitespace
+word is treated as the function name, whitespace, then a white seperated
+list with no commas, of function attributes written in the same format
+within the parentheses of the __attribute__ directive.
+@smallexample
+foo   mips16 optimize ("Os")
+bar   always_inline
+@end smallexample
+
+The following attributes are recognised:
+@smallexample
+O1, O2, O3, Os, mips16, nomips16, always_inline, noinline, unused, used,
+far, near, hot, cold, code_readability, epi, alias, aligned, alloc_size,
+alloc_align, assume_aligned, artifical, constructor, const, deprecated,
+destructor, error, flatten, gnu_inline, interrupt, keep_interrupts_masked,
+long_call, leaf, noclone, noreturn, malloc, nonnull, nothrow, optimize,
+returns_nonnull,returns_twice, section, pure, use_debug_exception_return,
+use_shadow_register_set, visibility, warning, warn_unused_result, weak,
+weakref.
+@end smallexample
+
+Unrecognised attributes will produce a diagnostic giving the location
+that it was found and compilation will continue. GCC's front will also
+produce a diagnostic.
 
 @item -mlocal-sdata
 @itemx -mno-local-sdata
