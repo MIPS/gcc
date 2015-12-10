@@ -31,11 +31,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <hsa.h>
+#include <hsa_ext_finalize.h>
+#include <dlfcn.h>
 #include "libgomp-plugin.h"
 #include "gomp-constants.h"
-#include "hsa.h"
-#include "hsa_ext_finalize.h"
-#include "dlfcn.h"
 
 /* Part of the libgomp plugin interface.  Return the name of the accelerator,
    which is "hsa".  */
@@ -128,18 +128,10 @@ hsa_warn (const char *str, hsa_status_t status)
   if (!debug)
     return;
 
-  const char* hsa_error;
+  const char *hsa_error;
   hsa_status_string (status, &hsa_error);
 
-  unsigned l = strlen (hsa_error);
-
-  char *err = GOMP_PLUGIN_malloc (sizeof (char) * l);
-  memcpy (err, hsa_error, l - 1);
-  err[l] = '\0';
-
-  fprintf (stderr, "HSA warning: %s (%s)\n", str, err);
-
-  free (err);
+  fprintf (stderr, "HSA warning: %s\nRuntime message: %s", str, hsa_error);
 }
 
 /* Report a fatal error STR together with the HSA error corresponding to STATUS
@@ -148,9 +140,10 @@ hsa_warn (const char *str, hsa_status_t status)
 static void
 hsa_fatal (const char *str, hsa_status_t status)
 {
-  const char* hsa_error;
+  const char *hsa_error;
   hsa_status_string (status, &hsa_error);
-  GOMP_PLUGIN_fatal ("HSA fatal error: %s (%s)", str, hsa_error);
+  GOMP_PLUGIN_fatal ("HSA fatal error: %s\nRuntime message: %s", str,
+		     hsa_error);
 }
 
 struct hsa_kernel_description
@@ -258,9 +251,9 @@ struct agent_info
   /* The HSA ISA of this agent.  */
   hsa_isa_t isa;
   /* Command queue of the agent.  */
-  hsa_queue_t* command_q;
+  hsa_queue_t *command_q;
   /* Kernel from kernel dispatch command queue.  */
-  hsa_queue_t* kernel_dispatch_command_q;
+  hsa_queue_t *kernel_dispatch_command_q;
   /* The HSA memory region from which to allocate kernel arguments.  */
   hsa_region_t kernarg_region;
 
@@ -332,8 +325,8 @@ static bool
 suitable_hsa_agent_p (hsa_agent_t agent)
 {
   hsa_device_type_t device_type;
-  hsa_status_t status = hsa_agent_get_info (agent, HSA_AGENT_INFO_DEVICE,
-					  &device_type);
+  hsa_status_t status
+    = hsa_agent_get_info (agent, HSA_AGENT_INFO_DEVICE, &device_type);
   if (status != HSA_STATUS_SUCCESS || device_type != HSA_DEVICE_TYPE_GPU)
     return false;
 
@@ -410,8 +403,9 @@ init_hsa_context (void)
 /* Callback of dispatch queues to report errors.  */
 
 static void
-queue_callback(hsa_status_t status, hsa_queue_t* queue __attribute__ ((unused)),
-	       void* data __attribute__ ((unused)))
+queue_callback (hsa_status_t status,
+		hsa_queue_t *queue __attribute__ ((unused)),
+		void *data __attribute__ ((unused)))
 {
   hsa_fatal ("Asynchronous queue error", status);
 }
@@ -420,7 +414,8 @@ queue_callback(hsa_status_t status, hsa_queue_t* queue __attribute__ ((unused)),
    used for kernarg allocations and if so write it to the memory pointed to by
    DATA and break the query.  */
 
-static hsa_status_t get_kernarg_memory_region (hsa_region_t region, void* data)
+static hsa_status_t
+get_kernarg_memory_region (hsa_region_t region, void *data)
 {
   hsa_status_t status;
   hsa_region_segment_t segment;
@@ -437,7 +432,7 @@ static hsa_status_t get_kernarg_memory_region (hsa_region_t region, void* data)
     return status;
   if (flags & HSA_REGION_GLOBAL_FLAG_KERNARG)
     {
-      hsa_region_t* ret = (hsa_region_t*) data;
+      hsa_region_t *ret = (hsa_region_t *) data;
       *ret = region;
       return HSA_STATUS_INFO_BREAK;
     }
@@ -528,7 +523,7 @@ static void
 add_module_to_agent (struct agent_info *agent, struct module_info *module)
 {
   if (agent->first_module)
-      agent->first_module->prev = module;
+    agent->first_module->prev = module;
   module->next = agent->first_module;
   module->prev = NULL;
   agent->first_module = module;
@@ -653,12 +648,12 @@ add_shared_library (const char *file_name, struct agent_info *agent)
     return NULL;
 
   unsigned size = end - start;
-  char *buf = (char *) malloc (size);
+  char *buf = (char *) GOMP_PLUGIN_malloc (size);
   memcpy (buf, start, size);
 
   library = GOMP_PLUGIN_malloc (sizeof (struct agent_info));
   library->file_name = (char *) GOMP_PLUGIN_malloc
-    ((strlen (file_name) + 1) * sizeof (char));
+    ((strlen (file_name) + 1));
   strcpy (library->file_name, file_name);
   library->image = (hsa_ext_module_t) buf;
 
@@ -746,11 +741,11 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   hsa_ext_control_directives_t control_directives;
   memset (&control_directives, 0, sizeof (control_directives));
   hsa_code_object_t code_object;
-  status = hsa_ext_program_finalize(prog_handle, agent->isa,
-				    HSA_EXT_FINALIZER_CALL_CONVENTION_AUTO,
-				    control_directives, "",
-				    HSA_CODE_OBJECT_TYPE_PROGRAM,
-				    &code_object);
+  status = hsa_ext_program_finalize (prog_handle, agent->isa,
+				     HSA_EXT_FINALIZER_CALL_CONVENTION_AUTO,
+				     control_directives, "",
+				     HSA_CODE_OBJECT_TYPE_PROGRAM,
+				     &code_object);
   if (status != HSA_STATUS_SUCCESS)
     {
       hsa_warn ("Finalization of the HSA program failed", status);
@@ -760,8 +755,9 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   HSA_DEBUG ("Finalization done\n");
   hsa_ext_program_destroy (prog_handle);
 
-  status = hsa_executable_create(HSA_PROFILE_FULL, HSA_EXECUTABLE_STATE_UNFROZEN,
-				 "", &agent->executable);
+  status
+    = hsa_executable_create (HSA_PROFILE_FULL, HSA_EXECUTABLE_STATE_UNFROZEN,
+			     "", &agent->executable);
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not create HSA executable", status);
 
@@ -773,8 +769,9 @@ create_and_finalize_hsa_program (struct agent_info *agent)
 	{
 	  struct global_var_info *var;
 	  var = &module->image_desc->global_variables[i];
-	  status = hsa_executable_global_variable_define
-	    (agent->executable, var->name, var->address);
+	  status
+	    = hsa_executable_global_variable_define (agent->executable,
+						     var->name, var->address);
 
 	  HSA_DEBUG ("Defining global variable: %s, address: %p\n", var->name,
 		     var->address);
@@ -787,11 +784,11 @@ create_and_finalize_hsa_program (struct agent_info *agent)
       module = module->next;
     }
 
-  status = hsa_executable_load_code_object(agent->executable, agent->id,
-					   code_object, "");
+  status = hsa_executable_load_code_object (agent->executable, agent->id,
+					    code_object, "");
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not add a code object to the HSA executable", status);
-  status = hsa_executable_freeze(agent->executable, "");
+  status = hsa_executable_freeze (agent->executable, "");
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not freeze the HSA executable", status);
 
@@ -818,17 +815,17 @@ create_single_kernel_dispatch (struct kernel_info *kernel,
 			       unsigned omp_data_size)
 {
   struct agent_info *agent = kernel->agent;
-  struct GOMP_hsa_kernel_dispatch *shadow = GOMP_PLUGIN_malloc_cleared
-    (sizeof (struct GOMP_hsa_kernel_dispatch));
+  struct GOMP_hsa_kernel_dispatch *shadow
+    = GOMP_PLUGIN_malloc_cleared (sizeof (struct GOMP_hsa_kernel_dispatch));
 
   shadow->queue = agent->command_q;
-  shadow->omp_data_memory = omp_data_size > 0
-    ? GOMP_PLUGIN_malloc (omp_data_size) : NULL;
+  shadow->omp_data_memory
+    = omp_data_size > 0 ? GOMP_PLUGIN_malloc (omp_data_size) : NULL;
   unsigned dispatch_count = kernel->dependencies_count;
   shadow->kernel_dispatch_count = dispatch_count;
 
-  shadow->children_dispatches = GOMP_PLUGIN_malloc
-    (dispatch_count * sizeof (struct GOMP_hsa_kernel_dispatch *));
+  shadow->children_dispatches
+    = GOMP_PLUGIN_malloc (dispatch_count * sizeof (shadow));
 
   shadow->object = kernel->object;
 
@@ -841,9 +838,9 @@ create_single_kernel_dispatch (struct kernel_info *kernel,
   shadow->private_segment_size = kernel->private_segment_size;
   shadow->group_segment_size = kernel->group_segment_size;
 
-  status = hsa_memory_allocate
-    (agent->kernarg_region, kernel->kernarg_segment_size,
-     &shadow->kernarg_address);
+  status
+    = hsa_memory_allocate (agent->kernarg_region, kernel->kernarg_segment_size,
+			   &shadow->kernarg_address);
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not allocate memory for HSA kernel arguments", status);
 
@@ -855,8 +852,8 @@ create_single_kernel_dispatch (struct kernel_info *kernel,
 static void
 release_kernel_dispatch (struct GOMP_hsa_kernel_dispatch *shadow)
 {
-  HSA_DEBUG ("Released kernel dispatch: %p has value: %lu (%p)\n",
-	     shadow, shadow->debug, (void *)shadow->debug);
+  HSA_DEBUG ("Released kernel dispatch: %p has value: %lu (%p)\n", shadow,
+	     shadow->debug, (void *) shadow->debug);
 
   hsa_memory_free (shadow->kernarg_address);
 
@@ -890,8 +887,10 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
       goto failure;
     }
   HSA_DEBUG ("Located kernel %s\n", kernel->name);
-  status = hsa_executable_symbol_get_info
-    (kernel_symbol, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT, &kernel->object);
+  status
+    = hsa_executable_symbol_get_info (kernel_symbol,
+				      HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT,
+				      &kernel->object);
   if (status != HSA_STATUS_SUCCESS)
     hsa_fatal ("Could not extract a kernel object from its symbol", status);
   status = hsa_executable_symbol_get_info
@@ -927,8 +926,8 @@ init_single_kernel (struct kernel_info *kernel, unsigned *max_omp_data_size)
 
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
     {
-      struct kernel_info *dependency = get_kernel_for_agent
-	(agent, kernel->dependencies[i]);
+      struct kernel_info *dependency
+	= get_kernel_for_agent (agent, kernel->dependencies[i]);
 
       if (dependency == NULL)
 	{
@@ -959,8 +958,7 @@ failure:
 static void
 indent_stream (FILE *f, unsigned indent)
 {
-  for (int i = 0; i < indent; i++)
-    fputc (' ', f);
+  fprintf (f, "%*s", indent, "");
 }
 
 /* Dump kernel DISPATCH data structure and indent it by INDENT spaces.  */
@@ -995,7 +993,7 @@ print_kernel_dispatch (struct GOMP_hsa_kernel_dispatch *dispatch, unsigned inden
   fprintf (stderr, "\n");
 
   for (unsigned i = 0; i < dispatch->kernel_dispatch_count; i++)
-      print_kernel_dispatch (dispatch->children_dispatches[i], indent + 2);
+    print_kernel_dispatch (dispatch->children_dispatches[i], indent + 2);
 }
 
 /* Create kernel dispatch data structure for a KERNEL and all its
@@ -1004,8 +1002,8 @@ print_kernel_dispatch (struct GOMP_hsa_kernel_dispatch *dispatch, unsigned inden
 static struct GOMP_hsa_kernel_dispatch *
 create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
 {
-  struct GOMP_hsa_kernel_dispatch *shadow = create_single_kernel_dispatch
-    (kernel, omp_data_size);
+  struct GOMP_hsa_kernel_dispatch *shadow
+    = create_single_kernel_dispatch (kernel, omp_data_size);
   shadow->omp_num_threads = 64;
   shadow->debug = 0;
   shadow->omp_level = kernel->gridified_kernel_p ? 1 : 0;
@@ -1014,12 +1012,12 @@ create_kernel_dispatch (struct kernel_info *kernel, unsigned omp_data_size)
      a kernel dispatch with depth bigger than one.  */
   for (unsigned i = 0; i < kernel->dependencies_count; i++)
     {
-      struct kernel_info *dependency = get_kernel_for_agent
-	(kernel->agent, kernel->dependencies[i]);
-      shadow->children_dispatches[i] = create_single_kernel_dispatch
-	(dependency, omp_data_size);
-      shadow->children_dispatches[i]->queue =
-	kernel->agent->kernel_dispatch_command_q;
+      struct kernel_info *dependency
+	= get_kernel_for_agent (kernel->agent, kernel->dependencies[i]);
+      shadow->children_dispatches[i]
+	= create_single_kernel_dispatch (dependency, omp_data_size);
+      shadow->children_dispatches[i]->queue
+	= kernel->agent->kernel_dispatch_command_q;
       shadow->children_dispatches[i]->omp_level = 1;
     }
 
@@ -1146,7 +1144,7 @@ failure:
    FN_PTR which must point to a kernel_info structure.  */
 
 void
-GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
+GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void **args)
 {
   struct kernel_info *kernel = (struct kernel_info *) fn_ptr;
   struct agent_info *agent = kernel->agent;
@@ -1166,8 +1164,8 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
   if (!kernel->initialized)
     GOMP_PLUGIN_fatal ("Called kernel must be initialized");
 
-  struct GOMP_hsa_kernel_dispatch *shadow = create_kernel_dispatch
-    (kernel, kernel->max_omp_data_size);
+  struct GOMP_hsa_kernel_dispatch *shadow
+    = create_kernel_dispatch (kernel, kernel->max_omp_data_size);
 
   if (debug)
     {
@@ -1179,16 +1177,16 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
   HSA_DEBUG ("Got AQL index %llu\n", (long long int) index);
 
   /* Wait until the queue is not full before writing the packet.   */
-  while (index - hsa_queue_load_read_index_acquire(agent->command_q)
+  while (index - hsa_queue_load_read_index_acquire (agent->command_q)
 	 >= agent->command_q->size)
     ;
 
   hsa_kernel_dispatch_packet_t *packet;
-  packet = ((hsa_kernel_dispatch_packet_t*) agent->command_q->base_address)
-    + index % agent->command_q->size;
+  packet = ((hsa_kernel_dispatch_packet_t *) agent->command_q->base_address)
+	   + index % agent->command_q->size;
 
-  memset (((uint8_t *)packet) + 4, 0, sizeof (*packet) - 4);
-  packet->setup  |= (uint16_t) 1 << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
+  memset (((uint8_t *) packet) + 4, 0, sizeof (*packet) - 4);
+  packet->setup |= (uint16_t) 1 << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
   packet->grid_size_x = kla->gdims[0];
   uint32_t wgs = kla->wdims[0];
   if (wgs == 0)
@@ -1223,7 +1221,7 @@ GOMP_OFFLOAD_run (int n, void *fn_ptr, void *vars, void** args)
 
   HSA_DEBUG ("Going to dispatch kernel %s\n", kernel->name);
 
-  __atomic_store_n ((uint16_t*)(&packet->header), header, __ATOMIC_RELEASE);
+  __atomic_store_n ((uint16_t *) (&packet->header), header, __ATOMIC_RELEASE);
   hsa_signal_store_release (agent->command_q->doorbell_signal, index);
 
   /* TODO: GPU agents in Carrizo APUs cannot properly update L2 cache for

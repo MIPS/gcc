@@ -1,3 +1,22 @@
+2015-12-10  Martin Liska  <mliska@suse.cz>
+
+	* plugin/plugin-hsa.c (hsa_warn): Change output string format.
+	(hsa_fatal): Dtto.
+	(struct agent_info): Fix GNU coding style.
+	(suitable_hsa_agent_p): Likewise.
+	(get_kernarg_memory_region): Likewise.
+	(add_module_to_agent): Likewise.
+	(add_shared_library): Use GOMP_PLUGIN_malloc instead
+	of malloc.
+	(create_and_finalize_hsa_program): Fix GNU coding style.
+	(create_single_kernel_dispatch): Dtto.
+	(release_kernel_dispatch): Dtto.
+	(init_single_kernel): Dtto.
+	(indent_stream): Use printf.
+	(print_kernel_dispatch): Fix GNU coding style.
+	(create_kernel_dispatch): Dtto.
+	(GOMP_OFFLOAD_run): Dtto.
+
 2015-11-27  Martin Liska  <mliska@suse.cz>
 
 	* plugin/plugin-hsa.c (struct hsa_kernel_description):
