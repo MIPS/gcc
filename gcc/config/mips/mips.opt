@@ -477,3 +477,7 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+mfunc-opt-list=
+Target RejectNegative Joined Var(mips_func_opt_list_file) Init(0)
+mfunc-opt-list=FILE	Use to specify per function optimizations
