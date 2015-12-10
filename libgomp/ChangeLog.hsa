@@ -1,5 +1,17 @@
 2015-12-10  Martin Jambor  <mjambor@suse.cz>
 
+	* target.c (calculate_firstprivate_requirements): New function.
+	(copy_firstprivate_data): Likewise.
+	(gomp_target_fallback_firstprivate): Use them.
+	(gomp_target_unshare_firstprivate): Likewise.
+	(GOMP_target_ext): Amended comment
+	(GOMP_target_data): Changed order of device->capability testing.
+	(gomp_target_task_fn): Do not check there is something to unmap in
+	GOMP_TARGET_TASK_FINISHED case.  Remove ternary operator in an
+	argument of async_run_func.
+
+2015-12-10  Martin Jambor  <mjambor@suse.cz>
+
 	* plugin/configfrag.ac (hsa-kmt-lib): New.
 
 2015-12-10  Martin Liska  <mliska@suse.cz>

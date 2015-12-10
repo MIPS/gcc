@@ -524,9 +524,12 @@ gomp_target_task_completion (struct gomp_team *team, struct gomp_task *task)
     priority_queue_move_task_first (PQ_TASKGROUP, &taskgroup->taskgroup_queue,
 				    task);
 
-  priority_queue_insert (PQ_TEAM, &team->task_queue, task, task->priority,
-			 PRIORITY_INSERT_BEGIN, false,
-			 task->parent_depends_on);
+  struct gomp_target_task *ttask;
+  ttask = (struct gomp_target_task *) task->fn_data;
+  if (ttask->tgt)
+    priority_queue_insert (PQ_TEAM, &team->task_queue, task, task->priority,
+			   PRIORITY_INSERT_BEGIN, false,
+			   task->parent_depends_on);
   task->kind = GOMP_TASK_WAITING;
   if (parent && parent->taskwait)
     {
