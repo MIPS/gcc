@@ -791,6 +791,7 @@ Objective-C and Objective-C++ Dialects}.
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
 -mips3d  -mno-mips3d  -mmt  -mno-mt  -mllsc  -mno-llsc @gol
+-mfunc-opt-list=@var{file} @gol
 -mlong64  -mlong32  -msym32  -mno-sym32 @gol
 -G@var{num}  -mlocal-sdata  -mno-local-sdata @gol
 -mextern-sdata  -mno-extern-sdata  -mgpopt  -mno-gopt @gol
@@ -17607,6 +17608,38 @@ Use (do not use) the MIPS Virtualization Application Specific instructions.
 @opindex mxpa
 @opindex mno-xpa
 Use (do not use) the MIPS eXtended Physical Address (XPA) instructions.
+
+@item -mfunc-opt-list=
+@opindex mfunc-opt-list
+Read a list of functions from a file and apply a series of attributes to
+them as if they had been specified in the source file.  The format of the
+file is plain text with one function per line.  The first non-whitespace
+word of each line is the function name, followed by whitespace, then a
+whitespace separated list of function attributes.  Attributes are written
+in the same format as they appear in the parentheses of the __attribute__
+directive.
+
+For example:
+@smallexample
+foo   mips16 optimize ("Os")
+bar   always_inline
+@end smallexample
+
+The following attributes are recognised:
+@smallexample
+alias, aligned, alloc_size, alloc_align, always_inline, artifical,
+assume_aligned, code_readable, cold, const, constructor, deprecated,
+destructor, epi, error, far, flatten, gnu_inline, hot, interrupt,
+keep_interrupts_masked, leaf, long_call, malloc, mips16, near, noclone,
+noepi, noinline, nomips16, nonnull, noreturn, nothrow, optimize, pure,
+returns_nonnull, returns_twice, section, unused, used,
+use_debug_exception_return, use_shadow_register_set, visibility, warning,
+warn_unused_result, weak, weakref.
+@end smallexample
+
+Unrecognised attributes will produce a warning diagnostic giving the location
+where it was found in the list.  A second diagnostic will be produced citing
+the name of the function and unknown attribute.
 
 @item -mlong64
 @opindex mlong64

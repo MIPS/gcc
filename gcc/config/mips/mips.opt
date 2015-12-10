@@ -499,6 +499,10 @@ msdata-opt-list=
 Target RejectNegative Joined Var(mips_sdata_opt_list_file)
 msdata-opt-list=FILE    Use to specify variables to go in the .sdata section
 
+mfunc-opt-list=
+Target RejectNegative Joined Var(mips_func_opt_list_file) Init(0) Defer
+mfunc-opt-list=FILE	Use to specify per function optimizations
+
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
