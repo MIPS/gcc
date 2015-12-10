@@ -503,3 +503,7 @@ msdata-opt-list=FILE    Use to specify variables to go in the .sdata section.
 munique-sections=
 Target RejectNegative Joined Var(mips_unique_sections_file)
 munique-sections=FILE   Use to specify sections that should be made unique.
+
+mfunc-opt-list=
+Target RejectNegative Joined Var(mips_func_opt_list_file) Init(0) Defer
+mfunc-opt-list=FILE	Use to specify per function optimizations.
