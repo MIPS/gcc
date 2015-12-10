@@ -118,6 +118,14 @@ if test "x$HSA_RUNTIME_LIB" != x; then
   HSA_RUNTIME_LDFLAGS=-L$HSA_RUNTIME_LIB
 fi
 
+AC_ARG_WITH(hsa-kmt-lib,
+	[AS_HELP_STRING([--with-hsa-kmt-lib=PATH],
+		[specify directory for installed HSA KMT library.])])
+if test "x$with_hsa_kmt_lib" != x; then
+  HSA_RUNTIME_LDFLAGS="$HSA_RUNTIME_LDFLAGS -L$with_hsa_kmt_lib"
+  HSA_RUNTIME_LIB=
+fi
+
 PLUGIN_HSA=0
 PLUGIN_HSA_CPPFLAGS=
 PLUGIN_HSA_LDFLAGS=

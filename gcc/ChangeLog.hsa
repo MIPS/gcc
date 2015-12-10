@@ -1,3 +1,7 @@
+2015-12-10  Martin Jambor  <mjambor@suse.cz>
+
+	* doc/install.texi (Configuration): Document --with-hsa-kmt-lib.
+
 2015-12-08  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (hsa_init_simple_builtins): Added missing routines.
