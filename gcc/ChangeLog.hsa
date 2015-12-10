@@ -1,5 +1,11 @@
 2015-12-10  Martin Jambor  <mjambor@suse.cz>
 
+	* lto-wrapper.c (compile_images_for_offload_targets): Do not leave
+	holes in offload_names.  Use strcmp instead strncmp.
+	* doc/install.texi (--with-hsa-runtime): Fix typo.
+
+2015-12-10  Martin Jambor  <mjambor@suse.cz>
+
 	* README.hsa: Update.
 
 2015-12-10  Martin Jambor  <mjambor@suse.cz>

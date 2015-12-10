@@ -1993,7 +1993,7 @@ compiler will emit the accelerator code, no path should be specified.
 
 If you configure GCC with HSA offloading but do not have the HSA
 run-time library installed in a standard location then you can
-explicitely specify the directory where they are installed.  The
+explicitly specify the directory where they are installed.  The
 @option{--with-hsa-runtime=@/@var{hsainstalldir}} option is a
 shorthand for
 @option{--with-hsa-runtime-lib=@/@var{hsainstalldir}/lib} and
