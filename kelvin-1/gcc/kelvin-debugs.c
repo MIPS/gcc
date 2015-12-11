@@ -35,8 +35,14 @@ typedef const rtx_insn *const_ins;
  */
 
 static void kdn_dump_loop_id(FILE *, loop_p);
+#ifdef INCLUDE_DUMP_LOOP_DESC
+#define INCLUDE_DUMP_WIDE_INT
 static void kdn_dump_loop_desc (FILE *stream, struct niter_desc *desc);
+#endif
+#ifdef INCLUDE_DUMP_LOOP
+#define INCLUDE_DUMP_WIDE_INT
 static void kdn_dump_loop(FILE *, loop_p);
+#endif
 static void kdn_dump_block_id(FILE *, basic_block);
 static void kdn_dump_block(FILE *, basic_block);
 static void kdn_dump_block_flow(FILE *, int, basic_block);
@@ -49,15 +55,26 @@ static void kdn_dump_gimple_instruction_list(FILE *,
 					     struct gimple_bb_info gimple);
 static void kdn_dump_rtl_insns(FILE *, const_rtx);
 static void kdn_dump_gimple_insns(FILE *, gimple_seq);
+#ifdef INCLUDE_DUMP_LOOP_EXITS
 static void kdn_dump_loop_exits(FILE *stream, struct loop_exit *);
+#endif
+#ifdef INCLUDE_DUMP_NITER_DESC
 static void kdn_dump_niter_desc(FILE *, struct niter_desc *);
+#endif
 static void kdn_dump_dominator(FILE *, struct et_node *);
 static void kdn_treedump_children(FILE *, int, struct et_node *);
+#ifdef INCLUDE_DUMP_WIDE_INT
 static void kdn_dump_wide_int(FILE *stream, const widest_int &value);
+#endif
 static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr);
 
+#ifdef INCLUDE_DUMP_COPY_FLAGS
 static void kdn_dump_copy_flags(FILE *stream, const char * label, int flags);
+#endif
+
+#ifdef INCLUDE_DUMP_SBITMAP
 static void kdn_dump_sbitmap(FILE *stream, const char * label, sbitmap bits);
+#endif
 
 static void kdn_dump_loop_id(FILE *stream, loop_p loop_ptr)
 {
@@ -90,6 +107,10 @@ static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr) {
     if (the_head != NULL) {
       fprintf(stream,
 	      "Dumping all basic blocks of the method:\n");
+
+      /* the following statement causes an internal compiler error,
+	 apparently because, in some cases, the_head is not a
+	 <const rtx_insn *> */
 
       an_instruction = as_a <const rtx_insn *> (the_head);
 
@@ -171,7 +192,7 @@ static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr) {
 	kdn_dump_block(stream, the_block);
 	fprintf(stream, "End of this basic block.\n");
       }
-      fprintf(stream, "End of basic block's head:\n");
+      fprintf(stream, "Finished dumping all basic blocks of method\n");
     }
     else {
       fprintf(stream, "the_rtl is %p\n", (void *) the_rtl);
@@ -179,6 +200,7 @@ static void kdn_dump_all_blocks(FILE *stream, loop_p loop_ptr) {
   }
 }
 
+#ifdef INCLUDE_DUMP_LOOP_DESC
 static void
 kdn_dump_loop_desc (FILE *stream, struct niter_desc *desc)
 {
@@ -191,7 +213,9 @@ kdn_dump_loop_desc (FILE *stream, struct niter_desc *desc)
   fprintf(stream, " niter_desc->const_iter: %d, niter: ", desc->const_iter);
   kdn_dump_wide_int(stream, desc->niter);
 }
+#endif
 
+#ifdef INCLUDE_DUMP_LOOP
 static void kdn_dump_loop(FILE *stream, loop_p loop_ptr) {
   
   fprintf(stream, " %d\n", loop_ptr->num);
@@ -281,6 +305,7 @@ static void kdn_dump_loop(FILE *stream, loop_p loop_ptr) {
   fprintf(stream,
 	  " simduid bounds, control_ivs, lpt_decision\n");
 }
+#endif
 
 static void kdn_dump_block_id(FILE *stream, basic_block block) {
   if (block == NULL)
@@ -695,6 +720,7 @@ static void kdn_dump_gimple_insns(FILE *stream, gimple_seq gimp_insns) {
 	  gimp_insns->visited);
 }
 
+#ifdef INCLUDE_DUMP_LOOP_EXITS
 static void kdn_dump_loop_exits(FILE *stream, struct loop_exit *exits) {
   edge e;
   loop_exit *walker = exits;
@@ -707,7 +733,9 @@ static void kdn_dump_loop_exits(FILE *stream, struct loop_exit *exits) {
     walker = walker->next;
   } while (walker != exits);
 }
+#endif
 
+#ifdef INCLUDE_DUMP_NITER_DESC
 static void kdn_dump_niter_desc(FILE *stream, struct niter_desc *loop_desc) {
 
   if (loop_desc == NULL) {
@@ -742,6 +770,7 @@ static void kdn_dump_niter_desc(FILE *stream, struct niter_desc *loop_desc) {
     fprintf(stream, " niter_expr, mode, signed_p\n");
   }
 }
+#endif
 
 
 static void kdn_dump_dominator(FILE *stream, struct et_node *dominator) {
@@ -786,6 +815,7 @@ static void kdn_treedump_children(FILE *stream,
   } while (a_son != first_son);
 }
 
+#ifdef INCLUDE_DUMP_WIDE_INT
 static void kdn_dump_wide_int(FILE *stream, const widest_int &orig_big_no) {
   widest_int working_memory;
   widest_int wide_zero, wide_ten;
@@ -842,7 +872,9 @@ static void kdn_dump_wide_int(FILE *stream, const widest_int &orig_big_no) {
   end_buffer++;
   fprintf(stream, "[kdn big number] %s\n", end_buffer);
 }
+#endif
 
+#ifdef INCLUDE_DUMP_COPY_FLAGS
 static void
 kdn_dump_copy_flags(FILE *stream, const char * label, int flags)
 {
@@ -860,7 +892,9 @@ kdn_dump_copy_flags(FILE *stream, const char * label, int flags)
 
   fprintf(stream, "\n");
 }
+#endif
 
+#ifdef INCLUDE_DUMP_SBITMAP
 static void
 kdn_dump_sbitmap(FILE *stream, const char * label, sbitmap bits)
 {
@@ -869,3 +903,4 @@ kdn_dump_sbitmap(FILE *stream, const char * label, sbitmap bits)
     fprintf(stream, "%d", (int) bitmap_bit_p(bits, i));
   fprintf(stream, "\n");
 }
+#endif

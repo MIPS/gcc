@@ -65,5 +65,8 @@ struct loop * loop_version (struct loop *, void *,
 extern bool in_loop_p (basic_block, struct loop *);
 extern void zero_loop_frequencies (struct loop *);
 extern void increment_loop_frequencies (struct loop *, basic_block, float);
+extern bool duplicate_loop_to_header_edge_for_unroll (struct loop *, edge,
+						      unsigned, sbitmap, edge,
+						      vec<edge> *, int);
 #endif
 #endif /* GCC_CFGLOOPMANIP_H */

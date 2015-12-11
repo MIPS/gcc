@@ -47,6 +47,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #define KELVIN_NOISE
 #ifdef KELVIN_NOISE
+#define INCLUDE_DUMP_LOOP
+#define INCLUDE_DUMP_NITER_DESC
+#define INCLUDE_DUMP_LOOP_EXITS
 #include "kelvin-debugs.c"
 #endif
 /* This pass performs loop unrolling.  We only perform this
@@ -546,14 +549,17 @@ unroll_loop_constant_iterations (struct loop *loop)
       if (exit_mod)
 	{
 	  opt_info_start_duplication (opt_info);
-          ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					      exit_mod,
-					      wont_exit, desc->out_edge,
-					      &remove_edges,
-					      DLTHE_FLAG_UPDATE_FREQ
-					      | (opt_info && exit_mod > 1
-						 ? DLTHE_RECORD_COPY_NUMBER
-						   : 0));
+#ifdef KELVIN_PATCH
+          ok = duplicate_loop_to_header_edge_for_unroll
+	    (loop, loop_preheader_edge (loop), exit_mod, wont_exit,
+	     desc->out_edge, &remove_edges, DLTHE_FLAG_UPDATE_FREQ
+	     | ((opt_info && exit_mod > 1) ? DLTHE_RECORD_COPY_NUMBER: 0));
+#else
+          ok = duplicate_loop_to_header_edge (loop,
+	    loop_preheader_edge (loop), exit_mod, wont_exit,
+	    desc->out_edge, &remove_edges, DLTHE_FLAG_UPDATE_FREQ
+	    | ((opt_info && exit_mod > 1) ? DLTHE_RECORD_COPY_NUMBER: 0));
+#endif	  
 	  gcc_assert (ok);
 
           if (opt_info && exit_mod > 1)
@@ -590,14 +596,20 @@ unroll_loop_constant_iterations (struct loop *loop)
 	    bitmap_clear_bit (wont_exit, 1);
 
           opt_info_start_duplication (opt_info);
+#ifdef KELVIN_PATCH
+	  ok = duplicate_loop_to_header_edge_for_unroll (loop,
+	    loop_preheader_edge (loop), exit_mod + 1, wont_exit,
+	    desc->out_edge, &remove_edges, DLTHE_FLAG_UPDATE_FREQ
+	    | ((opt_info && exit_mod > 0) ? DLTHE_RECORD_COPY_NUMBER: 0));
+#else
 	  ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
-					      exit_mod + 1,
-					      wont_exit, desc->out_edge,
-					      &remove_edges,
-					      DLTHE_FLAG_UPDATE_FREQ
-					      | (opt_info && exit_mod > 0
-						 ? DLTHE_RECORD_COPY_NUMBER
-						   : 0));
+                                              exit_mod + 1, wont_exit, 
+	                                      desc->out_edge, &remove_edges,
+                                              DLTHE_FLAG_UPDATE_FREQ
+	                                      | ((opt_info && exit_mod > 0)
+	                                         ? DLTHE_RECORD_COPY_NUMBER
+	                                         : 0));
+#endif
 	  gcc_assert (ok);
 
           if (opt_info && exit_mod > 0)
@@ -623,13 +635,9 @@ unroll_loop_constant_iterations (struct loop *loop)
 
   opt_info_start_duplication (opt_info);
 #ifdef KELVIN_PATCH
-  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      max_unroll,
-				      wont_exit, desc->out_edge,
-				      &remove_edges,
-				      opt_info
-					 ? DLTHE_RECORD_COPY_NUMBER
-					   : 0);
+  ok = duplicate_loop_to_header_edge_for_unroll (loop, loop_latch_edge (loop),
+	    max_unroll, wont_exit, desc->out_edge, &remove_edges,
+	    opt_info? DLTHE_RECORD_COPY_NUMBER: 0);
 #else
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
@@ -924,6 +932,11 @@ unroll_loop_runtime_iterations (struct loop *loop)
   fprintf(stderr, "unroll_loop_runtime_iterations, loop header block: %d\n",
 	  loop->header->index);
   fprintf(stderr, "  header frequency: %d\n", header_frequency);
+
+  fprintf(stderr,
+	  " at top of function, loop preheader dest is represented by\n");
+  kdn_dump_block(stderr, loop_preheader_edge (loop)->dest);
+
 #endif
   sum_incoming_frequencies = 0;
   FOR_EACH_EDGE (predecessor, ei, loop->header->preds)
@@ -993,6 +1006,14 @@ unroll_loop_runtime_iterations (struct loop *loop)
       last_may_exit = true;
     }
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr,
+	  "Before expand_simple_binop, we wonder if B137 exists.\n");
+  fprintf(stderr, " Loop preheader destination is\n");
+  kdn_dump_block(stderr, loop_preheader_edge (loop)->dest);
+#endif
+
+
   /* Get expression for number of iterations.  */
   start_sequence ();
   old_niter = niter = gen_reg_rtx (desc->mode);
@@ -1035,10 +1056,18 @@ unroll_loop_runtime_iterations (struct loop *loop)
       && !desc->noloop_assumptions)
     bitmap_set_bit (wont_exit, 1);
   ezc_swtch = loop_preheader_edge (loop)->src;
+#ifdef KELVIN_PATCH
+  ok = duplicate_loop_to_header_edge_for_unroll (loop,
+						 loop_preheader_edge (loop), 1,
+	                                         wont_exit, desc->out_edge,
+                                                 &remove_edges,
+						 DLTHE_FLAG_UPDATE_FREQ);
+#else
   ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 				      1, wont_exit, desc->out_edge,
 				      &remove_edges,
 				      DLTHE_FLAG_UPDATE_FREQ);
+#endif
 #ifdef KELVIN_NOISE
   /* I think the problem occurs because we duplicate the loop body
      which includes an exit edge, and then we remove the exit edge
@@ -1082,10 +1111,17 @@ unroll_loop_runtime_iterations (struct loop *loop)
 			       / (n_peel + 1)) * (i + 1);
       increment_loop_frequencies (loop, loop->header, new_header_freq);
 #endif
+      
+#ifdef KELVIN_PATCH
+      ok = duplicate_loop_to_header_edge_for_unroll (loop,
+	loop_preheader_edge (loop), 1, wont_exit, desc->out_edge,
+	&remove_edges, DLTHE_FLAG_UPDATE_FREQ);
+#else
       ok = duplicate_loop_to_header_edge (loop, loop_preheader_edge (loop),
 					  1, wont_exit, desc->out_edge,
 					  &remove_edges,
 					  DLTHE_FLAG_UPDATE_FREQ);
+#endif
 #ifdef KELVIN_PATCH
       zero_loop_frequencies (loop);
       increment_loop_frequencies (loop, loop->header, saved_header_frequency);
@@ -1215,13 +1251,13 @@ unroll_loop_runtime_iterations (struct loop *loop)
   }
 #endif
 #ifdef KELVIN_PATCH
-  ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
-				      max_unroll,
-				      wont_exit, desc->out_edge,
-				      &remove_edges,
-				      opt_info
-					 ? DLTHE_RECORD_COPY_NUMBER
-					   : 0);
+  ok = duplicate_loop_to_header_edge_for_unroll (loop, loop_latch_edge (loop),
+						 max_unroll,
+						 wont_exit, desc->out_edge,
+						 &remove_edges,
+						 opt_info
+						 ? DLTHE_RECORD_COPY_NUMBER
+						 : 0);
 #else
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      max_unroll,
@@ -1413,6 +1449,11 @@ unroll_loop_stupid (struct loop *loop)
   bitmap_clear (wont_exit);
   opt_info_start_duplication (opt_info);
 
+#ifdef KELVIN_PATCH
+  ok = duplicate_loop_to_header_edge_for_unroll (loop,
+    loop_latch_edge (loop), nunroll, wont_exit, NULL, NULL,
+    DLTHE_FLAG_UPDATE_FREQ | (opt_info? DLTHE_RECORD_COPY_NUMBER: 0));
+#else
   ok = duplicate_loop_to_header_edge (loop, loop_latch_edge (loop),
 				      nunroll, wont_exit,
 				      NULL, NULL,
@@ -1420,6 +1461,7 @@ unroll_loop_stupid (struct loop *loop)
 				      | (opt_info
 					 ? DLTHE_RECORD_COPY_NUMBER
 					   : 0));
+#endif
   gcc_assert (ok);
 
   if (opt_info)
