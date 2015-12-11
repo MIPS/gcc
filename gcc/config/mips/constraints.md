@@ -251,6 +251,11 @@
    A pc-relative operation."
   (match_operand 0 "umips_pcrel_symbolic_operand"))
 
+;; MIPS16 code always calls through a MIPS16 register; see mips_emit_call_insn
+;; for details.
+(define_register_constraint "Urpc" "(mips_isa_rev < 6) ? M16_REGS : GR_REGS"
+  "The full register range is avaliable for micromips r6, but not for micromip r5.")
+
 (define_memory_constraint "W"
   "@internal
    A memory address based on a member of @code{BASE_REG_CLASS}.  This is
