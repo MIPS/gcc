@@ -605,3 +605,7 @@ Place all gp relative data in sdata section number NUM
 mdead-loads
 Target Var(TARGET_DEAD_LOADS) Init(0)
 Redirect dead loads to $0 to avoid spurious output dependencies
+
+mmips16-gp
+Target Var(TARGET_MIPS16_GP) Init(0)
+Enable direct use of GP in MIPS16
