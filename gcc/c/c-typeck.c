@@ -5226,7 +5226,7 @@ build_c_cast (location_t loc, tree type, tree expr)
 
   if (SHARED_TYPE_P (type))
     {
-      error ("UPC does not allow casts to a shared type");
+      error_at (loc, "UPC does not allow casts to a shared type");
       return error_mark_node;
     }
 

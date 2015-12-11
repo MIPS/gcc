@@ -323,8 +323,8 @@ upc_pts_build_diff (location_t loc, tree exp)
       || (SHARED_TYPE_P (TREE_TYPE (TREE_TYPE (op1)))
 	  && !SHARED_TYPE_P (target_type)))
     {
-      error ("attempt to take the difference of a UPC pointer-to-shared "
-	 "and a local pointer");
+      error_at (loc, "attempt to take the difference of a UPC "
+                     "pointer-to-shared and a local pointer");
       return error_mark_node;
     }
   op0 = save_expr (op0);

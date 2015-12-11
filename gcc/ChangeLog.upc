@@ -1,3 +1,8 @@
+2015-12-11  Gary Funck  <gary@intrepid.com>
+
+	* c/c-decl.c, c/c-typeck.c, c/c-upc-low.c, c/c-upc-pts-ops.c:
+	Use error_at and warning_at where 'loc' is available.
+
 2015-12-07  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 231354 into gupc branch.

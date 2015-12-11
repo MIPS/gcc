@@ -619,7 +619,7 @@ upc_shared_addr (location_t loc, tree exp)
       upc_genericize_walk (&addr, /* want_value */ 1);
       break;
     case BIT_FIELD_REF:
-      error ("invalid & operation applied to a UPC shared bit field");
+      error_at (loc, "invalid & operation applied to a UPC shared bit field");
       return error_mark_node;
     default:
       gcc_unreachable ();
@@ -716,10 +716,10 @@ upc_genericize_indirect_ref (location_t loc, tree *expr_p)
 /* Expand .real and .imag applied to a UPC shared object.  */
 
 static void
-upc_genericize_real_imag_ref (location_t loc ATTRIBUTE_UNUSED,
+upc_genericize_real_imag_ref (location_t loc,
 			      tree *expr_p ATTRIBUTE_UNUSED)
 {
-  error ("accesses to .real and .imag are not yet implemented");
+  error_at (loc, "accesses to .real and .imag are not yet implemented");
   *expr_p = error_mark_node;
 }
 

@@ -6602,7 +6602,7 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
         else if (type_quals & TYPE_QUAL_SHARED)
 	  {
-	    error ("parameter declared with UPC shared qualifier");
+	    error_at (loc, "parameter declared with UPC shared qualifier");
 	    type_quals &= ~(TYPE_QUAL_SHARED | TYPE_QUAL_STRICT
 			    | TYPE_QUAL_RELAXED);
 	  }
@@ -9702,7 +9702,7 @@ declspecs_add_qual (source_location loc,
     {
       if (specs->upc_layout_qualifier)
         {
-          error ("two or more layout qualifiers specified");
+          error_at (loc, "two or more layout qualifiers specified");
 	  return specs;
         }
       else
