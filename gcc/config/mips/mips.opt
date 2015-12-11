@@ -514,3 +514,7 @@ Generate common epilogue
 mepi=
 Target RejectNegative Joined Var(mips_epi)
 -mepi=SUFFIX  Generate common epilogue with suffix on the entry-point name
+
+mmips16-gp
+Target Var(TARGET_MIPS16_GP) Init(0)
+Enable direct use of GP in MIPS16
