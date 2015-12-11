@@ -1,5 +1,13 @@
 2015-12-11  Gary Funck  <gary@intrepid.com>
 
+	* tree.h (check_qualified_type): Add block_factor argument,
+	pass NULL_TREE by default.
+	* tree.c (build_opaque_vector_type): Adjust call to
+	check_qualified_type().  Use default block_factor.  Revert to trunk.
+	* cp/tree.c (cp_check_qualified_type): Likewise.
+
+2015-12-11  Gary Funck  <gary@intrepid.com>
+
 	* c/c-decl.c, c/c-typeck.c, c/c-upc-low.c, c/c-upc-pts-ops.c:
 	Use error_at and warning_at where 'loc' is available.
 

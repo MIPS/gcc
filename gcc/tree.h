@@ -4286,7 +4286,8 @@ extern bool check_base_type (const_tree cand, const_tree base);
    (BASE, TYPE_QUALS, BLOCK_FACTOR).  */
 
 extern bool check_qualified_type (const_tree cand, const_tree base,
-				  int type_quals, tree block_factor);
+				  int type_quals,
+				  tree block_factor = NULL_TREE);
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.

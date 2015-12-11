@@ -10806,7 +10806,7 @@ build_opaque_vector_type (tree innertype, int nunits)
   cand = TYPE_NEXT_VARIANT (t);
   if (cand
       && TYPE_VECTOR_OPAQUE (cand)
-      && check_qualified_type (cand, t, TYPE_QUALS (t), NULL_TREE))
+      && check_qualified_type (cand, t, TYPE_QUALS (t)))
     return cand;
   /* Othewise build a variant type and make sure to queue it after
      the non-opaque type.  */
