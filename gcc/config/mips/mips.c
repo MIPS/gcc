@@ -3458,6 +3458,9 @@ mips_regno_mode_ok_for_base_p (int regno, machine_mode mode,
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
     return GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
+  if (MIPS16_GP_LOADS && regno == GLOBAL_POINTER_REGNUM)
+    return GET_MODE_SIZE (mode) <= 4;
+
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
 
@@ -3673,7 +3676,8 @@ static bool
 mips16_unextended_reference_p (machine_mode mode, rtx base,
 			       unsigned HOST_WIDE_INT offset)
 {
-  if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0)
+  if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0
+      && REGNO (base) != GLOBAL_POINTER_REGNUM)
     {
       if (GET_MODE_SIZE (mode) == 4 && GET_CODE (base) == REG
           && REGNO (base) == STACK_POINTER_REGNUM)
@@ -4235,7 +4239,7 @@ mips16_gp_pseudo_reg (void)
 rtx
 mips_pic_base_register (rtx temp)
 {
-  if (!TARGET_MIPS16)
+  if (MIPS16_GP_LOADS || !TARGET_MIPS16)
     return pic_offset_table_rtx;
 
   if (currently_expanding_to_rtl)
@@ -9974,7 +9978,7 @@ mips_init_relocs (void)
 	}
     }
 
-  if (TARGET_MIPS16)
+  if (!MIPS16_GP_LOADS && TARGET_MIPS16)
     {
       /* The high part is provided by a pseudo copy of $gp.  */
       mips_split_p[SYMBOL_GP_RELATIVE] = true;
