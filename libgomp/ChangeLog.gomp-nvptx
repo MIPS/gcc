@@ -1,5 +1,9 @@
 2015-12-14  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/task.c: Guard with #ifdef __nvptx_softstack__.
+
+2015-12-14  Alexander Monakov  <amonakov@ispras.ru>
+
 	Revert
 	2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 

@@ -26,6 +26,8 @@
 /* This file handles the maintainence of tasks in response to task
    creation and termination.  */
 
+#ifdef __nvptx_softstack__
+
 #include "libgomp.h"
 
 /* NVPTX is an accelerator-only target, so this should never be called.  */
@@ -37,3 +39,5 @@ gomp_target_task_fn (void *data)
 }
 
 #include "../../task.c"
+
+#endif
