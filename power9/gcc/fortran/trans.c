@@ -711,7 +711,7 @@ gfc_allocate_using_malloc (stmtblock_t * block, tree pointer,
 static void
 gfc_allocate_using_lib (stmtblock_t * block, tree pointer, tree size,
 			tree token, tree status, tree errmsg, tree errlen,
-			bool lock_var)
+			bool lock_var, bool event_var)
 {
   tree tmp, pstat;
 
@@ -738,12 +738,21 @@ gfc_allocate_using_lib (stmtblock_t * block, tree pointer, tree size,
 			      build_int_cst (size_type_node, 1)),
 	     build_int_cst (integer_type_node,
 			    lock_var ? GFC_CAF_LOCK_ALLOC
-				     : GFC_CAF_COARRAY_ALLOC),
+                            : event_var ? GFC_CAF_EVENT_ALLOC
+					: GFC_CAF_COARRAY_ALLOC),
 	     token, pstat, errmsg, errlen);
 
   tmp = fold_build2_loc (input_location, MODIFY_EXPR,
 			 TREE_TYPE (pointer), pointer,
 			 fold_convert ( TREE_TYPE (pointer), tmp));
+  gfc_add_expr_to_block (block, tmp);
+
+  /* It guarantees memory consistency within the same segment */
+  tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+  tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+		    gfc_build_string_const (1, ""), NULL_TREE, NULL_TREE,
+		    tree_cons (NULL_TREE, tmp, NULL_TREE), NULL_TREE);
+  ASM_VOLATILE_P (tmp) = 1;
   gfc_add_expr_to_block (block, tmp);
 }
 
@@ -798,6 +807,11 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size, tree token,
 			 == INTMOD_ISO_FORTRAN_ENV
 		      && expr->ts.u.derived->intmod_sym_id
 		         == ISOFORTRAN_LOCK_TYPE;
+      bool event_var = expr->ts.type == BT_DERIVED
+		       && expr->ts.u.derived->from_intmod
+			 == INTMOD_ISO_FORTRAN_ENV
+		       && expr->ts.u.derived->intmod_sym_id
+		         == ISOFORTRAN_EVENT_TYPE;
       /* In the front end, we represent the lock variable as pointer. However,
 	 the FE only passes the pointer around and leaves the actual
 	 representation to the library. Hence, we have to convert back to the
@@ -807,7 +821,7 @@ gfc_allocate_allocatable (stmtblock_t * block, tree mem, tree size, tree token,
 				size, TYPE_SIZE_UNIT (ptr_type_node));
 
       gfc_allocate_using_lib (&alloc_block, mem, size, token, status,
-			      errmsg, errlen, lock_var);
+			      errmsg, errlen, lock_var, event_var);
 
       if (status != NULL_TREE)
 	{
@@ -1350,6 +1364,14 @@ gfc_deallocate_with_status (tree pointer, tree status, tree errmsg,
 	     token, pstat, errmsg, errlen);
       gfc_add_expr_to_block (&non_null, tmp);
 
+      /* It guarantees memory consistency within the same segment */
+      tmp = gfc_build_string_const (strlen ("memory")+1, "memory"),
+      tmp = build5_loc (input_location, ASM_EXPR, void_type_node,
+			gfc_build_string_const (1, ""), NULL_TREE, NULL_TREE,
+			tree_cons (NULL_TREE, tmp, NULL_TREE), NULL_TREE);
+      ASM_VOLATILE_P (tmp) = 1;
+      gfc_add_expr_to_block (&non_null, tmp);
+
       if (status != NULL_TREE)
 	{
 	  tree stat = build_fold_indirect_ref_loc (input_location, status);
@@ -1795,6 +1817,11 @@ trans_code (gfc_code * code, tree cond)
 	case EXEC_LOCK:
 	case EXEC_UNLOCK:
 	  res = gfc_trans_lock_unlock (code, code->op);
+	  break;
+
+	case EXEC_EVENT_POST:
+	case EXEC_EVENT_WAIT:
+	  res = gfc_trans_event_post_wait (code, code->op);
 	  break;
 
 	case EXEC_FORALL:

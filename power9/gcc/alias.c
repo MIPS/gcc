@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfganal.h"
 #include "rtl-iter.h"
+#include "cgraph.h"
 
 /* The aliasing API provided here solves related but different problems:
 
@@ -405,6 +406,10 @@ alias_set_subset_of (alias_set_type set1, alias_set_type set2)
 {
   alias_set_entry *ase2;
 
+  /* Disable TBAA oracle with !flag_strict_aliasing.  */
+  if (!flag_strict_aliasing)
+    return true;
+
   /* Everything is a subset of the "aliases everything" set.  */
   if (set2 == 0)
     return true;
@@ -537,6 +542,9 @@ alias_sets_conflict_p (alias_set_type set1, alias_set_type set2)
 int
 alias_sets_must_conflict_p (alias_set_type set1, alias_set_type set2)
 {
+  /* Disable TBAA oracle with !flag_strict_aliasing.  */
+  if (!flag_strict_aliasing)
+    return 1;
   if (set1 == 0 || set2 == 0)
     {
       ++alias_stats.num_alias_zero;
@@ -816,10 +824,12 @@ get_alias_set (tree t)
 {
   alias_set_type set;
 
-  /* If we're not doing any alias analysis, just assume everything
-     aliases everything else.  Also return 0 if this or its type is
-     an error.  */
-  if (! flag_strict_aliasing || t == error_mark_node
+  /* We can not give up with -fno-strict-aliasing because we need to build
+     proper type representation for possible functions which are build with
+     -fstirct-aliasing.  */
+
+  /* return 0 if this or its type is an error.  */
+  if (t == error_mark_node
       || (! TYPE_P (t)
 	  && (TREE_TYPE (t) == 0 || TREE_TYPE (t) == error_mark_node)))
     return 0;
@@ -981,6 +991,14 @@ get_alias_set (tree t)
 	   || TREE_CODE (p) == VECTOR_TYPE;
 	   p = TREE_TYPE (p))
 	{
+	  /* Ada supports recusive pointers.  Instead of doing recrusion check
+	     just give up once the preallocated space of 8 elements is up.
+	     In this case just punt to void * alias set.  */
+	  if (reference.length () == 8)
+	    {
+	      p = ptr_type_node;
+	      break;
+	    }
 	  if (TREE_CODE (p) == REFERENCE_TYPE)
 	    /* In LTO we want languages that use references to be compatible
  	       with languages that use pointers.  */
@@ -1085,15 +1103,10 @@ get_alias_set (tree t)
 alias_set_type
 new_alias_set (void)
 {
-  if (flag_strict_aliasing)
-    {
-      if (alias_sets == 0)
-	vec_safe_push (alias_sets, (alias_set_entry *) NULL);
-      vec_safe_push (alias_sets, (alias_set_entry *) NULL);
-      return alias_sets->length () - 1;
-    }
-  else
-    return 0;
+  if (alias_sets == 0)
+    vec_safe_push (alias_sets, (alias_set_entry *) NULL);
+  vec_safe_push (alias_sets, (alias_set_entry *) NULL);
+  return alias_sets->length () - 1;
 }
 
 /* Indicate that things in SUBSET can alias things in SUPERSET, but that
@@ -1743,7 +1756,15 @@ rtx_equal_for_memref_p (const_rtx x, const_rtx y)
       return LABEL_REF_LABEL (x) == LABEL_REF_LABEL (y);
 
     case SYMBOL_REF:
-      return XSTR (x, 0) == XSTR (y, 0);
+      {
+	tree x_decl = SYMBOL_REF_DECL (x);
+	tree y_decl = SYMBOL_REF_DECL (y);
+
+	if (!x_decl || !y_decl)
+	  return XSTR (x, 0) == XSTR (y, 0);
+	else
+	  return compare_base_decls (x_decl, y_decl) == 1;
+      }
 
     case ENTRY_VALUE:
       /* This is magic, don't go through canonicalization et al.  */
@@ -2006,6 +2027,31 @@ may_be_sp_based_p (rtx x)
   return !base || base == static_reg_base_value[STACK_POINTER_REGNUM];
 }
 
+/* BASE1 and BASE2 are decls.  Return 1 if they refer to same object, 0
+   if they refer to different objects and -1 if we can not decide.  */
+
+int
+compare_base_decls (tree base1, tree base2)
+{
+  int ret;
+  gcc_checking_assert (DECL_P (base1) && DECL_P (base2));
+  if (base1 == base2)
+    return 1;
+
+  bool in_symtab1 = decl_in_symtab_p (base1);
+  bool in_symtab2 = decl_in_symtab_p (base2);
+
+  /* Declarations of non-automatic variables may have aliases.  All other
+     decls are unique.  */
+  if (in_symtab1 != in_symtab2 || !in_symtab1)
+    return 0;
+  ret = symtab_node::get_create (base1)->equal_address_to
+		 (symtab_node::get_create (base2), true);
+  if (ret == 2)
+    return -1;
+  return ret;
+}
+
 /* Return 0 if the addresses X and Y are known to point to different
    objects, 1 if they might be pointers to the same object.  */
 
@@ -2043,6 +2089,17 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
   if (rtx_equal_p (x_base, y_base))
     return 1;
 
+  if (GET_CODE (x_base) == SYMBOL_REF && GET_CODE (y_base) == SYMBOL_REF)
+    {
+      tree x_decl = SYMBOL_REF_DECL (x_base);
+      tree y_decl = SYMBOL_REF_DECL (y_base);
+
+      /* We can assume that no stores are made to labels.  */
+      if (!x_decl || !y_decl)
+	return 0;
+      return compare_base_decls (x_decl, y_decl) != 0;
+    }
+
   /* The base addresses are different expressions.  If they are not accessed
      via AND, there is no conflict.  We can bring knowledge of object
      alignment into play here.  For example, on alpha, "char a, b;" can
@@ -2072,7 +2129,7 @@ base_alias_check (rtx x, rtx x_base, rtx y, rtx y_base,
 }
 
 /* Return TRUE if EXPR refers to a VALUE whose uid is greater than
-   that of V.  */
+   (or equal to) that of V.  */
 
 static bool
 refs_newer_value_p (const_rtx expr, rtx v)
@@ -2080,7 +2137,7 @@ refs_newer_value_p (const_rtx expr, rtx v)
   int minuid = CSELIB_VAL_PTR (v)->uid;
   subrtx_iterator::array_type array;
   FOR_EACH_SUBRTX (iter, array, expr, NONCONST)
-    if (GET_CODE (*iter) == VALUE && CSELIB_VAL_PTR (*iter)->uid > minuid)
+    if (GET_CODE (*iter) == VALUE && CSELIB_VAL_PTR (*iter)->uid >= minuid)
       return true;
   return false;
 }
@@ -2264,7 +2321,33 @@ memrefs_conflict_p (int xsize, rtx x, int ysize, rtx y, HOST_WIDE_INT c)
   else
     y = addr_side_effect_eval (y, abs (ysize), 0);
 
-  if (rtx_equal_for_memref_p (x, y))
+  if (GET_CODE (x) == SYMBOL_REF && GET_CODE (y) == SYMBOL_REF)
+    {
+      tree x_decl = SYMBOL_REF_DECL (x);
+      tree y_decl = SYMBOL_REF_DECL (y);
+      int cmp;
+
+      if (!x_decl || !y_decl)
+	{
+	  /* Label and normal symbol are never the same. */
+	  if (x_decl != y_decl)
+	    return 0;
+	  return offset_overlap_p (c, xsize, ysize);
+	}
+      else
+        cmp = compare_base_decls (x_decl, y_decl);
+
+      /* If both decls are the same, decide by offsets.  */
+      if (cmp == 1)
+        return offset_overlap_p (c, xsize, ysize);
+      /* If decls are different or we know by offsets that there is no overlap,
+	 we win.  */
+      if (!cmp || !offset_overlap_p (c, xsize, ysize))
+	return 0;
+      /* Decls may or may not be different and offsets overlap....*/
+      return -1;
+    }
+  else if (rtx_equal_for_memref_p (x, y))
     {
       return offset_overlap_p (c, xsize, ysize);
     }
@@ -2632,7 +2715,7 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
      are constants or if one is a constant and the other a pointer into the
      stack frame.  Otherwise a different base means we can't tell if they
      overlap or not.  */
-  if (! rtx_equal_p (basex, basey))
+  if (compare_base_decls (exprx, expry) == 0)
     return ((CONSTANT_P (basex) && CONSTANT_P (basey))
 	    || (CONSTANT_P (basex) && REG_P (basey)
 		&& REGNO_PTR_FRAME_P (REGNO (basey)))
@@ -2642,6 +2725,10 @@ nonoverlapping_memrefs_p (const_rtx x, const_rtx y, bool loop_invariant)
   /* Offset based disambiguation not appropriate for loop invariant */
   if (loop_invariant)
     return 0;              
+
+  /* Offset based disambiguation is OK even if we do not know that the
+     declarations are necessarily different
+    (i.e. compare_base_decls (exprx, expry) == -1)  */
 
   sizex = (!MEM_P (rtlx) ? (int) GET_MODE_SIZE (GET_MODE (rtlx))
 	   : MEM_SIZE_KNOWN_P (rtlx) ? MEM_SIZE (rtlx)

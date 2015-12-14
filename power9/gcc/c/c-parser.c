@@ -6853,7 +6853,8 @@ static struct c_expr
 c_parser_alignof_expression (c_parser *parser)
 {
   struct c_expr expr;
-  location_t loc = c_parser_peek_token (parser)->location;
+  location_t start_loc = c_parser_peek_token (parser)->location;
+  location_t end_loc;
   tree alignof_spelling = c_parser_peek_token (parser)->value;
   gcc_assert (c_parser_next_token_is_keyword (parser, RID_ALIGNOF));
   bool is_c11_alignof = strcmp (IDENTIFIER_POINTER (alignof_spelling),
@@ -6864,10 +6865,10 @@ c_parser_alignof_expression (c_parser *parser)
   if (is_c11_alignof)
     {
       if (flag_isoc99)
-	pedwarn_c99 (loc, OPT_Wpedantic, "ISO C99 does not support %qE",
+	pedwarn_c99 (start_loc, OPT_Wpedantic, "ISO C99 does not support %qE",
 		     alignof_spelling);
       else
-	pedwarn_c99 (loc, OPT_Wpedantic, "ISO C90 does not support %qE",
+	pedwarn_c99 (start_loc, OPT_Wpedantic, "ISO C90 does not support %qE",
 		     alignof_spelling);
     }
   c_parser_consume_token (parser);
@@ -6884,6 +6885,7 @@ c_parser_alignof_expression (c_parser *parser)
       c_parser_consume_token (parser);
       loc = c_parser_peek_token (parser)->location;
       type_name = c_parser_type_name (parser);
+      end_loc = c_parser_peek_token (parser)->location;
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
       if (type_name == NULL)
 	{
@@ -6910,21 +6912,25 @@ c_parser_alignof_expression (c_parser *parser)
 					    false, is_c11_alignof, 1);
       ret.original_code = ERROR_MARK;
       ret.original_type = NULL;
+      set_c_expr_source_range (&ret, start_loc, end_loc);
       return ret;
     }
   else
     {
       struct c_expr ret;
       expr = c_parser_unary_expression (parser);
+      end_loc = expr.src_range.m_finish;
     alignof_expr:
       mark_exp_read (expr.value);
       c_inhibit_evaluation_warnings--;
       in_alignof--;
-      pedwarn (loc, OPT_Wpedantic, "ISO C does not allow %<%E (expression)%>",
+      pedwarn (start_loc,
+	       OPT_Wpedantic, "ISO C does not allow %<%E (expression)%>",
 	       alignof_spelling);
-      ret.value = c_alignof_expr (loc, expr.value);
+      ret.value = c_alignof_expr (start_loc, expr.value);
       ret.original_code = ERROR_MARK;
       ret.original_type = NULL;
+      set_c_expr_source_range (&ret, start_loc, end_loc);
       return ret;
     }
 }
@@ -6933,11 +6939,14 @@ c_parser_alignof_expression (c_parser *parser)
    for the middle-end nodes like COMPLEX_EXPR, VEC_PERM_EXPR and
    others.  The name of the builtin is passed using BNAME parameter.
    Function returns true if there were no errors while parsing and
-   stores the arguments in CEXPR_LIST.  */
+   stores the arguments in CEXPR_LIST.  If it returns true,
+   *OUT_CLOSE_PAREN_LOC is written to with the location of the closing
+   parenthesis.  */
 static bool
 c_parser_get_builtin_args (c_parser *parser, const char *bname,
 			   vec<c_expr_t, va_gc> **ret_cexpr_list,
-			   bool choose_expr_p)
+			   bool choose_expr_p,
+			   location_t *out_close_paren_loc)
 {
   location_t loc = c_parser_peek_token (parser)->location;
   vec<c_expr_t, va_gc> *cexpr_list;
@@ -6955,6 +6964,7 @@ c_parser_get_builtin_args (c_parser *parser, const char *bname,
 
   if (c_parser_next_token_is (parser, CPP_CLOSE_PAREN))
     {
+      *out_close_paren_loc = c_parser_peek_token (parser)->location;
       c_parser_consume_token (parser);
       return true;
     }
@@ -6974,6 +6984,7 @@ c_parser_get_builtin_args (c_parser *parser, const char *bname,
       vec_safe_push (cexpr_list, expr);
     }
 
+  *out_close_paren_loc = c_parser_peek_token (parser)->location;
   if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
     return false;
 
@@ -7485,7 +7496,7 @@ c_parser_postfix_expression (c_parser *parser)
 	    else
 	      {
 		tree type_expr = NULL_TREE;
-		expr.value = c_build_va_arg (loc, e1.value,
+		expr.value = c_build_va_arg (start_loc, e1.value, loc,
 					     groktypename (t1, &type_expr, NULL));
 		if (type_expr)
 		  {
@@ -7594,11 +7605,13 @@ c_parser_postfix_expression (c_parser *parser)
 	    vec<c_expr_t, va_gc> *cexpr_list;
 	    c_expr_t *e1_p, *e2_p, *e3_p;
 	    tree c;
+	    location_t close_paren_loc;
 
 	    c_parser_consume_token (parser);
 	    if (!c_parser_get_builtin_args (parser,
 					    "__builtin_choose_expr",
-					    &cexpr_list, true))
+					    &cexpr_list, true,
+					    &close_paren_loc))
 	      {
 		expr.value = error_mark_node;
 		break;
@@ -7626,6 +7639,7 @@ c_parser_postfix_expression (c_parser *parser)
 			" a constant");
 	    constant_expression_warning (c);
 	    expr = integer_zerop (c) ? *e3_p : *e2_p;
+	    set_c_expr_source_range (&expr, loc, close_paren_loc);
 	    break;
 	  }
 	case RID_TYPES_COMPATIBLE_P:
@@ -7677,11 +7691,13 @@ c_parser_postfix_expression (c_parser *parser)
 	    vec<c_expr_t, va_gc> *cexpr_list;
 	    c_expr_t *e2_p;
 	    tree chain_value;
+	    location_t close_paren_loc;
 
 	    c_parser_consume_token (parser);
 	    if (!c_parser_get_builtin_args (parser,
 					    "__builtin_call_with_static_chain",
-					    &cexpr_list, false))
+					    &cexpr_list, false,
+					    &close_paren_loc))
 	      {
 		expr.value = error_mark_node;
 		break;
@@ -7710,17 +7726,20 @@ c_parser_postfix_expression (c_parser *parser)
 			"must be a pointer type");
 	    else
 	      CALL_EXPR_STATIC_CHAIN (expr.value) = chain_value;
+	    set_c_expr_source_range (&expr, loc, close_paren_loc);
 	    break;
 	  }
 	case RID_BUILTIN_COMPLEX:
 	  {
 	    vec<c_expr_t, va_gc> *cexpr_list;
 	    c_expr_t *e1_p, *e2_p;
+	    location_t close_paren_loc;
 
 	    c_parser_consume_token (parser);
 	    if (!c_parser_get_builtin_args (parser,
 					    "__builtin_complex",
-					    &cexpr_list, false))
+					    &cexpr_list, false,
+					    &close_paren_loc))
 	      {
 		expr.value = error_mark_node;
 		break;
@@ -7765,11 +7784,12 @@ c_parser_postfix_expression (c_parser *parser)
 	      }
 	    pedwarn_c90 (loc, OPT_Wpedantic,
 			 "ISO C90 does not support complex types");
-	    expr.value = build2 (COMPLEX_EXPR,
-				 build_complex_type
-				   (TYPE_MAIN_VARIANT
-				     (TREE_TYPE (e1_p->value))),
-				 e1_p->value, e2_p->value);
+	    expr.value = build2_loc (loc, COMPLEX_EXPR,
+				     build_complex_type
+				     (TYPE_MAIN_VARIANT
+				      (TREE_TYPE (e1_p->value))),
+				     e1_p->value, e2_p->value);
+	    set_c_expr_source_range (&expr, loc, close_paren_loc);
 	    break;
 	  }
 	case RID_BUILTIN_SHUFFLE:
@@ -7777,11 +7797,13 @@ c_parser_postfix_expression (c_parser *parser)
 	    vec<c_expr_t, va_gc> *cexpr_list;
 	    unsigned int i;
 	    c_expr_t *p;
+	    location_t close_paren_loc;
 
 	    c_parser_consume_token (parser);
 	    if (!c_parser_get_builtin_args (parser,
 					    "__builtin_shuffle",
-					    &cexpr_list, false))
+					    &cexpr_list, false,
+					    &close_paren_loc))
 	      {
 		expr.value = error_mark_node;
 		break;
@@ -7808,6 +7830,7 @@ c_parser_postfix_expression (c_parser *parser)
 			       "%<__builtin_shuffle%>");
 		expr.value = error_mark_node;
 	      }
+	    set_c_expr_source_range (&expr, loc, close_paren_loc);
 	    break;
 	  }
 	case RID_AT_SELECTOR:
@@ -10277,6 +10300,8 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_UNIFORM;
 	  else if (!strcmp ("untied", p))
 	    result = PRAGMA_OMP_CLAUSE_UNTIED;
+	  else if (!strcmp ("use_device", p))
+	    result = PRAGMA_OACC_CLAUSE_USE_DEVICE;
 	  else if (!strcmp ("use_device_ptr", p))
 	    result = PRAGMA_OMP_CLAUSE_USE_DEVICE_PTR;
 	  break;
@@ -11631,6 +11656,15 @@ c_parser_oacc_clause_tile (c_parser *parser, tree list)
   return c;
 }
 
+/* OpenACC 2.0:
+   use_device ( variable-list ) */
+
+static tree
+c_parser_oacc_clause_use_device (c_parser *parser, tree list)
+{
+  return c_parser_omp_var_list_parens (parser, OMP_CLAUSE_USE_DEVICE, list);
+}
+
 /* OpenACC:
    wait ( int-expr-list ) */
 
@@ -12949,6 +12983,10 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 	  clauses = c_parser_oacc_clause_tile (parser, clauses);
 	  c_name = "tile";
 	  break;
+	case PRAGMA_OACC_CLAUSE_USE_DEVICE:
+	  clauses = c_parser_oacc_clause_use_device (parser, clauses);
+	  c_name = "use_device";
+	  break;
 	case PRAGMA_OACC_CLAUSE_VECTOR:
 	  c_name = "vector";
 	  clauses = c_parser_oacc_shape_clause (parser, OMP_CLAUSE_VECTOR,
@@ -13590,6 +13628,29 @@ c_parser_oacc_enter_exit_data (c_parser *parser, bool enter)
 
 
 /* OpenACC 2.0:
+   # pragma acc host_data oacc-data-clause[optseq] new-line
+     structured-block
+*/
+
+#define OACC_HOST_DATA_CLAUSE_MASK					\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OACC_CLAUSE_USE_DEVICE) )
+
+static tree
+c_parser_oacc_host_data (location_t loc, c_parser *parser)
+{
+  tree stmt, clauses, block;
+
+  clauses = c_parser_oacc_all_clauses (parser, OACC_HOST_DATA_CLAUSE_MASK,
+				       "#pragma acc host_data");
+
+  block = c_begin_omp_parallel ();
+  add_stmt (c_parser_omp_structured_block (parser));
+  stmt = c_finish_oacc_host_data (loc, clauses, block);
+  return stmt;
+}
+
+
+/* OpenACC 2.0:
 
    # pragma acc loop oacc-loop-clause[optseq] new-line
      structured-block
@@ -13899,6 +13960,7 @@ c_parser_oacc_wait (location_t loc, c_parser *parser, char *p_name)
   strcpy (p_name, " wait");
   clauses = c_parser_oacc_all_clauses (parser, OACC_WAIT_CLAUSE_MASK, p_name);
   stmt = c_finish_oacc_wait (loc, list, clauses);
+  add_stmt (stmt);
 
   return stmt;
 }
@@ -16896,6 +16958,9 @@ c_parser_omp_construct (c_parser *parser)
       break;
     case PRAGMA_OACC_DATA:
       stmt = c_parser_oacc_data (loc, parser);
+      break;
+    case PRAGMA_OACC_HOST_DATA:
+      stmt = c_parser_oacc_host_data (loc, parser);
       break;
     case PRAGMA_OACC_KERNELS:
     case PRAGMA_OACC_PARALLEL:

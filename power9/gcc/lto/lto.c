@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "params.h"
 #include "ipa-utils.h"
 #include "gomp-constants.h"
+#include "lto-symtab.h"
 
 
 /* Number of parallel tasks to run, -1 if we want to use GNU Make jobserver.  */
@@ -233,6 +234,8 @@ lto_read_in_decl_state (struct data_in *data_in, const uint32_t *data,
   uint32_t i, j;
 
   ix = *data++;
+  state->compressed = ix & 1;
+  ix /= 2;
   decl = streamer_tree_cache_get_tree (data_in->reader_cache, ix);
   if (!VAR_OR_FUNCTION_DECL_P (decl))
     {
@@ -1166,7 +1169,9 @@ compare_tree_sccs_1 (tree t1, tree t2, tree **map)
       compare_values (TYPE_READONLY);
       compare_values (TYPE_PRECISION);
       compare_values (TYPE_ALIGN);
-      compare_values (TYPE_ALIAS_SET);
+      /* Do not compare TYPE_ALIAS_SET.  Doing so introduce ordering issues
+         with calls to get_alias_set which may initialize it for streamed
+ 	 in types.  */
     }
 
   /* We don't want to compare locations, so there is nothing do compare
@@ -2514,7 +2519,7 @@ lto_wpa_write_files (void)
 
 /* Ensure that TT isn't a replacable var of function decl.  */
 #define LTO_NO_PREVAIL(tt) \
-  gcc_assert (!(tt) || !VAR_OR_FUNCTION_DECL_P (tt))
+  gcc_checking_assert (!(tt) || !VAR_OR_FUNCTION_DECL_P (tt))
 
 /* Given a tree T replace all fields referring to variables or functions
    with their prevailing variant.  */
@@ -2526,7 +2531,10 @@ lto_fixup_prevailing_decls (tree t)
 
   gcc_checking_assert (code != TREE_BINFO);
   LTO_NO_PREVAIL (TREE_TYPE (t));
-  if (CODE_CONTAINS_STRUCT (code, TS_COMMON))
+  if (CODE_CONTAINS_STRUCT (code, TS_COMMON)
+      /* lto_symtab_prevail_decl use TREE_CHAIN to link to the prevailing decl.
+	 in the case T is a prevailed declaration we would ICE here. */
+      && !VAR_OR_FUNCTION_DECL_P (t))
     LTO_NO_PREVAIL (TREE_CHAIN (t));
   if (DECL_P (t))
     {

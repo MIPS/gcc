@@ -1230,14 +1230,14 @@ noce_try_inverse_constants (struct noce_if_info *if_info)
       if (target != if_info->x)
 	noce_emit_move_insn (if_info->x, target);
 
-	seq = end_ifcvt_sequence (if_info);
+      seq = end_ifcvt_sequence (if_info);
 
-	if (!seq)
-	  return false;
+      if (!seq)
+	return false;
 
-	emit_insn_before_setloc (seq, if_info->jump,
-				 INSN_LOCATION (if_info->insn_a));
-	return true;
+      emit_insn_before_setloc (seq, if_info->jump,
+			       INSN_LOCATION (if_info->insn_a));
+      return true;
     }
 
   end_sequence ();
@@ -2172,10 +2172,6 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	}
     }
 
-    /* If insn to set up A clobbers any registers B depends on, try to
-       swap insn that sets up A with the one that sets up B.  If even
-       that doesn't help, punt.  */
-
   modified_in_a = emit_a != NULL_RTX && modified_in_p (orig_b, emit_a);
   if (tmp_b && then_bb)
     {
@@ -2190,38 +2186,42 @@ noce_try_cmove_arith (struct noce_if_info *if_info)
 	  }
 
     }
-  if (emit_a || modified_in_a)
-    {
-      modified_in_b = emit_b != NULL_RTX && modified_in_p (orig_a, emit_b);
-      if (tmp_b && else_bb)
-	{
-	  FOR_BB_INSNS (else_bb, tmp_insn)
-	  /* Don't check inside insn_b.  We will have changed it to emit_b
-	     with a destination that doesn't conflict.  */
-	  if (!(insn_b && tmp_insn == insn_b)
-	      && modified_in_p (orig_a, tmp_insn))
-	    {
-	      modified_in_b = true;
-	      break;
-	    }
-	}
-      if (modified_in_b)
-	goto end_seq_and_fail;
 
+  modified_in_b = emit_b != NULL_RTX && modified_in_p (orig_a, emit_b);
+  if (tmp_a && else_bb)
+    {
+      FOR_BB_INSNS (else_bb, tmp_insn)
+      /* Don't check inside insn_b.  We will have changed it to emit_b
+	 with a destination that doesn't conflict.  */
+      if (!(insn_b && tmp_insn == insn_b)
+	  && modified_in_p (orig_a, tmp_insn))
+	{
+	  modified_in_b = true;
+	  break;
+	}
+    }
+
+  /* If insn to set up A clobbers any registers B depends on, try to
+     swap insn that sets up A with the one that sets up B.  If even
+     that doesn't help, punt.  */
+  if (modified_in_a && !modified_in_b)
+    {
       if (!noce_emit_bb (emit_b, else_bb, b_simple))
 	goto end_seq_and_fail;
 
       if (!noce_emit_bb (emit_a, then_bb, a_simple))
+	goto end_seq_and_fail;
+    }
+  else if (!modified_in_a)
+    {
+      if (!noce_emit_bb (emit_a, then_bb, a_simple))
+	goto end_seq_and_fail;
+
+      if (!noce_emit_bb (emit_b, else_bb, b_simple))
 	goto end_seq_and_fail;
     }
   else
-    {
-      if (!noce_emit_bb (emit_a, then_bb, a_simple))
-	goto end_seq_and_fail;
-
-      if (!noce_emit_bb (emit_b, else_bb, b_simple))
-	goto end_seq_and_fail;
-    }
+    goto end_seq_and_fail;
 
   target = noce_emit_cmove (if_info, x, code, XEXP (if_info->cond, 0),
 			    XEXP (if_info->cond, 1), a, b);
@@ -2601,45 +2601,22 @@ noce_try_abs (struct noce_if_info *if_info)
      Note that these rtx constants are known to be CONST_INT, and
      therefore imply integer comparisons.
      The one_cmpl case is more complicated, as we want to handle
-     only x < 0 ? ~x : x or x >= 0 ? ~x : x but not
-     x <= 0 ? ~x : x or x > 0 ? ~x : x, as the latter two
-     have different result for x == 0.  */
+     only x < 0 ? ~x : x or x >= 0 ? x : ~x to one_cmpl_abs (x)
+     and x < 0 ? x : ~x or x >= 0 ? ~x : x to ~one_cmpl_abs (x),
+     but not other cases (x > -1 is equivalent of x >= 0).  */
   if (c == constm1_rtx && GET_CODE (cond) == GT)
-    {
-      if (one_cmpl && negate)
-	return FALSE;
-    }
+    ;
   else if (c == const1_rtx && GET_CODE (cond) == LT)
     {
-      if (one_cmpl && !negate)
+      if (one_cmpl)
 	return FALSE;
     }
   else if (c == CONST0_RTX (GET_MODE (b)))
     {
-      if (one_cmpl)
-	switch (GET_CODE (cond))
-	  {
-	  case GT:
-	    if (!negate)
-	      return FALSE;
-	    break;
-	  case GE:
-	    /* >= 0 is the same case as above > -1.  */
-	    if (negate)
-	      return FALSE;
-	    break;
-	  case LT:
-	    if (negate)
-	      return FALSE;
-	    break;
-	  case LE:
-	    /* <= 0 is the same case as above < 1.  */
-	    if (!negate)
-	      return FALSE;
-	    break;
-	  default:
-	    return FALSE;
-	  }
+      if (one_cmpl
+	  && GET_CODE (cond) != GE
+	  && GET_CODE (cond) != LT)
+	return FALSE;
     }
   else
     return FALSE;
