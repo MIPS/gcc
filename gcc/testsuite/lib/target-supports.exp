@@ -1432,7 +1432,12 @@ proc check_effective_target_cilkplus { } {
     if { [istarget avr-*-*] } {
 	return 0;
     }
-    return 1
+    return [ check_no_compiler_messages_nocache fcilkplus_available executable {
+	#ifdef __cplusplus
+	extern "C"
+	#endif
+	    int dummy;
+	} "-fcilkplus" ]
 }
 
 proc check_linker_plugin_available { } {
@@ -2605,6 +2610,15 @@ proc check_effective_target_aarch64_little_endian { } {
         #if !defined(__aarch64__) || defined(__AARCH64EB__)
         #error FOO
         #endif
+    }]
+}
+
+# Return 1 if this is a compiler supporting ARC atomic operations
+proc check_effective_target_arc_atomic { } {
+    return [check_no_compiler_messages arc_atomic assembly {
+	#if !defined(__ARC_ATOMIC__)
+	#error FOO
+	#endif
     }]
 }
 
@@ -5581,6 +5595,7 @@ proc check_effective_target_sync_int_long { } {
 	     || [istarget crisv32-*-*] || [istarget cris-*-*]
 	     || ([istarget sparc*-*-*] && [check_effective_target_sparc_v9])
 	     || [istarget spu-*-*]
+	     || ([istarget arc*-*-*] && [check_effective_target_arc_atomic])
 	     || [check_effective_target_mips_llsc] } {
            set et_sync_int_long_saved 1
         }
@@ -5612,6 +5627,7 @@ proc check_effective_target_sync_char_short { } {
 	     || [istarget crisv32-*-*] || [istarget cris-*-*]
 	     || ([istarget sparc*-*-*] && [check_effective_target_sparc_v9])
 	     || [istarget spu-*-*]
+	     || ([istarget arc*-*-*] && [check_effective_target_arc_atomic])
 	     || [check_effective_target_mips_llsc] } {
            set et_sync_char_short_saved 1
         }
