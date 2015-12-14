@@ -739,48 +739,481 @@ static const struct attribute_spec mips_attribute_table[] = {
   { NULL,	   0, 0, false, false, false, NULL, false }
 };
 
+/* Arguement type descriptor.  */
+
+enum mips_func_opt_list_arg_t {
+  FOL_ARG_NONE,
+  FOL_ARG_STRING,
+  FOL_ARG_SINGLE_NUM,
+  FOL_ARG_OPTIONAL_NUM_LIST,
+  FOL_ARG_NUM_ONE_OR_TWO,
+  FOL_ARG_OPTIONAL_STRING,
+  FOL_ARG_OPTIONAL_NUM
+};
+
+/* Collisons for FUNC_OPT_LIST.  Rather that just relying on the middle to
+   complain, check at parse time so we can produce accurate diagnositics.  */
+
+enum mips_fol_collides {
+  FOLC_O1,
+  FOLC_O2,
+  FOLC_O3,
+  FOLC_OS,
+  FOLC_MIPS16,
+  FOLC_NOMIPS16,
+  FOLC_ALWAYS_INLINE,
+  FOLC_NOINLINE,
+  FOLC_UNUSED,
+  FOLC_USED,
+  FOLC_FAR,
+  FOLC_NEAR,
+  FOLC_HOT,
+  FOLC_COLD,
+  FOLC_END
+};
+
 /* Part of FUNC_OPT_LIST.  Use a tuple to record the name to be matched against
    which GCC uses internally, an optional second string if the name is required
-   to be in a specific namespace and a bitmask describing which other entries
-   collide with this entry.  */
+   to be an argument of a different attribute and a bitmask describing which
+   other entries collide with this entry.  */
 
-struct opt_pairs
+struct attr_desc
 {
   const char * optstring;
   const char * maintype;
+  enum mips_func_opt_list_arg_t arg_type;
   int collisions;
-};
-
-enum mips_func_opt_list_m {
-  FOL_O2 = 0,
-  FOL_OS,
-  FOL_MIPS16,
-  FOL_NOMIPS16,
-  FOL_ALWAYS_INLINE,
-  FOL_NOINLINE,
-  FOL_CODEREADPCREL,
-  FOL_EPI,
-  FOL_LONGCALL,
-  FOL_END
 };
 
 /* This table encodes the strings to match against for parsing func-opt-list,
    an optional string which the first is argument of, e.g. optimize("O2")
    and the colliding attributes.  */
 
-static const struct opt_pairs mips_func_opt_list_strings[] = {
- {"O2", 		 "optimize", 1 << FOL_OS },
- {"Os", 		 "optimize", 1 << FOL_O2 },
- {"mips16", 		 0, 	     1 << FOL_NOMIPS16 },
- {"nomips16", 		 0,	     1 << FOL_MIPS16 },
- {"always_inline", 	 0,	     1 << FOL_NOINLINE },
- {"noinline", 		 0,	     1 << FOL_ALWAYS_INLINE },
- {"code-readable=pcrel", 0,	     0 },
- {"epi",		 0,	     0 },
- {"long_call",		 0,	     0 },
- {"\0",			 0,	     0 },
+static const struct attr_desc mips_func_opt_list_strings[] = {
+  {"O1",	"optimize", FOL_ARG_NONE, 1 << FOLC_O2 | 1 << FOLC_O3 | 1 << FOLC_OS },
+  {"O2",	"optimize", FOL_ARG_NONE, 1 << FOLC_O1 | 1 << FOLC_O3 | 1 << FOLC_OS },
+  {"O3",	"optimize", FOL_ARG_NONE, 1 << FOLC_O1 | 1 << FOLC_O2 | 1 << FOLC_OS },
+  {"Os",	"optimize", FOL_ARG_NONE, 1 << FOLC_O1 | 1 << FOLC_O2 | 1 << FOLC_O3 },
+  {"mips16",		 0, 	     FOL_ARG_NONE, 1 << FOLC_NOMIPS16 },
+  {"nomips16",		 0,	     FOL_ARG_NONE, 1 << FOLC_MIPS16 },
+  {"always_inline",	 0,	     FOL_ARG_NONE, 1 << FOLC_NOINLINE },
+  {"noinline",		 0,	     FOL_ARG_NONE, 1 << FOLC_ALWAYS_INLINE },
+  {"unused",		 0,	     FOL_ARG_NONE, 1 << FOLC_USED },
+  {"used",		 0,	     FOL_ARG_NONE, 1 << FOLC_UNUSED },
+  {"far",		 0,	     FOL_ARG_NONE, 1 << FOLC_NEAR },
+  {"near",		 0,	     FOL_ARG_NONE, 1 << FOLC_FAR },
+  {"hot",		 0,	     FOL_ARG_NONE, 1 << FOLC_COLD },
+  {"cold",		 0,	     FOL_ARG_NONE, 1 << FOLC_HOT },
+  {"code_readable",	 0,	     FOL_ARG_STRING, 0 },
+  {"epi",		 0,	     FOL_ARG_OPTIONAL_STRING, 0 },
+  {"alias",		 0,	     FOL_ARG_STRING, 0 },
+  {"aligned",		 0,	     FOL_ARG_SINGLE_NUM, 0},
+  {"alloc_size",	 0,	     FOL_ARG_NUM_ONE_OR_TWO, 0},
+  {"alloc_align",	 0,	     FOL_ARG_SINGLE_NUM, 0},
+  {"assume_aligned",	 0,	     FOL_ARG_NUM_ONE_OR_TWO, 0},
+  {"artifical",		 0,	     FOL_ARG_NONE, 0 },
+  {"constructor",	 0,	     FOL_ARG_OPTIONAL_NUM, 0},
+  {"const",		 0,	     FOL_ARG_NONE, 0 },
+  {"deprecated",	 0,	     FOL_ARG_OPTIONAL_STRING, 0},
+  {"destructor",	 0,	     FOL_ARG_OPTIONAL_NUM, 0},
+  {"error",		 0,	     FOL_ARG_OPTIONAL_STRING, 0},
+  {"flatten",		 0,	     FOL_ARG_NONE, 0 },
+  {"gnu_inline",	 0,	     FOL_ARG_NONE, 0 },
+  {"interrupt",		 0,	     FOL_ARG_NONE, 0 },
+  {"keep_interrupts_masked", 0,	     FOL_ARG_NONE, 0 },
+  {"long_call",		 0,	     FOL_ARG_NONE, 0 },
+  {"leaf",		 0,	     FOL_ARG_NONE, 0 },
+  {"noclone",		 0,	     FOL_ARG_NONE, 0 },
+  {"noreturn",		 0,	     FOL_ARG_NONE, 0 },
+  {"malloc",		 0,	     FOL_ARG_NONE, 0 },
+  {"nonnull",		 0,	     FOL_ARG_OPTIONAL_NUM_LIST, 0 },
+  {"nothrow",		 0,	     FOL_ARG_NONE, 0 },
+  {"optimize",		 0,	     FOL_ARG_STRING, 0 },
+  {"returns_nonnull",	 0,	     FOL_ARG_NONE, 0 },
+  {"returns_twice",	 0,	     FOL_ARG_NONE, 0 },
+  {"section",		 0,	     FOL_ARG_STRING, 0 },
+  {"pure",		 0,	     FOL_ARG_NONE, 0 },
+  {"use_debug_exception_return", 0,  FOL_ARG_NONE, 0 },
+  {"use_shadow_register_set", 0,     FOL_ARG_NONE, 0 },
+  {"visibility",	 0,	     FOL_ARG_STRING, 0 },
+  {"warning",		 0,	     FOL_ARG_OPTIONAL_STRING, 0 },
+  {"warn_unused_result", 0,	     FOL_ARG_NONE, 0 },
+  {"weak",		 0,	     FOL_ARG_NONE, 0 },
+  {"weakref",		 0,	     FOL_ARG_NONE, 0 },
+  /* End of table marker, FOL_ARG_NONE is required to stop the attribute
+     argument parsing.  */
+  {"\0",		 0,	     FOL_ARG_NONE, 0 },
 };
 
+/* Argument list...  */
+
+struct mips_func_opt_list_arg
+{
+  char * arg;
+  unsigned int optimization;
+  struct mips_func_opt_list_arg * next;
+};
+
+/* ... For this.  */
+
+struct mips_func_opt_list
+{
+  char * func_name;
+  sbitmap attributes;
+  struct mips_func_opt_list_arg * args;
+  struct mips_func_opt_list * next;
+};
+
+/* Head of the function optimization list.  */
+
+static struct mips_func_opt_list * mips_fn_opt_list;
+
+/* Search the func-opt-list for func's entry and return it.  */
+
+static struct mips_func_opt_list *
+mips_func_opt_list_find (const char * func)
+{
+  for (struct mips_func_opt_list * i = mips_fn_opt_list; i != NULL; i = i->next)
+      if (strcmp (i->func_name, func) == 0)
+        return i;
+
+  return NULL;
+}
+
+/* Check if OPT conflicts with the current attributes of f.  Return
+   the entry corresponding the existing attribute that conflicts.  */
+
+static int
+mips_fol_attr_conflicts (struct mips_func_opt_list * f,
+			unsigned int opt)
+{
+  /* Trival case: opt has no conflicting attrs / leave for the middle end to
+     diagnose.  */
+  if (opt > FOLC_END)
+    return 0;
+
+  for (int i = 0; i < FOLC_END; i++)
+    if (bitmap_bit_p (f->attributes, i)
+	&& ((1 << i) & mips_func_opt_list_strings[opt].collisions))
+      return i;
+
+  return 0;
+}
+
+#define MATCH_WHITESPACE(A) ISSPACE (A)
+#define MATCH_EMPTYSTRING(A) (A == '\n' || A == 0 || A == EOF)
+
+/* Subroutinue for below.  */
+
+static void
+mips_func_opt_list_parse_arg_1 (const char * line,
+				struct mips_func_opt_list * f,
+				unsigned int pos,
+				unsigned int length,
+				unsigned int opt)
+{
+  struct mips_func_opt_list_arg * arg
+    = (struct mips_func_opt_list_arg *)xmalloc (sizeof (struct mips_func_opt_list_arg));
+
+  arg->arg = xstrndup (&(line[pos]), length);
+  arg->optimization = opt;
+  arg->next = f->args;
+  f->args = arg;
+}
+
+/* Parse an argument of an attribute of the form:
+   ("string") or (N<,N,N,...>)
+   and attach it to the passed struct mips_func_opt_list.
+   Return the position: either just after ')' or the start of next
+   word.  */
+
+static unsigned int
+mips_func_opt_list_parse_arg (const char * line, struct mips_func_opt_list * f,
+			      unsigned int opt, unsigned int pos,
+			      const char * file, int lineno)
+{
+  enum mips_func_opt_list_arg_t arg_type = mips_func_opt_list_strings[opt].arg_type;
+  unsigned int length = 0;
+  unsigned int arg_count = 0;
+
+  if (arg_type == FOL_ARG_NONE)
+    return pos;
+
+
+  /* Match "<whitespace>+("  */
+  while (MATCH_WHITESPACE (line[pos]))
+    pos++;
+
+  if (MATCH_EMPTYSTRING (line[pos])
+      || line[pos] != '(')
+    {
+      if (line[pos] != '('
+	  && (arg_type == FOL_ARG_OPTIONAL_NUM_LIST
+	      || arg_type == FOL_ARG_OPTIONAL_STRING
+	      || arg_type == FOL_ARG_OPTIONAL_NUM))
+        return pos;
+      else
+        error ("%s:%d:%d: Expected '('", file, lineno, pos);
+    }
+
+  pos += 1;
+
+  while (MATCH_WHITESPACE (line[pos])
+	 && !MATCH_EMPTYSTRING (line[pos]))
+    pos++;
+
+  switch (arg_type)
+  {
+    /* Parse something of the form ("<string>") and add <string> to e->args.  */
+    case FOL_ARG_OPTIONAL_STRING:
+    case FOL_ARG_STRING:
+      if (MATCH_EMPTYSTRING (line[pos])
+	  || line[pos] != '\"')
+	/* Unexpected line end.  */
+        error ("%s:%d:%d: Expected '\"'", file, lineno, pos);
+
+      pos += 1;
+
+      while (!MATCH_EMPTYSTRING (line[pos+length])
+	     && line[pos+length] != '\"')
+	length += 1;
+
+      mips_func_opt_list_parse_arg_1 (line, f, pos, length, opt);
+
+      pos += length + 1;
+      break;
+
+    /* Parse something of the form (N<,N,N,N,..>) and add them individually
+       to e->args.  */
+    case FOL_ARG_SINGLE_NUM:
+    case FOL_ARG_OPTIONAL_NUM:
+    case FOL_ARG_OPTIONAL_NUM_LIST:
+    case FOL_ARG_NUM_ONE_OR_TWO:
+      while (1)
+	{
+	  while (ISDIGIT (line[pos+length]))
+	    length++;
+
+	  mips_func_opt_list_parse_arg_1 (line, f, pos, length, opt);
+	  pos += length;
+	  length = 0;
+	  arg_count++;
+
+	  while (MATCH_WHITESPACE (line[pos]))
+	    pos++;
+
+	  if (MATCH_EMPTYSTRING (line[pos])
+	      && (line[pos] != ','
+		  || line[pos] != ')'))
+	    error ("%s:%d:%d: Expected ',' or ')'", file, lineno, pos);
+
+	  if (line[pos] == ','
+	      && (arg_type == FOL_ARG_SINGLE_NUM
+	          || (arg_type == FOL_ARG_NUM_ONE_OR_TWO
+		      && arg_count > 2)))
+	    error ("%s:%d:%d: Unexpected ','", file, lineno, pos);
+
+	  if (line[pos] == ')')
+	    break;
+
+	  pos += 1;
+	  while (MATCH_WHITESPACE (line[pos]))
+	    pos++;
+	}
+      break;
+    default:
+      gcc_unreachable ();
+  }
+
+  while (MATCH_WHITESPACE (line[pos])
+        && !MATCH_EMPTYSTRING (line[pos]))
+   pos++;
+
+  /* Unmatched ')'.  */
+  if (MATCH_EMPTYSTRING (line[pos])
+     || line[pos] != ')')
+  error ("%s:%d:%d: Expected ')'", file, lineno, pos);
+
+  pos += 1;
+
+  return pos;
+}
+
+/* Read a line and return a struct describing attributes for the function.
+   Odd case: If the function has already appeared in mips_fn_opt_list update
+   the entry in place but return NULL, otherwise we may end up building a
+   circular list.  Error out nicely when: misspelled optimization, conflicting
+   attributes.  */
+
+static struct mips_func_opt_list *
+mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
+{
+  size_t identifier_length = 0;
+  unsigned int opt = 0;
+  struct mips_func_opt_list * fl = NULL;
+  unsigned int pos = 0;
+  bool matched = false;
+  bool update = false;
+
+  /* Take all leading whitespace.  */
+  while (MATCH_WHITESPACE (line[pos]))
+    pos++;
+
+  if (MATCH_EMPTYSTRING (line[pos]))
+      return NULL;
+
+  /* Take all non-whitespace for the function name.  */
+  while (!MATCH_WHITESPACE (line[pos + identifier_length])
+         && !MATCH_EMPTYSTRING (line[pos + identifier_length]))
+    identifier_length++;
+
+  /* Construct a new struct mips_func_opt_list temporarily and search for an
+     existing entry.  Use existing entry over a new one.  */
+  fl = (struct mips_func_opt_list *)xmalloc (sizeof (struct mips_func_opt_list));
+  fl->func_name = xstrndup (&line[pos], identifier_length);
+  if (mips_func_opt_list_find(fl->func_name) == NULL)
+    {
+      fl->args = NULL;
+      fl->next = NULL;
+      fl->attributes = sbitmap_alloc (sizeof (mips_func_opt_list_strings)
+				    / sizeof (struct attr_desc));
+      bitmap_clear (fl->attributes);
+    }
+  else
+    {
+      char * n = fl->func_name;
+      free (fl);
+      fl = mips_func_opt_list_find (n);
+      free (n);
+      update = true;
+    }
+
+  pos += identifier_length;
+  identifier_length = 0;
+
+  /* Warn for <func name> <empty string>  */
+  if (MATCH_EMPTYSTRING (line[pos]))
+    {
+      warning (OPT_Wattributes, "%s:%d: No optimizations specified for %qs",
+	       file, lineno, fl->func_name);
+      return NULL;
+    }
+
+  /* Parse a (possibly empty) list of attributes.  */
+  while (1)
+  {
+    while (MATCH_WHITESPACE (line[pos]))
+      pos++;
+
+    if (MATCH_EMPTYSTRING (line[pos]))
+      {
+	if (update)
+	  return NULL;
+	else
+	  return fl;
+      }
+
+    /* Parse and match an attribute.  Warn and blame -mfunc-opt-list= if
+       the attributes are known to conflict.  The middle-end will complain as
+       well, but won't be able to blame the source properly.  */
+    while (!MATCH_WHITESPACE (line[pos + identifier_length])
+	   && !MATCH_EMPTYSTRING (line[pos + identifier_length])
+	   && line[pos + identifier_length] != '(')
+      identifier_length++;
+
+    for (opt = 0; *mips_func_opt_list_strings[opt].optstring != 0; opt++)
+      {
+	if (strncmp (mips_func_opt_list_strings[opt].optstring, &(line[pos]),
+		    identifier_length) == 0)
+	  {
+	    int conflict_attr = mips_fol_attr_conflicts (fl, opt);
+	    if (conflict_attr)
+	      warning (OPT_Wattributes, "%s:%d:%d: Attribute %qs cannot be"
+		       " applied to function %qs as it has the conflicting "
+		       "attribute %qs", file, lineno, pos,
+		       mips_func_opt_list_strings[opt].optstring,
+		       fl->func_name,
+		       mips_func_opt_list_strings[conflict_attr].optstring);
+
+	    bitmap_set_bit (fl->attributes, opt);
+	    matched = true;
+	    break;
+	  }
+      }
+
+    /* Correctly blame the unknown attribute.  */
+    if (!matched)
+      {
+	char * e = xstrndup (&(line[pos]), identifier_length);
+	warning (OPT_Wattributes, "%s:%d:%d: Unknown optimization %qs for %qs ",
+		 file, lineno, pos, e, fl->func_name);
+      }
+
+    matched = false;
+    pos += identifier_length;
+    identifier_length = 0;
+
+    /* Parse any arguments if required, get new position.  */
+    pos = mips_func_opt_list_parse_arg (line, fl, opt, pos, file, lineno);
+
+  }
+}
+
+#undef MATCH_WHITESPACE
+#undef MATCH_EMPTYSTRING
+
+/* Entry point for FUNC_OPT_LIST.  Grab the conents of a file and build
+   a list of functions with a bitmap describing attributes desired.  */
+
+static void
+mips_func_opt_list_read ()
+{
+  FILE * fd;
+  int lineno = 0;
+  char line[512];
+  struct mips_func_opt_list *trial = NULL;
+
+
+  unsigned int i;
+  cl_deferred_option *opt;
+  vec<cl_deferred_option> *v =
+    (vec<cl_deferred_option> *) mips_func_opt_list_file;
+
+  FOR_EACH_VEC_ELT (*v, i, opt)
+    {
+      if (opt->opt_index != OPT_mfunc_opt_list_)
+	continue;
+
+      const char * filename = opt->arg;
+      if (filename == NULL)
+	continue;
+
+      fd = fopen (filename, "r");
+      if (fd == NULL)
+	{
+	  error ("Cannot read %qs for -mfunc-opt-list=\n", filename);
+	  return;
+	}
+
+      while (fgets (line, sizeof(line), fd))
+	{
+	  trial = mips_func_opt_list_read_line ((const char *)&line,
+						filename, lineno);
+	  lineno++;
+
+           /* trial can be null if we didn't read a well formed line or if an
+	      update in place occurred. Otherwise insert new entry at the head
+	      of the list.  */
+	  if (trial)
+	    {
+	      trial->next = mips_fn_opt_list;
+	      mips_fn_opt_list = trial;
+	    }
+	}
+
+      fclose (fd);
+    }
+}
 
 /* A table describing all the processors GCC knows about; see
    mips-cpus.def for details.  */
@@ -812,150 +1245,6 @@ static const struct mips_cpu_info mips_cpu_info_table[] = {
                       COSTS_N_INSNS (256), /* fp_mult_df */   \
                       COSTS_N_INSNS (256), /* fp_div_sf */    \
                       COSTS_N_INSNS (256)  /* fp_div_df */
-
-struct mips_func_opt_list
-{
-  char * func_name;
-  int optimizations;
-  bool used;
-  struct mips_func_opt_list * next;
-};
-
-/* Head of the function optimization list.  */
-static struct mips_func_opt_list * mips_fn_opt_list;
-
-/* Read a line and return a struct describing the optimizations for the
-   function. Error out nicely when: misspelled optimization, conflicting
-   optimizations. */
-
-static struct mips_func_opt_list *
-mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
-{
-  size_t identifier_length = 0;
-  struct mips_func_opt_list * fl = NULL;
-  int pos = 0;
-  bool matched = false;
-
-#define MATCH_WHITESPACE(A) (A == ' ' || A == '\t')
-#define MATCH_EMPTYSTRING(A) (A == '\n' || A == 0 || A == EOF)
-
-  /* Take all leading whitespace.  */
-  while (MATCH_WHITESPACE (line[pos]))
-    pos++;
-
-  if (MATCH_EMPTYSTRING (line[pos]))
-      return NULL;
-
-  /* Take all non-whitespace for the function name.  */
-  while (!MATCH_WHITESPACE (line[pos + identifier_length])
-         && !MATCH_EMPTYSTRING (line[pos + identifier_length]))
-    identifier_length++;
-
-  fl = (struct mips_func_opt_list *)xmalloc (sizeof (struct mips_func_opt_list));
-  memset (fl, '\0', sizeof (struct mips_func_opt_list));
-  fl->func_name = xstrndup (&line[pos], identifier_length);
-
-  pos += identifier_length;
-  identifier_length = 0;
-
-  /* Warn for <func name> <empty string>  */
-  if (MATCH_EMPTYSTRING (line[pos]))
-    {
-      warning (0, "No optimizations specified for %qs in %qs",
-	       fl->func_name, file);
-      return NULL;
-    }
-
-  /* Parse a (possibly empty) list of optimizations.  */
-  while (1)
-  {
-    while (MATCH_WHITESPACE (line[pos]))
-      pos++;
-
-    if (MATCH_EMPTYSTRING (line[pos]))
-      return fl;
-
-    /* Parse and match an optimization.  */
-    while (!MATCH_WHITESPACE (line[pos + identifier_length])
-	   && !MATCH_EMPTYSTRING (line[pos + identifier_length]))
-      identifier_length++;
-
-    for (int i = 0; *mips_func_opt_list_strings[i].optstring != 0; i++)
-      {
-	if (strncmp(mips_func_opt_list_strings[i].optstring, &(line[pos]),
-		    identifier_length) == 0)
-	  {
-	    fl->optimizations |= 1<<i;
-	    matched = true;
-	    break;
-	  }
-      }
-
-    if (!matched)
-      {
-	char * e = xstrndup (&(line[pos]), identifier_length);
-	error ("Unknown optimization %qs for %qs in %s:%d", e,
-	       fl->func_name, file, lineno);
-	return NULL;
-      }
-
-    matched = false;
-    pos += identifier_length;
-    identifier_length = 0;
-
-#undef MATCH_WHITESPACE
-#undef MATCH_EMPTYSTRING
-
-  }
-}
-
-/* Search the func-opt-list for func's entry and return it.  */
-
-static struct mips_func_opt_list *
-mips_func_opt_list_find (const char * func)
-{
-  for (struct mips_func_opt_list * i = mips_fn_opt_list; i != NULL; i = i->next)
-      if (strcmp (i->func_name, func) == 0)
-        return i;
-
-  return NULL;
-}
-
-/* Entry point for FUNC_OPT_LIST.  Grab the conents of a file and build
-   a list of functions with a bitmask describing optimizations desired.  */
-
-static struct mips_func_opt_list *
-mips_func_opt_list_read (const char * filename)
-{
-  FILE * fd;
-  int lineno = 0;
-  char line[512];
-  struct mips_func_opt_list *head = NULL;
-  struct mips_func_opt_list *trial = NULL;
-
-  if (filename == NULL)
-    return NULL;
-  fd = fopen (filename, "r");
-  if (fd == NULL)
-    {
-      error ("Bad filename for -mfunc-opt-list=: %s\n", filename);
-      return NULL;
-    }
-
-  while (fgets (line, sizeof(line), fd)){
-    trial = mips_func_opt_list_read_line ((const char *)&line,
-					  filename, lineno);
-    lineno++;
-    if (trial){
-      trial->next = head;
-      head = trial;
-    }
-  }
-
-  fclose (fd);
-
-  return head;
-}
 
 /* Costs to use when optimizing for size.  */
 static const struct mips_rtx_cost_data mips_rtx_cost_optimize_size = {
@@ -1667,55 +1956,68 @@ mips_comp_type_attributes (const_tree type1, const_tree type2)
   return 1;
 }
 
+/* Return a tree of the arguments of an attribute list.  */
+
+static tree
+mips_insert_fol_args (struct mips_func_opt_list * func_opt_list,
+		      unsigned int optimization)
+{
+  tree ret = NULL;
+  struct mips_func_opt_list_arg * args = func_opt_list->args;
+  for (; args; args = args->next)
+      if (args->optimization == optimization)
+	{
+	  tree arg;
+	  if (mips_func_opt_list_strings[optimization].arg_type == FOL_ARG_OPTIONAL_STRING
+	      || mips_func_opt_list_strings[optimization].arg_type == FOL_ARG_STRING)
+	    arg = build_string (strlen (args->arg), args->arg);
+	  else
+	    arg = build_int_cst (NULL, atoi (args->arg));
+
+	  if (ret == NULL)
+	    ret = build_tree_list (NULL_TREE, arg);
+	  else
+	    ret = chainon (ret, build_tree_list (NULL_TREE, arg));
+	}
+  return ret;
+}
+
 /* Implement -mfunc-opt-list.  With the struct of optmizations and attributes,
-   insert the attributes that don't interfere with each other.  GCC may do
-   strange things otherwise.  */
+   insert the attributes.  */
 
 static void
 mips_insert_fol_attributes (struct mips_func_opt_list * func_opt_list,
-			   tree decl,
 			   tree *attributes)
 {
   for (int i = 0; *mips_func_opt_list_strings[i].optstring != 0; i++)
-    if (1 << i & func_opt_list->optimizations)
+    if (bitmap_bit_p (func_opt_list->attributes, i))
       {
 	const char * opstr = mips_func_opt_list_strings[i].optstring;
 	const char * maintype = mips_func_opt_list_strings[i].maintype;
 	int l = strlen (opstr);
 
-	/* If func_opt_list entry j is marked as colliding with entry i,
-	   check if entry j has been applied to decl.  If so, report an error
-	   blaming the current attribute from func_opt_list.  */
-	for (int j = 0; j < FOL_END; j++)
-	  if (1 << j & mips_func_opt_list_strings[i].collisions
-	      && lookup_attribute (mips_func_opt_list_strings[j].optstring,
-				*attributes) != NULL)
-	    error ("Attribute %qs cannot be applied to function %qs as it has"
-		   " the conflicting attribute %qs",
-		   mips_func_opt_list_strings[i].optstring,
-		   IDENTIFIER_POINTER (DECL_NAME (decl)),
-		   mips_func_opt_list_strings[j].optstring);
+        tree attr_args = NULL;
+        if (mips_func_opt_list_strings[i].arg_type != FOL_ARG_NONE)
+	    attr_args = mips_insert_fol_args (func_opt_list, i);
 
 	/* Some strange logic:  If .maintype == 0, .optstring is the
 	   attribute.  Otherwise the actual attribute is
 	   .maintype(".optstring").  */
 	if (mips_func_opt_list_strings[i].maintype == 0)
 	  {
-	    if (i == FOL_CODEREADPCREL)
-	      *attributes = tree_cons (get_identifier ("pcrel"), NULL,
-				       *attributes);
-	    else
-	      *attributes = tree_cons (get_identifier (opstr), NULL,
+	      *attributes = tree_cons (get_identifier (opstr), attr_args,
 				       *attributes);
 	  }
 	else
-	  {
-	    tree attr_args = build_tree_list (NULL_TREE,
-					      build_string (l, opstr));
+	  {  attr_args = build_tree_list (NULL_TREE,
+					  build_string (l, opstr));
+
 	    *attributes = tree_cons (get_identifier (maintype), attr_args,
 				     *attributes);
 	  }
       }
+
+  sbitmap_free (func_opt_list->attributes);
 }
 
 /* Implement TARGET_INSERT_ATTRIBUTES.  */
@@ -1743,7 +2045,7 @@ mips_insert_attributes (tree decl, tree *attributes)
   else
     {
       compression_flags |= mips_get_compress_on_flags (DECL_ATTRIBUTES (decl));
-      nocompression_flags |= 
+      nocompression_flags |=
 	mips_get_compress_off_flags (DECL_ATTRIBUTES (decl));
 
       if (compression_flags && nocompression_flags)
@@ -1761,7 +2063,7 @@ mips_insert_attributes (tree decl, tree *attributes)
 	  struct mips_func_opt_list * func_opt_list
 	    = mips_func_opt_list_find (IDENTIFIER_POINTER (DECL_NAME (decl)));
 	  if (func_opt_list)
-	    mips_insert_fol_attributes (func_opt_list, decl, attributes);
+	    mips_insert_fol_attributes (func_opt_list, attributes);
 
 	}
 
@@ -19444,7 +19746,7 @@ mips_option_override (void)
     TARGET_INTERLINK_COMPRESSED = 1;
 
   if (mips_func_opt_list_file)
-   mips_fn_opt_list = mips_func_opt_list_read ((const char*)mips_func_opt_list_file);
+    mips_func_opt_list_read ();
 
   /* Set the small data limit.  */
   mips_small_data_threshold = (global_options_set.x_g_switch_value
