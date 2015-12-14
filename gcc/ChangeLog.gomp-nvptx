@@ -1,3 +1,17 @@
+2015-12-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c (nvptx_declare_function_name): Emit %outargs
+	using .local %outargs_ar only if not TARGET_SOFT_STACK.  Emit %outargs
+	under TARGET_SOFT_STACK by offsetting from %frame.
+	(nvptx_get_drap_rtx): Return %argp as the DRAP if needed.
+	* config/nvptx/nvptx.md (nvptx_register_operand): Allow %outargs under
+	TARGET_SOFT_STACK.
+	(nvptx_nonimmediate_operand): Ditto.
+	(allocate_stack): Implement for TARGET_SOFT_STACK.  Remove unused code.
+	(allocate_stack_<mode>): Remove unused pattern.
+	(set_softstack_insn): New pattern.
+	(restore_stack_block): Handle for TARGET_SOFT_STACK.
+
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/nvptx.c (nvptx_record_offload_symbol): Allow NULL attrs
