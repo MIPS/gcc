@@ -342,20 +342,11 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       thr->task = &task;
       if (__builtin_expect (cpyfn != NULL, 0))
 	{
-	  long buf_size = arg_size + arg_align - 1;
-#ifdef __nvptx__
-	  char buf_onstack[64], *buf = buf_onstack;
-	  if (sizeof(buf_onstack) < buf_size)
-	    buf = gomp_malloc (buf_size);
-#else
-	  char buf_onstack[buf_size], *buf = buf_onstack;
-#endif
+	  char buf[arg_size + arg_align - 1];
 	  char *arg = (char *) (((uintptr_t) buf + arg_align - 1)
 				& ~(uintptr_t) (arg_align - 1));
 	  cpyfn (arg, data);
 	  fn (arg);
-	  if (buf != buf_onstack)
-	    free (buf);
 	}
       else
 	fn (data);
