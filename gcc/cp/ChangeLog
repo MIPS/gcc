@@ -1,3 +1,45 @@
+2015-12-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60218
+	* semantics.c (calculate_bases_helper): Don't call dfs_walk_all
+	when TYPE_BINFO (type) is null.
+	(calculate_bases): Handle gracefully a null vector->length ().
+
+2015-12-08  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/68711
+	* typeck.c (build_class_member_access_expr): Strip NOPs before
+        testing a potentially null operand for equality to zero.
+
+2015-12-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/68760
+	* error.c (dump_global_iord): Use DECL_SOURCE_FILE (t)
+	instead of LOCATION_FILE (input_location).
+
+2015-12-07  Ryan Burn  <contact@rnburn.com>
+
+	PR c++/68683
+	* constraint.cc (satisfy_argument_deduction_constraint): Set
+	TYPE_CANONICAL to NULL_TREE if PLACEHOLDER_TYPE_CONSTRAINTS are
+	changed.
+
+2015-12-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/68464
+	* cp-gimplify.c (cp_fold): Don't assume X has TREE_TYPE.
+	(cp_genericize): Don't do cp_fold_r here.
+	(cp_fold_function): New.
+	* cp-tree.h: Declare it.
+	* decl.c (finish_function): Call it and the pre-genericize plugin
+	before NRV processing.
+
+	PR c++/68170
+	* pt.c (maybe_new_partial_specialization): The injected-class-name
+	is not a new partial specialization.
+
+	* Make-lang.in (check-c++1z, check-c++-all): Use GXX_TESTSUITE_STDS.
+
 2015-12-06  Jason Merrill  <jason@redhat.com>
 
 	* parser.c (struct tentative_firewall): New.

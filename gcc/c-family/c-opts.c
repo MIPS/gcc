@@ -227,7 +227,7 @@ upc_init_options ()
      mode by default.  */
   warn_pointer_arith = 1;
   set_default_handlers (&handlers);
-  control_warning_option (OPT_Wpointer_arith, (int) DK_ERROR, true,
+  control_warning_option (OPT_Wpointer_arith, (int) DK_ERROR, NULL, true,
 			  UNKNOWN_LOCATION, CL_C,
 			  &handlers, &global_options, &global_options_set,
 			  global_dc);

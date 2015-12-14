@@ -1,3 +1,9 @@
+2015-12-14  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 231609 into gupc branch.
+	* c-family/c-opts.c (upc_init_options):
+	Adjust call to control_warning_option().
+
 2015-12-11  Gary Funck  <gary@intrepid.com>
 
 	* tree.h (check_qualified_type): Add block_factor argument,
