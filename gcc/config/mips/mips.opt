@@ -131,7 +131,7 @@ mdebug
 Target Var(TARGET_DEBUG_MODE) Undocumented
 
 mdebugd
-Target Var(TARGET_DEBUG_D_MODE) Undocumented
+Target Var(TARGET_DEBUG_D_MODE) Undocumented Init(1)
 
 meb
 Target Report RejectNegative Mask(BIG_ENDIAN)
