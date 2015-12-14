@@ -388,6 +388,10 @@ msplit-addresses
 Target Report Mask(SPLIT_ADDRESSES)
 Optimize lui/addiu address loads
 
+mmips16e2
+Target Report Var(TARGET_MIPS16E2) Init(0)
+Enable the MIPS16e V2 instructions.
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values
@@ -520,3 +524,6 @@ Target RejectNegative Joined Var(mips_epi)
 mmips16-gp
 Target Var(TARGET_MIPS16_GP) Init(0)
 Enable direct use of GP in MIPS16
+
+muse-save-restore
+Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
