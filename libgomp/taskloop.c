@@ -165,20 +165,13 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
       unsigned long i;
       if (__builtin_expect (cpyfn != NULL, 0))
 	{
-	  arg_size = (arg_size + arg_align - 1) & ~(arg_align - 1);
-	  long buf_size = num_tasks * arg_size + arg_align - 1;
-#ifdef __nvptx__
-	  struct gomp_task *task
-	    = gomp_malloc (num_tasks * sizeof (*task) + buf_size);
-	  char *buf = (char *) (task + num_tasks);
-#else
 	  struct gomp_task task[num_tasks];
-	  char buf[buf_size];
-#endif
+	  struct gomp_task *parent = thr->task;
+	  arg_size = (arg_size + arg_align - 1) & ~(arg_align - 1);
+	  char buf[num_tasks * arg_size + arg_align - 1];
 	  char *arg = (char *) (((uintptr_t) buf + arg_align - 1)
 				& ~(uintptr_t) (arg_align - 1));
 	  char *orig_arg = arg;
-	  struct gomp_task *parent = thr->task;
 	  for (i = 0; i < num_tasks; i++)
 	    {
 	      gomp_init_task (&task[i], parent, gomp_icv (false));
@@ -215,9 +208,6 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 		}
 	      gomp_end_task ();
 	    }
-#ifdef __nvptx__
-	  free (task);
-#endif
 	}
       else
 	for (i = 0; i < num_tasks; i++)
@@ -253,11 +243,7 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
     }
   else
     {
-#ifdef __nvptx__
-      struct gomp_task **tasks = gomp_malloc (num_tasks * sizeof (*tasks));
-#else
       struct gomp_task *tasks[num_tasks];
-#endif
       struct gomp_task *parent = thr->task;
       struct gomp_taskgroup *taskgroup = parent->taskgroup;
       char *arg;
@@ -310,9 +296,6 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	    }
 	  if ((flags & GOMP_TASK_FLAG_NOGROUP) == 0)
 	    ialias_call (GOMP_taskgroup_end) ();
-#ifdef __nvptx__
-	  free (tasks);
-#endif
 	  return;
 	}
       if (taskgroup)
@@ -337,9 +320,6 @@ GOMP_taskloop (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	  ++team->task_count;
 	  ++team->task_queued_count;
 	}
-#ifdef __nvptx__
-      free (tasks);
-#endif
       gomp_team_barrier_set_task_pending (&team->barrier);
       if (team->task_running_count + !parent->in_tied_task
 	  < team->nthreads)

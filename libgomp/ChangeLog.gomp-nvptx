@@ -1,3 +1,10 @@
+2015-12-14  Alexander Monakov  <amonakov@ispras.ru>
+
+	Revert
+	2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
+
+	* taskloop.c (GOMP_taskloop): Avoid alloca on NVPTX.
+
 2015-12-09  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/priority_queue.c: Delete.
