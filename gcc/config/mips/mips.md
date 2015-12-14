@@ -5642,6 +5642,7 @@
      be careful not to allocate a new register if we've reached the
      reload pass.  */
   if (TARGET_MIPS16
+      && !TARGET_DEBUG_D_MODE
       && optimize
       && CONST_INT_P (operands[2])
       && INTVAL (operands[2]) > 8
