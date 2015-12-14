@@ -69,6 +69,8 @@
 (define_predicate "nvptx_register_operand"
   (match_code "reg,subreg")
 {
+  if (TARGET_SOFT_STACK && op == stack_pointer_rtx)
+    return true;
   if (REG_P (op))
     return !HARD_REGISTER_P (op);
   if (GET_CODE (op) == SUBREG && MEM_P (SUBREG_REG (op)))
@@ -123,6 +125,8 @@
 (define_predicate "nvptx_nonimmediate_operand"
   (match_code "reg,subreg,mem")
 {
+  if (TARGET_SOFT_STACK && op == stack_pointer_rtx)
+    return true;
   if (REG_P (op))
     return (op != frame_pointer_rtx
 	    && op != arg_pointer_rtx
@@ -1061,31 +1065,41 @@
    (match_operand 1 "nvptx_register_operand")]
   ""
 {
+  if (TARGET_SOFT_STACK)
+    {
+      emit_move_insn (stack_pointer_rtx,
+		      gen_rtx_MINUS (Pmode, stack_pointer_rtx, operands[1]));
+      emit_insn (gen_set_softstack_insn (stack_pointer_rtx));
+      emit_move_insn (operands[0], virtual_stack_dynamic_rtx);
+      DONE;
+    }
   /* The ptx documentation specifies an alloca intrinsic (for 32 bit
      only)  but notes it is not implemented.  The assembler emits a
      confused error message.  Issue a blunt one now instead.  */
   sorry ("target cannot support alloca.");
   emit_insn (gen_nop ());
   DONE;
-  if (TARGET_ABI64)
-    emit_insn (gen_allocate_stack_di (operands[0], operands[1]));
-  else
-    emit_insn (gen_allocate_stack_si (operands[0], operands[1]));
-  DONE;
 })
 
-(define_insn "allocate_stack_<mode>"
-  [(set (match_operand:P 0 "nvptx_register_operand" "=R")
-        (unspec:P [(match_operand:P 1 "nvptx_register_operand" "R")]
-                   UNSPEC_ALLOCA))]
-  ""
-  "%.\\tcall (%0), %%alloca, (%1);")
+(define_insn "set_softstack_insn"
+  [(unspec [(match_operand 0 "nvptx_register_operand" "R")] UNSPEC_ALLOCA)]
+  "TARGET_SOFT_STACK"
+{
+  return (cfun->machine->using_softstack
+	  ? "%.\\tst.shared%t0\\t[%%fstmp2], %0;"
+	  : "");
+})
 
 (define_expand "restore_stack_block"
   [(match_operand 0 "register_operand" "")
    (match_operand 1 "register_operand" "")]
   ""
 {
+  if (TARGET_SOFT_STACK)
+    {
+      emit_move_insn (operands[0], operands[1]);
+      emit_insn (gen_set_softstack_insn (operands[0]));
+    }
   DONE;
 })
 

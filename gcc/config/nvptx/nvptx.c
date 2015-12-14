@@ -883,7 +883,7 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   HOST_WIDE_INT sz = crtl->outgoing_args_size;
   if (sz == 0)
     sz = 1;
-  if (cfun->machine->has_call_with_varargs)
+  if (!TARGET_SOFT_STACK && cfun->machine->has_call_with_varargs)
     {
       fprintf (file, "\t.reg.u%d %%outargs;\n"
 	       "\t.local.align 8 .b8 %%outargs_ar["
@@ -897,7 +897,8 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
   sz = get_frame_size ();
   if (sz == 0 && cfun->machine->has_call_with_sc)
     sz = 1;
-  if (sz > 0)
+  bool need_sp = cfun->calls_alloca || cfun->machine->has_call_with_varargs;
+  if (sz > 0 || TARGET_SOFT_STACK && need_sp)
     {
       int alignment = crtl->stack_alignment_needed / BITS_PER_UNIT;
 
@@ -923,10 +924,15 @@ nvptx_declare_function_name (FILE *file, const char *name, const_tree decl)
 	  if (alignment > keep_align)
 	    fprintf (file, "\tand.b%d %%frame, %%frame, %d;\n",
 		     bits, -alignment);
+	  fprintf (file, "\t.reg.u%d %%outargs;\n", bits);
+	  sz = crtl->outgoing_args_size;
+	  gcc_assert (sz % keep_align == 0);
+	  fprintf (file, "\tsub.u%d %%outargs, %%frame, "
+	           HOST_WIDE_INT_PRINT_DEC ";\n", bits, sz);
 	  /* crtl->is_leaf is not initialized because RA is not run.  */
 	  if (!leaf_function_p ())
 	    {
-	      fprintf (file, "\tst.shared.u%d [%%fstmp2], %%frame;\n", bits);
+	      fprintf (file, "\tst.shared.u%d [%%fstmp2], %%outargs;\n", bits);
 	      cfun->machine->using_softstack = true;
 	    }
 	  need_softstack_decl = true;
@@ -996,6 +1002,8 @@ nvptx_function_ok_for_sibcall (tree, tree)
 static rtx
 nvptx_get_drap_rtx (void)
 {
+  if (TARGET_SOFT_STACK && stack_realign_drap)
+    return arg_pointer_rtx;
   return NULL_RTX;
 }
 
