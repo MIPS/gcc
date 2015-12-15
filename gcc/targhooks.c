@@ -1499,6 +1499,23 @@ default_use_by_pieces_infrastructure_p (unsigned HOST_WIDE_INT size,
   return move_by_pieces_ninsns (size, alignment, max_size + 1) < ratio;
 }
 
+void
+default_print_prolog_pad (FILE *file, unsigned HOST_WIDE_INT pad_size,
+			  bool record_p)
+{
+  if (record_p)
+    fprintf (file, "1:");
+  for (int i = 0; i < pad_size; ++i)
+    fprintf (file, "\tnop\n");
+  if (record_p)
+    {
+      fprintf (file, "\t.section __prolog_pads_loc, \"a\",@progbits\n");
+      fprintf (file, "\t.quad 1b\n");
+      fprintf (file, "\t.long %u\n", pad_size);
+      fprintf (file, "\t.previous\n");
+    }
+}
+
 bool
 default_profile_before_prologue (void)
 {

@@ -1765,6 +1765,22 @@ final_start_function (rtx_insn *first, FILE *file,
 
   high_block_linenum = high_function_linenum = last_linenum;
 
+  tree prolog_pad_attr
+    = lookup_attribute ("prolog_pad", TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl)));
+  if (prolog_pad_attr)
+    {
+      tree prolog_pad_value = TREE_VALUE (TREE_VALUE (prolog_pad_attr));
+      unsigned HOST_WIDE_INT pad_size = 0;
+
+      if (tree_fits_uhwi_p (prolog_pad_value))
+	pad_size = tree_to_uhwi (prolog_pad_value);
+      else
+	gcc_unreachable ();
+
+      if (pad_size > 0)
+	targetm.asm_out.print_prolog_pad (file, pad_size, true);
+    }
+
   if (flag_sanitize & SANITIZE_ADDRESS)
     asan_function_start ();
 

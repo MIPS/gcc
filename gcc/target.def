@@ -288,6 +288,12 @@ hidden, protected or internal visibility as specified by @var{visibility}.",
  void, (tree decl, int visibility),
  default_assemble_visibility)
 
+DEFHOOK
+(print_prolog_pad,
+ "Generate prologue pad",
+ void, (FILE *file, unsigned HOST_WIDE_INT pad_size, bool record_p),
+ default_print_prolog_pad)
+
 /* Output the assembler code for entry to a function.  */
 DEFHOOK
 (function_prologue,

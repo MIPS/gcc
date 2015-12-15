@@ -393,6 +393,7 @@ static tree handle_designated_init_attribute (tree *, tree, tree, int, bool *);
 static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
 static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 static tree handle_bnd_instrument (tree *, tree, tree, int, bool *);
+static tree handle_prolog_pad_attribute (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -833,6 +834,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_bnd_legacy, false },
   { "bnd_instrument",         0, 0, true, false, false,
 			      handle_bnd_instrument, false },
+  { "prolog_pad",	      1, 1, false, true, true,
+			      handle_prolog_pad_attribute, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -9660,6 +9663,16 @@ handle_designated_init_attribute (tree *node, tree name, tree, int,
       error ("%qE attribute is only valid on %<struct%> type", name);
       *no_add_attrs = true;
     }
+  return NULL_TREE;
+}
+
+static tree
+handle_prolog_pad_attribute (tree *, tree name, tree, int,
+			     bool *)
+{
+  warning (OPT_Wattributes,
+	   "%qE attribute is used", name);
+
   return NULL_TREE;
 }
 
