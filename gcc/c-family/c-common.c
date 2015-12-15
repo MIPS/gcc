@@ -9250,7 +9250,7 @@ handle_tm_decl_attribute (tree *node, tree name, tree args,
 		    "%<transaction_safe_dynamic%> may only be specified for "
 		    "a virtual function");
 	*no_add_attrs = false;
-	decl_attributes (&TREE_TYPE (*node),
+	type_attributes (&TREE_TYPE (*node),
 			 build_tree_list (get_identifier ("transaction_safe"),
 					  NULL_TREE),
 			 0);
