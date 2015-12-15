@@ -6347,41 +6347,15 @@ merge_dllimport_decl_attributes (tree old, tree new_tree)
   return a;
 }
 
-/* Handle a "dllimport" or "dllexport" attribute; arguments as in
+/* Handle a "dllimport" or "dllexport" attribute for decls; arguments as in
    struct attribute_spec.handler.  */
 
 tree
-handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
-		      bool *no_add_attrs)
+handle_dll_decl_attribute (tree * pnode, tree name, tree args, int flags,
+			   bool *no_add_attrs)
 {
   tree node = *pnode;
   bool is_dllimport;
-
-  /* These attributes may apply to structure and union types being created,
-     but otherwise should pass to the declaration involved.  */
-  if (!DECL_P (node))
-    {
-      if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
-		   | (int) ATTR_FLAG_ARRAY_NEXT))
-	{
-	  *no_add_attrs = true;
-	  return tree_cons (name, args, NULL_TREE);
-	}
-      if (TREE_CODE (node) == RECORD_TYPE
-	  || TREE_CODE (node) == UNION_TYPE)
-	{
-	  node = TYPE_NAME (node);
-	  if (!node)
-	    return NULL_TREE;
-	}
-      else
-	{
-	  warning (OPT_Wattributes, "%qE attribute ignored",
-		   name);
-	  *no_add_attrs = true;
-	  return NULL_TREE;
-	}
-    }
 
   if (TREE_CODE (node) != FUNCTION_DECL
       && TREE_CODE (node) != VAR_DECL
@@ -6482,6 +6456,39 @@ handle_dll_attribute (tree * pnode, tree name, tree args, int flags,
     }
 
   return NULL_TREE;
+}
+
+
+/* Handle a "dllimport" or "dllexport" attribute for types; arguments as in
+   struct attribute_spec.handler.  */
+
+tree
+handle_dll_type_attribute (tree * pnode, tree name, tree args, int flags,
+			   bool *no_add_attrs)
+{
+   tree node = *pnode;
+
+  /* These attributes may apply to structure and union types being created,
+     but otherwise should pass to the declaration involved.  */
+  if (flags & ((int) ATTR_FLAG_DECL_NEXT | (int) ATTR_FLAG_FUNCTION_NEXT
+	       | (int) ATTR_FLAG_ARRAY_NEXT))
+    {
+      *no_add_attrs = true;
+      return tree_cons (name, args, NULL_TREE);
+    }
+
+  if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+
+  if (!TYPE_NAME (node))
+    return NULL_TREE;
+
+  return handle_dll_decl_attribute (&TYPE_NAME (node), name, args, flags,
+				    no_add_attrs);
 }
 
 #endif /* TARGET_DLLIMPORT_DECL_ATTRIBUTES  */

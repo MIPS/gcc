@@ -112,44 +112,46 @@ static tree fake_attribute_handler      (tree *, tree, tree, int, bool *);
    this minimal set of attributes to accommodate the needs of builtins.  */
 const struct attribute_spec gnat_internal_attribute_table[] =
 {
-  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-       affects_type_identity } */
+  /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+       type_handler, affects_type_identity } */
   { "const",        0, 0,  true,  false, false, handle_const_attribute,
-    false },
+    NULL, false },
   { "nothrow",      0, 0,  true,  false, false, handle_nothrow_attribute,
-    false },
+    NULL, false },
   { "pure",         0, 0,  true,  false, false, handle_pure_attribute,
-    false },
+    NULL, false },
   { "no vops",      0, 0,  true,  false, false, handle_novops_attribute,
-    false },
-  { "nonnull",      0, -1, false, true,  true,  handle_nonnull_attribute,
-    false },
-  { "sentinel",     0, 1,  false, true,  true,  handle_sentinel_attribute,
-    false },
+    NULL, false },
+  { "nonnull",      0, -1, false, true,  true,  NULL,
+    handle_nonnull_attribute, false },
+  { "sentinel",     0, 1,  false, true,  true,  NULL,
+    handle_sentinel_attribute, false },
   { "noreturn",     0, 0,  true,  false, false, handle_noreturn_attribute,
-    false },
+    NULL, false },
   { "leaf",         0, 0,  true,  false, false, handle_leaf_attribute,
-    false },
+    NULL, false },
   { "always_inline",0, 0,  true,  false, false, handle_always_inline_attribute,
-    false },
+    NULL, false },
   { "malloc",       0, 0,  true,  false, false, handle_malloc_attribute,
-    false },
-  { "type generic", 0, 0,  false, true, true, handle_type_generic_attribute,
-    false },
+    NULL, false },
+  { "type generic", 0, 0,  false, true, true, NULL,
+    handle_type_generic_attribute, false },
 
-  { "vector_size",  1, 1,  false, true, false,  handle_vector_size_attribute,
-    false },
-  { "vector_type",  0, 0,  false, true, false,  handle_vector_type_attribute,
-    false },
-  { "may_alias",    0, 0, false, true, false, NULL, false },
+  { "vector_size",  1, 1,  false, true, false, NULL,
+    handle_vector_size_attribute, false },
+  { "vector_type",  0, 0,  false, true, false, NULL,
+    handle_vector_type_attribute, false },
+  { "may_alias",    0, 0, false, true, false, NULL, NULL, false },
 
   /* ??? format and format_arg are heavy and not supported, which actually
      prevents support for stdio builtins, which we however declare as part
      of the common builtins.def contents.  */
-  { "format",     3, 3,  false, true,  true,  fake_attribute_handler, false },
-  { "format_arg", 1, 1,  false, true,  true,  fake_attribute_handler, false },
+  { "format",     3, 3,  false, true,  true, NULL,
+    fake_attribute_handler, false },
+  { "format_arg", 1, 1,  false, true,  true, NULL,
+    fake_attribute_handler, false },
 
-  { NULL,         0, 0, false, false, false, NULL, false }
+  { NULL,         0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Associates a GNAT tree node to a GCC tree node. It is used in
@@ -1625,7 +1627,7 @@ finish_record_type (tree record_type, tree field_list, int rep_level,
 	 efficient packing in almost all cases.  */
 #ifdef TARGET_MS_BITFIELD_LAYOUT
       if (TARGET_MS_BITFIELD_LAYOUT && TYPE_PACKED (record_type))
-	decl_attributes (&record_type,
+	type_attributes (&record_type,
 			 tree_cons (get_identifier ("gcc_struct"),
 				    NULL_TREE, NULL_TREE),
 			 ATTR_FLAG_TYPE_IN_PLACE);
@@ -2660,8 +2662,12 @@ process_attributes (tree *node, struct attrib **attr_list, bool in_place,
       {
       case ATTR_MACHINE_ATTRIBUTE:
 	Sloc_to_locus (Sloc (gnat_node), &input_location);
-	decl_attributes (node, tree_cons (attr->name, attr->args, NULL_TREE),
-			 in_place ? ATTR_FLAG_TYPE_IN_PLACE : 0);
+	if (TYPE_P (*node))
+	  type_attributes (node, tree_cons (attr->name, attr->args, NULL_TREE),
+			   in_place ? ATTR_FLAG_TYPE_IN_PLACE : 0);
+	else
+	  decl_attributes (node, tree_cons (attr->name, attr->args, NULL_TREE),
+			   in_place ? ATTR_FLAG_TYPE_IN_PLACE : 0);
 	break;
 
       case ATTR_LINK_ALIAS:
