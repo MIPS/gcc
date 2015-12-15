@@ -369,7 +369,8 @@ static tree handle_returns_twice_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 					     bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
-static tree handle_tm_attribute (tree *, tree, tree, int, bool *);
+static tree handle_tm_decl_attribute (tree *, tree, tree, int, bool *);
+static tree handle_tm_type_attribute (tree *, tree, tree, int, bool *);
 static tree handle_tm_wrap_attribute (tree *, tree, tree, int, bool *);
 static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
 static tree handle_deprecated_type_attribute (tree *, tree, tree, int,
@@ -743,19 +744,25 @@ const struct attribute_spec c_common_attribute_table[] =
   { "pure",                   0, 0, true,  false, false,
 			      handle_pure_attribute, NULL, false },
   { "transaction_callable",   0, 0, false, true,  false,
-			      NULL, handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   { "transaction_unsafe",     0, 0, false, true,  false,
-			      NULL, handle_tm_attribute, true },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, true },
   { "transaction_safe",       0, 0, false, true,  false,
-			      NULL, handle_tm_attribute, true },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, true },
   { "transaction_safe_dynamic", 0, 0, true, false,  false,
-			      NULL, handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   { "transaction_may_cancel_outer", 0, 0, false, true, false,
-			      NULL, handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   /* ??? These two attributes didn't make the transition from the
      Intel language document to the multi-vendor language document.  */
   { "transaction_pure",       0, 0, false, true,  false,
-			      NULL, handle_tm_attribute, false },
+			      handle_tm_decl_attribute,
+			      handle_tm_type_attribute, false },
   { "transaction_wrap",       1, 1, true,  false,  false,
 			     handle_tm_wrap_attribute, NULL, false },
   /* For internal use (marking of builtins) only.  The name contains space
@@ -9225,7 +9232,49 @@ find_tm_attribute (tree list)
    processing given by function_type_required.  */
 
 static tree
-handle_tm_attribute (tree *node, tree name, tree args,
+handle_tm_decl_attribute (tree *node, tree name, tree args,
+		     int flags, bool *no_add_attrs)
+{
+  /* Only one path adds the attribute; others don't.  */
+  *no_add_attrs = true;
+
+  switch (TREE_CODE (*node))
+    {
+    case FUNCTION_DECL:
+      {
+	/* transaction_safe_dynamic goes on the FUNCTION_DECL, but we also
+	   want to set transaction_safe on the type.  */
+	gcc_assert (is_attribute_p ("transaction_safe_dynamic", name));
+	if (!TYPE_P (DECL_CONTEXT (*node)))
+	  error_at (DECL_SOURCE_LOCATION (*node),
+		    "%<transaction_safe_dynamic%> may only be specified for "
+		    "a virtual function");
+	*no_add_attrs = false;
+	decl_attributes (&TREE_TYPE (*node),
+			 build_tree_list (get_identifier ("transaction_safe"),
+					  NULL_TREE),
+			 0);
+	break;
+      }
+
+    default:
+      /* If a function is next, pass it on to be tried next.  */
+      if (flags & (int) ATTR_FLAG_FUNCTION_NEXT)
+	return tree_cons (name, args, NULL);
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle the TM attributes; arguments as in struct attribute_spec.handler.
+   Here we accept only function types, and verify that none of the other
+   function TM attributes are also applied.  */
+/* ??? We need to accept class types for C++, but not C.  This greatly
+   complicates this function, since we can no longer rely on the extra
+   processing given by function_type_required.  */
+
+static tree
+handle_tm_type_attribute (tree *node, tree name, tree args,
 		     int flags, bool *no_add_attrs)
 {
   /* Only one path adds the attribute; others don't.  */
@@ -9252,23 +9301,6 @@ handle_tm_attribute (tree *node, tree name, tree args,
 	  *no_add_attrs = false;
       }
       break;
-
-    case FUNCTION_DECL:
-      {
-	/* transaction_safe_dynamic goes on the FUNCTION_DECL, but we also
-	   want to set transaction_safe on the type.  */
-	gcc_assert (is_attribute_p ("transaction_safe_dynamic", name));
-	if (!TYPE_P (DECL_CONTEXT (*node)))
-	  error_at (DECL_SOURCE_LOCATION (*node),
-		    "%<transaction_safe_dynamic%> may only be specified for "
-		    "a virtual function");
-	*no_add_attrs = false;
-	decl_attributes (&TREE_TYPE (*node),
-			 build_tree_list (get_identifier ("transaction_safe"),
-					  NULL_TREE),
-			 0);
-	break;
-      }
 
     case POINTER_TYPE:
       {
