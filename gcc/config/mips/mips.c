@@ -16362,10 +16362,9 @@ mips_builtin_decl (unsigned int code, bool initialize_p ATTRIBUTE_UNUSED)
 /* Implement TARGET_VECTORIZE_BUILTIN_VECTORIZED_FUNCTION.  */
 
 static tree
-mips_builtin_vectorized_function (tree fndecl, tree type_out, tree type_in)
+mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
 {
   machine_mode in_mode, out_mode;
-  enum built_in_function fn = DECL_FUNCTION_CODE (fndecl);
   int in_n, out_n;
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
