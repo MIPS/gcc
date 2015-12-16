@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-low.h"
 #include "gimplify.h"
 #include "stor-layout.h"
+#include "target.h"
 #include "varasm.h"
 #include "timevar.h"
 #include "tree-iterator.h"
@@ -62,6 +63,8 @@ static tree upc_shared_addr (location_t, tree);
 static tree upc_shared_addr_rep (location_t, tree);
 static tree upc_simplify_shared_ref (location_t, tree);
 static void upc_strip_useless_generic_pts_cvt (tree *);
+static tree upc_create_static_var (tree, const char *);
+static void upc_build_init_func (tree);
 static void upc_write_init_func (void);
 
 /* Given a shared variable's VAR_DECL node, map to another
@@ -1318,6 +1321,81 @@ upc_genericize_function (tree fndecl)
     upc_genericize_function (cgn->decl);
 }
 
+/* Create a static variable of type 'type'.
+   This routine mimics the behavior of 'objc_create_temporary_var'
+   with the change that it creates a static (file scoped) variable.  */
+
+static tree
+upc_create_static_var (tree type, const char *name)
+{
+  tree id = get_identifier (name);
+  tree decl = build_decl (input_location, VAR_DECL, id, type);
+  TREE_USED (decl) = 1;
+  TREE_STATIC (decl) = 1;
+  TREE_READONLY (decl) = 1;
+  TREE_THIS_VOLATILE (decl) = 0;
+  TREE_ADDRESSABLE (decl) = 0;
+  DECL_PRESERVE_P (decl) = 1;
+  DECL_ARTIFICIAL (decl) = 1;
+  DECL_EXTERNAL (decl) = 0;
+  DECL_IGNORED_P (decl) = 1;
+  DECL_CONTEXT (decl) = NULL;
+  pushdecl_top_level (decl);
+  return decl;
+}
+
+/* Build a function that will be called by the UPC runtime
+   to initialize UPC shared variables and/or to initialize
+   "C" pointer-to-shared variables that reference the address
+   of UPC shared variables.
+
+   STMT_LIST is a list of initialization statements.  */
+
+static void
+upc_build_init_func (tree stmt_list)
+{
+  tree init_func_id = get_identifier (UPC_INIT_DECLS_FUNC);
+  struct c_declspecs *specs;
+  struct c_typespec void_spec;
+  struct c_declarator *init_func_decl;
+  struct c_arg_info args;
+  tree init_func, fn_body;
+  tree init_func_ptr_type, init_func_addr;
+  location_t loc = input_location;
+  int decl_ok;
+  memset (&void_spec, '\0', sizeof (struct c_typespec));
+  void_spec.kind = ctsk_typedef;
+  void_spec.spec = lookup_name (get_identifier ("void"));
+  specs = declspecs_add_type (loc, build_null_declspecs (), void_spec);
+  init_func_decl = build_id_declarator (init_func_id);
+  init_func_decl->id_loc = loc;
+  memset (&args, '\0', sizeof (struct c_arg_info));
+  args.types = tree_cons (NULL_TREE, void_type_node, NULL_TREE);
+  init_func_decl = build_function_declarator (&args, init_func_decl);
+  decl_ok = start_function (specs, init_func_decl, NULL_TREE);
+  gcc_assert (decl_ok);
+  store_parm_decls ();
+  init_func = current_function_decl;
+  DECL_SOURCE_LOCATION (current_function_decl) = loc;
+  TREE_PUBLIC (current_function_decl) = 0;
+  TREE_USED (current_function_decl) = 1;
+  fn_body = c_begin_compound_stmt (true);
+  append_to_statement_list_force (stmt_list, &fn_body);
+  fn_body = c_end_compound_stmt (loc, fn_body, true);
+  add_stmt (fn_body);
+  finish_function ();
+  gcc_assert (DECL_RTL (init_func));
+  mark_decl_referenced (init_func);
+  DECL_PRESERVE_P (init_func) = 1;
+  init_func_ptr_type = build_pointer_type (TREE_TYPE (init_func));
+  init_func_addr = upc_create_static_var (init_func_ptr_type,
+                                          "__upc_init_func_addr");
+  DECL_INITIAL (init_func_addr) = build_unary_op (loc, ADDR_EXPR,
+                                                  init_func, 0);
+  set_decl_section_name (init_func_addr,
+                         targetm.upc.init_array_section_name ());
+}
+
 /* If the accumulated UPC initialization statement list is
    not empty, then build (and define) the per-file UPC
    global initialization function.  */
@@ -1328,7 +1406,7 @@ upc_write_init_func (void)
   if (upc_init_stmt_list)
     {
       int pupc_mode = disable_pupc_mode ();
-      lang_hooks.upc.build_init_func (upc_init_stmt_list);
+      upc_build_init_func (upc_init_stmt_list);
       set_pupc_mode (pupc_mode);
       upc_init_stmt_list = NULL;
     }

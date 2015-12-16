@@ -21,8 +21,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #ifndef GCC_C_UPC_LANG_H
 #define GCC_C_UPC_LANG_H 1
-extern void upc_pts_init_type (void);
-extern void upc_build_init_func (tree);
 extern void upc_toggle_keywords (bool);
 extern bool upc_lang_layout_decl_p (tree, tree);
 extern void upc_lang_layout_decl (tree, tree);

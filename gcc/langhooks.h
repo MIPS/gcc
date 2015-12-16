@@ -274,13 +274,6 @@ struct lang_hooks_for_upc
   /* Enable/Disable UPC keywords.  */
   void (*toggle_keywords) (bool);
 
-  /* Define the UPC pointer-to-shared representation type.  */
-  void (*pts_init_type) (void);
-
-  /* Build a function that will be called by the UPC runtime
-     to initialize UPC shared variables.  */
-  void (*build_init_func) (tree);
-
   /* For the current compilation unit, write */
   void (*write_global_declarations) (void);
 };

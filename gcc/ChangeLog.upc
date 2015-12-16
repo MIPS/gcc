@@ -1,3 +1,24 @@
+2015-12-16  Gary Funck  <gary@intrepid.com>
+
+	* c/c-lang.c (c_language): Delete references to
+	LANG_HOOKS_UPC_PTS_INIT_TYPE and LANG_HOOKS_UPC_BUILD_INIT_FUNC.
+	* c/c-upc-lang.c: Delete #include "c-family/c-upc-pts.h".
+	(upc_init_array_section): Delete, un-used.
+	(upc_create_static_var): Move to c/upc-low.c.
+	(upc_pts_init_type): Move to c/c-upc-pts-ops.c.
+	(upc_build_init_func): Move to c/upc-low.c.
+	* c/c-upc-lang.h (upc_pts_init_type): Delete prototype.
+	(upc_build_init_func): Ditto.
+	* c/c-upc-low.c (upc_create_static_var): Move here.
+	(upc_build_init_func): Ditto.
+	(upc_write_init_func): Adjust call to upc_build_init_func().
+	* c/c-upc-pts-ops.c (upc_pts_init_type): Move to here.
+	(upc_pts_init): Adjust call to upc_pts_init_type ().
+	* langhooks-def.h (LANG_HOOKS_UPC_PTS_INIT_TYPE): Delete.
+	(LANG_HOOKS_UPC_BUILD_INIT_FUNC): Delete.
+	* langhooks.h (lang_hooks_for_upc): Delete pts_init_type() hook.
+	Delete build_init_func() hook.
+
 2015-12-14  Gary Funck  <gary@intrepid.com>
 
 	Merge trunk version 231609 into gupc branch.
