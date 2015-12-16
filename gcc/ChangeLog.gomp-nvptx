@@ -1,3 +1,8 @@
+2015-12-16  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx.c (write_omp_entry): Work around failure on sm_5x
+	devices by loading ...$impl function address outside of call sequence.
+
 2015-12-14  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/nvptx.c (nvptx_declare_function_name): Emit %outargs

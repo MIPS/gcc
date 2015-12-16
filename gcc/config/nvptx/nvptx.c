@@ -789,11 +789,13 @@ write_omp_entry (std::stringstream &s, const char *name, const char *orig)
   s << ".visible .entry " << name << "(.param" << sfx << " %in_ar1)\n";
   s << "{\n";
   s << "\t.reg" << sfx << " %ar1;\n";
+  s << "\t.reg" << sfx << " %r1;\n";
   s << "\tld.param" << sfx << " %ar1, [%in_ar1];\n";
+  s << "\tmov" << sfx << " %r1, " << orig << ";\n";
   s << "\t{\n";
   s << "\t\t.param" << sfx << " %out_arg0;\n";
   s << "\t\t.param" << sfx << " %out_arg1;\n";
-  s << "\t\tst.param" << sfx << " [%out_arg0], " << orig << ";\n";
+  s << "\t\tst.param" << sfx << " [%out_arg0], %r1;\n";
   s << "\t\tst.param" << sfx << " [%out_arg1], %ar1;\n";
   s << "\t\tcall.uni gomp_nvptx_main, (%out_arg0, %out_arg1);\n";
   s << "\t}\n";
