@@ -1588,9 +1588,11 @@ restore_costs_from_conflicts (ira_allocno_t a, int hardreg)
 		prev = curr;
 	    }
 	  /* Propagate the disfavor of hardreg from conflict_a to the
-	     allocnos connecting with conflict_a via copies.  */
+	     allocnos connecting with conflict_a via copies.
+	     Note: once the hardreg is assigned to a, it will not be
+	     changed, so we don't need to record this change. */
 	  update_costs_from_allocno (conflict_a, hardreg,
-				     1, false, true, true);
+				     1, false, false, true);
 	}
     }
 }
@@ -1601,7 +1603,7 @@ restore_costs_from_conflicts (ira_allocno_t a, int hardreg)
    update increases chances to remove some copies.  */
 static void
 update_conflict_hard_regno_costs (int *costs, enum reg_class aclass,
-				  bool decr_p)
+				  bool decr_p, bool conflict)
 {
   int i, cost, class_size, freq, mult, div, divisor;
   int index, hard_regno;
@@ -1682,7 +1684,16 @@ update_conflict_hard_regno_costs (int *costs, enum reg_class aclass,
 		cont_p = true;
 		if (decr_p)
 		  cost = -cost;
-		costs[index] += cost;
+		/* conflict being true indicates this is updating costs[]
+		   according to preferences of allocnos connected by copies
+		   to the conflict allocnos.
+		   The fact conflict allocno disfavors hard_regno doesn't
+		   necessarily mean current allocno should prefer hard_regno
+		   (actually only a little), so we update costs[] only
+		   when conflict allocno prefers hard_regno, .i.e, when
+		   conflict_costs[i] < 0. */
+		if (conflict && conflict_costs [i] < 0)
+		  costs[index] += cost;
 	      }
 	  }
 	/* Probably 5 hops will be enough.  */
@@ -1934,7 +1945,6 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 		}
 	    }
 	  else if (! retry_p
-		   && ! ALLOCNO_COLOR_DATA (conflict_a)->may_be_spilled_p
 		   /* Don't process the conflict allocno twice.  */
 		   && (ALLOCNO_COLOR_DATA (conflict_a)->last_process
 		       != curr_allocno_process))
@@ -1967,7 +1977,13 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 					      ->new_conflict_hard_regs,
 					      hard_regno))
 		      continue;
-		    full_costs[j] -= conflict_costs[k];
+		    /* The fact conflict_a disfavors hard_regno doesn't
+		       necessarily mean current allocno should prefer
+		       hard_regno so much (only a little), so we only
+		       update full_costs[] when conflict_a prefers
+		       hard_regno, .i.e, when conflict_costs[k] < 0. */
+		    if (conflict_costs[k] < 0)
+		      full_costs[j] -= conflict_costs[k];
 		  }
 	      queue_update_cost (conflict_a, NULL, COST_HOP_DIVISOR);
 
@@ -1977,7 +1993,7 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
   if (! retry_p)
     /* Take into account preferences of allocnos connected by copies to
        the conflict allocnos.  */
-    update_conflict_hard_regno_costs (full_costs, aclass, true);
+    update_conflict_hard_regno_costs (full_costs, aclass, true, true);
 
   /* Take preferences of allocnos connected by copies into
      account.  */
@@ -1985,7 +2001,7 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
     {
       start_update_cost ();
       queue_update_cost (a, NULL,  COST_HOP_DIVISOR);
-      update_conflict_hard_regno_costs (full_costs, aclass, false);
+      update_conflict_hard_regno_costs (full_costs, aclass, false, false);
     }
   min_cost = min_full_cost = INT_MAX;
   /* We don't care about giving callee saved registers to allocnos no
