@@ -544,7 +544,7 @@ bool
 sem_function::param_used_p (unsigned int i)
 {
   if (ipa_node_params_sum == NULL)
-    return false;
+    return true;
 
   struct ipa_node_params *parms_info = IPA_NODE_REF (get_node ());
 
@@ -1352,10 +1352,17 @@ sem_function::merge (sem_item *alias_item)
   gcc_assert (alias->icf_merged || remove || redirect_callers);
   original->icf_merged = true;
 
-  /* Inform the inliner about cross-module merging.  */
-  if ((original->lto_file_data || alias->lto_file_data)
-      && original->lto_file_data != alias->lto_file_data)
-    local_original->merged = original->merged = true;
+  /* We use merged flag to track cases where COMDAT function is known to be
+     compatible its callers.  If we merged in non-COMDAT, we need to give up
+     on this optimization.  */
+  if (original->merged_comdat && !alias->merged_comdat)
+    {
+      if (dump_file)
+	fprintf (dump_file, "Dropping merged_comdat flag.\n\n");
+      if (local_original)
+        local_original->merged_comdat = false;
+      original->merged_comdat = false;
+    }
 
   if (remove)
     {
@@ -1543,11 +1550,8 @@ sem_item::add_type (const_tree type, inchash::hash &hstate)
     }
 
   type = TYPE_MAIN_VARIANT (type);
-  if (TYPE_CANONICAL (type))
-    type = TYPE_CANONICAL (type);
 
-  if (!AGGREGATE_TYPE_P (type))
-    hstate.add_int (TYPE_MODE (type));
+  hstate.add_int (TYPE_MODE (type));
 
   if (TREE_CODE (type) == COMPLEX_TYPE)
     {
@@ -1574,6 +1578,7 @@ sem_item::add_type (const_tree type, inchash::hash &hstate)
     }
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
+      gcc_checking_assert (COMPLETE_TYPE_P (type));
       hashval_t *val = optimizer->m_type_hash_cache.get (type);
 
       if (!val)

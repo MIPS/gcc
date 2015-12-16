@@ -19,11 +19,27 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define USES_ISL
+
 #include "config.h"
 
 #ifdef HAVE_isl
-/* Workaround for GMP 5.1.3 bug, see PR56019.  */
-#include <stddef.h>
+
+#include "system.h"
+#include "coretypes.h"
+#include "backend.h"
+#include "tree.h"
+#include "gimple.h"
+#include "cfghooks.h"
+#include "diagnostic-core.h"
+#include "fold-const.h"
+#include "gimple-iterator.h"
+#include "tree-ssa-loop.h"
+#include "cfgloop.h"
+#include "tree-data-ref.h"
+#include "pretty-print.h"
+#include "gimple-pretty-print.h"
+#include "tree-dump.h"
 
 #include <isl/constraint.h>
 #include <isl/set.h>
@@ -33,30 +49,9 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/ilp.h>
 #include <isl/aff.h>
 #include <isl/val.h>
-
-/* Since ISL-0.13, the extern is in val_gmp.h.  */
-#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
-extern "C" {
-#endif
 #include <isl/val_gmp.h>
-#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
-}
-#endif
 
-#include "system.h"
-#include "coretypes.h"
-#include "backend.h"
-#include "tree.h"
-#include "gimple.h"
-#include "cfghooks.h"
-#include "gimple-pretty-print.h"
-#include "diagnostic-core.h"
-#include "fold-const.h"
-#include "gimple-iterator.h"
-#include "tree-ssa-loop.h"
-#include "cfgloop.h"
-#include "tree-data-ref.h"
-#include "graphite-poly.h"
+#include "graphite.h"
 
 #define OPENSCOP_MAX_STRING 256
 
@@ -121,7 +116,7 @@ apply_poly_transforms (scop_p scop)
   if (flag_loop_parallelize_all)
     transform_done = true;
 
-  if (flag_loop_optimize_isl)
+  if (flag_loop_nest_optimize)
     transform_done |= optimize_isl (scop);
 
   return transform_done;
@@ -146,6 +141,17 @@ new_poly_dr (poly_bb_p pbb, gimple *stmt, enum poly_dr_type type,
   pdr->subscript_sizes = subscript_sizes;
   PDR_TYPE (pdr) = type;
   PBB_DRS (pbb).safe_push (pdr);
+
+  if (dump_file)
+    {
+      fprintf (dump_file, "Converting dr: ");
+      print_pdr (dump_file, pdr);
+      fprintf (dump_file, "To polyhedral representation:\n");
+      fprintf (dump_file, "  - access functions: ");
+      print_isl_map (dump_file, acc);
+      fprintf (dump_file, "  - subscripts: ");
+      print_isl_set (dump_file, subscript_sizes);
+    }
 }
 
 /* Free polyhedral data reference PDR.  */
@@ -289,28 +295,15 @@ scop_p
 new_scop (edge entry, edge exit)
 {
   sese_info_p region = new_sese_info (entry, exit);
-  scop_p scop = XNEW (struct scop);
+  scop_p s;
+  s = XNEW (struct scop);
 
-  scop->param_context = NULL;
-  scop->must_raw = NULL;
-  scop->may_raw = NULL;
-  scop->must_raw_no_source = NULL;
-  scop->may_raw_no_source = NULL;
-  scop->must_war = NULL;
-  scop->may_war = NULL;
-  scop->must_war_no_source = NULL;
-  scop->may_war_no_source = NULL;
-  scop->must_waw = NULL;
-  scop->may_waw = NULL;
-  scop->must_waw_no_source = NULL;
-  scop->may_waw_no_source = NULL;
-  scop_set_region (scop, region);
-  scop->original_schedule = NULL;
-  scop->pbbs.create (3);
-  scop->poly_scop_p = false;
-  scop->drs.create (3);
-
-  return scop;
+  s->param_context = NULL;
+  scop_set_region (s, region);
+  s->pbbs.create (3);
+  s->drs.create (3);
+  s->dependence = NULL;
+  return s;
 }
 
 /* Deletes SCOP.  */
@@ -331,19 +324,8 @@ free_scop (scop_p scop)
   scop->drs.release ();
 
   isl_set_free (scop->param_context);
-  isl_union_map_free (scop->must_raw);
-  isl_union_map_free (scop->may_raw);
-  isl_union_map_free (scop->must_raw_no_source);
-  isl_union_map_free (scop->may_raw_no_source);
-  isl_union_map_free (scop->must_war);
-  isl_union_map_free (scop->may_war);
-  isl_union_map_free (scop->must_war_no_source);
-  isl_union_map_free (scop->may_war_no_source);
-  isl_union_map_free (scop->must_waw);
-  isl_union_map_free (scop->may_waw);
-  isl_union_map_free (scop->must_waw_no_source);
-  isl_union_map_free (scop->may_waw_no_source);
-  isl_union_map_free (scop->original_schedule);
+  isl_union_map_free (scop->dependence);
+  scop->dependence = NULL;
   XDELETE (scop);
 }
 

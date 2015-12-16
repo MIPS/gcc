@@ -301,8 +301,6 @@ sese_insert_phis_for_liveouts (sese_info_p region, basic_block bb,
   bitmap_iterator bi;
   bitmap liveouts = BITMAP_ALLOC (NULL);
 
-  update_ssa (TODO_update_ssa);
-
   sese_build_liveouts (region, liveouts);
 
   EXECUTE_IF_SET_IN_BITMAP (liveouts, 0, i, bi)
@@ -310,8 +308,6 @@ sese_insert_phis_for_liveouts (sese_info_p region, basic_block bb,
       sese_add_exit_phis_edge (bb, ssa_name (i), false_e, true_e);
 
   BITMAP_FREE (liveouts);
-
-  update_ssa (TODO_update_ssa);
 }
 
 /* Returns the outermost loop in SCOP that contains BB.  */
@@ -353,6 +349,38 @@ outermost_loop_in_sese (sese_l &region, basic_block bb)
 
   gcc_assert (nest);
   return nest;
+}
+
+/* Returns the first successor edge of BB with EDGE_TRUE_VALUE flag set.  */
+
+edge
+get_true_edge_from_guard_bb (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & EDGE_TRUE_VALUE)
+      return e;
+
+  gcc_unreachable ();
+  return NULL;
+}
+
+/* Returns the first successor edge of BB with EDGE_TRUE_VALUE flag cleared.  */
+
+edge
+get_false_edge_from_guard_bb (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (!(e->flags & EDGE_TRUE_VALUE))
+      return e;
+
+  gcc_unreachable ();
+  return NULL;
 }
 
 /* Sets the false region of an IF_REGION to REGION.  */
@@ -581,6 +609,8 @@ scalar_evolution_in_region (sese_l &region, loop_p loop, tree t)
 
   if (TREE_CODE (t) != SSA_NAME
       || loop_in_sese_p (loop, region))
+    /* FIXME: we would need instantiate SCEV to work on a region, and be more
+       flexible wrt. memory loads that may be invariant in the region.  */
     return instantiate_scev (before, loop,
 			     analyze_scalar_evolution (loop, t));
 

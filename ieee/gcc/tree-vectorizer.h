@@ -107,6 +107,8 @@ struct _slp_tree {
   unsigned int vec_stmts_size;
   /* Whether the scalar computations use two different operators.  */
   bool two_operators;
+  /* The DEF type of this node.  */
+  enum vect_def_type def_type;
 };
 
 
@@ -139,6 +141,7 @@ typedef struct _slp_instance {
 #define SLP_TREE_NUMBER_OF_VEC_STMTS(S)          (S)->vec_stmts_size
 #define SLP_TREE_LOAD_PERMUTATION(S)             (S)->load_permutation
 #define SLP_TREE_TWO_OPERATORS(S)		 (S)->two_operators
+#define SLP_TREE_DEF_TYPE(S)			 (S)->def_type
 
 
 
@@ -518,11 +521,13 @@ typedef struct _stmt_vec_info {
   tree dr_step;
   tree dr_aligned_to;
 
-  /* For loop PHI nodes, the evolution part of it.  This makes sure
+  /* For loop PHI nodes, the base and evolution part of it.  This makes sure
      this information is still available in vect_update_ivs_after_vectorizer
      where we may not be able to re-analyze the PHI nodes evolution as
      peeling for the prologue loop can make it unanalyzable.  The evolution
-     part is still correct though.  */
+     part is still correct after peeling, but the base may have changed from
+     the version here.  */
+  tree loop_phi_evolution_base_unchanged;
   tree loop_phi_evolution_part;
 
   /* Used for various bookkeeping purposes, generally holding a pointer to
@@ -645,6 +650,7 @@ STMT_VINFO_BB_VINFO (stmt_vec_info stmt_vinfo)
 #define STMT_VINFO_GROUP_GAP(S)            (S)->gap
 #define STMT_VINFO_GROUP_SAME_DR_STMT(S)   (S)->same_dr_stmt
 #define STMT_VINFO_GROUPED_ACCESS(S)      ((S)->first_element != NULL && (S)->data_ref_info)
+#define STMT_VINFO_LOOP_PHI_EVOLUTION_BASE_UNCHANGED(S) (S)->loop_phi_evolution_base_unchanged
 #define STMT_VINFO_LOOP_PHI_EVOLUTION_PART(S) (S)->loop_phi_evolution_part
 #define STMT_VINFO_MIN_NEG_DIST(S)	(S)->min_neg_dist
 
@@ -712,7 +718,10 @@ set_vinfo_for_stmt (gimple *stmt, stmt_vec_info info)
       stmt_vec_info_vec.safe_push (info);
     }
   else
-    stmt_vec_info_vec[uid - 1] = info;
+    {
+      gcc_checking_assert (info == NULL);
+      stmt_vec_info_vec[uid - 1] = info;
+    }
 }
 
 /* Return the earlier statement between STMT1 and STMT2.  */

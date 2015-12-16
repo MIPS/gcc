@@ -171,6 +171,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_OACC_UPDATE = 8,
     GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA = 9,
     GF_OMP_TARGET_KIND_OACC_DECLARE = 10,
+    GF_OMP_TARGET_KIND_OACC_HOST_DATA = 11,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
@@ -1507,6 +1508,7 @@ extern bool gimple_call_builtin_p (const gimple *, enum built_in_function);
 extern bool gimple_asm_clobbers_memory_p (const gasm *);
 extern void dump_decl_set (FILE *, bitmap);
 extern bool nonfreeing_call_p (gimple *);
+extern bool nonbarrier_call_p (gimple *);
 extern bool infer_nonnull_range (gimple *, tree);
 extern bool infer_nonnull_range_by_dereference (gimple *, tree);
 extern bool infer_nonnull_range_by_attribute (gimple *, tree);
@@ -6003,6 +6005,7 @@ is_gimple_omp_oacc (const gimple *stmt)
 	case GF_OMP_TARGET_KIND_OACC_UPDATE:
 	case GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA:
 	case GF_OMP_TARGET_KIND_OACC_DECLARE:
+	case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
 	  return true;
 	default:
 	  return false;

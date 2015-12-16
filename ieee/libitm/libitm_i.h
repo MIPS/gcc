@@ -106,12 +106,10 @@ namespace GTM HIDDEN {
 // the template used inside gtm_thread can instantiate.
 struct gtm_alloc_action
 {
-  // Iff free_fn_sz is nonzero, it must be used instead of free_fn.
-  union
-  {
-    void (*free_fn)(void *);
-    void (*free_fn_sz)(void *, size_t);
-  };
+  // Iff free_fn_sz is nonzero, it must be used instead of free_fn, and vice
+  // versa.
+  void (*free_fn)(void *);
+  void (*free_fn_sz)(void *, size_t);
   size_t sz;
   // If true, this is an allocation; we discard the log entry on outermost
   // commit, and deallocate on abort.  If false, this is a deallocation and
@@ -132,7 +130,7 @@ struct gtm_transaction_cp
   _ITM_transactionId_t id;
   uint32_t prop;
   uint32_t cxa_catch_count;
-  void *cxa_unthrown;
+  unsigned int cxa_uncaught_count;
   // We might want to use a different but compatible dispatch method for
   // a nested transaction.
   abi_dispatch *disp;
@@ -242,7 +240,9 @@ struct gtm_thread
 
   // Data used by eh_cpp.c for managing exceptions within the transaction.
   uint32_t cxa_catch_count;
-  void *cxa_unthrown;
+  // If cxa_uncaught_count_ptr is 0, we don't need to roll back exceptions.
+  unsigned int *cxa_uncaught_count_ptr;
+  unsigned int cxa_uncaught_count;
   void *eh_in_flight;
 
   // Checkpoints for closed nesting.
@@ -284,9 +284,9 @@ struct gtm_thread
   void record_allocation (void *, void (*)(void *));
   void forget_allocation (void *, void (*)(void *));
   void forget_allocation (void *, size_t, void (*)(void *, size_t));
-  void drop_references_allocations (const void *ptr)
+  void discard_allocation (const void *ptr)
   {
-    this->alloc_actions.erase((uintptr_t) ptr);
+    alloc_actions.erase((uintptr_t) ptr);
   }
 
   // In beginend.cc
@@ -306,6 +306,7 @@ struct gtm_thread
   static uint32_t begin_transaction(uint32_t, const gtm_jmpbuf *)
 	__asm__(UPFX "GTM_begin_transaction") ITM_REGPARM;
   // In eh_cpp.cc
+  void init_cpp_exceptions ();
   void revert_cpp_exceptions (gtm_transaction_cp *cp = 0);
 
   // In retry.cc

@@ -1356,6 +1356,9 @@ dump_gimple_omp_target (pretty_printer *buffer, gomp_target *gs,
     case GF_OMP_TARGET_KIND_OACC_DECLARE:
       kind = " oacc_declare";
       break;
+    case GF_OMP_TARGET_KIND_OACC_HOST_DATA:
+      kind = " oacc_host_data";
+      break;
     default:
       gcc_unreachable ();
     }
@@ -1884,6 +1887,17 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
     }
 }
 
+/* As dump_ssaname_info, but dump to FILE.  */
+
+void
+dump_ssaname_info_to_file (FILE *file, tree node, int spc)
+{
+  pretty_printer buffer;
+  pp_needs_newline (&buffer) = true;
+  buffer.buffer->stream = file;
+  dump_ssaname_info (&buffer, node, spc);
+  pp_flush (&buffer);
+}
 
 /* Dump a PHI node PHI.  BUFFER, SPC and FLAGS are as in pp_gimple_stmt_1.
    The caller is responsible for calling pp_flush on BUFFER to finalize

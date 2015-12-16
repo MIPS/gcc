@@ -19,18 +19,11 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#define USES_ISL
+
 #include "config.h"
 
 #ifdef HAVE_isl
-/* Workaround for GMP 5.1.3 bug, see PR56019.  */
-#include <stddef.h>
-
-#include <isl/constraint.h>
-#include <isl/set.h>
-#include <isl/map.h>
-#include <isl/union_map.h>
-#include <isl/flow.h>
-#include <isl/constraint.h>
 
 #include "system.h"
 #include "coretypes.h"
@@ -44,7 +37,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
-#include "graphite-poly.h"
+
+#include <isl/constraint.h>
+#include <isl/set.h>
+#include <isl/map.h>
+#include <isl/union_map.h>
+#include <isl/flow.h>
+#include <isl/constraint.h>
+
+#include "graphite.h"
 
 
 /* Add the constraints from the set S to the domain of MAP.  */
@@ -86,7 +87,19 @@ scop_get_reads (scop_p scop, vec<poly_bb_p> pbbs)
     {
       FOR_EACH_VEC_ELT (PBB_DRS (pbb), j, pdr)
 	if (pdr_read_p (pdr))
-	  res = isl_union_map_add_map (res, add_pdr_constraints (pdr, pbb));
+	  {
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "Adding read to depedence graph: ");
+		print_pdr (dump_file, pdr);
+	      }
+	    res = isl_union_map_add_map (res, add_pdr_constraints (pdr, pbb));
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "Reads depedence graph: ");
+		print_isl_union_map (dump_file, res);
+	      }
+	  }
     }
 
   return res;
@@ -107,7 +120,19 @@ scop_get_must_writes (scop_p scop, vec<poly_bb_p> pbbs)
     {
       FOR_EACH_VEC_ELT (PBB_DRS (pbb), j, pdr)
 	if (pdr_write_p (pdr))
-	  res = isl_union_map_add_map (res, add_pdr_constraints (pdr, pbb));
+	  {
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "Adding must write to depedence graph: ");
+		print_pdr (dump_file, pdr);
+	      }
+	    res = isl_union_map_add_map (res, add_pdr_constraints (pdr, pbb));
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "Must writes depedence graph: ");
+		print_isl_union_map (dump_file, res);
+	      }
+	  }
     }
 
   return res;
@@ -128,7 +153,19 @@ scop_get_may_writes (scop_p scop, vec<poly_bb_p> pbbs)
     {
       FOR_EACH_VEC_ELT (PBB_DRS (pbb), j, pdr)
 	if (pdr_may_write_p (pdr))
-	  res = isl_union_map_add_map (res, add_pdr_constraints (pdr, pbb));
+	  {
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "Adding may write to depedence graph: ");
+		print_pdr (dump_file, pdr);
+	      }
+	    res = isl_union_map_add_map (res, add_pdr_constraints (pdr, pbb));
+	    if (dump_file)
+	      {
+		fprintf (dump_file, "May writes depedence graph: ");
+		print_isl_union_map (dump_file, res);
+	      }
+	  }
     }
 
   return res;
@@ -312,6 +349,36 @@ compute_deps (scop_p scop, vec<poly_bb_p> pbbs,
   isl_union_map *empty = isl_union_map_empty (space);
   isl_union_map *original = scop_get_original_schedule (scop, pbbs);
 
+  if (dump_file)
+    {
+      fprintf (dump_file, "\n--- Documentation for datarefs dump: ---\n");
+      fprintf (dump_file, "Statements on the iteration domain are mapped to"
+	       " array references.\n");
+      fprintf (dump_file, "  To read the following data references:\n\n");
+      fprintf (dump_file, "  S_5[i0] -> [106] : i0 >= 0 and i0 <= 3\n");
+      fprintf (dump_file, "  S_8[i0] -> [1, i0] : i0 >= 0 and i0 <= 3\n\n");
+
+      fprintf (dump_file, "  S_5[i0] is the dynamic instance of statement"
+	       " bb_5 in a loop that accesses all iterations 0 <= i0 <= 3.\n");
+      fprintf (dump_file, "  [1, i0] is a 'memref' with alias set 1"
+	       " and first subscript access i0.\n");
+      fprintf (dump_file, "  [106] is a 'scalar reference' which is the sum of"
+	       " SSA_NAME_VERSION 6"
+	       " and --param graphite-max-arrays-per-scop=100\n");
+      fprintf (dump_file, "-----------------------\n\n");
+
+      fprintf (dump_file, "data references (\n");
+      fprintf (dump_file, "  reads: ");
+      print_isl_union_map (dump_file, reads);
+      fprintf (dump_file, "  must_writes: ");
+      print_isl_union_map (dump_file, must_writes);
+      fprintf (dump_file, "  may_writes: ");
+      print_isl_union_map (dump_file, may_writes);
+      fprintf (dump_file, "  all_writes: ");
+      print_isl_union_map (dump_file, all_writes);
+      fprintf (dump_file, ")\n");
+    }
+
   isl_union_map_compute_flow (isl_union_map_copy (reads),
 			      isl_union_map_copy (must_writes),
 			      isl_union_map_copy (may_writes),
@@ -332,28 +399,32 @@ compute_deps (scop_p scop, vec<poly_bb_p> pbbs,
 isl_union_map *
 scop_get_dependences (scop_p scop)
 {
-  isl_union_map *dependences;
+  if (scop->dependence)
+    return scop->dependence;
 
-  if (!scop->must_raw)
-    compute_deps (scop, scop->pbbs,
-		  &scop->must_raw, &scop->may_raw,
-		  &scop->must_raw_no_source, &scop->may_raw_no_source,
-		  &scop->must_war, &scop->may_war,
-		  &scop->must_war_no_source, &scop->may_war_no_source,
-		  &scop->must_waw, &scop->may_waw,
-		  &scop->must_waw_no_source, &scop->may_waw_no_source);
+  /* The original dependence relations:
+     RAW are read after write dependences,
+     WAR are write after read dependences,
+     WAW are write after write dependences.  */
+  isl_union_map *must_raw = NULL, *may_raw = NULL, *must_raw_no_source = NULL,
+      *may_raw_no_source = NULL, *must_war = NULL, *may_war = NULL,
+      *must_war_no_source = NULL, *may_war_no_source = NULL, *must_waw = NULL,
+      *may_waw = NULL, *must_waw_no_source = NULL, *may_waw_no_source = NULL;
 
-  dependences = isl_union_map_copy (scop->must_raw);
-  dependences = isl_union_map_union (dependences,
-				     isl_union_map_copy (scop->must_war));
-  dependences = isl_union_map_union (dependences,
-				     isl_union_map_copy (scop->must_waw));
-  dependences = isl_union_map_union (dependences,
-				     isl_union_map_copy (scop->may_raw));
-  dependences = isl_union_map_union (dependences,
-				     isl_union_map_copy (scop->may_war));
-  dependences = isl_union_map_union (dependences,
-				     isl_union_map_copy (scop->may_waw));
+  compute_deps (scop, scop->pbbs,
+		  &must_raw, &may_raw,
+		  &must_raw_no_source, &may_raw_no_source,
+		  &must_war, &may_war,
+		  &must_war_no_source, &may_war_no_source,
+		  &must_waw, &may_waw,
+		  &must_waw_no_source, &may_waw_no_source);
+
+  isl_union_map *dependences = must_raw;
+  dependences = isl_union_map_union (dependences, must_war);
+  dependences = isl_union_map_union (dependences, must_waw);
+  dependences = isl_union_map_union (dependences, may_raw);
+  dependences = isl_union_map_union (dependences, may_war);
+  dependences = isl_union_map_union (dependences, may_waw);
 
   if (dump_file)
     {
@@ -362,6 +433,14 @@ scop_get_dependences (scop_p scop)
       fprintf (dump_file, ")\n");
     }
 
+  isl_union_map_free (must_raw_no_source);
+  isl_union_map_free (may_raw_no_source);
+  isl_union_map_free (must_war_no_source);
+  isl_union_map_free (may_war_no_source);
+  isl_union_map_free (must_waw_no_source);
+  isl_union_map_free (may_waw_no_source);
+
+  scop->dependence = dependences;
   return dependences;
 }
 

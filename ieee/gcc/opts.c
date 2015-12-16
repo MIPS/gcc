@@ -560,6 +560,7 @@ default_options_optimization (struct gcc_options *opts,
 {
   unsigned int i;
   int opt2;
+  bool openacc_mode = false;
 
   /* Scan to see what optimization level has been specified.  That will
      determine the default value of many flags.  */
@@ -619,6 +620,11 @@ default_options_optimization (struct gcc_options *opts,
 	  opts->x_optimize_debug = 1;
 	  break;
 
+	case OPT_fopenacc:
+	  if (opt->value)
+	    openacc_mode = true;
+	  break;
+
 	default:
 	  /* Ignore other options in this prescan.  */
 	  break;
@@ -632,6 +638,10 @@ default_options_optimization (struct gcc_options *opts,
 
   /* -O2 param settings.  */
   opt2 = (opts->x_optimize >= 2);
+
+  if (openacc_mode
+      && !opts_set->x_flag_ipa_pta)
+    opts->x_flag_ipa_pta = true;
 
   /* Track fields in field-sensitive alias analysis.  */
   maybe_set_param_value
@@ -941,10 +951,7 @@ finish_options (struct gcc_options *opts, struct gcc_options *opts_set,
 	      "-fsanitize=address and -fsanitize=kernel-address "
 	      "are incompatible with -fsanitize=thread");
 
-  /* Error recovery is not allowed for ASan and TSan.  */
-
-  if (opts->x_flag_sanitize_recover & SANITIZE_USER_ADDRESS)
-    error_at (loc, "-fsanitize-recover=address is not supported");
+  /* Error recovery is not allowed for LSan and TSan.  */
 
   if (opts->x_flag_sanitize_recover & SANITIZE_THREAD)
     error_at (loc, "-fsanitize-recover=thread is not supported");
@@ -2117,7 +2124,7 @@ common_handle_option (struct gcc_options *opts,
 
     case OPT_pedantic_errors:
       dc->pedantic_errors = 1;
-      control_warning_option (OPT_Wpedantic, DK_ERROR, value,
+      control_warning_option (OPT_Wpedantic, DK_ERROR, NULL, value,
 			      loc, lang_mask,
 			      handlers, opts, opts_set,
                               dc);
@@ -2440,8 +2447,11 @@ enable_warning_as_error (const char *arg, int value, unsigned int lang_mask,
   else
     {
       const diagnostic_t kind = value ? DK_ERROR : DK_WARNING;
+      const char *arg = NULL;
 
-      control_warning_option (option_index, (int) kind, value,
+      if (cl_options[option_index].flags & CL_JOINED)
+	arg = new_option + cl_options[option_index].opt_len;
+      control_warning_option (option_index, (int) kind, arg, value,
 			      loc, lang_mask,
 			      handlers, opts, opts_set, dc);
     }

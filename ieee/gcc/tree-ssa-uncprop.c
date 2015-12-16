@@ -275,26 +275,10 @@ struct equiv_hash_elt
   vec<tree> equivalences;
 };
 
-/* Value to ssa name equivalence hashtable helpers.  */
-
-struct val_ssa_equiv_hash_traits : simple_hashmap_traits <tree_operand_hash>
-{
-  template<typename T> static inline void remove (T &);
-};
-
-/* Free an instance of equiv_hash_elt.  */
-
-template<typename T>
-inline void
-val_ssa_equiv_hash_traits::remove (T &elt)
-{
-  elt.m_value.release ();
-}
-
 /* Global hash table implementing a mapping from invariant values
    to a list of SSA_NAMEs which have the same value.  We might be
    able to reuse tree-vn for this code.  */
-static hash_map<tree, vec<tree>, val_ssa_equiv_hash_traits> *val_ssa_equiv;
+static hash_map<tree, auto_vec<tree> > *val_ssa_equiv;
 
 static void uncprop_into_successor_phis (basic_block);
 
@@ -319,7 +303,7 @@ class uncprop_dom_walker : public dom_walker
 public:
   uncprop_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
-  virtual void before_dom_children (basic_block);
+  virtual edge before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
@@ -449,7 +433,7 @@ single_incoming_edge_ignoring_loop_edges (basic_block bb)
   return retval;
 }
 
-void
+edge
 uncprop_dom_walker::before_dom_children (basic_block bb)
 {
   basic_block parent;
@@ -478,6 +462,7 @@ uncprop_dom_walker::before_dom_children (basic_block bb)
     m_equiv_stack.safe_push (NULL_TREE);
 
   uncprop_into_successor_phis (bb);
+  return NULL;
 }
 
 namespace {
@@ -517,8 +502,7 @@ pass_uncprop::execute (function *fun)
   associate_equivalences_with_edges ();
 
   /* Create our global data structures.  */
-  val_ssa_equiv
-    = new hash_map<tree, vec<tree>, val_ssa_equiv_hash_traits> (1024);
+  val_ssa_equiv = new hash_map<tree, auto_vec<tree> > (1024);
 
   /* We're going to do a dominator walk, so ensure that we have
      dominance information.  */

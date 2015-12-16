@@ -1769,7 +1769,16 @@ Type::specific_type_functions(Gogo* gogo, Named_type* name,
       const Named_object* in_function = name->in_function(&index);
       if (in_function != NULL)
 	{
-	  base_name += '$' + Gogo::unpack_hidden_name(in_function->name());
+	  base_name.append(1, '$');
+	  const Typed_identifier* rcvr =
+	    in_function->func_value()->type()->receiver();
+	  if (rcvr != NULL)
+	    {
+	      Named_type* rcvr_type = rcvr->type()->deref()->named_type();
+	      base_name.append(Gogo::unpack_hidden_name(rcvr_type->name()));
+	      base_name.append(1, '$');
+	    }
+	  base_name.append(Gogo::unpack_hidden_name(in_function->name()));
 	  if (index > 0)
 	    {
 	      char buf[30];
@@ -6389,22 +6398,21 @@ Array_type::do_reflection(Gogo* gogo, std::string* ret) const
   if (this->length_ != NULL)
     {
       Numeric_constant nc;
-      unsigned long val;
-      if (!this->length_->numeric_constant_value(&nc)
-	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
+      if (!this->length_->numeric_constant_value(&nc))
 	{
-	  if (!this->issued_length_error_)
-	    {
-	      error_at(this->length_->location(), "invalid array length");
-	      this->issued_length_error_ = true;
-	    }
+	  go_assert(saw_errors());
+	  return;
 	}
-      else
+      mpz_t val;
+      if (!nc.to_int(&val))
 	{
-	  char buf[50];
-	  snprintf(buf, sizeof buf, "%lu", val);
-	  ret->append(buf);
+	  go_assert(saw_errors());
+	  return;
 	}
+      char* s = mpz_get_str(NULL, 10, val);
+      ret->append(s);
+      free(s);
+      mpz_clear(val);
     }
   ret->push_back(']');
 
@@ -6535,22 +6543,21 @@ Array_type::do_mangled_name(Gogo* gogo, std::string* ret) const
   if (this->length_ != NULL)
     {
       Numeric_constant nc;
-      unsigned long val;
-      if (!this->length_->numeric_constant_value(&nc)
-	  || nc.to_unsigned_long(&val) != Numeric_constant::NC_UL_VALID)
+      if (!this->length_->numeric_constant_value(&nc))
 	{
-	  if (!this->issued_length_error_)
-	    {
-	      error_at(this->length_->location(), "invalid array length");
-	      this->issued_length_error_ = true;
-	    }
+	  go_assert(saw_errors());
+	  return;
 	}
-      else
+      mpz_t val;
+      if (!nc.to_int(&val))
 	{
-	  char buf[50];
-	  snprintf(buf, sizeof buf, "%lu", val);
-	  ret->append(buf);
+	  go_assert(saw_errors());
+	  return;
 	}
+      char *s = mpz_get_str(NULL, 10, val);
+      ret->append(s);
+      free(s);
+      mpz_clear(val);
     }
   ret->push_back('e');
 }

@@ -159,9 +159,9 @@
 
    The is_global_var bit which marks escape points is overly conservative
    in IPA mode.  Split it to is_escape_point and is_global_var - only
-   externally visible globals are escape points in IPA mode.  This is
-   also needed to fix the pt_solution_includes_global predicate
-   (and thus ptr_deref_may_alias_global_p).
+   externally visible globals are escape points in IPA mode.
+   There is now is_ipa_escape_point but this is only used in a few
+   selected places.
 
    The way we introduce DECL_PT_UID to avoid fixing up all points-to
    sets in the translation unit when we copy a DECL during inlining
@@ -186,6 +186,7 @@
    propagating it simply like the clobber / uses solutions.  The
    solution can go alongside the non-IPA espaced solution and be
    used to query which vars escape the unit through a function.
+   This is also required to make the escaped-HEAP trick work in IPA mode.
 
    We never put function decls in points-to sets so we do not
    keep the set of called functions for indirect calls.
@@ -265,6 +266,9 @@ struct variable_info
 
   /* True if this represents a global variable.  */
   unsigned int is_global_var : 1;
+
+  /* True if this represents a module escape point for IPA analysis.  */
+  unsigned int is_ipa_escape_point : 1;
 
   /* True if this represents a IPA function info.  */
   unsigned int is_fn_info : 1;
@@ -375,6 +379,7 @@ new_var_info (tree t, const char *name, bool add_id)
   ret->is_restrict_var = false;
   ret->ruid = 0;
   ret->is_global_var = (t == NULL_TREE);
+  ret->is_ipa_escape_point = false;
   ret->is_fn_info = false;
   if (t && DECL_P (t))
     ret->is_global_var = (is_global_var (t)
@@ -4139,6 +4144,24 @@ get_fi_for_callee (gcall *call)
   return get_vi_for_tree (fn);
 }
 
+/* Create constraints for assigning call argument ARG to the incoming parameter
+   INDEX of function FI.  */
+
+static void
+find_func_aliases_for_call_arg (varinfo_t fi, unsigned index, tree arg)
+{
+  struct constraint_expr lhs;
+  lhs = get_function_part_constraint (fi, fi_parm_base + index);
+
+  auto_vec<ce_s, 2> rhsc;
+  get_constraint_for_rhs (arg, &rhsc);
+
+  unsigned j;
+  struct constraint_expr *rhsp;
+  FOR_EACH_VEC_ELT (rhsc, j, rhsp)
+    process_constraint (new_constraint (lhs, *rhsp));
+}
+
 /* Create constraints for the builtin call T.  Return true if the call
    was handled, otherwise false.  */
 
@@ -4488,6 +4511,41 @@ find_func_aliases_for_builtin_call (struct function *fn, gcall *t)
 	    }
 	  return true;
 	}
+      case BUILT_IN_GOMP_PARALLEL:
+      case BUILT_IN_GOACC_PARALLEL:
+	{
+	  if (in_ipa_mode)
+	    {
+	      unsigned int fnpos, argpos;
+	      switch (DECL_FUNCTION_CODE (fndecl))
+		{
+		case BUILT_IN_GOMP_PARALLEL:
+		  /* __builtin_GOMP_parallel (fn, data, num_threads, flags).  */
+		  fnpos = 0;
+		  argpos = 1;
+		  break;
+		case BUILT_IN_GOACC_PARALLEL:
+		  /* __builtin_GOACC_parallel (device, fn, mapnum, hostaddrs,
+					       sizes, kinds, ...).  */
+		  fnpos = 1;
+		  argpos = 3;
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+
+	      tree fnarg = gimple_call_arg (t, fnpos);
+	      gcc_assert (TREE_CODE (fnarg) == ADDR_EXPR);
+	      tree fndecl = TREE_OPERAND (fnarg, 0);
+	      tree arg = gimple_call_arg (t, argpos);
+
+	      varinfo_t fi = get_vi_for_tree (fndecl);
+	      find_func_aliases_for_call_arg (fi, 0, arg);
+	      return true;
+	    }
+	  /* Else fallthru to generic call handling.  */
+	  break;
+	}
       /* printf-style functions may have hooks to set pointers to
 	 point to somewhere into the generated string.  Leave them
 	 for a later exercise...  */
@@ -4546,18 +4604,8 @@ find_func_aliases_for_call (struct function *fn, gcall *t)
 	 parameters of the function.  */
       for (j = 0; j < gimple_call_num_args (t); j++)
 	{
-	  struct constraint_expr lhs ;
-	  struct constraint_expr *rhsp;
 	  tree arg = gimple_call_arg (t, j);
-
-	  get_constraint_for_rhs (arg, &rhsc);
-	  lhs = get_function_part_constraint (fi, fi_parm_base + j);
-	  while (rhsc.length () != 0)
-	    {
-	      rhsp = &rhsc.last ();
-	      process_constraint (new_constraint (lhs, *rhsp));
-	      rhsc.pop ();
-	    }
+	  find_func_aliases_for_call_arg (fi, j, arg);
 	}
 
       /* If we are returning a value, assign it to the result.  */
@@ -4737,11 +4785,13 @@ find_func_aliases (struct function *fn, gimple *origt)
 	}
       /* If there is a store to a global variable the rhs escapes.  */
       if ((lhsop = get_base_address (lhsop)) != NULL_TREE
-	  && DECL_P (lhsop)
-	  && is_global_var (lhsop)
-	  && (!in_ipa_mode
-	      || DECL_EXTERNAL (lhsop) || TREE_PUBLIC (lhsop)))
-	make_escape_constraint (rhsop);
+	  && DECL_P (lhsop))
+	{
+	  varinfo_t vi = get_vi_for_tree (lhsop);
+	  if ((! in_ipa_mode && vi->is_global_var)
+	      || vi->is_ipa_escape_point)
+	    make_escape_constraint (rhsop);
+	}
     }
   /* Handle escapes through return.  */
   else if (gimple_code (t) == GIMPLE_RETURN
@@ -4752,8 +4802,7 @@ find_func_aliases (struct function *fn, gimple *origt)
       if (!in_ipa_mode
 	  || !(fi = get_vi_for_tree (fn->decl)))
 	make_escape_constraint (gimple_return_retval (return_stmt));
-      else if (in_ipa_mode
-	       && fi != NULL)
+      else if (in_ipa_mode)
 	{
 	  struct constraint_expr lhs ;
 	  struct constraint_expr *rhsp;
@@ -5036,6 +5085,70 @@ find_func_clobbers (struct function *fn, gimple *origt)
 	  case BUILT_IN_VA_START:
 	  case BUILT_IN_VA_END:
 	    return;
+	  case BUILT_IN_GOMP_PARALLEL:
+	  case BUILT_IN_GOACC_PARALLEL:
+	    {
+	      unsigned int fnpos, argpos;
+	      unsigned int implicit_use_args[2];
+	      unsigned int num_implicit_use_args = 0;
+	      switch (DECL_FUNCTION_CODE (decl))
+		{
+		case BUILT_IN_GOMP_PARALLEL:
+		  /* __builtin_GOMP_parallel (fn, data, num_threads, flags).  */
+		  fnpos = 0;
+		  argpos = 1;
+		  break;
+		case BUILT_IN_GOACC_PARALLEL:
+		  /* __builtin_GOACC_parallel (device, fn, mapnum, hostaddrs,
+					       sizes, kinds, ...).  */
+		  fnpos = 1;
+		  argpos = 3;
+		  implicit_use_args[num_implicit_use_args++] = 4;
+		  implicit_use_args[num_implicit_use_args++] = 5;
+		  break;
+		default:
+		  gcc_unreachable ();
+		}
+
+	      tree fnarg = gimple_call_arg (t, fnpos);
+	      gcc_assert (TREE_CODE (fnarg) == ADDR_EXPR);
+	      tree fndecl = TREE_OPERAND (fnarg, 0);
+	      varinfo_t cfi = get_vi_for_tree (fndecl);
+
+	      tree arg = gimple_call_arg (t, argpos);
+
+	      /* Parameter passed by value is used.  */
+	      lhs = get_function_part_constraint (fi, fi_uses);
+	      struct constraint_expr *rhsp;
+	      get_constraint_for (arg, &rhsc);
+	      FOR_EACH_VEC_ELT (rhsc, j, rhsp)
+		process_constraint (new_constraint (lhs, *rhsp));
+	      rhsc.truncate (0);
+
+	      /* Handle parameters used by the call, but not used in cfi, as
+		 implicitly used by cfi.  */
+	      lhs = get_function_part_constraint (cfi, fi_uses);
+	      for (unsigned i = 0; i < num_implicit_use_args; ++i)
+		{
+		  tree arg = gimple_call_arg (t, implicit_use_args[i]);
+		  get_constraint_for (arg, &rhsc);
+		  FOR_EACH_VEC_ELT (rhsc, j, rhsp)
+		    process_constraint (new_constraint (lhs, *rhsp));
+		  rhsc.truncate (0);
+		}
+
+	      /* The caller clobbers what the callee does.  */
+	      lhs = get_function_part_constraint (fi, fi_clobbers);
+	      rhs = get_function_part_constraint (cfi, fi_clobbers);
+	      process_constraint (new_constraint (lhs, rhs));
+
+	      /* The caller uses what the callee does.  */
+	      lhs = get_function_part_constraint (fi, fi_uses);
+	      rhs = get_function_part_constraint (cfi, fi_uses);
+	      process_constraint (new_constraint (lhs, rhs));
+
+	      return;
+	    }
 	  /* printf-style functions may have hooks to set pointers to
 	     point to somewhere into the generated string.  Leave them
 	     for a later exercise...  */
@@ -5539,6 +5652,11 @@ create_function_info_for (tree decl, const char *name, bool add_id,
 
       if (DECL_RESULT (decl))
 	insert_vi_for_tree (DECL_RESULT (decl), resultvi);
+
+      if (nonlocal_p
+	  && DECL_RESULT (decl)
+	  && DECL_BY_REFERENCE (DECL_RESULT (decl)))
+	make_constraint_from (resultvi, nonlocal_id);
 
       gcc_assert (prev_vi->offset < resultvi->offset);
       prev_vi->next = resultvi->id;
@@ -6054,7 +6172,8 @@ shared_bitmap_add (bitmap pt_vars)
 /* Set bits in INTO corresponding to the variable uids in solution set FROM.  */
 
 static void
-set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt)
+set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt,
+		   tree fndecl)
 {
   unsigned int i;
   bitmap_iterator bi;
@@ -6092,7 +6211,19 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt)
 	  /* Add the decl to the points-to set.  Note that the points-to
 	     set contains global variables.  */
 	  bitmap_set_bit (into, DECL_PT_UID (vi->decl));
-	  if (vi->is_global_var)
+	  if (vi->is_global_var
+	      /* In IPA mode the escaped_heap trick doesn't work as
+		 ESCAPED is escaped from the unit but
+		 pt_solution_includes_global needs to answer true for
+		 all variables not automatic within a function.
+		 For the same reason is_global_var is not the
+		 correct flag to track - local variables from other
+		 functions also need to be considered global.
+		 Conveniently all HEAP vars are not put in function
+		 scope.  */
+	      || (in_ipa_mode
+		  && fndecl
+		  && ! auto_var_in_fn_p (vi->decl, fndecl)))
 	    pt->vars_contains_nonlocal = true;
 	}
     }
@@ -6102,7 +6233,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt)
 /* Compute the points-to solution *PT for the variable VI.  */
 
 static struct pt_solution
-find_what_var_points_to (varinfo_t orig_vi)
+find_what_var_points_to (tree fndecl, varinfo_t orig_vi)
 {
   unsigned int i;
   bitmap_iterator bi;
@@ -6167,7 +6298,7 @@ find_what_var_points_to (varinfo_t orig_vi)
   finished_solution = BITMAP_GGC_ALLOC ();
   stats.points_to_sets_created++;
 
-  set_uids_in_ptset (finished_solution, vi->solution, pt);
+  set_uids_in_ptset (finished_solution, vi->solution, pt, fndecl);
   result = shared_bitmap_lookup (finished_solution);
   if (!result)
     {
@@ -6186,7 +6317,7 @@ find_what_var_points_to (varinfo_t orig_vi)
 /* Given a pointer variable P, fill in its points-to set.  */
 
 static void
-find_what_p_points_to (tree p)
+find_what_p_points_to (tree fndecl, tree p)
 {
   struct ptr_info_def *pi;
   tree lookup_p = p;
@@ -6205,7 +6336,7 @@ find_what_p_points_to (tree p)
     return;
 
   pi = get_ptr_info (p);
-  pi->pt = find_what_var_points_to (vi);
+  pi->pt = find_what_var_points_to (fndecl, vi);
 }
 
 
@@ -6370,12 +6501,6 @@ pt_solution_includes_global (struct pt_solution *pt)
 
   if (pt->ipa_escaped)
     return pt_solution_includes_global (&ipa_escaped_pt);
-
-  /* ???  This predicate is not correct for the IPA-PTA solution
-     as we do not properly distinguish between unit escape points
-     and global variables.  */
-  if (cfun->gimple_df->ipa_pta)
-    return true;
 
   return false;
 }
@@ -6873,7 +6998,8 @@ compute_points_to_sets (void)
   solve_constraints ();
 
   /* Compute the points-to set for ESCAPED used for call-clobber analysis.  */
-  cfun->gimple_df->escaped = find_what_var_points_to (get_varinfo (escaped_id));
+  cfun->gimple_df->escaped = find_what_var_points_to (cfun->decl,
+						      get_varinfo (escaped_id));
 
   /* Make sure the ESCAPED solution (which is used as placeholder in
      other solutions) does not reference itself.  This simplifies
@@ -6886,7 +7012,7 @@ compute_points_to_sets (void)
       tree ptr = ssa_name (i);
       if (ptr
 	  && POINTER_TYPE_P (TREE_TYPE (ptr)))
-	find_what_p_points_to (ptr);
+	find_what_p_points_to (cfun->decl, ptr);
     }
 
   /* Compute the call-used/clobbered sets.  */
@@ -6908,7 +7034,7 @@ compute_points_to_sets (void)
 	    memset (pt, 0, sizeof (struct pt_solution));
 	  else if ((vi = lookup_call_use_vi (stmt)) != NULL)
 	    {
-	      *pt = find_what_var_points_to (vi);
+	      *pt = find_what_var_points_to (cfun->decl, vi);
 	      /* Escaped (and thus nonlocal) variables are always
 	         implicitly used by calls.  */
 	      /* ???  ESCAPED can be empty even though NONLOCAL
@@ -6929,7 +7055,7 @@ compute_points_to_sets (void)
 	    memset (pt, 0, sizeof (struct pt_solution));
 	  else if ((vi = lookup_call_clobber_vi (stmt)) != NULL)
 	    {
-	      *pt = find_what_var_points_to (vi);
+	      *pt = find_what_var_points_to (cfun->decl, vi);
 	      /* Escaped (and thus nonlocal) variables are always
 	         implicitly clobbered by calls.  */
 	      /* ???  ESCAPED can be empty even though NONLOCAL
@@ -7345,6 +7471,18 @@ ipa_pta_execute (void)
 
       gcc_assert (!node->clone_of);
 
+      /* When parallelizing a code region, we split the region off into a
+	 separate function, to be run by several threads in parallel.  So for a
+	 function foo, we split off a region into a function
+	 foo._0 (void *foodata), and replace the region with some variant of a
+	 function call run_on_threads (&foo._0, data).  The '&foo._0' sets the
+	 address_taken bit for function foo._0, which would make it non-local.
+	 But for the purpose of ipa-pta, we can regard the run_on_threads call
+	 as a local call foo._0 (data),  so we ignore address_taken on nodes
+	 with parallelized_function set.  */
+      bool node_address_taken = (node->address_taken
+				 && !node->parallelized_function);
+
       /* For externally visible or attribute used annotated functions use
 	 local constraints for their arguments.
 	 For local functions we see all callers and thus do not need initial
@@ -7352,7 +7490,7 @@ ipa_pta_execute (void)
       bool nonlocal_p = (node->used_from_other_partition
 			 || node->externally_visible
 			 || node->force_output
-			 || node->address_taken);
+			 || node_address_taken);
 
       vi = create_function_info_for (node->decl,
 				     alias_get_name (node->decl), false,
@@ -7383,7 +7521,15 @@ ipa_pta_execute (void)
       if (var->alias && var->analyzed)
 	continue;
 
-      get_vi_for_tree (var->decl);
+      varinfo_t vi = get_vi_for_tree (var->decl);
+
+      /* For the purpose of IPA PTA unit-local globals are not
+         escape points.  */
+      bool nonlocal_p = (var->used_from_other_partition
+			 || var->externally_visible
+			 || var->force_output);
+      if (nonlocal_p)
+	vi->is_ipa_escape_point = true;
     }
 
   if (dump_file
@@ -7457,7 +7603,7 @@ ipa_pta_execute (void)
      ???  Note that the computed escape set is not correct
      for the whole unit as we fail to consider graph edges to
      externally visible functions.  */
-  ipa_escaped_pt = find_what_var_points_to (get_varinfo (escaped_id));
+  ipa_escaped_pt = find_what_var_points_to (NULL, get_varinfo (escaped_id));
 
   /* Make sure the ESCAPED solution (which is used as placeholder in
      other solutions) does not reference itself.  This simplifies
@@ -7483,7 +7629,7 @@ ipa_pta_execute (void)
 	{
 	  if (ptr
 	      && POINTER_TYPE_P (TREE_TYPE (ptr)))
-	    find_what_p_points_to (ptr);
+	    find_what_p_points_to (node->decl, ptr);
 	}
 
       /* Compute the call-use and call-clobber sets for indirect calls
@@ -7504,17 +7650,23 @@ ipa_pta_execute (void)
 		continue;
 
 	      /* Handle direct calls to functions with body.  */
-	      decl = gimple_call_fndecl (stmt);
+	      if (gimple_call_builtin_p (stmt, BUILT_IN_GOMP_PARALLEL))
+		decl = TREE_OPERAND (gimple_call_arg (stmt, 0), 0);
+	      else if (gimple_call_builtin_p (stmt, BUILT_IN_GOACC_PARALLEL))
+		decl = TREE_OPERAND (gimple_call_arg (stmt, 1), 0);
+	      else
+		decl = gimple_call_fndecl (stmt);
+
 	      if (decl
 		  && (fi = lookup_vi_for_tree (decl))
 		  && fi->is_fn_info)
 		{
 		  *gimple_call_clobber_set (stmt)
 		     = find_what_var_points_to
-		         (first_vi_for_offset (fi, fi_clobbers));
+		         (node->decl, first_vi_for_offset (fi, fi_clobbers));
 		  *gimple_call_use_set (stmt)
 		     = find_what_var_points_to
-		         (first_vi_for_offset (fi, fi_uses));
+		         (node->decl, first_vi_for_offset (fi, fi_uses));
 		}
 	      /* Handle direct calls to external functions.  */
 	      else if (decl)
@@ -7524,7 +7676,7 @@ ipa_pta_execute (void)
 		    memset (pt, 0, sizeof (struct pt_solution));
 		  else if ((vi = lookup_call_use_vi (stmt)) != NULL)
 		    {
-		      *pt = find_what_var_points_to (vi);
+		      *pt = find_what_var_points_to (node->decl, vi);
 		      /* Escaped (and thus nonlocal) variables are always
 			 implicitly used by calls.  */
 		      /* ???  ESCAPED can be empty even though NONLOCAL
@@ -7545,7 +7697,7 @@ ipa_pta_execute (void)
 		    memset (pt, 0, sizeof (struct pt_solution));
 		  else if ((vi = lookup_call_clobber_vi (stmt)) != NULL)
 		    {
-		      *pt = find_what_var_points_to (vi);
+		      *pt = find_what_var_points_to (node->decl, vi);
 		      /* Escaped (and thus nonlocal) variables are always
 			 implicitly clobbered by calls.  */
 		      /* ???  ESCAPED can be empty even though NONLOCAL
@@ -7605,13 +7757,15 @@ ipa_pta_execute (void)
 			  if (!uses->anything)
 			    {
 			      sol = find_what_var_points_to
-				      (first_vi_for_offset (vi, fi_uses));
+				      (node->decl,
+				       first_vi_for_offset (vi, fi_uses));
 			      pt_solution_ior_into (uses, &sol);
 			    }
 			  if (!clobbers->anything)
 			    {
 			      sol = find_what_var_points_to
-				      (first_vi_for_offset (vi, fi_clobbers));
+				      (node->decl,
+				       first_vi_for_offset (vi, fi_clobbers));
 			      pt_solution_ior_into (clobbers, &sol);
 			    }
 			}
@@ -7621,6 +7775,12 @@ ipa_pta_execute (void)
 	}
 
       fn->gimple_df->ipa_pta = true;
+
+      /* We have to re-set the final-solution cache after each function
+         because what is a "global" is dependent on function context.  */
+      final_solutions->empty ();
+      obstack_free (&final_solutions_obstack, NULL);
+      gcc_obstack_init (&final_solutions_obstack);
     }
 
   delete_points_to_sets ();
@@ -7660,6 +7820,8 @@ public:
 	      /* Don't bother doing anything if the program has errors.  */
 	      && !seen_error ());
     }
+
+  opt_pass * clone () { return new pass_ipa_pta (m_ctxt); }
 
   virtual unsigned int execute (function *) { return ipa_pta_execute (); }
 
