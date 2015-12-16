@@ -584,7 +584,7 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
 };
 
 static tree mips_handle_interrupt_attr (tree *, tree, tree, int, bool *);
-static tree mips_handle_use_shadow_register_set_attr (tree *, tree, tree, int,
+static tree mips_handle_use_shadow_register_set_attr (ttype **, tree, tree, int,
 						      bool *);
 
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
@@ -1509,7 +1509,7 @@ mips_handle_interrupt_attr (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
 /* Handle a "use_shadow_register_set" attribute with an optional argument.  */
 
 static tree
-mips_handle_use_shadow_register_set_attr (tree *node ATTRIBUTE_UNUSED,
+mips_handle_use_shadow_register_set_attr (ttype **node ATTRIBUTE_UNUSED,
 					  tree name, tree args,
 					  int flags ATTRIBUTE_UNUSED,
 					  bool *no_add_attrs)

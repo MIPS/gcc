@@ -1830,7 +1830,7 @@ struct attribute_spec {
      by the rest of this structure.  */
   tree (*decl_handler) (tree *node, tree name, tree args,
 		   int flags, bool *no_add_attrs);
-  tree (*type_handler) (tree *node, tree name, tree args,
+  tree (*type_handler) (ttype **node, tree name, tree args,
 		   int flags, bool *no_add_attrs);
   /* Specifies if attribute affects type's identity.  */
   bool affects_type_identity;

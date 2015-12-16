@@ -94,19 +94,19 @@ static tree handle_const_attribute (tree *, tree, tree, int, bool *);
 static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
-static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
-static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
+static tree handle_nonnull_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_sentinel_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_malloc_attribute (tree *, tree, tree, int, bool *);
-static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
-static tree handle_vector_size_attribute (tree *, tree, tree, int, bool *);
-static tree handle_vector_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_type_generic_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_vector_size_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_vector_type_attribute (ttype **, tree, tree, int, bool *);
 
 /* Fake handler for attributes we don't properly support, typically because
    they'd require dragging a lot of the common-c front-end circuitry.  */
-static tree fake_attribute_handler      (tree *, tree, tree, int, bool *);
+static tree fake_attribute_handler      (ttype **, tree, tree, int, bool *);
 
 /* Table of machine-independent internal attributes for Ada.  We support
    this minimal set of attributes to accommodate the needs of builtins.  */
@@ -3294,10 +3294,10 @@ gnat_type_for_mode (machine_mode mode, int unsignedp)
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
 
-tree
+ttype *
 gnat_unsigned_type (tree type_node)
 {
-  tree type = gnat_type_for_size (TYPE_PRECISION (type_node), 1);
+  ttype *type = gnat_type_for_size (TYPE_PRECISION (type_node), 1);
 
   if (TREE_CODE (type_node) == INTEGER_TYPE && TYPE_MODULAR_P (type_node))
     {
@@ -3317,10 +3317,10 @@ gnat_unsigned_type (tree type_node)
 
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
 
-tree
+ttype *
 gnat_signed_type (tree type_node)
 {
-  tree type = gnat_type_for_size (TYPE_PRECISION (type_node), 0);
+  ttype *type = gnat_type_for_size (TYPE_PRECISION (type_node), 0);
 
   if (TREE_CODE (type_node) == INTEGER_TYPE && TYPE_MODULAR_P (type_node))
     {
@@ -3630,7 +3630,7 @@ type_for_vector_element_p (tree type)
    this is not possible.  If ATTRIBUTE is non-zero, we are processing the
    attribute declaration and want to issue error messages on failure.  */
 
-static tree
+static ttype *
 build_vector_type_for_size (tree inner_type, tree size, tree attribute)
 {
   unsigned HOST_WIDE_INT size_int, inner_size_int;
@@ -3641,7 +3641,7 @@ build_vector_type_for_size (tree inner_type, tree size, tree attribute)
      base types, and this attribute is for binding implementors, not end
      users, so we should never get there from legitimate explicit uses.  */
   if (!tree_fits_uhwi_p (size))
-    return NULL_TREE;
+    return NULL;
   size_int = tree_to_uhwi (size);
 
   if (!type_for_vector_element_p (inner_type))
@@ -3649,7 +3649,7 @@ build_vector_type_for_size (tree inner_type, tree size, tree attribute)
       if (attribute)
 	error ("invalid element type for attribute %qs",
 	       IDENTIFIER_POINTER (attribute));
-      return NULL_TREE;
+      return NULL;
     }
   inner_size_int = tree_to_uhwi (TYPE_SIZE_UNIT (inner_type));
 
@@ -3657,14 +3657,14 @@ build_vector_type_for_size (tree inner_type, tree size, tree attribute)
     {
       if (attribute)
 	error ("vector size not an integral multiple of component size");
-      return NULL_TREE;
+      return NULL;
     }
 
   if (size_int == 0)
     {
       if (attribute)
 	error ("zero vector size");
-      return NULL_TREE;
+      return NULL;
     }
 
   nunits = size_int / inner_size_int;
@@ -3672,7 +3672,7 @@ build_vector_type_for_size (tree inner_type, tree size, tree attribute)
     {
       if (attribute)
 	error ("number of components of vector not a power of two");
-      return NULL_TREE;
+      return NULL;
     }
 
   return build_vector_type (inner_type, nunits);
@@ -3682,14 +3682,14 @@ build_vector_type_for_size (tree inner_type, tree size, tree attribute)
    NULL_TREE if this is not possible.  If ATTRIBUTE is non-zero, we are
    processing the attribute and want to issue error messages on failure.  */
 
-static tree
+static ttype *
 build_vector_type_for_array (tree array_type, tree attribute)
 {
-  tree vector_type = build_vector_type_for_size (TREE_TYPE (array_type),
-						 TYPE_SIZE_UNIT (array_type),
-						 attribute);
+  ttype *vector_type = build_vector_type_for_size (TREE_TYPE (array_type),
+						   TYPE_SIZE_UNIT (array_type),
+						   attribute);
   if (!vector_type)
-    return NULL_TREE;
+    return NULL;
 
   TYPE_REPRESENTATIVE_ARRAY (vector_type) = array_type;
   return vector_type;
@@ -5296,11 +5296,11 @@ enum c_tree_index
     CTI_MAX
 };
 
-static tree c_global_trees[CTI_MAX];
+static ttype *c_global_types[CTI_MAX];
 
-#define signed_size_type_node	c_global_trees[CTI_SIGNED_SIZE_TYPE]
-#define string_type_node	c_global_trees[CTI_STRING_TYPE]
-#define const_string_type_node	c_global_trees[CTI_CONST_STRING_TYPE]
+#define signed_size_type_node	c_global_types[CTI_SIGNED_SIZE_TYPE]
+#define string_type_node	c_global_types[CTI_STRING_TYPE]
+#define const_string_type_node	c_global_types[CTI_CONST_STRING_TYPE]
 
 /* ??? In addition some attribute handlers, we currently don't support a
    (small) number of builtin-types, which in turns inhibits support for a
@@ -5688,11 +5688,11 @@ get_nonnull_operand (tree arg_num_expr, unsigned HOST_WIDE_INT *valp)
 
 /* Handle the "nonnull" attribute.  */
 static tree
-handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
+handle_nonnull_attribute (ttype **node, tree ARG_UNUSED (name),
 			  tree args, int ARG_UNUSED (flags),
 			  bool *no_add_attrs)
 {
-  tree type = *node;
+  ttype *type = *node;
   unsigned HOST_WIDE_INT attr_arg_num;
 
   /* If no arguments are specified, all pointer arguments should be
@@ -5762,7 +5762,7 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 /* Handle a "sentinel" attribute.  */
 
 static tree
-handle_sentinel_attribute (tree *node, tree name, tree args,
+handle_sentinel_attribute (ttype **node, tree name, tree args,
 			   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (!prototype_p (*node))
@@ -5898,7 +5898,7 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 /* Fake handler for attributes we don't properly support.  */
 
 tree
-fake_attribute_handler (tree * ARG_UNUSED (node),
+fake_attribute_handler (ttype ** ARG_UNUSED (node),
 			tree ARG_UNUSED (name),
 			tree ARG_UNUSED (args),
 			int  ARG_UNUSED (flags),
@@ -5910,7 +5910,7 @@ fake_attribute_handler (tree * ARG_UNUSED (node),
 /* Handle a "type_generic" attribute.  */
 
 static tree
-handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
+handle_type_generic_attribute (ttype **node, tree ARG_UNUSED (name),
 			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
@@ -5927,11 +5927,11 @@ handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 static tree
-handle_vector_size_attribute (tree *node, tree name, tree args,
+handle_vector_size_attribute (ttype **node, tree name, tree args,
 			      int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  tree type = *node;
-  tree vector_type;
+  ttype *type = *node;
+  ttype *vector_type;
 
   *no_add_attrs = true;
 
@@ -5945,7 +5945,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   while (POINTER_TYPE_P (type)
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TREE_TTYPE (type);
 
   vector_type = build_vector_type_for_size (type, TREE_VALUE (args), name);
   if (!vector_type)
@@ -5961,11 +5961,11 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
    struct attribute_spec.handler.  */
 
 static tree
-handle_vector_type_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+handle_vector_type_attribute (ttype **node, tree name, tree ARG_UNUSED (args),
 			      int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  tree type = *node;
-  tree vector_type;
+  ttype *type = *node;
+  ttype *vector_type;
 
   *no_add_attrs = true;
 

@@ -1012,18 +1012,18 @@ s390_handle_hotpatch_attribute (tree *node, tree name, tree args,
 /* Expand the s390_vector_bool type attribute.  */
 
 static tree
-s390_handle_vectorbool_attribute (tree *node, tree name ATTRIBUTE_UNUSED,
+s390_handle_vectorbool_attribute (ttype **node, tree name ATTRIBUTE_UNUSED,
 				  tree args ATTRIBUTE_UNUSED,
 				  int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
-  tree type = *node, result = NULL_TREE;
+  ttype *type = *node, *result = NULL_TYPE;
   machine_mode mode;
 
   while (POINTER_TYPE_P (type)
 	 || TREE_CODE (type) == FUNCTION_TYPE
 	 || TREE_CODE (type) == METHOD_TYPE
 	 || TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+    type = TREE_TTYPE (type);
 
   mode = TYPE_MODE (type);
   switch (mode)

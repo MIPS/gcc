@@ -6718,7 +6718,7 @@ ix86_function_ok_for_sibcall (tree decl, tree exp)
    arguments as in struct attribute_spec.handler.  */
 
 static tree
-ix86_handle_cconv_attribute (tree *node, tree name,
+ix86_handle_cconv_attribute (ttype **node, tree name,
 				   tree args,
 				   int,
 				   bool *no_add_attrs)
@@ -6856,6 +6856,22 @@ ix86_handle_cconv_attribute (tree *node, tree name,
   return NULL_TREE;
 }
 
+
+static tree
+ix86_handle_tm_regparm_get_attr ()
+{
+  tree alt;
+  /* ??? Is there a better way to validate 32-bit windows?  We have
+     cfun->machine->call_abi, but that seems to be set only for 64-bit.  */
+  if (CHECK_STACK_LIMIT > 0)
+    alt = tree_cons (get_identifier ("fastcall"), NULL, NULL);
+  else
+    {
+      alt = tree_cons (NULL, build_int_cst (NULL, 2), NULL);
+      alt = tree_cons (get_identifier ("regparm"), alt, NULL);
+    }
+  return alt;
+}
 /* The transactional memory builtins are implicitly regparm or fastcall
    depending on the ABI.  Override the generic do-nothing attribute that
    these builtins were declared with, and replace it with one of the two
@@ -6867,26 +6883,33 @@ ix86_handle_tm_regparm_attribute (tree *node, tree, tree,
 {
   tree alt;
 
+  /* The 64-bit ABI is unchanged for transactional memory.  */
+  if (TARGET_64BIT)
+    return NULL_TREE;
+
   /* In no case do we want to add the placeholder attribute.  */
   *no_add_attrs = true;
+  alt = ix86_handle_tm_regparm_get_attr ();
+  decl_attributes (node, alt, flags);
+
+  return NULL_TREE;
+}
+
+
+static tree
+ix86_handle_tm_regparm_type_attribute (ttype **node, tree, tree,
+				       int flags, bool *no_add_attrs)
+{
+  tree alt;
 
   /* The 64-bit ABI is unchanged for transactional memory.  */
   if (TARGET_64BIT)
     return NULL_TREE;
 
-  /* ??? Is there a better way to validate 32-bit windows?  We have
-     cfun->machine->call_abi, but that seems to be set only for 64-bit.  */
-  if (CHECK_STACK_LIMIT > 0)
-    alt = tree_cons (get_identifier ("fastcall"), NULL, NULL);
-  else
-    {
-      alt = tree_cons (NULL, build_int_cst (NULL, 2), NULL);
-      alt = tree_cons (get_identifier ("regparm"), alt, NULL);
-    }
-  if (TYPE_P (*node))
-    type_attributes (node, alt, flags);
-  else
-    decl_attributes (node, alt, flags);
+  /* In no case do we want to add the placeholder attribute.  */
+  *no_add_attrs = true;
+  alt = ix86_handle_tm_regparm_get_attr ();
+  type_attributes (TREE_PTR_CAST (node), alt, flags);
 
   return NULL_TREE;
 }
@@ -11894,7 +11917,7 @@ find_drap_reg (void)
 /* Handle a "force_align_arg_pointer" attribute.  */
 
 static tree
-ix86_handle_force_align_arg_pointer_attribute (tree *node, tree name,
+ix86_handle_force_align_arg_pointer_attribute (ttype **node, tree name,
 					       tree, int, bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
@@ -44125,15 +44148,13 @@ x86_order_regs_for_local_alloc (void)
 /* Handle a "callee_pop_aggregate_return" attribute; arguments as
    in struct attribute_spec handler.  */
 static tree
-ix86_handle_callee_pop_aggregate_return (tree *node, tree name,
+ix86_handle_callee_pop_aggregate_return (ttype **node, tree name,
 					      tree args,
 					      int,
 					      bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+      && TREE_CODE (*node) != METHOD_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -44177,13 +44198,11 @@ ix86_handle_callee_pop_aggregate_return (tree *node, tree name,
 /* Handle a "ms_abi" or "sysv" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ix86_handle_abi_attribute (tree *node, tree name, tree, int,
+ix86_handle_abi_attribute (ttype **node, tree name, tree, int,
 			   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE
-      && TREE_CODE (*node) != METHOD_TYPE
-      && TREE_CODE (*node) != FIELD_DECL
-      && TREE_CODE (*node) != TYPE_DECL)
+      && TREE_CODE (*node) != METHOD_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
 	       name);
@@ -44217,7 +44236,7 @@ ix86_handle_abi_attribute (tree *node, tree name, tree, int,
 /* Handle a "ms_struct" or "gcc_struct" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-ix86_handle_struct_type_attribute (tree *type, tree name, tree, int,
+ix86_handle_struct_type_attribute (ttype **type, tree name, tree, int,
 				   bool *no_add_attrs)
 {
   if (!(RECORD_OR_UNION_TYPE_P (*type)))
@@ -44244,7 +44263,7 @@ ix86_handle_struct_decl_attribute (tree *node, tree name, tree arg, int flags,
 				   bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == TYPE_DECL)
-    return ix86_handle_struct_type_attribute (&(TREE_TYPE (*node)), name, arg,
+    return ix86_handle_struct_type_attribute (TREE_TTYPE_PTR (*node), name, arg,
 					      flags, no_add_attrs);
 
   warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -48242,8 +48261,8 @@ static const struct attribute_spec ix86_attribute_table[] =
   /* The transactional memory builtins are implicitly regparm or fastcall
      depending on the ABI.  Override the generic do-nothing attribute that
      these builtins were declared with.  */
-  { "*tm regparm", 0, 0, false, true, true, NULL,
-    ix86_handle_tm_regparm_attribute, true },
+  { "*tm regparm", 0, 0, false, true, true, ix86_handle_tm_regparm_attribute,
+    ix86_handle_tm_regparm_type_attribute, true },
   /* force_align_arg_pointer says this function realigns the stack at entry.  */
   { (const char *)&ix86_force_align_arg_pointer_string, 0, 0, false, 
     true,  true, NULL, ix86_handle_force_align_arg_pointer_attribute, false },

@@ -9085,14 +9085,14 @@ type_memfn_quals (const_tree type)
 /* Returns the FUNCTION_TYPE TYPE with its function-cv-quals changed to
    MEMFN_QUALS and its ref-qualifier to RQUAL. */
 
-tree
+ttype *
 apply_memfn_quals (tree type, cp_cv_quals memfn_quals, cp_ref_qualifier rqual)
 {
   /* Could handle METHOD_TYPE here if necessary.  */
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
   if (TYPE_QUALS (type) == memfn_quals
       && type_memfn_rqual (type) == rqual)
-    return type;
+    return (TTYPE (type));
 
   /* This should really have a different TYPE_MAIN_VARIANT, but that gets
      complex.  */

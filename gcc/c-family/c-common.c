@@ -309,7 +309,7 @@ static bool check_case_bounds (location_t, tree, tree, tree *, tree *,
 			       bool *);
 
 static tree handle_packed_decl_attribute (tree *, tree, tree, int, bool *);
-static tree handle_packed_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_packed_type_attribute (ttype**, tree, tree, int, bool *);
 static tree handle_nocommon_attribute (tree *, tree, tree, int, bool *);
 static tree handle_common_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noreturn_attribute (tree *, tree, tree, int, bool *);
@@ -334,7 +334,7 @@ static tree handle_flatten_attribute (tree *, tree, tree, int, bool *);
 static tree handle_error_attribute (tree *, tree, tree, int, bool *);
 static tree handle_used_attribute (tree *, tree, tree, int, bool *);
 static tree handle_unused_decl_attribute (tree *, tree, tree, int, bool *);
-static tree handle_unused_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_unused_type_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_externally_visible_attribute (tree *, tree, tree, int,
 						 bool *);
 static tree handle_no_reorder_attribute (tree *, tree, tree, int,
@@ -342,13 +342,13 @@ static tree handle_no_reorder_attribute (tree *, tree, tree, int,
 static tree handle_const_attribute (tree *, tree, tree, int, bool *);
 static tree handle_transparent_union_decl_attribute (tree *, tree, tree,
 						     int, bool *);
-static tree handle_transparent_union_type_attribute (tree *, tree, tree,
+static tree handle_transparent_union_type_attribute (ttype **, tree, tree,
 						     int, bool *);
 static tree handle_constructor_attribute (tree *, tree, tree, int, bool *);
 static tree handle_destructor_attribute (tree *, tree, tree, int, bool *);
-static tree handle_mode_attribute (tree *, tree, tree, int, bool *);
+static tree handle_mode_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_section_attribute (tree *, tree, tree, int, bool *);
-static tree handle_aligned_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_aligned_type_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_aligned_decl_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weak_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_noplt_attribute (tree *, tree, tree, int, bool *) ;
@@ -358,7 +358,7 @@ static tree handle_alias_attribute (tree *, tree, tree, int, bool *);
 static tree handle_weakref_attribute (tree *, tree, tree, int, bool *) ;
 static tree handle_visibility_decl_attribute (tree *, tree, tree, int,
 					      bool *);
-static tree handle_visibility_type_attribute (tree *, tree, tree, int,
+static tree handle_visibility_type_attribute (ttype **, tree, tree, int,
 					      bool *);
 static tree handle_tls_model_attribute (tree *, tree, tree, int,
 					bool *);
@@ -370,39 +370,41 @@ static tree handle_no_limit_stack_attribute (tree *, tree, tree, int,
 					     bool *);
 static tree handle_pure_attribute (tree *, tree, tree, int, bool *);
 static tree handle_tm_decl_attribute (tree *, tree, tree, int, bool *);
-static tree handle_tm_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_tm_type_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_tm_wrap_attribute (tree *, tree, tree, int, bool *);
 static tree handle_novops_attribute (tree *, tree, tree, int, bool *);
-static tree handle_deprecated_type_attribute (tree *, tree, tree, int,
+static tree handle_deprecated_type_attribute (ttype **, tree, tree, int,
 					      bool *);
 static tree handle_deprecated_decl_attribute (tree *, tree, tree, int,
 					      bool *);
-static tree handle_vector_size_attribute (tree *, tree, tree, int,
+static tree handle_vector_size_attribute (ttype **, tree, tree, int,
 					  bool *);
-static tree handle_nonnull_attribute (tree *, tree, tree, int, bool *);
+static tree handle_nonnull_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_nothrow_attribute (tree *, tree, tree, int, bool *);
 static tree handle_cleanup_attribute (tree *, tree, tree, int, bool *);
-static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
+static tree handle_warn_unused_result_attribute (ttype **, tree, tree, int,
 						 bool *);
-static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
-static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
-static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
-static tree handle_alloc_align_attribute (tree *, tree, tree, int, bool *);
-static tree handle_assume_aligned_attribute (tree *, tree, tree, int, bool *);
+static tree handle_sentinel_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_type_generic_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_alloc_size_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_alloc_align_attribute (ttype **, tree, tree, int, bool *);
+static tree handle_assume_aligned_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_target_attribute (tree *, tree, tree, int, bool *);
 static tree handle_target_clones_attribute (tree *, tree, tree, int, bool *);
 static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
-static tree ignore_attribute (tree *, tree, tree, int, bool *);
+static tree ignore_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
-static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
+static tree handle_fnspec_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_warn_unused_decl_attribute (tree *, tree, tree, int, bool *);
-static tree handle_warn_unused_type_attribute (tree *, tree, tree, int, bool *);
-static tree handle_returns_nonnull_attribute (tree *, tree, tree, int, bool *);
+static tree handle_warn_unused_type_attribute (ttype **, tree, tree, int,
+					       bool *);
+static tree handle_returns_nonnull_attribute (ttype **, tree, tree, int,
+					      bool *);
 static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
 						 bool *);
-static tree handle_designated_init_attribute (tree *, tree, tree, int, bool *);
+static tree handle_designated_init_attribute (ttype **, tree, tree, int, bool *);
 static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
 static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 static tree handle_bnd_instrument (tree *, tree, tree, int, bool *);
@@ -7145,7 +7147,7 @@ handle_packed_decl_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 }
 
 static tree
-handle_packed_type_attribute (tree *node, tree ARG_UNUSED (name),
+handle_packed_type_attribute (ttype **node, tree ARG_UNUSED (name),
 			      tree ARG_UNUSED (args),
 			      int flags, bool *ARG_UNUSED (no_add_attrs))
 {
@@ -7613,7 +7615,7 @@ handle_unused_decl_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
 
 static tree
-handle_unused_type_attribute (tree *node, tree ARG_UNUSED (name),
+handle_unused_type_attribute (ttype **node, tree ARG_UNUSED (name),
 			      tree ARG_UNUSED (args), int flags,
 			      bool *ARG_UNUSED (no_add_attrs))
 {
@@ -7711,11 +7713,11 @@ handle_const_attribute (tree *node, tree name, tree ARG_UNUSED (args),
    struct attribute_spec.handler.  */
 
 static tree
-handle_transparent_union_type_attribute (tree *node, tree name,
+handle_transparent_union_type_attribute (ttype **node, tree name,
 					 tree ARG_UNUSED (args), int flags,
 					 bool *no_add_attrs)
 {
-  tree type = *node;
+  ttype *type = *node;
   *no_add_attrs = true;
 
   if (TREE_CODE (type) == UNION_TYPE)
@@ -7765,7 +7767,7 @@ handle_transparent_union_decl_attribute (tree *node, tree name, tree args,
   *no_add_attrs = true;
 
   if (TREE_CODE (*node) == TYPE_DECL && !(flags & ATTR_FLAG_CXX11))
-    return handle_transparent_union_type_attribute (&TREE_TYPE (*node), name,
+    return handle_transparent_union_type_attribute (TREE_TTYPE_PTR (*node), name,
 						    args, flags, no_add_attrs);
 
   warning (OPT_Wattributes, "%qE attribute ignored", name);
@@ -7932,10 +7934,10 @@ vector_mode_valid_p (machine_mode mode)
    struct attribute_spec.handler.  */
 
 static tree
-handle_mode_attribute (tree *node, tree name, tree args,
+handle_mode_attribute (ttype **node, tree name, tree args,
 		       int ARG_UNUSED (flags), bool *no_add_attrs)
 {
-  tree type = *node;
+  ttype *type = *node;
   tree ident = TREE_VALUE (args);
 
   *no_add_attrs = true;
@@ -7948,7 +7950,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
       const char *p = IDENTIFIER_POINTER (ident);
       int len = strlen (p);
       machine_mode mode = VOIDmode;
-      tree typefm;
+      ttype *typefm;
       bool valid_mode;
 
       if (len > 4 && p[0] == '_' && p[1] == '_'
@@ -8058,9 +8060,9 @@ handle_mode_attribute (tree *node, tree name, tree args,
 	      return NULL_TREE;
 	    }
 	  /* For fixed-point modes, we need to pass saturating info.  */
-	  typefm = lang_hooks.types.type_for_mode (mode,
+	  typefm = TTYPE (lang_hooks.types.type_for_mode (mode,
 			ALL_FIXED_POINT_MODE_P (mode) ? TYPE_SATURATING (type)
-						      : TYPE_UNSIGNED (type));
+						      : TYPE_UNSIGNED (type)));
 	}
 
       if (typefm == NULL_TREE)
@@ -8316,7 +8318,7 @@ get_align_expr (tree args)
 /* Set the type alignment fields of NODE, based on FLAGS to I.  */
 
 static void
-handle_aligned_type (tree *node, int flags, int i)
+handle_aligned_type (ttype **node, int flags, int i)
 {
   if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
     *node = build_variant_type_copy (*node);
@@ -8329,8 +8331,8 @@ handle_aligned_type (tree *node, int flags, int i)
    struct attribute_spec.handler.  */
 
 static tree
-handle_aligned_type_attribute (tree *node, tree ARG_UNUSED (name), tree args,
-			  int flags, bool *no_add_attrs)
+handle_aligned_type_attribute (ttype **node, tree ARG_UNUSED (name), tree args,
+			       int flags, bool *no_add_attrs)
 {
   tree align_expr;
   int i;
@@ -8363,7 +8365,7 @@ handle_aligned_decl_attribute (tree *node, tree ARG_UNUSED (name), tree args,
       *no_add_attrs = true;
     }
   else if (TREE_CODE (*node) == TYPE_DECL)
-    handle_aligned_type (&TREE_TYPE (*node), flags, i);
+    handle_aligned_type (TREE_TTYPE_PTR (*node), flags, i);
   else if (! VAR_OR_FUNCTION_DECL_P (decl)
 	   && TREE_CODE (decl) != FIELD_DECL)
     {
@@ -8695,7 +8697,7 @@ handle_visibility_decl_attribute (tree *node, tree name, tree args,
 
 
 static tree
-handle_visibility_type_attribute (tree *node, tree name, tree args,
+handle_visibility_type_attribute (ttype **node, tree name, tree args,
 				  int ARG_UNUSED (flags),
 				  bool *ARG_UNUSED (no_add_attrs))
 {
@@ -8713,7 +8715,7 @@ handle_visibility_type_attribute (tree *node, tree name, tree args,
   else if (TYPE_FIELDS (*node))
     {
       error ("%qE attribute ignored because %qT is already defined",
-	     name, *node);
+	     name, TREE_CAST (*node));
       return NULL_TREE;
     }
 
@@ -8877,7 +8879,7 @@ handle_malloc_attribute (tree *node, tree name, tree ARG_UNUSED (args),
    struct attribute_spec.handler.  */
 
 static tree
-handle_alloc_size_attribute (tree *node, tree ARG_UNUSED (name), tree args,
+handle_alloc_size_attribute (ttype **node, tree ARG_UNUSED (name), tree args,
 			     int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   unsigned arg_count = type_num_arguments (*node);
@@ -8905,7 +8907,7 @@ handle_alloc_size_attribute (tree *node, tree ARG_UNUSED (name), tree args,
    struct attribute_spec.handler.  */
 
 static tree
-handle_alloc_align_attribute (tree *node, tree, tree args, int,
+handle_alloc_align_attribute (ttype **node, tree, tree args, int,
 			      bool *no_add_attrs)
 {
   unsigned arg_count = type_num_arguments (*node);
@@ -8929,7 +8931,7 @@ handle_alloc_align_attribute (tree *node, tree, tree args, int,
    struct attribute_spec.handler.  */
 
 static tree
-handle_assume_aligned_attribute (tree *, tree, tree args, int,
+handle_assume_aligned_attribute (ttype **, tree, tree args, int,
 				 bool *no_add_attrs)
 {
   for (; args; args = TREE_CHAIN (args))
@@ -8954,7 +8956,7 @@ handle_assume_aligned_attribute (tree *, tree, tree args, int,
    struct attribute_spec.handler.  */
 
 static tree
-handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
+handle_fnspec_attribute (ttype **node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
 			 tree args, int ARG_UNUSED (flags),
 			 bool *no_add_attrs ATTRIBUTE_UNUSED)
 {
@@ -9016,7 +9018,7 @@ handle_bnd_instrument (tree *node, tree name, tree ARG_UNUSED (args),
    struct attribute_spec.handler.  */
 
 static tree
-handle_warn_unused_type_attribute (tree *node ATTRIBUTE_UNUSED,
+handle_warn_unused_type_attribute (ttype **node ATTRIBUTE_UNUSED,
 				   tree name ATTRIBUTE_UNUSED,
 				   tree args ATTRIBUTE_UNUSED,
 				   int flags ATTRIBUTE_UNUSED,
@@ -9274,7 +9276,7 @@ handle_tm_decl_attribute (tree *node, tree name, tree args,
    processing given by function_type_required.  */
 
 static tree
-handle_tm_type_attribute (tree *node, tree name, tree args,
+handle_tm_type_attribute (ttype **node, tree name, tree args,
 		     int flags, bool *no_add_attrs)
 {
   /* Only one path adds the attribute; others don't.  */
@@ -9375,7 +9377,7 @@ handle_tm_wrap_attribute (tree *node, tree name, tree args,
    overridden by the target, but is not used generically.  */
 
 static tree
-ignore_attribute (tree * ARG_UNUSED (node), tree ARG_UNUSED (name),
+ignore_attribute (ttype ** ARG_UNUSED (node), tree ARG_UNUSED (name),
 		  tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 		  bool *no_add_attrs)
 {
@@ -9400,7 +9402,7 @@ handle_novops_attribute (tree *node, tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 static tree
-handle_deprecated_type_attribute (tree *node, tree ARG_UNUSED (name),
+handle_deprecated_type_attribute (ttype **node, tree ARG_UNUSED (name),
 				  tree args, int flags,
 				  bool *no_add_attrs)
 {
@@ -9467,7 +9469,7 @@ handle_deprecated_decl_attribute (tree *node, tree ARG_UNUSED (name),
    struct attribute_spec.handler.  */
 
 static tree
-handle_vector_size_attribute (tree *node, tree name, tree args,
+handle_vector_size_attribute (ttype **node, tree name, tree args,
 			      int ARG_UNUSED (flags),
 			      bool *no_add_attrs)
 {
@@ -9552,7 +9554,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 
 /* Handle the "nonnull" attribute.  */
 static tree
-handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
+handle_nonnull_attribute (ttype **node, tree ARG_UNUSED (name),
 			  tree args, int ARG_UNUSED (flags),
 			  bool *no_add_attrs)
 {
@@ -9852,9 +9854,9 @@ handle_cleanup_attribute (tree *node, tree name, tree args,
 /* Handle a "warn_unused_result" attribute.  No special handling.  */
 
 static tree
-handle_warn_unused_result_attribute (tree *node, tree name,
-			       tree ARG_UNUSED (args),
-			       int ARG_UNUSED (flags), bool *no_add_attrs)
+handle_warn_unused_result_attribute (ttype **node, tree name,
+				     tree ARG_UNUSED (args),
+				     int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   /* Ignore the attribute for functions not returning any value.  */
   if (VOID_TYPE_P (TREE_TYPE (*node)))
@@ -9869,7 +9871,7 @@ handle_warn_unused_result_attribute (tree *node, tree name,
 /* Handle a "sentinel" attribute.  */
 
 static tree
-handle_sentinel_attribute (tree *node, tree name, tree args,
+handle_sentinel_attribute (ttype **node, tree name, tree args,
 			   int ARG_UNUSED (flags), bool *no_add_attrs)
 {
   if (!prototype_p (*node))
@@ -9919,7 +9921,7 @@ handle_sentinel_attribute (tree *node, tree name, tree args,
 /* Handle a "type_generic" attribute.  */
 
 static tree
-handle_type_generic_attribute (tree *node, tree ARG_UNUSED (name),
+handle_type_generic_attribute (ttype **node, tree ARG_UNUSED (name),
 			       tree ARG_UNUSED (args), int ARG_UNUSED (flags),
 			       bool * ARG_UNUSED (no_add_attrs))
 {
@@ -10186,7 +10188,7 @@ handle_no_split_stack_attribute (tree *node, tree name,
    struct attribute_spec.handler.  */
 
 static tree
-handle_returns_nonnull_attribute (tree *node, tree, tree, int,
+handle_returns_nonnull_attribute (ttype **node, tree, tree, int,
 				  bool *no_add_attrs)
 {
   // Even without a prototype we still have a return type we can check.
@@ -10202,7 +10204,7 @@ handle_returns_nonnull_attribute (tree *node, tree, tree, int,
    struct attribute_spec.handler.  */
 
 static tree
-handle_designated_init_attribute (tree *node, tree name, tree, int,
+handle_designated_init_attribute (ttype **node, tree name, tree, int,
 				  bool *no_add_attrs)
 {
   if (TREE_CODE (*node) != RECORD_TYPE)

@@ -49,15 +49,15 @@ static tree build_local_temp (tree);
 
 static tree handle_java_interface_decl_attribute (tree *, tree, tree, int,
 						  bool *);
-static tree handle_java_interface_type_attribute (tree *, tree, tree, int,
+static tree handle_java_interface_type_attribute (ttype **, tree, tree, int,
 						  bool *);
 static tree handle_com_interface_decl_attribute (tree *, tree, tree, int,
 						 bool *);
-static tree handle_com_interface_type_attribute (tree *, tree, tree, int,
+static tree handle_com_interface_type_attribute (ttype **, tree, tree, int,
 						 bool *);
 static tree handle_init_priority_attribute (tree *, tree, tree, int, bool *);
 static tree handle_abi_tag_decl_attribute (tree *, tree, tree, int, bool *);
-static tree handle_abi_tag_type_attribute (tree *, tree, tree, int, bool *);
+static tree handle_abi_tag_type_attribute (ttype **, tree, tree, int, bool *);
 
 /* If REF is an lvalue, returns the kind of lvalue that REF is.
    Otherwise, returns clk_none.  */
@@ -3446,7 +3446,7 @@ handle_com_interface_decl_attribute (tree* /*node*/, tree name, tree /*args*/,
 /* Handle a "java_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-handle_java_interface_type_attribute (tree* node,
+handle_java_interface_type_attribute (ttype **node,
 				      tree name,
 				      tree /*args*/,
 				      int flags,
@@ -3459,8 +3459,7 @@ handle_java_interface_type_attribute (tree* node,
       *no_add_attrs = true;
       return NULL_TREE;
     }
-  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE))
-    *node = build_variant_type_copy (*node);
+  if (!(flags & (int) ATTR_FLAG_TYPE_IN_PLACE)) *node = build_variant_type_copy (*node);
   TYPE_JAVA_INTERFACE (*node) = 1;
 
   return NULL_TREE;
@@ -3469,7 +3468,7 @@ handle_java_interface_type_attribute (tree* node,
 /* Handle a "com_interface" attribute; arguments as in
    struct attribute_spec.handler.  */
 static tree
-handle_com_interface_type_attribute (tree* node,
+handle_com_interface_type_attribute (ttype **node,
 				     tree name,
 				     tree /*args*/,
 				     int /*flags*/,
@@ -3692,7 +3691,7 @@ handle_abi_tag_decl_attribute (tree* node, tree name, tree args,
    struct attribute_spec.handler.  */
 
 static tree
-handle_abi_tag_type_attribute (tree* node, tree name, tree args,
+handle_abi_tag_type_attribute (ttype ** node, tree name, tree args,
 			       int flags, bool* no_add_attrs)
 {
   tree attributes, decl;
@@ -3702,27 +3701,27 @@ handle_abi_tag_type_attribute (tree* node, tree name, tree args,
   if (!OVERLOAD_TYPE_P (*node))
     {
       error ("%qE attribute applied to non-class, non-enum type %qT",
-	     name, *node);
+	     name, TREE_CAST (*node));
       goto fail;
     }
   else if (!(flags & (int)ATTR_FLAG_TYPE_IN_PLACE))
     {
       error ("%qE attribute applied to %qT after its definition",
-	     name, *node);
+	     name, TREE_CAST (*node));
       goto fail;
     }
   else if (CLASS_TYPE_P (*node)
 	   && CLASSTYPE_TEMPLATE_INSTANTIATION (*node))
     {
       warning (OPT_Wattributes, "ignoring %qE attribute applied to "
-	       "template instantiation %qT", name, *node);
+	       "template instantiation %qT", name, TREE_CAST (*node));
       goto fail;
     }
   else if (CLASS_TYPE_P (*node)
 	   && CLASSTYPE_TEMPLATE_SPECIALIZATION (*node))
     {
       warning (OPT_Wattributes, "ignoring %qE attribute applied to "
-	       "template specialization %qT", name, *node);
+	       "template specialization %qT", name, TREE_CAST (*node));
       goto fail;
     }
 
@@ -3761,10 +3760,10 @@ make_ptrmem_cst (tree type, tree member)
 /* Build a variant of TYPE that has the indicated ATTRIBUTES.  May
    return an existing type if an appropriate type already exists.  */
 
-tree
+ttype *
 cp_build_type_attribute_variant (tree type, tree attributes)
 {
-  tree new_type;
+  ttype *new_type;
 
   new_type = build_type_attribute_variant (type, attributes);
   if (TREE_CODE (new_type) == FUNCTION_TYPE

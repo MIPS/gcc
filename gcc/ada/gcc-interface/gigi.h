@@ -533,10 +533,10 @@ extern tree gnat_type_for_mode (machine_mode mode, int unsignedp);
 extern void gnat_write_global_declarations (void);
 
 /* Return the unsigned version of a TYPE_NODE, a scalar type.  */
-extern tree gnat_unsigned_type (tree type_node);
+extern ttype *gnat_unsigned_type (tree type_node);
 
 /* Return the signed version of a TYPE_NODE, a scalar type.  */
-extern tree gnat_signed_type (tree type_node);
+extern ttype *gnat_signed_type (tree type_node);
 
 /* Return 1 if the types T1 and T2 are compatible, i.e. if they can be
    transparently converted to each other.  */
