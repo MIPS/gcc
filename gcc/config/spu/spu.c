@@ -124,7 +124,7 @@ enum spu_builtin_type_index
 #define unsigned_V4SI_type_node       (spu_builtin_types[SPU_BTI_UV4SI])
 #define unsigned_V2DI_type_node       (spu_builtin_types[SPU_BTI_UV2DI])
 
-static GTY(()) ttype spu_builtin_types[SPU_BTI_MAX];
+static GTY(()) tree spu_builtin_types[SPU_BTI_MAX];
 
 struct spu_builtin_range
 {
@@ -3687,7 +3687,7 @@ spu_handle_fndecl_attribute (tree * node,
 
 /* Handle the "vector" attribute.  */
 static tree
-spu_handle_vector_attribute (tree * node, tree name,
+spu_handle_vector_attribute (tree* node, tree name,
 			     tree args ATTRIBUTE_UNUSED,
 			     int flags ATTRIBUTE_UNUSED, bool * no_add_attrs)
 {

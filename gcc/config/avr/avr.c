@@ -893,9 +893,9 @@ avr_initial_elimination_offset (int from, int to)
 /* Helper for the function below.  */
 
 static void
-avr_adjust_type_node (tree *node, machine_mode mode, int sat_p)
+avr_adjust_type_node (ttype **node, machine_mode mode, int sat_p)
 {
-  *node = make_node (FIXED_POINT_TYPE);
+  *node = make_type_node (FIXED_POINT_TYPE);
   TYPE_SATURATING (*node) = sat_p;
   TYPE_UNSIGNED (*node) = UNSIGNED_FIXED_POINT_MODE_P (mode);
   TYPE_IBIT (*node) = GET_MODE_IBIT (mode);
@@ -8924,6 +8924,7 @@ avr_warning_type_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
   warning (OPT_Wattributes, "%qE attribute does not apply to types",
 	   name);
   *no_add_attrs = true;
+  return NULL_TREE;
 }
 /* Handle a "progmem" attribute; arguments as in
    struct attribute_spec.handler.  */
