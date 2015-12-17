@@ -83,9 +83,6 @@ static int *consumer_luid = NULL;
 #define CONSUMER_LUID(INSN)	\
   consumer_luid[INSN_UID ((INSN))]
 
-/* Definitions used in common epilogue emission.  */
-static int num_gp = 0, epi_with_ra = 0;
-
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
   (GET_CODE (X) == UNSPEC					\
@@ -453,6 +450,8 @@ struct GTY(())  machine_function {
   bool use_common_epilogue_p;
   /* If use_common_epilogue_p, holds suffix string.  */
   const char *epi_suffix;
+  /* If use_common_epilogue_p, determines if $ra should also be restored.  */
+  bool epi_with_ra;
 };
 
 /* Information about a single argument.  */
@@ -1410,9 +1409,7 @@ mips_common_epilogue_p (tree decl)
 
   args = TREE_VALUE (attr);
 
-  if (args == NULL)
-     cfun->machine->epi_suffix = "";
-  else
+  if (args != NULL)
     {
       cst = TREE_VALUE (args);
       cfun->machine->epi_suffix = TREE_STRING_POINTER (cst);
@@ -10892,6 +10889,28 @@ mips_save_reg_p (unsigned int regno)
   return false;
 }
 
+/* Returns false if a register $sx in the range $s0-$s7 (callee-saved)
+   is not saved in the prologue (not used in current function) but register
+   $s(x+1) is saved.  Common epilogue cannot be emitted in such case.
+   Returns true otherwise.  */
+
+static bool
+consecutive_saved_gpr_p ()
+{
+  const struct mips_frame_info *frame;
+  frame = &cfun->machine->frame;
+  int regno, last = RETURN_ADDR_REGNUM;
+  for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
+    if (BITSET_P (frame->mask, regno - GP_REG_FIRST))
+      {
+	if (last != RETURN_ADDR_REGNUM && last != HARD_FRAME_POINTER_REGNUM)
+	  if (last != regno + 1)
+	    return false;
+	last = regno;
+      }
+  return true;
+}
+
 /* Populate the current function's mips_frame_info structure.
 
    MIPS stack frames look like:
@@ -10988,10 +11007,6 @@ mips_compute_frame_info (void)
 					       (current_function_decl));
 	}
     }
-
-  /* Set whether this function uses common epilogue.  */
-  cfun->machine->use_common_epilogue_p =
-    mips_common_epilogue_p (current_function_decl);
 
   frame = &cfun->machine->frame;
   memset (frame, 0, sizeof (*frame));
@@ -11142,6 +11157,32 @@ mips_compute_frame_info (void)
      instructions for local variables and incoming arguments.  */
   if (TARGET_MIPS16)
     frame->hard_frame_pointer_offset = frame->args_size;
+
+  /* Set whether this function uses common epilogue.  */
+  if ((TARGET_EPI
+       || mips_epi != NULL
+       || mips_common_epilogue_p (current_function_decl))
+      && ISA_SUPPORTS_COMMON_EPILOGUE
+      && !cfun->machine->interrupt_handler_p
+      && !crtl->calls_eh_return
+      && consecutive_saved_gpr_p ())
+    {
+      /* Determine number of saved gpr without counting $ra and $fp
+	 (when used as frame pointer).  */
+      int num_gp = frame->num_gp;
+      if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+	num_gp--;
+      if (frame_pointer_needed
+	  && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+	num_gp--;
+
+      if (num_gp >= MIPS_EPI_MIN_GP_RESTORE)
+	{
+	  cfun->machine->use_common_epilogue_p = true;
+	  if (cfun->machine->epi_suffix == NULL)
+	    cfun->machine->epi_suffix = mips_epi;
+	}
+    }
 }
 
 /* Return the style of GP load sequence that is being used for the
@@ -12531,26 +12572,25 @@ mips_output_epi_jump ()
      jump to corresponding sequence and restore $ra as well.
      Otherwise, $ra (if required) is already been restored,
      fall through starting from the appropriate label.  */
-  const char *ra = epi_with_ra ? "_ra" : "";
+  const char *ra = cfun->machine->epi_with_ra ? "_ra" : "";
   const char *nop = "%/";
-  const char *uscore;
-  const char *suffix;
+  const char *uscore = "";
+  const char *suffix = "";
   const char *num_saved;
+  const struct mips_frame_info *frame = &cfun->machine->frame;
+  /* Determine number of saved gpr without counting $ra and $fp
+     (when used as frame pointer).  */
+  int num_gp = frame->num_gp;
+  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
+    num_gp--;
+  if (frame_pointer_needed
+      && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
+    num_gp--;
 
-  if (cfun->machine->use_common_epilogue_p)
+  if (cfun->machine->epi_suffix != NULL)
     {
       suffix = cfun->machine->epi_suffix;
       uscore = "_";
-    }
-  else if (mips_epi != NULL)
-    {
-      suffix = (const char *)mips_epi;
-      uscore = "_";
-    }
-  else
-    {
-      suffix = "";
-      uscore = "";
     }
 
   switch (num_gp)
@@ -12562,32 +12602,10 @@ mips_output_epi_jump ()
       case 5: num_saved = "5"; break;
       case 4: num_saved = "4"; break;
       case 3: num_saved = "3"; break;
-      default: gcc_assert (num_gp >= MIN_NUM_GP);
+      default: gcc_assert (num_gp >= MIPS_EPI_MIN_GP_RESTORE);
     }
   sprintf (s, "%s%s%s%s%s%s", str, num_saved, ra, uscore, suffix, nop);
   return s;
-}
-
-/* Returns false if a register $sx in the range $s0-$s7 (callee-saved)
-   is not saved in the prologue (not used in current function) but register
-   $s(x+1) is saved.  Common epilogue cannot be emitted in such case.
-   Returns true otherwise.  */
-
-static bool
-consecutive_saved_gpr_p ()
-{
-  const struct mips_frame_info *frame;
-  frame = &cfun->machine->frame;
-  int regno, last = RETURN_ADDR_REGNUM;
-  for (regno = GP_REG_LAST; regno >= GP_REG_FIRST; regno--)
-    if (BITSET_P (frame->mask, regno - GP_REG_FIRST))
-      {
-	if (last != RETURN_ADDR_REGNUM && last != HARD_FRAME_POINTER_REGNUM)
-	  if (last != regno + 1)
-	    return false;
-	last = regno;
-      }
-  return true;
 }
 
 /* Expand an "epilogue" or "sibcall_epilogue" pattern; SIBCALL_P
@@ -12620,15 +12638,6 @@ mips_expand_epilogue (bool sibcall_p)
   frame = &cfun->machine->frame;
   step1 = frame->total_size;
   step2 = 0;
-
-  /* Record no of saved gpr without counting $ra and
-     $fp (when used as frame pointer).  */
-  num_gp = frame->num_gp;
-  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
-    num_gp--;
-  if (frame_pointer_needed
-      && BITSET_P (frame->mask, HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
-    num_gp--;
 
   /* Work out which register holds the frame address.  */
   if (!frame_pointer_needed)
@@ -12691,9 +12700,7 @@ mips_expand_epilogue (bool sibcall_p)
       emit_insn (restore);
       mips_epilogue_set_cfa (stack_pointer_rtx, 0);
     }
-  else if (HAVE_COMMON_EPILOGUE && consecutive_saved_gpr_p ()
-	   && num_gp >= MIN_NUM_GP && !sibcall_p
-	   && !cfun->machine->interrupt_handler_p && !crtl->calls_eh_return)
+  else if (cfun->machine->use_common_epilogue_p && !sibcall_p)
     {
       /* Handle common epilogue.  Restore all registers BUT GPRs, record the
 	 starting offset of REG_SAVE area of stack and deallocate all stack
@@ -12705,8 +12712,6 @@ mips_expand_epilogue (bool sibcall_p)
 
       /* Calculate start of GPR save area.  */
       int gpr_save_start = last_offset - ((frame->num_gp - 1) * UNITS_PER_WORD);
-
-      epi_with_ra = 0;
 
       /* Restore all other registers.  */
       mips_for_each_saved_acc (frame->total_size - step2, mips_restore_reg);
@@ -12723,7 +12728,7 @@ mips_expand_epilogue (bool sibcall_p)
       if (!frame_pointer_needed
 	  && (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
 	  && (limit_of_gpr_save == frame->total_size))
-	epi_with_ra = 1;
+	cfun->machine->epi_with_ra = true;
       else
 	{
 	  /* Restore $ra.  */
@@ -12860,8 +12865,7 @@ mips_expand_epilogue (bool sibcall_p)
 	    }
 	  else if (use_jraddiusp_p)
 	    pat = gen_jraddiusp (GEN_INT (step2));
-	  else if (HAVE_COMMON_EPILOGUE && consecutive_saved_gpr_p ()
-		   && num_gp >= MIN_NUM_GP && !crtl->calls_eh_return)
+	  else if (cfun->machine->use_common_epilogue_p)
 	    {
 	      /* Emit jump to common epilogue.  */
 	      rtx reg1 = gen_rtx_REG (Pmode, GP_REG_FIRST + 9);
