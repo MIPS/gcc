@@ -949,10 +949,10 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
       pp_string (pp, "_griddim_(");
       pp_unsigned_wide_integer (pp, OMP_CLAUSE_GRIDDIM_DIMENSION (clause));
       pp_colon (pp);
-      dump_generic_node (pp, OMP_CLAUSE_GRIDDIM_SIZE (clause), spc, flags,
+      dump_generic_node (pp, OMP_CLAUSE__GRIDDIM__SIZE (clause), spc, flags,
 			 false);
       pp_comma (pp);
-      dump_generic_node (pp, OMP_CLAUSE_GRIDDIM_GROUP (clause), spc, flags,
+      dump_generic_node (pp, OMP_CLAUSE__GRIDDIM__GROUP (clause), spc, flags,
 			 false);
       pp_right_paren (pp);
       break;

@@ -146,6 +146,7 @@ enum gf_mask {
     GF_CALL_CTRL_ALTERING       = 1 << 7,
     GF_CALL_WITH_BOUNDS 	= 1 << 8,
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
+    GF_OMP_PARALLEL_GRID_PHONY = 1 << 1,
     GF_OMP_TASK_TASKLOOP	= 1 << 0,
     GF_OMP_FOR_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_FOR_KIND_FOR		= 0,
@@ -153,13 +154,14 @@ enum gf_mask {
     GF_OMP_FOR_KIND_TASKLOOP	= 2,
     GF_OMP_FOR_KIND_CILKFOR     = 3,
     GF_OMP_FOR_KIND_OACC_LOOP	= 4,
-    GF_OMP_FOR_KIND_KERNEL_BODY = 5,
+    GF_OMP_FOR_KIND_GRID_LOOP = 5,
     /* Flag for SIMD variants of OMP_FOR kinds.  */
     GF_OMP_FOR_SIMD		= 1 << 3,
     GF_OMP_FOR_KIND_SIMD	= GF_OMP_FOR_SIMD | 0,
     GF_OMP_FOR_KIND_CILKSIMD	= GF_OMP_FOR_SIMD | 1,
     GF_OMP_FOR_COMBINED		= 1 << 4,
     GF_OMP_FOR_COMBINED_INTO	= 1 << 5,
+    GF_OMP_FOR_GRID_PHONY	= 1 << 6,
     GF_OMP_TARGET_KIND_MASK	= (1 << 4) - 1,
     GF_OMP_TARGET_KIND_REGION	= 0,
     GF_OMP_TARGET_KIND_DATA	= 1,
@@ -173,6 +175,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_OACC_ENTER_EXIT_DATA = 9,
     GF_OMP_TARGET_KIND_OACC_DECLARE = 10,
     GF_OMP_TARGET_KIND_OACC_HOST_DATA = 11,
+    GF_OMP_TEAMS_GRID_PHONY	= 1 << 0,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
@@ -624,12 +627,6 @@ struct GTY((tag("GSS_OMP_FOR")))
   /* [ WORD 11 ]
      Pre-body evaluated before the loop body begins.  */
   gimple_seq pre_body;
-
-  /* [ WORD 12 ]
-     If set, this statement is part of a gridified kernel, its clauses need to
-     be scanned and lowered but the statement should be discarded after
-     lowering.  */
-  bool kernel_phony;
 };
 
 
@@ -651,12 +648,6 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
   /* [ WORD 10 ]
      Shared data argument.  */
   tree data_arg;
-
-  /* [ WORD 11 ] */
-  /* If set, this statement is part of a gridified kernel, its clauses need to
-     be scanned and lowered but the statement should be discarded after
-     lowering.  */
-  bool kernel_phony;
 };
 
 /* GIMPLE_OMP_PARALLEL or GIMPLE_TASK */
@@ -757,18 +748,11 @@ struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
          stmt->code == GIMPLE_OMP_SINGLE.  */
 };
 
-/* GIMPLE_OMP_TEAMS */
-
-struct GTY((tag("GSS_OMP_TEAMS_LAYOUT")))
+struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
   gomp_teams : public gimple_statement_omp_single_layout
 {
-  /* [ WORD 1-8 ] : base class */
-
-  /* [ WORD 9 ]
-     If set, this statement is part of a gridified kernel, its clauses need to
-     be scanned and lowered but the statement should be discarded after
-     lowering.  */
-  bool kernel_phony;
+    /* No extra fields; adds invariant:
+         stmt->code == GIMPLE_OMP_TEAMS.  */
 };
 
 struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
@@ -1472,7 +1456,7 @@ gomp_task *gimple_build_omp_task (gimple_seq, tree, tree, tree, tree,
 				       tree, tree);
 gimple *gimple_build_omp_section (gimple_seq);
 gimple *gimple_build_omp_master (gimple_seq);
-gimple *gimple_build_omp_gpukernel (gimple_seq);
+gimple *gimple_build_omp_grid_body (gimple_seq);
 gimple *gimple_build_omp_taskgroup (gimple_seq);
 gomp_continue *gimple_build_omp_continue (tree, tree);
 gomp_ordered *gimple_build_omp_ordered (gimple_seq, tree);
@@ -1733,7 +1717,7 @@ gimple_has_substatements (gimple *g)
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_WITH_CLEANUP_EXPR:
     case GIMPLE_TRANSACTION:
-    case GIMPLE_OMP_GPUKERNEL:
+    case GIMPLE_OMP_GRID_BODY:
       return true;
 
     default:
@@ -5102,17 +5086,20 @@ gimple_omp_for_set_pre_body (gimple *gs, gimple_seq pre_body)
 /* Return the kernel_phony of OMP_FOR statement.  */
 
 static inline bool
-gimple_omp_for_kernel_phony (const gomp_for *omp_for)
+gimple_omp_for_grid_phony (const gomp_for *omp_for)
 {
-  return omp_for->kernel_phony;
+  return (gimple_omp_subcode (omp_for) & GF_OMP_FOR_GRID_PHONY) != 0;
 }
 
 /* Set kernel_phony flag of OMP_FOR to VALUE.  */
 
 static inline void
-gimple_omp_for_set_kernel_phony (gomp_for *omp_for, bool value)
+gimple_omp_for_set_grid_phony (gomp_for *omp_for, bool value)
 {
-  omp_for->kernel_phony = value;
+  if (value)
+    omp_for->subcode |= GF_OMP_FOR_GRID_PHONY;
+  else
+    omp_for->subcode &= ~GF_OMP_FOR_GRID_PHONY;
 }
 
 /* Return the clauses associated with OMP_PARALLEL GS.  */
@@ -5203,18 +5190,20 @@ gimple_omp_parallel_set_data_arg (gomp_parallel *omp_parallel_stmt,
 /* Return the kernel_phony flag of OMP_PARALLEL_STMT.  */
 
 static inline bool
-gimple_omp_parallel_kernel_phony (const gomp_parallel *omp_parallel_stmt)
+gimple_omp_parallel_grid_phony (const gomp_parallel *stmt)
 {
-  return omp_parallel_stmt->kernel_phony;
+  return (gimple_omp_subcode (stmt) & GF_OMP_PARALLEL_GRID_PHONY) != 0;
 }
 
 /* Set kernel_phony flag of OMP_PARALLEL_STMT to VALUE.  */
 
 static inline void
-gimple_omp_parallel_set_kernel_phony (gomp_parallel *omp_parallel_stmt,
-				      bool value)
+gimple_omp_parallel_set_grid_phony (gomp_parallel *stmt, bool value)
 {
-  omp_parallel_stmt->kernel_phony = value;
+  if (value)
+    stmt->subcode |= GF_OMP_PARALLEL_GRID_PHONY;
+  else
+    stmt->subcode &= ~GF_OMP_PARALLEL_GRID_PHONY;
 }
 
 /* Return the clauses associated with OMP_TASK GS.  */
@@ -5692,17 +5681,20 @@ gimple_omp_teams_set_clauses (gomp_teams *omp_teams_stmt, tree clauses)
 /* Return the kernel_phony flag of an OMP_TEAMS_STMT.  */
 
 static inline bool
-gimple_omp_teams_kernel_phony (const gomp_teams *omp_teams_stmt)
+gimple_omp_teams_grid_phony (const gomp_teams *omp_teams_stmt)
 {
-  return omp_teams_stmt->kernel_phony;
+  return (gimple_omp_subcode (omp_teams_stmt) & GF_OMP_TEAMS_GRID_PHONY) != 0;
 }
 
 /* Set kernel_phony flag of an OMP_TEAMS_STMT to VALUE.  */
 
 static inline void
-gimple_omp_teams_set_kernel_phony (gomp_teams *omp_teams_stmt, bool value)
+gimple_omp_teams_set_grid_phony (gomp_teams *omp_teams_stmt, bool value)
 {
-  omp_teams_stmt->kernel_phony = value;
+  if (value)
+    omp_teams_stmt->subcode |= GF_OMP_TEAMS_GRID_PHONY;
+  else
+    omp_teams_stmt->subcode &= ~GF_OMP_TEAMS_GRID_PHONY;
 }
 
 /* Return the clauses associated with OMP_SECTIONS GS.  */
@@ -6034,7 +6026,7 @@ gimple_return_set_retbnd (gimple *gs, tree retval)
     case GIMPLE_OMP_ATOMIC_LOAD:		\
     case GIMPLE_OMP_ATOMIC_STORE:		\
     case GIMPLE_OMP_CONTINUE:			\
-    case GIMPLE_OMP_GPUKERNEL
+    case GIMPLE_OMP_GRID_BODY
 
 static inline bool
 is_gimple_omp (const gimple *stmt)

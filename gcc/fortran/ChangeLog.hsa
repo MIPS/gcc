@@ -1,3 +1,7 @@
+2015-12-17  Martin Jambor  <mjambor@suse.cz>
+
+	* types.def: Removed a blank line.
+
 2015-11-13  Martin Jambor  <mjambor@suse.cz>
 
 	* types.def:

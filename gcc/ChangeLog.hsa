@@ -1,3 +1,108 @@
+2015-12-17  Martin Jambor  <mjambor@suse.cz>
+
+	* builtin-types.def: Removed a blank line.
+	* gimple-low.c (lower_stmt): Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	* gimple-pretty-print.c (dump_gimple_omp_for): Changed
+	GF_OMP_FOR_KIND_KERNEL_BODY to GF_OMP_FOR_KIND_GRID_LOOP.
+	(dump_gimple_omp_block): Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	(pp_gimple_stmt_1): Likewise.
+	* gimple-walk.c (walk_gimple_stmt): Likewise.
+	* gimple.c (gimple_build_omp_gpukernel): Renamed to
+	gimple_build_omp_grid_body.  Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	(gimple_copy): Changed GIMPLE_OMP_GPUKERNEL to GIMPLE_OMP_GRID_BODY.
+	* gimple.def (GIMPLE_OMP_TEAMS): Changed back to GSS_OMP_SINGLE_LAYOUT.
+	(GIMPLE_OMP_GPUKERNEL): Renamed to GIMPLE_OMP_GRID_BODY.
+	* gimple.h (gf_mask): Changed GF_OMP_FOR_KIND_KERNEL_BODY to
+	GF_OMP_FOR_KIND_GRID_LOOP.  New elements
+	GF_OMP_PARALLEL_GRID_PHONY, GF_OMP_FOR_GRID_PHONY and
+	GF_OMP_TEAMS_GRID_PHONY.
+	(gomp_for): Removed field kernel_phony.
+	(gimple_statement_omp_parallel_layout): Likewise.
+	(gomp_teams): Changed back to GSS_OMP_SINGLE_LAYOUT.  Removed
+	field kernel_phony.
+	(gimple_has_substatements): Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	(gimple_omp_for_kernel_phony): Renamed to
+	gimple_omp_for_grid_phony, work on gimple subcode.
+	(gimple_omp_for_set_kernel_phony): Renamed to
+	gimple_omp_for_set_grid_phony, work on gimple subcode.
+	(gimple_omp_parallel_kernel_phony): Renamed to
+	gimple_omp_parallel_grid_phony, work on gimple subcode.
+	(gimple_omp_parallel_set_kernel_phony): Renamed to
+	gimple_omp_parallel_set_grid_phony, work on gimple subcode.
+	(gimple_omp_teams_kernel_phony): Renamed to
+	gimple_omp_teams_grid_phony, work on gimple subcode.
+	(gimple_omp_teams_set_kernel_phony): Renamed to
+	gimple_omp_teams_set_grid_phony, work on gimple subcode.
+	(CASE_GIMPLE_OMP): Changed GIMPLE_OMP_GPUKERNEL to GIMPLE_OMP_GRID_BODY.
+	* omp-low.c (build_outer_var_ref): Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	(scan_sharing_clauses): Changed OMP_CLAUSE_GRIDDIM_SIZE to
+	OMP_CLAUSE__GRIDDIM__SIZE and OMP_CLAUSE_GRIDDIM_GROUP to
+	OMP_CLAUSE__GRIDDIM__GROUP.
+	(check_omp_nesting_restrictions): Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	(scan_omp_1_stmt): Likewise.
+	(region_needs_kernel_p): Renamed to parallel_needs_hsa_kernel_p.
+	Use GIMPLE_CODE instead of is_a.
+	(kernel_dim_array_type): Removed.
+	(kernel_lattrs_dimnum_decl;): Likewise.
+	(kernel_lattrs_grid_decl): Likewise.
+	(kernel_lattrs_group_decl): Likewise.
+	(kernel_launch_attributes_type): Likewise.
+	(grid_launch_attributes_trees): New type.
+	(grid_attr_trees): New variable.
+	(create_kernel_launch_attr_types): Renamed to
+	grid_create_kernel_launch_attr_types.  Work on trees encapsulated
+	in grid_attr_trees.
+	(insert_store_range_dim): Renamed to grid_insert_store_range_dim.
+	Work on trees encapsulated in grid_attr_trees.
+	(get_kernel_launch_attributes): Renamed to
+	grid_get_kernel_launch_attributes.  Work on trees encapsulated in
+	grid_attr_trees.
+	(push_target_argument_according_to_value): New function.
+	(get_target_arguments): Use it to encode num_teams and
+	thread_limit depending on it being constant and its value.
+	(expand_omp_for_kernel): Renamed to grid_expand_omp_for_loop.
+	Changed GIMPLE_OMP_GPUKERNEL to GIMPLE_OMP_GRID_BODY.
+	(arg_decl_map): Renamed to grid_arg_decl_map.
+	(remap_kernel_arg_accesses): Renamed to
+	grid_remap_kernel_arg_accesses.
+	(expand_target_kernel_body): Renamed to
+	grid_expand_target_grid_body.  Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	(lower_omp_taskreg): Use GIMPLE_CODE instead of is_a.
+	(lower_omp_1): Changed GIMPLE_OMP_GPUKERNEL to GIMPLE_OMP_GRID_BODY.
+	(reg_assignment_to_local_var_p): Renamed to
+	grid_reg_assignment_to_local_var_p.
+	(seq_only_contains_local_assignments): Renamed to
+	gris_seq_only_contains_local_assignments.
+	(find_single_omp_among_assignments_1): Renamed to
+	grid_find_single_omp_among_assignments_1.
+	(find_single_omp_among_assignments): Renamed to
+	grid_find_single_omp_among_assignments.
+	(find_ungridifiable_statement): Renamed to
+	grid_find_ungridifiable_statement.
+	(target_follows_gridifiable_pattern): Renamed to
+	grid_target_follows_gridifiable_pattern.
+	(process_kernel_body_copy): Renamed to grid_process_kernel_body_copy.
+	(attempt_target_gridification): Renamed to
+	grid_attempt_target_gridification.  Changed
+	OMP_CLAUSE_GRIDDIM_SIZE to OMP_CLAUSE__GRIDDIM__SIZE and
+	OMP_CLAUSE_GRIDDIM_GROUP to OMP_CLAUSE__GRIDDIM__GROUP.
+	(create_target_gpukernel_stmt): Renamed to
+	grid_gridify_all_targets_stmt.
+	(create_target_gpukernels): Renamed to grid_gridify_all_targets.
+	(make_gimple_omp_edges): Changed GIMPLE_OMP_GPUKERNEL to
+	GIMPLE_OMP_GRID_BODY.
+	* tree-pretty-print.c (dump_omp_clause): Changed
+	OMP_CLAUSE_GRIDDIM_SIZE to OMP_CLAUSE__GRIDDIM__SIZE and
+	OMP_CLAUSE_GRIDDIM_GROUP to OMP_CLAUSE__GRIDDIM__GROUP.
+	* tree.c (omp_clause_code_name): Changed griddim to to _griddim_.
+
 2015-12-10  Martin Jambor  <mjambor@suse.cz>
 
 	* lto-wrapper.c (compile_images_for_offload_targets): Do not leave
