@@ -1719,12 +1719,6 @@ extern void protected_set_expr_location (tree, location_t);
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
 
-
-#define TTYPE_POINTER_TO(NODE) TTYPE ((TYPE_CHECK (NODE)->u.type_common.pointer_to))
-#define TTYPE_REFERENCE_TO(NODE) TTYPE ((TYPE_CHECK (NODE)->u.type_common.reference_to))
-#define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
-#define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT(NODE)))
-
 #define TYPE_MODE(NODE) \
   (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
@@ -1984,11 +1978,6 @@ extern machine_mode element_mode (const_tree t);
 #define TYPE_MAX_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.maxval)
 
-#define TTYPE_NEXT_PTR_TO(NODE) \
-  TTYPE ((POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval))
-#define TTYPE_NEXT_REF_TO(NODE) \
-  TTYPE ((REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval))
-
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
@@ -2034,7 +2023,6 @@ extern machine_mode element_mode (const_tree t);
 
 /* The actual data type node being inherited in this basetype.  */
 #define BINFO_TYPE(NODE) TREE_TYPE (TREE_BINFO_CHECK (NODE))
-#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
 
 /* The offset where this basetype appears in its containing type.
    BINFO_OFFSET slot holds the offset (in bytes)
@@ -3682,6 +3670,61 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
   ((NODE) == error_mark_node					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
 
+template <>
+template <>
+inline bool
+is_a_helper <ttype *>::test (tree t)
+{
+  return TYPE_P (t);
+}
+
+static inline ttype *TTYPE (tree t) 
+{ 
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <ttype *>(t); 
+}
+
+ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
+
+
+class ttype_p {
+  ttype *type;
+public:
+  inline ttype_p (tree t) { type = TTYPE (t); }
+  inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline operator ttype *() const { return type; }
+  inline ttype * operator->() { return type; }
+  // Used to mark locations which will simply be ttype when we can remove the
+  // ttype_p type at this location.  Mostly when used in varargs..
+  inline ttype *as_a_ttype () { return type; }
+};
+
+#define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+
+// This macros simply becomes TREE_TYPE when typed.type becomess a ttype *
+#define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
+// This macros simply becomes &TREE_TYPE when typed.type becomess a ttype *
+#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
+
+// These macros become the normal TYPE_ when their underlying type is converted.
+#define TTYPE_POINTER_TO(NODE) TTYPE (TYPE_POINTER_TO (NODE))
+#define TTYPE_REFERENCE_TO(NODE) TTYPE (TYPE_REFERENCE_TO (NODE))
+#define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
+#define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT (NODE)))
+
+#define TTYPE_NEXT_PTR_TO(NODE)  TTYPE (TYPE_NEXT_PTR_TO (NODE))
+#define TTYPE_NEXT_REF_TO(NODE) TTYPE (TYPE_NEXT_REF_TO(NODE))
+
+#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
+
+
+
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
 extern tree decl_comdat_group_id (const_tree);
@@ -3937,6 +3980,7 @@ extern tree array_type_nelts (const_tree);
 extern tree value_member (tree, tree);
 extern tree purpose_member (const_tree, tree);
 extern bool vec_member (const_tree, vec<tree, va_gc> *);
+extern bool vec_member (const ttype *, vec<ttype *, va_gc> *);
 extern tree chain_index (int, tree);
 
 extern int attribute_list_equal (const_tree, const_tree);
@@ -3992,7 +4036,7 @@ extern tree make_tree (tree, rtx);
 
 extern ttype *build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
-extern ttype *build_type_attribute_qual_variant (tree, tree, int);
+extern ttype *build_type_attribute_qual_variant (ttype_p, tree, int);
 
 extern bool attribute_value_equal (const_tree, const_tree);
 
@@ -4103,12 +4147,12 @@ extern bool check_qualified_type (const_tree, const_tree, int);
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
 
-extern ttype *get_qualified_type (tree, int);
+extern ttype *get_qualified_type (ttype_p, int);
 
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */
 
-extern ttype *build_qualified_type (tree, int);
+extern ttype *build_qualified_type (ttype_p, int);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
@@ -4126,7 +4170,7 @@ extern tree build_aligned_type (tree, unsigned int);
 
 /* Make a copy of a type node.  */
 
-extern ttype *build_distinct_type_copy (tree);
+extern ttype *build_distinct_type_copy (ttype_p);
 extern ttype *build_variant_type_copy (tree);
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
@@ -4627,7 +4671,7 @@ extern int chain_member (const_tree, const_tree);
 extern void dump_tree_statistics (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool needs_to_live_in_memory (const_tree);
-extern ttype *reconstruct_complex_type (tree, tree);
+extern ttype *reconstruct_complex_type (ttype_p , ttype_p);
 extern int real_onep (const_tree);
 extern int real_minus_onep (const_tree);
 extern void init_ttree (void);
@@ -5234,30 +5278,5 @@ extern void gt_pch_nx (tree &);
 extern void gt_pch_nx (tree &, gt_pointer_operator, void *);
 
 extern bool nonnull_arg_p (const_tree);
-
-template <>
-template <>
-inline bool
-is_a_helper <ttype *>::test (tree t)
-{
-  return TYPE_P (t);
-}
-
-static inline ttype *TTYPE (tree t) 
-{ 
-  if (t == NULL_TREE)
-    return NULL;
-  if (t == error_mark_node)
-    return error_type_node;
-  return as_a <ttype *>(t); 
-}
-
-ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
-
-#define TREE_TTYPE(NODE) (as_a <ttype *>(TREE_TYPE (NODE)))
-#define TREE_CAST(NODE) ((tree)(NODE))
-#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
-#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
-#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
 
 #endif  /* GCC_TREE_H  */

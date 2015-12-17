@@ -1673,9 +1673,9 @@ lookup_field (ttype **typep, tree name)
    SELF_VALUE is NULL_TREE if looking for a static field. */
 
 tree
-build_field_ref (tree self_value, tree self_class, tree name)
+build_field_ref (tree self_value, ttype_p self_class, tree name)
 {
-  ttype *base_class = TTYPE (self_class);
+  ttype *base_class = self_class;
   tree field_decl = lookup_field (&base_class, name);
   if (field_decl == NULL_TREE)
     {

@@ -1848,7 +1848,7 @@ invalid_nonstatic_memfn_p (location_t loc, tree expr, tsubst_flags_t complain)
    match the declared type of the bitfield, return the declared type
    of the bitfield.  Otherwise, return NULL_TREE.  */
 
-tree
+ttype *
 is_bitfield_expr_with_lowered_type (const_tree exp)
 {
   switch (TREE_CODE (exp))
@@ -1857,7 +1857,7 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
       if (!is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 1)
 					       ? TREE_OPERAND (exp, 1)
 					       : TREE_OPERAND (exp, 0)))
-	return NULL_TREE;
+	return NULL;
       return is_bitfield_expr_with_lowered_type (TREE_OPERAND (exp, 2));
 
     case COMPOUND_EXPR:
@@ -1873,11 +1873,11 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
 	
 	field = TREE_OPERAND (exp, 1);
 	if (TREE_CODE (field) != FIELD_DECL || !DECL_BIT_FIELD_TYPE (field))
-	  return NULL_TREE;
+	  return NULL;
 	if (same_type_ignoring_top_level_qualifiers_p
 	    (TREE_TYPE (exp), DECL_BIT_FIELD_TYPE (field)))
-	  return NULL_TREE;
-	return DECL_BIT_FIELD_TYPE (field);
+	  return NULL;
+	return TTYPE (DECL_BIT_FIELD_TYPE (field));
       }
 
     CASE_CONVERT:
@@ -1887,7 +1887,7 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
       /* Fallthrough.  */
 
     default:
-      return NULL_TREE;
+      return NULL;
     }
 }
 
@@ -1895,11 +1895,11 @@ is_bitfield_expr_with_lowered_type (const_tree exp)
    bitfield with a lowered type, the type of EXP is returned, rather
    than NULL_TREE.  */
 
-tree
+ttype *
 unlowered_expr_type (const_tree exp)
 {
-  tree type;
-  tree etype = TREE_TYPE (exp);
+  ttype *type;
+  ttype *etype = TREE_TTYPE (exp);
 
   type = is_bitfield_expr_with_lowered_type (exp);
   if (type)
@@ -9086,13 +9086,14 @@ type_memfn_quals (const_tree type)
    MEMFN_QUALS and its ref-qualifier to RQUAL. */
 
 ttype *
-apply_memfn_quals (tree type, cp_cv_quals memfn_quals, cp_ref_qualifier rqual)
+apply_memfn_quals (ttype_p type, cp_cv_quals memfn_quals,
+		   cp_ref_qualifier rqual)
 {
   /* Could handle METHOD_TYPE here if necessary.  */
   gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
   if (TYPE_QUALS (type) == memfn_quals
       && type_memfn_rqual (type) == rqual)
-    return (TTYPE (type));
+    return type;
 
   /* This should really have a different TYPE_MAIN_VARIANT, but that gets
      complex.  */
@@ -9285,11 +9286,11 @@ casts_away_constness (tree t1, tree t2, tsubst_flags_t complain)
 /* If T is a REFERENCE_TYPE return the type to which T refers.
    Otherwise, return T itself.  */
 
-tree
-non_reference (tree t)
+ttype *
+non_reference (ttype_p t)
 {
   if (t && TREE_CODE (t) == REFERENCE_TYPE)
-    t = TREE_TYPE (t);
+    return TREE_TTYPE (t);
   return t;
 }
 

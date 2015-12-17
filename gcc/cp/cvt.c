@@ -1692,18 +1692,19 @@ build_expr_type_conversion (int desires, tree expr, bool complain)
 
 /* Implements integral promotion (4.1) and float->double promotion.  */
 
-tree
-type_promotes_to (tree type)
+ttype *
+type_promotes_to (ttype_p orig_type)
 {
-  tree promoted_type;
+  ttype *promoted_type;
+  ttype *type;
 
-  if (type == error_mark_node)
-    return error_mark_node;
+  if (orig_type == error_mark_node)
+    return error_type_node;
 
-  type = TYPE_MAIN_VARIANT (type);
+  type = TTYPE_MAIN_VARIANT (orig_type);
 
   /* Check for promotions of target-defined types first.  */
-  promoted_type = targetm.promoted_type (type);
+  promoted_type = TTYPE (targetm.promoted_type (type));
   if (promoted_type)
     return promoted_type;
 
@@ -1722,10 +1723,10 @@ type_promotes_to (tree type)
     {
       int precision = MAX (TYPE_PRECISION (type),
 			   TYPE_PRECISION (integer_type_node));
-      tree totype = c_common_type_for_size (precision, 0);
-      tree prom = type;
+      ttype *totype = c_common_type_for_size (precision, 0);
+      ttype *prom = type;
       if (TREE_CODE (prom) == ENUMERAL_TYPE)
-	prom = ENUM_UNDERLYING_TYPE (prom);
+	prom = TTYPE (ENUM_UNDERLYING_TYPE (prom));
       if (TYPE_UNSIGNED (prom)
 	  && ! int_fits_type_p (TYPE_MAX_VALUE (prom), totype))
 	prom = c_common_type_for_size (precision, 1);

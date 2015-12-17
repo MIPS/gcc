@@ -261,10 +261,10 @@ c_incomplete_type_error (const_tree value, const_tree type)
 /* Given a type, apply default promotions wrt unnamed function
    arguments and return the new type.  */
 
-tree
-c_type_promotes_to (tree type)
+ttype *
+c_type_promotes_to (ttype_p type)
 {
-  tree ret = NULL_TREE;
+  ttype *ret = NULL;
 
   if (TYPE_MAIN_VARIANT (type) == float_type_node)
     ret = double_type_node;
@@ -3321,7 +3321,7 @@ convert_arguments (location_t loc, vec<location_t> arg_loc, tree typelist,
 		warning_at (ploc, OPT_Wdouble_promotion,
 			    "implicit conversion from %qT to %qT when passing "
 			    "argument to function",
-			    valtype, TREE_CAST(double_type_node));
+			    valtype, double_type_node);
 	      parmval = convert (double_type_node, val);
 	    }
 	}
@@ -13063,20 +13063,20 @@ c_finish_transaction (location_t loc, tree block, int flags)
 /* Make a variant type in the proper way for C/C++, propagating qualifiers
    down to the element type of an array.  */
 
-tree
+ttype *
 c_build_qualified_type (tree type, int type_quals)
 {
   if (type == error_mark_node)
-    return type;
+    return error_type_node;
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree t;
-      tree element_type = c_build_qualified_type (TREE_TYPE (type),
+      ttype *t;
+      ttype *element_type = c_build_qualified_type (TREE_TYPE (type),
 						  type_quals);
 
       /* See if we already have an identically qualified type.  */
-      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+      for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
 	{
 	  if (TYPE_QUALS (strip_array_types (t)) == type_quals
 	      && TYPE_NAME (t) == TYPE_NAME (type)
@@ -13122,7 +13122,7 @@ c_build_qualified_type (tree type, int type_quals)
       type_quals &= ~TYPE_QUAL_RESTRICT;
     }
 
-  tree var_type = build_qualified_type (type, type_quals);
+  ttype *var_type = build_qualified_type (type, type_quals);
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
   if (TREE_CODE (var_type) == RECORD_TYPE

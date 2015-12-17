@@ -1314,7 +1314,7 @@ attributes_naming_typedef_ok (tree attrs)
 /* Like reconstruct_complex_type, but handle also template trees.  */
 
 ttype *
-cp_reconstruct_complex_type (tree type, tree bottom)
+cp_reconstruct_complex_type (ttype_p type, ttype_p bottom)
 {
   ttype *inner, *outer;
   bool late_return_type_p = false;
@@ -1367,7 +1367,7 @@ cp_reconstruct_complex_type (tree type, tree bottom)
       outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
-    return TTYPE (bottom);
+    return bottom;
 
   if (TYPE_ATTRIBUTES (type))
     outer = cp_build_type_attribute_variant (outer, TYPE_ATTRIBUTES (type));
@@ -1655,7 +1655,7 @@ coerce_new_type (tree type)
   if (!same_type_p (TREE_TYPE (type), ptr_type_node))
     {
       e = 1;
-      error ("%<operator new%> must return type %qT", TREE_CAST (ptr_type_node));
+      error ("%<operator new%> must return type %qT", ptr_type_node);
     }
 
   if (args && args != void_list_node)
@@ -1683,7 +1683,7 @@ coerce_new_type (tree type)
 
   if (e == 2)
     permerror (input_location, "%<operator new%> takes type %<size_t%> (%qT) "
-	       "as first parameter", TREE_CAST (size_type_node));
+	       "as first parameter", size_type_node);
 
   switch (e)
   {
@@ -1711,7 +1711,7 @@ coerce_delete_type (tree type)
   if (!same_type_p (TREE_TYPE (type), void_type_node))
     {
       e = 1;
-      error ("%<operator delete%> must return type %qT", TREE_CAST (void_type_node));
+      error ("%<operator delete%> must return type %qT", void_type_node);
     }
 
   if (!args || args == void_list_node
@@ -1721,7 +1721,7 @@ coerce_delete_type (tree type)
       if (args && args != void_list_node)
 	args = TREE_CHAIN (args);
       error ("%<operator delete%> takes type %qT as first parameter",
-	     TREE_CAST (ptr_type_node));
+	     ptr_type_node);
     }
   switch (e)
   {

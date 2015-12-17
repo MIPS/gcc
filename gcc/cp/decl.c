@@ -12280,7 +12280,7 @@ grok_op_properties (tree decl, bool complain)
 		      || !same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (ret)),
 				       arg))
 		    warning (OPT_Weffc__, "prefix %qD should return %qT", decl,
-			     TREE_CAST (build_reference_type (arg)));
+			     build_reference_type (arg));
 		}
 	      else
 		{
