@@ -805,6 +805,7 @@ Objective-C and Objective-C++ Dialects}.
 -mcheck-zero-division  -mno-check-zero-division @gol
 -mdivide-traps  -mdivide-breaks @gol
 -mmemcpy  -mno-memcpy  -mlong-calls  -mno-long-calls @gol
+-mepi -mno-epi -mepi=@var{suffix} @gol
 -mmad -mno-mad -mimadd -mno-imadd -mfused-madd  -mno-fused-madd  -nocpp @gol
 -mfix-24k -mno-fix-24k @gol
 -mfix-r4000  -mno-fix-r4000  -mfix-r4400  -mno-fix-r4400 @gol
@@ -17847,6 +17848,30 @@ and callee to be in the same 256 megabyte segment.
 
 This option has no effect on abicalls code.  The default is
 @option{-mno-long-calls}.
+
+@item -mepi
+@itemx -mno-epi
+@opindex mepi
+@opindex mno-epi
+Use (do not use) a common stub to implement a function epilogue
+sequence to reduce code size.  When enabled, functions compiled as
+MIPS32 which have at least 3 saved registers will jump to a common
+piece of code to perform the epilogue restore sequence.
+
+There is an optional argument to specify a suffix to apply to the
+common epilogue stub name allowing a program to have multiple
+copies of the stubs if code exists in multiple independent memory
+regions.  The default epilogue stub code is included in libgcc.a
+within the epi.o object.  Use @code{objcopy --redefine-syms} to
+duplicate this object to create an alternative set of common
+entry points by renaming symbols: @code{__mips_epi_3} and
+@code{__mips_epi_3_ra} through to @code{__mips_epi_9} and
+@code{__mips_epi_9_ra}.  The suffixed version of these symbols
+should add @code{_<suffix>} to the names.
+
+Use of a common epilogue can also be controlled on a per-function basis
+by means of @code{epi} and @code{noepi} attributes.
+@xref{Function Attributes}, for more information.
 
 @item -mmad
 @itemx -mno-mad

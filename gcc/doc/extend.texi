@@ -2590,6 +2590,20 @@ on data in the eight-bit data area.  Note the eight-bit data area is limited to
 You must use GAS and GLD from GNU binutils version 2.7 or later for
 this attribute to work correctly.
 
+@item epi/noepi/epi("suffix")
+@cindex @code{epi} attribute
+@cindex @code{epi("suffix")} attribute
+@cindex @code{noepi} attribute
+On MIPS targets, you can use the @code{epi} and @code{noepi}
+function attributes to locally select or turn off common epilogue usage.
+A function with the @code{epi} attribute will use a common epilogue
+and with the @code{noepi} attribute a standard inline epilogue will be
+used.  These attributes override the @option{-mepi} and @option{-mno-epi}
+options on the command line (@pxref{MIPS Options}).
+
+A single optional argument is supported to specify a suffix to use for the
+common epilogue stub that will be used.  See @pxref{MIPS Options} for details.
+
 @item exception
 @cindex exception handler functions
 Use this attribute on the NDS32 target to indicate that the specified function

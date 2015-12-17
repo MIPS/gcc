@@ -502,3 +502,11 @@ msdata-opt-list=FILE    Use to specify variables to go in the .sdata section
 minline-intermix
 Target Report Var(TARGET_INLINE_INTERMIX)
 Allow inlining even if the compression flags differ between caller and callee
+
+mepi
+Target Report Var(TARGET_EPI) Init(0)
+Generate common epilogue
+
+mepi=
+Target RejectNegative Joined Var(mips_epi)
+-mepi=SUFFIX  Generate common epilogue with suffix on the entry-point name
