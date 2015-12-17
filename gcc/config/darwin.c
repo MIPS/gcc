@@ -1983,7 +1983,7 @@ darwin_unique_section (tree decl ATTRIBUTE_UNUSED, int reloc ATTRIBUTE_UNUSED)
    class data members on the padding at the end of the base class.  */
 
 tree
-darwin_handle_kext_attribute (tree *node, tree name,
+darwin_handle_kext_attribute (ttype **node, tree name,
 			      tree args ATTRIBUTE_UNUSED,
 			      int flags ATTRIBUTE_UNUSED,
 			      bool *no_add_attrs)

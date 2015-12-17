@@ -130,11 +130,11 @@ static unsigned long arm_compute_save_reg_mask (void);
 static unsigned long arm_isr_value (tree);
 static unsigned long arm_compute_func_type (void);
 static tree arm_handle_fndecl_attribute (tree *, tree, tree, int, bool *);
-static tree arm_handle_pcs_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_pcs_attribute (ttype **, tree, tree, int, bool *);
 static tree arm_handle_isr_decl_attribute (tree *, tree, tree, int, bool *);
-static tree arm_handle_isr_type_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_isr_type_attribute (ttype **, tree, tree, int, bool *);
 #if TARGET_DLLIMPORT_DECL_ATTRIBUTES
-static tree arm_handle_notshared_attribute (tree *, tree, tree, int, bool *);
+static tree arm_handle_notshared_attribute (ttype **, tree, tree, int, bool *);
 #endif
 static void arm_output_function_epilogue (FILE *, HOST_WIDE_INT);
 static void arm_output_function_prologue (FILE *, HOST_WIDE_INT);
@@ -6438,7 +6438,7 @@ arm_handle_isr_decl_attribute (tree *node, tree name, tree args, int flags,
 }
 
 static tree
-arm_handle_isr_type_attribute (tree *node, tree name, tree args, int flags,
+arm_handle_isr_type_attribute (ttype **node, tree name, tree args, int flags,
 			       bool *no_add_attrs)
 {
   if (TREE_CODE (*node) == FUNCTION_TYPE
@@ -6485,7 +6485,7 @@ arm_handle_isr_type_attribute (tree *node, tree name, tree args, int flags,
 /* Handle a "pcs" attribute; arguments as in struct
    attribute_spec.handler.  */
 static tree
-arm_handle_pcs_attribute (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
+arm_handle_pcs_attribute (ttype **node ATTRIBUTE_UNUSED, tree name, tree args,
 			  int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
   if (arm_pcs_from_attribute (args) == ARM_PCS_UNKNOWN)
@@ -6503,7 +6503,7 @@ arm_handle_pcs_attribute (tree *node ATTRIBUTE_UNUSED, tree name, tree args,
    attribute.  */
 
 static tree
-arm_handle_notshared_attribute (tree *node,
+arm_handle_notshared_attribute (ttype **node,
 				tree name ATTRIBUTE_UNUSED,
 				tree args ATTRIBUTE_UNUSED,
 				int flags ATTRIBUTE_UNUSED,

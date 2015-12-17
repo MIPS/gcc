@@ -167,16 +167,16 @@ static bool mep_function_ok_for_sibcall (tree, tree);
 static int unique_bit_in (HOST_WIDE_INT);
 static int bit_size_for_clip (HOST_WIDE_INT);
 static int bytesize (const_tree, machine_mode);
-static tree mep_validate_type_based_tiny (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_based_tiny (ttype **, tree, tree, int, bool *);
 static tree mep_validate_decl_based_tiny (tree *, tree, tree, int, bool *);
-static tree mep_validate_type_near_far (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_near_far (ttype **, tree, tree, int, bool *);
 static tree mep_validate_decl_near_far (tree *, tree, tree, int, bool *);
-static tree mep_validate_type_disinterrupt (tree *, tree, tree, int, bool *);
+static tree mep_validate_type_disinterrupt (ttype **, tree, tree, int, bool *);
 static tree mep_validate_decl_disinterrupt (tree *, tree, tree, int, bool *);
-static tree mep_validate_type_warning(tree *, tree, tree, int, bool *);
+static tree mep_validate_type_warning(ttype **, tree, tree, int, bool *);
 static tree mep_validate_interrupt (tree *, tree, tree, int, bool *);
 static tree mep_validate_io_cb (tree *, tree, tree, int, bool *);
-static tree mep_validate_vliw (tree *, tree, tree, int, bool *);
+static tree mep_validate_vliw (ttype **, tree, tree, int, bool *);
 static bool mep_function_attribute_inlinable_p (const_tree);
 static bool mep_can_inline_p (tree, tree);
 static bool mep_lookup_pragma_disinterrupt (const char *);
@@ -3782,7 +3782,7 @@ mep_asm_output_opcode (FILE *file, const char *ptr)
 /* Handle attributes.  */
 
 static tree
-mep_validate_type_based_tiny (tree *node, tree name, tree args,
+mep_validate_type_based_tiny (ttype **node, tree name, tree args,
 			      int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
   if (TREE_CODE (*node) != POINTER_TYPE)
@@ -3854,7 +3854,7 @@ mep_multiple_address_regions (tree list, bool check_section_attr)
 		  : TYPE_ATTRIBUTES (TREE_TYPE (decl))
 
 static tree
-mep_validate_type_near_far (tree *node, tree name, tree args,
+mep_validate_type_near_far (ttype **node, tree name, tree args,
 		       int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
   if (TREE_CODE (*node) != METHOD_TYPE && TREE_CODE (*node) != POINTER_TYPE)
@@ -3907,7 +3907,7 @@ mep_validate_decl_near_far (tree *node, tree name, tree args,
 }
 
 static tree
-mep_validate_type_disinterrupt (tree *node, tree name,
+mep_validate_type_disinterrupt (ttype **node, tree name,
 				tree args ATTRIBUTE_UNUSED,
 			        int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
@@ -3933,7 +3933,7 @@ mep_validate_decl_disinterrupt (tree *node, tree name,
 }
 
 static tree
-mep_validate_type_warning (tree *node ATTRIBUTE_UNUSED, tree name,
+mep_validate_type_warning (ttype **node ATTRIBUTE_UNUSED, tree name,
 			     tree args ATTRIBUTE_UNUSED,
 			     int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
@@ -4002,7 +4002,7 @@ mep_validate_io_cb (tree *node, tree name, tree args,
 }
 
 static tree
-mep_validate_vliw (tree *node, tree name, tree args ATTRIBUTE_UNUSED, 
+mep_validate_vliw (ttype **node, tree name, tree args ATTRIBUTE_UNUSED, 
 		   int flags ATTRIBUTE_UNUSED, bool *no_add)
 {
   if (TREE_CODE (*node) != FUNCTION_TYPE

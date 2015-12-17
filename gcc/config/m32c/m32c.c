@@ -59,7 +59,7 @@ typedef enum
 
 static bool m32c_function_needs_enter (void);
 static tree interrupt_decl_handler (tree *, tree, tree, int, bool *);
-static tree interrupt_type_handler (tree *, tree, tree, int, bool *);
+static tree interrupt_type_handler (ttype *, tree, tree, int, bool *);
 static tree function_vector_handler (tree *, tree, tree, int, bool *);
 static int interrupt_p (tree node);
 static int bank_switch_p (tree node);
@@ -2893,7 +2893,7 @@ interrupt_decl_handler (tree * node ATTRIBUTE_UNUSED,
 }
 
 static tree
-interrupt_type_handler (tree * node ATTRIBUTE_UNUSED,
+interrupt_type_handler (ttype ** node ATTRIBUTE_UNUSED,
 		   tree name ATTRIBUTE_UNUSED,
 		   tree args ATTRIBUTE_UNUSED,
 		   int flags ATTRIBUTE_UNUSED,
