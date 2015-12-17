@@ -3425,6 +3425,15 @@ struct GTY(())  machine_function {
 
   /* True if GCC stored callee saved registers in the frame header.  */
   bool use_frame_header_for_callee_saved_regs;
+
+  /* True if attribute common_epilogue is defined for this function.  */
+  bool use_common_epilogue_p;
+
+  /* If use_common_epilogue_p, holds suffix string.  */
+  const char *epi_suffix;
+
+  /* If use_common_epilogue_p, determines if $ra should also be restored.  */
+  bool epi_with_ra;
 };
 #endif
 
@@ -3487,3 +3496,8 @@ struct GTY(())  machine_function {
 #define ENABLE_LD_ST_PAIRS \
   (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define ISA_SUPPORTS_COMMON_EPILOGUE \
+  (mips_isa_rev >= 2 && mips_abi == ABI_32 && !TARGET_MIPS16 && !TARGET_MICROMIPS)
+
+#define MIPS_EPI_MIN_GP_RESTORE 3

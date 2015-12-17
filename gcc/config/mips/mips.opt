@@ -495,3 +495,11 @@ Place all gp relative data in sdata section number NUM.
 msdata-opt-list=
 Target RejectNegative Joined Var(mips_sdata_opt_list_file)
 msdata-opt-list=FILE    Use to specify variables to go in the .sdata section.
+
+mepi
+Target Report Var(TARGET_EPI) Init(0)
+Generate common epilogue.
+
+mepi=
+Target RejectNegative Joined Var(mips_epi)
+-mepi=SUFFIX  Generate common epilogue with suffix on the entry-point name.

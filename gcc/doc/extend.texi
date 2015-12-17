@@ -4443,6 +4443,22 @@ On MIPS targets, you can use the @code{nocompression} function attribute
 to locally turn off MIPS16 and microMIPS code generation.  This attribute
 overrides the @option{-mips16} and @option{-mmicromips} options on the
 command line (@pxref{MIPS Options}).
+
+@item epi
+@itemx noepi
+@itemx epi("suffix")
+@cindex @code{epi} attribute
+@cindex @code{noepi} attribute
+@cindex @code{epi("suffix")} attribute
+On MIPS targets, you can use the @code{epi} and @code{noepi}
+function attributes to locally select or turn off common epilogue usage.
+A function with the @code{epi} attribute will use a common epilogue
+and with the @code{noepi} attribute a standard inline epilogue will be
+used.  These attributes override the @option{-mepi} and @option{-mno-epi}
+options on the command line (@pxref{MIPS Options}).
+
+A single optional argument is supported to specify a suffix to use for the
+common epilogue stub that will be used.  See @pxref{MIPS Options} for details.
 @end table
 
 @node MSP430 Function Attributes
