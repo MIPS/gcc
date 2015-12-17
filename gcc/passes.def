@@ -181,6 +181,7 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_fixup_cfg);
   NEXT_PASS (pass_lower_eh_dispatch);
   NEXT_PASS (pass_oacc_device_lower);
+  NEXT_PASS (pass_omp_target_link);
   NEXT_PASS (pass_all_optimizations);
   PUSH_INSERT_PASSES_WITHIN (pass_all_optimizations)
       NEXT_PASS (pass_remove_cgraph_callee_edges);
@@ -248,6 +249,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
       NEXT_PASS (pass_sink_code);
+      NEXT_PASS (pass_sancov);
       NEXT_PASS (pass_asan);
       NEXT_PASS (pass_tsan);
       /* Pass group that runs when 1) enabled, 2) there are loops
@@ -357,6 +359,7 @@ along with GCC; see the file COPYING3.  If not see
          to forward object-size and builtin folding results properly.  */
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_dce);
+      NEXT_PASS (pass_sancov);
       NEXT_PASS (pass_asan);
       NEXT_PASS (pass_tsan);
       /* ???  We do want some kind of loop invariant motion, but we possibly
@@ -380,6 +383,7 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_lower_vaarg);
   NEXT_PASS (pass_lower_vector);
   NEXT_PASS (pass_lower_complex_O0);
+  NEXT_PASS (pass_sancov_O0);
   NEXT_PASS (pass_asan_O0);
   NEXT_PASS (pass_tsan_O0);
   NEXT_PASS (pass_sanopt);
@@ -418,7 +422,6 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_rtl_unroll_loops);
 	  NEXT_PASS (pass_rtl_doloop);
 	  NEXT_PASS (pass_rtl_loop_done);
-	  TERMINATE_PASS_LIST ()
       POP_INSERT_PASSES ()
       NEXT_PASS (pass_web);
       NEXT_PASS (pass_rtl_cprop);

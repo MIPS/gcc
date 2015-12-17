@@ -11364,11 +11364,12 @@ mips_emit_probe_stack_range (HOST_WIDE_INT first, HOST_WIDE_INT size)
 
       /* Step 3: the loop
 
-	while (TEST_ADDR != LAST_ADDR)
+	do
 	  {
 	    TEST_ADDR = TEST_ADDR + PROBE_INTERVAL
 	    probe at TEST_ADDR
 	  }
+	while (TEST_ADDR != LAST_ADDR)
 
 	probes at FIRST + N * PROBE_INTERVAL for values of N from 1
 	until it is equal to ROUNDED_SIZE.  */
@@ -11394,37 +11395,30 @@ const char *
 mips_output_probe_stack_range (rtx reg1, rtx reg2)
 {
   static int labelno = 0;
-  char loop_lab[32], end_lab[32], tmp[64];
+  char loop_lab[32], tmp[64];
   rtx xops[2];
 
-  ASM_GENERATE_INTERNAL_LABEL (loop_lab, "LPSRL", labelno);
-  ASM_GENERATE_INTERNAL_LABEL (end_lab, "LPSRE", labelno++);
+  ASM_GENERATE_INTERNAL_LABEL (loop_lab, "LPSRL", labelno++);
 
+  /* Loop.  */
   ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, loop_lab);
 
-  /* Jump to END_LAB if TEST_ADDR == LAST_ADDR.  */
-  xops[0] = reg1;
-  xops[1] = reg2;
-  strcpy (tmp, "%(%<beq\t%0,%1,");
-  output_asm_insn (strcat (tmp, &end_lab[1]), xops);
- 
   /* TEST_ADDR = TEST_ADDR + PROBE_INTERVAL.  */
+  xops[0] = reg1;
   xops[1] = GEN_INT (-PROBE_INTERVAL);
   if (TARGET_64BIT && TARGET_LONG64)
     output_asm_insn ("daddiu\t%0,%0,%1", xops);
   else
     output_asm_insn ("addiu\t%0,%0,%1", xops);
 
-  /* Probe at TEST_ADDR and branch.  */
-  fprintf (asm_out_file, "\tb\t");
-  assemble_name_raw (asm_out_file, loop_lab);
-  fputc ('\n', asm_out_file);
+  /* Probe at TEST_ADDR, test if TEST_ADDR == LAST_ADDR and branch.  */
+  xops[1] = reg2;
+  strcpy (tmp, "%(%<bne\t%0,%1,");
+  output_asm_insn (strcat (tmp, &loop_lab[1]), xops); 
   if (TARGET_64BIT)
     output_asm_insn ("sd\t$0,0(%0)%)", xops);
   else
     output_asm_insn ("sw\t$0,0(%0)%)", xops);
-
-  ASM_OUTPUT_INTERNAL_LABEL (asm_out_file, end_lab);
 
   return "";
 }
@@ -19912,6 +19906,32 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
     return GR_REGS;
   return allocno_class;
 }
+
+/* Implement TARGET_PROMOTE_FUNCTION_MODE */
+
+/* This function is equivalent to default_promote_function_mode_always_promote
+   except that it returns a promoted mode even if type is NULL_TREE.  This is
+   needed by libcalls which have no type (only a mode) such as fixed conversion
+   routines that take a signed or unsigned char/short argument and convert it
+   to a fixed type.  */
+
+static machine_mode
+mips_promote_function_mode (const_tree type ATTRIBUTE_UNUSED,
+                            machine_mode mode,
+                            int *punsignedp ATTRIBUTE_UNUSED,
+                            const_tree fntype ATTRIBUTE_UNUSED,
+                            int for_return ATTRIBUTE_UNUSED)
+{
+  int unsignedp;
+
+  if (type != NULL_TREE)
+    return promote_mode (type, mode, punsignedp);
+
+  unsignedp = *punsignedp;
+  PROMOTE_MODE (mode, unsignedp, type);
+  *punsignedp = unsignedp;
+  return mode;
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -20016,10 +20036,7 @@ mips_ira_change_pseudo_allocno_class (int regno, reg_class_t allocno_class)
 #define TARGET_GIMPLIFY_VA_ARG_EXPR mips_gimplify_va_arg_expr
 
 #undef  TARGET_PROMOTE_FUNCTION_MODE
-#define TARGET_PROMOTE_FUNCTION_MODE default_promote_function_mode_always_promote
-#undef TARGET_PROMOTE_PROTOTYPES
-#define TARGET_PROMOTE_PROTOTYPES hook_bool_const_tree_true
-
+#define TARGET_PROMOTE_FUNCTION_MODE mips_promote_function_mode
 #undef TARGET_FUNCTION_VALUE
 #define TARGET_FUNCTION_VALUE mips_function_value
 #undef TARGET_LIBCALL_VALUE

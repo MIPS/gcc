@@ -1194,7 +1194,7 @@ gfc_verify_c_interop_param (gfc_symbol *sym)
 	  if (sym->as != NULL && sym->as->type == AS_ASSUMED_SHAPE
 	      && !gfc_notify_std (GFC_STD_F2008_TS, "Assumed-shape array %qs "
 				  "at %L as dummy argument to the BIND(C) "
-				  "procedure '%s' at %L", sym->name, 
+				  "procedure %qs at %L", sym->name,
 				  &(sym->declared_at), 
 				  sym->ns->proc_name->name, 
 				  &(sym->ns->proc_name->declared_at)))
@@ -2023,9 +2023,9 @@ variable_decl (int elem)
       if (sym != NULL && (sym->attr.dummy || sym->attr.result))
 	{
 	  m = MATCH_ERROR;
-	  gfc_error ("'%s' at %C is a redefinition of the declaration "
+	  gfc_error ("%qs at %C is a redefinition of the declaration "
 		     "in the corresponding interface for MODULE "
-		     "PROCEDURE '%s'", sym->name,
+		     "PROCEDURE %qs", sym->name,
 		     gfc_current_ns->proc_name->name);
 	  goto cleanup;
 	}
@@ -4817,6 +4817,9 @@ ok:
       goto cleanup;
     }
 
+  /* gfc_error_now used in following and return with MATCH_YES because
+     doing otherwise results in a cascade of extraneous errors and in
+     some cases an ICE in symbol.c(gfc_release_symbol).  */
   if (progname->attr.module_procedure && progname->attr.host_assoc)
     {
       bool arg_count_mismatch = false;
@@ -4826,7 +4829,7 @@ ok:
 
       /* Abbreviated module procedure declaration is not meant to have any
 	 formal arguments!  */
-      if (!sym->abr_modproc_decl && formal && !head)
+      if (!progname->abr_modproc_decl && formal && !head)
 	arg_count_mismatch = true;
 
       for (p = formal, q = head; p && q; p = p->next, q = q->next)

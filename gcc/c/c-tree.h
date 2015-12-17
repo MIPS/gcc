@@ -661,7 +661,7 @@ extern tree c_finish_omp_task (location_t, tree, tree);
 extern void c_finish_omp_cancel (location_t, tree);
 extern void c_finish_omp_cancellation_point (location_t, tree);
 extern tree c_finish_omp_clauses (tree, bool, bool, bool = false);
-extern tree c_build_va_arg (location_t, tree, tree);
+extern tree c_build_va_arg (location_t, tree, location_t, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
 extern tree c_build_function_call_vec (location_t, vec<location_t>, tree,
@@ -727,5 +727,8 @@ set_c_expr_source_range (c_expr *expr,
 extern void
 set_c_expr_source_range (c_expr *expr,
 			 source_range src_range);
+
+/* In c-fold.c */
+extern tree decl_constant_value_for_optimization (tree);
 
 #endif /* ! GCC_C_TREE_H */

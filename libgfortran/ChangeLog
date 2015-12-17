@@ -1,3 +1,23 @@
+2015-12-14  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
+
+	PR libfortran/pr68867
+	* io/write.c (set_fnode_default): For kind=16, set the decimal precision
+	depending on the platform binary precision, 106 or 113.
+
+2015-12-05  Juoko Orava <jouko.orava@iki.fi>
+
+	PR fortran/50201
+	* io/write_float.def: Avoid marking quadmath_snprintf as an untyped
+	weak reference, which fixing linking with -static.
+
+2015-11-26  Tobias Burnus  <burnus@net-b.de>
+	    Alessandro Fanfarillo  <fanfarillo.gcc@gmail.com>
+
+        * caf/libcaf.h (_gfortran_caf_event_post,
+	_gfortran_caf_event_wait,_gfortran_caf_event_query): New prototypes.
+        * caf/single.c (_gfortran_caf_event_post,
+	_gfortran_caf_event_wait,_gfortran_caf_event_query): Implement.
+
 2015-11-22  Jerry DeLisle  <jvdelisle@gcc.gnu.org>
 
 	PR libfortran/52251

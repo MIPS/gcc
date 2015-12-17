@@ -1447,10 +1447,12 @@ build_sender_ref (tree var, omp_context *ctx)
   return build_sender_ref ((splay_tree_key) var, ctx);
 }
 
-/* Add a new field for VAR inside the structure CTX->SENDER_DECL.  */
+/* Add a new field for VAR inside the structure CTX->SENDER_DECL.  If
+   BASE_POINTERS_RESTRICT, declare the field with restrict.  */
 
 static void
-install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
+install_var_field (tree var, bool by_ref, int mask, omp_context *ctx,
+		   bool base_pointers_restrict = false)
 {
   tree field, type, sfield = NULL_TREE;
   splay_tree_key key = (splay_tree_key) var;
@@ -1476,6 +1478,13 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
 	      || !is_gimple_omp_oacc (ctx->stmt));
 
   type = TREE_TYPE (var);
+  /* Prevent redeclaring the var in the split-off function with a restrict
+     pointer type.  Note that we only clear type itself, restrict qualifiers in
+     the pointed-to type will be ignored by points-to analysis.  */
+  if (POINTER_TYPE_P (type)
+      && TYPE_RESTRICT (type))
+    type = build_qualified_type (type, TYPE_QUALS (type) & ~TYPE_QUAL_RESTRICT);
+
   if (mask & 4)
     {
       gcc_assert (TREE_CODE (type) == ARRAY_TYPE);
@@ -1496,7 +1505,8 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
 
       type = build_pointer_type (type);
 
-      if (no_alias_var_p)
+      if (no_alias_var_p
+	  || base_pointers_restrict)
 	type = build_qualified_type (type, TYPE_QUAL_RESTRICT);
     }
   else if ((mask & 3) == 1 && is_reference (var))
@@ -1919,10 +1929,12 @@ fixup_child_record_type (omp_context *ctx)
 }
 
 /* Instantiate decls as necessary in CTX to satisfy the data sharing
-   specified by CLAUSES.  */
+   specified by CLAUSES.  If BASE_POINTERS_RESTRICT, install var field with
+   restrict.  */
 
 static void
-scan_sharing_clauses (tree clauses, omp_context *ctx)
+scan_sharing_clauses (tree clauses, omp_context *ctx,
+		      bool base_pointers_restrict = false)
 {
   tree c, decl;
   bool scan_array_reductions = false;
@@ -2140,7 +2152,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  decl = OMP_CLAUSE_DECL (c);
 	  /* Global variables with "omp declare target" attribute
 	     don't need to be copied, the receiver side will use them
-	     directly.  */
+	     directly.  However, global variables with "omp declare target link"
+	     attribute need to be copied.  */
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && DECL_P (decl)
 	      && ((OMP_CLAUSE_MAP_KIND (c) != GOMP_MAP_FIRSTPRIVATE_POINTER
@@ -2148,7 +2161,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		       != GOMP_MAP_FIRSTPRIVATE_REFERENCE))
 		  || TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	      && is_global_var (maybe_lookup_decl_in_outer_ctx (decl, ctx))
-	      && varpool_node::get_create (decl)->offloadable)
+	      && varpool_node::get_create (decl)->offloadable
+	      && !lookup_attribute ("omp declare target link",
+				    DECL_ATTRIBUTES (decl)))
 	    break;
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && OMP_CLAUSE_MAP_KIND (c) == GOMP_MAP_POINTER)
@@ -2204,7 +2219,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 		    install_var_field (decl, true, 7, ctx);
 		  else
-		    install_var_field (decl, true, 3, ctx);
+		    install_var_field (decl, true, 3, ctx,
+				       base_pointers_restrict);
 		  if (is_gimple_omp_offloaded (ctx->stmt))
 		    install_var_local (decl, ctx);
 		}
@@ -3177,6 +3193,68 @@ scan_omp_single (gomp_single *stmt, omp_context *outer_ctx)
     layout_type (ctx->record_type);
 }
 
+/* Return true if the CLAUSES of an omp target guarantee that the base pointers
+   used in the corresponding offloaded function are restrict.  */
+
+static bool
+omp_target_base_pointers_restrict_p (tree clauses)
+{
+  /* The analysis relies on the GOMP_MAP_FORCE_* mapping kinds, which are only
+     used by OpenACC.  */
+  if (flag_openacc == 0)
+    return false;
+
+  /* I.  Basic example:
+
+       void foo (void)
+       {
+	 unsigned int a[2], b[2];
+
+	 #pragma acc kernels \
+	   copyout (a) \
+	   copyout (b)
+	 {
+	   a[0] = 0;
+	   b[0] = 1;
+	 }
+       }
+
+     After gimplification, we have:
+
+       #pragma omp target oacc_kernels \
+	 map(force_from:a [len: 8]) \
+	 map(force_from:b [len: 8])
+       {
+	 a[0] = 0;
+	 b[0] = 1;
+       }
+
+     Because both mappings have the force prefix, we know that they will be
+     allocated when calling the corresponding offloaded function, which means we
+     can mark the base pointers for a and b in the offloaded function as
+     restrict.  */
+
+  tree c;
+  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+    {
+      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
+	return false;
+
+      switch (OMP_CLAUSE_MAP_KIND (c))
+	{
+	case GOMP_MAP_FORCE_ALLOC:
+	case GOMP_MAP_FORCE_TO:
+	case GOMP_MAP_FORCE_FROM:
+	case GOMP_MAP_FORCE_TOFROM:
+	  break;
+	default:
+	  return false;
+	}
+    }
+
+  return true;
+}
+
 /* Scan a GIMPLE_OMP_TARGET.  */
 
 static void
@@ -3198,13 +3276,21 @@ scan_omp_target (gomp_target *stmt, omp_context *outer_ctx)
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
   TYPE_ARTIFICIAL (ctx->record_type) = 1;
+
+  bool base_pointers_restrict = false;
   if (offloaded)
     {
       create_omp_child_function (ctx, false);
       gimple_omp_target_set_child_fn (stmt, ctx->cb.dst_fn);
+
+      base_pointers_restrict = omp_target_base_pointers_restrict_p (clauses);
+      if (base_pointers_restrict
+	  && dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "Base pointers in offloaded function are restrict\n");
     }
 
-  scan_sharing_clauses (clauses, ctx);
+  scan_sharing_clauses (clauses, ctx, base_pointers_restrict);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
@@ -18828,13 +18914,45 @@ add_decls_addresses_to_decl_constructor (vec<tree, va_gc> *v_decls,
   for (unsigned i = 0; i < len; i++)
     {
       tree it = (*v_decls)[i];
-      bool is_function = TREE_CODE (it) != VAR_DECL;
+      bool is_var = TREE_CODE (it) == VAR_DECL;
+      bool is_link_var
+	= is_var
+#ifdef ACCEL_COMPILER
+	  && DECL_HAS_VALUE_EXPR_P (it)
+#endif
+	  && lookup_attribute ("omp declare target link", DECL_ATTRIBUTES (it));
 
-      CONSTRUCTOR_APPEND_ELT (v_ctor, NULL_TREE, build_fold_addr_expr (it));
-      if (!is_function)
-	CONSTRUCTOR_APPEND_ELT (v_ctor, NULL_TREE,
-				fold_convert (const_ptr_type_node,
-					      DECL_SIZE_UNIT (it)));
+      tree size = NULL_TREE;
+      if (is_var)
+	size = fold_convert (const_ptr_type_node, DECL_SIZE_UNIT (it));
+
+      tree addr;
+      if (!is_link_var)
+	addr = build_fold_addr_expr (it);
+      else
+	{
+#ifdef ACCEL_COMPILER
+	  /* For "omp declare target link" vars add address of the pointer to
+	     the target table, instead of address of the var.  */
+	  tree value_expr = DECL_VALUE_EXPR (it);
+	  tree link_ptr_decl = TREE_OPERAND (value_expr, 0);
+	  varpool_node::finalize_decl (link_ptr_decl);
+	  addr = build_fold_addr_expr (link_ptr_decl);
+#else
+	  addr = build_fold_addr_expr (it);
+#endif
+
+	  /* Most significant bit of the size marks "omp declare target link"
+	     vars in host and target tables.  */
+	  unsigned HOST_WIDE_INT isize = tree_to_uhwi (size);
+	  isize |= 1ULL << (int_size_in_bytes (const_ptr_type_node)
+			    * BITS_PER_UNIT - 1);
+	  size = wide_int_to_tree (const_ptr_type_node, isize);
+	}
+
+      CONSTRUCTOR_APPEND_ELT (v_ctor, NULL_TREE, addr);
+      if (is_var)
+	CONSTRUCTOR_APPEND_ELT (v_ctor, NULL_TREE, size);
     }
 }
 
@@ -20131,6 +20249,86 @@ gimple_opt_pass *
 make_pass_oacc_device_lower (gcc::context *ctxt)
 {
   return new pass_oacc_device_lower (ctxt);
+}
+
+/* "omp declare target link" handling pass.  */
+
+namespace {
+
+const pass_data pass_data_omp_target_link =
+{
+  GIMPLE_PASS,			/* type */
+  "omptargetlink",		/* name */
+  OPTGROUP_NONE,		/* optinfo_flags */
+  TV_NONE,			/* tv_id */
+  PROP_ssa,			/* properties_required */
+  0,				/* properties_provided */
+  0,				/* properties_destroyed */
+  0,				/* todo_flags_start */
+  TODO_update_ssa,		/* todo_flags_finish */
+};
+
+class pass_omp_target_link : public gimple_opt_pass
+{
+public:
+  pass_omp_target_link (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_omp_target_link, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  virtual bool gate (function *fun)
+    {
+#ifdef ACCEL_COMPILER
+      tree attrs = DECL_ATTRIBUTES (fun->decl);
+      return lookup_attribute ("omp declare target", attrs)
+	     || lookup_attribute ("omp target entrypoint", attrs);
+#else
+      (void) fun;
+      return false;
+#endif
+    }
+
+  virtual unsigned execute (function *);
+};
+
+/* Callback for walk_gimple_stmt used to scan for link var operands.  */
+
+static tree
+find_link_var_op (tree *tp, int *walk_subtrees, void *)
+{
+  tree t = *tp;
+
+  if (TREE_CODE (t) == VAR_DECL && DECL_HAS_VALUE_EXPR_P (t)
+      && lookup_attribute ("omp declare target link", DECL_ATTRIBUTES (t)))
+    {
+      *walk_subtrees = 0;
+      return t;
+    }
+
+  return NULL_TREE;
+}
+
+unsigned
+pass_omp_target_link::execute (function *fun)
+{
+  basic_block bb;
+  FOR_EACH_BB_FN (bb, fun)
+    {
+      gimple_stmt_iterator gsi;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+	if (walk_gimple_stmt (&gsi, NULL, find_link_var_op, NULL))
+	  gimple_regimplify_operands (gsi_stmt (gsi), &gsi);
+    }
+
+  return 0;
+}
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_omp_target_link (gcc::context *ctxt)
+{
+  return new pass_omp_target_link (ctxt);
 }
 
 #include "gt-omp-low.h"
