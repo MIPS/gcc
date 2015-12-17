@@ -1,0 +1,4 @@
+LIB1ASMFUNCS += __mips_epi_9 __mips_epi_8 __mips_epi_7 __mips_epi_6 __mips_epi_5 __mips_epi_4 __mips_epi_3 \
+	__mips_epi_9_ra __mips_epi_8_ra __mips_epi_7_ra __mips_epi_6_ra __mips_epi_5_ra __mips_epi_4_ra __mips_epi_3_ra
+
+LIB2ADD_ST += $(srcdir)/config/mips/epi.S
