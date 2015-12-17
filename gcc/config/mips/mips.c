@@ -748,7 +748,8 @@ enum mips_func_opt_list_arg_t {
   FOL_ARG_OPTIONAL_NUM_LIST,
   FOL_ARG_NUM_ONE_OR_TWO,
   FOL_ARG_OPTIONAL_STRING,
-  FOL_ARG_OPTIONAL_NUM
+  FOL_ARG_OPTIONAL_NUM,
+  FOL_ARG_UNKNOWN
 };
 
 /* Collisons for FUNC_OPT_LIST.  Rather that just relying on the middle to
@@ -842,7 +843,7 @@ static const struct attr_desc mips_func_opt_list_strings[] = {
   {"weakref",		 0,	     FOL_ARG_NONE, 0 },
   /* End of table marker, FOL_ARG_NONE is required to stop the attribute
      argument parsing.  */
-  {"\0",		 0,	     FOL_ARG_NONE, 0 },
+  {"\0",		 0,	     FOL_ARG_UNKNOWN, 0 },
 };
 
 /* Argument list...  */
@@ -851,7 +852,17 @@ struct mips_func_opt_list_arg
 {
   char * arg;
   unsigned int optimization;
+  mips_func_opt_list_arg_t arg_type;
   struct mips_func_opt_list_arg * next;
+};
+
+/* Unknown attribute list.  */
+
+struct mips_func_opt_unknown_list
+{
+  char * attribute;
+  struct mips_func_opt_list_arg * args;
+  struct mips_func_opt_unknown_list * next;
 };
 
 /* ... For this.  */
@@ -860,6 +871,7 @@ struct mips_func_opt_list
 {
   char * func_name;
   sbitmap attributes;
+  struct mips_func_opt_unknown_list * unknowns;
   struct mips_func_opt_list_arg * args;
   struct mips_func_opt_list * next;
 };
@@ -918,7 +930,11 @@ mips_func_opt_list_parse_arg_1 (const char * line,
   arg->arg = xstrndup (&(line[pos]), length);
   arg->optimization = opt;
   arg->next = f->args;
-  f->args = arg;
+
+  if (mips_func_opt_list_strings[opt].optstring == 0)
+    f->unknowns->args = arg;
+  else
+    f->args = arg;
 }
 
 /* Parse an argument of an attribute of the form:
@@ -950,17 +966,29 @@ mips_func_opt_list_parse_arg (const char * line, struct mips_func_opt_list * f,
       if (line[pos] != '('
 	  && (arg_type == FOL_ARG_OPTIONAL_NUM_LIST
 	      || arg_type == FOL_ARG_OPTIONAL_STRING
-	      || arg_type == FOL_ARG_OPTIONAL_NUM))
+	      || arg_type == FOL_ARG_OPTIONAL_NUM
+	      || arg_type == FOL_ARG_UNKNOWN))
         return pos;
       else
         error ("%s:%d:%d: Expected '('", file, lineno, pos);
     }
 
   pos += 1;
-
   while (MATCH_WHITESPACE (line[pos])
 	 && !MATCH_EMPTYSTRING (line[pos]))
     pos++;
+
+  /* Handle the case of an unknown optimization.  Despite not knowing the
+     format of the arguments, we assume its either a string or an list of
+     numbers.  Peek at the input to correct arg_type.  */
+
+  if (arg_type == FOL_ARG_UNKNOWN)
+    {
+      if (line[pos] == '\"')
+	arg_type = FOL_ARG_STRING;
+      else
+	arg_type = FOL_ARG_OPTIONAL_NUM_LIST;
+    }
 
   switch (arg_type)
   {
@@ -1074,9 +1102,10 @@ mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
   if (mips_func_opt_list_find(fl->func_name) == NULL)
     {
       fl->args = NULL;
+      fl->unknowns = NULL;
       fl->next = NULL;
       fl->attributes = sbitmap_alloc (sizeof (mips_func_opt_list_strings)
-				    / sizeof (struct attr_desc));
+				      / sizeof (struct attr_desc));
       bitmap_clear (fl->attributes);
     }
   else
@@ -1123,8 +1152,9 @@ mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
 
     for (opt = 0; *mips_func_opt_list_strings[opt].optstring != 0; opt++)
       {
-	if (strncmp (mips_func_opt_list_strings[opt].optstring, &(line[pos]),
-		    identifier_length) == 0)
+	if (mips_func_opt_list_strings[opt].optstring != 0
+	    && strncmp (mips_func_opt_list_strings[opt].optstring, &(line[pos]),
+			identifier_length) == 0)
 	  {
 	    int conflict_attr = mips_fol_attr_conflicts (fl, opt);
 	    if (conflict_attr)
@@ -1144,9 +1174,14 @@ mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
     /* Correctly blame the unknown attribute.  */
     if (!matched)
       {
-	char * e = xstrndup (&(line[pos]), identifier_length);
-	warning (OPT_Wattributes, "%s:%d:%d: Unknown optimization %qs for %qs ",
-		 file, lineno, pos, e, fl->func_name);
+	struct mips_func_opt_unknown_list * e
+         = (struct mips_func_opt_unknown_list*)
+	     xmalloc(sizeof(struct mips_func_opt_unknown_list));
+	e->next = fl->unknowns;
+	e->attribute = xstrndup (&(line[pos]), identifier_length);
+	warning (OPT_Wattributes, "%s:%d:%d: Unknown attribute %qs for %qs",
+		 file, lineno, pos, e->attribute, fl->func_name);
+	fl->unknowns = e;
       }
 
     matched = false;
@@ -1155,7 +1190,6 @@ mips_func_opt_list_read_line (const char * line, const char * file, int lineno)
 
     /* Parse any arguments if required, get new position.  */
     pos = mips_func_opt_list_parse_arg (line, fl, opt, pos, file, lineno);
-
   }
 }
 
@@ -1172,7 +1206,6 @@ mips_func_opt_list_read ()
   int lineno = 0;
   char line[512];
   struct mips_func_opt_list *trial = NULL;
-
 
   unsigned int i;
   cl_deferred_option *opt;
@@ -1959,17 +1992,17 @@ mips_comp_type_attributes (const_tree type1, const_tree type2)
 /* Return a tree of the arguments of an attribute list.  */
 
 static tree
-mips_insert_fol_args (struct mips_func_opt_list * func_opt_list,
-		      unsigned int optimization)
+mips_insert_fol_args (struct mips_func_opt_list_arg * args,
+		      unsigned int optimization,
+		      mips_func_opt_list_arg_t arg_type)
 {
   tree ret = NULL;
-  struct mips_func_opt_list_arg * args = func_opt_list->args;
   for (; args; args = args->next)
       if (args->optimization == optimization)
 	{
 	  tree arg;
-	  if (mips_func_opt_list_strings[optimization].arg_type == FOL_ARG_OPTIONAL_STRING
-	      || mips_func_opt_list_strings[optimization].arg_type == FOL_ARG_STRING)
+	  if (arg_type == FOL_ARG_OPTIONAL_STRING
+	      || arg_type == FOL_ARG_STRING)
 	    arg = build_string (strlen (args->arg), args->arg);
 	  else
 	    arg = build_int_cst (NULL, atoi (args->arg));
@@ -1998,7 +2031,8 @@ mips_insert_fol_attributes (struct mips_func_opt_list * func_opt_list,
 
         tree attr_args = NULL;
         if (mips_func_opt_list_strings[i].arg_type != FOL_ARG_NONE)
-	    attr_args = mips_insert_fol_args (func_opt_list, i);
+	    attr_args = mips_insert_fol_args (func_opt_list->args, i,
+					mips_func_opt_list_strings[i].arg_type);
 
 	/* Some strange logic:  If .maintype == 0, .optstring is the
 	   attribute.  Otherwise the actual attribute is
@@ -2018,6 +2052,23 @@ mips_insert_fol_attributes (struct mips_func_opt_list * func_opt_list,
       }
 
   sbitmap_free (func_opt_list->attributes);
+
+  if (func_opt_list->unknowns)
+    {
+      struct mips_func_opt_unknown_list	* l = func_opt_list->unknowns;
+      while (l)
+	{
+	  tree attr_args = NULL;
+	  if (l->args)
+	    attr_args = mips_insert_fol_args (l->args, l->args->optimization,
+						 l->args->arg_type);
+
+	  *attributes = tree_cons (get_identifier (l->attribute), attr_args,
+				   *attributes);
+	  l = l->next;
+	}
+
+    }
 }
 
 /* Implement TARGET_INSERT_ATTRIBUTES.  */
