@@ -2605,6 +2605,7 @@ get_replacement_map (struct ipa_node_params *info, tree value, int parm_num)
   replace_map->parm_num = parm_num;
   replace_map->new_tree = value;
   replace_map->replace_p = true;
+  replace_map->decompose_p = false;
   replace_map->ref_p = false;
 
   return replace_map;

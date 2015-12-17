@@ -152,6 +152,67 @@ struct struct_symbols_d {
 
 static vec<struct_symbols> struct_symbols_vec;
 
+struct func_to_clone_d {
+  struct cgraph_node *old_node;
+  struct cgraph_node *new_node;
+  vec<cgraph_edge_p> callers;
+  vec<ipa_replace_map_p, va_gc> *tree_map;
+  bitmap args_to_skip;  
+};
+
+typedef struct func_to_clone_d *func_to_clone;
+
+/* we need this vector since one function might have 
+   parameters of two different structure types.  */
+static vec<func_to_clone> funcs_to_clone;
+
+/* This function looks for the entry with the node NODE in 
+   funcs_to_clone vector. It returns an index of the entry, 
+   if it's found, and -1 otherwise.  */
+
+static inline int
+is_in_funcs_to_clone (struct cgraph_node *node)
+{
+  unsigned int i;
+  func_to_clone func; 
+  if (funcs_to_clone.exists ())
+    {
+      FOR_EACH_VEC_ELT (funcs_to_clone, i, func)
+	{
+	  if (node == func->old_node)
+	      return (int)i;
+	}
+	  
+    }
+  return -1;
+}
+
+/* This function creates func_to_clone_d structure with NODE 
+   as old_node and inserts it into funcs_to_clone vector.  */
+
+static unsigned int 
+add_func_to_funcs_to_clone_vec (struct cgraph_node *node)
+{
+  int i;
+  func_to_clone func;
+
+  i = is_in_funcs_to_clone (node);
+
+  if (i != -1)
+    return i;
+
+  func = XNEW (struct func_to_clone_d);
+  func->old_node = node;
+  func->new_node = NULL;
+  func->callers.create (0);
+  func->tree_map = NULL;
+  func->args_to_skip = 0;
+  if (!funcs_to_clone.exists ())
+    funcs_to_clone.create (0);
+  funcs_to_clone.safe_push (func);
+  return funcs_to_clone.length () - 1;
+}
+
 static inline void 
 add_escape (struct_symbols str, unsigned int escape)
 {
@@ -2094,6 +2155,111 @@ is_alloc_or_free (symtab_node *sbl)
     return false;
 }
 
+static void
+collect_funcs_with_struct_params (void)
+{
+  unsigned int i, j;
+  symtab_node *sbl;
+  struct_symbols symbols;
+
+  FOR_EACH_VEC_ELT (struct_symbols_vec, i, symbols)
+    {
+      if (symbols->symbols.exists ())
+	{
+	  FOR_EACH_VEC_ELT (symbols->symbols, j, sbl)
+	    {
+	      /* If cgraph_node is in some structure symbols, 
+		 at least one of its parameters should be of structure type.  */
+	      cgraph_node *node = dyn_cast <cgraph_node> (sbl);
+	      if (node) 
+		{
+		  if (!is_alloc_or_free (sbl))
+		    {
+		      add_func_to_funcs_to_clone_vec (node);
+		      if (dump_file) 
+			{ 
+			  fprintf (dump_file, "\nFunction  %s", sbl->name ());
+			  fprintf (dump_file, "\nis candidate for cloning.");
+			}
+		    }
+		}
+	    }
+	}
+    }
+}
+
+/* Find and skip arguments of function FUNC that are of
+   structure types to be transformed.  */
+
+static void
+gen_args_to_skip (func_to_clone func)
+{
+  tree parm, fndecl;
+  int i, ii;
+  func->args_to_skip = BITMAP_GGC_ALLOC ();
+  fndecl = func->old_node->decl;
+
+  debug_tree (fndecl);
+
+  /* Since at WPA level decls of cgraph nodes have no function body,
+     the only way we have to recompose parameter of structure type 
+     is through its number recorded in  */
+  for (parm = TYPE_ARG_TYPES (TREE_TYPE(fndecl)), i = 0;
+       parm; parm = TREE_CHAIN (parm), i++)
+    {
+      debug_tree (parm);
+      tree arg_type = TREE_VALUE (parm);
+      ii = is_in_struct_symbols_vec (strip_type (arg_type));
+      if (ii != -1)
+	{
+	  struct ipa_replace_map *replace_map; 
+	  bitmap_set_bit (func->args_to_skip, i);
+	  if (dump_file)
+	    fprintf (dump_file, "\nArg to skip is %d", i);
+
+	  replace_map = ggc_alloc_ipa_replace_map ();
+	  replace_map->old_tree = NULL;
+	  replace_map->parm_num = i;
+	  replace_map->new_tree = NULL;
+	  replace_map->replace_p = false;
+	  replace_map->decompose_p = true;
+	  replace_map->ref_p = false;
+
+	  vec_safe_push (func->tree_map, replace_map);
+	}
+    }  
+}
+
+/* This function clones functions that have parameters of structure type(s), 
+   if we decided to transform them.  */
+
+static void
+clone_funcs_with_struct_params (void)
+{
+  unsigned int i;
+  func_to_clone func;
+
+  if (!struct_symbols_vec.exists () || struct_symbols_vec.is_empty ())
+    {
+      fprintf (dump_file, "\nstruct_symbols_vec does not exist - no cloning....\n");
+      return;
+    }
+  else
+    fprintf (dump_file, "\nChecking for cloning....\n");
+
+  collect_funcs_with_struct_params ();
+  FOR_EACH_VEC_ELT (funcs_to_clone, i, func)
+    {
+      func->callers = collect_callers_of_node (func->old_node);
+      gen_args_to_skip (func);
+      func->new_node = 
+	cgraph_create_virtual_clone (func->old_node, func->callers, 
+				     func->tree_map, func->args_to_skip, 
+				     "structreorg");
+
+    }    
+}
+
 static unsigned int
 propagate (void)
 {
@@ -2192,6 +2358,7 @@ propagate (void)
   if (dump_file)
     fprintf (dump_file, "\nnumber of types is %d", struct_symbols_vec.length ());
 
+  clone_funcs_with_struct_params ();
   print_struct_symbol_vec ();
 
   return 0;
@@ -5700,7 +5867,7 @@ struct_reorg_func_transform (struct cgraph_node *node)
 
   print_struct_symbol_vec ();
 
-  do_reorg_for_func (node);
+  if (0) {do_reorg_for_func (node);}
   return 0;
 
   // DO not forget to free free_new_vars_htab (new_global_vars); !!!

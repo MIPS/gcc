@@ -500,6 +500,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->force_output, 1);
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
+  bp_pack_value (&bp, node->body_removed, 1);
   bp_pack_value (&bp, node->address_taken, 1);
   bp_pack_value (&bp, tag == LTO_symtab_analyzed_node
 		 && symtab_get_symbol_partitioning_class (node) == SYMBOL_PARTITION
@@ -561,6 +562,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, varpool_node *node,
   bp_pack_value (&bp, node->force_output, 1);
   bp_pack_value (&bp, node->forced_by_abi, 1);
   bp_pack_value (&bp, node->unique_name, 1);
+  bp_pack_value (&bp, node->body_removed, 1);
   bp_pack_value (&bp, node->definition, 1);
   alias_p = node->alias && (!boundary_p || node->weakref);
   bp_pack_value (&bp, alias_p, 1);
@@ -974,6 +976,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->force_output = bp_unpack_value (bp, 1);
   node->forced_by_abi = bp_unpack_value (bp, 1);
   node->unique_name = bp_unpack_value (bp, 1);
+  node->body_removed = bp_unpack_value (bp, 1);
   node->address_taken = bp_unpack_value (bp, 1);
   node->used_from_other_partition = bp_unpack_value (bp, 1);
   node->lowered = bp_unpack_value (bp, 1);
@@ -1154,6 +1157,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   node->force_output = bp_unpack_value (&bp, 1);
   node->forced_by_abi = bp_unpack_value (&bp, 1);
   node->unique_name = bp_unpack_value (&bp, 1);
+  node->body_removed = bp_unpack_value (&bp, 1);
   node->definition = bp_unpack_value (&bp, 1);
   node->alias = bp_unpack_value (&bp, 1);
   node->weakref = bp_unpack_value (&bp, 1);
@@ -1674,6 +1678,7 @@ output_node_opt_summary (struct output_block *ob,
       stream_write_tree (ob, map->new_tree, true);
       bp = bitpack_create (ob->main_stream);
       bp_pack_value (&bp, map->replace_p, 1);
+      bp_pack_value (&bp, map->decompose_p, 1);
       bp_pack_value (&bp, map->ref_p, 1);
       streamer_write_bitpack (&bp);
     }
@@ -1771,6 +1776,7 @@ input_node_opt_summary (struct cgraph_node *node,
       map->new_tree = stream_read_tree (ib_main, data_in);
       bp = streamer_read_bitpack (ib_main);
       map->replace_p = bp_unpack_value (&bp, 1);
+      map->decompose_p = bp_unpack_value (&bp, 1);
       map->ref_p = bp_unpack_value (&bp, 1);
     }
   for (e = node->callees; e; e = e->next_callee)

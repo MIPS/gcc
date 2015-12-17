@@ -244,6 +244,8 @@ struct GTY(()) ipa_replace_map
   int parm_num;
   /* True when a substitution should be done, false otherwise.  */
   bool replace_p;
+  /* True when a decomposition should be done, false otherwise.  */
+  bool decompose_p;
   /* True when we replace a reference to old_tree.  */
   bool ref_p;
 };

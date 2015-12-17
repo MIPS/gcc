@@ -998,9 +998,10 @@ cgraph_materialize_all_clones (void)
 			      print_generic_expr (cgraph_dump_file, replace_info->old_tree, 0);
 			      fprintf (cgraph_dump_file, " -> ");
 			      print_generic_expr (cgraph_dump_file, replace_info->new_tree, 0);
-			      fprintf (cgraph_dump_file, "%s%s;",
+			      fprintf (cgraph_dump_file, "%s%s%s;",
 			      	       replace_info->replace_p ? "(replace)":"",
-				       replace_info->ref_p ? "(ref)":"");
+				       replace_info->ref_p ? "(ref)":"",
+				       replace_info->decompose_p ? "(decompose)":"");
 			    }
 			  fprintf (cgraph_dump_file, "\n");
 			}
