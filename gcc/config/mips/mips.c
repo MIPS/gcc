@@ -16369,7 +16369,6 @@ mips_builtin_vectorized_function (unsigned int fn, tree type_out, tree type_in)
 
   if (TREE_CODE (type_out) != VECTOR_TYPE
       || TREE_CODE (type_in) != VECTOR_TYPE
-      || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL
       || !ISA_HAS_MSA)
     return NULL_TREE;
 
