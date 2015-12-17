@@ -389,4 +389,6 @@ extern void mips_expand_vec_cond_expr (machine_mode,
 				       rtx (*)(rtx, rtx, rtx),
 				       rtx (*)(rtx, rtx, rtx));
 
+extern const char * mips_output_epi_jump ();
+
 #endif /* ! GCC_MIPS_PROTOS_H */

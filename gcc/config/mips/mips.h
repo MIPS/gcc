@@ -3225,3 +3225,12 @@ extern GTY(()) struct target_globals *mips16_globals;
 #define ENABLE_LD_ST_PAIRS \
   (TARGET_LOAD_STORE_PAIRS && (TUNE_P5600 || TUNE_I6400)\
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define ISA_SUPPORTS_COMMON_EPILOGUE \
+  (ISA_MIPS32R2 && mips_abi == ABI_32 && !TARGET_MIPS16 && !TARGET_MICROMIPS)
+
+#define HAVE_COMMON_EPILOGUE \
+  (ISA_SUPPORTS_COMMON_EPILOGUE \
+   && (cfun->machine->use_common_epilogue_p || TARGET_EPI || mips_epi != NULL))
+
+#define MIN_NUM_GP 3

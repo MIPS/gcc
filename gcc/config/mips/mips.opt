@@ -508,3 +508,11 @@ Enum(mips16_xsregs_setting) String(speed) Value(MIPS16_XSREGS_SPEED)
 mdead-loads
 Target Var(TARGET_DEAD_LOADS) Init(0)
 Redirect dead loads to $0 to avoid spurious output dependencies
+
+mepi
+Target Report Var(TARGET_EPI) Init(0)
+Generate common epilogue
+
+mepi=
+Target RejectNegative Joined Var(mips_epi)
+-mepi=SUFFIX  Generate common epilogue with suffix on the entry-point name
