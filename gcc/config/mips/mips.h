@@ -3247,3 +3247,8 @@ extern GTY(()) struct target_globals *mips16_globals;
   (TARGET_LOAD_STORE_PAIRS \
    && (TUNE_P5600 || TUNE_I6400 || TUNE_P6600) \
    && !TARGET_MICROMIPS && !TARGET_FIX_24K)
+
+#define ISA_SUPPORTS_COMMON_EPILOGUE \
+  (mips_isa_rev >= 2 && mips_abi == ABI_32 && !TARGET_MIPS16 && !TARGET_MICROMIPS)
+
+#define MIPS_EPI_MIN_GP_RESTORE 3

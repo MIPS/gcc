@@ -386,4 +386,6 @@ extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 
 extern void mips_expand_vec_cond_expr (machine_mode, machine_mode, rtx *);
 
+extern const char * mips_output_epi_jump (void);
+
 #endif /* ! GCC_MIPS_PROTOS_H */
