@@ -373,4 +373,6 @@ extern mulsidi3_gen_fn mips_mulsidi3_gen_fn (enum rtx_code);
 
 extern void mips_register_frame_header_opt (void);
 
+extern const char * mips_output_epi_jump (void);
+
 #endif /* ! GCC_MIPS_PROTOS_H */
