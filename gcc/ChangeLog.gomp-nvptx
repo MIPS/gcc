@@ -1,5 +1,28 @@
 2016-01-17  Alexander Monakov  <amonakov@ispras.ru>
 
+	* internal-fn.c (expand_GOMP_SIMT_LANE): Update.
+	(expand_GOMP_SIMT_LAST_LANE): New.
+	(expand_GOMP_SIMT_ORDERED_PRED): New.
+	(expand_GOMP_SIMT_VOTE_ANY): New.
+	(expand_GOMP_SIMT_XCHG_BFLY): New.
+	(expand_GOMP_SIMT_XCHG_IDX): New.
+	* internal-fn.def (GOMP_SIMT_LAST_LANE): New.
+	(GOMP_SIMT_ORDERED_PRED): New.
+	(GOMP_SIMT_VOTE_ANY): New.
+	(GOMP_SIMT_XCHG_BFLY): New.
+	(GOMP_SIMT_XCHG_IDX): New.
+	* omp-low.c (omp_maybe_offloaded_ctx): New, outlined from...
+	(create_omp_child_function): ...here.  Simplify.
+	(omp_max_simt_vf): New.  Use it...
+	(omp_max_vf): ...here.
+	(lower_rec_input_clauses): Add reduction lowering for SIMT execution.
+	(lower_lastprivate_clauses): Likewise, for lastprivate lowering.
+	(lower_omp_ordered): Likewise, for "ordered" lowering.
+	(expand_omp_simd): Update SIMT transforms.
+	(execute_omp_device_lower): Update.  Fold SIMD ifns on SIMT targets.
+
+2016-01-17  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx-protos.h (nvptx_shuffle_kind): Move enum
 	declaration from nvptx.c.
 	(nvptx_gen_shuffle): Declare.
