@@ -528,3 +528,7 @@ Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(-1)
 
 mmips16-copy-peep
 Target Undocumented Var(TARGET_MIPS16_COPY_PEEP) Init(0)
+
+minline-intermix
+Target Report Var(TARGET_INLINE_INTERMIX)
+Allow inlining even if the compression flags differ between caller and callee.
