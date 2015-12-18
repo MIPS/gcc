@@ -443,3 +443,7 @@ Enum(mips_cb_setting) String(optimal) Value(MIPS_CB_OPTIMAL)
 
 EnumValue
 Enum(mips_cb_setting) String(always) Value(MIPS_CB_ALWAYS)
+
+minline-intermix
+Target Report Var(TARGET_INLINE_INTERMIX)
+Allow inlining even if the compression flags differ between caller and callee.
