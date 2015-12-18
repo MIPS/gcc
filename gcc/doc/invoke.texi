@@ -772,6 +772,7 @@ Objective-C and Objective-C++ Dialects}.
 -mips16  -mno-mips16  -mflip-mips16 @gol
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
+-minline-intermix -mno-inline-intermix @gol
 -mmips16-use-xsregs -mno-mips16-use-xsregs @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
@@ -17265,6 +17266,17 @@ knows that the target of the jump is not compressed.
 Aliases of @option{-minterlink-compressed} and
 @option{-mno-interlink-compressed}.  These options predate the microMIPS ASE
 and are retained for backwards compatibility.
+
+@item -minline-intermix
+@itemx -mno-inline-intermix
+@opindex minline-intermix
+@opindex mno-inline-intermix
+Enable inlining of functions which have opposing mips16/nomips16 attributes.
+This is useful when using the mips16 attribute to balance code size and
+performance so that a function will be compressed when not inlined or
+vice-versa.  When using this option it is necessary to protect functions
+that cannot be compiled as MIPS16 with a noinline attribute to ensure
+they are not inlined into a MIPS16 function.
 
 @item -mmips16-use-xsregs
 @itemx -mno-mips16-use-xsregs

@@ -1793,7 +1793,8 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
 static bool
 mips_can_inline_p (tree caller, tree callee)
 {
-  if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller))
+  if (mips_get_compress_mode (callee) != mips_get_compress_mode (caller)
+      && !TARGET_INLINE_INTERMIX)
     return false;
   return default_target_can_inline_p (caller, callee);
 }
