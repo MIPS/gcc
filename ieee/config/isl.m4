@@ -94,7 +94,7 @@ AC_DEFUN([ISL_REQUESTED],
 
 # ISL_CHECK_VERSION ISL_CHECK_VERSION ()
 # ----------------------------------------------------------------
-# Test that ISL contains functionality added to the minimum expected version.
+# Test whether isl contains functionality added to the minimum expected version.
 AC_DEFUN([ISL_CHECK_VERSION],
 [
   if test "${ENABLE_ISL_CHECK}" = yes ; then
@@ -103,8 +103,8 @@ AC_DEFUN([ISL_CHECK_VERSION],
     _isl_saved_LIBS=$LIBS
 
     CFLAGS="${_isl_saved_CFLAGS} ${islinc} ${gmpinc}"
-    LDFLAGS="${_isl_saved_LDFLAGS} ${isllibs}"
-    LIBS="${_isl_saved_LIBS} -lisl"
+    LDFLAGS="${_isl_saved_LDFLAGS} ${isllibs} ${gmplibs}"
+    LIBS="${_isl_saved_LIBS} -lisl -lgmp"
 
     AC_MSG_CHECKING([for isl 0.15 (or deprecated 0.14)])
     AC_TRY_LINK([#include <isl/ctx.h>],

@@ -40,21 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pretty-print.h"
 #include "gimple-pretty-print.h"
 #include "tree-dump.h"
-
-#include <isl/constraint.h>
-#include <isl/set.h>
-#include <isl/map.h>
-#include <isl/union_map.h>
-#include <isl/constraint.h>
-#include <isl/ilp.h>
-#include <isl/aff.h>
-#include <isl/val.h>
-#include <isl/val_gmp.h>
-
 #include "graphite.h"
-
-#define OPENSCOP_MAX_STRING 256
-
 
 /* Print to STDERR the GMP value VAL.  */
 
@@ -295,9 +281,9 @@ scop_p
 new_scop (edge entry, edge exit)
 {
   sese_info_p region = new_sese_info (entry, exit);
-  scop_p s;
-  s = XNEW (struct scop);
+  scop_p s = XNEW (struct scop);
 
+  s->schedule = NULL;
   s->param_context = NULL;
   scop_set_region (s, region);
   s->pbbs.create (3);
