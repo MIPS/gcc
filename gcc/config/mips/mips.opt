@@ -498,3 +498,7 @@ Place all gp relative data in sdata section number NUM
 msdata-opt-list=
 Target RejectNegative Joined Var(mips_sdata_opt_list_file)
 msdata-opt-list=FILE    Use to specify variables to go in the .sdata section
+
+minline-intermix
+Target Report Var(TARGET_INLINE_INTERMIX)
+Allow inlining even if the compression flags differ between caller and callee
