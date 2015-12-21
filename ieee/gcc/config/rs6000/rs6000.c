@@ -1782,7 +1782,7 @@ rs6000_hard_regno_nregs_internal (int regno, machine_mode mode)
      128-bit floating point that can go in vector registers, which has VSX
      memory addressing.  */
   if (FP_REGNO_P (regno))
-    reg_size = (VECTOR_MEM_VSX_P (mode)
+    reg_size = ((VECTOR_MEM_VSX_P (mode) || FLOAT128_VECTOR_P (mode))
 		? UNITS_PER_VSX_WORD
 		: UNITS_PER_FP_WORD);
 
@@ -1814,6 +1814,10 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 {
   int last_regno = regno + rs6000_hard_regno_nregs[mode][regno] - 1;
 
+  /* For complex modes, use the inner type after getting the size.  */
+  if (COMPLEX_MODE_P (mode))
+    mode = GET_MODE_INNER (mode);
+
   /* PTImode can only go in GPRs.  Quad word memory operations require even/odd
      register combinations, and use PTImode where we need to deal with quad
      word memory operations.  Don't allow quad words in the argument or frame
@@ -1839,7 +1843,7 @@ rs6000_hard_regno_mode_ok (int regno, machine_mode mode)
 
       if (ALTIVEC_REGNO_P (regno))
 	{
-	  if (GET_MODE_SIZE (mode) != 16 && !reg_addr[mode].scalar_in_vmx_p)
+	  if (GET_MODE_SIZE (mode) < 16 && !reg_addr[mode].scalar_in_vmx_p)
 	    return 0;
 
 	  return ALTIVEC_REGNO_P (last_regno);
@@ -20676,24 +20680,29 @@ rs6000_invalid_binary_op (int op ATTRIBUTE_UNUSED,
     mode2 = GET_MODE_INNER (mode2);
 
   /* Don't allow IEEE 754R 128-bit binary floating point and IBM extended
-     double to intermix.  */
+     double to intermix unless -mfloat128-convert.  */
   if (mode1 == mode2)
     return NULL;
 
-  if ((mode1 == KFmode && mode2 == IFmode)
-      || (mode1 == IFmode && mode2 == KFmode))
-    return N_("__float128 and __ibm128 cannot be used in the same expression");
+  if (!TARGET_FLOAT128_CVT)
+    {
+      if ((mode1 == KFmode && mode2 == IFmode)
+	  || (mode1 == IFmode && mode2 == KFmode))
+	return N_("__float128 and __ibm128 cannot be used in the same "
+		  "expression");
 
-  if (TARGET_IEEEQUAD
-      && ((mode1 == IFmode && mode2 == TFmode)
-	  || (mode1 == TFmode && mode2 == IFmode)))
-    return N_("__ibm128 and long double cannot be used in the same expression");
+      if (TARGET_IEEEQUAD
+	  && ((mode1 == IFmode && mode2 == TFmode)
+	      || (mode1 == TFmode && mode2 == IFmode)))
+	return N_("__ibm128 and long double cannot be used in the same "
+		  "expression");
 
-  if (!TARGET_IEEEQUAD
-      && ((mode1 == KFmode && mode2 == TFmode)
-	  || (mode1 == TFmode && mode2 == KFmode)))
-    return N_("__float128 and long double cannot be used in the same "
-	      "expression");
+      if (!TARGET_IEEEQUAD
+	  && ((mode1 == KFmode && mode2 == TFmode)
+	      || (mode1 == TFmode && mode2 == KFmode)))
+	return N_("__float128 and long double cannot be used in the same "
+		  "expression");
+    }
 
   return NULL;
 }
