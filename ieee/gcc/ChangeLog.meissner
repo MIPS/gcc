@@ -1,5 +1,8 @@
 2015-12-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 231885.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal):
 	Explicitly test for IEEE 128-bit floating point in vector types
 	for partial IEEE 128-bit complex support.

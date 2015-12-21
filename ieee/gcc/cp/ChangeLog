@@ -1,3 +1,34 @@
+2015-12-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* typeck.c (cp_build_binary_op): Update for change in signature
+	of build_binary_op.  Use error_at to replace an implicit use
+	of input_location with param "location" in "invalid operands"
+	error.
+	(cp_build_binary_op): Replace an error with an error_at, using
+	"location", rather than implicitly using input_location.
+
+2015-12-20  Jason Merrill  <jason@redhat.com>
+
+	PR c++/67411
+	* decl2.c (decl_maybe_constant_var_p): Use DECL_HAS_VALUE_EXPR_P.
+
+	PR c++/67411
+	* lambda.c (generic_lambda_fn_p): Split out from...
+	(maybe_add_lambda_conv_op): ...here.
+	* semantics.c (process_outer_var_ref): Don't defer maybe-constant
+	variables in a generic lambda.
+	* pt.c (instantiate_non_dependent_or_null): New.
+	* init.c (constant_value_1): Use it.
+	* cp-tree.h: Declare it and generic_lambda_fn_p.
+
+	PR c++/67411
+	* decl2.c (decl_maybe_constant_var_p): A proxy isn't constant.
+
+2015-12-18  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	PR c++/68978
+	* tree.c (lvalue_kind) [MODOP_EXPR]: New case.
+
 2015-12-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/67592

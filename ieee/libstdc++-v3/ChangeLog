@@ -1,3 +1,42 @@
+2015-12-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/68982
+	testsuite/20_util/function_objects/mem_fn/68276.cc: Rename to ...
+	testsuite/20_util/function_objects/mem_fn/68982.cc: Correct bug number.
+
+	PR libstdc++/68995
+	* include/std/functional (_function_handler, function): Qualify
+	__callable_functor.
+	* testsuite/20_util/function/68995.cc: New.
+
+	PR libstdc++/68276
+	* include/std/functional (__invoke_impl, _Mem_fn::operator()): Qualify
+	std::forward.
+	testsuite/20_util/function_objects/mem_fn/68276.cc: New.
+
+2015-12-21  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR libstdc++/66693
+	* include/std/tuple (tuple_element, tuple_size, tuple_element_t,
+	__tuple_element_t): Move to...
+	* include/std/utility: ...here.
+	* testsuite/20_util/pair/astuple/astuple.cc: Adjust.
+	* testsuite/20_util/pair/astuple/astuple_cpp14.cc: New.
+	* testsuite/20_util/tuple/tuple_element.cc: Adjust.
+	* testsuite/20_util/tuple/tuple_element_t.cc: Likewise.
+	* testsuite/20_util/tuple/tuple_size.cc: Likewise.
+	* testsuite/23_containers/array/tuple_interface/tuple_element.cc:
+	Likewise.
+	* testsuite/23_containers/array/tuple_interface/tuple_element_cpp14.cc:
+	New.
+	* testsuite/23_containers/array/tuple_interface/tuple_size.cc: Adjust.
+
+2015-12-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	Fix a regression introduced by the fix of libstdc++/68276.
+	* src/c++11/ios.cc (_M_grow_words): Catch bad_alloc again so that
+	bad_array_new_length is handled properly.
+
 2015-12-18  Ville Voutilainen  <ville.voutilainen@gmail.com>
 
 	PR libstdc++/68276

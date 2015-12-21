@@ -1,3 +1,184 @@
+2015-12-21  Pierre-Marie de Rodat  <derodat@adacore.com>
+
+	* dwarf2out.c (add_data_member_location_attribute): Do not
+	disable dynamic data member offsets descriptions for TREE_BINFO
+	members.
+
+2015-12-21  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR tree-optimization/65337
+	* tree-ssa-pre.c (eliminate): Also clean up abnormal edges if need be.
+
+2015-12-21  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_emit_prologue): Fix base reg condition.
+
+2015-12-21  Claudiu Zissulescu  <claziss@synopsys.com>
+
+	* config/arc/builtins.def: New file.
+	* config/arc/arc.c (arc_init_simd_builtins): Remove.
+	(arc_builtins): Likewise.
+	(TARGET_BUILTIN_DECL): Define.
+	(arc_builtin_id): New enum.
+	(arc_builtin_description): New structure.
+	(arc_bdesc): New variable.
+	(arc_tolower): New function.
+	(def_mbuiltin): Remove.
+	(arc_builtin_decl): New function.
+	(arc_expand_builtin_aligned ): Likewise.
+	(apply_GEN_FCN): Likewise.
+	(arc_init_builtins): Refurbish.
+	(arc_expand_builtin): Likewise.
+	(simd_insn_args_type): Remove.
+	(builtin_description): Likewise
+	(arc_simd_builtin_desc_list): Likewise.
+	(arc_expand_simd_builtin): Likewise.
+	(arc_process_double_reg_moves): Use the new builtin name format.
+	* config/arc/arc.md (unspec): New builtin function UNSPEC codes.
+	(vunspec): New builtin function VUNSPEC codes.
+	(UNSPEC_SWAP, UNSPEC_MUL64, UNSPEC_MULU64, UNSPEC_DIVAW)
+	(UNSPEC_DIRECT, UNSPEC_LP, UNSPEC_CASESI, VUNSPEC_RTIE)
+	(VUNSPEC_SYNC, VUNSPEC_BRK, VUNSPEC_FLAG, VUNSPEC_SLEEP)
+	(VUNSPEC_SWI, VUNSPEC_CORE_READ, VUNSPEC_CORE_WRITE, VUNSPEC_LR)
+	(VUNSPEC_SR, VUNSPEC_TRAP_S, VUNSPEC_UNIMP_S, VUNSPEC_NOP)
+	(UNSPEC_ARC_MEMBAR,VUNSPEC_ARC_CAS, VUNSPEC_ARC_LL)
+	(VUNSPEC_ARC_SC, VUNSPEC_ARC_EX, VUNSPEC_DEXCL)
+	(VUNSPEC_DEXCL_NORES, VUNSPEC_LR_HIGH): Remove.
+	(mul64, mulu64): Remove patterns.
+	(store_direct, *movdf_insn_nolrsr, casesi, casesi_load)
+	(casesi_compact_jump, nopv, swap, divaw, flag, brk, rtie, sync)
+	(swi, sleep, core_read, core_write, lr, sr, trap_s, unimp_s)
+	(doloop_begin_i): Use new builtin function code naming.
+	(kflag, clri, ffs, ffs_f, ffssi2, fls, seti): New patterns.
+	* config/arc/builtins.def: New file.
+	* config/arc/fpx.md: Use new builtin function code naming.
+	* config/arc/simdext.md: New SIMD builtin function UNSPEC
+	codes. Use them in the SIMD patterns.
+
+2015-12-21  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	PR tree-optimization/61441
+	* real.c (do_add): Make resulting NaN value to be qNaN.
+	(do_multiply, do_divide, do_fix_trunc): Same.
+	(real_arithmetic, real_ldexp, real_convert): Same.
+	(real_isinteger): Updated comment stating it returns false for sNaN.
+
+2015-12-20  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/64910
+	* config/i386/i386.md (testqi_ext_3): Allow HImode.
+
+2015-12-20  Andrew Pinsi  <apinski@cavium.com>
+
+	* config/aarch64/atomics.md
+	(aarch64_atomic_<atomic_optab>_fetch<mode>_lse): Add early clobber
+	to the scratch register.
+
+2015-12-20  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	PR tree-optimization/61441
+	* match.pd (f(x) -> x): Removed flag_errno_math check for RINT.
+
+2015-12-20  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	PR tree-optimization/61441
+	* fold-const.c (const_binop): Use REAL_VALUE_ISSIGNALING_NAN instead
+	of REAL_VALUE_ISNAN to avoid the operation for sNaN operands.
+	* simplify-rtx.c (simplify_const_binary_operation): Same.
+
+2015-12-19  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR tree-optimization/65337
+	* tree-ssa-dce.c (bb_postorder): New static var.
+	(mark_stmt_necessary): Add guard for setting bb_contains_live_stmts.
+	(forward_edge_to_pdom): Remove.
+	(remove_dead_stmt): Instead of redirecting edges only keep an edge
+	on a path to nearest live BB.
+	(eliminate_unnecessary_stmts): Free bb_postorder.
+	* cfganal.c (dfs_find_deadend): Add START_POINTES.
+	* cfganal.h (inverted_post_order_compute): Update prototype.
+
+2015-12-19  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/68910
+	* emit-rtl.c (set_unique_reg_note) <REG_EQUAL>: Add bypass for USEs.
+	* config/sparc/sparc.md (anddi3): Enable only in 64-bit mode.
+	(iordi3): Likewise.
+	(xordi3): Likewise.
+	(one_cmpldi2): Likewise.
+	(*anddi3_sp32): Delete.
+	(*and_not_di_sp32): Likewise.
+	(*iordi3_sp32): Likewise.
+	(*or_not_di_sp32): Likewise.
+	(*xordi3_sp32): Likewise.
+	(*xor_not_di_sp32): Likewise.
+	(32-bit DImode logical operations splitter): Likewise.
+	(*one_cmpldi2_sp32): Likewise.
+
+2015-12-19  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc.md (*storeqi_update): Use 'any_mem_operand' and
+	fix RTL pattern to include the plus.
+	(*storehi_update): Likewise.
+	(*storesi_update): Likewise.
+	(*storesf_update): Likewise.
+	* config/arc/predicates.md (store_update_operand): Delete.
+
+2015-12-19  Andrew Burgess  <andrew.burgess@embecosm.com>
+
+	* config/arc/arc.md (*loadqi_update): Use new 'any_mem_operand'
+	and fix RTL pattern to include the plus.
+	(*load_zeroextendqisi_update): Likewise.
+	(*load_signextendqisi_update): Likewise.
+	(*loadhi_update): Likewise.
+	(*load_zeroextendhisi_update): Likewise.
+	(*load_signextendhisi_update): Likewise.
+	(*loadsi_update): Likewise.
+	(*loadsf_update): Likewise.
+	* config/arc/predicates.md (load_update_operand): Delete.
+	(any_mem_operand): New predicate.
+
+2015-12-19  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	PR tree-optimization/61441
+	* real.c (real_issignaling_nan): New.
+	* real.h (real_issignaling_nan, REAL_VALUE_ISSIGNALING_NAN): New.
+
+2015-13-18  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/68729
+	* config/pa/pa.c (pa_emit_move_sequence): Reorganize handling of
+	floating-point reloads. Only reload operands that are not valid
+	floating-point memory operands.
+
+2015-12-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR debug/68860
+	* ipa-split.c (split_function): Only perform caller side
+	modifications for decl_debug_args here.
+	* cgraph.c: Include gimplify.h.
+	(cgraph_edge::redirect_call_stmt_to_callee): Add caller side
+	debug stmts for decl_debug_args.  Spelling fix in a comment.
+	* tree-inline.c (tree_function_versioning): Populate decl_debug_args
+	for args_to_skip arguments and add callee side debug stmts.
+	Formatting fixes.  Avoid shadowing i variable.
+
+2015-12-18  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_maybe_convert_symbolic_operand):
+	Remove UNSPEC_TO_GENERIC generation.
+	(nvptx_output_mov_insn): Generate cvta for symbolic src.
+	* config/nvptx/nvptx.md (nvptx_register_operand): Allow hard reg.
+	(nvptx_reg_or_mem_operand): Likewise.
+	(nvptx_nonmemory_operand): Likewise.
+	(nvptx_general_operand): Delete.
+	(*mov<mode>_insn): Use nonimmediate_operand, permit hardregs.
+	(oacc_fork, oacc_join): Use general_operand.
+
+2015-12-18  Daniel Kahn Gillmor  <dkg@fifthhorseman.net>
+
+	* dwarf2out.c (gen_producer_string): Ignore -fdebug-prefix-map.
+
 2015-12-18  Nathan Sidwell  <nathan@acm.org>
 
 	* config/nvptx/nvptx.c (nvptx_option_override): Emit sorry for
