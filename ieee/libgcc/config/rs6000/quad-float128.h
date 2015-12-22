@@ -53,17 +53,79 @@ typedef int	 TItype_ppc  __attribute__ ((__mode__ (__TI__)));
 typedef unsigned UTItype_ppc __attribute__ ((__mode__ (__TI__)));
 #endif
 
+/* Software emulation functions.  */
+extern TFtype __addkf3_sw (TFtype, TFtype);
+extern TFtype __subkf3_sw (TFtype, TFtype);
+extern TFtype __mulkf3_sw (TFtype, TFtype);
+extern TFtype __divkf3_sw (TFtype, TFtype);
+extern TFtype __negkf2_sw (TFtype);
+extern CMPtype __eqkf2_sw (TFtype, TFtype);
+extern CMPtype __gekf2_sw (TFtype, TFtype);
+extern CMPtype __lekf2_sw (TFtype, TFtype);
+extern CMPtype __unordkf2_sw (TFtype, TFtype);
+extern TFtype __extendsfkf2_sw (float);
+extern TFtype __extenddfkf2_sw (double);
+extern float __trunckfsf2_sw (TFtype);
+extern double __trunckfdf2_sw (TFtype);
+extern SItype_ppc __fixkfsi_sw (TFtype);
+extern DItype_ppc __fixkfdi_sw (TFtype);
+extern USItype_ppc __fixunskfsi_sw (TFtype);
+extern UDItype_ppc __fixunskfdi_sw (TFtype);
+extern TFtype __floatsikf_sw (SItype_ppc);
+extern TFtype __floatdikf_sw (DItype_ppc);
+extern TFtype __floatunsikf_sw (USItype_ppc);
+extern TFtype __floatundikf_sw (UDItype_ppc);
+
+#ifdef _ARCH_PPC64
+extern TItype_ppc __fixkfti_sw (TFtype);
+extern UTItype_ppc __fixunskfti_sw (TFtype);
+extern TFtype __floattikf_sw (TItype_ppc);
+extern TFtype __floatuntikf_sw (UTItype_ppc);
+#endif
+
+/* Functions using the ISA 3.0 hardware support.  If the code is compiled with
+   -mcpu=power9, it will not use these functions, but if it was compiled with
+   -mcpu=power7 or -mcpu=power8 and run on a ISA 3.0 system, it will use the
+   hardware instruction.  */
+extern TFtype __addkf3_hw (TFtype, TFtype);
+extern TFtype __subkf3_hw (TFtype, TFtype);
+extern TFtype __mulkf3_hw (TFtype, TFtype);
+extern TFtype __divkf3_hw (TFtype, TFtype);
+extern TFtype __negkf2_hw (TFtype);
+extern CMPtype __eqkf2_hw (TFtype, TFtype);
+extern CMPtype __gekf2_hw (TFtype, TFtype);
+extern CMPtype __lekf2_hw (TFtype, TFtype);
+extern CMPtype __unordkf2_hw (TFtype, TFtype);
+extern TFtype __extendsfkf2_hw (float);
+extern TFtype __extenddfkf2_hw (double);
+extern float __trunckfsf2_hw (TFtype);
+extern double __trunckfdf2_hw (TFtype);
+extern SItype_ppc __fixkfsi_hw (TFtype);
+extern DItype_ppc __fixkfdi_hw (TFtype);
+extern USItype_ppc __fixunskfsi_hw (TFtype);
+extern UDItype_ppc __fixunskfdi_hw (TFtype);
+extern TFtype __floatsikf_hw (SItype_ppc);
+extern TFtype __floatdikf_hw (DItype_ppc);
+extern TFtype __floatunsikf_hw (USItype_ppc);
+extern TFtype __floatundikf_hw (UDItype_ppc);
+
+#ifdef _ARCH_PPC64
+extern TItype_ppc __fixkfti_hw (TFtype);
+extern UTItype_ppc __fixunskfti_hw (TFtype);
+extern TFtype __floattikf_hw (TItype_ppc);
+extern TFtype __floatuntikf_hw (UTItype_ppc);
+#endif
+
+/* Ifunc function declarations, to automatically switch between software
+   emulation and hardware support.  */
 extern TFtype __addkf3 (TFtype, TFtype);
 extern TFtype __subkf3 (TFtype, TFtype);
 extern TFtype __mulkf3 (TFtype, TFtype);
 extern TFtype __divkf3 (TFtype, TFtype);
 extern TFtype __negkf2 (TFtype);
 extern CMPtype __eqkf2 (TFtype, TFtype);
-extern CMPtype __nekf2 (TFtype, TFtype);
 extern CMPtype __gekf2 (TFtype, TFtype);
-extern CMPtype __gtkf2 (TFtype, TFtype);
 extern CMPtype __lekf2 (TFtype, TFtype);
-extern CMPtype __ltkf2 (TFtype, TFtype);
 extern CMPtype __unordkf2 (TFtype, TFtype);
 extern TFtype __extendsfkf2 (float);
 extern TFtype __extenddfkf2 (double);

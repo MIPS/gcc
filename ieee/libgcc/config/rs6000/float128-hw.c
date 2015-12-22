@@ -1,11 +1,12 @@
-/* Software floating-point emulation, convert IEEE quad to 128bit unsigned
-   integer.
+/* Automatic switching between software and hardware IEEE 128-bit
+   floating-point emulation for PowerPC.
 
    Copyright (C) 2015 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
-   Contributed by Steven Munroe (munroesj@linux.vnet.ibm.com)
+   Contributed by Michael Meissner (meissner@linux.vnet.ibm.com)
    Code is based on the main soft-fp library written by:
-   	   Uros Bizjak (ubizjak@gmail.com).
+	Richard Henderson (rth@cygnus.com) and
+	Jakub Jelinek (jj@ultra.linux.cz).
 
    The GNU C Library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
@@ -30,22 +31,45 @@
    License along with the GNU C Library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
-#ifdef _ARCH_PPC64
-#include "soft-fp.h"
-#include "quad-float128.h"
+#include <soft-fp.h>
+#include <quad-float128.h>
 
-UTItype
-__fixunskfti (TFtype a)
+TFtype
+__addkf3_hw (TFtype a, TFtype b)
 {
-  FP_DECL_EX;
-  FP_DECL_Q (A);
-  UTItype r;
-
-  FP_INIT_EXCEPTIONS;
-  FP_UNPACK_RAW_Q (A, a);
-  FP_TO_INT_Q (r, A, TI_BITS, 0);
-  FP_HANDLE_EXCEPTIONS;
-
-  return r;
+  __float128 ret;
+  __asm__ ("xsaddqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
+  return ret;
 }
-#endif
+
+TFtype
+__subkf3_hw (TFtype a, TFtype b)
+{
+  __float128 ret;
+  __asm__ ("xssubqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
+  return ret;
+}
+
+TFtype
+__mulkf3_hw (TFtype a, TFtype b)
+{
+  __float128 ret;
+  __asm__ ("xsmulqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
+  return ret;
+}
+
+TFtype
+__divkf3_hw (TFtype a, TFtype b)
+{
+  __float128 ret;
+  __asm__ ("xsdivqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
+  return ret;
+}
+
+TFtype
+__negkf2_hw (TFtype a)
+{
+  __float128 ret;
+  __asm__ ("xsnegqp %0,%1" : "=v" (ret) : "v" (a));
+  return ret;
+}

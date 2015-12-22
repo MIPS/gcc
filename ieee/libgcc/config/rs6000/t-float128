@@ -22,9 +22,9 @@ fp128_softfp_static_obj	= $(addsuffix $(objext),$(fp128_softfp_funcs))
 fp128_softfp_shared_obj	= $(addsuffix _s$(objext),$(fp128_softfp_funcs))
 fp128_softfp_obj	= $(fp128_softfp_static_obj) $(fp128_softfp_shared_obj)
 
-# New functions
+# New functions for software emulation
 fp128_ppc_funcs		= floattikf floatuntikf fixkfti fixunskfti \
-			  extendkftf2 trunctfkf2 sfp-exceptions
+			  extendkftf2 trunctfkf2 sfp-exceptions float128-ifunc
 
 fp128_ppc_src		= $(addprefix $(srcdir)/config/rs6000/,$(addsuffix \
 				.c,$(fp128_ppc_funcs)))
@@ -32,10 +32,25 @@ fp128_ppc_static_obj	= $(addsuffix $(objext),$(fp128_ppc_funcs))
 fp128_ppc_shared_obj	= $(addsuffix _s$(objext),$(fp128_ppc_funcs))
 fp128_ppc_obj		= $(fp128_ppc_static_obj) $(fp128_ppc_shared_obj)
 
+# New functions for hardware support
+fp128_hw_funcs		= float128-hw.c
+
+fp128_hw_src		= $(addprefix $(srcdir)/config/rs6000/,$(addsuffix \
+				.c,$(fp128_hw_funcs)))
+fp128_hw_static_obj	= $(addsuffix $(objext),$(fp128_hw_funcs))
+fp128_hw_shared_obj	= $(addsuffix _s$(objext),$(fp128_hw_funcs))
+fp128_hw_obj		= $(fp128_hw_static_obj) $(fp128_hw_shared_obj)
+
 # All functions
-fp128_funcs		= $(fp128_softfp_funcs) $(fp128_ppc_funcs)
-fp128_src		= $(fp128_softfp_src) $(fp128_ppc_src)
-fp128_obj		= $(fp128_softfp_obj) $(fp128_ppc_obj)
+fp128_funcs		= $(fp128_softfp_funcs) $(fp128_ppc_funcs) \
+			  $(fp128_hw_funcs)
+
+fp128_src		= $(fp128_softfp_src) $(fp128_ppc_src) \
+			  $(fp128_hw_src)
+
+fp128_obj		= $(fp128_softfp_obj) $(fp128_ppc_obj) \
+			  $(fp128_hw_obj)
+
 fp128_sed		= $(srcdir)/config/rs6000/float128-sed
 fp128_dep		= $(fp128_sed) $(srcdir)/config/rs6000/t-float128
 
@@ -52,11 +67,15 @@ fp128_includes		= $(srcdir)/soft-fp/double.h \
 
 EXTRA_CLEAN		+= $(fp128_softfp_src)
 
-FP128_CFLAGS		 = -Wno-type-limits -mvsx -mfloat128 \
+# Build the emulator without ISA 3.0 hardware support.
+FP128_CFLAGS_SW		 = -Wno-type-limits -mvsx -mfloat128 \
+			   -mno-float128-hardware \
 			   -I$(srcdir)/soft-fp \
-			   -I$(srcdir)/config/rs6000
+			   -I$(srcdir)/config/rs6000 \
+			   $(FLOAT128_HW_INSNS)
 
-$(fp128_obj)		 : INTERNAL_CFLAGS += $(FP128_CFLAGS)
+$(fp128_softfp_obj)	 : INTERNAL_CFLAGS += $(FP128_CFLAGS_SW)
+$(fp128_ppc_obj)	 : INTERNAL_CFLAGS += $(FP128_CFLAGS_SW)
 $(fp128_obj)		 : $(fp128_includes)
 $(fp128_obj)		 : $(srcdir)/config/rs6000/quad-float128.h
 

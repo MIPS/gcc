@@ -1,5 +1,38 @@
 2015-12-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config.host (powerpc*-linux*): Add support if ISA 3.0 IEEE
+	128-bit floating point hardware instructions exist in the
+	assembler.
+	* configure.ac (powerpc*-linux*): Likewise.
+	* configure: Regenerate.
+
+	* config/rs6000/float128-hw.c: New file for using ISA 3.0 hardware
+	instructions for IEEE 128-bit emulation if we are running on an
+	ISA 3.0 machines.
+
+	* config/rs6000/float128-ifunc.c: New file to provide ifunc
+	resolvers to use IEEE 128-bit hardware support if the current
+	machine has such support.
+
+	* config/rs6000/quad-float128.h: Add declarations for software,
+	hardware, and ifunc functions to provide IEEE 128-bit support.
+
+	* config/rs6000/t-float128: Add support for optionally building in
+	ifunc resolvers to allow using IEEE 128-bit hardware functions.
+	* config/rs6000/t-float128-hw: Likewise.
+
+	* config/rs6000/float128-sed: Convert soft-fp names to the
+	emulated names.
+
+	* config/rs6000/floattikf.c: Update copyright year.
+	* config/rs6000/extendkftf2.c: Likewise.
+	* config/rs6000/trunctfkf2.c: Likewise.
+	* config/rs6000/fixunskfti.c: Likewise.
+	* config/rs6000/fixkfti.c: Likewise.
+	* config/rs6000/floatuntikf.c: Likewise.
+
+2015-12-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 231885.
 
 2015-12-18  Michael Meissner  <meissner@linux.vnet.ibm.com>

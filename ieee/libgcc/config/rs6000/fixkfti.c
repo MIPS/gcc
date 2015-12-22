@@ -1,5 +1,6 @@
-/* Software floating-point emulation.
-   Convert IEEE quad to 128bit signed integer
+/* Software floating-point emulation, convert IEEE quad to 128bit signed
+   integer.
+
    Copyright (C) 2015 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Contributed by Steven Munroe (munroesj@linux.vnet.ibm.com)
