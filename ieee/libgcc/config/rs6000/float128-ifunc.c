@@ -48,8 +48,7 @@ have_hw_p (void)
     {
       char *p = (char *) getauxval (AT_PLATFORM);
 
-      have_hw = (p && strncmp (p, "power", 5) == 0
-		 && strtoul (p + 5, (char **)0, 0) >= 9);
+      have_hw = (p && strncmp (p, "power", 5) == 0 && atoi (p + 5) >= 9);
     }
 
   return have_hw;
