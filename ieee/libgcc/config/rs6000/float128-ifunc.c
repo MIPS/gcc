@@ -201,6 +201,30 @@ __fixunskfdi_resolve (void)
 #endif
 }
 
+static void *
+__extendsfkf2_resolve (void)
+{
+  return (void *) SW_OR_HW (__extendsfkf2_sw, __extendsfkf2_hw);
+}
+
+static void *
+__extenddfkf2_resolve (void)
+{
+  return (void *) SW_OR_HW (__extenddfkf2_sw, __extenddfkf2_hw);
+}
+
+static void *
+__trunckfsf2_resolve (void)
+{
+  return (void *) SW_OR_HW (__trunckfsf2_sw, __trunckfsf2_hw);
+}
+
+static void *
+__trunckfdf2_resolve (void)
+{
+  return (void *) SW_OR_HW (__trunckfdf2_sw, __trunckfdf2_hw);
+}
+
 /* Finish writing asm versions of these functions.  For now, always use the
    software emulation function.  */
 static void *
@@ -225,30 +249,6 @@ static void *
 __unordkf2_resolve (void)
 {
   return (void *) __unordkf2_sw;
-}
-
-static void *
-__extendsfkf2_resolve (void)
-{
-  return (void *) __extendsfkf2_sw;
-}
-
-static void *
-__extenddfkf2_resolve (void)
-{
-  return (void *) __extenddfkf2_sw;
-}
-
-static void *
-__trunckfsf2_resolve (void)
-{
-  return (void *) __trunckfsf2_sw;
-}
-
-static void *
-__trunckfdf2_resolve (void)
-{
-  return (void *) __trunckfdf2_sw;
 }
 
 #ifdef _ARCH_PPC64

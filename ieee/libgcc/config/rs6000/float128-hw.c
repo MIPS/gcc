@@ -161,3 +161,40 @@ __fixunskfdi_hw (TFtype a)
 }
 #endif
 
+TFtype
+__extendsfkf2_hw (float a)
+{
+  __float128 ret;
+  __asm__ ("xscvdpqp %0,%1" : "=v" (ret) : "v" (a));
+  return ret;
+}
+
+TFtype
+__extenddfkf2_hw (double a)
+{
+  __float128 ret;
+  __asm__ ("xscvdpqp %0,%1" : "=v" (ret) : "v" (a));
+  return ret;
+}
+
+float
+__trunckfsf2_hw (TFtype a)
+{
+  float ret;
+  __float128 tmp;
+
+  __asm__ ("xscvqpdpo %1,%2\n\txsrsp %0,%x1"
+	   : "=ww" (ret), "=v" (tmp)
+	   : "v" (a));
+
+  return ret;
+}
+
+double
+__trunckfdf2_hw (TFtype a)
+{
+  double ret;
+
+  __asm__ ("xscvqpdp %0,%1" : "=ws" (ret) : "v" (a));
+  return ret;
+}
