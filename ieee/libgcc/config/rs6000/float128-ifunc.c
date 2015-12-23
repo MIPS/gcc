@@ -120,6 +120,70 @@ __negkf2_resolve (void)
   return (void *) SW_OR_HW (__negkf2_sw, __negkf2_hw);
 }
 
+static void *
+__floatsikf_resolve (void)
+{
+  return (void *) SW_OR_HW (__floatsikf_sw, __floatsikf_hw);
+}
+
+static void *
+__floatdikf_resolve (void)
+{
+#ifdef _ARCH_PPC64
+  return (void *) SW_OR_HW (__floatdikf_sw, __floatdikf_hw);
+#else
+  return (void *) __floatdikf_sw;
+#endif
+}
+
+static void *
+__floatunsikf_resolve (void)
+{
+  return (void *) SW_OR_HW (__floatunsikf_sw, __floatunsikf_hw);
+}
+
+static void *
+__floatundikf_resolve (void)
+{
+#ifdef _ARCH_PPC64
+  return (void *) SW_OR_HW (__floatundikf_sw, __floatundikf_hw);
+#else
+  return (void *) __floatundikf_sw;
+#endif
+}
+
+static void *
+__fixkfsi_resolve (void)
+{
+  return (void *) SW_OR_HW (__fixkfsi_sw, __fixkfsi_hw);
+}
+
+static void *
+__fixkfdi_resolve (void)
+{
+#ifdef _ARCH_PPC64
+  return (void *) SW_OR_HW (__fixkfdi_sw, __fixkfdi_hw);
+#else
+  return (void *) __fixkfdi_sw;
+#endif
+}
+
+static void *
+__fixunskfsi_resolve (void)
+{
+  return (void *) SW_OR_HW (__fixunskfsi_sw, __fixunskfsi_hw);
+}
+
+static void *
+__fixunskfdi_resolve (void)
+{
+#ifdef _ARCH_PPC64
+  return (void *) SW_OR_HW (__fixunskfdi_sw, __fixunskfdi_hw);
+#else
+  return (void *) __fixunskfdi_sw;
+#endif
+}
+
 /* Finish writing asm versions of these functions.  For now, always use the
    software emulation function.  */
 static void *
@@ -168,54 +232,6 @@ static void *
 __trunckfdf2_resolve (void)
 {
   return (void *) __trunckfdf2_sw;
-}
-
-static void *
-__fixkfsi_resolve (void)
-{
-  return (void *) __fixkfsi_sw;
-}
-
-static void *
-__fixkfdi_resolve (void)
-{
-  return (void *) __fixkfdi_sw;
-}
-
-static void *
-__fixunskfsi_resolve (void)
-{
-  return (void *) __fixunskfsi_sw;
-}
-
-static void *
-__fixunskfdi_resolve (void)
-{
-  return (void *) __fixunskfdi_sw;
-}
-
-static void *
-__floatsikf_resolve (void)
-{
-  return (void *) __floatsikf_sw;
-}
-
-static void *
-__floatdikf_resolve (void)
-{
-  return (void *) __floatdikf_sw;
-}
-
-static void *
-__floatunsikf_resolve (void)
-{
-  return (void *) __floatunsikf_sw;
-}
-
-static void *
-__floatundikf_resolve (void)
-{
-  return (void *) __floatundikf_sw;
 }
 
 #ifdef _ARCH_PPC64

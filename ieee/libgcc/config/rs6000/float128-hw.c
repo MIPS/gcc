@@ -73,3 +73,91 @@ __negkf2_hw (TFtype a)
   __asm__ ("xsnegqp %0,%1" : "=v" (ret) : "v" (a));
   return ret;
 }
+
+TFtype
+__floatsikf_hw (SItype_ppc a)
+{
+  __float128 ret;
+  __asm__ ("mtvsrwa %x0,%1\n\txscvsdqp %0,%0" : "=v" (ret) : "r" (a));
+
+  return ret;
+}
+
+TFtype
+__floatunsikf_hw (USItype_ppc a)
+{
+  __float128 ret;
+  __asm__ ("mtvsrwz %x0,%1\n\txscvudqp %0,%0" : "=v" (ret) : "r" (a));
+
+  return ret;
+}
+
+#ifdef _ARCH_PPC64
+TFtype
+__floatdikf_hw (DItype_ppc a)
+{
+  __float128 ret;
+  __asm__ ("mtvsrd %x0,%1\n\txscvsdqp %0,%0" : "=v" (ret) : "r" (a));
+  return ret;
+}
+
+TFtype
+__floatundikf_hw (UDItype_ppc a)
+{
+  __float128 ret;
+  __asm__ ("mtvsrd %x0,%1\n\txscvudqp %0,%0" : "=v" (ret) : "r" (a));
+  return ret;
+}
+#endif
+
+SItype_ppc
+__fixkfsi_hw (TFtype a)
+{
+  SItype_ppc ret;
+  __float128 tmp;
+  __asm__ ("xscvqpswz %1,%2\n\tmfvsrwz %0,%x1\n\textsw %0,%0"
+	   : "=r" (ret), "=v" (tmp)
+	   : "v" (a));
+
+  return ret;
+}
+
+USItype_ppc
+__fixunskfsi_hw (TFtype a)
+{
+  USItype_ppc ret;
+  __float128 tmp;
+  __asm__ ("xscvqpuwz %1,%2\n\tmfvsrwz %0,%x1"
+	   : "=r" (ret), "=v" (tmp)
+	   : "v" (a));
+
+  return ret;
+}
+
+#ifdef _ARCH_PPC64
+
+DItype_ppc
+__fixkfdi_hw (TFtype a)
+{
+  DItype_ppc ret;
+  __float128 tmp;
+  __asm__ ("xscvqpsdz %1,%2\n\tmfvsrd %0,%x1"
+	   : "=r" (ret), "=v" (tmp)
+	   : "v" (a));
+
+  return ret;
+}
+
+UDItype_ppc
+__fixunskfdi_hw (TFtype a)
+{
+  UDItype_ppc ret;
+  __float128 tmp;
+  __asm__ ("xscvqpsdz %1,%2\n\tmfvsrd %0,%x1"
+	   : "=r" (ret), "=v" (tmp)
+	   : "v" (a));
+
+  return ret;
+}
+#endif
+
