@@ -3031,7 +3031,7 @@ mips_symbol_insns_1 (enum mips_symbol_type type, machine_mode mode)
 	 The final address is then $at + %lo(symbol).  With 32-bit
 	 symbols we just need a preparatory LUI for normal mode and
 	 a preparatory LI and SLL for MIPS16.  */
-      return ABI_HAS_64BIT_SYMBOLS ? 6 : (TARGET_MIPS16 && !TARGET_MIPS16_PLUS) ? 3 : 2;
+      return ABI_HAS_64BIT_SYMBOLS ? 6 : (TARGET_MIPS16 && !TARGET_MIPS16E2) ? 3 : 2;
 
     case SYMBOL_GP_RELATIVE:
       /* Treat GP-relative accesses as taking a single instruction on
@@ -3611,7 +3611,7 @@ mips_const_insns (rtx x)
 
       /* This is simply an LUI for normal mode.  It is an extended
 	 LI followed by an extended SLL for MIPS16.  */
-      return TARGET_MIPS16 ? (TARGET_MIPS16_PLUS ? 2 : 4) : 1;
+      return TARGET_MIPS16 ? (TARGET_MIPS16E2 ? 2 : 4) : 1;
 
     case CONST_INT:
       if (TARGET_MIPS16)
@@ -3623,7 +3623,7 @@ mips_const_insns (rtx x)
 		: SMALL_OPERAND_UNSIGNED (INTVAL (x)) ? 2
 		: IN_RANGE (-INTVAL (x), 0, 255) ? 2
 		: SMALL_OPERAND_UNSIGNED (-INTVAL (x)) ? 3
-		: TARGET_MIPS16_PLUS ? (trunc_int_for_mode (INTVAL (x), SImode) == INTVAL (x) ? 4 : 8)
+		: TARGET_MIPS16E2 ? (trunc_int_for_mode (INTVAL (x), SImode) == INTVAL (x) ? 4 : 8)
 		: 0);
 
       return mips_build_integer (codes, INTVAL (x));
@@ -4604,7 +4604,7 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
       return -1;
 
     case IOR:
-      if (TARGET_MIPS16_PLUS && SMALL_OPERAND_UNSIGNED (x))
+      if (TARGET_MIPS16E2 && SMALL_OPERAND_UNSIGNED (x))
 	return COSTS_N_INSNS (1);
       return -1;
 
@@ -5988,7 +5988,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (!TARGET_MIPS16)
 	    return "li\t%0,%1\t\t\t# %X1";
 
-	  if (TARGET_MIPS16_PLUS
+	  if (TARGET_MIPS16E2
 	      && LUI_INT (src)
 	      && !SMALL_OPERAND_UNSIGNED (INTVAL (src)))
 	    return "lui\t%0,%%hi(%1)\t\t\t# %X1";
@@ -6005,7 +6005,7 @@ mips_output_move (rtx insn, rtx dest, rtx src)
 	  if (mips_constant_pool_symbol_in_sdata (XEXP (src, 0), SYMBOL_CONTEXT_MEM))
 	    return "move\t%0,$28";
 
-	  return (TARGET_MIPS16 && !TARGET_MIPS16_PLUS) ? "#" : "lui\t%0,%h1";
+	  return (TARGET_MIPS16 && !TARGET_MIPS16E2) ? "#" : "lui\t%0,%h1";
         }
 
       if (CONST_GP_P (src))
@@ -12698,7 +12698,7 @@ mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
     {
       if (TARGET_MIPS16)
 	{
-	  if (TARGET_MIPS16_PLUS)
+	  if (TARGET_MIPS16E2)
  	    {
 	      /* This is a fixed-form sequence.  The position of the
 		 first two instructions is important because of the

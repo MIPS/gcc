@@ -1322,6 +1322,7 @@ struct mips_cpu_info {
 %{mtune=*} \
 %{mhard-float} %{msoft-float} \
 %{msingle-float} %{mdouble-float} \
+%{mmips16e2} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */

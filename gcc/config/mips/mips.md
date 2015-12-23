@@ -3262,7 +3262,7 @@
 		 (match_operand:GPR 2 "uns_arith_operand")))]
   ""
 {
-  if (TARGET_MIPS16 && !TARGET_MIPS16_PLUS)
+  if (TARGET_MIPS16 && !TARGET_MIPS16E2)
     operands[2] = force_reg (<MODE>mode, operands[2]);
 })
 
@@ -3283,7 +3283,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0,0")
 		 (match_operand:GPR 2 "uns_arith_operand" "d,K")))]
-  "TARGET_MIPS16 && TARGET_MIPS16_PLUS"
+  "TARGET_MIPS16 && TARGET_MIPS16E2"
   "@
    or\t%0,%2
    ori\t%0,%x2"
@@ -3295,7 +3295,7 @@
   [(set (match_operand:GPR 0 "register_operand" "=d")
 	(ior:GPR (match_operand:GPR 1 "register_operand" "%0")
 		 (match_operand:GPR 2 "register_operand" "d")))]
-  "TARGET_MIPS16 && !TARGET_MIPS16_PLUS"
+  "TARGET_MIPS16 && !TARGET_MIPS16E2"
   "or\t%0,%2"
   [(set_attr "alu_type" "or")
    (set_attr "mode" "<MODE>")])
@@ -4421,7 +4421,7 @@
 (define_split
   [(set (match_operand:P 0 "d_operand")
 	(high:P (match_operand:P 1 "symbolic_operand_with_high")))]
-  "TARGET_MIPS16 && reload_completed && !TARGET_MIPS16_PLUS"
+  "TARGET_MIPS16 && reload_completed && !TARGET_MIPS16E2"
   [(set (match_dup 0) (unspec:P [(match_dup 1)] UNSPEC_UNSHIFTED_HIGH))
    (set (match_dup 0) (ashift:P (match_dup 0) (const_int 16)))])
 
