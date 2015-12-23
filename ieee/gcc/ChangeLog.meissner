@@ -1,3 +1,17 @@
+2015-12-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.md (ieee128_mfvsrd_64bit): Provide 32-bit
+	versions of the ISA 3.0 IEEE 128-bit floating point hardware
+	instruction support.  Rename the 64-bit versions to have a _64bit
+	suffix.
+	(ieee128_mfvsrd_32bit): Likewise.
+	(ieee128_mtvsrd_64bit): Likewise.
+	(ieee128_mtvsrd_32bit): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_cpu_cpp_builtins): Define
+	__FLOAT128_HARDWARE__ if we have hardware IEEE 128-bit floating
+	point support.
+
 2015-12-21  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 231885.
