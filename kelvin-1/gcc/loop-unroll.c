@@ -1109,7 +1109,12 @@ unroll_loop_runtime_iterations (struct loop *loop)
 
       float new_header_freq = (saved_header_frequency
 			       / (n_peel + 1)) * (i + 1);
-      increment_loop_frequencies (loop, loop->header, new_header_freq);
+#ifdef KELVIN_NOISE
+      fprintf (stderr,
+	       "incrementing loop frequencies from "
+	       "unroll_loop_runtime_iterations A\n");
+#endif
+      increment_loop_frequencies (loop, loop->header, new_header_freq, false);
 #endif
       
 #ifdef KELVIN_PATCH
@@ -1124,7 +1129,13 @@ unroll_loop_runtime_iterations (struct loop *loop)
 #endif
 #ifdef KELVIN_PATCH
       zero_loop_frequencies (loop);
-      increment_loop_frequencies (loop, loop->header, saved_header_frequency);
+#ifdef KELVIN_NOISE
+      fprintf (stderr,
+	       "incrementing loop frequencies from "
+	       "unroll_loop_runtime_iterations B\n");
+#endif
+      increment_loop_frequencies (loop, loop->header,
+				  saved_header_frequency, false);
 #endif
       gcc_assert (ok);
 
@@ -1247,7 +1258,12 @@ unroll_loop_runtime_iterations (struct loop *loop)
       "ones". */
     float scaled_sum = (float) sum_incoming_frequencies;
     scaled_sum = ((scaled_sum * exit_multiplier) + 5000) / 10000;
-    increment_loop_frequencies (loop, my_header, scaled_sum);
+#ifdef KELVIN_NOISE
+    fprintf (stderr,
+	     "incrementing loop frequencies from "
+	     "unroll_loop_runtime_iterations C\n");
+#endif
+    increment_loop_frequencies (loop, my_header, scaled_sum, false);
   }
 #endif
 #ifdef KELVIN_PATCH

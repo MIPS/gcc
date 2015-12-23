@@ -69,13 +69,39 @@ in_loop_p (basic_block block, struct loop *loop_ptr)
     || flow_loop_nested_p (loop_ptr, block->loop_father);
 }
 
-/* Zero all frequencies associated with loop LOOP_PTR. */
+/* Zero all frequencies associated with loop LOOP_PTR, and decrement
+   successor blocks by the amount contributed by control transfers
+   from this block for all exit edges. */
 void 
 zero_loop_frequencies (struct loop *loop_ptr)
 {
   basic_block *bbs = get_loop_body (loop_ptr);
   for (unsigned i = 0; i < loop_ptr->num_nodes; ++i)
     {
+      /* before setting this block's frequency to zero, need to
+	 decrement the frequency of any successor block that resides
+	 outside this loop by the amount associated with control
+	 transfers from this block. */
+      edge_iterator ei;
+      edge successor;
+
+      FOR_EACH_EDGE (successor, ei, bbs[i]->succs)
+	{
+	  if (!in_loop_p (successor->dest, loop_ptr))
+	    {
+#ifdef KELVIN_NOISE
+	      fprintf (stderr,
+		       "decrementing exit edge frequency from "
+		       "%d by %d for edge ",
+		       successor->dest->frequency, 
+		       EDGE_FREQUENCY (successor));
+	      kdn_dump_edge (stderr, successor);
+#endif
+	      successor->dest->frequency -= EDGE_FREQUENCY (successor);
+	      if (successor->dest->frequency < 0)
+		successor->dest->frequency = 0;
+	    }
+	}
       bbs[i]->frequency = 0;
     }
   free (bbs);
@@ -217,7 +243,13 @@ recursively_calculate_exit_probability (struct loop *loop_ptr,
 
 /* Traverse the loop represented by LOOP_PTR in order to compute and
    return the probability of exiting the loop on any given iteration
-   of the loop body. */
+   of the loop body.
+
+   Due to round-off errors, the float value returned from this
+   function may differ "significantly" from the sum of frequencies
+   associated with all of the loop's exit edges. Minor adjustments
+   will be made to individual exit edge frequencies when the block
+   frequencies within the loop body are all recomputed. */
 static float
 calculate_exit_probability (struct loop *loop_ptr)
 {
@@ -270,6 +302,10 @@ static void
 recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 			    ladder_rung_p ladder_rung, edge incoming_edge)
 {
+#ifdef KELVIN_NOISE
+  fprintf (stderr, "recursively_zero_frequency (block %d)\n",
+	   incoming_edge->dest->index);
+#endif
   if (incoming_edge->dest == loop_ptr->header)
     return;
   else if (in_edge_set_p (incoming_edge, exit_edges))
@@ -280,13 +316,35 @@ recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
     {
       struct block_ladder_rung a_rung;
       basic_block block = incoming_edge->dest;
+      edge_iterator ei;
+      edge successor;
       
       a_rung.block = block;
       a_rung.lower_rung = ladder_rung;
+
+      /* Before I set this block's frequency to zero, I need to
+	 decrement the frequency of any blocks reached by loop exit
+	 edges that originate at this block */
+      FOR_EACH_EDGE (successor, ei, block->succs)
+	{
+	  if (in_edge_set_p (successor, exit_edges))
+	    {
+#ifdef KELVIN_NOISE
+	      fprintf (stderr,
+		       "Decrementing exit edge frequency from "
+		       "%d by %d for edge ",
+		       successor->dest->frequency, 
+		       EDGE_FREQUENCY (successor));
+	      kdn_dump_edge (stderr, successor);
+#endif
+	      successor->dest->frequency -= EDGE_FREQUENCY (successor);
+	      if (successor->dest->frequency < 0)
+		successor->dest->frequency = 0;
+	    }
+	}
+
       block->frequency = 0;
       
-      edge_iterator ei;
-      edge successor;
       FOR_EACH_EDGE (successor, ei, block->succs)
 	recursively_zero_frequency (loop_ptr, exit_edges,
 				    &a_rung, successor);
@@ -295,18 +353,9 @@ recursively_zero_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 
 /* Zero all frequencies for all blocks contained within the loop
    represented by LOOP_PTR which are reachable from BLOCK without
-   passing through the loop header. If BLOCK is not within the loop,
-   this has no effect. The behavior is as outlined by the following
-   algorithm:
-  
-   If BLOCK is contained within loop:
-     Set BLOCK's frequency to zero
-     Using a depth-first traversal, do the same for each successor
-     transitively, stopping the recursive traversal if:
- 	the current block is the loop header, or
-  	the current block resides outside the loop, or
-  	the current block has already been visited in this depth-first
-  	  traversal. */
+   passing through the loop header and decrement the frequencies of
+   blocks reached from the loop's exit edges that have sources whose
+   frequency is set to zero by this function. */
 static void
 zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
 {
@@ -316,9 +365,36 @@ zero_partial_loop_frequencies (struct loop *loop_ptr, basic_block block)
       ladder_rung.block = block;
       ladder_rung.lower_rung = NULL;
       vec<edge> exit_edges = get_loop_exit_edges (loop_ptr);
-      block->frequency = 0;
       edge_iterator ei;
       edge successor;
+
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "zero_partial_loop_frequencies (block: %d)\n",
+	       block->index);
+#endif
+
+      /* Before I set this block's frequency to zero, I need to
+	 decrement the frequency of any blocks reached by loop exit
+	 edges that originate at this block */
+      FOR_EACH_EDGE (successor, ei, block->succs)
+	{
+	  if (in_edge_set_p (successor, exit_edges))
+	    {
+#ifdef KELVIN_NOISE
+	      fprintf (stderr,
+		       "Decrementing exit edge frequency from "
+		       "%d by %d for edge ",
+		       successor->dest->frequency, 
+		       EDGE_FREQUENCY (successor));
+	      kdn_dump_edge (stderr, successor);
+#endif
+	      successor->dest->frequency -= EDGE_FREQUENCY (successor);
+	      if (successor->dest->frequency < 0)
+		successor->dest->frequency = 0;
+	    }
+	}
+
+      block->frequency = 0;
       FOR_EACH_EDGE (successor, ei, block->succs)
 	{
 	  if (successor->probability != 0)
@@ -360,7 +436,7 @@ roundToInt (float value)
    within the loop. */
 static void
 recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
-				 float *accumulators,
+				 float *accumulators, int *visited,
 				 ladder_rung_p ladder_rung, edge incoming_edge,
 				 float frequency_increment)
 {
@@ -377,7 +453,7 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
  
 #ifdef KELVIN_NOISE
       fprintf(stderr,
-	      "recursively_increment_loop_frequencies "
+	      "recursively_increment_frequency "
 	      "(block %d: %f = %f + %f)\n",
 	      block->index,
 	      accumulators[block->index] + frequency_increment,
@@ -386,10 +462,13 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 
       a_rung.block = block;
       a_rung.lower_rung = ladder_rung;
+      visited[block->index] = TRUE;
       accumulators[block->index] += frequency_increment;
-
+      if (accumulators[block->index] < 0.0f)
+	accumulators[block->index] = 0.0f;
+      /*
       block->frequency += roundToInt(frequency_increment);
-
+      */
       edge_iterator ei;
       edge successor;
       FOR_EACH_EDGE (successor, ei, block->succs)
@@ -400,7 +479,7 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 		= ((frequency_increment * successor->probability)
 		   / REG_BR_PROB_BASE);
 	      recursively_increment_frequency (loop_ptr, exit_edges,
-					       accumulators,
+					       accumulators, visited,
 					       &a_rung, successor,
 					       successor_increment);
 	    }
@@ -411,19 +490,19 @@ recursively_increment_frequency (struct loop *loop_ptr, vec<edge> exit_edges,
 /* If BLOCK is contained within loop LOOP_PTR, we do the following:
    Add INCREMENTAL_FREQUENCY (which may be negative) to
    BLOCK->frequency and propogate this change to all successors of
-   BLOCK that reside within the loop, transitively.   The
+   BLOCK that reside within the loop, transitively.  The
    FREQUENCY_INCREMENT value is scaled before adding the value
    to successor nodes by the probability factor associated with
-   the edges along all paths to the successor.  Use a depth-first
-   tree traversal, stopping the recursion at the loop header, at any
-   successor block that resides outside the loop, and at any block
-   that is already part of the current depth-first traversal.
+   the edges along all paths to the successor.  INCREMENTAL_FREQUENCY
+   is also propagated (as scaled) to the blocks reached by the exit
+   edges that depart loop LOOP_PTR.
    
    We use a floating point representation of frequency_increment to
    reduce an accumulation of round-off errors in these computations. */
 void 
 increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
-			    float frequency_increment)
+			    float frequency_increment,
+			    bool propogate_through_exit_edge)
 {
   if (in_loop_p (block, loop_ptr))
     {
@@ -450,22 +529,25 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 	 is 95.99% of 1522, representing an absolute round-off error
 	 of approximately 4%. */ 
 
+
       /* what is the maximum block number associated with this loop? */
-      int num_blocks = n_basic_blocks_for_fn (cfun);
       int last_block = last_basic_block_for_fn (cfun);
       /* there are situations in which last_block is much greater
 	 than num_blocks, and the accumulators array needs to
 	 represent the larger number of blocks. */
-      float accumulators[last_block];
-      basic_block *blocks = get_loop_body(loop_ptr);
+      /* float accumulators[last_block]; */
+      float *accumulators = (float *) alloca (last_block * sizeof(float));
+      int *visited = (int *) alloca (last_block * sizeof(int));
+      basic_block *blocks = get_loop_body (loop_ptr);
       /* Accumulators is a sparse array.  No need to initialize
          elements that are not contained within the loop. */
 
 #ifdef KELVIN_NOISE
-      fprintf(stderr, "increment_loop_frequencies (block %d: %f = %d + %f)\n",
-	      block->index,
-	      accumulators[block->index] + frequency_increment,
-	      block->frequency, frequency_increment);
+      int num_blocks = n_basic_blocks_for_fn (cfun);
+      fprintf(stderr,
+	      "increment_loop_frequencies "
+	      "(block %d, increment: %f, prop: %d)\n",
+	      block->index, frequency_increment, propogate_through_exit_edge);
       fprintf(stderr,
 	      " num_blocks: %d, last_block: %d, loop_ptr->num_nodes is %d\n",
 	      num_blocks, last_block, loop_ptr->num_nodes);
@@ -474,12 +556,22 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
       for (unsigned int i = 0; i < loop_ptr->num_nodes; i++)
 	{
 #ifdef KELVIN_NOISE
-	  fprintf(stderr, " processing blocks[%d]->index is %d\n",
-		  i, blocks[i]->index);
+	  fprintf(stderr, " processing blocks[%d]->index is %d: %d\n",
+		  i, blocks[i]->index, blocks[i]->frequency);
 #endif
 	  accumulators[blocks[i]->index] = blocks[i]->frequency;
+	  visited[blocks[i]->index] = FALSE;
 	}
+
+#ifdef KELVIN_NOISE
+      fprintf (stderr, "  %f = %d + %f\n",
+	      accumulators[block->index] + frequency_increment,
+	      block->frequency, frequency_increment);
+#endif
+      visited[block->index] = TRUE;
       accumulators[block->index] += frequency_increment;
+      if (accumulators[block->index] < 0.0f)
+	accumulators[block->index] = 0.0f;
 
       edge_iterator ei;
       edge successor;
@@ -491,16 +583,74 @@ increment_loop_frequencies (struct loop *loop_ptr, basic_block block,
 		((frequency_increment * successor->probability)
 		 / REG_BR_PROB_BASE);
 	      recursively_increment_frequency (loop_ptr, exit_edges,
-					       accumulators,
+					       accumulators, visited,
 					       &ladder_rung, successor,
 					       successor_increment);
 	    }
 	}
       for (unsigned int i = 0; i < loop_ptr->num_nodes; i++)
 	blocks[i]->frequency = roundToInt(accumulators[blocks[i]->index]);
+
+      if (propogate_through_exit_edge)
+	{
+	  /* adjust exit edge frequencies */
+	  float exit_edge_surplus = 0;
+	  for (unsigned int i = 0; i < loop_ptr->num_nodes; i++)
+	    {
+	      if (visited[blocks[i]->index])
+		{
+		  /* for any exit edge originating at this node,
+		     adjust the exit edge's frequency based on this
+		     node's frequency and on the exit edge's
+		     probability, redistributing the accumulation of
+		     round-off errors between all exit edges. */ 
+		  FOR_EACH_EDGE (successor, ei, blocks[i]->succs)
+		    {
+		      if (in_edge_set_p (successor, exit_edges))
+			{
+			  float edge_probability
+			    = (((float) successor->probability)
+			       / REG_BR_PROB_BASE);
+			  exit_edge_surplus
+			    += (edge_probability
+				* accumulators[blocks[i]->index]);
+			  int this_edge_frequency = (int) exit_edge_surplus;
+#ifdef KELVIN_NOISE
+			  fprintf (stderr,
+				   "edge_probability: %f, "
+				   "exit_edge_surplus before: %f, "
+				   "this_edge_frequency: %d\n",
+				   edge_probability,
+				   exit_edge_surplus, this_edge_frequency);
+			  fprintf (stderr,
+				   "Incrementing exit edge frequency "
+				   "from %d by %d for ",
+				   successor->dest->frequency,
+				   this_edge_frequency);
+			  kdn_dump_edge (stderr, successor);
+#endif
+			  exit_edge_surplus -= this_edge_frequency;
+			  successor->dest->frequency += this_edge_frequency;
+			}
+		    }
+		}
+	    }
+	}
+
 #ifdef KELVIN_NOISE
       fprintf(stderr, "finishing increment_loop_frequencies\n");
 #endif
+
+      /*
+       * we can simply iterate over exit_edges and make sure to
+       * initialize everyone before we get to this point.  Idea is
+       * that we accumulate deltas for the exit edges.  Whenever my
+       * delta accumulator takes on a value that is greater than 1,
+       * subtract one from the accumulator and add one to the edge
+       * frequency, and to the state at the destination of this
+       * special "ege. Do this experiment tomorrow. 
+       */
+
       free (blocks);
       exit_edges.release ();
 #ifdef KELVIN_NOISE
@@ -563,31 +713,56 @@ check_loop_frequency_integrity (struct loop *loop_ptr)
   free(loop_body);
 
   header = loop_ptr->header;
-  int incoming_frequency = 0;
+  float incoming_frequency = 0;
 
   edge_iterator ei;
-  edge a_predecessor;
-  FOR_EACH_EDGE (a_predecessor, ei, header->preds)
-    if (!in_loop_p (a_predecessor->src, loop_ptr))
-      incoming_frequency += EDGE_FREQUENCY (a_predecessor);
+  edge pred;
+  FOR_EACH_EDGE (pred, ei, header->preds)
+    if (!in_loop_p (pred->src, loop_ptr))
+      incoming_frequency += ((pred->src->frequency * pred->probability)
+			     / ((float) REG_BR_PROB_BASE));
 
-  int outgoing_frequency = 0;
+#ifdef KELVIN_NOISE
+  FOR_EACH_EDGE (pred, ei, header->preds)
+    if (!in_loop_p (pred->src, loop_ptr))
+      {
+	fprintf (stderr, "incrementing incoming frequency by %f for edge ",
+		 ((pred->src->frequency * pred->probability)
+		  / ((float) REG_BR_PROB_BASE)));
+	kdn_dump_edge (stderr, pred);
+      }
+  fprintf (stderr, "Total incoming frequency is %f\n", incoming_frequency);
+#endif
+
+  float outgoing_frequency = 0;
   vec<edge> exit_edges = get_loop_exit_edges (loop_ptr);
   edge edge;
+
+#ifdef KELVIN_NOISE
   FOR_EACH_VEC_ELT (exit_edges, i, edge)
-    outgoing_frequency += EDGE_FREQUENCY (edge);
+    {
+      fprintf(stderr, "incrementing outgoing frequency by %f for edge ",
+	      (edge->src->frequency * edge->probability)
+	      / ((float) REG_BR_PROB_BASE));
+      kdn_dump_edge (stderr, edge);
+    }
+  fprintf (stderr, "Total outgoing frequency is %f\n", outgoing_frequency);
+#endif
+
+  FOR_EACH_VEC_ELT (exit_edges, i, edge)
+    outgoing_frequency += ((edge->src->frequency * edge->probability)
+			   / ((float) REG_BR_PROB_BASE));
 
   /* enforce tolerance to within 1% */
-  int tolerance = incoming_frequency / 100;
+  float tolerance = incoming_frequency / 100;
   if (tolerance < 10)
     tolerance = 10;
-  int delta = incoming_frequency - outgoing_frequency;
+  float delta = incoming_frequency - outgoing_frequency;
   if (delta < 0)
     delta = -delta;
   if (delta > tolerance)
     fatal_error (input_location,
-		 "Inconsistent enter/exit frequencies "
-		 "while unrolling loop.");
+		 "Inconsistent enter/exit frequencies while unrolling loop.");
   exit_edges.release ();
 }
 #endif
@@ -1687,8 +1862,13 @@ set_zero_probability_for_unroll (struct loop* loop_ptr, edge e)
 	  new_edge_frequency = EDGE_FREQUENCY (ae);
 	  change_in_edge_frequency =
 	    new_edge_frequency - original_edge_frequency;
+#ifdef KELVIN_NOISE
+	  fprintf (stderr,
+		   "set_zero_probability_for_unroll: "
+		   "increment sibling edge by prob %d%%\n", prob1);
+#endif
 	  increment_loop_frequencies (loop_ptr, ae->dest,
-				      (float) change_in_edge_frequency);
+				      (float) change_in_edge_frequency, false);
 	}
       else
 	{
@@ -1712,8 +1892,16 @@ set_zero_probability_for_unroll (struct loop* loop_ptr, edge e)
       new_edge_frequency = EDGE_FREQUENCY (last);
       change_in_edge_frequency = new_edge_frequency - original_edge_frequency;
       if (change_in_edge_frequency != 0)
-	increment_loop_frequencies (loop_ptr, last->dest,
-				    change_in_edge_frequency);
+	{
+#ifdef KELVIN_NOISE
+	  fprintf (stderr,
+		   "set_zero_probability_for_unroll: "
+		   "redistribute excess frequency %d to block %d\n",
+		   change_in_edge_frequency, last->dest->index);
+#endif
+	  increment_loop_frequencies (loop_ptr, last->dest,
+				      (float) change_in_edge_frequency, false);
+	}
     }
   else
     {
@@ -1730,11 +1918,18 @@ set_zero_probability_for_unroll (struct loop* loop_ptr, edge e)
       original_edge_frequency = EDGE_FREQUENCY (e);
       e->probability = 0;
       e->count = 0;
-      new_edge_frequency = EDGE_FREQUENCY (e);
+      new_edge_frequency = 0.0f;
       change_in_edge_frequency =
 	new_edge_frequency - original_edge_frequency;
+#ifdef KELVIN_NOISE
+	  fprintf (stderr,
+		   "set_zero_probability_for_unroll: "
+		   "increment sibling edge by (neg?) "
+		   "frequency %d for removed edge %d\n",
+		   change_in_edge_frequency, e->dest->index);
+#endif
       increment_loop_frequencies (loop_ptr, e->dest,
-				  (float) change_in_edge_frequency);
+				  (float) change_in_edge_frequency, false);
     }
   else
     {
@@ -2053,9 +2248,13 @@ duplicate_loop_to_header_edge_for_unroll (struct loop *loop, edge e,
 
 #ifdef KELVIN_PATCH
       zero_partial_loop_frequencies (loop, saved_place_after);
-      increment_loop_frequencies (loop,
-				  saved_place_after,
-				  (float) place_after_frequency);
+#ifdef KELVIN_NOISE
+      fprintf (stderr,
+	       "incrementing loop frequencies immediately after "
+	       "zero_partial_loop_frequencies\n");
+#endif
+      increment_loop_frequencies (loop, saved_place_after,
+				  (float) place_after_frequency, true);
 #endif
       /* Record exit edge in this copy.  */
       if (orig && bitmap_bit_p (wont_exit, j + 1))
@@ -2194,20 +2393,20 @@ duplicate_loop_to_header_edge_for_unroll (struct loop *loop, edge e,
   float exit_probability = calculate_exit_probability (loop);
   edge_iterator ei;
   edge predecessor;
+  int original_header_frequency = my_header->frequency;
 
   zero_loop_frequencies (loop);
   FOR_EACH_EDGE (predecessor, ei, my_header->preds)
     {
-      /* exit_ratio is computed based on remembered circumstances upon
-	 entry into this function.  Note that loops bounded by a
-	 compile-time constant have different exit ratio than loops
-	 bounded by a run-time value. */ 
       if (!in_loop_p (predecessor->src, loop))
 	sum_incoming_frequencies += EDGE_FREQUENCY (predecessor);
     }
 
-
-  float header_frequency = sum_incoming_frequencies / exit_probability;
+  float header_frequency;
+  if (exit_probability == 0.0F)
+    header_frequency = original_header_frequency; /* workaround */
+  else
+    header_frequency = sum_incoming_frequencies / exit_probability;
 
 #ifdef KELVIN_NOISE
   fprintf(stderr, "Computing and propagating header frequency as %f\n",
@@ -2215,7 +2414,7 @@ duplicate_loop_to_header_edge_for_unroll (struct loop *loop, edge e,
   fprintf(stderr, " from sum of incoming frequencies: %d with exit_ratio %f\n",
 	  sum_incoming_frequencies, exit_probability);
 #endif
-  increment_loop_frequencies (loop, my_header, header_frequency);
+  increment_loop_frequencies (loop, my_header, header_frequency, true);
 
 #ifdef KELVIN_NOISE
   fprintf(stderr, "At bottom of duplicate_loop_to_header_edge_for_unroll ()\n");
