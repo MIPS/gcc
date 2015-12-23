@@ -40,21 +40,38 @@
 
 #if defined(FLOAT128_HW_INSNS) && defined(AT_PLATFORM)
 static int
-have_hw_p (void)
+have_ieee_hw_p (void)
 {
-  static int have_hw = -1;
+  static int ieee_hw_p = -1;
 
-  if (have_hw < 0)
+  if (ieee_hw_p < 0)
     {
       char *p = (char *) getauxval (AT_PLATFORM);
 
-      have_hw = (p && strncmp (p, "power", 5) == 0 && atoi (p + 5) >= 9);
+      ieee_hw_p = 0;
+
+      /* Use __builtin_cpu_supports once it is supported by the PowerPC.  */
+      if (p && p[0] == 'p' && p[1] == 'o' && p[2] == 'w' && p[3] == 'e'
+	  && p[4] == 'r')
+	{
+	  long n = 0;
+	  char ch;
+
+	  /* Don't use atoi/strtol/etc.  These require the normal environment
+	     to be setup to set errno to 0, and the ifunc resolvers run before
+	     the whole glibc environment is initialized.  */
+	  p += 5;
+	  while ((ch = *p++) >= '0' && (ch <= '9'))
+	    n = (n * 10) + (ch - '0');
+
+	  if (n >= 9)
+	    ieee_hw_p = 1;
     }
 
   return have_hw;
 }
 
-#define SW_OR_HW(SW, HW) (have_hw_p () ? HW : SW)
+#define SW_OR_HW(SW, HW) (have_ieee_hw_p () ? HW : SW)
 #else
 #define SW_OR_HW(SW, HW) (SW)
 #endif	/* ISA 3.0 hardware available.  */
