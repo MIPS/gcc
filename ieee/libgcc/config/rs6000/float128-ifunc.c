@@ -66,9 +66,10 @@ have_ieee_hw_p (void)
 
 	  if (n >= 9)
 	    ieee_hw_p = 1;
+	}
     }
 
-  return have_hw;
+  return ieee_hw_p;
 }
 
 #define SW_OR_HW(SW, HW) (have_ieee_hw_p () ? HW : SW)
