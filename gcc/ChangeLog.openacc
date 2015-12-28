@@ -1,3 +1,9 @@
+2015-12-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* omp-offload.c (maybe_discard_oacc_function): New simplification
+	broken out of ...
+	(execute_oacc_device_lower): ... here.  Call it.
+
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimplify.c (gimplify_scan_omp_clauses)

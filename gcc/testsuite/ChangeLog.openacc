@@ -1,3 +1,7 @@
+2015-12-28  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* c-c++-common/goacc/routine-nohost-1.c: Adjust expected dump output.
+
 2017-03-31  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* gfortran.dg/goacc/routine-bind-1.f90: New test.
