@@ -146,11 +146,7 @@ __floatsikf_resolve (void)
 static void *
 __floatdikf_resolve (void)
 {
-#ifdef _ARCH_PPC64
   return (void *) SW_OR_HW (__floatdikf_sw, __floatdikf_hw);
-#else
-  return (void *) __floatdikf_sw;
-#endif
 }
 
 static void *
@@ -162,11 +158,7 @@ __floatunsikf_resolve (void)
 static void *
 __floatundikf_resolve (void)
 {
-#ifdef _ARCH_PPC64
   return (void *) SW_OR_HW (__floatundikf_sw, __floatundikf_hw);
-#else
-  return (void *) __floatundikf_sw;
-#endif
 }
 
 static void *
@@ -178,11 +170,7 @@ __fixkfsi_resolve (void)
 static void *
 __fixkfdi_resolve (void)
 {
-#ifdef _ARCH_PPC64
   return (void *) SW_OR_HW (__fixkfdi_sw, __fixkfdi_hw);
-#else
-  return (void *) __fixkfdi_sw;
-#endif
 }
 
 static void *
@@ -194,11 +182,7 @@ __fixunskfsi_resolve (void)
 static void *
 __fixunskfdi_resolve (void)
 {
-#ifdef _ARCH_PPC64
   return (void *) SW_OR_HW (__fixunskfdi_sw, __fixunskfdi_hw);
-#else
-  return (void *) __fixunskfdi_sw;
-#endif
 }
 
 static void *
@@ -225,33 +209,32 @@ __trunckfdf2_resolve (void)
   return (void *) SW_OR_HW (__trunckfdf2_sw, __trunckfdf2_hw);
 }
 
-/* Finish writing asm versions of these functions.  For now, always use the
-   software emulation function.  */
 static void *
 __eqkf2_resolve (void)
 {
-  return (void *) __eqkf2_sw;
+  return (void *) SW_OR_HW (__eqkf2_sw, __eqkf2_hw);
 }
 
 static void *
 __gekf2_resolve (void)
 {
-  return (void *) __gekf2_sw;
+  return (void *) SW_OR_HW (__gekf2_sw, __gekf2_hw);
 }
 
 static void *
 __lekf2_resolve (void)
 {
-  return (void *) __lekf2_sw;
+  return (void *) SW_OR_HW (__lekf2_sw, __lekf2_hw);
 }
 
 static void *
 __unordkf2_resolve (void)
 {
-  return (void *) __unordkf2_sw;
+  return (void *) SW_OR_HW (__unordkf2_sw, __unordkf2_hw);
 }
 
 #ifdef _ARCH_PPC64
+/* For now, just use the emulator for 128-bit integer types.  */
 static void *
 __fixkfti_resolve (void)
 {

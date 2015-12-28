@@ -34,167 +34,155 @@
 #include <soft-fp.h>
 #include <quad-float128.h>
 
+#ifndef __FLOAT128_HARDWARE__
+#error "This module must be compiled with IEEE 128-bit hardware support"
+#endif
+
 TFtype
 __addkf3_hw (TFtype a, TFtype b)
 {
-  __float128 ret;
-  __asm__ ("xsaddqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
-  return ret;
+  return a + b;
 }
 
 TFtype
 __subkf3_hw (TFtype a, TFtype b)
 {
-  __float128 ret;
-  __asm__ ("xssubqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
-  return ret;
+  return a - b;
 }
 
 TFtype
 __mulkf3_hw (TFtype a, TFtype b)
 {
-  __float128 ret;
-  __asm__ ("xsmulqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
-  return ret;
+  return a * b;
 }
 
 TFtype
 __divkf3_hw (TFtype a, TFtype b)
 {
-  __float128 ret;
-  __asm__ ("xsdivqp %0,%1,%2" : "=v" (ret) : "v" (a), "v" (b));
-  return ret;
+  return a / b;
 }
 
 TFtype
 __negkf2_hw (TFtype a)
 {
-  __float128 ret;
-  __asm__ ("xsnegqp %0,%1" : "=v" (ret) : "v" (a));
-  return ret;
+  return -a;
 }
 
 TFtype
 __floatsikf_hw (SItype_ppc a)
 {
-  __float128 ret;
-  __asm__ ("mtvsrwa %x0,%1\n\txscvsdqp %0,%0" : "=v" (ret) : "r" (a));
-
-  return ret;
+  return (TFtype)a;
 }
 
 TFtype
 __floatunsikf_hw (USItype_ppc a)
 {
-  __float128 ret;
-  __asm__ ("mtvsrwz %x0,%1\n\txscvudqp %0,%0" : "=v" (ret) : "r" (a));
-
-  return ret;
+  return (TFtype)a;
 }
 
-#ifdef _ARCH_PPC64
 TFtype
 __floatdikf_hw (DItype_ppc a)
 {
-  __float128 ret;
-  __asm__ ("mtvsrd %x0,%1\n\txscvsdqp %0,%0" : "=v" (ret) : "r" (a));
-  return ret;
+  return (TFtype)a;
 }
 
 TFtype
 __floatundikf_hw (UDItype_ppc a)
 {
-  __float128 ret;
-  __asm__ ("mtvsrd %x0,%1\n\txscvudqp %0,%0" : "=v" (ret) : "r" (a));
-  return ret;
+  return (TFtype)a;
 }
-#endif
 
 SItype_ppc
 __fixkfsi_hw (TFtype a)
 {
-  SItype_ppc ret;
-  __float128 tmp;
-  __asm__ ("xscvqpswz %1,%2\n\tmfvsrwz %0,%x1\n\textsw %0,%0"
-	   : "=r" (ret), "=v" (tmp)
-	   : "v" (a));
-
-  return ret;
+  return (SItype_ppc)a;
 }
 
 USItype_ppc
 __fixunskfsi_hw (TFtype a)
 {
-  USItype_ppc ret;
-  __float128 tmp;
-  __asm__ ("xscvqpuwz %1,%2\n\tmfvsrwz %0,%x1"
-	   : "=r" (ret), "=v" (tmp)
-	   : "v" (a));
-
-  return ret;
+  return (USItype_ppc)a;
 }
-
-#ifdef _ARCH_PPC64
 
 DItype_ppc
 __fixkfdi_hw (TFtype a)
 {
-  DItype_ppc ret;
-  __float128 tmp;
-  __asm__ ("xscvqpsdz %1,%2\n\tmfvsrd %0,%x1"
-	   : "=r" (ret), "=v" (tmp)
-	   : "v" (a));
-
-  return ret;
+  return (DItype_ppc)a;
 }
 
 UDItype_ppc
 __fixunskfdi_hw (TFtype a)
 {
-  UDItype_ppc ret;
-  __float128 tmp;
-  __asm__ ("xscvqpsdz %1,%2\n\tmfvsrd %0,%x1"
-	   : "=r" (ret), "=v" (tmp)
-	   : "v" (a));
-
-  return ret;
+  return (UDItype_ppc)a;
 }
-#endif
 
 TFtype
 __extendsfkf2_hw (float a)
 {
-  __float128 ret;
-  __asm__ ("xscvdpqp %0,%1" : "=v" (ret) : "v" (a));
-  return ret;
+  return (TFtype)a;
 }
 
 TFtype
 __extenddfkf2_hw (double a)
 {
-  __float128 ret;
-  __asm__ ("xscvdpqp %0,%1" : "=v" (ret) : "v" (a));
-  return ret;
+  return (TFtype)a;
 }
 
 float
 __trunckfsf2_hw (TFtype a)
 {
-  float ret;
-  __float128 tmp;
-
-  __asm__ ("xscvqpdpo %1,%2\n\txsrsp %0,%x1"
-	   : "=ww" (ret), "=v" (tmp)
-	   : "v" (a));
-
-  return ret;
+  return (float)a;
 }
 
 double
 __trunckfdf2_hw (TFtype a)
 {
-  double ret;
-
-  __asm__ ("xscvqpdp %0,%1" : "=ws" (ret) : "v" (a));
-  return ret;
+  return (double)a;
 }
+
+/* __eqkf2 returns 0 if equal, or 1 if not equal or NaN.  */
+CMPtype
+__eqkf2_hw (TFtype a, TFtype b)
+{
+  return (__builtin_isunordered (a, b) || (a != b)) ? 1 : 0;
+}
+
+/* __gekf2 returns -1 if a < b, 0 if a == b, +1 if a > b, or -2 if NaN.  */
+CMPtype
+__gekf2_hw (TFtype a, TFtype b)
+{
+  if (__builtin_isunordered (a, b))
+    return -2;
+
+  else if (a < b)
+    return -1;
+
+  else if (a == b)
+    return 0;
+
+  return 1;
+}
+
+/* __lekf2 returns -1 if a < b, 0 if a == b, +1 if a > b, or +2 if NaN.  */
+CMPtype
+__lekf2_hw (TFtype a, TFtype b)
+{
+  if (__builtin_isunordered (a, b))
+    return 2;
+
+  else if (a < b)
+    return -1;
+
+  else if (a == b)
+    return 0;
+
+  return 1;
+}
+
+/* __unordkf2 returns 1 if Nan or 0 otherwise.  */
+CMPtype
+__unordkf2_hw (TFtype a, TFtype b)
+{
+  return (__builtin_isunordered (a, b)) ? 1 : 0;
+}
+

@@ -1,5 +1,32 @@
 2015-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/t-float128: Rename software emulator functions to
+	be -sw.c.  Delete fp128_hw_* variables.
+	* config/rs6000/floattikf-sw.c: Likewise.
+	* config/rs6000/floattikf.c: Likewise.
+	* config/rs6000/extendkftf2.c: Likewise.
+	* config/rs6000/trunctfkf2.c: Likewise.
+	* config/rs6000/fixkfti-sw.c: Likewise.
+	* config/rs6000/fixunskfti.c: Likewise.
+	* config/rs6000/fixkfti.c: Likewise.
+	* config/rs6000/fixunskfti-sw.c: Likewise.
+	* config/rs6000/floatuntikf.c: Likewise.
+	* config/rs6000/extendkftf2-sw.c: Likewise.
+	* config/rs6000/floatuntikf-sw.c: Likewise.
+	* config/rs6000/trunctfkf2-sw.c: Likewise.
+
+	* config/rs6000/float128-ifunc.c: Flesh remaining
+	hardware/software ifunc resolvers.
+
+	* config/rs6000/float128-hw.c: Reimplment functions in terms of C
+	code, rather than asm.  Add comparison support and 64-bit
+	conversions on 32-bit.
+
+	* config/rs6000/t-float128-hw: Simplify.
+
+
+2015-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 231978.
 
 2015-12-23  Michael Meissner  <meissner@linux.vnet.ibm.com>

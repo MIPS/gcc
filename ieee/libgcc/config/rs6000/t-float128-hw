@@ -6,11 +6,9 @@ FLOAT128_HW_INSNS	= -DFLOAT128_HW_INSNS
 
 # New functions for hardware support
 fp128_hw_funcs		= float128-hw
-
-fp128_hw_src		= $(addprefix $(srcdir)/config/rs6000/,$(addsuffix \
-				.c,$(fp128_hw_funcs)))
-fp128_hw_static_obj	= $(addsuffix $(objext),$(fp128_hw_funcs))
-fp128_hw_shared_obj	= $(addsuffix _s$(objext),$(fp128_hw_funcs))
+fp128_hw_src		= $(srcdir)/config/rs6000/float128-hw.c
+fp128_hw_static_obj	= float128-hw$(objext)
+fp128_hw_shared_obj	= float128-hw_s$(objext)
 fp128_hw_obj		= $(fp128_hw_static_obj) $(fp128_hw_shared_obj)
 
 # Build the hardware support functions with appropriate hardware support
