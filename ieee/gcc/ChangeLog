@@ -1,3 +1,295 @@
+2015-12-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_le_vsx_move): Verify that
+	this is never called when lxvx/stxvx are available.
+	(pass_analyze_swaps::gate): Don't perform swap optimization when
+	lxvx/stxvx are available.
+	* config/rs6000/vector.md (mov<mode>): Don't call
+	rs6000_emit_le_vsx_move when lxvx/stxvx are available.
+	* config/rs6000/vsx.md (*p9_vecload_<mode>): New define_insn.
+	(*p9_vecstore_<mode>): Likewise.
+	(*vsx_le_perm_load_<mode>:VSX_LE): Disable when lxvx/stxvx are
+	available.
+	(*vsx_le_perm_load_<mode>:VSX_W): Likewise.
+	(*vsx_le_perm_load_v8hi): Likewise.
+	(*vsx_le_perm_load_v16qi): Likewise.
+	(*vsx_le_perm_store_<mode>:VSX_LE): Likewise.
+	([related define_splits]): Likewise.
+	(*vsx_le_perm_store_<mode>:VSX_W): Likewise.
+	([related define_splits]): Likewise.
+	(*vsx_le_perm_store_v8hi): Likewise.
+	([related define_splits]): Likewise.
+	(*vsx_le_perm_store_v16qi): Likewise.
+	([related define_splits]): Likewise.
+	(*vsx_lxvd2x2_le_<mode>): Likewise.
+	(*vsx_lxvd2x4_le_<mode>): Likewise.
+	(*vsx_lxvd2x8_le_V8HI): Likewise.
+	(*vsx_lvxd2x16_le_V16QI): Likewise.
+	(*vsx_stxvd2x2_le_<mode>): Likewise.
+	(*vsx_stxvd2x4_le_<mode>): Likewise.
+	(*vsx_stxvd2x8_le_V8HI): Likewise.
+	(*vsx_stxvdx16_le_V16QI): Likewise.
+	([define_peepholes for vector load fusion]): Likewise.
+
+2015-12-28  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx.c (nvptx_output_call_insn): Expect hard regs.
+	* config/nvptx/nvptx.md (nvptx_reg_or_mem_operand): Rename to ...
+	(nvptx_nonimmediate_operand): ... here.  Update all uses.
+	(call_insn_operand): Use REG_P.
+	(call_operation): Allow hard regs.
+
+2015-12-25  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ipa-visibility.c (function_and_variable_visibility): Do not
+	dissolve comdat groups when in LTO mode.
+
+2015-12-25  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	* config/rs6000/freebsd64.h: Delete FREEBSD_DYNAMIC_LINKER32/64
+	defines. Use FBSD_DYNAMIC_LINKER instead.
+	Rename and simplify LINK_OS_FREEBSD_SPEC_DEF32/64 to
+	LINK_OS_FREEBSD_SPEC_DEF.
+
+2015-12-24  Aditya Kumar  <aditya.k7@samsung.com>
+
+	* graphite-sese-to-poly.c (build_loop_iteration_domains): Use ref instead of value.
+	* sese.c (invariant_in_sese_p_rec): Use const ref instead of value.
+	(scalar_evolution_in_region): Same
+	* sese.h (bb_in_region): Same
+	(bb_in_sese_p): Same.
+	(stmt_in_sese_p): Same.
+	(defined_in_sese_p): Same.
+	(loop_in_sese_p): Same.
+
+2015-12-24  Aditya Kumar  <aditya.k7@samsung.com>
+
+	* graphite-scop-detection.c
+	(scop_detection::get_nearest_dom_with_single_entry): Check l ==	l2.
+	(scop_detection::get_nearest_pdom_with_single_exit): Same.
+	(scop_detection::merge_sese): Whitespace.
+	(scop_detection::add_scop): Comment.
+	(build_scops): Whitespace.
+
+2015-12-24  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* common/config/i386/i386-common.c (OPTION_MASK_ISA_PKU_SET): New.
+	(OPTION_MASK_ISA_PKU_UNSET): Ditto.
+	(ix86_handle_option): Handle OPT_mpku.
+	* config.gcc: Add pkuintrin.h to i[34567]86-*-* and x86_64-*-*
+	targets.
+	* config/i386/cpuid.h (host_detect_local_cpu): Detect PKU feature.
+	* config/i386/i386-c.c (ix86_target_macros_internal): Handle PKU ISA
+	flag.
+	* config/i386/i386.c (ix86_target_string): Add "-mpku" to
+	ix86_target_opts.
+	(ix86_option_override_internal): Define PTA_PKU, mention new key
+	in skylake-avx512. Handle new ISA bits.
+	(ix86_valid_target_attribute_inner_p): Add "pku".
+	(enum ix86_builtins): Add IX86_BUILTIN_RDPKRU and IX86_BUILTIN_WRPKRU.
+	(builtin_description bdesc_special_args[]): Add new built-ins.
+	* config/i386/i386.h (define TARGET_PKU): New.
+	(define TARGET_PKU_P): Ditto.
+	* config/i386/i386.md (define_c_enum "unspecv"): Add UNSPEC_PKU.
+	(define_expand "rdpkru"): New.
+	(define_insn "*rdpkru"): Ditto.
+	(define_expand "wrpkru"): Ditto.
+	(define_insn "*wrpkru"): Ditto.
+	* config/i386/i386.opt (mpku): Ditto.
+	* config/i386/pkuintrin.h: New file.
+	* config/i386/x86intrin.h: Include pkuintrin.h
+	* doc/extend.texi: Describe new built-ins.
+	* doc/invoke.texi: Describe new switches.
+
+2015-12-23  Richard Henderson  <rth@redhat.com>
+
+	PR ipa/67811
+	* tree-cfg.c (make_edges_bb): Add abort edge for outer transactions.
+
+2015-12-23  Nathan Sidwell  <nathan@acm.org>
+
+	* cgraph.h (decl_in_symtab_p): Revert check DECL_IN_CONSTANT_POOL.
+
+2015-12-23  Nathan Sidwell  <nathan@acm.org>
+
+	* config/nvptx/nvptx-protos.h
+	(nvptx_maybe_convert_symbolic_operand): Delete prototype.
+	* config/nvptx/nvptx.c (nvptx_maybe_convert_symbolic_operand): Delete.
+	(nvptx_output_mov_insn): Record fnsym here.
+	(nvptx_wpropagate): Don't create UNSPEC_TO_GENERIC unspec.
+	* config/nvptx/nvptx.md (UNSPEC_TO_GENERIC): Delete.
+	(symbolic_operand): Delete predicate.
+	(nvptx_nonimmediate_operand): Delete predicate.
+	(mov<mode>): Hard regs are perfectly ok here.
+	(convaddr_<mode>): Delete.
+
+2015-12-23  Nathan Sidwell  <nathan@acm.org>
+
+	* alias.c (compare_base_decls): Simplify in-symtab check.
+	* cgraph.h (decl_in_symtab_p): Check DECL_IN_CONSTANT_POOL.
+
+2015-12-23  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/predicates.md ("larl_operand"): Remove now superfluous
+	const_int and const_double.
+	* genrecog.c (safe_predicate_mode): Return false for VOIDmode
+	LABEL_REFs even if the predicate does not handle const_int,
+	const_double or const_wide_int.
+	* genpreds.c (add_mode_tests): Treat LABEL_REF like CONST_INT.
+
+2015-12-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-core.h (enum omp_clause_code): Merge OMP_CLAUSE_USE_DEVICE
+	into OMP_CLAUSE_USE_DEVICE_PTR.  Adjust all users.
+
+2015-12-23  David Sherwood  <david.sherwood@arm.com>
+
+	* config/arm/iterators.md (VMAXMINFNM): New int iterator.
+	(fmaxmin): New int attribute.
+	(fmaxmin_op): Likewise.
+	* config/arm/unspecs.md (UNSPEC_VMAXNM): New unspec.
+	(UNSPEC_VMINNM): Likewise.
+	* config/arm/neon.md (fmaxmin): New pattern.
+	* config/arm/vfp.md (fmaxmin): Likewise.
+
+2015-12-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	* config/i386/constraints.md (Bs): Allow GOT slot for x32 with
+	64-bit Pmode.
+	(Bw): Likewise.
+	(Bz): Likewise.
+	* config/i386/predicates.md (call_insn_operand): Likewise.
+	(sibcall_insn_operand): Likewise.
+
+2015-12-22  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68473
+	* diagnostic-show-locus.c (layout::layout): Make loc_range const.
+	Sanitize the layout_range against ranges that finish before they
+	start.
+
+2015-12-22  Jeff Law  <law@redhat.com>
+
+	* gimple-ssa-split-paths.c (split_paths): Avoid unnecessary block
+	copying.
+
+2015-12-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67376
+	* fold-const.c (size_low_cst): Removed.
+	(fold_comparison): For POINTER_PLUS_EXPR where base is ADDR_EXPR
+	call get_inner_reference and handle INDIRECT_REF base of it.  Use
+	offset_int for computation of the bitpos.
+	(fold_binary_loc) <case EQ_EXPR, NE_EXPR>: Formatting
+	fixes for X +- Y CMP X and C - X CMP X folding.  Add X CMP X +- Y
+	and X CMP C - X folding.
+
+2015-12-22  Richard Henderson  <rth@redhat.com>
+
+	PR ipa/67811
+	* gimple.h (struct gtransaction): Add label_norm, label_uninst;
+	replace label with label_over.
+	(gimple_build_transaction): Remove label parameter.
+	(gimple_transaction_label_norm): New.
+	(gimple_transaction_label_uninst): New.
+	(gimple_transaction_label_over): Rename from gimple_transaction_label.
+	(gimple_transaction_label_norm_ptr): New.
+	(gimple_transaction_label_uninst_ptr): New.
+	(gimple_transaction_label_over_ptr): Rename from
+	gimple_transaction_label_ptr.
+	(gimple_transaction_set_label_norm): New.
+	(gimple_transaction_set_label_uninst): New.
+	(gimple_transaction_set_label_over): Rename from
+	gimple_transaction_set_label.
+	* gimple-pretty-print.c (dump_gimple_transaction): Update.
+	* gimple-streamer-in.c (input_gimple_stmt) [GIMPLE_TRANSACTION]: Same.
+	* gimple-streamer-out.c (output_gimple_stmt) [GIMPLE_TRANSACTION]: Same.
+	* gimple-walk.c (walk_gimple_op) [GIMPLE_TRANSACTION]: Same.
+	* tree-cfg.c (make_edges_bb) [GIMPLE_TRANSACTION]: Same.
+	(cleanup_dead_labels) [GIMPLE_TRANSACTION]: Same.
+	(verify_gimple_transaction): Same.
+	(gimple_redirect_edge_and_branch) [GIMPLE_TRANSACTION]: Same.
+	* tree-inline.c (remap_gimple_stmt) [GIMPLE_TRANSACTION]: Same.
+	* gimple.c (gimple_build_transaction): Remove label parameter;
+	initialize all three label memebers.
+	* gimplify.c (gimplify_transaction): Update call
+	to gimple_build_transaction.
+	* trans-mem.c (make_tm_uninst): New.
+	(lower_transaction): Create uninstrumented code path here...
+	(ipa_tm_scan_calls_transaction): ... not here.
+	(ipa_uninstrument_transaction): Remove.
+
+	* tree-eh.c (honor_protect_cleanup_actions): Do not wrap eh_else
+	in a must-not-throw; set ehp_region for it too.
+
+2015-12-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/68872
+	* config/rs6000/rs6000.h (ASM_CPU_SPEC): For -mcpu=powerpc64le,
+	pass %(asm_cpu_power8).
+
+2015-12-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68937
+	* config/i386/i386.c (ix86_function_ok_for_sibcall): Count
+	call to global function via GOT slot as indirect call.
+	* config/i386/i386.md (*sibcall_GOT_32): New pattern.
+	(*sibcall_value_GOT_32): Likewise.
+	* config/i386/predicates.md (sibcall_memory_operand): Rewrite.
+	Allow 32-bit GOT slot only with pseudo register as GOT base.
+	(GOT32_symbol_operand): New predicate.
+
+2015-12-22  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	* fold-const.c (const_binop): Convert sNaN to qNaN when
+	flag_signaling_nans is off.
+	(const_unop): Avoid the operation, other than NEGATE and
+	ABS, if flag_signaling_nans is on and the operand is an sNaN.
+	(fold_convert_const_real_from_real): Avoid the operation if
+	flag_signaling_nans is on and the operand is an sNaN.
+	(integer_valued_real_unary_p): Update comment stating it
+	returns false for sNaN values.
+	(integer_valued_real_binary_p, integer_valued_real_call_p): Same.
+	(integer_valued_real_single_p): Same.
+	(integer_valued_real_invalid_p, integer_valued_real_p): Same.
+	* fold-const-call.c (fold_const_pow): Avoid the operation
+	if flag_signaling_nans is on and the operand is an sNaN.
+	(fold_const_builtin_load_exponent) Same.
+	(fold_const_call_sss): Same for CASE_CFN_POWI.
+	* gimple-fold.c (gimple_assign_integer_valued_real_p): Same.
+	(gimple_call_integer_valued_real_p): Same.
+	(gimple_phi_integer_valued_real_p): Same.
+	(gimple_stmt_integer_valued_real_p): Same.
+	* simplify-rtx.c (simplify_const_unary_operation): Avoid the
+	operation if flag_signaling_nans is on and the operand is an sNaN.
+	(simplify_const_binary_operation): Same.
+	* tree-ssa-math-opts.c (gimple_expand_builtin_pow): Avoid the
+	operation if flag_signaling_nans is on and the operand is an sNaN.
+
+2015-12-22  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* combine.c (simplify_comparison): Convert preprocessor check of
+	WORD_REGISTER_OPERATIONS into runtime check.
+
+2015-12-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/60756
+	* var-tracking.c (tracked_record_parameter_p): New predicate.
+	(track_expr_p): Invoke it.
+	(add_stores): Likewise.
+
+2015-12-21  Jeff Law  <law@redhat.com>
+
+	* dbgcnt.def (dom_unreachable_edges): New debug counter.
+	* tree-ssa-dom.c: Include dbgcnt.h
+	(dom_opt_dom_walker::before_dom_children): Handle the new counter.
+
+2015-12-21  Andrew Pinski <apinski@cavium.com>
+
+	* config/aarch64/aarch64-option-extensions.def (LSE): Change
+	FEAT_STRING to "atomics".
+
 2015-12-21  Pierre-Marie de Rodat  <derodat@adacore.com>
 
 	* dwarf2out.c (add_data_member_location_attribute): Do not

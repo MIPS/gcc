@@ -1,3 +1,108 @@
+2015-12-28  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/torture/pr67609.c: Add -fno-common option on hppa*-*-hpux*.
+
+2015-12-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p9-lxvx-stxvx-1.c: New.
+	* gcc.target/powerpc/p9-lxvx-stxvx-2.c: New.
+
+2015-12-24  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* g++.dg/other/i386-2.C: Add -mpku.
+	* g++.dg/other/i386-3.C: Ditto.
+	* gcc.target/i386/rdpku-1.c: New test.
+	* gcc.target/i386/sse-12.c: Add -mpku.
+	* gcc.target/i386/sse-13.c: Ditto.
+	* gcc.target/i386/sse-22.c: Ditto.
+	* gcc.target/i386/sse-33.c: Ditto.
+	* gcc.target/i386/wrpku-1.c: New test.
+
+2015-12-23  Martin Sebor  <msebor@redhat.com>
+
+	PR c++/69023
+	* g++.dg/lookup/name-clash11.C: New test.
+
+2015-12-23  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/alias-15.c: Revert.
+
+2015-12-23  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR testsuite/68232
+	* gcc.dg/ifcvt-4.c: Skip for arm*-*-* and powerpc64le*-*-*.
+
+2015-12-23  Nathan Sidwell  <nathan@acm.org>
+
+	* gcc.dg/alias-15.c: New. 
+
+2015-12-23  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* g++.dg/dg.exp (tests): Prune "goacc/*" and "goacc-gomp/*" files.
+
+2015-12-23  David Sherwood  <david.sherwood@arm.com>
+
+	* gcc.target/arm/fmaxmin.x: New file used by tests below.
+	* gcc.target/arm/fmaxmin.c: New test.
+	* gcc.target/arm/vect-fmaxmin.c: Likewise.
+
+2015-12-23  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/66232
+	* gcc.target/i386/pr66232-10.c: New test.
+	* gcc.target/i386/pr66232-11.c: Likewise.
+	* gcc.target/i386/pr66232-12.c: Likewise.
+	* gcc.target/i386/pr66232-13.c: Likewise.
+
+2015-12-22  David Malcolm  <dmalcolm@redhat.com>
+
+	PR c/68473
+	* gcc.dg/plugin/diagnostic-test-expressions-1.c (fminl): New decl.
+	(TEST_EQ): New macro.
+	(test_macro): New function.
+	* gcc.target/i386/pr68473-1.c: New test case.
+
+2015-12-22  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/67376
+	* g++.dg/cpp0x/constexpr-67376.C: New test.
+
+2015-12-22  Richard Henderson  <rth@redhat.com>
+
+	* g++.dg/tm/noexcept-1.C: Update expected must_not_throw count.
+	* g++.dg/tm/noexcept-4.C: Likewise.
+	* g++.dg/tm/noexcept-5.C: Likewise.
+	* g++.dg/tm/pr67811.C: New.
+
+2015-12-22  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/68872
+	* gcc.target/powerpc/pr68872.c: New test.
+
+2015-12-22  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68937
+	* gcc.target/i386/pr68937-1.c: New test.
+	* gcc.target/i386/pr68937-2.c: Likewise.
+	* gcc.target/i386/pr68937-3.c: Likewise.
+	* gcc.target/i386/pr68937-4.c: Likewise.
+	* gcc.target/i386/pr68937-5.c: Likewise.
+	* gcc.target/i386/pr68937-6.c: Likewise.
+
+2015-12-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69002
+	* gcc.dg/c11-atomic-1.c: Add dg-warnings.
+	* gcc.dg/c11-atomic-4.c: New test.
+
+2015-12-22  Sujoy Saraswati  <sujoy.saraswati@hpe.com>
+
+	* gcc.dg/pr61441.c: New testcase.
+
+2015-12-22  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/torture/pr68264.c: Tweak for Solaris.
+
 2015-12-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* g++.dg/diagnostic/bad-binary-ops.C: New test case.

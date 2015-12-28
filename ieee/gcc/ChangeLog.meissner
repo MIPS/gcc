@@ -1,5 +1,10 @@
 2015-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 231978.
+	* REVISION: Update subversion id.
+
+2015-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.h (FLOAT128_IEEE_P): Undo 12/21 changes
 	since it breaks fortran large_real_kind_2.F90 test on 32-bit.
 	(FLOAT128_IBM_P): Likewise.

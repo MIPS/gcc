@@ -1,3 +1,27 @@
+2015-12-24  Jason Merrill  <jason@redhat.com>
+
+	PR c++/69005
+	* call.c (add_template_candidate_real): Don't try to deduce X(X).
+
+2015-12-22  Jason Merrill  <jason@redhat.com>
+
+	PR c++/66921
+	* decl.c (cp_complete_array_type): Allow an initializer that
+	already has array type.
+
+	PR c++/67257
+	* parser.c (cp_parser_single_declaration): Reject a class template
+	that also declares a variable.
+
+	PR c++/67339
+	* parser.c (cp_parser_elaborated_type_specifier): Use CLASS_TYPE_P
+	rather than check for RECORD_TYPE.
+
+2015-12-22  Patrick Palka  <ppalka@gcc.gnu.org>
+
+	* pt.c (make_pack_expansion): Make sure to initialize
+	ppd.type_pack_expansion_p.
+
 2015-12-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* typeck.c (cp_build_binary_op): Update for change in signature
