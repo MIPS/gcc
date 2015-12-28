@@ -417,12 +417,12 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    Similarly IFmode is the IBM long double format even if the default is IEEE
    128-bit.  */
 #define FLOAT128_IEEE_P(MODE)						\
-  ((((MODE) == TFmode || (MODE) == TCmode) && TARGET_IEEEQUAD)		\
-   || ((MODE) == KFmode) || ((MODE) == KCmode))
+  (((MODE) == TFmode && TARGET_IEEEQUAD)				\
+   || ((MODE) == KFmode))
 
 #define FLOAT128_IBM_P(MODE)						\
-  ((((MODE) == TFmode || (MODE) == TCmode) && !TARGET_IEEEQUAD)		\
-   || ((MODE) == IFmode) || ((MODE) == ICmode))
+  (((MODE) == TFmode && !TARGET_IEEEQUAD)				\
+   || ((MODE) == IFmode))
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
