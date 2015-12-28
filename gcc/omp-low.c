@@ -19973,6 +19973,28 @@ default_goacc_reduction (gcall *call)
   gsi_replace_with_seq (&gsi, seq, true);
 }
 
+/* Determine whether DECL should be discarded in this offload
+   compilation.  */
+
+static bool
+maybe_discard_oacc_function (tree decl)
+{
+  tree attr = lookup_attribute ("omp declare target", DECL_ATTRIBUTES (decl));
+
+  if (!attr)
+    return false;
+
+  enum omp_clause_code kind = OMP_CLAUSE_NOHOST;
+  
+#ifdef ACCEL_COMPILER
+  kind = OMP_CLAUSE_BIND;
+#endif
+  if (find_omp_clause (TREE_VALUE (attr), kind))
+    return true;
+
+  return false;
+}
+
 /* Main entry point for oacc transformations which run on the device
    compiler after LTO, so we know what the target device is at this
    point (including the host fallback).  */
@@ -19980,74 +20002,19 @@ default_goacc_reduction (gcall *call)
 static unsigned int
 execute_oacc_device_lower ()
 {
-  /* There are offloaded functions without an "omp declare target" attribute,
-     so we'll not handle these here, but on the other hand, OpenACC bind and
-     nohost clauses can only be generated in the front ends, and an "omp
-     declare target" attribute will then also always have been set there, so
-     this is not a problem in practice.  */
-  tree attr = lookup_attribute ("omp declare target",
-				DECL_ATTRIBUTES (current_function_decl));
-
-#if defined(ACCEL_COMPILER)
-  /* In an offload compiler, discard any offloaded function X that is tagged
-     with an OpenACC bind(Y) clause: all references to X have been rewritten to
-     refer to Y; X is unreachable, do not compile it.  */
-  if (attr)
-    {
-      tree clauses = TREE_VALUE (attr);
-      /* TODO: device_type handling.  */
-      tree clause_bind = find_omp_clause (clauses, OMP_CLAUSE_BIND);
-      if (clause_bind)
-	{
-	  tree clause_bind_name = OMP_CLAUSE_BIND_NAME (clause_bind);
-	  const char *bind_name = TREE_STRING_POINTER(clause_bind_name);
-	  if (dump_file)
-	    fprintf (dump_file,
-		     "Discarding function \"%s\" with \"bind(%s)\" clause.\n",
-		     IDENTIFIER_POINTER (DECL_NAME (current_function_decl)),
-		     bind_name);
-	  TREE_ASM_WRITTEN (current_function_decl) = 1;
-	  return TODO_discard_function;
-	}
-    }
-#endif /* ACCEL_COMPILER */
-#if !defined(ACCEL_COMPILER)
-  /* In the host compiler, discard any offloaded function that is tagged with
-     an OpenACC nohost clause.  */
-  if (attr)
-    {
-      tree clauses = TREE_VALUE (attr);
-      if (find_omp_clause (clauses, OMP_CLAUSE_NOHOST))
-	{
-	  /* There are no construct/clause combinations that could make this
-	     happen, but play it safe, and verify that we never discard a
-	     function that is stored in offload_funcs, used for target/offload
-	     function mapping.  */
-	  if (flag_checking)
-	    {
-	      bool found = false;
-	      for (unsigned i = 0;
-		   !found && i < vec_safe_length (offload_funcs);
-		   i++)
-		if ((*offload_funcs)[i] == current_function_decl)
-		  found = true;
-	      gcc_assert (!found);
-	    }
-
-	  if (dump_file)
-	    fprintf (dump_file,
-		     "Discarding function \"%s\" with \"nohost\" clause.\n",
-		     IDENTIFIER_POINTER (DECL_NAME (current_function_decl)));
-	  TREE_ASM_WRITTEN (current_function_decl) = 1;
-	  return TODO_discard_function;
-	}
-    }
-#endif /* !ACCEL_COMPILER */
-
-  attr = get_oacc_fn_attrib (current_function_decl);
+  tree attr = get_oacc_fn_attrib (current_function_decl);
   if (!attr)
     /* Not an offloaded function.  */
     return 0;
+
+  if (maybe_discard_oacc_function (current_function_decl))
+    {
+      if (dump_file)
+	fprintf (dump_file, "Discarding function\n");
+      TREE_ASM_WRITTEN (current_function_decl) = 1;
+      return TODO_discard_function;
+    }
+
   int dims[GOMP_DIM_MAX];
   int fn_level = oacc_validate_dims (current_function_decl, attr, dims);
 
