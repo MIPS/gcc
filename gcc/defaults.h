@@ -1488,6 +1488,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #endif /* GCC_INSN_FLAGS_H  */
 
+#ifndef DWARF_GNAT_ENCODINGS_DEFAULT
+#define DWARF_GNAT_ENCODINGS_DEFAULT DWARF_GNAT_ENCODINGS_GDB
+#endif
+
 /* UPC section names.  */
 
 /* Name of section used to assign addresses to shared data items.  */

@@ -308,6 +308,8 @@
 
 (define_int_iterator VMAXMINF [UNSPEC_VMAX UNSPEC_VMIN])
 
+(define_int_iterator VMAXMINFNM [UNSPEC_VMAXNM UNSPEC_VMINNM])
+
 (define_int_iterator VPADDL [UNSPEC_VPADDL_S UNSPEC_VPADDL_U])
 
 (define_int_iterator VPADAL [UNSPEC_VPADAL_S UNSPEC_VPADAL_U])
@@ -361,6 +363,8 @@
 
 (define_int_iterator CRYPTO_SELECTING [UNSPEC_SHA1C UNSPEC_SHA1M
                                        UNSPEC_SHA1P])
+
+(define_int_iterator VQRDMLH_AS [UNSPEC_VQRDMLAH UNSPEC_VQRDMLSH])
 
 ;;----------------------------------------------------------------------------
 ;; Mode attributes
@@ -743,6 +747,13 @@
   (UNSPEC_VPMIN "min") (UNSPEC_VPMIN_U "min")
 ])
 
+(define_int_attr fmaxmin [
+  (UNSPEC_VMAXNM "fmax") (UNSPEC_VMINNM "fmin")])
+
+(define_int_attr fmaxmin_op [
+  (UNSPEC_VMAXNM "vmaxnm") (UNSPEC_VMINNM "vminnm")
+])
+
 (define_int_attr shift_op [
   (UNSPEC_VSHL_S "shl") (UNSPEC_VSHL_U "shl")
   (UNSPEC_VRSHL_S "rshl") (UNSPEC_VRSHL_U "rshl")
@@ -831,3 +842,6 @@
                                (simple_return " && use_simple_return_p ()")])
 (define_code_attr return_cond_true [(return " && USE_RETURN_INSN (TRUE)")
                                (simple_return " && use_simple_return_p ()")])
+
+;; Attributes for VQRDMLAH/VQRDMLSH
+(define_int_attr neon_rdma_as [(UNSPEC_VQRDMLAH "a") (UNSPEC_VQRDMLSH "s")])

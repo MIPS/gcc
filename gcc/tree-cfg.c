@@ -828,11 +828,22 @@ make_edges_bb (basic_block bb, struct omp_region **pcur_region, int *pomp_index)
 
     case GIMPLE_TRANSACTION:
       {
-	tree abort_label
-	  = gimple_transaction_label (as_a <gtransaction *> (last));
-	if (abort_label)
-	  make_edge (bb, label_to_block (abort_label), EDGE_TM_ABORT);
-	fallthru = true;
+        gtransaction *txn = as_a <gtransaction *> (last);
+	tree label1 = gimple_transaction_label_norm (txn);
+	tree label2 = gimple_transaction_label_uninst (txn);
+
+	if (label1)
+	  make_edge (bb, label_to_block (label1), EDGE_FALLTHRU);
+	if (label2)
+	  make_edge (bb, label_to_block (label2),
+		     EDGE_TM_UNINSTRUMENTED | (label1 ? 0 : EDGE_FALLTHRU));
+
+	tree label3 = gimple_transaction_label_over (txn);
+	if (gimple_transaction_subcode (txn)
+	    & (GTMA_HAVE_ABORT | GTMA_IS_OUTER))
+	  make_edge (bb, label_to_block (label3), EDGE_TM_ABORT);
+
+	fallthru = false;
       }
       break;
 
@@ -1517,13 +1528,30 @@ cleanup_dead_labels (void)
 
 	case GIMPLE_TRANSACTION:
 	  {
-	    gtransaction *trans_stmt = as_a <gtransaction *> (stmt);
-	    tree label = gimple_transaction_label (trans_stmt);
+	    gtransaction *txn = as_a <gtransaction *> (stmt);
+
+	    label = gimple_transaction_label_norm (txn);
 	    if (label)
 	      {
-		tree new_label = main_block_label (label);
+		new_label = main_block_label (label);
 		if (new_label != label)
-		  gimple_transaction_set_label (trans_stmt, new_label);
+		  gimple_transaction_set_label_norm (txn, new_label);
+	      }
+
+	    label = gimple_transaction_label_uninst (txn);
+	    if (label)
+	      {
+		new_label = main_block_label (label);
+		if (new_label != label)
+		  gimple_transaction_set_label_uninst (txn, new_label);
+	      }
+
+	    label = gimple_transaction_label_over (txn);
+	    if (label)
+	      {
+		new_label = main_block_label (label);
+		if (new_label != label)
+		  gimple_transaction_set_label_over (txn, new_label);
 	      }
 	  }
 	  break;
@@ -4732,9 +4760,18 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
 static bool
 verify_gimple_transaction (gtransaction *stmt)
 {
-  tree lab = gimple_transaction_label (stmt);
+  tree lab;
+
+  lab = gimple_transaction_label_norm (stmt);
   if (lab != NULL && TREE_CODE (lab) != LABEL_DECL)
     return true;
+  lab = gimple_transaction_label_uninst (stmt);
+  if (lab != NULL && TREE_CODE (lab) != LABEL_DECL)
+    return true;
+  lab = gimple_transaction_label_over (stmt);
+  if (lab != NULL && TREE_CODE (lab) != LABEL_DECL)
+    return true;
+
   return verify_gimple_in_seq_2 (gimple_transaction_body (stmt));
 }
 
@@ -5642,11 +5679,15 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
       break;
 
     case GIMPLE_TRANSACTION:
-      /* The ABORT edge has a stored label associated with it, otherwise
-	 the edges are simply redirectable.  */
-      if (e->flags == 0)
-	gimple_transaction_set_label (as_a <gtransaction *> (stmt),
-				      gimple_block_label (dest));
+      if (e->flags & EDGE_TM_ABORT)
+	gimple_transaction_set_label_over (as_a <gtransaction *> (stmt),
+				           gimple_block_label (dest));
+      else if (e->flags & EDGE_TM_UNINSTRUMENTED)
+	gimple_transaction_set_label_uninst (as_a <gtransaction *> (stmt),
+				             gimple_block_label (dest));
+      else
+	gimple_transaction_set_label_norm (as_a <gtransaction *> (stmt),
+				           gimple_block_label (dest));
       break;
 
     default:
@@ -7312,6 +7353,23 @@ move_sese_region_to_fn (struct function *dest_cfun, basic_block entry_bb,
   return bb;
 }
 
+/* Dump default def DEF to file FILE using FLAGS and indentation
+   SPC.  */
+
+static void
+dump_default_def (FILE *file, tree def, int spc, int flags)
+{
+  for (int i = 0; i < spc; ++i)
+    fprintf (file, " ");
+  dump_ssaname_info_to_file (file, def, spc);
+
+  print_generic_expr (file, TREE_TYPE (def), flags);
+  fprintf (file, " ");
+  print_generic_expr (file, def, flags);
+  fprintf (file, " = ");
+  print_generic_expr (file, SSA_NAME_VAR (def), flags);
+  fprintf (file, ";\n");
+}
 
 /* Dump FUNCTION_DECL FN to file FILE using FLAGS (see TDF_* in dumpfile.h)
    */
@@ -7391,6 +7449,35 @@ dump_function_to_file (tree fndecl, FILE *file, int flags)
       ignore_topmost_bind = true;
 
       fprintf (file, "{\n");
+      if (gimple_in_ssa_p (fun)
+	  && (flags & TDF_ALIAS))
+	{
+	  for (arg = DECL_ARGUMENTS (fndecl); arg != NULL;
+	       arg = DECL_CHAIN (arg))
+	    {
+	      tree def = ssa_default_def (fun, arg);
+	      if (def)
+		dump_default_def (file, def, 2, flags);
+	    }
+
+	  tree res = DECL_RESULT (fun->decl);
+	  if (res != NULL_TREE
+	      && DECL_BY_REFERENCE (res))
+	    {
+	      tree def = ssa_default_def (fun, res);
+	      if (def)
+		dump_default_def (file, def, 2, flags);
+	    }
+
+	  tree static_chain = fun->static_chain_decl;
+	  if (static_chain != NULL_TREE)
+	    {
+	      tree def = ssa_default_def (fun, static_chain);
+	      if (def)
+		dump_default_def (file, def, 2, flags);
+	    }
+	}
+
       if (!vec_safe_is_empty (fun->local_decls))
 	FOR_EACH_LOCAL_DECL (fun, ix, var)
 	  {

@@ -1,3 +1,7 @@
+2015-12-28  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 231970 into gupc branch.
+
 2015-12-16  Gary Funck  <gary@intrepid.com>
 
 	* c/c-lang.c (c_language): Delete references to
