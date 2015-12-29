@@ -36,9 +36,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+#ifdef FLOAT128_HW_INSNS 
 #include <sys/auxv.h>
 
-#if defined(FLOAT128_HW_INSNS) && defined(AT_PLATFORM)
 static int
 have_ieee_hw_p (void)
 {

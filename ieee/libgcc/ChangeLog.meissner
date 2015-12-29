@@ -1,3 +1,8 @@
+2015-12-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/float128-ifunc.c: Only include sys/auxv.h if we
+	have support for IEEE 128-bit hardware instructions.
+
 2015-12-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/t-float128: Rename software emulator functions to
