@@ -1070,10 +1070,11 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
 
 int
 plugin_build_add_enum_constant (cc1_plugin::connection *,
+				gcc_type enum_type_in,
 				const char *name,
 				unsigned long value)
 {
-  tree enum_type = current_class_type;
+  tree enum_type = convert_in (enum_type_in);
 
   gcc_assert (TREE_CODE (enum_type) == ENUMERAL_TYPE);
 
@@ -1084,9 +1085,10 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
 }
 
 int
-plugin_finish_enum_type (cc1_plugin::connection *)
+plugin_finish_enum_type (cc1_plugin::connection *,
+			 gcc_type enum_type_in)
 {
-  tree enum_type = current_class_type;
+  tree enum_type = convert_in (enum_type_in);
 
   finish_enum_value_list (enum_type);
   finish_enum (enum_type);

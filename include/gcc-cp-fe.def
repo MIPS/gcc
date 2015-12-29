@@ -447,17 +447,19 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
 	     const char *,	      /* Argument FILENAME.  */
 	     unsigned int)	      /* Argument LINE_NUMBER.  */
 
-/* Add a new constant to the most-recently-started enum type.  NAME is
-   the constant's name and VALUE is its value.  */
+/* Add a new constant to an enum type.  NAME is the constant's name
+   and VALUE is its value.  */
 
-GCC_METHOD2 (int /* bool */, build_add_enum_constant,
+GCC_METHOD3 (int /* bool */, build_add_enum_constant,
+	     gcc_type,		       /* Argument ENUM_TYPE.  */
 	     const char *,	       /* Argument NAME.  */
 	     unsigned long)	       /* Argument VALUE.  */
 
 /* After all the constants have been added to an enum, the type must
    be "finished".  This does some final cleanups in GCC.  */
 
-GCC_METHOD0 (int /* bool */, finish_enum_type)
+GCC_METHOD1 (int /* bool */, finish_enum_type,
+	     gcc_type)		       /* Argument ENUM_TYPE.  */
 
 /* Create a new function type.  RETURN_TYPE is the type returned by
    the function, and ARGUMENT_TYPES is a vector, of length NARGS, of
