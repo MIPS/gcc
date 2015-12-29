@@ -1,5 +1,5 @@
 Bottom: f17dbedac038877f3b5e4f0d2ca1d4b2fd2af3a9
-Top:    785408457dfd5a19223fd314565b1f156de6db8b
+Top:    5f627b7cd44566808f29aefd8cf32dcbdd1e4535
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -8,7 +8,7 @@ extend API to support templates
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 4a6fb7f..dc118e5 100644
+index 4a6fb7f..ce1db70 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -204,6 +204,187 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
@@ -229,31 +229,18 @@ index 4a6fb7f..dc118e5 100644
  	     unsigned long)		   /* Argument SIZE_IN_BYTES.  */
  
  /* Create a new 'enum' type, and record it in the current binding
-@@ -267,19 +447,17 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
+@@ -267,8 +447,8 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
 -/* Add a new constant to an enum type.  NAME is the constant's
 -   name and VALUE is its value.  */
-+/* Add a new constant to the most-recently-started enum type.  NAME is
-+   the constant's name and VALUE is its value.  */
++/* Add a new constant to an enum type.  NAME is the constant's name
++   and VALUE is its value.  */
  
--GCC_METHOD3 (int /* bool */, build_add_enum_constant,
--	     gcc_type,		       /* Argument ENUM_TYPE.  */
-+GCC_METHOD2 (int /* bool */, build_add_enum_constant,
- 	     const char *,	       /* Argument NAME.  */
- 	     unsigned long)	       /* Argument VALUE.  */
- 
- /* After all the constants have been added to an enum, the type must
-    be "finished".  This does some final cleanups in GCC.  */
- 
--GCC_METHOD1 (int /* bool */, finish_enum_type,
--	     gcc_type)		       /* Argument ENUM_TYPE.  */
-+GCC_METHOD0 (int /* bool */, finish_enum_type)
- 
- /* Create a new function type.  RETURN_TYPE is the type returned by
-    the function, and ARGUMENT_TYPES is a vector, of length NARGS, of
-@@ -347,6 +525,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
+ GCC_METHOD3 (int /* bool */, build_add_enum_constant,
+ 	     gcc_type,		       /* Argument ENUM_TYPE.  */
+@@ -347,6 +527,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
  	     gcc_type,			  /* Argument ELEMENT_TYPE.  */
  	     int)			  /* Argument NUM_ELEMENTS.  */
  
@@ -321,7 +308,7 @@ index 77ad7db..95999de 100644
  
  enum gcc_cp_symbol_kind
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d6551a6..4bbe63d 100644
+index d6551a6..2929748 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -976,13 +976,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
@@ -351,33 +338,7 @@ index d6551a6..4bbe63d 100644
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
  
-@@ -1072,11 +1070,10 @@ plugin_start_new_enum_type (cc1_plugin::connection *self,
- 
- int
- plugin_build_add_enum_constant (cc1_plugin::connection *,
--				gcc_type enum_type_in,
- 				const char *name,
- 				unsigned long value)
- {
--  tree enum_type = convert_in (enum_type_in);
-+  tree enum_type = current_class_type;
- 
-   gcc_assert (TREE_CODE (enum_type) == ENUMERAL_TYPE);
- 
-@@ -1087,10 +1084,9 @@ plugin_build_add_enum_constant (cc1_plugin::connection *,
- }
- 
- int
--plugin_finish_enum_type (cc1_plugin::connection *,
--			 gcc_type enum_type_in)
-+plugin_finish_enum_type (cc1_plugin::connection *)
- {
--  tree enum_type = convert_in (enum_type_in);
-+  tree enum_type = current_class_type;
- 
-   finish_enum_value_list (enum_type);
-   finish_enum (enum_type);
-@@ -1208,6 +1204,164 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1208,6 +1206,164 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -542,7 +503,7 @@ index d6551a6..4bbe63d 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1266,6 +1420,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1266,6 +1422,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
