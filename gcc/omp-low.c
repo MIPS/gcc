@@ -12625,10 +12625,11 @@ replace_oacc_fn_attrib (tree fn, tree dims)
 
 /* Scan CLAUSES for launch dimensions and attach them to the oacc
    function attribute.  Push any that are non-constant onto the ARGS
-   list, along with an appropriate GOMP_LAUNCH_DIM tag.  */
+   list, along with an appropriate GOMP_LAUNCH_DIM tag.  IS_KERNEL is
+   true, if these are for a kernels region offload function.  */
 
 void
-set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
+set_oacc_fn_attrib (tree fn, tree clauses, bool is_kernel, vec<tree> *args)
 {
   /* Must match GOMP_DIM ordering.  */
   static const omp_clause_code ids[]
@@ -12653,6 +12654,9 @@ set_oacc_fn_attrib (tree fn, tree clauses, vec<tree> *args)
 	  non_const |= GOMP_DIM_MASK (ix);
 	}
       attr = tree_cons (NULL_TREE, dim, attr);
+      /* Note kernelness with TREE_PUBLIC.  */
+      if (is_kernel)
+	TREE_PUBLIC (attr) = 1;
     }
 
   replace_oacc_fn_attrib (fn, attr);
@@ -12719,6 +12723,36 @@ tree
 get_oacc_fn_attrib (tree fn)
 {
   return lookup_attribute (OACC_FN_ATTRIB, DECL_ATTRIBUTES (fn));
+}
+
+/* Return true if this oacc fn attrib is for a kernels offload
+   region.  We use the TREE_PUBLIC flag of each dimension -- only
+   need to check the first one.  */
+
+bool
+oacc_fn_attrib_kernels_p (tree attr)
+{
+  return TREE_PUBLIC (TREE_VALUE (attr));
+}
+
+/* Return level at which oacc routine may spawn a partitioned loop, or
+   -1 if it is not a routine (i.e. is an offload fn).  */
+
+int
+oacc_fn_attrib_level (tree attr)
+{
+  tree pos = TREE_VALUE (attr);
+
+  if (!TREE_PURPOSE (pos))
+    return -1;
+  
+  int ix = 0;
+  for (ix = 0; ix != GOMP_DIM_MAX;
+       ix++, pos = TREE_CHAIN (pos))
+    if (!integer_zerop (TREE_PURPOSE (pos)))
+      break;
+
+  return ix;
 }
 
 /* Extract an oacc execution dimension from FN.  FN must be an
@@ -13045,6 +13079,7 @@ expand_omp_target (struct omp_region *region)
   enum built_in_function start_ix;
   location_t clause_loc;
   unsigned int flags_i = 0;
+  bool oacc_kernels_p = false;
 
   switch (gimple_omp_target_kind (entry_stmt))
     {
@@ -13064,8 +13099,10 @@ expand_omp_target (struct omp_region *region)
       start_ix = BUILT_IN_GOMP_TARGET_ENTER_EXIT_DATA;
       flags_i |= GOMP_TARGET_FLAG_EXIT_DATA;
       break;
-    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
     case GF_OMP_TARGET_KIND_OACC_KERNELS:
+      oacc_kernels_p = true;
+      /* FALLTHROUGH */
+    case GF_OMP_TARGET_KIND_OACC_PARALLEL:
       start_ix = BUILT_IN_GOACC_PARALLEL;
       break;
     case GF_OMP_TARGET_KIND_OACC_DATA:
@@ -13247,7 +13284,7 @@ expand_omp_target (struct omp_region *region)
       break;
     case BUILT_IN_GOACC_PARALLEL:
       {
-	set_oacc_fn_attrib (child_fn, clauses, &args);
+	set_oacc_fn_attrib (child_fn, clauses, oacc_kernels_p, &args);
 	tagging = true;
       }
       /* FALLTHRU */
@@ -19259,17 +19296,17 @@ oacc_xform_loop (gcall *call)
 }
 
 /* Validate and update the dimensions for offloaded FN.  ATTRS is the
-   raw attribute.  DIMS is an array of dimensions, which is returned.
-   Returns the function level dimensionality --  the level at which an
-   offload routine wishes to partition a loop.  */
+   raw attribute.  DIMS is an array of dimensions, which is filled in.
+   LEVEL is the partitioning level of a routine, or -1 for an offload
+   region itself.  */
 
-static int
-oacc_validate_dims (tree fn, tree attrs, int *dims)
+static void
+oacc_validate_dims (tree fn, tree attrs, int *dims, int level)
 {
   tree purpose[GOMP_DIM_MAX];
   unsigned ix;
   tree pos = TREE_VALUE (attrs);
-  int fn_level = -1;
+  bool is_kernel = oacc_fn_attrib_kernels_p (attrs);
 
   /* Make sure the attribute creator attached the dimension
      information.  */
@@ -19278,21 +19315,12 @@ oacc_validate_dims (tree fn, tree attrs, int *dims)
   for (ix = 0; ix != GOMP_DIM_MAX; ix++)
     {
       purpose[ix] = TREE_PURPOSE (pos);
-
-      if (purpose[ix])
-	{
-	  if (integer_zerop (purpose[ix]))
-	    fn_level = ix + 1;
-	  else if (fn_level < 0)
-	    fn_level = ix;
-	}
-
       tree val = TREE_VALUE (pos);
       dims[ix] = val ? TREE_INT_CST_LOW (val) : -1;
       pos = TREE_CHAIN (pos);
     }
 
-  bool changed = targetm.goacc.validate_dims (fn, dims, fn_level);
+  bool changed = targetm.goacc.validate_dims (fn, dims, level);
 
   /* Default anything left to 1.  */
   for (ix = 0; ix != GOMP_DIM_MAX; ix++)
@@ -19307,13 +19335,15 @@ oacc_validate_dims (tree fn, tree attrs, int *dims)
       /* Replace the attribute with new values.  */
       pos = NULL_TREE;
       for (ix = GOMP_DIM_MAX; ix--;)
-	pos = tree_cons (purpose[ix],
-			 build_int_cst (integer_type_node, dims[ix]),
-			 pos);
+	{
+	  pos = tree_cons (purpose[ix],
+			   build_int_cst (integer_type_node, dims[ix]),
+			   pos);
+	  if (is_kernel)
+	    TREE_PUBLIC (pos) = 1;
+	}
       replace_oacc_fn_attrib (fn, pos);
     }
-
-  return fn_level;
 }
 
 /* Create an empty OpenACC loop structure at LOC.  */
@@ -19385,7 +19415,7 @@ new_oacc_loop_routine (oacc_loop *parent, gcall *call, tree decl, tree attrs)
 {
   oacc_loop *loop = new_oacc_loop_raw (parent, gimple_location (call));
   int dims[GOMP_DIM_MAX];
-  int level = oacc_validate_dims (decl, attrs, dims);
+  int level = oacc_fn_attrib_level (attrs);
 
   gcc_assert (level >= 0);
 
@@ -20015,13 +20045,30 @@ execute_oacc_device_lower ()
       return TODO_discard_function;
     }
 
-  int dims[GOMP_DIM_MAX];
-  int fn_level = oacc_validate_dims (current_function_decl, attr, dims);
-
   /* Discover, partition and process the loops.  */
   oacc_loop *loops = oacc_loop_discovery ();
+  int fn_level = oacc_fn_attrib_level (attr);
+
+  if (dump_file)
+    fprintf (dump_file, oacc_fn_attrib_kernels_p (attr)
+	     ? "Function is kernels offload\n"
+	     : fn_level < 0 ? "Function is parallel offload\n"
+	     : "Function is routine level %d\n", fn_level);
+
   unsigned outer_mask = fn_level >= 0 ? GOMP_DIM_MASK (fn_level) - 1 : 0;
   oacc_loop_partition (loops, outer_mask);
+
+  int dims[GOMP_DIM_MAX];
+  oacc_validate_dims (current_function_decl, attr, dims, fn_level);
+
+  if (dump_file)
+    {
+      const char *comma = "Compute dimensions [";
+      for (int ix = 0; ix != GOMP_DIM_MAX; ix++, comma = ", ")
+	fprintf (dump_file, "%s%d", comma, dims[ix]);
+      fprintf (dump_file, "]\n");
+    }
+
   oacc_loop_process (loops);
   if (dump_file)
     {

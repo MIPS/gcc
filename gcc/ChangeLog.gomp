@@ -1,3 +1,21 @@
+2015-12-29  Nathan Sidwell  <nathan@acm.org>
+
+	* omp-low.c (set_oacc_fn_attrib): Add IS_KERNEL arg, encode on
+	TREE_PUBLIC.
+	(oacc_fn_attrib_kernels_p): New.
+	(oacc_fn_attrib_level): New.
+	(expand_omp_target): Pass kernels_p to set_oacc_fn_attrib.
+	(oacc_validate_dims): Add LEVEL arg, don't return it.
+	(new_oacc_loop_routine): Use oacc_fn_attrib_level, not
+	oacc_validate_dims.
+	(execute_oacc_device_lower): Use oacc_fn_attrib_level, validate
+	dimensions after discovering loops.  Add more dump info.
+	* omp-low.h (set_oacc_fn_attrib): Add IS_KERNEL arg.
+	(oacc_fn_attrib_kernels_p): Declare.
+	* tree-parloops.c (create_parallel_loop): Adjust
+	set_oacc_fn_attrib call.
+	* tree-ssa-loop.c (gate_oacc_kernels): Use oacc_fn_attrib_kernels_p.
+
 2015-12-28  Nathan Sidwell  <nathan@acm.org>
 
 	* omp-low.c (maybe_discard_oacc_function): New simplification
