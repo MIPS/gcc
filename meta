@@ -1,9 +1,8 @@
 Version: 1
-Previous: 2321378248384bc8a7a00b38f610054628dfcf8e
-Head: e8ebd220652c3f442400df276a062785be6b73fc
+Previous: 83f2cc39bed9a96e5a8c9107eb5b029944a3f0b8
+Head: 2c49f505c7dc10fdf2c9ffff5547d6669e8e4090
 Applied:
-  template-support.patch: 06fdb4cdba5ff4d0045fb5493f76f1594e7fc4e8
-  refresh-temp: e8ebd220652c3f442400df276a062785be6b73fc
+  template-support.patch: 2c49f505c7dc10fdf2c9ffff5547d6669e8e4090
 Unapplied:
   special-memfuncs-testing.patch: 88d7df2eb7f1a4d2054b3eedc79bb97f03d661ee
 Hidden:

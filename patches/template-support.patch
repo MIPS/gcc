@@ -1,5 +1,5 @@
 Bottom: f17dbedac038877f3b5e4f0d2ca1d4b2fd2af3a9
-Top:    c2d275fa0d0f10e7a69d1537e55a195d119dd6db
+Top:    785408457dfd5a19223fd314565b1f156de6db8b
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -8,7 +8,7 @@ extend API to support templates
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 4a6fb7f..69c4c83 100644
+index 4a6fb7f..dc118e5 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
 @@ -204,6 +204,187 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
@@ -267,17 +267,8 @@ index 4a6fb7f..69c4c83 100644
  /* Create a new variably-sized array type.  UPPER_BOUND_NAME is the
     name of a local variable that holds the upper bound of the array;
     it is one less than the array size.  */
-@@ -380,7 +565,7 @@ GCC_METHOD2 (gcc_type, build_vector_type,
-    location.  If this is not known, FILENAME can be NULL and
-    LINE_NUMBER can be 0.  */
- 
--GCC_METHOD5 (int /* bool */, build_constant,
-+GCC_METHOD5 (int /* bool */, build_constant_deprecated,
- 	     gcc_type,		  /* Argument TYPE.  */
- 	     const char *,	  /* Argument NAME.  */
- 	     unsigned long,	  /* Argument VALUE.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
-index 77ad7db..37993b5 100644
+index 77ad7db..95999de 100644
 --- a/include/gcc-cp-interface.h
 +++ b/include/gcc-cp-interface.h
 @@ -41,7 +41,7 @@ struct gcc_cp_context;
@@ -289,7 +280,7 @@ index 77ad7db..37993b5 100644
  };
  
  /* Qualifiers.  */
-@@ -79,6 +79,37 @@ struct gcc_vbase_array
+@@ -79,6 +79,39 @@ struct gcc_vbase_array
    char /* bool */ *virtualp;
  };
  
@@ -299,6 +290,8 @@ index 77ad7db..37993b5 100644
 +
 +typedef unsigned long long gcc_expr;
 +
++/* FIXME: do we need to support argument packs?  */
++
 +typedef enum
 +{ GCC_CP_TPARG_VALUE, GCC_CP_TPARG_CLASS, GCC_CP_TPARG_TEMPL }
 +gcc_cp_template_arg_kind;
@@ -306,7 +299,7 @@ index 77ad7db..37993b5 100644
 +typedef union
 +{ gcc_expr value; gcc_type type; gcc_decl templ; }
 +gcc_cp_template_arg;
-+  
++
 +/* An array of template arguments.  */
 +
 +struct gcc_cp_template_args
@@ -328,7 +321,7 @@ index 77ad7db..37993b5 100644
  
  enum gcc_cp_symbol_kind
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d6551a6..06e3ddb 100644
+index d6551a6..4bbe63d 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -976,13 +976,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
@@ -564,20 +557,6 @@ index d6551a6..06e3ddb 100644
  plugin_build_vla_array_type (cc1_plugin::connection *self,
  			     gcc_type element_type_in,
  			     const char *upper_bound_name)
-@@ -1319,9 +1481,10 @@ plugin_build_vector_type (cc1_plugin::connection *self,
- }
- 
- int
--plugin_build_constant (cc1_plugin::connection *self, gcc_type type_in,
--		       const char *name, unsigned long value,
--		       const char *filename, unsigned int line_number)
-+plugin_build_constant_deprecated (cc1_plugin::connection *self,
-+				  gcc_type type_in,
-+				  const char *name, unsigned long value,
-+				  const char *filename, unsigned int line_number)
- {
-   plugin_context *ctx = static_cast<plugin_context *> (self);
-   tree cst, decl;
 diff --git a/libcc1/marshall-cp.hh b/libcc1/marshall-cp.hh
 index 5f6fc65..8ce13ee 100644
 --- a/libcc1/marshall-cp.hh
