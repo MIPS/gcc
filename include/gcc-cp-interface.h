@@ -85,6 +85,8 @@ struct gcc_vbase_array
 
 typedef unsigned long long gcc_expr;
 
+/* FIXME: do we need to support argument packs?  */
+
 typedef enum
 { GCC_CP_TPARG_VALUE, GCC_CP_TPARG_CLASS, GCC_CP_TPARG_TEMPL }
 gcc_cp_template_arg_kind;
@@ -92,7 +94,7 @@ gcc_cp_template_arg_kind;
 typedef union
 { gcc_expr value; gcc_type type; gcc_decl templ; }
 gcc_cp_template_arg;
-  
+
 /* An array of template arguments.  */
 
 struct gcc_cp_template_args

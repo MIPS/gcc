@@ -565,7 +565,7 @@ GCC_METHOD2 (gcc_type, build_vector_type,
    location.  If this is not known, FILENAME can be NULL and
    LINE_NUMBER can be 0.  */
 
-GCC_METHOD5 (int /* bool */, build_constant_deprecated,
+GCC_METHOD5 (int /* bool */, build_constant,
 	     gcc_type,		  /* Argument TYPE.  */
 	     const char *,	  /* Argument NAME.  */
 	     unsigned long,	  /* Argument VALUE.  */

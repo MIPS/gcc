@@ -1481,10 +1481,9 @@ plugin_build_vector_type (cc1_plugin::connection *self,
 }
 
 int
-plugin_build_constant_deprecated (cc1_plugin::connection *self,
-				  gcc_type type_in,
-				  const char *name, unsigned long value,
-				  const char *filename, unsigned int line_number)
+plugin_build_constant (cc1_plugin::connection *self, gcc_type type_in,
+		       const char *name, unsigned long value,
+		       const char *filename, unsigned int line_number)
 {
   plugin_context *ctx = static_cast<plugin_context *> (self);
   tree cst, decl;
