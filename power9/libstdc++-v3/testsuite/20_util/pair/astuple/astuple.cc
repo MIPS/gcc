@@ -24,6 +24,10 @@
 typedef std::pair<int, long> test_type;
 
 static_assert( std::tuple_size<test_type>::value == 2, "size is 2" );
+static_assert( std::tuple_size<const test_type>::value == 2, "size is 2" );
+static_assert( std::tuple_size<volatile test_type>::value == 2, "size is 2" );
+static_assert( std::tuple_size<const volatile test_type>::value == 2,
+               "size is 2" );
 
 template<std::size_t N, typename T>
   using Tuple_elt = typename std::tuple_element<N, T>::type;
@@ -35,3 +39,27 @@ static_assert( is_same<Tuple_elt<0, test_type>, test_type::first_type>::value,
 
 static_assert( is_same<Tuple_elt<1, test_type>, test_type::second_type>::value,
                "second type is long" );
+
+static_assert( is_same<Tuple_elt<0, const test_type>,
+               const test_type::first_type>::value,
+               "first type is const int" );
+
+static_assert( is_same<Tuple_elt<1, const test_type>,
+               const test_type::second_type>::value,
+               "second type is const long" );
+
+static_assert( is_same<Tuple_elt<0, volatile test_type>,
+               volatile test_type::first_type>::value,
+               "first type is volatile int" );
+
+static_assert( is_same<Tuple_elt<1, volatile test_type>,
+               volatile test_type::second_type>::value,
+               "second type is volatile long" );
+
+static_assert( is_same<Tuple_elt<0, const volatile test_type>,
+               const volatile test_type::first_type>::value,
+               "first type is const volatile int" );
+
+static_assert( is_same<Tuple_elt<1, const volatile test_type>,
+               const volatile test_type::second_type>::value,
+               "second type is const volatile long" );

@@ -2689,6 +2689,46 @@ cp_parser_is_keyword (cp_token* token, enum rid keyword)
   return token->keyword == keyword;
 }
 
+/* Helper function for cp_parser_error.
+   Having peeked a token of kind TOK1_KIND that might signify
+   a conflict marker, peek successor tokens to determine
+   if we actually do have a conflict marker.
+   Specifically, we consider a run of 7 '<', '=' or '>' characters
+   at the start of a line as a conflict marker.
+   These come through the lexer as three pairs and a single,
+   e.g. three CPP_LSHIFT tokens ("<<") and a CPP_LESS token ('<').
+   If it returns true, *OUT_LOC is written to with the location/range
+   of the marker.  */
+
+static bool
+cp_lexer_peek_conflict_marker (cp_lexer *lexer, enum cpp_ttype tok1_kind,
+			       location_t *out_loc)
+{
+  cp_token *token2 = cp_lexer_peek_nth_token (lexer, 2);
+  if (token2->type != tok1_kind)
+    return false;
+  cp_token *token3 = cp_lexer_peek_nth_token (lexer, 3);
+  if (token3->type != tok1_kind)
+    return false;
+  cp_token *token4 = cp_lexer_peek_nth_token (lexer, 4);
+  if (token4->type != conflict_marker_get_final_tok_kind (tok1_kind))
+    return false;
+
+  /* It must be at the start of the line.  */
+  location_t start_loc = cp_lexer_peek_token (lexer)->location;
+  if (LOCATION_COLUMN (start_loc) != 1)
+    return false;
+
+  /* We have a conflict marker.  Construct a location of the form:
+       <<<<<<<
+       ^~~~~~~
+     with start == caret, finishing at the end of the marker.  */
+  location_t finish_loc = get_finish (token4->location);
+  *out_loc = make_location (start_loc, start_loc, finish_loc);
+
+  return true;
+}
+
 /* If not parsing tentatively, issue a diagnostic of the form
       FILE:LINE: MESSAGE before TOKEN
    where TOKEN is the next token in the input stream.  MESSAGE
@@ -2711,6 +2751,19 @@ cp_parser_error (cp_parser* parser, const char* gmsgid)
 		    "%<#pragma%> is not allowed here");
 	  cp_parser_skip_to_pragma_eol (parser, token);
 	  return;
+	}
+
+      /* If this is actually a conflict marker, report it as such.  */
+      if (token->type == CPP_LSHIFT
+	  || token->type == CPP_RSHIFT
+	  || token->type == CPP_EQ_EQ)
+	{
+	  location_t loc;
+	  if (cp_lexer_peek_conflict_marker (parser->lexer, token->type, &loc))
+	    {
+	      error_at (loc, "version control conflict marker in file");
+	      return;
+	    }
 	}
 
       c_parse_error (gmsgid,
@@ -16827,7 +16880,7 @@ cp_parser_elaborated_type_specifier (cp_parser* parser,
     {
       /* Indicate whether this class was declared as a `class' or as a
 	 `struct'.  */
-      if (TREE_CODE (type) == RECORD_TYPE)
+      if (CLASS_TYPE_P (type))
 	CLASSTYPE_DECLARED_CLASS (type) = (tag_type == class_type);
       cp_parser_check_class_key (tag_type, type);
     }
@@ -25589,7 +25642,8 @@ cp_parser_single_declaration (cp_parser* parser,
   /* Check for the declaration of a template class.  */
   if (declares_class_or_enum)
     {
-      if (cp_parser_declares_only_class_p (parser))
+      if (cp_parser_declares_only_class_p (parser)
+	  || (declares_class_or_enum & 2))
 	{
 	  // If this is a declaration, but not a definition, associate
 	  // any constraints with the type declaration. Constraints
@@ -25620,6 +25674,19 @@ cp_parser_single_declaration (cp_parser* parser,
 
 	  /* Perform access checks for template parameters.  */
 	  cp_parser_perform_template_parameter_access_checks (checks);
+
+	  /* Give a helpful diagnostic for
+	       template <class T> struct A { } a;
+	     if we aren't already recovering from an error.  */
+	  if (!cp_parser_declares_only_class_p (parser)
+	      && !seen_error ())
+	    {
+	      error_at (cp_lexer_peek_token (parser->lexer)->location,
+			"a class template declaration must not declare "
+			"anything else");
+	      cp_parser_skip_to_end_of_block_or_statement (parser);
+	      goto out;
+	    }
 	}
     }
 
@@ -32030,7 +32097,7 @@ cp_parser_oacc_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "tile";
 	  break;
 	case PRAGMA_OACC_CLAUSE_USE_DEVICE:
-	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_USE_DEVICE,
+	  clauses = cp_parser_omp_var_list (parser, OMP_CLAUSE_USE_DEVICE_PTR,
 					    clauses);
 	  c_name = "use_device";
 	  break;

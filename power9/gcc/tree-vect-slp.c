@@ -1049,11 +1049,29 @@ vect_build_slp_tree (vec_info *vinfo,
 		 if we end up building the operand from scalars as
 		 we'll continue to process swapped operand two.  */
 	      for (j = 0; j < group_size; ++j)
-		if (!matches[j])
+		{
+		  gimple *stmt = SLP_TREE_SCALAR_STMTS (*node)[j];
+		  gimple_set_plf (stmt, GF_PLF_1, false);
+		}
+	      for (j = 0; j < group_size; ++j)
+		{
+		  gimple *stmt = SLP_TREE_SCALAR_STMTS (*node)[j];
+		  if (!matches[j])
+		    {
+		      /* Avoid swapping operands twice.  */
+		      if (gimple_plf (stmt, GF_PLF_1))
+			continue;
+		      swap_ssa_operands (stmt, gimple_assign_rhs1_ptr (stmt),
+					 gimple_assign_rhs2_ptr (stmt));
+		      gimple_set_plf (stmt, GF_PLF_1, true);
+		    }
+		}
+	      /* Verify we swap all duplicates or none.  */
+	      if (flag_checking)
+		for (j = 0; j < group_size; ++j)
 		  {
 		    gimple *stmt = SLP_TREE_SCALAR_STMTS (*node)[j];
-		    swap_ssa_operands (stmt, gimple_assign_rhs1_ptr (stmt),
-				       gimple_assign_rhs2_ptr (stmt));
+		    gcc_assert (gimple_plf (stmt, GF_PLF_1) == ! matches[j]);
 		  }
 
 	      /* If we have all children of child built up from scalars then
@@ -1402,10 +1420,9 @@ vect_analyze_slp_cost_1 (slp_instance instance, slp_tree node,
 {
   unsigned i, j;
   slp_tree child;
-  gimple *stmt, *s;
+  gimple *stmt;
   stmt_vec_info stmt_info;
   tree lhs;
-  unsigned group_size = SLP_INSTANCE_GROUP_SIZE (instance);
 
   /* Recurse down the SLP tree.  */
   FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), i, child)
@@ -1424,44 +1441,39 @@ vect_analyze_slp_cost_1 (slp_instance instance, slp_tree node,
 			       node, prologue_cost_vec, body_cost_vec);
       else
 	{
-	  int i;
 	  gcc_checking_assert (DR_IS_READ (STMT_VINFO_DATA_REF (stmt_info)));
-	  /* If the load is permuted then the alignment is determined by
-	     the first group element not by the first scalar stmt DR.  */
 	  if (SLP_TREE_LOAD_PERMUTATION (node).exists ())
 	    {
+	      /* If the load is permuted then the alignment is determined by
+		 the first group element not by the first scalar stmt DR.  */
 	      stmt = GROUP_FIRST_ELEMENT (stmt_info);
 	      stmt_info = vinfo_for_stmt (stmt);
+	      /* Record the cost for the permutation.  */
+	      record_stmt_cost (body_cost_vec, ncopies_for_cost, vec_perm,
+				stmt_info, 0, vect_body);
+	      /* And adjust the number of loads performed.  */
+	      unsigned nunits
+		= TYPE_VECTOR_SUBPARTS (STMT_VINFO_VECTYPE (stmt_info));
+	      ncopies_for_cost
+	        = (GROUP_SIZE (stmt_info) - GROUP_GAP (stmt_info)
+		   + nunits - 1) / nunits;
+	      ncopies_for_cost *= SLP_INSTANCE_UNROLLING_FACTOR (instance);
 	    }
+	  /* Record the cost for the vector loads.  */
 	  vect_model_load_cost (stmt_info, ncopies_for_cost, false,
 				node, prologue_cost_vec, body_cost_vec);
-	  /* If the load is permuted record the cost for the permutation.
-	     ???  Loads from multiple chains are let through here only
-	     for a single special case involving complex numbers where
-	     in the end no permutation is necessary.  */
-	  FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (node), i, s)
-	    if ((STMT_VINFO_GROUP_FIRST_ELEMENT (vinfo_for_stmt (s))
-		 == STMT_VINFO_GROUP_FIRST_ELEMENT (stmt_info))
-		&& vect_get_place_in_interleaving_chain
-		     (s, STMT_VINFO_GROUP_FIRST_ELEMENT (stmt_info)) != i)
-	      {
-		record_stmt_cost (body_cost_vec, group_size, vec_perm,
-				  stmt_info, 0, vect_body);
-		break;
-	      }
 	}
+      return;
     }
-  else
+
+  record_stmt_cost (body_cost_vec, ncopies_for_cost, vector_stmt,
+		    stmt_info, 0, vect_body);
+  if (SLP_TREE_TWO_OPERATORS (node))
     {
       record_stmt_cost (body_cost_vec, ncopies_for_cost, vector_stmt,
 			stmt_info, 0, vect_body);
-      if (SLP_TREE_TWO_OPERATORS (node))
-	{
-	  record_stmt_cost (body_cost_vec, ncopies_for_cost, vector_stmt,
-			    stmt_info, 0, vect_body);
-	  record_stmt_cost (body_cost_vec, ncopies_for_cost, vec_perm,
-			    stmt_info, 0, vect_body);
-	}
+      record_stmt_cost (body_cost_vec, ncopies_for_cost, vec_perm,
+			stmt_info, 0, vect_body);
     }
 
   /* Push SLP node def-type to stmts.  */
@@ -2209,12 +2221,6 @@ vect_slp_analyze_node_operations (slp_tree node)
     if (!vect_slp_analyze_node_operations (child))
       return false;
 
-  /* Push SLP node def-type to stmts.  */
-  FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), i, child)
-    if (SLP_TREE_DEF_TYPE (child) != vect_internal_def)
-      FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (child), j, stmt)
-	STMT_VINFO_DEF_TYPE (vinfo_for_stmt (stmt)) = SLP_TREE_DEF_TYPE (child);
-
   bool res = true;
   FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (node), i, stmt)
     {
@@ -2222,18 +2228,20 @@ vect_slp_analyze_node_operations (slp_tree node)
       gcc_assert (stmt_info);
       gcc_assert (STMT_SLP_TYPE (stmt_info) != loop_vect);
 
-      if (!vect_analyze_stmt (stmt, &dummy, node))
-	{
-	  res = false;
-	  break;
-	}
+      /* Push SLP node def-type to stmt operands.  */
+      FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), j, child)
+	if (SLP_TREE_DEF_TYPE (child) != vect_internal_def)
+	  STMT_VINFO_DEF_TYPE (vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (child)[i]))
+	    = SLP_TREE_DEF_TYPE (child);
+      res = vect_analyze_stmt (stmt, &dummy, node);
+      /* Restore def-types.  */
+      FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), j, child)
+	if (SLP_TREE_DEF_TYPE (child) != vect_internal_def)
+	  STMT_VINFO_DEF_TYPE (vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (child)[i]))
+	    = vect_internal_def;
+      if (! res)
+	break;
     }
-
-  /* Restore stmt def-types.  */
-  FOR_EACH_VEC_ELT (SLP_TREE_CHILDREN (node), i, child)
-    if (SLP_TREE_DEF_TYPE (child) != vect_internal_def)
-      FOR_EACH_VEC_ELT (SLP_TREE_SCALAR_STMTS (child), j, stmt)
-	STMT_VINFO_DEF_TYPE (vinfo_for_stmt (stmt)) = vect_internal_def;
 
   return res;
 }

@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cilk.h"
 #include "gomp-constants.h"
 #include "spellcheck.h"
+#include "gcc-rich-location.h"
 
 /* Possible cases of implicit bad conversions.  Used to select
    diagnostic messages in convert_for_assignment.  */
@@ -2348,6 +2349,18 @@ build_component_ref (location_t loc, tree datum, tree component)
 	  return error_mark_node;
 	}
 
+      /* Accessing elements of atomic structures or unions is undefined
+	 behavior (C11 6.5.2.3#5).  */
+      if (TYPE_ATOMIC (type) && c_inhibit_evaluation_warnings == 0)
+	{
+	  if (code == RECORD_TYPE)
+	    warning_at (loc, 0, "accessing a member %qE of an atomic "
+			"structure %qE", component, datum);
+	  else
+	    warning_at (loc, 0, "accessing a member %qE of an atomic "
+			"union %qE", component, datum);
+	}
+
       /* Chain the COMPONENT_REFs if necessary down to the FIELD.
 	 This might be better solved in future the way the C++ front
 	 end does it - by giving the anonymous entities each a
@@ -3814,6 +3827,7 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   newval = create_tmp_var_raw (nonatomic_lhs_type);
   newval_addr = build_unary_op (loc, ADDR_EXPR, newval, 0);
   TREE_ADDRESSABLE (newval) = 1;
+  TREE_NO_WARNING (newval) = 1;
 
   loop_decl = create_artificial_label (loc);
   loop_label = build1 (LABEL_EXPR, void_type_node, loop_decl);
@@ -9544,24 +9558,36 @@ c_finish_return (location_t loc, tree retval, tree origtype)
       if ((warn_return_type || flag_isoc99)
 	  && valtype != 0 && TREE_CODE (valtype) != VOID_TYPE)
 	{
+	  bool warned_here;
 	  if (flag_isoc99)
-	    pedwarn (loc, 0, "%<return%> with no value, in "
-		     "function returning non-void");
+	    warned_here = pedwarn
+	      (loc, 0,
+	       "%<return%> with no value, in function returning non-void");
 	  else
-	    warning_at (loc, OPT_Wreturn_type, "%<return%> with no value, "
-			"in function returning non-void");
+	    warned_here = warning_at
+	      (loc, OPT_Wreturn_type,
+	       "%<return%> with no value, in function returning non-void");
 	  no_warning = true;
+	  if (warned_here)
+	    inform (DECL_SOURCE_LOCATION (current_function_decl),
+		    "declared here");
 	}
     }
   else if (valtype == 0 || TREE_CODE (valtype) == VOID_TYPE)
     {
       current_function_returns_null = 1;
+      bool warned_here;
       if (TREE_CODE (TREE_TYPE (retval)) != VOID_TYPE)
-	pedwarn (xloc, 0,
-		 "%<return%> with a value, in function returning void");
+	warned_here = pedwarn
+	  (xloc, 0,
+	   "%<return%> with a value, in function returning void");
       else
-	pedwarn (xloc, OPT_Wpedantic, "ISO C forbids "
-		 "%<return%> with expression, in function returning void");
+	warned_here = pedwarn
+	  (xloc, OPT_Wpedantic, "ISO C forbids "
+	   "%<return%> with expression, in function returning void");
+      if (warned_here)
+	inform (DECL_SOURCE_LOCATION (current_function_decl),
+		"declared here");
     }
   else
     {
@@ -10130,7 +10156,7 @@ c_process_expr_stmt (location_t loc, tree expr)
      out which is the result.  */
   if (!STATEMENT_LIST_STMT_EXPR (cur_stmt_list)
       && warn_unused_value)
-    emit_side_effect_warnings (loc, expr);
+    emit_side_effect_warnings (EXPR_LOC_OR_LOC (expr, loc), expr);
 
   exprv = expr;
   while (TREE_CODE (exprv) == COMPOUND_EXPR)
@@ -11189,7 +11215,10 @@ build_binary_op (location_t location, enum tree_code code,
       && (!tree_int_cst_equal (TYPE_SIZE (type0), TYPE_SIZE (type1))
 	  || !vector_types_compatible_elements_p (type0, type1)))
     {
-      binary_op_error (location, code, type0, type1);
+      gcc_rich_location richloc (location);
+      richloc.maybe_add_expr (orig_op0);
+      richloc.maybe_add_expr (orig_op1);
+      binary_op_error (&richloc, code, type0, type1);
       return error_mark_node;
     }
 
@@ -11428,7 +11457,10 @@ build_binary_op (location_t location, enum tree_code code,
 
   if (!result_type)
     {
-      binary_op_error (location, code, TREE_TYPE (op0), TREE_TYPE (op1));
+      gcc_rich_location richloc (location);
+      richloc.maybe_add_expr (orig_op0);
+      richloc.maybe_add_expr (orig_op1);
+      binary_op_error (&richloc, code, TREE_TYPE (op0), TREE_TYPE (op1));
       return error_mark_node;
     }
 
@@ -13093,7 +13125,6 @@ c_finish_omp_clauses (tree clauses, bool is_omp, bool declare_simd)
 	  bitmap_set_bit (&map_head, DECL_UID (t));
 	  goto check_dup_generic;
 
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_IS_DEVICE_PTR:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	  t = OMP_CLAUSE_DECL (c);
