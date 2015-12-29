@@ -85,6 +85,14 @@ struct gcc_vbase_array
 
 typedef unsigned long long gcc_expr;
 
+typedef enum
+{ GCC_CP_TPARG_VALUE, GCC_CP_TPARG_CLASS, GCC_CP_TPARG_TEMPL }
+gcc_cp_template_arg_kind;
+
+typedef union
+{ gcc_expr value; gcc_type type; gcc_decl templ; }
+gcc_cp_template_arg;
+  
 /* An array of template arguments.  */
 
 struct gcc_cp_template_args
@@ -93,14 +101,13 @@ struct gcc_cp_template_args
 
   int n_elements;
 
-  /* Indicate whether an argument is a type.
-     elements[i] is a type iff typep[i].  */
+  /* kind[i] indicates what kind of template argument type[i] is.  */
 
-  char /* bool */ *typep;
+  char /* gcc_cp_template_arg_kind */ *kinds;
 
-  /* The base classes.  */
+  /* The template arguments.  */
 
-  union { gcc_expr value; gcc_type type; } *elements;
+  gcc_cp_template_arg *elements;
 };
 
 /* This enumerates the kinds of decls that GDB can create.  */
