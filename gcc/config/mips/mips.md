@@ -4750,6 +4750,74 @@
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
+(define_insn "mips16_copy_1"
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
+			 (match_operand 2 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
+			 (match_dup 2))))]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  "copy\t%0,%1,%2,1"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
+(define_insn "mips16_copy_2"
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
+			 (match_operand 2 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
+			 (match_dup 2))))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand 3 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_dup 2)
+			 (match_dup 3))))]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  "copy\t%0,%1,%2,2"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
+(define_insn "mips16_copy_3"
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
+			 (match_operand 2 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
+			 (match_dup 2))))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand 3 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_dup 2)
+			 (match_dup 3))))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand 4 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_dup 2)
+			 (match_dup 4))))]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  "copy\t%0,%1,%2,3"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
+(define_insn "mips16_copy_4"
+  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
+			 (match_operand 2 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
+			 (match_dup 2))))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand 3 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_dup 2)
+			 (match_dup 3))))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand 4 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_dup 2)
+			 (match_dup 4))))
+   (set (mem:SI (plus:SI (match_dup 0)
+			 (match_operand 5 "immediate_operand" "I")))
+	(mem:SI (plus:SI (match_dup 2)
+			 (match_dup 5))))]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  "copy\t%0,%1,%2,4"
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
 ;; On the mips16, we can split ld $r,N($r) into an add and a load,
 ;; when the original load is a 4 byte instruction but the add and the
 ;; load are 2 2 byte instructions.
@@ -5642,7 +5710,8 @@
 		   (match_operand:BLK 1 "general_operand"))
 	      (use (match_operand:SI 2 ""))
 	      (use (match_operand:SI 3 "const_int_operand"))])]
-  "!TARGET_MIPS16 && !TARGET_MEMCPY"
+  "(!TARGET_MIPS16 || TARGET_MIPS16_COPY)
+   && !TARGET_MEMCPY"
 {
   if (mips_expand_block_move (operands[0], operands[1], operands[2]))
     DONE;

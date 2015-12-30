@@ -609,3 +609,7 @@ Redirect dead loads to $0 to avoid spurious output dependencies
 mmips16-gp
 Target Var(TARGET_MIPS16_GP) Init(0)
 Enable direct use of GP in MIPS16
+
+mmips16-copy
+Target Var(TARGET_MIPS16_COPY) Init(0)
+Enable use of the MIPS16 COPY and UCOPY instructions
