@@ -4639,6 +4639,47 @@
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
+;; Operand 0 is the register containing the destination address
+;; Operand 1 is the register containing the source address 
+;; Operand 2 is a byte offset to use for both the source and dest addresses
+;; Operand 3 is the number of words to copy (1,2,3, or 4)
+;; Operand 4 is a constant integer value for the known alignment.
+
+(define_expand "mips16_copy"
+  [(parallel
+    [(set (match_operand 0 "" "")
+	  (match_operand 1 "" ""))
+     (use (match_operand 2 "" ""))
+     (use (match_operand 3 "" ""))
+     (use (match_operand 4 "" ""))
+     (clobber (reg:SI 12))
+     (clobber (reg:SI 13))
+     (clobber (reg:SI 14))
+     (clobber (reg:SI 15))])]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  "")
+
+(define_insn ""
+  [(set (mem:BLK (match_operand:SI 0 "register_operand" "d"))
+	(mem:BLK (match_operand:SI 1 "register_operand" "d")))
+   (use (match_operand:SI 2 "const_int_operand"))
+   (use (match_operand:SI 3 "const_int_operand"))
+   (use (match_operand:SI 4 "const_int_operand"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  {
+    if (INTVAL (operands[4]) < 4)
+      return "ucopy\t%0,%1,%2,%3";
+    else
+      return "copy\t%0,%1,%2,%3";
+  }
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
 ;; On the mips16, we can split ld $r,N($r) into an add and a load,
 ;; when the original load is a 4 byte instruction but the add and the
 ;; load are 2 2 byte instructions.
@@ -5531,12 +5572,20 @@
 		   (match_operand:BLK 1 "general_operand"))
 	      (use (match_operand:SI 2 ""))
 	      (use (match_operand:SI 3 "const_int_operand"))])]
-  "!TARGET_MIPS16 && !TARGET_MEMCPY"
+  "(!TARGET_MIPS16 || TARGET_MIPS16_COPY)
+   && !TARGET_MEMCPY"
 {
-  if (mips_expand_block_move (operands[0], operands[1], operands[2]))
-    DONE;
+  if (TARGET_MIPS16 && TARGET_MIPS16_COPY)
+    if (mips16_expand_copy (operands[0], operands[1],
+			    operands[2], operands[3]))
+      DONE;
+    else
+      FAIL;
   else
-    FAIL;
+    if (mips_expand_block_move (operands[0], operands[1], operands[2]))
+      DONE;
+    else
+      FAIL;
 })
 
 ;;
