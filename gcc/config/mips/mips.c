@@ -8952,6 +8952,64 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     mips_block_move_straight (dest, src, leftover);
 }
 
+/* Expand a movmemsi instruction using the mips16 copy instruction.  */
+
+bool
+mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
+{
+  int word_count, byte_count, offset;
+
+  gcc_assert (!TARGET_64BIT);
+
+  if (!CONST_INT_P (length))
+    return false;
+
+  byte_count = INTVAL (length);
+
+  if ((mips_movmem_limit > 0) && (byte_count > mips_movmem_limit))
+    return false;
+
+  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT * UNITS_PER_WORD)
+    return false;
+
+  word_count = byte_count / UNITS_PER_WORD;
+  byte_count = byte_count % UNITS_PER_WORD;
+  offset = 0;
+  rtx src2 = force_reg (Pmode, XEXP (src, 0));
+  rtx dest2 = force_reg (Pmode, XEXP (dest, 0));
+
+  while (word_count > 0)
+    {
+      if (word_count >= 4)
+	{
+	  emit_insn (gen_mips16_copy (dest2, src2, GEN_INT (offset),
+				      GEN_INT (4), alignment));
+	  offset = offset + 16;
+	  word_count = word_count - 4;
+	}
+      else
+	{
+	  emit_insn (gen_mips16_copy (dest2, src2, GEN_INT (offset),
+				      GEN_INT (word_count), alignment));
+	  offset = offset + word_count * 4;
+	  word_count = 0;
+	}
+      if (offset > 496)
+	{
+	  src2 = adjust_address (src2, BLKmode, offset);
+	  dest2 = adjust_address (dest2, BLKmode, offset);
+	  offset = 0;
+	}
+    }
+  if (byte_count > 0)
+    {
+      src2 = adjust_address (src2, BLKmode, offset);
+      dest2 = adjust_address (dest2, BLKmode, offset);
+      move_by_pieces (dest2, src2, byte_count, INTVAL (alignment) , 0);
+    }
+  return true;
+}
+
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
    memory reference SRC to memory reference DEST.  */
 
@@ -8967,7 +9025,7 @@ mips_expand_block_move (rtx dest, rtx src, rtx length)
     {
       if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
-	  if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
+      	  if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
 	    {
 	      mips_block_move_straight (dest, src, INTVAL (length));
 	      return true;
