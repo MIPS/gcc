@@ -1,5 +1,5 @@
 Bottom: f17dbedac038877f3b5e4f0d2ca1d4b2fd2af3a9
-Top:    5f627b7cd44566808f29aefd8cf32dcbdd1e4535
+Top:    a988682169cf10c36f41118506c0a5f6fde4d5c2
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -8,10 +8,10 @@ extend API to support templates
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 4a6fb7f..ce1db70 100644
+index 4a6fb7f..da26426 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -204,6 +204,187 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
+@@ -204,6 +204,188 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
  	     gcc_type,			   /* Argument CLASS_TYPE.  */
  	     gcc_type) 			   /* Argument MEMBER_TYPE.  */
  
@@ -44,8 +44,9 @@ index 4a6fb7f..ce1db70 100644
 +   template parameter.  FILENAME and LINE_NUMBER may specify the
 +   source location in which the template parameter was declared.  */
 +
-+GCC_METHOD4 (gcc_decl, new_template_template_parm,
++GCC_METHOD5 (gcc_decl, new_template_template_parm,
 +	     const char *,			      /* Argument ID.  */
++	     int /* bool */,			  /* Argument PACK_P.  */
 +	     gcc_decl,			   /* Argument DEFAULT_TEMPL.  */
 +	     const char *,			/* Argument FILENAME.  */
 +	     unsigned int)		     /* Argument LINE_NUMBER.  */
@@ -199,7 +200,7 @@ index 4a6fb7f..ce1db70 100644
  /* Create a new 'class' (or 'struct') type, record it in the current
     binding level, and enter its own binding level.  Initially it has
     no fields.
-@@ -232,14 +413,14 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
+@@ -232,14 +414,14 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
@@ -219,7 +220,7 @@ index 4a6fb7f..ce1db70 100644
  	     const char *,		   /* Argument FIELD_NAME.  */
  	     gcc_type,			   /* Argument FIELD_TYPE.  */
  	     unsigned long,		   /* Argument BITSIZE.  */
-@@ -250,8 +431,7 @@ GCC_METHOD5 (int /* bool */, new_field,
+@@ -250,8 +432,7 @@ GCC_METHOD5 (int /* bool */, new_field,
     cleanups in GCC, and pops to the binding level that was in effect
     before the matching build_class_type or build_union_type.  */
  
@@ -229,7 +230,7 @@ index 4a6fb7f..ce1db70 100644
  	     unsigned long)		   /* Argument SIZE_IN_BYTES.  */
  
  /* Create a new 'enum' type, and record it in the current binding
-@@ -267,8 +447,8 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
+@@ -267,8 +448,8 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
@@ -240,7 +241,7 @@ index 4a6fb7f..ce1db70 100644
  
  GCC_METHOD3 (int /* bool */, build_add_enum_constant,
  	     gcc_type,		       /* Argument ENUM_TYPE.  */
-@@ -347,6 +527,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
+@@ -347,6 +528,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
  	     gcc_type,			  /* Argument ELEMENT_TYPE.  */
  	     int)			  /* Argument NUM_ELEMENTS.  */
  
@@ -308,10 +309,18 @@ index 77ad7db..95999de 100644
  
  enum gcc_cp_symbol_kind
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d6551a6..2929748 100644
+index d6551a6..097929258 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
-@@ -976,13 +976,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+@@ -60,6 +60,7 @@
+ #include "diagnostic.h"
+ #include "langhooks.h"
+ #include "langhooks-def.h"
++#include "decl.h"
+ 
+ #include "callbacks.hh"
+ #include "connection.hh"
+@@ -976,13 +977,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
  
  int
  plugin_new_field (cc1_plugin::connection *,
@@ -326,7 +335,7 @@ index d6551a6..2929748 100644
    tree field_type = convert_in (field_type_in);
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
-@@ -1022,10 +1021,9 @@ plugin_new_field (cc1_plugin::connection *,
+@@ -1022,10 +1022,9 @@ plugin_new_field (cc1_plugin::connection *,
  
  int
  plugin_finish_record_or_union (cc1_plugin::connection *,
@@ -338,14 +347,31 @@ index d6551a6..2929748 100644
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
  
-@@ -1208,6 +1206,164 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1034,6 +1033,8 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+   gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
+ 				size_in_bytes) == 0);
+ 
++  // FIXME: end_template_decl if it's a template?
++
+   return 1;
+ }
+ 
+@@ -1208,6 +1209,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
++/* Abuse an unused field of the dummy template parms entry to hold the
++   parm list.  */
++#define TP_PARM_LIST TREE_TYPE (current_template_parms)
++
 +int
-+plugin_start_new_template_decl (cc1_plugin::connection *self)
++plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
 +{
-+  /* FIXME: implement.  */
++  begin_template_parm_list ();
++
++  TP_PARM_LIST = NULL_TREE;
++
++  return 0;
 +}
 +
 +gcc_type
@@ -356,17 +382,50 @@ index d6551a6..2929748 100644
 +				   const char *filename,
 +				   unsigned int line_number)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  source_location loc = ctx->get_source_location (filename, line_number);
++
++  tree parm = finish_template_type_parm (class_type_node, get_identifier (id));
++  parm = build_tree_list (convert_in (default_type), parm);
++
++  gcc_assert (!(pack_p && default_type));
++
++  /* Create a type and a decl for the type parm, and add the decl to
++     TP_PARM_LIST.  */
++  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
++					/* is_non_type = */ false, pack_p);
++
++  /* Return the type of the newly-added parm decl.  */
++  return convert_out (ctx->preserve (TREE_TYPE (tree_last (TP_PARM_LIST))));
 +}
 +
 +gcc_decl
 +plugin_new_template_template_parm (cc1_plugin::connection *self,
 +				   const char *id,
++				   int /* bool */ pack_p,
 +				   gcc_decl default_templ,
 +				   const char *filename,
 +				   unsigned int line_number)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  source_location loc = ctx->get_source_location (filename, line_number);
++
++  /* Finish the template parm list that started this template parm.  */
++  end_template_parm_list (TP_PARM_LIST);
++
++  tree parm = finish_template_template_parm (class_type_node,
++					     get_identifier (id));
++  parm = build_tree_list (convert_in (default_templ), parm);
++
++  gcc_assert (!(pack_p && default_templ));
++
++  /* Create a type and a decl for the template parm, and add the decl
++     to TP_PARM_LIST.  */
++  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
++					/* is_non_type = */ false, pack_p);
++
++  /* Return the decl of the newly-added template template parm.  */
++  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
 +}
 +
 +gcc_decl
@@ -377,7 +436,34 @@ index d6551a6..2929748 100644
 +				const char *filename,
 +				unsigned int line_number)
 +{
-+  /* FIXME: implement.  */
++  plugin_context *ctx = static_cast<plugin_context *> (self);
++  source_location loc = ctx->get_source_location (filename, line_number);
++
++  cp_declarator declarator;
++  memset (&declarator, 0, sizeof (declarator));
++  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none);
++  declarator.kind = cdk_id;
++  declarator.u.id.qualifying_scope = NULL;
++  declarator.u.id.unqualified_name = get_identifier (id);
++  declarator.u.id.sfk = sfk_none;
++
++  cp_decl_specifier_seq declspec;
++  memset (&declspec, 0, sizeof (declspec));
++  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false);
++  declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
++  declspec.type = convert_in (type);
++  declspec.locations[ds_type_spec] = loc;
++
++  tree parm = grokdeclarator (&declarator, &declspec, TPARM, 0, 0);
++  parm = build_tree_list (convert_in (default_value), parm);
++
++  /* Create a type and a decl for the template parm, and add the decl
++     to TP_PARM_LIST.  */
++  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
++					/* is_non_type = */ true, false);
++
++  /* Return the newly-added parm decl.  */
++  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
 +}
 +
 +gcc_type
@@ -486,7 +572,7 @@ index d6551a6..2929748 100644
 +				     const char *filename,
 +				     unsigned int line_number)
 +{
-+  /* FIXME: implement.  */
++  /* FIXME: implement.  See begin|end_specialization.  */
 +}
 +
 +gcc_type
@@ -497,13 +583,13 @@ index d6551a6..2929748 100644
 +					const char *filename,
 +					unsigned int line_number)
 +{
-+  /* FIXME: implement.  */
++  /* FIXME: implement.  See begin|end_specialization.  */
 +}
 +
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1266,6 +1422,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1266,6 +1493,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
