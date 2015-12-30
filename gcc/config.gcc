@@ -1403,7 +1403,7 @@ x86_64-*-darwin*)
 	tm_file="${tm_file} ${cpu_type}/darwin64.h"
 	;;
 i[34567]86-*-elfiamcu)
-	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/iamcu.h"
+	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/iamcu.h newlib-stdint.h"
 	;;
 i[34567]86-*-elf*)
 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h"
