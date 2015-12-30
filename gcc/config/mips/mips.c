@@ -8232,7 +8232,6 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   int i;
   machine_mode mode;
   rtx *regs;
-  bool bond_p = false;
 
   /* Work out how many bits to move at a time.  If both operands have
      half-word alignment, it is usually better to move in half words.
@@ -8269,46 +8268,45 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
      the source has enough alignment, otherwise use left/right pairs.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
-      rtx ops[4];
-
       /* If load-load/store-store bonding is enabled then emit load and stores
 	 as pairs.  We only bond what we can and the remaining bytes are copied
 	 as normal.  */
-      if (ENABLE_LD_ST_PAIRS && i % 2 == 0 && offset + delta * 2 <= length)
+      if (ENABLE_LD_ST_PAIRS
+	  && (i % 2) == 0
+	  && (offset + (delta * 2)) <= length
+	  && MEM_ALIGN (src) >= bits)
 	{
+	  rtx ops[4];
+
 	  ops[0] = regs[i];
 	  ops[1] = adjust_address (src, mode, offset);
 	  ops[2] = regs[i + 1];
 	  ops[3] = adjust_address (src, mode, offset + delta);
 
-	  bond_p = mips_load_store_bonding_p (ops, mode);
-	}
-      else if (ENABLE_LD_ST_PAIRS && bond_p
-	       && i % 2 == 1 && offset + delta <= length)
-	{
-	  bond_p = false;
-	  continue;
+	  if (mips_load_store_bonding_p (ops, mode))
+	    {
+	      if (bits == 64)
+		emit_insn (gen_join2_load_storedi (ops[0], ops[1],
+						   ops[2], ops[3]));
+	      else if (bits == 32)
+		emit_insn (gen_join2_load_storesi (ops[0], ops[1],
+						   ops[2], ops[3]));
+	      else if (bits == 16)
+		emit_insn (gen_join2_load_storehi (ops[0], ops[1],
+						   ops[2], ops[3]));
+	      else
+		/* Other types of bonding are forbidden and should not be allowed
+		   by mips_load_store_bonding_p.  */
+		gcc_unreachable ();
+
+	      /* Skip the next chunk */
+	      offset += delta;
+	      i++;
+	      continue;
+	    }
 	}
 
-      if (MEM_ALIGN (src) >= bits && bond_p)
-	{
-	  gcc_assert (i % 2 == 0);
-	  if (bits == 64)
-	    emit_insn (gen_join2_load_storedi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 32)
-	    emit_insn (gen_join2_load_storesi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 16)
-	    emit_insn (gen_join2_load_storehi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else
-	    /* Other types of bonding are forbidden and should not be allowed
-	       by mips_load_store_bonding_p.  */
-	    gcc_unreachable ();
-	  continue;
-	}
-      else if (MEM_ALIGN (src) >= bits)
+      if (MEM_ALIGN (src) >= bits)
 	mips_emit_move (regs[i], adjust_address (src, mode, offset));
       else
 	{
@@ -8322,43 +8320,41 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   /* Copy the chunks to the destination.  */
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
-      rtx ops[4];
-
-      if (ENABLE_LD_ST_PAIRS && i % 2 == 0 && offset + delta * 2 <= length)
+      if (ENABLE_LD_ST_PAIRS
+	  && (i % 2) == 0
+	  && (offset + (delta * 2)) <= length
+	  && MEM_ALIGN (dest) >= bits)
 	{
+	  rtx ops[4];
+
 	  ops[0] = adjust_address (dest, mode, offset);
 	  ops[1] = regs[i];
 	  ops[2] = adjust_address (dest, mode, offset + delta);
 	  ops[3] = regs[i + 1];
 
-	  bond_p = mips_load_store_bonding_p (ops, mode);
-	}
-      else if (ENABLE_LD_ST_PAIRS && bond_p
-	       && i % 2 == 1 && offset + delta <= length)
-	{
-	  bond_p = false;
-	  continue;
+	  if (mips_load_store_bonding_p (ops, mode))
+	    {
+	      if (bits == 64)
+		emit_insn (gen_join2_load_storedi (ops[0], ops[1],
+						   ops[2], ops[3]));
+	      else if (bits == 32)
+		emit_insn (gen_join2_load_storesi (ops[0], ops[1],
+						   ops[2], ops[3]));
+	      else if (bits == 16)
+		emit_insn (gen_join2_load_storehi (ops[0], ops[1],
+						   ops[2], ops[3]));
+	      else
+		/* Other types of bonding are forbidden and should not be allowed
+		   by mips_load_store_bonding_p.  */
+		gcc_unreachable ();
+
+	      offset += delta;
+	      i++;
+	      continue;
+	    }
 	}
 
-      if (MEM_ALIGN (dest) >= bits && bond_p)
-	{
-	  gcc_assert (i % 2 == 0);
-	  if (bits == 64)
-	    emit_insn (gen_join2_load_storedi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 32)
-	    emit_insn (gen_join2_load_storesi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else if (bits == 16)
-	    emit_insn (gen_join2_load_storehi (ops[0], ops[1],
-					       ops[2], ops[3]));
-	  else
-	    /* Other types of bonding are forbidden and should not be allowed
-	       by mips_load_store_bonding_p.  */
-	    gcc_unreachable ();
-	  continue;
-	}
-      else if (MEM_ALIGN (dest) >= bits)
+      if (MEM_ALIGN (dest) >= bits)
 	mips_emit_move (adjust_address (dest, mode, offset), regs[i]);
       else
 	{
