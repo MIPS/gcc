@@ -9015,6 +9015,13 @@ mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 	return false;
       if (align < BITS_PER_WORD)
 	return size < UNITS_PER_WORD;
+      /* It is more profitable to use COPYW for at least 2 words.  */
+      if (ISA_HAS_COPY
+	  && align >= BITS_PER_WORD && size >= 2 * UNITS_PER_WORD)
+	return false;
+      /* It is more profitable to use UCOPYW for at least 1 word.  */
+      if (ISA_HAS_COPY && align < BITS_PER_WORD && size >= UNITS_PER_WORD)
+	return false;
       return size <= MIPS_MAX_MOVE_BYTES_STRAIGHT;
     }
   /* The default value.  If this becomes a target hook, we should
@@ -9087,7 +9094,8 @@ mips_store_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
    Assume that the areas do not overlap.  */
 
 static void
-mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
+mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
+			  HOST_WIDE_INT alignment)
 {
   HOST_WIDE_INT offset, delta;
   unsigned HOST_WIDE_INT bits;
@@ -9267,6 +9275,7 @@ mips_adjust_block_mem (rtx mem, HOST_WIDE_INT length,
 
 static void
 mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
+		      HOST_WIDE_INT alignment,
 		      HOST_WIDE_INT bytes_per_iter)
 {
   rtx label, src_reg, dest_reg, final_src, test;
@@ -9289,7 +9298,9 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
   emit_label (label);
 
   /* Emit the loop body.  */
-  mips_block_move_straight (dest, src, bytes_per_iter);
+  if (!mips16_expand_copy (dest, src, GEN_INT (bytes_per_iter),
+			   GEN_INT (alignment)))
+    mips_block_move_straight (dest, src, alignment, bytes_per_iter);
 
   /* Move on to the next block.  */
   mips_emit_move (src_reg, plus_constant (Pmode, src_reg, bytes_per_iter));
@@ -9303,40 +9314,236 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     emit_jump_insn (gen_cbranchsi4 (test, src_reg, final_src, label));
 
   /* Mop up any left-over bytes.  */
-  if (leftover)
-    mips_block_move_straight (dest, src, leftover);
+  if (leftover
+      && !mips16_expand_copy (dest, src, GEN_INT (leftover),
+			      GEN_INT (alignment)))
+    mips_block_move_straight (dest, src, alignment, leftover);
+}
+
+/* Expand a movmemsi instruction using the mips16 copy instruction.  */
+
+bool
+mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
+{
+  rtx base_dest, base_src;
+  rtx temp;
+  HOST_WIDE_INT offset_dest, offset_src;
+  int word_count, byte_count, offset = 0;
+  rtx first_dest = dest, first_src = src;
+  rtx xdest = XEXP (dest, 0);
+  rtx xsrc = XEXP (src, 0);
+  int align = INTVAL (alignment);
+  bool word_by_pieces_p = false;
+
+  if (!ISA_HAS_COPY)
+    return false;
+
+  gcc_assert (!TARGET_64BIT);
+  gcc_assert (MEM_P (src) && MEM_P (dest));
+
+  if (!CONST_INT_P (length))
+    return false;
+
+  byte_count = INTVAL (length);
+
+  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT)
+    return false;
+
+  word_count = byte_count / UNITS_PER_WORD;
+  byte_count = byte_count % UNITS_PER_WORD;
+
+  mips_split_plus (xdest, &base_dest, &offset_dest);
+  mips_split_plus (xsrc, &base_src, &offset_src);
+
+  /* In some cases, it's better to move by pieces rather than generating
+     COPYW/UCOPYW:
+     1. Copying 4 bytes when both dest and src are aligned but base+offset is
+	likely to be squashed.
+     2. Copying 4 bytes when the lowest alignment is 2-bytes iff the offsets
+	are not the same or multiples of 16 bytes.  */
+
+  /* Case (1).  */
+  if (word_count == 1
+      && MEM_ALIGN (dest) >= 4 * BITS_PER_UNIT
+      && MEM_ALIGN (src) >= 4 * BITS_PER_UNIT
+      && (offset_dest >= 0 || offset_src >= 0))
+    word_by_pieces_p = true;
+
+  /* Case (2).  */
+  if (word_count == 1 && align >= 2
+      && !(offset_src == offset_dest && offset_src % 16 != 0))
+    word_by_pieces_p = true;
+
+  if (word_by_pieces_p)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, 4, INTVAL (alignment), 0);
+      offset += 4;
+      word_count = 0;
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (dest, 0)))
+    {
+      rtx dest_reg = copy_addr_to_reg (XEXP (dest, 0));
+      first_dest = replace_equiv_address (first_dest, dest_reg);
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (src, 0)))
+    {
+      rtx src_reg = copy_addr_to_reg (XEXP (src, 0));
+      first_src = replace_equiv_address (first_src, src_reg);
+    }
+
+  while (word_count > 0)
+    {
+      int new_word_count, new_offset;
+      rtx adj_src, adj_dest;
+
+      new_offset = offset;
+      new_word_count = word_count >= 4 ? 4 : word_count;
+
+      /* Using a COPYW dst,src,*,1 instruction causes the core to stall
+	 so we generate a lw/sw sequence to get around this core bug.  */
+      if (new_word_count == 1 && align >= 4)
+	{
+	  temp = gen_reg_rtx (SImode);
+	  adj_src = adjust_address (first_src, Pmode, new_offset);
+	  adj_dest = adjust_address (first_dest, Pmode, new_offset);
+	  mips_emit_move (temp, adj_src);
+	  mips_emit_move (adj_dest, temp);
+	}
+      else
+	{
+	  adj_src = adjust_address (first_src, BLKmode, new_offset);
+	  adj_dest = adjust_address (first_dest, BLKmode, new_offset);
+	  set_mem_size (adj_src, new_word_count * 4);
+	  set_mem_size (adj_dest, new_word_count * 4);
+	  emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
+				      GEN_INT (new_word_count), alignment));
+	}
+
+      offset += new_word_count * 4;
+      word_count = word_count >= 4 ? word_count - 4 : 0;
+
+      if (offset > 496)
+	{
+	  rtx dest_reg = copy_addr_to_reg (XEXP (adj_dest, 0));
+	  rtx src_reg = copy_addr_to_reg (XEXP (adj_src, 0));
+	  first_dest = replace_equiv_address (first_dest, dest_reg);
+	  first_src = replace_equiv_address (first_src, src_reg);
+	  offset = 0;
+	}
+    }
+
+  if (byte_count > 0)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, byte_count, align, 0);
+    }
+
+  return true;
+}
+
+bool
+gen_mips16_copy_peep (rtx *operands, int n)
+{
+  rtx first_base_dest, first_base_src;
+  int alignment = 0;
+  HOST_WIDE_INT offset;
+  int nmove = 0;
+  rtx mov_dest[4], mov_src[4];
+
+  for (int i = 0; i < n; i++)
+    {
+      rtx base_dest, base_src;
+      rtx src = operands[i * 3 + 1];
+      rtx dest = operands[i * 3 + 2];
+      HOST_WIDE_INT ofs_dest, ofs_src;
+
+      mips_split_plus (XEXP (dest, 0), &base_dest, &ofs_dest);
+      mips_split_plus (XEXP (src, 0), &base_src, &ofs_src);
+
+      if (i == 0)
+	{
+	  first_base_dest = base_dest;
+	  first_base_src = base_src;
+	  /* Just use either SRC or DEST offset as both must match.  */
+	  offset = ofs_src;
+	}
+
+      if (ofs_dest != ofs_src)
+	return false;
+
+      if (alignment == 0
+	  || alignment > MIN (MEM_ALIGN (dest),
+			      MEM_ALIGN (src)) / BITS_PER_UNIT)
+	alignment = MIN (MEM_ALIGN (dest), MEM_ALIGN (src)) / BITS_PER_UNIT;
+
+      if (!REG_P (base_dest) || !REG_P (base_src)
+	  || !M16_REG_P (REGNO (base_dest)) || !M16_REG_P (REGNO (base_src))
+	  || REGNO (base_dest) != REGNO (first_base_dest)
+	  || REGNO (base_src) != REGNO (first_base_src))
+	return false;
+
+      if (MEM_VOLATILE_P (dest) || MEM_VOLATILE_P (src))
+	return false;
+
+      /* We need to emit moves if an intermediate register is used later.
+	 This is disabled by default and only enabled for more aggressive
+	 optimization.  It will not be a win if all intermediates
+	 are needed.  */
+      if (!peep2_reg_dead_p (i, operands[i * 3]))
+	return false;
+
+      /* We can only convert multiple loads/stores into COPYW if the offsets
+	 are increasing consecutively by 4.  */
+      if (i * 4 != ofs_dest % 16 || i * 4 != ofs_src % 16
+	  || ofs_dest != ofs_src || ofs_dest > 496)
+	return false;
+    }
+
+  emit_insn (gen_mips16_copy_ofs (first_base_dest, first_base_src,
+				  GEN_INT (offset), GEN_INT (n),
+				  GEN_INT (alignment)));
+  return true;
 }
 
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
-   memory reference SRC to memory reference DEST.  */
+   memory reference SRC to memory reference DEST.  The lowest alignment
+   of SRC and DEST is specified by ALIGNMENT.  */
 
 bool
-mips_expand_block_move (rtx dest, rtx src, rtx length)
+mips_expand_block_move (rtx dest, rtx src, rtx length, rtx alignment)
 {
   if (!ISA_HAS_LWL_LWR
-      && (MEM_ALIGN (src) < MIPS_MIN_MOVE_MEM_ALIGN
-	  || MEM_ALIGN (dest) < MIPS_MIN_MOVE_MEM_ALIGN))
+      && !(ISA_HAS_COPY && INTVAL (length) < MIPS_MAX_MOVE_BYTES_STRAIGHT)
+      && INTVAL (alignment) * UNITS_PER_WORD < MIPS_MIN_MOVE_MEM_ALIGN)
     return false;
 
   if (CONST_INT_P (length))
     {
       if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
-	  if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
-	      /* We increase slightly the maximum number of bytes in
-		 a straight-line block if the source and destination
-		 are aligned to the register width.  */
-	      || (!optimize_size
-		  && MEM_ALIGN (src) == BITS_PER_WORD
-		  && MEM_ALIGN (dest) == BITS_PER_WORD
-		  && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
+	  if (ISA_HAS_COPY)
+	    return mips16_expand_copy (dest, src, length, alignment);
+	  else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT
+		   /* We increase slightly the maximum number of bytes in
+		      a straight-line block if the source and destination
+		      are aligned to the register width.  */
+		   || (!optimize_size
+		       && INTVAL (alignment) * UNITS_PER_WORD == BITS_PER_WORD
+		       && INTVAL (length) <= MIPS_MAX_MOVE_MEM_STRAIGHT))
 	    {
-	      mips_block_move_straight (dest, src, INTVAL (length));
+	      mips_block_move_straight (dest, src, INTVAL (length),
+					INTVAL (alignment));
 	      return true;
 	    }
 	  else if (optimize)
 	    {
 	      mips_block_move_loop (dest, src, INTVAL (length),
+				    INTVAL (alignment),
 				    MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER);
 	      return true;
 	    }

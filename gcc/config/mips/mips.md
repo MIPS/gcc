@@ -4633,6 +4633,140 @@
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
+;; Operand 0 is the register containing the destination address
+;; Operand 1 is the register containing the source address
+;; Operand 2 is a byte offset to use for both the source and dest addresses
+;; Operand 3 is the number of words to copy (1,2,3, or 4)
+;; Operand 4 is a constant integer value for the known alignment.
+
+(define_expand "mips16_copy"
+  [(parallel
+    [(set (match_operand 0 "" "")
+	  (match_operand 1 "" ""))
+     (use (match_operand 2 "" ""))
+     (use (match_operand 3 "" ""))
+     (use (match_operand 4 "" ""))
+     (clobber (reg:SI 12))
+     (clobber (reg:SI 13))
+     (clobber (reg:SI 14))
+     (clobber (reg:SI 15))])]
+  "ISA_HAS_COPY"
+  {
+    /* Using a COPYW dst,src,*,1 instruction causes the core to stall
+       so we can not use mips16_copy in this case.  */
+    gcc_assert (!(INTVAL (operands[3]) == 1 && INTVAL (operands[4]) >= 4));
+  })
+
+(define_insn ""
+  [(set (mem:BLK (match_operand:SI 0 "register_operand" "d"))
+	(mem:BLK (match_operand:SI 1 "register_operand" "d")))
+   (use (match_operand:SI 2 "const_int_operand"))
+   (use (match_operand:SI 3 "const_int_operand"))
+   (use (match_operand:SI 4 "const_int_operand"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
+  "ISA_HAS_COPY"
+  {
+    if (INTVAL (operands[4]) < 4)
+      return "ucopyw\t%0,%1,%2,%3";
+    else
+      return "copyw\t%0,%1,%2,%3";
+  }
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
+(define_insn "mips16_copy_ofs"
+  [(set (mem:BLK (plus:SI (match_operand:SI 0 "register_operand" "d")
+			  (match_operand:SI 2 "const_int_operand")))
+	(mem:BLK (plus:SI (match_operand:SI 1 "register_operand" "d")
+			  (match_dup 2))))
+   (use (match_dup 2))
+   (use (match_operand:SI 3 "const_int_operand"))
+   (use (match_operand:SI 4 "const_int_operand"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
+  "ISA_HAS_COPY"
+  {
+    if (INTVAL (operands[4]) < 4)
+      return "ucopyw\t%0,%1,%2,%3";
+    else
+      return "copyw\t%0,%1,%2,%3";
+  }
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
+;; ld_1/../ld_n followed by st_1/../st_n
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 1 "memory_operand" ""))
+   (set (match_operand:SI 3 "register_operand" "")
+	(match_operand:SI 4 "memory_operand" ""))
+   (set (match_operand:SI 6 "register_operand" "")
+	(match_operand:SI 7 "memory_operand" ""))
+   (set (match_operand:SI 9 "register_operand" "")
+	(match_operand:SI 10 "memory_operand" ""))
+   (set (match_operand:SI 2 "memory_operand" "")
+	(match_dup 0))
+   (set (match_operand:SI 5 "memory_operand" "")
+	(match_dup 3))
+   (set (match_operand:SI 8 "memory_operand" "")
+	(match_dup 6))
+   (set (match_operand:SI 11 "memory_operand" "")
+	(match_dup 9))]
+  "ISA_HAS_COPY"
+  [(const_int 0)]
+{
+  if (gen_mips16_copy_peep (operands, 4))
+    DONE;
+  else
+    FAIL;
+})
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 1 "memory_operand" ""))
+   (set (match_operand:SI 3 "register_operand" "")
+	(match_operand:SI 4 "memory_operand" ""))
+   (set (match_operand:SI 6 "register_operand" "")
+	(match_operand:SI 7 "memory_operand" ""))
+   (set (match_operand:SI 2 "memory_operand" "")
+	(match_dup 0))
+   (set (match_operand:SI 5 "memory_operand" "")
+	(match_dup 3))
+   (set (match_operand:SI 8 "memory_operand" "")
+	(match_dup 6))]
+  "ISA_HAS_COPY"
+  [(const_int 0)]
+{
+  if (gen_mips16_copy_peep (operands, 3))
+    DONE;
+  else
+    FAIL;
+})
+
+(define_peephole2
+  [(set (match_operand:SI 0 "register_operand" "")
+	(match_operand:SI 1 "memory_operand" ""))
+   (set (match_operand:SI 3 "register_operand" "")
+	(match_operand:SI 4 "memory_operand" ""))
+   (set (match_operand:SI 2 "memory_operand" "")
+	(match_dup 0))
+   (set (match_operand:SI 5 "memory_operand" "")
+	(match_dup 3))]
+  "ISA_HAS_COPY"
+  [(const_int 0)]
+{
+  if (gen_mips16_copy_peep (operands, 2))
+    DONE;
+  else
+    FAIL;
+})
 ;; On the mips16, we can split ld $r,N($r) into an add and a load,
 ;; when the original load is a 4 byte instruction but the add and the
 ;; load are 2 2 byte instructions.
@@ -5555,12 +5689,12 @@
 		   (match_operand:BLK 1 "general_operand"))
 	      (use (match_operand:SI 2 ""))
 	      (use (match_operand:SI 3 "const_int_operand"))])]
-  "!TARGET_MIPS16 && !TARGET_MEMCPY"
+  "(!TARGET_MIPS16 || ISA_HAS_COPY) && !TARGET_MEMCPY"
 {
-  if (mips_expand_block_move (operands[0], operands[1], operands[2]))
+  if (mips_expand_block_move (operands[0], operands[1],
+			      operands[2], operands[3]))
     DONE;
-  else
-    FAIL;
+  FAIL;
 })
 
 ;;
