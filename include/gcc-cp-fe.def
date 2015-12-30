@@ -233,8 +233,9 @@ GCC_METHOD5 (gcc_type, new_template_typename_parm,
    template parameter.  FILENAME and LINE_NUMBER may specify the
    source location in which the template parameter was declared.  */
 
-GCC_METHOD4 (gcc_decl, new_template_template_parm,
+GCC_METHOD5 (gcc_decl, new_template_template_parm,
 	     const char *,			      /* Argument ID.  */
+	     int /* bool */,			  /* Argument PACK_P.  */
 	     gcc_decl,			   /* Argument DEFAULT_TEMPL.  */
 	     const char *,			/* Argument FILENAME.  */
 	     unsigned int)		     /* Argument LINE_NUMBER.  */

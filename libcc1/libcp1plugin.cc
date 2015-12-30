@@ -60,6 +60,7 @@
 #include "diagnostic.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
+#include "decl.h"
 
 #include "callbacks.hh"
 #include "connection.hh"
@@ -1032,6 +1033,8 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
   gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
 				size_in_bytes) == 0);
 
+  // FIXME: end_template_decl if it's a template?
+
   return 1;
 }
 
@@ -1206,10 +1209,18 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
   return convert_out (ctx->preserve (memptr_type));
 }
 
+/* Abuse an unused field of the dummy template parms entry to hold the
+   parm list.  */
+#define TP_PARM_LIST TREE_TYPE (current_template_parms)
+
 int
-plugin_start_new_template_decl (cc1_plugin::connection *self)
+plugin_start_new_template_decl (cc1_plugin::connection *self ATTRIBUTE_UNUSED)
 {
-  /* FIXME: implement.  */
+  begin_template_parm_list ();
+
+  TP_PARM_LIST = NULL_TREE;
+
+  return 0;
 }
 
 gcc_type
@@ -1220,17 +1231,50 @@ plugin_new_template_typename_parm (cc1_plugin::connection *self,
 				   const char *filename,
 				   unsigned int line_number)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  tree parm = finish_template_type_parm (class_type_node, get_identifier (id));
+  parm = build_tree_list (convert_in (default_type), parm);
+
+  gcc_assert (!(pack_p && default_type));
+
+  /* Create a type and a decl for the type parm, and add the decl to
+     TP_PARM_LIST.  */
+  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
+					/* is_non_type = */ false, pack_p);
+
+  /* Return the type of the newly-added parm decl.  */
+  return convert_out (ctx->preserve (TREE_TYPE (tree_last (TP_PARM_LIST))));
 }
 
 gcc_decl
 plugin_new_template_template_parm (cc1_plugin::connection *self,
 				   const char *id,
+				   int /* bool */ pack_p,
 				   gcc_decl default_templ,
 				   const char *filename,
 				   unsigned int line_number)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  /* Finish the template parm list that started this template parm.  */
+  end_template_parm_list (TP_PARM_LIST);
+
+  tree parm = finish_template_template_parm (class_type_node,
+					     get_identifier (id));
+  parm = build_tree_list (convert_in (default_templ), parm);
+
+  gcc_assert (!(pack_p && default_templ));
+
+  /* Create a type and a decl for the template parm, and add the decl
+     to TP_PARM_LIST.  */
+  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
+					/* is_non_type = */ false, pack_p);
+
+  /* Return the decl of the newly-added template template parm.  */
+  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
 }
 
 gcc_decl
@@ -1241,7 +1285,34 @@ plugin_new_template_value_parm (cc1_plugin::connection *self,
 				const char *filename,
 				unsigned int line_number)
 {
-  /* FIXME: implement.  */
+  plugin_context *ctx = static_cast<plugin_context *> (self);
+  source_location loc = ctx->get_source_location (filename, line_number);
+
+  cp_declarator declarator;
+  memset (&declarator, 0, sizeof (declarator));
+  // &declarator = make_id_declarator (NULL, get_identifier (id), sfk_none);
+  declarator.kind = cdk_id;
+  declarator.u.id.qualifying_scope = NULL;
+  declarator.u.id.unqualified_name = get_identifier (id);
+  declarator.u.id.sfk = sfk_none;
+
+  cp_decl_specifier_seq declspec;
+  memset (&declspec, 0, sizeof (declspec));
+  // cp_parser_set_decl_spec_type (&declspec, convert_in (type), -token-, false);
+  declspec.any_specifiers_p = declspec.any_type_specifiers_p = true;
+  declspec.type = convert_in (type);
+  declspec.locations[ds_type_spec] = loc;
+
+  tree parm = grokdeclarator (&declarator, &declspec, TPARM, 0, 0);
+  parm = build_tree_list (convert_in (default_value), parm);
+
+  /* Create a type and a decl for the template parm, and add the decl
+     to TP_PARM_LIST.  */
+  TP_PARM_LIST = process_template_parm (TP_PARM_LIST, loc, parm,
+					/* is_non_type = */ true, false);
+
+  /* Return the newly-added parm decl.  */
+  return convert_out (ctx->preserve (tree_last (TP_PARM_LIST)));
 }
 
 gcc_type
@@ -1350,7 +1421,7 @@ plugin_specialize_function_template (cc1_plugin::connection *self,
 				     const char *filename,
 				     unsigned int line_number)
 {
-  /* FIXME: implement.  */
+  /* FIXME: implement.  See begin|end_specialization.  */
 }
 
 gcc_type
@@ -1361,7 +1432,7 @@ plugin_start_specialize_class_template (cc1_plugin::connection *self,
 					const char *filename,
 					unsigned int line_number)
 {
-  /* FIXME: implement.  */
+  /* FIXME: implement.  See begin|end_specialization.  */
 }
 
 gcc_type
