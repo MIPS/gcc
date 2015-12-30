@@ -1,5 +1,9 @@
 2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/fortran.c: Delete.
+
+2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/linux/lock.c (gomp_init_lock_30): Move to generic lock.c.
 	(gomp_destroy_lock_30): Ditto.
 	(gomp_set_lock_30): Ditto.
