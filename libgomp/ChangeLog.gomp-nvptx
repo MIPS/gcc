@@ -1,5 +1,20 @@
 2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/linux/lock.c (gomp_init_lock_30): Move to generic lock.c.
+	(gomp_destroy_lock_30): Ditto.
+	(gomp_set_lock_30): Ditto.
+	(gomp_unset_lock_30): Ditto.
+	(gomp_test_lock_30): Ditto.
+	(gomp_init_nest_lock_30): Ditto.
+	(gomp_destroy_nest_lock_30): Ditto.
+	(gomp_set_nest_lock_30): Ditto.
+	(gomp_unset_nest_lock_30): Ditto.
+	(gomp_test_nest_lock_30): Ditto.
+	* lock.c: New.
+	* config/nvptx/lock.c: New.
+
+2016-01-20  Alexander Monakov  <amonakov@ispras.ru>
+
 	* plugin/plugin-nvptx.c (struct ptx_device): New field (clock_khz).
 	(nvptx_open_device): Set it.
 	(nvptx_set_clocktick): New.  Use it...
