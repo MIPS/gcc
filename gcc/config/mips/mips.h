@@ -1193,6 +1193,9 @@ struct mips_cpu_info {
 #define ISA_HAS_MIPS16E2	(TARGET_MIPS16 && TARGET_MIPS16E2	\
 				 && !TARGET_64BIT)
 
+/* The MIPS16 COPYW/UCOPYW instructions are available.  */
+#define ISA_HAS_COPY		(TARGET_MIPS16 && TARGET_MIPS16_COPY)
+
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
    and "addiu $4,$4,1".  */
@@ -1339,6 +1342,7 @@ struct mips_cpu_info {
 %{msingle-float} %{mdouble-float} \
 %{mforbidden-slots} \
 %{mmips16e2} \
+%{mmips16-copy:-mmips16cp} \
 %(subtarget_asm_spec)"
 
 /* Extra switches sometimes passed to the linker.  */
@@ -3071,7 +3075,9 @@ while (0)
 /* The maximum number of bytes that can be copied by one iteration of
    a movmemsi loop; see mips_block_move_loop.  */
 #define MIPS_MAX_MOVE_BYTES_PER_LOOP_ITER \
-  (UNITS_PER_WORD * 4)
+  (ISA_HAS_COPY	  			  \
+  ? UNITS_PER_WORD * 4 * 4		  \
+  : UNITS_PER_WORD * 4)
 
 /* The maximum number of bytes that can be copied by a straight-line
    implementation of movmemsi; see mips_block_move_straight.  We want
@@ -3107,7 +3113,9 @@ while (0)
 
 #define MOVE_RATIO(speed)				\
   (HAVE_movmemsi					\
-   ? MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX		\
+   ? (ISA_HAS_COPY					\
+      ? MIPS_MAX_MOVE_BYTES_STRAIGHT / 4 / MOVE_MAX	\
+      : MIPS_MAX_MOVE_BYTES_STRAIGHT / MOVE_MAX)	\
    : MIPS_CALL_RATIO / 2)
 
 #define MOVE_BY_PIECES_P(SIZE, ALIGN) \

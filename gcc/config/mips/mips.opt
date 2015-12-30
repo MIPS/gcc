@@ -529,3 +529,7 @@ Enable tail optimization using a long style call.
 mmips16-tail-branch
 Target Var(TARGET_MIPS16_TAIL_BRANCH) Init(0)
 Enable tail optimization using a branch.
+
+mmips16-copy
+Target Var(TARGET_MIPS16_COPY) Init(0)
+Enable use of the MIPS16 COPY and UCOPY instructions
