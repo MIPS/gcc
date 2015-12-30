@@ -70,16 +70,6 @@
 /* This file should be included last.  */
 #include "target-def.h"
 
-/* The kind of shuffe instruction.  */
-enum nvptx_shuffle_kind
-{
-  SHUFFLE_UP,
-  SHUFFLE_DOWN,
-  SHUFFLE_BFLY,
-  SHUFFLE_IDX,
-  SHUFFLE_MAX
-};
-
 /* The various PTX memory areas an object might reside in.  */
 enum nvptx_data_area
 {
@@ -1400,7 +1390,7 @@ nvptx_gen_pack (rtx dst, rtx src0, rtx src1)
 /* Generate an instruction or sequence to broadcast register REG
    across the vectors of a single warp.  */
 
-static rtx
+rtx
 nvptx_gen_shuffle (rtx dst, rtx src, rtx idx, nvptx_shuffle_kind kind)
 {
   rtx res;

@@ -43,6 +43,10 @@
 
    UNSPEC_BIT_CONV
 
+   UNSPEC_VOTE_BALLOT
+
+   UNSPEC_LANEID
+
    UNSPEC_SHUFFLE
    UNSPEC_BR_UNIFIED
 ])
@@ -58,6 +62,8 @@
    UNSPECV_FORKED
    UNSPECV_JOINING
    UNSPECV_JOIN
+
+   UNSPECV_NOUNROLL
 ])
 
 (define_attr "subregs_ok" "false,true"
@@ -1238,6 +1244,81 @@
 		  UNSPEC_SHUFFLE))]
   ""
   "%.\\tshfl%S3.b32\\t%0, %1, %2, 31;")
+
+(define_insn "nvptx_vote_ballot"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "=R")
+	(unspec:SI [(match_operand:BI 1 "nvptx_register_operand" "R")]
+		   UNSPEC_VOTE_BALLOT))]
+  ""
+  "%.\\tvote.ballot.b32\\t%0, %1;")
+
+(define_insn "omp_simt_lane"
+  [(set (match_operand:SI 0 "nvptx_register_operand" "")
+	(unspec:SI [(const_int 0)] UNSPEC_LANEID))]
+  ""
+  "%.\\tmov.u32\\t%0, %%laneid;")
+
+(define_insn "nvptx_nounroll"
+  [(unspec_volatile [(const_int 0)] UNSPECV_NOUNROLL)]
+  ""
+  "\\t.pragma \\\"nounroll\\\";"
+  [(set_attr "predicable" "false")])
+
+(define_expand "omp_simt_last_lane"
+  [(match_operand:SI 0 "nvptx_register_operand" "=R")
+   (match_operand:SI 1 "nvptx_register_operand" "R")]
+  ""
+{
+  rtx pred = gen_reg_rtx (BImode);
+  rtx tmp = gen_reg_rtx (SImode);
+  emit_move_insn (pred, gen_rtx_NE (BImode, operands[1], const0_rtx));
+  emit_insn (gen_nvptx_vote_ballot (tmp, pred));
+  emit_insn (gen_ctzsi2 (operands[0], tmp));
+  DONE;
+})
+
+(define_expand "omp_simt_ordered"
+  [(match_operand:SI 0 "nvptx_register_operand" "=R")
+   (match_operand:SI 1 "nvptx_register_operand" "R")]
+  ""
+{
+  emit_move_insn (operands[0], operands[1]);
+  emit_insn (gen_nvptx_nounroll ());
+  DONE;
+})
+
+(define_expand "omp_simt_vote_any"
+  [(match_operand:SI 0 "nvptx_register_operand" "=R")
+   (match_operand:SI 1 "nvptx_register_operand" "R")]
+  ""
+{
+  rtx pred = gen_reg_rtx (BImode);
+  emit_move_insn (pred, gen_rtx_NE (BImode, operands[1], const0_rtx));
+  emit_insn (gen_nvptx_vote_ballot (operands[0], pred));
+  DONE;
+})
+
+(define_expand "omp_simt_xchg_bfly"
+  [(match_operand 0 "nvptx_register_operand" "=R")
+   (match_operand 1 "nvptx_register_operand" "R")
+   (match_operand:SI 2 "nvptx_nonmemory_operand" "Ri")]
+  ""
+{
+  emit_insn (nvptx_gen_shuffle (operands[0], operands[1], operands[2],
+				SHUFFLE_BFLY));
+  DONE;
+})
+
+(define_expand "omp_simt_xchg_idx"
+  [(match_operand 0 "nvptx_register_operand" "=R")
+   (match_operand 1 "nvptx_register_operand" "R")
+   (match_operand:SI 2 "nvptx_nonmemory_operand" "Ri")]
+  ""
+{
+  emit_insn (nvptx_gen_shuffle (operands[0], operands[1], operands[2],
+				SHUFFLE_IDX));
+  DONE;
+})
 
 ;; extract parts of a 64 bit object into 2 32-bit ints
 (define_insn "unpack<mode>si2"

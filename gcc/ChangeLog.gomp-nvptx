@@ -1,3 +1,28 @@
+2016-01-17  Alexander Monakov  <amonakov@ispras.ru>
+
+	* config/nvptx/nvptx-protos.h (nvptx_shuffle_kind): Move enum
+	declaration from nvptx.c.
+	(nvptx_gen_shuffle): Declare.
+	* config/nvptx/nvptx.c (nvptx_shuffle_kind): Moved to nvptx-protos.h.
+	(nvptx_gen_shuffle): No longer static.
+	* config/nvptx/nvptx.md (UNSPEC_VOTE_BALLOT): New unspec.
+	(UNSPEC_LANEID): Ditto.
+	(UNSPECV_NOUNROLL): Ditto.
+	(nvptx_vote_ballot): New pattern.
+	(omp_simt_lane): Ditto.
+	(nvptx_nounroll): Ditto.
+	(omp_simt_last_lane): Ditto.
+	(omp_simt_ordered): Ditto.
+	(omp_simt_vote_any): Ditto.
+	(omp_simt_xchg_bfly): Ditto.
+	(omp_simt_xchg_idx): Ditto.
+	* target-insns.def (omp_simt_lane): New.
+	(omp_simt_last_lane): New.
+	(omp_simt_ordered): New.
+	(omp_simt_vote_any): New.
+	(omp_simt_xchg_bfly): New.
+	(omp_simt_xchg_idx): New.
+
 2015-12-16  Alexander Monakov  <amonakov@ispras.ru>
 
 	* config/nvptx/nvptx.c (write_omp_entry): Work around failure on sm_5x
