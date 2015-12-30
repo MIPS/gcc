@@ -528,3 +528,7 @@ Target Undocumented Var(TARGET_USE_SAVE_RESTORE) Init(0)
 
 mblockmov-limit=
 Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-1)
+
+mmips16-copy
+Target Var(TARGET_MIPS16_COPY) Init(0)
+Enable use of the MIPS16 COPY and UCOPY instructions
