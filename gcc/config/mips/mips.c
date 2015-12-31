@@ -9177,6 +9177,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
   machine_mode mode;
   rtx *regs;
   bool bond_p = false;
+  bool gen_p = false;
 
   /* Work out how many bits to move at a time.  If both operands have
      half-word alignment, it is usually better to move in half words.
@@ -9226,8 +9227,9 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 	  ops[3] = adjust_address (src, mode, offset + delta);
 
 	  bond_p = mips_load_store_bonding_p (ops, mode);
+	  gen_p = false;
 	}
-      else if (ENABLE_LD_ST_PAIRS && bond_p
+      else if (ENABLE_LD_ST_PAIRS && gen_p
 	       && i % 2 == 1 && offset + delta <= length)
 	{
 	  bond_p = false;
@@ -9250,6 +9252,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 	    /* Other types of bonding are forbidden and should not be allowed
 	       by mips_load_store_bonding_p.  */
 	    gcc_unreachable ();
+	  gen_p = true;
 	  continue;
 	}
       else if (MEM_ALIGN (src) >= bits)
@@ -9264,6 +9267,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
     }
 
   /* Copy the chunks to the destination.  */
+  gen_p = false;
   for (offset = 0, i = 0; offset + delta <= length; offset += delta, i++)
     {
       rtx ops[4];
@@ -9276,8 +9280,9 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 	  ops[3] = regs[i + 1];
 
 	  bond_p = mips_load_store_bonding_p (ops, mode);
+	  gen_p = false;
 	}
-      else if (ENABLE_LD_ST_PAIRS && bond_p
+      else if (ENABLE_LD_ST_PAIRS && gen_p
 	       && i % 2 == 1 && offset + delta <= length)
 	{
 	  bond_p = false;
@@ -9300,6 +9305,7 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length,
 	    /* Other types of bonding are forbidden and should not be allowed
 	       by mips_load_store_bonding_p.  */
 	    gcc_unreachable ();
+	  gen_p = true;
 	  continue;
 	}
       else if (MEM_ALIGN (dest) >= bits)
