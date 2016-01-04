@@ -77,10 +77,15 @@ extern TFtype __floatunsikf_sw (USItype_ppc);
 extern TFtype __floatundikf_sw (UDItype_ppc);
 
 #ifdef _ARCH_PPC64
-extern TItype_ppc __fixkfti_sw (TFtype);
-extern UTItype_ppc __fixunskfti_sw (TFtype);
-extern TFtype __floattikf_sw (TItype_ppc);
-extern TFtype __floatuntikf_sw (UTItype_ppc);
+/* We do not provide ifunc resolvers for __fixkfti, __fixunskfti, __floattikf,
+   and __floatuntikf.  There is no ISA 3.0 instruction that converts between
+   128-bit integer types and 128-bit IEEE floating point, or vice versa.  So
+   use the emulator functions for these conversions.  */
+
+extern TItype_ppc __fixkfti (TFtype);
+extern UTItype_ppc __fixunskfti (TFtype);
+extern TFtype __floattikf (TItype_ppc);
+extern TFtype __floatuntikf (UTItype_ppc);
 #endif
 
 /* Functions using the ISA 3.0 hardware support.  If the code is compiled with
@@ -109,13 +114,6 @@ extern TFtype __floatdikf_hw (DItype_ppc);
 extern TFtype __floatunsikf_hw (USItype_ppc);
 extern TFtype __floatundikf_hw (UDItype_ppc);
 
-#ifdef _ARCH_PPC64
-extern TItype_ppc __fixkfti_hw (TFtype);
-extern UTItype_ppc __fixunskfti_hw (TFtype);
-extern TFtype __floattikf_hw (TItype_ppc);
-extern TFtype __floatuntikf_hw (UTItype_ppc);
-#endif
-
 /* Ifunc function declarations, to automatically switch between software
    emulation and hardware support.  */
 extern TFtype __addkf3 (TFtype, TFtype);
@@ -124,8 +122,11 @@ extern TFtype __mulkf3 (TFtype, TFtype);
 extern TFtype __divkf3 (TFtype, TFtype);
 extern TFtype __negkf2 (TFtype);
 extern CMPtype __eqkf2 (TFtype, TFtype);
+extern CMPtype __nekf2 (TFtype, TFtype);
 extern CMPtype __gekf2 (TFtype, TFtype);
+extern CMPtype __gtkf2 (TFtype, TFtype);
 extern CMPtype __lekf2 (TFtype, TFtype);
+extern CMPtype __ltkf2 (TFtype, TFtype);
 extern CMPtype __unordkf2 (TFtype, TFtype);
 extern TFtype __extendsfkf2 (float);
 extern TFtype __extenddfkf2 (double);
@@ -139,10 +140,3 @@ extern TFtype __floatsikf (SItype_ppc);
 extern TFtype __floatdikf (DItype_ppc);
 extern TFtype __floatunsikf (USItype_ppc);
 extern TFtype __floatundikf (UDItype_ppc);
-
-#ifdef _ARCH_PPC64
-extern TItype_ppc __fixkfti (TFtype);
-extern UTItype_ppc __fixunskfti (TFtype);
-extern TFtype __floattikf (TItype_ppc);
-extern TFtype __floatuntikf (UTItype_ppc);
-#endif

@@ -144,18 +144,18 @@ __trunckfdf2_hw (TFtype a)
 CMPtype
 __eqkf2_hw (TFtype a, TFtype b)
 {
-  return (__builtin_isunordered (a, b) || (a != b)) ? 1 : 0;
+  return (a != b);
 }
 
 /* __gekf2 returns -1 if a < b, 0 if a == b, +1 if a > b, or -2 if NaN.  */
 CMPtype
 __gekf2_hw (TFtype a, TFtype b)
 {
-  if (__builtin_isunordered (a, b))
-    return -2;
-
-  else if (a < b)
+  if (a < b)
     return -1;
+
+  else if (__builtin_isunordered (a, b))
+    return -2;
 
   else if (a == b)
     return 0;
@@ -167,11 +167,11 @@ __gekf2_hw (TFtype a, TFtype b)
 CMPtype
 __lekf2_hw (TFtype a, TFtype b)
 {
-  if (__builtin_isunordered (a, b))
-    return 2;
-
-  else if (a < b)
+  if (a < b)
     return -1;
+
+  else if (__builtin_isunordered (a, b))
+    return 2;
 
   else if (a == b)
     return 0;

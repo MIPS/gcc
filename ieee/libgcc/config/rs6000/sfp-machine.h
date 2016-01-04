@@ -104,7 +104,13 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 # endif
 #endif
 
-#define ISA_BIT(x) (1 << (63 - x))
+/* Only provide exception support if we have hardware floating point and we can
+   execute the mtfsf instruction.  This would only be true if we are using the
+   emulation routines for IEEE 128-bit floating point on pre-ISA 3.0 machines
+   without the IEEE 128-bit floating point support.  */
+
+#ifndef _SOFT_FLOAT
+#define ISA_BIT(x) (1LL << (63 - x))
 
 /* Use the same bits of the FPSCR.  */
 # define FP_EX_INVALID		ISA_BIT(34)
@@ -112,9 +118,9 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 # define FP_EX_UNDERFLOW	ISA_BIT(36)
 # define FP_EX_DIVZERO		ISA_BIT(37)
 # define FP_EX_INEXACT		ISA_BIT(38)
-# define FP_EX_ALL							\
-  (FP_EX_INVALID | FP_EX_OVERFLOW | FP_EX_UNDERFLOW | FP_EX_DIVZERO	\
-   | FP_EX_INEXACT)
+# define FP_EX_ALL		(FP_EX_INVALID | FP_EX_OVERFLOW 	\
+				 | FP_EX_UNDERFLOW | FP_EX_DIVZERO	\
+				 | FP_EX_INEXACT)
 
 void __sfp_handle_exceptions (int);
 
@@ -144,6 +150,7 @@ void __sfp_handle_exceptions (int);
   } while (0)
 
 # define FP_ROUNDMODE	(_fpscr & FP_RND_MASK)
+#endif	/* !_SOFT_FLOAT */
 
 /* Define ALIASNAME as a strong alias for NAME.  */
 # define strong_alias(name, aliasname) _strong_alias(name, aliasname)

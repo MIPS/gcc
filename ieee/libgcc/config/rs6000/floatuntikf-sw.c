@@ -35,7 +35,7 @@
 #include "quad-float128.h"
 
 TFtype
-__floatuntikf_sw (UTItype i)
+__floatuntikf (UTItype i)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);

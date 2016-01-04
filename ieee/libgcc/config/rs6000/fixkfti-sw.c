@@ -35,7 +35,7 @@
 #include "quad-float128.h"
 
 TItype
-__fixkfti_sw (TFtype a)
+__fixkfti (TFtype a)
 {
   FP_DECL_EX;
   FP_DECL_Q (A);

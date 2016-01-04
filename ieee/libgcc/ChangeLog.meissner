@@ -1,5 +1,63 @@
 2016-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/sfp-exceptions.c (__sfp_handle_exceptions): Only
+	build if we have hardware support for 32/64-bit floating point.
+	Change asm's so there is a separate output register.
+
+	* config/rs6000/floattikf-sw.c (__floattikf): Don't use the _sw
+	suffix, since don't have a hardware implementation.
+	* config/rs6000/fixkfti-sw.c (__fixkfti): Likewise.
+	* config/rs6000/fixunskfti-sw.c (__fixunskfti): Likewise.
+	* config/rs6000/floatuntikf-sw.c (__floatuntikf): Likewise.
+
+	* config/rs6000/float128-hw.c (__eqkf2_hw): Just use !=.
+	(__gekf2_hw): Move < test before the isunordered test.
+	(__lekf2_hw): Likewise.
+
+	* config/rs6000/sfp-machine.h (ISA_BIT): Do not define the
+	exception support unless we have 32/64-bit hardware support (but
+	not 128-bit).
+	(FP_EX_*): Likewise.
+	(__sfp_handle_exceptions): Likewise.
+
+	* config/rs6000/float128-ifunc.c (have_ieee_hw_p): Use
+	__getauxval.
+	(__nekf2_resolve): Provide resolvers in case the user used __nekf2
+	instead of __eqkf2, __gtkf2 instead of __gekf2, or __ltkf2 instead
+	of __lekf2.
+	(__gtkf2_resolve): Likewise.
+	(__ltkf2_resolve): Likewise.
+	(__nekf2): Likewise.
+	(__gtkf2): Likewise.
+	(__ltkf2): Likewise.
+	(__fixkfti_resolve): Don't define resolvers for 128-bit integer to
+	128-bit floating point and vice versa conversions.
+	(__fixunskfti_resolve): Likewise.
+	(__floattikf_resolve): Likewise.
+	(__floatuntikf_resolve): Likewise.
+	(__fixkfti): Likewise.
+	(__fixunskfti): Likewise.
+	(__floattikf): Likewise.
+	(__floatuntikf): Likewise.
+
+	* config/rs6000/quad-float128.h	(__fixkfti_sw): Don't define
+	separate software and hardware versions of the functions, since we
+	presently only support the software emulation.
+	(__fixunskfti_sw): Likewise.
+	(__floattikf_sw): Likewise.
+	(__floatuntikf_sw): Likewise.
+	(__fixkfti_hw): Likewise.
+	(__fixunskfti_hw): Likewise.
+	(__floattikf_hw): Likewise.
+	(__floatuntikf_hw): Likewise.
+	(__fixkfti): Likewise.
+	(__fixunskfti): Likewise.
+	(__floattikf): Likewise.
+	(__floatuntikf): Likewise.
+
+
+2016-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	Merge up to 232062.
 
 2015-12-29  Michael Meissner  <meissner@linux.vnet.ibm.com>

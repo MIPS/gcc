@@ -47,7 +47,7 @@ have_ieee_hw_p (void)
 
   if (ieee_hw_p < 0)
     {
-      char *p = (char *) getauxval (AT_PLATFORM);
+      char *p = (char *) __getauxval (AT_PLATFORM);
 
       ieee_hw_p = 0;
 
@@ -79,14 +79,23 @@ have_ieee_hw_p (void)
 #endif	/* ISA 3.0 hardware available.  */
 
 /* Resolvers.  */
+
+/* We do not provide ifunc resolvers for __fixkfti, __fixunskfti, __floattikf,
+   and __floatuntikf.  There is no ISA 3.0 instruction that converts between
+   128-bit integer types and 128-bit IEEE floating point, or vice versa.  So
+   use the emulator functions for these conversions.  */
+
 static void *__addkf3_resolve (void);
 static void *__subkf3_resolve (void);
 static void *__mulkf3_resolve (void);
 static void *__divkf3_resolve (void);
 static void *__negkf2_resolve (void);
 static void *__eqkf2_resolve (void);
+static void *__nekf2_resolve (void);
 static void *__gekf2_resolve (void);
+static void *__gtkf2_resolve (void);
 static void *__lekf2_resolve (void);
+static void *__ltkf2_resolve (void);
 static void *__unordkf2_resolve (void);
 static void *__extendsfkf2_resolve (void);
 static void *__extenddfkf2_resolve (void);
@@ -100,13 +109,6 @@ static void *__floatsikf_resolve (void);
 static void *__floatdikf_resolve (void);
 static void *__floatunsikf_resolve (void);
 static void *__floatundikf_resolve (void);
-
-#ifdef _ARCH_PPC64
-static void *__fixkfti_resolve (void);
-static void *__fixunskfti_resolve (void);
-static void *__floattikf_resolve (void);
-static void *__floatuntikf_resolve (void);
-#endif	/* _ARCH_PPC64.  */
 
 static void *
 __addkf3_resolve (void)
@@ -234,32 +236,27 @@ __unordkf2_resolve (void)
   return (void *) SW_OR_HW (__unordkf2_sw, __unordkf2_hw);
 }
 
-#ifdef _ARCH_PPC64
-/* For now, just use the emulator for 128-bit integer types.  */
+/* Resolve __nekf2, __gtkf2, __ltkf2 like __eqkf2, __gekf2, and __lekf2, since
+   the functions return the same values.  */
+
 static void *
-__fixkfti_resolve (void)
+__nekf2_resolve (void)
 {
-  return (void *) __fixkfti_sw;
+  return (void *) SW_OR_HW (__eqkf2_sw, __eqkf2_hw);
 }
 
 static void *
-__fixunskfti_resolve (void)
+__gtkf2_resolve (void)
 {
-  return (void *) __fixunskfti_sw;
+  return (void *) SW_OR_HW (__gekf2_sw, __gekf2_hw);
 }
 
 static void *
-__floattikf_resolve (void)
+__ltkf2_resolve (void)
 {
-  return (void *) __floattikf_sw;
+  return (void *) SW_OR_HW (__lekf2_sw, __lekf2_hw);
 }
 
-static void *
-__floatuntikf_resolve (void)
-{
-  return (void *) __floatuntikf_sw;
-}
-#endif	/* _ARCH_PPC64.  */
 
 
 /* Ifunc definitions.  */
@@ -281,11 +278,20 @@ TFtype __negkf2 (TFtype)
 CMPtype __eqkf2 (TFtype, TFtype)
   __attribute__ ((__ifunc__ ("__eqkf2_resolve")));
 
+CMPtype __nekf2 (TFtype, TFtype)
+  __attribute__ ((__ifunc__ ("__nekf2_resolve")));
+
 CMPtype __gekf2 (TFtype, TFtype)
   __attribute__ ((__ifunc__ ("__gekf2_resolve")));
 
+CMPtype __gtkf2 (TFtype, TFtype)
+  __attribute__ ((__ifunc__ ("__gtkf2_resolve")));
+
 CMPtype __lekf2 (TFtype, TFtype)
   __attribute__ ((__ifunc__ ("__lekf2_resolve")));
+
+CMPtype __ltkf2 (TFtype, TFtype)
+  __attribute__ ((__ifunc__ ("__ltkf2_resolve")));
 
 CMPtype __unordkf2 (TFtype, TFtype)
   __attribute__ ((__ifunc__ ("__unordkf2_resolve")));
@@ -325,18 +331,4 @@ TFtype __floatunsikf (USItype_ppc)
 
 TFtype __floatundikf (UDItype_ppc)
   __attribute__ ((__ifunc__ ("__floatundikf_resolve")));
-
-#ifdef _ARCH_PPC64
-TItype_ppc __fixkfti (TFtype)
-  __attribute__ ((__ifunc__ ("__fixkfti_resolve")));
-
-UTItype_ppc __fixunskfti (TFtype)
-  __attribute__ ((__ifunc__ ("__fixunskfti_resolve")));
-
-TFtype __floattikf (TItype_ppc)
-  __attribute__ ((__ifunc__ ("__floattikf_resolve")));
-
-TFtype __floatuntikf (UTItype_ppc)
-  __attribute__ ((__ifunc__ ("__floatuntikf_resolve")));
-#endif
 
