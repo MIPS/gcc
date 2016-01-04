@@ -597,31 +597,28 @@
 	    (match_operand 0 "memory_operand"))))
 
 ;; Return true if OP is a memory operands that can be used in sibcalls.
+;; Since sibcall never returns, we can only use call-clobbered register
+;; as GOT base.  Allow GOT slot here only with pseudo register as GOT
+;; base.  Properly handle sibcall over GOT slot with *sibcall_GOT_32
+;; and *sibcall_value_GOT_32 patterns.
 (define_predicate "sibcall_memory_operand"
-  (and (match_operand 0 "memory_operand")
-       (match_test "CONSTANT_P (XEXP (op, 0))
-		    || (GET_CODE (XEXP (op, 0)) == PLUS
-			&& REG_P (XEXP (XEXP (op, 0), 0))
-			&& GET_CODE (XEXP (XEXP (op, 0), 1)) == CONST
-			&& GET_CODE (XEXP (XEXP (XEXP (op, 0), 1), 0)) == UNSPEC
-			&& XINT (XEXP (XEXP (XEXP (op, 0), 1), 0), 1) == UNSPEC_GOT)")))
-
-;; Test for a valid operand for a call instruction.
-;; Allow constant call address operands in Pmode only.
-(define_special_predicate "call_insn_operand"
-  (ior (match_test "constant_call_address_operand
-		     (op, mode == VOIDmode ? mode : Pmode)")
-       (match_operand 0 "call_register_no_elim_operand")
-       (and (not (match_test "TARGET_X32"))
-	    (match_operand 0 "memory_operand"))))
-
-;; Similarly, but for tail calls, in which we cannot allow memory references.
-(define_special_predicate "sibcall_insn_operand"
-  (ior (match_test "constant_call_address_operand
-		     (op, mode == VOIDmode ? mode : Pmode)")
-       (match_operand 0 "register_no_elim_operand")
-       (and (not (match_test "TARGET_X32"))
-	    (match_operand 0 "sibcall_memory_operand"))))
+  (match_operand 0 "memory_operand")
+{
+  op = XEXP (op, 0);
+  if (CONSTANT_P (op))
+    return true;
+  if (GET_CODE (op) == PLUS && REG_P (XEXP (op, 0)))
+    {
+      int regno = REGNO (XEXP (op, 0));
+      if (!HARD_REGISTER_NUM_P (regno) || call_used_regs[regno])
+	{
+	  op = XEXP (op, 1);
+	  if (GOT32_symbol_operand (op, VOIDmode))
+	    return true;
+	}
+    }
+  return false;
+})
 
 ;; Return true if OP is a GOT memory operand.
 (define_predicate "GOT_memory_operand"
@@ -632,6 +629,33 @@
 	  && GET_CODE (XEXP (op, 0)) == UNSPEC
 	  && XINT (XEXP (op, 0), 1) == UNSPEC_GOTPCREL);
 })
+
+;; Test for a valid operand for a call instruction.
+;; Allow constant call address operands in Pmode only.
+(define_special_predicate "call_insn_operand"
+  (ior (match_test "constant_call_address_operand
+		     (op, mode == VOIDmode ? mode : Pmode)")
+       (match_operand 0 "call_register_no_elim_operand")
+       (ior (and (not (match_test "TARGET_X32"))
+		 (match_operand 0 "sibcall_memory_operand"))
+	    (and (match_test "TARGET_X32 && Pmode == DImode")
+		 (match_operand 0 "GOT_memory_operand")))))
+
+;; Similarly, but for tail calls, in which we cannot allow memory references.
+(define_special_predicate "sibcall_insn_operand"
+  (ior (match_test "constant_call_address_operand
+		     (op, mode == VOIDmode ? mode : Pmode)")
+       (match_operand 0 "register_no_elim_operand")
+       (ior (and (not (match_test "TARGET_X32"))
+		 (match_operand 0 "sibcall_memory_operand"))
+	    (and (match_test "TARGET_X32 && Pmode == DImode")
+		 (match_operand 0 "GOT_memory_operand")))))
+
+;; Return true if OP is a 32-bit GOT symbol operand.
+(define_predicate "GOT32_symbol_operand"
+  (match_test "GET_CODE (op) == CONST
+               && GET_CODE (XEXP (op, 0)) == UNSPEC
+               && XINT (XEXP (op, 0), 1) == UNSPEC_GOT"))
 
 ;; Match exactly zero.
 (define_predicate "const0_operand"

@@ -821,6 +821,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
+  { "omp declare target link", 0, 0, true, false, false,
+			      handle_omp_declare_target_attribute, false },
   { "alloc_align",	      1, 1, false, true, true,
 			      handle_alloc_align_attribute, false },
   { "assume_aligned",	      1, 2, false, true, true,
@@ -3793,10 +3795,21 @@ c_register_builtin_type (tree type, const char* name)
 
 /* Print an error message for invalid operands to arith operation
    CODE with TYPE0 for operand 0, and TYPE1 for operand 1.
-   LOCATION is the location of the message.  */
+   RICHLOC is a rich location for the message, containing either
+   three separate locations for each of the operator and operands
+
+      lhs op rhs
+      ~~~ ^~ ~~~
+
+   (C FE), or one location ranging over all over them
+
+      lhs op rhs
+      ~~~~^~~~~~
+
+   (C++ FE).  */
 
 void
-binary_op_error (location_t location, enum tree_code code,
+binary_op_error (rich_location *richloc, enum tree_code code,
 		 tree type0, tree type1)
 {
   const char *opname;
@@ -3848,9 +3861,9 @@ binary_op_error (location_t location, enum tree_code code,
     default:
       gcc_unreachable ();
     }
-  error_at (location,
-	    "invalid operands to binary %s (have %qT and %qT)", opname,
-	    type0, type1);
+  error_at_rich_loc (richloc,
+		     "invalid operands to binary %s (have %qT and %qT)",
+		     opname, type0, type1);
 }
 
 /* Given an expression as a tree, return its original type.  Do this

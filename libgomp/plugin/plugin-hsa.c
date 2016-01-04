@@ -798,7 +798,6 @@ create_and_finalize_hsa_program (struct agent_info *agent)
   goto final;
 
 failure:
-  release_agent_shared_libraries (agent);
   agent->prog_finalized_error = true;
 
 final:
