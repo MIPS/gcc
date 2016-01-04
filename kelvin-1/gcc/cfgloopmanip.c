@@ -43,7 +43,7 @@ along with GCC; see the file COPYING3.  If not see
       sum of incoming edge frequencies for the loop header block.
    b. The sum of predecessor edge frequencies for every block
       in the loop equals the frequency of that block. */
-#define KELVIN_NOISE
+#undef KELVIN_NOISE
 #ifdef KELVIN_NOISE
 #include "kelvin-debugs.c"
 #endif
