@@ -1,3 +1,8 @@
+2016-01-04  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* openacc.c (acc_on_device): Add routine pragma for C++ wrapper.
+	* testsuite/libgomp.oacc-c-c++-common/acc-on-device-2.c: New.
+
 2015-12-31  Nathan Sidwell  <nathan@acm.org>
 
 	* testsuite/libgomp.oacc-c-c++-common/loop-red-w-2.c: Correct
