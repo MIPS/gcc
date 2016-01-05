@@ -13581,17 +13581,22 @@ mips_expand_epilogue (bool sibcall_p)
 	cfun->machine->epi_with_ra = true;
       else
 	{
+	  HOST_WIDE_INT frame_ptr_offset = last_offset;
+
 	  /* Restore $ra.  */
 	  if (BITSET_P (frame->mask, RETURN_ADDR_REGNUM - GP_REG_FIRST))
-	    mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, last_offset,
-				   mips_restore_reg);
+	    {
+	      mips_save_restore_reg (word_mode, RETURN_ADDR_REGNUM, last_offset,
+				     mips_restore_reg);
+	      /* $fp is saved immediately below $ra.  */
+	      frame_ptr_offset = last_offset - UNITS_PER_WORD;
+	    }
 	  /* Restore $fp if it is being used as a frame pointer.  */
 	  if (frame_pointer_needed
 	      && BITSET_P (frame->mask,
 			   HARD_FRAME_POINTER_REGNUM - GP_REG_FIRST))
 	    mips_save_restore_reg (word_mode, HARD_FRAME_POINTER_REGNUM,
-				   last_offset - UNITS_PER_WORD,
-				   mips_restore_reg);
+				   frame_ptr_offset, mips_restore_reg);
 
 	  /* Emit move insn to put rest_of_stack size in $t1 ($9).  */
 	  rtx rest = GEN_INT (step2);
