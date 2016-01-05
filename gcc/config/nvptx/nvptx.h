@@ -1,5 +1,5 @@
 /* Target Definitions for NVPTX.
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -28,8 +28,6 @@
 /* Run-time Target.  */
 
 #define STARTFILE_SPEC "%{mmainkernel:crt0.o}"
-
-#define ASM_SPEC "%{misa=*:-m %*}"
 
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
@@ -84,21 +82,17 @@
 #define PTRDIFF_TYPE (TARGET_ABI64 ? "long int" : "int")
 
 #define POINTER_SIZE (TARGET_ABI64 ? 64 : 32)
-
 #define Pmode (TARGET_ABI64 ? DImode : SImode)
 
 #define TARGET_SM35 (ptx_isa_option >= PTX_ISA_SM35)
 
 /* Registers.  Since ptx is a virtual target, we just define a few
-   hard registers for special purposes and leave pseudos unallocated.  */
-
-#define FIRST_PSEUDO_REGISTER 16
-/* We have to have some available hard registers, to keep gcc setup
+   hard registers for special purposes and leave pseudos unallocated.
+   We have to have some available hard registers, to keep gcc setup
    happy.  */
-#define FIXED_REGISTERS					\
-  { 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1 }
-#define CALL_USED_REGISTERS				\
-  { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
+#define FIRST_PSEUDO_REGISTER 16
+#define FIXED_REGISTERS	    { 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+#define CALL_USED_REGISTERS { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 }
 
 #define HARD_REGNO_NREGS(REG, MODE)		\
   ((void)(REG), (void)(MODE), 1)
@@ -108,32 +102,13 @@
      ((void)(REG), (void)(MODE), true)
 
 /* Register Classes.  */
-
-enum reg_class
-  {
-    NO_REGS,
-    ALL_REGS,
-    LIM_REG_CLASSES
-  };
-
+enum reg_class             {  NO_REGS,    ALL_REGS,	LIM_REG_CLASSES };
+#define REG_CLASS_NAMES    { "NO_REGS",  "ALL_REGS" }
+#define REG_CLASS_CONTENTS { { 0x0000 }, { 0xFFFF } }
 #define N_REG_CLASSES (int) LIM_REG_CLASSES
 
-#define REG_CLASS_NAMES {	  \
-    "NO_REGS",			  \
-    "ALL_REGS" }
-
-#define REG_CLASS_CONTENTS	\
-{				\
-  /* NO_REGS.  */		\
-  { 0x0000 },			\
-  /* ALL_REGS.  */		\
-  { 0xFFFF },			\
-}
-
 #define GENERAL_REGS ALL_REGS
-
 #define REGNO_REG_CLASS(R) ((void)(R), ALL_REGS)
-
 #define BASE_REG_CLASS ALL_REGS
 #define INDEX_REG_CLASS NO_REGS
 
@@ -159,18 +134,16 @@ enum reg_class
 #define FRAME_GROWS_DOWNWARD 0
 #define STACK_GROWS_DOWNWARD 1
 
+#define NVPTX_RETURN_REGNUM 0
 #define STACK_POINTER_REGNUM 1
-#define NVPTX_RETURN_REGNUM 4
-#define FRAME_POINTER_REGNUM 15
-#define ARG_POINTER_REGNUM 14
-
-#define STATIC_CHAIN_REGNUM 12
-#define OUTGOING_STATIC_CHAIN_REGNUM 10
+#define FRAME_POINTER_REGNUM 2
+#define ARG_POINTER_REGNUM 3
+#define STATIC_CHAIN_REGNUM 4
 
 #define REGISTER_NAMES							\
   {									\
-    "%hr0", "%outargs", "%hfp", "%hr3", "%retval", "%hr5", "%hr6", "%hr7",	\
-    "%hr8", "%hr9", "%chain_out", "%hr11", "%chain_in", "%hr13", "%argp", "%frame" \
+    "%value", "%stack", "%frame", "%args", "%chain", "%hr5", "%hr6", "%hr7", \
+    "%hr8", "%hr9", "%hr10", "%hr11", "%hr12", "%hr13", "%hr14", "%hr15" \
   }
 
 #define FIRST_PARM_OFFSET(FNDECL) ((void)(FNDECL), 0)
@@ -228,14 +201,15 @@ struct nvptx_args {
 #if defined HOST_WIDE_INT
 struct GTY(()) machine_function
 {
-  rtx_expr_list *call_args;
-  rtx start_call;
-  tree funtype;
-  bool has_call_with_varargs;
-  bool has_call_with_sc;
-  HOST_WIDE_INT outgoing_stdarg_size;
-  int ret_reg_mode; /* machine_mode not defined yet. */
-  rtx axis_predicate[2];
+  rtx_expr_list *call_args;  /* Arg list for the current call.  */
+  bool doing_call; /* Within a CALL_ARGS ... CALL_ARGS_END sequence.  */
+  bool is_varadic;  /* This call is varadic  */
+  bool has_varadic;  /* Current function has a varadic call.  */
+  bool has_chain; /* Current function has outgoing static chain.  */
+  int num_args;	/* Number of args of current call.  */
+  int return_mode; /* Return mode of current fn.
+		      (machine_mode not defined yet.) */
+  rtx axis_predicate[2]; /* Neutering predicates.  */
 };
 #endif
 

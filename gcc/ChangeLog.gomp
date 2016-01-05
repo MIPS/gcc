@@ -1,3 +1,86 @@
+2016-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	Merge from mainline:
+	2015-12-30  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.c (nvptx_assemble_undefined_decl): Check
+	it's not a constant pool object.
+
+	2015-12-28  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.c (nvptx_output_call_insn): Expect hard regs.
+	* config/nvptx/nvptx.md (nvptx_reg_or_mem_operand): Rename to ...
+	(nvptx_nonimmediate_operand): ... here.  Update all uses.
+	(call_insn_operand): Use REG_P.
+	(call_operation): Allow hard regs.
+
+	2015-12-23  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx-protos.h
+	(nvptx_maybe_convert_symbolic_operand): Delete prototype.
+	* config/nvptx/nvptx.c (nvptx_maybe_convert_symbolic_operand): Delete.
+	(nvptx_output_mov_insn): Record fnsym here.
+	(nvptx_wpropagate): Don't create UNSPEC_TO_GENERIC unspec.
+	* config/nvptx/nvptx.md (UNSPEC_TO_GENERIC): Delete.
+	(symbolic_operand): Delete predicate.
+	(nvptx_nonimmediate_operand): Delete predicate.
+	(mov<mode>): Hard regs are perfectly ok here.
+	(convaddr_<mode>): Delete.
+
+	2015-12-18  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.c (nvptx_maybe_convert_symbolic_operand):
+	Remove UNSPEC_TO_GENERIC generation.
+	(nvptx_output_mov_insn): Generate cvta for symbolic src.
+	* config/nvptx/nvptx.md (nvptx_register_operand): Allow hard reg.
+	(nvptx_reg_or_mem_operand): Likewise.
+	(nvptx_nonmemory_operand): Likewise.
+	(nvptx_general_operand): Delete.
+	(*mov<mode>_insn): Use nonimmediate_operand, permit hardregs.
+	(oacc_fork, oacc_join): Use general_operand.
+
+	2015-12-18  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.c (nvptx_option_override): Emit sorry for
+	stabs debug.
+	(nvptx_assemble_undefined_decl): Use nvptx_assemble_decl_end.
+
+	2015-12-18  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.c (worker_bcast_name, worker_red_name): Delete.
+	(nvptx_option_override): Adjust worker symbol creation.
+	(nvptx_gen_wcast): Wrap worker address in UNSPEC_TO_GENERIC.
+	(write_worker_buffer): New.
+	(nvptx_file_end): Call write_worker_buffer.
+	* config/nvptx/nvptx.md (UNSPEC_SHARED_DATA): Delete.
+	(worker_load<mode>, worker_store<mode>): Delete.
+
+	2015-12-17  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.h (NVPTX_RETURN_REGNUM, FRAME_POINTER_REGNUM,
+	ARG_POINTER_REGNUM, STATIC_CHAIN_REGNUM): Renumber.
+	(REGISTER_NAMES): Update and rename.
+	(FIXED_REGISTERS, CALL_USED_REGISTERS): Update.
+	(enum_reg_class, REG_CLASS_NAMES, REG_CLASS_CONTENTS): Reformat.
+
+	2015-12-16  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx.h (OUTGOING_STATIC_CHAIN_REGNUM): Remove.
+	(REGISTER_NAMES): Adjust.
+	* config/nvptx/nvptx.c (nvptx_pass_by_reference): Avoid long line.
+	(nvptx_static_hain): Delete.
+	(write_arg_mode): Don't emit initializer if argno < 0.
+	(write_arg_type): Fix whitespace.
+	(init_frame): Initialize reg to zero if frame is zero-sized.
+	(nvptx_declare_function_name):  Use write_arg_type to emit chain
+	decl.
+	(nvptx_output_call_insn): Adjust static chain emission.
+	(nvptx_goacc_reduction): Make static.
+	(TARGET_STATIC_CHAIN): Don't override.
+
+	2015-12-16  Nathan Sidwell  <nathan@acm.org>
+	* config/nvptx/nvptx-protos.h (nvptx_hard_regno_mode_ok): Delete.
+	* config/nvptx/nvptx.h (struct machine_function):
+	Reimplement. Adjust all users.
+	* config/nvptx/nvptx.c (nvptx_declare_function_name): Move stack
+	and frame array generation earlier.
+	(nvptx_call_args): Reimplement.
+	(nvptx_expand_call): Adjust.
+	(nvptx_hard_reno_mode_ok): Delete.
+	(nvptx_reorg): Revert scan of hard regs.
+
 2015-12-29  Nathan Sidwell  <nathan@acm.org>
 
 	* omp-low.c (set_oacc_fn_attrib): Add IS_KERNEL arg, encode on
