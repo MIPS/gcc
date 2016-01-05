@@ -1,5 +1,5 @@
 ! { dg-do compile } 
-! { dg-additional-options "-fdump-tree-original" } 
+! { dg-additional-options "-fdump-tree-original -w" } 
 
 ! test for tree-dump-original and spaces-commas
 

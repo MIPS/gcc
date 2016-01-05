@@ -1,3 +1,5 @@
+/* { dg-additional-options "-w" } */
+
 #include <assert.h>
 #include <stdbool.h>
 

@@ -1,3 +1,5 @@
+/* { dg-additional-options "-w" } */
+
 #include <assert.h>
 
 /* Test of gang-private array variable declared on the parallel directive.  */

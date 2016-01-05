@@ -1,3 +1,5 @@
+! { dg-additional-options "-w" }
+
 ! Test of gang-private variables declared on loop directive.
 
 program main

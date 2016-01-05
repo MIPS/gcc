@@ -1,4 +1,5 @@
 /* { dg-do run } */
+/* { dg-additional-options "-w" } */
 
 /* Ignore vector_length warnings for offloaded (nvptx) targets.  */
 /* { dg-additional-options "-foffload=-w" } */

@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-additional-options "-O1" } */
+/* { dg-additional-options "-O1 -w" } */
 
 #include <stdio.h>
 #include <openacc.h>

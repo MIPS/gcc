@@ -1,3 +1,13 @@
+2016-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	* c-c++-common/goacc/parallel-reduction.c: Add -w.
+	* c-c++-common/goacc/routine-1.c: Add -w.
+	* c-c++-common/goacc/routine-3.c: Add -w.
+	* c-c++-common/goacc/routine-6.c: Add -w.
+	* g++.dg/goacc/template.C: Add -w.
+	* gfortran.dg/goacc/parallel-tree.f95: Add -w.
+	* gfortran.dg/goacc/routine-4.f90: Add -w.
+
 2015-12-28  Nathan Sidwell  <nathan@acm.org>
 
 	* c-c++-common/goacc/routine-nohost-1.c: Adjust expected dump output.

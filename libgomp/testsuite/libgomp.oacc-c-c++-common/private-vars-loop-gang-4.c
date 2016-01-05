@@ -1,3 +1,5 @@
+/* { dg-additional-options "-w" } */
+
 #include <assert.h>
 
 /* Test of gang-private addressable variable declared on loop directive, with

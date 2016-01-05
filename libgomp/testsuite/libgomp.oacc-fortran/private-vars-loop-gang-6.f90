@@ -1,3 +1,5 @@
+! { dg-additional-options "-w" }
+
 ! Test of gang-private addressable variable declared on loop directive, with
 ! broadcasting to partitioned workers.
 

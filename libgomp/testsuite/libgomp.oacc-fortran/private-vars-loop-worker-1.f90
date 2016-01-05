@@ -1,3 +1,5 @@
+! { dg-additional-options "-cpp -w" }
+
 ! Test of worker-private variables declared on a loop directive.
 
 program main

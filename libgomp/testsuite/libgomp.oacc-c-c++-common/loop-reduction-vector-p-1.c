@@ -1,3 +1,5 @@
+/* { dg-additional-options "-w" } */
+
 #include <assert.h>
 
 /* Test of reduction on loop directive (vectors, private reduction

@@ -1,16 +1,11 @@
-! { dg-additional-options "-cpp" }
+! { dg-additional-options "-w" }
 
 ! Test of gang-private variables declared on the parallel directive.
 
-#if defined(ACC_DEVICE_TYPE_host)
-#define ACTUAL_GANGS 1
-#else
-#define ACTUAL_GANGS 32
-#endif
-
 program main
+  use openacc
   integer :: x = 5
-  integer, parameter :: n = ACTUAL_GANGS
+  integer, parameter :: n = 32
   integer :: arr(n)
 
   do i = 1, n
@@ -25,6 +20,7 @@ program main
 
    !$acc loop gang(static:1)
     do i = 1, n
+      if (acc_on_device (acc_device_host) .eqv. .TRUE.) x = i * 2
       arr(i) = arr(i) + x
     end do
   !$acc end parallel

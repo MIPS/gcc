@@ -45,6 +45,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <assert.h>
+#include <errno.h>
 
 static const char *
 cuda_error (CUresult r)
@@ -897,9 +898,68 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
   /* Initialize the launch dimensions.  Typically this is constant,
      provided by the device compiler, but we must permit runtime
      values.  */
+  int seen_zero = 0;
   for (i = 0; i != GOMP_DIM_MAX; i++)
-    if (targ_fn->launch->dim[i])
-      dims[i] = targ_fn->launch->dim[i];
+    {
+      if (targ_fn->launch->dim[i])
+	dims[i] = targ_fn->launch->dim[i];
+      if (!dims[i])
+	seen_zero = 1;
+    }
+
+  if (seen_zero)
+    {
+      /* See if the user provided GOMP_OPENACC_DIM environment
+	 variable to specify runtime defaults. */
+      static int default_dims[GOMP_DIM_MAX];
+
+      if (!default_dims[0])
+	{
+	  /* We only read the environment variable once.  You can't
+	     change it in the middle of execution.  The sytntax  is
+	     the same as for the -fopenacc-dim compilation option.  */
+	  const char *env_var = getenv ("GOMP_OPENACC_DIM");
+	  if (env_var)
+	    {
+	      const char *pos = env_var;
+
+	      for (i = 0; *pos && i != GOMP_DIM_MAX; i++)
+		{
+		  if (i && *pos++ != ':')
+		    break;
+		  if (*pos != ':')
+		    {
+		      const char *eptr;
+
+		      errno = 0;
+		      long val = strtol (pos, (char **)&eptr, 10);
+		      if (errno || val < 0 || (unsigned)val != val)
+			break;
+		      default_dims[i] = (int)val;
+		      pos = eptr;
+		    }
+		}
+	    }
+
+	  /* Do some sanity checking.  The CUDA API doesn't appear to
+	     provide queries to determine these limits.  */
+	  if (default_dims[GOMP_DIM_GANG] < 1)
+	    default_dims[GOMP_DIM_GANG] = 32;
+	  if (default_dims[GOMP_DIM_WORKER] < 1
+	      || default_dims[GOMP_DIM_WORKER] > 32)
+	    default_dims[GOMP_DIM_WORKER] = 32;
+	  default_dims[GOMP_DIM_VECTOR] = 32;
+
+	  GOMP_PLUGIN_debug (0, " default dimensions [%d,%d,%d]\n",
+			     default_dims[GOMP_DIM_GANG],
+			     default_dims[GOMP_DIM_WORKER],
+			     default_dims[GOMP_DIM_VECTOR]);
+	}
+
+      for (i = 0; i != GOMP_DIM_MAX; i++)
+	if (!dims[i])
+	  dims[i] = default_dims[i];
+    }
 
   /* This reserves a chunk of a pre-allocated page of memory mapped on both
      the host and the device. HP is a host pointer to the new chunk, and DP is
@@ -920,8 +980,8 @@ nvptx_exec (void (*fn), size_t mapnum, void **hostaddrs, void **devaddrs,
 
   GOMP_PLUGIN_debug (0, "  %s: kernel %s: launch"
 		     " gangs=%u, workers=%u, vectors=%u\n",
-		     __FUNCTION__, targ_fn->launch->fn,
-		     dims[0], dims[1], dims[2]);
+		     __FUNCTION__, targ_fn->launch->fn, dims[GOMP_DIM_GANG],
+		     dims[GOMP_DIM_WORKER], dims[GOMP_DIM_VECTOR]);
 
   // OpenACC		CUDA
   //

@@ -1,3 +1,5 @@
+! { dg-additional-options "-cpp -w" }
+
 ! Test of gang-private variables declared on loop directive, with broadcasting
 ! to partitioned workers.
 

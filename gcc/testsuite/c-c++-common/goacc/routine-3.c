@@ -1,16 +1,28 @@
 #pragma acc routine gang
 void gang (void) /* { dg-message "declared here" 3 } */
 {
+  #pragma acc loop gang worker vector
+  for (int i = 0; i < 10; i++)
+    {
+    }
 }
 
 #pragma acc routine worker
 void worker (void) /* { dg-message "declared here" 2 } */
 {
+  #pragma acc loop worker vector
+  for (int i = 0; i < 10; i++)
+    {
+    }
 }
 
 #pragma acc routine vector
 void vector (void) /* { dg-message "declared here" 1 } */
 {
+  #pragma acc loop vector
+  for (int i = 0; i < 10; i++)
+    {
+    }
 }
 
 #pragma acc routine seq

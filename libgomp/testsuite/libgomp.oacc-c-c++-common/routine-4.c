@@ -1,5 +1,5 @@
-
 /* { dg-do run } */
+/* { dg-additional-options "-w" } */
 
 #include <stdlib.h>
 

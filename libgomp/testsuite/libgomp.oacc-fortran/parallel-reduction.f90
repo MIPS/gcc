@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-additional-options "-w" }
 
 program reduction
   integer, parameter :: n = 10

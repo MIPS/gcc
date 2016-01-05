@@ -1,3 +1,5 @@
+/* { dg-additional-options "-fopenacc -w" } */
+
 #pragma acc routine
 template <typename T> T
 accDouble(int val)

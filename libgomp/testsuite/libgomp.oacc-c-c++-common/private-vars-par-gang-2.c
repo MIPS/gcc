@@ -1,12 +1,11 @@
+/* { dg-additional-options "-w" } */
+
 #include <assert.h>
+#include <openacc.h>
 
 /* Test of gang-private variables declared on the parallel directive.  */
 
-#if defined(ACC_DEVICE_TYPE_host)
-#define ACTUAL_GANGS 1
-#else
 #define ACTUAL_GANGS 32
-#endif
 
 int
 main (int argc, char* argv[])
@@ -25,7 +24,11 @@ main (int argc, char* argv[])
 
     #pragma acc loop gang(static:1)
     for (i = 0; i < ACTUAL_GANGS; i++)
-      arr[i] += x;
+      {
+	if (acc_on_device (acc_device_host))
+	  x = i * 2;
+	arr[i] += x;
+      }
   }
 
   for (i = 0; i < ACTUAL_GANGS; i++)

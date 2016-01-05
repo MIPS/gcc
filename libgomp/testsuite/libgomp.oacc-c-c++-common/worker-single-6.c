@@ -1,10 +1,9 @@
-#include <assert.h>
+/* { dg-additional-options "-w" } */
 
-#if defined(ACC_DEVICE_TYPE_host)
-#define ACTUAL_GANGS 1
-#else
+#include <assert.h>
+#include <openacc.h>
+
 #define ACTUAL_GANGS 8
-#endif
 
 /* Test worker-single, vector-partitioned, gang-redundant mode.  */
 
@@ -12,6 +11,7 @@ int
 main (int argc, char *argv[])
 {
   int n, arr[32], i;
+  int ondev;
 
   for (i = 0; i < 32; i++)
     arr[i] = 0;
@@ -19,9 +19,11 @@ main (int argc, char *argv[])
   n = 0;
 
   #pragma acc parallel copy(n, arr) num_gangs(ACTUAL_GANGS) num_workers(8) \
-	  vector_length(32)
+	  vector_length(32) copyout(ondev)
   {
     int j;
+
+    ondev = acc_on_device (acc_device_not_host);
 
     #pragma acc atomic
     n++;
@@ -37,10 +39,12 @@ main (int argc, char *argv[])
     n++;
   }
 
-  assert (n == ACTUAL_GANGS * 2);
+  int m = ondev ? ACTUAL_GANGS : 1;
+  
+  assert (n == m * 2);
 
   for (i = 0; i < 32; i++)
-    assert (arr[i] == ACTUAL_GANGS);
+    assert (arr[i] == m);
 
   return 0;
 }

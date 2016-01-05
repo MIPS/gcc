@@ -1,4 +1,5 @@
 ! { dg-do run }
+! { dg-additional-options "-w" }
 
 ! Integer reductions
 
