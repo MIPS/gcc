@@ -75,6 +75,8 @@ extern TFtype __floatsikf_sw (SItype_ppc);
 extern TFtype __floatdikf_sw (DItype_ppc);
 extern TFtype __floatunsikf_sw (USItype_ppc);
 extern TFtype __floatundikf_sw (UDItype_ppc);
+extern __ibm128 __extendkftf2_sw (TFtype);
+extern TFtype __trunctfkf2_sw (__ibm128);
 
 #ifdef _ARCH_PPC64
 /* We do not provide ifunc resolvers for __fixkfti, __fixunskfti, __floattikf,
@@ -113,6 +115,8 @@ extern TFtype __floatsikf_hw (SItype_ppc);
 extern TFtype __floatdikf_hw (DItype_ppc);
 extern TFtype __floatunsikf_hw (USItype_ppc);
 extern TFtype __floatundikf_hw (UDItype_ppc);
+extern __ibm128 __extendkftf2_hw (TFtype);
+extern TFtype __trunctfkf2_hw (__ibm128);
 
 /* Ifunc function declarations, to automatically switch between software
    emulation and hardware support.  */
@@ -140,3 +144,66 @@ extern TFtype __floatsikf (SItype_ppc);
 extern TFtype __floatdikf (DItype_ppc);
 extern TFtype __floatunsikf (USItype_ppc);
 extern TFtype __floatundikf (UDItype_ppc);
+extern __ibm128 __extendkftf2 (TFtype);
+extern TFtype __trunctfkf2 (__ibm128);
+
+#ifdef __LITTLE_ENDIAN__
+#define HIGH_WORD	1
+#define LOW_WORD	0
+#else
+#define HIGH_WORD	0
+#define LOW_WORD	1
+#endif
+
+/* Implementation of conversions between __ibm128 and __float128, to allow the
+   same code to be used on systems with IEEE 128-bit emulation and with IEEE
+   128-bit hardware support.  */
+
+#define CVT_FLOAT128_TO_IBM128(RESULT, VALUE)				\
+{									\
+  double __high, __low;							\
+  __float128 __value = (VALUE);						\
+  union {								\
+    double hi_lo[2];							\
+    __ibm128 ibm;							\
+  } __u;								\
+									\
+  __high = (double) __value;						\
+  if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
+    __low = 0.0;							\
+									\
+  else									\
+    {									\
+      double __high_temp;						\
+									\
+      __low = (double) (__value - (__float128)__high);			\
+      /* now renormalized move the high/low into canonical IBM long	\
+	 double form.  */						\
+      __high_temp = __high + __low;					\
+      __low = (__high - __high_temp) + __low;				\
+      __high = __high_temp;						\
+    }									\
+									\
+  __u.hi_lo[HIGH_WORD] = __high;					\
+  __u.hi_lo[LOW_WORD] = __low;						\
+  RESULT = __u.ibm;							\
+}
+
+#define CVT_IBM128_TO_FLOAT128(RESULT, VALUE)				\
+{									\
+  __ibm128 __value = (VALUE);						\
+  double __high = __builtin_unpack_longdouble (__value, HIGH_WORD);	\
+  double __low = __builtin_unpack_longdouble (__value, LOW_WORD);	\
+									\
+  /* Handle the special cases of NAN and inifinity.  */			\
+  if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
+    RESULT = (__float128) __high;					\
+									\
+  /* If low is 0.0, there no need to do the add.  In addition,		\
+     avoiding the add produces the correct sign if high is -0.0.  */	\
+  else if (__low == 0.0)						\
+    RESULT = (__float128) __high;					\
+									\
+  else									\
+    RESULT = ((__float128)__high) + ((__float128)__low);		\
+}

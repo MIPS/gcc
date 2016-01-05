@@ -32,32 +32,18 @@
 
 /* Convert IEEE 128-bit floating point to IBM long double.  */
 
-/* Force the use of the VSX instruction set.  */
-#if defined(_ARCH_PPC) && (!defined(__VSX__) || !defined(__FLOAT128__))
-#pragma GCC target ("vsx,float128")
+#ifdef __FLOAT128_HARDWARE__
+#error "This module must not be compiled with IEEE 128-bit hardware support"
 #endif
 
-extern __ibm128 __extendkftf2 (__float128);
+#include "soft-fp.h"
+#include "quad-float128.h"
 
 __ibm128
-__extendkftf2 (__float128 value)
+__extendkftf2_sw (__float128 value)
 {
-  double high, low;
+  __ibm128 ret;
 
-  high = (double) value;
-  if (__builtin_isnan (high) || __builtin_isinf (high))
-    low = 0.0;
-
-  else
-    {
-	  double high_temp;
-
-      low = (double) (value - (__float128)high);
-      /* now renormalized the high/low into canonical IBM long double form.  */
-      high_temp = high + low;
-      low = (high - high_temp) + low;
-      high = high_temp;
-    }
-
-  return __builtin_pack_longdouble (high, low);
+  CVT_FLOAT128_TO_IBM128 (ret, value);
+  return ret;
 }

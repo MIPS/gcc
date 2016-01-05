@@ -40,6 +40,12 @@
 #ifdef FLOAT128_HW_INSNS 
 #include <sys/auxv.h>
 
+/* Use the namespace clean version of getauxval.  However, not all versions of
+   sys/auxv.h declare it, so declare it here.  This code is intended to be
+   temporary until a suitable version of __builtin_cpu_supports is added that
+   allows us to tell quickly if the machine supports IEEE 128-bit hardware.  */
+extern unsigned long __getauxval (unsigned long);
+
 static int
 have_ieee_hw_p (void)
 {
@@ -51,16 +57,15 @@ have_ieee_hw_p (void)
 
       ieee_hw_p = 0;
 
-      /* Use __builtin_cpu_supports once it is supported by the PowerPC.  */
+      /* Don't use atoi/strtol/strncmp/etc.  These may require the normal
+	 environment to be setup to set errno to 0, and the ifunc resolvers run
+	 before the whole glibc environment is initialized.  */
       if (p && p[0] == 'p' && p[1] == 'o' && p[2] == 'w' && p[3] == 'e'
 	  && p[4] == 'r')
 	{
 	  long n = 0;
 	  char ch;
 
-	  /* Don't use atoi/strtol/etc.  These require the normal environment
-	     to be setup to set errno to 0, and the ifunc resolvers run before
-	     the whole glibc environment is initialized.  */
 	  p += 5;
 	  while ((ch = *p++) >= '0' && (ch <= '9'))
 	    n = (n * 10) + (ch - '0');
@@ -109,6 +114,8 @@ static void *__floatsikf_resolve (void);
 static void *__floatdikf_resolve (void);
 static void *__floatunsikf_resolve (void);
 static void *__floatundikf_resolve (void);
+static void *__extendkftf2_resolve (void);
+static void *__trunctfkf2_resolve (void);
 
 static void *
 __addkf3_resolve (void)
@@ -210,6 +217,18 @@ static void *
 __trunckfdf2_resolve (void)
 {
   return (void *) SW_OR_HW (__trunckfdf2_sw, __trunckfdf2_hw);
+}
+
+static void *
+__extendkftf2_resolve (void)
+{
+  return (void *) SW_OR_HW (__extendkftf2_sw, __extendkftf2_hw);
+}
+
+static void *
+__trunctfkf2_resolve (void)
+{
+  return (void *) SW_OR_HW (__trunctfkf2_sw, __trunctfkf2_hw);
 }
 
 static void *
@@ -332,3 +351,8 @@ TFtype __floatunsikf (USItype_ppc)
 TFtype __floatundikf (UDItype_ppc)
   __attribute__ ((__ifunc__ ("__floatundikf_resolve")));
 
+__ibm128 __extendkftf2 (TFtype)
+  __attribute__ ((__ifunc__ ("__extendkftf2_resolve")));
+
+TFtype __trunctfkf2 (__ibm128)
+  __attribute__ ((__ifunc__ ("__trunctfkf2_resolve")));

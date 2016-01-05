@@ -1,3 +1,43 @@
+2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* Makefile.in (clean): Remove EXTRA_CLEAN parts.
+
+	* config/rs6000/floattikf-sw.c: Delete -sw.c version, and just use
+	the name without -sw.c since we don't have different hardware and
+	software versions.
+	* config/rs6000/floattikf.c: Likewise.
+	* config/rs6000/floattikf.c: Likewise.
+	* config/rs6000/floatuntikf-sw.c: Likewise.
+	* config/rs6000/floatuntikf.c: Likewise.
+	* config/rs6000/fixkfti-sw.c: Likewise.
+	* config/rs6000/fixkfti.c: Likewise.
+	* config/rs6000/fixunskfti-sw.c: Likewise.
+	* config/rs6000/fixunskfti.c: Likewise.
+	* config/rs6000/t-float128: Likewise.
+
+	* config/rs6000/float128-hw.c (__extendkftf2_hw): Add hardware
+	support for conversions between __ibm128 and __float128.
+	(__trunctfkf2_hw): Likewise.
+
+	* config/rs6000/float128-ifunc.c (__extendkftf2): Add software and
+	hardware versions of conversion between __ibm128 and __float128.
+	(__trunctfkf2): Likewise.
+	(have_ieee_hw_p): Use __getauxval, instead of getauxval.
+
+	* config/rs6000/quad-float128.h (__extendkftf2*): Add new
+	declarations.
+	(__floattfkf2*): Likewise.
+	(CVT_FLOAT128_TO_IBM128): New macros for converting between
+	__ibm128 and __float128.
+	(CVT_IBM128_TO_FLOAT128): Likewise.
+
+	* config/rs6000/extendkftf2-sw.c: Use new macros for conversion
+	between __ibm128 and __float128.
+	* config/rs6000/trunktfkf2-sw.c: Likewise.
+
+	* config/rs6000/t-float128: Remove EXTRA_CLEAN support. Add rule
+	for cleaning the *-sw.c files.
+
 2016-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/sfp-exceptions.c (__sfp_handle_exceptions): Only

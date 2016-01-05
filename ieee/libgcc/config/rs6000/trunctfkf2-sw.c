@@ -32,40 +32,18 @@
 
 /* Convert IBM long double to IEEE 128-bit floating point.  */
 
-/* Force the use of the VSX instruction set.  */
-#if defined(_ARCH_PPC) && (!defined(__VSX__) || !defined(__FLOAT128__))
-#pragma GCC target ("vsx,float128")
-#else
-#if 0
-typedef long double __ibm128;
-typedef long double __float128;
-#endif
+#ifdef __FLOAT128_HARDWARE__
+#error "This module must not be compiled with IEEE 128-bit hardware support"
 #endif
 
-extern __float128 __trunctfkf2 (__ibm128);
-
-#ifdef __LITTLE_ENDIAN__
-#define HIGH_WORD	1
-#define LOW_WORD	0
-#else
-#define HIGH_WORD	0
-#define LOW_WORD	1
-#endif
+#include "soft-fp.h"
+#include "quad-float128.h"
 
 __float128
-__trunctfkf2 (__ibm128 value)
+__trunctfkf2_sw (__ibm128 value)
 {
-  double high = __builtin_unpack_longdouble (value, HIGH_WORD);
-  double low = __builtin_unpack_longdouble (value, LOW_WORD);
+  __float128 ret;
 
-  /* Handle the special cases of NAN and inifinity.  */
-  if (__builtin_isnan (high) || __builtin_isinf (high))
-    return (__float128) high;
-
-  /* If low is 0.0, there no need to do the add.  In addition, avoiding the add
-     produces the correct sign if high is -0.0.  */
-  if (low == 0.0)
-    return (__float128) high;
-
-  return ((__float128)high) + ((__float128)low);
+  CVT_IBM128_TO_FLOAT128 (ret, value);
+  return ret;
 }

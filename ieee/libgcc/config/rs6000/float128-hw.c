@@ -186,3 +186,22 @@ __unordkf2_hw (TFtype a, TFtype b)
   return (__builtin_isunordered (a, b)) ? 1 : 0;
 }
 
+/* Convert __float128 to __ibm128.  */
+__ibm128
+__extendkftf2_hw (TFtype value)
+{
+  __ibm128 ret;
+
+  CVT_FLOAT128_TO_IBM128 (ret, value);
+  return ret;
+}
+
+/* Convert __ibm128 to __float128.  */
+TFtype
+__trunctfkf2_hw (__ibm128 value)
+{
+  TFtype ret;
+
+  CVT_IBM128_TO_FLOAT128 (ret, value);
+  return ret;
+}
