@@ -1642,6 +1642,9 @@ BU_DFP_MISC_2 (UNPACK_TD,	"unpack_dec128",	CONST,	unpacktd)
 BU_LDBL128_2 (PACK_TF,		"pack_longdouble",	CONST,	packtf)
 BU_LDBL128_2 (UNPACK_TF,	"unpack_longdouble",	CONST,	unpacktf)
 
+BU_LDBL128_2 (PACK_IF,		"pack_ibm128",		CONST,	packif)
+BU_LDBL128_2 (UNPACK_IF,	"unpack_ibm128",	CONST,	unpackif)
+
 BU_P7_MISC_2 (PACK_V1TI,	"pack_vector_int128",	CONST,	packv1ti)
 BU_P7_MISC_2 (UNPACK_V1TI,	"unpack_vector_int128",	CONST,	unpackv1ti)
 

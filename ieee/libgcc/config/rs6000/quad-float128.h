@@ -1,6 +1,6 @@
 /* Software floating-point emulation.
    Definitions for IEEE Quad Precision on the PowerPC.
-   Copyright (C) 2015 Free Software Foundation, Inc.
+   Copyright (C) 2016 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
    Contributed by Michael Meissner (meissner@linux.vnet.ibm.com).
 
@@ -163,10 +163,6 @@ extern TFtype __trunctfkf2 (__ibm128);
 {									\
   double __high, __low;							\
   __float128 __value = (VALUE);						\
-  union {								\
-    double hi_lo[2];							\
-    __ibm128 ibm;							\
-  } __u;								\
 									\
   __high = (double) __value;						\
   if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
@@ -184,16 +180,14 @@ extern TFtype __trunctfkf2 (__ibm128);
       __high = __high_temp;						\
     }									\
 									\
-  __u.hi_lo[HIGH_WORD] = __high;					\
-  __u.hi_lo[LOW_WORD] = __low;						\
-  RESULT = __u.ibm;							\
+  RESULT = __builtin_pack_ibm128 (__high, __low);			\
 }
 
 #define CVT_IBM128_TO_FLOAT128(RESULT, VALUE)				\
 {									\
   __ibm128 __value = (VALUE);						\
-  double __high = __builtin_unpack_longdouble (__value, HIGH_WORD);	\
-  double __low = __builtin_unpack_longdouble (__value, LOW_WORD);	\
+  double __high = __builtin_unpack_ibm128 (__value, HIGH_WORD);		\
+  double __low = __builtin_unpack_ibm128 (__value, LOW_WORD);		\
 									\
   /* Handle the special cases of NAN and inifinity.  */			\
   if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
