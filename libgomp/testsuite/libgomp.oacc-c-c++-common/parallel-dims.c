@@ -107,7 +107,7 @@ int main ()
     int gangs_min, gangs_max, workers_min, workers_max, vectors_min, vectors_max;
     gangs_min = workers_min = vectors_min = INT_MAX;
     gangs_max = workers_max = vectors_max = INT_MIN;
-#pragma acc parallel copy (gangs_actual) \
+#pragma acc parallel copy (gangs_actual) /* { dg-warning "region contains gang partitoned code but is not gang partitioned" } */ \
   num_gangs (GANGS) /* { dg-warning "'num_gangs' value must be positive" "" { target c++ } } */
     {
       /* We're actually executing with num_gangs (1).  */
@@ -136,7 +136,7 @@ int main ()
     int gangs_min, gangs_max, workers_min, workers_max, vectors_min, vectors_max;
     gangs_min = workers_min = vectors_min = INT_MAX;
     gangs_max = workers_max = vectors_max = INT_MIN;
-#pragma acc parallel copy (workers_actual) \
+#pragma acc parallel copy (workers_actual) /* { dg-warning "region contains worker partitoned code but is not worker partitioned" } */ \
   num_workers (WORKERS) /* { dg-warning "'num_workers' value must be positive" "" { target c++ } } */
     {
       /* We're actually executing with num_workers (1).  */
@@ -165,7 +165,8 @@ int main ()
     int gangs_min, gangs_max, workers_min, workers_max, vectors_min, vectors_max;
     gangs_min = workers_min = vectors_min = INT_MAX;
     gangs_max = workers_max = vectors_max = INT_MIN;
-#pragma acc parallel copy (vectors_actual) /* { dg-warning "using vector_length \\(32\\), ignoring 1" "" { target openacc_nvidia_accel_selected } } */ \
+#pragma acc parallel copy (vectors_actual) /* { dg-warning "region contains vector partitoned code but is not vector partitioned" } */ \
+  /* { dg-warning "using vector_length \\(32\\), ignoring 1" "" { target openacc_nvidia_accel_selected } 168 } */ \
   vector_length (VECTORS) /* { dg-warning "'vector_length' value must be positive" "" { target c++ } } */
     {
       /* We're actually executing with vector_length (1), just the GCC nvptx
@@ -209,7 +210,7 @@ int main ()
     int gangs_min, gangs_max, workers_min, workers_max, vectors_min, vectors_max;
     gangs_min = workers_min = vectors_min = INT_MAX;
     gangs_max = workers_max = vectors_max = INT_MIN;
-#pragma acc parallel copy (gangs_actual) \
+#pragma acc parallel copy (gangs_actual) /* { dg-warning "region is gang partitioned but does not contain gang partitioned code" } */ \
   reduction (min: gangs_min, workers_min, vectors_min) reduction (max: gangs_max, workers_max, vectors_max) \
   num_gangs (gangs)
     {

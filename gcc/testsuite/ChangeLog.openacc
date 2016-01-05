@@ -1,3 +1,20 @@
+2016-03-31  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/uninit-dim-clause.c: Update.
+	* gfortran.dg/goacc/uninit-dim-clause.f95: Likewise.
+
+2016-01-05  Nathan Sidwell  <nathan@codesourcery.com>
+	    Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/acc-icf.c: Update.
+	* c-c++-common/goacc/parallel-dims-1.c: Likewise.
+	* c-c++-common/goacc/parallel-reduction.c: Likewise.
+	* c-c++-common/goacc/pr70688.c: Likewise.
+	* c-c++-common/goacc/routine-1.c: Likewise.
+	* gfortran.dg/goacc/parallel-tree.f95: Likewise.
+	* gfortran.dg/goacc/routine-4.f90: Likewise.
+	* gfortran.dg/goacc/routine-level-of-parallelism-1.f90: Likewise.
+
 2017-06-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gfortran.dg/goacc/kernels-loop-n.f95: Remove XFAIL.

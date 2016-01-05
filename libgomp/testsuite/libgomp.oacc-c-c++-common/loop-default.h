@@ -1,8 +1,3 @@
-/* This code uses nvptx inline assembly guarded with acc_on_device, which is
-   not optimized away at -O0, and then confuses the target assembler.  */
-/* { dg-skip-if "" { *-*-* } { "-O0" } { "" } } */
-/* { dg-additional-options "-fopenacc-dim=16:16" } */
-
 #include <openacc.h>
 #include <alloca.h>
 #include <string.h>
@@ -127,9 +122,4 @@ int test_1 (int gp, int wp, int vp)
   exit |= check (ary, N, 1, 1, vp);
 
   return exit;
-}
-
-int main ()
-{
-  return test_1 (16, 16, 32);
 }

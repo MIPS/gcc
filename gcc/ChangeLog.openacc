@@ -1,3 +1,10 @@
+2016-01-05  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* doc/invoke.texi (fopenacc-dim): Update.
+	* omp-offload.c (oacc_parse_default_dims): Update.
+	(oacc_validate_dims): Emit warnings about strange
+	partitioning choices.
+
 2015-11-03  Tom de Vries  <tom@codesourcery.com>
 
 	* common.opt (foffload-alias): New option.
