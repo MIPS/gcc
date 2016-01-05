@@ -773,6 +773,7 @@ Objective-C and Objective-C++ Dialects}.
 -minterlink-compressed -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
 -minline-intermix -mno-inline-intermix @gol
+-mmips16-use-xsregs -mno-mips16-use-xsregs @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfpxx  -mfp64  -mhard-float  -msoft-float @gol
@@ -795,6 +796,7 @@ Objective-C and Objective-C++ Dialects}.
 -G@var{num}  -mlocal-sdata  -mno-local-sdata @gol
 -mextern-sdata  -mno-extern-sdata  -mgpopt  -mno-gopt @gol
 -membedded-data  -mno-embedded-data @gol
+-msdata-opt-list=@var{file} @gol
 -muninit-const-in-rodata  -mno-uninit-const-in-rodata @gol
 -mcode-readable=@var{setting} @gol
 -msplit-addresses  -mno-split-addresses @gol
@@ -17275,6 +17277,14 @@ vice-versa.  When using this option it is necessary to protect functions
 that cannot be compiled as MIPS16 with a noinline attribute to ensure
 they are not inlined into a MIPS16 function.
 
+@item -mmips16-use-xsregs
+@itemx -mno-mips16-use-xsregs
+@opindex mmips16-use-xsregs
+@opindex mno-mips16-use-xsregs
+Enable the use of additional callee-saved registers for MIPS16 which would
+not normally be available.  This will often reduce code size and improve
+performance as these registers will be used instead of spilling to memory.
+
 @item -mabi=32
 @itemx -mabi=o64
 @itemx -mabi=n32
@@ -17724,6 +17734,14 @@ Allocate variables to the read-only data section first if possible, then
 next in the small data section if possible, otherwise in data.  This gives
 slightly slower code than the default, but reduces the amount of RAM required
 when executing, and thus may be preferred for some embedded systems.
+
+@item -msdata-opt-list
+@opindex msdata-opt-list
+Read a list of data variables from a file that must be accessed using the
+small data model.  This is equivalent to adding
+@code{__attribute__((section(".sdata"))} to the declaration in the source.
+For this option to take effect on uninitialised globals then
+@option{-fno-common} must also be used.
 
 @item -muninit-const-in-rodata
 @itemx -mno-uninit-const-in-rodata
