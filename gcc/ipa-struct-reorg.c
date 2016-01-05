@@ -2199,20 +2199,19 @@ gen_args_to_skip (func_to_clone func)
   func->args_to_skip = BITMAP_GGC_ALLOC ();
   fndecl = func->old_node->decl;
 
-  debug_tree (fndecl);
-
   /* Since at WPA level decls of cgraph nodes have no function body,
-     the only way we have to recompose parameter of structure type 
-     is through its number recorded in  */
+     the only way we have to decompose parameter of structure type 
+     is through its number recorded in ipa_replace_map structure.  */
   for (parm = TYPE_ARG_TYPES (TREE_TYPE(fndecl)), i = 0;
        parm; parm = TREE_CHAIN (parm), i++)
     {
-      debug_tree (parm);
       tree arg_type = TREE_VALUE (parm);
       ii = is_in_struct_symbols_vec (strip_type (arg_type));
       if (ii != -1)
 	{
-	  struct ipa_replace_map *replace_map; 
+	  struct ipa_replace_map *replace_map;
+	  /* We record the same parameter index for 
+	     both: decomposition and skip.  */
 	  bitmap_set_bit (func->args_to_skip, i);
 	  if (dump_file)
 	    fprintf (dump_file, "\nArg to skip is %d", i);
@@ -2227,7 +2226,7 @@ gen_args_to_skip (func_to_clone func)
 
 	  vec_safe_push (func->tree_map, replace_map);
 	}
-    }  
+    }
 }
 
 /* This function clones functions that have parameters of structure type(s), 
@@ -2256,7 +2255,6 @@ clone_funcs_with_struct_params (void)
 	cgraph_create_virtual_clone (func->old_node, func->callers, 
 				     func->tree_map, func->args_to_skip, 
 				     "structreorg");
-
     }    
 }
 

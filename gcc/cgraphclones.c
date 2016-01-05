@@ -476,8 +476,9 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
       || in_lto_p)
     new_node->unique_name = true;
   FOR_EACH_VEC_SAFE_ELT (tree_map, i, map)
-    ipa_maybe_record_reference (new_node, map->new_tree,
-				IPA_REF_ADDR, NULL);
+    if (map->new_tree)
+      ipa_maybe_record_reference (new_node, map->new_tree,
+				  IPA_REF_ADDR, NULL);
   if (!args_to_skip)
     new_node->clone.combined_args_to_skip = old_node->clone.combined_args_to_skip;
   else if (old_node->clone.combined_args_to_skip)
