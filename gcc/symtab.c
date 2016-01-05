@@ -374,8 +374,8 @@ symtab_node::register_symbol (void)
 {
   symtab->register_symbol (this);
 
-  if (!decl->decl_with_vis.symtab_node)
-    decl->decl_with_vis.symtab_node = this;
+  if (!DECL_SYMTAB_NODE (decl))
+    DECL_SYMTAB_NODE (decl) = this;
 
   ref_list.clear ();
 
@@ -423,13 +423,13 @@ symtab_node::unregister (void)
 
   /* During LTO symtab merging we temporarily corrupt decl to symtab node
      hash.  */
-  gcc_assert (decl->decl_with_vis.symtab_node || in_lto_p);
-  if (decl->decl_with_vis.symtab_node == this)
+  gcc_assert (DECL_SYMTAB_NODE (decl) || in_lto_p);
+  if (DECL_SYMTAB_NODE (decl) == this)
     {
       symtab_node *replacement_node = NULL;
       if (cgraph_node *cnode = dyn_cast <cgraph_node *> (this))
 	replacement_node = cnode->find_replacement ();
-      decl->decl_with_vis.symtab_node = replacement_node;
+      DECL_SYMTAB_NODE (decl) = replacement_node;
     }
   if (!is_a <varpool_node *> (this) || !DECL_HARD_REGISTER (decl))
     symtab->unlink_from_assembler_name_hash (this, false);

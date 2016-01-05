@@ -36,7 +36,7 @@ struct GTY(()) cpp_macro {
   /* Parameters, if any.  If parameter names use extended identifiers,
      the original spelling of those identifiers, not the canonical
      UTF-8 spelling, goes here.  */
-  cpp_hashnode ** GTY ((nested_ptr (union tree_node,
+  cpp_hashnode ** GTY ((nested_ptr (struct tree_node,
 		"%h ? CPP_HASHNODE (GCC_IDENT_TO_HT_IDENT (%h)) : NULL",
 			"%h ? HT_IDENT_TO_GCC_IDENT (HT_NODE (%h)) : NULL"),
 			length ("%h.paramc")))

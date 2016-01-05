@@ -2185,9 +2185,9 @@ layout_type (tree type)
         TYPE_UNSIGNED (type) = TYPE_UNSIGNED (TREE_TYPE (type));
 	/* Several boolean vector elements may fit in a single unit.  */
 	if (VECTOR_BOOLEAN_TYPE_P (type)
-	    && type->type_common.mode != BLKmode)
+	    && type->u.type_common.mode != BLKmode)
 	  TYPE_SIZE_UNIT (type)
-	    = size_int (GET_MODE_SIZE (type->type_common.mode));
+	    = size_int (GET_MODE_SIZE (type->u.type_common.mode));
 	else
 	  TYPE_SIZE_UNIT (type) = int_const_binop (MULT_EXPR,
 						   TYPE_SIZE_UNIT (innertype),
@@ -2453,12 +2453,12 @@ vector_type_mode (const_tree t)
 
   gcc_assert (TREE_CODE (t) == VECTOR_TYPE);
 
-  mode = t->type_common.mode;
+  mode = t->u.type_common.mode;
   if (VECTOR_MODE_P (mode)
       && (!targetm.vector_mode_supported_p (mode)
 	  || !have_regs_of_mode[mode]))
     {
-      machine_mode innermode = TREE_TYPE (t)->type_common.mode;
+      machine_mode innermode = TREE_TYPE (t)->u.type_common.mode;
 
       /* For integers, try mapping it to a same-sized scalar mode.  */
       if (GET_MODE_CLASS (innermode) == MODE_INT)
