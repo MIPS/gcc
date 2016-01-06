@@ -1,5 +1,5 @@
 ! { dg-do compile } 
-! { dg-additional-options "-fdump-tree-gimple" }
+! { dg-additional-options "-fdump-tree-gimple  -ftree-parallelize-loops=1" }
 
 subroutine foo ()
   implicit none
