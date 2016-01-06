@@ -1,3 +1,21 @@
+2016-01-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def (BU_FLOAT128_2): New macro for
+	__ibm128 builtin functions.
+	(PACK_IF): Define as __ibm128 builtin functions.
+	(UNPACK_IF): Likewise.
+
+	* gcc/config/rs6000.c (rs6000_builtin_mask_calculate): Add
+	__float128/__ibm128 support.
+	(rs6000_invalid_builtin): Likewise.
+	(rs6000_init_builtins): Create ieee128_type_node and
+	ibm128_type_node, even if not -mfloat128.
+	(rs6000_opt_masks): Add -mfloat128 support.
+
+	* config/rs6000/rs6000.h (MASK_FLOAT128): Add short name.
+	(RS6000_BTM_FLOAT128): Add -mfloat128 builtin functions.
+	(RS6000_BTM_COMMON): Likewise.
+
 2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 232093.
