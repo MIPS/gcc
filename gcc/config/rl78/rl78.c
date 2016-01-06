@@ -814,16 +814,16 @@ rl78_handle_saddr_attribute (tree * node,
 /* Table of RL78-specific attributes.  */
 const struct attribute_spec rl78_attribute_table[] =
 {
-  /* Name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-     affects_type_identity.  */
+  /* Name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+     type_handler, affects_type_identity.  */
   { "interrupt",      0, 0, true, false, false, rl78_handle_func_attribute,
-    false },
+    NULL, false },
   { "brk_interrupt",  0, 0, true, false, false, rl78_handle_func_attribute,
-    false },
+    NULL, false },
   { "naked",          0, 0, true, false, false, rl78_handle_naked_attribute,
-    false },
+    NULL, false },
   { "saddr",          0, 0, true, false, false, rl78_handle_saddr_attribute,
-    false },
+    NULL, false },
   { NULL,             0, 0, false, false, false, NULL, false }
 };
 

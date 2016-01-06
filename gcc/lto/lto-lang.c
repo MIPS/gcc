@@ -62,37 +62,38 @@ const struct attribute_spec lto_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        do_diagnostic } */
   { "noreturn",               0, 0, true,  false, false,
-			      handle_noreturn_attribute, false },
+			      handle_noreturn_attribute, NULL, false },
   { "leaf",		      0, 0, true,  false, false,
-			      handle_leaf_attribute, false },
+			      handle_leaf_attribute, NULL, false },
   /* The same comments as for noreturn attributes apply to const ones.  */
   { "const",                  0, 0, true,  false, false,
-			      handle_const_attribute, false },
+			      handle_const_attribute, NULL, false },
   { "malloc",                 0, 0, true,  false, false,
-			      handle_malloc_attribute, false },
+			      handle_malloc_attribute, NULL, false },
   { "pure",                   0, 0, true,  false, false,
-			      handle_pure_attribute, false },
+			      handle_pure_attribute, NULL, false },
   { "no vops",                0, 0, true,  false, false,
-			      handle_novops_attribute, false },
+			      handle_novops_attribute, NULL, false },
   { "nonnull",                0, -1, false, true, true,
-			      handle_nonnull_attribute, false },
+			      NULL, handle_nonnull_attribute, false },
   { "nothrow",                0, 0, true,  false, false,
-			      handle_nothrow_attribute, false },
+			      handle_nothrow_attribute, NULL, false },
   { "returns_twice",          0, 0, true,  false, false,
-			      handle_returns_twice_attribute, false },
+			      handle_returns_twice_attribute, NULL, false },
   { "sentinel",               0, 1, false, true, true,
-			      handle_sentinel_attribute, false },
+			      NULL, handle_sentinel_attribute, false },
   { "type generic",           0, 0, false, true, true,
-			      handle_type_generic_attribute, false },
+			      NULL, handle_type_generic_attribute, false },
   { "fn spec",	 	      1, 1, false, true, true,
-			      handle_fnspec_attribute, false },
+			      NULL, handle_fnspec_attribute, false },
   { "transaction_pure",	      0, 0, false, true, true,
-			      handle_transaction_pure_attribute, false },
+			      NULL, handle_transaction_pure_attribute, false },
   /* For internal use only.  The leading '*' both prevents its usage in
      source code and signals that it may be overridden by machine tables.  */
   { "*tm regparm",            0, 0, false, true, true,
-			      ignore_attribute, false },
-  { NULL,                     0, 0, false, false, false, NULL, false }
+			      NULL, ignore_attribute,
+			      false },
+  { NULL,                     0, 0, false, false, false, NULL, NULL, false }
 };
 
 /* Give the specifications for the format attributes, used by C and all
@@ -103,10 +104,12 @@ const struct attribute_spec lto_format_attribute_table[] =
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "format",                 3, 3, false, true,  true,
+			      NULL,
 			      handle_format_attribute, false },
   { "format_arg",             1, 1, false, true,  true,
+			      NULL,
 			      handle_format_arg_attribute, false },
-  { NULL,                     0, 0, false, false, false, NULL, false }
+  { NULL,                     0, 0, false, false, false, NULL, NULL, false }
 };
 
 enum built_in_attribute

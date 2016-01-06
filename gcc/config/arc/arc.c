@@ -188,20 +188,21 @@ static tree arc_handle_interrupt_attribute (tree *, tree, tree, int, bool *);
    machine specific supported attributes.  */
 const struct attribute_spec arc_attribute_table[] =
 {
- /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
-      affects_type_identity } */
-  { "interrupt", 1, 1, true, false, false, arc_handle_interrupt_attribute, true },
+ /* { name, min_len, max_len, decl_req, type_req, fn_type_req, decl_handler,
+      type_handler, affects_type_identity } */
+  { "interrupt", 1, 1, true, false, false, arc_handle_interrupt_attribute,
+    NULL, true },
   /* Function calls made to this symbol must be done indirectly, because
      it may lie outside of the 21/25 bit addressing range of a normal function
      call.  */
-  { "long_call",    0, 0, false, true,  true,  NULL, false },
+  { "long_call",    0, 0, false, true,  true,  NULL, NULL, false },
   /* Whereas these functions are always known to reside within the 25 bit
      addressing range of unconditionalized bl.  */
-  { "medium_call",   0, 0, false, true,  true,  NULL, false },
+  { "medium_call",   0, 0, false, true,  true,  NULL, NULL, false },
   /* And these functions are always known to reside within the 21 bit
      addressing range of blcc.  */
-  { "short_call",   0, 0, false, true,  true,  NULL, false },
-  { NULL, 0, 0, false, false, false, NULL, false }
+  { "short_call",   0, 0, false, true,  true,  NULL, NULL, false },
+  { NULL, 0, 0, false, false, false, NULL, NULL, false }
 };
 static int arc_comp_type_attributes (const_tree, const_tree);
 static void arc_file_start (void);
