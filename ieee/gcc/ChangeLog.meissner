@@ -1,5 +1,10 @@
 2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 232093.
+	* REVISION: Update subversion id.
+
+2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.md (f128_vsx): New mode attribute.
 	(unpack<mode>): Use FMOVE128_FPR iterator instead of FMOVE128, to
 	disallow __builtin_{pack,unpack}_longdouble if long double is IEEE

@@ -1,5 +1,9 @@
 2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 232093.
+
+2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* Makefile.in (clean): Remove EXTRA_CLEAN parts.
 
 	* config/rs6000/floattikf-sw.c: Delete -sw.c version, and just use

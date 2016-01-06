@@ -1,3 +1,87 @@
+2016-01-05  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR 1078
+	* doc/extend.texi (RL78 Variable Attributes): New section.
+
+2016-01-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69104
+	* builtins.c (get_memmodel): Use expansion point location rather than
+	the input location.  Call warning_at rather than warning.
+	(expand_builtin_atomic_compare_exchange): Likewise.
+	(expand_builtin_atomic_load): Likewise.
+	(expand_builtin_atomic_store): Likewise.
+	(expand_builtin_atomic_clear): Likewise.
+
+2016-01-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68991
+	* config/i386/i386.c (ix86_expand_vector_logical_operator):
+	Replace nonimmediate_operand with vector_operand.
+	* config/i386/predicates.md (vector_operand): New predicate.
+	(general_vector_operand): Replace nonimmediate_operand with
+	vector_operand.
+	* config/i386/sse.md: Replace nonimmediate_operand with
+	vector_operand and m constraint with Bm constraint on SSE
+	patterns with 16-byte memory operand.
+	* config/i386/subst.md (round_nimm_predicate): Replace
+	nonimmediate_operand with vector_operand.
+	(round_saeonly_nimm_predicate): Likewise.
+	(round_saeonly_nimm_scalar_predicate): New.
+
+2016-01-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68991
+	* config/i386/constraints.md (Bm): New constraint.
+	* config/i386/predicates.md (vector_memory_operand): New
+	predicate.
+	* config/i386/sse.md: Replace xm with xBm in plusminus and
+	any_logic patterns.
+
+2016-01-05  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR 1078
+	* doc/extend.texi (V850 Function Attributes): New section.
+	(V850 Variable Attributes): New section.
+
+2016-01-05  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR 1078
+	* doc/extend.texi (MicroBlaze Function Attributes): Document
+	interrupt_handler and fast_interrupt attributes.
+
+2016-01-05  Sergei Trofimovich <siarheit@google.com>
+
+	PR other/60465
+	* config/ia64/ia64.c (ia64_expand_load_address): Use gprel64
+	for local symbolic operands.
+	* config/ia64/predicates.md (local_symbolic_operand64): New
+	predicate.
+
+2016-01-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68651
+	* combine.c (combine_simplify_rtx): Canonicalize x + x into
+	x << 1.
+
+2016-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	* alias.c (compare_base_decls): Use symtab_node::get.
+
+2016-01-05  Nick Clifton  <nickc@redhat.com>
+
+	PR target/68770
+	* ira-costs.c (copy_cost): Initialise the t_icode field of the
+	secondary_reload_info structure.
+
+	PR target/66655
+	* config/i386/cygming.h (MAKE_DECL_ONE_ONLY): Define to use weak
+	decls if weak support is available.
+
+2016-01-04  Martin Sebor  <msebor@redhat.com>
+
+	* doc/invoke.texi (Warning Options): Document -Winvalid-memory-model.
+
 2016-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Add
