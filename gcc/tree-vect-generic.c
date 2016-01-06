@@ -73,12 +73,12 @@ build_replicated_const (tree type, tree inner_type, HOST_WIDE_INT value)
 }
 
 static GTY(()) tree vector_inner_type;
-static GTY(()) tree vector_last_type;
+static GTY(()) ttype *vector_last_type;
 static GTY(()) int vector_last_nunits;
 
 /* Return a suitable vector types made of SUBPARTS units each of mode
    "word_mode" (the global variable).  */
-static tree
+static ttype *
 build_word_mode_vector_type (int nunits)
 {
   if (!vector_inner_type)

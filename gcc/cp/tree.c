@@ -742,22 +742,22 @@ rvalue (tree expr)
 
 struct cplus_array_info
 {
-  tree type;
+  ttype *type;
   tree domain;
 };
 
-struct cplus_array_hasher : ggc_ptr_hash<tree_node>
+struct cplus_array_hasher : ggc_ptr_hash<ttype>
 {
   typedef cplus_array_info *compare_type;
 
-  static hashval_t hash (tree t);
-  static bool equal (tree, cplus_array_info *);
+  static hashval_t hash (ttype *t);
+  static bool equal (ttype *, cplus_array_info *);
 };
 
 /* Hash an ARRAY_TYPE.  K is really of type `tree'.  */
 
 hashval_t
-cplus_array_hasher::hash (tree t)
+cplus_array_hasher::hash (ttype *t)
 {
   hashval_t hash;
 
@@ -771,9 +771,9 @@ cplus_array_hasher::hash (tree t)
    of type `cplus_array_info*'. */
 
 bool
-cplus_array_hasher::equal (tree t1, cplus_array_info *t2)
+cplus_array_hasher::equal (ttype *t1, cplus_array_info *t2)
 {
-  return (TREE_TYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
+  return (TREE_TTYPE (t1) == t2->type && TYPE_DOMAIN (t1) == t2->domain);
 }
 
 /* Hash table containing dependent array types, which are unsuitable for
@@ -782,10 +782,10 @@ static GTY (()) hash_table<cplus_array_hasher> *cplus_array_htab;
 
 /* Build an ARRAY_TYPE without laying it out.  */
 
-static tree
+static ttype * 
 build_min_array_type (tree elt_type, tree index_type)
 {
-  tree t = cxx_make_type (ARRAY_TYPE);
+  ttype *t = cxx_make_type (ARRAY_TYPE);
   TREE_TYPE (t) = elt_type;
   TYPE_DOMAIN (t) = index_type;
   return t;
@@ -815,13 +815,13 @@ set_array_type_canon (tree t, tree elt_type, tree index_type)
    variant element type is a variant of the array of the main variant of
    the element type.  */
 
-tree
+ttype *
 build_cplus_array_type (tree elt_type, tree index_type)
 {
-  tree t;
+  ttype *t;
 
   if (elt_type == error_mark_node || index_type == error_mark_node)
-    return error_mark_node;
+    return error_type_node;
 
   bool dependent = (processing_template_decl
 		    && (dependent_type_p (elt_type)
@@ -844,13 +844,13 @@ build_cplus_array_type (tree elt_type, tree index_type)
       hash = TYPE_UID (elt_type);
       if (index_type)
 	hash ^= TYPE_UID (index_type);
-      cai.type = elt_type;
+      cai.type = TTYPE (elt_type);
       cai.domain = index_type;
 
-      tree *e = cplus_array_htab->find_slot_with_hash (&cai, hash, INSERT); 
+      ttype **e = cplus_array_htab->find_slot_with_hash (&cai, hash, INSERT); 
       if (*e)
 	/* We have found the type: we're done.  */
-	return (tree) *e;
+	return *e;
       else
 	{
 	  /* Build a new array type.  */
@@ -871,8 +871,8 @@ build_cplus_array_type (tree elt_type, tree index_type)
   /* Now check whether we already have this array variant.  */
   if (elt_type != TYPE_MAIN_VARIANT (elt_type))
     {
-      tree m = t;
-      for (t = m; t; t = TYPE_NEXT_VARIANT (t))
+      ttype *m = t;
+      for (t = m; t; t = TTYPE_NEXT_VARIANT (t))
 	if (TREE_TYPE (t) == elt_type
 	    && TYPE_NAME (t) == NULL_TREE
 	    && TYPE_ATTRIBUTES (t) == NULL_TREE)
@@ -1035,36 +1035,36 @@ c_build_qualified_type (tree type, int type_quals, tree /* orig_qual_type */,
    with qualifying a reference.  We implement the DR.  We also behave
    in a similar manner for restricting non-pointer types.  */
 
-tree
+ttype *
 cp_build_qualified_type_real (tree type,
 			      int type_quals,
 			      tsubst_flags_t complain)
 {
-  tree result;
+  ttype *result;
   int bad_quals = TYPE_UNQUALIFIED;
 
   if (type == error_mark_node)
-    return type;
+    return error_type_node;
 
   if (type_quals == cp_type_quals (type))
-    return type;
+    return TTYPE (type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
       /* In C++, the qualification really applies to the array element
 	 type.  Obtain the appropriately qualified element type.  */
-      tree t;
-      tree element_type
+      ttype *t;
+      ttype *element_type
 	= cp_build_qualified_type_real (TREE_TYPE (type),
 					type_quals,
 					complain);
 
       if (element_type == error_mark_node)
-	return error_mark_node;
+	return error_type_node;
 
       /* See if we already have an identically qualified type.  Tests
 	 should be equivalent to those in check_qualified_type.  */
-      for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+      for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
 	if (TREE_TYPE (t) == element_type
 	    && TYPE_NAME (t) == TYPE_NAME (type)
 	    && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
@@ -1104,7 +1104,7 @@ cp_build_qualified_type_real (tree type,
       tree t = PACK_EXPANSION_PATTERN (type);
 
       t = cp_build_qualified_type_real (t, type_quals, complain);
-      return make_pack_expansion (t);
+      return TTYPE (make_pack_expansion (t));
     }
 
   /* A reference or method type shall not be cv-qualified.
@@ -1139,7 +1139,7 @@ cp_build_qualified_type_real (tree type,
       || (complain & tf_ignore_bad_quals))
     /*OK*/;
   else if (!(complain & tf_error))
-    return error_mark_node;
+    return error_type_node;
   else
     {
       tree bad_type = build_qualified_type (ptr_type_node, bad_quals);
@@ -1889,17 +1889,17 @@ cp_check_qualified_type (const_tree cand, const_tree base, int type_quals,
 
 /* Build the FUNCTION_TYPE or METHOD_TYPE with the ref-qualifier RQUAL.  */
 
-tree
+ttype *
 build_ref_qualified_type (tree type, cp_ref_qualifier rqual)
 {
-  tree t;
+  ttype *t;
 
   if (rqual == type_memfn_rqual (type))
-    return type;
+    return TTYPE (type);
 
   int type_quals = TYPE_QUALS (type);
   tree raises = TYPE_RAISES_EXCEPTIONS (type);
-  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+  for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
     if (cp_check_qualified_type (t, type, type_quals, rqual, raises))
       return t;
 
@@ -2129,18 +2129,18 @@ cxx_printable_name_translate (tree decl, int v)
 /* Build the FUNCTION_TYPE or METHOD_TYPE which may throw exceptions
    listed in RAISES.  */
 
-tree
+ttype *
 build_exception_variant (tree type, tree raises)
 {
-  tree v;
+  ttype *v;
   int type_quals;
 
   if (comp_except_specs (raises, TYPE_RAISES_EXCEPTIONS (type), ce_exact))
-    return type;
+    return TTYPE (type);
 
   type_quals = TYPE_QUALS (type);
   cp_ref_qualifier rqual = type_memfn_rqual (type);
-  for (v = TYPE_MAIN_VARIANT (type); v; v = TYPE_NEXT_VARIANT (v))
+  for (v = TTYPE_MAIN_VARIANT (type); v; v = TTYPE_NEXT_VARIANT (v))
     if (cp_check_qualified_type (v, type, type_quals, rqual, raises))
       return v;
 

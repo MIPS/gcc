@@ -157,6 +157,7 @@ machine_mode c_default_pointer_mode = VOIDmode;
 */
 
 tree c_global_trees[CTI_MAX];
+ttype *c_global_types[CTPI_MAX];
 
 /* Switches common to the C front ends.  */
 
@@ -3297,7 +3298,7 @@ check_case_bounds (location_t loc, tree type, tree orig_type,
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 c_common_type_for_size (unsigned int bits, int unsignedp)
 {
   int i;
@@ -3584,7 +3585,7 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
   return 0;
 }
 
-tree
+ttype *
 c_common_unsigned_type (tree type)
 {
   return c_common_signed_or_unsigned_type (1, type);
@@ -3592,7 +3593,7 @@ c_common_unsigned_type (tree type)
 
 /* Return a signed type the same as TYPE in other respects.  */
 
-tree
+ttype *
 c_common_signed_type (tree type)
 {
   return c_common_signed_or_unsigned_type (0, type);
@@ -3601,10 +3602,10 @@ c_common_signed_type (tree type)
 /* Return a type the same as TYPE except unsigned or
    signed according to UNSIGNEDP.  */
 
-tree
+ttype *
 c_common_signed_or_unsigned_type (int unsignedp, tree type)
 {
-  tree type1;
+  ttype *type1;
   int i;
 
   /* This block of code emulates the behavior of the old
@@ -3613,7 +3614,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
      have the same size. This is necessary for warnings to work
      correctly in archs where sizeof(int) == sizeof(long) */
 
-  type1 = TYPE_MAIN_VARIANT (type);
+  type1 = TTYPE_MAIN_VARIANT (type);
   if (type1 == signed_char_type_node || type1 == char_type_node || type1 == unsigned_char_type_node)
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
   if (type1 == integer_type_node || type1 == unsigned_type_node)
@@ -3730,7 +3731,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
 
   if (!INTEGRAL_TYPE_P (type)
       || TYPE_UNSIGNED (type) == unsignedp)
-    return type;
+    return TTYPE (type);
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \
@@ -5268,6 +5269,7 @@ c_common_nodes_and_builtins (void)
   tree va_list_ref_type_node;
   tree va_list_arg_type_node;
   int i;
+  tree t;
 
   build_common_tree_nodes (flag_signed_char, flag_short_double);
 
@@ -5375,7 +5377,7 @@ c_common_nodes_and_builtins (void)
   signed_size_type_node = c_common_signed_type (size_type_node);
 
   pid_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (PID_TYPE)));
+	     TREE_TTYPE (identifier_global_value (get_identifier (PID_TYPE)));
 
   record_builtin_type (RID_FLOAT, NULL, float_type_node);
   record_builtin_type (RID_DOUBLE, NULL, double_type_node);
@@ -5508,8 +5510,8 @@ c_common_nodes_and_builtins (void)
 			  (char_type_node, TYPE_QUAL_CONST));
 
   /* This is special for C++ so functions can be overloaded.  */
-  wchar_type_node = get_identifier (MODIFIED_WCHAR_TYPE);
-  wchar_type_node = TREE_TYPE (identifier_global_value (wchar_type_node));
+  t = get_identifier (MODIFIED_WCHAR_TYPE);
+  wchar_type_node = TREE_TTYPE (identifier_global_value (t));
   wchar_type_size = TYPE_PRECISION (wchar_type_node);
   underlying_wchar_type_node = wchar_type_node;
   if (c_dialect_cxx ())
@@ -5526,8 +5528,8 @@ c_common_nodes_and_builtins (void)
     = build_array_type (wchar_type_node, array_domain_type);
 
   /* Define 'char16_t'.  */
-  char16_type_node = get_identifier (CHAR16_TYPE);
-  char16_type_node = TREE_TYPE (identifier_global_value (char16_type_node));
+  t = get_identifier (CHAR16_TYPE);
+  char16_type_node = TREE_TTYPE (identifier_global_value (t));
   char16_type_size = TYPE_PRECISION (char16_type_node);
   if (c_dialect_cxx ())
     {
@@ -5542,8 +5544,8 @@ c_common_nodes_and_builtins (void)
     = build_array_type (char16_type_node, array_domain_type);
 
   /* Define 'char32_t'.  */
-  char32_type_node = get_identifier (CHAR32_TYPE);
-  char32_type_node = TREE_TYPE (identifier_global_value (char32_type_node));
+  t = get_identifier (CHAR32_TYPE);
+  char32_type_node = TREE_TTYPE (identifier_global_value (t));
   char32_type_size = TYPE_PRECISION (char32_type_node);
   if (c_dialect_cxx ())
     {
@@ -5558,99 +5560,99 @@ c_common_nodes_and_builtins (void)
     = build_array_type (char32_type_node, array_domain_type);
 
   wint_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (WINT_TYPE)));
+    TREE_TTYPE (identifier_global_value (get_identifier (WINT_TYPE)));
 
   intmax_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (INTMAX_TYPE)));
+    TREE_TTYPE (identifier_global_value (get_identifier (INTMAX_TYPE)));
   uintmax_type_node =
-    TREE_TYPE (identifier_global_value (get_identifier (UINTMAX_TYPE)));
+    TREE_TTYPE (identifier_global_value (get_identifier (UINTMAX_TYPE)));
 
   if (SIG_ATOMIC_TYPE)
     sig_atomic_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (SIG_ATOMIC_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (SIG_ATOMIC_TYPE)));
   if (INT8_TYPE)
     int8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT8_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT8_TYPE)));
   if (INT16_TYPE)
     int16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT16_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT16_TYPE)));
   if (INT32_TYPE)
     int32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT32_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT32_TYPE)));
   if (INT64_TYPE)
     int64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT64_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT64_TYPE)));
   if (UINT8_TYPE)
     uint8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
   if (UINT16_TYPE)
     c_uint16_type_node = uint16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
   if (UINT32_TYPE)
     c_uint32_type_node = uint32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
   if (UINT64_TYPE)
     c_uint64_type_node = uint64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
   if (INT_LEAST8_TYPE)
     int_least8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST8_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_LEAST8_TYPE)));
   if (INT_LEAST16_TYPE)
     int_least16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST16_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_LEAST16_TYPE)));
   if (INT_LEAST32_TYPE)
     int_least32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST32_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_LEAST32_TYPE)));
   if (INT_LEAST64_TYPE)
     int_least64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_LEAST64_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_LEAST64_TYPE)));
   if (UINT_LEAST8_TYPE)
     uint_least8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST8_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_LEAST8_TYPE)));
   if (UINT_LEAST16_TYPE)
     uint_least16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST16_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_LEAST16_TYPE)));
   if (UINT_LEAST32_TYPE)
     uint_least32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST32_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_LEAST32_TYPE)));
   if (UINT_LEAST64_TYPE)
     uint_least64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_LEAST64_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_LEAST64_TYPE)));
   if (INT_FAST8_TYPE)
     int_fast8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST8_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_FAST8_TYPE)));
   if (INT_FAST16_TYPE)
     int_fast16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST16_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_FAST16_TYPE)));
   if (INT_FAST32_TYPE)
     int_fast32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST32_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_FAST32_TYPE)));
   if (INT_FAST64_TYPE)
     int_fast64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INT_FAST64_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INT_FAST64_TYPE)));
   if (UINT_FAST8_TYPE)
     uint_fast8_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST8_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_FAST8_TYPE)));
   if (UINT_FAST16_TYPE)
     uint_fast16_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST16_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_FAST16_TYPE)));
   if (UINT_FAST32_TYPE)
     uint_fast32_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST32_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_FAST32_TYPE)));
   if (UINT_FAST64_TYPE)
     uint_fast64_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINT_FAST64_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINT_FAST64_TYPE)));
   if (INTPTR_TYPE)
     intptr_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (INTPTR_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (INTPTR_TYPE)));
   if (UINTPTR_TYPE)
     uintptr_type_node =
-      TREE_TYPE (identifier_global_value (c_get_ident (UINTPTR_TYPE)));
+      TREE_TTYPE (identifier_global_value (c_get_ident (UINTPTR_TYPE)));
 
   default_function_type
     = build_varargs_function_type_list (integer_type_node, NULL_TREE);
   ptrdiff_type_node
-    = TREE_TYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
+    = TREE_TTYPE (identifier_global_value (get_identifier (PTRDIFF_TYPE)));
   unsigned_ptrdiff_type_node = c_common_unsigned_type (ptrdiff_type_node);
 
   lang_hooks.decls.pushdecl
@@ -7577,7 +7579,7 @@ handle_mode_attribute (tree *node, tree name, tree args,
       if (POINTER_TYPE_P (type))
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
-	  tree (*fn)(tree, machine_mode, bool);
+	  ttype *(*fn)(tree, machine_mode, bool);
 
 	  if (!targetm.addr_space.valid_pointer_mode (mode, as))
 	    {
@@ -10630,7 +10632,8 @@ invalid_indirection_error (location_t loc, tree type, ref_operator errstring)
 int
 complete_array_type (tree *ptype, tree initial_value, bool do_default)
 {
-  tree maxindex, type, main_type, elt, unqual_elt;
+  tree maxindex, type, elt, unqual_elt;
+  ttype *main_type;
   int failure = 0, quals;
   hashval_t hashcode = 0;
   bool overflow_p = false;

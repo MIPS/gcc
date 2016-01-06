@@ -1777,7 +1777,7 @@ satisfy_predicate_constraint (tree t, tree args,
     {
       error_at (EXPR_LOC_OR_LOC (expr, input_location),
                 "constraint %qE does not have type %qT",
-                expr, boolean_type_node);
+                expr, TREE_CAST (boolean_type_node));
       return boolean_false_node;
     }
 

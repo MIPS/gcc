@@ -176,7 +176,7 @@ java_type_for_mode (machine_mode mode, int unsignedp)
 /* Return an integer type with BITS bits of precision,
    that is unsigned if UNSIGNEDP is nonzero, otherwise signed.  */
 
-tree
+ttype *
 java_type_for_size (unsigned bits, int unsignedp)
 {
   if (bits <= TYPE_PRECISION (byte_type_node))
@@ -245,10 +245,11 @@ build_prim_array_type (tree element_type, HOST_WIDE_INT length)
    These are hashed (shared) using IDENTIFIER_SIGNATURE_TYPE.
    The LENGTH is -1 if the length is unknown. */
 
-tree
+ttype *
 build_java_array_type (tree element_type, HOST_WIDE_INT length)
 {
-  tree sig, t, fld, atype, arfld;
+  tree sig, fld, atype, arfld;
+  ttype *t;
   char buf[23];
   tree elsig = build_java_signature (element_type);
   tree el_name = element_type;
@@ -259,9 +260,9 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
     buf[1] = '\0';
   sig = ident_subst (IDENTIFIER_POINTER (elsig), IDENTIFIER_LENGTH (elsig),
 		     buf, 0, 0, "");
-  t = IDENTIFIER_SIGNATURE_TYPE (sig);
-  if (t != NULL_TREE)
-    return TREE_TYPE (t);
+  t = TTYPE (IDENTIFIER_SIGNATURE_TYPE (sig));
+  if (t != NULL)
+    return TREE_TTYPE (t);
   t = make_class ();
   IDENTIFIER_SIGNATURE_TYPE (sig) = build_pointer_type (t);
   TYPE_ARRAY_P (t) = 1;
@@ -318,7 +319,7 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
 
 /* Promote TYPE to the type actually used for fields and parameters. */
 
-tree
+ttype *
 promote_type (tree type)
 {
   switch (TREE_CODE (type))
@@ -343,7 +344,7 @@ promote_type (tree type)
 	}
       /* ... else fall through ... */
     default:
-      return type;
+      return TTYPE (type);
     }
 }
 

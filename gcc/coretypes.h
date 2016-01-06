@@ -80,6 +80,7 @@ struct hwivec_def;
 typedef struct hwivec_def *hwivec;
 typedef const struct hwivec_def *const_hwivec;
 struct tree_node;
+class ttype;
 typedef struct tree_node *tree;
 typedef const struct tree_node *const_tree;
 struct gimple;

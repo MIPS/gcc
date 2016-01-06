@@ -139,6 +139,11 @@ location_from_offset (location_t loc, int offset)
   return linemap_position_for_loc_and_offset (line_table, loc, column);
 }
 
+/* Mark the tree and ttype nodes so we can compare for equality when checking
+   for type compatibility.   the langhooks type_compatible_p() routine will
+   not consider a derived class to be the same.  */
+static ttype *tree_ptr_node = NULL;
+static ttype *ttype_ptr_node = NULL;
 /* Check that we have a pointer to a string suitable for use as a format.
    The default is to check for a char type.
    For objective-c dialects, this is extended to include references to string
@@ -2565,6 +2570,11 @@ check_format_types (location_t loc, format_wanted_type *types)
       /* Check the type of the "real" argument, if there's a type we want.  */
       if (lang_hooks.types_compatible_p (wanted_type, cur_type))
 	continue;
+      /* ttype is derived from tree, but types_compatible_p wont match derived
+	 types... so manually check for ttype passed to a tree.  */
+      if (cur_type == ttype_ptr_node && wanted_type == tree_ptr_node
+	  && tree_ptr_node && ttype_ptr_node)
+        continue;
       /* If we want 'void *', allow any pointer type.
 	 (Anything else would already have got a warning.)
 	 With -Wpedantic, only allow pointers to void and to character
@@ -2805,29 +2815,30 @@ init_dynamic_asm_fprintf_info (void)
 static void
 init_dynamic_gfc_info (void)
 {
-  static tree locus;
+  static ttype *locus;
 
   if (!locus)
     {
+      tree locus_id;
       static format_char_info *gfc_fci;
 
       /* For the GCC __gcc_gfc__ custom format specifier to work, one
 	 must have declared 'locus' prior to using this attribute.  If
 	 we haven't seen this declarations then you shouldn't use the
 	 specifier requiring that type.  */
-      if ((locus = maybe_get_identifier ("locus")))
+      if ((locus_id = maybe_get_identifier ("locus")))
 	{
-	  locus = identifier_global_value (locus);
-	  if (locus)
+	  locus_id = identifier_global_value (locus_id);
+	  if (locus_id)
 	    {
-	      if (TREE_CODE (locus) != TYPE_DECL
-		  || TREE_TYPE (locus) == error_mark_node)
+	      if (TREE_CODE (locus_id) != TYPE_DECL
+		  || TREE_TYPE (locus_id) == error_type_node)
 		{
 		  error ("%<locus%> is not defined as a type");
 		  locus = 0;
 		}
 	      else
-		locus = TREE_TYPE (locus);
+		locus = TREE_TTYPE (locus_id);
 	    }
 	}
 
@@ -2855,13 +2866,19 @@ init_dynamic_gfc_info (void)
 static void
 init_dynamic_diag_info (void)
 {
-  static tree t, loc, hwi;
+  static ttype *loc, *hwi;
+  tree x;
 
-  if (!loc || !t || !hwi)
+
+  if (!loc || !hwi || !tree_ptr_node || !ttype_ptr_node)
     {
       static format_char_info *diag_fci, *tdiag_fci, *cdiag_fci, *cxxdiag_fci;
       static format_length_info *diag_ls;
       unsigned int i;
+
+      loc = hwi = NULL;
+      tree_ptr_node = NULL;
+      ttype_ptr_node = NULL;
 
       /* For the GCC-diagnostics custom format specifiers to work, one
 	 must have declared 'tree' and/or 'location_t' prior to using
@@ -2869,60 +2886,62 @@ init_dynamic_diag_info (void)
 	 you shouldn't use the specifiers requiring these types.
 	 However we don't force a hard ICE because we may see only one
 	 or the other type.  */
-      if ((loc = maybe_get_identifier ("location_t")))
+      if ((x = maybe_get_identifier ("location_t")))
 	{
-	  loc = identifier_global_value (loc);
-	  if (loc)
+	  x = identifier_global_value (x);
+	  if (x)
 	    {
-	      if (TREE_CODE (loc) != TYPE_DECL)
-		{
-		  error ("%<location_t%> is not defined as a type");
-		  loc = 0;
-		}
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<location_t%> is not defined as a type");
 	      else
-		loc = TREE_TYPE (loc);
+		loc = TREE_TTYPE (x);
 	    }
 	}
 
       /* We need to grab the underlying 'struct tree_node' so peek into
 	 an extra type level.  */
-      if ((t = maybe_get_identifier ("tree")))
+      if ((x = maybe_get_identifier ("tree")))
 	{
-	  t = identifier_global_value (t);
-	  if (t)
+	  x = identifier_global_value (x);
+	  if (x)
 	    {
-	      if (TREE_CODE (t) != TYPE_DECL)
-		{
-		  error ("%<tree%> is not defined as a type");
-		  t = 0;
-		}
-	      else if (TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
-		{
-		  error ("%<tree%> is not defined as a pointer type");
-		  t = 0;
-		}
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<tree%> is not defined as a type");
+	      else if (TREE_CODE (TREE_TYPE (x)) != POINTER_TYPE)
+		error ("%<tree%> is not defined as a pointer type");
 	      else
-		t = TREE_TYPE (TREE_TYPE (t));
+		tree_ptr_node = TREE_TTYPE (TREE_TYPE (x));
 	    }
 	}
+
+      /* Set the ttype pointer node.  */
+      if ((x = maybe_get_identifier ("ttype")))
+	{
+	  x = identifier_global_value (x);
+	  if (x)
+	    {
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<ttype%> is not defined as a type");
+	      else
+		ttype_ptr_node = TREE_TTYPE (x);
+	    }
+	}
+
 
       /* Find the underlying type for HOST_WIDE_INT.  For the %w
 	 length modifier to work, one must have issued: "typedef
 	 HOST_WIDE_INT __gcc_host_wide_int__;" in one's source code
 	 prior to using that modifier.  */
-      if ((hwi = maybe_get_identifier ("__gcc_host_wide_int__")))
+      if ((x = maybe_get_identifier ("__gcc_host_wide_int__")))
 	{
-	  hwi = identifier_global_value (hwi);
-	  if (hwi)
+	  x = identifier_global_value (x);
+	  if (x)
 	    {
-	      if (TREE_CODE (hwi) != TYPE_DECL)
-		{
-		  error ("%<__gcc_host_wide_int__%> is not defined as a type");
-		  hwi = 0;
-		}
+	      if (TREE_CODE (x) != TYPE_DECL)
+		error ("%<__gcc_host_wide_int__%> is not defined as a type");
 	      else
 		{
-		  hwi = DECL_ORIGINAL_TYPE (hwi);
+		  hwi = TTYPE (DECL_ORIGINAL_TYPE (x));
 		  gcc_assert (hwi);
 		  if (hwi != long_integer_type_node
 		      && hwi != long_long_integer_type_node)
@@ -2966,10 +2985,10 @@ init_dynamic_diag_info (void)
 		     xmemdup (gcc_diag_char_table,
 			      sizeof (gcc_diag_char_table),
 			      sizeof (gcc_diag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  i = find_char_info_specifier_index (diag_fci, 'K');
-	  diag_fci[i].types[0].type = &t;
+	  diag_fci[i].types[0].type = &tree_ptr_node;
 	  diag_fci[i].pointer_count = 1;
 	}
 
@@ -2980,14 +2999,14 @@ init_dynamic_diag_info (void)
 		      xmemdup (gcc_tdiag_char_table,
 			       sizeof (gcc_tdiag_char_table),
 			       sizeof (gcc_tdiag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
 	  i = find_char_info_specifier_index (tdiag_fci, 'D');
-	  tdiag_fci[i].types[0].type = &t;
+	  tdiag_fci[i].types[0].type = &tree_ptr_node;
 	  tdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (tdiag_fci, 'K');
-	  tdiag_fci[i].types[0].type = &t;
+	  tdiag_fci[i].types[0].type = &tree_ptr_node;
 	  tdiag_fci[i].pointer_count = 1;
 	}
 
@@ -2998,14 +3017,14 @@ init_dynamic_diag_info (void)
 		      xmemdup (gcc_cdiag_char_table,
 			       sizeof (gcc_cdiag_char_table),
 			       sizeof (gcc_cdiag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
 	  i = find_char_info_specifier_index (cdiag_fci, 'D');
-	  cdiag_fci[i].types[0].type = &t;
+	  cdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (cdiag_fci, 'K');
-	  cdiag_fci[i].types[0].type = &t;
+	  cdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cdiag_fci[i].pointer_count = 1;
 	}
 
@@ -3016,14 +3035,14 @@ init_dynamic_diag_info (void)
 			xmemdup (gcc_cxxdiag_char_table,
 				 sizeof (gcc_cxxdiag_char_table),
 				 sizeof (gcc_cxxdiag_char_table));
-      if (t)
+      if (tree_ptr_node)
 	{
 	  /* All specifiers taking a tree share the same struct.  */
 	  i = find_char_info_specifier_index (cxxdiag_fci, 'D');
-	  cxxdiag_fci[i].types[0].type = &t;
+	  cxxdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cxxdiag_fci[i].pointer_count = 1;
 	  i = find_char_info_specifier_index (cxxdiag_fci, 'K');
-	  cxxdiag_fci[i].types[0].type = &t;
+	  cxxdiag_fci[i].types[0].type = &tree_ptr_node;
 	  cxxdiag_fci[i].pointer_count = 1;
 	}
     }

@@ -179,7 +179,7 @@ static GTY((length ("max_gnat_nodes"))) tree *dummy_node_table;
    Note that these types are only used when fold-const requests something
    special.  Perhaps we should NOT share these types; we'll see how it
    goes later.  */
-static GTY(()) tree signed_and_unsigned_types[2 * MAX_BITS_PER_WORD + 1][2];
+static GTY(()) ttype *signed_and_unsigned_types[2 * MAX_BITS_PER_WORD + 1][2];
 
 /* Likewise for float types, but record these by mode.  */
 static GTY(()) tree float_types[NUM_MACHINE_MODES];
@@ -3276,10 +3276,10 @@ gnat_builtin_function (tree decl)
    PRECISION.  UNSIGNEDP is nonzero if the type is unsigned; otherwise
    it is a signed type.  */
 
-tree
+ttype *
 gnat_type_for_size (unsigned precision, int unsignedp)
 {
-  tree t;
+  ttype *t;
   char type_name[20];
 
   if (precision <= 2 * MAX_BITS_PER_WORD

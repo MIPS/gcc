@@ -1503,6 +1503,7 @@ typedef struct gfc_symbol
 }
 gfc_symbol;
 
+#define BACKEND_TYPE(SYM)  (as_a<ttype *> ((SYM)->backend_decl))
 
 struct gfc_undo_change_set
 {
@@ -2740,7 +2741,7 @@ bool gfc_check_any_c_kind (gfc_typespec *);
 int gfc_validate_kind (bt, int, bool);
 int gfc_get_int_kind_from_width_isofortranenv (int size);
 int gfc_get_real_kind_from_width_isofortranenv (int size);
-tree gfc_get_derived_type (gfc_symbol * derived);
+ttype *gfc_get_derived_type (gfc_symbol * derived);
 extern int gfc_index_integer_kind;
 extern int gfc_default_integer_kind;
 extern int gfc_max_integer_kind;

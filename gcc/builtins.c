@@ -5387,22 +5387,22 @@ fold_builtin_atomic_always_lock_free (tree arg0, tree arg1)
     }
   else
     {
-      tree ttype = TREE_TYPE (arg1);
+      tree type = TREE_TYPE (arg1);
 
       /* This function is usually invoked and folded immediately by the front
 	 end before anything else has a chance to look at it.  The pointer
 	 parameter at this point is usually cast to a void *, so check for that
 	 and look past the cast.  */
-      if (CONVERT_EXPR_P (arg1) && POINTER_TYPE_P (ttype)
-	  && VOID_TYPE_P (TREE_TYPE (ttype)))
+      if (CONVERT_EXPR_P (arg1) && POINTER_TYPE_P (type)
+	  && VOID_TYPE_P (TREE_TYPE (type)))
 	arg1 = TREE_OPERAND (arg1, 0);
 
-      ttype = TREE_TYPE (arg1);
-      gcc_assert (POINTER_TYPE_P (ttype));
+      type = TREE_TYPE (arg1);
+      gcc_assert (POINTER_TYPE_P (type));
 
       /* Get the underlying type of the object.  */
-      ttype = TREE_TYPE (ttype);
-      type_align = TYPE_ALIGN (ttype);
+      type = TREE_TYPE (type);
+      type_align = TYPE_ALIGN (type);
     }
 
   /* If the object has smaller alignment, the lock free routines cannot

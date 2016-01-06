@@ -470,10 +470,10 @@ lhd_print_error_function (diagnostic_context *context, const char *file,
     }
 }
 
-tree
+ttype *
 lhd_make_node (enum tree_code code)
 {
-  return make_node (code);
+  return make_type_node (code);
 }
 
 HOST_WIDE_INT

@@ -2324,16 +2324,16 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case VIEW_CONVERT_EXPR:
       {
 	tree op = TREE_OPERAND (t, 0);
-	tree ttype = TREE_TYPE (t);
+	tree type = TREE_TYPE (t);
 	tree optype = TREE_TYPE (op);
 
-	if (TREE_CODE (ttype) != TREE_CODE (optype)
-	    && POINTER_TYPE_P (ttype)
+	if (TREE_CODE (type) != TREE_CODE (optype)
+	    && POINTER_TYPE_P (type)
 	    && POINTER_TYPE_P (optype)
 	    && same_type_p (TREE_TYPE (optype),
-			    TREE_TYPE (ttype)))
+			    TREE_TYPE (type)))
 	  {
-	    if (TREE_CODE (ttype) == REFERENCE_TYPE)
+	    if (TREE_CODE (type) == REFERENCE_TYPE)
 	      {
 		STRIP_NOPS (op);
 		if (TREE_CODE (op) == ADDR_EXPR)

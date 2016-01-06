@@ -2873,7 +2873,7 @@ switch_to_exception_section (const char * ARG_UNUSED (fnname))
    the value.  */
 
 static void
-output_ttype (tree type, int tt_format, int tt_format_size)
+output_tt (tree type, int tt_format, int tt_format_size)
 {
   rtx value;
   bool is_public = true;
@@ -3067,7 +3067,7 @@ output_one_function_exception_table (int section)
   while (i-- > 0)
     {
       tree type = (*cfun->eh->ttype_data)[i];
-      output_ttype (type, tt_format, tt_format_size);
+      output_tt (type, tt_format, tt_format_size);
     }
 
 #ifdef HAVE_AS_LEB128
@@ -3081,7 +3081,7 @@ output_one_function_exception_table (int section)
       tree type;
       for (i = 0;
 	   vec_safe_iterate (cfun->eh->ehspec_data.arm_eabi, i, &type); ++i)
-	output_ttype (type, tt_format, tt_format_size);
+	output_tt (type, tt_format, tt_format_size);
     }
   else
     {

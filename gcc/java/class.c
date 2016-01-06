@@ -362,11 +362,11 @@ mangled_classname (const char *prefix, tree type)
   return result;
 }
 
-tree
+ttype *
 make_class (void)
 {
-  tree type;
-  type = make_node (RECORD_TYPE);
+  ttype *type;
+  type = make_type_node (RECORD_TYPE);
   /* Unfortunately we must create the binfo here, so that class
      loading works.  */
   TYPE_BINFO (type) = make_tree_binfo (0);
@@ -504,13 +504,13 @@ push_class (tree class_type, tree class_name)
    Does not check if the class actually exists, load the class,
    fill in field or methods, or do layout_type. */
 
-tree
+ttype *
 lookup_class (tree name)
 {
   tree decl = IDENTIFIER_CLASS_VALUE (name);
   if (decl == NULL_TREE)
     decl = push_class (make_class (), name);
-  return TREE_TYPE (decl);
+  return TREE_TTYPE (decl);
 }
 
 void

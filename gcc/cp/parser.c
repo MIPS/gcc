@@ -4156,14 +4156,14 @@ cp_parser_userdef_numeric_literal (cp_parser *parser)
 	{
 	  warning_at (token->location, OPT_Woverflow,
 		      "integer literal exceeds range of %qT type",
-		      long_long_unsigned_type_node);
+		      TREE_CAST (long_long_unsigned_type_node));
 	}
       else
 	{
 	  if (overflow > 0)
 	    warning_at (token->location, OPT_Woverflow,
 			"floating literal exceeds range of %qT type",
-			long_double_type_node);
+			TREE_CAST (long_double_type_node));
 	  else if (overflow < 0)
 	    warning_at (token->location, OPT_Woverflow,
 			"floating literal truncated to zero");

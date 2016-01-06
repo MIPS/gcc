@@ -23,21 +23,21 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GFC_BACKEND_H
 #define GFC_BACKEND_H
 
-extern GTY(()) tree gfc_array_index_type;
-extern GTY(()) tree gfc_array_range_type;
-extern GTY(()) tree gfc_character1_type_node;
-extern GTY(()) tree ppvoid_type_node;
-extern GTY(()) tree pvoid_type_node;
-extern GTY(()) tree prvoid_type_node;
-extern GTY(()) tree pchar_type_node;
-extern GTY(()) tree float128_type_node;
-extern GTY(()) tree complex_float128_type_node;
+extern GTY(()) ttype *gfc_array_index_type;
+extern GTY(()) ttype *gfc_array_range_type;
+extern GTY(()) ttype *gfc_character1_type_node;
+extern GTY(()) ttype *ppvoid_type_node;
+extern GTY(()) ttype *pvoid_type_node;
+extern GTY(()) ttype *prvoid_type_node;
+extern GTY(()) ttype *pchar_type_node;
+extern GTY(()) ttype *float128_type_node;
+extern GTY(()) ttype *complex_float128_type_node;
 
 /* This is the type used to hold the lengths of character variables.
    It must be the same as the corresponding definition in gfortran.h.  */
 /* TODO: This is still hardcoded as kind=4 in some bits of the compiler
    and runtime library.  */
-extern GTY(()) tree gfc_charlen_type_node;
+extern GTY(()) ttype *gfc_charlen_type_node;
 
 /* The following flags give us information on the correspondence of
    real (and complex) kinds with C floating-point types long double
@@ -59,30 +59,30 @@ void gfc_init_kinds (void);
 void gfc_init_types (void);
 void gfc_init_c_interop_kinds (void);
 
-tree gfc_get_int_type (int);
-tree gfc_get_real_type (int);
-tree gfc_get_complex_type (int);
-tree gfc_get_logical_type (int);
-tree gfc_get_char_type (int);
-tree gfc_get_pchar_type (int);
-tree gfc_get_character_type (int, gfc_charlen *);
-tree gfc_get_character_type_len (int, tree);
-tree gfc_get_character_type_len_for_eltype (tree, tree);
+ttype *gfc_get_int_type (int);
+ttype *gfc_get_real_type (int);
+ttype *gfc_get_complex_type (int);
+ttype *gfc_get_logical_type (int);
+ttype *gfc_get_char_type (int);
+ttype *gfc_get_pchar_type (int);
+ttype *gfc_get_character_type (int, gfc_charlen *);
+ttype *gfc_get_character_type_len (int, tree);
+ttype *gfc_get_character_type_len_for_eltype (tree, tree);
 
-tree gfc_sym_type (gfc_symbol *);
-tree gfc_typenode_for_spec (gfc_typespec *);
+ttype *gfc_sym_type (gfc_symbol *);
+ttype *gfc_typenode_for_spec (gfc_typespec *);
 int gfc_copy_dt_decls_ifequal (gfc_symbol *, gfc_symbol *, bool);
 
-tree gfc_get_function_type (gfc_symbol *);
+ttype *gfc_get_function_type (gfc_symbol *);
 
-tree gfc_type_for_size (unsigned, int);
+ttype *gfc_type_for_size (unsigned, int);
 tree gfc_type_for_mode (machine_mode, int);
-tree gfc_build_uint_type (int);
+ttype *gfc_build_uint_type (int);
 
 tree gfc_get_element_type (tree);
-tree gfc_get_array_type_bounds (tree, int, int, tree *, tree *, int,
-				enum gfc_array_kind, bool);
-tree gfc_get_nodesc_array_type (tree, gfc_array_spec *, gfc_packed, bool);
+ttype *gfc_get_array_type_bounds (tree, int, int, tree *, tree *, int,
+				  enum gfc_array_kind, bool);
+ttype *gfc_get_nodesc_array_type (tree, gfc_array_spec *, gfc_packed, bool);
 
 /* Add a field of given name and type to a UNION_TYPE or RECORD_TYPE.  */
 tree gfc_add_field_to_struct (tree, tree, tree, tree **);
@@ -100,7 +100,7 @@ int gfc_is_nodesc_array (gfc_symbol *);
 tree gfc_get_dtype_rank_type (int, tree);
 tree gfc_get_dtype (tree);
 
-tree gfc_get_ppc_type (gfc_component *);
+ttype *gfc_get_ppc_type (gfc_component *);
 tree gfc_get_caf_vector_type (int dim);
 
 #endif

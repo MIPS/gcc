@@ -140,7 +140,7 @@ extern bool lhd_omp_mappable_type (tree);
 /* Tree dump hooks.  */
 extern bool lhd_tree_dump_dump_tree (void *, tree);
 extern int lhd_tree_dump_type_quals (const_tree);
-extern tree lhd_make_node (enum tree_code);
+extern ttype *lhd_make_node (enum tree_code);
 
 #define LANG_HOOKS_TREE_DUMP_DUMP_TREE_FN lhd_tree_dump_dump_tree
 #define LANG_HOOKS_TREE_DUMP_TYPE_QUALS_FN lhd_tree_dump_type_quals
