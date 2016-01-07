@@ -1,3 +1,8 @@
+2016-01-07  Nathan Sidwell  <nathan@acm.org>
+
+	* omp-low.c (oacc_validate_dims): Allow non-unity defaults on
+	kernel regions too.
+
 2016-01-07  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_oacc_reductions): Properly handle reductions

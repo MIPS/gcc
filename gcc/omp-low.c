@@ -19370,7 +19370,7 @@ oacc_validate_dims (tree fn, tree attrs, int *dims, int level, unsigned used)
 	   execution doesn't have the same impact as gang-redundant
 	   execution.  (If the minimum gang-level partioning is not 1,
 	   the target is probably too confusing.)  */
-	dims[ix] = (!is_kernel && (used & (GOMP_DIM_MASK (ix)))
+	dims[ix] = (used & GOMP_DIM_MASK (ix)
 		    ? oacc_default_dims[ix] : oacc_min_dims[ix]);
 	changed = true;
       }
