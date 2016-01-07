@@ -1121,6 +1121,138 @@ decls_match (tree newdecl, tree olddecl)
   return types_match;
 }
 
+/* Similiar to decls_match, but only applies to FUNCTION_DECLS.  Functions
+   in separate namespaces may match.
+*/
+
+int
+bind_decls_match (tree newdecl, tree olddecl)
+{
+  int types_match;
+
+  if (newdecl == olddecl)
+    return 1;
+
+  if (TREE_CODE (newdecl) != TREE_CODE (olddecl))
+    /* If the two DECLs are not even the same kind of thing, we're not
+       interested in their types.  */
+    return 0;
+
+  gcc_assert (DECL_P (newdecl));
+  gcc_assert (TREE_CODE (newdecl) == FUNCTION_DECL);
+
+  tree f1 = TREE_TYPE (newdecl);
+  tree f2 = TREE_TYPE (olddecl);
+  tree p1 = TYPE_ARG_TYPES (f1);
+  tree p2 = TYPE_ARG_TYPES (f2);
+  tree r2;
+
+  /* Specializations of different templates are different functions
+     even if they have the same type.  */
+  tree t1 = (DECL_USE_TEMPLATE (newdecl)
+	     ? DECL_TI_TEMPLATE (newdecl)
+	     : NULL_TREE);
+  tree t2 = (DECL_USE_TEMPLATE (olddecl)
+	     ? DECL_TI_TEMPLATE (olddecl)
+	     : NULL_TREE);
+  if (t1 != t2)
+    return 0;
+
+  if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
+      && TREE_CODE (CP_DECL_CONTEXT (newdecl)) != NAMESPACE_DECL
+      && TREE_CODE (CP_DECL_CONTEXT (olddecl)) != NAMESPACE_DECL
+      && ! (DECL_EXTERN_C_P (newdecl)
+	    && DECL_EXTERN_C_P (olddecl)))
+    return 0;
+
+  /* A new declaration doesn't match a built-in one unless it
+     is also extern "C".  */
+  if (DECL_IS_BUILTIN (olddecl)
+      && DECL_EXTERN_C_P (olddecl) && !DECL_EXTERN_C_P (newdecl))
+    return 0;
+
+  if (TREE_CODE (f1) != TREE_CODE (f2))
+    return 0;
+
+  /* A declaration with deduced return type should use its pre-deduction
+     type for declaration matching.  */
+  r2 = fndecl_declared_return_type (olddecl);
+
+  if (same_type_p (TREE_TYPE (f1), r2))
+    {
+      if (!prototype_p (f2) && DECL_EXTERN_C_P (olddecl)
+	  && (DECL_BUILT_IN (olddecl)
+#ifndef NO_IMPLICIT_EXTERN_C
+	      || (DECL_IN_SYSTEM_HEADER (newdecl) && !DECL_CLASS_SCOPE_P (newdecl))
+	      || (DECL_IN_SYSTEM_HEADER (olddecl) && !DECL_CLASS_SCOPE_P (olddecl))
+#endif
+	      ))
+	{
+	  types_match = self_promoting_args_p (p1);
+	  if (p1 == void_list_node)
+	    TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
+	}
+#ifndef NO_IMPLICIT_EXTERN_C
+      else if (!prototype_p (f1)
+	       && (DECL_EXTERN_C_P (olddecl)
+		   && DECL_IN_SYSTEM_HEADER (olddecl)
+		   && !DECL_CLASS_SCOPE_P (olddecl))
+	       && (DECL_EXTERN_C_P (newdecl)
+		   && DECL_IN_SYSTEM_HEADER (newdecl)
+		   && !DECL_CLASS_SCOPE_P (newdecl)))
+	{
+	  types_match = self_promoting_args_p (p2);
+	  TREE_TYPE (newdecl) = TREE_TYPE (olddecl);
+	}
+#endif
+      else
+	types_match =
+	  compparms (p1, p2)
+	  && type_memfn_rqual (f1) == type_memfn_rqual (f2)
+	  && (TYPE_ATTRIBUTES (TREE_TYPE (newdecl)) == NULL_TREE
+	      || comp_type_attributes (TREE_TYPE (newdecl),
+				       TREE_TYPE (olddecl)) != 0);
+    }
+  else
+    types_match = 0;
+
+  /* The decls dont match if they correspond to two different versions
+     of the same function.   Disallow extern "C" functions to be
+     versions for now.  */
+  if (types_match
+      && !DECL_EXTERN_C_P (newdecl)
+      && !DECL_EXTERN_C_P (olddecl)
+      && targetm.target_option.function_versions (newdecl, olddecl))
+    {
+      /* Mark functions as versions if necessary.  Modify the mangled decl
+	 name if necessary.  */
+      if (DECL_FUNCTION_VERSIONED (newdecl)
+	  && DECL_FUNCTION_VERSIONED (olddecl))
+	return 0;
+      if (!DECL_FUNCTION_VERSIONED (newdecl))
+	{
+	  DECL_FUNCTION_VERSIONED (newdecl) = 1;
+	  if (DECL_ASSEMBLER_NAME_SET_P (newdecl))
+	    mangle_decl (newdecl);
+	}
+      if (!DECL_FUNCTION_VERSIONED (olddecl))
+	{
+	  DECL_FUNCTION_VERSIONED (olddecl) = 1;
+	  if (DECL_ASSEMBLER_NAME_SET_P (olddecl))
+	    mangle_decl (olddecl);
+	}
+      cgraph_node::record_function_versions (olddecl, newdecl);
+      return 0;
+    }
+
+  // Normal functions can be constrained, as can variable partial
+  // specializations.
+  if (types_match && VAR_OR_FUNCTION_DECL_P (newdecl))
+    types_match = equivalently_constrained (newdecl, olddecl);
+
+  return types_match;
+}
+
 /* If NEWDECL is `static' and an `extern' was seen previously,
    warn about it.  OLDDECL is the previous declaration.
 

@@ -1,3 +1,15 @@
+2016-01-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* cp-tree.h (bind_decls_match): Declare.
+	* decl.c (bind_decls_match): New function.
+	* parser.c (cp_parser_oacc_clause_bind): Remove TODOs and useless
+	namespace checks.  Defer string-ifying bind clauses with identifiers.
+	Check for empty identifier strings.
+    	(cp_parser_oacc_routine): Clean up the pragma parser after
+	detecting a non-pragma_external context.  Remove useless namespace
+	check.
+	(cp_finalize_oacc_routine): Handle bind clauses with identifiers.
+
 2015-12-08  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (cp_ensure_no_oacc_routine, cp_parser_oacc_clause_bind)

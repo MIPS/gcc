@@ -31972,7 +31972,6 @@ cp_parser_oacc_clause_bind (cp_parser *parser, tree list)
   cp_token *token = cp_lexer_peek_token (parser->lexer);
   if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
     {
-      //TODO
       tree id = cp_parser_id_expression (parser, /*template_p=*/false,
 					 /*check_dependency_p=*/true,
 					 /*template_p=*/NULL,
@@ -31982,44 +31981,40 @@ cp_parser_oacc_clause_bind (cp_parser *parser, tree list)
       if (id != error_mark_node && decl == error_mark_node)
 	cp_parser_name_lookup_error (parser, id, decl, NLE_NULL,
 				     token->location);
-      if (/* TODO */ !decl || decl == error_mark_node)
+      if (!decl || decl == error_mark_node)
 	error_at (token->location, "%qE has not been declared",
 		  token->u.value);
-      else if (/* TODO */ is_overloaded_fn (decl)
+      else if (is_overloaded_fn (decl)
 	       && (TREE_CODE (decl) != FUNCTION_DECL
 		   || DECL_FUNCTION_TEMPLATE_P (decl)))
 	error_at (token->location, "%qE names a set of overloads",
 		  token->u.value);
-      else if (/* TODO */ !DECL_NAMESPACE_SCOPE_P (decl))
-	{
-	  /* Perhaps we should use the same rule as declarations in different
-	     namespaces?  */
-	  error_at (token->location,
-		    "%qE does not refer to a namespace scope function",
-		    token->u.value);
-	}
       else if (TREE_CODE (decl) != FUNCTION_DECL)
 	error_at (token->location,
 		  "%qE does not refer to a function",
 		  token->u.value);
       else
-	{
-	  //TODO? TREE_USED (decl) = 1;
-	  tree name_id = DECL_NAME (decl);
-	  name = build_string (IDENTIFIER_LENGTH (name_id),
-			       IDENTIFIER_POINTER (name_id));
-	}
-      //cp_lexer_consume_token (parser->lexer);
+	name = decl;
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_STRING))
     {
       name = token->u.value;
       cp_lexer_consume_token (parser->lexer);
+
+      /* This shouldn't be an empty string.  */
+      if (strcmp (TREE_STRING_POINTER (name), "\"\"") == 0)
+	error_at (token->location,
+		  "bind argument must not be an empty string");
+
+      parser->translate_strings_p = save_translate_strings_p;
     }
   else
-    cp_parser_error (parser,
-		     "expected identifier or character string literal");
-  parser->translate_strings_p = save_translate_strings_p;
+    {
+      cp_parser_error (parser,
+		       "expected identifier or character string literal");
+      cp_parser_skip_to_closing_parenthesis (parser, false, false, true);
+      return list;
+    }
   cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
   if (name != error_mark_node)
     {
@@ -36480,6 +36475,7 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
   if (context != pragma_external)
     {
       cp_parser_error (parser, "%<#pragma acc routine%> not at file scope");
+      cp_parser_skip_to_pragma_eol (parser, pragma_tok);
       parser->oacc_routine->error_seen = true;
       parser->oacc_routine = NULL;
       return;
@@ -36547,16 +36543,6 @@ cp_parser_oacc_routine (cp_parser *parser, cp_token *pragma_tok,
 	      || DECL_FUNCTION_TEMPLATE_P  (decl)))
 	{
 	  error_at (loc, "%<#pragma acc routine%> names a set of overloads");
-	  parser->oacc_routine = NULL;
-	  return;
-	}
-
-      /* Perhaps we should use the same rule as declarations in different
-	 namespaces?  */
-      if (!DECL_NAMESPACE_SCOPE_P (decl))
-	{
-	  error_at (loc, "%<#pragma acc routine%> does not refer to a "
-		    "namespace scope function");
 	  parser->oacc_routine = NULL;
 	  return;
 	}
@@ -36708,6 +36694,34 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
 	  error_at (loc, "%<#pragma acc routine%> must be applied before %s",
 		    TREE_USED (fndecl) ? "use" : "definition");
 	  parser->oacc_routine = NULL;
+	}
+
+      /* Process the bind clause, if present.  */
+      for (tree c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
+	{
+	  if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_BIND)
+	    continue;
+
+	  tree bind_decl = OMP_CLAUSE_BIND_NAME (c);
+
+	  /* String arguments don't require any special treatment.  */
+	  if (TREE_CODE (bind_decl) != FUNCTION_DECL)
+	    break;
+
+	  if (!bind_decls_match (bind_decl, fndecl))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"bind identifier %qE is not compatible with "
+			"function %qE", bind_decl, fndecl);
+	      return;
+	    }
+
+	  tree name_id = decl_assembler_name (bind_decl);
+	  tree name = build_string (IDENTIFIER_LENGTH (name_id),
+				    IDENTIFIER_POINTER (name_id));
+	  OMP_CLAUSE_BIND_NAME (c) = name;
+
+	  break;
 	}
 
       /* Process for function attrib  */

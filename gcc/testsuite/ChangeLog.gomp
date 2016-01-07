@@ -1,3 +1,7 @@
+2016-01-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* g++.dg/goacc/routine-2.C: Add more coverage.
+
 2016-01-06  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* gfortran.dg/goacc/reduction-2.f95: Set ftree-parallize-loops to 1.
