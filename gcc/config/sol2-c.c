@@ -82,7 +82,7 @@ static void
 solaris_pragma_align (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree t, x;
-  enum cpp_tok_type tok_type;
+  enum cpp_ttype tok_type;
   unsigned HOST_WIDE_INT low;
 
   if (pragma_lex (&x) != CPP_NUMBER
@@ -148,7 +148,7 @@ static void
 solaris_pragma_init (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree t;
-  enum cpp_tok_type tok_type;
+  enum cpp_ttype tok_type;
 
   if (pragma_lex (&t) != CPP_OPEN_PAREN)
     {
@@ -207,7 +207,7 @@ static void
 solaris_pragma_fini (cpp_reader *pfile ATTRIBUTE_UNUSED)
 {
   tree t;
-  enum cpp_tok_type tok_type;
+  enum cpp_ttype tok_type;
 
   if (pragma_lex (&t) != CPP_OPEN_PAREN)
     {
