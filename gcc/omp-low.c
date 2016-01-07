@@ -316,53 +316,6 @@ is_oacc_kernels (omp_context *ctx)
 	      == GF_OMP_TARGET_KIND_OACC_KERNELS));
 }
 
-/* Return true if VAR is a is private reduction variable.  A reduction
-   variable is considered private if the variable is local to the
-   offloaded region, or if it is the first reduction to use a mapped
-   variable.  E.g., if V is mapped as 'copy', and loops L1 and L2 contain
-   reductions on V, and L2 is nested inside L1, V is not private in L1
-   but is private in L2.  */
-
-static bool
-is_oacc_reduction_private (tree var, omp_context *ctx, bool initial = true)
-{
-  tree c, clauses, decl;
-
-  if (ctx == NULL || !is_gimple_omp_oacc (ctx->stmt))
-    return true;
-
-  if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR)
-    clauses = gimple_omp_for_clauses (ctx->stmt);
-  else
-    clauses = gimple_omp_target_clauses (ctx->stmt);
-
-  for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
-    {
-      switch (OMP_CLAUSE_CODE (c))
-	{
-	case OMP_CLAUSE_PRIVATE:
-	  decl = OMP_CLAUSE_DECL (c);
-	  if (decl == var)
-	    return true;
-	  break;
-	case OMP_CLAUSE_MAP:
-	  decl = OMP_CLAUSE_DECL (c);
-	  if (decl == var)
-	    return false;
-	  break;
-	case OMP_CLAUSE_REDUCTION:
-	  decl = OMP_CLAUSE_DECL (c);
-	  if (!initial && decl == var)
-	    return true;
-	  break;
-	default:
-	  break;
-	}
-    }
-
-  return is_oacc_reduction_private (var, ctx->outer, false);
-}
-
 /* If DECL is the artificial dummy VAR_DECL created for non-static
    data member privatization, return the underlying "this" parameter,
    otherwise return NULL.  */
@@ -1323,14 +1276,8 @@ static tree
 build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
 {
   tree x;
-  tree outer_ref = maybe_lookup_decl_in_outer_ctx (var, ctx);
 
-  if (TREE_CODE (outer_ref) == INDIRECT_REF)
-    {
-      gcc_assert (is_gimple_omp_oacc (ctx->stmt));
-      x = outer_ref;
-    }
-  else if (is_global_var (outer_ref))
+  if (is_global_var (maybe_lookup_decl_in_outer_ctx (var, ctx)))
     x = var;
   else if (is_variable_sized (var))
     {
@@ -1384,26 +1331,9 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
 	    x = build_simple_mem_ref (x);
 	}
     }
-  else if (is_oacc_parallel (ctx))
-    x = var;
   else if (ctx->outer)
-    {
-      /* OpenACC may have multiple outer contexts (one per loop).  */
-      if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-	  && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
-	{
-	  do
-	    {
-	      ctx = ctx->outer;
-	      x = maybe_lookup_decl (var, ctx);
-	    }
-	  while(!x);
-	}
-      else
-	x = lookup_decl (var, ctx->outer);
-    }
-  else if (is_reference (var)
-	   || get_oacc_fn_attrib (current_function_decl))
+    x = lookup_decl (var, ctx->outer);
+  else if (is_reference (var))
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */
     x = var;
@@ -2026,9 +1956,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_LINEAR:
 	  decl = OMP_CLAUSE_DECL (c);
 	do_private:
-	  if (!is_gimple_omp_oacc (ctx->stmt)
-	      && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
-		  || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_IS_DEVICE_PTR)
+	  if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+	       || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_IS_DEVICE_PTR)
 	      && is_gimple_omp_offloaded (ctx->stmt))
 	    {
 	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
@@ -2060,27 +1989,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	      else if (!global)
 		install_var_field (decl, by_ref, 3, ctx);
 	    }
-	  if (!is_gimple_omp_oacc (ctx->stmt)
-	      || !is_oacc_reduction_private (decl, ctx))
-	    install_var_local (decl, ctx);
-	  else
-	    {
-	      gcc_assert (is_gimple_omp_oacc (ctx->stmt));
-	      /* This probably needs to be moved further up, next to the OpenMP
-		 OMP_CLAUSE_FIRSTPRIVATE handling, in order to correctly handle
-		 VLAs.  */
-	      if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE)
-		{
-		  install_var_field (decl, (TREE_CODE (TREE_TYPE (decl))
-					    != REFERENCE_TYPE), 3, ctx);
-		  install_var_local (decl, ctx);
-		}
-	      else
-		/* The gimplifier always includes a OMP_CLAUSE_MAP with
-		   each parallel reduction variable.  So don't install a
-		   local variable here.  */
-		gcc_assert (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION);
-	    }
+	  install_var_local (decl, ctx);
 	  break;
 
 	case OMP_CLAUSE_USE_DEVICE:
@@ -2322,9 +2231,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    {
-	      if (!is_gimple_omp_oacc (ctx->stmt)
-		  && (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
-		      || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_IS_DEVICE_PTR)
+	      if ((OMP_CLAUSE_CODE (c) == OMP_CLAUSE_FIRSTPRIVATE
+		   || OMP_CLAUSE_CODE (c) == OMP_CLAUSE_IS_DEVICE_PTR)
 		  && is_gimple_omp_offloaded (ctx->stmt))
 		{
 		  tree decl2 = DECL_VALUE_EXPR (decl);
@@ -2336,11 +2244,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 		}
 	      install_var_local (decl, ctx);
 	    }
-	  if (!is_gimple_omp_oacc (ctx->stmt)
-	      || !is_oacc_reduction_private (decl, ctx))
-	    fixup_remapped_decl (decl, ctx,
-				 OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
-				 && OMP_CLAUSE_PRIVATE_DEBUG (c));
+	  fixup_remapped_decl (decl, ctx,
+			       OMP_CLAUSE_CODE (c) == OMP_CLAUSE_PRIVATE
+			       && OMP_CLAUSE_PRIVATE_DEBUG (c));
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_LINEAR
 	      && OMP_CLAUSE_LINEAR_GIMPLE_SEQ (c))
 	    scan_array_reductions = true;
@@ -2352,9 +2258,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	    {
 	      if (is_variable_sized (decl))
 		install_var_local (decl, ctx);
-	      if (!(is_gimple_omp_oacc (ctx->stmt)
-		    && is_oacc_reduction_private (decl, ctx)))
-		fixup_remapped_decl (decl, ctx, false);
+	      fixup_remapped_decl (decl, ctx, false);
 	    }
 	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    scan_array_reductions = true;
@@ -4614,14 +4518,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 	      new_var = var;
 	    }
 	  if (c_kind != OMP_CLAUSE_COPYIN)
-	    {
-	      /* Not all OpenACC reductions require new mappings.  */
-	      if (is_gimple_omp_oacc (ctx->stmt)
-		  && (new_var = maybe_lookup_decl (var, ctx)) == NULL)
-		new_var = var;
-	      else
-		new_var = lookup_decl (var, ctx);
-	    }
+	    new_var = lookup_decl (var, ctx);
 
 	  if (c_kind == OMP_CLAUSE_SHARED || c_kind == OMP_CLAUSE_COPYIN)
 	    {
@@ -5317,13 +5214,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		}
 	      else
 		{
-		  tree type;
-		  if (is_oacc_parallel (ctx) && is_reference (var))
-		    type = TREE_TYPE (TREE_TYPE (new_var));
-		  else
-		    type = TREE_TYPE (new_var);
-
-		  x = omp_reduction_init (c, type);
+		  x = omp_reduction_init (c, TREE_TYPE (new_var));
 		  gcc_assert (TREE_CODE (TREE_TYPE (new_var)) != ARRAY_TYPE);
 		  enum tree_code code = OMP_CLAUSE_REDUCTION_CODE (c);
 
@@ -5689,7 +5580,9 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	  var = maybe_lookup_decl (orig, ctx);
 	if (!var)
 	  var = orig;
-	gcc_assert (!is_reference (var));
+
+	if (is_reference (var))
+	  var = build_simple_mem_ref (var);
 
 	incoming = outgoing = var;
 	
@@ -5731,29 +5624,55 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	  do_lookup:
 	    /* This is the outermost construct with this reduction,
 	       see if there's a mapping for it.  */
-	    if (gimple_code (outer->stmt) == GIMPLE_OMP_TARGET
-		&& maybe_lookup_field (orig, outer))
+	    if (gimple_code (outer->stmt) == GIMPLE_OMP_TARGET)
 	      {
-		ref_to_res = build_receiver_ref (orig, false, outer);
-		if (is_reference (orig))
-		  ref_to_res = build_simple_mem_ref (ref_to_res);
+		bool is_private = false;
+		bool is_mapped = false;
 
-		outgoing = var;
-		incoming = omp_reduction_init_op (loc, rcode, TREE_TYPE (var));
+		/* Check for a private or firstprivate mapping.  */
+		for (tree cls = gimple_omp_target_clauses (outer->stmt);
+		     cls; cls = OMP_CLAUSE_CHAIN (cls))
+		  {
+		    if ((OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_PRIVATE
+			 || OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_FIRSTPRIVATE)
+			&& OMP_CLAUSE_DECL (cls) == orig)
+		      {
+			tree t = lookup_decl (orig, ctx->outer);
+			if (is_reference (t))
+			  incoming = outgoing = build_simple_mem_ref (t);
+			else
+			  incoming = outgoing = t;
+			is_private = true;
+			break;
+		      }
+		  }
+
+		/* Check for a data mapping.  */
+		if (!is_private && maybe_lookup_field (orig, outer))
+		  {
+		    ref_to_res = build_receiver_ref (orig, false, outer);
+
+		    if (is_reference (orig))
+		      ref_to_res = build_simple_mem_ref (ref_to_res);
+
+		    incoming = omp_reduction_init_op (loc, rcode,
+						      TREE_TYPE (var));
+		    outgoing = var;
+		    is_mapped = true;
+		  }
+
+		/* Update incoming and outgoing for reduction variables
+		   local to the offloaded region.  */
+		if (!is_private && !is_mapped)
+		  incoming = outgoing = orig;
 	      }
-	    /* This is enabled on trunk, but has been disabled in the merge of
-	       trunk r229767 into gomp-4_0-branch, as otherwise there were a
-	       lot of regressions in libgomp reduction execution tests.  It is
-	       unclear if the problem is in the tests themselves, or here, or
-	       elsewhere.  Given the usage of "var =
-	       OMP_CLAUSE_REDUCTION_PRIVATE_DECL (c)" on gomp-4_0-branch, maybe
-	       we have to consider that here, too, instead of "orig"?  */
-#if 0
 	    else
 	      incoming = outgoing = orig;
-#endif
-	      
-	  has_outer_reduction:;
+
+	  has_outer_reduction:
+	    /* We found a reduction variable used by another reduction.  */
+	    if (gimple_code (outer->stmt) != GIMPLE_OMP_TARGET)
+	      incoming = outgoing = lookup_decl (orig, ctx->outer);
 	  }
 
 	if (!ref_to_res)

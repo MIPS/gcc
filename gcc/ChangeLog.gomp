@@ -1,5 +1,15 @@
 2016-01-06  Cesar Philippidis  <cesar@codesourcery.com>
 
+	PR other/68813
+	* omp-low.c (is_oacc_reduction_private): Delete.
+	(build_outer_var_ref): Remove special handling for private reductions
+	in openacc.
+	(scan_sharing_clauses): Likewise.
+	(lower_rec_input_clauses): Likewise.
+	(lower_oacc_reductions): Update support for private reductions.
+
+2016-01-06  Cesar Philippidis  <cesar@codesourcery.com>
+
 	* omp-low.c (new_oacc_loop_routine): Remove stale dims variable.
 
 2016-01-05  Nathan Sidwell  <nathan@codesourcery.com>
