@@ -5672,7 +5672,12 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 	  has_outer_reduction:
 	    /* We found a reduction variable used by another reduction.  */
 	    if (gimple_code (outer->stmt) != GIMPLE_OMP_TARGET)
-	      incoming = outgoing = lookup_decl (orig, ctx->outer);
+	      {
+		/* There may be no outer omp context if this reduction is
+		   inside a routine.  */
+		incoming = outgoing = (ctx->outer == NULL)
+		  ? orig : lookup_decl (orig, ctx->outer);
+	      }
 	  }
 
 	if (!ref_to_res)
