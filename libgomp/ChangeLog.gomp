@@ -1,4 +1,9 @@
 2016-01-07  James Norris  <jnorris@codesourcery.com>
+	    Alexander Monakov <amonakov@ispras.ru>
+
+	* plugin/plugin-nvptx.c (link_ptx): Remove link option.
+
+2016-01-07  James Norris  <jnorris@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c-c++-common/declare-4.c: Fix test.
 
