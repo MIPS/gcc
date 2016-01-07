@@ -19535,7 +19535,6 @@ static void
 new_oacc_loop_routine (oacc_loop *parent, gcall *call, tree decl, tree attrs)
 {
   oacc_loop *loop = new_oacc_loop_raw (parent, gimple_location (call));
-  int dims[GOMP_DIM_MAX];
   int level = oacc_fn_attrib_level (attrs);
 
   gcc_assert (level >= 0);

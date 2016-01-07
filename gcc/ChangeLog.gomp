@@ -1,3 +1,7 @@
+2016-01-06  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* omp-low.c (new_oacc_loop_routine): Remove stale dims variable.
+
 2016-01-05  Nathan Sidwell  <nathan@codesourcery.com>
 
 	* config/nvptx/nvptx.c (PTX_GANG_DEFAULT): New.
