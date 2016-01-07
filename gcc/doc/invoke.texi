@@ -17631,7 +17631,7 @@ alias, aligned, alloc_size, alloc_align, always_inline, artifical,
 assume_aligned, code_readable, cold, const, constructor, deprecated,
 destructor, epi, error, far, flatten, gnu_inline, hot, interrupt,
 keep_interrupts_masked, leaf, long_call, malloc, mips16, near, noclone,
-noinline, nomips16, nonnull, noreturn, nothrow, optimize, pure,
+noepi, noinline, nomips16, nonnull, noreturn, nothrow, optimize, pure,
 returns_nonnull, returns_twice, section, unused, used,
 use_debug_exception_return, use_shadow_register_set, visibility, warning,
 warn_unused_result, weak, weakref.
