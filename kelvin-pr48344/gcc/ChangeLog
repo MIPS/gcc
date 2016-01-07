@@ -1,0 +1,282 @@
+2016-01-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/69171
+	* config/i386/sse.md (<sse>_sqrt<mode>2<mask_name><round_name>):
+	Use the "xBm" constraint.
+	(float<sseintvecmodelower><mode>2<mask_name><round_name):
+	Likewise.
+	(sse_cvtsi2ss<round_name>): Use round_nimm_scalar_predicate.
+	(sse_cvtsi2ssq<round_name>): Likewise.
+	(sse_cvtss2si<round_name>): Likewise.
+	(sse_cvtss2siq<round_name>): Likewise.
+	(sse2_cvtsi2sdq<round_name>): Likewise.
+	(sse2_cvtsd2si<round_name>): Likewise.
+	(sse2_cvtsd2siq<round_name>): Likewise.
+	* config/i386/subst.md (round_nimm_scalar_predicate): New
+	predicate.
+
+2015-12-15  Bernd Schmidt  <bschmidt@redhat.com>
+
+	PR middle-end/67639
+	* varasm.c (make_decl_rtl): Mark invalid register vars as
+	DECL_EXTERNAL.
+
+	PR rtl-optimization/66206
+	* bt-load.c (find_btr_use): Change first arg to be a pointer to an rtx.
+	All callers changed.
+
+2016-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69141
+	* tree-ssa-pre.c: Include langhooks.h.
+	(eliminate_dom_walker::before_dom_children): Use
+	lang_hooks.decl_printable_name instead of
+	cgraph_node::get ()->name ().
+
+	PR middle-end/68960
+	* gimple-expr.c (copy_var_decl): If var has DECL_USER_ALIGN set, copy
+	it and DECL_ALIGN too.
+
+2016-01-06  Robert Suchanek  <robert.suchanek@imgtec.com>
+
+	* config/mips/mips-ftypes.def: Sort to lexicographical order.
+
+2016-01-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/69140
+	* config/i386/i386.c (ix86_expand_prologue): Declare fs.sp_valid
+	depending on frame_pointer_needed before remaining integer and SSE
+	registers are saved.
+
+2015-01-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*p9_vecload_<mode>): Replace VSX_M
+	mode iterator with VSX_M2.
+	(*p9_vecstore_<mode>): Likewise.
+	(*vsx_le_permute_<mode>): Restrict to !TARGET_P9_VECTOR.
+	(*vsx_le_perm_load_<mode> for VSX_LE_128): Likewise.
+	(*vsx_le_perm_store_<mode> for VSX_LE_128): Likewise.
+	(define_split for VSX_LE128 stores): Likewise.
+	(define_peephole2 for TImode LE swaps): Likewise.
+	(define_split for VSX_LE128 post-reload stores): Likewise.
+
+2016-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/69099
+	* convert.c (convert_to_integer_1): Adjust call to
+	ubsan_instrument_float_cast.  Use NULL_TREE instead of NULL.
+	* ubsan.c (ubsan_instrument_float_cast): Drop the ARG parameter.  Use
+	EXPR instead of ARG.
+	* ubsan.h (ubsan_instrument_float_cast): Adjust declaration.
+
+2016-01-05  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR 1078
+	* doc/extend.texi (RL78 Variable Attributes): New section.
+
+2016-01-05  Marek Polacek  <polacek@redhat.com>
+
+	PR c/69104
+	* builtins.c (get_memmodel): Use expansion point location rather than
+	the input location.  Call warning_at rather than warning.
+	(expand_builtin_atomic_compare_exchange): Likewise.
+	(expand_builtin_atomic_load): Likewise.
+	(expand_builtin_atomic_store): Likewise.
+	(expand_builtin_atomic_clear): Likewise.
+
+2016-01-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68991
+	* config/i386/i386.c (ix86_expand_vector_logical_operator):
+	Replace nonimmediate_operand with vector_operand.
+	* config/i386/predicates.md (vector_operand): New predicate.
+	(general_vector_operand): Replace nonimmediate_operand with
+	vector_operand.
+	* config/i386/sse.md: Replace nonimmediate_operand with
+	vector_operand and m constraint with Bm constraint on SSE
+	patterns with 16-byte memory operand.
+	* config/i386/subst.md (round_nimm_predicate): Replace
+	nonimmediate_operand with vector_operand.
+	(round_saeonly_nimm_predicate): Likewise.
+	(round_saeonly_nimm_scalar_predicate): New.
+
+2016-01-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/68991
+	* config/i386/constraints.md (Bm): New constraint.
+	* config/i386/predicates.md (vector_memory_operand): New
+	predicate.
+	* config/i386/sse.md: Replace xm with xBm in plusminus and
+	any_logic patterns.
+
+2016-01-05  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR 1078
+	* doc/extend.texi (V850 Function Attributes): New section.
+	(V850 Variable Attributes): New section.
+
+2016-01-05  Sandra Loosemore <sandra@codesourcery.com>
+
+	PR 1078
+	* doc/extend.texi (MicroBlaze Function Attributes): Document
+	interrupt_handler and fast_interrupt attributes.
+
+2016-01-05  Sergei Trofimovich <siarheit@google.com>
+
+	PR other/60465
+	* config/ia64/ia64.c (ia64_expand_load_address): Use gprel64
+	for local symbolic operands.
+	* config/ia64/predicates.md (local_symbolic_operand64): New
+	predicate.
+
+2016-01-05  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	PR rtl-optimization/68651
+	* combine.c (combine_simplify_rtx): Canonicalize x + x into
+	x << 1.
+
+2016-01-05  Nathan Sidwell  <nathan@acm.org>
+
+	* alias.c (compare_base_decls): Use symtab_node::get.
+
+2016-01-05  Nick Clifton  <nickc@redhat.com>
+
+	PR target/68770
+	* ira-costs.c (copy_cost): Initialise the t_icode field of the
+	secondary_reload_info structure.
+
+	PR target/66655
+	* config/i386/cygming.h (MAKE_DECL_ONE_ONLY): Define to use weak
+	decls if weak support is available.
+
+2016-01-04  Martin Sebor  <msebor@redhat.com>
+
+	* doc/invoke.texi (Warning Options): Document -Winvalid-memory-model.
+
+2016-01-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-cpus.def (ISA_3_0_MASKS_SERVER): Add
+	OPTION_MASK_P9_DFORM.
+
+	* config/rs6000/constraints.md (wo constraint): New constraint for
+	ISA 3.0 (power9).
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add support
+	for wo constraint.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+
+	* config/rs6000/rs6000.h (r6000_reg_class_enum): Add support for
+	wo constraint.
+
+	* config/rs6000/altivec.md (altivec_vperm_<mode>): Clean up vperm
+	expanders not to have constraints.  Add support for ISA 3.0 xxperm
+	instruction.  Add support for fusing xxlor with xxperm.
+	(altivec_vperm_<mode>_internal): Likewise.
+	(altivec_vperm_v8hiv16qi): Likewise.
+	(altivec_vperm_<mode>v16q): Likewise.
+	(altivec_vperm_<mode>_uns): Likewise.
+	(vperm_v8hiv4si): Likewise.
+	(vperm_v16qiv8hi): Likewise.
+
+	* doc/md.texi (RS/6000 constraints): Document wo constraint.
+
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+	* gcc.c (process_command): Update copyright notice dates.
+	* gcov-dump.c (print_version): Ditto.
+	* gcov.c (print_version): Ditto.
+	* gcov-tool.c (print_version): Ditto.
+	* gengtype.c (create_file): Ditto.
+	* doc/cpp.texi: Bump @copying's copyright year.
+	* doc/cppinternals.texi: Ditto.
+	* doc/gcc.texi: Ditto.
+	* doc/gccint.texi: Ditto.
+	* doc/gcov.texi: Ditto.
+	* doc/install.texi: Ditto.
+	* doc/invoke.texi: Ditto.
+
+2016-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (aapcs_vfp_allocate_return_reg): Treat all integer
+	modes larger than TImode as TImode if NEON is not enabled.
+
+2016-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/69100
+	* config/sparc/sparc.h (FUNCTION_ARG_REGNO_P): Return true in 64-bit
+	mode for %f0-%f31 only if TARGET_FPU.
+
+2016-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/69072
+	* config/sparc/sparc.c (scan_record_type): Take into account subfields
+	to compute the PACKED_P predicate.
+	(function_arg_record_value): Minor tweaks.
+
+2016-01-04  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	* doc/install.texi (--with-multilib-list): Describe the meaning of the
+	option for arm*-*-* targets.
+
+2016-01-03  Sandra Loosemore <sandra@codesourcery.com>
+
+	* doc/extend.texi (Common Function Attributes): Move docs for
+	MSP430-specific attributes to....
+	(MSP430 Function Attributes): ...here.  Delete the redundant
+	entries and copy-edit the remaining text.
+	(MSP430 Variable Attributes): Use uniform format for index
+	entries and add a cross-reference to the corresponding function
+	attribute docs.
+
+2016-01-03  Vladimír Čunát <vcunat@gmail.com>
+
+	* doc/invoke.texi (RS/6000 and PowerPC Options): Fix
+	-finite-math typo.
+	(x86 Options): Likewise.
+
+2016-01-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR 1078
+
+	* extend.texi (Common Function Attributes) <no_stack_limit>: New.
+	* invoke.texi (Code Gen Options) <-fno-stack-limit>: Add pointer
+	to corresponding attribute.
+
+2016-01-01  Sandra Loosemore  <sandra@codesourcery.com>
+
+	* doc/extend.texi (Common Function Attributes) <noplt>: Move
+	to correct alphabetization of table.  Copy-edit and correct
+	markup.
+	<stack_protect>: Likewise.
+	<target_clones>: Likewise.
+	<simd>: Likewise.
+	* doc/invoke.texi (Optimize Options) <-fstack-protector-explicit>:
+	Correct punctuation.
+	(Code Gen Options) <-fno-plt>: Copy-edit.
+
+2016-01-01  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR target/68917
+	* config/tilegx/tilegx.md (clzsi2): Don't create DI subregs of
+	SI values.  Explicitly convert SI to DI and vice-versa.
+
+2016-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/69070
+	* tree-ssa-math-opts.c (gimple_expand_builtin_pow): Only test
+	REAL_VALUE_ISSIGNALING_NAN on arg0 if arg0 is a REAL_CST.
+
+	PR sanitizer/69055
+	* ubsan.c (ubsan_instrument_float_cast): Call
+	initialize_sanitizer_builtins.
+
+	PR target/69015
+	* ifcvt.c (find_cond_trap): Give up if returnjump_p (jump).
+
+Copyright (C) 2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

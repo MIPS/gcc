@@ -1,0 +1,22 @@
+2016-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	Update copyright years.
+
+	* gfortranspec.c (lang_specific_driver): Update copyright notice
+	dates.
+	* gfc-internals.texi: Bump @copying's copyright year.
+	* gfortran.texi: Ditto.
+	* intrinsic.texi: Ditto.
+	* invoke.texi: Ditto.
+
+2016-01-01  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/68864
+	* trans-array.c (evaluate_bound): If deferred, test that 'desc'
+	is an array descriptor before using gfc_conv_descriptor_xxx.
+
+Copyright (C) 2016 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
