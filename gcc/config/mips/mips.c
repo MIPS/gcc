@@ -2834,7 +2834,7 @@ mips_stack_address_p (rtx x, machine_mode mode)
 
   return (mips_classify_address (&addr, x, mode, false)
 	  && addr.type == ADDRESS_REG
-	  && addr.reg == stack_pointer_rtx);
+	  && REGNO (addr.reg) == STACK_POINTER_REGNUM);
 }
 
 /* Return true if ADDR matches the pattern for the LWXS load scaled indexed
@@ -2899,7 +2899,8 @@ mips16_unextended_reference_p (machine_mode mode, rtx base,
 {
   if (mode != BLKmode && offset % GET_MODE_SIZE (mode) == 0)
     {
-      if (GET_MODE_SIZE (mode) == 4 && base == stack_pointer_rtx)
+      if (GET_MODE_SIZE (mode) == 4 && GET_CODE (base) == REG
+          && REGNO (base) == STACK_POINTER_REGNUM)
 	return offset < 256U * GET_MODE_SIZE (mode);
       return offset < 32U * GET_MODE_SIZE (mode);
     }
@@ -9736,7 +9737,7 @@ mips_debugger_offset (rtx addr, HOST_WIDE_INT offset)
   if (offset == 0)
     offset = INTVAL (offset2);
 
-  if (reg == stack_pointer_rtx
+  if ((GET_CODE (reg) == REG && REGNO (reg) == STACK_POINTER_REGNUM)
       || reg == frame_pointer_rtx
       || reg == hard_frame_pointer_rtx)
     {
@@ -10407,7 +10408,7 @@ mips16e_collect_argument_save_p (rtx dest, rtx src, rtx *reg_values,
   required_offset = cfun->machine->frame.total_size + argno * UNITS_PER_WORD;
   if (base == hard_frame_pointer_rtx)
     required_offset -= cfun->machine->frame.hard_frame_pointer_offset;
-  else if (base != stack_pointer_rtx)
+  else if (!(GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM))
     return false;
   if (offset != required_offset)
     return false;
@@ -10617,7 +10618,7 @@ mips16e_save_restore_pattern_p (rtx pattern, HOST_WIDE_INT adjust,
       /* Check that the address is the sum of the stack pointer and a
 	 possibly-zero constant offset.  */
       mips_split_plus (XEXP (mem, 0), &base, &offset);
-      if (base != stack_pointer_rtx)
+      if (!(GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM))
 	return false;
 
       /* Check that SET's other operand is a register.  */
@@ -12840,7 +12841,8 @@ mips_restore_reg (rtx reg, rtx mem)
 static void
 mips_deallocate_stack (rtx base, rtx offset, HOST_WIDE_INT new_frame_size)
 {
-  if (base == stack_pointer_rtx && offset == const0_rtx)
+  if (GET_CODE (base) == REG && REGNO (base) == STACK_POINTER_REGNUM
+      && offset == const0_rtx)
     return;
 
   mips_frame_barrier ();
@@ -17768,7 +17770,7 @@ r10k_simplify_address (rtx x, rtx insn)
 	    {
 	      /* Replace the incoming value of $sp with
 		 virtual_incoming_args_rtx.  */
-	      if (x == stack_pointer_rtx
+	      if (GET_CODE (x) == REG && REGNO (x) == STACK_POINTER_REGNUM
 		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 		newx = virtual_incoming_args_rtx;
 	    }

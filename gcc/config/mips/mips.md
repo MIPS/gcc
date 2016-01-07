@@ -7373,7 +7373,7 @@
        [(set (match_operand:SI 1 "register_operand")
 	     (plus:SI (match_dup 1)
 		      (match_operand:SI 2 "const_int_operand")))])]
-  "operands[1] == stack_pointer_rtx
+  "GET_CODE (operands[1]) == REG && REGNO (operands[1]) == STACK_POINTER_REGNUM
    && mips16e_save_restore_pattern_p (operands[0], INTVAL (operands[2]), NULL)"
   { return mips16e_output_save_restore (operands[0], INTVAL (operands[2])); }
   [(set_attr "type" "arith")
