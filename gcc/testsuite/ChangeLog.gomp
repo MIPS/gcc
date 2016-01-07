@@ -1,3 +1,7 @@
+2016-01-07  James Norris  <jnorris@codesourcery.com>
+
+	* c-c++-common/goacc/routine-5.c: Additional tests.
+
 2016-01-07  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* g++.dg/goacc/routine-2.C: Add more coverage.

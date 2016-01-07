@@ -59,3 +59,49 @@ void Foo ()
 #pragma acc routine (Foo) gang // { dg-error "must be applied before definition" }
 
 #pragma acc routine (Baz) // { dg-error "not been declared" }
+
+float vb1;
+
+#pragma acc routine
+int
+func1 (int a)
+{
+  vb1 = a + 1; /* { dg-error "invalid use in" } */
+
+  return vb1; /* { dg-error "invalid use in" } */
+}
+
+#pragma acc routine
+int
+func2 (int a)
+{
+  static int vb2;
+
+  vb2 = a + 1; /* { dg-error "invalid use in" } */
+
+  return vb2; /* { dg-error "invalid use in" } */
+}
+
+float vb3;
+#pragma acc declare link (vb3)
+
+#pragma acc routine
+int
+func3 (int a)
+{
+  vb3 = a + 1; /* { dg-error "invalid use in" } */
+
+  return vb3; /* { dg-error "invalid use in" } */
+}
+
+float vb4;
+#pragma acc declare create (vb4)
+
+#pragma acc routine
+int
+func4 (int a)
+{
+  vb4 = a + 1;
+
+  return vb4;
+}
