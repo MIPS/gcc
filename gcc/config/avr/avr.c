@@ -8929,7 +8929,7 @@ avr_class_likely_spilled_p (reg_class_t c)
                 instruction.  */
 
 static tree
-avr_ignore_type_attribute (tree *node ATTRIBUTE_UNUSED,
+avr_ignore_type_attribute (ttype **node ATTRIBUTE_UNUSED,
 			   tree name ATTRIBUTE_UNUSED,
 			   tree args ATTRIBUTE_UNUSED,
 			   int flags ATTRIBUTE_UNUSED,
@@ -8939,7 +8939,7 @@ avr_ignore_type_attribute (tree *node ATTRIBUTE_UNUSED,
 }
 
 static tree
-avr_warning_type_attribute (tree *node ATTRIBUTE_UNUSED, tree name,
+avr_warning_type_attribute (ttype **node ATTRIBUTE_UNUSED, tree name,
 			   tree args ATTRIBUTE_UNUSED,
 			   int flags ATTRIBUTE_UNUSED, bool *no_add_attrs)
 {
@@ -9007,7 +9007,7 @@ avr_handle_fndecl_attribute (tree *node, tree name,
 }
 
 static tree
-avr_handle_fntype_attribute (tree *node, tree name,
+avr_handle_fntype_attribute (ttype **node, tree name,
                              tree args ATTRIBUTE_UNUSED,
                              int flags ATTRIBUTE_UNUSED,
                              bool *no_add_attrs)

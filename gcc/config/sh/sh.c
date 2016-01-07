@@ -210,7 +210,7 @@ static tree sh2a_handle_function_vector_handler_attribute (tree *, tree,
 							   tree, int, bool *);
 static tree sh_handle_sp_switch_attribute (tree *, tree, tree, int, bool *);
 static tree sh_handle_trap_exit_attribute (tree *, tree, tree, int, bool *);
-static tree sh_handle_renesas_attribute (tree *, tree, tree, int, bool *);
+static tree sh_handle_renesas_attribute (ttype **, tree, tree, int, bool *);
 static void sh_print_operand (FILE *, rtx, int);
 static void sh_print_operand_address (FILE *, machine_mode, rtx);
 static bool sh_print_operand_punct_valid_p (unsigned char code);
@@ -9945,7 +9945,7 @@ sh_handle_trap_exit_attribute (tree *node, tree name, tree args,
 }
 
 static tree
-sh_handle_renesas_attribute (tree *node ATTRIBUTE_UNUSED,
+sh_handle_renesas_attribute (ttype **node ATTRIBUTE_UNUSED,
 			     tree name ATTRIBUTE_UNUSED,
 			     tree args ATTRIBUTE_UNUSED,
 			     int flags ATTRIBUTE_UNUSED,

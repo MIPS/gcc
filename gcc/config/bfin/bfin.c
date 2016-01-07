@@ -4658,12 +4658,12 @@ bfin_reorg (void)
    attributes; arguments as in struct attribute_spec.handler.  */
 
 static tree
-handle_int_type_attribute (tree *node, tree name,
+handle_int_type_attribute (ttype **node, tree name,
 			   tree args ATTRIBUTE_UNUSED,
 			   int flags ATTRIBUTE_UNUSED,
 			   bool *no_add_attrs)
 {
-  tree x = *node;
+  ttype *x = *node;
   if (TREE_CODE (x) != FUNCTION_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute only applies to functions",
@@ -4682,7 +4682,7 @@ handle_int_decl_attribute (tree *node, tree name, tree args, int flags,
 {
   tree x = *node;
   if (TREE_CODE (x) == FUNCTION_DECL)
-    return handle_int_type_attribute (&TREE_TYPE(x), name, args, flags,
+    return handle_int_type_attribute (TREE_TTYPE_PTR(x), name, args, flags,
 				      no_add_attrs);
 
   warning (OPT_Wattributes, "%qE attribute only applies to functions", name);
@@ -4733,7 +4733,7 @@ bfin_comp_type_attributes (const_tree type1, const_tree type2)
    struct attribute_spec.handler.  */
 
 static tree
-bfin_handle_longcall_attribute (tree *node, tree name, 
+bfin_handle_longcall_attribute (ttype **node, tree name, 
 				tree args ATTRIBUTE_UNUSED, 
 				int flags ATTRIBUTE_UNUSED, 
 				bool *no_add_attrs)

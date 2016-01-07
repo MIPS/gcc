@@ -387,18 +387,16 @@ process_attribute_spec (tree a, int flags)
    the parameters match those of type_attribute.  */
 
 static tree
-finalize_type_attribute (tree *node, const struct attribute_spec *spec,
+finalize_type_attribute (ttype **node, const struct attribute_spec *spec,
 			 tree a, tree returned_attrs, int flags,
 			 tree *decl_node = NULL)
 {
   bool no_add_attrs = 0;
   int fn_ptr_quals = 0;
-  tree fn_ptr_tmp = NULL_TREE;
+  ttype *fn_ptr_tmp = NULL;
   tree name = get_attribute_name (a);
   tree args = TREE_VALUE (a);
-  tree *anode = node;
-
-  gcc_checking_assert (TYPE_P (*node));
+  ttype **anode = node;
 
   if (spec->function_type_required && TREE_CODE (*anode) != FUNCTION_TYPE
       && TREE_CODE (*anode) != METHOD_TYPE)
@@ -416,7 +414,7 @@ finalize_type_attribute (tree *node, const struct attribute_spec *spec,
 
 	     This would all be simpler if attributes were part of the
 	     declarator, grumble grumble.  */
-	  fn_ptr_tmp = TREE_TYPE (*anode);
+	  fn_ptr_tmp = TREE_TTYPE (*anode);
 	  fn_ptr_quals = TYPE_QUALS (*anode);
 	  anode = &fn_ptr_tmp;
 	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
@@ -590,7 +588,7 @@ type_attributes (tree *node, tree attributes, int flags)
 	    }
 	}
 
-      returned_attrs = finalize_type_attribute (node, spec, a, returned_attrs,
+      returned_attrs = finalize_type_attribute (TTYPE_PTR (node), spec, a, returned_attrs,
 						flags);
     }
 
@@ -691,9 +689,9 @@ decl_attributes (tree *node, tree attributes, int flags)
 	 the decl's type in place here.  */
       if (spec->type_required)
 	{
-	  anode = &TREE_TYPE (*anode);
+	  ttype **ttype_node = TREE_TTYPE_PTR (*anode);
 	  flags &= ~(int) ATTR_FLAG_TYPE_IN_PLACE;
-	  returned_attrs = finalize_type_attribute (anode, spec, a,
+	  returned_attrs = finalize_type_attribute (ttype_node, spec, a,
 						    returned_attrs, flags,
 						    node);
 	  continue;

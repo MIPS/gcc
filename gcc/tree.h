@@ -2063,6 +2063,7 @@ extern machine_mode element_mode (const_tree t);
   TTYPE ((POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval))
 #define TTYPE_NEXT_REF_TO(NODE) \
   TTYPE ((REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval))
+
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
    allocated.  */
@@ -4175,7 +4176,7 @@ extern tree merge_dllimport_decl_attributes (tree, tree);
 
 /* Handle a "dllimport" or "dllexport" attribute.  */
 extern tree handle_dll_decl_attribute (tree *, tree, tree, int, bool *);
-extern tree handle_dll_type_attribute (tree *, tree, tree, int, bool *);
+extern tree handle_dll_type_attribute (ttype **, tree, tree, int, bool *);
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
@@ -4779,7 +4780,7 @@ extern int chain_member (const_tree, const_tree);
 extern void dump_tree_statistics (void);
 extern void recompute_tree_invariant_for_addr_expr (tree);
 extern bool needs_to_live_in_memory (const_tree);
-extern tree reconstruct_complex_type (tree, tree);
+extern ttype *reconstruct_complex_type (tree, tree);
 extern int real_onep (const_tree);
 extern int real_minus_onep (const_tree);
 extern void init_ttree (void);
@@ -5470,5 +5471,8 @@ ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
 
 #define TREE_TTYPE(NODE) (as_a <ttype *>(TREE_TYPE (NODE)))
 #define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
+#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
 
 #endif  /* GCC_TREE_H  */

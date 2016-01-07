@@ -6463,10 +6463,10 @@ handle_dll_decl_attribute (tree * pnode, tree name, tree args, int flags,
    struct attribute_spec.handler.  */
 
 tree
-handle_dll_type_attribute (tree * pnode, tree name, tree args, int flags,
+handle_dll_type_attribute (ttype ** pnode, tree name, tree args, int flags,
 			   bool *no_add_attrs)
 {
-   tree node = *pnode;
+   ttype *node = *pnode;
 
   /* These attributes may apply to structure and union types being created,
      but otherwise should pass to the declaration involved.  */
@@ -10611,10 +10611,10 @@ build_common_builtin_nodes (void)
    The argument TYPE is the top of the chain, and BOTTOM is the
    new type which we will point to.  */
 
-tree
+ttype *
 reconstruct_complex_type (tree type, tree bottom)
 {
-  tree inner, outer;
+  ttype *inner, *outer;
 
   if (TREE_CODE (type) == POINTER_TYPE)
     {
@@ -10655,7 +10655,7 @@ reconstruct_complex_type (tree type, tree bottom)
       outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
-    return bottom;
+    return TTYPE (bottom);
 
   return build_type_attribute_qual_variant (outer, TYPE_ATTRIBUTES (type),
 					    TYPE_QUALS (type));

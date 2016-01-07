@@ -2180,7 +2180,7 @@ xstormy16_interrupt_function_p (void)
 #define TARGET_ATTRIBUTE_TABLE  xstormy16_attribute_table
 
 static tree xstormy16_handle_interrupt_attribute
-  (tree *, tree, tree, int, bool *);
+  (ttype **, tree, tree, int, bool *);
 static tree xstormy16_handle_below100_attribute
   (tree *, tree, tree, int, bool *);
 
@@ -2201,7 +2201,7 @@ static const struct attribute_spec xstormy16_attribute_table[] =
    arguments as in struct attribute_spec.handler.  */
 
 static tree
-xstormy16_handle_interrupt_attribute (tree *node, tree name,
+xstormy16_handle_interrupt_attribute (ttype **node, tree name,
 				      tree args ATTRIBUTE_UNUSED,
 				      int flags ATTRIBUTE_UNUSED,
 				      bool *no_add_attrs)
