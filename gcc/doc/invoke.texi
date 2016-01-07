@@ -17597,11 +17597,13 @@ Use (do not use) the MIPS eXtended Physical Address (XPA) instructions.
 @item -mfunc-opt-list=
 @opindex mfunc-opt-list
 Read a list of functions from a file and apply a series of attributes to
-them as if they had being specified in the source.  The format of the
+them as if they had being specified in the source file.  The format of the
 file is plain text with one function per line.  The first non-whitespace
-word is treated as the function name, whitespace, then a white separated
-list of function attributes written in the same format within the
-parentheses of the __attribute__ directive.
+word of each line is treated as the function name, followed by whitespace,
+then a whitespace separated list of function attributes written in the same
+format as the attributes in the parentheses of the __attribute__ directive.
+
+For example:
 @smallexample
 foo   mips16 optimize ("Os")
 bar   always_inline
@@ -17619,9 +17621,9 @@ use_debug_exception_return, use_shadow_register_set, visibility, warning,
 warn_unused_result, weak, weakref.
 @end smallexample
 
-Unrecognised attributes will produce a diagnostic giving the location
-that it was found and compilation will continue.  GCC's front will also
-produce a diagnostic.
+Unrecognised attributes will produce a warning diagnostic giving the location
+where it was found.  GCC produce a second diagnostic, citing the name of the
+function and unknown attribute.
 
 @item -mlong64
 @opindex mlong64
