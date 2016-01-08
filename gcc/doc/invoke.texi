@@ -17622,7 +17622,7 @@ warn_unused_result, weak, weakref.
 @end smallexample
 
 Unrecognised attributes will produce a warning diagnostic giving the location
-where it was found.  GCC produce a second diagnostic, citing the name of the
+where it was found.  GCC produces a second diagnostic, citing the name of the
 function and unknown attribute.
 
 @item -mlong64
