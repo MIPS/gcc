@@ -12370,6 +12370,9 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
   loop->header = loop_header;
   loop->latch = store_bb;
   add_loop (loop, loop_header->loop_father);
+  if (loops_state_satisfies_p (LOOPS_HAVE_SIMPLE_LATCHES))
+    /* Split the edge from store_bb to loop_header */
+    split_edge (e);
 
   if (gimple_in_ssa_p (cfun))
     update_ssa (TODO_update_ssa_no_phi);

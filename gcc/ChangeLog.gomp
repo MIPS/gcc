@@ -1,3 +1,8 @@
+2016-01-08  Nathan Sidwell  <nathan@acm.org>
+
+	* omp-low.c (expand_omp_atomic_pipeline): Pay attention to
+	LOOPS_HAVE_SIMPLE_LATCHES state.
+
 2016-01-07  Cesar Philippidis  <cesar@codesourcery.com>
 
 	* omp-low.c (lower_oacc_reductions): Handle explicitly private
