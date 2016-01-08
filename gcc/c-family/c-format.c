@@ -144,6 +144,7 @@ location_from_offset (location_t loc, int offset)
    not consider a derived class to be the same.  */
 static ttype *tree_ptr_node = NULL;
 static ttype *ttype_ptr_node = NULL;
+
 /* Check that we have a pointer to a string suitable for use as a format.
    The default is to check for a char type.
    For objective-c dialects, this is extended to include references to string
@@ -2570,11 +2571,13 @@ check_format_types (location_t loc, format_wanted_type *types)
       /* Check the type of the "real" argument, if there's a type we want.  */
       if (lang_hooks.types_compatible_p (wanted_type, cur_type))
 	continue;
+
       /* ttype is derived from tree, but types_compatible_p wont match derived
 	 types... so manually check for ttype passed to a tree.  */
       if (cur_type == ttype_ptr_node && wanted_type == tree_ptr_node
 	  && tree_ptr_node && ttype_ptr_node)
         continue;
+
       /* If we want 'void *', allow any pointer type.
 	 (Anything else would already have got a warning.)
 	 With -Wpedantic, only allow pointers to void and to character

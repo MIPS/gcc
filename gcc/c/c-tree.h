@@ -595,7 +595,7 @@ extern int comptypes_check_different_types (tree, tree, bool *);
 extern bool c_vla_type_p (const_tree);
 extern bool c_mark_addressable (tree);
 extern void c_incomplete_type_error (const_tree, const_tree);
-extern tree c_type_promotes_to (tree);
+extern ttype *c_type_promotes_to (ttype_p);
 extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
 extern struct c_expr default_function_array_read_conversion (location_t,

@@ -260,10 +260,10 @@ c_incomplete_type_error (const_tree value, const_tree type)
 /* Given a type, apply default promotions wrt unnamed function
    arguments and return the new type.  */
 
-tree
-c_type_promotes_to (tree type)
+ttype *
+c_type_promotes_to (ttype_p type)
 {
-  tree ret = NULL_TREE;
+  ttype *ret = NULL;
 
   if (TYPE_MAIN_VARIANT (type) == float_type_node)
     ret = double_type_node;
@@ -13460,25 +13460,27 @@ c_finish_transaction (location_t loc, tree block, int flags)
    preserve information about the typedef name from which an array
    type was derived).  */
 
-tree
-c_build_qualified_type (tree type, int type_quals, tree orig_qual_type,
+ttype *
+c_build_qualified_type (tree type, int type_quals, tree orig_qual_tree_type,
 			size_t orig_qual_indirect)
 {
   if (type == error_mark_node)
-    return type;
+    return error_type_node;
+
+  ttype *orig_qual_type = TTYPE (orig_qual_tree_type);
 
   if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      tree t;
-      tree element_type = c_build_qualified_type (TREE_TYPE (type),
-						  type_quals, orig_qual_type,
-						  orig_qual_indirect - 1);
+      ttype *t;
+      ttype *element_type = c_build_qualified_type (TREE_TYPE (type),
+						    type_quals, orig_qual_type,
+						    orig_qual_indirect - 1);
 
       /* See if we already have an identically qualified type.  */
       if (orig_qual_type && orig_qual_indirect == 0)
 	t = orig_qual_type;
       else
-	for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+	for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
 	  {
 	    if (TYPE_QUALS (strip_array_types (t)) == type_quals
 		&& TYPE_NAME (t) == TYPE_NAME (type)
@@ -13530,7 +13532,7 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_type,
       type_quals &= ~TYPE_QUAL_RESTRICT;
     }
 
-  tree var_type = (orig_qual_type && orig_qual_indirect == 0
+  ttype *var_type = (orig_qual_type && orig_qual_indirect == 0
 		   ? orig_qual_type
 		   : build_qualified_type (type, type_quals));
   /* A variant type does not inherit the list of incomplete vars from the

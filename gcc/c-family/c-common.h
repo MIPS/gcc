@@ -811,7 +811,7 @@ extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
 						int, int);
 extern ttype *c_common_unsigned_type (tree);
 extern ttype *c_common_signed_type (tree);
-extern ttype *c_common_signed_or_unsigned_type (int, tree);
+extern ttype *c_common_signed_or_unsigned_type (int, ttype_p);
 extern void c_common_init_ts (void);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
 extern enum conversion_safety unsafe_conversion_p (location_t, tree, tree,
@@ -874,7 +874,7 @@ extern tree pointer_int_sum (location_t, enum tree_code, tree, tree,
 			     bool = true);
 
 /* Add qualifiers to a type, in the fashion for C.  */
-extern tree c_build_qualified_type (tree, int, tree = NULL_TREE, size_t = 0);
+extern ttype *c_build_qualified_type (tree, int, tree = NULL_TREE, size_t = 0);
 
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */
@@ -1088,6 +1088,9 @@ extern void release_tree_vector (vec<tree, va_gc> *);
 extern vec<tree, va_gc> *make_tree_vector_single (tree);
 extern vec<tree, va_gc> *make_tree_vector_from_list (tree);
 extern vec<tree, va_gc> *make_tree_vector_copy (const vec<tree, va_gc> *);
+
+extern vec<ttype *, va_gc> *make_ttype_vector (void);
+extern void release_ttype_vector (vec<ttype *, va_gc> *);
 
 /* Used for communication between c_common_type_for_mode and
    c_register_builtin_type.  */

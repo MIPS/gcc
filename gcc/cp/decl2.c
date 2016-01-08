@@ -1322,7 +1322,7 @@ attributes_naming_typedef_ok (tree attrs)
 /* Like reconstruct_complex_type, but handle also template trees.  */
 
 ttype *
-cp_reconstruct_complex_type (tree type, tree bottom)
+cp_reconstruct_complex_type (ttype_p type, ttype_p bottom)
 {
   ttype *inner, *outer;
   bool late_return_type_p = false;
@@ -1375,7 +1375,7 @@ cp_reconstruct_complex_type (tree type, tree bottom)
       outer = build_offset_type (TYPE_OFFSET_BASETYPE (type), inner);
     }
   else
-    return TTYPE (bottom);
+    return bottom;
 
   if (TYPE_ATTRIBUTES (type))
     outer = cp_build_type_attribute_variant (outer, TYPE_ATTRIBUTES (type));

@@ -320,7 +320,7 @@ build_java_array_type (tree element_type, HOST_WIDE_INT length)
 /* Promote TYPE to the type actually used for fields and parameters. */
 
 ttype *
-promote_type (tree type)
+promote_type (ttype_p type)
 {
   switch (TREE_CODE (type))
     {
@@ -344,7 +344,7 @@ promote_type (tree type)
 	}
       /* ... else fall through ... */
     default:
-      return TTYPE (type);
+      return type;
     }
 }
 

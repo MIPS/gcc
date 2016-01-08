@@ -86,7 +86,7 @@ struct lang_hooks_for_types
      arguments and return the new type.  Return the same type if no
      change.  Required by any language that supports variadic
      arguments.  The default hook dies.  */
-  tree (*type_promotes_to) (tree);
+  ttype *(*type_promotes_to) (ttype_p);
 
   /* Register TYPE as a builtin type with the indicated NAME.  The
      TYPE is placed in the outermost lexical scope.  The semantics
@@ -141,7 +141,7 @@ struct lang_hooks_for_types
      we stripped off while looking for the inner type.  Similarly for
      return values from functions.  The argument TYPE is the top of the
      chain, and BOTTOM is the new type which we will point to.  */
-  ttype *(*reconstruct_complex_type) (tree, tree);
+  ttype *(*reconstruct_complex_type) (ttype_p, ttype_p);
 
   /* Returns the tree that represents the underlying data type used to
      implement the enumeration.  The default implementation will just use

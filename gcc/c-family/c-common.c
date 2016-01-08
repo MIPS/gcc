@@ -3605,7 +3605,7 @@ c_common_signed_type (tree type)
    signed according to UNSIGNEDP.  */
 
 ttype *
-c_common_signed_or_unsigned_type (int unsignedp, tree type)
+c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
 {
   ttype *type1;
   int i;
@@ -3733,7 +3733,7 @@ c_common_signed_or_unsigned_type (int unsignedp, tree type)
 
   if (!INTEGRAL_TYPE_P (type)
       || TYPE_UNSIGNED (type) == unsignedp)
-    return TTYPE (type);
+    return type;
 
 #define TYPE_OK(node)							    \
   (TYPE_MODE (type) == TYPE_MODE (node)					    \
@@ -8262,7 +8262,7 @@ handle_visibility_type_attribute (ttype **node, tree name, tree args,
   else if (TYPE_FIELDS (*node))
     {
       error ("%qE attribute ignored because %qT is already defined",
-	     name, TREE_CAST (*node));
+	     name, *node);
       return NULL_TREE;
     }
 
@@ -12361,6 +12361,42 @@ make_tree_vector_copy (const vec<tree, va_gc> *orig)
   FOR_EACH_VEC_SAFE_ELT (orig, ix, t)
     ret->quick_push (t);
   return ret;
+}
+
+/* Same thing for a type vector.  */
+typedef vec<ttype *, va_gc> *ttype_gc_vec;
+static GTY((deletable)) vec<ttype_gc_vec, va_gc> *ttype_vector_cache;
+
+/* Return a new vector from the cache.  If the cache is empty,
+   allocate a new vector.  These vectors are GC'ed, so it is OK if the
+   pointer is not released..  */
+
+vec<ttype *, va_gc> *
+make_ttype_vector (void)
+{
+  if (ttype_vector_cache && !ttype_vector_cache->is_empty ())
+    return ttype_vector_cache->pop ();
+  else
+    {
+      /* Passing 0 to vec::alloc returns NULL, and our callers require
+	 that we always return a non-NULL value.  The vector code uses
+	 4 when growing a NULL vector, so we do too.  */
+      vec<ttype *, va_gc> *v;
+      vec_alloc (v, 4);
+      return v;
+    }
+}
+
+/* Release a vector of trees back to the cache.  */
+
+void
+release_ttype_vector (vec<ttype *, va_gc> *vec)
+{
+  if (vec != NULL)
+    {
+      vec->truncate (0);
+      vec_safe_push (ttype_vector_cache, vec);
+    }
 }
 
 /* Return true if KEYWORD starts a type specifier.  */
