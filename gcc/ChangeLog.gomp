@@ -1,3 +1,8 @@
+2016-01-08  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* lto-cgraph.c (input_varpool_node): Reduce the assert for
+	missing variables to an error.
+
 2016-01-08  Nathan Sidwell  <nathan@acm.org>
 
 	* omp-low.c (expand_omp_atomic_pipeline): Pay attention to
