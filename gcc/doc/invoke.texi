@@ -17621,7 +17621,7 @@ use_debug_exception_return, use_shadow_register_set, visibility, warning,
 warn_unused_result, weak, weakref.
 @end smallexample
 
-Unrecognised attributes will produce a warning diagnostic giving the location
+Unrecognized attributes will produce a warning diagnostic giving the location
 where it was found.  GCC produces a second diagnostic, citing the name of the
 function and unknown attribute.
 
