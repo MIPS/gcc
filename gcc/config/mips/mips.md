@@ -4750,70 +4750,43 @@
   [(set_attr "move_type" "move,move,move,const,constN,const,loadpool,load,store,mflo")
    (set_attr "mode" "DI")])
 
-(define_insn "mips16_copy_1"
-  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
-			 (match_operand 2 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
-			 (match_dup 2))))]
-  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
-  "copy\t%0,%1,%2,1"
-  [(set_attr "move_type" "store")
-   (set_attr "mode" "SI")
-   (set_attr "extended_mips16" "yes")])
+;; Operand 0 is the register containing the destination address
+;; Operand 1 is the register containing the source address 
+;; Operand 2 is a byte offset to use for both the source and dest addresses
+;; Operand 3 is the number of words to copy (1,2,3, or 4)
+;; Operand 4 is a constant integer value for the known alignment.
 
-(define_insn "mips16_copy_2"
-  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
-			 (match_operand 2 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
-			 (match_dup 2))))
-   (set (mem:SI (plus:SI (match_dup 0)
-			 (match_operand 3 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_dup 2)
-			 (match_dup 3))))]
+(define_expand "mips16_copy"
+  [(parallel
+    [(set (mem:BLK (match_operand 0 "" ""))
+	  (mem:BLK (match_operand 1 "" "")))
+     (use (match_operand 2 "" ""))
+     (use (match_operand 3 "" ""))
+     (use (match_operand 4 "" ""))
+     (clobber (reg:SI 12))
+     (clobber (reg:SI 13))
+     (clobber (reg:SI 14))
+     (clobber (reg:SI 15))])]
   "TARGET_MIPS16 && TARGET_MIPS16_COPY"
-  "copy\t%0,%1,%2,2"
-  [(set_attr "move_type" "store")
-   (set_attr "mode" "SI")
-   (set_attr "extended_mips16" "yes")])
+  "")
 
-(define_insn "mips16_copy_3"
-  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
-			 (match_operand 2 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
-			 (match_dup 2))))
-   (set (mem:SI (plus:SI (match_dup 0)
-			 (match_operand 3 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_dup 2)
-			 (match_dup 3))))
-   (set (mem:SI (plus:SI (match_dup 0)
-			 (match_operand 4 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_dup 2)
-			 (match_dup 4))))]
+(define_insn ""
+  [(set (mem:BLK (match_operand:SI 0 "register_operand" "d"))
+	(mem:BLK (match_operand:SI 1 "register_operand" "d")))
+   (use (match_operand:SI 2 "const_int_operand"))
+   (use (match_operand:SI 3 "const_int_operand"))
+   (use (match_operand:SI 4 "const_int_operand"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
   "TARGET_MIPS16 && TARGET_MIPS16_COPY"
-  "copy\t%0,%1,%2,3"
-  [(set_attr "move_type" "store")
-   (set_attr "mode" "SI")
-   (set_attr "extended_mips16" "yes")])
-
-(define_insn "mips16_copy_4"
-  [(set (mem:SI (plus:SI (match_operand:SI 0 "register_operand" "d")
-			 (match_operand 2 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_operand:SI 1 "register_operand" "d")
-			 (match_dup 2))))
-   (set (mem:SI (plus:SI (match_dup 0)
-			 (match_operand 3 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_dup 2)
-			 (match_dup 3))))
-   (set (mem:SI (plus:SI (match_dup 0)
-			 (match_operand 4 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_dup 2)
-			 (match_dup 4))))
-   (set (mem:SI (plus:SI (match_dup 0)
-			 (match_operand 5 "immediate_operand" "I")))
-	(mem:SI (plus:SI (match_dup 2)
-			 (match_dup 5))))]
-  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
-  "copy\t%0,%1,%2,4"
+  {
+    if (INTVAL (operands[4]) < 4)
+      return "ucopy\t%0,%1,%2,%3";
+    else
+      return "copy\t%0,%1,%2,%3";
+  }
   [(set_attr "move_type" "store")
    (set_attr "mode" "SI")
    (set_attr "extended_mips16" "yes")])
@@ -5713,10 +5686,17 @@
   "(!TARGET_MIPS16 || TARGET_MIPS16_COPY)
    && !TARGET_MEMCPY"
 {
-  if (mips_expand_block_move (operands[0], operands[1], operands[2]))
-    DONE;
+  if (TARGET_MIPS16 && TARGET_MIPS16_COPY)
+    if (mips16_expand_copy (operands[0], operands[1],
+			    operands[2], operands[3]))
+      DONE;
+    else
+      FAIL;
   else
-    FAIL;
+    if (mips_expand_block_move (operands[0], operands[1], operands[2]))
+      DONE;
+    else
+      FAIL;
 })
 
 ;;

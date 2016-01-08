@@ -8272,8 +8272,6 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
   machine_mode mode;
   rtx *regs;
 
- if (!TARGET_MIPS16 || !TARGET_MIPS16_COPY)
- {
   /* Work out how many bits to move at a time.  If both operands have
      half-word alignment, it is usually better to move in half words.
      For instance, lh/lh/sh/sh is usually better than lwl/lwr/swl/swr
@@ -8318,50 +8316,6 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
 	if (!mips_expand_ins_as_unaligned_store (part, regs[i], bits, 0))
 	  gcc_unreachable ();
       }
- }
- else
- {
-   bool aligned_copy = (MEM_ALIGN (src) >= BITS_PER_WORD
-			&& MEM_ALIGN (dest) >= BITS_PER_WORD);
-   int word_count = length / UNITS_PER_WORD;
-   offset = 0;
-   rtx src2 = force_reg (Pmode, XEXP (src, 0));
-   rtx dest2 = force_reg (Pmode, XEXP (dest, 0));
-
-   while (word_count > 0)
-    {
-      if (word_count >= 4)
-	{
-	  emit_insn (gen_mips16_copy_4 (dest2, src2, GEN_INT (offset),
-					GEN_INT (offset + 4),
-					GEN_INT (offset + 8),
-					GEN_INT (offset + 12)));
-	  word_count -= 4;
-	  offset += 16;
-	}
-      else if (word_count == 3)
-	{
-	  emit_insn (gen_mips16_copy_3 (dest2, src2, GEN_INT (offset),
-					GEN_INT (offset + 4),
-					GEN_INT (offset + 8)));
-	  offset += 12;
-	  break;
-	}
-      else if (word_count == 2)
-	{
-	  emit_insn (gen_mips16_copy_2 (dest2, src2, GEN_INT (offset),
-					GEN_INT (offset + 4)));
-	  offset += 8;
-	  break;
-	}
-      else
-	{
-	  emit_insn (gen_mips16_copy_1 (dest2, src2, GEN_INT (offset)));
-	  offset += 4;
-	  break;
-	}
-    }
- }
 
   /* Mop up any left-over bytes.  */
   if (offset < length)
@@ -8439,36 +8393,80 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
     mips_block_move_straight (dest, src, leftover);
 }
 
+/* Expand a movmemsi instruction using the mips16 copy instruction.  */
+
+bool
+mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
+{
+  int word_count, byte_count, offset;
+
+  gcc_assert (!TARGET_64BIT);
+
+  if (!CONST_INT_P (length))
+    return false;
+
+  byte_count = INTVAL (length);
+
+  if ((mips_movmem_limit > 0) && (byte_count > mips_movmem_limit))
+    return false;
+
+  if (byte_count > MIPS_MAX_MOVE_BYTES_STRAIGHT * UNITS_PER_WORD)
+    return false;
+
+  word_count = byte_count / UNITS_PER_WORD;
+  byte_count = byte_count % UNITS_PER_WORD;
+  offset = 0;
+  rtx src2 = force_reg (Pmode, XEXP (src, 0));
+  rtx dest2 = force_reg (Pmode, XEXP (dest, 0));
+
+  while (word_count > 0)
+    {
+      if (word_count >= 4)
+	{
+	  emit_insn (gen_mips16_copy (dest2, src2, GEN_INT (offset),
+				      GEN_INT (4), alignment));
+	  offset = offset + 16;
+	  word_count = word_count - 4;
+	}
+      else
+	{
+	  emit_insn (gen_mips16_copy (dest2, src2, GEN_INT (offset),
+				      GEN_INT (word_count), alignment));
+	  offset = offset + word_count * 4;
+	  word_count = 0;
+	}
+      if (offset > 496)
+	{
+	  src2 = adjust_address (src2, BLKmode, offset);
+	  dest2 = adjust_address (dest2, BLKmode, offset);
+	  offset = 0;
+	}
+    }
+  if (byte_count > 0)
+    {
+      src2 = adjust_address (src2, BLKmode, offset);
+      dest2 = adjust_address (dest2, BLKmode, offset);
+      move_by_pieces (dest2, src2, byte_count, INTVAL (alignment) , 0);
+    }
+  return true;
+}
+
 /* Expand a movmemsi instruction, which copies LENGTH bytes from
    memory reference SRC to memory reference DEST.  */
 
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length)
 {
-  bool can_expand = ISA_HAS_LWL_LWR;
-
-  if (TARGET_MIPS16 && TARGET_MIPS16_COPY)
-    can_expand = true;
-
-  if (!can_expand
-      && MEM_ALIGN (src) >= BITS_PER_WORD
-      && MEM_ALIGN (dest) >= BITS_PER_WORD)
-    can_expand = true;
-
-  if (!can_expand)
+  if (!ISA_HAS_LWL_LWR
+       && (MEM_ALIGN (src) < BITS_PER_WORD
+	   || MEM_ALIGN (dest) < BITS_PER_WORD))
     return false;
 
   if (CONST_INT_P (length))
     {
       if (mips_movmem_limit == -1 || INTVAL (length) < mips_movmem_limit)
 	{
-	  if (TARGET_MIPS16 && TARGET_MIPS16_COPY
-	      && INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT*4)
-	    {
-	      mips_block_move_straight (dest, src, INTVAL (length));
-	      return true;
-	    }
-	  else if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
+      	  if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
 	    {
 	      mips_block_move_straight (dest, src, INTVAL (length));
 	      return true;
