@@ -1,3 +1,9 @@
+2016-01-07  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c-c++-common/reduction-6.c: New test.
+	* testsuite/libgomp.oacc-fortran/reduction-7.f90: Add a test with
+	an explicitly private reduction variable.
+
 2016-01-07  James Norris  <jnorris@codesourcery.com>
 	    Alexander Monakov <amonakov@ispras.ru>
 

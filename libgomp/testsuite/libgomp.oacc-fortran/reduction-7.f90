@@ -1,12 +1,13 @@
 ! { dg-do run }
 ! { dg-additional-options "-w" }
 
-! subroutine reduction with firstprivate variables
+! subroutine reduction with private and firstprivate variables
 
 program reduction
   integer, parameter    :: n = 100
   integer               :: i, j, vsum, cs, arr(n)
 
+  call redsub_private (cs, n, arr)
   call redsub_bogus (cs, n)
   call redsub_combined (cs, n, arr)
 
@@ -21,6 +22,33 @@ program reduction
      if (vsum .ne. arr(i)) call abort ()
   end do
 end program reduction
+
+! This subroutine tests a reduction with an explicit private variable.
+
+subroutine redsub_private(sum, n, arr)
+  integer :: sum, n, arr(n)
+  integer :: i, j, v
+
+  !$acc parallel copyout (arr)
+  !$acc loop gang private (v)
+  do j = 1, n
+     v = j
+
+     !$acc loop vector reduction (+:v)
+     do i = 1, 100
+        v = v + 1
+     end do
+
+     arr(j) = v
+  end do
+  !$acc end parallel
+
+  ! verify the results
+  do i = 1, 10
+     if (arr(i) .ne. 100+i) call abort ()
+  end do
+end subroutine redsub_private
+
 
 ! Bogus reduction on an impliclitly firstprivate variable.  The results do
 ! survive the parallel region.  The goal here is to ensure that gfortran

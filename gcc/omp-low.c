@@ -5616,9 +5616,15 @@ lower_oacc_reductions (location_t loc, tree clauses, tree level, bool inner,
 		
 		outer = probe;
 		for (; cls;  cls = OMP_CLAUSE_CHAIN (cls))
-		  if (OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_REDUCTION
-		      && orig == OMP_CLAUSE_DECL (cls))
-		    goto has_outer_reduction;
+		  {
+		    if (OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_REDUCTION
+			&& orig == OMP_CLAUSE_DECL (cls))
+		      goto has_outer_reduction;
+		    else if (OMP_CLAUSE_CODE (cls) == OMP_CLAUSE_PRIVATE
+			&& orig == OMP_CLAUSE_DECL (cls)
+			&& gimple_code (outer->stmt) != GIMPLE_OMP_TARGET)
+		      goto has_outer_reduction;
+		  }
 	      }
 
 	  do_lookup:
