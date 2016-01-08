@@ -104,12 +104,13 @@ typedef int __gcc_CMPtype __attribute__ ((mode (__libgcc_cmp_return__)));
 # endif
 #endif
 
-/* Only provide exception support if we have hardware floating point and we can
-   execute the mtfsf instruction.  This would only be true if we are using the
-   emulation routines for IEEE 128-bit floating point on pre-ISA 3.0 machines
-   without the IEEE 128-bit floating point support.  */
+/* Only provide exception support if we have hardware floating point using
+   floating point registers and we can execute the mtfsf instruction.  This
+   would only be true if we are using the emulation routines for IEEE 128-bit
+   floating point on pre-ISA 3.0 machines without the IEEE 128-bit floating
+   point support.  */
 
-#ifndef _SOFT_FLOAT
+#ifndef ___NO_FPRS__
 #define ISA_BIT(x) (1LL << (63 - x))
 
 /* Use the same bits of the FPSCR.  */
@@ -150,7 +151,7 @@ void __sfp_handle_exceptions (int);
   } while (0)
 
 # define FP_ROUNDMODE	(_fpscr & FP_RND_MASK)
-#endif	/* !_SOFT_FLOAT */
+#endif	/* !__NO_FPRS__ */
 
 /* Define ALIASNAME as a strong alias for NAME.  */
 # define strong_alias(name, aliasname) _strong_alias(name, aliasname)

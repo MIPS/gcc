@@ -71,73 +71,73 @@ __negkf2_hw (TFtype a)
 TFtype
 __floatsikf_hw (SItype_ppc a)
 {
-  return (TFtype)a;
+  return (TFtype) a;
 }
 
 TFtype
 __floatunsikf_hw (USItype_ppc a)
 {
-  return (TFtype)a;
+  return (TFtype) a;
 }
 
 TFtype
 __floatdikf_hw (DItype_ppc a)
 {
-  return (TFtype)a;
+  return (TFtype) a;
 }
 
 TFtype
 __floatundikf_hw (UDItype_ppc a)
 {
-  return (TFtype)a;
+  return (TFtype) a;
 }
 
 SItype_ppc
 __fixkfsi_hw (TFtype a)
 {
-  return (SItype_ppc)a;
+  return (SItype_ppc) a;
 }
 
 USItype_ppc
 __fixunskfsi_hw (TFtype a)
 {
-  return (USItype_ppc)a;
+  return (USItype_ppc) a;
 }
 
 DItype_ppc
 __fixkfdi_hw (TFtype a)
 {
-  return (DItype_ppc)a;
+  return (DItype_ppc) a;
 }
 
 UDItype_ppc
 __fixunskfdi_hw (TFtype a)
 {
-  return (UDItype_ppc)a;
+  return (UDItype_ppc) a;
 }
 
 TFtype
 __extendsfkf2_hw (float a)
 {
-  return (TFtype)a;
+  return (TFtype) a;
 }
 
 TFtype
 __extenddfkf2_hw (double a)
 {
-  return (TFtype)a;
+  return (TFtype) a;
 }
 
 float
 __trunckfsf2_hw (TFtype a)
 {
-  return (float)a;
+  return (float) a;
 }
 
 double
 __trunckfdf2_hw (TFtype a)
 {
-  return (double)a;
+  return (double) a;
 }
 
 /* __eqkf2 returns 0 if equal, or 1 if not equal or NaN.  */
@@ -179,7 +179,7 @@ __lekf2_hw (TFtype a, TFtype b)
   return 1;
 }
 
-/* __unordkf2 returns 1 if Nan or 0 otherwise.  */
+/* __unordkf2 returns 1 if NaN or 0 otherwise.  */
 CMPtype
 __unordkf2_hw (TFtype a, TFtype b)
 {

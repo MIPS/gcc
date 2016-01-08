@@ -172,8 +172,8 @@ extern TFtype __trunctfkf2 (__ibm128);
     {									\
       double __high_temp;						\
 									\
-      __low = (double) (__value - (__float128)__high);			\
-      /* now renormalized move the high/low into canonical IBM long	\
+      __low = (double) (__value - (__float128) __high);			\
+      /* Renormalize low/high and move them into canonical IBM long	\
 	 double form.  */						\
       __high_temp = __high + __low;					\
       __low = (__high - __high_temp) + __low;				\
@@ -189,7 +189,7 @@ extern TFtype __trunctfkf2 (__ibm128);
   double __high = __builtin_unpack_ibm128 (__value, HIGH_WORD);		\
   double __low = __builtin_unpack_ibm128 (__value, LOW_WORD);		\
 									\
-  /* Handle the special cases of NAN and inifinity.  */			\
+  /* Handle the special cases of NAN and infinity.  */			\
   if (__builtin_isnan (__high) || __builtin_isinf (__high))		\
     RESULT = (__float128) __high;					\
 									\
@@ -199,5 +199,5 @@ extern TFtype __trunctfkf2 (__ibm128);
     RESULT = (__float128) __high;					\
 									\
   else									\
-    RESULT = ((__float128)__high) + ((__float128)__low);		\
+    RESULT = ((__float128) __high) + ((__float128) __low);		\
 }

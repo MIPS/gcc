@@ -1,3 +1,13 @@
+2016-01-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/sfp-exceptions.c: Fix copyright statement and
+	comments.  Use #ifndef __NO_FPRS__ instead of _SOFT_FLOAT.
+	* config/rs6000/spf-machine.h: Likewise.
+
+	* config/rs6000/float128-hw.c: Fix casts to adhere to GNU coding
+	standards.  Fix spelling errors.
+	* config/rs6000/quad-float128.h: Likewise.
+
 2016-01-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 232093.
