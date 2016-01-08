@@ -1,3 +1,7 @@
+2016-01-12  Nathan Sidwell  <nathan@codesourcery.com>
+
+	* gcc.dg/goacc/kern-1.c: New.
+
 2016-03-31  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/uninit-dim-clause.c: Update.
