@@ -1,3 +1,15 @@
+2016-01-08  Martin Jambor  <mjambor@suse.cz>
+
+        * tree-inline.h (copy_body_data): New field
+        decl_creation_prevention_level.  Moved remap_var_for_cilk to minimize
+        padding.
+        * tree-inline.c (remap_decl): Return original decls if
+        decl_creation_prevention_level is two or bigger.
+        (remap_type_1): Increment and decrement decl_creation_prevention_level
+        if appropriate.
+        (copy_gimple_seq_and_replace_locals): Set
+	decl_creation_prevention_level to 1.
+
 2015-12-17  Martin Jambor  <mjambor@suse.cz>
 
 	* builtin-types.def: Removed a blank line.
