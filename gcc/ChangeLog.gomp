@@ -2,6 +2,8 @@
 
 	* lto-cgraph.c (input_varpool_node): Reduce the assert for
 	missing variables to an error.
+	* omp-low.c (build_outer_var_ref): Recursively scan for decls
+	in outer omp contexts.
 
 2016-01-08  Nathan Sidwell  <nathan@acm.org>
 

@@ -1332,7 +1332,21 @@ build_outer_var_ref (tree var, omp_context *ctx, bool lastprivate = false)
 	}
     }
   else if (ctx->outer)
-    x = lookup_decl (var, ctx->outer);
+    {
+      /* OpenACC may have multiple outer contexts (one per loop).  */
+      if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
+	  && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_OACC_LOOP)
+	{
+	  do
+	    {
+	      ctx = ctx->outer;
+	      x = maybe_lookup_decl (var, ctx);
+	    }
+	  while(!x);
+	}
+      else
+	x = lookup_decl (var, ctx->outer);
+    }
   else if (is_reference (var))
     /* This can happen with orphaned constructs.  If var is reference, it is
        possible it is shared and as such valid.  */
