@@ -1,5 +1,5 @@
 ;; Predicate definitions for S/390 and zSeries.
-;; Copyright (C) 2005-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2016 Free Software Foundation, Inc.
 ;; Contributed by Hartmut Penner (hpenner@de.ibm.com) and
 ;;                Ulrich Weigand (uweigand@de.ibm.com).
 ;;
@@ -29,9 +29,10 @@
   (and (match_code "const_int,const_wide_int,const_double,const_vector")
        (match_test "op == CONST0_RTX (mode)")))
 
-;; Return true if OP an all ones operand (int/float/vector).
-(define_predicate "constm1_operand"
-  (and (match_code "const_int,const_wide_int,const_double,const_vector")
+;; Return true if OP an all ones operand (int/vector).
+(define_predicate "all_ones_operand"
+  (and (match_code "const_int, const_wide_int, const_vector")
+       (match_test "INTEGRAL_MODE_P (GET_MODE (op))")
        (match_test "op == CONSTM1_RTX (mode)")))
 
 ;; Return true if OP is a 4 bit mask operand
@@ -121,10 +122,7 @@
 ;;  Return true if OP a valid operand for the LARL instruction.
 
 (define_predicate "larl_operand"
-; Note: Although CONST_INT and CONST_DOUBLE are not handled in this predicate,
-; at least one of them needs to appear or otherwise safe_predicate_mode will
-; assume that a VOIDmode LABEL_REF is not accepted either (see genrecog.c).
-  (match_code "label_ref, symbol_ref, const, const_int, const_double")
+  (match_code "label_ref, symbol_ref, const")
 {
   /* Allow labels and local symbols.  */
   if (GET_CODE (op) == LABEL_REF)

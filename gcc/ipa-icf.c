@@ -1,5 +1,5 @@
 /* Interprocedural Identical Code Folding pass
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
 
    Contributed by Jan Hubicka <hubicka@ucw.cz> and Martin Liska <mliska@suse.cz>
 
@@ -3398,13 +3398,20 @@ sem_item_optimizer::merge_classes (unsigned int prev_class_count)
 	if (c->members.length () == 1)
 	  continue;
 
-	gcc_assert (c->members.length ());
-
 	sem_item *source = c->members[0];
 
-	for (unsigned int j = 1; j < c->members.length (); j++)
+	if (DECL_NAME (source->decl)
+	    && MAIN_NAME_P (DECL_NAME (source->decl)))
+	  /* If merge via wrappers, picking main as the target can be
+	     problematic.  */
+	  source = c->members[1];
+
+	for (unsigned int j = 0; j < c->members.length (); j++)
 	  {
 	    sem_item *alias = c->members[j];
+
+	    if (alias == source)
+	      continue;
 
 	    if (dump_file)
 	      {

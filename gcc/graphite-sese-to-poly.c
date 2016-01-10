@@ -1,5 +1,5 @@
 /* Conversion of SESE regions to Polyhedra.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com>.
 
 This file is part of GCC.
@@ -55,15 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include <isl/constraint.h>
 #include <isl/aff.h>
 #include <isl/val.h>
-
-/* Since ISL-0.13, the extern is in val_gmp.h.  */
-#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
-extern "C" {
-#endif
 #include <isl/val_gmp.h>
-#if !defined(HAVE_ISL_SCHED_CONSTRAINTS_COMPUTE_SCHEDULE) && defined(__cplusplus)
-}
-#endif
 
 #include "graphite.h"
 
@@ -75,7 +67,7 @@ tree_int_to_gmp (tree t, mpz_t res)
   wi::to_mpz (t, res, TYPE_SIGN (TREE_TYPE (t)));
 }
 
-/* Return an ISL identifier for the polyhedral basic block PBB.  */
+/* Return an isl identifier for the polyhedral basic block PBB.  */
 
 static isl_id *
 isl_id_for_pbb (scop_p s, poly_bb_p pbb)
@@ -268,7 +260,7 @@ extract_affine_mul (scop_p s, tree e, __isl_take isl_space *space)
   return isl_pw_aff_mul (lhs, rhs);
 }
 
-/* Return an ISL identifier from the name of the ssa_name E.  */
+/* Return an isl identifier from the name of the ssa_name E.  */
 
 static isl_id *
 isl_id_for_ssa_name (scop_p s, tree e)
@@ -278,7 +270,7 @@ isl_id_for_ssa_name (scop_p s, tree e)
   return isl_id_alloc (s->isl_context, name1, e);
 }
 
-/* Return an ISL identifier for the data reference DR.  Data references and
+/* Return an isl identifier for the data reference DR.  Data references and
    scalar references get the same isl_id.  They need to be comparable and are
    distinguished through the first dimension, which contains the alias set or
    SSA_NAME_VERSION number.  */
@@ -473,7 +465,7 @@ build_loop_iteration_domains (scop_p scop, struct loop *loop,
 {
 
   tree nb_iters = number_of_latch_executions (loop);
-  sese_l region = scop->scop_info->region;
+  const sese_l& region = scop->scop_info->region;
   gcc_assert (loop_in_sese_p (loop, region));
 
   isl_set *inner = isl_set_copy (outer);
@@ -1064,8 +1056,8 @@ build_poly_sr (poly_bb_p pbb)
 {
   scop_p scop = PBB_SCOP (pbb);
   gimple_poly_bb_p gbb = PBB_BLACK_BOX (pbb);
-  vec<scalar_use> reads = gbb->read_scalar_refs;
-  vec<tree> writes = gbb->write_scalar_refs;
+  vec<scalar_use> &reads = gbb->read_scalar_refs;
+  vec<tree> &writes = gbb->write_scalar_refs;
 
   isl_space *dc = isl_set_get_space (pbb->domain);
   int nb_out = 1;

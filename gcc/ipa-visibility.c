@@ -1,5 +1,5 @@
 /* IPA visibility pass
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -329,9 +329,13 @@ varpool_node::externally_visible_p (void)
    Local aliases save dynamic linking overhead and enable more optimizations.
  */
 
-bool
+static bool
 can_replace_by_local_alias (symtab_node *node)
 {
+#ifndef ASM_OUTPUT_DEF
+  /* If aliases aren't supported, we can't do replacement.  */
+  return false;
+#endif
   /* Weakrefs have a reason to be non-local.  Be sure we do not replace
      them.  */
   while (node->transparent_alias && node->definition && !node->weakref)
@@ -344,11 +348,11 @@ can_replace_by_local_alias (symtab_node *node)
 	  && !node->can_be_discarded_p ());
 }
 
-/* Return true if we can replace refernece to NODE by local alias
+/* Return true if we can replace reference to NODE by local alias
    within a virtual table.  Generally we can replace function pointers
    and virtual table pointers.  */
 
-bool
+static bool
 can_replace_by_local_alias_in_vtable (symtab_node *node)
 {
   if (is_a <varpool_node *> (node)
@@ -489,8 +493,12 @@ function_and_variable_visibility (bool whole_program)
         DECL_COMDAT (node->decl) = 0;
 
       /* For external decls stop tracking same_comdat_group. It doesn't matter
-	 what comdat group they are in when they won't be emitted in this TU.  */
-      if (node->same_comdat_group && DECL_EXTERNAL (node->decl))
+	 what comdat group they are in when they won't be emitted in this TU.
+
+	 An exception is LTO where we may end up with both external
+	 and non-external declarations in the same comdat group in
+	 the case declarations was not merged.  */
+      if (node->same_comdat_group && DECL_EXTERNAL (node->decl) && !in_lto_p)
 	{
 	  if (flag_checking)
 	    {
@@ -592,10 +600,11 @@ function_and_variable_visibility (bool whole_program)
       if (!node->local.local)
         node->local.local |= node->local_p ();
 
-      /* If we know that function can not be overwritten by a different semantics
-	 and moreover its section can not be discarded, replace all direct calls
-	 by calls to an noninterposable alias.  This make dynamic linking
-	 cheaper and enable more optimization.
+      /* If we know that function can not be overwritten by a
+	 different semantics and moreover its section can not be
+	 discarded, replace all direct calls by calls to an
+	 noninterposable alias.  This make dynamic linking cheaper and
+	 enable more optimization.
 
 	 TODO: We can also update virtual tables.  */
       if (node->callers 

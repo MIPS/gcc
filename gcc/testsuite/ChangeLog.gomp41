@@ -175,7 +175,7 @@
 	* c-c++-common/gomp/nesting-1.c (f_omp_parallel, f_omp_target,
 	f_omp_target_data): Likewise.
 
-Copyright (C) 2015 Free Software Foundation, Inc.
+Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

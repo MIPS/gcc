@@ -4,7 +4,7 @@
 
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2006,7 +2006,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	  install_var_local (decl, ctx);
 	  break;
 
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -2366,7 +2365,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx,
 	case OMP_CLAUSE_SIMD:
 	case OMP_CLAUSE_NOGROUP:
 	case OMP_CLAUSE_DEFAULTMAP:
-	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_USE_DEVICE_PTR:
 	case OMP_CLAUSE__CILK_FOR_COUNT_:
 	case OMP_CLAUSE_ASYNC:
@@ -15575,7 +15573,6 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  }
 	break;
 
-      case OMP_CLAUSE_USE_DEVICE:
       case OMP_CLAUSE_USE_DEVICE_PTR:
       case OMP_CLAUSE_IS_DEVICE_PTR:
 	var = OMP_CLAUSE_DECL (c);
@@ -15961,14 +15958,12 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 				    build_int_cstu (tkind_type, tkind));
 	    break;
 
-	  case OMP_CLAUSE_USE_DEVICE:
 	  case OMP_CLAUSE_USE_DEVICE_PTR:
 	  case OMP_CLAUSE_IS_DEVICE_PTR:
 	    ovar = OMP_CLAUSE_DECL (c);
 	    var = lookup_decl_in_outer_ctx (ovar, ctx);
 	    x = build_sender_ref (ovar, ctx);
-	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE_PTR
-		|| OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE)
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE_PTR)
 	      tkind = GOMP_MAP_USE_DEVICE_PTR;
 	    else
 	      tkind = GOMP_MAP_FIRSTPRIVATE_INT;
@@ -16171,12 +16166,10 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 				     gimple_build_assign (new_var, x));
 	      }
 	    break;
-	  case OMP_CLAUSE_USE_DEVICE:
 	  case OMP_CLAUSE_USE_DEVICE_PTR:
 	  case OMP_CLAUSE_IS_DEVICE_PTR:
 	    var = OMP_CLAUSE_DECL (c);
-	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE_PTR
-		|| OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE)
+	    if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_USE_DEVICE_PTR)
 	      x = build_sender_ref (var, ctx);
 	    else
 	      x = build_receiver_ref (var, false, ctx);

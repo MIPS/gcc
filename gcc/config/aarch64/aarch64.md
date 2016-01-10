@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -3681,6 +3681,28 @@
   ""
   "tst\\t%<w>0, %<w>1"
   [(set_attr "type" "logics_reg,logics_imm")]
+)
+
+(define_insn "*and<mode>3nr_compare0_zextract"
+  [(set (reg:CC_NZ CC_REGNUM)
+	(compare:CC_NZ
+	 (zero_extract:GPI (match_operand:GPI 0 "register_operand" "r")
+		  (match_operand:GPI 1 "const_int_operand" "n")
+		  (match_operand:GPI 2 "const_int_operand" "n"))
+	 (const_int 0)))]
+  "INTVAL (operands[1]) > 0
+   && ((INTVAL (operands[1]) + INTVAL (operands[2]))
+	<= GET_MODE_BITSIZE (<MODE>mode))
+   && aarch64_bitmask_imm (
+	UINTVAL (aarch64_mask_from_zextract_ops (operands[1],
+						 operands[2])),
+	<MODE>mode)"
+  {
+    operands[1]
+      = aarch64_mask_from_zextract_ops (operands[1], operands[2]);
+    return "tst\\t%<w>0, %1";
+  }
+  [(set_attr "type" "logics_shift_imm")]
 )
 
 (define_insn "*and_<SHIFT:optab><mode>3nr_compare0"

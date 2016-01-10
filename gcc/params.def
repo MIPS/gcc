@@ -1,5 +1,5 @@
 /* params.def - Run-time parameters.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Written by Mark Mitchell <mark@codesourcery.com>.
 
 This file is part of GCC.
@@ -865,7 +865,7 @@ DEFPARAM (PARAM_GRAPHITE_MIN_LOOPS_PER_FUNCTION,
 
 DEFPARAM (PARAM_MAX_ISL_OPERATIONS,
 	  "max-isl-operations",
-	  "maximum number of ISL operations, 0 means unlimited",
+	  "maximum number of isl operations, 0 means unlimited",
 	  350000, 0, 0)
 
 /* Avoid data dependence analysis on very large loops.  */

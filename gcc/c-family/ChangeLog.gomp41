@@ -90,7 +90,7 @@
 	as alias to C_OMP_CLAUSE_SPLIT_FOR.
 	(c_finish_omp_ordered): Adjust prototype for CLAUSES argument addition.
 
-Copyright (C) 2015 Free Software Foundation, Inc.
+Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

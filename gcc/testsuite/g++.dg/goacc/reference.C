@@ -1,6 +1,3 @@
-// { dg-do compile }
-// { dg-options "-fopenacc" }
-
 int
 test1 (int &ref)
 {

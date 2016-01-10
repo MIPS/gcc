@@ -1,4 +1,4 @@
-@c Copyright (C) 2002-2015 Free Software Foundation, Inc.
+@c Copyright (C) 2002-2016 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -1832,6 +1832,9 @@ time) should be run on this target.  This can be enabled by setting the
 @item simulator
 Test system runs executables on a simulator (i.e. slowly) rather than
 hardware (i.e. fast).
+
+@item stabs
+Target supports the stabs debugging format.
 
 @item stdint_types
 Target has the basic signed and unsigned C types in @code{stdint.h}.

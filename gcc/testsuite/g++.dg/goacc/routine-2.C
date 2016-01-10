@@ -1,8 +1,5 @@
 /* Test invalid use of the routine directive.  */
 
-// { dg-do compile }
-// { dg-options "-fopenacc" }
-
 template <typename T>
 extern T one_d();
 #pragma acc routine (one_d) nohost /* { dg-error "names a set of overloads" } */

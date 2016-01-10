@@ -5,7 +5,7 @@
 	* plugin/offload_target_main.cpp (__offload_target_tgt2tgt): New static
 	function, register it in liboffloadmic.
 
-Copyright (C) 2015 Free Software Foundation, Inc.
+Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

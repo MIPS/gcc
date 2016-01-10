@@ -1,4 +1,4 @@
-/* { dg-additional-options "-fopenacc -w" } */
+/* { dg-additional-options "-w" } */
 
 #pragma acc routine
 template <typename T> T

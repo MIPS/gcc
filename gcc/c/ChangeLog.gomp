@@ -747,7 +747,7 @@
 	* c-parser.c (c_parser_omp_atomic): Adjust comment.
 	Add another argument to c_finish_omp_atomic.
 
-Copyright (C) 2013-2015 Free Software Foundation, Inc.
+Copyright (C) 2013-2016 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

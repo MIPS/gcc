@@ -1,4 +1,14 @@
 2015-08-20  Joseph Myers  <joseph@codesourcery.com>
 
 	* jvspec.c (lang_specific_pre_link): Update call to do_spec.
+
+Copyright (C) 2015-2016 Free Software Foundation, Inc.
 
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Local Variables:
+mode: change-log
+change-log-default-name: "ChangeLog.gomp"
+End:

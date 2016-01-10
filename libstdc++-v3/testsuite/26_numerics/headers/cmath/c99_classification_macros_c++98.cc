@@ -1,4 +1,6 @@
-// Copyright (C) 2010-2015 Free Software Foundation, Inc.
+// 2001-04-06 gdr
+
+// Copyright (C) 2001-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -15,7 +17,7 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-options "-std=gnu++11" }
+// { dg-options "-std=gnu++98" }
 // { dg-do compile { xfail uclibc } }
 // { dg-excess-errors "" { target uclibc } }
 
@@ -46,19 +48,17 @@ void islessgreater() { }
 void isunordered() { }
 
 #if _GLIBCXX_USE_C99_MATH
-template <typename _Tp, typename _Up = _Tp>
+template <typename _Tp>
   void test_c99_classify()
   {
     bool test __attribute__((unused)) = true;
 
-    typedef _Tp fp_type_one;
-    typedef _Up fp_type_two;
-    fp_type_one f1 = 1.0;
-    fp_type_two f2 = 3.0;
-    int resi;
-    bool res;
-
-    resi = std::fpclassify(f1);
+    typedef _Tp fp_type;
+    fp_type f1 = 1.0;
+    fp_type f2 = 3.0;
+    int res = 0;
+    
+    res = std::fpclassify(f1);
     res = std::isfinite(f2);
     res = std::isinf(f1);
     res = std::isnan(f2);
@@ -70,8 +70,7 @@ template <typename _Tp, typename _Up = _Tp>
     res = std::islessequal(f1,f2);
     res = std::islessgreater(f1, f2);
     res = std::isunordered(f1, f2);
-    resi = resi; // Suppress unused warning.
-    res = res;
+    res = res; // Suppress unused warning.
   }
 #endif
 
@@ -80,13 +79,6 @@ int main()
 #if _GLIBCXX_USE_C99_MATH
   test_c99_classify<float>();
   test_c99_classify<double>();
-  test_c99_classify<long double>();
-  test_c99_classify<float, double>();
-  test_c99_classify<float, long double>();
-  test_c99_classify<double, float>();
-  test_c99_classify<double, long double>();
-  test_c99_classify<long double, float>();
-  test_c99_classify<long double, double>();
 #endif
   return 0;
 }
