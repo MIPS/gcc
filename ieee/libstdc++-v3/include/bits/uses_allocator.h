@@ -30,6 +30,7 @@
 #else
 
 #include <type_traits>
+#include <bits/move.h>
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -99,7 +100,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     __use_alloc(const _Alloc& __a)
     {
       __uses_alloc_t<_Tp, _Alloc, _Args...> __ret;
-      __ret._M_a = &__a;
+      __ret._M_a = std::__addressof(__a);
       return __ret;
     }
 
