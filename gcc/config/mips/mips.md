@@ -4776,8 +4776,8 @@
 
 (define_expand "mips16_copy"
   [(parallel
-    [(set (mem:BLK (match_operand 0 "" ""))
-	  (mem:BLK (match_operand 1 "" "")))
+    [(set (match_operand 0 "" "")
+	  (match_operand 1 "" ""))
      (use (match_operand 2 "" ""))
      (use (match_operand 3 "" ""))
      (use (match_operand 4 "" ""))
