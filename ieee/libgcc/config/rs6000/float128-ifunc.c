@@ -37,7 +37,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-#ifdef FLOAT128_HW_INSNS 
+#ifdef FLOAT128_HW_INSNS
 #include <sys/auxv.h>
 
 /* Use the namespace clean version of getauxval.  However, not all versions of
