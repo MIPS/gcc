@@ -321,6 +321,10 @@
    "@internal"
    (match_operand 0 "low_bitmask_operand"))
 
+(define_constraint "Yz"
+   "@internal"
+   (match_operand 0 "bit_clear_operand"))
+
 (define_constraint "YI"
   "@internal
    A replicated vector const in which the replicated is a 10-bit signed value."
