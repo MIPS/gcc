@@ -29,6 +29,8 @@
 
 #define STARTFILE_SPEC "%{mmainkernel:crt0.o}"
 
+#define ASM_SPEC "%{misa=*:-m %*}"
+
 #define TARGET_CPU_CPP_BUILTINS()		\
   do						\
     {						\
