@@ -1,7 +1,3 @@
-! { dg-xfail-if "" { *-*-* } { "*" } { "" } }
-! { dg-excess-errors "internal compiler error" }
-! { dg-do compile  }
-
 program reduction
   integer, parameter    :: n = 40, c = 10
   integer               :: i, sum

@@ -1,6 +1,3 @@
-/* { dg-do run } */
-/* { dg-xfail-run-if "TODO" { *-*-* } } */
-
 #include  <openacc.h>
 
 int main ()

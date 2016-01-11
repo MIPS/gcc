@@ -1,5 +1,7 @@
 2016-01-11  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gfortran.dg/goacc/reduction-3.f95: Remove XFAIL marker.
+
 	* c-c++-common/goacc-gomp/nesting-fail-1.c: Add OpenACC declare
 	directive for "i".
 
