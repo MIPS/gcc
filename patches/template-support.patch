@@ -1,5 +1,5 @@
 Bottom: f17dbedac038877f3b5e4f0d2ca1d4b2fd2af3a9
-Top:    a988682169cf10c36f41118506c0a5f6fde4d5c2
+Top:    2b4ee16b7bcc5910650eca9a9c3d175e84256ba3
 Author: Alexandre Oliva <aoliva@redhat.com>
 Date:   2015-11-26 18:57:41 -0200
 
@@ -8,18 +8,20 @@ extend API to support templates
 ---
 
 diff --git a/include/gcc-cp-fe.def b/include/gcc-cp-fe.def
-index 4a6fb7f..da26426 100644
+index 4a6fb7f..751f12b 100644
 --- a/include/gcc-cp-fe.def
 +++ b/include/gcc-cp-fe.def
-@@ -204,6 +204,188 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
+@@ -204,6 +204,190 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
  	     gcc_type,			   /* Argument CLASS_TYPE.  */
  	     gcc_type) 			   /* Argument MEMBER_TYPE.  */
  
 +/* Start a template parameter list, so that subsequent
 +   build_template_typename_parm and build_template_value_parm calls
 +   create template parameters in the list.  The list is closed by a
-+   new_decl call, so that it declares a template class or template
-+   function with the parameter list.  */
++   new_decl call with GCC_CP_SYMBOL_FUNCTION or GCC_CP_SYMBOL_CLASS,
++   that, when the scope is a template parameter list, closes the
++   parameter list and declares a template function or a template class
++   with the parameter list.  */
 +
 +GCC_METHOD0 (int, start_new_template_decl)
 +
@@ -200,7 +202,7 @@ index 4a6fb7f..da26426 100644
  /* Create a new 'class' (or 'struct') type, record it in the current
     binding level, and enter its own binding level.  Initially it has
     no fields.
-@@ -232,14 +414,14 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
+@@ -232,14 +416,14 @@ GCC_METHOD3 (gcc_type, start_new_union_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
@@ -220,7 +222,7 @@ index 4a6fb7f..da26426 100644
  	     const char *,		   /* Argument FIELD_NAME.  */
  	     gcc_type,			   /* Argument FIELD_TYPE.  */
  	     unsigned long,		   /* Argument BITSIZE.  */
-@@ -250,8 +432,7 @@ GCC_METHOD5 (int /* bool */, new_field,
+@@ -250,8 +434,7 @@ GCC_METHOD5 (int /* bool */, new_field,
     cleanups in GCC, and pops to the binding level that was in effect
     before the matching build_class_type or build_union_type.  */
  
@@ -230,7 +232,7 @@ index 4a6fb7f..da26426 100644
  	     unsigned long)		   /* Argument SIZE_IN_BYTES.  */
  
  /* Create a new 'enum' type, and record it in the current binding
-@@ -267,8 +448,8 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
+@@ -267,8 +450,8 @@ GCC_METHOD5 (gcc_type, start_new_enum_type,
  	     const char *,	      /* Argument FILENAME.  */
  	     unsigned int)	      /* Argument LINE_NUMBER.  */
  
@@ -241,7 +243,7 @@ index 4a6fb7f..da26426 100644
  
  GCC_METHOD3 (int /* bool */, build_add_enum_constant,
  	     gcc_type,		       /* Argument ENUM_TYPE.  */
-@@ -347,6 +528,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
+@@ -347,6 +530,13 @@ GCC_METHOD2 (gcc_type, build_array_type,
  	     gcc_type,			  /* Argument ELEMENT_TYPE.  */
  	     int)			  /* Argument NUM_ELEMENTS.  */
  
@@ -256,7 +258,7 @@ index 4a6fb7f..da26426 100644
     name of a local variable that holds the upper bound of the array;
     it is one less than the array size.  */
 diff --git a/include/gcc-cp-interface.h b/include/gcc-cp-interface.h
-index 77ad7db..95999de 100644
+index 77ad7db..371cfcf 100644
 --- a/include/gcc-cp-interface.h
 +++ b/include/gcc-cp-interface.h
 @@ -41,7 +41,7 @@ struct gcc_cp_context;
@@ -308,8 +310,20 @@ index 77ad7db..95999de 100644
  /* This enumerates the kinds of decls that GDB can create.  */
  
  enum gcc_cp_symbol_kind
+@@ -99,6 +132,11 @@ enum gcc_cp_symbol_kind
+ 
+   GCC_CP_SYMBOL_LABEL,
+ 
++  /* A class, or, in a template parameter list scope, a declaration of
++     a template class, closing the parameter list.  */
++
++  GCC_CP_SYMBOL_CLASS,
++
+   GCC_CP_SYMBOL_MASK = 15,
+   GCC_CP_FLAG_BASE,
+ 
 diff --git a/libcc1/libcp1plugin.cc b/libcc1/libcp1plugin.cc
-index d6551a6..097929258 100644
+index d6551a6..c1ece8a 100644
 --- a/libcc1/libcp1plugin.cc
 +++ b/libcc1/libcp1plugin.cc
 @@ -60,6 +60,7 @@
@@ -320,7 +334,22 @@ index d6551a6..097929258 100644
  
  #include "callbacks.hh"
  #include "connection.hh"
-@@ -976,13 +977,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
+@@ -475,10 +476,14 @@ plugin_new_decl (cc1_plugin::connection *self,
+       gcc_assert (!sym_flags);
+       return convert_out (error_mark_node);
+ 
++      /* FIXME: add GCC_CP_SYMBOL_CLASS.  */
++
+     default:
+       abort ();
+     }
+ 
++  /* FIXME: check for a template parameter list scope.  */
++
+   source_location loc = ctx->get_source_location (filename, line_number);
+   bool class_member_p = at_class_scope_p ();
+   bool ctor = false, dtor = false;
+@@ -976,13 +981,12 @@ plugin_start_new_union_type (cc1_plugin::connection *self,
  
  int
  plugin_new_field (cc1_plugin::connection *,
@@ -335,7 +364,7 @@ index d6551a6..097929258 100644
    tree field_type = convert_in (field_type_in);
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
-@@ -1022,10 +1022,9 @@ plugin_new_field (cc1_plugin::connection *,
+@@ -1022,10 +1026,9 @@ plugin_new_field (cc1_plugin::connection *,
  
  int
  plugin_finish_record_or_union (cc1_plugin::connection *,
@@ -347,16 +376,17 @@ index d6551a6..097929258 100644
  
    gcc_assert (RECORD_OR_UNION_CODE_P (TREE_CODE (record_or_union_type)));
  
-@@ -1034,6 +1033,8 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
+@@ -1034,6 +1037,9 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
    gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
  				size_in_bytes) == 0);
  
-+  // FIXME: end_template_decl if it's a template?
++  // FIXME: end_template_decl if it's a template?  I don't think so,
++  // we're only defining specializations.
 +
    return 1;
  }
  
-@@ -1208,6 +1209,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
+@@ -1208,6 +1214,232 @@ plugin_build_pointer_to_member_type (cc1_plugin::connection *self,
    return convert_out (ctx->preserve (memptr_type));
  }
  
@@ -589,7 +619,7 @@ index d6551a6..097929258 100644
  gcc_type
  plugin_int_type (cc1_plugin::connection *self,
  		 int is_unsigned, unsigned long size_in_bytes)
-@@ -1266,6 +1493,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
+@@ -1266,6 +1498,14 @@ plugin_build_array_type (cc1_plugin::connection *self,
  }
  
  gcc_type
