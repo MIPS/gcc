@@ -1,4 +1,5 @@
 extern int i;
+#pragma acc declare create(i)
 
 void
 f_omp (void)

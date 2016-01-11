@@ -1,3 +1,8 @@
+2016-01-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Add OpenACC declare
+	directive for "i".
+
 2016-01-07  James Norris  <jnorris@codesourcery.com>
 
 	* c-c++-common/goacc/routine-5.c: Additional tests.
