@@ -532,3 +532,7 @@ Target RejectNegative Undocumented Joined UInteger Var(mips_movmem_limit) Init(-
 mmips16-copy
 Target Var(TARGET_MIPS16_COPY) Init(0)
 Enable use of the MIPS16 COPY and UCOPY instructions
+
+mmips16-ins-ext
+Target Var(TARGET_MIPS16_INS_EXT) Init(0)
+Enable use of the MIPS16 INS, INS0 and EXT instructions
