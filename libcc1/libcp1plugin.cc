@@ -476,9 +476,13 @@ plugin_new_decl (cc1_plugin::connection *self,
       gcc_assert (!sym_flags);
       return convert_out (error_mark_node);
 
+      /* FIXME: add GCC_CP_SYMBOL_CLASS.  */
+
     default:
       abort ();
     }
+
+  /* FIXME: check for a template parameter list scope.  */
 
   source_location loc = ctx->get_source_location (filename, line_number);
   bool class_member_p = at_class_scope_p ();
@@ -1033,7 +1037,8 @@ plugin_finish_record_or_union (cc1_plugin::connection *,
   gcc_assert (compare_tree_int (TYPE_SIZE_UNIT (record_or_union_type),
 				size_in_bytes) == 0);
 
-  // FIXME: end_template_decl if it's a template?
+  // FIXME: end_template_decl if it's a template?  I don't think so,
+  // we're only defining specializations.
 
   return 1;
 }

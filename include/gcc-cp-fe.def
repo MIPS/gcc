@@ -207,8 +207,10 @@ GCC_METHOD2 (gcc_type, build_pointer_to_member_type,
 /* Start a template parameter list, so that subsequent
    build_template_typename_parm and build_template_value_parm calls
    create template parameters in the list.  The list is closed by a
-   new_decl call, so that it declares a template class or template
-   function with the parameter list.  */
+   new_decl call with GCC_CP_SYMBOL_FUNCTION or GCC_CP_SYMBOL_CLASS,
+   that, when the scope is a template parameter list, closes the
+   parameter list and declares a template function or a template class
+   with the parameter list.  */
 
 GCC_METHOD0 (int, start_new_template_decl)
 

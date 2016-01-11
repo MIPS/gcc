@@ -132,6 +132,11 @@ enum gcc_cp_symbol_kind
 
   GCC_CP_SYMBOL_LABEL,
 
+  /* A class, or, in a template parameter list scope, a declaration of
+     a template class, closing the parameter list.  */
+
+  GCC_CP_SYMBOL_CLASS,
+
   GCC_CP_SYMBOL_MASK = 15,
   GCC_CP_FLAG_BASE,
 
