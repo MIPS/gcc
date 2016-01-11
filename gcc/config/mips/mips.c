@@ -4082,7 +4082,7 @@ mips16_constant_cost (int code, HOST_WIDE_INT x)
 
     case ZERO_EXTRACT:
       /* The bit position and size are immediate operands.  */
-      return ISA_HAS_EXT_INS ? COSTS_N_INSNS (1) : -1
+      return ISA_HAS_EXT_INS ? COSTS_N_INSNS (1) : -1;
 
     default:
       return -1;
