@@ -3223,9 +3223,9 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d")
-	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0")
-		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d,d")
+	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0,d"
+		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d,Yx")))]
   "TARGET_MIPS16 && !TARGET_ASMACRO_ANDI && !TARGET_ASMACRO_EXT_INS && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   switch (which_alternative)
@@ -3243,11 +3243,15 @@
       return "#";
     case 4:
       return "and\t%0,%2";
+    case 5:
+      len = low_bitmask_len (SImode, INTVAL (operands[2]));
+      operands[2] = GEN_INT (len);
+      return "ext\t%0,%1,0,%2";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "move_type" "load,load,load,shift_shift,logical")
+  [(set_attr "move_type" "load,load,load,shift_shift,logical,ext_ins")
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16_andi"
