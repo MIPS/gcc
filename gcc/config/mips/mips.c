@@ -8964,13 +8964,11 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 bool
 mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 {
-  int word_count, byte_count, offset;
+  int word_count, byte_count, offset = 0;
+  rtx first_dest = dest, first_src = src;
 
   gcc_assert (!TARGET_64BIT);
   gcc_assert (MEM_P (src) && MEM_P (dest));
-
-  if (!REG_P (XEXP (src, 0)) || !REG_P (XEXP (dest, 0)))
-    return false;
 
   if (!CONST_INT_P (length))
     return false;
@@ -8988,24 +8986,35 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
-  offset = 0;
+
+  if (!REG_P (XEXP (src, 0)))
+    {
+      rtx src_reg = copy_addr_to_reg (XEXP (src, 0));
+      first_src = replace_equiv_address (first_src, src_reg);
+    }
+
+  if (!REG_P (XEXP (dest, 0)))
+    {
+      rtx dest_reg = copy_addr_to_reg (XEXP (dest, 0));
+      first_dest = replace_equiv_address (first_dest, dest_reg);
+    }
 
   while (word_count > 0)
     {
-      if (word_count >= 4)
-	{
-	  emit_insn (gen_mips16_copy (dest, src, GEN_INT (offset),
-				      GEN_INT (4), alignment));
-	  offset = offset + 16;
-	  word_count = word_count - 4;
-	}
-      else
-	{
-	  emit_insn (gen_mips16_copy (dest, src, GEN_INT (offset),
-				      GEN_INT (word_count), alignment));
-	  offset = offset + word_count * 4;
-	  word_count = 0;
-	}
+      int new_word_count, new_offset;
+      rtx adj_src, adj_dest;
+
+      new_offset = offset;
+      new_word_count = word_count >= 4 ? 4 : word_count;
+
+      adj_src = adjust_address (first_src, BLKmode, new_offset);
+      adj_dest = adjust_address (first_dest, BLKmode, new_offset);
+      set_mem_size (adj_src, new_word_count * 4);
+      set_mem_size (adj_dest, new_word_count * 4);
+      emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
+				  GEN_INT (new_word_count), alignment));
+      offset += new_word_count * 4;
+      word_count = word_count >= 4 ? word_count - 4 : 0;
     }
   if (byte_count > 0)
     {

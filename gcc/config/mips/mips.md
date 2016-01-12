@@ -4700,6 +4700,29 @@
    (set_attr "mode" "SI")
    (set_attr "extended_mips16" "yes")])
 
+(define_insn "mips16_copy_ofs"
+  [(set (mem:BLK (plus:SI (match_operand:SI 0 "register_operand" "d")
+			  (match_operand:SI 2 "const_int_operand")))
+	(mem:BLK (plus:SI (match_operand:SI 1 "register_operand" "d")
+			  (match_dup 2))))
+   (use (match_dup 2))
+   (use (match_operand:SI 3 "const_int_operand"))
+   (use (match_operand:SI 4 "const_int_operand"))
+   (clobber (reg:SI 12))
+   (clobber (reg:SI 13))
+   (clobber (reg:SI 14))
+   (clobber (reg:SI 15))]
+  "TARGET_MIPS16 && TARGET_MIPS16_COPY"
+  {
+    if (INTVAL (operands[4]) < 4)
+      return "ucopy\t%0,%1,%2,%3";
+    else
+      return "copy\t%0,%1,%2,%3";
+  }
+  [(set_attr "move_type" "store")
+   (set_attr "mode" "SI")
+   (set_attr "extended_mips16" "yes")])
+
 ;; On the mips16, we can split ld $r,N($r) into an add and a load,
 ;; when the original load is a 4 byte instruction but the add and the
 ;; load are 2 2 byte instructions.
