@@ -1,5 +1,5 @@
 /* c-upc-pts-ops.c: implement UPC pointer-to-shared-operations.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Gary Funck <gary@intrepid.com>
      and Nenad Vukicevic <nenad@intrepid.com>.
    Based on original implementation

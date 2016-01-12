@@ -1,7 +1,7 @@
 /* Definitions of UPC front-end entry points used for C and C++.
    that are called from within the C front end.
    respectively.
-   Copyright (C) 2001-2015 Free Software Foundation, Inc.
+   Copyright (C) 2001-2016 Free Software Foundation, Inc.
    Contributed by Gary Funck <gary@intrepid.com>
      and Nenad Vukicevic <nenad@intrepid.com>.
 

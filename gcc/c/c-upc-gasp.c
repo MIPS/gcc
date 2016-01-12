@@ -1,5 +1,5 @@
 /* c-upc-gasp.c: UPC GASP (GAS Performance) instrumentation support
-   Copyright (C) 2005-2015 Free Software Foundation, Inc.
+   Copyright (C) 2005-2016 Free Software Foundation, Inc.
    Contributed by Gary Funck <gary@intrepid.com>
      and Nenad Vukicevic <nenad@intrepid.com>.
    Based on original Implementation by Adam Leko <leko@hcs.ufl.edu>.
