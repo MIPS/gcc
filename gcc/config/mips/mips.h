@@ -1256,6 +1256,9 @@ struct mips_cpu_info {
 /* ISA includes the pop instruction.  */
 #define ISA_HAS_POP		(TARGET_OCTEON && !TARGET_MIPS16)
 
+#define MIPS16_GP_LOADS		(TARGET_MIPS16 && !TARGET_64BIT \
+				&& TARGET_MIPS16_GP)
+
 /* The CACHE instruction is available in non-MIPS16 code.  */
 #define TARGET_CACHE_BUILTIN (mips_isa >= 3)
 
