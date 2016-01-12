@@ -4537,7 +4537,7 @@
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(lo_sum:SI (reg:SI GLOBAL_POINTER_REGNUM)
 		   (match_operand 1 "immediate_operand" "")))]
-  "TARGET_MIPS16 && TARGET_MIPS16_GP"
+  "MIPS16_GP_LOADS"
   "addiu\t%0,$28,%R1"
   [(set_attr "alu_type" "add")
    (set_attr "mode" "SI")
