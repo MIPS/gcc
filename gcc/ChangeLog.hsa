@@ -1,3 +1,7 @@
+2016-01-12  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c (GOMP_hsa_kernel_dispatch): Moved here.
+
 2016-01-08  Martin Jambor  <mjambor@suse.cz>
 
         * tree-inline.h (copy_body_data): New field

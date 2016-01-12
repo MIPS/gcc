@@ -1,3 +1,8 @@
+2016-01-12  Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c (GOMP_kernel_launch_attributes): Moved here.
+	(GOMP_hsa_kernel_dispatch): Likewise.
+
 2015-12-10  Martin Jambor  <mjambor@suse.cz>
 
 	* target.c (calculate_firstprivate_requirements): New function.
