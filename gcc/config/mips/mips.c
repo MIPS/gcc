@@ -20932,6 +20932,10 @@ mips_option_override (void)
 
   if (mips_sdata_section_num >= 1000)
     error ("Number for -msdata-num must be between 0 and 999");
+
+  if ((TARGET_EPI || mips_epi) && TARGET_USE_SAVE_RESTORE)
+    error ("unsupported combination: %s", "-mepi -muse-save-restore");
+
 }
 
 /* Swap the register information for registers I and I + 1, which
