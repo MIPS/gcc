@@ -228,9 +228,12 @@ nvptx_encode_section_info (tree decl, rtx rtl, int first)
       if (TREE_CONSTANT (decl))
 	area = DATA_AREA_CONST;
       else if (TREE_CODE (decl) == VAR_DECL)
-	/* TODO: This would be a good place to check for a .shared or
-	   other section name.  */
-	area = TREE_READONLY (decl) ? DATA_AREA_CONST : DATA_AREA_GLOBAL;
+	{
+	  if (lookup_attribute ("shared", DECL_ATTRIBUTES (decl)))
+	    area = DATA_AREA_SHARED;
+	  else
+	    area = TREE_READONLY (decl) ? DATA_AREA_CONST : DATA_AREA_GLOBAL;
+	}
 
       SET_SYMBOL_DATA_AREA (XEXP (rtl, 0), area);
     }
@@ -4047,12 +4050,36 @@ nvptx_handle_kernel_attribute (tree *node, tree name, tree ARG_UNUSED (args),
   return NULL_TREE;
 }
 
+/* Handle a "shared" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+nvptx_handle_shared_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+			       int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  tree decl = *node;
+
+  if (TREE_CODE (decl) != VAR_DECL)
+    {
+      error ("%qE attribute only applies to variables", name);
+      *no_add_attrs = true;
+    }
+  else if (current_function_decl && !TREE_STATIC (decl))
+    {
+      error ("%qE attribute only applies to non-stack variables", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Table of valid machine attributes.  */
 static const struct attribute_spec nvptx_attribute_table[] =
 {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
        affects_type_identity } */
   { "kernel", 0, 0, true, false,  false, nvptx_handle_kernel_attribute, false },
+  { "shared", 0, 0, true, false,  false, nvptx_handle_shared_attribute, false },
   { NULL, 0, 0, false, false, false, NULL, false }
 };
 

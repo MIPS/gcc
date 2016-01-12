@@ -1,5 +1,12 @@
 2016-01-17  Alexander Monakov  <amonakov@ispras.ru>
 
+	* config/nvptx/nvptx.c (nvptx_encode_section_info): Handle "shared"
+	attribute.
+	(nvptx_handle_shared_attribute): New.  Use it...
+	(nvptx_attribute_table): ... here (new entry).
+
+2016-01-17  Alexander Monakov  <amonakov@ispras.ru>
+
 	* config/nvptx/nvptx.c (nvptx_declare_function_name): Fix warning.
 
 2016-01-17  Alexander Monakov  <amonakov@ispras.ru>
