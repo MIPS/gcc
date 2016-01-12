@@ -8743,7 +8743,7 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 bool
 mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 {
-  if (HAVE_movmemsi && !(TARGET_MIPS16 && TARGET_MIPS16_COPY))
+  if (HAVE_movmemsi)
     {
       /* movmemsi is meant to generate code that is at least as good as
 	 move_by_pieces.  However, movmemsi effectively uses a by-pieces
@@ -8964,13 +8964,17 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 bool
 mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 {
-  int word_count, byte_count, offset;
+  rtx base_dest, base_src;
+  HOST_WIDE_INT offset_dest, offset_src;
+  int word_count, byte_count, offset = 0;
+  rtx first_dest = dest, first_src = src;
+  rtx xdest = XEXP (dest, 0);
+  rtx xsrc = XEXP (src, 0);
+  int align = INTVAL (alignment);
+  bool word_by_pieces_p = false;
 
   gcc_assert (!TARGET_64BIT);
   gcc_assert (MEM_P (src) && MEM_P (dest));
-
-  if (!REG_P (XEXP (src, 0)) || !REG_P (XEXP (dest, 0)))
-    return false;
 
   if (!CONST_INT_P (length))
     return false;
@@ -8988,24 +8992,64 @@ mips16_expand_copy (rtx dest, rtx src, rtx length, rtx alignment)
 
   word_count = byte_count / UNITS_PER_WORD;
   byte_count = byte_count % UNITS_PER_WORD;
-  offset = 0;
+
+  mips_split_plus (xdest, &base_dest, &offset_dest);
+  mips_split_plus (xsrc, &base_src, &offset_src);
+
+  /* In some cases, it's better to move by pieces rather than generating
+     COPYW/UCOPYW.  */
+
+  /* Copying 4 bytes when both dest and src are aligned but base+offset is
+     likely to be squashed.  */
+  if (word_count == 1
+      && MEM_ALIGN (dest) >= 4 * BITS_PER_UNIT
+      && MEM_ALIGN (src) >= 4 * BITS_PER_UNIT
+      && (offset_dest > 0 || offset_src > 0))
+    word_by_pieces_p = true;
+
+  /* Copying 4 bytes when the lowest alignment is 2-bytes. However, it's better
+     to use COPY/UCOPY if offsets match and are multiples of 16 bytes.  */
+  if (word_count == 1 && align >= 2
+      && !(offset_src == offset_dest && offset_src % 16 != 0))
+    word_by_pieces_p = true;
+
+  if (word_by_pieces_p)
+    {
+      rtx src2 = adjust_address (src, BLKmode, offset);
+      rtx dest2 = adjust_address (dest, BLKmode, offset);
+      move_by_pieces (dest2, src2, 4, INTVAL (alignment), 0);
+      offset += 4;
+      word_count = 0;
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (dest, 0)))
+    {
+      rtx dest_reg = copy_addr_to_reg (XEXP (dest, 0));
+      first_dest = replace_equiv_address (first_dest, dest_reg);
+    }
+
+  if (word_count > 0 && !REG_P (XEXP (src, 0)))
+    {
+      rtx src_reg = copy_addr_to_reg (XEXP (src, 0));
+      first_src = replace_equiv_address (first_src, src_reg);
+    }
 
   while (word_count > 0)
     {
-      if (word_count >= 4)
-	{
-	  emit_insn (gen_mips16_copy (dest, src, GEN_INT (offset),
-				      GEN_INT (4), alignment));
-	  offset = offset + 16;
-	  word_count = word_count - 4;
-	}
-      else
-	{
-	  emit_insn (gen_mips16_copy (dest, src, GEN_INT (offset),
-				      GEN_INT (word_count), alignment));
-	  offset = offset + word_count * 4;
-	  word_count = 0;
-	}
+      int new_word_count, new_offset;
+      rtx adj_src, adj_dest;
+
+      new_offset = offset;
+      new_word_count = word_count >= 4 ? 4 : word_count;
+
+      adj_src = adjust_address (first_src, BLKmode, new_offset);
+      adj_dest = adjust_address (first_dest, BLKmode, new_offset);
+      set_mem_size (adj_src, new_word_count * 4);
+      set_mem_size (adj_dest, new_word_count * 4);
+      emit_insn (gen_mips16_copy (adj_dest, adj_src, GEN_INT (new_offset),
+				  GEN_INT (new_word_count), alignment));
+      offset += new_word_count * 4;
+      word_count = word_count >= 4 ? word_count - 4 : 0;
     }
   if (byte_count > 0)
     {
