@@ -457,7 +457,7 @@
   (if_then_else (ior ;; In general, constant-pool loads are extended
   		     ;; instructions.  We don't yet optimize for 16-bit
 		     ;; PC-relative references.
-  		     (eq_attr "move_type" "sll0,loadpool")
+		     (eq_attr "move_type" "sll0,loadpool,ext_ins")
 		     (eq_attr "jal" "direct")
 		     (eq_attr "got" "load"))
 		(const_string "yes")
@@ -4220,6 +4220,7 @@
 		       INTVAL (operands[3]))"
   "<d>ext\t%0,%1,%3,%2"
   [(set_attr "type"	"arith")
+   (set_attr "extended_mips16"	"yes")
    (set_attr "mode"	"<MODE>")])
 
 (define_insn "*extzv_truncsi_exts"
@@ -4270,6 +4271,7 @@
 		       INTVAL (operands[2]))"
   "<d>ins\t%0,%z3,%2,%1"
   [(set_attr "type"	"arith")
+   (set_attr "extended_mips16"	"yes")
    (set_attr "mode"	"<MODE>")])
 
 ;; Combiner pattern for cins (clear and insert bit field).  We can
