@@ -1,7 +1,7 @@
 # configure.ac for GCC
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 1997-2015 Free Software Foundation, Inc.
+# Copyright (C) 1997-2016 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -5990,7 +5990,7 @@ fi
 # it's new in isl 0.15.
 if test "x${ISLLIBS}" != "x" ; then
   saved_CXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS $ISLINC"
+  CXXFLAGS="$CXXFLAGS $ISLINC $GMPINC"
   saved_LIBS="$LIBS"
   LIBS="$LIBS $ISLLIBS $GMPLIBS"
 

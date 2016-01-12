@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
@@ -2271,6 +2271,7 @@ GCC plugins may provide their own attributes.
 * MSP430 Function Attributes::
 * NDS32 Function Attributes::
 * Nios II Function Attributes::
+* Nvidia PTX Function Attributes::
 * PowerPC Function Attributes::
 * RL78 Function Attributes::
 * RX Function Attributes::
@@ -2278,6 +2279,7 @@ GCC plugins may provide their own attributes.
 * SH Function Attributes::
 * SPU Function Attributes::
 * Symbian OS Function Attributes::
+* V850 Function Attributes::
 * Visium Function Attributes::
 * x86 Function Attributes::
 * Xstormy16 Function Attributes::
@@ -4205,6 +4207,17 @@ the @code{rtbd} instead of @code{rtsd}.
 @smallexample
 void f () __attribute__ ((break_handler));
 @end smallexample
+
+@item interrupt_handler
+@itemx fast_interrupt 
+@cindex @code{interrupt_handler} function attribute, MicroBlaze
+@cindex @code{fast_interrupt} function attribute, MicroBlaze
+These attributes indicate that the specified function is an interrupt
+handler.  Use the @code{fast_interrupt} attribute to indicate handlers
+used in low-latency interrupt mode, and @code{interrupt_handler} for
+interrupts that do not use low-latency handlers.  In both cases, GCC
+emits appropriate prologue code and generates a return from the handler
+using @code{rtid} instead of @code{rtsd}.
 @end table
 
 @node Microsoft Windows Function Attributes
@@ -4619,6 +4632,22 @@ command-line option, to select a predefined set of custom instructions
 named @var{name}.
 @xref{Nios II Options}, for more information.
 @end table
+@end table
+
+@node Nvidia PTX Function Attributes
+@subsection Nvidia PTX Function Attributes
+
+These function attributes are supported by the Nvidia PTX back end:
+
+@table @code
+@item kernel
+@cindex @code{kernel} attribute, Nvidia PTX
+This attribute indicates that the corresponding function should be compiled
+as a kernel function, which can be invoked from the host via the CUDA RT 
+library.
+By default functions are only callable only from other PTX functions.
+
+Kernel functions must have @code{void} return type.
 @end table
 
 @node PowerPC Function Attributes
@@ -5088,6 +5117,22 @@ depended upon to work reliably and are not supported.
 @xref{Microsoft Windows Function Attributes}, for discussion of the
 @code{dllexport} and @code{dllimport} attributes.
 
+@node V850 Function Attributes
+@subsection V850 Function Attributes
+
+The V850 back end supports these function attributes:
+
+@table @code
+@item interrupt
+@itemx interrupt_handler
+@cindex @code{interrupt} function attribute, V850
+@cindex @code{interrupt_handler} function attribute, V850
+Use these attributes to indicate
+that the specified function is an interrupt handler.  The compiler generates
+function entry and exit sequences suitable for use in an interrupt handler
+when either attribute is present.
+@end table
+
 @node Visium Function Attributes
 @subsection Visium Function Attributes
 
@@ -5425,7 +5470,9 @@ attributes.
 * Microsoft Windows Variable Attributes::
 * MSP430 Variable Attributes::
 * PowerPC Variable Attributes::
+* RL78 Variable Attributes::
 * SPU Variable Attributes::
+* V850 Variable Attributes::
 * x86 Variable Attributes::
 * Xstormy16 Variable Attributes::
 @end menu
@@ -6067,6 +6114,14 @@ documentation in @ref{x86 Variable Attributes}.
 For documentation of @code{altivec} attribute please see the
 documentation in @ref{PowerPC Type Attributes}.
 
+@node RL78 Variable Attributes
+@subsection RL78 Variable Attributes
+
+@cindex @code{saddr} variable attribute, RL78
+The RL78 back end supports the @code{saddr} variable attribute.  This
+specifies placement of the corresponding variable in the SADDR area,
+which can be accessed more efficiently than the default memory region.
+
 @node SPU Variable Attributes
 @subsection SPU Variable Attributes
 
@@ -6074,6 +6129,29 @@ documentation in @ref{PowerPC Type Attributes}.
 The SPU supports the @code{spu_vector} attribute for variables.  For
 documentation of this attribute please see the documentation in
 @ref{SPU Type Attributes}.
+
+@node V850 Variable Attributes
+@subsection V850 Variable Attributes
+
+These variable attributes are supported by the V850 back end:
+
+@table @code
+
+@item sda
+@cindex @code{sda} variable attribute, V850
+Use this attribute to explicitly place a variable in the small data area,
+which can hold up to 64 kilobytes.
+
+@item tda
+@cindex @code{tda} variable attribute, V850
+Use this attribute to explicitly place a variable in the tiny data area,
+which can hold up to 256 bytes in total.
+
+@item zda
+@cindex @code{zda} variable attribute, V850
+Use this attribute to explicitly place a variable in the first 32 kilobytes
+of memory.
+@end table
 
 @node x86 Variable Attributes
 @subsection x86 Variable Attributes
@@ -9238,6 +9316,9 @@ returns the value that had previously been in memory.  That is,
 @{ tmp = *ptr; *ptr = ~(tmp & value); return tmp; @}   // nand
 @end smallexample
 
+The object pointed to by the first argument must be of integer or pointer
+type.  It must not be a Boolean type.
+
 @emph{Note:} GCC 4.4 and later implement @code{__sync_fetch_and_nand}
 as @code{*ptr = ~(tmp & value)} instead of @code{*ptr = ~tmp & value}.
 
@@ -9260,6 +9341,9 @@ return the new value.  That is,
 @{ *ptr @var{op}= value; return *ptr; @}
 @{ *ptr = ~(*ptr & value); return *ptr; @}   // nand
 @end smallexample
+
+The same constraints on arguments apply as for the corresponding
+@code{__sync_op_and_fetch} built-in functions.
 
 @emph{Note:} GCC 4.4 and later implement @code{__sync_nand_and_fetch}
 as @code{*ptr = ~(*ptr & value)} instead of
@@ -9507,13 +9591,14 @@ pointer.
 @deftypefnx {Built-in Function} @var{type} __atomic_or_fetch (@var{type} *ptr, @var{type} val, int memorder)
 @deftypefnx {Built-in Function} @var{type} __atomic_nand_fetch (@var{type} *ptr, @var{type} val, int memorder)
 These built-in functions perform the operation suggested by the name, and
-return the result of the operation. That is,
+return the result of the operation.  That is,
 
 @smallexample
 @{ *ptr @var{op}= val; return *ptr; @}
 @end smallexample
 
-All memory orders are valid.
+The object pointed to by the first argument must be of integer or pointer
+type.  It must not be a Boolean type.  All memory orders are valid.
 
 @end deftypefn
 
@@ -9530,7 +9615,8 @@ return the value that had previously been in @code{*@var{ptr}}.  That is,
 @{ tmp = *ptr; *ptr @var{op}= val; return tmp; @}
 @end smallexample
 
-All memory orders are valid.
+The same constraints on arguments apply as for the corresponding
+@code{__atomic_op_fetch} built-in functions.  All memory orders are valid.
 
 @end deftypefn
 

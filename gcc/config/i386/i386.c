@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on IA-32.
-   Copyright (C) 1988-2015 Free Software Foundation, Inc.
+   Copyright (C) 1988-2016 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -5342,6 +5342,13 @@ ix86_option_override_internal (bool main_args_p,
 			 ix86_tune_cost->l2_cache_size,
 			 opts->x_param_values,
 			 opts_set->x_param_values);
+
+  /* Restrict number of if-converted SET insns to 1.  */
+  if (TARGET_ONE_IF_CONV_INSN)
+    maybe_set_param_value (PARAM_MAX_RTL_IF_CONVERSION_INSNS,
+			   1,
+			   opts->x_param_values,
+			   opts_set->x_param_values);
 
   /* Enable sw prefetching at -O3 for CPUS that prefetching is helpful.  */
   if (opts->x_flag_prefetch_loop_arrays < 0
@@ -10918,6 +10925,10 @@ ix86_frame_pointer_required (void)
   if (TARGET_64BIT_MS_ABI && get_frame_size () > SEH_MAX_FRAME_SIZE)
     return true;
 
+  /* SSE saves require frame-pointer when stack is misaligned.  */
+  if (TARGET_64BIT_MS_ABI && ix86_incoming_stack_boundary < 128)
+    return true;
+  
   /* In ix86_option_override_internal, TARGET_OMIT_LEAF_FRAME_POINTER
      turns off the frame pointer by default.  Turn it back on now if
      we've not got a leaf function.  */
@@ -19374,11 +19385,11 @@ ix86_expand_vector_logical_operator (enum rtx_code code, machine_mode mode,
 	    {
 	      op1 = operands[1];
 	      op2 = SUBREG_REG (operands[2]);
-	      if (!nonimmediate_operand (op2, GET_MODE (dst)))
+	      if (!vector_operand (op2, GET_MODE (dst)))
 		op2 = force_reg (GET_MODE (dst), op2);
 	    }
 	  op1 = SUBREG_REG (op1);
-	  if (!nonimmediate_operand (op1, GET_MODE (dst)))
+	  if (!vector_operand (op1, GET_MODE (dst)))
 	    op1 = force_reg (GET_MODE (dst), op1);
 	  emit_insn (gen_rtx_SET (dst,
 				  gen_rtx_fmt_ee (code, GET_MODE (dst),
@@ -19389,9 +19400,9 @@ ix86_expand_vector_logical_operator (enum rtx_code code, machine_mode mode,
 	  break;
 	}
     }
-  if (!nonimmediate_operand (operands[1], mode))
+  if (!vector_operand (operands[1], mode))
     operands[1] = force_reg (mode, operands[1]);
-  if (!nonimmediate_operand (operands[2], mode))
+  if (!vector_operand (operands[2], mode))
     operands[2] = force_reg (mode, operands[2]);
   ix86_fixup_binary_operands_no_copy (code, mode, operands);
   emit_insn (gen_rtx_SET (operands[0],

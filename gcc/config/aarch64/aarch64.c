@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -4141,6 +4141,13 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
 	  gcc_unreachable ();
 	}
     }
+
+  /* Equality comparisons of short modes against zero can be performed
+     using the TST instruction with the appropriate bitmask.  */
+  if (y == const0_rtx && REG_P (x)
+      && (code == EQ || code == NE)
+      && (GET_MODE (x) == HImode || GET_MODE (x) == QImode))
+    return CC_NZmode;
 
   if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
       && y == const0_rtx

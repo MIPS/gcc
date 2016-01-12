@@ -1,4 +1,4 @@
-##  Copyright (C) 2012-2015 Free Software Foundation, Inc.
+##  Copyright (C) 2012-2016 Free Software Foundation, Inc.
 ##  Contributed by Richard Henderson <rth@redhat.com>.
 ##
 ##  This file is part of the GNU Atomic Library (libatomic).
@@ -147,3 +147,10 @@ libatomic_convenience_la_LIBADD = $(libatomic_la_LIBADD)
 # for processes using atomics on shared memory.
 libatomic_convenience_no_lock_la_SOURCES = $(LIBAT_SRC_NO_LOCK)
 libatomic_convenience_no_lock_la_LIBADD = $(libatomic_la_LIBADD)
+
+# Override the automake generated all-multi rule to guarantee that all-multi
+# is not run in parallel with the %_.lo rules which generate $(DEPDIR)/*.Ppo
+# makefile fragments to avoid broken *.Ppo getting included into the Makefile
+# when it is reloaded during the build of all-multi.
+all-multi: $(libatomic_la_LIBADD)
+	$(MULTIDO) $(AM_MAKEFLAGS) DO=all multi-do # $(MAKE)

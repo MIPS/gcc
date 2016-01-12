@@ -1,5 +1,5 @@
 /* Loop autoparallelization.
-   Copyright (C) 2006-2015 Free Software Foundation, Inc.
+   Copyright (C) 2006-2016 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr> 
    Zdenek Dvorak <dvorakz@suse.cz> and Razya Ladelsky <razya@il.ibm.com>.
 
@@ -1769,6 +1769,10 @@ try_transform_to_exit_first_loop_alt (struct loop *loop,
   if (!gimple_seq_nondebug_singleton_p (bb_seq (loop->latch)))
     return false;
 
+  /* Check whether the latch contains no phis.  */
+  if (phi_nodes (loop->latch) != NULL)
+    return false;
+
   /* Check whether the latch contains the loop iv increment.  */
   edge back = single_succ_edge (loop->latch);
   edge exit = single_dom_exit (loop);
@@ -2082,7 +2086,12 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 	 value is not modified in the loop, and we're done with this phi.  */
       if (!(gimple_code (def_stmt) == GIMPLE_PHI
 	    && gimple_bb (def_stmt) == loop->header))
-	continue;
+	{
+	  locus = gimple_phi_arg_location_from_edge (phi, exit);
+	  add_phi_arg (phi, def, guard, locus);
+	  add_phi_arg (phi, def, end, locus);
+	  continue;
+	}
 
       gphi *stmt = as_a <gphi *> (def_stmt);
       def = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));
@@ -2474,6 +2483,8 @@ gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list
 	  gimple *inner_stmt;
 	  bool single_use_p = single_imm_use (res, &use_p, &inner_stmt);
 	  gcc_assert (single_use_p);
+	  if (gimple_code (inner_stmt) != GIMPLE_PHI)
+	    continue;
 	  gphi *inner_phi = as_a <gphi *> (inner_stmt);
 	  if (simple_iv (loop->inner, loop->inner, PHI_RESULT (inner_phi),
 			 &iv, true))
@@ -2595,6 +2606,14 @@ try_create_reduction_list (loop_p loop,
 			 "  FAILED: it is not a part of reduction.\n");
 	      return false;
 	    }
+	  if (red->keep_res != NULL)
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file,
+			 "  FAILED: reduction has multiple exit phis.\n");
+	      return false;
+	    }
+	  red->keep_res = phi;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "reduction phi is  ");
@@ -2630,6 +2649,37 @@ try_create_reduction_list (loop_p loop,
 
 
   return true;
+}
+
+/* Return true if LOOP contains phis with ADDR_EXPR in args.  */
+
+static bool
+loop_has_phi_with_address_arg (struct loop *loop)
+{
+  basic_block *bbs = get_loop_body (loop);
+  bool res = false;
+
+  unsigned i, j;
+  gphi_iterator gsi;
+  for (i = 0; i < loop->num_nodes; i++)
+    for (gsi = gsi_start_phis (bbs[i]); !gsi_end_p (gsi); gsi_next (&gsi))
+      {
+	gphi *phi = gsi.phi ();
+	for (j = 0; j < gimple_phi_num_args (phi); j++)
+	  {
+	    tree arg = gimple_phi_arg_def (phi, j);
+	    if (TREE_CODE (arg) == ADDR_EXPR)
+	      {
+		/* This should be handled by eliminate_local_variables, but that
+		   function currently ignores phis.  */
+		res = true;
+		goto end;
+	      }
+	  }
+      }
+ end:
+  free (bbs);
+  return res;
 }
 
 /* Detect parallel loops and generate parallel code using libgomp
@@ -2726,6 +2776,9 @@ parallelize_loops (void)
       if (!try_create_reduction_list (loop, &reduction_list))
 	continue;
 
+      if (loop_has_phi_with_address_arg (loop))
+	continue;
+
       if (!flag_loop_parallelize_all
 	  && !loop_parallel_p (loop, &parloop_obstack))
 	continue;
@@ -2792,6 +2845,10 @@ unsigned
 pass_parallelize_loops::execute (function *fun)
 {
   if (number_of_loops (fun) <= 1)
+    return 0;
+
+  tree nthreads = builtin_decl_explicit (BUILT_IN_OMP_GET_NUM_THREADS);
+  if (nthreads == NULL_TREE)
     return 0;
 
   if (parallelize_loops ())

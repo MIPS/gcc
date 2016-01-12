@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2015 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2016 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -8,7 +8,7 @@
 @c man end
 
 @c man begin COPYRIGHT
-Copyright @copyright{} 1988-2015 Free Software Foundation, Inc.
+Copyright @copyright{} 1988-2016 Free Software Foundation, Inc.
 
 Permission is granted to copy, distribute and/or modify this document
 under the terms of the GNU Free Documentation License, Version 1.3 or
@@ -263,7 +263,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wignored-qualifiers  -Wincompatible-pointer-types @gol
 -Wimplicit  -Wimplicit-function-declaration  -Wimplicit-int @gol
 -Winit-self  -Winline  -Wno-int-conversion @gol
--Wno-int-to-pointer-cast -Wno-invalid-offsetof @gol
+-Wno-int-to-pointer-cast -Winvalid-memory-model -Wno-invalid-offsetof @gol
 -Winvalid-pch -Wlarger-than=@var{len} @gol
 -Wlogical-op -Wlogical-not-parentheses -Wlong-long @gol
 -Wmain -Wmaybe-uninitialized -Wmemset-transposed-args @gol
@@ -367,7 +367,7 @@ Objective-C and Objective-C++ Dialects}.
 -fmem-report -fpre-ipa-mem-report -fpost-ipa-mem-report -fprofile-arcs @gol
 -fopt-info @gol
 -fopt-info-@var{options}@r{[}=@var{file}@r{]} @gol
--frandom-seed=@var{number} -fsched-verbose=@var{n} @gol
+-frandom-seed=@var{string} -fsched-verbose=@var{n} @gol
 -fsel-sched-verbose -fsel-sched-dump-cfg -fsel-sched-pipelining-verbose @gol
 -fstack-usage  -ftest-coverage  -ftime-report -fvar-tracking @gol
 -fvar-tracking-assignments  -fvar-tracking-assignments-toggle @gol
@@ -4373,6 +4373,26 @@ to compute a value that itself is never used, because such
 computations may be deleted by data flow analysis before the warnings
 are printed.
 
+@item -Winvalid-memory-model
+@opindex Winvalid-memory-model
+@opindex Wno-invalid-memory-model
+Warn for invocations of @ref{__atomic Builtins}, @ref{__sync Builtins},
+and the C11 atomic generic functions with a memory consistency argument
+that is either invalid for the operation or outside the range of values
+of the @code{memory_order} enumeration.  For example, since the
+@code{__atomic_store} and @code{__atomic_store_n} built-ins are only
+defined for the relaxed, release, and sequentially consistent memory
+orders the following code is diagnosed:
+
+@smallexample
+void store (int *i)
+@{
+  __atomic_store_n (i, 0, memory_order_consume);
+@}
+@end smallexample
+
+@option{-Winvalid-memory-model} is enabled by default.
+
 @item -Wmaybe-uninitialized
 @opindex Wmaybe-uninitialized
 @opindex Wno-maybe-uninitialized
@@ -7532,7 +7552,7 @@ the first option takes effect and the subsequent options are
 ignored. Thus only @file{vec.miss} is produced which contains
 dumps from the vectorizer about missed opportunities.
 
-@item -frandom-seed=@var{number}
+@item -frandom-seed=@var{string}
 @opindex frandom-seed
 This option provides a seed that GCC uses in place of
 random numbers in generating certain symbol names
@@ -7541,7 +7561,11 @@ place unique stamps in coverage data files and the object files that
 produce them.  You can use the @option{-frandom-seed} option to produce
 reproducibly identical object files.
 
-The @var{number} should be different for every file you compile.
+The @var{string} can either be a number (decimal, octal or hex) or an
+arbitrary string (in which case it's converted to a number by
+computing CRC32).
+
+The @var{string} should be different for every file you compile.
 
 @item -fsched-verbose=@var{n}
 @opindex fsched-verbose
@@ -10408,6 +10432,14 @@ In each case, the @var{value} is an integer.  The allowable choices for
 @item predictable-branch-outcome
 When branch is predicted to be taken with probability lower than this threshold
 (in percent), then it is considered well predictable. The default is 10.
+
+@item max-rtl-if-conversion-insns
+RTL if-conversion tries to remove conditional branches around a block and
+replace them with conditionally executed instructions.  This parameter
+gives the maximum number of instructions in a block which should be
+considered for if-conversion.  The default is 10, though the compiler will
+also use other heuristics to decide whether if-conversion is likely to be
+profitable.
 
 @item max-crossjump-edges
 The maximum number of incoming edges to consider for cross-jumping.
