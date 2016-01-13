@@ -20069,6 +20069,12 @@ print_operand (FILE *file, rtx x, int code)
 				"local dynamic TLS references");
       return;
 
+    case '@':
+      /* If -mpower9-minmax, use xsmaxcpdp instead of xsmaxdp.  */
+      if (TARGET_P9_MINMAX)
+	putc ('c', file);
+      return;
+
     default:
       output_operand_lossage ("invalid %%xn code");
     }

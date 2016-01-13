@@ -148,3 +148,39 @@ flt_cmp_le (float a, float b, float c, float d)
   return (a <= b) ? c : d;
 }
 #endif
+
+double
+dbl_flt_max1 (float a, float b)
+{
+  return (a > b) ? a : b;
+}
+
+double
+dbl_flt_max2 (double a, float b)
+{
+  return (a > b) ? a : b;
+}
+
+double
+dbl_flt_max3 (float a, double b)
+{
+  return (a > b) ? a : b;
+}
+
+double
+dbl_flt_min1 (float a, float b)
+{
+  return (a < b) ? a : b;
+}
+
+double
+dbl_flt_min2 (double a, float b)
+{
+  return (a < b) ? a : b;
+}
+
+double
+dbl_flt_min3 (float a, double b)
+{
+  return (a < b) ? a : b;
+}
