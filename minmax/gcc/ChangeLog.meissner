@@ -1,3 +1,8 @@
+2016-01-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_emit_power9_cmove): Remove unused
+	variable.
+
 2016-01-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (all_ones_constant): New predicate
