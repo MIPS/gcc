@@ -1,3 +1,9 @@
+2016-01-13  Martin Jambor  <mjambor@suse.cz>
+
+	* target.c (gomp_target_task_fn): Check ttask->tgt before unmapping
+	vars.
+	* task.c (gomp_target_task_completion): Always requue finished tasks.
+
 2016-01-12  Martin Jambor  <mjambor@suse.cz>
 
 	* plugin/plugin-hsa.c (GOMP_kernel_launch_attributes): Moved here.

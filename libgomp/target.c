@@ -1904,7 +1904,8 @@ gomp_target_task_fn (void *data)
 
       if (ttask->state == GOMP_TARGET_TASK_FINISHED)
 	{
-	  gomp_unmap_vars (ttask->tgt, true);
+	  if (ttask->tgt)
+	    gomp_unmap_vars (ttask->tgt, true);
 	  return false;
 	}
 
