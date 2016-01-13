@@ -2481,8 +2481,13 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	  edge taken_edge = find_taken_edge (bb, val);
 	  if (taken_edge)
 	    {
-	      /* Delete threads that start at BB.  */
-	      remove_jump_threads_starting_at (bb);
+
+	      /* We need to remove any queued jump threads that
+		 reference outgoing edges from this block.  */
+	      edge_iterator ei;
+	      edge e;
+	      FOR_EACH_EDGE (e, ei, bb->succs)
+		remove_jump_threads_including (e);
 
 	      /* Now clean up the control statement at the end of
 		 BB and remove unexecutable edges.  */
