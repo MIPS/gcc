@@ -1,3 +1,8 @@
+2016-01-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68977
+	* omp-offload.c (oacc_xform_loop): Handle seen_error () == true.
+
 2016-01-08  Nathan Sidwell  <nathan@acm.org>
 
 	* omp-expand.c (expand_omp_atomic_pipeline): Pay attention to
