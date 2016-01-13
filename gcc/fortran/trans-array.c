@@ -1,5 +1,5 @@
 /* Array translation routines
-   Copyright (C) 2002-2015 Free Software Foundation, Inc.
+   Copyright (C) 2002-2016 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -3601,7 +3601,8 @@ gfc_trans_scalarized_loop_end (gfc_loopinfo * loop, int n,
   tree init;
   tree incr;
 
-  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS))
+  if ((ompws_flags & (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS
+		      | OMPWS_SCALARIZER_BODY))
       == (OMPWS_WORKSHARE_FLAG | OMPWS_SCALARIZER_WS)
       && n == loop->dimen - 1)
     {
@@ -3821,10 +3822,10 @@ evaluate_bound (stmtblock_t *block, tree *bounds, gfc_expr ** values,
       gfc_add_block_to_block (block, &se.pre);
       *output = se.expr;
     }
-  else if (deferred)
+  else if (deferred && GFC_DESCRIPTOR_TYPE_P (TREE_TYPE (desc)))
     {
       /* The gfc_conv_array_lbound () routine returns a constant zero for
-	 deferred length arrays, which in the scalarizer wrecks havoc, when
+	 deferred length arrays, which in the scalarizer wreaks havoc, when
 	 copying to a (newly allocated) one-based array.
 	 Keep returning the actual result in sync for both bounds.  */
       *output = lbound ? gfc_conv_descriptor_lbound_get (desc,
@@ -7113,7 +7114,7 @@ gfc_conv_expr_descriptor (gfc_se *se, gfc_expr *expr)
 				    gfc_array_index_type,
 				    stride, info->stride[n]);
 
-	  if (se->direct_byref
+	  if ((se->direct_byref || se->use_offset)
 	      && ((info->ref && info->ref->u.ar.type != AR_FULL)
 		  || (expr->expr_type == EXPR_ARRAY && se->use_offset)))
 	    {

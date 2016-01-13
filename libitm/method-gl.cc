@@ -1,4 +1,4 @@
-/* Copyright (C) 2011-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2011-2016 Free Software Foundation, Inc.
    Contributed by Torvald Riegel <triegel@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -337,6 +337,15 @@ public:
       }
 
   }
+
+  virtual bool snapshot_most_recent()
+  {
+    // This is the same check as in validate() except that we do not restart
+    // on failure but simply return the result.
+    return o_gl_mg.orec.load(memory_order_relaxed)
+	== gtm_thr()->shared_state.load(memory_order_relaxed);
+  }
+
 
   CREATE_DISPATCH_METHODS(virtual, )
   CREATE_DISPATCH_METHODS_MEM()

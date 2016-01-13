@@ -1,4 +1,4 @@
-// Copyright (C) 2015 Free Software Foundation, Inc.
+// Copyright (C) 2015-2016 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,3 +25,8 @@
 std::tr1::shared_ptr<int> test() { return {}; }
 
 std::function<std::tr1::shared_ptr<int>()> func = test;
+std::function<std::tr1::shared_ptr<int>()> funcr = std::ref(test);
+
+void test2(std::tr1::shared_ptr<int>) { }
+
+std::function<void(std::tr1::shared_ptr<int>)> func2 = std::ref(test2);

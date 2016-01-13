@@ -1,5 +1,5 @@
 ;; Predicate definitions for IA-32 and x86-64.
-;; Copyright (C) 2004-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2004-2016 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -951,6 +951,18 @@
        (match_test "INTEGRAL_MODE_P (GET_MODE (op))")
        (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
 
+; Return true when OP is operand acceptable for vector memory operand.
+; Only AVX can have misaligned memory operand.
+(define_predicate "vector_memory_operand"
+  (and (match_operand 0 "memory_operand")
+       (ior (match_test "TARGET_AVX")
+	    (match_test "MEM_ALIGN (op) >= GET_MODE_ALIGNMENT (mode)"))))
+
+; Return true when OP is register_operand or vector_memory_operand.
+(define_predicate "vector_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "vector_memory_operand")))
+
 ; Return true when OP is operand acceptable for standard SSE move.
 (define_predicate "vector_move_operand"
   (ior (match_operand 0 "nonimmediate_operand")
@@ -1591,9 +1603,9 @@
   return val == ((low << 8) | low);
 })
 
-;; Return true if OP is nonimmediate_operand or CONST_VECTOR.
+;; Return true if OP is vector_operand or CONST_VECTOR.
 (define_predicate "general_vector_operand"
-  (ior (match_operand 0 "nonimmediate_operand")
+  (ior (match_operand 0 "vector_operand")
        (match_code "const_vector")))
 
 ;; Return true if OP is either -1 constant or stored in register.

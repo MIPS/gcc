@@ -1,5 +1,5 @@
 /* LTO symbol table.
-   Copyright (C) 2009-2015 Free Software Foundation, Inc.
+   Copyright (C) 2009-2016 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -997,6 +997,18 @@ lto_symtab_prevailing_virtual_decl (tree decl)
     n = n->next_sharing_asm_name;
   if (n)
     {
+      /* Merge decl state in both directions, we may still end up using
+	 the other decl.  */
+      TREE_ADDRESSABLE (n->decl) |= TREE_ADDRESSABLE (decl);
+      TREE_ADDRESSABLE (decl) |= TREE_ADDRESSABLE (n->decl);
+
+      if (TREE_CODE (decl) == FUNCTION_DECL)
+	{
+	  /* Merge decl state in both directions, we may still end up using
+	     the other decl.  */
+	  DECL_POSSIBLY_INLINED (n->decl) |= DECL_POSSIBLY_INLINED (decl);
+	  DECL_POSSIBLY_INLINED (decl) |= DECL_POSSIBLY_INLINED (n->decl);
+	}
       lto_symtab_prevail_decl (n->decl, decl);
       decl = n->decl;
     }

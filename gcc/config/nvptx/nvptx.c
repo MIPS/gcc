@@ -1,5 +1,5 @@
 /* Target code for NVPTX.
-   Copyright (C) 2014-2015 Free Software Foundation, Inc.
+   Copyright (C) 2014-2016 Free Software Foundation, Inc.
    Contributed by Bernd Schmidt <bernds@codesourcery.com>
 
    This file is part of GCC.
@@ -1718,6 +1718,11 @@ nvptx_globalize_label (FILE *, const char *)
 static void
 nvptx_assemble_undefined_decl (FILE *file, const char *name, const_tree decl)
 {
+  /* The middle end can place constant pool decls into the varpool as
+     undefined.  Until that is fixed, catch the problem here.  */
+  if (DECL_IN_CONSTANT_POOL (decl))
+    return;
+
   write_var_marker (file, false, TREE_PUBLIC (decl), name);
 
   fprintf (file, "\t.extern ");
@@ -1808,14 +1813,14 @@ nvptx_output_call_insn (rtx_insn *insn, rtx result, rtx callee)
     {
       rtx t = XEXP (XVECEXP (pat, 0, argno), 0);
       machine_mode mode = GET_MODE (t);
+      const char *ptx_type = nvptx_ptx_type_from_mode (mode, false);
 
       /* Mode splitting has already been done.  */
-      fprintf (asm_out_file, "\t\t.param%s %%out_arg%d%s;\n",
-	       nvptx_ptx_type_from_mode (mode, false), argno,
-	       mode == QImode || mode == HImode ? "[1]" : "");
-      fprintf (asm_out_file, "\t\tst.param%s [%%out_arg%d], %%r%d;\n",
-	       nvptx_ptx_type_from_mode (mode, false), argno,
-	       REGNO (t));
+      fprintf (asm_out_file, "\t\t.param%s %%out_arg%d;\n"
+	       "\t\tst.param%s [%%out_arg%d], ",
+	       ptx_type, argno, ptx_type, argno);
+      output_reg (asm_out_file, REGNO (t), VOIDmode);
+      fprintf (asm_out_file, ";\n");
     }
 
   fprintf (asm_out_file, "\t\tcall ");

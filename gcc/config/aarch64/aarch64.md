@@ -1,5 +1,5 @@
 ;; Machine description for AArch64 architecture.
-;; Copyright (C) 2009-2015 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2016 Free Software Foundation, Inc.
 ;; Contributed by ARM Ltd.
 ;;
 ;; This file is part of GCC.
@@ -3670,6 +3670,16 @@
     emit_insn (gen_clz<mode>2 (operands[0], operands[0]));
     DONE;
   }
+)
+
+(define_insn "*and<mode>_compare0"
+  [(set (reg:CC_NZ CC_REGNUM)
+	(compare:CC_NZ
+	 (match_operand:SHORT 0 "register_operand" "r")
+	 (const_int 0)))]
+  ""
+  "tst\\t%<w>0, <short_mask>"
+  [(set_attr "type" "alus_imm")]
 )
 
 (define_insn "*and<mode>3nr_compare0"

@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2012-2016 Free Software Foundation, Inc.
    Contributed by Torvald Riegel <triegel@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -602,6 +602,24 @@ public:
     // We're done, clear the logs.
     tx->writelog.clear();
     tx->readlog.clear();
+  }
+
+  virtual bool snapshot_most_recent()
+  {
+    // This is the same code as in extend() except that we do not restart
+    // on failure but simply return the result, and that we don't validate
+    // if our snapshot is already most recent.
+    gtm_thread* tx = gtm_thr();
+    gtm_word snapshot = o_ml_mg.time.load(memory_order_acquire);
+    if (snapshot == tx->shared_state.load(memory_order_relaxed))
+      return true;
+    if (!validate(tx))
+      return false;
+
+    // Update our public snapshot time.  Necessary so that we do not prevent
+    // other transactions from ensuring privatization safety.
+    tx->shared_state.store(snapshot, memory_order_release);
+    return true;
   }
 
   virtual bool supports(unsigned number_of_threads)

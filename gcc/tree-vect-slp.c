@@ -1,5 +1,5 @@
 /* SLP - Basic Block Vectorization
-   Copyright (C) 2007-2015 Free Software Foundation, Inc.
+   Copyright (C) 2007-2016 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -1820,6 +1820,36 @@ vect_analyze_slp_instance (vec_info *vinfo,
             }
         }
 
+      /* If the loads and stores can be handled with load/store-lane
+	 instructions do not generate this SLP instance.  */
+      if (is_a <loop_vec_info> (vinfo)
+	  && loads_permuted
+	  && dr && vect_store_lanes_supported (vectype, group_size))
+	{
+	  slp_tree load_node;
+	  FOR_EACH_VEC_ELT (loads, i, load_node)
+	    {
+	      gimple *first_stmt = GROUP_FIRST_ELEMENT
+		  (vinfo_for_stmt (SLP_TREE_SCALAR_STMTS (load_node)[0]));
+	      stmt_vec_info stmt_vinfo = vinfo_for_stmt (first_stmt);
+	      /* Use SLP for strided accesses (or if we can't load-lanes).  */
+	      if (STMT_VINFO_STRIDED_P (stmt_vinfo)
+		  || ! vect_load_lanes_supported
+			(STMT_VINFO_VECTYPE (stmt_vinfo),
+			 GROUP_SIZE (stmt_vinfo)))
+		break;
+	    }
+	  if (i == loads.length ())
+	    {
+	      if (dump_enabled_p ())
+		dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+				 "Built SLP cancelled: can use "
+				 "load/store-lanes\n");
+	      vect_free_slp_instance (new_instance);
+	      return false;
+	    }
+	}
+
       vinfo->slp_instances.safe_push (new_instance);
 
       if (dump_enabled_p ())
@@ -1986,10 +2016,10 @@ vect_detect_hybrid_slp_stmts (slp_tree node, unsigned i, slp_vect_type stype)
     {
       /* Check if a pure SLP stmt has uses in non-SLP stmts.  */
       gcc_checking_assert (PURE_SLP_STMT (stmt_vinfo));
-      /* We always get the pattern stmt here, but for immediate
-	 uses we have to use the LHS of the original stmt.  */
-      gcc_checking_assert (!STMT_VINFO_IN_PATTERN_P (stmt_vinfo));
-      if (STMT_VINFO_RELATED_STMT (stmt_vinfo))
+      /* If we get a pattern stmt here we have to use the LHS of the
+         original stmt for immediate uses.  */
+      if (! STMT_VINFO_IN_PATTERN_P (stmt_vinfo)
+	  && STMT_VINFO_RELATED_STMT (stmt_vinfo))
 	stmt = STMT_VINFO_RELATED_STMT (stmt_vinfo);
       if (TREE_CODE (gimple_op (stmt, 0)) == SSA_NAME)
 	FOR_EACH_IMM_USE_STMT (use_stmt, imm_iter, gimple_op (stmt, 0))
@@ -2967,9 +2997,19 @@ vect_get_constant_vectors (tree op, slp_tree slp_node,
 		{
 		  tree new_temp = make_ssa_name (TREE_TYPE (vector_type));
 		  gimple *init_stmt;
-		  op = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (vector_type), op);
-		  init_stmt
-		    = gimple_build_assign (new_temp, VIEW_CONVERT_EXPR, op);
+		  if (VECTOR_BOOLEAN_TYPE_P (vector_type))
+		    {
+		      gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (op)));
+		      init_stmt = gimple_build_assign (new_temp, NOP_EXPR, op);
+		    }
+		  else
+		    {
+		      op = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (vector_type),
+				   op);
+		      init_stmt
+			= gimple_build_assign (new_temp, VIEW_CONVERT_EXPR,
+					       op);
+		    }
 		  gimple_seq_add_stmt (&ctor_seq, init_stmt);
 		  op = new_temp;
 		}

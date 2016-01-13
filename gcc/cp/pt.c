@@ -1,5 +1,5 @@
 /* Handle parameterized types (templates) for GNU -*- C++ -*-.
-   Copyright (C) 1992-2015 Free Software Foundation, Inc.
+   Copyright (C) 1992-2016 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -12292,8 +12292,13 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    SET_DECL_IMPLICIT_INSTANTIATION (r);
 	    register_specialization (r, gen_tmpl, argvec, false, hash);
 	  }
-	else if (!cp_unevaluated_operand)
-	  register_local_specialization (r, t);
+	else
+	  {
+	    if (DECL_LANG_SPECIFIC (r))
+	      DECL_TEMPLATE_INFO (r) = NULL_TREE;
+	    if (!cp_unevaluated_operand)
+	      register_local_specialization (r, t);
+	  }
 
 	DECL_CHAIN (r) = NULL_TREE;
 
@@ -23416,9 +23421,13 @@ build_non_dependent_expr (tree expr)
 {
   tree inner_expr;
 
-  /* Try to get a constant value for all non-dependent expressions in
-      order to expose bugs in *_dependent_expression_p and constexpr.  */
-  if (flag_checking && cxx_dialect >= cxx11)
+  /* When checking, try to get a constant value for all non-dependent
+     expressions in order to expose bugs in *_dependent_expression_p
+     and constexpr.  */
+  if (flag_checking && cxx_dialect >= cxx11
+      /* Don't do this during nsdmi parsing as it can lead to
+	 unexpected recursive instantiations.  */
+      && !parsing_nsdmi ())
     fold_non_dependent_expr (expr);
 
   /* Preserve OVERLOADs; the functions must be available to resolve

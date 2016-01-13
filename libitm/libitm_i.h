@@ -1,4 +1,4 @@
-/* Copyright (C) 2008-2015 Free Software Foundation, Inc.
+/* Copyright (C) 2008-2016 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Transactional Memory Library (libitm).
@@ -82,8 +82,6 @@ enum gtm_restart_reason
 #include "target.h"
 #include "rwlock.h"
 #include "aatree.h"
-#include "cacheline.h"
-#include "stmlock.h"
 #include "dispatch.h"
 #include "containers.h"
 
@@ -353,8 +351,6 @@ extern abi_dispatch *dispatch_serialirr_onwrite();
 extern abi_dispatch *dispatch_gl_wt();
 extern abi_dispatch *dispatch_ml_wt();
 extern abi_dispatch *dispatch_htm();
-
-extern gtm_cacheline_mask gtm_mask_stack(gtm_cacheline *, gtm_cacheline_mask);
 
 // Control variable for the HTM fastpath that uses serial mode as fallback.
 // Non-zero if the HTM fastpath is enabled. See gtm_thread::begin_transaction.

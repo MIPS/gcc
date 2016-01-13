@@ -1,5 +1,5 @@
 /* Loop Vectorization
-   Copyright (C) 2003-2015 Free Software Foundation, Inc.
+   Copyright (C) 2003-2016 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com> and
    Ira Rosen <irar@il.ibm.com>
 
@@ -985,9 +985,21 @@ vect_fixup_scalar_cycles_with_patterns (loop_vec_info loop_vinfo)
   FOR_EACH_VEC_ELT (LOOP_VINFO_REDUCTION_CHAINS (loop_vinfo), i, first)
     if (STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (first)))
       {
-	vect_fixup_reduc_chain (first);
-	LOOP_VINFO_REDUCTION_CHAINS (loop_vinfo)[i]
-	  = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (first));
+	gimple *next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (first));
+	while (next)
+	  {
+	    if (! STMT_VINFO_IN_PATTERN_P (vinfo_for_stmt (next)))
+	      break;
+	    next = GROUP_NEXT_ELEMENT (vinfo_for_stmt (next));
+	  }
+	/* If not all stmt in the chain are patterns try to handle
+	   the chain without patterns.  */
+	if (! next)
+	  {
+	    vect_fixup_reduc_chain (first);
+	    LOOP_VINFO_REDUCTION_CHAINS (loop_vinfo)[i]
+	      = STMT_VINFO_RELATED_STMT (vinfo_for_stmt (first));
+	  }
       }
 }
 
@@ -2177,10 +2189,11 @@ again:
 	   !gsi_end_p (si); gsi_next (&si))
 	{
 	  stmt_vec_info stmt_info = vinfo_for_stmt (gsi_stmt (si));
+	  STMT_SLP_TYPE (stmt_info) = loop_vect;
 	  if (STMT_VINFO_IN_PATTERN_P (stmt_info))
 	    {
-	      gcc_assert (STMT_SLP_TYPE (stmt_info) == loop_vect);
 	      stmt_info = vinfo_for_stmt (STMT_VINFO_RELATED_STMT (stmt_info));
+	      STMT_SLP_TYPE (stmt_info) = loop_vect;
 	      for (gimple_stmt_iterator pi
 		     = gsi_start (STMT_VINFO_PATTERN_DEF_SEQ (stmt_info));
 		   !gsi_end_p (pi); gsi_next (&pi))
@@ -2189,7 +2202,6 @@ again:
 		  STMT_SLP_TYPE (vinfo_for_stmt (pstmt)) = loop_vect;
 		}
 	    }
-	  STMT_SLP_TYPE (stmt_info) = loop_vect;
 	}
     }
   /* Free optimized alias test DDRS.  */
@@ -4063,10 +4075,10 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
   tree *elts;
   int i;
   bool nested_in_vect_loop = false;
-  tree init_value;
   REAL_VALUE_TYPE real_init_val = dconst0;
   int int_init_val = 0;
   gimple *def_stmt = NULL;
+  gimple_seq stmts = NULL;
 
   gcc_assert (vectype);
   nunits = TYPE_VECTOR_SUBPARTS (vectype);
@@ -4094,16 +4106,6 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
       *adjustment_def = NULL;
       return vect_create_destination_var (init_val, vectype);
     }
-
-  if (TREE_CONSTANT (init_val))
-    {
-      if (SCALAR_FLOAT_TYPE_P (scalar_type))
-        init_value = build_real (scalar_type, TREE_REAL_CST (init_val));
-      else
-        init_value = build_int_cst (scalar_type, TREE_INT_CST_LOW (init_val));
-    }
-  else
-    init_value = init_val;
 
   switch (code)
     {
@@ -4181,7 +4183,10 @@ get_initial_def_for_reduction (gimple *stmt, tree init_val,
 		break;
 	      }
 	  }
-	init_def = build_vector_from_val (vectype, init_value);
+	init_val = gimple_convert (&stmts, TREE_TYPE (vectype), init_val);
+	if (! gimple_seq_empty_p (stmts))
+	  gsi_insert_seq_on_edge_immediate (loop_preheader_edge (loop), stmts);
+	init_def = build_vector_from_val (vectype, init_val);
 	break;
 
       default:
