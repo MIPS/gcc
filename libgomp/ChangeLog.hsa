@@ -1,3 +1,9 @@
+2016-01-13  Martin Liska  <mliska@suse.cz>
+            Martin Jambor  <mjambor@suse.cz>
+
+	* plugin/plugin-hsa.c (struct GOMP_hsa_kernel_dispatch): Reorder
+	fields to remove a padding in the structure.
+
 2016-01-13  Martin Jambor  <mjambor@suse.cz>
 
 	* target.c (gomp_target_task_fn): Check ttask->tgt before unmapping

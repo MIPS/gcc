@@ -74,14 +74,14 @@ struct GOMP_hsa_kernel_dispatch
   uint32_t group_segment_size;
   /* Number of children kernel dispatches.  */
   uint64_t kernel_dispatch_count;
-  /* Number of threads.  */
-  uint32_t omp_num_threads;
   /* Debug purpose argument.  */
   uint64_t debug;
   /* Levels-var ICV.  */
   uint64_t omp_level;
   /* Kernel dispatch structures created for children kernel dispatches.  */
   struct GOMP_hsa_kernel_dispatch **children_dispatches;
+  /* Number of threads.  */
+  uint32_t omp_num_threads;
 };
 
 /* Part of the libgomp plugin interface.  Return the name of the accelerator,

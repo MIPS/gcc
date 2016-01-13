@@ -1,3 +1,15 @@
+2016-01-13  Martin Liska  <mliska@suse.cz>
+            Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-gen.c: Include stor-layout.h.
+	(hsa_kernel_dispatch_type): New variable.
+	(get_hsa_kernel_dispatch_offset): New function.
+	(gen_num_threads_for_dispatch): Utilize the function instead of
+	offsetof.
+	(gen_get_level): Likewise.
+	(set_debug_value): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+
 2016-01-13  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (grid_target_follows_gridifiable_pattern): Make newlines
