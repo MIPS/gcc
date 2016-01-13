@@ -1,5 +1,15 @@
 2016-01-13  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (check_omp_nesting_restrictions): Fixed comment.
+	(lower_omp_gpukernel): Renamed to lower_omp_grid_body.  Adjusted one
+	use.
+	(remap_prebody_decls): Renamed to grid_remap_prebody_decls.  Adjusted
+	all uses.
+	(copy_leading_local_assignments): Renamed to
+	grid_copy_leading_local_assignments.  Adjusted all uses.
+
+2016-01-13  Martin Jambor  <mjambor@suse.cz>
+
 	* gsstruct.def (GSS_OMP_TEAMS_LAYOUT): Remove this forgotten item.
 
 2016-01-13  Martin Jambor  <mjambor@suse.cz>

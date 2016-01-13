@@ -3229,7 +3229,7 @@ check_omp_nesting_restrictions (gimple *stmt, omp_context *ctx)
   tree c;
 
   if (ctx && gimple_code (ctx->stmt) == GIMPLE_OMP_GRID_BODY)
-    /* GPUKERNEL is an artificial construct, nesting rules will be checked in
+    /* GRID_BODY is an artificial construct, nesting rules will be checked in
        the original copy of its contents.  */
     return true;
 
@@ -16759,10 +16759,10 @@ lower_omp_teams (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     TREE_USED (block) = 1;
 }
 
-/* Expand code within an artificial GPUKERNELS OMP construct.  */
+/* Expand code within an artificial GIMPLE_OMP_GRID_BODY OMP construct.  */
 
 static void
-lower_omp_gpukernel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
+lower_omp_grid_body (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   gimple *stmt = gsi_stmt (*gsi_p);
   lower_omp (gimple_omp_body_ptr (stmt), ctx);
@@ -16984,7 +16984,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     case GIMPLE_OMP_GRID_BODY:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
-      lower_omp_gpukernel (gsi_p, ctx);
+      lower_omp_grid_body (gsi_p, ctx);
       break;
     case GIMPLE_CALL:
       tree fndecl;
@@ -17497,7 +17497,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
    provided in DATA.  */
 
 static tree
-remap_prebody_decls (tree *tp, int *walk_subtrees, void *data)
+grid_remap_prebody_decls (tree *tp, int *walk_subtrees, void *data)
 {
   tree t = *tp;
 
@@ -17524,7 +17524,7 @@ remap_prebody_decls (tree *tp, int *walk_subtrees, void *data)
    grid_reg_assignment_to_local_var_p or NULL.  */
 
 static gimple *
-copy_leading_local_assignments (gimple_seq src, gimple_stmt_iterator *dst,
+grid_copy_leading_local_assignments (gimple_seq src, gimple_stmt_iterator *dst,
 				gbind *tgt_bind, struct walk_stmt_info *wi)
 {
   hash_map<tree, tree> *declmap = (hash_map<tree, tree> *) wi->info;
@@ -17534,8 +17534,8 @@ copy_leading_local_assignments (gimple_seq src, gimple_stmt_iterator *dst,
       gimple *stmt = gsi_stmt (gsi);
       if (gbind *bind = dyn_cast <gbind *> (stmt))
 	{
-	  gimple *r = copy_leading_local_assignments (gimple_bind_body (bind),
-						      dst, tgt_bind, wi);
+	  gimple *r = grid_copy_leading_local_assignments
+	    (gimple_bind_body (bind), dst, tgt_bind, wi);
 	  if (r)
 	    return r;
 	  else
@@ -17551,7 +17551,7 @@ copy_leading_local_assignments (gimple_seq src, gimple_stmt_iterator *dst,
 
       declmap->put (lhs, repl);
       gassign *copy = as_a <gassign *> (gimple_copy (stmt));
-      walk_gimple_op (copy, remap_prebody_decls, wi);
+      walk_gimple_op (copy, grid_remap_prebody_decls, wi);
       gsi_insert_before (dst, copy, GSI_SAME_STMT);
     }
   return NULL;
@@ -17566,32 +17566,32 @@ static gomp_for *
 grid_process_kernel_body_copy (gimple_seq seq, gimple_stmt_iterator *dst,
 			       gbind *tgt_bind, struct walk_stmt_info *wi)
 {
-  gimple *stmt = copy_leading_local_assignments (seq, dst, tgt_bind, wi);
+  gimple *stmt = grid_copy_leading_local_assignments (seq, dst, tgt_bind, wi);
   gomp_teams *teams = dyn_cast <gomp_teams *> (stmt);
   gcc_assert (teams);
   gimple_omp_teams_set_grid_phony (teams, true);
-  stmt = copy_leading_local_assignments (gimple_omp_body (teams), dst,
+  stmt = grid_copy_leading_local_assignments (gimple_omp_body (teams), dst,
 					 tgt_bind, wi);
   gcc_checking_assert (stmt);
   gomp_for *dist = dyn_cast <gomp_for *> (stmt);
   gcc_assert (dist);
   gimple_seq prebody = gimple_omp_for_pre_body (dist);
   if (prebody)
-    copy_leading_local_assignments (prebody, dst, tgt_bind, wi);
+    grid_copy_leading_local_assignments (prebody, dst, tgt_bind, wi);
   gimple_omp_for_set_grid_phony (dist, true);
-  stmt = copy_leading_local_assignments (gimple_omp_body (dist), dst,
+  stmt = grid_copy_leading_local_assignments (gimple_omp_body (dist), dst,
 					 tgt_bind, wi);
   gcc_checking_assert (stmt);
 
   gomp_parallel *parallel = as_a <gomp_parallel *> (stmt);
   gimple_omp_parallel_set_grid_phony (parallel, true);
-  stmt = copy_leading_local_assignments (gimple_omp_body (parallel), dst,
+  stmt = grid_copy_leading_local_assignments (gimple_omp_body (parallel), dst,
 					 tgt_bind, wi);
   gomp_for *inner_loop = as_a <gomp_for *> (stmt);
   gimple_omp_for_set_kind (inner_loop, GF_OMP_FOR_KIND_GRID_LOOP);
   prebody = gimple_omp_for_pre_body (inner_loop);
   if (prebody)
-    copy_leading_local_assignments (prebody, dst, tgt_bind, wi);
+    grid_copy_leading_local_assignments (prebody, dst, tgt_bind, wi);
 
   return inner_loop;
 }
@@ -17642,7 +17642,7 @@ grid_attempt_target_gridification (gomp_target *target,
     (gimple_bind_body_ptr (as_a <gbind *> (gimple_omp_body (target))),
      gpukernel);
 
-  walk_tree (&group_size, remap_prebody_decls, &wi, NULL);
+  walk_tree (&group_size, grid_remap_prebody_decls, &wi, NULL);
   push_gimplify_context ();
   size_t collapse = gimple_omp_for_collapse (inner_loop);
   for (size_t i = 0; i < collapse; i++)
@@ -17655,9 +17655,9 @@ grid_attempt_target_gridification (gomp_target *target,
 
       enum tree_code cond_code = gimple_omp_for_cond (inner_loop, i);
       tree n1 = unshare_expr (gimple_omp_for_initial (inner_loop, i));
-      walk_tree (&n1, remap_prebody_decls, &wi, NULL);
+      walk_tree (&n1, grid_remap_prebody_decls, &wi, NULL);
       tree n2 = unshare_expr (gimple_omp_for_final (inner_loop, i));
-      walk_tree (&n2, remap_prebody_decls, &wi, NULL);
+      walk_tree (&n2, grid_remap_prebody_decls, &wi, NULL);
       adjust_for_condition (loc, &cond_code, &n2);
       tree step;
       step = get_omp_for_step_from_incr (loc,
