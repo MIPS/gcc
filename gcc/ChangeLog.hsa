@@ -1,3 +1,7 @@
+2016-01-13  Martin Jambor  <mjambor@suse.cz>
+
+	* alias.c (get_alias_set): Revert to trunk.
+
 2016-01-13  Martin Liska  <mliska@suse.cz>
             Martin Jambor  <mjambor@suse.cz>
 

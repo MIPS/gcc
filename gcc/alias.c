@@ -887,9 +887,7 @@ get_alias_set (tree t)
 	{
 	  /* In LTO we set canonical types for all types where it makes
 	     sense to do so.  Double check we did not miss some type.  */
-	  gcc_checking_assert (!in_lto_p
-			       || !type_with_alias_set_p (t)
-			       || TYPE_ARTIFICIAL (t));
+	  gcc_checking_assert (!in_lto_p || !type_with_alias_set_p (t));
           return 0;
 	}
     }
