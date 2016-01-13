@@ -1,7 +1,7 @@
 2016-01-13  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/68977
-	* omp-low.c (oacc_xform_loop):
+	* omp-low.c (oacc_xform_loop): Handle seen_error () == true.
 
 2016-01-11  Thomas Schwinge  <thomas@codesourcery.com>
 
