@@ -1,3 +1,8 @@
+2016-01-13  Tom de Vries  <tom@codesourcery.com>
+
+	PR tree-optimization/68977
+	* omp-low.c (oacc_xform_loop):
+
 2016-01-11  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* config/nvptx/nvptx.h (ASM_SPEC): Define.

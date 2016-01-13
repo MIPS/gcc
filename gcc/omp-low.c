@@ -19105,7 +19105,12 @@ oacc_xform_loop (gcall *call)
        -> chunks=ceil (range/(chunksize*threads*step))
      striding=false,chunking=false
        -> chunk_size=ceil(range/(threads*step)),chunks=1  */
-  push_gimplify_context (true);
+
+  /* If seen_error (), we may introduce an uninitialized var due to
+     gimplification bailing out.  If we gimplify in ssa mode, that will cause an
+     ICE.  If we gimplify in non-ssa mode, then ssa updating will turn it into a
+     default definition, and we avoid the ICE.  */
+  push_gimplify_context (!seen_error ());
 
   switch (code)
     {
