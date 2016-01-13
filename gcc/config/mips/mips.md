@@ -3267,11 +3267,11 @@
     case 4:
       return "and\t%0,%2";
     case 5:
-      len = low_bitmask_len (SImode, INTVAL (operands[2]));
+      len = low_bitmask_len (<MODE>mode, INTVAL (operands[2]));
       operands[2] = GEN_INT (len);
       return "ext\t%0,%1,0,%2";
     case 6:
-      mips_bit_clear_info (SImode, INTVAL (operands[2]), &pos, &len);
+      mips_bit_clear_info (<MODE>mode, INTVAL (operands[2]), &pos, &len);
       operands[1] = GEN_INT (pos);
       operands[2] = GEN_INT (len);
       return "ins\t%0,$0,%1,%2";
