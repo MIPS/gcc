@@ -1,3 +1,15 @@
+2016-01-13  Martin Jambor  <mjambor@suse.cz>
+
+	* tree-inline.c (remap_decl): Check
+	prevent_decl_creation_for_types and remapping_type_depth instead
+	of decl_creation_prevention_level.
+	(replace_locals_stmt): Added extra initial remapping of non-VLA decls.
+	(remap_type_1): Revert to trunk version.
+	(copy_gimple_seq_and_replace_locals): Likewise.
+	* tree-inline.h (copy_body_data): Removed field
+	decl_creation_prevention_level, added a bool flag
+	prevent_decl_creation_for_types instead.
+
 2016-01-12  Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-gen.c (GOMP_hsa_kernel_dispatch): Moved here.

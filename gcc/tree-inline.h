@@ -149,12 +149,8 @@ struct copy_body_data
      ordinary nested functions do not.  */
   bool remap_var_for_cilk;
 
-  /* When zero, do nothing.  When one or higher, increment during type
-     remapping, When two or higher, do not create new variables when remapping
-     decls.  Used when remapping types with variable size, but when the size is
-     defined outside the sequence copied by
-     copy_gimple_seq_and_replace_locals.  */
-  unsigned decl_creation_prevention_level;
+  /* Do not create new declarations when within type remapping.  */
+  bool prevent_decl_creation_for_types;
 };
 
 /* Weights of constructions for estimate_num_insns.  */
