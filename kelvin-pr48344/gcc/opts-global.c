@@ -37,7 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "asan.h"
 
-#define KELVIN_NOISE
+#undef KELVIN_NOISE
 
 typedef const char *const_char_p; /* For DEF_VEC_P.  */
 
