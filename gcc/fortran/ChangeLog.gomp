@@ -1,3 +1,8 @@
+2016-01-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* trans-openmp.c (gfc_privatize_nodesc_arrays): Use
+	gfc_get_symbol_decl instead of accessing backend_decl directly.
+
 2016-01-05  Nathan Sidwell  <nathan@acm.org>
 
 	* lang.opt (fopenacc-dim=): New option.

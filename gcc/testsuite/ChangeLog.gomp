@@ -1,3 +1,7 @@
+2016-01-12  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gfortran.dg/goacc/mod-array.f90: New test.
+
 2016-01-12  Nathan Sidwell  <nathan@acm.org>
 
 	* gcc.dg/goacc/kern-1.c: New.

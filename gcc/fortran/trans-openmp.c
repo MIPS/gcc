@@ -2777,7 +2777,7 @@ gfc_privatize_nodesc_arrays (hash_set<gfc_symbol *> *array_set,
   for (; its != array_set->end (); ++its)
     {
       gfc_symbol *sym = *its;
-      tree parm = sym->backend_decl;
+      tree parm = gfc_get_symbol_decl (sym);
       tree type = TREE_TYPE (parm);
       tree offset, tmp;
 
