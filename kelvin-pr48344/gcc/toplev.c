@@ -88,6 +88,9 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <new>
 
+#undef KELVIN_NOISE
+#define KELVIN_PATCH
+
 static void general_init (const char *, bool);
 static void do_compile ();
 static void process_options (void);
@@ -1938,8 +1941,17 @@ standard_type_bitsize (int bitsize)
 static void
 do_compile ()
 {
-  process_options ();
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "do_compile\n");
+#endif
+#ifndef KELVIN_PATCH
+  process_options ();
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "do_compile: back from process_options\n");
+#endif
+#endif
+  
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())
     {
@@ -1951,7 +1963,13 @@ do_compile ()
 	 predefined macros, such as __LDBL_MAX__, for targets using non
 	 default FP formats.  */
       init_adjust_machine_modes ();
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "do_compile: back from init_adjust_machine_modes\n");
+#endif
       init_derived_machine_modes ();
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "do_compile: back from init_derived_machine_modes\n");
+#endif
 
       /* This must happen after the backend has a chance to process
 	 command line options, but before the parsers are
@@ -1966,6 +1984,9 @@ do_compile ()
       /* Set up the back-end if requested.  */
       if (!no_backend)
 	backend_init ();
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "do_compile: back from backend_init\n");
+#endif
 
       /* Language-dependent initialization.  Returns true on success.  */
       if (lang_dependent_init (main_input_filename))
@@ -2044,18 +2065,35 @@ toplev::main (int argc, char **argv)
 
   expandargv (&argc, &argv);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "in toplev::main\n");
+#endif
+
   /* Initialization of GCC's environment, and diagnostics.  */
   general_init (argv[0], m_init_signals);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back form general_init\n");
+#endif
+  
   /* One-off initialization of options that does not need to be
      repeated when options are added for particular functions.  */
   init_options_once ();
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back form init_options_once\n");
+#endif
+  
   /* Initialize global options structures; this must be repeated for
      each structure used for parsing options.  */
   init_options_struct (&global_options, &global_options_set);
   lang_hooks.init_options_struct (&global_options);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back form init_options_struct\n");
+#endif
+  
+  
   /* Convert the options to an array.  */
   decode_cmdline_options_to_array_default_mask (argc,
 						CONST_CAST2 (const char **,
@@ -2063,8 +2101,16 @@ toplev::main (int argc, char **argv)
 						&save_decoded_options,
 						&save_decoded_options_count);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back form decode_cmdline_options_to_array_default_mask\n");
+#endif
+
   /* Perform language-specific options initialization.  */
   lang_hooks.init_options (save_decoded_options_count, save_decoded_options);
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back form lang_hooks.init_options\n");
+#endif
 
   /* Parse the options and do minimal processing; basically just
      enough to default flags appropriately.  */
@@ -2072,17 +2118,44 @@ toplev::main (int argc, char **argv)
 		  save_decoded_options, save_decoded_options_count,
 		  UNKNOWN_LOCATION, global_dc);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from decode_options\n");
+#endif
+
+#ifdef KELVIN_PATCH
+  process_options ();
+#ifdef KELVIN_NOISE
+  fprintf(stderr, "back from patched invocation of process_options\n");
+#endif
+#endif
+    
   handle_common_deferred_options ();
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from handle_common_deferred_options\n");
+#endif
 
   init_local_tick ();
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from init_local_tick\n");
+#endif
+  
   initialize_plugins ();
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from initialize_plugins\n");
+#endif
+  
   if (version_flag)
     print_version (stderr, "", true);
 
   if (help_flag)
     print_plugins_help (stderr, "");
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from print_plugins_help\n");
+#endif
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
@@ -2092,16 +2165,37 @@ toplev::main (int argc, char **argv)
       do_compile ();
     }
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from do_compile\n");
+#endif
+  
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from print_ignored_options\n");
+#endif
 
   /* Invoke registered plugin callbacks if any.  Some plugins could
      emit some diagnostics here.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from invoke_plugin_callbacks\n");
+#endif
+  
   diagnostic_finish (global_dc);
 
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from diagnostic_finish\n");
+#endif
+  
   finalize_plugins ();
+
+#ifdef KELVIN_NOISE
+  fprintf(stderr, " back from finalize_plugins\n");
+#endif
+  
   location_adhoc_data_fini (line_table);
   if (seen_error () || werrorcount)
     return (FATAL_EXIT_CODE);
