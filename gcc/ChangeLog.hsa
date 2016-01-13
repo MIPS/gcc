@@ -1,5 +1,10 @@
 2016-01-13  Martin Jambor  <mjambor@suse.cz>
 
+	* omp-low.c (grid_target_follows_gridifiable_pattern): Make newlines
+	consistent, add lastprivate handling.
+
+2016-01-13  Martin Jambor  <mjambor@suse.cz>
+
 	* tree-inline.c (remap_decl): Check
 	prevent_decl_creation_for_types and remapping_type_depth instead
 	of decl_creation_prevention_level.

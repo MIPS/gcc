@@ -17284,6 +17284,14 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			     "clause is present\n ");
 	  return false;
 
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a "
+			     "gridified GPGPU kernel because a lastprivate "
+			     "clause is present\n ");
+	  return false;
+
 	case OMP_CLAUSE_THREAD_LIMIT:
 	  group_size = OMP_CLAUSE_OPERAND (clauses, 0);
 	  break;
@@ -17361,6 +17369,7 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			     "GPGPU kernel because there is a num_threads "
 			     "clause of the parallel construct\n");
 	  return false;
+
 	case OMP_CLAUSE_REDUCTION:
 	  if (dump_enabled_p ())
 	    dump_printf_loc (MSG_NOTE, tloc,
@@ -17368,6 +17377,15 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 			     "gridified GPGPU kernel because a reduction "
 			     "clause is present\n ");
 	  return false;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a "
+			     "gridified GPGPU kernel because a lastprivate "
+			     "clause is present\n ");
+	  return false;
+
 	default:
 	  break;
 	}
@@ -17431,6 +17449,14 @@ grid_target_follows_gridifiable_pattern (gomp_target *target, tree *group_size_p
 	    dump_printf_loc (MSG_NOTE, tloc,
 			     "Will not turn target construct into a "
 			     "gridified GPGPU kernel because a reduction "
+			     "clause is present\n ");
+	  return false;
+
+	case OMP_CLAUSE_LASTPRIVATE:
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_NOTE, tloc,
+			     "Will not turn target construct into a "
+			     "gridified GPGPU kernel because a lastprivate "
 			     "clause is present\n ");
 	  return false;
 
