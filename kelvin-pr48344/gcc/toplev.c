@@ -1940,11 +1940,7 @@ standard_type_bitsize (int bitsize)
 static void
 do_compile ()
 {
-
-#ifndef KELVIN_PATCH
   process_options ();
-#endif
-  
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())
     {
@@ -2077,13 +2073,11 @@ toplev::main (int argc, char **argv)
 		  save_decoded_options, save_decoded_options_count,
 		  UNKNOWN_LOCATION, global_dc);
 
-#ifdef KELVIN_PATCH
   /* process_options() must execute before handle_common_deferred_options()
      because handle_common_deferred_options() makes use of variables
      initialized by process_options() (e.g. Pmode) */
   process_options ();
-#endif
-    
+
   handle_common_deferred_options ();
 
   init_local_tick ();
@@ -2114,7 +2108,6 @@ toplev::main (int argc, char **argv)
   diagnostic_finish (global_dc);
 
   finalize_plugins ();
-
   location_adhoc_data_fini (line_table);
   if (seen_error () || werrorcount)
     return (FATAL_EXIT_CODE);

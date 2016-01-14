@@ -37,8 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "asan.h"
 
-#undef KELVIN_NOISE
-
 typedef const char *const_char_p; /* For DEF_VEC_P.  */
 
 static vec<const_char_p> ignored_options;
@@ -322,10 +320,6 @@ handle_common_deferred_options (void)
   cl_deferred_option *opt;
   vec<cl_deferred_option> v;
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "handle_common_deferred_options\n");
-#endif
-
   if (common_deferred_options)
     v = *((vec<cl_deferred_option> *) common_deferred_options);
   else
@@ -419,9 +413,6 @@ handle_common_deferred_options (void)
 
 	case OPT_fstack_limit_register_:
 	  {
-#ifdef KELVIN_NOISE
-	    fprintf(stderr, "assigning to stack_limit_rtx\n");
-#endif
 	    int reg = decode_reg_name (opt->arg);
 	    if (reg < 0)
 	      error ("unrecognized register name %qs", opt->arg);
@@ -431,9 +422,6 @@ handle_common_deferred_options (void)
 	  break;
 
 	case OPT_fstack_limit_symbol_:
-#ifdef KELVIN_NOISE
-	  fprintf(stderr, "assigning symbol to stack_limit_rtx\n");
-#endif
 	  stack_limit_rtx = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (opt->arg));
 	  break;
 
