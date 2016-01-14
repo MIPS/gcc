@@ -1008,8 +1008,8 @@ move (tree expr)
    the C version of this function does not properly maintain canonical
    types (which are not used in C).  */
 ttype *
-c_build_qualified_type (tree type, int type_quals, tree /* orig_qual_type */,
-			size_t /* orig_qual_indirect */)
+c_build_qualified_type (ttype_p type, int type_quals, ttype_p
+			/* orig_qual_type */, size_t /* orig_qual_indirect */)
 {
   return cp_build_qualified_type (type, type_quals);
 }

@@ -809,8 +809,8 @@ extern tree c_common_type_for_mode (machine_mode, int);
 extern ttype *c_common_type_for_size (unsigned int, int);
 extern tree c_common_fixed_point_type_for_size (unsigned int, unsigned int,
 						int, int);
-extern ttype *c_common_unsigned_type (tree);
-extern ttype *c_common_signed_type (tree);
+extern ttype *c_common_unsigned_type (ttype_p);
+extern ttype *c_common_signed_type (ttype_p);
 extern ttype *c_common_signed_or_unsigned_type (int, ttype_p);
 extern void c_common_init_ts (void);
 extern tree c_build_bitfield_integer_type (unsigned HOST_WIDE_INT, int);
@@ -874,7 +874,7 @@ extern tree pointer_int_sum (location_t, enum tree_code, tree, tree,
 			     bool = true);
 
 /* Add qualifiers to a type, in the fashion for C.  */
-extern ttype *c_build_qualified_type (tree, int, tree = NULL_TREE, size_t = 0);
+extern ttype *c_build_qualified_type (ttype_p, int, ttype_p = (ttype *)NULL, size_t = 0);
 
 /* Build tree nodes and builtin functions common to both C and C++ language
    frontends.  */

@@ -243,7 +243,7 @@ struct tree_vec_map_cache_hasher : ggc_cache_ptr_hash<tree_vec_map>
 static GTY ((cache))
      hash_table<tree_vec_map_cache_hasher> *debug_args_for_decl;
 
-static void set_type_quals (tree, int);
+static void set_type_quals (ttype *, int);
 static void print_type_hash_statistics (void);
 static void print_debug_expr_statistics (void);
 static void print_value_expr_statistics (void);
@@ -5099,7 +5099,7 @@ comp_type_attributes (const_tree type1, const_tree type2)
    Record such modified types already made so we don't make duplicates.  */
 
 ttype *
-build_type_attribute_variant (tree type, tree attribute)
+build_type_attribute_variant (ttype_p type, tree attribute)
 {
   return build_type_attribute_qual_variant (type, attribute,
 					    TYPE_QUALS (type));
@@ -6510,13 +6510,13 @@ handle_dll_type_attribute (ttype ** pnode, tree name, tree args, int flags,
    of the various TYPE_QUAL values.  */
 
 static void
-set_type_quals (tree type, int type_quals)
+set_type_quals (ttype *type, int type_quals)
 {
-  TYPE_READONLY (type) = (type_quals & TYPE_QUAL_CONST) != 0;
-  TYPE_VOLATILE (type) = (type_quals & TYPE_QUAL_VOLATILE) != 0;
-  TYPE_RESTRICT (type) = (type_quals & TYPE_QUAL_RESTRICT) != 0;
-  TYPE_ATOMIC (type) = (type_quals & TYPE_QUAL_ATOMIC) != 0;
-  TYPE_ADDR_SPACE (type) = DECODE_QUAL_ADDR_SPACE (type_quals);
+  type->set_readonly ((type_quals & TYPE_QUAL_CONST) != 0);
+  type->set_volatile ((type_quals & TYPE_QUAL_VOLATILE) != 0);
+  type->set_restrict ((type_quals & TYPE_QUAL_RESTRICT) != 0);
+  type->set_atomic ((type_quals & TYPE_QUAL_ATOMIC) != 0);
+  type->set_addr_space (DECODE_QUAL_ADDR_SPACE (type_quals));
 }
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
@@ -6560,16 +6560,16 @@ check_aligned_type (const_tree cand, const_tree base, unsigned int align)
 /* This function checks to see if TYPE matches the size one of the built-in 
    atomic types, and returns that core atomic type.  */
 
-static tree
-find_atomic_core_type (tree type)
+static ttype *
+find_atomic_core_type (ttype_p type)
 {
-  tree base_atomic_type;
+  ttype *base_atomic_type;
 
   /* Only handle complete types.  */
-  if (TYPE_SIZE (type) == NULL_TREE)
-    return NULL_TREE;
+  if (type->size () == NULL_TREE)
+    return NULL;
 
-  HOST_WIDE_INT type_size = tree_to_uhwi (TYPE_SIZE (type));
+  HOST_WIDE_INT type_size = tree_to_uhwi (type->size ());
   switch (type_size)
     {
     case 8:
@@ -6593,7 +6593,7 @@ find_atomic_core_type (tree type)
       break;
 
     default:
-      base_atomic_type = NULL_TREE;
+      base_atomic_type = NULL;
     }
 
   return base_atomic_type;
@@ -6614,7 +6614,7 @@ get_qualified_type (ttype_p type, int type_quals)
   /* Search the chain of variants to see if there is already one there just
      like the one we need to have.  If so, use that existing one.  We must
      preserve the TYPE_NAME, since there is code that depends on this.  */
-  for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
+  for (t = type->main_variant (); t; t = t->next_variant ())
     if (check_qualified_type (t, type, type_quals))
       return t;
 
@@ -6641,7 +6641,7 @@ build_qualified_type (ttype_p type, int type_quals)
       if (((type_quals & TYPE_QUAL_ATOMIC) == TYPE_QUAL_ATOMIC))
 	{
 	  /* See if this object can map to a basic atomic type.  */
-	  tree atomic_type = find_atomic_core_type (type);
+	  ttype *atomic_type = find_atomic_core_type (type);
 	  if (atomic_type)
 	    {
 	      /* Ensure the alignment of this type is compatible with
@@ -6658,13 +6658,12 @@ build_qualified_type (ttype_p type, int type_quals)
 	/* Build the underlying canonical type, since it is different
 	   from TYPE. */
 	{
-	  tree c = build_qualified_type (TYPE_CANONICAL (type), type_quals);
-	  TYPE_CANONICAL (t) = TYPE_CANONICAL (c);
+	  ttype *c = build_qualified_type (type->canonical (), type_quals);
+	  t->set_canonical (c->canonical ());
 	}
       else
 	/* T is its own canonical type. */
-	TYPE_CANONICAL (t) = t;
-
+	t->set_canonical (t);
     }
 
   return t;
@@ -6672,16 +6671,16 @@ build_qualified_type (ttype_p type, int type_quals)
 
 /* Create a variant of type T with alignment ALIGN.  */
 
-tree
-build_aligned_type (tree type, unsigned int align)
+ttype *
+build_aligned_type (ttype_p type, unsigned int align)
 {
-  tree t;
+  ttype *t;
 
   if (TYPE_PACKED (type)
       || TYPE_ALIGN (type) == align)
     return type;
 
-  for (t = TYPE_MAIN_VARIANT (type); t; t = TYPE_NEXT_VARIANT (t))
+  for (t = type->main_variant (); t; t = t->next_variant ())
     if (check_aligned_type (t, type, align))
       return t;
 
@@ -6701,7 +6700,7 @@ build_distinct_type_copy (ttype_p type)
 {
   ttype *t = copy_node (type);
 
-  TYPE_POINTER_TO (t) = 0;
+  t->set_pointer_to (NULL);
   TYPE_REFERENCE_TO (t) = 0;
 
   /* Set the canonical type either to a new equivalence class, or
@@ -6735,22 +6734,22 @@ build_distinct_type_copy (ttype_p type)
    require structural equality checks). */
 
 ttype *
-build_variant_type_copy (tree type)
+build_variant_type_copy (ttype_p type)
 {
-  ttype *t, *m = TTYPE_MAIN_VARIANT (type);
+  ttype *t, *m = type->main_variant ();
 
   t = build_distinct_type_copy (type);
 
   /* Since we're building a variant, assume that it is a non-semantic
      variant. This also propagates TYPE_STRUCTURAL_EQUALITY_P. */
-  TYPE_CANONICAL (t) = TYPE_CANONICAL (type);
+  t->set_canonical (type->canonical ());
   /* Type variants have no alias set defined.  */
   TYPE_ALIAS_SET (t) = -1;
 
   /* Add the new type to the chain of variants of TYPE.  */
-  TYPE_NEXT_VARIANT (t) = TYPE_NEXT_VARIANT (m);
-  TYPE_NEXT_VARIANT (m) = t;
-  TYPE_MAIN_VARIANT (t) = m;
+  t->set_next_variant (m->next_variant ());
+  m->set_next_variant (t);
+  t->set_main_variant (m);
 
   return t;
 }
@@ -7126,7 +7125,7 @@ type_hash_canon (unsigned int hashcode, ttype *type)
 
   /* The hash table only contains main variants, so ensure that's what we're
      being passed.  */
-  gcc_assert (TTYPE_MAIN_VARIANT (type) == type);
+  gcc_assert (type->main_variant () == type);
 
   /* The TYPE_ALIGN field of a type is set by layout_type(), so we
      must call that routine before comparing TYPE_ALIGNs.  */
@@ -7139,7 +7138,7 @@ type_hash_canon (unsigned int hashcode, ttype *type)
   if (*loc)
     {
       ttype *t1 = ((type_hash *) *loc)->type;
-      gcc_assert (TYPE_MAIN_VARIANT (t1) == t1);
+      gcc_assert (t1->main_variant () == t1);
       free_node (type);
       return t1;
     }
@@ -7914,13 +7913,13 @@ add_expr (const_tree t, inchash::hash &hstate)
    constructed, reuse it.  */
 
 ttype *
-build_pointer_type_for_mode (tree to_type, machine_mode mode,
+build_pointer_type_for_mode (ttype_p to_type, machine_mode mode,
 			     bool can_alias_all)
 {
   ttype *t;
   bool could_alias = can_alias_all;
 
-  if (to_type == error_mark_node)
+  if (to_type == error_type_node)
     return error_type_node;
 
   /* If the pointed-to type has the may_alias attribute set, force
@@ -7936,13 +7935,13 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
      ??? This is a kludge, but consistent with the way this function has
      always operated and there doesn't seem to be a good way to avoid this
      at the moment.  */
-  if (TYPE_POINTER_TO (to_type) != 0
-      && TREE_CODE (TYPE_POINTER_TO (to_type)) != POINTER_TYPE)
-    return TTYPE_POINTER_TO (to_type);
+  if (to_type->pointer_to () != 0
+      && to_type->pointer_to()->code () != POINTER_TYPE)
+    return to_type->pointer_to ();
 
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
-  for (t = TTYPE_POINTER_TO (to_type); t; t = TTYPE_NEXT_PTR_TO (t))
+  for (t = to_type->pointer_to (); t; t = t->next_ptr_to ())
     if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
@@ -7951,16 +7950,15 @@ build_pointer_type_for_mode (tree to_type, machine_mode mode,
   TREE_TYPE (t) = to_type;
   SET_TYPE_MODE (t, mode);
   TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
-  TYPE_NEXT_PTR_TO (t) = TYPE_POINTER_TO (to_type);
-  TYPE_POINTER_TO (to_type) = t;
+  t->set_next_ptr_to (to_type->pointer_to ());
+  to_type->set_pointer_to (t);
 
   /* During LTO we do not set TYPE_CANONICAL of pointers and references.  */
   if (TYPE_STRUCTURAL_EQUALITY_P (to_type) || in_lto_p)
     SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if (TYPE_CANONICAL (to_type) != to_type || could_alias)
-    TYPE_CANONICAL (t)
-      = build_pointer_type_for_mode (TYPE_CANONICAL (to_type),
-				     mode, false);
+  else if (to_type->canonical () != to_type || could_alias)
+    t->set_canonical (build_pointer_type_for_mode (to_type->canonical (),
+						   mode, false));
 
   /* Lay out the type.  This function has many callers that are concerned
      with expression-construction, and this simplifies them all.  */
@@ -7983,13 +7981,13 @@ build_pointer_type (tree to_type)
 /* Same as build_pointer_type_for_mode, but for REFERENCE_TYPE.  */
 
 ttype *
-build_reference_type_for_mode (tree to_type, machine_mode mode,
+build_reference_type_for_mode (ttype_p to_type, machine_mode mode,
 			       bool can_alias_all)
 {
   ttype *t;
   bool could_alias = can_alias_all;
 
-  if (to_type == error_mark_node)
+  if (to_type == error_type_node)
     return error_type_node;
 
   /* If the pointed-to type has the may_alias attribute set, force
@@ -8007,11 +8005,11 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
      at the moment.  */
   if (TYPE_REFERENCE_TO (to_type) != 0
       && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
-    return TTYPE_REFERENCE_TO (to_type);
+    return to_type->reference_to ();
 
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
-  for (t = TTYPE_REFERENCE_TO (to_type); t; t = TTYPE_NEXT_REF_TO (t))
+  for (t = to_type->reference_to (); t; t = t->next_ref_to ())
     if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
       return t;
 
@@ -8020,16 +8018,15 @@ build_reference_type_for_mode (tree to_type, machine_mode mode,
   TREE_TYPE (t) = to_type;
   SET_TYPE_MODE (t, mode);
   TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
-  TYPE_NEXT_REF_TO (t) = TYPE_REFERENCE_TO (to_type);
-  TYPE_REFERENCE_TO (to_type) = t;
+  t->set_next_ref_to (to_type->reference_to ());
+  to_type->set_reference_to (t);
 
   /* During LTO we do not set TYPE_CANONICAL of pointers and references.  */
   if (TYPE_STRUCTURAL_EQUALITY_P (to_type) || in_lto_p)
     SET_TYPE_STRUCTURAL_EQUALITY (t);
-  else if (TYPE_CANONICAL (to_type) != to_type || could_alias)
-    TYPE_CANONICAL (t)
-      = build_reference_type_for_mode (TYPE_CANONICAL (to_type),
-				       mode, false);
+  else if (to_type->canonical () != to_type || could_alias)
+    t->set_canonical (build_reference_type_for_mode (to_type->canonical (),
+						     mode, false));
 
   layout_type (t);
 
@@ -8314,11 +8311,11 @@ build_array_type_nelts (tree elt_type, unsigned HOST_WIDE_INT nelts)
 /* Recursively examines the array elements of TYPE, until a non-array
    element type is found.  */
 
-tree
-strip_array_types (tree type)
+ttype *
+strip_array_types (ttype_p type)
 {
-  while (TREE_CODE (type) == ARRAY_TYPE)
-    type = TREE_TYPE (type);
+  while (type->code () == ARRAY_TYPE)
+    type = type->type();
 
   return type;
 }
@@ -9877,11 +9874,11 @@ omp_clause_operand_check_failed (int idx, const_tree t, const char *file,
    the information necessary for debugging output.  */
 
 static ttype *
-make_vector_type (tree innertype, int nunits, machine_mode mode)
+make_vector_type (ttype_p innertype, int nunits, machine_mode mode)
 {
   ttype *t;
   inchash::hash hstate;
-  ttype *mv_innertype = TTYPE_MAIN_VARIANT (innertype);
+  ttype *mv_innertype = innertype->main_variant ();
 
   t = make_type_node (VECTOR_TYPE);
   TREE_TYPE (t) = mv_innertype;
@@ -10760,13 +10757,13 @@ build_same_sized_truth_vector_type (tree vectype)
 /* Similarly, but builds a variant type with TYPE_VECTOR_OPAQUE set.  */
 
 ttype *
-build_opaque_vector_type (tree innertype, int nunits)
+build_opaque_vector_type (ttype_p innertype, int nunits)
 {
   ttype *t = make_vector_type (innertype, nunits, VOIDmode);
   ttype *cand;
   /* We always build the non-opaque variant before the opaque one,
      so if it already exists, it is TYPE_NEXT_VARIANT of this one.  */
-  cand = TTYPE_NEXT_VARIANT (t);
+  cand = t->next_variant ();
   if (cand
       && TYPE_VECTOR_OPAQUE (cand)
       && check_qualified_type (cand, t, TYPE_QUALS (t)))
@@ -10775,10 +10772,10 @@ build_opaque_vector_type (tree innertype, int nunits)
      the non-opaque type.  */
   cand = build_distinct_type_copy (t);
   TYPE_VECTOR_OPAQUE (cand) = true;
-  TYPE_CANONICAL (cand) = TYPE_CANONICAL (t);
-  TYPE_NEXT_VARIANT (cand) = TYPE_NEXT_VARIANT (t);
-  TYPE_NEXT_VARIANT (t) = cand;
-  TYPE_MAIN_VARIANT (cand) = TYPE_MAIN_VARIANT (t);
+  cand->set_canonical (t->canonical ());
+  cand->set_next_variant (t->next_variant ());
+  t->set_next_variant (cand);
+  cand->set_main_variant(t->main_variant ());
   return cand;
 }
 
@@ -14046,5 +14043,9 @@ combined_fn_name (combined_fn fn)
     return internal_fn_name (as_internal_fn (fn));
 }
 
+enum machine_mode ttype::vector_type_mode() const
+{
+  return ::vector_type_mode ((const_tree)this);
+}
 
 #include "gt-tree.h"

@@ -1810,6 +1810,85 @@ struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
 
 
 class GTY((ptr_alias (union lang_tree_node))) ttype : public tree_node {
+public:
+  inline enum tree_code code () const;
+  inline void set_code (enum tree_code c);
+  inline int uid () const;
+  inline void set_uid (int n);
+  inline tree size () const;
+  inline void set_size (tree t);
+  inline tree chain() const;
+  inline void set_chain (tree t);
+  inline bool asm_written() const;
+  inline void set_asm_written (bool f);
+  inline bool visited () const;
+  inline void set_visited (bool f);
+  inline ttype *type () const;
+  inline void set_type (ttype *);
+  inline bool is_unsigned () const;
+  inline void set_unsigned (bool f);
+  inline signop sign () const;
+  inline unsigned precision () const;
+  inline void set_precision (unsigned i);
+
+  inline const char *symtab_pointer () const;
+  inline void set_symtab_pointer (const char *p);
+  inline int symtab_address () const;
+  inline void set_symtab_address (int n);
+  inline bool cached_values_p () const;
+  inline void set_cached_values_p (bool flag);
+  inline tree cached_values () const;
+  inline void set_cached_values (tree t);
+  inline bool readonly() const;
+  inline void set_readonly (bool f);
+  inline bool is_volatile() const;
+  inline void set_volatile (bool f);
+  inline bool is_restrict () const;
+  inline void set_restrict (bool f);
+  inline bool is_atomic () const;
+  inline void set_atomic (bool f);
+  inline unsigned char addr_space () const;
+  inline void set_addr_space (unsigned char c);
+  inline ttype *canonical () const;
+  inline void set_canonical (ttype *);
+  inline ttype *main_variant () const;
+  inline void set_main_variant (ttype *);
+  inline ttype *next_variant () const;
+  inline void set_next_variant (ttype *);
+  inline ttype *pointer_to () const;
+  inline void set_pointer_to (ttype *);
+  inline ttype *next_ptr_to () const;
+  inline void set_next_ptr_to (ttype *);
+  inline ttype *reference_to () const;
+  inline void set_reference_to(ttype *);
+  inline ttype *next_ref_to () const;
+  inline void set_next_ref_to (ttype *);
+  inline ttype *domain () const;
+  inline void set_domain (ttype *);
+  inline tree name () const;
+  inline void set_name (tree);
+  inline tree context() const;
+  inline void set_context (tree);
+  inline tree attributes () const;
+  inline void set_attributes (tree);
+  inline bool structural_equality_p () const;
+  inline void set_structural_equality_p ();
+  inline bool reverse_storage_order () const;
+  inline void set_reverse_storage_order (bool f);
+  inline bool vector_type_p () const;
+  inline enum machine_mode mode_raw () const;
+  inline enum machine_mode mode () const;
+  inline void set_mode (enum machine_mode m);
+  enum machine_mode vector_type_mode() const;
+
+  inline int quals () const;
+  inline int quals_no_addr_space () const;
+  inline int quals_no_addr_space_no_atomic () const;
+  inline bool pointer_type_p () const;
+  inline bool record_or_union_type_p () const;
+  inline bool integral_type_p () const;
+
+
 };
 
 extern void gt_ggc_mx (class ttype *&);

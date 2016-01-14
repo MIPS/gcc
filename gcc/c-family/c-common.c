@@ -3305,19 +3305,19 @@ c_common_type_for_size (unsigned int bits, int unsignedp)
 {
   int i;
 
-  if (bits == TYPE_PRECISION (integer_type_node))
+  if (bits == integer_type_node->precision ())
     return unsignedp ? unsigned_type_node : integer_type_node;
 
-  if (bits == TYPE_PRECISION (signed_char_type_node))
+  if (bits == signed_char_type_node->precision ())
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
 
-  if (bits == TYPE_PRECISION (short_integer_type_node))
+  if (bits == short_integer_type_node->precision ())
     return unsignedp ? short_unsigned_type_node : short_integer_type_node;
 
-  if (bits == TYPE_PRECISION (long_integer_type_node))
+  if (bits == long_integer_type_node->precision ())
     return unsignedp ? long_unsigned_type_node : long_integer_type_node;
 
-  if (bits == TYPE_PRECISION (long_long_integer_type_node))
+  if (bits == long_long_integer_type_node->precision ())
     return (unsignedp ? long_long_unsigned_type_node
 	    : long_long_integer_type_node);
 
@@ -3327,20 +3327,20 @@ c_common_type_for_size (unsigned int bits, int unsignedp)
       return (unsignedp ? int_n_trees[i].unsigned_type
 	      : int_n_trees[i].signed_type);
 
-  if (bits == TYPE_PRECISION (widest_integer_literal_type_node))
+  if (bits == widest_integer_literal_type_node->precision ())
     return (unsignedp ? widest_unsigned_literal_type_node
 	    : widest_integer_literal_type_node);
 
-  if (bits <= TYPE_PRECISION (intQI_type_node))
+  if (bits <= intQI_type_node->precision ())
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
 
-  if (bits <= TYPE_PRECISION (intHI_type_node))
+  if (bits <= intHI_type_node->precision ())
     return unsignedp ? unsigned_intHI_type_node : intHI_type_node;
 
-  if (bits <= TYPE_PRECISION (intSI_type_node))
+  if (bits <= intSI_type_node->precision ())
     return unsignedp ? unsigned_intSI_type_node : intSI_type_node;
 
-  if (bits <= TYPE_PRECISION (intDI_type_node))
+  if (bits <= intDI_type_node->precision ())
     return unsignedp ? unsigned_intDI_type_node : intDI_type_node;
 
   return 0;
@@ -3588,7 +3588,7 @@ c_common_type_for_mode (machine_mode mode, int unsignedp)
 }
 
 ttype *
-c_common_unsigned_type (tree type)
+c_common_unsigned_type (ttype_p type)
 {
   return c_common_signed_or_unsigned_type (1, type);
 }
@@ -3596,7 +3596,7 @@ c_common_unsigned_type (tree type)
 /* Return a signed type the same as TYPE in other respects.  */
 
 ttype *
-c_common_signed_type (tree type)
+c_common_signed_type (ttype_p type)
 {
   return c_common_signed_or_unsigned_type (0, type);
 }
@@ -3616,8 +3616,9 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
      have the same size. This is necessary for warnings to work
      correctly in archs where sizeof(int) == sizeof(long) */
 
-  type1 = TTYPE_MAIN_VARIANT (type);
-  if (type1 == signed_char_type_node || type1 == char_type_node || type1 == unsigned_char_type_node)
+  type1 = type->main_variant ();
+  if (type1 == signed_char_type_node || type1 == char_type_node
+      || type1 == unsigned_char_type_node)
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
   if (type1 == integer_type_node || type1 == unsigned_type_node)
     return unsignedp ? unsigned_type_node : integer_type_node;
@@ -3626,7 +3627,8 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
   if (type1 == long_integer_type_node || type1 == long_unsigned_type_node)
     return unsignedp ? long_unsigned_type_node : long_integer_type_node;
   if (type1 == long_long_integer_type_node || type1 == long_long_unsigned_type_node)
-    return unsignedp ? long_long_unsigned_type_node : long_long_integer_type_node;
+    return unsignedp ? long_long_unsigned_type_node
+		     : long_long_integer_type_node;
 
   for (i = 0; i < NUM_INT_N_ENTS; i ++)
     if (int_n_enabled_p[i]
@@ -3635,8 +3637,10 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
       return (unsignedp ? int_n_trees[i].unsigned_type
 	      : int_n_trees[i].signed_type);
 
-  if (type1 == widest_integer_literal_type_node || type1 == widest_unsigned_literal_type_node)
-    return unsignedp ? widest_unsigned_literal_type_node : widest_integer_literal_type_node;
+  if (type1 == widest_integer_literal_type_node
+      || type1 == widest_unsigned_literal_type_node)
+    return unsignedp ? widest_unsigned_literal_type_node
+		     : widest_integer_literal_type_node;
 #if HOST_BITS_PER_WIDE_INT >= 64
   if (type1 == intTI_type_node || type1 == unsigned_intTI_type_node)
     return unsignedp ? unsigned_intTI_type_node : intTI_type_node;
@@ -3731,13 +3735,13 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
      types, and producing a signed or unsigned variant of an
      ENUMERAL_TYPE may cause other problems as well.  */
 
-  if (!INTEGRAL_TYPE_P (type)
-      || TYPE_UNSIGNED (type) == unsignedp)
+  if (!type->integral_type_p ()
+      || type->is_unsigned () == unsignedp)
     return type;
 
 #define TYPE_OK(node)							    \
-  (TYPE_MODE (type) == TYPE_MODE (node)					    \
-   && TYPE_PRECISION (type) == TYPE_PRECISION (node))
+  (type->mode () == node->mode ()					    \
+   && type->precision () == node->precision ())
   if (TYPE_OK (signed_char_type_node))
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
   if (TYPE_OK (integer_type_node))
@@ -3752,8 +3756,8 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
 
   for (i = 0; i < NUM_INT_N_ENTS; i ++)
     if (int_n_enabled_p[i]
-	&& TYPE_MODE (type) == int_n_data[i].m
-	&& TYPE_PRECISION (type) == int_n_data[i].bitsize)
+	&& type->mode () == int_n_data[i].m
+	&& type->precision () == int_n_data[i].bitsize)
       return (unsignedp ? int_n_trees[i].unsigned_type
 	      : int_n_trees[i].signed_type);
 
@@ -3775,7 +3779,7 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
     return unsignedp ? unsigned_intQI_type_node : intQI_type_node;
 #undef TYPE_OK
 
-  return build_nonstandard_integer_type (TYPE_PRECISION (type), unsignedp);
+  return build_nonstandard_integer_type (type->precision (), unsignedp);
 }
 
 /* Build a bit-field integer type for the given WIDTH and UNSIGNEDP.  */
@@ -3791,15 +3795,15 @@ c_build_bitfield_integer_type (unsigned HOST_WIDE_INT width, int unsignedp)
      unsigned int.  To avoid such special cases, avoid creating
      extended integer types for bit-fields if a standard integer type
      is available.  */
-  if (width == TYPE_PRECISION (integer_type_node))
+  if (width == integer_type_node->precision ())
     return unsignedp ? unsigned_type_node : integer_type_node;
-  if (width == TYPE_PRECISION (signed_char_type_node))
+  if (width == signed_char_type_node->precision ())
     return unsignedp ? unsigned_char_type_node : signed_char_type_node;
-  if (width == TYPE_PRECISION (short_integer_type_node))
+  if (width == short_integer_type_node->precision ())
     return unsignedp ? short_unsigned_type_node : short_integer_type_node;
-  if (width == TYPE_PRECISION (long_integer_type_node))
+  if (width == long_integer_type_node->precision ())
     return unsignedp ? long_unsigned_type_node : long_integer_type_node;
-  if (width == TYPE_PRECISION (long_long_integer_type_node))
+  if (width == long_long_integer_type_node->precision ())
     return (unsignedp ? long_long_unsigned_type_node
 	    : long_long_integer_type_node);
   for (i = 0; i < NUM_INT_N_ENTS; i ++)
@@ -7581,7 +7585,7 @@ handle_mode_attribute (ttype **node, tree name, tree args,
       if (POINTER_TYPE_P (type))
 	{
 	  addr_space_t as = TYPE_ADDR_SPACE (TREE_TYPE (type));
-	  ttype *(*fn)(tree, machine_mode, bool);
+	  ttype *(*fn)(ttype_p, machine_mode, bool);
 
 	  if (!targetm.addr_space.valid_pointer_mode (mode, as))
 	    {

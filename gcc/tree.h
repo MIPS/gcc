@@ -506,6 +506,8 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)
 
+bool ttype::vector_type_p () const { return code() == VECTOR_TYPE; }
+
 /* Nonzero if TYPE represents a vector of booleans.  */
 
 #define VECTOR_BOOLEAN_TYPE_P(TYPE)				\
@@ -520,6 +522,11 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
+bool ttype::integral_type_p () const
+{
+  return code () == ENUMERAL_TYPE || code () == BOOLEAN_TYPE
+	 || code() == INTEGER_TYPE;
+}
 
 /* Nonzero if TYPE represents an integral type, including complex
    and vector integer types.  */
@@ -588,6 +595,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    || TREE_CODE (TYPE) == UNION_TYPE		\
    || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
 
+inline bool ttype::record_or_union_type_p () const
+{
+  return code () == RECORD_TYPE || code () == UNION_TYPE
+	 || code () == QUAL_UNION_TYPE;
+}
+
 /* Nonzero if TYPE represents an aggregate (multi-component) type.
    Keep these checks in ascending code order.  */
 
@@ -600,6 +613,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
+inline bool ttype::pointer_type_p() const
+{
+  return code () == POINTER_TYPE || code () == REFERENCE_TYPE;
+}
 
 /* Nonzero if TYPE represents a pointer to function.  */
 #define FUNCTION_POINTER_TYPE_P(TYPE) \
@@ -815,9 +832,12 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.unsigned_flag)
+bool ttype::is_unsigned () const { return (u.base.u.bits.unsigned_flag); }
+void ttype::set_unsigned (bool f) { u.base.u.bits.unsigned_flag = f; }
 
 /* Same as TYPE_UNSIGNED but converted to SIGNOP.  */
 #define TYPE_SIGN(NODE) ((signop) TYPE_UNSIGNED (NODE))
+signop ttype::sign () const { return (signop) is_unsigned (); }
 
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
@@ -947,6 +967,10 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    toggles BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN within the type.  */
 #define TYPE_REVERSE_STORAGE_ORDER(NODE) \
   (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->u.base.u.bits.saturating_flag)
+bool ttype::reverse_storage_order () const 
+				      { return u.base.u.bits.saturating_flag; }
+void ttype::set_reverse_storage_order (bool f) 
+					{ u.base.u.bits.saturating_flag = f; }
 
 /* In a non-aggregate type, indicates a saturating type.  */
 #define TYPE_SATURATING(NODE) \
@@ -1784,15 +1808,29 @@ extern void protected_set_expr_location (tree, location_t);
    so they must be checked as well.  */
 
 #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->u.type_common.uid)
+#define TTYPE_UID(NODE) (NODE)->uid ()
+#define TTYPE_SET_UID(NODE, VAL) (NODE)->set_uid (VAL)
+
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->u.type_common.size)
+#define TTYPE_SIZE(NODE) ((NODE)->size())
+#define TTYPE_SET_SIZE(NODE, VAL) ((NODE)->set_size (VAL))
+
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->u.type_common.size_unit)
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.pointer_to)
 #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.reference_to)
 #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->u.type_common.precision)
+unsigned ttype::precision () const { return u.type_common.precision; }
+void ttype::set_precision (unsigned i) { u.type_common.precision = i; }
+
 #define TYPE_NAME(NODE) (TYPE_CHECK (NODE)->u.type_common.name)
+inline tree ttype::name() const { return u.type_common.name; }
+inline void ttype::set_name(tree t) { u.type_common.name = t; }
+
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.next_variant)
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
+inline tree ttype::context() const { return u.type_common.context; }
+inline void ttype::set_context(tree t) { u.type_common.context = t; }
 
 #define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.mode)
 #define TYPE_MODE(NODE) \
@@ -1800,6 +1838,21 @@ extern void protected_set_expr_location (tree, location_t);
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
 #define SET_TYPE_MODE(NODE, MODE) \
   (TYPE_CHECK (NODE)->u.type_common.mode = (MODE))
+
+enum machine_mode ttype::mode_raw() const
+{
+    return u.type_common.mode;
+}
+
+enum machine_mode ttype::mode() const
+{
+  if (vector_type_p ())
+    return vector_type_mode ();
+  else
+    return u.type_common.mode;
+}
+void ttype::set_mode (enum machine_mode m) { u.type_common.mode = m; }
+
 
 extern machine_mode element_mode (const_tree t);
 
@@ -1820,6 +1873,9 @@ extern machine_mode element_mode (const_tree t);
    to assign the same alias-sets to the type partition with equal
    TYPE_CANONICAL of their unqualified variants.  */
 #define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->u.type_common.canonical)
+#define TTYPE_CANONICAL(NODE) ((NODE)->canonical ())
+#define TTYPE_SET_CANONICAL(NODE, VAL) ((NODE)->set_canonical (VAL))
+
 /* Indicates that the type node requires structural equality
    checks.  The compiler will need to look at the composition of the
    type to determine whether it is equal to another type, rather than
@@ -1830,6 +1886,10 @@ extern machine_mode element_mode (const_tree t);
 /* Sets the TYPE_CANONICAL field to NULL_TREE, indicating that the
    type node requires structural equality.  */
 #define SET_TYPE_STRUCTURAL_EQUALITY(NODE) (TYPE_CANONICAL (NODE) = NULL_TREE)
+inline bool ttype::structural_equality_p () const
+					      { return canonical () == NULL; }
+inline void ttype::set_structural_equality_p () { set_canonical (NULL); }
+
 
 #define TYPE_IBIT(NODE) (GET_MODE_IBIT (TYPE_MODE (NODE)))
 #define TYPE_FBIT(NODE) (GET_MODE_FBIT (TYPE_MODE (NODE)))
@@ -1849,6 +1909,10 @@ extern machine_mode element_mode (const_tree t);
 /* A TREE_LIST of IDENTIFIER nodes of the attributes that apply
    to this type.  */
 #define TYPE_ATTRIBUTES(NODE) (TYPE_CHECK (NODE)->u.type_common.attributes)
+inline tree ttype::attributes () const
+					  { return u.type_common.attributes; }
+inline void ttype::set_attributes (tree t)
+					  { u.type_common.attributes = t; }
 
 /* The alignment necessary for objects of this type.
    The value is an int, measured in bits.  */
@@ -1878,22 +1942,32 @@ extern machine_mode element_mode (const_tree t);
 
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->u.base.volatile_flag)
+#define TTYPE_VOLATILE(NODE) ((NODE)->is_volatile ())
+#define TTYPE_SET_VOLATILE(NODE, VAL) ((NODE)->set_volatile (VAL))
 
 /* Nonzero in a type considered atomic as a whole.  */
 #define TYPE_ATOMIC(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.atomic_flag)
+#define TTYPE_ATOMIC(NODE) ((NODE)->is_atomic ())
+#define TTYPE_SET_ATOMIC(NODE, VAL) ((NODE)->set_atomic (VAL))
 
 /* Means this type is const-qualified.  */
 #define TYPE_READONLY(NODE) (TYPE_CHECK (NODE)->u.base.readonly_flag)
+#define TTYPE_READONLY(NODE) ((NODE)->readonly ())
+#define TTYPE_SET_READONLY(NODE, VAL) ((NODE)->set_readonly (VAL))
 
 /* If nonzero, this type is `restrict'-qualified, in the C sense of
    the term.  */
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->u.type_common.restrict_flag)
+#define TTYPE_RESTRICT(NODE) ((NODE)->is_restrict ())
+#define TTYPE_SET_RESTRICT(NODE, VAL) ((NODE)->set_restrict (VAL))
 
 /* If nonzero, type's name shouldn't be emitted into debug info.  */
 #define TYPE_NAMELESS(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.nameless_flag)
 
 /* The address space the type is in.  */
 #define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.address_space)
+#define TTYPE_ADDR_SPACE(NODE) ((NODE)->addr_space ())
+#define TTYPE_SET_ADDR_SPACE(NODE, VAL) ((NODE)->set_addr_space (VAL))
 
 /* Encode/decode the named memory support as part of the qualifier.  If more
    than 8 qualifiers are added, these macros need to be adjusted.  */
@@ -1928,6 +2002,31 @@ extern machine_mode element_mode (const_tree t);
   ((int) ((TYPE_READONLY (NODE) * TYPE_QUAL_CONST)		\
 	  | (TYPE_VOLATILE (NODE) * TYPE_QUAL_VOLATILE)		\
 	  | (TYPE_RESTRICT (NODE) * TYPE_QUAL_RESTRICT)))
+
+int ttype::quals () const
+{
+  return (int) ((readonly() * TYPE_QUAL_CONST)
+		| (is_volatile() *  TYPE_QUAL_VOLATILE)
+		| (is_atomic() * TYPE_QUAL_ATOMIC)
+		| is_restrict() * TYPE_QUAL_RESTRICT
+		| ENCODE_QUAL_ADDR_SPACE (addr_space()));
+}
+
+int ttype::quals_no_addr_space () const
+{
+  return (int) ((readonly() * TYPE_QUAL_CONST)
+		| (is_volatile() *  TYPE_QUAL_VOLATILE)
+		| (is_atomic() * TYPE_QUAL_ATOMIC)
+		| is_restrict() * TYPE_QUAL_RESTRICT);
+}
+
+int ttype::quals_no_addr_space_no_atomic () const
+{
+  return (int) ((readonly() * TYPE_QUAL_CONST)
+		| (is_volatile() *  TYPE_QUAL_VOLATILE)
+		| is_restrict() * TYPE_QUAL_RESTRICT);
+}
+
 
 /* These flags are available for each language front end to use internally.  */
 #define TYPE_LANG_FLAG_0(NODE) (TYPE_CHECK (NODE)->u.type_common.lang_flag_0)
@@ -3782,6 +3881,24 @@ public:
   inline ttype *as_a_ttype () { return type; }
 };
 
+
+#define TTYPE_CODE(NODE) (NODE)->code()
+#define TTYPE_SET_CODE(NODE, VAL) (NODE)->set_code (VAL)
+#define TTYPE_CHAIN(NODE) (NODE)->chain()
+#define TTYPE_SET_CHAIN(NODE, VAL) (NODE)->set_chain (VAL)
+#define TTYPE_ASM_WRITTEN(NODE) (NODE)->asm_written()
+#define TTYPE_SET_ASM_WRITTEN(NODE, VAL) (NODE)->set_asm_written (VAL)
+#define TTYPE_VISITED(NODE) (NODE)->visited ()
+#define TTYPE_SET_VISITED(NODE, VAL) (NODE)->set_visited(VAL)
+#define TTYPE_SYMTAB_POINTER(NODE) (NODE)->symtab_pointer()
+#define TTYPE_SET_SYMTAB_POINTER(NODE, VAL) (NODE)->set_symtab_pointer(VAL)
+#define TTYPE_SYMTAB_ADDRESS(NODE) (NODE)->symtab_address()
+#define TTYPE_SET_SYMTAB_ADDRESS(NODE, VAL) (NODE)->set_symtab_address(VAL)
+#define TTYPE_CACHED_VALUES_P(NODE) (NODE)->cached_values_p()
+#define TTYPE_SET_CACHED_VALUES_P(NODE, VAL) (NODE)->set_cached_values_p(VAL)
+#define TTYPE_CACHED_VALUES(NODE) (NODE)->cached_values()
+#define TTYPE_SET_CACHED_VALUES(NODE, VAL) (NODE)->set_cached_values(VAL)
+
 #define TREE_CAST(NODE) ((tree)(NODE))
 #define TREE_PTR_CAST(NODE) ((tree *)(NODE))
 #define TTYPE_PTR(NODE)  ((ttype **)(NODE))
@@ -3801,7 +3918,6 @@ public:
 #define TTYPE_NEXT_REF_TO(NODE) TTYPE (TYPE_NEXT_REF_TO(NODE))
 
 #define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
-
 
 
 extern tree decl_assembler_name (tree);
@@ -4028,15 +4144,15 @@ extern tree signed_or_unsigned_type_for (int, tree);
 extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern tree truth_type_for (tree);
-extern ttype *build_pointer_type_for_mode (tree, machine_mode, bool);
+extern ttype *build_pointer_type_for_mode (ttype_p, machine_mode, bool);
 extern ttype *build_pointer_type (tree);
-extern ttype *build_reference_type_for_mode (tree, machine_mode, bool);
+extern ttype *build_reference_type_for_mode (ttype_p, machine_mode, bool);
 extern ttype *build_reference_type (tree);
 extern ttype *build_vector_type_for_mode (tree, machine_mode);
 extern ttype *build_vector_type (tree innertype, int nunits);
 extern tree build_truth_vector_type (unsigned, unsigned);
 extern tree build_same_sized_truth_vector_type (tree vectype);
-extern ttype *build_opaque_vector_type (tree innertype, int nunits);
+extern ttype *build_opaque_vector_type (ttype_p innertype, int nunits);
 extern ttype *build_index_type (tree);
 extern ttype *build_array_type (tree, tree);
 extern ttype *build_nonshared_array_type (tree, tree);
@@ -4106,7 +4222,7 @@ tree_to_uhwi (const_tree t)
 extern int tree_int_cst_sgn (const_tree);
 extern int tree_int_cst_sign_bit (const_tree);
 extern unsigned int tree_int_cst_min_precision (tree, signop);
-extern tree strip_array_types (tree);
+extern ttype *strip_array_types (ttype_p);
 extern tree excess_precision_type (tree);
 extern bool valid_constant_size_p (const_tree);
 
@@ -4123,7 +4239,7 @@ extern tree make_tree (tree, rtx);
    Such modified types already made are recorded so that duplicates
    are not made.  */
 
-extern ttype *build_type_attribute_variant (tree, tree);
+extern ttype *build_type_attribute_variant (ttype_p, tree);
 extern tree build_decl_attribute_variant (tree, tree);
 extern ttype *build_type_attribute_qual_variant (ttype_p, tree, int);
 
@@ -4245,7 +4361,7 @@ extern ttype *build_qualified_type (ttype_p, int);
 
 /* Create a variant of type T with alignment ALIGN.  */
 
-extern tree build_aligned_type (tree, unsigned int);
+extern ttype *build_aligned_type (ttype_p, unsigned int);
 
 /* Like build_qualified_type, but only deals with the `const' and
    `volatile' qualifiers.  This interface is retained for backwards
@@ -4260,7 +4376,7 @@ extern tree build_aligned_type (tree, unsigned int);
 /* Make a copy of a type node.  */
 
 extern ttype *build_distinct_type_copy (ttype_p);
-extern ttype *build_variant_type_copy (tree);
+extern ttype *build_variant_type_copy (ttype_p);
 
 /* Given a hashcode and a ..._TYPE node (for which the hashcode was made),
    return a canonicalized ..._TYPE node, so that duplicates are not made.
@@ -5494,5 +5610,64 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
   /* Otherwise, allow only if narrowing or same precision conversions. */
   return to_type_precision <= TYPE_PRECISION (from_type);
 }
+
+enum tree_code ttype::code () const { return (enum tree_code)(u.base.code); }
+void ttype::set_code (enum tree_code c) { u.base.code = c; }
+int ttype::uid () const { return u.type_common.uid; }
+void ttype::set_uid (int n) { u.type_common.uid = n; }
+tree ttype::size () const { return u.type_common.size; }
+void ttype::set_size (tree t) { u.type_common.size = t; }
+
+tree ttype::chain() const { return u.common.chain; }
+void ttype::set_chain (tree t) { u.common.chain = t; }
+bool ttype::asm_written() const { return u.base.asm_written_flag; }
+void ttype::set_asm_written (bool f) { u.base.asm_written_flag = f; }
+bool ttype::visited () const { return u.base.visited; }
+void ttype::set_visited (bool f) { u.base.visited = f; }
+bool ttype::readonly () const { return u.base.readonly_flag; }
+void ttype::set_readonly (bool f) { u.base.readonly_flag = f; }
+bool ttype::is_volatile () const { return u.base.volatile_flag; }
+void ttype::set_volatile (bool f) { u.base.volatile_flag = f; }
+ttype *ttype::type () const { return TTYPE (u.typed.type); }
+void ttype::set_type (ttype *t) { u.typed.type = t; }
+
+
+bool ttype::is_restrict () const { return u.type_common.restrict_flag; }
+void ttype::set_restrict (bool f) { u.type_common.restrict_flag = f; }
+bool ttype::is_atomic () const { return u.base.u.bits.atomic_flag; }
+void ttype::set_atomic (bool f) { u.base.u.bits.atomic_flag = f; }
+unsigned char ttype::addr_space () const { return u.base.u.bits.address_space; }
+void ttype::set_addr_space (unsigned char c)
+					    { u.base.u.bits.address_space = c; }
+
+ttype *ttype::canonical () const { return TTYPE(u.type_common.canonical); }
+void ttype::set_canonical (ttype *t) { u.type_common.canonical = t; }
+
+const char *ttype::symtab_pointer () const { return u.type_common.symtab.pointer; }
+void ttype::set_symtab_pointer (const char *p) { u.type_common.symtab.pointer = p; }
+int ttype::symtab_address () const { return u.type_common.symtab.address; }
+void ttype::set_symtab_address (int n) { u.type_common.symtab.address = n; }
+bool ttype::cached_values_p () const { return u.base.public_flag; }
+void ttype::set_cached_values_p (bool f) { u.base.public_flag = f; }
+tree ttype::cached_values () const { return u.type_non_common.values; }
+void ttype::set_cached_values (tree t) { u.type_non_common.values = t; }
+ttype *ttype::main_variant () const { return TTYPE (u.type_common.main_variant); }
+void ttype::set_main_variant (ttype *t) { u.type_common.main_variant = t; }
+ttype *ttype::next_variant () const { return TTYPE (u.type_common.next_variant); }
+void ttype::set_next_variant (ttype *t) { u.type_common.next_variant = t; }
+ttype *ttype::pointer_to () const { return TTYPE (u.type_common.pointer_to); }
+void ttype::set_pointer_to (ttype *t) { u.type_common.pointer_to = t; }
+ttype *ttype::next_ptr_to () const { return TTYPE (u.type_non_common.minval); }
+void ttype::set_next_ptr_to (ttype *t) { u.type_non_common.minval = t; }
+ttype *ttype::reference_to () const { return TTYPE (u.type_common.reference_to); }
+void ttype::set_reference_to (ttype *t) { u.type_common.reference_to = t; }
+ttype *ttype::next_ref_to () const { return TTYPE (u.type_non_common.minval); }
+void ttype::set_next_ref_to (ttype *t) { u.type_non_common.minval = t; }
+ttype *ttype::domain () const { return TTYPE (u.type_non_common.values); }
+void ttype::set_domain (ttype *t) { u.type_non_common.values = t; }
+
+
+
+
 
 #endif  /* GCC_TREE_H  */

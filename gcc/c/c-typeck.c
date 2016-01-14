@@ -265,20 +265,20 @@ c_type_promotes_to (ttype_p type)
 {
   ttype *ret = NULL;
 
-  if (TYPE_MAIN_VARIANT (type) == float_type_node)
+  if (type->main_variant () == float_type_node)
     ret = double_type_node;
   else if (c_promoting_integer_type_p (type))
     {
       /* Preserve unsignedness if not really getting any wider.  */
-      if (TYPE_UNSIGNED (type)
-	  && (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
+      if (type->is_unsigned ()
+	  && (type->precision () == integer_type_node->precision ()))
 	ret = unsigned_type_node;
       else
 	ret = integer_type_node;
     }
 
-  if (ret != NULL_TREE)
-    return (TYPE_ATOMIC (type)
+  if (ret != NULL)
+    return (type->is_atomic ()
 	    ? c_build_qualified_type (ret, TYPE_QUAL_ATOMIC)
 	    : ret);
 
@@ -13461,18 +13461,18 @@ c_finish_transaction (location_t loc, tree block, int flags)
    type was derived).  */
 
 ttype *
-c_build_qualified_type (tree type, int type_quals, tree orig_qual_tree_type,
-			size_t orig_qual_indirect)
+c_build_qualified_type (ttype_p type, int type_quals,
+			ttype_p orig_qual_tree_type, size_t orig_qual_indirect)
 {
-  if (type == error_mark_node)
+  if (type == error_type_node)
     return error_type_node;
 
-  ttype *orig_qual_type = TTYPE (orig_qual_tree_type);
+  ttype *orig_qual_type = orig_qual_tree_type;
 
-  if (TREE_CODE (type) == ARRAY_TYPE)
+  if (type->code () == ARRAY_TYPE)
     {
       ttype *t;
-      ttype *element_type = c_build_qualified_type (TREE_TYPE (type),
+      ttype *element_type = c_build_qualified_type (type->type (),
 						    type_quals, orig_qual_type,
 						    orig_qual_indirect - 1);
 
@@ -13480,43 +13480,43 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_tree_type,
       if (orig_qual_type && orig_qual_indirect == 0)
 	t = orig_qual_type;
       else
-	for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
+	for (t = type->main_variant (); t; t = t->next_variant ())
 	  {
-	    if (TYPE_QUALS (strip_array_types (t)) == type_quals
-		&& TYPE_NAME (t) == TYPE_NAME (type)
-		&& TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
-		&& attribute_list_equal (TYPE_ATTRIBUTES (t),
-					 TYPE_ATTRIBUTES (type)))
+	    if (strip_array_types(t)->quals () == type_quals
+		&& t->name () == type->name ()
+		&& t->context () == type->context ()
+		&& attribute_list_equal (t->attributes (),
+					 type->attributes ()))
 	      break;
 	  }
       if (!t)
 	{
-          tree domain = TYPE_DOMAIN (type);
+          ttype *domain = type->domain ();
 
 	  t = build_variant_type_copy (type);
-	  TREE_TYPE (t) = element_type;
+	  t->set_type (element_type);
 
-          if (TYPE_STRUCTURAL_EQUALITY_P (element_type)
-              || (domain && TYPE_STRUCTURAL_EQUALITY_P (domain)))
-            SET_TYPE_STRUCTURAL_EQUALITY (t);
-          else if (TYPE_CANONICAL (element_type) != element_type
-                   || (domain && TYPE_CANONICAL (domain) != domain))
+          if (element_type->structural_equality_p ()
+              || (domain && domain->structural_equality_p ()))
+            t->set_structural_equality_p ();
+          else if (element_type->canonical () != element_type
+                   || (domain && domain->canonical () != domain))
             {
-              tree unqualified_canon
-                = build_array_type (TYPE_CANONICAL (element_type),
-                                    domain? TYPE_CANONICAL (domain)
-                                          : NULL_TREE);
-              if (TYPE_REVERSE_STORAGE_ORDER (type))
+              ttype *unqualified_canon
+			      = build_array_type (element_type->canonical (),
+						  domain? domain->canonical ()
+							: NULL);
+              if (type->reverse_storage_order ())
                 {
                   unqualified_canon
                     = build_distinct_type_copy (unqualified_canon);
-                  TYPE_REVERSE_STORAGE_ORDER (unqualified_canon) = 1;
+                  unqualified_canon->set_reverse_storage_order (true);
                 }
-              TYPE_CANONICAL (t)
-                = c_build_qualified_type (unqualified_canon, type_quals);
+              t->set_canonical (c_build_qualified_type (unqualified_canon,
+							type_quals));
             }
           else
-            TYPE_CANONICAL (t) = t;
+            t->set_canonical (t);
 	}
       return t;
     }
@@ -13525,8 +13525,8 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_tree_type,
      incomplete type.  Note that the use of POINTER_TYPE_P also allows
      REFERENCE_TYPEs, which is appropriate for C++.  */
   if ((type_quals & TYPE_QUAL_RESTRICT)
-      && (!POINTER_TYPE_P (type)
-	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (TREE_TYPE (type))))
+      && (!type->pointer_type_p ()
+	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (type->type ())))
     {
       error ("invalid use of %<restrict%>");
       type_quals &= ~TYPE_QUAL_RESTRICT;
@@ -13537,7 +13537,7 @@ c_build_qualified_type (tree type, int type_quals, tree orig_qual_tree_type,
 		   : build_qualified_type (type, type_quals));
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (RECORD_OR_UNION_TYPE_P (var_type))
+  if (var_type->record_or_union_type_p ())
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

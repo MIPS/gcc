@@ -384,139 +384,139 @@ remap_decl (tree decl, copy_body_data *id)
 static ttype *
 remap_type_1 (ttype_p type, copy_body_data *id)
 {
-  ttype *new_tree, *t;
+  ttype *new_type, *t;
 
   /* We do need a copy.  build and register it now.  If this is a pointer or
      reference type, remap the designated type and make a new pointer or
      reference type.  */
-  if (TREE_CODE (type) == POINTER_TYPE)
+  if (type->code () == POINTER_TYPE)
     {
-      new_tree = build_pointer_type_for_mode (remap_type (TREE_TYPE (type), id),
+      new_type = build_pointer_type_for_mode (remap_type (TREE_TYPE (type), id),
 					 TYPE_MODE (type),
 					 TYPE_REF_CAN_ALIAS_ALL (type));
       if (TYPE_ATTRIBUTES (type) || TYPE_QUALS (type))
-	new_tree = build_type_attribute_qual_variant (new_tree,
+	new_type = build_type_attribute_qual_variant (new_type,
 						      TYPE_ATTRIBUTES (type),
 						      TYPE_QUALS (type));
-      insert_decl_map (id, type, new_tree);
-      return new_tree;
+      insert_decl_map (id, type, new_type);
+      return new_type;
     }
-  else if (TREE_CODE (type) == REFERENCE_TYPE)
+  else if (type->code () == REFERENCE_TYPE)
     {
-      new_tree = build_reference_type_for_mode (remap_type (TREE_TYPE (type), id),
+      new_type = build_reference_type_for_mode (remap_type (TREE_TYPE (type), id),
 					    TYPE_MODE (type),
 					    TYPE_REF_CAN_ALIAS_ALL (type));
       if (TYPE_ATTRIBUTES (type) || TYPE_QUALS (type))
-	new_tree = build_type_attribute_qual_variant (new_tree,
+	new_type = build_type_attribute_qual_variant (new_type,
 						      TYPE_ATTRIBUTES (type),
 						      TYPE_QUALS (type));
-      insert_decl_map (id, type, new_tree);
-      return new_tree;
+      insert_decl_map (id, type, new_type);
+      return new_type;
     }
   else
-    new_tree = copy_node (type);
+    new_type = copy_node (type);
 
-  insert_decl_map (id, type, new_tree);
+  insert_decl_map (id, type, new_type);
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
      variants.  We can handle everything except the main variant lazily.  */
-  t = TTYPE_MAIN_VARIANT (type);
+  t = type->main_variant ();
   if (type != t)
     {
       t = remap_type (t, id);
-      TYPE_MAIN_VARIANT (new_tree) = t;
-      TYPE_NEXT_VARIANT (new_tree) = TYPE_NEXT_VARIANT (t);
-      TYPE_NEXT_VARIANT (t) = new_tree;
+      new_type->set_main_variant (t);
+      new_type->set_next_variant (t->next_variant ());
+      t->set_next_variant (new_type);
     }
   else
     {
-      TYPE_MAIN_VARIANT (new_tree) = new_tree;
-      TYPE_NEXT_VARIANT (new_tree) = NULL;
+      new_type->set_main_variant (new_type);
+      new_type->set_next_variant (NULL);
     }
 
   if (TYPE_STUB_DECL (type))
-    TYPE_STUB_DECL (new_tree) = remap_decl (TYPE_STUB_DECL (type), id);
+    TYPE_STUB_DECL (new_type) = remap_decl (TYPE_STUB_DECL (type), id);
 
   /* Lazily create pointer and reference types.  */
-  TYPE_POINTER_TO (new_tree) = NULL;
-  TYPE_REFERENCE_TO (new_tree) = NULL;
+  new_type->set_pointer_to (NULL);
+  new_type->set_reference_to (NULL);
 
   /* Copy all types that may contain references to local variables; be sure to
      preserve sharing in between type and its main variant when possible.  */
-  switch (TREE_CODE (new_tree))
+  switch (new_type->code())
     {
     case INTEGER_TYPE:
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
-      if (TYPE_MAIN_VARIANT (new_tree) != new_tree)
+      if (new_type->main_variant () != new_type)
 	{
 	  gcc_checking_assert (TYPE_MIN_VALUE (type) == TYPE_MIN_VALUE (TYPE_MAIN_VARIANT (type)));
 	  gcc_checking_assert (TYPE_MAX_VALUE (type) == TYPE_MAX_VALUE (TYPE_MAIN_VARIANT (type)));
 
-	  TYPE_MIN_VALUE (new_tree) = TYPE_MIN_VALUE (TYPE_MAIN_VARIANT (new_tree));
-	  TYPE_MAX_VALUE (new_tree) = TYPE_MAX_VALUE (TYPE_MAIN_VARIANT (new_tree));
+	  TYPE_MIN_VALUE (new_type) = TYPE_MIN_VALUE (new_type->main_variant ());
+	  TYPE_MAX_VALUE (new_type) = TYPE_MAX_VALUE (new_type->main_variant ());
 	}
       else
 	{
-	  tree tmp = TYPE_MIN_VALUE (new_tree);
+	  tree tmp = TYPE_MIN_VALUE (new_type);
 	  if (tmp && TREE_CODE (tmp) != INTEGER_CST)
-	    walk_tree (&TYPE_MIN_VALUE (new_tree), copy_tree_body_r, id, NULL);
+	    walk_tree (&TYPE_MIN_VALUE (new_type), copy_tree_body_r, id, NULL);
 
-	  tmp = TYPE_MAX_VALUE (new_tree);
+	  tmp = TYPE_MAX_VALUE (new_type);
 	  if (tmp && TREE_CODE (tmp) != INTEGER_CST)
-	    walk_tree (&TYPE_MAX_VALUE (new_tree), copy_tree_body_r, id, NULL);
+	    walk_tree (&TYPE_MAX_VALUE (new_type), copy_tree_body_r, id, NULL);
 	}
-      return new_tree;
+      return new_type;
 
     case FUNCTION_TYPE:
-      if (TYPE_MAIN_VARIANT (new_tree) != new_tree
-	  && TREE_TYPE (type) == TREE_TYPE (TYPE_MAIN_VARIANT (type)))
-	TREE_TYPE (new_tree) = TREE_TYPE (TYPE_MAIN_VARIANT (new_tree));
+      if (new_type->main_variant () != new_type
+	  && TREE_TYPE (type) == TREE_TYPE (type->main_variant ()))
+	TREE_TYPE (new_type) = TREE_TYPE (new_type->main_variant ());
       else
-        TREE_TYPE (new_tree) = remap_type (TREE_TYPE (new_tree), id);
-      if (TYPE_MAIN_VARIANT (new_tree) != new_tree
-	  && TYPE_ARG_TYPES (type) == TYPE_ARG_TYPES (TYPE_MAIN_VARIANT (type)))
-	TYPE_ARG_TYPES (new_tree) = TYPE_ARG_TYPES (TYPE_MAIN_VARIANT (new_tree));
+        TREE_TYPE (new_type) = remap_type (TREE_TYPE (new_type), id);
+      if (new_type->main_variant () != new_type
+	  && TYPE_ARG_TYPES (type) == TYPE_ARG_TYPES (type->main_variant ()))
+	TYPE_ARG_TYPES (new_type) = TYPE_ARG_TYPES (new_type->main_variant ());
       else
-        walk_tree (&TYPE_ARG_TYPES (new_tree), copy_tree_body_r, id, NULL);
-      return new_tree;
+        walk_tree (&TYPE_ARG_TYPES (new_type), copy_tree_body_r, id, NULL);
+      return new_type;
 
     case ARRAY_TYPE:
-      if (TYPE_MAIN_VARIANT (new_tree) != new_tree
-	  && TREE_TYPE (type) == TREE_TYPE (TYPE_MAIN_VARIANT (type)))
-	TREE_TYPE (new_tree) = TREE_TYPE (TYPE_MAIN_VARIANT (new_tree));
+      if (new_type->main_variant () != new_type
+	  && TREE_TYPE (type) == TREE_TYPE (type->main_variant ()))
+	TREE_TYPE (new_type) = TREE_TYPE (new_type->main_variant ());
       else
-	TREE_TYPE (new_tree) = remap_type (TREE_TYPE (new_tree), id);
+	TREE_TYPE (new_type) = remap_type (TREE_TYPE (new_type), id);
 
-      if (TYPE_MAIN_VARIANT (new_tree) != new_tree)
+      if (new_type->main_variant () != new_type)
 	{
-	  gcc_checking_assert (TYPE_DOMAIN (type) == TYPE_DOMAIN (TYPE_MAIN_VARIANT (type)));
-	  TYPE_DOMAIN (new_tree) = TYPE_DOMAIN (TYPE_MAIN_VARIANT (new_tree));
+	  gcc_checking_assert (TYPE_DOMAIN (type) == TYPE_DOMAIN (type->main_variant ()));
+	  TYPE_DOMAIN (new_type) = TYPE_DOMAIN (new_type->main_variant ());
 	}
       else
-	TYPE_DOMAIN (new_tree) = remap_type (TYPE_DOMAIN (new_tree), id);
+	TYPE_DOMAIN (new_type) = remap_type (TYPE_DOMAIN (new_type), id);
       break;
 
     case RECORD_TYPE:
     case UNION_TYPE:
     case QUAL_UNION_TYPE:
-      if (TYPE_MAIN_VARIANT (type) != type
-	  && TYPE_FIELDS (type) == TYPE_FIELDS (TYPE_MAIN_VARIANT (type)))
-	TYPE_FIELDS (new_tree) = TYPE_FIELDS (TYPE_MAIN_VARIANT (new_tree));
+      if (type->main_variant () != type
+	  && TYPE_FIELDS (type) == TYPE_FIELDS (type->main_variant ()))
+	TYPE_FIELDS (new_type) = TYPE_FIELDS (new_type->main_variant ());
       else
 	{
 	  tree f, nf = NULL;
 
-	  for (f = TYPE_FIELDS (new_tree); f ; f = DECL_CHAIN (f))
+	  for (f = TYPE_FIELDS (new_type); f ; f = DECL_CHAIN (f))
 	    {
 	      tree tmp = remap_decl (f, id);
-	      DECL_CONTEXT (tmp) = new_tree;
+	      DECL_CONTEXT (tmp) = new_type;
 	      DECL_CHAIN (tmp) = nf;
 	      nf = tmp;
 	    }
-	  TYPE_FIELDS (new_tree) = nreverse (nf);
+	  TYPE_FIELDS (new_type) = nreverse (nf);
 	}
       break;
 
@@ -527,21 +527,21 @@ remap_type_1 (ttype_p type, copy_body_data *id)
     }
 
   /* All variants of type share the same size, so use the already remaped data.  */
-  if (TYPE_MAIN_VARIANT (new_tree) != new_tree)
+  if (new_type->main_variant () != new_type)
     {
-      gcc_checking_assert (TYPE_SIZE (type) == TYPE_SIZE (TYPE_MAIN_VARIANT (type)));
-      gcc_checking_assert (TYPE_SIZE_UNIT (type) == TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (type)));
+      gcc_checking_assert (TYPE_SIZE (type) == TYPE_SIZE (type->main_variant ()));
+      gcc_checking_assert (TYPE_SIZE_UNIT (type) == TYPE_SIZE_UNIT (type->main_variant ()));
 
-      TYPE_SIZE (new_tree) = TYPE_SIZE (TYPE_MAIN_VARIANT (new_tree));
-      TYPE_SIZE_UNIT (new_tree) = TYPE_SIZE_UNIT (TYPE_MAIN_VARIANT (new_tree));
+      TYPE_SIZE (new_type) = TYPE_SIZE (new_type->main_variant ());
+      TYPE_SIZE_UNIT (new_type) = TYPE_SIZE_UNIT (new_type->main_variant ());
     }
   else
     {
-      walk_tree (&TYPE_SIZE (new_tree), copy_tree_body_r, id, NULL);
-      walk_tree (&TYPE_SIZE_UNIT (new_tree), copy_tree_body_r, id, NULL);
+      walk_tree (&TYPE_SIZE (new_type), copy_tree_body_r, id, NULL);
+      walk_tree (&TYPE_SIZE_UNIT (new_type), copy_tree_body_r, id, NULL);
     }
 
-  return new_tree;
+  return new_type;
 }
 
 ttype *
