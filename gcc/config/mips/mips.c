@@ -8988,7 +8988,7 @@ mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 bool
 mips_move_by_pieces_p (unsigned HOST_WIDE_INT size, unsigned int align)
 {
-  if (HAVE_movmemsi)
+  if (HAVE_movmemsi && !(TARGET_MIPS16 && TARGET_MIPS16_COPY))
     {
       /* movmemsi is meant to generate code that is at least as good as
 	 move_by_pieces.  However, movmemsi effectively uses a by-pieces
