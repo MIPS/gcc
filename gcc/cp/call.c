@@ -2906,7 +2906,7 @@ add_builtin_candidates (struct z_candidate **candidates, enum tree_code code,
 	      if (real_lvalue_p (args[i]))
 		vec_safe_push (types[i], build_reference_type (argtypes[i]));
 
-	      vec_safe_push (types[i], TTYPE_MAIN_VARIANT (argtypes[i]));
+	      vec_safe_push (types[i], argtypes[i]->main_variant ());
 	    }
 
 	  else if (! convs)

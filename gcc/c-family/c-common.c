@@ -3736,7 +3736,7 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
      ENUMERAL_TYPE may cause other problems as well.  */
 
   if (!type->integral_type_p ()
-      || type->is_unsigned () == unsignedp)
+      || type->unsigned_p () == unsignedp)
     return type;
 
 #define TYPE_OK(node)							    \

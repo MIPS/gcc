@@ -1699,7 +1699,7 @@ type_promotes_to (ttype_p orig_type)
   if (orig_type == error_mark_node)
     return error_type_node;
 
-  type = TTYPE_MAIN_VARIANT (orig_type);
+  type = orig_type->main_variant ();
 
   /* Check for promotions of target-defined types first.  */
   promoted_type = TTYPE (targetm.promoted_type (type));
@@ -1708,13 +1708,13 @@ type_promotes_to (ttype_p orig_type)
 
   /* bool always promotes to int (not unsigned), even if it's the same
      size.  */
-  if (TREE_CODE (type) == BOOLEAN_TYPE)
+  if (type->code () == BOOLEAN_TYPE)
     type = integer_type_node;
 
   /* Normally convert enums to int, but convert wide enums to something
      wider.  Scoped enums don't promote, but pretend they do for backward
      ABI bug compatibility wrt varargs.  */
-  else if (TREE_CODE (type) == ENUMERAL_TYPE
+  else if (type->code () == ENUMERAL_TYPE
 	   || type == char16_type_node
 	   || type == char32_type_node
 	   || type == wchar_type_node)

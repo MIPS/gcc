@@ -6512,10 +6512,10 @@ handle_dll_type_attribute (ttype ** pnode, tree name, tree args, int flags,
 static void
 set_type_quals (ttype *type, int type_quals)
 {
-  type->set_readonly ((type_quals & TYPE_QUAL_CONST) != 0);
-  type->set_volatile ((type_quals & TYPE_QUAL_VOLATILE) != 0);
-  type->set_restrict ((type_quals & TYPE_QUAL_RESTRICT) != 0);
-  type->set_atomic ((type_quals & TYPE_QUAL_ATOMIC) != 0);
+  type->set_readonly_p ((type_quals & TYPE_QUAL_CONST) != 0);
+  type->set_volatile_p ((type_quals & TYPE_QUAL_VOLATILE) != 0);
+  type->set_restrict_p ((type_quals & TYPE_QUAL_RESTRICT) != 0);
+  type->set_atomic_p ((type_quals & TYPE_QUAL_ATOMIC) != 0);
   type->set_addr_space (DECODE_QUAL_ADDR_SPACE (type_quals));
 }
 
@@ -14043,9 +14043,5 @@ combined_fn_name (combined_fn fn)
     return internal_fn_name (as_internal_fn (fn));
 }
 
-enum machine_mode ttype::vector_type_mode() const
-{
-  return ::vector_type_mode ((const_tree)this);
-}
 
 #include "gt-tree.h"

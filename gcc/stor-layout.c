@@ -2446,24 +2446,23 @@ min_align_of_type (tree type)
    referenced by a function and re-compute the TYPE_MODE once, rather
    than make the TYPE_MODE macro call a function.  */
 
-machine_mode
-vector_type_mode (const_tree t)
+enum machine_mode ttype::vector_type_mode() const
 {
   machine_mode mode;
 
-  gcc_assert (TREE_CODE (t) == VECTOR_TYPE);
+  gcc_assert (code () == VECTOR_TYPE);
 
-  mode = t->u.type_common.mode;
+  mode = mode_raw ();
   if (VECTOR_MODE_P (mode)
       && (!targetm.vector_mode_supported_p (mode)
 	  || !have_regs_of_mode[mode]))
     {
-      machine_mode innermode = TREE_TYPE (t)->u.type_common.mode;
+      machine_mode innermode = type()->mode_raw ();
 
       /* For integers, try mapping it to a same-sized scalar mode.  */
       if (GET_MODE_CLASS (innermode) == MODE_INT)
 	{
-	  mode = mode_for_size (TYPE_VECTOR_SUBPARTS (t)
+	  mode = mode_for_size (vector_subparts ()
 				* GET_MODE_BITSIZE (innermode), MODE_INT, 0);
 
 	  if (mode != VOIDmode && have_regs_of_mode[mode])
@@ -2475,6 +2474,14 @@ vector_type_mode (const_tree t)
 
   return mode;
 }
+
+enum machine_mode
+vector_type_mode (const_tree t)
+{
+  const ttype *tt = TTYPE (t);
+  return tt->vector_type_mode();
+}
+
 
 /* Create and return a type for signed integers of PRECISION bits.  */
 

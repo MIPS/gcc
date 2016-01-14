@@ -869,11 +869,11 @@ build_cplus_array_type (ttype_p elt_type, tree index_type)
     }
 
   /* Now check whether we already have this array variant.  */
-  if (elt_type != TYPE_MAIN_VARIANT (elt_type))
+  if (elt_type != elt_type->main_variant ())
     {
       ttype *m = t;
-      for (t = m; t; t = TTYPE_NEXT_VARIANT (t))
-	if (TREE_TYPE (t) == elt_type
+      for (t = m; t; t = t->next_variant ())
+	if (t->type () == elt_type
 	    && TYPE_NAME (t) == NULL_TREE
 	    && TYPE_ATTRIBUTES (t) == NULL_TREE)
 	  break;
@@ -1064,7 +1064,7 @@ cp_build_qualified_type_real (ttype_p type,
 
       /* See if we already have an identically qualified type.  Tests
 	 should be equivalent to those in check_qualified_type.  */
-      for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
+      for (t = type->main_variant (); t; t = t->next_variant ())
 	if (TREE_TYPE (t) == element_type
 	    && TYPE_NAME (t) == TYPE_NAME (type)
 	    && TYPE_CONTEXT (t) == TYPE_CONTEXT (type)
@@ -1899,7 +1899,7 @@ build_ref_qualified_type (ttype_p type, cp_ref_qualifier rqual)
 
   int type_quals = TYPE_QUALS (type);
   tree raises = TYPE_RAISES_EXCEPTIONS (type);
-  for (t = TTYPE_MAIN_VARIANT (type); t; t = TTYPE_NEXT_VARIANT (t))
+  for (t = type->main_variant (); t; t = t->next_variant ())
     if (cp_check_qualified_type (t, type, type_quals, rqual, raises))
       return t;
 
@@ -2140,7 +2140,7 @@ build_exception_variant (ttype_p type, tree raises)
 
   type_quals = TYPE_QUALS (type);
   cp_ref_qualifier rqual = type_memfn_rqual (type);
-  for (v = TTYPE_MAIN_VARIANT (type); v; v = TTYPE_NEXT_VARIANT (v))
+  for (v = type->main_variant (); v; v = v-> next_variant ())
     if (cp_check_qualified_type (v, type, type_quals, rqual, raises))
       return v;
 

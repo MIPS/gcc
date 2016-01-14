@@ -270,7 +270,7 @@ c_type_promotes_to (ttype_p type)
   else if (c_promoting_integer_type_p (type))
     {
       /* Preserve unsignedness if not really getting any wider.  */
-      if (type->is_unsigned ()
+      if (type->unsigned_p ()
 	  && (type->precision () == integer_type_node->precision ()))
 	ret = unsigned_type_node;
       else
@@ -278,7 +278,7 @@ c_type_promotes_to (ttype_p type)
     }
 
   if (ret != NULL)
-    return (type->is_atomic ()
+    return (type->atomic_p ()
 	    ? c_build_qualified_type (ret, TYPE_QUAL_ATOMIC)
 	    : ret);
 
@@ -13506,11 +13506,11 @@ c_build_qualified_type (ttype_p type, int type_quals,
 			      = build_array_type (element_type->canonical (),
 						  domain? domain->canonical ()
 							: NULL);
-              if (type->reverse_storage_order ())
+              if (type->reverse_storage_order_p ())
                 {
                   unqualified_canon
                     = build_distinct_type_copy (unqualified_canon);
-                  unqualified_canon->set_reverse_storage_order (true);
+                  unqualified_canon->set_reverse_storage_order_p (true);
                 }
               t->set_canonical (c_build_qualified_type (unqualified_canon,
 							type_quals));

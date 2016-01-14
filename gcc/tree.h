@@ -240,6 +240,13 @@ as_internal_fn (combined_fn code)
 
 #define NULL_TREE (tree) NULL
 
+/* Define  the error_* nodes early for the inlined ttype methods.  */
+#define error_mark_node			global_trees[TI_ERROR_MARK]
+/* error_type_node will eventually be distinct from error_mark_node, but 
+   for now it must be identical for code to execute. */
+// #define error_type_node		global_types[TPI_ERROR_TYPE]
+#define error_type_node			((ttype *)error_mark_node)
+
 /* Define accessors for the fields that all tree nodes have
    (though some fields are not used for all kinds of nodes).  */
 
@@ -247,6 +254,82 @@ as_internal_fn (combined_fn code)
    Codes are defined in tree.def.  */
 #define TREE_CODE(NODE) ((enum tree_code) (NODE)->u.base.code)
 #define TREE_SET_CODE(NODE, VALUE) ((NODE)->u.base.code = (VALUE))
+enum tree_code ttype::code () const { return (enum tree_code)(u.base.code); }
+void ttype::set_code (enum tree_code c) { u.base.code = c; }
+
+
+/* Helper routine to enable as_a<ttype *> */
+template <>
+template <>
+inline bool
+is_a_helper <ttype *>::test (tree t)
+{
+  return TYPE_P (t);
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <const ttype *>::test (const_tree t)
+{
+  return TYPE_P (t);
+}
+/* This routine is used to mark casts to ttype * which we eventually want to
+   disappear. When ttype has been propogated throughout the comnpiler, we ought
+   to be able to simply drop *all* of these.  Typically it is used to access a 
+   tree field in a struct that will eventually be a ttype * field.  */
+static inline ttype *TTYPE (tree t) 
+{ 
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <ttype *>(t); 
+}
+static inline const ttype *TTYPE (const_tree t)
+{ 
+  if (t == NULL_TREE)
+    return NULL;
+  if (t == error_mark_node)
+    return error_type_node;
+  return as_a <const ttype *>(t); 
+}
+/* This will generate a compiler error when a tree is turned into a ttype *,
+   but a reference to a TTYPE() call was not removed.  */
+ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)")));
+const ttype *TTYPE (const ttype *t) 
+		    __attribute__((error(" Fix use of TTYPE(const ttype *)")));
+
+
+/* This is the interface class for incoming parameters to functions/methods
+   so that all callers do not need to be ttype-ified all at once. This will
+   allow the code withinn a function to treat the parameter exactly as if it
+   were a 'ttype *', yet allow callers to pass either a ttype * or a tree.
+   When ttype has been propogated enoguh, this can be changed from 'ttype_p'
+   to 'ttype *' by text replacement and will just work.  */
+
+class ttype_p {
+  ttype *type;
+public:
+  inline ttype_p (tree t) { type = TTYPE (t); }
+  inline ttype_p (ttype *t) { type = t; }
+  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
+  inline operator ttype *() const { return type; }
+  inline ttype * operator->() { return type; }
+  // Used to mark locations which will simply be ttype when we can remove the
+  // ttype_p type at this location.  Mostly when used in varargs..
+  inline ttype *as_a_ttype () { return type; }
+};
+
+/* On rare occassions, situations arise which require a temporary situation to
+   exist when an explcicit cast needs to be made. These macros are provided
+   to enable performing the cast, and provide a searchable name so they can be
+   removed at the earliest convenience.  This will not remain in the compiler
+   long term.   Each use should be accompanied by a comment indicating WHY 
+   it is required so its obvious what work is required to remove them.  */
+#define TREE_CAST(NODE) ((tree)(NODE))
+#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
+#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
 
 /* When checking is enabled, errors will be generated if a tree node
    is accessed incorrectly. The macros die with a fatal error.  */
@@ -334,25 +417,6 @@ as_internal_fn (combined_fn code)
 (*(tree_operand_check_code ((T), (CODE), (I), \
                                          __FILE__, __LINE__, __FUNCTION__)))
 
-/* Nodes are chained together for many purposes.
-   Types are chained together to record them for being output to the debugger
-   (see the function `chain_type').
-   Decls in the same scope are chained together to record the contents
-   of the scope.
-   Statement nodes for successive statements used to be chained together.
-   Often lists of things are represented by TREE_LIST nodes that
-   are chained together.  */
-
-#define TREE_CHAIN(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->u.common.chain)
-
-/* In all nodes that are expressions, this is the data type of the expression.
-   In POINTER_TYPE nodes, this is the type that the pointer points to.
-   In ARRAY_TYPE nodes, this is the type of the elements.
-   In VECTOR_TYPE nodes, this is the type of the elements.  */
-#define TREE_TYPE(NODE) \
-(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
-
 extern void tree_contains_struct_check_failed (const_tree,
 					       const enum tree_node_structure_enum,
 					       const char *, int, const char *)
@@ -422,10 +486,43 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define OMP_CLAUSE_SUBCODE_CHECK(T, CODE)	(T)
 #define ANY_INTEGRAL_TYPE_CHECK(T)		(T)
 
-#define TREE_CHAIN(NODE) ((NODE)->u.common.chain)
-#define TREE_TYPE(NODE) ((NODE)->u.typed.type)
-
 #endif
+
+/* Nodes are chained together for many purposes.
+   Types are chained together to record them for being output to the debugger
+   (see the function `chain_type').
+   Decls in the same scope are chained together to record the contents
+   of the scope.
+   Statement nodes for successive statements used to be chained together.
+   Often lists of things are represented by TREE_LIST nodes that
+   are chained together.  */
+
+#define TREE_CHAIN(NODE) \
+(CONTAINS_STRUCT_CHECK (NODE, TS_COMMON)->u.common.chain)
+tree ttype::chain() const { return u.common.chain; }
+void ttype::set_chain (tree t) { u.common.chain = t; }
+
+/* In all nodes that are expressions, this is the data type of the expression.
+   In POINTER_TYPE nodes, this is the type that the pointer points to.
+   In ARRAY_TYPE nodes, this is the type of the elements.
+   In VECTOR_TYPE nodes, this is the type of the elements.  */
+#define TREE_TYPE(NODE) \
+(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
+ttype *ttype::type () const { return TTYPE (u.typed.type); }
+void ttype::set_type (ttype *t) { u.typed.type = t; }
+
+/* TREE_TTYPE is the equivilent of TREE_TYPE, except it returns the field as a
+   ttype *.  TsH is used in places where we will need to no cast the day
+   the type field become a ttype *.  All occurences can be replaced with
+   the normal TREE_TYPE field then.  */
+#define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
+
+/* When the idiom &(TREE_TYPE(NODE)) is used, and the result needs to be treated
+   as a ttype **, this macro is used.  This is usually when the address of a
+   tree type is passed to a function which requires a ttype **.  When the type
+   fiedl becomes a 'ttype *', it can simply revert to &(TREE_TYPE (NODE)).  */
+#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
+
 
 #define TREE_BLOCK(NODE)		(tree_block (NODE))
 #define TREE_SET_BLOCK(T, B)		(tree_set_block ((T), (B)))
@@ -760,6 +857,8 @@ inline bool ttype::pointer_type_p() const
 /* In a _TYPE, indicates whether TYPE_CACHED_VALUES contains a vector
    of cached values, or is something else.  */
 #define TYPE_CACHED_VALUES_P(NODE) (TYPE_CHECK (NODE)->u.base.public_flag)
+bool ttype::cached_values_p () const { return u.base.public_flag; }
+void ttype::set_cached_values_p (bool f) { u.base.public_flag = f; }
 
 /* In a SAVE_EXPR, indicates that the original expression has already
    been substituted with a VAR_DECL that contains the value.  */
@@ -832,12 +931,12 @@ inline bool ttype::pointer_type_p() const
 
 /* In integral and pointer types, means an unsigned type.  */
 #define TYPE_UNSIGNED(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.unsigned_flag)
-bool ttype::is_unsigned () const { return (u.base.u.bits.unsigned_flag); }
-void ttype::set_unsigned (bool f) { u.base.u.bits.unsigned_flag = f; }
+bool ttype::unsigned_p () const { return (u.base.u.bits.unsigned_flag); }
+void ttype::set_unsigned_p (bool f) { u.base.u.bits.unsigned_flag = f; }
 
 /* Same as TYPE_UNSIGNED but converted to SIGNOP.  */
 #define TYPE_SIGN(NODE) ((signop) TYPE_UNSIGNED (NODE))
-signop ttype::sign () const { return (signop) is_unsigned (); }
+signop ttype::sign () const { return (signop) unsigned_p (); }
 
 /* True if overflow wraps around for the given integral type.  That
    is, TYPE_MAX + 1 == TYPE_MIN.  */
@@ -880,6 +979,8 @@ signop ttype::sign () const { return (signop) is_unsigned (); }
    In an SSA_NAME node, nonzero if the SSA_NAME occurs in an abnormal
    PHI node.  */
 #define TREE_ASM_WRITTEN(NODE) ((NODE)->u.base.asm_written_flag)
+bool ttype::asm_written_p () const { return u.base.asm_written_flag; }
+void ttype::set_asm_written_p (bool f) { u.base.asm_written_flag = f; }
 
 /* Nonzero in a _DECL if the name is used in its scope.
    Nonzero in an expr node means inhibit warning if value is unused.
@@ -967,9 +1068,9 @@ signop ttype::sign () const { return (signop) is_unsigned (); }
    toggles BYTES_BIG_ENDIAN and WORDS_BIG_ENDIAN within the type.  */
 #define TYPE_REVERSE_STORAGE_ORDER(NODE) \
   (TREE_CHECK4 (NODE, RECORD_TYPE, UNION_TYPE, QUAL_UNION_TYPE, ARRAY_TYPE)->u.base.u.bits.saturating_flag)
-bool ttype::reverse_storage_order () const 
+bool ttype::reverse_storage_order_p () const 
 				      { return u.base.u.bits.saturating_flag; }
-void ttype::set_reverse_storage_order (bool f) 
+void ttype::set_reverse_storage_order_p (bool f) 
 					{ u.base.u.bits.saturating_flag = f; }
 
 /* In a non-aggregate type, indicates a saturating type.  */
@@ -1808,16 +1909,23 @@ extern void protected_set_expr_location (tree, location_t);
    so they must be checked as well.  */
 
 #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->u.type_common.uid)
-#define TTYPE_UID(NODE) (NODE)->uid ()
-#define TTYPE_SET_UID(NODE, VAL) (NODE)->set_uid (VAL)
+int ttype::uid () const { return u.type_common.uid; }
+void ttype::set_uid (int n) { u.type_common.uid = n; }
 
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->u.type_common.size)
-#define TTYPE_SIZE(NODE) ((NODE)->size())
-#define TTYPE_SET_SIZE(NODE, VAL) ((NODE)->set_size (VAL))
+tree ttype::size () const { return u.type_common.size; }
+void ttype::set_size (tree t) { u.type_common.size = t; }
 
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->u.type_common.size_unit)
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.pointer_to)
+ttype *ttype::pointer_to () const { return TTYPE (u.type_common.pointer_to); }
+void ttype::set_pointer_to (ttype *t) { u.type_common.pointer_to = t; }
+
 #define TYPE_REFERENCE_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.reference_to)
+ttype *ttype::reference_to () const
+				  { return TTYPE (u.type_common.reference_to); }
+void ttype::set_reference_to (ttype *t) { u.type_common.reference_to = t; }
+
 #define TYPE_PRECISION(NODE) (TYPE_CHECK (NODE)->u.type_common.precision)
 unsigned ttype::precision () const { return u.type_common.precision; }
 void ttype::set_precision (unsigned i) { u.type_common.precision = i; }
@@ -1827,30 +1935,35 @@ inline tree ttype::name() const { return u.type_common.name; }
 inline void ttype::set_name(tree t) { u.type_common.name = t; }
 
 #define TYPE_NEXT_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.next_variant)
+ttype *ttype::next_variant () const
+				{ return TTYPE (u.type_common.next_variant); }
+void ttype::set_next_variant (ttype *t) { u.type_common.next_variant = t; }
+
 #define TYPE_MAIN_VARIANT(NODE) (TYPE_CHECK (NODE)->u.type_common.main_variant)
+ttype *ttype::main_variant () const
+				  { return TTYPE (u.type_common.main_variant); }
+void ttype::set_main_variant (ttype *t) { u.type_common.main_variant = t; }
+
 #define TYPE_CONTEXT(NODE) (TYPE_CHECK (NODE)->u.type_common.context)
-inline tree ttype::context() const { return u.type_common.context; }
-inline void ttype::set_context(tree t) { u.type_common.context = t; }
+inline tree ttype::context () const { return u.type_common.context; }
+inline void ttype::set_context (tree t) { u.type_common.context = t; }
 
 #define TYPE_MODE_RAW(NODE) (TYPE_CHECK (NODE)->u.type_common.mode)
+enum machine_mode ttype::mode_raw () const { return u.type_common.mode; }
+
 #define TYPE_MODE(NODE) \
   (VECTOR_TYPE_P (TYPE_CHECK (NODE)) \
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
-#define SET_TYPE_MODE(NODE, MODE) \
-  (TYPE_CHECK (NODE)->u.type_common.mode = (MODE))
-
-enum machine_mode ttype::mode_raw() const
-{
-    return u.type_common.mode;
-}
-
-enum machine_mode ttype::mode() const
+enum machine_mode ttype::mode () const
 {
   if (vector_type_p ())
     return vector_type_mode ();
   else
     return u.type_common.mode;
 }
+
+#define SET_TYPE_MODE(NODE, MODE) \
+  (TYPE_CHECK (NODE)->u.type_common.mode = (MODE))
 void ttype::set_mode (enum machine_mode m) { u.type_common.mode = m; }
 
 
@@ -1873,8 +1986,8 @@ extern machine_mode element_mode (const_tree t);
    to assign the same alias-sets to the type partition with equal
    TYPE_CANONICAL of their unqualified variants.  */
 #define TYPE_CANONICAL(NODE) (TYPE_CHECK (NODE)->u.type_common.canonical)
-#define TTYPE_CANONICAL(NODE) ((NODE)->canonical ())
-#define TTYPE_SET_CANONICAL(NODE, VAL) ((NODE)->set_canonical (VAL))
+ttype *ttype::canonical () const { return TTYPE(u.type_common.canonical); }
+void ttype::set_canonical (ttype *t) { u.type_common.canonical = t; }
 
 /* Indicates that the type node requires structural equality
    checks.  The compiler will need to look at the composition of the
@@ -1942,32 +2055,33 @@ inline void ttype::set_attributes (tree t)
 
 /* Nonzero in a type considered volatile as a whole.  */
 #define TYPE_VOLATILE(NODE) (TYPE_CHECK (NODE)->u.base.volatile_flag)
-#define TTYPE_VOLATILE(NODE) ((NODE)->is_volatile ())
-#define TTYPE_SET_VOLATILE(NODE, VAL) ((NODE)->set_volatile (VAL))
+bool ttype::volatile_p () const { return u.base.volatile_flag; }
+void ttype::set_volatile_p (bool f) { u.base.volatile_flag = f; }
 
 /* Nonzero in a type considered atomic as a whole.  */
 #define TYPE_ATOMIC(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.atomic_flag)
-#define TTYPE_ATOMIC(NODE) ((NODE)->is_atomic ())
-#define TTYPE_SET_ATOMIC(NODE, VAL) ((NODE)->set_atomic (VAL))
+bool ttype::atomic_p () const { return u.base.u.bits.atomic_flag; }
+void ttype::set_atomic_p (bool f) { u.base.u.bits.atomic_flag = f; }
 
 /* Means this type is const-qualified.  */
 #define TYPE_READONLY(NODE) (TYPE_CHECK (NODE)->u.base.readonly_flag)
-#define TTYPE_READONLY(NODE) ((NODE)->readonly ())
-#define TTYPE_SET_READONLY(NODE, VAL) ((NODE)->set_readonly (VAL))
+bool ttype::readonly_p () const { return u.base.readonly_flag; }
+void ttype::set_readonly_p (bool f) { u.base.readonly_flag = f; }
 
 /* If nonzero, this type is `restrict'-qualified, in the C sense of
    the term.  */
 #define TYPE_RESTRICT(NODE) (TYPE_CHECK (NODE)->u.type_common.restrict_flag)
-#define TTYPE_RESTRICT(NODE) ((NODE)->is_restrict ())
-#define TTYPE_SET_RESTRICT(NODE, VAL) ((NODE)->set_restrict (VAL))
+bool ttype::restrict_p () const { return u.type_common.restrict_flag; }
+void ttype::set_restrict_p (bool f) { u.type_common.restrict_flag = f; }
 
 /* If nonzero, type's name shouldn't be emitted into debug info.  */
 #define TYPE_NAMELESS(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.nameless_flag)
 
 /* The address space the type is in.  */
 #define TYPE_ADDR_SPACE(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.address_space)
-#define TTYPE_ADDR_SPACE(NODE) ((NODE)->addr_space ())
-#define TTYPE_SET_ADDR_SPACE(NODE, VAL) ((NODE)->set_addr_space (VAL))
+unsigned char ttype::addr_space () const { return u.base.u.bits.address_space; }
+void ttype::set_addr_space (unsigned char c)
+					    { u.base.u.bits.address_space = c; }
 
 /* Encode/decode the named memory support as part of the qualifier.  If more
    than 8 qualifiers are added, these macros need to be adjusted.  */
@@ -2005,26 +2119,26 @@ inline void ttype::set_attributes (tree t)
 
 int ttype::quals () const
 {
-  return (int) ((readonly() * TYPE_QUAL_CONST)
-		| (is_volatile() *  TYPE_QUAL_VOLATILE)
-		| (is_atomic() * TYPE_QUAL_ATOMIC)
-		| is_restrict() * TYPE_QUAL_RESTRICT
+  return (int) ((readonly_p () * TYPE_QUAL_CONST)
+		| (volatile_p () *  TYPE_QUAL_VOLATILE)
+		| (atomic_p () * TYPE_QUAL_ATOMIC)
+		| (restrict_p () * TYPE_QUAL_RESTRICT)
 		| ENCODE_QUAL_ADDR_SPACE (addr_space()));
 }
 
 int ttype::quals_no_addr_space () const
 {
-  return (int) ((readonly() * TYPE_QUAL_CONST)
-		| (is_volatile() *  TYPE_QUAL_VOLATILE)
-		| (is_atomic() * TYPE_QUAL_ATOMIC)
-		| is_restrict() * TYPE_QUAL_RESTRICT);
+  return (int) ((readonly_p () * TYPE_QUAL_CONST)
+		| (volatile_p () *  TYPE_QUAL_VOLATILE)
+		| (atomic_p () * TYPE_QUAL_ATOMIC)
+		| (restrict_p () * TYPE_QUAL_RESTRICT));
 }
 
 int ttype::quals_no_addr_space_no_atomic () const
 {
-  return (int) ((readonly() * TYPE_QUAL_CONST)
-		| (is_volatile() *  TYPE_QUAL_VOLATILE)
-		| is_restrict() * TYPE_QUAL_RESTRICT);
+  return (int) ((readonly_p () * TYPE_QUAL_CONST)
+		| (volatile_p () *  TYPE_QUAL_VOLATILE)
+		| (restrict_p () * TYPE_QUAL_RESTRICT));
 }
 
 
@@ -2040,6 +2154,8 @@ int ttype::quals_no_addr_space_no_atomic () const
 /* Used to keep track of visited nodes in tree traversals.  This is set to
    0 by copy_node and make_node.  */
 #define TREE_VISITED(NODE) ((NODE)->u.base.visited)
+bool ttype::visited_p () const { return u.base.visited; }
+void ttype::set_visited_p (bool f) { u.base.visited = f; }
 
 /* If set in an ARRAY_TYPE, indicates a string type (for languages
    that distinguish string from array of char).
@@ -2050,10 +2166,13 @@ int ttype::quals_no_addr_space_no_atomic () const
 #define TYPE_VECTOR_SUBPARTS(VECTOR_TYPE) \
   (((unsigned HOST_WIDE_INT) 1) \
    << VECTOR_TYPE_CHECK (VECTOR_TYPE)->u.type_common.precision)
+unsigned ttype::vector_subparts () const
+			{ return ((unsigned HOST_WIDE_INT) 1) << precision (); }
 
 /* Set precision to n when we have 2^n sub-parts of the vector.  */
 #define SET_TYPE_VECTOR_SUBPARTS(VECTOR_TYPE, X) \
   (VECTOR_TYPE_CHECK (VECTOR_TYPE)->u.type_common.precision = exact_log2 (X))
+void ttype::set_vector_subparts (unsigned u) { set_precision (exact_log2 (u)); }
 
 /* Nonzero in a VECTOR_TYPE if the frontends should not emit warnings
    about missing conversions to other vector types of the same size.  */
@@ -2103,11 +2222,17 @@ int ttype::quals_no_addr_space_no_atomic () const
    hold the type's number in the generated stabs.  */
 #define TYPE_SYMTAB_ADDRESS(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.symtab.address)
+int ttype::symtab_address () const { return u.type_common.symtab.address; }
+void ttype::set_symtab_address (int n) { u.type_common.symtab.address = n; }
 
 /* Symtab field as a string.  Used by COFF generator in sdbout.c to
    hold struct/union type tag names.  */
 #define TYPE_SYMTAB_POINTER(NODE) \
   (TYPE_CHECK (NODE)->u.type_common.symtab.pointer)
+const char *ttype::symtab_pointer () const
+				      { return u.type_common.symtab.pointer; }
+void ttype::set_symtab_pointer (const char *p)
+					  { u.type_common.symtab.pointer = p; }
 
 /* Symtab field as a pointer to a DWARF DIE.  Used by DWARF generator
    in dwarf2out.c to point to the DIE generated for the type.  */
@@ -2127,9 +2252,16 @@ int ttype::quals_no_addr_space_no_atomic () const
 
 #define TYPE_VALUES(NODE) (ENUMERAL_TYPE_CHECK (NODE)->u.type_non_common.values)
 #define TYPE_DOMAIN(NODE) (ARRAY_TYPE_CHECK (NODE)->u.type_non_common.values)
+ttype *ttype::domain () const { return TTYPE (u.type_non_common.values); }
+void ttype::set_domain (ttype *t) { u.type_non_common.values = t; }
+
 #define TYPE_FIELDS(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.values)
+
 #define TYPE_CACHED_VALUES(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
+tree ttype::cached_values () const { return u.type_non_common.values; }
+void ttype::set_cached_values (tree t) { u.type_non_common.values = t; }
+
 #define TYPE_ARG_TYPES(NODE) \
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.values)
 #define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
@@ -2146,8 +2278,14 @@ int ttype::quals_no_addr_space_no_atomic () const
 #define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.minval)
 #define TYPE_NEXT_PTR_TO(NODE) \
   (POINTER_TYPE_CHECK (NODE)->u.type_non_common.minval)
+ttype *ttype::next_ptr_to () const { return TTYPE (u.type_non_common.minval); }
+void ttype::set_next_ptr_to (ttype *t) { u.type_non_common.minval = t; }
+
 #define TYPE_NEXT_REF_TO(NODE) \
   (REFERENCE_TYPE_CHECK (NODE)->u.type_non_common.minval)
+ttype *ttype::next_ref_to () const { return TTYPE (u.type_non_common.minval); }
+void ttype::set_next_ref_to (ttype *t) { u.type_non_common.minval = t; }
+
 #define TYPE_MIN_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.minval)
 #define TYPE_MAX_VALUE(NODE) \
@@ -2198,6 +2336,11 @@ int ttype::quals_no_addr_space_no_atomic () const
 
 /* The actual data type node being inherited in this basetype.  */
 #define BINFO_TYPE(NODE) TREE_TYPE (TREE_BINFO_CHECK (NODE))
+
+/* When the type needs to be a ttype *.  For use until typed.type becomes a
+   'ttype *', and then it can be reverted to a BINFO_TYPE. */
+#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
+
 
 /* The offset where this basetype appears in its containing type.
    BINFO_OFFSET slot holds the offset (in bytes)
@@ -3636,12 +3779,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 
 #endif
 
-#define error_mark_node			global_trees[TI_ERROR_MARK]
-/* error_type_node will eventually be distinct from error_mark_node, but 
-   for now it must be identical for code to execute. */
-// #define error_type_node		global_types[TPI_ERROR_TYPE]
-#define error_type_node			((ttype *)error_mark_node)
-
 #define intQI_type_node			global_types[TPI_INTQI_TYPE]
 #define intHI_type_node			global_types[TPI_INTHI_TYPE]
 #define intSI_type_node			global_types[TPI_INTSI_TYPE]
@@ -3847,78 +3984,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define error_operand_p(NODE)					\
   ((NODE) == error_mark_node					\
    || ((NODE) && TREE_TYPE ((NODE)) == error_mark_node))
-
-template <>
-template <>
-inline bool
-is_a_helper <ttype *>::test (tree t)
-{
-  return TYPE_P (t);
-}
-
-static inline ttype *TTYPE (tree t) 
-{ 
-  if (t == NULL_TREE)
-    return NULL;
-  if (t == error_mark_node)
-    return error_type_node;
-  return as_a <ttype *>(t); 
-}
-
-ttype *TTYPE (ttype *t) __attribute__((error(" Fix use of TTYPE(ttype *)"))) ;
-
-
-class ttype_p {
-  ttype *type;
-public:
-  inline ttype_p (tree t) { type = TTYPE (t); }
-  inline ttype_p (ttype *t) { type = t; }
-  inline ttype_p& operator= (ttype *t) { type = t; return *this; }
-  inline operator ttype *() const { return type; }
-  inline ttype * operator->() { return type; }
-  // Used to mark locations which will simply be ttype when we can remove the
-  // ttype_p type at this location.  Mostly when used in varargs..
-  inline ttype *as_a_ttype () { return type; }
-};
-
-
-#define TTYPE_CODE(NODE) (NODE)->code()
-#define TTYPE_SET_CODE(NODE, VAL) (NODE)->set_code (VAL)
-#define TTYPE_CHAIN(NODE) (NODE)->chain()
-#define TTYPE_SET_CHAIN(NODE, VAL) (NODE)->set_chain (VAL)
-#define TTYPE_ASM_WRITTEN(NODE) (NODE)->asm_written()
-#define TTYPE_SET_ASM_WRITTEN(NODE, VAL) (NODE)->set_asm_written (VAL)
-#define TTYPE_VISITED(NODE) (NODE)->visited ()
-#define TTYPE_SET_VISITED(NODE, VAL) (NODE)->set_visited(VAL)
-#define TTYPE_SYMTAB_POINTER(NODE) (NODE)->symtab_pointer()
-#define TTYPE_SET_SYMTAB_POINTER(NODE, VAL) (NODE)->set_symtab_pointer(VAL)
-#define TTYPE_SYMTAB_ADDRESS(NODE) (NODE)->symtab_address()
-#define TTYPE_SET_SYMTAB_ADDRESS(NODE, VAL) (NODE)->set_symtab_address(VAL)
-#define TTYPE_CACHED_VALUES_P(NODE) (NODE)->cached_values_p()
-#define TTYPE_SET_CACHED_VALUES_P(NODE, VAL) (NODE)->set_cached_values_p(VAL)
-#define TTYPE_CACHED_VALUES(NODE) (NODE)->cached_values()
-#define TTYPE_SET_CACHED_VALUES(NODE, VAL) (NODE)->set_cached_values(VAL)
-
-#define TREE_CAST(NODE) ((tree)(NODE))
-#define TREE_PTR_CAST(NODE) ((tree *)(NODE))
-#define TTYPE_PTR(NODE)  ((ttype **)(NODE))
-
-// This macros simply becomes TREE_TYPE when typed.type becomess a ttype *
-#define TREE_TTYPE(NODE) TTYPE (TREE_TYPE (NODE))
-// This macros simply becomes &TREE_TYPE when typed.type becomess a ttype *
-#define TREE_TTYPE_PTR(NODE)  TTYPE_PTR (&TREE_TYPE (NODE))
-
-// These macros become the normal TYPE_ when their underlying type is converted.
-#define TTYPE_POINTER_TO(NODE) TTYPE (TYPE_POINTER_TO (NODE))
-#define TTYPE_REFERENCE_TO(NODE) TTYPE (TYPE_REFERENCE_TO (NODE))
-#define TTYPE_MAIN_VARIANT(NODE) (TTYPE (TYPE_MAIN_VARIANT (NODE)))
-#define TTYPE_NEXT_VARIANT(NODE) (TTYPE (TYPE_NEXT_VARIANT (NODE)))
-
-#define TTYPE_NEXT_PTR_TO(NODE)  TTYPE (TYPE_NEXT_PTR_TO (NODE))
-#define TTYPE_NEXT_REF_TO(NODE) TTYPE (TYPE_NEXT_REF_TO(NODE))
-
-#define BINFO_TTYPE(NODE) TREE_TTYPE (TREE_BINFO_CHECK (NODE))
-
 
 extern tree decl_assembler_name (tree);
 extern tree decl_comdat_group (const_tree);
@@ -5610,64 +5675,5 @@ desired_pro_or_demotion_p (const_tree to_type, const_tree from_type)
   /* Otherwise, allow only if narrowing or same precision conversions. */
   return to_type_precision <= TYPE_PRECISION (from_type);
 }
-
-enum tree_code ttype::code () const { return (enum tree_code)(u.base.code); }
-void ttype::set_code (enum tree_code c) { u.base.code = c; }
-int ttype::uid () const { return u.type_common.uid; }
-void ttype::set_uid (int n) { u.type_common.uid = n; }
-tree ttype::size () const { return u.type_common.size; }
-void ttype::set_size (tree t) { u.type_common.size = t; }
-
-tree ttype::chain() const { return u.common.chain; }
-void ttype::set_chain (tree t) { u.common.chain = t; }
-bool ttype::asm_written() const { return u.base.asm_written_flag; }
-void ttype::set_asm_written (bool f) { u.base.asm_written_flag = f; }
-bool ttype::visited () const { return u.base.visited; }
-void ttype::set_visited (bool f) { u.base.visited = f; }
-bool ttype::readonly () const { return u.base.readonly_flag; }
-void ttype::set_readonly (bool f) { u.base.readonly_flag = f; }
-bool ttype::is_volatile () const { return u.base.volatile_flag; }
-void ttype::set_volatile (bool f) { u.base.volatile_flag = f; }
-ttype *ttype::type () const { return TTYPE (u.typed.type); }
-void ttype::set_type (ttype *t) { u.typed.type = t; }
-
-
-bool ttype::is_restrict () const { return u.type_common.restrict_flag; }
-void ttype::set_restrict (bool f) { u.type_common.restrict_flag = f; }
-bool ttype::is_atomic () const { return u.base.u.bits.atomic_flag; }
-void ttype::set_atomic (bool f) { u.base.u.bits.atomic_flag = f; }
-unsigned char ttype::addr_space () const { return u.base.u.bits.address_space; }
-void ttype::set_addr_space (unsigned char c)
-					    { u.base.u.bits.address_space = c; }
-
-ttype *ttype::canonical () const { return TTYPE(u.type_common.canonical); }
-void ttype::set_canonical (ttype *t) { u.type_common.canonical = t; }
-
-const char *ttype::symtab_pointer () const { return u.type_common.symtab.pointer; }
-void ttype::set_symtab_pointer (const char *p) { u.type_common.symtab.pointer = p; }
-int ttype::symtab_address () const { return u.type_common.symtab.address; }
-void ttype::set_symtab_address (int n) { u.type_common.symtab.address = n; }
-bool ttype::cached_values_p () const { return u.base.public_flag; }
-void ttype::set_cached_values_p (bool f) { u.base.public_flag = f; }
-tree ttype::cached_values () const { return u.type_non_common.values; }
-void ttype::set_cached_values (tree t) { u.type_non_common.values = t; }
-ttype *ttype::main_variant () const { return TTYPE (u.type_common.main_variant); }
-void ttype::set_main_variant (ttype *t) { u.type_common.main_variant = t; }
-ttype *ttype::next_variant () const { return TTYPE (u.type_common.next_variant); }
-void ttype::set_next_variant (ttype *t) { u.type_common.next_variant = t; }
-ttype *ttype::pointer_to () const { return TTYPE (u.type_common.pointer_to); }
-void ttype::set_pointer_to (ttype *t) { u.type_common.pointer_to = t; }
-ttype *ttype::next_ptr_to () const { return TTYPE (u.type_non_common.minval); }
-void ttype::set_next_ptr_to (ttype *t) { u.type_non_common.minval = t; }
-ttype *ttype::reference_to () const { return TTYPE (u.type_common.reference_to); }
-void ttype::set_reference_to (ttype *t) { u.type_common.reference_to = t; }
-ttype *ttype::next_ref_to () const { return TTYPE (u.type_non_common.minval); }
-void ttype::set_next_ref_to (ttype *t) { u.type_non_common.minval = t; }
-ttype *ttype::domain () const { return TTYPE (u.type_non_common.values); }
-void ttype::set_domain (ttype *t) { u.type_non_common.values = t; }
-
-
-
-
 
 #endif  /* GCC_TREE_H  */

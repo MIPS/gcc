@@ -1819,34 +1819,37 @@ public:
   inline void set_size (tree t);
   inline tree chain() const;
   inline void set_chain (tree t);
-  inline bool asm_written() const;
-  inline void set_asm_written (bool f);
-  inline bool visited () const;
-  inline void set_visited (bool f);
   inline ttype *type () const;
   inline void set_type (ttype *);
-  inline bool is_unsigned () const;
-  inline void set_unsigned (bool f);
+
+  inline bool asm_written_p() const;
+  inline void set_asm_written_p (bool f);
+  inline bool visited_p () const;
+  inline void set_visited_p (bool f);
+  inline bool unsigned_p () const;
+  inline void set_unsigned_p (bool f);
   inline signop sign () const;
+
   inline unsigned precision () const;
   inline void set_precision (unsigned i);
-
   inline const char *symtab_pointer () const;
   inline void set_symtab_pointer (const char *p);
   inline int symtab_address () const;
   inline void set_symtab_address (int n);
+
   inline bool cached_values_p () const;
   inline void set_cached_values_p (bool flag);
   inline tree cached_values () const;
   inline void set_cached_values (tree t);
-  inline bool readonly() const;
-  inline void set_readonly (bool f);
-  inline bool is_volatile() const;
-  inline void set_volatile (bool f);
-  inline bool is_restrict () const;
-  inline void set_restrict (bool f);
-  inline bool is_atomic () const;
-  inline void set_atomic (bool f);
+  inline bool readonly_p () const;
+  inline void set_readonly_p (bool f);
+  inline bool volatile_p () const;
+  inline void set_volatile_p (bool f);
+  inline bool restrict_p () const;
+  inline void set_restrict_p (bool f);
+  inline bool atomic_p () const;
+  inline void set_atomic_p (bool f);
+
   inline unsigned char addr_space () const;
   inline void set_addr_space (unsigned char c);
   inline ttype *canonical () const;
@@ -1871,19 +1874,23 @@ public:
   inline void set_context (tree);
   inline tree attributes () const;
   inline void set_attributes (tree);
+
   inline bool structural_equality_p () const;
   inline void set_structural_equality_p ();
-  inline bool reverse_storage_order () const;
-  inline void set_reverse_storage_order (bool f);
-  inline bool vector_type_p () const;
+  inline bool reverse_storage_order_p () const;
+  inline void set_reverse_storage_order_p (bool f);
   inline enum machine_mode mode_raw () const;
   inline enum machine_mode mode () const;
   inline void set_mode (enum machine_mode m);
   enum machine_mode vector_type_mode() const;
+  inline unsigned vector_subparts() const;
+  inline void set_vector_subparts(unsigned);
 
   inline int quals () const;
   inline int quals_no_addr_space () const;
   inline int quals_no_addr_space_no_atomic () const;
+
+  inline bool vector_type_p () const;
   inline bool pointer_type_p () const;
   inline bool record_or_union_type_p () const;
   inline bool integral_type_p () const;
