@@ -4692,9 +4692,9 @@
   "TARGET_MIPS16 && TARGET_MIPS16_COPY"
   {
     if (INTVAL (operands[4]) < 4)
-      return "ucopy\t%0,%1,%2,%3";
+      return "ucopyw\t%0,%1,%2,%3";
     else
-      return "copy\t%0,%1,%2,%3";
+      return "copyw\t%0,%1,%2,%3";
   }
   [(set_attr "move_type" "store")
    (set_attr "mode" "SI")
