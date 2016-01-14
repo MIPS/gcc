@@ -88,8 +88,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include <new>
 
-#define KELVIN_PATCH
-
 static void general_init (const char *, bool);
 static void do_compile ();
 static void process_options (void);
@@ -1940,7 +1938,6 @@ standard_type_bitsize (int bitsize)
 static void
 do_compile ()
 {
-  process_options ();
   /* Don't do any more if an error has already occurred.  */
   if (!seen_error ())
     {
