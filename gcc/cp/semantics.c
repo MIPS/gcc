@@ -3717,9 +3717,9 @@ finish_id_expression (tree id_expression,
 	  && current_function_decl
 	  && TREE_CODE (decl) == VAR_DECL
 	  && is_global_var (decl)
-	  && lookup_attribute ("oacc routine",
-			       DECL_ATTRIBUTES (current_function_decl)))
+          && get_oacc_fn_attrib (current_function_decl))
 	{
+	  /* Validate data type for use with routine directive.  */
 	  if (lookup_attribute ("omp declare target link",
 				DECL_ATTRIBUTES (decl))
 	      || ((!lookup_attribute ("omp declare target",

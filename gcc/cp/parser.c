@@ -36799,10 +36799,6 @@ cp_finalize_oacc_routine (cp_parser *parser, tree fndecl, bool is_defn)
       DECL_ATTRIBUTES (fndecl)
 	= tree_cons (get_identifier ("omp declare target"),
 		     clauses, DECL_ATTRIBUTES (fndecl));
-
-      DECL_ATTRIBUTES (fndecl)
-	= tree_cons (get_identifier ("oacc routine"),
-		     NULL_TREE, DECL_ATTRIBUTES (fndecl));
     }
 }
 

@@ -14187,10 +14187,6 @@ c_finish_oacc_routine (c_parser *ARG_UNUSED (parser), tree fndecl,
   /* Also add an "omp declare target" attribute, with clauses.  */
   DECL_ATTRIBUTES (fndecl) = tree_cons (get_identifier ("omp declare target"),
 					clauses, DECL_ATTRIBUTES (fndecl));
-
-  DECL_ATTRIBUTES (fndecl)
-    = tree_cons (get_identifier ("oacc routine"),
-		 clauses, DECL_ATTRIBUTES (fndecl));
 }
 
 /* OpenACC 2.0:

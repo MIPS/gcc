@@ -1,3 +1,8 @@
+2016-01-14  James Norris  <jnorris@codesourcery.com>
+
+	* c-parser.c (c_finish_oacc_routine): Remove attribute.
+	* c-typeck.c (build_external_ref): Change usage check.
+
 2016-01-07  James Norris  <jnorris@codesourcery.com>
 
 	* c-parser.c (c_finish_oacc_routine): Add new attribute.

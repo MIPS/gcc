@@ -1,3 +1,8 @@
+2016-01-14  James Norris  <jnorris@codesourcery.com>
+
+	* parser.c (cp_finalize_oacc_routine): Remove attribute.
+	* semantics.c (finish_id_expression): Change usage check.
+
 2016-01-07  James Norris  <jnorris@codesourcery.com>
 
 	* parser.c (cp_finalize_oacc_routine): Add new attribute.
