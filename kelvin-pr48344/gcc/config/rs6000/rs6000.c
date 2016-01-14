@@ -75,8 +75,6 @@
 /* This file should be included last.  */
 #include "target-def.h"
 
-#undef KELVIN_NOISE
-
 #ifndef TARGET_NO_PROTOTYPE
 #define TARGET_NO_PROTOTYPE 0
 #endif
@@ -3588,9 +3586,6 @@ rs6000_option_override_internal (bool global_init_p)
       && !global_options_set.x_flag_ira_loop_pressure)
     flag_ira_loop_pressure = 1;
 
-#ifdef KELVIN_NOISE
-  fprintf(stderr, "RS6000 target hook: setting rs6000_pmode & pointer_size\n");
-#endif
   /* Set the pointer size.  */
   if (TARGET_64BIT)
     {
