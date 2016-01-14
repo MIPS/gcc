@@ -101,6 +101,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "lto-streamer.h"
 #include "except.h"
+#include "print-tree.h"
 
 /* Create clone of E in the node N represented by CALL_EXPR the callgraph.  */
 struct cgraph_edge *
@@ -239,9 +240,8 @@ cgraph_clone_node (struct cgraph_node *n, tree decl, gcov_type count, int freq,
     {
       /* Redirect calls to the old version node to point to its new
 	 version.  */
-      cgraph_redirect_edge_callee (e, new_node);
+        cgraph_redirect_edge_callee (e, new_node);
     }
-
 
   for (e = n->callees;e; e=e->next_callee)
     cgraph_clone_edge (e, new_node, e->call_stmt, e->lto_stmt_uid,
@@ -288,12 +288,102 @@ clone_function_name (tree decl, const char *suffix)
   return get_identifier (tmp_name);
 }
 
-/* Build variant of function type ORIG_TYPE skipping ARGS_TO_SKIP and the
-   return value if SKIP_RETURN is true.  */
+/* This structure is used to represent array of
+   wrappers of structure type. For example, if type1 
+   is structure type, then for type1 ** we generate 
+   two type_wrapper structures with wrap = 0 each one.
+   It's used to unwind the original type up to
+   structure type, replace it with the new structure type
+   and wrap it back in the opposite order.  */
+
+typedef struct type_wrapper
+{
+  /* 0 stand for pointer wrapper, and 1 for array wrapper.  */
+  bool wrap;
+
+  /* Relevant for arrays as domain or index.  */
+  tree domain;
+}type_wrapper_t;
+
+/* This function wraps NEW_TYPE in pointers or arrays wrapper
+   in the same way it was wraped in ORIG_TYPE.
+   It returns the generated type.  */
+
+static inline tree
+wrap_new_type (tree orig_type, tree new_type)
+{
+  tree otype = orig_type;
+  tree ntype = new_type;
+  vec<type_wrapper_t> wrapper;
+  type_wrapper_t wr;
+
+  wrapper.create (10); 
+  while (POINTER_TYPE_P (otype)
+	 || TREE_CODE (otype) == ARRAY_TYPE)
+    {
+      if (POINTER_TYPE_P (otype))
+	{
+	  //pointers_count++;
+	  wr.wrap = 0;
+	  wr.domain = NULL_TREE;
+	}
+      else
+	{
+	  gcc_assert (TREE_CODE (otype) == ARRAY_TYPE);
+	  wr.wrap = 1;
+	  wr.domain = TYPE_DOMAIN (otype);
+	}
+      wrapper.safe_push (wr);
+      otype = TREE_TYPE (otype);
+    }
+
+  while (!wrapper.is_empty ())
+    {
+      wr = wrapper.last ();
+
+      if (wr.wrap) /* Array.  */
+	{
+	  ntype = build_array_type (ntype, wr.domain);
+	}
+      else /* Pointer.  */
+	{
+	  if (TREE_CODE (ntype) == RECORD_TYPE)
+	    ntype = build_pointer_type (ntype);
+	  else
+	    {	      
+	      //if (--pointers_count)
+		ntype = build_pointer_type (ntype);
+	    }
+	}
+      wrapper.pop ();
+    }
+
+  wrapper.release ();
+  return ntype;
+}
+
+/* Strip TYPE tree from pointers and arrays.  */
+
+static inline tree
+strip_type (tree type)
+{
+  gcc_assert (TYPE_P (type));
+
+  while (POINTER_TYPE_P (type)
+	 || TREE_CODE (type) == ARRAY_TYPE)
+    type = TREE_TYPE (type);
+
+  return  type;
+}
+
+/* Build variant of function type ORIG_TYPE while 
+   (1) skipping arguments if ARGS_TO_SKIP is not empty
+   (2) decomposing arguments if ARGS_TO_DECOMPOSE in not empty
+   (3) skiping return , if SKIP_RETURN is true.  */
 
 static tree
-build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
-			       bool skip_return)
+build_function_type_skip_decomp_args (tree orig_type, bitmap args_to_skip,
+				      bitmap args_to_decompose, bool skip_return)
 {
   tree new_type = NULL;
   tree args, new_args = NULL, t;
@@ -302,8 +392,24 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
 
   for (args = TYPE_ARG_TYPES (orig_type); args && args != void_list_node;
        args = TREE_CHAIN (args), i++)
-    if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
-      new_args = tree_cons (NULL_TREE, TREE_VALUE (args), new_args);
+    {
+      if (args_to_decompose && bitmap_bit_p (args_to_decompose, i))
+	{
+	  tree type = TREE_VALUE (args);
+	  tree stype = strip_type (type);
+	  tree t;
+
+	  gcc_assert (TREE_CODE (stype) == RECORD_TYPE);
+	  for (t = TYPE_FIELDS (stype); t; t = TREE_CHAIN (t))
+	    {
+	      tree ntype = wrap_new_type (type, TREE_TYPE (t));
+
+	      new_args = tree_cons (NULL_TREE, ntype, new_args);
+	    }
+	}
+      if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
+	new_args = tree_cons (NULL_TREE, TREE_VALUE (args), new_args);
+    }
 
   new_reversed = nreverse (new_args);
   if (args)
@@ -321,7 +427,9 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
      instead.  */
   if (TREE_CODE (orig_type) != METHOD_TYPE
       || !args_to_skip
-      || !bitmap_bit_p (args_to_skip, 0))
+      || !bitmap_bit_p (args_to_skip, 0)
+      || !args_to_decompose
+      || !bitmap_bit_p (args_to_decompose, 0))
     {
       new_type = build_distinct_type_copy (orig_type);
       TYPE_ARG_TYPES (new_type) = new_reversed;
@@ -342,7 +450,8 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
   t = TYPE_MAIN_VARIANT (orig_type);
   if (t != orig_type)
     {
-      t = build_function_type_skip_args (t, args_to_skip, skip_return);
+      t = build_function_type_skip_decomp_args (t, args_to_skip, 
+					 args_to_decompose, skip_return);
       TYPE_MAIN_VARIANT (new_type) = t;
       TYPE_NEXT_VARIANT (new_type) = TYPE_NEXT_VARIANT (t);
       TYPE_NEXT_VARIANT (t) = new_type;
@@ -364,8 +473,8 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
    them when they are being duplicated (i.e. copy_arguments_for_versioning).  */
 
 static tree
-build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip,
-			       bool skip_return)
+build_function_decl_skip_decomp_args (tree orig_decl, bitmap args_to_skip,
+			       bitmap args_to_decompose, bool skip_return)
 {
   tree new_decl = copy_node (orig_decl);
   tree new_type;
@@ -374,18 +483,20 @@ build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip,
   if (prototype_p (new_type)
       || (skip_return && !VOID_TYPE_P (TREE_TYPE (new_type))))
     new_type
-      = build_function_type_skip_args (new_type, args_to_skip, skip_return);
+      = build_function_type_skip_decomp_args (new_type, args_to_skip, 
+					      args_to_decompose, skip_return);
   TREE_TYPE (new_decl) = new_type;
 
   /* For declarations setting DECL_VINDEX (i.e. methods)
      we expect first argument to be THIS pointer.   */
-  if (args_to_skip && bitmap_bit_p (args_to_skip, 0))
+  if ((args_to_skip && bitmap_bit_p (args_to_skip, 0))
+      ||(args_to_decompose && bitmap_bit_p (args_to_decompose, 0)))
     DECL_VINDEX (new_decl) = NULL_TREE;
 
   /* When signature changes, we need to clear builtin info.  */
   if (DECL_BUILT_IN (new_decl)
-      && args_to_skip
-      && !bitmap_empty_p (args_to_skip))
+      && ((args_to_skip && !bitmap_empty_p (args_to_skip))
+	  || (args_to_decompose && !bitmap_empty_p (args_to_decompose))))
     {
       DECL_BUILT_IN_CLASS (new_decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (new_decl) = (enum built_in_function) 0;
@@ -402,6 +513,7 @@ build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip,
    TODO: after merging in ipa-sra use function call notes instead of args_to_skip
    bitmap interface.
    */
+
 struct cgraph_node *
 cgraph_create_virtual_clone (struct cgraph_node *old_node,
 			     vec<cgraph_edge_p> redirect_callers,
@@ -415,17 +527,36 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
   size_t len, i;
   struct ipa_replace_map *map;
   char *name;
+  bitmap args_to_decompose = 0; 
+
 
   if (!in_lto_p)
     gcc_checking_assert  (tree_versionable_function_p (old_decl));
 
-  gcc_assert (old_node->local.can_change_signature || !args_to_skip);
+  /* Build arg_to_decompose bitmap.  */
+  if (tree_map)
+    for (i = 0; i < tree_map->length (); i++)
+      {
+	map = (*tree_map)[i];
+	if (map->decompose_p)
+	  {
+	    if (!args_to_decompose)
+	      args_to_decompose = BITMAP_ALLOC (NULL);
+	    bitmap_set_bit (args_to_decompose, map->parm_num);
+	  }
+      }
+
+  gcc_assert (old_node->local.can_change_signature 
+	      || !(args_to_skip || args_to_decompose));
 
   /* Make a new FUNCTION_DECL tree node */
-  if (!args_to_skip)
+  if (!args_to_skip && !args_to_decompose)
     new_decl = copy_node (old_decl);
   else
-    new_decl = build_function_decl_skip_args (old_decl, args_to_skip, false);
+    new_decl = build_function_decl_skip_decomp_args (old_decl, 
+						     args_to_skip, 
+						     args_to_decompose,
+						     false);
 
   /* These pointers represent function body and will be populated only when clone
      is materialized.  */
@@ -479,6 +610,7 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
     if (map->new_tree)
       ipa_maybe_record_reference (new_node, map->new_tree,
 				  IPA_REF_ADDR, NULL);
+  /* Process arguments to skip.  */
   if (!args_to_skip)
     new_node->clone.combined_args_to_skip = old_node->clone.combined_args_to_skip;
   else if (old_node->clone.combined_args_to_skip)
@@ -511,7 +643,8 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
 
   cgraph_call_node_duplication_hooks (old_node, new_node);
 
-
+  if (args_to_decompose)
+    BITMAP_FREE (args_to_decompose);  
   return new_node;
 }
 
@@ -851,6 +984,7 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
   tree old_decl = old_version_node->decl;
   struct cgraph_node *new_version_node = NULL;
   tree new_decl;
+  bitmap args_to_decompose = 0;
 
   if (!tree_versionable_function_p (old_decl))
     return NULL;
@@ -862,7 +996,8 @@ cgraph_function_versioning (struct cgraph_node *old_version_node,
     new_decl = copy_node (old_decl);
   else
     new_decl
-      = build_function_decl_skip_args (old_decl, args_to_skip, skip_return);
+      = build_function_decl_skip_decomp_args (old_decl, args_to_skip, 
+					      args_to_decompose, skip_return);
 
   /* Generate a new name for the new version. */
   DECL_NAME (new_decl) = clone_function_name (old_decl, clone_name);
@@ -1011,7 +1146,7 @@ cgraph_materialize_all_clones (void)
 		          fprintf (cgraph_dump_file, "   args_to_skip: ");
 		          dump_bitmap (cgraph_dump_file, node->clone.args_to_skip);
 			}
-		      if (node->clone.args_to_skip)
+		      if (node->clone.combined_args_to_skip)
 			{
 		          fprintf (cgraph_dump_file, "   combined_args_to_skip:");
 		          dump_bitmap (cgraph_dump_file, node->clone.combined_args_to_skip);

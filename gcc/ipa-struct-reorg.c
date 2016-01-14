@@ -443,7 +443,7 @@ find_new_var_of_type (tree orig_var, tree new_type)
     }
 
   if (!var)
-    debug_tree (orig_var);
+    //debug_tree (orig_var);
   gcc_assert (var);
   if (dump_file)
     {
@@ -2196,7 +2196,7 @@ gen_args_to_skip (func_to_clone func)
 {
   tree parm, fndecl;
   int i, ii;
-  func->args_to_skip = BITMAP_GGC_ALLOC ();
+  //func->args_to_skip = BITMAP_GGC_ALLOC ();
   fndecl = func->old_node->decl;
 
   /* Since at WPA level decls of cgraph nodes have no function body,
@@ -2212,7 +2212,7 @@ gen_args_to_skip (func_to_clone func)
 	  struct ipa_replace_map *replace_map;
 	  /* We record the same parameter index for 
 	     both: decomposition and skip.  */
-	  bitmap_set_bit (func->args_to_skip, i);
+	  //bitmap_set_bit (func->args_to_skip, i);
 	  if (dump_file)
 	    fprintf (dump_file, "\nArg to skip is %d", i);
 

@@ -5071,80 +5071,6 @@ copy_decl_maybe_to_var (tree decl, copy_body_data *id)
     return copy_decl_no_change (decl, id);
 }
 
-/* This structure is used to represent array of
-   wrappers of structure type. For example, if type1 
-   is structure type, then for type1 ** we generate 
-   two type_wrapper structures with wrap = 0 each one.
-   It's used to unwind the original type up to
-   structure type, replace it with the new structure type
-   and wrap it back in the opposite order.  */
-
-typedef struct type_wrapper
-{
-  /* 0 stand for pointer wrapper, and 1 for array wrapper.  */
-  bool wrap;
-
-  /* Relevant for arrays as domain or index.  */
-  tree domain;
-}type_wrapper_t;
-
-/* This function wraps NEW_TYPE in pointers or arrays wrapper
-   in the same way it was wraped in ORIG_TYPE.
-   It returns the generated type.  */
-
-static inline tree
-wrap_new_type (tree orig_type, tree new_type)
-{
-  tree otype = orig_type;
-  tree ntype = new_type;
-  vec<type_wrapper_t> wrapper;
-  type_wrapper_t wr;
-
-  wrapper.create (10); 
-  while (POINTER_TYPE_P (otype)
-	 || TREE_CODE (otype) == ARRAY_TYPE)
-    {
-      if (POINTER_TYPE_P (otype))
-	{
-	  //pointers_count++;
-	  wr.wrap = 0;
-	  wr.domain = NULL_TREE;
-	}
-      else
-	{
-	  gcc_assert (TREE_CODE (otype) == ARRAY_TYPE);
-	  wr.wrap = 1;
-	  wr.domain = TYPE_DOMAIN (otype);
-	}
-      wrapper.safe_push (wr);
-      otype = TREE_TYPE (otype);
-    }
-
-  while (!wrapper.is_empty ())
-    {
-      wr = wrapper.last ();
-
-      if (wr.wrap) /* Array.  */
-	{
-	  ntype = build_array_type (ntype, wr.domain);
-	}
-      else /* Pointer.  */
-	{
-	  if (TREE_CODE (ntype) == RECORD_TYPE)
-	    ntype = build_pointer_type (ntype);
-	  else
-	    {	      
-	      //if (--pointers_count)
-		ntype = build_pointer_type (ntype);
-	    }
-	}
-      wrapper.pop ();
-    }
-
-  wrapper.release ();
-  return ntype;
-}
-
 /* Strip TYPE tree from pointers and arrays.  */
 
 static inline tree
@@ -5159,23 +5085,6 @@ strip_type (tree type)
   return  type;
 }
 
-/* Given a type TYPE, this function returns the name of the type.  */
-
-static const char *
-get_type_name (tree type)
-{
-  if (! TYPE_NAME (type))
-    return NULL;
-
-  if (TREE_CODE (TYPE_NAME (type)) == IDENTIFIER_NODE)
-    return IDENTIFIER_POINTER (TYPE_NAME (type));
-  else if (TREE_CODE (TYPE_NAME (type)) == TYPE_DECL
-	   && DECL_NAME (TYPE_NAME (type)))
-    return IDENTIFIER_POINTER (DECL_NAME (TYPE_NAME (type)));
-  else
-    return NULL;
-}
-
 /* Return a copy of the function's argument tree.  */
 static tree
 copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
@@ -5183,12 +5092,15 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 			       bitmap args_to_decompose)
 {
   tree arg, *parg;
-  tree new_parm = NULL;
-  int i = 0;
+  tree new_parm = NULL, ntype;
+  int i;
 
 
+  i = 0;
+  /* dst_fc is a new function declaration, 
+     that already defines new types of parameters. */
+  ntype = TYPE_ARG_TYPES (TREE_TYPE((*id).dst_fn));
   parg = &new_parm;
-
   for (arg = orig_parm; arg; arg = DECL_CHAIN (arg), i++)
     {
       if (args_to_decompose && bitmap_bit_p (args_to_decompose, i))
@@ -5202,22 +5114,17 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 
 	  gcc_assert (TREE_CODE (stype) == RECORD_TYPE);
 	  arg_name = IDENTIFIER_POINTER (DECL_NAME (arg));
-	  //fprintf (stderr, "\nStructure type name is %s", get_type_name (stype));
-	  //fprintf (stderr, "\nArg name is %s", IDENTIFIER_POINTER (DECL_NAME (arg)));
 	  for (t = TYPE_FIELDS (stype); t; t = TREE_CHAIN (t))
 	    {
-	      tree ntype = wrap_new_type (type, TREE_TYPE (t));
-	      //field_name = get_type_name (TREE_TYPE (t));
+	      debug_tree (TREE_VALUE (ntype));
 	      field_name = IDENTIFIER_POINTER (DECL_NAME (t));
 	      sprintf (buf, "%s.%s", arg_name, field_name);
-	      fprintf (stderr, "\nParm name is %s", buf);
 	      parm_name = get_identifier (buf);
-	      parm_decl = build_decl (UNKNOWN_LOCATION, PARM_DECL, parm_name, ntype);
-	      fprintf (stderr, "\nField type name is %s", get_type_name (TREE_TYPE (t)));
-	      debug_tree (parm_decl);
+	      parm_decl = build_decl (UNKNOWN_LOCATION, PARM_DECL, parm_name, TREE_VALUE (ntype));
 	      lang_hooks.dup_lang_specific_decl (parm_decl);
 	      *parg = parm_decl;
 	      parg = &DECL_CHAIN (parm_decl);
+	      ntype = TREE_CHAIN (ntype);
 	    }
 	}
       if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
@@ -5230,6 +5137,7 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
 	  lang_hooks.dup_lang_specific_decl (new_tree);
 	  *parg = new_tree;
 	  parg = &DECL_CHAIN (new_tree);
+	  ntype = TREE_CHAIN (ntype);
 	}
       else if (!pointer_map_contains (id->decl_map, arg))
 	{
