@@ -1,3 +1,11 @@
+2016-01-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	Backport from trunk:
+	2016-01-15  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gimplify.c (oacc_default_clause): Decode reference and pointer
+	types for both kernels and parallel regions.
+
 2016-01-13  Tom de Vries  <tom@codesourcery.com>
 
 	PR tree-optimization/68977
