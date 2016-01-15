@@ -12741,7 +12741,7 @@ grid_get_kernel_launch_attributes (gimple_stmt_iterator *gsi,
       if (OMP_CLAUSE_CODE (clause) != OMP_CLAUSE__GRIDDIM_)
 	continue;
 
-      unsigned dim = OMP_CLAUSE_GRIDDIM_DIMENSION (clause);
+      unsigned dim = OMP_CLAUSE__GRIDDIM__DIMENSION (clause);
       max_dim = MAX (dim, max_dim);
 
       grid_insert_store_range_dim (gsi, lattrs,
@@ -12788,7 +12788,7 @@ get_target_argument_identifier (int device, bool subseqent_param, int id)
   return fold_convert (ptr_type_node, t);
 }
 
-/* Return a target argument consisiting of DEVICE identifier, value identifier
+/* Return a target argument consisting of DEVICE identifier, value identifier
    ID, and the actual VALUE.  */
 
 static tree
@@ -12806,8 +12806,8 @@ get_target_argument_value (gimple_stmt_iterator *gsi, int device, int id,
 }
 
 /* If VALUE is an integer constant greater than -2^15 and smaller than 2^15,
-   push one argument to ARGS with bot the DEVICE, ID and VALUE embeded in it,
-   otherwise push an iedntifier (with DEVICE and ID) and the VALUE in two
+   push one argument to ARGS with both the DEVICE, ID and VALUE embedded in it,
+   otherwise push an identifier (with DEVICE and ID) and the VALUE in two
    arguments.  */
 
 static void
@@ -17693,7 +17693,7 @@ grid_attempt_target_gridification (gomp_target *target,
 	ws = build_zero_cst (uint32_type_node);
 
       tree c = build_omp_clause (UNKNOWN_LOCATION, OMP_CLAUSE__GRIDDIM_);
-      OMP_CLAUSE_SET_GRIDDIM_DIMENSION (c, (unsigned int) i);
+      OMP_CLAUSE__GRIDDIM__DIMENSION (c) = i;
       OMP_CLAUSE__GRIDDIM__SIZE (c) = gs;
       OMP_CLAUSE__GRIDDIM__GROUP (c) = ws;
       OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (target);
@@ -17749,7 +17749,7 @@ grid_gridify_all_targets (gimple_seq *body_p)
   memset (&wi, 0, sizeof (wi));
   walk_gimple_seq_mod (body_p, grid_gridify_all_targets_stmt, NULL, &wi);
 }
-
+
 
 /* Main entry point.  */
 

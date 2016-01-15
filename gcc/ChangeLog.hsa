@@ -1,3 +1,12 @@
+2016-01-15  Martin Jambor  <mjambor@suse.cz>
+
+	* gimple.h: Fixed comment of gimple_statement_omp_single_layout
+	* omp-low.c (get_target_argument_value): Fixed spelling in its
+	comment.
+	(push_target_argument_according_to_value): Likewise.
+	* tree.h (OMP_CLAUSE_GRIDDIM_DIMENSION): Renamed to
+	OMP_CLAUSE__GRIDDIM__DIMENSION
+
 2016-01-13  Martin Jambor  <mjambor@suse.cz>
 
 	* omp-low.c (check_omp_nesting_restrictions): Fixed comment.

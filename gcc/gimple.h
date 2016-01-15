@@ -730,7 +730,7 @@ struct GTY((tag("GSS_OMP_CONTINUE")))
   tree control_use;
 };
 
-/* GIMPLE_OMP_SINGLE, GIMPLE_OMP_ORDERED */
+/* GIMPLE_OMP_SINGLE, GIMPLE_OMP_TEAMS, GIMPLE_OMP_ORDERED */
 
 struct GTY((tag("GSS_OMP_SINGLE_LAYOUT")))
   gimple_statement_omp_single_layout : public gimple_statement_omp

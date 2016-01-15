@@ -944,7 +944,7 @@ dump_omp_clause (pretty_printer *pp, tree clause, int spc, int flags)
 
     case OMP_CLAUSE__GRIDDIM_:
       pp_string (pp, "_griddim_(");
-      pp_unsigned_wide_integer (pp, OMP_CLAUSE_GRIDDIM_DIMENSION (clause));
+      pp_unsigned_wide_integer (pp, OMP_CLAUSE__GRIDDIM__DIMENSION (clause));
       pp_colon (pp);
       dump_generic_node (pp, OMP_CLAUSE__GRIDDIM__SIZE (clause), spc, flags,
 			 false);
