@@ -2010,8 +2010,14 @@ process_alt_operands (int only_alternative)
 		      if (MEM_P (op)
 			  && satisfies_memory_constraint_p (op, cn))
 			win = true;
-		      else if (spilled_pseudo_p (op))
-			win = true;
+		      else
+			{
+			  if (MEM_P (op))
+			    /* Skip bad memory operand.  */
+			    break;
+			  if (spilled_pseudo_p (op))
+			    win = true;
+			}
 
 		      /* If we didn't already win, we can reload constants
 			 via force_const_mem or put the pseudo value into
