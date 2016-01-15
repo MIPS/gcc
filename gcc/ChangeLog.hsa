@@ -1,4 +1,10 @@
 2016-01-15  Martin Liska  <mliska@suse.cz>
+
+	* hsa-regalloc.c (naive_outof_ssa): Fixed coding style.
+	(linear_scan_regalloc): Likewise.
+	(regalloc): Likewise.
+
+2016-01-15  Martin Liska  <mliska@suse.cz>
             Martin Jambor  <mjambor@suse.cz>
 
 	* hsa-brig.c (struct function_linkage_pair): Fix GNU coding style

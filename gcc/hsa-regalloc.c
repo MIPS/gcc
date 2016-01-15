@@ -90,7 +90,7 @@ naive_outof_ssa (void)
 
     for (phi = hbb->m_first_phi;
 	 phi;
-	 phi = phi->m_next ? as_a <hsa_insn_phi *> (phi->m_next): NULL)
+	 phi = phi->m_next ? as_a <hsa_insn_phi *> (phi->m_next) : NULL)
       naive_process_phi (phi);
 
     /* Zap PHI nodes, they will be deallocated when everything else will.  */
@@ -525,7 +525,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
       else
 	after_end_number = insn_order;
       /* Everything live-out in this BB has at least an end point
-         after us. */
+	 after us.  */
       EXECUTE_IF_SET_IN_BITMAP (hbb->m_liveout, 0, bit, bi)
 	note_lr_end (ind2reg[bit], after_end_number);
 
@@ -549,7 +549,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 	}
 
       /* Everything live-in in this BB has a start point before
-         our first insn.  */
+	 our first insn.  */
       int before_start_number;
       if (hbb->m_first_insn)
 	before_start_number = hbb->m_first_insn->m_number;
@@ -570,7 +570,7 @@ linear_scan_regalloc (struct m_reg_class_desc *classes)
 	   are defined at the start of the routine (prologue).  */
 	if (ind2reg[i]->m_lr_begin == insn_order)
 	  ind2reg[i]->m_lr_begin = 0;
-	/* All regs that have no use but a def will have lr_end == 0, 
+	/* All regs that have no use but a def will have lr_end == 0,
 	   they are actually live from def until after the insn they are
 	   defined in.  */
 	if (ind2reg[i]->m_lr_end == 0)
@@ -672,7 +672,7 @@ regalloc (void)
   basic_block bb;
   m_reg_class_desc classes[4];
 
-  /* If there are no registers used in the function, exit right away. */
+  /* If there are no registers used in the function, exit right away.  */
   if (hsa_cfun->m_reg_count == 0)
     return;
 
