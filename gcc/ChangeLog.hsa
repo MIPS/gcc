@@ -1,3 +1,10 @@
+2016-01-15  Martin Liska  <mliska@suse.cz>
+
+	* ipa-hsa.c (process_hsa_functions): Fixed coding style.
+	(ipa_hsa_read_section): Likewise.
+	(ipa_hsa_read_section): Likewise.
+	(pass_ipa_hsa::gate): Removed in_lto_p from the condition.
+
 2016-01-15  Martin Jambor  <mjambor@suse.cz>
 
 	* gimple.h: Fixed comment of gimple_statement_omp_single_layout

@@ -86,8 +86,9 @@ process_hsa_functions (void)
 	{
 	  if (!check_warn_node_versionable (node))
 	    continue;
-	  cgraph_node *clone = node->create_virtual_clone
-	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
+	  cgraph_node *clone
+	    = node->create_virtual_clone (vec <cgraph_edge *> (),
+					  NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
 
 	  clone->force_output = true;
@@ -102,8 +103,9 @@ process_hsa_functions (void)
 	{
 	  if (!check_warn_node_versionable (node))
 	    continue;
-	  cgraph_node *clone = node->create_virtual_clone
-	    (vec <cgraph_edge *> (), NULL, NULL, "hsa");
+	  cgraph_node *clone
+	    = node->create_virtual_clone (vec <cgraph_edge *> (),
+					  NULL, NULL, "hsa");
 	  TREE_PUBLIC (clone->decl) = TREE_PUBLIC (node->decl);
 
 	  if (!cgraph_local_p (node))
@@ -209,8 +211,8 @@ static void
 ipa_hsa_read_section (struct lto_file_decl_data *file_data, const char *data,
 		       size_t len)
 {
-  const struct lto_function_header *header =
-    (const struct lto_function_header *) data;
+  const struct lto_function_header *header
+    = (const struct lto_function_header *) data;
   const int cfg_offset = sizeof (struct lto_function_header);
   const int main_offset = cfg_offset + header->cfg_size;
   const int string_offset = main_offset + header->main_size;
@@ -221,9 +223,9 @@ ipa_hsa_read_section (struct lto_file_decl_data *file_data, const char *data,
   lto_input_block ib_main ((const char *) data + main_offset,
 			   header->main_size, file_data->mode_table);
 
-  data_in =
-    lto_data_in_create (file_data, (const char *) data + string_offset,
-			header->string_size, vNULL);
+  data_in
+    = lto_data_in_create (file_data, (const char *) data + string_offset,
+			  header->string_size, vNULL);
   count = streamer_read_uhwi (&ib_main);
 
   for (i = 0; i < count; i++)
@@ -317,7 +319,7 @@ public:
 bool
 pass_ipa_hsa::gate (function *)
 {
-  return hsa_gen_requested_p () || in_lto_p;
+  return hsa_gen_requested_p ();
 }
 
 } // anon namespace
