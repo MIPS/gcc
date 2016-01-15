@@ -1809,14 +1809,16 @@ struct GTY ((ptr_alias (union lang_tree_node), desc("0"), tag("0"))) tree_node {
 };
 
 
-class GTY((ptr_alias (union lang_tree_node))) ttype : public tree_node {
+class GTY(()) ttype : public tree_node {
 public:
   inline enum tree_code code () const;
   inline void set_code (enum tree_code c);
-  inline int uid () const;
-  inline void set_uid (int n);
+  inline unsigned int uid () const;
+  inline void set_uid (unsigned int n);
   inline tree size () const;
   inline void set_size (tree t);
+  inline tree size_unit () const;
+  inline void set_size_unit (tree t);
   inline tree chain() const;
   inline void set_chain (tree t);
   inline ttype *type () const;
@@ -1849,6 +1851,8 @@ public:
   inline void set_restrict_p (bool f);
   inline bool atomic_p () const;
   inline void set_atomic_p (bool f);
+  inline bool packed_p () const;
+  inline void set_packed_p (bool f);
 
   inline unsigned char addr_space () const;
   inline void set_addr_space (unsigned char c);
@@ -1874,6 +1878,15 @@ public:
   inline void set_context (tree);
   inline tree attributes () const;
   inline void set_attributes (tree);
+  inline unsigned int align () const;
+  inline void set_align (unsigned int u);
+  inline bool user_align_p () const;
+  inline void set_user_align_p (bool f);
+  inline alias_set_type alias_set () const;
+  inline void set_alias_set (alias_set_type a);
+  inline bool ref_can_alias_all () const;
+  inline void set_ref_can_alias_all (bool f);
+  inline unsigned int& hash();
 
   inline bool structural_equality_p () const;
   inline void set_structural_equality_p ();
@@ -1882,18 +1895,29 @@ public:
   inline enum machine_mode mode_raw () const;
   inline enum machine_mode mode () const;
   inline void set_mode (enum machine_mode m);
-  enum machine_mode vector_type_mode() const;
+
+  enum machine_mode vector_mode() const;
   inline unsigned vector_subparts() const;
   inline void set_vector_subparts(unsigned);
+
+  inline tree arg_types () const;
+  inline void set_arg_types (tree);
+  inline tree methods () const;
+  inline void set_methods (tree t);
+  
+  inline tree max_value () const;
+  inline void set_max_value (tree);
+  inline tree min_value () const;
+  inline void set_min_value (tree);
 
   inline int quals () const;
   inline int quals_no_addr_space () const;
   inline int quals_no_addr_space_no_atomic () const;
 
-  inline bool vector_type_p () const;
-  inline bool pointer_type_p () const;
-  inline bool record_or_union_type_p () const;
-  inline bool integral_type_p () const;
+  inline bool vector_p () const;
+  inline bool pointer_p () const;
+  inline bool record_or_union_p () const;
+  inline bool integral_p () const;
 
 
 };

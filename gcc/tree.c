@@ -1139,24 +1139,24 @@ copy_node_stat (ttype *node MEM_STAT_DECL)
   t = ggc_alloc_ttype_stat (length PASS_MEM_STAT);
   memcpy (t, node, length);
 
-  TREE_CHAIN (t) = 0;
-  TREE_ASM_WRITTEN (t) = 0;
-  TREE_VISITED (t) = 0;
+  t->set_chain (NULL_TREE);
+  t->set_asm_written_p (false);
+  t->set_visited_p (false);
 
-  TYPE_UID (t) = next_type_uid++;
+  t->set_uid (next_type_uid++);
   /* The following is so that the debug code for
      the copy is different from the original type.
      The two statements usually duplicate each other
      (because they clear fields of the same union),
      but the optimizer should catch that.  */
-  TYPE_SYMTAB_POINTER (t) = 0;
-  TYPE_SYMTAB_ADDRESS (t) = 0;
+  t->set_symtab_pointer (NULL);
+  t->set_symtab_address (0);
 
   /* Do not copy the values cache.  */
-  if (TYPE_CACHED_VALUES_P (t))
+  if (t->cached_values_p ())
     {
-      TYPE_CACHED_VALUES_P (t) = 0;
-      TYPE_CACHED_VALUES (t) = NULL_TREE;
+      t->set_cached_values_p (false);
+      t->set_cached_values (NULL_TREE);
     }
   return t;
 }
@@ -4816,13 +4816,13 @@ build_decl_attribute_variant (tree ddecl, tree attribute)
 ttype *
 build_type_attribute_qual_variant (ttype_p type, tree attribute, int quals)
 {
-  if (! attribute_list_equal (TYPE_ATTRIBUTES (type), attribute))
+  if (! attribute_list_equal (type->attributes (), attribute))
     {
       inchash::hash hstate;
       ttype *ntype;
       int i;
       tree t;
-      enum tree_code code = TREE_CODE (type);
+      enum tree_code code = type->code ();
 
       /* Building a distinct copy of a tagged type is inappropriate; it
 	 causes breakage in code that expects there to be a one-to-one
@@ -4830,45 +4830,43 @@ build_type_attribute_qual_variant (ttype_p type, tree attribute, int quals)
 	 build_duplicate_type is another solution (as used in
 	 handle_transparent_union_attribute), but that doesn't play well
 	 with the stronger C++ type identity model.  */
-      if (TREE_CODE (type) == RECORD_TYPE
-	  || TREE_CODE (type) == UNION_TYPE
-	  || TREE_CODE (type) == QUAL_UNION_TYPE
-	  || TREE_CODE (type) == ENUMERAL_TYPE)
+      if (code == RECORD_TYPE || code == UNION_TYPE
+	  || code == QUAL_UNION_TYPE || code == ENUMERAL_TYPE)
 	{
 	  warning (OPT_Wattributes,
 		   "ignoring attributes applied to %qT after definition",
-		   TYPE_MAIN_VARIANT (type));
+		   type->main_variant ());
 	  return build_qualified_type (type, quals);
 	}
 
       type = build_qualified_type (type, TYPE_UNQUALIFIED);
       ntype = build_distinct_type_copy (type);
 
-      TYPE_ATTRIBUTES (ntype) = attribute;
+      ntype->set_attributes (attribute);
 
       hstate.add_int (code);
-      if (TREE_TYPE (ntype))
-	hstate.add_object (TYPE_HASH (TREE_TYPE (ntype)));
+      if (ntype->type ())
+	hstate.add_object (ntype->type()->hash ());
       attribute_hash_list (attribute, hstate);
 
-      switch (TREE_CODE (ntype))
+      switch (ntype-> code ())
 	{
 	case FUNCTION_TYPE:
-	  type_hash_list (TYPE_ARG_TYPES (ntype), hstate);
+	  type_hash_list (ntype->arg_types (), hstate);
 	  break;
 	case ARRAY_TYPE:
-	  if (TYPE_DOMAIN (ntype))
-	    hstate.add_object (TYPE_HASH (TYPE_DOMAIN (ntype)));
+	  if (ntype->domain ())
+	    hstate.add_object (ntype->domain()->hash ());
 	  break;
 	case INTEGER_TYPE:
-	  t = TYPE_MAX_VALUE (ntype);
+	  t = ntype->max_value ();
 	  for (i = 0; i < TREE_INT_CST_NUNITS (t); i++)
 	    hstate.add_object (TREE_INT_CST_ELT (t, i));
 	  break;
 	case REAL_TYPE:
 	case FIXED_POINT_TYPE:
 	  {
-	    unsigned int precision = TYPE_PRECISION (ntype);
+	    unsigned int precision = ntype->precision ();
 	    hstate.add_object (precision);
 	  }
 	  break;
@@ -4881,15 +4879,15 @@ build_type_attribute_qual_variant (ttype_p type, tree attribute, int quals)
       /* If the target-dependent attributes make NTYPE different from
 	 its canonical type, we will need to use structural equality
 	 checks for this type. */
-      if (TYPE_STRUCTURAL_EQUALITY_P (type)
+      if (type->structural_equality_p ()
           || !comp_type_attributes (ntype, type))
-	SET_TYPE_STRUCTURAL_EQUALITY (ntype);
-      else if (TYPE_CANONICAL (ntype) == ntype)
-	TYPE_CANONICAL (ntype) = TYPE_CANONICAL (type);
+	ntype->set_structural_equality_p ();
+      else if (ntype->canonical () == ntype)
+	ntype->set_canonical (type->canonical ());
 
       type = build_qualified_type (ntype, quals);
     }
-  else if (TYPE_QUALS (type) != quals)
+  else if (type->quals () != quals)
     type = build_qualified_type (type, quals);
 
   return type;
@@ -5102,7 +5100,7 @@ ttype *
 build_type_attribute_variant (ttype_p type, tree attribute)
 {
   return build_type_attribute_qual_variant (type, attribute,
-					    TYPE_QUALS (type));
+					    type->quals ());
 }
 
 
@@ -6490,17 +6488,17 @@ handle_dll_type_attribute (ttype ** pnode, tree name, tree args, int flags,
       return tree_cons (name, args, NULL_TREE);
     }
 
-  if (TREE_CODE (node) != RECORD_TYPE && TREE_CODE (node) != UNION_TYPE)
+  if (node->code () != RECORD_TYPE && node->code () != UNION_TYPE)
     {
       warning (OPT_Wattributes, "%qE attribute ignored", name);
       *no_add_attrs = true;
       return NULL_TREE;
     }
 
-  if (!TYPE_NAME (node))
+  if (!node->name ())
     return NULL_TREE;
 
-  return handle_dll_decl_attribute (&TYPE_NAME (node), name, args, flags,
+  return handle_dll_decl_attribute (&node->name (), name, args, flags,
 				    no_add_attrs);
 }
 
@@ -6522,23 +6520,23 @@ set_type_quals (ttype *type, int type_quals)
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
 bool
-check_base_type (const_tree cand, const_tree base)
+check_base_type (const ttype_p cand, const ttype_p base)
 {
-  return (TYPE_NAME (cand) == TYPE_NAME (base)
+  return (cand->name () == base->name ()
 	  /* Apparently this is needed for Objective-C.  */
-	  && TYPE_CONTEXT (cand) == TYPE_CONTEXT (base)
+	  && cand->context () == base->context ()
 	  /* Check alignment.  */
-	  && TYPE_ALIGN (cand) == TYPE_ALIGN (base)
-	  && attribute_list_equal (TYPE_ATTRIBUTES (cand),
-				   TYPE_ATTRIBUTES (base)));
+	  && cand->align () == base->align ()
+	  && attribute_list_equal (cand->attributes (),
+				   base->attributes ()));
 }
 
 /* Returns true iff CAND is equivalent to BASE with TYPE_QUALS.  */
 
 bool
-check_qualified_type (const_tree cand, const_tree base, int type_quals)
+check_qualified_type (const ttype_p cand, const ttype_p base, int type_quals)
 {
-  return (TYPE_QUALS (cand) == type_quals
+  return (cand->quals () == type_quals
 	  && check_base_type (cand, base));
 }
 
@@ -6608,7 +6606,7 @@ get_qualified_type (ttype_p type, int type_quals)
 {
   ttype *t;
 
-  if (TYPE_QUALS (type) == type_quals)
+  if (type->quals () == type_quals)
     return type;
 
   /* Search the chain of variants to see if there is already one there just
@@ -6646,15 +6644,15 @@ build_qualified_type (ttype_p type, int type_quals)
 	    {
 	      /* Ensure the alignment of this type is compatible with
 		 the required alignment of the atomic type.  */
-	      if (TYPE_ALIGN (atomic_type) > TYPE_ALIGN (t))
-		TYPE_ALIGN (t) = TYPE_ALIGN (atomic_type);
+	      if (atomic_type->align () > t->align ())
+		t->set_align (atomic_type->align());
 	    }
 	}
 
-      if (TYPE_STRUCTURAL_EQUALITY_P (type))
+      if (type->structural_equality_p ())
 	/* Propagate structural equality. */
-	SET_TYPE_STRUCTURAL_EQUALITY (t);
-      else if (TYPE_CANONICAL (type) != type)
+	t->set_structural_equality_p ();
+      else if (type->canonical () != type)
 	/* Build the underlying canonical type, since it is different
 	   from TYPE. */
 	{
@@ -6676,8 +6674,7 @@ build_aligned_type (ttype_p type, unsigned int align)
 {
   ttype *t;
 
-  if (TYPE_PACKED (type)
-      || TYPE_ALIGN (type) == align)
+  if (type->packed_p () || type->align () == align)
     return type;
 
   for (t = type->main_variant (); t; t = t->next_variant ())
@@ -6685,7 +6682,7 @@ build_aligned_type (ttype_p type, unsigned int align)
       return t;
 
   t = build_variant_type_copy (type);
-  TYPE_ALIGN (t) = align;
+  t->set_align (align);
 
   return t;
 }
@@ -6701,24 +6698,24 @@ build_distinct_type_copy (ttype_p type)
   ttype *t = copy_node (type);
 
   t->set_pointer_to (NULL);
-  TYPE_REFERENCE_TO (t) = 0;
+  t->set_reference_to (NULL);
 
   /* Set the canonical type either to a new equivalence class, or
      propagate the need for structural equality checks. */
-  if (TYPE_STRUCTURAL_EQUALITY_P (type))
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  if (type->structural_equality_p ())
+    t->set_structural_equality_p ();
   else
-    TYPE_CANONICAL (t) = t;
+    t->set_canonical (t);
 
   /* Make it its own variant.  */
-  TYPE_MAIN_VARIANT (t) = t;
-  TYPE_NEXT_VARIANT (t) = 0;
+  t->set_main_variant (t);
+  t->set_next_variant (NULL);
 
   /* We do not record methods in type copies nor variants
      so we do not need to keep them up to date when new method
      is inserted.  */
-  if (RECORD_OR_UNION_TYPE_P (t))
-    TYPE_METHODS (t) = NULL_TREE;
+  if (t->record_or_union_p ())
+    t->set_methods (NULL_TREE);
 
   /* Note that it is now possible for TYPE_MIN_VALUE to be a value
      whose TREE_TYPE is not t.  This can also happen in the Ada
@@ -6744,7 +6741,7 @@ build_variant_type_copy (ttype_p type)
      variant. This also propagates TYPE_STRUCTURAL_EQUALITY_P. */
   t->set_canonical (type->canonical ());
   /* Type variants have no alias set defined.  */
-  TYPE_ALIAS_SET (t) = -1;
+  t->set_alias_set (-1);
 
   /* Add the new type to the chain of variants of TYPE.  */
   t->set_next_variant (m->next_variant ());
@@ -7924,7 +7921,7 @@ build_pointer_type_for_mode (ttype_p to_type, machine_mode mode,
 
   /* If the pointed-to type has the may_alias attribute set, force
      a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
-  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+  if (lookup_attribute ("may_alias", to_type->attributes ()))
     can_alias_all = true;
 
   /* In some cases, languages will have things that aren't a POINTER_TYPE
@@ -7942,20 +7939,20 @@ build_pointer_type_for_mode (ttype_p to_type, machine_mode mode,
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
   for (t = to_type->pointer_to (); t; t = t->next_ptr_to ())
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (t->mode () == mode && t->ref_can_alias_all () == can_alias_all)
       return t;
 
   t = make_type_node (POINTER_TYPE);
 
-  TREE_TYPE (t) = to_type;
-  SET_TYPE_MODE (t, mode);
-  TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
+  t->set_type (to_type);
+  t->set_mode (mode);
+  t->set_ref_can_alias_all (can_alias_all);
   t->set_next_ptr_to (to_type->pointer_to ());
   to_type->set_pointer_to (t);
 
   /* During LTO we do not set TYPE_CANONICAL of pointers and references.  */
-  if (TYPE_STRUCTURAL_EQUALITY_P (to_type) || in_lto_p)
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  if (to_type->structural_equality_p () || in_lto_p)
+    t->set_structural_equality_p ();
   else if (to_type->canonical () != to_type || could_alias)
     t->set_canonical (build_pointer_type_for_mode (to_type->canonical (),
 						   mode, false));
@@ -7970,10 +7967,10 @@ build_pointer_type_for_mode (ttype_p to_type, machine_mode mode,
 /* By default build pointers in ptr_mode.  */
 
 ttype *
-build_pointer_type (tree to_type)
+build_pointer_type (ttype_p to_type)
 {
   addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
-					      : TYPE_ADDR_SPACE (to_type);
+					      : to_type->addr_space ();
   machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_pointer_type_for_mode (to_type, pointer_mode, false);
 }
@@ -7992,7 +7989,7 @@ build_reference_type_for_mode (ttype_p to_type, machine_mode mode,
 
   /* If the pointed-to type has the may_alias attribute set, force
      a TYPE_REF_CAN_ALIAS_ALL pointer to be generated.  */
-  if (lookup_attribute ("may_alias", TYPE_ATTRIBUTES (to_type)))
+  if (lookup_attribute ("may_alias", to_type->attributes ()))
     can_alias_all = true;
 
   /* In some cases, languages will have things that aren't a REFERENCE_TYPE
@@ -8003,27 +8000,27 @@ build_reference_type_for_mode (ttype_p to_type, machine_mode mode,
      ??? This is a kludge, but consistent with the way this function has
      always operated and there doesn't seem to be a good way to avoid this
      at the moment.  */
-  if (TYPE_REFERENCE_TO (to_type) != 0
-      && TREE_CODE (TYPE_REFERENCE_TO (to_type)) != REFERENCE_TYPE)
+  if (to_type->reference_to () != 0
+      && to_type->reference_to()->code () != REFERENCE_TYPE)
     return to_type->reference_to ();
 
   /* First, if we already have a type for pointers to TO_TYPE and it's
      the proper mode, use it.  */
   for (t = to_type->reference_to (); t; t = t->next_ref_to ())
-    if (TYPE_MODE (t) == mode && TYPE_REF_CAN_ALIAS_ALL (t) == can_alias_all)
+    if (t->mode () == mode && t->ref_can_alias_all () == can_alias_all)
       return t;
 
   t = make_type_node (REFERENCE_TYPE);
 
-  TREE_TYPE (t) = to_type;
-  SET_TYPE_MODE (t, mode);
-  TYPE_REF_CAN_ALIAS_ALL (t) = can_alias_all;
+  t->set_type (to_type);
+  t->set_mode (mode);
+  t->set_ref_can_alias_all (can_alias_all);
   t->set_next_ref_to (to_type->reference_to ());
   to_type->set_reference_to (t);
 
   /* During LTO we do not set TYPE_CANONICAL of pointers and references.  */
-  if (TYPE_STRUCTURAL_EQUALITY_P (to_type) || in_lto_p)
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
+  if (to_type->structural_equality_p () || in_lto_p)
+    t->set_structural_equality_p ();
   else if (to_type->canonical () != to_type || could_alias)
     t->set_canonical (build_reference_type_for_mode (to_type->canonical (),
 						     mode, false));
@@ -8038,10 +8035,10 @@ build_reference_type_for_mode (ttype_p to_type, machine_mode mode,
    in ptr_mode.  */
 
 ttype *
-build_reference_type (tree to_type)
+build_reference_type (ttype_p to_type)
 {
   addr_space_t as = to_type == error_mark_node? ADDR_SPACE_GENERIC
-					      : TYPE_ADDR_SPACE (to_type);
+					      : to_type->addr_space ();
   machine_mode pointer_mode = targetm.addr_space.pointer_mode (as);
   return build_reference_type_for_mode (to_type, pointer_mode, false);
 }
@@ -8070,7 +8067,7 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
     }
 
   itype = make_type_node (INTEGER_TYPE);
-  TYPE_PRECISION (itype) = precision;
+  itype->set_precision (precision);
 
   if (unsignedp)
     fixup_unsigned_type (itype);
@@ -8078,8 +8075,8 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
     fixup_signed_type (itype);
 
   ret = itype;
-  if (tree_fits_uhwi_p (TYPE_MAX_VALUE (itype)))
-    ret = type_hash_canon (tree_to_uhwi (TYPE_MAX_VALUE (itype)), itype);
+  if (tree_fits_uhwi_p (itype->max_value ()))
+    ret = type_hash_canon (tree_to_uhwi (itype->max_value ()), itype);
   if (precision <= MAX_INT_CACHED_PREC)
     nonstandard_integer_type_cache[precision + unsignedp] = ret;
 
@@ -8088,14 +8085,14 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
 
 #define MAX_BOOL_CACHED_PREC \
   (HOST_BITS_PER_WIDE_INT > 64 ? HOST_BITS_PER_WIDE_INT : 64)
-static GTY(()) tree nonstandard_boolean_type_cache[MAX_BOOL_CACHED_PREC + 1];
+static GTY(()) ttype *nonstandard_boolean_type_cache[MAX_BOOL_CACHED_PREC + 1];
 
 /* Builds a boolean type of precision PRECISION.
    Used for boolean vectors to choose proper vector element size.  */
 tree
 build_nonstandard_boolean_type (unsigned HOST_WIDE_INT precision)
 {
-  tree type;
+  ttype *type;
 
   if (precision <= MAX_BOOL_CACHED_PREC)
     {
@@ -8104,8 +8101,8 @@ build_nonstandard_boolean_type (unsigned HOST_WIDE_INT precision)
 	return type;
     }
 
-  type = make_node (BOOLEAN_TYPE);
-  TYPE_PRECISION (type) = precision;
+  type = make_type_node (BOOLEAN_TYPE);
+  type->set_precision (precision);
   fixup_signed_type (type);
 
   if (precision <= MAX_INT_CACHED_PREC)
@@ -8119,40 +8116,40 @@ build_nonstandard_boolean_type (unsigned HOST_WIDE_INT precision)
    is true, reuse such a type that has already been constructed.  */
 
 static ttype *
-build_range_type_1 (tree type, tree lowval, tree highval, bool shared)
+build_range_type_1 (ttype_p type, tree lowval, tree highval, bool shared)
 {
   ttype *itype = make_type_node (INTEGER_TYPE);
   inchash::hash hstate;
 
-  TREE_TYPE (itype) = type;
+  itype->set_type (type);
 
-  TYPE_MIN_VALUE (itype) = fold_convert (type, lowval);
-  TYPE_MAX_VALUE (itype) = highval ? fold_convert (type, highval) : NULL;
+  itype->set_min_value (fold_convert (type, lowval));
+  itype->set_max_value (highval ? fold_convert (type, highval) : NULL);
 
-  TYPE_PRECISION (itype) = TYPE_PRECISION (type);
-  SET_TYPE_MODE (itype, TYPE_MODE (type));
-  TYPE_SIZE (itype) = TYPE_SIZE (type);
-  TYPE_SIZE_UNIT (itype) = TYPE_SIZE_UNIT (type);
-  TYPE_ALIGN (itype) = TYPE_ALIGN (type);
-  TYPE_USER_ALIGN (itype) = TYPE_USER_ALIGN (type);
+  itype->set_precision (type->precision ());
+  itype->set_mode (type->mode ());
+  itype->set_size (type->size ());
+  itype->set_size_unit (type->size_unit ());
+  itype->set_align (type->align ());
+  itype->set_user_align_p (type->user_align_p ());
 
   if (!shared)
     return itype;
 
-  if ((TYPE_MIN_VALUE (itype)
-       && TREE_CODE (TYPE_MIN_VALUE (itype)) != INTEGER_CST)
-      || (TYPE_MAX_VALUE (itype)
-	  && TREE_CODE (TYPE_MAX_VALUE (itype)) != INTEGER_CST))
+  if ((itype->min_value ()
+       && TREE_CODE (itype->min_value()) != INTEGER_CST)
+      || (itype->max_value ()
+	  && TREE_CODE (itype->max_value()) != INTEGER_CST))
     {
       /* Since we cannot reliably merge this type, we need to compare it using
 	 structural equality checks.  */
-      SET_TYPE_STRUCTURAL_EQUALITY (itype);
+      itype->set_structural_equality_p ();
       return itype;
     }
 
-  inchash::add_expr (TYPE_MIN_VALUE (itype), hstate);
-  inchash::add_expr (TYPE_MAX_VALUE (itype), hstate);
-  hstate.merge_hash (TYPE_HASH (type));
+  inchash::add_expr (itype->min_value (), hstate);
+  inchash::add_expr (itype->max_value (), hstate);
+  hstate.merge_hash (type->hash());
   itype = type_hash_canon (hstate.end (), itype);
 
   return itype;

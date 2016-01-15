@@ -3735,7 +3735,7 @@ c_common_signed_or_unsigned_type (int unsignedp, ttype_p type)
      types, and producing a signed or unsigned variant of an
      ENUMERAL_TYPE may cause other problems as well.  */
 
-  if (!type->integral_type_p ()
+  if (!type->integral_p ()
       || type->unsigned_p () == unsignedp)
     return type;
 

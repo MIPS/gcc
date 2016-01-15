@@ -13525,7 +13525,7 @@ c_build_qualified_type (ttype_p type, int type_quals,
      incomplete type.  Note that the use of POINTER_TYPE_P also allows
      REFERENCE_TYPEs, which is appropriate for C++.  */
   if ((type_quals & TYPE_QUAL_RESTRICT)
-      && (!type->pointer_type_p ()
+      && (!type->pointer_p ()
 	  || !C_TYPE_OBJECT_OR_INCOMPLETE_P (type->type ())))
     {
       error ("invalid use of %<restrict%>");
@@ -13537,7 +13537,7 @@ c_build_qualified_type (ttype_p type, int type_quals,
 		   : build_qualified_type (type, type_quals));
   /* A variant type does not inherit the list of incomplete vars from the
      type main variant.  */
-  if (var_type->record_or_union_type_p ())
+  if (var_type->record_or_union_p ())
     C_TYPE_INCOMPLETE_VARS (var_type) = 0;
   return var_type;
 }

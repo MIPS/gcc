@@ -316,6 +316,7 @@ public:
   inline ttype_p& operator= (ttype *t) { type = t; return *this; }
   inline operator ttype *() const { return type; }
   inline ttype * operator->() { return type; }
+  inline ttype * operator->() const { return type; }
   // Used to mark locations which will simply be ttype when we can remove the
   // ttype_p type at this location.  Mostly when used in varargs..
   inline ttype *as_a_ttype () { return type; }
@@ -553,6 +554,7 @@ void ttype::set_type (ttype *t) { u.typed.type = t; }
 /* Here is how primitive or already-canonicalized types' hash codes
    are made.  */
 #define TYPE_HASH(TYPE) (TYPE_UID (TYPE))
+unsigned int &ttype::hash() { return u.type_common.uid; }
 
 /* A simple hash function for an arbitrary tree node.  This must not be
    used in hash tables which are saved to a PCH.  */
@@ -603,7 +605,7 @@ void ttype::set_type (ttype *t) { u.typed.type = t; }
 
 #define VECTOR_TYPE_P(TYPE) (TREE_CODE (TYPE) == VECTOR_TYPE)
 
-bool ttype::vector_type_p () const { return code() == VECTOR_TYPE; }
+bool ttype::vector_p () const { return code() == VECTOR_TYPE; }
 
 /* Nonzero if TYPE represents a vector of booleans.  */
 
@@ -619,7 +621,7 @@ bool ttype::vector_type_p () const { return code() == VECTOR_TYPE; }
   (TREE_CODE (TYPE) == ENUMERAL_TYPE  \
    || TREE_CODE (TYPE) == BOOLEAN_TYPE \
    || TREE_CODE (TYPE) == INTEGER_TYPE)
-bool ttype::integral_type_p () const
+bool ttype::integral_p () const
 {
   return code () == ENUMERAL_TYPE || code () == BOOLEAN_TYPE
 	 || code() == INTEGER_TYPE;
@@ -692,7 +694,7 @@ bool ttype::integral_type_p () const
    || TREE_CODE (TYPE) == UNION_TYPE		\
    || TREE_CODE (TYPE) == QUAL_UNION_TYPE)
 
-inline bool ttype::record_or_union_type_p () const
+inline bool ttype::record_or_union_p () const
 {
   return code () == RECORD_TYPE || code () == UNION_TYPE
 	 || code () == QUAL_UNION_TYPE;
@@ -710,7 +712,7 @@ inline bool ttype::record_or_union_type_p () const
 
 #define POINTER_TYPE_P(TYPE) \
   (TREE_CODE (TYPE) == POINTER_TYPE || TREE_CODE (TYPE) == REFERENCE_TYPE)
-inline bool ttype::pointer_type_p() const
+inline bool ttype::pointer_p() const
 {
   return code () == POINTER_TYPE || code () == REFERENCE_TYPE;
 }
@@ -836,6 +838,8 @@ inline bool ttype::pointer_type_p() const
    by this type can alias anything.  */
 #define TYPE_REF_CAN_ALIAS_ALL(NODE) \
   (PTR_OR_REF_CHECK (NODE)->u.base.static_flag)
+bool ttype::ref_can_alias_all () const { return u.base.static_flag; }
+void ttype::set_ref_can_alias_all (bool f) { u.base.static_flag = f; }
 
 /* In an INTEGER_CST, REAL_CST, COMPLEX_CST, or VECTOR_CST, this means
    there was an overflow in folding.  */
@@ -1909,14 +1913,17 @@ extern void protected_set_expr_location (tree, location_t);
    so they must be checked as well.  */
 
 #define TYPE_UID(NODE) (TYPE_CHECK (NODE)->u.type_common.uid)
-int ttype::uid () const { return u.type_common.uid; }
-void ttype::set_uid (int n) { u.type_common.uid = n; }
+unsigned int ttype::uid () const { return u.type_common.uid; }
+void ttype::set_uid (unsigned n) { u.type_common.uid = n; }
 
 #define TYPE_SIZE(NODE) (TYPE_CHECK (NODE)->u.type_common.size)
 tree ttype::size () const { return u.type_common.size; }
 void ttype::set_size (tree t) { u.type_common.size = t; }
 
 #define TYPE_SIZE_UNIT(NODE) (TYPE_CHECK (NODE)->u.type_common.size_unit)
+tree ttype::size_unit () const { return u.type_common.size_unit; }
+void ttype::set_size_unit (tree t) { u.type_common.size_unit = t; }
+
 #define TYPE_POINTER_TO(NODE) (TYPE_CHECK (NODE)->u.type_common.pointer_to)
 ttype *ttype::pointer_to () const { return TTYPE (u.type_common.pointer_to); }
 void ttype::set_pointer_to (ttype *t) { u.type_common.pointer_to = t; }
@@ -1956,8 +1963,8 @@ enum machine_mode ttype::mode_raw () const { return u.type_common.mode; }
    ? vector_type_mode (NODE) : (NODE)->u.type_common.mode)
 enum machine_mode ttype::mode () const
 {
-  if (vector_type_p ())
-    return vector_type_mode ();
+  if (vector_p ())
+    return vector_mode ();
   else
     return u.type_common.mode;
 }
@@ -2013,6 +2020,9 @@ inline void ttype::set_structural_equality_p () { set_canonical (NULL); }
    assigned to this type.  If the TYPE_ALIAS_SET is 0, objects of this
    type can alias objects of any type.  */
 #define TYPE_ALIAS_SET(NODE) (TYPE_CHECK (NODE)->u.type_common.alias_set)
+alias_set_type ttype::alias_set () const { return u.type_common.alias_set; }
+void ttype::set_alias_set (alias_set_type a) { u.type_common.alias_set = a; }
+
 
 /* Nonzero iff the typed-based alias set for this type has been
    calculated.  */
@@ -2030,10 +2040,14 @@ inline void ttype::set_attributes (tree t)
 /* The alignment necessary for objects of this type.
    The value is an int, measured in bits.  */
 #define TYPE_ALIGN(NODE) (TYPE_CHECK (NODE)->u.type_common.align)
+unsigned int ttype::align () const { return u.type_common.align; }
+void ttype::set_align (unsigned int i) { u.type_common.align = i; }
 
 /* 1 if the alignment for this type was requested by "aligned" attribute,
    0 if it is the default for this type.  */
 #define TYPE_USER_ALIGN(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.user_align)
+bool ttype::user_align_p () const { return u.base.u.bits.user_align; }
+void ttype::set_user_align_p (bool f) { u.base.u.bits.user_align = f; }
 
 /* The alignment for NODE, in bytes.  */
 #define TYPE_ALIGN_UNIT(NODE) (TYPE_ALIGN (NODE) / BITS_PER_UNIT)
@@ -2200,6 +2214,8 @@ void ttype::set_vector_subparts (unsigned u) { set_precision (exact_log2 (u)); }
 /* Indicated that objects of this type should be laid out in as
    compact a way as possible.  */
 #define TYPE_PACKED(NODE) (TYPE_CHECK (NODE)->u.base.u.bits.packed_flag)
+bool ttype::packed_p () const { return u.base.u.bits.packed_flag; }
+void ttype::set_packed_p (bool f) { u.base.u.bits.packed_flag = f; }
 
 /* Used by type_contains_placeholder_p to avoid recomputation.
    Values are: 0 (unknown), 1 (false), 2 (true).  Never access
@@ -2264,10 +2280,16 @@ void ttype::set_cached_values (tree t) { u.type_non_common.values = t; }
 
 #define TYPE_ARG_TYPES(NODE) \
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.values)
+tree ttype::arg_types () const { return u.type_non_common.values; }
+void ttype::set_arg_types (tree t) { u.type_non_common.values = t; }
+
 #define TYPE_VALUES_RAW(NODE) (TYPE_CHECK (NODE)->u.type_non_common.values)
 
 #define TYPE_METHODS(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.maxval)
+tree ttype::methods () const { return u.type_non_common.maxval; }
+void ttype::set_methods (tree t) { u.type_non_common.maxval = t; }
+
 #define TYPE_VFIELD(NODE) \
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.minval)
 #define TYPE_METHOD_BASETYPE(NODE) \
@@ -2288,8 +2310,12 @@ void ttype::set_next_ref_to (ttype *t) { u.type_non_common.minval = t; }
 
 #define TYPE_MIN_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.minval)
+tree ttype::min_value () const { return u.type_non_common.minval; }
+void ttype::set_min_value (tree t) { u.type_non_common.minval = t; }
 #define TYPE_MAX_VALUE(NODE) \
   (NUMERICAL_TYPE_CHECK (NODE)->u.type_non_common.maxval)
+tree ttype::max_value () const { return u.type_non_common.maxval; }
+void ttype::set_max_value (tree t) { u.type_non_common.maxval = t; }
 
 /* If non-NULL, this is an upper bound of the size (in bytes) of an
    object of the given ARRAY_TYPE_NON_COMMON.  This allows temporaries to be
@@ -4210,9 +4236,9 @@ extern tree signed_type_for (tree);
 extern tree unsigned_type_for (tree);
 extern tree truth_type_for (tree);
 extern ttype *build_pointer_type_for_mode (ttype_p, machine_mode, bool);
-extern ttype *build_pointer_type (tree);
+extern ttype *build_pointer_type (ttype_p);
 extern ttype *build_reference_type_for_mode (ttype_p, machine_mode, bool);
-extern ttype *build_reference_type (tree);
+extern ttype *build_reference_type (ttype_p);
 extern ttype *build_vector_type_for_mode (tree, machine_mode);
 extern ttype *build_vector_type (tree innertype, int nunits);
 extern tree build_truth_vector_type (unsigned, unsigned);
@@ -4406,18 +4432,18 @@ extern tree handle_dll_type_attribute (ttype **, tree, tree, int, bool *);
 
 /* Returns true iff unqualified CAND and BASE are equivalent.  */
 
-extern bool check_base_type (const_tree cand, const_tree base);
+extern bool check_base_type (const ttype_p cand, const ttype_p base);
 
 /* Check whether CAND is suitable to be returned from get_qualified_type
    (BASE, TYPE_QUALS).  */
 
-extern bool check_qualified_type (const_tree, const_tree, int);
+extern bool check_qualified_type (const ttype_p, const ttype_p, int);
 
 /* Return a version of the TYPE, qualified as indicated by the
    TYPE_QUALS, if one exists.  If no qualified version exists yet,
    return NULL_TREE.  */
 
-extern ttype *get_qualified_type (ttype_p, int);
+extern ttype *get_qualified_type (ttype_p , int);
 
 /* Like get_qualified_type, but creates the type if it does not
    exist.  This function never returns NULL_TREE.  */

@@ -2446,7 +2446,7 @@ min_align_of_type (tree type)
    referenced by a function and re-compute the TYPE_MODE once, rather
    than make the TYPE_MODE macro call a function.  */
 
-enum machine_mode ttype::vector_type_mode() const
+enum machine_mode ttype::vector_mode() const
 {
   machine_mode mode;
 
@@ -2479,7 +2479,7 @@ enum machine_mode
 vector_type_mode (const_tree t)
 {
   const ttype *tt = TTYPE (t);
-  return tt->vector_type_mode();
+  return tt->vector_mode();
 }
 
 

@@ -1878,7 +1878,7 @@ build_qualified_name (tree type, tree scope, tree name, bool template_p)
    specification.  */
 
 static bool
-cp_check_qualified_type (const_tree cand, const_tree base, int type_quals,
+cp_check_qualified_type (const ttype_p cand, const ttype_p base, int type_quals,
 			 cp_ref_qualifier rqual, tree raises)
 {
   return (check_qualified_type (cand, base, type_quals)
