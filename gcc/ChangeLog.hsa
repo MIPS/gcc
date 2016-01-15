@@ -1,4 +1,18 @@
 2016-01-15  Martin Liska  <mliska@suse.cz>
+	    Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig-format.h: Replaced entire contents.
+	* hsa-gen.c (gen_get_level): Fixed ambiguity.
+	* hsa-brig.c (emit_directive_variable): Removed allBits access.
+	(emit_function_directives): Likewise.
+	(emit_memory_insn): Likewise.
+	(emit_segment_insn): Likewise.
+	(emit_alloca_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_cvt_insn): Likewise.
+	(emit_arg_block_insn): Use BrigDirectiveArgBlock.
+
+2016-01-15  Martin Liska  <mliska@suse.cz>
 
 	* hsa-regalloc.c (naive_outof_ssa): Fixed coding style.
 	(linear_scan_regalloc): Likewise.

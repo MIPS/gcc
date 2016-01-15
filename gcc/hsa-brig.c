@@ -536,12 +536,12 @@ emit_directive_variable (struct hsa_symbol *symbol)
 
   /* Global variables are just declared and linked via HSA runtime.  */
   if (symbol->m_linkage != BRIG_ALLOCATION_PROGRAM)
-    dirvar.modifier.allBits |= BRIG_VARIABLE_DEFINITION;
+    dirvar.modifier |= BRIG_VARIABLE_DEFINITION;
   dirvar.reserved = 0;
 
   if (symbol->m_cst_value)
     {
-      dirvar.modifier.allBits |= BRIG_VARIABLE_CONST;
+      dirvar.modifier |= BRIG_VARIABLE_CONST;
       dirvar.init = htole32 (enqueue_op (symbol->m_cst_value));
     }
 
@@ -594,7 +594,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   fndir.nextModuleEntry = htole32 (next_toplev_off);
   fndir.linkage = f->get_linkage ();
   if (!f->m_declaration_p)
-    fndir.modifier.allBits |= BRIG_EXECUTABLE_DEFINITION;
+    fndir.modifier |= BRIG_EXECUTABLE_DEFINITION;
   memset (&fndir.reserved, 0, sizeof (fndir.reserved));
 
   /* Once we put a definition of function_offsets, we should not overwrite
@@ -1192,7 +1192,7 @@ emit_memory_insn (hsa_insn_mem *mem)
     repr.segment = addr->m_symbol->m_segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
-  repr.modifier.allBits = 0;
+  repr.modifier = 0;
   repr.equivClass = mem->m_equiv_class;
   repr.align = mem->m_align;
   if (mem->m_opcode == BRIG_OPCODE_LD)
@@ -1310,7 +1310,7 @@ emit_segment_insn (hsa_insn_seg *seg)
   repr.base.operands = htole32 (emit_insn_operands (seg));
   repr.sourceType = htole16 (as_a <hsa_op_reg *> (seg->get_op (1))->m_type);
   repr.segment = seg->m_segment;
-  repr.modifier.allBits = 0;
+  repr.modifier = 0;
 
   brig_code.add (&repr, sizeof (repr));
 
@@ -1337,7 +1337,7 @@ emit_alloca_insn (hsa_insn_alloca *alloca)
   repr.base.type = htole16 (alloca->m_type);
   repr.base.operands = htole32 (emit_insn_operands (alloca));
   repr.segment = BRIG_SEGMENT_PRIVATE;
-  repr.modifier.allBits = 0;
+  repr.modifier = 0;
   repr.equivClass = 0;
   repr.align = alloca->m_align;
   repr.width = BRIG_WIDTH_NONE;
@@ -1366,7 +1366,7 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   else
     repr.sourceType
       = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
-  repr.modifier.allBits = 0;
+  repr.modifier = 0;
   repr.compare = cmp->m_compare;
   repr.pack = 0;
 
@@ -1481,7 +1481,7 @@ emit_cvt_insn (hsa_insn_cvt *insn)
   else
     srctype = as_a <hsa_op_immed *> (insn->get_op (1))->m_type;
   repr.sourceType = htole16 (srctype);
-  repr.modifier.allBits = 0;
+  repr.modifier = 0;
   /* float to smaller float requires a rounding setting (we default
      to 'near'.  */
   if (hsa_type_float_p (insn->m_type)
@@ -1547,7 +1547,7 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
     {
     case BRIG_KIND_DIRECTIVE_ARG_BLOCK_START:
       {
-	struct BrigDirectiveArgBlockStart repr;
+	struct BrigDirectiveArgBlock repr;
 	repr.base.byteCount = htole16 (sizeof (repr));
 	repr.base.kind = htole16 (insn->m_kind);
 	brig_code.add (&repr, sizeof (repr));
@@ -1572,7 +1572,7 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
       }
     case BRIG_KIND_DIRECTIVE_ARG_BLOCK_END:
       {
-	struct BrigDirectiveArgBlockEnd repr;
+	struct BrigDirectiveArgBlock repr;
 	repr.base.byteCount = htole16 (sizeof (repr));
 	repr.base.kind = htole16 (insn->m_kind);
 	brig_code.add (&repr, sizeof (repr));

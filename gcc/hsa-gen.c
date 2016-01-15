@@ -3966,8 +3966,8 @@ gen_get_level (gimple *stmt, hsa_bb *hbb)
     = new hsa_op_address (shadow_reg_ptr,
 			  get_hsa_kernel_dispatch_offset ("omp_level"));
 
-  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, NULL,
-					addr);
+  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64,
+					(hsa_op_base *) NULL, addr);
   hbb->append_insn (mem);
   mem->set_output_in_type (dest, 0, hbb);
 }
