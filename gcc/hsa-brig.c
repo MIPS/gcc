@@ -52,6 +52,10 @@ along with GCC; see the file COPYING3.  If not see
 
 #define BRIG_CHUNK_MAX_SIZE (64 * 1024)
 
+/* Required HSA section alignment.  */
+
+#define HSA_SECTION_ALIGNMENT 16
+
 /* Chunks of BRIG binary data.  */
 
 struct hsa_brig_data_chunk
@@ -72,7 +76,7 @@ public:
   const char *section_name;
   /* Size in bytes of all data stored in the section.  */
   unsigned total_size;
-  /* The size of the header of the section including padding. */
+  /* The size of the header of the section including padding.  */
   unsigned header_byte_count;
   /* The size of the header of the section without any padding.  */
   unsigned header_byte_delta;
@@ -80,7 +84,7 @@ public:
   /* Buffers of binary data, each containing BRIG_CHUNK_MAX_SIZE bytes.  */
   vec <struct hsa_brig_data_chunk> chunks;
 
-  /* More convenient access to the last chunk from the vector above. */
+  /* More convenient access to the last chunk from the vector above.  */
   struct hsa_brig_data_chunk *cur_chunk;
 
   void allocate_new_chunk ();
@@ -110,8 +114,8 @@ static vec <hsa_insn_sbr *> *switch_instructions;
 
 struct function_linkage_pair
 {
-  function_linkage_pair (tree decl, unsigned int off):
-    function_decl (decl), offset (off) {}
+  function_linkage_pair (tree decl, unsigned int off)
+    : function_decl (decl), offset (off) {}
 
   /* Declaration of called function.  */
   tree function_decl;
@@ -145,7 +149,7 @@ hsa_brig_section::init (const char *name)
      certainly wasn't to have the first character of name and padding, which
      are a part of sizeof (BrigSectionHeader), included in the first addend,
      this is what the disassembler expects.  */
-  total_size = sizeof (BrigSectionHeader) + strlen(section_name);
+  total_size = sizeof (BrigSectionHeader) + strlen (section_name);
   chunks.create (1);
   allocate_new_chunk ();
   header_byte_delta = total_size;
@@ -175,8 +179,8 @@ hsa_brig_section::output ()
 
   section_header.byteCount = htole64 (total_size);
   section_header.headerByteCount = htole32 (header_byte_count);
-  section_header.nameLength = htole32 (strlen(section_name));
-  assemble_string ((const char*) &section_header, 16);
+  section_header.nameLength = htole32 (strlen (section_name));
+  assemble_string ((const char *) &section_header, 16);
   assemble_string (section_name, (section_header.nameLength));
   memset (&padding, 0, sizeof (padding));
   /* This is also a consequence of the wrong header size computation described
@@ -229,14 +233,13 @@ hsa_brig_section::round_size_up (int factor)
 
 /* Return pointer to data by global OFFSET in the section.  */
 
-void*
+void *
 hsa_brig_section::get_ptr_by_offset (unsigned int offset)
 {
   gcc_assert (offset < total_size);
-
   offset -= header_byte_delta;
-  unsigned int i;
 
+  unsigned i;
   for (i = 0; offset >= chunks[i].size; i++)
     offset -= chunks[i].size;
 
@@ -272,8 +275,8 @@ brig_string_slot_hasher::hash (const value_type ds)
   int i;
 
   for (i = 0; i < ds->len; i++)
-     r = r * 67 + (unsigned)ds->s[i] - 113;
-  r = r * 67 + (unsigned)ds->prefix - 113;
+     r = r * 67 + (unsigned) ds->s[i] - 113;
+  r = r * 67 + (unsigned) ds->prefix - 113;
   return r;
 }
 
@@ -283,7 +286,8 @@ inline bool
 brig_string_slot_hasher::equal (const value_type ds1, const compare_type ds2)
 {
   if (ds1->len == ds2->len)
-    return ds1->prefix == ds2->prefix && memcmp (ds1->s, ds2->s, ds1->len) == 0;
+    return ds1->prefix == ds2->prefix
+      && memcmp (ds1->s, ds2->s, ds1->len) == 0;
 
   return 0;
 }
@@ -293,7 +297,7 @@ brig_string_slot_hasher::equal (const value_type ds1, const compare_type ds2)
 inline void
 brig_string_slot_hasher::remove (value_type ds)
 {
-  free (const_cast<char*> (ds->s));
+  free (const_cast<char *> (ds->s));
   free (ds);
 }
 
@@ -315,7 +319,6 @@ brig_emit_string (const char *str, char prefix = 0, bool sanitize = true)
   brig_string_slot **slot;
   char *str2;
 
-  /* XXX Sanitize the names without all the strdup.  */
   str2 = xstrdup (str);
 
   if (sanitize)
@@ -331,15 +334,16 @@ brig_emit_string (const char *str, char prefix = 0, bool sanitize = true)
       brig_string_slot *new_slot = XCNEW (brig_string_slot);
 
       /* In theory we should fill in BrigData but that would mean copying
-         the string to a buffer for no reason, so we just emulate it. */
+	 the string to a buffer for no reason, so we just emulate it.  */
       offset = brig_data.add (&hdr_len, sizeof (hdr_len));
       if (prefix)
-        brig_data.add (&prefix, 1);
+	brig_data.add (&prefix, 1);
 
       brig_data.add (str2, slen);
       brig_data.round_size_up (4);
 
-      /* XXX could use the string we just copied into brig_string->cur_chunk */
+      /* TODO: could use the string we just copied into
+	 brig_string->cur_chunk */
       new_slot->s = str2;
       new_slot->len = slen;
       new_slot->prefix = prefix;
@@ -395,8 +399,8 @@ brig_init (void)
 	part = main_input_filename;
       else
 	part++;
-      asprintf (&modname, "&__hsa_module_%s", part);
-      char* extension = strchr (modname, '.');
+      modname = concat ("&__hsa_module_", part, NULL);
+      char *extension = strchr (modname, '.');
       if (extension)
 	*extension = '\0';
 
@@ -421,7 +425,7 @@ brig_init (void)
   else
     moddir.name = brig_emit_string ("__hsa_module_unnamed", '&');
   moddir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_MODULE);
-  moddir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR) ;
+  moddir.hsailMajor = htole32 (BRIG_VERSION_HSAIL_MAJOR);
   moddir.hsailMinor = htole32 (BRIG_VERSION_HSAIL_MINOR);
   moddir.profile = hsa_full_profile_p () ? BRIG_PROFILE_FULL: BRIG_PROFILE_BASE;
   if (hsa_machine_large_p ())
@@ -513,8 +517,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   else
     {
       char buf[64];
-      sprintf (buf, "__%s_%i", hsa_seg_name (symbol->m_segment),
-	       symbol->m_name_number);
+      snprintf (buf, 64, "__%s_%i", hsa_seg_name (symbol->m_segment),
+		symbol->m_name_number);
       name_offset = brig_emit_string (buf, prefix);
     }
 
@@ -527,8 +531,8 @@ emit_directive_variable (struct hsa_symbol *symbol)
   dirvar.align = MAX (hsa_natural_alignment (dirvar.type),
 		      (BrigAlignment8_t) BRIG_ALIGNMENT_4);
   dirvar.linkage = symbol->m_linkage;
-  dirvar.dim.lo = (uint32_t) symbol->m_dim;
-  dirvar.dim.hi = (uint32_t) ((unsigned long long) symbol->m_dim >> 32);
+  dirvar.dim.lo = symbol->m_dim;
+  dirvar.dim.hi = symbol->m_dim >> 32;
 
   /* Global variables are just declared and linked via HSA runtime.  */
   if (symbol->m_linkage != BRIG_ALLOCATION_PROGRAM)
@@ -565,7 +569,7 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
       }
 
   name_offset = brig_emit_string (f->m_name, '&');
-  inarg_off = brig_code.total_size + sizeof(fndir)
+  inarg_off = brig_code.total_size + sizeof (fndir)
     + (f->m_output_arg ? sizeof (struct BrigDirectiveVariable) : 0);
   scoped_off = inarg_off
     + f->m_input_args.length () * sizeof (struct BrigDirectiveVariable);
@@ -603,15 +607,15 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
   else
     {
       /* Internal function.  */
-      hsa_internal_fn **slot = hsa_emitted_internal_decls->find_slot
-	(f->m_internal_fn, INSERT);
+      hsa_internal_fn **slot
+	= hsa_emitted_internal_decls->find_slot (f->m_internal_fn, INSERT);
       hsa_internal_fn *int_fn = new hsa_internal_fn (f->m_internal_fn);
       int_fn->m_offset = brig_code.total_size;
       *slot = int_fn;
     }
 
   brig_code.add (&fndir, sizeof (fndir));
-  /* XXX terrible hack: we need to set instCount after we emit all
+  /* terrible hack: we need to set instCount after we emit all
      insns, but we need to emit directive in order, and we emit directives
      during insn emitting.  So we need to emit the FUNCTION directive
      early, then the insns, and then we need to set instCount, so remember
@@ -619,8 +623,8 @@ emit_function_directives (hsa_function_representation *f, bool is_declaration)
      directly to after fndir here.  */
   ptr_to_fndir
       = (BrigDirectiveExecutable *)(brig_code.cur_chunk->data
-                                    + brig_code.cur_chunk->size
-                                    - sizeof (fndir));
+				    + brig_code.cur_chunk->size
+				    - sizeof (fndir));
 
   if (f->m_output_arg)
     emit_directive_variable (f->m_output_arg);
@@ -651,14 +655,16 @@ static void
 emit_bb_label_directive (hsa_bb *hbb)
 {
   struct BrigDirectiveLabel lbldir;
-  char buf[32];
 
   lbldir.base.byteCount = htole16 (sizeof (lbldir));
   lbldir.base.kind = htole16 (BRIG_KIND_DIRECTIVE_LABEL);
-  sprintf (buf, "BB_%u_%i", DECL_UID (current_function_decl), hbb->m_index);
+  char buf[32];
+  snprintf (buf, 32, "BB_%u_%i", DECL_UID (current_function_decl),
+	    hbb->m_index);
   lbldir.name = htole32 (brig_emit_string (buf, '@'));
 
-  hbb->m_label_ref.m_directive_offset = brig_code.add (&lbldir, sizeof (lbldir));
+  hbb->m_label_ref.m_directive_offset = brig_code.add (&lbldir,
+						       sizeof (lbldir));
   brig_insn_count++;
 }
 
@@ -788,7 +794,7 @@ emit_immediate_scalar_to_buffer (tree value, char *data, unsigned need_len)
   tree type = TREE_TYPE (value);
   gcc_checking_assert (TREE_CODE (type) != VECTOR_TYPE);
 
-  unsigned data_len = tree_to_uhwi (TYPE_SIZE (type))/BITS_PER_UNIT;
+  unsigned data_len = tree_to_uhwi (TYPE_SIZE (type)) / BITS_PER_UNIT;
   if (INTEGRAL_TYPE_P (type)
       || (POINTER_TYPE_P (type) && TREE_CODE (value) == INTEGER_CST))
     switch (data_len)
@@ -803,7 +809,7 @@ emit_immediate_scalar_to_buffer (tree value, char *data, unsigned need_len)
 	bytes.b32 = (uint32_t) TREE_INT_CST_LOW (value);
 	break;
       case 8:
-	bytes.b64 = (uint64_t) int_cst_value (value);
+	bytes.b64 = (uint64_t) TREE_INT_CST_LOW (value);
 	break;
       default:
 	gcc_unreachable ();
@@ -861,8 +867,8 @@ hsa_op_immed::emit_to_buffer (tree value)
       for (i = 0; i < num; i++)
 	{
 	  unsigned actual;
-	  actual = emit_immediate_scalar_to_buffer
-	    (VECTOR_CST_ELT (value, i), p, 0);
+	  actual
+	    = emit_immediate_scalar_to_buffer (VECTOR_CST_ELT (value, i), p, 0);
 	  total_len -= actual;
 	  p += actual;
 	}
@@ -876,14 +882,16 @@ hsa_op_immed::emit_to_buffer (tree value)
     {
       gcc_assert (total_len % 2 == 0);
       unsigned actual;
-      actual = emit_immediate_scalar_to_buffer
-	(TREE_REALPART (value), p, total_len / 2);
+      actual
+	= emit_immediate_scalar_to_buffer (TREE_REALPART (value), p,
+					   total_len / 2);
 
       gcc_assert (actual == total_len / 2);
       p += actual;
 
-      actual = emit_immediate_scalar_to_buffer
-	(TREE_IMAGPART (value), p, total_len / 2);
+      actual
+	= emit_immediate_scalar_to_buffer (TREE_IMAGPART (value), p,
+					   total_len / 2);
       gcc_assert (actual == total_len / 2);
     }
   else if (TREE_CODE (value) == CONSTRUCTOR)
@@ -891,8 +899,8 @@ hsa_op_immed::emit_to_buffer (tree value)
       unsigned len = vec_safe_length (CONSTRUCTOR_ELTS (value));
       for (unsigned i = 0; i < len; i++)
 	{
-	  unsigned actual = emit_immediate_scalar_to_buffer
-	    (CONSTRUCTOR_ELT (value, i)->value, p, 0);
+	  tree v = CONSTRUCTOR_ELT (value, i)->value;
+	  unsigned actual = emit_immediate_scalar_to_buffer (v, p, 0);
 	  total_len -= actual;
 	  p += actual;
 	}
@@ -918,7 +926,7 @@ emit_immediate_operand (hsa_op_immed *imm)
   uint32_t byteCount = htole32 (imm->m_brig_repr_size);
   out.type = htole16 (imm->m_type);
   out.bytes = htole32 (brig_data.add (&byteCount, sizeof (byteCount)));
-  brig_operand.add (&out, sizeof(out));
+  brig_operand.add (&out, sizeof (out));
   brig_data.add (imm->m_brig_repr, imm->m_brig_repr_size);
   brig_data.round_size_up (4);
 }
@@ -970,8 +978,8 @@ emit_address_operand (hsa_op_address *addr)
 
   if (sizeof (addr->m_imm_offset) == 8)
     {
-      out.offset.lo = htole32 ((uint32_t)addr->m_imm_offset);
-      out.offset.hi = htole32 (((long long) addr->m_imm_offset) >> 32);
+      out.offset.lo = htole32 (addr->m_imm_offset);
+      out.offset.hi = htole32 (addr->m_imm_offset >> 32);
     }
   else
     {
@@ -1097,7 +1105,6 @@ emit_internal_fn_decl (hsa_internal_fn *fn)
   return e;
 }
 
-
 /* Enqueue all operands of INSN and return offset to BRIG data section
    to list of operand offsets.  */
 
@@ -1160,7 +1167,7 @@ emit_operands (hsa_op_base *op0, hsa_op_base *op1 = NULL,
 }
 
 /* Emit an HSA memory instruction and all necessary directives, schedule
-   necessary operands for writing .  */
+   necessary operands for writing.  */
 
 static void
 emit_memory_insn (hsa_insn_mem *mem)
@@ -1185,7 +1192,7 @@ emit_memory_insn (hsa_insn_mem *mem)
     repr.segment = addr->m_symbol->m_segment;
   else
     repr.segment = BRIG_SEGMENT_FLAT;
-  repr.modifier.allBits = 0 ;
+  repr.modifier.allBits = 0;
   repr.equivClass = mem->m_equiv_class;
   repr.align = mem->m_align;
   if (mem->m_opcode == BRIG_OPCODE_LD)
@@ -1225,7 +1232,7 @@ emit_signal_insn (hsa_insn_signal *mem)
 }
 
 /* Emit an HSA atomic memory instruction and all necessary directives, schedule
-   necessary operands for writing .  */
+   necessary operands for writing.  */
 
 static void
 emit_atomic_insn (hsa_insn_atomic *mem)
@@ -1263,7 +1270,7 @@ emit_atomic_insn (hsa_insn_atomic *mem)
 }
 
 /* Emit an HSA LDA instruction and all necessary directives, schedule
-   necessary operands for writing .  */
+   necessary operands for writing.  */
 
 static void
 emit_addr_insn (hsa_insn_basic *insn)
@@ -1289,7 +1296,7 @@ emit_addr_insn (hsa_insn_basic *insn)
 }
 
 /* Emit an HSA segment conversion instruction and all necessary directives,
-   schedule necessary operands for writing .  */
+   schedule necessary operands for writing.  */
 
 static void
 emit_segment_insn (hsa_insn_seg *seg)
@@ -1311,7 +1318,7 @@ emit_segment_insn (hsa_insn_seg *seg)
 }
 
 /* Emit an HSA alloca instruction and all necessary directives,
-   schedule necessary operands for writing .  */
+   schedule necessary operands for writing.  */
 
 static void
 emit_alloca_insn (hsa_insn_alloca *alloca)
@@ -1330,7 +1337,7 @@ emit_alloca_insn (hsa_insn_alloca *alloca)
   repr.base.type = htole16 (alloca->m_type);
   repr.base.operands = htole32 (emit_insn_operands (alloca));
   repr.segment = BRIG_SEGMENT_PRIVATE;
-  repr.modifier.allBits = 0 ;
+  repr.modifier.allBits = 0;
   repr.equivClass = 0;
   repr.align = alloca->m_align;
   repr.width = BRIG_WIDTH_NONE;
@@ -1340,7 +1347,7 @@ emit_alloca_insn (hsa_insn_alloca *alloca)
 }
 
 /* Emit an HSA comparison instruction and all necessary directives,
-   schedule necessary operands for writing .  */
+   schedule necessary operands for writing.  */
 
 static void
 emit_cmp_insn (hsa_insn_cmp *cmp)
@@ -1357,7 +1364,8 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
   if (is_a <hsa_op_reg *> (cmp->get_op (1)))
     repr.sourceType = htole16 (as_a <hsa_op_reg *> (cmp->get_op (1))->m_type);
   else
-    repr.sourceType = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
+    repr.sourceType
+      = htole16 (as_a <hsa_op_immed *> (cmp->get_op (1))->m_type);
   repr.modifier.allBits = 0;
   repr.compare = cmp->m_compare;
   repr.pack = 0;
@@ -1367,7 +1375,7 @@ emit_cmp_insn (hsa_insn_cmp *cmp)
 }
 
 /* Emit an HSA branching instruction and all necessary directives, schedule
-   necessary operands for writing .  */
+   necessary operands for writing.  */
 
 static void
 emit_branch_insn (hsa_insn_br *br)
@@ -1395,8 +1403,9 @@ emit_branch_insn (hsa_insn_br *br)
       }
   gcc_assert (target);
 
-  repr.base.operands = htole32
-    (emit_operands (br->get_op (0), &hsa_bb_for_bb (target)->m_label_ref));
+  repr.base.operands
+    = htole32 (emit_operands (br->get_op (0),
+			      &hsa_bb_for_bb (target)->m_label_ref));
   memset (&repr.reserved, 0, sizeof (repr.reserved));
 
   brig_code.add (&repr, sizeof (repr));
@@ -1440,8 +1449,8 @@ emit_switch_insn (hsa_insn_sbr *sbr)
   /* For Conditional jumps the type is always B1.  */
   hsa_op_reg *index = as_a <hsa_op_reg *> (sbr->get_op (0));
   repr.base.type = htole16 (index->m_type);
-  repr.base.operands = htole32
-    (emit_operands (sbr->get_op (0), sbr->m_label_code_list));
+  repr.base.operands
+    = htole32 (emit_operands (sbr->get_op (0), sbr->m_label_code_list));
   memset (&repr.reserved, 0, sizeof (repr.reserved));
 
   brig_code.add (&repr, sizeof (repr));
@@ -1502,19 +1511,21 @@ emit_call_insn (hsa_insn_call *call)
   repr.base.opcode = htole16 (BRIG_OPCODE_CALL);
   repr.base.type = htole16 (BRIG_TYPE_NONE);
 
-  repr.base.operands = htole32
-    (emit_operands (call->m_result_code_list, &call->m_func,
-		    call->m_args_code_list));
+  repr.base.operands
+    = htole32 (emit_operands (call->m_result_code_list, &call->m_func,
+			      call->m_args_code_list));
 
   /* Internal functions have not set m_called_function.  */
   if (call->m_called_function)
-    function_call_linkage.safe_push
-      (function_linkage_pair (call->m_called_function,
-			      call->m_func.m_brig_op_offset));
+    {
+      function_linkage_pair pair (call->m_called_function,
+				  call->m_func.m_brig_op_offset);
+      function_call_linkage.safe_push (pair);
+    }
   else
     {
-      hsa_internal_fn *slot = hsa_emitted_internal_decls->find
-	(call->m_called_internal_fn);
+      hsa_internal_fn *slot
+	= hsa_emitted_internal_decls->find (call->m_called_internal_fn);
       gcc_assert (slot);
       gcc_assert (slot->m_offset > 0);
       call->m_func.m_directive_offset = slot->m_offset;
@@ -1543,15 +1554,17 @@ emit_arg_block_insn (hsa_insn_arg_block *insn)
 
 	for (unsigned i = 0; i < insn->m_call_insn->m_input_args.length (); i++)
 	  {
-	    insn->m_call_insn->m_args_code_list->m_offsets[i] = htole32
-	      (emit_directive_variable (insn->m_call_insn->m_input_args[i]));
+	    insn->m_call_insn->m_args_code_list->m_offsets[i]
+	      = htole32 (emit_directive_variable
+			 (insn->m_call_insn->m_input_args[i]));
 	    brig_insn_count++;
 	  }
 
 	if (insn->m_call_insn->m_output_arg)
 	  {
-	    insn->m_call_insn->m_result_code_list->m_offsets[0] = htole32
-	      (emit_directive_variable (insn->m_call_insn->m_output_arg));
+	    insn->m_call_insn->m_result_code_list->m_offsets[0]
+	      = htole32 (emit_directive_variable
+			 (insn->m_call_insn->m_output_arg));
 	    brig_insn_count++;
 	  }
 
@@ -1652,8 +1665,8 @@ emit_packed_insn (hsa_insn_packed *insn)
       for (unsigned i = 1; i < operand_count; i++)
 	{
 	  gcc_checking_assert (insn->get_op (i));
-	  insn->m_operand_list->m_offsets[i - 1] = htole32
-	    (enqueue_op (insn->get_op (i)));
+	  insn->m_operand_list->m_offsets[i - 1]
+	    = htole32 (enqueue_op (insn->get_op (i)));
 	}
 
       repr.base.operands = htole32 (emit_operands (insn->get_op (0),
@@ -1665,13 +1678,13 @@ emit_packed_insn (hsa_insn_packed *insn)
       for (unsigned i = 0; i < operand_count - 1; i++)
 	{
 	  gcc_checking_assert (insn->get_op (i));
-	  insn->m_operand_list->m_offsets[i] = htole32
-	    (enqueue_op (insn->get_op (i)));
+	  insn->m_operand_list->m_offsets[i]
+	    = htole32 (enqueue_op (insn->get_op (i)));
 	}
 
-      repr.base.operands = htole32
-	(emit_operands (insn->m_operand_list,
-			insn->get_op (insn->operand_count () - 1)));
+      unsigned ops = emit_operands (insn->m_operand_list,
+				    insn->get_op (insn->operand_count () - 1));
+      repr.base.operands = htole32 (ops);
     }
 
 
@@ -1696,7 +1709,7 @@ emit_basic_insn (hsa_insn_basic *insn)
   switch (insn->m_opcode)
     {
       /* And the bit-logical operations need bit types and whine about
-         arithmetic types :-/  */
+	 arithmetic types :-/  */
       case BRIG_OPCODE_AND:
       case BRIG_OPCODE_OR:
       case BRIG_OPCODE_XOR:
@@ -1717,8 +1730,7 @@ emit_basic_insn (hsa_insn_basic *insn)
 	repr.round = BRIG_ROUND_FLOAT_NEAR_EVEN;
       else
 	repr.round = 0;
-      /* We assume that destination and sources agree in packing
-         layout.  */
+      /* We assume that destination and sources agree in packing layout.  */
       if (insn->num_used_ops () >= 2)
 	repr.pack = BRIG_PACK_PP;
       else
@@ -1734,7 +1746,7 @@ emit_basic_insn (hsa_insn_basic *insn)
 }
 
 /* Emit an HSA instruction and all necessary directives, schedule necessary
-   operands for writing .  */
+   operands for writing.  */
 
 static void
 emit_insn (hsa_insn_basic *insn)
@@ -1886,8 +1898,8 @@ hsa_brig_emit_function (void)
 	  for (unsigned j = 0; j < sbr->m_jump_table.length (); j++)
 	    {
 	      hsa_bb *hbb = hsa_bb_for_bb (sbr->m_jump_table[j]);
-	      sbr->m_label_code_list->m_offsets[j] =
-		hbb->m_label_ref.m_directive_offset;
+	      sbr->m_label_code_list->m_offsets[j]
+		= hbb->m_label_ref.m_directive_offset;
 	    }
 	}
 
@@ -1914,10 +1926,7 @@ hsa_brig_emit_omp_symbols (void)
   emit_directive_variable (hsa_num_threads);
 }
 
-/* Unit constructor and destructor statements.  */
-
-static GTY(()) tree hsa_ctor_statements;
-static GTY(()) tree hsa_dtor_statements;
+static GTY(()) tree hsa_cdtor_statements[2];
 
 /* Create and return __hsa_global_variables symbol that contains
    all informations consumed by libgomp to link global variables
@@ -1961,8 +1970,8 @@ hsa_output_global_variables ()
       hsa_sanitize_name (copy);
 
       tree var_name = build_string (len, copy);
-      TREE_TYPE (var_name) = build_array_type
-	(char_type_node, build_index_type (size_int (len)));
+      TREE_TYPE (var_name)
+	= build_array_type (char_type_node, build_index_type (size_int (len)));
       free (copy);
 
       vec<constructor_elt, va_gc> *variable_info_vec = NULL;
@@ -2021,9 +2030,8 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
   for (unsigned i = 0; i < map_count; ++i)
     {
       tree decl = hsa_get_decl_kernel_mapping_decl (i);
-      CONSTRUCTOR_APPEND_ELT
-	(host_functions_vec, NULL_TREE,
-	 build_fold_addr_expr (hsa_get_host_function (decl)));
+      tree host_fn = build_fold_addr_expr (hsa_get_host_function (decl));
+      CONSTRUCTOR_APPEND_ELT (host_functions_vec, NULL_TREE, host_fn);
     }
   tree host_functions_ctor = build_constructor (host_functions_array_type,
 						host_functions_vec);
@@ -2070,8 +2078,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 			 NULL_TREE);
 
   int_num_of_kernels = build_int_cstu (uint32_type_node, map_count);
-  tree kernel_info_vector_type = build_array_type
-    (kernel_info_type, build_index_type (int_num_of_kernels));
+  tree kernel_info_vector_type
+    = build_array_type (kernel_info_type,
+			build_index_type (int_num_of_kernels));
   TYPE_ARTIFICIAL (kernel_info_vector_type) = 1;
 
   vec<constructor_elt, va_gc> *kernel_info_vector_vec = NULL;
@@ -2089,8 +2098,8 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
       len++;
 
       tree kern_name = build_string (len, copy);
-      TREE_TYPE (kern_name) = build_array_type
-	(char_type_node, build_index_type (size_int (len)));
+      TREE_TYPE (kern_name)
+	= build_array_type (char_type_node, build_index_type (size_int (len)));
       free (copy);
 
       unsigned omp_size = hsa_get_decl_kernel_mapping_omp_size (i);
@@ -2100,9 +2109,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 						     gridified_kernel_p);
       unsigned count = 0;
 
-      kernel_dependencies_vector_type = build_array_type
-	(build_pointer_type (char_type_node),
-	 build_index_type (size_int (0)));
+      kernel_dependencies_vector_type
+	= build_array_type (build_pointer_type (char_type_node),
+			    build_index_type (size_int (0)));
 
       vec<constructor_elt, va_gc> *kernel_dependencies_vec = NULL;
       if (hsa_decl_kernel_dependencies)
@@ -2114,9 +2123,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 	      vec <const char *> *dependencies = *slot;
 	      count = dependencies->length ();
 
-	      kernel_dependencies_vector_type = build_array_type
-		(build_pointer_type (char_type_node),
-		 build_index_type (size_int (count)));
+	      kernel_dependencies_vector_type
+		= build_array_type (build_pointer_type (char_type_node),
+				    build_index_type (size_int (count)));
 	      TYPE_ARTIFICIAL (kernel_dependencies_vector_type) = 1;
 
 	      for (unsigned j = 0; j < count; j++)
@@ -2124,8 +2133,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 		  const char *d = (*dependencies)[j];
 		  len = strlen (d);
 		  tree dependency_name = build_string (len, d);
-		  TREE_TYPE (dependency_name) = build_array_type
-		    (char_type_node, build_index_type (size_int (len)));
+		  TREE_TYPE (dependency_name)
+		    = build_array_type (char_type_node,
+					build_index_type (size_int (len)));
 
 		  CONSTRUCTOR_APPEND_ELT
 		    (kernel_dependencies_vec, NULL_TREE,
@@ -2163,8 +2173,9 @@ hsa_output_kernels (tree *host_func_table, tree *kernels)
 	  DECL_IGNORED_P (dependencies_list) = 1;
 	  DECL_EXTERNAL (dependencies_list) = 0;
 	  TREE_CONSTANT (dependencies_list) = 1;
-	  DECL_INITIAL (dependencies_list) = build_constructor
-	    (kernel_dependencies_vector_type, kernel_dependencies_vec);
+	  DECL_INITIAL (dependencies_list)
+	    = build_constructor (kernel_dependencies_vector_type,
+				 kernel_dependencies_vec);
 	  varpool_node::finalize_decl (dependencies_list);
 
 	  CONSTRUCTOR_APPEND_ELT (kernel_info_vec, NULL_TREE,
@@ -2275,18 +2286,16 @@ hsa_output_libgomp_mapping (tree brig_decl)
   DECL_INITIAL (hsa_img_descriptor) = img_desc_ctor;
   varpool_node::finalize_decl (hsa_img_descriptor);
 
-  /* Construct the "host_table" libgomp expects. */
-  tree libgomp_host_table_type = build_array_type (ptr_type_node,
-						   build_index_type
-						   (build_int_cst
-						    (integer_type_node, 4)));
+  /* Construct the "host_table" libgomp expects.  */
+  tree index_type = build_index_type (build_int_cst (integer_type_node, 4));
+  tree libgomp_host_table_type = build_array_type (ptr_type_node, index_type);
   TYPE_ARTIFICIAL (libgomp_host_table_type) = 1;
   vec<constructor_elt, va_gc> *libgomp_host_table_vec = NULL;
   tree host_func_table_addr = build_fold_addr_expr (host_func_table);
   CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE,
 			  host_func_table_addr);
-  offset_int func_table_size = wi::to_offset (TYPE_SIZE_UNIT (ptr_type_node))
-    * kernel_count;
+  offset_int func_table_size
+    = wi::to_offset (TYPE_SIZE_UNIT (ptr_type_node)) * kernel_count;
   CONSTRUCTOR_APPEND_ELT (libgomp_host_table_vec, NULL_TREE,
 			  fold_build2 (POINTER_PLUS_EXPR,
 				       TREE_TYPE (host_func_table_addr),
@@ -2315,8 +2324,8 @@ hsa_output_libgomp_mapping (tree brig_decl)
 
   /* Generate an initializer with a call to the registration routine.  */
 
-  tree offload_register = builtin_decl_explicit
-    (BUILT_IN_GOMP_OFFLOAD_REGISTER);
+  tree offload_register
+    = builtin_decl_explicit (BUILT_IN_GOMP_OFFLOAD_REGISTER);
   gcc_checking_assert (offload_register);
 
   append_to_statement_list
@@ -2327,12 +2336,13 @@ hsa_output_libgomp_mapping (tree brig_decl)
 		      build_fold_addr_expr (hsa_libgomp_host_table),
 		      build_int_cst (integer_type_node, GOMP_DEVICE_HSA),
 		      build_fold_addr_expr (hsa_img_descriptor)),
-     &hsa_ctor_statements);
+     &hsa_cdtor_statements[0]);
 
-  cgraph_build_static_cdtor ('I', hsa_ctor_statements, DEFAULT_INIT_PRIORITY);
+  cgraph_build_static_cdtor ('I', hsa_cdtor_statements[0],
+			     DEFAULT_INIT_PRIORITY);
 
-  tree offload_unregister = builtin_decl_explicit
-    (BUILT_IN_GOMP_OFFLOAD_UNREGISTER);
+  tree offload_unregister
+    = builtin_decl_explicit (BUILT_IN_GOMP_OFFLOAD_UNREGISTER);
   gcc_checking_assert (offload_unregister);
 
   append_to_statement_list
@@ -2343,13 +2353,10 @@ hsa_output_libgomp_mapping (tree brig_decl)
 		      build_fold_addr_expr (hsa_libgomp_host_table),
 		      build_int_cst (integer_type_node, GOMP_DEVICE_HSA),
 		      build_fold_addr_expr (hsa_img_descriptor)),
-     &hsa_dtor_statements);
-  cgraph_build_static_cdtor ('D', hsa_dtor_statements, DEFAULT_INIT_PRIORITY);
+     &hsa_cdtor_statements[1]);
+  cgraph_build_static_cdtor ('D', hsa_cdtor_statements[1],
+			     DEFAULT_INIT_PRIORITY);
 }
-
-/* Required HSA section alignment. */
-
-#define HSA_SECTION_ALIGNMENT 16
 
 /* Emit the brig module we have compiled to a section in the final assembly and
    also create a compile unit static constructor that will register the brig
@@ -2369,8 +2376,8 @@ hsa_output_brig (void)
 
       BrigCodeOffset32_t *func_offset = function_offsets->get (p.function_decl);
       gcc_assert (*func_offset);
-      BrigOperandCodeRef *code_ref = (BrigOperandCodeRef *)
-	(brig_operand.get_ptr_by_offset (p.offset));
+      BrigOperandCodeRef *code_ref
+	= (BrigOperandCodeRef *) (brig_operand.get_ptr_by_offset (p.offset));
       gcc_assert (code_ref->base.kind == BRIG_KIND_OPERAND_CODE_REF);
       code_ref->ref = htole32 (*func_offset);
     }
@@ -2380,8 +2387,9 @@ hsa_output_brig (void)
      then change the linkage to program linkage.  Doing so, we will emit
      a valid BRIG image.  */
   if (hsa_failed_functions != NULL && emitted_declarations != NULL)
-    for (hash_map <tree, BrigDirectiveExecutable *>::iterator it =
-	 emitted_declarations->begin (); it != emitted_declarations->end ();
+    for (hash_map <tree, BrigDirectiveExecutable *>::iterator it
+	 = emitted_declarations->begin ();
+	 it != emitted_declarations->end ();
 	 ++it)
       {
 	if (hsa_failed_functions->contains ((*it).first))
@@ -2410,7 +2418,7 @@ hsa_output_brig (void)
 
   BrigModuleHeader module_header;
   memcpy (&module_header.identification, "HSA BRIG",
-	  sizeof(module_header.identification));
+	  sizeof (module_header.identification));
   module_header.brigMajor = htole32 (BRIG_VERSION_BRIG_MAJOR);
   module_header.brigMinor = htole32 (BRIG_VERSION_BRIG_MINOR);
   uint64_t section_index[3];
@@ -2423,17 +2431,21 @@ hsa_output_brig (void)
   operand_padding = HSA_SECTION_ALIGNMENT
     - brig_operand.total_size % HSA_SECTION_ALIGNMENT;
 
-  uint64_t module_size = sizeof (module_header) + sizeof (section_index)
-    + brig_data.total_size + data_padding
-    + brig_code.total_size + code_padding
-    + brig_operand.total_size + operand_padding;
+  uint64_t module_size = sizeof (module_header)
+    + sizeof (section_index)
+    + brig_data.total_size
+    + data_padding
+    + brig_code.total_size
+    + code_padding
+    + brig_operand.total_size
+    + operand_padding;
   gcc_assert ((module_size % 16) == 0);
   module_header.byteCount = htole64 (module_size);
   memset (&module_header.hash, 0, sizeof (module_header.hash));
   module_header.reserved = 0;
   module_header.sectionCount = htole32 (3);
   module_header.sectionIndex = htole64 (sizeof (module_header));
-  assemble_string ((const char *) &module_header, sizeof(module_header));
+  assemble_string ((const char *) &module_header, sizeof (module_header));
   uint64_t off = sizeof (module_header) + sizeof (section_index);
   section_index[0] = htole64 (off);
   off += brig_data.total_size + data_padding;
@@ -2443,7 +2455,7 @@ hsa_output_brig (void)
   assemble_string ((const char *) &section_index, sizeof (section_index));
 
   char padding[HSA_SECTION_ALIGNMENT];
-  memset (padding, 0, sizeof(padding));
+  memset (padding, 0, sizeof (padding));
 
   brig_data.output ();
   assemble_string (padding, data_padding);

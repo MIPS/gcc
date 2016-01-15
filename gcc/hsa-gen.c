@@ -126,7 +126,7 @@ struct hsa_queue
 };
 
 /* Alloc pools for allocating basic hsa structures such as operands,
-   instructions and other basic entities.s */
+   instructions and other basic entities.  */
 static object_allocator<hsa_op_address> *hsa_allocp_operand_address;
 static object_allocator<hsa_op_immed> *hsa_allocp_operand_immed;
 static object_allocator<hsa_op_reg> *hsa_allocp_operand_reg;
@@ -158,11 +158,11 @@ static vec <hsa_insn_basic *> hsa_instructions;
 static vec <hsa_op_base *> hsa_operands;
 
 hsa_symbol::hsa_symbol ()
-: m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
-  m_directive_offset (0), m_type (BRIG_TYPE_NONE),
-  m_segment (BRIG_SEGMENT_NONE), m_linkage (BRIG_LINKAGE_NONE), m_dim (0),
-  m_cst_value (NULL), m_global_scope_p (false), m_seen_error (false),
-  m_allocation (BRIG_ALLOCATION_AUTOMATIC)
+  : m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
+    m_directive_offset (0), m_type (BRIG_TYPE_NONE),
+    m_segment (BRIG_SEGMENT_NONE), m_linkage (BRIG_LINKAGE_NONE), m_dim (0),
+    m_cst_value (NULL), m_global_scope_p (false), m_seen_error (false),
+    m_allocation (BRIG_ALLOCATION_AUTOMATIC)
 {
 }
 
@@ -170,18 +170,19 @@ hsa_symbol::hsa_symbol ()
 hsa_symbol::hsa_symbol (BrigType16_t type, BrigSegment8_t segment,
 			BrigLinkage8_t linkage, bool global_scope_p,
 			BrigAllocation allocation)
-: m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
-  m_directive_offset (0), m_type (type), m_segment (segment),
-  m_linkage (linkage), m_dim (0), m_cst_value (NULL),
-  m_global_scope_p (global_scope_p), m_seen_error (false),
-  m_allocation (allocation)
+  : m_decl (NULL_TREE), m_name (NULL), m_name_number (0),
+    m_directive_offset (0), m_type (type), m_segment (segment),
+    m_linkage (linkage), m_dim (0), m_cst_value (NULL),
+    m_global_scope_p (global_scope_p), m_seen_error (false),
+    m_allocation (allocation)
 {
 }
 
 unsigned HOST_WIDE_INT
 hsa_symbol::total_byte_size ()
 {
-  unsigned HOST_WIDE_INT s = hsa_type_bit_size (~BRIG_TYPE_ARRAY_MASK & m_type);
+  unsigned HOST_WIDE_INT s
+    = hsa_type_bit_size (~BRIG_TYPE_ARRAY_MASK & m_type);
   gcc_assert (s % BITS_PER_UNIT == 0);
   s /= BITS_PER_UNIT;
 
@@ -213,15 +214,16 @@ hsa_symbol::fillup_for_decl (tree decl)
    should be set to number of SSA names used in the function.  */
 
 hsa_function_representation::hsa_function_representation
-  (tree fdecl, bool kernel_p, unsigned ssa_names_count): m_name (NULL),
-  m_reg_count (0), m_input_args (vNULL),
-  m_output_arg (NULL), m_spill_symbols (vNULL), m_global_symbols (vNULL),
-  m_private_variables (vNULL), m_called_functions (vNULL),
-  m_called_internal_fns (vNULL), m_hbb_count (0),
-  m_in_ssa (true), m_kern_p (kernel_p), m_declaration_p (false), m_decl (fdecl),
-  m_internal_fn (NULL), m_shadow_reg (NULL), m_kernel_dispatch_count (0),
-  m_maximum_omp_data_size (0), m_seen_error (false), m_temp_symbol_count (0),
-  m_ssa_map ()
+  (tree fdecl, bool kernel_p, unsigned ssa_names_count)
+  : m_name (NULL),
+    m_reg_count (0), m_input_args (vNULL),
+    m_output_arg (NULL), m_spill_symbols (vNULL), m_global_symbols (vNULL),
+    m_private_variables (vNULL), m_called_functions (vNULL),
+    m_called_internal_fns (vNULL), m_hbb_count (0),
+    m_in_ssa (true), m_kern_p (kernel_p), m_declaration_p (false),
+    m_decl (fdecl), m_internal_fn (NULL), m_shadow_reg (NULL),
+    m_kernel_dispatch_count (0), m_maximum_omp_data_size (0),
+    m_seen_error (false), m_temp_symbol_count (0), m_ssa_map ()
 {
   int sym_init_len = (vec_safe_length (cfun->local_decls) / 2) + 1;;
   m_local_symbols = new hash_table <hsa_noop_symbol_hasher> (sym_init_len);
@@ -230,16 +232,16 @@ hsa_function_representation::hsa_function_representation
 
 /* Constructor of class representing HSA function information that
    is derived for an internal function.  */
-hsa_function_representation::hsa_function_representation (hsa_internal_fn *fn):
-  m_reg_count (0), m_input_args (vNULL),
-  m_output_arg (NULL), m_local_symbols (NULL),
-  m_spill_symbols (vNULL), m_global_symbols (vNULL),
-  m_private_variables (vNULL), m_called_functions (vNULL),
-  m_called_internal_fns (vNULL), m_hbb_count (0),
-  m_in_ssa (true), m_kern_p (false), m_declaration_p (true), m_decl (NULL),
-  m_internal_fn (fn), m_shadow_reg (NULL), m_kernel_dispatch_count (0),
-  m_maximum_omp_data_size (0), m_seen_error (false), m_temp_symbol_count (0),
-  m_ssa_map () {}
+hsa_function_representation::hsa_function_representation (hsa_internal_fn *fn)
+  : m_reg_count (0), m_input_args (vNULL),
+    m_output_arg (NULL), m_local_symbols (NULL),
+    m_spill_symbols (vNULL), m_global_symbols (vNULL),
+    m_private_variables (vNULL), m_called_functions (vNULL),
+    m_called_internal_fns (vNULL), m_hbb_count (0),
+    m_in_ssa (true), m_kern_p (false), m_declaration_p (true), m_decl (NULL),
+    m_internal_fn (fn), m_shadow_reg (NULL), m_kernel_dispatch_count (0),
+    m_maximum_omp_data_size (0), m_seen_error (false), m_temp_symbol_count (0),
+    m_ssa_map () {}
 
 /* Destructor of class holding function/kernel-wide information and state.  */
 
@@ -344,14 +346,14 @@ static hash_map <nofree_string_hash, omp_simple_builtin> *omp_simple_builtins
 
 /* Warning messages for OMP builtins.  */
 
-#define HSA_WARN_LOCK_ROUTINE "support for HSA does not implement OpenMP lock " \
-  "routines"
+#define HSA_WARN_LOCK_ROUTINE "support for HSA does not implement OpenMP " \
+  "lock routines"
 #define HSA_WARN_TIMING_ROUTINE "support for HSA does not implement OpenMP " \
   "timing routines"
 #define HSA_WARN_MEMORY_ROUTINE "OpenMP device memory library routines have " \
   "undefined semantics within target regions, support for HSA ignores them"
-#define HSA_WARN_AFFINITY "Support for HSA does not implement OpenMP affinity " \
-  "featerues"
+#define HSA_WARN_AFFINITY "Support for HSA does not implement OpenMP " \
+  "affinity feateres"
 
 /* Initialize hash map with simple OMP builtins.  */
 
@@ -361,14 +363,14 @@ hsa_init_simple_builtins ()
   if (omp_simple_builtins != NULL)
     return;
 
-  omp_simple_builtins = new hash_map <nofree_string_hash, omp_simple_builtin>
-    ();
+  omp_simple_builtins
+    = new hash_map <nofree_string_hash, omp_simple_builtin> ();
 
   omp_simple_builtin omp_builtins[] =
     {
-      omp_simple_builtin
-	("omp_get_initial_device", NULL, false,
-	 new hsa_op_immed (GOMP_DEVICE_HOST, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_get_initial_device", NULL, false,
+			  new hsa_op_immed (GOMP_DEVICE_HOST,
+					    (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_is_initial_device", NULL, false,
 			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_get_dynamic", NULL, false,
@@ -388,25 +390,26 @@ hsa_init_simple_builtins ()
       omp_simple_builtin ("omp_target_alloc", HSA_WARN_MEMORY_ROUTINE, false,
 			  new hsa_op_immed (0, (BrigType16_t) BRIG_TYPE_U64)),
       omp_simple_builtin ("omp_target_free", HSA_WARN_MEMORY_ROUTINE, false),
-      omp_simple_builtin
-	("omp_target_is_present", HSA_WARN_MEMORY_ROUTINE,
-	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_target_is_present", HSA_WARN_MEMORY_ROUTINE,
+			  false,
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_target_memcpy", HSA_WARN_MEMORY_ROUTINE, false,
 			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
-      omp_simple_builtin
-	("omp_target_memcpy_rect", HSA_WARN_MEMORY_ROUTINE,
-	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
-      omp_simple_builtin
-	("omp_target_associate_ptr", HSA_WARN_MEMORY_ROUTINE, false,
-	 new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
-      omp_simple_builtin
-	("omp_target_disassociate_ptr", HSA_WARN_MEMORY_ROUTINE,
-	 false, new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
-      omp_simple_builtin
-        ("omp_set_max_active_levels",
-	 "Support for HSA only allows only one active level, call to "
-	 "omp_set_max_active_levels will be ignored in the generated HSAIL",
-	 false, NULL),
+      omp_simple_builtin ("omp_target_memcpy_rect", HSA_WARN_MEMORY_ROUTINE,
+			  false,
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_target_associate_ptr", HSA_WARN_MEMORY_ROUTINE,
+			  false,
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_target_disassociate_ptr",
+			  HSA_WARN_MEMORY_ROUTINE,
+			  false,
+			  new hsa_op_immed (-1, (BrigType16_t) BRIG_TYPE_S32)),
+      omp_simple_builtin ("omp_set_max_active_levels",
+			  "Support for HSA only allows only one active level, "
+			  "call to omp_set_max_active_levels will be ignored "
+			  "in the generated HSAIL",
+			  false, NULL),
       omp_simple_builtin ("omp_get_max_active_levels", NULL, false,
 			  new hsa_op_immed (1, (BrigType16_t) BRIG_TYPE_S32)),
       omp_simple_builtin ("omp_in_final", NULL, false,
@@ -485,7 +488,8 @@ hsa_init_data_for_cfun ()
   hsa_allocp_inst_signal
     = new object_allocator<hsa_insn_signal> ("HSA signal instructions");
   hsa_allocp_inst_seg
-    = new object_allocator<hsa_insn_seg> ("HSA segment conversion instructions");
+    = new object_allocator<hsa_insn_seg> ("HSA segment conversion "
+					  "instructions");
   hsa_allocp_inst_cmp
     = new object_allocator<hsa_insn_cmp> ("HSA comparison instructions");
   hsa_allocp_inst_br
@@ -721,7 +725,7 @@ hsa_type_for_scalar_tree_type (const_tree type, bool min32int)
   if (min32int)
     {
       /* Registers/immediate operands can only be 32bit or more except for
-         f16.  */
+	 f16.  */
       if (res == BRIG_TYPE_U8 || res == BRIG_TYPE_U16)
 	res = BRIG_TYPE_U32;
       else if (res == BRIG_TYPE_S8 || res == BRIG_TYPE_S16)
@@ -863,7 +867,8 @@ get_symbol_for_decl (tree decl)
 
   dummy.m_decl = decl;
 
-  bool is_in_global_vars = TREE_CODE (decl) == VAR_DECL && is_global_var (decl);
+  bool is_in_global_vars
+    = TREE_CODE (decl) == VAR_DECL && is_global_var (decl);
 
   if (is_in_global_vars)
     slot = hsa_global_variable_symbols->find_slot (&dummy, INSERT);
@@ -916,7 +921,8 @@ get_symbol_for_decl (tree decl)
 tree
 hsa_get_host_function (tree decl)
 {
-  hsa_function_summary *s = hsa_summaries->get (cgraph_node::get_create (decl));
+  hsa_function_summary *s
+    = hsa_summaries->get (cgraph_node::get_create (decl));
   gcc_assert (s->m_kind != HSA_NONE);
   gcc_assert (s->m_gpu_implementation_p);
 
@@ -981,8 +987,8 @@ hsa_get_string_cst_symbol (tree string_cst)
 /* Constructor of the ancestor of all operands.  K is BRIG kind that identified
    what the operator is.  */
 
-hsa_op_base::hsa_op_base (BrigKind16_t k): m_next (NULL), m_brig_op_offset (0),
-  m_kind (k)
+hsa_op_base::hsa_op_base (BrigKind16_t k)
+  : m_next (NULL), m_brig_op_offset (0), m_kind (k)
 {
   hsa_operands.safe_push (this);
 }
@@ -1046,8 +1052,8 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
     m_brig_repr_size = TREE_STRING_LENGTH (m_tree_value);
   else if (TREE_CODE (m_tree_value) == CONSTRUCTOR)
     {
-      m_brig_repr_size = tree_to_uhwi
-	(TYPE_SIZE_UNIT (TREE_TYPE (m_tree_value)));
+      m_brig_repr_size
+	= tree_to_uhwi (TYPE_SIZE_UNIT (TREE_TYPE (m_tree_value)));
 
       /* Verify that all elements of a constructor are constants.  */
       for (unsigned i = 0;
@@ -1071,7 +1077,7 @@ hsa_op_immed::hsa_op_immed (tree tree_val, bool min32int)
 
 hsa_op_immed::hsa_op_immed (HOST_WIDE_INT integer_value, BrigType16_t type)
   : hsa_op_with_type (BRIG_KIND_OPERAND_CONSTANT_BYTES, type),
-  m_tree_value (NULL), m_brig_repr (NULL)
+    m_tree_value (NULL), m_brig_repr (NULL)
 {
   gcc_assert (hsa_type_integer_p (type));
   m_int_value = integer_value;
@@ -1101,8 +1107,8 @@ hsa_op_immed::hsa_op_immed (HOST_WIDE_INT integer_value, BrigType16_t type)
   memcpy (m_brig_repr, &bytes, m_brig_repr_size);
 }
 
-hsa_op_immed::hsa_op_immed ():
-  hsa_op_with_type (BRIG_KIND_NONE, BRIG_TYPE_NONE), m_brig_repr (NULL)
+hsa_op_immed::hsa_op_immed ()
+  : hsa_op_with_type (BRIG_KIND_NONE, BRIG_TYPE_NONE), m_brig_repr (NULL)
 {
 }
 
@@ -1134,8 +1140,8 @@ hsa_op_immed::set_type (BrigType16_t t)
 
 hsa_op_reg::hsa_op_reg (BrigType16_t t)
   : hsa_op_with_type (BRIG_KIND_OPERAND_REGISTER, t), m_gimple_ssa (NULL_TREE),
-  m_def_insn (NULL), m_spill_sym (NULL), m_order (hsa_cfun->m_reg_count++),
-  m_lr_begin (0), m_lr_end (0), m_reg_class (0), m_hard_num (0)
+    m_def_insn (NULL), m_spill_sym (NULL), m_order (hsa_cfun->m_reg_count++),
+    m_lr_begin (0), m_lr_end (0), m_reg_class (0), m_hard_num (0)
 {
 }
 
@@ -1207,19 +1213,19 @@ hsa_op_reg::verify_ssa ()
 hsa_op_address::hsa_op_address (hsa_symbol *sym, hsa_op_reg *r,
 				HOST_WIDE_INT offset)
   : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), m_symbol (sym), m_reg (r),
-  m_imm_offset (offset)
+    m_imm_offset (offset)
 {
 }
 
 hsa_op_address::hsa_op_address (hsa_symbol *sym, HOST_WIDE_INT offset)
   : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), m_symbol (sym), m_reg (NULL),
-  m_imm_offset (offset)
+    m_imm_offset (offset)
 {
 }
 
 hsa_op_address::hsa_op_address (hsa_op_reg *r, HOST_WIDE_INT offset)
   : hsa_op_base (BRIG_KIND_OPERAND_ADDRESS), m_symbol (NULL), m_reg (r),
-  m_imm_offset (offset)
+    m_imm_offset (offset)
 {
 }
 
@@ -1314,9 +1320,10 @@ hsa_op_reg::set_definition (hsa_insn_basic *insn)
    operand vector will contain (and which will be cleared).  OP is the opcode
    of the instruction.  This constructor does not set type.  */
 
-hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc): m_prev (NULL),
-  m_next (NULL), m_bb (NULL), m_opcode (opc), m_number (0),
-  m_type (BRIG_TYPE_NONE), m_brig_offset (0)
+hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc)
+  : m_prev (NULL),
+    m_next (NULL), m_bb (NULL), m_opcode (opc), m_number (0),
+    m_type (BRIG_TYPE_NONE), m_brig_offset (0)
 {
   if (nops > 0)
     m_operands.safe_grow_cleared (nops);
@@ -1381,9 +1388,9 @@ hsa_insn_basic::operand_count ()
 
 hsa_insn_basic::hsa_insn_basic (unsigned nops, int opc, BrigType16_t t,
 				hsa_op_base *arg0, hsa_op_base *arg1,
-				hsa_op_base *arg2, hsa_op_base *arg3):
-  m_prev (NULL), m_next (NULL), m_bb (NULL), m_opcode (opc),m_number (0),
-  m_type (t),  m_brig_offset (0)
+				hsa_op_base *arg2, hsa_op_base *arg3)
+ : m_prev (NULL), m_next (NULL), m_bb (NULL), m_opcode (opc),m_number (0),
+   m_type (t),  m_brig_offset (0)
 {
   if (nops > 0)
     m_operands.safe_grow_cleared (nops);
@@ -1486,8 +1493,8 @@ hsa_insn_phi::operator new (size_t)
    new instruction is automatically added to its uses list.  */
 
 hsa_insn_br::hsa_insn_br (hsa_op_reg *ctrl)
-: hsa_insn_basic (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, ctrl),
-  m_width (BRIG_WIDTH_1)
+  : hsa_insn_basic (1, BRIG_OPCODE_CBR, BRIG_TYPE_B1, ctrl),
+    m_width (BRIG_WIDTH_1)
 {
 }
 
@@ -1503,9 +1510,9 @@ hsa_insn_br::operator new (size_t)
    the index register.  */
 
 hsa_insn_sbr::hsa_insn_sbr (hsa_op_reg *index, unsigned jump_count)
-: hsa_insn_basic (1, BRIG_OPCODE_SBR, BRIG_TYPE_B1, index),
-  m_width (BRIG_WIDTH_1), m_jump_table (vNULL), m_default_bb (NULL),
-  m_label_code_list (new hsa_op_code_list (jump_count))
+  : hsa_insn_basic (1, BRIG_OPCODE_SBR, BRIG_TYPE_B1, index),
+    m_width (BRIG_WIDTH_1), m_jump_table (vNULL), m_default_bb (NULL),
+    m_label_code_list (new hsa_op_code_list (jump_count))
 {
 }
 
@@ -1558,7 +1565,7 @@ hsa_insn_cmp::operator new (size_t)
 hsa_insn_mem::hsa_insn_mem (int opc, BrigType16_t t, hsa_op_base *arg0,
 			    hsa_op_base *arg1)
   : hsa_insn_basic (2, opc, t, arg0, arg1),
-  m_align (hsa_natural_alignment (t)), m_equiv_class (0)
+    m_align (hsa_natural_alignment (t)), m_equiv_class (0)
 {
   gcc_checking_assert (opc == BRIG_OPCODE_LD || opc == BRIG_OPCODE_ST);
 }
@@ -1572,7 +1579,7 @@ hsa_insn_mem::hsa_insn_mem (unsigned nops, int opc, BrigType16_t t,
 			    hsa_op_base *arg0, hsa_op_base *arg1,
 			    hsa_op_base *arg2, hsa_op_base *arg3)
   : hsa_insn_basic (nops, opc, t, arg0, arg1, arg2, arg3),
-  m_align (hsa_natural_alignment (t)), m_equiv_class (0)
+    m_align (hsa_natural_alignment (t)), m_equiv_class (0)
 {
 }
 
@@ -1584,7 +1591,7 @@ hsa_insn_mem::operator new (size_t)
   return hsa_allocp_inst_mem->allocate_raw ();
 }
 
-/* Constructor of class representing atomic instructions and signals. OPC is
+/* Constructor of class representing atomic instructions and signals.  OPC is
    the principal opcode, aop is the specific atomic operation opcode.  T is the
    type of the instruction.  The instruction operands
    are provided as ARG[0-3].  */
@@ -1596,8 +1603,8 @@ hsa_insn_atomic::hsa_insn_atomic (int nops, int opc,
 				  hsa_op_base *arg1, hsa_op_base *arg2,
 				  hsa_op_base *arg3)
   : hsa_insn_mem (nops, opc, t, arg0, arg1, arg2, arg3), m_atomicop (aop),
-  m_memoryorder (memorder),
-  m_memoryscope (BRIG_MEMORY_SCOPE_SYSTEM)
+    m_memoryorder (memorder),
+    m_memoryscope (BRIG_MEMORY_SCOPE_SYSTEM)
 {
   gcc_checking_assert (opc == BRIG_OPCODE_ATOMICNORET ||
 		       opc == BRIG_OPCODE_ATOMIC ||
@@ -1645,7 +1652,7 @@ hsa_insn_seg::hsa_insn_seg (int opc, BrigType16_t dest, BrigType16_t srct,
 			    BrigSegment8_t seg, hsa_op_base *arg0,
 			    hsa_op_base *arg1)
   : hsa_insn_basic (2, opc, dest, arg0, arg1), m_src_type (srct),
-  m_segment (seg)
+    m_segment (seg)
 {
   gcc_checking_assert (opc == BRIG_OPCODE_STOF || opc == BRIG_OPCODE_FTOS);
 }
@@ -1663,14 +1670,14 @@ hsa_insn_seg::operator new (size_t)
 
 hsa_insn_call::hsa_insn_call (tree callee)
   : hsa_insn_basic (0, BRIG_OPCODE_CALL), m_called_function (callee),
-  m_output_arg (NULL), m_args_code_list (NULL), m_result_code_list (NULL)
+    m_output_arg (NULL), m_args_code_list (NULL), m_result_code_list (NULL)
 {
 }
 
 hsa_insn_call::hsa_insn_call (hsa_internal_fn *fn)
   : hsa_insn_basic (0, BRIG_OPCODE_CALL), m_called_function (NULL),
-  m_called_internal_fn (fn), m_output_arg (NULL), m_args_code_list (NULL),
-  m_result_code_list (NULL)
+    m_called_internal_fn (fn), m_output_arg (NULL), m_args_code_list (NULL),
+    m_result_code_list (NULL)
 {
 }
 
@@ -1698,7 +1705,7 @@ hsa_insn_call::~hsa_insn_call ()
 hsa_insn_arg_block::hsa_insn_arg_block (BrigKind brig_kind,
 					hsa_insn_call * call)
   : hsa_insn_basic (0, HSA_OPCODE_ARG_BLOCK), m_kind (brig_kind),
-  m_call_insn (call)
+    m_call_insn (call)
 {
 }
 
@@ -1757,7 +1764,7 @@ hsa_insn_srctype::hsa_insn_srctype (int nops, BrigOpcode opcode,
 				    hsa_op_base *arg0, hsa_op_base *arg1,
 				    hsa_op_base *arg2 = NULL)
   : hsa_insn_basic (nops, opcode, destt, arg0, arg1, arg2),
-  m_source_type (srct)
+    m_source_type (srct)
 {}
 
 /* New operator to allocate packed instruction from pool alloc.  */
@@ -1807,7 +1814,7 @@ hsa_insn_alloca::operator new (size_t)
 hsa_insn_alloca::hsa_insn_alloca (hsa_op_with_type *dest,
 				  hsa_op_with_type *size, unsigned alignment)
   : hsa_insn_basic (2, BRIG_OPCODE_ALLOCA, dest->m_type, dest, size),
-  m_align (BRIG_ALIGNMENT_8)
+    m_align (BRIG_ALIGNMENT_8)
 {
   gcc_assert (dest->m_type == BRIG_TYPE_U32);
   if (alignment)
@@ -1950,8 +1957,8 @@ process_mem_base (tree base, hsa_symbol **symbol, BrigType16_t *addrtype,
   if (TREE_CODE (base) == SSA_NAME)
     {
       gcc_assert (!*reg);
-      hsa_op_with_type *ssa = hsa_cfun->reg_for_gimple_ssa (base)->get_in_type
-	(*addrtype, hbb);
+      hsa_op_with_type *ssa
+	= hsa_cfun->reg_for_gimple_ssa (base)->get_in_type (*addrtype, hbb);
       *reg = dyn_cast <hsa_op_reg *> (ssa);
     }
   else if (TREE_CODE (base) == ADDR_EXPR)
@@ -2290,8 +2297,9 @@ gen_hsa_insns_for_bitfield (hsa_op_reg *dest, hsa_op_reg *value_reg,
       hsa_op_reg *value_reg_2 = new hsa_op_reg (dest->m_type);
       hsa_op_immed *c = new hsa_op_immed (left_shift, BRIG_TYPE_U32);
 
-      hsa_insn_basic *lshift = new hsa_insn_basic
-	(3, BRIG_OPCODE_SHL, value_reg_2->m_type, value_reg_2, value_reg, c);
+      hsa_insn_basic *lshift
+	= new hsa_insn_basic (3, BRIG_OPCODE_SHL, value_reg_2->m_type,
+			      value_reg_2, value_reg, c);
 
       hbb->append_insn (lshift);
 
@@ -2303,16 +2311,17 @@ gen_hsa_insns_for_bitfield (hsa_op_reg *dest, hsa_op_reg *value_reg,
       hsa_op_reg *value_reg_2 = new hsa_op_reg (dest->m_type);
       hsa_op_immed *c = new hsa_op_immed (right_shift, BRIG_TYPE_U32);
 
-      hsa_insn_basic *rshift = new hsa_insn_basic
-	(3, BRIG_OPCODE_SHR, value_reg_2->m_type, value_reg_2, value_reg, c);
+      hsa_insn_basic *rshift
+	= new hsa_insn_basic (3, BRIG_OPCODE_SHR, value_reg_2->m_type,
+			      value_reg_2, value_reg, c);
 
       hbb->append_insn (rshift);
 
       value_reg = value_reg_2;
     }
 
-    hsa_insn_basic *assignment = new hsa_insn_basic
-      (2, BRIG_OPCODE_MOV, dest->m_type, dest, value_reg);
+    hsa_insn_basic *assignment
+      = new hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->m_type, dest, value_reg);
     hbb->append_insn (assignment);
 }
 
@@ -2404,19 +2413,22 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb)
 	  hsa_op_immed *real_part = new hsa_op_immed (TREE_REALPART (rhs));
 	  hsa_op_immed *imag_part = new hsa_op_immed (TREE_IMAGPART (rhs));
 
-	  hsa_op_reg *real_part_reg = new hsa_op_reg
-	    (hsa_type_for_scalar_tree_type (TREE_TYPE (type), true));
-	  hsa_op_reg *imag_part_reg = new hsa_op_reg
-	    (hsa_type_for_scalar_tree_type (TREE_TYPE (type), true));
+	  hsa_op_reg *real_part_reg
+	    = new hsa_op_reg (hsa_type_for_scalar_tree_type (TREE_TYPE (type),
+							     true));
+	  hsa_op_reg *imag_part_reg
+	    = new hsa_op_reg (hsa_type_for_scalar_tree_type (TREE_TYPE (type),
+							     true));
 
 	  hsa_build_append_simple_mov (real_part_reg, real_part, hbb);
 	  hsa_build_append_simple_mov (imag_part_reg, imag_part, hbb);
 
 	  BrigType16_t src_type = hsa_bittype_for_type (real_part_reg->m_type);
 
-	  hsa_insn_packed *insn = new hsa_insn_packed
-	    (3, BRIG_OPCODE_COMBINE, dest->m_type, src_type, dest,
-	     real_part_reg, imag_part_reg);
+	  hsa_insn_packed *insn
+	    = new hsa_insn_packed (3, BRIG_OPCODE_COMBINE, dest->m_type,
+				   src_type, dest, real_part_reg,
+				   imag_part_reg);
 	  hbb->append_insn (insn);
 	}
       else
@@ -2429,22 +2441,23 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb)
     {
       tree pack_type = TREE_TYPE (TREE_OPERAND (rhs, 0));
 
-      hsa_op_reg *packed_reg = new hsa_op_reg
-	(hsa_type_for_scalar_tree_type (pack_type, true));
+      hsa_op_reg *packed_reg
+	= new hsa_op_reg (hsa_type_for_scalar_tree_type (pack_type, true));
 
       tree complex_rhs = TREE_OPERAND (rhs, 0);
       gen_hsa_insns_for_load (packed_reg, complex_rhs, TREE_TYPE (complex_rhs),
 			      hbb);
 
-      hsa_op_reg *real_reg = new hsa_op_reg
-	(hsa_type_for_scalar_tree_type (type, true));
+      hsa_op_reg *real_reg
+	= new hsa_op_reg (hsa_type_for_scalar_tree_type (type, true));
 
-      hsa_op_reg *imag_reg = new hsa_op_reg
-	(hsa_type_for_scalar_tree_type (type, true));
+      hsa_op_reg *imag_reg
+	= new hsa_op_reg (hsa_type_for_scalar_tree_type (type, true));
 
       BrigKind16_t brig_type = packed_reg->m_type;
-      hsa_insn_packed *packed = new hsa_insn_packed
-	(3, BRIG_OPCODE_EXPAND, hsa_bittype_for_type (real_reg->m_type),
+      hsa_insn_packed *packed
+	= new hsa_insn_packed (3, BRIG_OPCODE_EXPAND,
+			       hsa_bittype_for_type (real_reg->m_type),
 	 brig_type, real_reg, imag_reg, packed_reg);
 
       hbb->append_insn (packed);
@@ -2502,9 +2515,10 @@ gen_hsa_insns_for_load (hsa_op_reg *dest, tree rhs, tree type, hsa_bb *hbb)
 	}
     }
   else
-    HSA_SORRY_ATV
-      (EXPR_LOCATION (rhs),
-       "support for HSA does not implement loading of expression %E", rhs);
+    HSA_SORRY_ATV (EXPR_LOCATION (rhs),
+		   "support for HSA does not implement loading "
+		   "of expression %E",
+		   rhs);
 }
 
 /* Return number of bits necessary for representation of a bit field,
@@ -2556,8 +2570,9 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
   if (bitpos || (bitsize && type_bitsize != bitsize))
     {
       unsigned HOST_WIDE_INT mask = 0;
-      BrigType16_t mem_type = get_integer_type_by_bytes
-	(type_bitsize / BITS_PER_UNIT, !TYPE_UNSIGNED (TREE_TYPE (lhs)));
+      BrigType16_t mem_type
+	= get_integer_type_by_bytes (type_bitsize / BITS_PER_UNIT,
+				     !TYPE_UNSIGNED (TREE_TYPE (lhs)));
 
       for (unsigned i = 0; i < type_bitsize; i++)
 	if (i < bitpos || i >= bitpos + bitsize)
@@ -2575,11 +2590,13 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
       /* AND the loaded value with prepared mask.  */
       hsa_op_reg *cleared_reg = new hsa_op_reg (mem_type);
 
-      hsa_op_immed *c = new hsa_op_immed
-	(mask, get_integer_type_by_bytes (type_bitsize / BITS_PER_UNIT, false));
+      BrigType16_t t
+	= get_integer_type_by_bytes (type_bitsize / BITS_PER_UNIT, false);
+      hsa_op_immed *c = new hsa_op_immed (mask, t);
 
-      hsa_insn_basic *clearing = new hsa_insn_basic
-	(3, BRIG_OPCODE_AND, mem_type, cleared_reg, value_reg, c);
+      hsa_insn_basic *clearing
+	= new hsa_insn_basic (3, BRIG_OPCODE_AND, mem_type, cleared_reg,
+			      value_reg, c);
       hbb->append_insn (clearing);
 
       /* Shift to left a value that is going to be stored.  */
@@ -2594,8 +2611,9 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
 	  hsa_op_reg *shifted_value_reg = new hsa_op_reg (mem_type);
 	  c = new hsa_op_immed (bitpos, BRIG_TYPE_U32);
 
-	  hsa_insn_basic *basic = new hsa_insn_basic
-	    (3, BRIG_OPCODE_SHL, mem_type, shifted_value_reg, new_value_reg, c);
+	  hsa_insn_basic *basic
+	    = new hsa_insn_basic (3, BRIG_OPCODE_SHL, mem_type,
+				  shifted_value_reg, new_value_reg, c);
 	  hbb->append_insn (basic);
 
 	  new_value_reg = shifted_value_reg;
@@ -2616,11 +2634,10 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, mtype, src, addr);
   mem->set_align (req_align);
 
-  /* XXX The HSAIL verifier has another constraint: if the source
-     is an immediate then it must match the destination type.  If
-     it's a register the low bits will be used for sub-word stores.
-     We're always allocating new operands so we can modify the above
-     in place.  */
+  /* The HSAIL verifier has another constraint: if the source is an immediate
+     then it must match the destination type.  If it's a register the low bits
+     will be used for sub-word stores.  We're always allocating new operands so
+     we can modify the above in place.  */
   if (hsa_op_immed *imm = dyn_cast <hsa_op_immed *> (src))
     {
       if ((imm->m_type & BRIG_TYPE_PACK_MASK) == BRIG_TYPE_PACK_NONE)
@@ -2628,7 +2645,7 @@ gen_hsa_insns_for_store (tree lhs, hsa_op_base *src, hsa_bb *hbb)
       else
 	{
 	  /* ...and all vector immediates apparently need to be vectors of
-	     unsigned bytes. */
+	     unsigned bytes.  */
 	  unsigned bs = hsa_type_bit_size (imm->m_type);
 	  gcc_assert (bs == hsa_type_bit_size (mem->m_type));
 	  switch (bs)
@@ -3189,16 +3206,16 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
     case UNEQ_EXPR:
     case LTGT_EXPR:
       {
-	hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa
-	  (gimple_assign_lhs (assign));
+	hsa_op_reg *dest
+	  = hsa_cfun->reg_for_gimple_ssa (gimple_assign_lhs (assign));
 
 	gen_hsa_cmp_insn_from_gimple (code, rhs1, rhs2, dest, hbb);
 	return;
       }
     case COND_EXPR:
       {
-	hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa
-	  (gimple_assign_lhs (assign));
+	hsa_op_reg *dest
+	  = hsa_cfun->reg_for_gimple_ssa (gimple_assign_lhs (assign));
 	hsa_op_with_type *ctrl = NULL;
 	tree cond = rhs1;
 
@@ -3216,10 +3233,8 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
 	    ctrl = r;
 	  }
 
-	hsa_op_with_type *rhs2_reg = hsa_reg_or_immed_for_gimple_op
-	  (rhs2, hbb);
-	hsa_op_with_type *rhs3_reg = hsa_reg_or_immed_for_gimple_op
-	  (rhs3, hbb);
+	hsa_op_with_type *rhs2_reg = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
+	hsa_op_with_type *rhs3_reg = hsa_reg_or_immed_for_gimple_op (rhs3, hbb);
 
 	BrigType16_t btype = hsa_bittype_for_type (dest->m_type);
 	hsa_op_reg *tmp = new hsa_op_reg (btype);
@@ -3227,8 +3242,9 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
 	rhs2_reg->m_type = btype;
 	rhs3_reg->m_type = btype;
 
-	hsa_insn_basic *insn = new hsa_insn_basic
-	  (4, BRIG_OPCODE_CMOV, tmp->m_type, tmp, ctrl, rhs2_reg, rhs3_reg);
+	hsa_insn_basic *insn
+	  = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, tmp->m_type, tmp, ctrl,
+				rhs2_reg, rhs3_reg);
 
 	hbb->append_insn (insn);
 
@@ -3242,8 +3258,8 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
       }
     case COMPLEX_EXPR:
       {
-	hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa
-	  (gimple_assign_lhs (assign));
+	hsa_op_reg *dest
+	  = hsa_cfun->reg_for_gimple_ssa (gimple_assign_lhs (assign));
 	hsa_op_with_type *rhs1_reg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
 	hsa_op_with_type *rhs2_reg = hsa_reg_or_immed_for_gimple_op (rhs2, hbb);
 
@@ -3254,9 +3270,9 @@ gen_hsa_insns_for_operation_assignment (gimple *assign, hsa_bb *hbb)
 	rhs1_reg = rhs1_reg->get_in_type (src_type, hbb);
 	rhs2_reg = rhs2_reg->get_in_type (src_type, hbb);
 
-	hsa_insn_packed *insn = new hsa_insn_packed
-	  (3, BRIG_OPCODE_COMBINE, dest->m_type, src_type, dest,
-	   rhs1_reg, rhs2_reg);
+	hsa_insn_packed *insn
+	  = new hsa_insn_packed (3, BRIG_OPCODE_COMBINE, dest->m_type, src_type,
+				 dest, rhs1_reg, rhs2_reg);
 	hbb->append_insn (insn);
 
 	return;
@@ -3378,8 +3394,8 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb)
 
   hsa_insn_sbr *sbr = new hsa_insn_sbr (sub_index, size + 1);
   tree default_label = gimple_switch_default_label (s);
-  basic_block default_label_bb = label_to_block_fn
-    (func, CASE_LABEL (default_label));
+  basic_block default_label_bb = label_to_block_fn (func,
+						    CASE_LABEL (default_label));
 
   sbr->m_default_bb = default_label_bb;
 
@@ -3393,8 +3409,8 @@ gen_hsa_insns_for_switch_stmt (gswitch *s, hsa_bb *hbb)
       tree label = gimple_switch_label (s, i);
       basic_block bb = label_to_block_fn (func, CASE_LABEL (label));
 
-      unsigned HOST_WIDE_INT sub_low = tree_to_uhwi
-	(int_const_binop (MINUS_EXPR, CASE_LOW (label), lowest));
+      unsigned HOST_WIDE_INT sub_low
+	= tree_to_uhwi (int_const_binop (MINUS_EXPR, CASE_LOW (label), lowest));
 
       unsigned HOST_WIDE_INT sub_high = sub_low;
       tree high = CASE_HIGH (label);
@@ -3437,8 +3453,8 @@ get_format_argument_type (tree formal_arg_type, BrigType16_t actual_arg_type)
   if (formal_arg_type == NULL)
     return actual_arg_type;
 
-  BrigType16_t decl_type = hsa_type_for_scalar_tree_type
-    (formal_arg_type, false);
+  BrigType16_t decl_type
+    = hsa_type_for_scalar_tree_type (formal_arg_type, false);
   return mem_type_for_type (decl_type);
 }
 
@@ -3458,8 +3474,8 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb)
   hsa_cfun->m_called_functions.safe_push (call_insn->m_called_function);
 
   /* Argument block start.  */
-  hsa_insn_arg_block *arg_start = new hsa_insn_arg_block
-    (BRIG_KIND_DIRECTIVE_ARG_BLOCK_START, call_insn);
+  hsa_insn_arg_block *arg_start
+    = new hsa_insn_arg_block (BRIG_KIND_DIRECTIVE_ARG_BLOCK_START, call_insn);
   hbb->append_insn (arg_start);
 
   tree parm_type_chain = TYPE_ARG_TYPES (gimple_call_fntype (stmt));
@@ -3493,16 +3509,17 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb)
 	      return;
 	    }
 
-	  BrigType16_t formal_arg_type = get_format_argument_type
-	    (parm_decl_type, src->m_type);
+	  BrigType16_t formal_arg_type
+	    = get_format_argument_type (parm_decl_type, src->m_type);
 	  if (hsa_seen_error ())
 	    return;
 
 	  if (src->m_type != formal_arg_type)
 	    src = src->get_in_type (formal_arg_type, hbb);
 
-	  addr = gen_hsa_addr_for_arg
-	    (parm_decl_type != NULL_TREE ? parm_decl_type: TREE_TYPE (parm), i);
+	  addr
+	    = gen_hsa_addr_for_arg (parm_decl_type != NULL_TREE ?
+				    parm_decl_type: TREE_TYPE (parm), i);
 	  hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, formal_arg_type,
 						src, addr);
 
@@ -3542,8 +3559,9 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb)
 	    }
 	  else
 	    {
-	      BrigType16_t mtype = mem_type_for_type
-		(hsa_type_for_scalar_tree_type (lhs_type, false));
+	      BrigType16_t mtype
+		= mem_type_for_type (hsa_type_for_scalar_tree_type (lhs_type,
+								    false));
 
 	      hsa_op_reg *dst = hsa_cfun->reg_for_gimple_ssa (result);
 	      result_insn = new hsa_insn_mem (BRIG_OPCODE_LD, mtype, dst, addr);
@@ -3568,8 +3586,8 @@ gen_hsa_insns_for_direct_call (gimple *stmt, hsa_bb *hbb)
     }
 
   /* Argument block end.  */
-  hsa_insn_arg_block *arg_end = new hsa_insn_arg_block
-    (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END, call_insn);
+  hsa_insn_arg_block *arg_end
+    = new hsa_insn_arg_block (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END, call_insn);
   hbb->append_insn (arg_end);
 }
 
@@ -3588,16 +3606,17 @@ gen_hsa_insns_for_call_of_internal_fn (gimple *stmt, hsa_bb *hbb)
   tree rhs1 = gimple_call_arg (stmt, 0);
   tree rhs1_type = TREE_TYPE (rhs1);
   enum internal_fn fn = gimple_call_internal_fn (stmt);
-  hsa_insn_call *call_insn = new hsa_insn_call
-    (new hsa_internal_fn (fn, tree_to_uhwi (TYPE_SIZE (rhs1_type))));
+  hsa_internal_fn *ifn
+    = new hsa_internal_fn (fn, tree_to_uhwi (TYPE_SIZE (rhs1_type)));
+  hsa_insn_call *call_insn = new hsa_insn_call (ifn);
 
   gcc_checking_assert (FLOAT_TYPE_P (rhs1_type));
 
   if (!hsa_emitted_internal_decls->find (call_insn->m_called_internal_fn))
     hsa_cfun->m_called_internal_fns.safe_push (call_insn->m_called_internal_fn);
 
-  hsa_insn_arg_block *arg_start = new hsa_insn_arg_block
-    (BRIG_KIND_DIRECTIVE_ARG_BLOCK_START, call_insn);
+  hsa_insn_arg_block *arg_start
+    = new hsa_insn_arg_block (BRIG_KIND_DIRECTIVE_ARG_BLOCK_START, call_insn);
   hbb->append_insn (arg_start);
 
   unsigned num_args = gimple_call_num_args (stmt);
@@ -3626,8 +3645,8 @@ gen_hsa_insns_for_call_of_internal_fn (gimple *stmt, hsa_bb *hbb)
   call_insn->m_result_code_list = new hsa_op_code_list (1);
 
   /* Argument block end.  */
-  hsa_insn_arg_block *arg_end = new hsa_insn_arg_block
-    (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END, call_insn);
+  hsa_insn_arg_block *arg_end
+    = new hsa_insn_arg_block (BRIG_KIND_DIRECTIVE_ARG_BLOCK_END, call_insn);
   hbb->append_insn (arg_end);
 }
 
@@ -3651,8 +3670,9 @@ gen_hsa_insns_for_return (greturn *stmt, hsa_bb *hbb)
 	}
       else
 	{
-	  BrigType16_t mtype = mem_type_for_type
-	    (hsa_type_for_scalar_tree_type (TREE_TYPE (retval), false));
+	  BrigType16_t t = hsa_type_for_scalar_tree_type (TREE_TYPE (retval),
+							  false);
+	  BrigType16_t mtype = mem_type_for_type (t);
 
 	  /* Store of return value.  */
 	  hsa_op_with_type *src = hsa_reg_or_immed_for_gimple_op (retval, hbb);
@@ -3707,8 +3727,8 @@ query_hsa_grid (hsa_op_reg *dest, BrigType16_t opcode, int dimension,
 {
   /* We're using just one-dimensional kernels, so hard-coded
      dimension X.  */
-  hsa_op_immed *imm = new hsa_op_immed (dimension,
-					(BrigKind16_t) BRIG_TYPE_U32);
+  hsa_op_immed *imm
+    = new hsa_op_immed (dimension, (BrigKind16_t) BRIG_TYPE_U32);
   hsa_insn_basic *insn = new hsa_insn_basic (2, opcode, BRIG_TYPE_U32, NULL,
 					     imm);
   hbb->append_insn (insn);
@@ -3743,8 +3763,8 @@ gen_set_num_threads (tree value, hsa_bb *hbb)
   src = src->get_in_type (hsa_num_threads->m_type, hbb);
   hsa_op_address *addr = new hsa_op_address (hsa_num_threads);
 
-  hsa_insn_basic *basic = new hsa_insn_mem
-    (BRIG_OPCODE_ST, hsa_num_threads->m_type, src, addr);
+  hsa_insn_basic *basic
+    = new hsa_insn_mem (BRIG_OPCODE_ST, hsa_num_threads->m_type, src, addr);
   hbb->append_insn (basic);
 }
 
@@ -3841,35 +3861,35 @@ gen_num_threads_for_dispatch (hsa_bb *hbb)
   hsa_op_immed *limit = new hsa_op_immed (HSA_DEFAULT_NUM_THREADS,
 					  BRIG_TYPE_U32);
   hsa_op_reg *r = new hsa_op_reg (BRIG_TYPE_B1);
-  hbb->append_insn
-    (new hsa_insn_cmp (BRIG_COMPARE_LT, r->m_type, r, threads, limit));
+  hsa_insn_cmp * cmp
+    = new hsa_insn_cmp (BRIG_COMPARE_LT, r->m_type, r, threads, limit);
+  hbb->append_insn (cmp);
 
   BrigType16_t btype = hsa_bittype_for_type (threads->m_type);
   hsa_op_reg *tmp = new hsa_op_reg (threads->m_type);
 
-  hbb->append_insn
-    (new hsa_insn_basic (4, BRIG_OPCODE_CMOV, btype, tmp, r,
-			 threads, limit));
+  hbb->append_insn (new hsa_insn_basic (4, BRIG_OPCODE_CMOV, btype, tmp, r,
+					threads, limit));
 
   /* Step 2) If the number is equal to zero,
      return shadow->omp_num_threads.  */
   hsa_op_reg *shadow_reg_ptr = hsa_cfun->get_shadow_reg ();
 
   hsa_op_reg *shadow_thread_count = new hsa_op_reg (BRIG_TYPE_U32);
-  addr = new hsa_op_address
-   (shadow_reg_ptr, get_hsa_kernel_dispatch_offset ("omp_num_threads"));
-  hsa_insn_basic *basic = new hsa_insn_mem
-   (BRIG_OPCODE_LD, shadow_thread_count->m_type, shadow_thread_count, addr);
+  addr
+    = new hsa_op_address (shadow_reg_ptr,
+			  get_hsa_kernel_dispatch_offset ("omp_num_threads"));
+  hsa_insn_basic *basic
+    = new hsa_insn_mem (BRIG_OPCODE_LD, shadow_thread_count->m_type,
+			shadow_thread_count, addr);
   hbb->append_insn (basic);
 
   hsa_op_reg *tmp2 = new hsa_op_reg (threads->m_type);
   r = new hsa_op_reg (BRIG_TYPE_B1);
-  hbb->append_insn
-    (new hsa_insn_cmp (BRIG_COMPARE_EQ, r->m_type, r, tmp,
-		       new hsa_op_immed (0, shadow_thread_count->m_type)));
-  hbb->append_insn
-    (new hsa_insn_basic (4, BRIG_OPCODE_CMOV, btype, tmp2, r,
-			 shadow_thread_count, tmp));
+  hsa_op_immed *imm = new hsa_op_immed (0, shadow_thread_count->m_type);
+  hbb->append_insn (new hsa_insn_cmp (BRIG_COMPARE_EQ, r->m_type, r, tmp, imm));
+  hbb->append_insn (new hsa_insn_basic (4, BRIG_OPCODE_CMOV, btype, tmp2, r,
+					shadow_thread_count, tmp));
 
   hsa_op_base *dest = tmp2->get_in_type (BRIG_TYPE_U16, hbb);
 
@@ -3892,8 +3912,8 @@ gen_get_num_teams (gimple *stmt, hsa_bb *hbb)
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
   hsa_op_immed *one = new hsa_op_immed (1, dest->m_type);
 
-  hsa_insn_basic *basic = new hsa_insn_basic
-    (2, BRIG_OPCODE_MOV, dest->m_type, dest, one);
+  hsa_insn_basic *basic
+    = new hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->m_type, dest, one);
 
   hbb->append_insn (basic);
 }
@@ -3913,8 +3933,8 @@ gen_get_team_num (gimple *stmt, hsa_bb *hbb)
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
   hsa_op_immed *zero = new hsa_op_immed (0, dest->m_type);
 
-  hsa_insn_basic *basic = new hsa_insn_basic
-    (2, BRIG_OPCODE_MOV, dest->m_type, dest, zero);
+  hsa_insn_basic *basic
+    = new hsa_insn_basic (2, BRIG_OPCODE_MOV, dest->m_type, dest, zero);
 
   hbb->append_insn (basic);
 }
@@ -3942,8 +3962,9 @@ gen_get_level (gimple *stmt, hsa_bb *hbb)
       return;
     }
 
-  hsa_op_address *addr = new hsa_op_address
-    (shadow_reg_ptr, get_hsa_kernel_dispatch_offset ("omp_level"));
+  hsa_op_address *addr
+    = new hsa_op_address (shadow_reg_ptr,
+			  get_hsa_kernel_dispatch_offset ("omp_level"));
 
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, NULL,
 					addr);
@@ -3990,10 +4011,10 @@ gen_hsa_alloca (gcall *call, hsa_bb *hbb)
       tree alignment_tree = gimple_call_arg (call, 1);
       if (TREE_CODE (alignment_tree) != INTEGER_CST)
 	{
-	  HSA_SORRY_ATV
-	    (gimple_location (call), "support for HSA does not implement "
-	     "__builtin_alloca_with_align with a non-constant "
-	     "alignment: %E", alignment_tree);
+	  HSA_SORRY_ATV (gimple_location (call),
+			 "support for HSA does not implement "
+			 "__builtin_alloca_with_align with a non-constant "
+			 "alignment: %E", alignment_tree);
 	}
 
       bit_alignment = tree_to_uhwi (alignment_tree);
@@ -4004,14 +4025,15 @@ gen_hsa_alloca (gcall *call, hsa_bb *hbb)
     ->get_in_type (BRIG_TYPE_U32, hbb);
   hsa_op_with_type *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
 
-  hsa_op_reg *tmp = new hsa_op_reg
-    (hsa_get_segment_addr_type (BRIG_SEGMENT_PRIVATE));
+  hsa_op_reg *tmp
+    = new hsa_op_reg (hsa_get_segment_addr_type (BRIG_SEGMENT_PRIVATE));
   hsa_insn_alloca *a = new hsa_insn_alloca (tmp, size, bit_alignment);
   hbb->append_insn (a);
 
-  hsa_insn_seg *seg = new hsa_insn_seg
-    (BRIG_OPCODE_STOF, hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT),
-     tmp->m_type, BRIG_SEGMENT_PRIVATE, dest, tmp);
+  hsa_insn_seg *seg
+    = new hsa_insn_seg (BRIG_OPCODE_STOF,
+			hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT),
+			tmp->m_type, BRIG_SEGMENT_PRIVATE, dest, tmp);
   hbb->append_insn (seg);
 }
 
@@ -4043,8 +4065,9 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
   gen_hsa_binary_operation (BRIG_OPCODE_AND, and_reg, arg, c, hbb);
 
   hsa_op_reg *most_sign = new hsa_op_reg (BRIG_TYPE_B1);
-  hsa_insn_cmp *cmp = new hsa_insn_cmp
-    (BRIG_COMPARE_EQ, most_sign->m_type, most_sign, and_reg, c);
+  hsa_insn_cmp *cmp
+    = new hsa_insn_cmp (BRIG_COMPARE_EQ, most_sign->m_type, most_sign,
+			and_reg, c);
   hbb->append_insn (cmp);
 
   /* If the most significant bit is one, negate the input.  Otherwise
@@ -4059,8 +4082,9 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
   /* Assign the value that can be used for FIRSTBIT instruction according
      to the most significant bit.  */
   hsa_op_reg *tmp = new hsa_op_reg (bittype);
-  hsa_insn_basic *cmov = new hsa_insn_basic
-    (4, BRIG_OPCODE_CMOV, bittype, tmp, most_sign, arg_neg, shifted_arg);
+  hsa_insn_basic *cmov
+    = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, bittype, tmp, most_sign,
+			  arg_neg, shifted_arg);
   hbb->append_insn (cmov);
 
   hsa_op_reg *leading_bits = new hsa_op_reg (BRIG_TYPE_S32);
@@ -4070,16 +4094,14 @@ gen_hsa_clrsb (gcall *call, hsa_bb *hbb)
 
   /* Set flag if the input value is equal to zero.  */
   hsa_op_reg *is_zero = new hsa_op_reg (BRIG_TYPE_B1);
-  cmp = new hsa_insn_cmp
-    (BRIG_COMPARE_EQ, is_zero->m_type, is_zero, arg,
-     new hsa_op_immed (0, arg->m_type));
+  cmp = new hsa_insn_cmp (BRIG_COMPARE_EQ, is_zero->m_type, is_zero, arg,
+			  new hsa_op_immed (0, arg->m_type));
   hbb->append_insn (cmp);
 
   /* Return the number of leading bits, or 31 if the input value is zero.  */
-  cmov = new hsa_insn_basic
-    (4, BRIG_OPCODE_CMOV, BRIG_TYPE_B32, NULL, is_zero,
-     new hsa_op_immed (31, BRIG_TYPE_U32),
-     leading_bits->get_in_type (BRIG_TYPE_B32, hbb));
+  cmov = new hsa_insn_basic (4, BRIG_OPCODE_CMOV, BRIG_TYPE_B32, NULL, is_zero,
+			     new hsa_op_immed (31, BRIG_TYPE_U32),
+			     leading_bits->get_in_type (BRIG_TYPE_B32, hbb));
   hbb->append_insn (cmov);
   cmov->set_output_in_type (dest, 0, hbb);
 }
@@ -4102,13 +4124,14 @@ gen_hsa_ffs (gcall *call, hsa_bb *hbb)
   hsa_op_with_type *arg = hsa_reg_or_immed_for_gimple_op (rhs1, hbb);
 
   hsa_op_reg *tmp = new hsa_op_reg (BRIG_TYPE_U32);
-  hsa_insn_srctype *insn = new hsa_insn_srctype
-    (2, BRIG_OPCODE_LASTBIT, tmp->m_type, arg->m_type, tmp, arg);
+  hsa_insn_srctype *insn = new hsa_insn_srctype (2, BRIG_OPCODE_LASTBIT,
+						 tmp->m_type, arg->m_type,
+						 tmp, arg);
   hbb->append_insn (insn);
 
-  hsa_insn_basic *addition = new hsa_insn_basic
-    (3, BRIG_OPCODE_ADD, tmp->m_type, NULL, tmp,
-     new hsa_op_immed (1, tmp->m_type));
+  hsa_insn_basic *addition
+    = new hsa_insn_basic (3, BRIG_OPCODE_ADD, tmp->m_type, NULL, tmp,
+			  new hsa_op_immed (1, tmp->m_type));
   hbb->append_insn (addition);
   addition->set_output_in_type (dest, 0, hbb);
 }
@@ -4124,8 +4147,9 @@ gen_hsa_popcount_to_dest (hsa_op_reg *dest, hsa_op_with_type *arg, hsa_bb *hbb)
   if (!hsa_btype_p (arg->m_type))
     arg = arg->get_in_type (hsa_bittype_for_type (arg->m_type), hbb);
 
-  hsa_insn_srctype *popcount = new hsa_insn_srctype
-    (2, BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32, arg->m_type, NULL, arg);
+  hsa_insn_srctype *popcount
+    = new hsa_insn_srctype (2, BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32,
+			    arg->m_type, NULL, arg);
   hbb->append_insn (popcount);
   popcount->set_output_in_type (dest, 0, hbb);
 }
@@ -4148,9 +4172,9 @@ gen_hsa_parity (gcall *call, hsa_bb *hbb)
   hsa_op_reg *popcount = new hsa_op_reg (BRIG_TYPE_U32);
   gen_hsa_popcount_to_dest (popcount, arg, hbb);
 
-  hsa_insn_basic *insn = new hsa_insn_basic
-    (3, BRIG_OPCODE_REM, popcount->m_type, NULL, popcount,
-     new hsa_op_immed (2, popcount->m_type));
+  hsa_insn_basic *insn
+    = new hsa_insn_basic (3, BRIG_OPCODE_REM, popcount->m_type, NULL, popcount,
+			  new hsa_op_immed (2, popcount->m_type));
   hbb->append_insn (insn);
   insn->set_output_in_type (dest, 0, hbb);
 }
@@ -4182,8 +4206,9 @@ set_debug_value (hsa_bb *hbb, hsa_op_with_type *value)
   if (shadow_reg_ptr == NULL)
     return;
 
-  hsa_op_address *addr = new hsa_op_address
-    (shadow_reg_ptr, get_hsa_kernel_dispatch_offset ("debug"));
+  hsa_op_address *addr
+    = new hsa_op_address (shadow_reg_ptr,
+			  get_hsa_kernel_dispatch_offset ("debug"));
   hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, value,
 					addr);
   hbb->append_insn (mem);
@@ -4213,8 +4238,8 @@ omp_simple_builtin::generate (gimple *stmt, hsa_bb *hbb)
       hbb->append_insn (new hsa_insn_comment (m_name));
 
       hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
-      hsa_build_append_simple_mov
-	(dest, m_return_value->get_in_type (dest->m_type, hbb), hbb);
+      hsa_op_with_type *op = m_return_value->get_in_type (dest->m_type, hbb);
+      hsa_build_append_simple_mov (dest, op, hbb);
     }
 }
 
@@ -4326,8 +4351,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   /* Get my kernel dispatch argument.  */
   hbb->append_insn (new hsa_insn_comment ("get kernel dispatch structure"));
-  addr = new hsa_op_address
-    (shadow_reg_ptr, get_hsa_kernel_dispatch_offset ("children_dispatches"));
+  HOST_WIDE_INT o = get_hsa_kernel_dispatch_offset ("children_dispatches");
+  addr = new hsa_op_address (shadow_reg_ptr, o);
 
   hsa_op_reg *shadow_reg_base_ptr = new hsa_op_reg (BRIG_TYPE_U64);
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, shadow_reg_base_ptr,
@@ -4344,12 +4369,12 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   /* Load an address of the command queue to a register.  */
-  hbb->append_insn (new hsa_insn_comment
-		    ("load base address of command queue"));
+  hbb->append_insn (new hsa_insn_comment ("load base address of command "
+					  "queue"));
 
   hsa_op_reg *queue_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  addr = new hsa_op_address (shadow_reg,
-			     get_hsa_kernel_dispatch_offset ("queue"));
+  o = get_hsa_kernel_dispatch_offset ("queue");
+  addr = new hsa_op_address (shadow_reg, o);
 
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, queue_reg, addr);
 
@@ -4358,9 +4383,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Load an address of prepared memory for a kernel arguments.  */
   hbb->append_insn (new hsa_insn_comment ("get a kernarg address"));
   hsa_op_reg *kernarg_reg = new hsa_op_reg (BRIG_TYPE_U64);
-
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("kernarg_address"));
+  o = get_hsa_kernel_dispatch_offset ("kernarg_address");
+  addr = new hsa_op_address (shadow_reg, o);
 
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, kernarg_reg, addr);
   hbb->append_insn (mem);
@@ -4368,9 +4392,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Load an kernel object we want to call.  */
   hbb->append_insn (new hsa_insn_comment ("get a kernel object"));
   hsa_op_reg *object_reg = new hsa_op_reg (BRIG_TYPE_U64);
-
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("object"));
+  o = get_hsa_kernel_dispatch_offset ("object");
+  addr = new hsa_op_address (shadow_reg, o);
 
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, object_reg, addr);
   hbb->append_insn (mem);
@@ -4379,8 +4402,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (new hsa_insn_comment ("get a signal by kernel call index"));
 
   hsa_op_reg *signal_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("signal"));
+  o = get_hsa_kernel_dispatch_offset ("signal");
+  addr = new hsa_op_address (shadow_reg, o);
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, signal_reg, addr);
   hbb->append_insn (mem);
 
@@ -4399,22 +4422,22 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Get private segment size.  */
   hsa_op_reg *private_seg_reg = new hsa_op_reg (BRIG_TYPE_U32);
 
-  hbb->append_insn (new hsa_insn_comment
-		    ("get a kernel private segment size by kernel call index"));
+  hbb->append_insn (new hsa_insn_comment ("get a kernel private segment size "
+					  "by kernel call index"));
 
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("private_segment_size"));
+  o = get_hsa_kernel_dispatch_offset ("private_segment_size");
+  addr = new hsa_op_address (shadow_reg, o);
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U32, private_seg_reg, addr);
   hbb->append_insn (mem);
 
   /* Get group segment size.  */
   hsa_op_reg *group_seg_reg = new hsa_op_reg (BRIG_TYPE_U32);
 
-  hbb->append_insn (new hsa_insn_comment
-		    ("get a kernel group segment size by kernel call index"));
+  hbb->append_insn (new hsa_insn_comment ("get a kernel group segment size "
+					  "by kernel call index"));
 
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("group_segment_size"));
+  o = get_hsa_kernel_dispatch_offset ("group_segment_size");
+  addr = new hsa_op_address (shadow_reg, o);
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U32, group_seg_reg, addr);
   hbb->append_insn (mem);
 
@@ -4438,13 +4461,14 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hsa_op_reg *queue_addr_reg = new hsa_op_reg (BRIG_TYPE_U64);
 
   c = new hsa_op_immed (addr_offset, BRIG_TYPE_U64);
-  hsa_insn_basic *insn = new hsa_insn_basic
-    (3, BRIG_OPCODE_ADD, BRIG_TYPE_U64, queue_addr_reg, queue_reg, c);
+  hsa_insn_basic *insn
+    = new hsa_insn_basic (3, BRIG_OPCODE_ADD, BRIG_TYPE_U64, queue_addr_reg,
+			  queue_reg, c);
 
   hbb->append_insn (insn);
 
-  hbb->append_insn (new hsa_insn_comment
-		    ("get base address of prepared packet"));
+  hbb->append_insn (new hsa_insn_comment ("get base address of prepared "
+					  "packet"));
 
   hsa_op_reg *queue_addr_value_reg = new hsa_op_reg (BRIG_TYPE_U64);
   addr = new hsa_op_address (queue_addr_reg);
@@ -4454,16 +4478,15 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   c = new hsa_op_immed (sizeof (hsa_queue_packet), BRIG_TYPE_U64);
   hsa_op_reg *queue_packet_offset_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  insn = new hsa_insn_basic
-    (3, BRIG_OPCODE_MUL, BRIG_TYPE_U64, queue_packet_offset_reg,
-     queue_index_reg, c);
+  insn = new hsa_insn_basic (3, BRIG_OPCODE_MUL, BRIG_TYPE_U64,
+			     queue_packet_offset_reg, queue_index_reg, c);
 
   hbb->append_insn (insn);
 
   hsa_op_reg *queue_packet_reg = new hsa_op_reg (BRIG_TYPE_U64);
-  insn = new hsa_insn_basic
-    (3, BRIG_OPCODE_ADD, BRIG_TYPE_U64, queue_packet_reg, queue_addr_value_reg,
-     queue_packet_offset_reg);
+  insn = new hsa_insn_basic (3, BRIG_OPCODE_ADD, BRIG_TYPE_U64,
+			     queue_packet_reg, queue_addr_value_reg,
+			     queue_packet_offset_reg);
 
   hbb->append_insn (insn);
 
@@ -4478,8 +4501,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 			  addr);
   hbb->append_insn (mem);
 
-  hsa_op_with_type *packet_setup_u32 = packet_setup_reg->get_in_type
-    (BRIG_TYPE_U32, hbb);
+  hsa_op_with_type *packet_setup_u32
+    = packet_setup_reg->get_in_type (BRIG_TYPE_U32, hbb);
 
   hsa_op_reg *packet_setup_u32_2 = new hsa_op_reg (BRIG_TYPE_U32);
   c = new hsa_op_immed (1, BRIG_TYPE_U32);
@@ -4488,8 +4511,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   hbb->append_insn (insn);
 
-  hsa_op_with_type *packet_setup_reg_2 = packet_setup_u32_2->get_in_type
-    (BRIG_TYPE_U16, hbb);
+  hsa_op_with_type *packet_setup_reg_2
+    = packet_setup_u32_2->get_in_type (BRIG_TYPE_U16, hbb);
 
   addr = new hsa_op_address (queue_packet_reg,
 			     offsetof (hsa_queue_packet, setup));
@@ -4501,8 +4524,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
      emit passed grid_size.  */
   hsa_op_reg *threads_reg = gen_num_threads_for_dispatch (hbb);
 
-  hbb->append_insn (new hsa_insn_comment
-		    ("set packet->grid_size_x = hsa_num_threads"));
+  hbb->append_insn (new hsa_insn_comment ("set packet->grid_size_x = "
+					  "hsa_num_threads"));
 
   addr = new hsa_op_address (queue_packet_reg,
 			     offsetof (hsa_queue_packet, grid_size_x));
@@ -4511,20 +4534,20 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   /* Write to shadow_reg->omp_num_threads = hsa_num_threads.  */
-  hbb->append_insn (new hsa_insn_comment
-		    ("set shadow_reg->omp_num_threads = hsa_num_threads"));
+  hbb->append_insn (new hsa_insn_comment ("set shadow_reg->omp_num_threads = "
+					  "hsa_num_threads"));
 
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("omp_num_threads"));
-  hbb->append_insn
-    (new hsa_insn_mem (BRIG_OPCODE_ST, threads_reg->m_type, threads_reg, addr));
+  o = get_hsa_kernel_dispatch_offset ("omp_num_threads");
+  addr = new hsa_op_address (shadow_reg, o);
+  hbb->append_insn (new hsa_insn_mem (BRIG_OPCODE_ST, threads_reg->m_type,
+				      threads_reg, addr));
 
   /* Write to packet->workgroup_size_x.  */
-  hbb->append_insn (new hsa_insn_comment
-		    ("set packet->workgroup_size_x = hsa_num_threads"));
+  hbb->append_insn (new hsa_insn_comment ("set packet->workgroup_size_x = "
+					  "hsa_num_threads"));
 
-  addr = new hsa_op_address
-    (queue_packet_reg, offsetof (hsa_queue_packet, workgroup_size_x));
+  addr = new hsa_op_address (queue_packet_reg,
+			     offsetof (hsa_queue_packet, workgroup_size_x));
   mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U16, threads_reg,
 			  addr);
   hbb->append_insn (mem);
@@ -4568,8 +4591,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Write to packet->private_segment_size.  */
   hbb->append_insn (new hsa_insn_comment ("set packet->private_segment_size"));
 
-  hsa_op_with_type *private_seg_reg_u16 = private_seg_reg->get_in_type
-    (BRIG_TYPE_U16, hbb);
+  hsa_op_with_type *private_seg_reg_u16
+    = private_seg_reg->get_in_type (BRIG_TYPE_U16, hbb);
 
   addr = new hsa_op_address (queue_packet_reg,
 			     offsetof (hsa_queue_packet, private_segment_size));
@@ -4580,8 +4603,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Write to packet->group_segment_size.  */
   hbb->append_insn (new hsa_insn_comment ("set packet->group_segment_size"));
 
-  hsa_op_with_type *group_seg_reg_u16 = group_seg_reg->get_in_type
-    (BRIG_TYPE_U16, hbb);
+  hsa_op_with_type *group_seg_reg_u16
+    = group_seg_reg->get_in_type (BRIG_TYPE_U16, hbb);
 
   addr = new hsa_op_address (queue_packet_reg,
 			     offsetof (hsa_queue_packet, group_segment_size));
@@ -4602,9 +4625,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
 
   hsa_op_reg *omp_data_memory_reg = new hsa_op_reg (BRIG_TYPE_U64);
 
-  addr = new hsa_op_address
-    (shadow_reg, get_hsa_kernel_dispatch_offset ("omp_data_memory"));
-
+  o = get_hsa_kernel_dispatch_offset ("omp_data_memory");
+  addr = new hsa_op_address (shadow_reg, o);
   mem = new hsa_insn_mem (BRIG_OPCODE_LD, BRIG_TYPE_U64, omp_data_memory_reg,
 			  addr);
   hbb->append_insn (mem);
@@ -4638,8 +4660,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   else
     gcc_unreachable ();
 
-  hbb->append_insn (new hsa_insn_comment
-		    ("write memory pointer to packet->kernarg_address"));
+  hbb->append_insn (new hsa_insn_comment ("write memory pointer to "
+					  "packet->kernarg_address"));
 
   addr = new hsa_op_address (queue_packet_reg,
 			     offsetof (hsa_queue_packet, kernarg_address));
@@ -4647,8 +4669,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   /* Write to packet->kernarg_address.  */
-  hbb->append_insn (new hsa_insn_comment
-		    ("write argument0 to *packet->kernarg_address"));
+  hbb->append_insn (new hsa_insn_comment ("write argument0 to "
+					  "*packet->kernarg_address"));
 
   addr = new hsa_op_address (kernarg_reg);
 
@@ -4657,8 +4679,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   /* Pass shadow argument to another dispatched kernel module.  */
-  hbb->append_insn (new hsa_insn_comment
-		    ("write argument1 to *packet->kernarg_address"));
+  hbb->append_insn (new hsa_insn_comment ("write argument1 to "
+					  "*packet->kernarg_address"));
 
   addr = new hsa_op_address (kernarg_reg, 8);
   mem = new hsa_insn_mem (BRIG_OPCODE_ST, BRIG_TYPE_U64, shadow_reg, addr);
@@ -4673,8 +4695,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   hbb->append_insn (mem);
 
   /* Atomically write to packer->header.  */
-  hbb->append_insn
-    (new hsa_insn_comment ("store atomically to packet->header"));
+  hbb->append_insn (new hsa_insn_comment ("store atomically to "
+					  "packet->header"));
 
   addr = new hsa_op_address (queue_packet_reg,
 			     offsetof (hsa_queue_packet, header));
@@ -4682,9 +4704,10 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   /* Store 5122 << 16 + 1 to packet->header.  */
   c = new hsa_op_immed (70658, BRIG_TYPE_U32);
 
-  hsa_insn_atomic *atomic = new hsa_insn_atomic
-    (2, BRIG_OPCODE_ATOMICNORET, BRIG_ATOMIC_ST, BRIG_TYPE_B32,
-     BRIG_MEMORY_ORDER_SC_RELEASE, addr, c);
+  hsa_insn_atomic *atomic
+    = new hsa_insn_atomic (2, BRIG_OPCODE_ATOMICNORET, BRIG_ATOMIC_ST,
+			   BRIG_TYPE_B32, BRIG_MEMORY_ORDER_SC_RELEASE, addr,
+			   c);
   atomic->m_memoryscope = BRIG_MEMORY_SCOPE_SYSTEM;
 
   hbb->append_insn (atomic);
@@ -4737,9 +4760,9 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   new_hbb->append_insn (signal);
 
   hsa_op_reg *ctrl = new hsa_op_reg (BRIG_TYPE_B1);
-  hsa_insn_cmp *cmp = new hsa_insn_cmp
-    (BRIG_COMPARE_EQ, ctrl->m_type, ctrl, signal_result_reg,
-     new hsa_op_immed (1, signal_result_reg->m_type));
+  hsa_op_immed *imm = new hsa_op_immed (1, signal_result_reg->m_type);
+  hsa_insn_cmp *cmp = new hsa_insn_cmp (BRIG_COMPARE_EQ, ctrl->m_type, ctrl,
+					signal_result_reg, imm);
 
   new_hbb->append_insn (cmp);
   new_hbb->append_insn (new hsa_insn_br (ctrl));
@@ -4747,8 +4770,8 @@ gen_hsa_insns_for_kernel_call (hsa_bb *hbb, gcall *call)
   if (TREE_CODE (argument) == ADDR_EXPR)
     {
       /* Emit instructions that copy back OMP arguments to a caller kernel.  */
-      memcpy_hbb->append_insn
-	(new hsa_insn_comment ("OMP arg memcpy back instructions"));
+      memcpy_hbb->append_insn (new hsa_insn_comment ("OMP arg memcpy back "
+						     "instructions"));
 
       hsa_op_address *src_addr = new hsa_op_address (omp_var_decl);
       gen_hsa_memory_copy (memcpy_hbb, src_addr, dst_addr, omp_var_decl->m_dim);
@@ -4769,8 +4792,8 @@ gen_hsa_unaryop_for_builtin (BrigOpcode opcode, gimple *stmt, hsa_bb *hbb)
   if (!lhs)
     return;
   hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (lhs);
-  hsa_op_with_type *op = hsa_reg_or_immed_for_gimple_op
-    (gimple_call_arg (stmt, 0), hbb);
+  hsa_op_with_type *op
+    = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0), hbb);
   gen_hsa_unary_operation (opcode, dest, op, hbb);
 }
 
@@ -4820,8 +4843,8 @@ get_address_from_value (tree val, hsa_bb *hbb)
     case SSA_NAME:
       {
 	BrigType16_t addrtype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
-	hsa_op_base *reg = hsa_cfun->reg_for_gimple_ssa (val)->get_in_type
-	  (addrtype, hbb);
+	hsa_op_base *reg
+	  = hsa_cfun->reg_for_gimple_ssa (val)->get_in_type (addrtype, hbb);
 	return new hsa_op_address (NULL, as_a <hsa_op_reg *> (reg), 0);
       }
     case ADDR_EXPR:
@@ -4897,7 +4920,8 @@ get_memory_order (unsigned memmodel, location_t location)
 
 static void
 gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
- 				    enum BrigAtomicOperation acode, gimple *stmt,
+ 				    enum BrigAtomicOperation acode,
+				    gimple *stmt,
 				    hsa_bb *hbb)
 {
   tree lhs = gimple_call_lhs (stmt);
@@ -4909,16 +4933,15 @@ gen_hsa_ternary_atomic_for_builtin (bool ret_orig,
 
   if (!tree_fits_uhwi_p (model))
     {
-      HSA_SORRY_ATV
-	(gimple_location (stmt),
-	 "support for HSA does not implement memory model %E", model);
+      HSA_SORRY_ATV (gimple_location (stmt),
+		     "support for HSA does not implement memory model %E",
+		     model);
       return;
     }
 
   unsigned HOST_WIDE_INT mmodel = tree_to_uhwi (model);
 
-  BrigMemoryOrder memorder = get_memory_order
-    (mmodel, gimple_location (stmt));
+  BrigMemoryOrder memorder = get_memory_order (mmodel, gimple_location (stmt));
 
   /* Certain atomic insns must have Bx memory types.  */
   switch (acode)
@@ -5089,7 +5112,7 @@ gen_hsa_insn_for_internal_fn_call (gcall *stmt, hsa_bb *hbb)
 	  gen_hsa_unaryop_or_call_for_builtin (BRIG_OPCODE_NSIN, stmt, hbb);
 	else
 	  gen_hsa_unaryop_builtin_call (stmt, hbb);
-        break;
+	break;
       }
 
     case IFN_CLRSB:
@@ -5291,9 +5314,10 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	tree model = gimple_call_arg (stmt, 1);
 	if (!tree_fits_uhwi_p (model))
 	  {
-	    HSA_SORRY_ATV
-	      (gimple_location (stmt),
-	       "support for HSA does not implement memory model: %E", model);
+	    HSA_SORRY_ATV (gimple_location (stmt),
+			   "support for HSA does not implement "
+			   "memory model: %E",
+			   model);
 	    return;
 	  }
 
@@ -5304,17 +5328,18 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	if (memorder != BRIG_MEMORY_ORDER_RELAXED
 	    && memorder != BRIG_MEMORY_ORDER_SC_RELEASE)
 	  {
-	    HSA_SORRY_ATV
-	      (gimple_location (stmt),
-	       "support for HSA does not implement memory model for "
-	       "ATOMIC_LD: %s", get_memory_order_name (mmodel));
+	    HSA_SORRY_ATV (gimple_location (stmt),
+			   "support for HSA does not implement "
+			   "memory model for ATOMIC_LD: %s",
+			   get_memory_order_name (mmodel));
 	    return;
 	  }
 
 	if (lhs)
 	  {
-	    mtype = mem_type_for_type
-	      (hsa_type_for_scalar_tree_type (TREE_TYPE (lhs), false));
+	    BrigType16_t t = hsa_type_for_scalar_tree_type (TREE_TYPE (lhs),
+							    false);
+	    mtype = mem_type_for_type (t);
 	    mtype = hsa_bittype_for_type (mtype);
 	    dest = hsa_cfun->reg_for_gimple_ssa (lhs);
 	  }
@@ -5435,15 +5460,15 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_8:
     case BUILT_IN_SYNC_VAL_COMPARE_AND_SWAP_16:
       {
-	/* XXX Ignore mem model for now.  */
+	/* TODO: Use the appropriate memory model for now.  */
 	tree type = TREE_TYPE (gimple_call_arg (stmt, 1));
 
-	BrigType16_t atype  = hsa_bittype_for_type
-	  (hsa_type_for_scalar_tree_type (type, false));
+	BrigType16_t atype
+	  = hsa_bittype_for_type (hsa_type_for_scalar_tree_type (type, false));
 
-	hsa_insn_atomic *atominsn = new hsa_insn_atomic
-	  (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype,
-	   BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE);
+	hsa_insn_atomic *atominsn
+	  = new hsa_insn_atomic (4, BRIG_OPCODE_ATOMIC, BRIG_ATOMIC_CAS, atype,
+				 BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE);
 	hsa_op_address *addr;
 	addr = get_address_from_value (gimple_call_arg (stmt, 0), hbb);
 
@@ -5452,14 +5477,16 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	else
 	  dest = new hsa_op_reg (atype);
 
-	/* Should check what the memory scope is */
+	/* Should check what the memory scope is.  */
 	atominsn->m_memoryscope = BRIG_MEMORY_SCOPE_WORKGROUP;
 	atominsn->set_op (0, dest);
 	atominsn->set_op (1, addr);
-	atominsn->set_op
-	  (2, hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1), hbb));
-	atominsn->set_op
-	  (3, hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 2), hbb));
+
+	hsa_op_with_type *op
+	  = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 1), hbb);
+	atominsn->set_op (2, op);
+	op = hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 2), hbb);
+	atominsn->set_op (3, op);
 
 	hbb->append_insn (atominsn);
 	break;
@@ -5472,9 +5499,9 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	called = TREE_OPERAND (called, 0);
 	gcc_checking_assert (TREE_CODE (called) == FUNCTION_DECL);
 
-	hsa_add_kernel_dependency
-	  (hsa_cfun->m_decl,
-	   hsa_brig_function_name (hsa_get_declaration_name (called)));
+	const char *name
+	  = hsa_brig_function_name (hsa_get_declaration_name (called));
+	hsa_add_kernel_dependency (hsa_cfun->m_decl, name);
 	gen_hsa_insns_for_kernel_call (hbb, as_a <gcall *> (stmt));
 
 	break;
@@ -5543,9 +5570,10 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 	    if (builtin == BUILT_IN_MEMPCPY)
 	      {
 		tmp = new hsa_op_reg (dst_reg->m_type);
-		hsa_insn_basic *add = new hsa_insn_basic
-		  (3, BRIG_OPCODE_ADD, tmp->m_type,
-		   tmp, dst_reg, new hsa_op_immed (n, dst_reg->m_type));
+		hsa_insn_basic *add
+		  = new hsa_insn_basic (3, BRIG_OPCODE_ADD, tmp->m_type,
+					tmp, dst_reg,
+					new hsa_op_immed (n, dst_reg->m_type));
 		hbb->append_insn (add);
 	      }
 	    else
@@ -5585,8 +5613,8 @@ gen_hsa_insns_for_call (gimple *stmt, hsa_bb *hbb)
 
 	hsa_op_address *dst_addr;
 	dst_addr = get_address_from_value (dst, hbb);
-	unsigned HOST_WIDE_INT constant = tree_to_uhwi
-	  (fold_convert (unsigned_char_type_node, c));
+	unsigned HOST_WIDE_INT constant
+	  = tree_to_uhwi (fold_convert (unsigned_char_type_node, c));
 
 	gen_hsa_memory_set (hbb, dst_addr, constant, n);
 
@@ -5704,8 +5732,8 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb)
   hsa_insn_phi *hphi;
   unsigned count = gimple_phi_num_args (phi_stmt);
 
-  hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa
-    (gimple_phi_result (phi_stmt));
+  hsa_op_reg *dest
+    = hsa_cfun->reg_for_gimple_ssa (gimple_phi_result (phi_stmt));
   hphi = new hsa_insn_phi (count, dest);
   hphi->m_bb = hbb->m_bb;
 
@@ -5742,8 +5770,9 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb)
 						   hbb_src);
 
 	      hsa_op_reg *dest = new hsa_op_reg (BRIG_TYPE_U64);
-	      hsa_insn_basic *insn = new  hsa_insn_basic
-		(2, BRIG_OPCODE_LDA, BRIG_TYPE_U64, dest, addr);
+	      hsa_insn_basic *insn
+		= new hsa_insn_basic (2, BRIG_OPCODE_LDA, BRIG_TYPE_U64,
+				      dest, addr);
 	      hbb_src->append_insn (insn);
 
 	      hphi->set_op (i, dest);
@@ -5772,10 +5801,10 @@ gen_hsa_phi_from_gimple_phi (gimple *phi_stmt, hsa_bb *hbb)
    index of this BB (so that the constructor does not attempt to use
    hsa_cfun during its construction).  */
 
-hsa_bb::hsa_bb (basic_block cfg_bb, int idx): m_bb (cfg_bb),
-  m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
-  m_last_phi (NULL), m_index (idx), m_liveout (BITMAP_ALLOC (NULL)),
-  m_livein (BITMAP_ALLOC (NULL))
+hsa_bb::hsa_bb (basic_block cfg_bb, int idx)
+  : m_bb (cfg_bb), m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
+    m_last_phi (NULL), m_index (idx), m_liveout (BITMAP_ALLOC (NULL)),
+    m_livein (BITMAP_ALLOC (NULL))
 {
   gcc_assert (!cfg_bb->aux);
   cfg_bb->aux = this;
@@ -5784,10 +5813,10 @@ hsa_bb::hsa_bb (basic_block cfg_bb, int idx): m_bb (cfg_bb),
 /* Constructor of class containing HSA-specific information about a basic
    block.  CFG_BB is the CFG BB this HSA BB is associated with.  */
 
-hsa_bb::hsa_bb (basic_block cfg_bb): m_bb (cfg_bb),
-  m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
-  m_last_phi (NULL), m_index (hsa_cfun->m_hbb_count++),
-  m_liveout (BITMAP_ALLOC (NULL)), m_livein (BITMAP_ALLOC (NULL))
+hsa_bb::hsa_bb (basic_block cfg_bb)
+  : m_bb (cfg_bb), m_first_insn (NULL), m_last_insn (NULL), m_first_phi (NULL),
+    m_last_phi (NULL), m_index (hsa_cfun->m_hbb_count++),
+    m_liveout (BITMAP_ALLOC (NULL)), m_livein (BITMAP_ALLOC (NULL))
 {
   gcc_assert (!cfg_bb->aux);
   cfg_bb->aux = this;
@@ -5836,10 +5865,10 @@ init_hsa_num_threads (void)
   hsa_bb *prologue = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   /* Save the default value to private variable hsa_num_threads.  */
-  hsa_insn_basic *basic = new hsa_insn_mem
-    (BRIG_OPCODE_ST, hsa_num_threads->m_type,
-     new hsa_op_immed (0, hsa_num_threads->m_type),
-     new hsa_op_address (hsa_num_threads));
+  hsa_insn_basic *basic
+    = new hsa_insn_mem (BRIG_OPCODE_ST, hsa_num_threads->m_type,
+			new hsa_op_immed (0, hsa_num_threads->m_type),
+			new hsa_op_address (hsa_num_threads));
   prologue->append_insn (basic);
 }
 
@@ -5862,9 +5891,9 @@ gen_body_from_gimple ()
 	     to the same basic block.  */
 	  if (e->flags & EDGE_EH)
 	    {
-	      HSA_SORRY_AT
-		(UNKNOWN_LOCATION,
-		 "support for HSA does not implement exception handling");
+	      HSA_SORRY_AT (UNKNOWN_LOCATION,
+			    "support for HSA does not implement exception "
+			    "handling");
 	      return;
 	    }
 	}
@@ -5935,8 +5964,8 @@ gen_function_decl_parameters (hsa_function_representation *f,
     {
       f->m_output_arg = new hsa_symbol (BRIG_TYPE_NONE, BRIG_SEGMENT_ARG,
 					BRIG_LINKAGE_NONE);
-      f->m_output_arg->m_type = hsa_type_for_tree_type
-	(result_type, &f->m_output_arg->m_dim);
+      f->m_output_arg->m_type
+	= hsa_type_for_tree_type (result_type, &f->m_output_arg->m_dim);
       f->m_output_arg->m_name = "res";
     }
 }
@@ -5957,10 +5986,10 @@ gen_function_def_parameters ()
     {
       struct hsa_symbol **slot;
 
-      hsa_symbol *arg = new hsa_symbol
-	(BRIG_TYPE_NONE,
-	 hsa_cfun->m_kern_p ? BRIG_SEGMENT_KERNARG : BRIG_SEGMENT_ARG,
-	 BRIG_LINKAGE_FUNCTION);
+      hsa_symbol *arg
+	= new hsa_symbol (BRIG_TYPE_NONE, hsa_cfun->m_kern_p
+			  ? BRIG_SEGMENT_KERNARG : BRIG_SEGMENT_ARG,
+			  BRIG_LINKAGE_FUNCTION);
       arg->fillup_for_decl (parm);
 
       hsa_cfun->m_input_args.safe_push (arg);
@@ -5997,8 +6026,9 @@ gen_function_def_parameters ()
 	  tree ddef = ssa_default_def (cfun, parm);
 	  if (ddef && !has_zero_uses (ddef))
 	    {
-	      BrigType16_t mtype = mem_type_for_type
-		(hsa_type_for_scalar_tree_type (TREE_TYPE (ddef), false));
+	      BrigType16_t t = hsa_type_for_scalar_tree_type (TREE_TYPE (ddef),
+							      false);
+	      BrigType16_t mtype = mem_type_for_type (t);
 	      hsa_op_reg *dest = hsa_cfun->reg_for_gimple_ssa (ddef);
 	      hsa_insn_mem *mem = new hsa_insn_mem (BRIG_OPCODE_LD, mtype,
 						    dest, parm_addr);
@@ -6033,8 +6063,8 @@ gen_function_def_parameters ()
 hsa_function_representation *
 hsa_generate_function_declaration (tree decl)
 {
-  hsa_function_representation *fun = new hsa_function_representation
-    (decl, false, 0);
+  hsa_function_representation *fun
+    = new hsa_function_representation (decl, false, 0);
 
   fun->m_declaration_p = true;
   fun->m_name = get_brig_function_name (decl);
@@ -6056,14 +6086,15 @@ hsa_generate_internal_fn_decl (hsa_internal_fn *fn)
 
   for (unsigned i = 0; i < fn->get_arity (); i++)
     {
-      hsa_symbol *arg = new hsa_symbol
-	(fn->get_argument_type (i), BRIG_SEGMENT_ARG, BRIG_LINKAGE_NONE);
+      hsa_symbol *arg
+	= new hsa_symbol (fn->get_argument_type (i), BRIG_SEGMENT_ARG,
+			  BRIG_LINKAGE_NONE);
       arg->m_name_number = i;
       fun->m_input_args.safe_push (arg);
     }
 
-  fun->m_output_arg = new hsa_symbol
-    (fn->get_argument_type (-1), BRIG_SEGMENT_ARG, BRIG_LINKAGE_NONE);
+  fun->m_output_arg = new hsa_symbol (fn->get_argument_type (-1),
+				      BRIG_SEGMENT_ARG, BRIG_LINKAGE_NONE);
   fun->m_output_arg->m_name = "res";
 
   return fun;
@@ -6194,8 +6225,8 @@ convert_switch_statements ()
 	tree index = gimple_switch_index (s);
 	tree index_type = TREE_TYPE (index);
 	tree default_label = gimple_switch_default_label (s);
-	basic_block default_label_bb = label_to_block_fn
-	  (func, CASE_LABEL (default_label));
+	basic_block default_label_bb
+	  = label_to_block_fn (func, CASE_LABEL (default_label));
 	basic_block cur_bb = bb;
 
 	auto_vec <edge> new_edges;
@@ -6226,8 +6257,9 @@ convert_switch_statements ()
 		    if (gimple_phi_arg_edge (phi, j) == e)
 		      {
 			tree imm = gimple_phi_arg_def (phi, j);
-			phi_todo_list.safe_push
-			  (new phi_definition (phi_index, i, imm));
+			phi_definition *p = new phi_definition (phi_index, i,
+								imm);
+			phi_todo_list.safe_push (p);
 			break;
 		      }
 		  }
@@ -6279,8 +6311,8 @@ convert_switch_statements ()
 		gsi_insert_before (&cond_gsi, assign2, GSI_SAME_STMT);
 		gsi_insert_before (&cond_gsi, assign3, GSI_SAME_STMT);
 
-		c = gimple_build_cond (NE_EXPR, tmp3, constant_boolean_node
-				       (false, boolean_type_node), NULL, NULL);
+		tree b = constant_boolean_node (false, boolean_type_node);
+		c = gimple_build_cond (NE_EXPR, tmp3, b, NULL, NULL);
 	      }
 	    else
 	      c = gimple_build_cond (EQ_EXPR, index, low, NULL, NULL);
@@ -6289,15 +6321,15 @@ convert_switch_statements ()
 
 	    gsi_insert_before (&cond_gsi, c, GSI_SAME_STMT);
 
-	    basic_block label_bb = label_to_block_fn
-	      (func, CASE_LABEL (label));
+	    basic_block label_bb
+	      = label_to_block_fn (func, CASE_LABEL (label));
 	    edge new_edge = make_edge (cur_bb, label_bb, EDGE_TRUE_VALUE);
 	    int prob_sum = sum_slice <int> (edge_probabilities, i, labels) +
 	       edge_probabilities[0];
 
 	    if (prob_sum)
-	      new_edge->probability = RDIV
-		(REG_BR_PROB_BASE * edge_probabilities[i], prob_sum);
+	      new_edge->probability
+		= RDIV (REG_BR_PROB_BASE * edge_probabilities[i], prob_sum);
 
 	    new_edge->count = edge_counts[i];
 	    new_edges.safe_push (new_edge);
@@ -6314,8 +6346,8 @@ convert_switch_statements ()
 		  }
 
 		edge next_edge = make_edge (cur_bb, next_bb, EDGE_FALSE_VALUE);
-		next_edge->probability = inverse_probability
-		  (new_edge->probability);
+		next_edge->probability
+		  = inverse_probability (new_edge->probability);
 		next_edge->count = edge_counts[0]
 		  + sum_slice <gcov_type> (edge_counts, i, labels);
 		next_bb->frequency = EDGE_FREQUENCY (next_edge);
@@ -6403,14 +6435,16 @@ expand_builtins ()
 	      tree imag_part = make_temp_ssa_name (rhs_type, NULL,
 						   "cexp_imag_part");
 
-	      tree cos_fndecl = mathfn_built_in
-		(rhs_type, fn == float_type_p ? BUILT_IN_COSF : BUILT_IN_COS);
+	      tree cos_fndecl
+		= mathfn_built_in (rhs_type, fn == float_type_p
+				   ? BUILT_IN_COSF : BUILT_IN_COS);
 	      gcall *cos = gimple_build_call (cos_fndecl, 1, rhs);
 	      gimple_call_set_lhs (cos, real_part);
 	      gsi_insert_before (&gsi, cos, GSI_SAME_STMT);
 
-	      tree sin_fndecl = mathfn_built_in
-		(rhs_type, fn == float_type_p ? BUILT_IN_SINF : BUILT_IN_SIN);
+	      tree sin_fndecl
+		= mathfn_built_in (rhs_type, fn == float_type_p
+				   ? BUILT_IN_SINF : BUILT_IN_SIN);
 	      gcall *sin = gimple_build_call (sin_fndecl, 1, rhs);
 	      gimple_call_set_lhs (sin, imag_part);
 	      gsi_insert_before (&gsi, sin, GSI_SAME_STMT);
@@ -6489,8 +6523,8 @@ generate_hsa (bool kernel)
 
   if (hsa_cfun->m_kern_p)
     {
-      hsa_function_summary *s = hsa_summaries->get
-	(cgraph_node::get (hsa_cfun->m_decl));
+      hsa_function_summary *s
+	= hsa_summaries->get (cgraph_node::get (hsa_cfun->m_decl));
       hsa_add_kern_decl_mapping (current_function_decl, hsa_cfun->m_name,
 				 hsa_cfun->m_maximum_omp_data_size,
 				 s->m_gridified_kernel_p);
@@ -6525,9 +6559,9 @@ const pass_data pass_data_gen_hsail =
 {
   GIMPLE_PASS,
   "hsagen",	 			/* name */
-  OPTGROUP_NONE,                        /* optinfo_flags */
+  OPTGROUP_NONE,			/* optinfo_flags */
   TV_NONE,				/* tv_id */
-  PROP_cfg | PROP_ssa,                  /* properties_required */
+  PROP_cfg | PROP_ssa,			/* properties_required */
   0,					/* properties_provided */
   0,					/* properties_destroyed */
   0,					/* todo_flags_start */
@@ -6559,8 +6593,8 @@ pass_gen_hsail::gate (function *f)
 unsigned int
 pass_gen_hsail::execute (function *)
 {
-  hsa_function_summary *s = hsa_summaries->get
-    (cgraph_node::get_create (current_function_decl));
+  hsa_function_summary *s
+    = hsa_summaries->get (cgraph_node::get_create (current_function_decl));
 
   convert_switch_statements ();
   expand_builtins ();

@@ -543,7 +543,7 @@ hsa_memsem_name (enum BrigMemoryOrder mo)
     }
 }
 
-/* Return textual name for memory scope. */
+/* Return textual name for memory scope.  */
 
 static const char *
 hsa_memscope_name (enum BrigMemoryScope scope)
@@ -649,8 +649,9 @@ dump_hsa_reg (FILE *f, hsa_op_reg *reg, bool dump_type = false)
 static void
 dump_hsa_immed (FILE *f, hsa_op_immed *imm)
 {
-  bool unsigned_int_type = (BRIG_TYPE_U8 | BRIG_TYPE_U16 | BRIG_TYPE_U32
-    | BRIG_TYPE_U64) & imm->m_type;
+  bool unsigned_int_type
+    = (BRIG_TYPE_U8 | BRIG_TYPE_U16 | BRIG_TYPE_U32 | BRIG_TYPE_U64)
+    & imm->m_type;
 
   if (imm->m_tree_value)
     print_generic_expr (f, imm->m_tree_value, 0);
@@ -662,7 +663,7 @@ dump_hsa_immed (FILE *f, hsa_op_immed *imm)
 	fprintf (f, HOST_WIDE_INT_PRINT_DEC, imm->m_int_value);
       else
 	fprintf (f, HOST_WIDE_INT_PRINT_UNSIGNED,
-		 (unsigned HOST_WIDE_INT)imm->m_int_value);
+		 (unsigned HOST_WIDE_INT) imm->m_int_value);
     }
 
   fprintf (f, " (%s)", hsa_type_name (imm->m_type));
@@ -967,7 +968,7 @@ dump_hsa_insn_1 (FILE *f, hsa_insn_basic *insn, int *indent)
 
       fprintf (f, "(");
       for (unsigned i = 0; i < call->m_input_args.length (); i++)
-        {
+	{
 	  fprintf (f, "%%__arg_%u", i);
 
 	  if (i != call->m_input_args.length () - 1)

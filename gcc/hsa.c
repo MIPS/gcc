@@ -41,7 +41,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ctype.h"
 
 /* Structure containing intermediate HSA representation of the generated
-   function. */
+   function.  */
 class hsa_function_representation *hsa_cfun;
 
 /* Element of the mapping vector between a host decl and an HSA kernel.  */
@@ -61,7 +61,8 @@ struct GTY(()) hsa_decl_kernel_map_element
 /* Mapping between decls and corresponding HSA kernels in this compilation
    unit.  */
 
-static GTY (()) vec<hsa_decl_kernel_map_element, va_gc> *hsa_decl_kernel_mapping;
+static GTY (()) vec<hsa_decl_kernel_map_element, va_gc>
+  *hsa_decl_kernel_mapping;
 
 /* Mapping between decls and corresponding HSA kernels
    called by the function.  */
@@ -118,9 +119,10 @@ hsa_deinit_compilation_unit_data (void)
   delete hsa_failed_functions;
   delete hsa_emitted_internal_decls;
 
-  for (hash_table <hsa_noop_symbol_hasher>::iterator it =
-       hsa_global_variable_symbols->begin ();
-       it != hsa_global_variable_symbols->end (); ++it)
+  for (hash_table <hsa_noop_symbol_hasher>::iterator it
+       = hsa_global_variable_symbols->begin ();
+       it != hsa_global_variable_symbols->end ();
+       ++it)
     {
       hsa_symbol *sym = *it;
       delete sym;
@@ -727,10 +729,9 @@ hsa_get_declaration_name (tree decl)
 {
   if (!DECL_NAME (decl))
     {
-      char *b = XNEWVEC (char, 64);
-      sprintf (b, "__hsa_anonymous_%i", DECL_UID (decl));
-      const char *ggc_str = ggc_alloc_string (b, strlen (b) + 1);
-      free (b);
+      char buf[64];
+      snprintf (buf, 64, "__hsa_anonymous_%i", DECL_UID (decl));
+      const char *ggc_str = ggc_strdup (buf);
       return ggc_str;
     }
 
@@ -888,6 +889,8 @@ hsa_internal_fn::get_arity ()
     case IFN_PARITY:
     case IFN_POPCOUNT:
     default:
+      /* As we produce sorry message for unknown internal functions,
+	 reaching this label is definitely a bug.  */
       gcc_unreachable ();
     }
 }
@@ -935,6 +938,8 @@ hsa_internal_fn::get_argument_type (int n)
 	  return BRIG_TYPE_S32;
       }
     default:
+      /* As we produce sorry message for unknown internal functions,
+	 reaching this label is definitely a bug.  */
       gcc_unreachable ();
     }
 }

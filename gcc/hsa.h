@@ -40,7 +40,7 @@ hsa_gen_requested_p (void)
   return !flag_disable_hsa;
 }
 
-/* Standard warning message if we failed to generate HSAIL for a function */
+/* Standard warning message if we failed to generate HSAIL for a function.  */
 
 #define HSA_SORRY_MSG "could not emit HSAIL for the function"
 
@@ -75,7 +75,7 @@ struct hsa_symbol
   tree m_decl;
 
   /* Name of the symbol, that will be written into output and dumps.  Can be
-     NULL, see name_number below.*/
+     NULL, see name_number below.  */
   const char *m_name;
 
   /* If name is NULL, artificial name will be formed from the segment name and
@@ -115,7 +115,7 @@ private:
   hsa_symbol ();
 };
 
-/* Abstract class for HSA instruction operands. */
+/* Abstract class for HSA instruction operands.  */
 
 class hsa_op_base
 {
@@ -231,7 +231,7 @@ public:
      be 'c', 's', 'd' or 'q'.  */
   char m_reg_class;
   /* If allocated, the number of the HW register (within its HSA register
-     class). */
+     class).  */
   char m_hard_num;
 
 private:
@@ -318,7 +318,7 @@ is_a_helper <hsa_op_address *>::test (hsa_op_base *p)
   return p->m_kind == BRIG_KIND_OPERAND_ADDRESS;
 }
 
-/* A reference to code HSA operand. It can be either reference
+/* A reference to code HSA operand.  It can be either reference
    to a start of a BB or a start of a function.  */
 
 class hsa_op_code_ref : public hsa_op_base
@@ -624,10 +624,10 @@ public:
   /* The segment is of the memory access is either the segment of the symbol in
      the address operand or flat address is there is no symbol there.  */
 
-  /* Required alignment of the memory operation. */
+  /* Required alignment of the memory operation.  */
   BrigAlignment8_t m_align;
 
-  /* HSA equiv class, basically an alias set number. */
+  /* HSA equiv class, basically an alias set number.  */
   uint8_t m_equiv_class;
 
   /* TODO:  Add width modifier, perhaps also other things.  */
@@ -672,7 +672,7 @@ public:
   /* Things like acquire/release/aligned.  */
   enum BrigMemoryOrder m_memoryorder;
 
-  /* Scope of the atomic operation. */
+  /* Scope of the atomic operation.  */
   enum BrigMemoryScope m_memoryscope;
 
 private:
@@ -801,7 +801,7 @@ public:
 
   void *operator new (size_t);
 
-  /* Called function */
+  /* Called function.  */
   tree m_called_function;
 
   /* Called internal function.  */
@@ -1013,7 +1013,7 @@ public:
   hsa_insn_alloca (hsa_op_with_type *dest, hsa_op_with_type *size,
 		   unsigned alignment = 0);
 
-  /* Required alignment of the allocation. */
+  /* Required alignment of the allocation.  */
   BrigAlignment8_t m_align;
 
   /* Pool allocator.  */

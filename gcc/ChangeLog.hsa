@@ -1,4 +1,97 @@
 2016-01-15  Martin Liska  <mliska@suse.cz>
+            Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (struct function_linkage_pair): Fix GNU coding style
+	and replace sprintf with snprintf.
+	(hsa_brig_section::init): Likewise.
+	(hsa_brig_section::output): Likewise.
+	(hsa_brig_section::get_ptr_by_offset): Likewise.
+	(brig_string_slot_hasher::hash): Likewise.
+	(brig_string_slot_hasher::equal): Likewise.
+	(brig_string_slot_hasher::remove): Likewise.
+	(brig_emit_string): Likewise.
+	(brig_init): Likewise.
+	(emit_directive_variable): Likewise.
+	(emit_function_directives): Likewise.
+	(emit_bb_label_directive): Likewise.
+	(emit_immediate_scalar_to_buffer): Likewise.
+	(hsa_op_immed::emit_to_buffer): Likewise.
+	(emit_immediate_operand): Likewise.
+	(emit_address_operand): Likewise.
+	(emit_memory_insn): Likewise.
+	(emit_alloca_insn): Likewise.
+	(emit_cmp_insn): Likewise.
+	(emit_branch_insn): Likewise.
+	(emit_switch_insn): Likewise.
+	(emit_call_insn): Likewise.
+	(emit_arg_block_insn): Likewise.
+	(emit_packed_insn): Likewise.
+	(emit_basic_insn): Likewise.
+	(hsa_brig_emit_function): Likewise.
+	(hsa_output_global_variables): Likewise.
+	(hsa_output_kernels): Likewise.
+	(hsa_output_libgomp_mapping): Likewise.
+	(hsa_output_brig): Likewise.
+	* hsa-dump.c (dump_hsa_immed): Likewise.
+	(dump_hsa_insn_1): Likewise.
+	* hsa-gen.c (hsa_symbol::total_byte_size): Likewise.
+	(hsa_init_simple_builtins): Likewise.
+	(hsa_init_data_for_cfun): Likewise.
+	(hsa_type_for_scalar_tree_type): Likewise.
+	(get_symbol_for_decl): Likewise.
+	(hsa_get_host_function): Likewise.
+	(hsa_op_immed::hsa_op_immed): Likewise.
+	(hsa_insn_mem::hsa_insn_mem): Likewise.
+	(hsa_insn_atomic::hsa_insn_atomic): Likewise.
+	(hsa_insn_seg::hsa_insn_seg): Likewise.
+	(hsa_insn_srctype::hsa_insn_srctype): Likewise.
+	(process_mem_base): Likewise.
+	(gen_hsa_insns_for_bitfield): Likewise.
+	(gen_hsa_insns_for_load): Likewise.
+	(gen_hsa_insns_for_store): Likewise.
+	(gen_hsa_insns_for_operation_assignment): Likewise.
+	(gen_hsa_insns_for_switch_stmt): Likewise.
+	(get_format_argument_type): Likewise.
+	(gen_hsa_insns_for_direct_call): Likewise.
+	(gen_hsa_insns_for_call_of_internal_fn): Likewise.
+	(gen_hsa_insns_for_return): Likewise.
+	(query_hsa_grid): Likewise.
+	(gen_set_num_threads): Likewise.
+	(gen_num_threads_for_dispatch): Likewise.
+	(gen_get_num_teams): Likewise.
+	(gen_get_team_num): Likewise.
+	(gen_get_level): Likewise.
+	(gen_hsa_alloca): Likewise.
+	(gen_hsa_clrsb): Likewise.
+	(gen_hsa_ffs): Likewise.
+	(gen_hsa_popcount_to_dest): Likewise.
+	(gen_hsa_parity): Likewise.
+	(set_debug_value): Likewise.
+	(omp_simple_builtin::generate): Likewise.
+	(gen_hsa_insns_for_kernel_call): Likewise.
+	(gen_hsa_unaryop_for_builtin): Likewise.
+	(get_address_from_value): Likewise.
+	(gen_hsa_ternary_atomic_for_builtin): Likewise.
+	(gen_hsa_insn_for_internal_fn_call): Likewise.
+	(gen_hsa_insns_for_call): Likewise.
+	(gen_hsa_phi_from_gimple_phi): Likewise.
+	(init_hsa_num_threads): Likewise.
+	(gen_body_from_gimple): Likewise.
+	(gen_function_decl_parameters): Likewise.
+	(gen_function_def_parameters): Likewise.
+	(hsa_generate_function_declaration): Likewise.
+	(hsa_generate_internal_fn_decl): Likewise.
+	(convert_switch_statements): Likewise.
+	(expand_builtins): Likewise.
+	(generate_hsa): Likewise.
+	(pass_gen_hsail::execute): Likewise.
+	* hsa.c (hsa_deinit_compilation_unit_data): Likewise.
+	(hsa_get_declaration_name): Likewise.
+	(hsa_internal_fn::get_arity): Likewise.
+	(hsa_internal_fn::get_argument_type): Likewise.
+	* hsa.h (struct hsa_symbol): Likewise.
+
+2016-01-15  Martin Liska  <mliska@suse.cz>
 
 	* ipa-hsa.c (process_hsa_functions): Fixed coding style.
 	(ipa_hsa_read_section): Likewise.
