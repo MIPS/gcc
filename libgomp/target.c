@@ -1261,15 +1261,38 @@ gomp_target_fallback (void (*fn) (void *), void **hostaddrs)
   *thr = old_thr;
 }
 
-/* Host fallback with firstprivate map-type handling.  */
+/* Calculate alignment and size requirements of a private copy of data shared
+   as GOMP_MAP_FIRSTPRIVATE and store them to TGT_ALIGN and TGT_SIZE.  */
 
-static void
-gomp_target_fallback_firstprivate (void (*fn) (void *), size_t mapnum,
-				   void **hostaddrs, size_t *sizes,
-				   unsigned short *kinds)
+static inline void
+calculate_firstprivate_requirements (size_t mapnum, size_t *sizes,
+				     unsigned short *kinds, size_t *tgt_align,
+				     size_t *tgt_size)
 {
-  size_t i, tgt_align = 0, tgt_size = 0;
-  char *tgt = NULL;
+  size_t i;
+  for (i = 0; i < mapnum; i++)
+    if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
+      {
+	size_t align = (size_t) 1 << (kinds[i] >> 8);
+	if (*tgt_align < align)
+	  *tgt_align = align;
+	*tgt_size = (*tgt_size + align - 1) & ~(align - 1);
+	*tgt_size += sizes[i];
+      }
+}
+
+/* Copy data shared as GOMP_MAP_FIRSTPRIVATE to DST.  */
+
+static inline void
+copy_firstprivate_data (char *tgt, size_t mapnum, void **hostaddrs,
+			size_t *sizes, unsigned short *kinds, size_t tgt_align,
+			size_t tgt_size)
+{
+  uintptr_t al = (uintptr_t) tgt & (tgt_align - 1);
+  if (al)
+    tgt += tgt_align - al;
+  tgt_size = 0;
+  size_t i;
   for (i = 0; i < mapnum; i++)
     if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
       {
@@ -1277,26 +1300,51 @@ gomp_target_fallback_firstprivate (void (*fn) (void *), size_t mapnum,
 	if (tgt_align < align)
 	  tgt_align = align;
 	tgt_size = (tgt_size + align - 1) & ~(align - 1);
-	tgt_size += sizes[i];
+	memcpy (tgt + tgt_size, hostaddrs[i], sizes[i]);
+	hostaddrs[i] = tgt + tgt_size;
+	tgt_size = tgt_size + sizes[i];
       }
+}
+
+/* Host fallback with firstprivate map-type handling.  */
+
+static void
+gomp_target_fallback_firstprivate (void (*fn) (void *), size_t mapnum,
+				   void **hostaddrs, size_t *sizes,
+				   unsigned short *kinds)
+{
+  size_t tgt_align = 0, tgt_size = 0;
+  calculate_firstprivate_requirements (mapnum, sizes, kinds, &tgt_align,
+				       &tgt_size);
   if (tgt_align)
     {
-      tgt = gomp_alloca (tgt_size + tgt_align - 1);
-      uintptr_t al = (uintptr_t) tgt & (tgt_align - 1);
-      if (al)
-	tgt += tgt_align - al;
-      tgt_size = 0;
-      for (i = 0; i < mapnum; i++)
-	if ((kinds[i] & 0xff) == GOMP_MAP_FIRSTPRIVATE)
-	  {
-	    size_t align = (size_t) 1 << (kinds[i] >> 8);
-	    tgt_size = (tgt_size + align - 1) & ~(align - 1);
-	    memcpy (tgt + tgt_size, hostaddrs[i], sizes[i]);
-	    hostaddrs[i] = tgt + tgt_size;
-	    tgt_size = tgt_size + sizes[i];
-	  }
+      char *tgt = gomp_alloca (tgt_size + tgt_align - 1);
+      copy_firstprivate_data (tgt, mapnum, hostaddrs, sizes, kinds, tgt_align,
+			      tgt_size);
     }
   gomp_target_fallback (fn, hostaddrs);
+}
+
+/* Handle firstprivate map-type for shared memory devices and the host
+   fallback.  Return the pointer of firstprivate copies which has to be freed
+   after use.  */
+
+static void *
+gomp_target_unshare_firstprivate (size_t mapnum, void **hostaddrs,
+				  size_t *sizes, unsigned short *kinds)
+{
+  size_t tgt_align = 0, tgt_size = 0;
+  char *tgt = NULL;
+
+  calculate_firstprivate_requirements (mapnum, sizes, kinds, &tgt_align,
+				       &tgt_size);
+  if (tgt_align)
+    {
+      tgt = gomp_malloc (tgt_size + tgt_align - 1);
+      copy_firstprivate_data (tgt, mapnum, hostaddrs, sizes, kinds, tgt_align,
+			      tgt_size);
+    }
+  return tgt;
 }
 
 /* Helper function of GOMP_target{,_ext} routines.  */
@@ -1348,7 +1396,8 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
   struct target_mem_desc *tgt_vars
     = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds, false,
 		     GOMP_MAP_VARS_TARGET);
-  devicep->run_func (devicep->target_id, fn_addr, (void *) tgt_vars->tgt_start);
+  devicep->run_func (devicep->target_id, fn_addr, (void *) tgt_vars->tgt_start,
+		     NULL);
   gomp_unmap_vars (tgt_vars, true);
 }
 
@@ -1356,6 +1405,15 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
    and several arguments have been added:
    FLAGS is a bitmask, see GOMP_TARGET_FLAG_* in gomp-constants.h.
    DEPEND is array of dependencies, see GOMP_task for details.
+
+   ARGS is a pointer to an array consisting of a variable number of both
+   device-independent and device-specific arguments, which can take one two
+   elements where the first specifies for which device it is intended, the type
+   and optionally also the value.  If the value is not present in the first
+   one, the whole second element the actual value.  The last element of the
+   array is a single NULL.  Among the device independent can be for example
+   NUM_TEAMS and THREAD_LIMIT.
+
    NUM_TEAMS is positive if GOMP_teams will be called in the body with
    that value, or 1 if teams construct is not present, or 0, if
    teams construct does not have num_teams clause and so the choice is
@@ -1369,13 +1427,9 @@ GOMP_target (int device, void (*fn) (void *), const void *unused,
 void
 GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
 		 void **hostaddrs, size_t *sizes, unsigned short *kinds,
-		 unsigned int flags, void **depend, int num_teams,
-		 int thread_limit)
+		 unsigned int flags, void **depend, void **args)
 {
   struct gomp_device_descr *devicep = resolve_device (device);
-
-  (void) num_teams;
-  (void) thread_limit;
 
   if (flags & GOMP_TARGET_FLAG_NOWAIT)
     {
@@ -1413,7 +1467,7 @@ GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
 	  && !thr->task->final_task)
 	{
 	  gomp_create_target_task (devicep, fn, mapnum, hostaddrs,
-				   sizes, kinds, flags, depend,
+				   sizes, kinds, flags, depend, args,
 				   GOMP_TARGET_TASK_BEFORE_MAP);
 	  return;
 	}
@@ -1430,20 +1484,33 @@ GOMP_target_ext (int device, void (*fn) (void *), size_t mapnum,
 	gomp_task_maybe_wait_for_dependencies (depend);
     }
 
+  void *fn_addr;
   if (devicep == NULL
-      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+      || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+      || !(fn_addr = gomp_get_target_fn_addr (devicep, fn))
+      || (devicep->can_run_func && !devicep->can_run_func (fn_addr)))
     {
       gomp_target_fallback_firstprivate (fn, mapnum, hostaddrs, sizes, kinds);
       return;
     }
 
-  void *fn_addr = gomp_get_target_fn_addr (devicep, fn);
-
-  struct target_mem_desc *tgt_vars
-    = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds, true,
-		     GOMP_MAP_VARS_TARGET);
-  devicep->run_func (devicep->target_id, fn_addr, (void *) tgt_vars->tgt_start);
-  gomp_unmap_vars (tgt_vars, true);
+  struct target_mem_desc *tgt_vars;
+  void *fpc = NULL;
+  if (devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
+    {
+      fpc = gomp_target_unshare_firstprivate (mapnum, hostaddrs, sizes, kinds);
+      tgt_vars = NULL;
+    }
+  else
+    tgt_vars = gomp_map_vars (devicep, mapnum, hostaddrs, NULL, sizes, kinds,
+			      true, GOMP_MAP_VARS_TARGET);
+  devicep->run_func (devicep->target_id, fn_addr,
+		     tgt_vars ? (void *) tgt_vars->tgt_start : hostaddrs,
+		     args);
+  if (tgt_vars)
+    gomp_unmap_vars (tgt_vars, true);
+  else
+    free (fpc);
 }
 
 /* Host fallback for GOMP_target_data{,_ext} routines.  */
@@ -1552,7 +1619,7 @@ GOMP_target_update_ext (int device, size_t mapnum, void **hostaddrs,
 	      if (gomp_create_target_task (devicep, (void (*) (void *)) NULL,
 					   mapnum, hostaddrs, sizes, kinds,
 					   flags | GOMP_TARGET_FLAG_UPDATE,
-					   depend, GOMP_TARGET_TASK_DATA))
+					   depend, NULL, GOMP_TARGET_TASK_DATA))
 		return;
 	    }
 	  else
@@ -1673,7 +1740,7 @@ GOMP_target_enter_exit_data (int device, size_t mapnum, void **hostaddrs,
 	    {
 	      if (gomp_create_target_task (devicep, (void (*) (void *)) NULL,
 					   mapnum, hostaddrs, sizes, kinds,
-					   flags, depend,
+					   flags, depend, NULL,
 					   GOMP_TARGET_TASK_DATA))
 		return;
 	    }
@@ -1729,8 +1796,11 @@ gomp_target_task_fn (void *data)
 
   if (ttask->fn != NULL)
     {
+      void *fn_addr;
       if (devicep == NULL
-	  || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+	  || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+	  || !(fn_addr = gomp_get_target_fn_addr (devicep, ttask->fn))
+	  || (devicep->can_run_func && !devicep->can_run_func (fn_addr)))
 	{
 	  ttask->state = GOMP_TARGET_TASK_FALLBACK;
 	  gomp_target_fallback_firstprivate (ttask->fn, ttask->mapnum,
@@ -1745,19 +1815,31 @@ gomp_target_task_fn (void *data)
 	  return false;
 	}
 
-      void *fn_addr = gomp_get_target_fn_addr (devicep, ttask->fn);
-      ttask->tgt
-	= gomp_map_vars (devicep, ttask->mapnum, ttask->hostaddrs, NULL,
-			 ttask->sizes, ttask->kinds, true,
-			 GOMP_MAP_VARS_TARGET);
+      void *actual_arguments;
+      if (devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
+	{
+	  ttask->tgt = NULL;
+	  ttask->firstprivate_copies
+	    = gomp_target_unshare_firstprivate (ttask->mapnum, ttask->hostaddrs,
+						ttask->sizes, ttask->kinds);
+	  actual_arguments = ttask->hostaddrs;
+	}
+      else
+	{
+	  ttask->tgt = gomp_map_vars (devicep, ttask->mapnum, ttask->hostaddrs,
+				      NULL, ttask->sizes, ttask->kinds, true,
+				      GOMP_MAP_VARS_TARGET);
+	  actual_arguments = (void *) ttask->tgt->tgt_start;
+	}
       ttask->state = GOMP_TARGET_TASK_READY_TO_RUN;
 
-      devicep->async_run_func (devicep->target_id, fn_addr,
-			       (void *) ttask->tgt->tgt_start, (void *) ttask);
+      devicep->async_run_func (devicep->target_id, fn_addr, actual_arguments,
+			       ttask->args, (void *) ttask);
       return true;
     }
   else if (devicep == NULL
-	   || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400))
+	   || !(devicep->capabilities & GOMP_OFFLOAD_CAP_OPENMP_400)
+	   || devicep->capabilities & GOMP_OFFLOAD_CAP_SHARED_MEM)
     return false;
 
   size_t i;
@@ -2225,6 +2307,7 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
     {
       DLSYM (run);
       DLSYM (async_run);
+      DLSYM_OPT (can_run, can_run);
       DLSYM (dev2dev);
     }
   if (device->capabilities & GOMP_OFFLOAD_CAP_OPENACC_200)
