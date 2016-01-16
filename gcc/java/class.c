@@ -454,7 +454,7 @@ gen_indirect_dispatch_tables (tree type)
     
     TYPE_CTABLE_DECL (type) 
       = build_decl (input_location, VAR_DECL, get_identifier (buf),
-		    build_array_type (catch_class_type, 0));
+		    build_array_type (catch_class_type, NULL_TYPE));
     DECL_EXTERNAL (TYPE_CTABLE_DECL (type)) = 1;
     TREE_STATIC (TYPE_CTABLE_DECL (type)) = 1;
     TREE_READONLY (TYPE_CTABLE_DECL (type)) = 1;

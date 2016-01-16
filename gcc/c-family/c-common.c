@@ -2459,7 +2459,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	       && TREE_CODE (type) == INTEGER_TYPE)
 	{
 	  /* Don't warn about unsigned char y = 0xff, x = (int) y;  */
-	  expr = get_unwidened (expr, 0);
+	  expr = get_unwidened (expr, NULL_TYPE);
 	  expr_type = TREE_TYPE (expr);
 
 	  /* Don't warn for short y; short x = ((int)y & 0xff);  */
@@ -2528,7 +2528,7 @@ unsafe_conversion_p (location_t loc, tree type, tree expr, bool produce_warns)
 	       && TREE_CODE (type) == REAL_TYPE)
 	{
 	  /* Don't warn about char y = 0xff; float x = (int) y;  */
-	  expr = get_unwidened (expr, 0);
+	  expr = get_unwidened (expr, NULL_TYPE);
 	  expr_type = TREE_TYPE (expr);
 
 	  if (!int_safely_convertible_to_real_p (expr_type, type))

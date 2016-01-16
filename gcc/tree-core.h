@@ -1887,6 +1887,7 @@ public:
   inline bool ref_can_alias_all () const;
   inline void set_ref_can_alias_all (bool f);
   inline unsigned int& hash();
+  inline tree identifier () const;
 
   inline bool structural_equality_p () const;
   inline void set_structural_equality_p ();
@@ -1904,6 +1905,10 @@ public:
   inline void set_arg_types (tree);
   inline tree methods () const;
   inline void set_methods (tree t);
+  inline ttype *method_basetype() const;
+  inline void set_method_basetype (ttype*);
+  inline ttype *offset_basetype () const;
+  inline void set_offset_basetype (ttype *);
   
   inline tree max_value () const;
   inline void set_max_value (tree);
@@ -1914,10 +1919,13 @@ public:
   inline int quals_no_addr_space () const;
   inline int quals_no_addr_space_no_atomic () const;
 
+  inline bool complete_p ()const;
   inline bool vector_p () const;
   inline bool pointer_p () const;
   inline bool record_or_union_p () const;
   inline bool integral_p () const;
+  inline bool scalar_float_p () const;
+  inline bool fixed_point_p () const;
 
 
 };

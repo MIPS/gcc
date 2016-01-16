@@ -8158,7 +8158,7 @@ build_range_type_1 (ttype_p type, tree lowval, tree highval, bool shared)
 /* Wrapper around build_range_type_1 with SHARED set to true.  */
 
 ttype *
-build_range_type (tree type, tree lowval, tree highval)
+build_range_type (ttype_p type, tree lowval, tree highval)
 {
   return build_range_type_1 (type, lowval, highval, true);
 }
@@ -8166,7 +8166,7 @@ build_range_type (tree type, tree lowval, tree highval)
 /* Wrapper around build_range_type_1 with SHARED set to false.  */
 
 ttype *
-build_nonshared_range_type (tree type, tree lowval, tree highval)
+build_nonshared_range_type (ttype_p type, tree lowval, tree highval)
 {
   return build_range_type_1 (type, lowval, highval, false);
 }
@@ -8192,12 +8192,13 @@ build_index_type (tree maxval)
    debug info and doesn't reflect the source code.  */
 
 bool
-subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
+subrange_type_for_debug_p (const ttype_p type, tree *lowval, tree *highval)
 {
-  tree base_type = TREE_TYPE (type), low, high;
+  ttype *base_type = type->type ();
+  tree low, high;
 
   /* Subrange types have a base type which is an integral type.  */
-  if (!INTEGRAL_TYPE_P (base_type))
+  if (!base_type->integral_p ())
     return false;
 
   /* Get the real bounds of the subtype.  */
@@ -8205,18 +8206,18 @@ subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
     lang_hooks.types.get_subrange_bounds (type, &low, &high);
   else
     {
-      low = TYPE_MIN_VALUE (type);
-      high = TYPE_MAX_VALUE (type);
+      low = type->min_value ();
+      high = type->max_value ();
     }
 
   /* If the type and its base type have the same representation and the same
      name, then the type is not a subrange but a copy of the base type.  */
-  if ((TREE_CODE (base_type) == INTEGER_TYPE
-       || TREE_CODE (base_type) == BOOLEAN_TYPE)
+  if ((base_type->code () == INTEGER_TYPE
+       || base_type->code () == BOOLEAN_TYPE)
       && int_size_in_bytes (type) == int_size_in_bytes (base_type)
-      && tree_int_cst_equal (low, TYPE_MIN_VALUE (base_type))
-      && tree_int_cst_equal (high, TYPE_MAX_VALUE (base_type))
-      && TYPE_IDENTIFIER (type) == TYPE_IDENTIFIER (base_type))
+      && tree_int_cst_equal (low, base_type->min_value ())
+      && tree_int_cst_equal (high, base_type->max_value ())
+      && type->identifier () == base_type->identifier ())
     return false;
 
   if (lowval)
@@ -8231,50 +8232,50 @@ subrange_type_for_debug_p (const_tree type, tree *lowval, tree *highval)
    If SHARED is true, reuse such a type that has already been constructed.  */
 
 static ttype *
-build_array_type_1 (tree elt_type, tree index_type, bool shared)
+build_array_type_1 (ttype *elt_type, ttype *index_type, bool shared)
 {
   ttype *t;
 
-  if (TREE_CODE (elt_type) == FUNCTION_TYPE)
+  if (elt_type->code () == FUNCTION_TYPE)
     {
       error ("arrays of functions are not meaningful");
       elt_type = integer_type_node;
     }
 
   t = make_type_node (ARRAY_TYPE);
-  TREE_TYPE (t) = elt_type;
-  TYPE_DOMAIN (t) = index_type;
-  TYPE_ADDR_SPACE (t) = TYPE_ADDR_SPACE (elt_type);
+  t->set_type (elt_type);
+  t->set_domain (index_type);
+  t->set_addr_space (elt_type->addr_space ());
   layout_type (t);
 
   /* If the element type is incomplete at this point we get marked for
      structural equality.  Do not record these types in the canonical
      type hashtable.  */
-  if (TYPE_STRUCTURAL_EQUALITY_P (t))
+  if (t->structural_equality_p ())
     return t;
 
   if (shared)
     {
       inchash::hash hstate;
-      hstate.add_object (TYPE_HASH (elt_type));
+      hstate.add_object (elt_type->hash ());
       if (index_type)
-	hstate.add_object (TYPE_HASH (index_type));
+	hstate.add_object (index_type->hash ());
       t = type_hash_canon (hstate.end (), t);
     }
 
-  if (TYPE_CANONICAL (t) == t)
+  if (t->canonical () == t)
     {
-      if (TYPE_STRUCTURAL_EQUALITY_P (elt_type)
-	  || (index_type && TYPE_STRUCTURAL_EQUALITY_P (index_type))
+      if (elt_type->structural_equality_p ()
+	  || (index_type && index_type->structural_equality_p ())
 	  || in_lto_p)
-	SET_TYPE_STRUCTURAL_EQUALITY (t);
-      else if (TYPE_CANONICAL (elt_type) != elt_type
-	       || (index_type && TYPE_CANONICAL (index_type) != index_type))
-	TYPE_CANONICAL (t)
-	  = build_array_type_1 (TYPE_CANONICAL (elt_type),
-				index_type
-				? TYPE_CANONICAL (index_type) : NULL_TREE,
-				shared);
+	t->set_structural_equality_p ();
+      else if (elt_type->canonical () != elt_type
+	       || (index_type && index_type->canonical () != index_type))
+	t->set_canonical (build_array_type_1 (elt_type->canonical (),
+					      index_type
+					      ? index_type->canonical ()
+						: NULL,
+					      shared));
     }
 
   return t;
@@ -8283,7 +8284,7 @@ build_array_type_1 (tree elt_type, tree index_type, bool shared)
 /* Wrapper around build_array_type_1 with SHARED set to true.  */
 
 ttype *
-build_array_type (tree elt_type, tree index_type)
+build_array_type (ttype_p elt_type, ttype_p index_type)
 {
   return build_array_type_1 (elt_type, index_type, true);
 }
@@ -8291,7 +8292,7 @@ build_array_type (tree elt_type, tree index_type)
 /* Wrapper around build_array_type_1 with SHARED set to false.  */
 
 ttype *
-build_nonshared_array_type (tree elt_type, tree index_type)
+build_nonshared_array_type (ttype_p elt_type, ttype_p index_type)
 {
   return build_array_type_1 (elt_type, index_type, false);
 }
@@ -8300,7 +8301,7 @@ build_nonshared_array_type (tree elt_type, tree index_type)
    sizetype.  */
 
 ttype *
-build_array_type_nelts (tree elt_type, unsigned HOST_WIDE_INT nelts)
+build_array_type_nelts (ttype_p elt_type, unsigned HOST_WIDE_INT nelts)
 {
   return build_array_type (elt_type, build_index_type (size_int (nelts - 1)));
 }
@@ -8342,12 +8343,12 @@ maybe_canonicalize_argtypes (tree argtypes,
 
   for (arg = argtypes; arg && !(*any_structural_p); arg = TREE_CHAIN (arg))
     {
-      if (!TREE_VALUE (arg) || TREE_VALUE (arg) == error_mark_node)
+      if (!TREE_VALUE (arg) || TREE_VALUE_TTYPE (arg) == error_type_node)
 	/* Fail gracefully by stating that the type is structural.  */
 	*any_structural_p = true;
-      else if (TYPE_STRUCTURAL_EQUALITY_P (TREE_VALUE (arg)))
+      else if (TREE_VALUE_TTYPE (arg)->structural_equality_p ())
 	*any_structural_p = true;
-      else if (TYPE_CANONICAL (TREE_VALUE (arg)) != TREE_VALUE (arg)
+      else if (TREE_VALUE_TTYPE (arg)->canonical () != TREE_VALUE_TTYPE (arg)
 	       || TREE_PURPOSE (arg))
 	/* If the argument has a default argument, we consider it
 	   non-canonical even though the type itself is canonical.
@@ -8372,7 +8373,7 @@ maybe_canonicalize_argtypes (tree argtypes,
             is_void = true;
           else
             canon_argtypes = tree_cons (NULL_TREE,
-                                        TYPE_CANONICAL (TREE_VALUE (arg)),
+                                        TREE_VALUE_TTYPE (arg)->canonical (),
                                         canon_argtypes);
         }
 
@@ -8397,14 +8398,14 @@ maybe_canonicalize_argtypes (tree argtypes,
    If such a type has already been constructed, reuse it.  */
 
 ttype *
-build_function_type (tree value_type, tree arg_types)
+build_function_type (ttype_p value_type, tree arg_types)
 {
   ttype *t;
   inchash::hash hstate;
   bool any_structural_p, any_noncanonical_p;
   tree canon_argtypes;
 
-  if (TREE_CODE (value_type) == FUNCTION_TYPE)
+  if (value_type->code () == FUNCTION_TYPE)
     {
       error ("function return type cannot be function");
       value_type = integer_type_node;
@@ -8412,27 +8413,27 @@ build_function_type (tree value_type, tree arg_types)
 
   /* Make a node of the sort we want.  */
   t = make_type_node (FUNCTION_TYPE);
-  TREE_TYPE (t) = value_type;
-  TYPE_ARG_TYPES (t) = arg_types;
+  t->set_type (value_type);
+  t->set_arg_types (arg_types);
 
   /* If we already have such a type, use the old one.  */
-  hstate.add_object (TYPE_HASH (value_type));
+  hstate.add_object (value_type->hash ());
   type_hash_list (arg_types, hstate);
   t = type_hash_canon (hstate.end (), t);
 
   /* Set up the canonical type. */
-  any_structural_p   = TYPE_STRUCTURAL_EQUALITY_P (value_type);
-  any_noncanonical_p = TYPE_CANONICAL (value_type) != value_type;
+  any_structural_p   = value_type->structural_equality_p ();
+  any_noncanonical_p = value_type->canonical () != value_type;
   canon_argtypes = maybe_canonicalize_argtypes (arg_types,
 						&any_structural_p,
 						&any_noncanonical_p);
   if (any_structural_p)
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
+    t->set_structural_equality_p ();
   else if (any_noncanonical_p)
-    TYPE_CANONICAL (t) = build_function_type (TYPE_CANONICAL (value_type),
-					      canon_argtypes);
+    t->set_canonical (build_function_type (value_type->canonical (),
+					   canon_argtypes));
 
-  if (!COMPLETE_TYPE_P (t))
+  if (!t->complete_p ())
     layout_type (t);
   return t;
 }
@@ -8442,7 +8443,7 @@ build_function_type (tree value_type, tree arg_types)
    the list.  ARGP must be always be terminated be a NULL_TREE.  */
 
 static ttype *
-build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
+build_function_type_list_1 (bool vaargs, ttype *return_type, va_list argp)
 {
   tree t, args, last;
   ttype *ret;
@@ -8477,7 +8478,7 @@ build_function_type_list_1 (bool vaargs, tree return_type, va_list argp)
    be terminated by NULL_TREE.  */
 
 ttype *
-build_function_type_list (tree return_type, ...)
+build_function_type_list (ttype_p return_type, ...)
 {
   ttype *args;
   va_list p;
@@ -8494,7 +8495,7 @@ build_function_type_list (tree return_type, ...)
    always be terminated by NULL_TREE.  */
 
 ttype *
-build_varargs_function_type_list (tree return_type, ...)
+build_varargs_function_type_list (ttype_p return_type, ...)
 {
   ttype *args;
   va_list p;
@@ -8512,7 +8513,7 @@ build_varargs_function_type_list (tree return_type, ...)
    ARG_TYPES.  */
 
 static ttype *
-build_function_type_array_1 (bool vaargs, tree return_type, int n,
+build_function_type_array_1 (bool vaargs, ttype *return_type, int n,
 			     type_array arg_types)
 {
   int i;
@@ -8529,7 +8530,7 @@ build_function_type_array_1 (bool vaargs, tree return_type, int n,
    are provided in ARG_TYPES.  */
 
 ttype *
-build_function_type_array (tree return_type, int n, type_array arg_types)
+build_function_type_array (ttype_p return_type, int n, type_array arg_types)
 {
   return build_function_type_array_1 (false, return_type, n, arg_types);
 }
@@ -8539,7 +8540,7 @@ build_function_type_array (tree return_type, int n, type_array arg_types)
    types of which are provided in ARG_TYPES.  */
 
 ttype *
-build_varargs_function_type_array (tree return_type, int n,
+build_varargs_function_type_array (ttype_p return_type, int n,
 				   type_array arg_types)
 {
   return build_function_type_array_1 (true, return_type, n, arg_types);
@@ -8551,12 +8552,12 @@ build_varargs_function_type_array (tree return_type, int n,
    pointer-to-BASETYPE) is added to the ARGTYPES.  */
 
 ttype *
-build_method_type_directly (tree basetype,
-			    tree rettype,
+build_method_type_directly (ttype_p basetype,
+			    ttype_p rettype,
 			    tree argtypes)
 {
   ttype *t;
-  tree ptype;
+  ttype *ptype;
   inchash::hash hstate;
   bool any_structural_p, any_noncanonical_p;
   tree canon_argtypes;
@@ -8564,39 +8565,38 @@ build_method_type_directly (tree basetype,
   /* Make a node of the sort we want.  */
   t = make_type_node (METHOD_TYPE);
 
-  TYPE_METHOD_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = rettype;
+  t->set_method_basetype (basetype->main_variant ());
+  t->set_type (rettype);
   ptype = build_pointer_type (basetype);
 
   /* The actual arglist for this function includes a "hidden" argument
      which is "this".  Put it into the list of argument types.  */
   argtypes = tree_cons (NULL_TREE, ptype, argtypes);
-  TYPE_ARG_TYPES (t) = argtypes;
+  t->set_arg_types (argtypes);
 
   /* If we already have such a type, use the old one.  */
-  hstate.add_object (TYPE_HASH (basetype));
-  hstate.add_object (TYPE_HASH (rettype));
+  hstate.add_object (basetype->hash ());
+  hstate.add_object (rettype->hash ());
   type_hash_list (argtypes, hstate);
   t = type_hash_canon (hstate.end (), t);
 
   /* Set up the canonical type. */
   any_structural_p
-    = (TYPE_STRUCTURAL_EQUALITY_P (basetype)
-       || TYPE_STRUCTURAL_EQUALITY_P (rettype));
+    = (basetype->structural_equality_p ()
+       || rettype->structural_equality_p ());
   any_noncanonical_p
-    = (TYPE_CANONICAL (basetype) != basetype
-       || TYPE_CANONICAL (rettype) != rettype);
+    = (basetype->canonical () != basetype
+       || rettype->canonical () != rettype);
   canon_argtypes = maybe_canonicalize_argtypes (TREE_CHAIN (argtypes),
 						&any_structural_p,
 						&any_noncanonical_p);
   if (any_structural_p)
-    SET_TYPE_STRUCTURAL_EQUALITY (t);
+    t->set_structural_equality_p ();
   else if (any_noncanonical_p)
-    TYPE_CANONICAL (t)
-      = build_method_type_directly (TYPE_CANONICAL (basetype),
-				    TYPE_CANONICAL (rettype),
-				    canon_argtypes);
-  if (!COMPLETE_TYPE_P (t))
+    t->set_canonical (build_method_type_directly (basetype->canonical (),
+						  rettype->canonical (),
+						  canon_argtypes));
+  if (!t->complete_p ())
     layout_type (t);
 
   return t;
@@ -8607,14 +8607,14 @@ build_method_type_directly (tree basetype,
    If that type exists already, reuse it.
    TYPE must be a FUNCTION_TYPE node.  */
 
-tree
-build_method_type (tree basetype, tree type)
+ttype *
+build_method_type (ttype_p basetype, ttype_p type)
 {
-  gcc_assert (TREE_CODE (type) == FUNCTION_TYPE);
+  gcc_assert (type->code () == FUNCTION_TYPE);
 
   return build_method_type_directly (basetype,
-				     TREE_TYPE (type),
-				     TYPE_ARG_TYPES (type));
+				     type->type (),
+				     type->arg_types ());
 }
 
 /* Construct, lay out and return the type of offsets to a value
@@ -8622,7 +8622,7 @@ build_method_type (tree basetype, tree type)
    If a suitable offset type exists already, reuse it.  */
 
 ttype *
-build_offset_type (tree basetype, tree type)
+build_offset_type (ttype_p basetype, ttype_p type)
 {
   ttype *t;
   inchash::hash hstate;
@@ -8630,27 +8630,27 @@ build_offset_type (tree basetype, tree type)
   /* Make a node of the sort we want.  */
   t = make_type_node (OFFSET_TYPE);
 
-  TYPE_OFFSET_BASETYPE (t) = TYPE_MAIN_VARIANT (basetype);
-  TREE_TYPE (t) = type;
+  t->set_offset_basetype (basetype->main_variant ());
+  t->set_type (type);
 
   /* If we already have such a type, use the old one.  */
-  hstate.add_object (TYPE_HASH (basetype));
-  hstate.add_object (TYPE_HASH (type));
+  hstate.add_object (basetype->hash ());
+  hstate.add_object (type->hash ());
   t = type_hash_canon (hstate.end (), t);
 
-  if (!COMPLETE_TYPE_P (t))
+  if (!t->complete_p ())
     layout_type (t);
 
-  if (TYPE_CANONICAL (t) == t)
+  if (t->canonical () == t)
     {
-      if (TYPE_STRUCTURAL_EQUALITY_P (basetype)
-	  || TYPE_STRUCTURAL_EQUALITY_P (type))
-	SET_TYPE_STRUCTURAL_EQUALITY (t);
-      else if (TYPE_CANONICAL (TYPE_MAIN_VARIANT (basetype)) != basetype
-	       || TYPE_CANONICAL (type) != type)
-	TYPE_CANONICAL (t)
-	  = build_offset_type (TYPE_CANONICAL (TYPE_MAIN_VARIANT (basetype)),
-			       TYPE_CANONICAL (type));
+      if (basetype->structural_equality_p ()
+	  || type->structural_equality_p ())
+	t->set_structural_equality_p ();
+      else if (basetype->main_variant()->canonical () != basetype
+	       || type->canonical () != type)
+	t->set_canonical (build_offset_type (
+				    basetype->main_variant()->canonical (),
+				    type->canonical ()));
     }
 
   return t;
@@ -8659,38 +8659,37 @@ build_offset_type (tree basetype, tree type)
 /* Create a complex type whose components are COMPONENT_TYPE.  */
 
 ttype *
-build_complex_type (tree component_type)
+build_complex_type (ttype_p component_type)
 {
   ttype *t;
   inchash::hash hstate;
 
-  gcc_assert (INTEGRAL_TYPE_P (component_type)
-	      || SCALAR_FLOAT_TYPE_P (component_type)
-	      || FIXED_POINT_TYPE_P (component_type));
+  gcc_assert (component_type->integral_p ()
+	      || component_type->scalar_float_p ()
+	      || component_type->fixed_point_p ());
 
   /* Make a node of the sort we want.  */
   t = make_type_node (COMPLEX_TYPE);
 
-  TREE_TYPE (t) = TYPE_MAIN_VARIANT (component_type);
+  t->set_type (component_type->main_variant ());
 
   /* If we already have such a type, use the old one.  */
-  hstate.add_object (TYPE_HASH (component_type));
+  hstate.add_object (component_type->hash ());
   t = type_hash_canon (hstate.end (), t);
 
-  if (!COMPLETE_TYPE_P (t))
+  if (!t->complete_p ())
     layout_type (t);
 
-  if (TYPE_CANONICAL (t) == t)
+  if (t->canonical () == t)
     {
-      if (TYPE_STRUCTURAL_EQUALITY_P (component_type))
-	SET_TYPE_STRUCTURAL_EQUALITY (t);
-      else if (TYPE_CANONICAL (component_type) != component_type)
-	TYPE_CANONICAL (t)
-	  = build_complex_type (TYPE_CANONICAL (component_type));
+      if (component_type->structural_equality_p ())
+	t->set_structural_equality_p ();
+      else if (component_type->canonical () != component_type)
+	t->set_canonical (build_complex_type (component_type->canonical ()));
     }
 
   /* We need to create a name, since complex is a fundamental type.  */
-  if (! TYPE_NAME (t))
+  if (! t->name ())
     {
       const char *name;
       if (component_type == char_type_node)
@@ -8719,8 +8718,8 @@ build_complex_type (tree component_type)
 	name = 0;
 
       if (name != 0)
-	TYPE_NAME (t) = build_decl (UNKNOWN_LOCATION, TYPE_DECL,
-	    			    get_identifier (name), t);
+	t->set_name (build_decl (UNKNOWN_LOCATION, TYPE_DECL,
+				 get_identifier (name), t));
     }
 
   return build_qualified_type (t, TYPE_QUALS (component_type));
@@ -8731,24 +8730,24 @@ build_complex_type (tree component_type)
    type to be used for arithmetic on TYPE.  Otherwise, return
    NULL_TREE.  */
 
-tree
-excess_precision_type (tree type)
+ttype *
+excess_precision_type (ttype_p type)
 {
   if (flag_excess_precision != EXCESS_PRECISION_FAST)
     {
       int flt_eval_method = TARGET_FLT_EVAL_METHOD;
-      switch (TREE_CODE (type))
+      switch (type->code ())
 	{
 	case REAL_TYPE:
 	  switch (flt_eval_method)
 	    {
 	    case 1:
-	      if (TYPE_MODE (type) == TYPE_MODE (float_type_node))
+	      if (type->mode () == float_type_node->mode ())
 		return double_type_node;
 	      break;
 	    case 2:
-	      if (TYPE_MODE (type) == TYPE_MODE (float_type_node)
-		  || TYPE_MODE (type) == TYPE_MODE (double_type_node))
+	      if (type->mode () == float_type_node->mode ()
+		  || type->mode () == double_type_node->mode())
 		return long_double_type_node;
 	      break;
 	    default:
@@ -8756,18 +8755,17 @@ excess_precision_type (tree type)
 	    }
 	  break;
 	case COMPLEX_TYPE:
-	  if (TREE_CODE (TREE_TYPE (type)) != REAL_TYPE)
-	    return NULL_TREE;
+	  if (type->type()->code () != REAL_TYPE)
+	    return NULL;
 	  switch (flt_eval_method)
 	    {
 	    case 1:
-	      if (TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (float_type_node))
+	      if (type->type()->code () == float_type_node->code())
 		return complex_double_type_node;
 	      break;
 	    case 2:
-	      if (TYPE_MODE (TREE_TYPE (type)) == TYPE_MODE (float_type_node)
-		  || (TYPE_MODE (TREE_TYPE (type))
-		      == TYPE_MODE (double_type_node)))
+	      if (type->type()->code () == float_type_node->code()
+		  || (type->type()->code () == double_type_node->code()))
 		return complex_long_double_type_node;
 	      break;
 	    default:
@@ -8778,7 +8776,7 @@ excess_precision_type (tree type)
 	  break;
 	}
     }
-  return NULL_TREE;
+  return NULL;
 }
 
 /* Return OP, stripped of any conversions to wider types as much as is safe.
@@ -8800,16 +8798,16 @@ excess_precision_type (tree type)
    is different from (int) OP.  */
 
 tree
-get_unwidened (tree op, tree for_type)
+get_unwidened (tree op, ttype_p for_type)
 {
   /* Set UNS initially if converting OP to FOR_TYPE is a zero-extension.  */
-  tree type = TREE_TYPE (op);
-  unsigned final_prec
-    = TYPE_PRECISION (for_type != 0 ? for_type : type);
+  ttype *type = TREE_TTYPE (op);
+  unsigned final_prec = (for_type != NULL) ? for_type->precision ()
+					   : type->precision ();
   int uns
-    = (for_type != 0 && for_type != type
-       && final_prec > TYPE_PRECISION (type)
-       && TYPE_UNSIGNED (type));
+    = (for_type != NULL && for_type != type
+       && final_prec > type->precision ()
+       && type->unsigned_p ());
   tree win = op;
 
   while (CONVERT_EXPR_P (op))
@@ -8819,16 +8817,16 @@ get_unwidened (tree op, tree for_type)
       /* TYPE_PRECISION on vector types has different meaning
 	 (TYPE_VECTOR_SUBPARTS) and casts from vectors are view conversions,
 	 so avoid them here.  */
-      if (TREE_CODE (TREE_TYPE (TREE_OPERAND (op, 0))) == VECTOR_TYPE)
+      if (TREE_TTYPE (TREE_OPERAND (op, 0))->code () == VECTOR_TYPE)
 	break;
 
-      bitschange = TYPE_PRECISION (TREE_TYPE (op))
-		   - TYPE_PRECISION (TREE_TYPE (TREE_OPERAND (op, 0)));
+      bitschange = TREE_TTYPE (op)->precision ()
+		   - TREE_TTYPE (TREE_OPERAND (op, 0))->precision ();
 
       /* Truncations are many-one so cannot be removed.
 	 Unless we are later going to truncate down even farther.  */
       if (bitschange < 0
-	  && final_prec > TYPE_PRECISION (TREE_TYPE (op)))
+	  && final_prec > TREE_TTYPE (op)->precision ())
 	break;
 
       /* See what's inside this conversion.  If we decide to strip it,
@@ -8844,14 +8842,14 @@ get_unwidened (tree op, tree for_type)
 
       if (bitschange > 0)
 	{
-	  if (! uns || final_prec <= TYPE_PRECISION (TREE_TYPE (op)))
+	  if (! uns || final_prec <= TREE_TTYPE (op)->precision ())
 	    win = op;
 	  /* TYPE_UNSIGNED says whether this is a zero-extension.
 	     Let's avoid computing it if it does not affect WIN
 	     and if UNS will not be needed again.  */
 	  if ((uns
 	       || CONVERT_EXPR_P (op))
-	      && TYPE_UNSIGNED (TREE_TYPE (op)))
+	      && TREE_TTYPE (op)->unsigned_p ())
 	    {
 	      uns = 1;
 	      win = op;
@@ -8863,7 +8861,7 @@ get_unwidened (tree op, tree for_type)
      in that case convert it.  */
   if (for_type
       && TREE_CODE (win) == INTEGER_CST
-      && TREE_TYPE (win) != for_type
+      && TREE_TTYPE (win) != for_type
       && int_fits_type_p (win, for_type))
     win = fold_convert (for_type, win);
 

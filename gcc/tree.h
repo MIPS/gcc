@@ -23,6 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-core.h"
 #include "is-a.h"
 
+/* Forward decls required for for the inline ttype methods. */
+inline const_tree contains_struct_check (const_tree, const enum tree_node_structure_enum, const char *, int, const char *);
+
+
 /* Convert a target-independent built-in function code to a combined_fn.  */
 
 inline combined_fn
@@ -239,6 +243,12 @@ as_internal_fn (combined_fn code)
 #define CASE_INT_FN(FN) case FN: case FN##L: case FN##LL: case FN##IMAX
 
 #define NULL_TREE (tree) NULL
+/* NULL_TYPE is defined for use in places where a 0- is passed in to a ttype_p
+   parameter. a non-typed 0 is ambiguous as to whether it should be constructed
+   with a tree or a ttype *.  This resolves the problem.  When ttype work is
+   completed, and the parameters are changed to 'ttype *', we can simply
+   replace NULL_TYPE with just 'NULL' everywhere.  */
+#define NULL_TYPE (ttype *) NULL
 
 /* Define  the error_* nodes early for the inlined ttype methods.  */
 #define error_mark_node			global_trees[TI_ERROR_MARK]
@@ -649,10 +659,12 @@ bool ttype::integral_p () const
 /* Nonzero if TYPE represents a fixed-point type.  */
 
 #define FIXED_POINT_TYPE_P(TYPE)	(TREE_CODE (TYPE) == FIXED_POINT_TYPE)
+bool ttype::fixed_point_p () const { return code() == FIXED_POINT_TYPE; }
 
 /* Nonzero if TYPE represents a scalar floating-point type.  */
 
 #define SCALAR_FLOAT_TYPE_P(TYPE) (TREE_CODE (TYPE) == REAL_TYPE)
+bool ttype::scalar_float_p () const { return code() == REAL_TYPE; }
 
 /* Nonzero if TYPE represents a complex floating-point type.  */
 
@@ -723,6 +735,7 @@ inline bool ttype::pointer_p() const
 
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
+bool ttype::complete_p () const { return size() != NULL_TREE; }
 
 /* Nonzero if this type is a pointer bounds type.  */
 #define POINTER_BOUNDS_TYPE_P(NODE) \
@@ -1163,7 +1176,9 @@ void ttype::set_reverse_storage_order_p (bool f)
 
 /* In a TREE_LIST node.  */
 #define TREE_PURPOSE(NODE) (TREE_LIST_CHECK (NODE)->u.list.purpose)
-#define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)
+#define TREE_VALUE(NODE) (TREE_LIST_CHECK (NODE)->u.list.value)\
+/* Ideally this becomes a TREE_LIST of ttypes someday.  */
+#define TREE_VALUE_TTYPE(NODE) TTYPE(TREE_VALUE(NODE))
 
 /* In a TREE_VEC node.  */
 #define TREE_VEC_LENGTH(NODE) (TREE_VEC_CHECK (NODE)->u.base.u.length)
@@ -2294,8 +2309,16 @@ void ttype::set_methods (tree t) { u.type_non_common.maxval = t; }
   (RECORD_OR_UNION_CHECK (NODE)->u.type_non_common.minval)
 #define TYPE_METHOD_BASETYPE(NODE) \
   (FUNC_OR_METHOD_CHECK (NODE)->u.type_non_common.maxval)
+ttype *ttype::method_basetype() const
+				  { return TTYPE (u.type_non_common.maxval); }
+void ttype::set_method_basetype (ttype* t) { u.type_non_common.maxval = t; }
+
 #define TYPE_OFFSET_BASETYPE(NODE) \
   (OFFSET_TYPE_CHECK (NODE)->u.type_non_common.maxval)
+ttype *ttype::offset_basetype () const
+				  { return TTYPE (u.type_non_common.maxval); }
+void ttype::set_offset_basetype (ttype *t) { u.type_non_common.maxval = t; }
+
 #define TYPE_MAXVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.maxval)
 #define TYPE_MINVAL(NODE) (TYPE_CHECK (NODE)->u.type_non_common.minval)
 #define TYPE_NEXT_PTR_TO(NODE) \
@@ -2462,6 +2485,10 @@ void ttype::set_max_value (tree t) { u.type_non_common.maxval = t; }
 #define TYPE_IDENTIFIER(NODE) \
   (TYPE_NAME (NODE) && DECL_P (TYPE_NAME (NODE)) \
    ? DECL_NAME (TYPE_NAME (NODE)) : TYPE_NAME (NODE))
+tree ttype::identifier () const
+{
+  return (name() && DECL_P (name())) ? DECL_NAME (name()) : name ();
+}
 
 /* Every ..._DECL node gets a unique number.  */
 #define DECL_UID(NODE) (DECL_MINIMAL_CHECK (NODE)->u.decl_minimal.uid)
@@ -4245,12 +4272,12 @@ extern tree build_truth_vector_type (unsigned, unsigned);
 extern tree build_same_sized_truth_vector_type (tree vectype);
 extern ttype *build_opaque_vector_type (ttype_p innertype, int nunits);
 extern ttype *build_index_type (tree);
-extern ttype *build_array_type (tree, tree);
-extern ttype *build_nonshared_array_type (tree, tree);
-extern ttype *build_array_type_nelts (tree, unsigned HOST_WIDE_INT);
-extern ttype *build_function_type (tree, tree);
-extern ttype *build_function_type_list (tree, ...);
-extern ttype *build_varargs_function_type_list (tree, ...);
+extern ttype *build_array_type (ttype_p, ttype_p);
+extern ttype *build_nonshared_array_type (ttype_p, ttype_p);
+extern ttype *build_array_type_nelts (ttype_p, unsigned HOST_WIDE_INT);
+extern ttype *build_function_type (ttype_p, tree);
+extern ttype *build_function_type_list (ttype_p, ...);
+extern ttype *build_varargs_function_type_list (ttype_p, ...);
 
 class type_array {
   void *vec;
@@ -4260,17 +4287,17 @@ public:
   tree operator[] (unsigned x) { return ((tree *)vec)[x]; }
 };
 
-extern ttype *build_function_type_array (tree, int, type_array);
-extern ttype *build_varargs_function_type_array (tree, int, type_array);
+extern ttype *build_function_type_array (ttype_p, int, type_array);
+extern ttype *build_varargs_function_type_array (ttype_p, int, type_array);
 #define build_function_type_vec(RET, V) \
   build_function_type_array (RET, vec_safe_length (V), vec_safe_address (V))
 #define build_varargs_function_type_vec(RET, V) \
   build_varargs_function_type_array (RET, vec_safe_length (V), \
 				     vec_safe_address (V))
-extern ttype *build_method_type_directly (tree, tree, tree);
-extern tree build_method_type (tree, tree);
-extern ttype *build_offset_type (tree, tree);
-extern ttype *build_complex_type (tree);
+extern ttype *build_method_type_directly (ttype_p, ttype_p, tree);
+extern ttype *build_method_type (ttype_p, ttype_p);
+extern ttype *build_offset_type (ttype_p, ttype_p);
+extern ttype *build_complex_type (ttype_p);
 extern tree array_type_nelts (const_tree);
 
 extern tree value_member (tree, tree);
@@ -4314,7 +4341,7 @@ extern int tree_int_cst_sgn (const_tree);
 extern int tree_int_cst_sign_bit (const_tree);
 extern unsigned int tree_int_cst_min_precision (tree, signop);
 extern ttype *strip_array_types (ttype_p);
-extern tree excess_precision_type (tree);
+extern ttype *excess_precision_type (ttype_p);
 extern bool valid_constant_size_p (const_tree);
 
 
@@ -4696,7 +4723,7 @@ extern tree stabilize_reference (tree);
    is the same as if EXP were converted to FOR_TYPE.
    If FOR_TYPE is 0, it signifies EXP's type.  */
 
-extern tree get_unwidened (tree, tree);
+extern tree get_unwidened (tree, ttype_p);
 
 /* Return OP or a simpler expression for a narrower value
    which can be sign-extended or zero-extended to give back OP.
@@ -5040,9 +5067,9 @@ extern void build_common_tree_nodes (bool, bool);
 extern void build_common_builtin_nodes (void);
 extern ttype *build_nonstandard_integer_type (unsigned HOST_WIDE_INT, int);
 extern tree build_nonstandard_boolean_type (unsigned HOST_WIDE_INT);
-extern ttype *build_range_type (tree, tree, tree);
-extern ttype *build_nonshared_range_type (tree, tree, tree);
-extern bool subrange_type_for_debug_p (const_tree, tree *, tree *);
+extern ttype *build_range_type (ttype_p , tree, tree);
+extern ttype *build_nonshared_range_type (ttype_p, tree, tree);
+extern bool subrange_type_for_debug_p (const ttype_p, tree *, tree *);
 extern HOST_WIDE_INT int_cst_value (const_tree);
 extern tree tree_block (tree);
 extern void tree_set_block (tree, tree);
