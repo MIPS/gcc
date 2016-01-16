@@ -1790,16 +1790,14 @@ asm_operand_ok (rtx op, const char *constraint, const char **constraints)
 		result = 1;
 	      break;
 
-	    case CT_MEMORY:
-	      /* Every memory operand can be reloaded to fit.  */
-	      result = result || memory_operand (op, VOIDmode);
-	      break;
-
 	    case CT_ADDRESS:
 	      /* Every address operand can be reloaded to fit.  */
 	      result = result || address_operand (op, VOIDmode);
 	      break;
 
+	    case CT_MEMORY:
+	      /* Call constraint_satisfied_p, instead of memory_operand,
+		 to check for valid memory operand.  */
 	    case CT_FIXED_FORM:
 	      result = result || constraint_satisfied_p (op, cn);
 	      break;

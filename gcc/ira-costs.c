@@ -779,7 +779,9 @@ record_reg_classes (int n_alts, int n_ops, rtx *ops,
 		    case CT_MEMORY:
 		      /* Every MEM can be reloaded to fit.  */
 		      insn_allows_mem[i] = allows_mem[i] = 1;
-		      if (MEM_P (op))
+		      /* Check constraint_satisfied_p, instead of MEM_P,
+			 for valid memory operand.  */
+		      if (constraint_satisfied_p (op, cn))
 			win = 1;
 		      break;
 
