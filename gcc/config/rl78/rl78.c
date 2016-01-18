@@ -824,7 +824,7 @@ const struct attribute_spec rl78_attribute_table[] =
     NULL, false },
   { "saddr",          0, 0, true, false, false, rl78_handle_saddr_attribute,
     NULL, false },
-  { NULL,             0, 0, false, false, false, NULL, false }
+  { NULL,             0, 0, false, false, false, NULL, NULL, false }
 };
 
 

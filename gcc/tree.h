@@ -534,6 +534,8 @@ void ttype::set_chain (tree t) { u.common.chain = t; }
 (CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type)
 #define TREE_SET_TYPE(NODE, TYPE) \
 ((CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type) = assert_ttype (TYPE))
+#define TREE_TYPE_PTR(NODE) \
+(&(CONTAINS_STRUCT_CHECK (NODE, TS_TYPED)->u.typed.type))
 ttype *ttype::type () const { return TTYPE (u.typed.type); }
 void ttype::set_type (ttype *t) { u.typed.type = t; }
 
@@ -4080,8 +4082,9 @@ extern int allocate_decl_uid (void);
    to zero except for a few of the common fields.  */
 
 extern tree make_node_stat (enum tree_code MEM_STAT_DECL);
+extern ttype *make_type_node_stat (enum tree_code MEM_STAT_DECL);
 #define make_node(t) make_node_stat (t MEM_STAT_INFO)
-#define make_type_node(t) TTYPE (make_node_stat (t MEM_STAT_INFO))
+#define make_type_node(t) make_type_node_stat (t MEM_STAT_INFO)
 
 /* Free tree node.  */
 
@@ -4126,18 +4129,18 @@ extern tree grow_tree_vec_stat (tree v, int MEM_STAT_DECL);
 extern tree build_nt (enum tree_code, ...);
 extern tree build_nt_call_vec (tree, vec<tree, va_gc> *);
 
-extern tree build0_stat (enum tree_code, tree MEM_STAT_DECL);
+extern tree build0_stat (enum tree_code, ttype_p MEM_STAT_DECL);
 #define build0(c,t) build0_stat (c,t MEM_STAT_INFO)
-extern tree build1_stat (enum tree_code, tree, tree MEM_STAT_DECL);
+extern tree build1_stat (enum tree_code, ttype_p, tree MEM_STAT_DECL);
 #define build1(c,t1,t2) build1_stat (c,t1,t2 MEM_STAT_INFO)
-extern tree build2_stat (enum tree_code, tree, tree, tree MEM_STAT_DECL);
+extern tree build2_stat (enum tree_code, ttype_p, tree, tree MEM_STAT_DECL);
 #define build2(c,t1,t2,t3) build2_stat (c,t1,t2,t3 MEM_STAT_INFO)
-extern tree build3_stat (enum tree_code, tree, tree, tree, tree MEM_STAT_DECL);
+extern tree build3_stat (enum tree_code, ttype_p, tree, tree, tree MEM_STAT_DECL);
 #define build3(c,t1,t2,t3,t4) build3_stat (c,t1,t2,t3,t4 MEM_STAT_INFO)
-extern tree build4_stat (enum tree_code, tree, tree, tree, tree,
+extern tree build4_stat (enum tree_code, ttype_p, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build4(c,t1,t2,t3,t4,t5) build4_stat (c,t1,t2,t3,t4,t5 MEM_STAT_INFO)
-extern tree build5_stat (enum tree_code, tree, tree, tree, tree, tree,
+extern tree build5_stat (enum tree_code, ttype_p, tree, tree, tree, tree,
 			 tree MEM_STAT_DECL);
 #define build5(c,t1,t2,t3,t4,t5,t6) build5_stat (c,t1,t2,t3,t4,t5,t6 MEM_STAT_INFO)
 
@@ -4210,7 +4213,7 @@ extern tree build_var_debug_value_stat (tree, tree MEM_STAT_DECL);
 
 extern tree double_int_to_tree (tree, double_int);
 
-extern tree wide_int_to_tree (tree type, const wide_int_ref &cst);
+extern tree wide_int_to_tree (ttype_p type, const wide_int_ref &cst);
 extern tree force_fit_type (tree, const wide_int_ref &, int, bool);
 
 /* Create an INT_CST node with a CST value zero extended.  */
@@ -4221,17 +4224,23 @@ extern tree build_int_cstu (tree type, unsigned HOST_WIDE_INT cst);
 extern tree build_int_cst_type (tree, HOST_WIDE_INT);
 extern tree make_vector_stat (unsigned MEM_STAT_DECL);
 #define make_vector(n) make_vector_stat (n MEM_STAT_INFO)
-extern tree build_vector_stat (tree, tree * MEM_STAT_DECL);
+extern tree build_vector_stat (ttype_p, tree * MEM_STAT_DECL);
 #define build_vector(t,v) build_vector_stat (t, v MEM_STAT_INFO)
 extern tree build_vector_from_ctor (tree, vec<constructor_elt, va_gc> *);
 extern tree build_vector_from_val (tree, tree);
-extern tree build_constructor (tree, vec<constructor_elt, va_gc> *);
-extern tree build_constructor_single (tree, tree, tree);
-extern tree build_constructor_from_list (tree, tree);
-extern tree build_constructor_va (tree, int, ...);
+extern tree build_constructor (ttype_p , vec<constructor_elt, va_gc> *);
+extern tree build_constructor_single (ttype_p, tree, tree);
+extern tree build_constructor_from_list (ttype_p, tree);
+extern tree build_constructor_va (ttype_p, int, ...);
+/* Wrap up a REAL_VALUE_TYPE in a tree node.  */
+extern tree build_real (ttype_p, REAL_VALUE_TYPE);
+/* Likewise, but first truncate the value to the type.  */
+extern tree build_real_truncate (ttype_p, REAL_VALUE_TYPE);
 extern tree build_real_from_int_cst (tree, const_tree);
-extern tree build_complex (tree, tree, tree);
-extern tree build_complex_inf (tree, bool);
+/* Wrap up a FIXED_VALUE_TYPE in a tree node.  */
+extern tree build_fixed (ttype_p, FIXED_VALUE_TYPE);
+extern tree build_complex (ttype_p, tree, tree);
+extern tree build_complex_inf (ttype_p, bool);
 extern tree build_each_one_cst (tree);
 extern tree build_one_cst (tree);
 extern tree build_minus_one_cst (tree);
@@ -4243,7 +4252,7 @@ extern tree build_tree_list_stat (tree, tree MEM_STAT_DECL);
 extern tree build_tree_list_vec_stat (const vec<tree, va_gc> *MEM_STAT_DECL);
 #define build_tree_list_vec(v) build_tree_list_vec_stat (v MEM_STAT_INFO)
 extern tree build_decl_stat (location_t, enum tree_code,
-			     tree, tree MEM_STAT_DECL);
+			     tree, ttype_p MEM_STAT_DECL);
 extern tree build_fn_decl (const char *, tree);
 #define build_decl(l,c,t,q) build_decl_stat (l, c, t, q MEM_STAT_INFO)
 extern tree build_translation_unit_decl (tree);

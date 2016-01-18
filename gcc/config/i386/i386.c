@@ -54079,7 +54079,7 @@ ix86_make_bounds_constant (HOST_WIDE_INT lb, HOST_WIDE_INT ub)
   gcc_assert ((lb == 0 && ub == -1)
 	      || (lb == -1 && ub == 0));
 
-  return build_complex (NULL, low, high);
+  return build_complex (NULL_TYPE, low, high);
 }
 
 /* Generate a list of statements STMTS to initialize pointer bounds

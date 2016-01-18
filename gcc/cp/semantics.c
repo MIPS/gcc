@@ -1366,7 +1366,7 @@ begin_compound_stmt (unsigned int flags)
      processing templates.  */
   if (processing_template_decl)
     {
-      r = build3 (BIND_EXPR, NULL, NULL, r, NULL);
+      r = build3 (BIND_EXPR, NULL_TYPE, NULL, r, NULL);
       BIND_EXPR_TRY_BLOCK (r) = (flags & BCS_TRY_BLOCK) != 0;
       BIND_EXPR_BODY_BLOCK (r) = (flags & BCS_FN_BODY) != 0;
       TREE_SIDE_EFFECTS (r) = 1;
